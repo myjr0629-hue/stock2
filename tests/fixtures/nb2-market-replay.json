@@ -1,0 +1,3878 @@
+{
+  "source": "2026-10-19/reg-snapshots/*-2310.json (10:10 ET); integrity-sweep closed2/live market-only bodies",
+  "regular": {
+    "NVDA": {
+      "ticker": {
+        "ticker": "NVDA",
+        "session": "REG",
+        "price": 215.6357,
+        "prevClose": 214.13
+      },
+      "chainDate": "2026-10-16",
+      "optionsEod": {
+        "ticker": "NVDA",
+        "available": true,
+        "date": "2026-10-16",
+        "prevDate": "2026-10-15",
+        "basis": "EOD",
+        "etToday": "2026-10-19",
+        "summary": {
+          "callOI": 8197196,
+          "putOI": 7991368,
+          "callVol": 1962708,
+          "putVol": 1388488,
+          "pcrOI": 0.975,
+          "pcrVol": 0.707,
+          "callOI35": null,
+          "putOI35": null,
+          "pcrOI35": null,
+          "contracts": 3467,
+          "gammaOI": 7536,
+          "openingCount": 5,
+          "netOiChange": 268012
+        },
+        "contracts": [
+          {
+            "contract": "NVDA__261016C00217500",
+            "type": "call",
+            "strike": 217.5,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 277203,
+            "openInterest": 7844,
+            "oiChange": 6297,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 35.34
+          },
+          {
+            "contract": "NVDA__261016C00220000",
+            "type": "call",
+            "strike": 220,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 258916,
+            "openInterest": 104358,
+            "oiChange": 3966,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 2.48
+          },
+          {
+            "contract": "NVDA__261016P00215000",
+            "type": "put",
+            "strike": 215,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 236981,
+            "openInterest": 26919,
+            "oiChange": -413,
+            "kind": "CLOSING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 8.8
+          },
+          {
+            "contract": "NVDA__261016C00215000",
+            "type": "call",
+            "strike": 215,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 156304,
+            "openInterest": 25126,
+            "oiChange": 4212,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 6.22
+          },
+          {
+            "contract": "NVDA__261218C00190000",
+            "type": "call",
+            "strike": 190,
+            "expiration": "2026-12-18",
+            "expired": false,
+            "volume": 1554,
+            "openInterest": 83995,
+            "oiChange": 72401,
+            "kind": "OPENING",
+            "iv": 0.42456,
+            "delta": 0.7871,
+            "volOverOi": 0.02
+          },
+          {
+            "contract": "NVDA__261120C00260000",
+            "type": "call",
+            "strike": 260,
+            "expiration": "2026-11-20",
+            "expired": false,
+            "volume": 2498,
+            "openInterest": 97741,
+            "oiChange": 68136,
+            "kind": "OPENING",
+            "iv": 0.37745,
+            "delta": 0.05719,
+            "volOverOi": 0.03
+          },
+          {
+            "contract": "NVDA__261016P00212500",
+            "type": "put",
+            "strike": 212.5,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 123188,
+            "openInterest": 17973,
+            "oiChange": 2083,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 6.85
+          },
+          {
+            "contract": "NVDA__261016P00217500",
+            "type": "put",
+            "strike": 217.5,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 116676,
+            "openInterest": 16179,
+            "oiChange": -3178,
+            "kind": "CLOSING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 7.21
+          },
+          {
+            "contract": "NVDA__261120P00190000",
+            "type": "put",
+            "strike": 190,
+            "expiration": "2026-11-20",
+            "expired": false,
+            "volume": 2207,
+            "openInterest": 89689,
+            "oiChange": 59984,
+            "kind": "OPENING",
+            "iv": 0.45166,
+            "delta": -0.17277,
+            "volOverOi": 0.02
+          },
+          {
+            "contract": "NVDA__261023C00220000",
+            "type": "call",
+            "strike": 220,
+            "expiration": "2026-10-23",
+            "expired": false,
+            "volume": 64056,
+            "openInterest": 12338,
+            "oiChange": 9348,
+            "kind": "OPENING",
+            "iv": 0.35918,
+            "delta": 0.29958,
+            "volOverOi": 5.19
+          },
+          {
+            "contract": "NVDA__261016C00222500",
+            "type": "call",
+            "strike": 222.5,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 61606,
+            "openInterest": 18389,
+            "oiChange": 10528,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 3.35
+          },
+          {
+            "contract": "NVDA__261120C00230000",
+            "type": "call",
+            "strike": 230,
+            "expiration": "2026-11-20",
+            "expired": false,
+            "volume": 8946,
+            "openInterest": 98507,
+            "oiChange": 34648,
+            "kind": "OPENING",
+            "iv": 0.38214,
+            "delta": 0.30063,
+            "volOverOi": 0.09
+          }
+        ]
+      },
+      "ivp": {
+        "ticker": "NVDA",
+        "percentile": 99,
+        "currentIv": 37.46,
+        "metric": "iv30",
+        "currentSession": "2026-10-16",
+        "sampleSize": 103,
+        "rawIvRows": 199,
+        "min": 30.1,
+        "max": 37.46,
+        "median": 32.08,
+        "window": 200,
+        "_source": "dynamodb-true-percentile",
+        "timestamp": 1792418731002,
+        "_cached": true
+      },
+      "quote": {
+        "price": 215.94,
+        "prevClose": 214.13,
+        "session": "regular"
+      }
+    },
+    "AAPL": {
+      "ticker": {
+        "ticker": "AAPL",
+        "session": "REG",
+        "price": 345.1418,
+        "prevClose": 343.46
+      },
+      "chainDate": "2026-10-16",
+      "optionsEod": {
+        "ticker": "AAPL",
+        "available": true,
+        "date": "2026-10-16",
+        "prevDate": "2026-10-15",
+        "basis": "EOD",
+        "etToday": "2026-10-19",
+        "summary": {
+          "callOI": 2876125,
+          "putOI": 2338060,
+          "callVol": 1092740,
+          "putVol": 1008152,
+          "pcrOI": 0.813,
+          "pcrVol": 0.923,
+          "callOI35": null,
+          "putOI35": null,
+          "pcrOI35": null,
+          "contracts": 2910,
+          "gammaOI": 7010,
+          "openingCount": 1,
+          "netOiChange": 3711
+        },
+        "contracts": [
+          {
+            "contract": "AAPL__261016C00345000",
+            "type": "call",
+            "strike": 345,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 236787,
+            "openInterest": 32261,
+            "oiChange": 1054,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 7.34
+          },
+          {
+            "contract": "AAPL__261016C00347500",
+            "type": "call",
+            "strike": 347.5,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 167978,
+            "openInterest": 17980,
+            "oiChange": 8489,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 9.34
+          },
+          {
+            "contract": "AAPL__261016P00340000",
+            "type": "put",
+            "strike": 340,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 170290,
+            "openInterest": 18810,
+            "oiChange": 6641,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 9.05
+          },
+          {
+            "contract": "AAPL__261016P00342500",
+            "type": "put",
+            "strike": 342.5,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 171311,
+            "openInterest": 10124,
+            "oiChange": 3472,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 16.92
+          },
+          {
+            "contract": "AAPL__261016C00350000",
+            "type": "call",
+            "strike": 350,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 127532,
+            "openInterest": 52718,
+            "oiChange": 12462,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 2.42
+          },
+          {
+            "contract": "AAPL__261016C00340000",
+            "type": "call",
+            "strike": 340,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 19355,
+            "openInterest": 49396,
+            "oiChange": -52454,
+            "kind": "CLOSING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 0.39
+          },
+          {
+            "contract": "AAPL__261016P00345000",
+            "type": "put",
+            "strike": 345,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 90799,
+            "openInterest": 6517,
+            "oiChange": 1969,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 13.93
+          },
+          {
+            "contract": "AAPL__261016C00342500",
+            "type": "call",
+            "strike": 342.5,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 71753,
+            "openInterest": 6687,
+            "oiChange": 267,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 10.73
+          },
+          {
+            "contract": "AAPL__261016P00337500",
+            "type": "put",
+            "strike": 337.5,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 59576,
+            "openInterest": 14666,
+            "oiChange": 4009,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 4.06
+          },
+          {
+            "contract": "AAPL__261016P00335000",
+            "type": "put",
+            "strike": 335,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 33932,
+            "openInterest": 29413,
+            "oiChange": 11161,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 1.15
+          },
+          {
+            "contract": "AAPL__261016C00352500",
+            "type": "call",
+            "strike": 352.5,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 33886,
+            "openInterest": 15074,
+            "oiChange": 4472,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 2.25
+          },
+          {
+            "contract": "AAPL__261019P00340000",
+            "type": "put",
+            "strike": 340,
+            "expiration": "2026-10-19",
+            "expired": false,
+            "volume": 36602,
+            "openInterest": 3827,
+            "oiChange": 2169,
+            "kind": "OPENING",
+            "iv": 0.20331,
+            "delta": -0.29709,
+            "volOverOi": 9.56
+          }
+        ]
+      },
+      "ivp": {
+        "ticker": "AAPL",
+        "percentile": 99,
+        "currentIv": 28.17,
+        "metric": "iv30",
+        "currentSession": "2026-10-16",
+        "sampleSize": 105,
+        "rawIvRows": 199,
+        "min": 25.58,
+        "max": 28.17,
+        "median": 26.28,
+        "window": 200,
+        "_source": "dynamodb-true-percentile",
+        "timestamp": 1792419020315
+      },
+      "quote": {
+        "price": 345.2245,
+        "prevClose": 343.46,
+        "session": "regular"
+      }
+    },
+    "TSLA": {
+      "ticker": {
+        "ticker": "TSLA",
+        "session": "REG",
+        "price": 360.8552,
+        "prevClose": 354.72
+      },
+      "chainDate": "2026-10-16",
+      "optionsEod": {
+        "ticker": "TSLA",
+        "available": false,
+        "reason": "ticker-not-in-universe",
+        "date": "2026-10-16"
+      },
+      "ivp": {
+        "ticker": "TSLA",
+        "percentile": 99,
+        "currentIv": 47.83,
+        "metric": "iv30",
+        "currentSession": "2026-10-16",
+        "sampleSize": 73,
+        "rawIvRows": 199,
+        "min": 42.34,
+        "max": 47.83,
+        "median": 44.01,
+        "window": 200,
+        "_source": "dynamodb-true-percentile",
+        "timestamp": 1792419025116
+      },
+      "quote": {
+        "price": 361.1693,
+        "prevClose": 354.72,
+        "session": "regular"
+      }
+    },
+    "SPY": {
+      "ticker": {
+        "ticker": "SPY",
+        "session": "REG",
+        "price": 766.64,
+        "prevClose": 763.25
+      },
+      "chainDate": "2026-10-16",
+      "optionsEod": {
+        "ticker": "SPY",
+        "available": true,
+        "date": "2026-10-16",
+        "prevDate": "2026-10-15",
+        "basis": "EOD",
+        "etToday": "2026-10-19",
+        "summary": {
+          "callOI": 5973153,
+          "putOI": 13672707,
+          "callVol": 6837218,
+          "putVol": 9775960,
+          "pcrOI": 2.289,
+          "pcrVol": 1.43,
+          "callOI35": null,
+          "putOI35": null,
+          "pcrOI35": null,
+          "contracts": 10251,
+          "gammaOI": -16940,
+          "openingCount": 0,
+          "netOiChange": 40194
+        },
+        "contracts": [
+          {
+            "contract": "SPY___261016P00762000",
+            "type": "put",
+            "strike": 762,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 526206,
+            "openInterest": 14267,
+            "oiChange": 3389,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 36.88
+          },
+          {
+            "contract": "SPY___261016P00765000",
+            "type": "put",
+            "strike": 765,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 494981,
+            "openInterest": 37685,
+            "oiChange": 400,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 13.13
+          },
+          {
+            "contract": "SPY___261016P00763000",
+            "type": "put",
+            "strike": 763,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 483573,
+            "openInterest": 12307,
+            "oiChange": 1683,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 39.29
+          },
+          {
+            "contract": "SPY___261016C00772000",
+            "type": "call",
+            "strike": 772,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 477268,
+            "openInterest": 13147,
+            "oiChange": 4521,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 36.3
+          },
+          {
+            "contract": "SPY___261016P00761000",
+            "type": "put",
+            "strike": 761,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 475687,
+            "openInterest": 11286,
+            "oiChange": 4511,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 42.15
+          },
+          {
+            "contract": "SPY___261016P00764000",
+            "type": "put",
+            "strike": 764,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 471613,
+            "openInterest": 9294,
+            "oiChange": 3028,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 50.74
+          },
+          {
+            "contract": "SPY___261016P00760000",
+            "type": "put",
+            "strike": 760,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 457546,
+            "openInterest": 35703,
+            "oiChange": 6094,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 12.82
+          },
+          {
+            "contract": "SPY___261016P00766000",
+            "type": "put",
+            "strike": 766,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 412696,
+            "openInterest": 13119,
+            "oiChange": 5290,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 31.46
+          },
+          {
+            "contract": "SPY___261016C00773000",
+            "type": "call",
+            "strike": 773,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 388408,
+            "openInterest": 20900,
+            "oiChange": 11275,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 18.58
+          },
+          {
+            "contract": "SPY___261016P00770000",
+            "type": "put",
+            "strike": 770,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 375756,
+            "openInterest": 25317,
+            "oiChange": -2548,
+            "kind": "CLOSING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 14.84
+          },
+          {
+            "contract": "SPY___261016P00767000",
+            "type": "put",
+            "strike": 767,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 360469,
+            "openInterest": 12522,
+            "oiChange": -456,
+            "kind": "CLOSING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 28.79
+          },
+          {
+            "contract": "SPY___261016C00768000",
+            "type": "call",
+            "strike": 768,
+            "expiration": "2026-10-16",
+            "expired": true,
+            "volume": 345818,
+            "openInterest": 9790,
+            "oiChange": 3007,
+            "kind": "OPENING",
+            "iv": null,
+            "delta": null,
+            "volOverOi": 35.32
+          }
+        ]
+      },
+      "ivp": {
+        "ticker": "SPY",
+        "percentile": 98,
+        "currentIv": 14.72,
+        "metric": "iv30",
+        "currentSession": "2026-10-16",
+        "sampleSize": 106,
+        "rawIvRows": 199,
+        "min": 12.3,
+        "max": 14.74,
+        "median": 13.39,
+        "window": 200,
+        "_source": "dynamodb-true-percentile",
+        "timestamp": 1792418930614,
+        "_cached": true
+      },
+      "quote": {
+        "price": 766.81,
+        "prevClose": 763.25,
+        "session": "regular"
+      }
+    },
+    "WTFC": {
+      "ticker": {
+        "ticker": "WTFC",
+        "session": "REG",
+        "price": 143.9225,
+        "prevClose": 144.08
+      },
+      "chainDate": "2026-10-16",
+      "optionsEod": {
+        "ticker": "WTFC",
+        "available": false,
+        "reason": "ticker-not-in-universe",
+        "date": "2026-10-16"
+      },
+      "ivp": {
+        "ticker": "WTFC",
+        "percentile": null,
+        "currentIv": null,
+        "sampleSize": 0,
+        "windowRows": 200,
+        "window": 200,
+        "_source": "dynamodb-stale"
+      },
+      "quote": {
+        "price": 143.9225,
+        "prevClose": 144.08,
+        "session": "regular"
+      }
+    }
+  },
+  "closed": {
+    "NVDA": {
+      "ticker": "NVDA",
+      "session": "CLOSED",
+      "price": 214.13,
+      "prevClose": 217.23
+    },
+    "AAPL": {
+      "ticker": "AAPL",
+      "session": "CLOSED",
+      "price": 343.46,
+      "prevClose": 342
+    },
+    "TSLA": {
+      "ticker": "TSLA",
+      "session": "CLOSED",
+      "price": 354.72,
+      "prevClose": 362.44
+    },
+    "SPY": {
+      "ticker": "SPY",
+      "session": "CLOSED",
+      "price": 763.25,
+      "prevClose": 771.79
+    },
+    "WTFC": {
+      "ticker": "WTFC",
+      "session": "CLOSED",
+      "price": 144.08,
+      "prevClose": 143.54
+    }
+  },
+  "atm": {
+    "closed2-NVDA": {
+      "ticker": "NVDA",
+      "session": "CLOSED",
+      "sourceSessionDate": null,
+      "atmBasisPrice": null,
+      "atmBasisSessionDate": null,
+      "completeIVChain": null,
+      "atmSlice": [
+        {
+          "expiration": "2026-10-23",
+          "strike": 190,
+          "type": "call",
+          "last": 24.780000686645508,
+          "iv": 0.46714,
+          "gamma": 0.0027,
+          "oi": 336
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 190,
+          "type": "put",
+          "last": 0.30000001192092896,
+          "iv": 0.62677,
+          "gamma": 0.00604,
+          "oi": 3809
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 195,
+          "type": "call",
+          "last": 20.049999237060547,
+          "iv": 0.44983,
+          "gamma": 0.00647,
+          "oi": 180
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 195,
+          "type": "put",
+          "last": 0.47999998927116394,
+          "iv": 0.57303,
+          "gamma": 0.00957,
+          "oi": 4355
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 197.5,
+          "type": "call",
+          "last": 17.399999618530273,
+          "iv": 0.45112,
+          "gamma": 0.00986,
+          "oi": 116
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 197.5,
+          "type": "put",
+          "last": 0.6100000143051147,
+          "iv": 0.54779,
+          "gamma": 0.01207,
+          "oi": 549
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 200,
+          "type": "call",
+          "last": 15.149999618530273,
+          "iv": 0.46441,
+          "gamma": 0.01432,
+          "oi": 1037
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 200,
+          "type": "put",
+          "last": 0.800000011920929,
+          "iv": 0.52608,
+          "gamma": 0.0152,
+          "oi": 7385
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 202.5,
+          "type": "call",
+          "last": 13.149999618530273,
+          "iv": 0.45255,
+          "gamma": 0.01878,
+          "oi": 266
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 202.5,
+          "type": "put",
+          "last": 1.090000033378601,
+          "iv": 0.50711,
+          "gamma": 0.01892,
+          "oi": 2688
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 205,
+          "type": "call",
+          "last": 11.1899995803833,
+          "iv": 0.44807,
+          "gamma": 0.02375,
+          "oi": 806
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 205,
+          "type": "put",
+          "last": 1.4700000286102295,
+          "iv": 0.49107,
+          "gamma": 0.02309,
+          "oi": 12117
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 207.5,
+          "type": "call",
+          "last": 8.800000190734863,
+          "iv": 0.44044,
+          "gamma": 0.02873,
+          "oi": 775
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 207.5,
+          "type": "put",
+          "last": 2.009999990463257,
+          "iv": 0.47739,
+          "gamma": 0.02735,
+          "oi": 4158
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 210,
+          "type": "call",
+          "last": 6.900000095367432,
+          "iv": 0.43305,
+          "gamma": 0.03318,
+          "oi": 2487
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 210,
+          "type": "put",
+          "last": 2.75,
+          "iv": 0.46662,
+          "gamma": 0.03117,
+          "oi": 11526
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 212.5,
+          "type": "call",
+          "last": 5.349999904632568,
+          "iv": 0.42803,
+          "gamma": 0.03626,
+          "oi": 921
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 212.5,
+          "type": "put",
+          "last": 3.549999952316284,
+          "iv": 0.45738,
+          "gamma": 0.03401,
+          "oi": 7293
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 215,
+          "type": "call",
+          "last": 4.03000020980835,
+          "iv": 0.42053,
+          "gamma": 0.03779,
+          "oi": 5499
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 215,
+          "type": "put",
+          "last": 4.800000190734863,
+          "iv": 0.45186,
+          "gamma": 0.03517,
+          "oi": 10333
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 217.5,
+          "type": "call",
+          "last": 2.8499999046325684,
+          "iv": 0.41411,
+          "gamma": 0.03714,
+          "oi": 1653
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 217.5,
+          "type": "put",
+          "last": 6.050000190734863,
+          "iv": 0.44705,
+          "gamma": 0.0346,
+          "oi": 6560
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 220,
+          "type": "call",
+          "last": 1.9500000476837158,
+          "iv": 0.40744,
+          "gamma": 0.03441,
+          "oi": 12338
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 220,
+          "type": "put",
+          "last": 7.599999904632568,
+          "iv": 0.44343,
+          "gamma": 0.0323,
+          "oi": 14392
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 222.5,
+          "type": "call",
+          "last": 1.309999942779541,
+          "iv": 0.40041,
+          "gamma": 0.02993,
+          "oi": 3184
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 222.5,
+          "type": "put",
+          "last": 9.460000038146973,
+          "iv": 0.44636,
+          "gamma": 0.02847,
+          "oi": 2739
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 225,
+          "type": "call",
+          "last": 0.8100000023841858,
+          "iv": 0.39869,
+          "gamma": 0.02431,
+          "oi": 26565
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 225,
+          "type": "put",
+          "last": 11.329999923706055,
+          "iv": 0.45536,
+          "gamma": 0.02402,
+          "oi": 8679
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 227.5,
+          "type": "call",
+          "last": 0.5099999904632568,
+          "iv": 0.39738,
+          "gamma": 0.01864,
+          "oi": 13531
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 227.5,
+          "type": "put",
+          "last": 13.600000381469727,
+          "iv": 0.47031,
+          "gamma": 0.01976,
+          "oi": 2410
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 230,
+          "type": "call",
+          "last": 0.3199999928474426,
+          "iv": 0.39975,
+          "gamma": 0.01367,
+          "oi": 17632
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 230,
+          "type": "put",
+          "last": 15.819999694824219,
+          "iv": 0.49488,
+          "gamma": 0.01619,
+          "oi": 5233
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 232.5,
+          "type": "call",
+          "last": 0.20000000298023224,
+          "iv": 0.40642,
+          "gamma": 0.00979,
+          "oi": 5579
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 232.5,
+          "type": "put",
+          "last": 17.889999389648438,
+          "iv": 0.52677,
+          "gamma": 0.01345,
+          "oi": 1188
+        }
+      ],
+      "options_status": null
+    },
+    "live-NVDA": {
+      "ticker": "NVDA",
+      "session": "CLOSED",
+      "sourceSessionDate": "2026-10-16",
+      "atmBasisPrice": 214.13,
+      "atmBasisSessionDate": "2026-10-16",
+      "completeIVChain": true,
+      "atmSlice": [
+        {
+          "expiration": "2026-10-23",
+          "strike": 195,
+          "type": "call",
+          "last": 20.049999237060547,
+          "iv": 0.51593,
+          "gamma": 0.01062,
+          "oi": 180,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 195,
+          "type": "put",
+          "last": 0.47999998927116394,
+          "iv": 0.47537,
+          "gamma": 0.00991,
+          "oi": 4355,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 197.5,
+          "type": "call",
+          "last": 17.399999618530273,
+          "iv": 0.48566,
+          "gamma": 0.013,
+          "oi": 116,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 197.5,
+          "type": "put",
+          "last": 0.6100000143051147,
+          "iv": 0.45347,
+          "gamma": 0.01254,
+          "oi": 549,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 200,
+          "type": "call",
+          "last": 15.149999618530273,
+          "iv": 0.46956,
+          "gamma": 0.01606,
+          "oi": 1037,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 200,
+          "type": "put",
+          "last": 0.800000011920929,
+          "iv": 0.43439,
+          "gamma": 0.01583,
+          "oi": 7385,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 202.5,
+          "type": "call",
+          "last": 13.149999618530273,
+          "iv": 0.44373,
+          "gamma": 0.01962,
+          "oi": 266,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 202.5,
+          "type": "put",
+          "last": 1.090000033378601,
+          "iv": 0.41745,
+          "gamma": 0.01978,
+          "oi": 2688,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 205,
+          "type": "call",
+          "last": 11.1899995803833,
+          "iv": 0.42669,
+          "gamma": 0.02362,
+          "oi": 806,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 205,
+          "type": "put",
+          "last": 1.4700000286102295,
+          "iv": 0.40271,
+          "gamma": 0.02422,
+          "oi": 12117,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 207.5,
+          "type": "call",
+          "last": 8.800000190734863,
+          "iv": 0.41046,
+          "gamma": 0.0278,
+          "oi": 775,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 207.5,
+          "type": "put",
+          "last": 2.009999990463257,
+          "iv": 0.38964,
+          "gamma": 0.02881,
+          "oi": 4158,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 210,
+          "type": "call",
+          "last": 6.900000095367432,
+          "iv": 0.39677,
+          "gamma": 0.03163,
+          "oi": 2487,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 210,
+          "type": "put",
+          "last": 2.75,
+          "iv": 0.37857,
+          "gamma": 0.03295,
+          "oi": 11526,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 212.5,
+          "type": "call",
+          "last": 5.349999904632568,
+          "iv": 0.38685,
+          "gamma": 0.03435,
+          "oi": 921,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 212.5,
+          "type": "put",
+          "last": 3.549999952316284,
+          "iv": 0.36816,
+          "gamma": 0.03606,
+          "oi": 7293,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 215,
+          "type": "call",
+          "last": 4.03000020980835,
+          "iv": 0.37619,
+          "gamma": 0.03574,
+          "oi": 5499,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 215,
+          "type": "put",
+          "last": 4.800000190734863,
+          "iv": 0.36001,
+          "gamma": 0.03733,
+          "oi": 10333,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 217.5,
+          "type": "call",
+          "last": 2.8499999046325684,
+          "iv": 0.36742,
+          "gamma": 0.03516,
+          "oi": 1653,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 217.5,
+          "type": "put",
+          "last": 6.050000190734863,
+          "iv": 0.35117,
+          "gamma": 0.03662,
+          "oi": 6560,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 220,
+          "type": "call",
+          "last": 1.9500000476837158,
+          "iv": 0.35918,
+          "gamma": 0.03266,
+          "oi": 12338,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 220,
+          "type": "put",
+          "last": 7.599999904632568,
+          "iv": 0.34136,
+          "gamma": 0.03381,
+          "oi": 14392,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 222.5,
+          "type": "call",
+          "last": 1.309999942779541,
+          "iv": 0.35116,
+          "gamma": 0.02849,
+          "oi": 3184,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 222.5,
+          "type": "put",
+          "last": 9.460000038146973,
+          "iv": 0.33438,
+          "gamma": 0.02896,
+          "oi": 2739,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 225,
+          "type": "call",
+          "last": 0.8100000023841858,
+          "iv": 0.34812,
+          "gamma": 0.02323,
+          "oi": 26565,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 225,
+          "type": "put",
+          "last": 11.329999923706055,
+          "iv": 0.32879,
+          "gamma": 0.02306,
+          "oi": 8679,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 227.5,
+          "type": "call",
+          "last": 0.5099999904632568,
+          "iv": 0.34575,
+          "gamma": 0.01788,
+          "oi": 13531,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 227.5,
+          "type": "put",
+          "last": 13.600000381469727,
+          "iv": 0.32312,
+          "gamma": 0.01701,
+          "oi": 2410,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 230,
+          "type": "call",
+          "last": 0.3199999928474426,
+          "iv": 0.34677,
+          "gamma": 0.01315,
+          "oi": 17632,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 230,
+          "type": "put",
+          "last": 15.819999694824219,
+          "iv": 0.3211,
+          "gamma": 0.01179,
+          "oi": 5233,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 232.5,
+          "type": "call",
+          "last": 0.20000000298023224,
+          "iv": 0.35167,
+          "gamma": 0.00946,
+          "oi": 5579,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 232.5,
+          "type": "put",
+          "last": 17.889999389648438,
+          "iv": 0.32153,
+          "gamma": 0.0078,
+          "oi": 1188,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 235,
+          "type": "call",
+          "last": 0.12999999523162842,
+          "iv": 0.36558,
+          "gamma": 0.00705,
+          "oi": 15369,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 235,
+          "type": "put",
+          "last": 20.530000686645508,
+          "iv": 0.30937,
+          "gamma": 0.00425,
+          "oi": 4696,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        }
+      ],
+      "options_status": null
+    },
+    "closed2-AAPL": {
+      "ticker": "AAPL",
+      "session": "CLOSED",
+      "sourceSessionDate": null,
+      "atmBasisPrice": null,
+      "atmBasisSessionDate": null,
+      "completeIVChain": null,
+      "atmSlice": [
+        {
+          "expiration": "2026-10-23",
+          "strike": 322.5,
+          "type": "call",
+          "last": 20.649999618530273,
+          "iv": 0.27334,
+          "gamma": 0.00488,
+          "oi": 44
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 322.5,
+          "type": "put",
+          "last": 0.44999998807907104,
+          "iv": 0.37578,
+          "gamma": 0.009,
+          "oi": 1086
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 325,
+          "type": "call",
+          "last": 19.3700008392334,
+          "iv": 0.38347,
+          "gamma": 0.0116,
+          "oi": 2360
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 325,
+          "type": "put",
+          "last": 0.6299999952316284,
+          "iv": 0.36052,
+          "gamma": 0.01114,
+          "oi": 2742
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 327.5,
+          "type": "call",
+          "last": 17.280000686645508,
+          "iv": 0.35719,
+          "gamma": 0.01395,
+          "oi": 615
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 327.5,
+          "type": "put",
+          "last": 0.8100000023841858,
+          "iv": 0.34826,
+          "gamma": 0.01383,
+          "oi": 1002
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 330,
+          "type": "call",
+          "last": 14.5600004196167,
+          "iv": 0.34427,
+          "gamma": 0.017,
+          "oi": 1439
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 330,
+          "type": "put",
+          "last": 1.059999942779541,
+          "iv": 0.33848,
+          "gamma": 0.01699,
+          "oi": 3063
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 332.5,
+          "type": "call",
+          "last": 12.550000190734863,
+          "iv": 0.32696,
+          "gamma": 0.02056,
+          "oi": 496
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 332.5,
+          "type": "put",
+          "last": 1.4199999570846558,
+          "iv": 0.32669,
+          "gamma": 0.02057,
+          "oi": 4520
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 335,
+          "type": "call",
+          "last": 10.720000267028809,
+          "iv": 0.33314,
+          "gamma": 0.02372,
+          "oi": 1816
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 335,
+          "type": "put",
+          "last": 1.8899999856948853,
+          "iv": 0.31639,
+          "gamma": 0.0244,
+          "oi": 2197
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 337.5,
+          "type": "call",
+          "last": 8.850000381469727,
+          "iv": 0.32167,
+          "gamma": 0.02723,
+          "oi": 703
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 337.5,
+          "type": "put",
+          "last": 2.4000000953674316,
+          "iv": 0.31102,
+          "gamma": 0.02793,
+          "oi": 2525
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 340,
+          "type": "call",
+          "last": 7,
+          "iv": 0.31375,
+          "gamma": 0.03014,
+          "oi": 5750
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 340,
+          "type": "put",
+          "last": 3.2200000286102295,
+          "iv": 0.30006,
+          "gamma": 0.03139,
+          "oi": 4911
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 342.5,
+          "type": "call",
+          "last": 5.400000095367432,
+          "iv": 0.30726,
+          "gamma": 0.03209,
+          "oi": 2298
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 342.5,
+          "type": "put",
+          "last": 4.150000095367432,
+          "iv": 0.29425,
+          "gamma": 0.0335,
+          "oi": 2435
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 345,
+          "type": "call",
+          "last": 4.099999904632568,
+          "iv": 0.29473,
+          "gamma": 0.03352,
+          "oi": 7168
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 345,
+          "type": "put",
+          "last": 5.099999904632568,
+          "iv": 0.28653,
+          "gamma": 0.03446,
+          "oi": 1860
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 347.5,
+          "type": "call",
+          "last": 2.9200000762939453,
+          "iv": 0.28809,
+          "gamma": 0.03281,
+          "oi": 8099
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 347.5,
+          "type": "put",
+          "last": 6.699999809265137,
+          "iv": 0.28255,
+          "gamma": 0.03338,
+          "oi": 506
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 350,
+          "type": "call",
+          "last": 2.119999885559082,
+          "iv": 0.28122,
+          "gamma": 0.03053,
+          "oi": 9904
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 350,
+          "type": "put",
+          "last": 8.399999618530273,
+          "iv": 0.30977,
+          "gamma": 0.02847,
+          "oi": 3211
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 352.5,
+          "type": "call",
+          "last": 1.3799999952316284,
+          "iv": 0.27846,
+          "gamma": 0.02665,
+          "oi": 3066
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 352.5,
+          "type": "put",
+          "last": 10.859999656677246,
+          "iv": 0.28535,
+          "gamma": 0.02639,
+          "oi": 81
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 355,
+          "type": "call",
+          "last": 0.9200000166893005,
+          "iv": 0.2753,
+          "gamma": 0.02207,
+          "oi": 6310
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 355,
+          "type": "put",
+          "last": 11.800000190734863,
+          "iv": 0.27527,
+          "gamma": 0.02207,
+          "oi": 3047
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 357.5,
+          "type": "call",
+          "last": 0.5699999928474426,
+          "iv": 0.27244,
+          "gamma": 0.01727,
+          "oi": 2095
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 357.5,
+          "type": "put",
+          "last": 13.149999618530273,
+          "iv": 0.27193,
+          "gamma": 0.01726,
+          "oi": 600
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 360,
+          "type": "call",
+          "last": 0.36000001430511475,
+          "iv": 0.27016,
+          "gamma": 0.01279,
+          "oi": 9552
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 360,
+          "type": "put",
+          "last": 16.700000762939453,
+          "iv": 0.25642,
+          "gamma": 0.01197,
+          "oi": 71
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 362.5,
+          "type": "call",
+          "last": 0.23000000417232513,
+          "iv": 0.25935,
+          "gamma": 0.00839,
+          "oi": 726
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 362.5,
+          "type": "put",
+          "last": 17.850000381469727,
+          "iv": 0.36695,
+          "gamma": 0.01284,
+          "oi": 4
+        }
+      ],
+      "options_status": null
+    },
+    "live-AAPL": {
+      "ticker": "AAPL",
+      "session": "CLOSED",
+      "sourceSessionDate": "2026-10-16",
+      "atmBasisPrice": 343.46,
+      "atmBasisSessionDate": "2026-10-16",
+      "completeIVChain": true,
+      "atmSlice": [
+        {
+          "expiration": "2026-10-23",
+          "strike": 322.5,
+          "type": "call",
+          "last": 20.649999618530273,
+          "iv": 0.28834,
+          "gamma": 0.00815,
+          "oi": 44,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 322.5,
+          "type": "put",
+          "last": 0.44999998807907104,
+          "iv": 0.31509,
+          "gamma": 0.00913,
+          "oi": 1086,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 325,
+          "type": "call",
+          "last": 19.3700008392334,
+          "iv": 0.34707,
+          "gamma": 0.01217,
+          "oi": 2360,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 325,
+          "type": "put",
+          "last": 0.6299999952316284,
+          "iv": 0.30205,
+          "gamma": 0.01132,
+          "oi": 2742,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 327.5,
+          "type": "call",
+          "last": 17.280000686645508,
+          "iv": 0.32213,
+          "gamma": 0.01442,
+          "oi": 615,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 327.5,
+          "type": "put",
+          "last": 0.8100000023841858,
+          "iv": 0.2915,
+          "gamma": 0.01406,
+          "oi": 1002,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 330,
+          "type": "call",
+          "last": 14.5600004196167,
+          "iv": 0.3078,
+          "gamma": 0.01724,
+          "oi": 1439,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 330,
+          "type": "put",
+          "last": 1.059999942779541,
+          "iv": 0.283,
+          "gamma": 0.0173,
+          "oi": 3063,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 332.5,
+          "type": "call",
+          "last": 12.550000190734863,
+          "iv": 0.29048,
+          "gamma": 0.02056,
+          "oi": 496,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 332.5,
+          "type": "put",
+          "last": 1.4199999570846558,
+          "iv": 0.27277,
+          "gamma": 0.02097,
+          "oi": 4520,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 335,
+          "type": "call",
+          "last": 10.720000267028809,
+          "iv": 0.29281,
+          "gamma": 0.02345,
+          "oi": 1816,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 335,
+          "type": "put",
+          "last": 1.8899999856948853,
+          "iv": 0.26371,
+          "gamma": 0.02492,
+          "oi": 2197,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 337.5,
+          "type": "call",
+          "last": 8.850000381469727,
+          "iv": 0.28127,
+          "gamma": 0.02675,
+          "oi": 703,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 337.5,
+          "type": "put",
+          "last": 2.4000000953674316,
+          "iv": 0.25871,
+          "gamma": 0.02856,
+          "oi": 2525,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 340,
+          "type": "call",
+          "last": 7,
+          "iv": 0.27303,
+          "gamma": 0.02952,
+          "oi": 5750,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 340,
+          "type": "put",
+          "last": 3.2200000286102295,
+          "iv": 0.24888,
+          "gamma": 0.03215,
+          "oi": 4911,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 342.5,
+          "type": "call",
+          "last": 5.400000095367432,
+          "iv": 0.2663,
+          "gamma": 0.03138,
+          "oi": 2298,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 342.5,
+          "type": "put",
+          "last": 4.150000095367432,
+          "iv": 0.24319,
+          "gamma": 0.03435,
+          "oi": 2435,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 345,
+          "type": "call",
+          "last": 4.099999904632568,
+          "iv": 0.2547,
+          "gamma": 0.03275,
+          "oi": 7168,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 345,
+          "type": "put",
+          "last": 5.099999904632568,
+          "iv": 0.23563,
+          "gamma": 0.03536,
+          "oi": 1860,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 347.5,
+          "type": "call",
+          "last": 2.9200000762939453,
+          "iv": 0.24827,
+          "gamma": 0.03207,
+          "oi": 8099,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 347.5,
+          "type": "put",
+          "last": 6.699999809265137,
+          "iv": 0.23084,
+          "gamma": 0.03418,
+          "oi": 506,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 350,
+          "type": "call",
+          "last": 2.119999885559082,
+          "iv": 0.2418,
+          "gamma": 0.02987,
+          "oi": 9904,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 350,
+          "type": "put",
+          "last": 8.399999618530273,
+          "iv": 0.25244,
+          "gamma": 0.02899,
+          "oi": 3211,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 352.5,
+          "type": "call",
+          "last": 1.3799999952316284,
+          "iv": 0.23895,
+          "gamma": 0.02611,
+          "oi": 3066,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 352.5,
+          "type": "put",
+          "last": 10.859999656677246,
+          "iv": 0.22863,
+          "gamma": 0.02652,
+          "oi": 81,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 355,
+          "type": "call",
+          "last": 0.9200000166893005,
+          "iv": 0.23585,
+          "gamma": 0.02164,
+          "oi": 6310,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 355,
+          "type": "put",
+          "last": 11.800000190734863,
+          "iv": 0.21524,
+          "gamma": 0.02139,
+          "oi": 3047,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 357.5,
+          "type": "call",
+          "last": 0.5699999928474426,
+          "iv": 0.23309,
+          "gamma": 0.01697,
+          "oi": 2095,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 357.5,
+          "type": "put",
+          "last": 13.149999618530273,
+          "iv": 0.20454,
+          "gamma": 0.01535,
+          "oi": 600,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 360,
+          "type": "call",
+          "last": 0.36000001430511475,
+          "iv": 0.23087,
+          "gamma": 0.01258,
+          "oi": 9552,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 360,
+          "type": "put",
+          "last": 16.700000762939453,
+          "iv": 0.16267,
+          "gamma": 0.00594,
+          "oi": 71,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 362.5,
+          "type": "call",
+          "last": 0.23000000417232513,
+          "iv": 0.22144,
+          "gamma": 0.00825,
+          "oi": 726,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 362.5,
+          "type": "put",
+          "last": 17.850000381469727,
+          "iv": 0.28604,
+          "gamma": 0.0119,
+          "oi": 4,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        }
+      ],
+      "options_status": null
+    },
+    "closed2-TSLA": {
+      "ticker": "TSLA",
+      "session": "CLOSED",
+      "sourceSessionDate": null,
+      "atmBasisPrice": null,
+      "atmBasisSessionDate": null,
+      "completeIVChain": null,
+      "atmSlice": [
+        {
+          "expiration": "2026-10-23",
+          "strike": 332.5,
+          "type": "call",
+          "last": 26.450000762939453,
+          "iv": 0.94185,
+          "gamma": 0.0086,
+          "oi": 4
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 332.5,
+          "type": "put",
+          "last": 4.75,
+          "iv": 0.77103,
+          "gamma": 0.00978,
+          "oi": 205
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 335,
+          "type": "call",
+          "last": 24,
+          "iv": 0.93372,
+          "gamma": 0.00899,
+          "oi": 230
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 335,
+          "type": "put",
+          "last": 5.409999847412109,
+          "iv": 0.76672,
+          "gamma": 0.01037,
+          "oi": 1639
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 337.5,
+          "type": "call",
+          "last": 23.84000015258789,
+          "iv": 0.96073,
+          "gamma": 0.00908,
+          "oi": 6
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 337.5,
+          "type": "put",
+          "last": 6.050000190734863,
+          "iv": 0.76305,
+          "gamma": 0.01093,
+          "oi": 334
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 340,
+          "type": "call",
+          "last": 21.950000762939453,
+          "iv": 0.84209,
+          "gamma": 0.01048,
+          "oi": 162
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 340,
+          "type": "put",
+          "last": 6.849999904632568,
+          "iv": 0.75803,
+          "gamma": 0.01145,
+          "oi": 2310
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 342.5,
+          "type": "call",
+          "last": 20.479999542236328,
+          "iv": 0.88625,
+          "gamma": 0.01029,
+          "oi": 50
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 342.5,
+          "type": "put",
+          "last": 7.800000190734863,
+          "iv": 0.75489,
+          "gamma": 0.0119,
+          "oi": 343
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 345,
+          "type": "call",
+          "last": 18.75,
+          "iv": 0.86408,
+          "gamma": 0.01077,
+          "oi": 384
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 345,
+          "type": "put",
+          "last": 8.649999618530273,
+          "iv": 0.7501,
+          "gamma": 0.01231,
+          "oi": 2332
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 347.5,
+          "type": "call",
+          "last": 17.299999237060547,
+          "iv": 0.82751,
+          "gamma": 0.01143,
+          "oi": 102
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 347.5,
+          "type": "put",
+          "last": 9.670000076293945,
+          "iv": 0.74677,
+          "gamma": 0.01263,
+          "oi": 748
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 350,
+          "type": "call",
+          "last": 15.75,
+          "iv": 0.86715,
+          "gamma": 0.01105,
+          "oi": 926
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 350,
+          "type": "put",
+          "last": 10.800000190734863,
+          "iv": 0.74163,
+          "gamma": 0.01291,
+          "oi": 3574
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 352.5,
+          "type": "call",
+          "last": 14.399999618530273,
+          "iv": 0.86071,
+          "gamma": 0.01121,
+          "oi": 426
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 352.5,
+          "type": "put",
+          "last": 11.90999984741211,
+          "iv": 0.73771,
+          "gamma": 0.01308,
+          "oi": 995
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 355,
+          "type": "call",
+          "last": 13.199999809265137,
+          "iv": 0.85614,
+          "gamma": 0.01129,
+          "oi": 503
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 355,
+          "type": "put",
+          "last": 13.170000076293945,
+          "iv": 0.7319,
+          "gamma": 0.0132,
+          "oi": 1997
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 357.5,
+          "type": "call",
+          "last": 12.050000190734863,
+          "iv": 0.8519,
+          "gamma": 0.01131,
+          "oi": 318
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 357.5,
+          "type": "put",
+          "last": 14.5600004196167,
+          "iv": 0.73025,
+          "gamma": 0.01316,
+          "oi": 931
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 360,
+          "type": "call",
+          "last": 10.75,
+          "iv": 0.84645,
+          "gamma": 0.01129,
+          "oi": 2019
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 360,
+          "type": "put",
+          "last": 15.829999923706055,
+          "iv": 0.74063,
+          "gamma": 0.01282,
+          "oi": 3479
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 362.5,
+          "type": "call",
+          "last": 9.760000228881836,
+          "iv": 0.84134,
+          "gamma": 0.0112,
+          "oi": 450
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 362.5,
+          "type": "put",
+          "last": 17.280000686645508,
+          "iv": 0.73861,
+          "gamma": 0.01262,
+          "oi": 1623
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 365,
+          "type": "call",
+          "last": 8.779999732971191,
+          "iv": 0.83662,
+          "gamma": 0.01106,
+          "oi": 3003
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 365,
+          "type": "put",
+          "last": 18.799999237060547,
+          "iv": 0.71065,
+          "gamma": 0.01273,
+          "oi": 2507
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 367.5,
+          "type": "call",
+          "last": 8,
+          "iv": 0.83401,
+          "gamma": 0.01083,
+          "oi": 758
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 367.5,
+          "type": "put",
+          "last": 20.899999618530273,
+          "iv": 0.71785,
+          "gamma": 0.01221,
+          "oi": 622
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 370,
+          "type": "call",
+          "last": 7.099999904632568,
+          "iv": 0.8321,
+          "gamma": 0.01055,
+          "oi": 1652
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 370,
+          "type": "put",
+          "last": 22.100000381469727,
+          "iv": 0.69622,
+          "gamma": 0.01199,
+          "oi": 2737
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 372.5,
+          "type": "call",
+          "last": 6.400000095367432,
+          "iv": 0.82938,
+          "gamma": 0.01024,
+          "oi": 775
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 372.5,
+          "type": "put",
+          "last": 23.68000030517578,
+          "iv": 0.68214,
+          "gamma": 0.01156,
+          "oi": 593
+        }
+      ],
+      "options_status": null
+    },
+    "live-TSLA": {
+      "ticker": "TSLA",
+      "session": "RTH",
+      "sourceSessionDate": null,
+      "atmBasisPrice": null,
+      "atmBasisSessionDate": null,
+      "completeIVChain": null,
+      "atmSlice": [],
+      "options_status": "PENDING"
+    },
+    "closed2-SPY": {
+      "ticker": "SPY",
+      "session": "CLOSED",
+      "sourceSessionDate": null,
+      "atmBasisPrice": null,
+      "atmBasisSessionDate": null,
+      "completeIVChain": null,
+      "atmSlice": [
+        {
+          "expiration": "2026-10-23",
+          "strike": 753,
+          "type": "call",
+          "last": 13.329999923706055,
+          "iv": 0.19369,
+          "gamma": 0.0189,
+          "oi": 133
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 753,
+          "type": "put",
+          "last": 3.0199999809265137,
+          "iv": 0.20097,
+          "gamma": 0.01847,
+          "oi": 6178
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 754,
+          "type": "call",
+          "last": 12.640000343322754,
+          "iv": 0.19097,
+          "gamma": 0.01977,
+          "oi": 175
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 754,
+          "type": "put",
+          "last": 3.1500000953674316,
+          "iv": 0.19773,
+          "gamma": 0.0193,
+          "oi": 2683
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 755,
+          "type": "call",
+          "last": 11.770000457763672,
+          "iv": 0.18777,
+          "gamma": 0.02068,
+          "oi": 1471
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 755,
+          "type": "put",
+          "last": 3.450000047683716,
+          "iv": 0.19469,
+          "gamma": 0.02013,
+          "oi": 9719
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 756,
+          "type": "call",
+          "last": 10.850000381469727,
+          "iv": 0.18456,
+          "gamma": 0.0216,
+          "oi": 74
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 756,
+          "type": "put",
+          "last": 3.6100001335144043,
+          "iv": 0.19163,
+          "gamma": 0.02097,
+          "oi": 1826
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 757,
+          "type": "call",
+          "last": 10.050000190734863,
+          "iv": 0.1813,
+          "gamma": 0.02253,
+          "oi": 253
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 757,
+          "type": "put",
+          "last": 3.8499999046325684,
+          "iv": 0.18884,
+          "gamma": 0.02177,
+          "oi": 4809
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 758,
+          "type": "call",
+          "last": 9.569999694824219,
+          "iv": 0.17947,
+          "gamma": 0.02329,
+          "oi": 408
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 758,
+          "type": "put",
+          "last": 4.139999866485596,
+          "iv": 0.18611,
+          "gamma": 0.02256,
+          "oi": 1992
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 759,
+          "type": "call",
+          "last": 8.680000305175781,
+          "iv": 0.17643,
+          "gamma": 0.02416,
+          "oi": 714
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 759,
+          "type": "put",
+          "last": 4.449999809265137,
+          "iv": 0.18311,
+          "gamma": 0.02335,
+          "oi": 3653
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 760,
+          "type": "call",
+          "last": 8.09000015258789,
+          "iv": 0.17367,
+          "gamma": 0.02495,
+          "oi": 1767
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 760,
+          "type": "put",
+          "last": 4.75,
+          "iv": 0.18026,
+          "gamma": 0.02408,
+          "oi": 10019
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 761,
+          "type": "call",
+          "last": 7.409999847412109,
+          "iv": 0.17084,
+          "gamma": 0.0257,
+          "oi": 467
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 761,
+          "type": "put",
+          "last": 5.099999904632568,
+          "iv": 0.17722,
+          "gamma": 0.0248,
+          "oi": 3267
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 762,
+          "type": "call",
+          "last": 6.730000019073486,
+          "iv": 0.16791,
+          "gamma": 0.0264,
+          "oi": 334
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 762,
+          "type": "put",
+          "last": 5.480000019073486,
+          "iv": 0.17482,
+          "gamma": 0.02537,
+          "oi": 1425
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 763,
+          "type": "call",
+          "last": 6.199999809265137,
+          "iv": 0.16471,
+          "gamma": 0.02707,
+          "oi": 546
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 763,
+          "type": "put",
+          "last": 5.769999980926514,
+          "iv": 0.17201,
+          "gamma": 0.02592,
+          "oi": 3791
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 764,
+          "type": "call",
+          "last": 5.599999904632568,
+          "iv": 0.16189,
+          "gamma": 0.02758,
+          "oi": 569
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 764,
+          "type": "put",
+          "last": 6.340000152587891,
+          "iv": 0.16948,
+          "gamma": 0.02634,
+          "oi": 2642
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 765,
+          "type": "call",
+          "last": 5,
+          "iv": 0.15928,
+          "gamma": 0.02793,
+          "oi": 2819
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 765,
+          "type": "put",
+          "last": 6.690000057220459,
+          "iv": 0.16677,
+          "gamma": 0.02668,
+          "oi": 6441
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 766,
+          "type": "call",
+          "last": 4.510000228881836,
+          "iv": 0.15626,
+          "gamma": 0.02821,
+          "oi": 1720
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 766,
+          "type": "put",
+          "last": 6.920000076293945,
+          "iv": 0.16341,
+          "gamma": 0.02701,
+          "oi": 1567
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 767,
+          "type": "call",
+          "last": 3.930000066757202,
+          "iv": 0.15338,
+          "gamma": 0.02831,
+          "oi": 788
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 767,
+          "type": "put",
+          "last": 7.650000095367432,
+          "iv": 0.16266,
+          "gamma": 0.02678,
+          "oi": 6616
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 768,
+          "type": "call",
+          "last": 3.4800000190734863,
+          "iv": 0.15046,
+          "gamma": 0.02824,
+          "oi": 2951
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 768,
+          "type": "put",
+          "last": 8.1899995803833,
+          "iv": 0.16068,
+          "gamma": 0.02662,
+          "oi": 2615
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 769,
+          "type": "call",
+          "last": 3.0399999618530273,
+          "iv": 0.14806,
+          "gamma": 0.02789,
+          "oi": 1824
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 769,
+          "type": "put",
+          "last": 8.779999732971191,
+          "iv": 0.15676,
+          "gamma": 0.02657,
+          "oi": 20245
+        }
+      ],
+      "options_status": null
+    },
+    "live-SPY": {
+      "ticker": "SPY",
+      "session": "CLOSED",
+      "sourceSessionDate": "2026-10-16",
+      "atmBasisPrice": 763.25,
+      "atmBasisSessionDate": "2026-10-16",
+      "completeIVChain": true,
+      "atmSlice": [
+        {
+          "expiration": "2026-10-23",
+          "strike": 755,
+          "type": "call",
+          "last": 11.770000457763672,
+          "iv": 0.15636,
+          "gamma": 0.02082,
+          "oi": 1471,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 755,
+          "type": "put",
+          "last": 3.450000047683716,
+          "iv": 0.16576,
+          "gamma": 0.01995,
+          "oi": 9719,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 756,
+          "type": "call",
+          "last": 10.850000381469727,
+          "iv": 0.15377,
+          "gamma": 0.02177,
+          "oi": 74,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 756,
+          "type": "put",
+          "last": 3.6100001335144043,
+          "iv": 0.16321,
+          "gamma": 0.02078,
+          "oi": 1826,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 757,
+          "type": "call",
+          "last": 10.050000190734863,
+          "iv": 0.15114,
+          "gamma": 0.02272,
+          "oi": 253,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 757,
+          "type": "put",
+          "last": 3.8499999046325684,
+          "iv": 0.16089,
+          "gamma": 0.02157,
+          "oi": 4809,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 758,
+          "type": "call",
+          "last": 9.569999694824219,
+          "iv": 0.14971,
+          "gamma": 0.0235,
+          "oi": 408,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 758,
+          "type": "put",
+          "last": 4.139999866485596,
+          "iv": 0.15863,
+          "gamma": 0.02234,
+          "oi": 1992,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 759,
+          "type": "call",
+          "last": 8.680000305175781,
+          "iv": 0.14725,
+          "gamma": 0.02439,
+          "oi": 714,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 759,
+          "type": "put",
+          "last": 4.449999809265137,
+          "iv": 0.15614,
+          "gamma": 0.02312,
+          "oi": 3653,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 760,
+          "type": "call",
+          "last": 8.09000015258789,
+          "iv": 0.14501,
+          "gamma": 0.0252,
+          "oi": 1767,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 760,
+          "type": "put",
+          "last": 4.75,
+          "iv": 0.15378,
+          "gamma": 0.02384,
+          "oi": 10019,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 761,
+          "type": "call",
+          "last": 7.409999847412109,
+          "iv": 0.14272,
+          "gamma": 0.02597,
+          "oi": 467,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 761,
+          "type": "put",
+          "last": 5.099999904632568,
+          "iv": 0.15127,
+          "gamma": 0.02454,
+          "oi": 3267,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 762,
+          "type": "call",
+          "last": 6.730000019073486,
+          "iv": 0.14034,
+          "gamma": 0.02669,
+          "oi": 334,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 762,
+          "type": "put",
+          "last": 5.480000019073486,
+          "iv": 0.1493,
+          "gamma": 0.0251,
+          "oi": 1425,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 763,
+          "type": "call",
+          "last": 6.199999809265137,
+          "iv": 0.13772,
+          "gamma": 0.02737,
+          "oi": 546,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 763,
+          "type": "put",
+          "last": 5.769999980926514,
+          "iv": 0.147,
+          "gamma": 0.02564,
+          "oi": 3791,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 764,
+          "type": "call",
+          "last": 5.599999904632568,
+          "iv": 0.13542,
+          "gamma": 0.02789,
+          "oi": 569,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 764,
+          "type": "put",
+          "last": 6.340000152587891,
+          "iv": 0.14494,
+          "gamma": 0.02605,
+          "oi": 2642,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 765,
+          "type": "call",
+          "last": 5,
+          "iv": 0.13328,
+          "gamma": 0.02824,
+          "oi": 2819,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 765,
+          "type": "put",
+          "last": 6.690000057220459,
+          "iv": 0.14274,
+          "gamma": 0.02639,
+          "oi": 6441,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 766,
+          "type": "call",
+          "last": 4.510000228881836,
+          "iv": 0.13081,
+          "gamma": 0.02853,
+          "oi": 1720,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 766,
+          "type": "put",
+          "last": 6.920000076293945,
+          "iv": 0.14,
+          "gamma": 0.02671,
+          "oi": 1567,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 767,
+          "type": "call",
+          "last": 3.930000066757202,
+          "iv": 0.12845,
+          "gamma": 0.02864,
+          "oi": 788,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 767,
+          "type": "put",
+          "last": 7.650000095367432,
+          "iv": 0.13948,
+          "gamma": 0.02649,
+          "oi": 6616,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 768,
+          "type": "call",
+          "last": 3.4800000190734863,
+          "iv": 0.12604,
+          "gamma": 0.02857,
+          "oi": 2951,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 768,
+          "type": "put",
+          "last": 8.1899995803833,
+          "iv": 0.13793,
+          "gamma": 0.02633,
+          "oi": 2615,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 769,
+          "type": "call",
+          "last": 3.0399999618530273,
+          "iv": 0.12408,
+          "gamma": 0.02821,
+          "oi": 1824,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 769,
+          "type": "put",
+          "last": 8.779999732971191,
+          "iv": 0.13477,
+          "gamma": 0.02629,
+          "oi": 20245,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 770,
+          "type": "call",
+          "last": 2.619999885559082,
+          "iv": 0.12204,
+          "gamma": 0.02767,
+          "oi": 7165,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 770,
+          "type": "put",
+          "last": 9.449999809265137,
+          "iv": 0.13454,
+          "gamma": 0.02562,
+          "oi": 3652,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 771,
+          "type": "call",
+          "last": 2.259999990463257,
+          "iv": 0.11992,
+          "gamma": 0.02692,
+          "oi": 2072,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-10-23",
+          "strike": 771,
+          "type": "put",
+          "last": 10.180000305175781,
+          "iv": 0.13295,
+          "gamma": 0.02502,
+          "oi": 4192,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        }
+      ],
+      "options_status": null
+    },
+    "closed2-WTFC": {
+      "ticker": "WTFC",
+      "session": "CLOSED",
+      "sourceSessionDate": null,
+      "atmBasisPrice": null,
+      "atmBasisSessionDate": null,
+      "completeIVChain": null,
+      "atmSlice": [
+        {
+          "expiration": "2026-11-20",
+          "strike": 110,
+          "type": "call",
+          "last": null,
+          "iv": 0.36172,
+          "gamma": 0.00096,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 110,
+          "type": "put",
+          "last": null,
+          "iv": 0.69034,
+          "gamma": 0.00487,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 115,
+          "type": "call",
+          "last": null,
+          "iv": 0.0001,
+          "gamma": null,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 115,
+          "type": "put",
+          "last": null,
+          "iv": 0.60952,
+          "gamma": 0.00617,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 120,
+          "type": "call",
+          "last": null,
+          "iv": 0.37054,
+          "gamma": 0.00563,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 120,
+          "type": "put",
+          "last": null,
+          "iv": 0.53839,
+          "gamma": 0.00803,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 125,
+          "type": "call",
+          "last": null,
+          "iv": 0.33797,
+          "gamma": 0.00914,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 125,
+          "type": "put",
+          "last": null,
+          "iv": 0.47253,
+          "gamma": 0.01072,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 130,
+          "type": "call",
+          "last": null,
+          "iv": 0.23814,
+          "gamma": 0.0123,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 130,
+          "type": "put",
+          "last": 1.4700000286102295,
+          "iv": 0.38734,
+          "gamma": 0.01488,
+          "oi": 21
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 135,
+          "type": "call",
+          "last": null,
+          "iv": 0.28772,
+          "gamma": 0.02264,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 135,
+          "type": "put",
+          "last": 2.5399999618530273,
+          "iv": 0.33013,
+          "gamma": 0.02125,
+          "oi": 1
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 140,
+          "type": "call",
+          "last": null,
+          "iv": 0.2872,
+          "gamma": 0.02941,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 140,
+          "type": "put",
+          "last": null,
+          "iv": 0.30034,
+          "gamma": 0.02828,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 145,
+          "type": "call",
+          "last": 5.699999809265137,
+          "iv": 0.27995,
+          "gamma": 0.03281,
+          "oi": 2
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 145,
+          "type": "put",
+          "last": null,
+          "iv": 0.31194,
+          "gamma": 0.02944,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 150,
+          "type": "call",
+          "last": 3,
+          "iv": 0.2727,
+          "gamma": 0.03091,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 150,
+          "type": "put",
+          "last": null,
+          "iv": 0.28659,
+          "gamma": 0.0297,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 155,
+          "type": "call",
+          "last": null,
+          "iv": 0.29937,
+          "gamma": 0.02344,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 155,
+          "type": "put",
+          "last": null,
+          "iv": 0.28903,
+          "gamma": 0.02375,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 160,
+          "type": "call",
+          "last": 0.8600000143051147,
+          "iv": 0.37248,
+          "gamma": 0.01714,
+          "oi": 4
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 160,
+          "type": "put",
+          "last": null,
+          "iv": 0.3222,
+          "gamma": 0.01725,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 165,
+          "type": "call",
+          "last": null,
+          "iv": 0.42282,
+          "gamma": 0.01345,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 165,
+          "type": "put",
+          "last": null,
+          "iv": 0.35295,
+          "gamma": 0.01273,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 170,
+          "type": "call",
+          "last": null,
+          "iv": 0.45452,
+          "gamma": 0.01079,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 170,
+          "type": "put",
+          "last": null,
+          "iv": 0.39026,
+          "gamma": 0.00978,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 175,
+          "type": "call",
+          "last": null,
+          "iv": 0.50625,
+          "gamma": 0.00903,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 175,
+          "type": "put",
+          "last": null,
+          "iv": 0.42787,
+          "gamma": 0.0078,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 180,
+          "type": "call",
+          "last": null,
+          "iv": 0.55451,
+          "gamma": 0.00774,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 180,
+          "type": "put",
+          "last": null,
+          "iv": 0.49371,
+          "gamma": 0.00694,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 185,
+          "type": "call",
+          "last": null,
+          "iv": 0.59315,
+          "gamma": 0.00669,
+          "oi": 0
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 185,
+          "type": "put",
+          "last": null,
+          "iv": 0.56524,
+          "gamma": 0.00638,
+          "oi": 0
+        }
+      ],
+      "options_status": null
+    },
+    "live-WTFC": {
+      "ticker": "WTFC",
+      "session": "CLOSED",
+      "sourceSessionDate": "2026-10-16",
+      "atmBasisPrice": 144.08,
+      "atmBasisSessionDate": "2026-10-16",
+      "completeIVChain": true,
+      "atmSlice": [
+        {
+          "expiration": "2026-11-20",
+          "strike": 110,
+          "type": "call",
+          "last": null,
+          "iv": 0.4126,
+          "gamma": 0.00195,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 110,
+          "type": "put",
+          "last": null,
+          "iv": 0.66966,
+          "gamma": 0.00489,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 115,
+          "type": "call",
+          "last": null,
+          "iv": 0.0001,
+          "gamma": 0,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 115,
+          "type": "put",
+          "last": null,
+          "iv": 0.59115,
+          "gamma": 0.00618,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 120,
+          "type": "call",
+          "last": null,
+          "iv": 0.37464,
+          "gamma": 0.00606,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 120,
+          "type": "put",
+          "last": null,
+          "iv": 0.52204,
+          "gamma": 0.00805,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 125,
+          "type": "call",
+          "last": null,
+          "iv": 0.33801,
+          "gamma": 0.00946,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 125,
+          "type": "put",
+          "last": null,
+          "iv": 0.45803,
+          "gamma": 0.01076,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 130,
+          "type": "call",
+          "last": null,
+          "iv": 0.24127,
+          "gamma": 0.01299,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 130,
+          "type": "put",
+          "last": 1.4700000286102295,
+          "iv": 0.37525,
+          "gamma": 0.01494,
+          "oi": 21,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 135,
+          "type": "call",
+          "last": null,
+          "iv": 0.28338,
+          "gamma": 0.02262,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 135,
+          "type": "put",
+          "last": 2.5399999618530273,
+          "iv": 0.31957,
+          "gamma": 0.02136,
+          "oi": 1,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 140,
+          "type": "call",
+          "last": null,
+          "iv": 0.28143,
+          "gamma": 0.02925,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 140,
+          "type": "put",
+          "last": null,
+          "iv": 0.29041,
+          "gamma": 0.02846,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 145,
+          "type": "call",
+          "last": 5.699999809265137,
+          "iv": 0.2736,
+          "gamma": 0.03261,
+          "oi": 2,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 145,
+          "type": "put",
+          "last": null,
+          "iv": 0.30128,
+          "gamma": 0.02962,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 150,
+          "type": "call",
+          "last": 3,
+          "iv": 0.2661,
+          "gamma": 0.03074,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 150,
+          "type": "put",
+          "last": null,
+          "iv": 0.27599,
+          "gamma": 0.02986,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 155,
+          "type": "call",
+          "last": null,
+          "iv": 0.29177,
+          "gamma": 0.02334,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 155,
+          "type": "put",
+          "last": null,
+          "iv": 0.27729,
+          "gamma": 0.02377,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 160,
+          "type": "call",
+          "last": 0.8600000143051147,
+          "iv": 0.36269,
+          "gamma": 0.01708,
+          "oi": 4,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 160,
+          "type": "put",
+          "last": null,
+          "iv": 0.30841,
+          "gamma": 0.01715,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 165,
+          "type": "call",
+          "last": null,
+          "iv": 0.41151,
+          "gamma": 0.01342,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 165,
+          "type": "put",
+          "last": null,
+          "iv": 0.337,
+          "gamma": 0.01255,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 170,
+          "type": "call",
+          "last": null,
+          "iv": 0.44223,
+          "gamma": 0.01077,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 170,
+          "type": "put",
+          "last": null,
+          "iv": 0.37215,
+          "gamma": 0.00957,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 175,
+          "type": "call",
+          "last": null,
+          "iv": 0.49243,
+          "gamma": 0.00902,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 175,
+          "type": "put",
+          "last": null,
+          "iv": 0.40769,
+          "gamma": 0.00758,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 180,
+          "type": "call",
+          "last": null,
+          "iv": 0.53928,
+          "gamma": 0.00773,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 180,
+          "type": "put",
+          "last": null,
+          "iv": 0.47207,
+          "gamma": 0.00678,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 185,
+          "type": "call",
+          "last": null,
+          "iv": 0.57678,
+          "gamma": 0.00668,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        },
+        {
+          "expiration": "2026-11-20",
+          "strike": 185,
+          "type": "put",
+          "last": null,
+          "iv": 0.54214,
+          "gamma": 0.00627,
+          "oi": 0,
+          "observedAt": null,
+          "sourceSessionDate": "2026-10-16"
+        }
+      ],
+      "options_status": null
+    }
+  },
+  "batchIv": {
+    "FITB": {
+      "iv": null,
+      "atmIv": 24,
+      "session": "reg"
+    },
+    "WTFC": {
+      "iv": null,
+      "atmIv": 21,
+      "session": "reg"
+    }
+  }
+}
