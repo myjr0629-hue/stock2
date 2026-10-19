@@ -12,7 +12,6 @@ import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
 import { commandUnifiedIv, commandIvDateText } from '../src/lib/app/commandIv';
 import { compactUsd } from '../src/lib/app/displayNumbers';
 import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
-import { OptionFlowBasisDate } from '../src/components/app/OptionFlowBasisDate';
 
 const file = 'src/app/[locale]/app-view/cmd/page.tsx';
 const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -604,8 +603,6 @@ const heroCard = (code: string) => {
 };
 const heroHtml = (card: string, netPremium: any, locale = 'ko') => renderToStaticMarkup(run(`(${card});`, {
     data: { premium: { netPremium } }, locale, premiumLabel, MetricInfo: () => null,
-    // These existing amount-only fixtures have no source date. Dated-source coverage lives in nb3FlowBasis.test.ts.
-    OptionFlowBasisDate, premiumBasisLabel: null,
     s: new Proxy({}, { get: (_t, k) => String(k) }),
 })).replace(/<!--.*?-->/g, '');
 const pickHero = (flow: any, structure: any) => run(`(${heroSelect});`, { flow: flow ?? {}, u: { structure } });

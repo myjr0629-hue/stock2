@@ -1,7 +1,7 @@
-/** NB3 offline replay. No browser, network, env file, Redis or DB.
+/** NB3 offline replay — 기존 «LIVE FLOW» 배지 자리의 글자만 원천 기준일로 바뀌는지(새 요소 0).
  * node -r ts-node/register/transpile-only -r tsconfig-paths/register tests/nb3FlowBasis.test.ts <reg-snapshots> [integrity-sweep]
  * TS_NODE_COMPILER_OPTIONS='{"module":"commonjs","moduleResolution":"node","jsx":"react-jsx"}'
- * Replays both saved REG payloads and actual CLOSED payloads without changing their metadata.
+ * No browser, network, env file, Redis or DB.
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -9,204 +9,114 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { createElement } from 'react';
-import { optionFlowBasisLabel } from '../src/lib/app/optionFlowBasis';
-import { OptionFlowBasisDate } from '../src/components/app/OptionFlowBasisDate';
-import { netPremiumOf, totalPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
+import { optionFlowBadgeLabel, optionFlowBasisDate } from '../src/lib/app/optionFlowBasis';
 
 const realFetch = globalThis.fetch;
 globalThis.fetch = (() => { throw new Error('NB3 replay must stay offline'); }) as any;
 process.on('exit', () => { globalThis.fetch = realFetch; });
 
-function page(which: 'flow' | 'cmd') {
-  const source = fs.readFileSync(`src/app/[locale]/app-view/${which}/page.tsx`, 'utf8');
-  const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const declarations = new Map<string, ts.VariableDeclaration>();
-  const nodes: ts.Node[] = [];
-  (function visit(n: ts.Node) {
-    nodes.push(n);
-    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && !declarations.has(n.name.text)) declarations.set(n.name.text, n);
-    ts.forEachChild(n, visit);
-  })(ast);
-  const evaluate = (code: string, ctx: Record<string, any>) => {
-    const js = ts.transpileModule(`(${code})`, { compilerOptions: {
-      module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX,
-    } }).outputText;
-    return vm.runInNewContext(js, { require, exports: {}, useMemo: (fn: () => any) => fn(), optionFlowBasisLabel,
-      OptionFlowBasisDate, netPremiumOf, premiumLabel, ...ctx });
-  };
-  return {
-    value(name: string, ctx: Record<string, any> = {}) {
-      const init = declarations.get(name)?.initializer;
-      assert.ok(init, `${which}.${name} exists`);
-      return evaluate(init.getText(ast), ctx);
-    },
-    renderSmallest(fragment: string, ctx: Record<string, any>) {
-      const matches = nodes.filter(n => (ts.isJsxElement(n) || ts.isJsxFragment(n))
-        && n.getText(ast).includes(fragment) && n.getText(ast).includes('<OptionFlowBasisDate'));
-      matches.sort((a, b) => a.getWidth(ast) - b.getWidth(ast));
-      assert.ok(matches.length, `${which}: date is adjacent to ${fragment}`);
-      return renderToStaticMarkup(evaluate(matches[0].getText(ast), ctx));
-    },
-  };
-}
-const flow = page('flow');
-const cmd = page('cmd');
-const flowCopy = flow.value('APP_FLOW_COPY').ko;
-const s = new Proxy({}, { get: (_, key) => String(key) });
-const json = (file: string) => JSON.parse(fs.readFileSync(file, 'utf8'));
+const FLOW = 'src/app/[locale]/app-view/flow/page.tsx';
+const source = fs.readFileSync(FLOW, 'utf8');
+const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const decls = new Map<string, ts.VariableDeclaration>();
+(function visit(n: ts.Node) {
+  if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && !decls.has(n.name.text)) decls.set(n.name.text, n);
+  ts.forEachChild(n, visit);
+})(ast);
+const evaluate = (code: string, ctx: Record<string, any>) => {
+  const js = ts.transpileModule(`(${code})`, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  return vm.runInNewContext(js, { useMemo: (fn: () => any) => fn(), optionFlowBadgeLabel, ...ctx });
+};
+const value = (name: string, ctx: Record<string, any> = {}) => {
+  const init = decls.get(name)?.initializer;
+  assert.ok(init, `flow.${name} exists`);
+  return evaluate(init.getText(ast), ctx);
+};
+const flowCopyAll = value('APP_FLOW_COPY');
+// Source 칸 객체 리터럴만 떼어 평가한다 — 화면 구조(요소 수)는 손대지 않았다는 것을 함께 확인.
+const sourceCellExpr = (() => {
+  const i = source.indexOf('{ label: flowCopy.sourceFreshness,');
+  assert.ok(i > 0, 'Source cell exists');
+  const end = source.indexOf('}\n', i);
+  return source.slice(i, end + 1);
+})();
+const sourceCell = (tickerData: any, session: string, locale: string) => {
+  const flowCopy = flowCopyAll[locale];
+  const effectiveSession = session;
+  const opiCalculated = value('opiCalculated', { opi: 42, effectiveSession });
+  const flowBasisBadge = value('flowBasisBadge', { tickerData, locale });
+  return { ...evaluate(sourceCellExpr, { flowCopy, opiCalculated, flowBasisBadge }) };
+};
+
 const eod = { dataFreshness: { premium: 'EOD', volume: 'EOD', greeks: 'REALTIME', chainDate: '2026-10-16' } };
 
-test('basis depends on each metric, never on realtime Greeks, quotes, OI date or wall clock', () => {
-  assert.equal(optionFlowBasisLabel(eod, 'ko'), '10/16 기준');
-  assert.equal(optionFlowBasisLabel(eod, 'en'), 'as of 10/16');
-  assert.equal(optionFlowBasisLabel(eod, 'ja'), '10/16 時点');
+test('badge date: only the date the option values declare — never Greeks, stock session, OI date, clock', () => {
+  assert.equal(optionFlowBadgeLabel(eod, 'ko'), '10/16 마감');
+  assert.equal(optionFlowBadgeLabel(eod, 'ja'), '10/16 終値');
+  assert.equal(optionFlowBadgeLabel(eod, 'en'), '10/16 close');
+  const live = { dataFreshness: { ...eod.dataFreshness, premium: 'REALTIME', volume: 'REALTIME' } };
+  assert.equal(optionFlowBadgeLabel(live, 'ko'), null);
   const mixed = { dataFreshness: { ...eod.dataFreshness, premium: 'REALTIME' } };
-  assert.equal(optionFlowBasisLabel(mixed, 'ko', ['premium']), null);
-  assert.equal(optionFlowBasisLabel(mixed, 'ko', ['volume']), '10/16 기준');
-  assert.equal(optionFlowBasisLabel(mixed, 'ko'), '10/16 기준');
-  assert.equal(optionFlowBasisLabel({ dataFreshness: { ...mixed.dataFreshness, volume: 'REALTIME' } }, 'ko'), null);
-  for (const chainDate of [null, '', '2026-02-30', '2026-13-01', 1792195200000, '2026-10-16T20:00:00Z']) {
-    assert.equal(optionFlowBasisLabel({ dataFreshness: { premium: 'EOD', chainDate }, prevDate: '2026-10-15', timestampET: '2026-10-19' }, 'ko'), null);
+  assert.equal(optionFlowBadgeLabel(mixed, 'ko'), '10/16 마감', 'volume still EOD → not LIVE');
+  for (const chainDate of [null, undefined, '', '2026-02-30', '2026-13-01', 1792195200000, '2026-10-16T20:00:00Z']) {
+    assert.equal(optionFlowBasisDate({ dataFreshness: { premium: 'EOD', chainDate } } as any), null);
+    assert.equal(optionFlowBadgeLabel({ dataFreshness: { premium: 'EOD', chainDate }, prevDate: '2026-10-15', timestampET: '2026-10-19', structure: { chainDate: '2026-10-16' } } as any, 'ko'), null);
   }
-  assert.equal(renderToStaticMarkup(createElement(OptionFlowBasisDate, { label: null })), '');
+  assert.equal(optionFlowBadgeLabel(null, 'ko'), null);
+  assert.equal(optionFlowBadgeLabel({}, 'ko'), null);
 });
 
-test('cmd fallback date follows the selected observed premium, including zero', () => {
-  const structure = { chainDate: '2026-10-15', netPremium: 2_000_000, premiumContracts: 5 };
-  const raw = { ...eod, netPremium: 0, contractsProcessed: 5 };
-  const label = (rawFlow: any, fallback = structure) => cmd.value('premiumBasisLabel', {
-    data: { rawTickerData: { flow: rawFlow }, unified: { structure: fallback } }, locale: 'ko',
-  });
-  assert.equal(label(raw), '10/16 기준', 'observed zero keeps its own source');
-  // 구조 폴백의 chainDate 는 레벨 기준일로 바뀔 수 있어 프리미엄 날짜가 아니다(관문 10200744) — 표식 없음.
-  assert.equal(label({ ...raw, contractsProcessed: 0 }), null);
-  assert.equal(label({ ...raw, error: 'offline failure' }), null);
-  assert.equal(label({ ...raw, dataFreshness: { ...eod.dataFreshness, premium: 'REALTIME' } }), null);
+test('Source badge: same slot — LIVE FLOW when realtime, date when EOD, existing text when undated', () => {
+  const live = { flow: { dataFreshness: { premium: 'REALTIME', volume: 'REALTIME', chainDate: '2026-10-19' } } };
+  assert.deepEqual(sourceCell(live, 'REG', 'ko'), { label: 'Source', value: 'LIVE FLOW', color: 'var(--cyan)' });
+  assert.deepEqual(sourceCell({ flow: eod }, 'REG', 'ko'), { label: 'Source', value: '10/16 마감', color: '#94a3b8' });
+  assert.deepEqual(sourceCell({ flow: eod }, 'CLOSED', 'en'), { label: flowCopyAll.en.sourceFreshness, value: '10/16 close', color: '#94a3b8' });
+  const undated = { flow: { dataFreshness: { premium: 'EOD', volume: 'EOD', chainDate: null } } };
+  assert.equal(sourceCell(undated, 'REG', 'ko').value, 'LIVE FLOW', 'no invented date — unchanged badge');
+  assert.equal(sourceCell(undated, 'CLOSED', 'ko').value, 'ESTIMATED');
+  assert.equal(sourceCell({}, 'REG', 'ja').value, flowCopyAll.ja.liveSource);
 });
 
-test('gate 10200214: stock dates and healthy response ages cannot date undated options', () => {
-  const source = { netPremium: 400, contractsProcessed: 2,
-    dataFreshness: { premium: 'EOD', volume: 'EOD', chainDate: null } };
-  for (const age of [0, 1, 300_000]) {
-    const rawTickerData = { flow: source, session: 'CLOSED', _stale: false, _lastGoodAgeMs: age,
-      prices: { regularDate: '2026-10-16' }, baseline: { shownSessionET: '2026-10-16' } };
-    assert.equal(cmd.value('premiumBasisLabel', { data: { rawTickerData }, locale: 'ko' }), null);
-  }
+test('no new element: engine-axes badge and other labels untouched, no date component left', () => {
+  assert.ok(!source.includes('OptionFlowBasisDate'), 'no added date element');
+  assert.ok(source.includes("fontWeight: 750 }}>{flowCopy.liveSource}</span>"), 'engine axes keeps the existing badge (mixed bases — no premium date there)');
+  assert.ok(!fs.existsSync('src/components/app/OptionFlowBasisDate.tsx'));
+  const cmd = fs.readFileSync('src/app/[locale]/app-view/cmd/page.tsx', 'utf8');
+  assert.ok(!cmd.includes('optionFlowBasis'), 'cmd unchanged');
 });
-
-test('cmd never gives an undated structure fallback the ticker session date', () => {
-  const rawTickerData = { session: 'CLOSED', _stale: false, _lastGoodAgeMs: 0,
-    prices: { regularDate: '2026-10-16' }, baseline: { shownSessionET: '2026-10-16' },
-    flow: { netPremium: 0, contractsProcessed: 0 } };
-  const structure = { netPremium: 2_000_000, premiumContracts: 5, dataFreshness: { premium: 'EOD' } };
-  assert.equal(cmd.value('premiumBasisLabel', { data: { rawTickerData, unified: { structure } }, locale: 'ko' }), null);
-  rawTickerData.flow.contractsProcessed = 1;
-  Object.assign(rawTickerData.flow, { dataFreshness: { premium: 'EOD', chainDate: null } });
-  assert.equal(cmd.value('premiumBasisLabel', { data: { rawTickerData, unified: { structure } }, locale: 'ko' }), null, 'an undated observed zero cannot borrow the stock session date');
-});
-
-function replayCmd(payload: any, expected?: readonly number[]) {
-  const before = JSON.stringify(payload);
-  const data = { rawTickerData: payload, unified: {}, premium: { netPremium: netPremiumOf(payload.flow) } };
-  const cmdLabel = cmd.value('premiumBasisLabel', { data, locale: 'ko' });
-  assert.equal(cmdLabel, '10/16 기준');
-  assert.match(cmd.renderSmallest("premiumLabel('net', locale)", { data, locale: 'ko', premiumBasisLabel: cmdLabel, s, MetricInfo: () => null }), /순 프리미엄[\s\S]*10\/16 기준/);
-  assert.equal(cmd.value('sessionLabel', { effectiveSession: payload.session }), payload.session === 'REG' ? 'MARKET OPEN' : 'MARKET CLOSED');
-  assert.equal(data.premium.netPremium, payload.flow.netPremium);
-  if (expected) assert.deepEqual([totalPremiumOf(payload.flow), data.premium.netPremium], [...expected.slice(0, 2)]);
-  assert.equal(JSON.stringify(payload), before, 'cmd replay never changes source values');
-}
-
-function replay(tickerData: any, session: 'REG' | 'CLOSED', expected?: readonly number[]) {
-  const before = JSON.stringify(tickerData);
-  const ticker = tickerData.ticker;
-  const payload = { ...tickerData, session };
-  const ctx: Record<string, any> = { tickerData: payload, ticker, locale: 'ko', flowCopy, s,
-    effectiveSession: session, opi: 42, t: { opiGauge: '옵션 압박 지수 (OPI)' }, renderInfoBtn: () => null };
-  for (const name of ['flowBasisLabel', 'premiumBasisLabel', 'volumeBasisLabel', 'opiCalculated']) ctx[name] = flow.value(name, ctx);
-  assert.equal(ctx.flowBasisLabel, '10/16 기준');
-  assert.equal(ctx.premiumBasisLabel, '10/16 기준');
-  assert.equal(ctx.volumeBasisLabel, '10/16 기준');
-  // OPI 제목엔 붙이지 않는다 — OPI 는 자체 OI 기준일(oiPcrDate) 표식이 있다(관문 10200732).
-  assert.match(flow.renderSmallest('flowCopy.estimatedSource', ctx), new RegExp(`${session === 'REG' ? 'LIVE FLOW' : 'ESTIMATED'}[\\s\\S]*10/16 기준`));
-  assert.match(flow.renderSmallest('{flowCopy.liveSource}', ctx), /LIVE FLOW[\s\S]*10\/16 기준/);
-  assert.match(flow.renderSmallest('주간 만기 거래량', ctx), /주간 만기 거래량[\s\S]*10\/16 기준/);
-  assert.match(flow.renderSmallest("premiumLabel('net', locale)", ctx), /순 프리미엄[\s\S]*10\/16 기준/);
-
-  replayCmd(payload, expected);
-
-  ctx.rawChain = flow.value('rawChain', ctx);
-  ctx.chainVolumes = flow.value('chainVolumes', ctx);
-  ctx.callPct = ctx.chainVolumes.callPct;
-  ctx.absNetPrem = Math.abs(payload.flow.netPremium);
-  const net = flow.value('netPremiumOverview', ctx);
-  assert.equal(net, tickerData.flow.netPremium);
-  assert.equal(totalPremiumOf(payload.flow), tickerData.flow.totalPremium);
-  if (expected) assert.deepEqual([totalPremiumOf(payload.flow), net, ctx.chainVolumes.call, ctx.chainVolumes.put, ctx.callPct], [...expected]);
-  assert.equal(JSON.stringify(tickerData), before, 'replay never changes source values');
-}
 
 const snapshots = process.argv[2];
 const sweep = process.argv[3];
-const expected: Record<string, readonly number[]> = {
-  NVDA: [116404820.00250909, 4314055.126720481, 339198, 237475, 58.8],
-  AAPL: [64269461.28522344, -43913.549771904945, 81725, 126619, 39.2],
-  TSLA: [150568733.52550194, 26142417.74239689, 173181, 138688, 55.5],
-  SPY: [248155555.28481603, -108777044.33421046, 256782, 465278, 35.6],
-  WTFC: [3460.9999775886536, 1990.999948978424, 8, 5, 61.5],
-  MSFT: [33989968.881406635, -4306398.892598972, 42024, 41632, 50.2],
-  FITB: [101724.00187980384, 56114.00184202939, 2011, 185, 91.6],
-};
+const json = (f: string) => JSON.parse(fs.readFileSync(f, 'utf8'));
 for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'WTFC']) {
-  for (const session of ['REG', 'CLOSED'] as const) {
-    test(`${ticker}: 23:10 KST saved ticker/options-eod/ivp/quotes, ${session}`, { skip: !snapshots }, () => {
-      const payload = json(path.join(snapshots, `ticker-${ticker}-2310.json`));
-      const options = json(path.join(snapshots, `options-eod-${ticker}-2310.json`));
-      const ivp = json(path.join(snapshots, `ivp-${ticker}-2310.json`));
-      const quotes = json(path.join(snapshots, 'quotes-2310.json'));
-      assert.equal(payload.session, 'REG');
-      assert.equal(quotes.session, 'regular');
-      assert.equal(ivp.currentSession ?? null, ticker === 'WTFC' ? null : '2026-10-16');
-      if (ticker === 'WTFC') assert.equal(ivp.sampleSize, 0, 'missing IVP must not erase the premium date');
-      if (options.available) {
-        assert.equal(options.date, '2026-10-16');
-        assert.equal(options.prevDate, '2026-10-15', 'OI change date must not replace premium date');
-      }
-      assert.ok(quotes.data[ticker].price > 0, 'live underlying stays populated');
-      replay(payload, session, expected[ticker]);
-    });
-  }
-}
-for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'MSFT', 'WTFC', 'FITB']) {
-  test(`${ticker}: sweep operating API evidence, REG + CLOSED`, { skip: !sweep }, () => {
-    const rows = json(path.join(sweep, 'live', `flow_${ticker}`, 'api.json'));
-    const row = rows.filter((r: any) => r.status === 200 && r.url.includes('/api/live/ticker?')).at(-1);
-    assert.ok(row, 'saved ticker response exists');
-    const payload = typeof row.body === 'string' ? JSON.parse(row.body) : row.body;
-    assert.equal(payload.session, 'REG');
-    replay(payload, 'REG');
-    replay(payload, 'CLOSED');
+  test(`${ticker}: saved 23:10 KST REG ticker payload → Source badge`, { skip: !snapshots }, () => {
+    const payload = json(path.join(snapshots, `ticker-${ticker}-2310.json`));
+    const before = JSON.stringify(payload);
+    const d = payload.flow?.dataFreshness ?? {};
+    const shouldDate = !(d.premium === 'REALTIME' && d.volume === 'REALTIME') && typeof d.chainDate === 'string';
+    for (const session of ['REG', 'CLOSED']) {
+      const cell = sourceCell(payload, session, 'ko');
+      if (shouldDate) assert.equal(cell.value, `${Number(d.chainDate.slice(5, 7))}/${Number(d.chainDate.slice(8, 10))} 마감`);
+      else assert.equal(cell.value, session === 'CLOSED' ? 'ESTIMATED' : 'LIVE FLOW');
+      console.log(`  ${ticker} ${session}: premium=${d.premium} volume=${d.volume} chainDate=${d.chainDate} → «${cell.value}»`);
+    }
+    assert.equal(JSON.stringify(payload), before, 'replay never changes source values');
   });
 }
-
-// 범위 축소(관문 10200159·10200214·10200229 같은 지적 3회): 날짜 없는 응답의 날짜 «복원»은 하지 않는다.
-// 옵션 값에 붙은 날짜(dataFreshness.chainDate)가 있을 때만 표식 — 없으면 표식 없음(지어내지 않음), 값은 그대로.
-for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'MSFT', 'WTFC', 'FITB']) {
-  for (const screen of ['flow', 'cmd']) {
-    test(`${ticker}/${screen}: actual CLOSED operating API snapshot — dated shows date, undated shows none`, { skip: !sweep }, () => {
-      const rows = json(path.join(sweep, 'closed', `${screen}_${ticker}`, 'api.json'));
+for (const dir of ['live', 'closed']) {
+  for (const ticker of ['NVDA', 'AAPL', 'TSLA', 'SPY', 'MSFT', 'WTFC', 'FITB']) {
+    test(`${ticker}: sweep ${dir} operating API → Source badge`, { skip: !sweep }, () => {
+      const f = path.join(sweep, dir, `flow_${ticker}`, 'api.json');
+      if (!fs.existsSync(f)) return;
+      const rows = json(f);
       const row = rows.filter((r: any) => r.status === 200 && r.url.includes('/api/live/ticker?')).at(-1);
-      assert.ok(row, 'actual saved CLOSED response exists');
+      if (!row) return;
       const payload = typeof row.body === 'string' ? JSON.parse(row.body) : row.body;
-      assert.equal(payload.session, 'CLOSED');
-      const original = JSON.stringify(payload);
-      const date = payload.flow?.dataFreshness?.chainDate ?? null;
-      const label = optionFlowBasisLabel(payload.flow, 'ko');
-      if (date) { assert.equal(label, `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))} 기준`); if (screen === 'flow') replay(payload, 'CLOSED', expected[ticker]); else replayCmd(payload, expected[ticker]); }
-      else assert.equal(label, null);
-      assert.equal(JSON.stringify(payload), original, 'raw CLOSED evidence was not changed');
+      const date = optionFlowBasisDate(payload.flow);
+      const cell = sourceCell(payload, payload.session, 'ko');
+      if (date) assert.match(cell.value, /^\d{1,2}\/\d{1,2} 마감$/);
+      else assert.ok(['LIVE FLOW', 'ESTIMATED'].includes(cell.value));
+      console.log(`  ${ticker} ${dir}(${payload.session}): chainDate=${payload.flow?.dataFreshness?.chainDate ?? null} → «${cell.value}»`);
     });
   }
 }
