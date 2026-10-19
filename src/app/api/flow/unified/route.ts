@@ -63,7 +63,7 @@ async function buildUnifiedFlowData(ticker: string, baseUrl: string) {
         darkPool,
         realtimeMetrics
     ] = await Promise.all([
-        callInternalGet(getLiveTicker, `${baseUrl}/api/live/ticker?t=${ticker}`),
+        callInternalGet(getLiveTicker, `${baseUrl}/api/live/ticker?t=${ticker}&chain=full`),
         callInternalGet(getDarkPool, `${baseUrl}/api/flow/dark-pool-trades?ticker=${ticker}&limit=30`),
         callInternalGet(getRealtimeMetrics, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`)
     ]);

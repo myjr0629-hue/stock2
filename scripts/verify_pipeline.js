@@ -80,7 +80,7 @@ function httpsGet(url) {
 
   // 4. Live ticker API (OPI source)
   console.log('\n--- TIER 3: Production API (signumhq.com/api/live/ticker) ---');
-  const liveRes = await httpsGet('https://www.signumhq.com/api/live/ticker?t=NVDA&skip_alpha=1');
+  const liveRes = await httpsGet('https://www.signumhq.com/api/live/ticker?t=NVDA&skip_alpha=1&chain=full');
   if (liveRes) {
     console.log('NVDA live/ticker: ✅');
     console.log('  price=$' + liveRes.price + ' session=' + liveRes.session);
