@@ -1,6 +1,7 @@
 import { finite, metric, percent, positive } from './contract';
 import { squeezeRiskOf } from './squeeze';
 import { flipDistance } from './percentile';
+import { isFailedSection } from './observation';
 
 export interface RegimeInputs {
     netGex?: number | null;
@@ -68,8 +69,9 @@ export type VolatilityRegimeResult = ReturnType<typeof computeVolatilityRegime>;
  * replace a newer overlay value or revive a value the newer edition reports missing.
  */
 export function computeUnifiedVolatilityRegime(data: { structure?: any; volatility?: any } | null | undefined) {
-    const s = data?.structure ?? {};
-    const v = data?.volatility ?? {};
+    // A failed/pending section is not an observation (shared rule 1): its 0/LOW placeholders never score.
+    const s = isFailedSection(data?.structure) ? {} : data?.structure ?? {};
+    const v = isFailedSection(data?.volatility) ? {} : data?.volatility ?? {};
     const inputs = v.metric?.inputs ?? {};
     const source = (key: string, legacy: string = key) => {
         if (s[key] !== undefined) return s[key];

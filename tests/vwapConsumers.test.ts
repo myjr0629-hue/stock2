@@ -8,6 +8,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { execFileSync } from 'node:child_process';
 import { normalizeVwap, selectVwap, vwapDistancePct } from '../src/lib/vwap';
+import { commandScores } from '../src/lib/commandScores';
 import { netPremiumOf } from '../src/lib/premiumFlow';
 import { computeUnifiedVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
 import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
@@ -22,7 +23,7 @@ function find(file: string, predicate: (n: ts.Node) => boolean) {
 }
 function run(code: string, context: Record<string, any> = {}): any {
     const js = ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText;
-    return vm.runInNewContext(js, { React, convictionInputsOf, scoreCommandConviction, normalizeVwap, selectVwap, vwapDistancePct, netPremiumOf, computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime, volatilityData: undefined, useMemo: (fn: () => any) => fn(), ...context });
+    return vm.runInNewContext(js, { React, commandScores, convictionInputsOf, scoreCommandConviction, normalizeVwap, selectVwap, vwapDistancePct, netPremiumOf, computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime, volatilityData: undefined, useMemo: (fn: () => any) => fn(), ...context });
 }
 function chart(vwap: any, range = '1D', closes = [100, 110, 90, 100]) {
     const fn = find(cmd, n => ts.isFunctionDeclaration(n) && n.name?.text === 'CandleChart');
@@ -119,9 +120,9 @@ test('conviction retains measured above/below/equal VWAP scores', () => {
 });
 
 test('shared app/warm AI snapshot uses source VWAP, never underlying price or fake 0% distance', () => {
-    const fn = find('src/lib/ai/deepSnapshot.ts', n => ts.isFunctionDeclaration(n) && n.name?.text === 'buildDeepSnapshot');
+    const buildDeepSnapshot = require('../src/lib/ai/deepSnapshot').buildDeepSnapshot;
     for (const [value, expected] of [[null, 'N/A'], [100, '23.0%'], [123, '0.0%']] as const) {
-        const result = run(`${fn.replace('export ', '')}; buildDeepSnapshot(x);`, {
+        const result = run('buildDeepSnapshot(x);', { buildDeepSnapshot,
             x: { price: 123, rawTickerData: { vwap: value }, unified: { structure: { underlyingPrice: 100 } } },
             earningsDaysOrNull: () => null,
         });
@@ -148,7 +149,7 @@ test('mobile metrics VWAP card retains label and missing placeholder', () => {
 test('mobile overview AI snapshot never supplies fake zero distance', () => {
     const decl = find('src/components/intel/mobile/MobileCmdOverview.tsx', n => ts.isVariableDeclaration(n) && n.name.getText() === 'buildSnapshot');
     const result = run(`const ${decl}; buildSnapshot();`, {
-        useCallback: (fn: any) => fn, vwap: null, unified: { structure: { underlyingPrice: 100 } }, q: { price: 123 }, earningsDaysOrNull: () => null,
+        buildDeepSnapshot: require('../src/lib/ai/deepSnapshot').buildDeepSnapshot, ticker: 'TEST', useCallback: (fn: any) => fn, vwap: null, unified: { structure: { underlyingPrice: 100 } }, q: { price: 123 }, earningsDaysOrNull: () => null,
     });
     assert.equal(result.vwap, null); assert.equal(result.vwapDistance, 'N/A');
 });
@@ -258,6 +259,17 @@ test('app Command vital card retains its label and dash after API null mapping',
     assert.match(html, /VWAP/); assert.match(html, /—/); assert.doesNotMatch(html, /\$0|above|below|0\.00%/);
 });
 test('screen labels and translation keys remain identical to starting HEAD aaf27c68a', () => {
+    // Conviction keys moved with the shared score calculation. Include the
+    // actual cLabel assignments, while checking the page still translates them.
+    // B5: the label keys live in the one shared conviction definition (lib/commandConviction).
+    const shared = ts.createSourceFile('conviction.ts', fs.readFileSync('src/lib/commandConviction.ts', 'utf8'), ts.ScriptTarget.Latest, true);
+    const movedKeys: string[] = [];
+    const collect = (n: ts.Node) => {
+        if (ts.isStringLiteral(n) && /^conv[A-Z]/.test(n.text)) movedKeys.push(n.text);
+        ts.forEachChild(n, collect);
+    };
+    collect(shared);
+    assert.equal(new Set(movedKeys).size, 7);
     const labels = (code: string) => {
         const ast = ts.createSourceFile('view.tsx', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
         const result: string[] = [];
@@ -274,6 +286,9 @@ test('screen labels and translation keys remain identical to starting HEAD aaf27
     };
     for (const file of [cmd, 'src/app/[locale]/app-view/flow/page.tsx', metricsFile,
         'src/components/intel/mobile/MobileCmdOverview.tsx', 'src/components/intel/mobile/MobileCommandPage.tsx']) {
-        assert.deepEqual(labels(fs.readFileSync(file, 'utf8')), labels(execFileSync('git', ['show', `aaf27c68a:${file}`], { encoding: 'utf8' })), file);
+        const code = fs.readFileSync(file, 'utf8');
+        if (file === cmd) for (const key of new Set(movedKeys)) assert.ok(code.includes(`tDashboard('${key}')`), key);
+        const current = [...new Set([...labels(code), ...(file === cmd ? movedKeys : [])])].sort();
+        assert.deepEqual(current, labels(execFileSync('git', ['show', `aaf27c68a:${file}`], { encoding: 'utf8' })), file);
     }
 });

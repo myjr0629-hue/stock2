@@ -67,3 +67,14 @@ export function selectValue<T>(previous: DatedValue<T> | null | undefined, incom
     );
     return { value: picked?.value ?? null, asOf: picked?.value == null ? null : picked.sourceAsOf };
 }
+
+/** Rule 1 for a section inside a successful response (structure, volatility, squeeze…):
+ * a producer's failure/pending shape carries placeholders (0, LOW, NORMAL), not observations. */
+export function isFailedSection(section: any): boolean {
+    if (!section || typeof section !== 'object') return false;
+    if (section.error != null || section.success === false || section.unavailable === true) return true;
+    if (typeof section._source === 'string' && section._source.startsWith('unavailable')) return true;
+    if (['NONE', 'ERROR', 'PENDING', 'NO_MARKET'].includes(section.options_status)) return true;
+    if (section.dataSource === 'NONE') return true;
+    return section.validation?.isValid === false;
+}

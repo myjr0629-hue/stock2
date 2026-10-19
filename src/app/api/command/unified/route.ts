@@ -1774,14 +1774,17 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
             const snapAny = snap as any;
             let squeezeCard: any = null;
             if (snapAny.squeeze?.siPercent || snapAny.shortVol?.percent) {
+                // Only measured fields: an absent SI/DTC/change is null, never 0% (the exit overlay
+                // shortSqueezeMetrics derives riskScore/status from the measurements that exist).
+                const measured = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
                 squeezeCard = {
                     ticker,
-                    siPercent: snapAny.squeeze?.siPercent || 0,
-                    daysToCover: snapAny.squeeze?.daysToCover || 0,
-                    siChange: 0,
-                    shortVolPercent: snapAny.shortVol?.percent || 0,
-                    riskScore: 0,
-                    status: 'LOW',
+                    siPercent: measured(snapAny.squeeze?.siPercent),
+                    daysToCover: measured(snapAny.squeeze?.daysToCover),
+                    siChange: null,
+                    shortVolPercent: measured(snapAny.shortVol?.percent),
+                    riskScore: null,
+                    status: null,
                     _ts: Date.now(),
                 };
             }

@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, ChevronUp, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useLocale } from 'next-intl';
+import type { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
+import { deepMaterialIssues } from '@/lib/ai/deepTrust';
 import { earningsWithin } from '@/lib/earningsDate';
 
 // Helper: extract locale-specific text from trilingual object or fallback string
@@ -55,47 +57,7 @@ interface Props {
     ticker: string;
     displayPrice: number;
     session: string;
-    snapshot: {
-        price: number;
-        priceChange: number;
-        session: string;
-        signalCore: {
-            direction: string;
-            conviction: string;
-            condition: string;
-            conclusion: string;
-            bullCount: number;
-            bearCount: number;
-            bullSignals: string;
-            bearSignals: string;
-        };
-        contextScore?: { value: number; grade: string };
-        smartFlow?: { value: number; trend: string };
-        sma: { cross: string; sma50: number; sma200: number; trendPhase: string };
-        vwap: number | null;
-        vwapDistance: string;
-        conviction: { score: number | null; grade: string | null };
-        structure: {
-            netGex: number;
-            gammaFlipLevel: number;
-            squeezeRisk: string;
-            squeezeScore: number;
-            pcRatio: number;
-            callWall: number;
-            putFloor: number;
-            maxPain: number;
-            gammaConcentration: number;
-            gammaConcentrationLabel: string;
-        };
-        flow: { netPremium: number | null };
-        fundamental: { score: number; grade: string; pe: number; fcfMargin: number };
-        analyst: { score: number; buyPct: number };
-        institutional: { insiderNet30d: number | null; insiderBuy: number | null; insiderSell: number | null; activity: string };
-        volatility: { regime: string | null; regimeScore: number | null; gexLong: number };
-        squeeze: { status: string; siPercent: number };
-        /** daysUntil: 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다) */
-        earnings: { daysUntil: number | null; date: string; estimatedEps: number };
-        relatedTickers: string[];
+    snapshot: ReturnType<typeof buildDeepSnapshot> & {
         insider?: {
             net30d: number;
             buyCount: number;
@@ -123,6 +85,9 @@ const REFRESH_INTERVALS: Record<string, number> = {
     POST: 60 * 60 * 1000,
     CLOSED: 0,
 };
+
+const MATERIAL_RETRY_BACKOFF_MS = 5_000;
+const MAX_MATERIAL_RETRIES = 1;
 
 function getEffectiveInterval(session: string, earningsDaysUntil: number | null | undefined): number {
     const base = REFRESH_INTERVALS[session] || 0;
@@ -155,6 +120,11 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot, gexSta
     // [V11] Use ref for loading to avoid stale closure in useCallback
     const abortRef = useRef<AbortController | null>(null);
     const loadingRef = useRef(false);
+    const [materialRetryPending, setMaterialRetryPending] = useState(false);
+    const materialRetryRef = useRef({ attempts: 0, notBefore: 0 });
+    // Legacy web requests use the same observed-group gate as the route,
+    // without the app-only materialPhase requirement.
+    const materialReady = deepMaterialIssues({ ...snapshot, materialPhase: 'complete' }).ok;
     // Keep refs up to date for use in fetchAnalysis closure
     const tickerRef = useRef(ticker);
     const localeRef = useRef(locale);
@@ -175,11 +145,13 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot, gexSta
         
         // Cancel any in-flight request before starting new one
         abortRef.current?.abort();
-        abortRef.current = new AbortController();
+        const controller = new AbortController();
+        abortRef.current = controller;
         
         loadingRef.current = true;
         setLoading(true);
         setError(null);
+        setMaterialRetryPending(false);
 
         try {
             const res = await fetch('/api/command/deep-analysis', {
@@ -192,15 +164,23 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot, gexSta
                     triggerReason,
                     gexStats: gexStatsRef.current,
                 }),
-                signal: abortRef.current.signal,
+                signal: controller.signal,
             });
+
+            if (controller.signal.aborted) return;
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+                if (controller.signal.aborted) return;
+                if (res.status === 422 && err.error === 'insufficient_snapshot') {
+                    materialRetryRef.current.notBefore = Date.now() + MATERIAL_RETRY_BACKOFF_MS;
+                    setMaterialRetryPending(true);
+                }
                 throw new Error(err.error || `HTTP ${res.status}`);
             }
 
             const data = await res.json();
+            if (controller.signal.aborted) return;
             setAnalysis(data);
             lastAnalysisPriceRef.current = displayPriceRef.current;
             lastGammaFlipRef.current = snapshotRef.current.structure?.gammaFlipLevel || 0;
@@ -213,16 +193,14 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot, gexSta
             }
         } catch (e: any) {
             // Don't show error or update state for aborted requests
-            if (e.name === 'AbortError') {
-                loadingRef.current = false;
-                setLoading(false);
-                return;
-            }
+            if (controller.signal.aborted || e.name === 'AbortError') return;
             setError(e.message);
             console.error('[AIDeepAnalysis] Error:', e.message);
         } finally {
-            loadingRef.current = false;
-            setLoading(false);
+            if (!controller.signal.aborted && abortRef.current === controller) {
+                loadingRef.current = false;
+                setLoading(false);
+            }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -231,6 +209,11 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot, gexSta
         // Reset analysis for new ticker, cancel previous
         abortRef.current?.abort();
         loadingRef.current = false;
+        materialRetryRef.current = { attempts: 0, notBefore: 0 };
+        setMaterialRetryPending(false);
+        lastAnalysisPriceRef.current = 0;
+        lastGammaFlipRef.current = 0;
+        nextRefreshRef.current = 0;
         setAnalysis(null);
         setError(null);
         fetchAnalysis('FIRST_VIEW');
@@ -241,39 +224,50 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot, gexSta
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ticker]);
 
+    // A cache probe may precede unified data. Recover only that 422, once per
+    // ticker, using the latest snapshot after backoff; quote churn cannot rearm it.
+    useEffect(() => {
+        if (!materialRetryPending || !materialReady || loading || materialRetryRef.current.attempts >= MAX_MATERIAL_RETRIES) return;
+        const timer = setTimeout(() => {
+            if (loadingRef.current || !deepMaterialIssues({ ...snapshotRef.current, materialPhase: 'complete' }).ok) return;
+            materialRetryRef.current.attempts += 1;
+            fetchAnalysis('FIRST_VIEW');
+        }, Math.max(0, materialRetryRef.current.notBefore - Date.now()));
+        return () => clearTimeout(timer);
+    }, [ticker, materialReady, materialRetryPending, loading, fetchAnalysis]);
+
     // [V11] Auto-retry if server returned fallback (no real AI analysis)
     useEffect(() => {
-        if (!analysis) return;
+        if (!analysis || materialRetryPending || materialRetryRef.current.attempts >= MAX_MATERIAL_RETRIES) return;
         if (analysis.triggerReason === 'FALLBACK' || analysis.model === 'fallback') {
             const retryTimer = setTimeout(() => {
-                loadingRef.current = false; // Force unlock
                 fetchAnalysis('FIRST_VIEW');
             }, 15_000); // Retry after 15 seconds
             return () => clearTimeout(retryTimer);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [analysis?.triggerReason, analysis?.model]);
+    }, [analysis?.triggerReason, analysis?.model, materialRetryPending]);
 
     // Price move trigger (>1%)
     useEffect(() => {
-        if (!lastAnalysisPriceRef.current || loading) return;
+        if (!lastAnalysisPriceRef.current || loading || materialRetryPending) return;
         const changePct = Math.abs((displayPrice - lastAnalysisPriceRef.current) / lastAnalysisPriceRef.current * 100);
         if (changePct >= 1.0 && session === 'REG') {
             fetchAnalysis('PRICE_MOVE');
         }
-    }, [displayPrice, session, loading, fetchAnalysis]);
+    }, [displayPrice, session, loading, materialRetryPending, fetchAnalysis]);
 
     // Gamma flip trigger
     useEffect(() => {
         const currentFlip = snapshot.structure?.gammaFlipLevel || 0;
         const lastFlip = lastGammaFlipRef.current;
-        if (!lastFlip || !currentFlip || loading) return;
+        if (!lastFlip || !currentFlip || loading || materialRetryPending) return;
         const priceWasAbove = displayPrice > lastFlip;
         const priceIsAbove = displayPrice > currentFlip;
         if (priceWasAbove !== priceIsAbove && session === 'REG') {
             fetchAnalysis('GAMMA_FLIP');
         }
-    }, [snapshot.structure?.gammaFlipLevel, displayPrice, session, loading, fetchAnalysis]);
+    }, [snapshot.structure?.gammaFlipLevel, displayPrice, session, loading, materialRetryPending, fetchAnalysis]);
 
     // Countdown timer
     useEffect(() => {

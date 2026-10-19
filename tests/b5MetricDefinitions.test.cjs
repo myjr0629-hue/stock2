@@ -631,3 +631,36 @@ test('missing regime is not described as stable by web/app interpretation', () =
         assert.equal(description, regime === null ? '--' : { CALM: 'volStable', COILING: 'volCoiling', LOADED: 'volLoaded', ERUPTING: 'volErupting' }[regime]);
     }
 });
+
+test('AI gate 10191620 ①: a failed/pending structure never overrides the real 45/HIGH squeeze with 0/LOW', () => {
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const pending = { options_status: 'PENDING', squeezeScore: 0, squeezeRisk: 'LOW', netGex: null, gammaConcentration: 0,
+        validation: { isValid: false, confidence: 'LOW', failures: ['incomplete_data'] } };
+    for (const structure of [pending, { ...pending, options_status: 'OK' }, { ...pending, validation: undefined, options_status: 'NO_MARKET' }]) {
+        const out = build({ ticker: `G3A${structure.options_status}${!!structure.validation}`, price: 100, priceChange: 0, session: 'REG',
+            unified: { structure, volatility: { squeezeScore: 45, squeezeRisk: 'HIGH', asOf: '2026-10-19' } },
+            rawTickerData: null, insider: null, technicals: null, creditSpread: null });
+        assert.equal(out.structure.squeezeScore, 45); assert.equal(out.structure.squeezeRisk, 'HIGH');
+        assert.equal(out.structure.gammaConcentration, null, 'placeholder 0 concentration is not an observation');
+    }
+    // The shared volatility calculation ignores the failed section the same way.
+    assert.equal(unifiedRegime({ structure: pending, volatility: regime(fullRegime) }).regimeScore, 58);
+});
+
+test('AI gate 10191620 ②: unified squeeze producer never turns an absent SI into 0% / LOW', () => {
+    const { source, node } = findNode(commandFile, n => ts.isBinaryExpression(n)
+        && n.left.getText() === 'squeezeCard' && n.operatorToken.kind === ts.SyntaxKind.EqualsToken);
+    const block = findNode(commandFile, n => ts.isIfStatement(n) && n.expression.getText().includes('snapAny.squeeze?.siPercent'));
+    const card = snapAny => evaluate(`(() => { let squeezeCard = null; ${block.node.getText(block.source)}; return squeezeCard; })()`,
+        { snapAny, ticker: 'SQZ', Date });
+    assert.ok(node.getText(source).includes('siPercent'));
+    const shortOnly = card({ shortVol: { percent: 41.2 } });
+    assert.equal(shortOnly.siPercent, null); assert.equal(shortOnly.daysToCover, null);
+    assert.equal(shortOnly.status, null); assert.equal(shortOnly.riskScore, null); assert.equal(shortOnly.shortVolPercent, 41.2);
+    assert.equal(card({ squeeze: { siPercent: 12.5, daysToCover: 3 } }).siPercent, 12.5);
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const out = build({ ticker: 'G3B', price: 100, priceChange: 0, session: 'REG', unified: { squeeze: shortOnly },
+        rawTickerData: null, insider: null, technicals: null, creditSpread: null });
+    assert.equal(out.squeeze.siPercent, null);
+    assert.notEqual(out.squeeze.status, 'LOW');
+});

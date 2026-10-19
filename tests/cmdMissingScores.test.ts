@@ -8,6 +8,7 @@ import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
+import { commandScores } from '../src/lib/commandScores';
 import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
 import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
 import { computeUnifiedVolatilityRegime, computeVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
@@ -36,7 +37,7 @@ function run(code: string, context: Record<string, unknown> = {}): any {
         target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React,
     } }).outputText;
     return vm.runInNewContext(js, {
-        React, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
+        React, commandScores, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
         computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime,
         tDashboard: (key: string) => key, iv30Level: null,
         MetricInfo: () => null, ...context,
@@ -564,6 +565,8 @@ function deepSnapshotModule() {
         '@/lib/vwap': require('../src/lib/vwap'),
         '@/lib/premiumFlow': require('../src/lib/premiumFlow'),
         '@/lib/metrics/volatilityRegime': require('../src/lib/metrics/volatilityRegime'),
+        '@/lib/commandScores': { commandScores },
+        '@/lib/metrics/observation': require('../src/lib/metrics/observation'),
     };
     run(fs.readFileSync('src/lib/ai/deepSnapshot.ts', 'utf8'), {
         exports, require: (id: string) => { assert.ok(id in modules, `Unexpected dependency ${id}`); return modules[id]; },
@@ -571,7 +574,7 @@ function deepSnapshotModule() {
     return exports;
 }
 const deepPromptLine = (() => {
-    const src = fs.readFileSync('src/app/api/command/deep-analysis/route.ts', 'utf8');
+    const src = fs.readFileSync('src/lib/ai/deepMaterialPrompt.ts', 'utf8');
     const lines = src.split('\n').filter(l => l.includes('<net_premium>'));
     assert.equal(lines.length, 1); return lines[0].trim();
 })();
@@ -681,17 +684,19 @@ test('netPremiumOf: single observation rule', () => {
 test('gate④ every deep-analysis caller sends missing premium as null (web dashboard, mobile overview)', async () => {
     const unmeasured = await cachedChainHub(unpricedChain)._fetchOptionsChain('TEST', 100);
     const measured = await cachedChainHub(pricedChain)._fetchOptionsChain('TEST', 100);
-    const webFlow = productionNode('src/components/LiveTickerDashboard.tsx', n => ts.isPropertyAssignment(n)
-        && n.name.getText() === 'flow' && n.initializer.getText().includes('netPremiumOf(liveQuote?.flow)'));
-    const web = (flow: any) => run(`({${webFlow}}).flow;`, { liveQuote: { flow } });
+    const { buildDeepSnapshot } = deepSnapshotModule();
+    const base = { ticker: 'CALLERS', price: 100, priceChange: 0, session: 'CLOSED', unified: {}, insider: null, technicals: null, creditSpread: null };
+    const webInput = productionNode('src/components/LiveTickerDashboard.tsx', n => ts.isPropertyAssignment(n)
+        && n.name.getText() === 'rawTickerData' && n.initializer.getText().includes('liveQuote?.flow'));
+    const web = (flow: any) => buildDeepSnapshot({ ...base, ...run(`({${webInput}});`, { liveQuote: { flow }, initialStockData: null }) }).flow;
     for (const flow of [unmeasured, { netPremium: null, dataSource: 'NONE' }, { netPremium: 0, dataSource: 'NONE' }, null]) {
         assert.equal(web(flow).netPremium, null); assert.equal(deepPrompt(web(flow)), '<net_premium>N/A</net_premium>');
     }
     assert.equal(web(measured).netPremium, 0); assert.equal(deepPrompt(web(measured)), '<net_premium>$0.0M (NEUTRAL)</net_premium>');
     assert.equal(web({ netPremium: 2500000, contractsProcessed: 3 }).netPremium, 2500000);
-    const mobileFlow = productionNode('src/components/intel/mobile/MobileCmdOverview.tsx', n => ts.isPropertyAssignment(n)
-        && n.name.getText() === 'flow' && n.initializer.getText().includes('netPremiumOf('));
-    const mobile = (netPremium: any) => run(`({${mobileFlow}}).flow;`, { q: { netPremium } });
+    const mobileInput = productionNode('src/components/intel/mobile/MobileCmdOverview.tsx', n => ts.isPropertyAssignment(n)
+        && n.name.getText() === 'rawTickerData' && n.initializer.getText().includes('q.netPremium'));
+    const mobile = (netPremium: any) => buildDeepSnapshot({ ...base, ...run(`({${mobileInput}});`, { q: { netPremium }, vwap: null }) }).flow;
     for (const v of [null, undefined, 0, NaN]) assert.equal(mobile(v).netPremium, null);
     assert.equal(mobile(-1200000).netPremium, -1200000);
     // No remaining `|| 0` / `?? 0` premium coercion in any snapshot builder.
