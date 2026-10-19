@@ -142,6 +142,29 @@ function legPrices(c: any, quotesLive: boolean | null | undefined, tradeBasis: I
 }
 
 /**
+ * EOD 스트래들 전용 행 — 다리 가격을 «그 세션 마감 호가 중간값»으로만 둔다.
+ *   Intrinio mark(=마감 호가 중간)가 명시돼 있으면 그것, 없으면 마감 bid/ask 중간. day.vwap 은 mark 가 비면
+ *   «마지막 체결 종가»로 채워져(어댑터) 호가가 아니므로 쓰지 않는다 · 실시간 FMV(midpoint)·그릭스 표식도 섞지 않는다.
+ *   둘 다 없으면 그 다리는 값 없음(지어내지 않는다).
+ */
+export function eodQuoteRows(rows: any[], chainQuotesLive: boolean | null | undefined = null): any[] {
+    return (Array.isArray(rows) ? rows : []).map((c: any) => {
+        const explicitMark = pos(c?._intrinio?.eod?.mark);
+        const bid = pos(c?.last_quote?.bid), ask = pos(c?.last_quote?.ask);
+        const quoteMid = bid != null && ask != null && ask >= bid ? (bid + ask) / 2 : null;
+        // 슬림 저장 체인엔 명시 mark 가 없다 — day.vwap 이 그날 종가(day.close)와 다를 때만 그것이 mark 다(같으면 종가 대체일 수 있다).
+        const vwap = pos(c?.day?.vwap), close = pos(c?.day?.close);
+        const vwapMark = vwap != null && vwap !== close ? vwap : null;
+        // midpoint 는 «슬림 저장 체인»(호가 칸 없음)에서 실시간 FMV 가 덮지 않은 계약일 때만 마감 값이다
+        //   (_rtGreeks false, 또는 표식 없고 체인이 EOD). 호가 칸이 있는 원본 행의 midpoint 는 한쪽 호가 0 대체가 섞일 수 있어 쓰지 않는다.
+        const hasQuoteFields = !!c?.last_quote && ('bid' in c.last_quote || 'ask' in c.last_quote);
+        const midTrusted = !hasQuoteFields && (c?._rtGreeks === false || (c?._rtGreeks == null && chainQuotesLive !== true));
+        const mid = midTrusted ? pos(c?.last_quote?.midpoint) : null;
+        return { ...c, _rtGreeks: false, day: { ...(c?.day || {}), vwap: null }, last_trade: undefined, last_quote: { midpoint: explicitMark ?? quoteMid ?? mid ?? vwapMark } };
+    });
+}
+
+/**
  * ATM 스트래들 예상 변동 — 위 [정의] 그대로. 계산할 수 없으면 null(지어내지 않는다).
  */
 export function atmStraddleImpliedMove(chain: any[], spot: number, opts: StraddleOptions = {}): ImpliedMove | null {

@@ -10,10 +10,12 @@
  */
 import { getFromCache, mgetFromCache } from '@/services/redisClient';
 import { structureV2Key, structureLastGoodKey } from '@/services/structureService';
-import { atmStraddleImpliedMove, etDateString, IMPLIED_MOVE_DEF, impliedMoveFields, type ImpliedMove, type ImpliedMoveBasis } from '@/lib/impliedMove';
+import { atmStraddleImpliedMove, eodQuoteRows, etDateString, IMPLIED_MOVE_DEF, impliedMoveFields, type ImpliedMove, type ImpliedMoveBasis } from '@/lib/impliedMove';
 import { readEodCloses } from '@/services/eodSnapshot';
 import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { optionExpirationFloor, weeklyOptionExpiryAt, isOptionExpiredAt } from '@/lib/marketCalendar';
+
+import { ImpliedDeadlineError, withinImpliedDeadline, IMPLIED_REFRESH_BUDGET_MS, IMPLIED_SAVE_RESERVE_MS } from '@/lib/earnings/impliedDeadline';
 
 const MEMO_MS = 60_000;
 const memo = new Map<string, { at: number; value: ImpliedMove | null }>();
@@ -149,19 +151,38 @@ function firstExpiryAfterDate(exps: string[], date: string, timing: ImpliedTimin
 }
 
 /** 종목별 (after, timing) 으로 예상 변동을 읽는다 — 결과는 요청 순서. 저장본이 없으면 값 없이 이유만(지어내지 않는다). */
-export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today: string = etDateString()): Promise<ImpliedMoveRow[]> {
+export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today: string = etDateString(), opts: { probeMonthly?: boolean; deadlineMs?: number } = {}): Promise<ImpliedMoveRow[]> {
     const reqs = requests.map((r) => ({ ticker: String(r.ticker || '').toUpperCase(), after: r.after && ISO_DATE_RE.test(r.after) ? r.after : null, timing: r.timing ?? 'unknown' }));
     if (!reqs.length) return [];
+    const deadlineMs = opts.deadlineMs ?? (opts.probeMonthly ? Date.now() + IMPLIED_REFRESH_BUDGET_MS - IMPLIED_SAVE_RESERVE_MS : undefined);
+    const failed = () => reqs.map(r => impliedRowOf(r.ticker, null, null, 'read_failed'));
     let structureVals: any[] = [];
     try {
-        structureVals = await mgetFromCache<any>(reqs.flatMap((r) => [structureV2Key(r.ticker), structureLastGoodKey(`${r.ticker}:auto`)]));
+        structureVals = await withinImpliedDeadline(() => mgetFromCache<any>(reqs.flatMap((r) => [structureV2Key(r.ticker), structureLastGoodKey(`${r.ticker}:auto`)])), deadlineMs);
     } catch {
         structureVals = [];
     }
     const floor = optionExpirationFloor();
     if (today < floor) today = floor;
     const structures = reqs.map((_, i) => freshestStoredStructure(structureVals[2 * i], structureVals[2 * i + 1], today));
-    const resolved = await resolveImpliedMoves(reqs, structures, today);
+    let resolved: ResolvedImpliedMove[];
+    try {
+        resolved = await withinImpliedDeadline(() => resolveImpliedMoves(reqs, structures, today), deadlineMs);
+    } catch { return failed(); }
+    // The 0–35 DTE collector cannot cover every earnings date. The background pack
+    // refresh alone may fetch a monthly chain; other callers only read its dated result.
+    for (let i = 0; i < resolved.length; i++) {
+        const r = reqs[i];
+        if (resolved[i].im || !r.after) continue;
+        if (deadlineMs != null && Date.now() >= deadlineMs) break;
+        try {
+            const { earningsMonthlyMove } = await import('@/services/earningsMonthlyProbe');
+            const im = await earningsMonthlyMove(r.ticker, r.after, r.timing === 'bmo' || r.timing === 'dmh', structures[i], opts.probeMonthly === true, deadlineMs);
+            if (im) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
+        } catch (error) {
+            if (error instanceof ImpliedDeadlineError) break;
+        }
+    }
     return resolved.map((r) => impliedRowOf(r.ticker, r.im, r.source, r.reason));
 }
 
@@ -173,9 +194,9 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
     const now = Date.now();
     const date = etDateOf(now);
     const closed = isNonTradingDay(date) || etMinutesOf(now) >= sessionCloseMinutes(date) || etMinutesOf(now) < 570;
-    const eod = closed ? await readEodCloses().catch(() => null) : null;
+    let eod = closed ? await readEodCloses().catch(() => null) : null;
     const results: ResolvedImpliedMove[] = [];
-    const needProbe: Array<{ idx: number; ticker: string; expiry: string; spot: number; session: string | null }> = [];
+    const needProbe: Array<{ idx: number; ticker: string; expiry: string | null; after?: string | null; timing?: ImpliedTiming; spot: number; session: string | null }> = [];
     reqs.forEach((r, i) => {
         const st = structures[i];
         if (!st || isOptionExpiredAt(st.expiration)) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_snapshot')); return; }
@@ -189,14 +210,19 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
         const session = closed ? impliedMoveFields(weeklyIm).impliedMoveSession ?? st.chainDate ?? null : null;
         const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations.filter((e: string) => e >= today) : [];
         const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing ?? 'unknown') : (typeof st.expiration === 'string' ? st.expiration : null);
-        if (r.after && !want) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_expiry_after')); return; }
+        // availableExpirations is the structure's slice, not the collector's full chain.
+        // Read the real chain before declaring that an earnings expiry is unavailable.
+        if (r.after && !want) {
+            if (spot > 0) needProbe.push({ idx: i, ticker: r.ticker, expiry: null, after: r.after, timing: r.timing, spot, session });
+            results.push(resolvedMoveOf(r.ticker, null, null, 'no_expiry_after')); return;
+        }
         if (weeklyIm && weeklyIm.expiry === want) {
             // 종가 이동으로 ATM 행사가가 바뀔 수도 있다. 같은 원천 체인이 있으면 두 다리도 다시 고른다.
             if (regularClose && st.impliedMove.spot !== regularClose) needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot, session });
             results.push(resolvedMoveOf(r.ticker, weeklyIm, 'structure', null)); return;
         }
         if (!want || !(spot > 0) || (!r.after && !structureLacksImpliedMove(st))) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle')); return; }
-        needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot, session });
+        needProbe.push({ idx: i, ticker: r.ticker, expiry: want, after: r.after, timing: r.timing, spot, session });
         results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle'));
     });
     if (needProbe.length) {
@@ -206,22 +232,45 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
         } catch {
             probes = [];
         }
+        // An earnings fallback can be EOD even during REG. Its denominator and ATM
+        // selection must use that option session's close, never the structure's spot.
+        if (!eod && needProbe.some(n => n.after)) eod = await readEodCloses().catch(() => null);
         needProbe.forEach((n, i) => {
             const pc = probes[i];
             const chain = [...(Array.isArray(pc?.exactResults) ? pc.exactResults : []), ...(Array.isArray(pc?.probeResults) ? pc.probeResults : [])];
-            // chainDate는 주간 만기의 날짜다. 다른 만기는 자기 날짜가 있을 때만 같은 세션임을 증명할 수 있다.
-            const chainDate = pc?.chainDates?.[n.expiry] || ((!pc?.weeklyExpiry || pc.weeklyExpiry === n.expiry) ? pc?.chainDate : null) || null;
-            if (n.session && chainDate !== n.session) return;
-            const im = chain.length
-                ? atmStraddleImpliedMove(chain, n.spot, {
-                    expiry: n.expiry,
+            const actualExps: string[] = [...new Set<string>(chain.map((c: any) => c?.details?.expiration_date)
+                .filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today))].sort();
+            const eligible = n.after ? actualExps.filter((e) => firstExpiryAfterDate([e], n.after!, n.timing ?? 'unknown')) : [n.expiry!];
+            // A weekly expiry may lack a complete ATM pair. Try subsequent actual expiries,
+            // including the next monthly expiry, without inventing a quote or a date.
+            for (const expiry of eligible) {
+                const rows = chain.filter((c: any) => c?.details?.expiration_date === expiry);
+                const rowDates = [...new Set(rows.map((c: any) => c?._intrinio?.date).filter((d: unknown) => typeof d === 'string' && ISO_DATE_RE.test(d)))];
+                const chainDate = pc?.chainDates?.[expiry] || ((!pc?.weeklyExpiry || pc.weeklyExpiry === expiry) ? pc?.chainDate : null)
+                    || (rowDates.length === 1 ? rowDates[0] : null) || null;
+                if (!n.after && n.session && chainDate !== n.session) continue;
+                const quoteOptions = {
+                    expiry,
                     quotesLive: pc?.greeksSource === 'realtime',
                     quotesAt: Number(pc?._ts) || null,
                     chainDate,
-                })
-                : null;
-            if (im && n.session && im.session !== n.session) return;
-            if (im || !results[n.idx].im) results[n.idx] = resolvedMoveOf(n.ticker, im, 'probe', chain.length ? 'no_straddle' : 'no_snapshot');
+                };
+                let im = atmStraddleImpliedMove(rows, n.spot, quoteOptions);
+                if (n.after && im?.basis !== 'live') {
+                    // Check the expiry's own provenance, independently of the weekly slice.
+                    if (!chainDate || rowDates.some(d => d !== chainDate)) continue;
+                    const close = eod && eod.date === chainDate ? eod.rows.get(n.ticker)?.c : null;
+                    if (!(typeof close === 'number' && Number.isFinite(close) && close > 0)) continue;
+                    // Re-select both legs at the closing ATM strike, not just the percentage.
+                    // EOD 값은 마감 호가만으로 — 저장 체인의 day.vwap(마크가 비면 마지막 체결 종가)·실시간 FMV 를 섞지 않는다(관문 10200342).
+                    im = atmStraddleImpliedMove(eodQuoteRows(rows, pc?.greeksSource === 'realtime'), close, { ...quoteOptions, quotesLive: false });
+                    if (im?.basis !== 'eod' || im.session !== chainDate) continue;
+                }
+                if (!im || (!n.after && n.session && im.session !== n.session)) continue;
+                results[n.idx] = resolvedMoveOf(n.ticker, im, 'probe', null);
+                break;
+            }
+            if (!results[n.idx].im && eligible.length > 0) results[n.idx].reason = chain.length ? 'no_straddle' : 'no_snapshot';
         });
     }
     // 위 조회를 기다리는 사이 마감됐을 수 있다 — 먼저 채운 행도 응답 직전에 다시 검사한다(지난 만기 값은 내지 않는다).
