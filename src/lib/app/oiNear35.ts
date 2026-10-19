@@ -9,9 +9,11 @@
  *   ① 범위 — 창(오늘 ET ~ +35일) 안의 «모든» 만기가 체인에 있어야 한다. 앱 체인(allExpiryChain)은 만기 8개 상한이라
  *      SPY 는 9일치뿐 → 그것만으로는 35일 값이 아니다(일부 만기 합계로 메우지 않는다 · 전 만기 합계로도 메우지 않는다).
  *   ② 결측 — open_interest 가 숫자(또는 숫자 문자열)·0 이상일 때만 센다. 빈 문자열·null·음수·NaN 은 0 이 아니라 «결측»이다.
- *      콜·풋 «각각» 창 안 계약 중 결측이 10% 를 넘으면 값 전체를 내지 않는다(한쪽이 통째로 비어 P/C 0·극단값이 되는 것을 막는다).
- *      10% 까지 두는 까닭(실측 2026-10-19 SPY, 레코드 10/16): 그날 새로 상장된 만기(10/29)는 OCC 가 아직 OI 를 내지 않아 298계약 중 238계약이 null —
- *      창 안 4,334계약의 5.5%. 상장 전날 포지션은 없으므로 합계에 넣을 수량이 없다(결측으로 빼고 센다).
+ *      결측은 «그날 새로 상장된 만기»에서만 받아 준다 — 그 밖의 만기에 결측이 한 계약이라도 있으면 값 전체를 내지 않는다
+ *      (한 계약의 큰 OI 가 빠져 P/C·OPI 방향이 뒤집히는 것을 막는다 — 관문 10200353: 풋 2,550 하나가 null 이면 P/C 3.00 → 0.45).
+ *      «새로 상장된 만기» = 그 만기 계약의 절반 이상이 결측 + 그 만기의 나머지(측정된) OI 가 창 전체 측정 OI 의 1% 이하.
+ *      근거(실측 2026-10-19 SPY, 레코드 10/16): 10/29 만기는 OCC 가 아직 OI 를 내지 않아 298계약 중 238계약이 null, 측정된 60계약 OI 4,438 = 창 전체의 0.07%.
+ *      상장 전날(D−1 마감)엔 포지션이 없으므로 합계에 넣을 수량이 없다. 큰 만기가 공급사 오류로 비면 측정분이 1% 를 넘어 거부된다.
  *   ③ 0 계약 — 콜 합계·풋 합계가 둘 다 0 보다 커야 한다(한쪽이 0 이면 P/C 0·무한대 같은 허위 극단값이 된다).
  *   ④ 날짜 — 창 안 계약의 레코드 날짜(공급사 EOD 날짜)가 하나여야 한다. 날짜 없는 계약이 있거나 날짜가 둘 이상이면 내지 않는다(서로 다른 날의 OI 를 섞지 않는다).
  *   ⑤ 기준일 — 레코드 D 의 OI 는 D 아침 OCC 공표 = D−1 마감 포지션(메모리 oi-record-date-is-previous-session). 값의 날짜는 oiDate = D−1.
@@ -19,8 +21,9 @@
 import { prevTradingDate } from '@/lib/marketCalendar';
 
 export const OI35_WINDOW_DAYS = 35;
-/** 콜·풋 각각, 창 안 계약 중 OI 결측이 이 비율을 넘으면 값을 내지 않는다 */
-export const OI35_MAX_MISSING_SHARE = 0.10;
+/** «새로 상장된 만기» 판정 — 그 만기 계약 중 결측 비율 하한 · 그 만기 측정 OI 의 창 전체 대비 상한 */
+export const OI35_NEW_LISTING_MIN_MISSING = 0.5;
+export const OI35_NEW_LISTING_MAX_OI_SHARE = 0.01;
 /** 창 안 만기가 이보다 많으면 비정상(공급사 목록 오류)으로 보고 내지 않는다 — 호출량 상한도 겸한다 */
 export const OI35_MAX_EXPIRIES = 45;
 
@@ -86,18 +89,21 @@ export function sumChainOi35(rows: ChainOiRow[], expected: string[], anchor: str
     const seen = new Set<string>();
     const dates = new Set<string>();
     let callOI = 0, putOI = 0, counted = 0, missing = 0, total = 0, undated = 0;
-    const side = { call: { n: 0, miss: 0 }, put: { n: 0, miss: 0 } };
+    const byExp = new Map<string, { n: number; miss: number; oi: number }>();
     for (const r of Array.isArray(rows) ? rows : []) {
         if (!r || !inWin(r.expiration)) continue;
         const type = String(r.type ?? '').toLowerCase();
         if (type !== 'call' && type !== 'put') continue;
         total++;
-        side[type].n++;
         seen.add(r.expiration);
+        const ex = byExp.get(r.expiration) ?? { n: 0, miss: 0, oi: 0 };
+        byExp.set(r.expiration, ex);
+        ex.n++;
         if (typeof r.date === 'string' && YMD.test(r.date)) dates.add(r.date); else undated++;
         const oi = strictOi(r.oi);
-        if (oi == null) { missing++; side[type].miss++; continue; }
+        if (oi == null) { missing++; ex.miss++; continue; }
         counted++;
+        ex.oi += oi;
         if (type === 'call') callOI += oi; else putOI += oi;
     }
     const absent = want.filter((e) => !seen.has(e));
@@ -105,8 +111,11 @@ export function sumChainOi35(rows: ChainOiRow[], expected: string[], anchor: str
     if (undated > 0) return { ok: false, reason: 'undated' };
     if (dates.size !== 1) return { ok: false, reason: `dates:${dates.size}` };
     if (total === 0) return { ok: false, reason: 'no-contracts' };
-    for (const k of ['call', 'put'] as const) {
-        if (side[k].n === 0 || side[k].miss / side[k].n > OI35_MAX_MISSING_SHARE) return { ok: false, reason: `missing-oi:${k}:${side[k].miss}/${side[k].n}` };
+    const knownTotal = callOI + putOI;
+    for (const [e, x] of byExp) {
+        if (x.miss === 0) continue;
+        const newListing = x.miss / x.n >= OI35_NEW_LISTING_MIN_MISSING && knownTotal > 0 && x.oi / knownTotal <= OI35_NEW_LISTING_MAX_OI_SHARE;
+        if (!newListing) return { ok: false, reason: `missing-oi:${e}:${x.miss}/${x.n}` };
     }
     if (!(callOI > 0) || !(putOI > 0)) return { ok: false, reason: 'zero-side' };
     const recordDate = [...dates][0];

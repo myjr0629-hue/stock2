@@ -74,17 +74,17 @@ t('관문 10200109 ③: 서로 다른 날짜의 OI(10/16 콜 + 8/28 풋)는 섞�
     const undated = [row('call', '2026-10-23', 1000, '2026-10-16'), row('put', '2026-10-23', 2090, null)];
     assert.deepEqual(sumChainOi35(undated, ['2026-10-23'], '2026-10-19'), { ok: false, reason: 'undated' });
 });
-t('관문 10200204 ②: 음수 OI(−200)는 합산하지 않는다 — 결측이 한쪽 10% 를 넘으면 값 없음(P/C −1 재현 입력)', () => {
+t('관문 10200204 ②: 음수 OI(−200)는 합산하지 않는다 — 결측 계약이 있으면 값 없음(P/C −1 재현 입력)', () => {
     const rows = [row('call', '2026-10-23', 100), row('put', '2026-10-23', 100), row('put', '2026-10-23', -200)];
     const r = sumChainOi35(rows, ['2026-10-23'], '2026-10-19');
     assert.equal(r.ok, false);
-    assert.match((r as any).reason, /^missing-oi:put:1\/2$/);
+    assert.match((r as any).reason, /^missing-oi:2026-10-23:1\/3$/);
 });
 t('관문 10200222 ①: 풋 OI "" 는 0 이 아니다 — P/C 0(→ OPI 95)이 나오지 않는다', () => {
     const rows = [row('call', '2026-10-23', 100), row('put', '2026-10-23', '')];
     const r = sumChainOi35(rows, ['2026-10-23'], '2026-10-19');
     assert.equal(r.ok, false);
-    assert.match((r as any).reason, /^missing-oi:put:1\/1$/);
+    assert.match((r as any).reason, /^missing-oi:2026-10-23:1\/2$/);
     // 풋이 실제로 0 이어도(측정된 0) 한쪽 합계 0 이면 P/C 0·극단값이라 내지 않는다(0 계약 방어)
     assert.deepEqual(sumChainOi35([row('call', '2026-10-23', 100), row('put', '2026-10-23', 0)], ['2026-10-23'], '2026-10-19'), { ok: false, reason: 'zero-side' });
 });
@@ -341,6 +341,38 @@ t('관문 10200339 ②·잔존 위험: 행 «수량» 규칙 하나 — 콜 0·�
         assert.equal(fb.basis, 'oi_near_expiries_35d_chain');
         assert.equal(fb.pcr, 3.07);
     } finally { (Date as any).now = realNow; dynamoRow = null; }
+});
+
+t('관문 10200353: 새로 상장된 만기가 아닌 곳의 결측은 한 계약이라도 거부 — 풋 2,550 하나가 null 이면 P/C 3.00 → 0.45(OPI 10 → 78)로 뒤집히던 입력', () => {
+    const rows: ChainOiRow[] = [];
+    for (let i = 0; i < 10; i++) rows.push(row('call', '2026-10-23', 100));
+    for (let i = 0; i < 9; i++) rows.push(row('put', '2026-10-23', 50));
+    rows.push(row('put', '2026-10-23', 2550));
+    const full = sumChainOi35(rows, ['2026-10-23'], '2026-10-19');
+    assert.equal((full as any).value.pcr, 3);
+    rows[rows.length - 1] = row('put', '2026-10-23', null);
+    const r = sumChainOi35(rows, ['2026-10-23'], '2026-10-19');
+    assert.equal(r.ok, false);
+    assert.equal((r as any).reason, 'missing-oi:2026-10-23:1/20');
+});
+t('관문 10200353: SPY 픽스처에서 정상 만기 계약 하나를 null 로 바꾸면 거부(3.07 → 2.88 통과 금지) · 10/29(그날 상장, 238/298 결측·측정 OI 0.07%)는 받아 준다', () => {
+    const rowsOf = () => FX.listed.flatMap((e: string) => vendorRows(e).map(chainRowOf));
+    const ok = sumChainOi35(rowsOf(), FX.listed, FX.anchor);
+    assert.equal((ok as any).value.pcr, 3.07);
+    assert.equal((ok as any).value.missingOi, 238);
+    const rows = rowsOf();
+    // 11/20 만기에서 풋 OI 가 가장 큰 계약을 결측으로
+    let at = -1, max = -1;
+    rows.forEach((r: any, i: number) => { if (r.expiration === '2026-11-20' && r.type === 'put' && Number(r.oi) > max) { max = Number(r.oi); at = i; } });
+    rows[at] = { ...rows[at], oi: null };
+    const r = sumChainOi35(rows, FX.listed, FX.anchor);
+    assert.equal(r.ok, false);
+    assert.match((r as any).reason, /^missing-oi:2026-11-20:1\/442$/);
+    // 큰 만기(11/20)가 공급사 오류로 절반 넘게 비어도 «새 상장»으로 받아 주지 않는다(측정분이 창 전체의 1% 초과)
+    const glitch = rowsOf().map((r: any, i: number) => (r.expiration === '2026-11-20' && i % 3 !== 0 ? { ...r, oi: null } : r));
+    const g = sumChainOi35(glitch, FX.listed, FX.anchor);
+    assert.equal(g.ok, false);
+    assert.match((g as any).reason, /^missing-oi:2026-11-20:/);
 });
 
 // ━━━ 직전 세션 조건(장 마감 뒤·주말·두 세션 넘게 낡은 레코드) ━━━
