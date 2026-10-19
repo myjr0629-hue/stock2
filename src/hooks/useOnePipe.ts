@@ -283,7 +283,8 @@ export function useOnePipe(
             if (session === 'PRE' || session === 'REG') {
                 delete closeLocks.current[ticker];
                 if (session === 'REG' && pollUsable && pollPrice > 0) lastRegular.current[ticker] = pollPrice;
-            } else if (pollPrice > 0 && !closeLocks.current[ticker]) {
+            } else if (pollUsable && pollPrice > 0 && !closeLocks.current[ticker]) {
+                // 종가 잠금은 서버 실제 정규장 값으로만 — proxy 대신 남긴 장중 값은 잠그지 않는다(관문 10192055 P1)
                 // CLOSED/POST에서 price ≈ prevClose면 잠금 차단 (Polygon 버그 방지)
                 const isSuspicious = pollPrevClose > 0 && Math.abs(pollPrice - pollPrevClose) < 0.01;
                 if (!isSuspicious) {

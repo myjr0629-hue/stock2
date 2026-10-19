@@ -326,7 +326,8 @@ export function useIntelSharedData(
                     const regCloseToday = !isCloseSession ? null
                         : (q.regularCloseToday && q.regularCloseToday > 0 && (toSession(q.session || '') === 'POST' || toSession(q.session || '') === 'CLOSED')
                             ? q.regularCloseToday
-                            : (pollPrice > 0 ? pollPrice : null));
+                            // 종가 잠금은 서버 실제 정규장 값으로만 — proxy 대신 남긴 장중 값은 잠그지 않는다(확정 종가가 오면 그것을 잠근다 · 관문 10192055 P1)
+                            : (serverRegularPriceUsable(p) && pollPrice > 0 ? pollPrice : null));
 
                     const pipe = computeOnePipe({
                         session,
@@ -695,6 +696,8 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[], appBasis = fa
             extendedPrice: fresh ? (updated.extendedPrice || 0) : existing.extendedPrice,
             extendedChangePct: fresh ? (updated.extendedChangePct || 0) : existing.extendedChangePct,
             extendedLabel: fresh ? (updated.extendedLabel || '') : existing.extendedLabel,
+            // 시간외 값과 그 체결 시각은 한 관측 — 값만 바꾸고 옛 시각을 남기면 그 사이의 옛 소켓 틱이 새 값을 덮는다(관문 10192055 P1)
+            extendedTime: fresh ? (updated.extendedTime ?? null) : (existing.extendedTime ?? null),
             // 서버가 본 정규장 체결 시각은 늦은 쪽을 남긴다(소켓 덮개가 그보다 옛 틱을 거른다 · 관문 10191957)
             priceTime: Math.max(Number(existing.priceTime) || 0, fresh ? Number(updated.priceTime) || 0 : 0) || null,
             session: updated.session || existing.session,

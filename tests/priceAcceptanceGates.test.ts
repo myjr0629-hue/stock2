@@ -285,6 +285,46 @@ async function main() {
             assert.equal(calls.length, 1, `${file}: 같은 값·같은 체결은 건너뛴다`);
         }
     });
+    await t('관문 10192055① Intel fast 병합 — PRE 100(08:00) → fast 110(08:25) → 방금 받은 08:10 틱 100 은 쓰지 않는다(값과 체결 시각을 함께 갱신)', () => {
+        const src = read('src/hooks/useIntelSharedData.ts');
+        const sf = ts.createSourceFile('intel.ts', src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+        let fnTxt = '';
+        sf.forEachChild((n) => { if (ts.isFunctionDeclaration(n) && n.name?.text === 'mergeFastIntoFull') fnTxt = n.getText(sf); });
+        assert.ok(fnTxt);
+        const missing = require('../src/lib/app/intelMissing');
+        const box: any = { module: { exports: null }, isFieldMissing: missing.isFieldMissing, setMissingField: missing.setMissingField };
+        vm.runInNewContext(compile(`${fnTxt}\nmodule.exports = mergeFastIntoFull;`), box);
+        const merge = box.module.exports;
+        const NOW = EDT('2026-10-19', 8, 30);
+        const pre = intelRow({ price: 100, prevClose: 98, changePct: 200 / 98, extendedPrice: 100, extendedChangePct: 0, extendedLabel: 'PRE', extendedTime: new Date(EDT('2026-10-19', 8)).toISOString(), session: 'pre' });
+        const fast = intelRow({ price: 100, prevClose: 98, changePct: 200 / 98, extendedPrice: 110, extendedChangePct: 10, extendedLabel: 'PRE', extendedTime: new Date(EDT('2026-10-19', 8, 25)).toISOString(), session: 'pre' });
+        const [merged] = merge([pre], [fast]);
+        assert.equal(merged.extendedPrice, 110); assert.equal(merged.extendedTime, fast.extendedTime);
+        const { overlay } = intelAt(NOW);
+        const t1 = EDT('2026-10-19', 8, 10);
+        const [r] = overlay(new Map([['AAPL', { price: 100, changePct: 0, priceTime: t1, ts: NOW - 500, receivedAt: NOW - 500 }]]))([merged]);
+        assert.equal(r.extendedPrice, 110); near(r.extendedChangePct, 10, 1e-6);
+    });
+    await t('관문 10192055② 11/27 장중 109 → 13:30 proxy 111 → 확정 종가 110 — Intel·대시보드 저장소 모두 110 · +10%(남긴 109 를 종가로 잠그지 않는다)', async () => {
+        const NOW = EST('2026-11-27', 13, 30);
+        const proxy = { price: 111, previousClose: 100, prevClose: 100, changePercent: 11, session: 'post', ...regularPriceStamp({ session: 'post', regularDate: null, tradeMs: EST('2026-11-27', 13, 25), priceBasis: 'quote_mid', hasPrice: true, lastClosed: '2026-11-27', nowMs: NOW }) };
+        const eod = { price: 110, previousClose: 100, prevClose: 100, changePercent: 10, session: 'post', sourceSessionDate: '2026-11-27', observedAt: null, basis: 'eod' };
+        const { update } = intelAt(NOW);
+        const [a] = update({ AAPL: proxy })([intelRow({ price: 109, prevClose: 100, changePct: 9 })]);
+        assert.equal(a.price, 109);
+        const [b] = update({ AAPL: eod })([a]);
+        assert.equal(b.price, 110); near(b.changePct, 10, 1e-6); assert.equal(b.regularCloseToday, 110);
+        // 웹 대시보드 저장소
+        const reg = { price: 109, previousClose: 100, prevClose: 100, changePercent: 9, session: 'regular', sourceSessionDate: '2026-11-27', observedAt: EST('2026-11-27', 12, 59), basis: 'live' };
+        const rows: any = { AAPL: reg };
+        const store = makeStoreAt(rows, 'post', NOW);
+        store.getState().initializeStore(['AAPL'], { AAPL: reg });
+        rows.AAPL = proxy; await store.getState().fetchPriceOnly(['AAPL']);
+        assert.equal(store.getState().tickers.AAPL.underlyingPrice, 109);
+        rows.AAPL = eod; await store.getState().fetchPriceOnly(['AAPL']);
+        assert.equal(store.getState().tickers.AAPL.underlyingPrice, 110);
+        near(store.getState().tickers.AAPL.changePercent, 10, 1e-6);
+    });
     await t('P2 PRE 100(09:25 체결) 행이 남은 채 09:30:02 정규장 틱 110 → PRE 칸 100 유지(정규장 체결을 PRE 로 쓰지 않음) · 09:28 PRE 틱 100.3 은 채택', () => {
         const NOW = EDT('2026-10-19', 9, 30, 3);
         const { overlay } = intelAt(NOW);
@@ -302,7 +342,8 @@ async function main() {
         const { update } = intelAt(NOW);
         const stamp = regularPriceStamp({ session: 'post', regularDate: null, tradeMs: EST('2026-11-27', 13, 25), priceBasis: 'quote_mid', hasPrice: true, lastClosed: '2026-11-27', nowMs: NOW });
         const [r] = update({ AAPL: { price: 111, previousClose: 100, changePercent: 11, session: 'post', ...stamp } })([intelRow({ price: 110, prevClose: 100, changePct: 9.9 })]);
-        assert.equal(r.price, 110); near(r.changePct, 10, 1e-6); assert.equal(r.regularCloseToday, 110);
+        assert.equal(r.price, 110); near(r.changePct, 10, 1e-6);
+        assert.ok(!r.regularCloseToday, '남긴 장중 값은 종가로 잠그지 않는다(확정 종가가 오면 그것을 잠근다)');
         // 직전 값이 없으면(첫 진입) 칸을 비우지 않는다
         const [first] = update({ AAPL: { price: 111, previousClose: 100, changePercent: 11, session: 'post', ...stamp } })([intelRow({ price: 0, prevClose: 100 })]);
         assert.equal(first.price, 111);

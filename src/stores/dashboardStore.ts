@@ -469,7 +469,8 @@ export const useDashboardStore = create<DashboardState>()(
                             ? null
                             : (lockedInClose && existing.regularCloseToday && existing.regularCloseToday > 0
                                 ? existing.regularCloseToday
-                                : (pollPx > 0 ? pollPx : null));
+                                // 종가 잠금은 서버 실제 정규장 값으로만 — proxy 대신 남긴 장중 값은 잠그지 않는다(관문 10192055 P1)
+                                : (serverRegularPriceUsable(q) && pollPx > 0 ? pollPx : null));
 
                         // ── [ONE-PIPE] computeOnePipe — 단일 가격 계산 경로 ──
                         const pipe = computeOnePipe({
