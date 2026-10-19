@@ -5,6 +5,8 @@
 
 import { fetchMassive } from "@/services/massiveClient";
 import { getFromCache, setInCache } from "@/services/redisClient";
+import { etDateOf } from "@/lib/marketCalendar";
+import { isInRegularSession, lastCompletedSessionDate, readSessionArchive, saveSessionArchive } from "@/lib/sessionArchive";
 
 // === TYPES ===
 export interface BreadthSnapshot {
@@ -30,6 +32,11 @@ export interface BreadthSnapshot {
     hasData: boolean;
     /** hasData=false 일 때의 사유 (진단용) */
     reason?: string;
+    /**
+     * 이 판독값의 원천 정규장 날짜(ET) — 장중이면 오늘, 장외(완료 세션 보관본·직전 정규장 판독값)면 그 세션 날짜.
+     * [2026-10-19 묶음 3] 36h TTL 하나에 기대던 직전 정규장 값을 거래일별 보관본(lib/sessionArchive)으로 옮기며 같이 싣는다.
+     */
+    sourceSessionDate?: string | null;
 }
 
 // === CACHE CONFIG ===
@@ -52,20 +59,13 @@ const MEMORY_TTL_MS = 3 * 60 * 1000; // 3 minutes
  *   그 값으로 breadth 를 재계산하면 «가짜 급등» 이 섞인 폭이 나온다.
  */
 const LAST_REG_KEY = 'guardian:breadth:lastreg';
-const LAST_REG_TTL = 36 * 60 * 60;   // 36h — 주말/휴일을 건너뛰어도 직전 정규장이 남게
+const LAST_REG_TTL = 36 * 60 * 60;   // 36h — 옛 키(호환·장애 대체). ⚠️ 금→월 04:00 = 60h 라 혼자서는 주말을 못 넘는다
+// → [2026-10-19] 정본은 거래일별 완료 세션 보관본 session:breadth:ALL:{YYYY-MM-DD}(8일, lib/sessionArchive) — 장외엔 이것부터 읽는다.
 
 type Session = 'PRE' | 'REG' | 'POST' | 'CLOSED';
 
-/** 마지막으로 «완료된» 정규장의 거래일(ET, YYYY-MM-DD) */
-function lastCompletedTradingDate(): string {
-    const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const past16 = et.getHours() * 100 + et.getMinutes() >= 1600;
-    // 장 마감 전이면 오늘 정규장은 아직 «완료»가 아니다 → 하루 뒤로
-    if (!past16) et.setDate(et.getDate() - 1);
-    while (et.getDay() === 0 || et.getDay() === 6) et.setDate(et.getDate() - 1);
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
-}
+// 마지막으로 «완료된» 정규장의 거래일 = lib/sessionArchive.lastCompletedSessionDate (거래소 달력 — 휴장·조기 폐장 반영).
+// [2026-10-19] 예전 이 파일의 lastCompletedTradingDate 는 주말만 알아 휴장 다음 날(화 PRE) 에 «월(휴장)»을 기대해 중립을 냈다.
 
 /** rlsiEngine 과 동일 규칙. 순환 import 를 피하려고 여기 둔다. */
 function marketSession(): Session {
@@ -96,15 +96,27 @@ export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<Bre
 
     // 0. 정규장이 아니면 «직전 정규장 판독값»을 그대로 돌려준다.
     //    (설계 정본: MarketBreadthPanel — POST 는 완료된 세션의 실제 값을 유지)
-    if (session !== 'REG') {
-        try {
-            const lastReg = await getFromCache<BreadthSnapshot>(LAST_REG_KEY);
-            if (lastReg && lastReg.totalTickers > 0) {
-                console.log(`[Breadth] ${session}: 직전 정규장 판독값 유지 (${lastReg.advancers}↑/${lastReg.decliners}↓ @ ${lastReg.timestamp})`);
-                return { ...lastReg, isDivergent: nasdaqChangePct > 0.3 && lastReg.breadthPct < 40 };
-            }
-        } catch (e) {
-            console.warn('[Breadth] lastreg 조회 실패:', e);
+    //    정규장 판정은 거래소 달력으로도 한 번 더 — 평일 휴장·조기 폐장(13:00) 뒤엔 «장중 재측정» 대신 완료 세션 값.
+    if (session !== 'REG' || !isInRegularSession(now)) {
+        // 0-a. 완료 세션 보관본(거래일별 8일) — 달력의 «마지막으로 끝난 정규장» 날짜 키. 금→월·휴일 다음 날에도 남는다.
+        // 0-b. 옛 직전 정규장 키(36h) — 둘 다 있으면 «같은 세션의 더 늦은 판독값»을 쓴다(관문 3차: 저장 간격 때문에 보관본이 마지막 장중 판독값보다
+        //      늦을 수 있었다 — 15:54 보관 vs 15:58 lastreg). 보관본이 없으면 옛 키, 원천 날짜를 판독 시각에서 붙인다(숨기지 않는다).
+        let arch: Awaited<ReturnType<typeof readSessionArchive<BreadthSnapshot>>> = null;
+        let lastReg: BreadthSnapshot | null = null;
+        try { arch = await readSessionArchive<BreadthSnapshot>('breadth', 'ALL', { nowMs: now }); } catch { arch = null; }
+        try { lastReg = await getFromCache<BreadthSnapshot>(LAST_REG_KEY); } catch (e) { console.warn('[Breadth] lastreg 조회 실패:', e); }
+        const lrTs = Date.parse(lastReg?.timestamp || '');
+        const lrDate = lastReg ? (lastReg.sourceSessionDate ?? (Number.isFinite(lrTs) ? etDateOf(lrTs) : null)) : null;
+        const archOk = !!(arch && arch.value && arch.value.totalTickers > 0);
+        const lrOk = !!(lastReg && lastReg.totalTickers > 0);
+        const lrNewerSameSession = archOk && lrOk && lrDate === arch!.stamp.sourceSessionDate
+            && Number.isFinite(lrTs) && lrTs > (arch!.stamp.observedAt ?? 0);
+        if (archOk && !lrNewerSameSession) {
+            return { ...arch!.value, sourceSessionDate: arch!.stamp.sourceSessionDate, isDivergent: nasdaqChangePct > 0.3 && arch!.value.breadthPct < 40 };
+        }
+        if (lrOk) {
+            console.log(`[Breadth] ${session}: 직전 정규장 판독값 유지 (${lastReg!.advancers}↑/${lastReg!.decliners}↓ @ ${lastReg!.timestamp}) · 기대 세션 ${lastCompletedSessionDate(now)}`);
+            return { ...lastReg!, sourceSessionDate: lrDate, isDivergent: nasdaqChangePct > 0.3 && lastReg!.breadthPct < 40 };
         }
         // 폴백: 아래 일반 경로로 내려가되, **완료된 거래일의 전수 데이터일 때만** 쓴다.
         // 시간외 호가로 다시 재면 유동성 좋은 종목만 남은 편향 표본이 되고
@@ -167,7 +179,7 @@ async function fetchFreshBreadth(
         // (벌크 EOD 는 T+1 게시라 장 마감 직후에는 아직 어제 자료다)
         if (requireCompletedSession) {
             const snapDate = tickers.find((t: any) => t?._eodDate)?._eodDate || '';
-            const want = lastCompletedTradingDate();
+            const want = lastCompletedSessionDate();
             if (snapDate !== want) {
                 console.warn(`[Breadth] 비정규장 · 스냅샷 ${snapDate || '없음'} ≠ 완료 거래일 ${want} → 중립 반환`);
                 return mkDefault(`stale-snapshot:${snapDate || 'none'}!=${want}`);
@@ -250,8 +262,21 @@ async function fetchFreshBreadth(
         setInCache(REDIS_KEY, snapshot, REDIS_TTL).catch(() => { });
 
         // 정규장 판독값은 별도 키로 보존한다 → 장 마감 후 POST 내내 이 값을 서빙.
-        if (marketSession() === 'REG') {
+        // [2026-10-19] 거래소 달력의 정규장 안일 때만(휴장 평일·조기 폐장 뒤 재측정이 «그날 정규장»으로 저장되지 않게) +
+        //   거래일별 완료 세션 보관본에도(8일) — 마지막 장중 판독값이 그날의 확정본이 된다. 공급사 호출은 늘지 않는다(같은 스냅샷).
+        const savedAt = Date.now();
+        if (marketSession() === 'REG' && isInRegularSession(savedAt)) {
+            snapshot.sourceSessionDate = etDateOf(savedAt);
             setInCache(LAST_REG_KEY, snapshot, LAST_REG_TTL).catch(() => { });
+            // 간격 상한 0 — 장중 판독은 이미 Redis 5분 캐시로 묶여 있다(전수 스냅샷 1회 = 쓰기 1회). 마지막 장중 판독값이 그대로 그날 보관본이 되게.
+            await saveSessionArchive('breadth', 'ALL', snapshot.sourceSessionDate, snapshot, { observedAt: savedAt, minIntervalMs: 0 }).catch(() => 'error');
+        } else if (requireCompletedSession) {
+            // 장외 대체 경로: 위에서 «완료 거래일의 전수 EOD 스냅샷»임을 확인한 값 — 그 세션의 확정본으로 보관한다(보관본이 비었을 때만 이 경로에 온다).
+            const snapDate = tickers.find((t: any) => t?._eodDate)?._eodDate || null;
+            if (snapDate) {
+                snapshot.sourceSessionDate = snapDate;
+                await saveSessionArchive('breadth', 'ALL', snapDate, snapshot, { observedAt: savedAt }).catch(() => 'error');
+            }
         }
 
         console.log(`[Breadth V7.0] Complete: ${advancers}↑ ${decliners}↓ | Pct=${breadthPct.toFixed(1)}% | A/D=${adRatio.toFixed(2)} | VolBreadth=${volumeBreadth.toFixed(1)}% | Signal=${signal}`);
@@ -285,4 +310,28 @@ function createDefaultSnapshot(reason = 'unknown'): BreadthSnapshot {
         timestamp: new Date().toISOString(),
         hasData: false
     };
+}
+
+/**
+ * [2026-10-19 묶음 3] 완료 세션 보관본 «채우기»(배포 직후 1회·보관본이 비었을 때) — 새 공급사 호출은 기본 0.
+ *   ① 이미 보관본이 있으면 아무것도 안 한다.
+ *   ② 옛 직전 정규장 키(guardian:breadth:lastreg)가 «마지막으로 끝난 정규장» 날짜의 판독값이면 그대로 옮긴다(호출 0).
+ *   ③ allowSnapshot 일 때만: 장외 대체 경로(완료 거래일의 전수 EOD 스냅샷인지 확인 → 확정본 보관) — 스냅샷 1회(캐시 사용).
+ */
+export async function backfillBreadthArchive(opts: { nowMs?: number; allowSnapshot?: boolean } = {}): Promise<{ result: 'exists' | 'from-lastreg' | 'from-snapshot' | 'none'; sessionDate: string }> {
+    const nowMs = opts.nowMs ?? Date.now();
+    const want = lastCompletedSessionDate(nowMs);
+    const have = await readSessionArchive<BreadthSnapshot>('breadth', 'ALL', { nowMs }).catch(() => null);
+    if (have && have.value?.totalTickers > 0) return { result: 'exists', sessionDate: have.stamp.sourceSessionDate };
+    const lastReg = await getFromCache<BreadthSnapshot>(LAST_REG_KEY).catch(() => null);
+    const ts = Date.parse(lastReg?.timestamp || '');
+    if (lastReg && lastReg.totalTickers > 0 && Number.isFinite(ts) && etDateOf(ts) === want) {
+        const r = await saveSessionArchive('breadth', 'ALL', want, { ...lastReg, sourceSessionDate: want }, { observedAt: ts, nowMs });
+        if (r === 'write') return { result: 'from-lastreg', sessionDate: want };
+    }
+    if (opts.allowSnapshot && !isInRegularSession(nowMs)) {
+        const snap = await fetchFreshBreadth(0, true);
+        if (snap.hasData && snap.sourceSessionDate === want) return { result: 'from-snapshot', sessionDate: want };
+    }
+    return { result: 'none', sessionDate: want };
 }

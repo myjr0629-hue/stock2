@@ -804,7 +804,7 @@ export default function AppFlowPage() {
   const [maxPainVal, setMaxPainVal] = useState(0);
   const [volRegime, setVolRegime] = useState('STABLE'); // STABLE, LOADED, ERUPTING
   /* transactions state — removed (orphan: never read in JSX) */
-  const [whaleFeed, setWhaleFeed] = useState<{ ticker: string; session: string; items: any[]; meta: any; sessionDate: string | null; basis?: string | null } | null>(null);
+  const [whaleFeed, setWhaleFeed] = useState<{ etDay?: string; ticker: string; session: string; items: any[]; meta: any; sessionDate: string | null; basis?: string | null } | null>(null);
   const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>(lastGoodDarkPool ?? []);
   const [darkPoolMeta, setDarkPoolMeta] = useState<any>(null);
   // 내부자 거래 (다크풀 자리 대체) — SEC Form 4
@@ -1206,7 +1206,8 @@ export default function AppFlowPage() {
         const [dpRes, ivRes, whaleRes, insRes] = await Promise.all([
           optionalFetch(`/api/flow/dark-pool-trades?ticker=${ticker.toUpperCase()}&limit=20`),
           optionalFetch(`/api/flow/iv-percentile?ticker=${ticker.toUpperCase()}`),
-          optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 3500),
+          // [2026-10-19 D07] 3.5초 → 8초: SPY 는 체인이 가장 커서 첫 응답이 3.5초를 넘겨 대시와 고래 0 으로 떨어졌다(2회 중 1회).
+          optionalFetch(`/api/live/options/trades?t=${ticker.toUpperCase()}`, 8000),
           optionalFetch(`/api/command/insider?ticker=${ticker.toUpperCase()}`, 5000)
         ]);
         if (cancelled) return;
@@ -1233,7 +1234,9 @@ export default function AppFlowPage() {
         let whaleMetaNext: any = null;
         let whaleSessionDateNext: string | null = null;
         let whaleBasisNext: string | null = null;
+        let whaleAnswered = false;   // 이번 회차에 고래 응답을 실제로 받았나(시간 초과나 오류면 false, 지난 정상본 유지)
         if (whaleRes && whaleRes.ok) {
+          whaleAnswered = true;
           const whaleData = await whaleRes.json();
           const selected = selectWhaleSession(whaleData, String(data.session || data.rawTickerData?.session || 'CLOSED'));
           whaleItems = selected.items;
@@ -1261,13 +1264,22 @@ export default function AppFlowPage() {
         // real values (behind the gate) instead of clearing or showing demo.
         if (dpItems && dpItems.length > 0) { lastGoodDarkPool = dpItems; setDarkPoolTrades(dpItems); }
         setDarkPoolMeta(dpMetaNext);
-        setWhaleFeed({
+        // [2026-10-19 D07] 시간 초과나 요청 오류(응답 자체를 못 받음)로 같은 종목, 같은 세션의 지난 정상본을 덮지 않는다.
+        //   예전엔 무조건 덮어 정상이던 화면이 다음 회차 시간 초과로 비었다. 응답을 받았으면(원천이 결측이라고 답해도) 예전처럼 그대로 반영.
+        const whaleNext = {
+          etDay: new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }),
           ticker: ticker.toUpperCase(),
           session: String(data.session || data.rawTickerData?.session || 'CLOSED').toUpperCase(),
           items: whaleItems,
           meta: whaleMetaNext,
           sessionDate: whaleSessionDateNext,
           basis: whaleBasisNext,
+        };
+        setWhaleFeed((prev) => {
+          // 같은 ET 날짜까지 — 금요일 정규장 화면을 띄운 채 월요일 정규장에 돌아와 시간 초과가 나도 금요일 체결을 붙잡지 않는다(관문 1차)
+          const keepPrev = !!prev && prev.etDay === whaleNext.etDay && prev.ticker === whaleNext.ticker && prev.session === whaleNext.session && prev.meta != null
+            && !whaleAnswered;
+          return keepPrev ? prev : whaleNext;
         });
         setIvRankOverride(ivRankFromPercentile);
         if (ivUnavailableNext != null) setIvUnavailable(ivUnavailableNext);
@@ -1560,15 +1572,17 @@ export default function AppFlowPage() {
   //   그러면 45.2×0.5 + 50×0.5 = **48%** 가 나와 화면엔 「스퀴즈 확률 48%」가
   //   실제 계산인 것처럼 떴다. 두 입력이 다 없는데도 늘 같은 답이 나오던 이유다.
   //   → 잴 수 있는 것이 하나도 없으면 **null** 이다. 화면은 «—» 를 그린다.
+  // [2026-10-19] FINRA 적재본으로 채운 공매도 비중(장외 체결의 공매도 몫)은 스퀴즈 확률 입력으로 쓰지 않는다 — 확률이 아닌 비중이 확률 칸에 나간다(관문 2차).
+  const shortForSqueeze = tickerData?.flow?.shortVolSource === 'FINRA' ? '—' : shortPct;
   const squeezeProb = useMemo<number | null>(() => {
-    const sp = parseFloat(shortPct);
+    const sp = parseFloat(shortForSqueeze);
     const hasShort = Number.isFinite(sp) && sp >= 0;
     const hasIv = ivRankVal != null && Number.isFinite(Number(ivRankVal));
     if (!hasShort && !hasIv) return null;
     if (hasShort && hasIv) return Math.round(sp * 0.5 + Number(ivRankVal) * 0.5);
     // 한쪽만 있으면 그 값이 곧 추정치다 — 없는 쪽을 지어내 섞지 않는다.
     return Math.round(hasShort ? sp : Number(ivRankVal));
-  }, [shortPct, ivRankVal]);
+  }, [shortForSqueeze, ivRankVal]);
 
   const squeezeScore = useMemo(() => {
     if (squeezeProb == null) return 0;   // 못 잰 것은 종합점수에 기여하지 않는다
@@ -1683,8 +1697,10 @@ export default function AppFlowPage() {
   const aiPayloadRef = useRef<any>(null);
 
   // (순 프리미엄 — AI 재료 {NET_PREM} 자리표 값이자 화면 «Net Premium» 값. 재료 조립보다 먼저 선언해야 한다)
-  const netPremiumOverview = tickerData?.flow?.netPremium
-    ?? (callPct == null ? null : absNetPrem * (callPct - 50) / 50);
+  const netPremiumOverview = tickerData?.flow?.dataSource === 'NONE' || tickerData?.flow?.error
+    ? null : tickerData?.flow?.netPremium !== undefined
+      ? tickerData.flow.netPremium
+      : (callPct == null ? null : absNetPrem * (callPct - 50) / 50);
 
   // 매 렌더에서 «최신 수치»만 ref 에 담아 둔다.
   //

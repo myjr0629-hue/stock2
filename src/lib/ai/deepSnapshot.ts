@@ -7,6 +7,7 @@
  */
 import { earningsDaysOrNull } from '@/lib/earningsDate';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
+import { netPremiumOf } from '@/lib/premiumFlow';
 
 export interface DeepSnapshotInput {
   ticker: string;
@@ -64,7 +65,8 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
       putFloor: s.levels?.putFloor || 0, maxPain: s.maxPain || 0,
       gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
     },
-    flow: { netPremium: x.rawTickerData?.flow?.netPremium ?? x.rawTickerData?.flow?.netFlow ?? 0 },
+    // ★ [2026-10-19 N4] 못 쟀으면 null(자리표 NET_PREM 에 안 들어간다) — 예전 `?? 0` 은 결측을 «순 프리미엄 0»으로 AI 에 넘겼다. 관측된 0 은 0.
+    flow: { netPremium: netPremiumOf(x.rawTickerData?.flow) },
     fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
     analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
     // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면 AI 가 사실로 서술한다

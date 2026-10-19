@@ -103,7 +103,9 @@ async function whaleApi(snapshot: any[], cached: any = null, nowMs?: number) {
     run(fs.readFileSync('src/app/api/live/options/trades/route.ts', 'utf8'), {
         exports, URL, ...clock,
         require: (id: string) => {
-            if (id === 'next/server') return { NextResponse: { json: response } };
+            if (id === 'next/server') return { NextResponse: { json: response }, after: () => {} };
+            // [2026-10-19] 완료 세션 보관본(lib/sessionArchive) — 이 시험은 보관본이 «없는» 상태의 동작을 고정한다
+            if (id === '@/lib/sessionArchive') return { readSessionArchive: async () => null, saveSessionArchive: async () => 'write' };
             if (id === '@/services/redisClient') return { getFromCache: async () => cached, setInCache: async () => {} };
             if (id === '@/services/massiveClient') return { getOptionSnapshot: async () => snapshot, fetchMarketStatus: async () => ({ exchanges: { nyse: 'open' } }) };
             throw new Error(`Unexpected route dependency: ${id}`);
@@ -458,7 +460,10 @@ async function test(name: string, fn: () => any) {
         assert.equal(parse(45), 45);
         assert.equal(parse('45.0%'), 45);
         assert.equal(value('shortPct', { shortPressureNum: 0 }), '0.0%');
-        assert.equal(value('squeezeProb', { shortPct: '0.0%', ivRankVal: null }), 0);
+        // [2026-10-19] 스퀴즈 입력은 shortForSqueeze(벤더 공매도 비중만 — FINRA 대체값은 «—»)
+        assert.equal(value('squeezeProb', { shortForSqueeze: '0.0%', ivRankVal: null }), 0);
+        assert.equal(value('shortForSqueeze', { tickerData: { flow: { shortVolSource: 'FINRA' } }, shortPct: '39.8%' }), '—');
+        assert.equal(value('shortForSqueeze', { tickerData: { flow: { shortVolSource: 'vendor' } }, shortPct: '42.0%' }), '42.0%');
     });
     await test('ID04: all inputs missing leaves score, label, confidence missing', () => {
         const pressureScore = value('pressureScore', { whaleBiasScore: null, dpBiasScore: null, shortPressureNum: null });

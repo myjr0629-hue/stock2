@@ -15,12 +15,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 process.env.INTRINIO_API_KEY = 'test-key';
+process.env.INTRINIO_BASE_URL = 'https://api-v2.intrinio.com';
+(process.env as any).NODE_ENV = 'test';
+
+// Import the real API adapter with storage/I/O sealed, even when the caller has
+// production connection settings in its environment. No .env files are loaded.
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async () => { throw new Error('Unexpected network in structureWarm test'); };
+const stub = (id: string, exports: any) => { require.cache[id] = { id, filename: id, loaded: true, exports, children: [], paths: [] } as any; };
+stub(require.resolve('../src/services/redisClient'), {
+  getFromCache: async () => null, setInCache: async () => true,
+});
 
 const G = require('../src/lib/intrinioWarmGate') as typeof import('../src/lib/intrinioWarmGate');
 const P = require('../src/lib/structureWarmPlan') as typeof import('../src/lib/structureWarmPlan');
 const M = require('../src/lib/intrinioMeter') as typeof import('../src/lib/intrinioMeter');
 const meterMem = M.memoryMeterStore();
 M.__setMeterStore(meterMem);
+const callMeter = require('../src/lib/intrinioCallMeter') as typeof import('../src/lib/intrinioCallMeter');
+callMeter.__setCallMeterStore(meterMem);
 
 let pass = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => {
@@ -39,17 +52,20 @@ const mk = (c: ReturnType<typeof fakeClock>, o: Partial<import('../src/lib/intri
 /** 벽시계 고정 — ?now= 없이(force 없이) 부르는 라우트는 실제 시각으로 실행 창을 본다. 고정하지 않으면 낮(ET)에 돌린 시험이 outside-window 로 샌다 */
 const RealDate = Date;
 async function atNow<T>(ms: number, fn: () => Promise<T>): Promise<T> {
+  const previousDate = globalThis.Date;
   class FakeDate extends RealDate {
     constructor(...a: any[]) { if (a.length === 0) super(ms); else super(...(a as [any])); }
     static now() { return ms; }
   }
   (globalThis as any).Date = FakeDate;
-  try { return await fn(); } finally { (globalThis as any).Date = RealDate; }
+  try { return await fn(); } finally { (globalThis as any).Date = previousDate; }
 }
 const IN_WINDOW = RealDate.UTC(2026, 9, 14, 3, 0, 0);   // 2026-10-13 23:00 ET (화) — 창 안
 const DAYTIME = RealDate.UTC(2026, 9, 13, 15, 0, 0);    // 2026-10-13 11:00 ET (화) — 정규장, 창 밖
 
-(async () => {
+// Freeze meter buckets too: an hour/minute boundary during a run must not move
+// the assertions into a different bucket. Nested window tests restore this clock.
+atNow(IN_WINDOW, async () => {
   console.log('1. 호출 관문');
   await t('초당 4콜 = 호출 시작 간격 250ms (순차 5콜 → 1,000ms)', async () => {
     const c = fakeClock(); const g = mk(c);
@@ -279,7 +295,6 @@ const DAYTIME = RealDate.UTC(2026, 9, 13, 15, 0, 0);    // 2026-10-13 11:00 ET (
   const IClient = require.resolve('../src/services/intrinioClient');
   const SS = require.resolve('../src/services/structureService');
   const DD = require.resolve('../src/lib/ai/deepDemand');
-  const stub = (id: string, exports: any) => { require.cache[id] = { id, filename: id, loaded: true, exports, children: [], paths: [] } as any; };
   stub(R, { getFromCache: async (k: string) => (mem.has(k) ? mem.get(k) : null), setInCache: async (k: string, v: any) => { mem.set(k, JSON.parse(JSON.stringify(v))); return true; }, mgetFromCache: async (ks: string[]) => ks.map((k) => (mem.has(k) ? mem.get(k) : null)) });
   let vendorEod: string | null = '2026-10-09';
   let probeCalls = 0;
@@ -590,7 +605,7 @@ const DAYTIME = RealDate.UTC(2026, 9, 13, 15, 0, 0);    // 2026-10-13 11:00 ET (
     assert.equal(Math.round((perMin / 2000) * 100), 6);
     assert.equal(Math.round((300 * 19) / perMin), 48);
   });
-  await t('계측·잠금 모듈을 가져가는 파일은 intrinioClient(429 분기)와 크론 라우트뿐', () => {
+  await t('계측·잠금 모듈의 호출자는 명시된 계측·원자 잠금 경로뿐', () => {
     const hits: string[] = [];
     const walk = (d: string) => {
       for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
@@ -602,9 +617,12 @@ const DAYTIME = RealDate.UTC(2026, 9, 13, 15, 0, 0);    // 2026-10-13 11:00 ET (
     walk('src');
     // (10/13 intel-fast-429) /api/intel/fast 배경 갱신 관문이 같은 계측(userRecent429 = «사용자 429 우선» 신호 · upstashMeterStore)을 읽는다 — 아래 셋이 의도된 추가다.
     //   사용자 경로 파일(라우트·화면)이 관문(intrinioWarmGate)·계획(structureWarmPlan)을 가져가지 않는다는 위 시험들의 약속은 그대로다.
+    // b86d5ddf1: VWAP 분봉 갱신, ff69ae91e: Today AI 생성에 SET NX EX 저장소 재사용.
     assert.deepEqual(hits.sort(), [
       'src/app/api/admin/intel-fast-meter/route.ts',
       'src/app/api/cron/structure-warm/route.ts',
+      'src/app/api/live/ticker/route.ts',
+      'src/app/api/today-summary/route.ts',
       'src/lib/intelFastGovernor.ts',
       'src/lib/intrinioCallMeter.ts',
       'src/services/intrinioClient.ts',
@@ -657,4 +675,5 @@ const DAYTIME = RealDate.UTC(2026, 9, 13, 15, 0, 0);    // 2026-10-13 11:00 ET (
   });
 
   console.log(`\n${process.exitCode ? '실패 있음' : '전부 통과'} — ${pass}건 통과`);
-})();
+}).catch((e) => { console.error(e); process.exitCode = 1; })
+  .finally(() => { globalThis.fetch = originalFetch; });
