@@ -353,17 +353,18 @@ interface RealYieldData {
 
 /**
  * ★2026-10-19 (대표 «REAL 도 데이터가 없다 · 데이터를 비게 하지 마라»): 장중엔 명목 10Y 가 «오늘»이고
- * 기대인플레이션(T10YIE)은 하루 늦게 나와 날짜가 절대 같지 않았다 → REAL 이 장중 내내 «—».
- * 날짜가 다르면 버리지 않고, 두 계열(FRED DGS10·T10YIE)의 «같은 날짜» 최신 관측으로 계산한다
+ * 기대인플레이션(T5YIE)은 하루 늦게 나와 날짜가 절대 같지 않았다 → REAL 이 장중 내내 «—».
+ * 날짜가 다르면 버리지 않고, 기존 정의와 같은 두 계열(FRED DGS10·T5YIE — 기존 경로의 기대인플레이션도 5년 브레이크이븐)의
+ * «같은 날짜» 최신 관측으로 계산한다
  * (지어내지 않는다 — 둘 다 그날 실측. 화면은 그 날짜의 값).
  */
 async function realYieldFromSameDatePair(): Promise<RealYieldData | null> {
     try {
-        const [dgs10, t10yie] = await Promise.all([
+        const [dgs10, t5yie] = await Promise.all([
             getEconomicSeries("$DGS10", 10),
-            getEconomicSeries("$T10YIE", 10),
+            getEconomicSeries("$T5YIE", 10),
         ]);
-        const exp = new Map(t10yie.map((r) => [r.date, r.value]));
+        const exp = new Map(t5yie.map((r) => [r.date, r.value]));
         const pair = dgs10.find((r) => exp.has(r.date) && Number.isFinite(r.value) && Number.isFinite(exp.get(r.date)!));
         if (!pair) return null;
         const us10y = pair.value;
