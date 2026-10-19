@@ -1,6 +1,7 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyUnifiedOptionMetrics } from '@/lib/optionMetrics';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache as _getFromCache, setInCache as _setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
@@ -693,7 +694,7 @@ async function getVolatilityFromDynamoGex(ticker: string): Promise<any | null> {
         const isShortGamma = gex.gex < 0;
         const flipLevel = gex.flipLevel || 0;
         const spotPrice = gex.price || 0;
-        const flipDist = flipLevel > 0 && spotPrice > 0 ? ((spotPrice - flipLevel) / spotPrice) * 100 : 0;
+        const flipDist = gammaFlipDistancePct(spotPrice, flipLevel) ?? 0;
         let regimeScore = 0;
         if (isShortGamma) regimeScore += Math.min(30, Math.abs(gex.gex) / 1000000 * 3);
         if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
@@ -1839,7 +1840,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 const isShortGamma = gex.gex < 0;
                 const flipLevel = gex.flipLevel || 0;
                 const spotPrice = gex.price || p.close || 0;
-                const flipDist = flipLevel > 0 && spotPrice > 0 ? ((spotPrice - flipLevel) / spotPrice) * 100 : 0;
+                const flipDist = gammaFlipDistancePct(spotPrice, flipLevel) ?? 0;
                 let regimeScore = 0;
                 if (isShortGamma) regimeScore += Math.min(30, Math.abs(gex.gex) / 1000000 * 3);
                 if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;

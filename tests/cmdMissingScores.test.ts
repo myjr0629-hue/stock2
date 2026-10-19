@@ -9,6 +9,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
 import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
+import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
 
 const file = 'src/app/[locale]/app-view/cmd/page.tsx';
 const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -32,7 +33,7 @@ function run(code: string, context: Record<string, unknown> = {}): any {
         target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React,
     } }).outputText;
     return vm.runInNewContext(js, {
-        React, normalizeVwap, vwapDistancePct, netPremiumOf, useMemo: (fn: () => unknown) => fn(),
+        React, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, useMemo: (fn: () => unknown) => fn(),
         tDashboard: (key: string) => key, iv30Level: null,
         MetricInfo: () => null, ...context,
     });
@@ -52,6 +53,13 @@ function signals(overrides: Record<string, any> = {}) {
 function scorePatch(unified: Record<string, any>, extra: Record<string, any> = {}) {
     return signals({ unified, ...extra });
 }
+test('gamma flip uses spot percent in the production Command memo', () => {
+    for (const [price, expected] of [[105.10, 4.9], [94.90, -5.4], [100, 0]]) {
+        const out = scorePatch({ structure: { gammaFlipLevel: 100 } }, { price });
+        assert.equal(out.flipDistance, expected);
+        assert.equal(out.isAboveFlip, price > 100);
+    }
+});
 function rendered(signalsData: any, locale = 'ko') {
     return cards.map(jsx => {
         const element = run(`${card}; (${jsx});`, { signalsData, locale });

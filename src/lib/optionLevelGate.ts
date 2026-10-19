@@ -5,6 +5,7 @@
  * 저장본 읽기·갱신 예약은 services/structureService.ts 에 있고, 이 파일의 함수를 다시 내보낸다.
  */
 import { isOptionExpiredAt } from './marketCalendar';
+import { gammaFlipDistancePct } from './gammaFlipDistance';
 
 /** structureService 가 만든 구조 결과의 표식 — 출구가 «페이로드에 실린 구조»를 믿어도 되는지 판정한다(DynamoDB·분석 캐시로 만든 가짜 구조와 구분). */
 export const STRUCTURE_PRODUCER = "structureService";
@@ -349,7 +350,7 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
         },
     };
     if (out.volatility && typeof out.volatility === 'object') {
-        const distance = d.gammaFlipLevel != null && spot != null ? (spot - d.gammaFlipLevel) / spot * 100 : null;
+        const distance = gammaFlipDistancePct(spot, d.gammaFlipLevel);
         out.volatility = { ...out.volatility, flipLevel: d.gammaFlipLevel,
             flipDistance: distance == null ? null : Math.round(distance * 10) / 10,
             isAboveFlip: distance == null ? null : distance > 0 };

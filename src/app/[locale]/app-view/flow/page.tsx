@@ -1,6 +1,7 @@
 'use client';
 
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
 import { useState, useEffect, useMemo, useRef, Fragment, type SyntheticEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -1610,7 +1611,7 @@ export default function AppFlowPage() {
     const gammaFlipNum = typeof liveGammaFlip === 'number'
       ? liveGammaFlip
       : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
-    const dist = gammaFlipNum > 0 ? ((displayPrice - gammaFlipNum) / gammaFlipNum) * 100 : 0;
+    const dist = gammaFlipDistancePct(displayPrice, gammaFlipNum) ?? 0;
     if (dist > 5) return -10;
     if (dist > 2) return -5;
     if (dist < -5) return 10;
@@ -1746,7 +1747,7 @@ export default function AppFlowPage() {
       maxPainDist: 'N/A',
       gammaFlipLevel: gammaFlipNumForOverview || 0,
       flipPercentage: gammaFlipNumForOverview > 0 && price > 0
-        ? `${(((price - gammaFlipNumForOverview) / gammaFlipNumForOverview) * 100).toFixed(1)}%`
+        ? `${(gammaFlipDistancePct(price, gammaFlipNumForOverview) ?? 0).toFixed(1)}%`
         : 'N/A',
       gexRegime: riskStateLabel,
     },
@@ -1800,9 +1801,7 @@ export default function AppFlowPage() {
     ? `${(Math.abs(netPremiumOverview) / 1000000).toFixed(1)}M`
     : `${(Math.abs(netPremiumOverview) / 1000).toFixed(0)}K`
   }`;
-  const gammaDistancePct = gammaFlipNumForOverview > 0
-    ? ((displayPrice - gammaFlipNumForOverview) / gammaFlipNumForOverview) * 100
-    : 0;
+  const gammaDistancePct = gammaFlipDistancePct(displayPrice, gammaFlipNumForOverview) ?? 0;
   const gammaDistanceText = gammaFlipNumForOverview > 0
     ? `${gammaDistancePct >= 0 ? '+' : ''}${gammaDistancePct.toFixed(1)}%`
     : gammaPlaceholder(gammaCellState, locale, '--');
@@ -2575,7 +2574,7 @@ export default function AppFlowPage() {
               const gammaFlipNum = typeof liveGammaFlip === 'number'
                 ? liveGammaFlip
                 : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
-              const gfDiff = gammaFlipNum > 0 ? ((displayPrice - gammaFlipNum) / gammaFlipNum) * 100 : 0;
+              const gfDiff = gammaFlipDistancePct(displayPrice, gammaFlipNum) ?? 0;
               const netPremiumVal = netPremiumOverview;
 
               return (

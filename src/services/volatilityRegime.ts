@@ -10,6 +10,8 @@
  *   복사해서 두 벌로 두면 언젠가 갈라진다 — 그건 조용히 틀리는 전형이다.
  */
 
+import { gammaFlipDistancePct } from '../lib/gammaFlipDistance';
+
 export interface VolatilityRegimeResult {
     regime: 'CALM' | 'COILING' | 'LOADED' | 'ERUPTING';
     regimeScore: number;
@@ -40,7 +42,7 @@ export interface RegimeInputs {
 
 /**
  * 구조 데이터로부터 레짐을 계산한다. 순수 함수 — 네트워크도 캐시도 없다.
- * 원래 라우트에 있던 식을 그대로 옮겼다(값이 바뀌면 안 된다).
+ * 감마플립 거리는 unified 출구와 같은 현물 대비 %를 쓴다.
  */
 export function computeVolatilityRegime(input: RegimeInputs): VolatilityRegimeResult {
     const netGex = Number(input.netGex) || 0;
@@ -52,9 +54,7 @@ export function computeVolatilityRegime(input: RegimeInputs): VolatilityRegimeRe
     const gammaConcentration = Number(input.gammaConcentration) || 0;
     const gammaConcentrationLabel = input.gammaConcentrationLabel || 'NORMAL';
 
-    const flipDistance = gammaFlip > 0 && underlyingPrice > 0
-        ? ((underlyingPrice - gammaFlip) / gammaFlip) * 100
-        : 0;
+    const flipDistance = gammaFlipDistancePct(underlyingPrice, gammaFlip) ?? 0;
     const isShortGamma = netGex < 0;
     const isAboveFlip = flipDistance > 0;
 

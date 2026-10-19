@@ -15,6 +15,7 @@ import { App5DayTape } from '@/components/app/App5DayTape';
 import { MetricInfo } from '@/components/app/MetricInfo';
 import { LevelValue } from '@/components/app/LevelValue';
 import { formatLevelPrice, levelInfoNote, type LevelMeta } from '@/lib/optionLevelGate';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 import { readDarkPool, effectiveRegime } from '@/lib/darkPoolRead';
 import { DisclosureBadge } from '@/components/app/DisclosureBadge';
 import { StarButton, StarBadge, LogoWithBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
@@ -2869,7 +2870,7 @@ function CmdPageContent() {
     const netGex = finite(structure.netGex);
     const fLevel = positive(structure.gammaFlipLevel);
     const priceVal = positive(q.price);
-    const fDist = fLevel !== null && priceVal !== null ? ((priceVal - fLevel) / fLevel) * 100 : null;
+    const fDist = gammaFlipDistancePct(priceVal, fLevel);
     // Unified volatility.iv is percent; structure.atmIV is a decimal.
     // IV/flip zero are upstream unavailable sentinels, unlike GEX/flow zero.
     const cachedIv = positive(volatility.iv);
@@ -3500,7 +3501,7 @@ function CmdPageContent() {
               <LevelValue value={data.premium.gammaFlipRaw} meta={data.premium.levelMeta} field="gammaFlipLevel" locale={locale} dash="$—" />
             </span>
             {data.premium.gammaFlipRaw > 0 && (() => {
-              const gfDiff = ((displayPrice - data.premium.gammaFlipRaw) / data.premium.gammaFlipRaw) * 100;
+              const gfDiff = gammaFlipDistancePct(displayPrice, data.premium.gammaFlipRaw) ?? 0;
               return (
                 <span className={s.heroMetricSub} style={{ color: gfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
                   {gfDiff >= 0

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
@@ -614,7 +615,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             const isShortGamma = netGex < 0;
             const flipLevel = structure.gammaFlipLevel || 0;
             const price = livePrice?.price || initialStockData?.price || 0;
-            const flipDist = flipLevel > 0 && price > 0 ? ((price - flipLevel) / flipLevel) * 100 : null;
+            const flipDist = gammaFlipDistancePct(price, flipLevel);
             // [FIX] Redesigned scoring — always produce meaningful non-zero when data exists
             let regimeScore = 5; // Base: valid GEX data present
             // GEX direction contribution (both SHORT and LONG contribute)
