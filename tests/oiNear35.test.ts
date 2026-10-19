@@ -31,7 +31,8 @@ const realFetch = global.fetch;
 (global as any).fetch = async () => { throw new Error('Unexpected network access'); };
 
 import { strictOi, sumChainOi35, validStoredOi35, oi35WindowEnd, type ChainOiRow } from '../src/lib/app/oiNear35';
-import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus } from '../src/lib/app/flowOpi';
+import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr, OI_PCR_KEEP_ROUNDS } from '../src/lib/app/flowOpi';
+import { oiPcrAllExpiries, oiRowHasQuantities } from '../src/lib/app/intelOptionsBasis';
 import { buildChainOi35, readOi35Fallback, readChainOi35, CHAIN_OI35_KEY, CHAIN_OI35_NEG_KEY, chainRowOf, _resetOi35Memo, type ChainBuildDeps } from '../src/services/oiNear35Fallback';
 
 const EDT = (y: number, mo: number, d: number, h: number, mi = 0) => Date.UTC(y, mo - 1, d, h + 4, mi);
@@ -302,6 +303,46 @@ t('관문 10200328 ③: OPI 결측 요청이 날아가는 중 OPI 가 복구되�
     assert.deepEqual(state.aiFlow, { structuralThesis: { ko: '새 글' } });
 });
 
+t('관문 10200339 ①: OPI 입력은 «가장 최근 회차»의 측정값 — 옛 flow 0.73 이 새 대체 3.07 을 막지 않는다 · 같은 회차면 live/ticker · 약 10분 넘은 직전 값은 버린다', () => {
+    // 1회차 flow 0.73 → 2회차 flow 결측(덮지 않음)·oi-pcr 대체 3.07
+    assert.equal(pickOiPcr({ pcr: 0.73, round: 1 }, { pcr: 3.07, round: 2 }, 2), 3.07);
+    assert.equal(opiFromOiPcr(pickOiPcr({ pcr: 0.73, round: 1 }, { pcr: 3.07, round: 2 }, 2)), 10);
+    // 같은 회차 둘 다 있으면 live/ticker
+    assert.equal(pickOiPcr({ pcr: 0.73, round: 2 }, { pcr: 0.79, round: 2 }, 2), 0.73);
+    // 두 쪽 다 이번 회차에 결측 → 직전 측정값(10분 안)
+    assert.equal(pickOiPcr({ pcr: 0.73, round: 3 }, null, 5), 0.73);
+    assert.equal(pickOiPcr({ pcr: 0.73, round: 3 }, null, 3 + OI_PCR_KEEP_ROUNDS + 1), null);
+    // 결측 표식은 값이 아니다
+    assert.equal(pickOiPcr({ pcr: null, round: 5 }, { pcr: '' as any, round: 5 }, 5), null);
+    assert.equal(pickOiPcr(null, undefined, 1), null);
+});
+t('관문 10200339 ②·잔존 위험: 행 «수량» 규칙 하나 — 콜 0·풋 100 은 행이 정본(P/C 없음, 대체로 덮지 않음) · 콜 100·풋 null 은 P/C 0 이 아니라 결측 → 대체', async () => {
+    assert.equal(oiPcrAllExpiries({ pcr: null, totalCallOI: 100, totalPutOI: null }), null);   // 예전: Number(null)=0 → P/C 0 → OPI 95
+    assert.equal(oiPcrAllExpiries({ totalCallOI: 100, totalPutOI: '' }), null);
+    assert.equal(oiPcrAllExpiries({ totalCallOI: 0, totalPutOI: 100 }), null);
+    assert.equal(oiPcrAllExpiries({ pcr: 0.94, totalCallOI: 329180, totalPutOI: 307802 }), 0.94);
+    assert.equal(oiRowHasQuantities({ totalCallOI: 0, totalPutOI: 100 }), true);
+    assert.equal(oiRowHasQuantities({ totalCallOI: 100, totalPutOI: null }), false);
+    assert.equal(oiRowHasQuantities({ pcr: 0.73 }), false);
+    store.clear(); _resetOi35Memo();
+    const realNow = Date.now; (Date as any).now = () => NOW;
+    try {
+        await buildChainOi35('SPY', spyDeps());
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const route = require('../src/app/api/app/oi-pcr/route');
+        dynamoRow = { timestamp: NOW - 3600_000, pcr: null, totalCallOI: 0, totalPutOI: 100 };
+        const keep = await (await route.GET(new Request('http://x/api/app/oi-pcr?t=SPY'))).json();
+        assert.equal(keep.basis, 'oi_all_expiries_35d');
+        assert.equal(keep.pcr, null);
+        assert.equal(keep.callOI, 0);
+        assert.equal(keep.putOI, 100);
+        dynamoRow = { timestamp: NOW - 3600_000, pcr: null, totalCallOI: 100, totalPutOI: null };
+        const fb = await (await route.GET(new Request('http://x/api/app/oi-pcr?t=SPY'))).json();
+        assert.equal(fb.basis, 'oi_near_expiries_35d_chain');
+        assert.equal(fb.pcr, 3.07);
+    } finally { (Date as any).now = realNow; dynamoRow = null; }
+});
+
 // ━━━ 직전 세션 조건(장 마감 뒤·주말·두 세션 넘게 낡은 레코드) ━━━
 const tinyDeps = (nowMs: number, exps: string[], date: string): Partial<ChainBuildDeps> => ({
     listExpirations: async () => exps,
@@ -371,9 +412,10 @@ t('OPI 결측이면 종합 점수 몫 0 · 방향 빌리는 요인(스퀴즈·UO
 t('Flow 배선: OPI 는 파생값(useState(0) 없음) · 종목 전환 때 비움 · 결측 회차엔 직전 값 · OPI 칸만 «—» · AI 는 OPI 복구 때 다시 부른다', () => {
     const f = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
     assert.equal(/const \[opi, setOpi\] = useState\(0\)/.test(f), false);
-    assert.match(f, /const opi: number \| null = opiFromOiPcr\(flowOiPcr\) \?\? opiFromOiPcr\(oiAll\?\.pcr\);/);
-    assert.match(f, /setOiAll\(null\);\n\s+setFlowOiPcr\(null\);/);
-    assert.match(f, /const measuredPcr = measuredOiPcr\(flow\.oiPcr\);\n\s+if \(measuredPcr != null\) setFlowOiPcr\(measuredPcr\);/);
+    assert.match(f, /const opi: number \| null = opiFromOiPcr\(pickOiPcr\(flowOiPcr, oiAll, oiRound\)\);/);
+    assert.match(f, /setOiAll\(null\);\n\s+setFlowOiPcr\(null\);\n\s+setOiRound\(0\);/);
+    assert.match(f, /const measuredPcr = measuredOiPcr\(flow\.oiPcr\);\n\s+if \(measuredPcr != null\) setFlowOiPcr\(\{ pcr: measuredPcr, round \}\);/);
+    assert.match(f, /setOiAll\(\{ callOI: j\.callOI, putOI: j\.putOI, pcr: measuredOiPcr\(j\.pcr\), round \}\)/);
     assert.match(f, /\{opi == null \? '—' : opi\.toFixed\(1\)\}/);
     assert.match(f, /\{ label: 'OPI', value: opi == null \? '—' : signed\(Math\.round\(opiScore\)\) \}/);
     assert.match(f, /\}, \[ticker, effectiveSession, locale, aiReady, opiKnown\]\);/);

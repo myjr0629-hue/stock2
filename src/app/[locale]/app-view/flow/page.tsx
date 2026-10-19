@@ -25,7 +25,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus } from '@/lib/app/flowOpi';
+import { measuredOiPcr, opiFromOiPcr, opiScoreOf, opiSigned, opiExtreme, opiGaugeStatus, pickOiPcr } from '@/lib/app/flowOpi';
 import { optionExpiryJudge } from '@/lib/marketCalendar';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -767,11 +767,13 @@ export default function AppFlowPage() {
   const [change, setChange] = useState(0);
   // ★ [2026-10-20 NB1] OPI(0-100)는 미결제약정 P/C 에서 «파생»한다 — 결측은 null(측정 불가, 화면 «—»).
   //   예전엔 useState(0) 이라 flow.oiPcr 가 null 인 종목(10/19 장중 SPY)은 «0.0 BEARISH» 가 그려지고 종합 점수·확신도까지 하방으로 끌려갔다.
-  //   flow.oiPcr(live/ticker) 우선, 없으면 같은 정의(35일 안 만기)의 /api/app/oi-pcr 값. 같은 종목 갱신 회차에 결측이면 직전 값을 둔다(종목 전환 때 비움).
-  const [flowOiPcr, setFlowOiPcr] = useState<number | null>(null);
+  //   입력 = live/ticker(flow.oiPcr)·/api/app/oi-pcr(같은 정의 35일 안 만기) 중 «가장 최근 갱신 회차»의 측정값(같은 회차면 live/ticker) — lib/app/flowOpi.pickOiPcr.
+  //   두 쪽 다 그 회차에 결측이면 직전 측정값(최대 약 10분), 종목 전환 때 비움.
+  const [flowOiPcr, setFlowOiPcr] = useState<{ pcr: number; round: number } | null>(null);
+  const [oiRound, setOiRound] = useState(0);
   // C/P 카드의 OI는 35일 이내 전 만기 합계(/api/app/oi-pcr). 없으면 «—».
-  const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number; pcr: number | null } | null>(null);
-  const opi: number | null = opiFromOiPcr(flowOiPcr) ?? opiFromOiPcr(oiAll?.pcr);
+  const [oiAll, setOiAll] = useState<{ callOI: number; putOI: number; pcr: number | null; round: number } | null>(null);
+  const opi: number | null = opiFromOiPcr(pickOiPcr(flowOiPcr, oiAll, oiRound));
   // 종목·세션·체인은 한 응답에서 읽는다. 다른 종목의 이전 응답과 빈 체인은 결측이다.
   const rawChain: any[] = String(tickerData?.ticker || '').toUpperCase() === ticker.toUpperCase()
     && Array.isArray(tickerData?.flow?.rawChain) ? tickerData.flow.rawChain : [];
@@ -1138,10 +1140,12 @@ export default function AppFlowPage() {
     initialLoadRef.current = true;
     let quickRetries = 0;
     let retryTimer: number | undefined;
+    let oiRoundNow = 0;   // 이 종목 화면의 갱신 회차(OPI 입력의 새것 판정)
 
     async function fetchFlow() {
       if (cancelled || inFlight) return;
       inFlight = true;
+      const round = ++oiRoundNow;
       if (initialLoadRef.current) {
         setLoading(true);
         setTickerData(null);
@@ -1149,6 +1153,7 @@ export default function AppFlowPage() {
         setIvUnavailable(false);
         setOiAll(null);
         setFlowOiPcr(null);
+        setOiRound(0);
         setWhaleFeed(null);
         setPrice(0);
         setChange(0);
@@ -1174,9 +1179,10 @@ export default function AppFlowPage() {
             if (!r || !r.ok || cancelled) return;
             const j = await r.json();
             if (cancelled) return;
-            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ callOI: j.callOI, putOI: j.putOI, pcr: measuredOiPcr(j.pcr) });
+            if (typeof j?.callOI === 'number' && typeof j?.putOI === 'number') setOiAll({ callOI: j.callOI, putOI: j.putOI, pcr: measuredOiPcr(j.pcr), round });
           } catch { /* 칸은 «—» 로 남는다 */ }
         });
+        setOiRound(round);
         const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
         if (!res.ok) throw new Error();
         const data = await res.json();
@@ -1189,10 +1195,11 @@ export default function AppFlowPage() {
 
         const flow = data.flow;
         if (flow) {
-          // OPI 입력 — 측정값(숫자·숫자 문자열)만. 빈 문자열·null 은 결측이라 직전 값을 그대로 둔다(0 으로 바꾸지 않는다).
+          // OPI 입력 — 측정값(숫자·숫자 문자열)만, 받은 회차와 함께. 빈 문자열·null 은 결측이라 덮지 않는다(0 으로 바꾸지 않는다) —
+          //   그 회차에 oi-pcr 대체값이 오면 pickOiPcr 가 더 새 회차인 그쪽을 쓴다.
           // (pcRatio 는 rawChain 거래량에서 따로 파생한다 — 여기서 건드리지 않는다)
           const measuredPcr = measuredOiPcr(flow.oiPcr);
-          if (measuredPcr != null) setFlowOiPcr(measuredPcr);
+          if (measuredPcr != null) setFlowOiPcr({ pcr: measuredPcr, round });
           if (flow.netPremium != null) {
             setAbsNetPrem(Math.abs(flow.netPremium));
             // callPct will be set from rawChain real volumes below

@@ -7,7 +7,7 @@
 //   쓰기는 체인 35일 합산 저장본(oi35:chain:v1:*) 하나뿐(2026-10-20 NB1).
 // ============================================================================
 import { NextResponse, after } from 'next/server';
-import { oiPcrAllExpiries, isFreshOptionsRow } from '@/lib/app/intelOptionsBasis';
+import { oiPcrAllExpiries, isFreshOptionsRow, oiRowHasQuantities } from '@/lib/app/intelOptionsBasis';
 import { readOi35Fallback, buildChainOi35, type Oi35Fallback } from '@/services/oiNear35Fallback';
 
 /**
@@ -50,9 +50,9 @@ export async function GET(request: Request) {
     const fresh = isFreshOptionsRow(ts);
     // ★2026-10-20: 수집 행은 신선한데 OI 합계가 비어(SPY 등) P/C 를 못 내면 null 을 주지 않고
     //   직전 EOD 35일 범위로 넘어간다(대표 «지표에 빈 값이 나오는 것은 말도 안 된다» · 장중 OPI 0.0 의 뿌리).
-    // OI 수량 자체가 결측일 때만 대체한다 — 콜 0·풋 100 처럼 P/C 만 계산 불가인 유효 수량은 그대로 쓴다(관문 10200048)
-    const oiPresent = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
-    const use = fresh && (oiPresent(row?.totalCallOI) || oiPresent(row?.totalPutOI)) ? row : null;
+    // OI 수량 자체가 결측일 때만 대체한다 — 콜 0·풋 100 처럼 P/C 만 계산 불가인 유효 수량은 그대로 쓴다(관문 10200048).
+    //   «결측» = 콜·풋 중 하나라도 측정값이 아님(2026-10-20 NB1: 콜 100·풋 null 이 P/C 0 이 되던 경로) — live/ticker 와 같은 규칙(oiRowHasQuantities).
+    const use = fresh && oiRowHasQuantities(row) ? row : null;
     const near = use ? null : ((await readOi35Fallback(t)) ?? (await chainFallbackNow(t, RESPONSE_BUDGET_MS - (Date.now() - started))));
     if (near) {
         return NextResponse.json(

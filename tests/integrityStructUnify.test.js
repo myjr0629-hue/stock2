@@ -532,6 +532,18 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
    assert.equal(n.flow.oiPcr,null);assert.equal(n.flow.oiPcrBasis,undefined);   // 전 만기 값(2.289)·0 으로 메우지 않는다
    const v=await live.withExitLevels({flow:{oiPcr:null}},async()=>levels,'NVDA');
    assert.equal(v.flow.oiPcr,0.73);assert.equal(v.flow.oiPcrBasis,undefined);
+   // 행 «수량» 규칙(oi-pcr 와 같다): 콜 0·풋 100 은 행이 정본 → 대체가 있어도 덮지 않는다(P/C 없음) · 콜 100·풋 null 은 결측 → 대체 3.07
+   oi35Fallback.SPY={pcr:3.07,callOI:1566004,putOI:4812696,basis:'oi_near_expiries_35d_chain',recordDate:'2026-10-16',oiDate:'2026-10-15',asOf:0};
+   rows.SPY={timestamp:NOW-3600000,pcr:null,totalCallOI:0,totalPutOI:100};
+   const q=await live.withExitLevels({flow:{oiPcr:null}},async()=>levels,'SPY');
+   assert.equal(q.flow.oiPcr,null);assert.equal(q.flow.oiPcrBasis,undefined);
+   rows.SPY={timestamp:NOW-3600000,pcr:null,totalCallOI:100,totalPutOI:null};
+   const h=await live.withExitLevels({flow:{oiPcr:null}},async()=>levels,'SPY');
+   assert.equal(h.flow.oiPcr,3.07);assert.equal(h.flow.oiPcrBasis,'oi_near_expiries_35d_chain');
+   // 행 수량이 있으면 대체를 읽지도 않는다 — 정상 종목 값 불변
+   rows.SPY={timestamp:NOW-3600000,pcr:0.79,totalCallOI:521250,totalPutOI:410259};
+   const ok=await live.withExitLevels({flow:{oiPcr:null}},async()=>levels,'SPY');
+   assert.equal(ok.flow.oiPcr,0.79);assert.equal(ok.flow.oiPcrBasis,undefined);
   }finally{delete rows.SPY;delete oi35Fallback.SPY;}
  });
  console.log(`${passes} passed, ${fails} failed`);clearTimeout(watchdog);process.exitCode=fails?1:0;
