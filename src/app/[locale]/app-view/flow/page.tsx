@@ -11,7 +11,7 @@ import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import dashStyles from '../dash/dash.module.css';
 import s from '../cmd/cmd.module.css';
-import { premiumLabel, totalPremiumOf, fmtPremiumM } from '@/lib/premiumFlow';
+import { premiumLabel, totalPremiumOf, fmtPremiumM, netPremiumOf } from '@/lib/premiumFlow';
 
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
@@ -23,7 +23,7 @@ import { formatLevelPrice, levelInfoNoteMany, levelCellState, type LevelMeta } f
 import { FLOW_TICKER_TTFB_MS, FLOW_QUICK_RETRIES, FLOW_QUICK_RETRY_MS, fetchWithTtfbLimit, ivHistoryUnavailable, notProvidedText, gammaPlaceholder, gammaRegimeOf, noFlipRegimeText } from '@/lib/app/flowEmptyStates';
 import { ivRankIsCollecting, ivRankCollectingText } from '@/lib/ivRank';
 import { putCallRatio, pcScoreOf, pcBiasOf, cpText, pcRailColor, PC_AI_DEFINITION, type PcBias } from '@/lib/app/flowPcRatio';
-import { activeOptionRows, displayOpi, optionSampleReady, optionConclusion, optionExpiryKind, optionRowExpiry } from '@/lib/optionDisplayGate';
+import { activeOptionRows, displayOpi, optionSampleReady, optionConclusion, optionExpiryKind, optionRowExpiry, strikeVolumeSource } from '@/lib/optionDisplayGate';
 import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlist/StarButton';
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
@@ -767,6 +767,10 @@ export default function AppFlowPage() {
   // 종목·세션·체인은 한 응답에서 읽는다. 다른 종목의 이전 응답과 빈 체인은 결측이다.
   const rawChain: any[] = String(tickerData?.ticker || '').toUpperCase() === ticker.toUpperCase()
     && Array.isArray(tickerData?.flow?.rawChain) ? activeOptionRows<any>(tickerData.flow.rawChain) : [];
+  const strikeSource = String(tickerData?.ticker || '').toUpperCase() === ticker.toUpperCase()
+    && Array.isArray(tickerData?.flow?.rawChain) && tickerData.flow.dataSource !== 'NONE' && !tickerData.flow.error
+    ? strikeVolumeSource(tickerData.flow.rawChain, tickerData.flow.dataFreshness?.chainDate)
+    : { rows: [], date: null };
   const chainVolumes = useMemo(() => {
     const missing = { call: null, put: null, callPct: null };
     if (rawChain.length === 0) return missing;
@@ -1629,7 +1633,7 @@ export default function AppFlowPage() {
       ? tickerData.flow.netPremium
       : (callPct == null ? null : absNetPrem * (callPct - 50) / 50);
   const rawOverviewDirection = compositeScore >= 20 ? 'bullish' : compositeScore <= -20 ? 'bearish' : 'neutral';
-  const overviewDirection = optionSampleOk ? optionConclusion(rawOverviewDirection, pcKnown ? pcRatio : null, tickerData?.flow?.netPremium == null ? null : netPremiumOverview) : 'neutral';
+  const overviewDirection = optionSampleOk ? optionConclusion(rawOverviewDirection, pcKnown ? pcRatio : null, netPremiumOf(tickerData?.flow)) : 'neutral';
   const conclusionConflict = optionSampleOk && rawOverviewDirection !== overviewDirection;
   const overviewSignal = !optionSampleOk
     ? { title: '—', body: '—', action: '—' }
@@ -4446,7 +4450,7 @@ export default function AppFlowPage() {
         // Group rawChain by strike price
         const strikeMap: Record<number, { strike: number; put: number; call: number; isWall: boolean; isFloor: boolean; isUnderlyer?: boolean }> = {};
         
-        const chain = rawChain || [];
+        const chain = strikeSource.rows;
         // [MATCH WEB] 0-7 DTE multi-expiry filter (same as FlowRadar VOLUME mode)
         const etNowStrike = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
         const todayStrike = new Date(etNowStrike.getFullYear(), etNowStrike.getMonth(), etNowStrike.getDate());
@@ -4483,26 +4487,6 @@ export default function AppFlowPage() {
         // Unique strikes sorted ascending
         const strikes = Object.keys(strikeMap).map(Number).sort((a, b) => a - b);
         
-        // If empty or too few strikes, generate synthetic fallback strikes surrounding displayPrice
-        if (strikes.length === 0) {
-          const base = Math.round(displayPrice);
-          const interval = displayPrice > 400 ? 10 : displayPrice > 100 ? 5 : 2.5;
-          for (let i = -6; i <= 5; i++) {
-            const strike = base + i * interval;
-            strikes.push(strike);
-            const dist = Math.abs(i);
-            // Dummy distribution centered around current price
-            strikeMap[strike] = {
-              strike,
-              put: Math.max(100, Math.round((12000 - dist * 1500) * (dist % 2 === 0 ? 0.8 : 1.2))),
-              call: Math.max(100, Math.round((12000 - dist * 1500) * (dist % 2 === 0 ? 1.2 : 0.8))),
-              isWall: false,
-              isFloor: false
-            };
-          }
-          strikes.sort((a, b) => a - b);
-        }
-
         // Find closest strike index to displayPrice
         let closestIdx = 0;
         let minDiff = Infinity;
@@ -4569,7 +4553,7 @@ export default function AppFlowPage() {
         const chartExpiry = expirations[0] || '';
         const expiryKind = optionExpiryKind(chartExpiry);
         const expiryKindLabel = expiryKind === 'monthly' ? (locale === 'ko' ? '월간 만기' : locale === 'ja' ? '月間満期' : 'Monthly Expiry') : expiryKind === 'weekly' ? strikeCopy.weekly : '—';
-        const weeklyExpiryLabel = chartExpiry ? `${chartExpiry.slice(5)} ${expiryKindLabel}` : '—';
+        const weeklyExpiryLabel = chartExpiry ? `${strikeSource.date ? `${strikeSource.date} · ` : ''}${chartExpiry.slice(5)} ${expiryKindLabel}` : '—';
         const nearestResistance = selectedStrikes.filter(stk => stk > displayPrice).sort((a, b) => a - b)[0] ?? wallStrike;
         const nearestSupport = selectedStrikes.filter(stk => stk < displayPrice).sort((a, b) => b - a)[0] ?? floorStrike;
         const wallDistancePct = wallStrike > 0 ? ((wallStrike - displayPrice) / displayPrice) * 100 : 0;
@@ -4754,11 +4738,12 @@ export default function AppFlowPage() {
                   );
                 })()}
 
+                {strikes.length === 0 && <div style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</div>}
                 {/* Rows */}
                 {selectedStrikes.map((strike, idx) => {
                   const data = strikeMap[strike];
-                  const putPct = Math.min(90, Math.max(2, (data.put / maxVal) * 100));
-                  const callPct = Math.min(90, Math.max(2, (data.call / maxVal) * 100));
+                  const putPct = data.put > 0 ? Math.min(90, Math.max(2, (data.put / maxVal) * 100)) : 0;
+                  const callPct = data.call > 0 ? Math.min(90, Math.max(2, (data.call / maxVal) * 100)) : 0;
                   const isClosest = strike === closestStrike;
                   const isWall = strike === wallStrike;
                   const isFloor = strike === floorStrike;

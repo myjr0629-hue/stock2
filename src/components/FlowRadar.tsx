@@ -2,6 +2,7 @@
 "use client";
 
 import { activeOptionRows, optionChainSampleReady, optionConclusion } from '@/lib/optionDisplayGate';
+import { netPremiumOf } from '@/lib/premiumFlow';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile, useEnhancedMetrics } from '@/hooks/useFlowData';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle, BarChart3, Banknote, Radio } from 'lucide-react';
@@ -26,6 +27,8 @@ export interface FlowRadarProps {
     squeezeScore?: number | null;
     squeezeRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;
     initialFlowData?: any;
+    /** Current polled flow block, from the same response as rawChain. */
+    currentFlowData?: unknown;
     /**
      * ★ [2026-09-25] 옵션 레벨 «한 벌» — /api/live/ticker 의 flow.maxPain·callWall·putFloor·levelsExpiration.
      * Command·앱 Flow·구조 API 와 같은 숫자다(주간 만기 전체 체인, 콜월·풋플로어는 현물 ±20% 최대 OI).
@@ -39,7 +42,7 @@ export interface FlowRadarProps {
     levelsChainDate?: string | null;
 }
 
-export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inputAllExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inputAllExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, currentFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
     const rawChain = activeOptionRows<any>(inputRawChain || []);
     const allExpiryChain = activeOptionRows<any>(inputAllExpiryChain || []);
     const t = useTranslations('flowRadar');
@@ -1685,9 +1688,9 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
     const observedCallVolume = flowMap.reduce((sum: number, row: any) => sum + (row.callVol || 0), 0);
     const observedPutVolume = flowMap.reduce((sum: number, row: any) => sum + (row.putVol || 0), 0);
     const analysisDirection = (analysis?.compositeScore ?? 0) >= 20 ? 'bullish' : (analysis?.compositeScore ?? 0) <= -20 ? 'bearish' : 'neutral';
-    const conclusionOk = optionConclusion(analysisDirection, observedCallVolume > 0 ? observedPutVolume / observedCallVolume : null, initialFlowData?.netPremium) === analysisDirection;
+    const conclusionOk = optionConclusion(analysisDirection, observedCallVolume > 0 ? observedPutVolume / observedCallVolume : null, netPremiumOf(currentFlowData)) === analysisDirection;
     const analysisGateOk = optionSampleOk && conclusionOk;
-    const analysisStatus = !optionSampleOk ? '—' : !conclusionOk ? ui('verdictCrossCurrent') : analysis.status;
+    const analysisStatus = !optionSampleOk ? '—' : !conclusionOk ? ui('verdictCrossCurrent') : analysis?.status ?? '—';
 
     if (!rawChain || rawChain.length === 0) {
         return (

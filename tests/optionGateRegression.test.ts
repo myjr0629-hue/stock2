@@ -1,0 +1,174 @@
+/** Offline regressions for the two B5 review blockers. */
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import test from 'node:test';
+import ts from 'typescript';
+import * as gate from '../src/lib/optionDisplayGate';
+import { netPremiumOf } from '../src/lib/premiumFlow';
+
+const flowPath = 'src/app/[locale]/app-view/flow/page.tsx';
+const radarPath = 'src/components/FlowRadar.tsx';
+const read = (path: string) => fs.readFileSync(path, 'utf8');
+function initializer(path: string, name: string, last = false) {
+    const sf = ts.createSourceFile(path, read(path), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    let value = '';
+    const walk = (node: ts.Node) => {
+        if ((!value || last) && ts.isVariableDeclaration(node) && node.name.getText(sf) === name && node.initializer) value = node.initializer.getText(sf);
+        ts.forEachChild(node, walk);
+    };
+    walk(sf); assert.ok(value, `${path}: ${name}`); return value;
+}
+function run(code: string, context: Record<string, any>) {
+    const js = ts.transpileModule(`result = (${code});`, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS } }).outputText;
+    const sandbox = { result: undefined, ...gate, netPremiumOf, ...context };
+    vm.runInNewContext(js, sandbox);
+    return sandbox.result as any;
+}
+const row = (expiry: string, volume = 321) => ({ details: { expiration_date: expiry, contract_type: 'call', strike_price: 200 }, day: { volume } });
+const afterExpiry = Date.parse('2026-10-16T16:01:00-04:00');
+
+test('expired-only STRIKE source preserves actual 321 contracts instead of fabricating 12 rows', () => {
+    const rows = [row('2026-10-16')];
+    const block = read(flowPath).split('// Group rawChain by strike price')[1].split('// Find closest strike index')[0];
+    const result = run(`(() => { ${block} return { strikeMap, strikes }; })()`, {
+        rawChain: gate.activeOptionRows(rows, afterExpiry), strikeSource: { rows, date: '2026-10-16' }, displayPrice: 200,
+    });
+    assert.equal(result.strikes.length, 1);
+    assert.equal(result.strikeMap[200].call, 321);
+    assert.equal(result.strikeMap[200].put, 0);
+});
+
+test('web bullish conclusion with P/C 1.55 and actual -44000 premium must fail the shared gate', () => {
+    const flow = { netPremium: -44000, contractsProcessed: 2 };
+    const result = run(initializer(radarPath, 'conclusionOk'), {
+        analysisDirection: 'bullish', observedCallVolume: 200, observedPutVolume: 310,
+        initialFlowData: { liveQuote: { flow } }, currentFlowData: flow,
+    });
+    assert.equal(result, false);
+});
+
+test('STRIKE reads the unfiltered source for its own ticker and never revives an old ticker or failed response', () => {
+    const rows = [row('2026-10-16')];
+    const code = initializer(flowPath, 'strikeSource');
+    const context = { ticker: 'AAPL', strikeVolumeSource: (chain: any[], date: string) => ({ rows: chain, date }) };
+    assert.equal(run(code, { ...context, tickerData: { ticker: 'AAPL', flow: { rawChain: rows, dataFreshness: { chainDate: '2026-10-16' } } } }).rows[0].day.volume, 321);
+    for (const tickerData of [
+        null, { ticker: 'NVDA', flow: { rawChain: rows } },
+        { ticker: 'AAPL', flow: { rawChain: rows, dataSource: 'NONE' } },
+        { ticker: 'AAPL', flow: { rawChain: rows, error: 'unavailable' } },
+    ]) assert.equal(run(code, { ...context, tickerData }).rows.length, 0);
+});
+
+test('historical STRIKE keeps only actual last-session rows, including weekend, holiday, early close and DST', () => {
+    for (const [now, date, expiry] of [
+        ['2026-10-16T16:01:00-04:00', '2026-10-16', '2026-10-16'],
+        ['2026-10-18T19:14:00-04:00', '2026-10-16', '2026-10-16'],
+        ['2026-10-19T10:00:00-04:00', '2026-10-16', '2026-10-16'],
+        ['2026-06-19T12:00:00-04:00', '2026-06-18', '2026-06-18'],
+        ['2026-11-27T13:01:00-05:00', '2026-11-27', '2026-11-27'],
+        ['2026-11-02T16:01:00-05:00', '2026-11-02', '2026-11-02'],
+    ]) {
+        const ms = Date.parse(now);
+        const rows = [{ ...row(expiry), expired: true }, row('2026-01-02', 99999)];
+        const result = gate.strikeVolumeSource(rows, date, ms);
+        assert.equal(result.rows.length, 1, now);
+        assert.equal(result.rows[0].day.volume, 321);
+        assert.equal(result.date, date);
+        assert.equal(gate.activeOptionRows(rows, ms).length, 0); // position/sample gate still rejects history
+    }
+});
+
+test('STRIKE never substitutes fake values for missing, invalid, undated or older historical source', () => {
+    const ms = Date.parse('2026-10-18T19:14:00-04:00');
+    for (const date of [null, undefined, 'bad', '2026-02-30', '2026-10-15', '2026-10-17', '2026-10-19', 1792195200000]) {
+        assert.equal(gate.strikeVolumeSource([row('2026-10-16')], date, ms).rows.length, 0);
+    }
+    for (const volume of [null, undefined, NaN, Infinity, -1, '321']) {
+        assert.equal(gate.strikeVolumeSource([{ ...row('2026-10-16'), day: { volume } }], '2026-10-16', ms).rows.length, 0);
+    }
+    const zero = gate.strikeVolumeSource([row('2026-10-16', 0)], '2026-10-16', ms);
+    assert.equal(zero.rows[0].day.volume, 0);
+    assert.equal(gate.strikeVolumeSource([], '2026-10-16', ms).rows.length, 0);
+    const block = read(flowPath).split('// Group rawChain by strike price')[1].split('// Find closest strike index')[0];
+    assert.equal(run(`(() => { ${block} return strikes; })()`, { rawChain: [], strikeSource: { rows: [] }, displayPrice: 200 }).length, 0);
+    assert.equal(run(initializer(flowPath, 'weeklyExpiryLabel'), { chartExpiry: '2026-10-16', expiryKindLabel: 'monthly', strikeSource: { date: '2026-10-16' } }), '2026-10-16 · 10-16 monthly');
+    for (const name of ['putPct', 'callPct']) assert.equal(run(initializer(flowPath, name, true), { data: { put: 0, call: 0 }, maxVal: 100 }), 0);
+});
+
+test('active STRIKE source wins over historical rows and preserves the original real volume', () => {
+    const rows = [row('2026-10-16', 99999), row('2026-10-23', 123)];
+    const result = gate.strikeVolumeSource(rows, '2026-10-16', afterExpiry);
+    assert.equal(result.rows.length, 1);
+    assert.equal(result.rows[0].day.volume, 123);
+    assert.equal(result.date, '2026-10-16');
+});
+
+test('app and web use the same contradiction function and observed premium for both directions', () => {
+    for (const [direction, pc, net, expected] of [
+        ['bullish', 1.55, -44000, 'neutral'], ['bearish', 0.63, 3461, 'neutral'],
+        ['bullish', 0.63, 3461, 'bullish'], ['bearish', 1.55, -44000, 'bearish'],
+        ['bullish', 1.55, null, 'bullish'], ['bullish', 1.55, 0, 'bullish'],
+    ] as const) {
+        const flow = { netPremium: net, contractsProcessed: 2 };
+        const appDirection = run(initializer(flowPath, 'overviewDirection'), {
+            optionSampleOk: true, rawOverviewDirection: direction, pcKnown: true, pcRatio: pc,
+            tickerData: { flow }, netPremiumOverview: net,
+        });
+        const conclusionOk = run(initializer(radarPath, 'conclusionOk'), {
+            analysisDirection: direction, observedCallVolume: 200, observedPutVolume: pc * 200,
+            currentFlowData: flow, initialFlowData: { liveQuote: { flow: { netPremium: -Number(net) } } },
+        });
+        assert.equal(appDirection, expected);
+        assert.equal(conclusionOk, expected === direction);
+        const analysisGateOk = run(initializer(radarPath, 'analysisGateOk'), { conclusionOk, optionSampleOk: true });
+        assert.equal(analysisGateOk, expected === direction);
+        if (!analysisGateOk) assert.equal(run(initializer(radarPath, 'analysisStatus'), { optionSampleOk: true, conclusionOk, ui: () => 'existing mixed' }), 'existing mixed');
+    }
+});
+
+test('both web callers pass the polled flow block alongside rawChain, including refresh without SSR data', () => {
+    for (const path of ['src/app/[locale]/flow/FlowPageClient.tsx', 'src/app/[locale]/flow/MobileFlowPage.tsx']) {
+        const sf = ts.createSourceFile(path, read(path), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+        let found = false;
+        const walk = (node: ts.Node) => {
+            if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(sf) === 'FlowRadar') {
+                found = node.attributes.properties.some(p => ts.isJsxAttribute(p) && p.name.getText(sf) === 'currentFlowData' && p.initializer?.getText(sf) === '{liveQuote?.flow}');
+            }
+            ts.forEachChild(node, walk);
+        };
+        walk(sf); assert.equal(found, true, path);
+    }
+    const context = { analysisDirection: 'bullish', observedCallVolume: 200, observedPutVolume: 310, initialFlowData: undefined };
+    assert.equal(run(initializer(radarPath, 'conclusionOk'), { ...context, currentFlowData: { netPremium: -44000 } }), false);
+    assert.equal(run(initializer(radarPath, 'conclusionOk'), { ...context, currentFlowData: { netPremium: 44000 } }), true);
+});
+
+test('web conclusion keeps the existing missing value while analysis is null', () => {
+    assert.equal(run(initializer(radarPath, 'analysisStatus'), { optionSampleOk: true, conclusionOk: true, analysis: null }), '—');
+});
+
+test('actual status initializer type-checks with nullable analysis; the former access fails TS18047', () => {
+    function diagnostics(expression: string) {
+        const name = '/status.ts';
+        const code = `declare const optionSampleOk: boolean, conclusionOk: boolean;
+            declare const analysis: { status: string } | null;
+            declare const ui: (key: string) => string;
+            const status = ${expression};`;
+        const sf = ts.createSourceFile(name, code, ts.ScriptTarget.ES2020, true);
+        const host: ts.CompilerHost = {
+            getSourceFile: path => path === name ? sf : undefined,
+            getDefaultLibFileName: () => '', writeFile: () => {}, getCurrentDirectory: () => '/',
+            getDirectories: () => [], fileExists: path => path === name,
+            readFile: path => path === name ? code : undefined,
+            getCanonicalFileName: path => path, useCaseSensitiveFileNames: () => true, getNewLine: () => '\n',
+        };
+        const program = ts.createProgram([name], { strict: true, noLib: true, noEmit: true }, host);
+        return program.getSemanticDiagnostics(sf);
+    }
+    const expression = initializer(radarPath, 'analysisStatus');
+    assert.equal(diagnostics(expression).length, 0);
+    const oldExpression = expression.replace("analysis?.status ?? '—'", 'analysis.status');
+    assert.notEqual(oldExpression, expression);
+    assert.ok(diagnostics(oldExpression).some(d => d.code === 18047));
+});

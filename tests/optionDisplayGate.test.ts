@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import * as gate from '../src/lib/optionDisplayGate';
+import { netPremiumOf } from '../src/lib/premiumFlow';
 
 let count = 0;
 const test = (name: string, fn: () => void) => { fn(); count++; console.log(`PASS ${name}`); };
@@ -30,7 +31,7 @@ function initializer(path: string, name: string) {
 }
 function run(code: string, context: Record<string, any> = {}) {
     const js = ts.transpileModule(`result = (${code});`, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-    const sandbox = { result: undefined, useMemo: (fn: () => any) => fn(), ...gate, activeOptionRows: active, ...context };
+    const sandbox = { result: undefined, useMemo: (fn: () => any) => fn(), ...gate, netPremiumOf, activeOptionRows: active, ...context };
     vm.runInNewContext(js, sandbox);
     return sandbox.result as any;
 }

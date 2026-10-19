@@ -490,6 +490,7 @@ export function MobileFlowPage({ ticker, initialFlowData }: MobileFlowPageProps)
                             squeezeScore={liveQuote?.flow?.squeezeScore}
                             squeezeRisk={liveQuote?.flow?.squeezeRisk}
                             initialFlowData={initialFlowData}
+                            currentFlowData={liveQuote?.flow}
                         />
                     </ErrorBoundary>
                 )}

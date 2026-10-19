@@ -1,4 +1,4 @@
-import { isNonTradingDay, optionExpiryJudge, prevTradingDate } from './marketCalendar';
+import { etDateOf, etMinutesOf, isNonTradingDay, optionExpiryJudge, prevTradingDate, sessionCloseMinutes } from './marketCalendar';
 
 /** Keep the original expiry until after this gate; MM/DD display strings lose the year. */
 export function optionRowExpiry(row: any): string | null {
@@ -12,6 +12,27 @@ export function optionRowExpiry(row: any): string | null {
 export function activeOptionRows<T>(rows: readonly T[], nowMs = Date.now()): T[] {
     const expired = optionExpiryJudge(nowMs);
     return rows.filter(row => (row as any)?.expired !== true && !expired(optionRowExpiry(row)));
+}
+
+/** STRIKE history only: never feed expired session volumes back into live position/sample gates. */
+export function strikeVolumeSource(rows: readonly any[], chainDate: unknown, nowMs = Date.now()): { rows: any[]; date: string | null } {
+    const date = typeof chainDate === 'string' && /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(chainDate)
+        && Number.isFinite(Date.parse(chainDate.slice(0, 10)))
+        && new Date(chainDate.slice(0, 10)).toISOString().slice(0, 10) === chainDate.slice(0, 10)
+        ? chainDate.slice(0, 10) : null;
+    const observed = rows.filter(row => Number.isFinite(row?.details?.strike_price)
+        && (row?.details?.contract_type === 'call' || row?.details?.contract_type === 'put')
+        && typeof row?.day?.volume === 'number' && Number.isFinite(row.day.volume) && row.day.volume >= 0);
+    const active = activeOptionRows(observed, nowMs);
+    if (active.length) return { rows: active, date };
+
+    const today = etDateOf(nowMs);
+    const closedDate = isNonTradingDay(today) || etMinutesOf(nowMs) < sessionCloseMinutes(today) ? prevTradingDate(today) : today;
+    if (date !== closedDate) return { rows: [], date: null };
+    // At 12:00 UTC it is before both regular and early ET closes, in either DST season.
+    const expiredAtSession = optionExpiryJudge(Date.parse(`${date}T12:00:00Z`));
+    const historical = observed.filter(row => /^\d{4}-\d{2}-\d{2}$/.test(optionRowExpiry(row) ?? '') && !expiredAtSession(optionRowExpiry(row)));
+    return { rows: historical, date: historical.length ? date : null };
 }
 
 const nonnegative = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
