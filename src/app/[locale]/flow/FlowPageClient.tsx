@@ -308,6 +308,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                 squeezeScore={liveQuote?.flow?.squeezeScore}
                                 squeezeRisk={liveQuote?.flow?.squeezeRisk}
                                 initialFlowData={initialFlowData}
+                                currentFlowData={liveQuote?.flow}
                             />
                             </ErrorBoundary>
                         </div>

@@ -1,5 +1,7 @@
 'use client';
 
+import { displayQuote } from '@/lib/optionDisplayGate';
+
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -228,7 +230,7 @@ function sma(candles: { c: number }[], window: number): (number | null)[] {
 /* ═══════════════════════════════════════════
    SVG CANDLESTICK CHART (PREMIUM INTEGRATED)
    ═══════════════════════════════════════════ */
-function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; vwap?: number | null; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
+function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote, session }: { ticker: string; price: number; vwap?: number | null; locale?: string; changePct?: number; session: string; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
   const [range, setRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D');
   const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [candles, setCandles] = useState<{ o: number; h: number; l: number; c: number; dateET: string; session: string }[]>([]);
@@ -342,19 +344,15 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
   //    intrinioClient.ts:592-597 → /api/live/ticker `quote`). 이제 실값만 쓴다.
   //    없으면 null 을 돌려 행 자체를 그리지 않는다 — 합성으로 채우지 않는다.
   const nbbo = useMemo(() => {
-    const bid = Number(quote?.bid);
-    const ask = Number(quote?.ask);
-    if (!Number.isFinite(bid) || bid <= 0 || !Number.isFinite(ask) || ask <= 0 || ask < bid) return null;
-    const mid = (bid + ask) / 2;
-    const spreadPct = Number.isFinite(Number(quote?.spreadPct))
-      ? Number(quote?.spreadPct)
-      : (mid > 0 ? ((ask - bid) / mid) * 100 : null);
+    const accepted = displayQuote(quote, session);
+    if (!accepted) return null;
+    const { bid, ask, spreadPct } = accepted;
     return {
       bid: bid.toFixed(2),
       ask: ask.toFixed(2),
       spread: spreadPct == null ? null : spreadPct.toFixed(3),
     };
-  }, [quote]);
+  }, [quote, session]);
 
   const sessionBlocks = useMemo(() => {
     if (displayCandles.length === 0) return [];
@@ -3757,6 +3755,7 @@ function CmdPageContent() {
               vwap={data.vwap}
               locale={locale}
               quote={data.rawTickerData?.quote ?? null}
+              session={effectiveSession}
             />
           </div>
 

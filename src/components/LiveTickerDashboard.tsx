@@ -1805,6 +1805,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 return3d={initialStockData.return3d}
                                                 vwap={normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap) ?? undefined}
                                                 gammaFlipLevel={structure?.gammaFlipLevel}
+                                                quoteSession={effectiveSession}
                                                 nbbo={(() => {
                                                     const q = typeof wsGetQuote === 'function' ? wsGetQuote(ticker) : undefined;
                                                     return q && q.bid > 0 && q.ask > 0 ? { bid: q.bid, ask: q.ask, bidSize: q.bidSize || 0, askSize: q.askSize || 0 } : null;

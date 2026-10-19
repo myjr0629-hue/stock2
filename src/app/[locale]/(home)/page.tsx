@@ -22,6 +22,7 @@ import { Link } from '@/i18n/routing';
 import { LiveFeedTicker } from '@/components/landing/LiveFeedTicker';
 import { PromoCodeChip } from '@/components/landing/PromoCodeChip';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
+import { activeOptionRows } from '@/lib/optionDisplayGate';
 
 // --- Sparkline Component ---
 function Sparkline({ data, color = "#22d3ee" }: { data: number[], color?: string }) {
@@ -96,6 +97,7 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
   }, [isOpen, symbol]);
 
   if (!isOpen) return null;
+  const optionRows = activeOptionRows<any>(data?.atmSlice || []);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -113,13 +115,13 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
             <h3 className="text-xs font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">{t('home.optionsChain')}</h3>
             {loading ? (
               <div className="py-8 flex justify-center"><Loader2 className="animate-spin text-cyan-500" size={24} /></div>
-            ) : data?.atmSlice?.length > 0 ? (
+            ) : optionRows.length > 0 ? (
               <table className="w-full text-xs">
                 <thead className="text-slate-500 border-b border-white/5">
                   <tr><th className="pb-2 text-left">Strike</th><th className="pb-2">Type</th><th className="pb-2 text-right">OI</th></tr>
                 </thead>
                 <tbody className="font-mono text-slate-300">
-                  {data.atmSlice.slice(0, 8).map((row: any, i: number) => (
+                  {optionRows.slice(0, 8).map((row: any, i: number) => (
                     <tr key={i} className="border-b border-white/5">
                       <td className="py-2 font-bold text-white">{row.strike}</td>
                       <td className={`py-2 text-center ${row.type === 'call' ? 'text-emerald-400' : 'text-rose-400'}`}>{row.type}</td>

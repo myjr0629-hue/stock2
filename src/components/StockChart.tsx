@@ -1,6 +1,7 @@
 
 "use client";
 
+import { displayQuote } from '@/lib/optionDisplayGate';
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslations } from 'next-intl';
 import { createChart, IChartApi, ISeriesApi, LineStyle, ColorType, CrosshairMode, LineType, UTCTimestamp } from "lightweight-charts";
@@ -31,6 +32,8 @@ interface StockChartProps {
     vwap?: number;
     gammaFlipLevel?: number;
     nbbo?: { bid: number; ask: number; bidSize: number; askSize: number } | null;
+    /** Session used only to gate the NBBO badge (spread > 5% outside REG is dropped). Does not drive the session badge or live updates. */
+    quoteSession?: string;
 }
 
 // ── ET time helpers ──
@@ -69,7 +72,8 @@ function toTimestamp(item: any, isIntraday: boolean): UTCTimestamp {
     return (Math.floor(Date.now() / 1000)) as UTCTimestamp;
 }
 
-export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels, session, dayHigh, dayLow, hideHeaderExtras, vwap, gammaFlipLevel, nbbo }: StockChartProps & { initialRange?: string }) {
+export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels, session, dayHigh, dayLow, hideHeaderExtras, vwap, gammaFlipLevel, nbbo: rawNbbo, quoteSession }: StockChartProps & { initialRange?: string }) {
+    const nbbo = displayQuote(rawNbbo, quoteSession ?? session ?? 'CLOSED') ? rawNbbo : null;
     const td = useTranslations('dashboard');
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
