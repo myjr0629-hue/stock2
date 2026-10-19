@@ -85,14 +85,17 @@ function sourceDate(value: unknown): string | null {
  * Missing values never lend their date to a fallback observation.
  */
 export function retainConvictionInputs(ticker: string, raw: ConvictionRawInputs,
-    dates: Partial<Record<ConvictionField, unknown>>, previous?: ConvictionSnapshot): ConvictionSnapshot {
+    dates: Partial<Record<ConvictionField, unknown>>, previous?: ConvictionSnapshot,
+    /** Inputs the source explicitly invalidated (e.g. the ticker route nulls a previous-session VWAP):
+     *  that is an observation, so the previous value is not carried. */
+    invalidated: readonly ConvictionField[] = []): ConvictionSnapshot {
     const incoming = convictionInputsOf(raw);
     const old = previous?.ticker === ticker ? previous : undefined;
     const inputs = {} as Record<ConvictionField, unknown>;
     const sourceDates = {} as ConvictionSnapshot['sourceDates'];
     const carriedFields: ConvictionField[] = [];
     for (const key of Object.keys(incoming) as ConvictionField[]) {
-        const prev = old ? { value: old.inputs[key], asOf: sourceDate(old.sourceDates[key]) } : null;
+        const prev = old && !invalidated.includes(key) ? { value: old.inputs[key], asOf: sourceDate(old.sourceDates[key]) } : null;
         const next = { value: incoming[key], asOf: sourceDate(dates[key]) };
         const picked = selectValue<unknown>(prev, next);
         inputs[key] = picked.value;
@@ -123,6 +126,8 @@ export function webConvictionSnapshot(ticker: string, data: {
     const st = isFailedSection(u?.structure) ? null : u?.structure;
     const sm = isFailedSection(u?.sma) ? null : u?.sma;
     const fl = isFailedSection(q?.flow) ? null : q?.flow;
+    // VWAP is session-scoped: an explicit null from the live quote is the route invalidating a stale VWAP.
+    const invalidated: ConvictionField[] = q && q.vwap === null ? ['vwap'] : [];
     return retainConvictionInputs(ticker, {
         cross: sm?.cross,
         price: s || q || u ? data.price : null,
@@ -139,7 +144,7 @@ export function webConvictionSnapshot(ticker: string, data: {
         gex: editionDate(st),
         netPremium: fl?.dataFreshness?.premiumDate ?? fl?.dataFreshness?.chainDate,
         news: data.news?.date,
-    }, seed);
+    }, seed, invalidated);
 }
 
 /** Web Command state: fold the SSR payload once per payload (at arrival), then the live poll.
@@ -166,7 +171,7 @@ export function carriedConvictionDate(snapshot: ConvictionSnapshot | null | unde
 
 /** App/adapter raw inputs from one unified payload + quote. Failed sections (rule 1) never vote. */
 export function commandConvictionRaw(unified: any, price: unknown, vwap: unknown, flow: unknown,
-    sourceDates: { price?: unknown; vwap?: unknown } = {}): { raw: ConvictionRawInputs; dates: Partial<Record<ConvictionField, unknown>> } {
+    sourceDates: { price?: unknown; vwap?: unknown } = {}): { raw: ConvictionRawInputs; dates: Partial<Record<ConvictionField, unknown>>; invalidated: ConvictionField[] } {
     const u = isCommandResponseUnavailable(unified) ? null : unified;
     const st = isFailedSection(u?.structure) ? null : u?.structure;
     const sm = isFailedSection(u?.sma) ? null : u?.sma;
@@ -176,5 +181,7 @@ export function commandConvictionRaw(unified: any, price: unknown, vwap: unknown
         dates: { cross: sm?.date ?? sm?.sourceDate ?? sm?.asOf, pcr: editionDate(st), gex: editionDate(st),
             price: sourceDates.price, vwap: sourceDates.vwap,
             netPremium: fl?.dataFreshness?.premiumDate ?? fl?.dataFreshness?.chainDate },
+        // An explicit null VWAP is the source invalidating a stale (previous-session) VWAP — not carried.
+        invalidated: vwap === null ? ['vwap'] : [],
     };
 }

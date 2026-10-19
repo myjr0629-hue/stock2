@@ -402,7 +402,7 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                     />
                 )}
                 {activeTab === 'metrics' && (
-                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} volatilityData={volatilityObservation?.data ?? null} volatilitySource={volatilityObservation} unifiedLoading={unifiedLoading} vwap={metricVwap} vwapDate={metricVwapDate} />
+                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} volatilityData={volatilityObservation?.data ?? null} volatilitySource={volatilityObservation} unifiedLoading={unifiedLoading} vwap={metricVwap} vwapDate={metricVwapDate} vwapExplicitNull={tickerApiData?.vwap === null} />
                 )}
                 {activeTab === 'chart' && (
                     <MobileCmdChart ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={metricStockData} />
