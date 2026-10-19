@@ -361,6 +361,9 @@ export const useDashboardStore = create<DashboardState>()(
                             prevClose: prevCl,
                             // 표시 계산의 PRE 기준은 D-1, 정규장 등락 계산용 prevClose(D-2)는 별도 보존.
                             prevRegularClose: session === 'PRE' ? price : prevCl,
+                            // fetchPriceOnly 와 같은 규칙 — 마지막 정규장 하루 등락은 가격과 한 쌍으로 쓴다
+                            ...((session === 'PRE' || session === 'POST' || session === 'CLOSED') && finiteNum(q.changePercent)
+                                ? { prevChangePct: q.changePercent } : {}),
                             display: { price, changePctPct: changePct },
                             extended: ext,
                             session,
@@ -511,6 +514,10 @@ export const useDashboardStore = create<DashboardState>()(
                         //   값이 있으면 그것이 정답 — 보관·unified 값(다른 날 일봉일 수 있다)이 덮지 못한다.
                         //   null(day.c 결측)일 때만 기존 값을 유지한다.
                         const quotePrePct = session === 'PRE' && finiteNum(q.changePercent) ? q.changePercent : null;
+                        // PRE·POST·CLOSED 의 quotes.changePercent = «마지막으로 끝난 정규장»의 하루 등락(같은 응답 price 와 한 쌍) —
+                        //   unified 일봉 prevChangePct 와 같은 뜻이다. 가격을 쓰는 쪽이 짝 등락률도 함께 써서 다른 세션·다른 날 값이 남지 않게 한다.
+                        const quoteSessionPct = (session === 'PRE' || session === 'POST' || session === 'CLOSED') && finiteNum(q.changePercent)
+                            ? q.changePercent : null;
                         const changePct = session === 'PRE'
                             ? (quotePrePct ?? existing.prevChangePct ?? existing.intradayChangePct ?? pipe.changePct)
                             : pipe.changePct;
@@ -522,6 +529,7 @@ export const useDashboardStore = create<DashboardState>()(
                             changePercent: changePct,
                             prevClose: pipe.prevClose || existing.prevClose,
                             prevRegularClose: session === 'PRE' ? pipe.price : (pipe.prevClose || existing.prevRegularClose),
+                            ...(quoteSessionPct != null ? { prevChangePct: quoteSessionPct } : {}),
                             regularCloseToday: regCloseToday,
                             display: { price: pipe.price, changePctPct: changePct ?? 0 },
                             // ★ [2026-09-25] 시간외 칸은 이번 폴링(quotes)이 «정답»이다 — 세션·날짜로 이미 골라서 온다.

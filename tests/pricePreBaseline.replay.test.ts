@@ -259,6 +259,31 @@ async function main() {
             await store.getState().fetchPriceOnly(['TEST']);
             expectDisplay(store.getState().tickers.TEST, 100, 0);
         });
+        await test(`gate 10200728 #1 ${mode}: earlier CLOSED unified pct cannot outlive PRE quotes pair (+WS)`, async () => {
+            const quoteNow = { price: 100, previousClose: 98, changePercent: fridayPct, session: 'pre', extendedPrice: 100.5, extendedLabel: 'PRE', extendedChangePercent: 0.5 };
+            const closedOld = await unifiedFromBars(99, '2026-10-16', false, 'CLOSED'); // +1.02%
+            const { useDashboardStore: store } = makeStore({ TEST: quoteNow }, closedOld);
+            store.setState({ tickers: { TEST: { underlyingPrice: null, session: 'CLOSED' } } });
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            await store.getState().fetchPriceOnly(['TEST']);
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct, 0.5);
+            store.getState().updateRealtimePrice('TEST', 100.5);
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct, 0.5);
+        });
+        await test(`gate 10200728 #2 ${mode}: verified PRE seed -> REG -> flat POST shows 0.00%`, async () => {
+            const q: any = { price: 100, previousClose: 98, changePercent: fridayPct, session: 'pre' };
+            const { useDashboardStore: store } = makeStore({ TEST: q }, await unifiedFromBars(100, '2026-10-16'));
+            store.setState({ tickers: { TEST: { underlyingPrice: null, session: 'CLOSED' } } });
+            if (mode === 'unified') await store.getState().fetchDashboardData(['TEST']);
+            else await store.getState().fetchSingleTicker('TEST');
+            expectDisplay(store.getState().tickers.TEST, 100, fridayPct);
+            Object.assign(q, { price: 100, previousClose: 100, changePercent: 0, session: 'regular' });
+            await store.getState().fetchPriceOnly(['TEST']);
+            Object.assign(q, { session: 'post' });
+            await store.getState().fetchPriceOnly(['TEST']);
+            expectDisplay(store.getState().tickers.TEST, 100, 0);
+        });
         await test(`PRE ${mode}: early close Fri 2026-11-27 13:00 ET is the Monday PRE baseline`, async () => {
             const { useDashboardStore: store } = makeStore({}, await unifiedFromBars(100, '2026-11-27'), '2026-11-30T13:00:00Z');
             store.setState({ tickers: { TEST: { underlyingPrice: null, prevRegularClose: 98, prevClose: 98, session: 'CLOSED' } } });
