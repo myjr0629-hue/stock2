@@ -2759,7 +2759,11 @@ export default function AppFlowPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 900, letterSpacing: '.1em', color: accent, textTransform: 'uppercase' }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" strokeLinejoin="round" /></svg>
-                  {whaleOpeningLabel(liveOpening?.side ?? c.type, locale)} {openingSideTotal(liveOpening) == null ? '—' : `+${openingSideTotal(liveOpening)!.toLocaleString('en-US')}`}
+                  {/* D35: an all-contracts total exists → «고래 신규 콜/풋 +합계». An older bundle without it keeps the existing
+                      single-contract sentence (no empty «—» label) — the summary is null, not a missing total. */}
+                  {liveOpening
+                    ? <>{whaleOpeningLabel(liveOpening.side, locale)} {openingSideTotal(liveOpening) == null ? '—' : `+${openingSideTotal(liveOpening)!.toLocaleString('en-US')}`}</>
+                    : L('신규 포지션 감지', 'New position detected', '新規ポジション検知')}
                 </span>
                 <span style={{ marginLeft: 'auto', fontSize: 9.5, fontWeight: 700, color: 'var(--app-lbl-anchor)', whiteSpace: 'nowrap' }}>
                   {/* 포지션이 «열린» 세션의 마감 = 레코드 prevDate(아래 «이상 옵션 활동»과 같은 날짜 · 옛 응답은 date — 10/3 b725812cf).
@@ -2769,7 +2773,7 @@ export default function AppFlowPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{ fontSize: 15, fontWeight: 900, color: '#f8fafc', fontFamily: 'ui-monospace, monospace' }}>
-                  {L('최대 계약', 'Largest contract', '最大契約')} {liveOpening?.largest ? '' : '— · '}{expShort} ${c.strike} {isCall ? 'C' : 'P'}
+                  {liveOpening?.largest ? `${L('최대 계약', 'Largest contract', '最大契約')} ` : ''}{expShort} ${c.strike} {isCall ? 'C' : 'P'}
                 </span>
                 <span style={{ fontSize: 15, fontWeight: 900, color: accent, fontFamily: 'ui-monospace, monospace', fontVariantNumeric: 'tabular-nums' }}>
                   +{(c.oiChange || 0).toLocaleString()}

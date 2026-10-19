@@ -547,3 +547,9 @@ test('gate 10192152 ②: web Flow AI describes the whale factor the web sends (o
   assert.match(radar, /whale: \{ premium: `\$\$\{Math\.abs\(\(analysis\.netWhalePremium \|\| 0\) \/ 1000\)\.toFixed\(0\)\}K`/);
   assert.match(fs.readFileSync(path.join(root, 'src/lib/ai/flowTrust.ts'), 'utf8'), /Signed equity dark-pool notional, identical to the displayed whale net bet/);
 });
+test('b5-verify (10/20): app Flow new-position banner — an older bundle without the D35 total keeps the existing sentence (no empty «—» label)', () => {
+  const src = fs.readFileSync(path.join(root, 'src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
+  assert.match(src, /\{liveOpening\s*\? <>\{whaleOpeningLabel\(liveOpening\.side, locale\)\} \{openingSideTotal\(liveOpening\) == null \? '—' : `\+\$\{openingSideTotal\(liveOpening\)!\.toLocaleString\('en-US'\)\}`\}<\/>\s*: L\('신규 포지션 감지', 'New position detected', '新規ポジション検知'\)\}/);
+  assert.match(src, /\{liveOpening\?\.largest \? `\$\{L\('최대 계약', 'Largest contract', '最大契約'\)\} ` : ''\}\{expShort\}/);
+  assert.doesNotMatch(src, /'— · '/, 'no «최대 계약 — ·» prefix for a legacy bundle');
+});
