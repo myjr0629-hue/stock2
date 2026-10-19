@@ -39,7 +39,7 @@ t('신뢰 재료 표식과 캐시 칸 — 웹(표식 없음)은 v3·v4 그대로
     assert.equal(isTrustFlowData(FULL), true);
     assert.equal(isTrustFlowData(EARLY_BEFORE), false);
     assert.equal(isTrustFlowData(undefined), false);
-    assert.equal(flowTrustCacheKey('nvda'), 'ai-flow-analysis:v5:NVDA');
+    assert.equal(flowTrustCacheKey('nvda'), 'ai-flow-analysis:v6:NVDA');
 });
 
 // ── ① 재료 완결 게이트 ──────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ t('프롬프트 — 자리표 규칙과 현재 화면 값, OPI 는 0~100 눈금(
     assert.match(xml, /\{COMPOSITE\} = \+15/);
     assert.match(xml, /gauge_state="BALANCED"/);
     assert.doesNotMatch(xml, /\+50=extreme_call_dominance/);
-    assert.match(xml, /gamma_zone="SHORT_GAMMA\(price below flip\)"/);
+    assert.match(xml, /gamma_zone="UNKNOWN"/);
     assert.match(TRUST_FLOW_SYSTEM, /never type the number/);
     assert.match(TRUST_FLOW_SYSTEM, /FORBIDDEN in every language/);
 });
@@ -216,3 +216,8 @@ t('교정 지시 — 사유 코드를 그대로 준다', () => {
 });
 
 console.log(`\n${n} passed`);
+
+t('감마는 구조 부호만 쓴다 — flip 없는 롱 감마도 유지', () => {
+    const xml = buildTrustFlowXml('NVDA', { ...FULL, regime: { ...FULL.regime, gammaFlipLevel: null, gexRegime: 'LONG' } }, '', 'FIRST_LOAD');
+    assert.match(xml, /gamma_zone="LONG_GAMMA"/);
+});

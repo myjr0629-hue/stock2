@@ -1,3 +1,4 @@
+import { optionPremium } from './metrics/optionPremium';
 /**
  * 옵션 프리미엄 «표시 정의» 한 벌 — 화면의 이름과 값이 같아야 한다.
  *
@@ -77,4 +78,9 @@ export function netPremiumOf(flow: unknown): number | null {
     : typeof f.premiumContracts === 'number' ? f.premiumContracts : null;
   if (count !== null) return count > 0 ? net : null;
   return net !== 0 ? net : null;
+}
+
+/** Premium share uses the same b5 calculation as total/net, never chain volume. */
+export function callPremiumShareOf(flow: any): number | null {
+  return optionPremium({ callPremiumUsd: flow?.callPremium, putPremiumUsd: flow?.putPremium }).value?.callSharePct ?? null;
 }

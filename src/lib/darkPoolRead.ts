@@ -131,14 +131,10 @@ export function readDarkPool(d: DarkPoolInput, lang: DpLang = 'ko'): DarkPoolRea
      *   → |shortDev| ≥ 10%p 면 합성 점수를 «무시하고» 이탈 방향을 쓴다.
      *      (마케팅 게시물로 나가기 직전에 잡았다.)
      */
-    const extremeShort = typeof d.shortDev === 'number' && Number.isFinite(d.shortDev)
-        && Math.abs(d.shortDev) >= 10;
-    const sb: 'low' | 'mid' | 'high' | null =
-        extremeShort ? (d.shortDev! > 0 ? 'high' : 'low')
-        : d.regime === 'ACCUMULATION' ? 'low'
-        : d.regime === 'DISTRIBUTION' ? 'high'
-        : d.regime === 'NEUTRAL' ? 'mid'
-        : shortBand(d.shortDev, d.shortPct);
+    const measuredDev = typeof d.shortPct === 'number' && Number.isFinite(d.shortPct)
+        && typeof d.shortAvg === 'number' && Number.isFinite(d.shortAvg)
+        ? d.shortPct - d.shortAvg : d.shortDev;
+    const sb = shortBand(measuredDev, d.shortPct);
     const gap = typeof d.marketAvg === 'number' ? d.pct - d.marketAvg : null;
     const vr = d.volRatio;
     const sp = d.shortPct;

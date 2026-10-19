@@ -1,3 +1,4 @@
+import { maxPainGapPct } from './defs/market';
 /**
  * 옵션 레벨(맥스페인·콜월·풋플로어·핀존·감마플립) — «한 벌» 매핑·«정의대로 고르기»·«정의 게이트(안전망)» (순수 함수만)
  *
@@ -376,7 +377,7 @@ export function rowSpot(rt: any): number | null {
 /**
  * 배치 서비스(watchlist·portfolio)·인텔 행처럼 레벨이 «평평하게» 담긴 모양에 레벨 한 벌을 덮는다(제자리 수정).
  * 구조가 없으면 레벨은 전부 null — 원래 값(분석 캐시·DynamoDB 이력)을 남기지 않는다.
- * maxPainDist 는 원래 규칙 그대로 «(맥스페인 − 기준가) / 기준가 %», 기준가 = 행의 화면 현물(rowSpot).
+ * maxPainDist = «(맥스페인 − 기준가) / 맥스페인 %», 기준가 = 행의 화면 현물(rowSpot).
  * levelsRefPrice = 이 레벨을 고르고 정의 검사한 기준가 — 실시간 가격을 따로 그리는 화면(내 종목)은 정의 검사를 이 가격으로 한다.
  *   레벨 판본 뒤 실시간 가격이 벽을 넘은 것은 «돌파·이탈»(사실)이지 정의 위반이 아니다(9/30: 넘는 순간 지도가 가려졌다).
  */
@@ -386,7 +387,11 @@ export function applyLevelsToRealtime(rt: any, lv: OptionLevels | null | undefin
     const d = displayLevels(lv, ref, door);
     rt.levelsRefPrice = lv ? (ref ?? posOrNull(lv.levelsSpot)) : null;
     rt.maxPain = d.maxPain;
-    rt.maxPainDist = d.maxPain && ref ? Number((((d.maxPain - ref) / ref) * 100).toFixed(2)) : null;
+    const gap = maxPainGapPct(ref, d.maxPain);
+    // Compatibility: the old field points toward max pain (desktop pressure arrows).
+    // The signed displacement is explicit and identical to Flow/AI.
+    rt.maxPainGapPct = gap;
+    rt.maxPainDist = gap === null ? null : Number((-gap).toFixed(2));
     rt.callWall = d.callWall;
     rt.putFloor = d.putFloor;
     rt.gammaFlipLevel = d.gammaFlipLevel;

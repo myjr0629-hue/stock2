@@ -1,3 +1,4 @@
+import { optionPremium } from '@/lib/metrics/optionPremium';
 
 import { fetchMassive, fetchMassiveAll, CACHE_POLICY } from './massiveClient';
 import { getMarketStatusSSOT } from './marketStatusProvider';
@@ -675,12 +676,16 @@ export const CentralDataHub = {
             //   하나도 없으면 프리미엄은 «못 쟀음»(null)이다 — 0 은 «콜·풋이 같았다»는 관측 주장이 된다.
             //   OI 기반 값(감마·맥스페인·벽·체인)은 그대로 싣는다. 판정 읽기는 lib/premiumFlow.netPremiumOf 하나.
             const premiumObserved = contractsProcessed > 0;
+            const premium = optionPremium({
+                callPremiumUsd: premiumObserved ? callPremium : null,
+                putPremiumUsd: premiumObserved ? putPremium : null,
+            }).value;
             // [S-72] Use full weekly expiration data for accurate Max Pain (no filter)
             return {
-                netPremium: premiumObserved ? callPremium - putPremium : null,
+                netPremium: premium?.netUsd ?? null,
                 callPremium: premiumObserved ? callPremium : null,
                 putPremium: premiumObserved ? putPremium : null,
-                totalPremium: premiumObserved ? callPremium + putPremium : null,
+                totalPremium: premium?.totalUsd ?? null,
                 optionsCount: results.length,
                 contractsProcessed,
                 dataSource,

@@ -138,11 +138,11 @@ t('구조 저장본이 없으면 분석 캐시·AWS 폴백의 값이 전부 지�
     assert.equal(rt.maxPain, null); assert.equal(rt.maxPainDist, null); assert.equal(rt.callWall, null);
     assert.equal(rt.putFloor, null); assert.equal(rt.gammaFlipLevel, null); assert.equal(rt.levelsSource, null);
 });
-t('구조가 있으면 그 한 벌 + maxPainDist 는 시간외 가격 기준(예전 규칙 그대로)', () => {
+t('구조가 있으면 그 한 벌 + maxPainDist 는 시간외 표시 가격·맥스페인 분모 기준', () => {
     const rt: any = { price: 1038.87, extendedPrice: 1053.98, callWall: 1000, putFloor: 60 };
     applyLevelsToRealtime(rt, lvMU);
     assert.equal(rt.callWall, 1100); assert.equal(rt.putFloor, 900); assert.equal(rt.gammaFlipLevel, 1010); assert.equal(rt.maxPain, 970);
-    assert.equal(rt.maxPainDist, Number((((970 - 1053.98) / 1053.98) * 100).toFixed(2)));
+    assert.equal(rt.maxPainDist, Number((((970 - 1053.98) / 970) * 100).toFixed(2)));
     assert.equal(rt.levelsSource, 'structure'); assert.equal('levelsDropped' in rt, false);
 });
 t('portfolio 모양(extPrice)도 같은 기준', () => {
@@ -329,7 +329,7 @@ t('intel/fast 모양: session REG + extendedPrice(PRE 가격) → 표시 가격 
     const rt: any = { price: 297.87, extendedPrice: 288.645, extendedLabel: 'PRE', session: 'REG' };
     applyLevelsToRealtime(rt, lvX, 'test');
     // lvX 는 기준가 100 판본이라 297.87 에서는 전부 범위 밖 — 핵심은 «어느 가격으로 봤는가»: maxPainDist 기준이 표시 가격
-    assert.equal(rt.maxPainDist == null || Math.abs(rt.maxPainDist - Number((((100 - 297.87) / 297.87) * 100).toFixed(2))) < 1e-9, true);
+    assert.equal(rt.maxPainDist == null || Math.abs(rt.maxPainDist - Number((((100 - 297.87) / 100) * 100).toFixed(2))) < 1e-9, true);
 });
 t('session 이 시간외(PRE/POST)면 시간외 가격, session 이 없으면 예전 규칙(시간외 가격 우선)', () => {
     const a: any = { price: 100, extendedPrice: 106, session: 'post' };

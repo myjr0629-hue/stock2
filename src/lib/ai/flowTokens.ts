@@ -148,7 +148,7 @@ export function flowTokenRules(tokens: FlowTokens): string {
         ['CALL_WALL', 'call wall level'], ['PUT_FLOOR', 'put floor level'], ['GAMMA_FLIP', 'gamma flip level'], ['MAX_PAIN', 'max pain level'],
         ['DIST_CALL', 'distance from price to the call wall (unsigned %)'], ['DIST_PUT', 'distance from price to the put floor (unsigned %)'], ['DIST_FLIP', 'distance from price to the gamma flip (unsigned %)'],
         ['PC', 'put/call ratio (puts ÷ calls)'], ['OPI', 'OPI gauge (0-100, 50 = balanced)'], ['COMPOSITE', 'composite score (-100..+100)'],
-        ['SQUEEZE', 'squeeze probability'], ['NET_PREM', 'net option premium (calls minus puts)'], ['WHALE_PREM', 'whale net premium'],
+        ['SQUEEZE', 'server structure gamma squeeze score (not an observed probability)'], ['NET_PREM', 'net option premium (calls minus puts)'], ['WHALE_PREM', 'equity dark-pool signed notional shown as whale net bet (not option premium)'],
     ];
     const lines = rows.filter(([k]) => typeof tokens[k] === 'number').map(([k, label]) => `- {${k}} = ${formatFlowToken(k, tokens[k] as number)}  (${label})`);
     if (!lines.length) return '';

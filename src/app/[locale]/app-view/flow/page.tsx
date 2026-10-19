@@ -1,5 +1,9 @@
 'use client';
 
+import { whaleNetBet } from '@/lib/metrics/whaleNetBet';
+import { maxPainGapPct, insider30d, rsiBand } from '@/lib/defs/market';
+import { callPremiumShareOf } from '@/lib/premiumFlow';
+
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 
 import { useState, useEffect, useMemo, useRef, Fragment, type SyntheticEvent } from 'react';
@@ -11,7 +15,7 @@ import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import dashStyles from '../dash/dash.module.css';
 import s from '../cmd/cmd.module.css';
-import { premiumLabel, totalPremiumOf, fmtPremiumM } from '@/lib/premiumFlow';
+import { premiumLabel, totalPremiumOf, fmtPremiumM, netPremiumOf } from '@/lib/premiumFlow';
 
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
@@ -790,7 +794,7 @@ export default function AppFlowPage() {
   }, [rawChain]);
   const pcCallVol = chainVolumes.call;
   const pcPutVol = chainVolumes.put;
-  const callPct = chainVolumes.callPct;
+  const callPct = callPremiumShareOf(tickerData?.flow);
   // ★ [2026-10-07] 풋/콜 비율은 «한 정의» — P/C = 풋÷콜(src/lib/app/flowPcRatio.ts). 예전엔 pcRatio 가 실제로는 콜÷풋(C/P)인데
   //   종합 점수·«P/C 압력» 레일·regimeInsight·AI 페이로드는 P/C 로 읽어 방향이 뒤집혔다(콜 441K·풋 272K 에서 «P/C 압력 1.62» 빨강).
   //   이제 거래량 상태(pcCallVol·pcPutVol)에서 «파생»한다 — 종목이 바뀌어도 낡은 비율이 남지 않는다.
@@ -888,25 +892,14 @@ export default function AppFlowPage() {
     return list.filter((t) => t.code === 'P' || t.code === 'S').slice(0, 20);
   }, [insiderData]);
 
-  const insiderStats = useMemo(() => {
-    const buy = insiderTrades.filter((t) => t.code === 'P');
-    const sell = insiderTrades.filter((t) => t.code === 'S');
-    const buySum = buy.reduce((s: number, t: any) => s + (t.value || 0), 0);
-    const sellSum = sell.reduce((s: number, t: any) => s + (t.value || 0), 0);
-    return {
-      count: insiderTrades.length,
-      buyCount: buy.length,
-      sellCount: sell.length,
-      buySum, sellSum,
-      net: buySum - sellSum,
-      largest: insiderTrades.reduce((m: number, t: any) => Math.max(m, t.value || 0), 0),
-      // 실매매가 없을 때 «무엇은 있었는지»는 숨기지 않는다
-      breakdown: insiderData?.breakdown || null,
-    };
-  }, [insiderTrades, insiderData]);
+  const insiderStats = useMemo(() => ({
+    ...insider30d(insiderData),
+    largest: insiderTrades.reduce((m: number, t: any) => Math.max(m, t.value || 0), 0),
+    breakdown: insiderData?.breakdown || null,
+  }), [insiderTrades, insiderData]);
   // 같은 내부자 순액을 표시하는 세 칸은 부호·정밀도·색을 함께 사용한다.
-  const insiderNetDisplay = insiderStats.count === 0 ? '—' : `${insiderStats.net >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(insiderStats.net), 1)}`;
-  const insiderNetColor = insiderStats.count === 0 ? 'var(--text-muted)' : (insiderStats.net >= 0 ? '#10b981' : '#f43f5e');
+  const insiderNetDisplay = insiderStats.net === null ? '—' : `${insiderStats.net >= 0 ? '+' : '-'}${formatCompactMoney(Math.abs(insiderStats.net), 1)}`;
+  const insiderNetColor = insiderStats.net === null ? 'var(--text-muted)' : (insiderStats.net >= 0 ? '#10b981' : '#f43f5e');
 
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
@@ -1377,7 +1370,7 @@ export default function AppFlowPage() {
   const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
   // 최대값의 원천은 선택한 탭과 같아야 한다. EOD 고래 집계에 내부자 신고 금액을 섞지 않는다.
   const largestInstitutionalPrint = flowTab === 'whale'
-    ? largestWhalePrint : (insiderStats.count === 0 ? null : insiderStats.largest);
+    ? largestWhalePrint : (insiderStats.count == null || insiderStats.count === 0 ? null : insiderStats.largest);
   const whaleBiasScore = whaleCallShare == null ? null : Math.max(-100, Math.min(100, Math.round((whaleCallShare - 50) * 2)));
   // 다크풀 미제공이면 편향 점수를 0(중립)으로 «주장»하지 않고 계산에서 제외한다
   const dpBiasScore = (!dpUnavailable && dpDayValue != null && dpDayValue > 0 && dpNetBuyValue != null && Number.isFinite(dpNetBuyValue))
@@ -1405,7 +1398,7 @@ export default function AppFlowPage() {
   // ── 「블록 강도」 자리 → 내부자 거래 강도 ─────────────────────────
   // 다크풀 블록 건수로 만들던 지표다. 그 데이터가 없으므로
   // 내부자 실매매 건수로 대체한다. 없으면 null(«—»).
-  const rawBlockCount = insiderStats.count > 0 ? insiderStats.count : null;
+  const rawBlockCount = insiderStats.count != null && insiderStats.count > 0 ? insiderStats.count : null;
   const formattedBlockCount = rawBlockCount == null
     ? '—'
     : rawBlockCount.toLocaleString(locale === 'ja' ? 'ja-JP' : locale === 'ko' ? 'ko-KR' : 'en-US');
@@ -1529,7 +1522,11 @@ export default function AppFlowPage() {
 
   // AI Verdict derived values
   const aiIvRank = ivRankVal ?? null;
-  const whaleNetBetRaw = tickerData?.flow?.darkPoolNetBuyVal ?? null;
+  const whaleNetBetRaw = whaleNetBet({
+    netBuyUsd: tickerData?.flow?.darkPoolNetBuyVal,
+    basis: tickerData?.flow?.darkPoolNetBuyBasis,
+    sourceSessionDate: tickerData?.flow?.darkPoolNetBuyDate,
+  }).value;
   const whaleNetBetStr = whaleNetBetRaw != null
     ? (Math.abs(whaleNetBetRaw) >= 1000000
       ? `${whaleNetBetRaw >= 0 ? '+' : '-'}$${(Math.abs(whaleNetBetRaw) / 1000000).toFixed(1)}M`
@@ -1537,9 +1534,9 @@ export default function AppFlowPage() {
     : '—';
 
   // ── 9-Factor Option Sentiment Scoring Logic ──
-  const netWhalePremium = useMemo(() => {
-    return whaleNetBetRaw ?? (callPct == null ? null : absNetPrem * (callPct / 100 - 0.5) * 2);
-  }, [whaleNetBetRaw, absNetPrem, callPct]);
+  // The displayed dark-pool net bet is the only whale amount supplied to AI.
+  const netWhalePremium = whaleNetBetRaw;
+
 
   const opiScore = useMemo(() => {
     const opiVal = (opi - 50) * 2; // maps 0~100 to -100~+100
@@ -1555,20 +1552,9 @@ export default function AppFlowPage() {
     return 0;
   }, [netWhalePremium]);
 
-  // ★★ [2026-09-04] 여기 «45.2» 와 «50» 은 측정값이 아니라 **소스에 박아 둔 숫자**였다.
-  //   공매도 비율(shortPct)은 Intrinio 플랜 밖이라 늘 비어 있고, IV 랭크도 자주 빈다.
-  //   그러면 45.2×0.5 + 50×0.5 = **48%** 가 나와 화면엔 「스퀴즈 확률 48%」가
-  //   실제 계산인 것처럼 떴다. 두 입력이 다 없는데도 늘 같은 답이 나오던 이유다.
-  //   → 잴 수 있는 것이 하나도 없으면 **null** 이다. 화면은 «—» 를 그린다.
-  const squeezeProb = useMemo<number | null>(() => {
-    const sp = parseFloat(shortPct);
-    const hasShort = Number.isFinite(sp) && sp >= 0;
-    const hasIv = ivRankVal != null && Number.isFinite(Number(ivRankVal));
-    if (!hasShort && !hasIv) return null;
-    if (hasShort && hasIv) return Math.round(sp * 0.5 + Number(ivRankVal) * 0.5);
-    // 한쪽만 있으면 그 값이 곧 추정치다 — 없는 쪽을 지어내 섞지 않는다.
-    return Math.round(hasShort ? sp : Number(ivRankVal));
-  }, [shortPct, ivRankVal]);
+  // Use the server's structure score even when IV percentile is 99.
+  const squeezeProb = typeof tickerData?.flow?.squeezeScore === 'number'
+    && Number.isFinite(tickerData.flow.squeezeScore) ? tickerData.flow.squeezeScore : null;
 
   const squeezeScore = useMemo(() => {
     if (squeezeProb == null) return 0;   // 못 잰 것은 종합점수에 기여하지 않는다
@@ -1683,10 +1669,7 @@ export default function AppFlowPage() {
   const aiPayloadRef = useRef<any>(null);
 
   // (순 프리미엄 — AI 재료 {NET_PREM} 자리표 값이자 화면 «Net Premium» 값. 재료 조립보다 먼저 선언해야 한다)
-  const netPremiumOverview = tickerData?.flow?.dataSource === 'NONE' || tickerData?.flow?.error
-    ? null : tickerData?.flow?.netPremium !== undefined
-      ? tickerData.flow.netPremium
-      : (callPct == null ? null : absNetPrem * (callPct - 50) / 50);
+  const netPremiumOverview = netPremiumOf(tickerData?.flow);
 
   // 매 렌더에서 «최신 수치»만 ref 에 담아 둔다.
   //
@@ -1715,7 +1698,7 @@ export default function AppFlowPage() {
     },
     factors: {
       opi: { value: opi, score: Math.round(opiScore), label: '' },
-      whale: { premium: netWhalePremium == null ? 'N/A' : `$${Math.abs(netWhalePremium / 1000).toFixed(0)}K`, premiumUsd: netWhalePremium == null ? null : Math.abs(netWhalePremium), score: Math.round(whaleScore), bias: netWhalePremium == null ? 'N/A' : netWhalePremium > 0 ? 'BULLISH' : netWhalePremium < 0 ? 'BEARISH' : 'NEUTRAL' },
+      whale: { premium: netWhalePremium == null ? 'N/A' : whaleNetBetStr, premiumUsd: netWhalePremium, score: Math.round(whaleScore), bias: netWhalePremium == null ? 'N/A' : netWhalePremium > 0 ? 'BULLISH' : netWhalePremium < 0 ? 'BEARISH' : 'NEUTRAL' },
       squeeze: { probability: squeezeProb ?? 'N/A', score: Math.round(squeezeScore), label: '' },
       ivSkew: { value: ivSkewVal ?? 'N/A', score: Math.round(skewScore), label: '' },
       smartMoney: { score: Math.round(smartScore), label: '' },
@@ -1728,13 +1711,14 @@ export default function AppFlowPage() {
     regime: {
       ivPercentile: 'N/A',
       impliedMove: 'N/A',
-      maxPain: 0,
-      maxPainDist: 'N/A',
+      maxPain: maxPainVal || null,
+      maxPainDist: maxPainGapPct(price, maxPainVal),
       gammaFlipLevel: gammaFlipNumForOverview || 0,
       flipPercentage: gammaFlipNumForOverview > 0 && price > 0
         ? `${(((price - gammaFlipNumForOverview) / gammaFlipNumForOverview) * 100).toFixed(1)}%`
         : 'N/A',
-      gexRegime: riskStateLabel,
+      gexRegime: tickerData?.flow?.gammaRegime ?? null,
+      gexBasis: tickerData?.flow?.gexBasis ?? null,
     },
     ruleVerdict: { status: overviewDirection },
   };
@@ -2557,7 +2541,7 @@ export default function AppFlowPage() {
 
             {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / NET PREMIUM(순 프리미엄 = 콜 − 풋) ── */}
             {(() => {
-              const mpDiff = maxPainVal > 0 ? ((displayPrice - maxPainVal) / maxPainVal) * 100 : 0;
+              const mpDiff = maxPainVal > 0 ? maxPainGapPct(displayPrice, maxPainVal) ?? 0 : 0;
               const gammaFlipNum = typeof liveGammaFlip === 'number'
                 ? liveGammaFlip
                 : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
@@ -2619,7 +2603,8 @@ export default function AppFlowPage() {
                 <div className={s.v}>{liveRsi.toFixed(1)}</div>
                 {(() => {
                   const rsiPct = Math.max(0, Math.min(100, liveRsi || 0));
-                  const rsiState = rsiPct >= 70 ? 'Hot' : rsiPct >= 60 ? 'Warm' : rsiPct <= 30 ? 'Oversold' : rsiPct <= 40 ? 'Cool' : 'Neutral';
+                  const band = rsiBand(liveRsi);
+                  const rsiState = band === 'hot' ? 'Hot' : band === 'warm' ? 'Warm' : band === 'cool' ? (rsiPct <= 30 ? 'Oversold' : 'Cool') : 'Neutral';
                   const rsiColor = rsiPct >= 70 ? 'var(--red)' : rsiPct >= 60 ? 'var(--amber)' : rsiPct <= 30 ? 'var(--green)' : 'var(--cyan)';
                   return (
                     <>
@@ -4171,7 +4156,7 @@ export default function AppFlowPage() {
                       <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.dpDominance}</div>
                       <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: insiderNetColor, marginTop: '4px' }}>{insiderNetDisplay}</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {insiderStats.count === 0 ? '' : `${insiderStats.buyCount}B / ${insiderStats.sellCount}S`}
+                        {insiderStats.count == null || insiderStats.count === 0 ? '' : `${insiderStats.buyCount}B / ${insiderStats.sellCount}S`}
                       </span>
                     </div>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
@@ -4183,7 +4168,7 @@ export default function AppFlowPage() {
                     </div>
                     <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid transparent' }}>
                       <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>{whaleCopy.blockIntensity}</div>
-                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{insiderStats.count === 0 ? '—' : insiderStats.count}</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{insiderStats.net === null ? '—' : insiderStats.count}</div>
                       <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px' }}>
                         {blockIntensityPct == null ? '—' : `${blockIntensityPct}%`}
                       </span>
@@ -4268,7 +4253,7 @@ export default function AppFlowPage() {
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  {whaleCopy.darkTab} <span className="tnum" style={{ opacity: 0.8 }}>{insiderStats.count}</span>
+                  {whaleCopy.darkTab} <span className="tnum" style={{ opacity: 0.8 }}>{insiderStats.count ?? '—'}</span>
                 </button>
               </div>
 
@@ -4290,7 +4275,7 @@ export default function AppFlowPage() {
                 locale={locale}
                 title={whaleCopy.chainTitle}
                 subtitle={whaleCopy.chainSubtitle}
-                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null || whaleBasis === 'eod-volume' ? '—' : formatCompactMoney(largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
+                teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : (insiderStats.count ?? '—')} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null || whaleBasis === 'eod-volume' ? '—' : formatCompactMoney(largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
                 previewChipLabel={whaleCopy.freePreview}
                 onUnlock={() => setIsLocked(false)}

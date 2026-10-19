@@ -64,17 +64,16 @@ export async function GET(request: Request) {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.gex !== undefined) {
+                    const flow = data.flow;
+                    if (flow?.gexBasis === 'structure_v2' && typeof flow.gex === 'number' && Number.isFinite(flow.gex)) {
                         const gexItem: GexHistoryItem = {
-                            ticker,
-                            timestamp: Date.now(),
-                            gex: data.gex || 0,
-                            flipLevel: data.gammaFlip || null,
-                            callWall: data.callWall || null,
-                            putFloor: data.putFloor || null,
-                            maxPain: data.maxPain || null,
-                            price: data.price || data.last || 0,
-                            gammaRegime: data.gammaRegime || 'NEUTRAL',
+                            ticker, timestamp: Date.now(), gex: flow.gex,
+                            flipLevel: flow.gammaFlipLevel ?? null, callWall: flow.callWall ?? null,
+                            putFloor: flow.putFloor ?? null, maxPain: flow.maxPain ?? null,
+                            price: data.price ?? 0,
+                            gammaRegime: flow.gex > 0 ? 'POSITIVE' : flow.gex < 0 ? 'NEGATIVE' : 'NEUTRAL',
+                            gexBasis: 'structure_v2', chainDate: flow.structureChainDate ?? null,
+                            sessionDate: flow.structureSessionDate ?? flow.structureChainDate ?? null,
                         };
                         await saveGexSnapshot(gexItem);
                         gexResults.push(`${ticker}:✅`);

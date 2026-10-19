@@ -1,3 +1,4 @@
+import { structureSkew } from '@/lib/defs/optionStructure';
 import { regularReferencePrice } from '@/lib/quoteBasis';
 import { sessionCloseMinutes, etMinutesOf } from '@/lib/marketCalendar';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
@@ -1339,6 +1340,12 @@ async function getStructureDataImpl(
             gammaFlipLevel,
             gammaFlipType,
             atmIv,
+            ivSkew: structureSkew(relevantContracts, underlyingPrice),
+            gexBasis: 'structure_v2',
+            structureGreeksBasis: chainQuotes.live === true || relevantContracts.some((c: any) => c?._rtGreeks) ? 'live' : 'eod',
+            // OI chainDate and the live measurement session are different dates during REG.
+            structureSessionDate: chainQuotes.live === true || relevantContracts.some((c: any) => c?._rtGreeks)
+                ? shownRegularSessionDate(chainQuotes.at ?? Date.now()) : chainDate,
             atmIvExpiry: ivExpiry,  // [ATM IV] Actual expiry used for IV calculation
             // [2026-09-29] 예상 변동(이 만기 ATM 스트래들) — pct·만기·행사가·기준(live/eod)·호가 시각. 못 구하면 null
             impliedMove,

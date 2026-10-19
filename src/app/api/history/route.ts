@@ -1,3 +1,6 @@
+import { mgetFromCache } from '@/services/redisClient';
+import { structureHistoryPoint, reconcileGexHistory } from '@/lib/defs/gexHistory';
+import { canonicalShareClass } from '@/lib/tickerSymbol';
 /**
  * [Phase 1] History API — Read historical data from DynamoDB
  * 
@@ -64,16 +67,23 @@ export async function GET(request: Request) {
         switch (type) {
             case 'gex': {
                 if (!ticker) return NextResponse.json({ error: 'ticker required' }, { status: 400 });
-                const sym = ticker.toUpperCase();
-                const [live, bf] = await Promise.all([
+                const sym = canonicalShareClass(ticker.toUpperCase());
+                const [live, bf, versions] = await Promise.all([
                     getGexHistory(sym, days),
                     readGexBackfill(sym),
+                    mgetFromCache<any>([`structure:v2:${sym}`]).catch(() => []),
                 ]);
                 const since = Date.now() - days * 24 * 60 * 60 * 1000;
                 const merged = mergeGexHistory(sym, live, bf, since);
-                data = downsample(merged.data);
+                const current = structureHistoryPoint(sym, versions[0]);
+                const reconciled = reconcileGexHistory(merged.data, current);
+                data = downsample(reconciled.data);
                 meta = {
                     liveCount: live.length,
+                    gexBasis: 'structure_v2',
+                    // Retain displaced source rows for audit; never relabel them as canonical.
+                    supersededLegacy: downsample(reconciled.supersededLegacy),
+                    supersededLegacyCount: reconciled.supersededLegacy.length,
                     backfilled: merged.filled,
                     // 솎아냈으면 솎았다고 말한다 — 조용한 절단은 「이게 전부」로 읽힌다
                     ...(merged.data.length !== data.length && { sampledFrom: merged.data.length }),

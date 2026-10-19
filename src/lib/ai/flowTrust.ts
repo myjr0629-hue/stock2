@@ -1,3 +1,4 @@
+import { gammaRegimeName } from '@/lib/defs/optionStructure';
 /**
  * Flow AI INTEL «신뢰 레이어» — 재료 완결 게이트 · 자리표 프롬프트 · 출구 게이트 · 채움. 순수 함수만(네트워크·Redis 없음).
  * 라우트(/api/flow/ai-analysis)는 flowData.trustLayer === 1 인 요청(앱 새 화면)에만 이 경로를 쓴다 — 웹·옛 앱 요청은 바이트 단위로 그대로다.
@@ -22,7 +23,7 @@ export function isTrustFlowData(flowData: any): boolean {
 }
 
 /** 신뢰 레이어 캐시 칸 — 템플릿(자리표 글) + 기준을 저장한다. 웹·옛 앱의 v3·v4 와 섞이지 않는다. */
-export const FLOW_AI_CACHE_TRUST = 'ai-flow-analysis:v5';
+export const FLOW_AI_CACHE_TRUST = 'ai-flow-analysis:v6';
 export const flowTrustCacheKey = (ticker: string) => `${FLOW_AI_CACHE_TRUST}:${String(ticker).toUpperCase()}`;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,7 +79,7 @@ export function buildTrustFlowXml(ticker: string, d: any, enrichment: string, tr
     const opiState = !Number.isFinite(opiVal) ? 'N/A' : opiVal >= 60 ? 'CALL_DOMINANT' : opiVal <= 40 ? 'PUT_DOMINANT' : 'BALANCED';
     const pcVal = Number(factors.pcRatio?.value);
     const pcState = !(Number.isFinite(pcVal) && pcVal > 0) ? 'N/A' : pcVal > 1.3 ? 'PUT_HEAVY' : pcVal < 0.75 ? 'CALL_HEAVY' : 'BALANCED';
-    const gammaZone = !(Number(regime.gammaFlipLevel) > 0) ? 'UNKNOWN' : Number(d.currentPrice) > Number(regime.gammaFlipLevel) ? 'LONG_GAMMA(price above flip)' : 'SHORT_GAMMA(price below flip)';
+    const gammaZone = gammaRegimeName(regime.gexRegime);
     return `<flow_analysis ticker="${ticker}" price="$${f(d.currentPrice, '0')}" session="${f(d.session, 'CLOSED')}">
   <composite_score value="${f(d.compositeScore, '0')}" range="-100_to_+100" />
 
@@ -91,8 +92,8 @@ export function buildTrustFlowXml(ticker: string, d: any, enrichment: string, tr
 
   <factors note="11_weighted_factors_composite">
     <opi gauge_0_to_100="${f(factors.opi?.value)}" gauge_state="${opiState}" composite_points="${f(factors.opi?.score, '0')}" max_weight="25" interpretation="OPI (Options Pressure Index) gauge runs 0-100 (50 = balanced). gauge_state is decided by code — use the state word and do not quote any cutoff numbers. composite_points is how many points this factor adds to the composite score (-25..+25) — it is NOT the gauge." />
-    <whale premium="${f(factors.whale?.premium)}" score="${f(factors.whale?.score, '0')}" max_weight="25" bias="${factors.whale?.bias || 'NEUTRAL'}" interpretation="Institutional whale trades >$100K premium. Shows where smart money is positioning large directional bets." />
-    <squeeze probability="${f(factors.squeeze?.probability)}%" score="${f(factors.squeeze?.score, '0')}" max_weight="15" label="${factors.squeeze?.label || ''}" interpretation="Short squeeze probability 0-100%. Measures trapped short positions that could trigger forced buying." />
+    <whale premium="${f(factors.whale?.premium)}" score="${f(factors.whale?.score, '0')}" max_weight="25" bias="${factors.whale?.bias || 'N/A'}" interpretation="Signed equity dark-pool notional, identical to the displayed whale net bet. Missing means unavailable; never infer option premium or a bullish bias from it." />
+    <squeeze probability="${f(factors.squeeze?.probability)}%" score="${f(factors.squeeze?.score, '0')}" max_weight="15" label="${factors.squeeze?.label || ''}" interpretation="Server structure gamma squeeze score 0-100. This is a model score, not an observed probability; do not describe it as a measured probability." />
     <iv_skew value="${f(factors.ivSkew?.value)}" score="${f(factors.ivSkew?.score, '0')}" max_weight="15" label="${factors.ivSkew?.label || ''}" interpretation="IV Skew measures put-call implied volatility differential. Positive=fear/hedging, Negative=greed/complacency." />
     <smart_money score="${f(factors.smartMoney?.score, '0')}" max_weight="10" label="${factors.smartMoney?.label || ''}" interpretation="Institutional flow pattern detection. Tracks whether professional traders are accumulating or distributing." />
     <dex value="${f(factors.dex?.value)}" score="${f(factors.dex?.score, '0')}" max_weight="10" label="${factors.dex?.label || ''}" interpretation="Delta Exposure Index. Measures net delta positioning across all options. Positive=bullish positioning." />

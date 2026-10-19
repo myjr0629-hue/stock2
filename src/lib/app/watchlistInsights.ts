@@ -1,3 +1,4 @@
+import { maxPainGapPct } from '../defs/market';
 // ============================================================================
 // «내 종목» 행의 판정 — 레벨 정의 검사 · 신선도 · 지도 기하 · 인사이트 칩 고르기
 // ----------------------------------------------------------------------------
@@ -666,7 +667,7 @@ export function selectInsights(input: InsightInput, loc: WlLocale, max: number):
   // 4) 만기 주간 맥스페인 괴리 — 만기를 알 때만(서버 수리 이후 levelsExpiration)
   if (lv.ok && S != null && input.levelsExpiration) {
     const tdays = tradingDaysUntil(input.levelsExpiration, input.nowMs);
-    const div = ((S - lv.mp) / lv.mp) * 100;
+    const div = maxPainGapPct(S, lv.mp)!;
     if (tdays >= 1 && tdays <= INSIGHT_RULES.expiryWithinTradingDays && Math.abs(div) >= INSIGHT_RULES.mpDivergePct) {
       const m = fmtLevel(lv.mp), dv = fmtSignedPct(div);
       cands.push({

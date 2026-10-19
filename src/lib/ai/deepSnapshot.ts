@@ -1,3 +1,4 @@
+import { insider30d } from '@/lib/defs/market';
 /**
  * Command AI 딥 분석 «재료(snapshot)»와 GEX 30일 통계 — 순수 함수 (2026-10-12 앱 화면에서 옮김)
  *
@@ -40,6 +41,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const sqz = u.squeeze || {};
   const earn = u.earnings || {};
   const insiderData = x.insider;
+  const insider = insider30d(insiderData);
   const techData = x.technicals;
   const vwap = selectVwap(x.rawTickerData?.vwap, u._dynamoPrice?.vwap);
   const distance = vwapDistancePct(x.price, vwap);
@@ -59,10 +61,12 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     vwapDistance: distance !== null ? `${distance.toFixed(1)}%` : 'N/A',
     conviction: { score: u.alpha?.score || 50, grade: u.alpha?.grade || 'C' },
     structure: {
-      netGex: s.netGex || 0, gammaFlipLevel: s.gammaFlipLevel || 0,
-      squeezeRisk: vol.squeezeRisk || 'LOW', squeezeScore: vol.squeezeScore || 0,
-      pcRatio: s.pcRatio || 0, callWall: s.levels?.callWall || 0,
-      putFloor: s.levels?.putFloor || 0, maxPain: s.maxPain || 0,
+      netGex: s.netGex ?? null, gammaFlipLevel: s.gammaFlipLevel ?? null,
+      gammaRegime: s.gammaRegime ?? null, gexBasis: s.gexBasis ?? null,
+      chainDate: s.chainDate ?? s.structureChainDate ?? null, sessionDate: s.structureSessionDate ?? null, ivSkew: s.ivSkew ?? null, atmIv: s.atmIv ?? null,
+      squeezeRisk: s.squeezeRisk ?? vol.squeezeRisk ?? null, squeezeScore: s.squeezeScore ?? vol.squeezeScore ?? null,
+      pcRatio: s.pcRatio ?? null, callWall: s.levels?.callWall ?? null,
+      putFloor: s.levels?.putFloor ?? null, maxPain: s.maxPain ?? null,
       gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
     },
     // ★ [2026-10-19 N4] 못 쟀으면 null(자리표 NET_PREM 에 안 들어간다) — 예전 `?? 0` 은 결측을 «순 프리미엄 0»으로 AI 에 넘겼다. 관측된 0 은 0.
@@ -70,7 +74,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
     analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
     // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면 AI 가 사실로 서술한다
-    institutional: { insiderNet30d: insiderData?.net30d ?? null, insiderBuy: insiderData?.buyCount ?? null, insiderSell: insiderData?.sellCount ?? null, activity: insiderData?.sentiment || 'N/A' },
+    institutional: { insiderNet30d: insider.net, insiderBuy: insider.buyCount, insiderSell: insider.sellCount, activity: insiderData?.sentiment || 'N/A' },
     // [2026-08-30] 새 지표를 AI 에도 넘긴다 — 화면에만 있고 분석에 없으면 반쪽이다
     technicals: techData ? { adx: techData.adx, obv: techData.obv, bb: techData.bb, atr: techData.atr, volPremium: techData.volPremium } : null,
     creditSpread: x.creditSpread ?? null,
@@ -82,6 +86,7 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
 }
 
 export interface GexStats {
+  gexBasis: 'structure_v2';
   percentile: number; streakDays: number; streakMultiple: number; avgRegimeDuration: number;
   callWallAccuracy: number | null; cwStreakAccuracy: number | null;
   flipEvents: Array<{ from: string; to: string; timestamp: any; price: any }>;
@@ -90,7 +95,9 @@ export interface GexStats {
 
 /** /api/history?type=gex&days=30 의 data → 딥 분석 GEX 30일 통계(정규장 마지막 기록 하루 1개). 하루치가 2개 미만이면 null. */
 export function computeGexStats(raw: any[]): GexStats | null {
-  if (!Array.isArray(raw) || raw.length < 2) return null;
+  // Legacy whole-chain GEX is a different metric. It cannot describe today's structure regime.
+  raw = Array.isArray(raw) ? raw.filter(d => d?.gexBasis === 'structure_v2') : [];
+  if (raw.length < 2) return null;
   const dayMap = new Map<string, any[]>();
   raw.forEach((d: any) => {
     const dt = new Date(d.timestamp);
@@ -127,6 +134,7 @@ export function computeGexStats(raw: any[]): GexStats | null {
   const flips: any[] = [];
   for (let i = 1; i < cd.length; i++) { if (cd[i].gammaRegime !== cd[i-1].gammaRegime && cd[i-1].gammaRegime) flips.push({ from: cd[i-1].gammaRegime, to: cd[i].gammaRegime, timestamp: cd[i].timestamp, price: cd[i].price }); }
   return {
+    gexBasis: 'structure_v2',
     percentile: pct, streakDays: sDays, streakMultiple: avg > 0 ? parseFloat((sDays / avg).toFixed(1)) : 0,
     avgRegimeDuration: avg, callWallAccuracy: cwT > 0 ? Math.round((cwR / cwT) * 100) : null,
     cwStreakAccuracy: cwST > 0 ? Math.round((cwSR / cwST) * 100) : null,
