@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { setInCache, getFromCache } from '@/services/redisClient';
-import { indexCloseSnapshot, indexLastGoodKey } from '@/lib/indexCloseSnapshot';
+import { indexCloseSnapshot } from '@/lib/indexCloseSnapshot';
+import { saveIndexArchive } from '@/services/indexArchiveStore';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { reconcileIndexQuote } from '@/lib/indexQuoteReconcile';
 
@@ -210,7 +211,9 @@ export async function GET(request: Request) {
 
     // Yahoo symbols — sequential to avoid rate limiting
     for (const { yahoo, key } of SYMBOLS) {
-        const quote = await fetchOneQuote(yahoo);
+        const observationStartedAt = Date.now();
+        const fetched = await fetchOneQuote(yahoo);
+        const quote = fetched && REAL_INDEX_SYMBOLS.has(yahoo) ? { ...fetched, revision: observationStartedAt } : fetched;
         if (quote) {
             // [2026-09-07] «값이 마지막으로 변한 시각»을 이어서 기록한다.
             // 야후가 피드를 멈춘 채 regularMarketTime 만 전진시키면 marketAgeSec 이
@@ -233,27 +236,20 @@ export async function GET(request: Request) {
             }
 
             const written = await setInCache(key, quote, 600);
-            // Keep a dated cash-index observation beyond the live cache's 10min TTL.
-            // Partial/invalid or older source observations must not replace it.
-            if (REAL_INDEX_SYMBOLS.has(yahoo)) {
-                const next = indexCloseSnapshot(quote);
-                if (next) {
-                    const savedKey = indexLastGoodKey(key);
-                    const saved = indexCloseSnapshot(await getFromCache<YahooQuote>(savedKey));
-                    // Receipt time (updatedAt) cannot make an old session newer.
-                    // Equal source times also retain the existing complete observation.
-                    if (!saved || next.sourceSessionDate > saved.sourceSessionDate
-                        || (next.sourceSessionDate === saved.sourceSessionDate
-                            && Date.parse(next.marketTime) > Date.parse(saved.marketTime))) {
-                        await setInCache(savedKey, quote);
-                    }
+            // Source comparison and save are one Redis operation. A failed archive
+            // write must be visible in the cron result, even if live caching worked.
+            let archiveOk = true;
+            if (REAL_INDEX_SYMBOLS.has(yahoo) && indexCloseSnapshot(quote)) {
+                try { await saveIndexArchive(key, quote, observationStartedAt); }
+                catch {
+                    archiveOk = false;
                 }
             }
-            if (written) {
+            if (written && archiveOk) {
                 results.push(`${yahoo}=${quote.price}`);
                 ok++;
             } else {
-                results.push(`${yahoo}=${quote.price}(REDIS_WRITE_FAIL)`);
+                results.push(`${yahoo}=${quote.price}(${written ? 'ARCHIVE_WRITE_FAIL' : 'REDIS_WRITE_FAIL'})`);
                 fail++;
             }
         } else {

@@ -52,6 +52,7 @@ export function buildIndexItems(indices: any, previous: any[] = []) {
         return { sym, px: quote?.price ?? 0, chg: quote?.changePct ?? null,
             noData: !quote, up: quote != null && quote.changePct >= 0, spark: [],
             marketTime: quote?.marketTime, updatedAt: quote?.updatedAt,
+            ...(quote?.revision !== undefined ? { revision: quote.revision } : {}),
             sourceSessionDate: quote?.sourceSessionDate };
     });
 }

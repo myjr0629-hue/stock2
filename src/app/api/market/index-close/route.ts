@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { readIndexArchive } from '@/services/indexArchiveStore';
 import { getFromCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS } from '@/services/yahooFinanceHub';
 import { indexLastGoodKey, resolveIndexClose, type IndexCloseQuote } from '@/lib/indexCloseSnapshot';
@@ -13,10 +14,11 @@ export async function GET() {
         ['dow', YAHOO_CACHE_KEYS.IDX_DOW],
         ['spx', YAHOO_CACHE_KEYS.IDX_SPX],
     ].map(async ([name, key]) => {
-        const reads = await Promise.allSettled([getFromCache(key), getFromCache(indexLastGoodKey(key))]);
+        const reads = await Promise.allSettled([getFromCache(key), getFromCache(indexLastGoodKey(key)), readIndexArchive(key)]);
         const current = reads[0].status === 'fulfilled' ? reads[0].value : null;
         const saved = reads[1].status === 'fulfilled' ? reads[1].value : null;
-        const quote = resolveIndexClose(current, resolveIndexClose(saved, remembered[name]));
+        const atomic = reads[2].status === 'fulfilled' ? reads[2].value : null;
+        const quote = resolveIndexClose(current, resolveIndexClose(atomic, resolveIndexClose(saved, remembered[name])));
         if (quote) remembered[name] = quote;
         return [name, quote];
     }));

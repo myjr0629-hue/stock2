@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { indexArchiveMemory } from './helpers/indexArchiveMemory';
 import * as indexSnapshots from '../src/lib/indexCloseSnapshot';
 import { buildIndexItems, buildSectorItems, sectorDisplayPct } from '../src/lib/dashMarketSnapshot';
 import * as calendar from '../src/lib/marketCalendar';
@@ -27,9 +28,18 @@ function load(file: string, deps: Record<string, any>, globals: any = {}, extra 
 const quote = (over: any = {}) => ({ price: 101, changePct: 1, prevClose: 100,
     marketTime: '2026-10-16T20:00:00.000Z', updatedAt: '2026-10-16T20:01:00.000Z', source: 'YAHOO', ...over });
 const keys = { IDX_NASDAQ: 'nasdaq', IDX_DOW: 'dow', IDX_SPX: 'spx' };
-function indexRoute(store: Map<string, any>, failed = new Set<string>()) {
+function archiveService(store: Map<string, any>, writes: any[][] = [], memory = indexArchiveMemory(store, writes)) {
+    return load('src/services/indexArchiveStore.ts', {
+        '@upstash/redis': { Redis: memory.Redis },
+        '@/lib/atomicArchiveSave': require('../src/lib/atomicArchiveSave'),
+        '@/lib/indexCloseSnapshot': indexSnapshots,
+    }, { process: { env: { KV_REST_API_URL: 'https://fixture.invalid', KV_REST_API_TOKEN: 'offline-fixture' } } });
+}
+const atomicKey = (key: string) => `${key}:last-good:v2`;
+function indexRoute(store: Map<string, any>, failed = new Set<string>(), archive = archiveService(store)) {
     return load('src/app/api/market/index-close/route.ts', {
         'next/server': { NextResponse: { json: plain } },
+        '@/services/indexArchiveStore': archive,
         '@/services/redisClient': { getFromCache: async (key: string) => {
             if (failed.has(key)) throw new Error('read failed');
             return store.get(key) ?? null;
@@ -38,7 +48,7 @@ function indexRoute(store: Map<string, any>, failed = new Set<string>()) {
         '@/lib/indexCloseSnapshot': indexSnapshots,
     });
 }
-function marketFeed(store: Map<string, any>, observation: any, writes: any[][] = []) {
+function marketFeed(store: Map<string, any>, observation: any, writes: any[][] = [], archive = archiveService(store, writes), revision = 100) {
     return load('src/app/api/cron/market-feed/route.ts', {
         'next/server': { NextResponse: { json: plain } },
         '@/services/redisClient': {
@@ -48,7 +58,8 @@ function marketFeed(store: Map<string, any>, observation: any, writes: any[][] =
         '@/services/yahooFinanceHub': { YAHOO_CACHE_KEYS: keys },
         '@/lib/indexCloseSnapshot': indexSnapshots,
         '@/lib/indexQuoteReconcile': { reconcileIndexQuote },
-    }, { fetch: async (url: string) => {
+        '@/services/indexArchiveStore': archive,
+    }, { Date: class extends Date { static now() { return revision; } }, fetch: async (url: string) => {
         const requested = new URL(url);
         assert.ok(['query1.finance.yahoo.com', 'production.dataviz.cnn.io'].includes(requested.hostname));
         const ok = decodeURIComponent(requested.pathname).endsWith('/^DJI')
@@ -109,7 +120,7 @@ test('collector: Oct 16 price 110 survives Oct 15 price 100 and a fresh API inst
     const store = new Map<string, any>();
     const writes: any[][] = [];
     await marketFeed(store, quote({ price: 110 }), writes).GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
-    const savedKey = indexSnapshots.indexLastGoodKey('dow');
+    const savedKey = atomicKey('dow');
     const saved = plain(store.get(savedKey));
     assert.equal(saved.price, 110);
     await marketFeed(store, quote({ price: 100, marketTime: '2026-10-15T20:00:00Z' }), writes)
@@ -124,14 +135,14 @@ test('collector: Oct 16 price 110 survives Oct 15 price 100 and a fresh API inst
     assert.equal(buildIndexItems(restored)[0].noData, false);
 });
 
-test('collector: same session accepts only a later source observation, regardless of receipt time', async () => {
-    const savedKey = indexSnapshots.indexLastGoodKey('dow');
+test('collector: source time precedes revision; equal-source later revision accepts corrections', async () => {
+    const savedKey = atomicKey('dow');
     const saved = quote({ price: 110, marketTime: '2026-10-16T19:59:00.000Z', updatedAt: '2099-01-01T00:00:00Z' });
     for (const [marketTime, expected] of [
-        ['2026-10-16T19:58:00Z', 110], ['2026-10-16T19:59:00Z', 110], ['2026-10-16T20:00:00Z', 100],
+        ['2026-10-16T19:58:00Z', 110], ['2026-10-16T19:59:00Z', 100], ['2026-10-16T20:00:00Z', 100],
         ['2026-10-19T13:30:00Z', 100],
     ] as const) {
-        const store = new Map([[savedKey, saved]]);
+        const store = new Map([[savedKey, { ...saved, sourceTime: Date.parse(saved.marketTime), revision: 1 }]]);
         await marketFeed(store, quote({ price: 100, marketTime })).GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
         assert.equal(store.get(savedKey).price, expected, marketTime);
     }
@@ -142,7 +153,7 @@ test('collector: missing baseline is unavailable; actual zero survives failed se
         for (const previousClose of [undefined, 100]) {
             const calls: string[] = [];
             const collector = load('src/app/api/cron/market-feed/route.ts', {
-                'next/server': {}, '@/services/redisClient': {},
+                'next/server': {}, '@/services/redisClient': {}, '@/services/indexArchiveStore': {},
                 '@/lib/indexCloseSnapshot': indexSnapshots,
                 '@/services/yahooFinanceHub': { YAHOO_CACHE_KEYS: keys },
                 '@/lib/indexQuoteReconcile': { reconcileIndexQuote },
@@ -159,27 +170,122 @@ test('collector: missing baseline is unavailable; actual zero survives failed se
     }
 });
 
-test('collector: only valid cash-index observations enter the durable cache, without TTL', async () => {
-    const src = read('src/app/api/cron/market-feed/route.ts');
-    const ast = ts.createSourceFile('route.ts', src, ts.ScriptTarget.Latest, true);
-    let block: ts.IfStatement | undefined;
-    function visit(n: ts.Node) {
-        if (ts.isIfStatement(n) && n.expression.getText(ast).includes('REAL_INDEX_SYMBOLS.has(yahoo)')) block = n;
-        ts.forEachChild(n, visit);
+test('collector: only valid cash-index observations enter v2, without TTL; v1 is read only', async () => {
+    const store = new Map<string, any>();
+    const writes: any[][] = [];
+    const legacy = quote({ price: 99 });
+    store.set(indexSnapshots.indexLastGoodKey('dow'), legacy);
+    await marketFeed(store, quote({ changePct: 0 }), writes).GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
+    const archiveWrites = writes.filter(([key]) => String(key).endsWith(':last-good:v2'));
+    assert.equal(archiveWrites.length, 1);
+    assert.equal(archiveWrites[0].length, 2, 'no TTL on durable archive');
+    assert.equal(archiveWrites[0][1].sourceTime, Date.parse(quote().marketTime));
+    assert.equal(archiveWrites[0][1].revision, 100);
+    assert.deepEqual(store.get(indexSnapshots.indexLastGoodKey('dow')), legacy);
+    const archive = archiveService(store);
+    for (const invalid of [quote({ changePct: undefined }), quote({ marketTime: undefined }), quote({ price: 0 })]) {
+        await assert.rejects(archive.saveIndexArchive('dow', invalid, 200));
     }
-    visit(ast);
-    assert.ok(block);
-    const body = ts.transpile(block!.getText(ast), { target: ts.ScriptTarget.ES2020 });
-    const execute = new Function('yahoo', 'quote', 'key', 'setInCache', 'REAL_INDEX_SYMBOLS', 'indexCloseSnapshot', 'indexLastGoodKey', 'getFromCache',
-        `return (async () => { ${body} })();`);
-    for (const [symbol, q, count] of [['^DJI', quote({ changePct: 0 }), 1], ['^DJI', quote({ changePct: undefined }), 0],
-        ['^DJI', quote({ marketTime: undefined }), 0], ['NQ=F', quote(), 0]] as any[]) {
-        const writes: any[] = [];
-        await execute(symbol, q, 'dow', (...args: any[]) => { writes.push(args); }, new Set(['^DJI', '^IXIC', '^GSPC']),
-            indexSnapshots.indexCloseSnapshot, indexSnapshots.indexLastGoodKey, async () => null);
-        assert.equal(writes.length, count);
-        if (count) { assert.equal(writes[0].length, 2); assert.equal(writes[0][1], q); }
+});
+
+function deferred() {
+    let resolve!: () => void;
+    const promise = new Promise<void>(done => { resolve = done; });
+    return { promise, resolve };
+}
+
+test('gate 2 correction: same source 110/110 → 110/100 restores +10%, then corrected zero, after live expiry', async () => {
+    const store = new Map<string, any>();
+    for (const [prevClose, expected, revision] of [[110, 0, 100], [100, 10, 200], [110, 0, 300]]) {
+        await marketFeed(store, quote({ price: 110, prevClose }), [], undefined, revision)
+            .GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
+        assert.equal((await indexRoute(store).GET()).dow.changePct, expected);
+        store.delete('dow');
+        const restored = (await indexRoute(store).GET()).dow;
+        assert.equal(restored.changePct, expected);
+        assert.equal(restored.price, 110);
+        assert.equal(restored.sourceSessionDate, '2026-10-16');
     }
+});
+
+for (const [olderTime, sameSource] of [['2026-10-15T20:00:00Z', false], ['2026-10-16T19:59:00Z', false], ['2026-10-16T20:00:00Z', true]] as const) {
+    test(`gate 2 concurrency: delayed older commit cannot reverse latest archive (${olderTime})`, async () => {
+        const store = new Map<string, any>();
+        const memory = indexArchiveMemory(store);
+        const archive = archiveService(store, [], memory);
+        const waiting = deferred(), release = deferred();
+        let paused = false;
+        memory.hooks.beforeExec = async (_key, value) => {
+            if (value.revision === 100 && !paused) { paused = true; waiting.resolve(); await release.promise; }
+        };
+        const old = marketFeed(store, quote({ price: 100, prevClose: sameSource ? 100 : 90, marketTime: olderTime }), [], archive, 100)
+            .GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
+        await waiting.promise;
+        await marketFeed(store, quote({ price: 110, prevClose: 100 }), [], archive, 200)
+            .GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
+        release.resolve();
+        await old;
+        assert.equal(memory.stats.conflicts, 1, 'forced WATCH conflict followed by a fresh comparison');
+        // Also verify an API instance that remembered the older response.
+        const api = indexRoute(store);
+        const current = await api.GET();
+        assert.equal(current.dow.price, 110);
+        store.delete('dow');
+        for (const result of [await api.GET(), await indexRoute(store).GET()]) {
+            assert.equal(result.dow.price, 110);
+            assert.equal(result.dow.changePct, 10);
+            assert.equal(result.dow.sourceSessionDate, '2026-10-16');
+            assert.equal(result.dow.revision, 200);
+        }
+    });
+}
+
+test('v2 supersedes stale live/v1/memory at equal source time; later source still wins', async () => {
+    const store = new Map<string, any>([['dow', quote({ price: 110, changePct: 0, revision: 100 })]]);
+    const api = indexRoute(store);
+    assert.equal((await api.GET()).dow.changePct, 0);
+    await archiveService(store).saveIndexArchive('dow', quote({ price: 110, changePct: 10 }), 200);
+    store.set(indexSnapshots.indexLastGoodKey('dow'), quote({ price: 110, changePct: 0, updatedAt: '2099-01-01T00:00:00Z' }));
+    assert.equal((await api.GET()).dow.changePct, 10);
+    store.set('dow', quote({ marketTime: '2026-10-19T14:00:00Z', revision: 1 }));
+    assert.equal((await api.GET()).dow.sourceSessionDate, '2026-10-19');
+});
+
+test('dashboard retains revision across state/local storage restoration and rejects older equal-source polling', () => {
+    const latest = buildIndexItems({ dow: quote({ price: 110, changePct: 10, revision: 200 }) });
+    const restored = plain(latest);
+    const older = buildIndexItems({ dow: quote({ price: 110, changePct: 0, revision: 100 }) }, restored);
+    assert.equal(older[0].chg, 10);
+    assert.equal(older[0].revision, 200);
+    assert.deepEqual(buildIndexItems(null, restored), latest);
+    const correctedZero = buildIndexItems({ dow: quote({ price: 110, changePct: 0, revision: 300 }) }, older);
+    assert.equal(correctedZero[0].chg, 0);
+});
+
+test('v2 read failure restores v1/memory and an unconfigured store fails explicitly', async () => {
+    const legacy = quote({ price: 110, changePct: 10 });
+    const store = new Map<string, any>([[indexSnapshots.indexLastGoodKey('dow'), legacy]]);
+    const archive = { readIndexArchive: async () => { throw new Error('offline timeout'); } };
+    const failed = new Set<string>();
+    const api = indexRoute(store, failed, archive);
+    assert.equal((await api.GET()).dow.changePct, 10);
+    failed.add(indexSnapshots.indexLastGoodKey('dow'));
+    assert.equal((await api.GET()).dow.changePct, 10);
+    const missing = load('src/services/indexArchiveStore.ts', {
+        '@upstash/redis': { Redis: class { constructor() { throw new Error('unexpected construction'); } } },
+        '@/lib/atomicArchiveSave': require('../src/lib/atomicArchiveSave'), '@/lib/indexCloseSnapshot': indexSnapshots,
+    }, { process: { env: {} } });
+    await assert.rejects(missing.saveIndexArchive('dow', legacy, 200), /store unavailable/);
+    await assert.rejects(missing.readIndexArchive('dow'), /store unavailable/);
+});
+
+test('archive errors are reported by cron without non-atomic fallback writes', async () => {
+    const store = new Map<string, any>();
+    const result = await marketFeed(store, quote(), [], { saveIndexArchive: async () => { throw new Error('offline timeout'); } })
+        .GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
+    assert.equal(result.ok, 0);
+    assert.ok(result.results.includes('^DJI=101(ARCHIVE_WRITE_FAIL)'));
+    assert.ok(!store.has(atomicKey('dow')) && !store.has(indexSnapshots.indexLastGoodKey('dow')));
 });
 
 test('sectors: missing/partial observations keep eight cells; real zero replaces prior nonzero', () => {
