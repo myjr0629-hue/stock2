@@ -58,8 +58,8 @@ const sectorSqueeze = compile(`${avgStmt.getText(page)}\nconst sec = { avgSqueez
 const squeezeCard = (quotes: any[]) => sectorSqueeze(quotes, ...helpers);
 
 // 보고서 행 평균 점수(buildSectorReportFromQuotes 계열 · keyStocksData 의 avgAlpha 문장) — NaN 이 나오면 안 된다
-const alphaStmtNode = findNode(page, (n) => ts.isVariableStatement(n) && /^const avgAlpha = safeAverage\(keyStocksData\.map/.test(n.getText(page)));
-const rowAvgAlpha = compile(`${fnText(page, 'safeAverage')}\n${alphaStmtNode.getText(page)}\nreturn avgAlpha;`, ['keyStocksData']);
+const alphaStmtNode = findNode(page, (n) => ts.isVariableStatement(n) && /^const avgAlpha = averageMeasured\(keyStocksData\.map/.test(n.getText(page)));
+const rowAvgAlpha = compile(`${alphaStmtNode.getText(page)}\nreturn avgAlpha;`, ['keyStocksData', 'averageMeasured']);
 
 // ── 훅(useIntelSharedData) ──
 const hook = parse('src/hooks/useIntelSharedData.ts');
@@ -142,9 +142,9 @@ t('배치 직접 병합: 잰 0 은 0 · 배치가 못 잰 칸(null · 스냅샷 
     const rn = noSnap.keyStocksData[0];
     assert.deepEqual([rn.changePct, rn.score, rn.netPremium, rn.squeezeScore, rn.closePrice], [2, 80, 1_000_000, 60, 100], '못 잰 칸은 0 으로 덮지 않는다');
 });
-t('시세 → 행(quoteToKeyStock): 등락·순프리미엄·스퀴즈는 실제 0 은 0, 결측은 null (점수는 기존 규칙 «0 이하 = 없음» 그대로)', () => {
+t('시세 → 행(quoteToKeyStock): 등락·순프리미엄·스퀴즈는 실제 0 은 0, 결측은 null · 점수 실제 0 포함', () => {
     const real = P.quoteToKeyStock(latestQuote({ price: 50 }));
-    assert.deepEqual([real.changePct, real.score, real.netPremium, real.squeezeScore], [0, null, 0, 0]);
+    assert.deepEqual([real.changePct, real.score, real.netPremium, real.squeezeScore], [0, 0, 0, 0]);
     const miss = P.quoteToKeyStock(latestQuote({ price: 50, missingFields: ['changePct', 'alphaScore', 'netPremium', 'squeezeScore'] }));
     assert.deepEqual([miss.changePct, miss.score, miss.netPremium, miss.squeezeScore], [null, null, null, null]);
 });
@@ -243,7 +243,7 @@ t('관문 3 재현: 점수 전부 결측 → 행 «—» · 평균은 숫자(NaN
     const qs = ['A', 'B', 'C'].map((s) => ({ ...latestQuote({ ticker: s, alphaScore: 0, missingFields: ['alphaScore'] }) }));
     const rows = qs.map((q) => P.mergeStockWithQuote({ ...prevRow, sym: q.ticker }, q));
     assert.ok(rows.every((r: any) => r.score === null && P.ctxText(r.score) === '—'));
-    const avg = rowAvgAlpha(rows);
+    const avg = rowAvgAlpha(rows, averageMeasured);
     assert.ok(Number.isFinite(avg), `평균 ${avg}`);
     assert.equal(P.ctxAverageMissing(avg, rows), true);
     assert.equal(P.ctxAverageMissing(NaN, rows), true, 'NaN 은 그리지 않는다');

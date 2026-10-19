@@ -284,7 +284,8 @@ export async function POST(req: Request) {
             const summary = (s.data as any)?.sector_summary;
             const tickers = (s.data as any)?.tickers || [];
 
-            const sorted = [...tickers].sort((a: any, b: any) => b.change_pct - a.change_pct);
+            const sorted = tickers.filter((t: any) => t.change_pct != null && Number.isFinite(t.change_pct))
+                .sort((a: any, b: any) => b.change_pct - a.change_pct);
             const leader = sorted[0];
             const laggard = sorted[sorted.length - 1];
 
