@@ -3,6 +3,14 @@ import { mgetFromCache } from '@/services/redisClient';
 import { canonicalShareClass } from '@/lib/tickerSymbol';
 import { optionExpirationFloor } from '@/lib/marketCalendar';
 import { optionMetrics, type OptionMetrics } from '@/lib/optionMetrics';
+import { etPhase } from '@/lib/cache/intelFastCache';
+
+type Snapshot = { structure: any; oiRow: any; cacheable: boolean };
+type CachedSnapshot = { snapshot: Snapshot; scope: string; expiresAt: number };
+// Opt-in, per warm server instance. No Redis/Dynamo writes; never extend TTL on a hit.
+const snapshots = new Map<string, CachedSnapshot>();
+const flights = new Map<string, Promise<Snapshot>>();
+const MAX_SNAPSHOTS = 1000;
 
 async function latestOiRow(ticker: string): Promise<any> {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -15,22 +23,73 @@ async function latestOiRow(ticker: string): Promise<any> {
     } catch { return null; }
     finally { if (timer) clearTimeout(timer); }
 }
-export async function readOptionMetrics(tickers: string[]): Promise<Map<string, OptionMetrics>> {
-    const asked = [...new Set(tickers.map(t => t.trim().toUpperCase()).filter(Boolean))];
-    if (!asked.length) return new Map();
-    const canonical = [...new Set(asked.map(canonicalShareClass))];
-    const versions = await mgetFromCache<any>(canonical.map(t => `structure:v2:${t}`)).catch(() => canonical.map(() => null));
+async function readSnapshots(canonical: string[]): Promise<Map<string, Snapshot>> {
+    let cacheable = true;
+    const versions = await mgetFromCache<any>(canonical.map(t => `structure:v2:${t}`)).catch(() => {
+        cacheable = false;
+        return canonical.map(() => null);
+    });
     // Bound DynamoDB fan-out for large watchlists and fast-all requests.
     const rows = new Map<string, any>();
     for (let i = 0; i < canonical.length; i += 10) {
         await Promise.all(canonical.slice(i, i + 10).map(async t => { rows.set(t, await latestOiRow(t)); }));
     }
+    return new Map(canonical.map((t, i) => [t, { structure: versions[i]?.data, oiRow: rows.get(t), cacheable }]));
+}
+
+async function readCachedSnapshots(canonical: string[]): Promise<Map<string, Snapshot>> {
+    const startedAt = Date.now();
+    const phase = etPhase(startedAt);
+    const scope = `${phase.key}:${optionExpirationFloor(startedAt)}`;
+    // Source updates become visible on the next request after <= 1 minute (20s while active).
+    // Anchor expiry before I/O so slow reads cannot prolong the freshness bound.
+    const ttl = phase.open ? 20_000 : 60_000;
+    for (const [ticker, entry] of snapshots) {
+        if (entry.scope !== scope || entry.expiresAt <= startedAt) snapshots.delete(ticker);
+    }
+    const waiting = new Map<string, Promise<Snapshot>>();
+    const missing: string[] = [];
+    for (const ticker of canonical) {
+        const hit = snapshots.get(ticker);
+        const flight = flights.get(`${scope}:${ticker}`);
+        if (hit) waiting.set(ticker, Promise.resolve(hit.snapshot));
+        else if (flight) waiting.set(ticker, flight);
+        else missing.push(ticker);
+    }
+    if (missing.length) {
+        const batch = readSnapshots(missing);
+        for (const ticker of missing) {
+            const key = `${scope}:${ticker}`;
+            const flight = batch.then(rows => {
+                const snapshot = rows.get(ticker)!;
+                // Null also represents upstream failure; retry it soon, without serving old values.
+                const expiresAt = startedAt + (snapshot.oiRow ? ttl : 5_000);
+                if (snapshot.cacheable && expiresAt > Date.now()) {
+                    if (snapshots.size >= MAX_SNAPSHOTS) snapshots.delete(snapshots.keys().next().value!);
+                    snapshots.set(ticker, { snapshot, scope, expiresAt });
+                }
+                return snapshot;
+            }).finally(() => { flights.delete(key); });
+            flights.set(key, flight);
+            waiting.set(ticker, flight);
+        }
+    }
+    return new Map(await Promise.all([...waiting].map(async ([ticker, value]) => [ticker, await value] as const)));
+}
+
+export async function readOptionMetrics(tickers: string[], options: { cache?: boolean } = {}): Promise<Map<string, OptionMetrics>> {
+    const asked = [...new Set(tickers.map(t => t.trim().toUpperCase()).filter(Boolean))];
+    if (!asked.length) return new Map();
+    const canonical = [...new Set(asked.map(canonicalShareClass))];
+    const rows = await (options.cache ? readCachedSnapshots(canonical) : readSnapshots(canonical));
     const byCanonical = new Map<string, OptionMetrics>();
-    const floor = optionExpirationFloor();
-    canonical.forEach((t, i) => {
-        const s = versions[i]?.data;
+    const now = Date.now();
+    const floor = optionExpirationFloor(now);
+    canonical.forEach(t => {
+        const { structure: s, oiRow } = rows.get(t)!;
         const usable = s && s.options_status !== 'NO_MARKET' && typeof s.expiration === 'string' && s.expiration >= floor;
-        byCanonical.set(t, optionMetrics(usable ? s : null, rows.get(t)));
+        // Re-evaluate expiry and OI age even on a hit; return fresh objects to every caller.
+        byCanonical.set(t, optionMetrics(usable ? s : null, oiRow, now));
     });
     return new Map(asked.map(t => [t, byCanonical.get(canonicalShareClass(t))!]));
 }
