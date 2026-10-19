@@ -388,6 +388,8 @@ export const useDashboardStore = create<DashboardState>()(
                                     changePctPct: incoming.changePercent ?? 0,
                                 };
                                 updated.session = incoming.session ? toSession(incoming.session) : existing.session;
+                                // PRE 본장은 unified의 직전 정규 종가다. prevClose는 그 하루 전 기준가일 수 있다.
+                                if (updated.session === 'PRE') updated.prevRegularClose = incoming.underlyingPrice;
                             }
                         }
 
@@ -538,6 +540,7 @@ export const useDashboardStore = create<DashboardState>()(
                             changePctPct: incoming.changePercent ?? 0,
                         };
                         updated.session = incoming.session ? toSession(incoming.session) : existing.session;
+                        if (updated.session === 'PRE') updated.prevRegularClose = incoming.underlyingPrice;
                     }
 
                     set({
@@ -568,7 +571,9 @@ export const useDashboardStore = create<DashboardState>()(
                 // ── [ONE-PIPE] computeOnePipe 경유 — fetchPriceOnly와 동일 경로 ──
                 const pipe = computeOnePipe({
                     session: session as MarketSession,
-                    pollPrice: existing.regularCloseToday || existing.underlyingPrice || 0,
+                    // PRE에서는 이전 세션에 잠근 regularCloseToday로 직전 종가를 덮지 않는다.
+                    pollPrice: (session === 'PRE' ? existing.underlyingPrice
+                        : existing.regularCloseToday || existing.underlyingPrice) || 0,
                     pollPrevClose: existing.prevClose || existing.prevRegularClose || 0,
                     // ★ [2026-09-25] 폴링(서버)이 확인한 시간외 값이 있을 때만 WS 를 시간외 가격으로 쓴다
                     //   (computeOnePipe 의 게이트 — WS 엔 체결 시각이 없어 종가 인쇄·어제 애프터를 못 가른다)
@@ -582,7 +587,7 @@ export const useDashboardStore = create<DashboardState>()(
 
                 // PRE 세션: 본장 등락률은 기존 값 유지
                 const calcChangePct = session === 'PRE'
-                    ? (existing.prevChangePct ?? existing.intradayChangePct ?? pipe.changePct)
+                    ? (existing.prevChangePct ?? existing.intradayChangePct ?? existing.changePercent ?? pipe.changePct)
                     : pipe.changePct;
 
                 set({
