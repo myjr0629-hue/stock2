@@ -11,7 +11,10 @@
       "extendedPrice": 767.29,
       "extendedLabel": "PRE",
       "extendedDate": "2026-10-19",
-      "extendedChangePercent": 0.5293154274484067
+      "extendedChangePercent": 0.5293154274484067,
+      "priceTime": 1792419032372,
+      "priceBasis": "fair_value",
+      "priceSource": "equities_edge"
     },
     "NVDA": {
       "price": 215.94,
@@ -21,7 +24,10 @@
       "extendedPrice": 217.45,
       "extendedLabel": "PRE",
       "extendedDate": "2026-10-19",
-      "extendedChangePercent": 1.550460000934009
+      "extendedChangePercent": 1.550460000934009,
+      "priceTime": 1792419029575,
+      "priceBasis": "fair_value",
+      "priceSource": "equities_edge"
     },
     "AAPL": {
       "price": 345.2245,
@@ -31,7 +37,10 @@
       "extendedPrice": 341.07,
       "extendedLabel": "PRE",
       "extendedDate": "2026-10-19",
-      "extendedChangePercent": -0.6958597798870281
+      "extendedChangePercent": -0.6958597798870281,
+      "priceTime": 1792419029083,
+      "priceBasis": "fair_value",
+      "priceSource": "equities_edge"
     },
     "TSLA": {
       "price": 361.1693,
@@ -41,7 +50,10 @@
       "extendedPrice": 357.59,
       "extendedLabel": "PRE",
       "extendedDate": "2026-10-19",
-      "extendedChangePercent": 0.809088858818208
+      "extendedChangePercent": 0.809088858818208,
+      "priceTime": 1792419031201,
+      "priceBasis": "fair_value",
+      "priceSource": "equities_edge"
     }
   }
 }

@@ -5,7 +5,7 @@ import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
 import { reconstructLastSession, type LastSessionData } from '@/services/lastSession';
 import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose';
 import { etDateOf, etMinutesOf, shownRegularSessionDate, etLastClosedSessionDate } from '@/lib/marketCalendar';
-import { correctBulkSnapshot } from '@/lib/bulkQuoteClose';
+import { correctBulkSnapshot, regularQuoteProvenance } from '@/lib/bulkQuoteClose';
 import { overlayBulkWithHub, HUB_OVERLAY_MIN_SYMBOLS, HUB_OVERLAY_MAX_SYMBOLS } from '@/lib/hubLiveOverlay';
 
 /**
@@ -375,6 +375,7 @@ export async function GET(request: Request) {
             const outExtChangePct = recon ? recon.postChangePct : extendedChangePct;
 
             data[ticker] = {
+                ...regularQuoteProvenance(S, session, outPrice),
                 price: outPrice,
                 previousClose: outPrevClose,
                 prevClose: outPrevClose,

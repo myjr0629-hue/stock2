@@ -33,7 +33,7 @@ function sectorDefinitions() {
   throw new Error('SECTOR_MAP missing');
 }
 const at = iso => Date.parse(iso);
-const observed = (value, date, session, time) => ({ value, date, session, at: at(time) });
+const observed = (value, date, session, time) => ({ value, date, session, at: at(time), kind: 'live' });
 function sources() {
   return { sectors: ['XLK', 'SMH', 'XLC', 'XLY', 'XLE', 'XLP', 'HACK', 'XLV'].map((id, i) => ({
     id, tickers: i === 1 ? ['NVDA', 'AMD', 'AVGO', 'MU', 'ASML'] : ['TEST'], synthetic: false,
@@ -44,10 +44,11 @@ function sources() {
 }
 function quoteSet(s, now) {
   const date = now.startsWith('2026-10-17') || now.startsWith('2026-10-18') ? '2026-10-16' : '2026-10-19';
-  const values = { 'SPY:REG': observed(1, date, 'REG', now) };
-  s.sectors.forEach((x, i) => { values[`${x.id}:REG`] = observed(4 - i, date, 'REG', now); values[`${x.id}:PRE`] = observed(3 - i, '2026-10-19', 'PRE', now); });
+  const regTime = (now.includes('T21:') || now.startsWith('2026-10-17') || now.startsWith('2026-10-18')) ? `${date}T19:59:00Z` : now;
+  const values = { 'SPY:REG': observed(1, date, 'REG', regTime) };
+  s.sectors.forEach((x, i) => { values[`${x.id}:REG`] = observed(4 - i, date, 'REG', regTime); values[`${x.id}:PRE`] = observed(3 - i, '2026-10-19', 'PRE', now); });
   ['NVDA', 'AMD', 'AVGO', 'MU', 'ASML'].forEach((t, i) => {
-    values[`${t}:REG`] = observed(4 - i, date, 'REG', now); values[`${t}:PRE`] = observed(3 - i, '2026-10-19', 'PRE', now);
+    values[`${t}:REG`] = observed(4 - i, date, 'REG', regTime); values[`${t}:PRE`] = observed(3 - i, '2026-10-19', 'PRE', now);
   });
   return values;
 }
@@ -72,7 +73,7 @@ for (const [session, time] of [['PRE', '2026-10-19T11:00:00Z'], ['REG', '2026-10
 }
 test('PRE missing extended trade retains Friday REG and does not compete with current PRE', () => {
   const timestamp = at('2026-10-19T11:00:00Z');
-  const values = mapQuoteValues({ timestamp, data: { SMH: { price: 100, previousClose: 105, changePercent: -4.76, extendedMissing: true, session: 'pre' } } });
+  const values = mapQuoteValues({ timestamp, data: { SMH: { price: 100, previousClose: 105, changePercent: -4.76, regularDate: '2026-10-16', regularKind: 'close', extendedMissing: true, session: 'pre' } } });
   const data = buildMoneyMap(sources(), values, observed(1.25, '2026-10-19', 'PRE', '2026-10-19T11:00:00Z'), timestamp);
   assert.equal(data.sectors[1].today.date, '2026-10-16'); assert.equal(data.sectors[1].today.session, 'REG');
   assert.equal(data.leaders.length, 0); assert.ok(data.prior.some(s => s.id === 'SMH'));
@@ -80,7 +81,7 @@ test('PRE missing extended trade retains Friday REG and does not compete with cu
 test('measured zero survives; missing/error does not replace previous actual value/date', () => {
   const prev = { 'SMH:REG': observed(-3, '2026-10-16', 'REG', '2026-10-16T20:00:00Z') };
   assert.deepEqual(mapQuoteValues({ timestamp: at('2026-10-19T15:00:00Z'), data: { SMH: { error: 'missing', price: 0, changePercent: 0 } } }, prev), prev);
-  const out = mapQuoteValues({ timestamp: at('2026-10-19T15:00:00Z'), data: { SMH: { price: 100, previousClose: 100, changePercent: 0, session: 'regular' } } }, prev);
+  const out = mapQuoteValues({ timestamp: at('2026-10-19T15:00:00Z'), data: { SMH: { price: 100, previousClose: 100, changePercent: 0, priceTime: at('2026-10-19T15:00:00Z'), session: 'regular' } } }, prev);
   assert.equal(out['SMH:REG'].value, 0); assert.equal(out['SMH:REG'].date, '2026-10-19');
 });
 test('premium sum: one actual source day, missing is not zero, measured zero needs provenance', () => {
@@ -186,4 +187,128 @@ test('money-map reader: all 16 canonical sectors, cached analysis fills empty in
   const previous = res.body.sources.sectors.find(s => s.id === 'XLE').premium;
   assert.equal(previous.value, -12); assert.equal(previous.date, '2026-10-16'); assert.equal(previous.captured, true);
   assert.equal(res.body.sources.events.length, 1);
+});
+
+// Gate 1 regressions: response time must never stand in for measurement time.
+test('gate P1: stale PRE print keeps its actual time and cannot rank against current NQ', () => {
+  const now = at('2026-10-19T12:00:00Z'), trade = '2026-10-19T08:00:00Z';
+  const values = mapQuoteValues({ timestamp: now, data: { SMH: {
+    price: 100, previousClose: 105, changePercent: -4.76, session: 'pre',
+    regularDate: '2026-10-16', regularKind: 'close', extendedPrice: 102,
+    extendedMissing: false, extendedLabel: 'PRE', extendedDate: '2026-10-19',
+    extendedTime: trade, extendedChangePercent: 2,
+  } } });
+  assert.equal(values['SMH:PRE'].at, at(trade));
+  const data = buildMoneyMap(sources(), values, observed(1.25, '2026-10-19', 'PRE', '2026-10-19T12:00:00Z'), now);
+  assert.equal(data.leaders.length, 0);
+  assert.equal(data.prior.find(s => s.id === 'SMH').today.value, 2);
+});
+for (const [label, time] of [['POST', '2026-10-19T21:00:00Z'], ['CLOSED', '2026-10-20T01:00:00Z'], ['WEEKEND', '2026-10-18T12:00:00Z']]) {
+  test(`gate P1: ${label} does not promote an old intraday fallback to a closing ranking`, () => {
+    const date = label === 'WEEKEND' ? '2026-10-16' : '2026-10-19';
+    const stale = observed(2, date, 'REG', `${date}T15:00:00Z`);
+    const data = buildMoneyMap(sources(), { 'SMH:REG': stale, 'SPY:REG': { ...stale, value: 1 } }, null, at(time));
+    assert.equal(data.leaders.length, 0);
+    const html = renderToStaticMarkup(React.createElement(MoneyMapCards, { data, copy: copies.ko, locale: 'ko', selectedId: 'SMH', onSelect() {}, now: at(time) }));
+    assert.ok(html.includes(copies.ko.prior)); assert.ok(html.includes(date)); assert.ok(html.includes('+2.00%'));
+  });
+}
+test('gate P2: cached bounce is rechecked against the displayed return', () => {
+  const now = '2026-10-19T15:00:00Z', s = sources(), values = quoteSet(s, now);
+  s.sectors = s.sectors.filter(s => s.id === 'SMH');
+  values['SMH:REG'].value = -3;
+  const data = buildMoneyMap(s, values, null, at(now));
+  assert.equal(data.sectors.find(s => s.id === 'SMH').bounce, false);
+  const html = renderToStaticMarkup(React.createElement(MoneyMapCards, { data, copy: copies.ko, locale: 'ko', selectedId: 'SMH', onSelect() {}, now: at(now) }));
+  assert.ok(!html.includes(`↩ ${copies.ko.bounce}`)); assert.ok(html.includes('-3.00%')); assert.ok(html.includes('-10.07%'));
+});
+test('gate P2: missing calendar cannot restore implied move after the earnings announcement', () => {
+  const next = { ...sources(), earnings: [], earningsAt: null }, now = at('2026-10-22T12:00:00Z');
+  const merged = mergeMoneyMapSources(next, sources(), now);
+  assert.equal(merged.earnings[0].implied, null);
+  const data = buildMoneyMap(merged, {}, null, now);
+  const html = renderToStaticMarkup(React.createElement(MoneyMapCards, { data, copy: copies.ko, locale: 'ko', selectedId: 'SMH', onSelect() {}, now }));
+  assert.ok(html.includes('NVDA')); assert.ok(html.includes('2026-10-21')); assert.ok(!html.includes('±7.3%'));
+});
+
+test('quote provenance preserves source dates and separates published close from intraday fallback', () => {
+  const { regularQuoteProvenance } = require('../src/lib/bulkQuoteClose.ts');
+  const bulk = regularQuoteProvenance({ _closeCorrected: true, _eodDate: '2026-10-16', _eodClose: 100 }, 'pre', 100);
+  assert.deepEqual(bulk, { regularDate: '2026-10-16', regularTime: 0, regularKind: 'close' });
+  const i = { regularDate: '2026-10-19', regularClose: 100, regularLastTime: '2026-10-19T15:00:00Z', eodCloseDate: '2026-10-16', eodClosePrice: 95 };
+  const pending = regularQuoteProvenance({ _intrinio: i }, 'post', 100);
+  assert.equal(pending.regularKind, 'live'); assert.equal(pending.regularTime, at(i.regularLastTime));
+  const published = regularQuoteProvenance({ _intrinio: { ...i, eodCloseDate: i.regularDate, eodClosePrice: 100 } }, 'post', 100);
+  assert.equal(published.regularKind, 'close');
+  assert.equal(regularQuoteProvenance({ _intrinio: i }, 'post', 99).regularKind, 'unknown', 'different selected price cannot inherit provenance');
+  const live = regularQuoteProvenance({ priceTime: at('2026-10-19T15:00:00Z'), lastTrade: { t: at('2026-10-19T08:00:00Z') * 1e6 } }, 'regular', 100);
+  assert.equal(live.regularTime, at('2026-10-19T15:00:00Z'), 'hub price time wins over PRE snapshot time');
+});
+test('published closes survive the weekend; unknown legacy capture times remain displayed but unranked', () => {
+  const now = at('2026-10-18T12:00:00Z');
+  const values = mapQuoteValues({ timestamp: now, data: Object.fromEntries(['SMH', 'SPY'].map(t => [t, {
+    price: 100, previousClose: 99, changePercent: t === 'SPY' ? 1 : 2,
+    regularDate: '2026-10-16', regularKind: 'close', regularTime: 0, session: 'closed',
+  }])) });
+  const data = buildMoneyMap(sources(), values, null, now);
+  assert.equal(data.leaders[0].id, 'SMH'); assert.equal(data.leaders[0].relative, 1);
+  const legacy = Object.fromEntries(Object.entries(values).map(([k, v]) => [k, { ...v, kind: undefined, at: now }]));
+  const saved = buildMoneyMap(sources(), legacy, null, now);
+  assert.equal(saved.leaders.length, 0); assert.equal(saved.prior.find(s => s.id === 'SMH').today.value, 2);
+});
+test('unknown/future PRE timestamps preserve the last actual value without restamping it', () => {
+  const timestamp = at('2026-10-19T12:00:00Z'), prev = { 'SMH:PRE': observed(2, '2026-10-19', 'PRE', '2026-10-19T11:59:00Z') };
+  const q = { session: 'pre', extendedLabel: 'PRE', extendedMissing: false, extendedPrice: 100, extendedDate: '2026-10-19', extendedChangePercent: 4 };
+  for (const extendedTime of [undefined, 'invalid', '2026-10-19T13:00:00Z', '2026-10-16T12:00:00Z']) {
+    assert.deepEqual(mapQuoteValues({ timestamp, data: { SMH: { ...q, extendedTime } } }, prev), prev);
+  }
+});
+test('a stale benchmark and a stale constituent cannot produce a current comparison', () => {
+  const now = '2026-10-19T15:00:00Z', values = quoteSet(sources(), now);
+  values['SPY:REG'].at = at('2026-10-19T14:21:00Z');
+  assert.equal(buildMoneyMap(sources(), values, null, at(now)).leaders.length, 0);
+  values['SPY:REG'].at = at(now); values['NVDA:REG'].at = at('2026-10-19T14:00:00Z');
+  const smh = buildMoneyMap(sources(), values, null, at(now)).sectors.find(s => s.id === 'SMH');
+  assert.equal(smh.stocks.find(s => s.ticker === 'NVDA').relative, null);
+  assert.equal(smh.stocks.find(s => s.ticker === 'AMD').relative, 0);
+});
+test('saved calendar is revalidated during rendering even when all refresh requests fail', () => {
+  const now = at('2026-10-22T12:00:00Z');
+  const data = buildMoneyMap(sources(), {}, null, now);
+  assert.equal(data.sources.earnings[0].implied, null);
+  assert.ok(sources().earnings[0].implied, 'validation must not mutate stored observations');
+  const html = renderToStaticMarkup(React.createElement(MoneyMapCards, { data, copy: copies.en, locale: 'en', selectedId: 'SMH', onSelect() {}, now }));
+  assert.ok(html.includes('NVDA')); assert.ok(!html.includes('±7.3%'));
+});
+
+test('archived full Guardian response replay: all 16 actual five-day values reach the reader and cards', async () => {
+  const envelope = process.env.MONEY_MAP_GUARDIAN_REPLAY
+    ? JSON.parse(fs.readFileSync(process.env.MONEY_MAP_GUARDIAN_REPLAY, 'utf8'))
+    : require('./fixtures/money-map-report-pre-1019.json').archivedGuardian;
+  const snapshot = envelope.data;
+  assert.equal(envelope.success, true); assert.equal(snapshot.sectors.length, 16);
+  const definitions = sectorDefinitions(); let reads = 0;
+  const route = isolatedModule('src/app/api/intel/money-map/route.ts', {
+    'next/server': { NextResponse: { json: body => body } },
+    '@/services/redisClient': { mgetFromCache: async keys => { reads++; return keys.map(k => k === 'gcore:v1' ? snapshot : null); } },
+    '@/services/universePolicy': { SECTOR_MAP: definitions },
+    '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4', withConfirmedDates: () => { throw new Error('No calendar in this historical response'); } },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null },
+    '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
+  });
+  const result = await route.GET();
+  assert.equal(result.success, true); assert.equal(reads, 1); assert.equal(result.sources.sectors.length, 16);
+  for (const sector of result.sources.sectors) {
+    const actual = snapshot.rotationIntensity.fiveDayData[sector.id];
+    assert.ok(actual, sector.id); assert.equal(sector.fiveDay.value, actual.cumReturn);
+    assert.equal(sector.fiveDay.date, '2026-10-14'); assert.equal(sector.fiveDay.captured, true);
+  }
+  const now = at(snapshot.timestamp), data = buildMoneyMap(result.sources, {}, null, now);
+  assert.equal(data.session, 'POST'); assert.equal(data.leaders.length, 0, 'Guardian capture alone supplies no current price provenance');
+  for (const loc of ['ko', 'en', 'ja']) {
+    const html = renderToStaticMarkup(React.createElement(MoneyMapCards, { data, copy: copies[loc], locale: loc, selectedId: 'SMH', onSelect() {}, now }));
+    assert.equal((html.match(/<article/g) || []).length, 3);
+    assert.ok(html.includes('2026-10-14')); assert.ok(html.includes(copies[loc].captured));
+    assert.ok(html.includes(data.sectors.find(s => s.id === 'SMH').fiveDay.value.toFixed(2)));
+  }
 });

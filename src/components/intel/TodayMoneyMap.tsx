@@ -38,7 +38,7 @@ export function TodayMoneyMap() {
         const backdrop = responses.at(-1);
         if (backdrop?.status === 'fulfilled') {
           const b = backdrop.value.backdrop, asOf = Date.parse(b?.futures?.asOf || '');
-          if (b?.futures?.live && Number.isFinite(b.futures.nq?.changePct) && asOf > 0) nq = { value: b.futures.nq.changePct, date: etDateOf(asOf), session: 'PRE', at: asOf };
+          if (b?.futures?.live && Number.isFinite(b.futures.nq?.changePct) && asOf > 0) nq = { value: b.futures.nq.changePct, date: etDateOf(asOf), session: 'PRE', at: asOf, kind: 'live' };
         }
         if (controller.signal.aborted) return;
         saved = { sources, values, nq }; setState(saved); setNow(Date.now());
