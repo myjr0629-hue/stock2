@@ -41,6 +41,7 @@ import { DecisionGate } from '@/components/DecisionGate';
 import { buildInsiderSignal, compactUsd } from '@/services/insiderSignal';
 import { daysFromEarningsLabel, earningsWithin } from '@/lib/earningsDate';
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
+import { isCommandResponseUnavailable, resolveCommandVolatilityObservation } from '@/lib/commandVolatilityObservation';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
@@ -447,7 +448,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     const { data: unifiedData, error: unifiedError } = useSWR(
         ticker ? `/api/command/unified?t=${ticker}&lang=${locale}` : null,
-        (url: string) => fetch(url).then(res => res.json()),
+        async (url: string) => {
+            const res = await fetch(url);
+            // A failed HTTP poll has no observation; keep the existing polling cadence.
+            if (!res.ok) return null;
+            return res.json();
+        },
         {
             fallbackData: initialUnifiedData, // [SSR HYDRATION] Bypass skeleton
             revalidateOnFocus: !isClosed,  // [FIX] Prevent unified data refetch during market close
@@ -478,7 +484,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         unifiedData._source || '',
     ].join('|') : '';
     useEffect(() => {
-        if (!unifiedData) return;
+        if (isCommandResponseUnavailable(unifiedData)) return;
         console.log('[Command] useEffect triggered, source:', unifiedData._source, 'has volatility:', !!unifiedData.volatility, 'has sma:', !!unifiedData.sma);
 
         // Structure & Options
@@ -580,10 +586,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [EFFECTIVE VALUES] useMemo fallback — guarantees card data
     // even if useEffect hasn't fired yet (bypasses intermediate step)
     // ══════════════════════════════════════════════════════════════
-    const effectiveVol = React.useMemo(() => computeUnifiedVolatilityRegime({
-        structure: unifiedData ? unifiedData.structure : structure,
-        volatility: unifiedData ? unifiedData.volatility : volatilityData,
-    }), [unifiedData, structure, volatilityData]);
+    const [lastVolatilityObservation, setLastVolatilityObservation] = useState(() =>
+        resolveCommandVolatilityObservation(ticker, initialUnifiedData));
+    const volatilityObservation = React.useMemo(() => resolveCommandVolatilityObservation(
+        ticker, unifiedData, lastVolatilityObservation?.ticker === ticker
+            ? lastVolatilityObservation : resolveCommandVolatilityObservation(ticker, initialUnifiedData),
+    ), [ticker, unifiedData, lastVolatilityObservation, initialUnifiedData]);
+    useEffect(() => {
+        setLastVolatilityObservation(previous => resolveCommandVolatilityObservation(ticker, unifiedData,
+            previous?.ticker === ticker ? previous : resolveCommandVolatilityObservation(ticker, initialUnifiedData)));
+    }, [ticker, unifiedData, initialUnifiedData]);
+    const effectiveVol = React.useMemo(() => computeUnifiedVolatilityRegime(volatilityObservation?.data), [volatilityObservation]);
     const effectiveSma = React.useMemo(() => unifiedData?.sma || smaData || null, [smaData, unifiedData?.sma]);
     const effectiveFund = React.useMemo(() => unifiedData?.fundamentals || fundamentalData || null, [fundamentalData, unifiedData?.fundamentals]);
     const effectiveRelated = React.useMemo(() => (unifiedData?.related ? { count: unifiedData.related.count || 0, topRelated: unifiedData.related.topRelated || [] } : relatedData) || null, [relatedData, unifiedData?.related]);
@@ -1096,6 +1109,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">GEX·IV·Gamma Flip·Squeeze</span>
+                                        {volatilityObservation?.sourceAsOf && (
+                                            <time dateTime={volatilityObservation.sourceAsOf} className="ml-1 text-[12px] text-slate-300 font-jakarta">
+                                                {volatilityObservation.sourceAsOf.length === 10 ? volatilityObservation.sourceAsOf
+                                                    : `${new Date(volatilityObservation.sourceAsOf).toLocaleString('en-US', { timeZone: 'America/New_York', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })} ET`}
+                                            </time>
+                                        )}
                                     </div>
                                 </div>
                             );

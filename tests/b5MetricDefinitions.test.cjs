@@ -288,10 +288,101 @@ function variable(file, name, context) {
     return evaluate(node.initializer.getText(source), context);
 }
 const unifiedRegime = load('src/lib/metrics/volatilityRegime').computeUnifiedVolatilityRegime;
+const { resolveCommandVolatilityObservation, isCommandResponseUnavailable } = load('src/lib/commandVolatilityObservation');
 const runMemo = fn => fn();
-const desktop = (u, extra = {}) => variable('src/components/LiveTickerDashboard.tsx', 'effectiveVol', {
+const desktopFile = 'src/components/LiveTickerDashboard.tsx';
+function desktopObservation(u, extra = {}) {
+    return variable(desktopFile, 'volatilityObservation', {
+        React: { useMemo: runMemo }, resolveCommandVolatilityObservation,
+        ticker: 'SPY', unifiedData: u, initialUnifiedData: null,
+        lastVolatilityObservation: extra.structure ? resolveCommandVolatilityObservation('SPY', {
+            structure: extra.structure, volatility: extra.volatilityData,
+        }) : null, ...extra,
+    });
+}
+const desktop = (u, extra = {}) => variable(desktopFile, 'effectiveVol', {
     React: { useMemo: runMemo }, computeUnifiedVolatilityRegime: unifiedRegime,
-    unifiedData: u, structure: null, volatilityData: null, ...extra,
+    volatilityObservation: desktopObservation(u, extra),
+});
+
+test('web keeps 58/LOADED after unified error or unavailable instead of treating failure as missing', () => {
+    const previous = { structure: fullRegime, volatilityData: regime(fullRegime) };
+    for (const failed of [{ error: 'Failed to fetch unified data' }, {
+        _source: 'unavailable', _isPartial: true, structure: null, volatility: null, timestamp: NOW,
+    }]) {
+        const actual = desktop(failed, previous);
+        assert.equal(actual.regimeScore, 58);
+        assert.equal(actual.regime, 'LOADED');
+    }
+});
+
+test('real web observation effect keeps the edition and source time through repeated failed polls', () => {
+    const good = { structure: { ...fullRegime, levelsAsOf: NOW - 86400000 },
+        volatility: regime(fullRegime), timestamp: NOW, _asOf: new Date(NOW).toISOString() };
+    const { source, node } = findNode(desktopFile, n => ts.isCallExpression(n)
+        && n.expression.getText() === 'useEffect' && n.arguments[0]?.getText().includes('setLastVolatilityObservation'));
+    let state = null;
+    for (const unifiedData of [good, { error: 'Failed to fetch unified data' }, null,
+        { _source: 'unavailable', structure: null, volatility: null, timestamp: NOW + 999999 },
+        { _source: 'unavailable', structure: { ...fullRegime, netGex: 0 }, volatility: regime({}) },
+        { earnings: {} }]) {
+        const observation = desktopObservation(unifiedData, { lastVolatilityObservation: state });
+        assert.equal(unifiedRegime(observation.data).regimeScore, 58);
+        assert.equal(observation.sourceAsOf, new Date(NOW - 86400000).toISOString());
+        evaluate(node.getText(source), {
+            ticker: 'SPY', unifiedData, initialUnifiedData: null, resolveCommandVolatilityObservation,
+            useEffect: runMemo, setLastVolatilityObservation: update => { state = update(state); },
+        });
+        assert.deepEqual(plain(state), plain(observation));
+    }
+    const { source: cardSource, node: time } = findNode(desktopFile,
+        n => ts.isJsxElement(n) && n.openingElement.tagName.getText() === 'time');
+    const text = time.children.find(n => ts.isJsxExpression(n) && n.expression).expression.getText(cardSource);
+    const before = evaluate(text, { volatilityObservation: state });
+    assert.match(before, /10\/18.*11:00.*ET/);
+    const dateTime = time.openingElement.attributes.properties.find(n => n.name?.getText() === 'dateTime');
+    assert.equal(evaluate(dateTime.initializer.expression.getText(cardSource), { volatilityObservation: state }), state.sourceAsOf);
+});
+
+test('successful missing observations replace old values, without mixing editions; later success recovers', () => {
+    const good = { structure: { ...fullRegime, levelsAsOf: NOW - 86400000 }, volatility: regime(fullRegime) };
+    const previous = resolveCommandVolatilityObservation('SPY', good);
+    for (const observation of [{ structure: null, volatility: null },
+        { structure: { ...fullRegime, gammaConcentration: null } },
+        { volatility: { iv: 40 } }]) {
+        const missing = desktopObservation(observation, { lastVolatilityObservation: previous });
+        assert.equal(unifiedRegime(missing.data).regimeScore, null);
+        assert.equal(desktop({ _source: 'unavailable' }, { lastVolatilityObservation: missing }).regimeScore, null);
+        assert.equal(desktop(good, { lastVolatilityObservation: missing }).regimeScore, 58);
+    }
+    const zero = { structure: { ...fullRegime, netGex: 0, squeezeScore: 0, gammaConcentration: 0 } };
+    assert.equal(desktop(zero, { lastVolatilityObservation: previous }).regimeScore, 22);
+    assert.equal(desktop({ error: 'failed' }, { ticker: 'QQQ', lastVolatilityObservation: previous }).regimeScore, null);
+    assert.equal(desktopObservation({ error: 'failed' }), null);
+    assert.equal(desktop(null, { initialUnifiedData: good }).regimeScore, 58);
+    const recovered = desktopObservation({ structure: { ...fullRegime, levelsAsOf: NOW } }, { lastVolatilityObservation: previous });
+    assert.equal(recovered.sourceAsOf, new Date(NOW).toISOString());
+    assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, _ts: NOW },
+        volatility: { ...regime(fullRegime), _ts: NOW }, timestamp: NOW, _asOf: new Date(NOW).toISOString() }).sourceAsOf, null);
+    assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, chainDate: '2026-10-16' } }).sourceAsOf, '2026-10-16');
+    assert.equal(resolveCommandVolatilityObservation('SPY', { structure: { ...fullRegime, chainDate: '2026-10-16', levelsAsOf: NOW } }).sourceAsOf, '2026-10-16');
+});
+
+test('real unified HTTP fetcher ignores non-2xx bodies and accepts successful observations', async () => {
+    const { source, node } = findNode(desktopFile, n => ts.isCallExpression(n)
+        && n.expression.getText() === 'useSWR' && n.arguments[0]?.getText().includes('/api/command/unified'));
+    const good = { structure: fullRegime, volatility: regime(fullRegime) };
+    for (const status of [200, 500, 503]) {
+        let parsed = false;
+        const fetcher = evaluate(node.arguments[1].getText(source), {
+            fetch: async () => ({ ok: status === 200, json: async () => { parsed = true; return good; } }),
+        });
+        assert.equal(await fetcher('http://offline.test'), status === 200 ? good : null);
+        assert.equal(parsed, status === 200);
+    }
+    assert.equal(isCommandResponseUnavailable({ error: 'failed' }), true);
+    assert.equal(isCommandResponseUnavailable({ _source: 'unavailable' }), true);
+    assert.equal(isCommandResponseUnavailable(good), false);
 });
 const mobile = u => variable('src/components/intel/mobile/MobileCmdMetrics.tsx', 'effectiveVol', {
     useMemo: runMemo, unified: u, computeUnifiedVolatilityRegime: unifiedRegime,
