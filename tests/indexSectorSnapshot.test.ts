@@ -38,6 +38,27 @@ function indexRoute(store: Map<string, any>, failed = new Set<string>()) {
         '@/lib/indexCloseSnapshot': indexSnapshots,
     });
 }
+function marketFeed(store: Map<string, any>, observation: any, writes: any[][] = []) {
+    return load('src/app/api/cron/market-feed/route.ts', {
+        'next/server': { NextResponse: { json: plain } },
+        '@/services/redisClient': {
+            getFromCache: async (key: string) => store.get(key) ?? null,
+            setInCache: async (...args: any[]) => { writes.push(args); store.set(args[0], plain(args[1])); return true; },
+        },
+        '@/services/yahooFinanceHub': { YAHOO_CACHE_KEYS: keys },
+        '@/lib/indexCloseSnapshot': indexSnapshots,
+        '@/lib/indexQuoteReconcile': { reconcileIndexQuote },
+    }, { fetch: async (url: string) => {
+        const requested = new URL(url);
+        assert.ok(['query1.finance.yahoo.com', 'production.dataviz.cnn.io'].includes(requested.hostname));
+        const ok = decodeURIComponent(requested.pathname).endsWith('/^DJI')
+            && requested.searchParams.get('interval') === '1m';
+        return { ok, json: async () => ({ chart: { result: [{ meta: {
+            regularMarketPrice: observation.price, previousClose: observation.prevClose,
+            regularMarketTime: Date.parse(observation.marketTime) / 1000,
+        } }] } }) };
+    } });
+}
 const sectorQuote = (over: any = {}) => ({ price: 101, previousClose: 100, changePercent: 1,
     sourceSessionDate: '2026-10-16', ...over });
 
@@ -84,6 +105,38 @@ test('index: older out-of-order quotes cannot displace a newer observation', () 
         quote().marketTime);
 });
 
+test('collector: Oct 16 price 110 survives Oct 15 price 100 and a fresh API instance after live expiry', async () => {
+    const store = new Map<string, any>();
+    const writes: any[][] = [];
+    await marketFeed(store, quote({ price: 110 }), writes).GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
+    const savedKey = indexSnapshots.indexLastGoodKey('dow');
+    const saved = plain(store.get(savedKey));
+    assert.equal(saved.price, 110);
+    await marketFeed(store, quote({ price: 100, marketTime: '2026-10-15T20:00:00Z' }), writes)
+        .GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
+    assert.deepEqual(store.get(savedKey), saved);
+    assert.equal(writes.filter(([key]) => key === savedKey).length, 1);
+    store.delete('dow'); // Ten-minute live cache expired; API memory starts empty.
+    const restored = await indexRoute(store).GET();
+    assert.equal(restored.dow.price, 110);
+    assert.equal(restored.dow.marketTime, '2026-10-16T20:00:00.000Z');
+    assert.equal(restored.dow.sourceSessionDate, '2026-10-16');
+    assert.equal(buildIndexItems(restored)[0].noData, false);
+});
+
+test('collector: same session accepts only a later source observation, regardless of receipt time', async () => {
+    const savedKey = indexSnapshots.indexLastGoodKey('dow');
+    const saved = quote({ price: 110, marketTime: '2026-10-16T19:59:00.000Z', updatedAt: '2099-01-01T00:00:00Z' });
+    for (const [marketTime, expected] of [
+        ['2026-10-16T19:58:00Z', 110], ['2026-10-16T19:59:00Z', 110], ['2026-10-16T20:00:00Z', 100],
+        ['2026-10-19T13:30:00Z', 100],
+    ] as const) {
+        const store = new Map([[savedKey, saved]]);
+        await marketFeed(store, quote({ price: 100, marketTime })).GET({ url: 'http://fixture.invalid/api/cron/market-feed' });
+        assert.equal(store.get(savedKey).price, expected, marketTime);
+    }
+});
+
 test('collector: missing baseline is unavailable; actual zero survives failed secondary daily data', async () => {
     for (const symbol of ['^IXIC', '^DJI', '^GSPC']) {
         for (const previousClose of [undefined, 100]) {
@@ -117,13 +170,13 @@ test('collector: only valid cash-index observations enter the durable cache, wit
     visit(ast);
     assert.ok(block);
     const body = ts.transpile(block!.getText(ast), { target: ts.ScriptTarget.ES2020 });
-    const execute = new Function('yahoo', 'quote', 'key', 'setInCache', 'REAL_INDEX_SYMBOLS', 'indexCloseSnapshot', 'indexLastGoodKey',
+    const execute = new Function('yahoo', 'quote', 'key', 'setInCache', 'REAL_INDEX_SYMBOLS', 'indexCloseSnapshot', 'indexLastGoodKey', 'getFromCache',
         `return (async () => { ${body} })();`);
     for (const [symbol, q, count] of [['^DJI', quote({ changePct: 0 }), 1], ['^DJI', quote({ changePct: undefined }), 0],
         ['^DJI', quote({ marketTime: undefined }), 0], ['NQ=F', quote(), 0]] as any[]) {
         const writes: any[] = [];
         await execute(symbol, q, 'dow', (...args: any[]) => { writes.push(args); }, new Set(['^DJI', '^IXIC', '^GSPC']),
-            indexSnapshots.indexCloseSnapshot, indexSnapshots.indexLastGoodKey);
+            indexSnapshots.indexCloseSnapshot, indexSnapshots.indexLastGoodKey, async () => null);
         assert.equal(writes.length, count);
         if (count) { assert.equal(writes[0].length, 2); assert.equal(writes[0][1], q); }
     }

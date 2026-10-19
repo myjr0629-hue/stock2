@@ -234,9 +234,20 @@ export async function GET(request: Request) {
 
             const written = await setInCache(key, quote, 600);
             // Keep a dated cash-index observation beyond the live cache's 10min TTL.
-            // Partial/invalid quotes must never replace the last complete observation.
-            if (REAL_INDEX_SYMBOLS.has(yahoo) && indexCloseSnapshot(quote)) {
-                await setInCache(indexLastGoodKey(key), quote);
+            // Partial/invalid or older source observations must not replace it.
+            if (REAL_INDEX_SYMBOLS.has(yahoo)) {
+                const next = indexCloseSnapshot(quote);
+                if (next) {
+                    const savedKey = indexLastGoodKey(key);
+                    const saved = indexCloseSnapshot(await getFromCache<YahooQuote>(savedKey));
+                    // Receipt time (updatedAt) cannot make an old session newer.
+                    // Equal source times also retain the existing complete observation.
+                    if (!saved || next.sourceSessionDate > saved.sourceSessionDate
+                        || (next.sourceSessionDate === saved.sourceSessionDate
+                            && Date.parse(next.marketTime) > Date.parse(saved.marketTime))) {
+                        await setInCache(savedKey, quote);
+                    }
+                }
             }
             if (written) {
                 results.push(`${yahoo}=${quote.price}`);
