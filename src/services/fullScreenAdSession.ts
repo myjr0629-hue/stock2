@@ -16,6 +16,21 @@ export const FULL_SCREEN_AD_TIMEOUT_MS = 120_000;
 export const FULL_SCREEN_AD_SHOW_START_TIMEOUT_MS = 120_000;
 export const FULL_SCREEN_AD_REWARD_CLOSE_TIMEOUT_MS = 120_000;
 
+/**
+ * The plugin is handed over inside a plain box, never as a promise's value.
+ *
+ * ⛔ 2026-10-19: `load` used to resolve the plugin itself. A Capacitor plugin
+ *    (registerPlugin proxy, also `Capacitor.Plugins.X`) answers EVERY property,
+ *    including `then`, with a native-method wrapper. Resolving an async function
+ *    with it makes the promise machinery call `AdMob.then(resolve, reject)`; the
+ *    bridge rejects «AdMob.then() is not implemented» into a promise nobody
+ *    awaits and never calls resolve/reject. `await load()` therefore hung until
+ *    the 120 s deadline on every device: no show call, ever, for interstitial
+ *    and rewarded alike (AdMob: 10/15~ requests normal, impressions 0).
+ *    Plain-object test doubles are not thenable, which is why mocks passed.
+ */
+export interface LoadedFullScreenAd<T> { ad: T }
+
 // @capacitor-community/admob 8.0.0: dist/esm/{reward,interstitial}/*events.enum.js.
 // Both native implementations resolve showRewardVideoAd ONLY on Rewarded;
 // Dismissed / FailedToShow leave that promise pending. A resolved show promise
@@ -41,7 +56,8 @@ export class FullScreenAdSession {
 
   run<T extends FullScreenAdPlugin>(options: {
     format: FullScreenAdFormat;
-    load: () => Promise<T | null>;
+    /** Resolve `{ ad }` (see LoadedFullScreenAd) or null — never the plugin itself. */
+    load: () => Promise<LoadedFullScreenAd<T> | null>;
     prepare: (ad: T) => Promise<unknown>;
     canShow?: () => boolean;
   }): Promise<{ reward: AdReward | null; shown: boolean }> {
@@ -72,9 +88,10 @@ export class FullScreenAdSession {
       timer = setTimeout(settle, FULL_SCREEN_AD_TIMEOUT_MS);
 
       void (async () => {
-        const ad = await options.load();
+        const loaded = await options.load();
         if (!active()) return;
-        if (!ad) { settle(); return; }
+        if (!loaded || !loaded.ad) { settle(); return; }
+        const ad = loaded.ad;
         const events = EVENTS[options.format];
         const listen = async (event: string, callback: (data: AdReward) => void) => {
           const handle = await ad.addListener(event, (data) => {

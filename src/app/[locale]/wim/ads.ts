@@ -295,7 +295,7 @@ export async function showWimInterstitial(): Promise<boolean> {
   if (!WIM_ADS_LIVE || !ad || !interstitialAllowed() || fullScreenAds.isBusy()) return false;
   const result = await fullScreenAds.run({
     format: 'interstitial',
-    load: async () => await initWimAds() ? ad : null,
+    load: async () => await initWimAds() ? { ad } : null, // 상자로 — 플러그인 프록시는 thenable
     prepare: () => ad.prepareInterstitial({ adId: UNITS.interstitial[platform()], isTesting: ADS_TESTING }),
   });
   if (result.shown) recordInterstitial();
@@ -308,7 +308,7 @@ export async function showWimRewarded(): Promise<boolean> {
   if (!WIM_ADS_LIVE || !ad || fullScreenAds.isBusy()) return false;
   const result = await fullScreenAds.run({
     format: 'rewarded',
-    load: async () => await initWimAds() ? ad : null,
+    load: async () => await initWimAds() ? { ad } : null, // 상자로 — 플러그인 프록시는 thenable
     prepare: () => ad.prepareRewardVideoAd({ adId: UNITS.rewarded[platform()], isTesting: ADS_TESTING }),
   });
   return result.reward !== null;
