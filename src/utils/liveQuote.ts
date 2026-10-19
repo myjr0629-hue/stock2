@@ -238,8 +238,14 @@ export function mergeQuotesByStamp(
   if (!prev) return { data: next, kept: [] };
   const out: Record<string, RestQuote> = { ...next };
   const kept: string[] = [];
+  // 앞 값을 남길 때 세션은 «지금 응답»의 것(서버가 요청 시각에 정한 시장 상태)으로 — 세션이 바뀌었으면 앞 세션의 시간외 칸은 버린다
+  //   (정규장 $110·PRE CLOSE $102 행을 애프터 전환 뒤 남기면서 시간외 칸까지 남기면 «$102 · 애프터»가 됐다 — 관문 2차 P1)
   const keepPrev = (t: string, p: RestQuote, sessionNow: string | null | undefined) => {
-    out[t] = sessionNow ? { ...p, session: sessionNow } : p;
+    const now = normLiveSession(sessionNow);
+    if (!now || now === normLiveSession(p.session)) { out[t] = p; kept.push(t); return; }
+    const row: any = { ...p, session: sessionNow };
+    for (const k of EXT_KEYS) row[k] = k === 'extendedPrice' || k === 'extendedChangePercent' || k === 'extendedChange' ? 0 : null;
+    out[t] = row;
     kept.push(t);
   };
   // 물었는데 응답에 없는 종목(묶음 실패) — 앞 값을 남긴다
@@ -256,7 +262,8 @@ export function mergeQuotesByStamp(
     const qMissing = !pos(q?.price) || !!q?.error;
     if (qMissing) { keepPrev(t, p, q?.session ?? opts.session ?? null); continue; }
     const ns = readStamp(q, (q.receivedAt as number) || nowMs);
-    if (ps && ns && !preferNewer(ps, ns, nowMs)) { out[t] = p; kept.push(t); continue; }
+    // 원천이 더 옛 응답 — 값은 앞 값, 세션은 지금 응답의 것(앞 행의 «프리»를 개장 뒤까지 들고 있으면 신선한 정규장 틱이 거부됐다 — 관문 2차 P1)
+    if (ps && ns && !preferNewer(ps, ns, nowMs)) { keepPrev(t, p, q?.session ?? opts.session ?? null); continue; }
     // 시간외 칸 — 같은 시간외 날짜에서 더 옛 체결이면 앞 시간외 값을 남긴다
     const pe = pos(p.extendedPrice) > 0, qe = pos(q.extendedPrice) > 0;
     const pT = Date.parse(String((p as any).extendedTime ?? '')), qT = Date.parse(String((q as any).extendedTime ?? ''));

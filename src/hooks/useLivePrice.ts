@@ -6,8 +6,6 @@
 import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { pickExtPrice } from '@/utils/extWsTrust';
-import { readStamp, wsTickFresh, makeStamp, type SourceStamp } from '@/lib/sourceStamp';
-import { etDateOf } from '@/lib/marketCalendar';
 
 const fetcher = (url: string) => fetch(url).then(res => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -30,8 +28,6 @@ export interface LivePriceData {
     extendedTime?: string | null;
     volume: number;
     session: string;
-    /** ★ 묶음 4 — price 의 원천 날짜·관측 시각·근거(시세 응답 스탬프 · 정규장 WS 를 쓰면 그 체결) */
-    stamp?: SourceStamp;
 }
 
 /**
@@ -84,12 +80,7 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
                 ? Math.abs(wsPrice.price - restRef) / restRef
                 : 0;
         const WS_MAX_DEVIATION = 0.02; // 2%
-        // ★ [2026-10-19 묶음 4] 가격이 비슷해도 «오래된 틱»은 쓰지 않는다 — 지난 세션 체결·시세가 이미 더 늦은 체결을 본 틱·체결 시각 없이 오래 남은 틱(wsTickFresh)
-        const nowMs = Date.now();
-        const restStampWs = readStamp(restQuote, nowMs);
-        const wsSession = (restQuote?.session || data?.session || globalMarketStatus || '').toLowerCase();
-        const wsAge = !!wsPrice && wsTickFresh({ priceTime: wsPrice.priceTime, receivedAt: wsPrice.ts }, wsSession === 'open' ? 'reg' : wsSession, nowMs, restStampWs?.observedAt ?? null);
-        const wsTrustworthy = wsDeviation <= WS_MAX_DEVIATION && wsAge;
+        const wsTrustworthy = wsDeviation <= WS_MAX_DEVIATION;
 
         if (!wsTrustworthy && wsPrice && wsPrice.price > 0 && restRef > 0) {
             if (typeof console !== 'undefined' && Math.random() < 0.02) {
@@ -152,9 +143,6 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
                 extendedTime: isRegular ? (q?.extendedTime ?? null) : (extPick && !extPick.fromWs ? (q?.extendedTime ?? null) : null),
                 volume: wsPrice.volume || q?.volume || 0,
                 session: sessionRaw,
-                stamp: isRegular
-                    ? makeStamp({ sourceSessionDate: etDateOf(wsPrice.priceTime || nowMs), observedAt: wsPrice.priceTime || null, receivedAt: wsPrice.ts, basis: 'live' }, nowMs)
-                    : (restStampWs ?? undefined),
             };
         }
     }
@@ -174,6 +162,5 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
         extendedTime: q.extendedTime ?? null,
         volume: q.volume || 0,
         session: q.session || data.session || 'closed',
-        stamp: readStamp(q) ?? undefined,
     };
 }

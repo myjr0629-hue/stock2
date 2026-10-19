@@ -242,4 +242,23 @@ t('밤 검토 3 — GEX(구조 체인 10/15)와 P/C(OI 행 10/16)의 날짜를 �
   assert.equal(optionMetrics(null, null, NOW).optionsAsOf, null);
 });
 
+console.log('관문 2차 보류 수리');
+t('P1 — 정규장 $110·PRE CLOSE $102 행을 애프터 전환 뒤 결측 응답 대신 남겨도 «$102 · 애프터»가 되지 않는다', () => {
+  const POST = ET('2026-10-19', 16, 5);
+  const prev = { X: { price: 110, previousClose: 100, session: 'regular', extendedPrice: 102, extendedLabel: 'PRE', extendedDate: '2026-10-19', extendedKind: 'close', sourceSessionDate: '2026-10-19', observedAt: POST - 6 * 60_000, basis: 'live', receivedAt: POST - 60_000 } as RestQuote };
+  const next = { X: { price: 0, changePercent: 0, error: 'no data in batch', basis: 'missing', receivedAt: POST } as RestQuote };
+  const m = mergeQuotesByStamp(prev, next, POST, { asked: ['X'], session: 'post' });
+  assert.equal(m.data.X.session, 'post'); assert.equal(m.data.X.extendedPrice, 0);
+  const d = liveDisplay(m.data.X, undefined, { wsConnected: false, session: 'post', restAt: POST, nowMs: POST })!;
+  assert.equal(d.price, 110); assert.equal(d.ext, false);
+});
+t('P1 — 개장 뒤 늦게 온 «옛 원천» 응답으로 앞 값을 남겨도 세션은 정규장 → 신선한 정규장 틱을 쓴다', () => {
+  const prev = { N: { price: 100, previousClose: 98, session: 'pre', sourceSessionDate: '2026-10-16', basis: 'eod', receivedAt: MON_REG - 120_000 } as RestQuote };
+  const next = { N: { price: 97, previousClose: 96, session: 'regular', sourceSessionDate: '2026-10-15', basis: 'last-session', receivedAt: MON_REG } as RestQuote };
+  const m = mergeQuotesByStamp(prev, next, MON_REG, { asked: ['N'], session: 'regular' });
+  assert.equal(m.data.N.price, 100); assert.equal(m.data.N.session, 'regular');
+  const d = liveDisplay(m.data.N, { price: 100.5, changePct: 0, ts: MON_REG, priceTime: MON_REG - 2000 }, { wsConnected: true, session: 'reg', restAt: MON_REG, nowMs: MON_REG })!;
+  assert.equal(d.live, true); assert.equal(d.price, 100.5);
+});
+
 console.log(`\n${n} passed`);

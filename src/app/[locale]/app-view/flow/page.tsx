@@ -977,7 +977,7 @@ export default function AppFlowPage() {
   const liveGammaFlipType: unknown = tickerData?.flow?.gammaFlipType ?? tickerData?.rawTickerData?.flow?.gammaFlipType ?? null;
 
   // ★ [2026-10-19 묶음 4] 허브 틱은 «나이»를 보고 쓴다 — 지난 세션 체결·시세가 이미 더 늦은 체결을 본 틱·체결 시각 없이 오래 남은 틱은 버리고 시세 값으로(src/lib/sourceStamp.ts wsTickFresh)
-  const wsPrice = wsPriceRaw && wsTickFresh({ priceTime: wsPriceRaw.priceTime, receivedAt: wsPriceRaw.ts }, effectiveSession, Date.now(), livePrice?.stamp?.observedAt ?? null) ? wsPriceRaw : undefined;
+  const wsPrice = wsPriceRaw && wsTickFresh({ priceTime: wsPriceRaw.priceTime, receivedAt: wsPriceRaw.ts }, effectiveSession, Date.now(), (tickerData?.sourceStamp ?? tickerData?.rawTickerData?.sourceStamp)?.observedAt ?? null) ? wsPriceRaw : undefined;
   const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct ?? livePrice?.changePercent,
@@ -2524,7 +2524,7 @@ export default function AppFlowPage() {
                 <span className={s.heroTime}>
                   {mounted ? (() => {
                     // ★ [2026-10-19 묶음 4] 같은 칸·같은 모양 — 원천 시각(메인 가격의 정규장 마감·체결 시각)으로 채운다. 원천이 하나도 없을 때만 예전처럼 조회 시계
-                    const fromSource = stampTimeLabelET(livePrice?.stamp ?? tickerData?.sourceStamp ?? tickerData?.rawTickerData?.sourceStamp ?? null, tickerData?.display?.asOfET ?? tickerData?.rawTickerData?.display?.asOfET ?? null);
+                    const fromSource = stampTimeLabelET(tickerData?.sourceStamp ?? tickerData?.rawTickerData?.sourceStamp ?? null, tickerData?.display?.asOfET ?? tickerData?.rawTickerData?.display?.asOfET ?? null);
                     if (fromSource) return fromSource;
                     const now = new Date();
                     const etStr = now.toLocaleString('en-US', {
