@@ -5,15 +5,16 @@ export interface ExchangeRates {
   usdjpy?: number | null;
   usdkrwChange?: number | null;
   usdjpyChange?: number | null;
-  usdkrwUpdatedAt?: string | null;
-  usdjpyUpdatedAt?: string | null;
+  usdkrwMarketTime?: string | null;
+  usdjpyMarketTime?: string | null;
 }
 
 export function localExchangeRate(locale: string, data: ExchangeRates | null | undefined) {
   const krw = locale === 'ko';
   const rate = krw ? data?.usdkrw : locale === 'ja' ? data?.usdjpy : null;
   const change = krw ? data?.usdkrwChange : data?.usdjpyChange;
-  const stamp = krw ? data?.usdkrwUpdatedAt : data?.usdjpyUpdatedAt;
+  // Never substitute collection time or the other currency's quote time.
+  const stamp = krw ? data?.usdkrwMarketTime : locale === 'ja' ? data?.usdjpyMarketTime : null;
   return {
     rate: typeof rate === 'number' && Number.isFinite(rate) && rate > 0 ? rate : null,
     symbol: krw ? '₩' : locale === 'ja' ? '¥' : '$',

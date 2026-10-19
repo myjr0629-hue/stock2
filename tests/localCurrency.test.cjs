@@ -17,7 +17,14 @@ const rates = {
   usdkrw: 1350, usdjpy: 150,
   usdkrwUpdatedAt: '2026-10-19T12:00:00.000Z',
   usdjpyUpdatedAt: '2026-10-19T13:00:00.000Z',
+  usdkrwMarketTime: '2026-10-19T12:00:00.000Z',
+  usdjpyMarketTime: '2026-10-19T13:00:00.000Z',
 };
+const defaultQuotes = {
+  krw: { price: 1350, changePct: 0.1, updatedAt: rates.usdkrwUpdatedAt, marketTime: rates.usdkrwMarketTime },
+  jpy: { price: 150, changePct: -0.2, updatedAt: rates.usdjpyUpdatedAt, marketTime: rates.usdjpyMarketTime },
+};
+let redisQuotes = defaultQuotes;
 Module._load = function(request, parent, isMain) {
   if (request === 'swr') return (key, fetcher, config) => {
     swrCalls.push({ key, fetcher, config });
@@ -32,10 +39,7 @@ Module._load = function(request, parent, isMain) {
     },
   };
   if (request === '@/hooks/useBannerSuppression') return { useBannerSuppression(active) { bannerSuppressed = active; } };
-  if (request === '@/services/redisClient') return { getFromCache: async key => ({
-    krw: { price: 1350, updatedAt: rates.usdkrwUpdatedAt },
-    jpy: { price: 150, updatedAt: rates.usdjpyUpdatedAt },
-  })[key] };
+  if (request === '@/services/redisClient') return { getFromCache: async key => redisQuotes[key] };
   if (request === '@/services/yahooFinanceHub') return { YAHOO_CACHE_KEYS: { USDKRW: 'krw', USDJPY: 'jpy' } };
   if (request === 'next/server') return { NextResponse: { json: data => data } };
   if (request.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key });
@@ -94,9 +98,9 @@ const response = data => ({ ok: true, json: async () => data });
     assert.equal(fmt(10, 'ko', { usdkrw: 1350, usdjpy: null }), '≈ ₩13,500');
   });
   await test('통화별 기준 시각 분리·잘못된 시각 생략', () => {
-    assert.equal(localExchangeRate('ko', rates).updatedAt, rates.usdkrwUpdatedAt);
-    assert.equal(localExchangeRate('ja', rates).updatedAt, rates.usdjpyUpdatedAt);
-    assert.equal(localExchangeRate('ko', { ...rates, usdkrwUpdatedAt: 'bad' }).updatedAt, null);
+    assert.equal(localExchangeRate('ko', rates).updatedAt, rates.usdkrwMarketTime);
+    assert.equal(localExchangeRate('ja', rates).updatedAt, rates.usdjpyMarketTime);
+    assert.equal(localExchangeRate('ko', { ...rates, usdkrwMarketTime: 'bad' }).updatedAt, null);
   });
   await test('실제 표시 컴포넌트: ko·ja 통화·각 기준 시각·i 접근성', () => {
     const ko = render('ko');
@@ -115,7 +119,7 @@ const response = data => ({ ok: true, json: async () => data });
     assert.equal(render('ko', rates, Infinity), '');
   });
   await test('시간 결측: 환산은 표시·시각 없음 문구, 다른 통화 시각 전용 금지', () => {
-    const html = render('ja', { usdjpy: 150, usdkrwUpdatedAt: rates.usdkrwUpdatedAt });
+    const html = render('ja', { usdjpy: 150, usdkrwMarketTime: rates.usdkrwMarketTime });
     assert.match(html, /≈ ¥185,185/);
     assert.match(html, /為替レート基準時刻なし/);
   });
@@ -167,6 +171,75 @@ const response = data => ({ ok: true, json: async () => data });
     assert.equal(data.updatedAt, rates.usdkrwUpdatedAt);
     assert.equal(data.usdkrwUpdatedAt, rates.usdkrwUpdatedAt);
     assert.equal(data.usdjpyUpdatedAt, rates.usdjpyUpdatedAt);
+  });
+  const { GET } = require('../src/app/api/exchange-rates/route.ts');
+  await test('관문 재현: 금요일 시세를 일요일에 재수집해도 시세 시각만 API→훅→툴팁 전달', async () => {
+    const collectedAt = '2026-10-18T12:00:00.000Z';
+    const krwTime = '2026-10-16T21:00:00.000Z';
+    const jpyTime = '2026-10-16T22:00:00.000Z';
+    redisQuotes = {
+      krw: { ...defaultQuotes.krw, updatedAt: collectedAt, marketTime: krwTime },
+      jpy: { ...defaultQuotes.jpy, updatedAt: collectedAt, marketTime: jpyTime },
+    };
+    try {
+      assert.equal(Date.parse(collectedAt) - Date.parse(krwTime), 39 * 60 * 60 * 1000);
+      const data = await GET();
+      // Keep collection timestamps available to existing API callers.
+      assert.equal(data.updatedAt, collectedAt);
+      assert.equal(data.usdkrwUpdatedAt, collectedAt);
+      assert.equal(data.usdjpyUpdatedAt, collectedAt);
+      assert.equal(localExchangeRate('ko', data).updatedAt, krwTime);
+      assert.equal(localExchangeRate('ja', data).updatedAt, jpyTime);
+      assert.equal(data.usdkrwMarketTime, krwTime);
+      assert.equal(data.usdjpyMarketTime, jpyTime);
+      const ko = render('ko', data);
+      const ja = render('ja', data);
+      assert.match(ko, /환율 기준 시각:.*2026.*10.*17.*06:00/);
+      assert.match(ja, /為替レート基準時刻:.*2026.*10.*17.*07:00/);
+      assert.doesNotMatch(ko, /18.*21:00/);
+      assert.doesNotMatch(ja, /18.*21:00/);
+    } finally { redisQuotes = defaultQuotes; }
+  });
+  await test('시세 시각 결측·오류: 수집 시각·다른 통화로 대체하지 않고 환산만 유지', async () => {
+    try {
+      for (const [lang, key, field, unavailable] of [
+        ['ko', 'krw', 'usdkrwMarketTime', /환율 기준 시각 없음/],
+        ['ja', 'jpy', 'usdjpyMarketTime', /為替レート基準時刻なし/],
+      ]) {
+        for (const bad of [undefined, null, '', 'bad']) {
+          redisQuotes = { ...defaultQuotes, [key]: { ...defaultQuotes[key], marketTime: bad } };
+          const data = await GET();
+          assert.equal(data[field], bad ?? null);
+          assert.equal(localExchangeRate(lang, data).updatedAt, null);
+          assert.ok(localExchangeRate(lang === 'ko' ? 'ja' : 'ko', data).updatedAt);
+          const html = render(lang, data);
+          assert.match(html, lang === 'ko' ? /≈ ₩1,666,665/ : /≈ ¥185,185/);
+          assert.match(html, unavailable);
+        }
+      }
+    } finally { redisQuotes = defaultQuotes; }
+  });
+  await test('이전 API 응답에 수집 시각만 있어도 기준 시각으로 오인하지 않음', () => {
+    const { usdkrwMarketTime, usdjpyMarketTime, ...oldResponse } = rates;
+    assert.match(render('ko', oldResponse), /환율 기준 시각 없음/);
+    assert.match(render('ja', oldResponse), /為替レート基準時刻なし/);
+  });
+  await test('한쪽 Redis 시세 결측: 해당 통화만 생략·기존 API 가격·등락·수집 시각 보존', async () => {
+    try {
+      for (const missing of ['krw', 'jpy']) {
+        redisQuotes = { ...defaultQuotes, [missing]: null };
+        const data = await GET();
+        assert.equal(data.updatedAt, (redisQuotes.krw ?? redisQuotes.jpy).updatedAt);
+        for (const [key, lang, prefix] of [['krw', 'ko', 'usdkrw'], ['jpy', 'ja', 'usdjpy']]) {
+          const quote = redisQuotes[key];
+          assert.equal(data[prefix], quote?.price ?? null);
+          assert.equal(data[`${prefix}Change`], quote?.changePct ?? null);
+          assert.equal(data[`${prefix}UpdatedAt`], quote?.updatedAt ?? null);
+          assert.equal(data[`${prefix}MarketTime`], quote?.marketTime ?? null);
+          assert.equal(render(lang, data) === '', key === missing);
+        }
+      }
+    } finally { redisQuotes = defaultQuotes; }
   });
   console.log(`${passed}/${passed} 통과`);
 })().catch(error => { console.error(error); process.exitCode = 1; });
