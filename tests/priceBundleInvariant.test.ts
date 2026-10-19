@@ -12,7 +12,9 @@ import ts from 'typescript';
 import { acceptObservation, marketSessionAt, type PriceObservation } from '../src/lib/priceAcceptance';
 import { liveDisplay, mergeQuotesByStamp, type RestQuote } from '../src/utils/liveQuote';
 import { isOlderTick } from '../src/providers/WebSocketProvider';
-import { compile, read, EDT, intelAt, intelRow, makeStoreAt } from './helpers/priceHarness';
+import { compile, read, load, EDT, EST, intelAt, intelRow, makeStoreAt } from './helpers/priceHarness';
+import { regularPriceStamp } from '../src/lib/sourceStamp';
+import { sectorDisplayPct } from '../src/lib/dashMarketSnapshot';
 
 let n = 0, failed = 0;
 const t = async (name: string, fn: () => Promise<void> | void) => {
@@ -203,6 +205,92 @@ async function await_main() {
     const [r] = update({ AAPL: { price: 106, previousClose: 104, prevClose: 104, changePercent: (106 / 104 - 1) * 100, session: 'regular', sourceSessionDate: '2026-10-19', observedAt: EDT('2026-10-19', 10, 10), basis: 'live' } })(
       [intelRow({ price: 105, prevClose: 100, changePct: 5, priceTime: EDT('2026-10-19', 10, 5) })]);
     assert.equal(r.price, 106); assert.equal(r.prevClose, 104); assert.ok(Math.abs(r.changePct - (106 / 104 - 1) * 100) < 0.01, String(r.changePct));
+  });
+
+  /** 관심종목·포트폴리오 공용 훅(useOnePipe)을 렌더 단위로 실행 — 응답 순서를 바꿔 넣는다 */
+  const onePipeHook = (nowMs: number) => {
+    let pollData: any; const refs: any[] = []; let cursor = 0;
+    class Clock extends Date { constructor(...a: any[]) { super(...((a.length ? a : [nowMs]) as [])); } static now() { return nowMs; } }
+    const mod = load('src/hooks/useOnePipe.ts', {
+      react: { useRef: (v: any) => { const r = refs[cursor] ?? (refs[cursor] = { current: v }); cursor++; return r; }, useMemo: (f: any) => f() },
+      swr: () => ({ data: pollData }),
+      '@/providers/WebSocketProvider': { useRealtimeData: () => ({ connected: false, getPrice: () => undefined }) },
+      '@/hooks/useMarketStatus': { useMarketStatus: () => ({ status: { isHoliday: false, market: 'open' } }) },
+      '@/utils/extWsTrust': require('../src/utils/extWsTrust'), '@/lib/sourceStamp': require('../src/lib/sourceStamp'),
+      '@/lib/marketCalendar': require('../src/lib/marketCalendar'), '@/lib/priceAcceptance': require('../src/lib/priceAcceptance'),
+    }, { Date: Clock });
+    return (rows: Record<string, any>) => {
+      pollData = { data: rows };
+      cursor = 0;   // 렌더마다 useRef 는 호출 순서대로 같은 칸
+      const m = mod.useOnePipe(['AAPL']);
+      return m.get('AAPL');
+    };
+  };
+  await t(`관심종목·포트폴리오(useOnePipe) — 응답 6개 × ${RUNS / 3}순서: 최종 가격·기준이 10:58 응답 묶음 (관문 10192243 P2)`, () => {
+    const r = rng(6);
+    for (let k = 0; k < RUNS / 3; k++) {
+      const render = onePipeHook(NOW);
+      let out: any;
+      for (const i of shuffle([0, 1, 2, 3, 4, 5], r)) {
+        out = render({ AAPL: { price: PRICES[i], previousClose: 95 + i, prevClose: 95 + i, changePercent: (PRICES[i] / (95 + i) - 1) * 100, session: 'regular',
+          sourceSessionDate: '2026-10-19', observedAt: TIMES[i], basis: 'live' } });
+      }
+      assert.equal(out.price, PRICES[LATEST], `run ${k}`); assert.equal(out.prevClose, 95 + LATEST, `run ${k}`);
+    }
+  });
+  await t('관문 10192243① 가격을 거부한 proxy 응답의 기준 종가도 쓰지 않는다 — 110·기준100 뒤 POST proxy 111·기준98 → 110·+10%(Intel·대시보드)', async () => {
+    const N5 = EST('2026-11-27', 13, 30);
+    const stamp = regularPriceStamp({ session: 'post', regularDate: null, tradeMs: EST('2026-11-27', 13, 25), priceBasis: 'quote_mid', hasPrice: true, lastClosed: '2026-11-27', nowMs: N5 });
+    const proxy = { price: 111, previousClose: 98, prevClose: 98, changePercent: (111 / 98 - 1) * 100, session: 'post', ...stamp };
+    const { update } = intelAt(N5);
+    const [a] = update({ AAPL: proxy })([intelRow({ price: 110, prevClose: 100, changePct: 9.9 })]);
+    assert.equal(a.price, 110); assert.ok(Math.abs(a.changePct - 10) < 1e-6, String(a.changePct)); assert.equal(a.prevClose, 100);
+    const reg = { price: 110, previousClose: 100, prevClose: 100, changePercent: 10, session: 'regular', sourceSessionDate: '2026-11-27', observedAt: EST('2026-11-27', 12, 59), basis: 'live' };
+    const rows: any = {};
+    const store = makeStoreAt(rows, 'post', N5);
+    store.getState().initializeStore(['AAPL'], { AAPL: reg });
+    rows.AAPL = proxy; await store.getState().fetchPriceOnly(['AAPL']);
+    assert.equal(store.getState().tickers.AAPL.underlyingPrice, 110);
+    assert.ok(Math.abs(store.getState().tickers.AAPL.changePercent - 10) < 1e-6, String(store.getState().tickers.AAPL.changePercent));
+  });
+  await t('관문 10192243② Intel 배치 병합 — 10:10·106·기준104 행에 체결 시각 없는 배치 105·기준100 → 정규장 묶음 그대로(옵션 칸만 채움)', () => {
+    const sf = ts.createSourceFile('intel.ts', read('src/hooks/useIntelSharedData.ts'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    let fnTxt = '';
+    sf.forEachChild((nd) => { if (ts.isFunctionDeclaration(nd) && nd.name?.text === 'mergeWatchlistBatchIntoQuotes') fnTxt = nd.getText(sf); });
+    assert.ok(fnTxt);
+    const missing = require('../src/lib/app/intelMissing');
+    const qb = require('../src/lib/app/intelQuoteFromBatch');
+    const box: any = { module: { exports: null }, isFieldMissing: missing.isFieldMissing, setMissingField: missing.setMissingField,
+      pickFiniteNumber: qb.pickFiniteNumber, quoteFromBatchResult: qb.quoteFromBatchResult, isOlderObservation: require('../src/lib/priceAcceptance').isOlderObservation };
+    vm.runInNewContext(compile(`${fnTxt}\nmodule.exports = mergeWatchlistBatchIntoQuotes;`), box);
+    const cur = intelRow({ price: 106, prevClose: 104, changePct: (106 / 104 - 1) * 100, priceTime: EDT('2026-10-19', 10, 10), maxPain: 0 });
+    const [m] = box.module.exports([cur], [{ ticker: 'AAPL', realtime: { price: 105, prevClose: 100, changePct: 5, maxPain: 99 }, alphaSnapshot: {} }]);
+    assert.equal(m.price, 106); assert.equal(m.prevClose, 104); assert.equal(m.priceTime, EDT('2026-10-19', 10, 10)); assert.equal(m.maxPain, 99);
+    // 시각이 있는 더 새 배치는 묶음 전체로 받는다
+    const [m2] = box.module.exports([cur], [{ ticker: 'AAPL', realtime: { price: 107, prevClose: 104, changePct: 2.88, observedAt: EDT('2026-10-19', 10, 12) }, alphaSnapshot: {} }]);
+    assert.equal(m2.price, 107); assert.equal(m2.priceTime, EDT('2026-10-19', 10, 12));
+  });
+  await t('관문 10192243③ 대시보드 — 소켓 PRE 102(09:28) 뒤 정규장 응답의 옛 PRE 101(09:25) → PRE CLOSE 102·시각 유지(지우지 않음)', async () => {
+    const N6 = EDT('2026-10-19', 9, 31);
+    const pre = { price: 100, previousClose: 98, prevClose: 98, changePercent: 200 / 98, extendedPrice: 100.5, extendedChangePercent: 0.5, extendedLabel: 'PRE',
+      extendedTime: new Date(EDT('2026-10-19', 9, 20)).toISOString(), session: 'pre' };
+    const rows: any = {};
+    const store = makeStoreAt(rows, 'regular', N6);
+    store.getState().initializeStore(['AAPL'], { AAPL: pre });
+    store.getState().updateRealtimePrice('AAPL', 102, 0, EDT('2026-10-19', 9, 28));
+    assert.equal(store.getState().tickers.AAPL.extended.prePrice, 102);
+    rows.AAPL = { price: 100.2, previousClose: 100, prevClose: 100, changePercent: 0.2, extendedPrice: 101, extendedChangePercent: 1, extendedLabel: 'PRE',
+      extendedTime: new Date(EDT('2026-10-19', 9, 25)).toISOString(), session: 'regular', sourceSessionDate: '2026-10-19', observedAt: EDT('2026-10-19', 9, 30, 30), basis: 'live' };
+    await store.getState().fetchPriceOnly(['AAPL']);
+    const ext = store.getState().tickers.AAPL.extended;
+    assert.equal(ext.prePrice, 102); assert.ok(ext.preChangePct != null); assert.equal(ext.extTime, EDT('2026-10-19', 9, 28));
+  });
+  await t('관문 10192243④ 앱 대시 섹터 — 10:30 에 새로 받은 10:15 체결(서버 10:10 관측보다 새것)은 측정값 +1% · 받은 지 10분 넘은 틱은 거부', () => {
+    const now = EDT('2026-10-19', 10, 30);
+    const sector = { name: 'Tech', pct: 0, base: 100, sourceSessionDate: '2026-10-19', marketTime: EDT('2026-10-19', 10, 10), baseDate: '2026-10-19' } as any;
+    assert.equal(sectorDisplayPct(sector, { price: 101, priceTime: EDT('2026-10-19', 10, 15), ts: now - 500, receivedAt: now - 500 }, true, now), 1);
+    assert.equal(sectorDisplayPct(sector, { price: 101, priceTime: EDT('2026-10-19', 10, 15), ts: now - 11 * 60_000, receivedAt: now - 11 * 60_000 }, true, now), 0);
+    assert.equal(sectorDisplayPct(sector, { price: 101, priceTime: EDT('2026-10-19', 10, 5), ts: now - 500, receivedAt: now - 500 }, true, now), 0, '서버가 본 것보다 옛 체결');
   });
 
   console.log(`\n${failed ? '❌' : '✅'} priceBundleInvariant: ${n}개 통과 · ${failed}개 실패`);

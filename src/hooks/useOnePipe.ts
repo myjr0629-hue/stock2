@@ -19,7 +19,8 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { pickExtPrice } from '@/utils/extWsTrust';
 import { readStamp, wsTickFresh, makeStamp, type SourceStamp } from '@/lib/sourceStamp';
 import { etDateOf } from '@/lib/marketCalendar';
-import { acceptObservation, marketSessionAt, ownSessionBaseline, serverRegularPriceUsable } from '@/lib/priceAcceptance';
+import { acceptObservation, marketSessionAt, ownSessionBaseline, serverRegularPriceUsable, isOlderObservation } from '@/lib/priceAcceptance';
+const normalizeSessionLoose = (s: unknown) => String(s ?? '').toLowerCase();
 
 // ── 출력 타입 ──
 export interface OnePipeResult {
@@ -245,6 +246,10 @@ export function useOnePipe(
 
     // ── 4. regularCloseToday 잠금 (useRef — 렌더 간 유지) ──
     const closeLocks = useRef<Record<string, number>>({});
+    /** 종목별 마지막으로 채택한 시세 행(묶음) — 늦게 도착한 옛 응답을 거르는 기준 */
+    const acceptedPoll = useRef<Record<string, any>>({});
+    /** 마지막으로 «정규장 값으로 쓸 수 있었던» 시세 행 — proxy 응답 동안 기준 종가를 거기서 */
+    const acceptedPollBase = useRef<Record<string, any>>({});
     /** 정규장 중 마지막으로 받은 실제 정규장 가격 — 마감 뒤 서버가 proxy 값만 줄 때 직전 실제 값으로 쓴다 */
     const lastRegular = useRef<Record<string, number>>({});
 
@@ -262,7 +267,18 @@ export function useOnePipe(
 
         for (const ticker of tickers) {
             // 데이터 소스: 폴링 > SSR
-            const poll = pollData?.data?.[ticker];
+            // ★ [10/19 묶음 불변식] 늦게 받은 옛 응답(정규장 체결 시각이 더 옛것)은 지금 묶음을 통째로 대신하지 못한다 — 직전 채택 행을 그대로 쓴다.
+            //   시간외 칸도 그 체결 시각으로 같은 규칙(관문 10192243 P2: 관심종목·포트폴리오 10:10·106 → 10:05·105 역전)
+            const rawPoll = pollData?.data?.[ticker];
+            const kept = acceptedPoll.current[ticker];
+            let poll = rawPoll;
+            if (rawPoll && kept) {
+                if (isOlderObservation(kept.observedAt ?? kept.priceTime, rawPoll.observedAt ?? rawPoll.priceTime)) poll = kept;
+                else if (isOlderObservation(kept.extendedTime, rawPoll.extendedTime) && normalizeSessionLoose(kept.session) === normalizeSessionLoose(rawPoll.session)) {
+                    poll = { ...rawPoll, extendedPrice: kept.extendedPrice, extendedChangePercent: kept.extendedChangePercent, extendedLabel: kept.extendedLabel, extendedTime: kept.extendedTime };
+                }
+            }
+            if (poll) acceptedPoll.current[ticker] = poll;
             const ssr = ssrPrices?.[ticker];
 
             // ★ [10/19 가격 채택 통합] 서버가 proxy(정규장 시간 밖 관측 — 벌크 마감 뒤 호가 중간값)로 표시한 정규장 가격은
@@ -270,7 +286,10 @@ export function useOnePipe(
             const pollUsable = serverRegularPriceUsable(poll);
             const lastReal = closeLocks.current[ticker] || lastRegular.current[ticker] || 0;
             const pollPrice = (pollUsable || !(lastReal > 0) ? poll?.price : lastReal) || ssr?.price || 0;
-            const pollPrevClose = poll?.prevClose || poll?.previousClose || ssr?.prevClose || 0;
+            // 기준 종가도 응답 묶음 — 가격을 거부한(proxy) 응답의 기준은 쓰지 않는다(직전 채택 행의 기준 · 관문 10192243 P2)
+            const basePoll = pollUsable || !(lastReal > 0) ? poll : (acceptedPollBase.current[ticker] ?? poll);
+            const pollPrevClose = basePoll?.prevClose || basePoll?.previousClose || ssr?.prevClose || 0;
+            if (pollUsable && poll) acceptedPollBase.current[ticker] = poll;
             const pollExtPrice = poll?.extendedPrice || ssr?.extPrice || 0;
             const pollExtLabel = poll?.extendedLabel || ssr?.extLabel || '';
             const pollChangePct = poll?.changePercent ?? poll?.regChangePct ?? ssr?.changePct ?? null;

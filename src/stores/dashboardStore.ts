@@ -467,13 +467,16 @@ export const useDashboardStore = create<DashboardState>()(
                         if (qTime && serverRegularPriceUsable(q)) dashBundleTime.set(ticker, qTime); else if (session !== 'REG') dashBundleTime.delete(ticker);
                         // 시간외 칸도 그 체결 시각으로 — 지금 칸(소켓으로 갱신된 값 포함)보다 옛 시간외 체결이면 시간외 묶음은 지금 것
                         const extOlder = isOlderObservation(existing.extended?.extTime, q.extendedTime);
-                        const curExt = session === 'PRE' ? existing.extended?.prePrice : existing.extended?.postPrice;
+                        // 보존할 시간외 칸 — PRE·정규장(PRE CLOSE)은 PRE 칸, POST·CLOSED 는 POST 칸(관문 10192243 P2: 정규장에서 PRE CLOSE 를 POST 칸으로 골라 지웠다)
+                        const keepPre = session === 'PRE' || session === 'REG';
+                        const curExt = keepPre ? existing.extended?.prePrice : existing.extended?.postPrice;
                         const qExtPrice = extOlder ? (curExt || 0) : (q.extendedPrice || 0);
-                        const qExtLabel = extOlder ? (session === 'PRE' ? 'PRE' : 'POST') : (q.extendedLabel || '');
+                        const qExtLabel = extOlder ? (keepPre ? 'PRE' : 'POST') : (q.extendedLabel || '');
                         const qExtTime = extOlder ? (existing.extended?.extTime ?? null) : (q.extendedTime ?? null);
                         // Unified may seed a daily-bar baseline one session behind before
                         // the first quote arrives. Each quote carries its own session baseline.
-                        const prevCl = q.previousClose || q.prevClose || existing.prevClose || 0;
+                        // 기준 종가도 응답 묶음의 것 — 가격을 거부한(proxy) 응답의 기준은 쓰지 않는다(관문 10192243 P2)
+                        const prevCl = (serverRegularPriceUsable(q) || !((existing.underlyingPrice ?? 0) > 0) ? (q.previousClose || q.prevClose) : 0) || existing.prevClose || 0;
 
                         // ── [ONE-PIPE] regularCloseToday: 최초 설정 후 유지 (Polygon 변동 차단) ──
                         // SSR initializeStore에서 설정됨. 이후 fetchPriceOnly에서는 없을 때만 설정.
@@ -534,7 +537,8 @@ export const useDashboardStore = create<DashboardState>()(
                                 preChangePct: session === 'PRE' ? (pipe.extChangePct ?? undefined)
                                     : session === 'REG' ? (pipe.extLabel === 'PRE CLOSE' ? (pipe.extChangePct ?? undefined) : undefined)
                                     : existing.extended?.preChangePct,
-                                extTime: (session === 'PRE' || isCloseSession) && pipe.extPrice ? qExtTime : null,
+                                // 정규장의 PRE CLOSE 도 그 체결 시각을 같이 둔다 — 다음 폴링의 옛 PRE 응답이 묶음을 되돌리지 못하게(관문 10192243 P2)
+                                extTime: (session === 'PRE' || session === 'REG' || isCloseSession) && pipe.extPrice ? qExtTime : null,
                             },
                             session,
                         };

@@ -1,5 +1,6 @@
 import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote, oneNumberPct } from '../utils/calcPriceDisplay';
 import { resolveIndexClose } from './indexCloseSnapshot';
+import { WS_RECEIVE_IDLE_MS } from './priceAcceptance';
 
 export interface SectorItem {
     name: string;
@@ -73,10 +74,13 @@ export function buildIndexItems(indices: any, previous: any[] = []) {
  * A tick without a source time, from another trading day, older than the quote, or without
  * a compatible baseline cannot replace the dated quote.
  */
-export function sectorDisplayPct(sector: SectorItem, tick: { price: number; priceTime?: number } | null | undefined,
+export function sectorDisplayPct(sector: SectorItem, tick: { price: number; priceTime?: number; ts?: number; receivedAt?: number } | null | undefined,
     active: boolean, now = Date.now()): number | null {
+    // 체결 «나이»로 거르지 않는다 — 시간외·정규장 15분 지연 체결도 서버가 본 것보다 새 체결이면 측정값이다(관문 10192243 P2: 10:30 에 받은 10:15 체결).
+    //   대신 «받은 지» 10분 넘은 틱(앱이 뒤로 갔다 온 뒤 남은 틱)은 쓰지 않는다 — 공용 수신 상태 정책(priceAcceptance.WS_RECEIVE_IDLE_MS)
+    const received = finite(tick?.receivedAt) && tick!.receivedAt! > 1e12 ? tick!.receivedAt! : finite(tick?.ts) && tick!.ts! > 1e12 ? tick!.ts! : null;
     if (!active || !tick || !finite(tick.price) || tick.price <= 0 || !finite(tick.priceTime)
-        || tick.priceTime <= 0 || now - tick.priceTime > 60_000 || tick.priceTime > now + 5_000
+        || tick.priceTime <= 0 || (received != null && now - received > WS_RECEIVE_IDLE_MS) || tick.priceTime > now + 5_000
         || !finite(sector.base) || sector.base <= 0 || !dated(sector.baseDate)) return sector.pct;
     if (etDate(tick.priceTime) !== sector.baseDate) return sector.pct;
     const seen = time(sector.marketTime);

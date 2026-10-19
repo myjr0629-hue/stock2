@@ -319,10 +319,14 @@ test('sectors: PRE/REG/POST/CLOSED retain source dates and source-derived change
 test('sectors: undated/old ticks or missing baseline cannot create zero or replace a dated value', () => {
     const sector = buildSectorItems({ XLK: sectorQuote() }, 'regular')[0];
     const now = Date.parse('2026-10-16T15:00:00Z');
-    for (const tick of [{ price: 100 }, { price: 100, priceTime: now - 120_000 },
+    // 2026-10-19 가격 채택 통합: 체결 «나이»(60초)로 거르지 않는다 — 받은 지 10분 넘은 틱·서버가 본 것보다 옛 체결·미래 체결·시각 없음만 거부
+    const seen = { ...sector, marketTime: now - 60_000 };
+    for (const tick of [{ price: 100 }, { price: 100, priceTime: now - 120_000, receivedAt: now - 11 * 60_000 },
+        { price: 100, priceTime: now - 120_000 },
         { price: Infinity, priceTime: now }, { price: 100, priceTime: now + 120_000 }]) {
-        assert.equal(sectorDisplayPct(sector, tick, true, now), 1);
+        assert.equal(sectorDisplayPct(seen, tick, true, now), 1);
     }
+    assert.equal(sectorDisplayPct(sector, { price: 100, priceTime: now - 120_000, receivedAt: now - 500 }, true, now), 0, '방금 받은 2분 지연 체결은 측정값');
     assert.equal(sectorDisplayPct(sector, { price: 100, priceTime: now }, true, now), 0);
     assert.equal(sectorDisplayPct({ ...sector, base: undefined }, { price: 100, priceTime: now }, true, now), 1);
     assert.equal(sectorDisplayPct(sector, { price: 100, priceTime: now }, false, now), 1);

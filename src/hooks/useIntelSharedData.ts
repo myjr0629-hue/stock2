@@ -311,8 +311,10 @@ export function useIntelSharedData(
                     if (!p || !p.price) return q;
 
                     const session = toSession(p.session);
-                    // 기준 종가도 이 응답의 묶음 — 옛 행의 기준을 새 가격에 섞지 않는다(묶음 불변식 · 관문 10192153 P2)
-                    const prevCl = p.previousClose || p.prevClose || q.prevClose || 0;
+                    // 기준 종가도 이 응답의 묶음 — 옛 행의 기준을 새 가격에 섞지 않고, 가격을 거부한(proxy) 응답의 기준도 쓰지 않는다
+                    //   (묶음 불변식 · 관문 10192153 P2 · 10192243 P2)
+                    const respUsable = serverRegularPriceUsable(p) || !(q.price > 0);
+                    const prevCl = (respUsable ? (p.previousClose || p.prevClose) : 0) || q.prevClose || 0;
                     // ★ [10/19 가격 채택 통합] 묶음 교체 — 이 응답의 정규장 체결이 지금 묶음(행 또는 이미 본 서버 관측)보다 옛것이면 행 전체를 둔다
                     //   (늦게 도착한 옛 폴링이 가격만 옛값으로 되돌리지 않게 · 부분 병합 금지)
                     const pTime = session === 'REG' ? (Number(p.observedAt ?? p.priceTime) || null) : null;
@@ -780,18 +782,26 @@ function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResult
         // 기존 스퀴즈가 null(빠른 응답의 «못 잼»)이면 아래 `|| 0` 이 0 을 만든다 — 그 0 은 결측으로 표시한다
         missingFields = setMissingField(missingFields, 'squeezeScore', has(rt.squeezeScore) ? false : isFieldMissing(existing, 'squeezeScore'));
 
+        // ★ [10/19 묶음 불변식] 배치 시세는 체결 시각이 없는 경우가 많다 — 지금 행이 체결 시각을 아는 묶음이면 시각 없는(또는 더 옛) 배치 값으로
+        //   가격·등락·기준·세션 중 일부만 바꾸지 않는다(105·기준100 에 10:10 시각이 남던 것 · 관문 10192243 P2). 배치는 옵션·알파 칸만 채운다.
+        const rtTime = Number(rt.observedAt ?? rt.priceTime) || null;
+        const takeReg = !existing.priceTime || (!!rtTime && !isOlderObservation(existing.priceTime, rtTime));
+        const takeExt = !existing.extendedTime || (!!rt.extendedTime && !isOlderObservation(existing.extendedTime, rt.extendedTime));
+        if (!takeReg && changeFromBatch) missingFields = existing.missingFields;
         return {
             ...existing,
             missingFields,
-            price: priceFromBatch ? pickFiniteNumber(rt.price, existing.price) : existing.price,
-            changePct: changeFromBatch ? rt.changePct : existing.changePct,
-            prevClose: pickFiniteNumber(rt.prevClose, existing.prevClose),
+            price: takeReg && priceFromBatch ? pickFiniteNumber(rt.price, existing.price) : existing.price,
+            changePct: takeReg && changeFromBatch ? rt.changePct : existing.changePct,
+            prevClose: takeReg ? pickFiniteNumber(rt.prevClose, existing.prevClose) : existing.prevClose,
             volume: pickFiniteNumber(rt.volume, existing.volume),
-            regularCloseToday: pickFiniteNumber(rt.regularCloseToday, existing.regularCloseToday ?? 0) || existing.regularCloseToday,
-            extendedPrice: pickFiniteNumber(rt.extendedPrice, existing.extendedPrice),
-            extendedChangePct: pickFiniteNumber(rt.extendedChangePct, existing.extendedChangePct),
-            extendedLabel: rt.extendedLabel || existing.extendedLabel,
-            session: rt.session || existing.session,
+            regularCloseToday: takeReg ? (pickFiniteNumber(rt.regularCloseToday, existing.regularCloseToday ?? 0) || existing.regularCloseToday) : existing.regularCloseToday,
+            priceTime: takeReg && priceFromBatch ? rtTime : (existing.priceTime ?? null),
+            extendedPrice: takeExt ? pickFiniteNumber(rt.extendedPrice, existing.extendedPrice) : existing.extendedPrice,
+            extendedChangePct: takeExt ? pickFiniteNumber(rt.extendedChangePct, existing.extendedChangePct) : existing.extendedChangePct,
+            extendedLabel: takeExt ? (rt.extendedLabel || existing.extendedLabel) : existing.extendedLabel,
+            extendedTime: takeExt ? (rt.extendedTime ?? existing.extendedTime ?? null) : (existing.extendedTime ?? null),
+            session: takeReg ? (rt.session || existing.session) : existing.session,
             // Options data from watchlist/batch
             alphaScore: pickFiniteNumber(alpha.score, existing.alphaScore),
             grade: alpha.grade || existing.grade,
