@@ -451,3 +451,29 @@ test('review 4: substitute expiry never mixes its P/C with the original expiry p
     assert.equal(ctx.analysisGateOk, false);
     assert.equal(ctx.analysisStatus, '—');
 });
+
+// ── Review 5 (gate 10/19 17:02) ─────────────────────────────────────────────
+test('review 5: archive date comes only from the rawChain response — levels / SSR dates cannot certify an expired list', () => {
+    const code = initializer(radarPath, 'chainDate');
+    assert.equal(run(code, { currentFlowData: { rawChain: [] }, levelsChainDate: '2026-10-16', initialFlowData: { dataFreshness: { chainDate: '2026-10-16' } } }), null);
+    assert.equal(run(code, { currentFlowData: { dataFreshness: { chainDate: '2026-10-16' } }, levelsChainDate: null }), '2026-10-16');
+    const later = [{ details: { expiration_date: '2026-11-20', contract_type: 'call', strike_price: 210 }, day: { volume: 70 } }];
+    const view = gate.optionChainView([row('2026-10-16')], later, run(code, { currentFlowData: {}, levelsChainDate: '2026-10-16' }), afterExpiry);
+    assert.equal(view.archived, false); // undated expired list is not shown as the previous session
+    assert.equal(view.rows[0].details.expiration_date, '2026-11-20');
+});
+
+test('review 5: fallback list entirely outside ±15% keeps its real strikes, so flowMap / AI VERDICT area stays', () => {
+    const at = new Proxy(Date, { construct: (target, args) => Reflect.construct(target, args.length ? args : [Date.parse('2026-10-16T20:01:00Z')]) });
+    const far = [
+        { details: { expiration_date: '2026-11-20', contract_type: 'call', strike_price: 250 }, day: { volume: 100 } },
+        { details: { expiration_date: '2026-11-20', contract_type: 'put', strike_price: 240 }, day: { volume: 50 } },
+    ];
+    const chartCode = initializer(radarPath, '{ flowMap, totalVolume }');
+    const fb = run(chartCode, { rawChain: far, currentPrice: 200, userViewMode: 'VOLUME', chainFallback: true, Date: at });
+    assert.deepEqual(JSON.parse(JSON.stringify(fb.flowMap.map((r: any) => [r.strike, r.callVol, r.putVol]))), [[250, 100, 0], [240, 0, 50]]);
+    assert.equal(fb.totalVolume, 150);
+    // Live rows keep the ±15% chart range unchanged.
+    const live = [{ ...far[0], details: { ...far[0].details, expiration_date: '2026-10-23' } }];
+    assert.equal(run(chartCode, { rawChain: live, currentPrice: 200, userViewMode: 'VOLUME', chainFallback: false, Date: at }).flowMap.length, 0);
+});

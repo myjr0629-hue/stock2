@@ -45,7 +45,8 @@ export interface FlowRadarProps {
 export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inputAllExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData, currentFlowData, maxPain: apiMaxPain, callWall: apiCallWall, putFloor: apiPutFloor, levelsExpiration, levelsChainDate }: FlowRadarProps) {
     // Expiry gate re-evaluated each minute (a contract can expire while the page stays open); stable arrays within the minute.
     const expiryMinute = Math.floor(Date.now() / 60000);
-    const chainDate: unknown = (currentFlowData as any)?.dataFreshness?.chainDate ?? levelsChainDate ?? (initialFlowData as any)?.dataFreshness?.chainDate ?? null;
+    // Archive date must come from the same response as rawChain (liveQuote.flow) — never the levels date or SSR data.
+    const chainDate: unknown = (currentFlowData as any)?.dataFreshness?.chainDate ?? null;
     // Filter empties the list → keep the cards: previous session's real list (display only) → nearest live expiry. Never synthesized.
     const chainView = useMemo(
         () => optionChainView(inputRawChain || [], inputAllExpiryChain || [], chainDate, expiryMinute * 60000),
@@ -296,9 +297,13 @@ export function FlowRadar({ ticker, rawChain: inputRawChain, allExpiryChain: inp
 
         // Filter for Near-the-Money (±15%)
         const range = currentPrice * 0.15;
-        const relevantStrikes = Array.from(strikeMap.keys())
+        const nearStrikes = Array.from(strikeMap.keys())
             .filter(s => s >= currentPrice - range && s <= currentPrice + range)
             .sort((a, b) => b - a); // Descending order
+        // Fallback list entirely outside ±15%: keep its real strikes so the cards stay (live rows unchanged).
+        const relevantStrikes = chainFallback && nearStrikes.length === 0
+            ? Array.from(strikeMap.keys()).sort((a, b) => b - a)
+            : nearStrikes;
 
         return {
             flowMap: relevantStrikes.map(s => ({
