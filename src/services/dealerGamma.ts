@@ -26,6 +26,9 @@
  * ══════════════════════════════════════════════════════════════════════
  */
 
+import { percentile, flipDistance } from '../lib/metrics/percentile';
+import type { Metric } from '../lib/metrics/contract';
+
 const PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
 const PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
 
@@ -50,6 +53,7 @@ export interface DealerGammaSignal {
      * 증폭된다. 예전 「감마 스퀴즈」 카드가 말하려던 바로 그 상태다.
      */
     unstable: boolean;
+    metrics: { percentile: Metric; flipDistance: Metric };
 }
 
 async function readKey<T = any>(key: string): Promise<T | null> {
@@ -69,16 +73,6 @@ async function readKey<T = any>(key: string): Promise<T | null> {
     } finally {
         clearTimeout(timer);
     }
-}
-
-/**
- * 백분위. 오늘 값은 «자기 자신»과 비교하지 않는다.
- * 값이 큰(=롱감마) 쪽이 100 이다.
- */
-function percentileOf(today: number, history: number[]): number | null {
-    if (history.length < MIN_POINTS) return null;
-    const below = history.filter(h => h <= today).length;
-    return Math.round((below / history.length) * 100);
 }
 
 /**
@@ -108,20 +102,21 @@ export async function getDealerGamma(
     const history = sorted.slice(0, -1).map(p => p.gex);
 
     const px = typeof price === 'number' && price > 0 ? price : latest.price ?? null;
-    const flipDistancePct =
-        typeof flipLevel === 'number' && flipLevel > 0 && typeof px === 'number' && px > 0
-            ? ((px - flipLevel) / flipLevel) * 100
-            : null;
+    const distanceMetric = flipDistance({ priceUsd: px, flipLevelUsd: flipLevel });
+    const flipDistancePct = distanceMetric.value;
+    const rankMetric = percentile({ current: latest.gex, history, minimumSamples: MIN_POINTS,
+        period: 'stored_prior_EOD_observations', basis: 'ticker_GEX_history_excluding_current' });
 
     const polarity: 'long' | 'short' = latest.gex >= 0 ? 'long' : 'short';
 
     return {
         gex: latest.gex,
         polarity,
-        percentile: percentileOf(latest.gex, history),
+        percentile: rankMetric.value,
         samples: history.length,
         flipDistancePct: flipDistancePct == null ? null : Math.round(flipDistancePct * 10) / 10,
         date: latest.date,
+        metrics: { percentile: rankMetric, flipDistance: distanceMetric },
         // 숏감마 + 플립 ±3% = 작은 충격이 증폭되는 자리
         unstable: polarity === 'short' && flipDistancePct != null && Math.abs(flipDistancePct) <= 3,
     };
