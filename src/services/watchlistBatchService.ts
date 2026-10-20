@@ -556,6 +556,9 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                         ...readImpliedMoveFields(analysis),
                         gammaFlipLevel: analysis.gammaFlipLevel ?? null,
                         iv: analysis.iv ?? null,
+                        // Never date a cached IV with the quote/response/cache-write clock.
+                        ivSourceDate: (analysis as any).ivSourceDate ?? null,
+                        ivObservedAt: (analysis as any).ivObservedAt ?? null,
                         vwap: base.vwap ?? null,
                         vwapDist: (base.vwap && refPrice) ? Number(((refPrice - base.vwap) / base.vwap * 100).toFixed(2)) : null,
                         callWall: analysis.callWall ?? null,
@@ -1325,7 +1328,12 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                         Promise.race([getLatestGex(t).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 6000))]),
                         Promise.race([getLatestFlow(t).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 6000))]),
                     ]);
-                    return (gx || fl) ? { ...(fl || {}), ...(gx || {}) } : null;
+                    // Keep IV provenance from the GEX row itself, never the flow row's timestamp.
+                    return (gx || fl) ? { ...(fl || {}), ...(gx || {}),
+                        atmIv: (gx as any)?.atmIv ?? null,
+                        atmIvSourceDate: (gx as any)?.chainDate ?? null,
+                        atmIvObservedAt: gx?.timestamp ?? null,
+                    } : null;
                 }));
                 cold.forEach((t, i) => { if (got[i]) awsFill[t] = got[i]; });
                 console.log(`[watchlist/batch] AWS 폴백 ${Object.keys(awsFill).length}/${cold.length}종목`);
@@ -1358,7 +1366,11 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 //   레벨은 아래 출구에서 구조 한 벌로만 정한다(없으면 null).
                 put('squeezeScore', af.squeezeScore);
                 put('netPremium', af.netPremium);
-                put('atmIv', af.atmIv);
+                if (rt.atmIv == null || !Number.isFinite(Number(rt.atmIv))) {
+                    put('atmIv', af.atmIv);
+                    rt.atmIvSourceDate = af.atmIvSourceDate ?? null;
+                    rt.atmIvObservedAt = af.atmIvObservedAt ?? null;
+                }
                 if (af.ivSkew != null && Math.abs(Number(af.ivSkew)) <= 2.0) put('ivSkew', af.ivSkew);
                 // ⛔ [2026-09-29] 예상 변동(impliedMovePct)은 채우지 않는다. GEX 이력 행의 값은 수집 Lambda 가
                 //   다른 정의로 쓴 것이다(다리마다 따로 고른 최근접 행사가의 «전일 종가» 합 — 9/28 MU 9.0 vs ATM 중간값 7.9).

@@ -1,0 +1,51 @@
+{
+  "session": "regular",
+  "timestamp": 1792419033902,
+  "data": {
+    "SPY": {
+      "price": 766.81,
+      "previousClose": 763.25,
+      "changePercent": 0.4664264657713653,
+      "session": "regular",
+      "extendedPrice": 767.29,
+      "extendedChangePercent": 0.5293154274484067,
+      "extendedLabel": "PRE"
+    },
+    "NVDA": {
+      "price": 215.94,
+      "previousClose": 214.13,
+      "changePercent": 0.8452809041236643,
+      "session": "regular",
+      "extendedPrice": 217.45,
+      "extendedChangePercent": 1.550460000934009,
+      "extendedLabel": "PRE"
+    },
+    "AAPL": {
+      "price": 345.2245,
+      "previousClose": 343.46,
+      "changePercent": 0.5137425027659693,
+      "session": "regular",
+      "extendedPrice": 341.07,
+      "extendedChangePercent": -0.6958597798870281,
+      "extendedLabel": "PRE"
+    },
+    "TSLA": {
+      "price": 361.1693,
+      "previousClose": 354.72,
+      "changePercent": 1.8181382498872332,
+      "session": "regular",
+      "extendedPrice": 357.59,
+      "extendedChangePercent": 0.809088858818208,
+      "extendedLabel": "PRE"
+    },
+    "WTFC": {
+      "price": 143.9225,
+      "previousClose": 144.08,
+      "changePercent": -0.1093142698500825,
+      "session": "regular",
+      "extendedPrice": 144.95,
+      "extendedChangePercent": 0.6038312048861577,
+      "extendedLabel": "PRE"
+    }
+  }
+}

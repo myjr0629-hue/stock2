@@ -155,6 +155,15 @@ export const EARLY_CLOSE_DATES: ReadonlySet<string> = new Set(["2026-11-27", "20
 /** 그날 정규장이 끝나는 시각(ET 자정 기준 분) — 평소 16:00(960) · 조기 폐장 13:00(780) */
 export const sessionCloseMinutes = (d: string): number => (EARLY_CLOSE_DATES.has(d) ? 13 * 60 : 16 * 60);
 
+/** 현물 정규장 구간 — UC 입력도 휴장·조기 폐장을 같은 달력으로 판정한다. */
+export function cashSessionPhaseAt(ms: number): 'pre-open' | 'regular' | 'after-close' | 'closed-day' {
+    const date = etDateOf(ms);
+    if (isNonTradingDay(date)) return 'closed-day';
+    const minutes = etMinutesOf(ms);
+    if (minutes < 570) return 'pre-open';
+    return minutes < sessionCloseMinutes(date) ? 'regular' : 'after-close';
+}
+
 /**
  * 옵션 계약이 그 시점에 «이미 만기됐나» — 만기일 E 의 계약은 E 정규장 마감(16:00 ET · 조기 폐장일 13:00)에 사라진다.
  *   ET 날짜 < E → 살아 있음 · = E → 마감 시각 전까지 살아 있음 · > E → 만기.

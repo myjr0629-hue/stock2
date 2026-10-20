@@ -2,6 +2,7 @@
  * Executes the page's actual expressions and fetch effect with mocked responses.
  * No browser, network, environment file, Redis, or database access.
  */
+import { compactUsd } from '../src/lib/app/displayNumbers';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -10,6 +11,8 @@ import { calcPriceDisplay } from '../src/utils/calcPriceDisplay';
 import { putCallRatio, cpText, pcBiasOf, PC_AI_DEFINITION } from '../src/lib/app/flowPcRatio';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
+import { measuredOiPcr, newerReading, OI_PCR_PREV_BASIS } from '../src/lib/app/flowOpi';
+import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -25,7 +28,7 @@ function visit(node: ts.Node) {
 visit(ast);
 function run(code: string, context: Record<string, any>) {
     const js = ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-    return vm.runInNewContext(js, context);
+    return vm.runInNewContext(js, { compactUsd, whaleBasis: null, whaleSessionDate: null, ...context });
 }
 function value(name: string, context: Record<string, any> = {}) {
     const init = declarations.get(name)?.initializer;
@@ -66,11 +69,13 @@ async function fetchHarness(initial: Record<string, any>, data: any, overrides: 
         ticker: data.ticker, initialLoadRef: { current: true }, AbortController,
         FLOW_TICKER_TTFB_MS: 10000, FLOW_QUICK_RETRIES: 0, FLOW_QUICK_RETRY_MS: 100,
         ivHistoryUnavailable: () => true, ivRankIsCollecting: () => false,
+        shownRegularSessionDate,
         window: { setTimeout: () => 1, clearTimeout: () => {} },
         setInterval: (fn: () => void) => { refresh = fn; return 1; }, clearInterval: () => {},
         fetchWithTtfbLimit: async () => ({ ok: true, json: async () => data }),
         fetch: async () => ({ ok: true, json: async () => ({ items: [], unavailable: true }) }),
         selectWhaleSession: (data: any, session: string) => selectWhaleSession(data, session, REG_NOW),
+        measuredOiPcr, newerReading, OI_PCR_PREV_BASIS,   // NB1(10/20): fetch 효과가 OPI 입력을 이 함수·상수로 읽는다
         ...overrides,
     };
     // Capture every React setter used by this effect, including future ones.
@@ -199,8 +204,8 @@ async function test(name: string, fn: () => any) {
         const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => response });
         try {
             const screen = whaleScreen(h.state);
-            assert.equal(screen.whaleMoney, '—');
-            assert.equal(screen.totalMoney, '—');
+            assert.equal(screen.whaleMoney, '집계 관측 없음');
+            assert.equal(screen.totalMoney, '집계 관측 없음');
             assert.equal(screen.whaleMeta, null);
         } finally { h.cleanup(); }
     });
@@ -234,8 +239,8 @@ async function test(name: string, fn: () => any) {
             });
             try {
                 const screen = whaleScreen(h.state);
-                assert.equal(screen.whaleMoney, '—');
-                assert.equal(screen.totalMoney, '—');
+                assert.equal(screen.whaleMoney, '집계 관측 없음');
+                assert.equal(screen.totalMoney, '집계 관측 없음');
                 assert.equal(screen.teaserText, '— 건 / —');
                 assert.equal(screen.pressureScore, null);
                 assert.equal(screen.convictionPct, null);
@@ -293,8 +298,8 @@ async function test(name: string, fn: () => any) {
             });
             try {
                 const screen = whaleScreen(h.state);
-                assert.equal(screen.whaleMoney, '—');
-                assert.equal(screen.totalMoney, '—');
+                assert.equal(screen.whaleMoney, '집계 관측 없음');
+                assert.equal(screen.totalMoney, '집계 관측 없음');
                 assert.equal(screen.teaserText, '— 건 / —');
                 assert.equal(screen.whaleSweeps.length, 0);
                 assert.equal(screen.pressureScore, null);
@@ -327,7 +332,7 @@ async function test(name: string, fn: () => any) {
             const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, {
                 fetch: async () => ({ ok: true, json: async () => ({ items: [], _cached: true, debug: { totalContractsScanned: scanned } }) }),
             });
-            try { assert.equal(whaleScreen(h.state).whaleMoney, '—', `scan evidence: ${scanned}`); }
+            try { assert.equal(whaleScreen(h.state).whaleMoney, '집계 관측 없음', `scan evidence: ${scanned}`); }
             finally { h.cleanup(); }
         }
     });
@@ -339,8 +344,8 @@ async function test(name: string, fn: () => any) {
             response = await whaleApi([]);
             await h.refresh();
             const screen = whaleScreen(h.state);
-            assert.equal(screen.whaleMoney, '—');
-            assert.equal(screen.totalMoney, '—');
+            assert.equal(screen.whaleMoney, '집계 관측 없음');
+            assert.equal(screen.totalMoney, '집계 관측 없음');
             assert.equal(screen.whaleSweeps.length, 0);
         } finally { h.cleanup(); }
     });
@@ -550,8 +555,8 @@ async function test(name: string, fn: () => any) {
             const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => response });
             try {
                 const screen = whaleScreen(h.state);
-                assert.equal(screen.whaleMoney, '—');
-                assert.equal(screen.totalMoney, '—');
+                assert.equal(screen.whaleMoney, '집계 관측 없음');
+                assert.equal(screen.totalMoney, '집계 관측 없음');
                 assert.equal(screen.teaserText, '— 건 / —');
                 assert.equal(screen.whaleMeta, null);
                 assert.equal(screen.pressureScore, null);
@@ -560,7 +565,7 @@ async function test(name: string, fn: () => any) {
         // 옛 모양 캐시(스캔 수만 있고 체결 관측 근거 없음)도 결측
         const cachedScanOnly = await whaleApi([], { ticker: 'A', count: 0, items: [], debug: { totalContractsScanned: 1 } });
         const h = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => cachedScanOnly });
-        try { assert.equal(whaleScreen(h.state).whaleMoney, '—'); } finally { h.cleanup(); }
+        try { assert.equal(whaleScreen(h.state).whaleMoney, '집계 관측 없음'); } finally { h.cleanup(); }
     });
     await test('G4-2 next trading day 11:00 with only prior-day 15:55 whale print is measured $0 for today', async () => {
         const now = Date.parse('2026-10-20T15:00:00Z'); // 화 11:00 ET
@@ -621,9 +626,9 @@ async function test(name: string, fn: () => any) {
             fetch: async () => ({ ok: true, json: async () => ({ ticker: 'A', items: [], debug: { totalContractsScanned: 1, tradesObserved: 1 } }) }),
             selectWhaleSession: (d: any, s: string) => selectWhaleSession(d, s, sunday),
         });
-        try { assert.equal(whaleScreen(closedZero.state).whaleMoney, '—'); } finally { closedZero.cleanup(); }
+        try { assert.equal(whaleScreen(closedZero.state).whaleMoney, '집계 관측 없음'); } finally { closedZero.cleanup(); }
         const none = await fetchHarness({}, { ticker: 'A', session: 'REG' }, { fetch: async () => whaleApi([]) });
-        try { const s = whaleScreen(none.state); assert.equal(s.whaleMoney, '—'); assert.equal(s.teaserText, '— 건 / —'); } finally { none.cleanup(); }
+        try { const s = whaleScreen(none.state); assert.equal(s.whaleMoney, '집계 관측 없음'); assert.equal(s.teaserText, '— 건 / —'); } finally { none.cleanup(); }
     });
     await test('G4-5 invalid tradesObserved evidence values cannot create a measured zero', async () => {
         for (const counted of [0, -1, '1', NaN, Infinity, null]) {

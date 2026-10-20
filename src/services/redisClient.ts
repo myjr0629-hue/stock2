@@ -537,6 +537,20 @@ export async function getAuthoritativeCache<T>(key: string): Promise<{ ok: boole
     return result;
 }
 
+/** Same store as getAuthoritativeCache. Never count a fallback write as publication success.
+ * A single SET is atomic; this does not provide multi-key transactions or compare-and-set.
+ */
+export async function setAuthoritativeCache<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'object') {
+        const v = value as Record<string, unknown>;
+        if (v.error && Object.keys(v).length <= 2) return false;
+    }
+    const gate = ecAcquire();
+    if (gate === 'skip') return false;
+    return ecProxySet(key, value, ttlSeconds ? applyJitter(ttlSeconds) : undefined, gate);
+}
+
 export async function getFromCache<T>(key: string): Promise<T | null> {
     // Try EC2 Proxy first (ElastiCache via HTTP)
     let ecAuthoritative = false;

@@ -147,6 +147,7 @@ async function economyRoute(rows: any[] | Record<string, any[]>) {
     const route = load('src/app/api/market/economy/route.ts', {
         'next/server': { NextResponse: { json: (data: any, init?: any) => ({ status: init?.status ?? 200, data }) } },
         '@/services/macroEconomy': service,
+        '@/lib/macroLastGood': require('../src/lib/macroLastGood'),
     });
     return route.GET();
 }

@@ -88,11 +88,11 @@ const call = async (route: any, qs: string) => {
     for (const t of ['NVDA', 'SPY', 'QUIET', 'MU', 'nvda']) {
       const a = await call(NEW, `t=${t}`);
       assert.equal(a.body.stale, undefined);
-      if (t.toUpperCase() === 'MU') assert.equal(a.body.reason, 'ticker-not-in-universe');
+      if (t.toUpperCase() === 'MU') assert.equal(a.body.reason, 'collection-status-unknown');
       else { assert.equal(a.body.date, '2026-10-01'); assert.equal(a.body.prevDate, '2026-09-30'); }
       if (OLD) {
         const o = await call(OLD, `t=${t}`);
-        assert.deepEqual(a.body, o.body, t); assert.equal(a.cache, o.cache, t); assert.equal(a.status, o.status, t);
+        if (t.toUpperCase() !== 'MU') assert.deepEqual(a.body, o.body, t); assert.equal(a.cache, o.cache, t); assert.equal(a.status, o.status, t);
       }
     }
   });
@@ -122,7 +122,7 @@ const call = async (route: any, qs: string) => {
     const b = await call(NEW, 't=NVDA');
     assert.equal(b.body.date, '2026-10-02'); assert.equal(b.body.stale, undefined);
     const c = await call(NEW, 't=AMD');
-    assert.equal(c.body.reason, 'ticker-not-in-universe'); assert.equal(c.body.date, '2026-10-02');
+    assert.equal(c.body.reason, 'collection-status-unknown'); assert.equal(c.body.date, '2026-10-02');
   });
 
   await ta('지각 칸이 tickers 와 겹치면 tickers(묶음 날짜)가 이긴다 · 날짜 없는 지각 칸은 쓰지 않는다', async () => {
@@ -132,7 +132,7 @@ const call = async (route: any, qs: string) => {
     const t1 = await call(NEW, 't=NVDA');
     assert.equal(t1.body.date, '2026-10-02'); assert.equal(t1.body.stale, undefined);
     const t2 = await call(NEW, 't=BAD');
-    assert.equal(t2.body.reason, 'ticker-not-in-universe');
+    assert.equal(t2.body.reason, 'collection-status-unknown');
   });
 
   await ta('못 읽음·적재 전 — 예전과 같다(no-store)', async () => {
@@ -145,6 +145,38 @@ const call = async (route: any, qs: string) => {
       assert.deepEqual(t.body, { ticker: 'NVDA', available: false, reason: 'options-eod-not-loaded' });
     }
     failMode = 'ok';
+  });
+
+  await ta('NB2 수집 목록으로 미적재와 대상 밖 구분 · 옛 목록은 미확인', async () => {
+    bundle = { ...BULK, collectionUniverse: ['NVDA', 'TSLA', 'WTFC'] };
+    for (const t of ['TSLA', 'WTFC']) {
+      const a = await call(NEW, `t=${t}`);
+      assert.equal(a.body.available, false); assert.equal(a.body.reason, 'ticker-not-collected');
+      assert.equal(a.body.collectionStatus, 'targeted');
+    }
+    const outside = await call(NEW, 't=OUTSIDE');
+    assert.equal(outside.body.reason, 'ticker-not-in-universe');
+    assert.equal(outside.body.collectionStatus, 'not-targeted');
+    bundle = BULK;
+    assert.equal((await call(NEW, 't=OUTSIDE')).body.collectionStatus, 'unknown');
+  });
+
+  await ta('NB2 REG + CLOSED · 대상 밖 직전 실제 값은 원래 날짜로, all=1 현재 판에는 미포함', async () => {
+    bundle = { ...API, collectionUniverse: ['NVDA', 'SPY'], stale: { WTFC: { ...MU_PREV, date: '2026-10-15', prevDate: '2026-10-14' } } };
+    for (const at of ['2026-10-19T14:10:00Z', '2026-10-18T23:18:00Z']) {
+      const a = await call(NEW, `t=WTFC&at=${at}`);
+      assert.equal(a.body.available, true); assert.equal(a.body.stale, true);
+      assert.equal(a.body.date, '2026-10-15'); assert.equal(a.body.prevDate, '2026-10-14');
+      assert.equal(a.body.summary.callOI, MU_PREV.callOI);
+      assert.equal((await call(NEW, `all=1&at=${at}`)).body.opening.WTFC, undefined);
+    }
+  });
+
+  await ta('NB2 기준선 없는 FITB 증감은 관측된 0 아님', async () => {
+    bundle = { ...BULK, tickers: { FITB: { ...MU_PREV, top: MU_PREV.top.map(c => ({ ...c, d: null })) } } };
+    const a = await call(NEW, 't=FITB');
+    assert.equal(a.body.summary.netOiChange, null);
+    assert.equal(a.body.contracts[0].kind, 'UNKNOWN');
   });
 
   console.log(`\n${n}개 통과${OLD ? ' (수리 전 라우트와 글자 대조 포함)' : ''}`);

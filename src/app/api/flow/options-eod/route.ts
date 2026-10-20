@@ -180,8 +180,12 @@ export async function GET(req: NextRequest) {
     const sv = data.tickers[ticker] ? null : staleEntry(data, ticker);
     const v = data.tickers[ticker] || sv;
     if (!v) {
+        // New bundles carry the exact collection list. Legacy absence alone never proves exclusion.
+        const universe = Array.isArray(data.collectionUniverse) ? data.collectionUniverse : null;
+        const targeted = universe?.includes(ticker) === true;
         return NextResponse.json(
-            { ticker, available: false, reason: "ticker-not-in-universe", date: data.date },
+            { ticker, available: false, reason: targeted ? "ticker-not-collected" : universe ? "ticker-not-in-universe" : "collection-status-unknown",
+                collectionStatus: targeted ? "targeted" : universe ? "not-targeted" : "unknown", date: data.date },
             { status: 200, headers: { "Cache-Control": "public, s-maxage=600" } }
         );
     }
@@ -240,7 +244,7 @@ export async function GET(req: NextRequest) {
                 // 딜러 감마 노출의 재료 (Σ gamma·OI·부호). 현물가는 소비처에서 곱한다
                 gammaOI: v.gammaOI ?? null,
                 openingCount: opening.length,
-                netOiChange: vPrevDate ? netOiChange : null,
+                netOiChange: vPrevDate && contracts.some(c => c.oiChange != null) ? netOiChange : null,
             },
             contracts,
             ...simField,

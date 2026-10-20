@@ -122,11 +122,14 @@ export function isNormalIVSnapshot(snapshot: AtmSnapshot | null | undefined): sn
 }
 
 /** Whole-snapshot recovery: no merging fields, strikes, expiries, tickers or dates. */
-export function selectIVSnapshot(current: AtmSnapshot | null | undefined, previous: AtmSnapshot | null | undefined, ticker: string): AtmSnapshot | null {
+export function selectIVSnapshot(current: AtmSnapshot | null | undefined, previous: AtmSnapshot | null | undefined, ticker: string, preferComplete = false): AtmSnapshot | null {
     const fresh = datedSnapshot(current, ticker);
     const old = datedSnapshot(previous, ticker);
     const usable = fresh && groupIVStrikes(fresh.atmSlice).length > 0;
     const oldNormal = !!old && isNormalIVSnapshot(old);
+    // Skew display may keep the prior complete observation during an incomplete new session.
+    // Restore the whole dated chain; never fill missing rows from another date.
+    if (preferComplete && oldNormal && !isNormalIVSnapshot(fresh)) return { ...old!, restored: true };
     // A newer session wins even if partial (its valid rows are shown). For the same session a
     // complete chain beats a partial one: the partial response cannot shrink what is displayed.
     if (usable && (!oldNormal || fresh.sourceSessionDate! > old!.sourceSessionDate! ||

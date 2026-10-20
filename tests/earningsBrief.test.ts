@@ -116,10 +116,10 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
   });
 
   console.log('━━━ 3. 자리표 — 표와 같은 값·같은 포맷 ━━━');
-  await t('화면 포맷 함수는 예전 화면 글자와 같다', () => {
-    const oldEps = (v: number | null) => (v == null ? '—' : `$${v.toFixed(2)}`);
+  await t('EPS 부호는 달러 앞에, 매출 형식은 유지한다', () => {
+    const epsCases: [number | null, string][] = [[2.66, '$2.66'], [14.44, '$14.44'], [0.3907, '$0.39'], [-0.69, '−$0.69'], [37.94, '$37.94'], [0, '$0.00'], [-0.001, '$0.00'], [null, '—']];
     const oldRev = (v: number | null) => (v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : `$${(v / 1e6).toFixed(0)}M`);
-    for (const v of [2.66, 14.44, 0.3907, -0.69, 37.94, 0, null]) assert.equal(B.fmtEpsUsd(v), oldEps(v));
+    for (const [v, expected] of epsCases) assert.equal(B.fmtEpsUsd(v), expected);
     for (const v of [23699740000, 17117400000, 1655461, 7444005000, 999999999, null]) assert.equal(B.fmtRevUsd(v), oldRev(v));
   });
   await t('{EPS}·{REV} → 그 행의 값 · 채운 문구는 검사 통과', () => {

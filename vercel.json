@@ -1,5 +1,10 @@
 {
+  "ignoreCommand": "bash scripts/vercel-ignore-build.sh",
   "crons": [
+    {
+      "path": "/api/cron/guru-lens",
+      "schedule": "0 7 * * 0"
+    },
     {
       "path": "/api/cron/uc-warm",
       "schedule": "*/5 8-23 * * 1-5"

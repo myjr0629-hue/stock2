@@ -110,11 +110,11 @@ t('시각 근거가 없으면 origin/main 계산 전체 유지', () => {
 (async () => {
     const fs = require('node:fs');
     const ts = require('typescript');
-    const source = fs.readFileSync(require('node:path').join(__dirname, '../src/app/api/cron/market-feed/route.ts'), 'utf8');
+    const source = fs.readFileSync(require('node:path').join(__dirname, '../src/services/jobs/marketFeedJob.ts'), 'utf8');
     const ast = ts.createSourceFile('route.ts', source, ts.ScriptTarget.Latest, true);
     const fn = ast.statements.find((x: any) => ts.isFunctionDeclaration(x) && x.name?.text === 'fetchOneQuote');
     assert.ok(fn, 'fetchOneQuote 운영 본문');
-    const compiled = ts.transpileModule(fn.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+    const compiled = ts.transpileModule(fn.getText(ast).replace(/^export\s+/, ''), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
     for (const failDaily of [false, true]) {
         const calls: string[] = [];
         const fetchStub = async (url: string) => {

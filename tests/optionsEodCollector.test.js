@@ -250,4 +250,27 @@ t("묶음 대조 — 같은 판이면 전부 같음", () => {
     assert.deepEqual(c2.diff, ["AAA"]); assert.deepEqual(c2.onlyA, ["BBB"]);
 });
 
+
+// NB2: target membership is independent of equity snapshot quality/rank.
+t("NB2 주요 종목은 빈 순위·상위 N 밖에서도 고정 대상", () => {
+    for (const rows of [[], null, [["OTHER", 0, 0, 0, 10, 1e9]]]) {
+        const universe = M.buildUniverse(rows, 1);
+        for (const ticker of M.PINNED_UNIVERSE) assert.ok(universe.has(ticker), ticker);
+        for (const ticker of ["TSLA", "WTFC", "FITB", "SPY"]) assert.ok(universe.has(ticker));
+    }
+    const universe = M.buildUniverse([[" other ", 0, 0, 0, 10, 1e9], ["OTHER", 0, 0, 0, 20, 1e9], ["BRK/B", 0, 0, 0, 9, 1e8]], 2);
+    assert.ok(universe.has("OTHER")); assert.ok(universe.has("BRK.B"));
+    assert.ok(!universe.has(" other "));
+});
+
+t("NB2 유니버스 밖·반복 결측도 직전 실제 값과 날짜 유지 · 현재 판과 섞지 않음", () => {
+    const value = { contracts: 2, top: [{ c: "WTFC", d: 12 }] };
+    const old = { date: "2026-10-16", prevDate: "2026-10-15", tickers: { WTFC: value } };
+    const stale = M.carryStale(old, {}, "2026-10-19");
+    assert.deepEqual(stale.WTFC, { ...value, date: "2026-10-16", prevDate: "2026-10-15" });
+    assert.deepEqual(M.carryStale({ date: "2026-10-19", tickers: {}, stale }, {}, "2026-10-20"), stale);
+    assert.deepEqual(M.carryStale({ ...old, stale }, { WTFC: value }, "2026-10-19"), {});
+    assert.deepEqual(M.carryStale({ date: "2026-10-21", tickers: { WTFC: value }, stale: { BAD: value } }, {}, "2026-10-19"), {});
+});
+
 console.log(`\n${n}개 통과`);

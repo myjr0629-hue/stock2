@@ -81,11 +81,11 @@ export default function IVSkewCurve({
     );
     const [lastGood, setLastGood] = useState<AtmSnapshot | null>(null);
     const candidate = parentUsable ? parent : atmResponse ?? parent;
-    const snapshot = selectIVSnapshot(candidate, lastGood, ticker);
+    const snapshot = selectIVSnapshot(candidate, lastGood, ticker, true);
     useEffect(() => {
         if (isNormalIVSnapshot(candidate) && candidate.ticker === ticker) {
             setLastGood(previous => {
-                const selected = selectIVSnapshot(candidate, previous, ticker);
+                const selected = selectIVSnapshot(candidate, previous, ticker, true);
                 return selected ? { ...selected, restored: false } : previous;
             });
         }
