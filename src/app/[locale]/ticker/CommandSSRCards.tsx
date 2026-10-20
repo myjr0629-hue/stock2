@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { earningsWithin } from '@/lib/earningsDate';
+import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 
 interface CommandSSRCardsProps {
@@ -56,7 +57,7 @@ function MetricRow({ value, suffix, desc, color }: { value: string; suffix?: str
 export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProps) {
     if (!data) return null;
 
-    const vol = data.volatility;
+    const vol = computeUnifiedVolatilityRegime(data);
     const sma = data.sma;
     const earnings = data.earnings;
     const analyst = data.analyst;
@@ -68,7 +69,7 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
     const price = data._dynamoPrice?.price || stockData?.price || 0;
 
     // Volatility Regime
-    const volRegime: string = vol?.regime || (vol?.gammaRegime === 'NEGATIVE' ? 'LOADED' : 'STABLE');
+    const volRegime: string = vol.regime ?? '--';
     const volScore = vol?.regimeScore ?? '--';
     const volColor = volRegime === 'ERUPTING' ? 'text-rose-400' : volRegime === 'LOADED' ? 'text-amber-400' : 'text-emerald-400';
     const volBg = volRegime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30' : volRegime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30' : 'bg-slate-800/40 border-slate-700/50';

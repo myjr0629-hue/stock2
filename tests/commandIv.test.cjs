@@ -18,6 +18,9 @@ const dates = compile(read('src/lib/ivSkew.ts'));
 const iv = compile(read('src/lib/app/commandIv.ts'), { '@/lib/ivSkew': dates });
 const source = read('src/app/[locale]/app-view/cmd/page.tsx');
 
+// B5: signalsData also selects the VOL REGIME edition and conviction inputs — not under test here (IV only).
+const b5Stubs = { resolveCommandVolatilityObservation: () => null, computeUnifiedVolatilityRegime: () => ({ regimeScore: null, regime: null }),
+    scoreCommandConviction: () => null, convictionInputsOf: () => ({}), commandConvictionRaw: () => ({ raw: {} }), carriedConvictionDate: () => null };
 function signals(data, batchIv, ticker) {
     const ast = ts.createSourceFile('cmd.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     let calculation;
@@ -26,7 +29,7 @@ function signals(data, batchIv, ticker) {
         ts.forEachChild(n, visit);
     }
     visit(ast); assert.ok(calculation);
-    return compile(`exports.signals = ${calculation};`, {}, { ...iv, data, batchIv, ticker, iv30Level: null,
+    return compile(`exports.signals = ${calculation};`, {}, { ...iv, ...b5Stubs, data, batchIv, ticker, iv30Level: null,
         locale: 'ko', tDashboard: x => x, useMemo: fn => fn(), normalizeVwap: () => null,
         gammaFlipDistancePct: () => null, vwapDistancePct: () => null, netPremiumOf: () => null }).signals;
 }
@@ -128,7 +131,7 @@ test('gate 2: structure edition date cannot date a volatility IV copied by unifi
     const overlay = gateAst.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'applyLevelsToUnified');
     assert.ok(overlay);
     const result = compile(`${overlay.getText(gateAst)}; exports.run = applyLevelsToUnified;`, {}, {
-        STRUCTURE_PRODUCER: 'structureService', posOrNull: () => null, gammaFlipDistancePct: () => null,
+        STRUCTURE_PRODUCER: 'structureService', posOrNull: () => null, gammaFlipDistancePct: () => null, gammaFlipTypeOf: () => null,
         displayLevels: () => ({ levelsChainDate: '2026-10-19' }),
     }).run(finalData, {}); // actual unified exit overwrites the structure edition date.
     assert.equal(result.structure.chainDate, '2026-10-19');
@@ -237,7 +240,7 @@ test('actual IV card and derived premium line render the retained date in ko/en/
     visit(ast); assert.ok(card); assert.ok(premium); assert.ok(calculation);
     const React = require('react'), render = require('react-dom/server').renderToStaticMarkup;
     for (const locale of ['ko', 'en', 'ja']) {
-        const globals = { ...iv, data: { ticker: 'WTFC', unified: {} }, batchIv: h.store, ticker: 'WTFC', iv30Level: null,
+        const globals = { ...iv, ...b5Stubs, data: { ticker: 'WTFC', unified: {} }, batchIv: h.store, ticker: 'WTFC', iv30Level: null,
             locale, tDashboard: x => x, useMemo: fn => fn(), normalizeVwap: () => null,
             gammaFlipDistancePct: () => null, vwapDistancePct: () => null, netPremiumOf: () => null };
         const signalsData = compile(`exports.signals = ${calculation};`, {}, globals).signals;

@@ -85,7 +85,7 @@ export function flowTokensFromDeepSnapshot(s: any): FlowTokens {
         DIST_CALL: distPct(callWall, price),
         DIST_PUT: distPct(putFloor, price),
         DIST_FLIP: distPct(flip, price, 'level'),
-        PC: posv(st.pcRatio),
+        PC: fin(st.pcRatio) !== undefined && fin(st.pcRatio)! >= 0 ? fin(st.pcRatio) : undefined,
         NET_PREM: fin(s?.flow?.netPremium),
     });
 }
