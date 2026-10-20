@@ -1,4 +1,5 @@
 import { cachedEvidence } from '@/lib/ai/tacticalPrompt';
+import { evidenceValidUntil } from '@/lib/ai/evidenceTime';
 import { newsForStock } from '@/lib/ai/stockEvidence';
 import { createHash } from 'node:crypto';
 import { checkDepthLine } from '@/lib/ai/watchlistDepth';
@@ -67,12 +68,26 @@ export interface StoredLine {
     provider?: string;
 }
 
-export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale): AiLineEntry | null {
+/**
+ * 저장된 해석이 «지금» 내보낼 수 있는가 — 생성 때 근거(source)로 출구 검사 + 근거 속 예정 시각이 지나지 않았는지(evidenceTime 정본).
+ * 08:29 에 «08:30 CPI 예정»으로 쓴 해석은 08:30 부터 나가지 않는다(관문 10/20 4차). 뉴스·일정 변화는 15분 확인의 해시가 잡는다.
+ */
+export function insightLiveAt(s: StoredLine, loc: AiLineLocale, nowMs: number): string | undefined {
+    const candidate = s.insight?.[loc];
+    if (!candidate || !s.source) return undefined;
+    if (nowMs >= evidenceValidUntil(s.source.split('\n'), s.at, { dayEnd: false })) return undefined;
+    return checkDepthLine(candidate, loc, s.source, nowMs).length ? undefined : candidate;
+}
+
+export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale, nowMs: number = Date.now()): AiLineEntry | null {
     if (!s || s.v !== 1 || !s.text || typeof s.text[loc] !== 'string' || !s.text[loc]) return null;
     if (textIntegrityReasons(s.text[loc]).length || lineLocaleReasons(s.text[loc], loc).length) return null;
-    const candidate = s.insight?.[loc];
-    const insight = candidate && Date.now() - (s.checkedAt || s.at) < 15 * 60_000 && !checkDepthLine(candidate, loc, s.source || '').length ? candidate : undefined;
-    return { text: s.text[loc], insight, chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
+    return { text: s.text[loc], insight: insightLiveAt(s, loc, nowMs), chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
+}
+
+/** 저장본에 해석이 있었는데 지금은 못 내보낸다(예정 시각 경과 등) — 다시 만들 대상. */
+export function insightExpired(s: StoredLine | null | undefined, nowMs: number = Date.now()): boolean {
+    return !!s?.insight && WL_LINE_LOCALES.some(loc => !!s.insight?.[loc] && !insightLiveAt(s, loc, nowMs));
 }
 
 /** 이미 있는 글이 지금 행(가격·레벨)에도 맞나 — 화면과 같은 판정(aiLineState)을 서버 가격으로 */
@@ -206,15 +221,14 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
     const contextFor = (t: string) => [
         ...evidence.stockNews.filter(n => newsForStock(n, t)).slice(0, 6).map(n => n.text),
         ...evidence.stockEvents.filter(e => e.ticker === t).map(e => e.text),
-        ...evidence.marketEvents.map(e => `MARKET CONTEXT ONLY (not company evidence): ${e}`),
-    ];
+    ];   // 시장 전체 일정은 넣지 않는다 — 종목 근거가 아니고, 일정이 지날 때마다 모든 종목을 다시 만들게 된다(호출 수).
     const contextHashFor = (t: string) => createHash('sha256').update(WL_LINE_SYSTEM).update(JSON.stringify(contextFor(t))).digest('hex');
     const batchTodo: string[] = [];
     for (const t of todo) {
         const saved = lines[t];
         // 지형 변경 힌트가 없는 정기 확인은 기존 뉴스/일정 캐시만 비교한다.
         // 가격·포지셔닝은 종전처럼 지형 변경 힌트 또는 크론이 들어올 때 배치로 다시 확인한다.
-        if (!opts.force && opts.cachedContextOnly?.includes(t) && saved?.revision === 2 && saved.inputHash && saved.cachedContextHash === contextHashFor(t) && WL_LINE_LOCALES.every(loc => entryOf(saved, loc))) {
+        if (!opts.force && opts.cachedContextOnly?.includes(t) && saved?.revision === 2 && saved.inputHash && saved.cachedContextHash === contextHashFor(t) && !insightExpired(saved) && WL_LINE_LOCALES.every(loc => entryOf(saved, loc))) {
             await setInCache(lineKey(t), { ...saved, checkedAt: Date.now() }, WL_AI_TTL_SEC);
             out[t] = 'fresh';
         } else batchTodo.push(t);
@@ -242,7 +256,7 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
                 f.darkPool ? `FINRA off-exchange share on ${f.darkPool.date}: ${f.darkPool.pct}% (not net buying)` : '',
                 f.implied ? `Options implied move to ${f.implied.expiry}: ±${f.implied.pct}% (not a forecast)` : '',
             ].filter(Boolean).join('\n');
-            if (!opts.force && lines[t]?.revision === 2 && lines[t]?.inputHash === inputHashOf(f) && storedMatchesFacts(lines[t], f)) {
+            if (!opts.force && lines[t]?.revision === 2 && lines[t]?.inputHash === inputHashOf(f) && !insightExpired(lines[t]) && storedMatchesFacts(lines[t], f)) {
                 // 15분은 입력 재확인 주기다. 같은 입력으로 모델을 다시 부르지 않는다.
                 await setInCache(lineKey(t), { ...lines[t]!, cachedContextHash: contextHashFor(t), checkedAt: Date.now() }, WL_AI_TTL_SEC);
                 out[t] = 'fresh'; continue;

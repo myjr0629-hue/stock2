@@ -1,5 +1,5 @@
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
-import { buildTacticalPrompt, checkTacticalOutput } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored } from '@/lib/ai/tacticalPrompt';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { textGate, triLangGate } from '@/lib/ai/ladderGates';
@@ -286,7 +286,10 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
     const facts = guardianCmpFacts(nums ?? basis ?? null);
     const cmpReasons = [...checkComparisons(n.text, facts), ...checkRanges(n.text, facts)];
     const reasons = [...textIntegrityReasons(String(tpl ?? '')), ...r.reasons, ...n.reasons, ...forecastReasons, ...cmpReasons,
-        ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text) ? checkTacticalOutput(n.text, locale, tacticalPrompt) : [])];
+        // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
+        //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).
+        ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text)
+            ? (strict ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
     return { ok: reasons.length === 0, tpl: cleaned, text: n.text, reasons };
 }
 

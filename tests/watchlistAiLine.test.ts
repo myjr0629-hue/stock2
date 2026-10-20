@@ -63,7 +63,7 @@ require.cache[bcPath] = {
 
 import { buildLineFacts, checkLineOutput, trimLine, normalizeLine, lineLength, WL_LINE_SYSTEM, buildLineUserPrompt } from '../src/lib/ai/watchlistLine';
 import { aiLineState, fillAiLine, sideOf, sidesFor, distPct, fmtDistPct, type AiLineEntry } from '../src/lib/app/watchlistAiLine';
-import { generateLines, readLines, entryOf, storedMatchesFacts, lineKey, failKey, WL_AI_TTL_SEC } from '../src/services/watchlistAiLineService';
+import { generateLines, readLines, entryOf, insightExpired, storedMatchesFacts, lineKey, failKey, WL_AI_TTL_SEC } from '../src/services/watchlistAiLineService';
 import { LADDER_PURPOSES, TRACKED_PURPOSES } from '../src/lib/ai/llmLadder';
 import { FUNNEL_STAGES, FUNNEL_SRCS } from '../src/lib/app/funnelSchema';
 const route = require('../src/app/api/watchlist/ai-line/route');
@@ -307,7 +307,7 @@ async function asyncTests() {
     assert.ok(lastPrompt.includes('FINRA off-exchange share on 2026-10-09'));
   });
 
-  await at('회귀: A/ET 무관 뉴스 제외·짧은 티커 태그만·경제 일정은 시장 맥락만', async () => {
+  await at('회귀: A/ET 무관 뉴스 제외·짧은 티커 태그만·시장 전체 경제 일정은 종목 입력에 없음', async () => {
     for (const ticker of ['A', 'ET']) {
       batchRows[ticker] = NVDA;
       const now = new Date().toISOString();
@@ -322,28 +322,46 @@ async function asyncTests() {
       await generateLines([ticker]);
       assert.doesNotMatch(lastPrompt, /A new Apple product launch|CPI report/);
       assert.match(lastPrompt, /Tagged company announcement/);
-      assert.match(lastPrompt, /MARKET CONTEXT ONLY \(not company evidence\): \[economic calendar;/);
+      assert.doesNotMatch(lastPrompt, /economic calendar|Economic release/);
     }
   });
 
-  await at('관문 회귀: 내 종목 경제 일정 UTC→ET, 여름·겨울 경과 시 예정 근거 제거', async () => {
+  await at('관문 회귀(10/20 4차): 08:29 «08:30 실적 예정» 해석은 08:30부터 안 나가고 재생성 — 여름·겨울·경계', async () => {
     const clock = Date.now;
+    const SCHED = JSON.stringify({ ...JSON.parse(GOOD), insight: { ko: '08:30 실적 발표 예정, 옵션 벽 반응이 관건', en: 'Earnings scheduled 08:30 ET, Call Wall test', ja: '08:30決算発表予定、オプション壁の反応が焦点' } });
     try {
-      for (const [day, et] of [['2026-10-20', '08:30'], ['2026-12-01', '07:30']]) {
-        let iso = `${day}T12:00:00Z`;
-        Date.now = () => Date.parse(iso);
+      for (const [day, utcRelease] of [['2026-10-20', '12:30'], ['2026-12-01', '13:30']]) {
+        const releaseMs = Date.parse(`${day}T${utcRelease}:00Z`);   // 08:30 ET (EDT +4 · EST +5)
+        let now = releaseMs - 60_000;                                 // 08:29 ET
+        Date.now = () => now;
         store.clear();
-        store.set('fmp:econ-calendar', { updatedAt: iso, events: [{ date: day, time: '12:30', event: 'Fixed macro release' }] });
-        script.push({ text: GOOD });
-        assert.equal((await generateLines(['NVDA'])).out.NVDA, 'generated');
-        assert.match(lastPrompt, new RegExp(`MARKET CONTEXT ONLY.*${day} ${et} ET.*Fixed macro release`));
-        assert.doesNotMatch(lastPrompt, /12:30 ET/);
-        iso = `${day}T14:00:00Z`;
+        store.set('fmp:econ-calendar', { updatedAt: new Date(now).toISOString(), events: [{ date: day, time: utcRelease, event: 'Macro release' }] });
+        store.set('market:earnings-calendar:v4', { generatedAt: new Date(now).toISOString(), rows: [{ ticker: 'NVDA', date: day, hour: 'bmo', etTime: '08:30' }] });
+        script.push({ text: SCHED });
+        const g0 = await generateLines(['NVDA']);
+        assert.equal(g0.out.NVDA, 'generated', JSON.stringify(g0.reasons));
+        assert.match(lastPrompt, new RegExp(`\\[earnings calendar; ${day}; 08:30 ET\\] NVDA \\(estimated schedule; scheduled; not a released result\\)`));
+        assert.doesNotMatch(lastPrompt, /Macro release/);
+        const saved = store.get(lineKey('NVDA')) as any;
+        for (const loc of ['ko', 'en', 'ja'] as const) assert.equal(entryOf(saved, loc, now)?.insight, JSON.parse(SCHED).insight[loc]);
+        // 경계: 08:30:00 ET 정각부터 예정이 아니다 — 세 언어 모두 해석 미표시(칩 줄은 그대로)
+        now = releaseMs;
+        for (const loc of ['ko', 'en', 'ja'] as const) {
+          const e = entryOf(saved, loc, now);
+          assert.ok(e && e.text, '칩 줄은 유지');
+          assert.equal(e!.insight, undefined, `${day} ${loc} 지난 예정 해석 미표시`);
+          const j = await (await route.GET(new Request(`http://x/api/watchlist/ai-line?t=NVDA&loc=${loc}`))).json();
+          assert.equal(j.lines.NVDA.insight, undefined);
+          assert.deepEqual(j.pending, ['NVDA'], '기한 지난 해석은 15분을 기다리지 않고 다시 만든다');
+        }
+        assert.equal(insightExpired(saved, now), true);
+        assert.equal(insightExpired(saved, releaseMs - 1), false);
+        now = releaseMs + 60_000;
         store.delete('wlai:lock:NVDA');
         script.push({ text: GOOD });
-        // 일정 경과는 입력 해시도 바꾸므로 같은 지형의 정기 확인에서도 옛 예정 근거를 재사용하지 않는다.
         assert.equal((await generateLines(['NVDA'], { cachedContextOnly: ['NVDA'] })).out.NVDA, 'generated');
-        assert.doesNotMatch(lastPrompt, /Fixed macro release|12:30 ET/);
+        assert.match(lastPrompt, /08:30 ET\] NVDA \(released; actuals unavailable\)/);
+        assert.doesNotMatch(lastPrompt, /NVDA \(.*scheduled/);
       }
     } finally { Date.now = clock; }
   });

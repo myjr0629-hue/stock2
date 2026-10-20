@@ -8,7 +8,7 @@
 //   · 끄기: 레디스 wlai:off(재배포 없이) 또는 WL_AI_LINE_OFF=1 → 빈 응답(화면은 줄을 그리지 않는다).
 // ============================================================================
 import { NextResponse, after } from 'next/server';
-import { aiLineOff, entryOf, generateLines, readLines, WL_AI_REGEN_MIN_AGE_MS } from '@/services/watchlistAiLineService';
+import { aiLineOff, entryOf, generateLines, insightExpired, readLines, WL_AI_REGEN_MIN_AGE_MS } from '@/services/watchlistAiLineService';
 import type { AiLineEntry, AiLineLocale } from '@/lib/app/watchlistAiLine';
 
 export const dynamic = 'force-dynamic';
@@ -43,9 +43,10 @@ export async function GET(request: Request) {
     const need: string[] = [];
     for (const t of tickers) {
         const s = stored[t];
-        lines[t] = entryOf(s, loc);
+        lines[t] = entryOf(s, loc, now);
         if (failed.has(t)) continue;                                           // 최근에 못 만든 종목(사실 부족·가드·크레딧) — 쉬는 중
-        if (!s || !lines[t] || s.revision !== 2 || !s.inputHash || now - (s.checkedAt || s.at) >= 15 * 60_000 || (staleHint.has(t) && now - s.at > WL_AI_REGEN_MIN_AGE_MS)) need.push(t);
+        // 다시 확인: 없음·옛 형식·해석 기한 경과(지난 예정)·15분 근거 확인(같은 근거면 모델 호출 0)·화면의 지형 변경 알림
+        if (!s || !lines[t] || s.revision !== 2 || !s.inputHash || insightExpired(s, now) || now - (s.checkedAt || s.at) >= 15 * 60_000 || (staleHint.has(t) && now - s.at > WL_AI_REGEN_MIN_AGE_MS)) need.push(t);
     }
     const bg = need.slice(0, MAX_BG);
     if (bg.length) {

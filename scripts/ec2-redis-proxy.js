@@ -107,14 +107,34 @@ function deny(req, res, code, msg) {
     res.end(JSON.stringify({ error: msg }));
 }
 async function readBody(req) {
-    // 청크 경계의 미완성 UTF-8은 보존하고, 손상·잘린 요청은 캐시에 쓰기 전에 거절한다.
-    const decoder = new (require('node:util').TextDecoder)('utf-8', { fatal: true });
-    let body = '';
-    for await (const chunk of req) {
-        body += decoder.decode(typeof chunk === 'string' ? Buffer.from(chunk) : chunk, { stream: true });
-    }
-    return body + decoder.decode();
+    // ★ 2026-09-18 — 청크마다 문자열로 바꾸면(`body += chunk`) TCP 청크 경계에 걸린
+    //   다바이트 UTF-8 글자(한·일·이모지)가 U+FFFD 로 깨진 채 ElastiCache 에 «쓰기 시점»에
+    //   박혔다. 실측: 한글 4.7KB·7KB·18.8KB·28KB 페이로드 깨짐, 1.2KB·2.3KB·9.4KB 는 멀쩡
+    //   (경계 위치에 따라 비결정적). 바이트를 다 모은 뒤 한 번에 디코드한다.
+    //   HMAC(writeAllowed) 는 이 문자열을 서명하므로, 클라이언트가 보낸 원문과 바이트 단위로
+    //   동일해져 비ASCII trade:* 페이로드의 서명 불일치도 함께 사라진다.
+    const chunks = [];
+    for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    return Buffer.concat(chunks).toString("utf8");
 }
+
+// Keep identical to src/services/redisClient.ts. This script remains standalone on EC2.
+const ASOF_CAS_LUA = `
+local incoming = cjson.decode(ARGV[1])
+local raw = redis.call('GET', KEYS[1])
+if raw then
+    local ok, previous = pcall(cjson.decode, raw)
+    if ok and type(previous) == 'table' and type(previous.value) == 'number'
+        and type(previous.asOf) == 'string' and previous.asOf >= incoming.asOf then
+        if previous.asOf == incoming.asOf then
+            redis.call('EXPIRE', KEYS[1], ARGV[2])
+        end
+        return 0
+    end
+end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+return 1
+`;
 
 // ── HTTP Server ──
 const server = http.createServer(async (req, res) => {
@@ -137,6 +157,25 @@ const server = http.createServer(async (req, res) => {
             const val = await redis.get(key);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ result: val ? JSON.parse(val) : null }));
+            return;
+        }
+
+        // POST /set-if-newer: fixed Lua only, scoped to macro v2 (no arbitrary EVAL).
+        if (path_ === "/set-if-newer" && req.method === "POST") {
+            const body = await readBody(req);
+            const { key, value, ttl } = JSON.parse(body);
+            const date = value && value.asOf;
+            if (typeof key !== "string" || !key.startsWith("macro:economy:lastgood:v2:")
+                || !value || typeof value.value !== "number" || !Number.isFinite(value.value)
+                || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)
+                || !Number.isFinite(Date.parse(`${date}T00:00:00Z`))
+                || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date
+                || !Number.isInteger(ttl) || ttl < 1 || ttl > 2_147_483_647) {
+                res.writeHead(400); res.end(JSON.stringify({ error: "invalid macro CAS record" })); return;
+            }
+            const result = await redis.eval(ASOF_CAS_LUA, 1, key, JSON.stringify(value), ttl);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ result }));
             return;
         }
 

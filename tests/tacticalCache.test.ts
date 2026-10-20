@@ -110,14 +110,14 @@ async function main() {
         const c = { ...ctx('en'), marketNewsHeadlines: [datedHeadline({ title: 'CPI release at 08:30 ET', published_utc: '2026-10-20T12:30:00Z' }, 'WIRE', new Date(clock))!] };
         const text = 'WIRE 12:30 UTC reported CPI at 08:30 ET. Dealer gamma absorption is unconfirmed. The next test is CPI scheduled at 08:30 ET.';
         const reasons = checkTacticalOutput(text, 'en', buildTacticalPrompt(c, 'en'));
-        assert.ok(reasons.includes('tactical:upcoming-time-required'), reasons.join(','));
+        assert.ok(reasons.includes('schedule:time-not-upcoming'), reasons.join(','));
         assert.ok(reasons.some(r => r.startsWith('event:unsupported:')));
     });
     await test('일정이 입력에 남아도 발표 순간부터 예정 근거 거부·미래 일정 허용', () => {
         const c = ctx('en');
         assert.deepEqual(checkTacticalOutput(stale.en, 'en', buildTacticalPrompt(c, 'en')), []);
         for (const asOf of ['2026-10-20T12:30:00Z', '2026-10-20T12:31:00Z']) {
-            assert.ok(checkTacticalOutput(stale.en, 'en', buildTacticalPrompt({ ...c, asOf }, 'en')).includes('tactical:upcoming-time-required'));
+            assert.ok(checkTacticalOutput(stale.en, 'en', buildTacticalPrompt({ ...c, asOf }, 'en')).includes('schedule:time-not-upcoming'));
         }
     });
     await test('복구 번역: 현재 근거 없는 다른 언어 원본은 모델 호출 전 거부', async () => {
@@ -148,7 +148,7 @@ async function main() {
         reply = async opts => {
             if (String(opts.label).includes('_TRI')) throw new Error('offline tri failure');
             if (String(opts.label).includes('/retry')) {
-                assert.match(opts.userPrompt, /tactical:upcoming-time-required/);
+                assert.match(opts.userPrompt, /schedule:time-not-upcoming/);
                 return fresh.en;
             }
             return stale.en;
@@ -184,7 +184,8 @@ async function main() {
         const blocked = new Promise<void>(r => { unblock = r; });
         let ready!: () => void;
         const started = new Promise<void>(r => { ready = r; });
-        reply = async () => { ready(); await blocked; return JSON.stringify(stale); };
+        let n = 0;
+        reply = async () => { if (n++ > 0) return JSON.stringify(fresh); ready(); await blocked; return JSON.stringify(stale); };
         const first = N.generateRealityInsight(old);
         await started;
         clock = Date.parse('2026-10-20T12:31:00Z');
@@ -193,8 +194,9 @@ async function main() {
         unblock();
         const result = await Promise.all([first, second]);
         assert.equal(result[0], stale.en);
-        assert.ok(N.isPlaceholderInsight(result[1]), result[1]);
-        assert.equal(calls.length, 1);
+        // 발표 시각이 지난 요청은 지난 예정이 빠진 근거로 따로 생성한다(지난 예정 문장 재사용 0 · 근거가 바뀐 만큼만 호출).
+        assert.equal(result[1], fresh.en);
+        assert.equal(calls.length, 2);
     });
     await test('언어별 요청 시각이 밀리초 단위로 달라도 같은 근거면 모델 1회', async () => {
         let unblock!: () => void;

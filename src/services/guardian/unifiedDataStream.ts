@@ -562,7 +562,7 @@ export class GuardianDataHub {
 
                     // ★2026-10-04 생성 재료의 화면 숫자 — 자리표를 채우는 값이자 글의 기준(basis)
                     const aiNums = guardianNumsFromAiContext(aiContext);
-                    const tacticalPrompts = (l: Locale) => buildTacticalPrompt(aiContext, l);
+                    const tacticalPrompts = (l: Locale) => buildTacticalPrompt({ ...aiContext, asOf: new Date(Date.now()).toISOString() }, l);   // 일정의 미래 여부는 요청 시각으로
                     const [rotationText, realityText, gammaText] = await Promise.all([
                         // ⚠️ 예전엔 실패 시 «Insight generation failed. …» 영어 문장을 돌려줬고, 그게 ko/ja 화면에 그대로 나갔다.
                         //    실패해도 «검사를 통과한 마지막 정상본 → 번역 → 안내 문구» 중 하나만 나간다.

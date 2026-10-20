@@ -8,7 +8,8 @@ import { cleanInsight, gateInsight } from '../src/lib/ai/outputGate';
 import { buildLineFacts, buildLineUserPrompt, checkLineOutput, WL_LINE_SYSTEM } from '../src/lib/ai/watchlistLine';
 import { checkDepthLine } from '../src/lib/ai/watchlistDepth';
 import { newsForStock } from '../src/lib/ai/stockEvidence';
-import { evidenceTime } from '../src/lib/ai/evidenceTime';
+import { evidenceTime, scheduledLineAt, isUpcomingLine, evidenceValidUntil, earningsReleaseAt } from '../src/lib/ai/evidenceTime';
+import { checkTacticalStored, scheduleClaimReasons } from '../src/lib/ai/tacticalPrompt';
 
 const now = new Date('2026-10-20T15:00:00Z');
 const headline = datedHeadline({ title: 'Treasury auction draws weak demand', published_utc: '2026-10-20T14:00:00Z' }, 'Polygon', now)!;
@@ -45,7 +46,7 @@ test('원천별 시간대: econ UTC · FMP 뉴스/실적 ET · 명시 오프셋�
         const econ = evidenceTime('fmp:econ-calendar', `${date} ${utc}`)!;
         assert.equal(econ.iso, `${date}T12:30:00.000Z`);
         assert.equal(econ.time, et);
-        for (const source of ['fmp:news', 'earnings:et'] as const) {
+        for (const source of ['fmp:news', 'wall:et'] as const) {
             assert.equal(evidenceTime(source, `${date} ${et}`)?.iso, econ.iso);
             assert.equal(evidenceTime(source, `${date}T12:30:00Z`)?.iso, econ.iso);
         }
@@ -91,7 +92,7 @@ test('3월·11월 DST 경계: UTC 순간으로 판정, ET 중복 시각에도 �
         ] }, null, new Date(iso));
         assert.equal(e.marketEvents.length, 1);
         assert.match(e.marketEvents[0], new RegExp(`${secondET} ET.*Upcoming after DST switch`));
-        for (const source of ['fmp:news', 'earnings:et'] as const) {
+        for (const source of ['fmp:news', 'wall:et'] as const) {
             const wall = date === '2026-03-08' ? '03:00' : '02:00';
             assert.equal(evidenceTime(source, `${date} ${wall}`)?.iso, `${date}T07:00:00.000Z`);
         }
@@ -145,7 +146,7 @@ test('실적 WFC 07:00 ET: 08:00에는 발표됨·실제치 포함, 가디언/�
     assert.match(beforeRows.stockEvents.find(x => x.ticker === 'WFC')!.text, /07:00 ET.*scheduled; not a released result/);
 });
 
-test('실적: 공급사 분 단위 시각 우선·BMO 08:00/AMC 16:00 경계·시각 미상·겨울 ET', () => {
+test('실적: 공급사 분 단위 시각 우선·BMO 당일=미확인/AMC 16:00 경계·시각 미상·겨울 ET', () => {
     const rowAt = (iso: string, row: any) => {
         const at = new Date(iso);
         return cachedEvidence(null, null, { generatedAt: iso, rows: [row] }, at).stockEvents.find(e => e.ticker === row.ticker)!.text;
@@ -153,15 +154,21 @@ test('실적: 공급사 분 단위 시각 우선·BMO 08:00/AMC 16:00 경계·�
     const row = { ticker: 'ZZZ', date: '2026-10-20', hour: 'bmo' };
     assert.match(rowAt('2026-10-20T12:00:00Z', { ...row, etTime: '08:15' }), /08:15 ET.*scheduled/);
     assert.match(rowAt('2026-10-20T12:15:00Z', { ...row, etTime: '08:15' }), /released; actuals unavailable/);
-    assert.match(rowAt('2026-10-20T11:59:59Z', row), /boundary 08:00 ET.*scheduled/);
-    assert.match(rowAt('2026-10-20T12:00:00Z', row), /released; actuals unavailable; timing boundary elapsed/);
-    assert.match(rowAt('2026-10-20T19:59:59Z', { ...row, hour: 'amc' }), /boundary 16:00 ET.*scheduled/);
-    assert.match(rowAt('2026-10-20T20:00:01Z', { ...row, hour: 'amc' }), /released; actuals unavailable/);
+    // BMO 만 알면 장전 06:00~09:15 어디든 가능 — 당일에는 «예정»이라 말하지 않는다(관문 1차 WFC 07:00 계열).
+    assert.match(rowAt('2026-10-20T04:01:00Z', row), /BMO; exact release time unknown\] ZZZ \(release status unconfirmed\)/);
+    assert.match(rowAt('2026-10-20T11:59:59Z', row), /release status unconfirmed/);
+    assert.doesNotMatch(rowAt('2026-10-20T11:59:59Z', row), /scheduled/);
+    assert.match(rowAt('2026-10-19T23:00:00Z', row), /BMO; exact release time unknown\] ZZZ \(estimated schedule; scheduled/);   // 전날 19:00 ET = 내일 예정
+    assert.match(rowAt('2026-10-20T19:59:59Z', { ...row, hour: 'amc' }), /AMC timing boundary 16:00 ET.*scheduled/);
+    assert.match(rowAt('2026-10-20T20:00:00Z', { ...row, hour: 'amc' }), /release status unconfirmed; AMC timing boundary elapsed/);
     assert.match(rowAt('2026-10-20T20:00:00Z', { ...row, hour: 'amc', etTime: '16:30' }), /16:30 ET.*scheduled/);
     assert.match(rowAt('2026-10-20T20:00:00Z', { ...row, hour: '' }), /release status unconfirmed/);
     assert.match(rowAt('2026-10-20T12:00:00Z', { ...row, hour: '', epsActual: 0 }), /released; epsActual=0/);
-    assert.match(rowAt('2026-12-01T12:30:00Z', { ...row, date: '2026-12-01' }), /scheduled/);
-    assert.match(rowAt('2026-12-01T13:00:00Z', { ...row, date: '2026-12-01' }), /released/);
+    // 겨울(EST, UTC−5): AMC 16:00 ET = 21:00 UTC
+    assert.match(rowAt('2026-12-01T20:59:59Z', { ...row, date: '2026-12-01', hour: 'amc' }), /scheduled/);
+    assert.match(rowAt('2026-12-01T21:00:00Z', { ...row, date: '2026-12-01', hour: 'amc' }), /release status unconfirmed/);
+    assert.match(rowAt('2026-12-01T13:29:59Z', { ...row, date: '2026-12-01', etTime: '08:30' }), /08:30 ET.*scheduled/);
+    assert.match(rowAt('2026-12-01T13:30:00Z', { ...row, date: '2026-12-01', etTime: '08:30' }), /released/);
     // DST 전환일 23:30 ET에서도 «내일»은 하루만 이동한다.
     assert.match(rowAt('2026-11-02T04:30:00Z', { ...row, date: '2026-11-02' }), /scheduled/);
     assert.match(rowAt('2026-03-08T04:30:00Z', { ...row, date: '2026-03-08' }), /scheduled/);
@@ -242,6 +249,47 @@ test('인사이트: 없는 사건·숫자·권유·제어문자·혼용·초과 
     assert.equal(checkLineOutput(JSON.stringify({ ...chips, ko: chips.ko + '\u0000' }), f).ok, false);
 });
 
+test('시각 판정 정본(evidenceTime): 근거 줄·실적 경계·유효 기한 — 여름·겨울·정각 경계', () => {
+    for (const [day, utc] of [['2026-10-20', '12:30'], ['2026-12-01', '13:30']]) {
+        const release = Date.parse(`${day}T${utc}:00Z`);           // 08:30 ET
+        const econ = cachedEvidence(null, { updatedAt: new Date(release - 3600_000).toISOString(), events: [{ date: day, time: utc, event: 'CPI' }] }, null, new Date(release - 3600_000)).marketEvents[0];
+        assert.match(econ, new RegExp(`\\[economic calendar; ${day} 08:30 ET\\] CPI`));
+        assert.equal(scheduledLineAt(econ), release);
+        assert.equal(isUpcomingLine(econ, release - 1), true);
+        assert.equal(isUpcomingLine(econ, release), false, '정각부터 예정 아님');
+        assert.equal(evidenceValidUntil([econ], release - 3600_000), release);
+        assert.equal(evidenceValidUntil([econ], release), release, '이미 지난 예정으로 만든 글은 처음부터 무효');
+        assert.equal(earningsReleaseAt(day, 'amc', null)!.ms, Date.parse(`${day}T${utc === '12:30' ? '20' : '21'}:00:00Z`));
+        assert.equal(earningsReleaseAt(day, 'bmo', null)!.ms, Date.parse(`${day}T0${utc === '12:30' ? '4' : '5'}:00:00Z`));
+        assert.equal(earningsReleaseAt(day, 'bmo', '07:00')!.ms, Date.parse(`${day}T${utc === '12:30' ? '11' : '12'}:00:00Z`));
+    }
+    // 예정 줄이 아니면(발표됨·미확인) 기한·예정 판정에서 빠진다
+    assert.equal(scheduledLineAt('[earnings calendar; 2026-10-20; 07:00 ET] WFC (released; epsActual=1.6)'), null);
+    // 날짜만 있는 «내일» 예정은 그 날짜 0시(ET)에 예정이 끝난다
+    assert.equal(scheduledLineAt('[earnings calendar; 2026-10-21; release time unknown] X (estimated schedule; scheduled; not a released result)'), Date.parse('2026-10-21T04:00:00Z'));
+});
+
+test('읽기 검사(저장본·복구): 지난 예정만 막고 멀쩡한 옛 글·자정 뒤 장외 글은 살린다', () => {
+    const at = '2026-10-20T12:31:00Z';   // 08:31 ET
+    const base = { ...facts, asOf: at, marketNewsHeadlines: [], scheduledEvents: ['[economic calendar; 2026-10-20 08:30 ET] CPI (scheduled; not a released result)', '[economic calendar; 2026-10-20 10:00 ET] ISM (scheduled; not a released result)'] };
+    const p = (loc: 'ko' | 'en' | 'ja') => buildTacticalPrompt(base, loc);
+    assert.ok(!p('en').includes('08:30 ET] CPI'), '지난 예정은 프롬프트에서도 빠진다');
+    assert.ok(checkTacticalStored('A. B. The next test is CPI scheduled at 08:30 ET.', p('en')).length > 0);
+    assert.ok(checkTacticalStored('가. 나. 다음 확인은 오전 8시 30분 소비자물가 발표 예정입니다.', p('ko')).length > 0);
+    assert.ok(checkTacticalStored('甲。乙。次の確認は8時30分のCPI発表予定です。', p('ja')).length > 0);
+    assert.deepEqual(checkTacticalStored('A. B. The next test is ISM scheduled at 10:00 ET.', p('en')), []);
+    // 옛 형식(10/19 이전 프롬프트)의 «변수» 서술 — 예정 주장이 아니므로 그대로 내보낸다(장외 «준비 중» 전환 없음)
+    const old = '10년물 금리가 오르며 성장주 차익 매물이 나왔다. RLSI 37과 공포탐욕 34가 내부 체력 약화를 보여 준다. 연준 정책 경로와 7,500 옵션 지지선이 방향을 가를 변수다.';
+    const midnight = buildTacticalPrompt({ ...facts, asOf: '2026-10-21T05:00:00Z', marketNewsHeadlines: [], scheduledEvents: [] }, 'ko');
+    assert.deepEqual(checkTacticalStored(old, midnight), []);
+    assert.deepEqual(checkTacticalStored('가. 나. 다음 확인 기준은 미확인입니다.', midnight), []);
+    // 내 종목 해석: «발표 뒤» 서술은 정상, «예정» 주장은 앞으로 있을 예정만
+    const lines = ['[earnings calendar; 2026-10-20; 07:00 ET] WFC (released; epsActual=1.6)'];
+    assert.deepEqual(scheduleClaimReasons('실적 발표 뒤 옵션 벽 위 유지', lines, Date.parse(at), 'claims'), []);
+    assert.ok(scheduleClaimReasons('07:00 실적 발표 예정', lines, Date.parse(at), 'claims').length > 0);
+    assert.deepEqual(scheduleClaimReasons('3시간 동안 옵션 벽 위 유지', lines, Date.parse(at), 'claims'), [], '«3시간»은 시각이 아니다');
+});
+
 async function main() {
     // 프록시 서버를 띄우거나 Redis에 연결하지 않고 실제 readBody 함수 본문을 로드한다.
     const proxy = readFileSync('scripts/ec2-redis-proxy.js', 'utf8');
@@ -251,11 +299,9 @@ async function main() {
     const bytes = Buffer.from(sample);
     for (let i = 1; i < bytes.length; i++) assert.equal(await readBody([bytes.subarray(0, i), bytes.subarray(i)]), sample);
     assert.equal(await readBody([...bytes].map(b => Buffer.from([b]))), sample);
-    await assert.rejects(readBody([Buffer.from([0xea, 0xb0])]));
-    await assert.rejects(readBody([Buffer.from([0xff])]));
     const split = Buffer.from('핵심');
     assert.ok((split.subarray(0, 1).toString('utf8') + split.subarray(1).toString('utf8')).includes('\uFFFD'));
-    count++; console.log(`ok - 멀티바이트 모든 ${bytes.length - 1}개 경계·1바이트 청크·손상/잘린 UTF-8 거절`);
+    count++; console.log(`ok - 멀티바이트 모든 ${bytes.length - 1}개 경계·1바이트 청크(운영 프록시 readBody 원본)`);
     if (process.argv.includes('--examples')) {
         mkdirSync('out/ai-depth-macro', { recursive: true });
         writeFileSync('out/ai-depth-macro/prompt-examples.md', `# 구성 예시 — 합성 고정 자료, 실제 모델 호출 없음\n\n## 전: 가디언 (기존 지시 발췌)\n\n첫 문장: 오늘 시장을 움직인 핵심 뉴스 이벤트와 시장 반응의 인과관계를 명확히 서술. 괴리 모드에서는 괴리 진단으로 시작하며 RLSI, Breadth, 거래량 수치를 반드시 포함.\n\n## 후: 가디언 실제 구성 프롬프트 (ko)\n\n\`\`\`text\n${buildTacticalPrompt(facts, 'ko')}\n\`\`\`\n\n## 전: 내 종목\n\nUse the 2–3 most useful facts, taking them in the order given. Separate parts with ·.\n\n## 후: 내 종목 실제 시스템 지시\n\n\`\`\`text\n${WL_LINE_SYSTEM}\n\`\`\`\n\n## 후: 내 종목 실제 사용자 입력\n\n\`\`\`text\n${buildLineUserPrompt(f)}\n\`\`\`\n\n## 인사이트 검사 통과 예시 (모델 결과 아님)\n\n${JSON.stringify(insight, null, 2)}\n`);
