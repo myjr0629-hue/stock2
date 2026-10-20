@@ -19,7 +19,9 @@
  * ★ «주도»(= 카드 «주도 종목», 알파 점수 1위)와 «최고/최저»(= 변동률 최고·최저)는 다른 말이다 — 같은 화면에서 «주도» 가 두 뜻이 되지 않게 이 글은 «최고·최저»만 쓴다.
  * 시험: tests/intelSectorBrief.test.ts
  */
-import { pcrTone } from '@/lib/app/intelOptionsBasis';
+import { pcrTone } from './intelOptionsBasis';
+import { sessionChangeOrNull } from './intelSessionChange';
+import { shownRegularSessionDate } from '../marketCalendar';
 
 export type BriefLocale = 'ko' | 'en' | 'ja';
 
@@ -27,6 +29,7 @@ export type BriefLocale = 'ko' | 'en' | 'ja';
 export interface BriefRow {
     sym: string;
     changePct?: number | null;
+    changePctSourceDate?: string;
     price?: number | null;
     gex?: number | null;
     pcr?: number | null;
@@ -43,6 +46,7 @@ export interface BriefInput {
     total: number;
     /** 헤더 배지의 섹터 평균 변동(%) — 화면과 같은 값. 없으면 행에서 같은 식(변동률이 있는 행의 평균)으로 계산한다 */
     avgChange?: number | null;
+    sessionDate?: string;
 }
 
 export interface SectorBrief {
@@ -118,10 +122,11 @@ interface Facts {
 
 function factsOf(input: BriefInput): Facts {
     const rows = input.rows.filter((r) => r && r.sym);
-    // 화면의 W/L 과 같은 규칙 — 변동률이 없는 행은 0 으로 읽는다(alignReportToConfig 의 gainers/losers)
-    const up = rows.filter((r) => (r.changePct || 0) >= 0).length;
-    const down = rows.filter((r) => (r.changePct || 0) < 0).length;
-    const measured = rows.filter((r) => fin(r.changePct));
+    // 화면의 W/L과 같은 기준 세션만 센다. 결측·이전 날짜를 상승 0으로 만들지 않는다.
+    const sessionDate = input.sessionDate ?? shownRegularSessionDate();
+    const measured = rows.filter(r => sessionChangeOrNull(r, sessionDate) != null);
+    const up = measured.filter(r => (r.changePct as number) >= 0).length;
+    const down = measured.filter(r => (r.changePct as number) < 0).length;
     const sorted = [...measured].sort((a, b) => (b.changePct as number) - (a.changePct as number));
     const hi = sorted.length ? { sym: sorted[0].sym, chg: sorted[0].changePct as number } : null;
     const lo = sorted.length ? { sym: sorted[sorted.length - 1].sym, chg: sorted[sorted.length - 1].changePct as number } : null;
@@ -377,13 +382,13 @@ export function newsItemInConfig(item: { tickers?: string[] } | null | undefined
  *   · 행이 없으면 서버 글을 «비운다» — 엔진 목록 종목을 말하는 글을 내보내지 않는다.
  *   · 뉴스 항목은 태그된 종목이 전부 설정 목록 안인 것만 남긴다(카드에 없는 종목의 뉴스를 이 카드에 붙이지 않는다).
  */
-export function applySectorBrief<T extends BriefableReport>(report: T, configTickers: readonly string[], locale: BriefLocale, avgChange?: number | null): T {
+export function applySectorBrief<T extends BriefableReport>(report: T, configTickers: readonly string[], locale: BriefLocale, avgChange?: number | null, sessionDate?: string): T {
     const config = new Set(configTickers.map((t) => t.toUpperCase()));
     const newsItems = (report.newsItems || []).filter((n) => newsItemInConfig(n, config));
     const rows: BriefRow[] = (report.keyStocksData || []).map((s) => ({
-        sym: s.sym, changePct: s.changePct, price: s.closePrice, gex: s.gex, pcr: s.pcr, callWall: s.callWall, putFloor: s.putFloor, rsi: s.rsi, rvol: s.rvol, netPremium: s.netPremium,
+        sym: s.sym, changePct: s.changePct, changePctSourceDate: s.changePctSourceDate, price: s.closePrice, gex: s.gex, pcr: s.pcr, callWall: s.callWall, putFloor: s.putFloor, rsi: s.rsi, rvol: s.rvol, netPremium: s.netPremium,
     }));
-    const brief = buildSectorBrief({ rows, total: configTickers.length, avgChange }, locale);
+    const brief = buildSectorBrief({ rows, total: configTickers.length, avgChange, sessionDate }, locale);
     if (!brief) {
         return { ...report, verdict: '', catalysts: [], bullets: [], reportHeadline: '', reportSummary: '', dayOutlook: '', newsDigest: [], briefingBullets: [], riskNotes: [], newsItems };
     }

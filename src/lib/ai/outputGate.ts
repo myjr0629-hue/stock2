@@ -1,3 +1,4 @@
+import { textIntegrityReasons } from './textIntegrity';
 /**
  * AI 가 쓴 «사용자에게 나가는 글»의 출구 검사 — 언어 · 거절/메타 · 마크다운 · 연도.
  *
@@ -49,7 +50,7 @@ export interface CleanOptions {
 function stripEmoji(text: string): string {
     return text
         .replace(/[\u{10000}-\u{10FFFF}]/gu, '')
-        .replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\uFE0F\uFFFD\u25C6]/g, '');
+        .replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\uFE0F\u25C6]/g, '');
 }
 
 /** 정규식용 이스케이프 — 곧은 따옴표(')와 굽은 따옴표(’)는 같은 글자로 본다(What's ↔ What’s). */
@@ -93,6 +94,8 @@ function stripHeading(rest: string): string {
  */
 export function cleanInsight(text: string, opts: CleanOptions = {}): string {
     if (typeof text !== 'string' || !text) return '';
+    // trim/공백 정규화로 손상 흔적까지 사라지지 않게 검사기에 원문을 보낸다.
+    if (textIntegrityReasons(text).length) return text;
     const labels = (opts.labels || []).filter(Boolean);
     const alt = labels.map(escapeRe).join('|');
     const labelOnly = alt ? new RegExp(`^\\[?(${alt})\\]?\\s*[:：]?$`, 'i') : null;
@@ -328,7 +331,7 @@ export interface ValidateOptions {
  * (마크다운 검사는 «정리 뒤에도 남은 것» = 정리기가 모르는 모양을 잡는 안전망이다.)
  */
 export function validateInsight(text: string, locale: GateLocale, opts: ValidateOptions = {}): GateResult {
-    const reasons: string[] = [];
+    const reasons: string[] = textIntegrityReasons(typeof text === 'string' ? text : '');
     const s = typeof text === 'string' ? text.trim() : '';
     if (s.length < (opts.minLength ?? 15)) {
         return { ok: false, reasons: [`too-short:${s.length}`] };

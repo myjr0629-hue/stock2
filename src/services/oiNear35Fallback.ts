@@ -7,7 +7,7 @@
  *      앱 체인(allExpiryChain)은 만기 8개 상한이라(SPY 9일치) 35일 값이 못 된다 → 창 안 만기 목록 전체를 공급사에서 확인하고 전부 받아 센다.
  *      결측 계약이 한 건이라도 있으면 쓰지 않는다. 검사(범위·결측·0 계약·날짜 하나)는 lib/app/oiNear35.sumChainOi35 한 곳.
  *   ② 직전 정상 저장본(oi35:chain:lastgood:v1:{T}, 최대 4일 전 창) — basis …_chain_prev + 레코드 날짜·OI 기준일(D−1) 표식.
- *   ③ 옵션 EOD 묶음(intrinio:options:eod)의 callOI35/putOI35 — 2026-10-19 D16(결측·0 은 쓰지 않음).
+ *   ③ 옵션 EOD 묶음(intrinio:options:eod)의 callOI35/putOI35 — 결측·0·불완전 합계는 쓰지 않음. 결측 수 없는 구 저장본은 완전성 미상으로 날짜와 함께 채택.
  *   ④ 없으면 null(«—», 0 아님).
  *
  * 호출량: 사용자 경로는 저장본 «읽기»만 한다. 계산(buildChainOi35)은 /api/app/oi-pcr 가 저장본이 없을 때만, 종목당 Redis 잠금(SET NX)·실패 쉼(15분)·
@@ -63,6 +63,9 @@ export async function eodNear35(t: string, nowMs: number = Date.now()): Promise<
         //   체인 합산과 같은 규칙: 콜·풋 둘 다 측정값이고 0 보다 커야 한다(한쪽 0 = P/C 0·무한대 같은 극단값).
         const c = strictOi(v?.callOI35), p = strictOi(v?.putOI35);
         if (!v || typeof date !== 'string' || c == null || p == null || !(c > 0) || !(p > 0)) return null;
+        // 구 저장본(세 필드 모두 없음)은 완전성 미상으로 호환. 새 메타데이터는 양쪽 결측 수 0을 확인해야 한다.
+        const hasCompleteness = ['callOI35Missing', 'putOI35Missing', 'oi35Complete'].some((k) => Object.prototype.hasOwnProperty.call(v, k));
+        if (hasCompleteness && ((v.oi35Complete !== undefined && v.oi35Complete !== true) || strictOi(v.callOI35Missing) !== 0 || strictOi(v.putOI35Missing) !== 0)) return null;
         if (date < minRecordDate(nowMs)) return null;
         return {
             pcr: Math.round((p / c) * 100) / 100, callOI: c, putOI: p, basis: 'oi_near_expiries_35d_eod',

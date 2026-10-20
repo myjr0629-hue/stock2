@@ -63,7 +63,7 @@ require.cache[bcPath] = {
 
 import { buildLineFacts, checkLineOutput, trimLine, normalizeLine, lineLength, WL_LINE_SYSTEM, buildLineUserPrompt } from '../src/lib/ai/watchlistLine';
 import { aiLineState, fillAiLine, sideOf, sidesFor, distPct, fmtDistPct, type AiLineEntry } from '../src/lib/app/watchlistAiLine';
-import { generateLines, readLines, entryOf, storedMatchesFacts, lineKey, failKey, WL_AI_TTL_SEC } from '../src/services/watchlistAiLineService';
+import { generateLines, readLines, entryOf, insightExpired, storedMatchesFacts, lineKey, failKey, WL_AI_TTL_SEC } from '../src/services/watchlistAiLineService';
 import { LADDER_PURPOSES, TRACKED_PURPOSES } from '../src/lib/ai/llmLadder';
 import { FUNNEL_STAGES, FUNNEL_SRCS } from '../src/lib/app/funnelSchema';
 const route = require('../src/app/api/watchlist/ai-line/route');
@@ -85,6 +85,8 @@ const GOOD = JSON.stringify({
   ko: 'Put Floor $220 위 {PF} · Max Pain $215 위 {MP} · 장외 비중 43.8%',
   en: '{PF} above Put Floor $220 · {MP} above Max Pain $215 · off-exchange 43.8%',
   ja: 'Put Floor $220の{PF}上 · Max Pain $215の{MP}上 · 場外比率43.8%',
+  // 10/21 v2: 감마·레벨뿐인 종목(최상위 근거 positioning)의 해석은 자기 숫자를 담아야 한다(일반론 차단)
+  insight: { ko: '장외 비중 43.8%만으로는 방향 미확정, 감마 방어가 변수', en: 'Off-exchange 43.8% alone cannot confirm gamma support', ja: '場外比率43.8%だけで方向不明、ガンマ防御の維持が焦点' },
 });
 
 // ━━━ 1. 사실 ━━━
@@ -278,6 +280,152 @@ async function asyncTests() {
     assert.equal(entryOf(lines.NVDA, 'ja')!.text, 'Put Floor $220の{PF}上 · Max Pain $215の{MP}上 · 場外比率43.8%');
     assert.equal(entryOf(lines.NVDA, 'ko')!.chain, '2026-10-09');
   });
+  await at('인사이트: 캐시 입출구·깨진 글/혼용 차단·실패 시 정상본 보존', async () => {
+    script.push({ text: GOOD });
+    await generateLines(['NVDA']);
+    const saved: any = store.get(lineKey('NVDA'));
+    assert.equal(entryOf(saved, 'ko')?.insight, JSON.parse(GOOD).insight.ko);
+    assert.equal(entryOf({ ...saved, text: { ...saved.text, ko: saved.text.ko + '\uFFFD' } }, 'ko'), null);
+    assert.equal(entryOf({ ...saved, text: { ...saved.text, ko: 'English prose mixed with one word 위' } }, 'ko'), null);
+    assert.equal(entryOf({ ...saved, insight: { ...saved.insight, ko: saved.insight.ko + '\u0000' } }, 'ko')?.insight, undefined);
+    script.push({ text: JSON.stringify({ ...JSON.parse(GOOD), insight: { ...JSON.parse(GOOD).insight, ko: '없는 사건을 지어낸 연준 금리 인하' } }) });
+    store.delete('wlai:lock:NVDA');
+    const r = await generateLines(['NVDA'], { force: true });
+    // 근거 없는 해석은 해석만 버린다 — 칩 줄은 새로 저장되고(지도가 바뀐 종목의 줄이 사라지지 않게) 해석 줄은 그리지 않는다
+    assert.equal(r.out.NVDA, 'generated');
+    const after: any = store.get(lineKey('NVDA'));
+    assert.deepEqual(after.text, saved.text);
+    assert.equal(after.insight.ko, undefined, '근거 없는 한국어 해석만 빠진다');
+    assert.equal(entryOf(after, 'ko')?.insight, undefined);
+    assert.equal(entryOf(after, 'en')?.insight, JSON.parse(GOOD).insight.en);
+  });
+
+  await at('입력: 뉴스 펄스·회사 공지 보정 실적 캐시 중 해당 종목만 합성', async () => {
+    const now = new Date().toISOString();
+    store.set('guardian:news:digest:v2', { items: [
+      { headline: 'NVDA supply agreement announced', publishedAt: now },
+      { headline: 'OTHER irrelevant headline', publishedAt: now },
+    ] });
+    script.push({ text: GOOD });
+    await generateLines(['NVDA']);
+    assert.ok(lastPrompt.includes('NVDA supply agreement announced'));
+    assert.ok(!lastPrompt.includes('OTHER irrelevant headline'));
+    assert.ok(lastPrompt.includes('FINRA off-exchange share on 2026-10-09'));
+  });
+
+  await at('회귀: A/ET 무관 뉴스 제외·짧은 티커 태그만·시장 전체 경제 일정은 종목 입력에 없음', async () => {
+    for (const ticker of ['A', 'ET']) {
+      batchRows[ticker] = NVDA;
+      const now = new Date().toISOString();
+      store.set('guardian:news:digest:v2', { items: [
+        { headline: 'A new Apple product launch', publishedAt: now },
+        { headline: 'CPI report at 08:30 ET', publishedAt: now },
+        { headline: 'Tagged company announcement', symbols: [ticker], publishedAt: now },
+      ] });
+      const day = new Date(Date.now() + 86400000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      store.set('fmp:econ-calendar', { updatedAt: now, events: [{ date: day, time: '08:30', event: 'Economic release at 08:30 ET' }] });
+      script.push({ text: GOOD });
+      await generateLines([ticker]);
+      assert.doesNotMatch(lastPrompt, /A new Apple product launch|CPI report/);
+      assert.match(lastPrompt, /Tagged company announcement/);
+      assert.doesNotMatch(lastPrompt, /economic calendar|Economic release/);
+    }
+  });
+
+  await at('관문 회귀(10/20 4차): 08:30 실적 «예정» 근거로 만든 해석은 08:30부터 안 나가고 재생성 — 여름·겨울·경계 · 해석의 일정 언급은 생성 단계에서 탈락', async () => {
+    const clock = Date.now;
+    // 해석은 날짜·시각을 말하지 않는다(fail-closed) — 그래도 «예정» 근거로 만든 해석은 그 예정 시각에 기한이 끝난다
+    //   10/21 v2: 자기 실적이 최상위 근거면 해석은 실적을 다뤄야 한다(실적을 무시한 일반론 탈락)
+    const SCHED = JSON.stringify({ ...JSON.parse(GOOD), insight: { ko: '실적 반응 전 장외 비중 43.8%는 방향 미확정', en: 'Off-exchange 43.8% cannot confirm direction before earnings', ja: '決算反応の前で場外比率43.8%だけでは方向が分からない位置' } });
+    try {
+      for (const [day, utcRelease] of [['2026-10-20', '12:30'], ['2026-12-01', '13:30']]) {
+        const releaseMs = Date.parse(`${day}T${utcRelease}:00Z`);   // 08:30 ET (EDT +4 · EST +5)
+        let now = releaseMs - 60_000;                                 // 08:29 ET
+        Date.now = () => now;
+        store.clear();
+        store.set('fmp:econ-calendar', { updatedAt: new Date(now).toISOString(), events: [{ date: day, time: utcRelease, event: 'Macro release' }] });
+        store.set('market:earnings-calendar:v4', { generatedAt: new Date(now).toISOString(), rows: [{ ticker: 'NVDA', date: day, hour: 'bmo', etTime: '08:30' }] });
+        // 일정을 말하는 해석은 생성 단계에서 해석만 탈락(칩 줄은 저장)
+        script.push({ text: JSON.stringify({ ...JSON.parse(GOOD), insight: { ko: '08:30 실적 발표 예정, 옵션 벽 반응이 관건', en: 'Earnings scheduled 08:30 ET, Call Wall test', ja: '08:30決算発表予定、オプション壁の反応が焦点' } }) });
+        assert.equal((await generateLines(['NVDA'])).out.NVDA, 'generated');
+        assert.equal((store.get(lineKey('NVDA')) as any).insight, undefined);
+        store.delete('wlai:lock:NVDA');
+        script.push({ text: SCHED });
+        const g0 = await generateLines(['NVDA'], { force: true });
+        assert.equal(g0.out.NVDA, 'generated', JSON.stringify(g0.reasons));
+        assert.match(lastPrompt, new RegExp(`\\[earnings calendar; ${day}; 08:30 ET\\] NVDA \\(estimated schedule; scheduled; not a released result\\)`));
+        assert.doesNotMatch(lastPrompt, /Macro release/);
+        const saved = store.get(lineKey('NVDA')) as any;
+        for (const loc of ['ko', 'en', 'ja'] as const) {
+          assert.equal(entryOf(saved, loc, now)?.insight, JSON.parse(SCHED).insight[loc]);
+          assert.equal(entryOf(saved, loc, now)?.insightUntil, releaseMs, '응답에 해석 기한(화면 캐시 만료용)');
+        }
+        // 경계: 08:30:00 ET 정각부터 예정이 아니다 — 세 언어 모두 해석 미표시(칩 줄은 그대로)
+        now = releaseMs;
+        for (const loc of ['ko', 'en', 'ja'] as const) {
+          const e = entryOf(saved, loc, now);
+          assert.ok(e && e.text, '칩 줄은 유지');
+          assert.equal(e!.insight, undefined, `${day} ${loc} 지난 예정 해석 미표시`);
+          const j = await (await route.GET(new Request(`http://x/api/watchlist/ai-line?t=NVDA&loc=${loc}`))).json();
+          assert.equal(j.lines.NVDA.insight, undefined);
+          assert.deepEqual(j.pending, ['NVDA'], '기한 지난 해석은 15분을 기다리지 않고 다시 만든다');
+        }
+        assert.equal(insightExpired(saved, now), true);
+        assert.equal(insightExpired(saved, releaseMs - 1), false);
+        now = releaseMs + 60_000;
+        store.delete('wlai:lock:NVDA');
+        script.push({ text: GOOD });
+        assert.equal((await generateLines(['NVDA'], { cachedContextOnly: ['NVDA'] })).out.NVDA, 'generated');
+        assert.match(lastPrompt, /08:30 ET\] NVDA \(released; actuals unavailable\)/);
+        assert.doesNotMatch(lastPrompt, /NVDA \(.*scheduled/);
+      }
+    } finally { Date.now = clock; }
+  });
+
+  await at('회귀: WFC 08:00 ET 입력에는 07:00 발표됨·실제치, 타 종목 실적 제외', async () => {
+    const clock = Date.now;
+    Date.now = () => Date.parse('2026-10-13T12:00:00Z');
+    try {
+      batchRows.WFC = NVDA;
+      store.set('market:earnings-calendar:v4', { generatedAt: new Date(Date.now()).toISOString(), rows: [
+        { ticker: 'WFC', date: '2026-10-13', hour: 'bmo', epsActual: 1.6 },
+        { ticker: 'OTHER', date: '2026-10-13', hour: 'amc' },
+      ] });
+      script.push({ text: GOOD });
+      await generateLines(['WFC']);
+      assert.match(lastPrompt, /07:00 ET\] WFC \(released; epsActual=1.6/);
+      assert.doesNotMatch(lastPrompt, /WFC \(.*scheduled|OTHER/);
+    } finally { Date.now = clock; }
+  });
+
+  await at('비용 회귀: 15분 입력 재확인 4회에도 모델 1회·새 뉴스 때만 재생성', async () => {
+    const clock = Date.now;
+    let now = clock();
+    Date.now = () => now;
+    try {
+      script.push({ text: GOOD });
+      await generateLines(['NVDA']);
+      const generatedAt = (store.get(lineKey('NVDA')) as any).at;
+      for (let i = 0; i < 4; i++) {
+        now += 16 * 60_000;
+        store.delete('wlai:lock:NVDA');
+        assert.equal((await generateLines(['NVDA'], { cachedContextOnly: ['NVDA'] })).out.NVDA, 'fresh');
+        assert.equal(entryOf(store.get(lineKey('NVDA')) as any, 'ko')?.insight, JSON.parse(GOOD).insight.ko);
+        const j = await (await route.GET(new Request('http://x/api/watchlist/ai-line?t=NVDA&loc=ko'))).json();
+        assert.deepEqual(j.pending, [], '입력 확인 시각부터 15분 계산');
+      }
+      assert.equal(aiCalls, 1);
+      assert.equal(batchCalls, 1, '같은 뉴스/일정이면 가격 공급사 경로도 다시 부르지 않는다');
+      assert.equal((store.get(lineKey('NVDA')) as any).at, generatedAt, '모델 생성 시각 유지');
+      store.set('guardian:news:digest:v2', { items: [{ headline: 'New supply agreement', tickers: ['NVDA'], publishedAt: new Date(now).toISOString() }] });
+      store.delete('wlai:lock:NVDA');
+      script.push({ text: GOOD });
+      assert.equal((await generateLines(['NVDA'], { cachedContextOnly: ['NVDA'] })).out.NVDA, 'generated');
+      assert.equal(aiCalls, 2);
+      assert.equal(batchCalls, 2);
+    } finally { Date.now = clock; }
+  });
+
   await at('캐시: 같은 지형이면 다시 부르지 않는다(fresh) · 가격이 레벨을 건너면 다시', async () => {
     script.push({ text: GOOD });
     await generateLines(['NVDA']);
@@ -289,6 +437,13 @@ async function asyncTests() {
     assert.equal(storedMatchesFacts(store.get(lineKey('NVDA')) as any, f), true);
     const moved = buildLineFacts('NVDA', { ...NVDA, extendedPrice: 251 })!;
     assert.equal(storedMatchesFacts(store.get(lineKey('NVDA')) as any, moved), false);
+    store.delete('wlai:lock:NVDA');
+    batchRows.NVDA = { ...NVDA, extendedPrice: 251 };
+    try {
+      script.push({ text: GOOD });
+      assert.equal((await generateLines(['NVDA'])).out.NVDA, 'generated', '지형 변경 경로는 캐시 확인만으로 건너뛰지 않는다');
+      assert.equal(aiCalls, 2);
+    } finally { batchRows.NVDA = NVDA; }
   });
   await at('잠금: 2분 안 같은 종목은 다시 만들지 않는다(locked)', async () => {
     script.push({ text: GOOD });

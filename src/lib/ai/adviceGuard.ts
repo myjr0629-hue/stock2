@@ -141,6 +141,12 @@ const NOUN_FLOW: RegExp[] = [
   /\b(?:buying|selling|buys|sells)\b/gi,
 ];
 
+/** 경제지표 «정의문» 전용의 더 엄한 정책. 서술 허용 정책(adviceHit)과 구분하며 기존 판정은 그대로 보존한다. */
+const DEFINITION_FORBIDDEN = /\b(?:will|should|could|may|might|likely|expect\w*|forecast\w*|predict\w*|buy|sell|recommend\w*|bullish|bearish)\b|예측|전망|예상|매수|매도|추천|강세|약세|수\s?있습니다|予測|見通し|予想|買い|売り|推奨|強気|弱気|可能性/i;
+export function definitionForbiddenHit(text: string): boolean {
+  return DEFINITION_FORBIDDEN.test(text);
+}
+
 /** 걸린 권유어(첫 번째) — 없으면 null. 반환값은 «글에서 걸린 조각»(통계·로그의 banned:<조각>). */
 export function adviceHit(text: string): string | null {
   const raw = String(text || '');

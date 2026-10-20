@@ -37,3 +37,22 @@ export function correctBulkSnapshot<T extends BulkSnapshotLike | null | undefine
         _closeCorrected: true,
     } as unknown as T;
 }
+
+/** Provenance for the existing live/quotes regular value. No prices or calculations are changed. */
+export function regularQuoteProvenance(snapshot: any, session: string, price: number) {
+  const i = snapshot?._intrinio;
+  const time = (v: unknown): number => typeof v === 'number' ? v : typeof v === 'string' ? Date.parse(v) || 0 : 0;
+  const date = (v: unknown): string | null => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+  if (session === 'regular') {
+    return { regularDate: null, regularTime: time(snapshot?.priceTime ?? Number(snapshot?.lastTrade?.t) / 1e6), regularKind: 'live' as const };
+  }
+  if (snapshot?._closeCorrected && snapshot._eodClose === price) {
+    return { regularDate: date(snapshot._eodDate), regularTime: 0, regularKind: 'close' as const };
+  }
+  if (i?.regularClose === price && date(i.regularDate)) {
+    const closed = i.eodCloseDate === i.regularDate && i.eodClosePrice === price;
+    return { regularDate: date(i.regularDate), regularTime: closed ? 0 : time(i.regularLastTime), regularKind: closed ? 'close' as const : 'live' as const };
+  }
+  // Unknown close provenance stays unranked; response timestamps are never measurement timestamps.
+  return { regularDate: null, regularTime: 0, regularKind: 'unknown' as const };
+}

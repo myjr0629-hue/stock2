@@ -41,7 +41,7 @@ import p from './watchlist.module.css';
 import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 import { useWatchlistAiLines, firstSeen } from '@/components/app/watchlist/useWatchlistAiLines';
 import { InviteShareButton } from '@/components/app/InviteShareButton';
-import { aiLineState, fillAiLine, type AiLineEntry } from '@/lib/app/watchlistAiLine';
+import { aiLineState, fillAiLine, liveInsight, type AiLineEntry } from '@/lib/app/watchlistAiLine';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
 const TickerSearchOverlay = dynamic(
@@ -176,6 +176,9 @@ interface RowModel {
   basisShort: string;
   /** AI 한 줄(자리표를 지금 가격으로 채운 글) — 지도가 서고 글이 지금 지형과 맞을 때만, 아니면 null */
   aiText: string | null;
+  aiInsight: string | null;
+  /** 해석 기한(epoch ms) — 화면이 그 순간 다시 그려 해석을 내린다 */
+  aiInsightUntil: number | null;
   /** 글은 있는데 지형이 바뀌었다(새 체인·레벨·가격이 레벨을 건넘) — 그리지 않고 서버에 다시 써 달라고 알린다 */
   aiStale: boolean;
 }
@@ -236,6 +239,9 @@ function buildRows(
       chipSig: chips.map((c) => `${c.kind}:${segText(c.long)}`).join('|') + (locked ? `|lock:${locked.kind}:${locked.label}` : ''),
       basisShort,
       aiText,
+      // 기한(근거 속 예정 시각)이 지나면 캐시 안에서도 그리지 않는다 — 판정은 실제 시각(분 단위 화면 시계가 아니라), 다시 그리기는 기한 타이머
+      aiInsight: aiText ? liveInsight(aiE, Date.now()) : null,
+      aiInsightUntil: aiText && liveInsight(aiE, Date.now()) && typeof aiE?.insightUntil === 'number' ? aiE.insightUntil : null,
       aiStale,
     };
   });
@@ -334,9 +340,12 @@ function WatchlistInner() {
 
   // 잠금 칩은 무료로 «확인된» 뒤에만 — 구독자에게 PRO 권유가 번쩍이지 않게(잠금 벨·PRO 카드·N/5 미터와 같은 원칙)
   const aiGet = ai.get;
+  // 해석 기한 타이머 — 가장 이른 기한에 한 번 다시 계산(분 단위 시계를 기다리지 않는다)
+  const [insightTick, setInsightTick] = useState(0);
   const rows = useMemo(
     () => (now ? buildRows(wl.tickers, loc, now, isPro, proKnown && !isPro, data, aiGet) : []),
-    [wl.tickers, loc, now, isPro, proKnown, data, aiGet],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [wl.tickers, loc, now, isPro, proKnown, data, aiGet, insightTick],
   );
 
   // AI 한 줄 — 지형이 바뀐 글은 서버에 다시 써 달라고(종목당 10분에 한 번) · 처음 보인 줄은 한 번 센다(하루 합계만, 종목은 싣지 않는다)
@@ -520,12 +529,16 @@ function WatchlistInner() {
           <div className={p.aiw}>
             {/* ★2026-10-14 공유 카드 단추 — «✦AI» 표식 바로 아래 칸(둘째 줄 왼쪽, 글이 앉지 않는 자리)에 작게. 글 칸은 그대로라 줄 수·잘림이 바뀌지 않는다. 행 «형제» 단추(버튼 안에 버튼 없음) */}
             {interactive && <InviteShareButton kind="line" ticker={r.t} line={r.aiText} locale={loc} className={p.aiShare} />}
-            <p className={p.ai}>
-              <span className={p.aiTag} role="img" aria-label={t.aiAria}><i aria-hidden="true">✦</i>AI</span>
-              <span className={p.aiTx}>
-                {r.aiText.split(' · ').map((seg, i, all) => <span key={i}>{i > 0 && ' '}<span className={p.aiSeg}>{aiEmph(seg, p.aiEm)}{i < all.length - 1 && ' ·'}</span></span>)}
-              </span>
-            </p>
+            {/* 칩 줄과 해석 줄을 한 칸에 — 펼침 애니메이션(grid 0fr→1fr)이 두 줄을 함께 펼친다(해석 줄만 먼저 보이며 칩 줄이 잘려 보이지 않게) */}
+            <div className={p.aiRows}>
+              <p className={p.ai}>
+                <span className={p.aiTag} role="img" aria-label={t.aiAria}><i aria-hidden="true">✦</i>AI</span>
+                <span className={p.aiTx}>
+                  {r.aiText.split(' · ').map((seg, i, all) => <span key={i}>{i > 0 && ' '}<span className={p.aiSeg}>{aiEmph(seg, p.aiEm)}{i < all.length - 1 && ' ·'}</span></span>)}
+                </span>
+              </p>
+              {r.aiInsight && <p className={p.ai}><span className={`${p.aiTag} invisible`} aria-hidden="true"><i>✦</i>AI</span><span className={p.aiTx}>{r.aiInsight}</span></p>}
+            </div>
           </div>
         )}
       </div>
@@ -539,7 +552,15 @@ function WatchlistInner() {
     const withMap = built.filter((r) => r.levels.ok);
     const withPrice = built.filter((r) => r.rt?.price);
     return (withMap.length >= 2 ? withMap : [...withMap, ...withPrice.filter((r) => !r.levels.ok)]).slice(0, 2);
-  }, [empty, now, loc, preview, aiPv.get]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empty, now, loc, preview, aiPv.get, insightTick]);
+  useEffect(() => {
+    const t = Date.now();
+    const next = [...rows, ...previewRows].map((r) => r.aiInsightUntil).filter((x): x is number => typeof x === 'number' && x > t);
+    if (!next.length) return;
+    const id = setTimeout(() => setInsightTick((n) => n + 1), Math.min(...next) - t + 50);
+    return () => clearTimeout(id);
+  }, [rows, previewRows]);
 
   const meterN = Math.min(wl.count, FREE_LIMIT);
 

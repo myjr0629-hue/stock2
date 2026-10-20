@@ -76,6 +76,10 @@ export interface EarningsRow {
   ticker: string;
   date: string;           // YYYY-MM-DD
   hour: string;           // 'amc' | 'bmo' | ''  — 없으면 빈 문자열(«시간 미정»)
+  /** 공급사가 준 정확한 결과 공개 시각(ET). 통화 시각은 넣지 않는다. */
+  etTime?: string;
+  epsActual?: number;
+  revenueActual?: number;
   epsEstimate: number | null;
   revenueEstimate: number | null;
   quarter: number | null;
@@ -175,7 +179,7 @@ export function _setConfirmedListsForTest(lists: { confirmed: ConfirmedEarnings[
   overlayMemo = new WeakMap();
 }
 
-function withConfirmedDates(p: EarningsCalendarPayload): EarningsCalendarPayload {
+export function withConfirmedDates(p: EarningsCalendarPayload): EarningsCalendarPayload {
   try {
     const today = etDateOf(Date.now());
     const hit = overlayMemo.get(p);
@@ -327,6 +331,9 @@ async function buildMarketEarningsCalendar(): Promise<EarningsCalendarResult> {
         ticker,
         date,
         hour,
+        ...(typeof (r?.etTime ?? r?.time) === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(r.etTime ?? r.time) ? { etTime: r.etTime ?? r.time } : {}),
+        ...(num(r?.epsActual) != null ? { epsActual: r.epsActual } : {}),
+        ...(num(r?.revenueActual) != null ? { revenueActual: r.revenueActual } : {}),
         epsEstimate: num(r?.epsEstimated ?? r?.epsEstimate),
         revenueEstimate: num(r?.revenueEstimated ?? r?.revenueEstimate),
         quarter,

@@ -203,6 +203,19 @@ const call = async (q = '') => (await GET(new Request(`http://localhost/api/mark
   const calAt = (iso: string) => at(iso, () => call());
   const useRows = () => { resetAll(); fmpMode = 'rows'; fmpCalRows = FMP_ROWS; finnhubRows = FINNHUB_ROWS; fmpDelayMs = 0; };
 
+  await ta('AI 근거: 공급사 정확한 발표 시각과 실제치(0 포함)를 캐시까지 보존', async () => {
+    useRows();
+    fmpCalRows = [{ symbol: 'WFC', date: '2026-10-13', time: '07:00', epsActual: 0, revenueActual: 20000000000 }];
+    const cal = await calAt(AT);
+    const row = cal.rows.find((r: any) => r.ticker === 'WFC');
+    assert.equal(row.etTime, '07:00');
+    assert.equal(row.epsActual, 0);
+    assert.equal(row.revenueActual, 20000000000);
+    const cached = (store.get(OK_KEY)!.value as any).rows.find((r: any) => r.ticker === 'WFC');
+    assert.equal(cached.etTime, '07:00');
+    assert.equal(cached.epsActual, 0);
+  });
+
   await ta('★ NKE — 실적 캘린더·내 종목(FMP 10/1)과 Command·Intel 이 같은 날짜 · Finnhub 12/16(분기 건너뜀)은 쓰지 않는다', async () => {
     useRows();
     const cal = await calAt(AT);

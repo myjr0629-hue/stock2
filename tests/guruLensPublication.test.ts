@@ -124,6 +124,24 @@ test('gate setup reproduces generic cache success when only fallback stores a le
     assert.equal((await f.redis.getAuthoritativeCache(key)).value, null);
 });
 
+test('weekly service reports the published partial counts and exclusions rather than the raw candidate', async () => {
+    const f = redisFixture(), cs = companies();
+    cs.slice(0, 35).forEach((c) => { c.currency = 'KRW'; });
+    await withService(f, cs, async (service) => {
+        const result = await service.runGuruLens(first);
+        assert.equal(result.published, true);
+        assert.ok('includedCount' in result);
+        if (!('includedCount' in result)) throw new Error('missing publication report');
+        assert.equal(result.universeCount, 495);
+        assert.equal(result.includedCount, 460);
+        assert.equal(result.excluded.length, 35);
+        const saved = (await readSnapshot(f.publication))!;
+        assert.equal(saved.includedCount, 460);
+        for (const id of LENS_IDS) assert.equal(result.passCounts[id], saved.lenses[id].passCount);
+        assert.equal(f.fallbackWrites.length, 0);
+    });
+});
+
 test('gate: every failed lens/meta/head save leaves publication retryable, initially and with a healthy head', async () => {
     for (const existing of [false, true]) {
         for (const failed of [...LENS_IDS.map((id) => lensKey(id, first.toISOString())), metaKey(first.toISOString()), HEAD_KEY]) {

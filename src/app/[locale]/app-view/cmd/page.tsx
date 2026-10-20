@@ -3,7 +3,7 @@
 import { compactUsd } from '@/lib/app/displayNumbers';
 
 import { commandBatchIv, commandUnifiedIv, retainCommandIv, commandIvDateText, type CommandIvObservation } from '@/lib/app/commandIv';
-import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment, useId } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
@@ -11,6 +11,7 @@ import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { AdBanner } from '@/components/app/AdBanner';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { AiBadge } from '@/components/app/AiBadge';
+import { GuruLensChip, GuruLensWhy, useTickerLens } from '@/components/app/GuruLens';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
@@ -1226,8 +1227,13 @@ interface FundRaw {
   fcfYield?: number | null;
   breakdown?: Record<string, { value: string; score: number; label: string }> | null;
 }
-function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?: string }) {
+function FundamentalsCard({ raw, locale = 'en', ticker }: { raw: FundRaw | null; locale?: string; ticker?: string }) {
   const score = raw?.score ?? null;
+  // 대가 렌즈 «통과 렌즈 n» — 점수 줄 오른쪽 빈자리(새 줄 없음). 통과 0·결측이면 칩 없음.
+  const lens = useTickerLens(ticker);
+  const [lensOpen, setLensOpen] = useState(false);
+  const lensPanelId = useId();
+  useEffect(() => { setLensOpen(false); }, [ticker]);
   const grade = raw?.grade && raw.grade !== 'NO_DATA' ? raw.grade : null;
 
   // Insight text based on score
@@ -1319,6 +1325,7 @@ function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?
           <span className={s.premInsightBadge} style={{ color: gradeColor(grade), borderColor: `${gradeColor(grade)}50`, background: `${gradeColor(grade)}15` }}>
             {insight}
           </span>
+          <GuruLensChip data={lens} open={lensOpen} onToggle={() => setLensOpen(o => !o)} locale={locale} controls={lensPanelId} />
         </div>
       )}
 
@@ -1352,6 +1359,8 @@ function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?
           {breakdownKeys.map(k => raw!.breakdown![k].label).join(' \u00B7 ')}
         </div>
       )}
+
+      {score !== null && lens && lensOpen && <GuruLensWhy data={lens} locale={locale} id={lensPanelId} />}
     </div>
   );
 }
@@ -1731,7 +1740,7 @@ function TechnicalGammaMap({
    ═══════════════════════════════════════════ */
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
-const LOGO = (t: string) => `/api/logo/${t}?v=3`;
+const LOGO = (t: string) => `/api/logo/${t}?v=4`;
 
 function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; currentPrice: number; locale: string }) {
   const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);
@@ -3831,7 +3840,7 @@ function CmdPageContent() {
 
 
           <AnalystConsensus analyst={data.analyst} price={displayPrice} locale={locale} />
-          <FundamentalsCard raw={data.fundRaw || null} locale={locale} />
+          <FundamentalsCard raw={data.fundRaw || null} locale={locale} ticker={data.ticker} />
           <EarningsCardPremium raw={data.earnRaw || null} locale={locale} />
 
           {/* Company Description */}

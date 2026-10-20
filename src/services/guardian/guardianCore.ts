@@ -181,6 +181,7 @@ export interface GuardianCore {
     gammaShield: GammaShieldData | null;
     /** AI 재료용 시장 헤드라인 — 응답에는 싣지 않는다 */
     news: string[];
+    scheduledEvents?: string[];
 }
 
 /** 코어로 쓸 수 있는 모양인가. 섹터가 비면 «벤더 장애로 반쯤 계산된» 것이다 — 캐시하지 않는다(MAP FLAP FIX 와 같은 이유) */

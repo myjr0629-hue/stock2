@@ -80,7 +80,7 @@ export async function buildImpliedPack(
       chunk.forEach((c, i) => {
         const r = out[i];
         cells[c.key] = r
-          ? { p: r.impliedMovePct, e: r.impliedMovePct != null ? r.expiry : null, b: r.basis, s: r.session, r: r.reason }
+          ? { p: r.impliedMovePct, e: r.impliedMovePct != null ? r.expiry : null, b: r.basis, s: r.session, r: r.reason, method: r.method ?? null }
           : { p: null, e: null, b: null, s: null, r: 'read_failed' };
       });
     }

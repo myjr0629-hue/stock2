@@ -1,3 +1,10 @@
+import { cachedEvidence } from '@/lib/ai/tacticalPrompt';
+import { evidenceValidUntil } from '@/lib/ai/evidenceTime';
+import { newsForStock } from '@/lib/ai/stockEvidence';
+import { createHash } from 'node:crypto';
+import { checkDepthLine, flowSummary, rankStockContext, type StockContextInput } from '@/lib/ai/watchlistDepth';
+import { readSessionArchiveMany } from '@/lib/sessionArchive';
+import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
 /**
  * «내 종목» AI 한 줄 — 저장·읽기·생성 (서버). 글은 «종목 단위»로 한 번 만들고 모든 사용자가 같이 읽는다(사용자 수와 무관한 비용).
  *
@@ -16,7 +23,7 @@ import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient'
 import { processWatchlistBatch } from '@/services/watchlistBatchService';
 import { callBedrock } from '@/services/bedrockClient';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
-import { buildLineFacts, buildLineUserPrompt, checkLineOutput, WL_LINE_PURPOSE, WL_LINE_SYSTEM, type LineFacts } from '@/lib/ai/watchlistLine';
+import { buildLineFacts, buildLineUserPrompt, checkLineOutput, lineLocaleReasons, WL_LINE_LOCALES, WL_LINE_PURPOSE, WL_LINE_SYSTEM, type LineFacts } from '@/lib/ai/watchlistLine';
 import { aiLineState, type AiLineEntry, type AiLineLevels, type AiLevelKey, type AiLineLocale, type AiSide } from '@/lib/app/watchlistAiLine';
 import { etDateOf } from '@/lib/marketCalendar';
 
@@ -51,18 +58,47 @@ export interface StoredLine {
     sides: Partial<Record<AiLevelKey, AiSide>>;
     spot: number;
     text: Record<AiLineLocale, string>;
+    insight?: Partial<Record<AiLineLocale, string>>;
+    revision?: 2;
+    source?: string;
+    inputHash?: string;
+    cachedContextHash?: string;
+    checkedAt?: number;
+    /** 해석 탈락 사유·원문(실측용 · entryOf 가 내보내지 않는다) */
+    insightWhy?: string[];
+    insightRaw?: Partial<Record<AiLineLocale, string>> | null;
     /** 생성 지연(ms) · 응답한 단 — 실측용 */
     ms: number;
     provider?: string;
 }
 
-export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale): AiLineEntry | null {
+/**
+ * 저장된 해석이 «지금» 내보낼 수 있는가 — 생성 때 근거(source)로 출구 검사 + 근거 속 예정 시각이 지나지 않았는지(evidenceTime 정본).
+ * 08:29 에 «08:30 CPI 예정»으로 쓴 해석은 08:30 부터 나가지 않는다(관문 10/20 4차). 뉴스·일정 변화는 15분 확인의 해시가 잡는다.
+ */
+export function insightLiveAt(s: StoredLine, loc: AiLineLocale, nowMs: number): string | undefined {
+    const candidate = s.insight?.[loc];
+    if (!candidate || !s.source) return undefined;
+    if (nowMs >= evidenceValidUntil(s.source.split('\n'), s.at, { dayEnd: false })) return undefined;
+    return checkDepthLine(candidate, loc, s.source, nowMs).length ? undefined : candidate;
+}
+
+export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale, nowMs: number = Date.now()): AiLineEntry | null {
     if (!s || s.v !== 1 || !s.text || typeof s.text[loc] !== 'string' || !s.text[loc]) return null;
-    return { text: s.text[loc], chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
+    if (textIntegrityReasons(s.text[loc]).length || lineLocaleReasons(s.text[loc], loc).length) return null;
+    const insight = insightLiveAt(s, loc, nowMs);
+    const until = insight ? evidenceValidUntil(s.source!.split('\n'), s.at, { dayEnd: false }) : Infinity;
+    return { text: s.text[loc], insight, ...(insight && Number.isFinite(until) ? { insightUntil: until } : {}), chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
+}
+
+/** 저장본에 해석이 있었는데 지금은 못 내보낸다(예정 시각 경과 등) — 다시 만들 대상. */
+export function insightExpired(s: StoredLine | null | undefined, nowMs: number = Date.now()): boolean {
+    return !!s?.insight && WL_LINE_LOCALES.some(loc => !!s.insight?.[loc] && !insightLiveAt(s, loc, nowMs));
 }
 
 /** 이미 있는 글이 지금 행(가격·레벨)에도 맞나 — 화면과 같은 판정(aiLineState)을 서버 가격으로 */
 export function storedMatchesFacts(s: StoredLine | null | undefined, f: LineFacts): boolean {
+    if (!WL_LINE_LOCALES.every(loc => entryOf(s, loc))) return false;
     const e = entryOf(s, 'en');
     return aiLineState(e, { price: f.spot, maxPain: f.lv.mp, callWall: f.lv.cw, putFloor: f.lv.pf, gammaFlipLevel: f.lv.gf, chainDate: f.chain }) === 'ok';
 }
@@ -105,16 +141,17 @@ export async function callsToday(): Promise<number> {
 }
 
 export type GenOutcome = 'generated' | 'fresh' | 'nodata' | 'guard' | 'skipped' | 'error' | 'locked' | 'cooling' | 'capped' | 'off';
+const inputHashOf = (f: LineFacts) => createHash('sha256').update(WL_LINE_SYSTEM).update('\0').update(buildLineUserPrompt(f)).digest('hex');
 
 /** 한 종목 생성 — 사실이 이미 있을 때. 저장까지. */
-export async function generateOne(f: LineFacts): Promise<{ outcome: GenOutcome; line?: StoredLine; reasons?: string[] }> {
+export async function generateOne(f: LineFacts, cachedContextHash?: string): Promise<{ outcome: GenOutcome; line?: StoredLine; reasons?: string[] }> {
     const t0 = Date.now();
     let last: string[] = [];
     try {
         const res = await withFreshTier(() => callBedrock({
             system: WL_LINE_SYSTEM,
             userPrompt: buildLineUserPrompt(f),
-            maxTokens: 400,
+            maxTokens: 700,
             temperature: 0.2,
             timeoutMs: 15_000,
             label: WL_LINE_PURPOSE,
@@ -128,9 +165,11 @@ export async function generateOne(f: LineFacts): Promise<{ outcome: GenOutcome; 
             await setInCache(failKey(f.ticker), { at: Date.now(), why: c.reasons.slice(0, 6) }, FAIL_SEC).catch(() => false);
             return { outcome: 'guard', reasons: c.reasons };
         }
+        const dup = await dropDuplicateInsights(f.ticker, c.insight);
+        if (dup.length) { c.insight = dup.kept; c.insightReasons = [...(c.insightReasons || []), ...dup.reasons]; }
         const line: StoredLine = {
             v: 1, t: f.ticker, at: Date.now(), chain: f.chain, lv: f.lv, sides: f.sides, spot: f.spot,
-            text: c.text, ms: Date.now() - t0, provider: res.provider,
+            text: c.text, insight: c.insight, ...(c.insightReasons?.length ? { insightWhy: c.insightReasons.slice(0, 8), insightRaw: c.insightRaw ?? null } : {}), revision: 2, source: buildLineUserPrompt(f), inputHash: inputHashOf(f), cachedContextHash, checkedAt: Date.now(), ms: Date.now() - t0, provider: res.provider,
         };
         await setInCache(lineKey(f.ticker), line, WL_AI_TTL_SEC);
         return { outcome: 'generated', line };
@@ -144,6 +183,57 @@ export async function generateOne(f: LineFacts): Promise<{ outcome: GenOutcome; 
         await setInCache(failKey(f.ticker), { at: Date.now(), why: ['error'] }, SKIP_SEC).catch(() => false);
         return { outcome: 'error', reasons: [String((e as Error)?.message || e).slice(0, 120)] };
     }
+}
+
+/** 내부자 «장내 매수»(SEC Form 4 코드 P) — 랭킹이 만든 캐시가 있을 때만(1시간 TTL · 이 경로에서 새로 부르지 않는다) */
+export const INSIDER_CACHE_KEY = 'ranking:insider:v1:4';
+export function insiderLineFor(t: string, buys: any[], nowMs: number): string | null {
+    const today = etDateOf(nowMs);
+    const hit = buys.filter(b => b?.ticker === t && typeof b.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date) && b.date <= today
+        && (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${b.date}T00:00:00Z`)) <= 7 * 86_400_000)
+        .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+    if (!hit) return null;
+    const role = String(hit.role || '').replace(/[^A-Za-z ,&.-]/g, '').trim().slice(0, 40) || 'insider';
+    return `[insider filing; ${hit.date}] ${t} ${role} open-market purchase (SEC Form 4 code P; an observation, not a forecast)`;
+}
+
+/**
+ * 같은 날 다른 종목과 «같은 해석»이면 그 언어의 해석을 뺀다(10/20: 음감마 종목끼리 같은 문장). 종목별 근거가 다르면 문장도 달라야 한다.
+ * 키 wlai:ins:{ET 날짜} = {정규화 문장: 종목}. 한 인스턴스 안에서는 줄을 세운다(인스턴스 사이는 근사).
+ */
+const insKey = (d: string) => `wlai:ins:${d}`;
+let insChain: Promise<unknown> = Promise.resolve();
+export function dropDuplicateInsights(ticker: string, insight: Partial<Record<AiLineLocale, string>> | undefined):
+    Promise<{ length: number; kept: Partial<Record<AiLineLocale, string>> | undefined; reasons: string[] }> {
+    const p = insChain.then(async () => {
+        if (!insight || !Object.keys(insight).length) return { length: 0, kept: insight, reasons: [] };
+        const k = insKey(etDateOf(Date.now()));
+        const seen: Record<string, string> = (await getFromCache<Record<string, string>>(k).catch(() => null)) || {};
+        const { kept, reasons } = dedupeInsights(ticker, insight, seen);
+        await setInCache(k, seen, 30 * 3600).catch(() => false);
+        return { length: reasons.length, kept, reasons };
+    });
+    insChain = p.catch(() => undefined);
+    return p;
+}
+
+/** 순수 — seen(정규화 문장→종목)을 갱신하고, 다른 종목이 이미 쓴 문장은 뺀다 */
+export function dedupeInsights(ticker: string, insight: Partial<Record<AiLineLocale, string>>, seen: Record<string, string>):
+    { kept: Partial<Record<AiLineLocale, string>> | undefined; reasons: string[] } {
+    // 숫자·기호를 지운 «틀»로 비교 — «예상 변동 ±3.1%가 음감마…»와 «±2.2%가 음감마…»는 같은 일반론이다(10/21 실제 모델 NVDA·AAPL)
+    const norm = (x: string) => x.replace(/[\s.,、。·!?！？±+\-−$%\d]/g, '').toLowerCase();
+    const kept: Partial<Record<AiLineLocale, string>> = {};
+    const reasons: string[] = [];
+    for (const [loc, text] of Object.entries(insight) as Array<[AiLineLocale, string]>) {
+        const owner = seen[norm(text)];
+        if (owner && owner !== ticker) { reasons.push(`${loc}:insight:duplicate:${owner}`); continue; }
+        kept[loc] = text;
+    }
+    for (const text of Object.values(kept)) if (text) seen[norm(text)] = ticker;
+    // 하루 키 크기 상한(먼저 들어온 것부터 덜어 낸다 — 읽기·쓰기 한 번씩이 무거워지지 않게)
+    const keys = Object.keys(seen);
+    for (let i = 0; i < keys.length - 1500; i++) delete seen[keys[i]];
+    return { kept: Object.keys(kept).length ? kept : undefined, reasons };
 }
 
 async function pool<T>(items: T[], n: number, deadline: number, fn: (x: T) => Promise<void>): Promise<void> {
@@ -163,7 +253,7 @@ export interface GenSummary {
  * 여러 종목 생성 — 잠금·쉬기·하루 상한·«같은 지형이면 그대로»를 지난 종목만 AI 를 부른다.
  * opts.force = 같은 지형이어도 다시(점검용 — 크론 ?force=1 에서만).
  */
-export async function generateLines(tickers: string[], opts: { deadline?: number; force?: boolean; detail?: boolean } = {}): Promise<GenSummary> {
+export async function generateLines(tickers: string[], opts: { deadline?: number; force?: boolean; detail?: boolean; cachedContextOnly?: string[] } = {}): Promise<GenSummary> {
     const t0 = Date.now();
     const deadline = opts.deadline ?? t0 + 45_000;
     const out: Record<string, GenOutcome> = {};
@@ -184,8 +274,34 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
     if (!todo.length) return { asked: uniq.length, out, reasons, ms: Date.now() - t0 };
     await Promise.all(todo.map((t) => setInCache(lockKey(t), { at: Date.now() }, LOCK_SEC).catch(() => false)));
 
-    for (let c = 0; c < todo.length && Date.now() < deadline; c += BATCH_CHUNK) {
-        const chunk = todo.slice(c, c + BATCH_CHUNK);
+    // 화면이 이미 쓰는 캐시만 읽는다. 이 경로에서 뉴스/캘린더/흐름/내부자를 새로 만들지 않는다(공급사 호출 0).
+    //   근거 우선순위(watchlistDepth.rankStockContext): ① 실적 D-5 ② 종목 뉴스 ③ 옵션 흐름(고래 마감 집계 보관본) ④ 내부자(랭킹 캐시) ⑤ 감마·맥스페인
+    const evidenceValues = await mgetFromCache<any>(['guardian:news:digest:v2', 'fmp:econ-calendar', 'market:earnings-calendar:v4', INSIDER_CACHE_KEY]).catch(() => []);
+    const evidence = cachedEvidence(evidenceValues[0], evidenceValues[1], evidenceValues[2], new Date(Date.now()), { stockDays: 5 });
+    const flows = await readSessionArchiveMany<any>('whale', todo, { lookback: 1 }).catch(() => new Map());
+    const insiderBuys: any[] = Array.isArray(evidenceValues[3]?.buys) ? evidenceValues[3].buys : [];
+    const stockInput = (t: string): StockContextInput => ({
+        ticker: t,
+        earnings: evidence.stockEvents.filter(e => e.ticker === t).map(e => e.text),
+        news: evidence.stockNews.filter(n => newsForStock(n, t)).slice(0, 6).map(n => n.text),
+        flow: flowSummary(t, flows.get(t)?.value),
+        insider: insiderLineFor(t, insiderBuys, Date.now()),
+    });
+    const contextFor = (t: string) => { const i = stockInput(t); return [...i.earnings, ...i.news, i.flow?.line ?? '', i.insider ?? ''].filter(Boolean); };
+    // 시장 전체 일정은 넣지 않는다 — 종목 근거가 아니고, 일정이 지날 때마다 모든 종목을 다시 만들게 된다(호출 수).
+    const contextHashFor = (t: string) => createHash('sha256').update(WL_LINE_SYSTEM).update(JSON.stringify(contextFor(t))).digest('hex');
+    const batchTodo: string[] = [];
+    for (const t of todo) {
+        const saved = lines[t];
+        // 지형 변경 힌트가 없는 정기 확인은 기존 뉴스/일정 캐시만 비교한다.
+        // 가격·포지셔닝은 종전처럼 지형 변경 힌트 또는 크론이 들어올 때 배치로 다시 확인한다.
+        if (!opts.force && opts.cachedContextOnly?.includes(t) && saved?.revision === 2 && saved.inputHash && saved.cachedContextHash === contextHashFor(t) && !insightExpired(saved) && WL_LINE_LOCALES.every(loc => entryOf(saved, loc))) {
+            await setInCache(lineKey(t), { ...saved, checkedAt: Date.now() }, WL_AI_TTL_SEC);
+            out[t] = 'fresh';
+        } else batchTodo.push(t);
+    }
+    for (let c = 0; c < batchTodo.length && Date.now() < deadline; c += BATCH_CHUNK) {
+        const chunk = batchTodo.slice(c, c + BATCH_CHUNK);
         let rows: Record<string, any> = {};
         try {
             const payload = await processWatchlistBatch(chunk, 'price');
@@ -202,12 +318,19 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
                 await setInCache(failKey(t), { at: Date.now(), why: ['nodata'] }, FAIL_SEC).catch(() => false);
                 continue;
             }
-            if (!opts.force && storedMatchesFacts(lines[t], f)) { out[t] = 'fresh'; continue; }
+            const ranked = rankStockContext({ ...stockInput(t), darkPool: f.darkPool, implied: f.implied }, Date.now());
+            f.contextText = ranked.lines.join('\n');
+            f.topLine = ranked.topLine;
+            if (!opts.force && lines[t]?.revision === 2 && lines[t]?.inputHash === inputHashOf(f) && !insightExpired(lines[t]) && storedMatchesFacts(lines[t], f)) {
+                // 15분은 입력 재확인 주기다. 같은 입력으로 모델을 다시 부르지 않는다.
+                await setInCache(lineKey(t), { ...lines[t]!, cachedContextHash: contextHashFor(t), checkedAt: Date.now() }, WL_AI_TTL_SEC);
+                out[t] = 'fresh'; continue;
+            }
             work.push(f);
         }
         await pool(work, GEN_CONCURRENCY, deadline, async (f) => {
             if (!(await reserveCall())) { out[f.ticker] = 'capped'; return; }
-            const r = await generateOne(f);
+            const r = await generateOne(f, contextHashFor(f.ticker));
             out[f.ticker] = r.outcome;
             if (r.reasons?.length) reasons[f.ticker] = r.reasons;
             if (opts.detail) detail[f.ticker] = { facts: f.factsText, text: r.line?.text, ms: r.line?.ms, provider: r.line?.provider };

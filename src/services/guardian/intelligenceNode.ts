@@ -1,3 +1,5 @@
+import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored } from '@/lib/ai/tacticalPrompt';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { textGate, triLangGate } from '@/lib/ai/ladderGates';
@@ -13,6 +15,8 @@ import { forecastHits, stripForecastSentences, checkComparisons, checkRanges } f
 
 // Supported locales
 type Locale = 'ko' | 'en' | 'ja';
+/** 현재 Tactical 근거. 캐시·복구·번역에도 생성과 같은 출구 검사를 적용한다. */
+type TacticalPrompts = (locale: Locale) => string;
 
 /**
  * 가디언 AI 문구 3종 — 화면 자리
@@ -38,6 +42,8 @@ function getRedis(): Redis | null {
 
 
 interface IntelligenceContext {
+    scheduledEvents?: string[];
+    asOf?: string;
     rlsiScore: number;
     nasdaqChange: number;
     vectors: { source: string, target: string, strength: number }[];
@@ -264,7 +270,7 @@ function isPlaceholder(text: string): boolean {
  *   언어·거절·마크다운·연도(outputGate) + 화면 숫자 대조·낡은 서술(lib/ai/guardianNumbers).
  *   nums 가 없으면 basis(생성 때 값)로 채운다(숫자 대조도 basis 기준).
  */
-function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false): { ok: boolean; tpl: string; text: string; reasons: string[] } {
+function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string): { ok: boolean; tpl: string; text: string; reasons: string[] } {
     let cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
     // ★2026-10-07 T5 예측어 — 생성(strict)은 걸리면 탈락(교정 재생성), 읽기·복구(lenient)는 그 문장만 뺀다(쓸 만하게 남을 때) —
     //   이미 저장돼 있던 글이 새 사전 때문에 통째로 «준비 중»으로 바뀌지 않게(보이던 표시를 없애지 않는다).
@@ -279,12 +285,16 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
     // ★2026-10-07 T5 문턱·비교·범위 문장 — «RLSI 42 sits below the 40 threshold»(42 는 40 아래가 아니다)
     const facts = guardianCmpFacts(nums ?? basis ?? null);
     const cmpReasons = [...checkComparisons(n.text, facts), ...checkRanges(n.text, facts)];
-    const reasons = [...r.reasons, ...n.reasons, ...forecastReasons, ...cmpReasons];
+    const reasons = [...textIntegrityReasons(String(tpl ?? '')), ...r.reasons, ...n.reasons, ...forecastReasons, ...cmpReasons,
+        // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
+        //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).
+        ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text)
+            ? (strict ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
     return { ok: reasons.length === 0, tpl: cleaned, text: n.text, reasons };
 }
 
 /** Redis 에서 읽기 — 읽을 때도 검사한다(언어·거절 + 화면 숫자). 검사를 도입하기 전에 저장된 나쁜 글이 TTL 동안 나가지 않게. */
-async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums | null): Promise<CachedInsight | null> {
+async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums | null, tacticalPrompts?: TacticalPrompts): Promise<CachedInsight | null> {
     const redis = getRedis();
     if (!redis) return null;
     const key = getRedisKey(type, locale);
@@ -292,7 +302,7 @@ async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums
         const data = await redis.get(key) as { text?: string; updatedAt?: string; basis?: GNums | null } | null;
         if (!data?.text) return null;
         const basis = data.basis && typeof data.basis === 'object' ? data.basis : null;
-        const g = gateText(type, data.text, locale, nums, basis);
+        const g = gateText(type, data.text, locale, nums, basis, false, tacticalPrompts?.(locale));
         if (!g.ok) {
             console.warn(`[InsightGate] REJECT stored ${key} (${g.reasons.join(' | ')}) :: ${previewForLog(g.text)}`);
             return null;
@@ -337,14 +347,14 @@ async function archiveInsight(type: InsightType, locale: Locale, text: string, b
         await saveSessionArchive('insight', insightScope(type, locale), etDateOf(now), { text, basis: basis ?? null, updatedAt: new Date(now).toISOString() }, { observedAt: now });
     } catch { /* 보관 실패가 응답을 막지 않는다 */ }
 }
-async function archivedInsight(type: InsightType, locale: Locale, nums?: GNums | null): Promise<(InsightOut & { at: number }) | null> {
+async function archivedInsight(type: InsightType, locale: Locale, nums?: GNums | null, tacticalPrompts?: TacticalPrompts): Promise<(InsightOut & { at: number }) | null> {
     try {
         // 마지막 완료 세션 «그 날짜»만(lookback 0) — 금요일 글이 없을 때 목요일 글을 «Last session»으로 내보내지 않는다
         const a = await readSessionArchive<{ text?: string; basis?: GNums | null }>('insight', insightScope(type, locale), { lookback: 0 });
         const text = a?.value?.text;
         if (!text) return null;
         const basis = a!.value.basis && typeof a!.value.basis === 'object' ? a!.value.basis : null;
-        const g = gateText(type, text, locale, nums, basis);
+        const g = gateText(type, text, locale, nums, basis, false, tacticalPrompts?.(locale));
         if (!g.ok || isPlaceholder(g.text)) return null;
         return { tpl: g.tpl, basis, at: a!.stamp.observedAt ?? 0 };
     } catch { return null; }
@@ -432,7 +442,16 @@ const TRI_SYSTEM = [
 ].join('\n');
 
 const TRI_CORRECTIVE = (reasons: Partial<Record<Locale, string[]>>) =>
-    `\n\n[Rewrite request] The previous JSON failed these automatic checks — ${(['ko', 'en', 'ja'] as Locale[]).filter((l) => reasons[l]?.length).map((l) => `${l}: ${reasons[l]!.slice(0, 4).join(', ')}`).join(' | ')}. Rewrite the whole JSON object: use the placeholders exactly as defined (never type those numbers), no predictions or future tense, every above/below/미만/以上 statement must be true for the data, the same facts in all three languages, plain text only.`;
+    `\n\n[Rewrite request] The previous JSON failed these automatic checks — ${(['ko', 'en', 'ja'] as Locale[]).filter((l) => reasons[l]?.length).map((l) => `${l}: ${reasons[l]!.slice(0, 4).join(', ')}`).join(' | ')}. Rewrite the whole JSON object: use the placeholders exactly as defined (never type those numbers), no predictions or future tense, every above/below/미만/以上 statement must be true for the data, the same facts in all three languages, plain text only.${triHints(Object.values(reasons).flat() as string[])}`;
+/** 새 검사(claimChecks·절대 날짜) 사유 → 고쳐 쓰는 방법 한 줄씩(사유 코드만으로는 모델이 무엇을 고칠지 모른다) */
+function triHints(all: string[]): string {
+    const h: string[] = [];
+    if (all.some(r => r.includes('orphan-number'))) h.push('Put the metric name right before every number in the same clause (e.g. "TLT {TLT_CHG}"), never a bare number after "this/이는/これは".');
+    if (all.some(r => r.includes('direction-sign'))) h.push('A positive change is never weak/약세/弱気 and a negative change is never strong/강세/強気; for a smaller gain say it rose less.');
+    if (all.some(r => /schedule:(?:relative-day|date-required|weekday)/.test(r))) h.push('Write the event date exactly as DATE_LABELS gives it plus HH:MM ET; no today/tomorrow/오늘/내일/今日/明日.');
+    if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the second sentence.');
+    return h.length ? ' ' + h.join(' ') : '';
+}
 
 /** 3개 언어 호출이 이 시간 안에 끝났을 때만 교정 재생성(라우트 한도 60초 — 첫 호출 최대 32초) */
 const TRI_RETRY_BUDGET_MS = 20 * 1000;
@@ -842,254 +861,9 @@ const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
 };
 
 const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
-    ko: (ctx) => {
-        // Determine market condition
-        const rlsiLevel = ctx.rlsiScore >= 65 ? '건강' : ctx.rlsiScore >= 45 ? '중립' : '취약';
-        const priceAction = ctx.nasdaqChange >= 0.5 ? '강세' : ctx.nasdaqChange <= -0.5 ? '약세' : '보합';
-        const vixLevel = ctx.vix >= 25 ? '공포' : ctx.vix >= 18 ? '경계' : '안정';
-        const rvolLevel = ctx.rvol === undefined || !(ctx.rvol > 0) ? '측정 불가'
-            : ctx.rvol >= 1.5 ? '급증' : ctx.rvol >= 1.1 ? '활발' : '저조';
-
-        // Macro context strings
-        const yieldLine = ctx.us10y !== undefined
-            ? `- US10Y 금리: ${ctx.us10y?.toFixed(2)}%${bpText(ctx.us10yChangeBp) ? ` (전일 대비 ${bpText(ctx.us10yChangeBp)})` : ''}` : '';
-        const spreadLine = ctx.spread2s10s !== undefined
-            ? `- 장단기 금리차(2s10s): ${ctx.spread2s10s?.toFixed(2)}% ${ctx.spread2s10s! < 0 ? '[경고]역전' : ctx.spread2s10s! < 0.25 ? '[경고]축소' : '정상'}` : '';
-        const realYieldLine = ctx.realYield !== undefined
-            ? `- 실질금리: ${ctx.realYield?.toFixed(2)}% (${ctx.realYieldStance === 'TIGHT' ? '긴축적 → 성장주 압박' : ctx.realYieldStance === 'LOOSE' ? '완화적 → 성장주 유리' : '중립'})` : '';
-        const breadthLine = ctx.breadthPct !== undefined
-            ? `- 시장 참여폭(Breadth): 상승 ${Math.round(ctx.breadthPct!)}% / A/D 비율 ${ctx.adRatio?.toFixed(2) || '?'} / 거래량 Breadth ${ctx.volumeBreadth?.toFixed(1) || '?'}% [${ctx.breadthSignal || '?'}]` : '';
-
-        // [V9.0] Cross-asset macro context
-        const assetLines: string[] = [];
-        if (ctx.spxChangePct !== undefined) assetLines.push(`- S&P 500: ${ctx.spxChangePct >= 0 ? '+' : ''}${ctx.spxChangePct.toFixed(2)}%`);
-        if (ctx.dxy !== undefined) assetLines.push(`- 달러 인덱스(DXY): ${ctx.dxy.toFixed(1)}`);
-        if (ctx.goldChangePct !== undefined) assetLines.push(`- 금(Gold): ${ctx.goldChangePct >= 0 ? '+' : ''}${ctx.goldChangePct.toFixed(2)}%`);
-        if (ctx.oilChangePct !== undefined) assetLines.push(`- 유가(WTI): ${ctx.oilChangePct >= 0 ? '+' : ''}${ctx.oilChangePct.toFixed(2)}%`);
-        if (ctx.btcChangePct !== undefined) assetLines.push(`- 비트코인: ${ctx.btcChangePct >= 0 ? '+' : ''}${ctx.btcChangePct.toFixed(2)}%`);
-        if (ctx.tltChangePct !== undefined) assetLines.push(`- 채권 ETF(TLT): ${ctx.tltChangePct >= 0 ? '+' : ''}${ctx.tltChangePct.toFixed(2)}%`);
-        const assetBlock = assetLines.length > 0 ? `\n        [글로벌 자산 동향]
-        ${assetLines.join('\n        ')}` : '';
-
-        // Fear & Greed context
-        const fgLine = ctx.fearGreedScore !== undefined
-            ? `- CNN 공포탐욕지수: ${ctx.fearGreedScore.toFixed(0)}점 (${ctx.fearGreedRating || '?'}) ${ctx.fearGreedScore < 25 ? '[경고]극단적 공포' : ctx.fearGreedScore < 40 ? '공포' : ctx.fearGreedScore > 75 ? '[경고]탐욕 과열' : ctx.fearGreedScore > 60 ? '탐욕' : '중립'}` : '';
-
-        return `
-        당신은 월가 최고의 매크로 전략가이자 기술적 분석가입니다. 모든 지표, 자산군 동향, 실시간 뉴스를 종합하여 정확한 판단과 실전 데이터 인사이트를 제공합니다.
-
-        판단 정확성 최우선 원칙:
-        - 수치가 보여주는 사실과 뉴스 해석이 충돌하면 수치를 우선
-        - 불확실하면 "~가능성" "~여부가 변수" 같은 유보적 표현 사용, 확정 표현 금지
-        - 하나의 뉴스 헤드라인만으로 전체 시장을 판단하지 말 것
-        - 최소 2개 이상 지표가 동일 방향을 가리킬 때만 확신 있는 판단
-
-        현재 시장 데이터 (종합 대시보드):
-
-        [가격 & 내부지표]
-        - RLSI (시장 건강도): ${ctx.rlsiScore.toFixed(0)}점 (${rlsiLevel})
-        - 나스닥: ${ctx.nasdaqChange >= 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}% (${priceAction})
-        - VIX (변동성): ${ctx.vix.toFixed(1)} (${vixLevel})
-        - 거래량(RVOL): ${rvolText(ctx.rvol)} (${rvolLevel})
-
-        [매크로 금리 환경]
-        ${yieldLine}
-        ${spreadLine}
-        ${realYieldLine}
-        ${assetBlock}
-
-        [시장 심리]
-        ${fgLine}
-
-        [시장 참여도 — Breadth]
-        ${breadthLine}
-
-        ${ctx.gexIndex !== undefined ? `[옵션 구조 — GAMMA SHIELD]
-        - GEX 지수: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'}) → ${ctx.gexIndex >= 20 ? '딜러 감마 방어(안정)' : ctx.gexIndex <= -20 ? '딜러 매도 증폭(불안정)' : '약한 감마 방어(취약)'}
-        - 스퀴즈 리스크: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'}) → ${ctx.squeezeRisk! >= 55 ? '변동성 임계' : ctx.squeezeRisk! >= 30 ? '에너지 축적 중' : '안정'}
-        ${ctx.triggerCurrent ? `- S&P 500 현재: ${ctx.triggerCurrent.toLocaleString()}` : ''}
-        ${ctx.triggerSupport ? `- 옵션 지지선: ${ctx.triggerSupport.toLocaleString()} (${ctx.triggerCurrent ? (((ctx.triggerCurrent - ctx.triggerSupport) / ctx.triggerCurrent) * 100).toFixed(1) + '% 아래' : ''})` : ''}
-        ${ctx.triggerResistance ? `- 옵션 저항선: ${ctx.triggerResistance.toLocaleString()} (${ctx.triggerCurrent ? (((ctx.triggerResistance - ctx.triggerCurrent) / ctx.triggerCurrent) * 100).toFixed(1) + '% 위' : ''})` : ''}` : ''}
-
-        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[실시간 시장 뉴스 -- 거시경제 이벤트]
-        ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
-
-        종합 분석 프레임워크 (교차 검증 필수. 해석을 위한 참고이며, 문장에 권유·지시로 옮기지 않는다):
-
-        [기술적 분석]
-        1. RLSI 65+ & 상승 & Breadth 70%+ → 참여가 넓은 건강한 상승
-        2. RLSI 65+ & 상승 & Breadth 50% 미만 → 대형주 주도 상승, 쏠림 심화
-        3. RLSI 65+ & 하락 → 내부 체력은 유지된 채 가격만 조정(매집 가능성)
-        4. RLSI 45 이하 & 상승 → 내부 참여 없는 상승(가짜 랠리 가능성)
-        5. RLSI 45 이하 & 하락 → 약세 확인, 위험 회피 흐름
-
-        [거시경제 판단 규칙]
-        6. VIX 25+ & 공포탐욕 25 미만 → 극단적 공포 구간
-        7. 실질금리 2%+ (긴축) → 성장주 밸류에이션 압박, 방어주 상대 강세 경향
-        8. 2s10s 역전 → 경기침체 경계, 은행/금융주 약세
-        9. 금+TLT 동반 상승 → 안전자산 선호 (위기 신호)
-        10. 유가 급등(+2%↑) + 금리 상승 → 인플레이션 재점화 우려, 연준 정책 경로가 변수
-        11. 달러(DXY) 강세 + 금 약세 → 긴축 기대, 신흥국/원자재 약세 연결
-        12. 공포탐욕 75+ & VIX 15 미만 → 과열 구간, 차익실현 매물이 나오기 쉬운 심리
-        13. BTC 급락(-3%↓) & 금 상승 → 리스크 자산 회피, 전통 안전자산 선호
-        14. Breadth 약한데 지수 상승 → 소수 종목 의존, 상승 기반이 좁음
-
-        [뉴스 해석 규칙]
-        15. CPI/PPI/고용 관련 뉴스 → 금리 정책 방향 + 시장 반응 함께 평가
-        16. 연준 관련 뉴스 → 금리 선물 반영 여부까지 교차 확인
-        17. 지정학 뉴스 → 유가/금/달러 반응으로 실제 영향 판단
-
-        [옵션 구조 분석 규칙 — GAMMA SHIELD]
-        18. GEX +20 이상 → 딜러 헤지가 변동을 누르는 구조(레인지 성격)
-        19. GEX -20 이하 → 딜러 헤지가 움직임을 키우는 구조(하방 변동성 증폭 위험)
-        20. Squeeze 55%+ → 변동성 압축이 임계 수준(방향 불문 급변동 위험)
-        21. 옵션 지지선/저항선 3% 이내 접근 → 해당 레벨 돌파/이탈 시나리오 언급
-        22. GEX 약(−19~+19) + Squeeze 30%+ → "감마 방어력 부족, Squeeze 에너지 축적" 언급
-
-        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `
-        출력 — DIVERGENCE 상황 전용 형식 (반드시 이 형식으로):
-        현재 ${ctx.divergenceCase === 'A' ? '\"가짜 랠리(False Rally)\"' : ctx.divergenceCase === 'B' ? '\"은밀 매집(Stealth Inflow)\"' : ctx.divergenceCase === 'C' ? '\"모멘텀 서지\"' : '\"동반 약세\"'} 패턴이 관측됩니다.
-        상황: ${ctx.divergenceDesc || ''}
-
-        자연스러운 한국어 3문장으로 작성하세요.
-        - 첫 문장 (필수 — 괴리 진단으로 시작): "지수는 ~하고 있으나/~에도 불구하고, 내부 유동성은 ~" 형태로 표면과 내부의 괴리를 대비하며 시작. RLSI, Breadth, 거래량 등 괴리를 입증하는 수치를 반드시 포함. 뉴스가 있으면 괴리 발생 원인과 연결
-        - 두 번째 문장 (괴리의 배경): 왜 이 괴리가 발생했는지 설명. ${ctx.divergenceCase === 'A' ? '소수 대형주 주도 상승인지, 숏커버 반등인지, 특정 뉴스에 의한 일시적 반등인지 판별' : ctx.divergenceCase === 'B' ? '기관이 왜 하락 구간에서 매집하는지, 밸류에이션 매력인지, 정책 기대인지 판별' : '유동성과 가격이 왜 동시에 움직이는지 분석'}. 교차 자산(금/채권/달러/VIX) 으로 뒷받침
-        - 세 번째 문장 (괴리 시사점): 이 괴리가 지속되거나 해소되는 «조건»을 현재형으로 서술(미래형·예측 금지). ${ctx.divergenceCase === 'A' ? '\"Breadth 참여 없는 지수 상승은 소수 종목에 기댄 구조\"와 같은 상태 서술' : ctx.divergenceCase === 'B' ? '\"가격이 내리는 구간에서 유동성이 들어오는 상태\"와 같은 상태 서술' : '방향성 전망'}. 행동 지시 금지
-        - 핵심 원칙: 모든 문장이 괴리(Divergence)를 중심축으로 전개. 뉴스와 지표는 괴리의 원인/근거로만 사용
-        - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지. "~해야 한다" "~주시 필요" 같은 당부도 금지)
-        - 공백 포함 400자 이내
-        - 한국어로만 쓴다. 이모지·마크다운(#, **)·제목·대괄호 레이블 없이 일반 텍스트 3문장만 출력
-        ` : `
-        출력 — "왜 시장이 이렇게 움직이는가"를 최우선으로 작성:
-        자연스러운 한국어 3문장으로 작성하세요.
-        - 대괄호 레이블·제목 없이 문장만 쓴다
-        - 첫 문장 (필수): 오늘 시장을 움직인 핵심 뉴스 이벤트와 시장 반응의 인과관계를 명확히 서술 (예: "2월 CPI 3.2%로 예상 상회하며 6월 금리인하 기대가 후퇴, 10Y 금리 4.31%로 급등하며 성장주 중심 매도세 확산"). 뉴스를 "(뉴스 1번)" 같은 번호로 참조하지 말 것. 뉴스 내용 자체를 자연스럽게 서술
-        - 두 번째 문장: 뉴스 영향이 자산군에 어떻게 전이되었는지 교차 검증 (금/채권/유가/달러 등으로 뒷받침 + RLSI/Breadth 등 핵심 지표로 시장 상태 확인)
-        - 세 번째 문장: 방향을 가르는 핵심 변수와 지금의 조건을 현재형으로 (미래형·단정적 예측·행동 지시 금지. "~하세요" "~보류" "~권장" 같은 표현 금지)
-        - 핵심 원칙: 지표 나열이 아닌 뉴스→시장 반응의 인과 스토리를 전달. 지표는 뉴스의 근거로 사용
-        - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지. "~해야 한다" "~주시 필요" 같은 당부도 금지)
-        - 공백 포함 350자 이내
-        - 한국어로만 쓴다. 이모지·마크다운(#, **)·제목·대괄호 레이블 없이 일반 텍스트 3문장만 출력
-        `}
-    `;
-    },
-    en: (ctx) => {
-        const assetLines: string[] = [];
-        if (ctx.spxChangePct !== undefined) assetLines.push(`S&P 500: ${ctx.spxChangePct >= 0 ? '+' : ''}${ctx.spxChangePct.toFixed(2)}%`);
-        if (ctx.dxy !== undefined) assetLines.push(`DXY: ${ctx.dxy.toFixed(1)}`);
-        if (ctx.goldChangePct !== undefined) assetLines.push(`Gold: ${ctx.goldChangePct >= 0 ? '+' : ''}${ctx.goldChangePct.toFixed(2)}%`);
-        if (ctx.oilChangePct !== undefined) assetLines.push(`Oil: ${ctx.oilChangePct >= 0 ? '+' : ''}${ctx.oilChangePct.toFixed(2)}%`);
-        if (ctx.tltChangePct !== undefined) assetLines.push(`TLT: ${ctx.tltChangePct >= 0 ? '+' : ''}${ctx.tltChangePct.toFixed(2)}%`);
-        if (ctx.fearGreedScore !== undefined) assetLines.push(`Fear & Greed: ${ctx.fearGreedScore.toFixed(0)} (${ctx.fearGreedRating || '?'})`);
-        const assetBlock = assetLines.length > 0 ? `\n        [Cross-Asset]
-        ${assetLines.map(l => `- ${l}`).join('\n        ')}` : '';
-
-        return `
-        You are a top macro strategist and market analyst. Synthesize all indicators, cross-asset flows, and news for accurate market assessment.
-
-        Accuracy Rules:
-        - Data overrides narrative. If numbers contradict news interpretation, trust numbers.
-        - Require 2+ confirming signals before making confident calls.
-        - Use hedged wording ("potential", "may") when evidence is thin; no definitive calls on price.
-
-        Current Data:
-        - RLSI: ${ctx.rlsiScore.toFixed(0)} points
-        - NASDAQ: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
-        - VIX: ${ctx.vix.toFixed(1)}, RVOL: ${rvolText(ctx.rvol)}
-        ${ctx.us10y !== undefined ? `- US10Y: ${ctx.us10y.toFixed(2)}%${bpText(ctx.us10yChangeBp) ? ` (${bpText(ctx.us10yChangeBp)} vs prior close)` : ''}` : ''}
-        ${ctx.breadthPct !== undefined ? `- Breadth: ${Math.round(ctx.breadthPct)}% [${ctx.breadthSignal || '?'}]` : ''}
-        ${assetBlock}
-
-        ${ctx.gexIndex !== undefined ? `[Gamma Shield — Options Structure]
-        - GEX: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
-        - Squeeze: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
-        ${ctx.triggerCurrent ? `- S&P 500: ${ctx.triggerCurrent.toLocaleString()}` : ''}
-        ${ctx.triggerSupport ? `- Support: ${ctx.triggerSupport.toLocaleString()}` : ''}
-        ${ctx.triggerResistance ? `- Resistance: ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
-
-        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[News]
-        ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
-
-        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `
-        Output — DIVERGENCE MODE (strictly follow this format):
-        A ${ctx.divergenceCase === 'A' ? '"False Rally"' : ctx.divergenceCase === 'B' ? '"Stealth Inflow"' : ctx.divergenceCase === 'C' ? '"Momentum Surge"' : '"Synchronized Weakness"'} pattern is detected.
-        Context: ${ctx.divergenceDesc || ''}
-
-        Write 2-3 natural English sentences:
-        1. First sentence (REQUIRED — lead with the divergence): Start with "Index is [rising/falling] but internal liquidity [contradicts]..." contrasting surface vs internals. Include RLSI, breadth, volume data proving the divergence. Connect to news if available
-        2. Second sentence (divergence cause): Why this divergence exists — ${ctx.divergenceCase === 'A' ? 'large-cap driven rally, short-covering bounce, or news-driven temporary rebound?' : ctx.divergenceCase === 'B' ? 'institutional accumulation at value levels, policy expectations, or sector rotation?' : 'analyze why price and liquidity are moving together'}. Cross-validate with gold/bonds/dollar/VIX
-        3. Third sentence (divergence implications): The conditions under which this divergence persists or resolves, in the present tense (no predictions). ${ctx.divergenceCase === 'A' ? '"A rally without breadth participation rests on a narrow set of names"' : ctx.divergenceCase === 'B' ? '"Liquidity is flowing in while price falls"' : 'directional outlook'}. No action directives
-        Core principle: Every sentence must revolve around the divergence. News and indicators serve as evidence for the divergence story.
-        Max 350 chars. Plain text only: no emoji, no Markdown, no title, no labels such as "Market Assessment:"; start directly with the analysis. No reader directives ("should", "watch for", "monitor").
-        ` : `
-        Output — "WHY is the market moving this way" is your #1 priority:
-        Write 2-3 natural English sentences.
-        1. First sentence (REQUIRED): Identify the key news event driving today's market and explain the causal chain. Do NOT reference news by number (no "news #1"). Weave news context naturally
-        2. Second sentence: How news impact propagated across asset classes (cross-validate with gold/bonds/oil/dollar + key indicators like RLSI/Breadth)
-        3. Third sentence: the key variables and the conditions that decide direction, in the present tense (no future tense, no definitive predictions, no action directives)
-        Core principle: Tell the news → market reaction causal story, not a list of indicators. Use indicators as evidence for the narrative.
-        Max 350 chars. Plain text only: no emoji, no Markdown, no title, no labels such as "Market Assessment:"; start directly with the analysis. No reader directives ("should", "watch for", "monitor").
-        `}
-    `;
-    },
-    ja: (ctx) => {
-        const assetLines: string[] = [];
-        if (ctx.spxChangePct !== undefined) assetLines.push(`S&P 500: ${ctx.spxChangePct >= 0 ? '+' : ''}${ctx.spxChangePct.toFixed(2)}%`);
-        if (ctx.dxy !== undefined) assetLines.push(`DXY: ${ctx.dxy.toFixed(1)}`);
-        if (ctx.goldChangePct !== undefined) assetLines.push(`金: ${ctx.goldChangePct >= 0 ? '+' : ''}${ctx.goldChangePct.toFixed(2)}%`);
-        if (ctx.oilChangePct !== undefined) assetLines.push(`原油: ${ctx.oilChangePct >= 0 ? '+' : ''}${ctx.oilChangePct.toFixed(2)}%`);
-        if (ctx.tltChangePct !== undefined) assetLines.push(`TLT: ${ctx.tltChangePct >= 0 ? '+' : ''}${ctx.tltChangePct.toFixed(2)}%`);
-        if (ctx.fearGreedScore !== undefined) assetLines.push(`恐怖貪欲: ${ctx.fearGreedScore.toFixed(0)} (${ctx.fearGreedRating || '?'})`);
-        const assetBlock = assetLines.length > 0 ? `\n        [グローバル資産]
-        ${assetLines.map(l => `- ${l}`).join('\n        ')}` : '';
-
-        return `
-        あなたはトップマクロ戦略家です。全指標、クロスアセット、ニュースを総合して正確な市場分析を提供します。
-
-        精度ルール:
-        - データはナラティブに優先。数値とニュース解釈が矛盾する場合、数値を信頼。
-        - 2つ以上の確認シグナルがある場合のみ確信ある判断。
-
-        現在のデータ:
-        - RLSI: ${ctx.rlsiScore.toFixed(0)}点
-        - NASDAQ: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
-        - VIX: ${ctx.vix.toFixed(1)}, RVOL: ${rvolText(ctx.rvol)}
-        ${ctx.us10y !== undefined ? `- US10Y: ${ctx.us10y.toFixed(2)}%${bpText(ctx.us10yChangeBp) ? `(前日比 ${bpText(ctx.us10yChangeBp)})` : ''}` : ''}
-        ${ctx.breadthPct !== undefined ? `- Breadth: ${Math.round(ctx.breadthPct)}% [${ctx.breadthSignal || '?'}]` : ''}
-        ${assetBlock}
-
-        ${ctx.gexIndex !== undefined ? `[ガンマシールド — オプション構造]
-        - GEX: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
-        - スクイーズ: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
-        ${ctx.triggerCurrent ? `- S&P 500: ${ctx.triggerCurrent.toLocaleString()}` : ''}
-        ${ctx.triggerSupport ? `- サポート: ${ctx.triggerSupport.toLocaleString()}` : ''}
-        ${ctx.triggerResistance ? `- レジスタンス: ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
-
-        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[ニュース]
-        ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
-
-        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `
-        出力 — DIVERGENCE専用形式（必ずこの形式で）:
-        現在 ${ctx.divergenceCase === 'A' ? '「偽のラリー(False Rally)」' : ctx.divergenceCase === 'B' ? '「ステルス流入(Stealth Inflow)」' : ctx.divergenceCase === 'C' ? '「モメンタムサージ」' : '「同時弱体化」'} パターンが観測されています。
-        状況: ${ctx.divergenceDesc || ''}
-
-        自然な日本語3文で作成:
-        1. 第1文（必須 — 乖離の診断で開始）: 「指数は~しているが、内部流動性は~」の形で表面と内部の乖離を対比して開始。RLSI、Breadth、出来高等の乖離を証明するデータを必ず含む
-        2. 第2文（乖離の背景）: なぜこの乖離が発生しているか。クロスアセット（金/債券/ドル/VIX）で裏付け
-        3. 第3文（乖離の示唆）: この乖離が持続/解消する«条件»を現在形で(未来形・予測禁止)。行動指示禁止
-        核心原則: 全ての文が乖離(Divergence)を中心軸に展開。ニュースと指標は乖離の原因/根拠としてのみ使用。
-        350字以内。日本語だけで書く。絵文字・マークダウン(#、**)・タイトル・角括弧ラベルなしのプレーンテキスト3文だけを出力。「〜すべき」「注視」などの呼びかけ禁止。
-        ` : `
-        出力 — 「なぜ市場がこう動いているのか」を最優先で記述:
-        自然な日本語3文で作成してください。
-        1. 第1文（必須）: 本日の市場を動かした核心ニュースイベントと市場反応の因果関係を明確に記述。ニュースを番号で参照しないこと。自然に文脈に織り込む
-        2. 第2文: ニュースの影響が資産クラスにどう波及したか（金/債券/原油/ドルで交差検証 + RLSI/Breadth等の核心指標）
-        3. 第3文: 方向を分ける核心変数と現在の条件を現在形で（未来形・断定的予測・行動指示禁止）
-        核心原則: 指標の羅列ではなくニュース→市場反応の因果ストーリーを伝達。指標はナラティブの根拠として使用。
-        350字以内。日本語だけで書く。絵文字・マークダウン(#、**)・タイトル・角括弧ラベルなしのプレーンテキスト3文だけを出力。「〜すべき」「注視」などの呼びかけ禁止。
-        `}
-    `;
-    }
+    ko: ctx => buildTacticalPrompt(ctx, 'ko'),
+    en: ctx => buildTacticalPrompt(ctx, 'en'),
+    ja: ctx => buildTacticalPrompt(ctx, 'ja'),
 };
 
 // [V9.1 → 2026-09-29] 번역 대체 — «검사를 통과한 다른 언어 문구»를 이 언어로 옮긴다.
@@ -1173,11 +947,11 @@ async function callInsightModel(prompt: string, locale: Locale, label: string, r
  * storedChecked: 호출자가 방금 같은 키를 읽었다(통과분은 이미 메모리에 있다) → Redis 를 다시 읽지 않는다.
  * nums(화면 값)가 있으면 메모리 글도 다시 대조한다 — 생성 뒤 값이 움직여 서술이 낡은 글은 «정상본»이 아니다.
  */
-async function lastValidInsight(type: InsightType, locale: Locale, storedChecked = false, nums?: GNums | null): Promise<InsightOut | null> {
+async function lastValidInsight(type: InsightType, locale: Locale, storedChecked = false, nums?: GNums | null, tacticalPrompts?: TacticalPrompts): Promise<InsightOut | null> {
     const m = _mem[type][locale];
-    if (m && gateText(type, m.text, locale, nums, m.basis).ok) return { tpl: m.text, basis: m.basis ?? null };
+    if (m && gateText(type, m.text, locale, nums, m.basis, false, tacticalPrompts?.(locale)).ok) return { tpl: m.text, basis: m.basis ?? null };
     if (storedChecked) return null;
-    const stored = await readStoredInsight(type, locale, nums);
+    const stored = await readStoredInsight(type, locale, nums, tacticalPrompts);
     if (stored) {
         rememberInsight(type, locale, stored.text, stored.at, stored.basis);
         return { tpl: stored.text, basis: stored.basis ?? null };
@@ -1186,17 +960,17 @@ async function lastValidInsight(type: InsightType, locale: Locale, storedChecked
 }
 
 /** 다른 언어의 «검사를 통과한» 문구를 번역해 채운다. 번역도 검사하고(화면 숫자 포함), 통과한 것만 저장한다. */
-async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums | null): Promise<InsightOut | null> {
+async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums | null, tacticalPrompts?: TacticalPrompts): Promise<InsightOut | null> {
     if (!process.env.AWS_ACCESS_KEY_ID) return null;
     for (const src of TRANSLATE_SOURCES[locale]) {
         const m = _mem[type][src];
-        const source = m && gateText(type, m.text, src, nums, m.basis).ok ? m : await readStoredInsight(type, src, nums);
+        const source = m && gateText(type, m.text, src, nums, m.basis, false, tacticalPrompts?.(src)).ok ? m : await readStoredInsight(type, src, nums, tacticalPrompts);
         if (!source) continue;
         const translated = await translateInsight(source.text, src, locale, type);
         if (!translated) continue;
         // 원본에 기준이 없으면(옛 저장본) 지금 화면 값이 기준 — 자리표로 바꾸는 숫자도 그 값과 같은 것뿐이다
         const basis = source.basis ?? nums ?? null;
-        const g = gateText(type, tokenizeGuardianLiterals(translated, basis), locale, nums, basis);
+        const g = gateText(type, tokenizeGuardianLiterals(translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale));
         if (!g.ok || isPlaceholder(g.text)) {
             console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${g.reasons.join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);
             continue;
@@ -1235,7 +1009,9 @@ export class IntelligenceNode {
 
     static async generateRealityInsight(ctx: IntelligenceContext): Promise<string> {
         // [V11.1] Reality Insight downgraded to Haiku 4.5 — 350-char output, sufficient quality, 1/3 cost
-        return IntelligenceNode.produceInsight('reality', ctx, (locale) => REALITY_PROMPTS[locale](ctx));
+        // 공유 코어의 관측 시각이 낡아도 일정의 미래 여부는 요청 시각으로 판정한다.
+        const current = { ...ctx, asOf: new Date(Date.now()).toISOString() };
+        return IntelligenceNode.produceInsight('reality', current, (locale) => REALITY_PROMPTS[locale](current));
     }
 
     static async generateGammaInsight(ctx: IntelligenceContext): Promise<string> {
@@ -1263,7 +1039,10 @@ export class IntelligenceNode {
      * 실패 언어가 있으면 사유를 담은 교정 지시로 한 번 더(시간 여유가 있을 때). parsed=false 는 «모델 응답·파싱 실패»(호출자가 옛 방식으로).
      */
     private static async generateTrilingual(type: InsightType, nums: GNums, buildPrompt: (locale: Locale) => string): Promise<TriOutcome> {
-        const key = `${type}:${JSON.stringify(nums)}`;
+        // 요청마다 달라지는 확인 시각은 공유 키에서 뺀다. 뉴스·일정이 바뀌면 별도 생성하고,
+        // 공유 결과도 아래 호출자의 현재 근거로 재검사한다(언어별 중복 모델 호출 방지).
+        const material = type === 'reality' ? buildPrompt('en').replace(/^AS_OF: .*$/m, '').replace(/"asOf":"[^"]*",?/, '') : '';
+        const key = `${type}:${JSON.stringify(nums)}:${material}`;
         const inflight = _triInflight.get(key);
         if (inflight) return inflight;
         const job = IntelligenceNode.generateTrilingualOnce(type, nums, buildPrompt).finally(() => { _triInflight.delete(key); });
@@ -1305,10 +1084,10 @@ export class IntelligenceNode {
             for (const l of only) {
                 const r = raw[l];
                 if (!r) { failed[l] = ['missing']; continue; }
-                let g = gateText(type, tokenizeGuardianLiterals(r, nums), l, nums, nums, true);
+                let g = gateText(type, tokenizeGuardianLiterals(r, nums), l, nums, nums, true, type === 'reality' ? buildPrompt(l) : undefined);
                 // 예측어만 걸렸고 이게 마지막 기회이면 그 문장을 빼고 쓴다(먼저 교정 재생성을 해 본다)
                 if (last && !g.ok && g.reasons.every((x) => x.startsWith('forecast:'))) {
-                    const lenient = gateText(type, tokenizeGuardianLiterals(r, nums), l, nums, nums, false);
+                    const lenient = gateText(type, tokenizeGuardianLiterals(r, nums), l, nums, nums, false, type === 'reality' ? buildPrompt(l) : undefined);
                     if (lenient.ok) g = lenient;
                 }
                 if (g.ok && !isPlaceholder(g.text)) into[l] = { tpl: g.tpl, basis: nums };
@@ -1347,16 +1126,17 @@ export class IntelligenceNode {
     }
 
     private static async produceInsightOut(type: InsightType, locale: Locale, nums: GNums, buildPrompt: (locale: Locale) => string): Promise<InsightOut> {
+        const tacticalPrompts = type === 'reality' ? buildPrompt : undefined;
         const now = Date.now();
         const offHours = isOffHours();
         const ttl = offHours ? OFF_HOURS_TTL : TTL_NORMAL[type];
 
         // ① 메모리 — 검사를 통과한 글만 들어 있다. 화면 값이 움직여 서술이 낡았으면 쓰지 않는다.
         const mem = _mem[type][locale];
-        if (mem && now - mem.at < ttl && gateText(type, mem.text, locale, nums, mem.basis).ok) return { tpl: mem.text, basis: mem.basis ?? null };
+        if (mem && now - mem.at < ttl && gateText(type, mem.text, locale, nums, mem.basis, false, tacticalPrompts?.(locale)).ok) return { tpl: mem.text, basis: mem.basis ?? null };
 
         // ② Redis — 콜드 스타트마다 모델을 부르지 않게. 읽을 때도 검사한다.
-        const stored = await readStoredInsight(type, locale, nums);
+        const stored = await readStoredInsight(type, locale, nums, tacticalPrompts);
         if (stored) {
             if (!mem || stored.at >= mem.at) rememberInsight(type, locale, stored.text, stored.at, stored.basis);
             if (now - stored.at < ttl) {
@@ -1368,58 +1148,59 @@ export class IntelligenceNode {
         // ③ 장외(주말·20:00~04:00 ET) — 모델을 부르지 않는다
         if (offHours) {
             console.log(`[IntelligenceNode] Off-hours: skipping model call for ${type} (${locale})`);
-            return IntelligenceNode.recoverInsightOut(type, locale, { storedChecked: true, nums });
+            return IntelligenceNode.recoverInsightOut(type, locale, { storedChecked: true, nums, tacticalPrompts });
         }
 
         if (!process.env.AWS_ACCESS_KEY_ID) {
             console.error(`[IntelligenceNode] AWS_ACCESS_KEY_ID missing — ${type}/${locale} serves last valid text or placeholder`);
-            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums, tacticalPrompts });
         }
 
         // 직전 생성이 두 번 다 검사에서 떨어졌다 — 쿨다운 동안은 모델을 두드리지 않는다
         if (now < _genFailUntil[type][locale]) {
-            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums, tacticalPrompts });
         }
 
         // ★2026-10-07 T5 재료 완결 게이트 — 시장 데이터(RLSI·VIX)가 안 온 조기 재료로는 생성하지 않는다(마지막 정상본 유지)
         const issues = guardianMaterialIssues(nums);
         if (issues.length) {
             console.warn(`[IntelligenceNode] 재료 미완결(${issues.join(',')}) — 생성 안 함, 마지막 정상본 유지: ${type}/${locale}`);
-            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums, tacticalPrompts });
         }
 
         // ④-a 3개 언어 1호출 — 같은 재료로 ko·en·ja 를 한 번에(사실이 언어 간 같다). 통과한 언어는 전부 저장한다.
         const started = Date.now();
         const tri = await IntelligenceNode.generateTrilingual(type, nums, buildPrompt);
-        if (tri.out[locale]) return tri.out[locale]!;
+        const candidate = tri.out[locale];
+        if (candidate && gateText(type, candidate.tpl, locale, nums, candidate.basis, false, tacticalPrompts?.(locale)).ok) return candidate;
         if (tri.parsed) {
             // 모델은 답했지만 이 언어의 글이 검사를 못 넘었다(교정 재생성까지) — 같은 재료로 단일 언어를 또 부르면 같은 이유로 떨어지기 쉽다 → 복구
             _genFailUntil[type][locale] = Date.now() + GEN_FAIL_COOLDOWN_MS;
-            return IntelligenceNode.recoverInsightOut(type, locale, { translate: Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true, nums });
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true, nums, tacticalPrompts });
         }
 
         if (Date.now() - started > TRI_FALLBACK_MAX_ELAPSED_MS) {
             // 3개 언어 호출이 오래 걸리고 실패했다 — 옛 경로까지 가면 라우트 한도(60초)를 넘는다 → 복구
             _genFailUntil[type][locale] = Date.now() + GEN_FAIL_COOLDOWN_MS;
-            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums });
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums, tacticalPrompts });
         }
         // ④-b (3개 언어 호출이 응답·파싱에 실패했을 때만) 옛 방식 — 이 언어 하나만 생성 → (숫자를 직접 쓴 자리는 같은 값이면 자리표로) → 검사 → (떨어지면) 교정 지시 + 한 번 더 → 검사
         const prompt = buildPrompt(locale) + guardianTokenRules(locale, nums);
         const label = `${type.toUpperCase()}_${locale}`;
         let raw = await callInsightModel(prompt, locale, label);
-        let gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, true) : null;
+        let gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, true, tacticalPrompts?.(locale)) : null;
         if (raw !== null && gated && !gated.ok) {
             console.warn(`[InsightGate] REJECT generated ${type}/${locale} (1/2: ${gated.reasons.join(' | ')}) :: ${previewForLog(raw)}`);
             if (Date.now() - started < RETRY_BUDGET_MS) {
                 raw = await callInsightModel(prompt + CORRECTIVE_INSTRUCTION[locale](gated.reasons), locale, `${label}/retry`, true);
-                gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, true) : null;
+                gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, true, tacticalPrompts?.(locale)) : null;
                 if (raw !== null && gated && !gated.ok) {
                     console.warn(`[InsightGate] REJECT generated ${type}/${locale} (2/2: ${gated.reasons.join(' | ')}) :: ${previewForLog(raw)}`);
                 }
             }
             // 예측어만 걸렸으면 그 문장을 빼고 쓴다(사유가 forecast 뿐일 때)
             if (raw !== null && gated && !gated.ok && gated.reasons.every((r) => r.startsWith('forecast:'))) {
-                const lenient = gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, false);
+                const lenient = gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, false, tacticalPrompts?.(locale));
                 if (lenient.ok) gated = lenient;
             }
         }
@@ -1432,7 +1213,7 @@ export class IntelligenceNode {
 
         // ⑤ 검사를 통과한 새 글이 없다 → 마지막 정상본 / 번역 / 고정 문구
         _genFailUntil[type][locale] = Date.now() + GEN_FAIL_COOLDOWN_MS;
-        return IntelligenceNode.recoverInsightOut(type, locale, { translate: Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true, nums });
+        return IntelligenceNode.recoverInsightOut(type, locale, { translate: Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true, nums, tacticalPrompts });
     }
 
     /**
@@ -1440,19 +1221,19 @@ export class IntelligenceNode {
      *   마지막 정상본(메모리·Redis) → 다른 언어 정상본의 번역(검사 통과분만, 저장) → 고정 안내 문구(장외/대기).
      * nums(화면 값)를 주면 후보마다 화면 숫자 대조까지 한다. 절대 throw 하지 않는다. 돌려주는 tpl 은 자리표가 남은 글.
      */
-    static async recoverInsightOut(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null } = {}): Promise<InsightOut> {
+    static async recoverInsightOut(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null; tacticalPrompts?: TacticalPrompts } = {}): Promise<InsightOut> {
         try {
-            const last = await lastValidInsight(type, locale, opts.storedChecked === true, opts.nums);
+            const last = await lastValidInsight(type, locale, opts.storedChecked === true, opts.nums, opts.tacticalPrompts);
             if (last) return last;
             // 장외: 12시간 저장본이 사라졌으면 마지막 완료 세션의 같은 언어 글(검사 통과분) — 안내 문구보다 먼저, 번역(모델 호출)보다 먼저
             if (isOffHours()) {
-                const arch = await archivedInsight(type, locale, opts.nums);
+                const arch = await archivedInsight(type, locale, opts.nums, opts.tacticalPrompts);
                 // 메모리에 올리지 않는다 — 올리면 다른 언어 요청이 이 글을 번역 원천으로 써 장외 모델 호출이 생긴다(관문 2차: 0회 → 1회).
                 //   보관본 읽기는 EC2 GET 한 번이라 매 요청 읽어도 싸다.
                 if (arch) return { tpl: arch.tpl, basis: arch.basis };
             }
             if (opts.translate !== false) {
-                const translated = await translatedInsight(type, locale, opts.nums);
+                const translated = await translatedInsight(type, locale, opts.nums, opts.tacticalPrompts);
                 if (translated) {
                     console.log(`[IntelligenceNode] ${type}/${locale}: 다른 언어의 정상 문구를 번역해 채웠다`);
                     return translated;
@@ -1465,7 +1246,7 @@ export class IntelligenceNode {
     }
 
     /** recoverInsightOut 의 화면 글(자리표를 nums — 없으면 생성 때 값 — 로 채운 글). */
-    static async recoverInsight(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null } = {}): Promise<string> {
+    static async recoverInsight(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null; tacticalPrompts?: TacticalPrompts } = {}): Promise<string> {
         return shownOut(type, locale, await IntelligenceNode.recoverInsightOut(type, locale, opts), opts.nums);
     }
 
@@ -1491,7 +1272,7 @@ export class IntelligenceNode {
      *   생성 때 값(basis)에서 방향이 뒤집혔거나 크게 움직였으면(서술이 낡음) 탈락, 숫자로 박힌 지표는 화면 값과 대조한다.
      */
     static async repairVerdictTexts<V extends VerdictLike>(
-        verdict: V, locale: Locale, where: string, nums?: GNums | null,
+        verdict: V, locale: Locale, where: string, nums?: GNums | null, tacticalPrompts?: TacticalPrompts,
     ): Promise<{ verdict: V; changed: boolean; repaired: string[] }> {
         let out = verdict;
         let changed = false;
@@ -1511,15 +1292,15 @@ export class IntelligenceNode {
             const tpl = typeof tplIn[field] === 'string' && tplIn[field] ? tplIn[field] as string : value;
             if (typeof tpl !== 'string' || !tpl.trim()) continue;
             const basis = basisIn[field] ?? null;
-            const g = gateText(type, tpl, locale, nums, basis);
+            const g = gateText(type, tpl, locale, nums, basis, false, tacticalPrompts?.(locale));
             if (g.ok) {
                 if (g.text !== value) { out = { ...out, [field]: g.text }; changed = true; }
                 setNum(field, g.tpl, g.text, basis);
                 continue;
             }
             console.warn(`[InsightGate] REJECT ${where} verdict.${field} (${locale}: ${g.reasons.join(' | ')}) :: ${previewForLog(g.text)}`);
-            const rec = await IntelligenceNode.recoverInsightOut(type, locale, { nums });
-            const g2 = gateText(type, rec.tpl, locale, nums, rec.basis);
+            const rec = await IntelligenceNode.recoverInsightOut(type, locale, { nums, tacticalPrompts });
+            const g2 = gateText(type, rec.tpl, locale, nums, rec.basis, false, tacticalPrompts?.(locale));
             const shown = g2.ok ? g2.text : (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale];
             out = { ...out, [field]: shown };
             setNum(field, g2.ok ? g2.tpl : shown, shown, g2.ok ? rec.basis : null);
@@ -1542,7 +1323,7 @@ export class IntelligenceNode {
      * (장중에 생성이 잠깐 실패한 칸이 밤새 «준비 중»으로 굳지 않게. 직전본도 검사한다 — nums 를 주면 화면 숫자까지.)
      */
     static keepRealTextOverPlaceholders<V extends VerdictLike>(
-        next: V, prev: V | null | undefined, locale: Locale, nums?: GNums | null,
+        next: V, prev: V | null | undefined, locale: Locale, nums?: GNums | null, tacticalPrompts?: TacticalPrompts,
     ): V {
         if (!prev) return next;
         let out = next;
@@ -1553,7 +1334,7 @@ export class IntelligenceNode {
             if (typeof before !== 'string' || isPlaceholder(before)) continue;
             const prevTpl = prev?.num?.tpl?.[field];
             const prevBasis = prev?.num?.basis?.[field] ?? null;
-            const g = gateText(type, typeof prevTpl === 'string' && prevTpl ? prevTpl : before, locale, nums, prevBasis);
+            const g = gateText(type, typeof prevTpl === 'string' && prevTpl ? prevTpl : before, locale, nums, prevBasis, false, tacticalPrompts?.(locale));
             if (!g.ok) continue;
             out = { ...out, [field]: g.text };
             if (g.tpl !== g.text) {

@@ -38,8 +38,8 @@ import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSess
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
-const LOGO = (t: string) => `/api/logo/${t}?v=3`;
-const APP_LOGO = (t: string) => `/api/logo/${t}?v=3`;
+const LOGO = (t: string) => `/api/logo/${t}?v=4`;
+const APP_LOGO = (t: string) => `/api/logo/${t}?v=4`;
 
 function handleLogoFallback(event: SyntheticEvent<HTMLImageElement>, ticker: string) {
   const img = event.currentTarget;
@@ -4098,7 +4098,7 @@ export default function AppFlowPage() {
                 .slice()
                 .sort((a, b) => Math.abs(b.oiChange ?? 0) - Math.abs(a.oiChange ?? 0))
                 .slice(0, 8);
-              const nf = (n: number) => n.toLocaleString();
+              const nf = (n: number | null | undefined) => n == null ? '—' : n.toLocaleString();
               return (
                 <div className="premium-card" style={{ padding: '16px 15px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
