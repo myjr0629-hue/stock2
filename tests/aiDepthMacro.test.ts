@@ -415,6 +415,13 @@ test('관문 10차 재현: 레벨이 주어인 문장의 위/아래', () => {
         assert.deepEqual(checkDepthLine(t, loc, src).filter(r => r === 'insight:level-side'), [], t);
 });
 
+test('관문 11차 재현: 감마 서술 수식어 여러 개', () => {
+    const src = buildLineUserPrompt(f);   // 양감마
+    for (const t of ['Gamma is now net negative, amplifying swings', 'Dealer gamma has flipped negative here', 'Gamma exposure turned deeply negative', 'Gamma went short into expiry'])
+        assert.ok(checkDepthLine(t, 'en', src).includes('insight:gamma-sign'), t);
+    assert.deepEqual(checkDepthLine('Positive gamma buffers negative shocks', 'en', src).filter(r => r === 'insight:gamma-sign'), []);
+});
+
 async function main() {
     // 프록시 서버를 띄우거나 Redis에 연결하지 않고 실제 readBody 함수 본문을 로드한다.
     const proxy = readFileSync('scripts/ec2-redis-proxy.js', 'utf8');

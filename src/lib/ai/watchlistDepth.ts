@@ -48,7 +48,7 @@ export function positioningSideReasons(text: string, source: string): string[] {
     const G = '(?:감마|gamma|ガンマ)';
     // before = 감마 앞(3자 안)에 붙는 부호(«음감마»·«음(−) 감마»·«net negative gamma»·«負ガンマ») · after = 감마 뒤 서술(«감마 노출이 음수»·«gamma is net negative»)
     //   영어 서술은 연결어(is/are/was/remains/stays/turned)가 있을 때만 — «Positive gamma buffers negative shocks»의 negative 는 충격 수식어
-    const sign = (before: string, enAfter: string, cjkAfter: string) => new RegExp(`(?:${before})[^.,;。、]{0,3}?${G}|${G}[^.,;。、]{0,14}?(?:\\b(?:is|are|was|were|remains|stays|turned)\\s+(?:net\\s+|now\\s+|still\\s+)?(?:${enAfter})|${cjkAfter})`, 'i');
+    const sign = (before: string, enAfter: string, cjkAfter: string) => new RegExp(`(?:${before})[^.,;。、]{0,3}?${G}|${G}[^.,;。、]{0,14}?(?:\\b(?:(?:has|have|had)\\s+)?(?:is|are|was|were|remains?|stays?|turn(?:s|ed|ing)?|flip(?:s|ped|ping)?|went|goes|gone|becomes?|became|sits?)\\s+(?:(?:now|net|still|deeply|firmly|more|slightly|clearly|currently|very|quite|increasingly|already|again|back|into|to|a|the)\\s+){0,3}(?:${enAfter})|${cjkAfter})`, 'i');
     const neg = sign('negative|short|음수|음|마이너스|負|マイナス', 'negative|short', '음수|마이너스|負|マイナス').test(text);
     const pos = sign('positive|long|양수|양|플러스|正|プラス', 'positive|long', '양수|플러스|正(?!確)|プラス').test(text);
     if (neg && !/negative gamma zone/.test(source)) out.push('insight:gamma-sign');
