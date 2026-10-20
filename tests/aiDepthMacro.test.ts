@@ -8,6 +8,7 @@ import { cleanInsight, gateInsight } from '../src/lib/ai/outputGate';
 import { buildLineFacts, buildLineUserPrompt, checkLineOutput, WL_LINE_SYSTEM } from '../src/lib/ai/watchlistLine';
 import { checkDepthLine } from '../src/lib/ai/watchlistDepth';
 import { newsForStock } from '../src/lib/ai/stockEvidence';
+import { evidenceTime } from '../src/lib/ai/evidenceTime';
 
 const now = new Date('2026-10-20T15:00:00Z');
 const headline = datedHeadline({ title: 'Treasury auction draws weak demand', published_utc: '2026-10-20T14:00:00Z' }, 'Polygon', now)!;
@@ -37,6 +38,76 @@ test('NEWS PULSE·경제·실적은 기존 캐시 모양에서만, 지난/오래
     assert.ok(!e.events.some(x => /Past/.test(x)));
     assert.ok(cachedEvidence(null, { updatedAt: now.toISOString(), events: [{ date: '2026-10-20', time: '08:30', event: 'Already released' }] }, null, now).events.length === 0);
     assert.equal(cachedEvidence(null, { updatedAt: '2026-10-19T00:00:00Z', events: [{ date: '2026-10-21', event: 'Stale' }] }, null, now).events.length, 0);
+});
+
+test('원천별 시간대: econ UTC · FMP 뉴스/실적 ET · 명시 오프셋과 정규화 UTC 우선', () => {
+    for (const [date, utc, et] of [['2026-10-20', '12:30', '08:30'], ['2026-12-01', '12:30', '07:30']]) {
+        const econ = evidenceTime('fmp:econ-calendar', `${date} ${utc}`)!;
+        assert.equal(econ.iso, `${date}T12:30:00.000Z`);
+        assert.equal(econ.time, et);
+        for (const source of ['fmp:news', 'earnings:et'] as const) {
+            assert.equal(evidenceTime(source, `${date} ${et}`)?.iso, econ.iso);
+            assert.equal(evidenceTime(source, `${date}T12:30:00Z`)?.iso, econ.iso);
+        }
+    }
+    assert.equal(evidenceTime('fmp:news', '2026-11-01T01:30:00-05:00')?.iso, '2026-11-01T06:30:00.000Z');
+    assert.equal(evidenceTime('fmp:econ-calendar', '2026-10-20 12:30:45')?.iso, '2026-10-20T12:30:45.000Z');
+    assert.match(datedHeadline({ title: 'Normalized news', published_utc: '2026-10-20T14:00:00Z', publishedDate: '2026-10-20 12:00:00' }, 'FMP', now)!, /T14:00:00.000Z/);
+    for (const value of [undefined, '', '2026-02-30 12:30', '2026-10-20 24:00', '2026-10-20 bad', '2026-10-20']) {
+        assert.equal(evidenceTime('fmp:econ-calendar', value), null);
+    }
+    assert.equal(evidenceTime('fmp:news', '2026-03-08 02:30:00'), null);
+});
+
+test('관문 재현: UTC 12:30 → 여름 08:30/겨울 07:30 ET, 경과한 일정은 Tactical 입력에서 제외', () => {
+    for (const [date, et, before, after] of [
+        ['2026-10-20', '08:30', '2026-10-20T12:00:00Z', '2026-10-20T13:00:00Z'],
+        ['2026-12-01', '07:30', '2026-12-01T12:00:00Z', '2026-12-01T14:00:00Z'],
+    ]) {
+        const eventsAt = (iso: string) => cachedEvidence(null, { updatedAt: iso, events: [{ date, time: '12:30', event: 'Fixed macro release' }] }, null, new Date(iso));
+        const upcoming = eventsAt(before);
+        assert.deepEqual(upcoming.marketEvents, [`[economic calendar; ${date} ${et} ET] Fixed macro release (scheduled; not a released result)`]);
+        assert.deepEqual(upcoming.events, upcoming.marketEvents);
+        assert.ok(buildTacticalPrompt({ ...facts, asOf: before, scheduledEvents: upcoming.events }, 'en').includes(upcoming.marketEvents[0]));
+        for (const iso of [`${date}T12:30:00Z`, after]) {
+            const elapsed = eventsAt(iso);
+            assert.deepEqual(elapsed.events, []);
+            assert.doesNotMatch(buildTacticalPrompt({ ...facts, asOf: iso, scheduledEvents: elapsed.events }, 'en'), /Fixed macro release|12:30 ET/);
+        }
+    }
+});
+
+test('3월·11월 DST 경계: UTC 순간으로 판정, ET 중복 시각에도 지난 일정 재등장 없음', () => {
+    for (const [date, first, second, firstET, secondET] of [
+        ['2026-03-08', '06:59', '07:00', '01:59', '03:00'],
+        ['2026-11-01', '05:59', '06:00', '01:59', '01:00'],
+    ]) {
+        assert.equal(evidenceTime('fmp:econ-calendar', `${date} ${first}`)?.time, firstET);
+        assert.equal(evidenceTime('fmp:econ-calendar', `${date} ${second}`)?.time, secondET);
+        const iso = `${date}T${first}:30Z`;
+        const e = cachedEvidence(null, { updatedAt: iso, events: [
+            { date, time: first, event: 'Elapsed before DST switch' },
+            { date, time: second, event: 'Upcoming after DST switch' },
+        ] }, null, new Date(iso));
+        assert.equal(e.marketEvents.length, 1);
+        assert.match(e.marketEvents[0], new RegExp(`${secondET} ET.*Upcoming after DST switch`));
+        for (const source of ['fmp:news', 'earnings:et'] as const) {
+            const wall = date === '2026-03-08' ? '03:00' : '02:00';
+            assert.equal(evidenceTime(source, `${date} ${wall}`)?.iso, `${date}T07:00:00.000Z`);
+        }
+    }
+});
+
+test('UTC 자정의 ET 날짜 이동: 내일 UTC→오늘 ET, 모레 UTC→내일 ET, 시각 없는 일정 제외', () => {
+    const iso = '2026-10-20T23:00:00Z';
+    const e = cachedEvidence(null, { updatedAt: iso, events: [
+        { date: '2026-10-21', time: '02:00', event: 'Tonight' },
+        { date: '2026-10-22', time: '02:00', event: 'Tomorrow night' },
+        { date: '2026-10-21', event: 'Unknown time' }, null,
+    ] }, null, new Date(iso));
+    assert.equal(e.marketEvents.length, 2);
+    assert.match(e.marketEvents[0], /2026-10-20 22:00 ET.*Tonight/);
+    assert.match(e.marketEvents[1], /2026-10-21 22:00 ET.*Tomorrow night/);
 });
 
 test('종목 뉴스: A/ET 오탐 재현·공급사 태그 우선·태그 없을 때 제목의 명시적 표기만', () => {

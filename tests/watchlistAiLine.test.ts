@@ -326,6 +326,28 @@ async function asyncTests() {
     }
   });
 
+  await at('관문 회귀: 내 종목 경제 일정 UTC→ET, 여름·겨울 경과 시 예정 근거 제거', async () => {
+    const clock = Date.now;
+    try {
+      for (const [day, et] of [['2026-10-20', '08:30'], ['2026-12-01', '07:30']]) {
+        let iso = `${day}T12:00:00Z`;
+        Date.now = () => Date.parse(iso);
+        store.clear();
+        store.set('fmp:econ-calendar', { updatedAt: iso, events: [{ date: day, time: '12:30', event: 'Fixed macro release' }] });
+        script.push({ text: GOOD });
+        assert.equal((await generateLines(['NVDA'])).out.NVDA, 'generated');
+        assert.match(lastPrompt, new RegExp(`MARKET CONTEXT ONLY.*${day} ${et} ET.*Fixed macro release`));
+        assert.doesNotMatch(lastPrompt, /12:30 ET/);
+        iso = `${day}T14:00:00Z`;
+        store.delete('wlai:lock:NVDA');
+        script.push({ text: GOOD });
+        // 일정 경과는 입력 해시도 바꾸므로 같은 지형의 정기 확인에서도 옛 예정 근거를 재사용하지 않는다.
+        assert.equal((await generateLines(['NVDA'], { cachedContextOnly: ['NVDA'] })).out.NVDA, 'generated');
+        assert.doesNotMatch(lastPrompt, /Fixed macro release|12:30 ET/);
+      }
+    } finally { Date.now = clock; }
+  });
+
   await at('회귀: WFC 08:00 ET 입력에는 07:00 발표됨·실제치, 타 종목 실적 제외', async () => {
     const clock = Date.now;
     Date.now = () => Date.parse('2026-10-13T12:00:00Z');

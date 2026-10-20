@@ -1,5 +1,5 @@
 import { checkNumberGrounding } from './depthNumbers';
-import { fmpEtToIso } from '@/lib/fmpTime';
+import { evidenceTime } from './evidenceTime';
 import { applyConfirmedEarnings, CONFIRMED_EARNINGS, type OverlayRow } from '@/lib/earningsConfirmed';
 import { providerSymbols, type StockNewsEvidence } from './stockEvidence';
 import { etDateOf } from '@/lib/marketCalendar';
@@ -20,14 +20,12 @@ export interface TacticalContext {
 
 /** 발행 시각 없는 뉴스와 오늘이 아닌 뉴스는 오늘의 원인 근거로 쓰지 않는다. */
 export function datedHeadline(n: { title?: string; description?: string; published_utc?: string; publishedDate?: string; publishedAt?: string; source?: string }, source: string, now = new Date()): string | null {
-    const at = n.published_utc || n.publishedDate || n.publishedAt || '';
-    // 뉴스 펄스와 같은 FMP 뉴욕 벽시계 변환기를 사용한다.
-    const iso = n.publishedDate ? fmpEtToIso(n.publishedDate) || '' : at;
-    const ms = Date.parse(iso);
-    if (!n.title || !Number.isFinite(ms) || ms > now.getTime() || etDateOf(ms) !== etDateOf(now.getTime())) return null;
+    const at = n.published_utc ? evidenceTime('news:utc', n.published_utc)
+        : n.publishedDate ? evidenceTime('fmp:news', n.publishedDate) : evidenceTime('news:utc', n.publishedAt);
+    if (!n.title || !at || at.ms > now.getTime() || at.date !== etDateOf(now.getTime())) return null;
     const title = `${n.title}${n.description ? ` — ${n.description.slice(0, 120)}` : ''}`;
     if (textIntegrityReasons(title).length) return null;
-    return `[${source}; ${new Date(ms).toISOString()}] ${title}`;
+    return `[${source}; ${at.iso}] ${title}`;
 }
 
 /** 기존 캐시만 사용. 종목 근거와 시장 맥락을 분리하고, 발표 시각 경과와 실제치를 구분한다. */
@@ -49,8 +47,8 @@ export function cachedEvidence(pulse: any, econ: any, earnings: any, now = new D
     const stockEvents: Array<{ ticker: string; text: string }> = [];
     if (fresh(econ?.updatedAt || econ?.ts || econ?.generatedAt, 6 * 3600_000)) {
         for (const e of Array.isArray(econ?.events) ? econ.events : []) {
-            const at = fmpEtToIso(`${e.date} ${e.time || '00:00'}:00`);
-            if ((e.date === tomorrow || (e.date === today && at && Date.parse(at) > now.getTime())) && typeof e.event === 'string') marketEvents.push(`[economic calendar; ${e.date} ${e.time || 'time unknown'} ET] ${e.event} (scheduled; not a released result)`);
+            const at = evidenceTime('fmp:econ-calendar', `${e?.date} ${e?.time}`);
+            if (at && [today, tomorrow].includes(at.date) && at.ms > now.getTime() && typeof e.event === 'string') marketEvents.push(`[economic calendar; ${at.date} ${at.time} ET] ${e.event} (scheduled; not a released result)`);
         }
     }
     if (fresh(earnings?.generatedAt, 6 * 3600_000)) {
@@ -65,9 +63,9 @@ export function cachedEvidence(pulse: any, econ: any, earnings: any, now = new D
                 .find((t): t is string => typeof t === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(t));
             const hour = String(e.hour || '').toLowerCase();
             const cutoff = exact || (hour === 'bmo' ? '08:00' : hour === 'amc' ? '16:00' : null);
-            const at = cutoff ? fmpEtToIso(`${e.date} ${cutoff.length === 5 ? `${cutoff}:00` : cutoff}`) : null;
+            const at = cutoff ? evidenceTime('earnings:et', `${e.date} ${cutoff}`) : null;
             const actuals = sourceMatches ? (['epsActual', 'revenueActual'] as const).flatMap(k => typeof e[k] === 'number' && Number.isFinite(e[k]) ? [`${k}=${e[k]}`] : []) : [];
-            const released = e.date === today && (actuals.length > 0 || !!(at && Date.parse(at) <= now.getTime()));
+            const released = e.date === today && (actuals.length > 0 || !!(at && at.ms <= now.getTime()));
             const timing = exact ? `${exact} ET` : cutoff ? `${hour.toUpperCase()} timing boundary ${cutoff} ET; exact release time unknown` : 'release time unknown';
             const status = released ? `released; ${actuals.length ? actuals.join('; ') : 'actuals unavailable'}${!exact && !actuals.length ? '; timing boundary elapsed, release unverified' : ''}`
                 : e.date === today && !at ? 'release status unconfirmed' : `${e.dateStatus === 'confirmed' ? 'confirmed' : 'estimated schedule'}; scheduled; not a released result`;
