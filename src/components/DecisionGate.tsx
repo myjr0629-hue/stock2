@@ -224,8 +224,8 @@ export const DecisionGate = ({ ticker, displayPrice, session, structure, krNews,
     }
 
     // 14. Vol Regime — REG only
-    if (isREG && volatilityData) {
-        const rs = volatilityData.regimeScore || 50;
+    if (isREG && typeof volatilityData?.regimeScore === 'number') {
+        const rs = volatilityData.regimeScore;
         if (rs >= 70) {
             signals.push({ name: 'volregime', family: 'derivatives', direction: 'neutral', weight: 0, label: ts('volErupting') });
         } else if (rs <= 30) {
@@ -318,7 +318,7 @@ export const DecisionGate = ({ ticker, displayPrice, session, structure, krNews,
         const isVolatile = (netGex < 0 && (volatilityData?.regimeScore >= 70 || (squeezeData?.status === 'CRITICAL')));
         const isHedging = signals.some(s => s.name === 'ivskew' && s.direction === 'bear') &&
             (netPremium < -200000 || (institutionalData?.darkPool?.sellPct > 50));
-        const isCompression = volatilityData?.regimeScore <= 35 &&
+        const isCompression = typeof volatilityData?.regimeScore === 'number' && volatilityData.regimeScore <= 35 &&
             callWall > 0 && putFloor > 0 &&
             ((callWall - displayPrice) / displayPrice < 0.08) &&
             ((displayPrice - putFloor) / displayPrice < 0.08);

@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
+import { computeStructureVolatilityRegime } from '@/services/volatilityRegime';
+import type { Metric } from '@/lib/metrics/contract';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,6 +108,7 @@ export async function GET(req: NextRequest) {
         //    보는 값이 폴백 상수면 그건 사용자를 속이는 것이다. null 로 둔다.
         let regime: string | null = null;
         let regimeScore: number | null = null;
+        let regimeMetric: Metric | null = null;
         let squeezeScore: number | null = null;
         let squeezeRisk: string | null = null;
         let gammaFlipLevel: number | null = null;
@@ -199,13 +202,13 @@ export async function GET(req: NextRequest) {
         //   그대로 적용된다.
         try {
             const { getStructureData } = await import('@/services/structureService');
-            const { computeVolatilityRegime } = await import('@/services/volatilityRegime');
             const st: any = await timed('structure', () => getStructureData('SPY'));
             if (st) {
                 // 레짐 계산은 «공용 함수»를 쓴다 — 라우트와 같은 식이라 값이 갈라지지 않는다
-                const vr = computeVolatilityRegime(st);
-                gammaFlipLevel = vr.flipLevel > 0 ? vr.flipLevel : null;
-                spyPrice = vr.underlyingPrice > 0 ? vr.underlyingPrice : null;
+                const vr = computeStructureVolatilityRegime(st, Date.now());
+                regimeMetric = vr.metric;
+                gammaFlipLevel = vr.flipLevel != null && vr.flipLevel > 0 ? vr.flipLevel : null;
+                spyPrice = vr.underlyingPrice != null && vr.underlyingPrice > 0 ? vr.underlyingPrice : null;
                 regime = vr.regime;
                 regimeScore = vr.regimeScore;
                 squeezeScore = vr.squeezeScore;
@@ -259,7 +262,8 @@ export async function GET(req: NextRequest) {
         //   위 세 신호가 전부 옵션·섹터 쪽이라 주식 현물 축이 비어 있었다.
         //   NDX100 / DOW30 구성종목 중 20일선 위 비율(실측 EOD 20일 이력).
         // ══════════════════════════════════════════════════════════════
-        let breadth: { ndx: number | null; dow: number | null; covered: number; universe: number } | null = null;
+        let breadth: { ndx: number | null; dow: number | null; covered: number; universe: number;
+            metrics: { ndx: Metric | null; dow: Metric | null } } | null = null;
         try {
             const b = await breadthP;   // 위에서 이미 출발시켰다
             if (b?.ndx?.pctAbove20 != null || b?.dow?.pctAbove20 != null) {
@@ -267,11 +271,14 @@ export async function GET(req: NextRequest) {
                 //    화면은 %로 쓰므로 경계에서 ×100 한다. 안 하면 52% 가 «0%» 로 찍힌다.
                 const toPct = (v: number | null | undefined) =>
                     typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1000) / 10 : null;
+                const percentMetric = (m: Metric | undefined): Metric | null => m
+                    ? { ...m, value: toPct(m.value), unit: 'percent' } : null;
                 breadth = {
                     ndx: toPct(b.ndx?.pctAbove20),
                     dow: toPct(b.dow?.pctAbove20),
                     covered: (b.ndx?.covered ?? 0) + (b.dow?.covered ?? 0),
                     universe: (b.ndx?.universe ?? 0) + (b.dow?.universe ?? 0),
+                    metrics: { ndx: percentMetric(b.ndx?.metric), dow: percentMetric(b.dow?.metric) },
                 };
             }
         } catch (e) {
@@ -309,6 +316,7 @@ export async function GET(req: NextRequest) {
             volatilityRegime: {
                 regime,
                 score: regimeScore == null ? null : Math.round(regimeScore),
+                metric: regimeMetric,
             },
             // ★ 이 카드에서만 뺐다 — 지표가 없어서가 아니다.
             //
@@ -327,6 +335,9 @@ export async function GET(req: NextRequest) {
             gammaSqueeze: {
                 score: squeezeScore == null ? null : Math.round(squeezeScore),
                 risk: squeezeRisk, // 'LOW' | 'MEDIUM' | 'HIGH' | null
+                kind: 'score',
+                unit: 'score_0_100',
+                basis: 'weekly_chain_structure',
             },
             dealerGamma,
             breadth,

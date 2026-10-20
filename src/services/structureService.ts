@@ -19,7 +19,7 @@ import {
 // 레벨 매핑·정의대로 고르기·정의 게이트(순수 함수)는 lib/optionLevelGate.ts 에 있다 — 문(라우트)들은 여기서 가져가던 대로 쓴다.
 export {
     STRUCTURE_PRODUCER, LEVEL_BANDS, NO_LEVELS, levelViolations, gateLevels, displayLevels, levelsFromStructure,
-    applyLevelsToUnified, applyLevelsToRealtime, levelsAt, profileOf, rowSpot,
+    applyLevelsToUnified, applyLevelsToVolatilityCard, applyLevelsToRealtime, levelsAt, profileOf, rowSpot,
 } from "@/lib/optionLevelGate";
 export type { OptionLevels, DisplayLevels, LevelField, LevelProfile } from "@/lib/optionLevelGate";
 
