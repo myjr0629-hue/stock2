@@ -116,7 +116,7 @@ export function buildTacticalPrompt(ctx: TacticalContext, locale: Locale): strin
     // 예정의 ET 날짜를 독자 언어의 절대 표기로(«10/20(화)») — 한국·일본 독자는 이미 다음 날일 수 있어 «오늘·내일»은 틀린 말이 된다(10/20 운영 예시)
     const dateLabels = Object.fromEntries([...new Set(scheduled.map(l => l.match(/^\[[^\]]*?(\d{4}-\d{2}-\d{2})/)?.[1]).filter((d): d is string => !!d))]
         .map(d => [d, etDateLabel(d, locale)]));
-    return `Write a SIGNUM Tactical Insight entirely in ${language}. Plain text, exactly three natural sentences, no headings, labels, markdown or bullets. Maximum 350 characters including spaces. Preserve the existing compact card format.
+    return `Write a SIGNUM Tactical Insight entirely in ${language}. Plain text, three or four natural sentences (WHY first, SO WHAT may take one or two sentences, NEXT last), no headings, labels, markdown or bullets — never write the input labels (TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, OBSERVATIONS, AS_OF) or section names (WHY, SO WHAT, NEXT) in the text; cite a report by its time and source instead. Maximum 350 characters including spaces. Preserve the existing compact card format.
 1. WHY: lead with one macro event from TODAY_NEWS, include its supplied ET time (HH:MM ET; never write UTC) and, where natural, its source, and distinguish the reported event from an inferred market connection. If no relevant dated news exists, explicitly say today's macro cause is unconfirmed in ${language}; never replace missing news with a made-up Fed, inflation, tariff, geopolitical or earnings story.
 2. SO WHAT: connect that event (or the unconfirmed cause) to at most two observed rates/dollar/VIX/breadth signals AND at least one available proprietary resource: Gamma Shield/GEX, SPY versus QQQ gamma, or institutional sector flow. Explain whether positioning absorbs or amplifies the observed pressure; no metric definitions or numeric roll call. Divergence, if present, is supporting evidence, never a replacement for the news-first structure. If positioning is missing, state its absence rather than inventing it. A dollar index level alone does not establish dollar strength; off-exchange share alone does not establish buying or accumulation.
 3. NEXT: name exactly ONE supplied upcoming event (retain its scheduled/estimated status) or ONE supplied options price boundary as the next conditional test. Write an event's timing in ABSOLUTE form only — its date exactly as DATE_LABELS gives it, then its time as HH:MM ET (shape: ${{ ko: 'M/D(요일) HH:MM ET', en: 'M/D (Day) HH:MM ET', ja: 'M/D(曜) HH:MM ET' }[locale]}). Never use relative day words (today, tonight, tomorrow, 오늘, 내일, 今日, 本日, 今夜, 明日): readers in Korea and Japan are often already on the next calendar day. Entries marked released or release status unconfirmed are NEVER upcoming events. A timing boundary is not an actual result or an exact release time. No invented event, price, deadline, result, forecast or action directive. If both are missing, state that the next test is unconfirmed. Do not list several variables.
@@ -303,10 +303,17 @@ export function tacticalNextReasons(next: string, prompt: string, mode: 'generat
     return scheduleClaimReasons(next, events, asOf, mode === 'generate' ? 'strict' : 'claims');
 }
 
-/** 저장본·복구·번역 글의 시각 검사 — 마지막 문장(NEXT)만. */
+/** 저장본·복구·번역 글의 시각 검사 — 마지막 문장(NEXT)만 + 입력 이름표 노출(«TODAY_NEWS에 따르면» — 10/20 17:03 운영 ko·ja 실측). */
 export function checkTacticalStored(text: string, prompt: string): string[] {
     const sentences = splitSentences(text);
-    return tacticalNextReasons(sentences[sentences.length - 1] || '', prompt, 'read');
+    return [...internalLabelReasons(text, false), ...tacticalNextReasons(sentences[sentences.length - 1] || '', prompt, 'read')];
+}
+
+/** 프롬프트 입력 이름표·구조 이름이 글에 새어 나왔나 — 읽기(저장본)는 입력 이름표만, 생성은 «WHY:»·«NEXT:» 같은 구조 이름표까지 */
+export function internalLabelReasons(text: string, generate: boolean): string[] {
+    if (/\b(?:TODAY_NEWS|SCHEDULED_EVENTS|DATE_LABELS|OBSERVATIONS|AS_OF)\b/.test(text)) return ['tactical:internal-label'];
+    if (generate && /(?:^|[\s.。、,])(?:WHY|SO WHAT|NEXT)\s*[:：]/.test(text)) return ['tactical:internal-label'];
+    return [];
 }
 
 /** 생성 직후 검사(구조·근거·시각·숫자·권유·금액). */
@@ -314,9 +321,12 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
     const { data, news } = promptEvidence(prompt);
     const reasons = [...textIntegrityReasons(text), ...unsupportedEventReasons(text, data), ...localePurityReasons(text, locale)];
     const sentences = splitSentences(text);
-    if (sentences.length !== 3) reasons.push('tactical:three-sentences');
+    // 대표 10/20 «3~4문장» — 4문장까지 허용(NEXT 는 언제나 마지막 문장)
+    if (sentences.length < 3 || sentences.length > 4) reasons.push('tactical:three-sentences');
+    reasons.push(...internalLabelReasons(text, true));
     // NEXT의 일정 근거는 뉴스·관측 숫자와 분리한다. 같은 CPI/08:30이 뉴스에 남아도 지난 발표를 «다음 예정»으로 살리지 않는다.
-    reasons.push(...tacticalNextReasons(sentences[2] || '', prompt, 'generate'));
+    const nextSentence = sentences.length >= 3 ? sentences[sentences.length - 1] : (sentences[2] || '');
+    reasons.push(...tacticalNextReasons(nextSentence, prompt, 'generate'));
     const first = sentences[0] || '';
     if (!news.length && !UNKNOWN.test(first)) reasons.push('tactical:unconfirmed-cause-required');
     if (news.length && !UNKNOWN.test(first)) {
@@ -329,14 +339,14 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
         if (!cites) reasons.push('tactical:news-source-time-required');
     }
     // 포지셔닝(감마·옵션·기관 수급)은 WHY 문장에 붙어 나와도 인정 — 10/21 실제 모델 ko 가 «… GEX +7 중립»을 첫 문장 끝에 붙여 탈락·대체로 떨어졌다
-    if (!/감마|GEX|옵션|기관.*수급|gamma|options|institutional|ガンマ|オプション|機関/i.test(`${sentences[0] || ''} ${sentences[1] || ''}`)) reasons.push('tactical:positioning-required');
+    if (!/감마|GEX|옵션|기관.*수급|gamma|options|institutional|ガンマ|オプション|機関/i.test(sentences.slice(0, Math.max(2, sentences.length - 1)).join(' '))) reasons.push('tactical:positioning-required');
     // ISO의 20T14를 금액 단위 20T(조)로 읽지 않게 날짜·시각 경계만 분리한다.
     // 뉴스의 ISO(UTC) 칸은 숫자 근거에서 뺀다 — 문장에 쓸 시각은 ET 칸뿐(«14:00 ET» 오기가 UTC 숫자로 통과하지 않게).
     const numericEvidence = data.replace(/; \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z;/g, ';').replace(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/g, '$1 $2');
     if (checkNumberGrounding(text, numericEvidence).ungrounded.length) reasons.push('tactical:number');
     // 숫자마다 주어(지표 이름)·방향어와 부호 일치(claimChecks) · SO WHAT 숫자 나열 금지(시각·날짜 제외 4개까지)
     reasons.push(...claimReasons(text, 'tactical'));
-    if (valueTokens(sentences[1] || '').filter(t => !t.exempt).length > 4) reasons.push('tactical:number-rollcall');
+    if (valueTokens(sentences.slice(1, Math.max(2, sentences.length - 1)).join(' ')).filter(t => !t.exempt).length > 4) reasons.push('tactical:number-rollcall');
     if ([...text].length > 350) reasons.push('tactical:too-long');
     if (/\bUTC\b|\bGMT\b|協定世界時|협정 세계시/i.test(text)) reasons.push('tactical:utc-time');
     if (adviceHit(text)) reasons.push('tactical:advice');

@@ -450,6 +450,8 @@ function triHints(all: string[]): string {
     if (all.some(r => r.includes('direction-sign'))) h.push('A positive change is never weak/약세/弱気 and a negative change is never strong/강세/強気; for a smaller gain say it rose less.');
     if (all.some(r => /schedule:(?:relative-day|date-required|weekday)/.test(r))) h.push('Write the event date exactly as DATE_LABELS gives it plus HH:MM ET; no today/tomorrow/오늘/내일/今日/明日.');
     if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the second sentence.');
+    if (all.some(r => r.includes('internal-label'))) h.push('Never write TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, WHY:, SO WHAT: or NEXT: — cite the report by its time and source.');
+    if (all.some(r => r.includes('positioning-required'))) h.push('Name Gamma Shield/GEX (or SPY/QQQ gamma) before the last sentence and say whether it absorbs or amplifies the pressure.');
     return h.length ? ' ' + h.join(' ') : '';
 }
 

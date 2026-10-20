@@ -606,6 +606,20 @@ test('v2 ⑧ 감마 기제(음감마=키움·양감마=누름) 반대 서술 탈
     assert.equal(fitDepthLine('想定変動幅±4.8%がMax PainとCall Wallの間に収まり、正ガンマ圏で上昇が抑制される位置で満期まで続く', 'ja'), '想定変動幅±4.8%がMax PainとCall Wallの間に収まり、正ガンマ圏で上昇が抑制される位置で満期まで続く');
 });
 
+test('v2 ⑨ 운영 17:03 실측: 입력 이름표(TODAY_NEWS) 노출 탈락(생성·저장본) · 3~4문장 허용·NEXT 는 마지막 문장', () => {
+    const asOf = '2026-10-20T08:00:00.000Z';
+    const ev = ['[economic calendar; 2026-10-20 08:30 ET] Housing Starts (Sep) (scheduled; not a released result)'];
+    const news = ['[NEWS PULSE; 2026-10-20T07:43:00.000Z; 03:43 ET] Treasury yields fall ahead of housing and jobs data'];
+    const p = buildTacticalPrompt({ rlsiScore: 36, nasdaqChange: 0.19, vix: 18.6, gexIndex: 7, tltChangePct: -0.74, asOf, scheduledEvents: ev, marketNewsHeadlines: news } as any, 'ko');
+    const leak = '오늘 TODAY_NEWS에 따르면 미국 국채 금리가 하락했다는 보도가 있다(03:43 ET, NEWS PULSE). TLT -0.74%와 VIX 18.6 속에서 GEX +7는 중립권이라 감마가 압력을 흡수하는지 뚜렷하지 않다. 다음 조건부 테스트는 10/20(화) 08:30 ET Housing Starts (Sep)이다.';
+    assert.ok(checkTacticalOutput(leak, 'ko', p).includes('tactical:internal-label'));
+    assert.ok(checkTacticalStored(leak, p).includes('tactical:internal-label'));
+    const four = '03:43 ET NEWS PULSE 보도에 따르면 미국 국채 금리가 주택·고용 지표를 앞두고 하락했다. TLT -0.74%는 금리 부담 완화와 연결해 해석된다. GEX +7는 중립권이라 감마가 압력을 흡수하는지 뚜렷하지 않다. 다음 조건부 테스트는 10/20(화) 08:30 ET Housing Starts (Sep)이다.';
+    const r = checkTacticalOutput(four, 'ko', p);
+    assert.ok(!r.includes('tactical:three-sentences') && !r.includes('tactical:positioning-required') && !r.some(x => x.startsWith('schedule:')), r.join(','));
+    assert.ok(checkTacticalOutput('WHY: ' + four, 'ko', p).includes('tactical:internal-label'));
+});
+
 async function main() {
     // 프록시 서버를 띄우거나 Redis에 연결하지 않고 실제 readBody 함수 본문을 로드한다.
     const proxy = readFileSync('scripts/ec2-redis-proxy.js', 'utf8');
