@@ -62,7 +62,12 @@ const cases = {
       assert.ok(names.includes(`"${event}"`));
     }
     const load = readFileSync(native + 'interstitial/InterstitialAdCallbackAndListeners.kt', 'utf8');
-    assert.ok(load.indexOf('call.resolve(adInfo)') < load.indexOf('notifyListenersFunction.accept(InterstitialAdPluginPluginEvent.Loaded'));
+    // 관문 10201159: indexOf 가 -1 이면 «없음»이 «앞섬»으로 통과했다 — 둘 다 실제로 있어야 순서를 본다.
+    const resolveAt = load.indexOf('call.resolve(adInfo)');
+    const loadedAt = load.indexOf('notifyListenersFunction.accept(InterstitialAdPluginPluginEvent.Loaded');
+    assert.ok(resolveAt >= 0, 'native onAdLoaded must resolve the prepare call');
+    assert.ok(loadedAt >= 0, 'native onAdLoaded must emit Loaded');
+    assert.ok(resolveAt < loadedAt, 'prepare resolves before Loaded on Android 8.0.0');
     const executor = readFileSync(native + 'interstitial/AdInterstitialExecutor.java', 'utf8');
     assert.match(executor, /interstitialAd\.show\(activitySupplier\.get\(\)\);\s*call\.resolve\(\);/);
   },
@@ -218,7 +223,7 @@ const cases = {
 // Include assertions in ready(), show(), completed(), and fake bridge callbacks.
 // An early return must fail even when the remaining Promise resolves normally.
 const expectedAssertions: Record<keyof typeof cases, number> = {
-  'android-native-event-and-completion-contract': 12,
+  'android-native-event-and-completion-contract': 14,
   'android-prepare-resolves-then-loaded-then-show': 11,
   'android-loaded-event-alone-does-not-complete-prepare': 8,
   'android-show-resolve-is-not-an-impression': 9,
