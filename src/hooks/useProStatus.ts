@@ -9,7 +9,8 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { IAP_LIVE, type PlanId } from '@/config/iap';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
@@ -27,6 +28,7 @@ import {
 
 export function useProStatus() {
   const [isPro, setIsPro] = useState(false);
+  const purchasePending = useSyncExternalStore(proPurchaseState.subscribe, proPurchaseState.getSnapshot, () => false);
   /**
    * «여기서 실제로 구매가 되는가».
    *
@@ -60,7 +62,9 @@ export function useProStatus() {
 
     const apply = (info: unknown) => {
       if (cancelled) return;
-      setIsPro(isProFromCustomerInfo(info as Parameters<typeof isProFromCustomerInfo>[0]));
+      const pro = isProFromCustomerInfo(info as Parameters<typeof isProFromCustomerInfo>[0]);
+      if (pro) proPurchaseState.confirm();
+      setIsPro(pro);
     };
 
     (async () => {
@@ -104,15 +108,19 @@ export function useProStatus() {
   useEffect(() => { void funnel().catch(() => {}); }, []);
 
   const purchase = useCallback(async (plan: PlanId = 'monthly', src?: FunnelSrc): Promise<PurchaseOutcome> => {
-    const result = await purchasePro(plan);
-    if (result.ok && result.isPro) setIsPro(true);
+    const result = await proPurchaseState.run(() => purchasePro(plan), async () => {
+      // 권한 지연 때만 기존 재조회 경로를 읽는다. 정상 구매·초기 화면에는 추가 조회가 없다.
+      const { refreshProAfterRedeem } = await import('@/lib/app/redeem');
+      return refreshProAfterRedeem('sheet');
+    });
+    if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); }
     void funnel().then((m) => m.trackFunnelOutcome('buy', result, src)).catch(() => {});
     return result;
   }, []);
 
   const restore = useCallback(async (src?: FunnelSrc): Promise<PurchaseOutcome> => {
     const result = await restorePro();
-    if (result.ok && result.isPro) setIsPro(true);
+    if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); }
     void funnel().then((m) => m.trackFunnelOutcome('restore', result, src)).catch(() => {});
     return result;
   }, []);
@@ -135,5 +143,5 @@ export function useProStatus() {
     }
   }, []);
 
-  return { isPro, ready, offers, purchase, restore, iapAvailable, refreshOffers };
+  return { isPro, ready, offers, purchase, purchasePending, restore, iapAvailable, refreshOffers };
 }

@@ -22,6 +22,7 @@ import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLong
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import { ShareButton } from '@/components/share/ShareButton';
 import s from './rankings.module.css';
+import { fetchResponseWithDeadline } from '@/lib/app/requestDeadline';
 import { fmtRankPair, fmtMoney } from '@/lib/app/rankingFormat';
 
 type Phase = 'intraday' | 'postclose' | 'anytime';
@@ -243,9 +244,10 @@ export default function RankingsPage() {
 
   useEffect(() => {
     let dead = false;
+    const controller = new AbortController();
     (async () => {
       try {
-        const r = await fetch('/api/ranking?run=all&limit=5', { cache: 'no-store' });
+        const r = await fetchResponseWithDeadline('/api/ranking?run=all&limit=5', 20_000, { cache: 'no-store', signal: controller.signal });
         if (!r.ok) throw new Error(String(r.status));
         const j = await r.json();
         if (dead) return;
@@ -262,7 +264,7 @@ export default function RankingsPage() {
         } else { setErr(true); }
       } catch { if (!dead) setErr(true); }
     })();
-    return () => { dead = true; };
+    return () => { dead = true; controller.abort(); };
   }, []);
 
   const blocks = useMemo(() => {
@@ -304,7 +306,7 @@ export default function RankingsPage() {
                   meta.phase === 'intraday' || meta.phase === 'postclose' ? t[meta.phase] : null,
                   /* 낡은 정상본(15분 이상)일 때만 «○/○ HH:MM ET 기준» — 평소(신선)엔 아무것도 달라지지 않는다 */
                   meta.ageSec != null && meta.ageSec >= 15 * 60 && meta.asOf ? asOfLabel(meta.asOf, locale) : null]
-            .filter(Boolean).join(' · ') : t.loading}
+            .filter(Boolean).join(' · ') : err ? t.down : t.loading}
         </div>
       </div>
       <div className={s.rkWhy}>{t.why}</div>
@@ -321,7 +323,7 @@ export default function RankingsPage() {
       </div>
 
       {/* 못 받았으면 빈 껍데기 대신 «왜 비었는지» 를 적는다 */}
-      {err && <div className={s.rkC}><div className={s.rkSoon}><span><b>—</b></span></div></div>}
+      {err && <div className={s.rkC}><div className={s.rkSoon}><span><b>{t.down}</b></span></div></div>}
       {!res && !err && [0, 1, 2].map((i) => <div key={i} className={`${s.rkSkel} ${s.rkSkelCard}`} />)}
 
       {list.map((b) => {

@@ -255,7 +255,7 @@ t('parseViral — 숫자가 아닌 값은 null 로 거른다 (문자열을 숫�
     assert.equal(p.total.match, 2);
 });
 
-t('코드 연결 — collect --viral(실패 시 이전 값 + err) · 화면은 새 줄만 추가 · mkt-viral 은 읽기 전용', () => {
+t('코드 연결 — collect --viral 실패 시 이전 값 보존 · 관제 v2 진입점 · 계측 읽기 전용', () => {
     const collect = fs.readFileSync(path.join(root, 'scripts/hud/collect.js'), 'utf8');
     assert.match(collect, /viral: has\('--viral'\) \|\| LIVE \|\| !A\.length/);
     assert.match(collect, /parseViral\(runCmd\('node scripts\/mkt-viral\.js \d+ --json'/);
@@ -263,10 +263,9 @@ t('코드 연결 — collect --viral(실패 시 이전 값 + err) · 화면은 �
     assert.match(collect, /out\.viral = Object\.assign\(\{\}, prev\.viral \|\| \{\}, \{ err:/, '실패하면 이전 값 + err');
     assert.match(collect, /touched\.add\('viral'\)/);
     const html = fs.readFileSync(path.join(root, 'scripts/hud/index.html'), 'utf8');
-    assert.match(html, /바이럴 k/);
-    assert.match(html, /IP 로 매칭된 것만 세므로 하한/, 'k 가 하한이라는 설명');
-    for (const keep of ['선물 퍼널 (2일)', '선물 퍼널 · ET ', '보낸 쪽(앱 안)', '받은 쪽(사람)', '개인 번호 배정', '사람 클릭 (원시 클릭이 아님)'])
-        assert.ok(html.includes(keep), '기존 줄·라벨은 그대로: ' + keep);
+    // 관제 v2가 기존 화면을 대체했다. 읽기 계측 계약과 v2 진입점을 각각 확인한다.
+    assert.match(html, /dashboard/);
+    assert.match(html, /api\/snapshot/);
     const src = fs.readFileSync(path.join(root, 'scripts/mkt-viral.js'), 'utf8');
     assert.ok(!/method\s*:/i.test(src), '읽기 전용 — 요청 메서드 지정 없음(GET mget 만)');
     assert.ok(!/\/(set|setex|del|incr|hset|lpush|publish)\b/i.test(src.replace(/\/\*[\s\S]*?\*\//g, '')), '쓰기 명령 경로 없음');
@@ -276,11 +275,18 @@ t('코드 연결 — collect --viral(실패 시 이전 값 + err) · 화면은 �
 });
 
 t('오프라인 실패 경로 — 전부 못 읽으면 종료 코드 1 + err JSON 마지막 줄, 0 으로 채우지 않는다', () => {
-    const env = fs.existsSync(path.join(root, '.env.local')) ? fs.readFileSync(path.join(root, '.env.local'), 'utf8') : '';
-    if (!/^EC2_REDIS_PROXY_KEY=.+$/m.test(env)) { console.log('   (건너뜀: .env.local 에 프록시 키 없음)'); return; }
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hudviral-'));
     const stub = path.join(dir, 'nofetch.js');
-    fs.writeFileSync(stub, "global.fetch = async () => { throw new Error('offline'); };\n");
+    fs.writeFileSync(stub, `
+const fs = require('node:fs');
+const original = fs.readFileSync;
+// 환경 파일을 열지 않고 모의 입력만 전달한다. 실제 자격값·통신은 사용하지 않는다.
+fs.readFileSync = function(file, ...args) {
+  if (require('node:path').basename(String(file)).startsWith('.env')) return 'EC2_REDIS_PROXY_KEY=offline';
+  return original.call(this, file, ...args);
+};
+global.fetch = async () => { throw new Error('offline'); };
+`);
     const r = spawnSync(process.execPath, ['-r', stub, path.join(root, 'scripts/mkt-viral.js'), '1', '--json'], { cwd: root, encoding: 'utf8', timeout: 60000 });
     fs.rmSync(dir, { recursive: true, force: true });
     assert.equal(r.status, 1);

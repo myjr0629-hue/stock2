@@ -8,8 +8,6 @@
  *   ③ IV 이력 수집 목록(GEX_TICKERS 100) 밖 → iv-percentile 이 «dynamodb-insufficient»(이력 0건).
  */
 import assert from 'node:assert/strict';
-import http from 'node:http';
-import type { AddressInfo } from 'node:net';
 import {
     notProvidedText, ivHistoryUnavailable, gammaPlaceholder, fetchWithTtfbLimit, FLOW_TICKER_TTFB_MS,
 } from '../src/lib/app/flowEmptyStates';
@@ -66,41 +64,45 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
         assert.ok(FLOW_TICKER_TTFB_MS >= 10_000 && FLOW_TICKER_TTFB_MS < 30_000);
     });
 
-    // ── 실제 HTTP 서버로: «헤더가 안 오는» 응답은 끊고, «받는 중»인 큰 본문은 끊지 않는다 ──
-    const server = http.createServer((req, res) => {
-        if (req.url === '/slow-headers') { setTimeout(() => { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"late":true}'); }, 1500); return; }
-        if (req.url === '/slow-body') {
-            res.writeHead(200, { 'content-type': 'application/json' });
-            res.write('{"chunks":[');
-            let i = 0;
-            const tick = setInterval(() => { res.write(`${i ? ',' : ''}${i}`); if (++i === 8) { clearInterval(tick); res.end(']}'); } }, 120);   // 본문 약 1초
-            return;
+    // 소켓 없이 응답 헤더·본문 지연을 모의한다(외부 연결 없음).
+    const mockFetch: typeof fetch = async (url, init) => {
+        const signal = init?.signal;
+        if (String(url).endsWith('/slow-headers')) {
+            return new Promise<Response>((resolve, reject) => {
+                const timer = setTimeout(() => resolve(new Response('{"late":true}')), 1500);
+                signal?.addEventListener('abort', () => {
+                    clearTimeout(timer);
+                    const error = new Error('모의 요청 취소'); error.name = 'AbortError'; reject(error);
+                }, { once: true });
+            });
         }
-        res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}');
+        if (String(url).endsWith('/slow-body')) {
+            return new Response(new ReadableStream({ start(controller) {
+                const encode = (s: string) => new TextEncoder().encode(s);
+                controller.enqueue(encode('{"chunks":['));
+                let i = 0;
+                const timer = setInterval(() => {
+                    controller.enqueue(encode(`${i ? ',' : ''}${i}`));
+                    if (++i === 8) { clearInterval(timer); controller.enqueue(encode(']}')); controller.close(); }
+                }, 120);
+                signal?.addEventListener('abort', () => {
+                    clearInterval(timer);
+                    const error = new Error('모의 본문 취소'); error.name = 'AbortError'; controller.error(error);
+                }, { once: true });
+            } }));
+        }
+        return new Response('{"ok":true}');
+    };
+    await t('헤더가 상한 안에 안 오면 끊는다(AbortError) — 스켈레톤이 끝없이 돌지 않는다', async () => {
+        await assert.rejects(fetchWithTtfbLimit('/slow-headers', 30, {}, mockFetch), (e: any) => e?.name === 'AbortError');
     });
-    await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-    try {
-        await t('헤더가 상한 안에 안 오면 끊는다(AbortError) — 스켈레톤이 끝없이 돌지 않는다', async () => {
-            const t0 = Date.now();
-            await assert.rejects(fetchWithTtfbLimit(`${base}/slow-headers`, 300), (e: any) => e?.name === 'AbortError');
-            const ms = Date.now() - t0;
-            assert.ok(ms < 1200, `끊긴 시각 ${ms}ms — 상한 300ms 근처여야`);
-        });
-        await t('헤더가 오면 타이머를 푼다 — 상한보다 오래 걸리는 본문(느린 망·큰 응답)도 끝까지 받는다', async () => {
-            const t0 = Date.now();
-            const res = await fetchWithTtfbLimit(`${base}/slow-body`, 300);
-            const body = await res.json();
-            assert.deepEqual(body, { chunks: [0, 1, 2, 3, 4, 5, 6, 7] });
-            assert.ok(Date.now() - t0 > 300, '본문이 상한보다 오래 걸린 경우를 시험해야 한다');
-        });
-        await t('빠른 응답은 그대로', async () => {
-            const res = await fetchWithTtfbLimit(`${base}/fast`, 300, { cache: 'no-store' });
-            assert.deepEqual(await res.json(), { ok: true });
-        });
-    } finally {
-        server.close();
-    }
+    await t('헤더가 와도 전체 기한을 넘긴 본문은 끊는다', async () => {
+        await assert.rejects(fetchWithTtfbLimit('/slow-body', 30, {}, mockFetch), (e: any) => e?.name === 'AbortError');
+    });
+    await t('기한 안에 도착한 본문은 그대로', async () => {
+        const res = await fetchWithTtfbLimit('/fast', 300, { cache: 'no-store' }, mockFetch);
+        assert.deepEqual(await res.json(), { ok: true });
+    });
 
     console.log(`\nflowEmptyStates: ${n}개 통과`);
 })().catch((e) => { console.error(e); process.exit(1); });

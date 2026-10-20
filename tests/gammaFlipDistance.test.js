@@ -255,12 +255,10 @@ test('web/mobile dashboard and FlowRadar proximity decisions use unrounded spot 
     assert.equal(run(`const ${dex}; dexScore`, { useMemo: fn => fn(), liveGammaFlip: 100, displayPrice: 105.10 }), -5);
 });
 
-test('Guardian web/mobile detail and IVSkew proximity agree on spot denominator', () => {
-    const sub = extract('src/components/IVSkewCurve.tsx', n => ts.isVariableDeclaration(n) && n.name.getText() === 'getGammaFlipSub');
-    const L = { gammaFlipSubClose: 'close', gammaFlipSubAbove: 'above', gammaFlipSubBelow: 'below' };
-    for (const [spot, expected] of [[102.03, 'close'], [98.02, 'below'], [105.10, 'above'], [100, 'close']]) {
-        assert.equal(run(`const ${sub}; getGammaFlipSub()`, { gammaFlip: 100, resolvedPrice: spot, L }), expected);
-    }
+test('Guardian 웹·모바일의 거리 기준 일치, 개편된 IV 스큐는 감마 근접 판정 없음', () => {
+    // IV 스큐 개편 후 제거된 감마 근접 함수를 찾던 검사를 현재 렌더 계약으로 맞춘다.
+    const skew = fs.readFileSync(path.join(root, 'src/components/IVSkewCurve.tsx'), 'utf8');
+    assert.doesNotMatch(skew, /getGammaFlipSub|L\.gammaFlipSub(?:Close|Above|Below)/);
     for (const file of ['src/components/guardian/GammaShield.tsx', 'src/components/guardian/mobile/MobileGammaShield.tsx']) {
         const detail = extract(file, n => ts.isJsxExpression(n)
             && n.expression?.getText().endsWith('.toFixed(1)')

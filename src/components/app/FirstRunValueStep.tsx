@@ -47,10 +47,12 @@ function PickCard({ card, loc, name, priceReady, levelsReady, earn, onRemove }: 
   const t = firstRunCopy(loc).value;
   const c = wlCopy(loc);
   // 가격은 시세 요청(1~2초)이 먼저 와서 바로 그린다 · 지도는 레벨 묶음(수 초)이 올 때까지 뼈대. 시세 응답이 끝내 안 와도 뼈대가 영원히 남지 않게 —
-  // 8초 뒤엔 가격 «—»로 정한다(레벨은 묶음 요청이 실패해도 재시도 뒤 «없음»으로 정해진다 — firstRunValueData.requestLevels)
+  // 8초 뒤엔 가격 «—»·기존 지도 대기 상태로 전환한다(레벨 재시도는 firstRunValueData.requestLevels에서 계속)
   const [late, setLate] = useState(false);
   useEffect(() => { const id = window.setTimeout(() => setLate(true), 8_000); return () => window.clearTimeout(id); }, []);
   const pxDone = priceReady || late;
+  // 표시 기한만 종료한다. 모듈의 레벨 요청·재시도는 계속되어 도착하면 같은 지도에 반영된다.
+  const mapDone = levelsReady || late;
   const ch = card.changePct;
   const dir = ch == null ? st.flat : ch > 0 ? st.up : ch < 0 ? st.dn : st.flat;
 
@@ -80,7 +82,7 @@ function PickCard({ card, loc, name, priceReady, levelsReady, earn, onRemove }: 
       </div>
 
       <div className={st.cardMap}>
-        {levelsReady ? (
+        {mapDone ? (
           <PositionMap
             levels={card.levels}
             basisShort={card.basisShort}
@@ -95,7 +97,7 @@ function PickCard({ card, loc, name, priceReady, levelsReady, earn, onRemove }: 
         )}
       </div>
 
-      {levelsReady && card.aiText && (
+      {mapDone && card.aiText && (
         <div className={st.aiw}>
           <p className={st.ai}>
             <span className={st.aiTag} role="img" aria-label={t.aiAria}><i aria-hidden="true">✦</i>AI</span>

@@ -83,7 +83,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   const c = wlCopy(loc);
   const legal = paywallLegalCopy(loc);
   const wl = useAppWatchlist();
-  const { isPro, ready, offers, purchase, restore, iapAvailable, refreshOffers } = useProStatus();
+  const { isPro, ready, offers, purchase, purchasePending, restore, iapAvailable, refreshOffers } = useProStatus();
   const preview = isPreviewHost();
   // 첫 그림부터 구매 줄을 그린다(iapAvailable 은 한 박자 늦게 온다) — 이 시트는 클라이언트 전용이라 바로 물을 수 있다
   const showBuy = iapAvailable || preview || (IAP_LIVE && isNativeNow());
@@ -105,7 +105,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
 
   const onStart = useCallback(async () => {
     trackWatchlist('wl_cta', { sheet: sheetName, cta: 'pro_start' });
-    if (busy) return;
+    if (busy || purchasePending) return;
     if (!monthly) { wlUI.openPaywall(mode === 'alerts' ? 'alerts' : 'watchlist'); return; }
     setBusy(true);
     setNote(null);
@@ -114,7 +114,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
     trackWatchlist('wl_purchase', { sheet: sheetName, ok: !!(r.ok && r.isPro), cancelled: !!r.cancelled });
     if (r.ok && r.isPro) return;                  // 위 effect 가 이어서 처리한다
     if (!r.ok && !r.cancelled) setNote(c.purchaseFailed);
-  }, [busy, monthly, purchase, mode, sheetName, c.purchaseFailed]);
+  }, [busy, purchasePending, monthly, purchase, mode, sheetName, c.purchaseFailed]);
 
   const onRestore = useCallback(async () => {
     trackWatchlist('wl_cta', { sheet: sheetName, cta: 'restore' });
@@ -210,8 +210,8 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
         </div>
       )}
       {showBuy && (
-        <button type="button" className={s.cta} onClick={onStart} disabled={busy}>
-          {busy ? c.busy : c.cta}
+        <button type="button" className={s.cta} onClick={onStart} disabled={busy || purchasePending}>
+          {busy || purchasePending ? c.busy : c.cta}
         </button>
       )}
       {mode === 'limit' && (
