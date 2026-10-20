@@ -422,13 +422,12 @@ test('관문 11차 재현: 감마 서술 수식어 여러 개', () => {
     assert.deepEqual(checkDepthLine('Positive gamma buffers negative shocks', 'en', src).filter(r => r === 'insight:gamma-sign'), []);
 });
 
-test('운영 실측(10/20 14시): 근거의 만기 날짜는 허용 · «into the print» 차단', () => {
-    const src = buildLineUserPrompt(f);   // 만기 10/23 · 양감마
-    assert.match(src, /10\/23/);
-    assert.deepEqual(watchlistNoScheduleReasons('양감마라 10/23 만기 전 변동이 눌리는 자리', 'NVDA', src), []);
-    assert.ok(watchlistNoScheduleReasons('양감마라 10/24 전 변동이 눌리는 자리', 'NVDA', src).includes('insight:schedule'));
-    assert.ok(watchlistNoScheduleReasons('Positive gamma damps moves into the print', 'NVDA', src).includes('insight:schedule'));
-    for (const d of ['10/2', '0/23', '1/23']) assert.ok(watchlistNoScheduleReasons(`Positive gamma damps moves into the ${d} expiry`, 'NVDA', src).includes('insight:schedule'), d);
+test('운영 실측(10/20 14시) 뒤 결정: 해석에는 날짜를 쓰지 않는다(근거에 있어도) · 세션·실적 은어 차단', () => {
+    const src = buildLineUserPrompt(f);
+    for (const t of ['양감마라 10/23 만기 전 변동이 눌리는 자리', 'Positive gamma damps moves into the 10/23–24 expiry', 'Positive gamma damps moves into the 10/20 expiry', '10/23 장 마감 후 양감마로 변동이 눌리는 자리', '장 마감 후 양감마로 변동이 눌리는 자리', 'Positive gamma damps moves into the print'])
+        assert.ok(watchlistNoScheduleReasons(t, 'NVDA', src).includes('insight:schedule'), t);
+    assert.deepEqual(watchlistNoScheduleReasons('양감마라 만기까지 변동이 눌리는 자리', 'NVDA', src), []);
+    assert.match(WL_LINE_SYSTEM, /into expiry/);
 });
 
 async function main() {
