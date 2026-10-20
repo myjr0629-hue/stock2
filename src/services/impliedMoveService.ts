@@ -82,13 +82,14 @@ export async function peekStoredStructure(ticker: string): Promise<any | null> {
 }
 
 /** 구조 결과에서도 묶음/API와 같은 종가·ATM·체인 세션 보정을 적용한다. */
-export async function impliedMoveOfStructure(ticker: string, structure: any, spot?: number | null): Promise<ImpliedMove | null> {
+export async function impliedMoveOfStructure(ticker: string, structure: any, spot?: number | null, opts: { retryNull?: boolean } = {}): Promise<ImpliedMove | null> {
     if (!structure || typeof structure !== 'object') return null;
     if (isOptionExpiredAt(structure.expiration)) return null;
     const S = Number(spot) > 0 ? Number(spot) : Number(structure.underlyingPrice);
-    if (structureLacksImpliedMove(structure) && typeof structure.expiration !== 'string') return weeklyImpliedMoveFromProbe(ticker, S);
-    const st = structureLacksImpliedMove(structure) ? { ...structure, underlyingPrice: S } : structure;
-    const [result] = await resolveImpliedMoves([{ ticker: String(ticker || '').toUpperCase() }], [st], etDateString());
+    const needsProbe = structureLacksImpliedMove(structure) || (opts.retryNull === true && structure.options_status === 'OK' && structure.impliedMove == null);
+    if (needsProbe && typeof structure.expiration !== 'string') return weeklyImpliedMoveFromProbe(ticker, S);
+    const st = needsProbe ? { ...structure, underlyingPrice: S } : structure;
+    const [result] = await resolveImpliedMoves([{ ticker: String(ticker || '').toUpperCase() }], [st], etDateString(), opts.retryNull);
     return result.im;
 }
 
@@ -212,7 +213,7 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
 }
 
 /** 전달받은 구조를 읽기 전용으로 보정한다. 단건·묶음 모두 이 경로를 지난다. */
-async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[], today: string): Promise<ResolvedImpliedMove[]> {
+async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[], today: string, retryNull = false): Promise<ResolvedImpliedMove[]> {
     // 저장본 읽기를 기다리던 중 마감됐을 수도 있다.
     const floor = optionExpirationFloor();
     if (today < floor) today = floor;
@@ -246,7 +247,9 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             if (regularClose && st.impliedMove.spot !== regularClose) needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot, session });
             results.push(resolvedMoveOf(r.ticker, weeklyIm, 'structure', null)); return;
         }
-        if (!want || !(spot > 0) || (!r.after && !structureLacksImpliedMove(st))) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle')); return; }
+        // Intel만 명시적 null도 같은 만기·세션의 수집기 체인으로 재시도한다. 다른 소비처의 기본 동작은 유지.
+        const missingMove = structureLacksImpliedMove(st) || (retryNull && st.options_status === 'OK' && st.impliedMove == null);
+        if (!want || !(spot > 0) || (!r.after && !missingMove)) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle')); return; }
         needProbe.push({ idx: i, ticker: r.ticker, expiry: want, after: r.after, timing: r.timing, spot, session });
         results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle'));
     });
