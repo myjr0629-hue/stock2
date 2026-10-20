@@ -98,6 +98,14 @@ export async function buildSitemap(locales: readonly (typeof LOCALES[number])[] 
     for (const p of LEARN_PATHS) {
       entries.push({ url: `${base}/${loc}${p}`, lastModified: STATIC_LASTMOD, changeFrequency: 'monthly', priority: 0.5 });
     }
+    // 영수증 허브. 변경 시각을 알 수 없어 lastModified는 주장하지 않는다.
+    entries.push({
+      url: `${base}/${loc}/receipts/earnings`, changeFrequency: 'weekly', priority: 0.7,
+      alternates: { languages: {
+        ...Object.fromEntries(LOCALES.map((l) => [l, `${base}/${l}/receipts/earnings`])),
+        'x-default': `${base}/en/receipts/earnings`,
+      } },
+    });
     for (const t of FLOW_TICKERS) {
       // Invalid symbols must never become submitted 404s; regression tests inspect the full list.
       if (!isFlowTicker(t)) continue;
