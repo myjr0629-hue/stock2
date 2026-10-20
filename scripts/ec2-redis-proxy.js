@@ -126,6 +126,9 @@ if raw then
     local ok, previous = pcall(cjson.decode, raw)
     if ok and type(previous) == 'table' and type(previous.value) == 'number'
         and type(previous.asOf) == 'string' and previous.asOf >= incoming.asOf then
+        if previous.asOf == incoming.asOf then
+            redis.call('EXPIRE', KEYS[1], ARGV[2])
+        end
         return 0
     end
 end

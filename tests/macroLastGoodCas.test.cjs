@@ -31,31 +31,49 @@ function loadTs(file, overrides = {}) {
     vm.runInThisContext(`(function(require,module,exports){${js}\n})`, { filename })(req, mod, mod.exports);
     return mod.exports;
 }
-function store() {
+function store(clock = { now: 0 }) {
     const values = new Map();
     const writes = [];
+    const expires = new Map();
+    const renewals = [];
+    const get = key => {
+        if (expires.has(key) && expires.get(key) <= clock.now) {
+            values.delete(key);
+            expires.delete(key);
+        }
+        return values.get(key);
+    };
     return {
-        values, writes,
+        values, writes, expires, renewals, get,
         eval(script, keys, args) {
             assert.equal(keys.length, 1);
             assert.match(script, /redis.call\('GET', KEYS\[1\]\)/);
             assert.match(script, /previous.asOf >= incoming.asOf/);
             assert.match(script, /redis.call\('SET', KEYS\[1\], ARGV\[1\], 'EX', ARGV\[2\]\)/);
             const [raw, ttl] = args;
-            const incoming = JSON.parse(raw), previous = values.get(keys[0]);
+            const incoming = JSON.parse(raw), previous = get(keys[0]);
             // Model one indivisible Redis EVAL, without any await between read and write.
             if (previous && typeof previous.value === 'number' && typeof previous.asOf === 'string'
-                && previous.asOf >= incoming.asOf) return 0;
+                && previous.asOf >= incoming.asOf) {
+                // Recognize the fixed Lua's equal-date EXPIRE branch; old Lua never renews.
+                if (previous.asOf === incoming.asOf && /if previous.asOf == incoming.asOf then\s+redis.call\('EXPIRE', KEYS\[1\], ARGV\[2\]\)\s+end/.test(script)) {
+                    expires.set(keys[0], clock.now + Number(ttl) * 1000);
+                    renewals.push({ key: keys[0], ttl });
+                }
+                return 0;
+            }
             values.set(keys[0], incoming);
+            expires.set(keys[0], clock.now + Number(ttl) * 1000);
             writes.push({ key: keys[0], ttl, value: incoming });
             return 1;
         },
     };
 }
-function fixture() {
-    const ec = store(), up = store();
+function fixture(previous) {
+    const clock = previous?.clock ?? { now: 0 };
+    const ec = previous?.ec ?? store(clock), up = previous?.up ?? store(clock);
     const calls = [];
-    const f = { ec, up, calls, mode: 'supported', upFail: false, beforeEval: async () => {} };
+    const f = { ec, up, clock, calls, mode: 'supported', upFail: false, beforeEval: async () => {} };
     process.env.EC2_REDIS_PROXY_URL = 'http://ec2.test';
     process.env.EC2_REDIS_PROXY_KEY = 'public-offline-fixture';
     process.env.UPSTASH_REDIS_REST_URL = 'https://upstash.test';
@@ -73,7 +91,7 @@ function fixture() {
             }
             if (url.pathname === '/mget') {
                 if (f.mode === 'down') return reply({}, 503);
-                return reply({ results: url.searchParams.get('keys').split(',').map(k => ec.values.get(k) ?? null) });
+                return reply({ results: url.searchParams.get('keys').split(',').map(k => ec.get(k) ?? null) });
             }
             throw new Error('unexpected EC command');
         }
@@ -94,7 +112,7 @@ function fixture() {
                 await f.beforeEval('up', JSON.parse(c[4]));
                 results.push({ result: up.eval(c[1], [c[3]], c.slice(4)) });
             } else if (op === 'MGET') {
-                results.push({ result: c.slice(1).map(k => encode(up.values.get(k))) });
+                results.push({ result: c.slice(1).map(k => encode(up.get(k))) });
             } else throw new Error('unexpected Upstash command: ' + op);
         }
         return reply(url.pathname.endsWith('/pipeline') ? results : results[0]);
@@ -156,19 +174,67 @@ test('out-of-order Upstash replication also rejects the older date', async () =>
     assert.equal(f.up.values.get(key).asOf, '2026-10-20');
 });
 
-test('equal/older dates do not write or renew TTL; zero survives; newer date advances', async () => {
+test('equal date renews only TTL; older date renews nothing; zero survives; newer date advances', async t => {
+    t.mock.method(Math, 'random', () => 0.5);
     const f = fixture();
     assert.equal(await f.R.setIfNewerAsOf(key, metric('2026-10-20', 0), 60), true);
+    f.clock.now = 30_000;
     assert.equal(await f.R.setIfNewerAsOf(key, metric('2026-10-20', 99), 600), true);
+    for (const db of [f.ec, f.up]) {
+        assert.equal(db.renewals.length, 1);
+        assert.equal(db.expires.get(key), 630_000);
+    }
+    f.clock.now = 40_000;
     assert.equal(await f.R.setIfNewerAsOf(key, metric('2026-10-19', 3), 600), true);
     for (const db of [f.ec, f.up]) {
         assert.equal(db.writes.length, 1);
         assert.ok(db.writes[0].ttl >= 54 && db.writes[0].ttl <= 66);
         assert.equal(db.values.get(key).value, 0);
+        assert.equal(db.renewals.length, 1);
+        assert.equal(db.expires.get(key), 630_000);
     }
+    f.clock.now = 61_000; // Survives the original expiry.
+    assert.equal((await f.readLastGood()).fedFunds.value, 0);
     await f.R.setIfNewerAsOf(key, metric('2026-10-21', 2), 60);
     assert.equal(f.up.values.get(key).asOf, '2026-10-21');
 });
+
+for (const mode of ['supported', 'old', 'down']) {
+    test(`GDP received again on day 29 survives day 31 cold-start vendor failure (proxy=${mode})`, async t => {
+        t.mock.method(Math, 'random', () => 0.5);
+        const day = 24 * 60 * 60 * 1000;
+        const f = fixture(); f.mode = mode;
+        const { fillFromLastGood, METRIC_ORDER } = loadTs('src/lib/macroLastGood.ts');
+        const gdp = { ...METRIC_ORDER.find(m => m.key === 'gdpQoQ'), ...metric('2026-07-01', 3.8, 'gdpQoQ') };
+        const gdpKey = prefix + 'gdpQoQ';
+        const stores = mode === 'supported' ? [f.ec, f.up] : [f.up];
+        await f.saveLastGood(null, data(gdp));
+        for (const db of stores) assert.equal(db.expires.get(gdpKey), 30 * day);
+
+        f.clock.now = 29 * day;
+        await f.saveLastGood(await f.readLastGood(), data(gdp));
+        for (const db of stores) assert.equal(db.expires.get(gdpKey), 59 * day);
+
+        f.clock.now = 31 * day;
+        const cold = fixture(f); cold.mode = mode; // Fresh module state; only Redis survives.
+        const lastGood = await cold.readLastGood();
+        const raw = data({ ...gdp, asOf: null, value: null }, metric('2026-10-20', 4));
+        const filled = fillFromLastGood(raw, lastGood);
+        assert.equal(filled.data.metrics.length, 7);
+        assert.equal(filled.filled, 1);
+        assert.deepEqual(filled.data.metrics.find(m => m.key === 'gdpQoQ'), gdp);
+        await cold.saveLastGood(lastGood, raw);
+        for (const db of stores) {
+            assert.equal(db.writes.filter(w => w.key === gdpKey).length, 1);
+            assert.equal(db.renewals.filter(w => w.key === gdpKey).length, 1);
+            assert.equal(db.expires.get(gdpKey), 59 * day, 'vendor failure cannot refresh a carried value');
+        }
+
+        f.clock.now = 59 * day;
+        const expired = fillFromLastGood(raw, await cold.readLastGood());
+        assert.equal(expired.data.metrics.find(m => m.key === 'gdpQoQ').value, null);
+    });
+}
 
 test('invalid/undated observations and invalid keys/TTLs never touch storage', async () => {
     const f = fixture();
@@ -253,4 +319,6 @@ test('proxy uses the identical fixed Lua; endpoint validation excludes arbitrary
     assert.equal((await request({ key, value: metric('2026-10-19'), ttl: 600 })).body.result, 0);
     assert.equal((await request({ key, value: metric('2026-10-20'), ttl: 600 })).body.result, 0);
     assert.equal(proxyDb.writes.length, 1);
+    assert.equal(proxyDb.renewals.length, 1);
+    assert.equal(proxyDb.expires.get(key), 600_000);
 });

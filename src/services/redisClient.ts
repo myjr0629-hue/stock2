@@ -559,6 +559,9 @@ if raw then
     local ok, previous = pcall(cjson.decode, raw)
     if ok and type(previous) == 'table' and type(previous.value) == 'number'
         and type(previous.asOf) == 'string' and previous.asOf >= incoming.asOf then
+        if previous.asOf == incoming.asOf then
+            redis.call('EXPIRE', KEYS[1], ARGV[2])
+        end
         return 0
     end
 end
@@ -576,6 +579,7 @@ function validAsOfValue(value: AsOfValue | null | undefined): value is AsOfValue
 
 /**
  * Macro CAS only. Each store compares its own value inside EVAL. A skip is success.
+ * Equal dates keep the stored payload and refresh TTL; older dates change nothing.
  * Old proxies return 404: never fall back to their unconditional /set endpoint.
  * Always replicate via EVAL so recovery cannot hide the fallback's newer date.
  */
