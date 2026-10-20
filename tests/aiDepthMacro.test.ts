@@ -358,6 +358,25 @@ test('관문 6차 재현: 어순 무관 감마 부호 · 번역된 회사명 · 
     assert.ok(scheduleClaimReasons('오늘 밤 실적 발표 예정', [own.split('\n')[1]], Date.parse('2026-10-20T15:00:00Z'), 'claims', 'NVDA').length > 0);
 });
 
+test('관문 7차 재현: 자기 종목 카드의 다른 회사 · 미확인어 우회 · 명시 날짜 · 복수 사건 · 감마 수식어 오탈락', () => {
+    const now = Date.parse('2026-10-20T15:00:00Z');
+    const nvdaTomorrow = '[earnings calendar; 2026-10-21; AMC timing boundary 16:00 ET; exact release time unknown] NVDA (confirmed; scheduled; not a released result)';
+    assert.ok(scheduleClaimReasons('테슬라 실적 발표 예정이 변수', [nvdaTomorrow], now, 'claims', 'NVDA').length > 0);
+    assert.ok(scheduleClaimReasons('TSLA earnings scheduled tomorrow', [nvdaTomorrow], now, 'claims', 'NVDA').length > 0);
+    assert.deepEqual(scheduleClaimReasons('내일 실적 발표 예정, 예상 변동 안', [nvdaTomorrow], now, 'claims', 'NVDA'), []);
+    assert.deepEqual(scheduleClaimReasons('엔비디아 내일 실적 발표 예정', [nvdaTomorrow], now, 'claims', 'NVDA'), []);
+    const ev = ['[economic calendar; 2026-10-20 08:30 ET] CPI (scheduled; not a released result)', '[economic calendar; 2026-10-21 08:30 ET] PPI (scheduled; not a released result)'];
+    const early = Date.parse('2026-10-20T11:00:00Z');   // 07:00 ET
+    for (const t of ['CPI is scheduled tomorrow at 08:30 ET; actuals are unknown.', 'CPI is scheduled on 2026-10-21 at 08:30 ET.', 'CPI is scheduled on 10/21 at 08:30 ET.', 'CPI and PPI are scheduled tomorrow at 08:30 ET.'])
+        for (const mode of ['strict', 'claims'] as const) assert.ok(scheduleClaimReasons(t, ev, early, mode).includes('schedule:claim-not-upcoming'), `${mode} ${t}`);
+    for (const t of ['PPI is scheduled on 2026-10-21 at 08:30 ET.', 'CPI is scheduled today at 08:30 ET and PPI tomorrow at 08:30 ET.'.split(' and ')[0] + '.', 'The next test is unconfirmed.'])
+        assert.deepEqual(scheduleClaimReasons(t, ev, early, 'strict'), [], t);
+    const src = buildLineUserPrompt(f);   // 양감마
+    assert.deepEqual(checkDepthLine('Positive gamma buffers negative shocks', 'en', src), []);
+    assert.deepEqual(checkDepthLine('양감마가 부정적 충격을 완충하는 자리', 'ko', src), []);
+    assert.ok(checkDepthLine('Gamma is negative, hedging adds to swings', 'en', src).includes('insight:gamma-sign'));
+});
+
 async function main() {
     // 프록시 서버를 띄우거나 Redis에 연결하지 않고 실제 readBody 함수 본문을 로드한다.
     const proxy = readFileSync('scripts/ec2-redis-proxy.js', 'utf8');

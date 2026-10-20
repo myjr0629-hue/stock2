@@ -5,6 +5,7 @@ import { applyConfirmedEarnings, CONFIRMED_EARNINGS, type OverlayRow } from '@/l
 import { providerSymbols, type StockNewsEvidence } from './stockEvidence';
 import { etDateOf } from '@/lib/marketCalendar';
 import { textIntegrityReasons } from './textIntegrity';
+import { companyNameEntries } from '@/lib/app/tickerNames';
 import { adviceHit } from './adviceGuard';
 import { checkAmounts } from './amountGuard';
 
@@ -165,37 +166,62 @@ function mentionsName(text: string, name: string): boolean {
     return [name, core].filter(n => n.length >= 2).some(n => new RegExp(`(?<![A-Za-z0-9])${escRe(n)}(?![A-Za-z0-9])`, 'i').test(text));
 }
 
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+/** 글 속 날짜 표기(2026-10-21 · 10/21 · 10월 21일 · 10月21日 · Oct 21) → MM-DD */
+function mentionedDates(text: string): string[] {
+    const out: string[] = [];
+    const md = (m: number, d: number) => (m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null);
+    for (const m of text.matchAll(/\b\d{4}-(\d{2})-(\d{2})\b/g)) { const v = md(+m[1], +m[2]); if (v) out.push(v); }
+    for (const m of text.matchAll(/(?<![\d.:/$])(\d{1,2})\/(\d{1,2})(?![\d/])/g)) { const v = md(+m[1], +m[2]); if (v) out.push(v); }
+    for (const m of text.matchAll(/(\d{1,2})\s*(?:월|月)\s*(\d{1,2})\s*(?:일|日)/g)) { const v = md(+m[1], +m[2]); if (v) out.push(v); }
+    for (const m of text.matchAll(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/gi)) { const v = md(MONTHS.indexOf(m[1].toLowerCase()) + 1, +m[2]); if (v) out.push(v); }
+    return out;
+}
+
 /**
  * «예정» 주장 검사 — Tactical NEXT 문장과 내 종목 해석이 같이 쓴다(시각 판정은 evidenceTime 정본).
- *   주장 = 시각 표기 또는 예정·발표 표현이 있는 문장(«내일 640 지지선» 같은 옵션 경계 문장은 주장이 아니다).
- *   주장이면 «앞으로 있을» 예정 줄 «하나»가 이름(원문 그대로)·시각·오늘/내일을 모두 만족해야 한다 — 서로 다른 일정의 조각을 합쳐 통과하지 않게.
- *   이름을 번역하면(«테슬라») 대조할 수 없으므로 탈락 — 지시문이 NEXT 의 이름은 원문 그대로 쓰라고 한다.
- *   strict(Tactical 생성 직후)는 여기에 더해 문장 속 사건 명칭군이 전부 앞으로 있을 예정이어야 한다.
+ *   주장 = 시각·날짜 표기, 예정 표현, 또는 날짜어(오늘·내일)+사건 이름. «내일 640 지지선» 같은 옵션 경계 문장은 주장이 아니다.
+ *   주장이면 문장이 가리키는 «모든» 사건(근거 줄 이름 원문 · CPI 같은 명칭군 · 번역된 회사명 «테슬라»)마다
+ *   앞으로 있을 예정 줄 하나가 그 이름·시각·날짜(명시 날짜·오늘/내일)를 모두 만족해야 한다 — 조각 합치기·하나만 맞기 차단.
+ *   «미확인»류 표현은 주장을 면제하지 않는다(«scheduled tomorrow …; actuals are unknown»).
+ *   내 종목 해석은 사건 이름이 없으면 주어 = 그 종목(implicitName) 자신이다.
  */
 export function scheduleClaimReasons(text: string, evidenceLines: readonly string[], nowMs: number, mode: 'strict' | 'claims', implicitName?: string): string[] {
-    if (!text || UNKNOWN.test(text)) return [];
+    if (!text) return [];
     if (!Number.isFinite(nowMs)) return ['schedule:no-clock'];
     const upcoming = evidenceLines.filter(e => isUpcomingLine(e, nowMs));
-    const reasons = mode === 'strict' ? unsupportedEventReasons(text, upcoming.join('\n')) : [];
+    const reasons = mode === 'strict' && !UNKNOWN.test(text) ? unsupportedEventReasons(text, upcoming.join('\n')) : [];
     const times = mentionedTimes(text);
+    const dates = mentionedDates(text);
     const saysToday = TODAY_WORDS.test(text), saysTomorrow = TOMORROW_WORDS.test(text);
-    // 날짜어(오늘·내일)는 사건 이름과 함께일 때만 주장 — «내일 640 지지선»은 옵션 경계 문장
-    const namesEvent = EVENT_FAMILIES.some(re => re.test(text)) || evidenceLines.some(l => { const n = lineName(l); return !!n && mentionsName(text, n); });
-    const claim = times.length > 0 || CLAIM_WORDS.test(text) || ((saysToday || saysTomorrow) && namesEvent);
+    // 문장이 가리키는 사건들 — 각각 «이 줄이면 그 사건»인지 판정하는 함수
+    const mentions: Array<{ key: string; is: (line: string) => boolean }> = [];
+    for (const l of evidenceLines) {
+        const n = lineName(l);
+        if (n && mentionsName(text, n) && !mentions.some(m => m.key === `name:${n}`)) mentions.push({ key: `name:${n}`, is: line => lineName(line) === n });
+    }
+    EVENT_FAMILIES.forEach((re, i) => { if (re.test(text) && !/earnings|실적|決算/i.test(re.source.slice(0, 20))) mentions.push({ key: `family:${i}`, is: line => re.test(lineName(line) || '') }); });
+    for (const c of companyNameEntries()) {
+        const byTicker = new RegExp(`(?<![A-Za-z0-9])${escRe(c.ticker)}(?![A-Za-z0-9])`).test(text);
+        const byName = c.names.some(n => /^[A-Za-z]/.test(n) ? new RegExp(`(?<![A-Za-z])${escRe(n)}(?![A-Za-z])`, 'i').test(text) : text.includes(n));
+        if ((byTicker || byName) && !mentions.some(m => m.key === `name:${c.ticker}`))
+            mentions.push({ key: `name:${c.ticker}`, is: line => lineName(line) === c.ticker });
+    }
+    const claim = times.length > 0 || dates.length > 0 || CLAIM_WORDS.test(text) || ((saysToday || saysTomorrow) && mentions.length > 0);
     if (!claim) return reasons;
+    if (!mentions.length && implicitName) mentions.push({ key: `name:${implicitName}`, is: line => lineName(line) === implicitName });
+    if (!mentions.length) { reasons.push('schedule:claim-not-upcoming'); return reasons; }
     const today = etDateOf(nowMs);
-    const match = upcoming.some(line => {
-        const name = lineName(line);
-        // 내 종목 해석은 주어가 그 종목 자신 — 그 종목의 실적 줄은 이름을 안 써도 같은 종목이다
-        if (!name || (name !== implicitName && !mentionsName(text, name))) return false;
-        const date = line.match(/^\[[^\]]*?(\d{4}-\d{2}-\d{2})/)?.[1];
+    const fits = (line: string) => {
+        const date = line.match(/^\[[^\]]*?(\d{4}-\d{2}-\d{2})/)?.[1] || '';
         const lineTime = line.match(/^\[[^\]]*?\b(\d{2}:\d{2})(?::\d{2})? ET\b/)?.[1];
         if (times.length && !times.every(t => t === lineTime)) return false;
+        if (dates.length && !dates.every(d => d === date.slice(5))) return false;
         if (saysToday && date !== today) return false;
         if (saysTomorrow && date !== nextEtDate(today)) return false;
         return true;
-    });
-    if (!match) reasons.push('schedule:claim-not-upcoming');
+    };
+    if (!mentions.every(m => upcoming.some(line => m.is(line) && fits(line)))) reasons.push('schedule:claim-not-upcoming');
     return reasons;
 }
 // 예정 «주장» 표현(오늘·내일 같은 날짜어만으로는 주장이 아니다)

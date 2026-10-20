@@ -42,10 +42,12 @@ export function checkDepthLine(text: unknown, loc: AiLineLocale, source: string,
  */
 export function positioningSideReasons(text: string, source: string): string[] {
     const out: string[] = [];
-    // 감마를 말하는 문장이면 부호 표지가 어디에 있든 그 부호의 주장으로 본다(어순 무관 — «감마가 음수라» 포함). 넓게 잡아 오탈락은 «해석 미표시»일 뿐이다.
-    const gamma = /감마|gamma|ガンマ/i.test(text);
-    const neg = gamma && /음수|음\s*\(|음감마|음의|마이너스|부\(−\)|negative|\bshort gamma\b|負|マイナス|[−-]\s*(?:감마|gamma|ガンマ)/i.test(text);
-    const pos = gamma && /양수|양\s*\(|양감마|양의|플러스|positive|\blong gamma\b|正|プラス|\+\s*(?:감마|gamma|ガンマ)/i.test(text);
+    // 부호어가 «감마에 붙어» 있을 때만 그 부호의 주장(«Positive gamma buffers negative shocks»의 negative 는 충격 수식이다)
+    const G = '(?:dealer\\s+)?(?:감마|gamma|ガンマ)';
+    const after = '\\s*(?:exposure\\s*)?(?:is|was|stays|remains|turned|가|이|는|은|は|が)?\\s*';
+    const signRe = (w: string) => new RegExp(`(?:${w})\\s*${G}|${G}${after}(?:${w})`, 'i');
+    const neg = signRe('negative|short|음수|음\\s*\\(?\\s*[−-]?\\s*\\)?|마이너스|負の?|マイナスの?').test(text);
+    const pos = signRe('positive|long|양수|양\\s*\\(?\\s*\\+?\\s*\\)?|플러스|正の?|プラスの?').test(text);
     if (neg && !/negative gamma zone/.test(source)) out.push('insight:gamma-sign');
     if (pos && !/positive gamma zone/.test(source)) out.push('insight:gamma-sign');
     const mpBelow = /Max Pain\s*(?:\$?[\d.,]+\s*)?の?(?:아래|밑|下)|below (?:the )?Max Pain/i.test(text);
