@@ -1,6 +1,5 @@
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
 import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored } from '@/lib/ai/tacticalPrompt';
-import { buildTacticalFacts } from '@/lib/ai/tacticalFacts';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { textGate, triLangGate } from '@/lib/ai/ladderGates';
@@ -287,7 +286,7 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
     const facts = guardianCmpFacts(nums ?? basis ?? null);
     const cmpReasons = [...checkComparisons(n.text, facts), ...checkRanges(n.text, facts)];
     const reasons = [...textIntegrityReasons(String(tpl ?? '')), ...r.reasons, ...n.reasons, ...forecastReasons, ...cmpReasons,
-        // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 사실 방향과 «지난 일정을 다음 예정으로» 내보내는지 현재 근거로 본다
+        // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
         //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).
         ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text)
             ? (strict ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
@@ -449,7 +448,6 @@ function triHints(all: string[]): string {
     const h: string[] = [];
     if (all.some(r => r.includes('orphan-number'))) h.push('Put the metric name right before every number in the same clause (e.g. "TLT {TLT_CHG}"), never a bare number after "this/이는/これは".');
     if (all.some(r => r.includes('direction-sign'))) h.push('A positive change is never weak/약세/弱気 and a negative change is never strong/강세/強気; for a smaller gain say it rose less.');
-    if (all.some(r => r.includes('facts-direction'))) h.push('Use the direction in FACTS for the named metric even without a number. Unknown is not up/down/flat. Do not infer a yield move from TLT or a level.');
     if (all.some(r => /schedule:(?:relative-day|date-required|weekday)/.test(r))) h.push('Write the event date exactly as DATE_LABELS gives it plus HH:MM ET; no today/tomorrow/오늘/내일/今日/明日.');
     if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the second sentence.');
     if (all.some(r => r.includes('internal-label'))) h.push('Never write TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, WHY:, SO WHAT: or NEXT: — cite the report by its time and source.');
@@ -864,6 +862,12 @@ const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
     }
 };
 
+const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
+    ko: ctx => buildTacticalPrompt(ctx, 'ko'),
+    en: ctx => buildTacticalPrompt(ctx, 'en'),
+    ja: ctx => buildTacticalPrompt(ctx, 'ja'),
+};
+
 // [V9.1 → 2026-09-29] 번역 대체 — «검사를 통과한 다른 언어 문구»를 이 언어로 옮긴다.
 //   예전엔 한국어 캐시만 원본으로 썼고(ko→en/ja), 번역 결과도 검사 없이 저장했다.
 //   이제 어느 언어든 원본이 될 수 있고(ko 가 망가지면 en→ko), 번역 결과도 같은 출구 검사를 지난다.
@@ -1008,9 +1012,8 @@ export class IntelligenceNode {
     static async generateRealityInsight(ctx: IntelligenceContext): Promise<string> {
         // [V11.1] Reality Insight downgraded to Haiku 4.5 — 350-char output, sufficient quality, 1/3 cost
         // 공유 코어의 관측 시각이 낡아도 일정의 미래 여부는 요청 시각으로 판정한다.
-        const current = { ...ctx, metricsAsOf: ctx.asOf, asOf: new Date(Date.now()).toISOString() };
-        const facts = buildTacticalFacts(current);
-        return IntelligenceNode.produceInsight('reality', current, (locale) => buildTacticalPrompt(current, locale, facts));
+        const current = { ...ctx, asOf: new Date(Date.now()).toISOString() };
+        return IntelligenceNode.produceInsight('reality', current, (locale) => REALITY_PROMPTS[locale](current));
     }
 
     static async generateGammaInsight(ctx: IntelligenceContext): Promise<string> {
@@ -1052,14 +1055,13 @@ export class IntelligenceNode {
     private static async generateTrilingualOnce(type: InsightType, nums: GNums, buildPrompt: (locale: Locale) => string): Promise<TriOutcome> {
         const started = Date.now();
         const locales: Locale[] = ['ko', 'en', 'ja'];
-        const call = async (extra: string, retry: boolean, requested = locales): Promise<Partial<Record<Locale, string>> | null> => {
-            const partial = requested.length < locales.length;
-            const blocks = requested.map((l) => `=== ${LOCALE_NAMES[l].toUpperCase()} (${l}) INSTRUCTIONS ===\n${buildPrompt(l) + guardianTokenRules(l, nums)}`).join('\n\n');
-            const user = `Write the analysis only for these JSON keys: ${requested.join(', ')}. Follow each language's instruction block. All versions must carry the supplied code-computed facts and placeholders. Return the JSON object only.\n\n${blocks}`;
+        const blocks = locales.map((l) => `=== ${LOCALE_NAMES[l].toUpperCase()} (${l}) INSTRUCTIONS ===\n${buildPrompt(l) + guardianTokenRules(l, nums)}`).join('\n\n');
+        const user = `Write the analysis once, in three languages, following each language's own instruction block below. All three must carry the same facts and the same placeholders. Return the JSON object only.\n\n${blocks}`;
+        const call = async (extra: string, retry: boolean): Promise<Partial<Record<Locale, string>> | null> => {
             try {
                 const result = await _modelCaller({
                     modelId: MODELS.HAIKU_35,
-                    system: partial ? `Write only the requested languages as a JSON object with keys ${requested.join(', ')}. Follow the supplied language and fact contracts. Plain text values, no advice or predictions. Do not regenerate other languages.` : TRI_SYSTEM,
+                    system: TRI_SYSTEM,
                     userPrompt: user + extra,
                     maxTokens: 3500,
                     temperature: 0.2,
@@ -1069,16 +1071,7 @@ export class IntelligenceNode {
                     label: `Guardian/${type.toUpperCase()}_TRI${retry ? '/retry' : ''}`,
                     expectJson: true,
                     locale: 'multi',
-                    validate: partial ? (text: string) => {
-                        const parsed = parseTriJson(text);
-                        if (!parsed) return 'json';
-                        for (const l of requested) {
-                            if (!parsed[l]) return `${l}:missing`;
-                            const gate = textGate(l)(parsed[l]!);
-                            if (gate !== true) return gate;
-                        }
-                        return true;
-                    } : triLangGate(),
+                    validate: triLangGate(),   // ★2026-10-10 사다리 출구 가드: ko/en/ja 세 칸이 각자 언어 규칙을 통과해야 ①② 응답을 쓴다
                     ...(retry ? { maxRetries: 1, allowLastResort: false } : {}),
                 });
                 return restoreSectorLabels(parseTriJson(result.text || ''));
@@ -1108,23 +1101,14 @@ export class IntelligenceNode {
         if (!raw) return { parsed: false, out };
         let failed = gateAll(raw, locales);
         if (Object.keys(failed).length && Date.now() - started < TRI_RETRY_BUDGET_MS) {
-            const retryLocales = type === 'reality' ? Object.keys(failed) as Locale[] : locales;
-            const correction = type === 'reality'
-                ? `\n\nRewrite only the failed languages (${retryLocales.join(', ')}). Check failures: ${JSON.stringify(failed)}. Keep FACTS unchanged.${triHints(Object.values(failed).flat() as string[])}`
-                : TRI_CORRECTIVE(failed);
-            const again = await call(correction, true, retryLocales);
+            const again = await call(TRI_CORRECTIVE(failed), true);
             if (again) {
-                if (type === 'reality') {
-                    // 통과 언어는 고정하고 불일치 언어만 교체한다. 응답에 다른 언어가 끼어도 무시한다.
-                    failed = gateAll(again, retryLocales, true);
-                } else {
-                    // 회전·감마 브리프는 기존의 세 언어 교정 계약을 유지한다.
-                    const outAgain: Partial<Record<Locale, InsightOut>> = {};
-                    const failedAgain = gateAll(again, locales, true, outAgain);
-                    if (!Object.keys(failedAgain).length) { out = outAgain; failed = {}; }
-                    else {
-                        for (const l of Object.keys(failed) as Locale[]) { if (outAgain[l]) { out[l] = outAgain[l]; delete failed[l]; } else failed[l] = failedAgain[l] || failed[l]; }
-                    }
+                // 교정본이 세 언어 모두 통과하면 «한 번의 생성»으로 통일한다(언어 간 해석이 같은 생성에서 나오게). 아니면 첫 생성의 통과분 + 교정본의 통과분을 섞는다.
+                const outAgain: Partial<Record<Locale, InsightOut>> = {};
+                const failedAgain = gateAll(again, locales, true, outAgain);
+                if (!Object.keys(failedAgain).length) { out = outAgain; failed = {}; }
+                else {
+                    for (const l of Object.keys(failed) as Locale[]) { if (outAgain[l]) { out[l] = outAgain[l]; delete failed[l]; } else failed[l] = failedAgain[l] || failed[l]; }
                 }
                 raw = again;
             } else failed = gateAll(raw, Object.keys(failed) as Locale[], true);
@@ -1194,7 +1178,7 @@ export class IntelligenceNode {
         if (tri.parsed) {
             // 모델은 답했지만 이 언어의 글이 검사를 못 넘었다(교정 재생성까지) — 같은 재료로 단일 언어를 또 부르면 같은 이유로 떨어지기 쉽다 → 복구
             _genFailUntil[type][locale] = Date.now() + GEN_FAIL_COOLDOWN_MS;
-            return IntelligenceNode.recoverInsightOut(type, locale, { translate: type !== 'reality' && Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true, nums, tacticalPrompts });
+            return IntelligenceNode.recoverInsightOut(type, locale, { translate: Date.now() - started < TRANSLATE_BUDGET_MS, storedChecked: true, nums, tacticalPrompts });
         }
 
         if (Date.now() - started > TRI_FALLBACK_MAX_ELAPSED_MS) {

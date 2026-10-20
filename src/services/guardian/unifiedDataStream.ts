@@ -273,11 +273,9 @@ const CORE_DEPS: CoreDeps = {
 };
 
 /** 추가 공급사 호출 없이 공유 코어의 근거를 현재 시각으로 재검사한다. 결측은 그대로 둔다. */
-function currentTacticalPrompts(nums: GNums, core: GuardianCore | null, gamma?: GammaShieldData | null, market = core?.market) {
+function currentTacticalPrompts(nums: GNums, core: GuardianCore | null, gamma?: GammaShieldData | null) {
     const ctx = {
         ...nums, rlsiScore: nums.RLSI!, nasdaqChange: nums.NDX_CHG!, vix: nums.VIX!,
-        us10yChangeBp: us10yChangeBp(market?.factors?.us10y),
-        metricsAsOf: core?.timestamp,
         marketNewsHeadlines: core?.news, scheduledEvents: core?.scheduledEvents,
         asOf: new Date(Date.now()).toISOString(),
         triggerSupport: gamma?.supportWall, triggerResistance: gamma?.resistanceWall,
@@ -324,7 +322,7 @@ export class GuardianDataHub {
         if (!context?.verdict) return context;
         // ★2026-10-04 같은 응답의 화면 숫자(market·rlsi)로 자리표를 채우고, 숫자로 박힌 지표를 대조한다(lib/ai/guardianNumbers)
         const nums = guardianNumsFromContext(context);   // ★2026-10-07 T5: 시장·RLSI + 감마 쉴드(GEX·스퀴즈)·참여폭
-        const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums, currentTacticalPrompts(nums, core, context.gammaShield, context.market));
+        const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums, currentTacticalPrompts(nums, core, context.gammaShield));
         return r.changed ? { ...context, verdict: r.verdict } : context;
     }
 
@@ -564,7 +562,7 @@ export class GuardianDataHub {
 
                     // ★2026-10-04 생성 재료의 화면 숫자 — 자리표를 채우는 값이자 글의 기준(basis)
                     const aiNums = guardianNumsFromAiContext(aiContext);
-                    const tacticalPrompts = (l: Locale) => buildTacticalPrompt({ ...aiContext, metricsAsOf: aiContext.asOf, asOf: new Date(Date.now()).toISOString() }, l);   // 일정의 미래 여부는 요청 시각으로
+                    const tacticalPrompts = (l: Locale) => buildTacticalPrompt({ ...aiContext, asOf: new Date(Date.now()).toISOString() }, l);   // 일정의 미래 여부는 요청 시각으로
                     const [rotationText, realityText, gammaText] = await Promise.all([
                         // ⚠️ 예전엔 실패 시 «Insight generation failed. …» 영어 문장을 돌려줬고, 그게 ko/ja 화면에 그대로 나갔다.
                         //    실패해도 «검사를 통과한 마지막 정상본 → 번역 → 안내 문구» 중 하나만 나간다.
