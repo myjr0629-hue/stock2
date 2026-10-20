@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import Module from 'node:module';
 import { buildTacticalPrompt, cachedEvidence, checkTacticalOutput, datedHeadline } from '../src/lib/ai/tacticalPrompt';
+import { tacticalPromptFacts } from '../src/lib/ai/tacticalFacts';
 
 type Locale = 'ko' | 'en' | 'ja';
 const store = new Map<string, any>();
@@ -76,6 +77,69 @@ async function main() {
     _setModelCallerForTest(async opts => {
         calls.push(String(opts.label));
         return { text: await reply(opts), model: 'mock', usedFallback: false, elapsedMs: 0 } as any;
+    });
+    const up = {
+        ko: '오늘 거시 원인은 미확인입니다. 금리 상승과 얇은 감마 방어는 제한적인 충격 흡수력과 연결해 해석됩니다. 다음 확인 기준은 미확인입니다.',
+        en: 'The macro cause today is unconfirmed. Rising yields and thin dealer gamma leave limited absorption. The next test is unconfirmed.',
+        ja: '今日のマクロ要因は未確認です。金利上昇と薄いガンマ防御は限定的な衝撃吸収力と整合的です。次の確認基準は未確認です。',
+    };
+    const down = { ...up, en: up.en.replace('Rising', 'Falling'), ja: up.ja.replace('上昇', '下落') };
+    const directionalCtx = (l: Locale) => ({ ...ctx(l), us10y: 5.15, us10yChangeBp: 6, scheduledEvents: [] });
+    await test('방향 회귀: ko 상승·en fall·ja 下落 → en/ja만 재생성, ko 보존', async () => {
+        reply = async opts => {
+            if (String(opts.label).includes('/retry')) {
+                assert.match(opts.userPrompt, /facts-direction/);
+                assert.match(opts.userPrompt, /ENGLISH \(en\) INSTRUCTIONS/);
+                assert.match(opts.userPrompt, /JAPANESE \(ja\) INSTRUCTIONS/);
+                assert.doesNotMatch(opts.userPrompt, /KOREAN \(ko\) INSTRUCTIONS/);
+                assert.equal(opts.validate(JSON.stringify({ en: up.en, ja: up.ja })), true);
+                return JSON.stringify({ en: up.en, ja: up.ja, ko: '교정본의 다른 언어는 무시됩니다.' });
+            }
+            const lines = opts.userPrompt.split('\n').filter((s: string) => s.startsWith('FACTS: '));
+            assert.equal(lines.length, 3);
+            assert.equal(new Set(lines).size, 1);
+            assert.equal(tacticalPromptFacts(opts.userPrompt)!.metrics.us10yChangeBp.direction, 'up');
+            return JSON.stringify(down);
+        };
+        assert.equal(await N.generateRealityInsight(directionalCtx('ko')), up.ko);
+        assert.equal(await N.generateRealityInsight(directionalCtx('en')), up.en);
+        assert.equal(await N.generateRealityInsight(directionalCtx('ja')), up.ja);
+        assert.equal(calls.length, 2);
+    });
+    await test('한 언어 방향만 불일치하면 그 언어만 교정', async () => {
+        reply = async opts => {
+            if (!String(opts.label).includes('/retry')) return JSON.stringify({ ...up, en: down.en });
+            assert.match(opts.userPrompt, /JSON keys: en\./);
+            assert.doesNotMatch(opts.userPrompt, /KOREAN \(ko\)|JAPANESE \(ja\)/);
+            assert.equal(opts.validate(JSON.stringify({ en: up.en })), true);
+            return JSON.stringify({ en: up.en });
+        };
+        assert.equal(await N.generateRealityInsight(directionalCtx('en')), up.en);
+        assert.equal(calls.length, 2);
+    });
+    await test('교정도 방향 불일치면 직전 정상본 보존·불량본 저장/번역 없음', async () => {
+        const prior = { ...up, en: up.en.replace('limited absorption', 'limited shock absorption') };
+        store.set(key('en'), { text: prior.en, updatedAt: new Date(clock - 3600_000).toISOString() });
+        const saved = JSON.stringify(store.get(key('en')));
+        reply = async () => JSON.stringify(down);
+        assert.equal(await N.generateRealityInsight(directionalCtx('en')), prior.en);
+        assert.equal(calls.length, 2);
+        assert.equal(JSON.stringify(store.get(key('en'))), saved);
+        assert.ok(!calls.some(c => c.startsWith('Translate/')));
+    });
+    await test('저장 캐시 방향 불일치도 거부하고 정상본 생성', async () => {
+        store.set(key('en'), { text: down.en, updatedAt: new Date(clock).toISOString() });
+        reply = async () => JSON.stringify(up);
+        assert.equal(await N.generateRealityInsight(directionalCtx('en')), up.en);
+        assert.equal(calls.length, 1);
+    });
+    await test('복구 번역에서 방향 반전은 저장/반환 거부', async () => {
+        store.set(key('ko'), { text: up.ko, updatedAt: new Date(clock).toISOString() });
+        reply = async () => down.en;
+        const out = await N.recoverInsight('reality', 'en', { tacticalPrompts: l => buildTacticalPrompt(directionalCtx(l), l) });
+        assert.ok(N.isPlaceholderInsight(out));
+        assert.equal(store.has(key('en')), false);
+        assert.equal(calls.length, 1);
     });
     for (const locale of ['ko', 'en', 'ja'] as const) {
         await test(`${locale}: 08:29 생성 → 08:31 메모리 TTL 안이어도 지난 CPI 제외`, async () => {
@@ -264,6 +328,18 @@ async function main() {
             clock = Date.parse('2026-10-20T12:31:00Z');
             const after = await GuardianDataHub.getGuardianSnapshot(false, 'en');
             assert.ok(N.isPlaceholderInsight(after.verdict.realityInsight));
+            assert.equal(calls.length, 0);
+            // 코어를 읽어도 BP는 같은 응답의 market 값으로 대조한다. 정상 상승은 살리고 반전만 거부.
+            GuardianDataHub.computeGuardianSnapshot = async () => ({
+                rlsi: { score: 34 }, market: { nqChangePercent: -0.3, vix: 18.4, factors: { us10y: { level: 5.15, chgAbs: 0.06 } } },
+                verdict: { realityInsight: up.en },
+            });
+            assert.equal((await GuardianDataHub.getGuardianSnapshot(false, 'en')).verdict.realityInsight, up.en);
+            GuardianDataHub.computeGuardianSnapshot = async () => ({
+                rlsi: { score: 34 }, market: { nqChangePercent: -0.3, vix: 18.4, factors: { us10y: { level: 5.15, chgAbs: -0.06 } } },
+                verdict: { realityInsight: up.en },
+            });
+            assert.ok(N.isPlaceholderInsight((await GuardianDataHub.getGuardianSnapshot(false, 'en')).verdict.realityInsight));
             assert.equal(calls.length, 0);
         } finally { GuardianDataHub.computeGuardianSnapshot = saved; }
     });
