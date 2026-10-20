@@ -11,7 +11,9 @@ import ts from 'typescript';
 globalThis.fetch = async () => { throw new Error('시험 중 외부 접근 금지'); };
 const nsPath = require.resolve('next/server');
 const ns = require(nsPath);
-require.cache[nsPath] = { id: nsPath, filename: nsPath, loaded: true, exports: { ...ns, after: () => {} } } as Module;
+const afterCalls: Array<() => unknown> = [];
+const flushAfter = async () => { for (const fn of afterCalls.splice(0)) await fn(); };
+require.cache[nsPath] = { id: nsPath, filename: nsPath, loaded: true, exports: { ...ns, after: (fn: () => unknown) => { afterCalls.push(fn); } } } as Module;
 const rc = require('../src/services/redisClient');
 rc.getFromCache = async () => null;
 rc.setInCache = async () => true;
@@ -23,10 +25,15 @@ const { desktopRedeemHtml } = require('../src/lib/marketing/desktopHandoff');
 const route = require('../src/app/app/route');
 const issue = require('../src/app/api/gift/issue/route');
 const claim = require('../src/app/api/gift/claim/route');
+const inviteStore = require('../src/lib/invite/store');
+const { memoryInviteStore } = require('../src/lib/invite/memoryStore');
+const { arrive, inviteKeys } = require('../src/lib/invite/engine');
+const { inviteIpHash, inviteSecret } = require('../src/lib/invite/guard');
+const { newInviteKey, inviteRefOf } = require('../src/lib/invite/identity');
 const { NextRequest } = ns;
 let n = 0;
 let stage = '준비';
-const t = async (name: string, fn: () => unknown) => { stage = name; await fn(); n++; console.log(`통과: ${name}`); };
+const t = async (name: string, fn: () => unknown) => { stage = name; afterCalls.length = 0; await fn(); afterCalls.length = 0; n++; console.log(`통과: ${name}`); };
 const ios = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1';
 const android = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/129.0.0.0 Mobile Safari/537.36';
 const desktop = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/129.0.0.0 Safari/537.36';
@@ -39,6 +46,9 @@ let answer: unknown = ['empty'];
 const store = { eval: async () => { evalCalls++; if (answer instanceof Error) throw answer; return answer; } };
 server.giftStore = () => store;
 process.env.GIFT_SHARE_SECRET = randomBytes(32).toString('hex');
+process.env.INVITE_IP_SALT = randomBytes(32).toString('hex');
+process.env.VERCEL_ENV = 'preview';
+inviteStore.upstashInviteStore = () => memoryInviteStore();
 const cookie = () => `sg_gift_recipient=${giftIdentity(req('/app')).cookie}`;
 const post = (ua = ios, extra = {}) => req('/api/gift/claim', { method: 'POST', headers: { ...baseHeaders, 'user-agent': ua, cookie: cookie(), 'content-type': 'application/x-www-form-urlencoded', ...extra }, body: new URLSearchParams({ gift: token }) });
 const location = (r: Response) => r.headers.get('location') || '';
@@ -143,6 +153,66 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     assert.equal(evalCalls, 0);
   });
   process.env.GIFT_SHARE_ENABLED = '1';
+  await t('P1: 선물 토큰·기존 링크 모두 응답 뒤 터치 한 번 → 첫 실행 보상 연결·중복 방지', async () => {
+    const ref = inviteRefOf(newInviteKey());
+    const ipHash = inviteIpHash(baseHeaders['x-real-ip'], inviteSecret());
+    const before = evalCalls;
+    for (const from of ['gift', 'share_pick', 'share_line', 'share_earn']) {
+      for (const [ua, os] of [[ios, 'ios'], [android, 'android']]) for (const gift of ['', `&gift=${token}`]) {
+        const memory = memoryInviteStore();
+        let writes = 0;
+        const set = memory.set.bind(memory);
+        const touchKey = inviteKeys().touch(os, ipHash);
+        memory.set = async (key: string, value: string, ttl: number) => { if (key === touchKey) writes++; await set(key, value, ttl); };
+        inviteStore.upstashInviteStore = () => memory;
+        afterCalls.length = 0;
+        await route.GET(req(`/app?from=${from}&ref=${ref}${gift}`, { headers: { ...baseHeaders, 'user-agent': ua,
+          'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' } }));
+        assert.equal(await memory.get(touchKey), null, '응답 전에 터치를 쓰지 않는다');
+        await flushAfter();
+        assert.equal(writes, 1, '한 요청은 터치 한 번만 기록한다');
+        const key = newInviteKey();
+        assert.deepEqual(await arrive(memory, { key, os, ipHash }), { matched: true, credited: true, from, inviterRef: ref });
+        assert.deepEqual(await arrive(memory, { key, os, ipHash }), { matched: false, reason: 'again' });
+      }
+    }
+    assert.equal(evalCalls, before, 'GET에서 선물 재고를 호출하지 않는다');
+  });
+  await t('P1: HEAD·미리보기·봇·prefetch·비탐색·PC·잘못된 ref·비초대·IP 없음은 무귀속', async () => {
+    const ref = inviteRefOf(newInviteKey());
+    const human = { ...baseHeaders, 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
+    const cases = [
+      { method: 'HEAD' }, { headers: { ...human, 'user-agent': 'facebookexternalhit/1.1' } },
+      { headers: { ...human, 'user-agent': `${ios} bot` } }, { headers: { ...human, purpose: 'prefetch' } },
+      { headers: { ...human, 'accept-language': '' } }, { headers: { ...human, 'sec-fetch-mode': 'cors' } },
+      { headers: { ...human, 'user-agent': desktop } }, { ref: '' }, { ref: 'google' }, { from: 'threads' },
+      { headers: { ...human, 'x-real-ip': '' } },
+    ];
+    const before = evalCalls;
+    for (const c of cases) {
+      const memory = memoryInviteStore(); let writes = 0;
+      memory.set = async () => { writes++; };
+      memory.hsetExpiring = async () => { writes++; };
+      inviteStore.upstashInviteStore = () => memory;
+      await route.GET(req(`/app?from=${c.from ?? 'gift'}&ref=${c.ref ?? ref}&gift=${token}`, {
+        method: c.method ?? 'GET', headers: c.headers ?? human,
+      }));
+      await flushAfter(); assert.equal(writes, 0);
+    }
+    assert.equal(evalCalls, before);
+  });
+  await t('P1: 추천 저장소 장애도 선물 화면·재고 무소비 유지', async () => {
+    const memory = memoryInviteStore(); let attempts = 0;
+    memory.set = async () => { attempts++; throw new Error('가짜 추천 저장소 장애'); };
+    inviteStore.upstashInviteStore = () => memory;
+    const before = evalCalls;
+    const r = await route.GET(req(`/app?from=gift&ref=${inviteRefOf(newInviteKey())}&gift=${token}`, {
+      headers: { ...baseHeaders, 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' },
+    }));
+    assert.equal(r.status, 200); assert.ok((await r.text()).includes('/api/gift/claim'));
+    await flushAfter(); assert.equal(attempts, 1); assert.equal(evalCalls, before);
+    inviteStore.upstashInviteStore = () => memoryInviteStore();
+  });
   await t('GET·HEAD·OG·PC QR 무소비 및 코드 미노출', async () => {
     for (const ua of [ios, android, desktop, 'facebookexternalhit/1.1']) {
       for (const method of ['GET', 'HEAD']) {
