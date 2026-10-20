@@ -247,8 +247,8 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
 
     // S7: ja 생성이 마크다운 → 정리본이 나가고 저장된다
     reset(MARKET);
-    // 원인 미확인·공급된 옵션 경계만 쓰는 현재 Tactical 계약의 마크다운 대본.
-    script = ['# マクロ分析\n**市場の状態**\n本日の米国市場は、確認できるマクロ要因が不足しています。弱い市場参加と中立のガンマが重なり、衝撃の吸収力は限定的です。次の確認基準はオプション支持線7,500の維持です。'];
+    // 마크다운 정리 시험은 기존 숫자 주어 사전의 サポート를 사용한다(支持線은 orphan-number로 거부됨).
+    script = ['# マクロ分析\n**市場の状態**\n本日の米国市場は、確認できるマクロ要因が不足しています。弱い市場参加と中立のガンマが重なり、衝撃の吸収力は限定的です。次の確認基準はオプションサポート7,500の維持です。'];
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ja'));
     t('S7 ja 마크다운 생성 → 정리본(# · ** 없음)', out.startsWith('本日の米国市場は') && !/[#*]/.test(out), out.slice(0, 40));
     t('S7 재시도 없음(정리로 충분)', modelCalls.length === 1);
