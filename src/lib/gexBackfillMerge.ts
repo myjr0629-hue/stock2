@@ -26,6 +26,8 @@
  *      (스크립트가 `oi>0 && gamma!==0` 로 거르므로 계약 수만 다르다)
  */
 
+import { isGuardianSnapshotRow } from '@/lib/app/intelOptionsBasis';
+
 /** 복원 저장소의 한 점 */
 export interface BackfillPoint {
     date: string;              // YYYY-MM-DD (ET 거래일)
@@ -104,7 +106,10 @@ export function mergeGexHistory(
     bf: BackfillPoint[],
     sinceMs: number
 ): { data: MergedGexPoint[]; filled: number } {
-    const out: MergedGexPoint[] = (live || []).map((p) => ({ ...p, source: "live" as const }));
+    // 출처를 live로 바꾸거나 복원 제외 날짜를 만들기 전에 단위가 다른 행을 거른다.
+    const out: MergedGexPoint[] = (live || [])
+        .filter(p => !isGuardianSnapshotRow(p))
+        .map((p) => ({ ...p, source: "live" as const }));
     // 라이브가 «하루라도» 찍힌 날은 복원하지 않는다
     const liveDays = new Set(out.map((p) => etDateOfMs(Number(p.timestamp))));
 

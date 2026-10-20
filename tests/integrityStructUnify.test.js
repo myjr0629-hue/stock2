@@ -26,13 +26,15 @@ const level = {maxPain:100,callWall:110,putFloor:90};
 const levels = new Map(Object.keys(structures).map(t=>[t,level]));
 const mods = new Map();
 const envelope = {at:NOW,phase:'test',body:{success:true,data:[{ticker:'MSFT',gex:-9239212,squeezeScore:40,pcr:1.4018361}],meta:{}}};
+// 시험마다 서로 다른 캐시 범위를 사용한다. 앞 시험의 opt-in warm cache가 다음 합성 행을 가리지 않게 한다.
+let testScope = 0;
 const mocks = {
-  '@/lib/cache/intelFastCache': { INTEL_FAST_SECTORS:['m7'],intelFastKey:()=> 'intel-test',etPhase:()=>({key:'test',open:false}),intelFastWindow:()=>({fresh:1000,maxStale:10000}),usableEnvelope:()=>({age:0}) },
+  '@/lib/cache/intelFastCache': { INTEL_FAST_SECTORS:['m7'],intelFastKey:()=> 'intel-test',etPhase:()=>({key:'test-'+testScope,open:false}),intelFastWindow:()=>({fresh:1000,maxStale:10000}),usableEnvelope:()=>({age:0}) },
   '@/services/redisClient': {getFromCache:async k=>k==='intel-test'?structuredClone(envelope):null,setInCache:async()=>true,mgetFromCache:async keys=>keys.map(k=> k==='intel-test'?structuredClone(envelope):k.startsWith('structure:v2:') ? {data:{...structures[k.slice(13)],expiration:structures[k.slice(13)]?.expiration ?? '2026-10-23',options_status:'OK'},timestamp:NOW-1000}:null)},
   '@/lib/aws/dynamoDataProvider': {getLatestGex:async t=>rows[t],getLatestFlow:async()=>null},
   '@/services/analysisCache': {getAnalysisCache:async t=>cached[t],getAnalysisCacheForTickers:async()=>cached,patchAnalysisCache:async()=>true,writeAnalysisCache:async()=>true},
   '@/lib/cache/redisSWR': {swrFetch:async()=>({data:{siData:{siPercent:4,daysToCover:2,siPercentChange:1,settlementDate:'2026-10-15'},svData:{shortVolPercent:40}}})},
-  '@/services/structureService': {getStructureData:async t=>({...structures[t],underlyingPrice:100,atmIv:30}),prefetchLevelsForExit:()=>async()=>levels, levelsForExit:async()=>levels,displayLevels:x=>x||{},levelsFromStructure:x=>x,applyLevelsToRealtime:()=>{},applyLevelsToUnified:x=>x,structureV2Key:t=>'structure:v2:'+t},
+  '@/services/structureService': {getStructureData:async t=>({...structures[t],underlyingPrice:100,atmIv:30}),prefetchLevelsForExit:()=>async()=>levels, levelsForExit:async()=>levels,displayLevels:x=>x||{},levelsFromStructure:x=>x,applyLevelsToRealtime:()=>{},applyLevelsToUnified:x=>x,applyLevelsToVolatilityCard:(...args)=>load('src/lib/optionLevelGate.ts').applyLevelsToVolatilityCard(...args),structureV2Key:t=>'structure:v2:'+t},
   '@/services/macroHubProvider': {getMacroSnapshotSSOT:async()=>({})},
   '@/services/impliedMoveService': {impliedMoveOfStructure:async()=>null,peekStoredStructure:async()=>null},
   '@/services/massiveClient': {fetchMassive:async()=>({tickers:[]})},
@@ -53,7 +55,7 @@ function load(file, extra='') {
     if(id==='next/server') return {NextResponse:{json:x=>x},after:()=>{}};
     if(id.startsWith('@/')) {
       const rel=id.slice(2);
-      if(/^(lib\/(gammaFlipDistance|optionMetrics|impliedMove|putCall|ai\/(ucNumbers|fieldLeak|amountGuard)|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
+      if(/^(lib\/(gammaFlipDistance|optionLevelGate|optionMetrics|impliedMove|putCall|seo\/flowTicker|ai\/(ucNumbers|fieldLeak|amountGuard)|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
       return new Proxy({}, {get:()=>()=>null});
     }
     if(id.startsWith('.')) {
@@ -71,7 +73,7 @@ const batch=load('src/services/watchlistBatchService.ts','\nexport { processWatc
 const live=load('src/app/api/live/ticker/route.ts','\nexport { withExitLevels };');
 const command=load('src/app/api/command/unified/route.ts','\nexport { overlayStructureLevels };');
 let fails=0,passes=0;
-async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}catch(e){fails++;console.log('FAIL '+name+': '+e.message);}}
+async function test(name,fn){testScope++;try{await fn();passes++;console.log('PASS '+name);}catch(e){fails++;console.log('FAIL '+name+': '+e.message);}}
 (async()=>{
  await test('P1-1 MSFT batch price -9,239,212 -> +30,010,990 and LONG',async()=>{
   const r=(await batch.processWatchlistBatch(['MSFT'],'price')).results[0].realtime;

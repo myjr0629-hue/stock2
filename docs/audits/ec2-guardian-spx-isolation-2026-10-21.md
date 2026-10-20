@@ -1,79 +1,102 @@
-# EC2 guardian의 SPY 오염 차단 — 2026-10-21
+# EC2 guardian의 SPY·SPX 옵션 GEX 오염 차단 — 2026-10-21
 
 ## 결과 요약
 
-- 코드에서 확인한 원인: `scripts/ec2-guardian-dynamo.js`가 `gammaShield`의 지수 수준 가격과 정규화 GEX를 `signum-gex-history`의 `SPY` 키에 저장했다. 최신 행을 직접 읽는 폴백은 이 행을 ETF 옵션 수집 행으로 사용했다.
-- 운영 빈도·오염 행 수는 작업 지시에서 제공된 관측이다. 이번 작업은 운영 AWS·Redis·DB·브라우저에 접근하지 않았다.
-- 새 guardian 행은 `ticker: "SPX"`, `source: "ec2-guardian"`, `gexBasis: "normalized_index"`로 저장한다. 동일 시각의 SPY 수집 행과 파티션 키가 다르다.
-- 이 `SPX`는 지수 수준 스냅샷의 저장 키다. 현재 Guardian 가격은 SPY × 10 근사이며, 실제 SPX 옵션 체인 측정값이 아니다. `gex`도 달러 GEX가 아니라 정규화 지수다.
-- 모든 기존 최신 GEX 소비 경로가 `latestCollectorGexRow`를 사용한다. 기존 SPY guardian 행은 레거시 표지로, 새 행은 명시적 출처로 제외한다. 기존 행은 삭제·수정하지 않는다.
-- 화면·라벨·표시 로직 변경, 커밋, push, 병합, 배포, 운영 데이터 쓰기는 하지 않았다.
+- 최초 원인: guardian 생산자가 SPX 수준 가격·정규화 GEX를 SPY 옵션 수집 행과 같은 키로 저장했다. 앞선 변경은 신규 저장 키를 SPX로 분리하고 모든 최신 옵션 폴백에 수집 행 선택을 적용했다.
+- 관문 P2 원인: 키를 SPX로 바꿔도 `historyStore.getGexHistory`가 guardian 정규화 지수를 옵션 이력으로 반환했다. `mergeGexHistory`가 그 출처까지 `live`로 덮고 해당 날짜의 정상 옵션 복원을 막았다.
+- 이번 수정은 옵션 이력 읽기와 병합 전에 기존 `isGuardianSnapshotRow` 판정을 적용한다. 명시적 guardian 출처와 레거시 `squeezeLevel`·수량 필드 전무 행을 제외한다. 원시 SPY·SPX 저장 행은 삭제하거나 수정하지 않는다.
+- 정상 옵션 GEX·측정된 0·가격·시각은 유지한다. guardian 행만 있는 날짜는 같은 산식의 옵션 복원분으로 채울 수 있다. API의 `liveCount`는 실제 병합에 남은 라이브 옵션 행 수다.
+- 코드·합성 입출력으로 확인한 내용이다. 운영 빈도·오염 행 수는 원래 작업 지시의 관측이며 이번에는 운영 실데이터를 확인하지 않았다.
+- 화면·라벨·문구·표시 코드 변경, 커밋, push, 병합, 배포, 운영 데이터 쓰기는 하지 않았다. `.env*`도 읽거나 로드하지 않았다.
 
 ## 바꾼 파일과 호출 영향
 
+이번 보완의 변경 파일만 기록한다. 앞선 커밋 `9addb639f`의 생산자·최신 폴백 수정은 유지한다.
+
 | 파일 | 변경·영향 |
 |---|---|
-| `scripts/ec2-guardian-dynamo.js` | GEX 쓰기 키를 SPX로 분리하고 출처·GEX 단위를 기록한다. 다른 두 테이블 쓰기는 그대로다. |
-| `src/lib/app/intelOptionsBasis.ts` | `source=ec2-guardian` 판정을 추가한다. 기존 `squeezeLevel` 문자열 + OI·계약 수량 필드 전무 판정도 유지한다. |
-| `src/lib/aws/dynamoDataProvider.ts` | `getTickerSnapshot`의 GEX를 수집 행으로 선택한다. 원시 `getLatestGex`와 `getGexHistory`의 조회 계약은 유지한다. |
-| `src/app/api/command/unified/route.ts` | 구조·변동성의 DynamoDB 폴백 두 곳을 보호한다. `getTickerSnapshot`을 쓰는 초기 경로도 공급자 수정으로 보호된다. |
-| `src/app/api/intel/fast/route.ts` | GEX 폴백을 보호한다. Flow 행 병합은 유지한다. |
-| `src/app/api/live/ticker/route.ts` | 옵션 데이터가 비었을 때의 GEX 폴백을 보호한다. |
-| `src/services/watchlistBatchService.ts` | 관심종목의 GEX 폴백을 보호한다. Flow·IV 출처 시각은 유지한다. |
-| `src/services/guardian/gammaShieldEngine.ts` | SPY·QQQ GEX 폴백을 보호한다. 정규화 결과를 다시 달러 GEX로 읽는 순환 오염을 막는다. |
-| `tests/gexGuardianIsolation.test.js` | 생산자와 각 최신 소비 구간을 합성 데이터·메모리 I/O로 실행한다. |
-| `tests/oiPcrSpyGuardian.test.ts` | SPY·QQQ·SPX의 실제 oi-pcr·optionMetrics 경로를 추가 검증한다. |
-| `tests/gammaFlipDistance.test.js` | 분리 실행하는 실제 Command 함수의 새 의존성 `latestCollectorGexRow`를 시험 실행 문맥에 제공한다. |
-| 이 문서 | 원인·호출자·시험·배포·되돌림을 기록한다. |
+| `src/lib/aws/historyStore.ts` | 날짜 범위 옵션 GEX 이력에서 guardian 행을 제외한다. 조회 범위·정렬·페이지 수·외부 호출 수는 그대로다. |
+| `src/lib/gexBackfillMerge.ts` | 출처를 바꾸고 라이브 날짜 집합을 만들기 전에 같은 판정을 적용한다. 원시 행을 직접 넘기는 호출도 보호한다. |
+| `src/app/api/history/route.ts` | `liveCount`를 병합 후 정상 라이브 행 수와 맞춘다. |
+| `tests/gexHistoryGuardian.test.js` | 실제 생산자 → 메모리 DynamoDB → 두 이력 API·Command 통계를 실행하는 회귀 6건을 추가한다. |
+| `tests/integrityStructUnify.test.js` | 누락된 순수 함수와 티커 검사를 실제 구현으로 연결하고 시험별 캐시 범위를 분리한다. |
+| `tests/gammaFlipDistance.test.js` | 현재 UI에 없는 IVSkew 보조 함수 참조를 제거한다. Guardian 거리 검증은 유지하고 기존 IVSkew 전용 시험을 별도 실행한다. |
+| 이 문서 | 관문 원인·호출 영향·실행 결과·배포·되돌림을 갱신한다. |
 
-공유 선택 함수의 기존 호출자 `src/app/api/app/oi-pcr/route.ts`와 `src/services/optionMetricsService.ts`도 영향 범위다. 이미 공통 함수를 사용하므로 호출부 수정은 없고 회귀 시험에 포함했다. `getTickerSnapshot`의 소비자는 종목 페이지(`src/app/[locale]/ticker/page.tsx`)와 Command 초기 경로다. `intrinioClient.getTickerSnapshot`은 이름만 같은 별도 함수다.
+공유 함수의 모든 호출자를 저장소 검색으로 확인했다.
 
-저장소 검색에서 기존 SPX 전용 GEX 최신 소비 경로는 발견되지 않았다. 따라서 Guardian 스냅샷을 SPX 옵션 수집 데이터로 연결하는 새 폴백은 추가하지 않았다. SPX 원시 조회는 새 저장 키의 행을 반환하고, 옵션 수집 행 선택은 이를 건너뛴다. 역사 조회 함수는 원시 이력 조회 계약을 유지한다. 이번 차단 범위는 모든 `getLatestGex` 소비 경로다.
+- `historyStore.getGexHistory`: `/api/history`, `/api/aws/history`, Command `fetchGexHistoryData`. 세 경로 모두 실제 함수를 합성 데이터로 실행해 검증한다.
+- `mergeGexHistory`: `/api/history` 한 곳. 직접 호출과 API 응답을 함께 검증한다.
+- `isGuardianSnapshotRow`의 구현은 바꾸지 않았다. 기존 최신 GEX 선택·OI·옵션 지표 호출부는 이전 회귀 묶음으로 재검증한다.
+- `dynamoDataProvider.getGexHistory`는 같은 이름의 별도 원시 조회다. 최근 8행 중 수집 행을 고르는 최신 폴백의 계약을 유지한다.
 
-최신 행이 정상 수집 행이면 추가 조회가 없다. guardian 행이면 최근 8행 중 첫 수집 행으로 대체한다. 새 출처 판정은 모든 공통 함수 호출자에 동일하게 적용된다.
+이력 행을 화면에서 숨기는 변경은 없다. 서로 다른 단위의 데이터를 옵션 GEX 응답에 포함하지 않도록 데이터 경계에서 분리한다. guardian 원래 지수 이력은 `guardian-history`와 원시 저장본에 유지된다.
 
 ## 돌린 시험과 결과
 
-외부 통신·운영 쓰기 없이 합성 행과 메모리 스텁을 사용했다. 무거운 시험 묶음과 전체 타입 검사는 `/usr/bin/lockf -k /tmp/signum-heavy.lock` 안에서 순차 실행했다. 타입 검사는 한 번만 실행했다.
+수정 전 새 회귀 시험은 0 통과·6 실패로 관문 문제를 재현했다. 수정 후 6 통과·0 실패를 확인했다. 새 시험은 생산자의 SPX 정규화 지수 8이 옵션 GEX로 노출되지 않음, SPY·QQQ·SPX 정상 수집값과 0 보존, 출처 보존, 동일 날짜 복원 허용, 두 API의 개수·Command 통계를 검사한다.
 
-| 시험 파일·검사 | 최종 결과 |
+앞선 25건 실패의 메커니즘은 다음과 같다. 제품 코드를 실패 기대값에 맞추지 않고 시험 환경만 고쳤다.
+
+- 9건: 모의 `structureService`에 `applyLevelsToVolatilityCard`가 없었다. 실제 순수 구현을 시험 로더에 연결했다.
+- 14건: 로더가 `isFlowTicker`를 읽지 않아 허용 티커도 `invalid ticker`가 됐다. 실제 순수 티커 검사를 연결했다.
+- 1건: 앞 시험에서 남은 opt-in 메모리 캐시가 다음 시험의 합성 OI 행·시각을 가렸다. 시험별 캐시 범위를 분리했다. 캐시 자체의 동작은 기존 `optionMetricsCache` 시험으로 별도 검증한다.
+- 1건: 현재 `IVSkewCurve`에 존재하지 않는 `getGammaFlipSub`를 AST에서 찾았다. 그 낡은 참조를 제거하고 현재 IVSkew 시험을 실행한다. Guardian 두 화면의 감마플립 거리 검증은 유지했다.
+
+최종 시험 묶음과 타입 검사는 공용 `/usr/bin/lockf -k /tmp/signum-heavy.lock`을 사용해 순차 실행한다. 앞선 실행에서 사용한 기존 시험 10개 파일 전체와 새 회귀·기존 IVSkew 전용 시험이 검증 범위다. 저장소의 모든 시험 파일을 실행했다는 뜻은 아니다.
+
+| 시험 파일 | 실제 결과 줄 |
 |---|---|
-| `gexGuardianIsolation.test.js` | 6/6 통과 |
-| `oiPcrSpyGuardian.test.ts` | 12/12 통과 |
-| `optionMetricsCache.test.ts` | 15/15 통과 |
-| `oiNear35.test.ts` | 34/34 통과 |
-| `sessionArchiveB3.test.ts` | 12/12 통과 |
-| `appAccuracy2.test.ts` | 22/22 통과 |
-| `watchlistInsights.test.ts` | 96/96 통과 |
-| `optionLevelGate.test.ts` | 61/61 통과 |
-| `integrityStructUnify.test.js` | 61 통과·24 실패 — 변경 전 HEAD에서도 동일 |
-| `gammaFlipDistance.test.js` | 14 통과·1 실패 — 남은 실패는 변경 전 HEAD에서도 동일 |
-| `tsc --noEmit --pretty false` | 종료 0·오류 0 |
-| `git diff --check` | 통과 |
+| `gexGuardianIsolation.test.js` | `6/6 통과` |
+| `gexHistoryGuardian.test.js` | `결과: 6 통과 · 0 실패` |
+| `oiPcrSpyGuardian.test.ts` | `12/12 통과` |
+| `optionMetricsCache.test.ts` | `15 tests passed; measured baseline 140/2 requests, cached hit 0/request, simultaneous 70/10 requests.` |
+| `oiNear35.test.ts` | `34/34 통과` |
+| `sessionArchiveB3.test.ts` | `12개 통과` |
+| `appAccuracy2.test.ts` | `appAccuracy2: 22건 통과` |
+| `watchlistInsights.test.ts` | `96/96 통과` |
+| `optionLevelGate.test.ts` | `61개 통과` |
+| `integrityStructUnify.test.js` | `85 passed, 0 failed` |
+| `gammaFlipDistance.test.js` | `# pass 15 · # fail 0` |
+| `ivSkew.test.cjs` | `# pass 39 · # fail 0` |
+| `tsc --noEmit --pretty false` | 종료 코드 0 · 출력 0바이트 · 오류 0 |
 
-최종 합계는 333 통과·25 실패다. 따라서 기존 시험 전체 통과 조건은 충족하지 못했다. 실패를 없애기 위해 화면 코드나 기존 판정을 바꾸지 않았다.
+이전 과제의 기존 시험 10개 파일 전체는 **358 통과·0 실패**다. 새 회귀 6건과 기존 IVSkew 39건을 더한 최종 합계는 **403 통과·0 실패**다. 결과 줄은 실제 실행 로그에서 추출했다. 저장소의 모든 시험 파일을 실행한 것은 아니다.
 
-초기 감마플립 시험에는 새 공통 함수가 분리 실행 문맥에 없어 추가 실패가 1건 있었다. 실제 공통 함수와 순수 의존성을 시험 로더에 제공한 뒤 해당 파일만 재실행해 해결했다. 기존의 25건은 변경한 구현 7개 파일을 `git show HEAD:<경로>` 내용으로 메모리에서 대체하는 읽기 전용 비교 실행으로 재현했다. 작업트리 파일을 되돌리거나 운영 데이터를 사용하지 않았다.
+옵션 레벨 시험의 첫 묶음 실행은 외장 볼륨의 `src` 전수 읽기 중 실행기에 설정한 120초 제한으로 종료 124였다. 단언 실패는 없었다. 이 파일만 제한을 900초로 늘려 재실행했고 전체 61건·종료 0을 확인했다. 다른 통과 시험과 tsc는 이 사유로 반복하지 않았다. 전체 tsc는 한 번 실행해 종료 0·오류 0이었다.
 
-- `integrityStructUnify`: `applyLevelsToVolatilityCard` 모의 함수 누락, 티커 검사 경로의 `invalid ticker`, fast-all 시각 기대값 실패가 변경 전·후 동일하다.
-- `gammaFlipDistance`: 현재 `IVSkewCurve.tsx`에 없는 `getGammaFlipSub`를 AST에서 찾는 기존 시험 1건이 변경 전·후 동일하게 실패한다.
+원본 로그는 `/tmp/signum-guardian-verification/`과 `/tmp/signum-guardian-integrity-after.log`에 있다. 옵션 레벨의 최종 로그는 `optionLevelGate.retry.log`다. `summary.txt`에 한국어 결과 줄을 별도로 기록했다.
 
-재현 시 설치된 의존성을 사용하는 작업공간에서 아래처럼 실행한다. `.env*`를 읽거나 로드하지 않는다. 다른 무거운 작업과 동시에 실행하지 않는다.
+
+재현 명령(작업공간 루트, `.env*`를 로드하지 않음):
 
 ```sh
-NODE_PATH="$PWD/node_modules" node tests/gexGuardianIsolation.test.js
-/usr/bin/lockf -k /tmp/signum-heavy.lock env TS_NODE_TRANSPILE_ONLY=1 TS_NODE_COMPILER_OPTIONS='{"module":"CommonJS","moduleResolution":"node","jsx":"react-jsx","esModuleInterop":true,"resolveJsonModule":true}' node -r ts-node/register -r tsconfig-paths/register tests/oiPcrSpyGuardian.test.ts
-/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --pretty false
+/usr/bin/lockf -k /tmp/signum-heavy.lock env \
+  TS_NODE_TRANSPILE_ONLY=1 \
+  TS_NODE_COMPILER_OPTIONS='{"module":"CommonJS","moduleResolution":"node","jsx":"react-jsx","esModuleInterop":true,"resolveJsonModule":true}' \
+  sh -eu -c '
+for file in \
+  tests/gexGuardianIsolation.test.js \
+  tests/gexHistoryGuardian.test.js \
+  tests/oiPcrSpyGuardian.test.ts \
+  tests/optionMetricsCache.test.ts \
+  tests/oiNear35.test.ts \
+  tests/sessionArchiveB3.test.ts \
+  tests/appAccuracy2.test.ts \
+  tests/watchlistInsights.test.ts \
+  tests/optionLevelGate.test.ts \
+  tests/integrityStructUnify.test.js \
+  tests/gammaFlipDistance.test.js \
+  tests/ivSkew.test.cjs
+do
+  case "$file" in
+    *.ts) node -r ts-node/register -r tsconfig-paths/register "$file" ;;
+    *) node "$file" ;;
+  esac
+done
+node node_modules/typescript/bin/tsc --noEmit --pretty false
+'
 ```
-
-합성 시험은 다음을 확인한다.
-
-- 생산자가 SPX에만 GEX 행을 쓰고 같은 시각의 SPY 수집 행을 보존한다.
-- SPY: 최신 guardian 가격 7654·콜월 7900 대신 수집 가격 766.48과 수집 레벨·GEX·PCR·시각을 선택한다.
-- QQQ: 정상 최신 수집 행을 추가 이력 조회 없이 유지한다.
-- SPX: 원시 조회는 guardian 지수값을 보존한다. 옵션 소비 경로는 합성 SPX 수집 행이 있으면 그 행을 선택하고, guardian만 있으면 이를 옵션 값으로 사용하지 않는다.
-- 구조·변동성·Intel·관심종목·live·Guardian·통합 스냅샷 및 oi-pcr·optionMetrics 경로에 같은 선택 규칙이 적용된다.
-- 수집 행 부재·이력 조회 실패 때 guardian 값을 대신 내보내지 않는다.
 
 ## 운영 세션용 EC2 배포 절차 — 이번 작업에서는 실행하지 않음
 
@@ -123,8 +146,7 @@ curl --fail --silent --show-error http://127.0.0.1:8083/health
 
 ## 남은 위험
 
-- 운영 배포·실데이터 확인은 운영 세션의 작업으로 남는다. 저장 경로와 PM2 대상도 운영에서 확인해야 한다.
-- 기존 시험 25건 실패는 변경 전에도 재현됐지만 미해결이다. 전체 시험 통과로 보고하지 않는다.
-- 최근 8행 안에 수집 행이 없거나 조회가 실패하면 공통 선택 함수는 null이다. 지수값이나 임의 숫자로 빈 값을 채우지 않는다. 정상 장중 수집 간격과 guardian 간격에서는 이 범위 안에 수집 행이 있어야 한다는 기존 가정을 유지했다.
-- 배포 전 오염 값이 이미 응답 캐시에 저장돼 있으면 기존 캐시 수명 동안 남을 수 있다. 이번 작업에서 운영 캐시를 삭제하거나 갱신하지 않았다.
-- 원시 역사 조회는 기존 행을 그대로 보존하므로 별도 이력 분석에서는 출처와 단위를 구분해야 한다. 최신 옵션 폴백은 guardian 출처를 제외한다.
+- 운영 배포·실데이터 확인은 운영 세션이 담당한다. 기존 배포 절차와 되돌림 명령은 위에 보존했다. 이번 보완은 웹 읽기 코드에도 반영해야 한다.
+- 정상 옵션 수집·복원 값이 모두 없으면 정규화 지수나 임의 숫자로 대신하지 않는다.
+- 최신 폴백의 최근 8행 조회 상한, 이력 조회의 기존 페이지 상한, 이미 만들어진 응답 캐시 수명은 유지한다. 운영 캐시를 삭제하거나 갱신하지 않았다.
+- 검증 범위는 앞선 과제의 기존 시험 묶음과 이번 회귀·IVSkew 시험이다. 운영 데이터의 상태·배포 결과는 이번 시험으로 입증하지 않는다.
