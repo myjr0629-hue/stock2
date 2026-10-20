@@ -44,7 +44,7 @@ export function buildTacticalFacts<T extends { asOf?: string; metricsAsOf?: stri
         const body = text.replace(/^\[[^\]]*\]\s*/, '');
         // 우려·예상은 실제 움직임이 아니다. 모호한 원문을 코드가 사실로 승격하지 않는다.
         const speculative = /\b(?:may|might|could|would|will|forecast|expect\w*|outlook|concern\w*|fear\w*|worr\w*)\b|우려|전망|예상|가능|懸念|見通し|予想|恐れ/i.test(body);
-        const directions = speculative ? [] : directionClaims(body).filter(c => !c.negated).map(({ key, direction }) => ({ key, direction }));
+        const directions = speculative ? [] : directionClaims(body).filter(c => !c.negated && !c.unverifiable).map(({ key, direction }) => ({ key, direction }));
         news.push({ id: `news:${idOf(text)}`, publishedAt: new Date(at).toISOString(), source: m[1], text, directions });
     }
     const events = dropElapsedScheduled(ctx.scheduledEvents || [], now).map(text => {
@@ -81,19 +81,30 @@ export const TACTICAL_DIRECTION_WORDS: Record<Locale, Record<FactDirection, stri
     ja: { up: '上昇|上が|上げ|高ま|強気|強含み|上伸', down: '下落|低下|下が|下げ|弱気|弱含み|軟化', flat: '横ばい|変わらず' },
 };
 
-interface DirectionClaim { key: string; direction: FactDirection; word: string; negated: boolean }
+// 방향을 가진 금리 절의 부정·가정은 의미를 역산하지 않고 fail-closed 처리한다.
+const RATE_UNVERIFIABLE = /않|(?<![가-힣])안(?=\s)|못|아니|아닙|아닌|아님|아닐|ない|なかった|ません|ず|\b(?:not|no\s+longer|never|if|unless|should|would|could)\b|n['’]t\b|경우|면(?=\s|$)|라면|다면|場合|なら|れば|たら/iu;
+const RATE_KEYS = new Set(['us10yChangeBp', 'policyRateChange']);
+interface DirectionClaim { key: string; direction: FactDirection; word: string; negated: boolean; unverifiable: boolean }
 function directionClaims(text: string): DirectionClaim[] {
     const result: DirectionClaim[] = [];
     // 소수점은 절 경계가 아니다. 대조 접속사는 다른 주어와의 잘못된 결합을 막는다.
-    const clauses = text.split(/(?<!\d)[.,](?!\d)|[。!?！？;；,，]|\b(?:while|whereas|but)\b|반면|一方/iu);
+    const clauses = text.split(/(?<!\d)[.,](?!\d)|[。!?！？;；,，]|\b(?:and|or|while|whereas|but|yet|however|although|because)\b|\s+(?=(?:if|unless)\b)|반면|으며|지만|는데|(?<=[가-힣])고(?=\s)|一方|しかし|また|したが|しており/iu);
     const directions = (Object.keys(TACTICAL_DIRECTION_WORDS) as Locale[]).flatMap(locale =>
         (['up', 'down', 'flat'] as const).map(direction => ({ locale, direction, re: new RegExp(TACTICAL_DIRECTION_WORDS[locale][direction], 'gi') })));
     for (const clause of clauses) {
-        if (/\b(?:if|unless)\b|만약|경우|라면|なら|場合/i.test(clause)) continue;
+        const rateUnverifiable = RATE_UNVERIFIABLE.test(clause);
         const matches = SUBJECTS.flatMap(s => [...clause.matchAll(s.re)].map(m => ({ key: s.key, start: m.index!, end: m.index! + m[0].length })));
         // «policy rates» 안의 «rates»처럼 겹친 이름은 더 구체적인 전체 주어를 쓴다.
         const subjects = matches.filter(s => !matches.some(other => other !== s && other.start <= s.start && other.end >= s.end
             && other.end - other.start > s.end - s.start));
+        // 같은 절에 금리 이름·방향어·표지가 있으면 거리나 관형 어미를 해석하지 않는다.
+        // «하락하지 않은 금리»도 정상 관형 어미 사전 밖이라는 이유로 통과시키지 않는다.
+        if (rateUnverifiable) for (const subject of subjects.filter(s => RATE_KEYS.has(s.key))) {
+            for (const { direction, re } of directions) {
+                const word = clause.match(re)?.[0];
+                if (word) result.push({ key: subject.key, direction, word, negated: false, unverifiable: true });
+            }
+        }
         for (const { locale, direction, re } of directions) for (const m of clause.matchAll(re)) {
             const start = m.index!, end = start + m[0].length;
             const left = subjects.filter(s => s.end <= start).sort((a, b) => b.end - a.end)[0];
@@ -108,10 +119,11 @@ function directionClaims(text: string): DirectionClaim[] {
             const prefix = right && prefixGap[locale].test(clause.slice(end, right.start));
             const subject = prefix ? right : left;
             if (!subject?.key || Math.min(Math.abs(start - subject.end), Math.abs(subject.start - end)) > 48) continue;
+            if (RATE_KEYS.has(subject.key) && rateUnverifiable) continue;
             const before = clause.slice(prefix ? Math.max(0, start - 24) : subject.end, start), after = clause.slice(end);
             if (/^.{0,12}(?:미확인|未確認|unconfirmed)/i.test(after)) continue;
             const negated = /\b(?:not|no)\s+(?:\w+\s+)?$/i.test(before) || /^(?:[은는이가을를のはが]?\s*)(?:아니|아닙|아닌|아님|아닐|않|ではな|していな)/.test(after);
-            result.push({ key: subject.key, direction, word: m[0], negated });
+            result.push({ key: subject.key, direction, word: m[0], negated, unverifiable: false });
         }
     }
     return result;
@@ -121,6 +133,10 @@ function directionClaims(text: string): DirectionClaim[] {
 export function tacticalFactReasons(text: string, facts: TacticalFacts): string[] {
     const reasons: string[] = [];
     for (const claim of directionClaims(text)) {
+        if (claim.unverifiable) {
+            reasons.push(`tactical:facts-direction:${claim.key}:unverifiable:${claim.direction}`);
+            continue;
+        }
         const expected = facts.metrics[claim.key]?.direction;
         // 감마의 강/약·흡수력은 GEX 변화량과 다르다. 시간 변화어만 대조한다.
         if (claim.key === 'gexChange' && /강|약|強|弱|strength|weak/i.test(claim.word)) continue;

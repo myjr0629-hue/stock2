@@ -133,6 +133,51 @@ async function main() {
         assert.equal(await N.generateRealityInsight(directionalCtx('en')), up.en);
         assert.equal(calls.length, 1);
     });
+    const unverifiableCases = {
+        ko: ['금리는 상승하지 않았다', '금리는 하락하지 않았다', '금리는 하락했으며 감마가 약한 경우 충격 흡수력이 제한적입니다'],
+        en: ["Yields aren't rising", "Yields aren't falling", 'Yields fell and if gamma is weak absorption is limited'],
+        ja: ['金利は上昇しなかった', '金利は下落しなかった', '金利は下落したがガンマが弱い場合は吸収力が限定的です'],
+    };
+    for (const l of ['ko', 'en', 'ja'] as const) for (const [i, sentence] of unverifiableCases[l].entries()) {
+        const positioning = {
+            ko: ' 얇은 감마 방어는 충격 흡수력이 제한적입니다.',
+            en: ' Thin dealer gamma leaves limited absorption.',
+            ja: '薄いガンマ防御は衝撃吸収力が限定的です。',
+        }[l];
+        const wrong = up[l].replace({
+            ko: '금리 상승과 얇은 감마 방어는 제한적인 충격 흡수력과 연결해 해석됩니다.',
+            en: 'Rising yields and thin dealer gamma leave limited absorption.',
+            ja: '金利上昇と薄いガンマ防御は限定的な衝撃吸収力と整合的です。',
+        }[l], `${sentence}${l === 'ja' ? '。' : '.'}${positioning}`);
+        await test(`fail-closed 회귀: ${l}/${i} 생성본 거부·실패 언어만 교정`, async () => {
+            const reasons = checkTacticalOutput(wrong, l, buildTacticalPrompt(directionalCtx(l), l));
+            assert.ok(reasons.length && reasons.every(r => r.startsWith('tactical:facts-direction:')), reasons.join(','));
+            reply = async opts => {
+                if (!String(opts.label).includes('/retry')) return JSON.stringify({ ...up, [l]: wrong });
+                assert.match(opts.userPrompt, new RegExp(`JSON keys: ${l}\\.`));
+                assert.match(opts.userPrompt, /facts-direction/);
+                return JSON.stringify({ [l]: up[l] });
+            };
+            for (const locale of ['ko', 'en', 'ja'] as const) assert.equal(await N.generateRealityInsight(directionalCtx(locale)), up[locale]);
+            assert.equal(calls.length, 2);
+            assert.equal(store.get(key(l)).text, up[l]);
+        });
+        await test(`fail-closed 회귀: ${l}/${i} 저장본 재사용 거부`, async () => {
+            store.set(key(l), { text: wrong, updatedAt: new Date(clock).toISOString() });
+            reply = async () => JSON.stringify(up);
+            assert.equal(await N.generateRealityInsight(directionalCtx(l)), up[l]);
+            assert.equal(calls.length, 1);
+            assert.equal(store.get(key(l)).text, up[l]);
+        });
+    }
+    await test('fail-closed 교정도 실패하면 부정문 저장 없이 직전 정상본 보존', async () => {
+        store.set(key('en'), { text: up.en, updatedAt: new Date(clock - 3600_000).toISOString() });
+        const saved = JSON.stringify(store.get(key('en')));
+        reply = async () => JSON.stringify({ ...up, en: up.en.replace('Rising yields', "Yields aren't rising") });
+        assert.equal(await N.generateRealityInsight(directionalCtx('en')), up.en);
+        assert.equal(calls.length, 2);
+        assert.equal(JSON.stringify(store.get(key('en'))), saved);
+    });
     await test('관문 회귀: ko/ja 앞 수식 반전 생성본만 교정하고 정상 en 보존', async () => {
         const prefixed = {
             ko: up.ko.replace('금리 상승', '하락한 금리'),

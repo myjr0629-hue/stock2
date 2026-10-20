@@ -31,6 +31,11 @@ test('세 언어 프롬프트의 facts는 완전히 동일, 숫자·사실을 �
         const prompt = buildTacticalPrompt(ctx, l, facts);
         assert.deepEqual(tacticalPromptFacts(prompt), facts);
         assert.match(prompt, /never decide, invert or recalculate/);
+        assert.ok(prompt.includes({
+            ko: '금리·수익률 방향은 부정문·조건문으로 쓰지 말고 [입력 사실]의 방향 그대로 평서문으로 쓰세요.',
+            en: 'State rate and yield directions in affirmative declarative sentences exactly as given in [input facts]; do not use negation or conditionals for these directions.',
+            ja: '金利・利回りの方向は否定文・条件文にせず、[入力事実]の方向どおりに肯定の平叙文で書いてください。',
+        }[l]));
     }
 });
 test('뉴스 id·발행 절대시각과 다음 일정 절대시각·정확도', () => {
@@ -117,15 +122,69 @@ test('현재 값과 반대인 뉴스 방향이 관측값을 덮을 수 없음', 
     assert.deepEqual(speculative.news[0].directions, []);
     bad('Yields fall', speculative);
 });
-test('조건·미확인·부정은 실제 움직임과 구별하고 다른 주어 약화를 금리에 붙이지 않음', () => {
+test('미확인·다른 주어 약화를 금리 방향으로 만들지 않음', () => {
     good('금리 상승과 수요 약화가 함께 보도됐습니다.');
-    good('If yields fall, options support is the next test.');
-    good('금리가 하락할 경우 감마 방어가 다음 확인 기준입니다.');
-    good('金利下落ならガンマ防御が次の確認基準です。');
     good('금리 하락은 미확인입니다.');
-    good('Yields are not falling.');
-    bad('Yields are not rising.');
-    bad('금리 상승이 아닙니다.');
+});
+test('관문 회귀: 부정된 상승·하락 6문장은 사실 부호와 무관하게 판정 불가', () => {
+    for (const value of [6, -6, 0, undefined]) {
+        const f = buildTacticalFacts({ ...ctx, us10yChangeBp: value });
+        for (const text of [
+            '금리는 상승하지 않았다', '金利は上昇しなかった', "Yields aren't rising",
+            '금리는 하락하지 않았다', '金利は下落しなかった', "Yields aren't falling",
+        ]) assert.ok(match(text, f).some(r => r.includes(':unverifiable:')), text);
+    }
+});
+test('금리 방향과 같은 절의 부정·조건 표지는 모두 fail-closed', () => {
+    for (const text of [
+        '금리는 안 상승합니다', '금리는 상승하지 못했습니다', '금리 상승이 아닙니다',
+        '상승하지 않은 금리', '하락하지 않은 금리', '上昇しなかった金利', 'Not rising yields',
+        '금리가 상승할 경우', '금리가 상승하면 충격을 확인합니다', '금리가 상승이라면', '금리가 상승한다면',
+        '金利は上昇しない', '金利は上昇しません', '金利は上昇せず',
+        '金利上昇の場合', '金利上昇なら', '金利が上昇すれば', '金利が上昇したら',
+        'Yields are not rising', 'Yields are never higher', 'Yields are no longer rising', 'Yields aren’t rising',
+        'If yields rise', 'Unless yields rise', 'Yields should rise', 'Yields would rise', 'Yields could rise',
+        'If yields fall, options support is the next test.', '금리가 하락할 경우 감마 방어가 다음 확인 기준입니다.',
+        '金利下落ならガンマ防御が次の確認基準です。', 'Yields are not falling.',
+        'If rising yields are unconfirmed', // 미확인 표현도 부정·가정 방향 검사를 우회하지 못한다.
+    ]) assert.ok(match(text).some(r => r.includes(':unverifiable:')), text);
+});
+test('관문 회귀: 뒤 조건절과 무관하게 앞 관측절의 반전 검사, 정상 관측은 통과', () => {
+    const pairs = [
+        ['금리는 하락했으며 감마가 약한 경우 충격 흡수력이 제한적입니다', '하락', '상승'],
+        ['금리는 하락했고 감마가 약하면 충격 흡수력이 제한적입니다', '하락', '상승'],
+        ['Yields fell and if gamma is weak absorption is limited', 'fell', 'rose'],
+        ['Yields fell if gamma is weak', 'fell', 'rose'],
+        ['金利は下落したがガンマが弱い場合は吸収力が限定的です', '下落', '上昇'],
+        ['金利は下落しておりガンマが弱ければ吸収力が限定的です', '下落', '上昇'],
+    ];
+    for (const [text, wrong, right] of pairs) {
+        assert.ok(match(text).includes('tactical:facts-direction:us10yChangeBp:up:down'), text);
+        good(text.replace(wrong, right));
+    }
+    // 절 경계 밖 부정은 앞 관측 방향에 붙이지 않는다.
+    for (const text of ['금리는 상승했으며 감마는 강하지 않습니다', 'Yields rose, but gamma is not strong', '金利は上昇したがガンマは強くない']) good(text);
+});
+test('부정·가정 뉴스는 금리·정책금리의 명시 방향 근거로 승격하지 않음', () => {
+    for (const title of ['금리는 상승하지 않았다', '金利は上昇しなかった', "Yields aren't rising", 'If yields rise',
+        '정책금리가 하락하지 않았다', '政策金利が下落しなかった', "Policy rates aren't falling", 'Policy rates should fall']) {
+        const f = buildTacticalFacts({ ...ctx, marketNewsHeadlines: [datedHeadline({ title, published_utc: '2026-10-20T14:00:00Z' }, 'WIRE', new Date(asOf))!] });
+        assert.deepEqual(f.news[0].directions, [], title);
+        assert.ok(match(title, f).some(r => r.includes(':unverifiable:')), title);
+    }
+});
+test('관문 회귀: 부정·조건 재현은 생성·저장 출구 모두 거부', () => {
+    const cases = {
+        ko: ['금리는 상승하지 않았다', '금리는 하락하지 않았다', '금리는 하락했으며 감마가 약한 경우 충격 흡수력이 제한적입니다'],
+        en: ["Yields aren't rising", "Yields aren't falling", 'Yields fell and if gamma is weak absorption is limited'],
+        ja: ['金利は上昇しなかった', '金利は下落しなかった', '金利は下落したがガンマが弱い場合は吸収力が限定的です'],
+    };
+    for (const l of ['ko', 'en', 'ja'] as const) for (const text of cases[l]) {
+        const p = buildTacticalPrompt(ctx, l);
+        for (const reasons of [checkTacticalOutput(text, l, p), checkTacticalStored(text, p)]) {
+            assert.ok(reasons.some(r => r.startsWith('tactical:facts-direction:')), `${l}: ${text}`);
+        }
+    }
 });
 test('생성·저장본·복구 출구 전부 동일 방향 검사 적용', () => {
     const outputs = {
