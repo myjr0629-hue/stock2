@@ -82,6 +82,22 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     assert.ok(probeKeys.every((k) => (store.get(k) as any)?.im == null), '부분 체인 값(12%)을 «확인함» 캐시에 저장하지 않는다(직전 정상값 없음 → null)');
     assert.ok(vendorCalls.some((p) => p.includes('/options/chain/')), `체인 조회가 실제로 나갔다 — ${vendorCalls.join(', ')}`);
     console.log(`  ✓ 부분 체인(다음 페이지 500) → 값 없음·잘못된 값 저장 없음 (호출 ${vendorCalls.length}회)`);
-    console.log('earningsProbeBudget: 3건 통과');
+
+    // 운영 검토 10/20: 마지막으로 끝난 정규장(월 11:00 ET → 금 10/16) 세션의 EOD 관측이 저장돼 있으면 1시간이 지나도 다시 조회하지 않는다
+    seed(); vendorCalls = []; vendorMode = '429';
+    const MP = require('../src/services/earningsMonthlyProbe') as typeof import('../src/services/earningsMonthlyProbe');
+    const obs = (session: string) => ({ def: 'atm-straddle-mid/1', pct: 6.2, straddle: 6.2, strike: 100, expiry: '2026-11-06',
+      callPrice: 3.1, putPrice: 3.1, spot: 100, basis: 'eod', session, chainDate: session, asOf: null, method: 'weekly' });
+    store.set(`earnings:event-probe:v3:${tickers[0]}:2026-11-05:next`, { im: obs('2026-10-16'), checkedAt: Date.now() - 2 * 3600_000 });
+    const kept = await MP.earningsMonthlyMove(tickers[0], '2026-11-05', false, null, true, Date.now() + 20_000);
+    assert.equal(kept?.pct, 6.2, '같은 세션 관측은 그대로 쓴다');
+    assert.equal(vendorCalls.length, 0, `같은 세션 관측이 있는데 공급사 재조회 ${vendorCalls.length}회`);
+    // 옛 세션(10/15) 관측이면 기존처럼 1시간 뒤 재조회(429 → 첫 호출에서 닫힘, 직전 정상값 유지)
+    store.set(`earnings:event-probe:v3:${tickers[1]}:2026-11-05:next`, { im: obs('2026-10-15'), checkedAt: Date.now() - 2 * 3600_000 });
+    const old = await MP.earningsMonthlyMove(tickers[1], '2026-11-05', false, null, true, Date.now() + 20_000);
+    assert.ok(vendorCalls.length >= 1, '옛 세션 관측은 다시 조회한다');
+    assert.equal(old?.pct, 6.2, '조회 실패여도 직전 정상값(5일 이내) 유지');
+    console.log(`  ✓ 같은 세션 EOD 관측 → 재조회 0 · 옛 세션 → 재조회 ${vendorCalls.length}회`);
+    console.log('earningsProbeBudget: 4건 통과');
   } finally { Date.now = realNow; }
 })().catch((e) => { console.error(e); process.exit(1); });

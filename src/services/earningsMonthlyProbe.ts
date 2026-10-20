@@ -1,6 +1,6 @@
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { atmStraddleImpliedMove, eodQuoteRows, impliedMoveFields, type ImpliedMove } from '@/lib/impliedMove';
-import { etDateOf, optionExpirationFloor } from '@/lib/marketCalendar';
+import { etDateOf, etLastClosedSessionDate, optionExpirationFloor } from '@/lib/marketCalendar';
 import { readEodCloses } from '@/services/eodSnapshot';
 import { ImpliedDeadlineError, withinImpliedDeadline } from '@/lib/earnings/impliedDeadline';
 import { bgStore } from '@/lib/intrinioBackground';
@@ -29,7 +29,11 @@ export async function earningsMonthlyMove(
       && (!requirePost || (sameDay ? im.expiry >= after : im.expiry > after)) && age >= 0 && age <= 5;
   };
   const previous = () => valid(stored) ? stored : null;
-  if (!probe || (cached && Date.now() - cached.checkedAt < 3600_000)) return previous();
+  // EOD 체인은 세션마다 한 번 바뀐다 — 마지막으로 끝난 정규장 세션의 관측이 이미 있으면 다시 조회하지 않는다
+  // (운영 검토 10/20: 모든 행 매시 재조회 = 공급사 호출 약 12배). 값이 없거나 옛 세션이면 기존처럼 1시간 간격.
+  const storedSession = valid(stored) ? impliedMoveFields(stored).impliedMoveSession : null;
+  const current = !!storedSession && storedSession >= etLastClosedSessionDate();
+  if (!probe || current || (cached && Date.now() - cached.checkedAt < 3600_000)) return previous();
   const bg = bgStore.getStore();
   const closed = () => !!bg?.tripped || (deadlineMs != null && Date.now() >= deadlineMs);
   if (closed()) return previous();
