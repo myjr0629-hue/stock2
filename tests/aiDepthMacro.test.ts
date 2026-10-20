@@ -6,7 +6,7 @@ import { buildTacticalPrompt, cachedEvidence, datedHeadline, checkTacticalOutput
 import { textIntegrityReasons } from '../src/lib/ai/textIntegrity';
 import { cleanInsight, gateInsight } from '../src/lib/ai/outputGate';
 import { buildLineFacts, buildLineUserPrompt, checkLineOutput, WL_LINE_SYSTEM } from '../src/lib/ai/watchlistLine';
-import { checkDepthLine } from '../src/lib/ai/watchlistDepth';
+import { checkDepthLine, watchlistNoScheduleReasons } from '../src/lib/ai/watchlistDepth';
 import { newsForStock } from '../src/lib/ai/stockEvidence';
 import { evidenceTime, scheduledLineAt, isUpcomingLine, evidenceValidUntil, earningsReleaseAt } from '../src/lib/ai/evidenceTime';
 import { checkTacticalStored, scheduleClaimReasons } from '../src/lib/ai/tacticalPrompt';
@@ -420,6 +420,16 @@ test('관문 11차 재현: 감마 서술 수식어 여러 개', () => {
     for (const t of ['Gamma is now net negative, amplifying swings', 'Dealer gamma has flipped negative here', 'Gamma exposure turned deeply negative', 'Gamma went short into expiry'])
         assert.ok(checkDepthLine(t, 'en', src).includes('insight:gamma-sign'), t);
     assert.deepEqual(checkDepthLine('Positive gamma buffers negative shocks', 'en', src).filter(r => r === 'insight:gamma-sign'), []);
+});
+
+test('운영 실측(10/20 14시) 뒤 결정: 해석에는 날짜를 쓰지 않는다(근거에 있어도) · 세션·실적 은어 차단', () => {
+    const src = buildLineUserPrompt(f);
+    for (const t of ['양감마라 10/23 만기 전 변동이 눌리는 자리', 'Positive gamma damps moves into the 10/23–24 expiry', 'Positive gamma damps moves into the 10/20 expiry', '10/23 장 마감 후 양감마로 변동이 눌리는 자리', '장 마감 후 양감마로 변동이 눌리는 자리', 'Positive gamma damps moves into the print'])
+        assert.ok(watchlistNoScheduleReasons(t, 'NVDA', src).includes('insight:schedule'), t);
+    assert.deepEqual(watchlistNoScheduleReasons('양감마라 만기까지 변동이 눌리는 자리', 'NVDA', src), []);
+    for (const t of ['성장전략이 콜월 앞에서 시험받는 자리', '시장 전반과 달리 감마 방어가 있는 자리', '공장 전환 소식이 콜월 앞에 선 자리']) assert.deepEqual(watchlistNoScheduleReasons(t, 'NVDA', src), [], t);
+    for (const t of ['장전 거래에서 감마 방어가 약한 자리', '장 마감 후 변동이 눌리는 자리']) assert.ok(watchlistNoScheduleReasons(t, 'NVDA', src).includes('insight:schedule'), t);
+    assert.match(WL_LINE_SYSTEM, /into expiry/);
 });
 
 async function main() {
