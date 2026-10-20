@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
         //   창에 모자라면 한 번 더(창의 3배, 한 페이지) 읽는다. 다른 종목은 첫 조회로 끝난다(추가 왕복 0).
         const historyPromise = (async () => {
             const first = await getGexHistory(ticker, IV_RANK_WINDOW);
-            if (first.length < IV_RANK_WINDOW || first.filter(isIvHarvestRow).length >= IV_RANK_WINDOW) return first;
+            // provider가 guardian을 제외하므로 반환 길이만으로 원시 창의 끝을 판단할 수 없다.
+            // 전부 제외된 창도 유효 표본 부족이므로 기존 3배 상한으로 한 번만 확장한다.
+            if (first.filter(isIvHarvestRow).length >= IV_RANK_WINDOW) return first;
             return getGexHistory(ticker, IV_RANK_WINDOW * 3);
         })();
         const timeoutPromise = new Promise<null>((_, reject) =>

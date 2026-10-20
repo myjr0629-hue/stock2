@@ -288,7 +288,7 @@ t('배선: live/ticker 는 대체가 모두 없을 때 같은 직전 정상값(r
     assert.match(r, /latestCollectorGexRow\(db, t\)/);
     const s = fs.readFileSync(path.join(__dirname, '../src/services/optionMetricsService.ts'), 'utf8');
     assert.match(s, /latestCollectorGexRow\(db, ticker\)/);
-    // getLatestGex는 원시 조회로 유지하고, 소비 경로는 공통 선택 함수를 사용한다.
+    // provider도 동일한 선택 규칙을 적용한다. 정상 종목의 첫 조회는 여전히 1행이다.
     const d = fs.readFileSync(path.join(__dirname, '../src/lib/aws/dynamoDataProvider.ts'), 'utf8');
     assert.match(d, /export async function getLatestGex\(ticker: string\): Promise<DynamoGexData \| null> \{\n\s+try \{\n\s+const items = await queryItems<DynamoGexData>\(\n\s+TABLES\.GEX_HISTORY,\n\s+'ticker = :tk',\n\s+\{ ':tk': ticker \},\n\s+\{ limit: 1, scanForward: false \}/);
 });

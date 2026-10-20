@@ -69,10 +69,11 @@ export function oiRowHasQuantities(row: any): boolean {
  *   그 작업은 장중 약 5분마다 «SPX 지수 수준»(price 7654·callWall 7900 등)을 ticker "SPY" 로 같은 표(signum-gex-history)에 쓴다 — 11개 필드, OI 수량 없음.
  *   수집 Lambda 행(15분, OI 합계·totalContracts 있음)이 «최신 행»에서 밀려 SPY 의 OI P/C 가 15분 중 약 10분 null 이었다(운영 실측 10/16~10/20).
  *   새 행은 SPX 키와 source=ec2-guardian 으로 분리한다. 기존 SPY 행은 삭제 없이 아래 레거시 표지로 거른다.
- *   레거시 표지 = guardian 만 쓰는 squeezeLevel(문자열) + 수집 행의 수량 필드(totalCallOI·totalPutOI·totalContracts) 전무.
+ *   출처 또는 단위 표지가 있으면 우선 제외한다. 레거시 표지 = guardian 만 쓰는 squeezeLevel(문자열) + 수집 행의 수량 필드 전무.
  */
 export function isGuardianSnapshotRow(row: any): boolean {
     return !!row && typeof row === 'object' && (row.source === 'ec2-guardian'
+        || row.gexBasis === 'normalized_index'
         || (typeof row.squeezeLevel === 'string'
             && row.totalCallOI === undefined && row.totalPutOI === undefined && row.totalContracts === undefined));
 }
@@ -91,7 +92,7 @@ export const COLLECTOR_ROW_LOOKBACK = 8;
  *   SPX 키의 guardian 행도 수집 행으로 쓰지 않는다(정규화 GEX 지수는 달러 GEX·OI가 아니다).
  *   db = '@/lib/aws/dynamoDataProvider' 모듈(호출부가 넘긴다 — 이 모듈은 I/O 를 직접 가져오지 않는다).
  *   최신 행이 guardian 스냅샷이면 최근 COLLECTOR_ROW_LOOKBACK 행 중 첫 수집 행(없으면 null). 다른 종목은 첫 조회 그대로(추가 호출 없음).
- *   신선도(5일) 검사는 호출부가 그대로 한다. getLatestGex 는 이 선택 함수의 원시 조회로 남긴다.
+ *   신선도(5일) 검사는 호출부가 그대로 한다. 실제 provider도 같은 규칙으로 방어하며, 이 함수는 대체 DB 구현에도 적용한다.
  */
 export async function latestCollectorGexRow(
     db: { getLatestGex: (t: string) => Promise<any>; getGexHistory?: (t: string, limit?: number) => Promise<any[]> },

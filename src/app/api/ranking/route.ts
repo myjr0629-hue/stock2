@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
+import { isGuardianSnapshotRow } from '@/lib/app/intelOptionsBasis';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
 import {
@@ -56,11 +57,15 @@ const DEV_AXES: Array<{ key: string; label: { ko: string; en: string; ja: string
     { key: 'totalPremium', label: { ko: '옵션 자금', en: 'Option premium', ja: 'オプション資金' } },
 ];
 
-const hist = (table: string, ticker: string, days: number) => queryItems<Row>(
-    table, 'ticker = :t AND #ts > :since',
-    { ':t': ticker, ':since': Date.now() - days * 86400e3 },
-    { limit: 400, scanForward: true, maxItems: 3000, expressionNames: { '#ts': 'timestamp' } },
-);
+const hist = async (table: string, ticker: string, days: number) => {
+    const rows = await queryItems<Row>(
+        table, 'ticker = :t AND #ts > :since',
+        { ':t': ticker, ':since': Date.now() - days * 86400e3 },
+        { limit: 400, scanForward: true, maxItems: 3000, expressionNames: { '#ts': 'timestamp' } },
+    );
+    // 일별 스냅샷·레벨·옵션 세션을 만들기 전에 SPY 레거시/SPX 정규화 행을 제외한다.
+    return table === TABLES.GEX_HISTORY ? rows.filter(row => !isGuardianSnapshotRow(row)) : rows;
+};
 
 async function pool25<T, R>(items: T[], fn: (x: T) => Promise<R>): Promise<R[]> {
     const out: R[] = new Array(items.length); let i = 0;
@@ -160,7 +165,7 @@ export async function GET(req: NextRequest) {
         }
         if (needGex) {
             try {
-                const raw = await hist('signum-gex-history', t, days);
+                const raw = await hist(TABLES.GEX_HISTORY, t, days);
                 gexRaw[t] = raw; gexSnaps[t] = dailySnapshots(raw);
             } catch { }
         }

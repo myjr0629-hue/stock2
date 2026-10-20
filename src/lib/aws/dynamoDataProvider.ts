@@ -1,4 +1,4 @@
-import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
+import { isGuardianSnapshotRow, firstCollectorRow, COLLECTOR_ROW_LOOKBACK } from '@/lib/app/intelOptionsBasis';
 /**
  * [AWS Phase 2] DynamoDB Data Provider
  * Reads pre-computed data from Lambda harvest (300 tickers every 5 min)
@@ -94,7 +94,7 @@ export interface DynamoGexData {
 }
 
 /**
- * Get latest GEX data for a ticker
+ * 종목의 최신 옵션 GEX. 같은 표의 guardian 정규화 지수는 반환하지 않는다.
  * Lambda calculates full options chain for 50 tickers
  */
 export async function getLatestGex(ticker: string): Promise<DynamoGexData | null> {
@@ -105,7 +105,9 @@ export async function getLatestGex(ticker: string): Promise<DynamoGexData | null
       { ':tk': ticker },
       { limit: 1, scanForward: false }
     );
-    return items[0] || null;
+    const row = items[0];
+    if (!isGuardianSnapshotRow(row)) return row || null;
+    return firstCollectorRow(await getGexHistory(ticker, COLLECTOR_ROW_LOOKBACK));
   } catch (e) {
     console.error(`[DynamoDB] getLatestGex(${ticker}) failed:`, e);
     return null;
@@ -113,15 +115,16 @@ export async function getLatestGex(ticker: string): Promise<DynamoGexData | null
 }
 
 /**
- * Get GEX history for percentile calculations and charts
+ * 옵션 GEX 이력(최신순). limit은 원시 조회 상한이며 guardian 제외 후 행 수는 줄 수 있다.
  */
 export async function getGexHistory(ticker: string, limit: number = 30): Promise<DynamoGexData[]> {
-  return queryItems<DynamoGexData>(
+  const rows = await queryItems<DynamoGexData>(
     TABLES.GEX_HISTORY,
     'ticker = :tk',
     { ':tk': ticker },
     { limit, scanForward: false }
   );
+  return rows.filter(row => !isGuardianSnapshotRow(row));
 }
 
 // ====== Flow Data (signum-flow-history) ======
@@ -236,7 +239,7 @@ export interface DynamoTickerSnapshot {
 export async function getTickerSnapshot(ticker: string): Promise<DynamoTickerSnapshot> {
   const [price, gex, flow, analyst, earnings, fundamentals, related] = await Promise.all([
     getLatestPrice(ticker),
-    latestCollectorGexRow({ getLatestGex, getGexHistory }, ticker),
+    getLatestGex(ticker),
     getLatestFlow(ticker),
     getAnalystData(ticker),
     getEarningsData(ticker),

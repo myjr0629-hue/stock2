@@ -167,8 +167,9 @@ async function test(name, fn) { await fn(); passed++; console.log('통과: ' + n
             assert.equal(await shield(ticker), null);
         }
         assert.equal((await intel(['QQQ'])).QQQ.price, collectors.QQQ.price);
-        // 원시 조회에서는 SPX 전용 guardian 행을 보존한다. 옵션 수집 행 선택과 용도가 다르다.
-        assert.equal((await db.getLatestGex('SPX')).price, 7654);
+        // 직접 provider를 호출해도 정규화 지수가 옵션 GEX로 나오지 않는다. 저장본은 보존한다.
+        assert.equal(await db.getLatestGex('SPX'), null);
+        assert.equal(rows.SPX[0].price, 7654);
         assert.equal(await basis.latestCollectorGexRow({ getLatestGex: async () => guardian(),
             getGexHistory: async () => { throw new Error('조회 실패'); } }, 'SPY'), null);
     });
