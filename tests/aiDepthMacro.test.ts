@@ -6,7 +6,7 @@ import { buildTacticalPrompt, cachedEvidence, datedHeadline, checkTacticalOutput
 import { textIntegrityReasons } from '../src/lib/ai/textIntegrity';
 import { cleanInsight, gateInsight } from '../src/lib/ai/outputGate';
 import { buildLineFacts, buildLineUserPrompt, checkLineOutput, WL_LINE_SYSTEM } from '../src/lib/ai/watchlistLine';
-import { checkDepthLine } from '../src/lib/ai/watchlistDepth';
+import { checkDepthLine, watchlistNoScheduleReasons } from '../src/lib/ai/watchlistDepth';
 import { newsForStock } from '../src/lib/ai/stockEvidence';
 import { evidenceTime, scheduledLineAt, isUpcomingLine, evidenceValidUntil, earningsReleaseAt } from '../src/lib/ai/evidenceTime';
 import { checkTacticalStored, scheduleClaimReasons } from '../src/lib/ai/tacticalPrompt';
@@ -420,6 +420,14 @@ test('관문 11차 재현: 감마 서술 수식어 여러 개', () => {
     for (const t of ['Gamma is now net negative, amplifying swings', 'Dealer gamma has flipped negative here', 'Gamma exposure turned deeply negative', 'Gamma went short into expiry'])
         assert.ok(checkDepthLine(t, 'en', src).includes('insight:gamma-sign'), t);
     assert.deepEqual(checkDepthLine('Positive gamma buffers negative shocks', 'en', src).filter(r => r === 'insight:gamma-sign'), []);
+});
+
+test('운영 실측(10/20 14시): 근거의 만기 날짜는 허용 · «into the print» 차단', () => {
+    const src = buildLineUserPrompt(f);   // 만기 10/23 · 양감마
+    assert.match(src, /10\/23/);
+    assert.deepEqual(watchlistNoScheduleReasons('양감마라 10/23 만기 전 변동이 눌리는 자리', 'NVDA', src), []);
+    assert.ok(watchlistNoScheduleReasons('양감마라 10/24 전 변동이 눌리는 자리', 'NVDA', src).includes('insight:schedule'));
+    assert.ok(watchlistNoScheduleReasons('Positive gamma damps moves into the print', 'NVDA', src).includes('insight:schedule'));
 });
 
 async function main() {
