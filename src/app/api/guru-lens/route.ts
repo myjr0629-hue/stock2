@@ -63,7 +63,8 @@ export async function GET(req: NextRequest) {
                 ? l.rows
                 : l.passCount
                   ? l.rows.filter((r) => r.passed).slice(0, limit)
-                  : l.rows.slice(0, 5),
+                  : // «가장 가까운 종목»은 원입력이 다 있는 미통과 행만 — 결측으로 낮게 나온 값(0 등)을 «근접»으로 내보내지 않는다.
+                    l.rows.filter((r) => r.inputsComplete === true).slice(0, 5),
             mode: l.passCount ? 'passed' : 'closest',
         }));
         const tickers = [...new Set(lists.flatMap((l) => l.rows.map((r) => r.ticker)))];

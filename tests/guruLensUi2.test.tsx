@@ -62,16 +62,22 @@ assert.equal(ruleText({ id: '순이익 성장률', rule: '0.10~0.50' }, 'ja'), '
 assert.equal(ruleText({ id: '52주 고점 대비', rule: '≤-0.25' }, 'ko'), '≤-25%');
 assert.equal(ruleText({ id: 'PEG', rule: 'PEG≤1 또는 (성장+배당)/PER≥1.5' }, 'en'), 'PEG≤1 or (growth+div) ÷ P/E≥1.5');
 assert.equal(valueText({ id: 'PER', value: null }), null);
-const line = whyLine('moat_compounder', { reason: '', checks: [
+const line = whyLine('moat_compounder', { reason: '', passed: true, checks: [
     { ...roe, passed: true, reason: '' },
     { id: 'ROE 기준 충족 연수', value: 8, rule: '≥8/10 (15%)', passed: true, reason: '' },
 ] }, 'ko');
 assert.equal(line, 'ROE 평균 20.1% (≥15%) · ROE 기준 충족 연수 8 (≥8/10, 15%)');
-assert.equal(whyLine('defensive_value', { reason: '', checks: [
+assert.equal(whyLine('defensive_value', { reason: '', passed: false, inputsComplete: true, checks: [
     { id: '배당 지급 연수', value: 0, rule: '=12 (축약)', passed: false, reason: '' }] }, 'ko'), '✕ 배당 지급 연수 0 (=12, 축약)', '미충족은 ✕');
-assert.equal(whyLine('garp', { reason: '', checks: [{ id: 'PEG', value: null, rule: 'x', passed: false, reason: '' }] }, 'ko'),
+assert.equal(whyLine('garp', { reason: '', passed: false, inputsComplete: true, checks: [{ id: 'PEG', value: null, rule: 'x', passed: false, reason: '' }] }, 'ko'),
     null, '값이 없으면 줄을 그리지 않는다');
-assert.match(whyLine('financial_strength', { reason: 'F점수 8/9; …', checks: [] }, 'en')!, /^F-score 8\/9$/);
+assert.match(whyLine('financial_strength', { reason: 'F점수 8/9; …', passed: true, checks: [] }, 'en')!, /^F-score 8\/9$/);
+// 관문 10201010 회귀: 결측에서 만든 0(배당 이력 없음 → «배당 지급 연수 0», 재무 전체 결측 → «F점수 0/9»)은 쓰지 않는다
+for (const inputsComplete of [false, undefined]) {
+    assert.equal(whyLine('defensive_value', { reason: '', passed: false, inputsComplete, checks: [
+        { id: '배당 지급 연수', value: 0, rule: '=12 (축약)', passed: false, reason: '' }] }, 'ko'), null);
+    assert.equal(whyLine('financial_strength', { reason: 'F점수 0/9; …', passed: false, inputsComplete, checks: [] }, 'ko'), null);
+}
 
 // ── 3. 배지 — 모르는 것은 안 그린다 ────────────────────────────────────────────
 assert.deepEqual(badgeTexts('moat_compounder', null, 'ko'), []);
@@ -142,6 +148,10 @@ async function api() {
     assert.deepEqual(readKeys.slice(before), [HEAD_KEY], '같은 발행본은 head 만 다시 읽는다');
     assert.equal(badgeCalls, 1);
     assert.ok(lensBody(b), '목록 응답은 화면 검증을 통과');
+    for (const l of b.lenses) {
+        const row = snap.lenses[l.definition.id as typeof LENS_IDS[number]].rows[0];
+        if (!row.passed) assert.equal(l.rows.length, row.inputsComplete === true ? 1 : 0, '근접 목록은 원입력 완전 행만');
+    }
     assert.equal(b.lenses[0].rows[0].name, 'Apple Inc.', '행에 S&P 표의 회사명');
     assert.equal((await route.GET(new NextRequest('http://localhost/api/guru-lens?badges=2'))).status, 400);
     // 옛 세대(입력 출처 없음) → 분모를 주장하지 않는다

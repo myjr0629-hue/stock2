@@ -151,7 +151,10 @@ export function valueText(c: Pick<Check, 'id' | 'value'>): string | null {
     return RATIO.has(c.id) ? pct(v) : plain(v);
 }
 /** «왜 걸렸나» 한 줄 — 값이 없는 Check 는 빼고, 하나도 없으면 null(줄을 안 그린다). */
-export function whyLine(id: LensId, row: Pick<Evaluation, 'checks' | 'reason'>, loc: Loc): string | null {
+export function whyLine(id: LensId, row: Pick<Evaluation, 'checks' | 'reason' | 'passed' | 'inputsComplete'>, loc: Loc): string | null {
+    // 미통과인데 원입력이 다 있지 않은 행의 수치는 결측에서 만든 집계일 수 있다(«배당 지급 연수 0»·«F점수 0/9»).
+    // 결측 ≠ 0 — 그런 행은 수치를 한 글자도 쓰지 않는다.
+    if (!row.passed && row.inputsComplete !== true) return null;
     const parts: string[] = [];
     if (id === 'financial_strength') {
         const f = row.reason.match(/^F점수 (\d\/9);/)?.[1];
@@ -179,7 +182,7 @@ export function badgeTexts(id: LensId, b: LensRow['badges'], loc: Loc): string[]
     const e = b.earnings;
     if (e && e.date && typeof e.days === 'number' && e.days >= 0 && e.days <= 35) {
         const mv = e.impliedMove?.impliedMovePct;
-        out.push(t.earnings(e.days, typeof mv === 'number' && Number.isFinite(mv) && mv > 0 ? mv : null));
+        out.push(t.earnings(e.days, typeof mv === 'number' && Number.isFinite(mv) && mv > 0 ? Number(mv.toFixed(1)) : null));
     }
     return out;
 }
