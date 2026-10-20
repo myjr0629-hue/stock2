@@ -93,7 +93,7 @@ t('«전부 상승/하락» 은 모든 행의 변동률이 측정되어 전부 �
   const allUp: BriefRow[] = [{ sym: 'A', changePct: 0.1, price: 1 }, { sym: 'B', changePct: 0.4, price: 1 }];
   assert.equal(buildSectorBrief({ rows: allUp, total: 2 }, 'ko')!.headline.startsWith('2종목 전부 상승'), true);
   const unmeasured: BriefRow[] = [{ sym: 'A', changePct: null, price: 1 }, { sym: 'B', changePct: 0.4, price: 1 }];
-  assert.equal(buildSectorBrief({ rows: unmeasured, total: 2 }, 'ja')!.headline.startsWith('上昇2 · 下落0'), true);
+  assert.equal(buildSectorBrief({ rows: unmeasured, total: 2 }, 'ja')!.headline.startsWith('上昇1 · 下落0'), true);
   const allDown: BriefRow[] = [{ sym: 'A', changePct: -0.1, price: 1 }, { sym: 'B', changePct: -0.4, price: 1 }];
   assert.equal(buildSectorBrief({ rows: allDown, total: 2 }, 'en')!.headline.startsWith('All 2 down'), true);
 });
@@ -343,15 +343,15 @@ t('applySectorBrief 는 멱등 — 화면용 리포트를 다시 입혀도 같�
 t('페이지: reportData 는 «값 지문»(selectedQuotesSig)으로만 새로 만든다 — sharedData 객체를 의존성에 두지 않는다(요청 폭주 방지: 미리보기 실측 ERR_INSUFFICIENT_RESOURCES 14,807건)', () => {
   const page = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src/app/[locale]/app-view/intel/page.tsx'), 'utf8') as string;
   assert.ok(/const selectedQuotesSig = selectedSectorQuotes\.map\(quoteValueSignature\)\.join\('\|'\);/.test(page));
-  assert.ok(/viewReportForApp\(reportRaw, selectedSector, selectedSectorQuotes, appLocale\);[\s\S]{0,120}\}, \[reportRaw, selectedSector, selectedQuotesSig, appLocale\]\);/.test(page));
+  assert.ok(/viewReportForApp\(reportRaw, selectedSector, selectedSectorQuotes, appLocale, sessionDate\);[\s\S]{0,120}\}, \[reportRaw, selectedSector, selectedQuotesSig, appLocale, sessionDate\]\);/.test(page));
   assert.ok(!/\}, \[reportRaw, selectedSector, sharedData[,\]]/.test(page), 'reportData 메모가 sharedData 객체에 의존하면 매 렌더 새 객체가 된다');
   // 리포트 행에는 지금 시세를 입힌다(장마감 리포트 탭 카드의 GEX·P/C 가 스냅샷 시각의 다른 만기 범위 값으로 남지 않게)
-  assert.ok(/const merged: SectorReportData = \{ \.\.\.report, keyStocksData: report\.keyStocksData\.map\(stock => mergeStockWithQuote\(stock, quoteMap\.get\(stock\.sym\)\)\) \};\s+const aligned = alignReportToConfig\(merged, sectorId, quotes\);/.test(page));
+  assert.ok(/const merged: SectorReportData = \{ \.\.\.report, keyStocksData: report\.keyStocksData\.map\(stock => mergeStockWithQuote\(stock, quoteMap\.get\(stock\.sym\)\)\) \};\s+const aligned = alignReportToConfig\(merged, sectorId, quotes, sessionDate\);/.test(page));
   // 서버 스냅샷 글·analysis_kr 은 앱 화면에 쓰지 않는다
   assert.ok(/const structuralBrief = getStockAnalyticalBrief\(stock, appLocale\);/.test(page));
   assert.ok(!/stock\.analysisKr \|\| getStockAnalyticalBrief/.test(page));
-  assert.ok(/const cached = viewReportForApp\(reportCache\[sec\.id\] \|\| buildSectorReportFromQuotes\(sec\.id\), sec\.id, getSectorQuotes\(sec\.id\), appLocale\);/.test(page));
-  assert.ok(/const cached = cachedRaw \? viewReportForApp\(cachedRaw, sec\.id, quotes, appLocale\) : undefined;/.test(page));
+  assert.ok(/const cached = viewReportForApp\(reportCache\[sec\.id\] \|\| buildSectorReportFromQuotes\(sec\.id\), sec\.id, getSectorQuotes\(sec\.id\), appLocale, sessionDate\);/.test(page));
+  assert.ok(/const cached = cachedRaw \? viewReportForApp\(cachedRaw, sec\.id, quotes, appLocale, sessionDate\) : undefined;/.test(page));
 });
 
 console.log(`\n${n} tests passed`);

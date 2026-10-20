@@ -128,10 +128,10 @@ t('최신 결측(null·NaN 값) → null · 가격은 0 을 건너뛰는 예전 
     assert.deepEqual([m.changePct, m.score, m.netPremium, m.squeezeScore], [null, null, null, null]);
     assert.equal(m.closePrice, 100, '가격 결측 → 이전 가격(0·null 아님)');
 });
-t('음수·양수는 그대로 · 시세가 없으면 예전과 같다(행 유지, GEX·PCR 만 비움)', () => {
+t('음수·양수는 그대로 · 시세 없는 날짜 미상 등락·GEX·PCR은 null', () => {
     const m = P.mergeStockWithQuote(prevRow, latestQuote({ changePct: -1.5, alphaScore: 42, netPremium: -5e5, squeezeScore: 12 }));
     assert.deepEqual([m.changePct, m.score, m.netPremium, m.squeezeScore], [-1.5, 42, -5e5, 12]);
-    assert.deepEqual(P.mergeStockWithQuote(prevRow, undefined), { ...prevRow, gex: null, pcr: null, gammaRegime: null });
+    assert.deepEqual(P.mergeStockWithQuote(prevRow, undefined), { ...prevRow, changePct: null, gex: null, pcr: null, gammaRegime: null });
 });
 t('배치 직접 병합: 잰 0 은 0 · 배치가 못 잰 칸(null · 스냅샷 없음 표식)은 시세 병합 값을 그대로', () => {
     const report = { keyStocksData: [prevRow] };

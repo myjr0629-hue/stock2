@@ -24,13 +24,19 @@ import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLong
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import s from './heatmap.module.css';
 import { averageMeasured, measuredOrNull } from '@/lib/app/intelMissing';
+import { changeCoverage } from '@/lib/app/intelSessionChange';
 import { shownRegularSessionDate } from '@/lib/marketCalendar';
 
 type HeatmapRow = { t: string; p: number | null; sourceDate?: string };
 
 // 보충값은 원천 날짜를 유지하고, 보충 없는 실측만 기존 정규장 달력을 따른다.
-function sourceDateOf(row: HeatmapRow): string | null {
-  return row.p == null ? null : row.sourceDate ?? shownRegularSessionDate();
+function sourceDateOf(row: HeatmapRow, sessionDate: string): string | null {
+  return row.p == null ? null : row.sourceDate ?? sessionDate;
+}
+
+function sessionRows(rows: HeatmapRow[], sessionDate: string): Array<HeatmapRow & { p: number }> {
+  return rows.filter((r): r is HeatmapRow & { p: number } =>
+    r.p != null && sourceDateOf(r, sessionDate) === sessionDate);
 }
 
 /* 인텔 10섹터 — 키·색은 app-view/intel/page.tsx 정본과 같다.
@@ -114,6 +120,7 @@ export default function HeatmapPage() {
   const locale = (params?.locale as string) || 'ko';
   const t = T[(locale as 'ko' | 'en' | 'ja')] ?? T.en;
   const data = useIntelSharedDataForApp();
+  const sessionDate = shownRegularSessionDate();
   const [sel, setSel] = useState<string | null>(null);
 
   const fp1 = (v: number | null) => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
@@ -121,7 +128,7 @@ export default function HeatmapPage() {
   const label = (d: (typeof SECTORS)[number]) =>
     locale === 'ko' ? d.ko : locale === 'ja' ? d.ja : d.en;
 
-  /* 결측 종목도 같은 자리에 둔다. 마감 보충 후에도 결측이면 평균·순위에서만 뺀다. */
+  /* 개별 칸은 보존하고, 결측·다른 날짜 보충값은 평균·순위·등락 수에서 뺀다. */
   const bands = useMemo(() => {
     return SECTORS.map((def) => {
       const raw = ((data as unknown as Record<string, IntelQuote[]>)[def.key] || []);
@@ -129,27 +136,27 @@ export default function HeatmapPage() {
         .map((q) => ({ t: q.ticker, p: measuredOrNull(q, 'changePct'), sourceDate: q.changePctSourceDate }))
         .sort((a, b) => a.p == null ? (b.p == null ? 0 : 1) : b.p == null ? -1 : b.p - a.p);
       if (!rows.length) return null;
-      const avg = averageMeasured(rows.map(r => r.p));
-      return { ...def, rows, avg, up: rows.filter((r) => r.p != null && r.p > 0).length, dn: rows.filter((r) => r.p != null && r.p < 0).length };
+      const measured = sessionRows(rows, sessionDate);
+      const avg = averageMeasured(measured.map(r => r.p));
+      return { ...def, rows, avg, count: measured.length, up: measured.filter(r => r.p > 0).length, dn: measured.filter(r => r.p < 0).length };
     }).filter(Boolean) as Array<(typeof SECTORS)[number] & {
-      rows: HeatmapRow[]; avg: number | null; up: number; dn: number;
+      rows: HeatmapRow[]; avg: number | null; count: number; up: number; dn: number;
     }>;
-  }, [data]);
+  }, [data, sessionDate]);
 
   const sorted = useMemo(() => [...bands].sort((a, b) => a.avg == null ? (b.avg == null ? 0 : 1) : b.avg == null ? -1 : b.avg - a.avg), [bands]);
   const cur = bands.find((b) => b.key === sel) ?? sorted[0] ?? null;
   const flat = useMemo(
-    () => bands.flatMap((b) => b.rows
-      .filter((r): r is { t: string; p: number } => r.p != null)
+    () => bands.flatMap((b) => sessionRows(b.rows, sessionDate)
       .map((r) => ({ ...r, sec: b.key }))).sort((a, b) => b.p - a.p),
-    [bands],
+    [bands, sessionDate],
   );
   const total = bands.reduce((sum, b) => sum + b.rows.length, 0);
-  const curMeasured = cur?.rows.filter((r): r is { t: string; p: number } => r.p != null) || [];
+  const curMeasured = sessionRows(cur?.rows || [], sessionDate);
   const curLead = curMeasured[0];
   const curLag = curMeasured[curMeasured.length - 1];
   const xTop = flat.slice(0, 4);
-  const xBot = flat.slice(-4);
+  const xBot = flat.slice(Math.max(4, flat.length - 4));
   const xMax = flat.length ? Math.max(...flat.map((r) => Math.abs(r.p))) : 1;
   const secOf = (k: string) => SECTORS.find((x) => x.key === k)!;
 
@@ -181,9 +188,9 @@ export default function HeatmapPage() {
     : sess === 'regular' ? t.regular
     : sess === 'post' ? t.post
     : t.closed;
-  const sourceDates = [...new Set(bands.flatMap(b => b.rows.map(sourceDateOf)).filter((date): date is string => date != null))];
+  const sourceDates = [...new Set(bands.flatMap(b => b.rows.map(r => sourceDateOf(r, sessionDate))).filter((date): date is string => date != null))];
   const closeNote = sourceDates.length === 1
-    ? sourceDates[0] === shownRegularSessionDate() ? (isHoliday ? t.holidayNote : t.closedNote) : sourceDates[0]
+    ? sourceDates[0] === sessionDate ? (isHoliday ? t.holidayNote : t.closedNote) : sourceDates[0]
     : '';
   const sessionNote = isHoliday ? closeNote
     : sess === 'regular' || sess === 'pre' || sess === 'post' ? ''
@@ -240,11 +247,11 @@ export default function HeatmapPage() {
                 <span className={s.hmBTop}>
                   <span className={s.hmBI}>{icon(b.key, 17)}</span>
                   <span className={s.hmBN}>{label(b)}</span>
-                  <span className={`${s.hmBV} num`}>{fp2(b.avg)}</span>
+                  <span className={`${s.hmBV} num`}>{fp2(b.avg)}{changeCoverage(b.count, b.rows.length)}</span>
                 </span>
                 <span className={s.hmBBot}>
                   <span className={s.hmSeg}>
-                    {b.rows.map((r) => <i key={r.t} title={sourceDateOf(r) ?? undefined} style={{ background: heatColor(r.p) }} />)}
+                    {b.rows.map((r) => <i key={r.t} title={sourceDateOf(r, sessionDate) ?? undefined} style={{ background: heatColor(r.p) }} />)}
                   </span>
                   <span className={`${s.hmBC} num`}>{b.up}<s>▲</s> {b.dn}<s>▼</s></span>
                 </span>
@@ -262,7 +269,7 @@ export default function HeatmapPage() {
           <div className={s.hmSelTop}>
             <span className={`${s.hmBI} ${s.hmSelI}`}>{icon(cur.key, 19)}</span>
             <span className={s.hmSelN}>{label(cur)}</span>
-            <span className={`${s.hmSelV} num ${cur.avg == null ? '' : cur.avg >= 0 ? s.gr : s.rd}`}>{fp2(cur.avg)}</span>
+            <span className={`${s.hmSelV} num ${cur.avg == null ? '' : cur.avg >= 0 ? s.gr : s.rd}`}>{fp2(cur.avg)}{changeCoverage(cur.count, cur.rows.length)}</span>
           </div>
           <div className={s.hmStrip}>
             {cur.rows.map((r) => {
@@ -297,15 +304,15 @@ export default function HeatmapPage() {
         </div>
       )}
 
-      {ready && flat.length > 8 && (
+      {ready && total > 8 && (
         <>
           <div className={s.hmXHead}>
             <span className={s.hmXT}>{t.xTitle}</span>
-            <span className={s.hmXN}>{t.xOf(total)}</span>
+            <span className={s.hmXN}>{t.xOf(total)}{changeCoverage(flat.length, total)}</span>
           </div>
           <div className={s.hmX}>
             <div className={s.hmXCol}>{xTop.map((r, i) => xrow(r, i + 1))}</div>
-            <div className={s.hmXSplit}><s /><b>{t.xMid(flat.length - 8)}</b><s /></div>
+            <div className={s.hmXSplit}><s /><b>{t.xMid(Math.max(0, flat.length - 8))}</b><s /></div>
             <div className={s.hmXCol}>{xBot.map((r, i) => xrow(r, flat.length - xBot.length + i + 1))}</div>
           </div>
         </>
@@ -314,7 +321,7 @@ export default function HeatmapPage() {
   );
 
   function dateMark(r: HeatmapRow) {
-    const date = sourceDateOf(r);
+    const date = sourceDateOf(r, sessionDate);
     return date ? <small className={`${s.hmDate} num`} title={date}>{date.slice(5).replace('-', '/')}</small> : null;
   }
 
