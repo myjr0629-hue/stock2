@@ -62,7 +62,7 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     const pack = await EIS.buildImpliedPack(rows, Date.now(), { probeMonthly: true, deadlineMs: Date.now() + 20_000 });
     assert.ok(vendorCalls.length <= 3, `429 뒤 호출 계속 — ${vendorCalls.length}회 (${vendorCalls.slice(0, 6).join(', ')})`);
     assert.equal(Object.values(pack.cells).filter((c) => c.p != null).length, 0, '429 응답으로 값을 만들지 않는다');
-    assert.equal([...store.keys()].filter((k) => k.startsWith('earnings:monthly-probe')).length, 0, '429 는 «확인함»으로 저장하지 않는다');
+    assert.equal([...store.keys()].filter((k) => k.startsWith('earnings:event-probe:v3')).length, 0, '429 는 «확인함»으로 저장하지 않는다');
     console.log(`  ✓ ② 12종목 전부 429 → 공급사 호출 ${vendorCalls.length}회(예전 48)`);
 
     // ③ 느린 체인 — 시간 초과 뒤 다음 페이지·그릭스 등 새 호출이 시작되지 않는다
@@ -78,7 +78,7 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     seed(); vendorCalls = []; vendorMode = 'partial' as any;
     const pk = await EIS.buildImpliedPack(rows.slice(0, 1), Date.now(), { probeMonthly: true, deadlineMs: Date.now() + 20_000 });
     assert.equal(Object.values(pk.cells).filter((c) => c.p != null).length, 0, `부분 체인으로 값을 만들지 않는다 — ${JSON.stringify(pk.cells)}`);
-    const probeKeys = [...store.keys()].filter((k) => k.startsWith('earnings:monthly-probe'));
+    const probeKeys = [...store.keys()].filter((k) => k.startsWith('earnings:event-probe:v3'));
     assert.ok(probeKeys.every((k) => (store.get(k) as any)?.im == null), '부분 체인 값(12%)을 «확인함» 캐시에 저장하지 않는다(직전 정상값 없음 → null)');
     assert.ok(vendorCalls.some((p) => p.includes('/options/chain/')), `체인 조회가 실제로 나갔다 — ${vendorCalls.join(', ')}`);
     console.log(`  ✓ 부분 체인(다음 페이지 500) → 값 없음·잘못된 값 저장 없음 (호출 ${vendorCalls.length}회)`);

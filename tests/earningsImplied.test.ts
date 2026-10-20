@@ -203,8 +203,8 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
     const r1 = await at(SUNDAY, () => EIS.refreshImpliedPack(ROWS));
     assert.equal(r1.ok, true); assert.equal(r1.withValue, 3); assert.equal(r1.total, 5);
     assert.ok(writeKeys.includes(EI.EARNINGS_IMPLIED_KEY));
-    assert.deepEqual(writeKeys.filter((k) => k !== EI.EARNINGS_IMPLIED_KEY && k !== `${EI.EARNINGS_IMPLIED_KEY}:lock`), ['earnings:monthly-probe:v2:PSA:2026-11-20'], '근거리 결측 행 월간 확인 결과만 추가 저장');
-    assert.equal((store.get('earnings:monthly-probe:v2:PSA:2026-11-20') as any).im, null, '없는 체인으로 숫자를 만들지 않는다');
+    assert.deepEqual(writeKeys.filter((k) => k !== EI.EARNINGS_IMPLIED_KEY && k !== `${EI.EARNINGS_IMPLIED_KEY}:lock`), ['earnings:event-probe:v3:JPM:2026-10-13:same', 'earnings:event-probe:v3:TSM:2026-10-15:same', 'earnings:event-probe:v3:NFLX:2026-10-20:next', 'earnings:event-probe:v3:PSA:2026-10-26:next'], '근거리 행의 실제 첫 만기 확인 결과만 추가 저장');
+    assert.equal((store.get('earnings:event-probe:v3:PSA:2026-10-26:next') as any).im, null, '없는 체인으로 숫자를 만들지 않는다');
     const saved = await EIS.readImpliedPack();
     assert.equal(saved!.cells['TSM|2026-10-15'].p, 4.3);
     const r2 = await at(SUNDAY, () => EIS.refreshImpliedPack(ROWS));

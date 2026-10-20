@@ -17,6 +17,7 @@ import { optionExpirationFloor, weeklyOptionExpiryAt, isOptionExpiredAt } from '
 
 import { ImpliedDeadlineError, withinImpliedDeadline, IMPLIED_REFRESH_BUDGET_MS, IMPLIED_SAVE_RESERVE_MS } from '@/lib/earnings/impliedDeadline';
 import { bgStore } from '@/lib/intrinioBackground';
+import { expiryMethod, type EarningsMoveMethod, type EarningsMove } from '@/lib/earnings/eventMove';
 
 const MEMO_MS = 60_000;
 const memo = new Map<string, { at: number; value: ImpliedMove | null }>();
@@ -114,16 +115,17 @@ export interface ImpliedMoveRow {
     source: 'structure' | 'probe' | null;
     session: string | null;
     reason: string | null;
+    method?: EarningsMoveMethod | null;
 }
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-function impliedRowOf(ticker: string, im: ImpliedMove | null, source: ImpliedMoveRow['source'], reason: string | null): ImpliedMoveRow {
+function impliedRowOf(ticker: string, im: ImpliedMove | null, source: ImpliedMoveRow['source'], reason: string | null, earnings = false): ImpliedMoveRow {
     const f = impliedMoveFields(im);
     if (f.impliedMovePct == null) { im = null; reason ??= 'no_straddle'; }
     return {
         ticker,
-        impliedMovePct: f.impliedMovePct,
+        impliedMovePct: f.impliedMovePct != null ? ((im as EarningsMove).eventMovePct ?? f.impliedMovePct) : null,
         expiry: im?.expiry ?? null,
         asOf: f.impliedMoveAsOf,
         basis: f.impliedMoveBasis,
@@ -133,6 +135,7 @@ function impliedRowOf(ticker: string, im: ImpliedMove | null, source: ImpliedMov
         source: im ? source : null,
         session: f.impliedMoveSession,
         reason: f.impliedMovePct != null ? null : reason,
+        ...(earnings ? { method: im?.expiry ? (im as EarningsMove).method ?? expiryMethod(im.expiry) : null } : {}),
     };
 }
 
@@ -156,7 +159,7 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     const reqs = requests.map((r) => ({ ticker: String(r.ticker || '').toUpperCase(), after: r.after && ISO_DATE_RE.test(r.after) ? r.after : null, timing: r.timing ?? 'unknown' }));
     if (!reqs.length) return [];
     const deadlineMs = opts.deadlineMs ?? (opts.probeMonthly ? Date.now() + IMPLIED_REFRESH_BUDGET_MS - IMPLIED_SAVE_RESERVE_MS : undefined);
-    const failed = () => reqs.map(r => impliedRowOf(r.ticker, null, null, 'read_failed'));
+    const failed = () => reqs.map(r => impliedRowOf(r.ticker, null, null, 'read_failed', !!r.after));
     let structureVals: any[] = [];
     try {
         structureVals = await withinImpliedDeadline(() => mgetFromCache<any>(reqs.flatMap((r) => [structureV2Key(r.ticker), structureLastGoodKey(`${r.ticker}:auto`)])), deadlineMs);
@@ -170,23 +173,24 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     try {
         resolved = await withinImpliedDeadline(() => resolveImpliedMoves(reqs, structures, today), deadlineMs);
     } catch { return failed(); }
-    // The 0–35 DTE collector cannot cover every earnings date. The background pack
-    // refresh alone may fetch a monthly chain; other callers only read its dated result.
+    // Monthly observations must also check for earlier weekly expiries, even when non-null.
+    // Only the background pack may collect; all other callers read the dated observation.
     for (let i = 0; i < resolved.length; i++) {
         const r = reqs[i];
-        if (resolved[i].im || !r.after) continue;
+        if (!r.after) continue;
+        const existing = resolved[i].im;
         if (deadlineMs != null && Date.now() >= deadlineMs) break;
         // 갱신 흐름이 429·시간 초과로 닫혔으면 남은 종목의 월간 조회도 즉시 멈춘다(관문 10200755 ②).
         if (opts.probeMonthly && bgStore.getStore()?.tripped) break;
         try {
             const { earningsMonthlyMove } = await import('@/services/earningsMonthlyProbe');
             const im = await earningsMonthlyMove(r.ticker, r.after, r.timing === 'bmo' || r.timing === 'dmh', structures[i], opts.probeMonthly === true, deadlineMs);
-            if (im) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
+            if (im && (!existing?.expiry || im.expiry! <= existing.expiry)) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
         } catch (error) {
             if (error instanceof ImpliedDeadlineError) break;
         }
     }
-    return resolved.map((r) => impliedRowOf(r.ticker, r.im, r.source, r.reason));
+    return resolved.map((r, i) => impliedRowOf(r.ticker, r.im, r.source, r.reason, !!reqs[i].after));
 }
 
 /** 전달받은 구조를 읽기 전용으로 보정한다. 단건·묶음 모두 이 경로를 지난다. */
