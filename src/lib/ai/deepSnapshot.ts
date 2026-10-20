@@ -12,7 +12,7 @@ import { netPremiumOf } from '@/lib/premiumFlow';
 import { commandScores } from '@/lib/commandScores';
 import { compareSourceTime, isFailedSection, observationTime } from '@/lib/metrics/observation';
 import { commandConvictionRaw, retainConvictionInputs, type ConvictionSnapshot } from '@/lib/commandConviction';
-import { resolveCommandVolatilityObservation, type CommandVolatilityObservation } from '@/lib/commandVolatilityObservation';
+import { resolveCommandVolatilityObservation, volatilitySourceTime, type CommandVolatilityObservation } from '@/lib/commandVolatilityObservation';
 
 export interface DeepSnapshotInput {
   ticker: string;
@@ -106,8 +106,11 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const sources: Record<string, Source> = {};
   const vwapAsOf = aiVwap !== null ? sourceDate(convictionDates?.vwap ?? null) : null;
   if (vwapAsOf) sources['vwap'] = { asOf: vwapAsOf, historical: !!convictionCarried?.includes('vwap') };
-  const dateOf = (o: any) => sourceDate(o?.asOf ?? o?.sourceDate ?? o?.dataDate ?? o?.date ?? o?.dataFreshness?.chainDate ?? o?.chainDate);
-  const orderOf = (o: any) => observationTime(o?.asOf ?? o?.sourceDate ?? o?.dataDate ?? o?.date ?? o?.dataFreshness?.chainDate ?? o?.chainDate);
+  // The structure edition uses the same source-time rule as VOL REGIME and conviction (levels instant before chainDate).
+  const timeOf = (o: any) => o === s ? volatilitySourceTime(s, null)
+    : o?.asOf ?? o?.sourceDate ?? o?.dataDate ?? o?.date ?? o?.dataFreshness?.chainDate ?? o?.chainDate;
+  const dateOf = (o: any) => sourceDate(timeOf(o));
+  const orderOf = (o: any) => observationTime(timeOf(o));
   // Shared selection rule (lib/metrics/observation): the newer SOURCE time wins (an older observation
   // arriving later never replaces it); unknown times use arrival order; a missing value keeps the
   // previous real value with its own date (null when the source never gave one); measured 0 is a value.

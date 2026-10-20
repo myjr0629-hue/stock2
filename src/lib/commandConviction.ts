@@ -1,7 +1,7 @@
 import { netPremiumOf } from './premiumFlow';
 import { normalizeVwap, vwapDistancePct } from './vwap';
 import { compareSourceTime, isFailedSection, selectValue } from './metrics/observation';
-import { isCommandResponseUnavailable } from './commandVolatilityObservation';
+import { isCommandResponseUnavailable, volatilitySourceTime } from './commandVolatilityObservation';
 
 const finite = (value: unknown): number | null =>
     typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -160,8 +160,9 @@ export function webConvictionState(ticker: string,
     return { ...webConvictionSnapshot(ticker, live, base, { seedStock: false }), ssr: ssrKey };
 }
 
-/** The structure edition's source date for OI-based conviction inputs (PCR·GEX) — the chain OI date first (the data basis of those inputs). */
-const editionDate = (st: any): unknown => st?.chainDate ?? st?.asOf ?? st?.levelsAsOf ?? null;
+/** The structure edition's source time — the same rule as the VOL REGIME edition (관문 10200907): the levels
+ * instant orders editions; chainDate is the previous close's OI date in a live edition, so it cannot. */
+const editionDate = (st: any): unknown => volatilitySourceTime(st, null);
 
 /** The oldest source date among carried inputs (what the card should show next to a carried score). */
 export function carriedConvictionDate(snapshot: ConvictionSnapshot | null | undefined): string | null {

@@ -860,7 +860,7 @@ test('gate 10191753 ②: conviction dates use the edition time (asOf) when chain
     st = conv.webConvictionState('TEST', { unified: null, stock: null }, { unified: { ticker: 'TEST', structure: { netGex: 1e6, asOf: '2026-10-16T20:00:00Z' } }, price: 100 }, st);
     assert.equal(conv.scoreCommandConviction(st.inputs).score, 45);
     const raw = conv.commandConvictionRaw({ structure: { netGex: 1e6, asOf: '2026-10-16T20:00:00Z' } }, 100, null, null);
-    assert.equal(raw.dates.gex, '2026-10-16T20:00:00Z');
+    assert.equal(raw.dates.gex, '2026-10-16T20:00:00.000Z'); // normalized by the shared edition-time rule (10200907)
     const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
     const ai = unified => build({ ticker: 'G5B', price: 100, priceChange: 0, session: 'REG', unified, rawTickerData: null, insider: null, technicals: null, creditSpread: null });
     ai({ structure: { netGex: -1e6, asOf: '2026-10-19T20:00:00Z' } });
@@ -1118,4 +1118,19 @@ test('gate 10200825 ②: the AI regime score is the selected edition (no second 
     // A carried edition keeps its own date as historical.
     const carried = build({ ...base, volatilityData: full, volatilitySource: { sourceAsOf: '2026-10-16', carried: true } });
     assert.equal(carried.volatility.regimeScore, 58); assert.equal(carried.sources['volatility.regimeScore'].historical, true);
+});
+
+test('gate 10200907: conviction and AI structure values use the edition instant — a late 10/16 GEX with the same chainDate never replaces 10/19 live', () => {
+    const conv = load('src/lib/commandConviction');
+    const live = { structure: { netGex: -1e8, chainDate: '2026-10-16', levelsAsOf: Date.parse('2026-10-19T14:00:00Z') } };
+    const eod = { structure: { netGex: 5e8, chainDate: '2026-10-16', levelsAsOf: Date.parse('2026-10-16T21:00:00Z') } };
+    const step = (u, prev) => { const r = conv.commandConvictionRaw(u, null, undefined, null); return conv.retainConvictionInputs('G907', r.raw, r.dates, prev, r.invalidated); };
+    const a = step(live); const b = step(eod, a);
+    assert.equal(b.inputs.gex, -1e8); assert.equal(conv.scoreCommandConviction(b.inputs).score, 45);
+    const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
+    const base = { ticker: 'G907', price: 100, priceChange: 0, session: 'REG', rawTickerData: null, insider: null, technicals: null, creditSpread: null };
+    build({ ...base, unified: live });
+    const late = build({ ...base, unified: eod });
+    assert.equal(late.structure.netGex, -1e8, 'AI GEX keeps the newer live edition');
+    assert.match(late.sources['structure.netGex'].asOf, /^2026-10-19T14:00/);
 });
