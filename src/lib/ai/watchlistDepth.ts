@@ -60,7 +60,7 @@ export function gammaMechanismReasons(text: string): string[] {
         const m = text.match(re);
         if (!m) return null;
         let w = text.slice(m.index! + m[0].length, m.index! + m[0].length + 24);
-        const cut = w.search(/[.,;。、，]/);
+        const cut = w.search(/[,;。、，]|\.(?!\d)/);   // 소수점(±6.4%)은 경계가 아니다(관문 10201544 ②)
         if (cut >= 0) w = w.slice(0, cut);
         const lv = w.search(LEVEL);
         if (lv >= 0) w = w.slice(0, lv);
@@ -151,7 +151,16 @@ export function positioningSideReasons(text: string, source: string): string[] {
 // 해석 한 줄은 일정을 말하지 않는다(일정·실적 시각은 카드의 칩이 보여 준다) — 시각·날짜·예정·실적 표현, 다른 회사 이름은 판정하지 않고 탈락(fail-closed)
 const EARNINGS_WORD = /실적|決算|\bearnings\b/i;
 // 실적 «결과» 단정 — 조건형(«웃돌면»)은 결과 주장이 아니다
-const EARNINGS_RESULT = /(?:웃돌|밑돌)(?!면|으면)|(?:상회|하회)(?:했|한|해)|서프라이즈|호실적|어닝\s?쇼크|실적\s?(?:부진|호조|개선|악화)|上回っ|下回っ|サプライズ|好決算|決算(?:不振|好調)|\b(?:beat|beats|missed|topped|surprise[sd]?|blowout)\b/i;
+const EARNINGS_RESULT = new RegExp([
+    // «예상·컨센서스»와 견준 결과 단정(«예상을 웃돌아·초과해») — 조건형(«웃돌면»)은 아니다 · «맥스페인 웃돌아»처럼 예상과 무관한 «웃돌»은 보지 않는다(관문 10201544 ③)
+    '(?:예상치?|기대치?|컨센서스|추정치|전망치)\\s?(?:을|를|에|보다)?\\s*(?:크게\\s*|소폭\\s*)?(?:초과|웃돌|넘어|넘었|넘긴|밑돌|하회|상회|못\\s?미)(?!면|으면|하면|할\\s?경우)',
+    '서프라이즈|호실적|어닝\\s?쇼크|실적\\s?(?:부진|호조|개선|악화)',
+    '(?:予想|市場予想|コンセンサス|見込み)\\S{0,2}?(?:を)?(?:上回|下回|超え)(?!れば|た場合|ると|る場合)',
+    'サプライズ|好決算|決算(?:不振|好調)',
+    '(?<!\\bif\\s(?:\\w+\\s){0,3})\\b(?:beat|beats|missed|topped|exceeded|surpassed)\\b',
+    '\\b(?:above|below|ahead of|short of)\\s+(?:expectations|estimates|consensus)\\b',
+    '\\bsurprise[sd]?\\b|\\bblowout\\b',
+].join('|'), 'i');
 // 최상위 근거가 «앞으로 있을 자기 실적»일 때만 허용하는 말(날짜·시각·요일·D-n·오늘/내일은 계속 금지)
 const WL_EARNINGS_WORDS = /\b(?:earnings|ahead of)\b|실적|발표|앞두|앞둔|決算|発表|控え/gi;
 const WL_SCHEDULE = /\bD-\d{1,2}\b|\d{1,2}:\d{2}|\d{1,2}\s*(?:시(?!간)|時(?!間))|\d{1,2}\/\d{1,2}|\d{4}-\d{2}-\d{2}|\d{1,2}\s*(?:월|月)\s*\d{1,2}|\b(?:scheduled|upcoming|ahead of|tonight|today|tomorrow|earnings|release[sd]?|report(?:s|ed|ing)?|due|print|after the close|before the open|after hours|pre-?market)\b|(?:^|\s)장\s?(?:마감|시작|전|후)|마감\s*후|개장|시간외|引け|寄り付|時間外|예정|앞두|앞둔|오늘|내일|금일|실적|발표|予定|控え|今日|本日|今夜|明日|決算|発表/i;

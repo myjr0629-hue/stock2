@@ -542,6 +542,12 @@ test('v2 ⑤ 내 종목 해석 출구: 실적 무시 일반론·근거 없는 �
     for (const [l, t] of [['ko', '실적이 예상을 웃돌아 음감마 변동을 키우는 자리'], ['en', 'Earnings beat meets negative gamma amplification'], ['ja', '決算が予想を上回って負ガンマが増幅する位置']] as const)
         assert.ok(checkDepthLine(t, l, src, genAt).includes('insight:earnings-result'), t);
     assert.ok(!checkDepthLine('실적 반응이 예상 변동 ±6.4%를 웃돌면 음감마가 키우는 자리', 'ko', src, genAt).includes('insight:earnings-result'));
+    // 관문 10201544 재현: «초과해·exceeded» 결과 단정 · 소수점 뒤 «억제» · 예상과 무관한 «맥스페인 웃돌아»
+    for (const [l, t] of [['ko', '실적이 예상을 초과해 음감마 변동이 커지는 자리'], ['en', 'Earnings exceeded estimates into negative gamma'], ['ja', '決算が市場予想を超えて負ガンマが増幅する位置']] as const)
+        assert.ok(checkDepthLine(t, l, src, genAt).includes('insight:earnings-result'), t);
+    assert.ok(checkDepthLine('실적 앞 음감마가 예상 변동 ±6.4%를 억제하는 자리', 'ko', src, genAt).includes('insight:gamma-mechanism'));
+    assert.ok(!checkDepthLine('맥스페인 웃돌아 만기 회귀 압력이 남는 자리', 'ko', src, genAt).includes('insight:earnings-result'));
+    assert.ok(!checkDepthLine('If earnings beat the implied range, negative gamma amplifies it', 'en', src, genAt).includes('insight:earnings-result'));
     assert.ok(checkDepthLine('내일 실적 앞 예상 변동 ±6.4% 음감마 자리', 'ko', src, genAt).includes('insight:schedule'));
     // 발표 경계(10/21 16:00 ET)가 지나면 «실적» 말 허용이 풀린다 → 저장본 해석이 내려간다
     assert.ok(checkDepthLine('실적 반응이 예상 변동 ±6.4%를 넘으면 음감마가 키우는 자리', 'ko', src, Date.parse('2026-10-21T21:00:00Z')).includes('insight:schedule'));
