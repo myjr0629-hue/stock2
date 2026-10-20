@@ -186,6 +186,11 @@ export default async function TickerPage({ params, searchParams }: Props) {
             // [2026-09-29] 저장본이 없으면 null(원래 값 아님) + 정의 게이트 — API 출구와 같은 함수.
             initialUnifiedData = applyLevelsToUnified(initialUnifiedData, lv, edition?.regime?.underlyingPrice ?? undefined, 'ticker-ssr');
             if (edition) {
+                // structure 없거나 실패(PENDING 등)인 카드도 같은 판본 현물·레벨로(API 출구와 같은 함수, 관문 10200851 ①).
+                if (edition.regime) {
+                    const { applyLevelsToVolatilityCard } = await import('@/services/structureService');
+                    initialUnifiedData = applyLevelsToVolatilityCard(initialUnifiedData, lv, edition.regime.underlyingPrice, 'ticker-ssr');
+                }
                 const { applyUnifiedOptionMetrics } = await import('@/lib/optionMetrics');
                 applyUnifiedOptionMetrics(initialUnifiedData, edition.metrics, edition.regime ?? null);
             }

@@ -375,7 +375,8 @@ export function applyLevelsToVolatilityCard(data: any, lv: OptionLevels | null |
     if (!data.volatility || typeof data.volatility !== 'object' || spot == null) return data;
     const d = displayLevels(lv ?? null, spot, door);
     const distance = gammaFlipDistancePct(spot, d.gammaFlipLevel);
-    return { ...data, volatility: { ...data.volatility, underlyingPrice: spot, flipLevel: d.gammaFlipLevel,
+    // 원천 시각도 그 레벨 한 벌의 것 — 없으면 카드의 시각을 지운다(옛 시각이 새 판본 값을 달고 나가지 않게, 관문 10200851 ②).
+    return { ...data, volatility: { ...data.volatility, asOf: d.levelsAsOf ?? null, underlyingPrice: spot, flipLevel: d.gammaFlipLevel,
         flipDistance: distance == null ? null : Math.round(distance * 10) / 10, isAboveFlip: distance == null ? null : distance > 0,
         gammaFlipType: gammaFlipTypeOf(lv ?? null, d, spot) } };
 }
