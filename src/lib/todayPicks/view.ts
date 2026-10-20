@@ -36,6 +36,11 @@ export function buildView(doc: TodayPicksDoc | null, loc: Loc, off = false): Pic
     };
 }
 
+/** The page's noindex decision and sitemap inclusion must agree. */
+export function hasIndexablePicks(view: PicksView): boolean {
+    return view.items.length > 0;
+}
+
 /**
  * 마감 푸시 본문에 붙일 «1번 항목 한 줄» — 오늘(ET) 문서만. 길이 상한·금지어·예측어·언어는 기존 푸시 규칙(PUSH_LINE_MAX · lib/push/aiLine)을 그대로 따른다.
  * 하나라도 걸리면 null(= 줄을 붙이지 않는다).

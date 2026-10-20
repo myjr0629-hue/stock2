@@ -10,7 +10,7 @@ import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import { markPageView } from '@/lib/marketing/pageViewMark';
 import { readPicks } from '@/services/todayPicksService';
-import { buildView } from '@/lib/todayPicks/view';
+import { buildView, hasIndexablePicks } from '@/lib/todayPicks/view';
 import { TODAY_APP_CODE, TODAY_APP_FROM } from '@/lib/todayPicks/view';
 import { UI } from '@/lib/todayPicks/copy';
 import { COPY, EW_LOCALES, toLoc, type Loc } from '@/lib/earningsWeek';
@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     title,
     description,
     // 목록이 없으면(끄기·저장본 없음) 얇은 페이지를 색인하지 않는다
-    robots: view.items.length ? undefined : { index: false, follow: true },
+    robots: hasIndexablePicks(view) ? undefined : { index: false, follow: true },
     alternates: {
       canonical: url,
       languages: { ...Object.fromEntries(EW_LOCALES.map((x) => [x, `${base}/${x}/today`])), 'x-default': `${base}/en/today` },

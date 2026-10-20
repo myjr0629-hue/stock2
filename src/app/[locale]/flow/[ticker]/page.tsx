@@ -21,6 +21,7 @@ import { seoFreshness, seoPrice, etDate, mmdd } from '@/lib/seo/freshness';
 import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay, isOptionExpiredAt, copyLevelsPastExpiry } from '@/lib/marketCalendar';
 import { peekEodCloseRow } from '@/services/intrinioClient';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
+import { isFlowTicker as isTicker } from '@/lib/seo/flowTicker';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 import { ShareLanding } from '@/components/share/ShareLanding';
 import { closeLabelOr, monthDay, weekdayName } from '@/lib/marketSession';
@@ -38,9 +39,6 @@ import { ucGenVerdict, hasCampaignParam } from '@/lib/seo/ucGenGate';
 export const revalidate = 3600;
 export const dynamicParams = true;
 
-const TICKER_RE = /^[A-Z]{1,6}$/;
-// «NULL»(자바스크립트 null 이 주소에 붙은 것)은 형식만 맞고 티커가 아니다 — 원천을 부르지 않고 404(9/30 UC 503 폭주 수리)
-const isTicker = (t: string) => TICKER_RE.test(t) && t !== 'NULL';
 
 interface Money {
   darkPoolPct: number | null; oiPcr: number | null; volumePcr: number | null;
