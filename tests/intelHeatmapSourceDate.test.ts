@@ -7,7 +7,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fillSnapshotChanges, snapshotChangesFromResponse } from '../src/lib/app/intelSnapshotChange';
 import { averageMeasured, measuredOrNull } from '../src/lib/app/intelMissing';
-import { changeCoverage } from '../src/lib/app/intelSessionChange';
+import { coverageTitle } from '../src/lib/app/intelSessionChange';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 
 const source = ts.createSourceFile('heatmap.tsx', fs.readFileSync(`${__dirname}/../src/app/[locale]/app-view/heatmap/page.tsx`, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -19,7 +19,7 @@ const filled = (date = '2026-10-15', ticker = 'A', change = -2) => fillSnapshotC
 
 function render(rows: any[], time = sunday, session = 'closed', isHoliday = false) {
     const deps = {
-        React, averageMeasured, measuredOrNull, changeCoverage, shownRegularSessionDate: () => shownRegularSessionDate(time),
+        React, averageMeasured, measuredOrNull, coverageTitle, shownRegularSessionDate: () => shownRegularSessionDate(time),
         useState: (v: any) => [v === false ? true : v, () => {}], useMemo: (f: any) => f(), useEffect() {},
         useRouter: () => ({ push() {}, back() {} }), useParams: () => ({ locale: 'ko' }),
         useIntelSharedDataForApp: () => ({ m7: rows }), useMarketStatus: () => ({ status: { session, isHoliday } }),
@@ -108,7 +108,8 @@ test('nightly 중간2: 10/19 -5%와 10/16 +20% 보충 → 평균 -5%, 집계 1/2
         quote('B', { session: 'POST' }),
     ], saved('2026-10-16', [{ ticker: 'B', close_price: 120, change_pct: 20 }]), '2026-10-19');
     const html = render(rows, time, 'post');
-    assert.match(html, /−5\.00% 1\/2/);
+    assert.match(html, /title="1\/2">−5\.00%</);  // n/N 은 글자 대신 title(375폭 배치 보존)
+    assert.doesNotMatch(html, /−5\.00% 1\/2/);
     assert.doesNotMatch(html, /7\.50%/);
     assert.match(cells(html).find(c => c.includes('<b>B</b>'))!, /20\.0%[\s\S]*10\/16/);
     assert.match(html, /class="hmBC num">0<s>▲<\/s> 1<s>▼/);
@@ -118,7 +119,7 @@ test('nightly 중간2: 10/19 -5%와 10/16 +20% 보충 → 평균 -5%, 집계 1/2
 
 test('전부 이전 날짜면 집계 0/N과 —, 종목 칸은 날짜·값 유지', () => {
     const html = render([filled()]);
-    assert.match(html, /class="hmBV num">— 0\/1/);
+    assert.match(html, /class="hmBV num" title="0\/1">—</);
     assert.match(cells(html)[0], /−2\.0%[\s\S]*10\/15/);
     assert.match(html, /주도 <b>—<\/b>/);
 });

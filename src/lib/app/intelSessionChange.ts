@@ -17,3 +17,8 @@ export function sessionChangeOrNull(row: ChangeRow, sessionDate: string): number
 export function changeCoverage(count: number, total: number): string {
     return total > 0 && count < total ? ` ${count}/${total}` : '';
 }
+
+/** n/N 은 화면 글자로 덧붙이지 않는다(375폭 배치 변화 — 10/20 운영 검토). 같은 요소의 title 로만 둔다. */
+export function coverageTitle(count: number, total: number): string | undefined {
+    return changeCoverage(count, total).trim() || undefined;
+}

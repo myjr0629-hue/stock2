@@ -24,7 +24,7 @@ import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLong
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import s from './heatmap.module.css';
 import { averageMeasured, measuredOrNull } from '@/lib/app/intelMissing';
-import { changeCoverage } from '@/lib/app/intelSessionChange';
+import { coverageTitle } from '@/lib/app/intelSessionChange';
 import { shownRegularSessionDate } from '@/lib/marketCalendar';
 
 type HeatmapRow = { t: string; p: number | null; sourceDate?: string };
@@ -247,7 +247,7 @@ export default function HeatmapPage() {
                 <span className={s.hmBTop}>
                   <span className={s.hmBI}>{icon(b.key, 17)}</span>
                   <span className={s.hmBN}>{label(b)}</span>
-                  <span className={`${s.hmBV} num`}>{fp2(b.avg)}{changeCoverage(b.count, b.rows.length)}</span>
+                  <span className={`${s.hmBV} num`} title={coverageTitle(b.count, b.rows.length)}>{fp2(b.avg)}</span>
                 </span>
                 <span className={s.hmBBot}>
                   <span className={s.hmSeg}>
@@ -269,7 +269,7 @@ export default function HeatmapPage() {
           <div className={s.hmSelTop}>
             <span className={`${s.hmBI} ${s.hmSelI}`}>{icon(cur.key, 19)}</span>
             <span className={s.hmSelN}>{label(cur)}</span>
-            <span className={`${s.hmSelV} num ${cur.avg == null ? '' : cur.avg >= 0 ? s.gr : s.rd}`}>{fp2(cur.avg)}{changeCoverage(cur.count, cur.rows.length)}</span>
+            <span className={`${s.hmSelV} num ${cur.avg == null ? '' : cur.avg >= 0 ? s.gr : s.rd}`} title={coverageTitle(cur.count, cur.rows.length)}>{fp2(cur.avg)}</span>
           </div>
           <div className={s.hmStrip}>
             {cur.rows.map((r) => {
@@ -308,7 +308,7 @@ export default function HeatmapPage() {
         <>
           <div className={s.hmXHead}>
             <span className={s.hmXT}>{t.xTitle}</span>
-            <span className={s.hmXN}>{t.xOf(total)}{changeCoverage(flat.length, total)}</span>
+            <span className={s.hmXN} title={coverageTitle(flat.length, total)}>{t.xOf(total)}</span>
           </div>
           <div className={s.hmX}>
             <div className={s.hmXCol}>{xTop.map((r, i) => xrow(r, i + 1))}</div>

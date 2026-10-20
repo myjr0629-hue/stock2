@@ -28,7 +28,7 @@ import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY } from '@/lib/app/intelSectorL
 import { applySectorBrief } from '@/lib/app/intelSectorBrief';
 import { getStockAnalyticalBrief } from '@/lib/app/intelStockBrief';
 import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature } from '@/lib/app/intelMissing';
-import { sessionChangeOrNull, changeCoverage } from '@/lib/app/intelSessionChange';
+import { sessionChangeOrNull, coverageTitle } from '@/lib/app/intelSessionChange';
 import { snapshotChangeOrNull } from '@/lib/app/intelSnapshotChange';
 import { snapshotScoreOrNull } from '@/lib/app/intelSnapshotScore';
 
@@ -3173,7 +3173,7 @@ export default function AppIntelPage() {
                         </div>
                       </div>
                       {/* Meta sub-row: generation time (ET, US-session anchored) + breadth */}
-                      {(crossBriefGeneratedAt || breadthRows.length > 0) && (
+                      {(crossBriefGeneratedAt || totalGainers > 0 || totalLosers > 0) && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '-4px 0 10px 26px' }}>
                           {crossBriefGeneratedAt && (() => {
                             const d = new Date(crossBriefGeneratedAt);
@@ -3185,13 +3185,13 @@ export default function AppIntelPage() {
                               </span>
                             );
                           })()}
-                          {breadthRows.length > 0 && (
+                          {(totalGainers > 0 || totalLosers > 0) && (
                             <>
                               <span style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.4 }}>·</span>
-                              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              <span title={coverageTitle(breadthValues.length, breadthRows.length)} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
                                 <span style={{ color: '#10b981' }}>{totalGainers}W</span>
                                 <span style={{ margin: '0 2px', opacity: 0.3 }}>/</span>
-                                <span style={{ color: '#ef4444' }}>{totalLosers}L{changeCoverage(breadthValues.length, breadthRows.length)}</span>
+                                <span style={{ color: '#ef4444' }}>{totalLosers}L</span>
                               </span>
                             </>
                           )}
@@ -3732,11 +3732,11 @@ export default function AppIntelPage() {
                             })()}
                           </span>
                           {/* W/L mini row */}
-                          {cached.keyStocksData.length > 0 && (
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                          {(cached.gainers > 0 || cached.losers > 0) && (
+                            <span title={coverageTitle(cached.gainers + cached.losers, cached.keyStocksData.length)} style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
                               <span style={{ color: '#10b981' }}>{cached.gainers}W</span>
                               <span style={{ margin: '0 3px', opacity: 0.3 }}>/</span>
-                              <span style={{ color: '#ef4444' }}>{cached.losers}L{changeCoverage(cached.gainers + cached.losers, cached.keyStocksData.length)}</span>
+                              <span style={{ color: '#ef4444' }}>{cached.losers}L</span>
                             </span>
                           )}
                         </div>
@@ -4578,7 +4578,7 @@ export default function AppIntelPage() {
                             <Sparkline data={leadSparkline} isUp={leadSparkUp} />
                           </div>
                         )}
-                        <div style={{
+                        <div title={coverageTitle(sec.liveCount, sec.quoteCount)} style={{
                           color: toneColor,
                           background: !hasMove ? 'rgba(148,163,184,0.10)' : isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
                           border: !hasMove ? '1px solid rgba(148,163,184,0.22)' : isUp ? '1px solid rgba(16,185,129,0.28)' : '1px solid rgba(239,68,68,0.28)',
@@ -4590,7 +4590,7 @@ export default function AppIntelPage() {
                           fontFamily: 'var(--font-mono), monospace',
                           boxShadow: !hasMove ? 'none' : isUp ? '0 0 18px rgba(16,185,129,0.10)' : '0 0 18px rgba(239,68,68,0.10)'
                         }}>
-                          {formatPercentCompact(sec.change)}{changeCoverage(sec.liveCount, sec.quoteCount)}
+                          {formatPercentCompact(sec.change)}
                         </div>
                       </div>
                     </div>
@@ -4897,14 +4897,14 @@ export default function AppIntelPage() {
                             </div>
                           </div>
                         </div>
-                        <div style={{
+                        <div title={sec ? coverageTitle(getSectorQuotes(sec.id).filter(q => sessionChangeOrNull(q, sessionDate) != null).length, getSectorQuotes(sec.id).length) : undefined} style={{
                           background: avgChange == null ? 'rgba(148,163,184,0.10)' : isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
                           border: avgChange == null ? '1px solid rgba(148,163,184,0.22)' : isUp ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(239,68,68,0.25)',
                           borderRadius: '8px', padding: '5px 10px',
                           color: badgeColor, fontFamily: 'var(--font-mono), monospace',
                           fontSize: '13px', fontWeight: 800, flexShrink: 0
                         }}>
-                          {formatPercentCompact(avgChange)}{sec ? changeCoverage(getSectorQuotes(sec.id).filter(q => sessionChangeOrNull(q, sessionDate) != null).length, getSectorQuotes(sec.id).length) : ''}
+                          {formatPercentCompact(avgChange)}
                         </div>
                       </div>
 
@@ -4919,11 +4919,11 @@ export default function AppIntelPage() {
                           // 일부 종목만 쟀으면 라벨에 «1/3» — 카드와 같은 규칙(몇 종목 기준인지 밝힌다)
                           { label: 'GEX' + (sbGex.length > 0 && sbGex.length < stocks.length ? ` ${sbGex.length}/${stocks.length}` : ''), value: sbTotalGex == null ? '—' : formatGex(sbTotalGex), color: sbTotalGex == null ? '#94a3b8' : sbTotalGex > 0 ? '#10b981' : sbTotalGex < 0 ? '#ef4444' : '#94a3b8' },
                           { label: 'PCR' + (sbPcr.length > 0 && sbPcr.length < stocks.length ? ` ${sbPcr.length}/${stocks.length}` : ''), value: sbAvgPcr == null ? '—' : sbAvgPcr.toFixed(2), color: pcrColor(sbAvgPcr) },
-                          { label: 'W/L' + changeCoverage(reportData.gainers + reportData.losers, stocks.length), value: `${reportData.gainers}/${reportData.losers}`, color: reportData.gainers > reportData.losers ? '#10b981' : '#ef4444' },
+                          { label: 'W/L', title: coverageTitle(reportData.gainers + reportData.losers, stocks.length), value: `${reportData.gainers}/${reportData.losers}`, color: reportData.gainers > reportData.losers ? '#10b981' : '#ef4444' },
                           { label: 'SCORE', value: avgScore != null ? Math.round(avgScore).toString() : '-', color: gradeColor },
                           { label: 'REGIME', value: sbRegime ?? '—', color: regimeColor },
                         ].map((m, idx) => (
-                          <div key={m.label} style={{
+                          <div key={m.label} title={m.title} style={{
                             textAlign: 'center', padding: '8px 4px',
                             borderRight: idx < 4 ? '1px solid rgba(255,255,255,0.06)' : 'none'
                           }}>
