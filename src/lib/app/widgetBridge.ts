@@ -271,7 +271,7 @@ export async function rasterizeLogoInBrowser(t: string, px = WIDGET_LOGO_PX, tim
     img.onload = () => { clearTimeout(timer); resolve(true); };
     img.onerror = () => { clearTimeout(timer); resolve(false); };
   });
-  img.src = `/api/logo/${encodeURIComponent(t)}?v=3`;
+  img.src = `/api/logo/${encodeURIComponent(t)}?v=4`;
   if (!(await loaded)) return null;
   const w = img.naturalWidth || px;
   const h = img.naturalHeight || px;
