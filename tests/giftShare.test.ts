@@ -287,6 +287,41 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     assert.equal(r.status, 303); assert.equal(new URL(location(r)).hostname, 'apps.apple.com');
     assert.equal(new URL(location(r)).searchParams.get('code'), code);
   });
+  await t('4차 P2: PC 선물 링크의 QR·iPad 이동도 초대자 ref 유지 → 폰 스캔 첫 실행 보상 적립', async () => {
+    const ref = inviteRefOf(newInviteKey());
+    const ipHash = inviteIpHash(baseHeaders['x-real-ip'], inviteSecret());
+    const before = evalCalls;
+    for (const from of ['gift', 'share_pick']) {
+      const pc = await route.GET(req(`/app?from=${from}&ref=${ref}&gift=${token}&l=ko`, { headers: { ...baseHeaders, 'user-agent': desktop,
+        'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' } }));
+      const html = await pc.text();
+      const scan = new URL(html.match(/data-scan="([^"]+)"/)![1].replace(/&amp;/g, '&'));
+      assert.equal(scan.searchParams.get('ref'), ref, 'QR 주소에 ref');
+      assert.equal(scan.searchParams.get('from'), from);
+      assert.equal(scan.searchParams.get('gift'), token);
+      const script = html.match(/<script>([\s\S]*?)<\/script>/)![1];
+      let target = '';
+      runInNewContext(script, { navigator: { maxTouchPoints: 5, userAgent: desktop }, location: { replace: (url: string) => { target = url; } } });
+      assert.equal(new URL(target).searchParams.get('ref'), ref, 'iPad 이동 주소에 ref');
+      for (const [ua, os] of [[ios, 'ios'], [android, 'android']]) {
+        const memory = memoryInviteStore();
+        inviteStore.upstashInviteStore = () => memory;
+        afterCalls.length = 0;
+        const phone = await route.GET(req(scan.pathname + scan.search, { headers: { ...baseHeaders, 'user-agent': ua,
+          'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' } }));
+        assert.equal(phone.status, 200);
+        await flushAfter();
+        assert.deepEqual(await arrive(memory, { key: newInviteKey(), os, ipHash }), { matched: true, credited: true, from, inviterRef: ref });
+      }
+    }
+    // ref 가 없거나 잘못되면 QR 주소에 싣지 않는다(기존 동작).
+    for (const bad of ['', '&ref=google', '&ref=%3Cx%3E']) {
+      const html = await (await route.GET(req(`/app?from=gift${bad}&gift=${token}&l=ko`, { headers: { ...baseHeaders, 'user-agent': desktop } }))).text();
+      assert.ok(!new URL(html.match(/data-scan="([^"]+)"/)![1].replace(/&amp;/g, '&')).searchParams.has('ref'));
+    }
+    assert.equal(evalCalls, before, 'QR·스캔 GET은 재고 무소비');
+    inviteStore.upstashInviteStore = () => memoryInviteStore();
+  });
   await t('발행은 불투명 토큰만 반환하며 기기·계정·IP 제한 전달', async () => {
     let keys: string[] = []; let args: unknown[] = [];
     const capture = { eval: async (_: string, k: string[], a: unknown[]) => { keys = k; args = a; return 'issued'; } };

@@ -4,6 +4,7 @@ import { desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
 import { isPreviewBot, UA_BOT_RE } from '@/lib/marketing/clickHuman';
 import { previewHtml, previewResponseInit, visitorLang } from '@/lib/marketing/linkPreview';
 import { normalizeFrom } from '@/lib/marketing/storeRedirect';
+import { normalizeGiftRef } from '@/lib/gift/gift';
 import { giftToken, installUrl } from './config';
 import { giftHeaders, giftIdentity, giftOs, setGiftCookie } from './http';
 
@@ -21,11 +22,14 @@ export async function giftLanding(req: NextRequest): Promise<NextResponse> {
   }
   const identity = giftIdentity(req);
   const fromTag = normalizeFrom(req.nextUrl.searchParams.get('from')) || 'gift';
+  // PC → 폰 QR·iPad 이동에서도 초대자 ref 를 잃지 않게 한다(폰에서 연 요청이 추천 터치를 남긴다).
+  const ref = normalizeGiftRef(req.nextUrl.searchParams.get('ref'));
+  const refQuery = ref ? `&ref=${encodeURIComponent(ref)}` : '';
   const masked = '•••• •••• •••• ••••';
   const html = os ? couponHtml({ platform: os, lang, fromTag: 'gift', code: masked, gift: token,
     appleRedeemUrl: installUrl('ios'), playInstallUrl: installUrl('android') })
-    : await desktopRedeemHtml({ fromTag, lang, code: masked, gift: token,
-      redeemUrl: `https://www.signumhq.com/app?gift=${encodeURIComponent(token)}&l=${lang}`,
+    : await desktopRedeemHtml({ fromTag, lang, code: masked, gift: token, giftRef: ref,
+      redeemUrl: `https://www.signumhq.com/app?from=${encodeURIComponent(fromTag)}&gift=${encodeURIComponent(token)}&l=${lang}${refQuery}`,
       coupon: true, androidCoupon: true });
   const res = new NextResponse(req.method === 'HEAD' ? null : html, { headers });
   return identity ? setGiftCookie(res, identity.cookie) : res;

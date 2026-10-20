@@ -219,10 +219,13 @@ export async function desktopRedeemHtml(opts: {
   androidCoupon?: boolean;
   /** 선물 토큰은 QR·iPad 쿠폰 화면에 전달하며 스토어 코드는 배정하지 않는다. */
   gift?: string;
+  /** 선물 전용: 검증된 초대자 ref — QR 로 폰에서 열어도 첫 실행 추천 보상이 같은 초대자에게 이어지게 QR 주소에 싣는다. */
+  giftRef?: string | null;
 }): Promise<string> {
   const { fromTag, code, lang, redeemUrl, coupon = false, androidCoupon = false } = opts;
   const t = RT[lang];
-  const scan = opts.gift ? `${SITE}/app?from=${encodeURIComponent(fromTag || 'gift')}&l=${lang}&gift=${encodeURIComponent(opts.gift)}&via=qr` : redeemScanUrl(fromTag, code);
+  const giftRefQuery = opts.gift && opts.giftRef ? `&ref=${encodeURIComponent(opts.giftRef)}` : '';
+  const scan = opts.gift ? `${SITE}/app?from=${encodeURIComponent(fromTag || 'gift')}&l=${lang}&gift=${encodeURIComponent(opts.gift)}${giftRefQuery}&via=qr` : redeemScanUrl(fromTag, code);
   const ipadUrl = opts.gift ? `${redeemUrl}&gift_os=ios` : redeemUrl;
   const svg = await QRCode.toString(scan, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b1220', light: '#ffffff' } });
   const fallback = APPLE_ONE_TIME_CODE_RE.test(code)
