@@ -291,4 +291,35 @@ test('관문 회귀(10202008): 등위 주어 반전 완성 문장은 생성·저
         assert.deepEqual(checkTacticalStored(right, p), [], l);
     }
 });
+test('관문 회귀(10202231): «국채 수익률» 주어·삽입절 뒤 금리 서술도 사실과 대조', () => {
+    const f = buildTacticalFacts({ ...ctx, goldChangePct: -0.5 });
+    for (const text of [
+        '국채 수익률 하락', '국채 수익률은 하락했습니다', '하락한 국채 수익률',
+        'Yields, while gold fell, declined', 'Yields — while gold fell — declined', 'Yields, as gold fell, declined',
+        'Yields, gold fell, and then declined',
+        '금리는, 금값이 하락한 반면, 하락했습니다', '金利は、金価格が下落する一方、低下した',
+    ]) assert.ok(match(text, f).includes('tactical:facts-direction:us10yChangeBp:up:down'), text);
+    for (const text of ['국채 수익률 상승', '국채 수익률은 상승했습니다', 'Yields rose, while gold fell', 'Yields rose. Gold fell, then declined.']) good(text, f);
+    // 의도된 오탐: 삽입절 뒤 서술은 맞는 방향이어도 다른 주어 방향어와 섞이므로 거부한다(fail-closed).
+    for (const text of ['Yields, while gold fell, rose', '金利は、金価格が下落する一方、上昇した']) bad(text, f);
+    const goldCtx = { ...ctx, goldChangePct: -0.5 };
+    const outputs = {
+        ko: 'WIRE 보도한 국채 입찰 수요 약화는 국채 수익률 하락과 연결해 해석됩니다. 얇은 감마 방어는 충격 흡수력이 제한적입니다. 다음 확인 기준은 미확인입니다.',
+        en: 'WIRE reported weak Treasury auction demand. Yields, while gold fell, declined, and thin dealer gamma leaves limited absorption. The next test is unconfirmed.',
+        ja: 'WIREの国債入札需要低迷の報道の中で金利は、金価格が下落する一方、低下しました。薄いガンマ防御は衝撃吸収力が限定的です。次の確認基準は未確認です。',
+    };
+    for (const l of ['ko', 'en', 'ja'] as const) {
+        const p = buildTacticalPrompt(goldCtx, l);
+        for (const reasons of [checkTacticalOutput(outputs[l], l, p), checkTacticalStored(outputs[l], p)]) {
+            assert.ok(reasons.includes('tactical:facts-direction:us10yChangeBp:up:down'), `${l}: ${reasons}`);
+        }
+        const right = {
+            ko: outputs.ko.replace('하락과 연결', '상승과 연결'),
+            en: outputs.en.replace('Yields, while gold fell, declined,', 'Yields rose while gold fell,'),
+            ja: outputs.ja.replace('金利は、金価格が下落する一方、低下しました', '金利は上昇し、金価格は下落しました'),
+        }[l];
+        assert.deepEqual(checkTacticalOutput(right, l, p), [], `${l}: ${right}`);
+        assert.deepEqual(checkTacticalStored(right, p), [], `${l}: ${right}`);
+    }
+});
 console.log(`${passed} passed`);

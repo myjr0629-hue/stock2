@@ -60,7 +60,7 @@ export function buildTacticalFacts<T extends { asOf?: string; metricsAsOf?: stri
 const SUBJECTS: Array<{ key: string; re: RegExp }> = [
     // 정책금리는 국채 수익률과 다른 사실이다. 입력 뉴스의 방향으로만 검증한다.
     { key: 'policyRateChange', re: /\b(?:policy\s+(?:interest\s+)?rates?|federal\s+funds\s+(?:target\s+)?rates?)\b|(?:정책|기준)\s*금리|(?:政策|基準)金利/gi },
-    { key: 'us10yChangeBp', re: /\b(?:yields?|(?:interest\s+)?rates?)\b|금리|利回り|金利/gi },
+    { key: 'us10yChangeBp', re: /\b(?:yields?|(?:interest\s+)?rates?)\b|금리|수익률|利回り|金利/gi },
     { key: 'nasdaqChange', re: /\b(?:NASDAQ(?:[ -]100)?|NDX|QQQ)\b|나스닥|ナスダック/gi },
     { key: 'spxChangePct', re: /\b(?:S&P\s?500|SPX|SPY)\b/gi },
     { key: 'tltChangePct', re: /\bTLT\b|\bbond\s+prices?\b|채권\s*가격|債券価格/gi },
@@ -111,24 +111,29 @@ const subjectsOf = (clause: string) => {
         && other.end - other.start > s.end - s.start));
 };
 const hasRateSubject = (text: string) => subjectsOf(text).some(s => RATE_KEYS.has(s.key));
-/** 절 분할 뒤 금리 절을 넓힌다(fail-closed).
- * ① 방향어 없는 조각(주어 나열)은 약한 경계(쉼표·and·or)를 넘어 앞뒤 조각과 한 절(«Yields, gold and oil fell»·«Falling gold and yields»).
- * ② 주어 없이 방향어만 있는 조각은 문장 안에서 앞 금리 절에 붙인다(«Yields rose and then fell»·«上昇したが、その後下落»). */
+/** 절 분할 뒤 금리 절을 넓힌다(fail-closed). 문장 끝(. 。 ! ?)은 넘지 않는다.
+ * ① 방향어 없는 조각(주어 나열)은 약한 경계(쉼표·and·or·また)를 넘어 앞뒤 조각과 한 절(«Yields, gold and oil fell»·«Falling gold and yields»).
+ * ② 방향어 없이 금리 주어만 있는 절은 방향어가 나올 때까지 뒤 절을 흡수한다(«Yields, while gold fell, declined»).
+ * ③ 주어 없이 방향어만 있는 조각은 같은 문장의 마지막 금리 절에 붙인다(«Yields rose and then fell»·«上昇したが、その後下落»). */
 function clausesOf(text: string): string[] {
     const parts = text.split(CLAUSE_SPLIT);
-    const clauses: string[] = [];
-    let current = parts[0] ?? '';
+    const clauses = [parts[0] ?? ''];
+    let sentenceStart = 0;
     for (let i = 1; i < parts.length; i += 2) {
         const boundary = parts[i] ?? '', next = parts[i + 1] ?? '';
-        const soft = SOFT_BOUNDARY.test(boundary.trim());
-        const sentenceEnd = /^[.。!?！？]$/.test(boundary.trim());
+        if (/^[.。!?！？]$/.test(boundary.trim())) { clauses.push(next); sentenceStart = clauses.length - 1; continue; }
+        const last = clauses.length - 1, current = clauses[last];
+        const bareRate = hasRateSubject(current) && !hasDirectionWord(current);
         // 방향어 없는 조각은 주어 나열의 일부다. 나열 전체를 한 절로 묶어 금리 주어를 떼어 내지 않는다.
-        const join = (soft && (!hasDirectionWord(parts[i - 1] ?? '') || !hasDirectionWord(next)))
-            || (!sentenceEnd && hasRateSubject(current) && !subjectsOf(next).length && hasDirectionWord(next));
-        if (join) current += boundary + next;
-        else { clauses.push(current); current = next; }
+        const soft = SOFT_BOUNDARY.test(boundary.trim()) && (!hasDirectionWord(parts[i - 1] ?? '') || !hasDirectionWord(next));
+        if (bareRate || soft) { clauses[last] += boundary + next; continue; }
+        if (!subjectsOf(next).length && hasDirectionWord(next)) {
+            let rate = -1;
+            for (let k = last; k >= sentenceStart && rate < 0; k--) if (hasRateSubject(clauses[k])) rate = k;
+            if (rate >= 0) { clauses[rate] += ` ${boundary} ${next}`; continue; }
+        }
+        clauses.push(next);
     }
-    clauses.push(current);
     return clauses;
 }
 function directionClaims(text: string): DirectionClaim[] {
