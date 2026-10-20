@@ -152,7 +152,7 @@ test('terminal incomplete fallback also serializes absent VWAP as null', () => {
     assert.equal(item.evidence.price.vwap, null); assert.equal(item.evidence.price.vwapDistPct, null);
     assert.equal(JSON.parse(JSON.stringify(buildPrice(null))).vwapDistPct, null);
 });
-test('all Dashboard VWAP selectors (card/conviction/charts/AI) honor fresh null and SSR fallback', () => {
+test('all Dashboard VWAP selectors (card/charts/AI) honor fresh null and SSR fallback', () => {
     const ast = source(dashboardFile);
     const selectors: string[] = [];
     const visit = (node: ts.Node) => {
@@ -160,31 +160,38 @@ test('all Dashboard VWAP selectors (card/conviction/charts/AI) honor fresh null 
         ts.forEachChild(node, visit);
     };
     visit(ast);
-    assert.equal(selectors.length, 6);
-    for (const expr of selectors) {
+    // B5: conviction reads VWAP through the shared input rule (webConvictionState) and the AI through
+    // buildDeepSnapshot's rawTickerData — so three direct selectors remain (card + two charts).
+    assert.equal(selectors.length, 3);
+    const aiVwap = find(dashboardFile, n => ts.isPropertyAssignment(n) && n.name.getText() === 'rawTickerData'
+        && n.initializer.getText().includes('liveQuote?.flow'));
+    for (const expr of [...selectors, `normalizeVwap(({${aiVwap}}).rawTickerData.vwap)`]) {
         for (const [fresh, expected] of [[null, null], [undefined, 100], [109.6, 109.6], [0, null], [Infinity, null]] as const) {
             assert.equal(execute(`${expr};`, { liveQuote: { vwap: fresh }, initialStockData: { vwap: 100 } }), expected);
         }
     }
 });
 test('conviction does not score missing VWAP; measured above/below bonuses stay intact', () => {
-    const fn = find(dashboardFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'calculateConviction');
+    // B5: the web card's shared conviction state. A fresh null from the live quote is the route invalidating
+    // a stale-session VWAP — it is not scored and the SSR VWAP is not carried over it.
+    const conv = require('../src/lib/commandConviction');
     for (const [value, expected] of [[null, 50], [100, 58], [150, 42]] as const) {
-        let result: any;
-        execute(`const ${fn}; calculateConviction();`, {
-            liveQuote: { vwap: value }, initialStockData: { vwap: 100 }, displayPrice: 123,
-            smaData: null, newsScore: null, structure: null, td: (key: string) => key,
-            setConviction: (value: any) => { result = value; },
-        });
-        assert.equal(result.score, expected);
+        const ssr = { unified: null, stock: { symbol: 'TEST', price: 123, vwap: 100 } };
+        const state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST', vwap: value }, stock: ssr.stock, price: 123,
+            unified: { ticker: 'TEST', sma: { cross: 'NONE' } } });
+        assert.equal(conv.scoreCommandConviction(state.inputs).score, expected);
     }
 });
 test('AI snapshot distance follows the same missing/valid selection', () => {
-    const iife = find(dashboardFile, n => ts.isPropertyAssignment(n) && n.name.getText() === 'vwapDistance');
+    const { buildDeepSnapshot } = require('../src/lib/ai/deepSnapshot');
+    const aiVwap = find(dashboardFile, n => ts.isPropertyAssignment(n) && n.name.getText() === 'rawTickerData'
+        && n.initializer.getText().includes('liveQuote?.flow'));
+    let seq = 0;
     for (const [value, expected] of [[null, 'N/A'], [100, '23.0%']] as const) {
-        assert.equal(execute(`({${iife}}).vwapDistance;`, {
-            liveQuote: { vwap: value }, initialStockData: { vwap: 100 }, displayPrice: 123,
-        }), expected);
+        const rawTickerData = execute(`({${aiVwap}}).rawTickerData;`, { liveQuote: { vwap: value, flow: null }, initialStockData: { vwap: 100 } });
+        const snap = buildDeepSnapshot({ ticker: `VWAPAI${++seq}`, price: 123, priceChange: 0, session: 'REG', unified: {},
+            rawTickerData, insider: null, technicals: null, creditSpread: null });
+        assert.equal(snap.vwapDistance, expected);
     }
 });
 test('Intel valid VWAP with absent/nonfinite reported distance computes a finite distance', () => {

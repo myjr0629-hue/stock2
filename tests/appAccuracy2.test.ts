@@ -305,15 +305,24 @@ t('Intel 섹터 상세: 종목 목록·집계도 설정 목록으로 — reportR
   const page = read('src/app/[locale]/app-view/intel/page.tsx');
   assert.ok(/const \[reportRaw, setReportData\] = useState<SectorReportData \| null>\(null\);/.test(page));
   // 3차(10/7): 화면용 리포트 = viewReportForApp(= alignReportToConfig 로 행을 설정 목록에 맞추고 applySectorBrief 로 글을 그 행에서 만든다)
-  assert.ok(/const reportData = useMemo<SectorReportData \| null>\(\(\) => \{[\s\S]*?viewReportForApp\(reportRaw, selectedSector, selectedSectorQuotes, appLocale\)/.test(page));
-  assert.ok(/function viewReportForApp\([\s\S]*?alignReportToConfig\(merged, sectorId, quotes\)[\s\S]*?applySectorBrief\(aligned,/.test(page));
-  assert.ok(/function alignReportToConfig\(report: SectorReportData, sectorId: string, quotes: IntelQuote\[\]\): SectorReportData \{/.test(page));
+  assert.ok(/const reportData = useMemo<SectorReportData \| null>\(\(\) => \{[\s\S]*?viewReportForApp\(reportRaw, selectedSector, selectedSectorQuotes, appLocale, sessionDate\)/.test(page));
+  assert.ok(/function viewReportForApp\([\s\S]*?alignReportToConfig\(merged, sectorId, quotes, sessionDate\)[\s\S]*?applySectorBrief\(aligned,/.test(page));
+  assert.ok(/function alignReportToConfig\(report: SectorReportData, sectorId: string, quotes: IntelQuote\[\], sessionDate = shownRegularSessionDate\(\)\): SectorReportData \{/.test(page));
   assert.ok(/for \(const sym of sec\.stocks\) \{/.test(page));
   assert.ok(/function quoteToKeyStock\(q: IntelQuote\): KeyStockPremiumData \{/.test(page));
-  // 점수가 없는 행들로 «CTX 0» 을 만들지 않는다 — 서버 리포트 값 유지
-  assert.ok(/avgAlpha: scoreVals\.length \? scoreVals\.reduce\(\(a, b\) => a \+ b, 0\) \/ scoreVals\.length : report\.avgAlpha,/.test(page));
-  // 시세가 없는 종목의 GEX·PCR 은 리포트(스냅샷)의 값으로 메우지 않는다
-  assert.ok(/if \(!quote\) return \{ \.\.\.stock, gex: null, pcr: null, gammaRegime: null \};/.test(page));
+  // 실측 점수로 평균을 다시 계산하고, 전부 결측이면 CTX는 «—»로 표시한다
+  assert.ok(/const avgAlpha = averageMeasured\(rows\.map\(r => r\.score\)\) \?\? 0;/.test(page));
+  assert.ok(/CTX \{ctxAverageMissing\(reportData\.avgAlpha, reportData\.keyStocksData\) \? '—' : Math\.round\(reportData\.avgAlpha\)\}/.test(page));
+  // 시세가 없으면 날짜 미상 등락·GEX·PCR을 비우고, 날짜 있는 등락은 개별 행에 보존한다
+  assert.ok(/if \(!quote\) return \{ \.\.\.stock, changePct: stock\.changePctSourceDate \? stock\.changePct : null, gex: null, pcr: null, gammaRegime: null \};/.test(page));
+});
+
+t('Intel 날짜 혼합 회귀: 상세·캐시 리포트가 화면 세션 날짜를 전달하고 날짜 전환 시 집계를 갱신한다', () => {
+  const page = read('src/app/[locale]/app-view/intel/page.tsx');
+  assert.ok(/\}, \[reportRaw, selectedSector, selectedQuotesSig, appLocale, sessionDate\]\);/.test(page), '세션 전환 시 상세 리포트 재계산');
+  assert.ok(/viewReportForApp\(cachedRaw, sec\.id, quotes, appLocale, sessionDate\)/.test(page), '캐시 리포트도 화면 날짜 사용');
+  assert.ok(/viewReportForApp\(reportCache\[sec\.id\] \|\| buildSectorReportFromQuotes\(sec\.id\), sec\.id, getSectorQuotes\(sec\.id\), appLocale, sessionDate\)/.test(page), '리포트 탭도 화면 날짜 사용');
+  assert.ok(/return applySectorBrief\(aligned, sec\?\.stocks \|\| \[\], locale, avgChangeOfQuotes\(quotes, sessionDate\), sessionDate\);/.test(page), '관찰 문장·평균도 동일 날짜 사용');
 });
 
 console.log(`\n✅ appAccuracy2: ${n}건 통과`);

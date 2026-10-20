@@ -28,6 +28,7 @@ import { APP_SECTOR_STOCKS, SECTOR_ID_TO_HOOK_KEY } from '@/lib/app/intelSectorL
 import { applySectorBrief } from '@/lib/app/intelSectorBrief';
 import { getStockAnalyticalBrief } from '@/lib/app/intelStockBrief';
 import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature } from '@/lib/app/intelMissing';
+import { sessionChangeOrNull, coverageTitle } from '@/lib/app/intelSessionChange';
 import { snapshotChangeOrNull } from '@/lib/app/intelSnapshotChange';
 import { snapshotScoreOrNull } from '@/lib/app/intelSnapshotScore';
 
@@ -415,7 +416,7 @@ function quoteToKeyStock(q: IntelQuote): KeyStockPremiumData {
  * 서버 리포트(스냅샷·글로벌 리포트)는 엔진 목록 종목을 담는다 — 설정 목록에 없는 종목(예: physical_ai 의 PLTR)은 빼고, 리포트에 없는 설정 종목(RGTI·QBTS)은 시세로 만든다.
  * 집계 필드(상승·하락 수·GEX 합·평균 PCR·감마 구도·평균 점수)는 맞춘 목록으로 다시 센다 — 같은 화면 안에서 카드와 상세가 다른 종목 집합을 말하지 않게.
  */
-function alignReportToConfig(report: SectorReportData, sectorId: string, quotes: IntelQuote[]): SectorReportData {
+function alignReportToConfig(report: SectorReportData, sectorId: string, quotes: IntelQuote[], sessionDate = shownRegularSessionDate()): SectorReportData {
   const sec = SECTOR_CONFIGS.find(item => item.id === sectorId);
   if (!sec) return report;
   const bySym = new Map(report.keyStocksData.map(stock => [stock.sym, stock]));
@@ -429,7 +430,9 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
   }
   const same = rows.length === report.keyStocksData.length && rows.every((row, i) => row === report.keyStocksData[i]);
   const avgAlpha = averageMeasured(rows.map(r => r.score)) ?? 0;
-  if (same && avgAlpha === report.avgAlpha) return report;
+  const gainers = rows.filter(r => { const v = sessionChangeOrNull(r, sessionDate); return v != null && v >= 0; }).length;
+  const losers = rows.filter(r => { const v = sessionChangeOrNull(r, sessionDate); return v != null && v < 0; }).length;
+  if (same && avgAlpha === report.avgAlpha && gainers === report.gainers && losers === report.losers) return report;
   const gexVals = rows.map(r => r.gex).filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v !== 0);
   const pcrVals = rows.map(r => r.pcr).filter((v): v is number => typeof v === 'number' && v > 0);
   const longN = gexVals.filter(v => v > 0).length;
@@ -437,8 +440,8 @@ function alignReportToConfig(report: SectorReportData, sectorId: string, quotes:
   return {
     ...report,
     keyStocksData: rows,
-    gainers: rows.filter(r => { const v = measuredOrNull(r, 'changePct'); return v != null && v >= 0; }).length,
-    losers: rows.filter(r => { const v = measuredOrNull(r, 'changePct'); return v != null && v < 0; }).length,
+    gainers,
+    losers,
     totalGex: gexVals.reduce((a, b) => a + b, 0),
     avgPcr: pcrVals.length ? pcrVals.reduce((a, b) => a + b, 0) / pcrVals.length : 0,
     dominantRegime: longN > shortN ? 'LONG' : shortN > longN ? 'SHORT' : 'NEUTRAL',
@@ -456,8 +459,8 @@ function quoteValueSignature(q: IntelQuote): string {
 }
 
 /** 섹터 시세 행의 평균 변동 — 헤더 배지(getSectorChange)와 같은 식(변동률이 있는 행의 평균). 없으면 null */
-function avgChangeOfQuotes(quotes: IntelQuote[]): number | null {
-  return averageMeasured(quotes.map(q => measuredOrNull(q, 'changePct')));
+function avgChangeOfQuotes(quotes: IntelQuote[], sessionDate = shownRegularSessionDate()): number | null {
+  return averageMeasured(quotes.map(q => sessionChangeOrNull(q, sessionDate)));
 }
 
 /**
@@ -465,19 +468,19 @@ function avgChangeOfQuotes(quotes: IntelQuote[]): number | null {
  * 서버 스냅샷의 글(마감 시각에 «엔진 목록» 종목으로 만든 규칙 문장)은 앱 화면에 쓰지 않는다 — 카드에 없는 종목(DELL·TWLO…)·화면과 다른 숫자·«하방 지지 예상»류 앞일 서술이 있었다.
  * 웹은 이 함수를 쓰지 않는다(웹 화면·스냅샷 API 는 그대로).
  */
-function viewReportForApp(report: SectorReportData, sectorId: string, quotes: IntelQuote[], locale: AppLocale): SectorReportData {
+function viewReportForApp(report: SectorReportData, sectorId: string, quotes: IntelQuote[], locale: AppLocale, sessionDate = shownRegularSessionDate()): SectorReportData {
   const sec = SECTOR_CONFIGS.find(item => item.id === sectorId);
   // 리포트 행에 «지금 시세»(카드와 같은 앱 전용 응답)를 입힌다 — 장마감 리포트 탭 카드는 상세 화면처럼 시세 병합 effect 를 거치지 않아 스냅샷 시각의 GEX·P/C(만기 범위가 다른 값)가 남았다
   //   (10/7 미리보기 실측: 상세 GEX +5.73M · P/C 0.97 ↔ 리포트 탭 -2.60M · 0.67). 상세에서는 이미 병합된 행이라 멱등.
   const quoteMap = new Map(quotes.map(q => [q.ticker, q]));
   const merged: SectorReportData = { ...report, keyStocksData: report.keyStocksData.map(stock => mergeStockWithQuote(stock, quoteMap.get(stock.sym))) };
-  const aligned = alignReportToConfig(merged, sectorId, quotes);
-  return applySectorBrief(aligned, sec?.stocks || [], locale, avgChangeOfQuotes(quotes));
+  const aligned = alignReportToConfig(merged, sectorId, quotes, sessionDate);
+  return applySectorBrief(aligned, sec?.stocks || [], locale, avgChangeOfQuotes(quotes, sessionDate), sessionDate);
 }
 
 function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): KeyStockPremiumData {
   // 시세가 아직 없으면 리포트(스냅샷)의 GEX·PCR 도 쓰지 않는다 — 다른 만기 범위의 값이다. 시세가 오면 채워진다(칸은 «—»).
-  if (!quote) return { ...stock, gex: null, pcr: null, gammaRegime: null };
+  if (!quote) return { ...stock, changePct: stock.changePctSourceDate ? stock.changePct : null, gex: null, pcr: null, gammaRegime: null };
 
   // ★ [10/19 N2] 등락·점수·순프리미엄·스퀴즈는 «최신 시세»가 정한다 — 실제 0 은 0, 결측(missingFields·null)은 null(«—»).
   //   같은 거래일 마감 보충은 앱 훅 표시층에서만 수행한다(원천 날짜 보존). 이 함수는 임의의 이전 행 값으로 메우지 않는다.
@@ -583,6 +586,7 @@ function mergeReportWithBatchResults(report: SectorReportData, batchResults: any
       score: fin(alpha.score) ? alpha.score : stock.score,
       alphaScoreSourceDate: fin(alpha.score) ? undefined : stock.alphaScoreSourceDate,
       changePct: fin(rt.changePct) && !rtMarked.includes('changePct') ? rt.changePct : stock.changePct,
+      changePctSourceDate: fin(rt.changePct) && !rtMarked.includes('changePct') ? undefined : stock.changePctSourceDate,
       closePrice: pickNumber(rt.price, stock.closePrice) ?? stock.closePrice,
       gex,
       pcr: stock.pcr,
@@ -1532,6 +1536,7 @@ export default function AppIntelPage() {
 
   // Initialize shared data hook
   // ★ [2026-10-07 정확성 2차] optionsBasis: GEX·P/C 는 수집 Lambda DynamoDB 최신 행 한 곳(35일 이내 전 만기) · sectorBasis 'config': 수치도 카드 칩과 같은 «설정 목록»으로
+  const sessionDate = shownRegularSessionDate();
   const sharedData = useIntelSharedDataForApp({ optionsBasis: true, sectorBasis: 'config' });
   // ★ [3차] 선택 섹터 시세 행의 «값 지문» — sharedData 는 렌더마다 새 객체라(훅이 매번 새 객체를 돌려준다) 그 자체를 의존성으로 쓰면 reportData 가 매 렌더 새 객체가 된다.
   //   reportData 는 아래 effect 들(실적일·종목 AI 분석·시세 병합)의 의존성이라, 새 객체가 되면 setState → 렌더 → 새 객체 … 요청 폭주가 난다(미리보기 실측: ERR_INSUFFICIENT_RESOURCES 14,807건).
@@ -1542,9 +1547,9 @@ export default function AppIntelPage() {
   const reportData = useMemo<SectorReportData | null>(() => {
     if (!reportRaw || !selectedSector) return reportRaw;
     // 행 = 설정 목록 · 글(판정·촉매·헤드라인…) = 그 행에서 만든 관찰 문장(서버 스냅샷 글은 앱에 쓰지 않는다)
-    return viewReportForApp(reportRaw, selectedSector, selectedSectorQuotes, appLocale);
+    return viewReportForApp(reportRaw, selectedSector, selectedSectorQuotes, appLocale, sessionDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportRaw, selectedSector, selectedQuotesSig, appLocale]);
+  }, [reportRaw, selectedSector, selectedQuotesSig, appLocale, sessionDate]);
   const { status: marketStatus } = useMarketStatus();
   const isMarketLive = marketStatus.session === 'regular' || marketStatus.session === 'pre' || marketStatus.session === 'post';
 
@@ -1682,6 +1687,7 @@ export default function AppIntelPage() {
             score: (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null),
             alphaScoreSourceDate: data.snapshot_date === shownRegularSessionDate() && snapshotScoreOrNull(tick) != null ? data.snapshot_date : undefined,
             changePct: snapshotChangeOrNull(tick),
+            changePctSourceDate: data.snapshot_date,
             closePrice: num(tick.close_price ?? tick.closePrice),
             gex: num(tick.gex),
             pcr: num(tick.pcr),
@@ -1954,8 +1960,8 @@ export default function AppIntelPage() {
 
     if (!keyStocksData.length) return null;
 
-    const gainers = keyStocksData.filter(stock => { const v = measuredOrNull(stock, 'changePct'); return v != null && v >= 0; }).length;
-    const losers = keyStocksData.filter(stock => { const v = measuredOrNull(stock, 'changePct'); return v != null && v < 0; }).length;
+    const gainers = keyStocksData.filter(stock => { const v = sessionChangeOrNull(stock, sessionDate); return v != null && v >= 0; }).length;
+    const losers = keyStocksData.filter(stock => { const v = sessionChangeOrNull(stock, sessionDate); return v != null && v < 0; }).length;
     const avgPcr = safeAverage(keyStocksData.map(stock => stock.pcr || 0).filter(value => value > 0));
     const totalGex = keyStocksData.reduce((sum, stock) => sum + (stock.gex || 0), 0);
     const avgAlpha = averageMeasured(keyStocksData.map(stock => stock.score)) ?? 0;
@@ -2151,7 +2157,7 @@ export default function AppIntelPage() {
       newsSentimentOverall: sectorSummary?.newsSentimentOverall || sectorSummary?.news_sentiment_overall,
       riskNotes: sourceRiskNotes.length ? sourceRiskNotes.map(cleanReportText).filter(Boolean).slice(0, 3) : appRiskNotes,
     };
-  }, [appLocale, getSectorQuotes]);
+  }, [appLocale, getSectorQuotes, sessionDate]);
 
   const selectedQuoteSignature = useMemo(() => {
     if (!selectedSector) return '';
@@ -2214,7 +2220,7 @@ export default function AppIntelPage() {
   const getSectorChange = (sectorId: string): number | null => {
     const quotes = getSectorQuotes(sectorId);
 
-    return avgChangeOfQuotes(quotes);
+    return avgChangeOfQuotes(quotes, sessionDate);
   };
 
   const buildSectorReportFromQuotes = (sectorId: string): SectorReportData => {
@@ -2222,8 +2228,8 @@ export default function AppIntelPage() {
     const sectorCopy = SECTOR_APP_COPY[appLocale][sectorId] || SECTOR_APP_COPY.en[sectorId];
     const quotes = getSectorQuotes(sectorId);
     const avgAlpha = averageMeasured(quotes.map(q => measuredOrNull(q, 'alphaScore'))) ?? 0;
-    const gainers = quotes.filter(q => { const v = measuredOrNull(q, 'changePct'); return v != null && v >= 0; }).length;
-    const losers = quotes.filter(q => { const v = measuredOrNull(q, 'changePct'); return v != null && v < 0; }).length;
+    const gainers = quotes.filter(q => { const v = sessionChangeOrNull(q, sessionDate); return v != null && v >= 0; }).length;
+    const losers = quotes.filter(q => { const v = sessionChangeOrNull(q, sessionDate); return v != null && v < 0; }).length;
     const avgPcr = safeAverage(quotes.map(q => q.pcr || 0).filter(v => v > 0));
     const totalGex = quotes.reduce((sum, q) => sum + (q.gex || 0), 0);
     const netPremium = quotes.reduce((sum, q) => sum + (q.netPremium || 0), 0);
@@ -2521,6 +2527,7 @@ export default function AppIntelPage() {
         score: (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null),
         alphaScoreSourceDate: data.snapshot_date === shownRegularSessionDate() && snapshotScoreOrNull(tick) != null ? data.snapshot_date : undefined,
         changePct: snapshotChangeOrNull(tick),
+        changePctSourceDate: data.snapshot_date,
         closePrice: tick.close_price || tick.closePrice || 0,
         gex: tick.gex ?? 0,
         pcr: tick.pcr ?? 0,
@@ -2600,7 +2607,7 @@ export default function AppIntelPage() {
 
   const sectorSummaries = SECTOR_CONFIGS.map(sec => {
     const quotes = getSectorQuotes(sec.id);
-    const validQuotes = quotes.filter(q => !isFieldMissing(q, 'changePct'));
+    const validQuotes = quotes.filter(q => sessionChangeOrNull(q, sessionDate) != null);
     const change = getSectorChange(sec.id);
     const avgAlpha = averageMeasured(quotes.map(q => measuredOrNull(q, 'alphaScore'))) ?? 0;
     const totalGex = quotes.reduce((sum, q) => sum + (q.gex || 0), 0);
@@ -2625,7 +2632,7 @@ export default function AppIntelPage() {
     })[0] || null;
     // ★ [3차] 카드 «AI 해석» 줄도 서버 스냅샷 글(엔진 목록 종목)이 아니라 설정 목록 행에서 만든 관찰 문장
     const cachedRaw = reportCache[sec.id];
-    const cached = cachedRaw ? viewReportForApp(cachedRaw, sec.id, quotes, appLocale) : undefined;
+    const cached = cachedRaw ? viewReportForApp(cachedRaw, sec.id, quotes, appLocale, sessionDate) : undefined;
     // ★ [2026-10-07] 감마 펄스·«AI 해석» 대체 문구는 «이 섹터 시세 행»의 GEX·순 프리미엄에서만 계산한다(lib/app/intelSectorFacts).
     //   예전엔 섹터마다 박아 둔 상수(+88 같은 %·고정 영어 문장)였다. 근거가 없으면 null / 빈 줄 → 화면은 «—».
     const gammaPulse = sectorGammaPulse(quotes);
@@ -3122,9 +3129,11 @@ export default function AppIntelPage() {
                 const gammaInsight = gamma?.insight?.[L] || gamma?.insight?.en || '';
                 const gRegimeColor = gamma?.regime === 'LONG' ? '#10b981' : gamma?.regime === 'SHORT' ? '#ef4444' : '#f59e0b';
                 const keyLevels = (brief.outlook?.keyLevels || []).slice(0, 4);
-                // Aggregate W/L from all cached reports
-                const totalGainers = Object.values(reportCache).reduce((sum, r) => sum + (r.gainers || 0), 0);
-                const totalLosers = Object.values(reportCache).reduce((sum, r) => sum + (r.losers || 0), 0);
+                // 저장 당시 W/L 대신 같은 화면의 기준 세션으로 다시 센다.
+                const breadthRows = SECTOR_CONFIGS.flatMap(sec => getSectorQuotes(sec.id));
+                const breadthValues = breadthRows.map(q => sessionChangeOrNull(q, sessionDate)).filter((v): v is number => v != null);
+                const totalGainers = breadthValues.filter(v => v >= 0).length;
+                const totalLosers = breadthValues.filter(v => v < 0).length;
                 return (
                   <div style={{
                     background: 'linear-gradient(135deg, rgba(16,185,129,0.04) 0%, rgba(139,92,246,0.04) 100%)',
@@ -3179,7 +3188,7 @@ export default function AppIntelPage() {
                           {(totalGainers > 0 || totalLosers > 0) && (
                             <>
                               <span style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.4 }}>·</span>
-                              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                              <span title={coverageTitle(breadthValues.length, breadthRows.length)} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
                                 <span style={{ color: '#10b981' }}>{totalGainers}W</span>
                                 <span style={{ margin: '0 2px', opacity: 0.3 }}>/</span>
                                 <span style={{ color: '#ef4444' }}>{totalLosers}L</span>
@@ -3575,7 +3584,7 @@ export default function AppIntelPage() {
 
               {SECTOR_CONFIGS.map((sec) => {
                 // ★ [3차] 장마감 리포트 카드: 행·집계 = 설정 목록(카드와 같은 종목) · 글 = 그 행에서 만든 관찰 문장(서버 스냅샷 글은 엔진 목록 종목·마감 시각 숫자·예측어를 담는다)
-                const cached = viewReportForApp(reportCache[sec.id] || buildSectorReportFromQuotes(sec.id), sec.id, getSectorQuotes(sec.id), appLocale);
+                const cached = viewReportForApp(reportCache[sec.id] || buildSectorReportFromQuotes(sec.id), sec.id, getSectorQuotes(sec.id), appLocale, sessionDate);
                 const englishName = TRANSLATIONS.en[sec.id] || sec.id;
                 const displayName = cached.reportTitle || englishName;
                 // Unified source: every sector is a real post-market closing report.
@@ -3724,7 +3733,7 @@ export default function AppIntelPage() {
                           </span>
                           {/* W/L mini row */}
                           {(cached.gainers > 0 || cached.losers > 0) && (
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                            <span title={coverageTitle(cached.gainers + cached.losers, cached.keyStocksData.length)} style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
                               <span style={{ color: '#10b981' }}>{cached.gainers}W</span>
                               <span style={{ margin: '0 3px', opacity: 0.3 }}>/</span>
                               <span style={{ color: '#ef4444' }}>{cached.losers}L</span>
@@ -4340,7 +4349,7 @@ export default function AppIntelPage() {
                                           color: changeColor,
                                           fontFamily: 'var(--font-mono, monospace)'
                                         }}>
-                                          {formatRowChange(stock.changePct)}
+                                          {formatRowChange(stock.changePct)}{stock.changePct != null && stock.changePctSourceDate && stock.changePctSourceDate !== sessionDate ? ` · ${appCopy.closedAsOf(stock.changePctSourceDate)}` : ''}
                                         </span>
                                         {/* Option levels inline */}
                                         {((stock.callWall ?? 0) > 0 || (stock.putFloor ?? 0) > 0) && (
@@ -4569,7 +4578,7 @@ export default function AppIntelPage() {
                             <Sparkline data={leadSparkline} isUp={leadSparkUp} />
                           </div>
                         )}
-                        <div style={{
+                        <div title={coverageTitle(sec.liveCount, sec.quoteCount)} style={{
                           color: toneColor,
                           background: !hasMove ? 'rgba(148,163,184,0.10)' : isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
                           border: !hasMove ? '1px solid rgba(148,163,184,0.22)' : isUp ? '1px solid rgba(16,185,129,0.28)' : '1px solid rgba(239,68,68,0.28)',
@@ -4671,7 +4680,7 @@ export default function AppIntelPage() {
                                 {leadSymbol}
                               </span>
                               <span style={{ color: leadMoveColor, fontSize: '10px', fontWeight: 900, lineHeight: 1, whiteSpace: 'nowrap' }}>
-                                {leadMove}
+                                {leadMove}{leadChange != null && topStock?.changePctSourceDate && topStock.changePctSourceDate !== sessionDate ? ` ${topStock.changePctSourceDate.slice(5).replace('-', '/')}` : ''}
                               </span>
                             </div>
                           </div>
@@ -4720,6 +4729,7 @@ export default function AppIntelPage() {
                           </span>
                           {sec.stocks.slice(0, 3).map(sym => {
                             const ch = sectorQuoteMap.get(sym);
+                            const sourceDate = sectorQuotes.find(q => q.ticker === sym)?.changePctSourceDate;
                             const has = typeof ch === 'number' && Number.isFinite(ch);
                             const up = (ch ?? 0) >= 0;
                             return (
@@ -4734,7 +4744,7 @@ export default function AppIntelPage() {
                                 whiteSpace: 'nowrap',
                                 fontVariantNumeric: 'tabular-nums'
                               }}>
-                                {sym}{has ? ` ${up ? '+' : ''}${(ch as number).toFixed(1)}%` : ''}
+                                {sym}{has ? ` ${up ? '+' : ''}${(ch as number).toFixed(1)}%` : ''}{has && sourceDate && sourceDate !== sessionDate ? ` ${sourceDate.slice(5).replace('-', '/')}` : ''}
                               </span>
                             );
                           })}
@@ -4887,7 +4897,7 @@ export default function AppIntelPage() {
                             </div>
                           </div>
                         </div>
-                        <div style={{
+                        <div title={sec ? coverageTitle(getSectorQuotes(sec.id).filter(q => sessionChangeOrNull(q, sessionDate) != null).length, getSectorQuotes(sec.id).length) : undefined} style={{
                           background: avgChange == null ? 'rgba(148,163,184,0.10)' : isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
                           border: avgChange == null ? '1px solid rgba(148,163,184,0.22)' : isUp ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(239,68,68,0.25)',
                           borderRadius: '8px', padding: '5px 10px',
@@ -4909,11 +4919,11 @@ export default function AppIntelPage() {
                           // 일부 종목만 쟀으면 라벨에 «1/3» — 카드와 같은 규칙(몇 종목 기준인지 밝힌다)
                           { label: 'GEX' + (sbGex.length > 0 && sbGex.length < stocks.length ? ` ${sbGex.length}/${stocks.length}` : ''), value: sbTotalGex == null ? '—' : formatGex(sbTotalGex), color: sbTotalGex == null ? '#94a3b8' : sbTotalGex > 0 ? '#10b981' : sbTotalGex < 0 ? '#ef4444' : '#94a3b8' },
                           { label: 'PCR' + (sbPcr.length > 0 && sbPcr.length < stocks.length ? ` ${sbPcr.length}/${stocks.length}` : ''), value: sbAvgPcr == null ? '—' : sbAvgPcr.toFixed(2), color: pcrColor(sbAvgPcr) },
-                          { label: 'W/L', value: `${reportData.gainers}/${reportData.losers}`, color: reportData.gainers > reportData.losers ? '#10b981' : '#ef4444' },
+                          { label: 'W/L', title: coverageTitle(reportData.gainers + reportData.losers, stocks.length), value: `${reportData.gainers}/${reportData.losers}`, color: reportData.gainers > reportData.losers ? '#10b981' : '#ef4444' },
                           { label: 'SCORE', value: avgScore != null ? Math.round(avgScore).toString() : '-', color: gradeColor },
                           { label: 'REGIME', value: sbRegime ?? '—', color: regimeColor },
                         ].map((m, idx) => (
-                          <div key={m.label} style={{
+                          <div key={m.label} title={m.title} style={{
                             textAlign: 'center', padding: '8px 4px',
                             borderRight: idx < 4 ? '1px solid rgba(255,255,255,0.06)' : 'none'
                           }}>
@@ -5093,7 +5103,7 @@ export default function AppIntelPage() {
                                     {(stock.closePrice ?? 0) > 0 ? `$${(stock.closePrice as number).toFixed(2)}` : '-'}
                                   </FlashPrice>
                                   <div style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'var(--font-mono), monospace', color: rowChangeColor(stock.changePct) }}>
-                                    {formatRowChange(stock.changePct)}
+                                    {formatRowChange(stock.changePct)}{stock.changePct != null && stock.changePctSourceDate && stock.changePctSourceDate !== sessionDate ? ` · ${appCopy.closedAsOf(stock.changePctSourceDate)}` : ''}
                                   </div>
                                 </div>
                                 {/* Grade Circle */}
@@ -5122,7 +5132,7 @@ export default function AppIntelPage() {
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                                   <FlashPrice value={stock.closePrice || 0} style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono), monospace' }} />
                                   <span style={{ fontSize: '14px', fontWeight: 700, color: rowChangeColor(stock.changePct), fontFamily: 'var(--font-mono), monospace' }}>
-                                    {formatRowChange(stock.changePct)}
+                                    {formatRowChange(stock.changePct)}{stock.changePct != null && stock.changePctSourceDate && stock.changePctSourceDate !== sessionDate ? ` · ${appCopy.closedAsOf(stock.changePctSourceDate)}` : ''}
                                   </span>
                                   {(() => {
                                     const lq = selectedSector ? getSectorQuotes(selectedSector).find(q => q.ticker === stock.sym) : undefined;

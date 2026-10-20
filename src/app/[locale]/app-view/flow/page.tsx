@@ -33,6 +33,7 @@ import { StarButton, StarBadge, starToggleAria } from '@/components/app/watchlis
 import { useAppWatchlist } from '@/lib/app/watchlist';
 import wlStyles from '@/components/app/watchlist/watchlist.module.css';
 import { closeLabelOr } from '@/lib/marketSession';
+import { optionFlowBadgeLabel } from '@/lib/app/optionFlowBasis';
 import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSession';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
@@ -960,6 +961,10 @@ export default function AppFlowPage() {
     };
   }, [opi, effectiveSession]);
 
+  // [2026-10-20 NB3] 프리미엄·거래량이 직전장 EOD(원천 dataFreshness 가 밝힘)인데 «LIVE FLOW» 배지가 붙었다 —
+  // 새 요소 없이 그 배지 자리 글자만 원천 기준일(«10/16 마감»)로. 날짜를 밝히지 않으면 기존 배지 그대로.
+  const flowBasisBadge = optionFlowBadgeLabel(tickerData?.flow, locale, ['premium', 'volume']);
+
   const pickPositiveNumber = (...values: unknown[]) => {
     for (const value of values) {
       if (value == null || value === '') continue;
@@ -1413,7 +1418,9 @@ export default function AppFlowPage() {
     : dpSummary.count > 0 ? dpSummary.buySum - dpSummary.sellSum : null;
   const whaleDayTotal = Number(whaleSummary.total || 0);
   const whaleDayCount = whaleSummary.count;
-  const institutionalTotal = whaleDayTotal + (dpDayValue ?? 0);
+  // ★ [대표 10/19 ② D10] 고래 총량에 내부자를 넣지 않는다 — «내부자는 공시자료이고 고래는 장중자료». 총량·구성 막대 = 고래 옵션만.
+  //   내부자 순매매는 기존 칸에 값 그대로(합산하지 않는 별도 정보).
+  const institutionalTotal = whaleDayTotal;
   const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : null;
   const largestWhalePrint = whaleBasis === 'eod-volume' ? null : (whaleSweeps[0]?.premium ?? null);
   const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
@@ -3400,7 +3407,7 @@ export default function AppFlowPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', margin: '10px 0 12px' }}>
               {[
                 { label: flowCopy.netPremium, value: netPremiumText, color: netPremiumOverview == null ? '#94a3b8' : netPremiumOverview >= 0 ? '#10b981' : '#f43f5e' },
-                { label: flowCopy.sourceFreshness, value: opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource, color: opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
+                { label: flowCopy.sourceFreshness, value: flowBasisBadge ?? (opiCalculated.isFallback ? flowCopy.estimatedSource : flowCopy.liveSource), color: opiCalculated.isFallback ? '#f59e0b' : 'var(--cyan)' }
               ].map((item) => (
                 <div key={item.label} style={{
                   padding: '8px 10px',
@@ -4091,7 +4098,7 @@ export default function AppFlowPage() {
                 .slice()
                 .sort((a, b) => Math.abs(b.oiChange ?? 0) - Math.abs(a.oiChange ?? 0))
                 .slice(0, 8);
-              const nf = (n: number) => n.toLocaleString();
+              const nf = (n: number | null | undefined) => n == null ? '—' : n.toLocaleString();
               return (
                 <div className="premium-card" style={{ padding: '16px 15px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -4173,7 +4180,8 @@ export default function AppFlowPage() {
             {/* TODAY'S WHALE FLOW & SUMMARY WIDGET */}
             {(() => {
               const whaleTotalVol = institutionalTotal;
-              const optionMixPct = whaleTotalVol > 0 ? Math.max(1, Math.min(99, (whaleDayTotal / whaleTotalVol) * 100)) : 50;
+              // 총량 = 고래 옵션만(D10) → 막대는 옵션 100%. 총량이 없을 때의 기존 빈 막대(50/50 배경)는 그대로.
+              const optionMixPct = whaleTotalVol > 0 ? 100 : 50;
               const darkMixPct = 100 - optionMixPct;
 
               return (

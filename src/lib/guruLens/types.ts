@@ -73,6 +73,8 @@ export interface Check {
     reason: string;
 }
 export interface Evaluation {
+    /** Raw rule inputs were present at calculation time. Absent on legacy generations. */
+    inputsComplete?: boolean;
     ticker: string;
     passed: boolean;
     score: number | null;
@@ -85,6 +87,8 @@ export interface LensResult {
     rows: Evaluation[];
 }
 export interface Snapshot {
+    /** Link written with this immutable publication, for skipping incomplete ticker generations. */
+    previousPublished?: string | null;
     version: 1;
     date: string;
     generatedAt: string;
@@ -92,6 +96,9 @@ export interface Snapshot {
     asOf: string;
     financialYear: number;
     universeCount: number;
+    /** Absent on legacy publications, whose rows cover the entire universe. */
+    includedCount?: number;
+    excluded?: Array<{ ticker: string; reasons: Array<{ code: string; detail: string }> }>;
     companies: Record<string, { cik: number; reportedCik: number; priceDate: string }>;
     lenses: Record<LensId, LensResult>;
     calls: { sec: number; prices: number; paid: number };

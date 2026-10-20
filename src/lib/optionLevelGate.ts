@@ -6,6 +6,7 @@
  */
 import { isOptionExpiredAt } from './marketCalendar';
 import { gammaFlipDistancePct } from './gammaFlipDistance';
+import { isFailedSection } from './metrics/observation';
 
 /** structureService 가 만든 구조 결과의 표식 — 출구가 «페이로드에 실린 구조»를 믿어도 되는지 판정한다(DynamoDB·분석 캐시로 만든 가짜 구조와 구분). */
 export const STRUCTURE_PRODUCER = "structureService";
@@ -339,6 +340,7 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
             maxPain: d.maxPain,
             levels: { ...(st.levels || {}), callWall: d.callWall, putFloor: d.putFloor, pinZone: d.pinZone },
             gammaFlipLevel: d.gammaFlipLevel,
+            underlyingPrice: spot,
             expiration: d.levelsExpiration,
             chainDate: d.levelsChainDate,
             levelsSource: d.levelsSource,
@@ -347,6 +349,8 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
             levelsReselected: d.levelsReselected,
             levelsStaleReason: d.levelsStaleReason ?? null,
             levelsStaleAsOf: d.levelsStaleAsOf ?? null,
+            // Flip judgement of the same level set: ALL_LONG/ALL_SHORT = beyond the ±15% band (information, not missing).
+            gammaFlipType: gammaFlipTypeOf(lv ?? own, d, spot),
         },
     };
     if (out.volatility && typeof out.volatility === 'object') {
@@ -356,6 +360,25 @@ export function applyLevelsToUnified(data: any, lv: OptionLevels | null | undefi
             isAboveFlip: distance == null ? null : distance > 0 };
     }
     return out;
+}
+
+/**
+ * 관문 10200752 ①: structure 없이 카드(volatility)만 있는 응답 — 최신 판본의 GEX·IV·집중도가 카드에 얹히면
+ * 플립·기준가도 같은 판본(그 현물)과 같은 레벨 한 벌로 맞춘다(캐시 카드의 옛 현물·플립과 섞지 않는다).
+ * structure 가 있으면 applyLevelsToUnified 가 맡으므로 그대로 둔다. 판본 현물이 없으면 그대로 둔다.
+ */
+export function applyLevelsToVolatilityCard(data: any, lv: OptionLevels | null | undefined, editionSpot: number | null | undefined, door = 'command/unified'): any {
+    const spot = posOrNull(editionSpot);
+    // structure 가 유효하면 applyLevelsToUnified 가 맡는다. 실패·대기(PENDING 등) structure 는 관측이 아니라서(공용 규칙 1)
+    // 점수는 카드에서 읽힌다 — 그때도 카드의 현물·플립을 판본에 맞춘다(관문 10200825 ①).
+    if (!data || typeof data !== 'object' || (data.structure && typeof data.structure === 'object' && !isFailedSection(data.structure))) return data;
+    if (!data.volatility || typeof data.volatility !== 'object' || spot == null) return data;
+    const d = displayLevels(lv ?? null, spot, door);
+    const distance = gammaFlipDistancePct(spot, d.gammaFlipLevel);
+    // 원천 시각도 그 레벨 한 벌의 것 — 없으면 카드의 시각을 지운다(옛 시각이 새 판본 값을 달고 나가지 않게, 관문 10200851 ②).
+    return { ...data, volatility: { ...data.volatility, asOf: d.levelsAsOf ?? null, underlyingPrice: spot, flipLevel: d.gammaFlipLevel,
+        flipDistance: distance == null ? null : Math.round(distance * 10) / 10, isAboveFlip: distance == null ? null : distance > 0,
+        gammaFlipType: gammaFlipTypeOf(lv ?? null, d, spot) } };
 }
 
 /**

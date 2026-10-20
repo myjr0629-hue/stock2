@@ -91,7 +91,7 @@ async function indexTable() {
                 timestamp: series.map((b: any) => b.ts), indicators: { quote: [{ close: series.map((b: any) => b.c) }] },
             }] } }) };
         };
-        return vm.runInNewContext(`${compile(fn.getText(ast))}; fetchOneQuote`, {
+        return vm.runInNewContext(`${compile(fn.getText(ast).replace(/^export\s+/, ''))}; fetchOneQuote`, {
             fetch, reconcileIndexQuote: reconcile, REAL_INDEX_SYMBOLS: new Set(['^DJI', '^IXIC', '^GSPC']),
             AbortSignal, Date, console: quiet,
         });
@@ -103,7 +103,7 @@ async function indexTable() {
         compare(`지수/${c.name}`, project(a), project(b), { ...project(b), price: c.truth[0], prevClose: c.truth[1] }, c.keep);
         for (const symbol of ['^DJI', '^IXIC', '^GSPC']) {
             const a = await caller(before('route.ts'), old, c.input, c.fail)(symbol);
-            const b = await caller(read('src/app/api/cron/market-feed/route.ts'), next, c.input, c.fail)(symbol);
+            const b = await caller(read('src/services/jobs/marketFeedJob.ts'), next, c.input, c.fail)(symbol);
             assert.ok(a && b, `${c.name} ${symbol}`);
             const pick = (q: any) => ({ price: q.price, prevClose: q.prevClose, changePct: q.changePct, marketTime: q.marketTime });
             compare(`호출자/${symbol}/${c.name}`, pick(a), pick(b), { price: c.truth[0], prevClose: c.truth[1],

@@ -7,6 +7,7 @@ import {
 } from '@/lib/storage/dashboardTickerStore';
 import { copyImpliedMoveGroup } from '@/lib/impliedMove';
 import { normalizeVwap } from '@/lib/vwap';
+import { etLastClosedSessionDate } from '@/lib/marketCalendar';
 
 // ============================================================================
 // Types — 100% 기존 인터페이스 유지 (LiveTickerDashboard, DashboardClient 호환)
@@ -191,6 +192,72 @@ function copyLevelGroup(target: any, incoming: any): void {
     for (const f of LEVEL_GROUP_FIELDS) target[f] = incoming[f] ?? null;
 }
 
+/**
+ * PRE 의 «본장» = 마지막으로 끝난 정규장 종가와 그날 등락률(한 쌍).
+ * unified 의 구조 가격(underlyingPrice)은 종가가 아니고, 보관(localStorage) 값은 저장 세션에 따라 뜻이 달라
+ * (POST 에 저장한 prevRegularClose 는 그 전날 종가) 둘 다 기준가로 쓰지 않는다.
+ * 일봉이 «달력상 직전 정규장(금요일·조기 폐장 포함)» 날짜로 확인될 때만 그 종가·등락률 쌍을 쓴다.
+ * 확인이 안 되면 아무것도 채우지 않고 quotes(2초 폴링 — 가격·등락률을 같은 쌍으로 준다)를 기다린다.
+ */
+const positiveNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x > 0;
+const finiteNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+function unifiedPreCloseVerified(incoming: any, nowMs: number): boolean {
+    const d = incoming?.regularCloseDate;
+    return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d === etLastClosedSessionDate(nowMs);
+}
+
+/** PRE: 확인 안 된 일봉의 등락률이 quotes 가 맞춘 쌍을 덮지 않게 한다(INDICATOR 복사 뒤 호출). */
+function guardPreChangePair(updated: TickerData, existing: TickerData, incoming: any, nowMs: number): void {
+    const incomingSession = incoming?.session ? toSession(incoming.session) : null;
+    // POST·CLOSED: 화면 가격은 잠긴 정규장 종가 — 다른 종가의 일봉(이전 거래일 캐시 등) 등락률은 그 짝이 아니다.
+    const locked = existing.regularCloseToday;
+    if ((existing.session === 'POST' || existing.session === 'CLOSED') && incomingSession !== 'PRE' && locked != null && locked > 0) {
+        // 종가·분모(전일 종가)가 모두 같아야 같은 짝이다 — 종가만 같은 이전 거래일 일봉(100/98)이 보합(100/100)을 덮지 못한다.
+        const heldPrev = existing.prevClose;
+        if (incoming?.regularCloseToday !== locked || (heldPrev != null && heldPrev > 0 && incoming?.prevClose !== heldPrev)) {
+            updated.prevChangePct = existing.prevChangePct;
+            updated.intradayChangePct = existing.intradayChangePct;
+        }
+        return;
+    }
+    // 화면이 PRE 이거나(quotes 가 정한 세션) 응답이 PRE 면 보호한다 — 캐시된 CLOSED 응답도 우회하지 못한다.
+    if (existing.session !== 'PRE' && incomingSession !== 'PRE') return;
+    // 확인된 일봉이라도 화면이 이미 든 기준가(quotes)와 종가가 다르면 짝이 아니다(같은 날짜의 장중 일봉 캐시 등).
+    const held = existing.underlyingPrice;
+    const heldPrev = existing.prevClose;
+    if (unifiedPreCloseVerified(incoming, nowMs) && (!(held != null && held > 0)
+        || (incoming.regularCloseToday === held && !(heldPrev != null && heldPrev > 0 && incoming.prevClose !== heldPrev)))) return;
+    // 날짜 없는(옛 캐시)·다른 날 일봉의 등락률은 PRE 기준 쌍이 아니다 — quotes 가 채운다.
+    updated.prevChangePct = existing.prevChangePct;
+    updated.intradayChangePct = existing.intradayChangePct;
+}
+
+function seedUnifiedPrice(updated: TickerData, existing: TickerData, incoming: any, nowMs: number = Date.now()): void {
+    if (existing.underlyingPrice != null && existing.underlyingPrice > 0) return;
+    const session = incoming.session ? toSession(incoming.session) : existing.session;
+    if (session === 'PRE') {
+        if (!positiveNum(incoming.regularCloseToday) || !unifiedPreCloseVerified(incoming, nowMs)) return;
+        const close = incoming.regularCloseToday;
+        const pct = finiteNum(incoming.prevChangePct) ? incoming.prevChangePct : null;
+        updated.underlyingPrice = close;
+        updated.prevRegularClose = close;
+        updated.prevClose = positiveNum(incoming.prevClose) ? incoming.prevClose : existing.prevClose;
+        updated.prevChangePct = pct;
+        updated.intradayChangePct = pct;
+        updated.changePercent = pct;
+        updated.display = { price: close, changePctPct: pct ?? 0 };
+        updated.session = session;
+        return;
+    }
+    if (incoming.underlyingPrice != null && incoming.underlyingPrice > 0) {
+        updated.underlyingPrice = incoming.underlyingPrice;
+        updated.changePercent = incoming.changePercent ?? null;
+        updated.prevClose = incoming.prevClose ?? existing.prevClose;
+        updated.display = { price: incoming.underlyingPrice, changePctPct: incoming.changePercent ?? 0 };
+        updated.session = session;
+    }
+}
+
 // ============================================================================
 // Abort controller for fetchDashboardData race condition prevention
 // ============================================================================
@@ -309,6 +376,13 @@ export const useDashboardStore = create<DashboardState>()(
                             prevClose: prevCl,
                             // 표시 계산의 PRE 기준은 D-1, 정규장 등락 계산용 prevClose(D-2)는 별도 보존.
                             prevRegularClose: session === 'PRE' ? price : prevCl,
+                            // 짝 등락률을 가격과 함께 쓴다 — PRE: 이 price(직전 정규장 종가)의 하루 등락 ·
+                            //   POST·CLOSED: 화면 종가(잠긴 regularCloseToday, 없으면 이 price)와 이 전일 종가로 맞춘다(PRE 값이 남지 않게)
+                            ...(session === 'PRE'
+                                ? (finiteNum(q.changePercent) ? { prevChangePct: q.changePercent } : {})
+                                : (session === 'POST' || session === 'CLOSED') && prevCl > 0
+                                    ? { prevChangePct: (((existing.regularCloseToday && existing.regularCloseToday > 0 ? existing.regularCloseToday : price) - prevCl) / prevCl) * 100 }
+                                    : {}),
                             display: { price, changePctPct: changePct },
                             extended: ext,
                             session,
@@ -378,18 +452,8 @@ export const useDashboardStore = create<DashboardState>()(
                         copyLevelGroup(updated, incoming);
 
                         // SPECIAL CASE: First load — store에 가격이 없으면 unified에서 가져옴
-                        if (existing.underlyingPrice == null || existing.underlyingPrice <= 0) {
-                            if (incoming.underlyingPrice != null && incoming.underlyingPrice > 0) {
-                                updated.underlyingPrice = incoming.underlyingPrice;
-                                updated.changePercent = incoming.changePercent ?? null;
-                                updated.prevClose = incoming.prevClose ?? existing.prevClose;
-                                updated.display = {
-                                    price: incoming.underlyingPrice,
-                                    changePctPct: incoming.changePercent ?? 0,
-                                };
-                                updated.session = incoming.session ? toSession(incoming.session) : existing.session;
-                            }
-                        }
+                        guardPreChangePair(updated, existing, incoming, Date.now());
+                    seedUnifiedPrice(updated, existing, incoming);
 
                         result[key] = updated;
                     }
@@ -464,9 +528,24 @@ export const useDashboardStore = create<DashboardState>()(
                             regularCloseToday: regCloseToday,
                         });
 
-                        // ── PRE 세션: 본장 등락률은 기존 값 유지 ──
+                        // ── PRE 세션: 본장 등락률 ──
+                        //   quotes 의 changePercent 는 같은 응답의 price(직전 정규장 종가)와 한 쌍이다(day.c vs prevDay.c).
+                        //   값이 있으면 그것이 정답 — 보관·unified 값(다른 날 일봉일 수 있다)이 덮지 못한다.
+                        //   null(day.c 결측)일 때만 기존 값을 유지한다.
+                        const quotePrePct = session === 'PRE' && finiteNum(q.changePercent) ? q.changePercent : null;
+                        // PRE·POST·CLOSED 의 quotes.changePercent = «마지막으로 끝난 정규장»의 하루 등락(같은 응답 price 와 한 쌍) —
+                        //   unified 일봉 prevChangePct 와 같은 뜻이다. 가격을 쓰는 쪽이 짝 등락률도 함께 써서 다른 세션·다른 날 값이 남지 않게 한다.
+                        //   POST·CLOSED 는 화면 가격이 잠긴 정규장 종가(regCloseToday)라, 등락률도 그 종가와 같은 분모로 맞춘다.
+                        const closeBase = pipe.prevClose || prevCl;
+                        const quoteSessionPct = session === 'PRE'
+                            ? (finiteNum(q.changePercent) ? q.changePercent : null)
+                            : (session === 'POST' || session === 'CLOSED')
+                                ? (regCloseToday != null && regCloseToday > 0 && closeBase > 0
+                                    ? (regCloseToday === q.price && finiteNum(q.changePercent) ? q.changePercent : ((regCloseToday - closeBase) / closeBase) * 100)
+                                    : null)
+                                : null;
                         const changePct = session === 'PRE'
-                            ? (existing.prevChangePct ?? existing.intradayChangePct ?? pipe.changePct)
+                            ? (quotePrePct ?? existing.prevChangePct ?? existing.intradayChangePct ?? pipe.changePct)
                             : pipe.changePct;
 
                         // ── Write ONLY price fields — never touch indicator fields ──
@@ -476,6 +555,7 @@ export const useDashboardStore = create<DashboardState>()(
                             changePercent: changePct,
                             prevClose: pipe.prevClose || existing.prevClose,
                             prevRegularClose: session === 'PRE' ? pipe.price : (pipe.prevClose || existing.prevRegularClose),
+                            ...(quoteSessionPct != null ? { prevChangePct: quoteSessionPct } : {}),
                             regularCloseToday: regCloseToday,
                             display: { price: pipe.price, changePctPct: changePct ?? 0 },
                             // ★ [2026-09-25] 시간외 칸은 이번 폴링(quotes)이 «정답»이다 — 세션·날짜로 이미 골라서 온다.
@@ -528,17 +608,8 @@ export const useDashboardStore = create<DashboardState>()(
                     copyLevelGroup(updated, incoming);
 
                     // Also copy price if we don't have one yet
-                    if ((existing.underlyingPrice == null || existing.underlyingPrice <= 0) &&
-                        incoming.underlyingPrice != null && incoming.underlyingPrice > 0) {
-                        updated.underlyingPrice = incoming.underlyingPrice;
-                        updated.changePercent = incoming.changePercent ?? null;
-                        updated.prevClose = incoming.prevClose ?? existing.prevClose;
-                        updated.display = {
-                            price: incoming.underlyingPrice,
-                            changePctPct: incoming.changePercent ?? 0,
-                        };
-                        updated.session = incoming.session ? toSession(incoming.session) : existing.session;
-                    }
+                    guardPreChangePair(updated, existing, incoming, Date.now());
+                    seedUnifiedPrice(updated, existing, incoming);
 
                     set({
                         tickers: { ...get().tickers, [ticker]: updated },
@@ -568,7 +639,9 @@ export const useDashboardStore = create<DashboardState>()(
                 // ── [ONE-PIPE] computeOnePipe 경유 — fetchPriceOnly와 동일 경로 ──
                 const pipe = computeOnePipe({
                     session: session as MarketSession,
-                    pollPrice: existing.regularCloseToday || existing.underlyingPrice || 0,
+                    // PRE에서는 이전 세션에 잠근 regularCloseToday로 직전 종가를 덮지 않는다.
+                    pollPrice: (session === 'PRE' ? existing.underlyingPrice
+                        : existing.regularCloseToday || existing.underlyingPrice) || 0,
                     pollPrevClose: existing.prevClose || existing.prevRegularClose || 0,
                     // ★ [2026-09-25] 폴링(서버)이 확인한 시간외 값이 있을 때만 WS 를 시간외 가격으로 쓴다
                     //   (computeOnePipe 의 게이트 — WS 엔 체결 시각이 없어 종가 인쇄·어제 애프터를 못 가른다)
@@ -582,7 +655,7 @@ export const useDashboardStore = create<DashboardState>()(
 
                 // PRE 세션: 본장 등락률은 기존 값 유지
                 const calcChangePct = session === 'PRE'
-                    ? (existing.prevChangePct ?? existing.intradayChangePct ?? pipe.changePct)
+                    ? (existing.prevChangePct ?? existing.intradayChangePct ?? existing.changePercent ?? pipe.changePct)
                     : pipe.changePct;
 
                 set({
@@ -613,7 +686,7 @@ export const useDashboardStore = create<DashboardState>()(
                 for (const [ticker, data] of Object.entries(state.tickers)) {
                     if (!data) continue;
                     const { underlyingPrice, changePercent, display, intradayChangePct,
-                        regularCloseToday, prevChangePct, extended, session, ...structural } = data;
+                        regularCloseToday, prevChangePct, extended, session, prevClose, prevRegularClose, ...structural } = data;
                     strippedTickers[ticker] = {
                         ...structural,
                         // Session VWAP has no durable provenance/freshness in localStorage.
@@ -624,6 +697,10 @@ export const useDashboardStore = create<DashboardState>()(
                         intradayChangePct: null,
                         regularCloseToday: null,
                         prevChangePct: null,
+                        // 기준 종가는 저장한 세션에 따라 뜻이 다르다(PRE = 직전 정규장 · POST = 그 전날) —
+                        // 다음 방문의 세션에선 틀린 기준이 되므로 남기지 않는다(가격 응답이 다시 채운다).
+                        prevClose: null,
+                        prevRegularClose: null,
                         extended: null,
                         session: 'CLOSED' as const,
                     };
@@ -645,7 +722,7 @@ export const useDashboardStore = create<DashboardState>()(
                         const levels = row && typeof row === 'object' && row.levelsSource !== 'structure'
                             ? { ...row, maxPain: null, gammaFlipLevel: null, levels: null, levelsSource: null, levelsDropped: null }
                             : row;
-                        cleaned[t] = levels && typeof levels === 'object' ? { ...levels, vwap: null } : levels;
+                        cleaned[t] = levels && typeof levels === 'object' ? { ...levels, vwap: null, prevClose: null, prevRegularClose: null } : levels;
                     }
                     p.tickers = cleaned;
                 }

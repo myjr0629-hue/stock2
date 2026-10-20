@@ -7,6 +7,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fillSnapshotChanges, snapshotChangesFromResponse } from '../src/lib/app/intelSnapshotChange';
 import { averageMeasured, measuredOrNull } from '../src/lib/app/intelMissing';
+import { coverageTitle } from '../src/lib/app/intelSessionChange';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 
 const source = ts.createSourceFile('heatmap.tsx', fs.readFileSync(`${__dirname}/../src/app/[locale]/app-view/heatmap/page.tsx`, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -18,7 +19,7 @@ const filled = (date = '2026-10-15', ticker = 'A', change = -2) => fillSnapshotC
 
 function render(rows: any[], time = sunday, session = 'closed', isHoliday = false) {
     const deps = {
-        React, averageMeasured, measuredOrNull, shownRegularSessionDate: () => shownRegularSessionDate(time),
+        React, averageMeasured, measuredOrNull, coverageTitle, shownRegularSessionDate: () => shownRegularSessionDate(time),
         useState: (v: any) => [v === false ? true : v, () => {}], useMemo: (f: any) => f(), useEffect() {},
         useRouter: () => ({ push() {}, back() {} }), useParams: () => ({ locale: 'ko' }),
         useIntelSharedDataForApp: () => ({ m7: rows }), useMarketStatus: () => ({ status: { session, isHoliday } }),
@@ -85,13 +86,54 @@ test('REG 실측 복구 뒤에는 현재 세션 날짜, 이전 보충 날짜 제
     assert.doesNotMatch(html, /10\/16/);
 });
 
-test('전체 양 끝 순위 행에도 종목별 원천 날짜 유지', () => {
-    const rows = Array.from({ length: 9 }, (_, i) => filled(i % 2 ? '2026-10-16' : '2026-10-15', `A${i}`, i - 4));
+test('양 끝 순위는 같은 날짜만, 이전 날짜 칸은 유지', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => filled('2026-10-16', `A${i}`, i - 4));
+    rows.push(filled('2026-10-15', 'OLD', 20));
     const html = render(rows);
     const ranked = [...html.matchAll(/<a class="hmXR [\s\S]*?<\/a>/g)].map(m => m[0]);
     assert.equal(ranked.length, 8);
+    assert.match(cells(html).find(c => c.includes('<b>OLD</b>'))!, /10\/15/);
+    assert.match(html, /10\/11/);
     for (const row of ranked) {
-        const index = Number(row.match(/<b class="hmXT2">A(\d)<\/b>/)![1]);
-        assert.match(row, index % 2 ? /10\/16/ : /10\/15/);
+        assert.doesNotMatch(row, /OLD|10\/15/);
+        assert.match(row, /10\/16/);
+    }
+});
+
+
+test('nightly 중간2: 10/19 -5%와 10/16 +20% 보충 → 평균 -5%, 집계 1/2', () => {
+    const time = Date.parse('2026-10-19T21:00:00Z');
+    const rows = fillSnapshotChanges([
+        quote('A', { session: 'POST', changePct: -5, missingFields: [] }),
+        quote('B', { session: 'POST' }),
+    ], saved('2026-10-16', [{ ticker: 'B', close_price: 120, change_pct: 20 }]), '2026-10-19');
+    const html = render(rows, time, 'post');
+    assert.match(html, /title="1\/2">−5\.00%</);  // n/N 은 글자 대신 title(375폭 배치 보존)
+    assert.doesNotMatch(html, /−5\.00% 1\/2/);
+    assert.doesNotMatch(html, /7\.50%/);
+    assert.match(cells(html).find(c => c.includes('<b>B</b>'))!, /20\.0%[\s\S]*10\/16/);
+    assert.match(html, /class="hmBC num">0<s>▲<\/s> 1<s>▼/);
+    assert.match(html, /주도 <b>A<\/b>/);
+    assert.match(html, /부진 <b>A<\/b>/);
+});
+
+test('전부 이전 날짜면 집계 0/N과 —, 종목 칸은 날짜·값 유지', () => {
+    const html = render([filled()]);
+    assert.match(html, /class="hmBV num" title="0\/1">—</);
+    assert.match(cells(html)[0], /−2\.0%[\s\S]*10\/15/);
+    assert.match(html, /주도 <b>—<\/b>/);
+});
+
+
+test('집계 가능 종목이 8개 이하로 줄어도 양 끝 영역·전체 종목 칸 유지, 중복 순위 없음', () => {
+    for (const current of [0, 1, 5, 8]) {
+        const rows = Array.from({ length: 10 }, (_, i) => filled(i < current ? '2026-10-16' : '2026-10-15', `A${i}`, i - 4));
+        const html = render(rows);
+        assert.match(html, /오늘의 양 끝/);
+        assert.equal(cells(html).length, 10);
+        const ranked = [...html.matchAll(/<b class="hmXT2">(A\d)<\/b>/g)].map(m => m[1]);
+        assert.equal(ranked.length, current);
+        assert.equal(new Set(ranked).size, current);
+        assert.match(html, new RegExp(`${current}/10`));
     }
 });

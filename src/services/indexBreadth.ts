@@ -22,6 +22,9 @@
  *    계산한 60%를 «시장의 60%»라고 말하면 그게 조용한 거짓이 된다.
  */
 
+import { indexBreadth } from '../lib/metrics/indexBreadth';
+import type { Metric } from '../lib/metrics/contract';
+
 const PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
 const PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";
 const HISTORY_KEY = "intrinio:eod:history";
@@ -56,6 +59,7 @@ export interface BreadthResult {
     universe: number;
     /** 마지막 거래일 (표시용) */
     asOf: string | null;
+    metric: Metric;
 }
 
 type HistoryPayload = { dates: string[]; closes: Record<string, (number | null)[]> };
@@ -85,42 +89,9 @@ async function loadHistory(): Promise<HistoryPayload | null> {
     }
 }
 
-/**
- * 구성종목 중 «마지막 종가 > 20일 단순이동평균» 인 비율.
- *
- * 종목마다 종가가 20개 다 있진 않다(신규 상장·거래정지). **10개 미만이면
- * 그 종목은 세지 않는다** — 표본이 얇은 평균을 «이평선»이라고 부를 수 없다.
- */
+/** Source I/O stays here; window, denominator and coverage live in one pure function. */
 export async function computeIndexBreadth(tickers: string[]): Promise<BreadthResult> {
-    const empty: BreadthResult = { pctAbove20: null, covered: 0, universe: tickers.length, asOf: null };
-    const h = await loadHistory();
-    if (!h) return empty;
-
-    const asOf = h.dates.length ? h.dates[h.dates.length - 1] : null;
-    let above = 0;
-    let covered = 0;
-
-    for (const t of tickers) {
-        const series = h.closes[t];
-        if (!Array.isArray(series)) continue;
-        const vals = series.filter((v): v is number => typeof v === "number" && Number.isFinite(v) && v > 0);
-        if (vals.length < 10) continue;                 // 표본이 얇으면 계산하지 않는다
-        const last = vals[vals.length - 1];
-        const ma = vals.reduce((a, b) => a + b, 0) / vals.length;
-        covered++;
-        if (last > ma) above++;
-    }
-
-    // 구성종목의 절반도 못 채우면 «지수 브레드스» 라고 말할 수 없다
-    if (covered < Math.ceil(tickers.length * 0.5)) {
-        return { ...empty, covered, asOf };
-    }
-    return {
-        pctAbove20: Math.round((above / covered) * 1000) / 1000,
-        covered,
-        universe: tickers.length,
-        asOf,
-    };
+    return indexBreadth(tickers, await loadHistory());
 }
 
 export async function getIndexBreadth(): Promise<{ ndx: BreadthResult; dow: BreadthResult }> {

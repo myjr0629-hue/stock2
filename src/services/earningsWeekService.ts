@@ -25,8 +25,10 @@ import { EARNINGS_CALENDAR_CACHE_KEY } from '@/services/earningsCalendarService'
 import { getFromCache } from '@/services/redisClient';
 import { readActualRecords, recordMapKey } from '@/services/earningsActualsService';
 import type { ActualMove, ExpectedSnap } from '@/lib/earnings/earningsActuals';
+import type { EarningsMoveMethod } from '@/lib/earnings/eventMove';
 
 export interface EarningsWeekRow {
+  method?: EarningsMoveMethod | null;
   ticker: string;
   date: string;
   hour: 'amc' | 'bmo' | '';
@@ -135,6 +137,7 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
     return {
       ticker: e.ticker, date: e.date, hour: e.hour, etTime: e.etTime ?? null,
       impliedMovePct: im?.impliedMovePct ?? null,
+      method: im?.method ?? null,
       impliedExpiry: im?.expiry ?? null,
       impliedBasis: im?.basis ?? null,
       impliedSession: im?.session ?? null,
