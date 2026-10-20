@@ -94,7 +94,7 @@ const WL_OK_TOKENS = new Set(['GEX', 'FINRA', 'ETF', 'AI', 'US', 'IV', 'OI', 'EP
 export function watchlistNoScheduleReasons(text: string, ownTicker: string, sourceText = ''): string[] {
     const out: string[] = [];
     // 근거 사실에 있는 날짜(옵션 만기 «10/23» 등)는 일정 주장이 아니다 — 지우고 본다
-    const scrubbed = text.replace(/\d{1,2}\/\d{1,2}/g, (d) => (sourceText.includes(d) ? '' : d));
+    const scrubbed = text.replace(/(?<![\d/])\d{1,2}\/\d{1,2}(?![\d/])/g, (d) => (new RegExp(`(?<![\\d/])${d.replace('/', '\\/')}(?![\\d/])`).test(sourceText) ? '' : d));
     if (WL_SCHEDULE.test(scrubbed)) out.push('insight:schedule');
     for (const tok of text.match(/(?<![A-Za-z0-9&])[A-Z][A-Z0-9.]{1,5}(?![A-Za-z0-9])/g) || []) {
         if (tok !== ownTicker && !WL_OK_TOKENS.has(tok)) { out.push('insight:other-name'); break; }

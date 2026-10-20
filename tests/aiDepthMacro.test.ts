@@ -428,6 +428,7 @@ test('운영 실측(10/20 14시): 근거의 만기 날짜는 허용 · «into th
     assert.deepEqual(watchlistNoScheduleReasons('양감마라 10/23 만기 전 변동이 눌리는 자리', 'NVDA', src), []);
     assert.ok(watchlistNoScheduleReasons('양감마라 10/24 전 변동이 눌리는 자리', 'NVDA', src).includes('insight:schedule'));
     assert.ok(watchlistNoScheduleReasons('Positive gamma damps moves into the print', 'NVDA', src).includes('insight:schedule'));
+    for (const d of ['10/2', '0/23', '1/23']) assert.ok(watchlistNoScheduleReasons(`Positive gamma damps moves into the ${d} expiry`, 'NVDA', src).includes('insight:schedule'), d);
 });
 
 async function main() {
