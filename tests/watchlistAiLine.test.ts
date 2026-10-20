@@ -348,7 +348,10 @@ async function asyncTests() {
         assert.match(lastPrompt, new RegExp(`\\[earnings calendar; ${day}; 08:30 ET\\] NVDA \\(estimated schedule; scheduled; not a released result\\)`));
         assert.doesNotMatch(lastPrompt, /Macro release/);
         const saved = store.get(lineKey('NVDA')) as any;
-        for (const loc of ['ko', 'en', 'ja'] as const) assert.equal(entryOf(saved, loc, now)?.insight, JSON.parse(SCHED).insight[loc]);
+        for (const loc of ['ko', 'en', 'ja'] as const) {
+          assert.equal(entryOf(saved, loc, now)?.insight, JSON.parse(SCHED).insight[loc]);
+          assert.equal(entryOf(saved, loc, now)?.insightUntil, releaseMs, '응답에 해석 기한(화면 캐시 만료용)');
+        }
         // 경계: 08:30:00 ET 정각부터 예정이 아니다 — 세 언어 모두 해석 미표시(칩 줄은 그대로)
         now = releaseMs;
         for (const loc of ['ko', 'en', 'ja'] as const) {

@@ -28,9 +28,27 @@ export function checkDepthLine(text: unknown, loc: AiLineLocale, source: string,
     if (typeof text !== 'string' || !text.trim()) return ['insight:empty'];
     const reasons = [...textIntegrityReasons(text), ...validateInsight(text, loc, { minLength: 8 }).reasons, ...unsupportedEventReasons(text, source), ...localePurityReasons(text, loc), ...scheduleClaimReasons(text, source.split('\n'), nowMs, 'claims')];
     if ([...text].length > (loc === 'en' ? 50 : 28) || /[\r\n{}]| · |…|\.\.\./.test(text)) reasons.push('insight:format');
+    reasons.push(...positioningSideReasons(text, source));
     if (adviceHit(text)) reasons.push('insight:advice');
     if (checkNumberGrounding(text, source).ungrounded.length > 0) reasons.push('insight:number');
     if (loc !== 'en' && !checkAmounts(source, text, loc).ok) reasons.push('insight:amount');
     if (/\b(?:will|predict\w*|forecast\w*|guarantee\w*)\b|오를|내릴|상승할|하락할|上がる|下がる/i.test(text)) reasons.push('insight:forecast');
     return reasons;
+}
+
+/**
+ * 해석이 말하는 «자리»가 사실과 맞는가 — 감마 부호·Max Pain 위/아래(관문 10/20 5차: 양감마 근거에 «음감마라…» 통과).
+ * 사실 글(factsText)의 sideText 문구와 대조한다. 말하지 않은 자리는 보지 않는다.
+ */
+export function positioningSideReasons(text: string, source: string): string[] {
+    const out: string[] = [];
+    const neg = /음\s*\(?[−-]?\)?\s*감마|negative gamma|負ガンマ|マイナスガンマ/i.test(text);
+    const pos = /양\s*\(?\+?\)?\s*감마|positive gamma|正ガンマ|プラスガンマ/i.test(text);
+    if (neg && !/negative gamma zone/.test(source)) out.push('insight:gamma-sign');
+    if (pos && !/positive gamma zone/.test(source)) out.push('insight:gamma-sign');
+    const mpBelow = /Max Pain\s*(?:\$?[\d.,]+\s*)?の?(?:아래|밑|下)|below (?:the )?Max Pain/i.test(text);
+    const mpAbove = /Max Pain\s*(?:\$?[\d.,]+\s*)?の?(?:위|上)|above (?:the )?Max Pain/i.test(text);
+    if (mpBelow && !/price is BELOW Max Pain/.test(source)) out.push('insight:maxpain-side');
+    if (mpAbove && !/price is ABOVE Max Pain/.test(source)) out.push('insight:maxpain-side');
+    return out;
 }

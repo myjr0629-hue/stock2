@@ -27,6 +27,8 @@ export interface AiLineEntry {
   text: string;
   /** 검사를 통과한 의미 해석. 없으면 줄 생략. */
   insight?: string;
+  /** 해석의 유효 기한(epoch ms) — 근거 속 가장 이른 예정 시각. 화면은 이 시각부터 해석 줄을 그리지 않는다(15분 캐시 안에서도). */
+  insightUntil?: number;
   /** 이 글을 쓴 옵션 체인 날짜(levelsChainDate, YYYY-MM-DD) */
   chain: string;
   /** 이 글을 쓴 레벨 네 값 */
@@ -121,4 +123,11 @@ export function fillAiLine(entry: AiLineEntry | null | undefined, row: AiLineRow
   });
   if (bad || /[{}]/.test(out)) return null;
   return out;
+}
+
+/** 지금 그릴 해석 — 기한(insightUntil)이 지났으면 null. */
+export function liveInsight(e: Pick<AiLineEntry, 'insight' | 'insightUntil'> | null | undefined, nowMs: number = Date.now()): string | null {
+  if (!e?.insight) return null;
+  if (typeof e.insightUntil === 'number' && nowMs >= e.insightUntil) return null;
+  return e.insight;
 }

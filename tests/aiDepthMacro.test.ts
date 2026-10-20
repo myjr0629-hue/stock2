@@ -10,6 +10,7 @@ import { checkDepthLine } from '../src/lib/ai/watchlistDepth';
 import { newsForStock } from '../src/lib/ai/stockEvidence';
 import { evidenceTime, scheduledLineAt, isUpcomingLine, evidenceValidUntil, earningsReleaseAt } from '../src/lib/ai/evidenceTime';
 import { checkTacticalStored, scheduleClaimReasons } from '../src/lib/ai/tacticalPrompt';
+import { liveInsight } from '../src/lib/app/watchlistAiLine';
 
 const now = new Date('2026-10-20T15:00:00Z');
 const headline = datedHeadline({ title: 'Treasury auction draws weak demand', published_utc: '2026-10-20T14:00:00Z' }, 'Polygon', now)!;
@@ -190,9 +191,9 @@ test('ko/en/ja: 뉴스→전이+고유자원→한 가지 확인, 공백 350자 
 
 test('3문장·뉴스 출처/시각·두 번째 문장 고유자원 출구 검사', () => {
     const p = buildTacticalPrompt(facts, 'ko');
-    const good = 'Polygon 14:00 UTC 보도한 국채 입찰 수요 약화와 금리 압력이 연결돼 해석됩니다. 시장 참여 약화에 얇은 감마 방어가 겹쳐 충격 흡수력이 제한적입니다. 옵션 지지선 640 유지 여부가 다음 확인 기준입니다.';
+    const good = 'Polygon 10:00 ET 보도한 국채 입찰 수요 약화와 금리 압력이 연결돼 해석됩니다. 시장 참여 약화에 얇은 감마 방어가 겹쳐 충격 흡수력이 제한적입니다. 옵션 지지선 640 유지 여부가 다음 확인 기준입니다.';
     assert.deepEqual(checkTacticalOutput(good, 'ko', p), []);
-    assert.ok(checkTacticalOutput(good.replace('Polygon 14:00 UTC ', ''), 'ko', p).includes('tactical:news-source-time-required'));
+    assert.ok(checkTacticalOutput(good.replace('Polygon 10:00 ET ', ''), 'ko', p).includes('tactical:news-source-time-required'));
     assert.ok(checkTacticalOutput(good.replace('감마 방어', '수급'), 'ko', p).includes('tactical:positioning-required'));
     assert.ok(checkTacticalOutput(good.split('. ').slice(0, 2).join('. '), 'ko', p).includes('tactical:three-sentences'));
 });
@@ -246,8 +247,8 @@ test('기존 칩 유지 + 별도 3언어 인사이트, 자료 없을 때 null', 
     assert.equal(nested.insight, undefined);
     assert.match(WL_LINE_SYSTEM, /FINAL OUTPUT SCHEMA/);
     // 한도 넘는 해석은 첫 절만(10/20 실제 모델 ko 응답) · 첫 절도 길면 탈락
-    const long = checkLineOutput(JSON.stringify({ ...chips, insight: { ko: '음감마 구간이라 출렁임이 커지기 쉬운 자리, 만기까지 Max Pain 방향 압력 있음', en: 'Negative gamma: dealer hedging can amplify swings', ja: '負ガンマ圏で値動きが増幅されやすく、満期まで Max Pain 方向の圧力がある位置' } }), f);
-    assert.deepEqual(long.insight, { ko: '음감마 구간이라 출렁임이 커지기 쉬운 자리', en: 'Negative gamma: dealer hedging can amplify swings', ja: '負ガンマ圏で値動きが増幅されやすく' }, (long.insightReasons || []).join(','));
+    const long = checkLineOutput(JSON.stringify({ ...chips, insight: { ko: '양감마 구간이라 딜러 헤지가 변동을 누르는 자리, 만기까지 되돌림 압력 있음', en: 'Positive gamma: dealer hedging dampens swings', ja: '正ガンマ圏でヘッジ売買が値動きを抑えやすく、満期まで続く位置' } }), f);
+    assert.deepEqual(long.insight, { ko: '양감마 구간이라 딜러 헤지가 변동을 누르는 자리', en: 'Positive gamma: dealer hedging dampens swings', ja: '正ガンマ圏でヘッジ売買が値動きを抑えやすく' }, (long.insightReasons || []).join(','));
     assert.match(WL_LINE_SYSTEM, /chip lines stay top-level strings exactly/);
     assert.match(buildLineUserPrompt(f), /FINRA.*2026-10-20/);
 });
@@ -304,6 +305,36 @@ test('읽기 검사(저장본·복구): 지난 예정만 막고 멀쩡한 옛 �
     assert.deepEqual(scheduleClaimReasons('실적 발표 뒤 옵션 벽 위 유지', lines, Date.parse(at), 'claims'), []);
     assert.ok(scheduleClaimReasons('07:00 실적 발표 예정', lines, Date.parse(at), 'claims').length > 0);
     assert.deepEqual(scheduleClaimReasons('3시간 동안 옵션 벽 위 유지', lines, Date.parse(at), 'claims'), [], '«3시간»은 시각이 아니다');
+});
+
+test('관문 5차 재현 4건: 감마 부호·ET 시각 오기·명칭군 밖/다른 회사 예정·화면 기한', () => {
+    // ① 양감마(가격 145 > Gamma Flip 140) 근거에 «음감마» 해석 → 탈락, 맞는 부호·Max Pain 아래는 통과
+    const src = buildLineUserPrompt(f);
+    assert.match(src, /positive gamma zone/);
+    for (const [loc, t] of [['ko', '음감마라 딜러 헤지가 변동을 키우는 자리'], ['en', 'Negative gamma: dealer hedging amplifies moves'], ['ja', '負ガンマでヘッジ売買が値動きを増幅する位置']] as const)
+        assert.ok(checkDepthLine(t, loc, src).includes('insight:gamma-sign'), `${loc} ${t}`);
+    assert.deepEqual(checkDepthLine('양감마라 딜러 헤지가 변동을 누르는 자리', 'ko', src), []);
+    assert.ok(checkDepthLine('Max Pain 위라 만기 쪽 되돌림 압력', 'ko', src).includes('insight:maxpain-side'));
+    // ② 뉴스 14:00Z = 10:00 ET → «14:00 ET»(UTC 숫자에 ET) 탈락 · «UTC» 표기 탈락 · «10:00 ET» 통과
+    const p = buildTacticalPrompt(facts, 'en');
+    assert.match(p, /Polygon; 2026-10-20T14:00:00.000Z; 10:00 ET\]/);
+    const tail = ' Weak breadth and thin dealer gamma leave limited absorption. The options support at 640 is the next test.';
+    assert.ok(checkTacticalOutput('Polygon reported weak Treasury auction demand at 14:00 ET.' + tail, 'en', p).includes('tactical:news-source-time-required'));
+    assert.ok(checkTacticalOutput('Polygon reported weak Treasury auction demand at 14:00 UTC.' + tail, 'en', p).includes('tactical:utc-time'));
+    assert.deepEqual(checkTacticalOutput('Polygon reported weak Treasury auction demand at 10:00 ET.' + tail, 'en', p), []);
+    // ③ 예정 근거가 없는데 «ISM scheduled later today» · 내일 INTC 만 있는데 «오늘 밤 TSLA 실적 예정» → 탈락
+    const empty = buildTacticalPrompt({ ...facts, scheduledEvents: [] }, 'en');
+    assert.ok(checkTacticalStored('A. B. ISM is scheduled later today.', empty).includes('schedule:no-upcoming'));
+    const intc = buildTacticalPrompt({ ...facts, scheduledEvents: ['[earnings calendar; 2026-10-21; AMC timing boundary 16:00 ET; exact release time unknown] INTC (confirmed; scheduled; not a released result)'] }, 'ko');
+    const r = checkTacticalStored('가. 나. 오늘 밤 TSLA 실적 발표 예정이 다음 확인입니다.', intc);
+    assert.ok(r.some(x => x.startsWith('schedule:name-not-upcoming:TSLA')), r.join(','));
+    assert.ok(checkTacticalStored('가. 나. 오늘 밤 INTC 실적 발표 예정이 다음 확인입니다.', intc).includes('schedule:not-today'));
+    assert.deepEqual(checkTacticalStored('가. 나. 내일 INTC 실적 발표 예정이 다음 확인입니다.', intc), []);
+    // ④ 화면: 응답의 insightUntil 이 지나면 15분 캐시 안이어도 그리지 않는다
+    const e = { insight: '08:30 실적 발표 예정', insightUntil: Date.parse('2026-10-20T12:30:00Z') };
+    assert.equal(liveInsight(e, Date.parse('2026-10-20T12:29:59Z')), e.insight);
+    assert.equal(liveInsight(e, Date.parse('2026-10-20T12:30:00Z')), null);
+    assert.equal(liveInsight({ insight: 'x' }, 0), 'x');
 });
 
 async function main() {

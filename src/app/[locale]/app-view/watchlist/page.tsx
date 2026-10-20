@@ -41,7 +41,7 @@ import p from './watchlist.module.css';
 import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 import { useWatchlistAiLines, firstSeen } from '@/components/app/watchlist/useWatchlistAiLines';
 import { InviteShareButton } from '@/components/app/InviteShareButton';
-import { aiLineState, fillAiLine, type AiLineEntry } from '@/lib/app/watchlistAiLine';
+import { aiLineState, fillAiLine, liveInsight, type AiLineEntry } from '@/lib/app/watchlistAiLine';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
 const TickerSearchOverlay = dynamic(
@@ -237,7 +237,7 @@ function buildRows(
       chipSig: chips.map((c) => `${c.kind}:${segText(c.long)}`).join('|') + (locked ? `|lock:${locked.kind}:${locked.label}` : ''),
       basisShort,
       aiText,
-      aiInsight: aiText ? aiE?.insight ?? null : null,
+      aiInsight: aiText ? liveInsight(aiE, now) : null,   // 기한(근거 속 예정 시각) 지나면 캐시 안에서도 그리지 않는다
       aiStale,
     };
   });

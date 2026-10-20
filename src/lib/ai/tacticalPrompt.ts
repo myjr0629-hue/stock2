@@ -1,5 +1,5 @@
 import { checkNumberGrounding } from './depthNumbers';
-import { evidenceTime, earningsReleaseAt, nextEtDate, isUpcomingLine, dropElapsedScheduled, SCHEDULED_MARK } from './evidenceTime';
+import { evidenceTime, earningsReleaseAt, nextEtDate, isUpcomingLine, dropElapsedScheduled, scheduledLineAt, SCHEDULED_MARK } from './evidenceTime';
 export { evidenceValidUntil } from './evidenceTime';
 import { applyConfirmedEarnings, CONFIRMED_EARNINGS, type OverlayRow } from '@/lib/earningsConfirmed';
 import { providerSymbols, type StockNewsEvidence } from './stockEvidence';
@@ -164,11 +164,35 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
     if (!text || UNKNOWN.test(text)) return [];
     const times = mentionedTimes(text);
     if (mode === 'claims' && !times.length && !SCHEDULE_WORDS.test(text)) return [];
+    if (!Number.isFinite(nowMs)) return ['schedule:no-clock'];
     const upcoming = evidenceLines.filter(e => isUpcomingLine(e, nowMs));
     const reasons = unsupportedEventReasons(text, upcoming.join('\n'));
     if (times.some(t => !upcoming.some(e => e.includes(`${t} ET`)))) reasons.push('schedule:time-not-upcoming');
+    const claims = !!times.length || SCHEDULE_WORDS.test(text);
+    if (claims) {
+        // 예정 주장인데 앞으로 있을 예정이 하나도 없다(명칭군 밖 «ISM scheduled later today» 포함)
+        if (!upcoming.length) reasons.push('schedule:no-upcoming');
+        // 문장 속 대문자 이름(티커·지표 약어)은 앞으로 있을 예정 줄에 있어야 한다(«오늘 밤 TSLA 실적 예정» ↔ 근거는 내일 INTC)
+        for (const tok of text.match(/(?<![A-Za-z0-9$])\$?[A-Z][A-Z0-9.]{0,5}(?![A-Za-z0-9])/g) || []) {
+            const t = tok.replace(/^\$/, '').replace(/\.$/, '');
+            if (NON_EVENT_TOKENS.has(t)) continue;
+            if (!upcoming.some(e => new RegExp(`(?<![A-Za-z0-9])${t.replace(/\./g, '\\.')}(?![A-Za-z0-9])`).test(e))) { reasons.push(`schedule:name-not-upcoming:${t}`); break; }
+        }
+        // 오늘/내일 표현은 앞으로 있을 예정의 ET 날짜와 맞아야 한다
+        const today = etDateOf(nowMs);
+        const dates = upcoming.map(e => scheduledLineAt(e)).filter((x): x is number => x != null).map(ms => etDateOf(ms));
+        // 날짜만 있는 줄(시각 미상)은 그 날짜 0시가 기한이라 «오늘»이 될 수 없다 — 줄의 머리 날짜로 본다
+        const lineDates = upcoming.map(e => e.match(/^\[[^\]]*?(\d{4}-\d{2}-\d{2})/)?.[1]).filter((x): x is string => !!x);
+        const all = new Set([...dates, ...lineDates]);
+        if (TODAY_WORDS.test(text) && !all.has(today)) reasons.push('schedule:not-today');
+        if (TOMORROW_WORDS.test(text) && !all.has(nextEtDate(today))) reasons.push('schedule:not-tomorrow');
+    }
     return reasons;
 }
+// 예정 이름 대조에서 빼는 대문자 표기 — 시간대·지표·지수·단위(사건이나 회사가 아니다)
+const NON_EVENT_TOKENS = new Set(['ET', 'EST', 'EDT', 'UTC', 'AM', 'PM', 'GEX', 'VIX', 'RLSI', 'SPY', 'QQQ', 'DXY', 'TLT', 'NDX', 'SPX', 'AI', 'US', 'U.S', 'IFS', 'OI', 'IV', 'S', 'P', 'WTI', 'FINRA', 'NEWS', 'PULSE', 'SIGNUM', 'GAMMA', 'SHIELD', 'A', 'I', 'MP', 'CW', 'PF', 'GF']);
+const TODAY_WORDS = /\btoday\b|\btonight\b|오늘|금일|今日|本日|今夜/i;
+const TOMORROW_WORDS = /\btomorrow\b|내일|명일|明日/i;
 
 /** Tactical NEXT 문장 — 프롬프트의 AS_OF·SCHEDULED_EVENTS 로. */
 export function tacticalNextReasons(next: string, prompt: string, mode: 'generate' | 'read'): string[] {
@@ -196,14 +220,18 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
         // 첫 문장은 공급된 뉴스 하나를 가리켜야 한다 — 그 뉴스의 ET 시각이나 출처 표기 중 하나(모델의 자연스러운 «UBS 보고서 23:05 ET» 허용).
         const sources = news.map(n => n.match(/^\[([^;]+);/)?.[1]).filter((s): s is string => !!s);
         const newsTimes = news.map(n => n.match(/; (\d{2}:\d{2}) ET\]/)?.[1]).filter((s): s is string => !!s);
-        const cites = mentionedTimes(first).some(t => newsTimes.includes(t)) || sources.some(s => first.includes(s));
+        const firstTimes = mentionedTimes(first);
+        // 시각을 쓰면 공급된 뉴스의 ET 시각이어야 한다(UTC 숫자를 ET 로 바꿔 붙이는 오기 차단) · 시각이 없으면 출처 표기로 인정
+        const cites = firstTimes.length ? firstTimes.every(t => newsTimes.includes(t)) : sources.some(s => first.includes(s));
         if (!cites) reasons.push('tactical:news-source-time-required');
     }
     if (!/감마|GEX|옵션|기관.*수급|gamma|options|institutional|ガンマ|オプション|機関/i.test(sentences[1] || '')) reasons.push('tactical:positioning-required');
     // ISO의 20T14를 금액 단위 20T(조)로 읽지 않게 날짜·시각 경계만 분리한다.
-    const numericEvidence = data.replace(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/g, '$1 $2');
+    // 뉴스의 ISO(UTC) 칸은 숫자 근거에서 뺀다 — 문장에 쓸 시각은 ET 칸뿐(«14:00 ET» 오기가 UTC 숫자로 통과하지 않게).
+    const numericEvidence = data.replace(/; \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z;/g, ';').replace(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/g, '$1 $2');
     if (checkNumberGrounding(text, numericEvidence).ungrounded.length) reasons.push('tactical:number');
     if ([...text].length > 350) reasons.push('tactical:too-long');
+    if (/\bUTC\b|\bGMT\b|協定世界時|협정 세계시/i.test(text)) reasons.push('tactical:utc-time');
     if (adviceHit(text)) reasons.push('tactical:advice');
     if (locale !== 'en' && !checkAmounts(data, text, locale).ok) reasons.push('tactical:amount');
     return reasons;

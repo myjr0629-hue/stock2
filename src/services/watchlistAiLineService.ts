@@ -82,7 +82,9 @@ export function insightLiveAt(s: StoredLine, loc: AiLineLocale, nowMs: number): 
 export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale, nowMs: number = Date.now()): AiLineEntry | null {
     if (!s || s.v !== 1 || !s.text || typeof s.text[loc] !== 'string' || !s.text[loc]) return null;
     if (textIntegrityReasons(s.text[loc]).length || lineLocaleReasons(s.text[loc], loc).length) return null;
-    return { text: s.text[loc], insight: insightLiveAt(s, loc, nowMs), chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
+    const insight = insightLiveAt(s, loc, nowMs);
+    const until = insight ? evidenceValidUntil(s.source!.split('\n'), s.at, { dayEnd: false }) : Infinity;
+    return { text: s.text[loc], insight, ...(insight && Number.isFinite(until) ? { insightUntil: until } : {}), chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
 }
 
 /** 저장본에 해석이 있었는데 지금은 못 내보낸다(예정 시각 경과 등) — 다시 만들 대상. */
