@@ -322,4 +322,21 @@ test('관문 회귀(10202231): «국채 수익률» 주어·삽입절 뒤 금리
         assert.deepEqual(checkTacticalStored(right, p), [], `${l}: ${right}`);
     }
 });
+test('관문 회귀(10202240): «미확인»이 다른 대상을 꾸미면 금리 방향을 대조, 방향어 자체가 미확인이면 제외', () => {
+    for (const text of ['Yields fell on unconfirmed news', '금리 하락과 미확인 재료가 겹쳤습니다', '金利下落と未確認の材料が重なりました']) {
+        assert.ok(match(text).includes('tactical:facts-direction:us10yChangeBp:up:down'), text);
+    }
+    for (const text of ['금리 하락은 미확인입니다.', '金利下落は未確認です。', 'Falling yields are unconfirmed.', 'A fall in yields is unconfirmed.']) good(text);
+    const outputs = {
+        ko: 'WIRE 보도한 국채 입찰 수요 약화 속에 금리 하락과 미확인 재료가 겹쳤습니다. 얇은 감마 방어는 충격 흡수력이 제한적입니다. 다음 확인 기준은 미확인입니다.',
+        en: 'WIRE reported weak Treasury auction demand. Yields fell on unconfirmed news, and thin dealer gamma leaves limited absorption. The next test is unconfirmed.',
+        ja: 'WIREの国債入札需要低迷の報道の中で金利下落と未確認の材料が重なりました。薄いガンマ防御は衝撃吸収力が限定的です。次の確認基準は未確認です。',
+    };
+    for (const l of ['ko', 'en', 'ja'] as const) {
+        const p = buildTacticalPrompt(ctx, l);
+        for (const reasons of [checkTacticalOutput(outputs[l], l, p), checkTacticalStored(outputs[l], p)]) {
+            assert.ok(reasons.includes('tactical:facts-direction:us10yChangeBp:up:down'), `${l}: ${reasons}`);
+        }
+    }
+});
 console.log(`${passed} passed`);

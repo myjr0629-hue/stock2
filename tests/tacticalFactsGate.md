@@ -126,3 +126,8 @@ TS 시험 실행기는 설치된 `ts-node`와 `tsconfig-paths/register`를 사�
 - `Yields, while gold fell, declined`: 방향어 없이 금리 주어만 있는 절은 방향어가 나올 때까지(문장 끝 전까지) 뒤 절을 흡수하고, 주어 없이 방향어만 있는 조각은 같은 문장의 마지막 금리 절에 붙인다. `Yields — while gold fell — declined`·`金利は、金価格が下落する一方、低下した`·`금리는, 금값이 하락한 반면, 하락했습니다`도 거부한다.
 - 의도된 오탐: 삽입절 뒤 맞는 서술(`Yields, while gold fell, rose`)도 거부한다.
 - `tests/tacticalFacts.test.ts` 25 통과(관문 회귀 +1: 수익률·삽입절 3언어, 생성·저장 출구 완성 문장, 정상본 통과).
+
+### 5차 관문(10202240) 지적 1건 수정
+
+- 방향어 뒤 12자 안의 `미확인`이면 무조건 주장에서 빼던 예외를 «방향어 자체가 미확인»(`금리 하락은 미확인`·`金利下落は未確認`·`Falling yields are unconfirmed`)일 때만으로 좁혔다. `Yields fell on unconfirmed news`·`금리 하락과 미확인 재료`·`金利下落と未確認の材料`는 사실과 대조해 거부한다.
+- `tests/tacticalFacts.test.ts` 26 통과(관문 회귀 +1, 3언어 생성·저장 출구 포함).
