@@ -4,6 +4,10 @@
 
 import { getStructureData } from '../structureService';
 import { Redis } from '@upstash/redis';
+import { spyIndexProxy } from '../../lib/metrics/proxy';
+
+const PRICE_BASIS = { status: 'proxy', source: 'SPY', target: 'SP500', multiplier: 10,
+    unit: 'index_points_proxy', observedTarget: false } as const;
 
 // === Types ===
 export interface GammaShieldData {
@@ -24,6 +28,8 @@ export interface GammaShieldData {
     resistanceWall: number | null;  // Call wall → S&P 500 points
     currentPrice: number | null;    // SPY × 10 ≈ S&P
     gammaFlipPoint: number | null;  // GEX sign change point
+    /** Applies to all four compatibility price fields above, including old cached responses. */
+    priceBasis?: typeof PRICE_BASIS;
 
     // v2: GEX Trend (24h comparison)
     prevGexIndex: number | null;    // Previous GEX index from last calculation
@@ -288,8 +294,8 @@ export async function calculateGammaShield(): Promise<GammaShieldData> {
         const spyGammaFlip = spyData?.gammaFlipLevel ?? null;
 
         const toSP500 = (spyVal: number | null): number | null => {
-            if (spyVal === null) return null;
-            return Math.round(spyVal * 10);
+            const proxy = spyIndexProxy(spyVal);
+            return proxy.proxyValue === null ? null : Math.round(proxy.proxyValue);
         };
 
         // Confidence
@@ -326,6 +332,7 @@ export async function calculateGammaShield(): Promise<GammaShieldData> {
             resistanceWall: toSP500(spyCallWall),
             currentPrice: toSP500(spyPrice),
             gammaFlipPoint: toSP500(spyGammaFlip),
+            priceBasis: PRICE_BASIS,
             prevGexIndex,
             gexChange,
             spyGexIndex,
@@ -381,7 +388,7 @@ export async function getGammaShield(force: boolean = false): Promise<GammaShiel
 
     // 1. Check memory cache (fastest)
     if (!force && memoryCache && (Date.now() - memoryCache.timestamp < MEMORY_TTL_MS)) {
-        if (isUsableShield(memoryCache.data)) return { ...memoryCache.data, source: 'CACHE' };
+        if (isUsableShield(memoryCache.data)) return { ...memoryCache.data, source: 'CACHE', priceBasis: PRICE_BASIS };
         memoryCache = null;
     }
 
@@ -395,7 +402,7 @@ export async function getGammaShield(force: boolean = false): Promise<GammaShiel
                     const data: GammaShieldData = typeof cached === 'string' ? JSON.parse(cached) : cached;
                     if (isUsableShield(data)) {
                         memoryCache = { data, timestamp: Date.now() };
-                        return { ...data, source: 'CACHE' };
+                        return { ...data, source: 'CACHE', priceBasis: PRICE_BASIS };
                     }
                     // 오염된 항목이다 — 지우고 새로 계산한다.
                     console.warn('[GAMMA SHIELD] 캐시에 GEX 없는 항목 발견 — 삭제 후 재계산');
@@ -410,7 +417,7 @@ export async function getGammaShield(force: boolean = false): Promise<GammaShiel
 
     // 3. Off-hours: return memory cache if available, else null
     if (isOffHours() && !force) {
-        if (memoryCache && isUsableShield(memoryCache.data)) return { ...memoryCache.data, source: 'CACHE' };
+        if (memoryCache && isUsableShield(memoryCache.data)) return { ...memoryCache.data, source: 'CACHE', priceBasis: PRICE_BASIS };
         // Try to calculate once even during off-hours for initial data
     }
 
@@ -420,13 +427,13 @@ export async function getGammaShield(force: boolean = false): Promise<GammaShiel
         // 계산했는데도 못 쓰면 «0 을 보여주느니 없다고 말한다» — 화면이
         // 「감마 0」이라고 단정하는 것보다 «데이터 없음»이 정직하다.
         if (!isUsableShield(fresh)) {
-            if (memoryCache && isUsableShield(memoryCache.data)) return { ...memoryCache.data, source: 'CACHE' };
+            if (memoryCache && isUsableShield(memoryCache.data)) return { ...memoryCache.data, source: 'CACHE', priceBasis: PRICE_BASIS };
             return null;
         }
         return fresh;
     } catch (e) {
         console.error('[GAMMA SHIELD] Fresh calculation failed:', e);
-        if (memoryCache && isUsableShield(memoryCache.data)) return { ...memoryCache.data, source: 'CACHE' };
+        if (memoryCache && isUsableShield(memoryCache.data)) return { ...memoryCache.data, source: 'CACHE', priceBasis: PRICE_BASIS };
         return null;
     }
 }

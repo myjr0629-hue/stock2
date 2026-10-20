@@ -25,6 +25,8 @@ import { MobileWatchlistSwipeBar } from '@/components/mobile/MobileWatchlistSwip
 
 // Tab sub-components
 import { MobileCmdOverview } from './MobileCmdOverview';
+import { useCommandVolatilityObservation } from '@/hooks/useCommandVolatilityObservation';
+import { useMobileConvictionSnapshot } from '@/hooks/useMobileConvictionSnapshot';
 import { MobileCmdMetrics } from './MobileCmdMetrics';
 import { MobileCmdChart } from './MobileCmdChart';
 import { MobileCmdOptions } from './MobileCmdOptions';
@@ -171,6 +173,8 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
         }
     );
     const unified = swrUnified || initialUnifiedData || null;
+    // 변동성 레짐 입력 판본 — 데스크탑·앱·AI 와 같은 선택 규칙(실패 응답은 관측 아님 · 결측이면 직전 실제 값+날짜)
+    const volatilityObservation = useCommandVolatilityObservation(effectiveTicker, unified, initialUnifiedData);
 
     // ── Live Price (same hooks as desktop LiveTickerDashboard) ──
     const { status: marketStatus } = useMarketStatus();
@@ -189,7 +193,14 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
 
     // Session — identical to desktop LiveTickerDashboard L856
     const metricVwap = selectVwap(tickerApiData?.vwap, initialStockData?.vwap, unified?._dynamoPrice?.vwap);
+    // The source date of the same VWAP source selectVwap picked (first defined source).
+    const metricVwapDate: string | null = tickerApiData?.vwap !== undefined ? (tickerApiData?.vwapDate ?? null)
+        : initialStockData?.vwap !== undefined ? ((initialStockData as any)?.vwapDate ?? null)
+        : (unified?._dynamoPrice?.vwapDate ?? unified?._dynamoPrice?.date ?? null);
     const metricStockData = { ...initialStockData, vwap: metricVwap ?? undefined };
+    // One conviction input selection for the metrics card AND the PRO AI material (gate 10191903 #3).
+    const convictionSnapshot = useMobileConvictionSnapshot(effectiveQuote.ticker, unified, effectiveQuote.price,
+        metricVwap, metricVwapDate, tickerApiData?.vwap === null, effectiveQuote.netPremium);
 
     const effectiveSession = isClosed
         ? 'CLOSED'
@@ -389,11 +400,15 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                         ticker={effectiveQuote.ticker}
                         quote={effectiveQuote}
                         unified={unified}
+                        volatilityData={volatilityObservation?.data ?? null}
+                        volatilitySource={volatilityObservation}
                         unifiedLoading={unifiedLoading} vwap={metricVwap}
+                        convictionInputs={convictionSnapshot.inputs}
+                        convictionSourceDates={convictionSnapshot.sourceDates} convictionCarried={convictionSnapshot.carriedFields}
                     />
                 )}
                 {activeTab === 'metrics' && (
-                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} vwap={metricVwap} />
+                    <MobileCmdMetrics ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} volatilityData={volatilityObservation?.data ?? null} volatilitySource={volatilityObservation} unifiedLoading={unifiedLoading} vwap={metricVwap} convictionSnapshot={convictionSnapshot} />
                 )}
                 {activeTab === 'chart' && (
                     <MobileCmdChart ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={metricStockData} />

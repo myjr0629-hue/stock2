@@ -523,9 +523,9 @@ export class GuardianDataHub {
                         ...(await (async () => {
                             try {
                                 const { getDealerGamma } = await import('@/services/dealerGamma');
-                                const dg = await getDealerGamma('SPY',
-                                    gammaShieldData?.gammaFlipPoint ?? null,
-                                    gammaShieldData?.currentPrice ?? null);
+                                // Only the GEX percentile is consumed here. Shield prices are
+                                // SPY×10 proxies, while dealerGamma accepts USD per share.
+                                const dg = await getDealerGamma('SPY');
                                 return dg
                                     ? { gexPercentile: dg.percentile ?? undefined, gexSamples: dg.samples ?? undefined }
                                     : {};

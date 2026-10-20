@@ -1,0 +1,129 @@
+{
+  "trustLayer": 1,
+  "materialPhase": "complete",
+  "ticker": "FITB",
+  "price": 50.37,
+  "priceChange": 0.03972194637536449,
+  "session": "CLOSED",
+  "signalCore": {
+    "direction": "NEUTRAL",
+    "conviction": "MIXED",
+    "condition": "TREND",
+    "conclusion": "",
+    "bullCount": 0,
+    "bearCount": 0,
+    "bullSignals": "",
+    "bearSignals": ""
+  },
+  "contextScore": {
+    "value": 0,
+    "grade": "C"
+  },
+  "smartFlow": {
+    "value": 0,
+    "trend": "NEUTRAL"
+  },
+  "sma": {
+    "cross": "GOLDEN",
+    "sma50": 53.52,
+    "sma200": 51.81,
+    "trendPhase": "MARKUP"
+  },
+  "vwap": 50.7418,
+  "vwapDistance": "-0.7%",
+  "conviction": {
+    "score": 50,
+    "grade": "C"
+  },
+  "structure": {
+    "netGex": -206039.02620000005,
+    "gammaFlipLevel": 55,
+    "squeezeRisk": "LOW",
+    "squeezeScore": 5,
+    "pcRatio": 0,
+    "callWall": 60,
+    "putFloor": 50,
+    "maxPain": 50,
+    "gammaConcentration": 0,
+    "gammaConcentrationLabel": "NORMAL"
+  },
+  "flow": {
+    "netPremium": null
+  },
+  "fundamental": {
+    "score": 76,
+    "grade": "A-",
+    "pe": "19.5",
+    "fcfMargin": 0
+  },
+  "analyst": {
+    "score": 57,
+    "buyPct": 57
+  },
+  "institutional": {
+    "insiderNet30d": 0,
+    "insiderBuy": 0,
+    "insiderSell": 0,
+    "activity": "NEUTRAL"
+  },
+  "technicals": {
+    "adx": {
+      "value": 35.96,
+      "diPos": 22.29,
+      "diNeg": 31.96,
+      "regime": "TREND",
+      "direction": "DOWN"
+    },
+    "obv": {
+      "value": 2004770468,
+      "slopePct": -2.65,
+      "divergence": null
+    },
+    "bb": {
+      "upper": 52.83,
+      "middle": 51.02,
+      "lower": 49.21,
+      "widthPct": 7.09,
+      "percentile": 27,
+      "squeeze": false,
+      "position": null
+    },
+    "atr": {
+      "value": 1.0395,
+      "pct": null
+    },
+    "volPremium": {
+      "ivPct": null,
+      "rvPct": 16.2,
+      "spread": null,
+      "label": null
+    }
+  },
+  "creditSpread": {
+    "value": 3.23,
+    "date": "2026-10-15",
+    "change20d": 0.53,
+    "percentile": 96,
+    "regime": "WIDENING"
+  },
+  "volatility": {
+    "regime": "CALM",
+    "regimeScore": 0,
+    "gexLong": 0
+  },
+  "squeeze": {
+    "status": "LOW",
+    "siPercent": 4
+  },
+  "earnings": {
+    "daysUntil": 1,
+    "date": "2026-10-19",
+    "estimatedEps": 0.9747
+  },
+  "relatedTickers": [
+    "CFG",
+    "KEY",
+    "MTB",
+    "USB"
+  ]
+}
