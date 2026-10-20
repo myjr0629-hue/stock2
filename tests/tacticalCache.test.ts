@@ -33,9 +33,9 @@ let count = 0;
 let failures = 0;
 const key = (locale: Locale) => `guardian:gemini:v2:reality:${locale}`;
 const stale = {
-    ko: '오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인은 08:30 ET CPI 예정입니다.',
-    en: 'The macro cause today is unconfirmed. Dealer gamma absorption is unconfirmed. The next test is CPI scheduled at 08:30 ET.',
-    ja: '今日のマクロ要因は未確認です。ガンマによる圧力吸収も未確認です。次の確認は08:30 ETのCPI発表予定です。',
+    ko: '오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인은 10/20(화) 08:30 ET CPI 예정입니다.',
+    en: 'The macro cause today is unconfirmed. Dealer gamma absorption is unconfirmed. The next test is CPI scheduled on 10/20 (Tue) at 08:30 ET.',
+    ja: '今日のマクロ要因は未確認です。ガンマによる圧力吸収も未確認です。次の確認は10/20(火) 08:30 ETのCPI発表予定です。',
 };
 const fresh = {
     ko: '오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인 기준은 미확인입니다.',

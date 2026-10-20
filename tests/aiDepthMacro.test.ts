@@ -11,6 +11,9 @@ import { newsForStock } from '../src/lib/ai/stockEvidence';
 import { evidenceTime, scheduledLineAt, isUpcomingLine, evidenceValidUntil, earningsReleaseAt } from '../src/lib/ai/evidenceTime';
 import { checkTacticalStored, scheduleClaimReasons } from '../src/lib/ai/tacticalPrompt';
 import { liveInsight } from '../src/lib/app/watchlistAiLine';
+import { orphanNumberReasons, directionSignReasons } from '../src/lib/ai/claimChecks';
+import { etDateLabel } from '../src/lib/ai/tacticalPrompt';
+import { rankStockContext, flowSummary, gammaMechanismReasons, fitDepthLine } from '../src/lib/ai/watchlistDepth';
 
 const now = new Date('2026-10-20T15:00:00Z');
 const headline = datedHeadline({ title: 'Treasury auction draws weak demand', published_utc: '2026-10-20T14:00:00Z' }, 'Polygon', now)!;
@@ -247,7 +250,7 @@ test('기존 칩 유지 + 별도 3언어 인사이트, 자료 없을 때 null', 
     assert.equal(nested.insight, undefined);
     assert.match(WL_LINE_SYSTEM, /FINAL OUTPUT SCHEMA/);
     // 한도 넘는 해석은 첫 절만(10/20 실제 모델 ko 응답) · 첫 절도 길면 탈락
-    const long = checkLineOutput(JSON.stringify({ ...chips, insight: { ko: '양감마 구간이라 딜러 헤지가 변동을 누르는 자리, 만기까지 되돌림 압력 있음', en: 'Positive gamma: dealer hedging dampens swings', ja: '正ガンマ圏でヘッジ売買が値動きを抑えやすく、満期まで続く位置' } }), f);
+    const long = checkLineOutput(JSON.stringify({ ...chips, insight: { ko: '양감마 구간이라 딜러 헤지가 변동을 누르는 자리, 만기까지 되돌림 압력이 계속 남아 있는 상태임', en: 'Positive gamma: dealer hedging dampens swings', ja: '正ガンマ圏でヘッジ売買が値動きを抑えやすく、満期まで続く位置' } }), f);
     assert.deepEqual(long.insight, { ko: '양감마 구간이라 딜러 헤지가 변동을 누르는 자리', en: 'Positive gamma: dealer hedging dampens swings', ja: '正ガンマ圏でヘッジ売買が値動きを抑えやすく、満期まで続く位置' }, (long.insightReasons || []).join(','));
     assert.match(WL_LINE_SYSTEM, /chip lines stay top-level strings exactly/);
     assert.match(buildLineUserPrompt(f), /FINRA.*2026-10-20/);
@@ -260,7 +263,7 @@ test('카드: 인사이트의 첫 열은 기존 AI 너비 보존, 공유 버튼 
 });
 
 test('인사이트: 없는 사건·숫자·권유·제어문자·혼용·초과 길이 차단', () => {
-    for (const bad of ['연준 금리 인하로 감마 방어가 강해졌습니다', '장외 비중 99%가 감마 방어를 지지합니다', '지금 매수하세요', insight.ko + '\uFFFD', insight.ko + 'に', '가'.repeat(37)]) {
+    for (const bad of ['연준 금리 인하로 감마 방어가 강해졌습니다', '장외 비중 99%가 감마 방어를 지지합니다', '지금 매수하세요', insight.ko + '\uFFFD', insight.ko + 'に', '가'.repeat(45)]) {
         assert.ok(checkDepthLine(bad, 'ko', f.factsText).length, bad);
     }
     assert.equal(checkLineOutput(JSON.stringify({ ...chips, ko: chips.ko + '\u0000' }), f).ok, false);
@@ -369,8 +372,11 @@ test('관문 7차 재현: 자기 종목 카드의 다른 회사 · 미확인어 
     const early = Date.parse('2026-10-20T11:00:00Z');   // 07:00 ET
     for (const t of ['CPI is scheduled tomorrow at 08:30 ET; actuals are unknown.', 'CPI is scheduled on 2026-10-21 at 08:30 ET.', 'CPI is scheduled on 10/21 at 08:30 ET.', 'CPI and PPI are scheduled tomorrow at 08:30 ET.'])
         for (const mode of ['strict', 'claims'] as const) assert.ok(scheduleClaimReasons(t, ev, early, mode).some((r: string) => r.startsWith('schedule:')), `${mode} ${t}`);
-    for (const t of ['PPI is scheduled on 2026-10-21 at 08:30 ET.', 'CPI is scheduled today at 08:30 ET and PPI tomorrow at 08:30 ET.'.split(' and ')[0] + '.', 'The next test is unconfirmed.'])
+    for (const t of ['PPI is scheduled on 2026-10-21 at 08:30 ET.', 'CPI is scheduled on 10/20 (Tue) at 08:30 ET.', 'The next test is unconfirmed.'])
         assert.deepEqual(scheduleClaimReasons(t, ev, early, 'strict'), [], t);
+    // 10/21 정책: 생성(strict)은 «오늘·내일»만 쓴 예정 주장을 받지 않는다(절대 날짜 필수) — 저장본 읽기(claims)는 예전 판정 그대로
+    assert.deepEqual(scheduleClaimReasons('CPI is scheduled today at 08:30 ET.', ev, early, 'strict'), ['schedule:relative-day']);
+    assert.deepEqual(scheduleClaimReasons('CPI is scheduled today at 08:30 ET.', ev, early, 'claims'), []);
     const src = buildLineUserPrompt(f);   // 양감마
     assert.deepEqual(checkDepthLine('Positive gamma buffers negative shocks', 'en', src), []);
     assert.deepEqual(checkDepthLine('양감마가 부정적 충격을 완충하는 자리', 'ko', src), []);
@@ -390,8 +396,9 @@ test('관문 8차 재현: 내 종목 해석 일정·타사 금지 · 감마 노�
     const early = Date.parse('2026-10-20T11:00:00Z');
     for (const t of ['CPI is scheduled on 2025-10-20 at 08:30 ET.', 'CPI is scheduled today at 8:30 PM ET.', 'CPI is scheduled today at 08:30 KST.', 'NVDA earnings scheduled tomorrow at 16:00 ET.', 'IBM and CPI are scheduled today at 08:30 ET.'])
         assert.ok(scheduleClaimReasons(t, ev, early, 'strict').length > 0, t);
-    for (const t of ['CPI is scheduled on 2026-10-20 at 08:30 ET.', 'NVDA earnings are scheduled tomorrow after the close.'])
+    for (const t of ['CPI is scheduled on 2026-10-20 at 08:30 ET.', 'NVDA earnings are scheduled on 10/21 after the close.'])
         assert.deepEqual(scheduleClaimReasons(t, ev, early, 'strict'), [], t);
+    assert.deepEqual(scheduleClaimReasons('NVDA earnings are scheduled tomorrow after the close.', ev, early, 'claims'), []);
 });
 
 test('관문 9차 재현: 근거 밖 경제 일정 · 상대 날짜 · 사전 밖 회사명 · 네 레벨 방향', () => {
@@ -399,7 +406,8 @@ test('관문 9차 재현: 근거 밖 경제 일정 · 상대 날짜 · 사전 �
     const early = Date.parse('2026-10-20T11:00:00Z');
     for (const t of ['CPI and retail sales are scheduled today at 08:30 ET.', 'CPI is scheduled next week at 08:30 ET.', 'CPI는 금요일 08:30 ET 발표 예정입니다.'])
         assert.ok(scheduleClaimReasons(t, ev, early, 'strict').length > 0, t);
-    assert.deepEqual(scheduleClaimReasons('CPI is scheduled today at 08:30 ET.', ev, early, 'strict'), []);
+    assert.deepEqual(scheduleClaimReasons('CPI is scheduled on 10/20 at 08:30 ET.', ev, early, 'strict'), []);
+    assert.deepEqual(scheduleClaimReasons('CPI is scheduled today at 08:30 ET.', ev, early, 'claims'), []);
     const src = buildLineUserPrompt(f);   // 145 · PF 135 · CW 160 · MP 155 · GF 140
     for (const [loc, t] of [['ko', '삼성전자 계약으로 감마 방어가 강화된 자리'], ['en', 'Samsung deal strengthens the gamma cushion'], ['ko', '풋플로어 아래라 지지가 약한 자리'], ['ko', '콜월을 넘어 상단이 열린 자리'], ['en', 'Price sits over the Call Wall cap']] as const)
         assert.ok(checkDepthLine(t, loc, src).some(r => r === 'insight:other-name' || r === 'insight:level-side'), t);
@@ -430,6 +438,153 @@ test('운영 실측(10/20 14시) 뒤 결정: 해석에는 날짜를 쓰지 않�
     for (const t of ['성장전략이 콜월 앞에서 시험받는 자리', '시장 전반과 달리 감마 방어가 있는 자리', '공장 전환 소식이 콜월 앞에 선 자리']) assert.deepEqual(watchlistNoScheduleReasons(t, 'NVDA', src), [], t);
     for (const t of ['장전 거래에서 감마 방어가 약한 자리', '장 마감 후 변동이 눌리는 자리']) assert.ok(watchlistNoScheduleReasons(t, 'NVDA', src).includes('insight:schedule'), t);
     assert.match(WL_LINE_SYSTEM, /into expiry/);
+});
+
+// ━━━ 10/21 v2: 운영 예시 결함 3건 회귀(고아 숫자·방향 모순·상대 날짜) + 내 종목 근거 우선순위 ━━━
+test('v2 ① 고아 숫자: «이는 -0.74% 하락»은 탈락, «TLT -0.74% 하락»은 통과(세 언어)', () => {
+    const bad = '23:13 ET 보도에 따르면 유가가 배럴당 110달러 근처까지 오르면서 미국 10년물 금리 5.15%를 지탱하고 있으며, 이는 -0.74% 하락과 일치한다.';
+    assert.deepEqual(orphanNumberReasons(bad), ['orphan-number:-0.74%']);
+    assert.deepEqual(orphanNumberReasons(bad.replace('이는 -0.74%', 'TLT -0.74%')), []);
+    assert.deepEqual(orphanNumberReasons('At 23:13 ET, oil near $110 is consistent with the 10-year yield at 5.15%, reflected in TLT -0.74% decline.'), []);
+    assert.deepEqual(orphanNumberReasons('米10年債利回り5.15%を支えており、TLT -0.74%の下落と整合的だ。'), []);
+    assert.deepEqual(orphanNumberReasons('This matches a -0.74% decline.'), ['orphan-number:-0.74%']);
+    // 시각·날짜·지수 이름 속 숫자·작은 개수는 값이 아니다
+    assert.deepEqual(orphanNumberReasons('10/20(화) 08:30 ET 주택 착공 발표, S&P 500 지수 2개 신호'), []);
+});
+
+test('v2 ② 방향 모순: 양수 등락을 «약세/弱気»로 서술하면 탈락, 대조 접속어·반대 부호는 마디를 나눈다', () => {
+    assert.deepEqual(directionSignReasons('S&P 500 +0.23% 상승에도 불구하고 나스닥 +0.19%와 49% 참여폭은 약세를 보이고 있다.'), ['direction-sign:+0.19%']);
+    assert.deepEqual(directionSignReasons('S&P 500 +0.23%の上昇にもかかわらずNASDAQ +0.19%とブレッドス49%は弱気を示し、'), ['direction-sign:+0.19%']);
+    assert.deepEqual(directionSignReasons('Nasdaq +0.19% weakened against the S&P'), ['direction-sign:+0.19%']);
+    assert.deepEqual(directionSignReasons('TLT -0.74% 하락과 금리 상승이 맞물렸다.'), []);
+    assert.deepEqual(directionSignReasons('S&P 500 +0.23%와 나스닥 -0.19% 하락이 엇갈렸다.'), []);
+    assert.deepEqual(directionSignReasons('VIX +5% as stocks fell.'), []);
+    assert.deepEqual(directionSignReasons('나스닥 +0.19%는 S&P 500보다 덜 올랐고 참여폭 49%는 약하다.'), []);
+    assert.deepEqual(directionSignReasons('S&P 500 +0.23% gains contrast with NASDAQ +0.19% and breadth at 49%.'), []);
+    // 실제 모델 1차 실행에서 나온 오탐 2건(고정): 다른 지표의 서술어 · 달러 인덱스의 «달러»
+    assert.deepEqual(directionSignReasons('S&P 500 +0.23% 상승과 나스닥 +0.19% 상승 속에서 GEX +7는 중립 수준이고 49% 참여폭은 약세를 보이며'), []);
+    assert.deepEqual(orphanNumberReasons('미국 10년물 금리 5.15%와 101.8 달러 인덱스 상승과 연결해 해석된다.'), []);
+    assert.deepEqual(orphanNumberReasons('米10年債利回り5.15%と101.8ドル指数の上昇と整合的である。'), []);
+    assert.deepEqual(orphanNumberReasons('consistent with the 10-year rising to 5.15%'), []);
+    assert.deepEqual(orphanNumberReasons('36 점의 극단적 약세 신호와 49%의 중립 참여폭은'), ['orphan-number:36']);
+    assert.deepEqual(orphanNumberReasons('10년물 금리 5.15%와 +0.31% 상승으로 연결해 해석된다.'), ['orphan-number:+0.31%']);
+    assert.deepEqual(orphanNumberReasons('An earnings move past the ±6.4% implied range meets negative gamma'), []);
+    // 양수 GEX 를 «약세 포지셔닝»으로 서술(실제 모델 1차) — 탈락
+    assert.deepEqual(directionSignReasons('광폭 49%와 GEX +7는 약세 포지셔닝이 상승 압력을 제한하는 모습이다.'), ['direction-sign:+7']);
+});
+
+test('v2 ③ 상대 날짜: 생성 검사는 «내일 08:30 ET»를 받지 않고 «10/20(화) 08:30 ET»를 받는다 · 틀린 요일 탈락 · 프롬프트에 DATE_LABELS', () => {
+    const asOf = '2026-10-20T03:26:33.633Z';   // ET 10/19 23:26 — KST 독자는 이미 10/20 낮
+    const ev = ['[economic calendar; 2026-10-20 08:30 ET] Housing Starts (Sep) (scheduled; not a released result)'];
+    const nowMs = Date.parse(asOf);
+    assert.deepEqual(scheduleClaimReasons('내일 08:30 ET Housing Starts 발표가 다음 조건부 테스트가 된다.', ev, nowMs, 'strict'), ['schedule:relative-day']);
+    assert.deepEqual(scheduleClaimReasons('Housing Starts is scheduled at 08:30 ET.', ev, nowMs, 'strict'), ['schedule:date-required']);
+    assert.deepEqual(scheduleClaimReasons('10/20(화) 08:30 ET Housing Starts 발표가 다음 조건부 테스트다.', ev, nowMs, 'strict'), []);
+    assert.deepEqual(scheduleClaimReasons('Housing Starts on 10/20 (Tue) at 08:30 ET is the next test.', ev, nowMs, 'strict'), []);
+    assert.deepEqual(scheduleClaimReasons('10/20(火) 08:30 ETのHousing Startsが次の条件付きテストだ。', ev, nowMs, 'strict'), []);
+    assert.ok(scheduleClaimReasons('10/20(수) 08:30 ET Housing Starts 발표', ev, nowMs, 'strict')[0].startsWith('schedule:weekday'));
+    assert.ok(scheduleClaimReasons('10/21(수) 08:30 ET Housing Starts 발표', ev, nowMs, 'strict').includes('schedule:claim-not-upcoming'));
+    assert.equal(etDateLabel('2026-10-20', 'ko'), '10/20(화)');
+    assert.equal(etDateLabel('2026-10-20', 'en'), '10/20 (Tue)');
+    assert.equal(etDateLabel('2026-10-20', 'ja'), '10/20(火)');
+    const p = buildTacticalPrompt({ rlsiScore: 32, nasdaqChange: 0.19, vix: 18.4, asOf, scheduledEvents: ev }, 'ko');
+    assert.match(p, /DATE_LABELS: \{"2026-10-20":"10\/20\(화\)"\}/);
+    assert.match(p, /Never use relative day words/);
+    // 운영 예시 ko 원문 전체 — 세 결함이 모두 사유로 잡힌다
+    const text = '23:13 ET 보도에 따르면 유가가 중동 공급 리스크로 배럴당 110달러 근처까지 오르면서 미국 10년물 금리 5.15%를 지탱하고 있으며, 이는 -0.74% 하락과 일치한다. S&P 500 +0.23% 상승에도 불구하고 나스닥 +0.19%와 49% 참여폭은 약세를 보이고 있으며, GEX +7는 중립 수준으로 감마 포지셔닝이 현재의 상승 압력을 흡수하는 상태다. 내일 08:30 ET 주택 통계(Housing Starts, Building Permits) 발표가 다음 조건부 테스트가 된다.';
+    const r = checkTacticalOutput(text, 'ko', p);
+    for (const want of ['tactical:orphan-number:-0.74%', 'tactical:direction-sign:+0.19%', 'schedule:relative-day']) assert.ok(r.includes(want), `${want} :: ${r.join(',')}`);
+});
+
+const tslaRow = { price: 370, maxPain: 365, callWall: 400, putFloor: 340, gammaFlipLevel: 375, levelsChainDate: '2026-10-19', levelsExpiration: '2026-10-23', levelsSource: 'structure', darkPoolPct: 47.5, darkPoolDate: '2026-10-19', impliedMovePct: 6.4, impliedMoveExpiry: '2026-10-23', impliedMoveDef: 'atm-straddle-mid/1' };
+const tslaEarn = '[earnings calendar; 2026-10-21; AMC timing boundary 16:00 ET; exact release time unknown] TSLA (confirmed; scheduled; not a released result)';
+const genAt = Date.parse('2026-10-20T03:26:00Z');   // ET 10/19 23:26
+test('v2 ④ 내 종목 근거 우선순위: 실적 D-n ≤5 > 종목 뉴스 > 이례 흐름 > 내부자 > 감마', () => {
+    const tf = buildLineFacts('TSLA', tslaRow)!;
+    assert.ok(tf, 'TSLA 사실');
+    const base = { ticker: 'TSLA', earnings: [tslaEarn], news: [], darkPool: tf.darkPool, implied: tf.implied };
+    const r = rankStockContext(base, genAt);
+    assert.equal(r.top, 'earnings');
+    assert.match(r.topLine, /^TOP EVIDENCE \[earnings\]: TSLA earnings are scheduled 2 ET calendar day\(s\) ahead.*±6\.4% to the 10\/23 expiry includes that release/);
+    assert.equal(r.lines[0], tslaEarn);
+    assert.equal(rankStockContext({ ...base, earnings: [tslaEarn.replace('2026-10-21', '2026-10-27')] }, genAt).top, 'positioning', 'D-8 은 실적 근거가 아니다');
+    const news = '[NEWS PULSE; 2026-10-20T02:00:00.000Z; 22:00 ET] Tesla recalls Cybertruck units';
+    assert.equal(rankStockContext({ ...base, earnings: [], news: [news] }, genAt).top, 'news');
+    const flow = flowSummary('TSLA', { sessionDate: '2026-10-19', items: [{ type: 'CALL', premium: 9e6 }, { type: 'CALL', premium: 5e6 }, { type: 'PUT', premium: 1e6 }] });
+    assert.equal(flow?.unusual, true);
+    assert.match(flow!.line, /calls 93% \/ puts 7%/);
+    assert.equal(flowSummary('TSLA', { sessionDate: '2026-10-19', items: [{ type: 'CALL', premium: 5e6 }, { type: 'PUT', premium: 5e6 }, { type: 'PUT', premium: 1e6 }] })?.unusual, false);
+    assert.equal(rankStockContext({ ...base, earnings: [], flow }, genAt).top, 'flow');
+    assert.equal(rankStockContext({ ...base, earnings: [], insider: '[insider filing; 2026-10-17] TSLA Director open-market purchase (SEC Form 4 code P; an observation, not a forecast)' }, genAt).top, 'insider');
+    assert.equal(rankStockContext({ ...base, earnings: [] }, genAt).top, 'positioning');
+});
+
+test('v2 ⑤ 내 종목 해석 출구: 실적 무시 일반론·근거 없는 일반론·스타일 복사·D-n 탈락, 실적 중심 문장 통과·발표 뒤 내려감', () => {
+    const tf = buildLineFacts('TSLA', tslaRow)!;
+    const r = rankStockContext({ ticker: 'TSLA', earnings: [tslaEarn], news: [], darkPool: tf.darkPool, implied: tf.implied }, genAt);
+    tf.contextText = r.lines.join('\n'); tf.topLine = r.topLine;
+    const src = buildLineUserPrompt(tf);
+    assert.match(src, /^TOP EVIDENCE \[earnings\]/m);
+    assert.ok(checkDepthLine('음감마 구간에서 딜러 헤지가 변동을 증폭시키는 자리', 'ko', src, genAt).includes('insight:ignores-top-earnings'));
+    assert.deepEqual(checkDepthLine('실적 반응이 예상 변동 ±6.4%를 넘으면 음감마가 키우는 자리', 'ko', src, genAt), []);
+    assert.deepEqual(checkDepthLine('An earnings move past the ±6.4% implied move meets negative gamma', 'en', src, genAt), []);
+    assert.deepEqual(checkDepthLine('決算反応が想定変動幅±6.4%を超えると負ガンマが増幅する位置', 'ja', src, genAt), []);
+    assert.ok(checkDepthLine('실적 반응이 예상 변동을 넘으면 음감마가 키우는 자리', 'ko', src, genAt).includes('insight:style-copy'));
+    assert.ok(checkDepthLine('D-1 실적 앞 예상 변동 ±6.4% 음감마 자리', 'ko', src, genAt).includes('insight:schedule'));
+    assert.ok(checkDepthLine('내일 실적 앞 예상 변동 ±6.4% 음감마 자리', 'ko', src, genAt).includes('insight:schedule'));
+    // 발표 경계(10/21 16:00 ET)가 지나면 «실적» 말 허용이 풀린다 → 저장본 해석이 내려간다
+    assert.ok(checkDepthLine('실적 반응이 예상 변동 ±6.4%를 넘으면 음감마가 키우는 자리', 'ko', src, Date.parse('2026-10-21T21:00:00Z')).includes('insight:schedule'));
+    // 감마만 남은 종목(마지막 수단)은 자기 숫자에 묶어야 한다 — 종목끼리 같은 일반론 차단
+    const pr = rankStockContext({ ticker: 'TSLA', earnings: [], news: [], darkPool: tf.darkPool, implied: tf.implied }, genAt);
+    const tf2 = buildLineFacts('TSLA', tslaRow)!; tf2.contextText = pr.lines.join('\n'); tf2.topLine = pr.topLine;
+    const src2 = buildLineUserPrompt(tf2);
+    assert.ok(checkDepthLine('음감마라 딜러 헤지가 변동을 키우는 자리', 'ko', src2, genAt).includes('insight:generic'));
+    assert.deepEqual(checkDepthLine('예상 변동 ±6.4%가 음감마와 겹쳐 흔들림이 큰 자리', 'ko', src2, genAt), []);
+    // 고아 숫자는 해석에서도 탈락
+    assert.ok(checkDepthLine('±6.4%가 음감마와 겹쳐 흔들림이 큰 자리', 'ko', src2, genAt).some(x => x.startsWith('insight:orphan-number')));
+});
+
+test('v2 ⑥ 근거 지평: 내 종목은 D-5 실적까지, Tactical 일정(events)은 오늘·내일만(예전과 같다)', () => {
+    const n = new Date('2026-10-20T15:00:00Z');
+    // 가상 티커(회사 공지 보정 목록 CONFIRMED_EARNINGS 밖)
+    const earnings = { generatedAt: n.toISOString(), rows: [{ date: '2026-10-23', hour: 'amc', ticker: 'ZZA', dateStatus: 'confirmed' }, { date: '2026-10-21', hour: 'amc', ticker: 'ZZB', dateStatus: 'confirmed' }] };
+    const mine = (x: { stockEvents: Array<{ ticker: string }> }) => x.stockEvents.map(e => e.ticker).filter(t => t.startsWith('ZZ')).sort();
+    const wide = cachedEvidence(null, null, earnings, n, { stockDays: 5 });
+    assert.deepEqual(mine(wide), ['ZZA', 'ZZB']);
+    assert.ok(!wide.events.some(e => /ZZA/.test(e)) && wide.events.some(e => /ZZB/.test(e)));
+    const narrow = cachedEvidence(null, null, earnings, n);
+    assert.deepEqual(mine(narrow), ['ZZB']);
+    assert.deepEqual(narrow.events, wide.events);
+});
+
+test('v2 ⑦ 같은 날 같은 해석 반복 방지 · 내부자 줄(장내 매수 P, 7일 안)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const S = require('../src/services/watchlistAiLineService');
+    const seen: Record<string, string> = {};
+    const a = S.dedupeInsights('NVDA', { ko: '음감마라 딜러 헤지가 변동을 키우는 자리', en: 'Negative gamma: hedging amplifies moves' }, seen);
+    assert.deepEqual(a.reasons, []);
+    const b = S.dedupeInsights('MU', { ko: '음감마라 딜러 헤지가 변동을 키우는 자리.', en: 'Implied move ±5.1% meets negative gamma' }, seen);
+    assert.deepEqual(b.reasons, ['ko:insight:duplicate:NVDA']);
+    assert.deepEqual(b.kept, { en: 'Implied move ±5.1% meets negative gamma' });
+    assert.deepEqual(S.dedupeInsights('NVDA', { ko: '음감마라 딜러 헤지가 변동을 키우는 자리' }, seen).reasons, [], '자기 종목의 재생성은 같은 문장이어도 된다');
+    // 숫자만 바꾼 틀(실제 모델 NVDA ±3.1%·AAPL ±2.2%)도 같은 문장
+    const s2: Record<string, string> = {};
+    S.dedupeInsights('NVDA', { ko: '예상 변동 ±3.1%가 음감마 구간과 겹쳐 흔들림이 커지는 자리' }, s2);
+    assert.deepEqual(S.dedupeInsights('AAPL', { ko: '예상 변동 ±2.2%가 음감마 구간과 겹쳐 흔들림이 커지는 자리' }, s2).reasons, ['ko:insight:duplicate:NVDA']);
+    const buys = [{ ticker: 'TSLA', date: '2026-10-16', role: 'Director' }, { ticker: 'TSLA', date: '2026-10-01', role: 'CEO' }, { ticker: 'MU', date: '2026-10-19', role: 'CFO' }];
+    assert.equal(S.insiderLineFor('TSLA', buys, Date.parse('2026-10-20T15:00:00Z')), '[insider filing; 2026-10-16] TSLA Director open-market purchase (SEC Form 4 code P; an observation, not a forecast)');
+    assert.equal(S.insiderLineFor('AAPL', buys, Date.parse('2026-10-20T15:00:00Z')), null);
+    assert.equal(S.insiderLineFor('TSLA', [{ ticker: 'TSLA', date: '2026-10-01', role: 'CEO' }], Date.parse('2026-10-20T15:00:00Z')), null);
+});
+
+test('v2 ⑧ 감마 기제(음감마=키움·양감마=누름) 반대 서술 탈락 · 연결형으로 끝나는 첫 절은 자르지 않는다', () => {
+    for (const t of ['예상 변동 ±2.2%가 음감마 구간 안에 머물면서 위쪽 움직임이 제약받는 자리', 'Negative gamma zone constrains the ±3.1% implied move', '想定変動幅±2.2%が負ガンマ圏に収まり上値が抑制される位置', '양감마라 딜러 헤지가 변동을 키우는 자리'])
+        assert.deepEqual(gammaMechanismReasons(t), ['insight:gamma-mechanism'], t);
+    for (const t of ['실적 반응이 예상 변동 ±6.4%를 넘으면 음감마가 증폭하는 자리', 'Positive gamma: dealer hedging dampens swings', '負ガンマでヘッジ売買が値動きを増幅する位置'])
+        assert.deepEqual(gammaMechanismReasons(t), [], t);
+    const long = '예상 변동 ±4.8%는 Max Pain과 Call Wall 사이 공간에 담기며, 양감마 구간에서 상승 움직임이 제약받는 자리';
+    assert.equal(fitDepthLine(long, 'ko'), long);
+    assert.equal(fitDepthLine('想定変動幅±4.8%がMax PainとCall Wallの間に収まり、正ガンマ圏で上昇が抑制される位置で満期まで続く', 'ja'), '想定変動幅±4.8%がMax PainとCall Wallの間に収まり、正ガンマ圏で上昇が抑制される位置で満期まで続く');
 });
 
 async function main() {

@@ -442,7 +442,16 @@ const TRI_SYSTEM = [
 ].join('\n');
 
 const TRI_CORRECTIVE = (reasons: Partial<Record<Locale, string[]>>) =>
-    `\n\n[Rewrite request] The previous JSON failed these automatic checks — ${(['ko', 'en', 'ja'] as Locale[]).filter((l) => reasons[l]?.length).map((l) => `${l}: ${reasons[l]!.slice(0, 4).join(', ')}`).join(' | ')}. Rewrite the whole JSON object: use the placeholders exactly as defined (never type those numbers), no predictions or future tense, every above/below/미만/以上 statement must be true for the data, the same facts in all three languages, plain text only.`;
+    `\n\n[Rewrite request] The previous JSON failed these automatic checks — ${(['ko', 'en', 'ja'] as Locale[]).filter((l) => reasons[l]?.length).map((l) => `${l}: ${reasons[l]!.slice(0, 4).join(', ')}`).join(' | ')}. Rewrite the whole JSON object: use the placeholders exactly as defined (never type those numbers), no predictions or future tense, every above/below/미만/以上 statement must be true for the data, the same facts in all three languages, plain text only.${triHints(Object.values(reasons).flat() as string[])}`;
+/** 새 검사(claimChecks·절대 날짜) 사유 → 고쳐 쓰는 방법 한 줄씩(사유 코드만으로는 모델이 무엇을 고칠지 모른다) */
+function triHints(all: string[]): string {
+    const h: string[] = [];
+    if (all.some(r => r.includes('orphan-number'))) h.push('Put the metric name right before every number in the same clause (e.g. "TLT {TLT_CHG}"), never a bare number after "this/이는/これは".');
+    if (all.some(r => r.includes('direction-sign'))) h.push('A positive change is never weak/약세/弱気 and a negative change is never strong/강세/強気; for a smaller gain say it rose less.');
+    if (all.some(r => /schedule:(?:relative-day|date-required|weekday)/.test(r))) h.push('Write the event date exactly as DATE_LABELS gives it plus HH:MM ET; no today/tomorrow/오늘/내일/今日/明日.');
+    if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the second sentence.');
+    return h.length ? ' ' + h.join(' ') : '';
+}
 
 /** 3개 언어 호출이 이 시간 안에 끝났을 때만 교정 재생성(라우트 한도 60초 — 첫 호출 최대 32초) */
 const TRI_RETRY_BUDGET_MS = 20 * 1000;

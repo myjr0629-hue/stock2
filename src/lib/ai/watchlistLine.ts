@@ -56,6 +56,8 @@ export interface LineFacts {
     /** 모델에게 주는 사실 글 = 숫자 대조의 «근거» */
     factsText: string;
     contextText?: string;
+    /** 최상위 근거 한 줄(«TOP EVIDENCE [kind]: …» — watchlistDepth.rankStockContext) */
+    topLine?: string;
 }
 
 /**
@@ -145,7 +147,7 @@ export function buildLineUserPrompt(f: LineFacts): string {
     return `${f.factsText}
 
 CONTEXT (dated observations, not causal proof):
-${f.contextText || [f.darkPool ? `FINRA off-exchange share on ${f.darkPool.date}: ${f.darkPool.pct}% (not net buying)` : '', f.implied ? `Options implied move to ${f.implied.expiry}: ±${f.implied.pct}% (not a forecast)` : ''].filter(Boolean).join('\n') || 'EMPTY'}
+${f.topLine ? `${f.topLine}\n` : ''}${f.contextText || [f.darkPool ? `FINRA off-exchange share on ${f.darkPool.date}: ${f.darkPool.pct}% (not net buying)` : '', f.implied ? `Options implied move to ${f.implied.expiry}: ±${f.implied.pct}% (not a forecast)` : ''].filter(Boolean).join('\n') || 'EMPTY'}
 
 Write the line for ${f.ticker} now. JSON only.`;
 }
