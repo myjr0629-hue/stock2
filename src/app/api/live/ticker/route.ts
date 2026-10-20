@@ -1,3 +1,4 @@
+import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics, optionMetricsRowHasOi } from '@/lib/optionMetrics';
@@ -892,9 +893,9 @@ export async function GET(req: NextRequest) {
         && !(flowRes as any)?.maxPain && ((flowRes as any)?.dataSource === 'NONE' || !((flowRes as any)?.optionsCount > 0));
     if (liveOptionsEmpty) {
         try {
-            const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+            const db = await import('@/lib/aws/dynamoDataProvider');
             const gex = await Promise.race([
-                getLatestGex(ticker),
+                latestCollectorGexRow(db, ticker),
                 new Promise<null>(r => setTimeout(() => r(null), 2500)),
             ]);
             if (gex && (gex.maxPain || gex.flipLevel || gex.gex)) {

@@ -101,6 +101,24 @@ t('latestCollectorGexRow: 최신이 guardian 이면 최근 8행 중 첫 수집 �
     assert.equal(await getLatestCollectorGex('NONE'), null);
 });
 
+t('SPY·QQQ·SPX 혼합 행: oi-pcr와 optionMetrics가 같은 수집 OI·시각을 사용', async () => {
+    reset();
+    const spx = { ...COLLECTOR_SPY, ticker: 'SPX', price: 7655, callWall: 7900, pcr: 1.2,
+        totalCallOI: 1000, totalPutOI: 1200 };
+    history.SPY = SPY_ROWS();
+    history.QQQ = [COLLECTOR_QQQ];
+    history.SPX = [{ ...GUARDIAN(NOW), ticker: 'SPX', source: 'ec2-guardian' }, spx];
+    for (const row of [COLLECTOR_SPY, COLLECTOR_QQQ, spx]) {
+        const j = await withNow(() => get(row.ticker));
+        const m = (await withNow(() => readOptionMetrics([row.ticker]))).get(row.ticker)!;
+        assert.equal(j.pcr, row.pcr);
+        assert.equal(j.callOI, row.totalCallOI);
+        assert.equal(j.putOI, row.totalPutOI);
+        assert.equal(j.asOf, row.timestamp);
+        assert.equal(m.pcr, row.pcr);
+    }
+});
+
 t('oi-pcr 재현(10/20 09:52 ET): 최신 행 guardian → 예전엔 pcr null, 이제 수집 행 1.67(콜 521,743·풋 870,084·35일 정의) — live/ticker 와 같은 행', async () => {
     reset();
     history.SPY = SPY_ROWS();
@@ -270,7 +288,7 @@ t('배선: live/ticker 는 대체가 모두 없을 때 같은 직전 정상값(r
     assert.match(r, /latestCollectorGexRow\(db, t\)/);
     const s = fs.readFileSync(path.join(__dirname, '../src/services/optionMetricsService.ts'), 'utf8');
     assert.match(s, /latestCollectorGexRow\(db, ticker\)/);
-    // getLatestGex 자체는 그대로(다른 호출자 무변경)
+    // getLatestGex는 원시 조회로 유지하고, 소비 경로는 공통 선택 함수를 사용한다.
     const d = fs.readFileSync(path.join(__dirname, '../src/lib/aws/dynamoDataProvider.ts'), 'utf8');
     assert.match(d, /export async function getLatestGex\(ticker: string\): Promise<DynamoGexData \| null> \{\n\s+try \{\n\s+const items = await queryItems<DynamoGexData>\(\n\s+TABLES\.GEX_HISTORY,\n\s+'ticker = :tk',\n\s+\{ ':tk': ticker \},\n\s+\{ limit: 1, scanForward: false \}/);
 });

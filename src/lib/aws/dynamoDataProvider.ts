@@ -1,3 +1,4 @@
+import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 /**
  * [AWS Phase 2] DynamoDB Data Provider
  * Reads pre-computed data from Lambda harvest (300 tickers every 5 min)
@@ -235,7 +236,7 @@ export interface DynamoTickerSnapshot {
 export async function getTickerSnapshot(ticker: string): Promise<DynamoTickerSnapshot> {
   const [price, gex, flow, analyst, earnings, fundamentals, related] = await Promise.all([
     getLatestPrice(ticker),
-    getLatestGex(ticker),
+    latestCollectorGexRow({ getLatestGex, getGexHistory }, ticker),
     getLatestFlow(ticker),
     getAnalystData(ticker),
     getEarningsData(ticker),

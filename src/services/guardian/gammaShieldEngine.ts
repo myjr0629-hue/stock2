@@ -1,3 +1,4 @@
+import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 // src/services/guardian/gammaShieldEngine.ts
 // GAMMA SHIELD™ — Market-Wide Volatility Intelligence Engine
 // Aggregates SPY + QQQ options data into intuitive market indices
@@ -223,9 +224,9 @@ async function loadStruct(ticker: string): Promise<StructLite | null> {
     //   코드는 SPY·QQQ 대칭이므로 버그가 아니라 «그 순간 QQQ 호출이 쿼터에 걸린 것».
     //   같은 값이 DynamoDB(GEX_HISTORY)에 있으므로 거기서 메운다.
     try {
-        const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+        const db = await import('@/lib/aws/dynamoDataProvider');
         const gx: any = await Promise.race([
-            getLatestGex(ticker),
+            latestCollectorGexRow(db, ticker),
             new Promise<null>((r) => setTimeout(() => r(null), 2500)),
         ]);
         if (gx && (gx.gex != null || gx.flipLevel != null)) {

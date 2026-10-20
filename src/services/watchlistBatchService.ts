@@ -1,3 +1,4 @@
+import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
@@ -1322,11 +1323,11 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 })
                 .map((r: any) => String(r.ticker).toUpperCase());
             if (cold.length > 0) {
-                const { getLatestGex, getLatestFlow } = await import('@/lib/aws/dynamoDataProvider');
+                const db = await import('@/lib/aws/dynamoDataProvider');
                 const got = await Promise.all(cold.map(async (t) => {
                     const [gx, fl] = await Promise.all([
-                        Promise.race([getLatestGex(t).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 6000))]),
-                        Promise.race([getLatestFlow(t).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 6000))]),
+                        Promise.race([latestCollectorGexRow(db, t).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 6000))]),
+                        Promise.race([db.getLatestFlow(t).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 6000))]),
                     ]);
                     // Keep IV provenance from the GEX row itself, never the flow row's timestamp.
                     return (gx || fl) ? { ...(fl || {}), ...(gx || {}),
