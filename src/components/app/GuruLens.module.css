@@ -72,3 +72,10 @@
   min-height: 0;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* 4~10위 잠금 자리 표시 — 값 없는 막대(실제 행은 비PRO DOM 에 없다) */
+.lockRow { display: flex; align-items: center; gap: 8px; padding: 12px 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.lockRow i, .lockRow b, .lockRow em { display: block; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.10); }
+.lockRow i { width: 18px; height: 18px; border-radius: 50%; }
+.lockRow b { width: 46px; }
+.lockRow em { flex: 1; max-width: 160px; }

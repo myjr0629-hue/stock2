@@ -103,7 +103,7 @@ const gate = { isPro: false, unlocked: true, iapAvailable: true, purchasing: fal
 const nav = (Module as any)._load;
 (Module as any)._load = function (name: string, parent: any, main: any) {
     if (name === 'next/navigation') return { useRouter: () => ({ push() {}, back() {} }) };
-    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_t, k) => String(k) });
+    if (name.endsWith('.module.css')) return { __esModule: true, default: new Proxy({}, { get: (_t, k) => String(k) }) };
     if (name === './ValueWall') return { useAdUnlockGate: () => gate };
     if (name === './AdFreeIcon') return { AdFreeIcon: () => null };
     if (name === './RedeemCodeLink') return { RedeemCodeLink: () => null };
@@ -119,10 +119,12 @@ assert.match(chip(tl(['garp']), 'ja'), /通過レンズ 1/);
 assert.match(chip(tl(['garp']), 'en'), /Lenses passed 1/);
 // 4~10위 = PRO 전용 — 광고 1시간 해제(unlocked)만으로는 열리지 않는다(관문 10201023)
 const { GuruLensProOnly } = require('../src/components/app/GuruLens');
-const pro = () => renderToStaticMarkup(React.createElement(GuruLensProOnly, { locale: 'ko' }, React.createElement('i', null, 'ROWS')));
+const pro = () => renderToStaticMarkup(React.createElement(GuruLensProOnly, { locale: 'ko', rows: 7 }, React.createElement('a', { tabIndex: 0 }, 'ROWS')));
 assert.match(pro(), /guru-lens-pro-lock/, '광고 해제 상태여도 비PRO 는 잠금');
 assert.match(pro(), /4~10위 · Pro/);
 assert.ok(!/광고/.test(pro()), '광고 해제 버튼 없음');
+assert.ok(!/ROWS|tabindex/i.test(pro()), '관문 10201058: 비PRO DOM 에 실제 행·포커스 가능한 요소 없음');
+assert.equal((pro().match(/lockRow/g) ?? []).length, 7, '자리 표시만 행 수만큼');
 gate.isPro = true;
 assert.ok(!/guru-lens-pro-lock/.test(pro()) && /ROWS/.test(pro()), 'PRO 는 그대로 보인다');
 gate.isPro = false;

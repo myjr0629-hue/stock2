@@ -71,7 +71,7 @@ function LensCard({ lens, open, onToggle, universe, loc, locale }: {
                 <div className={s.body}>
                     {free.map((r, i) => <Row key={r.ticker} id={id} row={r} rank={i + 1} loc={loc} locale={locale} />)}
                     {locked.length > 0 && (
-                        <ProOnly locale={locale}>
+                        <ProOnly locale={locale} rows={locked.length}>
                             {locked.map((r, i) => <Row key={r.ticker} id={id} row={r} rank={FREE_ROWS + i + 1} loc={loc} locale={locale} />)}
                         </ProOnly>
                     )}
