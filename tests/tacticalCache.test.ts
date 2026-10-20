@@ -133,6 +133,50 @@ async function main() {
         assert.equal(await N.generateRealityInsight(directionalCtx('en')), up.en);
         assert.equal(calls.length, 1);
     });
+    await test('관문 회귀: ko/ja 앞 수식 반전 생성본만 교정하고 정상 en 보존', async () => {
+        const prefixed = {
+            ko: up.ko.replace('금리 상승', '하락한 금리'),
+            en: up.en,
+            ja: up.ja.replace('金利上昇', '下落した金利'),
+        };
+        reply = async opts => {
+            if (!String(opts.label).includes('/retry')) return JSON.stringify(prefixed);
+            assert.match(opts.userPrompt, /JSON keys: ko, ja\./);
+            assert.doesNotMatch(opts.userPrompt, /ENGLISH \(en\) INSTRUCTIONS/);
+            return JSON.stringify({ ko: up.ko, ja: up.ja });
+        };
+        for (const l of ['ko', 'en', 'ja'] as const) {
+            assert.equal(await N.generateRealityInsight(directionalCtx(l)), up[l]);
+        }
+        assert.equal(calls.length, 2);
+    });
+    for (const l of ['ko', 'ja'] as const) {
+        await test(`관문 회귀: ${l} 앞 수식 반전 저장본도 재사용 거부`, async () => {
+            const wrong = l === 'ko' ? up.ko.replace('금리 상승', '하락한 금리') : up.ja.replace('金利上昇', '下落した金利');
+            store.set(key(l), { text: wrong, updatedAt: new Date(clock).toISOString() });
+            reply = async () => JSON.stringify(up);
+            assert.equal(await N.generateRealityInsight(directionalCtx(l)), up[l]);
+            assert.equal(calls.length, 1);
+        });
+    }
+    await test('관문 회귀: 정책금리 하락 보도·10년물 상승은 교정 없이 생성·캐시 재사용', async () => {
+        const policy = {
+            ko: up.ko.replace('오늘 거시 원인은 미확인입니다.', 'WIRE 보도에서 정책금리 하락이 확인됐습니다.'),
+            en: up.en.replace('The macro cause today is unconfirmed.', 'WIRE reported policy rates are lower after the decision.'),
+            ja: up.ja.replace('今日のマクロ要因は未確認です。', 'WIREの報道で政策金利下落が確認されました。'),
+        };
+        const c = (l: Locale) => ({ ...directionalCtx(l), marketNewsHeadlines: [datedHeadline({ title: 'Policy rates are lower after the decision', published_utc: new Date(clock - 60_000).toISOString() }, 'WIRE', new Date(clock))!] });
+        reply = async () => JSON.stringify(policy);
+        for (const l of ['ko', 'en', 'ja'] as const) {
+            assert.equal(await N.generateRealityInsight(c(l)), policy[l]);
+            assert.equal(await N.generateRealityInsight(c(l)), policy[l]);
+        }
+        assert.equal(calls.length, 1);
+        // 메모리를 비운 콜드 스타트도 정상 저장본을 그대로 재사용한다.
+        _resetInsightStateForTest();
+        for (const l of ['ko', 'en', 'ja'] as const) assert.equal(await N.generateRealityInsight(c(l)), policy[l]);
+        assert.equal(calls.length, 1);
+    });
     await test('복구 번역에서 방향 반전은 저장/반환 거부', async () => {
         store.set(key('ko'), { text: up.ko, updatedAt: new Date(clock).toISOString() });
         reply = async () => down.en;

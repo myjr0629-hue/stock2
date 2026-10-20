@@ -66,6 +66,33 @@ test('여러 지표의 반대 방향·영어 전치 수식어를 올바른 주�
     bad('금리 하락과 TLT 상승이 연결됩니다.');
     good('TLT -0.74%는 금리 상승과 연결됩니다.');
 });
+test('관문 회귀: 세 언어 앞 수식 방향어도 up/down/flat 사실과 대조', () => {
+    const phrases = [
+        [6, ['상승한 금리', 'Rising yields', '上昇した金利']],
+        [-6, ['하락한 금리', 'Falling yields', '下落した金利']],
+        [0, ['보합인 금리', 'Flat yields', '横ばいの金利']],
+    ] as const;
+    for (const [value, texts] of phrases) {
+        const f = buildTacticalFacts({ ...ctx, us10yChangeBp: value });
+        for (const [other, others] of phrases) for (const text of others) {
+            if (value === other) good(text, f); else bad(text, f);
+        }
+        for (const text of texts) good(text, f);
+    }
+    for (const text of ['TLT 하락과 상승한 금리', 'Falling TLT and rising yields', 'TLT下落と上昇した金利']) good(text);
+    for (const text of ['TLT 하락과 하락한 금리', 'Falling TLT and falling yields', 'TLT下落と下落した金利']) bad(text);
+});
+test('관문 회귀: 정책금리 보도는 10년물과 별도 사실, 세 언어 모두 같은 뉴스 방향 사용', () => {
+    const reports = ['Policy rates are lower after the decision', '정책금리가 하락했습니다', '政策金利が下落しました'];
+    const claims = ['Policy rates are lower', '정책금리 하락', '政策金利下落', 'Lower policy rates', '하락한 정책금리', '下落した政策金利'];
+    for (const title of reports) {
+        const f = buildTacticalFacts({ ...ctx, marketNewsHeadlines: [datedHeadline({ title, published_utc: '2026-10-20T14:00:00Z' }, 'WIRE', new Date(asOf))!] });
+        assert.deepEqual(f.news[0].directions, [{ key: 'policyRateChange', direction: 'down' }]);
+        for (const text of claims) good(text, f);
+        for (const text of ['Policy rates are higher', '정책금리 상승', '政策金利上昇', 'Yields fall', '금리 하락', '金利下落']) bad(text, f);
+    }
+    for (const text of claims) bad(text); // 정책금리 근거가 없으면 10년물로 대신 검증하지 않는다.
+});
 test('부호 없는 수준·TLT만으로 금리 방향과 달러 강세를 만들 수 없음', () => {
     const level = buildTacticalFacts({ ...ctx, us10yChangeBp: undefined });
     bad('Yields rise.', level);
@@ -112,6 +139,35 @@ test('생성·저장본·복구 출구 전부 동일 방향 검사 적용', () =
         assert.deepEqual(checkTacticalStored(outputs[l], p), [], l);
         const wrong = outputs[l].replace(/상승|Rising|上昇/, l === 'ko' ? '하락' : l === 'en' ? 'Falling' : '下落');
         for (const reasons of [checkTacticalOutput(wrong, l, p), checkTacticalStored(wrong, p)]) assert.ok(reasons.some(r => r.startsWith('tactical:facts-direction:')));
+    }
+});
+test('관문 회귀: 앞 수식 반전 완성 문장은 생성·저장 출구 모두 거부', () => {
+    const outputs = {
+        ko: 'WIRE 보도한 국채 입찰 수요 약화는 상승한 금리와 연결해 해석됩니다. 얇은 감마 방어는 충격 흡수력이 제한적입니다. 다음 확인 기준은 미확인입니다.',
+        en: 'WIRE reported weak Treasury auction demand. Rising yields and thin dealer gamma leave limited absorption. The next test is unconfirmed.',
+        ja: 'WIREの国債入札需要低迷の報道は上昇した金利と整合的です。薄いガンマ防御は衝撃吸収力が限定的です。次の確認基準は未確認です。',
+    };
+    for (const l of ['ko', 'en', 'ja'] as const) {
+        const p = buildTacticalPrompt(ctx, l);
+        assert.deepEqual(checkTacticalOutput(outputs[l], l, p), [], l);
+        assert.deepEqual(checkTacticalStored(outputs[l], p), [], l);
+        const wrong = outputs[l].replace(/상승한|Rising|上昇した/, l === 'ko' ? '하락한' : l === 'en' ? 'Falling' : '下落した');
+        for (const reasons of [checkTacticalOutput(wrong, l, p), checkTacticalStored(wrong, p)]) {
+            assert.ok(reasons.includes('tactical:facts-direction:us10yChangeBp:up:down'), `${l}: ${reasons}`);
+        }
+    }
+});
+test('관문 회귀: 정책금리 하락 뉴스와 10년물 상승이 함께 있어도 정상 생성·저장본 허용', () => {
+    const policy = { ...ctx, marketNewsHeadlines: [datedHeadline({ title: 'Policy rates are lower after the decision', published_utc: '2026-10-20T14:00:00Z' }, 'WIRE', new Date(asOf))!] };
+    const outputs = {
+        ko: 'WIRE 보도에서 정책금리 하락이 확인됐습니다. 상승한 금리와 얇은 감마 방어는 충격 흡수력이 제한적입니다. 다음 확인 기준은 미확인입니다.',
+        en: 'WIRE reported policy rates are lower after the decision. Rising yields and thin dealer gamma leave limited absorption. The next test is unconfirmed.',
+        ja: 'WIREの報道で政策金利下落が確認されました。上昇した金利と薄いガンマ防御は衝撃吸収力が限定的です。次の確認基準は未確認です。',
+    };
+    for (const l of ['ko', 'en', 'ja'] as const) {
+        const p = buildTacticalPrompt(policy, l);
+        assert.deepEqual(checkTacticalOutput(outputs[l], l, p), [], l);
+        assert.deepEqual(checkTacticalStored(outputs[l], p), [], l);
     }
 });
 console.log(`${passed} passed`);

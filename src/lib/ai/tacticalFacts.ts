@@ -58,6 +58,8 @@ export function buildTacticalFacts<T extends { asOf?: string; metricsAsOf?: stri
 
 // 이름과 방향을 묶어서 검사한다. 다른 지표의 반대 방향을 이 지표에 붙이지 않는다.
 const SUBJECTS: Array<{ key: string; re: RegExp }> = [
+    // 정책금리는 국채 수익률과 다른 사실이다. 입력 뉴스의 방향으로만 검증한다.
+    { key: 'policyRateChange', re: /\b(?:policy\s+(?:interest\s+)?rates?|federal\s+funds\s+(?:target\s+)?rates?)\b|(?:정책|기준)\s*금리|(?:政策|基準)金利/gi },
     { key: 'us10yChangeBp', re: /\b(?:yields?|(?:interest\s+)?rates?)\b|금리|利回り|金利/gi },
     { key: 'nasdaqChange', re: /\b(?:NASDAQ(?:[ -]100)?|NDX|QQQ)\b|나스닥|ナスダック/gi },
     { key: 'spxChangePct', re: /\b(?:S&P\s?500|SPX|SPY)\b/gi },
@@ -84,17 +86,26 @@ function directionClaims(text: string): DirectionClaim[] {
     const result: DirectionClaim[] = [];
     // 소수점은 절 경계가 아니다. 대조 접속사는 다른 주어와의 잘못된 결합을 막는다.
     const clauses = text.split(/(?<!\d)[.,](?!\d)|[。!?！？;；,，]|\b(?:while|whereas|but)\b|반면|一方/iu);
-    const directions = (Object.keys(TACTICAL_DIRECTION_WORDS) as Locale[]).flatMap(l =>
-        (['up', 'down', 'flat'] as const).map(direction => ({ direction, re: new RegExp(TACTICAL_DIRECTION_WORDS[l][direction], 'gi') })));
+    const directions = (Object.keys(TACTICAL_DIRECTION_WORDS) as Locale[]).flatMap(locale =>
+        (['up', 'down', 'flat'] as const).map(direction => ({ locale, direction, re: new RegExp(TACTICAL_DIRECTION_WORDS[locale][direction], 'gi') })));
     for (const clause of clauses) {
         if (/\b(?:if|unless)\b|만약|경우|라면|なら|場合/i.test(clause)) continue;
-        const subjects = SUBJECTS.flatMap(s => [...clause.matchAll(s.re)].map(m => ({ key: s.key, start: m.index!, end: m.index! + m[0].length })));
-        for (const { direction, re } of directions) for (const m of clause.matchAll(re)) {
+        const matches = SUBJECTS.flatMap(s => [...clause.matchAll(s.re)].map(m => ({ key: s.key, start: m.index!, end: m.index! + m[0].length })));
+        // «policy rates» 안의 «rates»처럼 겹친 이름은 더 구체적인 전체 주어를 쓴다.
+        const subjects = matches.filter(s => !matches.some(other => other !== s && other.start <= s.start && other.end >= s.end
+            && other.end - other.start > s.end - s.start));
+        for (const { locale, direction, re } of directions) for (const m of clause.matchAll(re)) {
             const start = m.index!, end = start + m[0].length;
             const left = subjects.filter(s => s.end <= start).sort((a, b) => b.end - a.end)[0];
             const right = subjects.filter(s => s.start >= end).sort((a, b) => a.start - b.start)[0];
-            // 영어의 «falling yields»·«higher rates»도 인정. 뒤 주어까지 공백만 있으면 수식 관계가 우선.
-            const prefix = /^[A-Za-z]/.test(m[0]) && right && /^\s*(?:US\s+|Treasury\s+|10-year\s+)*$/i.test(clause.slice(end, right.start));
+            // «falling yields»·«하락한 금리»·«下落した金利»는 뒤 주어를 수식한다.
+            // 언어별 관형 어미만 허용해 앞 절의 방향을 먼 주어에 붙이지 않는다.
+            const prefixGap = {
+                en: /^\s*(?:US\s+|Treasury\s+|10-year\s+)*$/i,
+                ko: /^\s*(?:(?:한|하는|했던|하던|중인|세인|인|진|지는)\s*)?$/,
+                ja: /^\s*(?:(?:した|している|していた|する|の)\s*)?$/,
+            };
+            const prefix = right && prefixGap[locale].test(clause.slice(end, right.start));
             const subject = prefix ? right : left;
             if (!subject?.key || Math.min(Math.abs(start - subject.end), Math.abs(subject.start - end)) > 48) continue;
             const before = clause.slice(prefix ? Math.max(0, start - 24) : subject.end, start), after = clause.slice(end);

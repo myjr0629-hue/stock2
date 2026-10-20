@@ -45,3 +45,28 @@ TS 시험 실행기는 설치된 `ts-node`와 `tsconfig-paths/register`를 사�
 - 원천 id가 없는 기존 뉴스 문자열에는 출처·발행시각·내용의 SHA-256 일부를 안정 식별자로 쓴다. 공급사 원본 id를 새로 조회하지 않았다.
 - 정확한 시각이 없는 AMC/BMO 일정은 기존 경계 순간과 `exact: false`를 함께 전달한다. 경계를 정확한 발표 시각으로 바꾸지 않는다.
 - 실모델의 문장 품질·운영 적용 결과는 미검증이다. 현재 화면의 문구/표시 형식과 기존 대기 문구는 변경하지 않았다.
+
+## 관문 보류 수정 (2026-10-20)
+
+수정 전 고정 입력 `us10yChangeBp=+6`으로 두 지적을 재현했다. `하락한 금리`와 `下落した金利`는 사유 없이 통과했고, 당일 뉴스에 있는 `Policy rates are lower after the decision`은 `us10yChangeBp:up:down`으로 거부됐다.
+
+- 앞 수식 방향어를 언어별 관형 어미로 뒤 주어에 연결한다. 기존의 주어 뒤 방향어·다른 주어 경계·조건/부정 검사도 유지한다. 세 언어의 up/down/flat 조합과 복수 지표, 생성/저장 완성 문장을 시험했다.
+- 정책금리 전체 이름을 별도 `policyRateChange` 사실로 추출한다. 전체 이름 안의 일반 `rates`/`금리`/`金利` 중복 매칭을 제거해 10년물에 잘못 연결하지 않는다. 정책금리는 당일 뉴스의 명시 방향으로 검증하며, 근거 부재·정책금리 반전·10년물 반전은 계속 거부한다.
+- 기존 출구 스크립트 S7의 마크다운 시험 예문은 숫자 주어 사전에 없는 `支持線` 때문에 수정 전부터 두 검사가 실패했다. `orphanNumberReasons`로 이를 재현한 뒤 예문만 기존 사전의 동의어 `サポート`로 보정했다. 숫자 검사나 제품 문구는 바꾸지 않았다.
+
+공유 함수 호출자 전체를 다시 검색했다. `directionClaims`의 두 호출자는 `buildTacticalFacts`의 뉴스 추출과 `tacticalFactReasons`의 출력 대조다. 외부 경로는 `IntelligenceNode.generateRealityInsight` 및 `buildTacticalPrompt`의 facts 구성, `checkTacticalOutput`/`checkTacticalStored` → `IntelligenceNode.gateText`의 생성/저장/복구 검사다. `unifiedDataStream`의 현재 판정/스냅샷 출구도 동일 프롬프트 빌더를 사용한다. 호출부 인터페이스는 유지했다.
+
+| 실행 대상 | 이번 결과 |
+| --- | --- |
+| `tests/tacticalFacts.test.ts` | 15 통과 (기존 11 + 관문 회귀 4) |
+| `tests/tacticalCache.test.ts` | 30 통과 (기존 26 + 관문 회귀 4), 0 실패 |
+| `tests/aiDepthMacro.test.ts` | 36 통과 |
+| `tests/guardianNumbers.test.ts` | 22 통과 |
+| `tests/guardianCore.test.ts` | 35 통과 |
+| `scripts/test-insight-gate.ts` | 105 통과, 0 실패 (S7 예문 보정 포함) |
+| `node node_modules/typescript/bin/tsc --noEmit --incremental false` | 잠금 아래 1회 실행, exit 0, 진단 없음 |
+| `git diff --check` | 통과 |
+
+생성/캐시 시험은 모델·Redis·세션 보관을 메모리 모의 구현으로 대체했다. 관문 회귀에서 ko/ja 반전만 교정하고 정상 en을 보존하며, 반전 저장본은 거부하고 정상 정책금리 보도는 교정 없이 생성/메모리/콜드 스타트 저장본 재사용함을 확인했다. 시험 묶음은 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 직렬 실행했다.
+
+남은 위험은 닫힌 방향어/주어 사전과 관형 어미 밖의 표현이다. 여러 국가의 정책금리나 복잡한 문장의 의미 전체를 증명하지 않는다. 실모델·운영 결과는 미검증이며, 모델 실호출·운영 쓰기·브라우저 접근·화면 변경·커밋/push/병합/배포는 하지 않았다.
