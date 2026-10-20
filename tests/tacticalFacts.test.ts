@@ -125,6 +125,12 @@ test('현재 값과 반대인 뉴스 방향이 관측값을 덮을 수 없음', 
 test('미확인·다른 주어 약화를 금리 방향으로 만들지 않음', () => {
     good('금리 상승과 수요 약화가 함께 보도됐습니다.');
 });
+test('관문 8차 회귀: «미확인» 뉴스는 정책금리·금리 방향 근거로 승격하지 않음', () => {
+    for (const title of ['정책금리 하락은 미확인입니다', '政策金利下落は未確認です', 'Policy rate cut remains unconfirmed']) {
+        const f = buildTacticalFacts({ ...ctx, us10yChangeBp: undefined, marketNewsHeadlines: [datedHeadline({ title, published_utc: '2026-10-20T14:00:00Z' }, 'WIRE', new Date(asOf))!] });
+        assert.deepEqual(f.news[0].directions, [], title);
+    }
+});
 test('관문 7차 회귀: «미확인» 문구로 반대 방향 금리 주장을 우회하지 못함', () => {
     const up = buildTacticalFacts({ ...ctx, us10yChangeBp: 6 });
     for (const text of ['금리 하락은 미확인 재료에 따른 반응입니다', '金利下落は未確認の材料への反応です', '금리 하락은 미확인입니다.']) bad(text, up);

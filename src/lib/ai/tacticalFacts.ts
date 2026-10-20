@@ -42,8 +42,8 @@ export function buildTacticalFacts<T extends { asOf?: string; metricsAsOf?: stri
         if (!m || !Number.isFinite(at) || at > now || etDateOf(at) !== asOfDate || textIntegrityReasons(text).length) continue;
         // 원천 id 없는 기존 근거 줄도 발행시각·출처·내용으로 식별 가능하게 한다.
         const body = text.replace(/^\[[^\]]*\]\s*/, '');
-        // 우려·예상은 실제 움직임이 아니다. 모호한 원문을 코드가 사실로 승격하지 않는다.
-        const speculative = /\b(?:may|might|could|would|will|forecast|expect\w*|outlook|concern\w*|fear\w*|worr\w*)\b|우려|전망|예상|가능|懸念|見通し|予想|恐れ/i.test(body);
+        // 우려·예상·미확인은 실제 움직임이 아니다. 모호한 원문을 코드가 사실로 승격하지 않는다(8차 관문: 출구 검사의 «미확인» 예외 제거가 뉴스 추출로 새지 않게).
+        const speculative = /\b(?:may|might|could|would|will|forecast|expect\w*|outlook|concern\w*|fear\w*|worr\w*|unconfirmed|unverified)\b|우려|전망|예상|가능|미확인|懸念|見通し|予想|恐れ|未確認/i.test(body);
         const directions = speculative ? [] : directionClaims(body).filter(c => !c.negated && !c.unverifiable).map(({ key, direction }) => ({ key, direction }));
         news.push({ id: `news:${idOf(text)}`, publishedAt: new Date(at).toISOString(), source: m[1], text, directions });
     }
