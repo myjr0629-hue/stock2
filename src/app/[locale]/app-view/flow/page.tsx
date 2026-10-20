@@ -38,8 +38,8 @@ import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSess
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
-const LOGO = (t: string) => `/api/logo/${t}?v=3`;
-const APP_LOGO = (t: string) => `/api/logo/${t}?v=3`;
+const LOGO = (t: string) => `/api/logo/${t}?v=4`;
+const APP_LOGO = (t: string) => `/api/logo/${t}?v=4`;
 
 function handleLogoFallback(event: SyntheticEvent<HTMLImageElement>, ticker: string) {
   const img = event.currentTarget;

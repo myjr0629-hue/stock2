@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
+import { createLogoLoader, isUsableLogo } from '@/lib/logoPolicy';
 
 // Unified logo proxy — the SINGLE source every page (Flow/Command/Dash/Movers/
 // Intel) should use, so a ticker looks identical everywhere. Two providers, each
@@ -35,6 +36,23 @@ const CACHE_TTL = 86400; // 24 hours — «진짜 로고»에만 쓴다
 //   일부가 실패했고, 그게 그대로 하루짜리 캐시에 박혔다.
 const FALLBACK_TTL = 600; // 10 minutes
 
+type CachedLogo = { buffer: string; contentType: string; fallback: boolean };
+const loadLogo = createLogoLoader<CachedLogo>();
+
+function imageResponse(logo: CachedLogo, cache: 'GEN' | 'HIT' | 'MISS', transient = false): Response {
+    return new Response(Buffer.from(logo.buffer, 'base64'), {
+        status: 200,
+        headers: {
+            'Content-Type': logo.contentType,
+            // A temporary initial chip must not outlive its Redis TTL at the CDN.
+            'Cache-Control': transient ? 'no-store' : logo.fallback
+                ? 'public, max-age=600, s-maxage=600'
+                : 'public, max-age=600, s-maxage=86400, stale-while-revalidate=86400',
+            'X-Cache': cache,
+        },
+    });
+}
+
 // Deterministic premium fallback — a gradient chip with the ticker's letters, so
 // a logo ALWAYS renders (no blanks, no wrong/issuer marks) with a stable per-ticker color.
 function hashHue(s: string): number {
@@ -50,15 +68,12 @@ function initialChipSvg(symbol: string): string {
     const fs = label.length >= 4 ? 25 : label.length === 3 ? 30 : label.length === 2 ? 36 : 42;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><rect width="100" height="100" rx="24" fill="url(#g)"/><text x="50" y="52" dominant-baseline="central" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-size="${fs}" font-weight="800" fill="#ffffff" letter-spacing="-1">${label}</text></svg>`;
 }
-function chipResponse(symbol: string, cache: 'GEN' | 'HIT' = 'GEN'): Response {
-    return new Response(initialChipSvg(symbol), {
-        status: 200,
-        headers: {
-            'Content-Type': 'image/svg+xml; charset=utf-8',
-            'Cache-Control': 'public, max-age=600, s-maxage=86400, stale-while-revalidate=86400',
-            'X-Cache': cache,
-        },
-    });
+function initialChip(symbol: string): CachedLogo {
+    return {
+        buffer: Buffer.from(initialChipSvg(symbol)).toString('base64'),
+        contentType: 'image/svg+xml; charset=utf-8',
+        fallback: true,
+    };
 }
 
 export async function GET(
@@ -73,82 +88,59 @@ export async function GET(
 
     // Known logoless/issuer-wordmark tickers → premium initial chip immediately.
     if (FORCE_INITIAL.has(symbol)) {
-        return chipResponse(symbol);
+        return imageResponse(initialChip(symbol), 'GEN');
     }
 
-    // v4 — 2026-09-09. v3 캐시에 «HTML 338KB» 가 로고로 들어가 있었다.
-    //   (요청 origin 으로 자기 자신을 불러 SSO 페이지를 200 으로 받았다)
-    //   응답 «모양»이 바뀌었으므로 키를 올려야 옛 값이 안 나간다.
-    const cacheKey = `logo:v4:${symbol}`;
+    // v5 — 2026-10-20: v4 contains valid PNGs that are blank placeholders.
+    // Do not delete production keys: ignore them and refill through the limiter.
+    const cacheKey = `logo:v5:${symbol}`;
 
-    // 1. Try Redis cache first
+    // 1. Try Redis cache first. Only this version writes the fallback marker.
     try {
-        const cached = await getFromCache<{ buffer: string; contentType: string }>(cacheKey);
-        if (cached?.buffer) {
-            const imgBuffer = Buffer.from(cached.buffer, 'base64');
-            return new Response(imgBuffer, {
-                status: 200,
-                headers: {
-                    'Content-Type': cached.contentType || 'image/png',
-                    'Cache-Control': 'public, max-age=600, s-maxage=86400, stale-while-revalidate=86400',
-                    'X-Cache': 'HIT',
-                },
-            });
-        }
+        const cached = await getFromCache<CachedLogo>(cacheKey);
+        if (cached?.buffer) return imageResponse(cached, 'HIT');
     } catch { /* continue to origin */ }
 
-    // 2. Fetch from origin — try each source in order, return the first hit.
-    // Curated bundled logo (self-hosted) wins, then provider order.
-    // ⚠️ 요청 origin 으로 자기 자신을 부르면 안 된다. 보호된 *.vercel.app
-    //    배포 URL 에서는 정적 파일 요청이 **SSO HTML 페이지를 200 으로** 돌려주고,
-    //    아래 루프가 그걸 «로고»로 받아들인다. 실측(2026-09-09): AMZN 만
-    //    image/png 대신 text/html 338KB 가 나가 화면에서 이니셜 «AM» 으로 떨어졌다.
-    const origin = publicBase(new URL(request.url).origin);
-    const curatedFile = CURATED[symbol];
-    const sources = LOGO_OVERRIDE[symbol] || [
-        ...(curatedFile ? [`${origin}/logos/${curatedFile}`] : []),
-        `${PARQET}/${symbol}?format=png`,
-        `${FMP}/${symbol}.png`,
-    ];
-    for (const url of sources) {
-        try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-            if (!res.ok) continue;
-            const arrayBuffer = await res.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            if (buffer.byteLength < 64) continue; // skip empty/placeholder responses
-            const contentType = res.headers.get('content-type') || 'image/png';
-            // ★ «이미지가 아닌 것»은 절대 로고로 쓰지 않는다.
-            //   크기만 보면(>64B) HTML 오류/로그인 페이지가 통과한다 — 실제로 통과했다.
-            //   <img> 는 그걸 못 그리고 조용히 깨진 아이콘이 되므로 화면에서만 보인다.
-            if (!/^image\//i.test(contentType)) continue;
-
-            // 3. Cache the winning image in Redis (base64 encoded)
+    const logo = await loadLogo(cacheKey, async () => {
+        // 2. Fetch from origin — try each source in order, return the first hit.
+        // Curated bundled logo (self-hosted) wins, then provider order.
+        // ⚠️ 요청 origin 으로 자기 자신을 부르면 안 된다. 보호된 *.vercel.app
+        //    배포 URL 에서는 정적 파일 요청이 **SSO HTML 페이지를 200 으로** 돌려주고,
+        //    아래 루프가 그걸 «로고»로 받아들인다. 실측(2026-09-09): AMZN 만
+        //    image/png 대신 text/html 338KB 가 나가 화면에서 이니셜 «AM» 으로 떨어졌다.
+        const origin = publicBase(new URL(request.url).origin);
+        const curatedFile = CURATED[symbol];
+        const sources = LOGO_OVERRIDE[symbol] || [
+            ...(curatedFile ? [`${origin}/logos/${curatedFile}`] : []),
+            `${PARQET}/${symbol}?format=png`,
+            `${FMP}/${symbol}.png`,
+        ];
+        for (const url of sources) {
             try {
-                await setInCache(cacheKey, {
-                    buffer: buffer.toString('base64'),
-                    contentType,
-                }, CACHE_TTL);
-            } catch { /* non-critical */ }
+                const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+                if (!res.ok) continue;
+                const buffer = Buffer.from(await res.arrayBuffer());
+                const contentType = res.headers.get('content-type') || 'image/png';
+                const curated = Boolean(curatedFile && url === `${origin}/logos/${curatedFile}`);
+                // A 200 PNG can still be a blank placeholder. Reject it at BOTH providers.
+                // Also retain the image MIME check against HTML/SSO responses (2026-09-09).
+                if (!isUsableLogo(buffer, contentType, curated)) continue;
 
-            return new Response(buffer, {
-                status: 200,
-                headers: {
-                    'Content-Type': contentType,
-                    'Cache-Control': 'public, max-age=600, s-maxage=86400, stale-while-revalidate=86400',
-                    'X-Cache': 'MISS',
-                },
-            });
-        } catch { /* try next source */ }
-    }
+                const winner: CachedLogo = { buffer: buffer.toString('base64'), contentType, fallback: false };
+                try {
+                    await setInCache(cacheKey, winner, CACHE_TTL);
+                } catch { /* non-critical */ }
+                return winner;
+            } catch { /* try next source */ }
+        }
 
-    // No source had a usable logo — premium initial chip so it NEVER shows blank.
-    // Cache the chip so we don't re-hit both providers on every miss.
-    try {
-        await setInCache(cacheKey, {
-            buffer: Buffer.from(initialChipSvg(symbol)).toString('base64'),
-            contentType: 'image/svg+xml; charset=utf-8',
-        }, FALLBACK_TTL);
-    } catch { /* non-critical */ }
-    return chipResponse(symbol);
+        // Only actual provider failures get the short fallback cache, never queue overload.
+        const fallback = initialChip(symbol);
+        try {
+            await setInCache(cacheKey, fallback, FALLBACK_TTL);
+        } catch { /* non-critical */ }
+        return fallback;
+    });
+    if (!logo) return imageResponse(initialChip(symbol), 'GEN', true);
+    return imageResponse(logo, logo.fallback ? 'GEN' : 'MISS');
 }
