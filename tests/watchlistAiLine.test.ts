@@ -85,7 +85,8 @@ const GOOD = JSON.stringify({
   ko: 'Put Floor $220 위 {PF} · Max Pain $215 위 {MP} · 장외 비중 43.8%',
   en: '{PF} above Put Floor $220 · {MP} above Max Pain $215 · off-exchange 43.8%',
   ja: 'Put Floor $220の{PF}上 · Max Pain $215の{MP}上 · 場外比率43.8%',
-  insight: { ko: '장외 비중은 방향 미확정, 감마 방어가 변수', en: 'Off-exchange share cannot confirm gamma support', ja: '場外比率だけで方向不明、ガンマ防御の維持が焦点' },
+  // 10/21 v2: 감마·레벨뿐인 종목(최상위 근거 positioning)의 해석은 자기 숫자를 담아야 한다(일반론 차단)
+  insight: { ko: '장외 비중 43.8%만으로는 방향 미확정, 감마 방어가 변수', en: 'Off-exchange 43.8% alone cannot confirm gamma support', ja: '場外比率43.8%だけで方向不明、ガンマ防御の維持が焦点' },
 });
 
 // ━━━ 1. 사실 ━━━
@@ -333,7 +334,9 @@ async function asyncTests() {
 
   await at('관문 회귀(10/20 4차): 08:30 실적 «예정» 근거로 만든 해석은 08:30부터 안 나가고 재생성 — 여름·겨울·경계 · 해석의 일정 언급은 생성 단계에서 탈락', async () => {
     const clock = Date.now;
-    const SCHED = GOOD;   // 해석은 일정을 말하지 않는다(fail-closed) — 그래도 «예정» 근거로 만든 해석은 그 예정 시각에 기한이 끝난다
+    // 해석은 날짜·시각을 말하지 않는다(fail-closed) — 그래도 «예정» 근거로 만든 해석은 그 예정 시각에 기한이 끝난다
+    //   10/21 v2: 자기 실적이 최상위 근거면 해석은 실적을 다뤄야 한다(실적을 무시한 일반론 탈락)
+    const SCHED = JSON.stringify({ ...JSON.parse(GOOD), insight: { ko: '실적 반응 전 장외 비중 43.8%는 방향 미확정', en: 'Off-exchange 43.8% cannot confirm direction before earnings', ja: '決算反応の前で場外比率43.8%だけでは方向が分からない位置' } });
     try {
       for (const [day, utcRelease] of [['2026-10-20', '12:30'], ['2026-12-01', '13:30']]) {
         const releaseMs = Date.parse(`${day}T${utcRelease}:00Z`);   // 08:30 ET (EDT +4 · EST +5)

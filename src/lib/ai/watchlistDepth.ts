@@ -54,9 +54,23 @@ const POS_GAMMA = /양\s?(?:\(\+\)\s?)?감마|正ガンマ|positive gamma|long g
 const DAMPEN = /억제|제약|제한|누르|눌러|완충|안정|막히|抑制|抑え|抑制|緩和|安定|constrain\w*|dampen\w*|cap(?:s|ped|ping)?\b|cushion\w*|buffer\w*|limit\w*|stabiliz\w*|suppress\w*/i;
 const AMPLIFY = /증폭|키우|키운|커지|확대|増幅|拡大|amplif\w*|widen\w*|magnif\w*|accelerat\w*/i;
 export function gammaMechanismReasons(text: string): string[] {
+    // 감마 표현 «뒤 24자 안»의 억제·증폭 말만 감마의 효과로 본다 — 사이에 레벨 이름(콜월·Max Pain…)이 끼면 그 레벨의 효과(관문 10201522 ④ «음감마지만 콜월이 상승을 제한»)
+    const LEVEL = /max\s?pain|call\s?wall|put\s?floor|gamma\s?flip|맥스\s?페인|콜\s?월|풋\s?플로어|감마\s?플립|マックス\s?ペイン|コール\s?ウォール|プット\s?フロア|ガンマ\s?フリップ/i;
+    const effect = (re: RegExp): 'damp' | 'amp' | null => {
+        const m = text.match(re);
+        if (!m) return null;
+        let w = text.slice(m.index! + m[0].length, m.index! + m[0].length + 24);
+        const cut = w.search(/[.,;。、，]/);
+        if (cut >= 0) w = w.slice(0, cut);
+        const lv = w.search(LEVEL);
+        if (lv >= 0) w = w.slice(0, lv);
+        const d = w.search(DAMPEN), a = w.search(AMPLIFY);
+        if (d < 0 && a < 0) return null;
+        return d >= 0 && (a < 0 || d < a) ? 'damp' : 'amp';
+    };
     const neg = NEG_GAMMA.test(text), pos = POS_GAMMA.test(text);
-    if (neg && !pos && DAMPEN.test(text) && !AMPLIFY.test(text)) return ['insight:gamma-mechanism'];
-    if (pos && !neg && AMPLIFY.test(text) && !DAMPEN.test(text)) return ['insight:gamma-mechanism'];
+    if (neg && !pos && effect(NEG_GAMMA) === 'damp') return ['insight:gamma-mechanism'];
+    if (pos && !neg && effect(POS_GAMMA) === 'amp') return ['insight:gamma-mechanism'];
     return [];
 }
 

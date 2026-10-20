@@ -469,8 +469,11 @@ test('v2 ② 방향 모순: 양수 등락을 «약세/弱気»로 서술하면 �
     assert.deepEqual(orphanNumberReasons('36 점의 극단적 약세 신호와 49%의 중립 참여폭은'), ['orphan-number:36']);
     assert.deepEqual(orphanNumberReasons('10년물 금리 5.15%와 +0.31% 상승으로 연결해 해석된다.'), ['orphan-number:+0.31%']);
     assert.deepEqual(orphanNumberReasons('An earnings move past the ±6.4% implied range meets negative gamma'), []);
-    // 양수 GEX 를 «약세 포지셔닝»으로 서술(실제 모델 1차) — 탈락
-    assert.deepEqual(directionSignReasons('광폭 49%와 GEX +7는 약세 포지셔닝이 상승 압력을 제한하는 모습이다.'), ['direction-sign:+7']);
+    // 관문 10201522 재현: 수준 값(GEX -40)은 등락이 아니다 · 수준+변화량 연달아 · 현지어 레벨 이름
+    assert.deepEqual(directionSignReasons('GEX -40은 상승 움직임을 증폭하는 음감마입니다'), []);
+    assert.deepEqual(orphanNumberReasons('미국 10년물 금리 5.15%로 +6bp 상승했다.'), []);
+    assert.deepEqual(orphanNumberReasons('맥스페인 365 위라 만기 회귀 압력이 남는 자리'), []);
+    assert.deepEqual(orphanNumberReasons('マックスペイン365の上で満期回帰の圧力が残る位置'), []);
 });
 
 test('v2 ③ 상대 날짜: 생성 검사는 «내일 08:30 ET»를 받지 않고 «10/20(화) 08:30 ET»를 받는다 · 틀린 요일 탈락 · 프롬프트에 DATE_LABELS', () => {
@@ -580,7 +583,7 @@ test('v2 ⑦ 같은 날 같은 해석 반복 방지 · 내부자 줄(장내 매�
 test('v2 ⑧ 감마 기제(음감마=키움·양감마=누름) 반대 서술 탈락 · 연결형으로 끝나는 첫 절은 자르지 않는다', () => {
     for (const t of ['예상 변동 ±2.2%가 음감마 구간 안에 머물면서 위쪽 움직임이 제약받는 자리', 'Negative gamma zone constrains the ±3.1% implied move', '想定変動幅±2.2%が負ガンマ圏に収まり上値が抑制される位置', '양감마라 딜러 헤지가 변동을 키우는 자리'])
         assert.deepEqual(gammaMechanismReasons(t), ['insight:gamma-mechanism'], t);
-    for (const t of ['실적 반응이 예상 변동 ±6.4%를 넘으면 음감마가 증폭하는 자리', 'Positive gamma: dealer hedging dampens swings', '負ガンマでヘッジ売買が値動きを増幅する位置'])
+    for (const t of ['실적 반응이 예상 변동 ±6.4%를 넘으면 음감마가 증폭하는 자리', 'Positive gamma: dealer hedging dampens swings', '負ガンマでヘッジ売買が値動きを増幅する位置', '음감마지만 콜월이 상승을 제한하는 자리', 'Negative gamma, but the Call Wall caps the upside'])
         assert.deepEqual(gammaMechanismReasons(t), [], t);
     const long = '예상 변동 ±4.8%는 Max Pain과 Call Wall 사이 공간에 담기며, 양감마 구간에서 상승 움직임이 제약받는 자리';
     assert.equal(fitDepthLine(long, 'ko'), long);

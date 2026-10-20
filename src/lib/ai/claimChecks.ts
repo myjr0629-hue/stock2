@@ -34,7 +34,7 @@ function mask(text: string): string {
 /** 값 숫자: 부호·통화·단위 포함 */
 const VALUE_RE = /([+\-−±＋－]?)(\$|US\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(\s?(?:%p|%|bps?|bp|pts?|pp|[xX×]|[KMBT]\b|million|billion))?/g;   // 달러·ドル은 단위로 먹지 않는다(«101.8 달러 인덱스»의 주어)
 
-export interface ValueToken { raw: string; index: number; end: number; sign: 1 | -1 | 0; exempt: boolean }
+export interface ValueToken { raw: string; index: number; end: number; sign: 1 | -1 | 0; exempt: boolean; /** 변화량 단위(%·bp·pp·pt) — 방향 검사는 이것만 */ change: boolean }
 
 export function valueTokens(text: string): ValueToken[] {
     const src = mask(text);
@@ -48,7 +48,8 @@ export function valueTokens(text: string): ValueToken[] {
         const n = Number(num.replace(/,/g, ''));
         const exempt = !marked && Number.isInteger(n) && n >= 0 && n <= 10;
         const sign: 1 | -1 | 0 = signRaw === '+' || signRaw === '＋' ? 1 : signRaw && signRaw !== '±' ? -1 : 0;
-        out.push({ raw: raw.trim(), index: idx, end: idx + raw.length, sign, exempt });
+        const change = !!unit && /%|bp|pp|pt/i.test(unit);
+        out.push({ raw: raw.trim(), index: idx, end: idx + raw.length, sign, exempt, change });
     }
     return out;
 }
@@ -61,11 +62,11 @@ const SUBJECT_EN = ['yields?', 'treasur\\w*', 'bonds?', 'S&P', 'SPX', 'nasdaq', 
     'housing', 'permits', 'starts', 'sales', 'range', 'premium', 'calls?', 'puts?', 'flows?', 'market', 'equities'];
 const SUBJECT_CJK = [
     // ko
-    '금리', '국채', '년물', '채권', '나스닥', '다우', '러셀', '참여폭', '시장 폭', '상승 종목', '하락 종목', '등락', '감마', '변동성', '달러', '금값', '금 ', '금은', '금이', '금도',
+    '맥스\\s?페인', '콜\\s?월', '풋\\s?플로어', '감마\\s?플립', '금리', '국채', '년물', '채권', '나스닥', '다우', '러셀', '참여폭', '시장 폭', '상승 종목', '하락 종목', '등락', '감마', '변동성', '달러', '금값', '금 ', '금은', '금이', '금도',
     '유가', '원유', '브렌트', '배럴', '비트코인', '공포', '탐욕', '스퀴즈', '예상 변동', '장외 비중', '장외', '지지', '저항', '레벨', '스프레드',
     '선물', '지수', '주가', '종목', '섹터', '반도체', '기술주', '가격', '물가', '고용', '주택', '착공', '허가', '판매', '범위', '프리미엄', '콜', '풋', '시장',
     // ja
-    '金利', '利回り', '国債', '年債', '債券', 'ナスダック', 'ダウ', 'ラッセル', 'ブレッドス', '騰落', '値上がり', '値下がり', 'ガンマ', 'ボラティリティ', 'ドル', '金価格', '金相場', '金は', '金が',
+    'マックス\\s?ペイン', 'コール\\s?ウォール', 'プット\\s?フロア', 'ガンマ\\s?フリップ', '金利', '利回り', '国債', '年債', '債券', 'ナスダック', 'ダウ', 'ラッセル', 'ブレッドス', '騰落', '値上がり', '値下がり', 'ガンマ', 'ボラティリティ', 'ドル', '金価格', '金相場', '金は', '金が',
     '原油', 'ブレント', 'バレル', 'ビットコイン', '恐怖', '強欲', 'スクイーズ', '想定変動', '場外比率', '場外', 'サポート', 'レジスタンス', '水準', 'スプレッド',
     '先物', '指数', '株価', '銘柄', 'セクター', '半導体', 'ハイテク', '価格', '物価', '雇用', '住宅', '着工', '許可', '販売', 'レンジ', '幅', 'プレミアム', 'コール', 'プット', '市場',
 ];
@@ -108,13 +109,16 @@ export function orphanNumberReasons(text: string): string[] {
     const out: string[] = [];
     for (const [a, b] of clauseBounds(src)) {
         const inClause = toks.filter((t) => t.index >= a && t.index < b);
+        const orphanIdx = new Set<number>();
         inClause.forEach((t, i) => {
             if (t.exempt) return;
             const backFrom = i > 0 ? inClause[i - 1].end : a;
             const back = text.slice(backFrom, t.index);
             const fwdTo = Math.min(i + 1 < inClause.length ? inClause[i + 1].index : b, t.end + 16);
             const fwd = text.slice(t.end, fwdTo);
-            if (!hasSubject(back) && !subjectRightAfter(fwd)) out.push(`orphan-number:${t.raw}`);
+            // 같은 지표의 수준·변화량 연달아(«금리 5.15%로 +6bp 상승») — 직전 숫자와 조사 하나 사이면 그 숫자의 주어를 잇는다(관문 10201522 ②)
+            const adjacent = i > 0 && /^\s*(?:로|으로|에서|から|で|to|from|\(|（)?\s*$/i.test(back) && !orphanIdx.has(i - 1);   // «와·과·and»는 다른 대상의 나열이라 잇지 않는다
+            if (!hasSubject(back) && !subjectRightAfter(fwd) && !adjacent) { out.push(`orphan-number:${t.raw}`); orphanIdx.add(i); }
         });
     }
     return out;
@@ -164,7 +168,8 @@ function lastDir(s: string): 1 | -1 | null {
 export function directionSignReasons(text: string): string[] {
     if (!text) return [];
     const src = mask(text);
-    const toks = valueTokens(text).filter((t) => t.sign !== 0);
+    // 부호 붙은 «변화량»(%·bp)만 — «GEX -40»·«RLSI 36» 같은 수준 값은 등락이 아니다(관문 10201522 ①)
+    const toks = valueTokens(text).filter((t) => t.sign !== 0 && t.change);
     const out: string[] = [];
     for (const [a, b] of segmentBounds(src)) {
         const seg = toks.filter((t) => t.index >= a && t.index < b);
