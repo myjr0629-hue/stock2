@@ -17,12 +17,13 @@ import { sanitizeFieldsAiq } from '@/lib/ai/aiqGuard';
 import { bumpUcSrc } from '@/lib/ai/ucSource';
 import { getFromCache } from '@/services/redisClient';
 import { peekEodCloseRow } from '@/services/intrinioClient';
+import { isFlowTicker } from '@/lib/seo/flowTicker';
 import { ucMoneyAtExit } from '@/lib/seo/ucMoneyExit';
 import { peekStructureLevelsDetailed } from '@/services/structureService';
 import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
 import {
   reconcileOptionMoney, normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
-  invokeJSON, ucCardsGate, TICKER_RE, cleanImage, enforceLanguage, enforceAmounts, enforceLean, factSentence, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
+  invokeJSON, ucCardsGate, cleanImage, enforceLanguage, enforceAmounts, enforceLean, factSentence, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
 } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
 
   // «NULL» = 자바스크립트 null 이 글자로 붙은 것 — 형식은 통과하지만 티커가 아니다. 뉴스·자금 원천을 부르기 전에 막는다
   //   (2026-09-30 21:14 KST~ t=null 호출이 3시간에 503 166건 — 매번 원천 2곳 호출·FMP 429 후보. TRUE·NAN 은 실제 티커라 막지 않는다)
-  if (!TICKER_RE.test(ticker) || ticker === 'NULL') {
+  if (!isFlowTicker(ticker)) {
     return NextResponse.json({ success: false, error: 'invalid ticker' }, { status: 400 });
   }
 
