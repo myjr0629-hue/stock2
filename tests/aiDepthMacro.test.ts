@@ -324,17 +324,38 @@ test('관문 5차 재현 4건: 감마 부호·ET 시각 오기·명칭군 밖/�
     assert.deepEqual(checkTacticalOutput('Polygon reported weak Treasury auction demand at 10:00 ET.' + tail, 'en', p), []);
     // ③ 예정 근거가 없는데 «ISM scheduled later today» · 내일 INTC 만 있는데 «오늘 밤 TSLA 실적 예정» → 탈락
     const empty = buildTacticalPrompt({ ...facts, scheduledEvents: [] }, 'en');
-    assert.ok(checkTacticalStored('A. B. ISM is scheduled later today.', empty).includes('schedule:no-upcoming'));
+    assert.ok(checkTacticalStored('A. B. ISM is scheduled later today.', empty).includes('schedule:claim-not-upcoming'));
     const intc = buildTacticalPrompt({ ...facts, scheduledEvents: ['[earnings calendar; 2026-10-21; AMC timing boundary 16:00 ET; exact release time unknown] INTC (confirmed; scheduled; not a released result)'] }, 'ko');
     const r = checkTacticalStored('가. 나. 오늘 밤 TSLA 실적 발표 예정이 다음 확인입니다.', intc);
-    assert.ok(r.some(x => x.startsWith('schedule:name-not-upcoming:TSLA')), r.join(','));
-    assert.ok(checkTacticalStored('가. 나. 오늘 밤 INTC 실적 발표 예정이 다음 확인입니다.', intc).includes('schedule:not-today'));
+    assert.ok(r.includes('schedule:claim-not-upcoming'), r.join(','));
+    assert.ok(checkTacticalStored('가. 나. 오늘 밤 INTC 실적 발표 예정이 다음 확인입니다.', intc).includes('schedule:claim-not-upcoming'));
     assert.deepEqual(checkTacticalStored('가. 나. 내일 INTC 실적 발표 예정이 다음 확인입니다.', intc), []);
     // ④ 화면: 응답의 insightUntil 이 지나면 15분 캐시 안이어도 그리지 않는다
     const e = { insight: '08:30 실적 발표 예정', insightUntil: Date.parse('2026-10-20T12:30:00Z') };
     assert.equal(liveInsight(e, Date.parse('2026-10-20T12:29:59Z')), e.insight);
     assert.equal(liveInsight(e, Date.parse('2026-10-20T12:30:00Z')), null);
     assert.equal(liveInsight({ insight: 'x' }, 0), 'x');
+});
+
+test('관문 6차 재현: 어순 무관 감마 부호 · 번역된 회사명 · 일정 조각 합치기 · 옵션 경계+내일 정상', () => {
+    const src = buildLineUserPrompt(f);   // 양감마
+    for (const [loc, t] of [['ko', '감마가 음수라 딜러 헤지가 변동을 키우는 자리'], ['en', 'Dealer gamma is negative here, so hedging adds to swings'], ['ja', 'ガンマがマイナスでヘッジが値動きを増幅']] as const)
+        assert.ok(checkDepthLine(t, loc, src).includes('insight:gamma-sign'), `${loc} ${t}`);
+    const intcToday = buildTacticalPrompt({ ...facts, scheduledEvents: ['[earnings calendar; 2026-10-20; 16:00 ET] INTC (confirmed; scheduled; not a released result)'] }, 'ko');
+    assert.ok(checkTacticalStored('가. 나. 오늘 밤 테슬라 실적 발표 예정이 다음 확인입니다.', intcToday).includes('schedule:claim-not-upcoming'));
+    assert.ok(checkTacticalOutput('Polygon 10:00 ET 보도한 국채 입찰 수요 약화와 금리 압력이 연결돼 해석됩니다. 시장 참여 약화에 얇은 감마 방어가 겹쳐 충격 흡수력이 제한적입니다. 오늘 밤 테슬라 실적 발표 예정이 다음 확인 기준입니다.', 'ko', intcToday).includes('schedule:claim-not-upcoming'));
+    assert.deepEqual(checkTacticalStored('가. 나. 오늘 16:00 ET INTC 실적 발표 예정이 다음 확인입니다.', intcToday), []);
+    const cpiPpi = buildTacticalPrompt({ ...facts, asOf: '2026-10-20T11:00:00Z', scheduledEvents: ['[economic calendar; 2026-10-20 08:30 ET] CPI (scheduled; not a released result)', '[economic calendar; 2026-10-21 08:30 ET] PPI (scheduled; not a released result)'] }, 'en');
+    assert.ok(checkTacticalStored('A. B. CPI is scheduled tomorrow at 08:30 ET.', cpiPpi).includes('schedule:claim-not-upcoming'));
+    assert.deepEqual(checkTacticalStored('A. B. PPI is scheduled tomorrow at 08:30 ET.', cpiPpi), []);
+    assert.deepEqual(checkTacticalStored('A. B. CPI is scheduled today at 08:30 ET.', cpiPpi), []);
+    const none = buildTacticalPrompt({ ...facts, scheduledEvents: [] }, 'en');
+    assert.deepEqual(checkTacticalStored('A. B. The next test is options support at 640 tomorrow.', none), []);
+    assert.deepEqual(checkTacticalOutput('Polygon reported weak Treasury auction demand at 10:00 ET. Weak breadth and thin dealer gamma leave limited absorption. The next test is options support at 640 tomorrow.', 'en', none), []);
+    // 내 종목: 자기 종목 실적 줄은 이름 없이도 같은 종목
+    const own = 'FACTS — NVDA (x)\n[earnings calendar; 2026-10-21; AMC timing boundary 16:00 ET; exact release time unknown] NVDA (confirmed; scheduled; not a released result)';
+    assert.deepEqual(scheduleClaimReasons('내일 실적 발표 예정, 예상 변동 안', [own.split('\n')[1]], Date.parse('2026-10-20T15:00:00Z'), 'claims', 'NVDA'), []);
+    assert.ok(scheduleClaimReasons('오늘 밤 실적 발표 예정', [own.split('\n')[1]], Date.parse('2026-10-20T15:00:00Z'), 'claims', 'NVDA').length > 0);
 });
 
 async function main() {

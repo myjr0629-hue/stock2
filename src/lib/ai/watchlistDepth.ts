@@ -26,7 +26,7 @@ export function fitDepthLine(text: unknown, loc: AiLineLocale): unknown {
 
 export function checkDepthLine(text: unknown, loc: AiLineLocale, source: string, nowMs: number = Date.now()): string[] {
     if (typeof text !== 'string' || !text.trim()) return ['insight:empty'];
-    const reasons = [...textIntegrityReasons(text), ...validateInsight(text, loc, { minLength: 8 }).reasons, ...unsupportedEventReasons(text, source), ...localePurityReasons(text, loc), ...scheduleClaimReasons(text, source.split('\n'), nowMs, 'claims')];
+    const reasons = [...textIntegrityReasons(text), ...validateInsight(text, loc, { minLength: 8 }).reasons, ...unsupportedEventReasons(text, source), ...localePurityReasons(text, loc), ...scheduleClaimReasons(text, source.split('\n'), nowMs, 'claims', source.match(/FACTS — (\S+)/)?.[1])];
     if ([...text].length > (loc === 'en' ? 50 : 28) || /[\r\n{}]| · |…|\.\.\./.test(text)) reasons.push('insight:format');
     reasons.push(...positioningSideReasons(text, source));
     if (adviceHit(text)) reasons.push('insight:advice');
@@ -42,8 +42,10 @@ export function checkDepthLine(text: unknown, loc: AiLineLocale, source: string,
  */
 export function positioningSideReasons(text: string, source: string): string[] {
     const out: string[] = [];
-    const neg = /음\s*\(?[−-]?\)?\s*감마|negative gamma|負ガンマ|マイナスガンマ/i.test(text);
-    const pos = /양\s*\(?\+?\)?\s*감마|positive gamma|正ガンマ|プラスガンマ/i.test(text);
+    // 감마를 말하는 문장이면 부호 표지가 어디에 있든 그 부호의 주장으로 본다(어순 무관 — «감마가 음수라» 포함). 넓게 잡아 오탈락은 «해석 미표시»일 뿐이다.
+    const gamma = /감마|gamma|ガンマ/i.test(text);
+    const neg = gamma && /음수|음\s*\(|음감마|음의|마이너스|부\(−\)|negative|\bshort gamma\b|負|マイナス|[−-]\s*(?:감마|gamma|ガンマ)/i.test(text);
+    const pos = gamma && /양수|양\s*\(|양감마|양의|플러스|positive|\blong gamma\b|正|プラス|\+\s*(?:감마|gamma|ガンマ)/i.test(text);
     if (neg && !/negative gamma zone/.test(source)) out.push('insight:gamma-sign');
     if (pos && !/positive gamma zone/.test(source)) out.push('insight:gamma-sign');
     const mpBelow = /Max Pain\s*(?:\$?[\d.,]+\s*)?の?(?:아래|밑|下)|below (?:the )?Max Pain/i.test(text);
