@@ -61,7 +61,8 @@ export function computeVolatilityRegime(input: RegimeInputs) {
         coverage: { available, required: names.length, ratio: available / names.length, minimum: REGIME_MIN_INPUTS, missing },
         inputs: { netGex, gammaFlipLevel: flip, gammaFlipOutOfRange: flipOutOfRange, underlyingPrice: price, squeezeScore: sq, atmIv: iv, gammaConcentration: concentration },
         reason: score === null ? 'insufficient_coverage' : null, proxy: null };
-    const regime: Regime | null = score === null ? null : rawScore! >= 75 ? 'ERUPTING' : rawScore! >= 50 ? 'LOADED' : rawScore! >= 25 ? 'COILING' : 'CALM';
+    // 상태어는 «표시하는 점수»로 가른다 — 원점수 49.6 이 «50 /100 COILING» 으로 나가던 경계 불일치(10/20 운영 TSLA) 제거.
+    const regime: Regime | null = score === null ? null : score >= 75 ? 'ERUPTING' : score >= 50 ? 'LOADED' : score >= 25 ? 'COILING' : 'CALM';
     return {
         regime, regimeScore: score, gex: netGex === null ? null : Math.round(netGex),
         gexLabel: netGex === null ? null : netGex < 0 ? 'SHORT' as const : 'LONG' as const,

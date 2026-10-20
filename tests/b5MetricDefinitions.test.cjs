@@ -110,7 +110,8 @@ test('regime complete-input arithmetic retains original thresholds before roundi
     const result = regime({ netGex: 0, gammaFlipLevel: 100, underlyingPrice: 120,
         squeezeScore: 98.4, atmIv: 20, gammaConcentration: 0 });
     assert.equal(result.regimeScore, 25);
-    assert.equal(result.regime, 'CALM', '24.6 is CALM even when display rounds to 25');
+    // 10/20 운영: the state word follows the displayed score (24.6 shows «25 /100», so it reads COILING — never «25 /100 CALM»).
+    assert.equal(result.regime, 'COILING');
 });
 
 test('notional, premium, call share and UOA keep units and denominators separate', () => {
@@ -697,12 +698,13 @@ test('gate 10191711 ①: SSR VWAP 98 → live 102 → live VWAP missing keeps 10
 });
 test('gate 10191711 ②: a newer overlay value equal to the cached value rounded (35.6 → 36) is the newer value', async () => {
     const { applyUnifiedOptionMetrics, optionMetrics } = load('src/lib/optionMetrics');
-    const inputs = { netGex: -1e8, gammaFlipLevel: 100, underlyingPrice: 100.5, squeezeScore: 35.6, atmIv: 20, gammaConcentration: 60 };
+    // 33.6 → raw 49.4 (49 COILING); the newer overlay 34 (= cached rounded) → raw 49.5 (50 LOADED).
+    const inputs = { netGex: -1e8, gammaFlipLevel: 100, underlyingPrice: 100.5, squeezeScore: 33.6, atmIv: 20, gammaConcentration: 60 };
     const cached = regime(inputs);
-    assert.equal(cached.regime, 'COILING'); assert.equal(cached.squeezeScore, 36);
-    const h = commandHarness({ overrides: { overlayStructureLevels: async d => applyUnifiedOptionMetrics(d, optionMetrics({ netGex: -1e8, squeezeScore: 36, squeezeRisk: 'MEDIUM' }, null)) } });
+    assert.equal(cached.regime, 'COILING'); assert.equal(cached.squeezeScore, 34);
+    const h = commandHarness({ overrides: { overlayStructureLevels: async d => applyUnifiedOptionMetrics(d, optionMetrics({ netGex: -1e8, squeezeScore: 34, squeezeRisk: 'MEDIUM' }, null)) } });
     const body = (await h.jsonResponse({ volatility: { ...cached } }, 200, 'SPY')).body;
-    const expected = regime({ ...inputs, squeezeScore: 36 });
+    const expected = regime({ ...inputs, squeezeScore: 34 });
     assert.equal(expected.regimeScore, 50); assert.equal(expected.regime, 'LOADED');
     assert.equal(body.volatility.regimeScore, 50); assert.equal(body.volatility.regime, 'LOADED');
     for (const actual of [desktop(body), mobile(body), appSignals(body), aiSnapshot(body).volatility]) assert.equal(actual.regime, 'LOADED');
@@ -1133,4 +1135,15 @@ test('gate 10200907: conviction and AI structure values use the edition instant 
     const late = build({ ...base, unified: eod });
     assert.equal(late.structure.netGex, -1e8, 'AI GEX keeps the newer live edition');
     assert.match(late.sources['structure.netGex'].asOf, /^2026-10-19T14:00/);
+});
+
+test('10/20 운영: the state word follows the displayed score — never «50 /100 COILING»', () => {
+    // TSLA 10/19 close: GEX −25.7M · squeeze 23 · IV 77 · flip 375 / spot 368.14 · concentration 29 → raw 49.85.
+    const r = regime({ netGex: -25699043, gammaFlipLevel: 375, underlyingPrice: 368.14, squeezeScore: 23, atmIv: 77, gammaConcentration: 29 });
+    assert.equal(r.regimeScore, 50); assert.equal(r.regime, 'LOADED');
+    for (const s of [24.5, 49.5, 74.5]) {
+        const shown = Math.round(s);
+        const word = shown >= 75 ? 'ERUPTING' : shown >= 50 ? 'LOADED' : shown >= 25 ? 'COILING' : 'CALM';
+        assert.ok(['COILING', 'LOADED', 'ERUPTING'].includes(word));
+    }
 });
