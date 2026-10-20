@@ -229,4 +229,66 @@ test('관문 회귀: 정책금리 하락 뉴스와 10년물 상승이 함께 있
         assert.deepEqual(checkTacticalStored(outputs[l], p), [], l);
     }
 });
+test('관문 회귀(10202008): 등위 주어 «금리와 금값은 하락»은 금리 주장으로 거부, 세 언어', () => {
+    const f = buildTacticalFacts({ ...ctx, goldChangePct: -0.5 });
+    for (const text of ['금리와 금값은 하락했습니다', 'Yields and gold fell', '金利と金価格は下落']) {
+        assert.ok(match(text, f).includes('tactical:facts-direction:us10yChangeBp:up:down'), text);
+    }
+    // 반대 사실(금리 -6bp·금 +0.5%)에서도 같은 결합이 금리 주장으로 대조된다.
+    const mirror = buildTacticalFacts({ ...ctx, us10yChangeBp: -6, goldChangePct: 0.5 });
+    for (const text of ['금리와 금값은 상승했습니다', 'Yields and gold rose', '金利と金価格は上昇']) {
+        assert.ok(match(text, mirror).includes('tactical:facts-direction:us10yChangeBp:down:up'), text);
+    }
+    // 같은 방향 사실이면 등위 주어 문장은 통과한다.
+    const both = buildTacticalFacts({ ...ctx, goldChangePct: 0.5 });
+    for (const text of ['금리와 금값은 상승했습니다', 'Yields and gold rose', '金利と金価格は上昇']) good(text, both);
+});
+test('절 단위 fail-closed: 주어 나열·순서·연결어·생략 변형도 금리 반대 방향 거부', () => {
+    const f = buildTacticalFacts({ ...ctx, goldChangePct: -0.5, oilChangePct: -1 });
+    for (const text of [
+        'Yields, gold and oil fell', 'Gold, oil and yields fell', 'Both yields and gold fell', 'Yields as well as gold fell',
+        'Gold fell along with yields', 'Yields along with gold were lower', 'Yields and gold both declined.', 'Gold and yields are lower',
+        'Falling gold and yields', 'Lower gold, oil and yields', 'Yields or gold fell', 'The 10-year yield and gold fell sharply.',
+        'Yields rose early but fell later', 'Yields rose and then fell',
+        '금리, 금값 모두 하락', '금리 및 금값이 하락했습니다', '금값과 금리는 하락', '금리·금값 하락', '하락한 금값과 금리',
+        '금리는 상승했지만 이후 하락했습니다', '금리는 상승했다가 하락했습니다',
+        '金利、金価格ともに下落', '金価格と金利が低下', '金利や金価格は下落した', '金利および金価格は下落', '金利は上昇したが、その後下落した',
+    ]) assert.ok(match(text, f).includes('tactical:facts-direction:us10yChangeBp:up:down'), text);
+});
+test('절 단위 fail-closed: 각 주어에 직접 붙은 방향은 정상 통과', () => {
+    const f = buildTacticalFacts({ ...ctx, goldChangePct: -0.5 });
+    for (const text of [
+        'Yields rose and gold fell', 'Yields rose while gold fell', 'Yields rose, gold fell', 'Rising yields and falling gold',
+        'Rising yields, falling gold', 'Gold fell as yields rose', 'Yields rose 6bp, pushing gold lower', 'Yields rose. Gold fell.',
+        '금리는 상승했고 금값은 하락했습니다', '금리 상승과 금값 하락', '금값은 하락했지만 금리는 상승했습니다', '금리는 6bp 상승했습니다',
+        '얇은 감마 방어 약화 속에 금리는 상승했습니다',
+        '金利は上昇し、金価格は下落', '金利上昇と金価格下落',
+        // 금리가 뒤 명사(압력·수요)를 꾸미는 복합 주어: 앞선 다른 주어의 방향어는 면제.
+        '국채 입찰 수요 약화와 금리 압력이 연결돼 해석됩니다', 'Weak demand and rate pressure are linked', '需要低迷と金利圧力',
+    ]) good(text, f);
+    // 복합 주어라도 뒤에 나열된 주어·머리 명사의 방향어는 금리 주장으로 본다.
+    for (const text of ['금리 압력과 금값은 하락', '금리 압력 약화', 'Rate pressure and gold fell']) {
+        assert.ok(match(text, f).includes('tactical:facts-direction:us10yChangeBp:up:down'), text);
+    }
+});
+test('관문 회귀(10202008): 등위 주어 반전 완성 문장은 생성·저장 출구 모두 거부, 정상본은 통과', () => {
+    const goldCtx = { ...ctx, goldChangePct: -0.5 };
+    const outputs = {
+        ko: ['WIRE 보도한 국채 입찰 수요 약화 속에 금리와 금값은 하락했습니다. 얇은 감마 방어는 충격 흡수력이 제한적입니다. 다음 확인 기준은 미확인입니다.',
+            'WIRE 보도한 국채 입찰 수요 약화 속에 금리는 상승했고 금값은 하락했습니다. 얇은 감마 방어는 충격 흡수력이 제한적입니다. 다음 확인 기준은 미확인입니다.'],
+        en: ['WIRE reported weak Treasury auction demand. Yields and gold fell, and thin dealer gamma leaves limited absorption. The next test is unconfirmed.',
+            'WIRE reported weak Treasury auction demand. Yields rose and gold fell, and thin dealer gamma leaves limited absorption. The next test is unconfirmed.'],
+        ja: ['WIREの国債入札需要低迷の報道の中で金利と金価格は下落しました。薄いガンマ防御は衝撃吸収力が限定的です。次の確認基準は未確認です。',
+            'WIREの国債入札需要低迷の報道の中で金利は上昇し、金価格は下落しました。薄いガンマ防御は衝撃吸収力が限定的です。次の確認基準は未確認です。'],
+    };
+    for (const l of ['ko', 'en', 'ja'] as const) {
+        const p = buildTacticalPrompt(goldCtx, l);
+        const [wrong, right] = outputs[l];
+        for (const reasons of [checkTacticalOutput(wrong, l, p), checkTacticalStored(wrong, p)]) {
+            assert.ok(reasons.includes('tactical:facts-direction:us10yChangeBp:up:down'), `${l}: ${reasons}`);
+        }
+        assert.deepEqual(checkTacticalOutput(right, l, p), [], l);
+        assert.deepEqual(checkTacticalStored(right, p), [], l);
+    }
+});
 console.log(`${passed} passed`);

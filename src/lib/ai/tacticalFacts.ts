@@ -85,48 +85,105 @@ export const TACTICAL_DIRECTION_WORDS: Record<Locale, Record<FactDirection, stri
 const RATE_UNVERIFIABLE = /않|(?<![가-힣])안(?=\s)|못|아니|아닙|아닌|아님|아닐|ない|なかった|ません|ず|\b(?:not|no\s+longer|never|if|unless|should|would|could)\b|n['’]t\b|경우|면(?=\s|$)|라면|다면|場合|なら|れば|たら/iu;
 const RATE_KEYS = new Set(['us10yChangeBp', 'policyRateChange']);
 interface DirectionClaim { key: string; direction: FactDirection; word: string; negated: boolean; unverifiable: boolean }
+// 앞 수식(«falling yields»·«하락한 금리»·«下落した金利»)으로 방향어가 바로 뒤 주어에 붙는 틈.
+const PREFIX_GAP: Record<Locale, RegExp> = {
+    en: /^\s*(?:US\s+|Treasury\s+|10-year\s+)*$/i,
+    ko: /^\s*(?:(?:한|하는|했던|하던|중인|세인|인|진|지는)\s*)?$/,
+    ja: /^\s*(?:(?:した|している|していた|する|の)\s*)?$/,
+};
+// 서술(«gold fell»·«금값은 하락»·«金価格は下落»)로 방향어가 바로 앞 주어에 붙는 틈. 조사·보조어·수치만 허용한다.
+const POSTFIX_GAP: Record<Locale, RegExp> = {
+    en: /^\s*(?:(?:prices?|futures|index|levels?|support|exposure|positioning)\s+)?(?:(?:is|are|was|were|has|have|had|been|also|all|both|sharply|slightly|modestly|further|[+\-−]?\d+(?:\.\d+)?\s*(?:%|bps?)?)\s+){0,3}$/i,
+    ko: /^\s*(?:(?:가격|선물|지수|방어|지지|노출|포지션)\s*)?(?:[은는이가도의]\s*)?(?:(?:크게|소폭|다소|더|추가로?|모두|[+\-−]?\d+(?:\.\d+)?\s*(?:%|bp|포인트)?)\s*){0,2}$/,
+    ja: /^\s*(?:(?:価格|先物|指数|防御|支持)\s*)?(?:[はがもの]\s*)?(?:(?:大きく|小幅に?|やや|さらに|[+\-−]?\d+(?:\.\d+)?\s*(?:%|bp)?)\s*){0,2}$/,
+};
+// 소수점은 절 경계가 아니다. 대조 접속사는 다른 주어와의 잘못된 결합을 막는다.
+const CLAUSE_SPLIT = /((?<!\d)[.,](?!\d)|[。!?！？;；,，]|\b(?:and|or|while|whereas|but|yet|however|although|because)\b|\s+(?=(?:if|unless)\b)|반면|으며|지만|는데|(?<=[가-힣])고(?=\s)|一方|しかし|また|したが|しており)/iu;
+// 주어 나열(«Yields, gold and oil»·«Yields and gold»)을 끊는 약한 경계.
+const SOFT_BOUNDARY = /^(?:,|，|and|or|また)$/i;
+const DIRECTIONS = (Object.keys(TACTICAL_DIRECTION_WORDS) as Locale[]).flatMap(locale =>
+    (['up', 'down', 'flat'] as const).map(direction => ({ locale, direction, re: new RegExp(TACTICAL_DIRECTION_WORDS[locale][direction], 'gi') })));
+const hasDirectionWord = (text: string) => DIRECTIONS.some(({ re }) => new RegExp(re.source, 'i').test(text));
+const subjectsOf = (clause: string) => {
+    const matches = SUBJECTS.flatMap(s => [...clause.matchAll(s.re)].map(m => ({ key: s.key, start: m.index!, end: m.index! + m[0].length })));
+    // «policy rates» 안의 «rates»처럼 겹친 이름은 더 구체적인 전체 주어를 쓴다.
+    return matches.filter(s => !matches.some(other => other !== s && other.start <= s.start && other.end >= s.end
+        && other.end - other.start > s.end - s.start));
+};
+const hasRateSubject = (text: string) => subjectsOf(text).some(s => RATE_KEYS.has(s.key));
+/** 절 분할 뒤 금리 절을 넓힌다(fail-closed).
+ * ① 방향어 없는 조각(주어 나열)은 약한 경계(쉼표·and·or)를 넘어 앞뒤 조각과 한 절(«Yields, gold and oil fell»·«Falling gold and yields»).
+ * ② 주어 없이 방향어만 있는 조각은 문장 안에서 앞 금리 절에 붙인다(«Yields rose and then fell»·«上昇したが、その後下落»). */
+function clausesOf(text: string): string[] {
+    const parts = text.split(CLAUSE_SPLIT);
+    const clauses: string[] = [];
+    let current = parts[0] ?? '';
+    for (let i = 1; i < parts.length; i += 2) {
+        const boundary = parts[i] ?? '', next = parts[i + 1] ?? '';
+        const soft = SOFT_BOUNDARY.test(boundary.trim());
+        const sentenceEnd = /^[.。!?！？]$/.test(boundary.trim());
+        // 방향어 없는 조각은 주어 나열의 일부다. 나열 전체를 한 절로 묶어 금리 주어를 떼어 내지 않는다.
+        const join = (soft && (!hasDirectionWord(parts[i - 1] ?? '') || !hasDirectionWord(next)))
+            || (!sentenceEnd && hasRateSubject(current) && !subjectsOf(next).length && hasDirectionWord(next));
+        if (join) current += boundary + next;
+        else { clauses.push(current); current = next; }
+    }
+    clauses.push(current);
+    return clauses;
+}
 function directionClaims(text: string): DirectionClaim[] {
     const result: DirectionClaim[] = [];
-    // 소수점은 절 경계가 아니다. 대조 접속사는 다른 주어와의 잘못된 결합을 막는다.
-    const clauses = text.split(/(?<!\d)[.,](?!\d)|[。!?！？;；,，]|\b(?:and|or|while|whereas|but|yet|however|although|because)\b|\s+(?=(?:if|unless)\b)|반면|으며|지만|는데|(?<=[가-힣])고(?=\s)|一方|しかし|また|したが|しており/iu);
-    const directions = (Object.keys(TACTICAL_DIRECTION_WORDS) as Locale[]).flatMap(locale =>
-        (['up', 'down', 'flat'] as const).map(direction => ({ locale, direction, re: new RegExp(TACTICAL_DIRECTION_WORDS[locale][direction], 'gi') })));
-    for (const clause of clauses) {
+    for (const clause of clausesOf(text)) {
         const rateUnverifiable = RATE_UNVERIFIABLE.test(clause);
-        const matches = SUBJECTS.flatMap(s => [...clause.matchAll(s.re)].map(m => ({ key: s.key, start: m.index!, end: m.index! + m[0].length })));
-        // «policy rates» 안의 «rates»처럼 겹친 이름은 더 구체적인 전체 주어를 쓴다.
-        const subjects = matches.filter(s => !matches.some(other => other !== s && other.start <= s.start && other.end >= s.end
-            && other.end - other.start > s.end - s.start));
+        const subjects = subjectsOf(clause);
+        const rateSubjects = subjects.filter(s => RATE_KEYS.has(s.key));
         // 같은 절에 금리 이름·방향어·표지가 있으면 거리나 관형 어미를 해석하지 않는다.
         // «하락하지 않은 금리»도 정상 관형 어미 사전 밖이라는 이유로 통과시키지 않는다.
-        if (rateUnverifiable) for (const subject of subjects.filter(s => RATE_KEYS.has(s.key))) {
-            for (const { direction, re } of directions) {
+        if (rateUnverifiable) for (const subject of rateSubjects) {
+            for (const { direction, re } of DIRECTIONS) {
                 const word = clause.match(re)?.[0];
                 if (word) result.push({ key: subject.key, direction, word, negated: false, unverifiable: true });
             }
         }
-        for (const { locale, direction, re } of directions) for (const m of clause.matchAll(re)) {
+        const words: Array<{ direction: FactDirection; word: string; negated: boolean; bound: typeof subjects }> = [];
+        for (const { locale, direction, re } of DIRECTIONS) for (const m of clause.matchAll(re)) {
             const start = m.index!, end = start + m[0].length;
             const left = subjects.filter(s => s.end <= start).sort((a, b) => b.end - a.end)[0];
             const right = subjects.filter(s => s.start >= end).sort((a, b) => a.start - b.start)[0];
             // «falling yields»·«하락한 금리»·«下落した金利»는 뒤 주어를 수식한다.
             // 언어별 관형 어미만 허용해 앞 절의 방향을 먼 주어에 붙이지 않는다.
-            const prefixGap = {
-                en: /^\s*(?:US\s+|Treasury\s+|10-year\s+)*$/i,
-                ko: /^\s*(?:(?:한|하는|했던|하던|중인|세인|인|진|지는)\s*)?$/,
-                ja: /^\s*(?:(?:した|している|していた|する|の)\s*)?$/,
-            };
-            const prefix = right && prefixGap[locale].test(clause.slice(end, right.start));
+            const prefix = !!right && PREFIX_GAP[locale].test(clause.slice(end, right.start));
+            const postfix = !!left && POSTFIX_GAP[locale].test(clause.slice(left.end, start));
             const subject = prefix ? right : left;
-            if (!subject?.key || Math.min(Math.abs(start - subject.end), Math.abs(subject.start - end)) > 48) continue;
-            if (RATE_KEYS.has(subject.key) && rateUnverifiable) continue;
-            const before = clause.slice(prefix ? Math.max(0, start - 24) : subject.end, start), after = clause.slice(end);
+            const before = clause.slice(prefix ? Math.max(0, start - 24) : subject ? subject.end : 0, start), after = clause.slice(end);
             if (/^.{0,12}(?:미확인|未確認|unconfirmed)/i.test(after)) continue;
             const negated = /\b(?:not|no)\s+(?:\w+\s+)?$/i.test(before) || /^(?:[은는이가을를のはが]?\s*)(?:아니|아닙|아닌|아님|아닐|않|ではな|していな)/.test(after);
+            words.push({ direction, word: m[0], negated, bound: [...(prefix ? [right!] : []), ...(postfix ? [left!] : [])] });
+            if (!subject?.key || Math.min(Math.abs(start - subject.end), Math.abs(subject.start - end)) > 48) continue;
+            if (RATE_KEYS.has(subject.key) && rateUnverifiable) continue;
             result.push({ key: subject.key, direction, word: m[0], negated, unverifiable: false });
         }
+        // 절 단위 fail-closed: 금리 주어에 바로 붙은 방향어가 없으면 절 안 모든 방향어를 금리 주장으로 본다
+        // («금리와 금값은 하락»·«Yields and gold fell»·«金利と金価格は下落»). 바로 붙은 방향어가 있어도
+        // 다른 주어에 바로 붙지 않은 방향어는 금리 주장으로 본다. 오탐(정상 문장 탈락)은 허용한다.
+        if (rateUnverifiable) continue;
+        for (const rate of rateSubjects) {
+            // «금리 압력»·«rate pressure»처럼 금리가 바로 뒤 명사를 꾸미면 그 명사가 주어 머리다. 머리에 붙은 방향어도 금리 주장으로 본다.
+            const head = subjects.find(s => !s.key && s.start >= rate.end && /^\s*(?:의|の)?\s*$/.test(clause.slice(rate.end, s.start)));
+            const mine = (w: typeof words[number]) => w.bound.includes(rate) || (!!head && w.bound.includes(head));
+            const own = words.some(mine);
+            for (const w of words) {
+                // 다른 주어에 바로 붙은 방향어만 면제한다. 금리에 직접 방향어가 없고 머리 명사만 있으면 금리보다 앞선 주어의 방향어만 면제한다
+                // («수요 약화와 금리 압력»은 통과, «금리 압력과 금값은 하락»은 거부).
+                const exempt = !mine(w) && w.bound.length > 0
+                    && (own || (!!head && w.bound.every(b => b.end <= rate.start)));
+                if (exempt) continue;
+                result.push({ key: rate.key, direction: w.direction, word: w.word, negated: w.negated, unverifiable: false });
+            }
+        }
     }
-    return result;
+    // 같은 주장이 일반 결합과 fail-closed 결합 양쪽에서 나오면 하나로 센다.
+    return [...new Map(result.map(c => [JSON.stringify(c), c])).values()];
 }
 
 /** 숫자 없는 방향 주장도 검사. 수준만 있거나 TLT만 있으면 금리 방향을 만들어 내지 않는다. */
