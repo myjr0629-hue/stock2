@@ -37,7 +37,7 @@ function load(relative) {
     if (modules.has(file)) return modules.get(file);
     const exports = {};
     modules.set(file, exports);
-    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar|metrics\/\w+|commandVolatilityObservation)|services\/(volatilityRegime|dealerGamma)|app\/api\/live\/(volatility-regime|premium-metrics)\/route)\.ts$/;
+    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar|putCall|app\/intelOptionsBasis|metrics\/\w+|commandVolatilityObservation)|services\/(volatilityRegime|dealerGamma)|app\/api\/live\/(volatility-regime|premium-metrics)\/route)\.ts$/;
     assert.match(file, allowed, 'only pure modules and the mocked route may load');
     vm.runInNewContext(compile(fs.readFileSync(file, 'utf8')), {
         exports, Date, console, process: { env: {} }, AbortController,
@@ -57,6 +57,7 @@ function load(relative) {
     return exports;
 }
 const { gammaFlipDistancePct } = load('src/lib/gammaFlipDistance.ts');
+const { latestCollectorGexRow } = load('src/lib/app/intelOptionsBasis.ts');
 const { computeVolatilityRegime, computeStructureVolatilityRegime } = load('src/services/volatilityRegime.ts');
 const { computeUnifiedVolatilityRegime } = load('src/lib/metrics/volatilityRegime.ts');
 const gate = load('src/lib/optionLevelGate.ts');
@@ -137,7 +138,8 @@ test('both DynamoDB unified calculation paths use the common distance', async ()
     seed();
     snapshot.gex.flipLevel = 100;
     const fn = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'getVolatilityFromDynamoGex');
-    const get = run(`${fn}\ngetVolatilityFromDynamoGex`, { computeVolatilityRegime,
+    // 실제 폴백이 재사용하는 수집 행 선택 함수도 시험 실행 문맥에 제공한다.
+    const get = run(`${fn}\ngetVolatilityFromDynamoGex`, { computeVolatilityRegime, latestCollectorGexRow,
         require: id => { assert.equal(id, '@/lib/aws/dynamoDataProvider'); return mocks[id]; },
         setTimeout: () => 0,
     });

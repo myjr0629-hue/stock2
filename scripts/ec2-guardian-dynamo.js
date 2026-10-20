@@ -156,7 +156,10 @@ async function writeSnapshot(snapshot) {
     if (snapshot.gammaShield?.gexIndex != null) {
         try {
             const gexItem = {
-                ticker: "SPY",
+                // 지수 수준 가격과 정규화 GEX를 ETF 수집 행과 분리한다.
+                ticker: "SPX",
+                source: "ec2-guardian",
+                gexBasis: "normalized_index",
                 timestamp,
                 gex: snapshot.gammaShield.gexIndex,
                 flipLevel: snapshot.gammaShield.gammaFlipPoint || null,

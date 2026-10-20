@@ -73,7 +73,7 @@ export async function GET(request: Request) {
                 const merged = mergeGexHistory(sym, live, bf, since);
                 data = downsample(merged.data);
                 meta = {
-                    liveCount: live.length,
+                    liveCount: merged.data.filter(p => p.source === 'live').length,
                     backfilled: merged.filled,
                     // 솎아냈으면 솎았다고 말한다 — 조용한 절단은 「이게 전부」로 읽힌다
                     ...(merged.data.length !== data.length && { sampledFrom: merged.data.length }),

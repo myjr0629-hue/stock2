@@ -1,21 +1,7 @@
 // DynamoDB History Query Utility for Session Grid Phase B
 // Provides GEX regime change detection + M7 relative comparison
 
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
-
-const client = DynamoDBDocumentClient.from(
-    new DynamoDBClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-        }
-    }),
-    { marshallOptions: { removeUndefinedValues: true } }
-);
-
-const GEX_TABLE = 'signum-gex-history';
+import { getGexHistory } from '@/lib/aws/dynamoDataProvider';
 
 export interface GexSnapshot {
     ticker: string;
@@ -24,9 +10,9 @@ export interface GexSnapshot {
     price: number;
     pcr: number;
     gammaRegime: string;
-    maxPain?: number;
-    callWall?: number;
-    putFloor?: number;
+    maxPain?: number | null;
+    callWall?: number | null;
+    putFloor?: number | null;
     squeezeScore?: number;
 }
 
@@ -47,14 +33,8 @@ export interface HistoryContext {
  */
 async function getRecentHistory(ticker: string, limit: number = 3): Promise<GexSnapshot[]> {
     try {
-        const result = await client.send(new QueryCommand({
-            TableName: GEX_TABLE,
-            KeyConditionExpression: 'ticker = :t',
-            ExpressionAttributeValues: { ':t': ticker },
-            ScanIndexForward: false, // newest first
-            Limit: limit,
-        }));
-        return (result.Items || []) as GexSnapshot[];
+        // 직접 조회로 단위 필터를 우회하지 않는다. 옵션 행만 받은 뒤 이전값·차이를 계산한다.
+        return await getGexHistory(ticker, limit);
     } catch {
         return [];
     }

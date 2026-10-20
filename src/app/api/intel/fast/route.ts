@@ -22,7 +22,7 @@ import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreCl
 import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
 import { levelsForExit, applyLevelsToRealtime } from '@/services/structureService';
-import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow, latestOptionsAsOf } from '@/lib/app/intelOptionsBasis';
+import { oiPcrAllExpiries, gexFromRow, isFreshOptionsRow, latestOptionsAsOf, latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { bgStore, newBgCtx, runWithBg, type BgCtx } from '@/lib/intrinioBackground';
 import { noteEvent, flushCallMeterNow } from '@/lib/intrinioCallMeter';
 import { decideBackground, governorOff } from '@/lib/intelFastGovernor';
@@ -429,7 +429,7 @@ async function computeSector(request: Request) {
             const needGex = tickers;
             if (needGex.length > 0) {
                 const gexT0 = Date.now();
-                const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+                const db = await import('@/lib/aws/dynamoDataProvider');
                 gexDiag.importMs = Date.now() - gexT0;
                 // ⚠️ 처음엔 2.5초로 잡았다가 **전부 null** 이 돌아왔다(need=5 filled=0 err=없음).
                 //   AWS SDK 콜드 로딩 + 동시 조회가 그 안에 안 끝난다. 넉넉히 준다 —
@@ -441,7 +441,7 @@ async function computeSector(request: Request) {
                     needGex.map(async (t) => {
                         const [gx, fl] = await Promise.all([
                             Promise.race([
-                                getLatestGex(t).catch((e: any) => { gexDiag.err = String(e?.message || e).slice(0, 80); return null; }),
+                                latestCollectorGexRow(db, t).catch((e: any) => { gexDiag.err = String(e?.message || e).slice(0, 80); return null; }),
                                 new Promise<null>((r) => setTimeout(() => r(null), 8000)),
                             ]),
                             Promise.race([

@@ -7,6 +7,7 @@
 
 import { putItem, queryItems, batchPutItems, getDynamoClient, TABLES } from './dynamoClient';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import { isGuardianSnapshotRow } from '@/lib/app/intelOptionsBasis';
 
 // ====== GEX History ======
 
@@ -28,12 +29,15 @@ export async function saveGexSnapshot(data: GexHistoryItem): Promise<void> {
 
 export async function getGexHistory(ticker: string, days = 30): Promise<GexHistoryItem[]> {
     const since = Date.now() - days * 24 * 60 * 60 * 1000;
-    return queryItems<GexHistoryItem>(
+    const rows = await queryItems<GexHistoryItem>(
         TABLES.GEX_HISTORY,
         'ticker = :t AND #ts > :since',
         { ':t': ticker, ':since': since },
         { limit: 1000, scanForward: true, maxItems: 20000, expressionNames: { '#ts': 'timestamp' } }
     );
+    // 같은 표의 guardian 정규화 지수는 옵션 GEX와 단위가 다르다.
+    // SPX 신규 행과 SPY 레거시 행 모두 제외하되 원시 저장본은 보존한다.
+    return rows.filter(row => !isGuardianSnapshotRow(row));
 }
 
 // ====== RLSI History ======

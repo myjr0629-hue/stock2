@@ -1,3 +1,4 @@
+import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { readOptionEditions } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { computeVolatilityRegime, computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
@@ -683,9 +684,9 @@ async function callInternalGet(handler: Function, url: string) {
 // This replaces the slow options/structure Polygon API call in gap-fill paths
 async function getStructureFromDynamoGex(ticker: string): Promise<any | null> {
     try {
-        const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+        const db = await import('@/lib/aws/dynamoDataProvider');
         const gex = await Promise.race([
-            getLatestGex(ticker),
+            latestCollectorGexRow(db, ticker),
             new Promise<null>(r => setTimeout(() => r(null), 3000)) // 3s safety timeout
         ]);
         if (!gex || (!gex.gex && !gex.maxPain)) return null;
@@ -725,9 +726,9 @@ async function getStructureFromDynamoGex(ticker: string): Promise<any | null> {
 // [AWS-FIRST] Build volatility from DynamoDB GEX data (0.1s vs Polygon 27s)
 async function getVolatilityFromDynamoGex(ticker: string): Promise<any | null> {
     try {
-        const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+        const db = await import('@/lib/aws/dynamoDataProvider');
         const gex = await Promise.race([
-            getLatestGex(ticker),
+            latestCollectorGexRow(db, ticker),
             new Promise<null>(r => setTimeout(() => r(null), 3000))
         ]);
         if (!gex) return null;
