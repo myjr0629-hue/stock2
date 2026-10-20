@@ -10,6 +10,9 @@ import { spawnSync } from 'node:child_process';
 import { setTimeout as realSetTimeout, clearTimeout as realClearTimeout } from 'node:timers';
 import { fake, AdMob, env, advance, flush, storage, mount, deferred } from './androidInterstitial.capacitor';
 import { adManager } from '../src/services/adManager';
+// Existing non-Pro user; individual install/Pro scenarios override these inputs.
+void adManager.setPro(false);
+storage.set('signum_app_first_run_at', '1');
 import { fullScreenAds } from '../src/services/fullScreenAdSession';
 import { unitsFor } from '../src/config/admob';
 import { useInterstitialAd, __resetInterstitialHookForTest } from '../src/hooks/useInterstitialAd';
@@ -103,7 +106,7 @@ const cases = {
     const result = adManager.maybeShowInterstitial(); await flush(); await flush();
     assert.equal(fake.interstitialShows, 1);
     assert.equal(fullScreenAds.isBusy(), true);
-    assert.equal(storage.has('signum_ad_stats'), false);
+    assert.equal(JSON.parse(storage.get('signum_ad_stats') || '{}')[new Date().toISOString().split('T')[0]]?.interstitial || 0, 0);
     fake.emit(I.showed); fake.emit(I.dismissed);
     assert.equal(await completed(result), true);
     assert.equal(fullScreenAds.isBusy(), false);
@@ -159,7 +162,7 @@ const cases = {
     loaded.resolve(); await flush(); await flush();
     assert.equal(await show(), true);
   },
-  'android-grace-interval-and-session-cap': async () => {
+  'android-grace-interval-and-daily-cap': async () => {
     await adManager.init(); await flush(); await flush();
     advance(59_999);
     assert.equal(await completed(adManager.maybeShowInterstitial()), false);
@@ -168,11 +171,12 @@ const cases = {
     assert.equal(await completed(adManager.maybeShowInterstitial()), false);
     advance(1); assert.equal(await show(), true);
     advance(180_000); assert.equal(await show(), true);
+    for (let i = 0; i < 3; i++) { advance(180_000); assert.equal(await show(), true); }
     advance(180_000);
-    assert.equal(await completed(adManager.maybeShowInterstitial()), false, 'three per JS lifetime');
+    assert.equal(await completed(adManager.maybeShowInterstitial()), false, 'six per local day');
     adManager['refreshInterstitialOnResume']();
     assert.equal(await completed(adManager.maybeShowInterstitial()), false, 'resume does not reset cap');
-    assert.equal(fake.interstitialShows, 3);
+    assert.equal(fake.interstitialShows, 6);
   },
   'android-pro-suppresses-loaded-ad': async () => {
     await ready(); await adManager.setPro(true);
@@ -190,6 +194,7 @@ const cases = {
     assert.equal(await show(), true);
   },
   'android-first-install-then-existing-run-cadence': async () => {
+    storage.delete('signum_app_first_run_at');
     await ready();
     let nav = mount(() => useInterstitialAd()); let api = nav.render();
     for (let i = 0; i < 10; i++) api.onTabSwitch();
@@ -198,22 +203,23 @@ const cases = {
     assert.ok(storage.has('signum_app_first_run_at'));
     nav.unmount(); __resetInterstitialHookForTest();
     nav = mount(() => useInterstitialAd()); api = nav.render();
-    for (let i = 0; i < 4; i++) api.onTabSwitch();
-    await flush(); assert.equal(fake.interstitialShows, 0);
+    for (let i = 0; i < 3; i++) api.onTabSwitch();
+    await flush(); assert.equal(fake.interstitialShows, 0, 'restart within ten minutes stays protected');
+    advance(539_000);
     api.onTabSwitch(); await flush(); await flush();
     assert.equal(fake.interstitialShows, 1);
     fake.emit(I.showed); fake.emit(I.dismissed); await flush(); await flush();
     assert.equal(fullScreenAds.isBusy(), false);
     nav.unmount();
   },
-  'android-trigger-before-grace-is-skipped-not-queued': async () => {
+  'android-trigger-before-grace-retries-on-next-tab': async () => {
     storage.set('signum_app_first_run_at', '1');
     await adManager.init(); await flush(); await flush();
     const nav = mount(() => useInterstitialAd()); const api = nav.render();
-    for (let i = 0; i < 5; i++) api.onTabSwitch();
+    for (let i = 0; i < 3; i++) api.onTabSwitch();
     await flush(); await flush(); assert.equal(fake.interstitialShows, 0);
     advance(61_000); await flush(); assert.equal(fake.interstitialShows, 0);
-    for (let i = 0; i < 5; i++) api.onTabSwitch();
+    api.onTabSwitch();
     await flush(); await flush(); assert.equal(fake.interstitialShows, 1);
     fake.emit(I.showed); fake.emit(I.dismissed); await flush();
     nav.unmount();
@@ -233,11 +239,11 @@ const expectedAssertions: Record<keyof typeof cases, number> = {
   'android-failed-prepare-retries-then-shows': 4,
   'android-resume-keeps-loaded-ad': 6,
   'android-resume-keeps-pending-prepare': 6,
-  'android-grace-interval-and-session-cap': 18,
+  'android-grace-interval-and-daily-cap': 27,
   'android-pro-suppresses-loaded-ad': 10,
   'android-reward-unlock-suppresses-for-one-hour': 7,
   'android-first-install-then-existing-run-cadence': 7,
-  'android-trigger-before-grace-is-skipped-not-queued': 3,
+  'android-trigger-before-grace-retries-on-next-tab': 3,
 };
 type CaseName = keyof typeof cases;
 const successLine = (name: CaseName) => `✓ ${name} (${expectedAssertions[name]} assertions)`;
