@@ -90,7 +90,6 @@ async function attachEarningsImplied(rows: any[]): Promise<{ rows: any[]; count:
 }
 
 export async function GET(req: Request) {
-  const deadlineMs = Date.now() + 50_000;
   const fresh = new URL(req.url).searchParams.get('fresh') === '1';
   let r: EarningsCalendarResult;
   try {
@@ -109,7 +108,7 @@ export async function GET(req: Request) {
     if (im.stale && raw.length) {
       afterSafe(async () => {
         try {
-          const res = await refreshImpliedPack(raw.map((x: any) => ({ ticker: x.ticker, date: x.date, hour: x.hour })), { deadlineMs });
+          const res = await refreshImpliedPack(raw.map((x: any) => ({ ticker: x.ticker, date: x.date, hour: x.hour })));
           if (!res.skipped) console.log(`[earnings-calendar] 변동폭 묶음 ${res.ok ? '갱신' : '보류'} ${res.withValue ?? 0}/${res.total ?? 0} ${res.ms}ms`);
         } catch (e) { console.warn('[earnings-calendar] 변동폭 묶음 실패:', (e as Error)?.message); }
       });

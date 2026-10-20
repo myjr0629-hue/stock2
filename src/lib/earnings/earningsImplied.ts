@@ -66,8 +66,6 @@ export function validateRowImplied(
   if (!implied || !(typeof implied.pct === 'number' && Number.isFinite(implied.pct) && implied.pct > 0)
     || typeof implied.expiry !== 'string' || !implied.expiry) return null;
   if (implied.expiry < etDateOf(nowMs)) return null;
-  const sameDay = timingOfHour(row.hour) === 'bmo';
-  if (sameDay ? implied.expiry < row.date : implied.expiry <= row.date) return null;
   if (phaseOf(row.date, row.hour || '', nowMs) === 'done') return null;
   return implied;
 }
@@ -143,8 +141,8 @@ export function impliedBasisText(v: RowImplied | null, locale: string): string |
   return parts.join(' · ');
 }
 
-/** A partial cache's missing expiry/straddle does not invalidate an observed, dated value for this event. */
-const CARRY_REASONS = new Set(['no_snapshot', 'read_failed', 'no_expiry_after', 'no_straddle']);
+/** 이번 읽기가 «자료 없음»(저장본 만료·읽기 실패)일 때만 직전 값을 잇는다 — «만기 없음·스트래들 없음»은 확정된 «없음»이라 잇지 않는다 */
+const CARRY_REASONS = new Set(['no_snapshot', 'read_failed']);
 /** 직전 값을 이어 쓸 수 있는 최대 나이(값의 세션 기준, 달력 일) */
 export const IMPLIED_CARRY_MAX_DAYS = 5;
 
@@ -153,21 +151,16 @@ export const IMPLIED_CARRY_MAX_DAYS = 5;
  * 장중에는 구조 사본이 요청 때만 다시 계산돼(짧은 수명) 조용한 종목의 저장본이 비는 때가 있다 — 그때 «—»로 비우지 않고
  * 직전 값을 그 세션 꼬리표와 함께 둔다(대표 원칙: 가리지 말고 칸 유지 + 시각 표식). 만기가 지났거나 5일 넘은 값은 잇지 않는다.
  */
-export function mergeImpliedPacks(next: ImpliedPack, prev: ImpliedPack | null | undefined, nowMs: number = Date.now(), rows: Array<{ ticker: string; date: string; hour?: string | null }> = []): ImpliedPack {
+export function mergeImpliedPacks(next: ImpliedPack, prev: ImpliedPack | null | undefined, nowMs: number = Date.now()): ImpliedPack {
   if (!prev || prev.v !== 1 || !prev.cells) return next;
   const today = etDateOf(nowMs);
   const cells: Record<string, ImpliedCell> = { ...next.cells };
-  const events = new Map(rows.map(row => [impliedRowKey(row.ticker, row.date), row]));
   for (const [key, c] of Object.entries(next.cells)) {
     if (c.p != null || !CARRY_REASONS.has(String(c.r))) continue;
     const old = prev.cells[key];
     if (!old || !(typeof old.p === 'number' && old.p > 0) || !old.e || old.e < today) continue;
-    const eventDate = key.split('|')[1];
-    // Unknown timing is conservative; only the current BMO row permits equality.
-    const event = events.get(key) ?? { date: eventDate };
-    if (!eventDate || !validateRowImplied(event, { pct: old.p, expiry: old.e, basis: old.b, session: old.s }, nowMs)) continue;
     const ageDays = old.s && /^\d{4}-\d{2}-\d{2}$/.test(old.s) ? (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${old.s}T00:00:00Z`)) / 86400e3 : Infinity;
-    if (!(ageDays >= 0 && ageDays <= IMPLIED_CARRY_MAX_DAYS)) continue;
+    if (!(ageDays <= IMPLIED_CARRY_MAX_DAYS)) continue;
     cells[key] = { p: old.p, e: old.e, b: old.b, s: old.s, r: null, k: 1 };
   }
   return { ...next, cells };
