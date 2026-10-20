@@ -1,3 +1,4 @@
+import { hasLensInputs } from './evidence';
 import { Company, Check, Evaluation, LensDefinition, LensId, LensResult, LENS_IDS, Field } from './types';
 
 const definitions: Array<[LensId, string, 'value' | 'factor', string, string | null, string, string]> = [
@@ -447,6 +448,7 @@ export function evaluateLenses(companies: Company[]): Record<LensId, LensResult>
                 const passed = gates && f >= 8;
                 return {
                     ticker: r.ticker,
+                    inputsComplete: hasLensInputs(r, def.id),
                     passed,
                     score,
                     checks,
@@ -494,6 +496,7 @@ export function evaluateLenses(companies: Company[]): Record<LensId, LensResult>
             }
             return {
                 ticker: r.ticker,
+                inputsComplete: hasLensInputs(r, def.id),
                 passed: checks.every((c) => c.passed) && num(score),
                 score,
                 checks,

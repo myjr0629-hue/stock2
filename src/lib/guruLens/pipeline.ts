@@ -26,6 +26,8 @@ export function makeSnapshot(companies: Company[], calls: Snapshot['calls'], now
         asOf: companies.map((c) => c.priceDate).filter(Boolean).sort()[0] ?? '',
         financialYear: companies[0]?.year ?? now.getUTCFullYear() - 1,
         universeCount: companies.length,
+        includedCount: companies.length,
+        excluded: [],
         companies: Object.fromEntries(
             companies.map((c) => [
                 c.ticker,
@@ -36,34 +38,78 @@ export function makeSnapshot(companies: Company[], calls: Snapshot['calls'], now
         lenses: evaluateLenses(companies),
     };
 }
+/** Quarantine whole tickers, then recalculate ranks/percentiles on the included universe. */
+export function preparePublication(
+    candidate: Snapshot,
+    companies: Company[],
+    previous: Snapshot | null,
+    expectedCount = 495,
+) {
+    const diagnostics = publicationHolds(companies, candidate, previous, expectedCount);
+    const reasons = new Map<string, NonNullable<Snapshot['excluded']>[number]['reasons']>();
+    for (const { ticker, code, detail } of diagnostics) {
+        if (!ticker) continue;
+        const list = reasons.get(ticker) ?? [];
+        list.push({ code, detail });
+        reasons.set(ticker, list);
+    }
+    const excluded = [...reasons].sort(([a], [b]) => a.localeCompare(b))
+        .map(([ticker, reasons]) => ({ ticker, reasons }));
+    const included = companies.filter((c) => !reasons.has(c.ticker));
+    const snapshot: Snapshot = {
+        ...candidate,
+        ...(excluded.length ? makeSnapshot(included, candidate.calls, new Date(candidate.generatedAt)) : {}),
+        date: candidate.date,
+        universeCount: companies.length,
+        includedCount: included.length,
+        excluded,
+        // Keep identity history for excluded tickers as well as included ones.
+        companies: candidate.companies,
+    };
+    // Keep malformed-input safeguards. Pass-count changes must use the recalculated result.
+    const global = [
+        ...diagnostics.filter((h) => !h.ticker && h.code !== 'pass_count'),
+        ...publicationHolds(companies, snapshot, previous, expectedCount).filter((h) => !h.ticker),
+    ];
+    if (excluded.length > expectedCount * 0.2)
+        global.push({ code: 'exclusion_ratio', detail: `${excluded.length}/${expectedCount} > 20%` });
+    const holds = [...new Map(global.map((h) => [JSON.stringify(h), h])).values()];
+    return { snapshot, holds };
+}
 /** Distributed lease + atomic multi-key publication in one authoritative store. */
 export async function publishSnapshot(
     cache: PublicationStore,
-    next: Snapshot,
+    candidate: Snapshot,
     companies: Company[],
     previous: Snapshot | null,
     expectedHead: Head | null,
     expectedCount = 495,
 ) {
-    const holds = publicationHolds(companies, next, previous, expectedCount);
-    if (holds.length) return { published: false as const, reason: 'held', holds };
+    const { snapshot: next, holds } = preparePublication(candidate, companies, previous, expectedCount);
+    const report = {
+        universeCount: next.universeCount,
+        includedCount: next.includedCount!,
+        excluded: next.excluded!,
+        passCounts: Object.fromEntries(LENS_IDS.map((id) => [id, next.lenses[id].passCount])),
+    };
+    if (holds.length) return { ...report, published: false as const, reason: 'held', holds };
     if ((previous && next.asOf <= previous.asOf) ||
         (expectedHead?.asOf && next.asOf <= expectedHead.asOf))
-        return { published: false as const, reason: 'older_generation', holds: [] };
+        return { ...report, published: false as const, reason: 'older_generation', holds: [] };
     const owner = await cache.acquire();
-    if (!owner) return { published: false as const, reason: 'publication_locked', holds: [] };
+    if (!owner) return { ...report, published: false as const, reason: 'publication_locked', holds: [] };
     try {
         for (const id of LENS_IDS) {
             if (!await cache.save(lensKey(id, next.date), {
                 date: next.date, result: next.lenses[id],
             } satisfies StoredLens, owner))
-                return { published: false as const, reason: 'write_failed', holds: [] };
+                return { ...report, published: false as const, reason: 'write_failed', holds: [] };
         }
         const { lenses: _, ...meta } = next;
         if (!await cache.save(metaKey(next.date), meta, owner))
-            return { published: false as const, reason: 'write_failed', holds: [] };
+            return { ...report, published: false as const, reason: 'write_failed', holds: [] };
         const reason = await cache.commit(next, previous?.date ?? null, expectedHead, owner);
-        return { published: reason === 'published', reason, holds: [] };
+        return { ...report, published: reason === 'published', reason, holds: [] };
     } finally {
         // A release error cannot turn a completed commit into a failed publication.
         // The lease expires; compare-and-delete cannot remove another owner's lease.
@@ -86,6 +132,18 @@ export async function readSnapshot(
             !Number.isInteger(meta.universeCount)
         )
             continue;
+        const includedCount = meta.includedCount ?? meta.universeCount;
+        const excluded = meta.excluded ?? [];
+        if (
+            !Number.isInteger(includedCount) || includedCount < 0 ||
+            !Array.isArray(excluded) ||
+            includedCount + excluded.length !== meta.universeCount ||
+            excluded.some((e) => !e || typeof e.ticker !== 'string' || !meta.companies[e.ticker] ||
+                !Array.isArray(e.reasons) || !e.reasons.length ||
+                e.reasons.some((r) => !r || typeof r.code !== 'string' || typeof r.detail !== 'string')) ||
+            new Set(excluded.map((e) => e.ticker)).size !== excluded.length
+        ) continue;
+        const excludedTickers = new Set(excluded.map((e) => e.ticker));
         const values = await Promise.all(LENS_IDS.map((id) => cache.read<StoredLens>(lensKey(id, date))));
         if (
             values.some(
@@ -95,9 +153,11 @@ export async function readSnapshot(
                     v.result?.definition?.id !== LENS_IDS[i] ||
                     !Array.isArray(v.result.rows) ||
                     v.result.rows.some(
-                        (row) => !row || typeof row.ticker !== 'string' || typeof row.passed !== 'boolean',
+                        (row) => !row || typeof row.ticker !== 'string' || typeof row.passed !== 'boolean' ||
+                            !meta.companies[row.ticker] || excludedTickers.has(row.ticker),
                     ) ||
-                    v.result.rows.length !== meta.universeCount ||
+                    v.result.rows.length !== includedCount ||
+                    new Set(v.result.rows.map((row) => row.ticker)).size !== includedCount ||
                     v.result.passCount !== v.result.rows.filter((row) => row.passed).length,
             )
         )
@@ -128,6 +188,8 @@ export function selectSnapshot(s: Snapshot, lens?: LensId, ticker?: string) {
         asOf: s.asOf,
         financialYear: s.financialYear,
         universeCount: s.universeCount,
+        includedCount: s.includedCount ?? s.universeCount,
+        excluded: s.excluded ?? [],
         basis: {
             financial: 'SEC CY annual frames',
             prices: Object.fromEntries(

@@ -2,7 +2,7 @@
 import { mgetFromCache } from '@/services/redisClient';
 import { canonicalShareClass } from '@/lib/tickerSymbol';
 import { optionExpirationFloor } from '@/lib/marketCalendar';
-import { optionMetrics, type OptionMetrics } from '@/lib/optionMetrics';
+import { optionMetrics, optionRegimeInputs, type OptionMetrics, type OptionRegimeInputs } from '@/lib/optionMetrics';
 import { etPhase } from '@/lib/cache/intelFastCache';
 
 type Snapshot = { structure: any; oiRow: any; cacheable: boolean };
@@ -77,19 +77,26 @@ async function readCachedSnapshots(canonical: string[]): Promise<Map<string, Sna
     return new Map(await Promise.all([...waiting].map(async ([ticker, value]) => [ticker, await value] as const)));
 }
 
-export async function readOptionMetrics(tickers: string[], options: { cache?: boolean } = {}): Promise<Map<string, OptionMetrics>> {
+export type OptionEdition = { metrics: OptionMetrics; regime: OptionRegimeInputs };
+/** Metrics and the remaining VOL REGIME inputs from ONE read of the same structure:v2 edition. */
+export async function readOptionEditions(tickers: string[], options: { cache?: boolean } = {}): Promise<Map<string, OptionEdition>> {
     const asked = [...new Set(tickers.map(t => t.trim().toUpperCase()).filter(Boolean))];
     if (!asked.length) return new Map();
     const canonical = [...new Set(asked.map(canonicalShareClass))];
     const rows = await (options.cache ? readCachedSnapshots(canonical) : readSnapshots(canonical));
-    const byCanonical = new Map<string, OptionMetrics>();
+    const byCanonical = new Map<string, OptionEdition>();
     const now = Date.now();
     const floor = optionExpirationFloor(now);
     canonical.forEach(t => {
         const { structure: s, oiRow } = rows.get(t)!;
         const usable = s && s.options_status !== 'NO_MARKET' && typeof s.expiration === 'string' && s.expiration >= floor;
         // Re-evaluate expiry and OI age even on a hit; return fresh objects to every caller.
-        byCanonical.set(t, optionMetrics(usable ? s : null, oiRow, now));
+        byCanonical.set(t, { metrics: optionMetrics(usable ? s : null, oiRow, now), regime: usable ? optionRegimeInputs(s) : null });
     });
     return new Map(asked.map(t => [t, byCanonical.get(canonicalShareClass(t))!]));
+}
+
+export async function readOptionMetrics(tickers: string[], options: { cache?: boolean } = {}): Promise<Map<string, OptionMetrics>> {
+    const editions = await readOptionEditions(tickers, options);
+    return new Map([...editions].map(([t, e]) => [t, e.metrics]));
 }

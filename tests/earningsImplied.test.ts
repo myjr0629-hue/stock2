@@ -38,6 +38,15 @@ let failReads = false;
   return new Response('not found', { status: 404 });
 };
 
+const lockModule = require.resolve('../src/services/earningsImpliedLock');
+require.cache[lockModule] = { id: lockModule, filename: lockModule, loaded: true, exports: {
+  acquireEarningsImpliedLock: async () => {
+    const key = 'earnings:implied:v1:lock';
+    if (store.has(key)) return false;
+    store.set(key, { at: Date.now() }); writeKeys.push(key); return true;
+  },
+} } as any;
+
 const EI = require('../src/lib/earnings/earningsImplied') as typeof import('../src/lib/earnings/earningsImplied');
 const EIS = require('../src/services/earningsImpliedService') as typeof import('../src/services/earningsImpliedService');
 const IMS = require('../src/services/impliedMoveService') as typeof import('../src/services/impliedMoveService');
@@ -77,6 +86,7 @@ const seed = () => {
   RC._resetEcBreakerForTest();
   put('structure:v2:JPM', structure('JPM', 333.45, { pct: 3.6 }));
   put('structure:v2:TSM', structure('TSM', 452.94, { pct: 4.3, strike: 452.5 }));
+  put('intrinio:eod:snapshot', { date: '2026-10-09', rows: [['NFLX', 0, 0, 0, 1200, 0, 0, 0]] });
   // NFLX: 10/20 장후 — 주간 만기(10/16)가 아니라 «발표 뒤 첫 만기»(10/23)를 수집기 체인에서 계산하는 경로
   put('structure:v2:NFLX', structure('NFLX', 1200, { pct: 5.0 }));
   put('polygon:snapshot:probe:NFLX', {
@@ -188,12 +198,13 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
     assert.equal(EI.impliedPackStale(p('2026-10-13T03:55:00Z', '2026-10-12'), ms('2026-10-13T04:01:00Z')), true);
     assert.equal(EI.isRegularHoursET(ms('2026-10-11T15:00:00Z')), false, '일요일');
   });
-  await ta('refreshImpliedPack — 저장(키 1개) · 잠금 중엔 건너뜀 · 값이 하나도 없으면 저장하지 않는다', async () => {
+  await ta('refreshImpliedPack — 묶음·월간 확인 캐시만 저장 · 잠금 중엔 건너뜀 · 빈 묶음은 저장하지 않는다', async () => {
     seed();
     const r1 = await at(SUNDAY, () => EIS.refreshImpliedPack(ROWS));
     assert.equal(r1.ok, true); assert.equal(r1.withValue, 3); assert.equal(r1.total, 5);
     assert.ok(writeKeys.includes(EI.EARNINGS_IMPLIED_KEY));
-    assert.deepEqual(writeKeys.filter((k) => k !== EI.EARNINGS_IMPLIED_KEY && k !== `${EI.EARNINGS_IMPLIED_KEY}:lock`), [], '묶음·잠금 외 쓰기 0');
+    assert.deepEqual(writeKeys.filter((k) => k !== EI.EARNINGS_IMPLIED_KEY && k !== `${EI.EARNINGS_IMPLIED_KEY}:lock`), ['earnings:event-probe:v3:JPM:2026-10-13:same', 'earnings:event-probe:v3:TSM:2026-10-15:same', 'earnings:event-probe:v3:NFLX:2026-10-20:next', 'earnings:event-probe:v3:PSA:2026-10-26:next'], '근거리 행의 실제 첫 만기 확인 결과만 추가 저장');
+    assert.equal((store.get('earnings:event-probe:v3:PSA:2026-10-26:next') as any).im, null, '없는 체인으로 숫자를 만들지 않는다');
     const saved = await EIS.readImpliedPack();
     assert.equal(saved!.cells['TSM|2026-10-15'].p, 4.3);
     const r2 = await at(SUNDAY, () => EIS.refreshImpliedPack(ROWS));
@@ -213,7 +224,7 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
     assert.equal(store.get(EI.EARNINGS_IMPLIED_KEY), undefined);
   });
 
-  t('장중 저장본이 빈 칸(no_snapshot)은 직전 값을 세션 꼬리표째 잇는다 · 확정된 «없음»·만기 지남·5일 넘은 값은 잇지 않는다', () => {
+  t('장중 저장본이 빈 칸(no_snapshot)은 직전 값을 세션 꼬리표째 잇는다 · 부분 체인 결측도 잇고 만기 지남·5일 넘은 값은 잇지 않는다', () => {
     const now = ms('2026-10-12T14:00:00Z');   // 월 ET 10:00
     const prev = { v: 1 as const, at: now - 600e3, day: '2026-10-12', cells: {
       'GE|2026-10-20': { p: 6.9, e: '2026-10-23', b: 'eod' as const, s: '2026-10-09', r: null },
@@ -232,7 +243,8 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
     } };
     const m = EI.mergeImpliedPacks(next, prev, now);
     assert.deepEqual(m.cells['GE|2026-10-20'], { p: 6.9, e: '2026-10-23', b: 'eod', s: '2026-10-09', r: null, k: 1 });
-    assert.equal(m.cells['PSA|2026-10-26'].p, null, '확정된 없음은 잇지 않는다');
+    assert.equal(m.cells['PSA|2026-10-26'].p, 3.0, '부분 만기 목록은 직전 실제 값을 무효화하지 않는다');
+    assert.equal(m.cells['PSA|2026-10-26'].s, '2026-10-09');
     assert.equal(m.cells['OLD|2026-10-14'].p, null, '만기 지남');
     assert.equal(m.cells['STALE|2026-10-20'].p, null, '10일 전 세션');
     assert.deepEqual(m.cells['C|2026-10-13'], next.cells['C|2026-10-13'], '새 값이 이긴다');

@@ -2,6 +2,18 @@
 
 운영 화면·문구·푸시·SEO 변경 없음. 이 브랜치에서는 운영 크론을 호출하거나 Redis에 쓰지 않는다.
 
+## 2026-10-20 부분 발행 수리
+
+- 원인: `publishSnapshot`이 종목별 출구 검사와 전체 발행 이상을 구분하지 않아, 10/19 공개 원자료의 이상 111건/35종목 때문에 495종목 전체를 발행하지 못했다. 읽기 API의 발행본 없음·읽기 실패는 `no-store`여서 반복 조회됐다.
+- `preparePublication`은 기존 검사의 ticker별 사유를 `excluded: [{ticker, reasons: [{code, detail}]}]`로 묶고 해당 종목을 **모든 렌즈**에서 제외한 뒤 집계·순위·백분위를 재계산한다. 발행 메타/API/크론 결과에 `universeCount`(495), `includedCount`, `excluded`를 보존한다. 크론의 `passCounts`도 재계산 결과다.
+- 데이터 이상으로 인한 전체 보류는 제외 종목 수가 전체의 **20% 초과**하거나 기존 통과 수 급변 규칙(`abs(delta) >= max(10, previous * 0.5)`)에 걸릴 때다. 99/495 제외는 허용하고 100/495 제외는 보류한다. 유니버스 누락·중복, 결과 구조·점수 손상, 저장 실패, lease·세대 순서 보호는 유지한다. 기존 가격/CIK 95% 확보율 검사가 발동하면 결측 종목별 제외로 처리하며, 작은 결측은 기존 렌즈별 판정 가능 수에 반영한다.
+- 읽기 검증은 `includedCount + excluded.length == universeCount`, 각 렌즈의 포함 종목 수·중복·제외 종목 유출을 검사한다. 필드가 없는 구 발행본은 전체 유니버스 집계로 읽고, 손상된 신규 발행본은 직전 정상본으로 돌아간다. CIK 변경 감지를 위해 `companies` 식별 이력은 제외 종목도 보존한다.
+- GET의 503에는 `public, s-maxage=60`을 붙이고, warm 인스턴스에서도 발행본 없음·저장소 읽기 실패를 60초 음수 캐시한다. 동시 요청의 읽기는 하나로 합친다. 만료 뒤 정상 발행본을 다시 읽는다. Redis 음수 캐시 쓰기는 추가하지 않았다.
+- 화면의 기존 `determinedCount/495` 표기는 유지한다. `includedCount=460`이 모든 렌즈의 원입력 완전성을 뜻하지 않으며 렌즈별 `determinedCount`는 더 작을 수 있다. 가격 이력 부족 PSKY·Q·WBD 3종목도 기존 판정 불가 처리 대상이다.
+- 영향 호출자: `publicationHolds` → 새 `preparePublication` → `publishSnapshot` → `runGuruLens` → `/api/cron/guru-lens`. `makeSnapshot`은 주간 서비스·부분 재집계에서 사용한다. `readSnapshot`은 주간 서비스·GET에서, `selectSnapshot`은 GET에서 사용한다. 저장소/Lua·공용 Redis·화면 함수 구현은 변경하지 않았다. 관련 직접 호출 시험을 전수 검색했다.
+- 검증: 신규 부분 발행 5개 시나리오, 503 캐시/만료/동시 요청/복구, 주간 서비스 부분 집계 보고, 기존 렌즈 시험, 10/19 원자료 재생을 사용한다. 재생은 35종목 제외·460/495종목 메모리 발행·재조회를 단언한다. 제외 사유 표·원천 대조 후보·렌즈별 판정 가능 수는 `out/guru-lens-exclusions-2026-10-19.md`, 기계 판독 근거는 `out/guru-lens-replay-2026-10-19.json`에 생성한다. `out/`은 저장소 기존 ignore 대상이다.
+- 재생 보고서 재생성: 기존 `tests/guruLensReplay.test.ts <proto 디렉터리>` 명령에 세 번째 인자 `out`을 추가한다. 모든 무거운 실행은 `/usr/bin/lockf -k /tmp/signum-heavy.lock` 안에서 순차 처리한다. 아래 과거 관문 기록의 '원자료 발행 불가'는 수리 전 정책을 뜻한다.
+
 - GET `/api/guru-lens`: 렌즈별 통과 수와 상위 10개. 통과 0이면 가장 근접한 5개(`passed:false`).
 - GET `/api/guru-lens?lens=moat_compounder&limit=20`: 단일 렌즈, 최대 50개.
 - GET `/api/guru-lens?ticker=AAPL`: 전체 평가표에서 찾은 통과 렌즈 목록과 렌즈별 수치 판정. Top N 밖 종목도 역조회된다.

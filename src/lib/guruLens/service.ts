@@ -27,10 +27,8 @@ export async function runGuruLens(now = new Date()) {
     return {
         ...result,
         date: next.date,
-        universeCount: companies.length,
         calls,
         failures,
-        passCounts: Object.fromEntries(Object.entries(next.lenses).map(([id, l]) => [id, l.passCount])),
     };
 }
 export async function currentBadges(tickers: string[]) {

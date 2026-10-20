@@ -142,6 +142,23 @@ function legPrices(c: any, quotesLive: boolean | null | undefined, tradeBasis: I
 }
 
 /**
+ * EOD 스트래들 전용 행 — 다리 가격을 «그 세션 마감 호가 중간값»으로만 둔다.
+ *   [관문 10200755] 양쪽 마감 호가(bid>0·ask>0·ask≥bid)가 확인되는 계약만 값을 갖는다 — Intrinio mark(=마감 호가 중간)가
+ *   있으면 그것, 없으면 (bid+ask)/2. 한쪽 호가만 있으면 그 계약은 값 없음(제외).
+ *   슬림 저장 체인(호가 칸 없이 midpoint 만)은 그 midpoint 가 «한쪽 호가 0 대체»·실시간 FMV·mark 중 무엇인지 알 수 없어 쓰지 않는다.
+ *   day.vwap(mark 가 비면 마지막 체결 종가)·last_trade 도 섞지 않는다. 지어내지 않는다.
+ */
+export function eodQuoteRows(rows: any[], _chainQuotesLive: boolean | null | undefined = null): any[] {
+    return (Array.isArray(rows) ? rows : []).map((c: any) => {
+        const bid = pos(c?.last_quote?.bid), ask = pos(c?.last_quote?.ask);
+        const twoSided = bid != null && ask != null && ask >= bid;
+        const explicitMark = pos(c?._intrinio?.eod?.mark);
+        const price = twoSided ? (explicitMark ?? (bid! + ask!) / 2) : null;
+        return { ...c, _rtGreeks: false, day: { ...(c?.day || {}), vwap: null }, last_trade: undefined, last_quote: { midpoint: price } };
+    });
+}
+
+/**
  * ATM 스트래들 예상 변동 — 위 [정의] 그대로. 계산할 수 없으면 null(지어내지 않는다).
  */
 export function atmStraddleImpliedMove(chain: any[], spot: number, opts: StraddleOptions = {}): ImpliedMove | null {

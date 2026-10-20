@@ -20,9 +20,12 @@ export function publicationHolds(
         add('universe', '유니버스 누락·중복');
     const priced = companies.filter((r) => r.price > 0 && r.priceDate),
         identified = companies.filter((r) => r.cik > 0);
-    if (priced.length < expectedCount * 0.95 || identified.length < expectedCount * 0.95)
-        add('coverage', '가격·CIK 확보율 95% 미만');
+    // Preserve the existing 95% detection threshold; quarantine affected tickers
+    // instead of turning this source-coverage safeguard into a universe-wide hold.
+    const coverageFailed = priced.length < expectedCount * 0.95 || identified.length < expectedCount * 0.95;
     for (const r of companies) {
+        if (coverageFailed && (!(r.price > 0) || !r.priceDate || !(r.cik > 0)))
+            add('coverage', '가격·CIK 결측', r.ticker);
         const before = previous?.companies[r.ticker];
         if (before && (before.cik !== r.cik || before.reportedCik !== r.reportedCik))
             add('cik_change', `${before.cik}/${before.reportedCik} → ${r.cik}/${r.reportedCik}`, r.ticker);
@@ -97,13 +100,13 @@ export function publicationHolds(
             old = previous?.lenses[id];
         if (
             !current ||
-            current.rows.length !== expectedCount ||
+            current.rows.length !== (next.includedCount ?? expectedCount) ||
             current.passCount !== current.rows.filter((r) => r.passed).length
         )
             add('result_shape', id);
         if (current?.rows.some((r) => r.score !== null && !num(r.score))) add('score', id);
         // Absolute floor avoids treating a normal 0→1 move as a collapse. 0→10 is held.
-        if (old && Math.abs(current.passCount - old.passCount) >= Math.max(10, old.passCount * 0.5))
+        if (old && current && Math.abs(current.passCount - old.passCount) >= Math.max(10, old.passCount * 0.5))
             add('pass_count', `${id}: ${old.passCount} → ${current.passCount}`);
     }
     return holds;
