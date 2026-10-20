@@ -5,6 +5,9 @@ import { spawnSync } from 'node:child_process';
 import { AdMob, FakeAdMob, deferred, flush, advance, storage, writes, mount, timeoutCount } from './test-fullscreen-ads.shim';
 import { FullScreenAdSession, fullScreenAds, FULL_SCREEN_AD_SHOW_START_TIMEOUT_MS } from '../src/services/fullScreenAdSession';
 import { adManager } from '../src/services/adManager';
+// Existing non-Pro user; individual install/Pro scenarios override these inputs.
+void adManager.setPro(false);
+storage.set('signum_app_first_run_at', '1');
 import { ValueWall, useAdUnlockGate } from '../src/components/app/ValueWall';
 import { ValueWall as NativeValueWall } from '../src/components/native/ValueWall';
 import * as uc from '../src/app/[locale]/undercurrent/ads';

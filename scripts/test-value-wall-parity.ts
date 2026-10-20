@@ -97,6 +97,7 @@ async function main() {
   }
 
   await test('earned reward: no modal, callback and all walls unlock, repaired grant happens once', async () => {
+    await adManager.setPro(false);
     await adManager.init(); await flush();
     let callbacks = 0, broadcasts = 0;
     const onBroadcast = () => { broadcasts++; };

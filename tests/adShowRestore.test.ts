@@ -14,6 +14,9 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fake, AdMob as proxy, advance, flush, storage, mount } from './adShowRestore.capacitor';
 import { adManager } from '../src/services/adManager';
+// Existing non-Pro user; individual install/Pro scenarios override these inputs.
+void adManager.setPro(false);
+storage.set('signum_app_first_run_at', '1');
 import { fullScreenAds } from '../src/services/fullScreenAdSession';
 import * as hook from '../src/hooks/useInterstitialAd';
 import * as uc from '../src/app/[locale]/undercurrent/ads';
@@ -212,21 +215,26 @@ const scenarios: Record<string, () => Promise<void>> = {
     for (let i = 0; i < 10; i++) onTabSwitch();
     await flush(); await flush();
     if (baseline) { assert.equal(calls, 0, 'origin/main: every launch is «first session» for a mounted nav'); return; }
-    assert.equal(calls, 2, 'every 5th switch attempts an ad');
+    assert.equal(calls, 3, 'every third switch attempts an ad');
   },
   'hook-first-install-run-then-next-run': async () => {
-    let calls = 0;
-    adManager.maybeShowInterstitial = async () => { calls++; return false; };
+    storage.delete('signum_app_first_run_at');
+    await ready();
     let nav = mount(() => hook.useInterstitialAd()); let api = nav.render();
     for (let i = 0; i < 10; i++) api.onTabSwitch();
     await flush(); await flush();
-    assert.equal(calls, 0, 'first run after install stays ad-free');
+    assert.equal(fake.interstitialShows, 0, 'first ten minutes stay ad-free');
     assert.ok(storage.has('signum_app_first_run_at'));
-    nav.unmount(); hook.__resetInterstitialHookForTest(); // 앱 재실행 = 새 JS 수명
+    nav.unmount(); hook.__resetInterstitialHookForTest();
     nav = mount(() => hook.useInterstitialAd()); api = nav.render();
-    for (let i = 0; i < 5; i++) api.onTabSwitch();
+    for (let i = 0; i < 3; i++) api.onTabSwitch();
     await flush(); await flush();
-    assert.equal(calls, 1, 'second run shows on cadence');
+    assert.equal(fake.interstitialShows, 0, 'restart does not bypass install grace');
+    advance(539_000);
+    api.onTabSwitch(); await flush(); await flush();
+    assert.equal(fake.interstitialShows, 1, 'pending trigger runs on first tab at ten minutes');
+    fake.emit(I.showed); fake.emit(I.dismissed); await flush();
+    nav.unmount();
   },
 };
 // Listeners that outlive a session (banner SizeChanged/Loaded/FailedToLoad registered by init).
