@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { getWatchlistStore, type WatchlistItem } from '@/lib/app/watchlist';
-import { buildMoneyMap, mapQuoteValues, mergeMoneyMapSources, type MapSources, type MapValue } from '@/lib/app/moneyMap';
+import { buildMoneyMap, mapQuoteValues, mergeMoneyMapSources, nqObservationOf, type MapSources, type MapValue } from '@/lib/app/moneyMap';
 import { MoneyMapCards, type MoneyMapCopy } from './MoneyMapCards';
 import { etDateOf } from '@/lib/marketCalendar';
 
@@ -37,8 +37,8 @@ export function TodayMoneyMap() {
         responses.slice(0, -1).forEach(r => { if (r.status === 'fulfilled') values = mapQuoteValues(r.value, values); });
         const backdrop = responses.at(-1);
         if (backdrop?.status === 'fulfilled') {
-          const b = backdrop.value.backdrop, asOf = Date.parse(b?.futures?.asOf || '');
-          if (b?.futures?.live && Number.isFinite(b.futures.nq?.changePct) && asOf > 0) nq = { value: b.futures.nq.changePct, date: etDateOf(asOf), session: 'PRE', at: asOf, kind: 'live' };
+          const observed = nqObservationOf(backdrop.value.backdrop, etDateOf);
+          if (observed) nq = observed;
         }
         if (controller.signal.aborted) return;
         saved = { sources, values, nq }; setState(saved); setNow(Date.now());

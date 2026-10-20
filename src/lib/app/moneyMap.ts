@@ -176,6 +176,15 @@ function currentValue(v: MapValue, session: MapSession, date: string, now: numbe
   return v.kind === 'live' && v.at > 0 && now - v.at >= -60_000 && now - v.at <= MAX_AGE
     && moneyMapSession(v.at) === session;
 }
+/** /api/market/now 배경 → PRE 기준 NQ 관측값. NQ «자기» 측정 시각(futures.nqAsOf)이 있을 때만 — NQ·ES 중 최신 시각(futures.asOf)을
+ *  NQ 시각으로 쓰면 오래된 NQ 가 새 값처럼 남아 PRE 순위에 쓰인다(관문 10200401). 없으면 null(이전 관측은 자기 시각으로 늙는다). */
+export function nqObservationOf(backdrop: any, dateOf: (ms: number) => string): MapValue | null {
+  const f = backdrop?.futures;
+  const at = Date.parse(typeof f?.nqAsOf === 'string' ? f.nqAsOf : '');
+  const v = f?.nq?.changePct;
+  if (!f?.live || !finiteMapNumber(v) || !(at > 0)) return null;
+  return { value: v, date: dateOf(at), session: 'PRE', at, kind: 'live' };
+}
 export function buildMoneyMap(sources: MapSources, values: Record<string, MapValue>, nq: MapValue | null, now: number): MoneyMapData {
   const session = moneyMapSession(now), date = etDateOf(now);
   const regularDate = shownRegularSessionDate(now);

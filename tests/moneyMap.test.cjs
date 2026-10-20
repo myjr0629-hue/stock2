@@ -18,7 +18,7 @@ for (const extension of ['.ts', '.tsx']) require.extensions[extension] = (mod, f
 };
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
-const { buildMoneyMap, mapQuoteValues, aggregateMapPremium, mergeMoneyMapSources, moneyMapSession, mapWeekRange } = require('../src/lib/app/moneyMap.ts');
+const { buildMoneyMap, mapQuoteValues, aggregateMapPremium, mergeMoneyMapSources, moneyMapSession, mapWeekRange, nqObservationOf } = require('../src/lib/app/moneyMap.ts');
 const { MoneyMapCards } = require('../src/components/intel/MoneyMapCards.tsx');
 const copies = Object.fromEntries(['ko', 'en', 'ja'].map(loc => [loc, require(`../src/messages/${loc}.json`).moneyMap.copy]));
 function isolatedModule(filename, deps) {
@@ -101,6 +101,20 @@ test('PRE NQ does not compare with REG / wrong-date / stale benchmark', () => {
   for (const nq of [null, observed(1, '2026-10-16', 'PRE', now), observed(1, '2026-10-19', 'REG', now), observed(1, '2026-10-19', 'PRE', '2026-10-19T10:00:00Z')]) {
     assert.equal(buildMoneyMap(s, values, nq, at(now)).leaders.length, 0);
   }
+});
+test('gate 10200401: NQ keeps its own measurement time — a 29-minute-old NQ is never ranked as fresh', () => {
+  const dateOf = ms => new Date(ms - 4 * 3600_000).toISOString().slice(0, 10);
+  // 08:00 ET 조회: NQ 07:41, ES 08:00 → futures.asOf 는 08:00(최신)이지만 NQ 관측 시각은 07:41
+  const b = { futures: { live: true, asOf: '2026-10-19T12:00:00Z', nqAsOf: '2026-10-19T11:41:00Z', esAsOf: '2026-10-19T12:00:00Z', nq: { level: 1, changePct: 0.8 }, es: { level: 1, changePct: 0.5 } } };
+  const nq = nqObservationOf(b, dateOf);
+  assert.equal(nq.at, at('2026-10-19T11:41:00Z')); assert.equal(nq.date, '2026-10-19'); assert.equal(nq.session, 'PRE');
+  const s = sources(), later = '2026-10-19T12:10:00Z', values = quoteSet(s, later);
+  assert.equal(buildMoneyMap(s, values, nq, at(later)).leaders.length, 0, '08:10 ET: NQ 29분 → 순위에 쓰지 않음');
+  assert.equal(buildMoneyMap(s, values, { ...nq, at: at('2026-10-19T12:00:00Z') }, at(later)).leaders.length, 3, '(옛 결함: 08:00 으로 저장하면 신선 판정)');
+  // NQ 자기 시각이 없으면(구 응답·NQ 결측) 관측값을 만들지 않는다 — 최신 시각을 빌려 쓰지 않는다
+  assert.equal(nqObservationOf({ futures: { live: true, asOf: '2026-10-19T12:00:00Z', nq: { changePct: 0.8 } } }, dateOf), null);
+  assert.equal(nqObservationOf({ futures: { live: true, asOf: '2026-10-19T12:00:00Z', nqAsOf: null, nq: null, es: { changePct: 0.5 } } }, dateOf), null);
+  assert.equal(nqObservationOf({ futures: { live: false, nqAsOf: '2026-10-19T11:41:00Z', nq: { changePct: 0.8 } } }, dateOf), null);
 });
 test('AI absent is omitted; actual existing sector sentence stays in its own language', () => {
   const s = sources(), now = '2026-10-19T15:00:00Z';
