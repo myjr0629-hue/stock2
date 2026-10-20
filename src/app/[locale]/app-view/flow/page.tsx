@@ -4096,7 +4096,7 @@ export default function AppFlowPage() {
                 .slice()
                 .sort((a, b) => Math.abs(b.oiChange ?? 0) - Math.abs(a.oiChange ?? 0))
                 .slice(0, 8);
-              const nf = (n: number) => n.toLocaleString();
+              const nf = (n: number | null | undefined) => n == null ? '—' : n.toLocaleString();
               return (
                 <div className="premium-card" style={{ padding: '16px 15px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
