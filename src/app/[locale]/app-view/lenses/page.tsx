@@ -3,7 +3,8 @@
 // ============================================================================
 // 대가 렌즈 랭킹 — 종목 화면 «통과 렌즈 n» 칩 → «렌즈별 순위 보기»로만 들어온다(하단 탭 추가 없음).
 //
-// ★ 렌즈 카드 10장. 누르면 펼쳐진다(한 번에 한 장). Top 3 = 무료 · 4~10위 = 기존 ValueWall(광고 1시간·Pro).
+// ★ 렌즈 카드 10장. 누르면 펼쳐진다(한 번에 한 장). Top 3 = 무료 · 4~10위 = PRO 전용(결정 문서 §1 — 광고 1시간 해제 없음).
+//   잠금 화면은 기존 ValueWall 의 모양·구독 페이월(useAdUnlockGate 의 Pro 경로)을 그대로 쓰고 «광고 보고 열기»만 뺐다.
 // ★ 행마다 배지 3종(13F 말과 행동·기준일 / 오늘의 돈 4신호 중 2개 이상 겹침 / 실적 D-n·예상 변동) — 값 있는 것만.
 // ★ 결측: «집계 n/495»는 분모를 알 때만. 통과 0 은 «0종목» 대신 «가장 가까운 종목 · 규칙 미충족».
 // ★ 문구: «규칙 충족»만. 대가 이름 옆엔 «○○ 공개 기준을 우리가 해석».
@@ -12,7 +13,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
-import { ValueWall } from '@/components/app/ValueWall';
+import { GuruLensProOnly as ProOnly } from '@/components/app/GuruLens';
 import {
     FREE_ROWS, GURU, LENS_NAME, T, badgeTexts, coverageText, headline, lensBody, md, toLoc, whyLine,
     type LensBody, type LensList, type LensRow, type Loc,
@@ -70,9 +71,9 @@ function LensCard({ lens, open, onToggle, universe, loc, locale }: {
                 <div className={s.body}>
                     {free.map((r, i) => <Row key={r.ticker} id={id} row={r} rank={i + 1} loc={loc} locale={locale} />)}
                     {locked.length > 0 && (
-                        <ValueWall locale={locale} compact inset title={t.lockTitle} subtitle={t.lockSub}>
-                            <div>{locked.map((r, i) => <Row key={r.ticker} id={id} row={r} rank={FREE_ROWS + i + 1} loc={loc} locale={locale} />)}</div>
-                        </ValueWall>
+                        <ProOnly locale={locale}>
+                            {locked.map((r, i) => <Row key={r.ticker} id={id} row={r} rank={FREE_ROWS + i + 1} loc={loc} locale={locale} />)}
+                        </ProOnly>
                     )}
                     <p className={s.note}>{t.interpreted(GURU[id][loc])}</p>
                 </div>

@@ -9,11 +9,15 @@
 // ★ 패널은 누를 때만 열린다(기본 닫힘 — 기존 배치 변화 0).
 // ============================================================================
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     GURU, LENS_NAME, T, chipCount, lensesHref, md, tickerLens, toLoc, whyLine, type TickerLens,
 } from '@/lib/app/guruLens';
+import { useAdUnlockGate } from './ValueWall';
+import { AdFreeIcon } from './AdFreeIcon';
+import { RedeemCodeLink } from './RedeemCodeLink';
+import vw from './ValueWall.module.css';
 import s from './GuruLens.module.css';
 
 /** 종목 역조회(배지 없이 규칙 판정만). 티커가 바뀌면 이전 종목 값을 즉시 버린다. */
@@ -73,6 +77,44 @@ export function GuruLensWhy({ data, locale, id }: { data: TickerLens; locale: st
             <button type="button" className={s.more} onClick={() => router.push(lensesHref(locale, data.passedLenses[0]))}>
                 {t.more}<span aria-hidden="true">›</span>
             </button>
+        </div>
+    );
+}
+
+/** 대가 렌즈 4~10위 — PRO 만(결정 문서 §1: Top 10 = PRO · 광고 1시간 해제는 이 자리에 없다).
+ *  잠금 모양·구독 페이월·복원·코드 입력은 기존 ValueWall 의 Pro 경로(useAdUnlockGate)를 그대로 쓴다. 비PRO 는 흐린 미리보기 + Pro 구독 경로(스토어에서 살 수 있는 곳에서만 버튼). */
+export function GuruLensProOnly({ locale, children }: { locale: string; children: ReactNode }) {
+    const g = useAdUnlockGate(locale);
+    const t = T[toLoc(locale)];
+    if (g.isPro) return <div>{children}</div>;
+    return (
+        <div className={`${vw.vault} ${vw.compactVault} ${vw.inset}`} data-testid="guru-lens-pro-lock">
+            <div className={vw.blurred} aria-hidden="true">{children}</div>
+            <div className={vw.veil}>
+                <div className={vw.lockIcon}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect x="5" y="11" width="14" height="9" rx="2" stroke="var(--amber)" strokeWidth="1.8" />
+                        <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="var(--amber)" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                </div>
+                <div className={vw.title}>{t.lockTitle}</div>
+                <div className={vw.sub}>{t.lockSub}</div>
+                {g.iapAvailable && (
+                    <>
+                        <button type="button" className={vw.proCta} onClick={() => g.openPaywall('value_wall')} disabled={g.purchasing}>
+                            <AdFreeIcon size={13} />
+                            <span>{g.purchasing ? g.copy.modalWaitPrefix : g.copy.proCta}</span>
+                        </button>
+                        {g.proError && <div className={vw.proError} role="alert">{g.copy.proErrorLabel}</div>}
+                        {g.proNothing && <div className={vw.proError} style={{ color: 'var(--text-muted)' }} role="status">{g.copy.proNothingLabel}</div>}
+                        <button type="button" className={vw.proRestore} onClick={g.handleRestore} disabled={g.purchasing}>
+                            {g.copy.proRestoreLabel}
+                        </button>
+                        <RedeemCodeLink locale={locale} src="value_wall" />
+                    </>
+                )}
+            </div>
+            {g.portals}
         </div>
     );
 }
