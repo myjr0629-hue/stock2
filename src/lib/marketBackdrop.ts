@@ -63,7 +63,8 @@ export interface MarketBackdrop {
     calKey: string;
     mode: BackdropMode;
     cash: { sessionDate: string; live: boolean; nasdaq: IndexPoint | null; dow: IndexPoint | null; spx: IndexPoint | null };
-    futures: { live: boolean; asOf: string | null; nq: IndexPoint | null; es: IndexPoint | null };
+    /** asOf = NQ·ES 중 최신 시각(기존). nqAsOf·esAsOf = 그 값 자체의 측정 시각 — 값별 신선도 판정은 이것으로(관문 10200401). */
+    futures: { live: boolean; asOf: string | null; nq: IndexPoint | null; es: IndexPoint | null; nqAsOf?: string | null; esAsOf?: string | null };
     us10y: { level: number; changeBp: number | null; sessionDate: string | null; live: boolean; source: string | null } | null;
 }
 
@@ -148,7 +149,7 @@ export function buildBackdrop(inp: BackdropInputs): MarketBackdrop {
         calKey: calendarKey(inp.nowMs),
         mode,
         cash: { sessionDate, live: cashLive, nasdaq: point(inp.nasdaq), dow: point(inp.dow), spx: point(inp.spx) },
-        futures: { live: futLive, asOf: futAsOf, nq, es },
+        futures: { live: futLive, asOf: futAsOf, nq, es, nqAsOf: nq ? inp.nq!.lastChangeAt! : null, esAsOf: es ? inp.es!.lastChangeAt! : null },
         us10y,
     };
 }

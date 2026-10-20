@@ -179,7 +179,7 @@ export function _setConfirmedListsForTest(lists: { confirmed: ConfirmedEarnings[
   overlayMemo = new WeakMap();
 }
 
-function withConfirmedDates(p: EarningsCalendarPayload): EarningsCalendarPayload {
+export function withConfirmedDates(p: EarningsCalendarPayload): EarningsCalendarPayload {
   try {
     const today = etDateOf(Date.now());
     const hit = overlayMemo.get(p);

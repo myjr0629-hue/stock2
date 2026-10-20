@@ -41,6 +41,8 @@ export type RotationRegime = 'RISK_ON_GROWTH' | 'RISK_OFF_DEFENSE' | 'CYCLICAL_R
 
 // [V6.0] Per-Sector 5-Day Analysis
 export interface SectorTrendData {
+    asOf?: string;          // last actual daily bar date, retained through cached replay
+    basis?: 'ETF' | 'equalWeight'; // existing historical calculation basis (no change to returns)
     changes: number[];       // 4 daily returns (day-over-day)
     cumReturn: number;       // 5-day cumulative return
     rvol: number;            // relative volume (recent vs avg)
@@ -367,7 +369,7 @@ function classifyRegime(
  */
 export function calculateRotationIntensityV2(
     flows: SectorFlowRate[],
-    fiveDaySeriesData: Record<string, { closes: number[]; volumes: number[] }>
+    fiveDaySeriesData: Record<string, { closes: number[]; volumes: number[]; dates?: string[] }>
 ): RotationIntensity {
     const defaultResult: RotationIntensity = {
         score: 50, direction: 'NEUTRAL', topInflow: [], topOutflow: [],
@@ -384,6 +386,8 @@ export function calculateRotationIntensityV2(
         const series = fiveDaySeriesData[sector.id];
         if (series && series.closes.length >= 2) {
             fiveDayData[sector.id] = analyzeSectorTrend(sector.id, series, sector.change);
+            fiveDayData[sector.id].asOf = series.dates?.[series.dates.length - 1];
+            fiveDayData[sector.id].basis = REAL_ETF_SECTORS.has(sector.id) ? 'ETF' : 'equalWeight';
         }
     }
 

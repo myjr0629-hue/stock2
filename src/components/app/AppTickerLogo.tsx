@@ -103,7 +103,7 @@ export function AppTickerLogo({
       {!failed && sym ? (
         <img
           ref={imgRef}
-          src={`/api/logo/${sym}?v=3`}
+          src={`/api/logo/${sym}?v=4`}
           alt={sym}
           loading="lazy"
           onLoad={decideFit}
