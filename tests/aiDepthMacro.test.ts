@@ -184,7 +184,7 @@ test('ko/en/ja: 뉴스→전이+고유자원→한 가지 확인, 공백 350자 
         assert.match(p, /WHY[\s\S]*SO WHAT[\s\S]*NEXT/);
         assert.match(p, /at least one available proprietary resource/);
         assert.match(p, /exactly ONE supplied/);
-        assert.match(p, /Maximum 350 characters/);
+        assert.match(p, loc === 'en' ? /Maximum 500 characters/ : /Maximum 350 characters/);
         assert.match(p, /auction draws weak demand/);
         assert.match(p, /2026-10-21 08:30 ET/);
     }
@@ -208,7 +208,9 @@ test('뉴스 없는 입력: 명시적 미확인, 옛 코어의 무시각 헤드�
     assert.doesNotMatch(p.slice(p.indexOf('TODAY_NEWS:')), /Fed cuts/);
     assert.ok(checkTacticalOutput('연준의 금리 인하 발표가 오늘 시장을 움직였습니다.', 'ko', p).some(r => r.startsWith('event:unsupported:')));
     assert.ok(checkTacticalOutput('확인한 자료를 바탕으로 지금 매수하세요.', 'ko', p).includes('tactical:advice'));
-    assert.ok(checkTacticalOutput('x'.repeat(351), 'en', p).includes('tactical:too-long'));
+    assert.ok(checkTacticalOutput('x'.repeat(561), 'en', p).includes('tactical:too-long'));
+    assert.ok(checkTacticalOutput('가'.repeat(381), 'ko', p).includes('tactical:too-long'));
+    assert.ok(!checkTacticalOutput('x'.repeat(500), 'en', p).includes('tactical:too-long'));
     assert.ok(checkTacticalOutput('Options support is 99999.', 'en', p).includes('tactical:number'));
     assert.ok(!checkTacticalOutput('Macro cause is unconfirmed. Dealer gamma buffers pressure. The next test going forward is options support.', 'en', p).some(r => r.startsWith('event:unsupported:')));
 });
