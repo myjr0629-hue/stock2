@@ -78,9 +78,10 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     seed(); vendorCalls = []; vendorMode = 'partial' as any;
     const pk = await EIS.buildImpliedPack(rows.slice(0, 1), Date.now(), { probeMonthly: true, deadlineMs: Date.now() + 20_000 });
     assert.equal(Object.values(pk.cells).filter((c) => c.p != null).length, 0, `부분 체인으로 값을 만들지 않는다 — ${JSON.stringify(pk.cells)}`);
-    assert.equal([...store.keys()].filter((k) => k.startsWith('earnings:monthly-probe')).length, 0, '부분 체인은 «확인함»으로 저장하지 않는다');
+    const probeKeys = [...store.keys()].filter((k) => k.startsWith('earnings:monthly-probe'));
+    assert.ok(probeKeys.every((k) => (store.get(k) as any)?.im == null), '부분 체인 값(12%)을 «확인함» 캐시에 저장하지 않는다(직전 정상값 없음 → null)');
     assert.ok(vendorCalls.some((p) => p.includes('/options/chain/')), `체인 조회가 실제로 나갔다 — ${vendorCalls.join(', ')}`);
-    console.log(`  ✓ 부분 체인(다음 페이지 500) → 값 없음·저장 없음 (호출 ${vendorCalls.length}회)`);
+    console.log(`  ✓ 부분 체인(다음 페이지 500) → 값 없음·잘못된 값 저장 없음 (호출 ${vendorCalls.length}회)`);
     console.log('earningsProbeBudget: 3건 통과');
   } finally { Date.now = realNow; }
 })().catch((e) => { console.error(e); process.exit(1); });
