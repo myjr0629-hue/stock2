@@ -35,6 +35,8 @@ export type MarketSession = 'PRE' | 'REG' | 'POST' | 'CLOSED';
 export type MarketRegime = 'RISK_ON' | 'RISK_OFF' | 'ROTATION' | 'PANIC' | 'NEUTRAL';
 
 export interface RLSIResult {
+    /** false = 계산 실패 기본값(점수 50 은 관측이 아니다) — 리스크 표시는 결측으로(lib/marketIndicators). */
+    available?: boolean;
     score: number;       // 0-100
     level: 'DANGER' | 'NEUTRAL' | 'OPTIMAL';
     session: MarketSession;
@@ -641,6 +643,7 @@ export async function calculateRLSI(
         else if (finalScore <= 30) level = 'DANGER';
 
         const result: RLSIResult = {
+            available: true,
             score: Number(finalScore.toFixed(1)),
             level,
             session,
@@ -695,6 +698,7 @@ export async function calculateRLSI(
     } catch (error: any) {
         console.error("[RLSI V2.0] CRITICAL ERROR:", error?.message || error);
         return {
+            available: false,
             score: 50,
             level: 'NEUTRAL',
             session,

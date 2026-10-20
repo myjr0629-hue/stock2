@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
@@ -41,8 +40,12 @@ import { MobileBottomSheet } from '@/components/mobile/MobileBottomSheet';
 import { DecisionGate } from '@/components/DecisionGate';
 import { buildInsiderSignal, compactUsd } from '@/services/insiderSignal';
 import { daysFromEarningsLabel, earningsWithin } from '@/lib/earningsDate';
+import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
+import { formatObservationTime, isCommandResponseUnavailable, resolveCommandVolatilityObservation } from '@/lib/commandVolatilityObservation';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 import { netPremiumOf } from '@/lib/premiumFlow';
+import { scoreCommandConviction, webConvictionState, type ConvictionSnapshot } from '@/lib/commandConviction';
+import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -74,6 +77,9 @@ interface Props {
     onReady?: () => void;      // [PERF] Signal that dashboard has mounted (for SSR preview swap)
 }
 
+
+// Browser memory only; survives web page navigation without persisting market data.
+const webConvictionHistory = new Map<string, ConvictionSnapshot>();
 
 export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData, initialChartData, onReady }: Props) {
     const tCommon = useTranslations('common');
@@ -295,7 +301,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         const s = initialUnifiedData.sma;
         return { cross: s.cross || 'UNKNOWN', crossType: s.crossType || '', label: s.label || '', sma50: s.sma50 || 0, sma200: s.sma200 || 0, distance: s.distance || 0, isImminent: s.isImminent || false, phase: s.phase || 'UNKNOWN' };
     });
-    const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
     // [UX] GEX Timeline ↔ Tech Levels ↔ IV SKEW toggle
     const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels' | 'ivskew' | '13f' | 'insider'>('gex');
     // [INSIDER] Insider trading data (SEC Form 4) — fetched independently, zero coupling
@@ -394,48 +399,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [PERF] fetchQuote removed — replaced by SWR useFlowData hook above
     // SWR handles: caching, deduplication, background refresh (15s), error retry
 
-    // [PREMIUM] Conviction Matrix: 클라이언트 사이드 융합 점수 (API 호출 없음)
-    const calculateConviction = () => {
-        let score = 50; // 기본 중립
-        // SMA Trend
-        if (smaData?.cross === 'GOLDEN') score += 15;
-        else if (smaData?.cross === 'DEAD') score -= 15;
-        // News
-        if (newsScore && newsScore.score >= 70) score += 10;
-        else if (newsScore && newsScore.score < 40) score -= 10;
-        // VWAP
-        const vwap = normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap);
-        const price = displayPrice || 0;
-        const vwapDiff = vwapDistancePct(price, vwap);
-        if (vwapDiff !== null) {
-            if (vwapDiff > 1) score += 8;
-            else if (vwapDiff < -1) score -= 8;
-        }
-        // PCR
-        const pcr = structure?.pcRatio || 0;
-        if (pcr > 0 && pcr < 0.7) score += 7; // 낮은 PCR = 콜 우세
-        else if (pcr > 1.2) score -= 7; // 높은 PCR = 풋 우세
-        // GEX
-        const netGex = structure?.netGex || 0;
-        if (netGex > 0) score += 5;
-        else if (netGex < 0) score -= 5;
-        // Flow
-        const netPrem = liveQuote?.flow?.netPremium || 0;
-        if (netPrem > 500000) score += 5;
-        else if (netPrem < -500000) score -= 5;
-        // Clamp
-        score = Math.max(0, Math.min(100, score));
-        let label = td('convNeutral'); let grade = 'C';
-        if (score >= 80) { label = td('convStrong'); grade = 'A'; }
-        else if (score >= 65) { label = td('convBullish'); grade = 'B+'; }
-        else if (score >= 55) { label = td('convSlightUp'); grade = 'B'; }
-        else if (score >= 45) { label = td('convNeutral'); grade = 'C'; }
-        else if (score >= 35) { label = td('convSlightDown'); grade = 'D'; }
-        else if (score >= 20) { label = td('convBearish'); grade = 'D-'; }
-        else { label = td('convStrongDown'); grade = 'F'; }
-        setConviction({ score, label, grade });
-    };
-
     // =========================================================================
     // [V73] COMMAND HYBRID ARCHITECTURE (Unified SWR Cache — Zero Blank Screen)
     // =========================================================================
@@ -448,7 +411,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     const { data: unifiedData, error: unifiedError } = useSWR(
         ticker ? `/api/command/unified?t=${ticker}&lang=${locale}` : null,
-        (url: string) => fetch(url).then(res => res.json()),
+        async (url: string) => {
+            const res = await fetch(url);
+            // A failed HTTP poll has no observation; keep the existing polling cadence.
+            if (!res.ok) return null;
+            return res.json();
+        },
         {
             fallbackData: initialUnifiedData, // [SSR HYDRATION] Bypass skeleton
             revalidateOnFocus: !isClosed,  // [FIX] Prevent unified data refetch during market close
@@ -479,7 +447,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         unifiedData._source || '',
     ].join('|') : '';
     useEffect(() => {
-        if (!unifiedData) return;
+        if (isCommandResponseUnavailable(unifiedData)) return;
         console.log('[Command] useEffect triggered, source:', unifiedData._source, 'has volatility:', !!unifiedData.volatility, 'has sma:', !!unifiedData.sma);
 
         // Structure & Options
@@ -581,80 +549,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [EFFECTIVE VALUES] useMemo fallback — guarantees card data
     // even if useEffect hasn't fired yet (bypasses intermediate step)
     // ══════════════════════════════════════════════════════════════
-    const effectiveVol = React.useMemo(() => {
-        // [HELPER] Recalculate regimeScore to ensure IV contribution is included
-        const ensureScoreIncludesIv = (vol: any): any => {
-            if (!vol) return vol;
-            const iv = vol.iv || 0;
-            if (iv <= 0) return vol;
-            // IV should contribute to regimeScore. Recalculate if it wasn't included.
-            let score = 5; // Base: valid data present
-            // GEX contribution (both SHORT and LONG)
-            const gex = vol.gex || 0;
-            const isShort = gex < 0;
-            if (isShort) score += Math.min(30, Math.abs(gex) / 1000000 * 3);
-            else score += Math.min(10, Math.abs(gex) / 2000000 * 3);
-            // Flip distance contribution
-            const fd = typeof vol.flipDistance === 'number' && Number.isFinite(vol.flipDistance) ? Math.abs(vol.flipDistance) : Infinity;
-            if (fd < 1) score += 15; else if (fd < 3) score += 10; else if (fd < 5) score += 5; else if (fd < 10) score += 2;
-            // IV contribution (iv is in % form: 32 = 32%)
-            if (iv > 60) score += 25; else if (iv > 40) score += 15; else if (iv > 25) score += 8; else if (iv > 15) score += 4;
-            score = Math.min(100, Math.round(score));
-            // Only upgrade score — never downgrade (avoids losing other contributions)
-            if (score > (vol.regimeScore || 0)) {
-                const regime = score >= 75 ? 'ERUPTING' : score >= 50 ? 'LOADED' : score >= 25 ? 'COILING' : 'CALM';
-                return { ...vol, regimeScore: score, regime };
-            }
-            return vol;
-        };
-
-        // Derive from structure if available (instant, real-time GEX data)
-        const structureDerived = (() => {
-            if (!structure || structure.netGex == null) return null;
-            const netGex = structure.netGex || 0;
-            const isShortGamma = netGex < 0;
-            const flipLevel = structure.gammaFlipLevel || 0;
-            const price = livePrice?.price || initialStockData?.price || 0;
-            const flipDist = gammaFlipDistancePct(price, flipLevel);
-            // [FIX] Redesigned scoring — always produce meaningful non-zero when data exists
-            let regimeScore = 5; // Base: valid GEX data present
-            // GEX direction contribution (both SHORT and LONG contribute)
-            if (isShortGamma) {
-                regimeScore += Math.min(30, Math.abs(netGex) / 1000000 * 3);
-            } else {
-                // LONG gamma = stabilizing force = lower but non-zero score
-                regimeScore += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-            }
-            // Flip distance (closer = more volatile potential)
-            const fd = flipDist == null ? Infinity : Math.abs(flipDist);
-            if (fd < 1) regimeScore += 15;
-            else if (fd < 3) regimeScore += 10;
-            else if (fd < 5) regimeScore += 5;
-            else if (fd < 10) regimeScore += 2;
-            // IV contribution (lowered thresholds so even moderate IV scores)
-            const iv = structure.atmIV || 0;
-            if (iv > 0.6) regimeScore += 25;
-            else if (iv > 0.4) regimeScore += 15;
-            else if (iv > 0.25) regimeScore += 8;
-            else if (iv > 0.15) regimeScore += 4;
-            regimeScore = Math.min(100, Math.round(regimeScore));
-            const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
-            return { regime, regimeScore, gex: Math.round(netGex), gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: iv ? Math.round(iv * 100) : 0, flipDistance: flipDist == null ? null : Math.round(flipDist * 10) / 10, flipLevel, isAboveFlip: flipDist == null ? null : flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
-        })();
-
-        // [FIX v4] Comprehensive IV + regimeScore correction
-        const cachedIv = volatilityData?.iv || unifiedData?.volatility?.iv || initialUnifiedData?.volatility?.iv || 0;
-        if (structureDerived) {
-            if (structureDerived.iv === 0 && cachedIv > 0) {
-                // Structure has real-time GEX but POST-market IV=0 → patch with cached IV + recalculate score
-                return ensureScoreIncludesIv({ ...structureDerived, iv: cachedIv });
-            }
-            return ensureScoreIncludesIv(structureDerived);
-        }
-        if (volatilityData) return ensureScoreIncludesIv(volatilityData);
-        if (unifiedData?.volatility) return ensureScoreIncludesIv(unifiedData.volatility);
-        return null;
-    }, [volatilityData, unifiedData?.volatility, structure, livePrice?.price, initialStockData?.price]);
+    const [lastVolatilityObservation, setLastVolatilityObservation] = useState(() =>
+        resolveCommandVolatilityObservation(ticker, initialUnifiedData));
+    const volatilityObservation = React.useMemo(() => resolveCommandVolatilityObservation(
+        ticker, unifiedData, lastVolatilityObservation?.ticker === ticker
+            ? lastVolatilityObservation : resolveCommandVolatilityObservation(ticker, initialUnifiedData),
+    ), [ticker, unifiedData, lastVolatilityObservation, initialUnifiedData]);
+    useEffect(() => {
+        setLastVolatilityObservation(previous => resolveCommandVolatilityObservation(ticker, unifiedData,
+            previous?.ticker === ticker ? previous : resolveCommandVolatilityObservation(ticker, initialUnifiedData)));
+    }, [ticker, unifiedData, initialUnifiedData]);
+    const effectiveVol = React.useMemo(() => computeUnifiedVolatilityRegime(volatilityObservation?.data), [volatilityObservation]);
     const effectiveSma = React.useMemo(() => unifiedData?.sma || smaData || null, [smaData, unifiedData?.sma]);
     const effectiveFund = React.useMemo(() => unifiedData?.fundamentals || fundamentalData || null, [fundamentalData, unifiedData?.fundamentals]);
     const effectiveRelated = React.useMemo(() => (unifiedData?.related ? { count: unifiedData.related.count || 0, topRelated: unifiedData.related.topRelated || [] } : relatedData) || null, [relatedData, unifiedData?.related]);
@@ -712,21 +617,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
 
 
-    // [PREMIUM] Recalculate conviction when dependencies change
-    // [PERF V74] Narrowed to scalar deps — prevents re-render on deep object changes
-    const liveQuotePrice = liveQuote?.prices?.regularCloseToday || liveQuote?.price || 0;
-    const liveQuoteNetPremium = liveQuote?.flow?.netPremium || 0;
-    const smaCross = smaData?.cross;
-    const newsScoreVal = newsScore?.score;
-    const structPcr = structure?.pcRatio;
-    const structGex = structure?.netGex;
-    useEffect(() => {
-        calculateConviction();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [smaCross, newsScoreVal, liveQuotePrice, liveQuoteNetPremium, structPcr, structGex]);
-
-    if (!initialStockData) return <div>Data Unavailable</div>;
-
     // [PHASE 2] Price COMPLETELY separated from SWR.
     // Price sources: SSR (Polygon day.c) + WebSocket (real-time) ONLY.
     // SWR ticker API is for options flow/alpha/gamma ONLY — never touches price.
@@ -759,9 +649,33 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         prices: ssrFallback?.prices || {},
     });
 
+    // Keep last usable inputs per ticker, including their source dates. Do not use
+    // structure/sma UI state: those states insert zero/NONE on missing responses.
+    const convictionHistory = useRef(webConvictionHistory);
+    const convictionSnapshot = React.useMemo(() => {
+        // Shared selection rule (lib/metrics/observation): SSR folds once per payload, then live.
+        return webConvictionState(ticker, { unified: initialUnifiedData, stock: initialStockData }, {
+            unified: unifiedData, quote: liveQuote, stock: initialStockData,
+            price: displayPrice, news: newsScore,
+        }, convictionHistory.current.get(ticker));
+    }, [ticker, initialUnifiedData, initialStockData, unifiedData, liveQuote, displayPrice, newsScore]);
+    useEffect(() => {
+        convictionHistory.current.delete(ticker);
+        convictionHistory.current.set(ticker, convictionSnapshot);
+        if (convictionHistory.current.size > 64) {
+            const oldest = convictionHistory.current.keys().next().value;
+            if (oldest !== undefined) convictionHistory.current.delete(oldest);
+        }
+    }, [ticker, convictionSnapshot]);
+    const convictionResult = scoreCommandConviction(convictionSnapshot.inputs);
+    const conviction = convictionResult ? {
+        ...convictionResult, label: td(convictionResult.labelKey),
+    } : null;
+
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;
     const priceFlash = usePriceFlash(displayPrice || 0);
     const pf = getFlashStyle(priceFlash);
+    if (!initialStockData) return <div>Data Unavailable</div>;
     let pTag = "";
     let pTagStyle = "";
 
@@ -1141,7 +1055,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
                             const regimeColor = r?.regime === 'ERUPTING' ? 'text-rose-400' : r?.regime === 'LOADED' ? 'text-amber-400' : r?.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400';
                             const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
-                            const regimeDesc = r?.regime === 'ERUPTING' ? td('volErupting') : r?.regime === 'LOADED' ? td('volLoaded') : r?.regime === 'COILING' ? td('volCoiling') : td('volStable');
+                            const regimeDesc = r?.regime == null ? '--' : r.regime === 'ERUPTING' ? td('volErupting') : r?.regime === 'LOADED' ? td('volLoaded') : r?.regime === 'COILING' ? td('volCoiling') : td('volStable');
                             return (
                                 <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${regimeBg} ${synergyGlow}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1167,6 +1081,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">GEX·IV·Gamma Flip·Squeeze</span>
+                                        {volatilityObservation?.sourceAsOf && (
+                                            <time dateTime={volatilityObservation.sourceAsOf} className="ml-1 text-[12px] text-slate-300 font-jakarta">
+                                                {formatObservationTime(volatilityObservation.sourceAsOf)}
+                                            </time>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -1180,7 +1099,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const isBear = conviction && conviction.score <= 40;
                             const convDesc = conviction ? (conviction.score >= 70 ? td('convDescStrongBuy') : conviction.score >= 55 ? td('convDescBuy') : conviction.score <= 30 ? td('convDescSell') : conviction.score <= 45 ? td('convDescBearish') : td('convDescSearching')) : td('convDescCalc');
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div data-source-dates={JSON.stringify(convictionSnapshot.sourceDates)} title={Object.values(convictionSnapshot.sourceDates).filter(Boolean).join(" · ")} className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "conic-gradient(from 220deg at 80% 60%, rgba(255,255,255,0.4) 0deg, transparent 60deg, transparent 360deg)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -2484,114 +2403,34 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 displayPrice={displayPrice}
                                 session={effectiveSession}
                                 snapshot={{
-                                    price: displayPrice,
-                                    priceChange: displayChangePct,
-                                    session: effectiveSession,
-                                    signalCore: {
-                                        direction: 'NEUTRAL',
-                                        conviction: 'MIXED',
-                                        condition: 'TREND',
-                                        conclusion: '',
-                                        bullCount: 0,
-                                        bearCount: 0,
-                                        bullSignals: '',
-                                        bearSignals: '',
-                                    },
-                                    contextScore: {
-                                        value: _swrQuote?.alpha?.score ?? initialUnifiedData?.alpha?.score ?? (ssrFallback as any)?.alpha?.score ?? 0,
-                                        grade: _swrQuote?.alpha?.grade ?? initialUnifiedData?.alpha?.grade ?? (ssrFallback as any)?.alpha?.grade ?? 'C',
-                                    },
-                                    smartFlow: {
-                                        value: _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0,
-                                        trend: (_swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0) >= 50 ? 'INFLOW TREND' : 'OUTFLOW TREND',
-                                    },
-                                    sma: {
-                                        cross: effectiveSma?.cross || 'NONE',
-                                        sma50: effectiveSma?.sma50 || 0,
-                                        sma200: effectiveSma?.sma200 || 0,
-                                        trendPhase: effectiveSma?.phase || 'UNKNOWN',
-                                    },
-                                    vwap: normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap),
-                                    vwapDistance: (() => {
-                                        const vwap = normalizeVwap(liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap);
-                                        const distance = vwapDistancePct(displayPrice, vwap);
-                                        return distance !== null ? `${distance.toFixed(1)}%` : 'N/A';
-                                    })(),
+                                    ...buildDeepSnapshot({
+                                        ticker, price: displayPrice, priceChange: displayChangePct, session: effectiveSession,
+                                        unified: {
+                                            ...unifiedData,
+                                            alpha: _swrQuote?.alpha ?? initialUnifiedData?.alpha ?? (ssrFallback as any)?.alpha,
+                                            smartFlow: _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow,
+                                            structure, sma: effectiveSma, fundamentals: effectiveFund, analyst: effectiveAnalyst,
+                                            // effectiveVol includes display-only squeeze defaults (0/LOW).
+                                            // AI receives producer observations; deepSnapshot handles gaps/history.
+                                            volatility: volatilityData ?? unifiedData?.volatility ?? initialUnifiedData?.volatility,
+                                            squeeze: effectiveSqueeze, related: effectiveRelated,
+                                            earnings: { daysUntilEarnings: daysFromEarningsLabel(effectiveEarnings?.daysLabel), nextEarningsDate: effectiveEarnings?.nextDate, epsEstimate: effectiveEarnings?.epsEstimate },
+                                        },
+                                        rawTickerData: { vwap: liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap, flow: liveQuote?.flow },
+                                        // Same selected edition as the VOL REGIME card (lib/metrics/observation).
+                                        volatilityData: volatilityObservation?.data ?? null,
+                                        volatilitySource: volatilityObservation,
+                                        convictionInputs: convictionSnapshot.inputs,
+                                        convictionSourceDates: convictionSnapshot.sourceDates, convictionCarried: convictionSnapshot.carriedFields,
+                                        insider: insiderData, technicals: null, creditSpread: null,
+                                    }),
+                                    // The card's conviction (shared input rule + history) is the AI's conviction.
                                     conviction: {
-                                        score: conviction?.score || 50,
-                                        grade: conviction?.grade || 'C',
+                                        score: conviction?.score ?? null,
+                                        grade: conviction?.grade ?? null,
                                     },
-                                    structure: {
-                                        netGex: structure?.netGex || 0,
-                                        gammaFlipLevel: structure?.gammaFlipLevel || 0,
-                                        squeezeRisk: structure?.squeezeRisk || 'N/A',
-                                        squeezeScore: structure?.squeezeScore || 0,
-                                        pcRatio: structure?.pcRatio || 0,
-                                        callWall: structure?.levels?.callWall || 0,
-                                        putFloor: structure?.levels?.putFloor || 0,
-                                        maxPain: structure?.maxPain || 0,
-                                        gammaConcentration: structure?.gammaConcentration || 0,
-                                        gammaConcentrationLabel: structure?.gammaConcentrationLabel || 'NORMAL',
-                                    },
-                                    flow: {
-                                        // [2026-10-19 N4] 못 쟀으면 null — `|| 0` 은 결측을 AI 에 «순 프리미엄 $0.0M»으로 넘겼다(판정 netPremiumOf 하나)
-                                        netPremium: netPremiumOf(liveQuote?.flow),
-                                    },
-                                    fundamental: {
-                                        score: effectiveFund?.score || 0,
-                                        grade: effectiveFund?.grade || 'N/A',
-                                        pe: effectiveFund?.pe || 0,
-                                        fcfMargin: effectiveFund?.fcfYield || 0,
-                                    },
-                                    analyst: {
-                                        score: (() => {
-                                            if (!effectiveAnalyst?.totalAnalysts) return 0;
-                                            const bd = effectiveAnalyst.breakdown;
-                                            return Math.round(((bd?.strongBuy + bd?.buy) / effectiveAnalyst.totalAnalysts) * 100);
-                                        })(),
-                                        buyPct: (() => {
-                                            if (!effectiveAnalyst?.totalAnalysts) return 0;
-                                            const bd = effectiveAnalyst.breakdown;
-                                            return Math.round(((bd?.strongBuy + bd?.buy) / effectiveAnalyst.totalAnalysts) * 100);
-                                        })(),
-                                    },
-                                    institutional: {
-                                        // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면
-                                        // AI 가 «다크풀 0%» 를 사실로 서술한다. 내부자 거래로 교체.
-                                        insiderNet30d: (insiderData as any)?.net30d ?? null,
-                                        insiderBuy: (insiderData as any)?.buyCount ?? null,
-                                        insiderSell: (insiderData as any)?.sellCount ?? null,
-                                        activity: (insiderData as any)?.sentiment || 'N/A',
-                                    },
-                                    volatility: {
-                                        regime: effectiveVol?.regime || 'N/A',
-                                        regimeScore: effectiveVol?.regimeScore || 0,
-                                        gexLong: effectiveVol?.gex || 0,
-                                    },
-                                    squeeze: {
-                                        status: effectiveSqueeze?.status || 'N/A',
-                                        siPercent: effectiveSqueeze?.siPercent || 0,
-                                    },
-                                    earnings: {
-                                        daysUntil: daysFromEarningsLabel(effectiveEarnings?.daysLabel),   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
-                                        date: effectiveEarnings?.nextDate || 'N/A',
-                                        estimatedEps: effectiveEarnings?.epsEstimate || 0,
-                                    },
-                                    relatedTickers: effectiveRelated?.topRelated?.map((r: any) => r.ticker) || [],
-                                    insider: insiderData ? {
-                                        net30d: insiderData.net30d,
-                                        buyCount: insiderData.buyCount,
-                                        sellCount: insiderData.sellCount,
-                                        sentiment: insiderData.sentiment,
-                                        latest: insiderData.latest ? {
-                                            name: insiderData.latest.name,
-                                            title: insiderData.latest.title,
-                                            code: insiderData.latest.code,
-                                            value: insiderData.latest.value,
-                                            date: insiderData.latest.date,
-                                            is10b5: insiderData.latest.is10b5,
-                                        } : null,
-                                    } : null,
+                                    trustLayer: 0,
+                                    insider: insiderData,
                                 }}
                                 gexStats={gexStatsForAI}
                             />

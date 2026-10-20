@@ -1418,7 +1418,9 @@ export default function AppFlowPage() {
     : dpSummary.count > 0 ? dpSummary.buySum - dpSummary.sellSum : null;
   const whaleDayTotal = Number(whaleSummary.total || 0);
   const whaleDayCount = whaleSummary.count;
-  const institutionalTotal = whaleDayTotal + (dpDayValue ?? 0);
+  // ★ [대표 10/19 ② D10] 고래 총량에 내부자를 넣지 않는다 — «내부자는 공시자료이고 고래는 장중자료». 총량·구성 막대 = 고래 옵션만.
+  //   내부자 순매매는 기존 칸에 값 그대로(합산하지 않는 별도 정보).
+  const institutionalTotal = whaleDayTotal;
   const whaleCallShare = whaleDayTotal > 0 ? (whaleSummary.callSum / whaleDayTotal) * 100 : null;
   const largestWhalePrint = whaleBasis === 'eod-volume' ? null : (whaleSweeps[0]?.premium ?? null);
   const largestDpPrint = Math.max(0, ...filteredDarkPoolTrades.map((tx: any) => Number(tx.premium || 0)));
@@ -4178,7 +4180,8 @@ export default function AppFlowPage() {
             {/* TODAY'S WHALE FLOW & SUMMARY WIDGET */}
             {(() => {
               const whaleTotalVol = institutionalTotal;
-              const optionMixPct = whaleTotalVol > 0 ? Math.max(1, Math.min(99, (whaleDayTotal / whaleTotalVol) * 100)) : 50;
+              // 총량 = 고래 옵션만(D10) → 막대는 옵션 100%. 총량이 없을 때의 기존 빈 막대(50/50 배경)는 그대로.
+              const optionMixPct = whaleTotalVol > 0 ? 100 : 50;
               const darkMixPct = 100 - optionMixPct;
 
               return (

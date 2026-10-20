@@ -18,49 +18,17 @@
  *   ④ 벤더가 전부 실패해도 7행(METRIC_ORDER)을 같은 순서로 준다 — 보관값이 없는 지표는 행을 남기고 값만 null.
  */
 import { NextResponse } from "next/server";
-import { getMacroEconomy, type MacroEconomy, type MacroMetric } from "@/services/macroEconomy";
-import { METRIC_ORDER, fillFromLastGood, hasValue, type LastGood } from "@/lib/macroLastGood";
+import { getMacroEconomy, type MacroEconomy } from "@/services/macroEconomy";
+import { fillFromLastGood } from "@/lib/macroLastGood";
+import { readLastGood, saveLastGood } from "@/lib/macroLastGoodStore";
 
 export const dynamic = "force-dynamic";
 
 const TTL_MS = 6 * 60 * 60 * 1000;
 const PARTIAL_TTL_MS = 10 * 60 * 1000;
-const LASTGOOD_PREFIX = "macro:economy:lastgood:v1:";
-const LASTGOOD_TTL_S = 30 * 24 * 60 * 60;
 const ATTRIBUTION = "FRED (St. Louis Fed) via Intrinio";
 
 let cache: { at: number; data: MacroEconomy; ttl: number } | null = null;
-
-async function readLastGood(): Promise<LastGood | null> {
-    try {
-        const { mgetFromCache } = await import("@/services/redisClient");
-        const keys = METRIC_ORDER.map((s) => s.key);
-        const vals = await mgetFromCache<MacroMetric>(keys.map((k) => LASTGOOD_PREFIX + k));
-        const out: LastGood = {};
-        keys.forEach((k, i) => { const v = vals?.[i]; if (hasValue(v)) out[k] = v; });
-        return out;
-    } catch {
-        return null;
-    }
-}
-
-/** 정상값만 «지표별 키»로 저장한다. 같은 키의 더 옛 asOf 로는 덮지 않는다. */
-async function saveLastGood(prev: LastGood | null, data: MacroEconomy): Promise<void> {
-    try {
-        const { setInCache } = await import("@/services/redisClient");
-        await Promise.all(data.metrics.map(async (m) => {
-            if (!hasValue(m)) return;
-            const old = prev?.[m.key];
-            if (hasValue(old) && old.asOf && m.asOf && m.asOf < old.asOf) return;
-            // 요청 시작 때 읽은 값만 보면 동시 요청이 더 새 값을 옛 값으로 덮는다(관문 10192357) —
-            // 쓰기 직전에 그 지표 키를 다시 읽어 더 새 asOf 가 이미 있으면 쓰지 않는다.
-            const { getFromCache } = await import("@/services/redisClient");
-            const now = await getFromCache<MacroMetric>(LASTGOOD_PREFIX + m.key).catch(() => null);
-            if (hasValue(now) && now.asOf && m.asOf && m.asOf < now.asOf) return;
-            await setInCache(LASTGOOD_PREFIX + m.key, m, LASTGOOD_TTL_S);
-        }));
-    } catch { /* 보관 실패는 응답을 막지 않는다 */ }
-}
 
 const emptyBase = (): MacroEconomy => ({ metrics: [], attribution: ATTRIBUTION, newestAsOf: null, missing: 7 } as unknown as MacroEconomy);
 

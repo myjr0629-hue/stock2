@@ -1,3 +1,4 @@
+import { deepMetricXml } from '@/lib/ai/deepMaterialPrompt';
 /**
  * POST /api/command/deep-analysis
  * 
@@ -82,8 +83,7 @@ function isPoisoned(payload: any): boolean {
 /** 생성을 시도할 만큼 재료가 있는가. 없으면 부르지 않는다 — 콜과 캐시를 둘 다 아낀다. */
 function hasEnoughSnapshot(s: any): boolean {
     if (!s || typeof s !== 'object') return false;
-    const groups = [s.signalCore, s.structure, s.sma, s.volatility, s.flow, s.technicals, s.squeeze];
-    return groups.filter((g) => g && typeof g === 'object' && Object.keys(g).length > 0).length >= 3;
+    return !deepMaterialIssues({ ...s, materialPhase: 'complete' }).reasons.includes('groups');
 }
 
 /**
@@ -434,48 +434,7 @@ export async function POST(req: Request) {
             : '    <none>No recent news available for this ticker</none>';
 
         const xmlContext = `<ticker_analysis ticker="${ticker}" price="$${s.price || 0}" session="${session}" price_change="${priceChangeStr}">
-  <signal_core direction="${signalCore.direction || 'NEUTRAL'}" conviction="${signalCore.conviction || 'MIXED'}" condition="${signalCore.condition || 'TREND'}">
-    <conclusion>${signalCore.conclusion || 'N/A'}</conclusion>
-    <bull_signals count="${signalCore.bullCount || 0}">${signalCore.bullSignals || 'None'}</bull_signals>
-    <bear_signals count="${signalCore.bearCount || 0}">${signalCore.bearSignals || 'None'}</bear_signals>
-  </signal_core>
-  
-  <high_level_gauges>
-    <context_score value="${s.contextScore?.value ?? 'N/A'}" grade="${s.contextScore?.grade ?? 'N/A'}"/>
-    <smart_flow value="${s.smartFlow?.value ?? 'N/A'}" trend="${s.smartFlow?.trend ?? 'N/A'}"/>
-  </high_level_gauges>
-  
-  <technicals>
-    <sma cross="${sma.cross || 'NONE'}" sma50="${sma.sma50 || 'N/A'}" sma200="${sma.sma200 || 'N/A'}"/>
-    <vwap value="${s.vwap || 'N/A'}" distance="${s.vwapDistance || 'N/A'}"/>
-    <conviction score="${conviction.score || 'N/A'}" grade="${conviction.grade || 'N/A'}"/>
-    <trend_phase>${sma.trendPhase || 'N/A'}</trend_phase>
-  </technicals>
-  
-  <options_flow>
-    <net_gex>${structure.netGex ? (structure.netGex / 1e6).toFixed(1) + 'M' : 'N/A'}</net_gex>
-    <gamma_flip_level note="THIS_IS_NOT_CALL_WALL">$${structure.gammaFlipLevel || 'N/A'} (${!(Number(structure.gammaFlipLevel) > 0) ? 'UNKNOWN' : s.price > structure.gammaFlipLevel ? 'LONG_GAMMA' : 'SHORT_GAMMA'} zone)</gamma_flip_level>
-    <squeeze_risk>${structure.squeezeRisk || 'N/A'} (${structure.squeezeScore || 0}%)</squeeze_risk>
-    <pc_ratio>${structure.pcRatio?.toFixed(2) || 'N/A'}</pc_ratio>
-    <call_wall note="HIGHEST_CALL_CONCENTRATION">$${structure.callWall || 'N/A'}</call_wall>
-    <put_floor note="HIGHEST_PUT_CONCENTRATION">$${structure.putFloor || 'N/A'}</put_floor>
-    <max_pain>$${structure.maxPain || 'N/A'}</max_pain>
-    <net_premium>${typeof flow.netPremium === 'number' && Number.isFinite(flow.netPremium) ? `${flow.netPremium > 0 ? '+' : ''}$${(Math.abs(flow.netPremium) / 1e6).toFixed(1)}M (${flow.netPremium > 0 ? 'CALL dominant' : flow.netPremium < 0 ? 'PUT dominant' : 'NEUTRAL'})` : 'N/A'}</net_premium>
-    <gamma_concentration>${structure.gammaConcentration || 'N/A'}% (${structure.gammaConcentrationLabel || 'N/A'})</gamma_concentration>
-  </options_flow>
-  
-  <fundamentals score="${fundamental.score || 'N/A'}" grade="${fundamental.grade || 'N/A'}" pe="${fundamental.pe || 'N/A'}" fcf_margin="${fundamental.fcfMargin || 'N/A'}"/>
-  
-  <institutional>
-    <analyst_score>${analyst.score || 'N/A'}/100 (Buy ${analyst.buyPct || 'N/A'}%)</analyst_score>
-    <insider note="SEC_FORM_4_LAST_30D">${institutional.insiderNet30d != null
-        ? `net ${institutional.insiderNet30d > 0 ? '+' : ''}$${(Math.abs(institutional.insiderNet30d) / 1e6).toFixed(1)}M, buys ${institutional.insiderBuy ?? 0}, sells ${institutional.insiderSell ?? 0}`
-        : 'N/A'} (${institutional.activity || 'N/A'})</insider>
-    <short_squeeze status="${squeeze.status || 'N/A'}" si="${squeeze.siPercent || 'N/A'}%"/>
-  </institutional>
-  
-  <volatility regime="${volatility.regime || 'N/A'}" score="${volatility.regimeScore || 'N/A'}" gex_long="${volatility.gexLong || 'N/A'}%"/>
-
+${deepMetricXml(s)}
   <!-- [2026-08-30] Massive 시절엔 없던 지표. 값이 없으면 N/A — 추측 금지. -->
   <advanced_technicals>
     <trend_strength note="ADX_BELOW_20_MEANS_NO_TREND_CROSSOVERS_UNRELIABLE">${tech.adx != null
