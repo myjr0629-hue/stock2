@@ -520,6 +520,38 @@ function earningsSnapshot(overrides = {}) {
   return { ...sources(), earnings: [{ ticker: 'NVDA', date: '2026-09-02', hour: 'amc', implied: null }],
     earningsAt: '2026-09-01T10:00:00Z', earningsStatus: 'ok', earningsRange: { from: '2026-09-01', to: '2026-09-30' }, ...overrides };
 }
+for (const loc of ['ko', 'en', 'ja']) test(`gate 5: ${loc} newer partial earnings replace a complete query with no selected-sector events`, () => {
+  const now = '2026-10-20T12:00:00Z';
+  const fresh = earningsSnapshot({
+    earnings: [{ ticker: 'NVDA', date: '2026-10-21', hour: 'amc', dateStatus: 'confirmed', implied: null }],
+    earningsAt: '2026-10-20T11:00:00Z', earningsStatus: 'partial',
+    earningsRange: { from: '2026-10-19', to: '2026-10-23' },
+  });
+  for (const earnings of [[], [{ ticker: 'UNRELATED', date: '2026-10-21', implied: null }]]) {
+    const previous = { ...fresh, earnings, earningsAt: '2026-10-20T10:00:00Z', earningsStatus: 'ok' };
+    assert.ok(renderEarnings(previous, now, loc).includes(copies[loc].noEarnings));
+    const merged = mergeMoneyMapSources(fresh, previous, at(now));
+    const html = renderEarnings(merged, now, loc);
+    assert.ok(html.includes('NVDA'), 'newly confirmed earnings must survive merging and buildMoneyMap');
+    assert.ok(html.includes('2026-10-21')); assert.ok(html.includes('AMC'));
+    assert.ok(!html.includes(copies[loc].noEarnings)); assert.ok(!html.includes('UNRELATED'));
+    assert.deepEqual(merged.earnings, fresh.earnings);
+    assert.equal(merged.earningsAt, fresh.earningsAt); assert.equal(merged.earningsStatus, 'partial');
+    assert.deepEqual(merged.earningsRange, fresh.earningsRange);
+  }
+});
+test('gate 5: an older complete response cannot overwrite a newer saved partial observation', () => {
+  const now = at('2026-10-20T12:00:00Z');
+  const previous = earningsSnapshot({
+    earnings: [{ ticker: 'NVDA', date: '2026-10-21', implied: null }],
+    earningsAt: '2026-10-20T11:00:00Z', earningsStatus: 'partial',
+    earningsRange: { from: '2026-10-19', to: '2026-10-23' },
+  });
+  const older = { ...previous, earnings: [], earningsAt: '2026-10-20T10:00:00Z', earningsStatus: 'ok' };
+  const merged = mergeMoneyMapSources(older, previous, now);
+  assert.deepEqual(merged.earnings, previous.earnings);
+  assert.equal(merged.earningsAt, previous.earningsAt); assert.equal(merged.earningsStatus, 'partial');
+});
 for (const loc of ['ko', 'en', 'ja']) test(`gate 4: ${loc} missing October earnings retains dated September observations`, () => {
   const now = '2026-10-20T12:00:00Z', previous = earningsSnapshot();
   const missing = earningsSnapshot({ earnings: [], earningsAt: null, earningsRange: null, earningsStatus: 'unavailable' });

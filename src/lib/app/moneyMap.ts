@@ -33,9 +33,11 @@ export interface MoneyMapData {
 export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = Date.now()): MapSources {
   const calendar = [next, prev].filter((s): s is MapSources => !!s && validMapCalendar(s, now))
     .sort((a, b) => Date.parse(b.eventsAt!) - Date.parse(a.eventsAt!))[0];
+  // A newer partial query can confirm events that an older complete query did not know about.
+  // Keep its status/range together with the rows; partial data cannot confirm absence.
   const earnings = [next, prev].filter((s): s is MapSources => !!s && validMapEarnings(s, now))
-    .sort((a, b) => Number(b.earningsStatus === 'ok') - Number(a.earningsStatus === 'ok')
-      || Date.parse(b.earningsAt!) - Date.parse(a.earningsAt!))[0];
+    .sort((a, b) => Date.parse(b.earningsAt!) - Date.parse(a.earningsAt!)
+      || Number(b.earningsStatus === 'ok') - Number(a.earningsStatus === 'ok'))[0];
   return { ...next, sectors: next.sectors.map(s => {
     const old = prev?.sectors.find(p => p.id === s.id);
     return { ...s, fiveDay: s.fiveDay || old?.fiveDay || null, premium: s.premium || old?.premium || null };
