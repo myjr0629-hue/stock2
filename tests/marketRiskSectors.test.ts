@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
-import { calculateMarketRiskScore } from '../src/lib/marketRiskScore';
+import { marketDownsideRisk } from '../src/lib/marketIndicators';
 import { normalizeQuoteSession, oneNumberBase, oneNumberFromQuote } from '../src/utils/calcPriceDisplay';
 
 // Execute the real dashboard state updater and score expressions, including its
@@ -52,11 +52,11 @@ function dashboard() {
       evaluate(sectorReady, context); // HTTP 200 branch, even for all-error quotes
       sectors = evaluate<Sector[]>(`${helpers.join('\n')}\n(${sectorUpdater})(sectors)`, context);
     },
+    // CEO decision D30 (10/19): the dash «리스크» score is the shared downside risk 100 − RLSI. Sector quotes
+    // (good, bad, partial, errored) are display data only and can never move it — neutral RLSI 50 → 50/mixed.
     score() {
-      const breadthPct = evaluate<number>(expressions.breadthPct, { sectorsReady, sectors });
-      const riskScore = evaluate<number>(expressions.riskScore, {
-        calculateMarketRiskScore, futuresAvg: 0, cashAvg: 0, breadthPct, fgValue: 50, vixChange: 0,
-      });
+      assert.equal(expressions.breadthPct, undefined, 'no sector-derived risk composite remains');
+      const riskScore = evaluate<number>(expressions.riskScore, { marketDownsideRisk, rlsi: { score: 50 }, sectorsReady, sectors });
       const context = { riskScore, regimeReady: true, copy: { riskOn: 'on', riskOff: 'off', mixed: 'mixed' } };
       return {
         riskScore, rounded: Math.round(riskScore),
@@ -90,7 +90,7 @@ test('HTTP 200 with empty or absent sector quotes contributes zero', () => {
 });
 
 test('partial data: each missing sector contributes zero without amplifying the one measured sector', () => {
-  for (const [changePercent, expected] of [[1, 52.1875], [-1, 47.8125]]) {
+  for (const [changePercent, expected] of [[1, 50], [-1, 50]]) {
     const page = dashboard();
     page.receive({ XLK: { price: 100, changePercent } });
     assert.equal(page.score().riskScore, expected);
@@ -106,7 +106,7 @@ test('two opposite measured sectors cancel while the other six are missing', () 
 test('real zero changes count as nonnegative as before, without using nonzero display fallbacks', () => {
   const page = dashboard();
   page.receive(quotes({ price: 100, previousClose: 100, changePercent: 0 }));
-  assert.equal(page.score().riskScore, 65);
+  assert.equal(page.score().riskScore, 50); // D30: sectors no longer move the risk score
   // Existing sector tile display policy is outside this score repair.
   assert.deepEqual(page.displayPcts(), [2.1, 1.2, 0.9, 0.6, 0.4, 0.3, -0.5, -0.8]);
 });
@@ -114,7 +114,7 @@ test('real zero changes count as nonnegative as before, without using nonzero di
 test('a later all-error response contributes zero even if display retains previously measured values', () => {
   const page = dashboard();
   page.receive(quotes({ price: 100, changePercent: 1 }));
-  assert.equal(page.score().riskScore, 65);
+  assert.equal(page.score().riskScore, 50); // D30: sectors no longer move the risk score
   page.receive(quotes({ price: 0, changePercent: 0 }));
   assert.deepEqual(page.score(), neutral);
   assert.deepEqual(page.displayPcts(), Array(8).fill(1));
@@ -142,6 +142,6 @@ test('regular and extended sessions use actual changes, including values equal t
   for (const session of ['pre', 'post']) {
     page.receive(quotes({ price: 100, previousClose: 100, changePercent: -1,
       extendedPrice: 101, session }), session);
-    assert.equal(page.score().riskScore, 65, session);
+    assert.equal(page.score().riskScore, 50, session); // D30
   }
 });
