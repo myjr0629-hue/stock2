@@ -6,6 +6,9 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { AdMob, advance, flush, storage } from './test-fullscreen-ads.shim';
 import { adManager } from '../src/services/adManager';
+// Existing non-Pro user; individual install/Pro scenarios override these inputs.
+void adManager.setPro(false);
+storage.set('signum_app_first_run_at', '1');
 
 const baseline = process.argv.includes('--baseline');
 const scenario = process.argv.find(arg => arg === 'loaded' || arg === 'no-fill');

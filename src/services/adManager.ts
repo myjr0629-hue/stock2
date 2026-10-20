@@ -8,6 +8,7 @@
 
 import { unitsFor, hasRealUnits, adsAllowed, testUnits } from '@/config/admob';
 import { fullScreenAds } from './fullScreenAdSession';
+import { isFirstRunGraceActive } from './interstitialFirstRun';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,6 +97,7 @@ function resolveDefaultAdConfig(): AdConfig {
 // ---------------------------------------------------------------------------
 const UNLOCK_KEY = 'signum_ad_unlock';
 const AD_STATS_KEY = 'signum_ad_stats';
+const INTERSTITIAL_FREQUENCY_KEY = 'signum_interstitial_frequency';
 
 /**
  * 배너를 «CSS 가 비워둔 자리»에 정확히 앉힌다 — 상수로 두지 않는 이유가 있다.
@@ -198,12 +200,15 @@ class AdManagerService {
   // Every trigger (tab-switch, sector-report open, …) funnels through
   // maybeShowInterstitial() so the user never sees back-to-back full-screen ads,
   // and store policy (no ad on cold start, sane cadence) is respected globally.
-  private interstitialShownThisSession = 0;
+  private interstitialDay = '';
+  private interstitialShownToday = 0;
+  private interstitialFrequencyRestored = false;
+  private interstitialPending = false;
   private lastInterstitialAt = 0;
   private readonly sessionStartedAt = Date.now();
   private readonly INTERSTITIAL_COLD_START_GRACE_MS = 60_000;  // no ad in first minute
   private readonly INTERSTITIAL_MIN_INTERVAL_MS = 180_000;     // ≥3 min between ads
-  private readonly INTERSTITIAL_MAX_PER_SESSION = 3;           // hard session cap
+  private readonly INTERSTITIAL_MAX_PER_DAY = 6;              // device local date
   // Load-failure retry: 30s → 60s → 2m → 4m → 8m → 15m, then stop until the next
   // foreground return. At most 6 extra requests per failure streak (no-fill storm guard).
   private readonly INTERSTITIAL_RETRY_BASE_MS = 30_000;
@@ -238,6 +243,8 @@ class AdManagerService {
       // Real production ad unit IDs differ between iOS and Android — pick the
       // correct set for this platform (or Google test ads if test mode is forced).
       this.config = resolvePlatformAdConfig(Capacitor.getPlatform());
+      // 온보딩·동의 대기 전에 첫 실행의 기준 시각을 기록한다.
+      isFirstRunGraceActive();
     } catch {
       console.log('[AdManager] Capacitor not available');
       return;
@@ -330,11 +337,11 @@ class AdManagerService {
         AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => { this.bannerView = 'none'; });
       } catch { /* 이벤트가 없는 플러그인 버전 — 한 번 띄운 뒤엔 'loading' 에 머물러 resume 으로 되살린다 */ }
 
-      // Pre-load interstitial and rewarded ads
+      this.initialized = true;
+      // Pro 판정이 먼저 끝났을 때만 로드한다. 늦으면 setPro()가 시작한다.
       this.preloadInterstitial();
       this.preloadRewarded();
 
-      this.initialized = true;
       console.log('[AdManager] ✅ Initialized successfully');
       // Apply the banner state requested via setPro() before init finished. The
       // banner is intentionally NOT shown here unconditionally — it appears only
@@ -524,13 +531,25 @@ class AdManagerService {
    * Safe to call before init() (the desired state is applied when init finishes).
    */
   async setPro(isPro: boolean) {
+    const startPreloads = !this.proKnown || this.proActive;
     this.proActive = isPro;
     this.proKnown = true;
     this.recomputeWantBanner();
     // 구독자 → 자리까지 접는다. 해지 → 기본 높이로 되돌린다(배너가 뜨면
     // SizeChanged 가 실측값으로 다시 맞춘다).
     this.setAdSlotHeight(isPro ? 0 : AD_SLOT_DEFAULT_PX);
+    if (isPro) {
+      this.interstitialPending = false;
+      clearTimeout(this.interstitialRetry);
+      this.interstitialRetry = undefined;
+      clearTimeout(this.rewardedRetry);
+      this.rewardedRetry = undefined;
+    }
     if (!this.initialized) return; // init() applies wantBanner when it finishes
+    if (!isPro && startPreloads) {
+      if (!this.interstitialLoaded) void this.preloadInterstitial();
+      if (!this.rewardedLoaded) void this.preloadRewarded();
+    }
     if (this.wantBanner) await this.showBanner();
     else await this.hideBanner();
   }
@@ -541,10 +560,13 @@ class AdManagerService {
 
   // --- Interstitial Ad (전면, 페이지 전환 시) ---
   private preloadInterstitial(): Promise<void> {
+    if (!this.initialized || !this.proKnown || this.proActive) return Promise.resolve();
+    if (this.interstitialLoaded) return Promise.resolve();
     if (this.interstitialPreparation) return this.interstitialPreparation;
     clearTimeout(this.interstitialRetry);
     this.interstitialRetry = undefined;
     const pending = import('@capacitor-community/admob').then(async ({ AdMob }) => {
+      if (!this.proKnown || this.proActive) return;
       await AdMob.prepareInterstitial({
         adId: this.config.interstitialId,
         isTesting: this.config.testMode,
@@ -566,7 +588,7 @@ class AdManagerService {
 
   /** 로드 실패(no-fill·네트워크) 뒤 한 번만 예약한다 — 백오프 상한·횟수 상한으로 공급사 과다 요청을 막는다. */
   private scheduleInterstitialRetry() {
-    if (this.proActive || this.interstitialRetry) return;
+    if (!this.proKnown || this.proActive || this.interstitialRetry) return;
     if (this.interstitialLoadFailures >= this.INTERSTITIAL_RETRY_MAX_ATTEMPTS) return;
     const delay = Math.min(
       this.INTERSTITIAL_RETRY_BASE_MS * 2 ** this.interstitialLoadFailures,
@@ -582,14 +604,14 @@ class AdManagerService {
 
   /** 앞으로 돌아왔을 때 준비된 전면이 없고 진행 중인 로드·예약도 없으면 한 번 다시 준비한다. */
   private refreshInterstitialOnResume() {
-    if (!this.initialized || this.proActive || this.interstitialLoaded) return;
+    if (!this.initialized || !this.proKnown || this.proActive || this.interstitialLoaded) return;
     if (this.interstitialPreparation || this.interstitialRetry) return;
     this.interstitialLoadFailures = 0; // 사람의 복귀 = 새 실패 연속의 시작
     void this.preloadInterstitial();
   }
 
   async showInterstitial(): Promise<boolean> {
-    if (!this.initialized || this.proActive || fullScreenAds.isBusy()) return false;
+    if (!this.initialized || !this.proKnown || this.proActive || fullScreenAds.isBusy()) return false;
     const result = await fullScreenAds.run({
       format: 'interstitial',
       // { ad } 상자로 넘긴다 — 플러그인 자체를 resolve 하면 Capacitor 프록시의 `then` 때문에
@@ -607,7 +629,7 @@ class AdManagerService {
 
   /** True only when a full-screen ad is policy/UX-safe to show right now. */
   canShowInterstitial(): boolean {
-    if (!this.initialized || !this.interstitialLoaded || fullScreenAds.isBusy()) return false;
+    if (!this.initialized || !this.proKnown || this.proActive || !this.interstitialLoaded || fullScreenAds.isBusy()) return false;
     const now = Date.now();
     // ★ 보상형을 본 사용자에게는 1시간 동안 전면광고를 띄우지 않는다 (2026-08-19, 대표 지시).
     //   「광고를 봐서 데이터를 열었는데 전면광고까지 보면 과하다」 — 업계 기준과도 맞는다:
@@ -615,10 +637,40 @@ class AdManagerService {
     //   전면을 얹는 건 광고 피로의 대표 사례로 꼽힌다.
     //   언락 자체가 「사용자가 주의를 지불했다」는 신호라 그대로 재사용한다(1시간 동일).
     if (this.isPremiumUnlocked()) return false;
-    if (now - this.sessionStartedAt < this.INTERSTITIAL_COLD_START_GRACE_MS) return false;
-    if (this.interstitialShownThisSession >= this.INTERSTITIAL_MAX_PER_SESSION) return false;
-    if (now - this.lastInterstitialAt < this.INTERSTITIAL_MIN_INTERVAL_MS) return false;
-    return true;
+    this.restoreInterstitialFrequency(now);
+    return this.interstitialShownToday < this.INTERSTITIAL_MAX_PER_DAY && !this.interstitialTimeBlocked(now);
+  }
+
+  private restoreInterstitialFrequency(now: number) {
+    if (!this.interstitialFrequencyRestored) {
+      this.interstitialFrequencyRestored = true;
+      try {
+        const saved = JSON.parse(localStorage.getItem(INTERSTITIAL_FREQUENCY_KEY) || '{}');
+        if (typeof saved.date === 'string' && Number.isSafeInteger(saved.count) && saved.count >= 0) {
+          this.interstitialDay = saved.date;
+          this.interstitialShownToday = saved.count;
+        }
+        if (Number.isFinite(saved.lastShownAt) && saved.lastShownAt >= 0) this.lastInterstitialAt = saved.lastShownAt;
+      } catch { /* 저장소 불가·손상 시 메모리 상한은 유지 */ }
+    }
+    const date = new Date(now);
+    const day = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+    if (this.interstitialDay !== day) {
+      this.interstitialDay = day;
+      this.interstitialShownToday = 0;
+    }
+  }
+
+  private interstitialTimeBlocked(now: number): boolean {
+    return isFirstRunGraceActive()
+      || now - this.sessionStartedAt < this.INTERSTITIAL_COLD_START_GRACE_MS
+      || (this.lastInterstitialAt > 0 && now - this.lastInterstitialAt < this.INTERSTITIAL_MIN_INTERVAL_MS);
+  }
+
+  /** 보류는 최대 하나. 타이머·복귀로 표시하지 않고 다음 탭 전환에서만 재시도한다. */
+  async onInterstitialTabSwitch(triggerDue: boolean): Promise<boolean> {
+    if (!triggerDue && !this.interstitialPending) return false;
+    return this.maybeShowInterstitial();
   }
 
   /**
@@ -626,22 +678,39 @@ class AdManagerService {
    * shared frequency governance, then shows the ad. Returns whether it showed.
    */
   async maybeShowInterstitial(): Promise<boolean> {
-    if (this.proActive) return false;
+    if (!this.initialized || !this.proKnown || this.proActive || this.isPremiumUnlocked()) return false;
+    const now = Date.now();
+    this.restoreInterstitialFrequency(now);
+    if (this.interstitialShownToday >= this.INTERSTITIAL_MAX_PER_DAY) return false;
+    if (this.interstitialTimeBlocked(now)) {
+      this.interstitialPending = true;
+      return false;
+    }
     if (!this.canShowInterstitial()) return false;
+    this.interstitialPending = false;
     const shown = await this.showInterstitial();
     if (shown) {
-      this.interstitialShownThisSession++;
       this.lastInterstitialAt = Date.now();
+      // 자정에 걸쳐 본 광고는 표시 완료일에 기록한다(최소 간격은 날짜와 무관).
+      this.restoreInterstitialFrequency(this.lastInterstitialAt);
+      this.interstitialShownToday++;
+      try {
+        localStorage.setItem(INTERSTITIAL_FREQUENCY_KEY, JSON.stringify({
+          date: this.interstitialDay, count: this.interstitialShownToday, lastShownAt: this.lastInterstitialAt,
+        }));
+      } catch { /* 저장소 불가 시 같은 JS 수명 안에서 상한 유지 */ }
     }
     return shown;
   }
 
   // --- Rewarded Video (보상형, 프리미엄 지표 언락) ---
   private preloadRewarded(): Promise<void> {
+    if (!this.initialized || !this.proKnown || this.proActive) return Promise.resolve();
     clearTimeout(this.rewardedRetry);
     this.rewardedRetry = undefined;
     if (this.rewardedPreparation) return this.rewardedPreparation;
     const pending = import('@capacitor-community/admob').then(async ({ AdMob }) => {
+      if (!this.proKnown || this.proActive) return;
       await AdMob.prepareRewardVideoAd({
         adId: this.config.rewardedId,
         isTesting: this.config.testMode,
@@ -659,7 +728,7 @@ class AdManagerService {
   }
 
   async showRewarded(): Promise<RewardResult | null> {
-    if (this.proActive || !this.initialized || fullScreenAds.isBusy()) return null;
+    if (!this.proKnown || this.proActive || !this.initialized || fullScreenAds.isBusy()) return null;
     clearTimeout(this.rewardedRetry);
     this.rewardedRetry = undefined;
     let showAttempted = false;
