@@ -297,7 +297,7 @@ t('Flow(앱): C/P 카드 — 거래량 칸은 «주간 만기 거래량», OI �
   // OI 칸은 rawChain 합(주간 만기)으로 그리지 않는다
   assert.ok(!/cpText\(pcCallOI, pcPutOI\)/.test(f));
   const r = read('src/app/api/app/oi-pcr/route.ts');
-  assert.ok(/oiPcrAllExpiries\(use\)/.test(r) && /basis: 'oi_all_expiries_35d'/.test(r) && /getLatestGex\(t\)/.test(r));
+  assert.ok(/oiPcrAllExpiries\(use\)/.test(r) && /basis: 'oi_all_expiries_35d'/.test(r) && /latestCollectorGexRow\(db, t\)/.test(r));   // 수집 Lambda 행(guardian 스냅샷 건너뜀 — 2026-10-20 SPY 핫픽스)
   assert.ok(/\^\[A-Z\]\[A-Z0-9\.\\-\]\{0,9\}\$/.test(r));   // 티커 형식 검사
 });
 

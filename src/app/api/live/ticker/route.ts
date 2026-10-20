@@ -1,7 +1,7 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics, optionMetricsRowHasOi } from '@/lib/optionMetrics';
-import { readOi35Fallback } from '@/services/oiNear35Fallback';
+import { readOi35Fallback, readLastGoodOi } from '@/services/oiNear35Fallback';
 import { normalizeVwap, selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 import { shortVolFields } from '@/lib/shortVolume';
 import { lastCompletedSessionDate, readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
@@ -315,7 +315,13 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
     //   읽기만 한다(공급사 호출 없음)·0.8초 상한. 대체가 없으면 행의 값(없으면 null — 앱 OPI «—», 0 으로 메우지 않는다). 기준·OI 기준일(D−1)을 함께 싣는다.
     if (!optionMetricsRowHasOi(m)) {
         const fb = await Promise.race([
-            Promise.resolve().then(() => readOi35Fallback(ticker)).catch(() => null),
+            Promise.resolve().then(async () => {
+                const v = await readOi35Fallback(ticker);
+                if (v) return { pcr: v.pcr, basis: v.basis as string, oiDate: v.oiDate as string | null, recordDate: v.recordDate as string | null };
+                // [2026-10-20 SPY 장중 결측 핫픽스] 대체가 모두 없으면 /api/app/oi-pcr 와 같은 «직전 정상값»(같은 35일 정의·기준일) — Flow OPI «—» 방지
+                const lg = await readLastGoodOi(ticker);
+                return lg ? { pcr: lg.pcr, basis: lg.basis as string, oiDate: lg.oiDate, recordDate: lg.eodDate } : null;
+            }).catch(() => null),
             new Promise<null>((resolve) => setTimeout(() => resolve(null), 800)),
         ]);
         if (fb && typeof fb.pcr === 'number' && Number.isFinite(fb.pcr) && fb.pcr >= 0) {
