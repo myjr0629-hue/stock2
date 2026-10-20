@@ -13,6 +13,7 @@
 // · 보낸 쪽 «열림» 계측: 사람 요청(classifyClick === 'human')만, 응답 뒤(after)에서 share:open:<표면>:<via>:<ET날짜> 를 센다. 렌더를 막지 않는다.
 // ============================================================================
 import type { Metadata } from 'next';
+import { giftEnabled, giftToken } from '@/lib/giftShare/config';
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import { notFound, unstable_rethrow } from 'next/navigation';
@@ -136,7 +137,8 @@ export default async function ShareCardPage({ params, searchParams }: Props) {
 
   const v = await getView(kind, ticker, lang);
   const gift = giftConfig();
-  const cta = landingCta(kind, lang, { ref: normalizeGiftRef(first(sp.ref)), gift });
+  const cta = landingCta(kind, lang, { ref: normalizeGiftRef(first(sp.ref)), gift,
+    giftToken: giftEnabled() ? giftToken(first(sp.gift)) : null });
   const ui = UI[lang];
   const c = COPY[lang];
 

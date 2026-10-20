@@ -13,6 +13,9 @@ import { GIFT_FROM, normalizeGiftRef } from '@/lib/gift/gift';
 import { recordGiftRef } from '@/lib/gift/giftClick';
 import { isInviteFrom } from '@/lib/invite/kinds';
 import { touchFromRequest } from '@/lib/invite/touch';
+import { giftEnabled, installUrl } from '@/lib/giftShare/config';
+import { giftLanding } from '@/lib/giftShare/landing';
+import { giftHeaders, giftOs } from '@/lib/giftShare/http';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -121,6 +124,10 @@ async function recordCodeHit(fromRaw: string | null) {
 // ★2026-09-20: 예전엔 이 파일 안에만 있었고 /app-uc·/app-wim 에는 아예 없었다
 //   (UC·WIM 링크가 카드 없이 맨 URL 로 떴다). 공용 모듈로 빼서 세 라우트가 같은 것을 쓴다.
 export async function GET(request: NextRequest) {
+  if (giftEnabled() && request.nextUrl.searchParams.has('gift')) {
+    try { return await giftLanding(request); }
+    catch { return NextResponse.redirect(installUrl(giftOs(request)), { status: 302, headers: giftHeaders }); }
+  }
   const ua = request.headers.get('user-agent') || '';
 
   // 카카오톡 «인앱 브라우저»(사람)는 미리보기 봇에서 뺀다 — clickHuman.isPreviewBot (2026-10-04)
