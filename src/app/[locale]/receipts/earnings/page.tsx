@@ -43,6 +43,14 @@ const CSS = `
 .er th,.er td{padding:14px 12px;border-bottom:1px solid #cbd5e1;vertical-align:top}.er th{background:#f1f5f9}.er td small{display:block;font-size:12px;color:#475569;margin-top:5px}
 .er td strong{display:block;font-weight:800}.er .er-status{border-left:3px solid #64748b;padding-left:8px}.er .er-reason{margin-top:8px;color:#78350f}.er .er-empty{padding:20px;border:1px solid #cbd5e1;border-radius:8px}
 .er li{margin:10px 0}.er ul{padding-left:20px}.er footer{margin-top:32px}.er .er-meta{font-size:12px;color:#475569}
+.er-scroll,.er-table-summary{display:none}
+.er-mobile-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0 24px}
+.er-mobile-summary>div{min-width:0;border:1px solid #cbd5e1;border-radius:10px;padding:12px}.er-mobile-summary dt{font-size:13px;color:#475569}.er-mobile-summary dd{margin:4px 0 0;font-size:30px;line-height:1.2;font-weight:800}
+.er-cards{display:grid;gap:16px}.er-card{min-width:0;border:1px solid #cbd5e1;border-radius:12px;padding:16px}.er .er-card h2{margin:0 0 4px;font-size:22px}.er-card header p{margin:0;font-size:14px}
+.er-card-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px;margin:20px 0 16px}.er-card-metrics>div{min-width:0}.er-card-metrics dt{font-size:13px;color:#475569}.er-card-metrics dd{margin:4px 0 0}.er-card-metrics strong{font-size:24px;line-height:1.3}.er-card-comparison{grid-column:1/-1}
+.er-badge{display:inline-block;border:1px solid #64748b;border-radius:6px;padding:3px 10px;font-weight:800;background:#f1f5f9}.er-badge[data-range="within"]{color:#166534;border-color:#166534;background:#f0fdf4}.er-badge[data-range="outside"]{color:#9a3412;border-color:#9a3412;background:#fff7ed}
+.er-card details{border-top:1px solid #cbd5e1;padding-top:12px}.er-card summary{cursor:pointer;min-height:44px;padding:8px 0;font-weight:700}.er-card-details{margin:12px 0 0}.er-card-details dt{margin-top:12px;font-size:13px;color:#475569}.er-card-details dd{margin:4px 0 0}.er-card small{display:block;font-size:12px;color:#475569;margin-top:5px}
+@media(min-width:640px){.er-scroll,.er-table-summary{display:block}.er-cards,.er-mobile-summary{display:none}}
 `;
 const iso = (ms: number) => new Date(ms).toISOString();
 const usd = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
@@ -73,8 +81,53 @@ export default async function EarningsReceiptsPage({ params, searchParams }: Pro
         <button type="submit">{c.show}</button>
       </form>
       <p className="er-meta">{week} — {data.weekEnd} · ET · {data.asOf} (UTC)</p>
-      <p>{c.summary(data.summary)}</p>
+      <p className="er-table-summary">{c.summary(data.summary)}</p>
+      <dl className="er-mobile-summary">
+        {(Object.keys(c.summaryLabels) as (keyof typeof data.summary)[]).map((key) => (
+          <div key={key} data-summary={key}><dt>{c.summaryLabels[key]}</dt><dd>{data.summary[key]}</dd></div>
+        ))}
+      </dl>
       {data.emptyReason ? <p className="er-empty">{c.noRecord} ({c.issues[data.emptyReason]})</p> : (
+        <>
+        <div className="er-cards">
+          {data.rows.map((r) => (
+            <article className="er-card" key={`${r.ticker}-${r.date}`} data-provenance={r.provenance} aria-labelledby={`receipt-${r.ticker}-${r.date}`}>
+              <header>
+                <h2 id={`receipt-${r.ticker}-${r.date}`}><a href={`/${l}/flow/${encodeURIComponent(r.ticker)}`}>{r.ticker}</a></h2>
+                <p>{r.date} · {r.etTime ? `${r.etTime} ET` : c.hour[r.hour]}</p>
+              </header>
+              <dl className="er-card-metrics">
+                <div><dt>{c.columns[1]}</dt><dd>{r.expected ? <strong>{expectedPctText(r.expected.pct)}</strong>
+                  : <span>{c.noRecord} ({c.issues[r.issues.find((x) => x.includes('expected')) ?? r.issues[0]]})</span>}</dd></div>
+                <div><dt>{c.columns[2]}</dt><dd>{r.actual ? <strong>{actualPct(r.actual.pct)}</strong>
+                  : <span>{c.noRecord} ({c.issues[r.issues.find((x) => x.includes('actual')) ?? r.issues[0]]})</span>}</dd></div>
+                <div className="er-card-comparison"><dt>{c.columns[3]}</dt><dd>
+                  <span className="er-badge" data-range={r.beyond == null ? 'unknown' : r.beyond ? 'outside' : 'within'}>{r.beyond == null ? c.notCompared : r.beyond ? c.outside : c.within}</span>
+                  {r.beyond != null && r.provenance !== 'pre' && <small>{c.provisional}</small>}
+                </dd></div>
+              </dl>
+              <details>
+                <summary>{c.details}</summary>
+                <dl className="er-card-details">
+                  {r.expected && <>
+                    <dt>{c.captured}</dt><dd><time dateTime={iso(r.expected.capturedAt)}>{iso(r.expected.capturedAt)}</time></dd>
+                    <dt>{c.expiry}</dt><dd>{r.expected.expiry}</dd>
+                    <dt>{c.session}</dt><dd>{r.expected.session}<small>{r.expected.src}</small></dd>
+                  </>}
+                  {r.actual && <>
+                    <dt>{c.price}</dt><dd>{r.actual.baseDate} ${usd(r.actual.baseClose)} → {r.actual.reactDate} ${usd(r.actual.reactClose)}</dd>
+                    <dt>{c.calculated}</dt><dd><time dateTime={iso(r.actual.at)}>{iso(r.actual.at)}</time><small>{r.actual.check === 'fmp' ? c.fmp : c.single}</small></dd>
+                  </>}
+                  <dt>{c.source}</dt><dd><a href={r.sourceUrl} rel="noopener noreferrer">{c.source}</a></dd>
+                  <dt>{c.columns[4]}</dt><dd>
+                    <strong className="er-status">{c.provenance[r.provenance]}</strong>
+                    {r.issues.map((issue) => <p className="er-reason" key={issue}>{c.noRecord} ({c.issues[issue]})</p>)}
+                  </dd>
+                </dl>
+              </details>
+            </article>
+          ))}
+        </div>
         <div className="er-scroll" role="region" aria-label={c.title} tabIndex={0}>
           <table>
             <caption>{week} — {data.weekEnd} · {c.title}</caption>
@@ -111,6 +164,7 @@ export default async function EarningsReceiptsPage({ params, searchParams }: Pro
             ))}</tbody>
           </table>
         </div>
+        </>
       )}
       <section aria-labelledby="receipt-method">
         <h2 id="receipt-method">{c.method}</h2>

@@ -11,6 +11,8 @@ interface ReceiptCopy {
   calculated: string; price: string; within: string; outside: string; notCompared: string;
   fmp: string; single: string; provisional: string; method: string; methods: string[];
   summary: (s: EarningsReceipts['summary']) => string;
+  summaryLabels: Record<keyof EarningsReceipts['summary'], string>;
+  details: string;
 }
 
 export const RECEIPT_COPY: Record<Loc, ReceiptCopy> = {
@@ -43,6 +45,8 @@ export const RECEIPT_COPY: Record<Loc, ReceiptCopy> = {
       '저장 기록은 120일 보관되며 영구 불변 장부가 아닙니다. 수동 보강·가격 정정·덮어쓰기가 가능하고 과거 수정 이력 전체는 제공하지 않습니다. FMP 대조 일치 허용 오차는 0.1%입니다. 자료가 없으면 0%로 대체하지 않습니다.',
     ],
     summary: (s) => `확정 일정 ${s.total}건 · 사전 비교 ${s.pre}건 (안 ${s.within} · 밖 ${s.outside}) · 사후 보강 ${s.backfilled}건 · 시점 확인 불가 ${s.unverified}건 · 비교 자료 누락 ${s.missing}건`,
+    summaryLabels: { total: '확정 일정', pre: '사전 비교', within: '사전 비교 · 범위 안', outside: '사전 비교 · 범위 밖', backfilled: '사후 보강', unverified: '시점 확인 불가', missing: '비교 자료 누락' },
+    details: '상세 기록',
   },
   en: {
     title: 'Earnings verification receipts',
@@ -73,6 +77,8 @@ export const RECEIPT_COPY: Record<Loc, ReceiptCopy> = {
       'Records have 120-day retention and are not an immutable ledger. Manual reconstruction, price corrections and overwrites are possible; complete revision history is unavailable. The FMP closing-price check uses 0.1% tolerance. Missing data is never replaced with 0%.',
     ],
     summary: (s) => `${s.total} scheduled · ${s.pre} pre-announcement pairs (${s.within} within · ${s.outside} outside) · ${s.backfilled} later reconstructions · ${s.unverified} unverified timing · ${s.missing} missing comparisons`,
+    summaryLabels: { total: 'Scheduled', pre: 'Pre-announcement pairs', within: 'Pre-announcement · within range', outside: 'Pre-announcement · outside range', backfilled: 'Later reconstructions', unverified: 'Unverified timing', missing: 'Missing comparisons' },
+    details: 'Record details',
   },
   ja: {
     title: '決算検証レシート',
@@ -103,5 +109,7 @@ export const RECEIPT_COPY: Record<Loc, ReceiptCopy> = {
       '保存期間は120日で、不変の永久台帳ではありません。手動補完・価格訂正・上書きが可能で、全修正履歴は提供していません。FMP終値照合の許容誤差は0.1%です。欠損を0%に置き換えません。',
     ],
     summary: (s) => `確定日程${s.total}件・事前比較${s.pre}件（内${s.within}・外${s.outside}）・事後補完${s.backfilled}件・時点確認不可${s.unverified}件・比較資料欠損${s.missing}件`,
+    summaryLabels: { total: '確定日程', pre: '事前比較', within: '事前比較・範囲内', outside: '事前比較・範囲外', backfilled: '事後補完', unverified: '時点確認不可', missing: '比較資料欠損' },
+    details: '記録の詳細',
   },
 };
