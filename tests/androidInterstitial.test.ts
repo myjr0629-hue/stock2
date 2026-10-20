@@ -4,9 +4,10 @@
  * prepare resolve -> Loaded, and show resolve -> later Showed/FailedToShow.
  * This verifies JS behavior, not SDK delivery on an installed Android binary.
  */
-import assert from 'node:assert/strict';
+import strictAssert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { setTimeout as realSetTimeout, clearTimeout as realClearTimeout } from 'node:timers';
 import { fake, AdMob, env, advance, flush, storage, mount, deferred } from './androidInterstitial.capacitor';
 import { adManager } from '../src/services/adManager';
 import { fullScreenAds } from '../src/services/fullScreenAdSession';
@@ -19,6 +20,15 @@ const I = {
   failedLoad: 'interstitialAdFailedToLoad',
 };
 const scenario = process.argv[2];
+let assertionCount = 0;
+// Count only this suite's assertions, without changing the shared Node assert module.
+const assert: typeof strictAssert = new Proxy(strictAssert, {
+  get(target, property) {
+    const value = Reflect.get(target, property);
+    if (typeof value !== 'function') return value;
+    return (...args: unknown[]) => { assertionCount++; return Reflect.apply(value, target, args); };
+  },
+});
 async function completed<T>(promise: Promise<T>): Promise<T> {
   let done = false;
   void promise.then(() => { done = true; });
@@ -41,7 +51,7 @@ async function show(ending: 'dismissed' | 'failedShow' = 'dismissed') {
   return completed(result);
 }
 
-const cases: Record<string, () => Promise<void>> = {
+const cases = {
   'android-native-event-and-completion-contract': async () => {
     const base = 'node_modules/@capacitor-community/admob/';
     const native = base + 'android/src/main/java/com/getcapacitor/community/admob/';
@@ -205,16 +215,67 @@ const cases: Record<string, () => Promise<void>> = {
   },
 };
 
+// Include assertions in ready(), show(), completed(), and fake bridge callbacks.
+// An early return must fail even when the remaining Promise resolves normally.
+const expectedAssertions: Record<keyof typeof cases, number> = {
+  'android-native-event-and-completion-contract': 12,
+  'android-prepare-resolves-then-loaded-then-show': 11,
+  'android-loaded-event-alone-does-not-complete-prepare': 8,
+  'android-show-resolve-is-not-an-impression': 9,
+  'android-synchronous-show-events-are-not-missed': 6,
+  'android-show-waits-for-listener-registration': 6,
+  'android-failed-show-reloads-without-burning-cap': 9,
+  'android-failed-prepare-retries-then-shows': 4,
+  'android-resume-keeps-loaded-ad': 6,
+  'android-resume-keeps-pending-prepare': 6,
+  'android-grace-interval-and-session-cap': 18,
+  'android-pro-suppresses-loaded-ad': 10,
+  'android-reward-unlock-suppresses-for-one-hour': 7,
+  'android-first-install-then-existing-run-cadence': 7,
+  'android-trigger-before-grace-is-skipped-not-queued': 3,
+};
+type CaseName = keyof typeof cases;
+const successLine = (name: CaseName) => `✓ ${name} (${expectedAssertions[name]} assertions)`;
+
+async function runScenario(name: string) {
+  strictAssert.ok(Object.hasOwn(cases, name), `unknown scenario: ${name}`);
+  const selected = name as CaseName;
+  // The shim replaces global timers. Use a referenced real timer so an unresolved
+  // init/listener Promise cannot let Node exit successfully with no completion.
+  let timer: ReturnType<typeof realSetTimeout> | undefined;
+  try {
+    await Promise.race([
+      Promise.resolve().then(() => cases[selected]()),
+      new Promise<never>((_, reject) => {
+        timer = realSetTimeout(() => reject(new Error(`scenario timed out: ${selected}`)), 2_000);
+      }),
+    ]);
+    strictAssert.equal(assertionCount, expectedAssertions[selected], `assertion count: ${selected}`);
+    console.log(successLine(selected));
+  } finally {
+    realClearTimeout(timer);
+  }
+}
+
 if (scenario) {
-  cases[scenario]().then(() => console.log(`✓ ${scenario}`)).catch(error => {
+  void runScenario(scenario).catch(error => {
     console.error(`✗ ${scenario}`, error); process.exitCode = 1;
   });
 } else {
   let failed = 0;
-  for (const name of Object.keys(cases)) {
-    const result = spawnSync(process.execPath, [__filename, name], { encoding: 'utf8' });
-    process.stdout.write(result.stdout.split('\n').filter(line => /^[✓✗]/.test(line)).join('\n') + '\n');
-    if (result.status !== 0) { failed++; process.stderr.write(result.stderr); }
+  for (const name of Object.keys(cases) as CaseName[]) {
+    // Also bound a child that blocks the event loop, preventing its own watchdog.
+    const result = spawnSync(process.execPath, [__filename, name], { encoding: 'utf8', timeout: 5_000 });
+    const completions = (result.stdout ?? '').split(/\r?\n/).filter(line => line.startsWith('✓ '));
+    if (result.status === 0 && !result.error && !result.signal
+      && completions.length === 1 && completions[0] === successLine(name)) {
+      console.log(completions[0]);
+    } else {
+      failed++;
+      console.error(`✗ ${name}: child failed or completion/assertion count was not confirmed`);
+      process.stderr.write(result.stderr ?? '');
+      if (result.error) console.error(result.error);
+    }
   }
   console.log(`androidInterstitial: ${Object.keys(cases).length - failed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
