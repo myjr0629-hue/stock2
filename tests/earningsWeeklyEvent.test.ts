@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import type { EarningsMove } from '../src/lib/earnings/eventMove';
 
 // Entire network is mocked, including cache writes. No credentials or external I/O.
 process.env.EC2_REDIS_PROXY_KEY = 'fixture';
@@ -96,6 +97,60 @@ function seed() {
       assert.equal(r.method, 'monthly', ticker); assert.equal(r.impliedMovePct, 8.6, ticker); assert.equal(r.expiry, post);
     }
     console.log('✓ missing IV / mixed sessions / one-sided pre / zero variance / listed weekly without quotes → actual monthly 8.6%, never fake zero');
-    console.log('earningsWeeklyEvent: 9 scenarios passed');
+    // 관문 10201038: 같은 만기의 과거 EOD 관측이 최신 구조 값을 덮어쓰면 안 된다.
+    const liveNow = Date.parse('2026-10-20T15:00:00Z');
+    Date.now = () => liveNow;
+    const expiry = '2026-10-23';
+    const freshRequest = { ticker: 'FRESH', after: '2026-10-22', timing: 'bmo' as const };
+    const observation = (pct: number, basis: 'live' | 'eod', session: string | null, asOf: number | null = null): EarningsMove => ({
+      def: 'atm-straddle-mid/1' as const, pct, straddle: pct, strike: 100, expiry,
+      callPrice: pct / 2, putPrice: pct / 2, spot: 100, basis, session, chainDate: session, asOf,
+    });
+    const latest = observation(7.8, 'live', '2026-10-20', liveNow);
+    const compare = async (existing: EarningsMove | null, cached: EarningsMove | null) => {
+      store.set('structure:v2:FRESH', { timestamp: liveNow, data: {
+        ticker: 'FRESH', options_status: 'OK', expiration: existing?.expiry ?? expiry,
+        availableExpirations: [existing?.expiry ?? expiry], underlyingPrice: 100, impliedMove: existing,
+      } });
+      // checkedAt is the cache-read time, not the option observation time.
+      store.set('earnings:event-probe:v3:FRESH:2026-10-22:same', { im: cached, checkedAt: liveNow });
+      return (await IMS.readImpliedMoveRows([freshRequest]))[0];
+    };
+    const noCalls = calls.length, noWrites = writes.length;
+    const oldEod = observation(4.2, 'eod', '2026-10-19');
+    r = await compare(latest, oldEod);
+    assert.equal(r.impliedMovePct, 7.8, '10/20 live 7.8% must survive 10/19 EOD 4.2% at the same 10/23 expiry');
+    assert.equal(r.source, 'structure'); assert.equal(r.basis, 'live');
+    assert.equal(r.session, '2026-10-20'); assert.equal(r.asOf, liveNow);
+    r = await compare(observation(6.4, 'eod', '2026-10-20'), oldEod);
+    assert.equal(r.impliedMovePct, 6.4, 'older EOD session must not replace newer EOD');
+    r = await compare(latest, observation(4.2, 'live', '2026-10-20', liveNow - 60_000));
+    assert.equal(r.impliedMovePct, 7.8, 'older quote in the same session must not replace newer quote');
+    r = await compare({ ...latest, asOf: liveNow - 60_000 }, observation(8.1, 'live', '2026-10-20', liveNow));
+    assert.equal(r.impliedMovePct, 8.1, 'newer quote in the same session may replace');
+    r = await compare(latest, observation(4.2, 'live', '2026-10-20'));
+    assert.equal(r.impliedMovePct, 7.8, 'missing quote time must not displace a known newer quote');
+    r = await compare(oldEod, observation(8.1, 'live', '2026-10-20', liveNow));
+    assert.equal(r.impliedMovePct, 8.1, 'newer session may replace an older EOD observation');
+    r = await compare(latest, observation(6.4, 'eod', '2026-10-20'));
+    assert.equal(r.impliedMovePct, 6.4, 'same-session final EOD supersedes intraday');
+    r = await compare(observation(6.4, 'eod', '2026-10-20'), latest);
+    assert.equal(r.impliedMovePct, 6.4, 'intraday quote must not displace same-session final EOD');
+    r = await compare({ ...latest, expiry: post }, oldEod);
+    assert.equal(r.impliedMovePct, 4.2); assert.equal(r.expiry, expiry, 'earlier event weekly expiry still takes priority');
+    r = await compare(latest, { ...oldEod, expiry: post });
+    assert.equal(r.impliedMovePct, 7.8, 'later monthly expiry cannot replace the nearest event expiry');
+    r = await compare(null, oldEod);
+    assert.equal(r.impliedMovePct, 4.2, 'real cached observation still fills a missing structure value');
+    r = await compare(latest, null);
+    assert.equal(r.impliedMovePct, 7.8, 'missing cache must not erase the structure observation');
+    r = await compare(null, null);
+    assert.equal(r.impliedMovePct, null, 'missing observations stay null, never zero');
+    const monthly = { ...observation(8.6, 'eod', '2026-10-19'), expiry: post };
+    r = await compare(monthly, { ...monthly, method: 'event-split', eventMovePct: 5.1 });
+    assert.equal(r.impliedMovePct, 5.1); assert.equal(r.method, 'event-split', 'same-session EOD can carry an event split');
+    assert.equal(calls.length, noCalls); assert.equal(writes.length, noWrites);
+    console.log('✓ same-expiry session/quote freshness: 14 regression and boundary cases; supplier calls 0, writes 0');
+    console.log('earningsWeeklyEvent: 23 scenarios passed');
   } finally { Date.now = realNow; }
 })().catch(e => { console.error(e); process.exit(1); });

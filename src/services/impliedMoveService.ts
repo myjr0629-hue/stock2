@@ -154,6 +154,24 @@ function firstExpiryAfterDate(exps: string[], date: string, timing: ImpliedTimin
     return exps.filter((e) => ISO_DATE_RE.test(e)).sort().find((e) => (sameDayOk ? e >= date : e > date)) ?? null;
 }
 
+/** 첫 이벤트 만기는 우선하되, 같은 만기의 관측은 옵션 세션·호가 시각이 후퇴하지 않게 한다. */
+function shouldUseEarningsObservation(candidate: EarningsMove, existing: ImpliedMove | null): boolean {
+    if (!candidate.expiry) return false;
+    if (!existing?.expiry) return true;
+    if (candidate.expiry !== existing.expiry) return candidate.expiry < existing.expiry;
+    const next = impliedMoveFields(candidate), prev = impliedMoveFields(existing);
+    const nextSession = next.impliedMoveSession, prevSession = prev.impliedMoveSession;
+    if (nextSession !== prevSession) return !!nextSession && (!prevSession || nextSession > prevSession);
+    if (!nextSession) return false;
+    // 같은 세션의 최종 EOD는 장중 호가보다 뒤다. checkedAt(캐시 확인 시각)은 신선도 근거가 아니다.
+    if (candidate.basis !== existing.basis) return candidate.basis === 'eod';
+    // 같은 EOD 세션의 event-split 보충은 허용한다.
+    if (candidate.basis === 'eod') return true;
+    const nextAt = next.impliedMoveAsOf, prevAt = prev.impliedMoveAsOf;
+    return typeof nextAt === 'number' && Number.isFinite(nextAt) && nextAt > 0
+        && (!(typeof prevAt === 'number' && Number.isFinite(prevAt) && prevAt > 0) || nextAt > prevAt);
+}
+
 /** 종목별 (after, timing) 으로 예상 변동을 읽는다 — 결과는 요청 순서. 저장본이 없으면 값 없이 이유만(지어내지 않는다). */
 export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today: string = etDateString(), opts: { probeMonthly?: boolean; deadlineMs?: number } = {}): Promise<ImpliedMoveRow[]> {
     const reqs = requests.map((r) => ({ ticker: String(r.ticker || '').toUpperCase(), after: r.after && ISO_DATE_RE.test(r.after) ? r.after : null, timing: r.timing ?? 'unknown' }));
@@ -185,7 +203,7 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
         try {
             const { earningsMonthlyMove } = await import('@/services/earningsMonthlyProbe');
             const im = await earningsMonthlyMove(r.ticker, r.after, r.timing === 'bmo' || r.timing === 'dmh', structures[i], opts.probeMonthly === true, deadlineMs);
-            if (im && (!existing?.expiry || im.expiry! <= existing.expiry)) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
+            if (im && shouldUseEarningsObservation(im, existing)) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
         } catch (error) {
             if (error instanceof ImpliedDeadlineError) break;
         }
