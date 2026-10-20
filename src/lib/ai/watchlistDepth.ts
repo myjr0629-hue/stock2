@@ -66,7 +66,10 @@ export function gammaMechanismReasons(text: string): string[] {
         if (lv >= 0) w = w.slice(0, lv);
         const d = w.search(DAMPEN), a = w.search(AMPLIFY);
         if (d < 0 && a < 0) return null;
-        return d >= 0 && (a < 0 || d < a) ? 'damp' : 'amp';
+        const at = d >= 0 && (a < 0 || d < a) ? d : a;
+        // 부정(«억제하지 못하는»·«does not dampen»·«抑制できない»)은 판정하지 않는다(관문 10201535 ④)
+        if (/지\s?(?:못|않)|못\s?하|できな|しな|されな|せず|ず(?:に)?/.test(w.slice(at, at + 14)) || /\b(?:not|never|cannot|can't|doesn't|don't|isn't|fails? to|no longer)\b/i.test(w.slice(Math.max(0, at - 14), at))) return null;
+        return at === d ? 'damp' : 'amp';
     };
     const neg = NEG_GAMMA.test(text), pos = POS_GAMMA.test(text);
     if (neg && !pos && effect(NEG_GAMMA) === 'damp') return ['insight:gamma-mechanism'];
@@ -84,6 +87,8 @@ export function checkDepthLine(text: unknown, loc: AiLineLocale, source: string,
     reasons.push(...claimReasons(text, 'insight'));
     // 최상위 근거를 무시한 일반론 차단(10/20 TSLA: 실적 D-1 인데 «음감마 … 증폭시키는 자리»)
     if (top === 'earnings' && !EARNINGS_WORD.test(text)) reasons.push('insight:ignores-top-earnings');
+    // 발표 전 실적을 결과처럼 단정(«실적이 예상을 웃돌아») — 예정은 결과가 아니다(관문 10201535 ①)
+    if (EARNINGS_RESULT.test(text)) reasons.push('insight:earnings-result');
     if (top === 'positioning' && !/\d/.test(text)) reasons.push('insight:generic');
     const norm = (x: string) => x.replace(/[\s.,、。·]/g, '').toLowerCase();
     if (STYLE_EXAMPLES.some(e => norm(e[loc]) === norm(text))) reasons.push('insight:style-copy');
@@ -145,6 +150,8 @@ export function positioningSideReasons(text: string, source: string): string[] {
 
 // 해석 한 줄은 일정을 말하지 않는다(일정·실적 시각은 카드의 칩이 보여 준다) — 시각·날짜·예정·실적 표현, 다른 회사 이름은 판정하지 않고 탈락(fail-closed)
 const EARNINGS_WORD = /실적|決算|\bearnings\b/i;
+// 실적 «결과» 단정 — 조건형(«웃돌면»)은 결과 주장이 아니다
+const EARNINGS_RESULT = /(?:웃돌|밑돌)(?!면|으면)|(?:상회|하회)(?:했|한|해)|서프라이즈|호실적|어닝\s?쇼크|실적\s?(?:부진|호조|개선|악화)|上回っ|下回っ|サプライズ|好決算|決算(?:不振|好調)|\b(?:beat|beats|missed|topped|surprise[sd]?|blowout)\b/i;
 // 최상위 근거가 «앞으로 있을 자기 실적»일 때만 허용하는 말(날짜·시각·요일·D-n·오늘/내일은 계속 금지)
 const WL_EARNINGS_WORDS = /\b(?:earnings|ahead of)\b|실적|발표|앞두|앞둔|決算|発表|控え/gi;
 const WL_SCHEDULE = /\bD-\d{1,2}\b|\d{1,2}:\d{2}|\d{1,2}\s*(?:시(?!간)|時(?!間))|\d{1,2}\/\d{1,2}|\d{4}-\d{2}-\d{2}|\d{1,2}\s*(?:월|月)\s*\d{1,2}|\b(?:scheduled|upcoming|ahead of|tonight|today|tomorrow|earnings|release[sd]?|report(?:s|ed|ing)?|due|print|after the close|before the open|after hours|pre-?market)\b|(?:^|\s)장\s?(?:마감|시작|전|후)|마감\s*후|개장|시간외|引け|寄り付|時間外|예정|앞두|앞둔|오늘|내일|금일|실적|발표|予定|控え|今日|本日|今夜|明日|決算|発表/i;

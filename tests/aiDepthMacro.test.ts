@@ -474,6 +474,10 @@ test('v2 ② 방향 모순: 양수 등락을 «약세/弱気»로 서술하면 �
     assert.deepEqual(orphanNumberReasons('미국 10년물 금리 5.15%로 +6bp 상승했다.'), []);
     assert.deepEqual(orphanNumberReasons('맥스페인 365 위라 만기 회귀 압력이 남는 자리'), []);
     assert.deepEqual(orphanNumberReasons('マックスペイン365の上で満期回帰の圧力が残る位置'), []);
+    // 관문 10201535 재현: 다른 주어의 방향어 · 변화량→수준 어순
+    assert.deepEqual(directionSignReasons('TLT -0.74%는 금리 상승과 연결해 해석되며 감마 방어가 변수입니다'), []);
+    assert.deepEqual(orphanNumberReasons('미국 10년물 금리가 +6bp 상승해 5.15%가 됐으며 감마 방어가 변수입니다'), []);
+    assert.deepEqual(directionSignReasons('나스닥 +0.19%와 49% 참여폭은 약세'), ['direction-sign:+0.19%']);
 });
 
 test('v2 ③ 상대 날짜: 생성 검사는 «내일 08:30 ET»를 받지 않고 «10/20(화) 08:30 ET»를 받는다 · 틀린 요일 탈락 · 프롬프트에 DATE_LABELS', () => {
@@ -534,6 +538,10 @@ test('v2 ⑤ 내 종목 해석 출구: 실적 무시 일반론·근거 없는 �
     assert.deepEqual(checkDepthLine('決算反応が想定変動幅±6.4%を超えると負ガンマが増幅する位置', 'ja', src, genAt), []);
     assert.ok(checkDepthLine('실적 반응이 예상 변동을 넘으면 음감마가 키우는 자리', 'ko', src, genAt).includes('insight:style-copy'));
     assert.ok(checkDepthLine('D-1 실적 앞 예상 변동 ±6.4% 음감마 자리', 'ko', src, genAt).includes('insight:schedule'));
+    // 관문 10201535 ①: 발표 전 실적을 결과로 단정하면 탈락(조건형은 통과)
+    for (const [l, t] of [['ko', '실적이 예상을 웃돌아 음감마 변동을 키우는 자리'], ['en', 'Earnings beat meets negative gamma amplification'], ['ja', '決算が予想を上回って負ガンマが増幅する位置']] as const)
+        assert.ok(checkDepthLine(t, l, src, genAt).includes('insight:earnings-result'), t);
+    assert.ok(!checkDepthLine('실적 반응이 예상 변동 ±6.4%를 웃돌면 음감마가 키우는 자리', 'ko', src, genAt).includes('insight:earnings-result'));
     assert.ok(checkDepthLine('내일 실적 앞 예상 변동 ±6.4% 음감마 자리', 'ko', src, genAt).includes('insight:schedule'));
     // 발표 경계(10/21 16:00 ET)가 지나면 «실적» 말 허용이 풀린다 → 저장본 해석이 내려간다
     assert.ok(checkDepthLine('실적 반응이 예상 변동 ±6.4%를 넘으면 음감마가 키우는 자리', 'ko', src, Date.parse('2026-10-21T21:00:00Z')).includes('insight:schedule'));
@@ -585,6 +593,8 @@ test('v2 ⑧ 감마 기제(음감마=키움·양감마=누름) 반대 서술 탈
         assert.deepEqual(gammaMechanismReasons(t), ['insight:gamma-mechanism'], t);
     for (const t of ['실적 반응이 예상 변동 ±6.4%를 넘으면 음감마가 증폭하는 자리', 'Positive gamma: dealer hedging dampens swings', '負ガンマでヘッジ売買が値動きを増幅する位置', '음감마지만 콜월이 상승을 제한하는 자리', 'Negative gamma, but the Call Wall caps the upside'])
         assert.deepEqual(gammaMechanismReasons(t), [], t);
+    // 관문 10201535 ④: 부정문은 판정하지 않는다
+    for (const t of ['음감마라 변동을 억제하지 못하는 자리', 'Negative gamma does not dampen swings here', '負ガンマで値動きを抑制できない位置']) assert.deepEqual(gammaMechanismReasons(t), [], t);
     const long = '예상 변동 ±4.8%는 Max Pain과 Call Wall 사이 공간에 담기며, 양감마 구간에서 상승 움직임이 제약받는 자리';
     assert.equal(fitDepthLine(long, 'ko'), long);
     assert.equal(fitDepthLine('想定変動幅±4.8%がMax PainとCall Wallの間に収まり、正ガンマ圏で上昇が抑制される位置で満期まで続く', 'ja'), '想定変動幅±4.8%がMax PainとCall Wallの間に収まり、正ガンマ圏で上昇が抑制される位置で満期まで続く');

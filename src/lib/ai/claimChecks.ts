@@ -101,6 +101,9 @@ function clauseBounds(src: string): Array<[number, number]> {
     return out.filter(([a, b]) => b > a);
 }
 
+/** 직전 숫자와 같은 지표로 잇는 사이 — 조사·전치사, 또는 방향 동사 한 낱말(«+6bp 상승해 5.15%», «rose to 5.15%») */
+const ADJ = /^\s*(?:(?:상승|하락|올라|내려|떨어져|반등|오른|내린)\S{0,2}\s*|(?:rose|rising|fell|falling|climbed|dropped|jumped|slid|up|down)\s+|(?:上昇|下落|低下|反発)\S{0,2}\s*)?(?:로|으로|에서|から|で|to|from|\(|（)?\s*$/i;
+
 /** ① 고아 숫자 — 반환: 사유 코드(«orphan-number:−0.74%») */
 export function orphanNumberReasons(text: string): string[] {
     if (!text) return [];
@@ -117,7 +120,7 @@ export function orphanNumberReasons(text: string): string[] {
             const fwdTo = Math.min(i + 1 < inClause.length ? inClause[i + 1].index : b, t.end + 16);
             const fwd = text.slice(t.end, fwdTo);
             // 같은 지표의 수준·변화량 연달아(«금리 5.15%로 +6bp 상승») — 직전 숫자와 조사 하나 사이면 그 숫자의 주어를 잇는다(관문 10201522 ②)
-            const adjacent = i > 0 && /^\s*(?:로|으로|에서|から|で|to|from|\(|（)?\s*$/i.test(back) && !orphanIdx.has(i - 1);   // «와·과·and»는 다른 대상의 나열이라 잇지 않는다
+            const adjacent = i > 0 && ADJ.test(back) && !orphanIdx.has(i - 1);   // «와·과·and»는 다른 대상의 나열이라 잇지 않는다
             if (!hasSubject(back) && !subjectRightAfter(fwd) && !adjacent) { out.push(`orphan-number:${t.raw}`); orphanIdx.add(i); }
         });
     }
@@ -176,17 +179,32 @@ export function directionSignReasons(text: string): string[] {
         seg.forEach((t, i) => {
             // 뒤쪽: 첫 방향어 — 다음 숫자에서 멈추되, 사이가 등위 접속(«와·과·and·と»)뿐이면 함께 서술되는 것으로 보고 넘어간다
             //   «나스닥 +0.19%와 49% 참여폭은 약세» = 둘 다 약세(판정) · «GEX +7는 중립 수준이고 49% 참여폭은 약세» = +7 은 중립(판정 안 함)
-            const all = valueTokens(text).filter((x) => x.index > t.index && x.index < b);
+            const allToks = valueTokens(text);
+            const all = allToks.filter((x) => x.index > t.index && x.index < b);
             let stop = b;
             let prevEnd = t.end;
+            let last: ValueToken = t;
             for (const nx of all) {
                 const between = text.slice(prevEnd, nx.index);
                 if (nx.sign === -t.sign || !COORD.test(between)) { stop = nx.index; break; }
-                prevEnd = nx.end;
+                prevEnd = nx.end; last = nx;
             }
             const fwd = text.slice(t.end, stop);
             const f = firstDir(fwd);
             let dir: 1 | -1 | null = f ? f.dir : null;
+            if (f) {
+                // 방향어 앞에 «다른 주어»가 끼면 그 주어의 방향이다 — «TLT -0.74%는 금리 상승과 연결»(관문 10201535 ②)
+                //   마지막 나열 숫자에 바로 붙은 주어(«49% 참여폭은 약세»)는 그 숫자의 주어라 다른 주어가 아니다
+                const pre = text.slice(prevEnd, t.end + f.at);
+                const lastPrev = allToks.filter((x) => x.end <= last.index).pop();
+                const lastHasBack = hasSubject(text.slice(Math.max(a, lastPrev ? lastPrev.end : a), last.index));
+                let rest = pre;
+                if (!lastHasBack && subjectRightAfter(pre)) {
+                    const m = pre.match(SUBJECT) || pre.match(TICKER);
+                    if (m) rest = pre.slice(m.index! + m[0].length);
+                }
+                if (hasSubject(rest)) dir = null;
+            }
             if (dir === null) {
                 const backFrom = Math.max(a, t.index - 12, i > 0 ? seg[i - 1].end : a);
                 dir = lastDir(text.slice(backFrom, t.index));
