@@ -307,6 +307,69 @@ async function asyncTests() {
     assert.ok(lastPrompt.includes('FINRA off-exchange share on 2026-10-09'));
   });
 
+  await at('회귀: A/ET 무관 뉴스 제외·짧은 티커 태그만·경제 일정은 시장 맥락만', async () => {
+    for (const ticker of ['A', 'ET']) {
+      batchRows[ticker] = NVDA;
+      const now = new Date().toISOString();
+      store.set('guardian:news:digest:v2', { items: [
+        { headline: 'A new Apple product launch', publishedAt: now },
+        { headline: 'CPI report at 08:30 ET', publishedAt: now },
+        { headline: 'Tagged company announcement', symbols: [ticker], publishedAt: now },
+      ] });
+      const day = new Date(Date.now() + 86400000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      store.set('fmp:econ-calendar', { updatedAt: now, events: [{ date: day, time: '08:30', event: 'Economic release at 08:30 ET' }] });
+      script.push({ text: GOOD });
+      await generateLines([ticker]);
+      assert.doesNotMatch(lastPrompt, /A new Apple product launch|CPI report/);
+      assert.match(lastPrompt, /Tagged company announcement/);
+      assert.match(lastPrompt, /MARKET CONTEXT ONLY \(not company evidence\): \[economic calendar;/);
+    }
+  });
+
+  await at('회귀: WFC 08:00 ET 입력에는 07:00 발표됨·실제치, 타 종목 실적 제외', async () => {
+    const clock = Date.now;
+    Date.now = () => Date.parse('2026-10-13T12:00:00Z');
+    try {
+      batchRows.WFC = NVDA;
+      store.set('market:earnings-calendar:v4', { generatedAt: new Date(Date.now()).toISOString(), rows: [
+        { ticker: 'WFC', date: '2026-10-13', hour: 'bmo', epsActual: 1.6 },
+        { ticker: 'OTHER', date: '2026-10-13', hour: 'amc' },
+      ] });
+      script.push({ text: GOOD });
+      await generateLines(['WFC']);
+      assert.match(lastPrompt, /07:00 ET\] WFC \(released; epsActual=1.6/);
+      assert.doesNotMatch(lastPrompt, /WFC \(.*scheduled|OTHER/);
+    } finally { Date.now = clock; }
+  });
+
+  await at('비용 회귀: 15분 입력 재확인 4회에도 모델 1회·새 뉴스 때만 재생성', async () => {
+    const clock = Date.now;
+    let now = clock();
+    Date.now = () => now;
+    try {
+      script.push({ text: GOOD });
+      await generateLines(['NVDA']);
+      const generatedAt = (store.get(lineKey('NVDA')) as any).at;
+      for (let i = 0; i < 4; i++) {
+        now += 16 * 60_000;
+        store.delete('wlai:lock:NVDA');
+        assert.equal((await generateLines(['NVDA'], { cachedContextOnly: ['NVDA'] })).out.NVDA, 'fresh');
+        assert.equal(entryOf(store.get(lineKey('NVDA')) as any, 'ko')?.insight, JSON.parse(GOOD).insight.ko);
+        const j = await (await route.GET(new Request('http://x/api/watchlist/ai-line?t=NVDA&loc=ko'))).json();
+        assert.deepEqual(j.pending, [], '입력 확인 시각부터 15분 계산');
+      }
+      assert.equal(aiCalls, 1);
+      assert.equal(batchCalls, 1, '같은 뉴스/일정이면 가격 공급사 경로도 다시 부르지 않는다');
+      assert.equal((store.get(lineKey('NVDA')) as any).at, generatedAt, '모델 생성 시각 유지');
+      store.set('guardian:news:digest:v2', { items: [{ headline: 'New supply agreement', tickers: ['NVDA'], publishedAt: new Date(now).toISOString() }] });
+      store.delete('wlai:lock:NVDA');
+      script.push({ text: GOOD });
+      assert.equal((await generateLines(['NVDA'], { cachedContextOnly: ['NVDA'] })).out.NVDA, 'generated');
+      assert.equal(aiCalls, 2);
+      assert.equal(batchCalls, 2);
+    } finally { Date.now = clock; }
+  });
+
   await at('캐시: 같은 지형이면 다시 부르지 않는다(fresh) · 가격이 레벨을 건너면 다시', async () => {
     script.push({ text: GOOD });
     await generateLines(['NVDA']);
@@ -318,6 +381,13 @@ async function asyncTests() {
     assert.equal(storedMatchesFacts(store.get(lineKey('NVDA')) as any, f), true);
     const moved = buildLineFacts('NVDA', { ...NVDA, extendedPrice: 251 })!;
     assert.equal(storedMatchesFacts(store.get(lineKey('NVDA')) as any, moved), false);
+    store.delete('wlai:lock:NVDA');
+    batchRows.NVDA = { ...NVDA, extendedPrice: 251 };
+    try {
+      script.push({ text: GOOD });
+      assert.equal((await generateLines(['NVDA'])).out.NVDA, 'generated', '지형 변경 경로는 캐시 확인만으로 건너뛰지 않는다');
+      assert.equal(aiCalls, 2);
+    } finally { batchRows.NVDA = NVDA; }
   });
   await at('잠금: 2분 안 같은 종목은 다시 만들지 않는다(locked)', async () => {
     script.push({ text: GOOD });

@@ -1,4 +1,6 @@
 import { cachedEvidence } from '@/lib/ai/tacticalPrompt';
+import { newsForStock } from '@/lib/ai/stockEvidence';
+import { createHash } from 'node:crypto';
 import { checkDepthLine } from '@/lib/ai/watchlistDepth';
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
 /**
@@ -57,6 +59,9 @@ export interface StoredLine {
     insight?: Record<AiLineLocale, string>;
     revision?: 2;
     source?: string;
+    inputHash?: string;
+    cachedContextHash?: string;
+    checkedAt?: number;
     /** 생성 지연(ms) · 응답한 단 — 실측용 */
     ms: number;
     provider?: string;
@@ -66,7 +71,7 @@ export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale): Ai
     if (!s || s.v !== 1 || !s.text || typeof s.text[loc] !== 'string' || !s.text[loc]) return null;
     if (textIntegrityReasons(s.text[loc]).length || lineLocaleReasons(s.text[loc], loc).length) return null;
     const candidate = s.insight?.[loc];
-    const insight = candidate && Date.now() - s.at < 15 * 60_000 && !checkDepthLine(candidate, loc, s.source || '').length ? candidate : undefined;
+    const insight = candidate && Date.now() - (s.checkedAt || s.at) < 15 * 60_000 && !checkDepthLine(candidate, loc, s.source || '').length ? candidate : undefined;
     return { text: s.text[loc], insight, chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
 }
 
@@ -115,9 +120,10 @@ export async function callsToday(): Promise<number> {
 }
 
 export type GenOutcome = 'generated' | 'fresh' | 'nodata' | 'guard' | 'skipped' | 'error' | 'locked' | 'cooling' | 'capped' | 'off';
+const inputHashOf = (f: LineFacts) => createHash('sha256').update(WL_LINE_SYSTEM).update('\0').update(buildLineUserPrompt(f)).digest('hex');
 
 /** 한 종목 생성 — 사실이 이미 있을 때. 저장까지. */
-export async function generateOne(f: LineFacts): Promise<{ outcome: GenOutcome; line?: StoredLine; reasons?: string[] }> {
+export async function generateOne(f: LineFacts, cachedContextHash?: string): Promise<{ outcome: GenOutcome; line?: StoredLine; reasons?: string[] }> {
     const t0 = Date.now();
     let last: string[] = [];
     try {
@@ -140,7 +146,7 @@ export async function generateOne(f: LineFacts): Promise<{ outcome: GenOutcome; 
         }
         const line: StoredLine = {
             v: 1, t: f.ticker, at: Date.now(), chain: f.chain, lv: f.lv, sides: f.sides, spot: f.spot,
-            text: c.text, insight: c.insight, revision: 2, source: buildLineUserPrompt(f), ms: Date.now() - t0, provider: res.provider,
+            text: c.text, insight: c.insight, revision: 2, source: buildLineUserPrompt(f), inputHash: inputHashOf(f), cachedContextHash, checkedAt: Date.now(), ms: Date.now() - t0, provider: res.provider,
         };
         await setInCache(lineKey(f.ticker), line, WL_AI_TTL_SEC);
         return { outcome: 'generated', line };
@@ -173,7 +179,7 @@ export interface GenSummary {
  * 여러 종목 생성 — 잠금·쉬기·하루 상한·«같은 지형이면 그대로»를 지난 종목만 AI 를 부른다.
  * opts.force = 같은 지형이어도 다시(점검용 — 크론 ?force=1 에서만).
  */
-export async function generateLines(tickers: string[], opts: { deadline?: number; force?: boolean; detail?: boolean } = {}): Promise<GenSummary> {
+export async function generateLines(tickers: string[], opts: { deadline?: number; force?: boolean; detail?: boolean; cachedContextOnly?: string[] } = {}): Promise<GenSummary> {
     const t0 = Date.now();
     const deadline = opts.deadline ?? t0 + 45_000;
     const out: Record<string, GenOutcome> = {};
@@ -196,9 +202,25 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
 
     // 화면이 이미 쓰는 캐시만 읽는다. 이 경로에서 뉴스/캘린더를 새로 만들지 않는다.
     const evidenceValues = await mgetFromCache<any>(['guardian:news:digest:v2', 'fmp:econ-calendar', 'market:earnings-calendar:v4']).catch(() => []);
-    const evidence = cachedEvidence(evidenceValues[0], evidenceValues[1], evidenceValues[2]);
-    for (let c = 0; c < todo.length && Date.now() < deadline; c += BATCH_CHUNK) {
-        const chunk = todo.slice(c, c + BATCH_CHUNK);
+    const evidence = cachedEvidence(evidenceValues[0], evidenceValues[1], evidenceValues[2], new Date(Date.now()));
+    const contextFor = (t: string) => [
+        ...evidence.stockNews.filter(n => newsForStock(n, t)).slice(0, 6).map(n => n.text),
+        ...evidence.stockEvents.filter(e => e.ticker === t).map(e => e.text),
+        ...evidence.marketEvents.map(e => `MARKET CONTEXT ONLY (not company evidence): ${e}`),
+    ];
+    const contextHashFor = (t: string) => createHash('sha256').update(WL_LINE_SYSTEM).update(JSON.stringify(contextFor(t))).digest('hex');
+    const batchTodo: string[] = [];
+    for (const t of todo) {
+        const saved = lines[t];
+        // 지형 변경 힌트가 없는 정기 확인은 기존 뉴스/일정 캐시만 비교한다.
+        // 가격·포지셔닝은 종전처럼 지형 변경 힌트 또는 크론이 들어올 때 배치로 다시 확인한다.
+        if (!opts.force && opts.cachedContextOnly?.includes(t) && saved?.revision === 2 && saved.inputHash && saved.cachedContextHash === contextHashFor(t) && WL_LINE_LOCALES.every(loc => entryOf(saved, loc))) {
+            await setInCache(lineKey(t), { ...saved, checkedAt: Date.now() }, WL_AI_TTL_SEC);
+            out[t] = 'fresh';
+        } else batchTodo.push(t);
+    }
+    for (let c = 0; c < batchTodo.length && Date.now() < deadline; c += BATCH_CHUNK) {
+        const chunk = batchTodo.slice(c, c + BATCH_CHUNK);
         let rows: Record<string, any> = {};
         try {
             const payload = await processWatchlistBatch(chunk, 'price');
@@ -215,19 +237,21 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
                 await setInCache(failKey(t), { at: Date.now(), why: ['nodata'] }, FAIL_SEC).catch(() => false);
                 continue;
             }
-            const own = new RegExp(`\\b${t.replace(/\./g, '\\.')}\\b`, 'i');
             f.contextText = [
-                ...evidence.news.filter(n => own.test(n)),
-                ...evidence.events.filter(e => own.test(e)),
+                ...contextFor(t),
                 f.darkPool ? `FINRA off-exchange share on ${f.darkPool.date}: ${f.darkPool.pct}% (not net buying)` : '',
                 f.implied ? `Options implied move to ${f.implied.expiry}: ±${f.implied.pct}% (not a forecast)` : '',
             ].filter(Boolean).join('\n');
-            if (!opts.force && lines[t]?.revision === 2 && Date.now() - lines[t]!.at < 15 * 60_000 && storedMatchesFacts(lines[t], f)) { out[t] = 'fresh'; continue; }
+            if (!opts.force && lines[t]?.revision === 2 && lines[t]?.inputHash === inputHashOf(f) && storedMatchesFacts(lines[t], f)) {
+                // 15분은 입력 재확인 주기다. 같은 입력으로 모델을 다시 부르지 않는다.
+                await setInCache(lineKey(t), { ...lines[t]!, cachedContextHash: contextHashFor(t), checkedAt: Date.now() }, WL_AI_TTL_SEC);
+                out[t] = 'fresh'; continue;
+            }
             work.push(f);
         }
         await pool(work, GEN_CONCURRENCY, deadline, async (f) => {
             if (!(await reserveCall())) { out[f.ticker] = 'capped'; return; }
-            const r = await generateOne(f);
+            const r = await generateOne(f, contextHashFor(f.ticker));
             out[f.ticker] = r.outcome;
             if (r.reasons?.length) reasons[f.ticker] = r.reasons;
             if (opts.detail) detail[f.ticker] = { facts: f.factsText, text: r.line?.text, ms: r.line?.ms, provider: r.line?.provider };

@@ -45,13 +45,13 @@ export async function GET(request: Request) {
         const s = stored[t];
         lines[t] = entryOf(s, loc);
         if (failed.has(t)) continue;                                           // 최근에 못 만든 종목(사실 부족·가드·크레딧) — 쉬는 중
-        if (!s || !lines[t] || s.revision !== 2 || now - s.at >= 15 * 60_000 || (staleHint.has(t) && now - s.at > WL_AI_REGEN_MIN_AGE_MS)) need.push(t);
+        if (!s || !lines[t] || s.revision !== 2 || !s.inputHash || now - (s.checkedAt || s.at) >= 15 * 60_000 || (staleHint.has(t) && now - s.at > WL_AI_REGEN_MIN_AGE_MS)) need.push(t);
     }
     const bg = need.slice(0, MAX_BG);
     if (bg.length) {
         after(async () => {
             try {
-                const r = await generateLines(bg, { deadline: Date.now() + 45_000 });
+                const r = await generateLines(bg, { deadline: Date.now() + 45_000, cachedContextOnly: bg.filter(t => !staleHint.has(t)) });
                 console.log(`[watchlist/ai-line] 뒤에서 생성 ${bg.length}종목 ${r.ms}ms ${JSON.stringify(r.out)}`);
             } catch (e) { console.warn('[watchlist/ai-line] 생성 실패:', (e as Error)?.message); }
         });

@@ -7,6 +7,7 @@ import { textIntegrityReasons } from '../src/lib/ai/textIntegrity';
 import { cleanInsight, gateInsight } from '../src/lib/ai/outputGate';
 import { buildLineFacts, buildLineUserPrompt, checkLineOutput, WL_LINE_SYSTEM } from '../src/lib/ai/watchlistLine';
 import { checkDepthLine } from '../src/lib/ai/watchlistDepth';
+import { newsForStock } from '../src/lib/ai/stockEvidence';
 
 const now = new Date('2026-10-20T15:00:00Z');
 const headline = datedHeadline({ title: 'Treasury auction draws weak demand', published_utc: '2026-10-20T14:00:00Z' }, 'Polygon', now)!;
@@ -36,6 +37,63 @@ test('NEWS PULSE·경제·실적은 기존 캐시 모양에서만, 지난/오래
     assert.ok(!e.events.some(x => /Past/.test(x)));
     assert.ok(cachedEvidence(null, { updatedAt: now.toISOString(), events: [{ date: '2026-10-20', time: '08:30', event: 'Already released' }] }, null, now).events.length === 0);
     assert.equal(cachedEvidence(null, { updatedAt: '2026-10-19T00:00:00Z', events: [{ date: '2026-10-21', event: 'Stale' }] }, null, now).events.length, 0);
+});
+
+test('종목 뉴스: A/ET 오탐 재현·공급사 태그 우선·태그 없을 때 제목의 명시적 표기만', () => {
+    const evidence = (headline: string, extra = {}) => cachedEvidence({ items: [{ headline, publishedAt: now.toISOString(), ...extra }] }, null, null, now).stockNews[0];
+    assert.equal(newsForStock(evidence('A new Apple product launch'), 'A'), false);
+    assert.equal(newsForStock(evidence('CPI release at 08:30 ET'), 'ET'), false);
+    assert.equal(newsForStock(evidence('$A Agilent Technologies, Inc.'), 'A'), false);
+    assert.equal(newsForStock(evidence('Energy Transfer LP $ET'), 'ET'), false);
+    assert.equal(newsForStock(evidence('A new Apple product launch', { tickers: ['AAPL'] }), 'A'), false);
+    assert.equal(newsForStock(evidence('Supplier article', { symbols: ['a'] }), 'A'), true);
+    assert.equal(newsForStock(evidence('Supplier article', { tickers: ['ET'] }), 'ET'), true);
+    assert.equal(newsForStock(evidence('NVDA supply contract', { tickers: ['AAPL'] }), 'NVDA'), false);
+    for (const h of ['NVDA supply contract', '$NVDA supply contract', 'NVIDIA Corporation signs agreement', 'Results from NVDA.']) assert.equal(newsForStock(evidence(h), 'NVDA'), true, h);
+    for (const h of ['nvda supply contract', 'XNVDA supply contract', 'NVDA2 supply contract', 'NVDA.B supply contract', 'Unknown company']) assert.equal(newsForStock(evidence(h, { description: 'NVDA supply contract' }), 'NVDA'), false, h);
+    assert.equal(newsForStock(evidence('BRK.B report'), 'BRK.B'), true);
+    assert.equal(newsForStock(evidence('BRKxB report'), 'BRK.B'), false);
+    // 시장 전체 경제 일정은 종목 실적 목록에 들어가지 않는다.
+    const e = cachedEvidence(null, { updatedAt: now.toISOString(), events: [{ date: '2026-10-21', time: '08:30', event: 'CPI 08:30 ET' }] }, null, now);
+    assert.equal(e.stockEvents.length, 0);
+    assert.match(e.marketEvents[0], /CPI/);
+});
+
+test('실적 WFC 07:00 ET: 08:00에는 발표됨·실제치 포함, 가디언/내 종목 같은 입력', () => {
+    const at = new Date('2026-10-13T12:00:00Z'); // 08:00 EDT
+    const e = cachedEvidence(null, null, { generatedAt: at.toISOString(), rows: [{ ticker: 'WFC', date: '2026-10-13', hour: 'bmo', epsActual: 1.6, revenueActual: 20000000000 }] }, at);
+    const own = e.stockEvents.find(x => x.ticker === 'WFC')!.text;
+    assert.match(own, /07:00 ET.*WFC \(released; epsActual=1.6; revenueActual=20000000000/);
+    assert.doesNotMatch(own, /scheduled|estimated/);
+    assert.ok(e.events.includes(own));
+    const p = buildTacticalPrompt({ ...facts, asOf: at.toISOString(), scheduledEvents: e.events }, 'en');
+    assert.ok(p.includes(own));
+    assert.match(p, /released or release status unconfirmed are NEVER upcoming/);
+    const before = new Date('2026-10-13T10:59:59Z');
+    const beforeRows = cachedEvidence(null, null, { generatedAt: before.toISOString(), rows: [{ ticker: 'WFC', date: '2026-10-13', hour: 'bmo' }] }, before);
+    assert.match(beforeRows.stockEvents.find(x => x.ticker === 'WFC')!.text, /07:00 ET.*scheduled; not a released result/);
+});
+
+test('실적: 공급사 분 단위 시각 우선·BMO 08:00/AMC 16:00 경계·시각 미상·겨울 ET', () => {
+    const rowAt = (iso: string, row: any) => {
+        const at = new Date(iso);
+        return cachedEvidence(null, null, { generatedAt: iso, rows: [row] }, at).stockEvents.find(e => e.ticker === row.ticker)!.text;
+    };
+    const row = { ticker: 'ZZZ', date: '2026-10-20', hour: 'bmo' };
+    assert.match(rowAt('2026-10-20T12:00:00Z', { ...row, etTime: '08:15' }), /08:15 ET.*scheduled/);
+    assert.match(rowAt('2026-10-20T12:15:00Z', { ...row, etTime: '08:15' }), /released; actuals unavailable/);
+    assert.match(rowAt('2026-10-20T11:59:59Z', row), /boundary 08:00 ET.*scheduled/);
+    assert.match(rowAt('2026-10-20T12:00:00Z', row), /released; actuals unavailable; timing boundary elapsed/);
+    assert.match(rowAt('2026-10-20T19:59:59Z', { ...row, hour: 'amc' }), /boundary 16:00 ET.*scheduled/);
+    assert.match(rowAt('2026-10-20T20:00:01Z', { ...row, hour: 'amc' }), /released; actuals unavailable/);
+    assert.match(rowAt('2026-10-20T20:00:00Z', { ...row, hour: 'amc', etTime: '16:30' }), /16:30 ET.*scheduled/);
+    assert.match(rowAt('2026-10-20T20:00:00Z', { ...row, hour: '' }), /release status unconfirmed/);
+    assert.match(rowAt('2026-10-20T12:00:00Z', { ...row, hour: '', epsActual: 0 }), /released; epsActual=0/);
+    assert.match(rowAt('2026-12-01T12:30:00Z', { ...row, date: '2026-12-01' }), /scheduled/);
+    assert.match(rowAt('2026-12-01T13:00:00Z', { ...row, date: '2026-12-01' }), /released/);
+    // DST 전환일 23:30 ET에서도 «내일»은 하루만 이동한다.
+    assert.match(rowAt('2026-11-02T04:30:00Z', { ...row, date: '2026-11-02' }), /scheduled/);
+    assert.match(rowAt('2026-03-08T04:30:00Z', { ...row, date: '2026-03-08' }), /scheduled/);
 });
 
 test('ko/en/ja: 뉴스→전이+고유자원→한 가지 확인, 공백 350자 계약', () => {

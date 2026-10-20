@@ -1,5 +1,6 @@
 /** «오늘 요약»의 다음 주요 지표 아래 AI 한 줄 — 지표가 무엇을 재는지·시장이 왜 보는지(관찰·설명만). 대표 10/18 지시. */
 import { REFUSAL, INTENT } from '@/lib/ai/todayPicksLine';
+import { definitionForbiddenHit } from '@/lib/ai/adviceGuard';
 import type { Loc } from '@/lib/todayPicks/types';
 
 export const EE_PURPOSE = 'TodaySummaryEcon';
@@ -23,7 +24,6 @@ export function buildEconUserPrompt(event: string): string {
 
 // 미래·가격 방향 서술(관문 10/18: «주가가 오를 것입니다/going to rise/上昇するでしょう» 통과) — 설명 문장엔 필요 없다
 const FUTURE = /\bset to\b|\bpoised\b|after (?:this|the) release|발표\s?(?:뒤|후|이후)|発表後|가능성|かもしれ|오를|내릴|떨어질|상승할|하락할|올라갈|내려갈|上がる|下がる|上昇する|下落する|\brise\b|\bfall\b|\bdrop\b|\bjump\b|\bgoing to\b|\bwould\b|\bwill\b|것입니다|것이다|겠습니다|겠다|ㄹ 것|할 것|될 것|でしょう|だろう|はずです|見込み|주가|증시|stocks?\b|shares\b|株価|株式市場/i;
-const BANNED = /\b(?:will|should|could|may|might|likely|expect\w*|forecast\w*|predict\w*|buy|sell|recommend\w*|bullish|bearish)\b|예측|전망|예상|매수|매도|추천|강세|약세|수\s?있습니다|予測|見通し|予想|買い|売り|推奨|強気|弱気|可能性/i;
 
 const SHAPE: Record<Loc, RegExp> = {
   ko: /지표입니다\.?$/,
@@ -47,7 +47,7 @@ export function checkEconLine(raw: string): EconCheck {
     if (t.length > EE_MAX[loc]) reasons.push(`${loc}:long`);
     if (/\d/.test(t)) reasons.push(`${loc}:digit`);
     if (REFUSAL.test(t)) reasons.push(`${loc}:refusal`);
-    if (BANNED.test(t) || FUTURE.test(t) || INTENT.some((r) => r.test(t))) reasons.push(`${loc}:banned`);
+    if (definitionForbiddenHit(t) || FUTURE.test(t) || INTENT.some((r) => r.test(t))) reasons.push(`${loc}:banned`);
     if (/[\n"“”`*#]/.test(t)) reasons.push(`${loc}:format`);
     // 정의 문장 형태만(관문 10/18 3회: 금지어 덧대기로는 «내일 금리가 낮아집니다» 같은 변형이 계속 통과)
     if (!SHAPE[loc].test(t)) reasons.push(`${loc}:shape`);
