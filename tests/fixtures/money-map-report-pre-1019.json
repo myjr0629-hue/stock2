@@ -1,0 +1,985 @@
+{
+  "provenance": "Measured values copied verbatim from growth/ux-1019/REPORT.md B-3 (06:5x ET, 2026-10-19). This is a report extract, not a full Guardian API response.",
+  "asOf": "2026-10-19T10:55:00Z",
+  "approximateTime": true,
+  "nq": 1.25,
+  "sectors": [
+    {
+      "id": "SMH",
+      "today": 2.4,
+      "fiveDay": -10.07,
+      "bounce": true
+    },
+    {
+      "id": "AI_PWR",
+      "today": 1.76,
+      "fiveDay": -9.07,
+      "bounce": true
+    },
+    {
+      "id": "XLK",
+      "today": 1.46,
+      "fiveDay": -6.7,
+      "bounce": true
+    },
+    {
+      "id": "XLE",
+      "today": -0.32,
+      "fiveDay": 3.39,
+      "bounce": true
+    },
+    {
+      "id": "XLP",
+      "today": -0.34,
+      "fiveDay": 3.76,
+      "bounce": true
+    }
+  ],
+  "archivedGuardian": {
+    "provenance": "Public Guardian response archived by the operating session: 2026-10-15/guardian-ko.json. SectorEngine fields retained verbatim; source timestamp is 2026-10-14 POST, not 10/19 REG.",
+    "sourceSha256": "4c70d1c79879107abbb1a6c1f4535cb89313b051d72a53c6fb4949c279c64cf4",
+    "success": true,
+    "data": {
+      "timestamp": "2026-10-14T22:32:18.309Z",
+      "sectors": [
+        {
+          "id": "XLV",
+          "name": "헬스케어",
+          "change": 2.5256395143227612,
+          "volume": 11810907,
+          "topConstituents": [
+            {
+              "symbol": "PFE",
+              "price": 29.22,
+              "change": 2.9961226647867387,
+              "volume": 39330178
+            },
+            {
+              "symbol": "MRK",
+              "price": 148.075,
+              "change": 4.2928581490350535,
+              "volume": 9799775
+            },
+            {
+              "symbol": "JNJ",
+              "price": 254.45999999999998,
+              "change": 2.3530831422710246,
+              "volume": 9651872
+            },
+            {
+              "symbol": "UNH",
+              "price": 394.6,
+              "change": 4.457856840321906,
+              "volume": 7758593
+            },
+            {
+              "symbol": "ABT",
+              "price": 102.97,
+              "change": 0.35084299775850253,
+              "volume": 7275435
+            }
+          ]
+        },
+        {
+          "id": "XLP",
+          "name": "필수소비재",
+          "change": 2.3518232569188786,
+          "volume": 14288852,
+          "topConstituents": [
+            {
+              "symbol": "WMT",
+              "price": 116.535,
+              "change": 3.789633060206622,
+              "volume": 25840751
+            },
+            {
+              "symbol": "KO",
+              "price": 91.74000000000001,
+              "change": 1.808900233048507,
+              "volume": 14523074
+            },
+            {
+              "symbol": "PG",
+              "price": 156.53,
+              "change": 2.280449555671726,
+              "volume": 10667901
+            },
+            {
+              "symbol": "PEP",
+              "price": 129.325,
+              "change": 1.5907305577376094,
+              "volume": 9525676
+            },
+            {
+              "symbol": "MO",
+              "price": 72.955,
+              "change": 1.9494130799329177,
+              "volume": 6775193
+            }
+          ]
+        },
+        {
+          "id": "XLE",
+          "name": "에너지",
+          "change": 0.7142857142857415,
+          "volume": 25205296,
+          "topConstituents": [
+            {
+              "symbol": "XOM",
+              "price": 177.345,
+              "change": 1.8755744485294206,
+              "volume": 13545737
+            },
+            {
+              "symbol": "SLB",
+              "price": 48.51,
+              "change": -0.5331146196432193,
+              "volume": 9647345
+            },
+            {
+              "symbol": "CVX",
+              "price": 222.86,
+              "change": 2.356129150783091,
+              "volume": 9491877
+            },
+            {
+              "symbol": "OXY",
+              "price": 61.364999999999995,
+              "change": -0.46228710462287703,
+              "volume": 8708109
+            },
+            {
+              "symbol": "COP",
+              "price": 142.37,
+              "change": 1.043293115684882,
+              "volume": 5668279
+            }
+          ]
+        },
+        {
+          "id": "XLB",
+          "name": "소재",
+          "change": -0.10056315366049308,
+          "volume": 8893589,
+          "topConstituents": [
+            {
+              "symbol": "FCX",
+              "price": 69.405,
+              "change": -4.163214581607291,
+              "volume": 12433613
+            },
+            {
+              "symbol": "DOW",
+              "price": 29.21,
+              "change": 2.4552788495264792,
+              "volume": 8218028
+            },
+            {
+              "symbol": "NEM",
+              "price": 111.33500000000001,
+              "change": -3.6811142832424912,
+              "volume": 6644250
+            },
+            {
+              "symbol": "LIN",
+              "price": 492.995,
+              "change": 0.17983784113307816,
+              "volume": 2447664
+            },
+            {
+              "symbol": "SHW",
+              "price": 324.54,
+              "change": 0.13576056772600978,
+              "volume": 1292723
+            }
+          ]
+        },
+        {
+          "id": "SAFE_HAVEN",
+          "name": "안전자산",
+          "change": -0.1532883325793426,
+          "volume": 76502371,
+          "topConstituents": [
+            {
+              "symbol": "TLT",
+              "price": 78.815,
+              "change": 0.5678193186168089,
+              "volume": 50903459
+            },
+            {
+              "symbol": "IEF",
+              "price": 89.76499999999999,
+              "change": 0.25128434219342677,
+              "volume": 11588125
+            },
+            {
+              "symbol": "GLD",
+              "price": 376.18,
+              "change": -1.4384153850184738,
+              "volume": 10283340
+            },
+            {
+              "symbol": "SHY",
+              "price": 81.195,
+              "change": 0.006158393890867659,
+              "volume": 3727447
+            }
+          ]
+        },
+        {
+          "id": "XLU",
+          "name": "유틸리티",
+          "change": -0.25077621208501766,
+          "volume": 35416513,
+          "topConstituents": [
+            {
+              "symbol": "NEE",
+              "price": 78.50999999999999,
+              "change": 0.3707491690104731,
+              "volume": 11049909
+            },
+            {
+              "symbol": "SO",
+              "price": 89.64,
+              "change": 1.736465781409603,
+              "volume": 7255775
+            },
+            {
+              "symbol": "D",
+              "price": 62.715,
+              "change": 0.666131621187811,
+              "volume": 5680756
+            },
+            {
+              "symbol": "DUK",
+              "price": 119.35499999999999,
+              "change": 0.9857009899314595,
+              "volume": 4666447
+            },
+            {
+              "symbol": "PEG",
+              "price": 70.56,
+              "change": 0.12771392081737393,
+              "volume": 3853759
+            }
+          ]
+        },
+        {
+          "id": "XLF",
+          "name": "금융",
+          "change": -0.4651587012039448,
+          "volume": 44045485,
+          "topConstituents": [
+            {
+              "symbol": "BAC",
+              "price": 51.39,
+              "change": -4.762787249814679,
+              "volume": 117950172
+            },
+            {
+              "symbol": "WFC",
+              "price": 80.93,
+              "change": 0.23532325984641778,
+              "volume": 24945204
+            },
+            {
+              "symbol": "C",
+              "price": 122.27,
+              "change": -1.814823737252072,
+              "volume": 13662701
+            },
+            {
+              "symbol": "MS",
+              "price": 181.45,
+              "change": -2.7807543934847825,
+              "volume": 10257443
+            },
+            {
+              "symbol": "JPM",
+              "price": 334.90999999999997,
+              "change": 1.0499954741574447,
+              "volume": 10235982
+            }
+          ]
+        },
+        {
+          "id": "XLRE",
+          "name": "부동산",
+          "change": -0.633516614869729,
+          "volume": 7826335,
+          "topConstituents": [
+            {
+              "symbol": "O",
+              "price": 55.18,
+              "change": 0.3455173667939584,
+              "volume": 8032338
+            },
+            {
+              "symbol": "VICI",
+              "price": 23.005,
+              "change": 0.41466608467917443,
+              "volume": 7855437
+            },
+            {
+              "symbol": "PLD",
+              "price": 130.46,
+              "change": -2.3137401722201445,
+              "volume": 6465698
+            },
+            {
+              "symbol": "CCI",
+              "price": 79.38,
+              "change": -0.2262443438914113,
+              "volume": 4073330
+            },
+            {
+              "symbol": "AMT",
+              "price": 179.4,
+              "change": -0.0167196121049998,
+              "volume": 3068391
+            }
+          ]
+        },
+        {
+          "id": "XLI",
+          "name": "산업재",
+          "change": -0.9011679611074941,
+          "volume": 10819858,
+          "topConstituents": [
+            {
+              "symbol": "BA",
+              "price": 184.66,
+              "change": -0.981285859831633,
+              "volume": 5142712
+            },
+            {
+              "symbol": "UPS",
+              "price": 95.53,
+              "change": 0.7806730667791907,
+              "volume": 4251836
+            },
+            {
+              "symbol": "RTX",
+              "price": 186.17000000000002,
+              "change": 1.7211233744945937,
+              "volume": 4045997
+            },
+            {
+              "symbol": "CAT",
+              "price": 746.75,
+              "change": -3.368358394368381,
+              "volume": 3352027
+            },
+            {
+              "symbol": "GE",
+              "price": 306.175,
+              "change": -0.4729707765822527,
+              "volume": 3302000
+            }
+          ]
+        },
+        {
+          "id": "XLY",
+          "name": "임의소비재",
+          "change": -0.9077963688145212,
+          "volume": 8302449,
+          "topConstituents": [
+            {
+              "symbol": "AMZN",
+              "price": 254.08,
+              "change": -1.74027380307834,
+              "volume": 34550099,
+              "whale": 71
+            },
+            {
+              "symbol": "TSLA",
+              "price": 366.57500000000005,
+              "change": -2.30658529435279,
+              "volume": 30813084,
+              "whale": 77
+            },
+            {
+              "symbol": "NKE",
+              "price": 35.095,
+              "change": -0.6651570902915354,
+              "volume": 19377799
+            },
+            {
+              "symbol": "TJX",
+              "price": 142.755,
+              "change": 0.8940561170400638,
+              "volume": 6884474
+            },
+            {
+              "symbol": "SBUX",
+              "price": 93.33500000000001,
+              "change": 1.4510869565217477,
+              "volume": 6773773
+            }
+          ],
+          "instFlow": {
+            "avgWhale": 74,
+            "totalNetPremium": 37166090,
+            "avgDarkPool": 43,
+            "avgPCR": 0.76,
+            "totalGEX": 5.839999999999996,
+            "ifs": 26.8,
+            "tickerCount": 2,
+            "divergence": "DIVERGENT"
+          }
+        },
+        {
+          "id": "XLC",
+          "name": "커뮤니케이션",
+          "change": -1.3003206270039134,
+          "volume": 6774366,
+          "topConstituents": [
+            {
+              "symbol": "T",
+              "price": 23.04,
+              "change": 0.8315098468271234,
+              "volume": 57740646
+            },
+            {
+              "symbol": "NFLX",
+              "price": 70.64,
+              "change": 0.2554640931024792,
+              "volume": 39904112
+            },
+            {
+              "symbol": "VZ",
+              "price": 44.405,
+              "change": 2.0101079715138983,
+              "volume": 28065833
+            },
+            {
+              "symbol": "GOOGL",
+              "price": 346.985,
+              "change": -1.9206851715755442,
+              "volume": 27836739,
+              "whale": 71
+            },
+            {
+              "symbol": "CMCSA",
+              "price": 21.19,
+              "change": 1.4846743295019267,
+              "volume": 25824230
+            }
+          ],
+          "instFlow": {
+            "avgWhale": 74,
+            "totalNetPremium": 15245245,
+            "avgDarkPool": 40,
+            "avgPCR": 0.51,
+            "totalGEX": 233.4,
+            "ifs": 25.8,
+            "tickerCount": 2,
+            "divergence": "DIVERGENT"
+          }
+        },
+        {
+          "id": "ICLN",
+          "name": "클린에너지",
+          "change": -3.143189755529681,
+          "volume": 5189858,
+          "topConstituents": [
+            {
+              "symbol": "PLUG",
+              "price": 1.435,
+              "change": -8.012820512820513,
+              "volume": 82570454
+            },
+            {
+              "symbol": "NEE",
+              "price": 78.50999999999999,
+              "change": 0.3707491690104731,
+              "volume": 11049909
+            },
+            {
+              "symbol": "ENPH",
+              "price": 29.085,
+              "change": -9.194505151420545,
+              "volume": 8276224
+            },
+            {
+              "symbol": "SEDG",
+              "price": 30.485,
+              "change": -6.286504764832468,
+              "volume": 4124722
+            },
+            {
+              "symbol": "FSLR",
+              "price": 178.535,
+              "change": -4.322079314040742,
+              "volume": 2085702
+            }
+          ]
+        },
+        {
+          "id": "XLK",
+          "name": "기술주",
+          "change": -3.3549011616058735,
+          "volume": 11921832,
+          "topConstituents": [
+            {
+              "symbol": "NVDA",
+              "price": 220.635,
+              "change": -3.450463854367241,
+              "volume": 117269146,
+              "whale": 76
+            },
+            {
+              "symbol": "INTC",
+              "price": 96.84,
+              "change": -5.8068281295593795,
+              "volume": 103451448
+            },
+            {
+              "symbol": "ORCL",
+              "price": 129.565,
+              "change": -9.52164804469275,
+              "volume": 52012080
+            },
+            {
+              "symbol": "AAPL",
+              "price": 342.96,
+              "change": 0.49520907199577985,
+              "volume": 49896472,
+              "whale": 76
+            },
+            {
+              "symbol": "AVGO",
+              "price": 346.25,
+              "change": -3.0953513755562403,
+              "volume": 23022476
+            }
+          ],
+          "instFlow": {
+            "avgWhale": 67,
+            "totalNetPremium": 63762075,
+            "avgDarkPool": 36,
+            "avgPCR": 0.7,
+            "totalGEX": 817.2,
+            "ifs": 19.5,
+            "tickerCount": 3,
+            "divergence": "NEUTRAL"
+          }
+        },
+        {
+          "id": "HACK",
+          "name": "사이버보안",
+          "change": -3.713903532929419,
+          "volume": 349061,
+          "topConstituents": [
+            {
+              "symbol": "CRWD",
+              "price": 248.745,
+              "change": -4.772022510623627,
+              "volume": 9174665,
+              "whale": 33
+            },
+            {
+              "symbol": "PANW",
+              "price": 376.5,
+              "change": -5.170893887111813,
+              "volume": 7142785,
+              "whale": 69
+            },
+            {
+              "symbol": "OKTA",
+              "price": 210.46,
+              "change": -7.0939831368913575,
+              "volume": 4634078,
+              "whale": 33
+            },
+            {
+              "symbol": "FTNT",
+              "price": 183.9,
+              "change": -3.5961417487943037,
+              "volume": 3953922,
+              "whale": 65
+            },
+            {
+              "symbol": "ZS",
+              "price": 219.3,
+              "change": -4.09341380215166,
+              "volume": 2898503,
+              "whale": 68
+            }
+          ],
+          "instFlow": {
+            "avgWhale": 54,
+            "totalNetPremium": 188864,
+            "avgDarkPool": 41,
+            "avgPCR": 0.85,
+            "totalGEX": -1.0500000000000003,
+            "ifs": 8.1,
+            "tickerCount": 5,
+            "divergence": "NEUTRAL"
+          }
+        },
+        {
+          "id": "SMH",
+          "name": "반도체",
+          "change": -4.43871998911787,
+          "volume": 11768426,
+          "topConstituents": [
+            {
+              "symbol": "NVDA",
+              "price": 220.635,
+              "change": -3.450463854367241,
+              "volume": 117269146,
+              "whale": 76
+            },
+            {
+              "symbol": "MU",
+              "price": 901.52,
+              "change": -5.420745077057047,
+              "volume": 27143648
+            },
+            {
+              "symbol": "MRVL",
+              "price": 241.86,
+              "change": -9.997209042701648,
+              "volume": 25823837
+            },
+            {
+              "symbol": "AVGO",
+              "price": 346.25,
+              "change": -3.0953513755562403,
+              "volume": 23022476
+            },
+            {
+              "symbol": "AMD",
+              "price": 570.82,
+              "change": -5.732168513533587,
+              "volume": 22147410
+            }
+          ],
+          "instFlow": {
+            "avgWhale": 76,
+            "totalNetPremium": 35648668,
+            "avgDarkPool": 40,
+            "avgPCR": 0.77,
+            "totalGEX": 259,
+            "ifs": 26.8,
+            "tickerCount": 1,
+            "divergence": "DIVERGENT"
+          }
+        },
+        {
+          "id": "AI_PWR",
+          "name": "AI 전력망",
+          "change": -5.87856446697773,
+          "volume": 22340150,
+          "topConstituents": [
+            {
+              "symbol": "VST",
+              "price": 149.5,
+              "change": -7.920670115792058,
+              "volume": 7314742
+            },
+            {
+              "symbol": "VRT",
+              "price": 220.595,
+              "change": -7.035694719541498,
+              "volume": 7314671
+            },
+            {
+              "symbol": "CEG",
+              "price": 278.98,
+              "change": -5.683085973156632,
+              "volume": 3434989
+            },
+            {
+              "symbol": "ETN",
+              "price": 408.445,
+              "change": -4.63799584413159,
+              "volume": 3207818
+            },
+            {
+              "symbol": "PWR",
+              "price": 660.53,
+              "change": -4.115375682266871,
+              "volume": 1067930
+            }
+          ]
+        }
+      ],
+      "rotationIntensity": {
+        "score": 84,
+        "direction": "RISK_OFF",
+        "topInflow": [
+          {
+            "sector": "헬스케어",
+            "flow": 2.97
+          },
+          {
+            "sector": "필수소비재",
+            "flow": 2.64
+          },
+          {
+            "sector": "에너지",
+            "flow": 2.37
+          }
+        ],
+        "topOutflow": [
+          {
+            "sector": "반도체",
+            "flow": -9.42
+          },
+          {
+            "sector": "기술주",
+            "flow": -3.39
+          },
+          {
+            "sector": "AI 전력망",
+            "flow": -2.83
+          }
+        ],
+        "breadth": 43.8,
+        "conviction": "HIGH",
+        "regime": "BROAD_SELLOFF",
+        "fiveDayData": {
+          "XLV": {
+            "changes": [
+              1.576,
+              0.691,
+              -1.355,
+              2.534
+            ],
+            "cumReturn": 3.446,
+            "rvol": 1.15,
+            "consistency": 0.75,
+            "flowScore": 2.972,
+            "todayChange": 2.526,
+            "isBounce": false
+          },
+          "XLP": {
+            "changes": [
+              0.012,
+              1.175,
+              -0.261,
+              2.221
+            ],
+            "cumReturn": 3.147,
+            "rvol": 1.12,
+            "consistency": 0.75,
+            "flowScore": 2.643,
+            "todayChange": 2.352,
+            "isBounce": false
+          },
+          "XLE": {
+            "changes": [
+              -0.245,
+              1.429,
+              1.803,
+              0.64
+            ],
+            "cumReturn": 3.627,
+            "rvol": 0.87,
+            "consistency": 0.75,
+            "flowScore": 2.367,
+            "todayChange": 0.714,
+            "isBounce": false
+          },
+          "XLB": {
+            "changes": [
+              0.325,
+              0.02,
+              0.566,
+              -0.101
+            ],
+            "cumReturn": 0.81,
+            "rvol": 0.97,
+            "consistency": 0.75,
+            "flowScore": 0.589,
+            "todayChange": -0.101,
+            "isBounce": false
+          },
+          "SAFE_HAVEN": {
+            "changes": [
+              0.96,
+              -0.373,
+              -0.005,
+              -0.794
+            ],
+            "cumReturn": -0.212,
+            "rvol": 1.13,
+            "consistency": 0.75,
+            "flowScore": -0.18,
+            "todayChange": -0.153,
+            "isBounce": false
+          },
+          "XLU": {
+            "changes": [
+              0.828,
+              0.531,
+              0.577,
+              -0.358
+            ],
+            "cumReturn": 1.578,
+            "rvol": 1.25,
+            "consistency": 0.75,
+            "flowScore": 1.479,
+            "todayChange": -0.251,
+            "isBounce": false
+          },
+          "XLF": {
+            "changes": [
+              0.922,
+              0.585,
+              -0.418,
+              -0.547
+            ],
+            "cumReturn": 0.542,
+            "rvol": 1.15,
+            "consistency": 0.5,
+            "flowScore": 0.312,
+            "todayChange": -0.465,
+            "isBounce": false
+          },
+          "XLRE": {
+            "changes": [
+              1.86,
+              0.745,
+              -0.215,
+              -0.813
+            ],
+            "cumReturn": 1.577,
+            "rvol": 0.89,
+            "consistency": 0.5,
+            "flowScore": 0.702,
+            "todayChange": -0.634,
+            "isBounce": true
+          },
+          "XLI": {
+            "changes": [
+              0.505,
+              -0.059,
+              -0.284,
+              -0.966
+            ],
+            "cumReturn": -0.804,
+            "rvol": 1.3,
+            "consistency": 0.75,
+            "flowScore": -0.784,
+            "todayChange": -0.901,
+            "isBounce": false
+          },
+          "XLY": {
+            "changes": [
+              1.02,
+              -0.514,
+              0.08,
+              -0.765
+            ],
+            "cumReturn": -0.179,
+            "rvol": 1.14,
+            "consistency": 0.5,
+            "flowScore": -0.102,
+            "todayChange": -0.908,
+            "isBounce": false
+          },
+          "XLC": {
+            "changes": [
+              -1.508,
+              0.969,
+              0.745,
+              -1.3
+            ],
+            "cumReturn": -1.094,
+            "rvol": 1.04,
+            "consistency": 0.5,
+            "flowScore": -0.569,
+            "todayChange": -1.3,
+            "isBounce": false
+          },
+          "ICLN": {
+            "changes": [
+              -0.442,
+              0.286,
+              2.515,
+              -3.677
+            ],
+            "cumReturn": -1.318,
+            "rvol": 1.22,
+            "consistency": 0.5,
+            "flowScore": -0.804,
+            "todayChange": -3.143,
+            "isBounce": false
+          },
+          "XLK": {
+            "changes": [
+              0.506,
+              -1.217,
+              -0.041,
+              -2.98
+            ],
+            "cumReturn": -3.732,
+            "rvol": 1.21,
+            "consistency": 0.75,
+            "flowScore": -3.387,
+            "todayChange": -3.355,
+            "isBounce": false
+          },
+          "HACK": {
+            "changes": [
+              5.188,
+              -3.085,
+              -0.644,
+              -4.839
+            ],
+            "cumReturn": -3.38,
+            "rvol": 1.04,
+            "consistency": 0.75,
+            "flowScore": -2.636,
+            "todayChange": -3.714,
+            "isBounce": false
+          },
+          "SMH": {
+            "changes": [
+              -0.255,
+              -2.343,
+              -1.772,
+              -4.27
+            ],
+            "cumReturn": -8.64,
+            "rvol": 1.09,
+            "consistency": 1,
+            "flowScore": -9.418,
+            "todayChange": -4.439,
+            "isBounce": false
+          },
+          "AI_PWR": {
+            "changes": [
+              2.404,
+              -1.363,
+              -0.013,
+              -4.915
+            ],
+            "cumReturn": -3.887,
+            "rvol": 0.97,
+            "consistency": 0.75,
+            "flowScore": -2.828,
+            "todayChange": -5.879,
+            "isBounce": false
+          }
+        },
+        "noiseFlags": [
+          "XLF",
+          "XLRE",
+          "XLY",
+          "XLC",
+          "ICLN"
+        ],
+        "bounceWarnings": [
+          "XLRE: today -0.634% but 5d +1.577%"
+        ],
+        "scoreBasis": "percentile",
+        "rawSpread": 23.61,
+        "sampleWindows": 25
+      }
+    }
+  }
+}

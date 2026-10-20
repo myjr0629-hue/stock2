@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocale } from 'next-intl';
+import { TodayMoneyMap } from '@/components/intel/TodayMoneyMap';
 import { AdBanner } from '@/components/app/AdBanner';
 import { AiBadge } from '@/components/app/AiBadge';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
@@ -5792,6 +5793,9 @@ export default function AppIntelPage() {
         </div>
       )}
 
+
+      {/* 오늘 돈의 지도 — 기존 마지막 섹션 다음(콘텐츠 맨 아래). 위 콘텐츠 배치는 그대로, 광고·약관 푸터 위에 둔다(푸터 아래 콘텐츠 금지 — 운영 검토 10/20). */}
+      {!selectedSector && <TodayMoneyMap />}
 
       {/* AD BANNER */}
       <AdBanner />
