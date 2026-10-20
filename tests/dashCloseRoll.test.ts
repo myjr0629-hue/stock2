@@ -11,6 +11,7 @@ import { calcPriceDisplay, oneNumberFromQuote } from '../src/utils/calcPriceDisp
 import { pickExtPrice } from '../src/utils/extWsTrust';
 import { copyImpliedMoveGroup } from '../src/lib/impliedMove';
 import { normalizeVwap } from '../src/lib/vwap';
+import * as marketCalendar from '../src/lib/marketCalendar';
 
 const root = path.join(__dirname, '..');
 const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
@@ -73,6 +74,7 @@ function makeStore(q: any = quotes, now = quotes.timestamp) {
         '@/lib/storage/dashboardTickerStore': {},
         '@/lib/impliedMove': { copyImpliedMoveGroup },
         '@/lib/vwap': { normalizeVwap },
+        '@/lib/marketCalendar': marketCalendar,
     }, {
         Date: Clock,
         fetch: async (url: string) => {

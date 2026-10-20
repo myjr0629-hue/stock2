@@ -1,6 +1,7 @@
 /** Offline production-source execution for the fourth VWAP gate. No network/storage writes. */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import * as marketCalendar from '../src/lib/marketCalendar';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
@@ -66,6 +67,7 @@ function store(incoming: any) {
             if (id.endsWith('/vwap')) return { normalizeVwap, selectVwap, vwapDistancePct };
             if (id.endsWith('/impliedMove')) return { copyImpliedMoveGroup: () => {} };
             if (id.endsWith('/dashboardTickerStore')) return {};
+            if (id === '@/lib/marketCalendar') return marketCalendar;
             if (id.endsWith('/useOnePipe')) return { computeOnePipe: () => { throw new Error('price pipe must not run'); } };
             throw new Error(`unexpected module ${id}`);
         },

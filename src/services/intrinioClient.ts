@@ -1493,7 +1493,7 @@ export async function getOptionChainSnapshotIntrinio(
                     // above add zero/defaults or overlay undated realtime greeks.
                     eod: {
                         iv: num(p.implied_volatility), gamma: num(p.gamma),
-                        oi: num(p.open_interest), close: num(p.close),
+                        oi: num(p.open_interest), close: num(p.close), mark: num(p.mark),
                     },
                 },
                 // 이 계약의 그릭스가 실시간으로 덮였는지 — 하류가 라벨을 정확히 붙일 근거
