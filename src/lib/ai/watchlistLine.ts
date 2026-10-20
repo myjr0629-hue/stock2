@@ -268,6 +268,8 @@ export interface LineCheck {
     insight?: Partial<Record<AiLineLocale, string>>;
     /** 해석을 버린 사유(칩 줄은 통과) — 기록용 */
     insightReasons?: string[];
+    /** 모델이 준 해석 원문(언어별 120자까지) — 탈락 원인 실측용, 화면에는 안 나간다 */
+    insightRaw?: Partial<Record<AiLineLocale, string>> | null;
 }
 
 export function lineLocaleReasons(s: string, loc: AiLineLocale): string[] {
@@ -344,7 +346,10 @@ export function checkLineOutput(raw: string, f: LineFacts): LineCheck {
             if (!r.length) cand[loc] = String(value).trim();
         }
         if (Object.keys(cand).length) insight = cand;
-    }
+    } else if (f.contextText || f.darkPool || f.implied) insightReasons.push('insight:null');
     if (reasons.length) return { ok: false, reasons };
-    return { ok: true, reasons: [], text, insight, insightReasons };
+    const insightRaw = obj.insight && typeof obj.insight === 'object'
+        ? Object.fromEntries(WL_LINE_LOCALES.filter((l) => typeof obj.insight[l] === 'string').map((l) => [l, String(obj.insight[l]).slice(0, 120)])) as Partial<Record<AiLineLocale, string>>
+        : null;
+    return { ok: true, reasons: [], text, insight, insightReasons, insightRaw };
 }

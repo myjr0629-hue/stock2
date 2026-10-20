@@ -63,6 +63,9 @@ export interface StoredLine {
     inputHash?: string;
     cachedContextHash?: string;
     checkedAt?: number;
+    /** 해석 탈락 사유·원문(실측용 · entryOf 가 내보내지 않는다) */
+    insightWhy?: string[];
+    insightRaw?: Partial<Record<AiLineLocale, string>> | null;
     /** 생성 지연(ms) · 응답한 단 — 실측용 */
     ms: number;
     provider?: string;
@@ -163,7 +166,7 @@ export async function generateOne(f: LineFacts, cachedContextHash?: string): Pro
         }
         const line: StoredLine = {
             v: 1, t: f.ticker, at: Date.now(), chain: f.chain, lv: f.lv, sides: f.sides, spot: f.spot,
-            text: c.text, insight: c.insight, revision: 2, source: buildLineUserPrompt(f), inputHash: inputHashOf(f), cachedContextHash, checkedAt: Date.now(), ms: Date.now() - t0, provider: res.provider,
+            text: c.text, insight: c.insight, ...(c.insightReasons?.length ? { insightWhy: c.insightReasons.slice(0, 8), insightRaw: c.insightRaw ?? null } : {}), revision: 2, source: buildLineUserPrompt(f), inputHash: inputHashOf(f), cachedContextHash, checkedAt: Date.now(), ms: Date.now() - t0, provider: res.provider,
         };
         await setInCache(lineKey(f.ticker), line, WL_AI_TTL_SEC);
         return { outcome: 'generated', line };
