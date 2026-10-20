@@ -117,6 +117,20 @@ const EVENT_FAMILIES = [
     /tariff|관세|関税/i,
     /earnings|실적|決算/i,
     /\b(?:war|conflict)\b|전쟁|분쟁|戦争|紛争/i,
+    // 자주 나오는 경제 일정(예정 주장 대조용 — 근거에 없는 «소매판매 예정» 같은 오기를 잡는다)
+    /retail sales|소매\s*판매|小売売上/i,
+    /\bISM\b|\bPMI\b|구매관리자|購買担当者/i,
+    /\bGDP\b|국내총생산|国内総生産/i,
+    /jobless claims|unemployment claims|실업\s*수당|新規失業保険/i,
+    /housing starts|building permits|pending home|existing home|new home|주택|住宅/i,
+    /consumer (?:confidence|sentiment)|소비자\s*(?:신뢰|심리)|消費者(?:信頼感|態度)/i,
+    /durable goods|내구재|耐久財/i,
+    /industrial production|산업\s*생산|鉱工業/i,
+    /beige book|베이지\s*북|ベージュブック/i,
+    /\bJOLTS\b|job openings|구인|求人/i,
+    /trade balance|무역\s*수지|貿易収支/i,
+    /crude (?:oil )?(?:stock|inventor)|원유\s*재고|原油在庫/i,
+    /treasury auction|국채\s*입찰|国債入札/i,
 ];
 
 export function unsupportedEventReasons(text: string, evidence: string): string[] {
@@ -212,6 +226,8 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
     // fail-closed ① 시각은 «HH:MM ET» 한 모양만(오후·PM·KST·UTC·«8시 30분» 등 다른 표기는 판정하지 않고 탈락)
     const etTimes = [...text.matchAll(/(?<![\d.:])(\d{2}):(\d{2})\s?ET\b(?!\s*\+)/g)].length;
     if (times.length !== etTimes || /\b(?:a\.?m|p\.?m)\b|오후|오전|午後|午前/i.test(text)) { reasons.push('schedule:time-format'); return reasons; }
+    // fail-closed ③ 오늘/내일 밖의 상대 날짜(다음 주·요일 등)는 판정하지 않고 탈락
+    if (/next week|this week|later this week|\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|다음\s*주|이번\s*주|[월화수목금토일]요일|来週|今週|[月火水木金土日]曜/i.test(text)) { reasons.push('schedule:relative-date'); return reasons; }
     // fail-closed ② 근거에 없는 대문자 이름(티커·지표 약어)이 있으면 판정하지 않고 탈락 («IBM earnings scheduled tomorrow»)
     for (const tok of text.match(/(?<![A-Za-z0-9&])[A-Z][A-Z0-9]{1,5}(?![A-Za-z0-9])/g) || []) {
         if (CLAIM_OK_TOKENS.has(tok)) continue;

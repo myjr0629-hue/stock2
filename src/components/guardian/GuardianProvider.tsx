@@ -76,14 +76,12 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
     // ?�?� Helper: Merge snapshot preserving AI verdict ?�?�
     const mergeSnapshot = useCallback((newData: any) => {
         setData((prev: any) => {
-            // 출구 검사(10/20): 깨진 글자(U+FFFD)가 든 AI 문구는 화면에 내지 않는다 — 웹소켓 스냅샷은 HTTP 라우트의 정리를 거치지 않는다.
-            //   직전의 멀쩡한 글이 있으면 그것을, 없으면 깨진 글자만 뺀 글(HTTP 라우트와 같은 처리)을 쓴다.
+            // 출구 검사(10/20): 웹소켓 스냅샷은 HTTP 라우트(/api/debug/guardian)의 깨진 글자 정리를 거치지 않는다 — 같은 처리(U+FFFD 제거)만 한다.
+            //   직전 글로 되돌리지 않는다(지난 일정을 말하던 글을 현재 검사 없이 되살리지 않게).
             if (newData?.verdict) {
                 for (const k of ['realityInsight', 'description', 'gammaInsight', 'title'] as const) {
                     const v = newData.verdict[k];
-                    if (typeof v !== 'string' || v.indexOf('\uFFFD') === -1) continue;
-                    const before = prev?.verdict?.[k];
-                    newData.verdict[k] = typeof before === 'string' && before && before.indexOf('\uFFFD') === -1 ? before : v.replace(/\uFFFD/g, '');
+                    if (typeof v === 'string' && v.indexOf('\uFFFD') !== -1) newData.verdict[k] = v.replace(/\uFFFD/g, '');
                 }
             }
             if (newData.verdict && !newData.verdict.realityInsight && prev?.verdict?.realityInsight) {

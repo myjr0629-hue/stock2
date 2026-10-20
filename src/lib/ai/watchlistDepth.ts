@@ -28,7 +28,7 @@ export function fitDepthLine(text: unknown, loc: AiLineLocale): unknown {
 
 export function checkDepthLine(text: unknown, loc: AiLineLocale, source: string, nowMs: number = Date.now()): string[] {
     if (typeof text !== 'string' || !text.trim()) return ['insight:empty'];
-    const reasons = [...textIntegrityReasons(text), ...validateInsight(text, loc, { minLength: 8 }).reasons, ...unsupportedEventReasons(text, source), ...localePurityReasons(text, loc), ...watchlistNoScheduleReasons(text, source.match(/FACTS — (\S+)/)?.[1] || '')];
+    const reasons = [...textIntegrityReasons(text), ...validateInsight(text, loc, { minLength: 8 }).reasons, ...unsupportedEventReasons(text, source), ...localePurityReasons(text, loc), ...watchlistNoScheduleReasons(text, source.match(/FACTS — (\S+)/)?.[1] || '', source)];
     if ([...text].length > (loc === 'en' ? 50 : 28) || /[\r\n{}]| · |…|\.\.\./.test(text)) reasons.push('insight:format');
     reasons.push(...positioningSideReasons(text, source));
     if (adviceHit(text)) reasons.push('insight:advice');
@@ -53,13 +53,21 @@ export function positioningSideReasons(text: string, source: string): string[] {
     const pos = sign('positive|long|양수|양|플러스|正|プラス', 'positive|long', '양수|플러스|正(?!確)|プラス').test(text);
     if (neg && !/negative gamma zone/.test(source)) out.push('insight:gamma-sign');
     if (pos && !/positive gamma zone/.test(source)) out.push('insight:gamma-sign');
-    // Max Pain 위/아래(영·한·일 표기 모두) — 방향어가 둘 다 있으면 판정하지 않고 탈락
-    if (/max\s*pain|맥스\s*페인|マックス\s*ペイン/i.test(text)) {
-        const up = /(?<!아)위(?!치|험|기)|上(?!昇)|above|over|상회|웃돌/i.test(text);
-        const down = /아래|밑|下(?!落)|below|under|하회|밑돌/i.test(text);
-        if (up && down) out.push('insight:maxpain-side');
-        else if (up && !/price is ABOVE Max Pain/.test(source)) out.push('insight:maxpain-side');
-        else if (down && !/price is BELOW Max Pain/.test(source)) out.push('insight:maxpain-side');
+    // 레벨 위/아래(영·한·일 표기 모두 · 네 레벨) — 한 문장에 레벨 하나 + 방향어일 때만 대조, 레벨 둘 이상에 방향어가 있으면 판정하지 않고 탈락
+    const LEVELS: Array<{ re: RegExp; above: RegExp; below: RegExp }> = [
+        { re: /max\s*pain|맥스\s*페인|マックス\s*ペイン/i, above: /price is ABOVE Max Pain/, below: /price is BELOW Max Pain/ },
+        { re: /put\s*floor|풋\s*플로어|プット\s*フロア/i, above: /the Put Floor is below the price/, below: /price is BELOW the Put Floor/ },
+        { re: /call\s*wall|콜\s*월|コール\s*ウォール/i, above: /price is ABOVE the Call Wall/, below: /the Call Wall is above the price/ },
+        { re: /gamma\s*flip|감마\s*플립|ガンマ\s*フリップ/i, above: /price is ABOVE the Gamma Flip/, below: /price is BELOW the Gamma Flip/ },
+    ];
+    const UP = /(?<![아범단순지분주부])위(?!치|험|기|원)|上(?!昇)|\babove\b|\bover\b|넘|돌파|상회|웃돌|超/i;
+    const DOWN = /아래|밑|下(?!落)|\bbelow\b|\bunder\b|하회|밑돌|割れ|割り込/i;
+    const named = LEVELS.filter(l => l.re.test(text));
+    const up = UP.test(text), down = DOWN.test(text);
+    if (named.length && (up || down)) {
+        if (named.length > 1 || (up && down)) out.push('insight:level-side');
+        else if (up && !named[0].above.test(source)) out.push('insight:level-side');
+        else if (down && !named[0].below.test(source)) out.push('insight:level-side');
     }
     return out;
 }
@@ -67,12 +75,23 @@ export function positioningSideReasons(text: string, source: string): string[] {
 // 해석 한 줄은 일정을 말하지 않는다(일정·실적 시각은 카드의 칩이 보여 준다) — 시각·날짜·예정·실적 표현, 다른 회사 이름은 판정하지 않고 탈락(fail-closed)
 const WL_SCHEDULE = /\d{1,2}:\d{2}|\d{1,2}\s*(?:시(?!간)|時(?!間))|\d{1,2}\/\d{1,2}|\d{4}-\d{2}-\d{2}|\d{1,2}\s*(?:월|月)\s*\d{1,2}|\b(?:scheduled|upcoming|ahead of|tonight|today|tomorrow|earnings|release[sd]?|report(?:s|ed|ing)?|due)\b|예정|앞두|앞둔|오늘|내일|금일|실적|발표|予定|控え|今日|本日|今夜|明日|決算|発表/i;
 const WL_OK_TOKENS = new Set(['GEX', 'FINRA', 'ETF', 'AI', 'US', 'IV', 'OI', 'EPS', 'VIX', 'SPY', 'QQQ']);
-export function watchlistNoScheduleReasons(text: string, ownTicker: string): string[] {
+export function watchlistNoScheduleReasons(text: string, ownTicker: string, sourceText = ''): string[] {
     const out: string[] = [];
     if (WL_SCHEDULE.test(text)) out.push('insight:schedule');
     for (const tok of text.match(/(?<![A-Za-z0-9&])[A-Z][A-Z0-9.]{1,5}(?![A-Za-z0-9])/g) || []) {
         if (tok !== ownTicker && !WL_OK_TOKENS.has(tok)) { out.push('insight:other-name'); break; }
     }
+    // 사전에 없는 회사명 — 회사 꼴 접미어(전자·자동차·그룹…/電機·自動車…)나 대문자로 시작하는 영어 고유명(문장 첫 단어·레벨 이름 제외)이 근거에 없으면 탈락
+    if (/[가-힣]{1,8}(?:전자|자동차|그룹|홀딩스|증권|은행|제약|바이오|중공업|화학|반도체|통신|항공|에너지|물산|건설)|[\u30A0-\u30FF\u4E00-\u9FFF]{1,8}(?:電機|電子|自動車|銀行|証券|製薬|ホールディングス|グループ|重工|化学|通信|航空)/.test(text)) out.push('insight:other-name');
+    const LATIN_OK = /^(?:Max|Pain|Put|Floor|Call|Wall|Gamma|Flip|Negative|Positive|Dealer|Off|Options?|Implied|FINRA|GEX|ETF|AI|IV|OI|US)$/;
+    const latin = text.match(/[A-Za-z][A-Za-z'-]+/g) || [];
+    // 첫 단어는 대문자가 문법이라 — 소문자형이 지시문·근거에 있는 일반어면 허용(«Negative»·«Price»), 아니면 고유명으로 본다(«Samsung»)
+    const vocab = (WATCHLIST_DEPTH_RULES + '\n' + sourceText).toLowerCase();
+    latin.forEach((w, i) => {
+        if (!/^[A-Z][a-z]/.test(w) || LATIN_OK.test(w) || sourceText.includes(w)) return;
+        if (i === 0 && new RegExp(`\\b${w.toLowerCase()}`).test(vocab)) return;
+        out.push('insight:other-name');
+    });
     for (const c of companyNameEntries()) {
         if (c.ticker === ownTicker) continue;
         if (c.names.some(n => /^[A-Za-z]/.test(n) ? new RegExp(`(?<![A-Za-z])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z])`, 'i').test(text) : text.includes(n))) { out.push('insight:other-name'); break; }

@@ -314,7 +314,7 @@ test('관문 5차 재현 4건: 감마 부호·ET 시각 오기·명칭군 밖/�
     for (const [loc, t] of [['ko', '음감마라 딜러 헤지가 변동을 키우는 자리'], ['en', 'Negative gamma: dealer hedging amplifies moves'], ['ja', '負ガンマでヘッジ売買が値動きを増幅する位置']] as const)
         assert.ok(checkDepthLine(t, loc, src).includes('insight:gamma-sign'), `${loc} ${t}`);
     assert.deepEqual(checkDepthLine('양감마라 딜러 헤지가 변동을 누르는 자리', 'ko', src), []);
-    assert.ok(checkDepthLine('Max Pain 위라 만기 쪽 되돌림 압력', 'ko', src).includes('insight:maxpain-side'));
+    assert.ok(checkDepthLine('Max Pain 위라 만기 쪽 되돌림 압력', 'ko', src).includes('insight:level-side'));
     // ② 뉴스 14:00Z = 10:00 ET → «14:00 ET»(UTC 숫자에 ET) 탈락 · «UTC» 표기 탈락 · «10:00 ET» 통과
     const p = buildTacticalPrompt(facts, 'en');
     assert.match(p, /Polygon; 2026-10-20T14:00:00.000Z; 10:00 ET\]/);
@@ -383,8 +383,8 @@ test('관문 8차 재현: 내 종목 해석 일정·타사 금지 · 감마 노�
         assert.ok(checkDepthLine(t, /[가-힣]/.test(t) ? 'ko' : 'en', src).some(r => r === 'insight:schedule' || r === 'insight:other-name'), t);
     assert.ok(checkDepthLine('감마 노출이 음수라 변동을 증폭하는 자리', 'ko', src).includes('insight:gamma-sign'));
     assert.ok(checkDepthLine('Gamma exposure is net negative here', 'en', src).includes('insight:gamma-sign'));
-    assert.ok(checkDepthLine('맥스페인 위라 만기 쪽 되돌림 압력 자리', 'ko', src).includes('insight:maxpain-side'));
-    assert.ok(checkDepthLine('マックスペインの上で満期へ戻り圧力がある位置', 'ja', src).includes('insight:maxpain-side'));
+    assert.ok(checkDepthLine('맥스페인 위라 만기 쪽 되돌림 압력 자리', 'ko', src).includes('insight:level-side'));
+    assert.ok(checkDepthLine('マックスペインの上で満期へ戻り圧力がある位置', 'ja', src).includes('insight:level-side'));
     assert.deepEqual(checkDepthLine('맥스페인 아래라 만기 쪽 되돌림 압력 자리', 'ko', src), []);
     const ev = ['[economic calendar; 2026-10-20 08:30 ET] CPI (scheduled; not a released result)', '[earnings calendar; 2026-10-21; AMC timing boundary 16:00 ET; exact release time unknown] NVDA (confirmed; scheduled; not a released result)'];
     const early = Date.parse('2026-10-20T11:00:00Z');
@@ -392,6 +392,19 @@ test('관문 8차 재현: 내 종목 해석 일정·타사 금지 · 감마 노�
         assert.ok(scheduleClaimReasons(t, ev, early, 'strict').length > 0, t);
     for (const t of ['CPI is scheduled on 2026-10-20 at 08:30 ET.', 'NVDA earnings are scheduled tomorrow after the close.'])
         assert.deepEqual(scheduleClaimReasons(t, ev, early, 'strict'), [], t);
+});
+
+test('관문 9차 재현: 근거 밖 경제 일정 · 상대 날짜 · 사전 밖 회사명 · 네 레벨 방향', () => {
+    const ev = ['[economic calendar; 2026-10-20 08:30 ET] CPI (scheduled; not a released result)'];
+    const early = Date.parse('2026-10-20T11:00:00Z');
+    for (const t of ['CPI and retail sales are scheduled today at 08:30 ET.', 'CPI is scheduled next week at 08:30 ET.', 'CPI는 금요일 08:30 ET 발표 예정입니다.'])
+        assert.ok(scheduleClaimReasons(t, ev, early, 'strict').length > 0, t);
+    assert.deepEqual(scheduleClaimReasons('CPI is scheduled today at 08:30 ET.', ev, early, 'strict'), []);
+    const src = buildLineUserPrompt(f);   // 145 · PF 135 · CW 160 · MP 155 · GF 140
+    for (const [loc, t] of [['ko', '삼성전자 계약으로 감마 방어가 강화된 자리'], ['en', 'Samsung deal strengthens the gamma cushion'], ['ko', '풋플로어 아래라 지지가 약한 자리'], ['ko', '콜월을 넘어 상단이 열린 자리'], ['en', 'Price sits over the Call Wall cap']] as const)
+        assert.ok(checkDepthLine(t, loc, src).some(r => r === 'insight:other-name' || r === 'insight:level-side'), t);
+    for (const [loc, t] of [['ko', '풋플로어 위라 받침이 있는 자리'], ['ko', '콜월 아래라 위쪽 상단이 막힌 자리'.replace('위쪽 ', '')], ['en', 'Positive gamma keeps the range below the Call Wall']] as const)
+        assert.deepEqual(checkDepthLine(t, loc, src).filter(r => r === 'insight:level-side' || r === 'insight:other-name'), [], t);
 });
 
 async function main() {
