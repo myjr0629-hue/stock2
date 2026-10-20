@@ -37,7 +37,7 @@ function load(relative) {
     if (modules.has(file)) return modules.get(file);
     const exports = {};
     modules.set(file, exports);
-    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar)|services\/(volatilityRegime|dealerGamma)|app\/api\/live\/(volatility-regime|premium-metrics)\/route)\.ts$/;
+    const allowed = /src\/(lib\/(gammaFlipDistance|optionLevelGate|marketCalendar|metrics\/\w+|commandVolatilityObservation)|services\/(volatilityRegime|dealerGamma)|app\/api\/live\/(volatility-regime|premium-metrics)\/route)\.ts$/;
     assert.match(file, allowed, 'only pure modules and the mocked route may load');
     vm.runInNewContext(compile(fs.readFileSync(file, 'utf8')), {
         exports, Date, console, process: { env: {} }, AbortController,
@@ -57,7 +57,8 @@ function load(relative) {
     return exports;
 }
 const { gammaFlipDistancePct } = load('src/lib/gammaFlipDistance.ts');
-const { computeVolatilityRegime } = load('src/services/volatilityRegime.ts');
+const { computeVolatilityRegime, computeStructureVolatilityRegime } = load('src/services/volatilityRegime.ts');
+const { computeUnifiedVolatilityRegime } = load('src/lib/metrics/volatilityRegime.ts');
 const gate = load('src/lib/optionLevelGate.ts');
 const route = load('src/app/api/live/volatility-regime/route.ts');
 const unifiedFile = 'src/app/api/command/unified/route.ts';
@@ -97,7 +98,7 @@ test('105.10/100 and below/at flip agree across service, unified API exit and SS
     for (const [spot, expected] of [[105.10, 4.9], [94.90, -5.4], [100, 0]]) {
         const lv = seed(spot);
         const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]),
-            readOptionMetrics: async () => new Map(), applyUnifiedOptionMetrics: d => d,
+            readOptionMetrics: async () => new Map(), readOptionEditions: async () => new Map(), applyUnifiedOptionMetrics: d => d,
             readOptionAlpha: async () => new Map() };
         const context = { ...service, require: id => { assert.equal(id, '@/services/structureService'); return service; } };
         const apiExit = run(`${overlay}\noverlayStructureLevels`, context);
@@ -124,7 +125,7 @@ test('volatility route reselect/fallback branch uses spot percent after changing
     const closed = {};
     run(fallbackRouteCode, {
         exports: closed, Date: ClosedDate,
-        require: id => mocks[id] || (id === '@/services/volatilityRegime' ? { computeVolatilityRegime }
+        require: id => mocks[id] || (id === '@/services/volatilityRegime' ? { computeVolatilityRegime, computeStructureVolatilityRegime }
             : id === '@/lib/gammaFlipDistance' ? { gammaFlipDistancePct } : assert.fail(`Unexpected import: ${id}`)),
     });
     const out = await closed.GET({ nextUrl: new URL('http://localhost?t=TEST') });
@@ -136,24 +137,24 @@ test('both DynamoDB unified calculation paths use the common distance', async ()
     seed();
     snapshot.gex.flipLevel = 100;
     const fn = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'getVolatilityFromDynamoGex');
-    const get = run(`${fn}\ngetVolatilityFromDynamoGex`, {
+    const get = run(`${fn}\ngetVolatilityFromDynamoGex`, { computeVolatilityRegime,
         require: id => { assert.equal(id, '@/lib/aws/dynamoDataProvider'); return mocks[id]; },
         setTimeout: () => 0,
     });
     assert.equal((await get('TEST')).flipDistance, 4.9);
     const branch = extract(unifiedFile, (n, ast) => ts.isIfStatement(n) && n.expression.getText(ast) === 'gex'
         && n.thenStatement.getText(ast).includes('volatilityCard = {'));
-    const out = run(`let volatilityCard; const gex = input; const p = {}; ${branch}; volatilityCard`, { input: snapshot.gex });
+    const out = run(`let volatilityCard; const gex = input; const p = {}; ${branch}; volatilityCard`, { input: snapshot.gex, computeVolatilityRegime });
     assert.equal(out.flipDistance, 4.9);
 });
 
 test('web and mobile structure fallbacks preserve 4.9% instead of recomputing 5.1%', () => {
     for (const file of ['src/components/LiveTickerDashboard.tsx', 'src/components/intel/mobile/MobileCmdMetrics.tsx']) {
         const memo = extract(file, n => ts.isVariableDeclaration(n) && n.name.getText() === 'effectiveVol');
+        // B5: both consume the shared calculation on the structure edition's own spot.
+        const edition = { structure: { netGex: 0, gammaFlipLevel: 100, underlyingPrice: 105.10, atmIV: 0.3 }, volatility: { iv: 30 } };
         const out = run(`const ${memo}; effectiveVol`, { React: { useMemo: fn => fn() }, useMemo: fn => fn(),
-            structure: { netGex: 0, gammaFlipLevel: 100, atmIV: 0.3 }, q: { price: 105.10 },
-            livePrice: { price: 105.10 }, initialStockData: null, volatilityData: null,
-            initialUnifiedData: null, unifiedData: null, volatility: { iv: 30 },
+            computeUnifiedVolatilityRegime, volatilityObservation: { data: edition }, unified: edition, volatilityData: undefined,
         });
         assert.equal(out.flipDistance, 4.9);
         assert.equal(out.isAboveFlip, true);
@@ -161,12 +162,14 @@ test('web and mobile structure fallbacks preserve 4.9% instead of recomputing 5.
 });
 
 test('regime proximity uses unrounded spot percent at the 5% boundary', () => {
-    assert.equal(computeVolatilityRegime({ underlyingPrice: 105.10, gammaFlipLevel: 100 }).regimeScore, 5);
+    // B5: every regime input is required; the other inputs here contribute 0 points.
+    const zero = { netGex: 1, squeezeScore: 0, atmIv: 20, gammaConcentration: 0 };
+    assert.equal(computeVolatilityRegime({ ...zero, underlyingPrice: 105.10, gammaFlipLevel: 100 }).regimeScore, 5);
     // 4.99% rounds to 5.0 for display but still earns the <5% proximity points.
-    const out = computeVolatilityRegime({ underlyingPrice: 100, gammaFlipLevel: 95.01 });
+    const out = computeVolatilityRegime({ ...zero, underlyingPrice: 100, gammaFlipLevel: 95.01 });
     assert.equal(out.flipDistance, 5);
     assert.equal(out.regimeScore, 5);
-    assert.equal(computeVolatilityRegime({ underlyingPrice: 100, gammaFlipLevel: 95 }).regimeScore, 0);
+    assert.equal(computeVolatilityRegime({ ...zero, underlyingPrice: 100, gammaFlipLevel: 95 }).regimeScore, 0);
     const missing = gate.applyLevelsToUnified({ structure: {}, volatility: {} }, null).volatility;
     assert.equal(missing.flipDistance, null);
     assert.equal(missing.isAboveFlip, null);
@@ -267,4 +270,120 @@ test('Guardian web/mobile detail and IVSkew proximity agree on spot denominator'
             assert.equal(run(`(${detail.slice(1, -1)})`, { currentPrice: spot, gammaFlipPoint: 100, flipDistance: distance }), distance.toFixed(1), file);
         }
     }
+});
+
+test('gate 10200719 ①: the unified exit judges the flip with the latest edition spot (not the cached response spot)', async () => {
+    const overlay = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'overlayStructureLevels');
+    const lv = seed(110, 105);   // latest level set: flip 105, computed at 110
+    // Edition shape of lib/optionMetrics optionRegimeInputs (its spot field is checked in b5MetricDefinitions).
+    const regime = { underlyingPrice: 110, atmIv: 40, gammaConcentration: 60, gammaConcentrationLabel: 'HIGH' };
+    const applyUnifiedOptionMetrics = (d, m, r) => { Object.assign(d.structure, { netGex: m.gex, squeezeScore: m.squeezeScore, atmIv: r.atmIv, gammaConcentration: r.gammaConcentration }); return d; };
+    const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]),
+        readOptionEditions: async () => new Map([['TEST', { metrics: { gex: -1e8, squeezeScore: 40 }, regime }]]),
+        applyUnifiedOptionMetrics, readOptionAlpha: async () => new Map() };
+    const context = { ...service, require: id => { assert.equal(id, '@/services/structureService'); return service; } };
+    const apiExit = run(`${overlay}\noverlayStructureLevels`, context);
+    // Cached unified response still carries the older spot 100 (below the flip).
+    const out = await apiExit({ structure: { ...structure, underlyingPrice: 100 }, volatility: {} }, 'TEST');
+    assert.equal(out.structure.underlyingPrice, 110);
+    assert.equal(out.volatility.isAboveFlip, true);
+    const r = computeUnifiedVolatilityRegime(out);
+    assert.equal(r.isAboveFlip, true); assert.equal(r.regimeScore, computeVolatilityRegime({ netGex: -1e8, gammaFlipLevel: 105, underlyingPrice: 110, squeezeScore: 40, atmIv: 40, gammaConcentration: 60 }).regimeScore);
+    // No usable edition: the cached response spot stays (previous behaviour).
+    const noEdition = { ...service, readOptionEditions: async () => new Map(), applyUnifiedOptionMetrics: d => d };
+    const none = run(`${overlay}\noverlayStructureLevels`, { ...noEdition, require: () => noEdition });
+    assert.equal((await none({ structure: { ...structure, underlyingPrice: 100 }, volatility: {} }, 'TEST')).structure.underlyingPrice, 100);
+});
+
+test('gate 10200719 ②: volatility-regime / premium-metrics adapter passes the flip judgement (beyond the band is an input)', () => {
+    // No crossing within ±15%: flip level null, but the level set says ALL_LONG → 4 measured inputs score.
+    const s = { options_status: 'OK', levelsProducer: gate.STRUCTURE_PRODUCER, underlyingPrice: 100, gammaFlipLevel: null,
+        expiration: '2026-10-23', netGex: 1e8, squeezeScore: 40, atmIv: null, gammaConcentration: null, levels: {},
+        structure: { strikes: [90, 100, 110], callsOI: [10, 10, 10], putsOI: [10, 10, 10], gexCum: [1, 2, 3] } };
+    const lv = gate.levelsFromStructure(s);
+    const d = gate.displayLevels(lv, 100, 'volatility-regime', Date.now());
+    const type = gate.gammaFlipTypeOf(lv, d, 100);
+    const out = computeStructureVolatilityRegime(s, Date.now());
+    assert.equal(type, 'ALL_LONG');
+    assert.equal(out.flipOutOfRange, 'ABOVE'); assert.equal(out.metric.coverage.available, 4);
+    assert.equal(out.regimeScore, 10); assert.equal(out.regime, 'CALM');
+    // Source check: the adapter forwards gammaFlipTypeOf of the same level set.
+    assert.match(fs.readFileSync(path.join(root, 'src/services/volatilityRegime.ts'), 'utf8'), /gammaFlipType: gammaFlipTypeOf\(lv, d, price\)/);
+});
+
+test('gate 10200735 ①: SSR first screen uses the same edition spot and inputs as the API exit', async () => {
+    const overlay = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'overlayStructureLevels');
+    const ssr = extract('src/app/[locale]/ticker/page.tsx', (n, ast) => ts.isIfStatement(n) && n.expression.getText(ast) === 'initialUnifiedData?.structure');
+    const lv = seed(110, 105);
+    const regime = { underlyingPrice: 110, atmIv: 40, gammaConcentration: 60, gammaConcentrationLabel: 'HIGH' };
+    const applyUnifiedOptionMetrics = (d, m, r) => { Object.assign(d.structure, { netGex: m.gex, squeezeScore: m.squeezeScore, atmIv: r.atmIv, gammaConcentration: r.gammaConcentration }); return d; };
+    const editions = async () => new Map([['TEST', { metrics: { gex: -1e8, squeezeScore: 40 }, regime }]]);
+    const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]), readOptionEditions: editions,
+        applyUnifiedOptionMetrics, readOptionAlpha: async () => new Map() };
+    const mods = { '@/services/structureService': service, '@/services/optionMetricsService': { readOptionEditions: editions }, '@/lib/optionMetrics': { applyUnifiedOptionMetrics } };
+    const context = { ...service, require: id => { assert.ok(id in mods, id); return mods[id]; } };
+    const apiExit = run(`${overlay}\noverlayStructureLevels`, context);
+    const ssrExit = run(`async function exit(initialUnifiedData, ticker) { ${ssr}; return initialUnifiedData; }\nexit`, context);
+    const cached = () => ({ structure: { ...structure, underlyingPrice: 100, netGex: 5e7, squeezeScore: 10 }, volatility: {} });
+    const api = computeUnifiedVolatilityRegime(await apiExit(cached(), 'TEST'));
+    const first = computeUnifiedVolatilityRegime(await ssrExit(cached(), 'TEST'));
+    assert.equal(first.isAboveFlip, true); assert.equal(first.regimeScore, api.regimeScore); assert.equal(first.regime, api.regime);
+    // Edition read failure: SSR keeps the previous behaviour (levels only on the cached response).
+    const failing = { ...mods, '@/services/optionMetricsService': { readOptionEditions: async () => { throw new Error('down'); } } };
+    const old = run(`async function exit(initialUnifiedData, ticker) { ${ssr}; return initialUnifiedData; }\nexit`, { require: id => failing[id] });
+    const kept = await old(cached(), 'TEST');
+    assert.equal(kept.structure.underlyingPrice, 100); assert.equal(kept.structure.gammaFlipLevel, 105); assert.equal(kept.structure.netGex, 5e7);
+});
+
+test('gate 10200752 ①: a card-only cached response takes the flip and spot from the same edition as its GEX/IV', async () => {
+    const overlay = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'overlayStructureLevels');
+    const lv = seed(110, 105);
+    const regime = { underlyingPrice: 110, atmIv: 60, gammaConcentration: 70, gammaConcentrationLabel: 'HIGH' };
+    const applyUnifiedOptionMetrics = (d, m, r) => { Object.assign(d.volatility, { gex: m.gex, squeezeScore: m.squeezeScore, iv: r.atmIv, gammaConcentration: r.gammaConcentration }); return d; };
+    const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]),
+        readOptionEditions: async () => new Map([['TEST', { metrics: { gex: -1e8, squeezeScore: 60 }, regime }]]),
+        applyUnifiedOptionMetrics, readOptionAlpha: async () => new Map() };
+    const apiExit = run(`${overlay}\noverlayStructureLevels`, { ...service, require: () => service });
+    const cachedCard = { structure: null, volatility: { underlyingPrice: 100, flipLevel: 100, flipDistance: 0, isAboveFlip: false, gex: 5e7, squeezeScore: 10, iv: 20, gammaConcentration: 0 } };
+    const out = await apiExit(cachedCard, 'TEST');
+    assert.equal(out.volatility.underlyingPrice, 110); assert.equal(out.volatility.flipLevel, 105); assert.equal(out.volatility.isAboveFlip, true);
+    const r = computeUnifiedVolatilityRegime(out);
+    assert.equal(r.regimeScore, computeVolatilityRegime({ netGex: -1e8, gammaFlipLevel: 105, underlyingPrice: 110, squeezeScore: 60, atmIv: 60, gammaConcentration: 70 }).regimeScore);
+    assert.equal(r.regime, 'LOADED');
+    // A response with structure is untouched by the card helper (applyLevelsToUnified owns it).
+    const withStructure = { structure: { ...structure }, volatility: { flipLevel: 1 } };
+    assert.equal(gate.applyLevelsToVolatilityCard(withStructure, lv, 110), withStructure);
+    assert.equal(gate.applyLevelsToVolatilityCard(cachedCard, lv, null), cachedCard, 'no edition spot → unchanged');
+    // 관문 10200825 ①: a failed/pending structure is not an observation — the card still gets the edition spot/flip.
+    const pending = { structure: { options_status: 'PENDING', validation: { isValid: false } }, volatility: { ...cachedCard.volatility } };
+    const fixed = gate.applyLevelsToVolatilityCard(pending, lv, 110);
+    assert.equal(fixed.volatility.underlyingPrice, 110); assert.equal(fixed.volatility.isAboveFlip, true);
+    const pendingOut = await apiExit({ structure: { options_status: 'PENDING', validation: { isValid: false } }, volatility: { ...cachedCard.volatility } }, 'TEST');
+    const pr = computeUnifiedVolatilityRegime(pendingOut);
+    assert.equal(pr.isAboveFlip, true); assert.equal(pr.regimeScore, r.regimeScore);
+    // 관문 10200851 ②: the card carries the level set's source time, so a late older card never replaces a newer edition.
+    const { resolveCommandVolatilityObservation } = load('src/lib/commandVolatilityObservation.ts');
+    const at = t => { const l = seed(110, 105); l.levelsAsOf = Date.parse(t); return l; };
+    const newer = resolveCommandVolatilityObservation('TEST', gate.applyLevelsToVolatilityCard({ structure: null, volatility: { ...cachedCard.volatility, gex: -1e8, squeezeScore: 60, iv: 60, gammaConcentration: 70 } }, at('2026-10-19T20:00:00Z'), 110));
+    assert.equal(newer.sourceAsOf, '2026-10-19T20:00:00.000Z');
+    const late = resolveCommandVolatilityObservation('TEST', gate.applyLevelsToVolatilityCard({ structure: { options_status: 'PENDING' }, volatility: { ...cachedCard.volatility, gex: 5e7 } }, at('2026-10-19T19:00:00Z'), 100), newer);
+    assert.equal(late.carried, true); assert.equal(late.sourceAsOf, newer.sourceAsOf);
+});
+
+test('gate 10200851 ①: SSR card-only/PENDING first screen = API exit (edition spot and level set)', async () => {
+    const overlay = extract(unifiedFile, n => ts.isFunctionDeclaration(n) && n.name?.text === 'overlayStructureLevels');
+    const ssr = extract('src/app/[locale]/ticker/page.tsx', (n, ast) => ts.isIfStatement(n) && n.expression.getText(ast) === 'initialUnifiedData?.structure');
+    const lv = seed(110, 105);
+    const regime = { underlyingPrice: 110, atmIv: 60, gammaConcentration: 70, gammaConcentrationLabel: 'HIGH' };
+    const applyUnifiedOptionMetrics = (d, m, r) => { Object.assign(d.volatility, { gex: m.gex, squeezeScore: m.squeezeScore, iv: r.atmIv, gammaConcentration: r.gammaConcentration }); return d; };
+    const editions = async () => new Map([['TEST', { metrics: { gex: -1e8, squeezeScore: 80 }, regime }]]);
+    const service = { ...gate, levelsForExit: async () => new Map([['TEST', lv]]), readOptionEditions: editions, applyUnifiedOptionMetrics, readOptionAlpha: async () => new Map() };
+    const mods = { '@/services/structureService': service, '@/services/optionMetricsService': { readOptionEditions: editions }, '@/lib/optionMetrics': { applyUnifiedOptionMetrics } };
+    const context = { ...service, require: id => { assert.ok(id in mods, id); return mods[id]; } };
+    const apiExit = run(`${overlay}\noverlayStructureLevels`, context);
+    const ssrExit = run(`async function exit(initialUnifiedData, ticker) { ${ssr}; return initialUnifiedData; }\nexit`, context);
+    const pending = () => ({ structure: { options_status: 'PENDING', validation: { isValid: false } }, volatility: { underlyingPrice: 100, flipLevel: 100, gex: 5e7, squeezeScore: 10, iv: 20, gammaConcentration: 0 } });
+    const api = computeUnifiedVolatilityRegime(await apiExit(pending(), 'TEST'));
+    const first = computeUnifiedVolatilityRegime(await ssrExit(pending(), 'TEST'));
+    assert.equal(first.isAboveFlip, true); assert.equal(first.regimeScore, api.regimeScore); assert.equal(first.regime, api.regime);
 });

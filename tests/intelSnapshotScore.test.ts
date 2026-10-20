@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { sessionChangeOrNull } from '../src/lib/app/intelSessionChange';
 import { averageMeasured, measuredOrNull, isFieldMissing, missingSignature } from '../src/lib/app/intelMissing';
 import { snapshotScoreOrNull, snapshotScoresFromResponse, fillSnapshotScores } from '../src/lib/app/intelSnapshotScore';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
@@ -18,7 +19,7 @@ const decl = (sf: ts.SourceFile, name: string) => find(sf, n => ts.isVariableDec
 const run = (code: string, deps: Record<string, any>) => new Function(...Object.keys(deps), ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS } }).outputText)(...Object.values(deps));
 const page = parse('src/app/[locale]/app-view/intel/page.tsx');
 const route = parse('src/app/api/intel/snapshot/route.ts');
-const deps = { averageMeasured, measuredOrNull, isFieldMissing, missingSignature };
+const deps = { averageMeasured, measuredOrNull, isFieldMissing, missingSignature, sessionChangeOrNull, shownRegularSessionDate: () => '2026-10-16' };
 const names = ['num', 'pickNumber', 'liveLevel', 'impliedMoveMetaOf', 'quoteToKeyStock', 'mergeStockWithQuote', 'hasStockQuoteDelta', 'alignReportToConfig', 'ctxAverageMissing', 'quoteValueSignature', 'mergeReportWithBatchResults'];
 const P = (tickers: string[]) => run(`${names.map(n => fn(page, n)).join('\n')}\nreturn { ${names.join(',')} };`, { ...deps, SECTOR_CONFIGS: [{ id: 'test', stocks: tickers }] });
 const q = (ticker: string, alphaScore = 0, missingFields = ['alphaScore']): any => ({ ticker, alphaScore, missingFields, price: 100, changePct: 1, grade: '-' });

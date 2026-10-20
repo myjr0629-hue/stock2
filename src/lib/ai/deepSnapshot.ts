@@ -1,13 +1,18 @@
 /**
- * Command AI 딥 분석 «재료(snapshot)»와 GEX 30일 통계 — 순수 함수 (2026-10-12 앱 화면에서 옮김)
+ * Command AI 딥 분석 재료와 GEX 30일 통계. 날짜가 확인된 정상 재료만 메모리에 보관한다.
  *
  * 왜 옮겼나: 딥 분석 예열(/api/cron/ai-warm)을 되살리려면 서버가 «앱 화면과 똑같은 재료»를 만들어야 한다.
  *   9/10 첫 예열은 빈 재료로 불러 «데이터 부재» 글이 캐시에 앉았다(그 사고로 예열을 꺼 두었다 — ai-warm 머리말).
- *   화면(app-view/cmd)과 예열이 이 파일의 같은 함수를 쓰므로 재료 모양이 갈라지지 않는다. 화면의 동작은 예전과 같다(옮기기만 했다).
+ *   앱·웹·모바일·예열이 같은 관측 판정과 재료 조립 함수를 쓴다. 화면 라벨과 표시 방식은 바꾸지 않는다.
  */
 import { earningsDaysOrNull } from '@/lib/earningsDate';
+import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
 import { netPremiumOf } from '@/lib/premiumFlow';
+import { commandScores } from '@/lib/commandScores';
+import { compareSourceTime, isFailedSection, observationTime } from '@/lib/metrics/observation';
+import { commandConvictionRaw, retainConvictionInputs, type ConvictionSnapshot } from '@/lib/commandConviction';
+import { resolveCommandVolatilityObservation, volatilitySourceTime, type CommandVolatilityObservation } from '@/lib/commandVolatilityObservation';
 
 export interface DeepSnapshotInput {
   ticker: string;
@@ -19,7 +24,17 @@ export interface DeepSnapshotInput {
   session: string;
   /** /api/command/unified 응답 */
   unified: any;
-  /** /api/live/ticker 응답(rawTickerData) — 순프리미엄만 쓴다 */
+  /** 화면이 공용 판본 선택(lib/metrics/observation)으로 고른 변동성 입력 {structure, volatility}.
+   *  생략(undefined)이면 unified 를 그대로 쓴다(예열 경로). null = 고를 판본 없음(결측). */
+  volatilityData?: { structure: any; volatility: any } | null;
+  /** volatilityData 판본의 원천 시각·이월 여부(공용 선택 결과). 이월이면 AI 재료 sources 에 원천 날짜로 남긴다. */
+  volatilitySource?: { sourceAsOf: string | null; carried?: boolean } | null;
+  /** 카드가 공용 규칙(이월 포함)으로 고른 확신도 입력 — 주면 AI 확신도 = 카드 확신도. */
+  convictionInputs?: import('@/lib/commandConviction').ConvictionInputs;
+  /** 그 확신도 입력의 원천 날짜·이월 항목(ConvictionSnapshot.sourceDates·carriedFields) — AI 의 VWAP 에 같은 날짜를 단다. */
+  convictionSourceDates?: Partial<Record<string, string | null>>;
+  convictionCarried?: readonly string[];
+  /** /api/live/ticker 응답(rawTickerData) — 순프리미엄·VWAP */
   rawTickerData: any;
   /** /api/command/insider 의 insider */
   insider: any;
@@ -29,56 +44,199 @@ export interface DeepSnapshotInput {
   creditSpread: any;
 }
 
-/** 앱 Command 화면이 딥 분석에 보내는 재료 — 신뢰 레이어 경로(trustLayer 1 · materialPhase complete) */
+type Source = { asOf: string; historical: boolean };
+/** asOf = display form (ISO); order = the source time at its own precision (a date-only value stays a day). */
+type SavedField = { value: number | string; asOf: string | null; order: string | null; label?: string | null };
+// Process/session-local only. No Redis, localStorage or external writes. Bounded by ticker.
+const lastGood = new Map<string, Map<string, SavedField>>();
+// Conviction inputs selected by the same function as every card (lib/commandConviction retainConvictionInputs).
+const lastConviction = new Map<string, ConvictionSnapshot>();
+// Volatility edition selected by the same function as every VOL REGIME card (resolveCommandVolatilityObservation).
+const lastVolatility = new Map<string, CommandVolatilityObservation>();
+function remember<T>(map: Map<string, T>, key: string, value: T) {
+  if (!key) return;
+  map.delete(key); map.set(key, value);
+  if (map.size > 100) map.delete(map.keys().next().value!);
+}
+const finite = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null;
+const positive = (v: unknown): number | null => { const n = finite(v); return n !== null && n > 0 ? n : null; };
+const text = (v: unknown): string | null => typeof v === 'string' && v.trim() && !['N/A', 'UNKNOWN', '-'].includes(v) ? v : null;
+function sourceDate(v: unknown): string | null {
+  if (typeof v !== 'number' && typeof v !== 'string') return null;
+  const ms = typeof v === 'number' ? v : Date.parse(v);
+  const date = new Date(ms);
+  return Number.isFinite(date.getTime()) && ms > 0 ? date.toISOString() : null;
+}
+
+/** AI material: measured now → dated last good → null. Receipt time is never invented as a source date. */
 export function buildDeepSnapshot(x: DeepSnapshotInput) {
   const u = x.unified || {};
-  const s = u.structure || {};
-  const vol = u.volatility || {};
-  const sma = u.sma || {};
-  const fund = u.fundamentals || {};
-  const anal = u.analyst || {};
-  const sqz = u.squeeze || {};
+  // Shared rule 1: a failed section (error, PENDING/NONE/ERROR/NO_MARKET, validation.isValid=false,
+  // dataSource NONE) is not an observation — its 0/LOW placeholders never reach the AI.
+  const failed = isFailedSection;
+  const s = failed(u.structure) ? {} : u.structure || {};
+  const vol = failed(u.volatility) ? {} : u.volatility || {};
+  const sma = failed(u.sma) ? {} : u.sma || {};
+  const fund = failed(u.fundamentals) ? {} : u.fundamentals || {};
+  const anal = failed(u.analyst) ? {} : u.analyst || {};
+  const sqz = failed(u.squeeze) ? {} : u.squeeze || {};
   const earn = u.earnings || {};
-  const insiderData = x.insider;
-  const techData = x.technicals;
   const vwap = selectVwap(x.rawTickerData?.vwap, u._dynamoPrice?.vwap);
   const distance = vwapDistancePct(x.price, vwap);
-  return {
-    // ★ [2026-10-07 앱 강화 T5] 서버가 «재료 완결 게이트·자리표·낡음 검사» 경로를 쓰는 표식과 완결 여부
+  // AI conviction = the card's conviction: the caller's selected inputs, or the same selection function here
+  // (mobile overview, warm path) — never this poll's unselected inputs.
+  let convictionInputs = x.convictionInputs;
+  let convictionDates = x.convictionSourceDates, convictionCarried = x.convictionCarried;
+  if (!convictionInputs) {
+    const key = String(x.ticker || '').toUpperCase();
+    // The same first-defined VWAP source selectVwap used, raw — an explicit null invalidates (not carried).
+    const vwapRaw = [x.rawTickerData?.vwap, u._dynamoPrice?.vwap].find(v => v !== undefined);
+    const { raw, dates, invalidated } = commandConvictionRaw(x.unified, x.price, vwapRaw, x.rawTickerData?.flow, { vwap: x.rawTickerData?.vwapDate });
+    const snap = retainConvictionInputs(key, raw, dates, lastConviction.get(key), invalidated);
+    remember(lastConviction, key, snap);
+    convictionInputs = snap.inputs;
+    convictionDates = snap.sourceDates; convictionCarried = snap.carriedFields;
+  }
+  // 관문 10200752 ②: AI 의 VWAP·거리 = 확신도가 고른 같은 VWAP(늦게 온 옛 VWAP 이 AI 에만 들어가지 않게), 그 원천 날짜와 함께.
+  const aiVwap = convictionInputs ? convictionInputs.vwap : vwap;
+  const aiVwapDistance = convictionInputs ? vwapDistancePct(x.price, aiVwap) : distance;
+  const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData, convictionInputs });
+  const ticker = String(x.ticker || '').toUpperCase();
+  const saved = lastGood.get(ticker) || new Map<string, SavedField>();
+  const sources: Record<string, Source> = {};
+  const vwapAsOf = aiVwap !== null ? sourceDate(convictionDates?.vwap ?? null) : null;
+  if (vwapAsOf) sources['vwap'] = { asOf: vwapAsOf, historical: !!convictionCarried?.includes('vwap') };
+  // The structure edition uses the same source-time rule as VOL REGIME and conviction (levels instant before chainDate).
+  const timeOf = (o: any) => o === s ? volatilitySourceTime(s, null)
+    : o?.asOf ?? o?.sourceDate ?? o?.dataDate ?? o?.date ?? o?.dataFreshness?.chainDate ?? o?.chainDate;
+  const dateOf = (o: any) => sourceDate(timeOf(o));
+  const orderOf = (o: any) => observationTime(timeOf(o));
+  // Shared selection rule (lib/metrics/observation): the newer SOURCE time wins (an older observation
+  // arriving later never replaces it); unknown times use arrival order; a missing value keeps the
+  // previous real value with its own date (null when the source never gave one); measured 0 is a value.
+  function field<T extends number | string>(path: string, value: T | null, source: any): T | null {
+    const asOf = dateOf(source), order = orderOf(source);
+    const prior = saved.get(path);
+    const older = value !== null && prior !== undefined && (compareSourceTime(order, prior.order) ?? 0) < 0;
+    if (value !== null && !older) {
+      saved.set(path, { value, asOf, order });
+      if (asOf) sources[path] = { asOf, historical: false };
+      return value;
+    }
+    if (!prior) return null;
+    if (prior.asOf) sources[path] = { asOf: prior.asOf, historical: true };
+    return prior.value as T;
+  }
+  const num = (path: string, v: unknown, o: any) => field(path, finite(v), o);
+  const pos = (path: string, v: unknown, o: any) => field(path, positive(v), o);
+  const str = (path: string, v: unknown, o: any) => field(path, text(v), o);
+  // A value and its label (score/grade, squeeze score/risk, concentration/label, regime score/regime) are one
+  // observation: chosen together from one source and one time — a newer score never takes an older grade
+  // (gate 10191903 #2: 10/16 74/B → 10/19 90/— → late 10/16 20/F stayed 90/— , never 90/F).
+  function paired(path: string, labelPath: string, value: number | null, label: string | null, source: any): [number | null, string | null] {
+    const asOf = dateOf(source), order = orderOf(source);
+    const prior = saved.get(path);
+    const older = value !== null && prior !== undefined && (compareSourceTime(order, prior.order) ?? 0) < 0;
+    if (value !== null && !older) {
+      saved.set(path, { value, asOf, order, label });
+      if (asOf) { sources[path] = { asOf, historical: false }; if (label !== null) sources[labelPath] = { asOf, historical: false }; }
+      return [value, label];
+    }
+    if (!prior) return [null, null];
+    const priorLabel = prior.label ?? null;
+    if (prior.asOf) { sources[path] = { asOf: prior.asOf, historical: true }; if (priorLabel !== null) sources[labelPath] = { asOf: prior.asOf, historical: true }; }
+    return [prior.value as number, priorLabel];
+  }
+  const [alphaScore, alphaGrade] = paired('contextScore.value', 'contextScore.grade', finite(u.alpha?.score), text(u.alpha?.grade), u.alpha);
+  // The upstream whale formula returns a neutral base even without inputs.
+  const hasFlowObservation = scores.netGex !== null || netPremiumOf(x.rawTickerData?.flow) !== null
+    || positive(u.institutional?.darkPool?.percent) !== null;
+  const flowValue = num('smartFlow.value', hasFlowObservation ? u.smartFlow : null, u);
+  // The inputs were already selected by the shared rule (carry, invalidation) — no second carry layer on the score.
+  const convictionScore = finite(scores.cScore);
+  // Same calculation and the same selected edition as every VOL REGIME card.
+  // Without a caller-selected edition (mobile overview, warm path), select it here with the same function —
+  // a late older edition (10/16 0/CALM after 10/19 58/LOADED) never replaces the newer one.
+  let volatilityData = x.volatilityData;
+  let volatilitySource = x.volatilitySource;
+  if (volatilityData === undefined) {
+    const key = String(x.ticker || '').toUpperCase();
+    const obs = resolveCommandVolatilityObservation(key, x.unified, lastVolatility.get(key) ?? null);
+    if (obs) remember(lastVolatility, key, obs);
+    volatilityData = obs?.data ?? null;
+    volatilitySource = obs;
+  }
+  const regimeCalc = computeUnifiedVolatilityRegime(volatilityData);
+  // 관문 10200825 ②: the edition was already selected by the shared rule (carry included) — no second carry layer
+  // on the score: AI score/label = the card's (missing on the card → missing for the AI, never an older 58/LOADED).
+  const regimeScore = regimeCalc.regimeScore;
+  const regimeLabel = regimeScore !== null ? text(regimeCalc.regime) : null;
+  if (regimeScore !== null && volatilitySource?.sourceAsOf) {
+    const asOf = sourceDate(volatilitySource.sourceAsOf);
+    if (asOf) {
+      const historical = !!volatilitySource.carried;
+      sources['volatility.regimeScore'] = { asOf, historical };
+      if (regimeLabel !== null) sources['volatility.regime'] = { asOf, historical };
+    }
+  }
+  const squeezeSource = s.squeezeScore != null ? s : vol;
+  const currentSqueeze = finite(s.squeezeScore ?? vol.squeezeScore);
+  const [squeezeScore, squeezeRisk] = paired('structure.squeezeScore', 'structure.squeezeRisk', currentSqueeze,
+    currentSqueeze !== null ? text(s.squeezeRisk ?? vol.squeezeRisk) : null, squeezeSource);
+  const analystCount = positive(anal.totalAnalysts);
+  const strongBuy = finite(anal.breakdown?.strongBuy), buy = finite(anal.breakdown?.buy);
+  const analystPct = anal.totalAnalysts === 0 ? null : finite(anal.bullishPct)
+    ?? (analystCount !== null && strongBuy !== null && buy !== null ? Math.round((strongBuy + buy) / analystCount * 100) : null);
+  const peRaw = fund.pe ?? fund.breakdown?.pe?.value;
+  const pe = typeof peRaw === 'string' && peRaw.trim() ? Number(peRaw) : peRaw;
+  // structureService emits the OI denominator in debug.todayOI, not the two
+  // top-level totals. Nonzero concentration is itself evidence; zero needs
+  // an observed denominator because the producer also uses it for no OI.
+  const oi = positive(s.debug?.todayOI) ?? ((finite(s.totalCallOI) ?? 0) + (finite(s.totalPutOI) ?? 0));
+  const measuredConcentration = finite(s.gammaConcentration);
+  const currentConcentration = measuredConcentration !== null && (measuredConcentration > 0 || oi > 0)
+    ? measuredConcentration : null;
+  const [concentration, concentrationLabel] = paired('structure.gammaConcentration', 'structure.gammaConcentrationLabel', currentConcentration,
+    currentConcentration !== null ? text(s.gammaConcentrationLabel) : null, s);
+  const [fundScore, fundGrade] = paired('fundamental.score', 'fundamental.grade', finite(fund.score), finite(fund.score) !== null ? text(fund.grade) : null, fund);
+  const result = {
     trustLayer: 1,
     materialPhase: 'complete',
-    ticker: x.ticker,
-    price: x.price,
-    priceChange: x.priceChange,
-    session: x.session,
-    signalCore: { direction: 'NEUTRAL', conviction: 'MIXED', condition: 'TREND', conclusion: '', bullCount: 0, bearCount: 0, bullSignals: '', bearSignals: '' },
-    contextScore: { value: u.alpha?.score || 0, grade: u.alpha?.grade || 'C' },
-    smartFlow: { value: u.smartFlow || 0, trend: u.smartFlow >= 60 ? 'INFLOW' : 'NEUTRAL' },
-    sma: { cross: sma.cross || 'NONE', sma50: sma.sma50 || 0, sma200: sma.sma200 || 0, trendPhase: sma.phase || 'UNKNOWN' },
-    vwap,
-    vwapDistance: distance !== null ? `${distance.toFixed(1)}%` : 'N/A',
-    conviction: { score: u.alpha?.score || 50, grade: u.alpha?.grade || 'C' },
+    ticker: x.ticker, price: x.price, priceChange: x.priceChange, session: x.session,
+    signalCore: null,
+    contextScore: { value: alphaScore, grade: alphaGrade },
+    smartFlow: { value: flowValue, trend: flowValue !== null ? (flowValue >= 60 ? 'INFLOW' : 'NEUTRAL') : null },
+    sma: { cross: str('sma.cross', sma.cross, sma), sma50: pos('sma.sma50', sma.sma50, sma), sma200: pos('sma.sma200', sma.sma200, sma), trendPhase: str('sma.trendPhase', sma.phase, sma) },
+    vwap: aiVwap, vwapDistance: aiVwapDistance !== null ? `${aiVwapDistance.toFixed(1)}%` : 'N/A',
+    conviction: { score: convictionScore, grade: convictionScore !== null ? text(scores.cGrade) : null },
     structure: {
-      netGex: s.netGex || 0, gammaFlipLevel: s.gammaFlipLevel || 0,
-      squeezeRisk: vol.squeezeRisk || 'LOW', squeezeScore: vol.squeezeScore || 0,
-      pcRatio: s.pcRatio || 0, callWall: s.levels?.callWall || 0,
-      putFloor: s.levels?.putFloor || 0, maxPain: s.maxPain || 0,
-      gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
+      netGex: num('structure.netGex', s.netGex, s), gammaFlipLevel: pos('structure.gammaFlipLevel', s.gammaFlipLevel, s),
+      squeezeRisk, squeezeScore,
+      pcRatio: num('structure.pcRatio', finite(s.pcRatio) !== null && s.pcRatio >= 0 ? s.pcRatio : null, s),
+      callWall: pos('structure.callWall', s.levels?.callWall, s), putFloor: pos('structure.putFloor', s.levels?.putFloor, s), maxPain: pos('structure.maxPain', s.maxPain, s),
+      gammaConcentration: concentration, gammaConcentrationLabel: concentrationLabel,
     },
-    // ★ [2026-10-19 N4] 못 쟀으면 null(자리표 NET_PREM 에 안 들어간다) — 예전 `?? 0` 은 결측을 «순 프리미엄 0»으로 AI 에 넘겼다. 관측된 0 은 0.
-    flow: { netPremium: netPremiumOf(x.rawTickerData?.flow) },
-    fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
-    analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
-    // [2026-08-29] 다크풀은 현재 피드에 값이 없다 — 0 을 보내면 AI 가 사실로 서술한다
-    institutional: { insiderNet30d: insiderData?.net30d ?? null, insiderBuy: insiderData?.buyCount ?? null, insiderSell: insiderData?.sellCount ?? null, activity: insiderData?.sentiment || 'N/A' },
-    // [2026-08-30] 새 지표를 AI 에도 넘긴다 — 화면에만 있고 분석에 없으면 반쪽이다
-    technicals: techData ? { adx: techData.adx, obv: techData.obv, bb: techData.bb, atr: techData.atr, volPremium: techData.volPremium } : null,
+    flow: { netPremium: num('flow.netPremium', netPremiumOf(x.rawTickerData?.flow), x.rawTickerData?.flow) },
+    fundamental: {
+      score: fundScore,
+      grade: fundGrade,
+      pe: num('fundamental.pe', pe, fund), fcfMargin: num('fundamental.fcfMargin', fund.fcfMargin, fund),
+    },
+    analyst: { score: num('analyst.score', analystPct, anal), buyPct: num('analyst.buyPct', analystPct, anal) },
+    institutional: { insiderNet30d: finite(x.insider?.net30d), insiderBuy: finite(x.insider?.buyCount), insiderSell: finite(x.insider?.sellCount), activity: text(x.insider?.sentiment) },
+    technicals: x.technicals ? { adx: x.technicals.adx, obv: x.technicals.obv, bb: x.technicals.bb, atr: x.technicals.atr, volPremium: x.technicals.volPremium } : null,
     creditSpread: x.creditSpread ?? null,
-    volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
-    squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
-    earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },   // 0 = 실적 당일 · 음수 = 지난 실적 · null = 모름(9/30: 예전 `|| 999` 는 당일을 «999일 뒤»로 AI 에 보냈다)
+    volatility: { regime: regimeLabel, regimeScore, gexLong: num('volatility.gexLong', vol.gexLong, vol) },
+    squeeze: { status: str('squeeze.status', sqz.status, sqz), siPercent: num('squeeze.siPercent', sqz.siPercent, sqz) },
+    earnings: { daysUntil: earningsDaysOrNull(earn.daysUntilEarnings), date: text(earn.nextEarningsDate), estimatedEps: finite(earn.epsEstimate) },
     relatedTickers: u.related?.topRelated?.map((r: any) => r.ticker) || [],
+    sources,
   };
+  if (ticker && saved.size) {
+    lastGood.delete(ticker); lastGood.set(ticker, saved);
+    if (lastGood.size > 100) lastGood.delete(lastGood.keys().next().value!);
+  }
+  return result;
 }
 
 export interface GexStats {

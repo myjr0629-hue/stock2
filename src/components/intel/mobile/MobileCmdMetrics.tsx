@@ -7,21 +7,30 @@
 // ZERO desktop impact — isolated in mobile/ directory
 // ============================================================================
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { type IntelQuote } from '@/hooks/useIntelSharedData';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { buildInsiderSignal } from '@/services/insiderSignal';
 import { earningsWithin } from '@/lib/earningsDate';
+import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
+import { formatObservationTime } from '@/lib/commandVolatilityObservation';
+import { carriedConvictionDate, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
+
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
-import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 
 interface Props {
     ticker: string;
     quote: IntelQuote;
     unified: any;
+    /** 공용 판본 선택으로 고른 변동성 입력. 생략(undefined)이면 unified 를 그대로 쓴다. */
+    volatilityData?: { structure: any; volatility: any } | null;
+    /** 그 판본의 원천 시각·이월 여부 — 이월이면 카드에 원천 날짜를 붙인다(앱 카드와 같은 표시). */
+    volatilitySource?: { sourceAsOf: string | null; carried?: boolean } | null;
     unifiedLoading: boolean;
     vwap?: number | null;
+    /** 페이지가 공용 규칙으로 한 번 고른 확신도 입력(useMobileConvictionSnapshot) — PRO AI 재료와 같은 값. */
+    convictionSnapshot: ConvictionSnapshot;
 }
 
 // ── Signal Card (same as Overview) ──
@@ -47,7 +56,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor }:
     );
 }
 
-export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap: sourceVwap }: Props) {
+export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volatilitySource, unifiedLoading, vwap: sourceVwap, convictionSnapshot }: Props) {
     const q = quote;
     const vwap = normalizeVwap(sourceVwap);
     const locale = useLocale() as 'ko' | 'en' | 'ja';
@@ -80,97 +89,27 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap:
     // 8 Signal cards data
     const gex = structure.netGex || q.gex || 0;
     const pcr = structure.pcRatio || q.pcr || 0;
-    const regime = volatility.regime || (q.gammaRegime === 'LONG' ? 'CALM' : q.gammaRegime === 'SHORT' ? 'LOADED' : 'CALM');
     const squeezeScore = volatility.squeezeScore || q.squeezeScore || 0;
     const smaCross = sma.cross || 'NONE';
     const earningsLabel = earnings.daysLabel || '';
-    const flipLevel = structure.gammaFlipLevel || 0;
-    const flipDist = gammaFlipDistancePct(q.price, flipLevel) ?? 0;
-    const isAboveFlip = flipDist > 0;
-    const atmIV = volatility.iv || structure.atmIV ? Math.round((volatility.iv || (structure.atmIV * 100)) || 0) : 0;
     const priceTarget = analyst.priceTarget?.targetConsensus || 0;
     const targetUpside = priceTarget > 0 && q.price > 0 ? ((priceTarget - q.price) / q.price * 100) : 0;
 
-    // ═══ effectiveVol — 데스크탑 effectiveVol (L459-531) 동일: structure에서 regimeScore 재계산 ═══
-    const effectiveVol = useMemo(() => {
-        if (structure && structure.netGex != null) {
-            const netGex = structure.netGex || 0;
-            const isShortGamma = netGex < 0;
-            const fLevel = structure.gammaFlipLevel || 0;
-            const price = q.price || 0;
-            const fDist = gammaFlipDistancePct(price, fLevel);
-            const fd = fDist == null ? Infinity : Math.abs(fDist);
-            let rs = 5;
-            if (isShortGamma) rs += Math.min(30, Math.abs(netGex) / 1000000 * 3);
-            else rs += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-            if (fd < 1) rs += 15;
-            else if (fd < 3) rs += 10;
-            else if (fd < 5) rs += 5;
-            else if (fd < 10) rs += 2;
-            const iv = structure.atmIV || 0;
-            if (iv > 0.6) rs += 25;
-            else if (iv > 0.4) rs += 15;
-            else if (iv > 0.25) rs += 8;
-            else if (iv > 0.15) rs += 4;
-            rs = Math.min(100, Math.round(rs));
-            const rg = rs >= 75 ? 'ERUPTING' : rs >= 50 ? 'LOADED' : rs >= 25 ? 'COILING' : 'CALM';
-            const cachedIv = volatility.iv || 0;
-            const derivedIv = iv ? Math.round(iv * 100) : 0;
-            const finalIv = derivedIv > 0 ? derivedIv : cachedIv;
-            if (derivedIv === 0 && cachedIv > 0) {
-                let rs2 = 5;
-                if (isShortGamma) rs2 += Math.min(30, Math.abs(netGex) / 1000000 * 3);
-                else rs2 += Math.min(10, Math.abs(netGex) / 2000000 * 3);
-                if (fd < 1) rs2 += 15;
-                else if (fd < 3) rs2 += 10;
-                else if (fd < 5) rs2 += 5;
-                else if (fd < 10) rs2 += 2;
-                if (cachedIv > 60) rs2 += 25;
-                else if (cachedIv > 40) rs2 += 15;
-                else if (cachedIv > 25) rs2 += 8;
-                else if (cachedIv > 15) rs2 += 4;
-                rs2 = Math.min(100, Math.round(rs2));
-                if (rs2 > rs) {
-                    const rg2 = rs2 >= 75 ? 'ERUPTING' : rs2 >= 50 ? 'LOADED' : rs2 >= 25 ? 'COILING' : 'CALM';
-                    return { regimeScore: rs2, regime: rg2, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: cachedIv, flipDistance: fDist == null ? null : Math.round(fDist * 10) / 10, flipLevel: fLevel, isAboveFlip: fDist == null ? null : fDist > 0 };
-                }
-            }
-            return { regimeScore: rs, regime: rg, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: fDist == null ? null : Math.round(fDist * 10) / 10, flipLevel: fLevel, isAboveFlip: fDist == null ? null : fDist > 0 };
-        }
-        return volatility || null;
-    }, [structure, q.price, volatility]);
+    const effectiveVol = useMemo(() => computeUnifiedVolatilityRegime(volatilityData !== undefined ? volatilityData : unified), [volatilityData, unified]);
 
-    // ═══ CONVICTION — 데스크탑 calculateConviction() 완전 동일 (LiveTickerDashboard L272-312) ═══
+    // ═══ CONVICTION — 웹·앱과 같은 정의(lib/commandConviction)·같은 입력 규칙(lib/metrics/observation) ═══
+    //   결측 입력은 투표하지 않는다(기본 50 금지) · 실패 구간은 관측 아님 · 결측이면 직전 실제 값+날짜.
+    // The page selects the inputs once (useMobileConvictionSnapshot) — the PRO AI material receives the same inputs.
+    const convictionCarriedAsOf = carriedConvictionDate(convictionSnapshot);
     const conviction = useMemo(() => {
-        let score = 50;
-        if (smaCross === 'GOLDEN') score += 15;
-        else if (smaCross === 'DEAD') score -= 15;
-        const price = q.price || 0;
-        const vwapDiff = vwapDistancePct(price, vwap);
-        if (vwapDiff !== null) {
-            if (vwapDiff > 1) score += 8;
-            else if (vwapDiff < -1) score -= 8;
-        }
-        const cPcr = structure?.pcRatio || 0;
-        if (cPcr > 0 && cPcr < 0.7) score += 7;
-        else if (cPcr > 1.2) score -= 7;
-        const netGex = structure?.netGex || 0;
-        if (netGex > 0) score += 5;
-        else if (netGex < 0) score -= 5;
-        const netPrem = q.netPremium || 0;
-        if (netPrem > 500000) score += 5;
-        else if (netPrem < -500000) score -= 5;
-        score = Math.max(0, Math.min(100, score));
-        let label = 'Neutral'; let grade = 'C';
-        if (score >= 80) { label = 'Strong Bullish'; grade = 'A'; }
-        else if (score >= 65) { label = 'Positive Bias'; grade = 'B+'; }
-        else if (score >= 55) { label = 'Slight Bullish'; grade = 'B'; }
-        else if (score >= 45) { label = 'Neutral'; grade = 'C'; }
-        else if (score >= 35) { label = 'Slight Bearish'; grade = 'D'; }
-        else if (score >= 20) { label = 'Bearish'; grade = 'D-'; }
-        else { label = 'Strong Bearish'; grade = 'F'; }
-        return { score, label, grade };
-    }, [smaCross, vwap, q.price, structure?.pcRatio, structure?.netGex, q.netPremium]);
+        const result = scoreCommandConviction(convictionSnapshot.inputs);
+        if (!result) return { score: null as number | null, label: '—', grade: '—' };
+        const score = result.score;
+        // 모바일 카드의 기존 영어 상태어·등급 경계 그대로(문구 변경 없음).
+        const label = score >= 80 ? 'Strong Bullish' : score >= 65 ? 'Positive Bias' : score >= 55 ? 'Slight Bullish'
+            : score >= 45 ? 'Neutral' : score >= 35 ? 'Slight Bearish' : score >= 20 ? 'Bearish' : 'Strong Bearish';
+        return { score: score as number | null, label, grade: result.grade };
+    }, [convictionSnapshot]);
 
     return (
         <div className="space-y-4">
@@ -180,7 +119,7 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap:
                 <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Signal Dashboard</div>
                 <div className="grid grid-cols-2 gap-2">
                     {/* [1-1] VOL REGIME */}
-                    {(() => { const ev = effectiveVol || {} as any; const rg = ev.regime || regime; const rs = ev.regimeScore || volatility.regimeScore || 0; const evIv = ev.iv || atmIV; const evFlip = ev.flipLevel || flipLevel; const evFlipDist = ev.flipDistance ?? flipDist; const evAbove = ev.isAboveFlip ?? isAboveFlip; return (
+                    {(() => { const ev = effectiveVol; const rg = ev.regime ?? '—'; const rs = ev.regimeScore ?? '—'; const evIv = ev.iv; const evFlip = ev.flipLevel; const evFlipDist = ev.flipDistance; const evAbove = ev.isAboveFlip; return (
                     <ProGate title="Vol Regime" mode="peek" compact>
                     <SignalCard label="VOL REGIME" value={`${rs} /100`}
                         badge={rg}
@@ -188,18 +127,18 @@ export function MobileCmdMetrics({ ticker, quote, unified, unifiedLoading, vwap:
                         color={rg === 'ERUPTING' ? 'text-rose-400' : rg === 'LOADED' ? 'text-amber-400' : rg === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
                         bg={rg === 'ERUPTING' ? 'bg-rose-950/40' : rg === 'LOADED' ? 'bg-amber-950/40' : 'bg-slate-800/40'}
                         border={rg === 'ERUPTING' ? 'border-rose-500/30' : rg === 'LOADED' ? 'border-amber-500/30' : 'border-slate-700/50'}
-                        sub={`GEX:${ev.gexLabel || volatility.gexLabel || '—'}${evIv > 0 ? ` · IV ${evIv}%` : ''}${evFlip > 0 ? ` · Flip ${evAbove ? '↑' : '↓'}${Math.abs(evFlipDist).toFixed(1)}%` : ''}`} />
+                        sub={`GEX:${ev.gexLabel || volatility.gexLabel || '—'}${evIv != null ? ` · IV ${evIv}%` : ''}${evFlip != null && evFlipDist != null ? ` · Flip ${evAbove ? '↑' : '↓'}${Math.abs(evFlipDist).toFixed(1)}%` : ''}${volatilitySource?.carried && volatilitySource.sourceAsOf ? ` · ${formatObservationTime(volatilitySource.sourceAsOf)}` : ''}`} />
                     </ProGate>
                     ); })()}
                     {/* [1-2] CONVICTION */}
                     <ProGate title="Conviction" mode="peek" compact>
-                    <SignalCard label="CONVICTION" value={`${conviction.score} /100`}
+                    <SignalCard label="CONVICTION" value={`${conviction.score ?? '—'} /100`}
                         badge={conviction.grade}
-                        badgeColor={conviction.score >= 60 ? 'bg-emerald-500/25 text-emerald-400' : conviction.score <= 40 ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
-                        sub={`${conviction.label}${pcr > 0 ? ` · PCR:${pcr.toFixed(2)}` : ''}`}
-                        color={conviction.score >= 60 ? 'text-emerald-400' : conviction.score <= 40 ? 'text-rose-400' : 'text-white'}
-                        bg={conviction.score >= 60 ? 'bg-emerald-950/40' : conviction.score <= 40 ? 'bg-rose-950/40' : 'bg-slate-800/40'}
-                        border={conviction.score >= 60 ? 'border-emerald-500/30' : conviction.score <= 40 ? 'border-rose-500/30' : 'border-slate-700/50'} />
+                        badgeColor={conviction.score != null && conviction.score >= 60 ? 'bg-emerald-500/25 text-emerald-400' : conviction.score != null && conviction.score <= 40 ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
+                        sub={`${conviction.label}${pcr > 0 ? ` · PCR:${pcr.toFixed(2)}` : ''}${conviction.score != null && convictionCarriedAsOf ? ` · ${formatObservationTime(convictionCarriedAsOf)}` : ''}`}
+                        color={conviction.score != null && conviction.score >= 60 ? 'text-emerald-400' : conviction.score != null && conviction.score <= 40 ? 'text-rose-400' : 'text-white'}
+                        bg={conviction.score != null && conviction.score >= 60 ? 'bg-emerald-950/40' : conviction.score != null && conviction.score <= 40 ? 'bg-rose-950/40' : 'bg-slate-800/40'}
+                        border={conviction.score != null && conviction.score >= 60 ? 'border-emerald-500/30' : conviction.score != null && conviction.score <= 40 ? 'border-rose-500/30' : 'border-slate-700/50'} />
                     </ProGate>
                     {/* [1-3] VWAP */}
                     {(() => { const vwapDiff = vwapDistancePct(q.price, vwap); return (

@@ -81,7 +81,10 @@ test('VIX penalty is monotone, bounded, and falling VIX retains zero penalty', (
   assert.equal(scores.at(-1), 35);
 });
 
-test('dashboard score and both verdicts use the shared result with unchanged 58/42 boundaries', () => {
+test('dashboard «리스크» score is the shared downside risk (100 − RLSI, CEO decision D30) with 58/42 boundaries', () => {
+  // D30 (10/19): the «리스크 점수» label shows the score that measures market downside risk — 100 − RLSI
+  // (lib/marketIndicators.marketDownsideRisk), shared by dash and guardian. Higher = riskier, so ≥58 is risk-off.
+  const { marketDownsideRisk } = require('../src/lib/marketIndicators');
   const source = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/dash/page.tsx'), 'utf8');
   const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const expressions: Record<string, string> = {};
@@ -93,20 +96,15 @@ test('dashboard score and both verdicts use the shared result with unchanged 58/
     ts.forEachChild(node, visit);
   }
   visit(ast);
-  for (const { input } of goldens) {
-    const actual = vm.runInNewContext(expressions.riskScore, {
-      calculateMarketRiskScore, futuresAvg: input.futuresAvg, cashAvg: input.cashAvg,
-      breadthPct: input.breadthPct, fgValue: input.fearGreed, vixChange: input.vixChangePct,
-    });
-    assert.equal(actual, calculateMarketRiskScore(input));
+  for (const rlsi of [{ score: 70 }, { score: 0 }, { score: 100 }, { score: 41.6 }, { available: false, score: 50 }, null]) {
+    assert.equal(vm.runInNewContext(expressions.riskScore, { marketDownsideRisk, rlsi }), marketDownsideRisk(rlsi));
   }
-  for (const [riskScore, tone, key] of [[42, 'off', 'off'], [42.01, 'mixed', 'mix'],
-    [57.99, 'mixed', 'mix'], [58, 'on', 'on']] as const) {
-    const context = { riskScore, regimeReady: true, copy: { riskOn: 'on', riskOff: 'off', mixed: 'mixed' } };
+  for (const [riskScore, tone, key] of [[58, 'off', 'off'], [57.99, 'mixed', 'mix'],
+    [42.01, 'mixed', 'mix'], [42, 'on', 'on'], [null, 'mixed', 'mix']] as const) {
+    const context = { riskScore, copy: { riskOn: 'on', riskOff: 'off', mixed: 'mixed' } };
     assert.equal(vm.runInNewContext(expressions.riskTone, context), tone);
     assert.equal(vm.runInNewContext(expressions.verdictKey, context), key);
   }
-  // Unfetched DEMO seeds must also contribute zero to the composite score.
-  assert.equal(vm.runInNewContext(expressions.fgValue, { macroReady: false }), 50);
-  assert.equal(vm.runInNewContext(expressions.breadthPct, { sectorsReady: false }), 50);
+  // The dash no longer composes a second risk formula from DEMO seeds (fgValue/breadthPct removed with D30).
+  assert.equal(expressions.fgValue, undefined); assert.equal(expressions.breadthPct, undefined);
 });

@@ -73,6 +73,8 @@ export interface Check {
     reason: string;
 }
 export interface Evaluation {
+    /** Raw rule inputs were present at calculation time. Absent on legacy generations. */
+    inputsComplete?: boolean;
     ticker: string;
     passed: boolean;
     score: number | null;
@@ -85,6 +87,8 @@ export interface LensResult {
     rows: Evaluation[];
 }
 export interface Snapshot {
+    /** Link written with this immutable publication, for skipping incomplete ticker generations. */
+    previousPublished?: string | null;
     version: 1;
     date: string;
     generatedAt: string;

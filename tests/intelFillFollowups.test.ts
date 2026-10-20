@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { applySectorBrief } from '../src/lib/app/intelSectorBrief';
+import { sessionChangeOrNull, changeCoverage } from '../src/lib/app/intelSessionChange';
 import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature, setMissingField, sameMissingFields } from '../src/lib/app/intelMissing';
 import { fillSnapshotChanges, snapshotChangesFromResponse } from '../src/lib/app/intelSnapshotChange';
 import { quoteFromBatchResult, pickFiniteNumber } from '../src/lib/app/intelQuoteFromBatch';
@@ -23,8 +25,8 @@ const run = (code: string, deps: Record<string, any>) => new Function(...Object.
 const page = parse('src/app/[locale]/app-view/intel/page.tsx');
 const heat = parse('src/app/[locale]/app-view/heatmap/page.tsx');
 const hook = parse('src/hooks/useIntelSharedData.ts');
-const deps = { averageMeasured, measuredOrNull, isFieldMissing, missingSignature };
-const names = ['num', 'pickNumber', 'liveLevel', 'impliedMoveMetaOf', 'mergeStockWithQuote', 'hasStockQuoteDelta', 'quoteToKeyStock', 'alignReportToConfig', 'avgChangeOfQuotes', 'formatPercentCompact', 'formatRowChange', 'ctxAverageMissing'];
+const deps = { averageMeasured, measuredOrNull, isFieldMissing, missingSignature, sessionChangeOrNull, applySectorBrief, shownRegularSessionDate: () => '2026-10-16' };
+const names = ['num', 'pickNumber', 'liveLevel', 'impliedMoveMetaOf', 'mergeStockWithQuote', 'hasStockQuoteDelta', 'mergeReportWithBatchResults', 'quoteToKeyStock', 'alignReportToConfig', 'avgChangeOfQuotes', 'viewReportForApp', 'formatPercentCompact', 'formatRowChange', 'ctxAverageMissing'];
 const P = run(`${names.map(n => fn(page, n)).join('\n')}\nreturn { ${names.join(',')} };`, { ...deps, SECTOR_CONFIGS: [{ id: 'test', stocks: ['A', 'B', 'C'] }] });
 const quote = (ticker: string, over: any = {}): any => ({ ticker, price: 100, changePct: 0, alphaScore: 0, missingFields: ['changePct', 'alphaScore'], ...over });
 const snapshot = (date = '2026-10-16', tickers: any[] = [{ ticker: 'A', close_price: 98, change_pct: -2 }, { ticker: 'B', close_price: 100, change_pct: 0 }]) => ({ success: true, snapshot_date: date, snapshot: { tickers } });
@@ -123,14 +125,16 @@ t('주말·월요일 프리에는 금요일만, 정규장 시작 이후 금요�
     assert.equal(isFieldMissing(fillSnapshotChanges([quote('A')], snapshotChangesFromResponse(snapshot()), regular)[0], 'changePct'), true);
 });
 
-const bandsOf = (rows: any[]) => run(`return (${decl(heat, 'bands').initializer!.getText(heat)});`, { ...deps, useMemo: (f: any) => f(), SECTORS: [{ key: 'm7' }], data: { m7: rows } });
+const sessionDate = '2026-10-16';
+const sessionRows = run(`${fn(heat, 'sourceDateOf')}\n${fn(heat, 'sessionRows')}\nreturn sessionRows;`, {});
+const bandsOf = (rows: any[]) => run(`return (${decl(heat, 'bands').initializer!.getText(heat)});`, { ...deps, sessionRows, sessionDate, useMemo: (f: any) => f(), SECTORS: [{ key: 'm7' }], data: { m7: rows } });
 t('카드·칩·상세·히트맵은 같은 보충값, 결측 종목 표시 유지·평균과 순위 제외', () => {
     const rows = fillSnapshotChanges([quote('A'), quote('B'), quote('C')], snapshotChangesFromResponse(snapshot()), '2026-10-16');
     assert.equal(P.avgChangeOfQuotes(rows), -1);
     const band = bandsOf(rows)[0];
     assert.equal(band.rows.length, 3); assert.equal(band.avg, -1);
     assert.deepEqual(band.rows.map((r: any) => [r.t, r.p]), [['B', 0], ['A', -2], ['C', null]]);
-    const flat = run(`return (${decl(heat, 'flat').initializer!.getText(heat)});`, { bands: [band], useMemo: (f: any) => f() });
+    const flat = run(`return (${decl(heat, 'flat').initializer!.getText(heat)});`, { bands: [band], sessionRows, sessionDate, useMemo: (f: any) => f() });
     assert.deepEqual(flat.map((r: any) => r.t), ['B', 'A']);
     const none = bandsOf([quote('A'), quote('B')])[0];
     assert.equal(none.avg, null); assert.equal(none.rows.length, 2); assert.equal(none.up, 0); assert.equal(none.dn, 0);
@@ -221,3 +225,83 @@ async function hookPath() {
 }
 
 hookPath().then(() => console.log(`${count}건 통과`)).catch(e => { console.error(e); process.exitCode = 1; });
+
+
+t('nightly 중간2: 이전 날짜 보충은 칸에만 유지, Intel 평균·W/L·관찰 문장·캐시 합산에서 제외', () => {
+    const date = '2026-10-19';
+    const rows = fillSnapshotChanges([
+        quote('A', { session: 'POST', changePct: -5, missingFields: [] }),
+        quote('B', { session: 'POST' }),
+    ], snapshotChangesFromResponse(snapshot('2026-10-16', [{ ticker: 'B', close_price: 120, change_pct: 20 }])), date);
+    assert.equal(averageMeasured(rows.map(q => measuredOrNull(q, 'changePct'))), 7.5, '수정 전 오집계 재현');
+    assert.equal(P.avgChangeOfQuotes(rows, date), -5);
+    const raw = { keyStocksData: rows.map(P.quoteToKeyStock), avgAlpha: 0, gainers: 1, losers: 1, verdict: '', catalysts: [], bullets: [], sentiment: 'NEUTRAL' };
+    const view = P.viewReportForApp(raw, 'test', rows, 'ko', date);
+    assert.deepEqual([view.gainers, view.losers], [0, 1]);
+    assert.match(view.verdict, /상승 0·하락 1/);
+    assert.match(view.verdict, /평균 -5.0%/);
+    assert.doesNotMatch(view.verdict, /B|20.00%|7.5%/);
+    assert.deepEqual([view.keyStocksData[1].changePct, view.keyStocksData[1].changePctSourceDate], [20, '2026-10-16']);
+    assert.equal(changeCoverage(view.gainers + view.losers, view.keyStocksData.length), ' 1/2');
+    // 목록·점수 평균이 같아도 저장 당시의 W/L을 재사용하지 않는다.
+    const aligned = P.alignReportToConfig(raw, 'test', rows, date);
+    assert.deepEqual([aligned.gainers, aligned.losers], [0, 1]);
+    const stable = P.alignReportToConfig(aligned, 'test', rows, date);
+    assert.equal(stable, aligned, '재계산 후 값이 같으면 객체 안정성 유지');
+    // 글로벌 리포트·시세 리포트의 실제 집계문도 같은 입력으로 실행한다.
+    const visit = (n: ts.Node) => {
+        if (ts.isVariableStatement(n) && n.declarationList.declarations.some(d => d.name.getText(page) === 'gainers')
+            && /keyStocksData.filter|quotes.filter/.test(n.getText(page))) {
+            const block = n.parent as ts.Block;
+            const loser = block.statements.find(st => ts.isVariableStatement(st) && st.declarationList.declarations.some(d => d.name.getText(page) === 'losers'))!;
+            const result = run(`${n.getText(page)}\n${loser.getText(page)}\nreturn [gainers, losers];`, { sessionChangeOrNull, sessionDate: date, quotes: rows, keyStocksData: view.keyStocksData });
+            assert.deepEqual(result, [0, 1]);
+        }
+        ts.forEachChild(n, visit);
+    };
+    visit(page);
+    const breadth = run(['breadthRows', 'breadthValues', 'totalGainers', 'totalLosers'].map(name => `const ${decl(page, name).getText(page)};`).join('\n') + '\nreturn [totalGainers, totalLosers, breadthValues.length];', {
+        SECTOR_CONFIGS: [{ id: 'test' }], getSectorQuotes: () => rows, sessionChangeOrNull, sessionDate: date,
+        reportCache: { old: { gainers: 99, losers: 99 } },
+    });
+    assert.deepEqual(breadth, [0, 1, 1]);
+});
+
+t('기준 세션의 실제 0 포함·결측 제외·전부 이전 날짜면 평균 null과 0/N', () => {
+    const date = '2026-10-19';
+    const rows = [
+        quote('A', { changePct: 0, changePctSourceDate: date, missingFields: [] }),
+        quote('B', { changePct: 20, changePctSourceDate: '2026-10-16', missingFields: [] }),
+        quote('C'),
+    ];
+    assert.deepEqual(rows.map(q => sessionChangeOrNull(q, date)), [0, null, null]);
+    assert.equal(P.avgChangeOfQuotes(rows, date), 0);
+    const old = rows.slice(1, 2);
+    assert.equal(P.avgChangeOfQuotes(old, date), null);
+    assert.equal(changeCoverage(0, 1), ' 0/1');
+    assert.equal(changeCoverage(2, 2), '');
+    // 월요일 프리·주말 화면은 달력상 금요일이 기준이므로 금요일 값은 포함한다.
+    for (const iso of ['2026-10-18T12:00:00Z', '2026-10-19T12:00:00Z']) {
+        assert.equal(sessionChangeOrNull(rows[1], shownRegularSessionDate(Date.parse(iso))), 20);
+    }
+});
+
+
+t('Intel 배치 실측 복구는 이전 보충 날짜를 지우고, 결측 배치는 값·날짜 보존', () => {
+    const stock = { sym: 'A', changePct: 20, changePctSourceDate: '2026-10-16', score: 0 };
+    const raw = { keyStocksData: [stock], avgAlpha: 0 };
+    const fresh = P.mergeReportWithBatchResults(raw, [{ ticker: 'A', realtime: { changePct: 0 }, alphaSnapshot: {} }]);
+    assert.equal(fresh.keyStocksData[0].changePct, 0);
+    assert.equal(fresh.keyStocksData[0].changePctSourceDate, undefined);
+    assert.equal(sessionChangeOrNull(fresh.keyStocksData[0], '2026-10-19'), 0);
+    const missing = P.mergeReportWithBatchResults(raw, [{ ticker: 'A', realtime: { changePct: 0, missingFields: ['changePct'] }, alphaSnapshot: {} }]);
+    assert.deepEqual([missing.keyStocksData[0].changePct, missing.keyStocksData[0].changePctSourceDate], [20, '2026-10-16']);
+});
+
+t('시세 없는 리포트의 날짜 없는 등락은 집계하지 않고, 날짜가 있는 저장값은 개별 행에 보존', () => {
+    const unknown = P.mergeStockWithQuote({ sym: 'A', changePct: 20 });
+    assert.equal(unknown.changePct, null);
+    const dated = P.mergeStockWithQuote({ sym: 'A', changePct: 20, changePctSourceDate: '2026-10-16' });
+    assert.equal(dated.changePct, 20);
+    assert.equal(sessionChangeOrNull(dated, '2026-10-19'), null);
+});

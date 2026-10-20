@@ -3,7 +3,7 @@
 import { compactUsd } from '@/lib/app/displayNumbers';
 
 import { commandBatchIv, commandUnifiedIv, retainCommandIv, commandIvDateText, type CommandIvObservation } from '@/lib/app/commandIv';
-import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense, useRef, Fragment, useId } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
@@ -11,6 +11,7 @@ import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { AdBanner } from '@/components/app/AdBanner';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { AiBadge } from '@/components/app/AiBadge';
+import { GuruLensChip, GuruLensWhy, useTickerLens } from '@/components/app/GuruLens';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
 import { AppGexTimeline } from '@/components/app/AppGexTimeline';
@@ -29,6 +30,7 @@ import { ShareButton, ShareIcon } from '@/components/share/ShareButton';
 import type { MetricTerm } from '@/components/app/metricGlossary';
 import s from './cmd.module.css';
 import { premiumLabel, netPremiumOf } from '@/lib/premiumFlow';
+import { carriedConvictionDate, commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction, type ConvictionSnapshot } from '@/lib/commandConviction';
 
 // WebSocket real-time price hooks
 import { useIvPercentile } from '@/hooks/useFlowData';
@@ -40,6 +42,8 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { buildInsiderSignal } from '@/services/insiderSignal';
+import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
+import { formatObservationTime, resolveCommandVolatilityObservation, type CommandVolatilityObservation } from '@/lib/commandVolatilityObservation';
 import { buildDeepSnapshot, computeGexStats } from '@/lib/ai/deepSnapshot';
 import { closeLabelOr } from '@/lib/marketSession';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
@@ -1223,8 +1227,13 @@ interface FundRaw {
   fcfYield?: number | null;
   breakdown?: Record<string, { value: string; score: number; label: string }> | null;
 }
-function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?: string }) {
+function FundamentalsCard({ raw, locale = 'en', ticker }: { raw: FundRaw | null; locale?: string; ticker?: string }) {
   const score = raw?.score ?? null;
+  // 대가 렌즈 «통과 렌즈 n» — 점수 줄 오른쪽 빈자리(새 줄 없음). 통과 0·결측이면 칩 없음.
+  const lens = useTickerLens(ticker);
+  const [lensOpen, setLensOpen] = useState(false);
+  const lensPanelId = useId();
+  useEffect(() => { setLensOpen(false); }, [ticker]);
   const grade = raw?.grade && raw.grade !== 'NO_DATA' ? raw.grade : null;
 
   // Insight text based on score
@@ -1316,6 +1325,7 @@ function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?
           <span className={s.premInsightBadge} style={{ color: gradeColor(grade), borderColor: `${gradeColor(grade)}50`, background: `${gradeColor(grade)}15` }}>
             {insight}
           </span>
+          <GuruLensChip data={lens} open={lensOpen} onToggle={() => setLensOpen(o => !o)} locale={locale} controls={lensPanelId} />
         </div>
       )}
 
@@ -1349,6 +1359,8 @@ function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?
           {breakdownKeys.map(k => raw!.breakdown![k].label).join(' \u00B7 ')}
         </div>
       )}
+
+      {score !== null && lens && lensOpen && <GuruLensWhy data={lens} locale={locale} id={lensPanelId} />}
     </div>
   );
 }
@@ -1826,6 +1838,7 @@ function SignalCard({ label, value, sub, color, bg, border, badge, iconKey, loca
     const k = (iconKey || label).toUpperCase();
     if (k.includes('VOL REGIME')) {
       const regime = badge || '';
+      if (!['CALM', 'COILING', 'LOADED', 'ERUPTING'].includes(regime)) return '—';
       if (locale === 'ko') {
         if (regime === 'ERUPTING') return '극단적 변동';
         if (regime === 'LOADED') return '변동성 축적';
@@ -2345,6 +2358,10 @@ function CmdPageContent() {
   /** unified 가 «준비 중»이면 짧게 재시도하기 위한 타이머·마지막 응답 */
   const partialRetry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastUnified = useRef<any>(null);
+  // 변동성 레짐 입력 판본 — 실패 응답은 관측 아님 · 더 새 원천 시각 우선 · 결측이면 직전 실제 값+날짜(lib/metrics/observation)
+  const lastVolObservation = useRef<CommandVolatilityObservation | null>(null);
+  // 확신도 입력도 같은 규칙(lib/metrics/observation selectValue) — 실패 응답은 관측 아님 · 결측이면 직전 실제 값+날짜
+  const lastConviction = useRef<ConvictionSnapshot | undefined>(undefined);
   useEffect(() => {
     let cancelled = false;
     // 봤던 종목이면 즉시 그린다 — 스켈레톤을 다시 보여줄 이유가 없다.
@@ -2354,6 +2371,10 @@ function CmdPageContent() {
       setData(cachedEntry!.data);
       setLoading(false);
       initialLoadRef.current = false;
+      // 재진입: 그려 둔 캐시 화면의 입력 이력도 함께 복원한다 — 다음 회차가 실패해도 직전 실제 값이 이어진다.
+      const cd: any = cachedEntry!.data;
+      if (lastVolObservation.current?.ticker !== ticker && cd?.volatilityObservation?.ticker === ticker) lastVolObservation.current = cd.volatilityObservation;
+      if (lastConviction.current?.ticker !== ticker && cd?.convictionSnapshot?.ticker === ticker) lastConviction.current = cd.convictionSnapshot;
     } else {
       initialLoadRef.current = true;
       setLoading(true);
@@ -2380,6 +2401,7 @@ function CmdPageContent() {
         const e = earningsRes.status === 'fulfilled' ? earningsRes.value : null;
         const u = unifiedRes.status === 'fulfilled' ? unifiedRes.value : null;
         lastUnified.current = u;
+        lastVolObservation.current = resolveCommandVolatilityObservation(ticker, u, lastVolObservation.current);
 
         const rejections = [
           { name: 'ticker', res: tickerRes },
@@ -2411,6 +2433,12 @@ function CmdPageContent() {
         //   · 없으면 받은 나머지(애널리스트·재무·실적…)로 화면은 그리되 가격 자리는 실시간 가격 훅이 채우고, 그 훅도 비면 «불러오지 못했습니다 · 다시 시도» 패널(loadFailed).
         //     못 받은 칸은 «—». 30초 주기·다시 시도 버튼이 다시 받는다.
         const apiPriceOk = Number.isFinite(Number(price)) && Number(price) > 0;
+        {
+          // VWAP 은 원천 날짜(vwapDate)와 함께 — 늦게 온 옛 VWAP 이 새 값을 덮지 않는다.
+          //   원값을 넘긴다: 응답이 VWAP 을 명시적으로 null 로 주면(지난 세션 VWAP 무효화) 이월하지 않는다.
+          const { raw, dates, invalidated } = commandConvictionRaw(u, apiPriceOk ? price : null, t ? t.vwap : undefined, t?.flow, { vwap: t?.vwapDate });
+          lastConviction.current = retainConvictionInputs(ticker, raw, dates, lastConviction.current, invalidated);
+        }
         if (!apiPriceOk) {
           const prior = CMD_CACHE.get(ticker);
           if (prior) {
@@ -2562,6 +2590,8 @@ function CmdPageContent() {
           premium,
           rawTickerData: t,
           unified: u,
+          volatilityObservation: lastVolObservation.current,
+          convictionSnapshot: lastConviction.current,
           fundRaw,
           earnRaw,
         };
@@ -2789,6 +2819,11 @@ function CmdPageContent() {
       priceChange: displayChangePctRef.current || q.changePct,
       session: effectiveSessionRef.current,
       unified: data.unified,
+      volatilityData: (data as any).volatilityObservation !== undefined ? ((data as any).volatilityObservation?.data ?? null) : undefined,
+      volatilitySource: (data as any).volatilityObservation ?? null,
+      convictionInputs: (data as any).convictionSnapshot?.ticker === ticker ? (data as any).convictionSnapshot.inputs : undefined,
+      convictionSourceDates: (data as any).convictionSnapshot?.ticker === ticker ? (data as any).convictionSnapshot.sourceDates : undefined,
+      convictionCarried: (data as any).convictionSnapshot?.ticker === ticker ? (data as any).convictionSnapshot.carriedFields : undefined,
       rawTickerData: q.rawTickerData,
       insider: insiderData,
       technicals: techData,
@@ -2885,6 +2920,15 @@ function CmdPageContent() {
     const priceTarget = analyst.priceTarget?.targetConsensus || 0;
     const targetUpside = priceTarget > 0 && q.price > 0 ? ((priceTarget - q.price) / q.price * 100) : 0;
 
+    // 웹·모바일·AI 와 같은 판본 선택 규칙 — 가져오기 경로가 판본을 고르지 않은 데이터(캐시 복원 등)는 같은 함수로 고른다
+    const volObservation: CommandVolatilityObservation | null = (data as any).volatilityObservation !== undefined
+      ? (data as any).volatilityObservation : resolveCommandVolatilityObservation(String((data as any).ticker ?? ''), data.unified);
+    const effectiveVol = computeUnifiedVolatilityRegime(volObservation?.data);
+    // IV 는 iv30 → 같은 종목 unified/배치 관측(기준일 표식) 순 — main 의 IV 대체 경로를 그대로 둔다.
+    const fallbackIv = (data.ticker === ticker ? commandUnifiedIv(ticker, u) : null) ?? batchIv[ticker] ?? null;
+    const finalIv = iv30Level != null ? Math.round(iv30Level * 100) / 100 : fallbackIv?.iv ?? null;
+    const ivDateText = iv30Level == null ? commandIvDateText(fallbackIv, locale) : '';
+
     // Missing inputs do not vote. Keep the existing bases/weights only when
     // at least one usable observation exists (a measured GEX/flow zero counts).
     const finite = (value: unknown): number | null =>
@@ -2894,62 +2938,27 @@ function CmdPageContent() {
       return n !== null && n > 0 ? n : null;
     };
     const netGex = finite(structure.netGex);
-    const fLevel = positive(structure.gammaFlipLevel);
     const priceVal = positive(q.price);
-    const fDist = gammaFlipDistancePct(priceVal, fLevel);
-    // Unified volatility.iv is percent; structure.atmIV is a decimal.
-    // IV/flip zero are upstream unavailable sentinels, unlike GEX/flow zero.
-    const cachedIv = data.ticker === ticker ? positive(volatility.iv) : null;
-    const iv = data.ticker === ticker ? positive(structure.atmIV) ?? (cachedIv !== null ? cachedIv / 100 : null) : null;
-    const fallbackIv = (data.ticker === ticker ? commandUnifiedIv(ticker, u) : null) ?? batchIv[ticker] ?? null;
-    const finalIv = iv30Level ?? fallbackIv?.iv ?? null;
-    const ivDateText = iv30Level === null ? commandIvDateText(fallbackIv, locale) : '';
-    const volContributions: number[] = [];
-    if (netGex !== null) {
-      volContributions.push(netGex < 0
-        ? Math.min(30, Math.abs(netGex) / 1000000 * 3)
-        : Math.min(10, Math.abs(netGex) / 2000000 * 3));
-    }
-    if (fDist !== null) {
-      const dist = Math.abs(fDist);
-      volContributions.push(dist < 1 ? 15 : dist < 3 ? 10 : dist < 5 ? 5 : dist < 10 ? 2 : 0);
-    }
-    if (iv !== null) {
-      volContributions.push(iv > 0.6 ? 25 : iv > 0.4 ? 15 : iv > 0.25 ? 8 : iv > 0.15 ? 4 : 0);
-    }
-    const rs = volContributions.length > 0
-      ? Math.min(100, Math.round(5 + volContributions.reduce((sum, value) => sum + value, 0))) : null;
-    const rg = rs === null ? null : rs >= 75 ? 'ERUPTING' : rs >= 50 ? 'LOADED' : rs >= 25 ? 'COILING' : 'CALM';
 
     const vwapVal = normalizeVwap(data?.vwap);
     const vwapDiff = vwapDistancePct(priceVal, vwapVal);
-    const convictionContributions: number[] = [];
-    // NONE is a measured neutral cross only when explicitly supplied by SMA.
-    if (sma.cross === 'GOLDEN' || sma.cross === 'DEAD' || sma.cross === 'NONE') {
-      convictionContributions.push(sma.cross === 'GOLDEN' ? 15 : sma.cross === 'DEAD' ? -15 : 0);
-    }
-    if (vwapDiff !== null) convictionContributions.push(vwapDiff > 1 ? 8 : vwapDiff < -1 ? -8 : 0);
-    const cPcr = finite(structure.pcRatio);
-    if (cPcr !== null && cPcr >= 0) convictionContributions.push(cPcr > 0 && cPcr < 0.7 ? 7 : cPcr > 1.2 ? -7 : 0);
-    if (netGex !== null) convictionContributions.push(netGex > 0 ? 5 : netGex < 0 ? -5 : 0);
-    // 관측 판정은 생산자 규칙 한 벌(netPremiumOf) — 실패·계약 0 건은 투표하지 않고, 관측된 0 은 0 으로 투표한다.
-    const netPrem = netPremiumOf(q.rawTickerData?.flow);
-    if (netPrem !== null) convictionContributions.push(netPrem > 500000 ? 5 : netPrem < -500000 ? -5 : 0);
-    const cScore = convictionContributions.length > 0
-      ? Math.max(0, Math.min(100, 50 + convictionContributions.reduce((sum, value) => sum + value, 0))) : null;
-    let cLabel = '—'; let cGrade: string | null = null;
-    if (cScore !== null) {
-      if (cScore >= 80) { cLabel = tDashboard('convStrong'); cGrade = 'A'; }
-      else if (cScore >= 65) { cLabel = tDashboard('convBullish'); cGrade = 'B+'; }
-      else if (cScore >= 55) { cLabel = tDashboard('convSlightUp'); cGrade = 'B'; }
-      else if (cScore >= 45) { cLabel = tDashboard('convNeutral'); cGrade = 'C'; }
-      else if (cScore >= 35) { cLabel = tDashboard('convSlightDown'); cGrade = 'D'; }
-      else if (cScore >= 20) { cLabel = tDashboard('convBearish'); cGrade = 'D-'; }
-      else { cLabel = tDashboard('convStrongDown'); cGrade = 'F'; }
-    }
+    // 가져오기 경로가 고른 입력(직전 실제 값 이월 포함)이 있으면 그것, 없으면 같은 규칙으로 이번 판본만(캐시 복원 등).
+    const convSnap: ConvictionSnapshot | undefined = (data as any).convictionSnapshot?.ticker === (data as any).ticker
+      ? (data as any).convictionSnapshot : undefined;
+    const conviction = scoreCommandConviction(convSnap ? convSnap.inputs
+      : convictionInputsOf(commandConvictionRaw(data.unified, priceVal, vwapVal, q.rawTickerData?.flow).raw));
+    const cScore = conviction?.score ?? null;
+    const cLabel = conviction ? {
+      convStrong: tDashboard('convStrong'), convBullish: tDashboard('convBullish'),
+      convSlightUp: tDashboard('convSlightUp'), convNeutral: tDashboard('convNeutral'),
+      convSlightDown: tDashboard('convSlightDown'), convBearish: tDashboard('convBearish'),
+      convStrongDown: tDashboard('convStrongDown'),
+    }[conviction.labelKey] : '—';
+    const cGrade = conviction?.grade ?? null;
 
     return {
-      regimeScore: rs, regime: rg, gexLabel: netGex === null ? null : netGex < 0 ? 'SHORT' : 'LONG', iv: finalIv, ivDateText, flipDistance: fDist !== null ? Math.round(fDist * 10) / 10 : null, flipLevel: fLevel, isAboveFlip: fDist !== null ? fDist > 0 : null,
+      ...effectiveVol, iv: finalIv, ivDateText, volCarriedAsOf: volObservation?.carried ? volObservation.sourceAsOf : null,
+      convictionCarriedAsOf: cScore !== null ? carriedConvictionDate(convSnap) : null,
       convictionScore: cScore, convictionLabel: cLabel, convictionGrade: cGrade,
       vwap: vwapVal, vwapDiff,
       squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
@@ -3831,7 +3840,7 @@ function CmdPageContent() {
 
 
           <AnalystConsensus analyst={data.analyst} price={displayPrice} locale={locale} />
-          <FundamentalsCard raw={data.fundRaw || null} locale={locale} />
+          <FundamentalsCard raw={data.fundRaw || null} locale={locale} ticker={data.ticker} />
           <EarningsCardPremium raw={data.earnRaw || null} locale={locale} />
 
           {/* Company Description */}
@@ -4087,7 +4096,7 @@ function CmdPageContent() {
                   color={signalsData.regime === 'ERUPTING' ? 'text-rose-400' : signalsData.regime === 'LOADED' ? 'text-amber-400' : signalsData.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
                   bg={signalsData.regime === 'ERUPTING' ? 'bg-rose-950/20' : signalsData.regime === 'LOADED' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
                   border={signalsData.regime === 'ERUPTING' ? 'border-rose-500/20' : signalsData.regime === 'LOADED' ? 'border-amber-500/20' : 'border-white/[0.06]'}
-                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{signalsData.regime === null ? '—' : tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span>{signalsData.ivDateText}</>}
+                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{signalsData.regime === null ? '—' : tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv != null ? `${signalsData.iv}%` : '—'}</span>{signalsData.ivDateText}{signalsData.volCarriedAsOf ? <> · <time dateTime={signalsData.volCarriedAsOf}>{formatObservationTime(signalsData.volCarriedAsOf)}</time></> : null}</>}
                   locale={locale}
                 />
 
@@ -4103,7 +4112,7 @@ function CmdPageContent() {
                   color={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'text-emerald-400' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'text-rose-400' : 'text-white'}
                   bg={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'bg-emerald-950/20' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
                   border={signalsData.convictionScore !== null && signalsData.convictionScore >= 60 ? 'border-emerald-500/20' : signalsData.convictionScore !== null && signalsData.convictionScore <= 40 ? 'border-rose-500/20' : 'border-white/[0.06]'}
-                  sub={<span className="text-slate-300 font-bold">{signalsData.convictionLabel}</span>} 
+                  sub={<><span className="text-slate-300 font-bold">{signalsData.convictionLabel}</span>{signalsData.convictionCarriedAsOf ? <> · <time dateTime={signalsData.convictionCarriedAsOf}>{formatObservationTime(signalsData.convictionCarriedAsOf)}</time></> : null}</>}
                   locale={locale}
                 />
 
