@@ -89,7 +89,7 @@ export function positioningSideReasons(text: string, source: string): string[] {
 }
 
 // 해석 한 줄은 일정을 말하지 않는다(일정·실적 시각은 카드의 칩이 보여 준다) — 시각·날짜·예정·실적 표현, 다른 회사 이름은 판정하지 않고 탈락(fail-closed)
-const WL_SCHEDULE = /\d{1,2}:\d{2}|\d{1,2}\s*(?:시(?!간)|時(?!間))|\d{1,2}\/\d{1,2}|\d{4}-\d{2}-\d{2}|\d{1,2}\s*(?:월|月)\s*\d{1,2}|\b(?:scheduled|upcoming|ahead of|tonight|today|tomorrow|earnings|release[sd]?|report(?:s|ed|ing)?|due|print|after the close|before the open|after hours|pre-?market)\b|(?<![시공현입등])장\s*(?:마감|시작|전|후)|마감\s*후|개장|시간외|引け|寄り付|時間外|예정|앞두|앞둔|오늘|내일|금일|실적|발표|予定|控え|今日|本日|今夜|明日|決算|発表/i;
+const WL_SCHEDULE = /\d{1,2}:\d{2}|\d{1,2}\s*(?:시(?!간)|時(?!間))|\d{1,2}\/\d{1,2}|\d{4}-\d{2}-\d{2}|\d{1,2}\s*(?:월|月)\s*\d{1,2}|\b(?:scheduled|upcoming|ahead of|tonight|today|tomorrow|earnings|release[sd]?|report(?:s|ed|ing)?|due|print|after the close|before the open|after hours|pre-?market)\b|(?:^|\s)장\s?(?:마감|시작|전|후)|마감\s*후|개장|시간외|引け|寄り付|時間外|예정|앞두|앞둔|오늘|내일|금일|실적|발표|予定|控え|今日|本日|今夜|明日|決算|発表/i;
 const WL_OK_TOKENS = new Set(['GEX', 'FINRA', 'ETF', 'AI', 'US', 'IV', 'OI', 'EPS', 'VIX', 'SPY', 'QQQ']);
 export function watchlistNoScheduleReasons(text: string, ownTicker: string, sourceText = ''): string[] {
     const out: string[] = [];
