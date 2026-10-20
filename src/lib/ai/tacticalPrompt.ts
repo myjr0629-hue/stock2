@@ -123,6 +123,23 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
     const unknown = /unconfirmed|no confirmed|not confirmed|not established|unknown|unavailable|미확인|확인되지|확인할[^.]*없|불명|미상|不足|未確認|確認でき|不明/i;
     let news: string[] = [];
     try { news = JSON.parse(data.split('\n')[0].replace(/^TODAY_NEWS: /, '')); } catch { /* fail closed below */ }
+    // NEXT의 일정 근거는 뉴스·관측 숫자와 분리한다. 같은 CPI/08:30이 뉴스에 남아도
+    // 지난 발표를 «다음 예정»으로 살리지 않는다. 캐시를 읽을 때도 현재 프롬프트로 검사한다.
+    let events: string[] = [];
+    try { events = JSON.parse(data.split('\n')[1].replace(/^SCHEDULED_EVENTS: /, '')); } catch { /* no upcoming evidence */ }
+    const asOf = Date.parse(prompt.match(/^AS_OF: (.+)$/m)?.[1] || '');
+    const upcoming = events.filter(e => {
+        if (!/scheduled; not a released result/.test(e)) return false;
+        const m = e.match(/(\d{4}-\d\d-\d\d)[^\]\n]*?(\d\d:\d\d(?::\d\d)?) ET/);
+        const at = m ? evidenceTime('earnings:et', `${m[1]} ${m[2]}`) : null;
+        return !!at && Number.isFinite(asOf) && at.ms > asOf;
+    });
+    const next = sentences[2] || '';
+    if (!unknown.test(next)) {
+        reasons.push(...unsupportedEventReasons(next, upcoming.join('\n')));
+        const times = next.match(/\b\d{2}:\d{2}(?::\d{2})?\b/g) || [];
+        if (times.some(t => !upcoming.some(e => e.includes(`${t} ET`)))) reasons.push('tactical:upcoming-time-required');
+    }
     const first = sentences[0] || '';
     if (!news.length && !unknown.test(first)) reasons.push('tactical:unconfirmed-cause-required');
     if (news.length && !unknown.test(first)) {

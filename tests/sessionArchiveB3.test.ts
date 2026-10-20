@@ -99,7 +99,9 @@ t('D26 배선: 저장본 쓰기마다 보관(Upstash 유무와 별개, 장외 �
     const w = s.indexOf('async function writeStoredInsight');
     assert.ok(s.indexOf('await archiveInsight(type, locale, text, basis);', w) < s.indexOf('const redis = getRedis();', w));
     const r = s.indexOf('static async recoverInsightOut');
-    assert.ok(s.indexOf('archivedInsight(type, locale, opts.nums)', r) < s.indexOf('translatedInsight(type, locale, opts.nums)', r));
+    const archiveCall = s.indexOf('archivedInsight(type, locale, opts.nums, opts.tacticalPrompts)', r);
+    const translateCall = s.indexOf('translatedInsight(type, locale, opts.nums, opts.tacticalPrompts)', r);
+    assert.ok(archiveCall > r && translateCall > archiveCall);
     assert.match(s, /if \(arch\) return \{ tpl: arch\.tpl, basis: arch\.basis \};/);   // 메모리에 올리지 않는다(번역 원천이 되지 않게)
     assert.match(s, /\{ lookback: 0 \}/);
     const ai = s.indexOf('async function archiveInsight');

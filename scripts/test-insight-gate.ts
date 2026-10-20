@@ -3,6 +3,7 @@
 //         --outfile=/tmp/test-insight-gate.cjs --log-level=warning && node /tmp/test-insight-gate.cjs
 //   (또는 npx tsx scripts/test-insight-gate.ts)
 // 네트워크·실 Redis 를 쓰지 않는다: 모델은 _setModelCallerForTest 로 주입, Upstash 는 fetch 가로채기(test-redis-policy.ts 와 같은 방식).
+import { buildTacticalPrompt, checkTacticalOutput } from '../src/lib/ai/tacticalPrompt';
 import { cleanInsight, validateInsight, gateInsight } from '../src/lib/ai/outputGate';
 import { fillGuardianTokens, guardianNumsFromAiContext } from '../src/lib/ai/guardianNumbers';
 import {
@@ -87,6 +88,8 @@ const JA_REALITY_MD = `# マクロ市場分析 — 2026年9月28日\n\n**市場�
 const JA_GAMMA = `**平常との違い**\nディーラーガンマが直近38営業日で上位71%にあるのに対しGEX変化がゼロで、市場参加者の構えが固まったまま動いていない状態を示している。 **この見方が崩れる地点**\n7,500のプットフロアを下抜けするとディーラーの買いサポートが外れ、その下ではディーラーが売り手に回る領域に入る。`;
 // 모델이 쓸 법한 «정상» 한국어 현실 인사이트(생성·번역 모의 응답)
 const KO_REALITY_GOOD = `오늘 시장을 움직인 거시 사건은 입력 뉴스에서 확인되지 않습니다. 금리 압력과 약한 시장 참여에 중립 감마가 겹쳐 충격 흡수력이 제한된 상태로 해석됩니다. 옵션 지지선 7,500 유지 여부가 다음 확인 기준입니다.`;
+// 번역 복구의 정상 원본도 현재 Tactical 계약(3문장·미확인 원인·공급된 옵션 경계)을 만족해야 한다.
+const EN_REALITY_GOOD = `Today's macro cause is unconfirmed from supplied news. Weak participation and neutral dealer gamma leave pressure absorption limited. The next conditional test is options support at 7,500.`;
 
 const ROT = { ko: ['현황', '해석', '전망'], en: ['Status', 'Interpretation', 'Outlook'], ja: ['現況', '解釈', '見通し'] } as const;
 const GAM = {
@@ -196,10 +199,12 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
     t('S1 재요청은 메모리 적중(모델 호출 0)', modelCalls.length === 0 && out === cleanInsight(KO_REALITY_GOOD));
 
+    t('번역용 en 정상 원본도 현재 Tactical 근거 검사 통과', checkTacticalOutput(EN_REALITY_GOOD, 'en', buildTacticalPrompt(ctxOf('en'), 'en')).length === 0);
+
     // S2: 두 번 다 거절 → 마지막 정상본 없음 → 다른 언어(en) 정상본 번역
     reset(MARKET);
     putStored('reality', 'ko', KO_REFUSAL, 1);
-    putStored('reality', 'en', EN_REALITY, 1);
+    putStored('reality', 'en', EN_REALITY_GOOD, 1);
     script = [KO_REFUSAL, KO_REFUSAL, KO_REALITY_GOOD];
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
     t('S2 호출 순서 = 생성·재시도·번역(en→ko)', modelCalls.join(',') === 'Guardian/REALITY_ko,Guardian/REALITY_ko/retry,Translate/reality/en->ko', modelCalls.join(','));
@@ -209,7 +214,7 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     // S3: 번역까지 영어로 옴 → 장중 대기 문구(한국어). 거절문으로 캐시를 덮지 않는다
     reset(MARKET);
     putStored('reality', 'ko', KO_REFUSAL, 1);
-    putStored('reality', 'en', EN_REALITY, 1);
+    putStored('reality', 'en', EN_REALITY_GOOD, 1);
     script = [KO_REFUSAL, KO_REFUSAL, 'Here is the translation: Broad equity weakness observed as yields rose.'];
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
     t('S3 결과 = 한국어 대기 문구(검사 통과)', IntelligenceNode.isPlaceholderInsight(out) && validateInsight(out, 'ko').ok && out.includes('준비'), out);
@@ -222,7 +227,7 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     // S4: 장외 — 생성하지 않는다. 저장본 거절문 거부 → en 정상본 번역
     reset(NIGHT);
     putStored('reality', 'ko', KO_REFUSAL, 30);
-    putStored('reality', 'en', EN_REALITY, 30);
+    putStored('reality', 'en', EN_REALITY_GOOD, 30);
     script = [KO_REALITY_GOOD];
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
     t('S4 장외: 생성 호출 없이 번역만', modelCalls.join(',') === 'Translate/reality/en->ko', modelCalls.join(','));
