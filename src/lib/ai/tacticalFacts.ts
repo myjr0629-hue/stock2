@@ -136,7 +136,6 @@ function clausesOf(text: string): string[] {
     }
     return clauses;
 }
-const UNCONFIRMED_PREDICATE = /^\s*(?:[은는이가도はがも]\s*)?(?:미확인|未確認)|^\s*(?:(?:in\s+)?(?:US\s+|Treasury\s+|10-year\s+)*(?:yields?|rates?)\s+)?(?:is|are|was|were|remains?|remained)\s+unconfirmed\b/i;
 function directionClaims(text: string): DirectionClaim[] {
     const result: DirectionClaim[] = [];
     for (const clause of clausesOf(text)) {
@@ -162,8 +161,7 @@ function directionClaims(text: string): DirectionClaim[] {
             const postfix = !!left && POSTFIX_GAP[locale].test(clause.slice(left.end, start));
             const subject = prefix ? right : left;
             const before = clause.slice(prefix ? Math.max(0, start - 24) : subject ? subject.end : 0, start), after = clause.slice(end);
-            // «금리 하락은 미확인»처럼 방향어 자체가 미확인일 때만 주장에서 뺀다. «미확인 재료»·«on unconfirmed news»처럼 다른 대상을 꾸미면 대조한다.
-            if (UNCONFIRMED_PREDICATE.test(after)) continue;
+            // 10/20 7차 관문: «미확인» 예외가 «금리 하락은 미확인 재료에 따른…»으로 우회됐다 → 예외를 없애고 fail-closed(방향어는 늘 대조, 정상 «금리 하락은 미확인» 문장은 오탐 허용).
             const negated = /\b(?:not|no)\s+(?:\w+\s+)?$/i.test(before) || /^(?:[은는이가을를のはが]?\s*)(?:아니|아닙|아닌|아님|아닐|않|ではな|していな)/.test(after);
             words.push({ direction, word: m[0], negated, bound: [...(prefix ? [right!] : []), ...(postfix ? [left!] : [])] });
             if (!subject?.key || Math.min(Math.abs(start - subject.end), Math.abs(subject.start - end)) > 48) continue;

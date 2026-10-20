@@ -124,7 +124,10 @@ test('현재 값과 반대인 뉴스 방향이 관측값을 덮을 수 없음', 
 });
 test('미확인·다른 주어 약화를 금리 방향으로 만들지 않음', () => {
     good('금리 상승과 수요 약화가 함께 보도됐습니다.');
-    good('금리 하락은 미확인입니다.');
+});
+test('관문 7차 회귀: «미확인» 문구로 반대 방향 금리 주장을 우회하지 못함', () => {
+    const up = buildTacticalFacts({ ...ctx, us10yChangeBp: 6 });
+    for (const text of ['금리 하락은 미확인 재료에 따른 반응입니다', '金利下落は未確認の材料への反応です', '금리 하락은 미확인입니다.']) bad(text, up);
 });
 test('관문 회귀: 부정된 상승·하락 6문장은 사실 부호와 무관하게 판정 불가', () => {
     for (const value of [6, -6, 0, undefined]) {
@@ -322,11 +325,12 @@ test('관문 회귀(10202231): «국채 수익률» 주어·삽입절 뒤 금리
         assert.deepEqual(checkTacticalStored(right, p), [], `${l}: ${right}`);
     }
 });
-test('관문 회귀(10202240): «미확인»이 다른 대상을 꾸미면 금리 방향을 대조, 방향어 자체가 미확인이면 제외', () => {
+test('관문 회귀(10202240·7차): «미확인»이 붙어도 금리 방향은 늘 대조', () => {
     for (const text of ['Yields fell on unconfirmed news', '금리 하락과 미확인 재료가 겹쳤습니다', '金利下落と未確認の材料が重なりました']) {
         assert.ok(match(text).includes('tactical:facts-direction:us10yChangeBp:up:down'), text);
     }
-    for (const text of ['금리 하락은 미확인입니다.', '金利下落は未確認です。', 'Falling yields are unconfirmed.', 'A fall in yields is unconfirmed.']) good(text);
+    // 7차 관문 뒤 fail-closed: 방향어 자체가 미확인이어도 사실(상승)과 반대면 거부한다(오탐 허용).
+    for (const text of ['금리 하락은 미확인입니다.', '金利下落は未確認です。', 'Falling yields are unconfirmed.', 'A fall in yields is unconfirmed.']) bad(text);
     const outputs = {
         ko: 'WIRE 보도한 국채 입찰 수요 약화 속에 금리 하락과 미확인 재료가 겹쳤습니다. 얇은 감마 방어는 충격 흡수력이 제한적입니다. 다음 확인 기준은 미확인입니다.',
         en: 'WIRE reported weak Treasury auction demand. Yields fell on unconfirmed news, and thin dealer gamma leaves limited absorption. The next test is unconfirmed.',
