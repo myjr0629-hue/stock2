@@ -110,14 +110,14 @@ async function main() {
         const c = { ...ctx('en'), marketNewsHeadlines: [datedHeadline({ title: 'CPI release at 08:30 ET', published_utc: '2026-10-20T12:30:00Z' }, 'WIRE', new Date(clock))!] };
         const text = 'WIRE 12:30 UTC reported CPI at 08:30 ET. Dealer gamma absorption is unconfirmed. The next test is CPI scheduled at 08:30 ET.';
         const reasons = checkTacticalOutput(text, 'en', buildTacticalPrompt(c, 'en'));
-        assert.ok(reasons.includes('schedule:claim-not-upcoming'), reasons.join(','));
+        assert.ok(reasons.some(r => r.startsWith('schedule:')), reasons.join(','));
         assert.ok(reasons.some(r => r.startsWith('event:unsupported:')));
     });
     await test('일정이 입력에 남아도 발표 순간부터 예정 근거 거부·미래 일정 허용', () => {
         const c = ctx('en');
         assert.deepEqual(checkTacticalOutput(stale.en, 'en', buildTacticalPrompt(c, 'en')), []);
         for (const asOf of ['2026-10-20T12:30:00Z', '2026-10-20T12:31:00Z']) {
-            assert.ok(checkTacticalOutput(stale.en, 'en', buildTacticalPrompt({ ...c, asOf }, 'en')).includes('schedule:claim-not-upcoming'));
+            assert.ok(checkTacticalOutput(stale.en, 'en', buildTacticalPrompt({ ...c, asOf }, 'en')).some(r => r.startsWith('schedule:')));
         }
     });
     await test('복구 번역: 현재 근거 없는 다른 언어 원본은 모델 호출 전 거부', async () => {
@@ -148,7 +148,7 @@ async function main() {
         reply = async opts => {
             if (String(opts.label).includes('_TRI')) throw new Error('offline tri failure');
             if (String(opts.label).includes('/retry')) {
-                assert.match(opts.userPrompt, /schedule:claim-not-upcoming/);
+                assert.match(opts.userPrompt, /schedule:/);
                 return fresh.en;
             }
             return stale.en;

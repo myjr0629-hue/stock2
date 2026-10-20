@@ -171,7 +171,7 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 function mentionedDates(text: string): string[] {
     const out: string[] = [];
     const md = (m: number, d: number) => (m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null);
-    for (const m of text.matchAll(/\b\d{4}-(\d{2})-(\d{2})\b/g)) { const v = md(+m[1], +m[2]); if (v) out.push(v); }
+    for (const m of text.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) { const v = md(+m[2], +m[3]); if (v) out.push(`${m[1]}-${v}`); }   // 연도까지 비교
     for (const m of text.matchAll(/(?<![\d.:/$])(\d{1,2})\/(\d{1,2})(?![\d/])/g)) { const v = md(+m[1], +m[2]); if (v) out.push(v); }
     for (const m of text.matchAll(/(\d{1,2})\s*(?:월|月)\s*(\d{1,2})\s*(?:일|日)/g)) { const v = md(+m[1], +m[2]); if (v) out.push(v); }
     for (const m of text.matchAll(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/gi)) { const v = md(MONTHS.indexOf(m[1].toLowerCase()) + 1, +m[2]); if (v) out.push(v); }
@@ -209,6 +209,14 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
     }
     const claim = times.length > 0 || dates.length > 0 || CLAIM_WORDS.test(text) || ((saysToday || saysTomorrow) && mentions.length > 0);
     if (!claim) return reasons;
+    // fail-closed ① 시각은 «HH:MM ET» 한 모양만(오후·PM·KST·UTC·«8시 30분» 등 다른 표기는 판정하지 않고 탈락)
+    const etTimes = [...text.matchAll(/(?<![\d.:])(\d{2}):(\d{2})\s?ET\b(?!\s*\+)/g)].length;
+    if (times.length !== etTimes || /\b(?:a\.?m|p\.?m)\b|오후|오전|午後|午前/i.test(text)) { reasons.push('schedule:time-format'); return reasons; }
+    // fail-closed ② 근거에 없는 대문자 이름(티커·지표 약어)이 있으면 판정하지 않고 탈락 («IBM earnings scheduled tomorrow»)
+    for (const tok of text.match(/(?<![A-Za-z0-9&])[A-Z][A-Z0-9]{1,5}(?![A-Za-z0-9])/g) || []) {
+        if (CLAIM_OK_TOKENS.has(tok)) continue;
+        if (!evidenceLines.some(l => new RegExp(`(?<![A-Za-z0-9])${escRe(tok)}(?![A-Za-z0-9])`).test(lineName(l) || ''))) { reasons.push(`schedule:unknown-name:${tok}`); return reasons; }
+    }
     if (!mentions.length && implicitName) mentions.push({ key: `name:${implicitName}`, is: line => lineName(line) === implicitName });
     if (!mentions.length) { reasons.push('schedule:claim-not-upcoming'); return reasons; }
     const today = etDateOf(nowMs);
@@ -216,7 +224,9 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
         const date = line.match(/^\[[^\]]*?(\d{4}-\d{2}-\d{2})/)?.[1] || '';
         const lineTime = line.match(/^\[[^\]]*?\b(\d{2}:\d{2})(?::\d{2})? ET\b/)?.[1];
         if (times.length && !times.every(t => t === lineTime)) return false;
-        if (dates.length && !dates.every(d => d === date.slice(5))) return false;
+        if (dates.length && !dates.every(d => (d.length === 10 ? d === date : d === date.slice(5)))) return false;
+        // 경계(AMC 16:00·BMO)·시각 미상 줄은 «정확한 발표 시각»이 아니다 — 시각을 붙인 주장은 정확 시각 줄만
+        if (times.length && /timing boundary|exact release time unknown|release time unknown/.test(line)) return false;
         if (saysToday && date !== today) return false;
         if (saysTomorrow && date !== nextEtDate(today)) return false;
         return true;
@@ -224,6 +234,8 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
     if (!mentions.every(m => upcoming.some(line => m.is(line) && fits(line)))) reasons.push('schedule:claim-not-upcoming');
     return reasons;
 }
+// 주장 문장에서 허용하는 대문자 표기 — 시간대·지표·지수(사건·회사 이름이 아니다)
+const CLAIM_OK_TOKENS = new Set(['ET', 'EST', 'EDT', 'GEX', 'VIX', 'RLSI', 'SPY', 'QQQ', 'DXY', 'TLT', 'NDX', 'SPX', 'AI', 'US', 'IFS', 'OI', 'IV', 'WTI', 'FINRA', 'NEWS', 'PULSE', 'SIGNUM', 'AMC', 'BMO', 'EPS']);
 // 예정 «주장» 표현(오늘·내일 같은 날짜어만으로는 주장이 아니다)
 const CLAIM_WORDS = /scheduled|upcoming|\bdue\b(?! to)|ahead of|later today|tonight|예정|앞두|앞둔|오늘 밤|予定|控え|今夜/i;
 const TODAY_WORDS = /\btoday\b|\btonight\b|오늘|금일|今日|本日|今夜/i;

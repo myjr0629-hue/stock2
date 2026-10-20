@@ -331,9 +331,9 @@ async function asyncTests() {
     }
   });
 
-  await at('관문 회귀(10/20 4차): 08:29 «08:30 실적 예정» 해석은 08:30부터 안 나가고 재생성 — 여름·겨울·경계', async () => {
+  await at('관문 회귀(10/20 4차): 08:30 실적 «예정» 근거로 만든 해석은 08:30부터 안 나가고 재생성 — 여름·겨울·경계 · 해석의 일정 언급은 생성 단계에서 탈락', async () => {
     const clock = Date.now;
-    const SCHED = JSON.stringify({ ...JSON.parse(GOOD), insight: { ko: '08:30 실적 발표 예정, 옵션 벽 반응이 관건', en: 'Earnings scheduled 08:30 ET, Call Wall test', ja: '08:30決算発表予定、オプション壁の反応が焦点' } });
+    const SCHED = GOOD;   // 해석은 일정을 말하지 않는다(fail-closed) — 그래도 «예정» 근거로 만든 해석은 그 예정 시각에 기한이 끝난다
     try {
       for (const [day, utcRelease] of [['2026-10-20', '12:30'], ['2026-12-01', '13:30']]) {
         const releaseMs = Date.parse(`${day}T${utcRelease}:00Z`);   // 08:30 ET (EDT +4 · EST +5)
@@ -342,8 +342,13 @@ async function asyncTests() {
         store.clear();
         store.set('fmp:econ-calendar', { updatedAt: new Date(now).toISOString(), events: [{ date: day, time: utcRelease, event: 'Macro release' }] });
         store.set('market:earnings-calendar:v4', { generatedAt: new Date(now).toISOString(), rows: [{ ticker: 'NVDA', date: day, hour: 'bmo', etTime: '08:30' }] });
+        // 일정을 말하는 해석은 생성 단계에서 해석만 탈락(칩 줄은 저장)
+        script.push({ text: JSON.stringify({ ...JSON.parse(GOOD), insight: { ko: '08:30 실적 발표 예정, 옵션 벽 반응이 관건', en: 'Earnings scheduled 08:30 ET, Call Wall test', ja: '08:30決算発表予定、オプション壁の反応が焦点' } }) });
+        assert.equal((await generateLines(['NVDA'])).out.NVDA, 'generated');
+        assert.equal((store.get(lineKey('NVDA')) as any).insight, undefined);
+        store.delete('wlai:lock:NVDA');
         script.push({ text: SCHED });
-        const g0 = await generateLines(['NVDA']);
+        const g0 = await generateLines(['NVDA'], { force: true });
         assert.equal(g0.out.NVDA, 'generated', JSON.stringify(g0.reasons));
         assert.match(lastPrompt, new RegExp(`\\[earnings calendar; ${day}; 08:30 ET\\] NVDA \\(estimated schedule; scheduled; not a released result\\)`));
         assert.doesNotMatch(lastPrompt, /Macro release/);

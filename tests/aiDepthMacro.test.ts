@@ -324,11 +324,11 @@ test('관문 5차 재현 4건: 감마 부호·ET 시각 오기·명칭군 밖/�
     assert.deepEqual(checkTacticalOutput('Polygon reported weak Treasury auction demand at 10:00 ET.' + tail, 'en', p), []);
     // ③ 예정 근거가 없는데 «ISM scheduled later today» · 내일 INTC 만 있는데 «오늘 밤 TSLA 실적 예정» → 탈락
     const empty = buildTacticalPrompt({ ...facts, scheduledEvents: [] }, 'en');
-    assert.ok(checkTacticalStored('A. B. ISM is scheduled later today.', empty).includes('schedule:claim-not-upcoming'));
+    assert.ok(checkTacticalStored('A. B. ISM is scheduled later today.', empty).some((r: string) => r.startsWith('schedule:')));
     const intc = buildTacticalPrompt({ ...facts, scheduledEvents: ['[earnings calendar; 2026-10-21; AMC timing boundary 16:00 ET; exact release time unknown] INTC (confirmed; scheduled; not a released result)'] }, 'ko');
     const r = checkTacticalStored('가. 나. 오늘 밤 TSLA 실적 발표 예정이 다음 확인입니다.', intc);
-    assert.ok(r.includes('schedule:claim-not-upcoming'), r.join(','));
-    assert.ok(checkTacticalStored('가. 나. 오늘 밤 INTC 실적 발표 예정이 다음 확인입니다.', intc).includes('schedule:claim-not-upcoming'));
+    assert.ok(r.some((r: string) => r.startsWith('schedule:')), r.join(','));
+    assert.ok(checkTacticalStored('가. 나. 오늘 밤 INTC 실적 발표 예정이 다음 확인입니다.', intc).some((r: string) => r.startsWith('schedule:')));
     assert.deepEqual(checkTacticalStored('가. 나. 내일 INTC 실적 발표 예정이 다음 확인입니다.', intc), []);
     // ④ 화면: 응답의 insightUntil 이 지나면 15분 캐시 안이어도 그리지 않는다
     const e = { insight: '08:30 실적 발표 예정', insightUntil: Date.parse('2026-10-20T12:30:00Z') };
@@ -342,11 +342,11 @@ test('관문 6차 재현: 어순 무관 감마 부호 · 번역된 회사명 · 
     for (const [loc, t] of [['ko', '감마가 음수라 딜러 헤지가 변동을 키우는 자리'], ['en', 'Dealer gamma is negative here, so hedging adds to swings'], ['ja', 'ガンマがマイナスでヘッジが値動きを増幅']] as const)
         assert.ok(checkDepthLine(t, loc, src).includes('insight:gamma-sign'), `${loc} ${t}`);
     const intcToday = buildTacticalPrompt({ ...facts, scheduledEvents: ['[earnings calendar; 2026-10-20; 16:00 ET] INTC (confirmed; scheduled; not a released result)'] }, 'ko');
-    assert.ok(checkTacticalStored('가. 나. 오늘 밤 테슬라 실적 발표 예정이 다음 확인입니다.', intcToday).includes('schedule:claim-not-upcoming'));
-    assert.ok(checkTacticalOutput('Polygon 10:00 ET 보도한 국채 입찰 수요 약화와 금리 압력이 연결돼 해석됩니다. 시장 참여 약화에 얇은 감마 방어가 겹쳐 충격 흡수력이 제한적입니다. 오늘 밤 테슬라 실적 발표 예정이 다음 확인 기준입니다.', 'ko', intcToday).includes('schedule:claim-not-upcoming'));
+    assert.ok(checkTacticalStored('가. 나. 오늘 밤 테슬라 실적 발표 예정이 다음 확인입니다.', intcToday).some((r: string) => r.startsWith('schedule:')));
+    assert.ok(checkTacticalOutput('Polygon 10:00 ET 보도한 국채 입찰 수요 약화와 금리 압력이 연결돼 해석됩니다. 시장 참여 약화에 얇은 감마 방어가 겹쳐 충격 흡수력이 제한적입니다. 오늘 밤 테슬라 실적 발표 예정이 다음 확인 기준입니다.', 'ko', intcToday).some((r: string) => r.startsWith('schedule:')));
     assert.deepEqual(checkTacticalStored('가. 나. 오늘 16:00 ET INTC 실적 발표 예정이 다음 확인입니다.', intcToday), []);
     const cpiPpi = buildTacticalPrompt({ ...facts, asOf: '2026-10-20T11:00:00Z', scheduledEvents: ['[economic calendar; 2026-10-20 08:30 ET] CPI (scheduled; not a released result)', '[economic calendar; 2026-10-21 08:30 ET] PPI (scheduled; not a released result)'] }, 'en');
-    assert.ok(checkTacticalStored('A. B. CPI is scheduled tomorrow at 08:30 ET.', cpiPpi).includes('schedule:claim-not-upcoming'));
+    assert.ok(checkTacticalStored('A. B. CPI is scheduled tomorrow at 08:30 ET.', cpiPpi).some((r: string) => r.startsWith('schedule:')));
     assert.deepEqual(checkTacticalStored('A. B. PPI is scheduled tomorrow at 08:30 ET.', cpiPpi), []);
     assert.deepEqual(checkTacticalStored('A. B. CPI is scheduled today at 08:30 ET.', cpiPpi), []);
     const none = buildTacticalPrompt({ ...facts, scheduledEvents: [] }, 'en');
@@ -368,13 +368,30 @@ test('관문 7차 재현: 자기 종목 카드의 다른 회사 · 미확인어 
     const ev = ['[economic calendar; 2026-10-20 08:30 ET] CPI (scheduled; not a released result)', '[economic calendar; 2026-10-21 08:30 ET] PPI (scheduled; not a released result)'];
     const early = Date.parse('2026-10-20T11:00:00Z');   // 07:00 ET
     for (const t of ['CPI is scheduled tomorrow at 08:30 ET; actuals are unknown.', 'CPI is scheduled on 2026-10-21 at 08:30 ET.', 'CPI is scheduled on 10/21 at 08:30 ET.', 'CPI and PPI are scheduled tomorrow at 08:30 ET.'])
-        for (const mode of ['strict', 'claims'] as const) assert.ok(scheduleClaimReasons(t, ev, early, mode).includes('schedule:claim-not-upcoming'), `${mode} ${t}`);
+        for (const mode of ['strict', 'claims'] as const) assert.ok(scheduleClaimReasons(t, ev, early, mode).some((r: string) => r.startsWith('schedule:')), `${mode} ${t}`);
     for (const t of ['PPI is scheduled on 2026-10-21 at 08:30 ET.', 'CPI is scheduled today at 08:30 ET and PPI tomorrow at 08:30 ET.'.split(' and ')[0] + '.', 'The next test is unconfirmed.'])
         assert.deepEqual(scheduleClaimReasons(t, ev, early, 'strict'), [], t);
     const src = buildLineUserPrompt(f);   // 양감마
     assert.deepEqual(checkDepthLine('Positive gamma buffers negative shocks', 'en', src), []);
     assert.deepEqual(checkDepthLine('양감마가 부정적 충격을 완충하는 자리', 'ko', src), []);
     assert.ok(checkDepthLine('Gamma is negative, hedging adds to swings', 'en', src).includes('insight:gamma-sign'));
+});
+
+test('관문 8차 재현: 내 종목 해석 일정·타사 금지 · 감마 노출/순 부호 · 현지어 맥스페인 · 연도 · 시각 표기 · 경계 시각', () => {
+    const src = buildLineUserPrompt(f);   // NVDA · 양감마 · Max Pain 아래
+    for (const t of ['IBM earnings scheduled tomorrow', 'Earnings scheduled tomorrow, implied move', '테슬라 소식이 Call Wall 앞에서 시험받는 자리'])
+        assert.ok(checkDepthLine(t, /[가-힣]/.test(t) ? 'ko' : 'en', src).some(r => r === 'insight:schedule' || r === 'insight:other-name'), t);
+    assert.ok(checkDepthLine('감마 노출이 음수라 변동을 증폭하는 자리', 'ko', src).includes('insight:gamma-sign'));
+    assert.ok(checkDepthLine('Gamma exposure is net negative here', 'en', src).includes('insight:gamma-sign'));
+    assert.ok(checkDepthLine('맥스페인 위라 만기 쪽 되돌림 압력 자리', 'ko', src).includes('insight:maxpain-side'));
+    assert.ok(checkDepthLine('マックスペインの上で満期へ戻り圧力がある位置', 'ja', src).includes('insight:maxpain-side'));
+    assert.deepEqual(checkDepthLine('맥스페인 아래라 만기 쪽 되돌림 압력 자리', 'ko', src), []);
+    const ev = ['[economic calendar; 2026-10-20 08:30 ET] CPI (scheduled; not a released result)', '[earnings calendar; 2026-10-21; AMC timing boundary 16:00 ET; exact release time unknown] NVDA (confirmed; scheduled; not a released result)'];
+    const early = Date.parse('2026-10-20T11:00:00Z');
+    for (const t of ['CPI is scheduled on 2025-10-20 at 08:30 ET.', 'CPI is scheduled today at 8:30 PM ET.', 'CPI is scheduled today at 08:30 KST.', 'NVDA earnings scheduled tomorrow at 16:00 ET.', 'IBM and CPI are scheduled today at 08:30 ET.'])
+        assert.ok(scheduleClaimReasons(t, ev, early, 'strict').length > 0, t);
+    for (const t of ['CPI is scheduled on 2026-10-20 at 08:30 ET.', 'NVDA earnings are scheduled tomorrow after the close.'])
+        assert.deepEqual(scheduleClaimReasons(t, ev, early, 'strict'), [], t);
 });
 
 async function main() {
