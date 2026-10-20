@@ -258,8 +258,10 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                     quotesAt: Number(pc?._ts) || null,
                     chainDate,
                 };
-                let im = atmStraddleImpliedMove(rows, n.spot, quoteOptions);
-                if (n.after && im?.basis !== 'live') {
+                let im = n.after ? null : atmStraddleImpliedMove(rows, n.spot, quoteOptions);
+                // 실적 행: 슬림 저장 midpoint 는 basis(live·eod)와 상관없이 출처(양쪽 호가 여부)를 알 수 없다(관문 10200855) —
+                //   새 값은 양쪽 마감 호가로만(strict), 그 밖엔 main 의 기존 규칙(legacy)이 내던 값만.
+                if (n.after) {
                     // 새 경로(마감 종가 분모·ATM 재선택)는 양쪽 마감 호가가 확인되는 계약만 쓴다(관문 10200755 ①, lib/impliedMove.eodQuoteRows).
                     let strict: ImpliedMove | null = null;
                     // Check the expiry's own provenance, independently of the weekly slice.

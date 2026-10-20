@@ -95,5 +95,16 @@ const read = () => at(SUNDAY, () => IMS.readImpliedMoveRows([{ ticker: 'GATE', a
   assert.equal(IM.eodQuoteRows([row('call', { last_quote: { bid: 2.2, ask: 2 } })])[0].last_quote.midpoint, null, 'crossed quote');
   assert.equal(IM.eodQuoteRows([row('call', { last_quote: { bid: 1.9, ask: 2.1 } })])[0].last_quote.midpoint, 2);
   ok('mark/mid only with both closing quotes');
+  // 관문 10200855: 장중 실시간 슬림 체인(콜 bid=0·ask=2 → 수집기 midpoint 1, 풋 3, 현물 100) · 구조 만기 목록엔 발표 뒤 만기 없음
+  //   → main=null. live basis 로 우회해 ±4.0% 를 새로 만들면 안 된다.
+  store.clear(); RC._resetEcBreakerForTest();
+  const REG = '2026-10-19T15:00:00Z';
+  store.set('structure:v2:GATE', { data: { ticker: 'GATE', options_status: 'OK', expiration: '2026-10-23', availableExpirations: ['2026-10-23'],
+    chainDate: '2026-10-16', underlyingPrice: 100, prevClose: 100, impliedMove: null, structure: { strikes: [100], callsOI: [1], putsOI: [1] } }, timestamp: ms(REG) - 60_000 });
+  const live = (type: 'call' | 'put', mid: number) => ({ details: { expiration_date: '2026-10-30', strike_price: 100, contract_type: type }, day: { close: mid }, last_quote: { midpoint: mid } });
+  store.set('polygon:snapshot:probe:GATE', { greeksSource: 'realtime', _ts: ms(REG) - 30_000, chainDate: '2026-10-16', weeklyExpiry: '2026-10-23', probeResults: [live('call', 1), live('put', 3)] });
+  [r] = await at(REG, () => IMS.readImpliedMoveRows([{ ticker: 'GATE', after: '2026-10-26', timing: 'amc' }], '2026-10-19'));
+  assert.equal(r.impliedMovePct, null, `live slim midpoint outside main's rule must not produce a value — got ${r.impliedMovePct}`);
+  ok('gate 10200855: realtime slim chain beyond the structure expiry list yields no value (main null)');
   console.log(`earningsMoveDirect: ${n}건 통과`);
 })().catch((e) => { console.error(e); process.exit(1); });
