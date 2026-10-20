@@ -248,7 +248,7 @@ test('기존 칩 유지 + 별도 3언어 인사이트, 자료 없을 때 null', 
     assert.match(WL_LINE_SYSTEM, /FINAL OUTPUT SCHEMA/);
     // 한도 넘는 해석은 첫 절만(10/20 실제 모델 ko 응답) · 첫 절도 길면 탈락
     const long = checkLineOutput(JSON.stringify({ ...chips, insight: { ko: '양감마 구간이라 딜러 헤지가 변동을 누르는 자리, 만기까지 되돌림 압력 있음', en: 'Positive gamma: dealer hedging dampens swings', ja: '正ガンマ圏でヘッジ売買が値動きを抑えやすく、満期まで続く位置' } }), f);
-    assert.deepEqual(long.insight, { ko: '양감마 구간이라 딜러 헤지가 변동을 누르는 자리', en: 'Positive gamma: dealer hedging dampens swings', ja: '正ガンマ圏でヘッジ売買が値動きを抑えやすく' }, (long.insightReasons || []).join(','));
+    assert.deepEqual(long.insight, { ko: '양감마 구간이라 딜러 헤지가 변동을 누르는 자리', en: 'Positive gamma: dealer hedging dampens swings', ja: '正ガンマ圏でヘッジ売買が値動きを抑えやすく、満期まで続く位置' }, (long.insightReasons || []).join(','));
     assert.match(WL_LINE_SYSTEM, /chip lines stay top-level strings exactly/);
     assert.match(buildLineUserPrompt(f), /FINRA.*2026-10-20/);
 });
@@ -260,7 +260,7 @@ test('카드: 인사이트의 첫 열은 기존 AI 너비 보존, 공유 버튼 
 });
 
 test('인사이트: 없는 사건·숫자·권유·제어문자·혼용·초과 길이 차단', () => {
-    for (const bad of ['연준 금리 인하로 감마 방어가 강해졌습니다', '장외 비중 99%가 감마 방어를 지지합니다', '지금 매수하세요', insight.ko + '\uFFFD', insight.ko + 'に', '가'.repeat(29)]) {
+    for (const bad of ['연준 금리 인하로 감마 방어가 강해졌습니다', '장외 비중 99%가 감마 방어를 지지합니다', '지금 매수하세요', insight.ko + '\uFFFD', insight.ko + 'に', '가'.repeat(37)]) {
         assert.ok(checkDepthLine(bad, 'ko', f.factsText).length, bad);
     }
     assert.equal(checkLineOutput(JSON.stringify({ ...chips, ko: chips.ko + '\u0000' }), f).ok, false);
