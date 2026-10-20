@@ -273,4 +273,54 @@ t("NB2 유니버스 밖·반복 결측도 직전 실제 값과 날짜 유지 · 
     assert.deepEqual(M.carryStale({ date: "2026-10-21", tickers: { WTFC: value }, stale: { BAD: value } }, {}, "2026-10-19"), {});
 });
 
+t("nightly-20261020: API·벌크 OI 결측을 보존하고 무거래 계약도 35일 결측 수에 포함", () => {
+    const apiRow = (oi, isCall = false, exp = "2026-10-23", vol = 0) => M.mapApiRow("SPY", {
+        option: { code: `SPY261023${isCall ? "C" : "P"}00100000`, type: isCall ? "call" : "put", expiration: exp, ticker: "SPY" },
+        price: { date: "2026-10-16", open_interest: oi, volume: vol },
+    });
+    for (const missing of [null, undefined, "", "  ", -1, NaN, Infinity, "abc"]) {
+        assert.equal(M.parseOi(missing), null);
+        assert.equal(apiRow(missing).oi, null);
+        for (const vol of [0, 5]) {
+            for (const isCall of [false, true]) {
+                const A = M.createAggregator({ SPY___261023P00100000: 250 }, { fileDate: "2026-10-16" });
+                [apiRow(100, true), apiRow(50), apiRow(missing, isCall, "2026-10-23", vol)].forEach(A.add);
+                const v = M.finalizeTickers(A.agg).SPY;
+                assert.equal(v.callOI35, 100); assert.equal(v.putOI35, 50);
+                assert.equal(v.callOI35Missing, isCall ? 1 : 0);
+                assert.equal(v.putOI35Missing, isCall ? 0 : 1);
+                assert.equal(v.oi35Complete, false); assert.equal(v.pcrOI35, null);
+                if (vol > 0) assert.ok(v.top.some((r) => r.oi === null && r.d === null));
+            }
+        }
+    }
+    // 벌크 빈 OPEN_INTEREST 역시 parseOi → 집계 경로에서 0으로 바뀌지 않는다.
+    const A = M.createAggregator(null, { fileDate: "2026-10-16" });
+    A.add({ ...apiRow(100, true), oi: M.parseOi("100") });
+    A.add({ ...apiRow(50), oi: M.parseOi("50") });
+    A.add({ ...apiRow(null), oi: M.parseOi("") });
+    assert.equal(M.finalizeTickers(A.agg).SPY.putOI35Missing, 1);
+});
+
+t("nightly-20261020: 정상 250 대조·실측 0·창 밖 결측은 35일 완전성을 깨지 않음", () => {
+    const base = { sym: "SPY", contract: "test", vol: 0, gamma: 0, exp: "2026-10-23" };
+    for (const extra of [250, 0]) {
+        const A = M.createAggregator(null, { fileDate: "2026-10-16" });
+        [
+            { ...base, isCall: true, oi: 100 }, { ...base, isCall: false, oi: 50 },
+            { ...base, isCall: false, oi: extra },
+            { ...base, isCall: false, oi: null, exp: "2026-12-18" },
+            { ...base, isCall: false, oi: null, exp: "2026-10-16" },
+        ].forEach(A.add);
+        const v = M.finalizeTickers(A.agg).SPY;
+        assert.equal(v.callOI35Missing, 0); assert.equal(v.putOI35Missing, 0);
+        assert.equal(v.oi35Complete, true);
+        assert.equal(v.pcrOI35, extra === 250 ? 3 : 0.5);
+    }
+    const A = M.createAggregator(null, { fileDate: "2026-10-16" });
+    A.add({ ...base, isCall: false, oi: null });
+    const v = M.finalizeTickers(A.agg).SPY;
+    assert.equal(v.putOI35Missing, 1); assert.equal(v.oi35Complete, false); assert.equal(v.pcrOI35, null);
+});
+
 console.log(`\n${n}개 통과`);

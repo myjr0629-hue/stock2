@@ -561,6 +561,69 @@ t('직전 세션: 두 세션 넘게 낡은 레코드(10/16 을 10/21 화 장중�
     assert.equal(store.has(CHAIN_OI35_KEY('SPY')), false);
 });
 
+t('nightly-20261020 높음 1: 수집기 → EOD 대체 → oi-pcr/Flow에서 결측 1건을 P/C 0.50·OPI 75로 만들지 않는다', async () => {
+    const collector = require('../scripts/intrinio-options-eod.js');
+    const saved = (extraOi: unknown) => {
+        const a = collector.createAggregator(null, { fileDate: '2026-10-16' });
+        [
+            { type: 'call', oi: 100 }, { type: 'put', oi: 50 }, { type: 'put', oi: extraOi },
+        ].forEach(({ type, oi }, i) => a.add(collector.mapApiRow('SPY', {
+            option: { code: `SPY261023${type === 'call' ? 'C' : 'P'}${String(100000 + i).padStart(8, '0')}`, type, ticker: 'SPY', expiration: '2026-10-23' },
+            price: { date: '2026-10-16', open_interest: oi, volume: 0 },
+        })));
+        return JSON.parse(JSON.stringify(collector.finalizeTickers(a.agg).SPY));
+    };
+    const realNow = Date.now; (Date as any).now = () => NOW;
+    try {
+        dynamoRow = null;
+        const route = require('../src/app/api/app/oi-pcr/route');
+        for (const extra of [null, 250, 0]) {
+            store.clear(); _resetOi35Memo();
+            const v = saved(extra);
+            store.set('intrinio:options:eod', { date: '2026-10-16', tickers: { SPY: v } });
+            const rows = [row('call', '2026-10-23', 100), row('put', '2026-10-23', 50), row('put', '2026-10-23', extra)];
+            assert.equal(sumChainOi35(rows, ['2026-10-23'], '2026-10-19').ok, extra != null);
+            const fallback = await readOi35Fallback('SPY', NOW);
+            const card = await (await route.GET(new Request('http://x/api/app/oi-pcr?t=SPY'))).json();
+            if (extra == null) {
+                assert.equal(v.putOI35Missing, 1); assert.equal(v.oi35Complete, false);
+                assert.equal(fallback, null); assert.equal(card.pcr, null);
+                assert.equal(opiFromOiPcr(fallback?.pcr), null);
+                assert.equal(opiGaugeStatus(opiFromOiPcr(card.pcr)), '—');
+            } else {
+                const pcr = extra === 250 ? 3 : 0.5;
+                assert.equal(v.oi35Complete, true); assert.equal(v.putOI35Missing, 0);
+                assert.equal(fallback!.pcr, pcr); assert.equal(card.pcr, pcr);
+                assert.equal(opiFromOiPcr(fallback!.pcr), extra === 250 ? 10 : 75);
+                assert.equal(fallback!.recordDate, '2026-10-16'); assert.equal(fallback!.oiDate, '2026-10-15');
+            }
+        }
+        // stale 경로도 같은 검사. 부분 메타데이터·불완전 표식은 우회 불가.
+        for (const meta of [
+            { callOI35Missing: 1, putOI35Missing: 0, oi35Complete: true },
+            { callOI35Missing: 0, putOI35Missing: 1 },
+            { callOI35Missing: 0, putOI35Missing: 0, oi35Complete: false },
+            { callOI35Missing: 0 }, { oi35Complete: true },
+            { callOI35Missing: null, putOI35Missing: 0 },
+        ]) {
+            store.clear(); _resetOi35Memo();
+            store.set('intrinio:options:eod', { date: '2026-10-19', tickers: {}, stale: { SPY: { date: '2026-10-16', callOI35: 100, putOI35: 50, ...meta } } });
+            assert.equal(await readOi35Fallback('SPY', NOW), null);
+        }
+        // 기존 저장본은 완전성 미상으로 채택하되, 기준일·레코드 날짜·basis 그대로.
+        for (const stale of [false, true]) {
+            store.clear(); _resetOi35Memo();
+            const old = { callOI35: 100, putOI35: 50 };
+            store.set('intrinio:options:eod', stale
+                ? { date: '2026-10-19', stale: { SPY: { ...old, date: '2026-10-16' } } }
+                : { date: '2026-10-16', tickers: { SPY: old } });
+            const v = await readOi35Fallback('SPY', NOW);
+            assert.equal(v!.pcr, 0.5); assert.equal(v!.recordDate, '2026-10-16');
+            assert.equal(v!.oiDate, '2026-10-15'); assert.equal(v!.basis, 'oi_near_expiries_35d_eod');
+        }
+    } finally { (Date as any).now = realNow; dynamoRow = null; }
+});
+
 // ━━━ Flow OPI ━━━
 t('OPI: 결측(null·"")은 null — 0.0 BEARISH 가 아니다 · 숫자 0 은 실측(95) · 식은 예전 그대로(NVDA 0.73 → 64)', () => {
     const old = (p: any) => Math.max(10, Math.min(95, Math.round(100 - p * 50)));

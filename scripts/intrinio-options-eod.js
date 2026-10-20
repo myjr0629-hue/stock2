@@ -404,30 +404,44 @@ function topOrder(x, y) {
     return x.c < y.c ? -1 : x.c > y.c ? 1 : 0;
 }
 
+/** OI 결측은 0이 아니다. API null·벌크 빈 칸을 같은 규칙으로 보존한다(strictOi와 동일). */
+function parseOi(v) {
+    if (typeof v === "number") return Number.isFinite(v) && v >= 0 ? v : null;
+    if (typeof v !== "string" || !/^\d+(\.\d+)?$/.test(v.trim())) return null;
+    const n = Number(v.trim());
+    return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function createAggregator(prevOiMap, { trackOi = true, fileDate = null } = {}) {
     const nearCut = nearExpCutoff(fileDate);
     const agg = new Map();     // ticker → 집계
     const oiOut = {};          // contract → oi (내일 증감용 — 저녁 경로는 기준선을 쓰지 않으므로 모으지 않는다)
     const stats = { kept: 0 };
     function add(r) {
-        const { sym, contract, oi, vol, isCall, gamma, strike, iv, delta, exp } = r;
-        if (oi <= 0 && vol <= 0) return;
-        stats.kept++;
-
+        const { sym, contract, vol, isCall, gamma, strike, iv, delta, exp } = r;
+        const oi = parseOi(r.oi);
+        const inNear = nearCut && exp && exp > fileDate && exp <= nearCut;
+        // 무거래 행을 버리기 전에 결측을 센다. OI 미공표·거래량 0 계약도 합계를 불완전하게 만든다.
+        if ((oi === 0 || (oi == null && !inNear)) && vol <= 0) return;
         let a = agg.get(sym);
-        if (!a) { a = { callOI: 0, putOI: 0, callVol: 0, putVol: 0, gammaOI: 0, n: 0, top: [], callOI35: 0, putOI35: 0 }; agg.set(sym, a); }
+        if (!a) { a = { callOI: 0, putOI: 0, callVol: 0, putVol: 0, gammaOI: 0, n: 0, top: [], callOI35: 0, putOI35: 0, callOI35Missing: 0, putOI35Missing: 0, nearTracked: !!nearCut }; agg.set(sym, a); }
+        if (inNear) {
+            if (oi == null) { if (isCall) a.callOI35Missing++; else a.putOI35Missing++; }
+            else if (isCall) a.callOI35 += oi; else a.putOI35 += oi;
+        }
+        if (oi == null && vol <= 0) return;
+        stats.kept++;
         a.n++;
-        if (isCall) { a.callOI += oi; a.callVol += vol; } else { a.putOI += oi; a.putVol += vol; }
+        if (isCall) { if (oi != null) a.callOI += oi; a.callVol += vol; } else { if (oi != null) a.putOI += oi; a.putVol += vol; }
         // [D16] 가까운 만기(파일 날짜 < 만기 ≤ +35일) 합계 — 앱 «OI · 35일 전 만기» 칸과 같은 범위. 날짜를 모르면 세지 않는다.
-        if (nearCut && exp && exp > fileDate && exp <= nearCut) { if (isCall) a.callOI35 += oi; else a.putOI35 += oi; }
         // 딜러 감마 노출의 재료 — 콜은 +, 풋은 − (현물가는 소비처에서 곱한다)
-        a.gammaOI += gamma * oi * (isCall ? 1 : -1);
+        if (oi != null) a.gammaOI += gamma * oi * (isCall ? 1 : -1);
 
-        if (trackOi && oi >= MIN_OI_TRACK) oiOut[contract] = oi;
+        if (trackOi && oi != null && oi >= MIN_OI_TRACK) oiOut[contract] = oi;
 
         // 「주목할 계약」 — 미결제약정 증감이 있으면 그걸 우선, 없으면 거래량
         const before = prevOiMap ? prevOiMap[contract] : undefined;
-        const oiChg = before === undefined ? null : oi - before;
+        const oiChg = oi == null || before === undefined ? null : oi - before;
         const score = oiChg != null ? Math.abs(oiChg) * 2 + vol : vol;
         if (score > 0) {
             a.top.push({ c: contract, k: strike, e: exp, t: isCall ? "C" : "P", v: vol, oi, d: oiChg, iv, dl: delta, s: score });
@@ -452,7 +466,13 @@ function finalizeTickers(agg) {
             pcrVol: a.callVol > 0 ? Math.round((a.putVol / a.callVol) * 1000) / 1000 : null,
             gammaOI: Math.round(a.gammaOI),
             // [D16] 가까운 만기(35일) 미결제약정 — 집계기에 파일 날짜를 준 경우만(없으면 필드 없음 = 소비처 결측)
-            ...(a.callOI35 + a.putOI35 > 0 ? { callOI35: a.callOI35, putOI35: a.putOI35, pcrOI35: a.callOI35 > 0 ? Math.round((a.putOI35 / a.callOI35) * 1000) / 1000 : null } : {}),
+            ...(a.nearTracked ? {
+                callOI35: a.callOI35, putOI35: a.putOI35,
+                callOI35Missing: a.callOI35Missing, putOI35Missing: a.putOI35Missing,
+                oi35Complete: a.callOI35Missing === 0 && a.putOI35Missing === 0,
+                pcrOI35: a.callOI35Missing === 0 && a.putOI35Missing === 0 && a.callOI35 > 0 && a.putOI35 > 0
+                    ? Math.round((a.putOI35 / a.callOI35) * 1000) / 1000 : null,
+            } : {}),
             contracts: a.n,
             top: a.top.slice(0, TOP_PER_TICKER).map(({ s, ...r }) => r),
         };
@@ -513,7 +533,7 @@ function mapApiRow(sym, row) {
     const type = String(o.type || "").toLowerCase();
     return {
         sym, contract, date: p.date,
-        oi: num(p.open_interest), vol: num(p.volume),
+        oi: parseOi(p.open_interest), vol: num(p.volume),
         isCall: type === "call",
         gamma: r5(p.gamma), strike: r3(o.strike), iv: r5(p.implied_volatility), delta: r5(p.delta),
         exp: String(o.expiration || ""),
@@ -707,7 +727,7 @@ async function runBulk() {
         A.add({
             sym,
             contract: f[headerIdx.CONTRACT],
-            oi: num(f[headerIdx.OPEN_INTEREST]),
+            oi: parseOi(f[headerIdx.OPEN_INTEREST]),
             vol: num(f[headerIdx.VOLUME]),
             isCall: type === "call",
             gamma: num(f[headerIdx.GAMMA]),
@@ -970,7 +990,7 @@ if (require.main === module) {
 module.exports = {
     // 시험용 순수 함수
     US_HOLIDAYS, isNonTrading, prevTradingDay, etParts, lastClosedSession, apiSessionFor,
-    topOrder, createAggregator, finalizeTickers, flowPoint, bulkContractCode, mapApiRow, apiReadiness, compareTickers,
+    topOrder, createAggregator, finalizeTickers, flowPoint, bulkContractCode, mapApiRow, parseOi, apiReadiness, compareTickers,
     API_READY_COVERAGE, API_MUST_HAVE, TOP_PER_TICKER, MIN_OI_TRACK,
     PINNED_UNIVERSE, buildUniverse, carryStale, nearExpCutoff, NEAR_EXP_DAYS,
 };

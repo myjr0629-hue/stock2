@@ -1,0 +1,43 @@
+/* 대가 렌즈 랭킹 — 실적 캘린더(earnings.module.css)와 같은 머리·카드 문법을 따른다 */
+.wrap{padding-bottom:186px;background:#070c17}
+.nav{display:flex;align-items:center;gap:8px;padding:6px 16px 10px}
+.back{width:26px;height:26px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;min-height:0;padding:0;
+  background:rgba(167,139,250,.10);box-shadow:inset 0 0 0 1px rgba(167,139,250,.32);border:0;cursor:pointer}
+.back svg{width:13px;height:13px;stroke:#c4b5fd;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.head{padding:0 16px 10px}
+.title{font-size:19px;font-weight:800;letter-spacing:-.03em;color:#f0f6fb}
+.sub{font-size:10px;color:#94a8c6;margin-top:3px;line-height:1.5}
+.skel{margin:0 16px 9px;height:74px;border-radius:14px;background:rgba(255,255,255,.04)}
+.empty{margin:18px 16px;font-size:12px;color:#94a8c6}
+
+.card{margin:0 16px 9px;border-radius:14px;background:linear-gradient(158deg,#141f33 0%,#0c1524 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);overflow:hidden;scroll-margin-top:12px}
+.open{box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 0 0 1px rgba(167,139,250,.28)}
+.cardHead{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;
+  padding:11px 34px 11px 12px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;min-height:0;
+  -webkit-tap-highlight-color:transparent}
+.cardHead:focus-visible{outline:2px solid #a78bfa;outline-offset:-2px}
+.guru{font-size:15px;font-weight:800;letter-spacing:-.02em;color:#f0f6fb}
+.lensName{font-size:10.5px;font-weight:600;color:#a9bcd6}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:3px;font-size:10px;color:#94a8c6}
+.meta b{font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 8px}
+.pass{color:#c4b5fd;background:rgba(167,139,250,.14)}
+.near{color:#a9bcd6;background:rgba(255,255,255,.06)}
+.peek{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:5px}
+.peekT{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#d6e2f2}
+.caret{position:absolute;right:13px;top:12px;font-size:12px;color:#a9bcd6}
+
+.body{padding:0 10px 10px}
+.row{display:flex;flex-direction:column;gap:4px;padding:9px 4px;border-top:1px solid rgba(255,255,255,.06);
+  cursor:pointer;color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.row:focus-visible{outline:2px solid #a78bfa;outline-offset:-2px;border-radius:8px}
+.rowTop{display:flex;align-items:center;gap:7px;min-width:0}
+.rank{flex:0 0 16px;font-size:10px;font-weight:800;color:#a78bfa;text-align:center}
+.tk{font-size:13px;font-weight:800;color:#f0f6fb}
+.nm{flex:1;min-width:0;font-size:10.5px;color:#94a8c6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.go{margin-left:auto;color:#6b7f9e;font-size:14px}
+.why{padding-left:23px;font:500 11px/1.5 var(--f-sans);color:#c2d2e8;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.badges{display:flex;flex-wrap:wrap;gap:4px;padding-left:23px}
+.badge{font-size:9.5px;font-weight:700;color:#d6e2f2;background:rgba(255,255,255,.06);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);border-radius:6px;padding:2px 6px;white-space:nowrap}
+.note{margin:8px 4px 0;font-size:9.5px;color:#a78bfa}
