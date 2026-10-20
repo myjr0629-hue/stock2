@@ -13,13 +13,31 @@ export const dynamic = 'force-dynamic';
 // snapshot per warm instance and re-read only the small head pointer on each request,
 // so the ticker chip does not pull all 10 lens lists (≈7MB) from the store per page view.
 let memo: { head: string; snapshot: Snapshot } | null = null;
+let unavailable: { until: number; failed: boolean } | null = null;
+let pending: Promise<Snapshot | null> | null = null;
 async function publishedSnapshot() {
-    const head = await readonlyCache.read<Head>(HEAD_KEY);
-    const key = JSON.stringify(head ?? null);
-    if (memo && memo.head === key) return memo.snapshot;
-    const snapshot = await readSnapshot(readonlyCache, head);
-    memo = snapshot ? { head: key, snapshot } : null;
-    return snapshot;
+    if (unavailable && Date.now() < unavailable.until) {
+        if (unavailable.failed) throw new Error('snapshot_read_failed');
+        return null;
+    }
+    // Share a cold read across simultaneous ticker/list requests in this warm instance.
+    if (pending) return pending;
+    pending = (async () => {
+        try {
+            const head = await readonlyCache.read<Head>(HEAD_KEY);
+            const key = JSON.stringify(head ?? null);
+            if (memo && memo.head === key) return memo.snapshot;
+            const snapshot = await readSnapshot(readonlyCache, head);
+            memo = snapshot ? { head: key, snapshot } : null;
+            unavailable = snapshot ? null : { until: Date.now() + 60_000, failed: false };
+            return snapshot;
+        } catch (error) {
+            unavailable = { until: Date.now() + 60_000, failed: true };
+            throw error;
+        }
+    })();
+    try { return await pending; }
+    finally { pending = null; }
 }
 /** Rows whose verdict is known: a pass, or a fail computed from complete raw inputs.
  * Legacy generations without the provenance flag return null (no denominator is claimed). */
@@ -51,7 +69,7 @@ export async function GET(req: NextRequest) {
         if (!snapshot)
             return NextResponse.json(
                 { available: false, reason: 'no_published_snapshot' },
-                { status: 503, headers: { 'Cache-Control': 'no-store' } },
+                { status: 503, headers: { 'Cache-Control': 'public, s-maxage=60' } },
             );
         const selected = selectSnapshot(snapshot, lens && isLensId(lens) ? lens : undefined, ticker);
         // Reverse lookup is computed over ALL evaluated rows before applying list pagination.
@@ -100,7 +118,7 @@ export async function GET(req: NextRequest) {
     } catch {
         return NextResponse.json(
             { available: false, reason: 'read_failed' },
-            { status: 503, headers: { 'Cache-Control': 'no-store' } },
+            { status: 503, headers: { 'Cache-Control': 'public, s-maxage=60' } },
         );
     }
 }

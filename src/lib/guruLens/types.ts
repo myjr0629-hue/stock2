@@ -96,6 +96,9 @@ export interface Snapshot {
     asOf: string;
     financialYear: number;
     universeCount: number;
+    /** Absent on legacy publications, whose rows cover the entire universe. */
+    includedCount?: number;
+    excluded?: Array<{ ticker: string; reasons: Array<{ code: string; detail: string }> }>;
     companies: Record<string, { cik: number; reportedCik: number; priceDate: string }>;
     lenses: Record<LensId, LensResult>;
     calls: { sec: number; prices: number; paid: number };
