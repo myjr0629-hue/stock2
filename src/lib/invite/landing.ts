@@ -259,12 +259,12 @@ export interface LandingCta {
 export function landingCta(
   kind: ShareKind,
   lang: InviteLang,
-  opts: { ref?: string | null; gift?: { live: false } | { live: true; code: string } | null } = {},
+  opts: { ref?: string | null; gift?: { live: false } | { live: true; code: string } | null; giftToken?: string | null } = {},
 ): LandingCta {
   const code = opts.gift && opts.gift.live ? opts.gift.code : null;
   const c = LC[lang];
   return {
-    href: inviteAppHref(kind, { lang, ref: opts.ref ?? null, code }),
+    href: inviteAppHref(kind, { lang, ref: opts.ref ?? null, code, giftToken: opts.giftToken }),
     label: c.cta,
     sub: c.ctaSub,
     ...(code ? { codeLine: c.codeLine } : {}),

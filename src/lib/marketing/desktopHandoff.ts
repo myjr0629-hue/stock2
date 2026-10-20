@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
 import { COPY, type PreviewLang } from './linkPreview';
 import { couponSubline } from './couponHtml';
+import { audienceLine } from './coupon';
 
 /**
  * 데스크톱 → 폰 «넘겨주기» 페이지.
@@ -216,20 +217,26 @@ export async function desktopRedeemHtml(opts: {
   coupon?: boolean;
   /** 안드로이드 개인 쿠폰(COUPON_ANDROID=1)이 켜져 있으면 안드로이드 안내를 «나만의 30일 무료 쿠폰 번호»로. 기본 false = 예전 문구. */
   androidCoupon?: boolean;
+  /** 선물 토큰은 QR·iPad 쿠폰 화면에 전달하며 스토어 코드는 배정하지 않는다. */
+  gift?: string;
+  /** 선물 전용: 검증된 초대자 ref — QR 로 폰에서 열어도 첫 실행 추천 보상이 같은 초대자에게 이어지게 QR 주소에 싣는다. */
+  giftRef?: string | null;
 }): Promise<string> {
   const { fromTag, code, lang, redeemUrl, coupon = false, androidCoupon = false } = opts;
   const t = RT[lang];
-  const scan = redeemScanUrl(fromTag, code);
+  const giftRefQuery = opts.gift && opts.giftRef ? `&ref=${encodeURIComponent(opts.giftRef)}` : '';
+  const scan = opts.gift ? `${SITE}/app?from=${encodeURIComponent(fromTag || 'gift')}&l=${lang}&gift=${encodeURIComponent(opts.gift)}${giftRefQuery}&via=qr` : redeemScanUrl(fromTag, code);
+  const ipadUrl = opts.gift ? `${redeemUrl}&gift_os=ios` : redeemUrl;
   const svg = await QRCode.toString(scan, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b1220', light: '#ffffff' } });
   const fallback = APPLE_ONE_TIME_CODE_RE.test(code)
     ? `<p class="help">${esc(t.oneTime)}</p>`
-    : `<p class="help">${esc(t.customOpen)}</p><span class="url">${esc(`signumhq.com/app?code=${code}`)}</span><p class="help">${esc(t.customNote)}</p>`;
+    : `<p class="help">${esc(t.customOpen)}</p><span class="url">${esc(opts.gift ? scan : `signumhq.com/app?code=${code}`)}</span><p class="help">${esc(t.customNote)}</p>`;
 
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
 <title>${esc(coupon ? `${t.couponH1} · ${t.couponFree}` : t.h1 + t.renew)}</title>
-<script>if(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent))location.replace(${JSON.stringify(redeemUrl)})</script>
+<script>if(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent))location.replace(${JSON.stringify(ipadUrl)})</script>
 <style>
 :root{--ink:#0b1220;--sub:#51607a;--line:#e3e8f0;--bg:#f5f7fb;--card:#ffffff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Hiragino Sans",sans-serif}
@@ -255,7 +262,7 @@ html[lang=ko] body{word-break:keep-all;overflow-wrap:anywhere}
 </style></head><body><main>
 <section>${coupon
     ? `<h1>${esc(t.couponH1)}</h1>
-<p class="cpn">${esc(couponSubline('ios', lang, fromTag, code))}</p>
+<p class="cpn">${esc(opts.gift ? audienceLine('gift', '', lang) || '' : couponSubline('ios', lang, fromTag, code))}</p>
 <p class="free">${esc(t.couponFree)}</p>`
     : `<h1>${esc(t.h1)}<span class="renew">${esc(t.renew)}</span></h1>`}
 <p class="sub">${esc(coupon ? t.couponLead : t.lead)}</p>

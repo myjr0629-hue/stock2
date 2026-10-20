@@ -14,8 +14,13 @@ const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true
 const expressions: Record<string, string> = {};
 const helpers: string[] = [];
 let sectorUpdater = '';
+let sectorInitial = '';
 let sectorReady = '';
 function visit(node: ts.Node) {
+  if (ts.isVariableDeclaration(node) && ts.isArrayBindingPattern(node.name)
+      && node.name.elements[0]?.getText(ast) === 'sectors' && node.initializer && ts.isCallExpression(node.initializer)) {
+    sectorInitial = node.initializer.arguments[0].getText(ast);
+  }
   if (ts.isFunctionDeclaration(node) && node.name
       && ['hasUsableQuote', 'stableChangePct', 'sessionQuote'].includes(node.name.text)) {
     helpers.push(node.getText(ast));
@@ -41,7 +46,8 @@ function evaluate<T>(code: string, context: Record<string, unknown>): T {
   return vm.runInNewContext(ts.transpile(code, { target: ts.ScriptTarget.ES2022 }), context);
 }
 function dashboard() {
-  let sectors = evaluate<Sector[]>(`(${expressions.DEMO_SECTORS})`, {});
+  // 현재 대시보드는 데모 시드를 제거하고 빈 목록에서 시작한다.
+  let sectors = evaluate<Sector[]>(`(${sectorInitial})`, {});
   let sectorsReady = false;
   return {
     receive(q: Record<string, unknown>, quotesSession = 'closed') {
@@ -71,7 +77,8 @@ const symbols = ['XLK', 'XLE', 'XLY', 'XLB', 'XLI', 'XLF', 'XLV', 'XLU'];
 const quotes = (quote: Record<string, unknown>) => Object.fromEntries(symbols.map(symbol => [symbol, { ...quote }]));
 const neutral = { riskScore: 50, rounded: 50, tone: 'mixed', verdict: 'mix' };
 
-test('sector seeds contribute zero before the first response', () => {
+test('첫 응답 전 데모 섹터 값이 없고 리스크는 중립이다', () => {
+  assert.deepEqual(dashboard().displayPcts(), []);
   assert.deepEqual(dashboard().score(), neutral);
 });
 
@@ -108,7 +115,7 @@ test('real zero changes count as nonnegative as before, without using nonzero di
   page.receive(quotes({ price: 100, previousClose: 100, changePercent: 0 }));
   assert.equal(page.score().riskScore, 50); // D30: sectors no longer move the risk score
   // Existing sector tile display policy is outside this score repair.
-  assert.deepEqual(page.displayPcts(), [2.1, 1.2, 0.9, 0.6, 0.4, 0.3, -0.5, -0.8]);
+  assert.deepEqual(page.displayPcts(), Array(8).fill(null), '데모 시드 대신 기존 결측 표시');
 });
 
 test('a later all-error response contributes zero even if display retains previously measured values', () => {

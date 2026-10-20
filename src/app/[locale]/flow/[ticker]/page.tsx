@@ -24,6 +24,7 @@ import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { isFlowTicker as isTicker } from '@/lib/seo/flowTicker';
 import { CONCEPT_SLUGS, CONCEPTS } from '@/lib/seo/concepts';
 import { ShareLanding } from '@/components/share/ShareLanding';
+import { giftEnabled, giftToken, withGift } from '@/lib/giftShare/config';
 import { closeLabelOr, monthDay, weekdayName } from '@/lib/marketSession';
 import { peekStructureLevelsDetailed } from '@/services/structureService';
 import { displayLevels } from '@/lib/optionLevelGate';
@@ -747,12 +748,13 @@ export default async function FlowTickerPage(
   // mkt:attr:hit:share 가 센다. 일반 방문자의 HTML·태그(seo_uc/sg/wim)는 한 글자도 안 바뀐다.
   // (이 경로는 [locale] 레이아웃 때문에 원래 매 요청 동적 렌더라 쿼리를 읽어도 캐시 성격이 같다)
   const sp = await searchParams;
+  const gift = giftEnabled() ? giftToken(Array.isArray(sp.gift) ? sp.gift[0] : sp.gift) : null;
   const shareVia = sp?.from === 'share' ? (typeof sp.via === 'string' ? sp.via : 'na') : null;
   const ctaTag = (seo: string) => (shareVia ? `share&l=${locale}` : seo);
 
   return (
     <main style={S.wrap}>
-      {shareVia && <ShareLanding app="signum" surface="ticker" locale={locale} via={shareVia} variant="card" />}
+      {shareVia && <ShareLanding app="signum" surface="ticker" locale={locale} via={shareVia} variant="card" giftToken={gift} />}
       {jsonLd.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
 
       <div style={S.kicker}>Undercurrent · {l.kicker}</div>
@@ -811,7 +813,7 @@ export default async function FlowTickerPage(
       <section style={{ margin: '28px 0', padding: '16px 18px', background: '#FAF8F3', border: '1px solid #E7E3DA', borderRadius: 14 }}>
         <div style={{ fontSize: 16, fontWeight: 900, textAlign: 'center', marginBottom: 10 }}>{l.ctaT}</div>
         <a href={`https://www.signumhq.com/app-uc?from=${ctaTag('seo_uc')}`} style={S.cta} rel="noopener">{l.ctaUc} →</a>
-        <a href={`https://www.signumhq.com/app?from=${ctaTag('seo_sg')}`} style={S.cta2} rel="noopener">{l.ctaSg.replace('{t}', ticker)} →</a>
+        <a href={withGift(`https://www.signumhq.com/app?from=${ctaTag('seo_sg')}`, gift)} style={S.cta2} rel="noopener">{l.ctaSg.replace('{t}', ticker)} →</a>
         {/* WIM — 2026-08-18 실측: /app-wim 링크가 사이트 «전체»에 0회였다. 즉 WIM 은
             웹에서 설치될 경로가 아예 없었다. 티커 페이지는 「왜 움직였나」가 주제라
             Why'd It Move? 와 정확히 겹치므로 여기가 가장 자연스러운 자리다. */}

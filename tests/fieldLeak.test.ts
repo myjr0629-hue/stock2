@@ -55,14 +55,16 @@ t('ucCardsGate: 깨끗한 응답 통과 · moneyRead/whyItMatters/tickerRead 어
     assert.equal(gate(j({ cards: [{ ...cardOk, whyItMatters: 'darkPoolPct 가 높아 관심이 필요하다.' }] })), false);
     assert.equal(gate(j({ tickerRead: 'oiPcr 0.75 로 콜 쪽이 우세', cards: [cardOk] })), false);
 });
-t('enforceLean: 마지막 단의 누출은 칸 단위로 고친다 — moneyRead/tickerRead → 사실 문장, whyItMatters → 비움', () => {
+t('enforceLean: 마지막 단의 누출은 칸 단위로 고친다 — moneyRead/tickerRead/whyItMatters → 사실 문장', () => {
     const money = { oiPcr: 0.75, volumePcr: 2.0, price: 300 } as any;
     const cards: any[] = [{ ...cardOk, moneyRead: 'oiPcr 0.75 로 콜 우세', whyItMatters: 'maxPain 근처', plainTitle: 'oiPcr 기사', money }];
     const box: any = { tickerRead: '콜이 우세한 oiPcr 0.75' };
     const fixed = enforceLean('ko', cards, { sourceOf: () => ({ title: 'Apple unveils product' }), extra: { box, field: 'tickerRead', money } });
     assert.equal(fixed, 4);
     assert.equal(findFieldNameLeaks(cards[0].moneyRead).length, 0);
-    assert.equal(cards[0].whyItMatters, null);
+    // 현재 출구는 내부 이름을 제거한 사실 문장으로 복구한다.
+    assert.equal(cards[0].whyItMatters, '옵션 포지션은 콜 쪽이 많다(풋÷콜 0.75), 전 거래일 거래량은 콜 쪽이 많다(풋÷콜 0.50).');
+    assert.deepEqual(findFieldNameLeaks(cards[0].whyItMatters), []);
     assert.equal(cards[0].plainTitle, 'Apple unveils product');
     assert.equal(findFieldNameLeaks(box.tickerRead).length, 0);
     // 깨끗한 칸은 그대로

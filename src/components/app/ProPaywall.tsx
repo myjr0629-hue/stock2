@@ -253,7 +253,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
   const t = SHOWN[loc];
 
-  const { isPro, ready, offers, purchase, restore, refreshOffers } = useProStatus();
+  const { isPro, ready, offers, purchase, purchasePending, restore, refreshOffers } = useProStatus();
   // 퍼널: 연 화면 — 열릴 때 한 번 «open», 구매 버튼에 «cta», 결과는 useProStatus 가 이 출처로 센다
   const funnelSrc: FunnelSrc = src ?? (previewPrice ? 'preview' : lead === 'ads' ? 'other' : 'wl_paywall');
   useEffect(() => {
@@ -278,7 +278,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
   useEffect(() => { if (isPro) onClose(); }, [isPro, onClose]);
 
   const handleSubscribe = useCallback(async () => {
-    if (busy || !monthly) return;
+    if (busy || purchasePending || !monthly) return;
     void funnel().then((m) => m.trackFunnel('cta', { src: funnelSrc })).catch(() => {});
     setBusy(true);
     setNote(null);
@@ -287,7 +287,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
     if (res.ok && res.isPro) return; // 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) setNote(t.failed);
-  }, [busy, monthly, purchase, t, funnelSrc]);
+  }, [busy, purchasePending, monthly, purchase, t, funnelSrc]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
@@ -391,9 +391,9 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
           type="button"
           className={s.cta}
           onClick={handleSubscribe}
-          disabled={busy || (!monthly && !previewPrice)}
+          disabled={busy || purchasePending || (!monthly && !previewPrice)}
         >
-          {busy ? t.ctaBusy : head.cta}
+          {busy || purchasePending ? t.ctaBusy : head.cta}
         </button>
 
         {note && <p className={s.note} role="status">{note}</p>}

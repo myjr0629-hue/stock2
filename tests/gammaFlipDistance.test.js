@@ -257,8 +257,10 @@ test('web/mobile dashboard and FlowRadar proximity decisions use unrounded spot 
     assert.equal(run(`const ${dex}; dexScore`, { useMemo: fn => fn(), liveGammaFlip: 100, displayPrice: 105.10 }), -5);
 });
 
-// IVSkewCurve의 플립 보조 함수는 현재 UI에 없다. IV 스큐 동작은 ivSkew 시험에서 검증한다.
-test('Guardian web/mobile detail agree on spot denominator', () => {
+test('Guardian 웹·모바일의 거리 기준 일치, 개편된 IV 스큐는 감마 근접 판정 없음', () => {
+    // IV 스큐 개편 후 제거된 감마 근접 함수를 찾던 검사를 현재 렌더 계약으로 맞춘다.
+    const skew = fs.readFileSync(path.join(root, 'src/components/IVSkewCurve.tsx'), 'utf8');
+    assert.doesNotMatch(skew, /getGammaFlipSub|L\.gammaFlipSub(?:Close|Above|Below)/);
     for (const file of ['src/components/guardian/GammaShield.tsx', 'src/components/guardian/mobile/MobileGammaShield.tsx']) {
         const detail = extract(file, n => ts.isJsxExpression(n)
             && n.expression?.getText().endsWith('.toFixed(1)')

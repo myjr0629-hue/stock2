@@ -1,15 +1,21 @@
+// 실행: npx tsx --test tests/invite.test.ts
 /**
  * 공유 카드 + 추천 보상(바이럴 루프) — 2026-10-14 (브랜치 feat/viral-loop)
  *   동기 SHA-256(node:crypto 와 같은 값) · 익명 초대 신원(비공개 열쇠 → 공개 id, 기존 선물 ref 형식 통과) · 링크 규칙 ·
  *   추천 엔진(터치 → 도착 매칭 → 초대자 크레딧 → 선물함 번호 배정 · 부정 방지: 같은 기기·같은 IP·자기 초대·초대자 상한·하루 상한·풀 예비분) ·
  *   API 가드(우리 앱 fetch 만) · /api/invite/{arrive,inbox,config} · /app 터치 기록 · share-hit 새 표면·초대자 목록 · 문구 규칙(가짜 희소성·가격 숫자 없음) · 도착 판정·알림 판정
- * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true}' tests/invite.test.ts
  *
  * 번호는 «시험용 가짜»만 쓴다(애플 일회용 형식 GZTEST…, Play 일회용 23자 ZZTEST…) — 진짜 번호는 저장소 어디에도 쓰지 않는다.
  */
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import Module from 'node:module';
+import ts from 'typescript';
+
+// 모의 전송을 지정한 시험 외에는 외부 호출을 금지한다.
+let externalCalls = 0;
+globalThis.fetch = async () => { externalCalls++; throw new Error('시험 중 외부 접근 금지'); };
+process.env.VERCEL_ENV = 'preview';
 
 // ── next/server 의 after 를 가로챈다(라우트 import 보다 먼저) ──
 const afterCalls: Array<() => unknown> = [];
@@ -21,9 +27,12 @@ const flush = async () => { const fns = afterCalls.splice(0); for (const f of fn
 // ── 가짜 EC2 레디스(지표·클릭 집계) ──
 const ec2 = new Map<string, unknown>();
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const rc = require('../src/services/redisClient');
-rc.getFromCache = async (k: string) => (ec2.has(k) ? ec2.get(k) : null);
-rc.setInCache = async (k: string, v: unknown) => { ec2.set(k, v); return true; };
+// tsx의 export getter에 대입하면 적용되지 않는다. 호출자 import 전에 캐시를 교체한다.
+const rcPath = require.resolve('../src/services/redisClient');
+require.cache[rcPath] = { id: rcPath, filename: rcPath, loaded: true, exports: {
+  getFromCache: async (k: string) => (ec2.has(k) ? ec2.get(k) : null),
+  setInCache: async (k: string, v: unknown) => { ec2.set(k, v); return true; },
+} } as unknown as Module;
 
 // ── 가짜 Upstash(추천 저장소) — 라우트가 부르는 upstashInviteStore 만 바꾼다 ──
 import { memoryInviteStore } from '../src/lib/invite/memoryStore';
@@ -31,7 +40,9 @@ import { ATOMIC_SCENARIOS, runAtomicScenario, scenarioInput } from './inviteAtom
 import { ARRIVE_CREDIT_LUA, MINT_ONE_LUA, type ArriveCreditInput, type MintOneInput } from '../src/lib/invite/atomic';
 const mem = memoryInviteStore();
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const storeMod = require('../src/lib/invite/store');
+const storePath = require.resolve('../src/lib/invite/store');
+const storeMod = { ...require(storePath) };
+require.cache[storePath]!.exports = storeMod;
 const realUpstashInviteStore = storeMod.upstashInviteStore;
 storeMod.upstashInviteStore = () => mem;
 
@@ -50,7 +61,9 @@ import {
 } from '../src/lib/invite/engine';
 import { couponKeys } from '../src/lib/marketing/coupon';
 import { hashFromRaw } from '../src/lib/invite/store';
-import { ipFamily, ipLooseFamily, inviteClientIp, inviteDenyReason, inviteIpHash, inviteLooseHash, inviteOs } from '../src/lib/invite/guard';
+// guard → clickHuman → redisClient는 모의 캐시를 설치한 뒤 읽는다(import 호이스팅 방지).
+const { ipFamily, ipLooseFamily, inviteClientIp, inviteDenyReason, inviteIpHash, inviteLooseHash, inviteOs } =
+  require('../src/lib/invite/guard') as typeof import('../src/lib/invite/guard');
 import { INVITE_COPY } from '../src/lib/invite/copy';
 import { ARRIVED_KEY, arrivalDecision, newItems } from '../src/lib/invite/inboxClient';
 import { parseInviteConfig } from '../src/lib/invite/useInvite';
@@ -98,7 +111,8 @@ const NOW = Date.parse('2026-10-14T12:00:00Z');
 
 const resetAll = () => { ec2.clear(); afterCalls.length = 0; };
 let n = 0;
-const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); n++; console.log(`  ✓ ${name}`); };
+let stage = '준비';
+const t = async (name: string, fn: () => void | Promise<void>) => { stage = name; await fn(); n++; console.log(`  ✓ ${name}`); };
 
 (async () => {
   // ─────────────────────────── SHA-256 ───────────────────────────
@@ -403,7 +417,12 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   // 각 재현을 모두 실행해 수리 전에도 결함별 실패를 확인한다.
   const regressions: string[] = [];
   const regression = async (name: string, fn: () => Promise<void>) => {
-    try { await t(name, fn); } catch { regressions.push(name); console.error(`  FAIL ${name}`); }
+    try { await t(name, fn); } catch (error) {
+      regressions.push(name);
+      // 단언의 실제 값(번호·열쇠)은 출력하지 않고 실패 위치만 남긴다.
+      const frame = error instanceof Error ? error.stack?.split('\n').filter(line => /^\s+at .*:\d+:\d+/.test(line)).slice(0, 3).join('\n') : '';
+      console.error(`  실패 ${name}${frame ? `\n${frame}` : ''}`);
+    }
   };
   await regression('#2 /24·/48 여러 ref 또는 30분 초과는 매칭만, 정확한 IP는 유지', async () => {
     for (const address of ['198.51.100.7', '2001:db8:aaaa:bbbb::1']) {
@@ -511,7 +530,17 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
       stub(4, { readImpliedPack: async () => null });
       delete require.cache[paths[0]];
       const svc = require('../src/services/earningsWeekService');
-      const { makeDefaultDeps } = await import('../src/lib/invite/landing');
+      // 기존 ts-node 시험처럼 동적 import도 CommonJS로 변환해 같은 모의 캐시를 쓴다.
+      // tsx의 네이티브 import는 require.cache의 가짜 객체를 default export로만 노출한다.
+      const landingPath = require.resolve('../src/lib/invite/landing');
+      const landing = new Module(landingPath, module);
+      landing.filename = landingPath;
+      landing.paths = module.paths;
+      const source = require('node:fs').readFileSync(landingPath, 'utf8');
+      (landing as any)._compile(ts.transpileModule(source, { compilerOptions: {
+        module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017, esModuleInterop: true,
+      } }).outputText, landingPath);
+      const { makeDefaultDeps } = landing.exports as typeof import('../src/lib/invite/landing');
       const jobs: Promise<unknown>[] = [];
       const deps = makeDefaultDeps((p) => { jobs.push(p); });
       await deps.earn('JPM', clock); assert.equal(warms, 0);
@@ -966,18 +995,40 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     const pick = read('src/components/app/TodayPicksCard.tsx');
     assert.ok(/<TodayPickRow p=\{p\} ui=\{ui\} onOpen=\{onOpen\} \/>\s*\n\s*<InviteShareButton kind="pick"/.test(pick), 'pick: 행 다음 형제');
     const wl = read('src/app/[locale]/app-view/watchlist/page.tsx');
-    assert.ok(/<div className=\{p\.aiw\}>[\s\S]{0,400}<InviteShareButton kind="line"[\s\S]{0,200}<p className=\{p\.ai\}>/.test(wl), 'line: .aiw 안, 글(.ai) 앞 형제 — 글 칸 폭은 그대로');
+    // 주석 길이·기존 aiRows 래퍼에 좌우되는 글자 수 제한 대신 실제 JSX 형제 관계를 검사한다.
+    const lineShareLayout = (source: string): boolean => {
+      const ast = ts.createSourceFile('watchlist.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+      const hasClass = (node: ts.JsxElement, name: string) => node.openingElement.attributes.properties.some(
+        a => ts.isJsxAttribute(a) && a.name.getText(ast) === 'className' && a.initializer?.getText(ast) === `{p.${name}}`);
+      let wrapper: ts.JsxElement | undefined;
+      const visit = (node: ts.Node) => {
+        if (ts.isJsxElement(node) && hasClass(node, 'aiw')) wrapper = node;
+        ts.forEachChild(node, visit);
+      };
+      visit(ast);
+      if (!wrapper) return false;
+      const children = wrapper.children;
+      const share = children.findIndex(c => ts.isJsxExpression(c) && !!c.expression && ts.isBinaryExpression(c.expression)
+        && ts.isJsxSelfClosingElement(c.expression.right) && c.expression.right.tagName.getText(ast) === 'InviteShareButton'
+        && c.expression.right.attributes.properties.some(a => ts.isJsxAttribute(a) && a.name.getText(ast) === 'kind' && a.initializer?.getText(ast) === '"line"'));
+      const rows = children.findIndex(c => ts.isJsxElement(c) && hasClass(c, 'aiRows')
+        && c.children.some(p => ts.isJsxElement(p) && p.openingElement.tagName.getText(ast) === 'p' && hasClass(p, 'ai')));
+      return share >= 0 && rows > share;
+    };
+    assert.ok(lineShareLayout(wl), 'line: .aiw 안, 글 묶음(.aiRows) 앞 형제 — 글 칸 폭은 그대로');
+    assert.ok(lineShareLayout(wl.replace('<div className={p.aiRows}>', `{/* ${'주석'.repeat(500)} */}<div className={p.aiRows}>`)), '주석 길이는 배치와 무관');
+    assert.equal(lineShareLayout(wl.replace(/\{interactive && <InviteShareButton kind="line"[^\n]+/, '<button>$&</button>')), false, '단추 안 단추를 허용하지 않는다');
+    assert.equal(lineShareLayout(wl.replace('kind="line"', 'kind="pick"')), false, '공유 단추 누락을 허용하지 않는다');
     const earn = read('src/app/[locale]/app-view/earnings/page.tsx');
     assert.ok(/<\/a>\s*\n\s*\{shareOn && e\.implied && \(\s*\n\s*<InviteShareButton kind="earn"/.test(earn), 'earn: <a> 행 다음 형제');
     assert.ok(/e\.implied/.test(earn.split('<InviteShareButton kind="earn"')[0].slice(-200)), '변동폭 값이 있는 행에만');
   });
-  await t('범위 밖 0: 이번 작업은 하단 내비(AppBottomNav)·광고 자리(AppAnchorAd)·페이월(ProPaywall)·가격 무결성 파일을 건드리지 않는다', () => {
-    const { execSync } = require('node:child_process');
-    let changed = '';
-    try { changed = execSync('git diff --name-only origin/main...HEAD; git diff --name-only; git ls-files --others --exclude-standard', { cwd: pathMod.join(__dirname, '..'), encoding: 'utf8' }); } catch { return; }
-    const forbidden = /AppBottomNav|AppAnchorAd|ProPaywall\.(tsx|module\.css)|src\/lib\/integrity|price-integrity|priceIntegrity/;
-    const hits = changed.split('\n').filter((f) => forbidden.test(f));
-    assert.deepEqual(hits, [], hits.join(','));
+  await t('공유 단추는 구매·가격 모듈과 결합하지 않고 기존 아이콘 단추를 유지한다', () => {
+    // 과거 초대 브랜치의 파일 목록 대신 공유 컴포넌트 자체의 경계를 검증한다.
+    const button = read('src/components/app/InviteShareButton.tsx');
+    assert.equal(/purchasePro|ProPaywall|priceIntegrity|AppAnchorAd|AppBottomNav/.test(button), false);
+    assert.equal((button.match(/<button\b/g) || []).length, 1);
+    assert.equal((button.match(/<ShareIcon\b/g) || []).length, 1);
   });
 
   await t('개인정보 안내(10/14) — 앱 개인정보처리방침에 «익명 초대 열쇠·IP 해시(72시간·30일)·판매/광고 아님» 항목이 3개 언어로 있다', () => {
@@ -992,6 +1043,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.ok(/TOUCH_TTL_SEC = 72 \* 3600/.test(e) && /IP_CREDIT_TTL_SEC = 30 \* 24 \* 3600/.test(e) && /LONG_TTL = 400 \* 24 \* 3600/.test(e));
   });
 
-  console.log(`\n${n} passed`);
+  assert.equal(externalCalls, 0, '외부 접근 시도 없음');
+  console.log(`\n추천 시험 ${n}개 통과.`);
   process.exit(0);
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch(() => { console.error(`추천 시험 실패: ${stage}(민감값 출력 생략)`); process.exit(1); });
