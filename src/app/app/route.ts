@@ -121,12 +121,12 @@ async function recordCodeHit(fromRaw: string | null) {
 }
 
 /** 선물 토큰·기존 링크 모두 같은 추천 판정으로 응답 뒤에만 터치를 기록한다. */
-function scheduleInviteTouch(request: NextRequest, fromTag: string | null, humanField: string | undefined): void {
+function scheduleInviteTouch(request: NextRequest, fromTag: string | null, humanField: string | undefined, osOverride?: 'ios' | 'android' | 'desktop'): void {
   const inviteRef = isInviteFrom(fromTag) ? normalizeGiftRef(request.nextUrl.searchParams.get('ref')) : null;
   if (inviteRef) {
     const ua = request.headers.get('user-agent') || '';
     const touchHuman = humanField?.endsWith('|human') === true;
-    const touchOs = /android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop';
+    const touchOs = osOverride ?? (/android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop');
     after(() => touchFromRequest(request.headers, { from: fromTag, ref: inviteRef, os: touchOs, human: touchHuman }));
   }
 }
@@ -141,7 +141,8 @@ export async function GET(request: NextRequest) {
     if (!isPreviewBot(ua)) {
       const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
       const humanField = clickFields(request.headers, request.method, refBucketFor(request))[0];
-      scheduleInviteTouch(request, fromTag, humanField);
+      // 맥 UA iPad 는 QR 화면의 터치 감지가 붙인 gift_os=ios 로만 iOS 로 판정된다(giftOs) — 추천 터치도 같은 판정을 쓴다.
+      scheduleInviteTouch(request, fromTag, humanField, giftOs(request) ?? 'desktop');
     }
     try { return await giftLanding(request); }
     catch { return NextResponse.redirect(installUrl(giftOs(request)), { status: 302, headers: giftHeaders }); }

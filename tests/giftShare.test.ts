@@ -287,7 +287,7 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     assert.equal(r.status, 303); assert.equal(new URL(location(r)).hostname, 'apps.apple.com');
     assert.equal(new URL(location(r)).searchParams.get('code'), code);
   });
-  await t('4차 P2: PC 선물 링크의 QR·iPad 이동도 초대자 ref 유지 → 폰 스캔 첫 실행 보상 적립', async () => {
+  await t('4·5차 P2: PC 선물 링크의 QR·iPad 이동도 초대자 ref 유지 → 폰 스캔·iPad 첫 실행 보상 적립', async () => {
     const ref = inviteRefOf(newInviteKey());
     const ipHash = inviteIpHash(baseHeaders['x-real-ip'], inviteSecret());
     const before = evalCalls;
@@ -303,6 +303,18 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
       let target = '';
       runInNewContext(script, { navigator: { maxTouchPoints: 5, userAgent: desktop }, location: { replace: (url: string) => { target = url; } } });
       assert.equal(new URL(target).searchParams.get('ref'), ref, 'iPad 이동 주소에 ref');
+      // 5차 P2: 맥 UA iPad 가 이동한 주소를 열면 iOS 터치가 남아 iOS 첫 실행이 적립된다.
+      {
+        const memory = memoryInviteStore();
+        inviteStore.upstashInviteStore = () => memory;
+        afterCalls.length = 0;
+        const ipad = new URL(target);
+        const r = await route.GET(req(ipad.pathname + ipad.search, { headers: { ...baseHeaders, 'user-agent': desktop,
+          'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' } }));
+        assert.equal(r.status, 200); assert.ok((await r.text()).includes('/api/gift/claim?gift_os=ios'));
+        await flushAfter();
+        assert.deepEqual(await arrive(memory, { key: newInviteKey(), os: 'ios', ipHash }), { matched: true, credited: true, from, inviterRef: ref }, 'iPad 이동 뒤 iOS 첫 실행 적립');
+      }
       for (const [ua, os] of [[ios, 'ios'], [android, 'android']]) {
         const memory = memoryInviteStore();
         inviteStore.upstashInviteStore = () => memory;
@@ -313,6 +325,16 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
         await flushAfter();
         assert.deepEqual(await arrive(memory, { key: newInviteKey(), os, ipHash }), { matched: true, credited: true, from, inviterRef: ref });
       }
+    }
+    // 힌트 없는 맥 UA(일반 PC)는 여전히 무귀속 — PC 자체 조회로는 터치를 남기지 않는다.
+    {
+      const memory = memoryInviteStore(); let writes = 0;
+      memory.set = async () => { writes++; }; memory.hsetExpiring = async () => { writes++; };
+      inviteStore.upstashInviteStore = () => memory;
+      afterCalls.length = 0;
+      await route.GET(req(`/app?from=gift&ref=${ref}&gift=${token}&l=ko`, { headers: { ...baseHeaders, 'user-agent': desktop,
+        'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' } }));
+      await flushAfter(); assert.equal(writes, 0, 'PC 조회는 무귀속');
     }
     // ref 가 없거나 잘못되면 QR 주소에 싣지 않는다(기존 동작).
     for (const bad of ['', '&ref=google', '&ref=%3Cx%3E']) {
