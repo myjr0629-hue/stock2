@@ -62,6 +62,10 @@ export async function earningsMonthlyMove(
     const response = await withinImpliedDeadline(() => getOptionChainSnapshotIntrinio(ticker, { expiration: expiry, underlyingPrice: spot }), deadlineMs);
     // 조회 중 429 를 받았거나 관문이 닫혔으면 응답이 일부(페이지·그릭스 누락)일 수 있다 — 값을 만들지 않고, «확인함»으로 저장도 하지 않는다.
     if (bg && (bg.tripped || bg.saw429 > saw429Before)) return previous();
+    // [관문 10200855-2] 페이지가 빠진 체인(partial·expirationsMissing·expirationsTruncated·vendorFailed)은 ATM 이 빠져 엉뚱한 행사가로
+    //   계산될 수 있다(5% → 12%) — 값을 만들지 않고 «확인함»으로 저장도 하지 않는다(다음 갱신에서 다시 확인).
+    if (!response || response.partial || response.vendorFailed || (Array.isArray(response.expirationsMissing) && response.expirationsMissing.length)
+      || (Array.isArray(response.expirationsTruncated) && response.expirationsTruncated.length)) return previous();
     const rows = (response?.results || []).filter((c: any) => c?.details?.expiration_date === expiry);
     const dates = [...new Set<string>(rows.map((c: any) => c?._intrinio?.date).filter((d: unknown) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)))];
     if (dates.length !== 1) return save(previous());

@@ -12,6 +12,15 @@ let vendorMode: '429' | 'slow' = '429';
   if (u.hostname.includes('intrinio')) {
     vendorCalls.push(u.pathname);
     if (vendorMode === '429') return new Response('limit', { status: 429 });
+    if ((vendorMode as string) === 'partial') {
+      if (u.pathname.includes('/expirations/')) return Response.json({ expirations: ['2026-11-20'] });
+      if (u.searchParams.get('next_page')) return new Response('err', { status: 500 });
+      if (u.pathname.includes('/options/chain/')) return Response.json({ chain: [
+        { option: { code: 'C95', expiration: '2026-11-20', strike: 95, type: 'call' }, prices: { date: '2026-10-16', close_bid: 9, close_ask: 9.2, mark: 9.1 } },
+        { option: { code: 'P95', expiration: '2026-11-20', strike: 95, type: 'put' }, prices: { date: '2026-10-16', close_bid: 2.8, close_ask: 3, mark: 2.9 } },
+      ], next_page: 'p2' });
+      return Response.json({});
+    }
     await new Promise((r) => setTimeout(r, 400));
     if (u.pathname.includes('/expirations/')) return Response.json({ expirations: ['2026-11-20'] });
     return Response.json({ chain: [{ option: { code: 'X', expiration: '2026-11-20', strike: 100, type: 'call' }, prices: { date: '2026-10-16', close_bid: 1, close_ask: 1.2 } }], next_page: 'p2' });
@@ -64,6 +73,14 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     await new Promise((r) => setTimeout(r, 1500));
     assert.equal(vendorCalls.length, atDeadline, `시간 초과 뒤 새 호출 ${vendorCalls.length - atDeadline}회 (${vendorCalls.slice(atDeadline).join(', ')})`);
     console.log(`  ✓ ③ 시간 초과 뒤 새 공급사 호출 0 (초과 전 ${atDeadline}회)`);
-    console.log('earningsProbeBudget: 2건 통과');
+
+    // 관문 10200855-2: 월간 체인 첫 페이지 성공·ATM 이 든 다음 페이지 500 → 부분 체인 → 값·«확인함» 저장 없음
+    seed(); vendorCalls = []; vendorMode = 'partial' as any;
+    const pk = await EIS.buildImpliedPack(rows.slice(0, 1), Date.now(), { probeMonthly: true, deadlineMs: Date.now() + 20_000 });
+    assert.equal(Object.values(pk.cells).filter((c) => c.p != null).length, 0, `부분 체인으로 값을 만들지 않는다 — ${JSON.stringify(pk.cells)}`);
+    assert.equal([...store.keys()].filter((k) => k.startsWith('earnings:monthly-probe')).length, 0, '부분 체인은 «확인함»으로 저장하지 않는다');
+    assert.ok(vendorCalls.some((p) => p.includes('/options/chain/')), `체인 조회가 실제로 나갔다 — ${vendorCalls.join(', ')}`);
+    console.log(`  ✓ 부분 체인(다음 페이지 500) → 값 없음·저장 없음 (호출 ${vendorCalls.length}회)`);
+    console.log('earningsProbeBudget: 3건 통과');
   } finally { Date.now = realNow; }
 })().catch((e) => { console.error(e); process.exit(1); });
