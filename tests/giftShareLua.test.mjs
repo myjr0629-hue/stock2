@@ -1,22 +1,36 @@
+// 실행: npx tsx --test tests/giftShareLua.test.mjs (로컬 redis-server 필요: PATH 또는 REDIS_SERVER_BIN 절대 경로)
 /** 실제 Lua를 임시 Unix 소켓 Redis에서만 시험한다. 외부 Redis 주소는 받지 않는다. */
 import assert from 'node:assert/strict';
 import { randomBytes, createHash } from 'node:crypto';
-import { mkdtemp, stat, rm } from 'node:fs/promises';
+import { access, mkdtemp, stat, rm } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, isAbsolute } from 'node:path';
+import { delimiter, join, isAbsolute } from 'node:path';
 import { spawn } from 'node:child_process';
 import Redis from 'ioredis';
 import { ISSUE_LUA, CLAIM_LUA, LOAD_LUA } from '../src/lib/giftShare/atomic.cjs';
 
-const binary = process.argv[2];
-if (!binary || !isAbsolute(binary)) {
-  console.error('실제 Lua 시험에는 로컬 redis-server 절대 경로 인자가 필요합니다. 외부 저장소는 사용하지 않습니다.');
+// node --test는 파일 뒤의 인자를 시험 파일로 취급한다. 인자 없이 로컬 실행 파일을 찾는다.
+// 기존 직접 실행(node tests/giftShareLua.test.mjs /절대/경로)도 지원한다.
+const override = process.argv[2] || process.env.REDIS_SERVER_BIN;
+const candidates = override ? [override] : [
+  ...(process.env.PATH || '').split(delimiter).filter(isAbsolute).map(dir => join(dir, 'redis-server')),
+  '/opt/homebrew/bin/redis-server', '/usr/local/bin/redis-server', '/usr/bin/redis-server',
+];
+let binary;
+for (const path of new Set(candidates)) {
+  if (!isAbsolute(path)) continue;
+  try { await access(path, constants.X_OK); if ((await stat(path)).isFile()) { binary = path; break; } } catch { /* 다음 로컬 후보 */ }
+}
+if (!binary) {
+  console.error('로컬 redis-server 실행 파일이 없습니다. 설치 후 PATH 또는 REDIS_SERVER_BIN에 절대 경로를 지정하세요. 외부 저장소는 사용하지 않습니다.');
   process.exit(2);
 }
 const directory = await mkdtemp(join(tmpdir(), 'signum-gift-lua-'));
 const socket = join(directory, 'redis.sock');
 const child = spawn(binary, ['--port', '0', '--unixsocket', socket, '--unixsocketperm', '700', '--save', '', '--appendonly', 'no', '--dir', directory], { stdio: 'ignore' });
 let startError = false; child.on('error', () => { startError = true; });
+const exited = new Promise(resolve => child.once('exit', resolve).once('error', resolve));
 let redis;
 let stage = '시작';
 const p = 'promo:pv:gift:v1';
@@ -133,6 +147,6 @@ try {
 } finally {
   if (redis) redis.disconnect();
   child.kill('SIGTERM');
-  await new Promise(resolve => child.exitCode !== null || startError ? resolve() : child.once('exit', resolve));
+  await exited;
   await rm(directory, { recursive: true, force: true });
 }

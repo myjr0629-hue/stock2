@@ -1,3 +1,4 @@
+// 실행: npx tsx --test tests/giftShare.test.ts
 /** 로컬 가짜 저장소만 사용한다. 실제 Lua 동시성은 giftShareLua.test.mjs로 분리한다. */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
@@ -8,16 +9,24 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 
 // 외부 호출은 시험이 즉시 실패하게 한다. 비밀값·코드는 출력하지 않는다.
-globalThis.fetch = async () => { throw new Error('시험 중 외부 접근 금지'); };
+let externalCalls = 0;
+globalThis.fetch = async () => { externalCalls++; throw new Error('시험 중 외부 접근 금지'); };
 const nsPath = require.resolve('next/server');
 const ns = require(nsPath);
 const afterCalls: Array<() => unknown> = [];
 const flushAfter = async () => { for (const fn of afterCalls.splice(0)) await fn(); };
 require.cache[nsPath] = { id: nsPath, filename: nsPath, loaded: true, exports: { ...ns, after: (fn: () => unknown) => { afterCalls.push(fn); } } } as Module;
-const rc = require('../src/services/redisClient');
-rc.getFromCache = async () => null;
-rc.setInCache = async () => true;
-const server = require('../src/lib/giftShare/server');
+// tsx의 export는 setter 없는 getter다. 의존 라우트를 읽기 전에 캐시의 exports를 교체한다.
+const rcPath = require.resolve('../src/services/redisClient');
+require.cache[rcPath] = { id: rcPath, filename: rcPath, loaded: true, exports: {
+  getFromCache: async () => null, setInCache: async () => true,
+} } as Module;
+const serverPath = require.resolve('../src/lib/giftShare/server');
+const server = { ...require(serverPath), giftStore: () => store };
+require.cache[serverPath]!.exports = server;
+const inviteStorePath = require.resolve('../src/lib/invite/store');
+const inviteStore = { ...require(inviteStorePath) };
+require.cache[inviteStorePath]!.exports = inviteStore;
 const { giftIdentity } = require('../src/lib/giftShare/http');
 const { giftPrefix, giftCap, withGift } = require('../src/lib/giftShare/config');
 const { couponHtml } = require('../src/lib/marketing/couponHtml');
@@ -25,7 +34,6 @@ const { desktopRedeemHtml } = require('../src/lib/marketing/desktopHandoff');
 const route = require('../src/app/app/route');
 const issue = require('../src/app/api/gift/issue/route');
 const claim = require('../src/app/api/gift/claim/route');
-const inviteStore = require('../src/lib/invite/store');
 const { memoryInviteStore } = require('../src/lib/invite/memoryStore');
 const { arrive, inviteKeys } = require('../src/lib/invite/engine');
 const { inviteIpHash, inviteSecret } = require('../src/lib/invite/guard');
@@ -44,7 +52,6 @@ const req = (path: string, opts: Record<string, unknown> = {}) => new NextReques
 let evalCalls = 0;
 let answer: unknown = ['empty'];
 const store = { eval: async () => { evalCalls++; if (answer instanceof Error) throw answer; return answer; } };
-server.giftStore = () => store;
 process.env.GIFT_SHARE_SECRET = randomBytes(32).toString('hex');
 process.env.INVITE_IP_SALT = randomBytes(32).toString('hex');
 process.env.VERCEL_ENV = 'preview';
@@ -329,5 +336,6 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     assert.equal(evalCalls, before);
     assert.equal(await server.claimGift(store, { token: '<bad>', os: 'ios', device: '가짜' }), null);
   });
+  assert.equal(externalCalls, 0, '외부 접근 시도 없음');
   console.log(`선물 경로 ${n}개 통과. 실제 Lua 동시성 시험은 별도입니다.`);
 })().catch(() => { console.error(`선물 시험 실패: ${stage}(민감값 출력 생략)`); process.exitCode = 1; });
