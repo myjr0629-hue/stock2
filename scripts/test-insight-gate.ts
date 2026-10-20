@@ -3,6 +3,7 @@
 //         --outfile=/tmp/test-insight-gate.cjs --log-level=warning && node /tmp/test-insight-gate.cjs
 //   (또는 npx tsx scripts/test-insight-gate.ts)
 // 네트워크·실 Redis 를 쓰지 않는다: 모델은 _setModelCallerForTest 로 주입, Upstash 는 fetch 가로채기(test-redis-policy.ts 와 같은 방식).
+import { buildTacticalPrompt, checkTacticalOutput } from '../src/lib/ai/tacticalPrompt';
 import { cleanInsight, validateInsight, gateInsight } from '../src/lib/ai/outputGate';
 import { fillGuardianTokens, guardianNumsFromAiContext } from '../src/lib/ai/guardianNumbers';
 import {
@@ -86,7 +87,9 @@ const JA_ROTATION = `# セクターローテーション分析 (2026年9月28日
 const JA_REALITY_MD = `# マクロ市場分析 — 2026年9月28日\n\n**市場動向の因果構造**\n\n本日の米国市場は、20年ぶりの高水準に達した米10年債利回り(5.24%)がリスク資産全般に圧力をかけており、これに応じてS&P 500は+0.04%の微弱な上昇に留まる一方、金は-0.20%、TLTは-0.88%と債券・貴金属が売却されている。\n\n資産クラス間の波及構造を見ると、RLSI 37点(売られ過ぎ圏)と恐怖貪欲指数34(恐怖)が示す過度な悲観が、GEX +2(中立)とスクイーズ29%(中程度)という限定的なオプション圧力と矛盾している。\n\n核心変数は米債利回りの持続性と、それに対する企業利益の耐性である。`;
 const JA_GAMMA = `**平常との違い**\nディーラーガンマが直近38営業日で上位71%にあるのに対しGEX変化がゼロで、市場参加者の構えが固まったまま動いていない状態を示している。 **この見方が崩れる地点**\n7,500のプットフロアを下抜けするとディーラーの買いサポートが外れ、その下ではディーラーが売り手に回る領域に入る。`;
 // 모델이 쓸 법한 «정상» 한국어 현실 인사이트(생성·번역 모의 응답)
-const KO_REALITY_GOOD = `10년물 금리가 20년 만의 최고치인 5.24%까지 오르며 성장주 중심의 차익 매물이 나왔고, 나스닥은 +0.11% 보합권에 머물렀다. 금(-0.20%)과 TLT(-0.88%)가 함께 밀리며 채권·귀금속이 동시에 팔렸고, RLSI 37과 공포탐욕 34가 내부 체력 약화를 보여 준다. 금리가 5.2%대를 유지하는지와 7,500 옵션 지지선이 앞으로의 방향을 가를 변수다.`;
+const KO_REALITY_GOOD = `오늘 시장을 움직인 거시 사건은 입력 뉴스에서 확인되지 않습니다. 금리 압력과 약한 시장 참여에 중립 감마가 겹쳐 충격 흡수력이 제한된 상태로 해석됩니다. 옵션 지지선 7,500 유지 여부가 다음 확인 기준입니다.`;
+// 번역 복구의 정상 원본도 현재 Tactical 계약(3문장·미확인 원인·공급된 옵션 경계)을 만족해야 한다.
+const EN_REALITY_GOOD = `Today's macro cause is unconfirmed from supplied news. Weak participation and neutral dealer gamma leave pressure absorption limited. The next conditional test is options support at 7,500.`;
 
 const ROT = { ko: ['현황', '해석', '전망'], en: ['Status', 'Interpretation', 'Outlook'], ja: ['現況', '解釈', '見通し'] } as const;
 const GAM = {
@@ -196,10 +199,12 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
     t('S1 재요청은 메모리 적중(모델 호출 0)', modelCalls.length === 0 && out === cleanInsight(KO_REALITY_GOOD));
 
+    t('번역용 en 정상 원본도 현재 Tactical 근거 검사 통과', checkTacticalOutput(EN_REALITY_GOOD, 'en', buildTacticalPrompt(ctxOf('en'), 'en')).length === 0);
+
     // S2: 두 번 다 거절 → 마지막 정상본 없음 → 다른 언어(en) 정상본 번역
     reset(MARKET);
     putStored('reality', 'ko', KO_REFUSAL, 1);
-    putStored('reality', 'en', EN_REALITY, 1);
+    putStored('reality', 'en', EN_REALITY_GOOD, 1);
     script = [KO_REFUSAL, KO_REFUSAL, KO_REALITY_GOOD];
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
     t('S2 호출 순서 = 생성·재시도·번역(en→ko)', modelCalls.join(',') === 'Guardian/REALITY_ko,Guardian/REALITY_ko/retry,Translate/reality/en->ko', modelCalls.join(','));
@@ -209,7 +214,7 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     // S3: 번역까지 영어로 옴 → 장중 대기 문구(한국어). 거절문으로 캐시를 덮지 않는다
     reset(MARKET);
     putStored('reality', 'ko', KO_REFUSAL, 1);
-    putStored('reality', 'en', EN_REALITY, 1);
+    putStored('reality', 'en', EN_REALITY_GOOD, 1);
     script = [KO_REFUSAL, KO_REFUSAL, 'Here is the translation: Broad equity weakness observed as yields rose.'];
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
     t('S3 결과 = 한국어 대기 문구(검사 통과)', IntelligenceNode.isPlaceholderInsight(out) && validateInsight(out, 'ko').ok && out.includes('준비'), out);
@@ -222,7 +227,7 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     // S4: 장외 — 생성하지 않는다. 저장본 거절문 거부 → en 정상본 번역
     reset(NIGHT);
     putStored('reality', 'ko', KO_REFUSAL, 30);
-    putStored('reality', 'en', EN_REALITY, 30);
+    putStored('reality', 'en', EN_REALITY_GOOD, 30);
     script = [KO_REALITY_GOOD];
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ko'));
     t('S4 장외: 생성 호출 없이 번역만', modelCalls.join(',') === 'Translate/reality/en->ko', modelCalls.join(','));
@@ -242,7 +247,8 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
 
     // S7: ja 생성이 마크다운 → 정리본이 나가고 저장된다
     reset(MARKET);
-    script = [JA_REALITY_MD];
+    // 원인 미확인·공급된 옵션 경계만 쓰는 현재 Tactical 계약의 마크다운 대본.
+    script = ['# マクロ分析\n**市場の状態**\n本日の米国市場は、確認できるマクロ要因が不足しています。弱い市場参加と中立のガンマが重なり、衝撃の吸収力は限定的です。次の確認基準はオプション支持線7,500の維持です。'];
     out = await IntelligenceNode.generateRealityInsight(ctxOf('ja'));
     t('S7 ja 마크다운 생성 → 정리본(# · ** 없음)', out.startsWith('本日の米国市場は') && !/[#*]/.test(out), out.slice(0, 40));
     t('S7 재시도 없음(정리로 충분)', modelCalls.length === 1);
@@ -318,7 +324,8 @@ const reset = (clock: () => Date) => { upstore.clear(); modelCalls.length = 0; s
     // S13: 3개 언어 JSON 이 아니면(파싱 실패) 옛 단일 언어 경로로 — 호출 수는 옛 방식
     reset(MARKET);
     triScript = ['not json at all'];
-    script = [EN_REALITY];
+    // 현재 Tactical 계약(350자·자료 없는 원인 미확인)에 맞는 단일 언어 대본.
+    script = ['Broad equity weakness has no confirmed macro catalyst in the supplied feed. Weak participation alongside neutral dealer gamma leaves the move weakly buffered. The options support boundary is the next conditional test.'];
     out = await IntelligenceNode.generateRealityInsight(ctxOf('en'));
     t('S13 파싱 실패 → 옛 단일 언어 경로(REALITY_en)', triCalls.length === 1 && modelCalls.join(',') === 'Guardian/REALITY_en' && out.includes('Broad equity weakness'), triCalls.join(',') + '/' + modelCalls.join(','));
 

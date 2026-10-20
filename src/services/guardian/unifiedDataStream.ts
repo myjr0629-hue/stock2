@@ -1,8 +1,9 @@
+import { datedHeadline, cachedEvidence, buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
 import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rlsiEngine";
 // [FIX] Import getMarketSession for cache session validation
 import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationIntensity } from "./sectorEngine";
 import { getMacroSnapshotSSOT, MacroSnapshot } from "@/services/macroHubProvider";
-import { guardianNumsFromAiContext, guardianNumsFromContext, guardianNumsFromMarket } from '@/lib/ai/guardianNumbers';
+import { guardianNumsFromAiContext, guardianNumsFromContext, guardianNumsFromMarket, type GNums } from '@/lib/ai/guardianNumbers';
 import { sectorLabelForAi } from '@/lib/ai/sectorLabels';
 import { IntelligenceNode } from "./intelligenceNode";
 import { RvolEngine, RvolProfile } from "./rvolEngine";
@@ -271,6 +272,18 @@ const CORE_DEPS: CoreDeps = {
     log: (m) => console.warn(m),
 };
 
+/** 추가 공급사 호출 없이 공유 코어의 근거를 현재 시각으로 재검사한다. 결측은 그대로 둔다. */
+function currentTacticalPrompts(nums: GNums, core: GuardianCore | null, gamma?: GammaShieldData | null) {
+    const ctx = {
+        ...nums, rlsiScore: nums.RLSI!, nasdaqChange: nums.NDX_CHG!, vix: nums.VIX!,
+        marketNewsHeadlines: core?.news, scheduledEvents: core?.scheduledEvents,
+        asOf: new Date(Date.now()).toISOString(),
+        triggerSupport: gamma?.supportWall, triggerResistance: gamma?.resistanceWall,
+        triggerCurrent: gamma?.currentPrice, gammaFlipPoint: gamma?.gammaFlipPoint,
+    };
+    return (locale: Locale) => buildTacticalPrompt(ctx, locale);
+}
+
 export class GuardianDataHub {
 
     /**
@@ -282,18 +295,18 @@ export class GuardianDataHub {
         // ★2026-10-08 숫자는 언어와 무관한 «공유 코어» 하나 — 어느 경로(Redis 스냅샷·메모리·lastgood·새 계산)로 온 언어별 컨텍스트든
         //   응답 직전에 최신 코어로 맞춘다. 같은 시각 ko·ja·en 의 RLSI·GEX 가 갈리던 것(10/7 42.7·43.4·46.3 / −26·−10·−16)을 막는다.
         const shared = await GuardianDataHub.withSharedCore(context, locale);
-        return GuardianDataHub.guardVerdictOnExit(shared, locale);
+        return GuardianDataHub.guardVerdictOnExit(shared.context, locale, shared.core);
     }
 
     /** 응답 출구의 숫자 일치 — 코어를 못 읽으면(장애) 컨텍스트를 그대로 둔다. 절대 던지지 않는다 */
-    private static async withSharedCore(context: GuardianContext, locale: Locale): Promise<GuardianContext> {
+    private static async withSharedCore(context: GuardianContext, locale: Locale): Promise<{ context: GuardianContext; core: GuardianCore | null }> {
         try {
-            if (!context?.rlsi) return context;
+            if (!context?.rlsi) return { context, core: null };
             const core = await getSharedCore(CORE_DEPS, { mode: 'swr' });
-            return core ? overlayCore(context, core, locale) : context;
+            return { context: core ? overlayCore(context, core, locale) : context, core };
         } catch (e: any) {
             console.warn('[Guardian] shared core overlay skipped:', e?.message);
-            return context;
+            return { context, core: null };
         }
     }
 
@@ -305,11 +318,11 @@ export class GuardianDataHub {
      * (9/29 영어 거절문은 guardian:gemini → ai_verdict → snapshot → lastgood 네 곳에 들어가 있었다).
      * 검사는 정규식뿐이라 비용이 거의 없고, 교체가 필요할 때만 Redis/번역을 탄다.
      */
-    private static async guardVerdictOnExit(context: GuardianContext, locale: Locale): Promise<GuardianContext> {
+    private static async guardVerdictOnExit(context: GuardianContext, locale: Locale, core: GuardianCore | null): Promise<GuardianContext> {
         if (!context?.verdict) return context;
         // ★2026-10-04 같은 응답의 화면 숫자(market·rlsi)로 자리표를 채우고, 숫자로 박힌 지표를 대조한다(lib/ai/guardianNumbers)
         const nums = guardianNumsFromContext(context);   // ★2026-10-07 T5: 시장·RLSI + 감마 쉴드(GEX·스퀴즈)·참여폭
-        const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums);
+        const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums, currentTacticalPrompts(nums, core, context.gammaShield));
         return r.changed ? { ...context, verdict: r.verdict } : context;
     }
 
@@ -402,7 +415,7 @@ export class GuardianDataHub {
             //   force 가 아니면 'prefer' — 같은 세션의 쓸 만한 코어가 있으면 그것을 쓰고 갱신은 응답 뒤로(이 경로가 코어를 혼자 밀면 같은 순간 다른 언어와 숫자가 갈린다 · guardianCore 머리말)
             const core = await getSharedCore(CORE_DEPS, { force, mode: force ? 'fresh' : 'prefer' });
             if (!core) throw new Error('[Guardian] shared core unavailable');
-            const { sectors: flows, vectors, sourceId, targetId, rotationIntensity, market: macro, rlsi, gammaShield: gammaShieldData, ma20Breadth, news: marketNews } = core;
+            const { sectors: flows, vectors, sourceId, targetId, rotationIntensity, market: macro, rlsi, gammaShield: gammaShieldData, ma20Breadth, news: marketNews, scheduledEvents } = core;
             const rvolNdx = core.rvol.ndx;
             const rvolDow = core.rvol.dow;
 
@@ -431,7 +444,7 @@ export class GuardianDataHub {
                 const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict', guardianNumsFromMarket(macro, rlsi.score, {
                     gexIndex: gammaShieldData?.gexIndex, squeezeRisk: gammaShieldData?.squeezeRisk,
                     breadthPct: rlsi.session === 'REG' ? rlsi.components?.breadthPct : undefined,
-                }));
+                }), currentTacticalPrompts(guardianNumsFromMarket(macro, rlsi.score), core, gammaShieldData));
                 verdict = repaired.verdict;
                 if (repaired.changed) await saveAiVerdict(verdict, locale);
             } else {
@@ -496,6 +509,8 @@ export class GuardianDataHub {
                         signalConflict,
                         // [V8.0] Market News Headlines
                         marketNewsHeadlines: marketNews.length > 0 ? marketNews : undefined,
+                        scheduledEvents,
+                        asOf: core.timestamp,
                         // [V9.0] Macro Intelligence — full asset class context
                         fearGreedScore: rlsi.components?.sentimentScore ?? undefined,
                         fearGreedRating: rlsi.components?.sentimentSource?.replace('CNN F&G: ', '') ?? undefined,
@@ -547,6 +562,7 @@ export class GuardianDataHub {
 
                     // ★2026-10-04 생성 재료의 화면 숫자 — 자리표를 채우는 값이자 글의 기준(basis)
                     const aiNums = guardianNumsFromAiContext(aiContext);
+                    const tacticalPrompts = (l: Locale) => buildTacticalPrompt({ ...aiContext, asOf: new Date(Date.now()).toISOString() }, l);   // 일정의 미래 여부는 요청 시각으로
                     const [rotationText, realityText, gammaText] = await Promise.all([
                         // ⚠️ 예전엔 실패 시 «Insight generation failed. …» 영어 문장을 돌려줬고, 그게 ko/ja 화면에 그대로 나갔다.
                         //    실패해도 «검사를 통과한 마지막 정상본 → 번역 → 안내 문구» 중 하나만 나간다.
@@ -556,7 +572,7 @@ export class GuardianDataHub {
                         }),
                         IntelligenceNode.generateRealityInsight(aiContext).catch(e => {
                             console.error("[Guardian] Reality AI failed:", e);
-                            return IntelligenceNode.recoverInsight('reality', locale, { nums: aiNums });
+                            return IntelligenceNode.recoverInsight('reality', locale, { nums: aiNums, tacticalPrompts });
                         }),
                         IntelligenceNode.generateGammaInsight(aiContext).catch(e => {
                             console.error("[Guardian] Gamma AI failed:", e);
@@ -612,13 +628,13 @@ export class GuardianDataHub {
                         }
                         // ★2026-09-29 저장 전 출구 검사 — 생성기가 이미 검사하지만, 이 키(24h)는 장외 내내 그대로 나가고
                         //   마케팅·콘텐츠 생성기도 직접 읽는다. 검사를 통과한 글만 저장한다.
-                        verdict = (await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums)).verdict;
+                        verdict = (await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums, tacticalPrompts)).verdict;
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
                         //   대기 문구(«준비 중»)가 된 칸은 직전 저장본의 정상 글을 살려서 저장한다 — 밤새 «준비 중»으로 굳지 않게.
                         const hasPlaceholder = [verdict.description, verdict.realityInsight, verdict.gammaInsight]
                             .some((t) => IntelligenceNode.isPlaceholderInsight(t));
                         await saveAiVerdict(
-                            hasPlaceholder ? IntelligenceNode.keepRealTextOverPlaceholders(verdict, await loadAiVerdict(locale), locale, aiNums) : verdict,
+                            hasPlaceholder ? IntelligenceNode.keepRealTextOverPlaceholders(verdict, await loadAiVerdict(locale), locale, aiNums, tacticalPrompts) : verdict,
                             locale,
                         );
                     }
@@ -721,18 +737,14 @@ export class GuardianDataHub {
         // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
         // [V5.0] Changed order: Sector first, then RLSI with RIS score
         console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
-        const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth] = await Promise.all([
+        const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth, evidence] = await Promise.all([
             SectorEngine.getSectorFlows(),
             getMacroSnapshotSSOT(),
             RvolEngine.getRvol("QQQ"),
             RvolEngine.getRvol("DIA"),
             // [V11.0] Polygon: stock/sector-specific news
             fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '15', order: 'desc', sort: 'published_utc' }, true)
-                .then((res: any) => (res?.results || []).map((n: any) => {
-                    const title = n.title || '';
-                    const desc = n.description ? ` — ${n.description.slice(0, 120)}` : '';
-                    return title + desc;
-                }).filter(Boolean))
+                .then((res: any) => (res?.results || []).map((n: any) => datedHeadline(n, 'Polygon')).filter((h: string | null): h is string => !!h))
                 .catch(() => [] as string[]),
             // [V11.1] FMP General News: macro/geopolitical events (Trump, Fed, CPI, trade war, etc.)
             (async () => {
@@ -746,7 +758,7 @@ export class GuardianDataHub {
                     if (!res.ok) return [] as string[];
                     const data = await res.json();
                     if (!Array.isArray(data)) return [] as string[];
-                    return data.map((n: any) => n.title || '').filter(Boolean).slice(0, 5);
+                    return data.map((n: any) => datedHeadline(n, 'FMP')).filter((h: string | null): h is string => !!h).slice(0, 5);
                 } catch { return [] as string[]; }
             })(),
             // [V10.0] GAMMA SHIELD — market-wide GEX/squeeze/trigger band
@@ -759,15 +771,20 @@ export class GuardianDataHub {
             getIndexBreadth().catch(() => ({
                 ndx: { pctAbove20: null, covered: 0, universe: 100, asOf: null },
                 dow: { pctAbove20: null, covered: 0, universe: 30, asOf: null },
-            }))
+            })),
+            Promise.all([
+                getFromCache('guardian:news:digest:v2'),
+                getFromCache('fmp:econ-calendar'),
+                getFromCache('market:earnings-calendar:v4'),
+            ]).then(([pulse, econ, earnings]) => cachedEvidence(pulse, econ, earnings)).catch(() => ({ news: [], events: [] })),
         ]);
 
         // Merge Polygon + FMP news with deduplication
-        const mergedNews: string[] = [...polygonNews];
+        const mergedNews: string[] = [...evidence.news, ...polygonNews];
         for (const fmpTitle of fmpGeneralNews) {
             const isDup = mergedNews.some(existing => {
-                const a = existing.toLowerCase().slice(0, 60);
-                const b = fmpTitle.toLowerCase().slice(0, 60);
+                const a = existing.replace(/^\[[^\]]+\]\s*/, '').toLowerCase().slice(0, 60);
+                const b = fmpTitle.replace(/^\[[^\]]+\]\s*/, '').toLowerCase().slice(0, 60);
                 return a.includes(b.slice(0, 30)) || b.includes(a.slice(0, 30));
             });
             if (!isDup) mergedNews.push(fmpTitle);
@@ -828,6 +845,7 @@ export class GuardianDataHub {
             rlsiHistory,  // [V9.0] Intraday sparkline data
             gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence
             news: marketNews,
+            scheduledEvents: evidence.events,
         };
     }
 

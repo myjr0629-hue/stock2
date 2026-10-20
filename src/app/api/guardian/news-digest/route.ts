@@ -11,6 +11,7 @@
 // ============================================================================
 
 import { NextRequest, NextResponse, after } from 'next/server';
+import { providerSymbols } from '@/lib/ai/stockEvidence';
 import { fetchRssPool } from '@/lib/news/rss';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
@@ -53,6 +54,8 @@ export const maxDuration = 60;
 export interface NewsDigestItem {
     id: string;
     headline: string;
+    /** 공급사 태그만 보존한다. 모델이 돌려준 태그는 받지 않는다. */
+    tickers?: string[];
     summaryKR: string;
     summaryEN: string;
     summaryJP: string;
@@ -147,6 +150,7 @@ async function fetchFMPGeneralNews(limit: number = 15): Promise<any[]> {
             description: n.text?.substring(0, 300) || '',
             published_utc: fmpEtToIso(n.publishedDate) || new Date().toISOString(), // FMP = 뉴욕 벽시계(9/24 실측)
             publisher: { name: n.site || 'FMP' },
+            tickers: providerSymbols(n),
             _source: 'fmp',
         }));
     } catch (e) {
@@ -186,7 +190,7 @@ async function fmpNewsPool(path: string, limit: number, tag: string): Promise<an
             description: n.text?.substring(0, 300) || '',
             published_utc: fmpEtToIso(n.publishedDate) || new Date().toISOString(), // FMP = 뉴욕 벽시계(9/24 실측)
             publisher: { name: n.publisher || n.site || 'FMP' },
-            tickers: n.symbol ? [n.symbol] : [],
+            tickers: providerSymbols(n),
             _source: tag,
         }));
     } catch (e) {
@@ -396,6 +400,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             return {
                 id: item.id || `digest-${i}`,
                 headline: item.headline || matchedArticle?.title || 'No Title',
+                tickers: providerSymbols(articles.find(a => a.id === item.id) || {}),
                 summaryKR: item.summaryKR || '',
                 summaryEN: item.summaryEN || '',
                 summaryJP: item.summaryJP || '',
@@ -421,6 +426,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
         return articles.slice(0, BATCH_SIZE).map((a, i) => ({
             id: a.id || `news-${i}`,
             headline: a.title || 'No Title',
+            tickers: providerSymbols(a),
             // ⚠️ 한국어·일본어 칸에 **영어를 넣지 않는다.** 예전엔 원문을 그대로 채워
             //    「번역된 척」하는 항목이 만들어졌고, 그게 캐시에 쌓여 한국어 화면에
             //    영어가 떴다. 비워 두면 forLocale 이 걸러 내고 다음 주기에 다시 시도된다.

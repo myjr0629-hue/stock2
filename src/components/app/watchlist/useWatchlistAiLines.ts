@@ -9,6 +9,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
 import type { AiLineEntry, AiLineLocale } from '@/lib/app/watchlistAiLine';
 
 export const AI_LINES_TTL_MS = 15 * 60_000;
@@ -31,7 +32,7 @@ const getServerV = () => 0;
 const mk = (loc: string, t: string) => `${loc}:${t}`;
 
 function isEntry(x: any): x is AiLineEntry {
-  return !!x && typeof x === 'object' && typeof x.text === 'string' && typeof x.chain === 'string' && !!x.lv && typeof x.lv === 'object' && !!x.sides && typeof x.sides === 'object';
+  return !!x && typeof x === 'object' && typeof x.text === 'string' && !textIntegrityReasons(x.text).length && (x.insight == null || (typeof x.insight === 'string' && !textIntegrityReasons(x.insight).length)) && (x.insightUntil == null || typeof x.insightUntil === 'number') && typeof x.chain === 'string' && !!x.lv && typeof x.lv === 'object' && !!x.sides && typeof x.sides === 'object';
 }
 
 async function fetchLines(tickers: string[], loc: AiLineLocale, stale: string[]): Promise<{ lines: Record<string, AiLineEntry | null>; pending: string[] }> {

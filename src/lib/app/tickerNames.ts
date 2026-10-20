@@ -133,3 +133,10 @@ export function tickerName(t: string, loc: WlLocale, fallback?: string | null): 
   if (row) return loc === 'ko' ? row[0] : loc === 'ja' ? row[2] : row[1];
   return (fallback || '').trim();
 }
+
+/** 회사 이름(한·영·일) → 티커 — AI 문장 속 «번역된 회사명»을 근거 티커와 대조할 때(예: «테슬라» = TSLA). ETF 묶음 이름은 뺀다. */
+export function companyNameEntries(): Array<{ ticker: string; names: string[] }> {
+  return Object.entries(NAMES)
+    .filter(([, n]) => !/ETF/.test(n[1]))
+    .map(([ticker, n]) => ({ ticker, names: [...new Set(n.filter((x) => x && x.length >= 2 && x !== ticker))] }));
+}

@@ -1,3 +1,6 @@
+import { languageStats } from './outputGate';
+import { WATCHLIST_DEPTH_RULES, checkDepthLine, fitDepthLine } from './watchlistDepth';
+import { textIntegrityReasons } from './textIntegrity';
 /**
  * «내 종목» AI 한 줄 — 입력 사실 만들기 · 프롬프트 · 출구 검사(가드)·자르기. 순수 함수만(네트워크·Redis 없음) → tests/watchlistAiLine.test.ts.
  *
@@ -52,6 +55,7 @@ export interface LineFacts {
     implied: { pct: number; expiry: string } | null;
     /** 모델에게 주는 사실 글 = 숫자 대조의 «근거» */
     factsText: string;
+    contextText?: string;
 }
 
 /**
@@ -118,7 +122,7 @@ function factsTextOf(f: LineFacts): string {
     return lines.join('\n');
 }
 
-export const WL_LINE_SYSTEM = `You write the one-line «options map» reading under a stock in a watchlist (SIGNUM HQ app). The row above already shows the ticker, the price and a map bar (Put Floor — Max Pain — price — Call Wall). Your line says in plain words where the price sits on that map, for a retail investor.
+const OPTIONS_MAP_SYSTEM = `You write the one-line «options map» reading under a stock in a watchlist (SIGNUM HQ app). The row above already shows the ticker, the price and a map bar (Put Floor — Max Pain — price — Call Wall). Your line says in plain words where the price sits on that map, for a retail investor.
 
 Return ONLY JSON: {"ko":"…","en":"…","ja":"…"} — the same reading in Korean, English and Japanese.
 
@@ -135,8 +139,13 @@ Style examples (numbers here are only an illustration — never copy them):
 {"ko":"Max Pain $180 위 {MP} · Call Wall $195까지 {CW} · 장외 비중 41.2%","en":"{MP} above Max Pain $180 · {CW} below Call Wall $195 · off-exchange 41.2%","ja":"Max Pain $180の{MP}上 · Call Wall $195まで{CW} · 場外比率41.2%"}
 {"ko":"Gamma Flip $90 아래 {GF}, 음(−) 감마 구간 · Put Floor $85 위 {PF}","en":"{GF} below Gamma Flip $90, negative gamma zone · {PF} above Put Floor $85","ja":"Gamma Flip $90の{GF}下、負ガンマ圏 · Put Floor $85の{PF}上"}`;
 
+export const WL_LINE_SYSTEM = OPTIONS_MAP_SYSTEM + '\n\n' + WATCHLIST_DEPTH_RULES;
+
 export function buildLineUserPrompt(f: LineFacts): string {
     return `${f.factsText}
+
+CONTEXT (dated observations, not causal proof):
+${f.contextText || [f.darkPool ? `FINRA off-exchange share on ${f.darkPool.date}: ${f.darkPool.pct}% (not net buying)` : '', f.implied ? `Options implied move to ${f.implied.expiry}: ±${f.implied.pct}% (not a forecast)` : ''].filter(Boolean).join('\n') || 'EMPTY'}
 
 Write the line for ${f.ticker} now. JSON only.`;
 }
@@ -256,11 +265,19 @@ export interface LineCheck {
     reasons: string[];
     /** 통과한(정리·자르기 뒤) 세 언어 글 — ok 일 때만 */
     text?: Record<AiLineLocale, string>;
+    insight?: Partial<Record<AiLineLocale, string>>;
+    /** 해석을 버린 사유(칩 줄은 통과) — 기록용 */
+    insightReasons?: string[];
 }
 
-function langReasons(s: string, loc: AiLineLocale): string[] {
-    if (loc === 'ko') return [...(!HANGUL.test(s) ? ['ko:no-hangul'] : []), ...(KANA.test(s) ? ['ko:has-kana'] : [])];
-    if (loc === 'ja') return [...(!(KANA.test(s) || KANJI.test(s)) ? ['ja:no-kana'] : []), ...(HANGUL.test(s) ? ['ja:has-hangul'] : [])];
+export function lineLocaleReasons(s: string, loc: AiLineLocale): string[] {
+    const st = languageStats(s, { ignoreCommonNames: true });
+    const total = st.hangul + st.kana + st.kanji + st.latin;
+    const extra: string[] = [];
+    if (loc === 'ko' && total && st.hangul / total < 0.6) extra.push('ko:foreign-prose');
+    if (loc === 'ja' && total && (st.kana + st.kanji) / total < 0.6) extra.push('ja:foreign-prose');
+    if (loc === 'ko') return [...extra, ...(!HANGUL.test(s) ? ['ko:no-hangul'] : []), ...(KANA.test(s) ? ['ko:has-kana'] : [])];
+    if (loc === 'ja') return [...extra, ...(!(KANA.test(s) || KANJI.test(s)) ? ['ja:no-kana'] : []), ...(HANGUL.test(s) ? ['ja:has-hangul'] : [])];
     return HANGUL.test(s) || KANA.test(s) || KANJI.test(s) ? ['en:not-latin'] : [];
 }
 
@@ -276,17 +293,24 @@ export function checkLineOutput(raw: string, f: LineFacts): LineCheck {
         obj = JSON.parse(a >= 0 && b > a ? s.slice(a, b + 1) : s);
     } catch { return { ok: false, reasons: ['json'] }; }
     if (!obj || typeof obj !== 'object') return { ok: false, reasons: ['json'] };
+    // 모델이 칩 줄을 한 겹 안에 넣어 오는 형태({"options_map":{ko,en,ja},"insight":…} — 10/20 실제 모델 재현)는 위로 올려 읽는다
+    if (typeof obj.ko !== 'string') {
+        const inner = [obj.options_map, obj.optionsMap, obj.chips, obj.line, obj.lines].find((v) => v && typeof v === 'object' && typeof v.ko === 'string');
+        if (inner) obj = { ...inner, insight: obj.insight ?? null };
+    }
 
     const allowed = new Set(AI_LEVEL_KEYS.filter((k) => f.lv[k] != null && f.sides[k] && f.sides[k] !== 'at').map((k) => AI_PLACEHOLDER[k]));
     const reasons: string[] = [];
     const text = {} as Record<AiLineLocale, string>;
     for (const loc of WL_LINE_LOCALES) {
+        const rawReasons = textIntegrityReasons(typeof obj[loc] === 'string' ? obj[loc] : '');
+        if (rawReasons.length) { reasons.push(...rawReasons.map(r => `${loc}:${r}`)); continue; }
         const norm = normalizeLine(obj[loc]);
         if (norm.length < 8) { reasons.push(`${loc}:empty`); continue; }
         const t = trimLine(norm, loc);
         if (!t) { reasons.push(`${loc}:too-long:${lineLength(norm)}`); continue; }
         const r: string[] = [];
-        r.push(...langReasons(t, loc));
+        r.push(...lineLocaleReasons(t, loc));
         for (const re of WL_LINE_FORBIDDEN) { const m = t.match(re); if (m) r.push(`${loc}:forbidden:${m[0]}`); }
         const braces = t.match(/\{[^{}]*\}/g) || [];
         const seen = new Set<string>();
@@ -306,6 +330,21 @@ export function checkLineOutput(raw: string, f: LineFacts): LineCheck {
         if (r.length) { reasons.push(...r); continue; }
         text[loc] = t;
     }
+    // 해석 한 줄은 «덧붙임»이다 — 없거나 검사를 못 넘으면 해석만 버리고 칩 줄은 그대로 저장한다
+    //   (해석 때문에 칩 줄까지 실패하면 30분 쉬는 동안 지도가 바뀐 종목의 줄이 사라진다 · 10/20 실제 모델 시험에서 insight:null 재현).
+    //   언어별로 통과한 것만 싣는다(사용자는 자기 언어 하나만 본다 — 영어 한도 초과로 한국어 해석까지 버리지 않게).
+    let insight: Partial<Record<AiLineLocale, string>> | undefined;
+    const insightReasons: string[] = [];
+    if (obj.insight != null && (f.contextText || f.darkPool || f.implied)) {
+        const cand: Partial<Record<AiLineLocale, string>> = {};
+        for (const loc of WL_LINE_LOCALES) {
+            const value = fitDepthLine(obj.insight?.[loc], loc);
+            const r = checkDepthLine(value, loc, buildLineUserPrompt(f));
+            insightReasons.push(...r.map(x => `${loc}:${x}`));
+            if (!r.length) cand[loc] = String(value).trim();
+        }
+        if (Object.keys(cand).length) insight = cand;
+    }
     if (reasons.length) return { ok: false, reasons };
-    return { ok: true, reasons: [], text };
+    return { ok: true, reasons: [], text, insight, insightReasons };
 }
