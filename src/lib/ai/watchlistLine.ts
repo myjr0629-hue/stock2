@@ -1,5 +1,5 @@
 import { languageStats } from './outputGate';
-import { WATCHLIST_DEPTH_RULES, checkDepthLine } from './watchlistDepth';
+import { WATCHLIST_DEPTH_RULES, checkDepthLine, fitDepthLine } from './watchlistDepth';
 import { textIntegrityReasons } from './textIntegrity';
 /**
  * «내 종목» AI 한 줄 — 입력 사실 만들기 · 프롬프트 · 출구 검사(가드)·자르기. 순수 함수만(네트워크·Redis 없음) → tests/watchlistAiLine.test.ts.
@@ -265,7 +265,9 @@ export interface LineCheck {
     reasons: string[];
     /** 통과한(정리·자르기 뒤) 세 언어 글 — ok 일 때만 */
     text?: Record<AiLineLocale, string>;
-    insight?: Record<AiLineLocale, string>;
+    insight?: Partial<Record<AiLineLocale, string>>;
+    /** 해석을 버린 사유(칩 줄은 통과) — 기록용 */
+    insightReasons?: string[];
 }
 
 export function lineLocaleReasons(s: string, loc: AiLineLocale): string[] {
@@ -283,7 +285,7 @@ export function lineLocaleReasons(s: string, loc: AiLineLocale): string[] {
  * 출구 검사 — 사다리 validate(① 응답이 못 넘으면 크레딧으로 한 번 더 → 그래도 못 넘으면 건너뜀)와 저장 직전에 같은 함수.
  *   JSON · 세 칸 · 정리 · 자르기 · 언어 · 금지어 · 자리표(값이 있는 레벨·«위에 있음»이 아닌 레벨만·한 번씩) · 숫자 대조(FACTS 글) · 사실 하나 이상
  */
-export function checkLineOutput(raw: string, f: LineFacts, opts: { requireInsight?: boolean } = {}): LineCheck {
+export function checkLineOutput(raw: string, f: LineFacts): LineCheck {
     let obj: any;
     try {
         const s = String(raw || '').replace(/```(?:json)?/g, '').trim();
@@ -291,6 +293,11 @@ export function checkLineOutput(raw: string, f: LineFacts, opts: { requireInsigh
         obj = JSON.parse(a >= 0 && b > a ? s.slice(a, b + 1) : s);
     } catch { return { ok: false, reasons: ['json'] }; }
     if (!obj || typeof obj !== 'object') return { ok: false, reasons: ['json'] };
+    // 모델이 칩 줄을 한 겹 안에 넣어 오는 형태({"options_map":{ko,en,ja},"insight":…} — 10/20 실제 모델 재현)는 위로 올려 읽는다
+    if (typeof obj.ko !== 'string') {
+        const inner = [obj.options_map, obj.optionsMap, obj.chips, obj.line, obj.lines].find((v) => v && typeof v === 'object' && typeof v.ko === 'string');
+        if (inner) obj = { ...inner, insight: obj.insight ?? null };
+    }
 
     const allowed = new Set(AI_LEVEL_KEYS.filter((k) => f.lv[k] != null && f.sides[k] && f.sides[k] !== 'at').map((k) => AI_PLACEHOLDER[k]));
     const reasons: string[] = [];
@@ -323,18 +330,21 @@ export function checkLineOutput(raw: string, f: LineFacts, opts: { requireInsigh
         if (r.length) { reasons.push(...r); continue; }
         text[loc] = t;
     }
-    let insight: Record<AiLineLocale, string> | undefined;
-    if (opts.requireInsight && (f.contextText || f.darkPool || f.implied) && obj.insight == null) reasons.push('insight:required');
-    if (obj.insight != null) {
-        insight = {} as Record<AiLineLocale, string>;
-        const hasContext = !!(f.contextText || f.darkPool || f.implied);
+    // 해석 한 줄은 «덧붙임»이다 — 없거나 검사를 못 넘으면 해석만 버리고 칩 줄은 그대로 저장한다
+    //   (해석 때문에 칩 줄까지 실패하면 30분 쉬는 동안 지도가 바뀐 종목의 줄이 사라진다 · 10/20 실제 모델 시험에서 insight:null 재현).
+    //   언어별로 통과한 것만 싣는다(사용자는 자기 언어 하나만 본다 — 영어 한도 초과로 한국어 해석까지 버리지 않게).
+    let insight: Partial<Record<AiLineLocale, string>> | undefined;
+    const insightReasons: string[] = [];
+    if (obj.insight != null && (f.contextText || f.darkPool || f.implied)) {
+        const cand: Partial<Record<AiLineLocale, string>> = {};
         for (const loc of WL_LINE_LOCALES) {
-            const value = obj.insight?.[loc];
-            const r = hasContext ? checkDepthLine(value, loc, buildLineUserPrompt(f)) : ['insight:no-context'];
-            reasons.push(...r.map(x => `${loc}:${x}`));
-            if (!r.length) insight[loc] = value.trim();
+            const value = fitDepthLine(obj.insight?.[loc], loc);
+            const r = checkDepthLine(value, loc, buildLineUserPrompt(f));
+            insightReasons.push(...r.map(x => `${loc}:${x}`));
+            if (!r.length) cand[loc] = String(value).trim();
         }
+        if (Object.keys(cand).length) insight = cand;
     }
     if (reasons.length) return { ok: false, reasons };
-    return { ok: true, reasons: [], text, insight };
+    return { ok: true, reasons: [], text, insight, insightReasons };
 }

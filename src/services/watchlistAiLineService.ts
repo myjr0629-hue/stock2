@@ -57,7 +57,7 @@ export interface StoredLine {
     sides: Partial<Record<AiLevelKey, AiSide>>;
     spot: number;
     text: Record<AiLineLocale, string>;
-    insight?: Record<AiLineLocale, string>;
+    insight?: Partial<Record<AiLineLocale, string>>;
     revision?: 2;
     source?: string;
     inputHash?: string;
@@ -152,9 +152,9 @@ export async function generateOne(f: LineFacts, cachedContextHash?: string): Pro
             purpose: WL_LINE_PURPOSE,
             expectJson: true,
             locale: 'multi',
-            validate: (text: string) => { const c = checkLineOutput(text, f, { requireInsight: true }); last = c.reasons; return { ok: c.ok, reasons: c.reasons }; },
+            validate: (text: string) => { const c = checkLineOutput(text, f); last = c.reasons; return { ok: c.ok, reasons: c.reasons }; },
         }));
-        const c = checkLineOutput(res.text, f, { requireInsight: true });
+        const c = checkLineOutput(res.text, f);
         if (!c.ok || !c.text) {
             await setInCache(failKey(f.ticker), { at: Date.now(), why: c.reasons.slice(0, 6) }, FAIL_SEC).catch(() => false);
             return { outcome: 'guard', reasons: c.reasons };

@@ -229,10 +229,26 @@ test('기존 칩 유지 + 별도 3언어 인사이트, 자료 없을 때 null', 
     assert.equal(c.ok, true, c.reasons.join(','));
     assert.deepEqual(c.insight, insight);
     assert.equal(checkLineOutput(JSON.stringify(chips), f).ok, true);
-    assert.equal(checkLineOutput(JSON.stringify(chips), f, { requireInsight: true }).ok, false);
-    assert.equal(checkLineOutput(JSON.stringify({ ...chips, insight: null }), { ...f, darkPool: null }).ok, true);
-    assert.equal(checkLineOutput(JSON.stringify({ ...chips, insight }), { ...f, darkPool: null }).ok, false);
-    assert.match(WL_LINE_SYSTEM, /Keep ko\/en\/ja options-map chips exactly/);
+    // 해석이 없거나(10/20 실제 모델 insight:null) 근거 없는 해석이면 해석만 버리고 칩 줄은 통과 — 칩 줄이 해석 때문에 사라지지 않는다
+    assert.equal(checkLineOutput(JSON.stringify({ ...chips, insight: null }), f).insight, undefined);
+    assert.equal(checkLineOutput(JSON.stringify({ ...chips, insight: null }), f).ok, true);
+    const noCtx = checkLineOutput(JSON.stringify({ ...chips, insight }), { ...f, darkPool: null });
+    assert.equal(noCtx.ok, true);
+    assert.equal(noCtx.insight, undefined);
+    const oneBad = checkLineOutput(JSON.stringify({ ...chips, insight: { ...insight, ko: '연준 금리 인하가 지어낸 원인' } }), f);
+    assert.equal(oneBad.ok, true);
+    assert.deepEqual(oneBad.insight, { en: insight.en, ja: insight.ja }, '탈락한 언어만 빠진다(사용자는 자기 언어만 본다)');
+    assert.ok(oneBad.insightReasons!.some(r => r.startsWith('ko:')));
+    // 10/20 실제 모델 응답 모양: 칩 줄이 한 겹 안에 · 해석이 지표 나열(« · »)이면 해석만 버림
+    const nested = checkLineOutput(JSON.stringify({ options_map: chips, insight: { ko: '장외 비중 39.9% · 옵션 예상 변동 ±3.1%', en: 'Off-exchange 39.9% · implied move ±3.1%', ja: '場外比率39.9% · 想定変動幅±3.1%' } }), f);
+    assert.equal(nested.ok, true, nested.reasons.join(','));
+    assert.deepEqual(nested.text, chips);
+    assert.equal(nested.insight, undefined);
+    assert.match(WL_LINE_SYSTEM, /FINAL OUTPUT SCHEMA/);
+    // 한도 넘는 해석은 첫 절만(10/20 실제 모델 ko 응답) · 첫 절도 길면 탈락
+    const long = checkLineOutput(JSON.stringify({ ...chips, insight: { ko: '음감마 구간이라 출렁임이 커지기 쉬운 자리, 만기까지 Max Pain 방향 압력 있음', en: 'Negative gamma: dealer hedging can amplify swings', ja: '負ガンマ圏で値動きが増幅されやすく、満期まで Max Pain 方向の圧力がある位置' } }), f);
+    assert.deepEqual(long.insight, { ko: '음감마 구간이라 출렁임이 커지기 쉬운 자리', en: 'Negative gamma: dealer hedging can amplify swings', ja: '負ガンマ圏で値動きが増幅されやすく' }, (long.insightReasons || []).join(','));
+    assert.match(WL_LINE_SYSTEM, /chip lines stay top-level strings exactly/);
     assert.match(buildLineUserPrompt(f), /FINRA.*2026-10-20/);
 });
 test('카드: 인사이트의 첫 열은 기존 AI 너비 보존, 공유 버튼 고정 열과 분리', () => {

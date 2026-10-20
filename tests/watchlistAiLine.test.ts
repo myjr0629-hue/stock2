@@ -290,8 +290,13 @@ async function asyncTests() {
     script.push({ text: JSON.stringify({ ...JSON.parse(GOOD), insight: { ...JSON.parse(GOOD).insight, ko: '없는 사건을 지어낸 연준 금리 인하' } }) });
     store.delete('wlai:lock:NVDA');
     const r = await generateLines(['NVDA'], { force: true });
-    assert.equal(r.out.NVDA, 'guard');
-    assert.deepEqual(store.get(lineKey('NVDA')), saved);
+    // 근거 없는 해석은 해석만 버린다 — 칩 줄은 새로 저장되고(지도가 바뀐 종목의 줄이 사라지지 않게) 해석 줄은 그리지 않는다
+    assert.equal(r.out.NVDA, 'generated');
+    const after: any = store.get(lineKey('NVDA'));
+    assert.deepEqual(after.text, saved.text);
+    assert.equal(after.insight.ko, undefined, '근거 없는 한국어 해석만 빠진다');
+    assert.equal(entryOf(after, 'ko')?.insight, undefined);
+    assert.equal(entryOf(after, 'en')?.insight, JSON.parse(GOOD).insight.en);
   });
 
   await at('입력: 뉴스 펄스·회사 공지 보정 실적 캐시 중 해당 종목만 합성', async () => {
