@@ -53,7 +53,7 @@ function quoteSet(s, now) {
   });
   return values;
 }
-test('Intel money map follows every existing overview element, including the footer', () => {
+test('Intel money map follows every existing content section and sits above the ad banner and legal footer', () => {
   const filename = 'src/app/[locale]/app-view/intel/page.tsx';
   const src = ts.createSourceFile(filename, fs.readFileSync(path.join(root, filename), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let page;
@@ -68,8 +68,11 @@ test('Intel money map follows every existing overview element, including the foo
   assert.deepEqual(maps, ['{!selectedSector && <TodayMoneyMap />}']);
   const footer = children.indexOf('<MobileAppFooter />'), map = children.indexOf(maps[0]);
   assert.ok(footer > children.findIndex(text => text.includes('sectorSummaries.map')));
-  assert.ok(map > footer, 'append below the footer so no existing flow element is displaced');
-  assert.ok(children.slice(map + 1).filter(text => !text.startsWith('{/*')).every(text => text.includes('showAdModal') && text.includes("position: 'fixed'")));
+  const ad = children.indexOf('<AdBanner />');
+  // 운영 검토 10/20: 약관 푸터(© …) 아래에 콘텐츠를 두지 않는다 — 기존 콘텐츠 섹션 다음, 광고·푸터 바로 위
+  assert.ok(map > children.findIndex(text => text.includes('sectorSummaries.map')), 'after the existing content sections');
+  assert.equal(children.slice(map + 1).filter(text => !text.startsWith('{/*'))[0], '<AdBanner />');
+  assert.ok(map < ad && ad < footer, 'above the ad banner and the legal footer');
 });
 test('initial money-map loading renders no section or placeholder', () => {
   const { TodayMoneyMap } = isolatedModule('src/components/intel/TodayMoneyMap.tsx', {
