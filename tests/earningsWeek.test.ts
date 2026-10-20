@@ -81,6 +81,7 @@ const seed = () => {
   put('structure:v2:JPM', structure('JPM', 333.45, { mp: 335, cw: 375, pf: 330, pct: 3.6 }));
   put('structure:v2:BAC', structure('BAC', 54.425, { mp: 54, cw: 60, pf: 50, pct: 4.1, strike: 54 }));
   put('structure:v2:TSM', structure('TSM', 452.94, { mp: 450, cw: 500, pf: 420, pct: 4.3, strike: 452.5 }));
+  put('intrinio:eod:snapshot', { date: '2026-10-09', rows: [['JNJ', 0, 0, 0, 261.4, 0, 0, 0]] });
   // JNJ: 구조 사본의 주간 만기(10/16)가 «발표 뒤 첫 만기»(10/14)와 달라 수집기 체인으로 계산하는 경로
   put('structure:v2:JNJ', structure('JNJ', 261.4, { mp: 260, cw: 280, pf: 250, pct: 3.6, strike: 262.5, exps: ['2026-10-14', '2026-10-16', '2026-10-23'] }));
   put('polygon:snapshot:probe:JNJ', {
