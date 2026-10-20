@@ -118,6 +118,21 @@ async function readBody(req) {
     return Buffer.concat(chunks).toString("utf8");
 }
 
+// Keep identical to src/services/redisClient.ts. This script remains standalone on EC2.
+const ASOF_CAS_LUA = `
+local incoming = cjson.decode(ARGV[1])
+local raw = redis.call('GET', KEYS[1])
+if raw then
+    local ok, previous = pcall(cjson.decode, raw)
+    if ok and type(previous) == 'table' and type(previous.value) == 'number'
+        and type(previous.asOf) == 'string' and previous.asOf >= incoming.asOf then
+        return 0
+    end
+end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+return 1
+`;
+
 // ── HTTP Server ──
 const server = http.createServer(async (req, res) => {
     // CORS
@@ -139,6 +154,25 @@ const server = http.createServer(async (req, res) => {
             const val = await redis.get(key);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ result: val ? JSON.parse(val) : null }));
+            return;
+        }
+
+        // POST /set-if-newer: fixed Lua only, scoped to macro v2 (no arbitrary EVAL).
+        if (path_ === "/set-if-newer" && req.method === "POST") {
+            const body = await readBody(req);
+            const { key, value, ttl } = JSON.parse(body);
+            const date = value && value.asOf;
+            if (typeof key !== "string" || !key.startsWith("macro:economy:lastgood:v2:")
+                || !value || typeof value.value !== "number" || !Number.isFinite(value.value)
+                || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)
+                || !Number.isFinite(Date.parse(`${date}T00:00:00Z`))
+                || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date
+                || !Number.isInteger(ttl) || ttl < 1 || ttl > 2_147_483_647) {
+                res.writeHead(400); res.end(JSON.stringify({ error: "invalid macro CAS record" })); return;
+            }
+            const result = await redis.eval(ASOF_CAS_LUA, 1, key, JSON.stringify(value), ttl);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ result }));
             return;
         }
 

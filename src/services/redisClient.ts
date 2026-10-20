@@ -551,6 +551,93 @@ export async function setAuthoritativeCache<T>(key: string, value: T, ttlSeconds
     return ecProxySet(key, value, ttlSeconds ? applyJitter(ttlSeconds) : undefined, gate);
 }
 
+/** Keep identical to scripts/ec2-redis-proxy.js: no read/check/write gap. */
+export const ASOF_CAS_LUA = `
+local incoming = cjson.decode(ARGV[1])
+local raw = redis.call('GET', KEYS[1])
+if raw then
+    local ok, previous = pcall(cjson.decode, raw)
+    if ok and type(previous) == 'table' and type(previous.value) == 'number'
+        and type(previous.asOf) == 'string' and previous.asOf >= incoming.asOf then
+        return 0
+    end
+end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+return 1
+`;
+
+type AsOfValue = { asOf: string | null; value: number | null };
+function validAsOfValue(value: AsOfValue | null | undefined): value is AsOfValue & { asOf: string; value: number } {
+    return !!value && typeof value.value === 'number' && Number.isFinite(value.value)
+        && typeof value.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.asOf)
+        && Number.isFinite(Date.parse(`${value.asOf}T00:00:00Z`))
+        && new Date(`${value.asOf}T00:00:00Z`).toISOString().slice(0, 10) === value.asOf;
+}
+
+/**
+ * Macro CAS only. Each store compares its own value inside EVAL. A skip is success.
+ * Old proxies return 404: never fall back to their unconditional /set endpoint.
+ * Always replicate via EVAL so recovery cannot hide the fallback's newer date.
+ */
+export async function setIfNewerAsOf<T extends AsOfValue>(key: string, value: T, ttlSeconds: number): Promise<boolean> {
+    if (!key.startsWith('macro:economy:lastgood:v2:') || !validAsOfValue(value)
+        || !Number.isInteger(ttlSeconds) || ttlSeconds < 1 || ttlSeconds > 2_147_483_647) return false;
+    const ttl = applyJitter(ttlSeconds);
+    let raw: string;
+    try { raw = JSON.stringify(value); if (!validAsOfValue(JSON.parse(raw))) return false; } catch { return false; }
+    let ecOk = false;
+    const gate = ecAcquire();
+    if (gate !== 'skip') {
+        const t0 = performance.now();
+        const body = JSON.stringify({ key, value: JSON.parse(raw), ttl });
+        const r = await ecCall('set', `${EC2_PROXY_URL}/set-if-newer`, () => ({
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}`, 'Content-Type': 'application/json' },
+            body,
+        }));
+        ecOk = r.ok && r.res.ok && (r.body?.result === 0 || r.body?.result === 1);
+        obsRecord('set', !r.ok ? r.kind : ecOk ? 'ok' : 'http', t0);
+        ecSettle(gate, ecOk); // An unsupported CAS endpoint does not disable ordinary proxy reads.
+    }
+    const upstash = getUpstashClient();
+    if (!upstash) return ecOk;
+    obsUp('set', ecOk ? 'replicate' : 'ecFail');
+    const tu = performance.now();
+    try {
+        const result = await upstash.eval(ASOF_CAS_LUA, [key], [raw, ttl]);
+        obsUpDone(tu);
+        return ecOk || result === 0 || result === 1;
+    } catch {
+        obsUpDone(tu, true);
+        return ecOk;
+    }
+}
+
+/** Macro reads compare both stores, including after an old proxy recovers. */
+export async function mgetLatestAsOf<T extends AsOfValue>(keys: string[]): Promise<(T | null)[]> {
+    if (!keys.length) return [];
+    const readUpstash = async (): Promise<(T | null)[]> => {
+        const upstash = getUpstashClient();
+        if (!upstash) return keys.map(() => null);
+        obsUp('mget', 'asOf');
+        const tu = performance.now();
+        try {
+            const values = await upstash.mget<(T | null)[]>(...keys);
+            obsUpDone(tu);
+            return values;
+        } catch { obsUpDone(tu, true); return keys.map(() => null); }
+    };
+    const [cached, fallback] = await Promise.all([mgetFromCache<T>(keys), readUpstash()]);
+    return keys.map((_, i) => {
+        const a = cached[i], b = fallback[i];
+        const aValid = a && typeof a.value === 'number' && Number.isFinite(a.value);
+        const bValid = b && typeof b.value === 'number' && Number.isFinite(b.value);
+        if (!aValid) return bValid ? b : null;
+        if (!bValid) return a;
+        return (b.asOf ?? '') > (a.asOf ?? '') ? b : a;
+    });
+}
+
 export async function getFromCache<T>(key: string): Promise<T | null> {
     // Try EC2 Proxy first (ElastiCache via HTTP)
     let ecAuthoritative = false;
