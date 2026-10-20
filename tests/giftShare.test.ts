@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import Module from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { relative } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 
 // 외부 호출은 시험이 즉시 실패하게 한다. 비밀값·코드는 출력하지 않는다.
@@ -17,12 +19,14 @@ const server = require('../src/lib/giftShare/server');
 const { giftIdentity } = require('../src/lib/giftShare/http');
 const { giftPrefix, giftCap, withGift } = require('../src/lib/giftShare/config');
 const { couponHtml } = require('../src/lib/marketing/couponHtml');
+const { desktopRedeemHtml } = require('../src/lib/marketing/desktopHandoff');
 const route = require('../src/app/app/route');
 const issue = require('../src/app/api/gift/issue/route');
 const claim = require('../src/app/api/gift/claim/route');
 const { NextRequest } = ns;
 let n = 0;
-const t = async (name: string, fn: () => unknown) => { await fn(); n++; console.log(`통과: ${name}`); };
+let stage = '준비';
+const t = async (name: string, fn: () => unknown) => { stage = name; await fn(); n++; console.log(`통과: ${name}`); };
 const ios = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1';
 const android = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/129.0.0.0 Mobile Safari/537.36';
 const desktop = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/129.0.0.0 Safari/537.36';
@@ -39,6 +43,57 @@ const cookie = () => `sg_gift_recipient=${giftIdentity(req('/app')).cookie}`;
 const post = (ua = ios, extra = {}) => req('/api/gift/claim', { method: 'POST', headers: { ...baseHeaders, 'user-agent': ua, cookie: cookie(), 'content-type': 'application/x-www-form-urlencoded', ...extra }, body: new URLSearchParams({ gift: token }) });
 const location = (r: Response) => r.headers.get('location') || '';
 
+// 현재 HEAD를 기준으로 삼으면 구현을 자신과 비교하게 된다. 기존 의존 템플릿도 origin/main에서 읽는다.
+const baselinePaths = new Set(['src/app/app/route.ts', 'src/lib/marketing/couponHtml.ts', 'src/lib/marketing/desktopHandoff.ts']);
+const baselineCache = new Map<string, Module>();
+function baseline(path: string): any {
+  if (baselineCache.has(path)) return baselineCache.get(path)!.exports;
+  const source = execFileSync('git', ['show', `origin/main:${path}`], { encoding: 'utf8' });
+  const m = new Module(`${process.cwd()}/${path}`, module);
+  m.filename = `${process.cwd()}/${path}`;
+  m.paths = module.paths;
+  baselineCache.set(path, m);
+  const originalRequire = m.require.bind(m);
+  m.require = ((id: string) => {
+    const dependency = relative(process.cwd(), (Module as any)._resolveFilename(id, m));
+    return baselinePaths.has(dependency) ? baseline(dependency) : originalRequire(id);
+  }) as typeof m.require;
+  (m as any)._compile(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017, esModuleInterop: true } }).outputText, m.filename);
+  return m.exports;
+}
+
+// 생성 HTML의 기존 안내가 hidden 조상 안에 남았는지 검사한다. 브라우저·스크립트 실행에 의존하지 않는다.
+function visibleHtml(html: string): string {
+  const stack: boolean[] = [];
+  let visible = '';
+  for (const match of html.matchAll(/<\/?([a-z][a-z0-9]*)\b[^>]*>|([^<]+)/gi)) {
+    const [raw, tag] = match;
+    if (!tag) { if (!stack.includes(true)) visible += raw; continue; }
+    if (raw.startsWith('</')) { if (!stack.includes(true)) visible += raw; stack.pop(); continue; }
+    const hidden = /\shidden(?:\s|=|>)/.test(raw);
+    if (!hidden && !stack.includes(true)) visible += raw;
+    if (!/^(?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/i.test(tag)) stack.push(hidden);
+  }
+  return visible;
+}
+
+async function submitLanding(response: Response, pageUrl: string, ua: string): Promise<Response> {
+  const html = await response.text();
+  const action = html.match(/<form method="post" action="([^"]+)"/)![1];
+  const value = html.match(/name="gift" value="([^"]+)"/)![1];
+  const destination = new URL(action, pageUrl);
+  // Fetch의 비 CORS POST 규칙: no-referrer면 Origin이 null이 된다. 같은 출처 정책은 출처를 보존한다.
+  const policy = response.headers.get('referrer-policy');
+  assert.equal(policy, 'same-origin');
+  assert.equal(destination.origin, new URL(pageUrl).origin);
+  const origin = policy === 'no-referrer' ? 'null' : new URL(pageUrl).origin;
+  const cookie = response.headers.get('set-cookie')!.split(';')[0];
+  return claim.POST(new NextRequest(destination, { method: 'POST', headers: {
+    ...baseHeaders, 'user-agent': ua, cookie, origin, 'content-type': 'application/x-www-form-urlencoded',
+    'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document',
+  }, body: new URLSearchParams({ gift: value }) }));
+}
+
 (async () => {
   await t('운영·시험 키 분리 및 기본 OS별 상한 20', () => {
     assert.notEqual(giftPrefix('production'), giftPrefix('preview'));
@@ -49,24 +104,38 @@ const location = (r: Response) => r.headers.get('location') || '';
     assert.ok(withGift('/app?from=share', token).endsWith(`gift=${token}`));
     assert.equal(withGift('/app', '<bad>'), '/app');
   });
-  await t('플래그 꺼짐: 기존 /app 응답과 상태·헤더·본문 동일', async () => {
+  await t('플래그 꺼짐: origin/main /app과 상태·헤더·본문 144조합 동일', async () => {
     delete process.env.GIFT_SHARE_ENABLED;
-    const source = execFileSync('git', ['show', 'HEAD:src/app/app/route.ts'], { encoding: 'utf8' });
-    const m = new Module(`${process.cwd()}/src/app/app/baseline.ts`, module);
-    m.filename = `${process.cwd()}/src/app/app/baseline.ts`;
-    m.paths = module.paths;
-    (m as any)._compile(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017, esModuleInterop: true } }).outputText, m.filename);
+    const old = baseline('src/app/app/route.ts');
     for (const ua of [ios, android, desktop, 'facebookexternalhit/1.1']) {
-      for (const suffix of ['', '&code=THREADSPRO']) {
-        const path = `/app?from=threads&l=ko&gift=${token}${suffix}`;
-        const a = await route.GET(req(path, { headers: { ...baseHeaders, 'user-agent': ua } }));
-        const b = await m.exports.GET(req(path, { headers: { ...baseHeaders, 'user-agent': ua } }));
-        assert.equal(a.status, b.status);
-        assert.deepEqual([...a.headers], [...b.headers]);
-        assert.equal(await a.text(), await b.text());
+      for (const lang of ['ko', 'en', 'ja']) for (const query of ['from=threads', 'from=threads&code=THREADSPRO', 'from=gift&code=WEBPRO']) {
+        for (const gift of ['', `&gift=${token}`]) for (const method of ['GET', 'HEAD']) {
+          const path = `/app?${query}&l=${lang}${gift}`;
+          const opts = { method, headers: { ...baseHeaders, 'user-agent': ua } };
+          const a = await route.GET(req(path, opts));
+          const b = await old.GET(req(path, opts));
+          assert.equal(a.status, b.status);
+          assert.deepEqual([...a.headers], [...b.headers]);
+          assert.equal(await a.text(), await b.text());
+        }
       }
     }
     assert.equal(evalCalls, 0);
+  });
+  await t('기존 쿠폰·QR 템플릿: origin/main 대비 48조합 바이트 동일', async () => {
+    const oldCoupon = baseline('src/lib/marketing/couponHtml.ts').couponHtml;
+    const oldDesktop = baseline('src/lib/marketing/desktopHandoff.ts').desktopRedeemHtml;
+    for (const lang of ['ko', 'en', 'ja']) {
+      for (const platform of ['ios', 'android']) for (const inApp of [false, true]) for (const ref of [null, 'abcdefghjkmnpqrs']) {
+        const opts = { platform, lang, fromTag: 'gift', code: 'WEBPRO', appleRedeemUrl: '#', playInstallUrl: '#', ref,
+          androidInApp: inApp, iosInApp: inApp, iosStayHint: inApp };
+        assert.equal(couponHtml(opts), oldCoupon(opts));
+      }
+      for (const coupon of [false, true]) for (const androidCoupon of [false, true]) for (const code of ['WEBPRO', 'GZTEST123456789012']) {
+        const opts = { lang, fromTag: 'gift', code, coupon, androidCoupon, redeemUrl: 'https://apps.apple.com/redeem?code=WEBPRO' };
+        assert.equal(await desktopRedeemHtml(opts), await oldDesktop(opts));
+      }
+    }
   });
   await t('플래그 꺼짐: 새 API도 재고 호출 없이 일반 설치 폴백', async () => {
     assert.equal((await (await issue.POST(req('/api/gift/issue', { method: 'POST' }))).json()).ok, false);
@@ -80,7 +149,7 @@ const location = (r: Response) => r.headers.get('location') || '';
         const r = await route.GET(req(`/app?gift=${token}&l=ko`, { method, headers: { ...baseHeaders, 'user-agent': ua } }));
         assert.equal(r.status, 200);
         assert.match(r.headers.get('cache-control') || '', /no-store/);
-        assert.equal(r.headers.get('referrer-policy'), 'no-referrer');
+        assert.equal(r.headers.get('referrer-policy'), 'same-origin');
         const html = await r.text();
         if (method === 'HEAD') assert.equal(html, '');
         else if (ua === desktop) { assert.ok(html.includes('data-scan=') && html.includes(`gift=${token}`)); assert.ok(!html.includes('?code=')); }
@@ -96,6 +165,50 @@ const location = (r: Response) => r.headers.get('location') || '';
       assert.equal(old.match(/<style>([\s\S]*?)<\/style>/)![1], gift.match(/<style>([\s\S]*?)<\/style>/)![1]);
       for (const label of ['쿠폰 번호', platform === 'ios' ? '쿠폰 적용하고 무료로 시작' : '내 쿠폰 받기', '자동 갱신']) assert.ok(gift.includes(label));
     }
+  });
+  await t('P1: 랜딩 정책·쿠키·폼으로 iOS·Android POST 배정 후 303', async () => {
+    for (const ua of [ios, android]) {
+      const code = fakeCode(ua === ios ? 'ios' : 'android'); answer = ['new', code];
+      const pageUrl = `/app?gift=${token}&l=ko`;
+      const landing = await route.GET(req(pageUrl, { headers: { ...baseHeaders, 'user-agent': ua } }));
+      const r = await submitLanding(landing, `https://www.signumhq.com${pageUrl}`, ua);
+      assert.equal(r.status, 303);
+      assert.equal(new URL(location(r)).searchParams.get('code'), code);
+      assert.equal(r.headers.get('referrer-policy'), 'same-origin', '외부 스토어에 Referer를 보내지 않는 정책');
+    }
+  });
+  await t('P2 Android: 세 언어 구독·앱 설정 안내가 스크립트 없이 등록 전 표시', async () => {
+    for (const lang of ['ko', 'en', 'ja']) {
+      const opts = { platform: 'android', lang, fromTag: 'gift', code: '•••• •••• •••• ••••', appleRedeemUrl: '#', playInstallUrl: '#' };
+      const old = couponHtml(opts);
+      const html = await (await route.GET(req(`/app?gift=${token}&l=${lang}`, { headers: { ...baseHeaders, 'user-agent': android } }))).text();
+      const instructions = old.match(/<p class="step2" id="step2">[\s\S]*?<\/p>\n<p class="help">[\s\S]*?<\/p>/)![0];
+      assert.ok(visibleHtml(html).includes(instructions), '기존 두 안내가 hidden 조상 밖에 있다');
+      assert.equal((html.match(/id="step2"/g) || []).length, 1);
+      assert.ok(!html.includes('<script>') && !html.includes('/api/coupon/claim'));
+    }
+  });
+  await t('P2 iPad: 맥 UA 터치 이동 → 같은 토큰 iOS 폼 → Apple 303, PC는 QR 유지', async () => {
+    const before = evalCalls;
+    const path = `/app?gift=${token}&l=ja`;
+    const html = await (await route.GET(req(path, { headers: { ...baseHeaders, 'user-agent': desktop } }))).text();
+    const script = html.match(/<script>([\s\S]*?)<\/script>/)![1];
+    let target = '';
+    const navigate = (maxTouchPoints: number, userAgent = desktop) => runInNewContext(script, {
+      navigator: { maxTouchPoints, userAgent }, location: { replace: (url: string) => { target = url; } },
+    });
+    navigate(0); assert.equal(target, '', '일반 PC는 QR 유지');
+    navigate(5, 'Mozilla/5.0 (Windows NT 10.0)'); assert.equal(target, '', '터치 Windows도 QR 유지');
+    navigate(5);
+    const url = new URL(target);
+    assert.equal(url.searchParams.get('gift'), token); assert.equal(url.searchParams.get('l'), 'ja');
+    assert.equal(url.searchParams.get('gift_os'), 'ios');
+    const landing = await route.GET(req(url.pathname + url.search, { headers: { ...baseHeaders, 'user-agent': desktop } }));
+    assert.equal(evalCalls, before, 'iPad 이동·쿠폰 조회도 무소비');
+    const code = fakeCode(); answer = ['new', code];
+    const r = await submitLanding(landing, target, desktop);
+    assert.equal(r.status, 303); assert.equal(new URL(location(r)).hostname, 'apps.apple.com');
+    assert.equal(new URL(location(r)).searchParams.get('code'), code);
   });
   await t('발행은 불투명 토큰만 반환하며 기기·계정·IP 제한 전달', async () => {
     let keys: string[] = []; let args: unknown[] = [];
@@ -138,11 +251,13 @@ const location = (r: Response) => r.headers.get('location') || '';
   });
   await t('다른 출처·봇·위조 쿠키·알 수 없는 OS·잘못된 토큰 거부', async () => {
     const before = evalCalls;
-    for (const r of [post(ios, { origin: 'https://example.invalid' }), post('facebookexternalhit/1.1'), post(ios, { cookie: 'sg_gift_recipient=invalid' }), post(desktop)]) {
+    for (const r of [post(ios, { origin: 'https://example.invalid' }), post(ios, { origin: 'null' }), post(ios, { origin: '' }),
+      post(ios, { 'sec-fetch-site': 'cross-site' }), post(ios, { 'sec-fetch-site': 'same-site' }),
+      post('facebookexternalhit/1.1'), post(ios, { cookie: 'sg_gift_recipient=invalid' }), post(desktop)]) {
       assert.ok(!location(await claim.POST(r)).includes('redeem'));
     }
     assert.equal(evalCalls, before);
     assert.equal(await server.claimGift(store, { token: '<bad>', os: 'ios', device: '가짜' }), null);
   });
   console.log(`선물 경로 ${n}개 통과. 실제 Lua 동시성 시험은 별도입니다.`);
-})().catch(() => { console.error('선물 시험 실패(민감값 출력 생략)'); process.exitCode = 1; });
+})().catch(() => { console.error(`선물 시험 실패: ${stage}(민감값 출력 생략)`); process.exitCode = 1; });

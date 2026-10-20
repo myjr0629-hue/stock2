@@ -217,12 +217,13 @@ export async function desktopRedeemHtml(opts: {
   coupon?: boolean;
   /** 안드로이드 개인 쿠폰(COUPON_ANDROID=1)이 켜져 있으면 안드로이드 안내를 «나만의 30일 무료 쿠폰 번호»로. 기본 false = 예전 문구. */
   androidCoupon?: boolean;
-  /** 선물 토큰은 QR에만 전달하며 스토어 코드는 배정하지 않는다. */
+  /** 선물 토큰은 QR·iPad 쿠폰 화면에 전달하며 스토어 코드는 배정하지 않는다. */
   gift?: string;
 }): Promise<string> {
   const { fromTag, code, lang, redeemUrl, coupon = false, androidCoupon = false } = opts;
   const t = RT[lang];
   const scan = opts.gift ? `${SITE}/app?from=${encodeURIComponent(fromTag || 'gift')}&l=${lang}&gift=${encodeURIComponent(opts.gift)}&via=qr` : redeemScanUrl(fromTag, code);
+  const ipadUrl = opts.gift ? `${redeemUrl}&gift_os=ios` : redeemUrl;
   const svg = await QRCode.toString(scan, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b1220', light: '#ffffff' } });
   const fallback = APPLE_ONE_TIME_CODE_RE.test(code)
     ? `<p class="help">${esc(t.oneTime)}</p>`
@@ -232,7 +233,7 @@ export async function desktopRedeemHtml(opts: {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
 <title>${esc(coupon ? `${t.couponH1} · ${t.couponFree}` : t.h1 + t.renew)}</title>
-${opts.gift ? '' : `<script>if(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent))location.replace(${JSON.stringify(redeemUrl)})</script>`}
+<script>if(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent))location.replace(${JSON.stringify(ipadUrl)})</script>
 <style>
 :root{--ink:#0b1220;--sub:#51607a;--line:#e3e8f0;--bg:#f5f7fb;--card:#ffffff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Hiragino Sans",sans-serif}

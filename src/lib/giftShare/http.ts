@@ -4,11 +4,14 @@ import { inviteClientIp, ipFamily } from '@/lib/invite/guard';
 import { createClient } from '@/lib/supabase/server';
 import { giftSecret, newToken, pseudonym } from './server';
 
-export const giftHeaders = { 'cache-control': 'private, no-store, max-age=0', 'referrer-policy': 'no-referrer' };
+// 같은 출처 폼 POST의 Origin은 보존하고, 스토어 등 외부에는 토큰 주소를 보내지 않는다.
+export const giftHeaders = { 'cache-control': 'private, no-store, max-age=0', 'referrer-policy': 'same-origin' };
 const COOKIE = 'sg_gift_recipient';
 export function giftOs(req: NextRequest) {
   const ua = req.headers.get('user-agent') || '';
-  return /android/i.test(ua) ? 'android' as const : /iphone|ipad|ipod/i.test(ua) ? 'ios' as const : null;
+  // 맥 UA를 쓰는 iPad는 QR 화면의 터치 감지 후에만 이 힌트를 붙여 돌아온다.
+  const ipad = /Macintosh/i.test(ua) && req.nextUrl.searchParams.get('gift_os') === 'ios';
+  return /android/i.test(ua) ? 'android' as const : /iphone|ipad|ipod/i.test(ua) || ipad ? 'ios' as const : null;
 }
 export function validGiftPost(req: NextRequest): boolean {
   const ua = req.headers.get('user-agent') || '';

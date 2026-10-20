@@ -10,6 +10,7 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import Module from 'node:module';
+import ts from 'typescript';
 
 // ── next/server 의 after 를 가로챈다(라우트 import 보다 먼저) ──
 const afterCalls: Array<() => unknown> = [];
@@ -966,7 +967,30 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     const pick = read('src/components/app/TodayPicksCard.tsx');
     assert.ok(/<TodayPickRow p=\{p\} ui=\{ui\} onOpen=\{onOpen\} \/>\s*\n\s*<InviteShareButton kind="pick"/.test(pick), 'pick: 행 다음 형제');
     const wl = read('src/app/[locale]/app-view/watchlist/page.tsx');
-    assert.ok(/<div className=\{p\.aiw\}>[\s\S]{0,400}<InviteShareButton kind="line"[\s\S]{0,200}<p className=\{p\.ai\}>/.test(wl), 'line: .aiw 안, 글(.ai) 앞 형제 — 글 칸 폭은 그대로');
+    // 주석 길이·기존 aiRows 래퍼에 좌우되는 글자 수 제한 대신 실제 JSX 형제 관계를 검사한다.
+    const lineShareLayout = (source: string): boolean => {
+      const ast = ts.createSourceFile('watchlist.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+      const hasClass = (node: ts.JsxElement, name: string) => node.openingElement.attributes.properties.some(
+        a => ts.isJsxAttribute(a) && a.name.getText(ast) === 'className' && a.initializer?.getText(ast) === `{p.${name}}`);
+      let wrapper: ts.JsxElement | undefined;
+      const visit = (node: ts.Node) => {
+        if (ts.isJsxElement(node) && hasClass(node, 'aiw')) wrapper = node;
+        ts.forEachChild(node, visit);
+      };
+      visit(ast);
+      if (!wrapper) return false;
+      const children = wrapper.children;
+      const share = children.findIndex(c => ts.isJsxExpression(c) && !!c.expression && ts.isBinaryExpression(c.expression)
+        && ts.isJsxSelfClosingElement(c.expression.right) && c.expression.right.tagName.getText(ast) === 'InviteShareButton'
+        && c.expression.right.attributes.properties.some(a => ts.isJsxAttribute(a) && a.name.getText(ast) === 'kind' && a.initializer?.getText(ast) === '"line"'));
+      const rows = children.findIndex(c => ts.isJsxElement(c) && hasClass(c, 'aiRows')
+        && c.children.some(p => ts.isJsxElement(p) && p.openingElement.tagName.getText(ast) === 'p' && hasClass(p, 'ai')));
+      return share >= 0 && rows > share;
+    };
+    assert.ok(lineShareLayout(wl), 'line: .aiw 안, 글 묶음(.aiRows) 앞 형제 — 글 칸 폭은 그대로');
+    assert.ok(lineShareLayout(wl.replace('<div className={p.aiRows}>', `{/* ${'주석'.repeat(500)} */}<div className={p.aiRows}>`)), '주석 길이는 배치와 무관');
+    assert.equal(lineShareLayout(wl.replace(/\{interactive && <InviteShareButton kind="line"[^\n]+/, '<button>$&</button>')), false, '단추 안 단추를 허용하지 않는다');
+    assert.equal(lineShareLayout(wl.replace('kind="line"', 'kind="pick"')), false, '공유 단추 누락을 허용하지 않는다');
     const earn = read('src/app/[locale]/app-view/earnings/page.tsx');
     assert.ok(/<\/a>\s*\n\s*\{shareOn && e\.implied && \(\s*\n\s*<InviteShareButton kind="earn"/.test(earn), 'earn: <a> 행 다음 형제');
     assert.ok(/e\.implied/.test(earn.split('<InviteShareButton kind="earn"')[0].slice(-200)), '변동폭 값이 있는 행에만');

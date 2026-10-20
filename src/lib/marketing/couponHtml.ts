@@ -245,7 +245,7 @@ export function couponHtml(opts: {
   const iosHint = iosIa && opts.iosStayHint === true;
   const title = ios ? t.titleIos : t.titleAnd;
   const sub = opts.gift ? audienceLine(fromTag, code, lang) || '' : couponSubline(platform, lang, fromTag, code);
-  const giftForm = (label: string, id: string) => `<form method="post" action="/api/gift/claim" style="margin:0"><input type="hidden" name="gift" value="${esc(opts.gift || '')}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
+  const giftForm = (label: string, id: string) => `<form method="post" action="/api/gift/claim${ios ? '?gift_os=ios' : ''}" style="margin:0"><input type="hidden" name="gift" value="${esc(opts.gift || '')}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
   const free = ios ? t.freeIos : t.freeAnd;
   const head = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -286,21 +286,23 @@ ${iosIa
   const ia = opts.androidInApp === true;
   const ph = 'SGCODEPH';
   const iaT = IN_APP_TEXT[lang];
+  // 선물은 POST 직후 스토어로 이동하므로 기존 구독 안내를 등록 전에 읽을 수 있어야 한다.
+  const step2 = `<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>
+<p class="help">${phrases(lang, t.andStep2Help)}</p>`;
   const html = `${head}
 <div id="pre">
 <p class="t-label">${esc(t.myCode)}</p>
 <div class="row"><p class="t-code mask" aria-hidden="true">•••• •••• •••• ••••</p></div>
 <p class="help">${phrases(lang, t.andPre)}</p>
 <button class="cta" id="claim" type="button">${esc(t.andCta)}</button>
-</div>
+</div>${opts.gift ? `\n${step2}` : ''}
 <div id="got" hidden>
 <p class="t-label">${esc(t.myCode)}</p>
 <p class="t-code long" id="code"></p>
 <div class="tools"><button class="copy" id="copy" type="button">${esc(t.copy)}</button></div>
 <a class="cta" id="play" href="https://play.google.com/redeem">${esc(t.andApply)}</a>${ia ? `
 <a class="cta2" id="playw" href="https://play.google.com/redeem">${esc(iaT.alt)}</a>` : ''}
-<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>
-<p class="help">${phrases(lang, t.andStep2Help)}</p>
+${opts.gift ? '' : step2}
 <p class="help">${phrases(lang, t.andManual)}</p>${ia ? `
 <p class="help">${inAppHintHtml(lang)}</p>` : ''}
 <p class="note" id="again" hidden>${esc(t.again)}</p>

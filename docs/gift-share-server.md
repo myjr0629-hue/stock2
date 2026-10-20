@@ -16,6 +16,9 @@
 - 토큰은 7일 유효하다. 발행·조회에 재고를 예약하거나 소비하지 않는다. 따라서 발행 성공이 추후 재고 확보를 보장하지 않는다.
 - `GET/HEAD /app?gift=…`: Redis 호출 없이 기존 쿠폰·QR 템플릿을 사용한다. 기존 제목·라벨·버튼 문구·CSS를 재사용하고 번호 영역은 기존 마스크를 사용한다. 기존 공용 코드의 ‘500명/200명·10/30’은 새 묶음의 사실이 아니므로 선물 분기는 기존 ‘친구가 보낸 선물’ 문구만 같은 부제 영역에 표시한다. 신규 라벨은 없다.
 - 등록 버튼은 같은 출처 폼 `POST /api/gift/claim`이다. 서버가 서명한 수신자 쿠키가 있어야 한다. 재고 선택·OS/수신자 고정·상한·캠페인 중복·차감·장부를 한 Lua 실행으로 처리한다. 수신자·계정·OS가 같은 재시도는 같은 코드를 복구한다. 유효 기간이 지난 코드도 풀에 되돌리지 않는다.
+- 선물 응답은 `Referrer-Policy: same-origin`을 사용한다. 기존 `no-referrer`는 폼 POST의 Origin을 `null`로 만들어 출처 검사에서 막혔다. 같은 출처의 Origin은 유지하고, 외부 스토어로는 Referer를 보내지 않는다. `null`·누락·다른 출처 및 교차 출처 Fetch Metadata는 계속 거부한다.
+- Android 선물 폼은 즉시 Play로 이동하므로, 기존 ‘② 구독’과 앱 설정 경로 안내를 등록 전부터 보이게 한다. 기존 번역·CSS를 그대로 재사용하며 스크립트가 없어도 읽을 수 있다.
+- 맥 UA를 쓰는 iPad는 QR 화면의 기존 터치 감지로 같은 토큰·언어의 `/app`에 `gift_os=ios`를 붙여 이동한다. 맥 UA와 해당 힌트가 함께 있을 때만 iOS로 보며, 폼 POST에도 힌트를 유지한다. 일반 PC·터치 Windows는 QR을 유지하고 조회·자동 이동은 재고를 소비하지 않는다.
 - 수신자는 기기·검증 계정 각각 이 캠페인에서 최대 1장이다(400일 중복 표지). 계정 없이 받은 뒤 다른 기기로 로그인하는 경우까지 정확히 합칠 수는 없다.
 - 성공은 Apple/Play의 기존 등록 주소로 303, 소진·만료·상한·장애·불명 OS·잘못된 요청은 코드 없는 일반 설치 주소로 이동한다. PC는 토큰 QR만 표시한다.
 - 장부는 토큰 해시를 키로 `at`, `os`, `tokenHash`, `last4`만 기록한다. 원문 코드는 전용 재고와 복구용 토큰 상태에만 보관한다. 애플리케이션 오류·로그에 토큰·코드를 출력하지 않는다. 호스팅 접근 로그의 쿼리와 303 `Location` 마스킹은 운영 설정에서 별도로 확인해야 한다.
@@ -36,8 +39,9 @@ node scripts/gift-load-codes.mjs --os ios --file /비공개/코드목록.txt --m
 
 ## 공유 함수 호출자 영향
 
-- `couponHtml`: 기존 `/app`과 새 `giftLanding` 두 운영 호출자. `gift` 옵션이 없으면 출력이 동일하다. 기존 쿠폰·선물·구독 시험과 기존 HEAD 응답 대조로 회귀를 검사한다.
-- `desktopRedeemHtml`: 같은 두 운영 호출자. 새 옵션이 없으면 기존 QR·문구·iPad 이동이 동일하다. 선물 QR은 코드 대신 토큰을 보존하며 iPad의 동일 URL 반복 이동을 만들지 않는다.
+- `giftHeaders`·`giftOs`: `giftLanding`·`/app`의 선물 실패 폴백·선물 발행 API·선물 등록 API에서 사용한다. 선물 응답 정책과 맥 UA의 iPad 힌트 처리에만 영향이 있다. 기존 `/app` 분기는 플래그 꺼짐 회귀로, 발행·등록 API는 성공·거부·폴백 시험으로 확인했다. `validGiftPost`의 출처 검사 자체는 바꾸지 않았다.
+- `couponHtml`: 기존 `/app`과 새 `giftLanding` 두 운영 호출자. 선물 옵션에서만 iOS 폼에 iPad 힌트를 유지하고 Android 기존 안내를 노출한다. `gift` 옵션이 없으면 출력이 동일하다. 기존 쿠폰·선물·구독 시험과 `origin/main` 템플릿 대조로 확인했다.
+- `desktopRedeemHtml`: 같은 두 운영 호출자. 새 옵션이 없으면 기존 QR·문구·iPad 이동이 동일하다. 선물 QR은 코드 대신 토큰을 보존하며 iPad는 같은 토큰의 iOS 폼으로 이동한다. 터치 감지 스크립트 모의 실행과 후속 GET·POST로 반복 이동·조회 배정이 없음을 확인했다.
 - `inviteAppHref`: `landingCta`에서 호출한다. 새 선택 인자가 없으면 기존 주소와 동일하다.
 - `landingCta`: 공유 카드 페이지에서 호출한다. 서버가 플래그를 확인한 토큰만 추가하고 기존 라벨은 유지한다.
 - `ShareLanding`: SIGNUM 종목·랭킹 두 페이지. 서버가 전달한 토큰만 기존 설치 버튼에 추가한다. UC·WIM 주소에는 붙이지 않는다.
@@ -51,7 +55,7 @@ node scripts/gift-load-codes.mjs --os ios --file /비공개/코드목록.txt --m
 
 쿠키 삭제·기기 열쇠 위조를 완전히 방지하는 앱 무결성 증명은 없다. 서버 전체 상한으로 배분을 제한한다. 실제 코드 자격·스토어 등록 완료·메신저 내 이동·화면 픽셀 비교는 이번 접근 금지 범위이며 운영 세션 확인이 필요하다.
 
-## 바꾼 파일
+## 최초 구현 파일
 
 - 서버 공통: `src/lib/giftShare/config.ts`, `atomic.cjs`, `server.ts`, `http.ts`, `landing.ts`
 - API: `src/app/api/gift/issue/route.ts`, `src/app/api/gift/claim/route.ts`
@@ -62,11 +66,12 @@ node scripts/gift-load-codes.mjs --os ios --file /비공개/코드목록.txt --m
 
 ## 이번 실행의 확인 결과
 
-- 전체 `tsc --noEmit --incremental false --pretty false`: 종료 0, 진단 0건. 공용 잠금 아래 1회 실행했다. 최종 선물 모듈 범위 타입 검사도 종료 0, 진단 0건이다.
-- 새 선물 경로: 10개 통과. 꺼짐 상태에서 기존 HEAD의 `/app` 상태·헤더·본문 대조, GET·HEAD·OG·PC QR의 재고 호출 0회, 기존 CSS·라벨, 코드 없는 발행, 저장소 응답 재시도·폴백·거부를 검증했다. 저장소 응답 주입 시험이다.
-- 기존 통과: `inviteLanding` 41, `coupon` 32, `gift` 22, `couponSubscribe` 24, `desktopHandoff` 5, `androidInApp` 15, `couponIosInApp` 14개.
-- 기존 `invite`는 `tests/invite.test.ts:969`의 관심종목 공유 단추 위치 정규식에서 실패했다. 해당 관심종목 파일은 기존 HEAD와 바이트 단위로 동일하며 같은 정규식이 HEAD와 현재 양쪽 모두 실패한다. 정규식이 공유 버튼 뒤 문단까지를 200자로 제한하지만 기존 주석·래퍼가 그 범위를 넘는다. 이번 작업은 해당 화면·시험을 수정하지 않았다. 이 실패 이후의 `invite` 시험은 실행되지 않았다.
-- 최종 적재 도구: OS별 정상 드라이런·대상 미지정 적용 거부·중복 거부·만료 거부 총 8개 통과. 합성 데이터만 임시 디렉터리에 만들고 삭제했다. 외부 접속·실제 적재는 없었다.
-- 스크립트 구문 검사와 `git diff --check` 통과.
-- 실제 Lua 동시 20건·원자 배분·상한 검증은 미실행이다. 로컬 Redis 실행 파일을 찾지 못했고 다운로드도 DNS 오류로 실패했다. 이 항목을 응답 주입 시험의 통과로 대체하지 않는다.
+- 이번 보완 파일은 `src/lib/giftShare/http.ts`, `src/lib/marketing/couponHtml.ts`, `src/lib/marketing/desktopHandoff.ts`, `tests/giftShare.test.ts`, `tests/invite.test.ts`, 이 문서다. 화면 라벨·번역·CSS는 수정하지 않았다.
+- 전체 `tsc --noEmit --incremental false --pretty false`: 종료 0, 진단 0건. `/usr/bin/lockf -k /tmp/signum-heavy.lock` 아래 1회 실행했다.
+- 선물 경로 14개 통과. 세 관문 결함 각각의 회귀 시험을 추가했다. 랜딩의 정책·실제 폼·서명 쿠키로 만든 모의 POST가 iOS·Android 등록 주소로 303 이동하고, Android 세 언어 안내는 숨김 조상 밖에 있으며, 맥 UA의 iPad는 터치 감지 → 쿠폰 GET → 등록 POST로 이어진다. 실제 브라우저 시험은 아니다.
+- 플래그 꺼짐은 `origin/main`의 라우트와 의존 쿠폰·QR 템플릿을 별도로 읽어 비교한다. 3개 언어·4개 UA·기존 코드/선물 출처·토큰 유무·GET/HEAD 144조합에서 상태·헤더·본문이 같았다. 기존 쿠폰·QR 템플릿 48조합도 바이트 단위로 같았다. 이전 HEAD 자체 비교를 없앴다.
+- 관련 기존 시험 12묶음·359개 모두 통과: `invite` 104, `inviteLanding` 41, `coupon` 32, `gift` 22, `couponSubscribe` 24, `desktopHandoff` 5, `androidInApp` 15, `couponIosInApp` 14, `giftAnnounce` 15, `smartLink` 21, `redeemLinkPreview` 41, `smartBanner` 25. 공용 잠금 아래 순차 실행했고 외부 fetch·HTTP·TCP 연결을 차단했다.
+- 이전 `invite` 실패는 기존 주석·래퍼에 비해 정규식의 200자 제한이 짧아서 생긴 오판이었다. 화면을 바꾸지 않고 TypeScript JSX 구문 트리로 공유 단추와 글 묶음의 형제 관계를 검사하도록 고쳤다. 긴 주석은 허용하고, 중첩 단추·해당 공유 단추 누락은 계속 실패하는 것도 확인했다.
+- 적재 도구의 OS별 정상 드라이런·대상 누락 적용 거부·중복 거부·만료 거부 총 8개도 통과했다. 비공개 임시 디렉터리의 합성 자료만 사용하고 삭제했으며, 외부 네트워크를 차단했다. 적재 스크립트·Lua 시험 파일 구문 검사와 `git diff --check`도 통과했다.
+- 실제 Lua 동시 20건·원자 배분·상한 검증은 미실행이다. PATH 및 기본 설치 경로에서 로컬 Redis 실행 파일을 찾지 못했다. 다운로드·운영 접속은 시도하지 않았고 응답 주입 시험으로 원자성을 주장하지 않는다.
 - 브라우저·스토어 콘솔·운영 Redis·모델 호출·배포·push·커밋은 수행하지 않았다. `.env*` 파일은 읽지 않았다. 실기 스토어 이동·상품 자격·재고 분리·호스팅 로그 마스킹은 미확인이다.
