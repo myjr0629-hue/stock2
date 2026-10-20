@@ -7,7 +7,10 @@ import { checkAmounts } from './amountGuard';
 import { checkNumberGrounding } from './depthNumbers';
 import type { AiLineLocale } from '@/lib/app/watchlistAiLine';
 
-export const WATCHLIST_DEPTH_RULES = `SECOND OUTPUT — "insight": one interpretive sentence per language saying what the options map plus CONTEXT MEANS for this stock now: the mechanism (for example negative gamma = dealer hedging can amplify swings; price below Max Pain into the expiry; a dated company headline meeting the Call Wall) and, where useful, ONE condition to confirm. Do NOT restate levels, list metrics or use " · " separators — the chip line already does that. HARD LENGTH LIMIT (one line on a phone): ko/ja <= 28 characters, en <= 50 characters — ONE short clause, no second clause. Fully localized prose (level names may stay English in en only), no labels.
+/** 해석 길이 상한(글자) — 지시는 ko/ja 32·en 64, 검사는 여유를 두어 36·72(카드 글 칸은 2줄 말줄임이라 넘쳐도 레이아웃은 그대로). 10/20 실측: 28/50 에선 운영 해석 대부분이 길이로 탈락 */
+const INSIGHT_MAX: Record<AiLineLocale, number> = { ko: 36, ja: 36, en: 72 };
+
+export const WATCHLIST_DEPTH_RULES = `SECOND OUTPUT — "insight": one interpretive sentence per language saying what the options map plus CONTEXT MEANS for this stock now: the mechanism (for example negative gamma = dealer hedging can amplify swings; price below Max Pain into the expiry; a dated company headline meeting the Call Wall) and, where useful, ONE condition to confirm. Do NOT restate levels, list metrics or use " · " separators — the chip line already does that. HARD LENGTH LIMIT (fits the card's line on a phone): ko/ja <= 32 characters, en <= 64 characters — ONE short clause, no second clause. Fully localized prose (level names may stay English in en only), no labels.
 It must say WHY the position matters (mechanism or implication), not WHAT the numbers are — a sentence that only names a zone or repeats a percentage is invalid.
 Never reuse the style sentences verbatim: tie the mechanism to THIS stock's own supplied fact (its implied move, nearest level, dated headline or earnings).
 Style (illustration only): positioning only → {"ko":"음감마라 딜러 헤지가 변동을 키우는 자리","en":"Negative gamma: dealer hedging amplifies moves","ja":"負ガンマでヘッジ売買が値動きを増幅する位置"} · with a dated company headline → {"ko":"공급 계약 소식이 Call Wall 앞에서 시험받는 자리","en":"Supply-deal headline is testing the Call Wall","ja":"供給契約の報道がCall Wall手前で試される位置"}
@@ -20,7 +23,7 @@ FINAL OUTPUT SCHEMA (replaces the JSON shape above; top-level keys only): {"ko":
 export function fitDepthLine(text: unknown, loc: AiLineLocale): unknown {
     if (typeof text !== 'string') return text;
     const t = text.trim();
-    const max = loc === 'en' ? 50 : 28;
+    const max = INSIGHT_MAX[loc];
     if ([...t].length <= max) return t;
     const first = t.split(/\s*[,，、;；]\s*/)[0].trim();
     return [...first].length <= max && [...first].length >= 8 ? first : t;
@@ -29,7 +32,7 @@ export function fitDepthLine(text: unknown, loc: AiLineLocale): unknown {
 export function checkDepthLine(text: unknown, loc: AiLineLocale, source: string, nowMs: number = Date.now()): string[] {
     if (typeof text !== 'string' || !text.trim()) return ['insight:empty'];
     const reasons = [...textIntegrityReasons(text), ...validateInsight(text, loc, { minLength: 8 }).reasons, ...unsupportedEventReasons(text, source), ...localePurityReasons(text, loc), ...watchlistNoScheduleReasons(text, source.match(/FACTS — (\S+)/)?.[1] || '', source)];
-    if ([...text].length > (loc === 'en' ? 50 : 28) || /[\r\n{}]| · |…|\.\.\./.test(text)) reasons.push('insight:format');
+    if ([...text].length > INSIGHT_MAX[loc] || /[\r\n{}]| · |…|\.\.\./.test(text)) reasons.push('insight:format');
     reasons.push(...positioningSideReasons(text, source));
     if (adviceHit(text)) reasons.push('insight:advice');
     if (checkNumberGrounding(text, source).ungrounded.length > 0) reasons.push('insight:number');
