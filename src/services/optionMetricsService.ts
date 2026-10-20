@@ -3,6 +3,7 @@ import { mgetFromCache } from '@/services/redisClient';
 import { canonicalShareClass } from '@/lib/tickerSymbol';
 import { optionExpirationFloor } from '@/lib/marketCalendar';
 import { optionMetrics, optionRegimeInputs, type OptionMetrics, type OptionRegimeInputs } from '@/lib/optionMetrics';
+import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { etPhase } from '@/lib/cache/intelFastCache';
 
 type Snapshot = { structure: any; oiRow: any; cacheable: boolean };
@@ -15,9 +16,10 @@ const MAX_SNAPSHOTS = 1000;
 async function latestOiRow(ticker: string): Promise<any> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-        const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+        // [2026-10-20] 수집 Lambda 행만(OI P/C 의 정본) — SPY 의 EC2 guardian 스냅샷 행(OI 없음)이 최신 행을 가리던 것을 건너뛴다
+        const db = await import('@/lib/aws/dynamoDataProvider');
         return await Promise.race([
-            getLatestGex(ticker).catch(() => null),
+            latestCollectorGexRow(db, ticker).catch(() => null),
             new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), 4000); }),
         ]);
     } catch { return null; }

@@ -4,11 +4,12 @@
 // 왜 (2026-10-07 정확성 2차): 화면의 «P/C(미결제약정)» 는 한 정의 — Intel 은 /api/intel/fast?app=1 이 같은 행에서 읽는다.
 //   Flow 의 C/P 카드는 live/ticker 의 rawChain(주간 만기 1개)을 합산해 «OI» 라고 보였다 → 이 값을 받아 같은 정의로 그린다.
 //   행이 없으면 아래 35일 대체(같은 범위만), 그것도 없으면 null(앱은 «—») — 다른 만기 범위의 값으로 메우지 않는다. 웹은 이 경로를 쓰지 않는다.
-//   쓰기는 체인 35일 합산 저장본(oi35:chain:v1:*) 하나뿐(2026-10-20 NB1).
+//   쓰기는 체인 35일 합산 저장본(oi35:chain:v1:*)(2026-10-20 NB1)과 종목별 «직전 정상값»(oi35:resp:lastgood:v1:* — 모든 대체가 실패할 때 같은 정의·기준일로, 2026-10-20 SPY 핫픽스).
+//   행은 수집 Lambda 행만 읽는다(intelOptionsBasis.latestCollectorGexRow — SPY 의 EC2 guardian 스냅샷 행을 건너뛴다).
 // ============================================================================
 import { NextResponse, after } from 'next/server';
-import { oiPcrAllExpiries, isFreshOptionsRow, oiRowHasQuantities } from '@/lib/app/intelOptionsBasis';
-import { readOi35Fallback, readChainOi35, buildChainOi35, type Oi35Fallback } from '@/services/oiNear35Fallback';
+import { oiPcrAllExpiries, isFreshOptionsRow, oiRowHasQuantities, latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
+import { readOi35Fallback, readChainOi35, buildChainOi35, readLastGoodOi, rememberLastGoodOi, type Oi35Fallback, type LastGoodOi } from '@/services/oiNear35Fallback';
 
 /**
  * [2026-10-19 D16] 수집 Lambda 행이 멈춘 종목(WTFC·FITB 8/28)의 대체 — 옵션 EOD 묶음(intrinio:options:eod)의 «가까운 만기 35일» 합계.
@@ -29,6 +30,11 @@ async function chainFallbackNow(t: string, waitMs: number): Promise<Oi35Fallback
     return null;
 }
 
+/** 정상 응답을 «직전 정상값»으로 남긴다 — 응답 뒤에(요청 범위 밖이면 그냥 진행) */
+function remember(t: string, v: Omit<LastGoodOi, 'savedAt'>): void {
+    try { after(() => rememberLastGoodOi(t, v)); } catch { void rememberLastGoodOi(t, v); }
+}
+
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -38,9 +44,10 @@ export async function GET(request: Request) {
     if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t)) return NextResponse.json({ success: false, error: 'invalid ticker' }, { status: 400 });
     let row: any = null;
     try {
-        const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+        // [2026-10-20] 수집 Lambda 행만 — SPY 는 EC2 guardian 스냅샷(SPX 수준·OI 없음)이 5분마다 끼어 최신 행을 가렸다(intelOptionsBasis.latestCollectorGexRow)
+        const db = await import('@/lib/aws/dynamoDataProvider');
         row = await Promise.race([
-            getLatestGex(t).catch(() => null),
+            latestCollectorGexRow(db, t).catch(() => null),
             new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
         ]);
     } catch { row = null; }
@@ -58,6 +65,7 @@ export async function GET(request: Request) {
         ?? (await chainFallbackNow(t, RESPONSE_BUDGET_MS - (Date.now() - started)))
         ?? (await readOi35Fallback(t)));
     if (near) {
+        remember(t, { pcr: near.pcr, callOI: near.callOI, putOI: near.putOI, contracts: null, basis: near.basis, asOf: near.asOf, eodDate: near.recordDate, oiDate: near.oiDate, anchor: near.anchor ?? null });
         return NextResponse.json(
             {
                 success: true, ticker: t, pcr: near.pcr, callOI: near.callOI, putOI: near.putOI, contracts: null,
@@ -69,15 +77,34 @@ export async function GET(request: Request) {
             { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' } },
         );
     }
+    const rowPcr = oiPcrAllExpiries(use);
+    const rowAsOf = Number.isFinite(ts) && ts > 0 ? ts : null;
+    if (use && rowPcr != null && rowAsOf != null) {
+        remember(t, { pcr: rowPcr, callOI: num(use.totalCallOI) as number, putOI: num(use.totalPutOI) as number, contracts: num(use.totalContracts), basis: 'oi_all_expiries_35d', asOf: rowAsOf, eodDate: null, oiDate: null, anchor: null });
+    }
+    // [2026-10-20 SPY 장중 결측 핫픽스] 행 수량 결측 + 오늘 체인·계산·직전 체인 저장본·EOD 35일이 모두 없을 때만 — 종목별 «직전 정상값»(같은 35일 정의·값 시각·기준일 그대로).
+    //   행이 유효 수량을 갖고 P/C 만 못 내는 경우(콜 0)는 행 그대로(관문 10200048) — 여기 오지 않는다.
+    const lg = use ? null : await readLastGoodOi(t);
+    if (lg) {
+        return NextResponse.json(
+            {
+                success: true, ticker: t, pcr: lg.pcr, callOI: lg.callOI, putOI: lg.putOI, contracts: lg.contracts,
+                asOf: lg.asOf, stale: false, staleRow: !!row && !fresh,
+                basis: lg.basis, ...(lg.eodDate ? { eodDate: lg.eodDate } : {}), ...(lg.oiDate ? { oiDate: lg.oiDate } : {}),
+                lastGood: true,
+            },
+            { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' } },
+        );
+    }
     return NextResponse.json(
         {
             success: true,
             ticker: t,
-            pcr: oiPcrAllExpiries(use),
+            pcr: rowPcr,
             callOI: num(use?.totalCallOI),
             putOI: num(use?.totalPutOI),
             contracts: num(use?.totalContracts),
-            asOf: Number.isFinite(ts) && ts > 0 ? ts : null,
+            asOf: rowAsOf,
             stale: !!row && !fresh,
             basis: 'oi_all_expiries_35d',
         },
