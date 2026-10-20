@@ -57,24 +57,27 @@ const THEME: Record<App, { bg: string; fg: string; btnBg: string; btnFg: string 
 // 로케일 재이동(UC·WIM 은 기기 언어로 router.replace 한다)으로 다시 마운트돼도 «열림»은 한 번만 센다.
 let openCounted = false;
 
-export function ShareLanding({ app, surface, locale, via, variant }: {
+export function ShareLanding({ app, surface, locale, via, variant, from = 'share' }: {
   app: App;
-  surface: ShareSurface;
+  surface?: ShareSurface;
   locale: string;
   via?: string | null;
   variant: 'card' | 'bar';
+  /** 공개 영수증의 설치 경로. 기존 호출자는 share 표시·비콘·링크 그대로. */
+  from?: 'share' | 'receipts';
 }) {
   const l: Loc = locale === 'ko' || locale === 'ja' ? locale : 'en';
   useEffect(() => {
+    if (from !== 'share' || !surface) return;
     if (openCounted) return;
     openCounted = true;
     shareBeacon('open', surface, via);
-  }, [surface, via]);
+  }, [surface, via, from]);
 
   const c = COPY[app][l];
   const th = THEME[app];
-  const href = `https://www.signumhq.com${APP_PATH[app]}?from=share&l=${l}`;
-  const onClick = () => shareBeacon('click', surface, via);
+  const href = `https://www.signumhq.com${APP_PATH[app]}?from=${from}&l=${l}`;
+  const onClick = () => { if (from === 'share' && surface) shareBeacon('click', surface, via); };
 
   const body = (
     <>
@@ -84,7 +87,7 @@ export function ShareLanding({ app, surface, locale, via, variant }: {
       {/* width:0 + flex-basis 0 — 한 줄 말줄임(nowrap) 글이 «최소 폭»을 키워 페이지를 가로로 밀던 것을 막는다
           (2026-09-29 프리뷰 실측: 375px 에서 본문이 467px 로 넘쳤다. 부모가 flex 세로라 min-width:auto 가 글 길이를 따른다) */}
       <span style={{ minWidth: 0, width: 0, flex: '1 1 0%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.72, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.kicker}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.72, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{from === 'receipts' ? 'SIGNUM HQ' : c.kicker}</span>
         {/* 넘치면 말줄임 대신 두 줄로 접는다(좁은 360px 폰·넓은 안드로이드 글꼴 대비) — 대표 원칙 «글을 두 줄로» */}
         <span style={{ fontSize: 13.5, fontWeight: 800, lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all' }}>{c.line}</span>
       </span>
