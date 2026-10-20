@@ -60,14 +60,27 @@ export function positioningSideReasons(text: string, source: string): string[] {
         { re: /call\s*wall|콜\s*월|コール\s*ウォール/i, above: /price is ABOVE the Call Wall/, below: /the Call Wall is above the price/ },
         { re: /gamma\s*flip|감마\s*플립|ガンマ\s*フリップ/i, above: /price is ABOVE the Gamma Flip/, below: /price is BELOW the Gamma Flip/ },
     ];
-    const UP = /(?<![아범단순지분주부])위(?!치|험|기|원)|上(?!昇)|\babove\b|\bover\b|넘|돌파|상회|웃돌|超/i;
-    const DOWN = /아래|밑|下(?!落)|\bbelow\b|\bunder\b|하회|밑돌|割れ|割り込/i;
-    const named = LEVELS.filter(l => l.re.test(text));
-    const up = UP.test(text), down = DOWN.test(text);
-    if (named.length && (up || down)) {
-        if (named.length > 1 || (up && down)) out.push('insight:level-side');
-        else if (up && !named[0].above.test(source)) out.push('insight:level-side');
-        else if (down && !named[0].below.test(source)) out.push('insight:level-side');
+    // 주어가 분명한 꼴만 판정한다(fail-closed):
+    //   가격이 주어 — «콜월 아래»·«Call Wall $160 위»·«below the Call Wall»·«コールウォールの下»
+    //   레벨이 주어 — «콜월이 위»·«Call Wall (is|sits) above (the) price/spot»·«コールウォールが上»(가격 기준 반대 방향)
+    //   그 밖에 레벨+방향어가 함께 있으면 판정하지 않고 탈락.
+    const UPC = '(?:위(?!치|험|기|원)|上(?!昇)|넘|돌파|상회|웃돌|超)', DNC = '(?:아래|밑|下(?!落)|하회|밑돌|割れ|割り込)';   // 한·일: 레벨 뒤에 온다
+    const UPE = '(?:above|over)', DNE = '(?:below|under)';                                                            // 영: 레벨 앞(가격 주어) · 레벨 뒤(레벨 주어)
+    const anyDir = new RegExp(`${UPC}|${DNC}|\\b${UPE}\\b|\\b${DNE}\\b`, 'i');
+    for (const l of LEVELS) {
+        if (!l.re.test(text)) continue;
+        const L = `(?:${l.re.source})`;
+        const num = '(?:\\s*\\$?[\\d.,]+)?';
+        const pricePos = (c: string, e: string) => new RegExp(`${L}${num}\\s*の?\\s*${c}|\\b${e}\\s+(?:the\\s+)?${L}`, 'i');
+        const levelSubj = (c: string, e: string) => new RegExp(`${L}${num}\\s*(?:이|가|は|が)\\s*${c}|${L}${num}\\s+(?:(?:is|sits|stays|remains)\\s+)?(?:still\\s+)?${e}\\b`, 'i');
+        // 레벨이 주어인 꼴을 먼저 본다(«콜월이 위»·«Call Wall below spot»)
+        let side: 'above' | 'below' | null = null;
+        if (levelSubj(UPC, UPE).test(text)) side = 'below';          // 레벨이 위 = 가격은 아래
+        else if (levelSubj(DNC, DNE).test(text)) side = 'above';
+        else if (pricePos(UPC, UPE).test(text)) side = 'above';
+        else if (pricePos(DNC, DNE).test(text)) side = 'below';
+        if (side === null) { if (anyDir.test(text)) out.push('insight:level-side'); continue; }
+        if (!(side === 'above' ? l.above : l.below).test(source)) out.push('insight:level-side');
     }
     return out;
 }

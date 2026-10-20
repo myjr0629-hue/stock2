@@ -407,6 +407,14 @@ test('관문 9차 재현: 근거 밖 경제 일정 · 상대 날짜 · 사전 �
         assert.deepEqual(checkDepthLine(t, loc, src).filter(r => r === 'insight:level-side' || r === 'insight:other-name'), [], t);
 });
 
+test('관문 10차 재현: 레벨이 주어인 문장의 위/아래', () => {
+    const src = buildLineUserPrompt(f);   // 145 · CW 160 (Call Wall 이 위)
+    for (const [loc, t] of [['ko', '콜월이 아래라 상승 여력이 남은 자리'], ['en', 'Call Wall below spot leaves upside open'], ['en', 'Call Wall is below the price here']] as const)
+        assert.ok(checkDepthLine(t, loc, src).includes('insight:level-side'), t);
+    for (const [loc, t] of [['ko', '콜월이 위라 상단이 막힌 자리'], ['en', 'Call Wall above spot caps the upside'], ['ja', 'コールウォールが上で上値が抑えられる位置']] as const)
+        assert.deepEqual(checkDepthLine(t, loc, src).filter(r => r === 'insight:level-side'), [], t);
+});
+
 async function main() {
     // 프록시 서버를 띄우거나 Redis에 연결하지 않고 실제 readBody 함수 본문을 로드한다.
     const proxy = readFileSync('scripts/ec2-redis-proxy.js', 'utf8');
