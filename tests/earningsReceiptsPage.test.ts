@@ -44,7 +44,13 @@ const { readEarningsReceipts } = require('../src/services/earningsReceiptsServic
 const props = (locale: string, week?: string) => ({ params: Promise.resolve({ locale }), searchParams: Promise.resolve({ week }) });
 const html = async (locale: string, week?: string) => renderToStaticMarkup(await page.default(props(locale, week)));
 let n = 0;
-const test = async (name: string, fn: () => unknown) => { await fn(); n++; console.log(`✓ ${name}`); };
+// 앞선 검사가 통과한 경우 --from=N으로 실패 지점부터 남은 검사만 실행한다.
+const fromTest = Number(process.argv.find((arg) => arg.startsWith('--from='))?.slice(7) ?? 1);
+let index = 0;
+const test = async (name: string, fn: () => unknown) => {
+  if (++index < fromTest) return;
+  await fn(); n++; console.log(`✓ ${name}`);
+};
 
 (async () => {
   await test('데이터 주: 동일 확정 집합 MGET 1회, 실제 가격·시각·만기·모든 결측 행 유지', async () => {
@@ -62,8 +68,54 @@ const test = async (name: string, fn: () => unknown) => { await fn(); n++; conso
     const h = await html('ko', '2026-10-12');
     for (const value of ['±3.0%', '−2.0%', '$100.00', '$98.00', '2026-10-16',
       '2026-10-12T20:00:00.000Z', 'data-provenance="backfilled"', '사후 보강', '기록 없음']) assert.ok(h.includes(value), value);
-    assert.equal((h.match(/data-provenance=/g) ?? []).length, entries.length);
+    assert.equal((h.match(/<tr[^>]*data-provenance=/g) ?? []).length, entries.length);
     for (const e of entries) assert.ok(h.includes(`/ko/flow/${e.ticker}`));
+  });
+  await test('3언어 SSR: 카드·표·데이터 행 일치, 큰 요약 숫자·문자 배지·접힌 상세 보존', async () => {
+    store.set(actualsKey('C', '2026-10-13'), record('C', 3, 3.0001));
+    const data = await readEarningsReceipts('2026-10-12');
+    const beforeSource = execFileSync('git', ['show', 'HEAD:src/app/[locale]/receipts/earnings/page.tsx'], { encoding: 'utf8' });
+    const beforeJs = ts.transpileModule(beforeSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+    const before: { default?: typeof page.default } = {};
+    vm.runInNewContext(beforeJs, { exports: before, require });
+    for (const l of ['ko', 'en', 'ja'] as const) {
+      const h = await html(l, '2026-10-12'), c = RECEIPT_COPY[l];
+      const cards = h.match(/<article class="er-card"[\s\S]*?<\/article>/g) ?? [];
+      const table = h.match(/<table>[\s\S]*?<\/table>/)![0];
+      assert.equal(cards.length, data.rows.length);
+      assert.equal((table.match(/<tr[^>]*data-provenance=/g) ?? []).length, cards.length);
+      const oldHtml = renderToStaticMarkup(await before.default!(props(l, '2026-10-12')));
+      assert.equal(table, oldHtml.match(/<table>[\s\S]*?<\/table>/)![0], '기존 표 HTML 바이트 일치');
+      for (const [i, row] of data.rows.entries()) {
+        const card = cards[i];
+        assert.ok(card.includes(`/${l}/flow/${row.ticker}`));
+        assert.ok(card.includes(row.date));
+        assert.ok(card.includes(`data-provenance="${row.provenance}"`));
+        assert.ok(card.includes(c.provenance[row.provenance]));
+        assert.ok(card.includes(`<details><summary>${c.details}</summary>`), '기본 접힌 상세');
+        assert.doesNotMatch(card, /<details[^>]*\bopen\b/);
+        assert.ok(card.includes(c.source));
+        const label = row.beyond == null ? c.notCompared : row.beyond ? c.outside : c.within;
+        assert.match(card, new RegExp(`class="er-badge"[^>]*>${label}</span>`));
+        for (const issue of row.issues) assert.ok(card.includes(c.issues[issue]), issue);
+        if (row.expected) {
+          for (const value of [c.captured, c.session, c.expiry, row.expected.expiry,
+            row.expected.session, row.expected.src, new Date(row.expected.capturedAt).toISOString()]) assert.ok(card.includes(value), value);
+        } else assert.ok(card.includes(c.noRecord));
+        if (row.actual) {
+          for (const value of [c.price, c.calculated, row.actual.baseDate, row.actual.reactDate]) assert.ok(card.includes(value), value);
+        } else assert.ok(card.includes(c.noRecord));
+        if (row.beyond != null && row.provenance !== 'pre') assert.ok(card.includes(c.provisional));
+      }
+      assert.ok(cards.some((card) => card.includes(`>${c.within}</span>`)));
+      assert.ok(cards.some((card) => card.includes(`>${c.outside}</span>`) && card.includes('+3.0001%')));
+      assert.ok(cards.some((card) => card.includes('data-provenance="missing"')));
+      assert.ok(h.indexOf('class="er-mobile-summary"') < h.indexOf('class="er-cards"'));
+      for (const key of Object.keys(c.summaryLabels) as (keyof typeof data.summary)[]) {
+        assert.ok(h.includes(`data-summary="${key}"><dt>${c.summaryLabels[key]}</dt><dd>${data.summary[key]}</dd>`));
+      }
+      assert.ok(h.includes('@media(min-width:640px){.er-scroll,.er-table-summary{display:block}.er-cards,.er-mobile-summary{display:none}}'));
+    }
   });
   await test('3언어 실제 서버 렌더·방법·설치 컴포넌트·주 선택 보존', async () => {
     for (const l of ['ko', 'en', 'ja'] as const) {
@@ -80,6 +132,18 @@ const test = async (name: string, fn: () => unknown) => { await fn(); n++; conso
     store.clear();
     const missing = await html('ko', '2026-10-12');
     assert.ok(missing.includes('120일 보관 만료')); assert.ok(!missing.includes('±0.0%'));
+    const data = await readEarningsReceipts('2026-10-12');
+    for (const l of ['ko', 'en', 'ja'] as const) {
+      const h = await html(l, '2026-10-12'), c = RECEIPT_COPY[l];
+      const cards = h.match(/<article class="er-card"[\s\S]*?<\/article>/g) ?? [];
+      assert.equal(cards.length, data.rows.length);
+      for (const [i, card] of cards.entries()) {
+        for (const issue of data.rows[i].issues) assert.ok(card.includes(c.issues[issue]), issue);
+        assert.ok(card.includes(c.notCompared));
+        assert.ok(card.includes('data-provenance="missing"'));
+        assert.doesNotMatch(card, /±0\.0%|<strong>[+−]?0\.0%/);
+      }
+    }
     const empty = await html('ko', '2026-01-05');
     assert.ok(empty.includes('기록 없음 (이 주의 확정 일정이 등록되어 있지 않음)'));
     assert.ok(!empty.includes('<table'));
