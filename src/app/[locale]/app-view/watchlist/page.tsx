@@ -529,13 +529,16 @@ function WatchlistInner() {
           <div className={p.aiw}>
             {/* ★2026-10-14 공유 카드 단추 — «✦AI» 표식 바로 아래 칸(둘째 줄 왼쪽, 글이 앉지 않는 자리)에 작게. 글 칸은 그대로라 줄 수·잘림이 바뀌지 않는다. 행 «형제» 단추(버튼 안에 버튼 없음) */}
             {interactive && <InviteShareButton kind="line" ticker={r.t} line={r.aiText} locale={loc} className={p.aiShare} />}
-            <p className={p.ai}>
-              <span className={p.aiTag} role="img" aria-label={t.aiAria}><i aria-hidden="true">✦</i>AI</span>
-              <span className={p.aiTx}>
-                {r.aiText.split(' · ').map((seg, i, all) => <span key={i}>{i > 0 && ' '}<span className={p.aiSeg}>{aiEmph(seg, p.aiEm)}{i < all.length - 1 && ' ·'}</span></span>)}
-              </span>
-            </p>
-            {r.aiInsight && <p className={p.ai}><span className={`${p.aiTag} invisible`} aria-hidden="true"><i>✦</i>AI</span><span className={p.aiTx}>{r.aiInsight}</span></p>}
+            {/* 칩 줄과 해석 줄을 한 칸에 — 펼침 애니메이션(grid 0fr→1fr)이 두 줄을 함께 펼친다(해석 줄만 먼저 보이며 칩 줄이 잘려 보이지 않게) */}
+            <div className={p.aiRows}>
+              <p className={p.ai}>
+                <span className={p.aiTag} role="img" aria-label={t.aiAria}><i aria-hidden="true">✦</i>AI</span>
+                <span className={p.aiTx}>
+                  {r.aiText.split(' · ').map((seg, i, all) => <span key={i}>{i > 0 && ' '}<span className={p.aiSeg}>{aiEmph(seg, p.aiEm)}{i < all.length - 1 && ' ·'}</span></span>)}
+                </span>
+              </p>
+              {r.aiInsight && <p className={p.ai}><span className={`${p.aiTag} invisible`} aria-hidden="true"><i>✦</i>AI</span><span className={p.aiTx}>{r.aiInsight}</span></p>}
+            </div>
           </div>
         )}
       </div>
