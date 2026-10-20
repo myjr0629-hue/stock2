@@ -174,7 +174,7 @@ t('안전망 순서: 직전 체인 저장본·EOD 35일이 있으면 그것이 �
     await flush();
     // 대체값도 직전 정상값으로 남는다(기준일 포함)
     const saved: any = store.get(OI_PCR_LASTGOOD_KEY('SPY'));
-    assert.equal(saved.basis, 'oi_near_expiries_35d_chain_prev'); assert.equal(saved.oiDate, '2026-10-15'); assert.equal(saved.eodDate, '2026-10-16');
+    assert.equal(saved.basis, 'oi_near_expiries_35d_chain_prev'); assert.equal(saved.oiDate, '2026-10-15'); assert.equal(saved.eodDate, '2026-10-16'); assert.equal(saved.anchor, '2026-10-19');
     // 그 뒤 직전 체인 저장본이 사라지면 직전 정상값이 기준일과 함께
     store.delete(CHAIN_OI35_PREV_KEY('SPY'));
     const k = await withNow(() => get('SPY'));
@@ -197,9 +197,20 @@ t('안전망 검사: 다른 만기 범위(basis)·5일 넘은 값·결측 수량
     assert.ok(validLastGoodOi(eod, NOW));                                   // 10/20 장중: 최소 레코드 10/16 → 통과
     assert.equal(validLastGoodOi(eod, EDT(2026, 10, 21, 10, 10)), null);    // 10/21 장중: 10/16 은 두 세션 넘음 → 거부
     assert.equal(validLastGoodOi({ ...eod, eodDate: null }, NOW), null);    // 레코드 날짜 없는 대체값은 거부
-    const prev = { ...eod, basis: 'oi_near_expiries_35d_chain_prev', eodDate: '2026-10-15', oiDate: '2026-10-14' };
+    const prev = { ...eod, basis: 'oi_near_expiries_35d_chain_prev', eodDate: '2026-10-15', oiDate: '2026-10-14', anchor: '2026-10-19' };
     assert.ok(validLastGoodOi(prev, NOW));                                  // 직전 체인은 한 세션 더 허용(readPrevChainOi35 와 같다)
-    assert.equal(validLastGoodOi({ ...prev, basis: 'oi_near_expiries_35d_chain' }, NOW), null);
+    assert.equal(validLastGoodOi({ ...prev, anchor: undefined }, NOW), null);   // 창 시작일 없는 체인 값은 거부
+    // 관문 10202338 ①: 10/15 창·레코드를 10/16 에 정상값으로 저장 → 10/20 장중엔 기존 대체(4일 상한)처럼 거부
+    const oldWin = { ...base, basis: 'oi_near_expiries_35d_chain', anchor: '2026-10-15', eodDate: '2026-10-15', oiDate: '2026-10-14', asOf: EDT(2026, 10, 15, 16), pcr: 3 };
+    assert.ok(validLastGoodOi(oldWin, EDT(2026, 10, 16, 10)));             // 10/16 엔 직전 창으로 통과
+    assert.equal(validLastGoodOi(oldWin, NOW), null);                       // 10/20 엔 창 4일 상한 초과 → 거부
+    assert.equal(validLastGoodOi({ ...oldWin, basis: 'oi_near_expiries_35d_chain_prev' }, NOW), null);   // 관문 재현 그대로(직전 체인 basis·레코드 10/15 는 한 세션 허용 안이지만 창이 4일 넘음)
+    // 오늘 창 체인 값은 오늘 규칙(레코드 ≥ 최소 레코드) · 이전 창 «오늘 체인» 값은 «직전»(chain_prev)으로 밝혀 낸다
+    const todayWin = { ...base, basis: 'oi_near_expiries_35d_chain', anchor: '2026-10-20', eodDate: '2026-10-16', oiDate: '2026-10-15', asOf: EDT(2026, 10, 16, 16) };
+    assert.equal(validLastGoodOi(todayWin, NOW)!.basis, 'oi_near_expiries_35d_chain');
+    assert.equal(validLastGoodOi({ ...todayWin, eodDate: '2026-10-15' }, NOW), null);
+    assert.equal(validLastGoodOi({ ...todayWin, anchor: '2026-10-19' }, NOW)!.basis, 'oi_near_expiries_35d_chain_prev');
+    assert.equal(validLastGoodOi({ ...todayWin, anchor: '2026-10-21' }, NOW), null);   // 미래 창 거부
     // 같은 값은 인스턴스당 10분에 한 번만 쓴다
     store.clear();
     const { savedAt: _s, ...v } = base as any;
@@ -252,6 +263,9 @@ t('배선: live/ticker 는 대체가 모두 없을 때 같은 직전 정상값(r
     const lt = fs.readFileSync(path.join(__dirname, '../src/app/api/live/ticker/route.ts'), 'utf8');
     assert.match(lt, /import \{ readOi35Fallback, readLastGoodOi \} from '@\/services\/oiNear35Fallback';/);
     assert.match(lt, /const v = await readOi35Fallback\(ticker\);[\s\S]{0,400}const lg = await readLastGoodOi\(ticker\);[\s\S]{0,300}setTimeout\(\(\) => resolve\(null\), 800\)/);
+    // 관문 10202338 ②: 직전 정상값이면 그 값의 시각을 optionsAsOf·oiPcrAsOf 로(기준 시각 유지)
+    assert.match(lt, /lastGoodAsOf: lg\.asOf/);
+    assert.match(lt, /if \('lastGoodAsOf' in fb && typeof fb\.lastGoodAsOf === 'number'\) \{\n\s+flow\.optionsAsOf = fb\.lastGoodAsOf;\n\s+flow\.oiPcrAsOf = fb\.lastGoodAsOf;/);
     const r = fs.readFileSync(path.join(__dirname, '../src/app/api/app/oi-pcr/route.ts'), 'utf8');
     assert.match(r, /latestCollectorGexRow\(db, t\)/);
     const s = fs.readFileSync(path.join(__dirname, '../src/services/optionMetricsService.ts'), 'utf8');

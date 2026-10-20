@@ -65,7 +65,7 @@ export async function GET(request: Request) {
         ?? (await chainFallbackNow(t, RESPONSE_BUDGET_MS - (Date.now() - started)))
         ?? (await readOi35Fallback(t)));
     if (near) {
-        remember(t, { pcr: near.pcr, callOI: near.callOI, putOI: near.putOI, contracts: null, basis: near.basis, asOf: near.asOf, eodDate: near.recordDate, oiDate: near.oiDate });
+        remember(t, { pcr: near.pcr, callOI: near.callOI, putOI: near.putOI, contracts: null, basis: near.basis, asOf: near.asOf, eodDate: near.recordDate, oiDate: near.oiDate, anchor: near.anchor ?? null });
         return NextResponse.json(
             {
                 success: true, ticker: t, pcr: near.pcr, callOI: near.callOI, putOI: near.putOI, contracts: null,
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     const rowPcr = oiPcrAllExpiries(use);
     const rowAsOf = Number.isFinite(ts) && ts > 0 ? ts : null;
     if (use && rowPcr != null && rowAsOf != null) {
-        remember(t, { pcr: rowPcr, callOI: num(use.totalCallOI) as number, putOI: num(use.totalPutOI) as number, contracts: num(use.totalContracts), basis: 'oi_all_expiries_35d', asOf: rowAsOf, eodDate: null, oiDate: null });
+        remember(t, { pcr: rowPcr, callOI: num(use.totalCallOI) as number, putOI: num(use.totalPutOI) as number, contracts: num(use.totalContracts), basis: 'oi_all_expiries_35d', asOf: rowAsOf, eodDate: null, oiDate: null, anchor: null });
     }
     // [2026-10-20 SPY 장중 결측 핫픽스] 행 수량 결측 + 오늘 체인·계산·직전 체인 저장본·EOD 35일이 모두 없을 때만 — 종목별 «직전 정상값»(같은 35일 정의·값 시각·기준일 그대로).
     //   행이 유효 수량을 갖고 P/C 만 못 내는 경우(콜 0)는 행 그대로(관문 10200048) — 여기 오지 않는다.

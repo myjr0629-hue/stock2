@@ -19,7 +19,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { prevTradingDate, etDateOf } from '@/lib/marketCalendar';
 import { etWallTimeToMs } from '@/lib/marketSession';
 import { lastCompletedSessionDate } from '@/lib/sessionArchive';
-import { sumChainOi35, validStoredOi35, oi35WindowEnd, strictOi, addDaysYmd, OI35_MAX_EXPIRIES, type ChainOiRow, type Oi35Value } from '@/lib/app/oiNear35';
+import { sumChainOi35, validStoredOi35, oi35WindowEnd, strictOi, addDaysYmd, OI35_MAX_EXPIRIES, OI35_PREV_MAX_AGE_DAYS, type ChainOiRow, type Oi35Value } from '@/lib/app/oiNear35';
 
 export type Oi35Fallback = {
     pcr: number;
@@ -32,6 +32,8 @@ export type Oi35Fallback = {
     oiDate: string;
     /** 값의 시각 = 레코드 날짜 정규장 마감(ms) */
     asOf: number;
+    /** 체인 합산의 35일 창 시작일(ET) — 체인 대체만(직전 정상값이 창 검사를 그대로 하도록) */
+    anchor?: string;
 };
 
 export const CHAIN_OI35_KEY = (t: string) => `oi35:chain:v1:${t}`;
@@ -79,7 +81,7 @@ export async function eodNear35(t: string, nowMs: number = Date.now()): Promise<
 function fromChainValue(v: Oi35Value, basis: Oi35Fallback['basis'] = 'oi_near_expiries_35d_chain'): Oi35Fallback {
     return {
         pcr: v.pcr, callOI: v.callOI, putOI: v.putOI, basis,
-        recordDate: v.recordDate, oiDate: v.oiDate, asOf: etWallTimeToMs(v.recordDate, 16 * 60),
+        recordDate: v.recordDate, oiDate: v.oiDate, asOf: etWallTimeToMs(v.recordDate, 16 * 60), anchor: v.anchor,
     };
 }
 
@@ -222,6 +224,8 @@ export type LastGoodOi = {
     asOf: number;
     eodDate: string | null;
     oiDate: string | null;
+    /** 체인 합산의 35일 창 시작일(ET) — 체인 basis 만, 그 밖은 null */
+    anchor: string | null;
     /** 저장 시각(ms) */
     savedAt: number;
 };
@@ -242,15 +246,31 @@ export function validLastGoodOi(v: any, nowMs: number): LastGoodOi | null {
     const ymd = (d: unknown) => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null);
     // 원래 기준의 신선도 규칙을 그대로 — 직전 정상값이 그 규칙이 거부할 값을 «지금 값»처럼 내지 않게:
     //   행 = 5일(isFreshOptionsRow 와 같은 상한, 위) · 오늘 체인·EOD 35일 = 레코드가 minRecordDate 이후 · 직전 체인 = 한 세션 더(readPrevChainOi35 와 같다)
-    if (v.basis !== 'oi_all_expiries_35d') {
+    //   체인 basis 는 35일 창 시작일(anchor)도 원래 규칙 그대로(관문 10202338 ①): 오늘 창 = 오늘 체인 규칙 ·
+    //   이전 창 = 직전 체인 규칙(최대 OI35_PREV_MAX_AGE_DAYS 일 전 창·레코드 한 세션 더) — 이전 창 값은 basis 를 «직전»(…_chain_prev)으로 밝혀 낸다(화면 기준일 표식).
+    let basis: LastGoodOi['basis'] = v.basis;
+    let anchor: string | null = null;
+    if (basis !== 'oi_all_expiries_35d') {
         const rec = ymd(v.eodDate);
         if (!rec) return null;
         const min = minRecordDate(nowMs);
-        if (rec < (v.basis === 'oi_near_expiries_35d_chain_prev' ? prevTradingDate(min) : min)) return null;
+        if (basis === 'oi_near_expiries_35d_eod') {
+            if (rec < min) return null;
+        } else {
+            anchor = ymd(v.anchor);
+            const today = etDateOf(nowMs);
+            if (!anchor || anchor > today) return null;
+            if (basis === 'oi_near_expiries_35d_chain' && anchor === today) {
+                if (rec < min) return null;
+            } else {
+                if (anchor === today || anchor < addDaysYmd(today, -OI35_PREV_MAX_AGE_DAYS) || rec < prevTradingDate(min)) return null;
+                basis = 'oi_near_expiries_35d_chain_prev';
+            }
+        }
     }
     return {
-        pcr, callOI: c, putOI: p, contracts: strictOi(v.contracts), basis: v.basis, asOf,
-        eodDate: ymd(v.eodDate), oiDate: ymd(v.oiDate), savedAt: typeof v.savedAt === 'number' ? v.savedAt : 0,
+        pcr, callOI: c, putOI: p, contracts: strictOi(v.contracts), basis, asOf,
+        eodDate: ymd(v.eodDate), oiDate: ymd(v.oiDate), anchor, savedAt: typeof v.savedAt === 'number' ? v.savedAt : 0,
     };
 }
 

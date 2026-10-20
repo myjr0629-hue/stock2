@@ -320,7 +320,7 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
                 if (v) return { pcr: v.pcr, basis: v.basis as string, oiDate: v.oiDate as string | null, recordDate: v.recordDate as string | null };
                 // [2026-10-20 SPY 장중 결측 핫픽스] 대체가 모두 없으면 /api/app/oi-pcr 와 같은 «직전 정상값»(같은 35일 정의·기준일) — Flow OPI «—» 방지
                 const lg = await readLastGoodOi(ticker);
-                return lg ? { pcr: lg.pcr, basis: lg.basis as string, oiDate: lg.oiDate, recordDate: lg.eodDate } : null;
+                return lg ? { pcr: lg.pcr, basis: lg.basis as string, oiDate: lg.oiDate, recordDate: lg.eodDate, lastGoodAsOf: lg.asOf } : null;
             }).catch(() => null),
             new Promise<null>((resolve) => setTimeout(() => resolve(null), 800)),
         ]);
@@ -329,6 +329,12 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
             flow.oiPcrBasis = fb.basis;
             flow.oiPcrDate = fb.oiDate;
             flow.oiPcrRecordDate = fb.recordDate;
+            // 직전 정상값이면 그 값의 시각(행 시각 또는 레코드 마감)을 그대로 싣는다 — 기준 시각을 잃지 않게(관문 10202338 ②)
+            if ('lastGoodAsOf' in fb && typeof fb.lastGoodAsOf === 'number') {
+                flow.optionsAsOf = fb.lastGoodAsOf;
+                flow.oiPcrAsOf = fb.lastGoodAsOf;
+                flow.oiPcrLastGood = true;
+            }
         }
     }
     const spot = Number(payload.price) > 0 ? Number(payload.price) : (Number(payload.prevClose) > 0 ? Number(payload.prevClose) : null);
