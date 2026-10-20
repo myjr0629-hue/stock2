@@ -13,6 +13,7 @@
 // ============================================================================
 
 import { useEffect } from 'react';
+import { withGift } from '@/lib/giftShare/config';
 import { shareBeacon, type ShareSurface } from '@/lib/share/share';
 
 type App = 'signum' | 'uc' | 'wim';
@@ -57,7 +58,7 @@ const THEME: Record<App, { bg: string; fg: string; btnBg: string; btnFg: string 
 // 로케일 재이동(UC·WIM 은 기기 언어로 router.replace 한다)으로 다시 마운트돼도 «열림»은 한 번만 센다.
 let openCounted = false;
 
-export function ShareLanding({ app, surface, locale, via, variant, from = 'share' }: {
+export function ShareLanding({ app, surface, locale, via, variant, from = 'share', giftToken }: {
   app: App;
   surface?: ShareSurface;
   locale: string;
@@ -65,6 +66,7 @@ export function ShareLanding({ app, surface, locale, via, variant, from = 'share
   variant: 'card' | 'bar';
   /** 공개 영수증의 설치 경로. 기존 호출자는 share 표시·비콘·링크 그대로. */
   from?: 'share' | 'receipts';
+  giftToken?: string | null;
 }) {
   const l: Loc = locale === 'ko' || locale === 'ja' ? locale : 'en';
   useEffect(() => {
@@ -76,7 +78,7 @@ export function ShareLanding({ app, surface, locale, via, variant, from = 'share
 
   const c = COPY[app][l];
   const th = THEME[app];
-  const href = `https://www.signumhq.com${APP_PATH[app]}?from=${from}&l=${l}`;
+  const href = withGift(`https://www.signumhq.com${APP_PATH[app]}?from=${from}&l=${l}`, app === 'signum' ? giftToken : null);
   const onClick = () => { if (from === 'share' && surface) shareBeacon('click', surface, via); };
 
   const body = (

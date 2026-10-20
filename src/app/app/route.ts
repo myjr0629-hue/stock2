@@ -13,6 +13,9 @@ import { GIFT_FROM, normalizeGiftRef } from '@/lib/gift/gift';
 import { recordGiftRef } from '@/lib/gift/giftClick';
 import { isInviteFrom } from '@/lib/invite/kinds';
 import { touchFromRequest } from '@/lib/invite/touch';
+import { giftEnabled, installUrl } from '@/lib/giftShare/config';
+import { giftLanding } from '@/lib/giftShare/landing';
+import { giftHeaders, giftOs } from '@/lib/giftShare/http';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
 // Measurement: ?from=<channel> is counted into `mkt:attr:hit:<from>:<etDate>` (the exact
@@ -117,10 +120,33 @@ async function recordCodeHit(fromRaw: string | null) {
     try { await bump(`mkt:attr:code:${from}:${etDate()}`); } catch { /* 집계 실패가 이동을 막지 않는다 */ }
 }
 
+/** 선물 토큰·기존 링크 모두 같은 추천 판정으로 응답 뒤에만 터치를 기록한다. */
+function scheduleInviteTouch(request: NextRequest, fromTag: string | null, humanField: string | undefined, osOverride?: 'ios' | 'android' | 'desktop'): void {
+  const inviteRef = isInviteFrom(fromTag) ? normalizeGiftRef(request.nextUrl.searchParams.get('ref')) : null;
+  if (inviteRef) {
+    const ua = request.headers.get('user-agent') || '';
+    const touchHuman = humanField?.endsWith('|human') === true;
+    const touchOs = osOverride ?? (/android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop');
+    after(() => touchFromRequest(request.headers, { from: fromTag, ref: inviteRef, os: touchOs, human: touchHuman }));
+  }
+}
+
 // 링크 미리보기 기계는 `@/lib/marketing/linkPreview` 한 곳에 있다.
 // ★2026-09-20: 예전엔 이 파일 안에만 있었고 /app-uc·/app-wim 에는 아예 없었다
 //   (UC·WIM 링크가 카드 없이 맨 URL 로 떴다). 공용 모듈로 빼서 세 라우트가 같은 것을 쓴다.
 export async function GET(request: NextRequest) {
+  if (giftEnabled() && request.nextUrl.searchParams.has('gift')) {
+    // 조기 반환으로 기존 추천 터치를 건너뛰지 않게 한다. GET은 선물 재고를 배정하지 않는다.
+    const ua = request.headers.get('user-agent') || '';
+    if (!isPreviewBot(ua)) {
+      const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
+      const humanField = clickFields(request.headers, request.method, refBucketFor(request))[0];
+      // 맥 UA iPad 는 QR 화면의 터치 감지가 붙인 gift_os=ios 로만 iOS 로 판정된다(giftOs) — 추천 터치도 같은 판정을 쓴다.
+      scheduleInviteTouch(request, fromTag, humanField, giftOs(request) ?? 'desktop');
+    }
+    try { return await giftLanding(request); }
+    catch { return NextResponse.redirect(installUrl(giftOs(request)), { status: 302, headers: giftHeaders }); }
+  }
   const ua = request.headers.get('user-agent') || '';
 
   // 카카오톡 «인앱 브라우저»(사람)는 미리보기 봇에서 뺀다 — clickHuman.isPreviewBot (2026-10-04)
@@ -161,12 +187,7 @@ export async function GET(request: NextRequest) {
   // ★2026-10-14 추천 보상 «터치» — 초대 링크(gift·share_*)를 폰에서 «사람»이 열면 «이 IP·기기 종류에서 누구 링크가 열렸나»를 72시간 적는다.
   //   앱을 새로 설치해 처음 실행한 기기가 /api/invite/arrive 를 부르면 같은 IP·기기 종류의 터치와 맞춰 «친구가 설치했다»를 센다(lib/invite/engine.ts).
   //   초대 태그가 아니거나 ref 가 없으면 이 줄은 아무것도 하지 않는다 — 기존 링크는 글자 하나 안 바뀐다.
-  const inviteRef = isInviteFrom(fromTag) ? normalizeGiftRef(request.nextUrl.searchParams.get('ref')) : null;
-  if (inviteRef) {
-    const touchHuman = giftHumanField?.endsWith('|human') === true;
-    const touchOs = /android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop';
-    after(() => touchFromRequest(request.headers, { from: fromTag, ref: inviteRef, os: touchOs, human: touchHuman }));
-  }
+  scheduleInviteTouch(request, fromTag, giftHumanField);
 
   // Play Install Referrer — 이게 있어야 Play Console 획득 보고서가 «어느 채널이
   // 설치를 만들었는지»를 보여준다. 없으면 클릭만 알고 설치는 영영 모른다.

@@ -233,6 +233,8 @@ export function couponHtml(opts: {
   iosStayHint?: boolean;
   /** ★2026-10-06 선물 링크(from=gift)의 익명 초대자 id(route 가 lib/gift 로 검증한 값) — 단추 비콘·«내 쿠폰 받기»에 실어 초대자별로 센다. 없으면 화면·스크립트 예전 그대로. */
   ref?: string | null;
+  /** 선물 전용: 기존 단추 모양·문구를 유지하고 서버 폼으로 등록한다. */
+  gift?: string;
 }): string {
   const { platform, lang, fromTag, code } = opts;
   const ref = opts.ref || null;
@@ -242,7 +244,8 @@ export function couponHtml(opts: {
   const iosIa = ios && opts.iosInApp === true;
   const iosHint = iosIa && opts.iosStayHint === true;
   const title = ios ? t.titleIos : t.titleAnd;
-  const sub = couponSubline(platform, lang, fromTag, code);
+  const sub = opts.gift ? audienceLine(fromTag, code, lang) || '' : couponSubline(platform, lang, fromTag, code);
+  const giftForm = (label: string, id: string) => `<form method="post" action="/api/gift/claim${ios ? '?gift_os=ios' : ''}" style="margin:0"><input type="hidden" name="gift" value="${esc(opts.gift || '')}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
   const free = ios ? t.freeIos : t.freeAnd;
   const head = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -261,7 +264,7 @@ export function couponHtml(opts: {
     return `${head}
 <p class="t-label">${esc(t.codeLabel)}</p>
 <div class="row"><p class="t-code" id="code">${esc(code)}</p></div>
-<a class="cta" id="go" href="${esc(opts.appleRedeemUrl)}">${esc(t.iosCta)}</a>
+${opts.gift ? giftForm(t.iosCta, 'go') : `<a class="cta" id="go" href="${esc(opts.appleRedeemUrl)}">${esc(t.iosCta)}</a>`}
 <p class="help">${phrases(lang, t.iosHelp)}</p>${iosHint ? `
 <p class="help" id="stay" style="font-weight:800;color:#1c1405" hidden>${phrases(lang, t.iosStay)}</p>` : ''}
 <p class="free">${phrases(lang, free)}</p>
@@ -283,21 +286,23 @@ ${iosIa
   const ia = opts.androidInApp === true;
   const ph = 'SGCODEPH';
   const iaT = IN_APP_TEXT[lang];
-  return `${head}
+  // 선물은 POST 직후 스토어로 이동하므로 기존 구독 안내를 등록 전에 읽을 수 있어야 한다.
+  const step2 = `<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>
+<p class="help">${phrases(lang, t.andStep2Help)}</p>`;
+  const html = `${head}
 <div id="pre">
 <p class="t-label">${esc(t.myCode)}</p>
 <div class="row"><p class="t-code mask" aria-hidden="true">•••• •••• •••• ••••</p></div>
 <p class="help">${phrases(lang, t.andPre)}</p>
 <button class="cta" id="claim" type="button">${esc(t.andCta)}</button>
-</div>
+</div>${opts.gift ? `\n${step2}` : ''}
 <div id="got" hidden>
 <p class="t-label">${esc(t.myCode)}</p>
 <p class="t-code long" id="code"></p>
 <div class="tools"><button class="copy" id="copy" type="button">${esc(t.copy)}</button></div>
 <a class="cta" id="play" href="https://play.google.com/redeem">${esc(t.andApply)}</a>${ia ? `
 <a class="cta2" id="playw" href="https://play.google.com/redeem">${esc(iaT.alt)}</a>` : ''}
-<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>
-<p class="help">${phrases(lang, t.andStep2Help)}</p>
+${opts.gift ? '' : step2}
 <p class="help">${phrases(lang, t.andManual)}</p>${ia ? `
 <p class="help">${inAppHintHtml(lang)}</p>` : ''}
 <p class="note" id="again" hidden>${esc(t.again)}</p>
@@ -335,4 +340,5 @@ $('inst').addEventListener('click',function(){sgBeacon('install')});
 if($('playw'))$('playw').addEventListener('click',function(){sgBeacon('play_web')});
 if($('instw'))$('instw').addEventListener('click',function(){sgBeacon('install_web')});
 })();</script></body></html>`;
+  return opts.gift ? html.replace(`<button class="cta" id="claim" type="button">${esc(t.andCta)}</button>`, giftForm(t.andCta, 'claim')).replace(/<script>[\s\S]*?<\/script>/g, '') : html;
 }
