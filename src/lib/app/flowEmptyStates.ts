@@ -12,7 +12,7 @@
 //      실패가 아니라 «이 종목은 제공되지 않음»이므로 그렇게 쓴다(시간 초과·오류는 그대로 «—»).
 // ============================================================================
 
-/** 첫 바이트(응답 헤더)까지의 상한. 계산 경로 실측 1~6초(10/4, ETF·개별 13종목) — 넉넉히 20초. */
+/** 응답 본문 수신까지의 상한. 계산 경로 실측 1~6초(10/4, ETF·개별 13종목) — 넉넉히 20초. */
 export const FLOW_TICKER_TTFB_MS = 20_000;
 /** 첫 응답이 실패·시간 초과일 때 30초 주기를 기다리지 않고 다시 부르는 횟수·간격. */
 export const FLOW_QUICK_RETRIES = 2;
@@ -50,24 +50,8 @@ export function gammaPlaceholder(state: 'value' | 'outOfRange' | 'none', locale:
     return state === 'outOfRange' ? OUT_OF_RANGE[locOf(locale)] : dash;
 }
 
-/**
- * 첫 바이트까지 시간 상한이 있는 fetch. 상한 안에 헤더가 오면 타이머를 풀고 본문은 끝까지 받는다
- *   — 느린 휴대폰 망에서 큰 응답(GLD 415KB·QQQ 512KB)을 «받는 중»에 끊지 않는다. 서버가 답을 못 만드는 것만 끊는다.
- */
-export async function fetchWithTtfbLimit(
-    url: string,
-    ms: number,
-    init: RequestInit = {},
-    fetchImpl: typeof fetch = fetch,
-): Promise<Response> {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), ms);
-    try {
-        return await fetchImpl(url, { ...init, signal: ctl.signal });
-    } finally {
-        clearTimeout(timer);
-    }
-}
+/** 기존 호출 인터페이스 유지. 20초 기한은 응답 본문 수신까지 포함한다. */
+export { fetchResponseWithDeadline as fetchWithTtfbLimit } from './requestDeadline';
 
 // ============================================================================
 // 감마 레짐(롱/숏) — 플립이 «없을 때»도 맞게  [2026-10-04 후속]
