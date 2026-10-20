@@ -22,7 +22,7 @@ const { buildMoneyMap, mapQuoteValues, aggregateMapPremium, mergeMoneyMapSources
 const { MoneyMapCards } = require('../src/components/intel/MoneyMapCards.tsx');
 const copies = Object.fromEntries(['ko', 'en', 'ja'].map(loc => [loc, require(`../src/messages/${loc}.json`).moneyMap.copy]));
 function isolatedModule(filename, deps) {
-  const compiled = ts.transpileModule(fs.readFileSync(path.join(root, filename), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const compiled = ts.transpileModule(fs.readFileSync(path.join(root, filename), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const mod = { exports: {} };
   new Function('require', 'module', 'exports', compiled)(id => { if (!(id in deps)) throw new Error(`Unexpected dependency: ${id}`); return deps[id]; }, mod, mod.exports);
   return mod.exports;
@@ -53,6 +53,55 @@ function quoteSet(s, now) {
   });
   return values;
 }
+test('Intel money map follows every existing overview element, including the footer', () => {
+  const filename = 'src/app/[locale]/app-view/intel/page.tsx';
+  const src = ts.createSourceFile(filename, fs.readFileSync(path.join(root, filename), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let page;
+  function visit(node) {
+    if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(p => p.getText(src) === 'className={s.page}')) page = node;
+    ts.forEachChild(node, visit);
+  }
+  visit(src);
+  assert.ok(page);
+  const children = page.children.map(node => node.getText(src).trim()).filter(Boolean);
+  const maps = children.filter(text => text.includes('<TodayMoneyMap'));
+  assert.deepEqual(maps, ['{!selectedSector && <TodayMoneyMap />}']);
+  const footer = children.indexOf('<MobileAppFooter />'), map = children.indexOf(maps[0]);
+  assert.ok(footer > children.findIndex(text => text.includes('sectorSummaries.map')));
+  assert.ok(map > footer, 'append below the footer so no existing flow element is displaced');
+  assert.ok(children.slice(map + 1).filter(text => !text.startsWith('{/*')).every(text => text.includes('showAdModal') && text.includes("position: 'fixed'")));
+});
+test('initial money-map loading renders no section or placeholder', () => {
+  const { TodayMoneyMap } = isolatedModule('src/components/intel/TodayMoneyMap.tsx', {
+    react: React, 'react/jsx-runtime': require('react/jsx-runtime'),
+    'next-intl': { useLocale: () => 'en', useTranslations: () => ({ raw: () => copies.en }) },
+    '@/lib/app/watchlist': { getWatchlistStore: () => ({ subscribe() {}, getSnapshot: () => [] }) },
+    '@/lib/app/moneyMap': {}, './MoneyMapCards': { MoneyMapCards }, '@/lib/marketCalendar': {},
+  });
+  assert.equal(renderToStaticMarkup(React.createElement(TodayMoneyMap)), '');
+});
+test('unobserved sector definitions render nothing; measured zero and saved observations remain visible', () => {
+  const now = at('2026-10-20T15:00:00Z');
+  const empty = { ...sources(), sectors: sources().sectors.map(s => ({ ...s, fiveDay: null, premium: null })), earnings: [], earningsAt: null, events: [], eventsAt: null };
+  function render(s, values = {}) {
+    return renderToStaticMarkup(React.createElement(MoneyMapCards, { data: buildMoneyMap(s, values, null, now), copy: copies.en, locale: 'en', selectedId: 'SMH', onSelect() {}, now }));
+  }
+  assert.equal(render(empty), '');
+  assert.equal(render({ ...empty, sectors: [] }), '');
+  const zero = render(empty, { 'SMH:REG': observed(0, '2026-10-20', 'REG', '2026-10-20T15:00:00Z') });
+  assert.equal((zero.match(/<article/g) || []).length, 3);
+  assert.ok(zero.includes('0.00%'), 'an actual measured zero is data');
+  for (const patch of [
+    { fiveDay: { value: -2, date: '2026-10-16' } },
+    { premium: { value: 0, date: '2026-10-16', count: 1, source: 'analysis' } },
+  ]) {
+    const saved = render({ ...empty, sectors: empty.sectors.map(s => s.id === 'SMH' ? { ...s, ...patch } : s) });
+    assert.equal((saved.match(/<article/g) || []).length, 3);
+    assert.ok(saved.includes('2026-10-16'));
+  }
+  assert.ok(render(empty, { 'SMH:REG': observed(1, '2026-10-16', 'REG', '2026-10-16T20:00:00Z') }).includes('2026-10-16'));
+  assert.equal(render(empty, { 'NVDA:REG': observed(1, '2026-10-16', 'REG', '2026-10-16T20:00:00Z') }), '', 'a stock alone cannot populate a sector card without a sector observation');
+});
 for (const [session, time] of [['PRE', '2026-10-19T11:00:00Z'], ['REG', '2026-10-19T15:00:00Z'], ['POST', '2026-10-19T21:00:00Z'], ['CLOSED', '2026-10-17T01:00:00Z'], ['WEEKEND', '2026-10-18T12:00:00Z']]) {
   for (const loc of ['ko', 'en', 'ja']) test(`${session} ${loc}: render 3 cards, paired returns, dated premium, watchlist, calendar`, () => {
     const s = sources(), values = quoteSet(s, time), nq = observed(1.25, '2026-10-19', 'PRE', time);

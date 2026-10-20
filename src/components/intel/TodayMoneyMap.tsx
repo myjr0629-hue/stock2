@@ -51,6 +51,6 @@ export function TodayMoneyMap() {
     return () => { controller.abort(); clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
   }, []);
   const copy = t.raw('copy') as MoneyMapCopy;
-  if (!state || !now) return <section aria-label={copy.title} style={{ padding: 16, color: 'var(--text-muted)' }}><h2>{copy.title}</h2><p>{copy.loading}</p></section>;
+  if (!state || !now) return null;
   return <MoneyMapCards data={buildMoneyMap(state.sources, state.values, state.nq, now)} copy={copy} locale={locale} selectedId={selected} onSelect={setSelected} watchlist={items.map(i => i.t)} now={now} />;
 }

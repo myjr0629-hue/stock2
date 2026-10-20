@@ -2731,7 +2731,6 @@ export default function AppIntelPage() {
       backgroundAttachment: 'local',
       isolation: 'isolate'
     }}>
-      {!selectedSector && <TodayMoneyMap />}
       {/* HEADER */}
       {!selectedSector && (
         <div role="banner" style={{ padding: '14px 16px 0', position: 'relative' }}>
@@ -5788,6 +5787,9 @@ export default function AppIntelPage() {
       {/* AD BANNER */}
       <AdBanner />
       <MobileAppFooter />
+
+      {/* Append after all existing content so the Intel layout above stays fixed. */}
+      {!selectedSector && <TodayMoneyMap />}
 
       {/* INTERSTITIAL AD MODAL / PLACEHOLDER */}
       {showAdModal && (
