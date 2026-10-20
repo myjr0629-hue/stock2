@@ -1,6 +1,6 @@
 /**
  * 가격 허브 /last — 서버(Vercel)가 «지금 구독 중인 채널의 마지막 WS 체결»을 읽어 가는 문 (2026-10-14).
- * 실행: node tests/hubLast.test.js   (실제 허브 파일 scripts/ec2-price-ws.js 를 가짜 Intrinio SDK 로 띄워 시험한다 · 네트워크 0)
+ * 실행: node tests/hubLast.test.js   (실제 허브 파일을 가짜 Intrinio SDK·IPC 전송으로 시험한다 · 소켓·네트워크 0)
  *
  * 지키는 것:
  *   1. /last 는 서버 관심 종목을 등록하고 채널을 연다(join) · 이미 열린 채널은 다시 열지 않는다 · 잘못된 티커·150개 초과는 거른다
@@ -14,11 +14,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const http = require('node:http');
 const { spawn } = require('node:child_process');
 
 const REPO = path.resolve(__dirname, '..');
-const WS_MODULE = path.join(REPO, 'node_modules', 'ws');
+const transportFile = path.join(__dirname, 'helpers/hubIpcTransport.cjs');
 const PORT = 18000 + Math.floor(Math.random() * 1000);
 
 // ── 임시 작업 디렉터리: 허브 사본 + 가짜 intrinio-realtime + https.get 가로채기 ──
@@ -49,6 +48,7 @@ module.exports = { RealtimeClient };
 `);
 fs.writeFileSync(path.join(dir, 'preload.js'), `
 // https.get 가로채기 — prevClose REST(fetchPreviousClose)를 가짜로 답하고 호출 수를 센다(벤더 REST 0 확인용).
+require(${JSON.stringify(transportFile)}).installServerTransport();
 const https = require('https'); const { EventEmitter } = require('events');
 const fs = require('fs'); const read = fs.readFileSync;
 fs.readFileSync = function(p, ...args) { if (String(p).split('/').pop().startsWith('.env')) throw new Error('blocked env file'); return read.call(this, p, ...args); };
@@ -64,16 +64,15 @@ let out = '';
 const hub = spawn(process.execPath, ['-r', path.join(dir, 'preload.js'), path.join(dir, 'hub.js')], {
   cwd: dir,
   env: { ...process.env, WS_PORT: String(PORT), INTRINIO_API_KEY: 'test-key', POLYGON_API_KEY: 'test', ENABLE_OPTIONS_WS: '0', NODE_PATH: path.join(REPO, 'node_modules'), HUB_INTEREST_TTL_MS: '1500', HUB_INTEREST_SWEEP_MS: '200' },
-  stdio: ['pipe', 'pipe', 'pipe'],
+  stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
 });
 hub.stdout.on('data', (d) => { out += d; });
 hub.stderr.on('data', (d) => { out += d; });
 const feed = (o) => hub.stdin.write(JSON.stringify(o) + '\n');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const count = (re) => (out.match(re) || []).length;
-const get = (p) => new Promise((resolve, reject) => {
-  http.get({ host: '127.0.0.1', port: PORT, path: p }, (res) => { let b = ''; res.on('data', (d) => (b += d)); res.on('end', () => resolve({ status: res.statusCode, body: b })); }).on('error', reject);
-});
+const transport = require(transportFile).clientTransport(hub);
+const get = transport.get;
 const last = async (q) => { const r = await get('/last?' + q); return { status: r.status, j: r.status === 200 ? JSON.parse(r.body) : null }; };
 
 let pass = 0;
@@ -154,7 +153,7 @@ const t = async (name, fn) => { try { await fn(); pass++; console.log('  ✓ ' +
   });
 
   await t('서버 관심 종목의 체결은 latestPrices 를 더럽히지 않는다 → 클라이언트가 나중에 구독해도 changePct 0 캐시가 안 나간다', async () => {
-    const WebSocket = require(WS_MODULE);
+    const WebSocket = transport.WebSocket;
     const ws = new WebSocket('ws://127.0.0.1:' + PORT);
     const msgs = [];
     await new Promise((res, rej) => { ws.on('open', res); ws.on('error', rej); });
@@ -175,7 +174,7 @@ const t = async (name, fn) => { try { await fn(); pass++; console.log('  ✓ ' +
   });
 
   await t('클라이언트가 체결이 한 번도 없는 종목을 구독해도 가격 없는 prices 메시지(껍데기)를 보내지 않는다', async () => {
-    const WebSocket = require(WS_MODULE);
+    const WebSocket = transport.WebSocket;
     const ws = new WebSocket('ws://127.0.0.1:' + PORT);
     const msgs = [];
     await new Promise((res, rej) => { ws.on('open', res); ws.on('error', rej); });

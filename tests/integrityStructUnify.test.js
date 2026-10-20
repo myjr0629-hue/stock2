@@ -32,7 +32,7 @@ const mocks = {
   '@/lib/aws/dynamoDataProvider': {getLatestGex:async t=>rows[t],getLatestFlow:async()=>null},
   '@/services/analysisCache': {getAnalysisCache:async t=>cached[t],getAnalysisCacheForTickers:async()=>cached,patchAnalysisCache:async()=>true,writeAnalysisCache:async()=>true},
   '@/lib/cache/redisSWR': {swrFetch:async()=>({data:{siData:{siPercent:4,daysToCover:2,siPercentChange:1,settlementDate:'2026-10-15'},svData:{shortVolPercent:40}}})},
-  '@/services/structureService': {getStructureData:async t=>({...structures[t],underlyingPrice:100,atmIv:30}),prefetchLevelsForExit:()=>async()=>levels, levelsForExit:async()=>levels,displayLevels:x=>x||{},levelsFromStructure:x=>x,applyLevelsToRealtime:()=>{},applyLevelsToUnified:x=>x,structureV2Key:t=>'structure:v2:'+t},
+  '@/services/structureService': {getStructureData:async t=>({...structures[t],underlyingPrice:100,atmIv:30}),prefetchLevelsForExit:()=>async()=>levels, levelsForExit:async()=>levels,displayLevels:x=>x||{},levelsFromStructure:x=>x,applyLevelsToRealtime:()=>{},applyLevelsToUnified:x=>x,applyLevelsToVolatilityCard:(...args)=>load('src/lib/optionLevelGate.ts').applyLevelsToVolatilityCard(...args),structureV2Key:t=>'structure:v2:'+t},
   '@/services/macroHubProvider': {getMacroSnapshotSSOT:async()=>({})},
   '@/services/impliedMoveService': {impliedMoveOfStructure:async()=>null,peekStoredStructure:async()=>null},
   '@/services/massiveClient': {fetchMassive:async()=>({tickers:[]})},
@@ -53,7 +53,7 @@ function load(file, extra='') {
     if(id==='next/server') return {NextResponse:{json:x=>x},after:()=>{}};
     if(id.startsWith('@/')) {
       const rel=id.slice(2);
-      if(/^(lib\/(gammaFlipDistance|optionMetrics|impliedMove|putCall|ai\/(ucNumbers|fieldLeak|amountGuard)|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
+      if(/^(lib\/(gammaFlipDistance|optionMetrics|impliedMove|putCall|ai\/(ucNumbers|fieldLeak|amountGuard)|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol|seo\/flowTicker|optionLevelGate|metrics\/observation)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
       return new Proxy({}, {get:()=>()=>null});
     }
     if(id.startsWith('.')) {
@@ -238,9 +238,12 @@ async function test(name,fn){try{await fn();passes++;console.log('PASS '+name);}
  for(const route of ['fast','fast-all']) await test(`gate 4: ${route} replaces cached 10/15 timestamp together with 10/16 PCR`,async()=>{
   const oldRow=rows.MSFT,oldBody=envelope.body;
   const ts=Date.parse('2026-10-16T20:30:00Z'),prior=Date.parse('2026-10-15T20:30:00Z');
+  // 경로별 독립 콜드 인스턴스: 앞선 시험의 60초 지표 캐시를 물려받지 않는다.
+  mods.delete(path.resolve(root,'src/services/optionMetricsService.ts'));
+  mods.delete(path.resolve(root,`src/app/api/intel/${route}/route.ts`));
   rows.MSFT={pcr:0.90,timestamp:ts};envelope.body={success:true,data:[{ticker:'MSFT',pcr:1.4,optionsAsOf:prior}],meta:{app:true,optionsAsOf:prior}};
   try {const req={url:`http://localhost/api/intel/${route}?sector=m7&app=1`,headers:new Headers()};
-   const out=await load(`src/app/api/intel/${route}/route.ts`).GET(req),body=route==='fast'?out:out.sectors.m7;
+   const out=await load(`src/app/api/intel/${route}/route.ts`,route==='fast'?'\nexport { metricsResponse };':'').GET(req),body=route==='fast'?out:out.sectors.m7;
    assert.equal(body.data[0].pcr,0.9);assert.equal(body.data[0].optionsAsOf,ts);assert.equal(body.meta.optionsAsOf,ts);
    const note=load('src/lib/app/intelOptionsBasis.ts').optionsAsOfNote(body.data[0].optionsAsOf,NOW,false,'ko');
    assert.equal(note.label,'10/16 마감 기준');assert.equal(note.isPriorSession,false);

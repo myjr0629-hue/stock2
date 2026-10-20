@@ -9,8 +9,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import ts from 'typescript';
 import * as calendar from '../src/lib/marketCalendar';
+import * as economicSeries from '../src/lib/economicSeries';
 const clock = require('../scripts/integrity/clock');
 const fixtureDir = path.join(__dirname, 'fixtures/price-hardening-origin-main');
 const manifest = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'manifest.json'), 'utf8'));
@@ -133,6 +135,7 @@ function sipHarness(source: string, date: string, time: string, tradeTime = '18:
         normal_market_hours_last_price: 221, normal_market_hours_last_time: iso('12:59:59'),
         eod_close_price: 220, eod_close_date: clock.prevTradingDay(date) };
     const dependencies = {
+        '@/lib/economicSeries': economicSeries,
         './redisClient': { getFromCache: async (k: string) => get(k), setInCache: async (k: string, v: any, ttl: number) => set(k, v, ttl) },
         '@/lib/marketCalendar': calendar, 'next/server': { after: (fn: () => Promise<any>) => queue.push(fn) },
         '@/lib/intrinioWarmGate': { warmGateStore: { getStore: () => undefined } },
@@ -242,7 +245,9 @@ async function sipTable() {
 }
 
 function rulesTable() {
-    assert.equal(read('scripts/integrity/rules.js'), before('rules.js'), '감시기는 origin/main 과 바이트 단위 동일');
+    // 고정 사본은 과거 입력 비교용이다. 범위 밖 변경 검사는 현재 origin/main과 대조한다.
+    const originalRules = execFileSync('git', ['show', 'origin/main:scripts/integrity/rules.js'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' });
+    assert.equal(read('scripts/integrity/rules.js'), originalRules, '감시기는 origin/main과 동일');
     const old = load(before('rules.js'), { './clock': clock });
     const next = require('../scripts/integrity/rules');
     const daily = (values: Record<string, number>) => ({ ok: true, daily: Object.entries(values).map(([date, c]) => ({ date, c })), events: [] });

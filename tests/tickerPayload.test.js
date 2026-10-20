@@ -57,8 +57,10 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
     const mocks = {
         'next/server': { after: () => {} },
         '@/services/optionMetricsService': { readOptionMetrics: async () => new Map([[snapshot.ticker, metrics]]) },
+        '@/services/oiNear35Fallback': { readOi35Fallback: async () => null },
         '@/services/optionAlphaService': { readOptionAlpha: async () => new Map([[snapshot.ticker, snapshot.alpha]]) },
-        '@/lib/optionMetrics': { applyOptionMetrics: target => target },
+        // 저장 응답의 옵션 수집 행이 유효한 경로를 재생한다. 대체 OI 자체는 별도 NB1 시험에서 검증한다.
+        '@/lib/optionMetrics': { applyOptionMetrics: target => target, optionMetricsRowHasOi: () => true },
         '@/lib/vwap': { normalizeVwap: x => x ?? null, selectVwap: (...xs) => xs.find(x => x != null), sessionVwapFromBars: () => null },
         '@/lib/shortVolume': { shortVolFields: () => ({}) },
         '@/lib/sessionArchive': { lastCompletedSessionDate: () => '2026-10-16', readSessionArchive: async () => null, saveSessionArchive: async () => {} },
@@ -168,7 +170,8 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
                 const full = harness(current, snapshot, mode, skipAlpha);
                 const slim = harness(current, snapshot, mode, skipAlpha);
                 const zero = harness(current, snapshot, mode, skipAlpha);
-                const a = await old.get('');
+                // origin/main에도 요약 기본값이 병합됐으므로 같은 full 계약을 비교한다.
+                const a = await old.get('&chain=full');
                 const b = await full.get('&chain=full');
                 const c = await slim.get('');
                 const d = await zero.get('&chain=0');
@@ -242,7 +245,8 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
             'src/app/[locale]/flow/FlowPageClient.tsx', 'src/app/[locale]/flow/MobileFlowPage.tsx'];
         for (const file of files) {
             const old = execFileSync('git', ['show', `origin/main:${file}`], { cwd: root, encoding: 'utf8' });
-            assert.equal(read(file).replace(/&chain=full/g, '').replace(/^        chain: 'full',\n/gm, ''), old, file);
+            const normalize = source => source.replace(/&chain=full/g, '').replace(/^        chain: 'full',\n/gm, '');
+            assert.equal(normalize(read(file)), normalize(old), file);
         }
     });
     await test('chain diagnostic scripts only add chain=full to their requests (scripts are not executed)', async () => {
@@ -251,7 +255,8 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
             'scripts/test_squeeze_weekly.js', 'scripts/verify_gamma_engine.js']) {
             const old = execFileSync('git', ['show', `origin/main:${file}`], { cwd: root, encoding: 'utf8' });
             assert.ok(read(file).includes('chain=full'), file);
-            assert.equal(read(file).replace(/\+'&chain=full'/g, '').replace(/&chain=full/g, ''), old, file);
+            const normalize = source => source.replace(/\+'&chain=full'/g, '').replace(/&chain=full/g, '');
+            assert.equal(normalize(read(file)), normalize(old), file);
         }
     });
     console.table(rows);

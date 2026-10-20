@@ -1,12 +1,13 @@
-// 외부 연결 없는 감사 4·5·6 회귀 재현. UX_BASELINE=1은 HEAD 원본으로 같은 시험을 수행한다.
+// 외부 연결 없는 감사 4·5·6 회귀 재현. UX_BASELINE=1은 origin/main 원본으로 같은 시험을 수행한다.
 const fs = require('node:fs');
 const vm = require('node:vm');
 const cp = require('node:child_process');
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const ts = require('typescript');
+const baselineRef = cp.execFileSync('git', ['rev-parse', '--verify', 'origin/main^{commit}'], { encoding: 'utf8' }).trim();
 const baseline = process.env.UX_BASELINE === '1';
-const read = f => baseline ? cp.execFileSync('git', ['show', `HEAD:${f}`], { encoding: 'utf8' }) : fs.readFileSync(f, 'utf8');
+const read = f => baseline ? cp.execFileSync('git', ['show', `${baselineRef}:${f}`], { encoding: 'utf8' }) : fs.readFileSync(f, 'utf8');
 const compile = s => ts.transpileModule(s, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText;
 function load(f, context = {}) {
   const exports = {};
@@ -137,15 +138,35 @@ if(!baseline) {
   });
   test('화면 JSX 태그·속성 이름·문구 사전·CSS 원본 유지',()=>{
     for(const file of [paywall,upsell,first,ranks]){
-      const before=cp.execFileSync('git',['show',`HEAD:${file}`],{encoding:'utf8'});
+      const before=cp.execFileSync('git',['show',`${baselineRef}:${file}`],{encoding:'utf8'});
       const signatures=source=>{const root=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);const out=[];function visit(n){if(ts.isJsxOpeningElement(n)||ts.isJsxSelfClosingElement(n))out.push([n.tagName.getText(root),n.attributes.properties.map(p=>p.name?.getText(root))]);ts.forEachChild(n,visit);}visit(root);return out;};
       assert.deepEqual(signatures(read(file)),signatures(before));
       const strings=source=>{const out=[];const root=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);function visit(n){if(ts.isStringLiteral(n))out.push(n.text);ts.forEachChild(n,visit);}visit(root);return out;};
       for(const s of strings(before)) assert.ok(strings(read(file)).includes(s),`기존 문구 보존: ${file}`);
+      if (file === paywall || file === ranks) {
+        const name = file === paywall ? 'COPY' : 'T';
+        const dictionary = source => {
+          const root = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+          return find(root, n => ts.isVariableDeclaration(n) && n.name.getText(root) === name).initializer.getText(root);
+        };
+        assert.equal(dictionary(read(file)), dictionary(before), `3언어 사전 보존: ${file}`);
+      }
     }
   });
 }
 if(!baseline) {
+  test('화면 CSS·첫 가치·내 종목 3언어 사전은 origin/main과 동일', () => {
+    for (const file of [
+      'src/components/app/ProPaywall.module.css',
+      'src/components/app/FirstRunValueStep.module.css',
+      'src/components/app/watchlist/watchlist.module.css',
+      'src/components/app/watchlist/copy.ts',
+      'src/lib/app/firstRunCopy.ts',
+    ]) {
+      const before = cp.execFileSync('git', ['show', `${baselineRef}:${file}`], { encoding: 'utf8' });
+      assert.equal(fs.readFileSync(file, 'utf8'), before, `원본 보존: ${file}`);
+    }
+  });
   test('4: 공용 훅 복원 성공은 잠금 해제, 빈 복원·실패는 승인된 구매 잠금 유지',async()=>{
     const root=ast('src/hooks/useProStatus.ts');
     const decl=find(root,n=>ts.isVariableDeclaration(n)&&n.name.getText(root)==='restore');

@@ -966,18 +966,17 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     const pick = read('src/components/app/TodayPicksCard.tsx');
     assert.ok(/<TodayPickRow p=\{p\} ui=\{ui\} onOpen=\{onOpen\} \/>\s*\n\s*<InviteShareButton kind="pick"/.test(pick), 'pick: 행 다음 형제');
     const wl = read('src/app/[locale]/app-view/watchlist/page.tsx');
-    assert.ok(/<div className=\{p\.aiw\}>[\s\S]{0,400}<InviteShareButton kind="line"[\s\S]{0,200}<p className=\{p\.ai\}>/.test(wl), 'line: .aiw 안, 글(.ai) 앞 형제 — 글 칸 폭은 그대로');
+    assert.ok(/<div className=\{p\.aiw\}>[\s\S]{0,400}<InviteShareButton kind="line"[\s\S]{0,400}<div className=\{p\.aiRows\}>\s*<p className=\{p\.ai\}>/.test(wl), 'line: .aiw 안, 글(.ai) 앞 형제 — 글 칸 폭은 그대로');
     const earn = read('src/app/[locale]/app-view/earnings/page.tsx');
     assert.ok(/<\/a>\s*\n\s*\{shareOn && e\.implied && \(\s*\n\s*<InviteShareButton kind="earn"/.test(earn), 'earn: <a> 행 다음 형제');
     assert.ok(/e\.implied/.test(earn.split('<InviteShareButton kind="earn"')[0].slice(-200)), '변동폭 값이 있는 행에만');
   });
-  await t('범위 밖 0: 이번 작업은 하단 내비(AppBottomNav)·광고 자리(AppAnchorAd)·페이월(ProPaywall)·가격 무결성 파일을 건드리지 않는다', () => {
-    const { execSync } = require('node:child_process');
-    let changed = '';
-    try { changed = execSync('git diff --name-only origin/main...HEAD; git diff --name-only; git ls-files --others --exclude-standard', { cwd: pathMod.join(__dirname, '..'), encoding: 'utf8' }); } catch { return; }
-    const forbidden = /AppBottomNav|AppAnchorAd|ProPaywall\.(tsx|module\.css)|src\/lib\/integrity|price-integrity|priceIntegrity/;
-    const hits = changed.split('\n').filter((f) => forbidden.test(f));
-    assert.deepEqual(hits, [], hits.join(','));
+  await t('공유 단추는 구매·가격 모듈과 결합하지 않고 기존 아이콘 단추를 유지한다', () => {
+    // 과거 초대 브랜치의 파일 목록 대신 공유 컴포넌트 자체의 경계를 검증한다.
+    const button = read('src/components/app/InviteShareButton.tsx');
+    assert.equal(/purchasePro|ProPaywall|priceIntegrity|AppAnchorAd|AppBottomNav/.test(button), false);
+    assert.equal((button.match(/<button\b/g) || []).length, 1);
+    assert.equal((button.match(/<ShareIcon\b/g) || []).length, 1);
   });
 
   await t('개인정보 안내(10/14) — 앱 개인정보처리방침에 «익명 초대 열쇠·IP 해시(72시간·30일)·판매/광고 아님» 항목이 3개 언어로 있다', () => {
