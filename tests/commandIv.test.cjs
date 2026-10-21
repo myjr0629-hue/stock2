@@ -344,6 +344,70 @@ test('더 오래된 새 응답은 신선한 보관 IV를 덮지 않는다', () =
     assert.equal(selected.iv, 31); assert.equal(selected.sourceDate, '2026-10-21');
 });
 
+test('3차 관문: 최신 보관 IV 31은 이전 unified IV 55 재응답 전후 실제 표시에도 유지된다', async () => {
+    for (const section of ['structure', 'volatility']) {
+        const h = harness('IBM');
+        await h.respond({ iv: 31, ivSourceDate: '2026-10-21' });
+        h.unified = { [section]: { atmIV: .55, iv: 55, ivSourceDate: '2026-10-16' } };
+        const check = () => {
+            const displayed = signals(h.data, h.store, 'IBM');
+            assert.equal(displayed.iv, 31);
+            assert.ok(displayed.ivDateText.includes('2026-10-21 ET'));
+            assert.ok(!displayed.ivDateText.includes('2026-10-16'));
+        };
+        check(); // 새 응답의 effect 실행 전 렌더도 검증한다.
+        await h.respond(undefined);
+        assert.equal(h.state.iv, 31);
+        check();
+        h.unified = {};
+        await h.respond(undefined);
+        check();
+    }
+});
+
+test('3차 관문: 같은 ET 날짜도 IV 고유 관측 시각 최신순으로 보관·표시한다', async () => {
+    const h = harness('IBM');
+    await h.respond({ iv: 31, ivObservedAt: '2026-10-21T15:30:00Z' });
+    h.unified = { volatility: { iv: 55, ivObservedAt: '2026-10-21T15:00:00Z' } };
+    assert.equal(signals(h.data, h.store, 'IBM').iv, 31);
+    await h.respond(undefined);
+    assert.equal(h.state.iv, 31);
+    assert.equal(signals(h.data, h.store, 'IBM').iv, 31);
+    h.unified = { volatility: { iv: 32, ivObservedAt: '2026-10-21T15:45:00Z' } };
+    assert.equal(signals(h.data, h.store, 'IBM').iv, 32);
+    await h.respond(undefined);
+    assert.equal(h.state.iv, 32);
+    h.unified = {};
+    await h.respond({ iv: 55, ivObservedAt: '2026-10-21T15:00:00Z' });
+    assert.equal(h.state.iv, 32);
+    assert.equal(signals(h.data, h.store, 'IBM').iv, 32);
+});
+
+test('3차 관문: 최신값이 없으면 이전 IV와 그 날짜만 표시하고 만료·무날짜 값은 채택하지 않는다', () => {
+    const data = { ticker: 'IBM', unified: { volatility: { iv: 55, ivSourceDate: '2026-10-16' } } };
+    assert.equal(signals(data, {}, 'IBM').iv, 55);
+    assert.ok(signals(data, {}, 'IBM').ivDateText.includes('2026-10-16 ET'));
+    const expired = { IBM: { ticker: 'IBM', iv: 31, sourceDate: '2026-08-28', dateKind: 'session', restored: true } };
+    assert.equal(signals(data, expired, 'IBM').iv, 55);
+    data.unified = { volatility: { iv: 31, timestamp: now }, structure: { chainDate: '2026-10-21' } };
+    assert.equal(signals(data, expired, 'IBM').iv, null);
+    assert.equal(signals(data, expired, 'IBM').ivDateText, '');
+});
+
+test('3차 관문: unified·배치 내부 후보도 날짜와 고유 관측 시각으로 고른다', () => {
+    const older = { iv: 55, ivSourceDate: '2026-10-16' };
+    const newer = { iv: 31, ivSourceDate: '2026-10-21' };
+    assert.equal(iv.commandUnifiedIv('IBM', { structure: { atmIV: .55, ...older }, volatility: newer }).iv, 31);
+    assert.equal(iv.commandBatchIv('IBM', { ticker: 'IBM', realtime: { ...older, atmIv: 31, atmIvSourceDate: '2026-10-21' } }).iv, 31);
+    const at = '2026-10-21T15:30:00Z', before = '2026-10-21T15:00:00Z';
+    assert.equal(iv.commandUnifiedIv('IBM', { structure: { atmIV: .55, ivObservedAt: before },
+        volatility: { iv: 31, ivObservedAt: at } }).iv, 31);
+    assert.equal(iv.commandBatchIv('IBM', { ticker: 'IBM', realtime: { iv: 55, ivObservedAt: before,
+        atmIv: 31, atmIvObservedAt: at } }).iv, 31);
+    // 옛 IV 원천 날짜와 다른 날의 수집 시각을 최신 IV의 관측 시각으로 쓰지 않는다.
+    assert.equal(iv.commandUnifiedIv('IBM', { structure: { atmIV: .55, ...older, ivObservedAt: at }, volatility: newer }).iv, 31);
+});
+
 test('IV를 옮길 때 옛 IV 날짜를 남기지 않고, 판본·레벨 날짜를 대신 쓰지 않는다', () => {
     const data = { structure: { atmIV: .55, ivSourceDate: '2026-10-21', ivObservedAt: '2026-10-21T15:00:00Z' },
         volatility: { iv: 55, ivSourceDate: '2026-10-21' } };

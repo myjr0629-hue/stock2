@@ -2928,8 +2928,8 @@ function CmdPageContent() {
       ? (data as any).volatilityObservation : resolveCommandVolatilityObservation(String((data as any).ticker ?? ''), data.unified);
     const effectiveVol = computeUnifiedVolatilityRegime(volObservation?.data);
     // 저장된 IV도 렌더 시 신선도를 재검사한다. 만료된 관측은 기존 결측 표시로 간다.
-    const fallbackIv = (data.ticker === ticker ? commandUnifiedIv(ticker, u) : null)
-      ?? retainCommandIv(null, batchIv[ticker] ?? null, ticker);
+    const fallbackIv = retainCommandIv(batchIv[ticker] ?? null,
+      data.ticker === ticker ? commandUnifiedIv(ticker, u) : null, ticker);
     const finalIv = iv30Level != null ? Math.round(iv30Level * 100) / 100 : fallbackIv?.iv ?? null;
     const ivDateText = iv30Level == null ? commandIvDateText(fallbackIv, locale) : '';
 
