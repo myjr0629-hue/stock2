@@ -137,24 +137,30 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     try { storage = localStorage; list = readSent(storage); } catch { return; }
     const t = now();
     const due = list.filter(x => t - x.at < TOKEN_TTL_MS && x.tries < MAX_TRIES && t - x.last >= RETRY_GAP_MS).slice(0, 3);
-    for (const entry of due) {
-      entry.tries++; entry.last = t;
+    for (const due1 of due) {
+      // 반복마다 현재 시각·장부의 최신 항목으로 판단한다 — 앞 재시도가 자정을 넘겼을 수 있다(관문 10220559).
+      const ta = now();
+      let entry: SentGift | undefined;
       try {
+        entry = readSent(storage).find(x => x.token === due1.token);
+        if (!entry) continue;
+        entry.tries++; entry.last = ta;
         // 다른 날 공유분의 첫 재시도는 오늘 서버 기기 한도를 쓸 수 있으므로 오늘 횟수에 한 번 반영한다(과대 계산은 일반 공유 쪽으로만 기운다).
-        if (entry.day !== kstDay(t)) { countToday(storage, t); entry.day = kstDay(t); }
-        writeSent(storage, readSent(storage).map(x => x.token === entry.token ? entry : x));
+        if (entry.day !== kstDay(ta)) { countToday(storage, ta); entry.day = kstDay(ta); }
+        const saved = entry;
+        writeSent(storage, readSent(storage).map(x => x.token === saved.token ? saved : x));
       } catch { return; }
       const ok = await register(entry.token, via);
       // 요청을 보낸 뒤 KST 날짜가 바뀌었으면 서버는 새 날짜로 셌을 수 있다 — 그날에도 1회 반영한다.
       try {
         const t2 = now();
-        if (kstDay(t2) !== kstDay(t)) {
+        if (kstDay(t2) !== kstDay(ta)) {
           countToday(storage, t2);
-          writeSent(storage, readSent(storage).map(x => x.token === entry.token ? { ...x, day: kstDay(t2) } : x));
+          writeSent(storage, readSent(storage).map(x => x.token === due1.token ? { ...x, day: kstDay(t2) } : x));
         }
       } catch { return; }
       if (ok) {
-        try { writeSent(storage, readSent(storage).filter(x => x.token !== entry.token)); } catch { return; }
+        try { writeSent(storage, readSent(storage).filter(x => x.token !== due1.token)); } catch { return; }
       }
     }
     try {

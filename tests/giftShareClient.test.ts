@@ -380,3 +380,35 @@ test('관문 회귀(10220553 ②): 공유·복사 모두 실패해 수동 복사
   assert.notEqual(giftOf(client.payload(original, 'ko', 'ios')), giftOf(p));
   delete (globalThis as any).document;
 });
+
+test('관문 회귀(10220559): 전날 미등록 3건을 23:59:59 재진입에서 재시도하다 자정을 넘겨도 새날 한도를 정확히(이상으로) 센다', async () => {
+  resetStorage();
+  let clock = Date.parse('2026-10-21T14:58:00Z'); // KST 10/21 23:58
+  const used = new Map<string, number>(); const seen = new Set<string>();
+  const kst = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
+  let down = true;
+  const request: typeof fetch = async (url, init) => {
+    if (String(url).endsWith('share-config')) return json({ enabled: true, available: true });
+    if (down) throw new Error('미도달');
+    clock += 1000; // 재시도마다 1초 — 둘째 재시도부터 자정 이후 처리
+    const tk = JSON.parse(String(init?.body)).token;
+    if (seen.has(tk)) return json({ ok: true });
+    const d = kst(clock); const n = used.get(d) ?? 0;
+    if (n >= 3) return json({ ok: false });
+    used.set(d, n + 1); seen.add(tk); return json({ ok: true });
+  };
+  const a = createGiftPreparation(request, () => '6'.repeat(64), () => clock);
+  await a.refresh('ios');
+  for (let i = 0; i < 3; i++) { const p = a.payload(original, 'ko', 'ios'); a.complete('shared', p, 'ios'); await tick(); }
+  down = false; clock = Date.parse('2026-10-22T14:59:59Z'); // KST 10/22 23:59:59 재진입
+  const b = createGiftPreparation(request, () => '6'.repeat(64), () => clock);
+  await b.refresh('ios');
+  let fresh = 0;
+  for (let i = 0; i < 3; i++) {
+    const p = b.payload(original, 'ko', 'ios');
+    if (!giftOf(p)) break;
+    fresh++; b.complete('shared', p, 'ios'); await tick(); await tick();
+  }
+  for (const n of used.values()) assert.ok(n <= 3);
+  assert.equal(seen.size, 3 + fresh, '보낸 링크 전부 등록(거부 0)');
+});
