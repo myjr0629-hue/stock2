@@ -1,4 +1,5 @@
 import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
+import { commandBatchIv } from '@/lib/app/commandIv';
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
@@ -1331,7 +1332,10 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     ]);
                     // Keep IV provenance from the GEX row itself, never the flow row's timestamp.
                     return (gx || fl) ? { ...(fl || {}), ...(gx || {}),
-                        atmIv: (gx as any)?.atmIv ?? null,
+                        atmIv: commandBatchIv(t, { ticker: t, realtime: {
+                            atmIv: (gx as any)?.atmIv, atmIvSourceDate: (gx as any)?.chainDate,
+                            atmIvObservedAt: gx?.timestamp,
+                        } }) ? (gx as any)?.atmIv ?? null : null,
                         atmIvSourceDate: (gx as any)?.chainDate ?? null,
                         atmIvObservedAt: gx?.timestamp ?? null,
                     } : null;

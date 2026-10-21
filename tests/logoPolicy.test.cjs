@@ -214,7 +214,32 @@ test('loader releases slots and removes shared failed promises after exceptions'
     assert.equal(await load('B', async () => 2), 2);
 });
 
-test('client edits change only logo query version; labels/styles/layout unchanged', () => {
+// 로고와 화면 마크업만 비교한다. 별도 계산 함수의 수정은 로고 회귀가 아니다.
+function clientSurface(source) {
+    const ast = ts.createSourceFile('client.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const markup = [], logos = [];
+    function visit(node) {
+        if (ts.isTemplateExpression(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isStringLiteral(node)) {
+            const text = node.getText(ast);
+            if (text.slice(1).startsWith('/api/logo/')) logos.push(text);
+        }
+        if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) markup.push(node.getText(ast));
+        ts.forEachChild(node, visit);
+    }
+    visit(ast);
+    return { markup, logos };
+}
+
+test('로고 검사 범위: 계산 변경은 허용하고 URL·라벨·스타일·배치 변경은 탐지한다', () => {
+    const source = 'const score = 1; const url = `/api/logo/${ticker}?v=4`; const view = <div style={{ padding: 4 }}><span>IV</span></div>;';
+    const expected = clientSurface(source);
+    assert.deepEqual(clientSurface(source.replace('score = 1', 'score = 2')), expected);
+    for (const [from, to] of [['?v=4', '?v=3'], ['>IV<', '>RV<'], ['padding: 4', 'padding: 8'], ['<span>IV</span>', '<p>IV</p>']]) {
+        assert.notDeepEqual(clientSurface(source.replace(from, to)), expected);
+    }
+});
+
+test('클라이언트 로고 URL 버전과 JSX 라벨·스타일·배치를 보존한다', () => {
     const { execFileSync } = require('node:child_process');
     for (const file of [
         'src/components/app/AppTickerLogo.tsx',
@@ -224,6 +249,8 @@ test('client edits change only logo query version; labels/styles/layout unchange
     ]) {
         const previous = execFileSync('git', ['show', `HEAD:${file}`], { cwd: root, encoding: 'utf8' });
         const current = fs.readFileSync(path.join(root, file), 'utf8');
-        assert.equal(current, previous.replaceAll('?v=3', '?v=4'));
+        const actual = clientSurface(current);
+        assert.ok(actual.logos.length > 0, file);
+        assert.deepEqual(actual, clientSurface(previous.replaceAll('?v=3', '?v=4')), file);
     }
 });

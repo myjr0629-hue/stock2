@@ -34,7 +34,8 @@
 //   «미제공»이 된다(옛 atmIv 창에서도 SPY 표본은 200 중 81개뿐이었다). → 수집 Lambda 행(isIvHarvestRow)만 창으로 센다.
 //   API 는 그 행이 섞여 창이 모자라면 한 번 더(창의 3배) 읽는다.
 // ============================================================================
-import { shownRegularSessionDate } from './marketCalendar';
+import { shownRegularSessionDate, etDateOf, etLastClosedSessionDate, prevTradingDate } from './marketCalendar';
+import { sourceDate } from './ivSkew';
 
 /** 백분위를 재는 창 — 최근 표본 개수(signum-gex-history 행). 수집 15분 간격 × 정규장 ≈ 하루 30개 → 약 7일. */
 export const IV_RANK_WINDOW = 200;
@@ -42,6 +43,15 @@ export const IV_RANK_WINDOW = 200;
 export const IV_RANK_MIN_IV_SAMPLES = 10;
 /** 마지막 이력 행이 이보다 오래됐으면 «지금»의 IV 랭크가 아니다(수집 목록 밖) — 4일(긴 주말 + 여유) */
 export const IV_RANK_MAX_AGE_MS = 4 * 86_400_000;
+/** IV 수준 대체 경로(Command): IV 고유 날짜가 직전 완료 세션부터 4거래일 전까지만 채택한다. IV30 랭크 판정(위 상수)은 바꾸지 않는다. */
+export const IV_MAX_AGE_TRADING_DAYS = 4;
+export function isFreshIvObservation(date: unknown, nowMs = Date.now()): boolean {
+    const ownDate = sourceDate(date);
+    if (!ownDate || !Number.isFinite(nowMs) || ownDate > etDateOf(nowMs)) return false;
+    let oldest = etLastClosedSessionDate(nowMs);
+    for (let i = 0; i < IV_MAX_AGE_TRADING_DAYS; i++) oldest = prevTradingDate(oldest);
+    return ownDate >= oldest;
+}
 /** 재는 값의 정의 표식 — 수집 Lambda(harvest_lambda/iv30.js IV30_DEF)가 행에 적는 값과 같아야 한다 */
 export const IV30_DEF = 'cm30-v1';
 

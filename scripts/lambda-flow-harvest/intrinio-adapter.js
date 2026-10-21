@@ -233,7 +233,12 @@ async function callIntrinio(path, params = {}, timeoutMs = 15000) {
           lastErr = err;
           retry = true;
         } else {
-          return await res.json();
+          const data = await res.json();
+          // 합쳐진 요청도 같은 최초 IV 관측 시각을 받는다(Vercel과 같은 규칙).
+          if (/^options\/greeks\/by_ticker\/[^/]+\/realtime$/.test(path) && data && typeof data === 'object') {
+            data._ivObservedAt = new Date(Date.now()).toISOString();
+          }
+          return data;
         }
       } catch (e) {
         lastErr = e;
@@ -620,10 +625,12 @@ async function getRealtimeGreeks(sym, opts = {}) {
     const j = await callIntrinio(`options/greeks/by_ticker/${sym}/realtime`, q).catch(() => null);
     calls++;
     if (!j) break;
+    // 최초 관측 시각을 보존한다. 변환·프로브 저장 시각으로 대체하지 않는다.
+    const ivObservedAt = j._ivObservedAt ?? null;
     for (const c of j.contracts || []) {
       const code = c.option && c.option.code;
       const g = c.greeks || {};
-      if (code) out.set(code, g);
+      if (code) out.set(code, { ...g, ivObservedAt });
     }
     page = j.next_page || null;
   } while (page && calls < MAX_PAGES);
@@ -749,6 +756,9 @@ async function getOptionChain(ticker, opts = {}) {
           vega: num(rt && rt.vega) ?? num(p.vega) ?? 0,
         },
         implied_volatility: num(rt && rt.implied_volatility) ?? num(p.implied_volatility) ?? 0,
+        // OI·감마 출처와 별개로 실제 IV의 날짜·시각을 보존한다.
+        ivSourceDate: num(rt && rt.implied_volatility) !== null ? null : p.date ?? null,
+        ivObservedAt: num(rt && rt.implied_volatility) !== null ? rt.ivObservedAt ?? null : null,
         // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
         //   없으면 null — 0 으로 채우면 구조 서비스의 «OI 누락» 검사가 발동하지 않는다(2026-09-27). 소비처는 `|| 0` 로 읽는다.
         open_interest: num(p.open_interest),

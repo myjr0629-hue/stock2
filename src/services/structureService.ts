@@ -1,4 +1,6 @@
 import { regularReferencePrice } from '@/lib/quoteBasis';
+import { sourceDate, observationTime } from '@/lib/ivSkew';
+import { isFreshIvObservation } from '@/lib/ivRank';
 import { sessionCloseMinutes, etMinutesOf } from '@/lib/marketCalendar';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { isTradeInExtSession } from './extendedSessionClose';
@@ -1257,6 +1259,8 @@ async function getStructureDataImpl(
         // IV field priority: top-level implied_volatility (Polygon actual) > greeks.implied_volatility
         // [DTE GUARD] When DTE < 2 (0DTE/1DTE), IV is distorted. Use next weekly expiry instead.
         let atmIv: number | null = null;
+        let ivSourceDate: string | null = null;
+        let ivObservedAt: string | null = null;
         const currentDte = Math.max(0, Math.round(
             (new Date(targetExpiry + 'T16:00:00').getTime() - new Date(todayStr + 'T09:30:00').getTime()) / 86400000
         ));
@@ -1315,16 +1319,35 @@ async function getStructureDataImpl(
                 // 1000% 를 넘으면 데이터 오류로 본다 — 지표로 쓰지 않는다
                 return pct > 0 && pct < 1000 ? pct : null;
             };
-            const callIv = extractIv(ivContracts.find((c: any) => c.k === atmStrike && c.type === 'call'));
-            const putIv = extractIv(ivContracts.find((c: any) => c.k === atmStrike && c.type === 'put'));
-            if (callIv !== null && putIv !== null) {
-                // 0DTE guard: if Call-Put IV spread > 40pp, use the lower (OTM) IV
-                const spread = Math.abs(callIv - putIv);
-                const bestIv = spread > 40 ? Math.min(callIv, putIv) : (callIv + putIv) / 2;
-                atmIv = Math.round(bestIv);
-            } else {
-                const fallback = callIv ?? putIv;
-                atmIv = fallback !== null ? Math.round(fallback) : null;
+            // IV 값·날짜·시각을 같은 계약에서 묶는다. OI의 chainDate나 프로브 _ts로 메우지 않는다.
+            const candidates = ivContracts.filter((c: any) => c.k === atmStrike && (c.type === 'call' || c.type === 'put'))
+                .map((c: any) => {
+                    const time = observationTime(c.ivObservedAt);
+                    const date = sourceDate(c.ivSourceDate) ?? time.sourceSessionDate
+                        ?? (c._rtGreeks ? null : sourceDate(c._intrinio?.date));
+                    return { type: c.type, iv: extractIv(c), date, observedAt: time.observedAt };
+                })
+                .filter(c => c.iv !== null && isFreshIvObservation(c.date));
+            // 날짜가 다른 다리를 섞지 않는다. 신선한 최신 날짜가 있으면 그 날짜의 IV를 반드시 쓴다.
+            const latestDate = candidates.reduce<string | null>((latest, c) =>
+                latest === null || c.date! > latest ? c.date : latest, null);
+            const latest = candidates.filter(c => c.date === latestDate);
+            const newest = (type: string) => latest.filter(c => c.type === type)
+                .sort((a, b) => (b.observedAt ?? '').localeCompare(a.observedAt ?? ''))[0];
+            const call = newest('call');
+            const put = newest('put');
+            let legs = [call, put].filter((c): c is NonNullable<typeof c> => c !== undefined);
+            if (call && put && Math.abs(call.iv! - put.iv!) > 40) {
+                // 스프레드 방어로 버린 다리는 값·날짜·시각 모두에 참여하지 않는다.
+                legs = [call.iv! < put.iv! ? call : put];
+            }
+            if (legs.length) {
+                atmIv = Math.round(legs.reduce((sum, c) => sum + c.iv!, 0) / legs.length);
+                ivSourceDate = latestDate;
+                // 모든 다리에 실제 관측 시각이 있으면 가장 이른 시각을 쓴다(값의 어느 부분도 그보다 새롭다고 주장하지 않는다).
+                // 한 다리라도 시각이 없으면 시각은 비운다 — 날짜(ivSourceDate)만으로 판정한다.
+                const times = legs.map(c => c.observedAt);
+                if (times.every((t): t is string => t !== null)) ivObservedAt = [...times].sort()[0];
             }
         }
 
@@ -1383,6 +1406,8 @@ async function getStructureDataImpl(
             gammaFlipLevel,
             gammaFlipType,
             atmIv,
+            ivSourceDate,
+            ivObservedAt,
             atmIvExpiry: ivExpiry,  // [ATM IV] Actual expiry used for IV calculation
             // [2026-09-29] 예상 변동(이 만기 ATM 스트래들) — pct·만기·행사가·기준(live/eod)·호가 시각. 못 구하면 null
             impliedMove,

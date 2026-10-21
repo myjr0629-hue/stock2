@@ -2,6 +2,7 @@
  * Never fill a missing measurement from analysis or a different expiry scope.
  */
 import { oiPcrAllExpiries, isFreshOptionsRow, oiRowHasQuantities } from './app/intelOptionsBasis';
+import { sourceDate, observationTime } from './ivSkew';
 export type OptionMetrics = ReturnType<typeof optionMetrics>;
 /**
  * [2026-10-20 NB1] 신선한 수집 행에 OI 수량(콜·풋)이 있었나 — 지표 객체 바깥에 둔다(WeakMap). 응답 필드에 새 키가 섞이지 않게(applyOptionMetrics 는 객체를 통째로 덮는다).
@@ -71,6 +72,9 @@ export function optionRegimeInputs(structure: any) {
         // The edition's own spot: the flip above/below judgement uses the same observation as its GEX/IV (gate 10200719 ①).
         underlyingPrice: spot !== null && spot > 0 ? spot : null,
         atmIv: iv !== null && iv > 0 && iv < 1000 ? iv : null,
+        // IV 고유 날짜만 운반한다. 판본·레벨·캐시 날짜는 대체 근거가 아니다.
+        ivSourceDate: sourceDate(structure.ivSourceDate),
+        ivObservedAt: observationTime(structure.ivObservedAt).observedAt,
         gammaConcentration: concentration !== null && concentration >= 0 && concentration <= 100 ? concentration : null,
         gammaConcentrationLabel: concentration !== null ? label : null,
     };
@@ -102,10 +106,11 @@ export function applyUnifiedOptionMetrics(data: any, metrics?: OptionMetrics | n
     // IV missing from the edition keeps the documented IV-only recovery value (recoverVolatilityIv).
     if (regime) {
         const conc = { gammaConcentration: regime.gammaConcentration, gammaConcentrationLabel: regime.gammaConcentrationLabel };
-        const iv = regime.atmIv !== null ? { atmIv: regime.atmIv, atmIV: regime.atmIv / 100 } : {};
+        const provenance = { ivSourceDate: regime.ivSourceDate, ivObservedAt: regime.ivObservedAt };
+        const iv = regime.atmIv !== null ? { atmIv: regime.atmIv, atmIV: regime.atmIv / 100, ...provenance } : {};
         if (data.structure) Object.assign(data.structure, conc, iv);
         if (data.volatility) {
-            Object.assign(data.volatility, conc, regime.atmIv !== null ? { iv: regime.atmIv } : {});
+            Object.assign(data.volatility, conc, regime.atmIv !== null ? { iv: regime.atmIv, ...provenance } : {});
             const inputs = data.volatility.metric?.inputs;
             if (inputs && typeof inputs === 'object') {
                 data.volatility.metric = { ...data.volatility.metric, inputs: { ...inputs, gammaConcentration: regime.gammaConcentration,
