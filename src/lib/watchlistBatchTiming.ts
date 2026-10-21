@@ -18,6 +18,8 @@ export type WatchlistBatchTiming = {
     optionSources?: Record<string, { structure: boolean; oiRow: boolean }>;
     /** 이번 계산에서 종목별로 «못 읽은» 원천 — 정상본 병합은 원천이 안 온 묶음만 직전 값을 유지한다(일괄 조회 실패는 그 묶음 전 종목) */
     missed?: Record<string, { darkPool?: boolean; liquidity?: boolean; levels?: boolean }>;
+    /** 종목별 레벨 저장 판본이 왔는지(structureService onSeen) */
+    levelSeen?: Record<string, boolean>;
 };
 
 export function newWatchlistBatchTiming(): WatchlistBatchTiming {

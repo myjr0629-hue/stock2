@@ -18,7 +18,7 @@ import { isOptionExpiredAt, optionExpirationFloor } from '@/lib/marketCalendar';
  * 원천 도착 증거(WatchlistBatchTiming, 종목별 — 다른 종목의 실패가 이 종목의 정당한 결측을 덮지 않는다):
  *   다크풀     ← FINRA 일괄 조회 실패(getDarkPoolBatchChecked !ok·예외)             missed.darkPool
  *   유동성     ← 직전 정규장 저장본 읽기 실패(sessionAwareLiquidity onReadFailure)    missed.liquidity
- *   레벨       ← 구조 판본 저장소 읽기 실패(prefetchLevelsForExit onReadFailure·예외) 또는 이 종목 구조 판본 미도착
+ *   레벨       ← 구조 판본 저장소 읽기 실패(prefetchLevelsForExit onReadFailure·예외) 또는 그 읽기에서 이 종목 판본 미도착(onSeen)
  *   GEX·스퀴즈 ← 종목별 구조 판본이 안 옴(optionMetricsService onEdition structure=false)
  *   P/C        ← 종목별 OI 행이 안 옴(onEdition oiRow=false)
  * 유지 대상이 아닌 필드(새 계산 그대로): 세션·현재가 표시값(price·changePct·missingFields·session·extended*·vwap·volume·relVol·
@@ -36,6 +36,7 @@ type Rt = Record<string, any>;
 export type SourceEvidence = {
     structure?: boolean; oiRow?: boolean;                                  // 종목별: 읽었으면 true
     missed?: { darkPool?: boolean; liquidity?: boolean; levels?: boolean }; // 이 종목: 못 읽었으면 true
+    levelSeen?: boolean;                                                    // 레벨 읽기에서 이 종목 저장 판본이 왔나
 };
 type Group = {
     name: string;
@@ -52,7 +53,8 @@ const present = (v: unknown) => v !== null && v !== undefined && !(typeof v === 
     && !(typeof v === 'number' && !Number.isFinite(v));
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const LEVELS = ['maxPain', 'callWall', 'putFloor', 'gammaFlipLevel'] as const;
-const ALPHA_INPUTS = ['gex', 'squeezeScore', 'pcr', 'darkPoolPct'];
+// 설명 입력(readOptionAlpha → explainAlphaSnapshot): gex·squeezeScore·pcr·whaleIndex·darkPoolPct·relVol (+ 고래지수 입력 netPremium)
+const ALPHA_INPUTS = ['gex', 'squeezeScore', 'pcr', 'darkPoolPct', 'whaleIndex', 'netPremium', 'relVol'];
 
 export const HOLD_GROUPS: readonly Group[] = [
     { name: 'darkPool', fields: ['darkPoolPct', 'darkPoolVol', 'darkPoolDate', 'darkPoolSource'], has: rt => present(rt.darkPoolPct),
@@ -72,8 +74,9 @@ export const HOLD_GROUPS: readonly Group[] = [
     { name: 'levels', fields: [...LEVELS, 'levelsRefPrice', 'levelsExpiration', 'levelsChainDate', 'levelsSource',
         'levelsAsOf', 'levelsStaleReason', 'levelsStaleAsOf', 'levelsDropped', 'levelsReselected'],
         has: rt => LEVELS.some(f => present(rt[f])),
-        // 레벨은 같은 structure:v2 키에서 온다 — 저장소 읽기 실패 신호 또는 이 종목 구조 판본 미도착(Redis 는 장애도 null[]로 줌)
-        notDelivered: ev => ev.missed?.levels === true || ev.structure === false,
+        // 레벨 읽기 자체의 증거 — 저장소 읽기 실패 신호 또는 그 읽기에서 이 종목 판본이 안 옴(Redis 는 장애도 null[]로 줌).
+        // 판본이 왔으면(NO_MARKET·범위 밖·만기 가림 포함) 빈 레벨은 정당 → 유지 안 함.
+        notDelivered: ev => ev.missed?.levels === true || ev.levelSeen === false,
         stillValid: (prev, next, now) => !(present(prev.levelsExpiration) && isOptionExpiredAt(prev.levelsExpiration, now))
             && levelViolations(prev, rowSpot(next)).length === 0 },
 ];

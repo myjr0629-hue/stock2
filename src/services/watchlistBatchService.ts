@@ -327,7 +327,10 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
         const m = (context.timing.missed ??= {});
         for (const t of who ? [who] : tickers) (m[String(t).toUpperCase()] ??= {})[k] = true;
     };
-    const finishLevels = context?.timing ? prefetchLevelsForExit(tickers, { onReadFailure: () => missed('levels') }) : prefetchLevelsForExit(tickers);
+    const finishLevels = context?.timing ? prefetchLevelsForExit(tickers, {
+        onReadFailure: () => missed('levels'),
+        onSeen: (t, seen) => { (context.timing!.levelSeen ??= {})[String(t).toUpperCase()] = seen; },
+    }) : prefetchLevelsForExit(tickers);
     const cached = await getAnalysisCacheForTickers(tickers).catch(() => {
         if (context?.timing) context.timing.failed = true;
         return {} as Record<string, any>;

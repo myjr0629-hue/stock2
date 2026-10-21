@@ -70,7 +70,10 @@ function harness({ cached = true, session = 'regular', unified = true, old = fal
             prefetchLevelsForExit: (asked, opts) => async () => { if (state.failLevels) throw new Error('합성 레벨 실패');
                 // 관문 10211116: 레벨 저장소 읽기만 실패 → 예외 없이 빈 Map(실제 peekStructureLevelsCore 와 같이 onReadFailure 를 알린다)
                 if (state.emptyLevels) { opts?.onReadFailure?.(); return new Map(); }
-                if (state.noLevels) return new Map();   // 읽기는 성공, 판본에 레벨 없음(NO_MARKET 등) = 정당한 빈 값
+                // Redis 장애가 null[] 로 옴 = 판본 미도착(실제 peekStructureLevelsCore onSeen false)
+                if (state.levelsNullRead) { asked.forEach(t => opts?.onSeen?.(t, false)); return new Map(); }
+                asked.forEach(t => opts?.onSeen?.(t, true));
+                if (state.noLevels) return new Map();   // 판본은 옴, 레벨 없음(NO_MARKET 등) = 정당한 빈 값
                 return new Map(asked.map(t => [t, copy(structure.levels)])); },
             applyLevelsToRealtime: (rt, levels) => { if (rt) Object.assign(rt, levels ?? { maxPain: null, callWall: null, putFloor: null }); },
         },
@@ -300,9 +303,9 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
         // ③ Redis 가 장애를 null[] 로 줌(구조 판본 미도착, 레벨 읽기 콜백 없음) → 레벨 유지
         startAt(); h = harness(); get = h.makeCache();
         await get(['AAPL'], 'price', timing());
-        clock += 60_001; h.state.failOptions = true; h.state.noLevels = true;
+        clock += 60_001; h.state.levelsNullRead = true;   // 옵션 선조회는 성공, 레벨 읽기만 null[]
         r = await get(['AAPL'], 'price', timing());
-        assert.equal(r.results[0].realtime.callWall, 110, '구조 판본 미도착 → 레벨 유지');
+        assert.equal(r.results[0].realtime.callWall, 110, '레벨 읽기 판본 미도착 → 레벨 유지');
         assert.ok([...h.store.values()][0].held.levels);
     });
     await test('시세 실패(가격 결측)는 정상본 교체 없음', async () => {
@@ -478,6 +481,9 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
         // NO_MARKET(GEX 정당한 null) + 다크풀 못 읽음 → 다크풀만 유지, 설명은 새 계산 그대로(관문: «GEX안전지대» 잔존 금지)
         n = run((rt, r) => { rt.darkPoolPct = null; rt.gex = null; r.alphaSnapshot = { score: 70, action: 'WATCH', capturedAt: 'x', whyKR: '일부 신호' }; }, { structure: true, missed: { darkPool: true } });
         assert.equal(n.result.realtime.darkPoolPct, 40); assert.equal(n.result.realtime.gex, null); assert.equal(n.result.alphaSnapshot.whyKR, '일부 신호');
+        // 같은 판본이어도 고래지수 입력(순프리미엄)이 바뀌면 설명은 새 계산 그대로(관문 4차: 65→35 인데 «기관매집» 복원 금지)
+        n = run((rt, r) => { rt.darkPoolPct = null; rt.netPremium = -5e5; r.alphaSnapshot = { score: 70, action: 'WATCH', capturedAt: 'x', whyKR: '기관분배' }; }, { missed: { darkPool: true } });
+        assert.equal(n.result.realtime.darkPoolPct, 40); assert.equal(n.result.alphaSnapshot.whyKR, '기관분배');
         // 판본이 바뀌었으면(score·capturedAt) 설명도 새 것
         n = run((rt, r) => { rt.darkPoolPct = null; r.alphaSnapshot = { score: 71, action: 'WATCH', capturedAt: 'y', whyKR: '새 판본' }; }, { missed: { darkPool: true } });
         assert.equal(n.result.alphaSnapshot.whyKR, '새 판본');
