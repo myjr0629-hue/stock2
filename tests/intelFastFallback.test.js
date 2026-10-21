@@ -1,5 +1,5 @@
 // 실제 라우트·분석 만료 판정·구조 계산을 메모리 I/O로 격리한다. 외부 호출·운영 쓰기 금지.
-// 실행: node tests/intelFastFallback.test.js [--baseline: 2047 수리 커밋으로 관문 결함 재현]
+// 실행: node tests/intelFastFallback.test.js [--baseline: 1차 결함 / --gate2: 2차 관문 4조건 재현]
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -8,7 +8,8 @@ const { execFileSync } = require('node:child_process');
 const ts = require('typescript');
 const root = path.resolve(__dirname, '..');
 const baseline = process.argv.includes('--baseline');
-const baselineRef = '201c6e85ba88bd5a78ff7bf2dcacc739dc8d9a57';
+const previousGate = process.argv.includes('--gate2');
+const baselineRef = previousGate ? '8732ea270' : '201c6e85ba88bd5a78ff7bf2dcacc739dc8d9a57';
 const realTimer = setTimeout;
 const watchdog = realTimer(() => { console.error('시험 시간 초과'); process.exit(1); }, 15000);
 global.setTimeout = (...args) => { const timer = realTimer(...args); timer.unref(); return timer; };
@@ -19,7 +20,7 @@ Date.now = () => now;
 const tickers = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
 const mem = new Map();
 let keysRead = [], writes = 0, snapshotCalls = 0, warmCalls = 0, tripped = false, holdRead = null, eod = null;
-let bgAfter = [];
+let bgAfter = [], snapshotOverride = {}, marketSession = 'post';
 const response = body => ({ ok: true, json: async () => body, clone: () => response(body) });
 const noop = async () => {};
 const mocks = {
@@ -45,9 +46,10 @@ const mocks = {
     '@/services/massiveClient': { CACHE_POLICY: { LIVE: 'live' }, fetchMassive: async () => {
         snapshotCalls++;
         if (tripped) BG.bgStore.getStore().tripped = true; // 앞선 공급사 실패가 같은 갱신 흐름의 관문을 닫은 상황
-        return { tickers: tickers.map(ticker => ({ ticker, day: { c: 100, v: 10 }, prevDay: { c: 99 }, todaysChangePerc: 1 })) };
+        return { tickers: tickers.map(ticker => ({ ticker, day: { c: 100, v: 10 }, prevDay: { c: 99 }, todaysChangePerc: 1,
+            _intrinio: { regularDate: '2026-10-20' }, ...snapshotOverride[ticker] })) };
     } },
-    '@/services/centralDataHub': { CentralDataHub: { getMarketStatus: async () => ({ session: 'post' }) } },
+    '@/services/centralDataHub': { CentralDataHub: { getMarketStatus: async () => ({ session: marketSession }) } },
     '@/services/lastSession': { reconstructLastSession: async () => ({}) },
     '@/services/intrinioClient': { sessionAwareLiquidity: async () => ({}) },
     '@/services/alphaEngine': { calculateWhaleIndex: () => 50 },
@@ -58,7 +60,10 @@ const mocks = {
     '@/lib/aws/dynamoDataProvider': { getLatestGex: async () => null, getLatestFlow: async () => null },
     '@/lib/app/intelOptionsBasis': { latestCollectorGexRow: async () => null, latestOptionsAsOf: () => null,
         oiPcrAllExpiries: () => null, gexFromRow: () => null, isFreshOptionsRow: () => false },
-    '@/services/extendedSessionClose': {}, // POST 흐름은 이 모듈을 호출하지 않는다.
+    '@/services/extendedSessionClose': {
+        peekExtendedSessionClosesAndWarm: async ts => ({ values: ts.map(() => null) }),
+        isTradeInExtSession: () => false, pickRegularPreClose: () => null,
+    },
     '@/lib/cache/staleLock': { tryBackgroundLock: async () => false, releaseBackgroundLock: noop, ageSec: ms => ms / 1000 },
     '@/lib/intrinioCallMeter': { noteEvent: () => {}, flushCallMeterNow: noop },
     '@/lib/intelFastGovernor': { governorOff: async () => true, decideBackground: async () => ({ run: true }) },
@@ -76,7 +81,7 @@ function load(file) {
         throw new Error('격리하지 않은 의존성: ' + id);
     };
     const rel = path.relative(root, file);
-    const original = baseline && ['src/app/api/intel/fast/route.ts', 'src/services/impliedMoveService.ts'].includes(rel);
+    const original = (baseline || previousGate) && ['src/app/api/intel/fast/route.ts', 'src/services/impliedMoveService.ts', 'src/services/intelFastFallback.ts'].includes(rel);
     const source = original ? execFileSync('git', ['show', baselineRef + ':' + rel], { cwd: root, encoding: 'utf8' }) : fs.readFileSync(file, 'utf8');
     m._compile(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText, file);
     return m.exports;
@@ -101,6 +106,7 @@ const closingProbe = () => ({ ...probe(), exactResults: [100, 104].flatMap(strik
 function seed() {
     now = Date.parse('2026-10-20T17:00:00-04:00');
     mem.clear(); keysRead = []; writes = snapshotCalls = warmCalls = network = 0; bgAfter = []; tripped = false; holdRead = null; eod = null;
+    snapshotOverride = {}; marketSession = 'post';
     for (const t of tickers) mem.set('cache:analysis:' + t, analysis());
 }
 async function get(app = false) {
@@ -112,6 +118,7 @@ async function get(app = false) {
 const row = (body, ticker) => body.data.find(q => q.ticker === ticker);
 let passes = 0, fails = 0;
 async function test(name, run) {
+    if (previousGate && !name.startsWith('2차 관문 재현:')) return;
     seed();
     try { await run(); assert.equal(network, 0); passes++; console.log('통과: ' + name); }
     catch (e) { fails++; console.error('실패: ' + name + ': ' + e.message); }
@@ -166,7 +173,63 @@ async function test(name, run) {
         assert.equal(writes, 2, '웹·앱 각각 기존 응답 캐시 저장 1회만');
     });
     if (baseline) return;
-    await test('종가가 없으면 주입 현재가 우선·그 값도 없을 때 저장 가격 사용', async () => {
+    for (const regular of [true, false]) for (const app of [false, true]) {
+        await test(`2차 관문 재현: ${regular ? '정규장' : '장후'} × ${app ? '앱' : '웹'} · 전일 벌크 EOD에서도 3.8%`, async () => {
+            now = Date.parse(`2026-10-20T${regular ? '13' : '17'}:00:00-04:00`);
+            marketSession = regular ? 'regular' : 'post';
+            mem.delete('cache:analysis:AMZN');
+            const stored = structure(null), before = structuredClone(stored);
+            mem.set('structure:v2:AMZN', stored); mem.set('polygon:snapshot:probe:AMZN', closingProbe());
+            // 정규장에는 lastTrade, 장후에는 같은 세션 day.c. 시간외 체결 110은 분모가 아니다.
+            snapshotOverride.AMZN = { day: { c: regular ? 100 : 104, v: 10 },
+                lastTrade: { p: regular ? 104 : 110, t: now * 1e6 } };
+            eod = { date: '2026-10-19', rows: new Map([['AMZN', { c: 100 }]]) };
+            const body = await get(app);
+            assert.equal(row(body, 'AMZN').impliedMovePct, 3.8);
+            assert.equal(row(body, 'AMZN').impliedMoveSession, session);
+            assert.deepEqual(stored, before);
+            assert.equal(snapshotCalls, 1); assert.equal(warmCalls, 1); assert.equal(writes, 1, '기존 호출·응답 저장만');
+        });
+    }
+    await test('원천 시각·정규장 날짜 미확정/전일/미래 가격은 저장 가격으로 메우지 않는다 (웹·앱)', async () => {
+        mem.delete('cache:analysis:AMZN'); mem.set('structure:v2:AMZN', structure(null));
+        mem.set('polygon:snapshot:probe:AMZN', closingProbe());
+        eod = { date: '2026-10-19', rows: new Map([['AMZN', { c: 104 }]]) };
+        for (const regular of [true, false]) {
+            now = Date.parse(`2026-10-20T${regular ? '13' : '17'}:00:00-04:00`);
+            marketSession = regular ? 'regular' : 'post';
+            for (const app of [false, true]) for (const date of [undefined, '2026-10-19', '2026-10-21']) {
+                snapshotOverride.AMZN = { day: { c: 104 }, _intrinio: { regularDate: date }, prevDay: { c: 104 },
+                    updated: now * 1e6, lastTrade: { p: 104, t: (now - 86400000) * 1e6 }, min: { c: 104, t: now + 60000 } };
+                assert.equal(row(await get(app), 'AMZN').impliedMovePct, null);
+            }
+        }
+    });
+    await test('정규장 가격 우선순위: 같은 세션 체결 → 분봉 → 일봉, 전일 체결은 제외', async () => {
+        now = Date.parse('2026-10-20T13:00:00-04:00');
+        mem.set('structure:v2:AMZN', structure(null)); mem.set('polygon:snapshot:probe:AMZN', closingProbe());
+        const day = { c: 104 }, _intrinio = { regularDate: session };
+        for (const sn of [
+            { lastTrade: { p: 104, t: now * 1e6 }, min: { c: 100, t: now }, day: { c: 100 }, _intrinio },
+            { lastTrade: { p: 100, t: (now - 86400000) * 1e6 }, min: { c: 104, t: now }, day: { c: 100 }, _intrinio },
+            { day, _intrinio },
+        ]) {
+            const f = await helper.readIntelImpliedMoves(['AMZN'], {}, { AMZN: sn });
+            assert.equal(f.AMZN?.impliedMovePct, 3.8);
+        }
+        assert.equal(snapshotCalls + warmCalls + writes, 0);
+    });
+    await test('스냅샷 누락은 같은 세션 EOD로만 보충, 체인 세션도 일치해야 한다', async () => {
+        mem.set('structure:v2:AMZN', structure(null)); mem.set('polygon:snapshot:probe:AMZN', closingProbe());
+        eod = { date: session, rows: new Map([['AMZN', { c: 104 }]]) };
+        assert.equal((await helper.readIntelImpliedMoves(['AMZN'], {})).AMZN?.impliedMovePct, 3.8);
+        mem.set('polygon:snapshot:probe:AMZN', { ...closingProbe(), chainDate: '2026-10-19' });
+        assert.equal((await helper.readIntelImpliedMoves(['AMZN'], {})).AMZN, undefined);
+        eod = null;
+        assert.equal((await helper.readIntelImpliedMoves(['AMZN'], {})).AMZN, undefined);
+        assert.equal(snapshotCalls + warmCalls + writes, 0);
+    });
+    await test('종가가 없으면 주입 현재가 우선·같은 세션 기준 가격 미확정이면 null', async () => {
         mem.set('polygon:snapshot:probe:AMZN', closingProbe());
         now = Date.parse('2026-10-20T13:00:00-04:00');
         eod = { date: session, rows: new Map([['AMZN', { c: 110 }]]) };
@@ -176,10 +239,10 @@ async function test(name, run) {
         for (const close of [null, 0, -1, NaN, Infinity]) {
             eod = { date: session, rows: new Map([['AMZN', { c: close }]]) };
             const fallback = await IMS.impliedMoveOfStructure('AMZN', structure(null).data, null, { retryNull: true });
-            assert.deepEqual([fallback?.pct, fallback?.strike, fallback?.spot], [6, 100, 100]);
+            assert.equal(fallback, null, '유효하지 않은 종가를 저장 가격 100으로 메우지 않는다');
         }
         eod = { date: '2026-10-19', rows: new Map([['AMZN', { c: 104 }]]) };
-        assert.equal((await IMS.impliedMoveOfStructure('AMZN', structure(null).data, null, { retryNull: true }))?.pct, 6, '다른 기준일 종가 제외');
+        assert.equal(await IMS.impliedMoveOfStructure('AMZN', structure(null).data, null, { retryNull: true }), null, '다른 기준일 종가·저장 가격 제외');
         assert.equal(snapshotCalls + warmCalls + writes, 0);
     });
     await test('저장 가격도 없으면 같은 세션 종가만 사용·기준 가격 미확정은 null', async () => {
@@ -236,7 +299,8 @@ async function test(name, run) {
         await get(); assert.equal(warmCalls, tickers.length); assert.ok(warmCalls <= 12); assert.equal(snapshotCalls, 1);
         warmCalls = 0; tripped = true; await get(); assert.equal(warmCalls, 0);
         writes = 0; warmCalls = snapshotCalls = 0;
-        const fills = await helper.readIntelImpliedMoves(tickers, {});
+        const snapshots = Object.fromEntries(tickers.map(t => [t, { day: { c: 100 }, _intrinio: { regularDate: session } }]));
+        const fills = await helper.readIntelImpliedMoves(tickers, {}, snapshots);
         assert.equal(Object.keys(fills).length, 7); assert.equal(writes, 0); assert.equal(warmCalls + snapshotCalls, 0);
     });
     await test('응답 캐시 뒤 갱신의 기존 잠금을 얻지 못하면 계산·공급사 호출 0', async () => {
@@ -254,6 +318,6 @@ async function test(name, run) {
         assert.deepEqual(result, {}); assert.ok(!keysRead.includes('polygon:snapshot:probe:AMZN')); assert.equal(writes, 0);
     });
 })().finally(() => {
-    clearTimeout(watchdog); console.log(`총 ${passes}건 통과 · ${fails}건 실패${baseline ? ' (수정 전 재현)' : ''}`);
+    clearTimeout(watchdog); console.log(`총 ${passes}건 통과 · ${fails}건 실패${baseline || previousGate ? ' (수정 전 재현)' : ''}`);
     if (fails) process.exitCode = 1;
 }).catch(e => { console.error(e); process.exitCode = 1; });

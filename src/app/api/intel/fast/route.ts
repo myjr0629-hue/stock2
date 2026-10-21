@@ -213,13 +213,13 @@ async function computeSector(request: Request) {
 
         // [CACHE WARMER] Also fetch analysis cache as additional data source
         const analysisCache = await getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>));
-        const impliedMoves = await readIntelImpliedMoves(tickers, analysisCache);
 
         // Build snapshot lookup map
         const snapshotMap: Record<string, any> = {};
         (snapshotData?.tickers || []).forEach((t: any) => {
             snapshotMap[t.ticker] = t;
         });
+        const impliedMoves = await readIntelImpliedMoves(tickers, analysisCache, snapshotMap);
 
         // Determine session
         const sRaw = (marketStatus as any)?.session || 'closed';

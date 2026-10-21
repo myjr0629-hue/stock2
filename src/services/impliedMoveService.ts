@@ -12,7 +12,7 @@ import { getFromCache, mgetFromCache } from '@/services/redisClient';
 import { structureV2Key, structureLastGoodKey } from '@/services/structureService';
 import { atmStraddleImpliedMove, eodQuoteRows, etDateString, IMPLIED_MOVE_DEF, impliedMoveFields, type ImpliedMove, type ImpliedMoveBasis } from '@/lib/impliedMove';
 import { readEodCloses } from '@/services/eodSnapshot';
-import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
+import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { optionExpirationFloor, weeklyOptionExpiryAt, isOptionExpiredAt } from '@/lib/marketCalendar';
 import { regularReferencePrice } from '@/lib/quoteBasis';
 
@@ -83,14 +83,20 @@ export async function peekStoredStructure(ticker: string): Promise<any | null> {
 }
 
 /** 구조 결과에서도 묶음/API와 같은 종가·ATM·체인 세션 보정을 적용한다. */
-export async function impliedMoveOfStructure(ticker: string, structure: any, spot?: number | null, opts: { retryNull?: boolean } = {}): Promise<ImpliedMove | null> {
+export async function impliedMoveOfStructure(ticker: string, structure: any, spot?: number | null, opts: { retryNull?: boolean; referenceSession?: string } = {}): Promise<ImpliedMove | null> {
     if (!structure || typeof structure !== 'object') return null;
     if (isOptionExpiredAt(structure.expiration)) return null;
-    const S = Number(spot) > 0 ? Number(spot) : Number(structure.underlyingPrice);
+    // Intel은 세션이 확인된 가격만 전달한다. 없으면 옛 구조 가격으로 메우지 않는다.
+    const referenceSession = opts.referenceSession ?? (opts.retryNull ? shownRegularSessionDate() : undefined);
+    const reference = referenceSession ? {
+        session: referenceSession,
+        spot: typeof spot === 'number' && Number.isFinite(spot) && spot > 0 ? spot : null,
+    } : undefined;
+    const S = reference ? reference.spot ?? NaN : Number(spot) > 0 ? Number(spot) : Number(structure.underlyingPrice);
     const needsProbe = structureLacksImpliedMove(structure) || (opts.retryNull === true && structure.options_status === 'OK' && structure.impliedMove == null);
-    if (needsProbe && typeof structure.expiration !== 'string') return weeklyImpliedMoveFromProbe(ticker, S);
+    if (needsProbe && typeof structure.expiration !== 'string' && !reference) return weeklyImpliedMoveFromProbe(ticker, S);
     const st = needsProbe ? { ...structure, underlyingPrice: S } : structure;
-    const [result] = await resolveImpliedMoves([{ ticker: String(ticker || '').toUpperCase() }], [st], etDateString(), opts.retryNull);
+    const [result] = await resolveImpliedMoves([{ ticker: String(ticker || '').toUpperCase() }], [st], etDateString(), opts.retryNull, reference);
     return result.im;
 }
 
@@ -214,7 +220,7 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
 }
 
 /** 전달받은 구조를 읽기 전용으로 보정한다. 단건·묶음 모두 이 경로를 지난다. */
-async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[], today: string, retryNull = false): Promise<ResolvedImpliedMove[]> {
+async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[], today: string, retryNull = false, reference?: { session: string; spot: number | null }): Promise<ResolvedImpliedMove[]> {
     // 저장본 읽기를 기다리던 중 마감됐을 수도 있다.
     const floor = optionExpirationFloor();
     if (today < floor) today = floor;
@@ -231,14 +237,14 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
         const missingMove = structureLacksImpliedMove(st) || (retryNull && st.options_status === 'OK' && st.impliedMove == null);
         // 옛 구조 사본도 실제 종가를 읽어 분모를 바로잡는다. EOD 날짜가 체인 세션과 같을 때만.
         // null 보충도 이 정상 경로를 공유한다. 기존 값의 세션이 없으면 구조의 체인 세션으로 종가를 대조한다.
-        const referenceSession = weeklyIm?.session ?? (retryNull && missingMove ? st.chainDate : null);
+        const referenceSession = reference?.session ?? weeklyIm?.session ?? (retryNull && missingMove ? st.chainDate : null);
         const regularClose = eod && eod.date === referenceSession
             ? regularReferencePrice({ day: { c: eod.rows.get(r.ticker)?.c } }, true) : null;
-        const spot = regularClose ?? Number(st.underlyingPrice);
+        const spot = regularClose ?? (reference ? reference.spot ?? NaN : Number(st.underlyingPrice));
         if (weeklyIm && regularClose && regularClose > 0 && weeklyIm.spot !== regularClose) {
             weeklyIm = { ...weeklyIm, spot: regularClose, pct: Math.round(weeklyIm.straddle / regularClose * 1000) / 10 };
         }
-        const session = closed ? impliedMoveFields(weeklyIm).impliedMoveSession ?? st.chainDate ?? null : null;
+        const session = reference?.session ?? (closed ? impliedMoveFields(weeklyIm).impliedMoveSession ?? st.chainDate ?? null : null);
         const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations.filter((e: string) => e >= today) : [];
         const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing ?? 'unknown') : (typeof st.expiration === 'string' ? st.expiration : null);
         // availableExpirations is the structure's slice, not the collector's full chain.
