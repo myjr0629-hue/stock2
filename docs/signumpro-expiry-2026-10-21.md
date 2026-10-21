@@ -3,9 +3,35 @@
 ## 결과 요약
 
 - 원인: `isLivePromoCode()`가 채널 목록·형식 규칙에 동일한 만료를 적용했다. SIGNUMPRO도 형식 규칙으로만 통과해 10/31에 유효 판정이 종료되는 구조였다.
-- 정규화 후 코드별 만료를 먼저 확인하도록 수정했다. SIGNUMPRO는 `2027-01-01T08:00:00Z` 이전까지 유효하다. 이는 애플 만료일 2026-12-31이 끝나는 태평양시 자정이다. 경계 시각부터는 무효다.
+- 정규화 후 코드별 만료 정보로 판정하도록 수정했다. SIGNUMPRO는 `2027-01-01T08:00:00Z` 이전까지 유효하다. 이는 애플 만료일 2026-12-31이 끝나는 태평양시 자정이다. 경계 시각부터는 무효다.
 - 기존 채널 8종·형식 규칙의 만료 `2026-10-31T07:00:00Z`와 소문자·공백 정규화는 유지했다.
-- 화면 문구·라벨·배치와 Android 동작은 수정하지 않았다.
+- 관문 보류 수리: 쿠폰 화면·PC 안내·링크 카드 제목 및 카드 이미지의 날짜를 코드별 애플 만료 정보에서 계산한다. SIGNUMPRO는 12/30, 기존 코드는 10/30이다. 문구 틀·라벨·배치는 유지한다. Android는 기존 Play 만료와 10/30 표시를 유지한다.
+
+## 관문 보류 수리: 날짜 표시
+
+- 확인한 원인: 유효 판정은 연장됐지만 `couponSubline()`의 언어별 부제와 `PROMO_COPY` 제목은 고정된 10/30을 사용했다. 정적 `redeem-card-*.png`에도 10/30이 들어 있었다.
+- `promoExpiry.ts`에 애플 만료일과 기존 유효 판정을 모았다. SIGNUMPRO의 애플 만료일은 2026-12-31, 유효 판정 경계는 이전 커밋과 같은 2027-01-01 08:00 UTC다. 기존 코드는 애플 만료일 2026-10-31, 경계 2026-10-31 07:00 UTC다. 표시만 애플 만료일의 전날을 PT 달력 기준으로 계산한다.
+- 영어 쿠폰·PC 부제는 기존 NBSP, 카드 제목은 일반 공백을 유지한다. 날짜 외 HTML은 수정 전 커밋 `95fe06579`의 템플릿과 메모리에서 비교한다. 기존 채널 코드·형식 시험 값은 파일·로그로 복제하지 않는다.
+- SIGNUMPRO 카드 이미지는 `/api/og/promo`가 원본 PNG 위 날짜 영역만 계산해 그린다. 기존 코드의 이미지 주소·PNG 파일은 그대로다. 배지 밖 문구·화면 캡처·배치에는 변경이 없다. 이미지에 코드를 새로 쓰지 않는다.
+
+| 공유 함수의 직접 호출자 | 영향 및 검증 |
+| --- | --- |
+| `promoExpiry()` → `isLivePromoCode()`, `promoExpiryDate()` | 유효 판정과 날짜 표시가 같은 만료 정의를 사용한다. 기존 만료 경계 회귀 시험으로 판정 유지 확인. |
+| `promoExpiryDate()` → `promoCopy()`, 카드 이미지 주소 선택, `couponSubline()`, 새 이미지 GET | SIGNUMPRO 날짜만 12/30으로 계산. ko/en/ja의 기존 날짜 문구 바이트 비교. |
+| `couponSubline()` → `couponHtml()`, `desktopRedeemHtml()` | 쿠폰 화면·PC 안내에 같은 날짜가 전달된다. Android는 기존 별도 만료를 사용한다. |
+| `previewHtml()` → `/app`, `/app-uc`, `/app-wim`, `giftShare/landing.ts` | `/app`의 일반 프로모션만 canonical URL의 코드를 읽어 날짜·이미지를 선택한다. UC·WIM 및 프로모션이 아닌 선물 토큰 카드는 기존 경로다. |
+| `couponHtml()`, `desktopRedeemHtml()` → `/app`, `giftShare/landing.ts` | 일반 코드 링크만 날짜가 바뀐다. 선물 토큰은 기존 날짜 없는 전용 부제·카드를 유지한다. |
+| `isLivePromoCode()` → `/app`의 봇·모바일·PC 분기, `giftConfig()` | 유효 판정 경계는 이전과 같다. 하단의 모든 기존 호출자·간접 호출자 추적도 유효하다. |
+
+## 바꾼 파일: 관문 보류 수리
+
+- `src/lib/marketing/promoExpiry.ts`: 코드별 애플 만료·기존 유효 경계·날짜 계산.
+- `src/lib/marketing/linkPreview.ts`: 코드별 카드 제목·이미지 선택 및 공통 만료 정의 사용.
+- `src/lib/marketing/couponHtml.ts`: 날짜 값만 계산해 기존 언어별 부제에 삽입.
+- `src/app/api/og/promo/route.ts`: 원본 카드 이미지의 날짜 영역만 생성.
+- `tests/signumproExpiry.test.ts`: 코드별 날짜가 반영된 카드 기대값.
+- `tests/signumproExpiryDisplay.test.ts`: 이전 HTML 바이트 비교·실제 GET·카드 픽셀 회귀.
+- `docs/signumpro-expiry-2026-10-21.md`: 원인·호출자 영향·시험·권한 차단 기록.
 
 ## Android 동작: 코드로 확인한 사실
 
@@ -45,6 +71,18 @@ SIGNUMFREE는 사용자 제공 조건상 Play 맞춤 코드이므로 앱 안에�
 
 ## 돌린 시험과 결과
 
+### 이번 관문 보류 수리
+
+- `tests/signumproExpiryDisplay.test.ts`: 494건 통과. 실제 `/app` GET으로 SIGNUMPRO 10/21·11/15·12/30·최종 만료 직전·정각·직후의 쿠폰 화면·PC 안내·카드를 ko/en/ja 모두 검증했다.
+- 기존 채널 8종·형식 시험의 기존 코드에 대해 3개 언어 쿠폰·PC·카드 전체 HTML이 수정 전 커밋과 바이트 동일함을 검증했다. SIGNUMPRO는 날짜와 카드 이미지 주소 외 바이트 동일하다. Android의 기존 10/30 표시·별도 만료는 유지한다.
+- 새 카드 이미지 GET은 3개 언어 PNG 생성 및 1200×675 크기를 검증했다. 원본과 픽셀 비교해 날짜 영역 밖 변경이 0임을 확인했다. 기본 만료 응답의 PNG는 원본과 바이트 동일하다. 생성한 PNG 3개 언어는 로컬 이미지로 확인했다(브라우저 접근 없음).
+- `tests/signumproExpiry.test.ts`: 159건 통과.
+- 공유 호출자 회귀: 카드 41건·PC 안내 5건·쿠폰 32건·스마트링크 21건 통과. `gift.test.ts`, `giftShare.test.ts` 종료 코드 0.
+- `/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false`: 이번 수리에서 1회 실행, 종료 코드 0. 회귀 묶음도 같은 잠금으로 직렬 실행했으며 외부 작업공간의 점유는 대기했다.
+- `git diff --check` 및 새 파일 3개의 공백·마지막 개행 검사 통과.
+
+### 기존 만료 연장 작업
+
 - `tests/signumproExpiry.test.ts`: 159건 통과. SIGNUMPRO 10/31 전·후, 12/31 시작·종료 경계, 최종 만료 직전·정각·직후, 소문자·공백 정규화, 기존 채널 8종·형식 규칙 최소·최대 길이의 10/31 경계, 카드 선택·선물 설정·기존 Play 만료 유지 검증.
 - 기존 `tests/redeemLinkPreview.test.ts`: 41건 통과.
 - 기존 `tests/gift.test.ts`: 종료 코드 0.
@@ -55,6 +93,7 @@ SIGNUMFREE는 사용자 제공 조건상 Play 맞춤 코드이므로 앱 안에�
 
 ## 남은 위험
 
-- 기존 쿠폰 화면·프로모션 카드 문구의 `10/30` 날짜는 고정돼 있다. 이번 작업은 표시 변경 금지 조건에 따라 그대로 유지했다. 연장된 SIGNUMPRO의 실제 만료와 화면 문구가 불일치한다.
+- 브랜치는 `feat/signumpro-expiry`로 확인했다. `git add`는 공용 Git 디렉터리의 `worktrees/feat-signumpro-expiry/index.lock` 생성에서 `Operation not permitted`로 차단됐다. 작업 파일은 보존했으며 커밋은 생성하지 못했다.
+- 새 카드 이미지 GET의 로컬 PNG 생성·날짜 외 픽셀 동일성은 확인했다. Vercel의 파일 추적·실제 배포 응답·외부 서비스의 기존 카드 캐시 갱신은 미확인이다.
 - SIGNUMFREE 링크에서 설치 후 앱 안 입력까지 이어 주는 전용 안내·자동 전달은 없다. 이번 작업의 Android 범위는 추적·보고뿐이다.
 - 운영 기능 설정, 스토어의 실제 코드 적용·결제, 실기기 이동은 확인하지 않았다. 위 Android 결과는 소스의 조건 분기를 추적한 결과다.

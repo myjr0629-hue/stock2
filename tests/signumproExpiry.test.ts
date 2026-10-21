@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { isCreatorPromoCode, isLivePromoCode, previewHtml, PROMO_COPY, COPY } from '../src/lib/marketing/linkPreview';
+import { isCreatorPromoCode, isLivePromoCode, previewHtml, promoCopy, COPY } from '../src/lib/marketing/linkPreview';
 import { giftConfig } from '../src/lib/gift/giftConfig';
 import { androidCouponLive } from '../src/lib/marketing/coupon';
 
@@ -26,7 +26,7 @@ for (const now of [
   }
   const card = previewHtml('signum', 'ko', 'https://www.signumhq.com/app?code=SIGNUMPRO',
     'https://apps.apple.com/', isLivePromoCode('SIGNUMPRO', now));
-  check(card.includes(live ? PROMO_COPY.ko.title : COPY.signum.ko.title), true, '만료 판정이 링크 카드에 반영');
+  check(card.includes(live ? promoCopy('ko', 'SIGNUMPRO').title : COPY.signum.ko.title), true, '만료 판정이 링크 카드에 반영');
   check(giftConfig({ GIFT_PROMO_CODE: 'signumpro', COUPON_ANDROID: '0' }, now),
     live ? { live: true, code: 'SIGNUMPRO', android: false } : { live: false }, '선물 설정 호출자의 만료·정규화');
   check(isLivePromoCode('SIGNUMFREE', now), false, 'SIGNUMFREE는 애플 맞춤 코드에 추가하지 않음');
