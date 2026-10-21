@@ -194,8 +194,8 @@ export async function getDarkPoolChecked(ticker: string): Promise<{ ok: true; ro
     return { ok: true, row: toTicker(t, row, snap.data.date, snap.data.marketAvg) };
 }
 
-/** 여러 종목 — 유니버스에 없는 종목은 빠진다(빈 map 도 «성공»). 원천을 못 읽으면 실패와 그 까닭 */
-export async function getDarkPoolBatchChecked(tickers: string[]): Promise<{ ok: true; map: Record<string, DarkPoolTicker> } | DarkPoolReadFailure> {
+/** 여러 종목 — 원천 거래량이 필요한 호출자는 변환 전 결측 검사를 선택한다. 기존 호출의 반환은 유지한다. */
+export async function getDarkPoolBatchChecked(tickers: string[], options: { requireVolume?: boolean } = {}): Promise<{ ok: true; map: Record<string, DarkPoolTicker> } | DarkPoolReadFailure> {
     const snap = await readOffexchange();
     if (!snap.ok) return snap;
     const out: Record<string, DarkPoolTicker> = {};
@@ -203,6 +203,8 @@ export async function getDarkPoolBatchChecked(tickers: string[]): Promise<{ ok: 
         const t = (raw || '').toUpperCase();
         const row = snap.data.tickers[t];
         if (!row || typeof row.pct !== 'number' || !(row.pct > 0)) continue;
+        // toTicker의 기존 0 대입 전에 검사해야 결측과 실제 0을 구별할 수 있다.
+        if (options.requireVolume && (typeof row.vol !== 'number' || !Number.isFinite(row.vol) || row.vol < 0)) continue;
         out[t] = toTicker(t, row, snap.data.date, snap.data.marketAvg);
     }
     return { ok: true, map: out };

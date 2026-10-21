@@ -84,7 +84,7 @@ const shield = run(fn('src/services/guardian/gammaShieldEngine.ts', 'loadStruct'
 });
 const intel = run('async function read(tickers) {\n' + segment('src/app/api/intel/fast/route.ts',
     'const gexFallback: Record<string, any> = {};', 'const quotes = tickers.map') + '\nreturn gexFallback; }\nread;');
-const watchlist = run('async function read(results) {\n' + segment('src/services/watchlistBatchService.ts',
+const watchlist = run('async function read(results, context) {\n' + segment('src/services/watchlistBatchService.ts',
     'const awsFill: Record<string, any> = {};', 'const whaleFixups:') + '\nreturn awsFill; }\nread;');
 const live = run('async function read(ticker) { let structureResult = {}; let flowRes = {dataSource:"NONE"};\n' +
     segment('src/app/api/live/ticker/route.ts', 'const liveOptionsEmpty =', '// Phase 2 results') +
