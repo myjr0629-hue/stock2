@@ -292,3 +292,38 @@ test('연결 표면 JSX는 운영 기준과 동일하고 클릭에서 공유 전
     assert.ok(end > start); assert.ok(!current.slice(start, end).includes('await '));
   }
 });
+
+test('관문 회귀(10220544): 전날 미등록분이 자정 뒤 재시도로 오늘 기기 한도를 쓰면 새 선물 링크를 붙이지 않는다', async () => {
+  for (const pendingCount of [3, 1]) {
+    resetStorage();
+    let clock = Date.parse('2026-10-22T14:58:00Z'); // KST 23:58
+    let down = true;
+    const used = new Map<string, number>(); // 서버 기기 한도(KST 날짜별) 모형 — 등록 성공 때 차감, 3 초과 거부
+    const kst = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
+    const s = server({ issue: () => {
+      if (down) return new Error('미도달');
+      const d = kst(clock); const n = used.get(d) ?? 0;
+      if (n >= 3) return { ok: false };
+      used.set(d, n + 1); return { ok: true };
+    } });
+    const client = createGiftPreparation(s.request, () => '9'.repeat(64), () => clock);
+    await client.refresh('ios');
+    for (let i = 0; i < pendingCount; i++) {
+      const p = client.payload(original, 'ko', 'ios'); assert.ok(giftOf(p));
+      client.complete('shared', p, 'ios'); await tick();
+    }
+    down = false; clock = Date.parse('2026-10-22T15:04:00Z'); // KST 다음 날 00:04
+    const next = createGiftPreparation(s.request, () => '9'.repeat(64), () => clock);
+    await next.refresh('ios');
+    let fresh = 0;
+    for (let i = 0; i < 3; i++) {
+      const p = next.payload(original, 'ko', 'ios');
+      if (!giftOf(p)) break;
+      fresh++; next.complete('shared', p, 'ios'); await tick();
+    }
+    assert.equal(fresh, 3 - pendingCount, `전날 미등록 ${pendingCount}건이면 오늘 새 선물은 ${3 - pendingCount}건`);
+    const today = used.get(kst(clock)) ?? 0;
+    assert.ok(today <= 3);
+    assert.equal(today, 3, '보낸 선물 링크는 모두 서버 등록됨(거부된 링크 0)');
+  }
+});

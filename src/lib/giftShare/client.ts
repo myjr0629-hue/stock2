@@ -11,7 +11,8 @@ const DAY_KEY = 'signumhq.gift.day.v1';
 const TOKEN_TTL_MS = 7 * 86_400_000;
 const RETRY_GAP_MS = 5 * 60_000;
 const MAX_TRIES = 5;
-type SentGift = { token: string; at: number; tries: number; last: number };
+/** day = 이 토큰의 등록 시도를 마지막으로 셈한 KST 날짜(서버 기기 한도는 등록 시점 날짜로 센다). */
+type SentGift = { token: string; at: number; tries: number; last: number; day?: string };
 
 const COPY = {
   ko: '친구에게 SIGNUM PRO 1개월 이용권을 선물합니다. 링크에서 스토어 등록을 완료해야 적용됩니다. 링크당 1명, 대상 자격·재고에 따라 제공되며 이후 자동 갱신 조건은 등록 화면에서 확인하세요.',
@@ -63,6 +64,18 @@ function writeSent(storage: Storage, list: SentGift[]) {
   if (list.length) storage.setItem(SENT_KEY, JSON.stringify(list.slice(-20)));
   else storage.removeItem(SENT_KEY);
 }
+/**
+ * 오늘(KST) 이 기기가 쓴(또는 쓸) 서버 기기 한도 = 오늘 셈한 등록 시도 + 다른 날 공유됐고 오늘 재시도될 미등록 토큰(예약분).
+ * 자정 뒤 재시도가 오늘 한도를 쓰는데 새 선물 링크를 또 내보내지 않게 한다(관문 10220544).
+ */
+function usedToday(storage: Storage, now: number): number {
+  const today = kstDay(now);
+  const pending = readSent(storage).filter(x => now - x.at < TOKEN_TTL_MS && x.tries < MAX_TRIES && x.day !== today).length;
+  return sharedToday(storage, now) + pending;
+}
+function countToday(storage: Storage, now: number) {
+  storage.setItem(DAY_KEY, JSON.stringify({ day: kstDay(now), n: sharedToday(storage, now) + 1 }));
+}
 function sharedToday(storage: Storage, now: number): number {
   const raw = storage.getItem(DAY_KEY);
   try {
@@ -91,9 +104,11 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     if (!enabled || !available) return;
     try {
       const storage = localStorage;
-      if (sharedToday(storage, now()) >= dayCap(via)) return;
+      if (usedToday(storage, now()) >= dayCap(via)) return;
       // 쓰기 가능 여부를 확인한다(등록 재시도 장부를 남길 수 없으면 선물 링크를 보내지 않는다).
-      storage.setItem(SENT_KEY, JSON.stringify(readSent(storage)));
+      const list = readSent(storage);
+      storage.setItem(SENT_KEY, JSON.stringify(list));
+      writeSent(storage, list); // 빈 장부는 남기지 않는다
     } catch { return; }
     // 영속 열쇠가 없으면 앱 한도를 우회하는 익명 등록이 되므로 준비하지 않는다.
     if (via !== 'web' && !getDevice()) return;
@@ -124,7 +139,11 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     const due = list.filter(x => t - x.at < TOKEN_TTL_MS && x.tries < MAX_TRIES && t - x.last >= RETRY_GAP_MS).slice(0, 3);
     for (const entry of due) {
       entry.tries++; entry.last = t;
-      try { writeSent(storage, readSent(storage).map(x => x.token === entry.token ? entry : x)); } catch { return; }
+      try {
+        // 다른 날 공유분의 첫 재시도는 오늘 서버 기기 한도를 쓸 수 있으므로 오늘 횟수에 한 번 반영한다(과대 계산은 일반 공유 쪽으로만 기운다).
+        if (entry.day !== kstDay(t)) { countToday(storage, t); entry.day = kstDay(t); }
+        writeSent(storage, readSent(storage).map(x => x.token === entry.token ? entry : x));
+      } catch { return; }
       if (await register(entry.token, via)) {
         try { writeSent(storage, readSent(storage).filter(x => x.token !== entry.token)); } catch { return; }
       }
@@ -146,10 +165,12 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
         // 꺼짐: 저장소·발행에 접근하지 않는다.
         if (!enabled) { available = false; ready = null; checkedAt = now(); return; }
         available = config.available === true;
+        // 재시도를 먼저 해 오늘 한도 반영을 끝낸 뒤 준비한다. 이미 준비된 토큰도 한도에 닿았으면 버린다.
+        await flush(via);
         if (!available) ready = null;
         else if (!ready) prepare(via);
+        else { try { if (usedToday(localStorage, now()) >= dayCap(via)) ready = null; } catch { ready = null; } }
         checkedAt = now();
-        await flush(via);
       } catch { ready = null; available = false; checkedAt = 0; } finally { inflight = null; }
     })();
     return inflight;
@@ -159,7 +180,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     if (!enabled) return original; // 꺼짐은 객체와 문자열을 그대로 돌려준다.
     const lang = toGiftLang(locale);
     let underCap = false;
-    try { underCap = sharedToday(localStorage, now()) < dayCap(via); } catch { underCap = false; }
+    try { underCap = usedToday(localStorage, now()) < dayCap(via); } catch { underCap = false; }
     const prepared = !!ready && available && underCap && now() - checkedAt < FRESH_MS;
     const validRef = normalizeGiftRef(ref);
     // 등록 API와 같은 출처를 쓴다. 프리뷰 토큰을 운영 재고 영역으로 보내지 않는다.
@@ -187,9 +208,8 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     const t = now();
     try {
       const storage = localStorage;
-      const n = sharedToday(storage, t);
-      storage.setItem(DAY_KEY, JSON.stringify({ day: kstDay(t), n: n + 1 }));
-      writeSent(storage, [...readSent(storage), { token: usedToken, at: t, tries: 1, last: t }]);
+      countToday(storage, t);
+      writeSent(storage, [...readSent(storage), { token: usedToken, at: t, tries: 1, last: t, day: kstDay(t) }]);
     } catch { /* 장부를 못 남겨도 등록은 한 번 시도한다 */ }
     void register(usedToken, via).then(ok => {
       if (!ok) return;
