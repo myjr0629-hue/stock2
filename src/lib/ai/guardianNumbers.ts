@@ -164,6 +164,31 @@ function staleMove(key: GKey, basis: number, now: number): boolean {
 export interface GFill { ok: boolean; text: string; reasons: string[] }
 
 /**
+ * ★2026-10-21 숫자 없이 쓴 서술의 낡음 — Tactical 첫 문장(«지수는 올랐지만 … 상승장»·«시장 건강도가 약해»)은 자리표 없이 상태를 말한다.
+ *   자리표가 없으면 채우기 단계(staleMove)가 못 보므로, 그 서술의 근거 지표가 생성 때 값(basis)에서 같은 구간 규칙으로 움직였으면 낡음.
+ *   지수 방향(NDX_CHG)은 언제나(상태 판정은 이름 없이 «지수»라고 쓴다), 그 밖은 글이 그 지표를 이름으로 말할 때만. 자리표가 있는 지표는 건너뛴다(중복 없음).
+ *   (관문 10210942: 나스닥 +0.78%→−0.78% 인데 저장된 «상승장» 판정이 그대로 나갔다)
+ */
+const IMPLIED_NAMES: Partial<Record<GKey, RegExp | null>> = {
+    NDX_CHG: null,
+    RLSI: /RLSI|시장\s?건강도|market health|健全度|マーケットヘルス/i,
+    GEX: /GEX|옵션 포지션|감마|options positioning|gamma|オプション・ポジション|ガンマ/i,
+    VIX: /VIX|변동성 지수|volatility|変動性指数|ボラティリティ/i,
+};
+export function impliedStaleReasons(text: string, nums: GNums | null | undefined, basis: GNums | null | undefined): string[] {
+    if (!nums || !basis) return [];
+    const t = String(text ?? '');
+    const out: string[] = [];
+    for (const [k, name] of Object.entries(IMPLIED_NAMES) as Array<[GKey, RegExp | null]>) {
+        if (new RegExp(`\\{\\s*${k}\\s*\\}`).test(t)) continue;
+        if (name && !name.test(t)) continue;
+        const b = basis[k], v = nums[k];
+        if (typeof b === 'number' && Number.isFinite(b) && typeof v === 'number' && Number.isFinite(v) && staleMove(k, b, v)) out.push(`token-stale:${k}:implied:${formatGNum(k, b)}→${formatGNum(k, v)}`);
+    }
+    return out;
+}
+
+/**
  * ★2026-10-21 한국어 조사 — 자리표는 값을 모르는 모델이 조사를 붙인다(«VIX {VIX}는» → «VIX 17.3는»·«GEX {GEX}은» → «GEX +5은»).
  *   채운 값의 마지막 읽는 소리(받침)에 맞춰 바로 뒤 조사 한 개만 고친다: 은/는 · 이/가 · 을/를 · 과/와 · 으로/로.
  *   조사 뒤에 한글이 이어지면(«{X}이며»·«{X}가운데») 낱말일 수 있어 건드리지 않는다. 일본어·영어 글에는 해당 조사가 없다.

@@ -7,7 +7,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-    checkGuardianLiterals, fillGuardianTokens, formatGNum, guardianNumbersGate, guardianNumsFromAiContext, guardianNumsFromMarket,
+    checkGuardianLiterals, fillGuardianTokens, impliedStaleReasons, formatGNum, guardianNumbersGate, guardianNumsFromAiContext, guardianNumsFromMarket,
     guardianNumsFromContext, guardianTokenRules, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, guardianLiterals,
 } from '@/lib/ai/guardianNumbers';
 import { cleanInsight } from '@/lib/ai/outputGate';
@@ -202,6 +202,24 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
         assert.equal(fillGuardianTokens('VIX at {VIX}, calm', N).text, 'VIX at 17.3, calm');
         assert.equal(fillGuardianTokens('나스닥 {NDX_CHG} 상승', N).text, '나스닥 +0.78% 상승');
         assert.ok(!/[\u0002\u0003]/.test(fillGuardianTokens('{FOO} {VIX}는', N).text));
+    });
+    await t('10/21 숫자 없는 상태 서술의 낡음 — 지수 방향 뒤집힘·건강도 구간 변화면 저장본 탈락(관문 10210942), 작은 움직임·자리표 있는 지표는 그대로', async () => {
+        const basis = { NDX_CHG: 0.784, RLSI: 36.4, GEX: 5, VIX: 17.31 };
+        const verdictTpl = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 배경은 19:24 ET NEWS PULSE 보도로, 금 가격이 4,150달러 아래로 밀렸습니다. 시장 건강도(RLSI) {RLSI}점으로 약하고 옵션 포지션(GEX {GEX})은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+        assert.deepEqual(impliedStaleReasons(verdictTpl, { ...basis, NDX_CHG: -0.784 }, basis), ['token-stale:NDX_CHG:implied:+0.78%→-0.78%']);
+        assert.deepEqual(impliedStaleReasons(verdictTpl, { ...basis, NDX_CHG: 0.5 }, basis), []);                 // 같은 방향 작은 움직임
+        assert.deepEqual(impliedStaleReasons(verdictTpl, { ...basis, RLSI: 50 }, basis), []);                      // {RLSI} 자리표가 있으면 채우기 단계가 본다(중복 없음)
+        assert.deepEqual(impliedStaleReasons('나스닥 {NDX_CHG} 상승', { NDX_CHG: -0.5 }, { NDX_CHG: 0.5 }), []);   // 자리표 있는 지표는 건너뜀
+        assert.deepEqual(impliedStaleReasons('변동성 지수(VIX)는 안정 구간입니다.', { VIX: 19 }, { VIX: 17 }), ['token-stale:VIX:implied:17.0→19.0']);
+        assert.deepEqual(impliedStaleReasons('시장 건강도는 약합니다.', { RLSI: 47 }, { RLSI: 43 }), ['token-stale:RLSI:implied:43→47']);
+        assert.deepEqual(impliedStaleReasons('금이 밀렸습니다.', { VIX: 30, RLSI: 70 }, { VIX: 17, RLSI: 30 }), []); // 글이 이름으로 말하지 않는 지표는 보지 않는다
+        // 실제 출구(repairVerdictTexts): 저장 판정의 «상승장» 이 나스닥 하락 전환 뒤 그대로 나가지 않는다
+        _resetInsightStateForTest();
+        const verdict: any = { realityInsight: fillGuardianTokens(verdictTpl, basis).text, num: { tpl: { realityInsight: verdictTpl }, basis: { realityInsight: basis } } };
+        const same = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', basis);
+        assert.ok(same.verdict.realityInsight.startsWith('지수는 올랐지만') && !same.repaired.includes('realityInsight'));
+        const flipped = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+        assert.ok(flipped.repaired.includes('realityInsight') && !String(flipped.verdict.realityInsight).includes('상승장'));
     });
 
     console.log(`\n${n} passed`);
