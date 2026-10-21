@@ -229,10 +229,12 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
             assert.notEqual(JSON.stringify(h.store.get(key)), saved);
         });
     }
-    await test('실패 신호 없이 생긴 필드 결측·빈 값도 교체 거부, 0과 정상 복구는 갱신 허용', async () => {
+    await test('실패 신호 없는 정상 결측·표시/메타 제거·0은 저장 허용', async () => {
         const losses = [
             r => r.realtime.darkPoolPct = null,
             r => r.realtime.liquidityScore = undefined,
+            r => r.realtime.whaleIndex = null,
+            r => r.realtime.liquidityScore = 0,
             r => r.realtime.sparkline = [],
             r => r.alphaSnapshot.whyFactors = [],
             r => r.alphaSnapshot.capturedAt = '',
@@ -243,18 +245,69 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
             const get = h.makeCache({ compute: async (...args) => {
                 const payload = await h.compute(...args);
                 if (partial) lose(payload.results[0]);
-                assert.equal(args[2].failed, false, '실패 신호와 별개인 완결성 검사');
+                assert.equal(args[2].failed, false, '정상 결측을 원천 실패로 만들지 않음');
                 return payload;
             } });
-            const first = await get(['AAPL'], 'price', timing()), saved = JSON.stringify([...h.store]);
+            await get(['AAPL'], 'price', timing()); const saved = JSON.stringify([...h.store]);
             clock += 15_000; partial = true;
             await get(['AAPL'], 'price', timing()); await h.drain();
-            assert.equal(JSON.stringify([...h.store]), saved);
-            assert.deepEqual(await get(['AAPL'], 'price', timing()), first);
-            partial = false; h.state.liquidityScore = 0; await h.drain();
-            assert.equal((await get(['AAPL'], 'price', timing())).results[0].realtime.liquidityScore, 0);
+            assert.notEqual(JSON.stringify([...h.store]), saved);
+            const before = copy(h.count), updated = await get(['AAPL'], 'price', timing());
+            assert.deepEqual(h.count, before, '새 정상본의 메모리 적중은 원천을 다시 읽지 않음');
+            assert.deepEqual(updated.results[0], [...h.store.values()][0].result);
         }
     });
+    for (const scenario of ['PRE→정규장', 'changePct 복구']) {
+        await test(`${scenario}: 후속 정상 계산 3/3 저장, 메모리·빈 인스턴스 Redis 적중`, async () => {
+            for (const cold of [false, true]) {
+                startAt(scenario === 'PRE→정규장' ? '2026-10-20T09:29:59-04:00' : undefined);
+                const h = harness(); let recovered = false, complete;
+                const dependencies = { compute: async (...args) => {
+                    complete ??= await h.compute(...args);
+                    const payload = copy(complete), rt = payload.results[0].realtime;
+                    if (scenario === 'PRE→정규장') {
+                        rt.extendedPrice = recovered ? null : 101;
+                        rt.extendedChange = recovered ? null : 1;
+                        rt.extendedChangePct = recovered ? null : 1;
+                        rt.session = recovered ? 'regular' : 'pre';
+                    } else {
+                        rt.changePct = recovered ? 2 : null;
+                        rt.missingFields = recovered ? [] : ['changePct'];
+                    }
+                    assert.equal(args[2].failed, false);
+                    return payload;
+                } };
+                let get = h.makeCache(dependencies);
+                await get(['AAPL'], 'price', timing());
+                const key = h.cacheModule().watchlistBatchKey('AAPL', 'price');
+                const initialWrites = h.count.writes;
+                recovered = true;
+                for (let i = 0; i < 3; i++) {
+                    clock = i === 0 && scenario === 'PRE→정규장'
+                        ? originalDate.parse('2026-10-20T09:30:00-04:00') : clock + 60_001;
+                    if (cold) get = h.makeCache(dependencies);
+                    const t = timing(), response = await get(['AAPL'], 'price', t);
+                    assert.equal(t.sync, 1, '세션 경계·상한 뒤 정상 계산');
+                    assert.equal(h.count.writes, initialWrites + i + 1, '정상 저장 3/3');
+                    assert.equal(h.store.get(key).at, clock);
+                    assert.deepEqual(response.results[0], h.store.get(key).result);
+                    if (scenario === 'PRE→정규장') assert.equal(response.results[0].realtime.extendedPrice, null);
+                    else {
+                        assert.equal(response.results[0].realtime.changePct, 2);
+                        assert.deepEqual(response.results[0].realtime.missingFields, []);
+                    }
+                    const before = copy(h.count), hit = timing();
+                    assert.deepEqual(await get(['AAPL'], 'price', hit), response);
+                    assert.equal(hit.memory, 1); assert.equal(hit.sync, 0); assert.deepEqual(h.count, before);
+                    const redisHit = timing();
+                    assert.deepEqual(await h.makeCache(dependencies)(['AAPL'], 'price', redisHit), response);
+                    assert.equal(redisHit.redis, 1); assert.equal(redisHit.sync, 0);
+                    assert.equal(h.count.compute, before.compute);
+                    assert.equal(h.jobs.length, 0);
+                }
+            }
+        });
+    }
     await test('상한·세션 경계 뒤에도 메모리/Redis 직전 정상본으로 완결성 비교, 옛 시각 재발급 없음', async () => {
         for (const nextTime of ['2026-10-20T12:01:01-04:00', '2026-10-20T16:00:00-04:00']) {
             for (const cold of [false, true]) {
@@ -264,7 +317,10 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
                     complete ??= await h.compute(...args);
                     const payload = copy(complete);
                     payload.results[0].realtime.optionsAsOf = clock - 3600_000;
-                    if (partial) payload.results[0].realtime.darkPoolPct = null;
+                    if (partial) {
+                        payload.results[0].realtime.darkPoolPct = null;
+                        args[2].failed = true;
+                    }
                     return payload;
                 } };
                 let get = h.makeCache(dependencies);

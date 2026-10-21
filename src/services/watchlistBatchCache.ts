@@ -36,17 +36,23 @@ function normalResult(result: any): boolean {
         && (!Array.isArray(result.realtime.missingFields) || !result.realtime.missingFields.includes('price'));
 }
 
-/** 값이 있던 원천 필드의 결측은 정상 갱신이 아니다. 0/false는 유효한 값이다. */
-function lostSourceValue(previous: any, next: any): boolean {
+// FINRA·유동성·옵션 원천과 그 입력으로 계산하는 지표만 비교한다.
+// 세션 표시값(extendedPrice/session 등), missingFields, alphaSnapshot 메타는 포함하지 않는다.
+const SOURCE_FIELDS = [
+    'darkPoolPct', 'darkPoolVol', 'darkPoolDate', 'darkPoolSource',
+    'liquidityScore', 'spreadPct', 'whaleIndex',
+    'gex', 'netGex', 'pcr', 'netPremium', 'squeezeScore',
+    'maxPain', 'callWall', 'putFloor', 'gammaFlipLevel',
+    'atmIv', 'atmIvSourceDate', 'atmIvObservedAt', 'ivSkew', 'impliedMovePct',
+] as const;
+
+/** 결측 자체는 장애가 아니다. 원천 실패가 관측된 경우에만 손실로 판정한다. */
+function lostSourceValue(previous: any, next: any, sourceFailed: boolean): boolean {
+    if (!sourceFailed) return false;
     const empty = (value: any): boolean => value == null
         || (typeof value === 'string' && value.trim() === '')
         || (typeof value === 'object' && Object.keys(value).length === 0);
-    if (empty(previous)) return false;
-    if (empty(next)) return true;
-    if (typeof previous === 'object' && !Array.isArray(previous)) {
-        return Object.entries(previous).some(([field, value]) => lostSourceValue(value, next[field]));
-    }
-    return false;
+    return SOURCE_FIELDS.some(field => !empty(previous?.realtime?.[field]) && empty(next?.realtime?.[field]));
 }
 
 /** 배치 API만 사용한다. SSR·포트폴리오 등 다른 소비자의 캐시 정책에는 관여하지 않는다. */
@@ -109,7 +115,7 @@ export function createWatchlistBatchCache(deps: Dependencies) {
                         const env: BatchEnvelope = JSON.parse(JSON.stringify({ at: start, scope: window.scope,
                             mode, ticker, result, meta: payload.meta }));
                         envelopes.set(ticker, env);
-                        if (timing.failed || !normalResult(result)) return;
+                        if (!normalResult(result)) return;
                         const end = now(), currentWindow = watchlistBatchWindow(end);
                         if (currentWindow.scope !== window.scope || end - start > currentWindow.maxAge) return;
                         const key = watchlistBatchKey(ticker, mode);
@@ -117,7 +123,10 @@ export function createWatchlistBatchCache(deps: Dependencies) {
                         if (previous && previous.at > env.at) return;
                         // 일부 값만 섞으면 파생 지표·원천 시각이 새 판본처럼 보일 수 있어 전체 교체를 거부한다.
                         // 기존 envelope의 at/meta와 모든 원천 시각을 그대로 보존하며 수명도 연장하지 않는다.
-                        if (previous && lostSourceValue(previous.result, env.result)) return;
+                        if (previous && lostSourceValue(previous.result, env.result, timing.failed)) return;
+                        // 실패 때도 폴백·파생값이 유한할 수 있다(예: FINRA 실패 뒤 고래지수).
+                        // 결측이 없거나 최초 계산이어도 실패 판본으로 정상본의 수명을 연장하지 않는다.
+                        if (timing.failed) return;
                         remember(key, env);
                         // 저장 실패도 메모리 정상본을 지우거나 시각을 다시 찍지 않는다.
                         await deps.write(key, env, 3600).catch(() => undefined);
