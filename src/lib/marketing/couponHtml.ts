@@ -1,6 +1,7 @@
-import type { PreviewLang } from './linkPreview';
+import { promoImageUrl, type PreviewLang } from './linkPreview';
 import { promoExpiryDate } from './promoExpiry';
-import { audienceLine, APPLE_CODE_LIMIT, ANDROID_POOL_SIZE } from './coupon';
+import { audienceLine, ANDROID_POOL_SIZE } from './coupon';
+import { APPLE_CODE_LIMIT, promoCodeLimit } from './promoLimit';
 import { IN_APP_TEXT, inAppHintHtml, playIntentUrl, playRedeemIntentUrl } from './androidInApp';
 import { IOS_STAY_CHECK_MS } from './iosInApp';
 
@@ -17,7 +18,7 @@ import { IOS_STAY_CHECK_MS } from './iosInApp';
  *       subscription with the code applied.» → 구독 화면이 안 나오면 앱 안 경로(설정 → 🎟 쿠폰 코드 입력 → 계속 → 구독)로. 적용해 둔 코드는
  *       앱 안 구매 때 자동 적용된다(RevenueCat google-play-offers 문서 «The code will then be applied when the user selects the subscription»).
  * 고지: «무료» 문장 안에 자동 갱신 가격(FTC «Free» 지침·한국 숨은 갱신 — 설계 §10.7-3). 애플 1개월 무료 · Play 30일 무료.
- * 숫자: 실제 한도만(애플 코드당 500 · 안드 서버 풀 200) · 날짜는 코드별 애플 만료일 전날(Play는 기존 만료). 남은 수·타이머는 쓰지 않는다.
+ * 숫자: 실제 코드별 애플 한도 · 안드 서버 풀 200 · 날짜는 코드별 애플 만료일 전날(Play는 기존 만료). 남은 수·타이머는 쓰지 않는다.
  * 측정: 단추 누름은 /api/coupon/event 비콘(apply·play·copy·install) → clk:coupon:<from>:<ET날짜> 필드 «<기기>|tap:<단추>».
  *   화면 노출은 route 가 같은 키에 «<기기>|view:<사람 판정>»으로 센다.
  * ★2026-10-05 안드로이드 «앱 안 브라우저»(카톡·인스타·스레드 등 WebView — lib/marketing/androidInApp.ts): WebView 는 play.google.com 을
@@ -169,7 +170,7 @@ const js = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
 /** 위 부제 한 줄 — «{채널} 독자 전용 · 선착순 N명 · {코드별 만료일 전날}까지»(채널을 모르면 앞 조각만 뺀다). 순수 함수. */
 export function couponSubline(platform: 'ios' | 'android', lang: PreviewLang, fromTag: string | null, code: string): string {
   const t = T[lang];
-  const parts = [audienceLine(fromTag, code, lang), t.limit(platform === 'ios' ? APPLE_CODE_LIMIT : ANDROID_POOL_SIZE), t.until(promoExpiryDate(platform === 'ios' ? code : null, lang, '\u00a0'))];
+  const parts = [audienceLine(fromTag, code, lang), t.limit(platform === 'ios' ? promoCodeLimit(code) : ANDROID_POOL_SIZE), t.until(promoExpiryDate(platform === 'ios' ? code : null, lang, '\u00a0'))];
   return parts.filter(Boolean).join(' · ');
 }
 
@@ -246,6 +247,11 @@ export function couponHtml(opts: {
   const iosHint = iosIa && opts.iosStayHint === true;
   const title = ios ? t.titleIos : t.titleAnd;
   const sub = opts.gift ? audienceLine(fromTag, code, lang) || '' : couponSubline(platform, lang, fromTag, code);
+  // 375px 영어 화면: 늘어난 숫자만 자간을 맞춰 기존 부제 한 줄을 유지한다.
+  const subHtml = ios && lang === 'en' && promoCodeLimit(code) !== APPLE_CODE_LIMIT
+    ? esc(sub).replace(/(First )([\d,]+)/, '$1<span style="letter-spacing:-1.5px;white-space:nowrap">$2</span>')
+    : esc(sub);
+  const image = ios ? promoImageUrl(lang, code) : `https://www.signumhq.com/promo/redeem-card-${lang}.png`;
   const giftForm = (label: string, id: string) => `<form method="post" action="/api/gift/claim${ios ? '?gift_os=ios' : ''}" style="margin:0"><input type="hidden" name="gift" value="${esc(opts.gift || '')}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
   const free = ios ? t.freeIos : t.freeAnd;
   const head = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
@@ -253,12 +259,12 @@ export function couponHtml(opts: {
 <meta name="robots" content="noindex"><meta name="theme-color" content="#070b14">
 <title>${esc(title)}</title>
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(`${sub} · ${free}`)}">
-<meta property="og:image" content="https://www.signumhq.com/promo/redeem-card-${lang}.png">
+<meta property="og:image" content="${image}">
 <style>${CSS}</style></head><body><main class="wrap">
 <header class="brand"><img src="/app-icons/signum-72.png" width="28" height="28" alt=""><span>SIGNUM HQ</span></header>
 <section class="ticket" aria-labelledby="ct"${ios ? '' : ' data-platform="android"'}>
 <h1 class="t-title" id="ct">${titleHtml(title)}</h1>
-<p class="t-sub">${esc(sub)}</p>
+<p class="t-sub">${subHtml}</p>
 <div class="perf" aria-hidden="true"></div>`;
 
   if (ios) {
