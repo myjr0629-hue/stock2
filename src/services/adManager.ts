@@ -194,6 +194,14 @@ class AdManagerService {
   // 네이티브 배너 «뷰»의 상태 — 억제가 풀릴 때 «새 요청 없이 되살릴 수 있는가»를 가른다.
   //   'none' 뷰 없음(처음·로드 실패) · 'loading' 요청 중 · 'live' 광고가 실려 있다.
   private bannerView: 'none' | 'loading' | 'live' = 'none';
+  // 실패 이벤트와 showBanner 거부는 같은 실패일 수 있다. 요청 표식으로 한 번만 처리한다.
+  private bannerRequest?: object;
+  private bannerRetry?: ReturnType<typeof setTimeout>;
+  private bannerLoadFailures = 0;
+  private bannerRetryAt = 0;
+  private readonly BANNER_RETRY_BASE_MS = 30_000;
+  private readonly BANNER_RETRY_MAX_MS = 10 * 60_000;
+  private readonly BANNER_RETRY_MAX_ATTEMPTS = 6;
   private listeners: Map<string, Set<Function>> = new Map();
 
   // --- Interstitial frequency governance (shared across ALL triggers) ---
@@ -332,9 +340,14 @@ class AdManagerService {
       try {
         AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
           this.bannerView = 'live';
+          this.bannerRequest = undefined;
+          this.bannerLoadFailures = 0;
+          this.bannerRetryAt = 0;
+          clearTimeout(this.bannerRetry);
+          this.bannerRetry = undefined;
           void this.syncLoadedBanner();
         });
-        AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => { this.bannerView = 'none'; });
+        AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => { this.recordBannerLoadFailure(); });
       } catch { /* 이벤트가 없는 플러그인 버전 — 한 번 띄운 뒤엔 'loading' 에 머물러 resume 으로 되살린다 */ }
 
       this.initialized = true;
@@ -346,10 +359,11 @@ class AdManagerService {
       // Apply the banner state requested via setPro() before init finished. The
       // banner is intentionally NOT shown here unconditionally — it appears only
       // once Pro status is known (wantBanner), so a subscriber never sees a flash.
-      if (this.wantBanner) await this.showBanner();
       // ★2026-09-21 — 포그라운드 복귀 시 배너를 되살리는 리스너(안드로이드에서 배너가
       //   백그라운드 전환에 사라지던 문제). init 성공 뒤 한 번만 건다.
+      // Android 기존 뷰 경로는 showBanner Promise가 끝나지 않을 수 있으므로 먼저 등록한다.
       void this.bindResumeHook();
+      if (this.wantBanner) await this.showBanner();
     } catch (err) {
       console.error('[AdManager] ❌ Init failed:', err);
     }
@@ -359,6 +373,13 @@ class AdManagerService {
   async showBanner() {
     if (!this.initialized) return;
     if (this.bannerSuppressed || this.proActive) return;
+    // import 전부터 잠근다. 네이티브 호출 완료와 실제 로드 완료는 서로 다른 시점이다.
+    if (this.bannerRequest || this.bannerView === 'loading') return;
+    if (Date.now() < this.bannerRetryAt) { this.scheduleBannerRetry(); return; }
+    clearTimeout(this.bannerRetry);
+    this.bannerRetry = undefined;
+    const request = {};
+    this.bannerRequest = request;
     // 뜨기 «전에» 자리를 열어둔다 — 배너가 그려지고 나서 열면 콘텐츠가 한 번 튄다.
     this.setAdSlotHeight(AD_SLOT_DEFAULT_PX);
     try {
@@ -380,9 +401,37 @@ class AdManagerService {
       this.trackImpression('banner');
       console.log('[AdManager] 📢 Banner shown');
     } catch (err) {
-      if (this.bannerView === 'loading') this.bannerView = 'none';
+      if (this.bannerRequest === request) this.recordBannerLoadFailure();
       console.error('[AdManager] Banner error:', err);
+    } finally {
+      if (this.bannerRequest === request) this.bannerRequest = undefined;
     }
+  }
+
+  /** 30초 → 60초 → 120초 → … → 최대 10분. 실제 Loaded만 실패 연속을 초기화한다. */
+  private recordBannerLoadFailure() {
+    if (!this.bannerRequest && this.bannerView === 'none' && this.bannerRetryAt > 0) return;
+    this.bannerView = 'none';
+    this.bannerRequest = undefined;
+    const delay = Math.min(
+      this.BANNER_RETRY_BASE_MS * 2 ** this.bannerLoadFailures,
+      this.BANNER_RETRY_MAX_MS,
+    );
+    // 전면과 같이 자동 재시도는 6회까지. 이후 복귀도 10분 백오프를 지켜야 한다.
+    this.bannerLoadFailures = Math.min(this.bannerLoadFailures + 1, this.BANNER_RETRY_MAX_ATTEMPTS + 1);
+    this.bannerRetryAt = Date.now() + delay;
+    this.scheduleBannerRetry();
+  }
+
+  /** 복귀·팝업 닫힘·Pro 재판정도 같은 시각을 지킨다. 예약은 항상 하나뿐이다. */
+  private scheduleBannerRetry() {
+    if (!this.initialized || !this.wantBanner || this.bannerRetry) return;
+    if (this.bannerLoadFailures > this.BANNER_RETRY_MAX_ATTEMPTS) return;
+    this.bannerRetry = setTimeout(() => {
+      this.bannerRetry = undefined;
+      if (!this.wantBanner || this.bannerView !== 'none') return;
+      void this.showBanner();
+    }, Math.max(0, this.bannerRetryAt - Date.now()));
   }
 
   /**
@@ -516,6 +565,10 @@ class AdManagerService {
   async setBannerSuppressed(suppressed: boolean) {
     this.bannerSuppressed = suppressed;
     this.recomputeWantBanner();
+    if (suppressed) {
+      clearTimeout(this.bannerRetry);
+      this.bannerRetry = undefined;
+    }
     // 숨기기는 초기화 전에도 반드시 실행한다(리로드 직후 남아 있는 네이티브 배너를 내리려면
     // 여기서 빠져나가면 안 된다). 보여주기만 init 완료 뒤로 미룬다.
     if (suppressed) { await this.hideBanner(); return; }
@@ -539,6 +592,8 @@ class AdManagerService {
     // SizeChanged 가 실측값으로 다시 맞춘다).
     this.setAdSlotHeight(isPro ? 0 : AD_SLOT_DEFAULT_PX);
     if (isPro) {
+      clearTimeout(this.bannerRetry);
+      this.bannerRetry = undefined;
       this.interstitialPending = false;
       clearTimeout(this.interstitialRetry);
       this.interstitialRetry = undefined;
