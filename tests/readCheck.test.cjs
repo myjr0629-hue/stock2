@@ -156,6 +156,21 @@ test('운영 캐시 계약: 동일 키 9개·FINRA 1회, 원본 정밀도·종�
   assert.equal(evidence('darkPool', cases[1].facts, 'ko')[0][1], '51.123456789%');
   assert.equal(cases[0].facts.options.callVol, 0, '0을 결측으로 바꾸지 않는다');
 });
+test('운영 실측 형태: 옵션 묶음 JSON 문자열·ISO 공시 시각도 읽는다(10/21 EC2 MGET 실측)', async () => {
+  values.clear(); darkMap = {};
+  values.set('intrinio:options:eod', JSON.stringify({ date: '2026-10-20', tickers: { NVDA: { callVol: 1163577, putVol: 679587 } } }));
+  const iso = filing('S', '2026-10-16'); iso.transaction_filings[0].filing_date = '2026-10-19T22:32:55.000Z';
+  values.set(supplierKey('AAPL'), iso);
+  const rows = (await service.loadReadCheckSnapshot()).rows;
+  const nvda = rows.find(r => r.ticker === 'NVDA'), aapl = rows.find(r => r.ticker === 'AAPL');
+  assert.deepEqual(nvda.options, { date: '2026-10-20', callVol: 1163577, putVol: 679587 });
+  assert.equal(aapl.insider.date, '2026-10-19'); assert.equal(aapl.insider.transactionDate, '2026-10-16');
+  values.set('intrinio:options:eod', '{깨진 JSON');
+  assert.equal((await service.loadReadCheckSnapshot()).rows.find(r => r.ticker === 'NVDA').options, null);
+  assert.deepEqual(evidence('options', { options: nvda.options }, 'ko').map(x => x[1]), ['1,163,577', '679,587']);
+  assert.equal(require('../src/lib/readCheck/copy').grouped(1234567.125), '1,234,567.125');
+  values.clear();
+});
 test('운영 장애·오래된 판: 사례 3개 유지, 허용 종목 대체 후 전부 없으면 자료 부족', async () => {
   fail = true;
   const bad = await service.loadReadCheckSnapshot();
@@ -250,14 +265,17 @@ test('3언어 SSR: 세 사례·보기 3개·판정 3항목·출처·정밀도·�
   new Function('require', 'module', 'exports', compile(source, filename))(require, before, before.exports);
   for (const l of ['ko','en','ja']) {
     const c = READ_COPY[l], h = await html(l, { options: 'observe', darkPool: 'claim', insider: 'observe' });
-    assert.equal(h, renderToStaticMarkup(await before.exports.default(props(l, {
+    // 10/21 검수: 조회 시각 표기만 «YYYY-MM-DD HH:MM UTC»로 정리했다 — 그 한 줄 외 바이트 동일.
+    const norm = x => x.replace(/(<time dateTime="[^"]+">)[^<]*<\/time> (?:\(UTC\)|UTC)/g, '$1</time> UTC');
+    assert.match(h, /<time dateTime="[^"]+">\d{4}-\d{2}-\d{2} \d{2}:\d{2}<\/time> UTC/);
+    assert.equal(norm(h), norm(renderToStaticMarkup(await before.exports.default(props(l, {
       options: 'observe', darkPool: 'claim', insider: 'observe',
-    }))), '정상 자료의 기존 라벨·문구·배치·CSS 바이트 동일');
+    })))), '정상 자료의 기존 라벨·문구·배치·CSS 바이트 동일');
     assert.ok(h.includes(`lang="${l}"`)); assert.ok(h.includes(c.title));
     assert.equal((h.match(/<article /g) ?? []).length, 3);
     assert.equal((h.match(/type="radio"/g) ?? []).length, 9);
     assert.equal((h.match(/class="rc-result"/g) ?? []).length, 3);
-    for (const text of [c.confirmed, c.unknown, c.better, c.unprovided, '51.123456789%', '10001', '125.25',
+    for (const text of [c.confirmed, c.unknown, c.better, c.unprovided, '51.123456789%', '10,001', '125.25',
       'Data source: FINRA', `https://www.signumhq.com/app?from=readcheck_${l}`, 'https://www.sec.gov/Archives/test.xml']) assert.ok(h.includes(text), text);
     assert.ok(h.includes('name="options" value="observe"'));
     const bad = await html(l, { t: '<script>', options: ['claim'] });

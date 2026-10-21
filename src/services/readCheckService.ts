@@ -20,15 +20,26 @@ const filingLink = (raw: unknown): string | null => {
   } catch { return null; }
 };
 
+/** EC2 프록시 MGET은 저장 형태 그대로 돌려준다 — 옵션 묶음은 JSON 문자열(10/21 실측), 내부자 응답은 객체. */
+const decode = (raw: unknown): unknown => {
+  if (typeof raw !== 'string') return raw;
+  try { return JSON.parse(raw); } catch { return null; }
+};
+/** Intrinio filing_date는 ISO 시각(«2026-10-19T22:32:55.000Z»)이다 — 기존 intrinioClient 변환과 같이 앞 10자리 날짜만 쓴다. */
+const dayOf = (raw: unknown): string | null =>
+  typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}(T|$)/.test(raw) ? raw.slice(0, 10) : null;
+
 /** command/insider와 동일한 Intrinio 응답 캐시. 이 공급사는 계획거래 여부 미제공 → false로 바꾸지 않는다. */
 export function insiderFromCache(raw: RawInsider | null, now: number): InsiderFact | null {
   const out: InsiderFact[] = [];
   for (const f of Array.isArray(raw?.transaction_filings) ? raw.transaction_filings : []) {
-    if (!f || !recentDay(f.filing_date, now, 90)) continue;
+    const filed = dayOf(f?.filing_date);
+    if (!f || !recentDay(filed, now, 90)) continue;
     for (const t of Array.isArray(f.transactions) ? f.transactions : []) {
-      if (!t || !recentDay(t.transaction_date, now, 90) || typeof t.transaction_type_code !== 'string'
+      const traded = dayOf(t?.transaction_date);
+      if (!t || !recentDay(traded, now, 90) || typeof t.transaction_type_code !== 'string'
         || typeof t.amount_of_shares !== 'number') continue;
-      const fact: InsiderFact = { date: f.filing_date, transactionDate: t.transaction_date,
+      const fact: InsiderFact = { date: filed, transactionDate: traded,
         code: t.transaction_type_code, shares: t.amount_of_shares, plan: null,
         derivative: typeof t.derivative_transaction === 'boolean' ? t.derivative_transaction : null,
         filingUrl: filingLink(f.filing_url) };
@@ -48,7 +59,7 @@ export async function loadReadCheckSnapshot() {
     getDarkPoolBatchChecked([...READ_CHECK_TICKERS], { requireVolume: true }),
   ]);
   const values = cached.status === 'fulfilled' ? cached.value : [];
-  const options = values[0] as RawOptions | null;
+  const options = decode(values[0]) as RawOptions | null;
   const darkRows = dark.status === 'fulfilled' && dark.value.ok ? dark.value.map : {};
   const rows: ReadRow[] = READ_CHECK_TICKERS.map((ticker, i) => {
     const o = options?.tickers?.[ticker], d = darkRows[ticker];
@@ -57,7 +68,7 @@ export async function loadReadCheckSnapshot() {
       options: o && recentDay(options?.date, now, 7)
         ? { date: options.date, callVol: o.callVol as number, putVol: o.putVol as number } : null,
       darkPool: d && recentDay(d.date, now, 7) ? { date: d.date, pct: d.pct, volume: d.volume } : null,
-      insider: insiderFromCache(values[i + 1] as RawInsider | null, now),
+      insider: insiderFromCache(decode(values[i + 1]) as RawInsider | null, now),
     };
     for (const kind of ['options', 'darkPool', 'insider'] as const) if (!usable(kind, facts)) facts[kind] = null;
     return { ticker, ...facts };

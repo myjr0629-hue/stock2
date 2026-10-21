@@ -50,7 +50,7 @@ export default async function ReadCheckPage({ params, searchParams }: Props) {
     </form>
     <p id="read-allowed" className="rc-meta">{c.allowed}: {READ_CHECK_TICKERS.join(' · ')}</p>
     {invalid && <p role="status" className="rc-note">{c.invalid}</p>}
-    <p className="rc-meta">{c.readAt}: <time dateTime={snapshot.readAt}>{snapshot.readAt}</time> (UTC)</p>
+    <p className="rc-meta">{c.readAt}: <time dateTime={snapshot.readAt}>{snapshot.readAt.slice(0, 16).replace('T', ' ')}</time> UTC</p>
     <div className="rc-cards">{cases.map(item => {
       const { kind, facts } = item, choice = parseChoice(q[kind]), available = usable(kind, facts);
       const verdict = choice ? judge(kind, choice, facts) : null;

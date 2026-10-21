@@ -115,14 +115,19 @@ export const READ_COPY: Record<ReadLocale, Copy> = {
   },
 };
 
+/** 정수부에 천 단위 쉼표만 넣는다 — 반올림·소수 자릿수 변경 없음(51.123456789 → 51.123456789). */
+export const grouped = (n: number): string => {
+  const [int, frac] = String(n).split('.');
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (frac !== undefined ? `.${frac}` : '');
+};
 /** 원본 값의 문자열 변환만 수행. 비율 계산·반올림·숫자 보간 없음. */
 export function evidence(kind: Kind, f: Facts, l: ReadLocale): Array<[string, string]> {
   const c = READ_COPY[l];
-  if (kind === 'options' && f.options) return [[c.calls, String(f.options.callVol)], [c.puts, String(f.options.putVol)]];
-  if (kind === 'darkPool' && f.darkPool) return [[c.offExchange, `${f.darkPool.pct}%`], [c.volume, String(f.darkPool.volume)]];
+  if (kind === 'options' && f.options) return [[c.calls, grouped(f.options.callVol)], [c.puts, grouped(f.options.putVol)]];
+  if (kind === 'darkPool' && f.darkPool) return [[c.offExchange, `${f.darkPool.pct}%`], [c.volume, grouped(f.darkPool.volume)]];
   const i = f.insider;
   if (kind !== 'insider' || !i) return [];
   const flag = (v: boolean | null) => v === null ? c.unprovided : v ? c.yes : c.no;
-  return [[c.code, `${i.code} · ${c.codeNames[i.code]}`], [c.shares, String(i.shares)], [c.tradeDate, i.transactionDate],
+  return [[c.code, `${i.code} · ${c.codeNames[i.code]}`], [c.shares, grouped(i.shares)], [c.tradeDate, i.transactionDate],
     [c.plan, flag(i.plan)], [c.derivative, flag(i.derivative)]];
 }
