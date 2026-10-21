@@ -8,6 +8,7 @@
  * ⚠️ v1 GET 은 없는 사용자를 «만든다»(RevenueCat 문서) — 그래서 ID 형식 검증과 요청 수 제한을 먼저 통과한 요청만 여기에 온다.
  */
 import { PRO_ENTITLEMENT_ID } from '@/config/iap';
+import { createLogoLoader } from '@/lib/logoPolicy';
 
 export interface ProStatus {
     active: boolean;
@@ -58,6 +59,8 @@ export interface RevenueCatVerifierOptions {
     /** 비활성 판정 캐시 — 방금 결제한 사람이 오래 막히지 않게 짧게(30초) */
     negativeTtlMs?: number;
     timeoutMs?: number;
+    /** 캐시 적중·동시 병합 뒤 실제 공급사 호출 직전에만 예산을 확인한다. */
+    beforeFetch?: () => Promise<boolean>;
 }
 
 export function createRevenueCatVerifier(opts: RevenueCatVerifierOptions = {}): ProVerifier {
@@ -68,12 +71,16 @@ export function createRevenueCatVerifier(opts: RevenueCatVerifierOptions = {}): 
     const negTtl = opts.negativeTtlMs ?? 30 * 1000;
     const timeoutMs = opts.timeoutMs ?? 6000;
     const cache = new Map<string, { status: ProStatus; until: number }>();
+    // 기존 공급사 로더의 ID별 동시 병합·동시 호출 상한을 재사용한다.
+    const load = createLogoLoader<ProStatus>();
 
-    return async (rcAppUserId: string): Promise<ProStatus> => {
+    const verify = async (rcAppUserId: string): Promise<ProStatus> => {
         if (!apiKey) throw new ProVerifyError('unconfigured', 'REVENUECAT_SECRET_API_KEY is not set');
         const t = now();
         const hit = cache.get(rcAppUserId);
         if (hit && hit.until > t) return hit.status;
+
+        if (opts.beforeFetch && !await opts.beforeFetch()) throw new ProVerifyError('unavailable');
 
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -105,5 +112,10 @@ export function createRevenueCatVerifier(opts: RevenueCatVerifierOptions = {}): 
         if (cache.size > 5000) cache.clear();
         cache.set(rcAppUserId, { status, until });
         return status;
+    };
+    return async (id) => {
+        const result = await load(id, () => verify(id));
+        if (!result) throw new ProVerifyError('unavailable');
+        return result;
     };
 }

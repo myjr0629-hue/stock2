@@ -7,10 +7,11 @@ import { GURU_UNIVERSE } from '@/lib/guruLens/sources';
 import type { Evaluation, Snapshot } from '@/lib/guruLens/types';
 import { FREE_ROWS } from '@/lib/guruLens/access';
 import { createRevenueCatVerifier } from '@/lib/alerts/revenuecat';
+import { allowProVerification, allowProviderVerification } from '@/lib/alerts/requestLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const verifyPro = createRevenueCatVerifier();
+const verifyPro = createRevenueCatVerifier({ positiveTtlMs: 30_000, beforeFetch: allowProviderVerification });
 
 // A published generation is immutable (same date key = same content). Keep the parsed
 // snapshot per warm instance and re-read only the small head pointer on each request,
@@ -81,7 +82,9 @@ export async function GET(req: NextRequest) {
         // 기존 알림 API의 ID 검증과 RevenueCat 권한 판정을 재사용한다.
         if (p.get('access') === 'pro' && uid &&
             (/^\$RCAnonymousID:[0-9a-f]{32}$/.test(uid) || /^[A-Za-z0-9._:\-]{8,100}$/.test(uid))) {
-            try { isPro = (await verifyPro(uid)).active; }
+            try {
+                if (await allowProVerification(req.headers, uid)) isPro = (await verifyPro(uid)).active;
+            }
             catch { /* 검증 불가·설정 없음은 무료 범위만 반환한다. */ }
         }
         const snapshot = await publishedSnapshot();

@@ -96,11 +96,32 @@ function LensesInner() {
 
     useEffect(() => {
         const controller = new AbortController();
-        fetchGuruLenses(pro.isPro, controller.signal)
-            .then(r => (r.ok ? r.json() : null))
-            .then(body => { if (!controller.signal.aborted) setData(lensBody(body)); })
-            .catch(() => { if (!controller.signal.aborted) setData(null); });
-        return () => controller.abort();
+        let pending = false, retry = true;
+        const load = () => {
+            if (pending || controller.signal.aborted) return;
+            pending = true;
+            fetchGuruLenses(pro.isPro, controller.signal)
+                .then(r => (r.ok ? r.json() : null))
+                .then(body => {
+                    if (controller.signal.aborted) return;
+                    const next = lensBody(body);
+                    retry = !next || (pro.isPro && next.lenses.some(l => l.rows.some(isLockedLensRow)));
+                    setData(next);
+                })
+                .catch(() => { if (!controller.signal.aborted) { retry = true; setData(null); } })
+                .finally(() => { pending = false; });
+        };
+        const resume = () => { if (retry && document.visibilityState === 'visible') load(); };
+        load();
+        window.addEventListener('focus', resume);
+        window.addEventListener('pageshow', resume);
+        document.addEventListener('visibilitychange', resume);
+        return () => {
+            controller.abort();
+            window.removeEventListener('focus', resume);
+            window.removeEventListener('pageshow', resume);
+            document.removeEventListener('visibilitychange', resume);
+        };
     }, [pro.isPro]);
     // 칩에서 들어오면 그 렌즈 카드로 한 번 스크롤
     useEffect(() => {

@@ -66,6 +66,7 @@ const originalLoad = (Module as any)._load;
         if (verification === 'error') throw new Error('합성 검증 장애');
         return { active: verification === 'pro', expiresAtMs: null };
     } };
+    if (name === '@/lib/alerts/requestLimit') return { allowProVerification: async () => true, allowProviderVerification: async () => true };
     if (name === './watchlistAlerts') return { rcAppUserId: async () => { uidCalls++; return requestUid; } };
     if (name === 'next/navigation') return { useRouter: () => ({ push() {}, back() {} }),
         useParams: () => ({ locale: 'ko' }), useSearchParams: () => new URLSearchParams() };
@@ -193,8 +194,16 @@ async function main() {
     const aborted = new AbortController(); aborted.abort();
     await assert.rejects(fetchGuruLenses(true, aborted.signal));
     assert.equal(calls.length, 3, '취소 후 fetch 0');
+    await fetchGuruLenses(false, { aborted: false } as AbortSignal);
+    assert.equal(calls.length, 4, '구형 iOS 신호 모형도 요청 정확히 1회');
+    await assert.rejects(fetchGuruLenses(false, { aborted: true } as AbortSignal), { name: 'AbortError' });
+    assert.equal(calls.length, 4, '구형 취소 신호는 요청 0회');
 
     // 실제 페이지 effect: 구매·복원 권한 전환에 재요청, 이전 무료 요청은 취소·무시한다.
+    const pageWindow = new EventTarget();
+    const pageDocument = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+    (globalThis as any).window = pageWindow;
+    (globalThis as any).document = pageDocument;
     hooks = { effects: [], writes: [], index: 0 };
     const inner = compile('src/app/[locale]/app-view/lenses/page.tsx', false, '\nexport { LensesInner };').LensesInner;
     const waiting: { url: string; signal: AbortSignal; resolve: (value: Response) => void }[] = [];
@@ -218,7 +227,43 @@ async function main() {
     waiting[0].resolve(Response.json(free));
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(hooks.writes.length, 1, '늦은 무료 응답은 구매 후 PRO 데이터를 덮지 않는다');
-    proCleanup(); hooks = null;
+    proCleanup();
+
+    // PRO 상태가 변하지 않아도 잠금·통신 실패 후 표시/포커스로 복구한다.
+    hooks.effects = []; hooks.index = 0;
+    inner();
+    const retryCleanup = hooks.effects[0]();
+    const flush = () => new Promise(resolve => setImmediate(resolve));
+    await flush();
+    waiting[2].resolve(Response.json(free));
+    await flush();
+    assert.ok(hooks.writes.at(-1).lenses[0].rows[3].locked);
+    pageWindow.dispatchEvent(new Event('focus'));
+    pageDocument.dispatchEvent(new Event('visibilitychange'));
+    await flush();
+    assert.equal(waiting.length, 4, '포커스·표시 동시 이벤트도 재요청 1회');
+    waiting[3].resolve(new Response(null, { status: 503 }));
+    await flush();
+    pageDocument.visibilityState = 'hidden';
+    pageWindow.dispatchEvent(new Event('focus'));
+    await flush();
+    assert.equal(waiting.length, 4, '숨김 상태에서는 재요청하지 않는다');
+    pageDocument.visibilityState = 'visible';
+    pageDocument.dispatchEvent(new Event('visibilitychange'));
+    await flush();
+    waiting[4].resolve(Response.json(full));
+    await flush();
+    assert.equal(hooks.writes.at(-1).lenses[0].rows[3].ticker, full.lenses[0].rows[3].ticker, 'isPro 유지 중 서버 복구');
+    pageWindow.dispatchEvent(new Event('pageshow'));
+    await flush();
+    assert.equal(waiting.length, 5, '검증된 목록은 표시 이벤트마다 조회하지 않는다');
+    retryCleanup();
+    pageWindow.dispatchEvent(new Event('focus'));
+    await flush();
+    assert.equal(waiting.length, 5, '정리 후 이벤트 조회 0');
+    hooks = null;
+    delete (globalThis as any).window;
+    delete (globalThis as any).document;
     assert.match(fs.readFileSync('src/app/[locale]/app-view/lenses/page.tsx', 'utf8'), /\[pro\.isPro\]/,
         '실제 effect가 권한 변경을 구독한다');
 
