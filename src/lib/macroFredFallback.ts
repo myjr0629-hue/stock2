@@ -18,17 +18,25 @@ const FRED_TIMEOUT_MS = 5000;
 /** FRED 관측(최신순). "." 등 결측은 버린다. */
 async function fredObservations(seriesId: string, limit: number): Promise<Obs[]> {
     const key = process.env.FRED_API_KEY || '';
-    if (!key) return [];
+    const note = (status: number | null, rows: Obs[] | null, reason: string) => console.warn('[FRED 경제계열]', {
+        계열: seriesId, 코드: status, 행수: rows?.length ?? null,
+        최신관측일: rows?.map(r => r.date).sort().at(-1) ?? null, 상태: reason,
+    });
+    if (!key) { note(null, null, '키 미설정'); return []; }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FRED_TIMEOUT_MS);
+    let status: number | null = null;
     try {
         const url = `${FRED_BASE_URL}?series_id=${seriesId}&api_key=${key}&file_type=json&sort_order=desc&limit=${limit}`;
         const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
-        if (!res.ok) { console.warn(`[MacroHub] FRED 폴백 ${seriesId} HTTP ${res.status}`); return []; }
+        status = res.status;
+        if (!res.ok) { note(status, null, 'HTTP 오류'); return []; }
         const data = await res.json();
-        return parseFredObservations(data?.observations);
+        const rows = parseFredObservations(data?.observations);
+        note(status, rows, rows.length ? '정상' : '빈 응답');
+        return rows;
     } catch (e: any) {
-        console.warn(`[MacroHub] FRED 폴백 ${seriesId} 실패: ${e?.name === 'AbortError' ? '타임아웃' : String(e?.message || e).slice(0, 80)}`);
+        note(status, null, e?.name === 'AbortError' ? '타임아웃' : '요청 실패');
         return [];
     } finally {
         clearTimeout(timer);
