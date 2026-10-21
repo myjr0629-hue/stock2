@@ -15,7 +15,7 @@
 import { seedExpected } from '../src/services/earningsActualsService';
 import type { ExpectedSnap } from '../src/lib/earnings/earningsActuals';
 
-const BASE = { expiry: '2026-10-16', session: '2026-10-12', basis: 'eod' as const, src: 'eod-chain' as const };
+const BASE = { expiry: '2026-10-16', session: '2026-10-12', basis: 'eod' as const, src: 'eod-chain' as const, method: 'monthly' as const };
 // [티커, 예상 변동폭 %(소수 1자리), ATM 행사가, 스트래들 $, 10/12 종가 $]
 const ROWS: Array<[string, number, number, number, number]> = [
   ['JPM', 3.2, 335, 10.58, 334.3],
@@ -29,7 +29,7 @@ const ROWS: Array<[string, number, number, number, number]> = [
 (async () => {
   const dry = process.argv.includes('--dry');
   for (const [ticker, pct, strike, straddle, spot] of ROWS) {
-    const snap: ExpectedSnap = { ...BASE, pct, strike, straddle, spot, capturedAt: Date.now() };
+    const snap = { ...BASE, pct, straddlePct: pct, strike, straddle, spot, capturedAt: Date.now() } satisfies ExpectedSnap;
     if (dry) { console.log(`[dry] ${ticker} ±${pct}% (${strike} · $${straddle} / $${spot})`); continue; }
     console.log(ticker, await seedExpected({ ticker, date: '2026-10-13', hour: 'bmo' }, snap));
   }

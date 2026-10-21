@@ -90,6 +90,7 @@ function seed() {
     const expected = Math.round(Math.sqrt(0.35 ** 2 * 42 / 365 - 0.2 ** 2 * 41 / 365) * 1000) / 10;
     assert.equal(r.impliedMovePct, expected); assert.equal(r.method, 'event-split'); assert.equal(r.expiry, post);
     assert.equal(r.straddle, 8.6, 'raw observed straddle is retained separately from the event percentage');
+    assert.equal(r.straddlePct, 8.6, '분리 전 ATM 기준값을 별도 보존');
     assert.equal(calls.length - count, 5, 'list + post/pre chain + each greeks, one page each');
     console.log(`✓ no weekly: same-session pre/post EOD IV → event-split ${expected}%, 5 supplier calls`);
     for (const ticker of ['MISSING', 'MIXED', 'ONESIDE', 'ZERO', 'BADWEEK']) {
