@@ -23,7 +23,13 @@ export class ProVerifyError extends Error {
     }
 }
 
-export type ProVerifier = (rcAppUserId: string) => Promise<ProStatus>;
+export interface ProVerificationContext {
+    /** 익명 실패의 IP별 재조회 억제. 최근 확인한 PRO에는 적용하지 않는다. */
+    clientKey?: string;
+    /** 캐시·병합 뒤 처음 보는 ID에만 요청 제한을 적용한다. */
+    beforeFetch?: () => Promise<boolean>;
+}
+export type ProVerifier = (rcAppUserId: string, context?: ProVerificationContext) => Promise<ProStatus>;
 
 const parseMs = (v: unknown): number | null => {
     if (typeof v !== 'string' || !v) return null;
@@ -56,11 +62,13 @@ export interface RevenueCatVerifierOptions {
     now?: () => number;
     /** 활성 판정 캐시(인스턴스 메모리) — 기본 5분(만료가 더 이르면 그때까지) */
     positiveTtlMs?: number;
+    /** 예산 부족·공급사 장애 시 마지막 양성 판정의 최대 나이. 기본은 양성 TTL과 같다. */
+    positiveMaxAgeMs?: number;
     /** 비활성 판정 캐시 — 방금 결제한 사람이 오래 막히지 않게 짧게(30초) */
     negativeTtlMs?: number;
     timeoutMs?: number;
     /** 캐시 적중·동시 병합 뒤 실제 공급사 호출 직전에만 예산을 확인한다. */
-    beforeFetch?: () => Promise<boolean>;
+    beforeFetch?: (id: string, knownPro: boolean) => Promise<boolean>;
 }
 
 export function createRevenueCatVerifier(opts: RevenueCatVerifierOptions = {}): ProVerifier {
@@ -68,54 +76,97 @@ export function createRevenueCatVerifier(opts: RevenueCatVerifierOptions = {}): 
     const fetchImpl = opts.fetchImpl ?? fetch;
     const now = opts.now ?? Date.now;
     const posTtl = opts.positiveTtlMs ?? 5 * 60 * 1000;
+    const posMaxAge = Math.max(posTtl, opts.positiveMaxAgeMs ?? posTtl);
     const negTtl = opts.negativeTtlMs ?? 30 * 1000;
     const timeoutMs = opts.timeoutMs ?? 6000;
-    const cache = new Map<string, { status: ProStatus; until: number }>();
+    const positive = new Map<string, { status: ProStatus; until: number; retainUntil: number }>();
+    const negative = new Map<string, { until: number; error?: ProVerifyError }>();
+    const failedClients = new Map<string, number>();
+    // 익명 ID 폭주가 양성 판정을 지우지 않도록 저장 공간도 분리한다.
+    function remember<K, V>(map: Map<K, V>, key: K, value: V) {
+        map.delete(key);
+        if (map.size >= 5000) map.delete(map.keys().next().value!);
+        map.set(key, value);
+    }
     // 기존 공급사 로더의 ID별 동시 병합·동시 호출 상한을 재사용한다.
     const load = createLogoLoader<ProStatus>();
 
-    const verify = async (rcAppUserId: string): Promise<ProStatus> => {
+    const verify = async (rcAppUserId: string, context?: ProVerificationContext): Promise<ProStatus> => {
         if (!apiKey) throw new ProVerifyError('unconfigured', 'REVENUECAT_SECRET_API_KEY is not set');
         const t = now();
-        const hit = cache.get(rcAppUserId);
+        const hit = positive.get(rcAppUserId);
         if (hit && hit.until > t) return hit.status;
-
-        if (opts.beforeFetch && !await opts.beforeFetch()) throw new ProVerifyError('unavailable');
+        const knownPro = !!hit && hit.retainUntil > t;
+        if (!knownPro) positive.delete(rcAppUserId);
+        const denial = negative.get(rcAppUserId);
+        if (denial && denial.until > t) {
+            if (knownPro) return hit.status;
+            if (denial.error) throw denial.error;
+            return { active: false, expiresAtMs: null };
+        }
+        if (!knownPro && context?.clientKey && (failedClients.get(context.clientKey) ?? 0) > t)
+            throw new ProVerifyError('unavailable');
+        const fail = (error: ProVerifyError): ProStatus => {
+            remember(negative, rcAppUserId, { until: now() + negTtl, error });
+            if (knownPro && hit.retainUntil > now()) return hit.status;
+            if (context?.clientKey) remember(failedClients, context.clientKey, now() + negTtl);
+            throw error;
+        };
+        let allowed: boolean;
+        try {
+            allowed = !((!knownPro && context?.beforeFetch && !await context.beforeFetch()) ||
+                (opts.beforeFetch && !await opts.beforeFetch(rcAppUserId, knownPro)));
+        } catch { allowed = false; }
+        if (!allowed) return fail(new ProVerifyError('unavailable'));
 
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-        let res: Response;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-            res = await fetchImpl(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(rcAppUserId)}`, {
-                method: 'GET',
-                headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
-                signal: ctrl.signal,
-                cache: 'no-store',
+            const deadline = new Promise<never>((_resolve, reject) => {
+                timer = setTimeout(() => {
+                    ctrl.abort();
+                    reject(new ProVerifyError('unavailable'));
+                }, timeoutMs);
             });
-        } catch (e: any) {
-            throw new ProVerifyError('unavailable', `revenuecat fetch failed: ${e?.name || e}`);
+            const status = await Promise.race([deadline, (async () => {
+                const res = await fetchImpl(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(rcAppUserId)}`, {
+                    method: 'GET',
+                    headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+                    signal: ctrl.signal,
+                    cache: 'no-store',
+                });
+                if (res.status === 404) return { active: false, expiresAtMs: null };
+                if (!res.ok) throw new ProVerifyError('unavailable');
+                const json = await res.json();
+                if (!json) throw new ProVerifyError('unavailable');
+                return proStatusFromSubscriber(json, now());
+            })()]);
+            const completed = now();
+            negative.delete(rcAppUserId);
+            if (status.active) {
+                remember(positive, rcAppUserId, { status,
+                    until: Math.min(completed + posTtl, status.expiresAtMs ?? Infinity),
+                    retainUntil: Math.min(completed + posMaxAge, status.expiresAtMs ?? Infinity) });
+            } else {
+                positive.delete(rcAppUserId); // 명시적인 권한 철회는 마지막 양성보다 우선한다.
+                remember(negative, rcAppUserId, { until: completed + negTtl });
+                if (context?.clientKey) remember(failedClients, context.clientKey, completed + negTtl);
+            }
+            return status;
+        } catch {
+            return fail(new ProVerifyError('unavailable'));
         } finally {
             clearTimeout(timer);
         }
-        if (res.status === 404) {
-            const status = { active: false, expiresAtMs: null };
-            cache.set(rcAppUserId, { status, until: t + negTtl });
-            return status;
-        }
-        if (!res.ok) throw new ProVerifyError('unavailable', `revenuecat http ${res.status}`);
-        const json = await res.json().catch(() => null);
-        if (!json) throw new ProVerifyError('unavailable', 'revenuecat bad json');
-        const status = proStatusFromSubscriber(json, t);
-        const until = status.active
-            ? Math.min(t + posTtl, status.expiresAtMs ?? Number.POSITIVE_INFINITY)
-            : t + negTtl;
-        if (cache.size > 5000) cache.clear();
-        cache.set(rcAppUserId, { status, until });
-        return status;
     };
-    return async (id) => {
-        const result = await load(id, () => verify(id));
-        if (!result) throw new ProVerifyError('unavailable');
+    return async (id, context) => {
+        const hit = positive.get(id);
+        if (hit && hit.until > now()) return hit.status;
+        const result = await load(id, () => verify(id, context));
+        if (!result) {
+            if (hit && hit.retainUntil > now()) return hit.status;
+            throw new ProVerifyError('unavailable');
+        }
         return result;
     };
 }

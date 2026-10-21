@@ -8,7 +8,8 @@ import { getDynamoClient } from '@/lib/aws/dynamoClient';
 export const RATE_WINDOW_SEC = 600;
 export const RATE_LIMIT_PER_IP = 30;
 export const RATE_LIMIT_PER_ID = 12; // 기존 기기 제한을 RevenueCat ID에 적용
-export const RATE_LIMIT_PROVIDER = 30; // 같은 기존 카운터로 공급사 총량도 제한
+export const RATE_LIMIT_PROVIDER = 30; // 처음 보는 ID의 공급사 예산
+export const RATE_LIMIT_PROVIDER_PRO = 30; // 최근 확인한 PRO의 재검증 전용 예산
 
 export function clientIpFrom(headers: { get(name: string): string | null }): string | null {
     const xff = headers.get('x-forwarded-for');
@@ -27,8 +28,9 @@ export async function allowProVerification(headers: { get(name: string): string 
     ]);
 }
 
-export async function allowProviderVerification(): Promise<boolean> {
-    return rateLimited([['guru:provider', RATE_LIMIT_PROVIDER]]);
+export async function allowProviderVerification(_id: string, knownPro: boolean): Promise<boolean> {
+    return rateLimited([[knownPro ? 'guru:provider:pro' : 'guru:provider:new',
+        knownPro ? RATE_LIMIT_PROVIDER_PRO : RATE_LIMIT_PROVIDER]]);
 }
 
 async function rateLimited(buckets: [string, number][]): Promise<boolean> {

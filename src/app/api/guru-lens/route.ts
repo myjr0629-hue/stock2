@@ -7,11 +7,12 @@ import { GURU_UNIVERSE } from '@/lib/guruLens/sources';
 import type { Evaluation, Snapshot } from '@/lib/guruLens/types';
 import { FREE_ROWS } from '@/lib/guruLens/access';
 import { createRevenueCatVerifier } from '@/lib/alerts/revenuecat';
-import { allowProVerification, allowProviderVerification } from '@/lib/alerts/requestLimit';
+import { allowProVerification, allowProviderVerification, clientIpFrom } from '@/lib/alerts/requestLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const verifyPro = createRevenueCatVerifier({ positiveTtlMs: 30_000, beforeFetch: allowProviderVerification });
+const verifyPro = createRevenueCatVerifier({ positiveTtlMs: 600_000, positiveMaxAgeMs: 1_200_000,
+    beforeFetch: allowProviderVerification });
 
 // A published generation is immutable (same date key = same content). Keep the parsed
 // snapshot per warm instance and re-read only the small head pointer on each request,
@@ -83,7 +84,8 @@ export async function GET(req: NextRequest) {
         if (p.get('access') === 'pro' && uid &&
             (/^\$RCAnonymousID:[0-9a-f]{32}$/.test(uid) || /^[A-Za-z0-9._:\-]{8,100}$/.test(uid))) {
             try {
-                if (await allowProVerification(req.headers, uid)) isPro = (await verifyPro(uid)).active;
+                isPro = (await verifyPro(uid, { clientKey: clientIpFrom(req.headers) || 'unknown',
+                    beforeFetch: () => allowProVerification(req.headers, uid) })).active;
             }
             catch { /* 검증 불가·설정 없음은 무료 범위만 반환한다. */ }
         }

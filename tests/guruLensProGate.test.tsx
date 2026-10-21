@@ -66,7 +66,8 @@ const originalLoad = (Module as any)._load;
         if (verification === 'error') throw new Error('합성 검증 장애');
         return { active: verification === 'pro', expiresAtMs: null };
     } };
-    if (name === '@/lib/alerts/requestLimit') return { allowProVerification: async () => true, allowProviderVerification: async () => true };
+    if (name === '@/lib/alerts/requestLimit') return { allowProVerification: async () => true,
+        allowProviderVerification: async () => true, clientIpFrom: () => null };
     if (name === './watchlistAlerts') return { rcAppUserId: async () => { uidCalls++; return requestUid; } };
     if (name === 'next/navigation') return { useRouter: () => ({ push() {}, back() {} }),
         useParams: () => ({ locale: 'ko' }), useSearchParams: () => new URLSearchParams() };
