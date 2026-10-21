@@ -14,6 +14,7 @@ import { atmStraddleImpliedMove, eodQuoteRows, etDateString, IMPLIED_MOVE_DEF, i
 import { readEodCloses } from '@/services/eodSnapshot';
 import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { optionExpirationFloor, weeklyOptionExpiryAt, isOptionExpiredAt } from '@/lib/marketCalendar';
+import { regularReferencePrice } from '@/lib/quoteBasis';
 
 import { ImpliedDeadlineError, withinImpliedDeadline, IMPLIED_REFRESH_BUDGET_MS, IMPLIED_SAVE_RESERVE_MS } from '@/lib/earnings/impliedDeadline';
 import { bgStore } from '@/lib/intrinioBackground';
@@ -227,9 +228,13 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
         const st = structures[i];
         if (!st || isOptionExpiredAt(st.expiration)) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_snapshot')); return; }
         let weeklyIm: ImpliedMove | null = st.impliedMove?.def === IMPLIED_MOVE_DEF && impliedMoveFields(st.impliedMove).impliedMovePct != null ? st.impliedMove : null;
+        const missingMove = structureLacksImpliedMove(st) || (retryNull && st.options_status === 'OK' && st.impliedMove == null);
         // 옛 구조 사본도 실제 종가를 읽어 분모를 바로잡는다. EOD 날짜가 체인 세션과 같을 때만.
-        const regularClose = eod && eod.date === weeklyIm?.session ? eod.rows.get(r.ticker)?.c : null;
-        const spot = regularClose && regularClose > 0 ? regularClose : Number(st.underlyingPrice);
+        // null 보충도 이 정상 경로를 공유한다. 기존 값의 세션이 없으면 구조의 체인 세션으로 종가를 대조한다.
+        const referenceSession = weeklyIm?.session ?? (retryNull && missingMove ? st.chainDate : null);
+        const regularClose = eod && eod.date === referenceSession
+            ? regularReferencePrice({ day: { c: eod.rows.get(r.ticker)?.c } }, true) : null;
+        const spot = regularClose ?? Number(st.underlyingPrice);
         if (weeklyIm && regularClose && regularClose > 0 && weeklyIm.spot !== regularClose) {
             weeklyIm = { ...weeklyIm, spot: regularClose, pct: Math.round(weeklyIm.straddle / regularClose * 1000) / 10 };
         }
@@ -248,7 +253,6 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             results.push(resolvedMoveOf(r.ticker, weeklyIm, 'structure', null)); return;
         }
         // Intel만 명시적 null도 같은 만기·세션의 수집기 체인으로 재시도한다. 다른 소비처의 기본 동작은 유지.
-        const missingMove = structureLacksImpliedMove(st) || (retryNull && st.options_status === 'OK' && st.impliedMove == null);
         if (!want || !(spot > 0) || (!r.after && !missingMove)) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle')); return; }
         needProbe.push({ idx: i, ticker: r.ticker, expiry: want, after: r.after, timing: r.timing, spot, session });
         results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle'));
