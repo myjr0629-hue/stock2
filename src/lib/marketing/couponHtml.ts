@@ -1,4 +1,5 @@
 import type { PreviewLang } from './linkPreview';
+import { promoExpiryDate } from './promoExpiry';
 import { audienceLine, APPLE_CODE_LIMIT, ANDROID_POOL_SIZE } from './coupon';
 import { IN_APP_TEXT, inAppHintHtml, playIntentUrl, playRedeemIntentUrl } from './androidInApp';
 import { IOS_STAY_CHECK_MS } from './iosInApp';
@@ -16,7 +17,7 @@ import { IOS_STAY_CHECK_MS } from './iosInApp';
  *       subscription with the code applied.» → 구독 화면이 안 나오면 앱 안 경로(설정 → 🎟 쿠폰 코드 입력 → 계속 → 구독)로. 적용해 둔 코드는
  *       앱 안 구매 때 자동 적용된다(RevenueCat google-play-offers 문서 «The code will then be applied when the user selects the subscription»).
  * 고지: «무료» 문장 안에 자동 갱신 가격(FTC «Free» 지침·한국 숨은 갱신 — 설계 §10.7-3). 애플 1개월 무료 · Play 30일 무료.
- * 숫자: 실제 한도만(애플 코드당 500 · 안드 서버 풀 200) · 날짜는 실제 만료(10/30). 남은 수·타이머는 쓰지 않는다.
+ * 숫자: 실제 한도만(애플 코드당 500 · 안드 서버 풀 200) · 날짜는 코드별 애플 만료일 전날(Play는 기존 만료). 남은 수·타이머는 쓰지 않는다.
  * 측정: 단추 누름은 /api/coupon/event 비콘(apply·play·copy·install) → clk:coupon:<from>:<ET날짜> 필드 «<기기>|tap:<단추>».
  *   화면 노출은 route 가 같은 키에 «<기기>|view:<사람 판정>»으로 센다.
  * ★2026-10-05 안드로이드 «앱 안 브라우저»(카톡·인스타·스레드 등 WebView — lib/marketing/androidInApp.ts): WebView 는 play.google.com 을
@@ -27,7 +28,7 @@ import { IOS_STAY_CHECK_MS } from './iosInApp';
 
 type Txt = {
   titleIos: string; titleAnd: string;
-  limit: (n: number) => string; until: string;
+  limit: (n: number) => string; until: (date: string) => string;
   codeLabel: string; myCode: string;
   iosCta: string; iosHelp: string;
   freeIos: string; freeAnd: string;
@@ -47,7 +48,7 @@ const T: Record<PreviewLang, Txt> = {
     titleIos: '🎟 SIGNUM HQ PRO 1개월 무료 쿠폰',
     titleAnd: '🎟 SIGNUM HQ PRO 30일 무료 쿠폰',
     limit: (n) => `선착순 ${n.toLocaleString('en-US')}명`,
-    until: '10/30까지',
+    until: (date) => `${date}까지`,
     codeLabel: '쿠폰 번호',
     myCode: '내 쿠폰 번호',
     iosCta: '쿠폰 적용하고 무료로 시작',
@@ -80,7 +81,7 @@ const T: Record<PreviewLang, Txt> = {
     titleIos: '🎟 SIGNUM HQ PRO 1-month free coupon',
     titleAnd: '🎟 SIGNUM HQ PRO 30-day free coupon',
     limit: (n) => `First ${n.toLocaleString('en-US')}`,
-    until: 'Until Oct 30',
+    until: (date) => `Until ${date}`,
     codeLabel: 'Coupon code',
     myCode: 'Your coupon code',
     iosCta: 'Apply coupon & start free',
@@ -113,7 +114,7 @@ const T: Record<PreviewLang, Txt> = {
     titleIos: '🎟 SIGNUM HQ PRO 1か月無料クーポン',
     titleAnd: '🎟 SIGNUM HQ PRO 30日間無料クーポン',
     limit: (n) => `先着${n.toLocaleString('en-US')}名`,
-    until: '10/30まで',
+    until: (date) => `${date}まで`,
     codeLabel: 'クーポンコード',
     myCode: 'あなたのクーポンコード',
     iosCta: 'クーポンを適用して無料で始める',
@@ -165,10 +166,10 @@ function titleHtml(title: string): string {
 /** 스크립트 안 JSON — </script> 로 끊기지 않게 < 를 이스케이프 */
 const js = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
 
-/** 위 부제 한 줄 — «{채널} 독자 전용 · 선착순 N명 · 10/30까지»(채널을 모르면 앞 조각만 뺀다). 순수 함수. */
+/** 위 부제 한 줄 — «{채널} 독자 전용 · 선착순 N명 · {코드별 만료일 전날}까지»(채널을 모르면 앞 조각만 뺀다). 순수 함수. */
 export function couponSubline(platform: 'ios' | 'android', lang: PreviewLang, fromTag: string | null, code: string): string {
   const t = T[lang];
-  const parts = [audienceLine(fromTag, code, lang), t.limit(platform === 'ios' ? APPLE_CODE_LIMIT : ANDROID_POOL_SIZE), t.until];
+  const parts = [audienceLine(fromTag, code, lang), t.limit(platform === 'ios' ? APPLE_CODE_LIMIT : ANDROID_POOL_SIZE), t.until(promoExpiryDate(platform === 'ios' ? code : null, lang, '\u00a0'))];
   return parts.filter(Boolean).join(' · ');
 }
 
