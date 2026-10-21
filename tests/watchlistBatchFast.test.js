@@ -25,7 +25,7 @@ const copy = value => structuredClone(value);
 function harness({ cached = true, session = 'regular', unified = true, old = false } = {}) {
     const modules = new Map(), store = new Map(), jobs = [];
     const count = { redis: 0, dynamo: 0, analysis: 0, compute: 0, vendor: 0, writes: 0 };
-    const state = { failOptions: false, failSnapshots: false, failLevels: false, emptyLevels: false,
+    const state = { failOptions: false, failSnapshots: false, failLevels: false, emptyLevels: false, noLevels: false, dpRowMissing: false,
         failDarkPool: false, failLiquidity: false, darkPoolPct: 40, liquidityScore: 80 };
     const tickers = ['AAPL', 'NVDA', 'SPY'];
     let oiRowPatch = row => row;
@@ -67,8 +67,10 @@ function harness({ cached = true, session = 'regular', unified = true, old = fal
         '@/lib/aws/unifiedCacheProvider': { getUnifiedCache: async () => { count.dynamo++; return unified ? { structure: copy(structure) } : null; } },
         '@/services/structureService': {
             getStructureData: async () => copy(structure),
-            prefetchLevelsForExit: asked => async () => { if (state.failLevels) throw new Error('합성 레벨 실패');
-                if (state.emptyLevels) return new Map();   // 관문 10211116: 레벨 조회만 실패 → 예외 없이 빈 Map
+            prefetchLevelsForExit: (asked, opts) => async () => { if (state.failLevels) throw new Error('합성 레벨 실패');
+                // 관문 10211116: 레벨 저장소 읽기만 실패 → 예외 없이 빈 Map(실제 peekStructureLevelsCore 와 같이 onReadFailure 를 알린다)
+                if (state.emptyLevels) { opts?.onReadFailure?.(); return new Map(); }
+                if (state.noLevels) return new Map();   // 읽기는 성공, 판본에 레벨 없음(NO_MARKET 등) = 정당한 빈 값
                 return new Map(asked.map(t => [t, copy(structure.levels)])); },
             applyLevelsToRealtime: (rt, levels) => { if (rt) Object.assign(rt, levels ?? { maxPain: null, callWall: null, putFloor: null }); },
         },
@@ -95,7 +97,7 @@ function harness({ cached = true, session = 'regular', unified = true, old = fal
         '@/services/darkPool': { getDarkPoolBatch: async asked => state.failDarkPool ? {}
             : Object.fromEntries(asked.map(t => [t, { pct: state.darkPoolPct, source: 'FINRA' }])),
             getDarkPoolBatchChecked: async asked => state.failDarkPool ? { ok: false, reason: 'error' }
-                : { ok: true, map: Object.fromEntries(asked.map(t => [t, { pct: state.darkPoolPct, source: 'FINRA' }])) } },
+                : { ok: true, map: state.dpRowMissing ? {} : Object.fromEntries(asked.map(t => [t, { pct: state.darkPoolPct, source: 'FINRA' }])) } },
         '@/services/xsScores': { xsOverride: x => x, xsSnapshotOverride: (_, x) => x, ensureXsScores: async () => {} },
     };
     function load(relative) {
@@ -203,8 +205,8 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
         if (r?.realtime && r.realtime[k] === null) delete r.realtime[k];
         // 합성 OI 행 시각은 시계를 따라 움직인다 — 옵션 원천이 살아 있는 경우의 새 시각은 정상. 옵션 실패는 아래에서 시각을 따로 확인.
         for (const r of (c.results ?? [c])) if (r?.realtime) delete r.realtime.optionsAsOf; return c; };
-    for (const [failure, expectHeld] of [['failOptions', ['gex', 'squeeze', 'pcr', 'alphaSnapshot']], ['failLevels', ['levels']],
-        ['emptyLevels', ['levels']], ['failDarkPool', ['darkPool', 'alphaSnapshot']], ['failLiquidity', ['liquidity']]]) {
+    for (const [failure, expectHeld] of [['failOptions', ['gex', 'squeeze', 'pcr']], ['failLevels', ['levels']],
+        ['emptyLevels', ['levels']], ['failDarkPool', ['darkPool']], ['failLiquidity', ['liquidity']]]) {
         await test(`${failure}: 원천 실패 결측은 직전 값·원천 시각 유지(응답·메모리·Redis·빈 인스턴스), 5초 뒤 배경 재계산, 복구 뒤 새 값`, async () => {
             startAt(); const h = harness(), get = h.makeCache();
             const first = await get(['AAPL'], 'price', timing());
@@ -270,6 +272,16 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
             else { assert.equal(rt.gex, null, `${scenario}: GEX 정당한 null`); assert.equal(rt.squeezeScore, null); }
         }
     });
+    await test('관문 최신: 레벨 판본 없음(읽기 성공)·FINRA 행 없음(조회 성공)은 정당한 null — 유지하지 않음', async () => {
+        for (const [flag, field] of [['noLevels', 'callWall'], ['dpRowMissing', 'darkPoolPct']]) {
+            startAt(); const h = harness(), get = h.makeCache();
+            await get(['AAPL'], 'price', timing());
+            clock += 60_001; h.state[flag] = true;
+            const rt = (await get(['AAPL'], 'price', timing())).results[0].realtime;
+            assert.equal(rt[field] ?? null, null, `${flag}: ${field} null 그대로`);
+            assert.equal([...h.store.values()][0].held, undefined);
+        }
+    });
     await test('시세 실패(가격 결측)는 정상본 교체 없음', async () => {
         startAt(); const h = harness(), get = h.makeCache();
         const first = await get(['AAPL'], 'price', timing()); const saved = JSON.stringify([...h.store]);
@@ -280,17 +292,20 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
         h.state.failSnapshots = false; await get(['AAPL'], 'price', timing()); await h.drain();
         assert.notEqual(JSON.stringify([...h.store]), saved);
     });
-    await test('실패 신호 없는 결측도 같은 규칙: 원천 묶음은 유지, 파생·표시·0·빈 배열·설명 변경은 새 계산 그대로 저장', async () => {
+    await test('원천 미도착 증거 없는 결측(정당한 null)은 유지하지 않고 새 계산 그대로 저장', async () => {
         const cases = [
-            [r => r.realtime.darkPoolPct = null, r => assert.equal(r.realtime.darkPoolPct, 40), ['alphaSnapshot', 'darkPool']],
-            [r => { delete r.realtime.liquidityScore; }, r => assert.equal(r.realtime.liquidityScore, 80), ['liquidity']],
+            [r => r.realtime.darkPoolPct = null, r => assert.equal(r.realtime.darkPoolPct, null), []],
+            [r => { delete r.realtime.liquidityScore; }, r => assert.equal(r.realtime.liquidityScore, undefined), []],
             [r => r.realtime.whaleIndex = null, r => assert.equal(r.realtime.whaleIndex, null), []],
             [r => r.realtime.liquidityScore = 0, r => assert.equal(r.realtime.liquidityScore, 0), []],
             [r => r.realtime.sparkline = [], r => assert.deepEqual(r.realtime.sparkline, []), []],
+            [r => r.realtime.ivSkew = null, r => assert.equal(r.realtime.ivSkew, null), []],
+            [r => r.realtime.return3d = null, r => assert.equal(r.realtime.return3d, null), []],
+            [r => r.realtime.callWall = null, r => assert.equal(r.realtime.callWall, null), []],
             [r => r.alphaSnapshot.whyFactors = [], r => assert.deepEqual(r.alphaSnapshot.whyFactors, []), []],
             [r => r.alphaSnapshot.capturedAt = '', r => assert.equal(r.alphaSnapshot.capturedAt, ''), []],
             [r => r.alphaSnapshot = {}, r => assert.deepEqual(r.alphaSnapshot, {}), []],
-            [r => r.alphaSnapshot = null, r => assert.equal(r.alphaSnapshot.capturedAt, '2026-10-19T20:00:00Z'), ['alphaSnapshot']],
+            [r => r.alphaSnapshot = null, r => assert.equal(r.alphaSnapshot, null), []],
         ];
         for (const [lose, verify, heldGroups] of cases) {
             startAt(); const h = harness(); let partial = false;
@@ -373,7 +388,7 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
                     payload.results[0].realtime.darkPoolDate = '2026-10-19';
                     if (partial) {
                         Object.assign(payload.results[0].realtime, { darkPoolPct: null, darkPoolVol: null, darkPoolDate: null, darkPoolSource: null });
-                        args[2].failed = true;
+                        args[2].failed = true; args[2].missed = { darkPool: true };
                     }
                     return payload;
                 } };
@@ -397,51 +412,52 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
             }
         }
     });
-    await test('정당한 소멸 목록: 세션 표시·범위 밖 레벨·가려진 판본·만기·신선도 초과 P/C·예상변동 만기는 유지하지 않음', () => {
+    await test('병합 규칙 단위: 원천 미도착 증거가 있을 때만 유지·재검사(만기·정의 위반·신선도)·파생값·알파 설명 동등성', () => {
         const h = harness(); const { mergeHeldFields, HOLD_MAX_MS } = h.load('src/services/watchlistBatchMerge.ts');
         const now = originalDate.parse('2026-10-20T12:00:00-04:00');
-        const base = () => ({ ticker: 'AAPL', alphaSnapshot: { score: 70, capturedAt: 'x' }, realtime: {
-            price: 100, session: 'reg', extendedPrice: 101, extendedChangePct: 1, changePct: 2,
+        const base = () => ({ ticker: 'AAPL', alphaSnapshot: { score: 70, action: 'WATCH', capturedAt: 'x', whyKR: 'GEX안전지대' }, realtime: {
+            price: 100, session: 'reg', extendedPrice: 101, extendedChangePct: 1, changePct: 2, ivSkew: 1.1, return3d: 3.09,
             maxPain: 100, callWall: 110, putFloor: 90, gammaFlipLevel: 95, levelsSource: 'structure', levelsExpiration: '2026-10-23',
             levelsAsOf: now - 60_000, levelsRefPrice: 100, maxPainDist: 0, wallRangePct: 20,
-            pcr: 0.8, optionsAsOf: now - 3600_000, pcrBasis: 'oi_all_expiries_35d',
-            impliedMovePct: 3, impliedMoveExpiry: '2026-10-23', impliedMoveBasis: 'live', impliedMoveAsOf: now - 60_000, impliedMoveDef: 'atm-straddle-mid/1', impliedMoveSession: '2026-10-20',
+            pcr: 0.8, optionsAsOf: now - 3600_000, pcrBasis: 'oi_all_expiries_35d', squeezeScore: 30, squeezeRisk: 'LOW',
             gex: 1e7, darkPoolPct: 40, netPremium: 5e5, blockTrades: null, whaleIndex: 65, liquidityScore: 80, spreadPct: 0.1 } });
         const prev = { at: now - 15_000, result: base() };
-        const run = mutate => { const next = { at: now, result: base() }; mutate(next.result.realtime, next.result); mergeHeldFields(prev, next, now); return next; };
-        // 세션 표시값: PRE→정규장으로 사라지는 것은 그대로
-        let n = run(rt => { rt.extendedPrice = null; rt.extendedChangePct = null; rt.changePct = null; rt.session = 'pre'; });
-        assert.equal(n.result.realtime.extendedPrice, null); assert.equal(n.result.realtime.changePct, null); assert.equal(n.held, undefined);
-        // 판본은 읽었는데 정의상 범위 밖(levelsSource 있음) → null 그대로
-        n = run(rt => { rt.maxPain = rt.callWall = rt.putFloor = rt.gammaFlipLevel = null; });
-        assert.equal(n.result.realtime.callWall, null); assert.equal(n.held, undefined);
-        // 판본이 가려짐(levelsStaleReason) → 그대로
-        n = run(rt => { rt.maxPain = rt.callWall = rt.putFloor = rt.gammaFlipLevel = null; rt.levelsSource = null; rt.levelsStaleReason = 'stale'; });
-        assert.equal(n.result.realtime.callWall, null); assert.equal(n.held, undefined);
-        // 판본 자체가 없음(조회 실패) → 직전 레벨·시각 유지, 거리·폭은 새 가격으로
-        n = run(rt => { rt.maxPain = rt.callWall = rt.putFloor = rt.gammaFlipLevel = null; rt.levelsSource = null; rt.levelsAsOf = null; rt.levelsExpiration = null; rt.price = 104; });
+        const run = (mutate, ev) => { const next = { at: now, result: base() }; mutate(next.result.realtime, next.result); mergeHeldFields(prev, next, now, ev); return next; };
+        const noLv = rt => { rt.maxPain = rt.callWall = rt.putFloor = rt.gammaFlipLevel = null; rt.levelsSource = null; rt.levelsAsOf = null; rt.levelsExpiration = null; };
+        const all = { structure: false, oiRow: false, missed: { darkPool: true, liquidity: true, levels: true } };
+        // 세션 표시·분석 캐시 유래값은 증거가 있어도 유지 대상 아님
+        let n = run(rt => { rt.extendedPrice = null; rt.changePct = null; rt.ivSkew = null; rt.return3d = null; }, all);
+        assert.equal(n.result.realtime.extendedPrice, null); assert.equal(n.result.realtime.ivSkew, null); assert.equal(n.result.realtime.return3d, null); assert.equal(n.held, undefined);
+        // 원천 읽음(증거 없음) → 레벨·다크풀·GEX·P/C null 그대로(NO_MARKET·FINRA 행 없음·OI 계산 불가)
+        n = run(rt => { noLv(rt); rt.darkPoolPct = null; rt.gex = null; rt.pcr = null; }, { structure: true, oiRow: true, missed: {} });
+        assert.equal(n.result.realtime.callWall, null); assert.equal(n.result.realtime.darkPoolPct, null); assert.equal(n.result.realtime.gex, null); assert.equal(n.result.realtime.pcr, null); assert.equal(n.held, undefined);
+        // 증거 자체가 없으면(undefined) 유지 안 함
+        n = run(rt => { rt.darkPoolPct = null; }, undefined); assert.equal(n.result.realtime.darkPoolPct, null);
+        // 레벨 저장소 못 읽음 → 직전 레벨·시각 유지, 거리·폭은 새 가격으로
+        n = run(rt => { noLv(rt); rt.price = 104; }, { missed: { levels: true } });
         assert.equal(n.result.realtime.callWall, 110); assert.equal(n.result.realtime.levelsAsOf, now - 60_000);
         assert.equal(n.result.realtime.maxPainDist, Number((((100 - 104) / 104) * 100).toFixed(2)));
         assert.deepEqual(Object.keys(n.held), ['levels']);
         // 새 가격 기준 정의 위반(콜월 110 ≤ 가격) → 유지 안 함
-        n = run(rt => { rt.maxPain = rt.callWall = rt.putFloor = rt.gammaFlipLevel = null; rt.levelsSource = null; rt.price = 115; });
-        assert.equal(n.result.realtime.callWall, null);
-        // P/C 행이 신선도 상한을 넘었으면 null 이 정의
+        n = run(rt => { noLv(rt); rt.price = 115; }, { missed: { levels: true } }); assert.equal(n.result.realtime.callWall, null);
+        // 직전 판본 만기 지남 → 유지 안 함
+        const expPrev = { at: now - 15_000, result: base() }; expPrev.result.realtime.levelsExpiration = '2026-10-19';
+        n = { at: now, result: base() }; noLv(n.result.realtime); mergeHeldFields(expPrev, n, now, { missed: { levels: true } }); assert.equal(n.result.realtime.callWall, null);
+        // P/C 행 못 읽음이어도 직전 행이 신선도 상한 초과면 유지 안 함
         const stalePrev = { at: now - 15_000, result: base() }; stalePrev.result.realtime.optionsAsOf = now - 10 * 86400_000;
-        n = { at: now, result: base() }; n.result.realtime.pcr = null; n.result.realtime.optionsAsOf = null;
-        mergeHeldFields(stalePrev, n, now); assert.equal(n.result.realtime.pcr, null);
-        // 예상 변동 만기 지남 → 유지 안 함
-        const expPrev = { at: now - 15_000, result: base() }; expPrev.result.realtime.impliedMoveExpiry = '2026-10-19';
-        n = { at: now, result: base() }; n.result.realtime.impliedMovePct = null;
-        mergeHeldFields(expPrev, n, now); assert.equal(n.result.realtime.impliedMovePct, null);
-        // 유지 상한
+        n = { at: now, result: base() }; n.result.realtime.pcr = null; mergeHeldFields(stalePrev, n, now, { oiRow: false }); assert.equal(n.result.realtime.pcr, null);
+        // 유지 상한 30분
         const old = { at: now - HOLD_MAX_MS - 1, result: base() };
-        n = { at: now, result: base() }; n.result.realtime.darkPoolPct = null;
-        mergeHeldFields(old, n, now); assert.equal(n.result.realtime.darkPoolPct, null);
-        // 다크풀 유지 → 고래지수 재계산, 알파 스냅샷 유지
-        n = run((rt, r) => { rt.darkPoolPct = null; rt.whaleIndex = 1; r.alphaSnapshot = { score: 1 }; });
-        assert.equal(n.result.realtime.darkPoolPct, 40); assert.notEqual(n.result.realtime.whaleIndex, 1);
-        assert.deepEqual(n.result.alphaSnapshot, { score: 70, capturedAt: 'x' });
+        n = { at: now, result: base() }; n.result.realtime.darkPoolPct = null; mergeHeldFields(old, n, now, { missed: { darkPool: true } }); assert.equal(n.result.realtime.darkPoolPct, null);
+        // 다크풀 못 읽음 → 유지·고래지수 재계산·입력 동일 + 같은 판본이면 직전 설명
+        n = run((rt, r) => { rt.darkPoolPct = null; rt.whaleIndex = 1; r.alphaSnapshot = { score: 70, action: 'WATCH', capturedAt: 'x', whyKR: '일부 신호' }; }, { missed: { darkPool: true } });
+        assert.equal(n.result.realtime.darkPoolPct, 40); assert.notEqual(n.result.realtime.whaleIndex, 1); assert.equal(n.result.alphaSnapshot.whyKR, 'GEX안전지대');
+        // NO_MARKET(GEX 정당한 null) + 다크풀 못 읽음 → 다크풀만 유지, 설명은 새 계산 그대로(관문: «GEX안전지대» 잔존 금지)
+        n = run((rt, r) => { rt.darkPoolPct = null; rt.gex = null; r.alphaSnapshot = { score: 70, action: 'WATCH', capturedAt: 'x', whyKR: '일부 신호' }; }, { structure: true, missed: { darkPool: true } });
+        assert.equal(n.result.realtime.darkPoolPct, 40); assert.equal(n.result.realtime.gex, null); assert.equal(n.result.alphaSnapshot.whyKR, '일부 신호');
+        // 판본이 바뀌었으면(score·capturedAt) 설명도 새 것
+        n = run((rt, r) => { rt.darkPoolPct = null; r.alphaSnapshot = { score: 71, action: 'WATCH', capturedAt: 'y', whyKR: '새 판본' }; }, { missed: { darkPool: true } });
+        assert.equal(n.result.alphaSnapshot.whyKR, '새 판본');
     });
     await test('API 원천 실패 관측: FINRA·유동성 예외 없는 실패가 failed 설정, 냉기 실패 판본은 5초 뒤 재계산', async () => {
         for (const failure of ['failDarkPool', 'failLiquidity']) {

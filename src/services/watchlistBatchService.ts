@@ -320,7 +320,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
 
     // 1. Fetch Cache for all requested tickers (Non-blocking fallback to empty if Redis fails)
     // 옵션 레벨(구조 한 벌) 저장본 읽기를 지금 걸어 둔다 — 출구에서 받는다(structureService.prefetchLevelsForExit).
-    const finishLevels = prefetchLevelsForExit(tickers);
+    const missed = (k: 'darkPool' | 'liquidity' | 'levels') => { if (context?.timing) { context.timing.failed = true; (context.timing.missed ??= {})[k] = true; } };
+    const finishLevels = context?.timing ? prefetchLevelsForExit(tickers, { onReadFailure: () => missed('levels') }) : prefetchLevelsForExit(tickers);
     const cached = await getAnalysisCacheForTickers(tickers).catch(() => {
         if (context?.timing) context.timing.failed = true;
         return {} as Record<string, any>;
@@ -1294,7 +1295,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
     // 출구 한 곳에서 일괄 주입한다 — 구축 지점이 5곳이라 각각 고치면 또 샌다.
     try {
         const { sessionAwareLiquidity } = await import('@/services/intrinioClient');
-        const onReadFailure = context?.timing ? () => { context.timing!.failed = true; } : undefined;
+        const onReadFailure = context?.timing ? () => missed('liquidity') : undefined;
         const liq = await Promise.all(
             results.map((r: any) =>
                 r?.ticker && !r.error
@@ -1320,12 +1321,12 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             if (context?.timing) {
                 const checked = await getDarkPoolBatchChecked(asked);
                 if (checked.ok) dpMap = checked.map;
-                else context.timing.failed = true;
+                else missed('darkPool');
             } else {
                 dpMap = await getDarkPoolBatch(asked);
             }
         } catch (e: any) {
-            if (context?.timing) context.timing.failed = true;
+            missed('darkPool');
             console.warn('[watchlist/batch] 다크풀(FINRA) 조회 실패:', e?.message);
         }
 
@@ -1486,7 +1487,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             }
         }
     } catch (e: any) {
-        if (context?.timing) context.timing.failed = true;
+        missed('liquidity'); missed('darkPool');
         console.warn('[watchlist/batch] 유동성 주입 실패:', e?.message);
     }
 
@@ -1503,7 +1504,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
         const lvMap = await finishLevels();
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
     } catch (e: any) {
-        if (context?.timing) context.timing.failed = true;
+        missed('levels');
         // 저장본을 못 읽었으면 레벨을 «모른다» — 다른 생산자의 값을 내보내지 않는다.
         console.warn('[watchlist/batch] 옵션 레벨 한 벌 덮기 실패(레벨 비움):', e?.message);
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, null));

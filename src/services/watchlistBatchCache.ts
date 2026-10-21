@@ -101,7 +101,7 @@ export function createWatchlistBatchCache(deps: Dependencies) {
                         const previous = memory.get(key);
                         // 정상본 갱신 = 필드 묶음 단위 병합(watchlistBatchMerge). 새 계산에서 비었는데 직전 정상본에 값이 있고
                         // 정당한 소멸이 아니면 그 값과 원천 시각을 유지한다 — 응답(이 요청 포함)·저장본 모두 병합본.
-                        if (normalResult(result) && previous && previous.at <= env.at) mergeHeldFields(previous, env, now(), timing.optionSources?.[ticker]);
+                        if (normalResult(result) && previous && previous.at <= env.at) mergeHeldFields(previous, env, now(), { ...timing.optionSources?.[ticker], missed: timing.missed });
                         // 원천 실패가 관측된 판본(직전 정상본이 없어 유지할 값이 없던 냉기 포함)도 짧은 뒤 다시 계산한다.
                         if (timing.failed) env.retry = true;
                         envelopes.set(ticker, env);

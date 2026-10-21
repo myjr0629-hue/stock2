@@ -1,14 +1,14 @@
-**2026-10-21 운영 세션 직접 수리(관문 3회 보류의 근본 설계) — 아래 옛 «전체 교체 거부» 설명을 대체한다**
+**2026-10-21 운영 세션 직접 수리(관문 보류의 근본 설계) — 아래 옛 «전체 교체 거부» 설명을 대체한다**
 
-정상본 갱신은 `src/services/watchlistBatchMerge.ts`의 «필드 묶음 단위 병합» 하나로 정한다. 원천별 실패 신호에 의존하지 않는다.
+정상본 갱신은 `src/services/watchlistBatchMerge.ts`의 «필드 묶음 단위 병합» 규칙 하나로 정한다.
 
-- 새 계산에서 묶음 값이 비었고(null·누락) 직전 정상본에 값이 있으며 정당한 소멸이 아니면, 그 묶음의 값과 원천 시각 필드를 직전 정상본 그대로 유지한다. 시각을 새로 찍지 않으므로 옛 값이 새 값처럼 보이지 않는다.
-- 묶음: 다크풀(pct·vol·date·source) · 유동성(score·spread) · GEX(gex·netGex·gexM·gammaRegime·gexBasis) · 스퀴즈 · P/C(pcr·optionsAsOf·pcrBasis) · 순프리미엄 · 레벨(4레벨+levels* 메타·levelsRefPrice) · 예상 변동(6필드) · ivSkew · iv(+시각) · atmIv(+시각) · rsi · return3d. 설명 입력(GEX·스퀴즈·P/C·다크풀)을 유지하면 alphaSnapshot(자기 capturedAt)도 함께 유지.
-- 정당한 소멸(유지 안 함): GEX·스퀴즈 — 이번 계산이 구조 판본을 실제로 읽음(만기·NO_MARKET·값 없음) · P/C — 이번 계산이 OI 행을 실제로 읽음(신선도 초과·콜/풋 OI 계산 불가)(관문 10211255, `optionMetricsService.onEdition`) · 세션·현재가 표시값(price·changePct·missingFields·session·extended*·vwap·volume·relVol·sparkline 등 — 묶음 표에 없는 필드 전부) · 틱 지표(늘 null) · 레벨: 새 계산이 판본을 읽음(levelsSource 있음=범위 밖 null)·가려짐(levelsStaleReason)·직전 판본 만기 지남·새 가격 기준 정의 위반 · P/C: 직전 행이 지금 기준 신선도 상한 초과 · 예상 변동: 지금 시각 정의·만기 검사 불통과.
-- 파생값 whaleIndex(출구와 같은 식)·maxPainDist·wallRangePct 는 유지값·새 가격으로 다시 계산.
-- 유지 기록 `held[묶음]=처음 계산 시각`(저장 봉투에만, 응답 본문 아님) · 상한 30분 · 유지 묶음이나 원천 실패(`retry`)가 있는 정상본은 5초 뒤 배경 재계산.
-- 원천 실패(timing.failed)여도 병합본을 저장한다 — 장애·세션 전환이 정상본 갱신을 영구히 막지 않는다(관문 10211019). 가격 결측 행은 종전대로 저장하지 않는다.
-- 시험: `node tests/watchlistBatchFast.test.js` 26/26(관문 4회 재현: 다크풀·유동성·레벨 예외/빈 Map, PRE→정규장·changePct 복구 3/3 저장, 정당한 소멸 목록, 30분 상한, 원본 응답 18개 바이트 동일).
+- 규칙: 묶음 값이 새 계산에서 비었고 직전 정상본에 있으며, **그 묶음의 원천이 이번 계산에 도착하지 않았다는 증거**가 있을 때만 직전 값과 원천 시각 필드를 그대로 유지한다(시각 재발급 없음). 원천이 도착했는데 빈 값은 계산의 결론(정당한 소멸)이므로 새 계산 그대로다 — null 의 정당성을 값으로 추측하지 않는다.
+- 증거(원천 경계에서 «읽었나/못 읽었나»만 기록, `WatchlistBatchTiming`): 다크풀=FINRA 일괄 조회 실패 · 유동성=직전 정규장 저장본 읽기 실패 · 레벨=구조 판본 저장소 읽기 실패(`prefetchLevelsForExit` 선택 `onReadFailure`, 반환 불변) · GEX·스퀴즈=종목 구조 판본 미도착 · P/C=종목 OI 행 미도착(`optionMetricsService` 선택 `onEdition`, 반환 불변).
+- 유지 대상 아님: 세션·현재가 표시값(price·changePct·missingFields·session·extended*·vwap·volume·relVol·sparkline 등), 분석 캐시 유래값(rsi·return3d·ivSkew·iv·예상 변동·순프리미엄·alphaSnapshot — 분석 캐시를 못 읽으면 같은 요청이 새로 계산), 틱 지표.
+- 유지값 재검사: 레벨 — 직전 판본 만기·새 가격 기준 정의 위반이면 유지 안 함 · P/C — 직전 행이 지금 기준 신선도 상한 초과면 유지 안 함. 상한 30분.
+- 파생값: 고래지수(출구와 같은 식)·맥스페인 거리·벽 폭 재계산. 알파 설명은 유지 후 입력 4종(GEX·스퀴즈·P/C·다크풀)이 직전과 완전히 같고 같은 판본(score·action·capturedAt)일 때만 직전 설명.
+- `held[묶음]`(처음 계산 시각)·`retry`(원천 실패 관측)는 저장 봉투에만 있고 응답 본문 형태는 같다. 둘 중 하나가 있으면 5초 뒤 배경 재계산. 원천 실패여도 병합본은 저장(장애·세션 전환이 갱신을 영구히 막지 않음).
+- 시험 `node tests/watchlistBatchFast.test.js` 27/27: 관문 재현 전부(다크풀·유동성 {} / 세션 전환·changePct 복구 3/3 저장 / 레벨 예외·빈 Map / 만기·NO_MARKET·OI 계산 불가 / NO_MARKET+다크풀 실패 설명 / 레벨 판본 없음·FINRA 행 없음), 원본 응답 18개 바이트 동일.
 
 **결과 요약**
 
