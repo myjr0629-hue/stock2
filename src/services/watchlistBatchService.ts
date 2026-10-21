@@ -320,7 +320,13 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
 
     // 1. Fetch Cache for all requested tickers (Non-blocking fallback to empty if Redis fails)
     // 옵션 레벨(구조 한 벌) 저장본 읽기를 지금 걸어 둔다 — 출구에서 받는다(structureService.prefetchLevelsForExit).
-    const missed = (k: 'darkPool' | 'liquidity' | 'levels') => { if (context?.timing) { context.timing.failed = true; (context.timing.missed ??= {})[k] = true; } };
+    // 종목별 «못 읽음» 기록. who 생략 = 일괄 조회 실패(요청 종목 전부).
+    const missed = (k: 'darkPool' | 'liquidity' | 'levels', who?: string) => {
+        if (!context?.timing) return;
+        context.timing.failed = true;
+        const m = (context.timing.missed ??= {});
+        for (const t of who ? [who] : tickers) (m[String(t).toUpperCase()] ??= {})[k] = true;
+    };
     const finishLevels = context?.timing ? prefetchLevelsForExit(tickers, { onReadFailure: () => missed('levels') }) : prefetchLevelsForExit(tickers);
     const cached = await getAnalysisCacheForTickers(tickers).catch(() => {
         if (context?.timing) context.timing.failed = true;
@@ -1295,7 +1301,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
     // 출구 한 곳에서 일괄 주입한다 — 구축 지점이 5곳이라 각각 고치면 또 샌다.
     try {
         const { sessionAwareLiquidity } = await import('@/services/intrinioClient');
-        const onReadFailure = context?.timing ? () => missed('liquidity') : undefined;
+        const onReadFailureFor = (t: string) => (context?.timing ? () => missed('liquidity', t) : undefined);
         const liq = await Promise.all(
             results.map((r: any) =>
                 r?.ticker && !r.error
@@ -1304,8 +1310,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     ? sessionAwareLiquidity(r.ticker,
                         r.realtime?.lastQuote?.p ?? r.realtime?.bidPrice ?? null,
                         r.realtime?.lastQuote?.P ?? r.realtime?.askPrice ?? null,
-                        onReadFailure ? { onReadFailure } : undefined)
-                        .catch(() => { onReadFailure?.(); return { liquidityScore: null, spreadPct: null }; })
+                        context?.timing ? { onReadFailure: onReadFailureFor(r.ticker) } : undefined)
+                        .catch(() => { onReadFailureFor(r.ticker)?.(); return { liquidityScore: null, spreadPct: null }; })
                     : Promise.resolve({ liquidityScore: null, spreadPct: null })
             )
         );

@@ -91,7 +91,8 @@ function harness({ cached = true, session = 'regular', unified = true, old = fal
         '@/services/impliedMoveService': { peekStoredStructure: async () => null, impliedMoveOfStructure: async () => null },
         '@/lib/aws/historyMiddleware': { recordAlphaDaily: () => {} },
         '@/services/intrinioClient': { sessionAwareLiquidity: async (_ticker, _bid, _ask, options) => {
-            if (state.failLiquidity) { options?.onReadFailure?.(); return { liquidityScore: null, spreadPct: null }; }
+            if (state.failLiquidity || state.failLiquidityFor === _ticker) { options?.onReadFailure?.(); return { liquidityScore: null, spreadPct: null }; }
+            if (state.liqNullFor === _ticker) return { liquidityScore: null, spreadPct: null };   // 읽기 성공·행 없음 = 정당한 null
             return { liquidityScore: state.liquidityScore, spreadPct: 0.1 };
         } },
         '@/services/darkPool': { getDarkPoolBatch: async asked => state.failDarkPool ? {}
@@ -282,6 +283,28 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
             assert.equal([...h.store.values()][0].held, undefined);
         }
     });
+    await test('관문 3차: 다른 종목의 유동성 실패가 이 종목의 정당한 결측을 덮지 않음·GEX 만기 하한 롤 뒤 유지 안 함·Redis null[] 레벨은 유지', async () => {
+        // ① AAPL 은 읽기 성공·행 없음(정당한 null), NVDA 만 읽기 실패
+        startAt(); let h = harness(), get = h.makeCache();
+        await get(['AAPL', 'NVDA'], 'price', timing());
+        clock += 60_001; h.state.liqNullFor = 'AAPL'; h.state.failLiquidityFor = 'NVDA';
+        let r = await get(['AAPL', 'NVDA'], 'price', timing());
+        assert.equal(r.results[0].realtime.liquidityScore, null, 'AAPL 정당한 null 그대로');
+        assert.equal(r.results[1].realtime.liquidityScore, 80, 'NVDA 못 읽음 → 직전 값 유지');
+        // ② 10/23 15:59:50 저장 → 16:00 만기 하한 롤 + 구조 미도착 → GEX·스퀴즈 유지 안 함(레벨은 판본 만기로 유지 안 함)
+        startAt('2026-10-23T15:59:50-04:00'); h = harness(); get = h.makeCache();
+        await get(['AAPL'], 'price', timing());
+        clock = originalDate.parse('2026-10-23T16:00:00-04:00'); h.state.failOptions = true;
+        r = await get(['AAPL'], 'price', timing());
+        assert.equal(r.results[0].realtime.gex, null); assert.equal(r.results[0].realtime.squeezeScore, null);
+        // ③ Redis 가 장애를 null[] 로 줌(구조 판본 미도착, 레벨 읽기 콜백 없음) → 레벨 유지
+        startAt(); h = harness(); get = h.makeCache();
+        await get(['AAPL'], 'price', timing());
+        clock += 60_001; h.state.failOptions = true; h.state.noLevels = true;
+        r = await get(['AAPL'], 'price', timing());
+        assert.equal(r.results[0].realtime.callWall, 110, '구조 판본 미도착 → 레벨 유지');
+        assert.ok([...h.store.values()][0].held.levels);
+    });
     await test('시세 실패(가격 결측)는 정상본 교체 없음', async () => {
         startAt(); const h = harness(), get = h.makeCache();
         const first = await get(['AAPL'], 'price', timing()); const saved = JSON.stringify([...h.store]);
@@ -388,7 +411,7 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
                     payload.results[0].realtime.darkPoolDate = '2026-10-19';
                     if (partial) {
                         Object.assign(payload.results[0].realtime, { darkPoolPct: null, darkPoolVol: null, darkPoolDate: null, darkPoolSource: null });
-                        args[2].failed = true; args[2].missed = { darkPool: true };
+                        args[2].failed = true; args[2].missed = { AAPL: { darkPool: true } };
                     }
                     return payload;
                 } };
