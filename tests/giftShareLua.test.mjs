@@ -114,6 +114,20 @@ function scenarios() {
         assert.equal(await redis.hlen(`${p}:ledger`), 0);
       }
     }],
+    ['공유 완료 등록: 같은 토큰 재등록은 한도 검사·차감 전에 exists(재사용 거부·응답 유실 재시도 무해)', async (redis) => {
+      await redis.flushdb();
+      const keys = ['기기', '계정', '아이피', '전체'];
+      const t = random();
+      const first = await run(redis, ISSUE_LUA, [tokenKey(t), ...keys], [now, 86400, 3, 3, 10, 400]);
+      assert.equal(first, 'issued');
+      const again = await Promise.all(Array.from({ length: 5 }, () => run(redis, ISSUE_LUA, [tokenKey(t), ...keys], [now, 86400, 3, 3, 10, 400])));
+      assert.deepEqual([...new Set(again)], ['exists']);
+      for (const k of keys) assert.equal(await redis.get(k), '1', '재등록은 한도를 차감하지 않는다');
+      // 한도에 닿아도 이미 등록된 토큰의 재시도는 exists(성공)로 끝난다.
+      for (let i = 0; i < 2; i++) await run(redis, ISSUE_LUA, [tokenKey(random()), ...keys], [now, 86400, 3, 3, 10, 400]);
+      assert.equal(await run(redis, ISSUE_LUA, [tokenKey(random()), ...keys], [now, 86400, 3, 3, 10, 400]), 'cap');
+      assert.equal(await run(redis, ISSUE_LUA, [tokenKey(t), ...keys], [now, 86400, 3, 3, 10, 400]), 'exists');
+    }],
     ['공유 준비: 양 OS 재고·한도 검사만 수행, 소진·만료·한도 0이면 일반 공유', async (redis) => {
       const check = (at = now, iosCap = 20) => run(redis, AVAILABLE_LUA,
         [`${p}:batches:ios`, `${p}:batches:android`, `${p}:day:test:ios`, `${p}:day:test:android`], [at, p, iosCap, 20]);

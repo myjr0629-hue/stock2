@@ -450,7 +450,7 @@ export function mockRedis({ atomic = true } = {}) {
   const plain = (cmd) => async (...a) => { const r = command(cmd, ...a); return r && typeof r === 'object' && !Array.isArray(r) ? r.ok : r; };
   return {
     eval: evalScript,
-    set: plain('SET'), flushdb: plain('FLUSHDB'), llen: plain('LLEN'), hlen: plain('HLEN'), hget: plain('HGET'),
+    get: plain('GET'), set: plain('SET'), flushdb: plain('FLUSHDB'), llen: plain('LLEN'), hlen: plain('HLEN'), hget: plain('HGET'),
     lset: plain('LSET'), exists: plain('EXISTS'), sadd: plain('SADD'),
     disconnect() {},
   };

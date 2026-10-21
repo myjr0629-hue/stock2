@@ -1,4 +1,6 @@
 // 실행: npx tsx --test tests/giftShareClient.test.ts
+// 설계(관문 3회 보류 뒤 재설계): 화면 진입 = 설정·재고 확인 + 기기 토큰 생성(서버 발행 0) ·
+// 공유/복사 «완료» 뒤에만 그 토큰을 1회 등록 · 보낸 토큰은 즉시 폐기(재사용 0) · 재고 0·기기 일일 한도면 일반 공유.
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import Module from 'node:module';
@@ -11,8 +13,9 @@ import { arrive, recordTouch, inviteKeys } from '../src/lib/invite/engine';
 import { memoryInviteStore } from '../src/lib/invite/memoryStore';
 import { newInviteKey } from '../src/lib/invite/identity';
 
+let values = new Map<string, string>();
 function resetStorage() {
-  const values = new Map<string, string>();
+  values = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => { values.set(key, value); },
@@ -24,9 +27,29 @@ beforeEach(() => {
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://www.signumhq.com' } } });
 });
 
-const token = () => randomBytes(32).toString('base64url');
 const json = (body: unknown) => new Response(JSON.stringify(body));
+const tick = () => new Promise(resolve => setImmediate(resolve));
 const original = { title: 'SIGNUM HQ', text: '기존 종목 설명\n줄바꿈 · 日本語', url: 'https://www.signumhq.com/ko/flow/NVDA?from=share&via=ios' };
+const giftOf = (p: { url: string }) => new URL(p.url).searchParams.get('gift');
+
+/** 설정·등록 요청을 기록하는 모의 서버. 등록은 토큰별 1회만 issued, 이후 exists. */
+function server(opts: { available?: () => boolean; enabled?: () => boolean; issue?: (token: string) => unknown } = {}) {
+  const registered = new Set<string>();
+  const log = { config: 0, issues: [] as { token: string; device: string | null }[] };
+  const request: typeof fetch = async (url, init) => {
+    if (String(url).endsWith('share-config')) {
+      log.config++;
+      return json({ enabled: opts.enabled ? opts.enabled() : true, available: opts.available ? opts.available() : true });
+    }
+    assert.equal(String(url), '/api/gift/issue'); assert.equal(init?.method, 'POST');
+    const token = JSON.parse(String(init?.body)).token;
+    log.issues.push({ token, device: (init?.headers as any)?.['x-gift-device'] ?? null });
+    if (opts.issue) { const r = opts.issue(token); if (r instanceof Error) throw r; return json(r); }
+    registered.add(token);
+    return json({ ok: true });
+  };
+  return { request, log, registered };
+}
 
 // 기존 공유 전송기를 별도로 읽어 실제 네이티브·복사 페이로드까지 대조한다.
 const m = new Module(`${process.cwd()}/src/lib/share/share.ts`, module);
@@ -36,7 +59,7 @@ m.filename = `${process.cwd()}/src/lib/share/share.ts`;
 }).outputText, m.filename!);
 const oldShare = m.exports.shareOrCopy;
 
-test('꺼짐: 기존 객체·공유/복사 바이트 동일, 발행 없음', async () => {
+test('꺼짐: 기존 객체·공유/복사 바이트 동일, 저장소·발행 접근 0', async () => {
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('꺼짐 저장소 접근 금지'); } });
   let requests = 0;
   const client = createGiftPreparation(async () => { requests++; return json({ enabled: false }); });
@@ -54,65 +77,161 @@ test('꺼짐: 기존 객체·공유/복사 바이트 동일, 발행 없음', asy
   (navigator as any).clipboard = { writeText: async (s: string) => { sent.push(s); } };
   await oldShare(original); await shareOrCopy(payload);
   assert.equal(sent[2], sent[3]);
-  assert.equal(requests, 1);
+  for (const outcome of ['shared', 'copied', 'cancelled', 'failed'] as const) client.complete(outcome, payload, 'ios');
+  await tick();
+  assert.equal(requests, 1, '설정 조회 1회 외 요청 없음');
 });
 
-test('켜짐: 3언어·iOS/Android·웹 링크, 콘텐츠/ref 보존, 클릭 시 발행 안 함', async () => {
+test('켜짐 준비: 서버 발행 없이 기기 토큰 · 3언어·iOS/Android·웹 링크 · 콘텐츠/ref 보존', async () => {
   for (const lang of ['ko', 'en', 'ja']) for (const via of ['ios', 'android', 'web'] as const) {
     resetStorage();
-    const t = token(); let calls = 0;
-    const client = createGiftPreparation(async (url, options) => {
-      calls++;
-      if (String(url).endsWith('share-config')) return json({ enabled: true, available: true });
-      assert.equal(options?.method, 'POST');
-      assert.equal(!!(options?.headers as any)['x-gift-device'], via !== 'web');
-      return json({ ok: true, token: t, expiresAt: Date.now() + 3600_000 });
-    }, () => randomBytes(32).toString('hex'));
+    const s = server();
+    const client = createGiftPreparation(s.request, () => randomBytes(32).toString('hex'));
     await client.refresh(via);
+    assert.equal(s.log.issues.length, 0, '화면 진입은 발행하지 않는다');
     const payload = client.payload(original, lang, via, 'abc234defg');
     const u = new URL(payload.url);
     assert.equal(u.origin, 'https://www.signumhq.com'); assert.equal(u.pathname, '/app');
-    assert.equal(u.searchParams.get('from'), 'gift'); assert.equal(u.searchParams.get('gift'), t);
+    assert.equal(u.searchParams.get('from'), 'gift'); assert.match(u.searchParams.get('gift')!, /^[A-Za-z0-9_-]{43}$/);
     assert.equal(u.searchParams.get('l'), lang === 'en' ? null : lang);
     assert.equal(u.searchParams.get('ref'), 'abc234defg'); assert.equal(u.searchParams.get('via'), via);
     assert.ok(payload.text!.includes(original.text)); assert.ok(payload.text!.includes(original.url));
     assert.ok(!/500|200|선착순|first come|先着/.test(payload.text!));
-    assert.equal(calls, 2);
     const gift = client.payload(original, lang, via, null, true);
     assert.ok(!gift.text!.includes(original.url));
+    assert.equal(s.log.config, 1);
   }
 });
 
-test('재고 0·상한/발행 실패·네트워크 실패·만료·오래된 준비는 일반 공유', async () => {
-  let clock = Date.now(); let available = true; let fail = false; let issueOk = true;
-  const client = createGiftPreparation(async url => {
-    if (fail) throw new Error();
-    return String(url).endsWith('share-config') ? json({ enabled: true, available }) : json({ ok: issueOk, token: token(), expiresAt: clock + 120_000 });
-  }, () => randomBytes(32).toString('hex'), () => clock);
+test('공유·복사 완료 뒤에만 그 토큰을 1회 등록 · 보낸 토큰은 즉시 폐기 · 중복 완료 통지 무시', async () => {
+  for (const outcome of ['shared', 'copied'] as const) for (const via of ['ios', 'android', 'web'] as const) {
+    resetStorage();
+    const s = server();
+    const client = createGiftPreparation(s.request, () => 'a'.repeat(64));
+    await client.refresh(via);
+    const first = client.payload(original, 'ko', via);
+    client.complete('cancelled', first, via); client.complete('failed', first, via); await tick();
+    assert.equal(s.log.issues.length, 0, '취소·실패는 등록하지 않는다');
+    assert.equal(giftOf(client.payload(original, 'ko', via)), giftOf(first), '취소 뒤 재시도는 아직 아무에게도 안 간 같은 토큰');
+    client.complete(outcome, first, via); await tick();
+    assert.deepEqual(s.log.issues.map(x => x.token), [giftOf(first)]);
+    assert.equal(s.log.issues[0].device, via === 'web' ? null : 'a'.repeat(64));
+    client.complete(outcome, first, via); client.complete('shared', first, via); await tick();
+    assert.equal(s.log.issues.length, 1, '같은 완료 통지는 한 번만 등록');
+    if (via !== 'web') {
+      const next = client.payload(original, 'ko', via);
+      assert.ok(giftOf(next)); assert.notEqual(giftOf(next), giftOf(first), '다음 공유는 새 토큰');
+    } else {
+      assert.equal(giftOf(client.payload(original, 'ko', via)), null, '웹은 하루 1회 — 이후 일반 공유');
+    }
+    assert.equal(values.get('signumhq.gift.sent.v1'), undefined, '등록 확인 뒤 재시도 장부 비움');
+  }
+});
+
+test('관문 회귀(10211609·10212017): 공유 없이 재로딩·동시 문서 여러 개 → 발행 0, 문서마다 다른 토큰', async () => {
+  const s = server();
+  const docs = [];
+  for (let document = 0; document < 6; document++) {
+    const client = createGiftPreparation(s.request, () => '시험용-기기'.padEnd(64, '0'));
+    await client.refresh('ios');
+    docs.push(client);
+  }
+  assert.equal(s.log.issues.length, 0);
+  const tokens = docs.map(d => giftOf(d.payload(original, 'ko', 'ios')));
+  assert.equal(new Set(tokens).size, tokens.length);
+  // 실제 공유는 한 번 → 등록 한 번
+  docs[2].complete('shared', docs[2].payload(original, 'ko', 'ios'), 'ios'); await tick();
+  assert.equal(s.log.issues.length, 1);
+});
+
+test('관문 회귀(10211928): 공유 도중 재조회 장애·일시 소진이 있어도 보낸 토큰은 다시 나가지 않는다', async () => {
+  for (const trouble of ['fail', 'empty', 'off'] as const) {
+    resetStorage();
+    let state: 'ok' | 'fail' | 'empty' | 'off' = 'ok';
+    const s = server({ available: () => state !== 'empty', enabled: () => state !== 'off' });
+    const request: typeof fetch = async (url, init) => { if (state === 'fail' && String(url).endsWith('share-config')) throw new Error('장애'); return s.request(url, init); };
+    const client = createGiftPreparation(request, () => 'b'.repeat(64));
+    await client.refresh('ios');
+    const sent = client.payload(original, 'ko', 'ios');
+    state = trouble; await client.refresh('ios');
+    client.complete('shared', sent, 'ios'); await tick();
+    state = 'ok'; await client.refresh('ios');
+    const next = client.payload(original, 'ko', 'ios');
+    assert.ok(giftOf(next)); assert.notEqual(giftOf(next), giftOf(sent), trouble);
+    assert.equal(s.log.issues.filter(x => x.token === giftOf(sent)).length, 1, trouble);
+  }
+});
+
+test('기기 일일 한도(앱 3·웹 1, KST 날짜) 도달 뒤엔 일반 공유 — 등록 실패할 선물 문구를 붙이지 않는다', async () => {
+  let clock = Date.parse('2026-10-22T14:00:00Z'); // KST 23:00
+  const s = server();
+  const client = createGiftPreparation(s.request, () => 'c'.repeat(64), () => clock);
+  await client.refresh('ios');
+  for (let i = 0; i < 3; i++) {
+    const p = client.payload(original, 'ko', 'ios');
+    assert.ok(giftOf(p), `${i + 1}번째`);
+    client.complete('shared', p, 'ios'); await tick();
+  }
+  assert.equal(client.payload(original, 'ko', 'ios'), original);
+  const other = createGiftPreparation(s.request, () => 'c'.repeat(64), () => clock);
+  await other.refresh('ios');
+  assert.equal(other.payload(original, 'ko', 'ios'), original, '다른 문서도 같은 기기 한도');
+  clock = Date.parse('2026-10-22T15:00:01Z'); // KST 다음 날 00:00
+  await client.refresh('ios');
+  assert.ok(giftOf(client.payload(original, 'ko', 'ios')));
+  assert.equal(s.log.issues.length, 3);
+});
+
+test('등록 응답 유실: 같은 토큰을 5분 간격·최대 5회 다시 등록, 성공하면 장부에서 제거', async () => {
+  let clock = Date.now(); let down = true;
+  const s = server({ issue: () => down ? new Error('유실') : { ok: true } });
+  const client = createGiftPreparation(s.request, () => 'd'.repeat(64), () => clock);
+  await client.refresh('android');
+  const sent = client.payload(original, 'ja', 'android');
+  client.complete('copied', sent, 'android'); await tick();
+  assert.equal(s.log.issues.length, 1);
+  await client.refresh('android'); assert.equal(s.log.issues.length, 1, '5분 안에는 재시도하지 않는다');
+  clock += 5 * 60_000; await client.refresh('android');
+  assert.equal(s.log.issues.length, 2);
+  // 문서를 다시 열어도 같은 기기의 장부로 이어서 재시도한다
+  down = false; clock += 5 * 60_000;
+  const reopened = createGiftPreparation(s.request, () => 'd'.repeat(64), () => clock);
+  await reopened.refresh('android');
+  assert.deepEqual(s.log.issues.map(x => x.token), Array(3).fill(giftOf(sent)));
+  assert.equal(values.get('signumhq.gift.sent.v1'), undefined);
+  // 계속 실패하면 최대 5회 뒤 포기
+  resetStorage(); down = true;
+  const s2 = server({ issue: () => new Error('계속 실패') });
+  const c2 = createGiftPreparation(s2.request, () => 'e'.repeat(64), () => clock);
+  await c2.refresh('ios'); c2.complete('shared', c2.payload(original, 'ko', 'ios'), 'ios'); await tick();
+  for (let i = 0; i < 10; i++) { clock += 5 * 60_000; await c2.refresh('ios'); }
+  assert.equal(s2.log.issues.length, 5);
+});
+
+test('재고 0·설정 장애·오래된 확인(60초)·저장소 장애·기기 열쇠 없음은 일반 공유, 등록 0', async () => {
+  let clock = Date.now(); let available = true; let fail = false;
+  const s = server({ available: () => available });
+  const request: typeof fetch = async (url, init) => { if (fail) throw new Error(); return s.request(url, init); };
+  const client = createGiftPreparation(request, () => 'f'.repeat(64), () => clock);
   await client.refresh('ios'); assert.notEqual(client.payload(original, 'ko', 'ios'), original);
   clock += 60_001; assert.equal(client.payload(original, 'ko', 'ios'), original);
-  await client.refresh('ios');
-  clock += 59_999; assert.equal(client.payload(original, 'ko', 'ios'), original, '확인 후 60초 미만이어도 토큰 만료 시 폴백');
   available = false; await client.refresh('ios'); assert.equal(client.payload(original, 'ko', 'ios'), original);
   const fallback = client.payload(original, 'ko', 'ios', null, true);
   assert.equal(new URL(fallback.url).searchParams.get('from'), 'share');
-  assert.ok(!fallback.text!.includes('1개월')); assert.ok(!fallback.url.includes('code='));
-  available = true; issueOk = false; await client.refresh('ios'); assert.equal(client.payload(original, 'ko', 'ios'), original);
-  fail = true; await client.refresh('ios'); assert.equal(client.payload(original, 'ko', 'ios'), original);
-});
-
-test('동시 준비 한 번·취소 토큰 재사용·완료 후 다음 토큰 준비', async () => {
-  let calls = 0;
-  const client = createGiftPreparation(async url => {
-    calls++;
-    return String(url).endsWith('share-config') ? json({ enabled: true, available: true }) : json({ ok: true, token: token(), expiresAt: Date.now() + 3600_000 });
-  }, () => randomBytes(32).toString('hex'));
-  await Promise.all([client.refresh('ios'), client.refresh('ios')]); assert.equal(calls, 2);
-  const first = client.payload(original, 'ko', 'ios');
-  client.complete('cancelled', first, 'ios'); await client.refresh('ios');
-  assert.equal(client.payload(original, 'ko', 'ios').url, first.url); assert.equal(calls, 3);
-  client.complete('shared', first, 'ios'); await client.refresh('ios');
-  assert.notEqual(client.payload(original, 'ko', 'ios').url, first.url); assert.equal(calls, 5);
+  assert.ok(!fallback.text!.includes('1개월')); assert.ok(!fallback.url.includes('code=')); assert.ok(!fallback.url.includes('gift='));
+  available = true; fail = true; await client.refresh('ios'); assert.equal(client.payload(original, 'ko', 'ios'), original);
+  for (const failure of ['getItem', 'setItem'] as const) {
+    resetStorage();
+    (localStorage as any)[failure] = () => { throw new Error('시험용 저장 장애'); };
+    const c = createGiftPreparation(s.request, () => 'f'.repeat(64));
+    await c.refresh('ios');
+    assert.equal(c.payload(original, 'ko', 'ios'), original, failure);
+  }
+  resetStorage();
+  const noKey = createGiftPreparation(s.request, () => null);
+  await noKey.refresh('android');
+  assert.equal(noKey.payload(original, 'ko', 'android'), original, '앱 기기 열쇠가 없으면 익명 등록이 되므로 준비하지 않는다');
+  assert.equal(s.log.issues.length, 0);
 });
 
 test('관문 회귀: 소진 폴백도 신규 수신자의 추천 터치를 기록한다', async () => {
@@ -136,167 +255,20 @@ test('관문 회귀: 소진 폴백도 신규 수신자의 추천 터치를 기�
   }
 });
 
-test('관문 회귀: 공유 없이 문서를 네 번 열어도 발행은 한 번이다', async () => {
-  let issues = 0;
-  const t = token();
-  const request: typeof fetch = async url => {
-    if (String(url).endsWith('share-config')) return json({ enabled: true, available: true });
-    issues++;
-    if (issues > 3) return json({ ok: false });
-    return json({ ok: true, token: t, expiresAt: Date.now() + 3600_000 });
-  };
-  for (let document = 0; document < 4; document++) {
-    const client = createGiftPreparation(request, () => '시험용-기기');
-    await client.refresh('ios');
-    assert.equal(new URL(client.payload(original, 'ko', 'ios').url).searchParams.get('gift') === t, true);
-  }
-  assert.equal(issues, 1);
-});
-
-test('관문 회귀: 프리뷰 선물은 발행과 같은 출처로 전달한다', async () => {
+test('관문 회귀: 프리뷰 선물은 등록과 같은 출처로 전달한다', async () => {
   const origin = 'https://signum-preview.example';
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin } } });
-  const client = createGiftPreparation(async url => {
+  const s = server();
+  const client = createGiftPreparation(async (url, init) => {
     assert.equal(new URL(String(url), origin).origin, origin);
-    return String(url).endsWith('share-config') ? json({ enabled: true, available: true })
-      : json({ ok: true, token: token(), expiresAt: Date.now() + 3600_000 });
-  }, () => '시험용-기기');
+    return s.request(url, init);
+  }, () => '1'.repeat(64));
   await client.refresh('ios');
-  assert.equal(new URL(client.payload(original, 'ko', 'ios').url).origin, origin);
-  assert.equal(client.payload(original, 'ko', 'ios').text!.includes(original.url), true);
-});
-
-test('미전송 복원도 최신 설정 확인 필요·일시 소진/장애 뒤 같은 토큰 재사용', async () => {
-  let issues = 0; let available = true; let failed = false;
-  const request: typeof fetch = async url => {
-    if (failed) throw new Error('시험용 장애');
-    if (String(url).endsWith('share-config')) return json({ enabled: true, available });
-    issues++;
-    return json({ ok: true, token: token(), expiresAt: Date.now() + 3600_000 });
-  };
-  const first = createGiftPreparation(request, () => '시험용-기기');
-  await first.refresh('ios');
-  const prepared = first.payload(original, 'ko', 'ios');
-  const reopened = createGiftPreparation(request, () => '시험용-기기');
-  assert.equal(reopened.payload(original, 'ko', 'ios'), original);
-  available = false; await reopened.refresh('ios');
-  assert.equal(reopened.payload(original, 'ko', 'ios'), original);
-  available = true; failed = true; await reopened.refresh('ios');
-  assert.equal(reopened.payload(original, 'ko', 'ios'), original);
-  failed = false; await reopened.refresh('ios');
-  assert.equal(reopened.payload(original, 'ko', 'ios').url === prepared.url, true);
-  assert.equal(issues, 1);
-});
-
-test('저장소 읽기/쓰기 실패 시 재진입에도 자동 발행하지 않는다', async () => {
-  for (const failure of ['getItem', 'setItem'] as const) {
-    resetStorage();
-    localStorage[failure] = () => { throw new Error('시험용 저장 장애'); };
-    let issues = 0;
-    for (let document = 0; document < 4; document++) {
-      const client = createGiftPreparation(async url => {
-        if (String(url).endsWith('share-config')) return json({ enabled: true, available: true });
-        issues++; return json({ ok: false });
-      }, () => '시험용-기기');
-      await client.refresh('ios');
-      assert.equal(client.payload(original, 'ko', 'ios'), original);
-    }
-    assert.equal(issues, 0);
-  }
-});
-
-test('취소/실패는 문서 재진입에도 보존·전송/복사 완료와 만료 때만 교체', async () => {
-  for (const outcome of ['cancelled', 'failed', 'shared', 'copied'] as const) {
-    resetStorage();
-    let issues = 0; let clock = Date.now();
-    const request: typeof fetch = async url => {
-      if (String(url).endsWith('share-config')) return json({ enabled: true, available: true });
-      issues++; return json({ ok: true, token: token(), expiresAt: clock + 120_000 });
-    };
-    const client = createGiftPreparation(request, () => '시험용-기기', () => clock);
-    await client.refresh('ios');
-    const first = client.payload(original, 'ko', 'ios');
-    const otherDocument = createGiftPreparation(request, () => '시험용-기기', () => clock);
-    await otherDocument.refresh('ios');
-    client.complete(outcome, first, 'ios'); await client.refresh('ios');
-    const completed = outcome === 'shared' || outcome === 'copied';
-    assert.equal(issues, completed ? 2 : 1);
-    if (completed) assert.equal(otherDocument.payload(original, 'ko', 'ios'), original);
-    const reopened = createGiftPreparation(request, () => '시험용-기기', () => clock);
-    await reopened.refresh('ios');
-    assert.equal(reopened.payload(original, 'ko', 'ios').url === first.url, !completed);
-    assert.equal(issues, completed ? 2 : 1);
-    clock += 120_001;
-    const expired = createGiftPreparation(request, () => '시험용-기기', () => clock);
-    await expired.refresh('ios');
-    assert.equal(issues, completed ? 3 : 2);
-  }
-});
-
-for (const condition of ['설정 조회 실패', '일시 소진', '플래그 꺼짐'] as const) {
-  for (const outcome of ['shared', 'copied'] as const) {
-    test(`2차 관문 회귀: ${condition} 뒤 ${outcome} 완료한 토큰은 재전송하지 않는다`, async () => {
-      let impaired = false; let issues = 0;
-      const request: typeof fetch = async url => {
-        if (String(url).endsWith('share-config')) {
-          if (impaired && condition === '설정 조회 실패') throw new Error('시험용 장애');
-          return json({ enabled: !(impaired && condition === '플래그 꺼짐'), available: !impaired });
-        }
-        issues++;
-        return json({ ok: true, token: token(), expiresAt: Date.now() + 3600_000 });
-      };
-      const client = createGiftPreparation(request, () => '시험용-기기');
-      await client.refresh('ios');
-      const sent = client.payload(original, 'ko', 'ios');
-      const staleDocument = createGiftPreparation(request, () => '시험용-기기');
-      await staleDocument.refresh('ios');
-      impaired = true;
-      await client.refresh('ios');
-      assert.equal(client.payload(original, 'ko', 'ios'), original);
-      client.complete(outcome, sent, 'ios');
-      await client.refresh('ios');
-      assert.equal(issues, 1);
-      assert.equal(localStorage.getItem('signumhq.gift.pending.v1') === null, true, '실제 전송한 토큰을 영속 저장소에서도 소비');
-      assert.equal(staleDocument.payload(original, 'ko', 'ios'), original, '다른 문서의 오래된 준비도 재사용 거부');
-      impaired = false;
-      const reopened = createGiftPreparation(request, () => '시험용-기기');
-      await reopened.refresh('ios');
-      const next = reopened.payload(original, 'ko', 'ios');
-      assert.equal(issues, 2);
-      assert.equal(next.url === sent.url, false, '복구·재진입 후 새 토큰만 전송');
-      await client.refresh('ios');
-      assert.equal(client.payload(original, 'ko', 'ios').url === next.url, true);
-      client.complete(outcome, sent, 'ios');
-      await client.refresh('ios');
-      assert.equal(client.payload(original, 'ko', 'ios').url === next.url, true, '완료 통지 재사용은 다음 토큰에 영향 없음');
-      assert.equal(issues, 2);
-    });
-  }
-}
-
-test('재조회 장애·소진 뒤 취소/실패한 토큰은 복구 후 보존한다', async () => {
-  for (const condition of ['장애', '소진']) for (const outcome of ['cancelled', 'failed'] as const) {
-    resetStorage();
-    let impaired = false; let issues = 0;
-    const request: typeof fetch = async url => {
-      if (String(url).endsWith('share-config')) {
-        if (impaired && condition === '장애') throw new Error('시험용 장애');
-        return json({ enabled: true, available: !impaired });
-      }
-      issues++;
-      return json({ ok: true, token: token(), expiresAt: Date.now() + 3600_000 });
-    };
-    const client = createGiftPreparation(request, () => '시험용-기기');
-    await client.refresh('ios');
-    const sent = client.payload(original, 'ko', 'ios');
-    impaired = true; await client.refresh('ios');
-    client.complete(outcome, sent, 'ios');
-    impaired = false;
-    const reopened = createGiftPreparation(request, () => '시험용-기기');
-    await reopened.refresh('ios');
-    assert.equal(reopened.payload(original, 'ko', 'ios').url === sent.url, true);
-    assert.equal(issues, 1);
-  }
+  const p = client.payload(original, 'ko', 'ios');
+  assert.equal(new URL(p.url).origin, origin);
+  assert.equal(p.text!.includes(original.url), true);
+  client.complete('shared', p, 'ios'); await tick();
+  assert.equal(s.log.issues.length, 1);
 });
 
 test('연결 표면 JSX는 운영 기준과 동일하고 클릭에서 공유 전에 await 없음', () => {

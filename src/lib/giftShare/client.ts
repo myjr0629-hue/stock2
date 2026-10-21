@@ -50,9 +50,11 @@ function randomGiftToken(): string | null {
 const kstDay = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
 const dayCap = (via: ShareVia) => via === 'web' ? 1 : 3;
 
+// 저장소 읽기 오류는 호출자에게 그대로 던진다(저장소를 못 쓰면 선물 문구를 붙이지 않는다). 형식 오류만 빈 값.
 function readSent(storage: Storage): SentGift[] {
+  const raw = storage.getItem(SENT_KEY);
   try {
-    const list = JSON.parse(storage.getItem(SENT_KEY) || '[]');
+    const list = JSON.parse(raw || '[]');
     return Array.isArray(list) ? list.filter((x: any) => giftToken(x?.token) && Number.isFinite(x?.at)
       && Number.isFinite(x?.tries) && Number.isFinite(x?.last)) : [];
   } catch { return []; }
@@ -62,8 +64,9 @@ function writeSent(storage: Storage, list: SentGift[]) {
   else storage.removeItem(SENT_KEY);
 }
 function sharedToday(storage: Storage, now: number): number {
+  const raw = storage.getItem(DAY_KEY);
   try {
-    const saved = JSON.parse(storage.getItem(DAY_KEY) || 'null');
+    const saved = JSON.parse(raw || 'null');
     return saved?.day === kstDay(now) && Number.isInteger(saved?.n) && saved.n >= 0 ? saved.n : 0;
   } catch { return 0; }
 }
