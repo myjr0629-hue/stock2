@@ -163,16 +163,46 @@ function staleMove(key: GKey, basis: number, now: number): boolean {
 
 export interface GFill { ok: boolean; text: string; reasons: string[] }
 
+/**
+ * ★2026-10-21 한국어 조사 — 자리표는 값을 모르는 모델이 조사를 붙인다(«VIX {VIX}는» → «VIX 17.3는»·«GEX {GEX}은» → «GEX +5은»).
+ *   채운 값의 마지막 읽는 소리(받침)에 맞춰 바로 뒤 조사 한 개만 고친다: 은/는 · 이/가 · 을/를 · 과/와 · 으로/로.
+ *   조사 뒤에 한글이 이어지면(«{X}이며»·«{X}가운데») 낱말일 수 있어 건드리지 않는다. 일본어·영어 글에는 해당 조사가 없다.
+ */
+const VAL_OPEN = '\u0002';
+const VAL_CLOSE = '\u0003';
+/** 값 문자열의 마지막 소리 — 'none' 받침 없음 · 'rieul' ㄹ 받침 · 'other' 그 밖 받침. %는 «퍼센트»(받침 없음). */
+function valueCoda(v: string): 'none' | 'rieul' | 'other' {
+    const t = v.trim();
+    const last = t.slice(-1);
+    if (last === '%') return 'none';
+    if (!/\d/.test(last)) return 'other';
+    // 끝이 0 이면 자리 이름(십·백·천·만) 또는 «영» — 모두 받침이 있다(ㄹ 아님). 소수 끝 0(«5.0») 도 «영».
+    if (last === '0') return 'other';
+    return ({ '1': 'rieul', '2': 'none', '3': 'other', '4': 'none', '5': 'none', '6': 'other', '7': 'rieul', '8': 'rieul', '9': 'none' } as Record<string, 'none' | 'rieul' | 'other'>)[last];
+}
+const PARTICLE_PAIRS: Record<string, [string, string]> = {   // [받침 있음, 받침 없음]
+    '은': ['은', '는'], '는': ['은', '는'], '이': ['이', '가'], '가': ['이', '가'], '을': ['을', '를'], '를': ['을', '를'], '과': ['과', '와'], '와': ['과', '와'],
+};
+function fixKoParticlesAfterValues(text: string): string {
+    return text.replace(/\u0002([^\u0003]*)\u0003(으로|로|은|는|이|가|을|를|과|와)(?![가-힣])/g, (_m, val: string, p: string) => {
+        const coda = valueCoda(val);
+        if (p === '으로' || p === '로') return val + (coda === 'other' ? '으로' : '로');
+        const pair = PARTICLE_PAIRS[p];
+        return val + (coda === 'none' ? pair[1] : pair[0]);
+    }).replace(/[\u0002\u0003]/g, '');
+}
+
 /** 자리표를 화면 값으로 채운다. 값이 없는 자리표·모르는 자리표·서술이 낡은 자리표가 있으면 ok=false. */
 export function fillGuardianTokens(text: string, nums: GNums | null | undefined, basis?: GNums | null): GFill {
     const reasons = new Set<string>();
-    const out = String(text ?? '').replace(TOKEN_RE, (m: string, k: GKey) => {
+    const filled = String(text ?? '').replace(TOKEN_RE, (m: string, k: GKey) => {
         const v = nums?.[k];
         if (typeof v !== 'number' || !Number.isFinite(v)) { reasons.add(`token-missing:${k}`); return m; }
         const b = basis?.[k];
         if (typeof b === 'number' && Number.isFinite(b) && staleMove(k, b, v)) reasons.add(`token-stale:${k}:${formatGNum(k, b)}→${formatGNum(k, v)}`);
-        return formatGNum(k, v);
+        return `${VAL_OPEN}${formatGNum(k, v)}${VAL_CLOSE}`;
     });
+    const out = fixKoParticlesAfterValues(filled);
     if (UNKNOWN_TOKEN_RE.test(out)) reasons.add('token-unknown');
     return { ok: reasons.size === 0, text: out, reasons: [...reasons] };
 }

@@ -187,6 +187,22 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
     await t('GEX 리터럴 오탐 방지 — «GEX +516.6M»(종목 GEX 금액)은 지수가 아니다', () => {
         assert.deepEqual(guardianLiterals('순 GEX +516.6M(롱 감마)').filter((l) => l.key === 'GEX'), []);
     });
+    await t('10/21 한국어 조사 — 채운 값의 받침에 맞춘다(«17.3는»→«17.3은», «+5은»→«+5는»), 낱말·일본어·영어는 그대로', () => {
+        const N = { VIX: 17.31, GEX: 5, DXY: 101.73, US10Y: 5.12, RLSI: 36.4, NDX_CHG: 0.78 };
+        assert.equal(fillGuardianTokens('VIX {VIX}는 정상', N).text, 'VIX 17.3은 정상');
+        assert.equal(fillGuardianTokens('GEX {GEX}은 중립', N).text, 'GEX +5는 중립');
+        assert.equal(fillGuardianTokens('DXY {DXY}가 높다', N).text, 'DXY 101.7이 높다');
+        assert.equal(fillGuardianTokens('10년물 {US10Y}으로 내려', N).text, '10년물 5.12%로 내려');
+        assert.equal(fillGuardianTokens('VIX {VIX}로 높아', { VIX: 21.8 }).text, 'VIX 21.8로 높아');   // ㄹ 받침 + 로
+        assert.equal(fillGuardianTokens('VIX {VIX}와 달러', N).text, 'VIX 17.3과 달러');
+        assert.equal(fillGuardianTokens('GEX {GEX}를 보면', { GEX: 30 }).text, 'GEX +30을 보면');
+        assert.equal(fillGuardianTokens('RLSI {RLSI}점으로', N).text, 'RLSI 36점으로');            // 단위 뒤 조사는 그대로
+        assert.equal(fillGuardianTokens('GEX {GEX}이며 중립', N).text, 'GEX +5이며 중립');          // 조사 뒤 한글 = 낱말일 수 있다 → 그대로
+        assert.equal(fillGuardianTokens('ナスダック{NDX_CHG}上昇', N).text, 'ナスダック+0.78%上昇');
+        assert.equal(fillGuardianTokens('VIX at {VIX}, calm', N).text, 'VIX at 17.3, calm');
+        assert.equal(fillGuardianTokens('나스닥 {NDX_CHG} 상승', N).text, '나스닥 +0.78% 상승');
+        assert.ok(!/[\u0002\u0003]/.test(fillGuardianTokens('{FOO} {VIX}는', N).text));
+    });
 
     console.log(`\n${n} passed`);
 })().catch((e) => { console.error(e); process.exit(1); });

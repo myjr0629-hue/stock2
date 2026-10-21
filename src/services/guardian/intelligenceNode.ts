@@ -1,5 +1,5 @@
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
-import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, polishTacticalText } from '@/lib/ai/tacticalPrompt';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { textGate, triLangGate } from '@/lib/ai/ladderGates';
@@ -272,6 +272,8 @@ function isPlaceholder(text: string): boolean {
  */
 function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string): { ok: boolean; tpl: string; text: string; reasons: string[] } {
     let cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
+    // ★2026-10-21 Tactical — 내부 지표명 날것(RLSI·GEX 단독)·«게이트»·한국어 연결어미 오타를 읽는 말로(뜻·숫자·시각 불변, lib/ai/tacticalPrompt.polishTacticalText)
+    if (type === 'reality') cleaned = polishTacticalText(cleaned, locale);
     // ★2026-10-07 T5 예측어 — 생성(strict)은 걸리면 탈락(교정 재생성), 읽기·복구(lenient)는 그 문장만 뺀다(쓸 만하게 남을 때) —
     //   이미 저장돼 있던 글이 새 사전 때문에 통째로 «준비 중»으로 바뀌지 않게(보이던 표시를 없애지 않는다).
     const forecastReasons: string[] = [];
@@ -449,7 +451,7 @@ function triHints(all: string[]): string {
     if (all.some(r => r.includes('orphan-number'))) h.push('Put the metric name right before every number in the same clause (e.g. "TLT {TLT_CHG}"), never a bare number after "this/이는/これは".');
     if (all.some(r => r.includes('direction-sign'))) h.push('A positive change is never weak/약세/弱気 and a negative change is never strong/강세/強気; for a smaller gain say it rose less.');
     if (all.some(r => /schedule:(?:relative-day|date-required|weekday)/.test(r))) h.push('Write the event date exactly as DATE_LABELS gives it plus HH:MM ET; no today/tomorrow/오늘/내일/今日/明日.');
-    if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the second sentence.');
+    if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the SO WHAT sentence (the one about money and options positioning).');
     if (all.some(r => r.includes('internal-label'))) h.push('Never write TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, WHY:, SO WHAT: or NEXT: — cite the report by its time and source.');
     if (all.some(r => r.includes('positioning-required'))) h.push('Name Gamma Shield/GEX (or SPY/QQQ gamma) before the last sentence and say whether it absorbs or amplifies the pressure.');
     return h.length ? ' ' + h.join(' ') : '';
@@ -883,7 +885,7 @@ async function translateInsight(sourceText: string, from: Locale, to: Locale, ty
             ? `Keep the section structure, one section per line, and map the labels exactly: ${pairs(3)}.`
             : type === 'gamma'
                 ? `Keep the two-line structure and map the labels exactly: ${pairs(2)}.`
-                : 'Do NOT add labels such as [Diagnosis] or [Conclusion]; write 2-3 natural sentences.';
+                : 'Do NOT add labels such as [Diagnosis] or [Conclusion]; keep the same sentences in the same order.';
         const prompt = `Translate the following ${LOCALE_NAMES[from]} market analysis into natural ${LOCALE_NAMES[to]}.
 ${structure}
 Keep every number, ticker and index name exactly as written. Keep placeholders in curly braces such as {NDX_CHG} or {RLSI} exactly as written, braces included. Keep the tone factual and observational: no recommendations or action directives.
