@@ -453,7 +453,7 @@ export function polishTacticalText(text: string, locale: Locale): string {
     const held: string[] = [];
     let t = String(text).replace(/\{[^{}\n]{0,40}\}/g, (m) => { held.push(m); return `\u0004${held.length - 1}\u0005`; });
     const n = PLAIN_NAMES[locale];
-    t = t.replace(/(?:게이트|gate|ゲート)\s*(?=GEX\b)/gi, '');
+    t = t.replace(/(?:게이트|(?<![A-Za-z])gate|ゲート)\s*(?=GEX\b)/gi, '');   // «Aggregate GEX» 의 gate 는 낱말 일부(관문 10211015 ②)
     // 약어 단독(앞이 «(»·«{»·영문자가 아니고 뒤가 «)»·«}»·영문자가 아님)
     const bare = (abbr: string) => new RegExp(`(?<![({A-Za-z_])${abbr}(?![)}A-Za-z_])`);
     if (!n.rlsiAny.test(t)) t = t.replace(bare('RLSI'), n.rlsi);

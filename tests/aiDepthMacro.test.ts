@@ -676,6 +676,8 @@ test('10/21 Tactical 다듬기 — 내부 지표명 날것·«게이트»·연�
     assert.equal(polishTacticalText('RLSI { RLSI }점', 'ko'), '시장 건강도(RLSI) { RLSI }점');
     assert.equal(polishTacticalText('RLSI { RLSI }', 'en'), 'market health (RLSI) { RLSI }');
     assert.equal(polishTacticalText('RLSI { RLSI }点', 'ja'), '市場の健全度(RLSI) { RLSI }点');
+    assert.equal(polishTacticalText('Aggregate GEX is neutral, with gamma flat.', 'en'), 'Aggregate GEX is neutral, with gamma flat.');   // 관문 10211015 ② «gate» 는 낱말일 때만
+    assert.equal(polishTacticalText('gate GEX +5 neutral', 'en'), 'options positioning (GEX) +5 neutral');
 });
 
 test('10/21 상태 판정 재료 — 자리표 낡음 판정과 같은 문턱(RLSI 45·65 · 감마 쉴드 등급 · VIX 18·25 · 지수 ±0.3%)', () => {
