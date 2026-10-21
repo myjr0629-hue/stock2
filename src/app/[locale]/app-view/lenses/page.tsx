@@ -15,10 +15,12 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { GuruLensProOnly as ProOnly } from '@/components/app/GuruLens';
 import {
-    FREE_ROWS, GURU, LENS_NAME, T, badgeTexts, coverageText, headline, lensBody, md, toLoc, whyLine,
+    FREE_ROWS, GURU, LENS_NAME, T, badgeTexts, coverageText, headline, isLockedLensRow, isVisibleLensRow, lensBody, md, toLoc, whyLine,
     type LensBody, type LensList, type LensRow, type Loc,
 } from '@/lib/app/guruLens';
 import type { LensId } from '@/lib/guruLens/types';
+import { fetchGuruLenses } from '@/lib/app/guruLensRequest';
+import { useWatchlistPro } from '@/lib/app/proEntitlement';
 import s from './lenses.module.css';
 
 function Row({ id, row, rank, loc, locale }: { id: LensId; row: LensRow; rank: number; loc: Loc; locale: string }) {
@@ -50,7 +52,7 @@ function LensCard({ lens, open, onToggle, universe, loc, locale }: {
     const t = T[loc];
     const id = lens.definition.id;
     const cov = coverageText(lens, universe, loc);
-    const free = lens.rows.slice(0, FREE_ROWS), locked = lens.rows.slice(FREE_ROWS);
+    const free = lens.rows.slice(0, FREE_ROWS).filter(isVisibleLensRow), locked = lens.rows.slice(FREE_ROWS);
     return (
         <section className={`${s.card} ${open ? s.open : ''}`} id={`lens-${id}`} data-testid="guru-lens-card">
             <button type="button" className={s.cardHead} aria-expanded={open} onClick={onToggle}>
@@ -71,8 +73,8 @@ function LensCard({ lens, open, onToggle, universe, loc, locale }: {
                 <div className={s.body}>
                     {free.map((r, i) => <Row key={r.ticker} id={id} row={r} rank={i + 1} loc={loc} locale={locale} />)}
                     {locked.length > 0 && (
-                        <ProOnly locale={locale} rows={locked.length}>
-                            {locked.map((r, i) => <Row key={r.ticker} id={id} row={r} rank={FREE_ROWS + i + 1} loc={loc} locale={locale} />)}
+                        <ProOnly locale={locale} rows={locked.length} locked={locked.some(isLockedLensRow)}>
+                            {locked.filter(isVisibleLensRow).map((r, i) => <Row key={r.ticker} id={id} row={r} rank={FREE_ROWS + i + 1} loc={loc} locale={locale} />)}
                         </ProOnly>
                     )}
                     <p className={s.note}>{t.interpreted(GURU[id][loc])}</p>
@@ -90,15 +92,37 @@ function LensesInner() {
     const loc = toLoc(locale), t = T[loc];
     const [data, setData] = useState<LensBody | null | undefined>(undefined);
     const [open, setOpen] = useState<string | null>(search.get('lens'));
+    const pro = useWatchlistPro();
 
     useEffect(() => {
         const controller = new AbortController();
-        fetch('/api/guru-lens', { signal: controller.signal })
-            .then(r => (r.ok ? r.json() : null))
-            .then(body => { if (!controller.signal.aborted) setData(lensBody(body)); })
-            .catch(() => { if (!controller.signal.aborted) setData(null); });
-        return () => controller.abort();
-    }, []);
+        let pending = false, retry = true;
+        const load = () => {
+            if (pending || controller.signal.aborted) return;
+            pending = true;
+            fetchGuruLenses(pro.isPro, controller.signal)
+                .then(r => (r.ok ? r.json() : null))
+                .then(body => {
+                    if (controller.signal.aborted) return;
+                    const next = lensBody(body);
+                    retry = !next || (pro.isPro && next.lenses.some(l => l.rows.some(isLockedLensRow)));
+                    setData(next);
+                })
+                .catch(() => { if (!controller.signal.aborted) { retry = true; setData(null); } })
+                .finally(() => { pending = false; });
+        };
+        const resume = () => { if (retry && document.visibilityState === 'visible') load(); };
+        load();
+        window.addEventListener('focus', resume);
+        window.addEventListener('pageshow', resume);
+        document.addEventListener('visibilitychange', resume);
+        return () => {
+            controller.abort();
+            window.removeEventListener('focus', resume);
+            window.removeEventListener('pageshow', resume);
+            document.removeEventListener('visibilitychange', resume);
+        };
+    }, [pro.isPro]);
     // 칩에서 들어오면 그 렌즈 카드로 한 번 스크롤
     useEffect(() => {
         const want = search.get('lens');

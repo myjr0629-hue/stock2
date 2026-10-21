@@ -115,8 +115,9 @@ async function main() {
             assert.equal(lens.mode, 'closest');
             assert.equal(lens.passCount, 0);
             assert.equal(lens.evaluatedCount, 6);
-            assert.deepEqual(lens.rows.map((r: any) => r.ticker), tickers.slice(0, 5));
-            assert.ok(lens.rows.every((r: any) => r.passed === false));
+            assert.deepEqual(lens.rows.slice(0, 3).map((r: any) => r.ticker), tickers.slice(0, 3));
+            assert.ok(lens.rows.slice(0, 3).every((r: any) => r.passed === false));
+            assert.deepEqual(lens.rows.slice(3), [{ rank: 4, locked: true }, { rank: 5, locked: true }]);
         }
         for (const ticker of ['AAPL', 'GOOGL']) {
             const response = await GET(new NextRequest(
