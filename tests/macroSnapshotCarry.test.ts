@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import {
     carryMissingMacroFields, extractLastGood, mergeLastGood, macroSnapshotComplete, weekdaysSince, lastGoodChanged,
+    toCarryRecords, fromCarryRecords,
 } from '../src/lib/macroSnapshotCarry';
 
 let passed = 0, failed = 0;
@@ -40,7 +41,8 @@ test('REAL·creditSpread 동시 누락 → 마지막 정상 관측을 원래 관
     const s = base({ realYield: undefined, realYieldObserved: undefined, creditSpread: undefined, nq: 25111 });
     const r = carryMissingMacroFields(s, lg, NOW);
     assert.deepEqual(r.carried.sort(), ['creditSpread', 'real']);
-    assert.deepEqual(r.snapshot.realYieldObserved, real('2026-10-20'));
+    // 값·관측일은 그대로, fromPair=true 로 기존 화면 규칙의 관측일(MM/DD) 표시를 켠다
+    assert.deepEqual(r.snapshot.realYieldObserved, { ...real('2026-10-20'), fromPair: true });
     assert.equal(r.snapshot.realYieldObserved!.asOf, '2026-10-20');
     assert.deepEqual(r.snapshot.creditSpread, cs('2026-10-19'));
     assert.equal(r.snapshot.nq, 25111);
@@ -86,13 +88,12 @@ test('주말을 낀 경계 — 금요일 관측은 화요일까지 3평일 안',
     assert.equal(weekdaysSince('2026-10-21', NOW), 0);
 });
 
-test('공포·탐욕은 평일 1일까지만', () => {
-    const lgOld = extractLastGood(base({ fearGreed: fg('2026-10-19T20:00:00Z') }));
-    const r1 = carryMissingMacroFields(base({ fearGreed: undefined }), lgOld, NOW);
-    assert.equal(r1.snapshot.fearGreed, undefined);
-    const lgOk = extractLastGood(base({ fearGreed: fg('2026-10-20T20:00:00Z') }));
-    const r2 = carryMissingMacroFields(base({ fearGreed: undefined }), lgOk, NOW);
-    assert.equal(r2.snapshot.fearGreed!.updatedAt, '2026-10-20T20:00:00Z');
+test('공포·탐욕·수익률 곡선은 대상 밖 — 빠져도 잇지 않는다(기존 동작)', () => {
+    const lg: any = { ...extractLastGood(base()), fearGreed: fg('2026-10-21T15:00:00Z'), yieldCurve: base().yieldCurve };
+    const s = base({ fearGreed: undefined, yieldCurve: undefined });
+    const r = carryMissingMacroFields(s, lg, NOW);
+    assert.equal(r.snapshot, s);
+    assert.equal(macroSnapshotComplete(s), true);
 });
 
 test('null·비유한값·잘못된 날짜는 결측으로 본다(보관도 안 함), 측정된 0·음수 REAL 은 유효', () => {
@@ -117,6 +118,18 @@ test('보관 병합 — 더 새 관측만 덮고, 늦게 끝난 옛 관측은 �
     assert.equal(m.creditSpread!.date, '2026-10-20');
     assert.ok(m.real);
     assert.equal(lastGoodChanged(newer, mergeLastGood(newer, older)), false);
+    // 같은 관측일이면 먼저 있던 것(저장소 CAS 와 같은 규칙) — 이은 값(fromPair) 재관측으로 다시 쓰지 않는다
+    const same = extractLastGood(base({ realYieldObserved: { ...real('2026-10-20'), fromPair: true } }));
+    assert.equal(lastGoodChanged(newer, mergeLastGood(newer, same)), false);
+});
+
+test('원자 저장 레코드 — value·asOf 는 CAS 계약(유한값·YYYY-MM-DD), 되읽기는 본문 관측일과 일치할 때만', () => {
+    const lg = extractLastGood(base());
+    const recs = toCarryRecords(lg);
+    assert.deepEqual(recs.map(r => [r.bundle, r.value, r.asOf]), [['real', 1.75, '2026-10-20'], ['creditSpread', 2.91, '2026-10-19']]);
+    assert.deepEqual(fromCarryRecords(recs), lg);
+    const forged: any = { ...recs[1], asOf: '2026-10-21' };
+    assert.equal(fromCarryRecords([forged, null]).creditSpread, undefined);
 });
 
 test('보관본이 비어 있으면 아무것도 지어내지 않는다', () => {

@@ -6,7 +6,8 @@
 //   이전 정상값을 잇지 않았고, 메모리·Redis 읽기도 완전성을 보지 않았다.
 // 어떻게: 필드 «묶음» 단위로 마지막 정상 관측을 보관하고, 새 결과에서 빠진 묶음만 그 값으로 잇는다.
 //   · 값과 «원래 관측일»(asOf·date·updatedAt)을 그대로 옮긴다 — 옛 값을 새 값처럼 보이게 하지 않는다.
-//   · 관측일이 상한(평일 기준)보다 오래되면 잇지 않는다(빈칸이 거짓 값보다 낫다).
+//   · 관측일이 상한(관측일 뒤 평일 3일)보다 오래되면 잇지 않는다(빈칸이 거짓 값보다 낫다).
+//   · 대상은 일간 관측 묶음 REAL·creditSpread 뿐(아래 MACRO_CARRY_BUNDLES).
 //   · 새 결과에 이미 있는 필드는 절대 건드리지 않는다 — 정상 경로는 바이트 동일.
 //   · REAL 은 화면 관측값(realYieldObserved)만 잇는다. 점수·AI 입력(realYield)은 손대지 않는다
 //     — 보관값을 정시 계산값으로 승격하지 않는다(관문 10200004 경계 유지, 점수 동작 무변경).
@@ -14,23 +15,22 @@
 // ============================================================================
 import type { MacroSnapshot } from '@/services/macroHubProvider';
 
-// yieldCurve 는 잇지 않는다 — 10Y 헤드라인·날짜 꼬리표 선택(tnxIsNewer)이 곡선에 묶여 있어, 옛 곡선을 붙이면 «지금 10Y»의 날짜가 어긋난다.
-export type MacroCarryBundle = 'real' | 'creditSpread' | 'fearGreed';
-export const MACRO_CARRY_BUNDLES: MacroCarryBundle[] = ['real', 'creditSpread', 'fearGreed'];
+// 일간 관측 묶음만 잇는다.
+//   yieldCurve 는 제외 — 10Y 헤드라인·날짜 꼬리표 선택(tnxIsNewer)이 곡선에 묶여 있어, 옛 곡선을 붙이면 «지금 10Y»의 날짜가 어긋난다.
+//   fearGreed 는 제외 — 장중에 바뀌는 값이라 날짜 단위 원자 저장(CAS)으로는 «하루 중 최신»을 보장할 수 없다.
+export type MacroCarryBundle = 'real' | 'creditSpread';
+export const MACRO_CARRY_BUNDLES: MacroCarryBundle[] = ['real', 'creditSpread'];
 
 type RealBundle = { realYieldObserved: NonNullable<MacroSnapshot['realYieldObserved']> };
 export type MacroLastGood = {
     real?: RealBundle;
     creditSpread?: NonNullable<MacroSnapshot['creditSpread']>;
-    fearGreed?: NonNullable<MacroSnapshot['fearGreed']>;
 };
 
 /** 묶음별 «잇기» 허용 상한 — 관측일 이후 지난 평일 수. 일간 계열은 하루 늦게 나오고 주말·휴일이 끼므로 3. */
 export const MAX_CARRY_WEEKDAYS: Record<MacroCarryBundle, number> = {
     real: 3,
     creditSpread: 3,
-    // 공포·탐욕은 장중에도 갱신되는 값 — 하루(평일 1) 넘은 값은 잇지 않는다
-    fearGreed: 1,
 };
 
 const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -49,7 +49,6 @@ export function bundleValid(snap: Partial<MacroSnapshot> | MacroLastGood | null 
             return !!o && fin(o.realYield) && fin(o.us10y) && fin(o.inflationExpectation) && !!ymd(o.asOf);
         }
         case 'creditSpread': return !!s.creditSpread && fin(s.creditSpread.value) && !!ymd(s.creditSpread.date);
-        case 'fearGreed': return !!s.fearGreed && fin(s.fearGreed.score) && !!ymd(s.fearGreed.updatedAt);
     }
 }
 
@@ -60,7 +59,6 @@ export function bundleDate(snap: Partial<MacroSnapshot> | MacroLastGood | null |
     switch (b) {
         case 'real': return ymd((s.real ? s.real.realYieldObserved : s.realYieldObserved)?.asOf);
         case 'creditSpread': return ymd(s.creditSpread?.date);
-        case 'fearGreed': return ymd(s.fearGreed?.updatedAt);
     }
 }
 
@@ -86,11 +84,10 @@ export function extractLastGood(snap: Partial<MacroSnapshot> | null | undefined)
     if (!snap) return out;
     if (bundleValid(snap, 'real')) out.real = { realYieldObserved: snap.realYieldObserved! };
     if (bundleValid(snap, 'creditSpread')) out.creditSpread = snap.creditSpread!;
-    if (bundleValid(snap, 'fearGreed')) out.fearGreed = snap.fearGreed!;
     return out;
 }
 
-/** 두 보관본을 묶음별로 합친다 — 관측일이 같거나 더 새로운 쪽(같으면 next)을 남긴다. */
+/** 두 보관본을 묶음별로 합친다 — 관측일이 더 새로운 쪽을 남긴다(같으면 prev). */
 export function mergeLastGood(prev: MacroLastGood | null | undefined, next: MacroLastGood | null | undefined): MacroLastGood {
     const out: MacroLastGood = {};
     for (const b of MACRO_CARRY_BUNDLES) {
@@ -100,11 +97,8 @@ export function mergeLastGood(prev: MacroLastGood | null | undefined, next: Macr
         if (!p) { (out as any)[b] = n; continue; }
         if (!n) { (out as any)[b] = p; continue; }
         const pd = bundleDate(prev, b)!, nd = bundleDate(next, b)!;
-        // fearGreed 는 같은 날 안에서도 바뀐다 — 시각 전체로 비교
-        const newer = b === 'fearGreed'
-            ? String((next as any).fearGreed.updatedAt) >= String((prev as any).fearGreed.updatedAt)
-            : nd >= pd;
-        (out as any)[b] = newer ? n : p;
+        // 같은 관측일이면 먼저 있던 것을 둔다(저장소 CAS 와 같은 규칙 — 같은 날짜로 다시 쓰지 않는다)
+        (out as any)[b] = nd > pd ? n : p;
     }
     return out;
 }
@@ -133,14 +127,38 @@ export function carryMissingMacroFields(
         if (!lg || !d || weekdaysSince(d, nowMs) > MAX_CARRY_WEEKDAYS[b]) { missing.push(b); continue; }
         if (out === snap) out = { ...snap };
         if (b === 'real') {
-            // 화면 관측값만 — realYield(점수·AI 입력)는 그대로 둔다
-            out.realYieldObserved = lg.real!.realYieldObserved;
+            // 화면 관측값만 — realYield(점수·AI 입력)는 그대로 둔다.
+            // fromPair=true: 기존 화면 규칙대로 관측일(MM/DD)이 함께 표시된다 — 지난 관측을 «지금» 계산처럼 보이지 않게.
+            //   (보관값도 같은 날짜 두 관측의 짝이다: 정시 계산은 명목·기대인플레이션 관측일이 같을 때만 성립)
+            out.realYieldObserved = { ...lg.real!.realYieldObserved, fromPair: true };
         } else {
             (out as any)[b] = (lg as any)[b];
         }
         carried.push(b);
     }
     return { snapshot: out, carried, missing };
+}
+
+// ── 원자 저장 레코드 — 기존 관측일 CAS(setIfNewerAsOf: 같은 날짜·옛 날짜는 덮지 않음)를 그대로 쓴다 ──
+export const MACRO_CARRY_CAS_PREFIX = 'macro:economy:lastgood:v2:snapshot.';
+export type MacroCarryRecord = { value: number; asOf: string; bundle: MacroCarryBundle; data: any };
+
+export function toCarryRecords(lg: MacroLastGood): MacroCarryRecord[] {
+    const out: MacroCarryRecord[] = [];
+    if (bundleValid(lg, 'real')) out.push({ value: lg.real!.realYieldObserved.realYield, asOf: bundleDate(lg, 'real')!, bundle: 'real', data: lg.real });
+    if (bundleValid(lg, 'creditSpread')) out.push({ value: lg.creditSpread!.value, asOf: bundleDate(lg, 'creditSpread')!, bundle: 'creditSpread', data: lg.creditSpread });
+    return out;
+}
+
+export function fromCarryRecords(recs: (MacroCarryRecord | null | undefined)[]): MacroLastGood {
+    const out: MacroLastGood = {};
+    for (const r of recs) {
+        if (!r || !r.data || (r.bundle !== 'real' && r.bundle !== 'creditSpread')) continue;
+        const cand: MacroLastGood = { [r.bundle]: r.data } as MacroLastGood;
+        // 레코드의 관측일과 본문 관측일이 어긋나면 버린다
+        if (bundleValid(cand, r.bundle) && bundleDate(cand, r.bundle) === r.asOf) (out as any)[r.bundle] = r.data;
+    }
+    return out;
 }
 
 /** 완전성 — 묶음이 하나라도 빠졌으면 false */
