@@ -105,15 +105,21 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     return { ...original, text: `${context}${COPY[lang]}`, url: u.toString() };
   };
   const complete = (outcome: ShareOutcome, used: SharePayload, via: ShareVia) => {
-    if ((outcome === 'shared' || outcome === 'copied') && ready && new URL(used.url).searchParams.get('gift') === ready.token) {
-      const usedToken = ready.token;
-      ready = null;
-      try {
-        // 다른 문서가 이미 준비한 다음 토큰까지 지우지 않는다.
-        if (readPending(localStorage, now())?.token === usedToken) localStorage.removeItem(PENDING_KEY);
-      } catch { return; }
-      void refresh(via);
-    }
+    if (outcome !== 'shared' && outcome !== 'copied') return;
+    let usedToken: string | null;
+    try { usedToken = giftToken(new URL(used.url).searchParams.get('gift')); } catch { return; }
+    if (!usedToken) return;
+    // 공유 도중 재조회가 ready를 비워도 실제 전송한 토큰은 소비한다.
+    let consumed = ready?.token === usedToken;
+    if (consumed) ready = null;
+    try {
+      // 중복 완료 통지나 다른 문서의 완료가 다음 토큰까지 지우지 않는다.
+      if (readPending(localStorage, now())?.token === usedToken) {
+        localStorage.removeItem(PENDING_KEY);
+        consumed = true;
+      }
+    } catch { return; }
+    if (consumed) void refresh(via);
   };
   return { refresh, payload, complete };
 }

@@ -233,6 +233,72 @@ test('취소/실패는 문서 재진입에도 보존·전송/복사 완료와 �
   }
 });
 
+for (const condition of ['설정 조회 실패', '일시 소진', '플래그 꺼짐'] as const) {
+  for (const outcome of ['shared', 'copied'] as const) {
+    test(`2차 관문 회귀: ${condition} 뒤 ${outcome} 완료한 토큰은 재전송하지 않는다`, async () => {
+      let impaired = false; let issues = 0;
+      const request: typeof fetch = async url => {
+        if (String(url).endsWith('share-config')) {
+          if (impaired && condition === '설정 조회 실패') throw new Error('시험용 장애');
+          return json({ enabled: !(impaired && condition === '플래그 꺼짐'), available: !impaired });
+        }
+        issues++;
+        return json({ ok: true, token: token(), expiresAt: Date.now() + 3600_000 });
+      };
+      const client = createGiftPreparation(request, () => '시험용-기기');
+      await client.refresh('ios');
+      const sent = client.payload(original, 'ko', 'ios');
+      const staleDocument = createGiftPreparation(request, () => '시험용-기기');
+      await staleDocument.refresh('ios');
+      impaired = true;
+      await client.refresh('ios');
+      assert.equal(client.payload(original, 'ko', 'ios'), original);
+      client.complete(outcome, sent, 'ios');
+      await client.refresh('ios');
+      assert.equal(issues, 1);
+      assert.equal(localStorage.getItem('signumhq.gift.pending.v1') === null, true, '실제 전송한 토큰을 영속 저장소에서도 소비');
+      assert.equal(staleDocument.payload(original, 'ko', 'ios'), original, '다른 문서의 오래된 준비도 재사용 거부');
+      impaired = false;
+      const reopened = createGiftPreparation(request, () => '시험용-기기');
+      await reopened.refresh('ios');
+      const next = reopened.payload(original, 'ko', 'ios');
+      assert.equal(issues, 2);
+      assert.equal(next.url === sent.url, false, '복구·재진입 후 새 토큰만 전송');
+      await client.refresh('ios');
+      assert.equal(client.payload(original, 'ko', 'ios').url === next.url, true);
+      client.complete(outcome, sent, 'ios');
+      await client.refresh('ios');
+      assert.equal(client.payload(original, 'ko', 'ios').url === next.url, true, '완료 통지 재사용은 다음 토큰에 영향 없음');
+      assert.equal(issues, 2);
+    });
+  }
+}
+
+test('재조회 장애·소진 뒤 취소/실패한 토큰은 복구 후 보존한다', async () => {
+  for (const condition of ['장애', '소진']) for (const outcome of ['cancelled', 'failed'] as const) {
+    resetStorage();
+    let impaired = false; let issues = 0;
+    const request: typeof fetch = async url => {
+      if (String(url).endsWith('share-config')) {
+        if (impaired && condition === '장애') throw new Error('시험용 장애');
+        return json({ enabled: true, available: !impaired });
+      }
+      issues++;
+      return json({ ok: true, token: token(), expiresAt: Date.now() + 3600_000 });
+    };
+    const client = createGiftPreparation(request, () => '시험용-기기');
+    await client.refresh('ios');
+    const sent = client.payload(original, 'ko', 'ios');
+    impaired = true; await client.refresh('ios');
+    client.complete(outcome, sent, 'ios');
+    impaired = false;
+    const reopened = createGiftPreparation(request, () => '시험용-기기');
+    await reopened.refresh('ios');
+    assert.equal(reopened.payload(original, 'ko', 'ios').url === sent.url, true);
+    assert.equal(issues, 1);
+  }
+});
+
 test('연결 표면 JSX는 운영 기준과 동일하고 클릭에서 공유 전에 await 없음', () => {
   const fs = require('node:fs');
   const paths = ['src/components/share/ShareButton.tsx', 'src/lib/invite/useInvite.ts', 'src/lib/gift/useGift.ts'];
