@@ -2303,13 +2303,10 @@ function isRegularSessionEt(): boolean {
 
 /** EC2 가 적재한 «직전 정규장» 유동성 (종목 → 점수) */
 export const LIQUIDITY_KEY = "intrinio:liquidity:lastreg";
-let _liqCache: { at: number; rows: Record<string, { s: number; q: number }>; failed: boolean } | null = null;
+let _liqCache: { at: number; rows: Record<string, { s: number; q: number }> } | null = null;
 
-async function loadLastRegLiquidity(onReadFailure?: () => void): Promise<Record<string, { s: number; q: number }>> {
-    if (_liqCache && Date.now() - _liqCache.at < EOD_TTL_MS) {
-        if (_liqCache.failed) onReadFailure?.();
-        return _liqCache.rows;
-    }
+async function loadLastRegLiquidity(): Promise<Record<string, { s: number; q: number }>> {
+    if (_liqCache && Date.now() - _liqCache.at < EOD_TTL_MS) return _liqCache.rows;
     const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
     const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";
     const controller = new AbortController();
@@ -2319,17 +2316,13 @@ async function loadLastRegLiquidity(onReadFailure?: () => void): Promise<Record<
             headers: { Authorization: `Bearer ${key}` },
             signal: controller.signal, cache: "no-store",
         });
-        if (!res.ok) { onReadFailure?.(); return {}; }
+        if (!res.ok) return {};
         const raw = await res.json();
         const val = typeof raw?.result === "string" ? safeJson(raw.result) : raw?.result;
         const rows = val?.rows && typeof val.rows === "object" ? val.rows : {};
-        // API 배치만 실패를 관측한다. 기존 호출자의 반환값·폴백 순서는 유지한다.
-        const failed = !val?.rows || typeof val.rows !== "object" || Array.isArray(val.rows);
-        if (failed) onReadFailure?.();
-        _liqCache = { at: Date.now(), rows, failed };
+        _liqCache = { at: Date.now(), rows };
         return rows;
     } catch {
-        onReadFailure?.();
         return {};
     } finally {
         clearTimeout(timer);
@@ -2344,15 +2337,14 @@ async function loadLastRegLiquidity(onReadFailure?: () => void): Promise<Record<
 export async function sessionAwareLiquidity(
     ticker: string,
     liveBid: number | null,
-    liveAsk: number | null,
-    options?: { onReadFailure?: () => void }
+    liveAsk: number | null
 ): Promise<{ liquidityScore: number | null; spreadPct: number | null; asOf: "live" | "lastReg" | null }> {
     if (isRegularSessionEt()) {
         const sp = spreadPctOf(liveBid, liveAsk);
         const sc = liquidityScoreFromSpread(sp);
         if (sc != null) return { liquidityScore: sc, spreadPct: sp == null ? null : Math.round(sp * 10000) / 10000, asOf: "live" };
     }
-    const rows = await loadLastRegLiquidity(options?.onReadFailure);
+    const rows = await loadLastRegLiquidity();
     const hit = rows[ticker.toUpperCase()];
     if (hit && Number.isFinite(hit.s)) {
         return { liquidityScore: hit.s, spreadPct: Number.isFinite(hit.q) ? hit.q : null, asOf: "lastReg" };

@@ -13,33 +13,28 @@ const snapshots = new Map<string, CachedSnapshot>();
 const flights = new Map<string, Promise<Snapshot>>();
 const MAX_SNAPSHOTS = 1000;
 
-async function latestOiRow(ticker: string, onReadFailure?: () => void): Promise<any> {
+async function latestOiRow(ticker: string): Promise<any> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
         // [2026-10-20] 수집 Lambda 행만(OI P/C 의 정본) — SPY 의 EC2 guardian 스냅샷 행(OI 없음)이 최신 행을 가리던 것을 건너뛴다
         const db = await import('@/lib/aws/dynamoDataProvider');
-        const row = await Promise.race([
-            latestCollectorGexRow(db, ticker).catch(() => { onReadFailure?.(); return null; }),
-            new Promise<null>(resolve => { timer = setTimeout(() => { onReadFailure?.(); resolve(null); }, 4000); }),
+        return await Promise.race([
+            latestCollectorGexRow(db, ticker).catch(() => null),
+            new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), 4000); }),
         ]);
-        // provider 는 장애도 null 로 반환한다. 정상본 교체에서는 결측과 장애를 구분할 수 없으면 보존한다.
-        if (!row) onReadFailure?.();
-        return row;
-    } catch { onReadFailure?.(); return null; }
+    } catch { return null; }
     finally { if (timer) clearTimeout(timer); }
 }
-async function readSnapshots(canonical: string[], onReadFailure?: () => void): Promise<Map<string, Snapshot>> {
+async function readSnapshots(canonical: string[]): Promise<Map<string, Snapshot>> {
     const versions = await mgetFromCache<any>(canonical.map(t => `structure:v2:${t}`))
         .catch(() => canonical.map(() => null));
     // Redis resolves null for both failures and key misses. Do not retain an uncertain
     // batch; a returned wrapper with no data is a successful read and may be cached.
     const cacheable = versions.length === canonical.length && versions.every(version => version != null);
-    // Redis 는 실패와 키 부재를 모두 null 로 준다. 배치 정상본 교체는 이 불확실성을 보수적으로 거른다.
-    if (!cacheable) onReadFailure?.();
     // Bound DynamoDB fan-out for large watchlists and fast-all requests.
     const rows = new Map<string, any>();
     for (let i = 0; i < canonical.length; i += 10) {
-        await Promise.all(canonical.slice(i, i + 10).map(async t => { rows.set(t, await latestOiRow(t, onReadFailure)); }));
+        await Promise.all(canonical.slice(i, i + 10).map(async t => { rows.set(t, await latestOiRow(t)); }));
     }
     return new Map(canonical.map((t, i) => [t, { structure: versions[i]?.data, oiRow: rows.get(t), cacheable }]));
 }
@@ -86,14 +81,11 @@ async function readCachedSnapshots(canonical: string[]): Promise<Map<string, Sna
 
 export type OptionEdition = { metrics: OptionMetrics; regime: OptionRegimeInputs };
 /** Metrics and the remaining VOL REGIME inputs from ONE read of the same structure:v2 edition. */
-/** onEdition: 종목별로 원천을 «실제로 읽었는지»(구조 판본·OI 행이 왔는지) 알린다 — 배치 정상본 병합이 «정당한 null»(만기·NO_MARKET·계산 불가)과
- *  «못 읽음»을 가르는 데 쓴다. 반환값·다른 호출자 동작은 그대로. */
-export type OptionSourceRead = { structure: boolean; oiRow: boolean };
-export async function readOptionEditions(tickers: string[], options: { cache?: boolean; onReadFailure?: () => void; onEdition?: (ticker: string, read: OptionSourceRead) => void } = {}): Promise<Map<string, OptionEdition>> {
+export async function readOptionEditions(tickers: string[], options: { cache?: boolean } = {}): Promise<Map<string, OptionEdition>> {
     const asked = [...new Set(tickers.map(t => t.trim().toUpperCase()).filter(Boolean))];
     if (!asked.length) return new Map();
     const canonical = [...new Set(asked.map(canonicalShareClass))];
-    const rows = await (options.cache ? readCachedSnapshots(canonical) : readSnapshots(canonical, options.onReadFailure));
+    const rows = await (options.cache ? readCachedSnapshots(canonical) : readSnapshots(canonical));
     const byCanonical = new Map<string, OptionEdition>();
     const now = Date.now();
     const floor = optionExpirationFloor(now);
@@ -103,14 +95,10 @@ export async function readOptionEditions(tickers: string[], options: { cache?: b
         // Re-evaluate expiry and OI age even on a hit; return fresh objects to every caller.
         byCanonical.set(t, { metrics: optionMetrics(usable ? s : null, oiRow, now), regime: usable ? optionRegimeInputs(s) : null });
     });
-    if (options.onEdition) for (const t of asked) {
-        const row = rows.get(canonicalShareClass(t));
-        options.onEdition(t, { structure: !!row?.structure, oiRow: !!row?.oiRow });
-    }
     return new Map(asked.map(t => [t, byCanonical.get(canonicalShareClass(t))!]));
 }
 
-export async function readOptionMetrics(tickers: string[], options: { cache?: boolean; onReadFailure?: () => void; onEdition?: (ticker: string, read: OptionSourceRead) => void } = {}): Promise<Map<string, OptionMetrics>> {
+export async function readOptionMetrics(tickers: string[], options: { cache?: boolean } = {}): Promise<Map<string, OptionMetrics>> {
     const editions = await readOptionEditions(tickers, options);
     return new Map([...editions].map(([t, e]) => [t, e.metrics]));
 }
