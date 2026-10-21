@@ -1265,7 +1265,8 @@ export class IntelligenceNode {
      */
     static numbersFor(type: InsightType, locale: Locale, shown: string | null | undefined): InsightOut | null {
         const o = _lastOut[type][locale];
-        return o && typeof shown === 'string' && o.shown === shown && o.tpl !== o.shown ? { tpl: o.tpl, basis: o.basis } : null;
+        // Tactical 은 자리표가 없어도 기준값(basis)을 남긴다 — 숫자 없는 «상태 판정»의 낡음 비교(stateStaleReasons)에 필요(관문 10211005 ①)
+        return o && typeof shown === 'string' && o.shown === shown && (o.tpl !== o.shown || (type === 'reality' && !!o.basis)) ? { tpl: o.tpl, basis: o.basis } : null;
     }
 
     /** 대기·장외 안내 문구인가 */
@@ -1291,8 +1292,9 @@ export class IntelligenceNode {
         const tplOut: Partial<Record<VerdictField, string>> = { ...tplIn };
         const basisOut: Partial<Record<VerdictField, GNums | null>> = { ...basisIn };
         let numChanged = false;
-        const setNum = (field: VerdictField, tpl: string, shown: string, basis: GNums | null) => {
-            const keep = tpl !== shown;  // 자리표가 있는 글만 원본을 남긴다
+        const setNum = (field: VerdictField, tpl: string, shown: string, basis: GNums | null, type?: InsightType) => {
+            // 자리표가 있는 글만 원본을 남긴다 — Tactical 은 자리표가 없어도 기준값을 남긴다(상태 판정 낡음 비교, 관문 10211005 ①)
+            const keep = tpl !== shown || (type === 'reality' && !!basis);
             if (keep ? tplOut[field] !== tpl || basisOut[field] !== basis : field in tplOut || field in basisOut) numChanged = true;
             if (keep) { tplOut[field] = tpl; basisOut[field] = basis; } else { delete tplOut[field]; delete basisOut[field]; }
         };
@@ -1304,7 +1306,7 @@ export class IntelligenceNode {
             const g = gateText(type, tpl, locale, nums, basis, false, tacticalPrompts?.(locale));
             if (g.ok) {
                 if (g.text !== value) { out = { ...out, [field]: g.text }; changed = true; }
-                setNum(field, g.tpl, g.text, basis);
+                setNum(field, g.tpl, g.text, basis, type);
                 continue;
             }
             console.warn(`[InsightGate] REJECT ${where} verdict.${field} (${locale}: ${g.reasons.join(' | ')}) :: ${previewForLog(g.text)}`);
@@ -1312,7 +1314,7 @@ export class IntelligenceNode {
             const g2 = gateText(type, rec.tpl, locale, nums, rec.basis, false, tacticalPrompts?.(locale));
             const shown = g2.ok ? g2.text : (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale];
             out = { ...out, [field]: shown };
-            setNum(field, g2.ok ? g2.tpl : shown, shown, g2.ok ? rec.basis : null);
+            setNum(field, g2.ok ? g2.tpl : shown, shown, g2.ok ? rec.basis : null, type);
             changed = true;
             repaired.push(field);
         }

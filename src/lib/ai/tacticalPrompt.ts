@@ -413,8 +413,9 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
     const cites = (s: string) => { const t = mentionedTimes(s); return t.length ? t.every(x => newsTimes.includes(x)) : sources.some(src => s.includes(src)); };
     const whyIdx = lead.findIndex(s => UNKNOWN.test(s) || (news.length > 0 && cites(s)));
     if (whyIdx < 0) reasons.push(news.length ? 'tactical:news-source-time-required' : 'tactical:unconfirmed-cause-required');
-    // WHY 앞(상태 판정) 문장에 시각을 쓰면 그것도 공급된 뉴스의 ET 시각이어야 한다 — 두 번째 문장의 «미확인»으로 첫 문장의 틀린 시각이 빠져나가지 않게(관문 10210927 ①)
-    else if (lead.slice(0, whyIdx).some(s => mentionedTimes(s).some(t => !newsTimes.includes(t)))) reasons.push('tactical:news-source-time-required');
+    // 앞 문장들(상태 판정·WHY)에 쓴 시각은 전부 공급된 뉴스의 ET 시각이어야 한다 — 어느 문장의 «미확인»으로도 다른 문장의 틀린 시각이 빠져나가지 않게
+    //   (관문 10210927 ① · 10211005 ②: 첫 문장 «옵션 포지션은 미확인» + 두 번째 문장 «10:30 ET 보도»(실제 09:24)). 일정 시각은 마지막 문장(NEXT)에만 쓴다.
+    else if (lead.some(s => mentionedTimes(s).some(t => !newsTimes.includes(t)))) reasons.push('tactical:news-source-time-required');
     // 포지셔닝(감마·옵션·기관 수급)은 WHY 문장에 붙어 나와도 인정 — 10/21 실제 모델 ko 가 «… GEX +7 중립»을 첫 문장 끝에 붙여 탈락·대체로 떨어졌다
     if (!/감마|GEX|옵션|기관.*수급|gamma|options|institutional|ガンマ|オプション|機関/i.test(sentences.slice(0, Math.max(2, sentences.length - 1)).join(' '))) reasons.push('tactical:positioning-required');
     // ISO의 20T14를 금액 단위 20T(조)로 읽지 않게 날짜·시각 경계만 분리한다.

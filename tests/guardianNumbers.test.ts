@@ -233,6 +233,15 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
             _resetInsightStateForTest();
             const night = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });   // 밤사이 선물 반전
             assert.ok(!night.repaired.includes('realityInsight'));
+            // 관문 10211005 ① — 자리표 없는 Tactical 글도 기준값을 남긴다: 같은 값으로 한 번 복구해도 basis 유지 → 이후 반전에 탈락
+            _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));
+            _resetInsightStateForTest();
+            const plain = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 오늘 시장을 움직인 거시 원인은 아직 확인되지 않았습니다. 시장 건강도는 약하고 옵션 포지션은 중립입니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+            const v2: any = { realityInsight: plain, num: { tpl: { realityInsight: plain }, basis: { realityInsight: basis } } };
+            const once = await IntelligenceNode.repairVerdictTexts(v2, 'ko', 'test', basis);
+            assert.deepEqual((once.verdict as any).num?.basis?.realityInsight, basis);
+            const later = await IntelligenceNode.repairVerdictTexts(once.verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+            assert.ok(later.repaired.includes('realityInsight'));
         } finally { _setMarketClockForTest(null); }
     });
 
