@@ -1321,14 +1321,6 @@ export function maskOneDaySessions(data: any[], nowMs: number = Date.now()): any
   return withGapBreaks;
 }
 
-/** VWAP 결측 복구: 기존 분봉 조회·세션 분류를 쓰되 지정 정규장 하루만 1회 조회한다. */
-export async function getRegularSessionMinuteBars(symbol: string, sessionDate: string): Promise<any[]> {
-  const data = await getAggregates(symbol, 1, 'minute', sessionDate, sessionDate);
-  // 화면의 PRE 초기화 대신 요청한 날짜를 선택한다. 정오 부근 시각은 날짜 선택에만 쓰며 봉 시각·가격은 보존한다.
-  const rows = maskOneDaySessions(data, Date.parse(`${sessionDate}T17:00:00Z`));
-  return rows.filter((r: any) => r.etDate === sessionDate && r.session === 'REG');
-}
-
 export async function getStockChartData(symbol: string, range: Range = "1d"): Promise<any[]> {
   const now = new Date();
   const to = now.toISOString().split('T')[0];
