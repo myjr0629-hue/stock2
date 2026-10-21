@@ -629,7 +629,7 @@ test('10/21 대표 «이것만 읽어도 시장 상태 이해» — 상태 판�
     const ctx = { rlsiScore: 36.4, nasdaqChange: 0.78, vix: 17.31, gexIndex: 5, gexLevel: 'NEUTRAL', asOf, scheduledEvents: ev, marketNewsHeadlines: news } as any;
     for (const loc of ['ko', 'en', 'ja'] as const) {
         const p = buildTacticalPrompt(ctx, loc);
-        assert.match(p, /MARKET_STATE: index up; market health weak; options positioning neutral; volatility normal/);
+        assert.match(p, /MARKET_STATE: index up; market health weak; options positioning neutral; volatility calm/);
         assert.match(p, /exactly four natural sentences in this order — STATE, WHY, SO WHAT, NEXT/);
         assert.match(p, /two-way reading/);
         assert.match(p, /never add a parenthetical such as/);
@@ -651,6 +651,12 @@ test('10/21 대표 «이것만 읽어도 시장 상태 이해» — 상태 판�
     // 숫자 나열 셈은 SO WHAT(WHY·첫·마지막 문장 제외) — 예전과 같은 범위
     const roll = good.replace('시장 건강도(RLSI) 36점으로 약하고', '나스닥 +0.78%, VIX 17.3, 달러 인덱스(DXY) 101.7, 미국 10년물 금리 5.12% 속에 시장 건강도(RLSI) 36점으로 약하고');
     assert.ok(checkTacticalOutput(roll, 'ko', p).includes('tactical:number-rollcall'));
+    // 관문 10210927 ① — 첫 문장의 틀린 시각을 두 번째 문장의 «미확인»(다른 것에 대한)으로 빠져나가지 못한다
+    const bypass = '10:30 ET 기준 지수는 올랐지만 힘이 빠진 상승장입니다. 옵션 포지션은 미확인입니다. 시장 건강도(RLSI) 36점으로 약하고 옵션 포지션(GEX +5)은 중립입니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+    assert.ok(checkTacticalOutput(bypass, 'ko', p).includes('tactical:news-source-time-required'));
+    // 관문 10210927 ④ — 새 구조 이름표 «STATE:» 노출도 탈락, 입력 이름표 MARKET_STATE 는 저장본 읽기에서도 탈락
+    assert.ok(checkTacticalOutput('STATE: ' + good, 'ko', p).includes('tactical:internal-label'));
+    assert.ok(checkTacticalStored(good.replace('지수는', 'MARKET_STATE 지수는'), p).includes('tactical:internal-label'));
 });
 
 test('10/21 Tactical 다듬기 — 내부 지표명 날것·«게이트»·연결어미 오타(뜻·숫자·자리표 불변)', () => {
@@ -662,12 +668,18 @@ test('10/21 Tactical 다듬기 — 내부 지표명 날것·«게이트»·연�
     assert.equal(polishTacticalText(polishTacticalText('RLSI 36, GEX +5', 'en'), 'en'), 'market health (RLSI) 36, options positioning (GEX) +5');
     assert.equal(polishTacticalText('RLSI {RLSI}点、GEX +5', 'ja'), '市場の健全度(RLSI) {RLSI}点、オプション・ポジション(GEX) +5');
     assert.equal(polishTacticalText('{RLSI} and (GEX +5) gamma', 'en'), '{RLSI} and (GEX +5) gamma');      // 자리표·괄호 속 약어는 건드리지 않는다
+    // 관문 10210927 ② — 공백 든 자리표 «{ RLSI }» 도 그대로(채우기가 깨지지 않게), 자리표 밖 약어만
+    assert.equal(polishTacticalText('시장 점수 { RLSI }점, { GEX } 수준', 'ko'), '시장 점수 { RLSI }점, { GEX } 수준');
+    assert.equal(polishTacticalText('RLSI { RLSI }점', 'ko'), '시장 건강도(RLSI) { RLSI }점');
+    assert.equal(polishTacticalText('RLSI { RLSI }', 'en'), 'market health (RLSI) { RLSI }');
+    assert.equal(polishTacticalText('RLSI { RLSI }点', 'ja'), '市場の健全度(RLSI) { RLSI }点');
 });
 
-test('10/21 상태 판정 재료 — 앱 화면과 같은 문턱(RLSI 40·60 · 감마 쉴드 등급 · VIX 15·20·30 · 지수 ±0.3%)', () => {
+test('10/21 상태 판정 재료 — 자리표 낡음 판정과 같은 문턱(RLSI 45·65 · 감마 쉴드 등급 · VIX 18·25 · 지수 ±0.3%)', () => {
     assert.equal(marketStateHint({ nasdaqChange: -2.66, rlsiScore: 34.3, gexLevel: 'LONG_GAMMA', vix: 20.2, breadthPct: 29 }), 'index down; market health weak; breadth narrow; options positioning cushioning; volatility elevated');
-    assert.equal(marketStateHint({ nasdaqChange: 0.1, rlsiScore: 61, vix: 14 }), 'index flat; market health strong; options positioning missing; volatility calm');
-    assert.equal(marketStateHint({ nasdaqChange: 0.3, rlsiScore: 40, gexLevel: 'SHORT_GAMMA', vix: 31 }), 'index up; market health middling; options positioning amplifying; volatility stressed');
+    assert.equal(marketStateHint({ nasdaqChange: 0.1, rlsiScore: 61, vix: 14 }), 'index flat; market health middling; options positioning missing; volatility calm');
+    assert.equal(marketStateHint({ nasdaqChange: 0.3, rlsiScore: 44.9, gexLevel: 'SHORT_GAMMA', vix: 25 }), 'index up; market health weak; options positioning amplifying; volatility stressed');
+    assert.equal(marketStateHint({ nasdaqChange: -0.29, rlsiScore: 65, gexLevel: 'NEUTRAL', vix: 18 }), 'index flat; market health strong; options positioning neutral; volatility elevated');
 });
 
 async function main() {
