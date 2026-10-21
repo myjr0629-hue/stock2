@@ -12,6 +12,7 @@
  *   · 처음 보는 ID 만 IP·ID 예산(10분)을 먼저 쓰고, 그걸 통과한 요청만 전체 예산을 쓴다(한 IP 가 전체를 못 태운다).
  *     같은 ID 동시 요청은 인스턴스 안에서 1회로 합친다. 확인된 양성은 인스턴스 메모리에도 둔다(Redis 장애 대비).
  *   · 공급사 응답은 본문까지 하나의 시간 제한 안에서 읽는다.
+ *   · 공유 예산을 셀 수 없으면(Redis 장애) 공급사를 부르지 않고 허용한다 — 인스턴스별 예산은 인스턴스 수만큼 상한이 커진다.
  *   · 공급사 «장애»(설정 없음·401/403·5xx·시간 초과·통신 실패)는 PRO 를 잠그지 않는다 — 공격자가 만들 수 없는
  *     상태이고, 장애 때 실제 구독자를 잠그는 것이 더 큰 손해다. 예산 초과·429·명시적 비활성은 잠근다.
  *   ⚠ v1 GET 은 없는 ID 를 «만든다» — 형식 검증과 예산을 통과한 처음 보는 ID 만 공급사에 간다.
@@ -84,8 +85,6 @@ export function createGuruProAccess(deps: ProAccessDeps) {
     const timeoutMs = deps.timeoutMs ?? PROVIDER_TIMEOUT_MS;
     const storeMs = deps.storeTimeoutMs ?? STORE_TIMEOUT_MS;
     const inflight = new Map<string, Promise<ProAccessDecision>>();
-    // 저장소를 못 쓸 때만 쓰는 인스턴스 안 예산(창 키 → 횟수).
-    const local = new Map<string, number>();
     // 확인된 양성의 인스턴스 사본(만료 시각) — Redis 장애·지연에도 기존 PRO 를 다시 예산에 태우지 않는다.
     const localPro = new Map<string, number>();
 
@@ -108,22 +107,23 @@ export function createGuruProAccess(deps: ProAccessDeps) {
         if (!deps.store || ttlSec < 1) return;
         try { await within(deps.store.set(posKey(h), pro ? '1' : '0', Math.floor(ttlSec)), storeMs); } catch { /* 다음 요청이 다시 확인 */ }
     }
-    async function count(keys: string[], w: number): Promise<number[]> {
-        let counts: number[] | undefined;
-        if (deps.store) {
-            try { counts = await within(deps.store.incr(keys, WINDOW_SEC * 2), storeMs); } catch { counts = undefined; }
-        }
-        if (counts && counts.length === keys.length && counts.every(n => Number.isFinite(n))) return counts;
-        for (const k of local.keys()) if (!k.endsWith(`:${w}`)) local.delete(k);
-        return keys.map(k => { const n = (local.get(k) ?? 0) + 1; local.set(k, n); return n; });
+    /** Redis 원자 증가. 저장소가 없거나 실패하면 null — 인스턴스별 계산은 인스턴스 수만큼 상한이 커지므로 쓰지 않는다. */
+    async function count(keys: string[]): Promise<number[] | null> {
+        if (!deps.store) return null;
+        try {
+            const counts = await within(deps.store.incr(keys, WINDOW_SEC * 2), storeMs);
+            return counts && counts.length === keys.length && counts.every(n => Number.isFinite(n)) ? counts : null;
+        } catch { return null; }
     }
-    async function withinBudget(h: string, ip: string | null): Promise<boolean> {
+    async function withinBudget(h: string, ip: string | null): Promise<'ok' | 'limited' | 'unavailable'> {
         const w = Math.floor(now() / 1000 / WINDOW_SEC);
         // IP·ID 예산을 넘은 요청은 전체 예산을 쓰지 않는다.
-        const [byIp, byId] = await count([`gl:rl:v1:ip:${hash('ip:' + (ip || 'unknown'))}:${w}`, `gl:rl:v1:id:${h}:${w}`], w);
-        if (byIp > LIMIT_PER_IP || byId > LIMIT_PER_ID) return false;
-        const [all] = await count([`gl:rl:v1:all:${w}`], w);
-        return all <= LIMIT_GLOBAL;
+        const first = await count([`gl:rl:v1:ip:${hash('ip:' + (ip || 'unknown'))}:${w}`, `gl:rl:v1:id:${h}:${w}`]);
+        if (!first) return 'unavailable';
+        if (first[0] > LIMIT_PER_IP || first[1] > LIMIT_PER_ID) return 'limited';
+        const all = await count([`gl:rl:v1:all:${w}`]);
+        if (!all) return 'unavailable';
+        return all[0] <= LIMIT_GLOBAL ? 'ok' : 'limited';
     }
     async function ask(uid: string): Promise<{ kind: 'active'; untilMs: number | null } | { kind: 'inactive' | 'limited' | 'unavailable' }> {
         const key = deps.keys.ios || deps.keys.android;
@@ -153,7 +153,11 @@ export function createGuruProAccess(deps: ProAccessDeps) {
     }
 
     async function decide(uid: string, h: string, ctx: ProAccessContext): Promise<ProAccessDecision> {
-        if (!(await withinBudget(h, ctx.ip))) return { pro: false, via: 'limited' };
+        const budget = await withinBudget(h, ctx.ip);
+        if (budget === 'limited') return { pro: false, via: 'limited' };
+        // 공유 예산을 셀 수 없으면(Redis 장애·미설정) 공급사를 부르지 않는다 — 상한 없는 호출·고객 생성을 막고,
+        // 인프라 장애로 실제 PRO 를 잠그지도 않는다(공급사 장애와 같은 원칙). 인스턴스 사본에만 2분 둔다.
+        if (budget === 'unavailable') { await writeVerdict(h, true, UNAVAILABLE_ALLOW_SEC); return { pro: true, via: 'provider_unavailable' }; }
         const r = await ask(uid);
         if (r.kind === 'active') {
             const left = r.untilMs === null ? POSITIVE_MAX_SEC : (r.untilMs - now()) / 1000;

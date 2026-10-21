@@ -107,15 +107,15 @@ async function main() {
         assert.equal(p.calls.length, LIMIT_PER_IP, '한 IP 는 공급사 20회까지만');
         assert.deepEqual(await access(PRO_ID, { ip: '77.77.77.77' }), { pro: true, via: 'provider' }, 'IP 초과 요청은 전체 예산을 쓰지 않는다');
     }
-    // ③-3 (관문 10211419 P2) Redis 없이도 확인된 PRO 는 인스턴스 사본으로 유지 — 같은 창 7회 이상 순차 조회
+    // ③-3 (관문 10211419 P2) 확인된 PRO 는 Redis 가 도중에 죽어도 인스턴스 사본으로 유지 — 같은 창 12회 순차 조회
     {
         const p = provider(standard);
-        for (const store of [null, (() => { const m = memoryStore(); m.break('throw'); return m; })()]) {
-            const access = createGuruProAccess({ store, keys, fetchImpl: p.fetchImpl, now: clock, storeTimeoutMs: 10 });
-            const before = p.calls.length;
-            for (let i = 0; i < 12; i++) assert.equal((await access(PRO_ID, { ip: '1.1.1.1' })).pro, true, `순차 ${i + 1}회`);
-            assert.equal(p.calls.length - before, 1, '공급사 1회 뒤 인스턴스 사본');
-        }
+        const store = memoryStore();
+        const access = createGuruProAccess({ store, keys, fetchImpl: p.fetchImpl, now: clock, storeTimeoutMs: 10 });
+        assert.deepEqual(await access(PRO_ID, { ip: '1.1.1.1' }), { pro: true, via: 'provider' });
+        store.break('throw');
+        for (let i = 0; i < 12; i++) assert.deepEqual(await access(PRO_ID, { ip: '1.1.1.1' }), { pro: true, via: 'cache' }, `순차 ${i + 1}회`);
+        assert.equal(p.calls.length, 1, '공급사 1회 뒤 인스턴스 사본');
     }
     // ③-4 (관문 10211425) 공급사 503 이 이어져도 같은 PRO 가 10분 창에 여러 번(2분 간격 포함) 조회해도 잠기지 않는다
     {
@@ -189,20 +189,22 @@ async function main() {
             fetchImpl: provider(() => Response.json(ent('2026-10-20T00:00:00Z', { grace_period_expires_date: '2026-10-25T00:00:00Z' }))).fetchImpl });
         assert.equal((await grace(PRO_ID, { ip: null })).pro, true, '유예 기간은 활성');
     }
-    // ⑦ 저장소 장애(예외·무응답)에도 요청은 붙잡히지 않고, 인스턴스 예산으로 제한이 이어진다
+    // ⑦ (관문 10211439) 공유 예산을 셀 수 없으면(Redis 예외·무응답·미설정) 공급사를 부르지 않는다 — 인스턴스 16개로 분산해도 호출 0, PRO 는 잠그지 않음
     {
-        for (const mode of ['throw', 'hang'] as const) {
+        for (const mode of ['throw', 'hang', 'none'] as const) {
             const store = memoryStore();
-            store.break(mode);
+            if (mode !== 'none') store.break(mode);
             const p = provider(standard);
-            const access = createGuruProAccess({ store, keys, fetchImpl: p.fetchImpl, now: clock, storeTimeoutMs: 10 });
-            assert.deepEqual(await access(PRO_ID, { ip: '1.1.1.1' }), { pro: true, via: 'provider' }, `저장소 ${mode}: PRO 확인`);
-            const r = [];
-            for (let i = 0; i < LIMIT_PER_IP + 5; i++) r.push(await access(anon(300 + i), { ip: '2.2.2.2' }));
-            assert.equal(r.filter(d => d.via === 'limited').length, 5, `저장소 ${mode}: 인스턴스 IP 예산`);
+            const instances = Array.from({ length: 16 }, () => createGuruProAccess({ store: mode === 'none' ? null : store, keys, fetchImpl: p.fetchImpl, now: clock, storeTimeoutMs: 10 }));
+            const t0 = Date.now();
+            for (let i = 0; i < 320; i++) {
+                const d = await instances[i % 16](anon(9000 + i), { ip: '3.3.3.3' });
+                assert.deepEqual(d, { pro: true, via: 'provider_unavailable' });
+            }
+            assert.equal(p.calls.length, 0, `저장소 ${mode}: 공유 예산 없이 공급사 호출 0`);
+            assert.ok(Date.now() - t0 < 15_000, `저장소 ${mode}: 요청이 붙잡히지 않는다`);
+            assert.equal((await instances[0](PRO_ID, { ip: '4.4.4.4' })).pro, true, `저장소 ${mode}: PRO 잠금 없음`);
         }
-        const noStore = createGuruProAccess({ store: null, keys, fetchImpl: provider(standard).fetchImpl, now: clock });
-        assert.equal((await noStore(PRO_ID, { ip: null })).pro, true);
     }
     console.log('대가 렌즈 서버 PRO 판정: 관문 4회 재현(무제한 조회·전역 예산 차단·본문 시간 제한·새 인스턴스 차단) + 상태별·저장소 장애 통과');
 }
