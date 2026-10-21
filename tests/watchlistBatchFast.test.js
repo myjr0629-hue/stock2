@@ -25,7 +25,7 @@ const copy = value => structuredClone(value);
 function harness({ cached = true, session = 'regular', unified = true, old = false } = {}) {
     const modules = new Map(), store = new Map(), jobs = [];
     const count = { redis: 0, dynamo: 0, analysis: 0, compute: 0, vendor: 0, writes: 0 };
-    const state = { failOptions: false, failSnapshots: false, failLevels: false,
+    const state = { failOptions: false, failSnapshots: false, failLevels: false, emptyLevels: false,
         failDarkPool: false, failLiquidity: false, darkPoolPct: 40, liquidityScore: 80 };
     const tickers = ['AAPL', 'NVDA', 'SPY'];
     const analysis = Object.fromEntries(tickers.filter(() => cached).map(t => [t, {
@@ -67,6 +67,7 @@ function harness({ cached = true, session = 'regular', unified = true, old = fal
         '@/services/structureService': {
             getStructureData: async () => copy(structure),
             prefetchLevelsForExit: asked => async () => { if (state.failLevels) throw new Error('합성 레벨 실패');
+                if (state.emptyLevels) return new Map();   // 관문 10211116: 레벨 조회만 실패 → 예외 없이 빈 Map
                 return new Map(asked.map(t => [t, copy(structure.levels)])); },
             applyLevelsToRealtime: (rt, levels) => { if (rt) Object.assign(rt, levels ?? { maxPain: null, callWall: null, putFloor: null }); },
         },
@@ -195,66 +196,103 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
             await h.drain(); assert.equal(h.count.compute, before + 1, '상한 요청이 예약 작업을 직접 실행해도 재실행 없음');
         }
     });
-    await test('옵션/시세/레벨 실패 때 메모리·Redis 정상본과 원천 시각 유지, 실패 해소 뒤 갱신', async () => {
-        for (const failure of ['failOptions', 'failSnapshots', 'failLevels']) {
-            startAt(); const h = harness(), get = h.makeCache();
-            const first = await get(['AAPL'], 'price', timing()), saved = JSON.stringify([...h.store]);
-            const sourceTime = first.results[0].realtime.optionsAsOf;
-            clock += 15_000; h.state[failure] = true;
-            await get(['AAPL'], 'price', timing()); await h.drain();
-            assert.equal(JSON.stringify([...h.store]), saved);
-            assert.deepEqual(await get(['AAPL'], 'price', timing()), first);
-            assert.equal(first.results[0].realtime.optionsAsOf, sourceTime);
-            h.state[failure] = false; await h.drain();
-            assert.notEqual(JSON.stringify([...h.store]), saved);
-        }
-    });
-    for (const [failure, field, restored] of [['failDarkPool', 'darkPoolPct', 45], ['failLiquidity', 'liquidityScore', 85]]) {
-        await test(`${failure}: 예외 없는 원천 결측에도 메모리·Redis 값과 시각 보존, 복구 뒤 정상 갱신`, async () => {
+    // 관문 10210914·10211116 재현 + 근본 설계(필드 묶음 병합) 검증
+    // 옵션 원천 실패 때 기존 AWS 보충 분기가 atmIv 시각 키를 null 로 싣는다(값 아님, 기존 동작) — 값 비교에서만 뺀다.
+    const norm = v => { const c = copy(v); for (const r of (c.results ?? [c])) for (const k of ['atmIvSourceDate', 'atmIvObservedAt'])
+        if (r?.realtime && r.realtime[k] === null) delete r.realtime[k];
+        // 합성 OI 행 시각은 시계를 따라 움직인다 — 옵션 원천이 살아 있는 경우의 새 시각은 정상. 옵션 실패는 아래에서 시각을 따로 확인.
+        for (const r of (c.results ?? [c])) if (r?.realtime) delete r.realtime.optionsAsOf; return c; };
+    for (const [failure, expectHeld] of [['failOptions', ['gex', 'squeeze', 'pcr', 'alphaSnapshot']], ['failLevels', ['levels']],
+        ['emptyLevels', ['levels']], ['failDarkPool', ['darkPool', 'alphaSnapshot']], ['failLiquidity', ['liquidity']]]) {
+        await test(`${failure}: 원천 실패 결측은 직전 값·원천 시각 유지(응답·메모리·Redis·빈 인스턴스), 5초 뒤 배경 재계산, 복구 뒤 새 값`, async () => {
             startAt(); const h = harness(), get = h.makeCache();
             const first = await get(['AAPL'], 'price', timing());
             const key = h.cacheModule().watchlistBatchKey('AAPL', 'price');
-            const saved = JSON.stringify(h.store.get(key));
-            assert.equal(first.results[0].realtime[field], failure === 'failDarkPool' ? 40 : 80);
+            const firstAt = h.store.get(key).at;
             clock += 15_000; h.state[failure] = true;
-            assert.deepEqual(await get(['AAPL'], 'price', timing()), first); await h.drain();
-            assert.equal(JSON.stringify(h.store.get(key)), saved, '실패가 Redis 정상본을 덮으면 안 됨');
-            assert.deepEqual(await get(['AAPL'], 'price', timing()), first, '실패가 메모리 정상본을 덮으면 안 됨');
+            await get(['AAPL'], 'price', timing()); await h.drain();   // 만료 → 배경 계산(실패 주입)
+            const saved = h.store.get(key);
+            assert.deepEqual(norm(saved.result), norm(first.results[0]), '실패 계산이 값을 비우거나 바꾸면 안 됨');
+            assert.deepEqual(Object.keys(saved.held).sort(), [...expectHeld].sort(), '유지 묶음 기록');
+            if (failure === 'failOptions') assert.equal(saved.result.realtime.optionsAsOf, first.results[0].realtime.optionsAsOf, 'P/C 유지값은 원래 행 시각');
+            for (const g of expectHeld) assert.equal(saved.held[g], firstAt, '유지값의 시각 = 처음 계산된 시각');
+            assert.equal(saved.at, clock, '병합본은 저장(장애가 정상본 갱신을 영구히 막지 않음)');
+            const t1 = timing();
+            assert.deepEqual(norm(await get(['AAPL'], 'price', t1)), norm(first), '메모리 적중 = 직전 값');
+            assert.equal(t1.stale, 0);
             const cold = h.makeCache();
-            assert.deepEqual(await cold(['AAPL'], 'price', timing()), first, '빈 인스턴스도 같은 원천 시각의 정상본 복원');
-            h.state[failure] = false; h.state[field] = restored; await h.drain();
+            assert.deepEqual(norm(await cold(['AAPL'], 'price', timing())), norm(first), '빈 인스턴스 Redis 복원도 같은 값');
+            // 5초 뒤 유지 묶음 재계산 예약(원천 아직 실패 → 계속 유지, 시각 그대로)
+            clock += 5_000; const t2 = timing();
+            await get(['AAPL'], 'price', t2); assert.equal(t2.stale, 1, '유지 묶음은 짧은 뒤 배경 재계산'); await h.drain();
+            assert.deepEqual(norm(h.store.get(key).result), norm(first.results[0]));
+            for (const g of expectHeld) assert.equal(h.store.get(key).held[g], firstAt, '연속 유지에도 원래 시각');
+            // 복구
+            h.state[failure] = false;
+            if (failure === 'failDarkPool') h.state.darkPoolPct = 45;
+            if (failure === 'failLiquidity') h.state.liquidityScore = 85;
+            clock += 5_000; await get(['AAPL'], 'price', timing()); await h.drain();
             const recovered = await get(['AAPL'], 'price', timing());
-            assert.equal(recovered.results[0].realtime[field], restored);
-            assert.equal(h.store.get(key).at, clock);
-            assert.notEqual(JSON.stringify(h.store.get(key)), saved);
+            assert.equal(h.store.get(key).held, undefined, '복구 뒤 유지 표식 없음');
+            if (failure === 'failDarkPool') assert.equal(recovered.results[0].realtime.darkPoolPct, 45);
+            if (failure === 'failLiquidity') assert.equal(recovered.results[0].realtime.liquidityScore, 85);
+            if (failure !== 'failDarkPool' && failure !== 'failLiquidity') {
+                // 복구 뒤 새 원천 행(합성 행 시각 = 시계 − 1시간)이 새 시각으로 들어온다 = 유지값이 아니라 새 값
+                assert.equal(recovered.results[0].realtime.optionsAsOf, clock - 3600_000 - (clock - h.store.get(key).at));
+                assert.deepEqual(norm(recovered.results[0]), norm(first.results[0]));
+            }
         });
     }
-    await test('실패 신호 없는 정상 결측·표시/메타 제거·0은 저장 허용', async () => {
-        const losses = [
-            r => r.realtime.darkPoolPct = null,
-            r => r.realtime.liquidityScore = undefined,
-            r => r.realtime.whaleIndex = null,
-            r => r.realtime.liquidityScore = 0,
-            r => r.realtime.sparkline = [],
-            r => r.alphaSnapshot.whyFactors = [],
-            r => r.alphaSnapshot.capturedAt = '',
-            r => r.alphaSnapshot = {},
+    await test('관문 10210914: FINRA 실패 시 다크풀 40 유지·고래지수 65 유지(66 아님)', async () => {
+        startAt(); const h = harness(), get = h.makeCache();
+        const first = await get(['AAPL'], 'price', timing());
+        assert.equal(first.results[0].realtime.whaleIndex, 65);
+        clock += 60_001; h.state.failDarkPool = true;   // 상한 넘김 → 동기 계산 응답도 병합본
+        const t = timing(), r = await get(['AAPL'], 'price', t);
+        assert.equal(t.sync, 1);
+        assert.equal(r.results[0].realtime.darkPoolPct, 40);
+        assert.equal(r.results[0].realtime.darkPoolSource, 'FINRA');
+        assert.equal(r.results[0].realtime.whaleIndex, 65);
+    });
+    await test('시세 실패(가격 결측)는 정상본 교체 없음', async () => {
+        startAt(); const h = harness(), get = h.makeCache();
+        const first = await get(['AAPL'], 'price', timing()); const saved = JSON.stringify([...h.store]);
+        clock += 15_000; h.state.failSnapshots = true;
+        await get(['AAPL'], 'price', timing()); await h.drain();
+        assert.equal(JSON.stringify([...h.store]), saved);
+        assert.deepEqual(await get(['AAPL'], 'price', timing()), first);
+        h.state.failSnapshots = false; await get(['AAPL'], 'price', timing()); await h.drain();
+        assert.notEqual(JSON.stringify([...h.store]), saved);
+    });
+    await test('실패 신호 없는 결측도 같은 규칙: 원천 묶음은 유지, 파생·표시·0·빈 배열·설명 변경은 새 계산 그대로 저장', async () => {
+        const cases = [
+            [r => r.realtime.darkPoolPct = null, r => assert.equal(r.realtime.darkPoolPct, 40), ['alphaSnapshot', 'darkPool']],
+            [r => { delete r.realtime.liquidityScore; }, r => assert.equal(r.realtime.liquidityScore, 80), ['liquidity']],
+            [r => r.realtime.whaleIndex = null, r => assert.equal(r.realtime.whaleIndex, null), []],
+            [r => r.realtime.liquidityScore = 0, r => assert.equal(r.realtime.liquidityScore, 0), []],
+            [r => r.realtime.sparkline = [], r => assert.deepEqual(r.realtime.sparkline, []), []],
+            [r => r.alphaSnapshot.whyFactors = [], r => assert.deepEqual(r.alphaSnapshot.whyFactors, []), []],
+            [r => r.alphaSnapshot.capturedAt = '', r => assert.equal(r.alphaSnapshot.capturedAt, ''), []],
+            [r => r.alphaSnapshot = {}, r => assert.deepEqual(r.alphaSnapshot, {}), []],
+            [r => r.alphaSnapshot = null, r => assert.equal(r.alphaSnapshot.capturedAt, '2026-10-19T20:00:00Z'), ['alphaSnapshot']],
         ];
-        for (const lose of losses) {
+        for (const [lose, verify, heldGroups] of cases) {
             startAt(); const h = harness(); let partial = false;
             const get = h.makeCache({ compute: async (...args) => {
                 const payload = await h.compute(...args);
                 if (partial) lose(payload.results[0]);
-                assert.equal(args[2].failed, false, '정상 결측을 원천 실패로 만들지 않음');
                 return payload;
             } });
             await get(['AAPL'], 'price', timing()); const saved = JSON.stringify([...h.store]);
             clock += 15_000; partial = true;
             await get(['AAPL'], 'price', timing()); await h.drain();
             assert.notEqual(JSON.stringify([...h.store]), saved);
+            const stored = [...h.store.values()][0];
+            assert.deepEqual(Object.keys(stored.held ?? {}).sort(), heldGroups);
             const before = copy(h.count), updated = await get(['AAPL'], 'price', timing());
             assert.deepEqual(h.count, before, '새 정상본의 메모리 적중은 원천을 다시 읽지 않음');
-            assert.deepEqual(updated.results[0], [...h.store.values()][0].result);
+            assert.deepEqual(updated.results[0], stored.result);
+            verify(updated.results[0]);
         }
     });
     for (const scenario of ['PRE→정규장', 'changePct 복구']) {
@@ -308,40 +346,99 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
             }
         });
     }
-    await test('상한·세션 경계 뒤에도 메모리/Redis 직전 정상본으로 완결성 비교, 옛 시각 재발급 없음', async () => {
-        for (const nextTime of ['2026-10-20T12:01:01-04:00', '2026-10-20T16:00:00-04:00']) {
+    await test('상한·세션 경계 뒤: 30분 안 유지(원래 원천 시각), 30분 넘으면 새 계산(빈 값) 그대로, 옛 시각 재발급 없음', async () => {
+        for (const [nextTime, held] of [['2026-10-20T12:01:01-04:00', true], ['2026-10-20T16:00:00-04:00', false]]) {
             for (const cold of [false, true]) {
                 startAt(); const h = harness(); let partial = false, complete;
                 const dependencies = { compute: async (...args) => {
-                    // 세션 이동과 별개로 모든 원천이 완결된 판본을 공급해 캐시 정책만 검증한다.
                     complete ??= await h.compute(...args);
                     const payload = copy(complete);
                     payload.results[0].realtime.optionsAsOf = clock - 3600_000;
+                    payload.results[0].realtime.darkPoolDate = '2026-10-19';
                     if (partial) {
-                        payload.results[0].realtime.darkPoolPct = null;
+                        Object.assign(payload.results[0].realtime, { darkPoolPct: null, darkPoolVol: null, darkPoolDate: null, darkPoolSource: null });
                         args[2].failed = true;
                     }
                     return payload;
                 } };
                 let get = h.makeCache(dependencies);
-                await get(['AAPL'], 'price', timing()); const saved = JSON.stringify([...h.store]);
+                await get(['AAPL'], 'price', timing());
+                const firstAt = [...h.store.values()][0].at;
                 clock = originalDate.parse(nextTime); partial = true;
                 if (cold) get = h.makeCache(dependencies);
                 const t = timing(), response = await get(['AAPL'], 'price', t);
                 assert.equal(t.sync, 1);
-                assert.equal(response.results[0].realtime.darkPoolPct, null, '상한 초과 과거 정상본 응답 금지');
-                assert.equal(JSON.stringify([...h.store]), saved, '직전 정상본은 비교·보존만');
-                partial = false; await get(['AAPL'], 'price', timing());
-                assert.notEqual(JSON.stringify([...h.store]), saved);
+                const rt = response.results[0].realtime, stored = [...h.store.values()][0];
+                assert.equal(stored.at, clock, '병합본 저장');
+                if (held) {
+                    assert.equal(rt.darkPoolPct, 40); assert.equal(rt.darkPoolDate, '2026-10-19', '원천 날짜 그대로');
+                    assert.equal(stored.held.darkPool, firstAt);
+                } else {
+                    assert.equal(rt.darkPoolPct, null, '유지 상한 넘은 과거 값 응답 금지');
+                    assert.equal(rt.darkPoolDate, null);
+                    assert.equal(stored.held, undefined);
+                }
             }
         }
     });
-    await test('API 원천 실패 관측: FINRA·유동성 예외 없는 실패가 failed 설정', async () => {
+    await test('정당한 소멸 목록: 세션 표시·범위 밖 레벨·가려진 판본·만기·신선도 초과 P/C·예상변동 만기는 유지하지 않음', () => {
+        const h = harness(); const { mergeHeldFields, HOLD_MAX_MS } = h.load('src/services/watchlistBatchMerge.ts');
+        const now = originalDate.parse('2026-10-20T12:00:00-04:00');
+        const base = () => ({ ticker: 'AAPL', alphaSnapshot: { score: 70, capturedAt: 'x' }, realtime: {
+            price: 100, session: 'reg', extendedPrice: 101, extendedChangePct: 1, changePct: 2,
+            maxPain: 100, callWall: 110, putFloor: 90, gammaFlipLevel: 95, levelsSource: 'structure', levelsExpiration: '2026-10-23',
+            levelsAsOf: now - 60_000, levelsRefPrice: 100, maxPainDist: 0, wallRangePct: 20,
+            pcr: 0.8, optionsAsOf: now - 3600_000, pcrBasis: 'oi_all_expiries_35d',
+            impliedMovePct: 3, impliedMoveExpiry: '2026-10-23', impliedMoveBasis: 'live', impliedMoveAsOf: now - 60_000, impliedMoveDef: 'atm-straddle-mid/1', impliedMoveSession: '2026-10-20',
+            gex: 1e7, darkPoolPct: 40, netPremium: 5e5, blockTrades: null, whaleIndex: 65, liquidityScore: 80, spreadPct: 0.1 } });
+        const prev = { at: now - 15_000, result: base() };
+        const run = mutate => { const next = { at: now, result: base() }; mutate(next.result.realtime, next.result); mergeHeldFields(prev, next, now); return next; };
+        // 세션 표시값: PRE→정규장으로 사라지는 것은 그대로
+        let n = run(rt => { rt.extendedPrice = null; rt.extendedChangePct = null; rt.changePct = null; rt.session = 'pre'; });
+        assert.equal(n.result.realtime.extendedPrice, null); assert.equal(n.result.realtime.changePct, null); assert.equal(n.held, undefined);
+        // 판본은 읽었는데 정의상 범위 밖(levelsSource 있음) → null 그대로
+        n = run(rt => { rt.maxPain = rt.callWall = rt.putFloor = rt.gammaFlipLevel = null; });
+        assert.equal(n.result.realtime.callWall, null); assert.equal(n.held, undefined);
+        // 판본이 가려짐(levelsStaleReason) → 그대로
+        n = run(rt => { rt.maxPain = rt.callWall = rt.putFloor = rt.gammaFlipLevel = null; rt.levelsSource = null; rt.levelsStaleReason = 'stale'; });
+        assert.equal(n.result.realtime.callWall, null); assert.equal(n.held, undefined);
+        // 판본 자체가 없음(조회 실패) → 직전 레벨·시각 유지, 거리·폭은 새 가격으로
+        n = run(rt => { rt.maxPain = rt.callWall = rt.putFloor = rt.gammaFlipLevel = null; rt.levelsSource = null; rt.levelsAsOf = null; rt.levelsExpiration = null; rt.price = 104; });
+        assert.equal(n.result.realtime.callWall, 110); assert.equal(n.result.realtime.levelsAsOf, now - 60_000);
+        assert.equal(n.result.realtime.maxPainDist, Number((((100 - 104) / 104) * 100).toFixed(2)));
+        assert.deepEqual(Object.keys(n.held), ['levels']);
+        // 새 가격 기준 정의 위반(콜월 110 ≤ 가격) → 유지 안 함
+        n = run(rt => { rt.maxPain = rt.callWall = rt.putFloor = rt.gammaFlipLevel = null; rt.levelsSource = null; rt.price = 115; });
+        assert.equal(n.result.realtime.callWall, null);
+        // P/C 행이 신선도 상한을 넘었으면 null 이 정의
+        const stalePrev = { at: now - 15_000, result: base() }; stalePrev.result.realtime.optionsAsOf = now - 10 * 86400_000;
+        n = { at: now, result: base() }; n.result.realtime.pcr = null; n.result.realtime.optionsAsOf = null;
+        mergeHeldFields(stalePrev, n, now); assert.equal(n.result.realtime.pcr, null);
+        // 예상 변동 만기 지남 → 유지 안 함
+        const expPrev = { at: now - 15_000, result: base() }; expPrev.result.realtime.impliedMoveExpiry = '2026-10-19';
+        n = { at: now, result: base() }; n.result.realtime.impliedMovePct = null;
+        mergeHeldFields(expPrev, n, now); assert.equal(n.result.realtime.impliedMovePct, null);
+        // 유지 상한
+        const old = { at: now - HOLD_MAX_MS - 1, result: base() };
+        n = { at: now, result: base() }; n.result.realtime.darkPoolPct = null;
+        mergeHeldFields(old, n, now); assert.equal(n.result.realtime.darkPoolPct, null);
+        // 다크풀 유지 → 고래지수 재계산, 알파 스냅샷 유지
+        n = run((rt, r) => { rt.darkPoolPct = null; rt.whaleIndex = 1; r.alphaSnapshot = { score: 1 }; });
+        assert.equal(n.result.realtime.darkPoolPct, 40); assert.notEqual(n.result.realtime.whaleIndex, 1);
+        assert.deepEqual(n.result.alphaSnapshot, { score: 70, capturedAt: 'x' });
+    });
+    await test('API 원천 실패 관측: FINRA·유동성 예외 없는 실패가 failed 설정, 냉기 실패 판본은 5초 뒤 재계산', async () => {
         for (const failure of ['failDarkPool', 'failLiquidity']) {
             startAt(); const h = harness(); h.state[failure] = true;
             const t = timing(); await h.makeCache()(['AAPL'], 'price', t);
             assert.equal(t.failed, true);
-            assert.equal(h.store.size, 0, '냉기에서도 원천 실패를 정상본으로 저장하지 않음');
+            const key = h.cacheModule().watchlistBatchKey('AAPL', 'price');
+            assert.equal(h.store.get(key).retry, true, '냉기 실패 판본은 재시도 표식');
+            h.state[failure] = false; clock += 5_000;
+            const t2 = timing(); await h.makeCache()(['AAPL'], 'price', t2); await h.drain();
+            assert.equal(t2.stale, 1, '5초 뒤 배경 재계산');
+            assert.equal(h.store.get(key).retry, undefined);
+            assert.equal(h.store.get(key).result.realtime[failure === 'failDarkPool' ? 'darkPoolPct' : 'liquidityScore'], failure === 'failDarkPool' ? 40 : 80);
         }
     });
     await test('세션 경계·조기폐장·휴장·서머타임: TTL 안이어도 세션 변경은 동기 계산', async () => {

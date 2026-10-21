@@ -1,12 +1,14 @@
 import { cashSessionPhaseAt, etDateOf, etMinutesOf, isNonTradingDay, optionExpirationFloor } from '@/lib/marketCalendar';
 import { newWatchlistBatchTiming, type WatchlistBatchTiming } from '@/lib/watchlistBatchTiming';
 import { type WatchlistBatchMode } from '@/services/watchlistBatchService';
+import { HELD_RETRY_MS, mergeHeldFields, type HeldMap } from '@/services/watchlistBatchMerge';
 
 export type BatchPayload = { results: any[]; meta: {
     count: number; elapsed: number; source: string; cached?: boolean; levelsWaitMs?: number;
 } };
+// held = 직전 정상본에서 유지한 필드 묶음 → 그 값이 처음 계산된 시각(응답 본문에는 나가지 않는다 — watchlistBatchMerge)
 export type BatchEnvelope = { at: number; scope: string; mode: WatchlistBatchMode; ticker: string;
-    result: any; meta: BatchPayload['meta'] };
+    result: any; meta: BatchPayload['meta']; held?: HeldMap; retry?: boolean };
 type Flight = { run: () => Promise<BatchEnvelope> };
 type Dependencies = {
     read: (keys: string[]) => Promise<(BatchEnvelope | null)[]>;
@@ -34,25 +36,6 @@ function normalResult(result: any): boolean {
         && typeof result.realtime.price === 'number' && Number.isFinite(result.realtime.price)
         && result.realtime.price > 0
         && (!Array.isArray(result.realtime.missingFields) || !result.realtime.missingFields.includes('price'));
-}
-
-// FINRA·유동성·옵션 원천과 그 입력으로 계산하는 지표만 비교한다.
-// 세션 표시값(extendedPrice/session 등), missingFields, alphaSnapshot 메타는 포함하지 않는다.
-const SOURCE_FIELDS = [
-    'darkPoolPct', 'darkPoolVol', 'darkPoolDate', 'darkPoolSource',
-    'liquidityScore', 'spreadPct', 'whaleIndex',
-    'gex', 'netGex', 'pcr', 'netPremium', 'squeezeScore',
-    'maxPain', 'callWall', 'putFloor', 'gammaFlipLevel',
-    'atmIv', 'atmIvSourceDate', 'atmIvObservedAt', 'ivSkew', 'impliedMovePct',
-] as const;
-
-/** 결측 자체는 장애가 아니다. 원천 실패가 관측된 경우에만 손실로 판정한다. */
-function lostSourceValue(previous: any, next: any, sourceFailed: boolean): boolean {
-    if (!sourceFailed) return false;
-    const empty = (value: any): boolean => value == null
-        || (typeof value === 'string' && value.trim() === '')
-        || (typeof value === 'object' && Object.keys(value).length === 0);
-    return SOURCE_FIELDS.some(field => !empty(previous?.realtime?.[field]) && empty(next?.realtime?.[field]));
 }
 
 /** 배치 API만 사용한다. SSR·포트폴리오 등 다른 소비자의 캐시 정책에는 관여하지 않는다. */
@@ -114,19 +97,20 @@ export function createWatchlistBatchCache(deps: Dependencies) {
                         // JSON 표준화는 저장본의 undefined/NaN 처리도 HTTP 직렬화와 같게 한다.
                         const env: BatchEnvelope = JSON.parse(JSON.stringify({ at: start, scope: window.scope,
                             mode, ticker, result, meta: payload.meta }));
+                        const key = watchlistBatchKey(ticker, mode);
+                        const previous = memory.get(key);
+                        // 정상본 갱신 = 필드 묶음 단위 병합(watchlistBatchMerge). 새 계산에서 비었는데 직전 정상본에 값이 있고
+                        // 정당한 소멸이 아니면 그 값과 원천 시각을 유지한다 — 응답(이 요청 포함)·저장본 모두 병합본.
+                        if (normalResult(result) && previous && previous.at <= env.at) mergeHeldFields(previous, env, now());
+                        // 원천 실패가 관측된 판본(직전 정상본이 없어 유지할 값이 없던 냉기 포함)도 짧은 뒤 다시 계산한다.
+                        if (timing.failed) env.retry = true;
                         envelopes.set(ticker, env);
                         if (!normalResult(result)) return;
                         const end = now(), currentWindow = watchlistBatchWindow(end);
                         if (currentWindow.scope !== window.scope || end - start > currentWindow.maxAge) return;
-                        const key = watchlistBatchKey(ticker, mode);
-                        const previous = memory.get(key);
                         if (previous && previous.at > env.at) return;
-                        // 일부 값만 섞으면 파생 지표·원천 시각이 새 판본처럼 보일 수 있어 전체 교체를 거부한다.
-                        // 기존 envelope의 at/meta와 모든 원천 시각을 그대로 보존하며 수명도 연장하지 않는다.
-                        if (previous && lostSourceValue(previous.result, env.result, timing.failed)) return;
-                        // 실패 때도 폴백·파생값이 유한할 수 있다(예: FINRA 실패 뒤 고래지수).
-                        // 결측이 없거나 최초 계산이어도 실패 판본으로 정상본의 수명을 연장하지 않는다.
-                        if (timing.failed) return;
+                        // 원천 실패(timing.failed)여도 비어 버린 묶음은 위에서 직전 값·시각으로 유지됐다 — 병합본을 저장하고,
+                        // 유지 묶음이 있으면 짧은 뒤(HELD_RETRY_MS) 배경 재계산으로 다시 채운다.
                         remember(key, env);
                         // 저장 실패도 메모리 정상본을 지우거나 시각을 다시 찍지 않는다.
                         await deps.write(key, env, 3600).catch(() => undefined);
@@ -156,7 +140,9 @@ export function createWatchlistBatchCache(deps: Dependencies) {
             if (valid(env, ticker, mode, window.scope, at) && at - env.at <= window.maxAge) {
                 ready.set(ticker, env);
                 timing[memoryBefore.has(key) ? 'memory' : 'redis']++;
-                if (at - env.at >= window.fresh) { stale.push(ticker); timing.stale++; }
+                // 유지 묶음이 있는 정상본은 짧은 뒤 배경 재계산(원천 복구 시 바로 채운다)
+                const freshFor = env.retry || (env.held && Object.keys(env.held).length) ? Math.min(window.fresh, HELD_RETRY_MS) : window.fresh;
+                if (at - env.at >= freshFor) { stale.push(ticker); timing.stale++; }
             } else {
                 sync.push(ticker); timing.sync++;
             }
