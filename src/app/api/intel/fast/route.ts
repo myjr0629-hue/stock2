@@ -15,6 +15,7 @@ import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/st
 import { etPhase, intelFastKey, intelFastWindow, usableEnvelope, INTEL_FAST_STORE_TTL_SEC, type IntelFastEnvelope } from '@/lib/cache/intelFastCache';
 import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
+import { readIntelTickerCache, readIntelImpliedMoves } from '@/services/intelFastFallback';
 import { readImpliedMoveFields, NO_IMPLIED_MOVE, type ImpliedMoveFields } from '@/lib/impliedMove';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { xsSnapshotOverride } from '@/services/xsScores';
@@ -45,14 +46,6 @@ const SECTOR_TICKERS: Record<string, string[]> = {
     fintech_pulse: ['XYZ', 'PYPL', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'UPST'],
     cloud_fortress: ['CRM', 'NOW', 'DDOG', 'WDAY', 'MDB', 'TEAM', 'HUBS'],
 };
-
-// Redis key matching /api/live/ticker format
-// ⚠️ 응답 모양이 바뀌면 **반드시 이 버전을 올린다.** 안 올리면 옛 페이로드가
-//    그대로 나가서 새 필드가 «조용히» 빠진다(2026-08-30 에 두 번 겪었다).
-//    v2 = 다크풀(FINRA) 필드 추가 2026-08-31
-function tickerCacheKey(ticker: string): string {
-    return `flow:ticker:v2:${ticker}`;
-}
 
 export const revalidate = 15; // 15-second edge cache
 
@@ -213,7 +206,7 @@ async function computeSector(request: Request) {
             // 3. Redis cached data
             // ★ [2026-09-25] 날짜 없는 flow:extended(24h) 읽기를 뺐다 — «정규장 분봉 PRE»(COST 916.26)와
             //   어제 POST 가 그 통로로 오늘 목록에 앉았다. 시간외 종가는 아래에서 날짜 키로 읽는다.
-            ...tickers.map(t => getFromCache<any>(tickerCacheKey(t)).catch(() => null)),
+            ...tickers.map(t => readIntelTickerCache(t).catch(() => null)),
         ]);
 
         const cachedTickers = tickers.map((_, i) => interleaved[i]);
@@ -226,6 +219,7 @@ async function computeSector(request: Request) {
         (snapshotData?.tickers || []).forEach((t: any) => {
             snapshotMap[t.ticker] = t;
         });
+        const impliedMoves = await readIntelImpliedMoves(tickers, analysisCache, snapshotMap);
 
         // Determine session
         const sRaw = (marketStatus as any)?.session || 'closed';
@@ -394,7 +388,10 @@ async function computeSector(request: Request) {
                         return res && typeof res.json === 'function' ? await res.json() : null;
                     } catch { return null; }
                 }));
-                take.forEach((i, gi) => { if (got[gi]) cachedTickers[i] = { ...(cachedTickers[i] || {}), ...got[gi] }; });
+                take.forEach((i, gi) => {
+                    // skip_alpha=1 데우기는 점수를 계산하지 않는다. 방금 읽은 실측 점수를 null로 덮지 않는다.
+                    if (got[gi]) cachedTickers[i] = { ...(cachedTickers[i] || {}), ...got[gi], alpha: cachedTickers[i]?.alpha ?? null };
+                });
                 const warmed = got.filter(Boolean).length;
                 if (warmed) console.log(`[intel/fast] 차가운 종목 데우기 ${warmed}/${take.length}`);
                 warmDiag = {
@@ -670,7 +667,7 @@ async function computeSector(request: Request) {
             // ★ [2026-09-29] 예상 변동은 «정의 표식이 있는» ATM 스트래들 값만(src/lib/impliedMove.ts).
             //   예전엔 분석 캐시의 «벽 사이 폭»(콜월 − 풋플로어)이나 아래 AWS 이력(수집 Lambda 의 전일 종가 스트래들)을
             //   같은 칸에 «±x%»로 냈다. `cached?.flow?.impliedMove` 는 live/ticker 가 한 번도 싣지 않은 경로였다.
-            impliedMove = readImpliedMoveFields(analysis);
+            impliedMove = readImpliedMoveFields(impliedMoves[ticker]);
             sparkline = (analysis?.sparkline?.length ? analysis.sparkline : cached?.flow?.sparkline) || [];
             // 못 잰 것은 «중립»이 아니라 «알 수 없음»이다
             if (gex != null && gex > 0) gammaRegime = 'LONG';
