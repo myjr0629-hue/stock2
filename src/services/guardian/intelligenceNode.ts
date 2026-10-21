@@ -272,8 +272,6 @@ function isPlaceholder(text: string): boolean {
  */
 function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string): { ok: boolean; tpl: string; text: string; reasons: string[] } {
     let cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
-    // ★2026-10-21 Tactical — 내부 지표명 날것(RLSI·GEX 단독)·«게이트»·한국어 연결어미 오타를 읽는 말로(뜻·숫자·시각 불변, lib/ai/tacticalPrompt.polishTacticalText)
-    if (type === 'reality') cleaned = polishTacticalText(cleaned, locale);
     // ★2026-10-07 T5 예측어 — 생성(strict)은 걸리면 탈락(교정 재생성), 읽기·복구(lenient)는 그 문장만 뺀다(쓸 만하게 남을 때) —
     //   이미 저장돼 있던 글이 새 사전 때문에 통째로 «준비 중»으로 바뀌지 않게(보이던 표시를 없애지 않는다).
     const forecastReasons: string[] = [];
@@ -292,7 +290,11 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
         //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).
         ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text)
             ? (strict ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
-    return { ok: reasons.length === 0, tpl: cleaned, text: n.text, reasons };
+    // ★2026-10-21 Tactical 다듬기 — 내부 지표명 날것(RLSI·GEX 단독)·«게이트»·한국어 연결어미 오타를 읽는 말로(lib/ai/tacticalPrompt.polishTacticalText).
+    //   검사는 다듬기 «전» 글로 한다(다듬기가 «RLSI36» 의 숫자를 셈에 드러내거나 글을 늘려 새 탈락을 만들지 않게 — 측정 2/180).
+    //   저장·화면 글만 다듬는다(뜻·숫자·시각·사건 이름·자리표 불변, 같은 글을 다시 다듬어도 그대로).
+    const polish = (x: string) => (type === 'reality' ? polishTacticalText(x, locale) : x);
+    return { ok: reasons.length === 0, tpl: polish(cleaned), text: polish(n.text), reasons };
 }
 
 /** Redis 에서 읽기 — 읽을 때도 검사한다(언어·거절 + 화면 숫자). 검사를 도입하기 전에 저장된 나쁜 글이 TTL 동안 나가지 않게. */

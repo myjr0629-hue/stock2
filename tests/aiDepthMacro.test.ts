@@ -184,7 +184,7 @@ test('ko/en/ja: 뉴스→전이+고유자원→한 가지 확인, 공백 350자 
         assert.match(p, /WHY[\s\S]*SO WHAT[\s\S]*NEXT/);
         assert.match(p, /at least one available proprietary resource/);
         assert.match(p, /exactly ONE supplied/);
-        assert.match(p, loc === 'en' ? /Maximum 500 characters/ : /Maximum 350 characters/);
+        assert.match(p, loc === 'en' ? /Maximum 440 characters/ : /Maximum 300 characters/);   // 10/21 — 4문장 구조에서 길이를 예전 글(ko 평균 250자)과 비슷하게(출구 상한 380/560 은 그대로)
         assert.match(p, /auction draws weak demand/);
         assert.match(p, /2026-10-21 08:30 ET/);
     }
