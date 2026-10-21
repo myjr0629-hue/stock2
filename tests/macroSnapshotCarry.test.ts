@@ -82,6 +82,17 @@ test('오래된 보관값(평일 3일 초과)은 잇지 않는다 — 빈칸이 
     assert.equal(r.snapshot.creditSpread, undefined);
 });
 
+test('신용스프레드는 화면에 날짜가 없어 평일 2일까지만, REAL(날짜 표시)은 3일까지', () => {
+    const empty = base({ realYieldObserved: undefined, realYield: undefined, creditSpread: undefined });
+    // 10/16(금) → 10/21(수) = 월·화·수 3평일
+    const r1 = carryMissingMacroFields(empty, extractLastGood(base({ realYieldObserved: real('2026-10-16'), creditSpread: cs('2026-10-16') })), NOW);
+    assert.deepEqual(r1.carried, ['real']);
+    assert.deepEqual(r1.missing, ['creditSpread']);
+    // 10/19(월) → 화·수 2평일 = 원천 정상일 때도 나올 수 있는 범위
+    const r2 = carryMissingMacroFields(empty, extractLastGood(base({ creditSpread: cs('2026-10-19') })), NOW);
+    assert.ok(r2.carried.includes('creditSpread'));
+});
+
 test('주말을 낀 경계 — 금요일 관측은 화요일까지 3평일 안', () => {
     assert.equal(weekdaysSince('2026-10-16', Date.parse('2026-10-20T15:00:00Z')), 2); // 월·화
     assert.equal(weekdaysSince('2026-10-16', Date.parse('2026-10-21T15:00:00Z')), 3);

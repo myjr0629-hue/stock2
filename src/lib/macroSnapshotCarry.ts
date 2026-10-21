@@ -6,7 +6,7 @@
 //   이전 정상값을 잇지 않았고, 메모리·Redis 읽기도 완전성을 보지 않았다.
 // 어떻게: 필드 «묶음» 단위로 마지막 정상 관측을 보관하고, 새 결과에서 빠진 묶음만 그 값으로 잇는다.
 //   · 값과 «원래 관측일»(asOf·date·updatedAt)을 그대로 옮긴다 — 옛 값을 새 값처럼 보이게 하지 않는다.
-//   · 관측일이 상한(관측일 뒤 평일 3일)보다 오래되면 잇지 않는다(빈칸이 거짓 값보다 낫다).
+//   · 관측일이 상한(REAL 평일 3일·신용스프레드 2일)보다 오래되면 잇지 않는다(빈칸이 거짓 값보다 낫다).
 //   · 대상은 일간 관측 묶음 REAL·creditSpread 뿐(아래 MACRO_CARRY_BUNDLES).
 //   · 새 결과에 이미 있는 필드는 절대 건드리지 않는다 — 정상 경로는 바이트 동일.
 //   · REAL 은 화면 관측값(realYieldObserved)만 잇는다. 점수·AI 입력(realYield)은 손대지 않는다
@@ -27,10 +27,12 @@ export type MacroLastGood = {
     creditSpread?: NonNullable<MacroSnapshot['creditSpread']>;
 };
 
-/** 묶음별 «잇기» 허용 상한 — 관측일 이후 지난 평일 수. 일간 계열은 하루 늦게 나오고 주말·휴일이 끼므로 3. */
+/** 묶음별 «잇기» 허용 상한 — 관측일 이후 지난 평일 수. REAL 은 화면에 관측일(MM/DD)이 함께 나오므로 3. */
 export const MAX_CARRY_WEEKDAYS: Record<MacroCarryBundle, number> = {
     real: 3,
-    creditSpread: 3,
+    // 신용스프레드는 화면에 관측일이 나오지 않는다 — 원천이 정상일 때도 나오는 범위(D+1 공표 + 휴일 하루)까지만 잇는다.
+    //   그보다 오래된 값은 «지금 값»처럼 보일 수 있으므로 잇지 않는다.
+    creditSpread: 2,
 };
 
 const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);

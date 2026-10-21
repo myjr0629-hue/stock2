@@ -12,7 +12,7 @@ import { getYahooDataSSOT, YahooQuote } from './yahooFinanceHub';
 import { getFromCache, setInCache, setIfNewerAsOf, mgetLatestAsOf } from './redisClient';
 import { changeFromPrev } from '@/lib/yieldChange';
 import {
-    carryMissingMacroFields, extractLastGood, mergeLastGood, lastGoodChanged, macroSnapshotComplete,
+    carryMissingMacroFields, extractLastGood, mergeLastGood, macroSnapshotComplete,
     toCarryRecords, fromCarryRecords, MACRO_CARRY_BUNDLES, MACRO_CARRY_CAS_PREFIX,
     type MacroLastGood, type MacroCarryRecord,
 } from '@/lib/macroSnapshotCarry';
@@ -144,27 +144,39 @@ let macroRefreshing = false;          // 배경 갱신 중복 방지
 const MACRO_CARRY_KEYS = MACRO_CARRY_BUNDLES.map(b => MACRO_CARRY_CAS_PREFIX + b);
 const MACRO_LASTGOOD_TTL_SEC = 7 * 24 * 60 * 60;
 const LASTGOOD_REREAD_MS = 30_000;    // 불완전 읽기마다 저장소를 두드리지 않게
+const LASTGOOD_RETRY_MS = 60_000;     // 저장 실패한 묶음의 재시도 간격
 let lastGoodMem: MacroLastGood = {};
 let lastGoodReadAt = 0;
+let lastGoodLoading: Promise<MacroLastGood> | null = null;
+/** 저장소에 실제로 남긴(성공 응답) 관측일 — 실패한 묶음은 다음 기회에 다시 저장한다 */
+const lastGoodPersisted: Partial<Record<string, string>> = {};
+const lastGoodAttemptAt: Partial<Record<string, number>> = {};
 
 async function loadLastGood(force = false): Promise<MacroLastGood> {
-    const now = Date.now();
-    if (!force && now - lastGoodReadAt < LASTGOOD_REREAD_MS) return lastGoodMem;
-    lastGoodReadAt = now;
-    try {
-        const recs = await mgetLatestAsOf<MacroCarryRecord>(MACRO_CARRY_KEYS);
-        lastGoodMem = mergeLastGood(lastGoodMem, fromCarryRecords(recs));
-    } catch { /* 보관본을 못 읽어도 응답은 나간다 */ }
-    return lastGoodMem;
+    // 동시 요청은 진행 중인 읽기를 함께 기다린다(먼저 온 요청만 보관본을 받는 일이 없게)
+    if (lastGoodLoading) return lastGoodLoading;
+    if (!force && Date.now() - lastGoodReadAt < LASTGOOD_REREAD_MS) return lastGoodMem;
+    lastGoodLoading = (async () => {
+        try {
+            const recs = await mgetLatestAsOf<MacroCarryRecord>(MACRO_CARRY_KEYS);
+            lastGoodMem = mergeLastGood(lastGoodMem, fromCarryRecords(recs));
+        } catch { /* 보관본을 못 읽어도 응답은 나간다 */ }
+        lastGoodReadAt = Date.now();
+        return lastGoodMem;
+    })().finally(() => { lastGoodLoading = null; });
+    return lastGoodLoading;
 }
 
-/** 유효 묶음을 보관본에 반영(관측일이 새로울 때만 실제 저장 — 저장소 안에서 비교). 응답을 기다리게 하지 않는다. */
+/** 유효 묶음을 보관본에 반영. 저장소 쓰기는 관측일이 아직 저장되지 않은 묶음만(관측일 CAS — 같은·옛 날짜는 저장소가 거른다). 응답을 기다리게 하지 않는다. */
 function rememberLastGood(snap: MacroSnapshot) {
-    const next = mergeLastGood(lastGoodMem, extractLastGood(snap));
-    if (!lastGoodChanged(lastGoodMem, next)) return;
-    lastGoodMem = next;
-    for (const rec of toCarryRecords(next)) {
+    lastGoodMem = mergeLastGood(lastGoodMem, extractLastGood(snap));
+    const now = Date.now();
+    for (const rec of toCarryRecords(lastGoodMem)) {
+        if (lastGoodPersisted[rec.bundle] === rec.asOf) continue;
+        if (now - (lastGoodAttemptAt[rec.bundle] ?? 0) < LASTGOOD_RETRY_MS) continue;
+        lastGoodAttemptAt[rec.bundle] = now;
         setIfNewerAsOf(MACRO_CARRY_CAS_PREFIX + rec.bundle, rec, MACRO_LASTGOOD_TTL_SEC)
+            .then(ok => { if (ok) lastGoodPersisted[rec.bundle] = rec.asOf; })
             .catch(e => console.warn('[MacroHub] 보관본 저장 실패:', e?.message));
     }
 }
