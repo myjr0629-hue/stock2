@@ -5,7 +5,7 @@ import {
     carryMissingMacroFields, extractLastGood, mergeLastGood, macroSnapshotComplete, weekdaysSince, lastGoodChanged,
     toCarryRecords, fromCarryRecords,
 } from '../src/lib/macroSnapshotCarry';
-import { parseFredObservations, creditSpreadFromSeries, realPairFromSeries } from '../src/lib/macroFredFallback';
+import { parseFredObservations, creditSpreadFromSeries, realPairFromSeries, memoized } from '../src/lib/macroFredFallback';
 
 let passed = 0, failed = 0;
 function test(name: string, fn: () => void) {
@@ -177,5 +177,25 @@ test('FRED 폴백 — REAL 은 같은 날짜 짝·10일 이내·fromPair(점수 
     assert.equal(realPairFromSeries(d, [], NOW), null);
 });
 
+async function asyncTests() {
+    // 동시 20건 → 원천 1회, 실패 직후 재요청 → 원천 0회(대기 간격)
+    let calls = 0;
+    const fail = memoized<number>(async () => { calls++; await new Promise(r => setTimeout(r, 20)); return null; });
+    const r = await Promise.all(Array.from({ length: 20 }, () => fail()));
+    try {
+        assert.equal(calls, 1); assert.ok(r.every(x => x === null));
+        await fail(); await fail();
+        assert.equal(calls, 1);
+        let okCalls = 0;
+        const good = memoized<number>(async () => { okCalls++; return 7; });
+        const g = await Promise.all(Array.from({ length: 20 }, () => good()));
+        await good();
+        assert.equal(okCalls, 1); assert.ok(g.every(x => x === 7));
+        passed++; console.log('PASS FRED 폴백 — 동시 요청 공유·실패 대기 간격·성공 기억(호출 증폭 없음)');
+    } catch (e: any) { failed++; console.log(`FAIL FRED 폴백 호출 증폭: ${e.message}`); }
+}
+
+asyncTests().then(() => {
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
+});

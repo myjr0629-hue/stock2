@@ -74,22 +74,33 @@ export function realPairFromSeries(dgs10: Obs[], t5yie: Obs[], nowMs: number): N
     return { us10y, inflationExpectation, realYield, stance, asOf: pair.date, fromPair: true };
 }
 
-// 일간 계열 — 인스턴스당 10분 기억(성공만). Intrinio 장애가 길어도 FRED 를 매 재계산마다 두드리지 않는다.
+// 일간 계열 — 인스턴스당: 성공은 10분 기억, 실패는 2분 동안 다시 묻지 않음, 진행 중 요청은 함께 기다림.
+//   Intrinio 장애가 길어도·동시 요청이 몰려도 FRED 호출은 인스턴스당 묶음별 «동시에 1건»을 넘지 않는다.
 const MEMO_MS = 10 * 60_000;
-let csMemo: { at: number; v: NonNullable<MacroSnapshot['creditSpread']> } | null = null;
-let realMemo: { at: number; v: NonNullable<MacroSnapshot['realYieldObserved']> } | null = null;
+const FAIL_BACKOFF_MS = 2 * 60_000;
 
-export async function fredCreditSpread(): Promise<NonNullable<MacroSnapshot['creditSpread']> | null> {
-    if (csMemo && Date.now() - csMemo.at < MEMO_MS) return csMemo.v;
-    const v = creditSpreadFromSeries(await fredObservations('BAMLH0A0HYM2', 260));
-    if (v) csMemo = { at: Date.now(), v };
-    return v;
+export function memoized<T>(load: () => Promise<T | null>): () => Promise<T | null> {
+    let ok: { at: number; v: T } | null = null;
+    let failAt = 0;
+    let inflight: Promise<T | null> | null = null;
+    return () => {
+        const now = Date.now();
+        if (ok && now - ok.at < MEMO_MS) return Promise.resolve(ok.v);
+        if (inflight) return inflight;
+        if (now - failAt < FAIL_BACKOFF_MS) return Promise.resolve(null);
+        inflight = load()
+            .then((v) => { if (v) ok = { at: Date.now(), v }; else failAt = Date.now(); return v; })
+            .catch(() => { failAt = Date.now(); return null; })
+            .finally(() => { inflight = null; });
+        return inflight;
+    };
 }
 
-export async function fredRealPair(): Promise<NonNullable<MacroSnapshot['realYieldObserved']> | null> {
-    if (realMemo && Date.now() - realMemo.at < MEMO_MS) return realMemo.v;
+export const fredCreditSpread = memoized<NonNullable<MacroSnapshot['creditSpread']>>(
+    async () => creditSpreadFromSeries(await fredObservations('BAMLH0A0HYM2', 260)),
+);
+
+export const fredRealPair = memoized<NonNullable<MacroSnapshot['realYieldObserved']>>(async () => {
     const [dgs10, t5yie] = await Promise.all([fredObservations('DGS10', 10), fredObservations('T5YIE', 10)]);
-    const v = realPairFromSeries(dgs10, t5yie, Date.now());
-    if (v) realMemo = { at: Date.now(), v };
-    return v;
-}
+    return realPairFromSeries(dgs10, t5yie, Date.now());
+});
