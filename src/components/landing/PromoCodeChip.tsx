@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
-import { APPLE_CODE_LIMIT, ANDROID_POOL_SIZE, PLAY_PROMO_END } from "@/lib/marketing/coupon";
+import { promoCodeLimit } from "@/lib/marketing/promoLimit";
+import { ANDROID_POOL_SIZE, PLAY_PROMO_END } from "@/lib/marketing/coupon";
 
 /**
  * 홈 히어로 «리딤 코드» 칩 — 설계 REDEEM-DESIGN §4.1 (2026-10-04 작성, 2026-10-05 운영 ON).
@@ -40,15 +41,15 @@ const PROD_HOST_RE = /(^|\.)signumhq\.com$/i;
 const n = (v: number) => v.toLocaleString("en-US");
 
 type ChipCopy = { lead: string; free: string; renew: string; actPhone: string; actPc: string; terms: string };
-// 숫자는 «실제 한도»만 — 아이폰 = 애플이 코드마다 강제하는 500 · 안드로이드 = 서버 풀의 Play 일회용 번호 수(lib/marketing/coupon)
-const COPY: Record<"ko" | "en" | "ja", ChipCopy> = {
+// 숫자는 «실제 한도»만 — 아이폰 = 코드별 애플 한도 · 안드로이드 = 서버 풀의 Play 일회용 번호 수(lib/marketing/coupon)
+const COPY = (code: string | null): Record<"ko" | "en" | "ja", ChipCopy> => ({
   ko: {
     lead: "iPhone",
     free: "🎟 PRO 1개월 무료 쿠폰 받기",
     renew: ", 이후 월 ₩11,900 자동 갱신 · 언제든 해지",
     actPhone: "탭해서 내 쿠폰 열기",
     actPc: "아이폰 카메라로 QR → 쿠폰 적용",
-    terms: `광고 없음 + 내 종목 100개(무료 5개) · 선착순 ${n(APPLE_CODE_LIMIT)}명 · 10/30까지`,
+    terms: `광고 없음 + 내 종목 100개(무료 5개) · 선착순 ${n(promoCodeLimit(code))}명 · 10/30까지`,
   },
   en: {
     lead: "iPhone",
@@ -56,7 +57,7 @@ const COPY: Record<"ko" | "en" | "ja", ChipCopy> = {
     renew: ", then the regular price (US$9.99/mo) — cancel anytime",
     actPhone: "Tap to open your coupon",
     actPc: "Scan the QR with your iPhone",
-    terms: `No ads + 100 watchlist tickers (free: 5) · first ${n(APPLE_CODE_LIMIT)} · until Oct 30`,   // «Oct 30» 이 두 줄로 갈리지 않게
+    terms: `No ads + 100 watchlist tickers (free: 5) · first ${n(promoCodeLimit(code))} · until Oct 30`,   // «Oct 30» 이 두 줄로 갈리지 않게
   },
   ja: {
     lead: "iPhone",
@@ -64,9 +65,9 @@ const COPY: Record<"ko" | "en" | "ja", ChipCopy> = {
     renew: "、以降は月額¥1,280で自動更新・いつでも解約可",
     actPhone: "タップでクーポンを開く",
     actPc: "iPhoneのカメラでQRを読み取り",
-    terms: `広告なし + マイ銘柄100件(無料は5件) · 先着${n(APPLE_CODE_LIMIT)}名 · 10/30まで`,
+    terms: `広告なし + マイ銘柄100件(無料は5件) · 先着${n(promoCodeLimit(code))}名 · 10/30まで`,
   },
-};
+});
 /** 안드로이드 판 — Play 30일 무료 · 개인 일회용 번호(서버 풀) · 10/30까지. PC 문구는 없다(안드로이드 UA 에만 쓴다). */
 const COPY_ANDROID: Record<"ko" | "en" | "ja", Omit<ChipCopy, "actPc">> = {
   ko: {
@@ -147,7 +148,9 @@ export function PromoCodeChip({ href }: { href: string }) {
     setShow(on);
   }, []);
   if (!show) return null;
-  const c: ChipCopy = android ? { ...COPY_ANDROID[lk], actPc: COPY_ANDROID[lk].actPhone } : COPY[lk];
+  let code: string | null = null;
+  try { code = new URL(href, "https://www.signumhq.com").searchParams.get("code"); } catch { /* 기존 기본 한도 */ }
+  const c: ChipCopy = android ? { ...COPY_ANDROID[lk], actPc: COPY_ANDROID[lk].actPhone } : COPY(code)[lk];
   return (
     <div className="mb-6 flex justify-center px-1">
       <a

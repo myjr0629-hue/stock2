@@ -138,6 +138,8 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
       const cur = recOf(c);
       const snap: ExpectedSnap = {
         pct: im.impliedMovePct!, expiry: im.expiry, session: im.session!, basis: im.basis,
+        method: im.method ?? null,
+        ...(im.straddlePct !== undefined ? { straddlePct: im.straddlePct } : {}),
         strike: im.strike, straddle: im.straddle, spot: im.spot, capturedAt: now, src: 'page',
       };
       if (sameExpected(cur.expected, snap)) return;                               // 같은 값 — 다시 쓰지 않는다
@@ -273,7 +275,7 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
 /** 수동 보강(스크립트 전용) — 예상 변동폭을 직접 넣는다. 이미 값이 있으면 건드리지 않는다(force 가 아니면). */
 export async function seedExpected(
   c: { ticker: string; date: string; hour: ReportHour },
-  snap: ExpectedSnap,
+  snap: ExpectedSnap & { method: NonNullable<ExpectedSnap['method']> },
   opts: { force?: boolean } = {},
 ): Promise<'saved' | 'kept' | 'failed'> {
   const cur = (await readActualRecords([c])).get(recordMapKey(c.ticker, c.date));

@@ -3,8 +3,18 @@
 // [V5] Uses Alpha Engine V5 (calculateAlphaScore) with FULL data enrichment
 // [V5] Macro + Flow + Catalyst data = absolute alpha scores identical to reports
 
-import { NextResponse } from 'next/server';
-import { processWatchlistBatch } from '@/services/watchlistBatchService';
+import { after, NextResponse } from 'next/server';
+import { processWatchlistBatchForApi } from '@/services/watchlistBatchService';
+import { createWatchlistBatchCache, type BatchEnvelope } from '@/services/watchlistBatchCache';
+import { mgetFromCache, setInCache } from '@/services/redisClient';
+import { newWatchlistBatchTiming, watchlistServerTiming } from '@/lib/watchlistBatchTiming';
+
+const getBatch = createWatchlistBatchCache({
+    read: keys => mgetFromCache<BatchEnvelope>(keys),
+    write: (key, value, ttl) => setInCache(key, value, ttl),
+    compute: processWatchlistBatchForApi,
+    after,
+});
 
 // ============================================================================
 // API ROUTE HANDLER (HTTP GET)
@@ -29,11 +39,16 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Max 50 tickers per request' }, { status: 400 });
     }
 
-    const payload = await processWatchlistBatch(tickers, mode);
-    return NextResponse.json(payload, {
+    const timing = newWatchlistBatchTiming();
+    const payload = await getBatch(tickers, mode, timing);
+    const jsonStart = performance.now();
+    const response = NextResponse.json(payload, {
         headers: {
             // [PERF] Browser can serve stale data for 5s while revalidating in background
             'Cache-Control': 'private, max-age=5, stale-while-revalidate=25',
         }
     });
+    timing.json = performance.now() - jsonStart;
+    response.headers.set('Server-Timing', watchlistServerTiming(timing));
+    return response;
 }

@@ -1,7 +1,7 @@
 // Redis 기록만 집계한다. 가격 계산·기록 쓰기·벤더 호출은 하지 않는다.
 import {
   expectedEligible, isReactionFinal, MAX_PLAUSIBLE_MOVE_PCT, movedBeyondExpected,
-  parseRecord, reactionSessions, type ReportHour,
+  atmReceiptExpectedPct, parseRecord, reactionSessions, type ReportHour,
 } from './earningsActuals';
 
 export function isScorecardWeek(week: string | null): week is string {
@@ -52,6 +52,8 @@ export function aggregateScorecard(week: string, records: readonly unknown[], no
     const r = parseRecord(raw);
     if (!r || r.date < week || r.date > end || !r.expected || !r.actual) continue;
     const e = r.expected, a = r.actual;
+    const expectedPct = atmReceiptExpectedPct(e);
+    if (expectedPct == null) continue;
     const sessions = reactionSessions(r.date, r.hour);
     if (!expectedEligible(r, e.session) || !sessions || a.baseDate !== sessions.base || a.reactDate !== sessions.react
       || !isReactionFinal(a.reactDate, nowMs) || Math.abs(a.pct) > MAX_PLAUSIBLE_MOVE_PCT
@@ -61,8 +63,8 @@ export function aggregateScorecard(week: string, records: readonly unknown[], no
     seen.add(key);
     dataAt = Math.max(dataAt ?? 0, e.capturedAt, a.at, r.at > 0 && r.at <= nowMs ? r.at : 0);
     rows.push({
-      ticker: r.ticker, date: r.date, hour: r.hour, expectedPct: e.pct, actualPct: a.pct,
-      beyond: movedBeyondExpected(a.pct, e.pct), check: a.check === 'fmp' ? 'fmp' : 'intrinio_only',
+      ticker: r.ticker, date: r.date, hour: r.hour, expectedPct, actualPct: a.pct,
+      beyond: movedBeyondExpected(a.pct, expectedPct), check: a.check === 'fmp' ? 'fmp' : 'intrinio_only',
       basis: {
         expectedSession: e.session, expectedExpiry: e.expiry, expectedSource: e.src,
         expectedCapturedAt: new Date(e.capturedAt).toISOString(), baseDate: a.baseDate, reactDate: a.reactDate,

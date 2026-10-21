@@ -1,4 +1,6 @@
 import type { StoreApp } from './storeRedirect';
+import { promoExpiry, promoExpiryDate } from './promoExpiry';
+import { APPLE_CODE_LIMIT, promoCodeLimit } from './promoLimit';
 
 /**
  * 스마트링크 «링크 미리보기» 공용 모듈.
@@ -116,24 +118,35 @@ const esc = (v: string) =>
 /**
  * ★2026-10-05 리딤 코드 링크 카드 — `/app?…&code=<우리 맞춤 코드>` 를 붙이면 링크 카드도 «PRO 1개월 무료»를 보여 준다
  *   (note·네이버·카카오톡처럼 링크가 큰 카드로 펴지는 곳). 문구 규칙은 웹 칩과 같다: «무료» 문장 안에 자동 갱신 가격 ·
- *   선착순 500명(애플이 코드에 강제하는 한도)·10/30(실제 만료 PT)만 · 아이폰 전용 명시. 카드 이미지엔 채널 코드가 없다(공용).
+ *   코드별 선착순 한도(애플이 코드에 강제하는 한도)·코드별 만료일 전날만 · 아이폰 전용 명시. 카드 이미지엔 채널 코드가 없다(공용).
  *   우리 코드가 아니거나 만료 뒤면 route 가 promo 를 주지 않아 예전 카드 그대로다.
  */
+export function promoCopy(lang: PreviewLang, code: string | null): Copy {
+  const date = promoExpiryDate(code, lang);
+  const limit = promoCodeLimit(code).toLocaleString('en-US');
+  const copy: Record<PreviewLang, Copy> = {
+    en: {
+      title: `SIGNUM HQ PRO — 1 month free · first ${limit} · until ${date} (iPhone)`,
+      desc: 'PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. Options flow & dark pool data app.',
+    },
+    ja: {
+      title: `SIGNUM HQ PRO 1か月無料 — 先着${limit}名・${date}まで(iPhone)`,
+      desc: 'PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。オプションフロー/ダークプールのアプリ。',
+    },
+    ko: {
+      title: `SIGNUM HQ PRO 1개월 무료 — 선착순 ${limit}명 · ${date}까지(아이폰)`,
+      desc: 'PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 옵션 흐름·다크풀 데이터 앱.',
+    },
+  };
+  return copy[lang];
+}
 export const PROMO_COPY: Record<PreviewLang, Copy> = {
-  en: {
-    title: 'SIGNUM HQ PRO — 1 month free · first 500 · until Oct 30 (iPhone)',
-    desc: 'PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. Options flow & dark pool data app.',
-  },
-  ja: {
-    title: 'SIGNUM HQ PRO 1か月無料 — 先着500名・10/30まで(iPhone)',
-    desc: 'PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。オプションフロー/ダークプールのアプリ。',
-  },
-  ko: {
-    title: 'SIGNUM HQ PRO 1개월 무료 — 선착순 500명 · 10/30까지(아이폰)',
-    desc: 'PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 옵션 흐름·다크풀 데이터 앱.',
-  },
+  en: promoCopy('en', null), ja: promoCopy('ja', null), ko: promoCopy('ko', null),
 };
-const PROMO_IMAGE = (l: PreviewLang) => `${SITE}/promo/redeem-card-${l}.png`;
+export const promoImageUrl = (l: PreviewLang, code: string | null) =>
+  promoExpiryDate(code, l) === promoExpiryDate(null, l) && promoCodeLimit(code) === APPLE_CODE_LIMIT
+    ? `${SITE}/promo/redeem-card-${l}.png`
+    : `${SITE}/api/og/promo?l=${l}&code=${encodeURIComponent((code || '').trim().toUpperCase())}`;
 
 /**
  * ★2026-10-14 «친구 초대·선물» 링크(/app?from=gift|share_*&code=<선물 코드>)의 카드 — 위 PROMO_COPY·redeem-card 는 «아이폰 전용·선착순 500명» 채널 코드용이라
@@ -169,7 +182,7 @@ export function inviteCardCopy(lang: PreviewLang, android: boolean): Copy {
 const INVITE_IMAGE = (l: PreviewLang, android: boolean) => `${SITE}/api/og/invite?l=${l}&a=${android ? 1 : 0}`;
 
 /** «살아 있는 우리 맞춤 코드»인가 — 오퍼 «SIGNUM PRO 1 Month Free (Launch)»(ASC 51bd34ef) 의 채널 맞춤 코드 8종 + 크리에이터 맞춤 코드(아래 형식 규칙),
- *  만료 2026-10-31 00:00 PT(= 07:00 UTC). 호출자: /app(쿠폰 화면·링크 카드·PC 안내) — 남의 코드·만료 뒤는 전부 예전 동작.
+ *  기존 만료 2026-10-31 00:00 PT(= 07:00 UTC), SIGNUMPRO 연장은 promoExpiry의 단일 정의를 사용한다. 호출자: /app(쿠폰 화면·링크 카드·PC 안내) — 남의 코드·만료 뒤는 전부 예전 동작.
  *  ★2026-10-06 크리에이터 코드 25종은 «값»을 이 공개 저장소에 쓰지 않는다 — 전부 영문 대문자 4~13자 + 끝 «PRO» 로 만들었으므로 형식 규칙으로 판정한다.
  *    채널 코드 8종은 그 규칙 밖(XPRO·WEBPRO 는 4자 미만, NOTEJP 는 PRO 아님)이라 목록을 그대로 둔다. 코드를 새로 만들면 규칙에 맞게 만들거나 여기에 더한다. */
 const LIVE_PROMO_CODES = new Set(['WEBPRO', 'THREADSPRO', 'XPRO', 'XJPPRO', 'BSKYPRO', 'NOTEJP', 'NAVERPRO', 'IHPRO']);
@@ -178,10 +191,9 @@ export const CREATOR_PROMO_CODE_RE = /^[A-Z]{4,13}PRO$/;
 export function isCreatorPromoCode(code: string): boolean {
   return CREATOR_PROMO_CODE_RE.test(code);
 }
-const PROMO_EXPIRES_AT = Date.parse('2026-10-31T07:00:00Z');
 export function isLivePromoCode(raw: string | null, now = Date.now()): boolean {
   const code = (raw || '').trim().toUpperCase();   // 채널 코드 8종과 같은 정규화(소문자 링크도 같은 코드)
-  return (LIVE_PROMO_CODES.has(code) || isCreatorPromoCode(code)) && now < PROMO_EXPIRES_AT;
+  return (LIVE_PROMO_CODES.has(code) || isCreatorPromoCode(code)) && now < promoExpiry(code).validUntil;
 }
 
 export function previewHtml(
@@ -195,9 +207,18 @@ export function previewHtml(
 ): string {
   const usePromo = promo && app === 'signum';
   const useInvite = usePromo && invite !== false;
-  const c = useInvite ? inviteCardCopy(lang, (invite as { android: boolean }).android) : usePromo ? PROMO_COPY[lang] : COPY[app][lang];
+  let code: string | null = null;
+  if (usePromo && !useInvite) {
+    try {
+      code = new URL(canonical).searchParams.get('code');
+    } catch {
+      // 상대·비정상 canonical은 기존 코드 없는 프로모션 카드로 처리한다.
+    }
+  }
+  const c = useInvite ? inviteCardCopy(lang, (invite as { android: boolean }).android)
+    : usePromo ? promoCopy(lang, code) : COPY[app][lang];
   const img = IMAGE[app];
-  const wide = useInvite ? INVITE_IMAGE(lang, (invite as { android: boolean }).android) : usePromo ? PROMO_IMAGE(lang) : img.wide?.(lang);
+  const wide = useInvite ? INVITE_IMAGE(lang, (invite as { android: boolean }).android) : usePromo ? promoImageUrl(lang, code) : img.wide?.(lang);
   const imgUrl = wide || img.square;
   const card = wide ? 'summary_large_image' : 'summary';
   const dims = wide

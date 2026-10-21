@@ -2,6 +2,7 @@ import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
+import { type WatchlistBatchTiming } from '@/lib/watchlistBatchTiming';
 import { selectVwap } from '@/lib/vwap';
 // Watchlist Batch Analyze API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
@@ -25,7 +26,7 @@ import { impliedMoveOfStructure, peekStoredStructure } from '@/services/impliedM
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
 
-type WatchlistBatchMode = 'full' | 'price' | 'price-dp' | 'ssr';
+export type WatchlistBatchMode = 'full' | 'price' | 'price-dp' | 'ssr';
 
 const EC2_REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
 const EC2_REDIS_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || process.env.REDIS_PROXY_KEY || "";
@@ -274,10 +275,29 @@ async function getStockDataLight(symbol: string) {
  *   · 예상 변동은 «정의 표식»이 있는 값만 남긴다 — 표식 없는 옛 값(벽 사이 폭·전일 종가 스트래들)은 나가지 않는다.
  */
 export async function processWatchlistBatch(tickers: string[], mode: WatchlistBatchMode = 'full') {
-    const metrics = await readOptionMetrics(tickers);
-    const payload = await processWatchlistBatchCore(tickers, mode, metrics);
+    return calculateWatchlistBatch(tickers, mode);
+}
+
+/** 계측·분석 판본 재사용은 배치 API에만 적용한다. SSR·AI 재료 경로의 동작은 유지한다. */
+export async function processWatchlistBatchForApi(tickers: string[], mode: WatchlistBatchMode, timing: WatchlistBatchTiming) {
+    return calculateWatchlistBatch(tickers, mode, timing);
+}
+
+async function calculateWatchlistBatch(tickers: string[], mode: WatchlistBatchMode, timing?: WatchlistBatchTiming) {
+    const optionsStart = performance.now();
+    const metrics = await readOptionMetrics(tickers, {
+        onReadFailure: () => { if (timing) timing.failed = true; },
+        onEdition: timing ? (t, read) => { (timing.optionSources ??= {})[t] = read; } : undefined,
+    });
+    if (timing) timing.options += performance.now() - optionsStart;
+    const context: { analysis?: Record<string, any>; timing?: WatchlistBatchTiming } | undefined = timing ? { timing } : undefined;
+    const mainStart = performance.now();
+    const fillBefore = timing?.fill ?? 0;
+    const payload = await processWatchlistBatchCore(tickers, mode, metrics, context);
+    if (timing) timing.main += performance.now() - mainStart - (timing.fill - fillBefore);
     const fallbacks = new Map((payload.results as any[]).map(r => [r.ticker, { ...r.realtime, alphaSnapshot: r.alphaSnapshot }]));
-    const alpha = await readOptionAlpha(tickers, metrics, fallbacks);
+    const alphaStart = performance.now();
+    const alpha = await readOptionAlpha(tickers, metrics, fallbacks, context?.analysis);
     for (const r of payload.results as any[]) {
         if (!r?.realtime) continue;
         applyOptionMetrics(r.realtime, metrics.get(r.ticker));
@@ -285,6 +305,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
         r.realtime.whaleIndex = calculateWhaleIndex(r.realtime.gex, r.realtime.darkPoolPct, r.realtime.blockTrades, r.realtime.netPremium);
     }
     stampOptionMoveFields(payload.results);
+    if (timing) timing.alpha += performance.now() - alphaStart;
     return payload;
 }
 
@@ -293,19 +314,40 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
 // Exported separately so it can be called seamlessly during SSR (Server Components)
 // without creating mock Request objects or failing on absolute URL resolution
 // ============================================================================
-async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatchMode = 'full', metrics = new Map<string, import('@/lib/optionMetrics').OptionMetrics>()) {
+async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatchMode = 'full', metrics = new Map<string, import('@/lib/optionMetrics').OptionMetrics>(), context?: { analysis?: Record<string, any>; timing?: WatchlistBatchTiming }) {
     const startTime = Date.now();
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
     // 1. Fetch Cache for all requested tickers (Non-blocking fallback to empty if Redis fails)
     // 옵션 레벨(구조 한 벌) 저장본 읽기를 지금 걸어 둔다 — 출구에서 받는다(structureService.prefetchLevelsForExit).
-    const finishLevels = prefetchLevelsForExit(tickers);
-    const cached = await getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>));
+    // 종목별 «못 읽음» 기록. who 생략 = 일괄 조회 실패(요청 종목 전부).
+    const missed = (k: 'darkPool' | 'liquidity' | 'levels', who?: string) => {
+        if (!context?.timing) return;
+        context.timing.failed = true;
+        const m = (context.timing.missed ??= {});
+        for (const t of who ? [who] : tickers) (m[String(t).toUpperCase()] ??= {})[k] = true;
+    };
+    const finishLevels = context?.timing ? prefetchLevelsForExit(tickers, {
+        onReadFailure: () => missed('levels'),
+        onSeen: (t, seen) => { (context.timing!.levelSeen ??= {})[String(t).toUpperCase()] = seen; },
+    }) : prefetchLevelsForExit(tickers);
+    const cached = await getAnalysisCacheForTickers(tickers).catch(() => {
+        if (context?.timing) context.timing.failed = true;
+        return {} as Record<string, any>;
+    });
+    if (context) context.analysis = { ...cached };
+    if (context?.timing) context.timing.analysisHit += tickers.filter(t => !!cached[t]).length;
     const missingTickers = tickers.filter(t => !cached[t]);
+    // 이 요청이 방금 계산해 저장하는 판본도 알파 출구에서 재사용한다(쓰기 완료/재읽기 경합 제거).
+    const publishAnalysis = (ticker: string, entry: any) => {
+        if (context?.analysis) context.analysis[ticker] = entry;
+        return writeAnalysisCache(ticker, entry);
+    };
 
     // 2. Fetch Snapshot for ALL tickers (we need live prices for Cached ones AND Missing ones in 'ssr'/'price' mode)
     // In 'full' mode, getStockDataLight also fetches snapshots, but we need it here for the cached ones anyway.
     const snapshotData = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers`, { tickers: tickers.join(',') }).catch(() => null);
+    if (!snapshotData && context?.timing) context.timing.failed = true;
     const snapshotMap: Record<string, any> = {};
     (snapshotData?.tickers || []).forEach((t: any) => { snapshotMap[t.ticker] = t; });
 
@@ -478,6 +520,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             // 이전 DynamoDB Fallback 버그로 sparkline:[]이 Redis에 저장된 경우 대비
             // getStockDataLight(~500ms)로 보충 후 캐시 업데이트 — 1회만 발생, 이후 캐시 정상
             if (!analysis.sparkline || analysis.sparkline.length === 0) {
+                if (context?.timing) context.timing.heal++;
                 try {
                     const healData = await getStockDataLight(ticker).catch(() => null);
                     if (healData) {
@@ -487,7 +530,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                             analysis.rsi = healData.rsi ?? analysis.rsi;
                             analysis.return3d = healData.return3d ?? analysis.return3d;
                             // Update Redis cache with healed sparkline (fire-and-forget)
-                            writeAnalysisCache(ticker, analysis as any).catch(() => {});
+                            publishAnalysis(ticker, analysis as any).catch(() => {});
                         }
                     }
                 } catch { /* silent — proceed with empty sparkline */ }
@@ -497,6 +540,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             // Lambda harvest가 impliedMovePct를 ivSkew에 기록한 경우 (ivSkew > 2.0은 불가능)
             // getOptionsData로 rawContracts 가져와 computeIVSkew로 정확한 값 재계산 — 1회만 발생
             if (analysis.ivSkew == null || analysis.ivSkew > 2.0) {
+                if (context?.timing) context.timing.heal++;
                 try {
                     const healOpts: any = await getOptionsData(ticker).catch(() => null);
                     if (healOpts?.rawContracts?.length > 0) {
@@ -507,7 +551,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                             const freshIvSkew = computeIVSkew(healOpts.rawContracts, currentPrice);
                             if (freshIvSkew != null && freshIvSkew <= 2.0) {
                                 analysis.ivSkew = freshIvSkew;
-                                writeAnalysisCache(ticker, analysis as any).catch(() => {});
+                                publishAnalysis(ticker, analysis as any).catch(() => {});
                             }
                         }
                     }
@@ -659,6 +703,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 // [FIX] Sanitize ivSkew: Lambda may have written impliedMovePct into ivSkew field
                 const sanitizedIvSkew = (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null;
                 const updatedAnalysis = { ...analysis, alphaSnapshot: alphaSnapshotV4, ivSkew: sanitizedIvSkew };
+                if (context?.analysis) context.analysis[ticker] = updatedAnalysis;
                 import('@/services/analysisCache').then(m => m.writeAnalysisCache(ticker, updatedAnalysis as any).catch(() => {}));
               } catch (e) {
                 console.warn(`[Watchlist CACHE HIT] V4.6 recalc failed for ${ticker}, using cached:`, e);
@@ -865,7 +910,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
 
                 // Write to Redis cache for next time (CACHE HIT path)
                 dynamoAnalysis.alphaSnapshot = alphaSnapshot2;
-                writeAnalysisCache(ticker, dynamoAnalysis as any).catch(() => {});
+                publishAnalysis(ticker, dynamoAnalysis as any).catch(() => {});
 
                 // [FIX] Return structure MUST match Path A (Cache Hit) format
                 // Frontend parser requires: apiData.alphaSnapshot && apiData.realtime.sparkline
@@ -1158,7 +1203,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             };
 
             // 🔥 [GLOBAL CACHE WARMMER] Instantly write ANY custom ticker to Cache for future Zero-Latency SSR
-            writeAnalysisCache(ticker, {
+            publishAnalysis(ticker, {
                 ticker,
                 timestamp: Date.now(),
                 alphaSnapshot: fullObj.alphaSnapshot,
@@ -1246,6 +1291,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
         results.push(...chunkResults);
     }
 
+    const fillStart = performance.now();
     // ══════════════════════════════════════════════════════════════
     // 유동성 주입 ★ [2026-08-30]
     //
@@ -1258,6 +1304,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
     // 출구 한 곳에서 일괄 주입한다 — 구축 지점이 5곳이라 각각 고치면 또 샌다.
     try {
         const { sessionAwareLiquidity } = await import('@/services/intrinioClient');
+        const onReadFailureFor = (t: string) => (context?.timing ? () => missed('liquidity', t) : undefined);
         const liq = await Promise.all(
             results.map((r: any) =>
                 r?.ticker && !r.error
@@ -1265,8 +1312,9 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     //   늘 null 이 넘어가 실시간 호가를 못 봤다 — intel/fast 와 같은 실수였다.
                     ? sessionAwareLiquidity(r.ticker,
                         r.realtime?.lastQuote?.p ?? r.realtime?.bidPrice ?? null,
-                        r.realtime?.lastQuote?.P ?? r.realtime?.askPrice ?? null)
-                        .catch(() => ({ liquidityScore: null, spreadPct: null }))
+                        r.realtime?.lastQuote?.P ?? r.realtime?.askPrice ?? null,
+                        context?.timing ? { onReadFailure: onReadFailureFor(r.ticker) } : undefined)
+                        .catch(() => { onReadFailureFor(r.ticker)?.(); return { liquidityScore: null, spreadPct: null }; })
                     : Promise.resolve({ liquidityScore: null, spreadPct: null })
             )
         );
@@ -1277,9 +1325,17 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
         //   ⚠️ 라이선스상 출처 표기 필수 → darkPoolSource 를 같이 싣는다.
         let dpMap: Record<string, any> = {};
         try {
-            const { getDarkPoolBatch } = await import('@/services/darkPool');
-            dpMap = await getDarkPoolBatch(results.filter((r: any) => r?.ticker && !r.error).map((r: any) => r.ticker));
+            const { getDarkPoolBatch, getDarkPoolBatchChecked } = await import('@/services/darkPool');
+            const asked = results.filter((r: any) => r?.ticker && !r.error).map((r: any) => r.ticker);
+            if (context?.timing) {
+                const checked = await getDarkPoolBatchChecked(asked);
+                if (checked.ok) dpMap = checked.map;
+                else missed('darkPool');
+            } else {
+                dpMap = await getDarkPoolBatch(asked);
+            }
         } catch (e: any) {
+            missed('darkPool');
             console.warn('[watchlist/batch] 다크풀(FINRA) 조회 실패:', e?.message);
         }
 
@@ -1323,6 +1379,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 })
                 .map((r: any) => String(r.ticker).toUpperCase());
             if (cold.length > 0) {
+                if (context?.timing) context.timing.awsFill += cold.length;
                 const db = await import('@/lib/aws/dynamoDataProvider');
                 const got = await Promise.all(cold.map(async (t) => {
                     const [gx, fl] = await Promise.all([
@@ -1340,6 +1397,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 console.log(`[watchlist/batch] AWS 폴백 ${Object.keys(awsFill).length}/${cold.length}종목`);
             }
         } catch (e: any) {
+            if (context?.timing) context.timing.failed = true;
             console.warn('[watchlist/batch] AWS 폴백 실패:', e?.message);
         }
 
@@ -1381,6 +1439,14 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             }
 
             const dp = dpMap[String(r.ticker || '').toUpperCase()];
+            const alphaEntry = context?.analysis?.[r.ticker];
+            if (alphaEntry && context?.analysis) {
+                // 예전 알파 재읽기의 stripDeadTickFields + FINRA 보충과 같은 입력을 이미 읽은 자료로 만든다.
+                // 0/결측을 FINRA 측정값으로 만들지 않는다(analysisCache.overlayLiveDarkPool과 같은 조건).
+                const measuredDp = typeof dp?.pct === 'number' && dp.pct > 0 ? dp.pct : null;
+                context.analysis[r.ticker] = { ...alphaEntry,
+                    darkPoolPct: measuredDp ?? (tickDataAvailable() ? alphaEntry.darkPoolPct : null) };
+            }
             r.realtime.darkPoolPct = dp?.pct ?? null;
             r.realtime.darkPoolVol = dp?.volume ?? null;
             r.realtime.darkPoolDate = dp?.date ?? null;
@@ -1423,8 +1489,14 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             await Promise.all(whaleFixups.map((f) =>
                 patchAnalysisCache(f.ticker, { whaleIndex: f.whaleIndex, netPremium: f.netPremium } as any).catch(() => false)
             ));
+            for (const f of whaleFixups) {
+                if (context?.analysis?.[f.ticker]) {
+                    context.analysis[f.ticker] = { ...context.analysis[f.ticker], whaleIndex: f.whaleIndex, netPremium: f.netPremium };
+                }
+            }
         }
     } catch (e: any) {
+        missed('liquidity'); missed('darkPool');
         console.warn('[watchlist/batch] 유동성 주입 실패:', e?.message);
     }
 
@@ -1441,11 +1513,13 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
         const lvMap = await finishLevels();
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, lvMap.get(String(r?.ticker || '').toUpperCase())));
     } catch (e: any) {
+        missed('levels');
         // 저장본을 못 읽었으면 레벨을 «모른다» — 다른 생산자의 값을 내보내지 않는다.
         console.warn('[watchlist/batch] 옵션 레벨 한 벌 덮기 실패(레벨 비움):', e?.message);
         results.forEach((r: any) => applyLevelsToRealtime(r?.realtime, null));
     }
     const levelsWaitMs = Date.now() - levelsWaitStart;
+    if (context?.timing) context.timing.fill += performance.now() - fillStart;
 
     return {
         results,

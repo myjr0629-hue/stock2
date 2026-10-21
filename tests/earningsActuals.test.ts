@@ -65,6 +65,7 @@ const entry = (ticker: string, date: string, hour: 'amc' | 'bmo' | '', etTime?: 
 });
 const rowOf = (ticker: string, pct: number | null, session: string | null, expiry = '2026-10-16', basis: 'eod' | 'live' = 'eod') => ({
   ticker, impliedMovePct: pct, expiry: pct == null ? null : expiry, asOf: null, basis: pct == null ? null : basis, strike: pct == null ? null : 100, straddle: pct == null ? null : 4,
+  method: pct == null ? null : 'monthly' as const, straddlePct: pct,
   spot: pct == null ? null : 100, source: pct == null ? null : ('structure' as const), session, reason: pct == null ? 'no_snapshot' : null,
 });
 const barsFrom = (m: Record<string, Array<[string, number]>>): import('../src/services/earningsActualsService').BarsFn => async (tk) => (m[tk] || []).map(([date, close]) => ({ date, close }));
@@ -152,8 +153,32 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     assert.equal(writes, 1); assert.equal(writeLog[0].key, key('BAC', '2026-10-14')); assert.equal(writeLog[0].ttl && writeLog[0].ttl > 100 * 86400, true, 'TTL 120일(지터 포함)');
     const rec = store.get(key('BAC', '2026-10-14')) as any;
     assert.equal(rec.expected.pct, 4.2); assert.equal(rec.expected.session, '2026-10-13'); assert.equal(rec.expected.src, 'page'); assert.equal(rec.actual, null);
+    assert.equal(rec.expected.method, 'monthly'); assert.equal(rec.expected.straddlePct, 4.2);
     const r2 = await SVC.runActualsCycle({ nowMs: NOW_EVE + 600_000, list, deps });
     assert.deepEqual(r2.expectedSaved, []); assert.equal(writes, 1, '같은 값 — 쓰기 0');
+  });
+  await ta('분리값·ATM 원값을 함께 저장하고, 같은 pct의 method·원값 변경도 보존한다', async () => {
+    reset();
+    const list = [entry('MIX', '2026-10-14', 'bmo')];
+    const base = rowOf('MIX', 7.7, '2026-10-13');
+    await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: { readImplied: async () => [base] } });
+    const split = { ...base, method: 'event-split' as const, straddlePct: 8.6, straddle: 8.6 };
+    await SVC.runActualsCycle({ nowMs: NOW_EVE + 1, list, deps: { readImplied: async () => [split] } });
+    const rec = A.parseRecord(store.get(key('MIX', '2026-10-14')))!;
+    assert.equal(writes, 2);
+    assert.equal(rec.expected!.pct, 7.7); assert.equal(rec.expected!.method, 'event-split');
+    assert.equal(A.atmReceiptExpectedPct(rec.expected!), 8.6);
+    const receiptRecord = { ...rec, actual: { pct: 8, baseDate: '2026-10-13', baseClose: 100,
+      reactDate: '2026-10-14', reactClose: 108, src: 'intrinio-daily', check: 'fmp', at: ms('2026-10-14T21:00:00Z') } };
+    const receipts = require('../src/lib/earnings/earningsReceipts') as typeof import('../src/lib/earnings/earningsReceipts');
+    const receipt = receipts.buildEarningsReceipts('2026-10-12', list, [receiptRecord], ms('2026-10-20T21:00:00Z'));
+    assert.equal(receipt.rows[0].expected!.pct, 8.6); assert.equal(receipt.rows[0].beyond, false);
+    const next = { ...split, straddlePct: 8.7, straddle: 8.7 };
+    await SVC.runActualsCycle({ nowMs: NOW_EVE + 2, list, deps: { readImplied: async () => [next] } });
+    assert.equal(writes, 3, '판정 근거만 바뀌어도 저장');
+    assert.equal((store.get(key('MIX', '2026-10-14')) as any).expected.straddlePct, 8.7);
+    await SVC.runActualsCycle({ nowMs: NOW_EVE + 3, list, deps: { readImplied: async () => [next] } });
+    assert.equal(writes, 3, '관측 시각만 바뀌면 쓰기 없음');
   });
   await ta('값이 바뀌면(같은 발표 전 범위) 마지막 값으로 덮는다 · 더 이른 세션으로는 되돌아가지 않는다', async () => {
     reset();
@@ -336,7 +361,7 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
   });
   await ta('수동 보강(seedExpected) — 이미 값이 있으면 건드리지 않고, 실제 반응 기록은 그대로 둔다', async () => {
     reset();
-    const snap = { pct: 3.2, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod' as const, strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'eod-chain' as const };
+    const snap = { pct: 3.2, method: 'monthly' as const, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod' as const, strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'eod-chain' as const };
     assert.equal(await SVC.seedExpected({ ticker: 'JPM', date: '2026-10-13', hour: 'bmo' }, snap), 'saved');
     assert.equal(await SVC.seedExpected({ ticker: 'JPM', date: '2026-10-13', hour: 'bmo' }, { ...snap, pct: 9.9 }), 'kept');
     await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: jpmFmp } });

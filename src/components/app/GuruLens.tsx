@@ -83,10 +83,10 @@ export function GuruLensWhy({ data, locale, id }: { data: TickerLens; locale: st
 
 /** 대가 렌즈 4~10위 — PRO 만(결정 문서 §1: Top 10 = PRO · 광고 1시간 해제는 이 자리에 없다).
  *  잠금 모양·구독 페이월·복원·코드 입력은 기존 ValueWall 의 Pro 경로(useAdUnlockGate)를 그대로 쓴다. 비PRO 는 흐린 미리보기 + Pro 구독 경로(스토어에서 살 수 있는 곳에서만 버튼). */
-export function GuruLensProOnly({ locale, rows, children }: { locale: string; rows: number; children: ReactNode }) {
+export function GuruLensProOnly({ locale, rows, children, locked = false }: { locale: string; rows: number; children: ReactNode; locked?: boolean }) {
     const g = useAdUnlockGate(locale);
     const t = T[toLoc(locale)];
-    if (g.isPro) return <div>{children}</div>;
+    if (g.isPro && !locked) return <div>{children}</div>;
     return (
         <div className={`${vw.vault} ${vw.compactVault} ${vw.inset}`} data-testid="guru-lens-pro-lock">
             {/* 비PRO 에게는 실제 행을 DOM 에 두지 않는다(블러 아래 값·키보드 이동 노출 방지) — 값 없는 자리 표시만 */}

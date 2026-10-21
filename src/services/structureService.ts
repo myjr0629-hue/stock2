@@ -1562,7 +1562,7 @@ setLevelEventSink((e) => {
  * 낡은 판본(장중 60초·분포 없는 옛 판본·체인 판본 뒤처짐)은 그대로 주고 응답 뒤 갱신을 건다.
  * `noSnapshot` = 쓸 수 있는 판본이 아예 없는 종목(응답 뒤 계산 후보). 옵션이 없는 종목(NO_MARKET)은 레벨도 후보도 아니다.
  */
-export async function peekStructureLevelsDetailed(tickers: string[], extraKeys: string[] = [], extrasOut?: any[], opts: { refresh?: boolean } = {}): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
+export async function peekStructureLevelsDetailed(tickers: string[], extraKeys: string[] = [], extrasOut?: any[], opts: { refresh?: boolean; onReadFailure?: () => void; onSeen?: (ticker: string, seen: boolean) => void } = {}): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
     // ★ [2026-10-14] 클래스 주식 표기(BRK-B → BRK.B): 판본은 정본 표기로 읽고, 결과는 요청한 표기로도 내어 준다(문이 요청 표기로 찾는다).
     const asked = Array.from(new Set((tickers || []).map((x) => String(x ?? '').trim().toUpperCase()).filter(Boolean)));
     const aliases = asked.filter((t) => canonicalShareClass(t) !== t);
@@ -1578,10 +1578,12 @@ export async function peekStructureLevelsDetailed(tickers: string[], extraKeys: 
     return r;
 }
 
-async function peekStructureLevelsCore(tickers: string[], extraKeys: string[] = [], extrasOut?: any[], opts: { refresh?: boolean } = {}): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
+async function peekStructureLevelsCore(tickers: string[], extraKeys: string[] = [], extrasOut?: any[], opts: { refresh?: boolean; onReadFailure?: () => void; onSeen?: (ticker: string, seen: boolean) => void } = {}): Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }> {
     const levels = new Map<string, OptionLevels>();
     const got = await readStoredStructures(tickers, extraKeys, extrasOut);
-    if (!got) return { levels, noSnapshot: [] };   // Redis 를 못 읽었다 — «모른다»(계산 후보로 올리지 않는다)
+    if (!got) { opts.onReadFailure?.(); return { levels, noSnapshot: [] }; }   // Redis 를 못 읽었다 — «모른다»(계산 후보로 올리지 않는다) · 선택 관측(배치 정상본 병합)
+    // 선택 관측: 종목별로 저장 판본이 «왔는지»(Redis 는 장애도 null 로 준다 — 배치 정상본 병합이 레벨 미도착을 안다). 반환값 불변.
+    if (opts.onSeen) for (const [t, r] of got) opts.onSeen(t, !!r?.v);
     const todayET = getNextTradingDayET();
     const noSnapshot: string[] = [];
     let refreshes = 0;   // 요청 하나가 응답 뒤에 떠안는 갱신 수 상한(장 시작 직후 50종목 워치리스트 등) — 나머지는 다음 요청이 건다
@@ -1667,10 +1669,12 @@ export async function overlayLevelsOnQuotes(quotes: any[], noneAs: 0 | null = nu
  * 시작 때 판본이 없던 종목만 출구에서 한 번 더 본다 — 요청 중에 계산돼 저장됐을 수 있다(전체 모드의 getStructureData).
  * 그래도 없으면 응답 뒤 계산(warmMissingStructure). 판본을 못 읽었으면 reject — 부르는 쪽이 레벨을 비운다.
  */
-export function prefetchLevelsForExit(tickers: string[]): () => Promise<Map<string, OptionLevels>> {
-    const early = peekStructureLevelsDetailed(tickers);
+export function prefetchLevelsForExit(tickers: string[], opts: { onReadFailure?: () => void; onSeen?: (ticker: string, seen: boolean) => void } = {}): () => Promise<Map<string, OptionLevels>> {
+    // 선택 관측(배치 정상본 병합용) — onReadFailure: 저장소를 «못 읽음» · onSeen: 종목별 저장 판본이 왔는지. 반환값은 그대로.
+    const watch = opts.onReadFailure || opts.onSeen ? { onReadFailure: opts.onReadFailure, onSeen: opts.onSeen } : {};
+    const early = peekStructureLevelsDetailed(tickers, [], undefined, watch);
     early.catch(() => { /* 출구에서 다시 던진다 — 처리되지 않은 거부로 남기지 않는다 */ });
-    return finishFrom(early);
+    return finishFrom(early, opts.onReadFailure, opts.onSeen);
 }
 
 /**
@@ -1687,11 +1691,12 @@ export function prefetchLevelsWithKeys(tickers: string[], keys: string[]): { ext
     };
 }
 
-function finishFrom(early: Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }>): () => Promise<Map<string, OptionLevels>> {
+function finishFrom(early: Promise<{ levels: Map<string, OptionLevels>; noSnapshot: string[] }>, onReadFailure?: () => void, onSeen?: (ticker: string, seen: boolean) => void): () => Promise<Map<string, OptionLevels>> {
     return async () => {
         const { levels, noSnapshot } = await early;
         if (!noSnapshot.length) return levels;
-        const late = await peekStructureLevelsDetailed(noSnapshot).catch(() => null);
+        const late = await peekStructureLevelsDetailed(noSnapshot, [], undefined, onReadFailure || onSeen ? { onReadFailure, onSeen } : {})
+            .catch(() => { onReadFailure?.(); return null; });
         if (late) for (const [t, lv] of late.levels) levels.set(t, lv);
         const still = late ? late.noSnapshot : noSnapshot;
         if (still.length) void warmMissingStructure(still).catch(() => []);
