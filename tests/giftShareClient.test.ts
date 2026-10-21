@@ -103,15 +103,15 @@ test('켜짐 준비: 서버 발행 없이 기기 토큰 · 3언어·iOS/Android�
   }
 });
 
-test('공유·복사 완료 뒤에만 그 토큰을 1회 등록 · 보낸 토큰은 즉시 폐기 · 중복 완료 통지 무시', async () => {
-  for (const outcome of ['shared', 'copied'] as const) for (const via of ['ios', 'android', 'web'] as const) {
+test('공유·복사(·수동 복사 창 가능성 있는 실패) 뒤에만 그 토큰을 1회 등록 · 보낸 토큰은 즉시 폐기 · 중복 완료 통지 무시', async () => {
+  for (const outcome of ['shared', 'copied', 'failed'] as const) for (const via of ['ios', 'android', 'web'] as const) {
     resetStorage();
     const s = server();
     const client = createGiftPreparation(s.request, () => 'a'.repeat(64));
     await client.refresh(via);
     const first = client.payload(original, 'ko', via);
-    client.complete('cancelled', first, via); client.complete('failed', first, via); await tick();
-    assert.equal(s.log.issues.length, 0, '취소·실패는 등록하지 않는다');
+    client.complete('cancelled', first, via); await tick();
+    assert.equal(s.log.issues.length, 0, '취소는 등록하지 않는다');
     assert.equal(giftOf(client.payload(original, 'ko', via)), giftOf(first), '취소 뒤 재시도는 아직 아무에게도 안 간 같은 토큰');
     client.complete(outcome, first, via); await tick();
     assert.deepEqual(s.log.issues.map(x => x.token), [giftOf(first)]);
@@ -326,4 +326,57 @@ test('관문 회귀(10220544): 전날 미등록분이 자정 뒤 재시도로 �
     assert.ok(today <= 3);
     assert.equal(today, 3, '보낸 선물 링크는 모두 서버 등록됨(거부된 링크 0)');
   }
+});
+
+test('관문 회귀(10220553 ①): 23:59:59 공유가 00:00:01 에 처리되면 오늘 한도에도 반영 — 오늘 새 링크는 모두 등록 가능', async () => {
+  for (const retried of [false, true]) {
+    resetStorage();
+    let clock = Date.parse('2026-10-22T14:59:59Z'); // KST 23:59:59
+    const used = new Map<string, number>();
+    const kst = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
+    let lose = retried;
+    const seen = new Set<string>();
+    const request: typeof fetch = async (url, init) => {
+      if (String(url).endsWith('share-config')) return json({ enabled: true, available: true });
+      clock += 2000; // 요청이 자정을 넘어 처리된다
+      const tk = JSON.parse(String(init?.body)).token;
+      if (seen.has(tk)) return json({ ok: true }); // 서버: 이미 있는 토큰은 차감 없이 exists
+      const d = kst(clock); const n = used.get(d) ?? 0;
+      if (n >= 3) return json({ ok: false });
+      used.set(d, n + 1); seen.add(tk);
+      if (lose) { lose = false; throw new Error('응답 유실'); }
+      return json({ ok: true });
+    };
+    const client = createGiftPreparation(request, () => '8'.repeat(64), () => clock);
+    await client.refresh('ios');
+    const p = client.payload(original, 'ko', 'ios'); assert.ok(giftOf(p));
+    client.complete('shared', p, 'ios'); await tick(); await tick();
+    clock += 10 * 60_000;
+    await client.refresh('ios');
+    let fresh = 0;
+    for (let i = 0; i < 3; i++) {
+      const q = client.payload(original, 'ko', 'ios');
+      if (!giftOf(q)) break;
+      fresh++; client.complete('shared', q, 'ios'); await tick(); await tick();
+    }
+    assert.ok((used.get(kst(clock)) ?? 0) <= 3, `${retried}`);
+    assert.equal(fresh + 1, used.get(kst(clock)), `보낸 링크 전부 등록(${retried ? '응답 유실 뒤 재시도' : '첫 요청'})`);
+  }
+});
+
+test('관문 회귀(10220553 ②): 공유·복사 모두 실패해 수동 복사 창에 선물 주소가 보이면 그 토큰을 등록하고 폐기', async () => {
+  const s = server();
+  const client = createGiftPreparation(s.request, () => '7'.repeat(64));
+  await client.refresh('ios');
+  const p = client.payload(original, 'ko', 'ios');
+  const prompted: string[] = [];
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async () => { throw new Error('권한'); } } } });
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => { throw new Error('없음'); } } });
+  (globalThis as any).window.prompt = (_: string, u: string) => { prompted.push(u); return null; };
+  const out = await shareOrCopy(p);
+  assert.equal(out, 'failed'); assert.equal(prompted[0], p.url);
+  client.complete(out, p, 'ios'); await tick();
+  assert.deepEqual(s.log.issues.map(x => x.token), [giftOf(p)]);
+  assert.notEqual(giftOf(client.payload(original, 'ko', 'ios')), giftOf(p));
+  delete (globalThis as any).document;
 });

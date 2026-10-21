@@ -144,7 +144,16 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
         if (entry.day !== kstDay(t)) { countToday(storage, t); entry.day = kstDay(t); }
         writeSent(storage, readSent(storage).map(x => x.token === entry.token ? entry : x));
       } catch { return; }
-      if (await register(entry.token, via)) {
+      const ok = await register(entry.token, via);
+      // 요청을 보낸 뒤 KST 날짜가 바뀌었으면 서버는 새 날짜로 셌을 수 있다 — 그날에도 1회 반영한다.
+      try {
+        const t2 = now();
+        if (kstDay(t2) !== kstDay(t)) {
+          countToday(storage, t2);
+          writeSent(storage, readSent(storage).map(x => x.token === entry.token ? { ...x, day: kstDay(t2) } : x));
+        }
+      } catch { return; }
+      if (ok) {
         try { writeSent(storage, readSent(storage).filter(x => x.token !== entry.token)); } catch { return; }
       }
     }
@@ -196,9 +205,12 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     return { ...original, text: `${context}${COPY[lang]}`, url: u.toString() };
   };
 
-  /** 공유·복사 완료 확인 뒤에만 등록한다. 취소·실패는 아무것도 하지 않는다(토큰은 아직 아무에게도 가지 않았다). */
+  /**
+   * 공유·복사 완료 뒤 등록한다. 취소(cancelled)만 아무것도 하지 않는다(토큰은 아무에게도 가지 않았다).
+   * 실패(failed)는 공유 전송기가 마지막 수단으로 주소를 수동 복사 창에 띄웠을 수 있어 «보냈을 수 있음»으로 보고 등록·폐기한다(관문 10220553 ②).
+   */
   const complete = (outcome: ShareOutcome, used: SharePayload, via: ShareVia) => {
-    if (outcome !== 'shared' && outcome !== 'copied') return;
+    if (outcome !== 'shared' && outcome !== 'copied' && outcome !== 'failed') return;
     let usedToken: string | null;
     try { usedToken = giftToken(new URL(used.url).searchParams.get('gift')); } catch { return; }
     if (!usedToken || done.has(usedToken)) return; // 중복 완료 통지는 한 번만 등록한다.
@@ -212,8 +224,16 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
       writeSent(storage, [...readSent(storage), { token: usedToken, at: t, tries: 1, last: t, day: kstDay(t) }]);
     } catch { /* 장부를 못 남겨도 등록은 한 번 시도한다 */ }
     void register(usedToken, via).then(ok => {
-      if (!ok) return;
-      try { writeSent(localStorage, readSent(localStorage).filter(x => x.token !== usedToken)); } catch { /* 다음 확인 때 */ }
+      try {
+        // 23:59:59 공유가 00:00:01 에 처리되는 경계: 응답 시각 날짜가 다르면 그날에도 1회 반영한다(관문 10220553 ①).
+        const t2 = now();
+        if (kstDay(t2) !== kstDay(t)) {
+          countToday(localStorage, t2);
+          // 장부의 셈 날짜도 새 날로 — 재시도 때 같은 날 두 번 세지 않는다.
+          writeSent(localStorage, readSent(localStorage).map(x => x.token === usedToken ? { ...x, day: kstDay(t2) } : x));
+        }
+        if (ok) writeSent(localStorage, readSent(localStorage).filter(x => x.token !== usedToken));
+      } catch { /* 다음 확인 때 */ }
     });
     prepare(via);
   };
