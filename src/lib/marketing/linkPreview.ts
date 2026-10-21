@@ -1,5 +1,6 @@
 import type { StoreApp } from './storeRedirect';
 import { promoExpiry, promoExpiryDate } from './promoExpiry';
+import { APPLE_CODE_LIMIT, promoCodeLimit } from './promoLimit';
 
 /**
  * 스마트링크 «링크 미리보기» 공용 모듈.
@@ -117,22 +118,23 @@ const esc = (v: string) =>
 /**
  * ★2026-10-05 리딤 코드 링크 카드 — `/app?…&code=<우리 맞춤 코드>` 를 붙이면 링크 카드도 «PRO 1개월 무료»를 보여 준다
  *   (note·네이버·카카오톡처럼 링크가 큰 카드로 펴지는 곳). 문구 규칙은 웹 칩과 같다: «무료» 문장 안에 자동 갱신 가격 ·
- *   선착순 500명(애플이 코드에 강제하는 한도)·코드별 만료일 전날만 · 아이폰 전용 명시. 카드 이미지엔 채널 코드가 없다(공용).
+ *   코드별 선착순 한도(애플이 코드에 강제하는 한도)·코드별 만료일 전날만 · 아이폰 전용 명시. 카드 이미지엔 채널 코드가 없다(공용).
  *   우리 코드가 아니거나 만료 뒤면 route 가 promo 를 주지 않아 예전 카드 그대로다.
  */
 export function promoCopy(lang: PreviewLang, code: string | null): Copy {
   const date = promoExpiryDate(code, lang);
+  const limit = promoCodeLimit(code).toLocaleString('en-US');
   const copy: Record<PreviewLang, Copy> = {
     en: {
-      title: `SIGNUM HQ PRO — 1 month free · first 500 · until ${date} (iPhone)`,
+      title: `SIGNUM HQ PRO — 1 month free · first ${limit} · until ${date} (iPhone)`,
       desc: 'PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. Options flow & dark pool data app.',
     },
     ja: {
-      title: `SIGNUM HQ PRO 1か月無料 — 先着500名・${date}まで(iPhone)`,
+      title: `SIGNUM HQ PRO 1か月無料 — 先着${limit}名・${date}まで(iPhone)`,
       desc: 'PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。オプションフロー/ダークプールのアプリ。',
     },
     ko: {
-      title: `SIGNUM HQ PRO 1개월 무료 — 선착순 500명 · ${date}까지(아이폰)`,
+      title: `SIGNUM HQ PRO 1개월 무료 — 선착순 ${limit}명 · ${date}까지(아이폰)`,
       desc: 'PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 옵션 흐름·다크풀 데이터 앱.',
     },
   };
@@ -141,8 +143,8 @@ export function promoCopy(lang: PreviewLang, code: string | null): Copy {
 export const PROMO_COPY: Record<PreviewLang, Copy> = {
   en: promoCopy('en', null), ja: promoCopy('ja', null), ko: promoCopy('ko', null),
 };
-const PROMO_IMAGE = (l: PreviewLang, code: string | null) =>
-  promoExpiryDate(code, l) === promoExpiryDate(null, l)
+export const promoImageUrl = (l: PreviewLang, code: string | null) =>
+  promoExpiryDate(code, l) === promoExpiryDate(null, l) && promoCodeLimit(code) === APPLE_CODE_LIMIT
     ? `${SITE}/promo/redeem-card-${l}.png`
     : `${SITE}/api/og/promo?l=${l}&code=${encodeURIComponent((code || '').trim().toUpperCase())}`;
 
@@ -216,7 +218,7 @@ export function previewHtml(
   const c = useInvite ? inviteCardCopy(lang, (invite as { android: boolean }).android)
     : usePromo ? promoCopy(lang, code) : COPY[app][lang];
   const img = IMAGE[app];
-  const wide = useInvite ? INVITE_IMAGE(lang, (invite as { android: boolean }).android) : usePromo ? PROMO_IMAGE(lang, code) : img.wide?.(lang);
+  const wide = useInvite ? INVITE_IMAGE(lang, (invite as { android: boolean }).android) : usePromo ? promoImageUrl(lang, code) : img.wide?.(lang);
   const imgUrl = wide || img.square;
   const card = wide ? 'summary_large_image' : 'summary';
   const dims = wide

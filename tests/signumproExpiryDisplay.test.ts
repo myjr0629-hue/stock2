@@ -79,19 +79,25 @@ async function main() {
   for (const code of [...legacyCodes, 'SIGNUMPRO']) for (const lang of langs) {
     const d = dates[lang];
     const extended = code === 'SIGNUMPRO';
-    const adjust = (html: string) => extended ? html.split(d.old).join(d.next) : html;
+    const adjustLimit = (html: string) => html.replace(/(선착순 |[Ff]irst |先着)500/g, '$15,000');
+    const adjust = (html: string) => extended ? adjustLimit(html.split(d.old).join(d.next)) : html;
     for (const platform of ['ios', 'android'] as const) {
       for (const fromTag of [null, 'gift', 'cr_test', 'threads']) {
         const opts = { platform, lang, fromTag, code, appleRedeemUrl: '#', playInstallUrl: '#' };
         const expected = oldCoupon.couponHtml(opts);
-        check(couponHtml(opts) === (platform === 'ios' ? adjust(expected) : expected), '쿠폰 HTML: 해당 날짜 외 바이트 동일');
+        let next = platform === 'ios' ? adjust(expected) : expected;
+        if (extended && platform === 'ios') {
+          next = next.replace(`https://www.signumhq.com/promo/redeem-card-${lang}.png`, `https://www.signumhq.com/api/og/promo?l=${lang}&code=SIGNUMPRO`);
+          if (lang === 'en') next = next.replace(/(<p class="t-sub">[^<]*First )5,000/, '$1<span style="letter-spacing:-1.5px;white-space:nowrap">5,000</span>');
+        }
+        check(couponHtml(opts) === next, '쿠폰 HTML: 날짜·한도 숫자·해당 이미지 주소 외 바이트 동일');
       }
     }
     const opts = { lang, fromTag: null, code, coupon: true, redeemUrl: '#' };
     check(await desktopRedeemHtml(opts) === adjust(await oldDesktop.desktopRedeemHtml(opts)), 'PC HTML: 해당 날짜 외 바이트 동일');
     const canonical = `https://www.signumhq.com/app?code=${code}`;
     const expected = oldPreview.previewHtml('signum', lang, canonical, '#', true);
-    const expectedCard = extended ? expected.split(d.cardOld).join(d.cardNext)
+    const expectedCard = extended ? adjustLimit(expected.split(d.cardOld).join(d.cardNext))
       .split(`https://www.signumhq.com/promo/redeem-card-${lang}.png`)
       .join(`https://www.signumhq.com/api/og/promo?l=${lang}&code=SIGNUMPRO`) : expected;
     check(previewHtml('signum', lang, canonical, '#', true) === expectedCard, '카드 HTML: 해당 날짜·이미지 주소 외 바이트 동일');
@@ -106,17 +112,19 @@ async function main() {
     check(image.status === 200 && meta.width === 1200 && meta.height === 675, '카드 이미지 GET: 3언어 PNG 크기 유지');
     const before = await sharp(original).ensureAlpha().raw().toBuffer();
     const after = await sharp(png).ensureAlpha().raw().toBuffer();
-    // 날짜를 포함한 배지 안 작은 영역만 바뀌었는지 픽셀 단위로 검증한다.
+    // 날짜·한도 숫자를 포함한 배지 안 작은 영역만 바뀌었는지 픽셀 단위로 검증한다.
     let changed = 0;
     let outside = 0;
     for (let y = 0; y < 675; y++) for (let x = 0; x < 1200; x++) {
       const i = (y * 1200 + x) * 4;
       if (!before.subarray(i, i + 4).equals(after.subarray(i, i + 4))) {
         changed++;
-        if (x < 302 || x >= 414 || y < 95 || y >= 126) outside++;
+        // 숫자부터 배지 오른쪽 끝까지(숫자가 길어진 만큼 뒤 조각·배지 끝이 밀린다) — 배지 행 안, 왼쪽 라벨·카드 나머지는 그대로
+        const badgeTail = x >= 218 && x < 520 && y >= 88 && y < 135;
+        if (!badgeTail) outside++;
       }
     }
-    check(changed > 0 && outside === 0, '카드 이미지: 날짜 영역 이외 원본 픽셀 동일');
+    check(changed > 0 && outside === 0, '카드 이미지: 날짜·한도 숫자 영역 이외 원본 픽셀 동일');
     const legacy = await promoImage(new ns.NextRequest(`https://www.signumhq.com/api/og/promo?l=${lang}`));
     check(Buffer.from(await legacy.arrayBuffer()).equals(original), '기본 만료 카드 이미지: 원본 PNG 바이트 동일');
   }
