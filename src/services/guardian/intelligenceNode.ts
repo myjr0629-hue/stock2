@@ -184,7 +184,7 @@ const _lastOut: Record<InsightType, Record<Locale, { shown: string; tpl: string;
 };
 
 /**
- * ★2026-10-21 Tactical 은 «화면 글 → 원본·기준»을 글마다 기억한다(최근 8개) — 동시 요청이 _lastOut 을 덮어도 그 글의 생성 기준값을 찾는다.
+ * ★2026-10-21 Tactical 은 «화면 글 → 원본·기준»을 글마다 기억한다(언어당 최근 64개) — 동시 요청이 _lastOut 을 덮어도 그 글의 생성 기준값을 찾는다.
  *   자리표 없는 Tactical 의 «상태 판정» 낡음 비교는 생성 기준값이 있어야 한다(관문 10211015·10211022: 덮인 뒤 «지금 값»을 기준으로 저장하면 낡음이 안 보인다).
  */
 const _outByShown: Record<Locale, Map<string, { tpl: string; basis: GNums | null }>> = { ko: new Map(), en: new Map(), ja: new Map() };
@@ -192,7 +192,7 @@ function rememberShown(locale: Locale, shown: string, tpl: string, basis: GNums 
     const m = _outByShown[locale];
     m.delete(shown);
     m.set(shown, { tpl, basis });
-    while (m.size > 8) m.delete(m.keys().next().value as string);
+    while (m.size > 64) m.delete(m.keys().next().value as string);   // 언어당 64개(글 하나 ~1KB) — 새 Tactical 은 언어당 10분에 하나라 64개 = 10시간+
 }
 
 // === LOCALIZED DEFAULT MESSAGES ===
