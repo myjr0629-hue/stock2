@@ -1,5 +1,5 @@
 import { fmpEtToMs } from '@/lib/fmpTime';
-import { etDateOf, etMinutesOf } from '@/lib/marketCalendar';
+import { etDateOf, etMinutesOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 /**
  * AI 근거의 «시각 판정» 정본 — 가디언 Tactical·내 종목 AI 해석이 모두 이 파일만 쓴다(관문 10/20 4회 보류의 공통 뿌리).
@@ -50,7 +50,7 @@ const HHMM = /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/;
 /**
  * 실적 발표의 «예정에서 빠지는» 시각.
  *   · 공급사 정확 시각(etTime/time, ET 벽시계)이 있으면 그 시각.
- *   · AMC(장 마감 뒤)만 알면 16:00 ET — 장 마감 전 발표는 AMC 가 아니다.
+ *   · AMC(장 마감 뒤)만 알면 시장 달력의 폐장 시각(평소 16:00 · 조기 폐장 13:00 ET).
  *   · BMO(장 시작 전)만 알면 그 날짜 0시 ET — 장전 발표는 06:00~09:15 어디든 가능해 «당일에 예정»이라고 말할 근거가 없다.
  *   · 시각 정보가 없으면 그 날짜 0시 ET(당일엔 발표 여부 미확인).
  * exact=true 는 정확 시각에서 나온 값.
@@ -63,7 +63,9 @@ export function earningsReleaseAt(date: string, hour: unknown, exactTime: unknow
     }
     const h = String(hour || '').toLowerCase();
     if (h === 'amc') {
-        const at = evidenceTime('wall:et', `${date} 16:00`);
+        const close = sessionCloseMinutes(date);
+        const time = `${String(Math.floor(close / 60)).padStart(2, '0')}:${String(close % 60).padStart(2, '0')}`;
+        const at = evidenceTime('wall:et', `${date} ${time}`);
         if (at) return { ms: at.ms, exact: false, boundary: 'amc' };
     }
     const start = etDayStartMs(date);
@@ -84,6 +86,11 @@ export function scheduledLineAt(line: string): number | null {
     const head = line.match(/^\[([^\]]*)\]/)?.[1] ?? line;
     const date = head.match(/(\d{4}-\d{2}-\d{2})/)?.[1];
     if (!date) return null;
+    // 정확 시각 없는 AMC 표식은 저장본의 옛 16:00도 시장 달력으로 판정한다.
+    // 근거 문자열 형식을 유지해 조기 폐장~16:00 밖의 프롬프트·검사 결과는 바꾸지 않는다.
+    if (head.startsWith('earnings calendar;') && head.endsWith('; AMC timing boundary 16:00 ET; exact release time unknown')) {
+        return earningsReleaseAt(date, 'amc', null)?.ms ?? null;
+    }
     const time = head.match(/\b(\d{2}:\d{2}(?::\d{2})?) ET\b/)?.[1];
     if (time) return evidenceTime('wall:et', `${date} ${time}`)?.ms ?? null;
     return etDayStartMs(date);
