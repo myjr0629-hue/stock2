@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { Redis } from '@upstash/redis';
 import { kstDay, playRedeemUrl } from '@/lib/marketing/coupon';
 import { giftCap, giftPrefix, giftToken, type GiftOs } from './config';
-import { CLAIM_LUA, ISSUE_LUA } from './atomic.cjs';
+import { CLAIM_LUA, ISSUE_LUA, AVAILABLE_LUA } from './atomic.cjs';
 
 export const digest = (s: string) => createHash('sha256').update(s).digest('hex');
 export const pseudonym = (kind: string, value: string, secret: string) => createHmac('sha256', secret).update(`${kind}|${value}`).digest('hex');
@@ -49,4 +49,12 @@ export async function claimGift(store: GiftStore, input: { token: unknown; os: G
   return input.os === 'ios'
     ? `https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=${encodeURIComponent(code)}`
     : playRedeemUrl(code);
+}
+
+/** 수신 OS를 모르므로 양쪽 모두 유효할 때만 선물 문구를 준비한다. */
+export async function giftAvailable(store: GiftStore, now = Date.now()): Promise<boolean> {
+  const p = giftPrefix();
+  const day = kstDay(now);
+  return await store.eval(AVAILABLE_LUA, [`${p}:batches:ios`, `${p}:batches:android`,
+    `${p}:day:${day}:ios`, `${p}:day:${day}:android`], [now, p, giftCap('ios'), giftCap('android')]) === 1;
 }

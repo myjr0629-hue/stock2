@@ -72,3 +72,30 @@ redis.call('ZADD',KEYS[2],ARGV[2],ARGV[3])
 for i=4,#ARGV do redis.call('RPUSH',KEYS[3],ARGV[i]); redis.call('SADD',KEYS[4],ARGV[i]) end
 return 'loaded'
 `;
+
+// 발송 전 두 수신 OS의 유효 재고·일 한도만 읽는다. 예약·차감·식별자 반환 없음.
+exports.AVAILABLE_LUA = `
+local now = tonumber(ARGV[1])
+for i=1,2 do
+  local os = ({'ios','android'})[i]
+  local count = tonumber(redis.call('GET',KEYS[i+2]) or '0')
+  if not count or count < 0 or count ~= math.floor(count) or count >= tonumber(ARGV[i+2]) then return 0 end
+  local found = false
+  local batches = redis.call('ZRANGEBYSCORE',KEYS[i],now+1,'+inf')
+  for _,batch in ipairs(batches) do
+    local raw = redis.call('GET',ARGV[2]..':batch:'..batch)
+    if raw then
+      local m = cjson.decode(raw)
+      if m.os == os and m.expiresAt > now then
+        local code = redis.call('LINDEX',ARGV[2]..':pool:'..os..':'..batch,0)
+        if code then
+          local valid = (os=='ios' and #code==18) or (os=='android' and #code==23)
+          if valid and not string.find(code,'[^A-Z0-9]') then found = true; break end
+        end
+      end
+    end
+  end
+  if not found then return 0 end
+end
+return 1
+`;

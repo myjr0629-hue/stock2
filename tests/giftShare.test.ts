@@ -34,6 +34,7 @@ const { desktopRedeemHtml } = require('../src/lib/marketing/desktopHandoff');
 const route = require('../src/app/app/route');
 const issue = require('../src/app/api/gift/issue/route');
 const claim = require('../src/app/api/gift/claim/route');
+const shareConfig = require('../src/app/api/gift/share-config/route');
 const { memoryInviteStore } = require('../src/lib/invite/memoryStore');
 const { arrive, inviteKeys } = require('../src/lib/invite/engine');
 const { inviteIpHash, inviteSecret } = require('../src/lib/invite/guard');
@@ -159,7 +160,19 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     const r = await claim.POST(post()); assert.equal(r.status, 303); assert.ok(!location(r).includes('redeem'));
     assert.equal(evalCalls, 0);
   });
+  await t('공유 준비 꺼짐: 설정 조회도 Redis 무호출', async () => {
+    const before = evalCalls;
+    assert.deepEqual(await (await shareConfig.GET()).json(), { enabled: false, available: false });
+    assert.equal(evalCalls, before);
+  });
   process.env.GIFT_SHARE_ENABLED = '1';
+  await t('공유 준비 켜짐: 재고 유무·저장소 장애가 준비 가능 여부로 전달됨', async () => {
+    for (const [value, available] of [[1, true], [0, false], [new Error(), false]]) {
+      answer = value;
+      assert.deepEqual(await (await shareConfig.GET()).json(), { enabled: true, available });
+    }
+    answer = ['empty'];
+  });
   await t('P1: 선물 토큰·기존 링크 모두 응답 뒤 터치 한 번 → 첫 실행 보상 연결·중복 방지', async () => {
     const ref = inviteRefOf(newInviteKey());
     const ipHash = inviteIpHash(baseHeaders['x-real-ip'], inviteSecret());
@@ -221,6 +234,7 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     inviteStore.upstashInviteStore = () => memoryInviteStore();
   });
   await t('GET·HEAD·OG·PC QR 무소비 및 코드 미노출', async () => {
+    const before = evalCalls;
     for (const ua of [ios, android, desktop, 'facebookexternalhit/1.1']) {
       for (const method of ['GET', 'HEAD']) {
         const r = await route.GET(req(`/app?gift=${token}&l=ko`, { method, headers: { ...baseHeaders, 'user-agent': ua } }));
@@ -233,7 +247,7 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
         else if (ua === ios || ua === android) { assert.ok(html.includes('method="post"') && html.includes('/api/gift/claim')); assert.ok(!html.includes('/api/coupon/claim')); }
       }
     }
-    assert.equal(evalCalls, 0);
+    assert.equal(evalCalls, before);
   });
   await t('쿠폰 CSS와 기존 제목·등록 문구·쿠폰 번호 영역 유지', () => {
     for (const platform of ['ios', 'android']) {

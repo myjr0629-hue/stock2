@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { shareBeacon, shareOrCopy, shareVia, type ShareOutcome } from '@/lib/share/share';
+import { usePreparedGift } from '@/lib/giftShare/usePreparedGift';
 import { GIFT_COPY, buildGiftUrl, giftShareText, toGiftLang, type GiftSurface } from './gift';
 // ★2026-10-14 선물 링크의 초대자 id 도 공유 카드와 «같은 신원»(비공개 열쇠 → 공개 id)을 쓴다 — 친구가 설치하면 선물한 사람도 선물함에 PRO 1개월 코드를 받는다(lib/invite).
 import { getInviteRef, markInviteShared } from '@/lib/invite/identity';
@@ -82,6 +83,7 @@ export function useGiftConfig(): GiftConfig | null {
  */
 export function useGiftShare(locale: string, surface: GiftSurface) {
   const cfg = useGiftConfig();
+  const preparedGift = usePreparedGift();
   const busy = useRef(false);
   const share = useCallback(async (): Promise<ShareOutcome | null> => {
     if (!cfg || busy.current) return null;
@@ -92,16 +94,18 @@ export function useGiftShare(locale: string, surface: GiftSurface) {
     shareBeacon('tap', surface, via);
     let out: ShareOutcome = 'failed';
     try {
-      out = await shareOrCopy({
+      const payload = preparedGift.payload({
         title: GIFT_COPY[lang].shareTitle,
         text: giftShareText(lang, cfg.android),
         url: buildGiftUrl(cfg.code, ref, lang),
-      });
+      }, locale, via, ref, true);
+      out = await shareOrCopy(payload);
+      preparedGift.complete(out, payload, via);
     } finally {
       busy.current = false;
     }
     if (out === 'shared' || out === 'copied') { shareBeacon('sent', surface, via, ref); markInviteShared(); }
     return out;
-  }, [cfg, locale, surface]);
+  }, [cfg, locale, surface, preparedGift]);
   return { cfg, share };
 }
