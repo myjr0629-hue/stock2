@@ -9,8 +9,14 @@ import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider"
 import { getUpcomingEvents } from './eventHubProvider';
 import { getTreasuryYields, getInflationData } from './fedApiClient';
 import { getYahooDataSSOT, YahooQuote } from './yahooFinanceHub';
-import { getFromCache, setInCache } from './redisClient';
+import { getFromCache, setInCache, setIfNewerAsOf, mgetLatestAsOf } from './redisClient';
 import { changeFromPrev } from '@/lib/yieldChange';
+import {
+    carryMissingMacroFields, extractLastGood, mergeLastGood, macroSnapshotComplete,
+    toCarryRecords, fromCarryRecords, MACRO_CARRY_BUNDLES, MACRO_CARRY_CAS_PREFIX,
+    type MacroLastGood, type MacroCarryRecord,
+} from '@/lib/macroSnapshotCarry';
+import { fredCreditSpread, fredRealPair } from '@/lib/macroFredFallback';
 
 export interface MacroFactor {
     level: number | null;
@@ -131,6 +137,61 @@ const MACRO_REDIS_KEY = 'macro:snapshot:v5';
 const MACRO_FRESH_MS = 60_000;        // 이 안쪽이면 «신선»
 const MACRO_RETENTION_SEC = 15 * 60;  // 낡아도 15분은 들고 있는다 (즉시 응답용)
 let macroRefreshing = false;          // 배경 갱신 중복 방지
+
+// ── 빈칸 잇기 보관본 (2026-10-22 장중 핫픽스 — lib/macroSnapshotCarry 머리말) ──
+// 원천(Intrinio 경제계열·신용스프레드)이 실패한 재계산이 REAL·creditSpread 를 «지운 채» 저장·반환되던 구멍.
+// 묶음별 마지막 정상 관측(값+원래 관측일)을 따로 보관하고, 빠진 묶음만 그 값으로 잇는다.
+// 저장은 기존 관측일 CAS(setIfNewerAsOf) — 같은·옛 관측일은 덮지 않으므로 동시 저장이 보관본을 되돌리지 못한다.
+const MACRO_CARRY_KEYS = MACRO_CARRY_BUNDLES.map(b => MACRO_CARRY_CAS_PREFIX + b);
+const MACRO_LASTGOOD_TTL_SEC = 7 * 24 * 60 * 60;
+const LASTGOOD_REREAD_MS = 30_000;    // 불완전 읽기마다 저장소를 두드리지 않게
+const LASTGOOD_RETRY_MS = 60_000;     // 저장 실패한 묶음의 재시도 간격
+let lastGoodMem: MacroLastGood = {};
+let lastGoodReadAt = 0;
+let lastGoodLoading: Promise<MacroLastGood> | null = null;
+/** 저장소에 실제로 남긴(성공 응답) 관측일 — 실패한 묶음은 다음 기회에 다시 저장한다 */
+const lastGoodPersisted: Partial<Record<string, string>> = {};
+const lastGoodAttemptAt: Partial<Record<string, number>> = {};
+
+async function loadLastGood(force = false): Promise<MacroLastGood> {
+    // 동시 요청은 진행 중인 읽기를 함께 기다린다(먼저 온 요청만 보관본을 받는 일이 없게)
+    if (lastGoodLoading) return lastGoodLoading;
+    if (!force && Date.now() - lastGoodReadAt < LASTGOOD_REREAD_MS) return lastGoodMem;
+    lastGoodLoading = (async () => {
+        try {
+            const recs = await mgetLatestAsOf<MacroCarryRecord>(MACRO_CARRY_KEYS);
+            lastGoodMem = mergeLastGood(lastGoodMem, fromCarryRecords(recs));
+        } catch { /* 보관본을 못 읽어도 응답은 나간다 */ }
+        lastGoodReadAt = Date.now();
+        return lastGoodMem;
+    })().finally(() => { lastGoodLoading = null; });
+    return lastGoodLoading;
+}
+
+/** 유효 묶음을 보관본에 반영. 저장소 쓰기는 관측일이 아직 저장되지 않은 묶음만(관측일 CAS — 같은·옛 날짜는 저장소가 거른다). 응답을 기다리게 하지 않는다. */
+function rememberLastGood(snap: MacroSnapshot) {
+    lastGoodMem = mergeLastGood(lastGoodMem, extractLastGood(snap));
+    const now = Date.now();
+    for (const rec of toCarryRecords(lastGoodMem)) {
+        if (lastGoodPersisted[rec.bundle] === rec.asOf) continue;
+        if (now - (lastGoodAttemptAt[rec.bundle] ?? 0) < LASTGOOD_RETRY_MS) continue;
+        lastGoodAttemptAt[rec.bundle] = now;
+        setIfNewerAsOf(MACRO_CARRY_CAS_PREFIX + rec.bundle, rec, MACRO_LASTGOOD_TTL_SEC)
+            .then(ok => { if (ok) lastGoodPersisted[rec.bundle] = rec.asOf; })
+            .catch(e => console.warn('[MacroHub] 보관본 저장 실패:', e?.message));
+    }
+}
+
+/** 캐시에서 읽은 스냅샷이 불완전하면 보관본으로 빈 묶음만 잇는다(있는 필드·시각 필드는 그대로). */
+async function repairFromLastGood(snap: MacroSnapshot): Promise<MacroSnapshot> {
+    // 유효 묶음은 보관본에 반영(관측일이 새로울 때만 실제 저장) — 완전한 스냅샷은 그대로 돌려준다
+    rememberLastGood(snap);
+    if (macroSnapshotComplete(snap)) return snap;
+    const lg = await loadLastGood();
+    const { snapshot, carried } = carryMissingMacroFields(snap, lg, Date.now());
+    if (carried.length) console.warn(`[MacroHub] 캐시 스냅샷 빈칸 잇기: ${carried.join(',')}`);
+    return snapshot;
+}
 
 const SYMBOLS = {
     NDX_PROXY: "QQQ", // Massive uses QQQ for Trend Logic
@@ -489,7 +550,11 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     // 1) 프로세스 메모리 — 가장 빠르다
     if (cache.data && cache.expiry > now) {
         cache.data.ageSeconds = Math.floor((now - cache.fetchedAt) / 1000);
-        return cache.data;
+        const mem = cache.data;
+        if (macroSnapshotComplete(mem)) return mem;
+        const fixed = await repairFromLastGood(mem);
+        if (fixed !== mem && cache.data === mem) cache = { ...cache, data: fixed };
+        return fixed;
     }
 
     // 2) 공유 캐시 — 콜드 인스턴스가 상류를 다시 긁지 않게 한다
@@ -497,8 +562,10 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         const shared = await getFromCache<{ data: MacroSnapshot; at: number }>(MACRO_REDIS_KEY);
         if (shared?.data && typeof shared.at === 'number') {
             const age = now - shared.at;
-            cache = { data: shared.data, expiry: shared.at + MACRO_FRESH_MS, fetchedAt: shared.at };
             shared.data.ageSeconds = Math.floor(age / 1000);
+            // 불완전 스냅샷(옛 코드·원천 실패가 저장한 것)은 빈 묶음만 보관본으로 잇는다
+            shared.data = await repairFromLastGood(shared.data);
+            cache = { data: shared.data, expiry: shared.at + MACRO_FRESH_MS, fetchedAt: shared.at };
 
             if (age < MACRO_FRESH_MS) return shared.data;
 
@@ -649,6 +716,13 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
         // console.warn("[MacroHub] SMA fetch failed", e);
     }
 
+    // Intrinio 경제계열이 실패했을 때만 FRED 원본의 같은 계열·같은 계산으로 만든다(lib/macroFredFallback 머리말).
+    //   정상 경로(둘 다 받음)는 호출 0·결과 동일. FRED 짝은 fromPair 라 realYield(점수·AI 입력)에는 들어가지 않는다.
+    const [creditSpreadOut, realPairFred] = await Promise.all([
+        creditSpread ? Promise.resolve(creditSpread) : fredCreditSpread().catch(() => null),
+        realYield ? Promise.resolve(null) : fredRealPair().catch(() => null),
+    ]);
+
     const snapshot: MacroSnapshot = {
         asOfET: marketStatus.asOfET || fetchedAtET,
         fetchedAtET,
@@ -668,18 +742,31 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
         yieldCurve: liveYieldCurve ?? undefined,
         // 같은 날짜 짝 폴백(fromPair)은 «화면 표시용»으로만 — 점수·AI 는 기존처럼 정시 계산값만 쓴다(관문 10200004)
         realYield: realYield && !realYield.fromPair ? realYield : undefined,
-        realYieldObserved: realYield ?? undefined,
+        realYieldObserved: realYield ?? realPairFred ?? undefined,
         // [V3 PIPELINE] Safe Haven ETFs
         tltChangePct: tltFactor.chgPct ?? null,
         gldChangePct: gldFactor.chgPct ?? null,
         fearGreed: cnnFearGreed || undefined,
-        creditSpread: creditSpread || undefined,
+        creditSpread: creditSpreadOut || undefined,
     };
 
-    cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };
+    // 빈칸 잇기 — 원천에서 새로 받은 묶음은 보관하고, 빠진 묶음만 마지막 정상 관측(원래 관측일 그대로)으로 잇는다.
+    //   상한(관측일 뒤 평일 3일)보다 오래된 보관값은 잇지 않는다. 다 들어온 정상 결과는 같은 객체 그대로 나간다.
+    rememberLastGood(snapshot);
+    let finalSnapshot = snapshot;
+    if (!macroSnapshotComplete(snapshot)) {
+        // 만료된 메모리 스냅샷의 정상 묶음도 후보로(보관본 저장 전 옛 코드가 만든 값)
+        if (cache.data) rememberLastGood(cache.data);
+        const lg = await loadLastGood(true);
+        const r = carryMissingMacroFields(snapshot, lg, Date.now());
+        finalSnapshot = r.snapshot;
+        console.warn(`[MacroHub] 재계산 빈칸 — 이음: ${r.carried.join(',') || '없음'} · 못 이음: ${r.missing.join(',') || '없음'}`);
+    }
+
+    cache = { data: finalSnapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };
     // 공유 캐시에도 남긴다 — 다음 콜드 인스턴스가 상류를 다시 긁지 않도록.
     // 실패해도 응답에는 영향이 없어야 한다.
-    setInCache(MACRO_REDIS_KEY, { data: snapshot, at: now }, MACRO_RETENTION_SEC)
+    setInCache(MACRO_REDIS_KEY, { data: finalSnapshot, at: now }, MACRO_RETENTION_SEC)
         .catch(e => console.warn('[MacroHub] 공유 캐시 저장 실패:', e?.message));
-    return snapshot;
+    return finalSnapshot;
 }
