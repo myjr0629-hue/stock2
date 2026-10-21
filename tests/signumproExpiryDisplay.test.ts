@@ -119,9 +119,9 @@ async function main() {
       const i = (y * 1200 + x) * 4;
       if (!before.subarray(i, i + 4).equals(after.subarray(i, i + 4))) {
         changed++;
-        const dateBox = x >= 302 && x < 414 && y >= 95 && y < 126;
-        const limitBox = x >= 219 && x < 273 && y >= 95 && y < 126;
-        if (!dateBox && !limitBox) outside++;
+        // 숫자부터 배지 오른쪽 끝까지(숫자가 길어진 만큼 뒤 조각·배지 끝이 밀린다) — 배지 행 안, 왼쪽 라벨·카드 나머지는 그대로
+        const badgeTail = x >= 218 && x < 520 && y >= 88 && y < 135;
+        if (!badgeTail) outside++;
       }
     }
     check(changed > 0 && outside === 0, '카드 이미지: 날짜·한도 숫자 영역 이외 원본 픽셀 동일');

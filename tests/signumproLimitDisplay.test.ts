@@ -159,7 +159,8 @@ async function main() {
       const png = Buffer.from(await (await og.GET(req())).arrayBuffer());
       const { data: after, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
       check(info.width === 1200 && info.height === 675, 'OG PNG 크기 유지');
-      const box = { ko: [224, 95, 40, 26], en: [219, 96, 43, 26], ja: [224, 96, 49, 29] }[lang];
+      // 배지 행(원본 실측 88~)에서 숫자 시작부터 늘어난 배지 끝까지만 바뀐다
+      const box = { ko: [222, 88, 298, 41], en: [218, 88, 302, 44], ja: [222, 88, 298, 47] }[lang];
       let changed = 0; let outside = 0;
       for (let y = 0; y < 675; y++) for (let x = 0; x < 1200; x++) {
         const i = (y * 1200 + x) * 4;
@@ -169,6 +170,21 @@ async function main() {
         }
       }
       check(changed > 0 && outside === 0, 'SIGNUMPRO OG: 숫자 영역 이외 픽셀 동일·넘침 없음');
+      // 숫자 사이·뒤 라벨 조각(명·까지·Until·名·まで 등)은 원본 픽셀을 그대로 옮긴 것이다(가로 이동만)
+      const orig = await sharp(readFileSync(resolve(`public/promo/redeem-card-${lang}.png`))).ensureAlpha().raw().toBuffer();
+      const seg = { ko: [[264, 302], [358, 412]], en: [[263, 338], [411, 427]], ja: [[272, 319], [396, 455]] }[lang];
+      for (const [from, to] of seg) {
+        let found = -1;
+        for (let dx = 0; dx <= 80 && found < 0; dx++) {
+          let same = true;
+          for (let y = box[1]; y < box[1] + box[3] && same; y++) for (let x = from; x < to; x++) {
+            const i = (y * 1200 + x) * 4, j = (y * 1200 + x + dx) * 4;
+            if (!orig.subarray(i, i + 4).equals(after.subarray(j, j + 4))) { same = false; break; }
+          }
+          if (same) found = dx;
+        }
+        check(found > 0, `SIGNUMPRO OG: 라벨 조각 ${from}-${to} 원본 픽셀 그대로 이동(${found}px)`);
+      }
       if (artifacts) writeFileSync(resolve(artifacts, `og-${lang}.png`), png);
       for (const code of ['signumpro', '  signumpro  ']) {
         check(promoCodeLimit(code) === 5000, '소문자·공백 한도 정규화');
