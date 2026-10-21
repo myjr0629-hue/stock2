@@ -205,7 +205,14 @@ export function previewHtml(
 ): string {
   const usePromo = promo && app === 'signum';
   const useInvite = usePromo && invite !== false;
-  const code = usePromo && !useInvite ? new URL(canonical).searchParams.get('code') : null;
+  let code: string | null = null;
+  if (usePromo && !useInvite) {
+    try {
+      code = new URL(canonical).searchParams.get('code');
+    } catch {
+      // 상대·비정상 canonical은 기존 코드 없는 프로모션 카드로 처리한다.
+    }
+  }
   const c = useInvite ? inviteCardCopy(lang, (invite as { android: boolean }).android)
     : usePromo ? promoCopy(lang, code) : COPY[app][lang];
   const img = IMAGE[app];

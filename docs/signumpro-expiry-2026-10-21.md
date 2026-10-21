@@ -33,6 +33,19 @@
 - `tests/signumproExpiryDisplay.test.ts`: 이전 HTML 바이트 비교·실제 GET·카드 픽셀 회귀.
 - `docs/signumpro-expiry-2026-10-21.md`: 원인·호출자 영향·시험·권한 차단 기록.
 
+## 관문 2차 보류 수리: canonical 파싱
+
+- 확인한 원인: `previewHtml()`의 일반 SIGNUM 프로모션 분기가 `new URL(canonical)`을 보호 없이 실행했다. 기존 `invite.test.ts`의 상대 값 입력은 여기서 예외가 발생해 뒤의 추천 시험까지 중단됐다.
+- 파싱이 실패하면 코드 값을 `null`로 유지해 기존 기본 프로모션 제목·이미지로 내려간다. canonical 자체와 반환 HTML 템플릿은 바꾸지 않았다. 정상 SIGNUMPRO 링크의 ko/en/ja 12/30 표시는 유지한다.
+- 운영 직접 호출자 전체는 `/app`, `/app-uc`, `/app-wim`, `giftShare/landing.ts`의 4곳이다. `/app`만 프로모션 코드 파싱을 사용하며, UC·WIM·선물 토큰 경로는 기존 카드 분기를 유지한다. 추천·스마트링크·카드·선물 회귀와 앱·언어·분기별 HTML 비교로 영향을 검증했다.
+- 이번 수정 파일은 `src/lib/marketing/linkPreview.ts`, `tests/linkPreviewCanonical.test.ts`, 이 문서다.
+- `tests/invite.test.ts`: 추천 시험 전체 104개 통과. 시험 파일은 origin/main과 바이트 동일하다.
+- 신규 만료·날짜 시험은 기존 건수를 유지해 159+494=653건 통과했다. 별도 canonical 회귀 270건은 빈 값·상대 경로·비정상 URL의 HTML을 origin/main과 바이트 비교했다(앱 3종·언어 3종·프로모션 여부·초대 분기).
+- 추가 회귀: 카드 41건·PC 안내 5건·쿠폰 32건·스마트링크 21건·선물 경로 18건 통과. `inviteLanding.test.ts`, `gift.test.ts`는 종료 코드 0이다. 모든 시험은 잠금으로 직렬 실행했으며 실제 저장소·외부 API 쓰기는 하지 않았다.
+- `/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false`: 이번 수리에서 1회 실행, 종료 코드 0. 변경 파일 3개의 비밀값 검사와 `git diff --check`도 통과했다.
+- origin/main 별도 임시 사본의 전체 추천 실행은 종료 코드 1로 끝났다. 실행 결과 수집에서 실패 상세를 보존하지 못해 원인과 통과 건수 직접 대조는 미완료다. 임시 사본의 의존성 초기화 성공까지만 추가 확인했으며 같은 시험 묶음은 재실행하지 않았다. 현재 브랜치의 104개 통과 및 HTML 270건 바이트 비교와 구분한다.
+- 이번 수리도 `git add`가 공용 Git 디렉터리의 `worktrees/feat-signumpro-expiry/index.lock` 생성 권한 오류(`Operation not permitted`)로 차단됐다. 커밋은 생성하지 못했으며 수정 파일은 작업공간에 보존했다. push는 하지 않았다.
+
 ## Android 동작: 코드로 확인한 사실
 
 대상은 `gift` 등 다른 매개변수가 없는 `/app?code=SIGNUMPRO`, `/app?code=SIGNUMFREE`다. 운영 환경변수와 실기기는 확인하지 않았다.
