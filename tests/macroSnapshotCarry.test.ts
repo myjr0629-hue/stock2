@@ -5,6 +5,7 @@ import {
     carryMissingMacroFields, extractLastGood, mergeLastGood, macroSnapshotComplete, weekdaysSince, lastGoodChanged,
     toCarryRecords, fromCarryRecords,
 } from '../src/lib/macroSnapshotCarry';
+import { parseFredObservations, creditSpreadFromSeries, realPairFromSeries } from '../src/lib/macroFredFallback';
 
 let passed = 0, failed = 0;
 function test(name: string, fn: () => void) {
@@ -148,6 +149,32 @@ test('보관본이 비어 있으면 아무것도 지어내지 않는다', () => 
     const r = carryMissingMacroFields(s, {}, NOW);
     assert.equal(r.snapshot, s);
     assert.deepEqual(r.missing, ['creditSpread']);
+});
+
+test('FRED 폴백 — 결측(".")은 버리고, 신용스프레드는 getCreditSpread 와 같은 계산', () => {
+    const rows = [{ date: '2026-10-20', value: '3.10' }, { date: '2026-10-19', value: '.' }, ...Array.from({ length: 70 }, (_, i) => ({ date: `2026-07-${String((i % 28) + 1).padStart(2, '0')}`, value: String(2.8 + (i % 10) * 0.01) }))];
+    const series = parseFredObservations(rows);
+    assert.equal(series.length, 71);
+    assert.equal(series.find(r => r.date === '2026-10-19'), undefined);
+    const c = creditSpreadFromSeries(series)!;
+    assert.equal(c.value, 3.1);
+    assert.equal(c.date, '2026-10-20');
+    assert.equal(c.change20d, Math.round((3.1 - series[20].v) * 1000) / 1000);
+    assert.equal(c.regime, 'WIDENING');
+    assert.equal(c.percentile, 99); // 71개 중 70개 아래
+    assert.equal(creditSpreadFromSeries(series.slice(0, 4)), null);
+});
+
+test('FRED 폴백 — REAL 은 같은 날짜 짝·10일 이내·fromPair(점수 입력 제외)', () => {
+    const d = parseFredObservations([{ date: '2026-10-21', value: '4.10' }, { date: '2026-10-20', value: '4.05' }]);
+    const t = parseFredObservations([{ date: '2026-10-20', value: '2.30' }]);
+    const r = realPairFromSeries(d, t, NOW)!;
+    assert.equal(r.asOf, '2026-10-20');
+    assert.ok(Math.abs(r.realYield - 1.75) < 1e-9);
+    assert.equal(r.stance, 'TIGHT');
+    assert.equal(r.fromPair, true);
+    assert.equal(realPairFromSeries(parseFredObservations([{ date: '2026-09-01', value: '4' }]), parseFredObservations([{ date: '2026-09-01', value: '2' }]), NOW), null);
+    assert.equal(realPairFromSeries(d, [], NOW), null);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

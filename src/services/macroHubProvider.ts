@@ -16,6 +16,7 @@ import {
     toCarryRecords, fromCarryRecords, MACRO_CARRY_BUNDLES, MACRO_CARRY_CAS_PREFIX,
     type MacroLastGood, type MacroCarryRecord,
 } from '@/lib/macroSnapshotCarry';
+import { fredCreditSpread, fredRealPair } from '@/lib/macroFredFallback';
 
 export interface MacroFactor {
     level: number | null;
@@ -715,6 +716,13 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
         // console.warn("[MacroHub] SMA fetch failed", e);
     }
 
+    // Intrinio 경제계열이 실패했을 때만 FRED 원본의 같은 계열·같은 계산으로 만든다(lib/macroFredFallback 머리말).
+    //   정상 경로(둘 다 받음)는 호출 0·결과 동일. FRED 짝은 fromPair 라 realYield(점수·AI 입력)에는 들어가지 않는다.
+    const [creditSpreadOut, realPairFred] = await Promise.all([
+        creditSpread ? Promise.resolve(creditSpread) : fredCreditSpread().catch(() => null),
+        realYield ? Promise.resolve(null) : fredRealPair().catch(() => null),
+    ]);
+
     const snapshot: MacroSnapshot = {
         asOfET: marketStatus.asOfET || fetchedAtET,
         fetchedAtET,
@@ -734,12 +742,12 @@ async function fetchMacroSnapshotFresh(): Promise<MacroSnapshot> {
         yieldCurve: liveYieldCurve ?? undefined,
         // 같은 날짜 짝 폴백(fromPair)은 «화면 표시용»으로만 — 점수·AI 는 기존처럼 정시 계산값만 쓴다(관문 10200004)
         realYield: realYield && !realYield.fromPair ? realYield : undefined,
-        realYieldObserved: realYield ?? undefined,
+        realYieldObserved: realYield ?? realPairFred ?? undefined,
         // [V3 PIPELINE] Safe Haven ETFs
         tltChangePct: tltFactor.chgPct ?? null,
         gldChangePct: gldFactor.chgPct ?? null,
         fearGreed: cnnFearGreed || undefined,
-        creditSpread: creditSpread || undefined,
+        creditSpread: creditSpreadOut || undefined,
     };
 
     // 빈칸 잇기 — 원천에서 새로 받은 묶음은 보관하고, 빠진 묶음만 마지막 정상 관측(원래 관측일 그대로)으로 잇는다.
