@@ -25,7 +25,8 @@ const copy = value => structuredClone(value);
 function harness({ cached = true, session = 'regular', unified = true, old = false } = {}) {
     const modules = new Map(), store = new Map(), jobs = [];
     const count = { redis: 0, dynamo: 0, analysis: 0, compute: 0, vendor: 0, writes: 0 };
-    const state = { failOptions: false, failSnapshots: false, failLevels: false };
+    const state = { failOptions: false, failSnapshots: false, failLevels: false,
+        failDarkPool: false, failLiquidity: false, darkPoolPct: 40, liquidityScore: 80 };
     const tickers = ['AAPL', 'NVDA', 'SPY'];
     const analysis = Object.fromEntries(tickers.filter(() => cached).map(t => [t, {
         ticker: t, timestamp: clock - 60_000, gex: -5e6, pcr: 1.5, squeezeScore: 10,
@@ -85,8 +86,14 @@ function harness({ cached = true, session = 'regular', unified = true, old = fal
             isTradeInExtSession: () => false, runAfterResponse: () => {} },
         '@/services/impliedMoveService': { peekStoredStructure: async () => null, impliedMoveOfStructure: async () => null },
         '@/lib/aws/historyMiddleware': { recordAlphaDaily: () => {} },
-        '@/services/intrinioClient': { sessionAwareLiquidity: async () => ({ liquidityScore: 80, spreadPct: 0.1 }) },
-        '@/services/darkPool': { getDarkPoolBatch: async asked => Object.fromEntries(asked.map(t => [t, { pct: 40, source: 'FINRA' }])) },
+        '@/services/intrinioClient': { sessionAwareLiquidity: async (_ticker, _bid, _ask, options) => {
+            if (state.failLiquidity) { options?.onReadFailure?.(); return { liquidityScore: null, spreadPct: null }; }
+            return { liquidityScore: state.liquidityScore, spreadPct: 0.1 };
+        } },
+        '@/services/darkPool': { getDarkPoolBatch: async asked => state.failDarkPool ? {}
+            : Object.fromEntries(asked.map(t => [t, { pct: state.darkPoolPct, source: 'FINRA' }])),
+            getDarkPoolBatchChecked: async asked => state.failDarkPool ? { ok: false, reason: 'error' }
+                : { ok: true, map: Object.fromEntries(asked.map(t => [t, { pct: state.darkPoolPct, source: 'FINRA' }])) } },
         '@/services/xsScores': { xsOverride: x => x, xsSnapshotOverride: (_, x) => x, ensureXsScores: async () => {} },
     };
     function load(relative) {
@@ -200,6 +207,85 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
             assert.equal(first.results[0].realtime.optionsAsOf, sourceTime);
             h.state[failure] = false; await h.drain();
             assert.notEqual(JSON.stringify([...h.store]), saved);
+        }
+    });
+    for (const [failure, field, restored] of [['failDarkPool', 'darkPoolPct', 45], ['failLiquidity', 'liquidityScore', 85]]) {
+        await test(`${failure}: 예외 없는 원천 결측에도 메모리·Redis 값과 시각 보존, 복구 뒤 정상 갱신`, async () => {
+            startAt(); const h = harness(), get = h.makeCache();
+            const first = await get(['AAPL'], 'price', timing());
+            const key = h.cacheModule().watchlistBatchKey('AAPL', 'price');
+            const saved = JSON.stringify(h.store.get(key));
+            assert.equal(first.results[0].realtime[field], failure === 'failDarkPool' ? 40 : 80);
+            clock += 15_000; h.state[failure] = true;
+            assert.deepEqual(await get(['AAPL'], 'price', timing()), first); await h.drain();
+            assert.equal(JSON.stringify(h.store.get(key)), saved, '실패가 Redis 정상본을 덮으면 안 됨');
+            assert.deepEqual(await get(['AAPL'], 'price', timing()), first, '실패가 메모리 정상본을 덮으면 안 됨');
+            const cold = h.makeCache();
+            assert.deepEqual(await cold(['AAPL'], 'price', timing()), first, '빈 인스턴스도 같은 원천 시각의 정상본 복원');
+            h.state[failure] = false; h.state[field] = restored; await h.drain();
+            const recovered = await get(['AAPL'], 'price', timing());
+            assert.equal(recovered.results[0].realtime[field], restored);
+            assert.equal(h.store.get(key).at, clock);
+            assert.notEqual(JSON.stringify(h.store.get(key)), saved);
+        });
+    }
+    await test('실패 신호 없이 생긴 필드 결측·빈 값도 교체 거부, 0과 정상 복구는 갱신 허용', async () => {
+        const losses = [
+            r => r.realtime.darkPoolPct = null,
+            r => r.realtime.liquidityScore = undefined,
+            r => r.realtime.sparkline = [],
+            r => r.alphaSnapshot.whyFactors = [],
+            r => r.alphaSnapshot.capturedAt = '',
+            r => r.alphaSnapshot = {},
+        ];
+        for (const lose of losses) {
+            startAt(); const h = harness(); let partial = false;
+            const get = h.makeCache({ compute: async (...args) => {
+                const payload = await h.compute(...args);
+                if (partial) lose(payload.results[0]);
+                assert.equal(args[2].failed, false, '실패 신호와 별개인 완결성 검사');
+                return payload;
+            } });
+            const first = await get(['AAPL'], 'price', timing()), saved = JSON.stringify([...h.store]);
+            clock += 15_000; partial = true;
+            await get(['AAPL'], 'price', timing()); await h.drain();
+            assert.equal(JSON.stringify([...h.store]), saved);
+            assert.deepEqual(await get(['AAPL'], 'price', timing()), first);
+            partial = false; h.state.liquidityScore = 0; await h.drain();
+            assert.equal((await get(['AAPL'], 'price', timing())).results[0].realtime.liquidityScore, 0);
+        }
+    });
+    await test('상한·세션 경계 뒤에도 메모리/Redis 직전 정상본으로 완결성 비교, 옛 시각 재발급 없음', async () => {
+        for (const nextTime of ['2026-10-20T12:01:01-04:00', '2026-10-20T16:00:00-04:00']) {
+            for (const cold of [false, true]) {
+                startAt(); const h = harness(); let partial = false, complete;
+                const dependencies = { compute: async (...args) => {
+                    // 세션 이동과 별개로 모든 원천이 완결된 판본을 공급해 캐시 정책만 검증한다.
+                    complete ??= await h.compute(...args);
+                    const payload = copy(complete);
+                    payload.results[0].realtime.optionsAsOf = clock - 3600_000;
+                    if (partial) payload.results[0].realtime.darkPoolPct = null;
+                    return payload;
+                } };
+                let get = h.makeCache(dependencies);
+                await get(['AAPL'], 'price', timing()); const saved = JSON.stringify([...h.store]);
+                clock = originalDate.parse(nextTime); partial = true;
+                if (cold) get = h.makeCache(dependencies);
+                const t = timing(), response = await get(['AAPL'], 'price', t);
+                assert.equal(t.sync, 1);
+                assert.equal(response.results[0].realtime.darkPoolPct, null, '상한 초과 과거 정상본 응답 금지');
+                assert.equal(JSON.stringify([...h.store]), saved, '직전 정상본은 비교·보존만');
+                partial = false; await get(['AAPL'], 'price', timing());
+                assert.notEqual(JSON.stringify([...h.store]), saved);
+            }
+        }
+    });
+    await test('API 원천 실패 관측: FINRA·유동성 예외 없는 실패가 failed 설정', async () => {
+        for (const failure of ['failDarkPool', 'failLiquidity']) {
+            startAt(); const h = harness(); h.state[failure] = true;
+            const t = timing(); await h.makeCache()(['AAPL'], 'price', t);
+            assert.equal(t.failed, true);
+            assert.equal(h.store.size, 0, '냉기에서도 원천 실패를 정상본으로 저장하지 않음');
         }
     });
     await test('세션 경계·조기폐장·휴장·서머타임: TTL 안이어도 세션 변경은 동기 계산', async () => {

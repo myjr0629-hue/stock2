@@ -36,6 +36,19 @@ function normalResult(result: any): boolean {
         && (!Array.isArray(result.realtime.missingFields) || !result.realtime.missingFields.includes('price'));
 }
 
+/** 값이 있던 원천 필드의 결측은 정상 갱신이 아니다. 0/false는 유효한 값이다. */
+function lostSourceValue(previous: any, next: any): boolean {
+    const empty = (value: any): boolean => value == null
+        || (typeof value === 'string' && value.trim() === '')
+        || (typeof value === 'object' && Object.keys(value).length === 0);
+    if (empty(previous)) return false;
+    if (empty(next)) return true;
+    if (typeof previous === 'object' && !Array.isArray(previous)) {
+        return Object.entries(previous).some(([field, value]) => lostSourceValue(value, next[field]));
+    }
+    return false;
+}
+
 /** 배치 API만 사용한다. SSR·포트폴리오 등 다른 소비자의 캐시 정책에는 관여하지 않는다. */
 export function createWatchlistBatchCache(deps: Dependencies) {
     const memory = new Map<string, BatchEnvelope>();
@@ -48,8 +61,8 @@ export function createWatchlistBatchCache(deps: Dependencies) {
         if (!memory.has(key) && memory.size >= 1000) memory.delete(memory.keys().next().value!);
         memory.set(key, env);
     };
-    const valid = (env: BatchEnvelope | null | undefined, ticker: string, mode: WatchlistBatchMode, scope: string, at: number): env is BatchEnvelope =>
-        !!env && env.scope === scope && env.mode === mode && env.ticker === ticker
+    const valid = (env: BatchEnvelope | null | undefined, ticker: string, mode: WatchlistBatchMode, scope: string | null, at: number): env is BatchEnvelope =>
+        !!env && typeof env.scope === 'string' && (scope === null || env.scope === scope) && env.mode === mode && env.ticker === ticker
         && Number.isFinite(env.at) && env.at <= at && normalResult(env.result)
         && env.result.ticker === ticker && !!env.meta && Number.isFinite(env.meta.elapsed)
         && typeof env.meta.source === 'string' && Number.isFinite(env.meta.count) && env.meta.count > 0;
@@ -65,7 +78,8 @@ export function createWatchlistBatchCache(deps: Dependencies) {
             keys.forEach((key, i) => {
                 const read = batch.then(values => {
                     const env = values[i];
-                    if (valid(env, missing[i], mode, scope, now())) {
+                    // 지난 세션 정상본도 완결성 비교용으로 보관한다. 응답은 아래 세션/나이 검사를 따른다.
+                    if (valid(env, missing[i], mode, null, now())) {
                         // 더 늦게 끝난 Redis 읽기가 이미 계산된 새 메모리 정상본을 덮지 않는다.
                         const current = memory.get(key);
                         if (!current || current.at < env.at) remember(key, env);
@@ -101,6 +115,9 @@ export function createWatchlistBatchCache(deps: Dependencies) {
                         const key = watchlistBatchKey(ticker, mode);
                         const previous = memory.get(key);
                         if (previous && previous.at > env.at) return;
+                        // 일부 값만 섞으면 파생 지표·원천 시각이 새 판본처럼 보일 수 있어 전체 교체를 거부한다.
+                        // 기존 envelope의 at/meta와 모든 원천 시각을 그대로 보존하며 수명도 연장하지 않는다.
+                        if (previous && lostSourceValue(previous.result, env.result)) return;
                         remember(key, env);
                         // 저장 실패도 메모리 정상본을 지우거나 시각을 다시 찍지 않는다.
                         await deps.write(key, env, 3600).catch(() => undefined);

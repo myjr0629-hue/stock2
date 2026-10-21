@@ -1291,6 +1291,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
     // 출구 한 곳에서 일괄 주입한다 — 구축 지점이 5곳이라 각각 고치면 또 샌다.
     try {
         const { sessionAwareLiquidity } = await import('@/services/intrinioClient');
+        const onReadFailure = context?.timing ? () => { context.timing!.failed = true; } : undefined;
         const liq = await Promise.all(
             results.map((r: any) =>
                 r?.ticker && !r.error
@@ -1298,8 +1299,9 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     //   늘 null 이 넘어가 실시간 호가를 못 봤다 — intel/fast 와 같은 실수였다.
                     ? sessionAwareLiquidity(r.ticker,
                         r.realtime?.lastQuote?.p ?? r.realtime?.bidPrice ?? null,
-                        r.realtime?.lastQuote?.P ?? r.realtime?.askPrice ?? null)
-                        .catch(() => ({ liquidityScore: null, spreadPct: null }))
+                        r.realtime?.lastQuote?.P ?? r.realtime?.askPrice ?? null,
+                        onReadFailure ? { onReadFailure } : undefined)
+                        .catch(() => { onReadFailure?.(); return { liquidityScore: null, spreadPct: null }; })
                     : Promise.resolve({ liquidityScore: null, spreadPct: null })
             )
         );
@@ -1310,8 +1312,15 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
         //   ⚠️ 라이선스상 출처 표기 필수 → darkPoolSource 를 같이 싣는다.
         let dpMap: Record<string, any> = {};
         try {
-            const { getDarkPoolBatch } = await import('@/services/darkPool');
-            dpMap = await getDarkPoolBatch(results.filter((r: any) => r?.ticker && !r.error).map((r: any) => r.ticker));
+            const { getDarkPoolBatch, getDarkPoolBatchChecked } = await import('@/services/darkPool');
+            const asked = results.filter((r: any) => r?.ticker && !r.error).map((r: any) => r.ticker);
+            if (context?.timing) {
+                const checked = await getDarkPoolBatchChecked(asked);
+                if (checked.ok) dpMap = checked.map;
+                else context.timing.failed = true;
+            } else {
+                dpMap = await getDarkPoolBatch(asked);
+            }
         } catch (e: any) {
             if (context?.timing) context.timing.failed = true;
             console.warn('[watchlist/batch] 다크풀(FINRA) 조회 실패:', e?.message);
