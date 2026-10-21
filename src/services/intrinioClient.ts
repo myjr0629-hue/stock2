@@ -170,6 +170,10 @@ export function lastIntrinioFailure() {
 
 /** 예산 초과의 «빈 응답» 지문. 실제 빈 결과와 구분이 안 되므로 재시도 대상으로 본다. */
 function _looksEmpty(path: string, data: any): boolean {
+    // 경제계열만: 빈 배열·스키마 누락은 정상 관측이 아니다. 다른 엔드포인트의 판정은 유지한다.
+    if (/^indices\/economic\//.test(path)) {
+        return !Array.isArray(data?.historical_data) || data.historical_data.length === 0;
+    }
     if (data == null) return true;
     if (typeof data !== 'object') return false;
     // securities/{t}/prices → { stock_prices: [] }
@@ -190,7 +194,20 @@ async function callIntrinio(
     timeoutMs = 12000,
     beforeAttempt?: () => Promise<boolean>
 ): Promise<any> {
+    const economicSeries = /^indices\/economic\/(?:%24|\$)?([A-Z0-9]+)\/historical_data\/level$/i.exec(path)?.[1]?.toUpperCase();
+    // 인증 URL·본문·오류 원문은 기록하지 않는다. 날짜도 관측일 형식만 허용한다.
+    const noteEconomic = (status: number | null, data: any, reason: string, source = '원천') => {
+        if (!economicSeries) return;
+        const rows = Array.isArray(data?.historical_data) ? data.historical_data : null;
+        const dates: string[] = (rows ?? []).map((r: any) => r?.date)
+            .filter((date: unknown): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date));
+        console.warn('[Intrinio 경제계열]', {
+            계열: economicSeries, 코드: status, 행수: rows?.length ?? null,
+            최신관측일: dates.sort().at(-1) ?? null, 상태: reason, 경로: source,
+        });
+    };
     if (!INTRINIO_API_KEY) {
+        noteEconomic(null, null, '키 미설정');
         throw new Error("ENV_MISSING: INTRINIO_API_KEY가 설정되지 않았습니다");
     }
 
@@ -207,10 +224,18 @@ async function callIntrinio(
     const ttl = vendorTtlSec(path);
     const cacheKey = ttl > 0 ? VENDOR_CACHE_PREFIX + coalesceKey : "";
     if (cacheKey) {
-        try {
-            const hit = await getFromCache<any>(cacheKey);
-            if (hit != null && !_looksEmpty(path, hit)) return hit;
-        } catch { /* Redis 가 없어도 벤더로 진행한다 */ }
+        let hit: any;
+        try { hit = await getFromCache<any>(cacheKey); }
+        catch { /* Redis 가 없어도 벤더로 진행한다 */ }
+        if (economicSeries && hit?._economicFailure) {
+            const { status, reason, rowCount } = hit._economicFailure;
+            noteEconomic(status, rowCount === 0 ? { historical_data: [] } : null, reason, '음성캐시');
+            throw Object.assign(new Error('Intrinio 경제계열 실패'), { status, economicReason: reason });
+        }
+        if (hit != null && !_looksEmpty(path, hit)) {
+            noteEconomic(200, hit, '정상', '공유캐시');
+            return hit;
+        }
     }
 
     const run = (async () => {
@@ -222,6 +247,7 @@ async function callIntrinio(
             // ⚠️ `continue` 를 쓰면 finally 뒤의 백오프를 건너뛴다. 플래그로 내려간다.
             let payload: any;
             let settled = false;
+            let economicNoted = false;
             // ②-00 배경 갱신 흐름(refresh=1·응답 뒤 갱신)의 관문 — 이 흐름이 429 를 받아 닫혔으면 벤더에 보내지 않는다(예산이 바닥난 동안 두드리지 않는다).
             //   표식이 없는 사용자 경로에서는 getStore() 가 undefined 라 아무 일도 없다. 던지는 오류는 «429 를 받은 것»과 같은 모양이다.
             const bg = bgStore.getStore();
@@ -273,6 +299,8 @@ async function callIntrinio(
                 }
 
                 if (!res.ok) {
+                    noteEconomic(res.status, null, 'HTTP 오류');
+                    economicNoted = true;
                     const err = new Error(`Intrinio API Status: ${res.status} (${path})`);
                     (err as any).status = res.status;
                     _lastFailure = { path, reason: `HTTP ${res.status}${isLast ? '' : ` (재시도 ${attempt})`}`, at: Date.now() };
@@ -283,11 +311,17 @@ async function callIntrinio(
                     lastErr = err;
                 } else {
                     const data = await res.json();
+                    noteEconomic(res.status, data, _looksEmpty(path, data) ? '빈 응답' : '정상');
+                    economicNoted = true;
+                    if (warmGate) warmEmpty = _looksEmpty(path, data);
+                    // 마지막 빈 경제계열도 실패로 끝낸다 → 기존 호출자의 FRED 폴백·보관본 잇기로 진행한다.
+                    if (economicSeries && isLast && _looksEmpty(path, data)) {
+                        throw Object.assign(new Error('Intrinio 경제계열 빈 응답'), { status: res.status, economicReason: '빈 응답', economicRowCount: Array.isArray(data?.historical_data) ? data.historical_data.length : null });
+                    }
                     // IV를 처음 받은 순간을 공유 캐시에도 보존한다. 캐시 재조회 때 새 날짜를 붙이지 않는다.
                     if (/^options\/greeks\/by_ticker\/[^/]+\/realtime$/.test(path) && data && typeof data === 'object') {
                         data._ivObservedAt = new Date(Date.now()).toISOString();
                     }
-                    if (warmGate) warmEmpty = _looksEmpty(path, data);
                     // ③ «빈 응답» — 예산 초과의 지문이다. 마지막 시도가 아니면 다시 묻는다.
                     if (!isLast && _looksEmpty(path, data)) {
                         lastErr = new Error(`Intrinio 빈 응답 (${path})`);
@@ -304,7 +338,10 @@ async function callIntrinio(
             } catch (e: any) {
                 lastErr = e;
                 const abort = e?.name === 'AbortError';
-                _lastFailure = { path, reason: abort ? '타임아웃' : String(e?.message || e).slice(0, 120), at: Date.now() };
+                if (!economicNoted) noteEconomic(warmStatus || null, null, abort ? '타임아웃' : '요청 실패');
+                _lastFailure = { path, reason: economicSeries
+                    ? (abort ? '타임아웃' : e?.economicReason || (warmStatus ? `HTTP ${warmStatus}` : '요청 실패'))
+                    : abort ? '타임아웃' : String(e?.message || e).slice(0, 120), at: Date.now() };
                 if (warmStatus === 0 && !e?.bgTripped && !e?.budgetDenied) noteCall(bg?.label ?? "other", "err");   // 응답을 받지 못한 실패(타임아웃·네트워크) — HTTP 오류 상태는 위에서 이미 셌다
                 if (isLast || bgFatal) throw e;
             } finally {
@@ -325,6 +362,14 @@ async function callIntrinio(
     _inflight.set(coalesceKey, run);
     try {
         return await run;
+    } catch (e: any) {
+        // 실패는 성공 캐시(60초)와 구분해 10초만 공유한다. 재시도 횟수는 늘리지 않는다.
+        if (economicSeries && cacheKey && !e?.bgTripped && !e?.budgetDenied) {
+            const status = typeof e?.status === 'number' ? e.status : null;
+            const reason = e?.economicReason || (status ? 'HTTP 오류' : e?.name === 'AbortError' ? '타임아웃' : '요청 실패');
+            await setInCache(cacheKey, { _economicFailure: { status, reason, rowCount: e?.economicRowCount ?? null } }, 10).catch(() => {});
+        }
+        throw e;
     } finally {
         _inflight.delete(coalesceKey);
     }
