@@ -9,7 +9,8 @@
  *     GET /v1/subscribers/{id} 를 읽는다. 두 앱(App Store·Play)은 한 프로젝트라 어느 키든 권한이 같다(실측).
  *   · 판정은 Redis(인스턴스 공유)에 남긴다 — 양성은 권한 만료와 6시간 중 이른 쪽까지, 음성은 60초.
  *     새 인스턴스·익명 폭주와 무관하게 확인된 PRO 는 저장된 양성으로 바로 통과한다(공급사·예산을 거치지 않는다).
- *   · 처음 보는 ID 만 IP·ID·전체 창 예산을 쓴다(10분). 같은 ID 동시 요청은 인스턴스 안에서 1회로 합친다.
+ *   · 처음 보는 ID 만 IP·ID 예산(10분)을 먼저 쓰고, 그걸 통과한 요청만 전체 예산을 쓴다(한 IP 가 전체를 못 태운다).
+ *     같은 ID 동시 요청은 인스턴스 안에서 1회로 합친다. 확인된 양성은 인스턴스 메모리에도 둔다(Redis 장애 대비).
  *   · 공급사 응답은 본문까지 하나의 시간 제한 안에서 읽는다.
  *   · 공급사 «장애»(설정 없음·401/403·5xx·시간 초과·통신 실패)는 PRO 를 잠그지 않는다 — 공격자가 만들 수 없는
  *     상태이고, 장애 때 실제 구독자를 잠그는 것이 더 큰 손해다. 예산 초과·429·명시적 비활성은 잠근다.
@@ -24,7 +25,7 @@ export const NEGATIVE_SEC = 60;
 export const WINDOW_SEC = 600;
 export const LIMIT_PER_IP = 20;
 export const LIMIT_PER_ID = 6;
-export const LIMIT_GLOBAL = 120;
+export const LIMIT_GLOBAL = 300;
 export const PROVIDER_TIMEOUT_MS = 4000;
 export const STORE_TIMEOUT_MS = 1500;
 
@@ -83,6 +84,8 @@ export function createGuruProAccess(deps: ProAccessDeps) {
     const inflight = new Map<string, Promise<ProAccessDecision>>();
     // 저장소를 못 쓸 때만 쓰는 인스턴스 안 예산(창 키 → 횟수).
     const local = new Map<string, number>();
+    // 확인된 양성의 인스턴스 사본(만료 시각) — Redis 장애·지연에도 기존 PRO 를 다시 예산에 태우지 않는다.
+    const localPro = new Map<string, number>();
 
     const posKey = (h: string) => `gl:pro:v1:${h}`;
 
@@ -96,25 +99,29 @@ export function createGuruProAccess(deps: ProAccessDeps) {
         return null;
     }
     async function writeVerdict(h: string, pro: boolean, ttlSec: number) {
+        if (pro && ttlSec >= 1) {
+            if (localPro.size >= 5000) localPro.delete(localPro.keys().next().value!);
+            localPro.set(h, now() + Math.floor(ttlSec) * 1000);
+        } else localPro.delete(h);
         if (!deps.store || ttlSec < 1) return;
         try { await within(deps.store.set(posKey(h), pro ? '1' : '0', Math.floor(ttlSec)), storeMs); } catch { /* 다음 요청이 다시 확인 */ }
     }
-    async function withinBudget(h: string, ip: string | null): Promise<boolean> {
-        const w = Math.floor(now() / 1000 / WINDOW_SEC);
-        const buckets: [string, number][] = [
-            [`gl:rl:v1:ip:${hash('ip:' + (ip || 'unknown'))}:${w}`, LIMIT_PER_IP],
-            [`gl:rl:v1:id:${h}:${w}`, LIMIT_PER_ID],
-            [`gl:rl:v1:all:${w}`, LIMIT_GLOBAL],
-        ];
+    async function count(keys: string[], w: number): Promise<number[]> {
         let counts: number[] | undefined;
         if (deps.store) {
-            try { counts = await within(deps.store.incr(buckets.map(b => b[0]), WINDOW_SEC * 2), storeMs); } catch { counts = undefined; }
+            try { counts = await within(deps.store.incr(keys, WINDOW_SEC * 2), storeMs); } catch { counts = undefined; }
         }
-        if (!counts || counts.length !== buckets.length || counts.some(n => !Number.isFinite(n))) {
-            for (const k of local.keys()) if (!k.endsWith(`:${w}`)) local.delete(k);
-            counts = buckets.map(([k]) => { const n = (local.get(k) ?? 0) + 1; local.set(k, n); return n; });
-        }
-        return counts.every((n, i) => n <= buckets[i][1]);
+        if (counts && counts.length === keys.length && counts.every(n => Number.isFinite(n))) return counts;
+        for (const k of local.keys()) if (!k.endsWith(`:${w}`)) local.delete(k);
+        return keys.map(k => { const n = (local.get(k) ?? 0) + 1; local.set(k, n); return n; });
+    }
+    async function withinBudget(h: string, ip: string | null): Promise<boolean> {
+        const w = Math.floor(now() / 1000 / WINDOW_SEC);
+        // IP·ID 예산을 넘은 요청은 전체 예산을 쓰지 않는다.
+        const [byIp, byId] = await count([`gl:rl:v1:ip:${hash('ip:' + (ip || 'unknown'))}:${w}`, `gl:rl:v1:id:${h}:${w}`], w);
+        if (byIp > LIMIT_PER_IP || byId > LIMIT_PER_ID) return false;
+        const [all] = await count([`gl:rl:v1:all:${w}`], w);
+        return all <= LIMIT_GLOBAL;
     }
     async function ask(uid: string): Promise<{ kind: 'active'; untilMs: number | null } | { kind: 'inactive' | 'limited' | 'unavailable' }> {
         const key = deps.keys.ios || deps.keys.android;
@@ -159,6 +166,8 @@ export function createGuruProAccess(deps: ProAccessDeps) {
     return async function resolve(uid: string | null, ctx: ProAccessContext): Promise<ProAccessDecision> {
         if (!uid || !RC_UID_RE.test(uid)) return { pro: false, via: 'invalid' };
         const h = hash('uid:' + uid);
+        const mine = localPro.get(h);
+        if (mine !== undefined) { if (mine > now()) return { pro: true, via: 'cache' }; localPro.delete(h); }
         const verdict = await readVerdict(h);
         if (verdict === 'pro') return { pro: true, via: 'cache' };
         if (verdict === 'no') return { pro: false, via: 'denied' };

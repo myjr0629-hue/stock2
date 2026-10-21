@@ -99,6 +99,24 @@ async function main() {
         assert.equal((await instanceB(FREE_ID, { ip: '7.7.7.7' })).via, 'denied');
         now -= 11 * 60_000;
     }
+    // ③-2 (관문 10211419 P1) 한 IP 가 서로 다른 ID 로 예산을 태워도 전체 예산은 남는다 — 다른 IP 의 첫 PRO 는 공급사 확인
+    {
+        const p = provider(standard);
+        const access = createGuruProAccess({ store: memoryStore(), keys, fetchImpl: p.fetchImpl, now: clock });
+        for (let i = 0; i < 400; i++) await access(anon(7000 + i), { ip: '66.66.66.66' });
+        assert.equal(p.calls.length, LIMIT_PER_IP, '한 IP 는 공급사 20회까지만');
+        assert.deepEqual(await access(PRO_ID, { ip: '77.77.77.77' }), { pro: true, via: 'provider' }, 'IP 초과 요청은 전체 예산을 쓰지 않는다');
+    }
+    // ③-3 (관문 10211419 P2) Redis 없이도 확인된 PRO 는 인스턴스 사본으로 유지 — 같은 창 7회 이상 순차 조회
+    {
+        const p = provider(standard);
+        for (const store of [null, (() => { const m = memoryStore(); m.break('throw'); return m; })()]) {
+            const access = createGuruProAccess({ store, keys, fetchImpl: p.fetchImpl, now: clock, storeTimeoutMs: 10 });
+            const before = p.calls.length;
+            for (let i = 0; i < 12; i++) assert.equal((await access(PRO_ID, { ip: '1.1.1.1' })).pro, true, `순차 ${i + 1}회`);
+            assert.equal(p.calls.length - before, 1, '공급사 1회 뒤 인스턴스 사본');
+        }
+    }
     // ④ 양성 수명은 권한 만료를 넘지 않는다 · 음성은 60초 뒤 재확인(방금 결제한 사람)
     {
         let paid = false;
