@@ -1,5 +1,6 @@
 import { regularReferencePrice } from '@/lib/quoteBasis';
 import { sourceDate, observationTime } from '@/lib/ivSkew';
+import { isFreshIvObservation } from '@/lib/ivRank';
 import { sessionCloseMinutes, etMinutesOf } from '@/lib/marketCalendar';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { isTradeInExtSession } from './extendedSessionClose';
@@ -1318,29 +1319,33 @@ async function getStructureDataImpl(
                 // 1000% 를 넘으면 데이터 오류로 본다 — 지표로 쓰지 않는다
                 return pct > 0 && pct < 1000 ? pct : null;
             };
-            const call = ivContracts.find((c: any) => c.k === atmStrike && c.type === 'call');
-            const put = ivContracts.find((c: any) => c.k === atmStrike && c.type === 'put');
-            const callIv = extractIv(call);
-            const putIv = extractIv(put);
-            if (callIv !== null && putIv !== null) {
-                // 0DTE guard: if Call-Put IV spread > 40pp, use the lower (OTM) IV
-                const spread = Math.abs(callIv - putIv);
-                const bestIv = spread > 40 ? Math.min(callIv, putIv) : (callIv + putIv) / 2;
-                atmIv = Math.round(bestIv);
-            } else {
-                const fallback = callIv ?? putIv;
-                atmIv = fallback !== null ? Math.round(fallback) : null;
+            // IV 값·날짜·시각을 같은 계약에서 묶는다. OI의 chainDate나 프로브 _ts로 메우지 않는다.
+            const candidates = ivContracts.filter((c: any) => c.k === atmStrike && (c.type === 'call' || c.type === 'put'))
+                .map((c: any) => {
+                    const time = observationTime(c.ivObservedAt);
+                    const date = sourceDate(c.ivSourceDate) ?? time.sourceSessionDate
+                        ?? (c._rtGreeks ? null : sourceDate(c._intrinio?.date));
+                    return { type: c.type, iv: extractIv(c), date, observedAt: time.observedAt };
+                })
+                .filter(c => c.iv !== null && isFreshIvObservation(c.date));
+            // 날짜가 다른 다리를 섞지 않는다. 신선한 최신 날짜가 있으면 그 날짜의 IV를 반드시 쓴다.
+            const latestDate = candidates.reduce<string | null>((latest, c) =>
+                latest === null || c.date! > latest ? c.date : latest, null);
+            const latest = candidates.filter(c => c.date === latestDate);
+            const newest = (type: string) => latest.filter(c => c.type === type)
+                .sort((a, b) => (b.observedAt ?? '').localeCompare(a.observedAt ?? ''))[0];
+            const call = newest('call');
+            const put = newest('put');
+            let legs = [call, put].filter((c): c is NonNullable<typeof c> => c !== undefined);
+            if (call && put && Math.abs(call.iv! - put.iv!) > 40) {
+                // 스프레드 방어로 버린 다리는 값·날짜·시각 모두에 참여하지 않는다.
+                legs = [call.iv! < put.iv! ? call : put];
             }
-            // 실제 IV를 낸 다리의 고유 날짜만 사용한다. 다음 만기 IV를 원래 체인 날짜로 날짜 매기지 않는다.
-            const legs = [callIv !== null ? call : null, putIv !== null ? put : null].filter(Boolean);
-            const dates = legs.map(c => sourceDate(c.ivSourceDate)
-                ?? observationTime(c.ivObservedAt).sourceSessionDate
-                ?? (c._rtGreeks ? null : sourceDate(c._intrinio?.date)
-                    ?? (usedLambdaCache && ivExpiry === targetExpiry ? sourceDate(chainDate) : null)));
-            if (dates.length && dates.every(d => d !== null && d === dates[0])) {
-                ivSourceDate = dates[0];
+            if (legs.length) {
+                atmIv = Math.round(legs.reduce((sum, c) => sum + c.iv!, 0) / legs.length);
+                ivSourceDate = latestDate;
                 // 단일 다리거나 양 다리가 같은 실제 관측 시각일 때만 시각도 보존한다.
-                const times = legs.map(c => observationTime(c.ivObservedAt).observedAt);
+                const times = legs.map(c => c.observedAt);
                 if (times.every(t => t !== null && t === times[0])) ivObservedAt = times[0];
             }
         }

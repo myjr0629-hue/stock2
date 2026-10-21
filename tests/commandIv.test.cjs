@@ -365,7 +365,7 @@ const calculateIv = compile(`exports.run = async (cleanContracts, targetExpiry, 
     const underlyingPrice = 100, todayStr = '2026-10-21', ticker = 'IBM';
     ${structureSource.slice(start, end)}
     return { atmIv, ivSourceDate, ivObservedAt, ivExpiry };
-};`, {}, { sourceDate: dates.sourceDate, observationTime: dates.observationTime, console: { log() {} } }).run;
+};`, {}, { sourceDate: dates.sourceDate, observationTime: dates.observationTime, isFreshIvObservation: rank.isFreshIvObservation, console: { log() {} } }).run;
 const contract = (type, date, iv = .31) => ({ k: 100, type, implied_volatility: iv, _intrinio: { date } });
 
 test('구조 IV 고유 날짜: 다른 만기·날짜 없는 실시간·누락 다리·프로브 원천', async () => {
@@ -381,8 +381,150 @@ test('구조 IV 고유 날짜: 다른 만기·날짜 없는 실시간·누락 �
         legs.map(c => ({ ...c, _intrinio: { date: '2026-10-20' }, details: { strike_price: 100, contract_type: c.type } })) } }), true, '2026-10-21');
     assert.equal(next.ivExpiry, '2026-10-23'); assert.equal(next.ivSourceDate, '2026-10-20');
     const noDates = legs.map(({ _intrinio, ...c }) => c);
-    assert.equal((await calculateIv(noDates, '2026-10-23', [], noFetch, true, '2026-10-20')).ivSourceDate, '2026-10-20');
-    assert.equal((await calculateIv([legs[0], contract('put', '2026-10-20')], '2026-10-23', [], noFetch)).ivSourceDate, null);
+    assert.equal((await calculateIv(noDates, '2026-10-23', [], noFetch, true, '2026-10-20')).ivSourceDate, null);
+    assert.equal((await calculateIv([legs[0], contract('put', '2026-10-20')], '2026-10-23', [], noFetch)).ivSourceDate, '2026-10-21');
+});
+
+// 실제 수집기·직접 경로의 변환 함수와 프로브 축약 함수를 연결한다.
+function declaration(file, name) {
+    const ast = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true);
+    let found;
+    function visit(n) {
+        if (ts.isFunctionDeclaration(n) && n.name?.text === name) found = n.getText(ast);
+        ts.forEachChild(n, visit);
+    }
+    visit(ast); assert.ok(found, name); return found;
+}
+const slimContract = compile(`${declaration('scripts/lambda-flow-harvest/index.js', 'slimContract')}; exports.run = slimContract;`).run;
+async function adaptedChain(lambda, rtRows, eodDate = '2026-10-20', { revisitAt, legacyCache = false } = {}) {
+    const file = lambda ? 'scripts/lambda-flow-harvest/intrinio-adapter.js' : 'src/services/intrinioClient.ts';
+    const realtimeName = lambda ? 'getRealtimeGreeks' : 'getRealtimeGreeksIntrinio';
+    const chainName = lambda ? 'getOptionChain' : 'getOptionChainSnapshotIntrinio';
+    const rows = ['call', 'put'].map(type => ({ option: { code: type, type, strike: 100, expiration: '2026-10-23' },
+        prices: { date: eodDate, implied_volatility: .24, open_interest: 10 } }));
+    const pages = Array.isArray(rtRows[0]) ? rtRows : [rtRows];
+    let calls = 0;
+    const cache = new Map();
+    const globals = { process: { env: {} }, URLSearchParams, AbortController, setTimeout, clearTimeout,
+        INTRINIO_API_KEY: true, INTRINIO_KEY: true, INTRINIO_BASE: 'https://fixture.invalid',
+        INTRINIO_MAX_ATTEMPTS: 1, MAX_ATTEMPTS: 1, VENDOR_CACHE_PREFIX: 'fixture:', _inflight: new Map(),
+        vendorTtlSec: () => 60, _looksEmpty: () => false,
+        bgStore: { getStore() {} }, warmGateStore: { getStore() {} },
+        noteCall() {}, note429() {}, noteFail() {}, _acquire: async () => {}, _release() {}, rateGate: async () => {},
+        getFromCache: async key => legacyCache ? { contracts: pages[0] } : cache.get(key),
+        setInCache: async (key, data) => { cache.set(key, data); },
+        fetch: async () => {
+            const i = calls++;
+            return { ok: true, status: 200, json: async () => ({ contracts: pages[i], next_page: i + 1 < pages.length ? String(i + 1) : null }) };
+        }, num: x => typeof x === 'number' && Number.isFinite(x) ? x : null,
+        dateToMs: d => Date.parse(d + 'T00:00:00Z'),
+        fetchChainPagesIntrinio: async () => ({ rows, pages: 1, keys: ['chain'] }),
+        cachedChain: async () => ({ chain: rows }), followChainPages: async (_s, _e, ch) => ch,
+        chainDateOf: () => eodDate, console: { warn() {} } };
+    const producer = compile(`${declaration(file, 'callIntrinio')}\n${declaration(file, realtimeName)}\n${declaration(file, chainName)}; exports.run = ${chainName};`, {}, globals).run;
+    let result = await producer('IBM', { expiration: '2026-10-23', underlyingPrice: 100 });
+    if (revisitAt) {
+        now = Date.parse(revisitAt);
+        result = await producer('IBM', { expiration: '2026-10-23', underlyingPrice: 100 });
+        assert.equal(calls, pages.length, '공유 캐시 재사용은 벤더 재호출 없이 최초 관측 시각을 유지한다');
+    }
+    return result.results;
+}
+const rtRow = (type, value = .31) => ({ option: { code: type }, greeks: { implied_volatility: value, gamma: .02 } });
+const noIvFetch = () => assert.fail('외부 호출 금지');
+const calculateProbeIv = rows => calculateIv(rows.map(c => ({ ...c, k: c.details.strike_price, type: c.details.contract_type })),
+    '2026-10-23', [], noIvFetch, true, '2026-10-20');
+
+test('관문 P1: 10/21 실시간 IV 31은 실제 관측 시각을 축약 후에도 보존하고 10/20 OI 날짜로 바뀌지 않는다', async () => {
+    for (const lambda of [true, false]) {
+        const rows = await adaptedChain(lambda, [rtRow('call'), rtRow('put')]);
+        const captured = new Date(now).toISOString();
+        // 프로브 저장·구조 계산이 나중에 일어나도 IV를 받은 시각으로 남아야 한다.
+        const savedNow = now;
+        try {
+            now += 86400000;
+            for (const input of [rows, rows.map(slimContract)]) {
+                const result = await calculateProbeIv(input);
+                assert.equal(result.atmIv, 31);
+                assert.equal(result.ivSourceDate, '2026-10-21');
+                assert.equal(result.ivObservedAt, captured);
+                const selected = iv.commandUnifiedIv('IBM', { structure: { atmIV: result.atmIv / 100, ...result } });
+                assert.equal(selected.iv, 31); assert.equal(selected.sourceDate, '2026-10-21');
+            }
+        } finally { now = savedNow; }
+    }
+});
+
+test('관문 P2: 제외된 8/28 다리가 신선한 콜·풋 IV와 그 날짜를 무효화하지 않는다', async () => {
+    for (const type of ['call', 'put']) for (const staleIv of [.90, .40, .10]) {
+        const opposite = type === 'call' ? 'put' : 'call';
+        const fresh = { ...contract(type, '2026-10-20'), _rtGreeks: true, ivObservedAt: '2026-10-21T15:00:00Z' };
+        const result = await calculateIv([fresh, contract(opposite, '2026-08-28', staleIv)], '2026-10-23', [], noIvFetch);
+        assert.equal(result.atmIv, 31); assert.equal(result.ivSourceDate, '2026-10-21');
+        assert.equal(result.ivObservedAt, '2026-10-21T15:00:00.000Z');
+        const selected = iv.commandUnifiedIv('IBM', { structure: { atmIV: result.atmIv / 100, ...result } });
+        assert.equal(selected.iv, 31); assert.equal(selected.sourceDate, '2026-10-21');
+    }
+});
+
+test('동일 날짜 스프레드 방어도 실제 선택 다리의 시각만 보존한다', async () => {
+    const rows = [
+        { ...contract('call', null), ivObservedAt: '2026-10-21T15:00:00Z' },
+        { ...contract('put', null, .90), ivObservedAt: '2026-10-21T15:01:00Z' },
+    ];
+    const result = await calculateIv(rows, '2026-10-23', [], noIvFetch);
+    assert.equal(result.atmIv, 31); assert.equal(result.ivObservedAt, '2026-10-21T15:00:00.000Z');
+});
+
+test('계약별 실시간/EOD 혼합: IV 누락·실시간 감마만 존재·페이지 분할·원천 날짜 없는 옛 프로브', async () => {
+    for (const lambda of [true, false]) {
+        for (const rt of [[], [rtRow('call')], [rtRow('call', null), rtRow('put', null)], [[rtRow('call')], [rtRow('put')]]]) {
+            const rows = (await adaptedChain(lambda, rt)).map(slimContract);
+            const result = await calculateProbeIv(rows);
+            const live = rt.flat().some(c => c.greeks.implied_volatility === .31);
+            assert.equal(result.atmIv, live ? 31 : 24);
+            assert.equal(result.ivSourceDate, live ? '2026-10-21' : '2026-10-20');
+            assert.equal(result.ivObservedAt, live ? new Date(now).toISOString() : null);
+        }
+    }
+    const legacy = ['call', 'put'].map(type => ({ details: { strike_price: 100, contract_type: type }, implied_volatility: .31 }));
+    const unknown = await calculateProbeIv(legacy);
+    assert.equal(unknown.ivSourceDate, null);
+    assert.equal(iv.commandUnifiedIv('IBM', { structure: { atmIV: .31, ...unknown } }), null);
+});
+
+test('실시간 관측일은 ET 자정으로 구분하고 중복 계약 중 신선한 IV를 빠뜨리지 않는다', async () => {
+    const savedNow = now;
+    try {
+        for (const [at, date] of [['2026-10-22T00:30:00Z', '2026-10-21'], ['2026-10-22T04:01:00Z', '2026-10-22']]) {
+            now = Date.parse(at);
+            for (const lambda of [true, false]) {
+                const rows = (await adaptedChain(lambda, [rtRow('call'), rtRow('put')])).map(slimContract);
+                const result = await calculateProbeIv(rows);
+                assert.equal(result.atmIv, 31); assert.equal(result.ivSourceDate, date);
+                assert.equal(result.ivObservedAt, new Date(now).toISOString());
+            }
+        }
+    } finally { now = savedNow; }
+    const result = await calculateIv([contract('call', '2026-08-28', .90), contract('call', '2026-10-21'),
+        contract('put', '2026-08-28', .90)], '2026-10-23', [], noIvFetch);
+    assert.equal(result.atmIv, 31); assert.equal(result.ivSourceDate, '2026-10-21');
+    const stale = await calculateIv([contract('call', '2026-08-28')], '2026-10-23', [], noIvFetch);
+    assert.equal(stale.atmIv, null); assert.equal(stale.ivSourceDate, null);
+});
+
+test('공유 벤더 캐시를 ET 자정 너머 다시 읽어도 IV의 최초 관측일·시각은 유지한다', async () => {
+    const savedNow = now;
+    try {
+        now = Date.parse('2026-10-22T03:59:50Z');
+        const rows = await adaptedChain(false, [rtRow('call'), rtRow('put')], '2026-10-20', { revisitAt: '2026-10-22T04:00:10Z' });
+        const result = await calculateProbeIv(rows.map(slimContract));
+        assert.equal(result.atmIv, 31); assert.equal(result.ivSourceDate, '2026-10-21');
+        assert.equal(result.ivObservedAt, '2026-10-22T03:59:50.000Z');
+        const legacy = await adaptedChain(false, [rtRow('call'), rtRow('put')], '2026-10-20', { legacyCache: true });
+        const unknown = await calculateProbeIv(legacy.map(slimContract));
+        assert.equal(unknown.atmIv, null); assert.equal(unknown.ivSourceDate, null);
+    } finally { now = savedNow; }
 });
 
 test('NVDA·TSLA·AAPL 정상 합성 응답: 값·날짜·직렬화 바이트 불변', () => {

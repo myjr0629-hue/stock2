@@ -283,6 +283,10 @@ async function callIntrinio(
                     lastErr = err;
                 } else {
                     const data = await res.json();
+                    // IV를 처음 받은 순간을 공유 캐시에도 보존한다. 캐시 재조회 때 새 날짜를 붙이지 않는다.
+                    if (/^options\/greeks\/by_ticker\/[^/]+\/realtime$/.test(path) && data && typeof data === 'object') {
+                        data._ivObservedAt = new Date(Date.now()).toISOString();
+                    }
                     if (warmGate) warmEmpty = _looksEmpty(path, data);
                     // ③ «빈 응답» — 예산 초과의 지문이다. 마지막 시도가 아니면 다시 묻는다.
                     if (!isLast && _looksEmpty(path, data)) {
@@ -1269,9 +1273,11 @@ export async function getRealtimeGreeksIntrinio(
         const j: any = await callIntrinio(`options/greeks/by_ticker/${sym}/realtime`, q).catch(() => null);
         calls++;
         if (!j) break;
+        // 캐시를 거쳐도 최초 관측 시각을 쓴다. 날짜 없는 옛 캐시에 현재 시각을 붙이지 않는다.
+        const ivObservedAt = j._ivObservedAt ?? null;
         for (const c of j.contracts || []) {
             const code = c.option?.code;
-            if (code) out.set(code, c.greeks || {});
+            if (code) out.set(code, { ...c.greeks, ivObservedAt });
         }
         page = j.next_page || null;
     } while (page && calls < MAX_PAGES);
@@ -1448,6 +1454,9 @@ export async function getOptionChainSnapshotIntrinio(
                     vega: num(rt?.vega) ?? num(p.vega) ?? 0,
                 },
                 implied_volatility: num(rt?.implied_volatility) ?? num(p.implied_volatility) ?? 0,
+                // IV의 출처를 따로 싣는다. 실시간 감마가 있어도 IV가 EOD이면 EOD 날짜다.
+                ivSourceDate: num(rt?.implied_volatility) !== null ? null : p.date ?? null,
+                ivObservedAt: num(rt?.implied_volatility) !== null ? rt?.ivObservedAt ?? null : null,
                 // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
                 //   없으면 null — 0 으로 채우면 구조 서비스의 «OI 누락» 검사(20% 넘으면 PENDING)가 영영 발동하지 않는다.
                 //   소비처는 전부 `|| 0`·`Number(x) || 0` 로 읽는다(2026-09-27 전수 확인) — 합계는 예전과 같다.

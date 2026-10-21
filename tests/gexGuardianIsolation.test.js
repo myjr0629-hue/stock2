@@ -47,6 +47,7 @@ function load(relative) {
 const basis = load('src/lib/app/intelOptionsBasis.ts');
 const db = load('src/lib/aws/dynamoDataProvider.ts');
 const volatility = load('src/lib/metrics/volatilityRegime.ts');
+const commandIv = load('src/lib/app/commandIv.ts');
 function source(file) { return fs.readFileSync(path.join(root, file), 'utf8'); }
 function ast(file) { return ts.createSourceFile(file, source(file), ts.ScriptTarget.Latest, true); }
 function find(file, predicate) {
@@ -66,7 +67,8 @@ const timers = [];
 function run(code, context = {}) {
     return vm.runInNewContext(compile(code), {
         exports: {}, console: quiet, Date, fetch: noNetwork,
-        ...basis, ...volatility,
+        // 배치의 실제 IV 관문과 선택적 실행 문맥을 모형에도 제공한다.
+        ...basis, ...volatility, ...commandIv, context: null,
         setTimeout: (...args) => { const timer = setTimeout(...args); timer.unref(); timers.push(timer); return timer; },
         require: id => {
             if (id === '@/lib/aws/dynamoDataProvider') return db;
