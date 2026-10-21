@@ -166,24 +166,36 @@ export interface GFill { ok: boolean; text: string; reasons: string[] }
 /**
  * ★2026-10-21 숫자 없이 쓴 서술의 낡음 — Tactical 첫 문장(«지수는 올랐지만 … 상승장»·«시장 건강도가 약해»)은 자리표 없이 상태를 말한다.
  *   자리표가 없으면 채우기 단계(staleMove)가 못 보므로, 그 서술의 근거 지표가 생성 때 값(basis)에서 같은 구간 규칙으로 움직였으면 낡음.
- *   지수 방향(NDX_CHG)은 언제나(상태 판정은 이름 없이 «지수»라고 쓴다), 그 밖은 글이 그 지표를 이름으로 말할 때만. 자리표가 있는 지표는 건너뛴다(중복 없음).
+ *   글이 그 지표(지수·장세 낱말 포함)를 말할 때만, 자리표가 있는 지표는 건너뛴다(중복 없음 — 옛 글은 대개 자리표가 있어 그대로).
+ *   지수는 상태 판정 구간(±0.3%, 여유 0.6/0.1)까지, 참여폭은 ±10%p(관문 10210950).
  *   (관문 10210942: 나스닥 +0.78%→−0.78% 인데 저장된 «상승장» 판정이 그대로 나갔다)
  */
-const IMPLIED_NAMES: Partial<Record<GKey, RegExp | null>> = {
-    NDX_CHG: null,
+const IMPLIED_NAMES: Partial<Record<GKey, RegExp>> = {
+    // 상태 판정은 «지수는 올랐지만 … 상승장»처럼 이름 없이 쓴다 — 지수·장세 낱말이 있으면 본다(지수를 말하지 않는 옛 글은 보지 않는다)
+    //   «달러 지수·변동성 지수·dollar index·ドル指数» 는 지수(주가) 가 아니다
+    NDX_CHG: /(?<!(?:변동성|달러|물가|공포|탐욕|심리|건강)\s?)지수[는가와도]|나스닥|증시|상승장|하락장|보합|제자리|숨 고르기|(?<!(?:dollar|volatility|price|fear|greed)\s)\bindex\b|nasdaq|\brally\b|\bdecline\b|\bpullback\b|(?<!ドル|変動性|恐怖)指数|ナスダック|相場|横ばい/i,
     RLSI: /RLSI|시장\s?건강도|market health|健全度|マーケットヘルス/i,
     GEX: /GEX|옵션 포지션|감마|options positioning|gamma|オプション・ポジション|ガンマ/i,
     VIX: /VIX|변동성 지수|volatility|変動性指数|ボラティリティ/i,
+    BREADTH: /참여폭|상승 종목|breadth|advancing|ブレッドス|上昇銘柄|裾野/i,
 };
+/** 상태 판정의 지수 방향 구간(tacticalPrompt.marketStateHint 와 같은 ±0.3%) — 보합↔방향은 여유를 두고 넘어야 낡음(경계에서 글이 자꾸 바뀌지 않게) */
+function indexStateStale(b: number, v: number): boolean {
+    const flatB = Math.abs(b) < 0.3;
+    if (flatB) return Math.abs(v) >= 0.6;            // «제자리» 라고 썼는데 0.6% 넘게 움직였다
+    return Math.abs(v) < 0.1 || Math.sign(v) !== Math.sign(b);   // «올랐지만/내렸고» 라고 썼는데 보합 근처로 왔거나 방향이 뒤집혔다
+}
 export function impliedStaleReasons(text: string, nums: GNums | null | undefined, basis: GNums | null | undefined): string[] {
     if (!nums || !basis) return [];
     const t = String(text ?? '');
     const out: string[] = [];
-    for (const [k, name] of Object.entries(IMPLIED_NAMES) as Array<[GKey, RegExp | null]>) {
+    for (const [k, name] of Object.entries(IMPLIED_NAMES) as Array<[GKey, RegExp]>) {
         if (new RegExp(`\\{\\s*${k}\\s*\\}`).test(t)) continue;
-        if (name && !name.test(t)) continue;
+        if (!name.test(t)) continue;
         const b = basis[k], v = nums[k];
-        if (typeof b === 'number' && Number.isFinite(b) && typeof v === 'number' && Number.isFinite(v) && staleMove(k, b, v)) out.push(`token-stale:${k}:implied:${formatGNum(k, b)}→${formatGNum(k, v)}`);
+        if (typeof b !== 'number' || !Number.isFinite(b) || typeof v !== 'number' || !Number.isFinite(v)) continue;
+        // 지수는 상태 판정 구간으로만(보합이던 글은 −0.2→+0.1 처럼 0 을 지나도 여전히 «보합») · 그 밖은 자리표와 같은 staleMove
+        if (k === 'NDX_CHG' ? indexStateStale(b, v) : staleMove(k, b, v)) out.push(`token-stale:${k}:implied:${formatGNum(k, b)}→${formatGNum(k, v)}`);
     }
     return out;
 }

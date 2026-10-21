@@ -213,6 +213,17 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
         assert.deepEqual(impliedStaleReasons('변동성 지수(VIX)는 안정 구간입니다.', { VIX: 19 }, { VIX: 17 }), ['token-stale:VIX:implied:17.0→19.0']);
         assert.deepEqual(impliedStaleReasons('시장 건강도는 약합니다.', { RLSI: 47 }, { RLSI: 43 }), ['token-stale:RLSI:implied:43→47']);
         assert.deepEqual(impliedStaleReasons('금이 밀렸습니다.', { VIX: 30, RLSI: 70 }, { VIX: 17, RLSI: 30 }), []); // 글이 이름으로 말하지 않는 지표는 보지 않는다
+        // 관문 10210950 — ① 지수를 말하지 않는 옛 글은 나스닥 부호가 바뀌어도 그대로 ② «제자리»(+0.1%)인데 +0.7% 면 낡음 ③ 참여폭 61%→30% 낡음
+        assert.deepEqual(impliedStaleReasons('19:24 ET 보도에 따르면 금이 밀렸다. 시장 건강도(RLSI) {RLSI}점은 약하다. 다음 테스트는 10/21(수) 10:30 ET EIA Crude Oil Stocks Change다.', { NDX_CHG: -0.5, RLSI: 36 }, { NDX_CHG: 0.5, RLSI: 36 }), []);
+        assert.deepEqual(impliedStaleReasons('지수는 제자리지만 시장 건강도(RLSI) {RLSI}점으로 약합니다.', { NDX_CHG: 0.7, RLSI: 36 }, { NDX_CHG: 0.1, RLSI: 36 }), ['token-stale:NDX_CHG:implied:+0.10%→+0.70%']);
+        assert.deepEqual(impliedStaleReasons('지수는 제자리지만 시장 건강도(RLSI) {RLSI}점으로 약합니다.', { NDX_CHG: 0.45, RLSI: 36 }, { NDX_CHG: 0.1, RLSI: 36 }), []);   // 경계 여유
+        assert.deepEqual(impliedStaleReasons('지수는 올랐지만 상승 종목이 넓게 퍼진 상승장입니다.', { NDX_CHG: 0.8, BREADTH: 30 }, { NDX_CHG: 0.8, BREADTH: 61 }), ['token-stale:BREADTH:implied:61%→30%']);
+        assert.deepEqual(impliedStaleReasons('A rally running on thin fuel.', { NDX_CHG: 0.05 }, { NDX_CHG: 0.5 }), ['token-stale:NDX_CHG:implied:+0.50%→+0.05%']);
+        // 값 흐름 회귀 측정에서 잡은 것 — «dollar index»·«달러 지수»는 주가 지수가 아니다 · 보합 글은 0 을 지나도 보합
+        assert.deepEqual(impliedStaleReasons('The dollar index 101.8 and VIX {VIX} show no shock.', { NDX_CHG: -1.09, VIX: 15.8 }, { NDX_CHG: -0.32, VIX: 15.8 }), []);
+        assert.deepEqual(impliedStaleReasons('달러 지수는 높고 변동성 지수는 낮습니다. VIX {VIX}.', { NDX_CHG: -1.09, VIX: 15.8 }, { NDX_CHG: 0.4, VIX: 15.8 }), []);
+        assert.deepEqual(impliedStaleReasons('Flat index with weak market health (RLSI) {RLSI}.', { NDX_CHG: 0.1, RLSI: 33 }, { NDX_CHG: -0.21, RLSI: 33 }), []);
+        assert.deepEqual(impliedStaleReasons('Options positioning (GEX) is neutral.', { GEX: 22 }, { GEX: 19 }), ['token-stale:GEX:implied:+19→+22']);   // 중립 → 롱감마 구간
         // 실제 출구(repairVerdictTexts): 저장 판정의 «상승장» 이 나스닥 하락 전환 뒤 그대로 나가지 않는다
         _resetInsightStateForTest();
         const verdict: any = { realityInsight: fillGuardianTokens(verdictTpl, basis).text, num: { tpl: { realityInsight: verdictTpl }, basis: { realityInsight: basis } } };
