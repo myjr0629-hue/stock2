@@ -269,7 +269,9 @@ for (const file of consumerFiles) {
             const context = { S: snapshot, t: snapshot, snap: snapshot, tickerData: snapshot,
                 stockData: { vwap: value }, c: snapshot, entry: { vwap: value }, ac: { vwap: value },
                 vwapMap: { NVDA: value }, ticker: 'NVDA', bar: b, prevResults: b,
-                data: { snapshot }, last: 123, vwap: value, normalizeVwap, selectVwap };
+                data: { snapshot }, last: 123, vwap: value, normalizeVwap, selectVwap,
+                // live/ticker: 스냅샷 VWAP 은 원천 정규장 날짜가 목표 세션과 같을 때만(2026-10-21 cold-cache) — 같은 날짜로 둔다
+                snapRegDate: '2026-10-20', serverTs: 0, shownRegularSessionDate: () => '2026-10-20' };
             for (const expression of expressions) {
                 const mapped = vm.runInNewContext(`(${expression})`, context);
                 if (value === null) assert.ok(mapped == null || mapped === 0, expression);
