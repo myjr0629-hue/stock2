@@ -242,6 +242,13 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
             assert.deepEqual((once.verdict as any).num?.basis?.realityInsight, basis);
             const later = await IntelligenceNode.repairVerdictTexts(once.verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
             assert.ok(later.repaired.includes('realityInsight'));
+            // 관문 10211010 — 생성 실패 뒤 직전 정상 글을 살릴 때(keepRealTextOverPlaceholders)도 기준값이 따라온다
+            const pendingNext: any = { realityInsight: '[진단] 최신 시장 분석을 준비하고 있습니다\n[결론] 잠시 후 자동으로 갱신됩니다' };
+            const kept: any = IntelligenceNode.keepRealTextOverPlaceholders(pendingNext, v2, 'ko', basis);
+            assert.equal(kept.realityInsight, plain);
+            assert.deepEqual(kept.num?.basis?.realityInsight, basis);
+            const afterFlip = await IntelligenceNode.repairVerdictTexts(kept, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+            assert.ok(afterFlip.repaired.includes('realityInsight'));
         } finally { _setMarketClockForTest(null); }
     });
 

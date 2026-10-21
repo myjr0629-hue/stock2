@@ -1348,7 +1348,8 @@ export class IntelligenceNode {
             const g = gateText(type, typeof prevTpl === 'string' && prevTpl ? prevTpl : before, locale, nums, prevBasis, false, tacticalPrompts?.(locale));
             if (!g.ok) continue;
             out = { ...out, [field]: g.text };
-            if (g.tpl !== g.text) {
+            // Tactical 은 자리표가 없어도 기준값을 함께 옮긴다 — 상태 판정 낡음 비교(관문 10211010)
+            if (g.tpl !== g.text || (type === 'reality' && !!prevBasis)) {
                 const num: VerdictNumbers = { tpl: { ...(out.num?.tpl || {}), [field]: g.tpl }, basis: { ...(out.num?.basis || {}), [field]: prevBasis } };
                 out = { ...out, num };
             }
