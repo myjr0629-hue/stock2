@@ -10,7 +10,7 @@ import { SECTOR_MAP } from "@/services/universePolicy";
 import { sectorLabelForAi, restoreKoSectorNames, restoreJaSectorNames } from '@/lib/ai/sectorLabels';
 import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
-import { fillGuardianTokens, impliedStaleReasons, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
+import { fillGuardianTokens, stateStaleReasons, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
 import { forecastHits, stripForecastSentences, checkComparisons, checkRanges } from '@/lib/ai/trustLayer';
 
 // Supported locales
@@ -285,8 +285,9 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
     // ★2026-10-07 T5 문턱·비교·범위 문장 — «RLSI 42 sits below the 40 threshold»(42 는 40 아래가 아니다)
     const facts = guardianCmpFacts(nums ?? basis ?? null);
     const cmpReasons = [...checkComparisons(n.text, facts), ...checkRanges(n.text, facts)];
-    // ★2026-10-21 Tactical 상태 판정(숫자 없는 «상승장»·«약해»)의 낡음 — 생성 때 값에서 지수 방향·건강도 구간이 바뀌었으면 탈락(관문 10210942)
-    const implied = type === 'reality' && nums ? impliedStaleReasons(cleaned, nums, basis ?? null) : [];
+    // ★2026-10-21 Tactical «시장 상태» 낡음 — 생성 때 값과 지금 값의 상태 구간(지수·건강도·감마·변동성·참여폭)이 달라졌으면 탈락(결정적 비교, guardianNumbers.stateStaleReasons).
+    //   장중만 — 장외 카드는 «Last session analysis»(지난 세션 해석)라 밤사이 선물 움직임으로 지우지 않는다(장외엔 다시 만들 수도 없다).
+    const implied = type === 'reality' && nums && !isOffHours() ? stateStaleReasons(nums, basis ?? null) : [];
     const reasons = [...textIntegrityReasons(String(tpl ?? '')), ...r.reasons, ...n.reasons, ...implied, ...forecastReasons, ...cmpReasons,
         // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
         //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).

@@ -7,11 +7,11 @@
  */
 import assert from 'node:assert/strict';
 import {
-    checkGuardianLiterals, fillGuardianTokens, impliedStaleReasons, formatGNum, guardianNumbersGate, guardianNumsFromAiContext, guardianNumsFromMarket,
+    checkGuardianLiterals, fillGuardianTokens, stateStaleReasons, formatGNum, guardianNumbersGate, guardianNumsFromAiContext, guardianNumsFromMarket,
     guardianNumsFromContext, guardianTokenRules, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, guardianLiterals,
 } from '@/lib/ai/guardianNumbers';
 import { cleanInsight } from '@/lib/ai/outputGate';
-import { IntelligenceNode, _resetInsightStateForTest } from '@/services/guardian/intelligenceNode';
+import { IntelligenceNode, _resetInsightStateForTest, _setMarketClockForTest } from '@/services/guardian/intelligenceNode';
 
 let n = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); n++; console.log('ok -', name); };
@@ -203,34 +203,37 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
         assert.equal(fillGuardianTokens('나스닥 {NDX_CHG} 상승', N).text, '나스닥 +0.78% 상승');
         assert.ok(!/[\u0002\u0003]/.test(fillGuardianTokens('{FOO} {VIX}는', N).text));
     });
-    await t('10/21 숫자 없는 상태 서술의 낡음 — 지수 방향 뒤집힘·건강도 구간 변화면 저장본 탈락(관문 10210942), 작은 움직임·자리표 있는 지표는 그대로', async () => {
+    await t('10/21 Tactical 시장 상태 낡음 — 결정적 구간 비교(지수 보합±0.3·여유, 건강도 45·65, 감마 ±20, VIX 18·25, 참여폭 40·60) · 장중만', async () => {
         const basis = { NDX_CHG: 0.784, RLSI: 36.4, GEX: 5, VIX: 17.31 };
+        assert.deepEqual(stateStaleReasons({ ...basis, NDX_CHG: -0.784 }, basis), ['state-stale:NDX_CHG:+0.78%→-0.78%']);
+        assert.deepEqual(stateStaleReasons({ ...basis, NDX_CHG: 0.5 }, basis), []);                        // 같은 방향
+        assert.deepEqual(stateStaleReasons({ ...basis, NDX_CHG: 0.05 }, basis), ['state-stale:NDX_CHG:+0.78%→+0.05%']);   // 보합 근처로
+        assert.deepEqual(stateStaleReasons({ NDX_CHG: 1.0 }, { NDX_CHG: 0.1 }), ['state-stale:NDX_CHG:+0.10%→+1.00%']);   // «제자리» → 1%
+        assert.deepEqual(stateStaleReasons({ NDX_CHG: 0.7 }, { NDX_CHG: 0.1 }), ['state-stale:NDX_CHG:+0.10%→+0.70%']);   // 자리표 유무와 무관(관문 10210956 ②)
+        assert.deepEqual(stateStaleReasons({ NDX_CHG: 0.45 }, { NDX_CHG: 0.1 }), []);                    // 경계 여유
+        assert.deepEqual(stateStaleReasons({ NDX_CHG: 0.1 }, { NDX_CHG: -0.21 }), []);                   // 보합이 0 을 지나도 보합
+        assert.deepEqual(stateStaleReasons({ RLSI: 47 }, { RLSI: 43 }), ['state-stale:RLSI:43→47']);
+        assert.deepEqual(stateStaleReasons({ RLSI: 44 }, { RLSI: 36 }), []);                             // 같은 «약함» 구간
+        assert.deepEqual(stateStaleReasons({ GEX: 22 }, { GEX: 19 }), ['state-stale:GEX:+19→+22']);     // 중립 → 롱감마
+        assert.deepEqual(stateStaleReasons({ VIX: 19 }, { VIX: 17 }), ['state-stale:VIX:17.0→19.0']);
+        assert.deepEqual(stateStaleReasons({ BREADTH: 30 }, { BREADTH: 61 }), ['state-stale:BREADTH:61%→30%']);
+        assert.deepEqual(stateStaleReasons({ BREADTH: 55 }, { BREADTH: 61 }), []);
+        assert.deepEqual(stateStaleReasons(null, basis), []);
+        // 실제 출구(repairVerdictTexts): 장중 — 저장 판정의 «상승장» 이 나스닥 하락 전환 뒤 그대로 나가지 않는다 · 장외 — 지난 세션 해석이라 그대로
         const verdictTpl = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 배경은 19:24 ET NEWS PULSE 보도로, 금 가격이 4,150달러 아래로 밀렸습니다. 시장 건강도(RLSI) {RLSI}점으로 약하고 옵션 포지션(GEX {GEX})은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
-        assert.deepEqual(impliedStaleReasons(verdictTpl, { ...basis, NDX_CHG: -0.784 }, basis), ['token-stale:NDX_CHG:implied:+0.78%→-0.78%']);
-        assert.deepEqual(impliedStaleReasons(verdictTpl, { ...basis, NDX_CHG: 0.5 }, basis), []);                 // 같은 방향 작은 움직임
-        assert.deepEqual(impliedStaleReasons(verdictTpl, { ...basis, RLSI: 50 }, basis), []);                      // {RLSI} 자리표가 있으면 채우기 단계가 본다(중복 없음)
-        assert.deepEqual(impliedStaleReasons('나스닥 {NDX_CHG} 상승', { NDX_CHG: -0.5 }, { NDX_CHG: 0.5 }), []);   // 자리표 있는 지표는 건너뜀
-        assert.deepEqual(impliedStaleReasons('변동성 지수(VIX)는 안정 구간입니다.', { VIX: 19 }, { VIX: 17 }), ['token-stale:VIX:implied:17.0→19.0']);
-        assert.deepEqual(impliedStaleReasons('시장 건강도는 약합니다.', { RLSI: 47 }, { RLSI: 43 }), ['token-stale:RLSI:implied:43→47']);
-        assert.deepEqual(impliedStaleReasons('금이 밀렸습니다.', { VIX: 30, RLSI: 70 }, { VIX: 17, RLSI: 30 }), []); // 글이 이름으로 말하지 않는 지표는 보지 않는다
-        // 관문 10210950 — ① 지수를 말하지 않는 옛 글은 나스닥 부호가 바뀌어도 그대로 ② «제자리»(+0.1%)인데 +0.7% 면 낡음 ③ 참여폭 61%→30% 낡음
-        assert.deepEqual(impliedStaleReasons('19:24 ET 보도에 따르면 금이 밀렸다. 시장 건강도(RLSI) {RLSI}점은 약하다. 다음 테스트는 10/21(수) 10:30 ET EIA Crude Oil Stocks Change다.', { NDX_CHG: -0.5, RLSI: 36 }, { NDX_CHG: 0.5, RLSI: 36 }), []);
-        assert.deepEqual(impliedStaleReasons('지수는 제자리지만 시장 건강도(RLSI) {RLSI}점으로 약합니다.', { NDX_CHG: 0.7, RLSI: 36 }, { NDX_CHG: 0.1, RLSI: 36 }), ['token-stale:NDX_CHG:implied:+0.10%→+0.70%']);
-        assert.deepEqual(impliedStaleReasons('지수는 제자리지만 시장 건강도(RLSI) {RLSI}점으로 약합니다.', { NDX_CHG: 0.45, RLSI: 36 }, { NDX_CHG: 0.1, RLSI: 36 }), []);   // 경계 여유
-        assert.deepEqual(impliedStaleReasons('지수는 올랐지만 상승 종목이 넓게 퍼진 상승장입니다.', { NDX_CHG: 0.8, BREADTH: 30 }, { NDX_CHG: 0.8, BREADTH: 61 }), ['token-stale:BREADTH:implied:61%→30%']);
-        assert.deepEqual(impliedStaleReasons('A rally running on thin fuel.', { NDX_CHG: 0.05 }, { NDX_CHG: 0.5 }), ['token-stale:NDX_CHG:implied:+0.50%→+0.05%']);
-        // 값 흐름 회귀 측정에서 잡은 것 — «dollar index»·«달러 지수»는 주가 지수가 아니다 · 보합 글은 0 을 지나도 보합
-        assert.deepEqual(impliedStaleReasons('The dollar index 101.8 and VIX {VIX} show no shock.', { NDX_CHG: -1.09, VIX: 15.8 }, { NDX_CHG: -0.32, VIX: 15.8 }), []);
-        assert.deepEqual(impliedStaleReasons('달러 지수는 높고 변동성 지수는 낮습니다. VIX {VIX}.', { NDX_CHG: -1.09, VIX: 15.8 }, { NDX_CHG: 0.4, VIX: 15.8 }), []);
-        assert.deepEqual(impliedStaleReasons('Flat index with weak market health (RLSI) {RLSI}.', { NDX_CHG: 0.1, RLSI: 33 }, { NDX_CHG: -0.21, RLSI: 33 }), []);
-        assert.deepEqual(impliedStaleReasons('Options positioning (GEX) is neutral.', { GEX: 22 }, { GEX: 19 }), ['token-stale:GEX:implied:+19→+22']);   // 중립 → 롱감마 구간
-        // 실제 출구(repairVerdictTexts): 저장 판정의 «상승장» 이 나스닥 하락 전환 뒤 그대로 나가지 않는다
-        _resetInsightStateForTest();
         const verdict: any = { realityInsight: fillGuardianTokens(verdictTpl, basis).text, num: { tpl: { realityInsight: verdictTpl }, basis: { realityInsight: basis } } };
-        const same = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', basis);
-        assert.ok(same.verdict.realityInsight.startsWith('지수는 올랐지만') && !same.repaired.includes('realityInsight'));
-        const flipped = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
-        assert.ok(flipped.repaired.includes('realityInsight') && !String(flipped.verdict.realityInsight).includes('상승장'));
+        try {
+            _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));   // 10:00 ET 장중
+            _resetInsightStateForTest();
+            const same = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', basis);
+            assert.ok(same.verdict.realityInsight.startsWith('지수는 올랐지만') && !same.repaired.includes('realityInsight'));
+            const flipped = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+            assert.ok(flipped.repaired.includes('realityInsight') && !String(flipped.verdict.realityInsight).includes('상승장'));
+            _setMarketClockForTest(() => new Date('2026-10-21T02:00:00Z'));   // 22:00 ET 장외
+            _resetInsightStateForTest();
+            const night = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });   // 밤사이 선물 반전
+            assert.ok(!night.repaired.includes('realityInsight'));
+        } finally { _setMarketClockForTest(null); }
     });
 
     console.log(`\n${n} passed`);

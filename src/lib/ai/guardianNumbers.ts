@@ -164,39 +164,36 @@ function staleMove(key: GKey, basis: number, now: number): boolean {
 export interface GFill { ok: boolean; text: string; reasons: string[] }
 
 /**
- * ★2026-10-21 숫자 없이 쓴 서술의 낡음 — Tactical 첫 문장(«지수는 올랐지만 … 상승장»·«시장 건강도가 약해»)은 자리표 없이 상태를 말한다.
- *   자리표가 없으면 채우기 단계(staleMove)가 못 보므로, 그 서술의 근거 지표가 생성 때 값(basis)에서 같은 구간 규칙으로 움직였으면 낡음.
- *   글이 그 지표(지수·장세 낱말 포함)를 말할 때만, 자리표가 있는 지표는 건너뛴다(중복 없음 — 옛 글은 대개 자리표가 있어 그대로).
- *   지수는 상태 판정 구간(±0.3%, 여유 0.6/0.1)까지, 참여폭은 ±10%p(관문 10210950).
- *   (관문 10210942: 나스닥 +0.78%→−0.78% 인데 저장된 «상승장» 판정이 그대로 나갔다)
+ * ★2026-10-21 Tactical «시장 상태» 낡음 — 결정적 구간 비교(낱말 추측 없음).
+ *   Tactical 은 «지금 시장 상태» 판정(«지수는 올랐지만 … 상승장»·«시장 건강도가 약해»)으로 시작한다(lib/ai/tacticalPrompt.marketStateHint).
+ *   그 판정의 재료 구간이 생성 때 값(basis)과 지금 값에서 달라졌으면, 글이 어떤 낱말로 썼든 다시 해석해야 한다:
+ *   지수(±0.3% 보합, 여유: 보합→0.6% · 방향→0.1% 미만 또는 반전) · 시장 건강도(45·65) · 감마 등급(±20) · 변동성(18·25) · 참여폭(40·60, 여유 10).
+ *   호출자(intelligenceNode.gateText)는 장중에만 쓴다 — 장외 화면은 «Last session analysis»(지난 세션 해석)라 밤사이 선물 움직임으로 지우지 않는다.
+ *   (관문 10210942·10210950·10210956 — 낱말 추측 방식은 «A pause»·«gold decline»·자리표 공존에서 새고 오탈락했다)
  */
-const IMPLIED_NAMES: Partial<Record<GKey, RegExp>> = {
-    // 상태 판정은 «지수는 올랐지만 … 상승장»처럼 이름 없이 쓴다 — 지수·장세 낱말이 있으면 본다(지수를 말하지 않는 옛 글은 보지 않는다)
-    //   «달러 지수·변동성 지수·dollar index·ドル指数» 는 지수(주가) 가 아니다
-    NDX_CHG: /(?<!(?:변동성|달러|물가|공포|탐욕|심리|건강)\s?)지수[는가와도]|나스닥|증시|상승장|하락장|보합|제자리|숨 고르기|(?<!(?:dollar|volatility|price|fear|greed)\s)\bindex\b|nasdaq|\brally\b|\bdecline\b|\bpullback\b|(?<!ドル|変動性|恐怖)指数|ナスダック|相場|横ばい/i,
-    RLSI: /RLSI|시장\s?건강도|market health|健全度|マーケットヘルス/i,
-    GEX: /GEX|옵션 포지션|감마|options positioning|gamma|オプション・ポジション|ガンマ/i,
-    VIX: /VIX|변동성 지수|volatility|変動性指数|ボラティリティ/i,
-    BREADTH: /참여폭|상승 종목|breadth|advancing|ブレッドス|上昇銘柄|裾野/i,
-};
-/** 상태 판정의 지수 방향 구간(tacticalPrompt.marketStateHint 와 같은 ±0.3%) — 보합↔방향은 여유를 두고 넘어야 낡음(경계에서 글이 자꾸 바뀌지 않게) */
+function band3(v: number, lo: number, hi: number): number { return v < lo ? 0 : v < hi ? 1 : 2; }
 function indexStateStale(b: number, v: number): boolean {
-    const flatB = Math.abs(b) < 0.3;
-    if (flatB) return Math.abs(v) >= 0.6;            // «제자리» 라고 썼는데 0.6% 넘게 움직였다
-    return Math.abs(v) < 0.1 || Math.sign(v) !== Math.sign(b);   // «올랐지만/내렸고» 라고 썼는데 보합 근처로 왔거나 방향이 뒤집혔다
+    if (Math.abs(b) < 0.3) return Math.abs(v) >= 0.6;                         // «제자리» 라고 썼는데 0.6% 넘게 움직였다
+    return Math.abs(v) < 0.1 || Math.sign(v) !== Math.sign(b);                // «올랐지만/내렸고» 라고 썼는데 보합 근처로 왔거나 방향이 뒤집혔다
 }
-export function impliedStaleReasons(text: string, nums: GNums | null | undefined, basis: GNums | null | undefined): string[] {
+function breadthStateStale(b: number, v: number): boolean {
+    if (b >= 60) return v < 50;
+    if (b <= 40) return v > 50;
+    return v >= 70 || v <= 30;
+}
+export function stateStaleReasons(nums: GNums | null | undefined, basis: GNums | null | undefined): string[] {
     if (!nums || !basis) return [];
-    const t = String(text ?? '');
     const out: string[] = [];
-    for (const [k, name] of Object.entries(IMPLIED_NAMES) as Array<[GKey, RegExp]>) {
-        if (new RegExp(`\\{\\s*${k}\\s*\\}`).test(t)) continue;
-        if (!name.test(t)) continue;
+    const pair = (k: GKey): [number, number] | null => {
         const b = basis[k], v = nums[k];
-        if (typeof b !== 'number' || !Number.isFinite(b) || typeof v !== 'number' || !Number.isFinite(v)) continue;
-        // 지수는 상태 판정 구간으로만(보합이던 글은 −0.2→+0.1 처럼 0 을 지나도 여전히 «보합») · 그 밖은 자리표와 같은 staleMove
-        if (k === 'NDX_CHG' ? indexStateStale(b, v) : staleMove(k, b, v)) out.push(`token-stale:${k}:implied:${formatGNum(k, b)}→${formatGNum(k, v)}`);
-    }
+        return typeof b === 'number' && Number.isFinite(b) && typeof v === 'number' && Number.isFinite(v) ? [b, v] : null;
+    };
+    const push = (k: GKey, b: number, v: number) => out.push(`state-stale:${k}:${formatGNum(k, b)}→${formatGNum(k, v)}`);
+    let p = pair('NDX_CHG'); if (p && indexStateStale(p[0], p[1])) push('NDX_CHG', p[0], p[1]);
+    p = pair('RLSI'); if (p && band3(p[0], 45, 65) !== band3(p[1], 45, 65)) push('RLSI', p[0], p[1]);
+    p = pair('GEX'); if (p && band3(p[0], -19.5, 19.5) !== band3(p[1], -19.5, 19.5)) push('GEX', p[0], p[1]);
+    p = pair('VIX'); if (p && band3(p[0], 18, 25) !== band3(p[1], 18, 25)) push('VIX', p[0], p[1]);
+    p = pair('BREADTH'); if (p && breadthStateStale(p[0], p[1])) push('BREADTH', p[0], p[1]);
     return out;
 }
 
