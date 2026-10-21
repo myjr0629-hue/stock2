@@ -20,7 +20,7 @@ global.Date = class extends RealDate {
 };
 const silent = { log() {}, warn() {}, error() {} };
 const compiledCache = new Map();
-function load(source, mocks, extra = '') {
+function load(source, mocks, extra = '', runtime = {}) {
     const module = { exports: {} };
     const requireMock = id => {
         assert.ok(Object.hasOwn(mocks, id), `모형이 없는 의존성: ${id}`);
@@ -31,10 +31,11 @@ function load(source, mocks, extra = '') {
         jsx: ts.JsxEmit.ReactJSX,
     } }).outputText;
     compiledCache.set(source + extra, compiled);
-    new Function('require', 'module', 'exports', 'console', 'process', 'fetch', compiled)(requireMock, module, module.exports, silent, { env: {} }, () => { throw Error('금지된 네트워크 접근'); });
+    new Function('require', 'module', 'exports', 'console', 'process', 'fetch', compiled)(requireMock, module, module.exports, silent, { env: runtime.env || {} }, runtime.fetch || (() => { throw Error('금지된 네트워크 접근'); }));
     return module.exports;
 }
 
+const background = load(read('src/lib/intrinioBackground.ts'), { 'node:async_hooks': require('node:async_hooks') });
 const calendar = load(read('src/lib/marketCalendar.ts'), {});
 const vwap = load(read('src/lib/vwap.ts'), {});
 const putCall = load(read('src/lib/putCall.ts'), {});
@@ -66,10 +67,18 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
         '@/services/optionAlphaService': { readOptionAlpha: async () => new Map([[snapshot.ticker, snapshot.alpha]]) },
         '@/lib/optionMetrics': { applyOptionMetrics: target => target, optionMetricsRowHasOi: () => true },
         '@/lib/vwap': vwap,
-        '@/services/realtimeSessionVwap': { getRealtimeSessionVwap: async (_ticker, date, now) => {
-            io.realtime++;
-            return calendar.cashSessionPhaseAt(now) === 'regular' ? (opts.realtime || null) : null;
-        } },
+        '@/lib/intrinioBackground': background,
+        '@/services/realtimeSessionVwap': { readRealtimeSessionVwap: async (ticker, date) => store.get(`모형:실시간:${ticker}:${date}`) || null,
+            getRealtimeSessionVwap: async (ticker, date, now = Date.now()) => {
+                if (calendar.cashSessionPhaseAt(now) !== 'regular') return null;
+                const cached = store.get(`모형:실시간:${ticker}:${date}`);
+                if (cached) return cached;
+                io.realtime++;
+                const value = opts.realtimeProvider ? await opts.realtimeProvider() : (opts.realtime || null);
+                if (value) store.set(`모형:실시간:${ticker}:${date}`, value);
+                return value;
+            },
+        },
         '@/lib/shortVolume': { shortVolFields: () => ({}) },
         '@/lib/sessionArchive': { lastCompletedSessionDate: () => calendar.etLastClosedSessionDate(NOW), readSessionArchive: async (_kind, _ticker, q) => { io.archiveReads.push(q); return opts.archive || null; }, saveSessionArchive: async () => {} },
         '@/services/stockApi': { getStockChartData: async () => [], getRegularSessionMinuteBars: async (ticker, date) => { io.minutes++; return opts.provider ? opts.provider(ticker, date) : bars(date); } },
@@ -132,7 +141,9 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
         '@/services/darkPool': { getDarkPool: async () => null },
     };
     const route = load(source, mocks, '\nexport { tickerPayloadForResponse, dropStaleLiveVwap, mergeFreshOverStale };');
-    return { calls, store, io, deferred, route, project: route.tickerPayloadForResponse, get: async query => {
+    return { calls, store, io, deferred, route, flushAfter: async () => {
+        while (deferred.length) await Promise.all(deferred.splice(0).map(fn => fn()));
+    }, project: route.tickerPayloadForResponse, get: async query => {
         const url = new URL(`http://offline/api/live/ticker?t=${snapshot.ticker}${skipAlpha ? '&skip_alpha=1' : ''}${query}`);
         const response = await route.GET({ nextUrl: url, url: url.href, headers: new Headers() });
         assert.equal(response.status, 200);
@@ -141,15 +152,19 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
     } };
 }
 
-test('개장 직후 Intrinio 봉 0: 실시간 당일 누적값·날짜, 이어서 Intrinio 도착 즉시 우선', async () => {
+test('개장 직후 Intrinio 봉 0: 첫 요청 null·배경 보충 뒤 다음 요청 값·Intrinio 도착 즉시 우선', async () => {
     NOW = RealDate.parse('2026-10-21T13:31:10Z');
     const date = '2026-10-21';
     const h = harness(current, fixture('IBM', date), 'miss', false, {
         session: 'regular', provider: async () => [], realtime: { vwap: 250, date, bars: 2 },
     });
     const first = await h.get('&chain=0');
-    assert.equal(first.body.vwap, 250); assert.equal(first.body.vwapDate, date);
+    assert.equal(first.body.vwap, null); assert.equal(first.body.vwapDate, null);
+    assert.equal(h.io.minutes, 0); assert.equal(h.io.realtime, 0);
+    await h.flushAfter();
     assert.equal(h.io.minutes, 1); assert.equal(h.io.realtime, 1);
+    const recovered = await h.get('&chain=0');
+    assert.equal(recovered.cache, 'HIT'); assert.equal(recovered.body.vwap, 250); assert.equal(recovered.body.vwapDate, date);
     h.store.set('chart:v5:IBM:1d', { data: bars(date), _builtAt: NOW });
     const next = await h.get('&chain=0');
     assert.equal(next.cache, 'HIT'); assert.equal(next.body.vwap, 241.5); assert.equal(next.body.vwapDate, date);
@@ -178,7 +193,7 @@ for (const [label, iso, date, session] of [
     ['추수감사절 휴장', '2026-11-26T17:00:00Z', '2026-11-25', 'closed'],
     ['조기 폐장 뒤', '2026-11-27T18:01:00Z', '2026-11-27', 'post'],
 ]) {
-    test(`IBM 모형 ${label}: 첫 응답 값·목표일 일치`, async () => {
+    test(`IBM 모형 ${label}: 목표일·복구값 일치`, async () => {
         NOW = RealDate.parse(iso);
         const h = harness(current, fixture('IBM', date), 'miss', false, { session,
             provider: async (ticker, target) => {
@@ -188,14 +203,21 @@ for (const [label, iso, date, session] of [
         });
         const r = await h.get('&chain=0');
         assert.equal(r.cache, 'MISS');
-        assert.equal(r.body.vwap, 241.5); assert.equal(r.body.vwapDate, date);
+        if (session === 'regular') {
+            assert.equal(r.body.vwap, null); assert.equal(h.io.minutes, 0);
+            await h.flushAfter();
+            const next = await h.get('&chain=0');
+            assert.equal(next.body.vwap, 241.5); assert.equal(next.body.vwapDate, date);
+        } else {
+            assert.equal(r.body.vwap, 241.5); assert.equal(r.body.vwapDate, date);
+        }
         assert.equal(h.io.minutes, 1);
         assert.equal(h.store.has('chart:v5:IBM:1d'), false, '화면 차트는 덮지 않는다');
-        assert.ok(h.io.writes.some(w => w.key.startsWith('flow:ticker:') && w.ttl === 60));
+        assert.ok(h.io.writes.some(w => w.key.startsWith('flow:ticker:') && w.ttl === (session === 'regular' ? 5 : 60)));
     });
 }
 
-test('동시 20요청·서로 다른 인스턴스 2개: 공급사 분봉 조회 합계 1회, 모두 같은 값', async () => {
+test('동시 20요청·서로 다른 인스턴스 2개: 분봉 1회·경합 응답 null·후속 요청 같은 값', async () => {
     NOW = RealDate.parse('2026-10-21T12:00:00Z');
     const store = new Map(), locks = new Set();
     const opts = { store, locks, session: 'pre', provider: async (_ticker, date) => {
@@ -205,7 +227,14 @@ test('동시 20요청·서로 다른 인스턴스 2개: 공급사 분봉 조회 
     const b = harness(current, fixture(), 'miss', false, opts);
     const results = await Promise.all(Array.from({ length: 20 }, (_, i) => (i % 2 ? a : b).get('&chain=0')));
     assert.equal(a.io.minutes + b.io.minutes, 1);
-    for (const r of results) { assert.equal(r.body.vwap, 241.5); assert.equal(r.body.vwapDate, '2026-10-20'); }
+    for (const r of results) {
+        assert.ok(r.body.vwap === 241.5 || r.body.vwap === null);
+        assert.equal(r.body.vwapDate, r.body.vwap == null ? null : '2026-10-20');
+    }
+    for (const h of [a, b]) {
+        const next = await h.get('&chain=0');
+        assert.equal(next.body.vwap, 241.5); assert.equal(next.body.vwapDate, '2026-10-20');
+    }
 });
 
 test('빈 응답 TTL 5초·캐시 적중 중 차트 준비 완료: 즉시 같은 세션으로 복구', async () => {
@@ -319,11 +348,122 @@ test('기존 분봉 조회·세션 분류 재사용: PRE·주말·조기 폐장�
 for (const [iso, date, oldDate, session] of [
     ['2026-10-21T12:00:00Z', '2026-10-20', '2026-10-19', 'pre'],
     ['2026-10-21T13:30:00Z', '2026-10-21', '2026-10-20', 'regular'],
-]) test(`캐시 적중 날짜 경계 ${session}: 다른 날 VWAP를 같은 세션 자료로 교체`, async () => {
+]) test(`캐시 적중 날짜 경계 ${session}: 다른 날 차단·첫 응답 null·배경 보충 뒤 같은 세션 값`, async () => {
     NOW = RealDate.parse(iso);
     const cached = fixture('IBM', oldDate); cached.vwap = 999;
     const h = harness(current, cached, 'hit', false, { session });
     const r = await h.get('&chain=0');
-    assert.equal(r.cache, 'HIT'); assert.equal(r.body.vwap, 241.5); assert.equal(r.body.vwapDate, date);
+    assert.equal(r.cache, 'HIT'); assert.equal(r.body.vwap, null); assert.equal(r.body.vwapDate, null);
+    assert.equal(h.io.minutes, 0);
+    await h.flushAfter();
+    const next = await h.get('&chain=0');
+    assert.equal(next.body.vwap, 241.5); assert.equal(next.body.vwapDate, date);
     assert.equal(h.io.minutes, 1);
 });
+
+async function promptly(work) {
+    let timer;
+    try {
+        return await Promise.race([work, new Promise((_, reject) => {
+            timer = setTimeout(() => reject(Error('캐시 응답이 공급사·잠금을 기다림')), 500);
+        })]);
+    } finally { clearTimeout(timer); }
+}
+
+for (const skipAlpha of [false, true]) for (const query of ['&chain=0', '&chain=full']) {
+    test(`관문 재현: Intrinio 빈 응답 뒤 60초 잠금 유지·FMP 저장본 HIT 즉시 (${skipAlpha}/${query})`, async () => {
+        NOW = RealDate.parse('2026-10-21T13:31:10Z');
+        const date = '2026-10-21';
+        const h = harness(current, fixture('IBM', date), 'miss', skipAlpha, {
+            session: 'regular', provider: async () => [], realtime: { vwap: 250, date, bars: 2 },
+        });
+        assert.equal((await h.get(query)).body.vwap, null);
+        await h.flushAfter();
+        const start = performance.now();
+        const next = await promptly(h.get(query));
+        console.log(`관문 HIT 모형 ${skipAlpha}/${query}: ${(performance.now() - start).toFixed(1)}ms`);
+        assert.equal(next.cache, 'HIT'); assert.equal(next.body.vwap, 250); assert.equal(next.body.vwapDate, date);
+        assert.equal(h.io.minutes, 1); assert.equal(h.io.realtime, 1, '응답 경로는 보조 공급사도 부르지 않는다');
+    });
+}
+
+for (const source of ['Intrinio', 'FMP']) {
+    test(`미완료 ${source} 배경 조회 중에도 첫·후속 HIT null 즉시, 완료 뒤 값`, async () => {
+        NOW = RealDate.parse('2026-10-21T13:31:10Z');
+        const date = '2026-10-21';
+        let release, started;
+        const wait = new Promise(resolve => { release = resolve; });
+        const entered = new Promise(resolve => { started = resolve; });
+        const h = harness(current, { ...fixture('IBM', date), vwap: null, vwapDate: null }, 'hit', false, {
+            session: 'regular',
+            provider: async () => { if (source === 'Intrinio') { started(); await wait; return bars(date); } return []; },
+            realtimeProvider: async () => { started(); await wait; return { vwap: 250, date, bars: 2 }; },
+        });
+        const first = await promptly(h.get('&chain=0'));
+        assert.equal(first.cache, 'HIT'); assert.equal(first.body.vwap, null);
+        assert.equal(h.io.minutes, 0); assert.equal(h.io.realtime, 0);
+        const backgroundWork = h.flushAfter();
+        try {
+            await promptly(entered);
+            const next = await promptly(h.get('&chain=0'));
+            assert.equal(next.cache, 'HIT'); assert.equal(next.body.vwap, null);
+        } finally { release(); await backgroundWork; }
+        const ready = await promptly(h.get('&chain=0'));
+        assert.equal(ready.body.vwap, source === 'Intrinio' ? 241.5 : 250); assert.equal(ready.body.vwapDate, date);
+        assert.equal(h.io.minutes, 1); assert.equal(h.io.realtime, source === 'FMP' ? 1 : 0);
+    });
+}
+
+test('정규장 20요청·두 인스턴스: 응답 전 분봉 0회, 배경 공유 잠금 뒤 Intrinio 1회', async () => {
+    NOW = RealDate.parse('2026-10-21T13:31:10Z');
+    const date = '2026-10-21';
+    const opts = { store: new Map(), locks: new Set(), session: 'regular' };
+    const a = harness(current, fixture('IBM', date), 'hit', false, opts);
+    const b = harness(current, fixture('IBM', date), 'hit', false, opts);
+    const results = await promptly(Promise.all(Array.from({ length: 20 }, (_, i) => (i % 2 ? a : b).get('&chain=0'))));
+    assert.ok(results.every(r => r.body.vwap === null)); assert.equal(a.io.minutes + b.io.minutes, 0);
+    await Promise.all([a.flushAfter(), b.flushAfter()]);
+    assert.equal(a.io.minutes + b.io.minutes, 1);
+    for (const h of [a, b]) assert.equal((await h.get('&chain=0')).body.vwap, 241.5);
+});
+
+for (const swallow of [false, true]) {
+    test(`실제 Intrinio→라우터→분봉 429: 1회 뒤 재시도·FMP 중단 (${swallow ? '오류 삼킴' : '오류 전파'})`, async () => {
+        NOW = RealDate.parse('2026-10-21T13:31:10Z');
+        const date = '2026-10-21';
+        let http = 0, ctx;
+        const client = load(read('src/services/intrinioClient.ts'), {
+            './redisClient': { getFromCache: async () => null, setInCache: async () => true },
+            '@/lib/economicSeries': {}, '@/lib/marketCalendar': calendar,
+            'next/server': { after() {} }, '@/lib/intrinioWarmGate': { warmGateStore: { getStore: () => undefined } },
+            '@/lib/intrinioMeter': { note429() {}, upstashMeterStore: {}, releaseMeterClaim: async () => {} },
+            '../../scripts/integrity/clock': {}, '@/lib/intrinioBackground': background,
+            '@/lib/intrinioCallMeter': { noteCall() {} },
+        }, '', { env: { INTRINIO_API_KEY: '모형', INTRINIO_BASE_URL: 'https://intrinio.invalid', INTRINIO_MAX_ATTEMPTS: '2' },
+            fetch: async url => {
+                assert.equal(new URL(url).pathname, '/securities/IBM/prices/intervals'); http++;
+                return { status: 429, ok: false };
+            },
+        });
+        const router = load(read('src/services/intrinioRouter.ts'), {
+            './intrinioClient': client, './fmpNewsAdapter': {}, '@/lib/marketCalendar': calendar,
+        });
+        const massive = load(read('src/services/massiveClient.ts'), { './intrinioRouter': router });
+        const api = load(read('src/services/stockApi.ts'), {
+            './massiveClient': massive, '@/lib/marketCalendar': calendar, './extendedSessionClose': {},
+            '@/services/stockTypes': {}, './weekendOptionsCache': {},
+        });
+        const h = harness(current, fixture('IBM', date), 'hit', false, { session: 'regular',
+            provider: async (ticker, date) => {
+                ctx = background.bgStore.getStore();
+                try { return await api.getRegularSessionMinuteBars(ticker, date); }
+                catch (error) { if (!swallow) throw error; return []; }
+            }, realtime: { vwap: 250, date, bars: 2 },
+        });
+        assert.equal((await promptly(h.get('&chain=0'))).body.vwap, null); assert.equal(http, 0);
+        await h.flushAfter();
+        assert.equal(ctx.noRetry429, true); assert.equal(ctx.tripOn429, true);
+        assert.equal(ctx.tripped, true); assert.equal(ctx.saw429, 1);
+        assert.equal(http, 1); assert.equal(h.io.realtime, 0);
+    });
+}

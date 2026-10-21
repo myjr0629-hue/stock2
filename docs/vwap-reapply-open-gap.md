@@ -1,52 +1,52 @@
-# VWAP 재적용·개장 지연 구간 보조 경로
+# VWAP 재적용·개장 지연 관문 수리
 
 ## 결과 요약
 
-지정한 두 조사 문서를 끝까지 읽었다. 원인은 개장 날짜 전환 뒤 전일 값이 차단되고 Intrinio 당일 분봉이 아직 없다는 것이다. `ad371b89a`만의 회귀라는 근거는 없다.
+관문 원문 `gate-fix_vwap-reapply-open-gap-10220106.md`와 사고 기록 `intrinio-429-flood.md`를 끝까지 읽었다.
 
-`6d217db4b`의 역패치를 작업 파일에 적용했다. Git 되돌림 명령은 공용 메타데이터의 쓰기 거부로 실패했으며 파일 패치 적용은 성공했다. 화면·라벨·문구는 수정하지 않았다.
+지연 원인은 응답 캐시에 적중해도 `resolveTargetSessionVwap`가 직접 분봉 복구를 기다린다는 것이다. Intrinio 빈 응답 뒤에도 60초 잠금이 남고, 다음 요청이 이를 진행 중 조회로 해석해 200ms씩 25회 대기했다. 공급사 보조값이 이미 있어도 이 대기를 먼저 거쳤다.
 
-Intrinio 차트·날짜별 분봉·동일 날짜 보관본·직접 조회 순서를 유지하고, 모두 결측일 때만 FMP 당일 1분봉을 확인한다. 정규장 캐시 적중에서도 다시 해석해 Intrinio 자료 도착 시 우선 사용한다. 두 공급사의 자료를 합산하지 않는다.
+캐시 적중과 정규장 결측 요청은 이제 목표일 Intrinio 저장본·FMP 저장본만 읽고 응답한다. 값이 없으면 해당 요청은 null이다. 복구는 Next.js `after`에서 수행하며 완료된 값은 다음 요청부터 사용한다. Intrinio 분봉이 도착하면 기존처럼 그 값을 우선한다. 장외 콜드 요청의 완료 세션 직접 복구는 유지한다. 두 서비스의 잠금 경합 폴링은 제거했다.
 
-현재 저장소의 시세 경로에서 재사용 가능한 FMP 최신 체결·당일 분봉 함수는 찾지 못했다. 기존 FMP 자격변수와 `fmpEtToMs`, 거래소 달력, `sessionVwapFromBars`를 재사용했다. 공정시장가인 EquitiesEdge와 최신 체결 한 건은 누적 체결 원천으로 쓰지 않는다.
+공급사 조회의 보호 조건은 다음과 같다.
 
-보조 경로는 오늘 정규장 중에만 작동한다. 09:30부터 최신 봉까지 분 단위 자료가 연속되고 최신 봉이 현재보다 2분 이내일 때만 누적한다. PRE·POST·전일·미래 봉은 제외한다. 역순·동일 중복은 허용하고 충돌 중복·중간 누락·잘못된 수량은 거부한다. 무거래·실패는 null을 유지한다.
+- Intrinio: 종목·목표일별 공유 `SET NX EX` 60초 잠금. 보조 경로까지 하나의 진행 중 작업으로 합친다. 기존 `newBgCtx`·`runWithBg`의 `noRetry429: true`, `tripOn429: true`를 적용한다. 첫 429 뒤 Intrinio 재시도와 해당 흐름의 FMP 전환을 중단한다.
+- FMP: 기존 종목·날짜별 공유 원자 잠금 10초, 공용 원자 예산 2초 간격(이동 60초당 HTTP 최대 30회), HTTP 제한시간 4초, 자동 재시도 없음, 정상값 15초·null 5초 캐시를 유지한다. 이미 닫힌 배경 관문이면 호출하지 않으며 FMP 429도 같은 관문을 닫는다.
+- 잠금 저장소 장애·경합은 공급사별 선점을 우회하지 않는다. 새 인스턴스도 같은 잠금 키를 사용한다.
 
-산식은 기존 분봉 산식인 `Σ((고가+저가+종가)/3×분봉 거래량)/Σ분봉 거래량`이다. **전체 체결 테이프의 정확한 VWAP이 아니라 분봉 근사값**이다. 공급사 구간 VWAP 의미가 검증되지 않아 임의로 해당 필드를 사용하지 않았다.
-
-FMP 신규 경로의 제한은 공용 원자적 2초 간격(이동 60초당 최대 30회), 종목·날짜별 10초 잠금, 인스턴스 내 진행 중 요청 합류, 유효값 15초·null 5초 캐시, HTTP 제한시간 4초, 자동 재시도 없음이다. 잠금 저장소 장애면 공급사를 호출하지 않는다. 원래 Intrinio 종목·날짜별 60초 잠금은 유지한다.
+화면·라벨·문구·표시 방식, 분봉 누적 산식, 목표 정규장 날짜 선택은 바꾸지 않았다. 계산은 기존 `Σ((고가+저가+종가)/3×분봉 거래량)/Σ분봉 거래량`이며 체결 테이프의 정확한 VWAP이 아닌 분봉 근사값이다.
 
 ## 바꾼 파일
 
-- `src/app/api/live/ticker/route.ts`: 기존 수리 재적용, 당일 Intrinio 결측 시 실시간 분봉 보조 경로, 정규장 캐시 적중 시 Intrinio 우선 재확인.
-- `src/services/stockApi.ts`: 기존 `getRegularSessionMinuteBars` 복구.
-- `src/services/realtimeSessionVwap.ts`: 당일 분봉 검증·누적·호출 상한·분산 잠금·캐시.
-- `tests/intrinioVwap.test.ts`: 기존 재적용에 포함된 날짜 문맥 모형 복구.
-- `tests/tickerVwapColdCache.test.js`: 기존 시험 복구, 개장 결측·실시간 보조값·Intrinio 전환 시험 추가.
-- `tests/realtimeSessionVwap.test.js`: 실제 모듈을 실행하는 오프라인 공급사·동시성·상한·달력 시험.
-- `docs/ibm-command-vwap-cold-cache.md`: 원래 수리의 과거 검증 보고서 복구. 이 문서가 이번 작업 결과다.
+- `src/app/api/live/ticker/route.ts`: 저장본 읽기와 배경 복구 분리, 잠금 폴링 제거, 기존 429 중단 관문 적용.
+- `src/services/realtimeSessionVwap.ts`: 공급사를 부르지 않는 `readRealtimeSessionVwap` 추가, 진행 중 조회와 응답 분리, 잠금 폴링 제거, 배경 중단 표식 준수.
+- `tests/tickerVwapColdCache.test.js`: 네 응답 형태의 관문 지연 재현, 미완료 공급사와 응답 분리, 두 인스턴스 경합, 실제 Intrinio→라우터→분봉의 429 시험. 기존 시험은 첫 null·배경 완료 뒤 값이라는 새 동작을 검증하도록 조정했다.
+- `tests/realtimeSessionVwap.test.js`: 저장본 읽기·미완료 HTTP 분리, 두 인스턴스 경합·후속 요청, FMP 429·이미 닫힌 관문 시험.
+- `tests/tickerPayload.test.js`: 새 서비스 의존성 모형과 같은 날짜의 준비된 VWAP 저장본을 제공해 기존 체인 응답 계약을 재검증.
 - 이 보고서.
 
-공유 계산·시간변환·달력·세션 분류 함수의 구현과 인자는 바꾸지 않았다. 복구한 분봉 함수의 운영 호출자는 ticker 라우트 한 곳이다. 공유 `sessionVwapFromBars`는 ticker·세션 보관본 백필·신규 보조 서비스가 사용한다. 기존 차트·백필 계산 동작은 유지된다. 신규 보조 서비스는 차트 캐시와 완료 세션 보관본을 덮지 않는다.
+호출자 검색 결과, 변경한 실시간 서비스와 추가 저장본 읽기 함수의 운영 호출자는 ticker 라우트 한 곳이다. 복구한 `getRegularSessionMinuteBars`의 운영 호출자도 이 라우트 한 곳이며 이번에는 구현을 바꾸지 않았다. 라우트 내부 해석 함수는 캐시 적중·새 계산에서 호출한다. `skip_alpha` 두 가지 × 체인 두 가지의 네 응답 형태를 시험했다. 공통 `sessionVwapFromBars`, 달력, 시간 변환, Intrinio 클라이언트, 기존 배경 관문의 구현은 변경하지 않았다.
 
 ## 돌린 시험과 결과
 
-모든 공급사·저장소 접근은 모형으로 대체했다. 시험 묶음과 타입 검사는 모두 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 실행했다.
+공급사·저장소는 오프라인 모형을 사용했다. 운영 자격값 없이 실행했으며 환경파일은 읽지 않았다. 시험 묶음·전체 타입 검사는 모두 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 직렬 실행했다.
 
-- 기존 재적용 검증: `tickerVwapColdCache`·`earlyCloseVwap` 36건 통과.
-- 최종 추가 검증: `realtimeSessionVwap`·수정한 `tickerVwapColdCache` 33건 통과. 개장 직후 Intrinio 0봉에서 보조 값·오늘 날짜, 응답 캐시 적중 뒤 Intrinio 도착 시 우선 전환을 확인했다.
-- 기존 VWAP·세션 보관본: `intrinioVwap`, `vwapDisplay`, `vwapConsumers`, `sessionVwapFromBars`, `sessionArchive`, `sessionArchiveB3`, `atomicArchiveSave` 합계 100건 통과, 운영 Redis 통합시험 1건 건너뜀.
-- 두 인스턴스·동시 20요청: 신규 서비스의 실제 모의 HTTP 합계 1회, 모든 값 동일. 기존 Intrinio 경로의 동시 20요청 시험도 통과했다.
-- 종목을 바꿔 1초마다 60회 요청: 실제 모의 HTTP 30회. 빈 응답·429·시간 초과에서는 재시도 없이 null TTL 5초를 확인했다.
-- 장외 워밍 밖 IBM·주말·휴장·조기 폐장은 기존 목표 완료 세션 시험 통과. 보조 공급사는 이 구간 호출 0회.
-- 전체 타입 검사: `node node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false` 1회 실행, 종료 코드 0·진단 출력 0바이트.
-- 최종 판본 기준 시험 합계: 147건 통과·운영 Redis 통합시험 1건 건너뜀.
-- 추적 파일과 신규 파일의 `git diff --check`에서 공백 오류 없음.
+- 기존 관련 10개 시험 파일 전부: `realtimeSessionVwap`, `tickerVwapColdCache`, `earlyCloseVwap`, `intrinioVwap`, `vwapDisplay`, `vwapConsumers`, `sessionVwapFromBars`, `sessionArchive`, `sessionArchiveB3`, `atomicArchiveSave`. 최종 TAP 결과 159건 통과·실패 0·로컬 Redis 실행파일 부재에 따른 선택 통합시험 1건 건너뜀. 보관본 두 파일 내부 자체 시험은 각각 40건·12건 통과했다.
+- 추가 재현 12건 포함. 유지된 Intrinio 잠금과 FMP 저장본을 둔 캐시 HIT는 최종 모형에서 네 응답 형태 모두 0.3~0.4ms였다. 500ms 상한도 검증했다. 운영 지연 실측은 아니다.
+- Intrinio 또는 FMP 응답을 미완료 상태로 두어도 첫·후속 캐시 HIT가 null로 끝나고, 배경 작업 완료 후 같은 세션 값이 나오는 것을 확인했다.
+- 정규장 동시 20요청·두 인스턴스: 응답 전 추가 분봉 조회 0회, 배경 Intrinio 조회 합계 1회. FMP 단독 동시 20요청·두 인스턴스도 HTTP 합계 1회이며 경합 요청은 null, 후속 요청은 같은 값이다.
+- 실제 Intrinio 클라이언트→라우터→기존 분봉 함수를 연결한 429 모형: 기본 재시도 상한 2에서도 HTTP 1회, 이후 재시도·FMP 0회. 오류 전파와 오류를 삼킨 빈 응답 모두 확인했다.
+- 기존 `intelFast429.test.ts`: 32건 통과. 기존 사용자 경로의 재시도 규칙과 배경 관문 회귀를 확인했다.
+- 기존 `tickerPayload.test.js`: 저장된 다섯 종목 응답으로 40건 통과. 전체 체인·요약·캐시·소비처 요청 계약을 확인했다. 준비된 동일 날짜 VWAP 저장본을 모형에 제공했고 결측 동작은 별도 재현 시험으로 확인했다.
+- 전체 타입 검사 `node node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false`: 1회 실행, 종료 코드 0·진단 출력 0바이트. 이후 운영 소스 변경 없음.
+- `git diff --check` 통과.
 
 ## 남은 위험
 
-FMP `stable/historical-chart/1min`의 현재 구독 권한, 실제 지연, 분봉 날짜 의미와 완전성은 운영 호출 없이 확인하지 못했다. **실제 개장 첫 15분의 결측 해소를 실측했다고 보고할 수 없다.** 첫 분봉이 아직 없거나 공급사 지연이 2분보다 크거나 자료가 누락되면 null을 유지한다. 정확한 체결 VWAP이 반드시 필요하면 개장부터 완전한 체결 또는 의미가 검증된 구간 VWAP 원천이 추가로 필요하다.
+FMP의 실제 구독 권한·지연·당일 분봉 완전성과 운영 개장 구간 응답 지연은 확인하지 않았다. 운영 실측이나 사고 원인 확정으로 보고하지 않는다. 원천 봉이 없거나 분봉 누락·지연 조건을 통과하지 못하면 null을 유지하며, 배경 작업 완료 전 요청도 null이다.
 
-신규 경로 예산 30회는 다른 기존 FMP 뉴스·수집기 호출 예산과 통합되지 않았다. 계정 전체 잔여 한도는 미확인이다. 공용 예산 경합 시 다른 종목은 잠금·짧은 캐시가 만료된 후 다시 시도한다. Intrinio 분봉 도착 시 사용자 지시대로 그 값을 우선하므로 더 오래된 관측 범위로 바뀔 수 있다.
+저장소 읽기와 기존 옵션 출구 처리 시간은 여전히 응답에 포함된다. 제거한 것은 공급사 조회·진행 중 작업·잠금 폴링을 기다리는 추가 지연이다. FMP 신규 경로의 공용 예산은 기존 FMP 뉴스·다른 수집기의 계정 전체 예산과 통합되지 않았다. 이번 수정은 VWAP 경로에 한정되며 사고 기록의 watchlist·공통 요청 합치기 후보는 수정하지 않았다.
 
-공용 Git 메타데이터의 `index.lock` 생성이 `Operation not permitted`로 거부돼 `git add`와 커밋은 미완료다. 지정 브랜치는 `fix/vwap-reapply-open-gap`이다. 운영 데이터 쓰기·push·main 병합·배포·브라우저 접근·환경파일 읽기는 하지 않았다.
+브랜치는 `fix/vwap-reapply-open-gap`이다. push·main 병합·배포·운영 데이터 쓰기·브라우저 접근은 하지 않았다.
+
+지시된 브랜치에서 `git add`를 시도했으나 공용 Git 메타데이터의 `.git/worktrees/fix-vwap-reapply-open-gap/index.lock` 생성이 `Operation not permitted`로 거부됐다. 커밋은 생성되지 않았다. 수정 6개 파일은 작업공간에 저장돼 있으며 권한 우회는 시도하지 않았다.

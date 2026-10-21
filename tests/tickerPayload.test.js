@@ -46,6 +46,8 @@ function load(source, mocks, extra = '') {
     return module.exports;
 }
 const putCall = load(read('src/lib/putCall.ts'), {});
+const vwap = load(read('src/lib/vwap.ts'), {});
+const background = load(read('src/lib/intrinioBackground.ts'), { 'node:async_hooks': require('node:async_hooks') });
 // 최신 수집 행 선택은 실제 순수 함수를 사용한다. 모듈의 날짜 함수는 이 경로에서 호출하지 않는다.
 const optionsBasis = load(read('src/lib/app/intelOptionsBasis.ts'), {
     '@/lib/putCall': putCall, '@/lib/marketCalendar': {},
@@ -66,7 +68,9 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
         '@/services/optionAlphaService': { readOptionAlpha: async () => new Map([[snapshot.ticker, snapshot.alpha]]) },
         // 저장 응답의 옵션 수집 행이 유효한 경로를 재생한다. 대체 OI 자체는 별도 NB1 시험에서 검증한다.
         '@/lib/optionMetrics': { applyOptionMetrics: target => target, optionMetricsRowHasOi: () => true },
-        '@/lib/vwap': { normalizeVwap: x => x ?? null, selectVwap: (...xs) => xs.find(x => x != null), sessionVwapFromBars: () => null },
+        '@/lib/vwap': vwap,
+        '@/lib/intrinioBackground': background,
+        '@/services/realtimeSessionVwap': { getRealtimeSessionVwap: async () => null, readRealtimeSessionVwap: async () => null },
         '@/lib/shortVolume': { shortVolFields: () => ({}) },
         '@/lib/sessionArchive': { lastCompletedSessionDate: () => '2026-10-16', readSessionArchive: async () => null, saveSessionArchive: async () => {} },
         '@/services/stockApi': { getStockChartData: async () => [], getRegularSessionMinuteBars: async () => [] },
@@ -109,6 +113,12 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
         '@/services/macroHubProvider': { getMacroSnapshotSSOT: async () => ({}) },
         '@/services/redisClient': {
             getFromCache: async key => {
+                // 체인 계약 비교는 같은 날짜의 VWAP 저장본이 준비된 조건에서 실행한다.
+                // 결측·배경 갱신·날짜 경계는 tickerVwapColdCache에서 별도로 검증한다.
+                if (key === `chart:v5:${snapshot.ticker}:1d` && vwap.normalizeVwap(snapshot.vwap) != null) {
+                    return { data: [{ etDate: snapshot.vwapDate, session: 'REG', high: snapshot.vwap,
+                        low: snapshot.vwap, close: snapshot.vwap, volume: 1 }], _builtAt: NOW };
+                }
                 if (key.startsWith('flow:ticker:lastgood:')) {
                     calls.lastGoodKeys.push(key);
                     return mode === 'stale' ? copy(snapshot) : copy(store.get(key) ?? null);

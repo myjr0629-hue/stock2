@@ -7,8 +7,9 @@ import { normalizeVwap, selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 import { shortVolFields } from '@/lib/shortVolume';
 import { readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
 import { getRegularSessionMinuteBars } from '@/services/stockApi';
-import { getRealtimeSessionVwap } from '@/services/realtimeSessionVwap';
+import { getRealtimeSessionVwap, readRealtimeSessionVwap } from '@/services/realtimeSessionVwap';
 import { upstashMeterStore } from '@/lib/intrinioMeter';
+import { newBgCtx, runWithBg } from '@/lib/intrinioBackground';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -228,40 +229,43 @@ async function readTargetSessionVwap(ticker: string, date: string): Promise<{ va
     return null;
 }
 
-/** 종목·목표일별 60초에 분봉 조회 1회. 같은 인스턴스는 진행 중 조회에 합류한다. */
+/** 종목·목표일별 60초에 Intrinio 조회 1회. 보조 조회까지 한 흐름으로 합치고 첫 429에서 중단한다. */
 function fetchTargetSessionVwap(ticker: string, date: string): Promise<SessVwap | null> {
     const key = vwapCacheKey(ticker, date);
     const pending = vwapFetches.get(key);
     if (pending) return pending;
-    const p = (async (): Promise<SessVwap | null> => {
+    const ctx = newBgCtx('vwap:session-refresh', { noRetry429: true, tripOn429: true });
+    const p = runWithBg(ctx, async (): Promise<SessVwap | null> => {
         try {
-            // 잠금 장애·경합 시 공급사를 추가 호출하지 않는다. 잠금은 실패 후에도 TTL까지 유지한다.
-            if (!(await upstashMeterStore.setNxEx(`vwap:chartrefresh:${ticker}:${date}`, '1', 60))) {
-                // 다른 인스턴스가 확보하는 자료를 5초 동안 재확인한다(저장소 I/O 시간은 별도).
-                const deadline = Date.now() + 5_000;
-                for (let i = 0; i < 25 && Date.now() < deadline; i++) {
-                    const found = await readTargetSessionVwap(ticker, date);
-                    if (found) return found.value;
-                    await new Promise(resolve => setTimeout(resolve, 200));
+            // 잠금 경합 시 Intrinio를 추가 호출하지 않는다. 장애는 전체 복구를 중단하고 잠금은 TTL까지 유지한다.
+            if (await upstashMeterStore.setNxEx(`vwap:chartrefresh:${ticker}:${date}`, '1', 60)) {
+                try {
+                    const fresh = await getRegularSessionMinuteBars(ticker, date);
+                    const r = targetVwapFromBars(fresh, date);
+                    if (r) {
+                        const builtAt = Date.now();
+                        // 정규장 봉만 담은 복구본으로 화면용 차트 캐시(PRE·POST 포함)를 덮지 않는다.
+                        await setInCache(key, { data: fresh, _builtAt: builtAt }, 600).catch(() => false);
+                        await saveSessionArchive('vwap', ticker, date, r, { observedAt: builtAt }).catch(() => 'error');
+                        return r;
+                    }
+                } catch {
+                    // callIntrinio가 429를 삼키거나 정규화해도 공유 문맥의 중단 표식은 남는다.
                 }
-                return null;
+            } else {
+                const found = await readTargetSessionVwap(ticker, date);
+                if (found) return found.value;
             }
-            const fresh = await getRegularSessionMinuteBars(ticker, date);
-            const r = targetVwapFromBars(fresh, date);
-            if (!r) return null;
-            const builtAt = Date.now();
-            // 정규장 봉만 담은 복구본으로 화면용 차트 캐시(PRE·POST 포함)를 덮지 않는다.
-            await setInCache(key, { data: fresh, _builtAt: builtAt }, 600).catch(() => false);
-            await saveSessionArchive('vwap', ticker, date, r, { observedAt: builtAt }).catch(() => 'error');
-            return r;
+            if (ctx.tripped) return null;
+            return await getRealtimeSessionVwap(ticker, date);
         } catch { return null; }
-    })();
+    });
     vwapFetches.set(key, p);
     void p.finally(() => { vwapFetches.delete(key); });
     return p;
 }
 
-async function resolveTargetSessionVwap(ticker: string, nowMs: number = Date.now()): Promise<SessVwap | null> {
+async function resolveTargetSessionVwap(ticker: string, nowMs: number = Date.now(), cacheHit = false): Promise<SessVwap | null> {
     const date = shownRegularSessionDate(nowMs);
     const found = await readTargetSessionVwap(ticker, date);
     if (found) {
@@ -271,10 +275,14 @@ async function resolveTargetSessionVwap(ticker: string, nowMs: number = Date.now
         }
         return found.value;
     }
-    // 장외 첫 요청도 차트 열람·워밍에 기대지 않고 같은 날짜의 분봉을 확보한다.
-    const intrinio = await fetchTargetSessionVwap(ticker, date);
-    if (intrinio) return intrinio;
-    return getRealtimeSessionVwap(ticker, date, nowMs);
+    // 캐시 적중·정규장은 저장본만 읽는다. 진행 중 공급사 조회·잠금·타이머를 기다리지 않는다.
+    if (cacheHit || cashSessionPhaseAt(nowMs) === 'regular') {
+        const realtime = await readRealtimeSessionVwap(ticker, date, nowMs);
+        after(async () => { await fetchTargetSessionVwap(ticker, date); });
+        return realtime;
+    }
+    // 장외 콜드 요청은 기존처럼 같은 날짜의 완료 분봉을 직접 확보한다.
+    return fetchTargetSessionVwap(ticker, date);
 }
  // 12h — 장 마감~다음 개장을 건너뛸 만큼
 
@@ -508,7 +516,7 @@ export async function GET(req: NextRequest) {
             console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
             let checked = dropStaleLiveVwap(cached);
             if (checked.vwap == null || cashSessionPhaseAt(Date.now()) === 'regular') {
-                const r = await resolveTargetSessionVwap(ticker);
+                const r = await resolveTargetSessionVwap(ticker, Date.now(), true);
                 checked = { ...checked, vwap: r?.vwap ?? null, vwapDate: r?.date ?? null };
             }
             return new Response(JSON.stringify(tickerPayloadForResponse(await withExitLevels({ ...checked, _cached: true, _cachedAt: cached.tsServer }, finishLevels, ticker, optionBasis, !skipAlpha), noChain)), {

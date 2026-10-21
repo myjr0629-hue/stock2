@@ -2,6 +2,7 @@ import { fmpEtToMs } from '@/lib/fmpTime';
 import { cashSessionPhaseAt, etDateOf, etMinutesOf } from '@/lib/marketCalendar';
 import { sessionVwapFromBars } from '@/lib/vwap';
 import { upstashMeterStore } from '@/lib/intrinioMeter';
+import { bgStore } from '@/lib/intrinioBackground';
 import { getFromCache, setInCache } from './redisClient';
 
 type SessionVwap = NonNullable<ReturnType<typeof sessionVwapFromBars>>;
@@ -38,36 +39,53 @@ async function reserveCall(): Promise<boolean> {
     return upstashMeterStore.setNxEx('vwap:fmp:budget', '1', 2);
 }
 
+function sessionCacheKey(symbol: string, date: string, now: number): string | null {
+    const ticker = symbol.toUpperCase();
+    if (!/^[A-Z0-9.-]{1,15}$/.test(ticker) || date !== etDateOf(now) || cashSessionPhaseAt(now) !== 'regular') return null;
+    return `vwap:fmp:minutes:v1:${ticker}:${date}`;
+}
+
+async function readCached(key: string, now: number): Promise<Cached | null> {
+    const hit = local.get(key);
+    if (hit && hit.expiresAt > now) return hit;
+    const shared = await getFromCache<Cached>(key);
+    return shared && shared.expiresAt > now ? shared : null;
+}
+
+/** 응답용 저장본 읽기. 공급사 호출·진행 중 작업 합류·잠금 대기는 하지 않는다. */
+export async function readRealtimeSessionVwap(symbol: string, date: string, now: number = Date.now()): Promise<SessionVwap | null> {
+    const key = sessionCacheKey(symbol, date, now);
+    if (!key) return null;
+    try { return (await readCached(key, now))?.value ?? null; } catch { return null; }
+}
+
 /** 정규장 Intrinio 결측 때만 호출. 종목·날짜 잠금과 캐시는 인스턴스 사이에도 공유한다. */
 export function getRealtimeSessionVwap(symbol: string, date: string, now: number = Date.now()): Promise<SessionVwap | null> {
+    const key = sessionCacheKey(symbol, date, now);
+    if (!key || bgStore.getStore()?.tripped) return Promise.resolve(null);
     const ticker = symbol.toUpperCase();
-    if (!/^[A-Z0-9.-]{1,15}$/.test(ticker) || date !== etDateOf(now) || cashSessionPhaseAt(now) !== 'regular') return Promise.resolve(null);
-    const key = `vwap:fmp:minutes:v1:${ticker}:${date}`;
     const running = pending.get(key);
     if (running) return running;
     const task = (async (): Promise<SessionVwap | null> => {
         try {
-            const hit = local.get(key);
-            if (hit && hit.expiresAt > now) return hit.value;
-            const shared = await getFromCache<Cached>(key);
-            if (shared && shared.expiresAt > now) return shared.value;
+            const hit = await readCached(key, now);
+            if (hit) return hit.value;
             const apiKey = process.env.FMP_API_KEY;
             if (!apiKey) return null;
             if (!(await upstashMeterStore.setNxEx(`${key}:lock`, '1', 10))) {
-                for (let i = 0; i < 10; i++) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    const ready = await getFromCache<Cached>(key);
-                    if (ready && ready.expiresAt > now) return ready.value;
-                }
-                return null;
+                return (await readCached(key, now))?.value ?? null;
             }
             let value: SessionVwap | null = null;
-            if (await reserveCall()) {
+            if (await reserveCall() && !bgStore.getStore()?.tripped) {
                 const params = new URLSearchParams({ symbol: ticker, from: date, to: date, apikey: apiKey });
                 // 자동 재시도 없음. URL·오류 객체는 자격값을 포함하므로 기록하지 않는다.
                 const response = await fetch(`https://financialmodelingprep.com/stable/historical-chart/1min?${params}`, {
                     cache: 'no-store', signal: AbortSignal.timeout(4000),
                 });
+                if (response.status === 429) {
+                    const ctx = bgStore.getStore();
+                    if (ctx) { ctx.saw429++; if (ctx.tripOn429) ctx.tripped = true; }
+                }
                 if (response.ok) value = realtimeVwapFromMinutes(await response.json(), date, now);
             }
             const ttl = value ? 15 : 5;
