@@ -20,17 +20,22 @@ export function giftStore(): GiftStore | null {
     retry: { retries: 0 }, signal: () => AbortSignal.timeout(3000) });
   return { eval: (script, keys, args) => r.eval(script, keys, args) };
 }
-export async function issueGift(store: GiftStore, input: { device: string; account?: string; ip: string; app: boolean }, now = Date.now()) {
+/**
+ * 공유 완료 뒤 발신 기기가 보낸 토큰을 1회 등록한다(코드는 수신자 등록 때 배정).
+ * 'issued' = 새로 등록(한도 차감) · 'exists' = 이미 등록됨(차감 없음, 같은 토큰 재등록 거부) · null = 상한·형식 오류.
+ */
+export async function issueGift(store: GiftStore, input: { device: string; account?: string; ip: string; app: boolean; token: unknown }, now = Date.now()) {
+  const token = giftToken(input.token);
+  if (!token) return null;
   const p = giftPrefix();
   const day = kstDay(now);
-  const token = newToken();
   const identities = [`${p}:issue:${day}:device:${input.device}`];
   const limits = [input.app ? 3 : 1];
   if (input.account) { identities.push(`${p}:issue:${day}:account:${input.account}`); limits.push(3); }
   identities.push(`${p}:issue:${day}:ip:${input.ip}`, `${p}:issue:${day}:all`);
   limits.push(10, 400);
   const result = await store.eval(ISSUE_LUA, [`${p}:token:${digest(token)}`, ...identities], [now, 7 * 86400, ...limits]);
-  return result === 'issued' ? { token, expiresAt: now + 7 * 86400_000 } : null;
+  return result === 'issued' || result === 'exists' ? { status: result as 'issued' | 'exists' } : null;
 }
 export async function claimGift(store: GiftStore, input: { token: unknown; os: GiftOs; device: string; account?: string }, now = Date.now()): Promise<string | null> {
   const token = giftToken(input.token);

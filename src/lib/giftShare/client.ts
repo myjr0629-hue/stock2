@@ -4,18 +4,15 @@ import { SHARE_ORIGIN, type ShareOutcome, type ShareVia } from '@/lib/share/shar
 
 export type SharePayload = { title?: string; text?: string; url: string };
 const FRESH_MS = 60_000;
-const PENDING_KEY = 'signumhq.gift.pending.v1';
-type PendingGift = { token: string; expiresAt: number };
+/** 공유는 끝났으나 서버 등록 확인 전인 토큰(응답 유실 재시도용). 미전송 토큰은 저장하지 않는다. */
+const SENT_KEY = 'signumhq.gift.sent.v1';
+/** 이 기기의 오늘(KST) 선물 공유 횟수 — 서버 기기 한도(앱 3·웹 1)를 넘는 공유에 선물 문구를 붙이지 않는다. */
+const DAY_KEY = 'signumhq.gift.day.v1';
+const TOKEN_TTL_MS = 7 * 86_400_000;
+const RETRY_GAP_MS = 5 * 60_000;
+const MAX_TRIES = 5;
+type SentGift = { token: string; at: number; tries: number; last: number };
 
-function readPending(storage: Storage, now: number): PendingGift | null {
-  const raw = storage.getItem(PENDING_KEY);
-  try {
-    const saved = JSON.parse(raw || 'null');
-    const token = giftToken(saved?.token);
-    return token && Number.isFinite(saved?.expiresAt) && saved.expiresAt > now
-      ? { token, expiresAt: saved.expiresAt } : null;
-  } catch { return null; }
-}
 const COPY = {
   ko: '친구에게 SIGNUM PRO 1개월 이용권을 선물합니다. 링크에서 스토어 등록을 완료해야 적용됩니다. 링크당 1명, 대상 자격·재고에 따라 제공되며 이후 자동 갱신 조건은 등록 화면에서 확인하세요.',
   en: 'A gift of 1 month of SIGNUM PRO. Complete redemption in the store through this link. One recipient per link, subject to eligibility and availability. Check subsequent auto-renewal terms on the redemption screen.',
@@ -40,12 +37,100 @@ function deviceKey(): string | null {
   } catch { return null; }
 }
 
-/** 화면 진입 때 준비한다. 클릭 경로는 동기 payload()와 공유 시트 호출뿐이다. */
-export function createGiftPreparation(request: typeof fetch = (...args) => fetch(...args), getDevice = deviceKey, now = Date.now) {
+/** 32바이트 무작위 → base64url 43자. 서버 형식 검사(giftToken)와 같다. 서버 호출·한도 소모 없음. */
+function randomGiftToken(): string | null {
+  try {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    let bin = '';
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return giftToken(btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''));
+  } catch { return null; }
+}
+
+const kstDay = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
+const dayCap = (via: ShareVia) => via === 'web' ? 1 : 3;
+
+function readSent(storage: Storage): SentGift[] {
+  try {
+    const list = JSON.parse(storage.getItem(SENT_KEY) || '[]');
+    return Array.isArray(list) ? list.filter((x: any) => giftToken(x?.token) && Number.isFinite(x?.at)
+      && Number.isFinite(x?.tries) && Number.isFinite(x?.last)) : [];
+  } catch { return []; }
+}
+function writeSent(storage: Storage, list: SentGift[]) {
+  if (list.length) storage.setItem(SENT_KEY, JSON.stringify(list.slice(-20)));
+  else storage.removeItem(SENT_KEY);
+}
+function sharedToday(storage: Storage, now: number): number {
+  try {
+    const saved = JSON.parse(storage.getItem(DAY_KEY) || 'null');
+    return saved?.day === kstDay(now) && Number.isInteger(saved?.n) && saved.n >= 0 ? saved.n : 0;
+  } catch { return 0; }
+}
+
+/**
+ * 공유=선물 준비. 화면 진입 때는 설정·재고만 확인하고 토큰은 기기에서 만든다(서버 발행 없음).
+ * 선물 등록(서버 발행·한도 차감)은 공유·복사 «완료» 뒤 그 토큰으로 1회만 한다.
+ * 완료된 토큰은 즉시 폐기하고 다음 공유엔 새 토큰을 쓴다(재사용 없음). 클릭 경로는 동기 payload()와 공유 시트뿐이다.
+ */
+export function createGiftPreparation(request: typeof fetch = (...args) => fetch(...args), getDevice = deviceKey, now = Date.now,
+  newToken = randomGiftToken) {
   let enabled = false;
-  let ready: PendingGift | null = null;
+  let available = false;
+  let ready: string | null = null;
   let checkedAt = 0;
   let inflight: Promise<void> | null = null;
+  const done = new Set<string>();
+
+  /** 오늘 한도·저장소·기기 열쇠가 허용할 때만 새 토큰을 준비한다. 저장소를 못 쓰면 선물 문구를 붙이지 않는다. */
+  const prepare = (via: ShareVia) => {
+    ready = null;
+    if (!enabled || !available) return;
+    try {
+      const storage = localStorage;
+      if (sharedToday(storage, now()) >= dayCap(via)) return;
+      // 쓰기 가능 여부를 확인한다(등록 재시도 장부를 남길 수 없으면 선물 링크를 보내지 않는다).
+      storage.setItem(SENT_KEY, JSON.stringify(readSent(storage)));
+    } catch { return; }
+    // 영속 열쇠가 없으면 앱 한도를 우회하는 익명 등록이 되므로 준비하지 않는다.
+    if (via !== 'web' && !getDevice()) return;
+    const token = newToken();
+    if (token && !done.has(token)) ready = token;
+  };
+
+  /** 서버 등록 — 같은 토큰 재등록은 서버가 차감 없이 «이미 있음»으로 답한다. */
+  const register = async (token: string, via: ShareVia): Promise<boolean> => {
+    const key = via === 'web' ? null : getDevice();
+    if (via !== 'web' && !key) return false;
+    try {
+      const r = await request('/api/gift/issue', { method: 'POST', credentials: 'same-origin',
+        headers: { 'content-type': 'application/json', ...(key ? { 'x-gift-device': key } : {}) },
+        body: JSON.stringify({ token }), signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return false;
+      const body = await r.json();
+      return body?.ok === true;
+    } catch { return false; }
+  };
+
+  /** 공유는 됐지만 등록 응답을 못 받은 토큰만 다시 보낸다(간격·횟수·기한 제한). */
+  const flush = async (via: ShareVia) => {
+    let storage: Storage;
+    let list: SentGift[];
+    try { storage = localStorage; list = readSent(storage); } catch { return; }
+    const t = now();
+    const due = list.filter(x => t - x.at < TOKEN_TTL_MS && x.tries < MAX_TRIES && t - x.last >= RETRY_GAP_MS).slice(0, 3);
+    for (const entry of due) {
+      entry.tries++; entry.last = t;
+      try { writeSent(storage, readSent(storage).map(x => x.token === entry.token ? entry : x)); } catch { return; }
+      if (await register(entry.token, via)) {
+        try { writeSent(storage, readSent(storage).filter(x => x.token !== entry.token)); } catch { return; }
+      }
+    }
+    try {
+      writeSent(storage, readSent(storage).filter(x => t - x.at < TOKEN_TTL_MS && x.tries < MAX_TRIES));
+    } catch { /* 다음 확인 때 */ }
+  };
+
   const refresh = (via: ShareVia): Promise<void> => {
     if (inflight) return inflight;
     inflight = (async () => {
@@ -55,71 +140,59 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
         const config = await response.json();
         if (typeof config.enabled !== 'boolean') throw new Error();
         enabled = config.enabled;
-        if (!enabled || config.available !== true) { ready = null; checkedAt = now(); return; }
-        // 출처별 미전송 토큰을 복원한다. 재로딩·앱 재진입이 발행 한도를 소진하지 않는다.
-        const storage = localStorage;
-        ready = readPending(storage, now());
-        if (!ready) {
-          // 저장 불가 상태에서 자동 발행을 반복하지 않는다.
-          storage.setItem(PENDING_KEY, 'null');
-          const key = via === 'web' ? null : getDevice();
-          // 영속 열쇠가 없으면 앱 한도를 우회하는 익명 발행을 하지 않는다.
-          if (via !== 'web' && !key) return;
-          const r = await request('/api/gift/issue', { method: 'POST', credentials: 'same-origin',
-            headers: key ? { 'x-gift-device': key } : {}, signal: AbortSignal.timeout(4000) });
-          if (!r.ok) throw new Error();
-          const body = await r.json();
-          const token = giftToken(body.token);
-          if (body.ok === true && token && Number.isFinite(body.expiresAt) && body.expiresAt > now()) {
-            const pending = { token, expiresAt: body.expiresAt };
-            storage.setItem(PENDING_KEY, JSON.stringify(pending));
-            ready = pending;
-          }
-        }
+        // 꺼짐: 저장소·발행에 접근하지 않는다.
+        if (!enabled) { available = false; ready = null; checkedAt = now(); return; }
+        available = config.available === true;
+        if (!available) ready = null;
+        else if (!ready) prepare(via);
         checkedAt = now();
-      } catch { ready = null; checkedAt = 0; } finally { inflight = null; }
+        await flush(via);
+      } catch { ready = null; available = false; checkedAt = 0; } finally { inflight = null; }
     })();
     return inflight;
   };
+
   const payload = (original: SharePayload, locale: string, via: ShareVia, ref?: string | null, giftOnly = false): SharePayload => {
     if (!enabled) return original; // 꺼짐은 객체와 문자열을 그대로 돌려준다.
-    if (ready) {
-      try {
-        // 다른 문서에서 이미 보낸 토큰을 오래 열린 화면에서 다시 내보내지 않는다.
-        if (readPending(localStorage, now())?.token !== ready.token) ready = null;
-      } catch { ready = null; }
-    }
     const lang = toGiftLang(locale);
-    const prepared = ready && ready.expiresAt > now() && now() - checkedAt < FRESH_MS;
+    let underCap = false;
+    try { underCap = sharedToday(localStorage, now()) < dayCap(via); } catch { underCap = false; }
+    const prepared = !!ready && available && underCap && now() - checkedAt < FRESH_MS;
     const validRef = normalizeGiftRef(ref);
-    // 발행 API와 같은 출처를 쓴다. 프리뷰 토큰을 운영 재고 영역으로 보내지 않는다.
+    // 등록 API와 같은 출처를 쓴다. 프리뷰 토큰을 운영 재고 영역으로 보내지 않는다.
     const u = new URL('/app', typeof window === 'undefined' ? SHARE_ORIGIN : window.location.origin);
     u.searchParams.set('from', prepared || validRef ? 'gift' : 'share');
     if (validRef) u.searchParams.set('ref', validRef);
     if (lang !== 'en') u.searchParams.set('l', lang);
     if (!prepared) return giftOnly ? { title: 'SIGNUM HQ', text: GENERAL[lang], url: u.toString() } : original;
     u.searchParams.set('via', via);
-    u.searchParams.set('gift', ready!.token);
+    u.searchParams.set('gift', ready!);
     // 콘텐츠 주소와 설명은 보존하고, 마지막 주소를 수신자용 선물 링크로 쓴다.
     const context = giftOnly ? '' : `${original.text ? `${original.text}\n` : ''}${original.url}\n\n`;
     return { ...original, text: `${context}${COPY[lang]}`, url: u.toString() };
   };
+
+  /** 공유·복사 완료 확인 뒤에만 등록한다. 취소·실패는 아무것도 하지 않는다(토큰은 아직 아무에게도 가지 않았다). */
   const complete = (outcome: ShareOutcome, used: SharePayload, via: ShareVia) => {
     if (outcome !== 'shared' && outcome !== 'copied') return;
     let usedToken: string | null;
     try { usedToken = giftToken(new URL(used.url).searchParams.get('gift')); } catch { return; }
-    if (!usedToken) return;
-    // 공유 도중 재조회가 ready를 비워도 실제 전송한 토큰은 소비한다.
-    let consumed = ready?.token === usedToken;
-    if (consumed) ready = null;
+    if (!usedToken || done.has(usedToken)) return; // 중복 완료 통지는 한 번만 등록한다.
+    done.add(usedToken);
+    // 보낸 토큰은 즉시 폐기한다 — 다음 공유는 반드시 새 토큰.
+    if (ready === usedToken) ready = null;
+    const t = now();
     try {
-      // 중복 완료 통지나 다른 문서의 완료가 다음 토큰까지 지우지 않는다.
-      if (readPending(localStorage, now())?.token === usedToken) {
-        localStorage.removeItem(PENDING_KEY);
-        consumed = true;
-      }
-    } catch { return; }
-    if (consumed) void refresh(via);
+      const storage = localStorage;
+      const n = sharedToday(storage, t);
+      storage.setItem(DAY_KEY, JSON.stringify({ day: kstDay(t), n: n + 1 }));
+      writeSent(storage, [...readSent(storage), { token: usedToken, at: t, tries: 1, last: t }]);
+    } catch { /* 장부를 못 남겨도 등록은 한 번 시도한다 */ }
+    void register(usedToken, via).then(ok => {
+      if (!ok) return;
+      try { writeSent(localStorage, readSent(localStorage).filter(x => x.token !== usedToken)); } catch { /* 다음 확인 때 */ }
+    });
+    prepare(via);
   };
   return { refresh, payload, complete };
 }
