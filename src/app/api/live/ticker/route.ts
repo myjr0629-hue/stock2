@@ -5,11 +5,9 @@ import { applyOptionMetrics, optionMetricsRowHasOi } from '@/lib/optionMetrics';
 import { readOi35Fallback, readLastGoodOi } from '@/services/oiNear35Fallback';
 import { normalizeVwap, selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 import { shortVolFields } from '@/lib/shortVolume';
-import { lastCompletedSessionDate, readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
-import { getStockChartData } from '@/services/stockApi';
+import { readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
+import { getRegularSessionMinuteBars } from '@/services/stockApi';
 import { upstashMeterStore } from '@/lib/intrinioMeter';
-import { getETNow, getSessionType } from '@/services/timezoneUtils';
-import { isUSMarketHolidayET } from '@/services/marketDaySSOT';
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
 // [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest, after } from 'next/server';
@@ -24,7 +22,7 @@ import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPEL
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
 import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, peekExtendedSessionCloses, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25) · 전환 구간 잠정값(2026-10-05)
-import { shownRegularSessionDate, etMinutesOf } from '@/lib/marketCalendar';
+import { shownRegularSessionDate, etMinutesOf, cashSessionPhaseAt } from '@/lib/marketCalendar';
 import { volumePutCallFromChain } from '@/lib/putCall'; // ★ P/C 정의 한 곳(2026-10-07) — 풋÷콜, 기준(거래량/미결제약정)은 필드 이름에
 import { priceAsOfET } from '@/lib/quoteBasis';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
@@ -187,36 +185,93 @@ function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): stri
 const LAST_GOOD_TTL = 12 * 3600;
 
 /**
- * 장중·애프터엔 «오늘» VWAP 만 내보낸다 — 응답 캐시 적중·새 계산 모두 출구에서 검사(요청 시각 기준).
- * 장 전 응답에 실린 전 거래일 VWAP 이 09:30 뒤 캐시 적중으로 나가지 않게.
+ * 모든 세션에서 목표 정규장 날짜만 내보낸다. PRE·주말은 직전 완료 세션, 개장 뒤는 오늘이다.
  */
 function dropStaleLiveVwap(payload: any): any {
-    if (!payload || payload.vwap == null) return payload;
-    const et = getETNow();
-    // 평일 휴장(추수감사절 등)은 CLOSED — 직전 거래일 VWAP 을 그대로 둔다.
-    const sessionNow = getSessionType(et.hour, et.minute, et.isWeekend, isUSMarketHolidayET(et.dateString));
-    if ((sessionNow === 'REG' || sessionNow === 'POST') && payload.vwapDate !== et.dateString) {
+    if (!payload) return payload;
+    if (normalizeVwap(payload.vwap) == null || payload.vwapDate !== shownRegularSessionDate()) {
         return { ...payload, vwap: null, vwapDate: null };
     }
     return payload;
 }
 
-/** 장중 VWAP 용 1일 분봉 캐시 갱신 — /api/chart 와 같은 키·모양. 응답을 붙잡지 않고, 종목당 60초에 한 번만. */
-function refreshChartForVwap(ticker: string): void {
-    after(async () => {
+type SessVwap = { vwap: number; date: string; bars: number };
+const vwapFetches = new Map<string, Promise<SessVwap | null>>();
+const vwapCacheKey = (ticker: string, date: string) => `vwap:minutes:${ticker}:${date}`;
+
+function targetVwapFromBars(rows: unknown, date: string): SessVwap | null {
+    // 최신 날짜를 고르는 계산에 넘기기 전에 목표일만 남긴다. 다른 날 값에 목표일을 붙이지 않는다.
+    return sessionVwapFromBars(Array.isArray(rows) ? rows.filter((r: any) => r?.etDate === date) : null);
+}
+
+/** 차트 화면의 PRE 초기화와 별개로, 같은 원천·산식의 날짜별 자료를 확인한다. */
+async function readTargetSessionVwap(ticker: string, date: string): Promise<{ value: SessVwap; builtAt: number } | null> {
+    const [chart, minutes] = await Promise.all([
+        getFromCache<any>(`chart:v5:${ticker}:1d`).catch(() => null),
+        getFromCache<any>(vwapCacheKey(ticker, date)).catch(() => null),
+    ]);
+    const cv = targetVwapFromBars(Array.isArray(chart) ? chart : chart?.data, date);
+    const mv = targetVwapFromBars(minutes?.data, date);
+    const useMinutes = mv && (!cv || Number(minutes?._builtAt || 0) > Number(chart?._builtAt || 0));
+    const r = useMinutes ? mv : cv;
+    if (r) {
+        const builtAt = Number((useMinutes ? minutes : chart)?._builtAt || 0);
+        if (builtAt > 0) after(async () => { await saveSessionArchive('vwap', ticker, date, r, { observedAt: builtAt }).catch(() => 'error'); });
+        return { value: r, builtAt };
+    }
+    const a = await readSessionArchive<SessVwap>('vwap', ticker, { fromDate: date, lookback: 0 }).catch(() => null);
+    const av = normalizeVwap(a?.value?.vwap);
+    if (a?.stamp.sourceSessionDate === date && a.value?.date === date && av != null) {
+        return { value: { vwap: av, date, bars: Number(a.value.bars) || 0 }, builtAt: Number(a.stamp.observedAt || 0) };
+    }
+    return null;
+}
+
+/** 종목·목표일별 60초에 분봉 조회 1회. 같은 인스턴스는 진행 중 조회에 합류한다. */
+function fetchTargetSessionVwap(ticker: string, date: string): Promise<SessVwap | null> {
+    const key = vwapCacheKey(ticker, date);
+    const pending = vwapFetches.get(key);
+    if (pending) return pending;
+    const p = (async (): Promise<SessVwap | null> => {
         try {
-            // 원자적 잠금(SET NX EX) — 인스턴스가 동시에 와도 한 번만. 잠금 실패·오류면 호출하지 않는다.
-            if (!(await upstashMeterStore.setNxEx(`vwap:chartrefresh:${ticker}`, '1', 60))) return;
-            const fresh = await getStockChartData(ticker, '1d');
-            if (Array.isArray(fresh) && fresh.length >= 5) {
-                await setInCache(`chart:v5:${ticker}:1d`, {
-                    data: fresh,
-                    sessionMaskDebug: (fresh as any).sessionMaskDebug || null,
-                    _builtAt: Date.now(),
-                }, 600);
+            // 잠금 장애·경합 시 공급사를 추가 호출하지 않는다. 잠금은 실패 후에도 TTL까지 유지한다.
+            if (!(await upstashMeterStore.setNxEx(`vwap:chartrefresh:${ticker}:${date}`, '1', 60))) {
+                // 다른 인스턴스가 확보하는 자료를 5초 동안 재확인한다(저장소 I/O 시간은 별도).
+                const deadline = Date.now() + 5_000;
+                for (let i = 0; i < 25 && Date.now() < deadline; i++) {
+                    const found = await readTargetSessionVwap(ticker, date);
+                    if (found) return found.value;
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+                return null;
             }
-        } catch { /* 다음 요청이 다시 시도한다 */ }
-    });
+            const fresh = await getRegularSessionMinuteBars(ticker, date);
+            const r = targetVwapFromBars(fresh, date);
+            if (!r) return null;
+            const builtAt = Date.now();
+            // 정규장 봉만 담은 복구본으로 화면용 차트 캐시(PRE·POST 포함)를 덮지 않는다.
+            await setInCache(key, { data: fresh, _builtAt: builtAt }, 600).catch(() => false);
+            await saveSessionArchive('vwap', ticker, date, r, { observedAt: builtAt }).catch(() => 'error');
+            return r;
+        } catch { return null; }
+    })();
+    vwapFetches.set(key, p);
+    void p.finally(() => { vwapFetches.delete(key); });
+    return p;
+}
+
+async function resolveTargetSessionVwap(ticker: string, nowMs: number = Date.now()): Promise<SessVwap | null> {
+    const date = shownRegularSessionDate(nowMs);
+    const found = await readTargetSessionVwap(ticker, date);
+    if (found) {
+        const phase = cashSessionPhaseAt(nowMs);
+        if ((phase === 'regular' || phase === 'after-close') && nowMs - found.builtAt > 120_000) {
+            after(async () => { await fetchTargetSessionVwap(ticker, date); });
+        }
+        return found.value;
+    }
+    // 장외 첫 요청도 차트 열람·워밍에 기대지 않고 같은 날짜의 분봉을 확보한다.
+    return fetchTargetSessionVwap(ticker, date);
 }
  // 12h — 장 마감~다음 개장을 건너뛸 만큼
 
@@ -448,7 +503,12 @@ export async function GET(req: NextRequest) {
         }
         if (cached && verdict.ok) {
             console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
-            return new Response(JSON.stringify(tickerPayloadForResponse(await withExitLevels({ ...cached, _cached: true, _cachedAt: cached.tsServer }, finishLevels, ticker, optionBasis, !skipAlpha), noChain)), {
+            let checked = dropStaleLiveVwap(cached);
+            if (checked.vwap == null) {
+                const r = await resolveTargetSessionVwap(ticker);
+                if (r) checked = { ...checked, vwap: r.vwap, vwapDate: r.date };
+            }
+            return new Response(JSON.stringify(tickerPayloadForResponse(await withExitLevels({ ...checked, _cached: true, _cachedAt: cached.tsServer }, finishLevels, ticker, optionBasis, !skipAlpha), noChain)), {
                 status: 200,
                 headers: {
                     'Content-Type': 'application/json; charset=utf-8',
@@ -547,36 +607,8 @@ export async function GET(req: NextRequest) {
 
     // [PERF] Phase 1 results - extract snapshot data immediately
     const S = snapshotRes.data?.ticker || {};
-    // VWAP: 원천 스냅샷엔 없다 → 차트가 캐시한 1일 분봉(같은 원천)으로 세션 VWAP 계산.
-    //   · 장중·애프터(REG/POST)엔 «오늘» 정규장 봉으로 계산한 값만 쓴다(전 거래일 값 금지).
-    //   · 분봉 캐시가 2분 넘게 묵었거나 없으면 뒤에서 한 번 갱신(종목당 60초 잠금) — 차트를 안 열어도 장중 VWAP 이 굳지 않게.
-    //   · 장 전·휴장(PRE/CLOSED)엔 마지막 거래일 값.
-    //   · [2026-10-19 묶음 3] 분봉 캐시는 10분 TTL 이라 주말·휴일엔 차트를 아무도 안 열면 사라진다 → 계산한 세션 VWAP 을
-    //     거래일별 완료 세션 보관본(session:vwap:{T}:{날짜}, 8일)에 저장하고, 장외엔 달력의 «마지막으로 끝난 정규장» 보관본으로 잇는다.
-    //     같은 봉으로 이미 계산한 값을 저장만 한다(공급사 호출 0). 확정 여부 = 봉 캐시 생성 시각이 그 세션 마감 뒤인가.
-    const vwapLiveSession = session === 'REG' || session === 'POST';
-    type SessVwap = { vwap: number; date: string; bars: number };
-    const chartVwapP: Promise<SessVwap | null> = getFromCache<any>(`chart:v5:${ticker}:1d`)
-        .then(c => {
-            const rows = Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : null;
-            const builtAt = Number(c?._builtAt || 0);
-            if (vwapLiveSession && (!rows || Date.now() - builtAt > 120_000)) refreshChartForVwap(ticker);
-            const r = sessionVwapFromBars(rows);
-            if (!r) return null;
-            if (builtAt > 0) after(async () => { await saveSessionArchive('vwap', ticker, r.date, r, { observedAt: builtAt }).catch(() => 'error'); });
-            if (vwapLiveSession && r.date !== todayStr) return null;
-            return r;
-        })
-        .catch(() => null)
-        .then(async (r: SessVwap | null) => {
-            if (vwapLiveSession) return r;
-            // PRE/CLOSED: 분봉이 직전 완료 세션 것이면 그대로, 없거나 더 옛 세션이면 보관본(더 최근 날짜일 때만).
-            if (r && r.date >= lastCompletedSessionDate()) return r;
-            const a = await readSessionArchive<SessVwap>('vwap', ticker).catch(() => null);
-            const av = normalizeVwap(a?.value?.vwap);
-            if (a && av != null && (!r || a.stamp.sourceSessionDate > r.date)) return { vwap: av, date: a.stamp.sourceSessionDate, bars: Number(a.value?.bars) || 0 };
-            return r;
-        });
+    // 목표 정규장 날짜의 차트·분봉·보관본만 사용한다. 모두 없으면 잠금 아래 같은 날짜를 직접 확보한다.
+    const chartVwapP = resolveTargetSessionVwap(ticker, serverTs);
 
     // ══════════════════════════════════════════════════════════════
     // 기준선(전일 종가) 판정  ★ [2026-08-29 수정]
@@ -1190,7 +1222,8 @@ export async function GET(req: NextRequest) {
     const _vpcr = (_cvol > 0 || _pvol > 0) ? (_pvol > 0 ? Math.round((_cvol / _pvol) * 100) / 100 : (_cvol > 0 ? 10 : 0)) : null;   // LEGACY: 콜÷풋(웹 호환)
 
     const chartSessionVwap = await chartVwapP;
-    const vwapFromSnapshot = selectVwap(S.day?.vw, S.prevDay?.vw);
+    // 스냅샷을 쓰더라도 원천 정규장 날짜가 확인된 당일 값만 허용한다.
+    const vwapFromSnapshot = snapRegDate === shownRegularSessionDate(serverTs) ? selectVwap(S.day?.vw) : null;
     // [S-52.2.1] Full response with explicit Frac/Pct/Abs
     const response = {
         ticker,
@@ -1205,7 +1238,7 @@ export async function GET(req: NextRequest) {
         changePct: changePctFrac,  // DEPRECATED: fraction
         prevClose: prevRegularClose,
         vwap: vwapFromSnapshot ?? chartSessionVwap?.vwap ?? null,
-        vwapDate: vwapFromSnapshot != null ? todayStr : (chartSessionVwap?.date ?? null),
+        vwapDate: vwapFromSnapshot != null ? snapRegDate : (chartSessionVwap?.date ?? null),
 
         // [Fix] Include Options Flow Data in Response
         // [PERF] Slim rawChain (121KB→35KB) and allExpiryChain (2.89MB→~400KB)
@@ -1532,14 +1565,12 @@ export async function GET(req: NextRequest) {
     } else if (freshVerdict.ok) {
         finalPayload._goodAt = Date.now();
     }
-    // 장중·애프터엔 오늘 계산한 VWAP 만 — 마지막 정상본에서 넘어온 전 거래일 VWAP 은 버린다(«—»가 틀린 값보다 낫다).
-    if ((session === 'REG' || session === 'POST') && finalPayload?.vwap != null && finalPayload.vwapDate !== todayStr) {
-        finalPayload = { ...finalPayload, vwap: null, vwapDate: null };
-    }
+    // 마지막 정상본 병합 뒤에도 모든 세션의 목표일을 재검사한다.
+    finalPayload = dropStaleLiveVwap(finalPayload);
 
     // 시간외 종가를 뒤에서 계산 중이면(예산 초과) 응답 캐시를 짧게 — 다음 요청이 저장된 값을 읽게 한다
     if (extPending.length) after(() => Promise.allSettled(extPending));
-    const responseTtl = extPending.length ? 10 : TICKER_CACHE_TTL;
+    const responseTtl = finalPayload.vwap == null ? 5 : (extPending.length ? 10 : TICKER_CACHE_TTL);
 
     const finalVerdict = isUsableTickerCache(finalPayload);
     if (finalVerdict.ok) {
