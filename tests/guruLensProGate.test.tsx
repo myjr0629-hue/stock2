@@ -153,6 +153,8 @@ async function main() {
         const b = await bodyOf(query);
         assert.ok(tickerLens(b, ticker));
         assert.ok(b.lenses.every((l: any) => l.rows.length === 1 && l.rows[0].ticker === ticker && !('score' in l.rows[0])));
+        assert.ok(b.lenses.every((l: any) => l.rows[0].reason === '' || /^F점수 \d\/9;$/.test(l.rows[0].reason)),
+            '무료 역조회 reason 은 화면이 읽는 F점수 접두만(순위합 등 순위 정보 0)');
     }
 
     const oldGuru = compile('src/components/app/GuruLens.tsx', true);

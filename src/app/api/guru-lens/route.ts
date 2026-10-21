@@ -9,6 +9,9 @@ import { FREE_ROWS } from '@/lib/guruLens/access';
 import { clientIpFrom, guruProAccess } from '@/lib/guruLens/proAccess';
 
 export const runtime = 'nodejs';
+// 무료 역조회의 reason 은 화면이 읽는 부분(financial_strength «F점수 n/9;» 접두, lib/app/guruLens whyLine)만 남긴다.
+// roc_ey 의 «순위합» 같은 순위 정보는 화면에 쓰이지 않으므로 무료 응답에 싣지 않는다.
+const freeReason = (reason: string) => reason.match(/^F점수 \d\/9;/)?.[0] ?? '';
 export const dynamic = 'force-dynamic';
 
 // A published generation is immutable (same date key = same content). Keep the parsed
@@ -114,7 +117,7 @@ export async function GET(req: NextRequest) {
                 return {
                     // 종목 칩·이유는 무료 기능이다. 역조회로 순위 점수를 모으는 경로는 닫는다.
                     ...(ticker && !isPro ? {
-                        ticker: r.ticker, passed: r.passed, checks: r.checks, reason: r.reason,
+                        ticker: r.ticker, passed: r.passed, checks: r.checks, reason: freeReason(r.reason),
                         ...(r.inputsComplete === undefined ? {} : { inputsComplete: r.inputsComplete }),
                     } : r),
                     name: names.get(r.ticker) ?? null,
