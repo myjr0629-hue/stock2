@@ -5,9 +5,12 @@ import { readonlyCache, currentBadges } from '@/lib/guruLens/service';
 import { holdingBadge } from '@/lib/guruLens/badges';
 import { GURU_UNIVERSE } from '@/lib/guruLens/sources';
 import type { Evaluation, Snapshot } from '@/lib/guruLens/types';
+import { FREE_ROWS } from '@/lib/guruLens/access';
+import { createRevenueCatVerifier } from '@/lib/alerts/revenuecat';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+const verifyPro = createRevenueCatVerifier();
 
 // A published generation is immutable (same date key = same content). Keep the parsed
 // snapshot per warm instance and re-read only the small head pointer on each request,
@@ -53,6 +56,15 @@ export async function GET(req: NextRequest) {
         ticker = p.get('ticker')?.trim().toUpperCase(),
         // badges=0: the ticker chip needs only the rule verdicts (no badge reads).
         withBadges = p.get('badges') !== '0';
+    // 권한 응답은 공개 URL에서 절대로 만들지 않는다(CDN의 익명 캐시 적중 방지).
+    const uid = req.headers.get('x-rc-app-user-id');
+    const privateRequest = p.has('access') || uid !== null;
+    const headers = {
+        'Cache-Control': privateRequest ? 'private, no-store' : withBadges
+            ? 'public, s-maxage=60' : 'public, s-maxage=600, stale-while-revalidate=3600',
+        Vary: 'x-rc-app-user-id',
+    };
+    const unavailableHeaders = { ...headers, 'Cache-Control': privateRequest ? 'private, no-store' : 'public, s-maxage=60' };
     const rawLimit = p.get('limit'),
         limit = rawLimit === null ? 10 : Number(rawLimit);
     if (
@@ -63,13 +75,20 @@ export async function GET(req: NextRequest) {
         limit < 1 ||
         limit > 50
     )
-        return NextResponse.json({ error: 'invalid_query' }, { status: 400 });
+        return NextResponse.json({ error: 'invalid_query' }, { status: 400, headers: { ...headers, 'Cache-Control': 'private, no-store' } });
     try {
+        let isPro = false;
+        // 기존 알림 API의 ID 검증과 RevenueCat 권한 판정을 재사용한다.
+        if (p.get('access') === 'pro' && uid &&
+            (/^\$RCAnonymousID:[0-9a-f]{32}$/.test(uid) || /^[A-Za-z0-9._:\-]{8,100}$/.test(uid))) {
+            try { isPro = (await verifyPro(uid)).active; }
+            catch { /* 검증 불가·설정 없음은 무료 범위만 반환한다. */ }
+        }
         const snapshot = await publishedSnapshot();
         if (!snapshot)
             return NextResponse.json(
                 { available: false, reason: 'no_published_snapshot' },
-                { status: 503, headers: { 'Cache-Control': 'public, s-maxage=60' } },
+                { status: 503, headers: unavailableHeaders },
             );
         const selected = selectSnapshot(snapshot, lens && isLensId(lens) ? lens : undefined, ticker);
         // Reverse lookup is computed over ALL evaluated rows before applying list pagination.
@@ -85,14 +104,21 @@ export async function GET(req: NextRequest) {
                     l.rows.filter((r) => r.inputsComplete === true).slice(0, 5),
             mode: l.passCount ? 'passed' : 'closest',
         }));
-        const tickers = [...new Set(lists.flatMap((l) => l.rows.map((r) => r.ticker)))];
+        const tickers = [...new Set(lists.flatMap((l) =>
+            (ticker || isPro ? l.rows : l.rows.slice(0, FREE_ROWS)).map((r) => r.ticker)))];
         const badges = withBadges ? await currentBadges(tickers) : {};
         const lenses = lists.map((l) => ({
             ...l,
-            rows: l.rows.map((r) => {
+            rows: l.rows.map((r, index) => {
+                if (!ticker && !isPro && index >= FREE_ROWS)
+                    return { rank: index + 1, locked: true };
                 const b = badges[r.ticker];
                 return {
-                    ...r,
+                    // 종목 칩·이유는 무료 기능이다. 역조회로 순위 점수를 모으는 경로는 닫는다.
+                    ...(ticker && !isPro ? {
+                        ticker: r.ticker, passed: r.passed, checks: r.checks, reason: r.reason,
+                        ...(r.inputsComplete === undefined ? {} : { inputsComplete: r.inputsComplete }),
+                    } : r),
                     name: names.get(r.ticker) ?? null,
                     badges: withBadges
                         ? {
@@ -106,19 +132,12 @@ export async function GET(req: NextRequest) {
         }));
         return NextResponse.json(
             { ...selected, available: true, lenses, badgesAsOf: withBadges ? new Date().toISOString() : null },
-            {
-                headers: {
-                    // Verdicts change weekly; badges move with the daily feeds.
-                    'Cache-Control': withBadges
-                        ? 'public, s-maxage=60'
-                        : 'public, s-maxage=600, stale-while-revalidate=3600',
-                },
-            },
+            { headers },
         );
     } catch {
         return NextResponse.json(
             { available: false, reason: 'read_failed' },
-            { status: 503, headers: { 'Cache-Control': 'public, s-maxage=60' } },
+            { status: 503, headers: unavailableHeaders },
         );
     }
 }

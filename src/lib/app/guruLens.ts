@@ -6,6 +6,10 @@
 // ★ 문구는 «규칙 충족»만 — 추천·매수·목표가 표현 금지. 대가 이름 옆엔 «공개 기준을 우리가 해석».
 // ============================================================================
 import { LENS_IDS, type Check, type Evaluation, type LensDefinition, type LensId } from '../guruLens/types';
+import { FREE_ROWS, type LockedLensRow } from '../guruLens/access';
+export { FREE_ROWS } from '../guruLens/access';
+export const isLockedLensRow = (row: LensRow | LockedLensRow): row is LockedLensRow => 'locked' in row;
+export const isVisibleLensRow = (row: LensRow | LockedLensRow): row is LensRow => !isLockedLensRow(row);
 
 export type Loc = 'ko' | 'en' | 'ja';
 export const toLoc = (l: string | undefined): Loc => (l === 'ko' || l === 'ja' ? l : 'en');
@@ -30,7 +34,7 @@ export type LensList = {
     evaluatedCount: number;
     determinedCount: number | null;
     mode: 'passed' | 'closest';
-    rows: LensRow[];
+    rows: (LensRow | LockedLensRow)[];
 };
 export type LensBody = {
     available: true;
@@ -39,7 +43,10 @@ export type LensBody = {
     universeCount: number;
     lenses: LensList[];
 };
-export type TickerLens = LensBody & { ticker: string; passedLenses: LensId[] };
+export type TickerLens = Omit<LensBody, 'lenses'> & {
+    ticker: string; passedLenses: LensId[];
+    lenses: (Omit<LensList, 'rows'> & { rows: (Omit<LensRow, 'score'> & { score?: number | null })[] })[];
+};
 
 const isLens = (x: unknown): x is LensId => typeof x === 'string' && (LENS_IDS as readonly string[]).includes(x);
 
@@ -52,11 +59,16 @@ export function lensBody(body: unknown): LensBody | null {
     for (const l of b.lenses) {
         if (!isLens(l?.definition?.id) || !Array.isArray(l.rows) || !Number.isInteger(l.passCount) ||
             l.passCount < 0 || (l.mode !== 'passed' && l.mode !== 'closest')) return null;
-        if (l.rows.some(r => !r || typeof r.ticker !== 'string' || typeof r.passed !== 'boolean' || !Array.isArray(r.checks)))
-            return null;
+        for (const [index, r] of l.rows.entries()) {
+            if (!r || typeof r !== 'object') return null;
+            if (isLockedLensRow(r)) {
+                if (r.locked !== true || index < FREE_ROWS || r.rank !== index + 1 ||
+                    Object.keys(r).some(k => k !== 'rank' && k !== 'locked')) return null;
+            } else if (typeof r.ticker !== 'string' || typeof r.passed !== 'boolean' || !Array.isArray(r.checks)) return null;
+        }
         // 통과 목록에 미통과 행이 섞이면(또는 그 반대) 응답 전체를 믿지 않는다.
-        if (l.mode === 'passed' && (l.passCount === 0 || l.rows.some(r => !r.passed))) return null;
-        if (l.mode === 'closest' && (l.passCount !== 0 || l.rows.some(r => r.passed))) return null;
+        if (l.mode === 'passed' && (l.passCount === 0 || l.rows.filter(isVisibleLensRow).some(r => !r.passed))) return null;
+        if (l.mode === 'closest' && (l.passCount !== 0 || l.rows.filter(isVisibleLensRow).some(r => r.passed))) return null;
     }
     return b;
 }
@@ -191,7 +203,6 @@ export const md = (d: string) => (/^\d{4}-\d{2}-\d{2}/.test(d) ? `${Number(d.sli
 
 export const lensesHref = (locale: string, lens?: LensId) =>
     `/${locale}/app-view/lenses${lens ? `?lens=${lens}` : ''}`;
-export const FREE_ROWS = 3;
 
 /** 대가 이름(공개 기준의 출처) — 해석 주체는 SIGNUM 이다. */
 export const GURU: Record<LensId, Record<Loc, string>> = {
