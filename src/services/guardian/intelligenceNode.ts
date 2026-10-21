@@ -183,6 +183,18 @@ const _lastOut: Record<InsightType, Record<Locale, { shown: string; tpl: string;
     gamma: emptyByLocale<{ shown: string; tpl: string; basis: GNums | null } | null>(null),
 };
 
+/**
+ * ★2026-10-21 Tactical 은 «화면 글 → 원본·기준»을 글마다 기억한다(최근 8개) — 동시 요청이 _lastOut 을 덮어도 그 글의 생성 기준값을 찾는다.
+ *   자리표 없는 Tactical 의 «상태 판정» 낡음 비교는 생성 기준값이 있어야 한다(관문 10211015·10211022: 덮인 뒤 «지금 값»을 기준으로 저장하면 낡음이 안 보인다).
+ */
+const _outByShown: Record<Locale, Map<string, { tpl: string; basis: GNums | null }>> = { ko: new Map(), en: new Map(), ja: new Map() };
+function rememberShown(locale: Locale, shown: string, tpl: string, basis: GNums | null): void {
+    const m = _outByShown[locale];
+    m.delete(shown);
+    m.set(shown, { tpl, basis });
+    while (m.size > 8) m.delete(m.keys().next().value as string);
+}
+
 // === LOCALIZED DEFAULT MESSAGES ===
 const OFF_HOURS_ROTATION: Record<Locale, string> = {
     ko: "[현황] 장외 시간 - 실시간 분석 대기 중\n[해석] 프리마켓 시작 시 자동 갱신\n[전망] 다음 세션 시작 시 데이터 갱신 예정",
@@ -376,6 +388,7 @@ function shownOut(type: InsightType, locale: Locale, out: InsightOut, nums?: GNu
     const f = fillGuardianTokens(out.tpl, nums ?? out.basis ?? null);
     const shown = hasGuardianTokens(f.text) ? (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale] : f.text;
     _lastOut[type][locale] = shown === f.text ? { shown, tpl: out.tpl, basis: out.basis } : null;
+    if (type === 'reality' && shown === f.text) rememberShown(locale, shown, out.tpl, out.basis ?? null);
     return shown;
 }
 
@@ -391,6 +404,7 @@ export function _resetInsightStateForTest(): void {
         for (const locale of Object.keys(_mem[type]) as Locale[]) {
             _mem[type][locale] = null;
             _genFailUntil[type][locale] = 0;
+            _outByShown[locale].clear();
         }
     }
 }
@@ -1264,9 +1278,14 @@ export class IntelligenceNode {
      * 화면 글이 마지막으로 내보낸 글과 다르면(동시 요청 등) null — 그때는 출구가 숫자를 대조만 한다.
      */
     static numbersFor(type: InsightType, locale: Locale, shown: string | null | undefined): InsightOut | null {
+        // Tactical 은 자리표가 없어도 기준값(basis)을 남긴다 — 숫자 없는 «상태 판정»의 낡음 비교(stateStaleReasons)에 필요(관문 10211005 ①).
+        //   글마다 기억한 원본에서 찾는다(동시 요청에 덮이지 않게, 관문 10211022).
+        if (type === 'reality' && typeof shown === 'string') {
+            const r = _outByShown[locale].get(shown);
+            if (r && (r.tpl !== shown || !!r.basis)) return { tpl: r.tpl, basis: r.basis };
+        }
         const o = _lastOut[type][locale];
-        // Tactical 은 자리표가 없어도 기준값(basis)을 남긴다 — 숫자 없는 «상태 판정»의 낡음 비교(stateStaleReasons)에 필요(관문 10211005 ①)
-        return o && typeof shown === 'string' && o.shown === shown && (o.tpl !== o.shown || (type === 'reality' && !!o.basis)) ? { tpl: o.tpl, basis: o.basis } : null;
+        return o && typeof shown === 'string' && o.shown === shown && o.tpl !== o.shown ? { tpl: o.tpl, basis: o.basis } : null;
     }
 
     /** 대기·장외 안내 문구인가 */

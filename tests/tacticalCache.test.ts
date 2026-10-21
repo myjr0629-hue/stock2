@@ -267,6 +267,20 @@ async function main() {
             assert.equal(calls.length, 0);
         } finally { GuardianDataHub.computeGuardianSnapshot = saved; }
     });
+    await test('10/21 관문 10211022: 동시 요청으로 마지막 글이 바뀌어도 앞선 Tactical 화면 글의 생성 기준값을 찾는다(자리표 없는 글)', async () => {
+        const textA = fresh.ko;
+        const textB = '오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인 기준은 아직 미확인입니다.';
+        reply = async () => JSON.stringify({ ko: textA, en: fresh.en, ja: fresh.ja });
+        const shownA = await N.generateRealityInsight({ ...ctx('ko'), nasdaqChange: 0.78 });
+        assert.equal(shownA, textA);
+        clock += 11 * 60_000;   // TTL(10분) 지남 → 새 생성
+        reply = async () => JSON.stringify({ ko: textB, en: fresh.en, ja: fresh.ja });
+        const shownB = await N.generateRealityInsight({ ...ctx('ko'), nasdaqChange: 0.15, scheduledEvents: [] });
+        assert.equal(shownB, textB);
+        assert.equal(N.numbersFor('reality', 'ko', shownA)?.basis?.NDX_CHG, 0.78);   // 마지막 글(B)에 덮이지 않는다
+        assert.equal(N.numbersFor('reality', 'ko', shownB)?.basis?.NDX_CHG, 0.15);
+        assert.equal(N.numbersFor('reality', 'ko', '모르는 글'), null);
+    });
     console.log(`${count} passed, ${failures} failed`);
     assert.equal(failures, 0);
 }
