@@ -29,9 +29,12 @@ function datedIv(ticker: string, value: unknown, date: unknown, observedAt: unkn
         ...(observation.observedAt && observation.sourceSessionDate === dateOfIv ? { observedAt: observation.observedAt } : {}) };
 }
 
-// IV 날짜가 우선이고, 같은 날짜는 고유 관측 시각으로 비교한다. 동률이면 기존 경로 우선순위를 유지한다.
+// IV 날짜가 우선이다. 같은 날짜는 양쪽 모두 고유 관측 시각이 있을 때만 시각으로 비교하고,
+// 한쪽이라도 시각이 없으면 동률(0)로 본다 — 시각이 없다는 이유로 같은 날짜의 새 응답이 밀리지 않는다.
 function compareIv(a: CommandIvObservation, b: CommandIvObservation): number {
-    return a.sourceDate.localeCompare(b.sourceDate) || (a.observedAt ?? '').localeCompare(b.observedAt ?? '');
+    const byDate = a.sourceDate.localeCompare(b.sourceDate);
+    if (byDate || !a.observedAt || !b.observedAt) return byDate;
+    return Date.parse(a.observedAt) - Date.parse(b.observedAt) || 0;
 }
 
 function latestIv(first: CommandIvObservation | null, second: CommandIvObservation | null): CommandIvObservation | null {

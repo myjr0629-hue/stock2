@@ -1344,9 +1344,10 @@ async function getStructureDataImpl(
             if (legs.length) {
                 atmIv = Math.round(legs.reduce((sum, c) => sum + c.iv!, 0) / legs.length);
                 ivSourceDate = latestDate;
-                // 단일 다리거나 양 다리가 같은 실제 관측 시각일 때만 시각도 보존한다.
+                // 모든 다리에 실제 관측 시각이 있으면 가장 이른 시각을 쓴다(값의 어느 부분도 그보다 새롭다고 주장하지 않는다).
+                // 한 다리라도 시각이 없으면 시각은 비운다 — 날짜(ivSourceDate)만으로 판정한다.
                 const times = legs.map(c => c.observedAt);
-                if (times.every(t => t !== null && t === times[0])) ivObservedAt = times[0];
+                if (times.every((t): t is string => t !== null)) ivObservedAt = [...times].sort()[0];
             }
         }
 

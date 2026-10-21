@@ -69,8 +69,8 @@ t('수집 목록 밖(마지막 행에 표식 없음) → 미제공(insufficient)
     assert.ok(!r0.ok && r0.reason === 'insufficient');
 });
 
-t('낡은 창(직전 완료 세션보다 4거래일 초과)은 새 정의 행이어도 stale(미제공)', () => {
-    const r = ivRankFromHistory(rows(200, 200, () => 15), { nowMs: END + 7 * 86_400_000 });
+t('낡은 창(마지막 행 4일 넘음)은 새 정의 행이어도 stale(미제공)', () => {
+    const r = ivRankFromHistory(rows(200, 200, () => 15), { nowMs: END + 5 * 86_400_000 });
     assert.ok(!r.ok && r.reason === 'stale');
 });
 

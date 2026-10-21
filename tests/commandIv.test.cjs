@@ -327,12 +327,15 @@ test('신선도 4거래일 경계: 주말·노동절·조기 폐장·ET 자정',
             assert.equal(rank.isFreshIvObservation(date, atMs), accepted, `${at} / ${date}`);
             assert.equal(!!iv.commandUnifiedIv('IBM', { volatility: { iv: 31, ivSourceDate: date } }, atMs), accepted);
             assert.equal(!!iv.commandBatchIv('IBM', { ticker: 'IBM', realtime: { atmIv: 31, atmIvSourceDate: date } }, atMs), accepted);
-            const history = [{ timestamp: Date.parse(`${date}T16:30:00-04:00`), iv30: 31, iv30Def: 'cm30-v1' }];
-            const result = rank.ivRankFromHistory(history, { nowMs: atMs });
-            assert.equal(result.reason === 'stale', !accepted, 'IV30도 같은 판정');
         }
     }
     for (const invalid of [null, '2026-02-30', '2026-10-22']) assert.equal(rank.isFreshIvObservation(invalid, now), false);
+    // IV30 랭크의 기존 4일(ms) 차단은 그대로다 — 대체 경로 규칙이 IV30 판정을 느슨하게 만들지 않는다.
+    assert.equal(rank.IV_RANK_MAX_AGE_MS, 4 * 86_400_000);
+    const last = Date.parse('2026-10-15T16:30:00-04:00');
+    const history = [{ timestamp: last, iv30: 31, iv30Def: 'cm30-v1' }];
+    assert.equal(rank.ivRankFromHistory(history, { nowMs: last + 4 * 86_400_000 + 1 }).reason, 'stale');
+    assert.notEqual(rank.ivRankFromHistory(history, { nowMs: last + 3 * 86_400_000 }).reason, 'stale');
     assert.equal(iv.commandUnifiedIv('IBM', { structure: { atmIV: .55, ivSourceDate: '2026-08-28', ivObservedAt: '2026-10-21T15:00:00Z' },
         volatility: { iv: 31, ivSourceDate: '2026-10-21' } }).iv, 31, '새 수집 시각이 오래된 IV 원천 날짜를 구제하지 않는다');
 });
@@ -612,4 +615,30 @@ test('NVDA·TSLA·AAPL 정상 합성 응답: 값·날짜·직렬화 바이트 �
 test('누락 관측·누락 종목 입력은 날짜 접근 없이 결측으로 남는다', () => {
     assert.equal(iv.retainCommandIv(null, null, undefined), null);
     assert.equal(iv.retainCommandIv(null, null, 'IBM'), null);
+});
+
+test('4차: 두 다리의 관측 시각이 1초 달라도 최신 IV 41이 이전 보관 IV 31을 대체한다(표시·상태 모두)', async () => {
+    const legs = [
+        { ...contract('call', null, .40), ivObservedAt: '2026-10-21T15:30:00Z' },
+        { ...contract('put', null, .42), ivObservedAt: '2026-10-21T15:30:01Z' },
+    ];
+    const result = await calculateIv(legs, '2026-10-23', [], noIvFetch);
+    assert.equal(result.atmIv, 41); assert.equal(result.ivSourceDate, '2026-10-21');
+    assert.equal(result.ivObservedAt, '2026-10-21T15:30:00.000Z', '가장 이른 다리 시각');
+    const h = harness('IBM');
+    await h.respond({ iv: 31, ivObservedAt: '2026-10-21T15:00:00Z' });
+    assert.equal(h.state.iv, 31);
+    h.unified = { structure: { atmIV: result.atmIv / 100, ...result } };
+    assert.equal(signals(h.data, h.store, 'IBM').iv, 41);
+    await h.respond(undefined);
+    assert.equal(h.state.iv, 41);
+    // 한 다리라도 시각이 없으면 시각은 비우고, 같은 날짜의 새 응답은 동률로 채택된다.
+    const mixed = await calculateIv([legs[0], { ...contract('put', '2026-10-21', .42), _rtGreeks: false }], '2026-10-23', [], noIvFetch);
+    assert.equal(mixed.ivObservedAt, null); assert.equal(mixed.ivSourceDate, '2026-10-21');
+    const prev = iv.commandUnifiedIv('IBM', { volatility: { iv: 31, ivObservedAt: '2026-10-21T15:00:00Z' } });
+    const next = iv.commandUnifiedIv('IBM', { structure: { atmIV: mixed.atmIv / 100, ...mixed } });
+    assert.equal(iv.retainCommandIv(prev, next, 'IBM').iv, mixed.atmIv);
+    // 더 이른 날짜는 시각이 없어도 밀린다.
+    const older = iv.commandUnifiedIv('IBM', { volatility: { iv: 55, ivSourceDate: '2026-10-20' } });
+    assert.equal(iv.retainCommandIv(prev, older, 'IBM').iv, 31);
 });

@@ -21,7 +21,7 @@
 //   ⚠ 이것만으로 «0%»가 사라지지는 않는다 — 금요일 만기 뒤엔 가장 가까운 만기가 다음 주로 넘어가 ATM IV 가 창의 최솟값이
 //     되기 때문이다(만기 점프). 그건 정의의 성질이라 여기서 지어내 고치지 않는다(.agent/IMPLIED-MOVE-DEFINITION-2026-09-29.md §7).
 // [10/4 · 낡은 창] 수집 목록에서 빠진 종목(DIA: 마지막 행 8/28)도 창 200행은 «차 있어» 8월 값으로 «95%»가 나갔다.
-//   → nowMs 를 넘기면(API) 마지막 행이 직전 완료 세션보다 4거래일 넘게 오래된 창은 계산하지 않는다(stale = 미제공).
+//   → nowMs 를 넘기면(API) 마지막 행이 IV_RANK_MAX_AGE_MS 보다 오래된 창은 계산하지 않는다(stale = 미제공).
 // [10/4 저녁 · IV30 — 만기 점프의 근본 수리] atmIv(가장 가까운 만기)는 금요일 만기가 지나면 다음 주 만기로 넘어가
 //   그 IV 가 창의 최솟값이 됐다(SPY 금 마감 7.55% = 월요일 1일물 — 같은 체인의 30일 IV 는 12.94%, VIX 15.31).
 //   → 수집 Lambda 가 행마다 IV30(30일을 사이에 둔 두 만기의 ATM IV 를 분산·시간 가중 보간)과 정의 표식 iv30Def 를 남긴다.
@@ -41,7 +41,9 @@ import { sourceDate } from './ivSkew';
 export const IV_RANK_WINDOW = 200;
 /** 창 안에서 ATM IV 가 있는(>0) 표본이 이보다 적으면 계산하지 않는다(웹이 쓰던 문턱 10). */
 export const IV_RANK_MIN_IV_SAMPLES = 10;
-/** IV 수준·IV30 모두 직전 완료 세션부터 4거래일 전까지 허용한다. */
+/** 마지막 이력 행이 이보다 오래됐으면 «지금»의 IV 랭크가 아니다(수집 목록 밖) — 4일(긴 주말 + 여유) */
+export const IV_RANK_MAX_AGE_MS = 4 * 86_400_000;
+/** IV 수준 대체 경로(Command): IV 고유 날짜가 직전 완료 세션부터 4거래일 전까지만 채택한다. IV30 랭크 판정(위 상수)은 바꾸지 않는다. */
 export const IV_MAX_AGE_TRADING_DAYS = 4;
 export function isFreshIvObservation(date: unknown, nowMs = Date.now()): boolean {
     const ownDate = sourceDate(date);
@@ -138,7 +140,7 @@ export function ivRankFromHistory(rows: IvHistoryRow[] | null | undefined, opts:
     const withIv = dedupeIvSamples(rawWithIv);
     const sampleSize = withIv.length;
     if (!windowRows) return { ok: false, reason: 'insufficient', sampleSize, windowRows };
-    if (opts.nowMs != null && !isFreshIvObservation(ivSampleSession(sorted[0]?.ts), opts.nowMs)) {
+    if (opts.nowMs != null && Number.isFinite(sorted[0]?.ts) && opts.nowMs - sorted[0].ts > IV_RANK_MAX_AGE_MS) {
         return { ok: false, reason: 'stale', sampleSize, windowRows };
     }
     // 마지막 행에 표식이 없다 = 이 종목은 IV30 을 수집하지 않는다(수집 목록 밖) → 미제공
