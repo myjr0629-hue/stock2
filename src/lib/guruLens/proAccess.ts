@@ -22,6 +22,8 @@ import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 export const RC_UID_RE = /^\$RCAnonymousID:[0-9a-f]{32}$|^[A-Za-z0-9._:-]{8,100}$/;
 export const POSITIVE_MAX_SEC = 6 * 3600;
 export const NEGATIVE_SEC = 60;
+/** 공급사 장애 중 허용 판정의 짧은 저장 — 장애가 이어져도 같은 PRO 가 ID 예산을 다 써 잠기지 않게. */
+export const UNAVAILABLE_ALLOW_SEC = 120;
 export const WINDOW_SEC = 600;
 export const LIMIT_PER_IP = 20;
 export const LIMIT_PER_ID = 6;
@@ -160,6 +162,7 @@ export function createGuruProAccess(deps: ProAccessDeps) {
         }
         if (r.kind === 'inactive') { await writeVerdict(h, false, NEGATIVE_SEC); return { pro: false, via: 'denied' }; }
         if (r.kind === 'limited') return { pro: false, via: 'limited' };
+        await writeVerdict(h, true, UNAVAILABLE_ALLOW_SEC);
         return { pro: true, via: 'provider_unavailable' };
     }
 

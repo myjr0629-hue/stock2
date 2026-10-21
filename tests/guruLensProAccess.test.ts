@@ -1,7 +1,7 @@
 /** 대가 렌즈 서버 PRO 판정 — 관문 4회(10/21) 재현 전부. 메모리 저장소·합성 공급사만, 실제 네트워크·운영 쓰기 0. */
 import assert from 'node:assert/strict';
 import {
-    createGuruProAccess, LIMIT_GLOBAL, LIMIT_PER_IP, NEGATIVE_SEC, POSITIVE_MAX_SEC, type ProAccessStore,
+    createGuruProAccess, UNAVAILABLE_ALLOW_SEC, LIMIT_GLOBAL, LIMIT_PER_IP, NEGATIVE_SEC, POSITIVE_MAX_SEC, type ProAccessStore,
 } from '../src/lib/guruLens/proAccess';
 
 globalThis.fetch = async () => { throw new Error('실제 네트워크 금지'); };
@@ -117,6 +117,18 @@ async function main() {
             assert.equal(p.calls.length - before, 1, '공급사 1회 뒤 인스턴스 사본');
         }
     }
+    // ③-4 (관문 10211425) 공급사 503 이 이어져도 같은 PRO 가 10분 창에 여러 번(2분 간격 포함) 조회해도 잠기지 않는다
+    {
+        const p = provider(() => new Response('{}', { status: 503 }));
+        const access = createGuruProAccess({ store: memoryStore(), keys, fetchImpl: p.fetchImpl, now: clock });
+        const start = now;
+        for (let i = 0; i < 30; i++) {
+            assert.equal((await access(PRO_ID, { ip: '1.1.1.1' })).pro, true, `장애 중 ${i + 1}회`);
+            now += 20_000;
+        }
+        assert.ok(p.calls.length <= 6, '장애 중 공급사 재시도도 2분에 1회 수준');
+        now = start;
+    }
     // ④ 양성 수명은 권한 만료를 넘지 않는다 · 음성은 60초 뒤 재확인(방금 결제한 사람)
     {
         let paid = false;
@@ -159,7 +171,9 @@ async function main() {
             const p = provider(() => new Response('{}', { status }));
             const access = createGuruProAccess({ store, keys, fetchImpl: p.fetchImpl, now: clock });
             assert.deepEqual(await access(PRO_ID, { ip: '1.1.1.1' }), { pro, via }, `상태 ${status}`);
-            assert.equal([...store.data.keys()].filter(k => k.startsWith('gl:pro:')).length, status === 404 || status === 400 ? 1 : 0);
+            const saved = [...store.data.keys()].filter(k => k.startsWith('gl:pro:'));
+            assert.equal(saved.length, status === 429 ? 0 : 1);
+            if (pro) assert.equal(store.ttl(saved[0]), UNAVAILABLE_ALLOW_SEC, '장애 허용은 2분만 저장');
         }
         const offline = createGuruProAccess({ store: memoryStore(), keys, now: clock,
             fetchImpl: (async () => { throw new TypeError('fetch failed'); }) as unknown as typeof fetch });
