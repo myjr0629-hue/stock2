@@ -46,6 +46,10 @@ function load(source, mocks, extra = '') {
     return module.exports;
 }
 const putCall = load(read('src/lib/putCall.ts'), {});
+// 최신 수집 행 선택은 실제 순수 함수를 사용한다. 모듈의 날짜 함수는 이 경로에서 호출하지 않는다.
+const optionsBasis = load(read('src/lib/app/intelOptionsBasis.ts'), {
+    '@/lib/putCall': putCall, '@/lib/marketCalendar': {},
+});
 
 function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
     const store = new Map();
@@ -55,17 +59,19 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
     const metrics = { pcr: flow.oiPcr, gex: flow.gex, squeezeScore: flow.squeezeScore };
     const levels = new Map([[snapshot.ticker, flow]]);
     const mocks = {
+        '@/lib/app/intelOptionsBasis': optionsBasis,
         'next/server': { after: () => {} },
         '@/services/optionMetricsService': { readOptionMetrics: async () => new Map([[snapshot.ticker, metrics]]) },
-        '@/services/oiNear35Fallback': { readOi35Fallback: async () => null },
+        '@/services/oiNear35Fallback': { readOi35Fallback: async () => null, readLastGoodOi: async () => null },
         '@/services/optionAlphaService': { readOptionAlpha: async () => new Map([[snapshot.ticker, snapshot.alpha]]) },
         // 저장 응답의 옵션 수집 행이 유효한 경로를 재생한다. 대체 OI 자체는 별도 NB1 시험에서 검증한다.
         '@/lib/optionMetrics': { applyOptionMetrics: target => target, optionMetricsRowHasOi: () => true },
         '@/lib/vwap': { normalizeVwap: x => x ?? null, selectVwap: (...xs) => xs.find(x => x != null), sessionVwapFromBars: () => null },
         '@/lib/shortVolume': { shortVolFields: () => ({}) },
         '@/lib/sessionArchive': { lastCompletedSessionDate: () => '2026-10-16', readSessionArchive: async () => null, saveSessionArchive: async () => {} },
-        '@/services/stockApi': { getStockChartData: async () => [] },
-        '@/lib/intrinioMeter': { upstashMeterStore: { setNxEx: async () => false } },
+        '@/services/stockApi': { getStockChartData: async () => [], getRegularSessionMinuteBars: async () => [] },
+        // 체인 응답 계약과 무관한 VWAP 잠금 경합 대기를 만들지 않는다(저장·공급사는 모두 대역).
+        '@/lib/intrinioMeter': { upstashMeterStore: { setNxEx: async () => true } },
         '@/services/timezoneUtils': { getETNow: () => ({ hour: 10, minute: 10, dateString: '2026-10-19', isWeekend: false }), getSessionType: () => 'REG' },
         '@/services/marketDaySSOT': { isUSMarketHolidayET: () => false },
         '@/services/buildMeta': { getBuildMeta: () => snapshot.meta },
@@ -116,7 +122,8 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
             keepSessionScopedFresh: x => x, peekExtendedSessionCloses: async () => new Map(),
             pickRegularPreClose: () => null, recallProvisionalPreCloses: async () => new Map(), rememberProvisionalPreClose: async () => {},
         },
-        '@/lib/marketCalendar': { shownRegularSessionDate: () => '2026-10-19', etMinutesOf: () => 610 },
+        '@/lib/marketCalendar': { shownRegularSessionDate: () => '2026-10-19', etMinutesOf: () => 610,
+            cashSessionPhaseAt: () => 'regular' },
         '@/lib/putCall': putCall,
         '@/lib/quoteBasis': { priceAsOfET: () => snapshot.timestampET },
         '@/services/realtimeMetricsService': { fetchRealtimeMetrics: async () => null },

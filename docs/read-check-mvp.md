@@ -1,5 +1,7 @@
 # 무료 해석 진단 1차판 인계
 
+아래 최초 구현 기록 뒤의 「관문 보류 수리」가 현재 변경 사항이다.
+
 ## 결과 요약
 
 - 브랜치 `feat/read-check-tool`, 시작 커밋 `8efa93c14`.
@@ -89,3 +91,44 @@ node --test tests/readCheck.test.cjs
 - 신규 설치·전환 효과는 측정하지 않았다. 앱 이동 태그만 추가했다.
 - Git 쓰기 제한 때문에 스테이징·브랜치 커밋은 미완료다. 거부된 경로는 `/Users/eunhoon/.gemini/antigravity/scratch/stock2/.git/worktrees/feat-read-check-tool/index.lock`이다. 파일은 지정 브랜치 작업공간에 저장되어 있으므로 운영 세션에서 새 파일 7개를 스테이징해 커밋할 수 있다. 권한 우회는 하지 않았다.
 - `.env*` 조회·비밀값 출력·push·main 병합·배포·운영 데이터 쓰기는 수행하지 않았다.
+
+## 관문 보류 수리
+
+### 결과 요약
+
+- 관문 원문 `gate-feat_read-check-tool-10211833.md`, 이전 지시 `task-read-check-tool-r2.md`, 결과 `read-check-tool.md`를 끝까지 읽었다.
+- FINRA 원본 `pct: 48.2, vol: null`이 `toTicker`의 `row.vol ?? 0`을 거쳐 정상 거래량으로 판정되는 원인을 합성 원본으로 재현했다. 변환 이후에는 원래 결측과 실제 0을 구별할 수 없다.
+- `getDarkPoolBatchChecked`에 선택 인자 `requireVolume`을 추가했다. 새 진단 서비스만 이 옵션을 켜 원본 거래량의 결측·비수치·음수·비유한 값을 변환 전에 제외한다. 실제 0과 원본 관측일은 유지한다. 유효 후보가 없으면 세 카드를 유지하고 기존 자료 부족 문구를 표시한다. 다른 날짜의 과거 판으로 보충하지 않는다.
+- 이전 오판정 스냅샷이 남지 않도록 진단 캐시 키를 v2로 바꿨다. 읽기 경로·5분 주기·동시 미스 병합은 유지한다.
+- 페이지의 `READ_CHECK_CSS`는 모듈 내부 상수로 변경했다. 페이지 export는 `default`, `dynamic`, `generateMetadata`만 남겼다. CSS 내용·라벨·문구·배치는 변경하지 않았다.
+
+### 바꾼 파일
+
+- `src/services/darkPool.ts`: 원본 거래량 검사 선택 인자.
+- `src/services/readCheckService.ts`: 검사 옵션 사용, 스냅샷 캐시 키 갱신.
+- `src/app/[locale]/tools/read-check/page.tsx`: 금지된 CSS export 제거.
+- `tests/readCheck.test.cjs`: 결함별 회귀시험 2개, 정상 진단 HTML 바이트 비교, 공유 함수 호출자 보존 검사, 실제 렌더 CSS 검사. HTML 산출물은 쓰기 가능한 임시 디렉터리를 매번 생성한다.
+- `scripts/run-offline-tests.cjs`: 배너 재시도 시험을 기존 전용 번들 실행기에 연결한다. 직접 실행 시 자식 프로세스가 `.ts`를 읽지 못했던 시험 장치 문제를 수정했다.
+- `tests/gexGuardianIsolation.test.js`: 실제 함수 일부를 추출한 시험용 함수에 누락된 `context` 인자를 추가했다. 제품 함수는 수정하지 않았다.
+- `tests/sessionArchive.test.ts`: 이미 개편된 VWAP의 목표일 저장·조회·날짜 일치 검사를 현재 구현에 맞췄다. 이전 변수명과 제거된 분기를 찾던 낡은 정규식 때문에 실패했다.
+- `tests/tickerPayload.test.js`: 새로 추가된 수집 행 선택·OI 보관본·목표일 분봉·장 상태 의존성을 시험 장치에 연결했다. 수집 행 선택은 실제 순수 함수를 사용하며 제품 라우트는 수정하지 않았다.
+- `docs/read-check-mvp.md`: 이번 수리의 원인·영향·시험 기록.
+
+공유 함수의 호출자는 진단 서비스 외에 `src/app/api/flow/dark-pool/route.ts`, `src/services/watchlistBatchService.ts`, `src/services/todayPicksService.ts`(2곳), `src/services/signalAlertsService.ts`, `src/lib/guruLens/service.ts`다. 이 5개 파일은 인자 없이 기존 기본 동작을 사용하며 소스 바이트가 기준 커밋과 같다. 선택 인자를 생략한 실제 FINRA 변환 결과도 기존 `getDarkPoolBatch`와 동일함을 시험한다. `toTicker`와 그 다른 호출자는 수정하지 않았다.
+
+### 돌린 시험과 결과
+
+- 수정 전 추가 회귀시험 2개 모두 실패해 관문 결함을 재현했다. 거래량 결측이 0으로 변환됐고, 설치된 Next 진단기가 71002를 반환했다.
+- 수정 후 진단 시험 17/17 통과. 실제 FINRA 변환기→진단 서비스→3언어 SSR에서 결측의 자료 부족 판정, 실제 0 보존, 원본 날짜, 종목 대체, 카드 3개 유지, 과거 판 미사용을 확인했다.
+- 설치된 Next 진단기로 이전 페이지의 71002 발생과 수정 페이지의 진단 0을 확인했다. 정상 자료의 진단 화면과 기존 영수증은 3언어 HTML 바이트 동일 비교를 수행한다.
+- 전체 타입 검사: `/usr/bin/lockf -k /tmp/signum-heavy.lock node --max-old-space-size=3072 node_modules/typescript/bin/tsc --noEmit --incremental false` 1회 실행, 종료 코드 0.
+- 저장소 전체 오프라인 시험: `/usr/bin/lockf -k /tmp/signum-heavy.lock node scripts/run-offline-tests.cjs` 1회 실행, 최초 273/277개 파일 통과. 위 시험 장치 4건 보완 후 실패 파일만 같은 잠금 아래 재검사해 **최종 277/277개 파일 통과**. 전체 묶음은 반복 실행하지 않았다.
+- 개별 재검사 명령은 같은 실행기 뒤에 `bannerRetry.test.ts gexGuardianIsolation.test.js`, `sessionArchive.test.ts tickerPayload.test.js`를 각각 붙였다. 배너 재시도 13/13, GEX 격리 6/6, 세션 보관 40/40, 응답 계약 재생 40/40 통과. 원래 실행과 재검사의 합산 기록은 `.logs/ux-gate/final.json`에 있다.
+- 변경 파일 비밀값 검사 9개 통과, `git diff --check` 진단 없음. 브라우저·운영망·환경 파일 접근은 하지 않았다.
+
+### 남은 위험
+
+- 운영 적재 상태와 실제 브라우저 375폭 화면은 확인하지 않았다. 브라우저 접근·운영 I/O는 금지 범위다.
+- 기존 화면을 보존하기 위해 공유 변환기의 기본 0 대입은 유지했다. 원본 거래량 검사는 이번 진단 경로에만 적용된다.
+- 현재 브랜치의 수정 파일 9개를 `git add`하려 했으나 `/Users/eunhoon/.gemini/antigravity/scratch/stock2/.git/worktrees/feat-read-check-tool/index.lock` 생성이 `Operation not permitted`로 거부됐다. 스테이징·커밋은 미완료이며 권한 우회는 하지 않았다.
+- push·main 병합·배포·운영 데이터 쓰기 없음.

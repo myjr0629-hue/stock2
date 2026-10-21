@@ -4,6 +4,7 @@ const { test } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const Module = require('node:module');
+const vm = require('node:vm');
 const ts = require('typescript');
 const { execFileSync } = require('node:child_process');
 // Next 서버 부트스트랩과 같은 Node AsyncLocalStorage를 테스트 런타임에 제공한다.
@@ -37,13 +38,22 @@ const filing = (code = 'S', date = '2026-10-19') => ({ transaction_filings: [{ f
 let reads = 0, darkReads = 0, keys = [], fail = false;
 const values = new Map();
 let darkMap = {};
+let rawDarkSnapshot;
+// FINRA 조회의 I/O만 합성 응답으로 대체하고 실제 원천 변환기를 서비스까지 연결한다.
+const realDarkPool = { exports: {} };
+vm.runInNewContext(compile(fs.readFileSync(path.join(root, 'src/services/darkPool.ts'), 'utf8'), 'darkPool.ts'), {
+  exports: realDarkPool.exports, require: () => ({ isEtf: () => false }), process: { env: {} },
+  AbortController, setTimeout, clearTimeout,
+  fetch: async () => ({ ok: true, json: async () => ({ result: rawDarkSnapshot }) }),
+});
 stub('../src/services/redisClient', { mgetFromCache: async ks => {
   reads++; keys = ks; await new Promise(resolve => setImmediate(resolve));
   if (fail) throw new Error('합성 읽기 장애');
   return ks.map(k => values.get(k) ?? null);
 }, setInCache: () => { throw new Error('운영 쓰기 금지'); } });
-stub('../src/services/darkPool', { getDarkPoolBatchChecked: async () => {
+stub('../src/services/darkPool', { getDarkPoolBatchChecked: async (...args) => {
   darkReads++; if (fail) throw new Error('합성 FINRA 장애');
+  if (rawDarkSnapshot !== undefined) return realDarkPool.exports.getDarkPoolBatchChecked(...args);
   return { ok: true, map: darkMap };
 } });
 stub('../src/lib/net/publicBase', { publicBase: () => 'https://www.signumhq.com' });
@@ -157,6 +167,63 @@ test('운영 장애·오래된 판: 사례 3개 유지, 허용 종목 대체 후
   const old = await service.loadReadCheckSnapshot();
   assert.ok(old.rows.every(r => r.options === null));
 });
+test('관문 재현: FINRA 원본 거래량 결측은 실제 변환·서비스·화면에서 자료 부족', async () => {
+  try {
+    for (const vol of [null, undefined, '0', -1, NaN, Infinity]) {
+      rawDarkSnapshot = { date: '2026-10-20', tickers: { TSLA: { pct: 48.2, vol } } };
+      const snapshot = await service.loadReadCheckSnapshot();
+      assert.equal(snapshot.rows.find(r => r.ticker === 'TSLA').darkPool, null, `거래량 ${String(vol)}`);
+      const item = rules.selectCases(snapshot.rows, null).find(c => c.kind === 'darkPool');
+      for (const choice of ['observe', 'claim', 'opposite']) {
+        assert.equal(rules.judge('darkPool', choice, item.facts), 'insufficient');
+      }
+      cacheStore.clear();
+      for (const l of ['ko', 'en', 'ja']) {
+        const h = await html(l, { darkPool: 'observe' });
+        const card = h.match(/<article[^>]*data-kind="darkPool"[\s\S]*?<\/article>/)[0];
+        assert.match(card, /data-verdict="insufficient"/);
+        assert.ok(card.includes(READ_COPY[l].missing));
+        assert.doesNotMatch(card, /<dd>0/);
+        assert.equal((h.match(/<article /g) ?? []).length, 3);
+      }
+    }
+    // 실제 0은 유효하며, 행의 관측일을 전체 판의 날짜로 바꾸지 않는다.
+    rawDarkSnapshot = { date: '2026-10-20', tickers: { TSLA: { pct: 48.2, vol: 0, d: '2026-10-19' } } };
+    const zero = (await service.loadReadCheckSnapshot()).rows.find(r => r.ticker === 'TSLA');
+    assert.equal(zero.darkPool.volume, 0);
+    assert.equal(zero.darkPool.date, '2026-10-19');
+    assert.equal(rules.judge('darkPool', 'observe', zero), 'supported');
+    // 결측 종목은 기존 규칙대로 다른 종목으로 대체하되 과거 판·오래된 행으로 메우지 않는다.
+    rawDarkSnapshot = { date: '2026-10-20', tickers: {
+      TSLA: { pct: 48.2, vol: null }, META: { pct: 51, vol: 100, d: '2026-10-01' },
+      AAPL: { pct: 40, vol: 123, d: '2026-10-20' },
+    }, stale: { date: '2026-10-19', tickers: { TSLA: { pct: 48.2, vol: 999 } } } };
+    const item = rules.selectCases((await service.loadReadCheckSnapshot()).rows, null)[1];
+    assert.equal(item.ticker, 'AAPL'); assert.equal(item.replaced, true);
+    assert.equal(item.facts.darkPool.volume, 123); assert.equal(item.facts.darkPool.date, '2026-10-20');
+    // 기본 호출을 쓰는 기존 화면·API의 반환은 그대로다.
+    const legacy = await realDarkPool.exports.getDarkPoolBatchChecked(['TSLA', 'AAPL']);
+    assert.equal(legacy.map.TSLA.volume, 0);
+    assert.deepEqual(legacy.map, await realDarkPool.exports.getDarkPoolBatch(['TSLA', 'AAPL']));
+  } finally { rawDarkSnapshot = undefined; cacheStore.clear(); }
+});
+test('관문 재현: 설치된 Next 진단기로 페이지 export 71002 방지', () => {
+  const utils = require('next/dist/server/typescript/utils');
+  const config = require('next/dist/server/typescript/rules/config').default;
+  utils.init({ ts, info: { project: { getCurrentDirectory: () => root,
+    projectService: { logger: { info() {} } } } } });
+  const filename = 'src/app/[locale]/tools/read-check/page.tsx';
+  const diagnose = text => {
+    const source = ts.createSourceFile(filename, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    return source.statements.filter(n => ts.isVariableStatement(n)
+      && n.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword))
+      .flatMap(n => config.getSemanticDiagnosticsForExportVariableStatement(source, n));
+  };
+  const before = execFileSync('git', ['show', `b7072dfbb:${filename}`], { cwd: root, encoding: 'utf8' });
+  assert.ok(diagnose(before).some(d => d.code === 71002), '이전 구현의 관문 오류 재현');
+  assert.deepEqual(diagnose(fs.readFileSync(path.join(root, filename), 'utf8')).map(d => d.code), []);
+  assert.deepEqual(Object.keys(page).sort(), ['default', 'dynamic', 'generateMetadata']);
+});
 test('실제 Next 캐시: 동시 미스 20개는 읽기 1벌, 3언어·답안·입력은 같은 5분 캐시', async () => {
   values.clear(); darkMap = {};
   values.set('intrinio:options:eod', { date: '2026-10-20', tickers: { NVDA: { callVol: 10001, putVol: 9999 } } });
@@ -178,8 +245,14 @@ test('실제 Next 캐시: 동시 미스 20개는 읽기 1벌, 3언어·답안·�
   assert.equal(reads - before, 2); assert.equal(darkReads - beforeDark, 2);
 });
 test('3언어 SSR: 세 사례·보기 3개·판정 3항목·출처·정밀도·앱 연결·입력 방어', async () => {
+  const filename = 'src/app/[locale]/tools/read-check/page.tsx', before = { exports: {} };
+  const source = execFileSync('git', ['show', `b7072dfbb:${filename}`], { cwd: root, encoding: 'utf8' });
+  new Function('require', 'module', 'exports', compile(source, filename))(require, before, before.exports);
   for (const l of ['ko','en','ja']) {
     const c = READ_COPY[l], h = await html(l, { options: 'observe', darkPool: 'claim', insider: 'observe' });
+    assert.equal(h, renderToStaticMarkup(await before.exports.default(props(l, {
+      options: 'observe', darkPool: 'claim', insider: 'observe',
+    }))), '정상 자료의 기존 라벨·문구·배치·CSS 바이트 동일');
     assert.ok(h.includes(`lang="${l}"`)); assert.ok(h.includes(c.title));
     assert.equal((h.match(/<article /g) ?? []).length, 3);
     assert.equal((h.match(/type="radio"/g) ?? []).length, 9);
@@ -214,14 +287,16 @@ test('OG: 실제 PNG 1200×630, 3언어 및 글꼴 장애시 영문 대체, 운�
   assert.equal(reads, before);
   assert.equal(blockedFetches, 2, '외부 글꼴 시도만 차단됨');
 });
-test('기존 페이지·공유 함수·API·robots·사이트맵: 기준 커밋과 소스 바이트 동일', () => {
+test('기존 페이지·호출자·API·robots·사이트맵: 기준 커밋과 소스 바이트 동일', () => {
   const base = '8efa93c14';
   const changed = execFileSync('git', ['diff', '--name-only', '--diff-filter=MDR', base, '--', 'src'], { cwd: root, encoding: 'utf8' });
-  assert.equal(changed, '', '기존 src 수정 없음');
+  assert.equal(changed.trim(), 'src/services/darkPool.ts', '원천 검사 선택 인자 외 기존 src 수정 없음');
   for (const f of ['src/app/[locale]/receipts/earnings/page.tsx', 'src/app/[locale]/receipts/earnings/og/route.tsx',
     'src/app/[locale]/layout.tsx', 'src/components/AuthGuard.tsx', 'src/components/share/ShareLanding.tsx',
     'src/app/api/flow/options-eod/route.ts', 'src/app/api/flow/dark-pool/route.ts', 'src/app/api/command/insider/route.ts',
-    'src/lib/guruLens/badges.ts', 'src/services/insiderService.ts', 'src/app/robots.ts', 'src/lib/seo/sitemap.ts', 'src/middleware.ts']) {
+    'src/lib/guruLens/badges.ts', 'src/services/insiderService.ts', 'src/app/robots.ts', 'src/lib/seo/sitemap.ts', 'src/middleware.ts',
+    'src/services/watchlistBatchService.ts', 'src/services/todayPicksService.ts', 'src/services/signalAlertsService.ts',
+    'src/lib/guruLens/service.ts']) {
     assert.deepEqual(fs.readFileSync(path.join(root, f)), execFileSync('git', ['show', `${base}:${f}`], { cwd: root }));
   }
 });
@@ -258,12 +333,13 @@ test('전체 결측 SSR: 세 사례와 세 판정 영역을 숨기지 않는다'
   fail = false; cacheStore.clear();
 });
 test('375폭 검토 자료: 유동 카드·줄바꿈·44px 조작·다크 토큰 및 3언어 오프라인 HTML', async () => {
-  assert.match(page.READ_CHECK_CSS, /width:100%;max-width:760px/);
-  assert.match(page.READ_CHECK_CSS, /overflow-wrap:anywhere/);
-  assert.match(page.READ_CHECK_CSS, /min-height:44px/);
-  assert.match(page.READ_CHECK_CSS, /var\(--background,#1f2533\)/);
-  assert.doesNotMatch(page.READ_CHECK_CSS, /display:none|min-width:[1-9]/);
-  const out = '/tmp/signum-read-check-preview'; fs.mkdirSync(out, { recursive: true });
+  const css = (await html('ko')).match(/<style>([\s\S]*?)<\/style>/)[1];
+  assert.match(css, /width:100%;max-width:760px/);
+  assert.match(css, /overflow-wrap:anywhere/);
+  assert.match(css, /min-height:44px/);
+  assert.match(css, /var\(--background,#1f2533\)/);
+  assert.doesNotMatch(css, /display:none|min-width:[1-9]/);
+  const out = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'signum-read-check-preview-'));
   for (const l of ['ko','en','ja']) {
     const h = await html(l, { options: 'observe', darkPool: 'claim', insider: 'observe' });
     fs.writeFileSync(path.join(out, `${l}.html`), `<!doctype html><html lang="${l}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${READ_COPY[l].title}</title><style>html,body{margin:0;background:#1f2533;font-family:system-ui,sans-serif}</style></head><body>${h}</body></html>`);

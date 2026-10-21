@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 // 영수증의 카드·간격·44px 조작 영역을 재사용하며 기존 다크 테마 토큰을 적용한다.
-export const READ_CHECK_CSS = `
+const READ_CHECK_CSS = `
 .rc{width:100%;max-width:760px;margin:0 auto;padding:32px 16px 96px;background:var(--background,#1f2533);color:var(--foreground,#f8fafc);line-height:1.65;overflow-wrap:anywhere;color-scheme:dark}
 .rc *{box-sizing:border-box;min-width:0}.rc h1{font-size:28px;line-height:1.3;font-weight:800;margin:8px 0}.rc h2{font-size:22px;font-weight:800;margin:0 0 12px}.rc h3{font-size:16px;font-weight:700;margin:20px 0 8px}.rc p{margin:10px 0}
 .rc a{color:#7dd3fc;text-decoration:underline}.rc nav{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}.rc nav a{display:inline-flex;align-items:center;min-height:44px}

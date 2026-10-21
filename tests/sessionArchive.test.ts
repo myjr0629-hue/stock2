@@ -404,12 +404,13 @@ t('breadth: 장외엔 보관본 먼저 → 옛 36h 키 · 저장은 달력상 �
     assert.match(s, /const want = lastCompletedSessionDate\(\)/);
     assert.ok(s.indexOf("readSessionArchive<BreadthSnapshot>") < s.indexOf('getFromCache<BreadthSnapshot>(LAST_REG_KEY)'));
 });
-t('VWAP: 계산한 세션 VWAP 저장 · 장외 분봉 없으면 보관본(더 최근일 때만) · 장중엔 오늘 값만(기존 규칙 유지)', () => {
+t('VWAP: 목표 정규장 날짜로 저장·조회하고 다른 날짜의 분봉·보관본은 제외', () => {
     const s = src('src/app/api/live/ticker/route.ts');
-    assert.match(s, /saveSessionArchive\('vwap', ticker, r\.date, r, \{ observedAt: builtAt \}\)/);
-    assert.match(s, /readSessionArchive<SessVwap>\('vwap', ticker\)/);
-    assert.match(s, /if \(vwapLiveSession && r\.date !== todayStr\) return null;/);
-    assert.match(s, /if \(vwapLiveSession\) return r;/);
+    assert.match(s, /saveSessionArchive\('vwap', ticker, date, r, \{ observedAt: builtAt \}\)/);
+    assert.match(s, /readSessionArchive<SessVwap>\('vwap', ticker, \{ fromDate: date, lookback: 0 \}\)/);
+    assert.match(s, /rows\.filter\(\(r: any\) => r\?\.etDate === date\)/);
+    assert.match(s, /a\?\.stamp\.sourceSessionDate === date && a\.value\?\.date === date && av != null/);
+    assert.match(s, /const date = shownRegularSessionDate\(nowMs\);/);
 });
 t('레벨: 판본 저장 때 보관 · 판본이 아예 없을 때만 보관본 · 만기 지난 보관본 금지 · 계산 예약은 그대로', () => {
     const s = src('src/services/structureService.ts');

@@ -17,7 +17,7 @@ const recheckFile = path.join(dir, 'recheck.json');
 const previous = selected.length && fs.existsSync(recheckFile) ? JSON.parse(fs.readFileSync(recheckFile, 'utf8')) : [];
 const updates = new Map(previous.map(r => [r.file, r]));
 for (const entry of entries) {
-  const bundled = ['adShowRestore.test.ts', 'androidInterstitial.test.ts', 'interstitialFrequency.test.ts'].includes(entry);
+  const bundled = ['adShowRestore.test.ts', 'androidInterstitial.test.ts', 'bannerRetry.test.ts', 'interstitialFrequency.test.ts'].includes(entry);
   const args = bundled ? ['scripts/test-fullscreen-ads.cjs', `--entry=tests/${entry}`]
     : [...(/\.tsx?$/.test(entry) ? ['-r', './scripts/offline-test-typescript.cjs'] : []), `tests/${entry}`];
   if (entry === 'optionsEodCollector.flow.test.js') args.push('--offline');

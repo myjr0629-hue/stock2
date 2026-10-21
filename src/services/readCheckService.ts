@@ -45,7 +45,7 @@ export async function loadReadCheckSnapshot() {
   const now = Date.now();
   const [cached, dark] = await Promise.allSettled([
     mgetFromCache<unknown>(['intrinio:options:eod', ...READ_CHECK_TICKERS.map(insiderKey)]),
-    getDarkPoolBatchChecked([...READ_CHECK_TICKERS]),
+    getDarkPoolBatchChecked([...READ_CHECK_TICKERS], { requireVolume: true }),
   ]);
   const values = cached.status === 'fulfilled' ? cached.value : [];
   const options = values[0] as RawOptions | null;
@@ -71,4 +71,4 @@ async function coalescedSnapshot() {
   if (!inFlight) inFlight = loadReadCheckSnapshot().finally(() => { inFlight = null; });
   return inFlight;
 }
-export const readCheckSnapshot = unstable_cache(coalescedSnapshot, ['read-check-snapshot-v1'], { revalidate: READ_CHECK_CACHE_SECONDS });
+export const readCheckSnapshot = unstable_cache(coalescedSnapshot, ['read-check-snapshot-v2'], { revalidate: READ_CHECK_CACHE_SECONDS });
