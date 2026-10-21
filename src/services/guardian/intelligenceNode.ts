@@ -1,5 +1,5 @@
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
-import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, polishTacticalText } from '@/lib/ai/tacticalPrompt';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { textGate, triLangGate } from '@/lib/ai/ladderGates';
@@ -10,7 +10,7 @@ import { SECTOR_MAP } from "@/services/universePolicy";
 import { sectorLabelForAi, restoreKoSectorNames, restoreJaSectorNames } from '@/lib/ai/sectorLabels';
 import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
-import { fillGuardianTokens, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
+import { fillGuardianTokens, stateStaleReasons, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
 import { forecastHits, stripForecastSentences, checkComparisons, checkRanges } from '@/lib/ai/trustLayer';
 
 // Supported locales
@@ -183,6 +183,18 @@ const _lastOut: Record<InsightType, Record<Locale, { shown: string; tpl: string;
     gamma: emptyByLocale<{ shown: string; tpl: string; basis: GNums | null } | null>(null),
 };
 
+/**
+ * ★2026-10-21 Tactical 은 «화면 글 → 원본·기준»을 글마다 기억한다(언어당 최근 64개) — 동시 요청이 _lastOut 을 덮어도 그 글의 생성 기준값을 찾는다.
+ *   자리표 없는 Tactical 의 «상태 판정» 낡음 비교는 생성 기준값이 있어야 한다(관문 10211015·10211022: 덮인 뒤 «지금 값»을 기준으로 저장하면 낡음이 안 보인다).
+ */
+const _outByShown: Record<Locale, Map<string, { tpl: string; basis: GNums | null }>> = { ko: new Map(), en: new Map(), ja: new Map() };
+function rememberShown(locale: Locale, shown: string, tpl: string, basis: GNums | null): void {
+    const m = _outByShown[locale];
+    m.delete(shown);
+    m.set(shown, { tpl, basis });
+    while (m.size > 64) m.delete(m.keys().next().value as string);   // 언어당 64개(글 하나 ~1KB) — 새 Tactical 은 언어당 10분에 하나라 64개 = 10시간+
+}
+
 // === LOCALIZED DEFAULT MESSAGES ===
 const OFF_HOURS_ROTATION: Record<Locale, string> = {
     ko: "[현황] 장외 시간 - 실시간 분석 대기 중\n[해석] 프리마켓 시작 시 자동 갱신\n[전망] 다음 세션 시작 시 데이터 갱신 예정",
@@ -285,12 +297,19 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
     // ★2026-10-07 T5 문턱·비교·범위 문장 — «RLSI 42 sits below the 40 threshold»(42 는 40 아래가 아니다)
     const facts = guardianCmpFacts(nums ?? basis ?? null);
     const cmpReasons = [...checkComparisons(n.text, facts), ...checkRanges(n.text, facts)];
-    const reasons = [...textIntegrityReasons(String(tpl ?? '')), ...r.reasons, ...n.reasons, ...forecastReasons, ...cmpReasons,
+    // ★2026-10-21 Tactical «시장 상태» 낡음 — 생성 때 값과 지금 값의 상태 구간(지수·건강도·감마·변동성·참여폭)이 달라졌으면 탈락(결정적 비교, guardianNumbers.stateStaleReasons).
+    //   장중만 — 장외 카드는 «Last session analysis»(지난 세션 해석)라 밤사이 선물 움직임으로 지우지 않는다(장외엔 다시 만들 수도 없다).
+    const implied = type === 'reality' && nums && !isOffHours() ? stateStaleReasons(nums, basis ?? null) : [];
+    const reasons = [...textIntegrityReasons(String(tpl ?? '')), ...r.reasons, ...n.reasons, ...implied, ...forecastReasons, ...cmpReasons,
         // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
         //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).
         ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text)
             ? (strict ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
-    return { ok: reasons.length === 0, tpl: cleaned, text: n.text, reasons };
+    // ★2026-10-21 Tactical 다듬기 — 내부 지표명 날것(RLSI·GEX 단독)·«게이트»·한국어 연결어미 오타를 읽는 말로(lib/ai/tacticalPrompt.polishTacticalText).
+    //   검사는 다듬기 «전» 글로 한다(다듬기가 «RLSI36» 의 숫자를 셈에 드러내거나 글을 늘려 새 탈락을 만들지 않게 — 측정 2/180).
+    //   저장·화면 글만 다듬는다(뜻·숫자·시각·사건 이름·자리표 불변, 같은 글을 다시 다듬어도 그대로).
+    const polish = (x: string) => (type === 'reality' ? polishTacticalText(x, locale) : x);
+    return { ok: reasons.length === 0, tpl: polish(cleaned), text: polish(n.text), reasons };
 }
 
 /** Redis 에서 읽기 — 읽을 때도 검사한다(언어·거절 + 화면 숫자). 검사를 도입하기 전에 저장된 나쁜 글이 TTL 동안 나가지 않게. */
@@ -369,6 +388,7 @@ function shownOut(type: InsightType, locale: Locale, out: InsightOut, nums?: GNu
     const f = fillGuardianTokens(out.tpl, nums ?? out.basis ?? null);
     const shown = hasGuardianTokens(f.text) ? (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale] : f.text;
     _lastOut[type][locale] = shown === f.text ? { shown, tpl: out.tpl, basis: out.basis } : null;
+    if (type === 'reality' && shown === f.text) rememberShown(locale, shown, out.tpl, out.basis ?? null);
     return shown;
 }
 
@@ -384,6 +404,7 @@ export function _resetInsightStateForTest(): void {
         for (const locale of Object.keys(_mem[type]) as Locale[]) {
             _mem[type][locale] = null;
             _genFailUntil[type][locale] = 0;
+            _outByShown[locale].clear();
         }
     }
 }
@@ -449,7 +470,7 @@ function triHints(all: string[]): string {
     if (all.some(r => r.includes('orphan-number'))) h.push('Put the metric name right before every number in the same clause (e.g. "TLT {TLT_CHG}"), never a bare number after "this/이는/これは".');
     if (all.some(r => r.includes('direction-sign'))) h.push('A positive change is never weak/약세/弱気 and a negative change is never strong/강세/強気; for a smaller gain say it rose less.');
     if (all.some(r => /schedule:(?:relative-day|date-required|weekday)/.test(r))) h.push('Write the event date exactly as DATE_LABELS gives it plus HH:MM ET; no today/tomorrow/오늘/내일/今日/明日.');
-    if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the second sentence.');
+    if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the SO WHAT sentence (the one about money and options positioning).');
     if (all.some(r => r.includes('internal-label'))) h.push('Never write TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, WHY:, SO WHAT: or NEXT: — cite the report by its time and source.');
     if (all.some(r => r.includes('positioning-required'))) h.push('Name Gamma Shield/GEX (or SPY/QQQ gamma) before the last sentence and say whether it absorbs or amplifies the pressure.');
     return h.length ? ' ' + h.join(' ') : '';
@@ -883,7 +904,7 @@ async function translateInsight(sourceText: string, from: Locale, to: Locale, ty
             ? `Keep the section structure, one section per line, and map the labels exactly: ${pairs(3)}.`
             : type === 'gamma'
                 ? `Keep the two-line structure and map the labels exactly: ${pairs(2)}.`
-                : 'Do NOT add labels such as [Diagnosis] or [Conclusion]; write 2-3 natural sentences.';
+                : 'Do NOT add labels such as [Diagnosis] or [Conclusion]; keep the same sentences in the same order.';
         const prompt = `Translate the following ${LOCALE_NAMES[from]} market analysis into natural ${LOCALE_NAMES[to]}.
 ${structure}
 Keep every number, ticker and index name exactly as written. Keep placeholders in curly braces such as {NDX_CHG} or {RLSI} exactly as written, braces included. Keep the tone factual and observational: no recommendations or action directives.
@@ -1257,6 +1278,12 @@ export class IntelligenceNode {
      * 화면 글이 마지막으로 내보낸 글과 다르면(동시 요청 등) null — 그때는 출구가 숫자를 대조만 한다.
      */
     static numbersFor(type: InsightType, locale: Locale, shown: string | null | undefined): InsightOut | null {
+        // Tactical 은 자리표가 없어도 기준값(basis)을 남긴다 — 숫자 없는 «상태 판정»의 낡음 비교(stateStaleReasons)에 필요(관문 10211005 ①).
+        //   글마다 기억한 원본에서 찾는다(동시 요청에 덮이지 않게, 관문 10211022).
+        if (type === 'reality' && typeof shown === 'string') {
+            const r = _outByShown[locale].get(shown);
+            if (r && (r.tpl !== shown || !!r.basis)) return { tpl: r.tpl, basis: r.basis };
+        }
         const o = _lastOut[type][locale];
         return o && typeof shown === 'string' && o.shown === shown && o.tpl !== o.shown ? { tpl: o.tpl, basis: o.basis } : null;
     }
@@ -1284,8 +1311,9 @@ export class IntelligenceNode {
         const tplOut: Partial<Record<VerdictField, string>> = { ...tplIn };
         const basisOut: Partial<Record<VerdictField, GNums | null>> = { ...basisIn };
         let numChanged = false;
-        const setNum = (field: VerdictField, tpl: string, shown: string, basis: GNums | null) => {
-            const keep = tpl !== shown;  // 자리표가 있는 글만 원본을 남긴다
+        const setNum = (field: VerdictField, tpl: string, shown: string, basis: GNums | null, type?: InsightType) => {
+            // 자리표가 있는 글만 원본을 남긴다 — Tactical 은 자리표가 없어도 기준값을 남긴다(상태 판정 낡음 비교, 관문 10211005 ①)
+            const keep = tpl !== shown || (type === 'reality' && !!basis);
             if (keep ? tplOut[field] !== tpl || basisOut[field] !== basis : field in tplOut || field in basisOut) numChanged = true;
             if (keep) { tplOut[field] = tpl; basisOut[field] = basis; } else { delete tplOut[field]; delete basisOut[field]; }
         };
@@ -1297,7 +1325,7 @@ export class IntelligenceNode {
             const g = gateText(type, tpl, locale, nums, basis, false, tacticalPrompts?.(locale));
             if (g.ok) {
                 if (g.text !== value) { out = { ...out, [field]: g.text }; changed = true; }
-                setNum(field, g.tpl, g.text, basis);
+                setNum(field, g.tpl, g.text, basis, type);
                 continue;
             }
             console.warn(`[InsightGate] REJECT ${where} verdict.${field} (${locale}: ${g.reasons.join(' | ')}) :: ${previewForLog(g.text)}`);
@@ -1305,7 +1333,7 @@ export class IntelligenceNode {
             const g2 = gateText(type, rec.tpl, locale, nums, rec.basis, false, tacticalPrompts?.(locale));
             const shown = g2.ok ? g2.text : (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale];
             out = { ...out, [field]: shown };
-            setNum(field, g2.ok ? g2.tpl : shown, shown, g2.ok ? rec.basis : null);
+            setNum(field, g2.ok ? g2.tpl : shown, shown, g2.ok ? rec.basis : null, type);
             changed = true;
             repaired.push(field);
         }
@@ -1339,7 +1367,8 @@ export class IntelligenceNode {
             const g = gateText(type, typeof prevTpl === 'string' && prevTpl ? prevTpl : before, locale, nums, prevBasis, false, tacticalPrompts?.(locale));
             if (!g.ok) continue;
             out = { ...out, [field]: g.text };
-            if (g.tpl !== g.text) {
+            // Tactical 은 자리표가 없어도 기준값을 함께 옮긴다 — 상태 판정 낡음 비교(관문 10211010)
+            if (g.tpl !== g.text || (type === 'reality' && !!prevBasis)) {
                 const num: VerdictNumbers = { tpl: { ...(out.num?.tpl || {}), [field]: g.tpl }, basis: { ...(out.num?.basis || {}), [field]: prevBasis } };
                 out = { ...out, num };
             }

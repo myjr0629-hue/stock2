@@ -163,16 +163,80 @@ function staleMove(key: GKey, basis: number, now: number): boolean {
 
 export interface GFill { ok: boolean; text: string; reasons: string[] }
 
+/**
+ * ★2026-10-21 Tactical «시장 상태» 낡음 — 결정적 구간 비교(낱말 추측 없음).
+ *   Tactical 은 «지금 시장 상태» 판정(«지수는 올랐지만 … 상승장»·«시장 건강도가 약해»)으로 시작한다(lib/ai/tacticalPrompt.marketStateHint).
+ *   그 판정의 재료 구간이 생성 때 값(basis)과 지금 값에서 달라졌으면, 글이 어떤 낱말로 썼든 다시 해석해야 한다:
+ *   지수(±0.3% 보합, 여유: 보합→0.6% · 방향→0.1% 미만 또는 반전) · 시장 건강도(45·65) · 감마 등급(±20) · 변동성(18·25) · 참여폭(40·60, 여유 10).
+ *   호출자(intelligenceNode.gateText)는 장중에만 쓴다 — 장외 화면은 «Last session analysis»(지난 세션 해석)라 밤사이 선물 움직임으로 지우지 않는다.
+ *   (관문 10210942·10210950·10210956 — 낱말 추측 방식은 «A pause»·«gold decline»·자리표 공존에서 새고 오탈락했다)
+ */
+function band3(v: number, lo: number, hi: number): number { return v < lo ? 0 : v < hi ? 1 : 2; }
+function indexStateStale(b: number, v: number): boolean {
+    if (Math.abs(b) < 0.3) return Math.abs(v) >= 0.6;                         // «제자리» 라고 썼는데 0.6% 넘게 움직였다
+    return Math.abs(v) < 0.1 || Math.sign(v) !== Math.sign(b);                // «올랐지만/내렸고» 라고 썼는데 보합 근처로 왔거나 방향이 뒤집혔다
+}
+function breadthStateStale(b: number, v: number): boolean {
+    if (b >= 60) return v < 50;
+    if (b <= 40) return v > 50;
+    return v >= 70 || v <= 30;
+}
+export function stateStaleReasons(nums: GNums | null | undefined, basis: GNums | null | undefined): string[] {
+    if (!nums || !basis) return [];
+    const out: string[] = [];
+    const pair = (k: GKey): [number, number] | null => {
+        const b = basis[k], v = nums[k];
+        return typeof b === 'number' && Number.isFinite(b) && typeof v === 'number' && Number.isFinite(v) ? [b, v] : null;
+    };
+    const push = (k: GKey, b: number, v: number) => out.push(`state-stale:${k}:${formatGNum(k, b)}→${formatGNum(k, v)}`);
+    let p = pair('NDX_CHG'); if (p && indexStateStale(p[0], p[1])) push('NDX_CHG', p[0], p[1]);
+    p = pair('RLSI'); if (p && band3(p[0], 45, 65) !== band3(p[1], 45, 65)) push('RLSI', p[0], p[1]);
+    p = pair('GEX'); if (p && band3(p[0], -19.5, 19.5) !== band3(p[1], -19.5, 19.5)) push('GEX', p[0], p[1]);
+    p = pair('VIX'); if (p && band3(p[0], 18, 25) !== band3(p[1], 18, 25)) push('VIX', p[0], p[1]);
+    p = pair('BREADTH'); if (p && breadthStateStale(p[0], p[1])) push('BREADTH', p[0], p[1]);
+    return out;
+}
+
+/**
+ * ★2026-10-21 한국어 조사 — 자리표는 값을 모르는 모델이 조사를 붙인다(«VIX {VIX}는» → «VIX 17.3는»·«GEX {GEX}은» → «GEX +5은»).
+ *   채운 값의 마지막 읽는 소리(받침)에 맞춰 바로 뒤 조사 한 개만 고친다: 은/는 · 이/가 · 을/를 · 과/와 · 으로/로.
+ *   조사 뒤에 한글이 이어지면(«{X}이며»·«{X}가운데») 낱말일 수 있어 건드리지 않는다. 일본어·영어 글에는 해당 조사가 없다.
+ */
+const VAL_OPEN = '\u0002';
+const VAL_CLOSE = '\u0003';
+/** 값 문자열의 마지막 소리 — 'none' 받침 없음 · 'rieul' ㄹ 받침 · 'other' 그 밖 받침. %는 «퍼센트»(받침 없음). */
+function valueCoda(v: string): 'none' | 'rieul' | 'other' {
+    const t = v.trim();
+    const last = t.slice(-1);
+    if (last === '%') return 'none';
+    if (!/\d/.test(last)) return 'other';
+    // 끝이 0 이면 자리 이름(십·백·천·만) 또는 «영» — 모두 받침이 있다(ㄹ 아님). 소수 끝 0(«5.0») 도 «영».
+    if (last === '0') return 'other';
+    return ({ '1': 'rieul', '2': 'none', '3': 'other', '4': 'none', '5': 'none', '6': 'other', '7': 'rieul', '8': 'rieul', '9': 'none' } as Record<string, 'none' | 'rieul' | 'other'>)[last];
+}
+const PARTICLE_PAIRS: Record<string, [string, string]> = {   // [받침 있음, 받침 없음]
+    '은': ['은', '는'], '는': ['은', '는'], '이': ['이', '가'], '가': ['이', '가'], '을': ['을', '를'], '를': ['을', '를'], '과': ['과', '와'], '와': ['과', '와'],
+};
+function fixKoParticlesAfterValues(text: string): string {
+    return text.replace(/\u0002([^\u0003]*)\u0003(으로|로|은|는|이|가|을|를|과|와)(?![가-힣])/g, (_m, val: string, p: string) => {
+        const coda = valueCoda(val);
+        if (p === '으로' || p === '로') return val + (coda === 'other' ? '으로' : '로');
+        const pair = PARTICLE_PAIRS[p];
+        return val + (coda === 'none' ? pair[1] : pair[0]);
+    }).replace(/[\u0002\u0003]/g, '');
+}
+
 /** 자리표를 화면 값으로 채운다. 값이 없는 자리표·모르는 자리표·서술이 낡은 자리표가 있으면 ok=false. */
 export function fillGuardianTokens(text: string, nums: GNums | null | undefined, basis?: GNums | null): GFill {
     const reasons = new Set<string>();
-    const out = String(text ?? '').replace(TOKEN_RE, (m: string, k: GKey) => {
+    const filled = String(text ?? '').replace(TOKEN_RE, (m: string, k: GKey) => {
         const v = nums?.[k];
         if (typeof v !== 'number' || !Number.isFinite(v)) { reasons.add(`token-missing:${k}`); return m; }
         const b = basis?.[k];
         if (typeof b === 'number' && Number.isFinite(b) && staleMove(k, b, v)) reasons.add(`token-stale:${k}:${formatGNum(k, b)}→${formatGNum(k, v)}`);
-        return formatGNum(k, v);
+        return `${VAL_OPEN}${formatGNum(k, v)}${VAL_CLOSE}`;
     });
+    const out = fixKoParticlesAfterValues(filled);
     if (UNKNOWN_TOKEN_RE.test(out)) reasons.add('token-unknown');
     return { ok: reasons.size === 0, text: out, reasons: [...reasons] };
 }

@@ -610,7 +610,7 @@ export class GuardianDataHub {
                         // ★2026-10-04 자리표 원본·기준을 판정에 같이 둔다 — 출구(스냅샷·ai_verdict)가 그 응답의 화면 값으로 다시 채운다.
                         const stripEmoji = (t: string) => t.replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '').trim();
                         const nRot = IntelligenceNode.numbersFor('rotation', locale, rotationText);
-                        const nRea = IntelligenceNode.numbersFor('reality', locale, realityText);
+                        const nRea = IntelligenceNode.numbersFor('reality', locale, realityText);   // Tactical 은 글마다 기억한 생성 기준값(동시 요청에도, 자리표 없어도)
                         const nGam = IntelligenceNode.numbersFor('gamma', locale, gammaText);
                         if (nRot || nRea || nGam) {
                             verdict.num = {

@@ -12,7 +12,7 @@ import { evidenceTime, scheduledLineAt, isUpcomingLine, evidenceValidUntil, earn
 import { checkTacticalStored, scheduleClaimReasons } from '../src/lib/ai/tacticalPrompt';
 import { liveInsight } from '../src/lib/app/watchlistAiLine';
 import { orphanNumberReasons, directionSignReasons } from '../src/lib/ai/claimChecks';
-import { etDateLabel } from '../src/lib/ai/tacticalPrompt';
+import { etDateLabel, polishTacticalText, marketStateHint } from '../src/lib/ai/tacticalPrompt';
 import { rankStockContext, flowSummary, gammaMechanismReasons, fitDepthLine } from '../src/lib/ai/watchlistDepth';
 
 const now = new Date('2026-10-20T15:00:00Z');
@@ -184,7 +184,7 @@ test('ko/en/ja: 뉴스→전이+고유자원→한 가지 확인, 공백 350자 
         assert.match(p, /WHY[\s\S]*SO WHAT[\s\S]*NEXT/);
         assert.match(p, /at least one available proprietary resource/);
         assert.match(p, /exactly ONE supplied/);
-        assert.match(p, loc === 'en' ? /Maximum 500 characters/ : /Maximum 350 characters/);
+        assert.match(p, loc === 'en' ? /Maximum 440 characters/ : /Maximum 300 characters/);   // 10/21 — 4문장 구조에서 길이를 예전 글(ko 평균 250자)과 비슷하게(출구 상한 380/560 은 그대로)
         assert.match(p, /auction draws weak demand/);
         assert.match(p, /2026-10-21 08:30 ET/);
     }
@@ -620,6 +620,71 @@ test('v2 ⑨ 운영 17:03 실측: 입력 이름표(TODAY_NEWS) 노출 탈락(생
     const r = checkTacticalOutput(four, 'ko', p);
     assert.ok(!r.includes('tactical:three-sentences') && !r.includes('tactical:positioning-required') && !r.some(x => x.startsWith('schedule:')), r.join(','));
     assert.ok(checkTacticalOutput('WHY: ' + four, 'ko', p).includes('tactical:internal-label'));
+});
+
+test('10/21 대표 «이것만 읽어도 시장 상태 이해» — 상태 판정 → 왜 → 그래서 → 다음(결과별 읽기) 구조 · 방어 문구 없이 통과', () => {
+    const asOf = '2026-10-20T23:30:20.000Z';
+    const ev = ['[economic calendar; 2026-10-21 10:30 ET] EIA Crude Oil Stocks Change (Oct/16) (scheduled; not a released result)'];
+    const news = ['[NEWS PULSE; 2026-10-20T23:24:15.000Z; 19:24 ET] Gold declines below $4,150 as elevated oil prices reinforce prospects of further Fed tightening'];
+    const ctx = { rlsiScore: 36.4, nasdaqChange: 0.78, vix: 17.31, gexIndex: 5, gexLevel: 'NEUTRAL', asOf, scheduledEvents: ev, marketNewsHeadlines: news } as any;
+    for (const loc of ['ko', 'en', 'ja'] as const) {
+        const p = buildTacticalPrompt(ctx, loc);
+        assert.match(p, /MARKET_STATE: index up; market health weak; options positioning neutral; volatility calm/);
+        assert.match(p, /exactly four natural sentences in this order — STATE, WHY, SO WHAT, NEXT/);
+        assert.match(p, /two-way reading/);
+        assert.match(p, /never add a parenthetical such as/);
+        // 상태 판정 재료(MARKET_STATE)는 근거(데이터) 부분이 아니다 — 근거 대조는 TODAY_NEWS 부터
+        assert.ok(p.indexOf('MARKET_STATE:') < p.indexOf('TODAY_NEWS:'));
+    }
+    const p = buildTacticalPrompt(ctx, 'ko');
+    const good = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 배경은 19:24 ET NEWS PULSE 보도로, 높은 유가가 연준 추가 긴축 관측을 키우며 금이 4,150달러 아래로 밀렸습니다. 시장 건강도(RLSI) 36점으로 약하고 옵션 포지션(GEX +5)은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 그 압력이 누그러지는 쪽으로 읽힙니다.';
+    assert.deepEqual(checkTacticalOutput(good, 'ko', p), []);
+    // 두 번째 문장(WHY)의 시각이 공급된 뉴스 시각이 아니면 탈락(예전 첫 문장 규칙과 같은 판정)
+    assert.ok(checkTacticalOutput(good.replace('19:24 ET', '23:24 ET'), 'ko', p).includes('tactical:news-source-time-required'));
+    // 출처·시각이 어느 문장에도 없으면 탈락
+    assert.ok(checkTacticalOutput(good.replace('배경은 19:24 ET NEWS PULSE 보도로, ', '배경은 '), 'ko', p).includes('tactical:news-source-time-required'));
+    // 뉴스가 없으면 두 번째 문장의 «원인 미확인»으로 통과, 어디에도 없으면 탈락
+    const pNo = buildTacticalPrompt({ ...ctx, marketNewsHeadlines: undefined }, 'ko');
+    const noNews = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 오늘 시장을 움직인 거시 원인은 아직 확인되지 않았습니다. 시장 건강도(RLSI) 36점으로 약하고 옵션 포지션(GEX +5)은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 그 압력이 누그러지는 쪽으로 읽힙니다.';
+    assert.deepEqual(checkTacticalOutput(noNews, 'ko', pNo), []);
+    assert.ok(checkTacticalOutput(noNews.replace('오늘 시장을 움직인 거시 원인은 아직 확인되지 않았습니다.', '유가와 금리가 함께 움직였습니다.'), 'ko', pNo).includes('tactical:unconfirmed-cause-required'));
+    // 숫자 나열 셈은 SO WHAT(WHY·첫·마지막 문장 제외) — 예전과 같은 범위
+    const roll = good.replace('시장 건강도(RLSI) 36점으로 약하고', '나스닥 +0.78%, VIX 17.3, 달러 인덱스(DXY) 101.7, 미국 10년물 금리 5.12% 속에 시장 건강도(RLSI) 36점으로 약하고');
+    assert.ok(checkTacticalOutput(roll, 'ko', p).includes('tactical:number-rollcall'));
+    // 관문 10210927 ① — 첫 문장의 틀린 시각을 두 번째 문장의 «미확인»(다른 것에 대한)으로 빠져나가지 못한다
+    const bypass = '10:30 ET 기준 지수는 올랐지만 힘이 빠진 상승장입니다. 옵션 포지션은 미확인입니다. 시장 건강도(RLSI) 36점으로 약하고 옵션 포지션(GEX +5)은 중립입니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+    assert.ok(checkTacticalOutput(bypass, 'ko', p).includes('tactical:news-source-time-required'));
+    // 관문 10211005 ② — 첫 문장의 «미확인»(옵션 포지션)이 WHY 로 잡혀도 두 번째 문장의 틀린 뉴스 시각(실제 19:24 → 10:30)은 탈락
+    const bypass2 = '지수는 올랐지만 옵션 포지션은 미확인인 상승장입니다. 배경은 10:30 ET NEWS PULSE 보도로, 금이 4,150달러 아래로 밀렸습니다. 시장 건강도(RLSI) 36점으로 약하고 옵션 포지션(GEX +5)은 중립입니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+    assert.ok(checkTacticalOutput(bypass2, 'ko', p).includes('tactical:news-source-time-required'));
+    // 관문 10210927 ④ — 새 구조 이름표 «STATE:» 노출도 탈락, 입력 이름표 MARKET_STATE 는 저장본 읽기에서도 탈락
+    assert.ok(checkTacticalOutput('STATE: ' + good, 'ko', p).includes('tactical:internal-label'));
+    assert.ok(checkTacticalStored(good.replace('지수는', 'MARKET_STATE 지수는'), p).includes('tactical:internal-label'));
+});
+
+test('10/21 Tactical 다듬기 — 내부 지표명 날것·«게이트»·연결어미 오타(뜻·숫자·자리표 불변)', () => {
+    assert.equal(polishTacticalText('RLSI {RLSI}점으로 약하고, 게이트 GEX +5는 중립', 'ko'), '시장 건강도(RLSI) {RLSI}점으로 약하고, 옵션 포지션(GEX) +5는 중립');
+    assert.equal(polishTacticalText('금이 4,150달러 아래로 밀렸데, 오늘', 'ko'), '금이 4,150달러 아래로 밀렸는데, 오늘');
+    assert.equal(polishTacticalText('그 가운데 한데 모여', 'ko'), '그 가운데 한데 모여');               // 낱말은 그대로
+    const already = '시장 건강도(RLSI) 36점, 옵션 포지션(GEX +5)은 중립';
+    assert.equal(polishTacticalText(already, 'ko'), already);                                            // 이미 쉬운 이름이면 그대로(멱등)
+    assert.equal(polishTacticalText(polishTacticalText('RLSI 36, GEX +5', 'en'), 'en'), 'market health (RLSI) 36, options positioning (GEX) +5');
+    assert.equal(polishTacticalText('RLSI {RLSI}点、GEX +5', 'ja'), '市場の健全度(RLSI) {RLSI}点、オプション・ポジション(GEX) +5');
+    assert.equal(polishTacticalText('{RLSI} and (GEX +5) gamma', 'en'), '{RLSI} and (GEX +5) gamma');      // 자리표·괄호 속 약어는 건드리지 않는다
+    // 관문 10210927 ② — 공백 든 자리표 «{ RLSI }» 도 그대로(채우기가 깨지지 않게), 자리표 밖 약어만
+    assert.equal(polishTacticalText('시장 점수 { RLSI }점, { GEX } 수준', 'ko'), '시장 점수 { RLSI }점, { GEX } 수준');
+    assert.equal(polishTacticalText('RLSI { RLSI }점', 'ko'), '시장 건강도(RLSI) { RLSI }점');
+    assert.equal(polishTacticalText('RLSI { RLSI }', 'en'), 'market health (RLSI) { RLSI }');
+    assert.equal(polishTacticalText('RLSI { RLSI }点', 'ja'), '市場の健全度(RLSI) { RLSI }点');
+    assert.equal(polishTacticalText('Aggregate GEX is neutral, with gamma flat.', 'en'), 'Aggregate GEX is neutral, with gamma flat.');   // 관문 10211015 ② «gate» 는 낱말일 때만
+    assert.equal(polishTacticalText('gate GEX +5 neutral', 'en'), 'options positioning (GEX) +5 neutral');
+});
+
+test('10/21 상태 판정 재료 — 자리표 낡음 판정과 같은 문턱(RLSI 45·65 · 감마 쉴드 등급 · VIX 18·25 · 지수 ±0.3%)', () => {
+    assert.equal(marketStateHint({ nasdaqChange: -2.66, rlsiScore: 34.3, gexLevel: 'LONG_GAMMA', vix: 20.2, breadthPct: 29 }), 'index down; market health weak; breadth narrow; options positioning cushioning; volatility elevated');
+    assert.equal(marketStateHint({ nasdaqChange: 0.1, rlsiScore: 61, vix: 14 }), 'index flat; market health middling; options positioning missing; volatility calm');
+    assert.equal(marketStateHint({ nasdaqChange: 0.3, rlsiScore: 44.9, gexLevel: 'SHORT_GAMMA', vix: 25 }), 'index up; market health weak; options positioning amplifying; volatility stressed');
+    assert.equal(marketStateHint({ nasdaqChange: -0.29, rlsiScore: 65, gexLevel: 'NEUTRAL', vix: 18 }), 'index flat; market health strong; options positioning neutral; volatility elevated');
 });
 
 async function main() {

@@ -7,11 +7,11 @@
  */
 import assert from 'node:assert/strict';
 import {
-    checkGuardianLiterals, fillGuardianTokens, formatGNum, guardianNumbersGate, guardianNumsFromAiContext, guardianNumsFromMarket,
+    checkGuardianLiterals, fillGuardianTokens, stateStaleReasons, formatGNum, guardianNumbersGate, guardianNumsFromAiContext, guardianNumsFromMarket,
     guardianNumsFromContext, guardianTokenRules, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, guardianLiterals,
 } from '@/lib/ai/guardianNumbers';
 import { cleanInsight } from '@/lib/ai/outputGate';
-import { IntelligenceNode, _resetInsightStateForTest } from '@/services/guardian/intelligenceNode';
+import { IntelligenceNode, _resetInsightStateForTest, _setMarketClockForTest } from '@/services/guardian/intelligenceNode';
 
 let n = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); n++; console.log('ok -', name); };
@@ -186,6 +186,70 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
     });
     await t('GEX 리터럴 오탐 방지 — «GEX +516.6M»(종목 GEX 금액)은 지수가 아니다', () => {
         assert.deepEqual(guardianLiterals('순 GEX +516.6M(롱 감마)').filter((l) => l.key === 'GEX'), []);
+    });
+    await t('10/21 한국어 조사 — 채운 값의 받침에 맞춘다(«17.3는»→«17.3은», «+5은»→«+5는»), 낱말·일본어·영어는 그대로', () => {
+        const N = { VIX: 17.31, GEX: 5, DXY: 101.73, US10Y: 5.12, RLSI: 36.4, NDX_CHG: 0.78 };
+        assert.equal(fillGuardianTokens('VIX {VIX}는 정상', N).text, 'VIX 17.3은 정상');
+        assert.equal(fillGuardianTokens('GEX {GEX}은 중립', N).text, 'GEX +5는 중립');
+        assert.equal(fillGuardianTokens('DXY {DXY}가 높다', N).text, 'DXY 101.7이 높다');
+        assert.equal(fillGuardianTokens('10년물 {US10Y}으로 내려', N).text, '10년물 5.12%로 내려');
+        assert.equal(fillGuardianTokens('VIX {VIX}로 높아', { VIX: 21.8 }).text, 'VIX 21.8로 높아');   // ㄹ 받침 + 로
+        assert.equal(fillGuardianTokens('VIX {VIX}와 달러', N).text, 'VIX 17.3과 달러');
+        assert.equal(fillGuardianTokens('GEX {GEX}를 보면', { GEX: 30 }).text, 'GEX +30을 보면');
+        assert.equal(fillGuardianTokens('RLSI {RLSI}점으로', N).text, 'RLSI 36점으로');            // 단위 뒤 조사는 그대로
+        assert.equal(fillGuardianTokens('GEX {GEX}이며 중립', N).text, 'GEX +5이며 중립');          // 조사 뒤 한글 = 낱말일 수 있다 → 그대로
+        assert.equal(fillGuardianTokens('ナスダック{NDX_CHG}上昇', N).text, 'ナスダック+0.78%上昇');
+        assert.equal(fillGuardianTokens('VIX at {VIX}, calm', N).text, 'VIX at 17.3, calm');
+        assert.equal(fillGuardianTokens('나스닥 {NDX_CHG} 상승', N).text, '나스닥 +0.78% 상승');
+        assert.ok(!/[\u0002\u0003]/.test(fillGuardianTokens('{FOO} {VIX}는', N).text));
+    });
+    await t('10/21 Tactical 시장 상태 낡음 — 결정적 구간 비교(지수 보합±0.3·여유, 건강도 45·65, 감마 ±20, VIX 18·25, 참여폭 40·60) · 장중만', async () => {
+        const basis = { NDX_CHG: 0.784, RLSI: 36.4, GEX: 5, VIX: 17.31 };
+        assert.deepEqual(stateStaleReasons({ ...basis, NDX_CHG: -0.784 }, basis), ['state-stale:NDX_CHG:+0.78%→-0.78%']);
+        assert.deepEqual(stateStaleReasons({ ...basis, NDX_CHG: 0.5 }, basis), []);                        // 같은 방향
+        assert.deepEqual(stateStaleReasons({ ...basis, NDX_CHG: 0.05 }, basis), ['state-stale:NDX_CHG:+0.78%→+0.05%']);   // 보합 근처로
+        assert.deepEqual(stateStaleReasons({ NDX_CHG: 1.0 }, { NDX_CHG: 0.1 }), ['state-stale:NDX_CHG:+0.10%→+1.00%']);   // «제자리» → 1%
+        assert.deepEqual(stateStaleReasons({ NDX_CHG: 0.7 }, { NDX_CHG: 0.1 }), ['state-stale:NDX_CHG:+0.10%→+0.70%']);   // 자리표 유무와 무관(관문 10210956 ②)
+        assert.deepEqual(stateStaleReasons({ NDX_CHG: 0.45 }, { NDX_CHG: 0.1 }), []);                    // 경계 여유
+        assert.deepEqual(stateStaleReasons({ NDX_CHG: 0.1 }, { NDX_CHG: -0.21 }), []);                   // 보합이 0 을 지나도 보합
+        assert.deepEqual(stateStaleReasons({ RLSI: 47 }, { RLSI: 43 }), ['state-stale:RLSI:43→47']);
+        assert.deepEqual(stateStaleReasons({ RLSI: 44 }, { RLSI: 36 }), []);                             // 같은 «약함» 구간
+        assert.deepEqual(stateStaleReasons({ GEX: 22 }, { GEX: 19 }), ['state-stale:GEX:+19→+22']);     // 중립 → 롱감마
+        assert.deepEqual(stateStaleReasons({ VIX: 19 }, { VIX: 17 }), ['state-stale:VIX:17.0→19.0']);
+        assert.deepEqual(stateStaleReasons({ BREADTH: 30 }, { BREADTH: 61 }), ['state-stale:BREADTH:61%→30%']);
+        assert.deepEqual(stateStaleReasons({ BREADTH: 55 }, { BREADTH: 61 }), []);
+        assert.deepEqual(stateStaleReasons(null, basis), []);
+        // 실제 출구(repairVerdictTexts): 장중 — 저장 판정의 «상승장» 이 나스닥 하락 전환 뒤 그대로 나가지 않는다 · 장외 — 지난 세션 해석이라 그대로
+        const verdictTpl = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 배경은 19:24 ET NEWS PULSE 보도로, 금 가격이 4,150달러 아래로 밀렸습니다. 시장 건강도(RLSI) {RLSI}점으로 약하고 옵션 포지션(GEX {GEX})은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+        const verdict: any = { realityInsight: fillGuardianTokens(verdictTpl, basis).text, num: { tpl: { realityInsight: verdictTpl }, basis: { realityInsight: basis } } };
+        try {
+            _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));   // 10:00 ET 장중
+            _resetInsightStateForTest();
+            const same = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', basis);
+            assert.ok(same.verdict.realityInsight.startsWith('지수는 올랐지만') && !same.repaired.includes('realityInsight'));
+            const flipped = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+            assert.ok(flipped.repaired.includes('realityInsight') && !String(flipped.verdict.realityInsight).includes('상승장'));
+            _setMarketClockForTest(() => new Date('2026-10-21T02:00:00Z'));   // 22:00 ET 장외
+            _resetInsightStateForTest();
+            const night = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });   // 밤사이 선물 반전
+            assert.ok(!night.repaired.includes('realityInsight'));
+            // 관문 10211005 ① — 자리표 없는 Tactical 글도 기준값을 남긴다: 같은 값으로 한 번 복구해도 basis 유지 → 이후 반전에 탈락
+            _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));
+            _resetInsightStateForTest();
+            const plain = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 오늘 시장을 움직인 거시 원인은 아직 확인되지 않았습니다. 시장 건강도는 약하고 옵션 포지션은 중립입니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+            const v2: any = { realityInsight: plain, num: { tpl: { realityInsight: plain }, basis: { realityInsight: basis } } };
+            const once = await IntelligenceNode.repairVerdictTexts(v2, 'ko', 'test', basis);
+            assert.deepEqual((once.verdict as any).num?.basis?.realityInsight, basis);
+            const later = await IntelligenceNode.repairVerdictTexts(once.verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+            assert.ok(later.repaired.includes('realityInsight'));
+            // 관문 10211010 — 생성 실패 뒤 직전 정상 글을 살릴 때(keepRealTextOverPlaceholders)도 기준값이 따라온다
+            const pendingNext: any = { realityInsight: '[진단] 최신 시장 분석을 준비하고 있습니다\n[결론] 잠시 후 자동으로 갱신됩니다' };
+            const kept: any = IntelligenceNode.keepRealTextOverPlaceholders(pendingNext, v2, 'ko', basis);
+            assert.equal(kept.realityInsight, plain);
+            assert.deepEqual(kept.num?.basis?.realityInsight, basis);
+            const afterFlip = await IntelligenceNode.repairVerdictTexts(kept, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+            assert.ok(afterFlip.repaired.includes('realityInsight'));
+        } finally { _setMarketClockForTest(null); }
     });
 
     console.log(`\n${n} passed`);
