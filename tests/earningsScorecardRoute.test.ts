@@ -95,6 +95,19 @@ const call = (query = '?week=2026-10-12') => GET(new Request(`http://localhost/a
     assert.deepEqual(await res.json(), { error: 'scorecard_unavailable' });
     fail = false;
   });
+  await test('혼재 method는 읽기·재파싱 뒤 ATM 기준만 집계하고 정의 불명은 제외', async () => {
+    store.clear();
+    const split = record('JPM', 7.7, 8);
+    split.expected = { ...split.expected!, method: 'event-split', straddlePct: 8.6, straddle: 8.6 };
+    const unknown = record('JNJ', 7.7, 8); unknown.expected!.straddle = 8.6;
+    store.set(actualsKey('JPM', '2026-10-13'), split);
+    store.set(actualsKey('JNJ', '2026-10-13'), unknown);
+    store.set(actualsKey('C', '2026-10-13'), record('C', 3, 0));
+    const data = await (await call()).json();
+    assert.deepEqual(data.rows.map((r: any) => [r.ticker, r.expectedPct, r.beyond]), [['C', 3, false], ['JPM', 8.6, false]]);
+    assert.equal(data.summary.withinCount, 2); assert.equal(data.summary.beyondCount, 0);
+    assert.equal(data.summary.medianExpected, 5.8);
+  });
   assert.equal(writes, 0); assert.equal(vendors, 0);
   console.log(`${n} route tests passed; writes=0, vendor/network calls=0`);
 })().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => {

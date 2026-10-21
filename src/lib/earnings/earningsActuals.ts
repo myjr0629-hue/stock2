@@ -10,7 +10,8 @@
 //   · 장후(amc) 발표: 발표일 종가 → 다음 거래일 종가
 //   · 시각 미공지('')는 어느 쪽인지 알 수 없어 계산하지 않는다(지어내지 않는다).
 //
-// 예상 변동폭 = 발표 «직전 마지막 정규장»에 화면이 보여 준 값(lib/impliedMove.ts 의 한 정의 — ATM 스트래들 ÷ 현물):
+// 예상 변동폭 = 발표 «직전 마지막 정규장»의 관측값(pct의 정의는 method로 보존):
+//   · 영수증·성적표는 별도 보존한 ATM 스트래들/현물만 사용한다(atmReceiptExpectedPct).
 //   · 장전: 발표일 «전» 세션(세션 < 발표일) · 장후: 발표일 마감까지(세션 ≤ 발표일).
 //   · 세션이 이 범위를 벗어난 값(발표 뒤에 계산된 값)은 «그때 보여 준 값»이 아니므로 저장하지 않는다.
 //   · 발표가 끝나면(phase done) 더 이상 덮어쓰지 않는다 — 마지막 발표 전 값이 그대로 남는다.
@@ -18,6 +19,7 @@
 
 import { isNonTradingDay, prevTradingDate, sessionCloseMinutes } from '../marketCalendar';
 import { addDaysYmd, etWallToMs } from '../earningsWeek';
+import type { EarningsMoveMethod } from './eventMove';
 
 export const ACTUALS_KEY_PREFIX = 'earnings:actuals:v1';
 /** 기록 보관(초) — 120일. 한 종목·한 발표당 약 0.5KB. */
@@ -37,8 +39,12 @@ export const actualsKey = (ticker: string, date: string): string => `${ACTUALS_K
 
 /** 발표 «전» 마지막 정규장에 화면이 보여 준 예상 변동폭 */
 export interface ExpectedSnap {
-  /** impliedMovePct (%, 소수 1자리 — lib/impliedMove 정의값 그대로) */
+  /** 기록 당시 impliedMovePct(%, 소수 1자리). 정의는 method로 구분한다. */
   pct: number;
+  /** 없는 필드는 과거 기록, null은 정의 미확인이다. 만기·날짜로 정의를 추정하지 않는다. */
+  method?: EarningsMoveMethod | null;
+  /** 같은 관측의 ATM 스트래들/현물(%, 소수 1자리). 분리값으로 대체하지 않는다. */
+  straddlePct?: number | null;
   /** 만기 YYYY-MM-DD */
   expiry: string | null;
   /** 값의 세션(ET YYYY-MM-DD) */
@@ -93,6 +99,8 @@ export function parseRecord(raw: unknown): ActualsRecord | null {
   if (e && typeof e === 'object' && finite(e.pct) && e.pct > 0 && typeof e.session === 'string' && YMD.test(e.session)) {
     expected = {
       pct: e.pct,
+      ...(e.method !== undefined ? { method: e.method === 'weekly' || e.method === 'monthly' || e.method === 'event-split' ? e.method : null } : {}),
+      ...(e.straddlePct !== undefined ? { straddlePct: finite(e.straddlePct) && e.straddlePct > 0 ? e.straddlePct : null } : {}),
       expiry: typeof e.expiry === 'string' && YMD.test(e.expiry) ? e.expiry : null,
       session: e.session,
       basis: e.basis === 'live' || e.basis === 'eod' ? e.basis : null,
@@ -191,8 +199,29 @@ export function closesAgree(a: number, b: number, tol: number = VENDOR_TOLERANCE
 }
 
 /** 새 예상값이 저장본과 «같은 값»인가(같으면 다시 쓰지 않는다 — 쓰기 절약) */
-export function sameExpected(a: ExpectedSnap | null, b: Pick<ExpectedSnap, 'pct' | 'expiry' | 'session' | 'basis'>): boolean {
-  return !!a && a.pct === b.pct && a.expiry === b.expiry && a.session === b.session && a.basis === b.basis;
+export function sameExpected(a: ExpectedSnap | null, b: ExpectedSnap): boolean {
+  return !!a && a.pct === b.pct && a.expiry === b.expiry && a.session === b.session && a.basis === b.basis
+    && a.method === b.method && a.straddlePct === b.straddlePct
+    && a.strike === b.strike && a.straddle === b.straddle && a.spot === b.spot && a.src === b.src;
+}
+
+/** 영수증·성적표 설명과 같은 ATM 기준값만 반환한다. 저장된 pct·method는 바꾸지 않는다. */
+export function atmReceiptExpectedPct(e: ExpectedSnap): number | null {
+  if (!(finite(e.pct) && e.pct > 0)) return null;
+  const raw = finite(e.straddle) && e.straddle > 0 && finite(e.spot) && e.spot > 0
+    ? Math.round(e.straddle / e.spot * 1000) / 10 : null;
+  if (e.method === 'weekly' || e.method === 'monthly') {
+    // 명시된 정의와 별도 보존값이 충돌하면 어느 값으로도 메우지 않는다.
+    return e.straddlePct === undefined || e.straddlePct === e.pct ? e.pct : null;
+  }
+  if (e.method === 'event-split') {
+    // 분리 전 ATM 값이 있으면 그대로, 옛 기록이면 같은 관측의 원금액으로만 복원한다.
+    if (e.straddlePct !== undefined) return finite(e.straddlePct) && e.straddlePct > 0 ? e.straddlePct : null;
+    return finite(raw) && raw > 0 ? raw : null;
+  }
+  // method 없는 과거 pct는 원금액의 ATM 비율과 일치하는 경우만 인정한다.
+  // 날짜·출처·만기만 보고 weekly/monthly로 간주하거나 불일치 pct를 다른 값으로 메우지 않는다.
+  return e.method === undefined && raw != null && raw > 0 && e.pct === raw ? e.pct : null;
 }
 
 /** 실제 |변동| 이 예상보다 컸는가 — 같은 날 비교가 아니다(예상은 만기까지, 실제는 하루). 글머리 요약에만 쓴다. */

@@ -182,13 +182,14 @@ const test = async (name: string, fn: () => unknown) => {
       }
     }
   });
-  await test('기존 실적 화면·서비스·API·robots 소스는 HEAD와 바이트 동일', () => {
+  await test('실적·영수증 화면·문구·OG와 읽기 서비스·API·robots 소스는 기준 커밋과 바이트 동일', () => {
     for (const p of [
       'src/app/[locale]/earnings-week/page.tsx', 'src/app/[locale]/app-view/earnings/page.tsx',
-      'src/services/earningsWeekService.ts', 'src/services/earningsActualsService.ts',
-      'src/services/earningsScorecardService.ts', 'src/lib/earnings/earningsScorecard.ts',
+      'src/app/[locale]/receipts/earnings/page.tsx', 'src/lib/earnings/earningsReceiptsCopy.ts',
+      'src/app/[locale]/receipts/earnings/og/route.tsx',
+      'src/services/earningsWeekService.ts', 'src/services/earningsScorecardService.ts',
       'src/app/api/earnings/scorecard/route.ts', 'src/app/robots.ts',
-    ]) assert.equal(readFileSync(p, 'utf8'), execFileSync('git', ['show', `HEAD:${p}`], { encoding: 'utf8' }), p);
+    ]) assert.equal(readFileSync(p, 'utf8'), execFileSync('git', ['show', `df149853d0574ee5209ea8e02cd23eb0710f1bd5:${p}`], { encoding: 'utf8' }), p);
   });
   await test('사이트맵은 3언어 영수증 추가, 기존 robots 규칙에서 모두 허용', async () => {
     const { buildSitemap } = require('../src/lib/seo/sitemap');
@@ -220,6 +221,23 @@ const test = async (name: string, fn: () => unknown) => {
     const populated = await og.GET(new Request('http://localhost/og?week=2026-10-12'), { params: Promise.resolve({ locale: 'en' }) });
     assert.equal(populated.status, 200);
     writeFileSync('/tmp/signum-earnings-receipts-data.png', Buffer.from(await populated.arrayBuffer()));
+  });
+  await test('분리값 기록도 3언어 영수증에는 ATM 수치만 표시, 불명 기록의 행과 실제값 유지', async () => {
+    const split = record('JPM', 7.7, 8);
+    split.expected = { ...split.expected!, method: 'event-split', straddlePct: 8.6, straddle: 8.6 };
+    const unknown = record('JNJ', 7.7, 8); unknown.expected!.straddle = 8.6;
+    store.set(actualsKey('JPM', '2026-10-13'), split);
+    store.set(actualsKey('JNJ', '2026-10-13'), unknown);
+    const data = await readEarningsReceipts('2026-10-12');
+    const row = data.rows.find(r => r.ticker === 'JPM')!;
+    assert.equal(row.expected!.pct, 8.6); assert.equal(row.beyond, false);
+    const excluded = data.rows.find(r => r.ticker === 'JNJ')!;
+    assert.equal(excluded.expected, null); assert.equal(excluded.actual!.pct, 8); assert.equal(excluded.beyond, null);
+    for (const locale of ['ko', 'en', 'ja']) {
+      const h = await html(locale, '2026-10-12');
+      assert.ok(h.includes('±8.6%')); assert.ok(!h.includes('±7.7%'));
+      assert.ok(h.includes(`/${locale}/flow/JNJ`)); assert.ok(h.includes('+8.0%'));
+    }
   });
   await test('영수증 경로는 기존 채우기·벤더·페이지 열람 쓰기 함수를 호출하지 않음', () => {
     for (const p of ['src/services/earningsReceiptsService.ts', 'src/app/[locale]/receipts/earnings/page.tsx']) {

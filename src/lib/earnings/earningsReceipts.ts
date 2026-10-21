@@ -1,11 +1,11 @@
-// 공개 영수증 전용 규칙. 기존 scorecard의 응답·집계 규칙은 변경하지 않는다.
+// 공개 영수증 전용 규칙. ATM 기준값 선택은 성적표와 공유한다.
 import type { ConfirmedEarnings } from '../earningsConfirmed';
 import { addDaysYmd, etWallToMs, selectWeekEntries, weekdayOfYmd } from '../earningsWeek';
 import { etDateOf, sessionCloseMinutes } from '../marketCalendar';
 import { isScorecardWeek, scorecardWeekEnd } from './earningsScorecard';
 import {
   expectedEligible, isReactionFinal, MAX_PLAUSIBLE_MOVE_PCT, movedBeyondExpected,
-  parseRecord, pctChange, reactionFinalAt, reactionSessions,
+  atmReceiptExpectedPct, parseRecord, pctChange, reactionFinalAt, reactionSessions,
   type ActualMove, type ExpectedSnap,
 } from './earningsActuals';
 
@@ -78,14 +78,15 @@ export function buildEarningsReceipts(week: string, list: readonly ConfirmedEarn
       issues.push('invalid_record'); return row;
     }
     const e = r.expected;
+    const expectedPct = e ? atmReceiptExpectedPct(e) : null;
     // 원본 출처가 없는 기록을 parseRecord의 기본값(page)만으로 사전이라 부르지 않는다.
     const rawExpected = (raw as { expected?: { src?: unknown } }).expected;
     if (!e) issues.push('no_expected');
-    else if (!expectedEligible(c, e.session) || !validDate(e.session) || !validDate(e.expiry)
+    else if (expectedPct == null || !expectedEligible(c, e.session) || !validDate(e.session) || !validDate(e.expiry)
       || e.expiry < c.date || e.expiry < e.session || !validStamp(e.capturedAt, nowMs)
       || e.capturedAt < (etWallToMs(e.session, '00:00') ?? Infinity)
       || (rawExpected?.src !== 'page' && rawExpected?.src !== 'eod-chain')) issues.push('invalid_expected');
-    else { row.expected = e; row.provenance = provenance(c, e); }
+    else { row.expected = { ...e, pct: expectedPct }; row.provenance = provenance(c, e); }
     const sessions = reactionSessions(c.date, c.hour);
     const a = r.actual;
     const rawActual = (raw as { actual?: { src?: unknown } }).actual;
