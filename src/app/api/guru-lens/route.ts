@@ -6,13 +6,10 @@ import { holdingBadge } from '@/lib/guruLens/badges';
 import { GURU_UNIVERSE } from '@/lib/guruLens/sources';
 import type { Evaluation, Snapshot } from '@/lib/guruLens/types';
 import { FREE_ROWS } from '@/lib/guruLens/access';
-import { createRevenueCatVerifier } from '@/lib/alerts/revenuecat';
-import { allowProVerification, allowProviderVerification, clientIpFrom } from '@/lib/alerts/requestLimit';
+import { clientIpFrom, guruProAccess } from '@/lib/guruLens/proAccess';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const verifyPro = createRevenueCatVerifier({ positiveTtlMs: 600_000, positiveMaxAgeMs: 1_200_000,
-    beforeFetch: allowProviderVerification });
 
 // A published generation is immutable (same date key = same content). Keep the parsed
 // snapshot per warm instance and re-read only the small head pointer on each request,
@@ -80,14 +77,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'invalid_query' }, { status: 400, headers: { ...headers, 'Cache-Control': 'private, no-store' } });
     try {
         let isPro = false;
-        // 기존 알림 API의 ID 검증과 RevenueCat 권한 판정을 재사용한다.
-        if (p.get('access') === 'pro' && uid &&
-            (/^\$RCAnonymousID:[0-9a-f]{32}$/.test(uid) || /^[A-Za-z0-9._:\-]{8,100}$/.test(uid))) {
-            try {
-                isPro = (await verifyPro(uid, { clientKey: clientIpFrom(req.headers) || 'unknown',
-                    beforeFetch: () => allowProVerification(req.headers, uid) })).active;
-            }
-            catch { /* 검증 불가·설정 없음은 무료 범위만 반환한다. */ }
+        // 서버 PRO 판정(lib/guruLens/proAccess): Redis 공유 판정 → 처음 보는 ID 만 예산 안에서 RevenueCat.
+        if (p.get('access') === 'pro' && uid) {
+            try { isPro = (await guruProAccess(uid, { ip: clientIpFrom(req.headers) })).pro; }
+            catch { /* 판정 모듈 자체 오류는 무료 범위만 반환한다. */ }
         }
         const snapshot = await publishedSnapshot();
         if (!snapshot)

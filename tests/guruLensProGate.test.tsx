@@ -13,7 +13,7 @@ import { LENS_IDS } from '../src/lib/guruLens/types';
 import { GURU_UNIVERSE } from '../src/lib/guruLens/sources';
 import { makeSnapshot, HEAD_KEY, metaKey, lensKey } from '../src/lib/guruLens/pipeline';
 import { lensBody, tickerLens } from '../src/lib/app/guruLens';
-import { createRevenueCatVerifier, proStatusFromSubscriber } from '../src/lib/alerts/revenuecat';
+import { RC_UID_RE, proUntilFromSubscriber } from '../src/lib/guruLens/proAccess';
 
 globalThis.fetch = async () => { throw new Error('실제 네트워크 금지'); };
 const fixed = Date.parse('2026-10-21T01:00:00Z');
@@ -61,13 +61,13 @@ const originalLoad = (Module as any)._load;
             }]));
         },
     };
-    if (name === '@/lib/alerts/revenuecat') return { createRevenueCatVerifier: () => async () => {
-        verifyCalls++;
-        if (verification === 'error') throw new Error('합성 검증 장애');
-        return { active: verification === 'pro', expiresAtMs: null };
-    } };
-    if (name === '@/lib/alerts/requestLimit') return { allowProVerification: async () => true,
-        allowProviderVerification: async () => true, clientIpFrom: () => null };
+    if (name === '@/lib/guruLens/proAccess') return { clientIpFrom: () => null,
+        guruProAccess: async (uid: string) => {
+            if (!RC_UID_RE.test(uid)) return { pro: false, via: 'invalid' };
+            verifyCalls++;
+            if (verification === 'error') throw new Error('합성 판정 모듈 오류');
+            return { pro: verification === 'pro', via: 'provider' };
+        } };
     if (name === './watchlistAlerts') return { rcAppUserId: async () => { uidCalls++; return requestUid; } };
     if (name === 'next/navigation') return { useRouter: () => ({ push() {}, back() {} }),
         useParams: () => ({ locale: 'ko' }), useSearchParams: () => new URLSearchParams() };
@@ -269,21 +269,11 @@ async function main() {
         '실제 effect가 권한 변경을 구독한다');
 
     const entitlement = (ent: any) => ({ subscriber: { entitlements: { pro: ent } } });
-    assert.equal(proStatusFromSubscriber(entitlement({ expires_date: '2026-10-22' }), fixed).active, true);
-    assert.equal(proStatusFromSubscriber(entitlement({ expires_date: '2026-10-20' }), fixed).active, false);
-    assert.equal(proStatusFromSubscriber(entitlement({ expires_date: '2026-10-20', grace_period_expires_date: '2026-10-22' }), fixed).active, true);
-    assert.equal(proStatusFromSubscriber(entitlement({ expires_date: null, purchase_date: '2026-10-20' }), fixed).active, true);
-    assert.equal(proStatusFromSubscriber(entitlement({}), fixed).active, false);
-    await assert.rejects(createRevenueCatVerifier({ apiKey: '' })('fixture-user'), { code: 'unconfigured' });
-    let rcReads = 0;
-    const verifier = createRevenueCatVerifier({ apiKey: 'fixture', now: () => fixed,
-        fetchImpl: async (_url, init) => {
-            rcReads++; assert.equal(init?.method, 'GET'); assert.equal(init?.cache, 'no-store');
-            return Response.json(entitlement({ expires_date: '2026-10-22' }));
-        } });
-    assert.equal((await verifier('fixture-user')).active, true);
-    await verifier('fixture-user');
-    assert.equal(rcReads, 1, '기존 검증기 메모리 캐시 재사용');
+    assert.equal(proUntilFromSubscriber(entitlement({ expires_date: '2026-10-22' }), fixed).active, true);
+    assert.equal(proUntilFromSubscriber(entitlement({ expires_date: '2026-10-20' }), fixed).active, false);
+    assert.equal(proUntilFromSubscriber(entitlement({ expires_date: '2026-10-20', grace_period_expires_date: '2026-10-22' }), fixed).active, true);
+    assert.equal(proUntilFromSubscriber(entitlement({ expires_date: null, purchase_date: '2026-10-20' }), fixed).active, true);
+    assert.equal(proUntilFromSubscriber(entitlement({}), fixed).active, false);
 
     store.clear();
     const missing = await get('badges=0', true);
