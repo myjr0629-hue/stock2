@@ -22,7 +22,9 @@ import { isOptionExpiredAt } from '@/lib/marketCalendar';
  *   3) 옵션 레벨: 새 계산이 구조 판본을 읽었으면(levelsSource 있음) 정의상 «범위 밖» null·안전망 levelsDropped 가 정상이다.
  *      판본이 만기·지연으로 가려진 경우(levelsStaleReason 있음)도 정상. 직전 판본 만기가 지났거나(isOptionExpiredAt)
  *      새 가격 기준 정의 위반(levelViolations)이면 유지하지 않는다.
- *   4) P/C(pcr·optionsAsOf): 행이 신선도 상한을 넘으면 null 이 정의다 — 직전 행 시각이 지금 기준으로도 신선할 때만 유지.
+ *   4) P/C(pcr·optionsAsOf): 이번 계산이 OI 행을 실제로 읽었으면(신선도 초과·계산 불가로 null) 유지 안 함.
+ *      행을 못 읽었을 때도 직전 행 시각이 지금 기준 신선할 때만 유지.
+ *   4-1) GEX·스퀴즈: 이번 계산이 구조 판본을 실제로 읽었으면(만기·NO_MARKET·값 없음으로 null) 유지 안 함.
  *   5) 예상 변동: 정의 표식·만기 검사(readImpliedMoveFields)를 지금 시각으로 다시 통과할 때만 유지.
  *   6) 파생값 whaleIndex·whaleConfidence·maxPainDist·wallRangePct — 유지하지 않고 다시 계산(또는 새 계산 그대로).
  *      alphaSnapshot 은 설명 입력(gex·squeeze·pcr·darkPool)을 유지했을 때 직전 스냅샷을 통째로 유지한다(자기 capturedAt).
@@ -31,13 +33,15 @@ export const HOLD_MAX_MS = 30 * 60_000;
 export const HELD_RETRY_MS = 5_000;
 
 type Rt = Record<string, any>;
+/** 이번 계산에서 옵션 원천을 실제로 읽었는가(optionMetricsService.onEdition). 모르면 undefined. */
+export type SourceRead = { structure: boolean; oiRow: boolean };
 type Group = {
     name: string;
     fields: readonly string[];
     /** 직전·새 결과에서 묶음이 «값 있음»인가 */
     has: (rt: Rt) => boolean;
     /** 새 계산이 이 묶음을 정당하게 비웠는가(유지 금지) */
-    legit?: (next: Rt, prev: Rt, now: number) => boolean;
+    legit?: (next: Rt, prev: Rt, now: number, read?: SourceRead) => boolean;
     whale?: boolean;
 };
 
@@ -50,10 +54,14 @@ const ALPHA_INPUTS = ['gex', 'squeeze', 'pcr', 'darkPool'];
 export const HOLD_GROUPS: readonly Group[] = [
     { name: 'darkPool', fields: ['darkPoolPct', 'darkPoolVol', 'darkPoolDate', 'darkPoolSource'], has: rt => present(rt.darkPoolPct), whale: true },
     { name: 'liquidity', fields: ['liquidityScore', 'spreadPct'], has: rt => present(rt.liquidityScore) },
-    { name: 'gex', fields: ['gex', 'netGex', 'gexM', 'gammaRegime', 'gexBasis'], has: rt => present(rt.gex), whale: true },
-    { name: 'squeeze', fields: ['squeezeScore', 'squeezeRisk'], has: rt => present(rt.squeezeScore) },
+    // 구조 판본을 읽었는데 null = 만기 지남·NO_MARKET·판본에 값 없음(정의) → 유지 안 함. 판본이 안 왔을 때(장애·키 부재 구분 불가)만 유지.
+    { name: 'gex', fields: ['gex', 'netGex', 'gexM', 'gammaRegime', 'gexBasis'], has: rt => present(rt.gex), whale: true,
+        legit: (_n, _p, _now, read) => read?.structure === true },
+    { name: 'squeeze', fields: ['squeezeScore', 'squeezeRisk'], has: rt => present(rt.squeezeScore),
+        legit: (_n, _p, _now, read) => read?.structure === true },
+    // OI 행을 읽었는데 null = 행이 신선도 상한 초과·콜/풋 OI 로 계산 불가(정의) → 유지 안 함. 직전 행도 지금 기준 신선해야 유지.
     { name: 'pcr', fields: ['pcr', 'optionsAsOf', 'pcrBasis'], has: rt => present(rt.pcr),
-        legit: (_n, prev, now) => !isFreshOptionsRow(num(prev.optionsAsOf), now) },
+        legit: (_n, prev, now, read) => read?.oiRow === true || !isFreshOptionsRow(num(prev.optionsAsOf), now) },
     { name: 'netPremium', fields: ['netPremium'], has: rt => present(rt.netPremium), whale: true },
     { name: 'levels', fields: [...LEVELS, 'levelsRefPrice', 'levelsExpiration', 'levelsChainDate', 'levelsSource',
         'levelsAsOf', 'levelsStaleReason', 'levelsStaleAsOf', 'levelsDropped', 'levelsReselected'],
@@ -78,7 +86,7 @@ type Env = { at: number; result: any; held?: HeldMap };
  * next.result 를 제자리에서 병합하고 next.held 를 정한다. 반환 = 유지한 묶음 이름.
  * previous 는 같은 종목·모드의 직전 정상본(가격 검사를 통과한 것)이어야 한다.
  */
-export function mergeHeldFields(previous: Env | null | undefined, next: Env, now: number): string[] {
+export function mergeHeldFields(previous: Env | null | undefined, next: Env, now: number, read?: SourceRead): string[] {
     const held: HeldMap = {};
     const kept: string[] = [];
     const prevRt: Rt | undefined = previous?.result?.realtime;
@@ -88,7 +96,7 @@ export function mergeHeldFields(previous: Env | null | undefined, next: Env, now
             if (!g.has(prevRt) || g.has(nextRt)) continue;
             const since = previous.held?.[g.name] ?? previous.at;
             if (!Number.isFinite(since) || now - since > HOLD_MAX_MS) continue;
-            if (g.legit?.(nextRt, prevRt, now)) continue;
+            if (g.legit?.(nextRt, prevRt, now, read)) continue;
             for (const f of g.fields) {
                 if (f in prevRt) nextRt[f] = structuredClone(prevRt[f]);
                 else delete nextRt[f];

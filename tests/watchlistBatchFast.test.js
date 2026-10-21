@@ -28,6 +28,7 @@ function harness({ cached = true, session = 'regular', unified = true, old = fal
     const state = { failOptions: false, failSnapshots: false, failLevels: false, emptyLevels: false,
         failDarkPool: false, failLiquidity: false, darkPoolPct: 40, liquidityScore: 80 };
     const tickers = ['AAPL', 'NVDA', 'SPY'];
+    let oiRowPatch = row => row;
     const analysis = Object.fromEntries(tickers.filter(() => cached).map(t => [t, {
         ticker: t, timestamp: clock - 60_000, gex: -5e6, pcr: 1.5, squeezeScore: 10,
         maxPain: 100, callWall: 110, putFloor: 90, netPremium: 5e5, whaleIndex: 66,
@@ -59,8 +60,8 @@ function harness({ cached = true, session = 'regular', unified = true, old = fal
         },
         '@/lib/aws/dynamoDataProvider': {
             getLatestGex: async () => { count.dynamo++; if (state.failOptions) throw new Error('합성 조회 실패');
-                return { timestamp: clock - 3600_000, pcr: 0.81, totalCallOI: 100, totalPutOI: 81,
-                    gex: 1e7, netPremium: 5e5, maxPain: 100, callWall: 110, putFloor: 90, squeezeScore: 30 }; },
+                return oiRowPatch({ timestamp: clock - 3600_000, pcr: 0.81, totalCallOI: 100, totalPutOI: 81,
+                    gex: 1e7, netPremium: 5e5, maxPain: 100, callWall: 110, putFloor: 90, squeezeScore: 30 }); },
             getLatestFlow: async () => { count.dynamo++; return { netPremium: 5e5 }; },
         },
         '@/lib/aws/unifiedCacheProvider': { getUnifiedCache: async () => { count.dynamo++; return unified ? { structure: copy(structure) } : null; } },
@@ -119,7 +120,7 @@ function harness({ cached = true, session = 'regular', unified = true, old = fal
     const cacheModule = () => load('src/services/watchlistBatchCache.ts');
     const makeCache = (overrides = {}) => cacheModule().createWatchlistBatchCache({ read: mocks['@/services/redisClient'].mgetFromCache,
         write: mocks['@/services/redisClient'].setInCache, compute, after: mocks['next/server'].after, now: () => clock, ...overrides });
-    return { load, compute, makeCache, cacheModule, count, state, store, jobs,
+    return { load, compute, makeCache, cacheModule, count, state, store, jobs, structure, setOiRow: fn => { oiRowPatch = fn; },
         drain: async () => { while (jobs.length) await Promise.all(jobs.splice(0).map(fn => fn())); } };
 }
 
@@ -253,6 +254,21 @@ const request = (h, query = 'tickers=AAPL,NVDA&mode=price') => h.load('src/app/a
         assert.equal(r.results[0].realtime.darkPoolPct, 40);
         assert.equal(r.results[0].realtime.darkPoolSource, 'FINRA');
         assert.equal(r.results[0].realtime.whaleIndex, 65);
+    });
+    await test('관문 10211255: 구조 판본 만기·NO_MARKET·OI 계산 불가로 정당하게 빈 GEX·스퀴즈·P/C 는 유지하지 않음', async () => {
+        for (const scenario of ['만기', 'NO_MARKET', 'OI 계산 불가']) {
+            startAt(scenario === '만기' ? '2026-10-23T15:59:50-04:00' : undefined);
+            const h = harness(), get = h.makeCache();
+            const first = (await get(['AAPL'], 'price', timing())).results[0].realtime;
+            assert.equal(first.gex, 1e7); assert.equal(first.pcr, 0.81);
+            if (scenario === '만기') clock = originalDate.parse('2026-10-23T16:00:00-04:00');
+            else clock += 60_001;
+            if (scenario === 'NO_MARKET') h.structure.options_status = 'NO_MARKET';
+            if (scenario === 'OI 계산 불가') h.setOiRow(row => ({ ...row, totalCallOI: 0, totalPutOI: 100, pcr: null }));
+            const rt = (await get(['AAPL'], 'price', timing())).results[0].realtime;
+            if (scenario === 'OI 계산 불가') { assert.equal(rt.pcr, null, 'P/C 정당한 null'); assert.equal(rt.optionsAsOf, null); assert.equal(rt.gex, 1e7); }
+            else { assert.equal(rt.gex, null, `${scenario}: GEX 정당한 null`); assert.equal(rt.squeezeScore, null); }
+        }
     });
     await test('시세 실패(가격 결측)는 정상본 교체 없음', async () => {
         startAt(); const h = harness(), get = h.makeCache();

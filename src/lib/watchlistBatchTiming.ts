@@ -14,6 +14,8 @@ export type WatchlistBatchTiming = {
     heal: number;
     awsFill: number;
     failed: boolean;
+    /** 종목별 옵션 원천 실제 읽음 여부(정상본 병합의 정당한 null 판정용, 헤더에는 안 나감) */
+    optionSources?: Record<string, { structure: boolean; oiRow: boolean }>;
 };
 
 export function newWatchlistBatchTiming(): WatchlistBatchTiming {

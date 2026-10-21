@@ -86,7 +86,10 @@ async function readCachedSnapshots(canonical: string[]): Promise<Map<string, Sna
 
 export type OptionEdition = { metrics: OptionMetrics; regime: OptionRegimeInputs };
 /** Metrics and the remaining VOL REGIME inputs from ONE read of the same structure:v2 edition. */
-export async function readOptionEditions(tickers: string[], options: { cache?: boolean; onReadFailure?: () => void } = {}): Promise<Map<string, OptionEdition>> {
+/** onEdition: 종목별로 원천을 «실제로 읽었는지»(구조 판본·OI 행이 왔는지) 알린다 — 배치 정상본 병합이 «정당한 null»(만기·NO_MARKET·계산 불가)과
+ *  «못 읽음»을 가르는 데 쓴다. 반환값·다른 호출자 동작은 그대로. */
+export type OptionSourceRead = { structure: boolean; oiRow: boolean };
+export async function readOptionEditions(tickers: string[], options: { cache?: boolean; onReadFailure?: () => void; onEdition?: (ticker: string, read: OptionSourceRead) => void } = {}): Promise<Map<string, OptionEdition>> {
     const asked = [...new Set(tickers.map(t => t.trim().toUpperCase()).filter(Boolean))];
     if (!asked.length) return new Map();
     const canonical = [...new Set(asked.map(canonicalShareClass))];
@@ -100,10 +103,14 @@ export async function readOptionEditions(tickers: string[], options: { cache?: b
         // Re-evaluate expiry and OI age even on a hit; return fresh objects to every caller.
         byCanonical.set(t, { metrics: optionMetrics(usable ? s : null, oiRow, now), regime: usable ? optionRegimeInputs(s) : null });
     });
+    if (options.onEdition) for (const t of asked) {
+        const row = rows.get(canonicalShareClass(t));
+        options.onEdition(t, { structure: !!row?.structure, oiRow: !!row?.oiRow });
+    }
     return new Map(asked.map(t => [t, byCanonical.get(canonicalShareClass(t))!]));
 }
 
-export async function readOptionMetrics(tickers: string[], options: { cache?: boolean; onReadFailure?: () => void } = {}): Promise<Map<string, OptionMetrics>> {
+export async function readOptionMetrics(tickers: string[], options: { cache?: boolean; onReadFailure?: () => void; onEdition?: (ticker: string, read: OptionSourceRead) => void } = {}): Promise<Map<string, OptionMetrics>> {
     const editions = await readOptionEditions(tickers, options);
     return new Map([...editions].map(([t, e]) => [t, e.metrics]));
 }

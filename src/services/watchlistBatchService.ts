@@ -285,7 +285,10 @@ export async function processWatchlistBatchForApi(tickers: string[], mode: Watch
 
 async function calculateWatchlistBatch(tickers: string[], mode: WatchlistBatchMode, timing?: WatchlistBatchTiming) {
     const optionsStart = performance.now();
-    const metrics = await readOptionMetrics(tickers, { onReadFailure: () => { if (timing) timing.failed = true; } });
+    const metrics = await readOptionMetrics(tickers, {
+        onReadFailure: () => { if (timing) timing.failed = true; },
+        onEdition: timing ? (t, read) => { (timing.optionSources ??= {})[t] = read; } : undefined,
+    });
     if (timing) timing.options += performance.now() - optionsStart;
     const context: { analysis?: Record<string, any>; timing?: WatchlistBatchTiming } | undefined = timing ? { timing } : undefined;
     const mainStart = performance.now();
