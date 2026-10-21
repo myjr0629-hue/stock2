@@ -69,10 +69,11 @@ export function cachedEvidence(pulse: any, econ: any, earnings: any, now = new D
             const exact = [sourceMatches ? e.etTime : null, sourceMatches ? e.time : null, confirmed?.etTime]
                 .find((t): t is string => typeof t === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(t));
             const hour = String(e.hour || '').toLowerCase();
-            // 시각 판정은 evidenceTime.earningsReleaseAt 하나로(정확 시각 > AMC 16:00 > BMO·미상 = 그 날짜 0시).
+            // 시각 판정은 evidenceTime.earningsReleaseAt 하나로(정확 시각 > AMC 달력 폐장 > BMO·미상 = 그 날짜 0시).
             const rel = earningsReleaseAt(e.date, hour, exact);
             const actuals = sourceMatches ? (['epsActual', 'revenueActual'] as const).flatMap(k => typeof e[k] === 'number' && Number.isFinite(e[k]) ? [`${k}=${e[k]}`] : []) : [];
             const elapsed = !!rel && rel.ms <= now.getTime();
+            // AMC 문자열은 기존 저장 형식 유지. 표식의 경계 판정은 scheduledLineAt이 달력을 다시 읽는다.
             const timing = rel?.exact ? `${exact!.slice(0, 5)} ET`
                 : rel?.boundary === 'amc' ? 'AMC timing boundary 16:00 ET; exact release time unknown'
                     : hour === 'bmo' ? 'BMO; exact release time unknown' : 'release time unknown';
