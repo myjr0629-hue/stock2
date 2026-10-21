@@ -1,4 +1,5 @@
 import { regularReferencePrice } from '@/lib/quoteBasis';
+import { sourceDate, observationTime } from '@/lib/ivSkew';
 import { sessionCloseMinutes, etMinutesOf } from '@/lib/marketCalendar';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { isTradeInExtSession } from './extendedSessionClose';
@@ -1257,6 +1258,8 @@ async function getStructureDataImpl(
         // IV field priority: top-level implied_volatility (Polygon actual) > greeks.implied_volatility
         // [DTE GUARD] When DTE < 2 (0DTE/1DTE), IV is distorted. Use next weekly expiry instead.
         let atmIv: number | null = null;
+        let ivSourceDate: string | null = null;
+        let ivObservedAt: string | null = null;
         const currentDte = Math.max(0, Math.round(
             (new Date(targetExpiry + 'T16:00:00').getTime() - new Date(todayStr + 'T09:30:00').getTime()) / 86400000
         ));
@@ -1315,8 +1318,10 @@ async function getStructureDataImpl(
                 // 1000% 를 넘으면 데이터 오류로 본다 — 지표로 쓰지 않는다
                 return pct > 0 && pct < 1000 ? pct : null;
             };
-            const callIv = extractIv(ivContracts.find((c: any) => c.k === atmStrike && c.type === 'call'));
-            const putIv = extractIv(ivContracts.find((c: any) => c.k === atmStrike && c.type === 'put'));
+            const call = ivContracts.find((c: any) => c.k === atmStrike && c.type === 'call');
+            const put = ivContracts.find((c: any) => c.k === atmStrike && c.type === 'put');
+            const callIv = extractIv(call);
+            const putIv = extractIv(put);
             if (callIv !== null && putIv !== null) {
                 // 0DTE guard: if Call-Put IV spread > 40pp, use the lower (OTM) IV
                 const spread = Math.abs(callIv - putIv);
@@ -1325,6 +1330,18 @@ async function getStructureDataImpl(
             } else {
                 const fallback = callIv ?? putIv;
                 atmIv = fallback !== null ? Math.round(fallback) : null;
+            }
+            // 실제 IV를 낸 다리의 고유 날짜만 사용한다. 다음 만기 IV를 원래 체인 날짜로 날짜 매기지 않는다.
+            const legs = [callIv !== null ? call : null, putIv !== null ? put : null].filter(Boolean);
+            const dates = legs.map(c => sourceDate(c.ivSourceDate)
+                ?? observationTime(c.ivObservedAt).sourceSessionDate
+                ?? (c._rtGreeks ? null : sourceDate(c._intrinio?.date)
+                    ?? (usedLambdaCache && ivExpiry === targetExpiry ? sourceDate(chainDate) : null)));
+            if (dates.length && dates.every(d => d !== null && d === dates[0])) {
+                ivSourceDate = dates[0];
+                // 단일 다리거나 양 다리가 같은 실제 관측 시각일 때만 시각도 보존한다.
+                const times = legs.map(c => observationTime(c.ivObservedAt).observedAt);
+                if (times.every(t => t !== null && t === times[0])) ivObservedAt = times[0];
             }
         }
 
@@ -1383,6 +1400,8 @@ async function getStructureDataImpl(
             gammaFlipLevel,
             gammaFlipType,
             atmIv,
+            ivSourceDate,
+            ivObservedAt,
             atmIvExpiry: ivExpiry,  // [ATM IV] Actual expiry used for IV calculation
             // [2026-09-29] 예상 변동(이 만기 ATM 스트래들) — pct·만기·행사가·기준(live/eod)·호가 시각. 못 구하면 null
             impliedMove,

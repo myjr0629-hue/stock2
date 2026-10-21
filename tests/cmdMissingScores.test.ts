@@ -10,13 +10,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
 import { commandScores } from '../src/lib/commandScores';
 import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
-import { commandUnifiedIv, commandIvDateText } from '../src/lib/app/commandIv';
+import { commandUnifiedIv, commandIvDateText, retainCommandIv } from '../src/lib/app/commandIv';
 import { compactUsd } from '../src/lib/app/displayNumbers';
 import { gammaFlipDistancePct } from '../src/lib/gammaFlipDistance';
 import { computeUnifiedVolatilityRegime, computeVolatilityRegime } from '../src/lib/metrics/volatilityRegime';
 import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
 import { carriedConvictionDate, commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction } from '../src/lib/commandConviction';
 
+// IV 합성 관측의 기준 시각을 고정해 실행 날짜가 신선도 판정을 바꾸지 않게 한다.
+const IV_NOW = Date.parse('2026-10-21T12:00:00-04:00');
 const file = 'src/app/[locale]/app-view/cmd/page.tsx';
 const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 function find(predicate: (node: ts.Node) => boolean): string {
@@ -41,7 +43,9 @@ function run(code: string, context: Record<string, unknown> = {}): any {
     return vm.runInNewContext(js, {
         React, commandScores, carriedConvictionDate, commandConvictionRaw, retainConvictionInputs, convictionInputsOf, scoreCommandConviction, normalizeVwap, vwapDistancePct, netPremiumOf, gammaFlipDistancePct, compactUsd, useMemo: (fn: () => unknown) => fn(),
         computeUnifiedVolatilityRegime, resolveCommandVolatilityObservation, formatObservationTime,
-        tDashboard: (key: string) => key, iv30Level: null, batchIv: {}, ticker: 'TEST', locale: 'ko', commandUnifiedIv, commandIvDateText,
+        tDashboard: (key: string) => key, iv30Level: null, batchIv: {}, ticker: 'TEST', locale: 'ko', commandIvDateText,
+        commandUnifiedIv: (ticker: string, unified: any) => commandUnifiedIv(ticker, unified, IV_NOW),
+        retainCommandIv: (previous: any, next: any, ticker: string) => retainCommandIv(previous, next, ticker, IV_NOW),
         MetricInfo: () => null, ...context,
     });
 }

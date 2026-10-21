@@ -731,7 +731,7 @@ test('NB2 REG ticker/options-eod/ivp/quotes replay: missing sections keep titles
     const { OptionsEodNotice } = compile(read('src/components/app/OptionsEodNotice.tsx'), {
         'react/jsx-runtime': require('react/jsx-runtime'),
     });
-    const iv = compile(read('src/lib/app/commandIv.ts'), { '@/lib/ivSkew': model });
+    const iv = compile(read('src/lib/app/commandIv.ts'), { '@/lib/ivSkew': model, '@/lib/ivRank': compile(read('src/lib/ivRank.ts'), { './marketCalendar': compile(read('src/lib/marketCalendar.ts')), './ivSkew': model }) });
     for (const [ticker, observation] of Object.entries(nb2.regular)) {
         assert.equal(observation.ticker.session, 'REG');
         assert.equal(observation.quote.session, 'regular');

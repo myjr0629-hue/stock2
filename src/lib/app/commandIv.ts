@@ -1,4 +1,5 @@
 import { observationTime, sourceDate } from '@/lib/ivSkew';
+import { isFreshIvObservation } from '@/lib/ivRank';
 
 /** Display IV level only. An ATM fallback never becomes IV30, a rank, or a skew curve. */
 export function commandIvLevel(iv30: unknown, atmDecimal: unknown, volatilityPercent: unknown, batchPercent: unknown): number | null {
@@ -16,36 +17,38 @@ export type CommandIvObservation = {
 };
 
 /** Value and its own provenance are indivisible. Quote/cache/response dates cannot date IV. */
-function datedIv(ticker: string, value: unknown, date: unknown, observedAt?: unknown): CommandIvObservation | null {
+function datedIv(ticker: string, value: unknown, date: unknown, observedAt: unknown, nowMs: number): CommandIvObservation | null {
     const iv = commandIvLevel(null, null, null, value);
     const session = sourceDate(date);
     const observation = observationTime(observedAt).sourceSessionDate;
-    if (iv === null || (!session && !observation)) return null;
+    if (iv === null || !isFreshIvObservation(session ?? observation, nowMs)) return null;
     return { ticker, iv, sourceDate: (session ?? observation)!, dateKind: session ? 'session' : 'observation', restored: false };
 }
 
-export function commandBatchIv(ticker: string, row: any): CommandIvObservation | null {
+export function commandBatchIv(ticker: string, row: any, nowMs = Date.now()): CommandIvObservation | null {
     if (row?.ticker !== ticker) return null;
     const rt = row.realtime;
-    return datedIv(ticker, rt?.iv, rt?.ivSourceDate, rt?.ivObservedAt)
-        ?? datedIv(ticker, rt?.atmIv, rt?.atmIvSourceDate, rt?.atmIvObservedAt);
+    return datedIv(ticker, rt?.iv, rt?.ivSourceDate, rt?.ivObservedAt, nowMs)
+        ?? datedIv(ticker, rt?.atmIv, rt?.atmIvSourceDate, rt?.atmIvObservedAt, nowMs);
 }
 
-export function commandUnifiedIv(ticker: string, unified: any): CommandIvObservation | null {
+export function commandUnifiedIv(ticker: string, unified: any, nowMs = Date.now()): CommandIvObservation | null {
     if (unified?.ticker && unified.ticker !== ticker) return null;
     const st = unified?.structure, vol = unified?.volatility;
     // chainDate is overwritten by the option-level edition at the unified API exit.
     // It cannot date atmIV (which may have been copied from volatility.iv).
     return (st?.ticker && st.ticker !== ticker ? null
-        : datedIv(ticker, commandIvLevel(null, st?.atmIV, null, null), st?.ivSourceDate, st?.ivObservedAt))
+        : datedIv(ticker, commandIvLevel(null, st?.atmIV, null, null), st?.ivSourceDate, st?.ivObservedAt, nowMs))
         ?? (vol?.ticker && vol.ticker !== ticker ? null
-        : datedIv(ticker, vol?.iv, vol?.ivSourceDate, vol?.ivObservedAt));
+        : datedIv(ticker, vol?.iv, vol?.ivSourceDate, vol?.ivObservedAt, nowMs));
 }
 
 /** A missing/undated response retains only a dated observation for this ticker. */
-export function retainCommandIv(previous: CommandIvObservation | null, next: CommandIvObservation | null, ticker: string): CommandIvObservation | null {
-    if (next?.ticker === ticker) return next;
-    return previous?.ticker === ticker ? { ...previous, restored: true } : null;
+export function retainCommandIv(previous: CommandIvObservation | null, next: CommandIvObservation | null, ticker: string, nowMs = Date.now()): CommandIvObservation | null {
+    const old = previous && previous.ticker === ticker && isFreshIvObservation(previous.sourceDate, nowMs) ? previous : null;
+    if (next && next.ticker === ticker && isFreshIvObservation(next.sourceDate, nowMs)
+        && (!old || next.sourceDate >= old.sourceDate)) return next;
+    return old ? { ...old, restored: true } : null;
 }
 
 export function commandIvDateText(value: CommandIvObservation | null, locale: string): string {

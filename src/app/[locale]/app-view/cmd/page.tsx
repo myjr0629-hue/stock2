@@ -2871,7 +2871,10 @@ function CmdPageContent() {
     if (!data || data.ticker !== ticker || iv30Level != null) return;
     const save = (observation: CommandIvObservation | null) => setBatchIv(previous => {
       const retained = retainCommandIv(previous[ticker] ?? null, observation, ticker);
-      return retained ? { ...previous, [ticker]: retained } : previous;
+      if (retained) return { ...previous, [ticker]: retained };
+      const remaining = { ...previous };
+      delete remaining[ticker];
+      return remaining;
     });
     const loaded = commandUnifiedIv(ticker, data.unified);
     save(loaded);
@@ -2924,8 +2927,9 @@ function CmdPageContent() {
     const volObservation: CommandVolatilityObservation | null = (data as any).volatilityObservation !== undefined
       ? (data as any).volatilityObservation : resolveCommandVolatilityObservation(String((data as any).ticker ?? ''), data.unified);
     const effectiveVol = computeUnifiedVolatilityRegime(volObservation?.data);
-    // IV 는 iv30 → 같은 종목 unified/배치 관측(기준일 표식) 순 — main 의 IV 대체 경로를 그대로 둔다.
-    const fallbackIv = (data.ticker === ticker ? commandUnifiedIv(ticker, u) : null) ?? batchIv[ticker] ?? null;
+    // 저장된 IV도 렌더 시 신선도를 재검사한다. 만료된 관측은 기존 결측 표시로 간다.
+    const fallbackIv = (data.ticker === ticker ? commandUnifiedIv(ticker, u) : null)
+      ?? retainCommandIv(null, batchIv[ticker] ?? null, ticker);
     const finalIv = iv30Level != null ? Math.round(iv30Level * 100) / 100 : fallbackIv?.iv ?? null;
     const ivDateText = iv30Level == null ? commandIvDateText(fallbackIv, locale) : '';
 

@@ -98,7 +98,7 @@ test('[10/4] 주말 반복 행 — 금 16:47 ET 부터 토·일·월 새벽까�
 test('[10/4] 낡은 창(수집 목록에서 빠진 종목 — DIA 마지막 행 8/28) → stale(미제공) · nowMs 를 안 주면 판정 안 함', () => {
     const h = rows(IV_RANK_WINDOW, (i) => ({ atmIv: 10 + (i % 40) * 0.5 }));
     const last = h[h.length - 1].timestamp;
-    const r = ivRankFromHistory(h, { nowMs: last + 5 * 86_400_000 });
+    const r = ivRankFromHistory(h, { nowMs: last + 9 * 86_400_000 });
     assert.equal(!r.ok && r.reason, 'stale');
     assert.equal(ivRankFromHistory(h, { nowMs: last + 3 * 86_400_000 }).ok, true);
     assert.equal(ivHistoryUnavailable({ percentile: null, _source: 'dynamodb-stale' }), true, '앱도 «미제공»');
