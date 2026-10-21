@@ -179,8 +179,15 @@ export function isCreatorPromoCode(code: string): boolean {
   return CREATOR_PROMO_CODE_RE.test(code);
 }
 const PROMO_EXPIRES_AT = Date.parse('2026-10-31T07:00:00Z');
+/** 코드별 만료가 있으면 기존 목록·형식 규칙보다 우선한다.
+ * SIGNUMPRO: 애플 만료일 2026-12-31의 태평양시 자정(다음 날 00:00 PST) 이전까지. */
+const PROMO_CODE_EXPIRES_AT = new Map<string, number>([
+  ['SIGNUMPRO', Date.parse('2027-01-01T08:00:00Z')],
+]);
 export function isLivePromoCode(raw: string | null, now = Date.now()): boolean {
   const code = (raw || '').trim().toUpperCase();   // 채널 코드 8종과 같은 정규화(소문자 링크도 같은 코드)
+  const expiresAt = PROMO_CODE_EXPIRES_AT.get(code);
+  if (expiresAt !== undefined) return now < expiresAt;
   return (LIVE_PROMO_CODES.has(code) || isCreatorPromoCode(code)) && now < PROMO_EXPIRES_AT;
 }
 
