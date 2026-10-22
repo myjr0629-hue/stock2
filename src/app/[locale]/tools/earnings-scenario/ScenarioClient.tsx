@@ -12,7 +12,11 @@ export default function ScenarioClient({ locale, rows }: { locale: ScenarioLocal
   const row = rows[index], contract = row?.[side] ?? null;
   const ready = !!row && finite(row.defaultIvPp);
   const result = ready ? scenario(contract, row.spot, row.years, stockPct, ivPp, days) : null;
-  const money = (v: number | null | undefined) => finite(v) ? `${Math.round(v * 100) < 0 ? '-' : ''}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : c.missing;
+  const money = (v: number | null | undefined) => {
+    if (!finite(v)) return c.missing;
+    const abs = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `${v < 0 && abs !== '0.00' ? '-' : ''}$${abs}`; // «-$1.23», 반올림 0은 부호 없음
+  };
   const number = (v: number | null | undefined, suffix = '') => finite(v) ? `${v.toFixed(2)}${suffix}` : c.missing;
   const reset = (i: number) => { setIndex(i); setStockPct(0); setIvPp(rows[i]?.defaultIvPp ?? 0); setDays(rows[i]?.defaultDays ?? 0); };
   const methods: Record<string, string> = locale === 'ko'
