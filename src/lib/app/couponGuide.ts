@@ -42,6 +42,8 @@ export interface CouponGuideCopy {
   steps: [string, string, string];
   /** Play 스토어에서 이미 «적용»해 둔 코드 — 결제 창에서 자동 적용(RevenueCat·구글 도움말) */
   saved: string;
+  /** ① 뒤 사용자가 직접 누르는 확인 체크의 굵은 줄 — 체크해야 ② 가 켜진다. */
+  confirm: string;
   /** 기존 웹 안내의 ① 등록 단추. 구매와 별도 동작. */
   redeemCta: string;
   redeemUnavailable: string;
@@ -78,6 +80,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
         '[구독 시작]을 누르면 구글 결제 창이 열립니다',
         d ? `${d}일 무료가 보이면 «구독»` : '무료 기간이 보이면 «구독»',
       ],
+      confirm: 'Play 스토어에서 코드 등록을 마쳤습니다',
       saved: 'Play 스토어에서 이미 적용한 쿠폰은 결제 창에 바로 보입니다',
       redeemCta: '① Play 스토어에서 코드 등록',
       redeemUnavailable: '코드 등록 화면을 열 수 없습니다 — Play 스토어 앱에서 직접 등록',
@@ -105,6 +108,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
         '「定期購入を開始」でGoogle Playの購入画面が開きます',
         d ? `${d}日間無料と表示されたら「定期購入」` : '無料期間が表示されたら「定期購入」',
       ],
+      confirm: 'Playストアでコードの登録を済ませました',
       saved: 'Playストアで適用済みのクーポンは、購入画面に表示されます',
       redeemCta: '① Playストアでコードを登録',
       redeemUnavailable: 'コード登録画面を開けません — Playストアアプリで直接登録してください',
@@ -131,6 +135,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       'Tap Start subscription to open Google Play checkout',
       d ? `When ${d} days free shows, tap “Subscribe”` : 'When the free trial shows, tap “Subscribe”',
     ],
+    confirm: 'I’ve redeemed my code in the Play Store',
     saved: 'Already applied your code in the Play Store? It shows at checkout.',
     redeemCta: '① Redeem code in Play Store',
     redeemUnavailable: 'Cannot open the code redemption screen — redeem directly in the Play Store app',

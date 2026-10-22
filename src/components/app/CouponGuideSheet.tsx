@@ -176,10 +176,13 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
             </li>
           ))}
         </ol>
-        <p className={s.saved}><label>
+        <p className={s.saved}><label className={s.confirm}>
           <input type="checkbox" checked={codeAppliedConfirmed} disabled={busy || !redeemOpened}
             onChange={(e) => setCodeAppliedConfirmed(e.target.checked)} />
-          {t.saved}
+          <span className={s.confirmText}>
+            <span className={s.confirmHead}>{t.confirm}</span>
+            <span>{t.saved}</span>
+          </span>
         </label></p>
 
         <div className={s.free}>

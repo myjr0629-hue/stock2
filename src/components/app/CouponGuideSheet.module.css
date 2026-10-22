@@ -92,3 +92,32 @@
   font-weight: 700;
   line-height: 1.5;
 }
+
+/* ① 뒤 확인 체크 — 전역 모바일 규칙(input min-height 44px)이 체크 상자를 44px 줄로 키워 글이 아래로 밀렸다(10/23 미리보기 375px).
+   줄 전체(label)가 누름 영역이고, 상자는 20px 로 글 첫 줄 옆에 붙인다. */
+.confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.confirm input {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 1px 0 0;
+  accent-color: #10b981;
+}
+.confirmText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.confirmHead {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #e2e8f0;
+}

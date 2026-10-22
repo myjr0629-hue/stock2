@@ -98,6 +98,7 @@ async function test(name: string, fn: () => Promise<void> | void) {
       assert.equal(checkbox(tree).props.checked, false);
       assert.equal(checkbox(tree).props.disabled, true);
       assert.ok(html.includes(copy.warning));
+      assert.ok(copy.confirm && html.includes(copy.confirm), '확인 체크의 굵은 줄(등록을 마쳤다)이 체크 상자 옆에 보인다');
       assert.equal(subscribe(tree).props['aria-describedby'], 'coupon-test-warning');
       const nodes = elements(tree);
       const warning = nodes.find((el) => el.props?.id === 'coupon-test-warning');
