@@ -1,7 +1,9 @@
 'use client';
 
+import { useLocale } from 'next-intl';
 import { usePathname, useRouter } from '@/i18n/routing';
 import { useInterstitialAd } from '@/hooks/useInterstitialAd';
+import { bottomNavLabel } from '@/lib/app/bottomNavLabels';
 
 const TABS = [
   { id: 'dash', label: 'Dashboard', path: '/app-view/dash', icon: 'dashboard' },
@@ -62,6 +64,7 @@ function TabIcon({ name, active }: { name: string; active: boolean }) {
 export function AppBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const locale = useLocale();
   const { onTabSwitch } = useInterstitialAd();
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
@@ -76,9 +79,8 @@ export function AppBottomNav() {
     <nav className="app-tabbar">
       {TABS.map((tab) => {
         const isActive = tab.id === activeTab;
-        // Brand/feature names — kept in English across all locales (matches the
-        // English-fixed Guardian/Intel page titles). Avoids awkward transliteration.
-        const label = tab.label;
+        // en·ja 는 영어 고정 그대로, ko 만 한글(2026-10-22 대표 지시). 표는 lib/app/bottomNavLabels.
+        const label = bottomNavLabel(tab.id, locale);
 
         return (
           <button
