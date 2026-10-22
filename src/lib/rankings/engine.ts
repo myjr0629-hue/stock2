@@ -29,8 +29,42 @@ export const median = (a: number[]): number | null => {
 };
 export const mad = (a: number[], med: number) => median(a.map((v) => Math.abs(v - med)));
 
-/** ET 기준 날짜. 세션 경계를 UTC 로 자르면 새벽 값이 전날로 붙는다. */
-export const etDay = (ms: number) => new Date(ms - 4 * 3600e3).toISOString().slice(0, 10);
+// 90일 × 15분 이력(2,160시간)을 종목·지표 간 재사용하되 워커 메모리는 제한한다.
+const ET_DAY_CACHE_LIMIT = 4096;
+const etDayCache = new Map<number, string>();
+
+/** ET 기준 날짜. 날짜 정본은 etDateOf, 반복되는 행의 변환만 UTC 시간별로 기억한다. */
+export function etDay(ms: number): string {
+    // 표준시 도입 전 뉴욕은 −04:56:02였다. 그때는 UTC 한 시간 안에도 날짜가 바뀐다.
+    if (!Number.isFinite(ms) || ms < Date.UTC(1883, 10, 18, 17) || ms > 8.64e15) return etDateOf(ms);
+    // Date의 밀리초 절삭과 맞춘다. 이후 ET 자정·DST 전환은 모두 UTC 정시에 있다.
+    const hour = Math.floor(Math.trunc(ms) / 3600_000);
+    const cached = etDayCache.get(hour);
+    if (cached !== undefined) return cached;
+    const day = etDateOf(ms);
+    if (etDayCache.size >= ET_DAY_CACHE_LIMIT) etDayCache.delete(etDayCache.keys().next().value!);
+    etDayCache.set(hour, day);
+    return day;
+}
+
+/** 원천 날짜가 있는 행은 수집 시각으로 다시 날짜를 만들지 않는다. */
+export function optionSessionDate(row: Record<string, any>): string | null {
+    if (row.chainDate !== undefined || row.optionBasis !== undefined) {
+        const d = row.chainDate;
+        const ms = typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? Date.parse(d) : NaN;
+        return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === d ? d : null;
+    }
+    // 기존 이력에는 원천 날짜가 없다. 이전 기준선을 보존하되 추정 날짜로 새 원천을 덮지 않는다.
+    const ts = Number(row.timestamp);
+    return Number.isFinite(ts) ? etDay(ts) : null;
+}
+
+function sourceHistoryStart(items: Array<Record<string, any>>): string | null {
+    return items.reduce<string | null>((first, row) => {
+        const d = Number.isFinite(Number(row.timestamp)) && row.chainDate ? optionSessionDate(row) : null;
+        return d && (!first || d < first) ? d : first;
+    }, null);
+}
 
 /**
  * 지금이 미국 정규장 안인가 — 랭킹의 «단계»를 정한다.
@@ -89,6 +123,8 @@ export function afterCloseState(dataDate: string | null | undefined, now = Date.
     return { state, lastClosed };
 }
 
+const measured = (v: unknown) => (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) && Number.isFinite(Number(v));
+
 /**
  * 하루의 «대표 스냅샷».
  *
@@ -98,17 +134,26 @@ export function afterCloseState(dataDate: string | null | undefined, now = Date.
  *    「그날 마지막 값」을 쓰면 어느 만기가 걸렸느냐가 곧 결과가 된다.
  *    → 그날 총 OI 가 가장 큰 스냅샷 하나를 골라 «모든 지표를 거기서» 읽는다.
  *       날짜 간 비교가 성립하고, 한 카드 안 숫자들이 같은 체인에서 나온다.
+ *       OI 동률이면 프리미엄 측정이 있는 행을 우선하고, 같은 품질 안에서 최신 판본을 쓴다.
+ *       structure-build의 프리미엄 없는 행이 FlowWarm 측정을 지우지 않게 한다.
  */
 export function dailySnapshots(items: Row[]) {
     const byDay = new Map<string, Row & { _oi: number; _d: string }>();
+    const sourceStart = sourceHistoryStart(items);
     for (const it of items) {
         const ts = Number(it.timestamp);
         if (!Number.isFinite(ts)) continue;
-        const d = etDay(ts);
+        const d = optionSessionDate(it);
+        if (!d || (!it.chainDate && sourceStart && d >= sourceStart)) continue;
         const oi = Number(it.totalCallOI || 0) + Number(it.totalPutOI || 0);
         if (!(oi > 0)) continue;              // OI 없는 행은 비교 기준을 못 준다
         const prev = byDay.get(d);
-        if (!prev || oi > prev._oi) byDay.set(d, { ...it, _oi: oi, _d: d });
+        const hasPremium = measured(it.totalPremium), prevHasPremium = measured(prev?.totalPremium);
+        if (!prev || oi > prev._oi || (it.chainDate && oi === prev._oi && (
+            (hasPremium && !prevHasPremium) || (hasPremium === prevHasPremium && ts > Number(prev.timestamp))
+        ))) {
+            byDay.set(d, { ...it, _oi: oi, _d: d });
+        }
     }
     return [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([, r]) => r);
 }
@@ -142,7 +187,6 @@ export function deviationOf(
 ): { ok: DevResult; reason?: string } {
     const g = { ...DEFAULT_GATES, ...gates };
     // The latest snapshot must own a measurement; never promote a past day to today.
-    const measured = (v: unknown) => (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) && Number.isFinite(Number(v));
     if (!snaps.length || !measured(snaps[snaps.length - 1][key])) return { ok: null, reason: '이력부족' };
     const series = snaps
         .filter(r => measured(r[key]))
@@ -183,13 +227,16 @@ export function deviationOf(
  *    → 둘 다 든 행을 찾아 쓴다. 없으면 그 종목은 그냥 빠진다.
  */
 export function latestWith(items: Row[], keys: string[]): (Row & { _d: string }) | null {
-    let best: Row | null = null, bestTs = -1;
+    let best: Row | null = null, bestTs = -1, bestDate = '';
+    const sourceStart = sourceHistoryStart(items);
     for (const it of items) {
         const ts = Number(it.timestamp);
-        if (!Number.isFinite(ts) || ts <= bestTs) continue;
-        if (keys.every((k) => Number.isFinite(Number(it[k])) && Number(it[k]) > 0)) { best = it; bestTs = ts; }
+        const d = optionSessionDate(it);
+        if (!Number.isFinite(ts) || !d || (!it.chainDate && sourceStart && d >= sourceStart)) continue;
+        if (d < bestDate || (d === bestDate && ts <= bestTs)) continue;
+        if (keys.every((k) => Number.isFinite(Number(it[k])) && Number(it[k]) > 0)) { best = it; bestTs = ts; bestDate = d; }
     }
-    return best ? { ...best, _d: etDay(bestTs) } : null;
+    return best ? { ...best, _d: bestDate } : null;
 }
 
 /**
@@ -218,12 +265,14 @@ export type Readiness = {
  */
 export function dailyValues(rows: Array<Record<string, any>>, field: string) {
     const byDay = new Map<string, { ts: number; v: number }>();
+    const sourceStart = sourceHistoryStart(rows);
     for (const r of rows) {
         const v = Number(r?.[field]);
         if (!Number.isFinite(v) || v === 0) continue;      // NULL·0 은 «측정 안 됨»으로 본다
         const ts = Number(r.timestamp);
         if (!Number.isFinite(ts)) continue;
-        const d = etDay(ts);
+        const d = optionSessionDate(r);
+        if (!d || (!r.chainDate && sourceStart && d >= sourceStart)) continue;
         const prev = byDay.get(d);
         if (!prev || ts > prev.ts) byDay.set(d, { ts, v });  // 그날 마지막 관측
     }
@@ -235,16 +284,19 @@ export function dailyValues(rows: Array<Record<string, any>>, field: string) {
  *   정규장»(shownRegularSessionDate: 평일 09:30 ET 전·주말·휴장 → 직전 거래일)이다.
  *   수집 Lambda 는 주말·휴장·새벽에도 금요일(직전 세션) EOD 체인으로 행을 남긴다 — ET 달력일로 묶으면 토·일이 «세션»
  *   두 개가 되어 같은 값이 세 번 세어졌다(10/4 실측: 창의 약 30%). 그 세션의 마지막 관측 = 그 세션 마감 체인 값.
- *   (다른 랭킹의 준비도 셈이 갑자기 줄지 않게 dailyValues 는 그대로 둔다 — IV 세션 백분위만 이걸 쓴다.)
+ *   원천 날짜가 있는 이력은 두 함수 모두 그 날짜를 쓴다. 옛 행만 기존 달력 규칙을 유지한다.
  */
 export function sessionValues(rows: Array<Record<string, any>>, field: string) {
     const bySession = new Map<string, { ts: number; v: number }>();
+    const sourceStart = sourceHistoryStart(rows);
     for (const r of rows) {
         const v = Number(r?.[field]);
         if (!Number.isFinite(v) || v === 0) continue;
         const ts = Number(r.timestamp);
         if (!Number.isFinite(ts)) continue;
-        const d = shownRegularSessionDate(ts);
+        const sourceDate = optionSessionDate(r);
+        if (!sourceDate || (!r.chainDate && sourceStart && sourceDate >= sourceStart)) continue;
+        const d = r.chainDate ? sourceDate : shownRegularSessionDate(ts);
         const prev = bySession.get(d);
         if (!prev || ts > prev.ts) bySession.set(d, { ts, v });
     }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
-import { afterCloseState } from '@/lib/rankings/engine';
+import { afterCloseState, dailySnapshots } from '@/lib/rankings/engine';
 
 // ============================================================================
 // /api/ranking/deviation — 「평소 대비 이탈」 랭킹.
@@ -39,7 +39,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v9:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v10:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -157,7 +157,6 @@ const median = (a: number[]): number | null => {
     const s = [...a].sort((x, y) => x - y); const m = s.length >> 1;
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
-const etDay = (ms: number) => new Date(ms - 4 * 3600e3).toISOString().slice(0, 10);
 
 type Row = { timestamp: number; totalCallOI?: number; totalPutOI?: number;[k: string]: any };
 
@@ -192,21 +191,6 @@ async function history(ticker: string, days: number): Promise<Row[]> {
 //    하나를 골라 «모든 지표를 거기서» 읽는다. 이러면
 //      ① 날마다 같은 성격(가장 큰 만기)을 보므로 비교가 성립하고
 //      ② 한 카드 안의 지표들이 서로 같은 체인에서 나온다.
-function dailySnapshots(items: Row[]) {
-    const byDay = new Map<string, Row>();
-    for (const it of items) {
-        const ts = Number(it.timestamp);
-        if (!Number.isFinite(ts)) continue;
-        const d = etDay(ts);
-        const oi = Number(it.totalCallOI || 0) + Number(it.totalPutOI || 0);
-        const prev = byDay.get(d);
-        const prevOi = prev ? Number(prev.totalCallOI || 0) + Number(prev.totalPutOI || 0) : -1;
-        // OI 가 없는 행(프리미엄 전용 행 등)은 대표가 될 수 없다 — 비교 기준을 못 준다.
-        if (oi > 0 && oi > prevOi) byDay.set(d, { ...it, _oi: oi, _d: d });
-    }
-    return [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([, r]) => r);
-}
-
 function seriesOf(snaps: Row[], key: string) {
     return snaps
         .map((r) => ({ d: r._d as string, v: Number(r[key]), oi: r._oi as number }))
@@ -217,7 +201,7 @@ export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
     // v10 — darkPool 에 state·expected·inRanking 을 실었다(다크풀 축은 마지막 마감 기준).
-    const CACHE = `ranking:deviation:v10:${days}:${top}`;
+    const CACHE = `ranking:deviation:v11:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
