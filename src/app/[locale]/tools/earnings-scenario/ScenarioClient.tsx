@@ -18,18 +18,19 @@ export default function ScenarioClient({ locale, rows }: { locale: ScenarioLocal
     return `${v < 0 && abs !== '0.00' ? '-' : ''}$${abs}`; // «-$1.23», 반올림 0은 부호 없음
   };
   const number = (v: number | null | undefined, suffix = '') => finite(v) ? `${v.toFixed(2)}${suffix}` : c.missing;
+  const elapsed = (v: number | null | undefined) => finite(v) ? v.toFixed(1) : c.missing;
   const reset = (i: number) => { setIndex(i); setStockPct(0); setIvPp(rows[i]?.defaultIvPp ?? 0); setDays(rows[i]?.defaultDays ?? 0); };
   const methods: Record<string, string> = locale === 'ko'
-    ? { weekly: '주간', monthly: '월간', 'event-split': '실적 분산 분리', 'chain-straddle': '운영 ATM 스트래들/현물' }
-    : locale === 'ja' ? { weekly: '週次', monthly: '月次', 'event-split': '決算分散分離', 'chain-straddle': '運用ATMストラドル/株価' }
-      : { weekly: 'Weekly', monthly: 'Monthly', 'event-split': 'Event variance split', 'chain-straddle': 'Operating ATM straddle/stock' };
+    ? { weekly: '주간', monthly: '월간', 'event-split': '실적 변동분 분리', 'chain-straddle': 'ATM 스트래들/현물' }
+    : locale === 'ja' ? { weekly: '週次', monthly: '月次', 'event-split': '決算による変動分を分離', 'chain-straddle': 'ATMストラドル/株価' }
+      : { weekly: 'Weekly', monthly: 'Monthly', 'event-split': 'Earnings variance isolated', 'chain-straddle': 'ATM straddle/stock' };
   const fields: Array<[string, string]> = [
     [c.earnings, row?.earnings ?? c.missing], [c.expiry, row?.expiry ?? c.missing], [c.session, row?.session ?? c.missing],
     [c.spot, money(row?.spot)], [c.strike, money(contract?.strike)], [c.premium, money(contract?.price)],
     [c.currentIv, number(contract ? contract.iv * 100 : null, '%')],
     [c.move, row?.movePct ? `±${row.movePct.toFixed(2)}% · ${row.moveSession} · ${methods[row.moveMethod ?? ''] ?? c.missing}` : c.missing],
     [c.default, number(row?.defaultIvPp, ' %p')],
-    [c.defaultDays, ready ? number(row?.defaultDays) : c.missing],
+    [c.defaultDays, ready ? elapsed(row?.defaultDays) : c.missing],
   ];
   return <>
     <section className="es-card" aria-label={c.ticker}>
@@ -46,7 +47,7 @@ export default function ScenarioClient({ locale, rows }: { locale: ScenarioLocal
       {[
         { id: 'stock', label: c.stock, value: stockPct, min: -30, max: 30, step: 0.5, change: setStockPct, text: `${stockPct > 0 ? '+' : ''}${stockPct.toFixed(1)}%` },
         { id: 'iv', label: c.iv, value: ivPp, min: Math.min(-100, Math.floor(row?.defaultIvPp ?? 0)), max: 100, step: 0.1, change: setIvPp, text: ready ? `${ivPp > 0 ? '+' : ''}${ivPp.toFixed(2)} %p` : c.missing },
-        { id: 'days', label: c.days, value: days, min: 0, max: (row?.years ?? 0) * 365, step: 'any', change: setDays, text: ready ? number(days) : c.missing },
+        { id: 'days', label: c.days, value: days, min: 0, max: (row?.years ?? 0) * 365, step: 'any', change: setDays, text: ready ? elapsed(days) : c.missing },
       ].map(s => <div className="es-slider" key={s.id}>
         <label htmlFor={`scenario-${s.id}`}>{s.label} <output htmlFor={`scenario-${s.id}`}>{s.text}</output></label>
         <input id={`scenario-${s.id}`} type="range" min={s.min} max={s.max} step={s.step} value={s.value}
