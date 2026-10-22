@@ -181,6 +181,8 @@ test('관문 재현: 3언어 관측 100·60%와 가정 110·40%, IV 기본값·�
     cell(c.spot, '$100.00'); cell(c.currentIv, '60.00%');
     cell(c.assumedSpot, '$110.00'); cell(c.assumedIv, '40.00%');
     cell(c.default, `${rr[0].defaultIvPp.toFixed(2)} %p`); cell(c.defaultDays, rr[0].defaultDays.toFixed(2));
+    // 음수 금액은 «-$1.23» 표기(«$-1.23» 금지). IV −20%p 가정의 변동성 효과는 음수다.
+    assert.ok(!html.includes('$-')); assert.match(html, /<dt>[^<]+<\/dt><dd>-\$\d/);
     const resultHtml = html.split('<dl class="es-result">')[1];
     assert.ok(!resultHtml.includes(`<dt>${c.spot}</dt>`)); assert.ok(!resultHtml.includes(`<dt>${c.currentIv}</dt>`));
   }

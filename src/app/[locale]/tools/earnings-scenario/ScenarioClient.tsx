@@ -12,7 +12,7 @@ export default function ScenarioClient({ locale, rows }: { locale: ScenarioLocal
   const row = rows[index], contract = row?.[side] ?? null;
   const ready = !!row && finite(row.defaultIvPp);
   const result = ready ? scenario(contract, row.spot, row.years, stockPct, ivPp, days) : null;
-  const money = (v: number | null | undefined) => finite(v) ? `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : c.missing;
+  const money = (v: number | null | undefined) => finite(v) ? `${Math.round(v * 100) < 0 ? '-' : ''}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : c.missing;
   const number = (v: number | null | undefined, suffix = '') => finite(v) ? `${v.toFixed(2)}${suffix}` : c.missing;
   const reset = (i: number) => { setIndex(i); setStockPct(0); setIvPp(rows[i]?.defaultIvPp ?? 0); setDays(rows[i]?.defaultDays ?? 0); };
   const methods: Record<string, string> = locale === 'ko'
@@ -25,7 +25,7 @@ export default function ScenarioClient({ locale, rows }: { locale: ScenarioLocal
     [c.currentIv, number(contract ? contract.iv * 100 : null, '%')],
     [c.move, row?.movePct ? `±${row.movePct.toFixed(2)}% · ${row.moveSession} · ${methods[row.moveMethod ?? ''] ?? c.missing}` : c.missing],
     [c.default, number(row?.defaultIvPp, ' %p')],
-    [c.defaultDays, number(row?.defaultDays)],
+    [c.defaultDays, ready ? number(row?.defaultDays) : c.missing],
   ];
   return <>
     <section className="es-card" aria-label={c.ticker}>
@@ -42,7 +42,7 @@ export default function ScenarioClient({ locale, rows }: { locale: ScenarioLocal
       {[
         { id: 'stock', label: c.stock, value: stockPct, min: -30, max: 30, step: 0.5, change: setStockPct, text: `${stockPct > 0 ? '+' : ''}${stockPct.toFixed(1)}%` },
         { id: 'iv', label: c.iv, value: ivPp, min: Math.min(-100, Math.floor(row?.defaultIvPp ?? 0)), max: 100, step: 0.1, change: setIvPp, text: ready ? `${ivPp > 0 ? '+' : ''}${ivPp.toFixed(2)} %p` : c.missing },
-        { id: 'days', label: c.days, value: days, min: 0, max: (row?.years ?? 0) * 365, step: 'any', change: setDays, text: number(days) },
+        { id: 'days', label: c.days, value: days, min: 0, max: (row?.years ?? 0) * 365, step: 'any', change: setDays, text: ready ? number(days) : c.missing },
       ].map(s => <div className="es-slider" key={s.id}>
         <label htmlFor={`scenario-${s.id}`}>{s.label} <output htmlFor={`scenario-${s.id}`}>{s.text}</output></label>
         <input id={`scenario-${s.id}`} type="range" min={s.min} max={s.max} step={s.step} value={s.value}
