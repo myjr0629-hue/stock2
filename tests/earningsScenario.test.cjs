@@ -9,6 +9,7 @@ const { execFileSync } = require('node:child_process');
 const ts = require('typescript');
 const root = path.resolve(__dirname, '..');
 const BASE_COMMIT = '72bb6d891'; // 재배치한 origin/main (fix/greeks-null-not-zero 병합 뒤)
+const COPY_BASE_COMMIT = '927bf01d3'; // 이번 문구 수정의 운영 반영 기준
 const NOW = Date.parse('2026-10-22T03:00:00Z');
 globalThis.AsyncLocalStorage = require('node:async_hooks').AsyncLocalStorage;
 const originalNow = Date.now;
@@ -180,7 +181,7 @@ test('관문 재현: 3언어 관측 100·60%와 가정 110·40%, IV 기본값·�
     assert.ok(c.assumedSpot && c.assumedIv && c.defaultDays);
     cell(c.spot, '$100.00'); cell(c.currentIv, '60.00%');
     cell(c.assumedSpot, '$110.00'); cell(c.assumedIv, '40.00%');
-    cell(c.default, `${rr[0].defaultIvPp.toFixed(2)} %p`); cell(c.defaultDays, rr[0].defaultDays.toFixed(2));
+    cell(c.default, `${rr[0].defaultIvPp.toFixed(2)} %p`); cell(c.defaultDays, rr[0].defaultDays.toFixed(1));
     // 음수 금액은 «-$1.23» 표기(«$-1.23» 금지). IV −20%p 가정의 변동성 효과는 음수다.
     assert.ok(!html.includes('$-')); assert.match(html, /<dt>[^<]+<\/dt><dd>-\$\d/);
     const resultHtml = html.split('<dl class="es-result">')[1];
@@ -248,6 +249,77 @@ test('3언어 실제 SSR: 슬라이더3·매수1계약·5종목·분해·손익�
     assert.equal(Object.keys(m.alternates.languages).length, 4); assert.equal(m.robots.index, true);
     assert.equal(m.openGraph.images[0].url, `${m.alternates.canonical}/og`);
   }
+});
+test('문구 수정: 3언어 렌더 스냅샷의 내부 용어 0, 네 가지 산출 방식·결측·메타 포함', async () => {
+  const out = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'signum-scenario-copy-'));
+  const internal = /운영|원천|원본|적재|캐시|호출|運用|原資料|原チェーン|保存|キャッシュ|読み取り専用|呼び出し|\b(?:operating|source|cache|cached|api|intrinio|redis|stored|read-only|bundle|calls)\b/i;
+  const labels = { ko: '현재 가격 대비 손익 / 1계약', en: 'vs. current price · per contract', ja: '現在価格比の損益・1枚' };
+  const saved = pageSnapshot;
+  try {
+    for (const l of ['ko', 'en', 'ja']) {
+      const c = SCENARIO_COPY[l];
+      assert.equal(c.pnl, labels[l]);
+      assert.doesNotMatch(JSON.stringify(c), internal, `${l}: 문구 사전 전체`);
+      for (const method of ['weekly', 'monthly', 'event-split', 'chain-straddle', 'missing']) {
+        pageSnapshot = { readAt: new Date(NOW).toISOString(), rows: rows().map(r => ({ ...r, moveMethod: method,
+          ...(method === 'missing' ? { call: null, put: null, defaultIvPp: null } : {}) })) };
+        const h = await render(l);
+        assert.doesNotMatch(h, internal, `${l}: ${method} 렌더`);
+        assert.ok(h.includes(labels[l]));
+        assert.equal((h.match(/type="range"/g) ?? []).length, 3);
+        assert.equal((h.match(/<dd>/g) ?? []).length, 20);
+        fs.writeFileSync(path.join(out, `${l}-${method}.html`), h);
+      }
+      assert.doesNotMatch(JSON.stringify(await page.generateMetadata(props(l))), internal, `${l}: 메타`);
+    }
+  } finally { pageSnapshot = saved; }
+  console.log(`문구 검수용 합성 렌더 스냅샷 15개: ${out}`);
+});
+test('문구 수정: 운영 반영 기준 대비 600조합 계산 입력·출력·표시 금액 바이트 동일, 경과일만 한 자리', () => {
+  const sourceAtBase = file => execFileSync('git', ['show', `${COPY_BASE_COMMIT}:${file}`], { cwd: root, encoding: 'utf8' });
+  const clientFile = 'src/app/[locale]/tools/earnings-scenario/ScenarioClient.tsx';
+  const copyFile = 'src/lib/earningsScenario/copy.ts', modelFile = 'src/lib/earningsScenario/model.ts';
+  const baselineCopy = load(copyFile, sourceAtBase(copyFile)).SCENARIO_COPY;
+  const baselineModel = load(modelFile, sourceAtBase(modelFile));
+  // 공유 계산·자료 함수와 다른 페이지는 이번 수정 범위 밖이다.
+  assert.equal(fs.readFileSync(path.join(root, modelFile), 'utf8'), sourceAtBase(modelFile));
+  const modified = execFileSync('git', ['diff', COPY_BASE_COMMIT, '--name-only', '--', 'src'], { cwd: root, encoding: 'utf8' }).trim().split('\n').sort();
+  assert.deepEqual(modified, [clientFile, copyFile].sort());
+  const harness = (source, copy, implementation) => {
+    let cursor, values, trace;
+    const client = load(clientFile, source, {
+      react: { ...React, useState: () => [values[cursor++], () => {}] },
+      '@/lib/earningsScenario/copy': { SCENARIO_COPY: copy },
+      '@/lib/earningsScenario/model': { ...implementation, scenario: (...args) => {
+        const result = implementation.scenario(...args);
+        trace.push({ args, result }); return result;
+      } },
+    }).default;
+    return (locale, rr, state) => {
+      cursor = 0; values = state; trace = [];
+      const h = renderToStaticMarkup(client({ locale, rows: rr }));
+      return { h, bytes: Buffer.from(JSON.stringify(trace)) };
+    };
+  };
+  const before = harness(sourceAtBase(clientFile), baselineCopy, baselineModel);
+  const after = harness(fs.readFileSync(path.join(root, clientFile), 'utf8'), SCENARIO_COPY, model);
+  const rr = rows().map(r => ({ ...r, years: 15 / 365, defaultDays: 13.04, expiry: '2026-11-05',
+    call: { ...r.call, expiry: '2026-11-05' }, put: { ...r.put, expiry: '2026-11-05' } }));
+  let count = 0;
+  for (const locale of ['ko', 'en', 'ja']) for (const side of ['call', 'put'])
+    for (const stock of [-30, -5, 0, 5, 30]) for (const iv of [-60, -10, 0, 50]) for (const days of [0, 0.04, 2.35, 13.04, 15]) {
+      const state = [0, side, stock, iv, days], a = before(locale, rr, state), b = after(locale, rr, state);
+      assert.deepEqual(b.bytes, a.bytes, `${locale}/${side}/${stock}/${iv}/${days}: 계산 입력·출력`);
+      const results = h => Buffer.from(h.split('<dl class="es-result">')[1].match(/<dd>[^<]*<\/dd>/g).join('\n'));
+      assert.deepEqual(results(b.h), results(a.h), '모든 결과 금액·가정값');
+      const observed = h => [...h.matchAll(/<dd>([^<]*)<\/dd>/g)].slice(0, 9).map(m => m[1]).join('\n');
+      assert.equal(observed(b.h), observed(a.h), '관측 가격·IV·기본 IV 등 표시값');
+      assert.ok(b.h.includes(`<output for="scenario-days">${days.toFixed(1)}</output>`));
+      assert.ok(b.h.includes(`<dt>${SCENARIO_COPY[locale].defaultDays}</dt><dd>13.0</dd>`));
+      assert.match(b.h, new RegExp(`id="scenario-days"[^>]*step="any"[^>]*value="${String(days).replace('.', '\\.')}"`));
+      count++;
+    }
+  assert.equal(count, 600);
 });
 test('슬라이더3·콜/풋·종목 변경·리셋: 실제 클라이언트 이벤트가 계산 결과에 반영', () => {
   const file = 'src/app/[locale]/tools/earnings-scenario/ScenarioClient.tsx';
