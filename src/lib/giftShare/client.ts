@@ -16,6 +16,9 @@ const MAX_TRIES = 5;
 const READY_HOLD_MS = 3 * 60_000;
 const SHEET_HOLD_MS = 30 * 60_000;
 const CLICK_MARGIN_MS = 90_000;
+/** 시트 몫 연장 재시도 — 5초 간격 최대 18회(= 클릭 여유 90초 안). */
+const EXTEND_GAP_MS = 5_000;
+const EXTEND_TRIES = 18;
 /** 기기 시계가 서버와 이만큼 넘게 다르면 등록 시각 검사에 걸릴 수 있어 선물 링크를 만들지 않는다. */
 const CLOCK_TOLERANCE_MS = 5 * 60_000;
 
@@ -86,7 +89,8 @@ const liveRetry = (x: SentGift, t: number) => t - x.at < RETRY_WINDOW_MS && x.tr
  * 서버도 같은 at 의 KST 날짜로 세므로, 기기 셈이 한도 안이면 보낸 링크는 서버 한도에 걸리지 않는다(자정·재시도·응답 유실 무관).
  */
 export function createGiftPreparation(request: typeof fetch = (...args) => fetch(...args), getDevice = deviceKey, now = Date.now,
-  newToken = randomGiftToken, atomic: GiftAtomic = idbAtomic) {
+  newToken = randomGiftToken, atomic: GiftAtomic = idbAtomic,
+  later: (fn: () => void, ms: number) => unknown = (fn, ms) => setTimeout(fn, ms)) {
   let enabled = false;
   let available = false;
   /** 준비된(잡아 둔) 토큰 하나 — 클릭 때 내주고 비운다. */
@@ -217,8 +221,11 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     if (token) {
       ready = null; inSheet.add(token); // 한 번만 내준다 — 같은 문서의 다른 단추는 새 준비 전까지 일반 공유.
       // 시트에 실린 몫을 30분으로 연장(비동기 — 남은 1분 안에 트랜잭션이 끝난다). 연장 전에도 몫은 유효하므로 다른 문서는 이미 이 몫을 센다.
-      const extend = () => atomic((st: GiftState) => { for (const h of st.holds) if (h.token === token) h.until = Math.max(h.until, t + SHEET_HOLD_MS); });
-      void extend().then(r => { if (!r) void extend(); }); // 실패하면 한 번 더(그래도 실패면 refresh 연장이 이어받는다)
+      // 실패하면 시트가 열려 있는 동안 5초마다 다시 — 화면 숨김(주기 refresh 멈춤)과 무관하게 준비 몫(≥90초)이 끝나기 전에 연장이 닿게(관문 10222333).
+      const extend = (n: number) => void atomic((st: GiftState) => {
+        for (const h of st.holds) if (h.token === token) h.until = Math.max(h.until, t + SHEET_HOLD_MS);
+      }).then(r => { if (!r && n < EXTEND_TRIES && inSheet.has(token)) later(() => extend(n + 1), EXTEND_GAP_MS); });
+      extend(1);
     }
     const validRef = normalizeGiftRef(ref);
     // 등록 API와 같은 출처를 쓴다. 프리뷰 토큰을 운영 재고 영역으로 보내지 않는다.

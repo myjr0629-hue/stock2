@@ -56,7 +56,7 @@ type Mode = 'ok' | 'down' | 'lose';
  * 기기 1대 + 실제 서버 함수 + Lua 모의. 네트워크: ok · down(서버 미도달) · lose(서버는 처리, 응답 유실).
  * latency 만큼 서버 처리 시각이 늦어진다(자정 넘김 재현). hold 를 걸면 서버 처리 직전에 멈춰 «진행 중» 요청을 만든다.
  */
-async function world(start: number, opts: { via?: 'ios' | 'android' | 'web'; account?: string; available?: () => boolean } = {}) {
+async function world(start: number, opts: { via?: 'ios' | 'android' | 'web'; account?: string; available?: () => boolean; lazy?: boolean } = {}) {
   const { mockRedis } = await import('./_giftLuaMock.mjs');
   const redis = mockRedis();
   const store = { eval: (script: string, keys: string[], args: (string | number)[]) => redis.eval(script, keys.length, ...keys, ...args) };
@@ -88,9 +88,9 @@ async function world(start: number, opts: { via?: 'ios' | 'android' | 'web'; acc
   };
   const device = 'a1'.repeat(32);
   const mem = memoryAtomic(); // 이 기기(출처)의 장부 — 모든 문서가 함께 쓴다
-  const doc = () => createGiftPreparation(request, () => device, () => w.clock, undefined, mem.atomic);
+  const doc = (later?: (fn: () => void, ms: number) => unknown) => createGiftPreparation(request, () => device, () => w.clock, undefined, mem.atomic, later);
   const client = doc();
-  await client.refresh(w.via);
+  if (!opts.lazy) await client.refresh(w.via); // lazy: 기본 문서는 준비하지 않는다(몫을 잡지 않음)
   /** 한 번 공유를 시도한다. 선물 링크가 붙으면 그 토큰을 돌려준다. */
   const share = async (c = client, outcome: 'shared' | 'copied' | 'failed' | 'cancelled' = 'shared') => {
     const p = c.payload(original, 'ko', w.via);
@@ -474,4 +474,30 @@ test('완료 기록 표식은 여러 문서가 동시에 합쳐도 한 번만 �
   assert.equal(x.mem.state.days['2026-10-22'], 1);
   assert.equal([...values.keys()].filter(k => k.startsWith('signumhq.gift.pending.v1.')).length, 0, '합친 표식은 지운다');
   await assertNoBrokenLinks(x, '표식 중복 합치기');
+});
+
+test('관문 회귀(10222333): 시트 몫 연장이 연달아 실패하고 탭이 숨어도(주기 refresh 없음) 다른 탭이 그 몫을 가져가지 못한다 — 거부 링크 0', async () => {
+  for (const fails of [1, 2, 5, 17]) {
+    resetStorage();
+    const x = await world(at('2026-10-22T09:00:00'), { via: 'web', lazy: true });
+    // A 문서: 수동 타이머(가짜 시계와 함께 흐름)
+    const timers: { due: number; fn: () => void }[] = [];
+    const A = x.doc((fn, ms) => { timers.push({ due: x.w.clock + ms, fn }); });
+    await A.refresh('web');
+    for (let i = 1; i <= fails; i++) x.mem.failCalls.add(x.mem.calls + i); // 클릭 직후 연장 시도부터 fails 번 실패
+    const pa = A.payload(original, 'ko', 'web'); assert.ok(giftOf(pa), `${fails}`);
+    await settle();
+    // 4분 동안 A 는 숨김(refresh 없음) — 타이머만 흐른다
+    for (let s2 = 0; s2 < 240; s2++) {
+      x.w.clock += 1000;
+      for (const t of timers.splice(0)) { if (t.due <= x.w.clock) t.fn(); else timers.push(t); }
+      await settle();
+    }
+    const B = x.doc(); await B.refresh('web');
+    const pb = B.payload(original, 'ko', 'web');
+    assert.equal(giftOf(pb), null, `${fails}회 실패: B 는 A 의 몫 때문에 일반 공유`);
+    A.complete('shared', pa, 'web'); x.w.sent.push(giftOf(pa)!);
+    await settle();
+    await assertNoBrokenLinks(x, `10222333 실패 ${fails}회`);
+  }
 });
