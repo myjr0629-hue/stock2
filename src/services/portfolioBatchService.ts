@@ -246,7 +246,6 @@ async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'pric
                         // 정의 표식이 있는 예상 변동만(표식 없는 옛 값 = 벽 사이 폭은 버린다)
                         impliedMovePct: readImpliedMoveFields(analysis).impliedMovePct,
                         ivSkew: analysis.ivSkew ?? null,
-                        optionsDataAvailable: analysis.gex !== null,
                     });
                     alphaSnapshotV4 = {
                         score: alphaResult.score,
@@ -388,7 +387,7 @@ async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'pric
                     callWall: alphaCallWall, putFloor: alphaPutFloor, gammaFlipLevel: alphaGammaFlip,
                     rawChain: opts?.rawChain || [], squeezeScore: alphaSqueezeScore, relVol,
                     darkPoolPct, blockTrades: blockTradesCount, whaleIndex, netFlow: netPremium,
-                    optionsDataAvailable: !!opts, preMarketChangePct: (stockData as any).extendedChangePct ?? null,
+                    preMarketChangePct: (stockData as any).extendedChangePct ?? null,
                     ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
                     impliedMovePct: impliedMovePct ?? null,
                 });

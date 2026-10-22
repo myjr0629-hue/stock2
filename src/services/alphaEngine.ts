@@ -106,6 +106,7 @@ export interface AlphaInput {
     wasInPrevReport?: boolean;
     prevAlphaScore?: number | null;
     rsi14?: number | null;
+    /** Legacy caller hint; structure availability is derived from the actual inputs. */
     optionsDataAvailable?: boolean;
 }
 
@@ -595,11 +596,12 @@ function calculateStructure(input: AlphaInput): PillarDetail {
     const factors: PillarDetail['factors'] = [];
     let total = 0;
 
-    const optionsAvailable = input.optionsDataAvailable !== false && (
-        input.pcr !== null && input.pcr !== undefined ||
-        input.gex !== null && input.gex !== undefined ||
-        (input.rawChain && input.rawChain.length > 0)
-    );
+    // A chain/status/completeness hint must not veto independently observed metrics.
+    // Keep the existing scoring below; only the entirely missing branch is gated here.
+    const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+    const optionsAvailable = [input.pcr, input.gex, input.squeezeScore].some(finite)
+        || [input.callWall, input.putFloor, input.gammaFlipLevel, input.ivSkew].some(value => finite(value) && value > 0)
+        || (input.rawChain?.length ?? 0) > 0;
 
     if (!optionsAvailable) {
         // [V4.5] No options data → low baseline (data absence = uncertainty, not neutral)

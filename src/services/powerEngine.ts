@@ -419,7 +419,6 @@ export function computeQualityTier(
             impliedMovePct: evidence?.options?.impliedMovePct ?? null,
             sentiment: sentiment ?? null,
             wasInPrevReport,
-            optionsDataAvailable: !!optionsComplete,
             // [V5] Pre-Market data for PM Verification Layer
             preMarketPrice: evidence?.price?.pmPrice ?? null,
             preMarketChangePct: evidence?.price?.pmChangePct ?? null,

@@ -1,0 +1,186 @@
+// Offline regression: execute production caller input expressions and the real Alpha engine.
+// No environment files, provider modules, network or production writes are loaded.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const { test } = require('node:test');
+const ts = require('typescript');
+const root = path.resolve(__dirname, '..');
+const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const plain = value => JSON.parse(JSON.stringify(value));
+const modules = new Map();
+const allowed = new Set([
+    'src/services/alphaEngine.ts', 'src/services/alphaEngineV2.ts',
+    'src/lib/optionLevelGate.ts', 'src/lib/impliedMove.ts', 'src/lib/marketCalendar.ts',
+    'src/lib/gammaFlipDistance.ts', 'src/lib/metrics/observation.ts',
+]);
+function load(file) {
+    if (modules.has(file)) return modules.get(file);
+    assert.ok(allowed.has(file), `Unexpected module: ${file}`);
+    const exports = {};
+    modules.set(file, exports);
+    const code = ts.transpileModule(read(file), { compilerOptions: {
+        module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
+    } }).outputText;
+    vm.runInNewContext(code, { exports, require(id) {
+        if (file === 'src/services/alphaEngine.ts' && id === './xsScores') return { xsOverride: x => x };
+        assert.ok(id.startsWith('.'), `Unexpected import: ${id}`);
+        return load(path.posix.normalize(path.posix.join(path.posix.dirname(file), id)) + '.ts');
+    } }, { filename: file });
+    return exports;
+}
+const engine = load('src/services/alphaEngine.ts');
+const base = { ticker: 'TEST', session: 'REG', price: 100, prevClose: 100, changePct: 0 };
+const structureKeys = new Set([
+    'pcr', 'gex', 'rawChain', 'callWall', 'putFloor', 'gammaFlipLevel',
+    'squeezeScore', 'ivSkew', 'optionsDataAvailable',
+]);
+function ast(file) {
+    return ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true);
+}
+function alphaInputs(file) {
+    const tree = ast(file), result = [];
+    function visit(node) {
+        if (ts.isCallExpression(node) && node.expression.getText(tree) === 'calculateAlphaScore') {
+            const input = node.arguments[0];
+            assert.ok(ts.isObjectLiteralExpression(input));
+            const properties = input.properties.filter(p => structureKeys.has(p.name?.getText(tree)));
+            result.push(`({${properties.map(p => p.getText(tree)).join(',')}})`);
+        }
+        ts.forEachChild(node, visit);
+    }
+    visit(tree);
+    return result;
+}
+const files = {
+    detail: 'src/app/api/live/ticker/route.ts',
+    watchlist: 'src/services/watchlistBatchService.ts',
+    portfolio: 'src/services/portfolioBatchService.ts',
+    dashboard: 'src/app/api/dashboard/unified/route.ts',
+    report: 'src/services/powerEngine.ts',
+};
+const inputs = Object.fromEntries(Object.entries(files).map(([name, file]) => [name, alphaInputs(file)]));
+const routes = [
+    ['detail', 0], ['watchlist', 0], ['watchlist', 1], ['watchlist', 2],
+    ['portfolio', 0], ['portfolio', 1], ['dashboard', 0], ['report', 0],
+];
+function mappedInput(source, pcr, gex) {
+    const metrics = { pcr, gex };
+    return vm.runInNewContext(ts.transpileModule(`const input = ${source}; exports.input = input;`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2020 },
+    }).outputText, {
+        exports: {}, canonicalOptions: metrics, effectiveGex: gex, alphaRawChain: [],
+        analysis: metrics, dynamoAnalysis: metrics,
+        data: { ...metrics, netGex: gex, _rawChain: [], options_status: 'PENDING' },
+        evidence: { options: { ...metrics, rawChain: [], complete: false, status: 'PENDING' } },
+        gex, alphaPcr: pcr, alphaGex: gex, rawContracts: [], opts: null,
+        alphaLevels: {}, alphaCallWall: null, alphaPutFloor: null, alphaGammaFlip: null,
+        alphaSqueezeScore: null, squeezeScore: null, ivSkew: null,
+        computeIVSkew: engine.computeIVSkew, price: base.price,
+        structureRes: null, directCallWall: null, directPutFloor: null, optionsComplete: false,
+    }) || {};
+}
+// vm.runInNewContext returns the final assignment's value (the production input object).
+const cases = [
+    ['PCR only', 0.6, null, 6, false],
+    ['GEX only', null, -6000, 8, false],
+    ['PCR + GEX', 0.6, -6000, 9, false],
+    ['empty chain, no metrics', null, null, 8, true],
+];
+for (const [route, index] of routes) {
+    assert.ok(inputs[route][index], `${route} input ${index} exists`);
+    for (const [name, pcr, gex, score, missing] of cases) {
+        test(`${route}[${index}]: ${name} (chain length 0)`, () => {
+            const mapped = mappedInput(inputs[route][index], pcr, gex);
+            assert.equal(mapped.pcr, pcr);
+            assert.equal(mapped.gex, gex);
+            const result = engine.calculateAlphaScore({ ...base, ...mapped });
+            assert.equal(result.pillars.structure.score, score);
+            assert.equal(result.pillars.structure.factors.some(f => f.name === 'optionsData'), missing);
+            if (!missing) {
+                const expected = engine.calculateAlphaScore({ ...base, pcr, gex, rawChain: [] });
+                assert.deepEqual(plain(result.pillars.structure), plain(expected.pillars.structure));
+            }
+        });
+    }
+}
+test('all production callers delegate availability, including error fallbacks', () => {
+    for (const [route, objects] of Object.entries(inputs)) {
+        assert.ok(objects.length);
+        for (const object of objects) assert.doesNotMatch(object, /optionsDataAvailable/);
+    }
+});
+test('legacy false hint cannot veto a real metric; true cannot invent data', () => {
+    for (const flag of [false, true, undefined]) {
+        for (const [name, pcr, gex, score, missing] of cases) {
+            const result = engine.calculateAlphaScore({ ...base, pcr, gex, optionsDataAvailable: flag });
+            assert.equal(result.pillars.structure.score, score, name);
+            assert.equal(result.pillars.structure.factors.some(f => f.name === 'optionsData'), missing);
+        }
+    }
+});
+test('measured zero survives caller mapping and is available; nonfinite values are absent', () => {
+    for (const [route, index] of routes) {
+        for (const [pcr, gex] of [[0, null], [null, 0], [0, 0]]) {
+            const mapped = mappedInput(inputs[route][index], pcr, gex);
+            const result = engine.calculateAlphaScore({ ...base, ...mapped });
+            assert.equal(result.pillars.structure.factors.some(f => f.name === 'optionsData'), false);
+        }
+    }
+    for (const value of [undefined, null, NaN, Infinity, -Infinity]) {
+        const result = engine.calculateAlphaScore({ ...base, pcr: value, gex: value, rawChain: [] });
+        assert.equal(result.pillars.structure.score, 8);
+        assert.equal(result.pillars.structure.factors[0].name, 'optionsData');
+    }
+});
+test('other observed structure factors and chain alone use the existing formula', () => {
+    for (const input of [
+        { callWall: 104 }, { putFloor: 96 }, { gammaFlipLevel: 100 },
+        { squeezeScore: 0 }, { ivSkew: 1.25 }, { rawChain: [{ open_interest: 100 }] },
+    ]) {
+        const result = engine.calculateAlphaScore({ ...base, ...input, optionsDataAvailable: false });
+        assert.equal(result.pillars.structure.factors.some(f => f.name === 'optionsData'), false);
+    }
+});
+test('full-input score, factor weights and V8 total remain unchanged', () => {
+    const full = { ...base, pcr: 0.6, gex: -6000, callWall: 104, putFloor: 96,
+        gammaFlipLevel: 100, squeezeScore: 65, ivSkew: 1.25,
+        rawChain: [100, 200, 300].map(open_interest => ({ open_interest })) };
+    const result = engine.calculateAlphaScore(full);
+    assert.equal(result.pillars.structure.score, 21);
+    assert.deepEqual(plain(result.pillars.structure.factors.map(f => [f.name, f.value, f.max])), [
+        ['oiHeat', 5, 5], ['gammaSetup', 5, 5], ['wallSandwich', 5, 5],
+        ['pcrBalance', 4, 5], ['squeezePotential', 4, 5], ['ivSkew', -2, 2],
+    ]);
+    for (const flag of [true, false]) {
+        const other = engine.calculateAlphaScore({ ...full, optionsDataAvailable: flag });
+        assert.deepEqual(plain(other.pillars), plain(result.pillars));
+        assert.equal(other.score, result.score);
+    }
+    const absent = engine.calculateAlphaScore(base);
+    assert.equal(absent.score, engine.calculateAlphaScore({ ...base, pcr: 0.6, gex: -6000 }).score);
+});
+test('DynamoDB fallback producer preserves actual PCR/GEX zero', () => {
+    const file = files.watchlist, tree = ast(file);
+    let fields;
+    function visit(node) {
+        if (ts.isVariableDeclaration(node) && node.name.getText(tree) === 'dynamoAnalysis') {
+            fields = node.initializer.properties.filter(p => ['pcr', 'gex', 'gexM'].includes(p.name?.getText(tree)));
+        }
+        ts.forEachChild(node, visit);
+    }
+    visit(tree);
+    assert.equal(fields?.length, 3);
+    const source = `({${fields.map(p => p.getText(tree)).join(',')}})`;
+    for (const value of [0, null, undefined]) {
+        const result = vm.runInNewContext(source, { gd: { netGex: value, pcRatio: value } });
+        assert.deepEqual(plain(result), { gex: value ?? null, gexM: value === 0 ? 0 : null, pcr: value ?? null });
+    }
+});
+test('quick/batch callers inherit the same availability decision', () => {
+    const extras = { pcr: 0.6, gex: null, optionsDataAvailable: false };
+    const expected = engine.calculateAlphaScore({ ...base, ...extras });
+    assert.deepEqual(plain(engine.calculateAlphaScoreQuick('TEST', 100, 100, 'REG', extras).pillars.structure), plain(expected.pillars.structure));
+    assert.deepEqual(plain(engine.calculateAlphaScoreBatch([{ ...base, ...extras }])[0].pillars.structure), plain(expected.pillars.structure));
+});
