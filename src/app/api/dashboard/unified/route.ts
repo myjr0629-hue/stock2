@@ -1,4 +1,3 @@
-import { optionNumber, optionChain, optionSourceSucceeded } from '@/lib/optionObservation';
 import { selectVwap } from '@/lib/vwap';
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
@@ -380,7 +379,7 @@ async function buildResponseFromResults(
                 gammaFlipLevel: data.gammaFlipLevel,
                 atmIv: data.atmIv || null,
                 atmIvExpiry: data.atmIvExpiry || null,
-                squeezeScore: optionNumber(data, 'squeezeScore'),     // [SQUEEZE FIX] 0-100 score from structureService
+                squeezeScore: data.squeezeScore ?? null,     // [SQUEEZE FIX] 0-100 score from structureService
                 squeezeRisk: data.squeezeRisk ?? null,       // [SQUEEZE FIX] LOW/MEDIUM/HIGH/EXTREME
                 // [DASHBOARD V2] New intraday indicators
                 vwap: data.vwap ?? null,
@@ -415,15 +414,15 @@ async function buildResponseFromResults(
                     return3D: data._return3D ?? null, // [V4.1]
                     sma20: data._sma20 ?? null, // [V4.1]
                     rsi14: data._rsi14 ?? null, // [V4.1]
-                    pcr: optionNumber(data, 'pcr'),
-                    gex: optionNumber(data, 'netGex'),
-                    callWall: optionNumber(data, 'levels.callWall'),
-                    putFloor: optionNumber(data, 'levels.putFloor'),
-                    gammaFlipLevel: optionNumber(data, 'gammaFlipLevel'),
-                    rawChain: optionChain(data, '_rawChain'),
-                    squeezeScore: optionNumber(data, 'squeezeScore'),
-                    atmIv: optionNumber(data, 'atmIv'),
-                    ivSkew: optionNumber(data, '_ivSkew'), // [V4.1]
+                    pcr: data.pcr ?? null,
+                    gex: data.netGex ?? null,
+                    callWall: data.levels?.callWall ?? null,
+                    putFloor: data.levels?.putFloor ?? null,
+                    gammaFlipLevel: data.gammaFlipLevel ?? null,
+                    rawChain: data._rawChain ?? [],
+                    squeezeScore: data.squeezeScore ?? null,
+                    atmIv: data.atmIv ?? null,
+                    ivSkew: data._ivSkew ?? null, // [V4.1]
                     darkPoolPct: data.darkPoolPct ?? null,
                     shortVolPct: data.shortVolPct ?? null,
                     whaleIndex,
@@ -474,15 +473,15 @@ async function buildResponseFromResults(
                     price: data.underlyingPrice || 0,
                     // [V5.0] Full input vector for future re-calculation
                     rsi14: data.rsi ?? null,
-                    atmIv: optionNumber(data, 'atmIv'),
+                    atmIv: data.atmIv ?? null,
                     darkPoolPct: data.darkPoolPct ?? null,
                     whaleIndex: whaleIndex ?? null,
-                    squeezeScore: optionNumber(data, 'squeezeScore'),
+                    squeezeScore: data.squeezeScore ?? null,
                     relVol: data.relVol ?? null,
                     shortVolPct: data.shortVolPct ?? null,
                     callWall: data.levels?.callWall ?? data.callWall ?? null,
                     putFloor: data.levels?.putFloor ?? data.putFloor ?? null,
-                    gammaFlipLevel: optionNumber(data, 'gammaFlipLevel'),
+                    gammaFlipLevel: data.gammaFlipLevel ?? null,
                     return3D: data.return3d ?? null,
                     netPremium: data.netPremium ?? null,
                     ivSkew: typeof data.ivSkew === 'number' ? data.ivSkew : (typeof data.ivSkew === 'object' && data.ivSkew !== null ? (data.ivSkew as any).value ?? null : null),
@@ -845,7 +844,7 @@ async function buildResponseFromAnalysisCache(
                 putFloor: ac.putFloor,
             },
             expiration: ac.expiration ?? null,
-            options_status: optionSourceSucceeded(ac) ? 'OK' : 'PENDING',
+            options_status: ac.maxPain || ac.gex ? 'OK' : null,
             // [D] Technical indicators from analysis cache (used for Alpha recalc on full refresh)
             _rsi14: ac.rsi,
             _return3D: ac.return3d,

@@ -1520,7 +1520,6 @@ async function getStructureDataImpl(
             pcr,
             isGammaSqueeze: false,
             options_status,
-            optionObservations: { pcr: pcr !== null },
             partial: partialReasons.length > 0,
             partialReason: partialReasons.length ? partialReasons.join(',') : null,
             contractsFetched: allContracts.length,

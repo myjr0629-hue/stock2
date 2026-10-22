@@ -1,4 +1,3 @@
-import { optionNumber, optionChain, optionSourceSucceeded } from '@/lib/optionObservation';
 import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { commandBatchIv } from '@/lib/app/commandIv';
 import { readOptionMetrics } from '@/services/optionMetricsService';
@@ -547,25 +546,25 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                         sparkline: analysis.sparkline ?? [],
                         maxPain: analysis.maxPain ?? null,
                         maxPainDist: (analysis.maxPain && refPrice) ? Number(((analysis.maxPain - refPrice) / refPrice * 100).toFixed(2)) : null,
-                        gex: optionNumber(metrics.get(ticker), 'gex'),
+                        gex: analysis.gex ?? null,
                         gexM: analysis.gexM ?? null,
-                        pcr: optionNumber(metrics.get(ticker), 'pcr'),
+                        pcr: analysis.pcr ?? null,
                         whaleIndex: fastWhaleIndex,
                         whaleConfidence: analysis.whaleConfidence ?? 'NONE',
                         darkPoolPct: fastDarkPoolPct,
-                        squeezeScore: optionNumber(metrics.get(ticker), 'squeezeScore'),
-                        ivSkew: optionSourceSucceeded(analysis) && analysis.ivSkew != null && analysis.ivSkew <= 2.0 ? analysis.ivSkew : null,
+                        squeezeScore: analysis.squeezeScore ?? null,
+                        ivSkew: (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null,
                         // 예상 변동 = 정의 표식이 있는 값만(표식 없는 옛 값 = 벽 사이 폭 등은 버린다)
                         ...readImpliedMoveFields(analysis),
-                        gammaFlipLevel: optionNumber(analysis, 'gammaFlipLevel'),
+                        gammaFlipLevel: analysis.gammaFlipLevel ?? null,
                         iv: analysis.iv ?? null,
                         // Never date a cached IV with the quote/response/cache-write clock.
                         ivSourceDate: (analysis as any).ivSourceDate ?? null,
                         ivObservedAt: (analysis as any).ivObservedAt ?? null,
                         vwap: base.vwap ?? null,
                         vwapDist: (base.vwap && refPrice) ? Number(((refPrice - base.vwap) / base.vwap * 100).toFixed(2)) : null,
-                        callWall: optionNumber(analysis, 'callWall'),
-                        putFloor: optionNumber(analysis, 'putFloor'),
+                        callWall: analysis.callWall ?? null,
+                        putFloor: analysis.putFloor ?? null,
                         netPremium: analysis.netPremium ?? null,
                         blockTrades: fastBlockTrades,
                         blockVolume: cachedTradeData?.blockVolume ?? null,
@@ -610,14 +609,14 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     vwap: base.vwap ?? null,
                     return3D: analysis.return3d ?? null,
                     rsi14: analysis.rsi ?? null,
-                    pcr: optionNumber(metrics.get(ticker), 'pcr'),
-                    gex: optionNumber(metrics.get(ticker), 'gex'),
-                    callWall: optionNumber(analysis, 'callWall'),
-                    putFloor: optionNumber(analysis, 'putFloor'),
-                    gammaFlipLevel: optionNumber(analysis, 'gammaFlipLevel'),
-                    squeezeScore: optionNumber(metrics.get(ticker), 'squeezeScore'),
+                    pcr: analysis.pcr ?? null,
+                    gex: analysis.gex ?? null,
+                    callWall: analysis.callWall ?? null,
+                    putFloor: analysis.putFloor ?? null,
+                    gammaFlipLevel: analysis.gammaFlipLevel ?? null,
+                    squeezeScore: analysis.squeezeScore ?? null,
                     atmIv: analysis.iv ?? null,
-                    ivSkew: optionSourceSucceeded(analysis) && analysis.ivSkew != null && analysis.ivSkew <= 2.0 ? analysis.ivSkew : null,
+                    ivSkew: (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null,
                     darkPoolPct: liveDarkPoolPct,
                     shortVolPct: analysis.shortVolPct ?? null,
                     whaleIndex: analysis.whaleIndex ?? 0,
@@ -686,7 +685,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     whaleConfidence: analysis.whaleConfidence,
                     darkPoolPct: liveDarkPoolPct,
                     squeezeScore: analysis.squeezeScore,
-                    ivSkew: optionSourceSucceeded(analysis) && analysis.ivSkew != null && analysis.ivSkew <= 2.0 ? analysis.ivSkew : null,
+                    ivSkew: (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null,
                     ...readImpliedMoveFields(analysis),
                     gammaFlipLevel: analysis.gammaFlipLevel,
                     iv: analysis.iv,
@@ -788,13 +787,13 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     relVol: null,
                     expiration: gd?.expiration || null,
                     maxPain: gd?.maxPain || null,
-                    gex: optionNumber(gd, 'netGex'),
-                    gexM: optionNumber(gd, 'netGex') != null ? Math.round(optionNumber(gd, 'netGex')! / 1000000 * 10) / 10 : null,
-                    pcr: optionNumber(gd, 'pcRatio'),
-                    callWall: optionNumber(gd, 'levels.callWall'),
-                    putFloor: optionNumber(gd, 'levels.putFloor'),
-                    gammaFlipLevel: optionNumber(gd, 'gammaFlipLevel'),
-                    squeezeScore: optionNumber(dynAny.squeeze, 'riskScore'),
+                    gex: gd?.netGex ?? null,
+                    gexM: gd?.netGex != null ? Math.round(gd.netGex / 1000000 * 10) / 10 : null,
+                    pcr: gd?.pcRatio ?? null,
+                    callWall: gd?.levels?.callWall || null,
+                    putFloor: gd?.levels?.putFloor || null,
+                    gammaFlipLevel: gd?.gammaFlipLevel || null,
+                    squeezeScore: dynAny.squeeze?.riskScore ?? null,
                     iv: dynAny.volatility?.iv || null,
                     whaleIndex: calculateWhaleIndex(gd?.netGex, dynamoDarkPoolPct, dynamoBlockTrades, null),
                     whaleConfidence: (gd?.netGex != null) ? 'MED' : 'NONE',
@@ -830,12 +829,12 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                         vwap: base.vwap ?? null,
                         return3D: dynamoAnalysis.return3d ?? null,
                         rsi14: dynamoAnalysis.rsi ?? null,
-                        pcr: optionNumber(dynamoAnalysis, 'pcr'),
-                        gex: optionNumber(dynamoAnalysis, 'gex'),
-                        callWall: optionNumber(dynamoAnalysis, 'callWall'),
-                        putFloor: optionNumber(dynamoAnalysis, 'putFloor'),
-                        gammaFlipLevel: optionNumber(dynamoAnalysis, 'gammaFlipLevel'),
-                        squeezeScore: optionNumber(dynamoAnalysis, 'squeezeScore'),
+                        pcr: dynamoAnalysis.pcr ?? null,
+                        gex: dynamoAnalysis.gex ?? null,
+                        callWall: dynamoAnalysis.callWall ?? null,
+                        putFloor: dynamoAnalysis.putFloor ?? null,
+                        gammaFlipLevel: dynamoAnalysis.gammaFlipLevel ?? null,
+                        squeezeScore: dynamoAnalysis.squeezeScore ?? null,
                         atmIv: dynamoAnalysis.iv ?? null,
                         darkPoolPct: dynamoAnalysis.darkPoolPct ?? null,
                         shortVolPct: dynamoAnalysis.shortVolPct ?? null,
@@ -974,13 +973,13 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             }
 
             const opts = optionsData as any;
-            const alphaGex = optionNumber(metrics.get(ticker), 'gex');
-            const alphaPcr = optionNumber(metrics.get(ticker), 'pcr');
-            const alphaGammaFlip = optionNumber(structureRes, 'gammaFlipLevel') ?? optionNumber(opts, 'gems.gammaFlipLevel');
+            const alphaGex = metrics.get(ticker)?.gex ?? null;
+            const alphaPcr = metrics.get(ticker)?.pcr ?? null;
+            const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
 
-            const alphaSqueezeScore = optionNumber(metrics.get(ticker), 'squeezeScore');
+            const alphaSqueezeScore = metrics.get(ticker)?.squeezeScore ?? null;
 
-            const rawContracts = optionChain(opts, 'rawContracts');
+            const rawContracts = opts?.rawContracts || [];
             const currentPrice = stockData.price || 0;
             const ivSkew = computeIVSkew(rawContracts, currentPrice);
 
@@ -1075,8 +1074,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     pcr: alphaPcr,
                     gex: alphaGex,
                     rawChain: rawContracts,
-                    callWall: (directCallWall > 0 ? directCallWall : null) ?? optionNumber(structureRes, 'callWall'),
-                    putFloor: (directPutFloor > 0 ? directPutFloor : null) ?? optionNumber(structureRes, 'putFloor'),
+                    callWall: directCallWall || structureRes?.callWall || null,
+                    putFloor: directPutFloor || structureRes?.putFloor || null,
                     gammaFlipLevel: alphaGammaFlip,
                     squeezeScore: alphaSqueezeScore,
                     relVol,
@@ -1090,7 +1089,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     realYieldStance: macroData?.realYield?.stance ?? null,
                     darkPoolPct, shortVolPct, blockTrades: blockTradesCount,
                     whaleIndex, netFlow: netPremium, sma20, ivSkew, impliedMovePct,
-                    atmIv: optionNumber(structureRes, 'atmIv'), fearGreedScore,
+                    atmIv: structureRes?.atmIv ?? null, fearGreedScore,
                     // [V5.5+] MACD + VIX Term Structure
                     macdHistogram: (stockData as any).macdHistogram ?? null,
                     vix3mValue: macroData?.vix3mValue ?? null,
@@ -1213,7 +1212,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 price: currentPrice,
                 // [V5.0] Full input vector for future re-calculation
                 rsi14: stockData.rsi ?? null,
-                atmIv: optionNumber(structureRes, 'atmIv'),
+                atmIv: structureRes?.atmIv ?? null,
                 darkPoolPct: darkPoolPct ?? null,
                 whaleIndex: Math.round(whaleIndex),
                 squeezeScore: alphaSqueezeScore ?? null,

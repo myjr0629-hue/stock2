@@ -596,8 +596,7 @@ function calculateStructure(input: AlphaInput): PillarDetail {
     const factors: PillarDetail['factors'] = [];
     let total = 0;
 
-    // Callers normalize source failures with optionObservation before dropping status.
-    // A chain/completeness hint must not veto independently observed metrics.
+    // A chain/status/completeness hint must not veto independently observed metrics.
     // Keep the existing scoring below; only the entirely missing branch is gated here.
     const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
     const optionsAvailable = [input.pcr, input.gex, input.squeezeScore].some(finite)

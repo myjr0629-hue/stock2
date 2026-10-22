@@ -55,7 +55,7 @@ function load(file, extra='') {
     if(id==='next/server') return {NextResponse:{json:x=>x},after:()=>{}};
     if(id.startsWith('@/')) {
       const rel=id.slice(2);
-      if(/^(lib\/(gammaFlipDistance|optionMetrics|optionObservation|impliedMove|putCall|ai\/(ucNumbers|fieldLeak|amountGuard)|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol|seo\/flowTicker|optionLevelGate|metrics\/observation)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
+      if(/^(lib\/(gammaFlipDistance|optionMetrics|impliedMove|putCall|ai\/(ucNumbers|fieldLeak|amountGuard)|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol|seo\/flowTicker|optionLevelGate|metrics\/observation)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
       return new Proxy({}, {get:()=>()=>null});
     }
     if(id.startsWith('.')) {
@@ -148,8 +148,8 @@ async function test(name,fn){testScope++;try{await fn();passes++;console.log('PA
  });
  await test('new boundary callers and live alpha input are wired to canonical fields',async()=>{
   const source=fs.readFileSync(path.join(root,'src/app/api/live/ticker/route.ts'),'utf8');
-  assert.match(source,/const effectiveGex = optionNumber\(canonicalOptions, 'gex'\)/);
-  assert.match(source,/pcr: optionNumber\(canonicalOptions, 'pcr'\)/);
+  assert.match(source,/const effectiveGex = canonicalOptions\?\.gex \?\? null/);
+  assert.match(source,/pcr: canonicalOptions\?\.pcr \?\? null/);
   for(const file of ['src/services/portfolioBatchService.ts','src/app/api/app/options-latest/route.ts','src/app/api/live/short-squeeze/route.ts']) assert.match(fs.readFileSync(path.join(root,file),'utf8'),/readOptionMetrics/);
   const commandSource=fs.readFileSync(path.join(root,'src/app/api/command/unified/route.ts'),'utf8');
   assert.doesNotMatch(commandSource,/squeezeScore: 0, squeezeRisk: 'LOW'/);

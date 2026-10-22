@@ -1,4 +1,3 @@
-import { optionNumber, optionChain, optionSourceSucceeded } from '@/lib/optionObservation';
 import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
@@ -428,7 +427,7 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
  * 점수 작업이라 이번 범위 밖이다(구조가 빌 때만 이 라우트 체인·DynamoDB 로 채운다).
  */
 function pickAlphaLevels(structureResult: any, flowData: any, spot: number | null) {
-    const sr = optionSourceSucceeded(structureResult) ? structureResult : {};
+    const sr = structureResult || {};
     // 구조가 계산에 성공했으면(맥스페인이 타당성 게이트에 걸려 비더라도) 전부 그 한 벌에서 — 섞지 않는다.
     // 매핑은 structureService.levelsFromStructure 하나뿐이다(다른 문들도 같은 함수를 쓴다).
     // 점수 입력은 예전 규칙 그대로 — 맥스페인·콜월·풋플로어가 다 빈 구조는 «없음»으로 보고 아래 폴백으로 간다
@@ -436,7 +435,7 @@ function pickAlphaLevels(structureResult: any, flowData: any, spot: number | nul
     const srHasAny = sr.maxPain != null || sr.levels?.callWall != null || sr.levels?.putFloor != null;
     const lv = srHasAny ? levelsFromStructure(sr, spot) : null;
     if (lv) return { ...lv, levelsSource: lv.levelsSource as string | null };
-    const fd = optionSourceSucceeded(flowData) ? flowData : {};
+    const fd = flowData || {};
     const fromDynamo = !!fd._awsFallback;
     // DynamoDB 폴백은 한 레코드(GEX 이력)에서 나온 값끼리만 쓴다. 체인 폴백은 구조와 같은 정의로 다시 계산한다.
     const walls = fromDynamo ? { callWall: fd.callWall ?? null, putFloor: fd.putFloor ?? null } : bandedWalls(fd.rawChain, Number(spot));
@@ -1436,7 +1435,7 @@ export async function GET(req: NextRequest) {
                     relVol = lastVol > 0 ? lastVol / prevLastVol : null;
                 }
 
-                const effectiveGex = optionNumber(canonicalOptions, 'gex');
+                const effectiveGex = canonicalOptions?.gex ?? null;
                 const whaleIndex = calculateWhaleIndex(
                     effectiveGex,
                     metricsData?.darkPool?.percent ?? null,
@@ -1457,7 +1456,7 @@ export async function GET(req: NextRequest) {
                 const rsi14 = computeRSI14(closesForRSI);
 
                 // [V3 PIPELINE] Compute Implied Move % from rawChain ATM straddle
-                const alphaRawChain = optionChain(flowData);
+                const alphaRawChain = (flowData as any)?.rawChain ?? [];
                 const impliedMovePct = computeImpliedMovePct(alphaRawChain, activePrice || 0);
 
                 // [V3 PIPELINE] Compute IV Skew (Put IV / Call IV at ATM)
@@ -1475,14 +1474,14 @@ export async function GET(req: NextRequest) {
                     rsi14,
                     sma20: sma20Value,  // [V3 PIPELINE] SMA20 from Polygon
                     // Structure data (from structureResult + flowData)
-                    pcr: optionNumber(canonicalOptions, 'pcr'),
+                    pcr: canonicalOptions?.pcr ?? null,
                     gex: effectiveGex,
-                    callWall: optionNumber(alphaLevels, 'callWall'),
-                    putFloor: optionNumber(alphaLevels, 'putFloor'),
-                    gammaFlipLevel: optionNumber(alphaLevels, 'gammaFlipLevel'),
+                    callWall: alphaLevels.callWall,
+                    putFloor: alphaLevels.putFloor,
+                    gammaFlipLevel: alphaLevels.gammaFlipLevel,
                     rawChain: alphaRawChain,
-                    squeezeScore: optionNumber(canonicalOptions, 'squeezeScore'),
-                    atmIv: optionNumber(structureResult, 'atmIv'),
+                    squeezeScore: squeezeScore ?? null,
+                    atmIv: (structureResult as any)?.atmIv ?? null,
                     ivSkew,  // [V3 PIPELINE] IV Skew
                     // Flow data — 다크풀은 FINRA 원본(벤더 값은 stale)
                     darkPoolPct: finraDp?.pct ?? null,

@@ -270,7 +270,7 @@ test('actual IV card and derived premium line render the retained date in ko/en/
 const basis = compile(read('src/lib/app/intelOptionsBasis.ts'), {
     '@/lib/putCall': compile(read('src/lib/putCall.ts')), '@/lib/marketCalendar': calendar,
 });
-const metrics = compile(read('src/lib/optionMetrics.ts'), { './app/intelOptionsBasis': basis, './ivSkew': dates, './optionObservation': compile(read('src/lib/optionObservation.ts')) });
+const metrics = compile(read('src/lib/optionMetrics.ts'), { './app/intelOptionsBasis': basis, './ivSkew': dates });
 
 test('IBM 모형: 8/28 GEX 대신 오늘 구조 IV와 그 고유 관측일을 함께 채택한다', () => {
     const latest = { atmIv: 31, ivSourceDate: '2026-10-21', ivObservedAt: '2026-10-21T15:00:00Z' };

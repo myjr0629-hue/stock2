@@ -1,4 +1,3 @@
-import { optionNumber, optionChain } from '@/lib/optionObservation';
 // [vNext Phase 7] Terminal Enricher v2 REBUILT
 // Completeness Gate v2: NO estimation, NO N/A - only real data with backfill
 // Batch processing with retry and Redis cache
@@ -454,8 +453,8 @@ async function fetchOptionsChain(ticker: string, currentPrice?: number, force: b
                 putFloor: 0,
                 maxPain: analytics.maxPain || 0,
                 pinZone: 0,
-                pcr: optionNumber(analytics, 'putCallRatio'),
-                gex: optionNumber(analytics, 'gems.gex'),
+                pcr: analytics.putCallRatio || 0,
+                gex: analytics.gems?.gex || 0,
                 gexZeroDte: analytics.gems?.gexZeroDte || 0,
                 gexZeroDteRatio: analytics.gems?.gexZeroDteRatio || 0,
                 gammaRegime: (analytics.gems?.gex || 0) > 0 ? 'Long Gamma' : 'Short Gamma',
@@ -582,7 +581,7 @@ function createIncompleteItem(ticker: string, macro: UnifiedMacro): TerminalItem
         evidence: {
             price: { last: 0, prevClose: 0, changePct: 0, vwap: null, vwapDistPct: null, rsi14: 0, return3D: 0, structureState: 'CONSOLIDATION', complete: false },
             flow: { vol: 0, relVol: 0, gapPct: 0, largeTradesUsd: 0, offExPct: 0, offExDeltaPct: 0, complete: false },
-            options: { status: 'FAILED', coveragePct: 0, gammaRegime: 'Neutral', gex: null, pcr: null, callWall: 0, putFloor: 0, pinZone: 0, maxPain: 0, oiClusters: { callsTop: [], putsTop: [] }, complete: false },
+            options: { status: 'FAILED', coveragePct: 0, gammaRegime: 'Neutral', gex: 0, pcr: 0, callWall: 0, putFloor: 0, pinZone: 0, maxPain: 0, oiClusters: { callsTop: [], putsTop: [] }, complete: false },
             macro,
             policy: { gate: { P0: [], P1: [], P2: [], blocked: false }, gradeA_B_C_counts: { A: 0, B: 0, C: 0 } },
             stealth: { label: 'C', tags: ['dataFailed'], impact: 'NEUTRAL', complete: false },
@@ -599,20 +598,17 @@ function buildOptionsEvidence(data: CachedOptionsChain | null, spot?: number): U
     if (!data) {
         return {
             status: 'PENDING',
-            coveragePct: 0, gammaRegime: 'Neutral', gex: null, pcr: null,
+            coveragePct: 0, gammaRegime: 'Neutral', gex: 0, pcr: 0,
             callWall: 0, putFloor: 0, pinZone: 0, maxPain: 0,
             oiClusters: { callsTop: [], putsTop: [] },
             complete: false
         };
     }
-    // Normalize cached failures too; older cache entries may contain placeholder zero.
-    const gex = optionNumber(data, 'gex');
-    const pcr = optionNumber(data, 'pcr');
     // [V4.1] Calculate squeezeScore from GEX vs MaxPain distance
     let squeezeScore: number | null = null;
-    if (gex !== null && data.maxPain > 0 && data.callWall > 0) {
+    if (data.gex !== undefined && data.maxPain > 0 && data.callWall > 0) {
         // High negative GEX + price near maxPain = squeeze potential
-        const gexNorm = Math.min(5, Math.max(0, -gex / 1_000_000)); // negative GEX = squeeze
+        const gexNorm = Math.min(5, Math.max(0, -data.gex / 1_000_000)); // negative GEX = squeeze
         squeezeScore = Math.round(gexNorm * 20); // 0-100 scale
     }
 
@@ -625,7 +621,7 @@ function buildOptionsEvidence(data: CachedOptionsChain | null, spot?: number): U
 
     // [V4.1] Calculate ATM Implied Volatility from rawChain greeks
     let atmIv: number | null = null;
-    const rawChain = optionChain(data);
+    const rawChain = (data as any).rawChain || [];
     if (rawChain.length > 0 && data.maxPain > 0) {
         const atmPrice = data.maxPain; // Use maxPain as ATM reference
         const tolerance = atmPrice * 0.05; // ±5% of ATM
@@ -672,10 +668,10 @@ function buildOptionsEvidence(data: CachedOptionsChain | null, spot?: number): U
         status: data.status,
         coveragePct: data.coveragePct,
         gammaRegime: data.gammaRegime,
-        gex,
+        gex: data.gex,
         gexZeroDte: data.gexZeroDte || 0,
         gexZeroDteRatio: data.gexZeroDteRatio || 0,
-        pcr,
+        pcr: data.pcr,
         callWall: data.callWall,
         putFloor: data.putFloor,
         pinZone: data.pinZone,
@@ -721,7 +717,7 @@ function calculateStealthLabel(price: UnifiedPrice, flow: UnifiedFlow, options: 
     const blockTrades = forensicData?.details?.blockCount ?? undefined;
 
     // 1. GAMMA SQUEEZE DETECTION
-    if (options.gex !== null && options.gex > 10000000 && options.callWall > 0) {
+    if (options.gex > 10000000 && options.callWall > 0) {
         const priceToWallRatio = (price.last || 0) / options.callWall;
         if (priceToWallRatio >= 0.95) {
             tags.push('GammaSqueeze');

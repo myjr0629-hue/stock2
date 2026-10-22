@@ -61,7 +61,6 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
     const metrics = { pcr: flow.oiPcr, gex: flow.gex, squeezeScore: flow.squeezeScore };
     const levels = new Map([[snapshot.ticker, flow]]);
     const mocks = {
-        '@/lib/optionObservation': load(read('src/lib/optionObservation.ts'), {}),
         '@/lib/app/intelOptionsBasis': optionsBasis,
         'next/server': { after: () => {} },
         '@/services/optionMetricsService': { readOptionMetrics: async () => new Map([[snapshot.ticker, metrics]]) },
@@ -266,13 +265,7 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
             const normalize = source => source.replace(/&chain=full/g, '').replace(/^        chain: 'full',\n/gm, '')
                 // Alpha now decides availability from observed metrics, including partial/PENDING data.
                 .replace(/^\s+optionsDataAvailable: data\.options_status === 'OK',\n/gm, '');
-            if (file === 'src/app/api/dashboard/unified/route.ts') {
-                // Dashboard now normalizes option inputs. This payload test guards
-                // the ticker request expression/order; source availability has its own regression.
-                const request = source => nodes(source).filter(ts.isTemplateExpression)
-                    .filter(n => n.getText().includes('/api/live/ticker?')).map(n => normalize(n.getText()));
-                assert.deepEqual(request(read(file)), request(old), file);
-            } else assert.equal(normalize(read(file)), normalize(old), file);
+            assert.equal(normalize(read(file)), normalize(old), file);
         }
     });
     await test('chain diagnostic scripts only add chain=full to their requests (scripts are not executed)', async () => {
