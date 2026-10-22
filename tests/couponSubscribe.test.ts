@@ -1,5 +1,5 @@
 /**
- * «쿠폰 → 구독 → PRO» 흐름(2026-10-06) — 안드로이드 «🎟 쿠폰 코드 입력»이 Play 코드 사용 화면 대신 앱 안 구독 결제 창으로 가는지,
+ * «쿠폰 등록 → 사용자 확인 → 구독 → PRO» 흐름 — 코드 미확인 구매 차단·조건부 무료 안내,
  *   [계속] 뒤 순서(계측·구매·PRO 알림·다시 읽기·취소·실패) · 복귀 때 밖-구매 동기화(10분 1회·PRO 면 안 함·결제 창 중엔 안 함) ·
  *   안내 문구(한·영·일 «구독» 단계·가격은 스토어 문자열·무료 일수는 Play 프로모션 기간에만) · 쿠폰 화면 안드로이드판 «② 구독» 단계.
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/couponSubscribe.test.ts
@@ -31,6 +31,7 @@ import { foregroundProSync, shouldForegroundSync, FOREGROUND_SYNC_MIN_GAP_MS } f
 import { PLAY_PROMO_END } from '../src/lib/marketing/coupon';
 import { couponHtml } from '../src/lib/marketing/couponHtml';
 import { FUNNEL_STAGES } from '../src/lib/app/funnelSchema';
+import { COUPON_SAFETY } from '../src/lib/marketing/couponSafety';
 
 const ROOT = path.join(__dirname, '..');
 const src = (p: string) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -42,20 +43,23 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
 (async () => {
   const BEFORE = Date.parse('2026-10-06T00:00:00Z');
   console.log('━━━ 1. 안내 문구(한·영·일) ━━━');
-  await t('세 언어 모두 3단계 · 마지막 단계 = «구독»(구글 결제 창 버튼) · 둘째 단계 = 결제 수단 → 코드 사용', () => {
+  await t('세 언어 모두 Play 코드 등록 → 계속(결제 창) → 무료 표시 확인 후 구독 순서', () => {
     const ko = couponGuideCopy('ko', BEFORE), en = couponGuideCopy('en', BEFORE), ja = couponGuideCopy('ja', BEFORE);
     assert.equal(ko.steps.length, 3); assert.equal(en.steps.length, 3); assert.equal(ja.steps.length, 3);
     assert.ok(ko.steps[2].includes('«구독»') && en.steps[2].includes('“Subscribe”') && ja.steps[2].includes('「定期購入」'));
-    assert.ok(ko.steps[1].includes('결제 수단') && ko.steps[1].includes('«코드 사용»'));
-    assert.ok(en.steps[1].includes('payment method') && en.steps[1].includes('“Redeem code”'));
-    assert.ok(ja.steps[1].includes('お支払い方法') && ja.steps[1].includes('「コードを利用」'));
-    assert.ok(ko.steps[0].includes('[계속]') && ko.cta === '계속' && en.cta === 'Continue' && ja.cta === '続ける');
+    assert.ok(ko.steps[0].includes('Play 스토어') && ko.steps[0].includes('코드 사용'));
+    assert.ok(en.steps[0].includes('Play Store') && en.steps[0].includes('Redeem code'));
+    assert.ok(ja.steps[0].includes('Playストア') && ja.steps[0].includes('コードを利用'));
+    assert.ok(ko.steps[1].includes('[계속]') && ko.cta === '계속' && en.cta === 'Continue' && ja.cta === '続ける');
     // 요점(대표 10/6): «구독»까지 해야 PRO
     assert.ok(ko.lede.includes('«구독»까지 눌러야 PRO가 켜집니다') && en.lede.includes('PRO starts only after you tap “Subscribe”') && ja.lede.includes('「定期購入」まで押すとPROが有効になります'));
   });
-  await t('무료·가격·해지 고지: 첫 30일 0원 · 이후 월 «스토어 가격» 자동 갱신 · 30일 안에 해지하면 0원 · 해지 위치', () => {
+  await t('무료 요약은 적용 완료가 아닌 조건부 안내 · 가격·해지 고지는 보존', () => {
     const ko = couponGuideCopy('ko', BEFORE), en = couponGuideCopy('en', BEFORE), ja = couponGuideCopy('ja', BEFORE);
-    assert.equal(ko.freeHead, '첫 30일 0원'); assert.equal(en.freeHead, 'First 30 days free'); assert.equal(ja.freeHead, '最初の30日間0円');
+    for (const c of [ko, en, ja]) assert.equal(c.freeHead, c.steps[2]);
+    assert.equal(ko.warning, '30일 무료가 표시되지 않으면 구독하지 마세요');
+    assert.equal(en.warning, 'Do not subscribe unless 30 days free is shown');
+    assert.equal(ja.warning, '30日間無料と表示されない場合は定期購入しないでください');
     assert.equal(ko.after('₩11,900'), '이후 월 ₩11,900 자동 갱신');
     assert.equal(en.after('$9.99'), 'then $9.99/mo, auto-renews');
     assert.equal(ja.after('¥1,280'), '以降は月額¥1,280で自動更新');
@@ -107,12 +111,20 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   const flow = (buy: () => Promise<{ ok: boolean; isPro: boolean; cancelled?: boolean; error?: string }>, recheck = async () => false) => {
     const log: string[] = [];
     return { log, deps: {
+      codeAppliedConfirmed: true,
       purchase: async () => { log.push('purchase'); return buy(); },
       recheck: async () => { log.push('recheck'); return recheck(); },
       notifyPro: () => { log.push('notify'); },
       track: (st: string) => { log.push(st); },
     } };
   };
+  await t('코드 적용 미확인·필드 누락이면 구매·계측·권한 알림 모두 0', async () => {
+    for (const value of [false, undefined, null, 'true']) {
+      const f = flow(async () => ({ ok: true, isPro: true }));
+      assert.equal(await runCouponPurchase({ ...f.deps, codeAppliedConfirmed: value } as any), 'unconfirmed');
+      assert.deepEqual(f.log, []);
+    }
+  });
   await t('구매 → PRO: code_cta → 구매 → 공용 상태 알림 → code_pro', async () => {
     const f = flow(async () => ({ ok: true, isPro: true }));
     assert.equal(await runCouponPurchase(f.deps as any), 'pro');
@@ -210,6 +222,19 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   console.log('━━━ 5. 쿠폰 화면 안드로이드판 — «② 구독» 단계 ━━━');
   const REDEEM = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=THREADSPRO';
   const PLAYI = 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dthreads';
+  await t('웹 ko/en/ja: 등록 → 무료 미표시 경고 → 구독 순서(일반·인앱·선물)', () => {
+    for (const lang of ['ko', 'en', 'ja'] as const) {
+      for (const variant of [{}, { androidInApp: true }, { gift: 'offline-test' }]) {
+        const h = couponHtml({ platform: 'android', lang, fromTag: null, code: 'ZZTEST', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI, ...variant });
+        const x = textOf(h);
+        assert.ok(x.includes(COUPON_SAFETY[lang]));
+        assert.ok(h.indexOf('id="coupon-warning"') < h.indexOf('id="step2"'));
+        if (!('gift' in variant)) assert.ok(h.indexOf('id="play"') < h.indexOf('id="coupon-warning"'));
+      }
+      const ios = couponHtml({ platform: 'ios', lang, fromTag: null, code: 'ZZTEST', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI });
+      assert.ok(!ios.includes(COUPON_SAFETY[lang]), 'iOS 경로에 안드 경고를 추가하지 않는다');
+    }
+  });
   await t('ko: ① Play 스토어에서 적용 → ② «구독»(30일 안에 해지하면 0원) → 구독 화면이 안 나오면 앱 안 경로 → 손입력(그다음 ②) 순서', () => {
     const h = couponHtml({ platform: 'android', lang: 'ko', fromTag: 'threads', code: 'THREADSPRO', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI });
     const x = textOf(h);

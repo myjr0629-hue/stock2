@@ -4,6 +4,7 @@ import { audienceLine, ANDROID_POOL_SIZE } from './coupon';
 import { APPLE_CODE_LIMIT, promoCodeLimit } from './promoLimit';
 import { IN_APP_TEXT, inAppHintHtml, playIntentUrl, playRedeemIntentUrl } from './androidInApp';
 import { IOS_STAY_CHECK_MS } from './iosInApp';
+import { COUPON_SAFETY } from './couponSafety';
 
 /**
  * 스마트링크 «쿠폰 화면» — /app?from=<채널>&code=<우리 애플 맞춤 코드> 를 «폰»으로 열었을 때 (2026-10-05, 대표 «쿠폰 받는 느낌»).
@@ -294,7 +295,8 @@ ${iosIa
   const ph = 'SGCODEPH';
   const iaT = IN_APP_TEXT[lang];
   // 선물은 POST 직후 스토어로 이동하므로 기존 구독 안내를 등록 전에 읽을 수 있어야 한다.
-  const step2 = `<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>
+  const step2 = `<p class="step2" id="coupon-warning">${phrases(lang, COUPON_SAFETY[lang])}</p>
+<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>
 <p class="help">${phrases(lang, t.andStep2Help)}</p>`;
   const html = `${head}
 <div id="pre">

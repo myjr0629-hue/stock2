@@ -12,15 +12,15 @@
 //     the Google Play Store, but not redeemed in the app will stay active until the promotion ends.» · «The code will then be applied when
 //     the user selects the subscription or In-App product they want to purchase.»
 //   · 해지: 구글 도움말(support.google.com/googleplay/answer/2476088) «To avoid charges, cancel the subscription before the trial period expires.»
-//   그래서 안드로이드의 «쿠폰 코드 입력»은 Play 코드 사용 화면 대신 «앱 안 구독 결제 창»으로 간다:
-//     안내 시트(이 파일의 문구) → [계속] → 기존 구매 경로(useProStatus().purchase → services/revenueCat.purchasePro, RevenueCat 월간 패키지)
-//     → 구글 결제 창에서 결제 수단 → «코드 사용» → 번호 → «구독»(Play 에서 이미 적용한 코드는 자동 적용) → PRO.
+//   2026-10-22: Play 일회용 코드 등록을 먼저 연다 → 사용자가 적용을 확인 → [계속] → 기존 월간 구매 경로.
+//   등록 화면 열기/복귀·프로모션 날짜는 적용 증거가 아니다. 결제 창에 무료 기간이 없으면 구독하지 않는다.
 // 그리는 곳: components/app/CouponGuideHost(앱 레이아웃 app-view/layout.tsx 에 하나) → 열릴 때만 CouponGuideSheet 를 불러온다.
 // 아이폰은 바뀌지 않는다 — RevenueCat presentCodeRedemptionSheet(애플 창의 «사용» = 구독 시작, lib/app/redeem.ts).
 // ============================================================================
 
 import { useSyncExternalStore } from 'react';
 import { PLAY_PROMO_END } from '@/lib/marketing/coupon';
+import { COUPON_SAFETY } from '@/lib/marketing/couponSafety';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
 export type CgLocale = 'ko' | 'en' | 'ja';
@@ -42,7 +42,10 @@ export interface CouponGuideCopy {
   steps: [string, string, string];
   /** Play 스토어에서 이미 «적용»해 둔 코드 — 결제 창에서 자동 적용(RevenueCat·구글 도움말) */
   saved: string;
-  /** 큰 줄 — «첫 30일 0원» */
+  /** 기존 웹 안내의 ① 등록 단추. 구매와 별도 동작. */
+  redeemCta: string;
+  warning: string;
+  /** 큰 줄 — 적용을 단정하지 않고 결제 창의 무료 표시를 조건으로 삼는다. */
   freeHead: string;
   /** 작은 줄 — «이후 월 ₩11,900 자동 갱신»(가격은 스토어 문자열) */
   after: (price: string) => string;
@@ -70,12 +73,14 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       title: '🎟 쿠폰 코드로 PRO 시작',
       lede: d ? `쿠폰은 구독 첫 ${d}일 무료입니다. «구독»까지 눌러야 PRO가 켜집니다.` : '쿠폰은 구독 무료 기간을 줍니다. «구독»까지 눌러야 PRO가 켜집니다.',
       steps: [
+        'Play 스토어 → 결제 및 정기 결제 → 코드 사용',
         '[계속]을 누르면 구글 결제 창이 열립니다',
-        '결제 수단을 눌러 «코드 사용» → 쿠폰 번호 입력',
         d ? `${d}일 무료가 보이면 «구독»` : '무료 기간이 보이면 «구독»',
       ],
-      saved: 'Play 스토어에서 이미 적용한 쿠폰은 2번 없이 결제 창에 바로 보입니다',
-      freeHead: d ? `첫 ${d}일 0원` : '무료 기간 0원',
+      saved: 'Play 스토어에서 이미 적용한 쿠폰은 결제 창에 바로 보입니다',
+      redeemCta: '① Play 스토어에서 적용',
+      warning: COUPON_SAFETY.ko,
+      freeHead: d ? `${d}일 무료가 보이면 «구독»` : '무료 기간이 보이면 «구독»',
       after: (p) => `이후 월 ${p} 자동 갱신`,
       fine: d ? `구글 결제 수단이 필요합니다 · ${d}일 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서` : '구글 결제 수단이 필요합니다 · 무료 기간 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서',
       cta: '계속',
@@ -94,12 +99,14 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       title: '🎟 クーポンコードでPROを始める',
       lede: d ? `クーポンは定期購入の最初の${d}日間が無料です。「定期購入」まで押すとPROが有効になります。` : 'クーポンで定期購入の無料期間が付きます。「定期購入」まで押すとPROが有効になります。',
       steps: [
+        'Playストア → お支払いと定期購入 → コードを利用',
         '「続ける」でGoogle Playの購入画面が開きます',
-        'お支払い方法をタップ →「コードを利用」→ クーポンコードを入力',
         d ? `${d}日間無料と表示されたら「定期購入」` : '無料期間が表示されたら「定期購入」',
       ],
-      saved: 'Playストアで適用済みのクーポンは、2なしで購入画面に表示されます',
-      freeHead: d ? `最初の${d}日間0円` : '無料期間は0円',
+      saved: 'Playストアで適用済みのクーポンは、購入画面に表示されます',
+      redeemCta: '① Playストアで適用',
+      warning: COUPON_SAFETY.ja,
+      freeHead: d ? `${d}日間無料と表示されたら「定期購入」` : '無料期間が表示されたら「定期購入」',
       after: (p) => `以降は月額${p}で自動更新`,
       fine: d ? `Googleのお支払い方法が必要です・${d}日以内に解約すれば0円・解約はPlayストア → お支払いと定期購入から` : 'Googleのお支払い方法が必要です・無料期間内に解約すれば0円・解約はPlayストア → お支払いと定期購入から',
       cta: '続ける',
@@ -117,12 +124,14 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
     title: '🎟 Start PRO with your code',
     lede: d ? `Your code gives you the first ${d} days of the subscription free. PRO starts only after you tap “Subscribe”.` : 'Your code gives you a free trial on the subscription. PRO starts only after you tap “Subscribe”.',
     steps: [
+      'Play Store → Payments & subscriptions → Redeem code',
       'Tap Continue to open Google Play checkout',
-      'Tap the payment method → “Redeem code” → enter your code',
       d ? `When ${d} days free shows, tap “Subscribe”` : 'When the free trial shows, tap “Subscribe”',
     ],
-    saved: 'Already applied your code in the Play Store? It shows at checkout without step 2.',
-    freeHead: d ? `First ${d} days free` : 'Free during the trial',
+    saved: 'Already applied your code in the Play Store? It shows at checkout.',
+    redeemCta: '① Apply in Play Store',
+    warning: COUPON_SAFETY.en,
+    freeHead: d ? `When ${d} days free shows, tap “Subscribe”` : 'When the free trial shows, tap “Subscribe”',
     after: (p) => `then ${p}/mo, auto-renews`,
     fine: d ? `A Google payment method is required · Cancel within ${d} days and pay nothing · Cancel in Play Store → Payments & subscriptions` : 'A Google payment method is required · Cancel during the trial and pay nothing · Cancel in Play Store → Payments & subscriptions',
     cta: 'Continue',
@@ -190,7 +199,7 @@ function pageLocale(): CgLocale {
 }
 
 // ── [계속] 뒤의 순서(순수 — 시험은 단계를 주입한다) ─────────────────────────────
-export type CouponBuyResult = 'pro' | 'pending' | 'cancelled' | 'error';
+export type CouponBuyResult = 'pro' | 'pending' | 'cancelled' | 'error' | 'unconfirmed';
 export type BuyOutcome = { ok: boolean; isPro: boolean; cancelled?: boolean; error?: string };
 
 /**
@@ -198,11 +207,14 @@ export type BuyOutcome = { ok: boolean; isPro: boolean; cancelled?: boolean; err
  * ④ 결제는 됐는데 권한이 아직이면(noent) 다시 읽기(lib/app/redeem.ts refreshProAfterRedeem('sheet') — 3초·8초) ⑤ 취소는 조용히 · 실패는 실패.
  */
 export async function runCouponPurchase(deps: {
+  /** 사용자 확인일 뿐 SDK의 무료 적용 검증이 아니다. 결제 창에서 무료 표시를 별도로 확인해야 한다. */
+  codeAppliedConfirmed: boolean;
   purchase: () => Promise<BuyOutcome>;
   recheck: () => Promise<boolean>;
   notifyPro: () => void;
   track: (stage: 'code_cta' | 'code_pro') => void;
 }): Promise<CouponBuyResult> {
+  if (deps.codeAppliedConfirmed !== true) return 'unconfirmed';
   deps.track('code_cta');
   let r: BuyOutcome;
   try { r = await deps.purchase(); } catch { return 'error'; }
