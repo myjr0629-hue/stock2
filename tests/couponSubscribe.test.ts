@@ -59,7 +59,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     for (const c of [ko, en, ja]) assert.equal(c.freeHead, c.steps[2]);
     assert.equal(ko.warning, '결제 창에 ₩0 · 30일 무료가 보일 때만 승인하세요. 금액(월 11,900원)이 바로 청구되는 화면이면 취소하세요.');
     assert.equal(en.warning, 'Approve only when checkout shows ₩0 · 30 days free. Cancel if the screen shows an immediate charge (₩11,900/month).');
-    assert.equal(ja.warning, '購入画面に₩0・30日間無料と表示された場合のみ承認してください。月額11,900ウォンがすぐに請求される画面ならキャンセルしてください。');
+    assert.equal(ja.warning, '購入画面に₩0・30日間無料と表示された場合のみ、承認してください。月11,900ウォンが、すぐに請求される画面なら、キャンセルしてください。');
     assert.equal(ko.after('₩11,900'), '이후 월 ₩11,900 자동 갱신');
     assert.equal(en.after('$9.99'), 'then $9.99/mo, auto-renews');
     assert.equal(ja.after('¥1,280'), '以降は月額¥1,280で自動更新');
