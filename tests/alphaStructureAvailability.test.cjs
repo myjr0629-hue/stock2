@@ -66,6 +66,23 @@ const files = {
     report: 'src/services/powerEngine.ts',
 };
 const inputs = Object.fromEntries(Object.entries(files).map(([name, file]) => [name, alphaInputs(file)]));
+// The report input reads local declarations; execute them from the real source, not a substitute.
+function declarations(file, names) {
+    const tree = ast(file), found = new Map();
+    function visit(node) {
+        // Same-named locals exist elsewhere in the file; take the ones in the Alpha V3 block (after optionsComplete).
+        if (ts.isVariableDeclaration(node) && names.includes(node.name.getText(tree)) && !found.has(node.name.getText(tree))
+            && (found.has(names[0]) || node.name.getText(tree) === names[0])) {
+            found.set(node.name.getText(tree), node.getText(tree));
+        }
+        ts.forEachChild(node, visit);
+    }
+    visit(tree);
+    assert.deepEqual([...found.keys()].sort(), [...names].sort(), `${file} declarations`);
+    return names.map(name => found.get(name));
+}
+const reportDeclarations = declarations(files.report, ['optionsComplete', 'alphaOptions', 'gex']);
+inputs.report = inputs.report.map(source => `(() => { const ${reportDeclarations.join(',')}; return ${source}; })()`);
 const routes = [
     ['detail', 0], ['watchlist', 0], ['watchlist', 1], ['watchlist', 2],
     ['portfolio', 0], ['portfolio', 1], ['dashboard', 0], ['report', 0],
@@ -78,7 +95,7 @@ function mappedInput(source, pcr, gex, context = {}) {
         exports: {}, canonicalOptions: metrics, effectiveGex: gex, alphaRawChain: [],
         analysis: metrics, dynamoAnalysis: metrics,
         data: { ...metrics, netGex: gex, _rawChain: [], options_status: 'PENDING' },
-        evidence: { options: { ...metrics, rawChain: [], complete: false, status: 'PENDING' } },
+        evidence: { options: { ...metrics, rawChain: [], complete: true, status: 'OK' } },
         gex, alphaPcr: pcr, alphaGex: gex, rawContracts: [], opts: null,
         alphaLevels: {}, alphaCallWall: null, alphaPutFloor: null, alphaGammaFlip: null,
         alphaSqueezeScore: null, squeezeScore: null, ivSkew: null,
@@ -167,7 +184,7 @@ test('full-input score, factor weights and V8 total remain unchanged', () => {
     const absent = engine.calculateAlphaScore(base);
     assert.equal(absent.score, engine.calculateAlphaScore({ ...base, pcr: 0.6, gex: -6000 }).score);
 });
-test('DynamoDB fallback producer preserves actual PCR/GEX zero', () => {
+test('DynamoDB fallback producer keeps the original zero-as-missing mapping (placeholder 0 is not an observation)', () => {
     const file = files.watchlist, tree = ast(file);
     let fields;
     function visit(node) {
@@ -181,8 +198,10 @@ test('DynamoDB fallback producer preserves actual PCR/GEX zero', () => {
     const source = `({${fields.map(p => p.getText(tree)).join(',')}})`;
     for (const value of [0, null, undefined]) {
         const result = vm.runInNewContext(source, { gd: { netGex: value, pcRatio: value } });
-        assert.deepEqual(plain(result), { gex: value ?? null, gexM: value === 0 ? 0 : null, pcr: value ?? null });
+        assert.deepEqual(plain(result), { gex: null, gexM: null, pcr: null });
     }
+    const real = vm.runInNewContext(source, { gd: { netGex: -6000000, pcRatio: 0.6 } });
+    assert.deepEqual(plain(real), { gex: -6000000, gexM: -6, pcr: 0.6 });
 });
 test('quick/batch callers inherit the same availability decision', () => {
     const extras = { pcr: 0.6, gex: null, optionsDataAvailable: false };
@@ -324,4 +343,125 @@ test('missing underlying price: status downgrade retains PCR but never invents s
     assert.equal(response.pcr, 0.6);
     assert.equal(response.squeezeScore, null);
     assert.equal(writes.length, 0);
+});
+
+// ── r4: report source-failure placeholders, gate-3 regressions (portfolio order, detail DynamoDB fallback) ──
+function literalAt(file, pick) {
+    const tree = ast(file);
+    let text;
+    function visit(node) { if (!text) { text = pick(node, tree); ts.forEachChild(node, visit); } }
+    visit(tree);
+    assert.ok(text, `${file} literal`);
+    return vm.runInNewContext(`(${text})`, {});
+}
+// Actual producer literals: buildOptionsEvidence(null) and createIncompleteItem().evidence.options.
+const enricher = 'src/services/terminalEnricher.ts';
+const pendingPlaceholder = literalAt(enricher, (node, tree) => ts.isFunctionDeclaration(node) && node.name?.getText(tree) === 'buildOptionsEvidence'
+    ? node.body.statements.find(ts.isIfStatement).thenStatement.statements.find(ts.isReturnStatement).expression.getText(tree) : undefined);
+const failedPlaceholder = literalAt(enricher, (node, tree) => ts.isPropertyAssignment(node) && node.name.getText(tree) === 'options'
+    && ts.isObjectLiteralExpression(node.initializer) && /^\{\s*status: 'FAILED'/.test(node.initializer.getText(tree)) ? node.initializer.getText(tree) : undefined);
+const reportInput = options => mappedInput(inputs.report[0], null, null, { evidence: { options } });
+test('report: producer placeholders (PENDING no-data, FAILED item) are not observations → baseline 8, V8 total unchanged', () => {
+    assert.equal(pendingPlaceholder.status, 'PENDING');
+    assert.equal(pendingPlaceholder.pcr, 0);
+    assert.equal(failedPlaceholder.status, 'FAILED');
+    assert.equal(failedPlaceholder.gex, 0);
+    // fetchOptionsChain after a non-OK getOptionsData (pcr/gex null → `|| 0`), and NO_OPTIONS (complete but no listed options)
+    const pendingWithData = { status: 'PENDING', pcr: 0, gex: 0, callWall: 0, putFloor: 0, maxPain: 0, rawChain: [], squeezeScore: null, complete: false };
+    const noOptions = { status: 'NO_OPTIONS', pcr: 0, gex: 0, callWall: 0, putFloor: 0, maxPain: 0, rawChain: [], squeezeScore: null, complete: true };
+    const expected = engine.calculateAlphaScore(base);
+    for (const options of [pendingPlaceholder, failedPlaceholder, pendingWithData, noOptions, undefined]) {
+        const mapped = reportInput(options);
+        assert.equal(mapped.pcr, null);
+        assert.equal(mapped.gex, null);
+        const result = engine.calculateAlphaScore({ ...base, ...mapped });
+        assert.equal(result.pillars.structure.score, 8);
+        assert.equal(result.pillars.structure.factors[0].name, 'optionsData');
+        assert.equal(result.score, expected.score);
+    }
+});
+test('report: successful evidence keeps PCR-only / GEX-only / both partial scoring identical to direct input', () => {
+    for (const [pcr, gex] of [[0.6, null], [null, -6000], [0.6, -6000]]) {
+        const mapped = reportInput({ status: 'OK', complete: true, pcr, gex, callWall: 0, putFloor: 0, rawChain: [] });
+        const result = engine.calculateAlphaScore({ ...base, ...mapped });
+        const expected = engine.calculateAlphaScore({ ...base, pcr, gex });
+        assert.deepEqual(plain(result.pillars.structure), plain(expected.pillars.structure));
+        assert.ok(result.pillars.structure.factors.every(f => f.name !== 'optionsData'));
+    }
+});
+
+const tickerFile = files.detail;
+const tickerFns = ['bandedWalls', 'pickAlphaLevels'].map(name => {
+    const tree = ast(tickerFile);
+    let text;
+    (function visit(node) { if (ts.isFunctionDeclaration(node) && node.name?.getText(tree) === name) text = node.getText(tree); ts.forEachChild(node, visit); })(tree);
+    assert.ok(text, name);
+    return text;
+}).join('\n');
+function detailLevels(structureResult, flowData, spot = 100) {
+    const exports = {};
+    vm.runInNewContext(ts.transpileModule(`${tickerFns}\nexports.pick = pickAlphaLevels;`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2020 },
+    }).outputText, { exports, levelsFromStructure: load('src/lib/optionLevelGate.ts').levelsFromStructure });
+    return exports.pick(structureResult, flowData, spot);
+}
+const detailFailStructure = { squeezeScore: null, squeezeRisk: null, atmIv: null, netGex: null, pcr: null, gammaFlipLevel: null, callWall: null, putFloor: null };
+const detailFailFlow = { dataSource: 'NONE', rawChain: [], error: 'boom' };
+function detailInput(structureResult, flowData, canonical = { pcr: null, gex: null, squeezeScore: null }) {
+    return mappedInput(inputs.detail[0], null, null, {
+        canonicalOptions: canonical, effectiveGex: canonical.gex ?? null, squeezeScore: canonical.squeezeScore ?? null,
+        alphaLevels: detailLevels(structureResult, flowData), alphaRawChain: flowData.rawChain ?? [], ivSkew: null,
+    });
+}
+test('detail: structure+flow FINAL FAIL defaults and empty chain → baseline 8', async () => {
+    for (const structure of [detailFailStructure, (await structureResponse()).response]) {
+        const mapped = detailInput(structure, detailFailFlow);
+        const result = engine.calculateAlphaScore({ ...base, ...mapped });
+        assert.equal(result.pillars.structure.score, 8);
+        assert.equal(result.pillars.structure.factors[0].name, 'optionsData');
+    }
+});
+test('detail: PENDING structure + failed chain + DynamoDB fallback keeps walls/flip (gate-3 regression)', async () => {
+    const { response } = await structureResponse();   // PENDING, all levels null
+    for (const structureBase of [response, detailFailStructure]) {
+        // The route's AWS fallback mutates structure/flow in place (live/ticker «AWS 저장소 폴백»).
+        const sr = JSON.parse(JSON.stringify(structureBase));
+        sr.gammaFlipLevel = 100;
+        sr.levels = { ...(sr.levels || {}), callWall: 104, putFloor: 96 };
+        const fr = { ...detailFailFlow, maxPain: 100, callWall: 104, putFloor: 96, dataSource: 'dynamodb-gex', _awsFallback: true };
+        const levels = detailLevels(sr, fr);
+        assert.equal(levels.callWall, 104);
+        assert.equal(levels.putFloor, 96);
+        assert.equal(levels.gammaFlipLevel, 100);
+        const mapped = detailInput(sr, fr);
+        const result = engine.calculateAlphaScore({ ...base, ...mapped });
+        const expected = engine.calculateAlphaScore({ ...base, callWall: 104, putFloor: 96, gammaFlipLevel: 100 });
+        assert.deepEqual(plain(result.pillars.structure), plain(expected.pillars.structure));
+        assert.ok(result.pillars.structure.factors.every(f => f.name !== 'optionsData'));
+    }
+});
+test('detail: canonical PCR-only / GEX-only / both with empty chain → partial score (no chain veto)', () => {
+    for (const [pcr, gex] of [[0.6, null], [null, -6000], [0.6, -6000]]) {
+        const mapped = detailInput(detailFailStructure, detailFailFlow, { pcr, gex, squeezeScore: null });
+        const result = engine.calculateAlphaScore({ ...base, ...mapped });
+        assert.deepEqual(plain(result.pillars.structure), plain(engine.calculateAlphaScore({ ...base, pcr, gex }).pillars.structure));
+    }
+});
+test('watchlist full: failed structure + null metrics → baseline 8', async () => {
+    const { response } = await structureResponse();
+    const mapped = mappedInput(inputs.watchlist[2], null, null, {
+        alphaPcr: null, alphaGex: null, rawContracts: [], directCallWall: 0, directPutFloor: 0,
+        structureRes: response, alphaGammaFlip: response.gammaFlipLevel ?? null, alphaSqueezeScore: null, ivSkew: null,
+    });
+    const result = engine.calculateAlphaScore({ ...base, ...mapped });
+    assert.equal(result.pillars.structure.score, 8);
+});
+test('portfolio: option metrics are read after the core computes (gate-3 regression: fresh GEX/squeeze kept)', () => {
+    const tree = ast(files.portfolio);
+    let body;
+    (function visit(node) { if (ts.isFunctionDeclaration(node) && node.name?.getText(tree) === 'processPortfolioBatch') body = node.body.getText(tree); ts.forEachChild(node, visit); })(tree);
+    assert.ok(body);
+    const core = body.indexOf('processPortfolioBatchCore('), metrics = body.indexOf('readOptionMetrics(');
+    assert.ok(core >= 0 && metrics > core, 'readOptionMetrics must follow processPortfolioBatchCore');
+    assert.match(body, /processPortfolioBatchCore\(tickers, mode\)/);
 });
