@@ -382,6 +382,13 @@ async function callIntrinio(
 const num = (v: any): number | null =>
     v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v);
 
+// 그릭스·IV에만 적용한다. 빈 문자열·비유한 수를 관측된 0으로 바꾸지 않는다.
+const greekNumber = (v: unknown): number | null => {
+    if (typeof v !== 'number' && (typeof v !== 'string' || !v.trim())) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+};
+
 /** ISO 문자열 → epoch ms. Massive lastTrade.t 는 ns 이지만 소비처가 ms 로 다루므로 ms 로 통일. */
 const toMs = (iso: any): number => {
     if (!iso) return 0;
@@ -1492,16 +1499,16 @@ export async function getOptionChainSnapshotIntrinio(
                     strike_price: num(o.strike) ?? 0,
                 },
                 greeks: {
-                    delta: num(rt?.delta) ?? num(p.delta) ?? 0,
+                    delta: greekNumber(rt?.delta) ?? greekNumber(p.delta),
                     // 없으면 0 이 아니라 null — 0 으로 채우면 «감마 커버리지»에 들어가 gexConfidence 가 거짓 HIGH 가 된다
-                    gamma: num(rt?.gamma) ?? num(p.gamma) ?? null,
-                    theta: num(rt?.theta) ?? num(p.theta) ?? 0,
-                    vega: num(rt?.vega) ?? num(p.vega) ?? 0,
+                    gamma: greekNumber(rt?.gamma) ?? greekNumber(p.gamma),
+                    theta: greekNumber(rt?.theta) ?? greekNumber(p.theta),
+                    vega: greekNumber(rt?.vega) ?? greekNumber(p.vega),
                 },
-                implied_volatility: num(rt?.implied_volatility) ?? num(p.implied_volatility) ?? 0,
+                implied_volatility: greekNumber(rt?.implied_volatility) ?? greekNumber(p.implied_volatility),
                 // IV의 출처를 따로 싣는다. 실시간 감마가 있어도 IV가 EOD이면 EOD 날짜다.
-                ivSourceDate: num(rt?.implied_volatility) !== null ? null : p.date ?? null,
-                ivObservedAt: num(rt?.implied_volatility) !== null ? rt?.ivObservedAt ?? null : null,
+                ivSourceDate: greekNumber(rt?.implied_volatility) !== null ? null : p.date ?? null,
+                ivObservedAt: greekNumber(rt?.implied_volatility) !== null ? rt?.ivObservedAt ?? null : null,
                 // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
                 //   없으면 null — 0 으로 채우면 구조 서비스의 «OI 누락» 검사(20% 넘으면 PENDING)가 영영 발동하지 않는다.
                 //   소비처는 전부 `|| 0`·`Number(x) || 0` 로 읽는다(2026-09-27 전수 확인) — 합계는 예전과 같다.
@@ -1543,10 +1550,9 @@ export async function getOptionChainSnapshotIntrinio(
                 },
                 _intrinio: {
                     code: o.code, date: p.date,
-                    // Preserve nullable EOD observations before the compatibility fields
-                    // above add zero/defaults or overlay undated realtime greeks.
+                    // 실시간 덮어쓰기 전 EOD 관측을 결측 그대로 보존한다.
                     eod: {
-                        iv: num(p.implied_volatility), gamma: num(p.gamma),
+                        iv: greekNumber(p.implied_volatility), gamma: greekNumber(p.gamma),
                         oi: num(p.open_interest), close: num(p.close), mark: num(p.mark),
                     },
                 },

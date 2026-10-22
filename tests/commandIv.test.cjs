@@ -458,6 +458,7 @@ function declaration(file, name) {
     let found;
     function visit(n) {
         if (ts.isFunctionDeclaration(n) && n.name?.text === name) found = n.getText(ast);
+        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name) found = `const ${n.getText(ast)};`;
         ts.forEachChild(n, visit);
     }
     visit(ast); assert.ok(found, name); return found;
@@ -488,7 +489,7 @@ async function adaptedChain(lambda, rtRows, eodDate = '2026-10-20', { revisitAt,
         fetchChainPagesIntrinio: async () => ({ rows, pages: 1, keys: ['chain'] }),
         cachedChain: async () => ({ chain: rows }), followChainPages: async (_s, _e, ch) => ch,
         chainDateOf: () => eodDate, console: { warn() {} } };
-    const producer = compile(`${declaration(file, 'callIntrinio')}\n${declaration(file, realtimeName)}\n${declaration(file, chainName)}; exports.run = ${chainName};`, {}, globals).run;
+    const producer = compile(`${declaration(file, 'greekNumber')}\n${declaration(file, 'callIntrinio')}\n${declaration(file, realtimeName)}\n${declaration(file, chainName)}; exports.run = ${chainName};`, {}, globals).run;
     let result = await producer('IBM', { expiration: '2026-10-23', underlyingPrice: 100 });
     if (revisitAt) {
         now = Date.parse(revisitAt);

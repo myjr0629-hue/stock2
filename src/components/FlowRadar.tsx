@@ -420,7 +420,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         let putPressure = 0;
 
         filteredChain.forEach(opt => {
-            const delta = opt.greeks?.delta || 0;
+            const delta = opt.greeks?.delta;
+            if (typeof delta !== 'number' || !Number.isFinite(delta)) return;
             const oi = opt.open_interest || opt.day?.open_interest || 0;
             const type = opt.details?.contract_type;
 
@@ -763,7 +764,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         let putDex = 0;
 
         filteredChain.forEach(opt => {
-            const delta = opt.greeks?.delta || 0;
+            const delta = opt.greeks?.delta;
+            if (typeof delta !== 'number' || !Number.isFinite(delta)) return;
             const oi = opt.open_interest || opt.day?.open_interest || 0;
             const type = opt.details?.contract_type;
 

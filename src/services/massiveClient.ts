@@ -548,10 +548,10 @@ export interface OptionSnapshot {
         ticker: string;
     };
     greeks: {
-        delta: number;
-        gamma: number;
-        theta: number;
-        vega: number;
+        delta: number | null;
+        gamma: number | null;
+        theta: number | null;
+        vega: number | null;
     };
     underlying_asset: {
         change_to_breakeven: number;
@@ -561,7 +561,7 @@ export interface OptionSnapshot {
         timeframe: 'REALTIME' | 'DELAYED';
     };
     break_even_price: number;
-    implied_volatility: number;
+    implied_volatility: number | null;
     open_interest: number;
     day: {
         change: number;
