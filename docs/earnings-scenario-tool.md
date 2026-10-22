@@ -10,11 +10,11 @@
 
 - 기존 `intrinioClient.ts`는 원본 theta·vega 결측을 호환 필드에서 0으로 채운다. `_intrinio.eod`도 IV·gamma만 보존한다. 수집기 슬림 체인 역시 theta·vega를 보존하지 않는 경로가 있다. 따라서 슬림 필드의 0으로 원본 완전성을 증명할 수 없다.
 - 새 도구는 공급사 원본 `option`·`prices`를 검사한다. delta·gamma·theta·vega 중 결측·문자열·비유한 값이 있으면 해당 계약을 계산하지 않는다. 실제 숫자 0은 보존한다. 양쪽 마감 호가와 IV도 필수다.
-- 캐시 읽기 1차: `market:earnings-calendar:v4`, `intrinio:eod:snapshot`, `earnings:implied:v1`, 공급사 만기 목록 공유 캐시. 회사 확인 일정은 기존 `CONFIRMED_EARNINGS`를 우선한다. 당일 발표는 제외한다.
+- 일정은 웹 `/earnings-week`와 같은 `CONFIRMED_EARNINGS`만 쓴다. 당일·과거·미확정 종목은 후보에서 제외하고 공급사 추정일로 대체하지 않는다. 캐시 읽기 1차: `intrinio:eod:snapshot`, `earnings:implied:v1`, 확정 후보의 공급사 만기 목록 공유 캐시. 추정 일정 캐시는 읽지 않는다.
 - 첫 만기는 부분 체인에 남은 날짜로 추정하지 않고 공급사의 실제 전체 만기 목록에서 고른다. 장전은 발표 당일 만기를 허용하고 장후·시각 미정은 발표일 다음 만기부터다. ATM은 같은 세션 현물 종가와 가장 가까운 행사가(동률이면 낮은 행사가)이며 5% 이내다. 자료가 빈 ATM을 다른 행사가나 먼 만기로 바꾸지 않는다. 원본 페이지가 잘렸으면 계산하지 않는다.
 - 2차 MGET: `intrinio:resp:v1:options/chain/<종목>/<만기>/eod::{}` 및 같은 현물 세션 날짜를 지정한 키. 옵션 최신판이 주식 EOD보다 먼저 갱신되면 현물 종가 세션을 `date`로 지정한 원본을 읽어 혼합 세션을 피한다. 기존 원본 공유 캐시 수명은 60초라 캐시만 의존하면 지속 사용을 보장할 수 없다. 결측이면 인증된 Intrinio GET만 호출한다. 기존 어댑터는 조회 후 Redis에 쓰므로 호출하지 않는다.
 - 공급사 읽기 상한은 한 스냅샷 최대 24회(12종목 × 만기/체인), 동시 3회, 개별 최대 4초·전체 공급사 예산 8초, 재시도 0이다. 401·403·429 뒤 새 공급사 조회를 중단한다. 인증 URL·오류 원문은 출력하지 않는다. 이 상한은 서버 인스턴스별이며 전역 호출 상한을 뜻하지 않는다.
-- 후보는 AAPL·MSFT·AMZN·META·NVDA·GOOGL·TSLA·AMD·AVGO·NFLX·INTC·JPM이다. 양쪽 계약과 기본 IV 가정이 완전한 5종목 우선이며, 부족하면 미완전한 후보로 5칸을 유지해 자료 부족을 표시한다. 사용자 입력을 운영 조회 키에 넣지 않는다.
+- 후보는 AAPL·MSFT·AMZN·META·NVDA·GOOGL·TSLA·AMD·AVGO·NFLX·INTC·JPM 중 회사 공지로 미래 발표가 확정된 종목이다. 양쪽 계약과 기본 IV 가정이 완전한 종목 우선으로 최대 5개를 표시하며, 확정 후보의 원본 자료 결측은 자료 부족으로 유지한다. 확정 후보가 5개 미만이면 미확정 종목으로 채우지 않는다. 사용자 입력을 운영 조회 키에 넣지 않는다.
 - EOD 현물과 원본 체인은 같은 세션이어야 하고 7일 이내다. 예상 변동 묶음도 같은 발표·만기·세션의 EOD 값만 받는다. 묶음이 없으면 원본 ATM 콜·풋 중간 호가 합/현물이라는 기존 운영 예상 변동 정의를 적용한다. 원본 가격 결측을 보간하는 경로는 없다.
 - 새 스냅샷에만 Next 5분 캐시·같은 인스턴스 동시 미스 병합을 사용한다. 운영 Redis·DB·외부 API 쓰기와 AI 호출은 없다.
 
@@ -41,7 +41,7 @@ Black-Scholes 유럽형 전체 재평가, 배당 0·연복리 금리 4% 고정 �
 
 ## 돌린 시험과 결과
 
-최종 검증 결과:
+최초 구현 검증 결과(아래 관문 수리 전 기록):
 
 - 전용 시험 `node --test tests/earningsScenario.test.cjs`: **17/17 통과**.
 - 전체 타입 검사 `/usr/bin/lockf -k /tmp/signum-heavy.lock node --max-old-space-size=3072 node_modules/typescript/bin/tsc --noEmit --incremental false`: **1회 실행·진단 0·종료 코드 0**. 다른 워크트리 잠금 해제를 기다린 뒤 최종 제품 코드를 검사했다.
@@ -64,4 +64,25 @@ Black-Scholes 유럽형 전체 재평가, 배당 0·연복리 금리 4% 고정 �
 - 조기행사·배당·매수매도 호가 차이·수수료·실제 체결·금리 변화·실적 점프의 비정규성은 모델에 반영하지 않는다. 운영 가격과 모델값 차이를 별도 표시한다.
 - `.env*` 조회·비밀값 기록·push·main 병합·배포·운영 데이터 쓰기 없음. 커밋은 지정 브랜치에서만 수행한다.
 
-커밋 상태: `git add`가 지정 브랜치의 `/Users/eunhoon/.gemini/antigravity/scratch/stock2/.git/worktrees/feat-option-scenario-tool/index.lock` 생성에서 `Operation not permitted`로 실패했다. 스테이징·커밋은 미완료이며 권한 우회는 하지 않았다. 현재 변경 전체의 인계 패치는 `/private/tmp/signum-earnings-scenario-20261022.patch`다.
+## 관문 보류 수리 (2026-10-22)
+
+관문 원문 `gate-feat_option-scenario-tool-10221847.md`를 끝까지 확인했다.
+
+- 계약 선택 원인: 가격 세션 필터가 행사가 목록을 먼저 줄여 현물 100의 ATM 100 대신 현재 세션의 102.5를 선택했다. 만기별 계약 목록에서 ATM을 먼저 고정한 뒤 해당 행사가의 세션·호가·그릭스를 검사한다. ATM이 낡거나 비었으면 자료 부족으로 남긴다. 첫 만기를 뒤로 미루지 않는다.
+- 실적일 선택 원인: 회사 확정 일정이 당일·과거이면 공급사 캐시의 미래 추정일로 되돌아갔다. `eventFor`에서 추정 일정 입력을 제거하고 서비스는 확정된 미래 발표만 조회·표시한다. 웹 실적 주간 페이지의 확정 원천은 수정하지 않았다.
+- 표시 원인: 가정 결과에 관측 현물·IV 라벨을 재사용했다. 결과에 가정 주가·가정 IV를 별도 표시하고 기존 관측값을 유지한다. 기본 IV 변화와 기본 경과일을 숫자로 표시한다. 세 언어에 같은 구분을 적용했다.
+- 기존 잘못된 선택 결과가 남지 않도록 도구 전용 5분 캐시 판본을 v2로 변경했다.
+
+공유 함수 호출자 전수 검색 결과: 변경한 `eventFor`와 `buildRow`의 제품 호출자는 `loadScenarioSnapshot` 한 곳이다. 이 서비스의 색인·후보별 만기·체인 대응을 수정했으며 전용 서비스 시험으로 검사했다. `scenarioSnapshot`의 제품 호출자는 시나리오 페이지 한 곳이다. 문구 묶음은 시나리오 페이지·클라이언트·OG가 읽으며 SSR·메타·PNG 시험을 통과했다. 기존 사이트맵 공유 함수와 호출자 두 곳은 이번 수리에서 수정하지 않았다.
+
+수리 검증: 관문 재현 3건을 추가한 전용 시험 20/20 통과. 관측 100·IV 60%에서 주가 +10%·IV −20%p를 주면 관측값 100·60%, 가정값 110·40%가 서로 다른 라벨로 표시됨을 합성 렌더로 확인했다. 브라우저·운영 자료·회사 공지 원문 재접속은 수행하지 않았다.
+
+- `/usr/bin/lockf -k /tmp/signum-heavy.lock node --test tests/earningsScenario.test.cjs`: 20/20 통과. OG 3언어 PNG·기존 페이지 보존 포함.
+- `/usr/bin/lockf -k /tmp/signum-heavy.lock ./node_modules/.bin/tsc --noEmit --incremental false`: 전체 검사 1회, 진단 0·종료 코드 0.
+- `/usr/bin/lockf -k /tmp/signum-heavy.lock node scripts/run-offline-tests.cjs readCheckSeo.test.cjs seoSitemapRobots.test.ts earningsWeek.test.ts earningsConfirmed.test.ts`: 4/4 파일 통과. 환경 파일·운영망 접근을 차단한 실행이다.
+- 최종 문구와 종목별 발표일·첫 만기 대응 검사 보강 후 `--test-name-pattern='관문 재현|서비스: 실제|3언어 실제 SSR'` 선택 검사 5/5 통과. 같은 전체 tsc·시험 묶음을 반복 실행하지 않았다.
+- 변경 파일 6개 비밀값 검사와 `git diff --check` 통과. 새 수리 파일은 이 문서·시나리오 클라이언트·문구·스냅샷·서비스·전용 시험이다.
+
+관문 수리의 남은 위험: 실제 운영 자료 충실도·375px 브라우저 화면은 미확인이다. 확정 목록에 미래 발표가 없으면 후보는 비거나 5개 미만일 수 있다. 이번 작업은 `feat/option-scenario-tool` 로컬 브랜치 커밋만 수행하며 push·병합·배포·운영 쓰기는 수행하지 않는다.
+
+커밋 결과: 지정 브랜치에서 `git add`를 실행했으나 `/Users/eunhoon/.gemini/antigravity/scratch/stock2/.git/worktrees/feat-option-scenario-tool/index.lock` 생성이 `Operation not permitted`로 거부되었다. 스테이징·커밋은 미완료다. 권한 우회는 시도하지 않았다. 수리 기준 커밋은 `58550e815`이며 인계 패치는 `/private/tmp/signum-option-scenario-gate-20261022.patch`다. 현재 작업공간에는 변경 6개 파일이 그대로 있으므로 운영 세션에서 이 작업공간을 커밋할 수 있다.

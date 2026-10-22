@@ -1,6 +1,7 @@
 import { closeAt, DAY_MS, defaultIvChange, finite, isDay, positive, usableContract, type Contract, type ScenarioRow } from './model';
+import type { ConfirmedEarnings } from '../earningsConfirmed';
 
-/** 옵션 유동성 높은 대형주 후보. 완전한 5개 우선, 결측도 총 5칸을 유지한다. */
+/** 옵션 유동성 높은 대형주 후보. 회사 공지로 확정된 종목 중 완전한 자료 우선, 최대 5개를 표시한다. */
 export const SCENARIO_TICKERS = ['AAPL', 'MSFT', 'AMZN', 'META', 'NVDA', 'GOOGL', 'TSLA', 'AMD', 'AVGO', 'NFLX', 'INTC', 'JPM'] as const;
 type Obj = Record<string, any>;
 export const decode = (v: unknown): Obj | null => {
@@ -13,11 +14,10 @@ export const rawExpirationsKey = (t: string, after: string) => `intrinio:resp:v1
 export const recent = (date: unknown, now: number): date is string => isDay(date)
   && now >= closeAt(date) && now - closeAt(date) <= 7 * DAY_MS;
 
-export function eventFor(ticker: string, calendar: Obj | null, confirmed: readonly Obj[], today: string): Obj | null {
-  const known = confirmed.filter(r => r.ticker === ticker && isDay(r.date) && r.date > today).sort((a, b) => a.date.localeCompare(b.date))[0];
-  if (known) return known;
-  return (Array.isArray(calendar?.rows) ? calendar.rows : []).filter((r: Obj) => r.ticker === ticker && isDay(r.date) && r.date > today)
-    .sort((a: Obj, b: Obj) => a.date.localeCompare(b.date))[0] ?? null;
+/** /earnings-week 와 같은 회사 공지 목록만 쓴다. 당일·과거·미확정은 공급사 추정으로 대체하지 않는다. */
+export function eventFor(ticker: string, confirmed: readonly ConfirmedEarnings[], today: string): ConfirmedEarnings | null {
+  return confirmed.filter(r => r.ticker === ticker && isDay(r.date) && r.date > today)
+    .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null;
 }
 
 /** 공급사의 실제 만기 목록만 사용한다. 일부 만기만 남은 슬림 체인에서 첫 만기를 추정하지 않는다. */
@@ -39,14 +39,14 @@ export function buildRow(ticker: string, event: Obj | null, expiry: string | nul
   row.spot = spot; row.session = eod.date;
   row.years = (closeAt(expiry) - closeAt(eod.date)) / DAY_MS / 365;
   if (!positive(row.years) || !raw || raw.next_page || !Array.isArray(raw.chain)) return row;
-  const rows = raw.chain.filter((r: Obj) => r?.option?.expiration === expiry && r?.prices?.date === eod.date);
-  // 실제 최근접 행사가를 먼저 고른다. 그릭스/가격이 빈 ATM을 다른 행사가로 가리지 않는다.
+  const rows = raw.chain.filter((r: Obj) => r?.option?.expiration === expiry);
+  // 세션·호가·그릭스 검사 전에 계약 목록에서 ATM을 고정한다. 낡은 ATM을 현재 세션의 다른 행사가로 바꾸지 않는다.
   const strikes = [...new Set<number>(rows.map((r: Obj) => r.option?.strike).filter(positive))]
     .sort((a, b) => Math.abs(a - spot) - Math.abs(b - spot) || a - b);
   const strike = strikes[0];
   if (!positive(strike) || Math.abs(strike / spot - 1) > 0.05) return row;
   for (const side of ['call', 'put'] as const) {
-    const r = rows.find((r: Obj) => r.option?.strike === strike && r.option?.type?.toLowerCase() === side);
+    const r = rows.find((r: Obj) => r.option?.strike === strike && r.option?.type?.toLowerCase() === side && r.prices?.date === eod.date);
     const p = r?.prices, o = r?.option;
     if (!p || !o || typeof o.code !== 'string' || o.code.length > 80) continue;
     // 실제 양쪽 마감 호가. mark·close만으로 체결 가능한 가격을 지어내지 않는다.

@@ -2,7 +2,7 @@ export type ScenarioLocale = 'ko' | 'en' | 'ja';
 type Copy = { title: string; description: string; languages: string; ticker: string; call: string; put: string;
   stock: string; iv: string; days: string; missing: string; incomplete: string; readAt: string; session: string;
   earnings: string; expiry: string; strike: string; spot: string; premium: string; currentIv: string; move: string;
-  default: string; reset: string; result: string; theory: string; pnl: string; base: string; direction: string;
+  default: string; defaultDays: string; assumedSpot: string; assumedIv: string; reset: string; result: string; theory: string; pnl: string; base: string; direction: string;
   volatility: string; time: string; total: string; basis: string; disclaimer: string; method: string; methods: string[]; app: string };
 export const SCENARIO_COPY: Record<ScenarioLocale, Copy> = {
   ko: {
@@ -14,6 +14,7 @@ export const SCENARIO_COPY: Record<ScenarioLocale, Copy> = {
     readAt: '자료 조회 시각', session: '관측 세션 (ET 종가)', earnings: '실적 예정일 (ET)', expiry: '실적 후 첫 관측 만기',
     strike: '행사가', spot: '현물 종가', premium: '시작 가격 · 양쪽 마감 호가 중간값 / 주', currentIv: '관측 IV (연율)',
     move: '운영 예상 변동', default: '기본 IV 변화 가정', reset: '기본 가정으로', result: '가정에 따른 계산',
+    defaultDays: '기본 경과일 가정 (달력 일)', assumedSpot: '가정 주가', assumedIv: '가정 IV (연율)',
     theory: '새 이론가 / 주', pnl: '운영 시작 가격 대비 손익 / 1계약', base: '시작 BS 이론가 / 주',
     direction: '방향 효과', volatility: '변동성 효과', time: '시간 효과', total: '이론가 총 변화 / 1계약',
     basis: '시작 BS − 운영 시작 가격 / 1계약',
@@ -24,7 +25,7 @@ export const SCENARIO_COPY: Record<ScenarioLocale, Copy> = {
       '방향 → IV → 시간 순서로 한 요인씩 바꿉니다. 상호작용은 뒤에 바꾼 요인에 포함되므로 순서에 따라 분해가 달라집니다. 세 효과의 합은 이론가 총 변화입니다. 여기에 시작 BS와 운영 시작 가격의 차이를 더하면 표시 손익입니다.',
       'IV 하락 기본값은 같은 세션·만기의 운영 예상 변동 m과 평균 IV σ, 잔존연수 T로 100 × (√(σ² − min(0.95σ², (m/100)²/T)) − σ)를 사용합니다. 운영 예상 변동 묶음이 없으면 같은 세션의 ATM 콜·풋 호가 합/현물로 m을 계산합니다. 분산 제거라는 교육용 가정이며 실적 뒤 IV 예측이 아닙니다. 각 다리의 IV 하한은 1%입니다.',
       '관측 세션 종가부터 시간을 셉니다. 기본 경과일은 장전 발표 당일 종가, 장후·시각 미정은 다음 달력 일 종가까지입니다. 실적 직후의 정확한 체결 시각을 뜻하지 않습니다. 만기에서 잔존시간은 0, 이론가는 내재가치입니다.',
-      '기존 적재본을 우선 읽고 원본 체인은 필요하면 Intrinio에 읽기 전용 조회합니다. 자료는 5분 캐시, 종가 세션은 7일 이내·현물/옵션/예상 변동이 같은 날인 경우만 씁니다. 당일 실적은 제외하고 관측된 첫 실적 후 만기·최근접 공통 행사가를 고릅니다. 자료가 빈 ATM을 다른 행사가나 먼 만기로 바꾸지 않습니다.',
+      '기존 적재본을 우선 읽고 원본 체인은 필요하면 Intrinio에 읽기 전용 조회합니다. 자료는 5분 캐시, 종가 세션은 7일 이내·현물/옵션/예상 변동이 같은 날인 경우만 씁니다. 웹 /earnings-week와 같은 회사 공지 확정 목록만 쓰며 미확정·당일 실적은 제외합니다. 관측된 첫 실적 후 만기·최근접 행사가를 고른 뒤 같은 세션의 양쪽 자료를 검사합니다. 자료가 빈 ATM을 다른 행사가나 먼 만기로 바꾸지 않습니다.',
       '표시 금액은 소수 둘째 자리로 반올림해 합계에 1센트 차이가 날 수 있습니다. 계산은 반올림 전 값입니다. 투자 권유·수익 예측·개별 투자 자문이 아닌 금융 교육용 도구입니다. 로그인·결제·AI 호출은 없습니다.',
     ],
   },
@@ -37,6 +38,7 @@ export const SCENARIO_COPY: Record<ScenarioLocale, Copy> = {
     readAt: 'Data read at', session: 'Observation session (ET close)', earnings: 'Scheduled earnings (ET)', expiry: 'First observed post-earnings expiry',
     strike: 'Strike', spot: 'Stock close', premium: 'Starting price · closing bid/ask midpoint per share', currentIv: 'Observed IV (annualized)',
     move: 'Operating implied move', default: 'Default IV-change assumption', reset: 'Reset assumptions', result: 'Calculation under assumptions',
+    defaultDays: 'Default elapsed calendar days', assumedSpot: 'Assumed stock price', assumedIv: 'Assumed IV (annualized)',
     theory: 'New theoretical price / share', pnl: 'P/L vs. operating starting price / contract', base: 'Starting BS price / share',
     direction: 'Direction effect', volatility: 'Volatility effect', time: 'Time effect', total: 'Total theoretical change / contract',
     basis: 'Starting BS − operating starting price / contract',
@@ -47,7 +49,7 @@ export const SCENARIO_COPY: Record<ScenarioLocale, Copy> = {
       'Change direction → IV → time sequentially. Interactions belong to the later factor, so attribution depends on order. The three effects sum to the theoretical change. Adding the starting BS/operating-price difference gives displayed P/L.',
       'The default IV change uses the same-session, same-expiry operating implied move m, average IV σ and years T: 100 × (√(σ² − min(0.95σ², (m/100)²/T)) − σ). If the operating move bundle is missing, m is the same-session ATM call-plus-put midpoint divided by stock price. This variance-removal assumption is educational, not a forecast of post-earnings IV. Each leg has a 1% IV floor.',
       'Time starts at the observation close. Default elapsed time ends at the earnings-day close for premarket reports, or the next calendar-day close for after-hours/unknown timing. It is not an exact post-release execution time. At expiry, time is zero and value is intrinsic.',
-      'Reads existing stored data first and, when needed, queries original Intrinio chains read-only. Five-minute cache; close observations within seven days; stock, options and implied move must share a session. Excludes same-day earnings and selects the first observed post-earnings expiry and nearest common strike. Missing ATM data never causes a switch to a different strike or later expiry.',
+      'Reads existing stored data first and, when needed, queries original Intrinio chains read-only. Five-minute cache; close observations within seven days; stock, options and implied move must share a session. Uses the same company-confirmed list as /earnings-week; unconfirmed and same-day reports are excluded. Selects the first observed post-earnings expiry and nearest strike before checking both legs for the observation session. Missing ATM data never causes a switch to a different strike or later expiry.',
       'Displayed amounts round to cents, so sums may differ by one cent. Calculations use unrounded values. Financial education only; no solicitation, return forecast or personalized investment advice. No login, payment or AI calls.',
     ],
   },
@@ -60,6 +62,7 @@ export const SCENARIO_COPY: Record<ScenarioLocale, Copy> = {
     readAt: '資料取得時刻', session: '観測セッション（ET終値）', earnings: '決算予定日（ET）', expiry: '決算後最初の観測満期',
     strike: '行使価格', spot: '株価終値', premium: '開始価格・終値の買気配と売気配の中間値 / 株', currentIv: '観測IV（年率）',
     move: '運用資料の予想変動幅', default: '既定のIV変化仮定', reset: '仮定をリセット', result: '仮定に基づく計算',
+    defaultDays: '既定の経過日数仮定（暦日）', assumedSpot: '仮定株価', assumedIv: '仮定IV（年率）',
     theory: '新しい理論価格 / 株', pnl: '運用開始価格比の損益 / 1契約', base: '開始時BS理論価格 / 株',
     direction: '方向の効果', volatility: '変動率の効果', time: '時間の効果', total: '理論価格の総変化 / 1契約',
     basis: '開始BS − 運用開始価格 / 1契約', disclaimer: '仮定に基づく理論値 — 実際の約定損益ではありません',
@@ -70,7 +73,7 @@ export const SCENARIO_COPY: Record<ScenarioLocale, Copy> = {
       '方向→IV→時間の順に1要因ずつ変えます。相互作用は後の要因に含まれ、順序で内訳は変わります。3効果の合計が理論価格の総変化です。開始BSと運用開始価格の差を足すと表示損益になります。',
       'IVの既定変化は同一セッション・満期の予想変動m、平均IV σ、残存年数Tから100 × (√(σ² − min(0.95σ², (m/100)²/T)) − σ)で計算します。予想変動の保存値がなければ同日ATMコール・プット気配中間値の合計/株価をmとします。分散除去の教育用仮定であり、決算後IVの予測ではありません。各契約のIV下限は1%です。',
       '観測終値から時間を数えます。既定日数は寄り前発表なら決算当日の終値まで、引け後・時刻不明なら翌暦日の終値までです。発表直後の正確な約定時刻ではありません。満期では残存時間は0、理論値は本源的価値です。',
-      '既存の保存資料を優先し、必要ならIntrinioの原チェーンを読み取り専用で取得します。5分キャッシュ、7日以内の終値を使用。株価・オプション・予想変動は同日が条件です。当日決算を除き、観測された最初の決算後満期と最も近い共通行使価格を選びます。欠損ATMを別の行使価格・遠い満期に変更しません。',
+      '既存の保存資料を優先し、必要ならIntrinioの原チェーンを読み取り専用で取得します。5分キャッシュ、7日以内の終値を使用。株価・オプション・予想変動は同日が条件です。ウェブ /earnings-weekと同じ会社公表済み一覧のみを使い、未確定・当日の決算は除外します。観測された最初の決算後満期と最も近い行使価格を選び、同一セッションの両脚を確認します。欠損ATMを別の行使価格・遠い満期に変更しません。',
       '表示金額は小数第2位に丸めるため合計に1セント差が出る場合があります。計算は丸め前の値です。金融教育用で、投資勧誘・収益予測・個別助言ではありません。ログイン・支払い・AI呼び出しは不要です。',
     ],
   },

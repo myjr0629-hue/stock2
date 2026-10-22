@@ -30,6 +30,10 @@ const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 const model = require('../src/lib/earningsScenario/model');
 const snap = require('../src/lib/earningsScenario/snapshot');
+const { CONFIRMED_EARNINGS } = require('../src/lib/earningsConfirmed');
+const eligibleEvents = CONFIRMED_EARNINGS.filter(e => snap.SCENARIO_TICKERS.includes(e.ticker) && e.date > '2026-10-21');
+const expiryFor = e => e.date < '2026-10-30' ? '2026-10-30' : '2026-11-06';
+const chainFor = expiry => { const raw = chain(); raw.chain.forEach(r => r.option.expiration = expiry); return raw; };
 const { SCENARIO_COPY } = require('../src/lib/earningsScenario/copy');
 const { blackScholes: bs, scenario, closeAt } = model;
 const event = { ticker: 'AAPL', date: '2026-10-29', hour: 'amc' };
@@ -60,7 +64,8 @@ let mockEnv = {};
 const vendorFetch = async (input, init) => {
   vendorCalls.push({ path: new URL(input).pathname, method: init.method, date: new URL(input).searchParams.get('date') });
   assert.equal(init.method, 'GET'); assert.equal(init.cache, 'no-store');
-  return Response.json(new URL(input).pathname.includes('/expirations/') ? { expirations: ['2026-10-30', '2026-11-06'] } : chain(), { status: vendorStatus });
+  return Response.json(new URL(input).pathname.includes('/expirations/') ? { expirations: ['2026-10-30', '2026-11-06'] }
+    : chainFor(new URL(input).pathname.split('/')[4]), { status: vendorStatus });
 };
 const serviceExports = {};
 vm.runInNewContext(compile(fs.readFileSync(path.join(root, serviceFile), 'utf8'), serviceFile), {
@@ -80,6 +85,7 @@ function fillCaches() {
     values.set(snap.rawExpirationsKey(t, '2026-10-21'), { expirations: ['2026-10-30', '2026-11-06'] });
     values.set(snap.rawChainKey(t, '2026-10-30'), JSON.stringify(chain()));
   }
+  for (const e of eligibleEvents) values.set(snap.rawChainKey(e.ticker, expiryFor(e)), JSON.stringify(chainFor(expiryFor(e))));
 }
 
 test('BS 교과서 기준값·풋콜 패리티·만기·무변동·잘못된 입력', () => {
@@ -139,6 +145,46 @@ test('관측일 일치·7일·IV 기본 분산식·예상 변동 묶음 없으�
   assert.equal(model.defaultIvChange(0.6, null, row.years), null);
   assert.ok(model.defaultIvChange(0.6, 99, row.years) > -60);
 });
+test('관문 재현: ATM 양쪽이 이전 세션이어도 현재 세션의 102.5로 바꾸지 않음', () => {
+  for (const date of ['2026-10-20', null, undefined]) {
+    const raw = { chain: [contract('call', 100, { date }), contract('put', 100, { date }),
+      contract('call', 102.5), contract('put', 102.5)] };
+    const row = makeRow(raw);
+    assert.equal(row.call, null); assert.equal(row.put, null);
+    assert.equal(snap.completeRow(row), false); assert.equal(row.defaultIvPp, null);
+  }
+});
+test('관문 재현: 확정 당일·과거·미확정 종목을 공급사 추정일로 되살리지 않음', async () => {
+  const tsla = CONFIRMED_EARNINGS.filter(r => r.ticker === 'TSLA');
+  assert.equal(snap.eventFor('TSLA', tsla, '2026-10-21'), null);
+  assert.equal(snap.eventFor('TSLA', tsla, '2026-10-22'), null);
+  assert.equal(snap.eventFor('META', CONFIRMED_EARNINGS, '2026-10-22'), null);
+  fillCaches(); values.delete('intrinio:eod:snapshot');
+  values.set('market:earnings-calendar:v4', { rows: snap.SCENARIO_TICKERS.map(ticker => ({ ticker, date: '2026-10-28', hour: 'amc', dateStatus: 'confirmed' })) });
+  const out = await serviceExports.loadScenarioSnapshot();
+  assert.ok(out.rows.length > 0);
+  for (const row of out.rows) assert.ok(eligibleEvents.some(e => e.ticker === row.ticker && e.date === row.earnings));
+  assert.ok(!reads.flat().includes('market:earnings-calendar:v4'));
+  assert.equal(vendorCalls.length, 0);
+});
+test('관문 재현: 3언어 관측 100·60%와 가정 110·40%, IV 기본값·경과일 숫자 분리', () => {
+  const file = 'src/app/[locale]/tools/earnings-scenario/ScenarioClient.tsx';
+  for (const locale of ['ko', 'en', 'ja']) {
+    let cursor = 0;
+    const client = load(file, fs.readFileSync(path.join(root, file), 'utf8'), { react: { ...React, useState: () => {
+      const value = [0, 'call', 10, -20, 2][cursor++]; return [value, () => {}];
+    } } }).default;
+    const rr = rows(), c = SCENARIO_COPY[locale];
+    const html = renderToStaticMarkup(client({ locale, rows: rr }));
+    const cell = (label, value) => assert.ok(html.includes(`<dt>${label}</dt><dd>${value}</dd>`), `${locale}: ${label} = ${value}`);
+    assert.ok(c.assumedSpot && c.assumedIv && c.defaultDays);
+    cell(c.spot, '$100.00'); cell(c.currentIv, '60.00%');
+    cell(c.assumedSpot, '$110.00'); cell(c.assumedIv, '40.00%');
+    cell(c.default, `${rr[0].defaultIvPp.toFixed(2)} %p`); cell(c.defaultDays, rr[0].defaultDays.toFixed(2));
+    const resultHtml = html.split('<dl class="es-result">')[1];
+    assert.ok(!resultHtml.includes(`<dt>${c.spot}</dt>`)); assert.ok(!resultHtml.includes(`<dt>${c.currentIv}</dt>`));
+  }
+});
 test('ET 마감 시각: DST·조기폐장·만기 잔존시간', () => {
   assert.equal(new Date(closeAt('2026-10-30')).toISOString(), '2026-10-30T20:00:00.000Z');
   assert.equal(new Date(closeAt('2026-11-06')).toISOString(), '2026-11-06T21:00:00.000Z');
@@ -156,13 +202,19 @@ test('서비스: 실제 5분 캐시·동시 미스 병합·2회 MGET, 공급사/
   const out = await Promise.all([serviceExports.scenarioSnapshot(), serviceExports.scenarioSnapshot(), serviceExports.scenarioSnapshot()]);
   assert.equal(reads.length, 2); assert.equal(vendorCalls.length, 0); assert.equal(out[0].rows.length, 5);
   assert.ok(out[0].rows.every(snap.completeRow)); assert.deepEqual(out[0], out[1]);
+  for (const row of out[0].rows) {
+    const announced = eligibleEvents.find(e => e.ticker === row.ticker);
+    assert.ok(announced); assert.equal(row.earnings, announced.date);
+    assert.equal(row.expiry, expiryFor(announced));
+    assert.equal(row.call.expiry, row.expiry); assert.equal(row.put.expiry, row.expiry);
+  }
   await serviceExports.scenarioSnapshot(); assert.equal(reads.length, 2);
 });
 test('서비스: 원본 캐시 없으면 공급사 GET만, 최대24회·재시도 없음', async () => {
   fillCaches(); mockEnv.INTRINIO_API_KEY = '합성인증';
-  for (const t of snap.SCENARIO_TICKERS) { values.delete(snap.rawExpirationsKey(t, '2026-10-21')); values.delete(snap.rawChainKey(t, '2026-10-30')); }
+  for (const e of eligibleEvents) { values.delete(snap.rawExpirationsKey(e.ticker, '2026-10-21')); values.delete(snap.rawChainKey(e.ticker, expiryFor(e))); }
   const out = await serviceExports.loadScenarioSnapshot();
-  assert.equal(vendorCalls.length, 24); assert.ok(out.rows.every(snap.completeRow));
+  assert.equal(vendorCalls.length, eligibleEvents.length * 2); assert.ok(vendorCalls.length <= 24); assert.ok(out.rows.every(snap.completeRow));
   assert.ok(vendorCalls.every(c => c.method === 'GET'));
   vendorCalls = []; vendorStatus = 429; await serviceExports.loadScenarioSnapshot(); assert.ok(vendorCalls.length <= 3);
   fillCaches(); fail = true;
@@ -171,10 +223,12 @@ test('서비스: 원본 캐시 없으면 공급사 GET만, 최대24회·재시�
 });
 test('서비스: 옵션 최신판이 먼저 갱신돼도 현물 세션 날짜로 원본 요청', async () => {
   fillCaches(); mockEnv.INTRINIO_API_KEY = '합성인증';
-  const newer = chain(); newer.chain.forEach(r => r.prices.date = '2026-10-22');
-  for (const t of snap.SCENARIO_TICKERS) values.set(snap.rawChainKey(t, '2026-10-30'), newer);
+  for (const e of eligibleEvents) {
+    const newer = chainFor(expiryFor(e)); newer.chain.forEach(r => r.prices.date = '2026-10-22');
+    values.set(snap.rawChainKey(e.ticker, expiryFor(e)), newer);
+  }
   const out = await serviceExports.loadScenarioSnapshot();
-  assert.equal(vendorCalls.length, 12); assert.ok(out.rows.every(snap.completeRow));
+  assert.equal(vendorCalls.length, eligibleEvents.length); assert.ok(out.rows.every(snap.completeRow));
   assert.ok(vendorCalls.every(c => c.date === '2026-10-21'));
   fillCaches();
 });

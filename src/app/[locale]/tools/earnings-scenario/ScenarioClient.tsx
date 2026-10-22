@@ -25,6 +25,7 @@ export default function ScenarioClient({ locale, rows }: { locale: ScenarioLocal
     [c.currentIv, number(contract ? contract.iv * 100 : null, '%')],
     [c.move, row?.movePct ? `±${row.movePct.toFixed(2)}% · ${row.moveSession} · ${methods[row.moveMethod ?? ''] ?? c.missing}` : c.missing],
     [c.default, number(row?.defaultIvPp, ' %p')],
+    [c.defaultDays, number(row?.defaultDays)],
   ];
   return <>
     <section className="es-card" aria-label={c.ticker}>
@@ -56,7 +57,7 @@ export default function ScenarioClient({ locale, rows }: { locale: ScenarioLocal
         [c.theory, money(result?.final)], [c.pnl, money(result?.pnl)],
         [c.direction, money(result?.direction)], [c.volatility, money(result?.volatility)], [c.time, money(result?.time)],
         [c.total, money(result?.total)], [c.base, money(result?.base)], [c.basis, money(result?.basis)],
-        [c.spot, money(result?.nextSpot)], [c.currentIv, number(result ? result.nextIv * 100 : null, '%')],
+        [c.assumedSpot, money(result?.nextSpot)], [c.assumedIv, number(result ? result.nextIv * 100 : null, '%')],
       ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
     </section>
   </>;

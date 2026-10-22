@@ -35,35 +35,39 @@ async function limitedMap<T, R>(items: readonly T[], run: (item: T, index: numbe
 export async function loadScenarioSnapshot() {
   const now = Date.now();
   const vendor = readOnlyVendor();
+  // 당일 발표·미확정 종목은 후보에서 제외하되 확정 종목의 자료 결측은 그대로 표시한다.
+  const today = etDateOf(now);
+  const events = SCENARIO_TICKERS.flatMap(t => {
+    const event = eventFor(t, CONFIRMED_EARNINGS, today);
+    return event ? [event] : [];
+  });
   // getOptionChainSnapshotIntrinio 기본 목록 조회와 같은 공개 키(UTC 어제).
   const afterDay = new Date(now - 86400_000).toISOString().slice(0, 10);
-  const keys = ['market:earnings-calendar:v4', 'intrinio:eod:snapshot', 'earnings:implied:v1',
-    ...SCENARIO_TICKERS.map(t => rawExpirationsKey(t, afterDay))];
+  const keys = ['intrinio:eod:snapshot', 'earnings:implied:v1',
+    ...events.map(e => rawExpirationsKey(e.ticker, afterDay))];
   const values = await mgetFromCache<unknown>(keys).catch(() => []);
-  const [calendar, eod, implied] = values.slice(0, 3).map(decode);
-  // 당일 발표는 장전/장후·정확 시각이 섞이는 것을 피하려고 제외한다.
-  const events = SCENARIO_TICKERS.map(t => eventFor(t, calendar, CONFIRMED_EARNINGS, etDateOf(now)));
+  const [eod, implied] = values.slice(0, 2).map(decode);
   if (!eod || !recent(eod.date, now)) return { readAt: new Date(now).toISOString(),
-    rows: selectFive(SCENARIO_TICKERS.map((t, i) => buildRow(t, events[i], null, null, eod, implied, now))) };
+    rows: selectFive(events.map(e => buildRow(e.ticker, e, null, null, eod, implied, now))) };
   const expiries = await limitedMap(events, async (e, i) => {
-    const observed = firstExpiry(decode(values[i + 3]), e);
-    if (observed || !e) return observed;
+    const observed = firstExpiry(decode(values[i + 2]), e);
+    if (observed) return observed;
     // 35일 체인 창 밖의 실적도 공급사의 실제 전체 만기 목록으로 판단한다.
     const after = e.hour === 'bmo' ? new Date(Date.parse(`${e.date}T12:00:00Z`) - 86400_000).toISOString().slice(0, 10) : e.date;
-    const list = await vendor(`options/expirations/${SCENARIO_TICKERS[i]}/eod`, { after });
+    const list = await vendor(`options/expirations/${e.ticker}/eod`, { after });
     return firstExpiry(list, e);
   });
-  const requests = expiries.flatMap((e, i) => e ? [{ i, keys: [rawChainKey(SCENARIO_TICKERS[i], e), rawChainKey(SCENARIO_TICKERS[i], e, eod.date)] }] : []);
+  const requests = expiries.flatMap((e, i) => e ? [{ i, keys: [rawChainKey(events[i].ticker, e), rawChainKey(events[i].ticker, e, eod.date)] }] : []);
   const raw = await mgetFromCache<unknown>(requests.flatMap(r => r.keys)).catch(() => []);
   const chains = await limitedMap(requests, async (r, j) => {
     const cached = [decode(raw[j * 2]), decode(raw[j * 2 + 1])].find(c => c && Array.isArray(c.chain)
       && c.chain.some((row: { prices?: { date?: unknown } }) => row?.prices?.date === eod.date));
     if (cached) return cached;
     // 옵션 최신판은 주식 EOD보다 먼저 올라온다. 현물과 같은 실제 날짜를 요청해 혼합 세션을 피한다.
-    return vendor(`options/chain/${SCENARIO_TICKERS[r.i]}/${expiries[r.i]}/eod`, { date: eod.date });
+    return vendor(`options/chain/${events[r.i].ticker}/${expiries[r.i]}/eod`, { date: eod.date });
   });
   const byIndex = new Map(requests.map((r, j) => [r.i, chains[j]]));
-  const rows = SCENARIO_TICKERS.map((t, i) => buildRow(t, events[i], expiries[i], byIndex.get(i) ?? null, eod, implied, now));
+  const rows = events.map((e, i) => buildRow(e.ticker, e, expiries[i], byIndex.get(i) ?? null, eod, implied, now));
   return { readAt: new Date(now).toISOString(), rows: selectFive(rows) };
 }
 let inFlight: ReturnType<typeof loadScenarioSnapshot> | null = null;
@@ -71,4 +75,4 @@ async function coalesced() {
   if (!inFlight) inFlight = loadScenarioSnapshot().finally(() => { inFlight = null; });
   return inFlight;
 }
-export const scenarioSnapshot = unstable_cache(coalesced, ['earnings-scenario-v1'], { revalidate: 300 });
+export const scenarioSnapshot = unstable_cache(coalesced, ['earnings-scenario-v2'], { revalidate: 300 });
