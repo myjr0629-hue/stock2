@@ -10,10 +10,9 @@
 //        애플 창에서 코드를 넣고 «사용»을 누르면 그 자리에서 구독이 시작된다(첫 달 무료 오퍼).
 //        맞춤 코드는 «사용 URL» 또는 «앱 안»에서만 쓸 수 있다(REDEEM-CODES F1) — 앱 안 시트가 가장 확실하다.
 //        실패하면(옛 바이너리·SDK 미설정) 애플 사용 URL 로 넘어간다.
-// Android(2026-10-23 결제 분리): 안내 시트(lib/app/couponGuide.ts · components/app/CouponGuideSheet) → [① Play 스토어에서 적용]
-//        = play.google.com/redeem 열기만 → 앱 복귀 때 RevenueCat 다시 읽기 → PRO 면 «적용됨», 아니면 «아직 적용되지 않았습니다».
-//        쿠폰 흐름에서 구매(purchasePackage)는 부르지 않는다 — 10/19 뽐뿌 «쿠폰 쓰려다 결제됐다»(10/6~10/22 의 [계속] → 월간 구매 경로).
-//        (10/6 기록) 예전엔 play.google.com/redeem 을 열었다 — 대표 실기기(10/6 00시대): «적용»만 되고 PRO 가 안 켜졌다(Play 콘솔 1/300 사용·주문 0건).
+// Android(2026-10-23 설계 B): 안내 시트 → ① Play 코드 등록 열기 → 사용자 확인 → ② 구독 시작 → RevenueCat 월간 패키지 구매
+//        (기존 구매 경로 useProStatus().purchase → services/revenueCat.purchasePro) → 구글 결제 창에서 결제 수단 → «코드 사용» → 번호 → «구독».
+//        예전엔 play.google.com/redeem 을 열었다 — 대표 실기기(10/6 00시대): «적용»만 되고 PRO 가 안 켜졌다(Play 콘솔 1/300 사용·주문 0건).
 //        구글 공식: 코드를 쓴 «뒤에도» 구독을 구매해야 한다(«they still need to purchase the subscription with the code applied») ·
 //        Play 맞춤 코드는 «앱 안에서만»(«Custom codes can be redeemed only from within your app») — developer.android.com/google/play/billing/promo.
 //        Play 스토어에서 이미 «적용»해 둔 코드는 앱 안 구매 때 자동 적용된다(RevenueCat google-play-offers 문서 · 구글 도움말 15698521).
@@ -37,7 +36,7 @@ import { couponGuide } from '@/lib/app/couponGuide';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
 export const APPLE_REDEEM_URL = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444';
-/** Play 코드 등록 화면 — 안드로이드 쿠폰 안내 시트의 ① 단추 · 프리뷰 웹(안드로이드 UA)의 새 탭 · 옛 import 경로 호환 */
+/** Play 코드 등록 화면 — 안드로이드 쿠폰 시트 ① · 프리뷰 웹의 새 탭 · 옛 import 경로 호환 */
 export const PLAY_REDEEM_URL = 'https://play.google.com/redeem';
 
 /** 같은 문구를 모든 지점에서 — «코드가 있으신가요?» 결의 작은 링크 + 설정 행 이름 */
@@ -63,7 +62,7 @@ function platformOf(): 'ios' | 'android' | 'web' {
   return 'web';
 }
 
-/** 지금 안드로이드 앱(또는 프리뷰의 안드로이드 확인 모드)인가 — 설정 행 아래 안내 줄(«결제 창에서 코드 입력 → 구독»)을 고른다 */
+/** 지금 안드로이드 앱(또는 프리뷰의 안드로이드 확인 모드)인가 — 설정 행 아래 안내 줄(«Play 스토어 → 결제 및 정기 결제 → 코드 사용»)을 고른다 */
 export function redeemIsAndroid(): boolean {
   return platformOf() === 'android';
 }
@@ -164,7 +163,7 @@ export async function openRedeem(src?: FunnelSrc, locale?: string): Promise<Rede
     return 'url';
   }
   if (p === 'android') {
-    // 안내 시트 → [① Play 스토어에서 적용] → 복귀 때 PRO 확인. 구매는 없다 — 계측·PRO 갱신은 시트가 맡는다(components/app/CouponGuideSheet).
+    // 안내 시트 → ① 등록 열기·사용자 확인 → ② 구독 시작. 구매·계측·PRO 갱신은 시트가 맡는다(components/app/CouponGuideSheet).
     couponGuide.open({ src, locale });
     return 'guide';
   }

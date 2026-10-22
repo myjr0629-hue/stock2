@@ -1,13 +1,13 @@
 'use client';
 
 // ============================================================================
-// CouponGuideSheet — 안드로이드 «🎟 쿠폰 코드 입력»을 누르면 뜨는 짧은 안내 + [① Play 스토어에서 적용] (2026-10-06 · 10-23 결제 분리)
+// CouponGuideSheet — 안드로이드 «🎟 쿠폰 코드 입력»을 누르면 뜨는 짧은 안내 + [② 구독 시작] (2026-10-06)
 // ----------------------------------------------------------------------------
-// 순서·근거·문구는 lib/app/couponGuide.ts 머리말.
-// ★2026-10-23 결제 안전(10/19 뽐뿌 «쿠폰 쓰려다 결제됐다»): 이 시트에는 구매 단추가 없다 — useProStatus().purchase 를 쓰지 않는다.
-//   단추 하나 = Play 코드 등록 화면 열기(couponRedeemFlow). 앱으로 돌아오면 RevenueCat 고객 정보를 새로 읽어
-//   PRO 활성이면 «적용됨»(공용 상태 proEntitlement 에 알리고 잠시 뒤 닫음), 아니면 «아직 적용되지 않았습니다 — 등록 화면에서 코드를 입력해 주세요».
-//   구독 구매는 일반 페이월(ProPaywall)만 한다.
+// 순서·근거·문구는 lib/app/couponGuide.ts 머리말. 요점: 쿠폰 = 구독 첫 30일 무료 → 코드를 넣은 «뒤» «구독»까지 해야 PRO.
+// Play 코드 등록을 먼저 연 뒤 사용자 적용 확인을 받는다. 열림/복귀는 적용 성공으로 처리하지 않는다.
+// [② 구독 시작] = 사용자 확인 뒤 기존 구매 경로 그대로(useProStatus().purchase('monthly', src) → services/revenueCat.purchasePro → RevenueCat 월간 패키지).
+//   취소는 조용히(페이월과 같다) · 실패는 «실패했습니다» · 결제는 됐는데 권한이 아직이면 3초·8초 다시 읽고 그래도면 안내 한 줄.
+//   구매가 끝나 PRO 면 공용 상태(proEntitlement)에 바로 알리고 닫는다 — useProStatus 화면들은 SDK 리스너로 같이 바뀐다.
 // 틀은 ProPaywall 과 같은 유리 카드(ProPaywall.module.css) — 결제 «전» 화면이 한 모양이게.
 // 앱 동작(«내 종목» 시트와 같은 공용 훅): 안드로이드 뒤로가기 = 닫기(useBackToClose) · 네이티브 배너 내리기(useBannerSuppression)
 //   · 맨 위 층만 Esc·Tab(useLayer — 아래 «내 종목» 시트는 inert) · 열리면 닫기 단추에 초점, 닫히면 누른 자리로.
@@ -19,37 +19,28 @@ import s from './CouponGuideSheet.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet';
-import { couponGuideCopy, couponRedeemFlow, type CouponGuideRequest, type CouponRedeemFlow, type CouponRedeemPhase } from '@/lib/app/couponGuide';
+import { couponGuideCopy, runCouponPurchase, type CouponGuideRequest } from '@/lib/app/couponGuide';
 import { PLAY_REDEEM_URL, refreshProAfterRedeem } from '@/lib/app/redeem';
 import { openExternalUrl } from '@/lib/native/capacitorBridge';
 import { isPreviewHost, notifyProPurchased } from '@/lib/app/proEntitlement';
 
-// 퍼널 측정 — 동적 import(실패해도 쿠폰 흐름과 무관). 안드로이드 앱은 funnel.ts 가 아직 보내지 않는다(FUNNEL_SEND_ANDROID).
+// 퍼널 측정 — 동적 import(실패해도 구매 흐름과 무관). 안드로이드 앱은 funnel.ts 가 아직 보내지 않는다(FUNNEL_SEND_ANDROID).
 const funnel = () => import('@/lib/app/funnel');
-
-/** «적용됨»을 보여 준 뒤 닫기까지 */
-export const COUPON_APPLIED_CLOSE_MS = 1500;
 
 export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; onClose: () => void }) {
   const t = couponGuideCopy(req.locale);
   const titleId = useId();
-  // 구매 함수(purchase)는 받지 않는다 — 이 시트에서 결제로 가는 길 0
-  const { isPro, ready, offers, iapAvailable, refreshOffers } = useProStatus();
-  // 브라우저(프리뷰 ?sgandroid=1)에선 결제 플러그인이 없다 — 가격 자리만 표시
+  const { isPro, ready, offers, purchase, iapAvailable, refreshOffers } = useProStatus();
+  // 브라우저(프리뷰 ?sgandroid=1)에선 결제 플러그인이 없다 — 가격 자리만 표시하고 [② 구독 시작]은 «실패» 안내로 끝난다
   const preview = !iapAvailable && isPreviewHost();
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
-  const [phase, setPhase] = useState<CouponRedeemPhase>('idle');
-  const flowRef = useRef<CouponRedeemFlow | null>(null);
-  if (!flowRef.current) {
-    flowRef.current = couponRedeemFlow({
-      open: () => openExternalUrl(PLAY_REDEEM_URL),
-      // 앱 밖(Play 스토어)에서 생긴 변화 — 캐시 무효화 → syncPurchases → getCustomerInfo, 3초·8초 다시(redeem.ts 'url' 순서)
-      checkPro: () => refreshProAfterRedeem('url'),
-      notifyPro: () => notifyProPurchased(true),
-      onPhase: setPhase,
-      track: (stage) => { void funnel().then((m) => m.trackFunnel(stage, { src: req.src })).catch(() => {}); },
-    });
-  }
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [redeemOpened, setRedeemOpened] = useState(false);
+  const [redeemBlocked, setRedeemBlocked] = useState(false);
+  const [codeAppliedConfirmed, setCodeAppliedConfirmed] = useState(false);
+  const busyRef = useRef(false);
+  const redeemOpenedRef = useRef(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -65,42 +56,10 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
     if (!monthly && !preview) void refreshOffers();
   }, [monthly, preview, refreshOffers]);
 
-  // 등록 화면에서 돌아옴 → PRO 다시 읽기. 가려짐(비활성·hidden) 뒤의 활성·visible 만 복귀로 본다.
-  //   browserFinished 는 쓰지 않는다 — 안드로이드 맞춤 탭이 Play 스토어 앱으로 넘기며 곧바로 닫혀 «등록 전» 확인이 될 수 있다.
+  // 다른 길(SDK 리스너·복귀 동기화)로 PRO 가 되면 할 일이 없다 — 구매 흐름 중이면 흐름이 직접 닫는다
   useEffect(() => {
-    const flow = flowRef.current!;
-    let disposed = false;
-    const offs: Array<() => void> = [];
-    const keep = (remove: () => Promise<unknown>) => {
-      const off = () => { void remove().catch(() => {}); };
-      if (disposed) off(); else offs.push(off);
-    };
-    const visibility = () => {
-      if (document.visibilityState === 'hidden') flow.away(); else void flow.back();
-    };
-    document.addEventListener('visibilitychange', visibility);
-    void import('@capacitor/app')
-      .then(({ App }) => App.addListener('appStateChange', ({ isActive }: { isActive: boolean }) => {
-        if (isActive) void flow.back(); else flow.away();
-      }))
-      .then((l) => keep(() => l.remove()))
-      .catch(() => { /* 웹·플러그인 없음 — visibilitychange 만 */ });
-    return () => {
-      disposed = true;
-      document.removeEventListener('visibilitychange', visibility);
-      offs.forEach((off) => off());
-    };
-  }, []);
-
-  // 이미 PRO(다른 길 — SDK 리스너·복귀 동기화)면 할 일이 없다: 등록을 시작하기 전이면 바로 닫고,
-  //   등록 뒤에 PRO 가 되면 «적용됨»을 잠깐 보여 주고 닫는다.
-  const showApplied = phase === 'applied' || (isPro && phase !== 'idle');
-  useEffect(() => {
-    if (isPro && phase === 'idle') { onClose(); return; }
-    if (!showApplied) return;
-    const id = window.setTimeout(onClose, COUPON_APPLIED_CLOSE_MS);
-    return () => window.clearTimeout(id);
-  }, [isPro, phase, showApplied, onClose]);
+    if (isPro && !busyRef.current) onClose();
+  }, [isPro, onClose]);
 
   // 초점: 열리면 닫기(첫 페인트에 보이는 컨트롤), 닫히면 누른 자리로
   useEffect(() => {
@@ -126,16 +85,63 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }, [isTop]);
 
-  const onRedeem = useCallback(() => { void flowRef.current!.start(); }, []);
+  const onRedeem = useCallback(async () => {
+    if (busyRef.current || redeemBlocked) return;
+    busyRef.current = true;
+    setBusy(true);
+    setNote(null);
+    setCodeAppliedConfirmed(false);
+    setRedeemOpened(false);
+    redeemOpenedRef.current = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const result = await Promise.race([
+        openExternalUrl(PLAY_REDEEM_URL),
+        new Promise<'unconfirmed'>((resolve) => {
+          timeout = setTimeout(() => resolve('unconfirmed'), 10_000);
+        }),
+      ]);
+      if (result !== 'opened') {
+        setRedeemBlocked(true);
+        setNote(t.redeemUnavailable);
+        return;
+      }
+      // URL 열림은 등록 완료가 아니다. 아래 체크는 사용자가 직접 해야 한다.
+      redeemOpenedRef.current = true;
+      setRedeemOpened(true);
+    } catch {
+      setRedeemBlocked(true);
+      setNote(t.redeemUnavailable);
+    }
+    finally { clearTimeout(timeout); busyRef.current = false; setBusy(false); }
+  }, [t.redeemUnavailable, redeemBlocked]);
+
+  const onContinue = useCallback(async () => {
+    if (busyRef.current || !redeemOpenedRef.current || !redeemOpened || !codeAppliedConfirmed || (!monthly && !preview)) return;
+    busyRef.current = true;
+    setBusy(true);
+    setNote(null);
+    const r = await runCouponPurchase({
+      redeemOpened: redeemOpenedRef.current,
+      codeAppliedConfirmed,
+      purchase: () => purchase('monthly', req.src),
+      recheck: () => refreshProAfterRedeem('sheet'),
+      notifyPro: () => notifyProPurchased(true),
+      track: (stage) => { void funnel().then((m) => m.trackFunnel(stage, { src: req.src })).catch(() => {}); },
+    });
+    busyRef.current = false;
+    setBusy(false);
+    if (r === 'pro') { onClose(); return; }
+    setCodeAppliedConfirmed(false);
+    if (r === 'pending') setNote(t.pending);
+    else if (r === 'error') setNote(t.failed);
+    // 'cancelled' — 사용자가 구글 결제 창을 직접 닫았다. 실패가 아니다(페이월과 같이 조용히 둔다)
+  }, [purchase, req.src, onClose, t.pending, t.failed, redeemOpened, codeAppliedConfirmed, monthly, preview]);
 
   const after = monthly
     ? t.after(monthly.priceString)
     : preview ? t.after(t.pricePlaceholder) : ready ? t.unavailable : '···';
-  const working = phase === 'opening' || phase === 'checking';
-  const note = showApplied ? t.applied
-    : phase === 'not_applied' ? t.notApplied
-      : phase === 'open_failed' ? t.redeemUnavailable
-        : null;
+  const canBuy = redeemOpened && codeAppliedConfirmed && (!!monthly || preview);
 
   return (
     <div
@@ -158,6 +164,10 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
           <p className={p.lede}>{t.lede}</p>
         </div>
 
+        <button type="button" className={`${p.cta} ${s.ctaTall}`} onClick={onRedeem} disabled={busy || redeemBlocked} data-coupon-redeem="">
+          {t.redeemCta}
+        </button>
+
         <ol className={s.steps}>
           {t.steps.map((line, i) => (
             <li key={i} className={i === t.steps.length - 1 ? `${s.step} ${s.stepKey}` : s.step}>
@@ -166,19 +176,22 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
             </li>
           ))}
         </ol>
-        <p className={s.saved}>{t.saved}</p>
+        <p className={s.saved}><label>
+          <input type="checkbox" checked={codeAppliedConfirmed} disabled={busy || !redeemOpened}
+            onChange={(e) => setCodeAppliedConfirmed(e.target.checked)} />
+          {t.saved}
+        </label></p>
 
         <div className={s.free}>
           <span className={s.freeHead}>{t.freeHead}</span>
           <span className={s.after}>{after}</span>
         </div>
 
-        <p className={p.note} id={`${titleId}-warning`}>{t.warning}</p>
+        <p className={s.warning} id={`${titleId}-warning`}>{t.warning}</p>
 
-        {/* 이 시트의 유일한 단추 — 등록 화면 열기(구매 아님) */}
-        <button type="button" className={`${p.cta} ${s.ctaTall}`} onClick={onRedeem} disabled={working || showApplied}
-          aria-describedby={`${titleId}-warning`} data-coupon-redeem="">
-          {working ? t.busy : t.redeemCta}
+        <button type="button" className={`${p.cta} ${s.ctaTall}`} onClick={onContinue} disabled={busy || redeemBlocked || !canBuy}
+          aria-describedby={`${titleId}-warning`} data-coupon-subscribe="">
+          {busy ? t.busy : t.cta}
         </button>
 
         {note && <p className={p.note} role="status">{note}</p>}

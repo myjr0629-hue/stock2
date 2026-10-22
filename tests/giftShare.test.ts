@@ -1,3 +1,4 @@
+import { couponSafetyNormalized } from './_couponSafetyBaseline';
 // 실행: npx tsx --test tests/giftShare.test.ts
 /** 로컬 가짜 저장소만 사용한다. 실제 Lua 동시성은 giftShareLua.test.mjs로 분리한다. */
 import assert from 'node:assert/strict';
@@ -30,7 +31,7 @@ require.cache[inviteStorePath]!.exports = inviteStore;
 const { giftIdentity } = require('../src/lib/giftShare/http');
 const { giftPrefix, giftCap, withGift } = require('../src/lib/giftShare/config');
 const { couponHtml } = require('../src/lib/marketing/couponHtml');
-const { COUPON_SAFETY, COUPON_CHECK_PRO } = require('../src/lib/marketing/couponSafety');
+const { COUPON_SAFETY } = require('../src/lib/marketing/couponSafety');
 const { desktopRedeemHtml } = require('../src/lib/marketing/desktopHandoff');
 const route = require('../src/app/app/route');
 const issue = require('../src/app/api/gift/issue/route');
@@ -64,18 +65,7 @@ const location = (r: Response) => r.headers.get('location') || '';
 // 현재 HEAD를 기준으로 삼으면 구현을 자신과 비교하게 된다. 기존 의존 템플릿도 origin/main에서 읽는다.
 const baselinePaths = new Set(['src/app/app/route.ts', 'src/lib/marketing/couponHtml.ts', 'src/lib/marketing/desktopHandoff.ts']);
 const baselineCache = new Map<string, Module>();
-// 결제 안전 변경(안전 경고 한 줄 · ② 단계 «등록 후 앱에서 PRO 확인» · 옛 «구독 화면이 안 나오면» 줄 삭제)만 제외하고
-//   기존 템플릿의 바이트 보존 계약을 유지한다. 새 ② 는 정해진 문구인지 확인한다.
-function withoutCouponWarning(html: string): string {
-  return html.replace(/<p class="step2" id="coupon-warning">([\s\S]*?)<\/p>\n/g, (_, body: string) => {
-    assert.ok(Object.values(COUPON_SAFETY).includes(body.replace(/<[^>]*>/g, '')));
-    return '';
-  }).replace(/<p class="step2" id="step2">([^\n]*?)<\/p>(\n<p class="help">[^\n]*🎟[^\n]*<\/p>)?/g, (_, body: string, help?: string) => {
-    const text = body.replace(/<[^>]*>/g, '');
-    if (!help) assert.ok(Object.values(COUPON_CHECK_PRO).some((v) => text === `② ${v}`), text);
-    return '<p class="step2" id="step2">§</p>';
-  });
-}
+const withoutCouponWarning = couponSafetyNormalized;
 function baseline(path: string): any {
   if (baselineCache.has(path)) return baselineCache.get(path)!.exports;
   const source = execFileSync('git', ['show', `origin/main:${path}`], { encoding: 'utf8' });
@@ -267,14 +257,13 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
       assert.equal(r.headers.get('referrer-policy'), 'same-origin', '외부 스토어에 Referer를 보내지 않는 정책');
     }
   });
-  await t('P2 Android: 세 언어 «등록 후 앱에서 PRO 확인» 안내가 스크립트 없이 등록 전 표시', async () => {
+  await t('P2 Android: 세 언어 구독·앱 설정 안내가 스크립트 없이 등록 전 표시', async () => {
     for (const lang of ['ko', 'en', 'ja']) {
       const opts = { platform: 'android', lang, fromTag: 'gift', code: '•••• •••• •••• ••••', appleRedeemUrl: '#', playInstallUrl: '#' };
       const old = couponHtml(opts);
       const html = await (await route.GET(req(`/app?gift=${token}&l=${lang}`, { headers: { ...baseHeaders, 'user-agent': android } }))).text();
-      const instructions = old.match(/<p class="step2" id="step2">[^\n]*?<\/p>/)![0];
-      assert.ok(instructions.replace(/<[^>]*>/g, '').includes(COUPON_CHECK_PRO[lang]));
-      assert.ok(visibleHtml(html).includes(instructions), '② 안내가 hidden 조상 밖에 있다');
+      const instructions = old.match(/<p class="step2" id="step2">[\s\S]*?<\/p>\n<p class="help">[\s\S]*?<\/p>/)![0];
+      assert.ok(visibleHtml(html).includes(instructions), '기존 두 안내가 hidden 조상 밖에 있다');
       assert.equal((html.match(/id="step2"/g) || []).length, 1);
       assert.ok(!html.includes('<script>') && !html.includes('/api/coupon/claim'));
     }

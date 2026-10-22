@@ -12,18 +12,15 @@
 //     the Google Play Store, but not redeemed in the app will stay active until the promotion ends.» · «The code will then be applied when
 //     the user selects the subscription or In-App product they want to purchase.»
 //   · 해지: 구글 도움말(support.google.com/googleplay/answer/2476088) «To avoid charges, cancel the subscription before the trial period expires.»
-//   ★2026-10-23 결제 안전(10/19 뽐뿌 «쿠폰 쓰려다 결제됐다»): 이 시트에는 «구매 단추가 없다» — 구매(purchasePackage)를 부르는 길 0.
-//     ① Play 코드 등록 화면을 연다 → 앱으로 돌아오면 RevenueCat 고객 정보를 새로 읽는다(syncPurchases 포함 — redeem.ts 'url' 순서)
-//     → PRO 활성이면 «적용됨», 아니면 «아직 적용되지 않았습니다». 등록 화면 열기/복귀·프로모션 날짜는 적용 증거가 아니다.
-//     구독 구매는 일반 페이월(ProPaywall)만 한다 — 쿠폰 흐름과 분리.
+//   2026-10-22: Play 일회용 코드 등록을 먼저 연다 → 사용자가 적용을 확인 → [② 구독 시작] → 기존 월간 구매 경로.
+//   등록 화면 열기/복귀·프로모션 날짜는 적용 증거가 아니다. 결제 창에 무료 기간이 없으면 구독하지 않는다.
 // 그리는 곳: components/app/CouponGuideHost(앱 레이아웃 app-view/layout.tsx 에 하나) → 열릴 때만 CouponGuideSheet 를 불러온다.
 // 아이폰은 바뀌지 않는다 — RevenueCat presentCodeRedemptionSheet(애플 창의 «사용» = 구독 시작, lib/app/redeem.ts).
 // ============================================================================
 
 import { useSyncExternalStore } from 'react';
 import { PLAY_PROMO_END } from '@/lib/marketing/coupon';
-import { COUPON_CHECK_PRO, COUPON_SAFETY } from '@/lib/marketing/couponSafety';
-import type { ExternalUrlOpenResult } from '@/lib/native/capacitorBridge';
+import { COUPON_SAFETY } from '@/lib/marketing/couponSafety';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
 export type CgLocale = 'ko' | 'en' | 'ja';
@@ -42,8 +39,7 @@ export interface CouponGuideCopy {
   eyebrow: string;
   title: string;
   lede: string;
-  /** ① Play 코드 등록 → ② 등록 후 앱에서 PRO 확인(웹 쿠폰 화면 ② 와 같은 말 — COUPON_CHECK_PRO) */
-  steps: [string, string];
+  steps: [string, string, string];
   /** Play 스토어에서 이미 «적용»해 둔 코드 — 결제 창에서 자동 적용(RevenueCat·구글 도움말) */
   saved: string;
   /** 기존 웹 안내의 ① 등록 단추. 구매와 별도 동작. */
@@ -56,14 +52,13 @@ export interface CouponGuideCopy {
   after: (price: string) => string;
   /** 결제 전 필수 고지 — 결제 수단 필요(구글 «A valid form of payment is required») · 해지하면 0원 · 해지 위치 */
   fine: string;
-  /** 복귀 뒤 RevenueCat 확인 중(등록 단추 자리) */
+  cta: string;
   busy: string;
   close: string;
   unavailable: string;
-  /** 복귀 뒤 RevenueCat 고객 정보가 PRO 활성 */
-  applied: string;
-  /** 복귀 뒤 PRO 아님 — 결제로 넘기지 않고 등록 화면으로 되돌린다 */
-  notApplied: string;
+  failed: string;
+  /** 결제는 됐는데 권한이 아직 안 보일 때(3초·8초 다시 읽은 뒤) */
+  pending: string;
   /** 프리뷰(브라우저)에서 가격 자리 */
   pricePlaceholder: string;
   /** 설정 «🎟 쿠폰 코드 입력» 행 아래 한 줄(안드로이드만) */
@@ -80,20 +75,22 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       lede: d ? `쿠폰은 구독 첫 ${d}일 무료입니다. «구독»까지 눌러야 PRO가 켜집니다.` : '쿠폰은 구독 무료 기간을 줍니다. «구독»까지 눌러야 PRO가 켜집니다.',
       steps: [
         'Play 스토어 → 결제 및 정기 결제 → 코드 사용',
-        COUPON_CHECK_PRO.ko,
+        '[구독 시작]을 누르면 구글 결제 창이 열립니다',
+        d ? `${d}일 무료가 보이면 «구독»` : '무료 기간이 보이면 «구독»',
       ],
       saved: 'Play 스토어에서 이미 적용한 쿠폰은 결제 창에 바로 보입니다',
-      redeemCta: '① Play 스토어에서 적용',
+      redeemCta: '① Play 스토어에서 코드 등록',
       redeemUnavailable: '코드 등록 화면을 열 수 없습니다 — Play 스토어 앱에서 직접 등록',
       warning: COUPON_SAFETY.ko,
       freeHead: d ? `${d}일 무료가 보이면 «구독»` : '무료 기간이 보이면 «구독»',
       after: (p) => `이후 월 ${p} 자동 갱신`,
       fine: d ? `구글 결제 수단이 필요합니다 · ${d}일 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서` : '구글 결제 수단이 필요합니다 · 무료 기간 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서',
+      cta: '② 구독 시작',
       busy: '처리 중…',
       close: '닫기',
       unavailable: '지금은 구매할 수 없습니다',
-      applied: '적용됨',
-      notApplied: '아직 적용되지 않았습니다 — 등록 화면에서 코드를 입력해 주세요',
+      failed: '실패했습니다. 잠시 후 다시 시도해 주세요',
+      pending: '구매가 확인되면 PRO가 켜집니다 — 앱을 다시 열면 바로 반영됩니다',
       pricePlaceholder: '스토어 현지 가격',
       settingsSub: 'Play 스토어 → 결제 및 정기 결제 → 코드 사용',
     };
@@ -105,20 +102,22 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       lede: d ? `クーポンは定期購入の最初の${d}日間が無料です。「定期購入」まで押すとPROが有効になります。` : 'クーポンで定期購入の無料期間が付きます。「定期購入」まで押すとPROが有効になります。',
       steps: [
         'Playストア → お支払いと定期購入 → コードを利用',
-        COUPON_CHECK_PRO.ja,
+        '「定期購入を開始」でGoogle Playの購入画面が開きます',
+        d ? `${d}日間無料と表示されたら「定期購入」` : '無料期間が表示されたら「定期購入」',
       ],
       saved: 'Playストアで適用済みのクーポンは、購入画面に表示されます',
-      redeemCta: '① Playストアで適用',
+      redeemCta: '① Playストアでコードを登録',
       redeemUnavailable: 'コード登録画面を開けません — Playストアアプリで直接登録してください',
       warning: COUPON_SAFETY.ja,
       freeHead: d ? `${d}日間無料と表示されたら「定期購入」` : '無料期間が表示されたら「定期購入」',
       after: (p) => `以降は月額${p}で自動更新`,
       fine: d ? `Googleのお支払い方法が必要です・${d}日以内に解約すれば0円・解約はPlayストア → お支払いと定期購入から` : 'Googleのお支払い方法が必要です・無料期間内に解約すれば0円・解約はPlayストア → お支払いと定期購入から',
+      cta: '② 定期購入を開始',
       busy: '処理中…',
       close: '閉じる',
       unavailable: '現在購入できません',
-      applied: '適用済み',
-      notApplied: 'まだ適用されていません — 登録画面でコードを入力してください',
+      failed: '失敗しました。しばらくしてからお試しください',
+      pending: '購入が確認されるとPROが有効になります — アプリを開き直すとすぐ反映されます',
       pricePlaceholder: 'ストア価格',
       settingsSub: 'Playストア → お支払いと定期購入 → コードを利用',
     };
@@ -129,20 +128,22 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
     lede: d ? `Your code gives you the first ${d} days of the subscription free. PRO starts only after you tap “Subscribe”.` : 'Your code gives you a free trial on the subscription. PRO starts only after you tap “Subscribe”.',
     steps: [
       'Play Store → Payments & subscriptions → Redeem code',
-      COUPON_CHECK_PRO.en,
+      'Tap Start subscription to open Google Play checkout',
+      d ? `When ${d} days free shows, tap “Subscribe”` : 'When the free trial shows, tap “Subscribe”',
     ],
     saved: 'Already applied your code in the Play Store? It shows at checkout.',
-    redeemCta: '① Apply in Play Store',
+    redeemCta: '① Redeem code in Play Store',
     redeemUnavailable: 'Cannot open the code redemption screen — redeem directly in the Play Store app',
     warning: COUPON_SAFETY.en,
     freeHead: d ? `When ${d} days free shows, tap “Subscribe”` : 'When the free trial shows, tap “Subscribe”',
     after: (p) => `then ${p}/mo, auto-renews`,
     fine: d ? `A Google payment method is required · Cancel within ${d} days and pay nothing · Cancel in Play Store → Payments & subscriptions` : 'A Google payment method is required · Cancel during the trial and pay nothing · Cancel in Play Store → Payments & subscriptions',
+    cta: '② Start subscription',
     busy: 'Working…',
     close: 'Close',
     unavailable: 'Not available right now',
-    applied: 'Applied',
-    notApplied: 'Not applied yet — enter your code on the redemption screen',
+    failed: 'Something went wrong. Please try again',
+    pending: 'PRO turns on once Google confirms the purchase — reopening the app picks it up',
     pricePlaceholder: 'store price',
     settingsSub: 'Play Store → Payments & subscriptions → Redeem code',
   };
@@ -201,73 +202,35 @@ function pageLocale(): CgLocale {
   } catch { return 'en'; }
 }
 
-// ── ① 등록 화면 열기 → 복귀 → PRO 확인(순수 — 시험은 단계를 주입한다) ─────────────────
-//   구매 함수를 받지 않는다 — 이 흐름에서 purchasePackage 로 가는 길은 구조적으로 없다.
-//   idle → opening → waiting(등록 화면에 나가 있음) → checking(돌아옴 · RevenueCat 다시 읽기) → applied | not_applied
-//   열기 실패(open_failed)는 지정 안내 한 줄. 다시 누르면 처음부터(이전 확인 결과는 재사용하지 않는다).
-export type CouponRedeemPhase = 'idle' | 'opening' | 'waiting' | 'checking' | 'applied' | 'not_applied' | 'open_failed';
+// ── [② 구독 시작] 뒤의 순서(순수 — 시험은 단계를 주입한다) ─────────────────────────────
+export type CouponBuyResult = 'pro' | 'pending' | 'cancelled' | 'error' | 'unconfirmed';
+export type BuyOutcome = { ok: boolean; isPro: boolean; cancelled?: boolean; error?: string };
 
-export interface CouponRedeemFlow {
-  readonly phase: CouponRedeemPhase;
-  /** ① 단추 — 등록 화면을 연다 */
-  start(): Promise<void>;
-  /** 앱이 가려짐(appStateChange 비활성·visibilitychange hidden) */
-  away(): void;
-  /** 앱으로 돌아옴(appStateChange 활성·visibilitychange visible) — 가려진 적이 있을 때만 PRO 를 다시 읽는다 */
-  back(): Promise<void>;
-}
-
-export function couponRedeemFlow(deps: {
-  open: () => Promise<ExternalUrlOpenResult>;
-  /** 돌아온 뒤 PRO 활성인가 — RevenueCat 캐시 무효화 → syncPurchases → getCustomerInfo (redeem.ts refreshProAfterRedeem('url')) */
-  checkPro: () => Promise<boolean>;
+/**
+ * ① code_cta 계측 ② 구매(기존 경로 — 결과 buy_* 는 useProStatus 가 센다) ③ PRO 면 공용 상태에 바로 알리고 code_pro
+ * ④ 결제는 됐는데 권한이 아직이면(noent) 다시 읽기(lib/app/redeem.ts refreshProAfterRedeem('sheet') — 3초·8초) ⑤ 취소는 조용히 · 실패는 실패.
+ */
+export async function runCouponPurchase(deps: {
+  /** 코드 등록 화면 열기 성공 — 누락·확인 불가면 구매하지 않는다. */
+  redeemOpened: boolean;
+  /** 사용자 확인일 뿐 SDK의 무료 적용 검증이 아니다. 결제 창에서 무료 표시를 별도로 확인해야 한다. */
+  codeAppliedConfirmed: boolean;
+  purchase: () => Promise<BuyOutcome>;
+  recheck: () => Promise<boolean>;
   notifyPro: () => void;
-  onPhase: (phase: CouponRedeemPhase) => void;
-  track?: (stage: 'code_cta' | 'code_pro') => void;
-}): CouponRedeemFlow {
-  let phase: CouponRedeemPhase = 'idle';
-  let wentAway = false;
-  let again = false;   // 확인 중에 또 다녀왔다 — 지금 확인이 «아님»이면 한 번 더 읽는다
-  let run = 0;
-  const set = (p: CouponRedeemPhase) => { phase = p; try { deps.onPhase(p); } catch { /* 화면 갱신 실패는 흐름과 무관 */ } };
-  const tr = (st: 'code_cta' | 'code_pro') => { try { deps.track?.(st); } catch { /* 계측 실패 무시 */ } };
-  return {
-    get phase() { return phase; },
-    async start() {
-      if (phase === 'opening' || phase === 'checking' || phase === 'applied') return;
-      const my = ++run;
-      wentAway = false;
-      set('opening');
-      tr('code_cta');
-      let r: ExternalUrlOpenResult;
-      try { r = await deps.open(); } catch { r = 'failed'; }
-      if (my !== run) return;   // 열리는 사이 이미 돌아왔다(back — run 증가) — 그 결과를 따른다
-      set(r === 'failed' ? 'open_failed' : 'waiting');
-    },
-    away() {
-      // 확인 중·«아직» 상태에서도 센다 — 사용자가 다시 Play 스토어에 다녀오면 돌아올 때 한 번 더 읽는다
-      if (phase === 'opening' || phase === 'waiting' || phase === 'checking' || phase === 'not_applied') wentAway = true;
-    },
-    async back() {
-      if (phase === 'checking') {
-        // 확인 중 Play 스토어에 다시 다녀옴 — 버리지 않고 지금 확인이 끝난 뒤 한 번 더(관문 10230232)
-        if (wentAway) { wentAway = false; again = true; }
-        return;
-      }
-      if (phase !== 'opening' && phase !== 'waiting' && phase !== 'not_applied') return;
-      if (!wentAway) return;   // 나간 적 없는 «보임» 신호는 복귀가 아니다
-      wentAway = false;
-      again = false;
-      const my = ++run;
-      set('checking');
-      let pro = false;
-      do {
-        again = false;
-        try { pro = (await deps.checkPro()) === true; } catch { pro = false; }
-        if (my !== run) return;
-      } while (!pro && again);
-      if (pro) { try { deps.notifyPro(); } catch { /* noop */ } tr('code_pro'); set('applied'); }
-      else set('not_applied');
-    },
-  };
+  track: (stage: 'code_cta' | 'code_pro') => void;
+}): Promise<CouponBuyResult> {
+  if (deps.redeemOpened !== true || deps.codeAppliedConfirmed !== true) return 'unconfirmed';
+  deps.track('code_cta');
+  let r: BuyOutcome;
+  try { r = await deps.purchase(); } catch { return 'error'; }
+  if (r.ok && r.isPro) { deps.notifyPro(); deps.track('code_pro'); return 'pro'; }
+  if (r.ok) {
+    let pro = false;
+    try { pro = await deps.recheck(); } catch { pro = false; }
+    if (pro) { deps.notifyPro(); deps.track('code_pro'); return 'pro'; }
+    return 'pending';
+  }
+  if (r.cancelled) return 'cancelled';
+  return 'error';
 }

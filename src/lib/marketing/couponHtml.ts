@@ -4,7 +4,7 @@ import { audienceLine, ANDROID_POOL_SIZE } from './coupon';
 import { APPLE_CODE_LIMIT, promoCodeLimit } from './promoLimit';
 import { IN_APP_TEXT, inAppHintHtml, playIntentUrl, playRedeemIntentUrl } from './androidInApp';
 import { IOS_STAY_CHECK_MS } from './iosInApp';
-import { COUPON_CHECK_PRO, COUPON_SAFETY } from './couponSafety';
+import { COUPON_SAFETY } from './couponSafety';
 
 /**
  * 스마트링크 «쿠폰 화면» — /app?from=<채널>&code=<우리 애플 맞춤 코드> 를 «폰»으로 열었을 때 (2026-10-05, 대표 «쿠폰 받는 느낌»).
@@ -16,10 +16,8 @@ import { COUPON_CHECK_PRO, COUPON_SAFETY } from './couponSafety';
  *     (play.google.com/redeem?code=…) + 손입력 경로(Play 스토어 → 결제 및 정기 결제 → 코드 사용).
  *     ★2026-10-06 «② 구독» 단계를 따로 적는다 — 대표 실기기: Play «코드 사용»에서 «적용»만 되고 PRO 가 안 켜졌다(콘솔 1/300 사용·주문 0건).
  *       구글 공식(developer.android.com/google/play/billing/promo): «After the user redeems the code, they still need to purchase the
- *       subscription with the code applied.» → 구독 화면이 안 나오면 앱 안 경로(설정 → 🎟 쿠폰 코드 입력 → 계속 → 구독)로. 적용해 둔 코드는
+ *       subscription with the code applied.» → 구독 화면이 안 나오면 앱 안 경로(설정 → 🎟 쿠폰 코드 입력 → ② 구독 시작 → 구독)로. 적용해 둔 코드는
  *       앱 안 구매 때 자동 적용된다(RevenueCat google-play-offers 문서 «The code will then be applied when the user selects the subscription»).
- *     ★2026-10-23 결제 안전(10/19 뽐뿌 «쿠폰 쓰려다 결제됐다»): ② 는 «등록 후 앱에서 PRO 확인»(COUPON_CHECK_PRO)으로 바꿨다 — 쿠폰 화면이
- *       구독(결제)을 지시하지 않는다. 앱 안 쿠폰 시트도 등록 화면 열기·복귀 뒤 PRO 확인만 한다(구매 단추 없음, lib/app/couponGuide.ts).
  * 고지: «무료» 문장 안에 자동 갱신 가격(FTC «Free» 지침·한국 숨은 갱신 — 설계 §10.7-3). 애플 1개월 무료 · Play 30일 무료.
  * 숫자: 실제 코드별 애플 한도 · 안드 서버 풀 200 · 날짜는 코드별 애플 만료일 전날(Play는 기존 만료). 남은 수·타이머는 쓰지 않는다.
  * 측정: 단추 누름은 /api/coupon/event 비콘(apply·play·copy·install) → clk:coupon:<from>:<ET날짜> 필드 «<기기>|tap:<단추>».
@@ -39,8 +37,8 @@ type Txt = {
   what: string; eligIos: string; eligAnd: string;
   andPre: string; andCta: string; andBusy: string;
   copy: string; copied: string; andApply: string; andManual: string;
-  /** ② 단계 — 2026-10-23 부터 «등록 후 앱에서 PRO 확인»(결제 지시 없음) */
-  andStep2: string;
+  /** ② 구독 단계(2026-10-06) — 코드를 «적용»만 하면 PRO 가 안 켜진다: 구독 구매까지 해야 한다(구글 공식 «they still need to purchase the subscription») */
+  andStep2: string; andStep2Help: string;
   again: string; cap: string; next: string; empty: string; emptySub: string; off: string; err: string;
   installOnly: string;
   /** 아이폰 «앱 안 브라우저»에서 적용을 눌렀는데 App Store 로 안 넘어갔을 때(2.5초 뒤에도 화면이 그대로)만 보이는 안내 — 2026-10-07 */
@@ -67,9 +65,10 @@ const T: Record<PreviewLang, Txt> = {
     andBusy: '발급 중…',
     copy: '복사',
     copied: '복사됨',
-    andApply: '① Play 스토어에서 적용',
+    andApply: '① Play 스토어에서 코드 등록',
     andManual: 'Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다(그다음 ②)',
-    andStep2: `② ${COUPON_CHECK_PRO.ko}`,
+    andStep2: '② 이어서 «구독»을 눌러야 PRO가 시작됩니다 — 30일 안에 해지하면 0원',
+    andStep2Help: '구독 화면이 안 나오면: SIGNUM HQ 앱 → 설정 → 🎟\u00a0쿠폰 코드 입력 → ② 구독 시작 → «구독»',   // 🎟 가 줄 끝에 홀로 남지 않게(붙는 공백)
     again: '이미 받은 쿠폰입니다 — 같은 번호를 다시 보여 드립니다',
     cap: '오늘 몫 쿠폰이 모두 나갔습니다 — 내일 다시 와 주세요',
     next: '다음 발급',
@@ -99,9 +98,10 @@ const T: Record<PreviewLang, Txt> = {
     andBusy: 'Getting your code…',
     copy: 'Copy',
     copied: 'Copied',
-    andApply: '① Apply in Play Store',
+    andApply: '① Redeem code in Play Store',
     andManual: 'Or type it in: Play Store → Payments & subscriptions → Redeem code (then step ②)',
-    andStep2: `② ${COUPON_CHECK_PRO.en}`,
+    andStep2: '② Then tap “Subscribe” to start PRO — cancel within 30 days and pay nothing',
+    andStep2Help: 'No subscribe screen? SIGNUM HQ app → Settings → 🎟\u00a0Redeem a code → ② Start subscription → “Subscribe”',
     again: 'You already got this coupon — here it is again',
     cap: 'Today’s coupons are all gone — come back tomorrow',
     next: 'Next batch',
@@ -131,9 +131,10 @@ const T: Record<PreviewLang, Txt> = {
     andBusy: '発行中…',
     copy: 'コピー',
     copied: 'コピーしました',
-    andApply: '① Playストアで適用',
+    andApply: '① Playストアでコードを登録',
     andManual: 'Playストア → お支払いと定期購入 → コードを利用 に直接入力してもOKです(そのあと②)',
-    andStep2: `② ${COUPON_CHECK_PRO.ja}`,
+    andStep2: '② 続けて「定期購入」を押すとPROが始まります — 30日以内に解約すれば0円',
+    andStep2Help: '購入画面が出ない場合: SIGNUM HQアプリ → 設定 → 🎟\u00a0クーポンコードを使う → ② 定期購入を開始 →「定期購入」',
     again: '受け取り済みのクーポンです — 同じコードを表示します',
     cap: '本日分のクーポンはすべて配布済みです — 明日またお越しください',
     next: '次回配布',
@@ -295,7 +296,8 @@ ${iosIa
   const iaT = IN_APP_TEXT[lang];
   // 선물은 POST 직후 스토어로 이동하므로 기존 구독 안내를 등록 전에 읽을 수 있어야 한다.
   const step2 = `<p class="step2" id="coupon-warning">${phrases(lang, COUPON_SAFETY[lang])}</p>
-<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>`;
+<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>
+<p class="help">${phrases(lang, t.andStep2Help)}</p>`;
   const html = `${head}
 <div id="pre">
 <p class="t-label">${esc(t.myCode)}</p>

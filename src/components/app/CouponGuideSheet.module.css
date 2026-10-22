@@ -79,3 +79,16 @@
 .ctaTall {
   height: 46px;
 }
+
+/* 결제 창 직전, 구독 단추 바로 위에서 무료·즉시 청구 여부를 확인한다. */
+.warning {
+  margin: 12px 0 8px;
+  padding: 12px;
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.1);
+  color: #fde68a;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
