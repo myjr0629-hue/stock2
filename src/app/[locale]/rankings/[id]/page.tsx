@@ -90,6 +90,7 @@ export default async function RankingDetail({ params, searchParams }: { params: 
         '@context': 'https://schema.org', '@type': 'Dataset',
         name: spec.name[l], description: c.what,
         url: `${base}/${l}/rankings/${id}`,
+        license: `${base}/${l}/terms`,
         creator: { '@type': 'Organization', name: 'SIGNUM HQ', url: base },
         isAccessibleForFree: true,
         ...(generatedAt ? { dateModified: generatedAt } : {}),

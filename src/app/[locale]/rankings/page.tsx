@@ -99,6 +99,7 @@ export default async function RankingsPage({ params }: { params: Promise<{ local
         '@context': 'https://schema.org', '@type': 'Dataset',
         name: c.h1, description: c.desc,
         url: `${publicBase()}/${l}/rankings`,
+        license: `${publicBase()}/${l}/terms`,
         creator: { '@type': 'Organization', name: 'SIGNUM HQ', url: publicBase() },
         isAccessibleForFree: true,
         ...(data?.generatedAt ? { dateModified: data.generatedAt } : {}),
