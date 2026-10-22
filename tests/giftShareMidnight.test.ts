@@ -14,6 +14,8 @@ import { beforeEach, test } from 'node:test';
 import { createGiftPreparation } from '../src/lib/giftShare/client';
 import { issueGift } from '../src/lib/giftShare/server';
 import { GIFT_SHARE_WINDOW_MS } from '../src/lib/giftShare/config';
+import { idbAtomic } from '../src/lib/giftShare/state';
+import { fakeIndexedDB, memoryAtomic } from './_giftStateMemory';
 
 process.env.VERCEL_ENV = 'preview';
 globalThis.fetch = (async () => { throw new Error('시험 중 외부 접근 금지'); }) as typeof fetch;
@@ -33,7 +35,7 @@ beforeEach(() => {
 });
 
 const json = (body: unknown) => new Response(JSON.stringify(body));
-const settle = async () => { for (let i = 0; i < 40; i++) await new Promise(r => setImmediate(r)); };
+const settle = async () => { for (let i = 0; i < 120; i++) await new Promise(r => setImmediate(r)); };
 const original = { title: 'SIGNUM HQ', text: '기존 종목 설명', url: 'https://www.signumhq.com/ko/flow/NVDA?from=share&via=ios' };
 const giftOf = (p: { url: string }) => new URL(p.url).searchParams.get('gift');
 const kst = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
@@ -79,7 +81,8 @@ async function world(start: number, opts: { via?: 'ios' | 'android' | 'web'; acc
     return json(r ? { ok: true } : { ok: false, url: 'https://apps.apple.com/app/x' });
   };
   const device = 'a1'.repeat(32);
-  const doc = () => createGiftPreparation(request, () => device, () => w.clock);
+  const mem = memoryAtomic(); // 이 기기(출처)의 장부 — 모든 문서가 함께 쓴다
+  const doc = () => createGiftPreparation(request, () => device, () => w.clock, undefined, mem.atomic);
   const client = doc();
   await client.refresh(w.via);
   /** 한 번 공유를 시도한다. 선물 링크가 붙으면 그 토큰을 돌려준다. */
@@ -93,7 +96,7 @@ async function world(start: number, opts: { via?: 'ios' | 'android' | 'web'; acc
   };
   const registered = async (t: string) => (await redis.exists(`${P}:token:${digest(t)}`)) === 1;
   const count = async (kind: string, id: string, day: string) => Number(await redis.get(`${P}:issue:${day}:${kind}:${id}`) ?? 0);
-  return { w, client, doc, share, registered, count, device };
+  return { w, client, doc, share, registered, count, device, mem };
 }
 /** 핵심 불변식: 서버가 거부한 등록 0, 보낸 링크는 전부 서버에 등록됨. */
 async function assertNoBrokenLinks(x: Awaited<ReturnType<typeof world>>, label: string) {
@@ -187,10 +190,10 @@ test('관문 회귀(10220607)·재시도 5회: 마지막 재시도가 자정을 
   x.w.clock = at('2026-10-23T00:00:01');
   const other = x.doc(); // 다른 문서에서 공유(설정 확인은 진행 중 요청과 무관)
   await other.refresh(x.w.via).catch(() => {});
-  const shares: Promise<string | null>[] = [];
-  for (let i = 0; i < 4; i++) shares.push(x.share(other));
+  const got: (string | null)[] = [];
+  for (let i = 0; i < 4; i++) got.push(await x.share(other)); // 마지막 재시도 응답이 오기 전에 차례로 공유
   release(); await held;
-  await inflight; const got = await Promise.all(shares); await settle();
+  await inflight; await settle();
   assert.equal(got.filter(Boolean).length, 3, '새날 3건(4번째 일반 공유)');
   const perToken = new Map<string, number>();
   for (const p of x.w.posts) perToken.set(p.token, (perToken.get(p.token) ?? 0) + 1);
@@ -218,7 +221,7 @@ test('재시도 5회 한도·47시간 기한: 계속 미도달이면 정확히 5
   assert.equal(y.w.posts.length, 2);
   y.w.clock += 5 * MIN; await y.client.refresh(y.w.via);
   assert.equal(y.w.posts.length, 2, '47시간 뒤 재시도 0');
-  assert.equal(values.get('signumhq.gift.sent.v1'), undefined, '기한 지난 장부 정리');
+  assert.equal(y.mem.state.sent.length, 0, '기한 지난 장부 정리');
   assert.ok(47 * 3_600_000 < GIFT_SHARE_WINDOW_MS && t);
 });
 
@@ -345,15 +348,81 @@ test('동시 공유 시트(여러 문서·탭): 완료 전 시트에 실린 링�
     await assertNoBrokenLinks(x, `동시 시트 ${via}`);
     assert.equal(await x.count('device', via === 'web' ? 'web-cookie' : x.device, '2026-10-23'), cap);
   }
-  // 취소는 잡아 둔 한도를 푼다 · 통지 없이 사라진 시트는 30분 뒤 풀린다
+  // 취소: 그 문서가 같은 토큰을 다시 쓸 수 있게 몫을 유지 · 문서가 사라지면(연장 없음) 30분 뒤 다른 탭이 가져간다
   resetStorage();
   const y = await world(at('2026-10-22T12:00:00'), { via: 'web' });
   const p1 = y.client.payload(original, 'ko', 'web'); assert.ok(giftOf(p1));
   const other = y.doc(); await other.refresh('web');
   assert.equal(giftOf(other.payload(original, 'ko', 'web')), null, '다른 탭은 일반 공유');
-  y.client.complete('cancelled', p1, 'web');
-  assert.ok(giftOf(other.payload(original, 'ko', 'web')), '취소 뒤 다른 탭 선물 가능');
-  y.w.clock += 30 * MIN + 1; await y.client.refresh('web');
-  assert.ok(giftOf(y.client.payload(original, 'ko', 'web')), '닫힘 통지 없는 시트는 30분 뒤 풀림');
+  y.client.complete('cancelled', p1, 'web'); await settle();
+  assert.equal(giftOf(y.client.payload(original, 'ko', 'web')), giftOf(p1), '취소 뒤 다시 누르면 같은 토큰');
+  y.w.clock += 30 * MIN + 1; await other.refresh('web');
+  assert.ok(giftOf(other.payload(original, 'ko', 'web')), '연장 없는 몫은 30분 뒤 풀려 다른 탭이 준비');
   assert.equal(y.w.posts.length, 0, '시트만 띄우고 보내지 않으면 등록 0');
+});
+
+test('관문 회귀(10222309①): 같은 문서의 두 단추가 완료 전에 연달아 눌려도 같은 토큰을 두 번 내주지 않는다', async () => {
+  const x = await world(at('2026-10-22T10:00:00'));
+  const a = x.client.payload(original, 'ko', 'ios');
+  const b = x.client.payload(original, 'en', 'ios');
+  assert.ok(giftOf(a)); assert.equal(giftOf(b), null, '두 번째 단추는 새 준비 전까지 일반 공유');
+  x.client.complete('shared', a, 'ios'); x.client.complete('shared', b, 'ios'); x.w.sent.push(giftOf(a)!);
+  await settle();
+  const c = x.client.payload(original, 'ko', 'ios');
+  assert.ok(giftOf(c)); assert.notEqual(giftOf(c), giftOf(a), '완료 뒤엔 새 토큰');
+  x.client.complete('copied', c, 'ios'); x.w.sent.push(giftOf(c)!); await settle();
+  assert.equal(new Set(x.w.posts.map(p => p.token)).size, 2);
+  await assertNoBrokenLinks(x, '10222309①');
+});
+
+test('관문 회귀(10222309②): 여러 탭이 동시에 준비해도 한도 검사·예약이 한 트랜잭션 — 웹 1·앱 3을 넘는 선물 링크 0', async () => {
+  for (const via of ['web', 'ios'] as const) {
+    resetStorage();
+    const cap = via === 'web' ? 1 : 3;
+    const x = await world(at('2026-10-22T23:59:59'), { via });
+    const tabs = Array.from({ length: 8 }, () => x.doc());
+    await Promise.all(tabs.map(t => t.refresh(via))); // 동시 준비(장부 호출이 교차)
+    const links = [x.client, ...tabs].map(t => ({ t, p: t.payload(original, 'ko', via) })).filter(o => giftOf(o.p));
+    assert.equal(links.length, cap, `${via}: 동시 준비 9개 문서 중 선물 링크 ${cap}개`);
+    x.w.clock = at('2026-10-23T00:00:02');
+    for (const o of links) { o.t.complete('shared', o.p, via); x.w.sent.push(giftOf(o.p)!); }
+    await settle();
+    await assertNoBrokenLinks(x, `10222309② ${via}`);
+  }
+});
+
+test('기본 장부(idbAtomic): IndexedDB 트랜잭션으로 동시 예약을 직렬화 — 탭 9개 동시 준비에도 한도만큼만, 장애면 일반 공유', async () => {
+  const idb = fakeIndexedDB();
+  Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: idb.factory });
+  try {
+    for (const via of ['web', 'android'] as const) {
+      idb.reset();
+      const cap = via === 'web' ? 1 : 3;
+      let clock = at('2026-10-22T23:59:59');
+      const issued: string[] = [];
+      const request: typeof fetch = async (url, init) => {
+        if (String(url).endsWith('share-config')) return json({ enabled: true, available: true, now: clock });
+        issued.push(JSON.parse(String(init?.body)).token); return json({ ok: true });
+      };
+      const tabs = Array.from({ length: 9 }, () => createGiftPreparation(request, () => 'b2'.repeat(32), () => clock, undefined, idbAtomic));
+      await Promise.all(tabs.map(t => t.refresh(via)));
+      const opened = tabs.map(t => ({ t, p: t.payload(original, 'ko', via) })).filter(o => giftOf(o.p));
+      assert.equal(opened.length, cap, via);
+      assert.equal(idb.stats.maxConcurrent, 1, '트랜잭션 직렬');
+      for (const o of opened) o.t.complete('shared', o.p, via);
+      await settle();
+      const saved = idb.data.get('state.v1') as any;
+      assert.equal(saved.days['2026-10-22'], cap, '보낸 수가 그날 셈으로');
+      assert.equal(saved.holds.length, 0, '보낸 몫은 잡음에서 빠짐');
+      assert.equal(issued.length, cap);
+      clock = at('2026-10-23T00:00:00');
+      await Promise.all(tabs.map(t => t.refresh(via)));
+      assert.equal(tabs.map(t => t.payload(original, 'ko', via)).filter(p => giftOf(p)).length, cap, '자정 뒤 새 한도');
+    }
+    // IndexedDB 없음 → 일반 공유
+    Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: undefined });
+    const none = createGiftPreparation(async () => json({ enabled: true, available: true, now: Date.now() }), () => 'b3'.repeat(32), Date.now, undefined, idbAtomic);
+    await none.refresh('ios');
+    assert.equal(none.payload(original, 'ko', 'ios'), original);
+  } finally { delete (globalThis as any).indexedDB; }
 });

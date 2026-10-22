@@ -1,24 +1,23 @@
 import { GIFT_SHARE_WINDOW_MS, giftToken } from './config';
+import { idbAtomic, type GiftAtomic, type GiftState, type SentGift } from './state';
 import { normalizeGiftRef, toGiftLang } from '@/lib/gift/gift';
 import { SHARE_ORIGIN, type ShareOutcome, type ShareVia } from '@/lib/share/share';
 
 export type SharePayload = { title?: string; text?: string; url: string };
 const FRESH_MS = 60_000;
-/** 공유는 끝났으나 서버 등록 확인 전인 토큰(응답 유실 재시도용). 미전송 토큰은 저장하지 않는다. */
-const SENT_KEY = 'signumhq.gift.sent.v1';
-/** 이 기기가 KST 날짜별로 보낸 선물 링크 수 — 서버는 같은 «공유 완료 시각(at)» 날짜로 세므로 두 셈이 같다. */
-const DAY_KEY = 'signumhq.gift.day.v1';
 /** 재시도 기한 — 서버가 받는 at 범위(48시간)보다 1시간 짧게(기기·서버 시계 차·요청 지연 여유). */
 const RETRY_WINDOW_MS = GIFT_SHARE_WINDOW_MS - 3_600_000;
 const RETRY_GAP_MS = 5 * 60_000;
 const MAX_TRIES = 5;
-/** 공유 시트에 실린 선물 링크(완료 전) — 다른 문서·탭이 같은 한도를 동시에 쓰지 않게 잠깐 잡아 둔다. 완료 통지(취소 포함)에 푼다. */
-const HOLD_KEY = 'signumhq.gift.hold.v1';
-const HOLD_MS = 30 * 60_000;
+/**
+ * 잡아 둔 몫의 수명. 준비만 한 토큰은 3분(화면이 보이는 동안 refresh 60초마다 연장 — 닫히거나 새로 고친 문서의 몫은 3분 뒤 풀린다),
+ * 클릭해 시트에 실은 토큰은 30분(클릭 즉시 연장 요청, 완료·취소 통지에 정리). 클릭 때 준비 몫이 1분 넘게 남아 있어야 선물 링크를 싣는다.
+ */
+const READY_HOLD_MS = 3 * 60_000;
+const SHEET_HOLD_MS = 30 * 60_000;
+const CLICK_MARGIN_MS = 60_000;
 /** 기기 시계가 서버와 이만큼 넘게 다르면 등록 시각 검사에 걸릴 수 있어 선물 링크를 만들지 않는다. */
 const CLOCK_TOLERANCE_MS = 5 * 60_000;
-/** at = 공유 완료 시각(기기 시계). 등록·재시도 모두 이 값을 그대로 보내 서버가 같은 날짜로 센다. */
-type SentGift = { token: string; at: number; tries: number; last: number };
 
 const COPY = {
   ko: '친구에게 SIGNUM PRO 1개월 이용권을 선물합니다. 링크에서 스토어 등록을 완료해야 적용됩니다. 링크당 1명, 대상 자격·재고에 따라 제공되며 이후 자동 갱신 조건은 등록 화면에서 확인하세요.',
@@ -56,84 +55,64 @@ function randomGiftToken(): string | null {
 
 const kstDay = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
 const dayCap = (via: ShareVia) => via === 'web' ? 1 : 3;
-
-// 저장소 읽기 오류는 호출자에게 그대로 던진다(저장소를 못 쓰면 선물 문구를 붙이지 않는다). 형식 오류만 빈 값.
-function readSent(storage: Storage): SentGift[] {
-  const raw = storage.getItem(SENT_KEY);
-  try {
-    const list = JSON.parse(raw || '[]');
-    return Array.isArray(list) ? list.filter((x: any) => giftToken(x?.token) && Number.isSafeInteger(x?.at)
-      && Number.isFinite(x?.tries) && Number.isFinite(x?.last)).map((x: any) => ({ token: x.token, at: x.at, tries: x.tries, last: x.last })) : [];
-  } catch { return []; }
-}
-function writeSent(storage: Storage, list: SentGift[]) {
-  if (list.length) storage.setItem(SENT_KEY, JSON.stringify(list.slice(-20)));
-  else storage.removeItem(SENT_KEY);
-}
-/** 날짜별 보낸 수. 최근 4일만 보관한다(시계가 하루 뒤로 가도 그날 셈을 잃지 않게). */
-function readDays(storage: Storage): Record<string, number> {
-  const raw = storage.getItem(DAY_KEY);
-  const out: Record<string, number> = {};
-  try {
-    const saved = JSON.parse(raw || '{}');
-    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return out;
-    for (const [k, v] of Object.entries(saved)) if (/^\d{4}-\d{2}-\d{2}$/.test(k) && Number.isInteger(v) && (v as number) >= 0) out[k] = v as number;
-  } catch { /* 형식 오류는 빈 값 */ }
-  return out;
-}
-const sharedOn = (storage: Storage, day: string) => readDays(storage)[day] ?? 0;
-type Hold = { token: string; until: number };
-function readHolds(storage: Storage, t: number): Hold[] {
-  const raw = storage.getItem(HOLD_KEY);
-  try {
-    const list = JSON.parse(raw || '[]');
-    return Array.isArray(list) ? list.filter((x: any) => giftToken(x?.token) && Number.isFinite(x?.until) && x.until > t && x.until - t <= HOLD_MS)
-      .map((x: any) => ({ token: x.token, until: x.until })) : [];
-  } catch { return []; }
-}
-function writeHolds(storage: Storage, list: Hold[]) {
-  if (list.length) storage.setItem(HOLD_KEY, JSON.stringify(list.slice(-10)));
-  else storage.removeItem(HOLD_KEY);
-}
-/** 오늘 쓴 수 = 오늘 보낸 수 + 다른 문서가 시트에 띄워 둔 선물 링크(자정을 걸쳐도 보수적으로 오늘에 센다). */
-const usedNow = (storage: Storage, t: number, except: string | null) =>
-  sharedOn(storage, kstDay(t)) + readHolds(storage, t).filter(h => h.token !== except).length;
-function countShare(storage: Storage, day: string) {
-  const days = readDays(storage);
-  days[day] = (days[day] ?? 0) + 1;
-  storage.setItem(DAY_KEY, JSON.stringify(Object.fromEntries(Object.entries(days).sort(([a], [b]) => a < b ? -1 : 1).slice(-4))));
-}
+const liveRetry = (x: SentGift, t: number) => t - x.at < RETRY_WINDOW_MS && x.tries < MAX_TRIES;
 
 /**
- * 공유=선물 준비. 화면 진입 때는 설정·재고만 확인하고 토큰은 기기에서 만든다(서버 발행 없음).
- * 선물 등록(서버 발행·한도 차감)은 공유·복사 «완료» 뒤 그 토큰으로 1회만 한다.
- * 완료된 토큰은 즉시 폐기하고 다음 공유엔 새 토큰을 쓴다(재사용 없음). 클릭 경로는 동기 payload()와 공유 시트뿐이다.
+ * 공유=선물 준비 — 기기 한도의 셈은 «오늘 보낸 수 + 잡아 둔 몫»이며, 잡기·풀기·보낸 수 반영은 모두 원자 장부(state.ts)에서 한다.
+ * - 화면 진입·복귀(refresh, 비동기): 설정·재고·시계 확인 → 재시도 → 한도가 남으면 새 토큰 하나를 «잡아 두고» 준비한다(서버 발행 없음).
+ * - 클릭(payload, 동기): 준비된 토큰을 한 번만 내준다(내준 뒤 준비 칸은 비운다 — 같은 문서의 다른 단추가 같은 토큰을 받지 않는다).
+ * - 완료(complete): 보냈으면(shared·copied·failed) 그 시각(at)으로 서버 등록 + 장부에서 «잡음 → 그날 보낸 수»로 옮긴다. 취소면 그 토큰을 준비 칸으로 되돌린다.
+ * 서버도 같은 at 의 KST 날짜로 세므로, 기기 셈이 한도 안이면 보낸 링크는 서버 한도에 걸리지 않는다(자정·재시도·응답 유실 무관).
  */
 export function createGiftPreparation(request: typeof fetch = (...args) => fetch(...args), getDevice = deviceKey, now = Date.now,
-  newToken = randomGiftToken) {
+  newToken = randomGiftToken, atomic: GiftAtomic = idbAtomic) {
   let enabled = false;
   let available = false;
+  /** 준비된(잡아 둔) 토큰 하나 — 클릭 때 내주고 비운다. */
   let ready: string | null = null;
+  /** 내준 뒤 완료 통지를 기다리는 토큰(시트에 실림). 잡음은 refresh 마다 함께 연장한다. */
+  const inSheet = new Set<string>();
+  let holdUntil = 0;
   let checkedAt = 0;
   let inflight: Promise<void> | null = null;
   const done = new Set<string>();
 
-  /** 오늘 한도·저장소·기기 열쇠가 허용할 때만 새 토큰을 준비한다. 저장소를 못 쓰면 선물 문구를 붙이지 않는다. */
-  const prepare = (via: ShareVia) => {
-    ready = null;
-    if (!enabled || !available) return;
-    try {
-      const storage = localStorage;
-      if (sharedOn(storage, kstDay(now())) >= dayCap(via)) return; // 다른 시트가 잡아 둔 몫은 클릭(payload) 때 본다
-      // 쓰기 가능 여부를 확인한다(등록 재시도 장부를 남길 수 없으면 선물 링크를 보내지 않는다).
-      const list = readSent(storage);
-      storage.setItem(SENT_KEY, JSON.stringify(list));
-      writeSent(storage, list); // 빈 장부는 남기지 않는다
-    } catch { return; }
-    // 영속 열쇠가 없으면 앱 한도를 우회하는 익명 등록이 되므로 준비하지 않는다.
-    if (via !== 'web' && !getDevice()) return;
+  /** 한도가 남으면 새 토큰을 잡아 둔다. 오늘 보낸 수 + 모든 문서의 잡음(자정을 걸친 것도 오늘로)이 한도 미만일 때만. */
+  const reserve = async (via: ShareVia) => {
+    if (!enabled || !available || ready) return;
+    if (via !== 'web' && !getDevice()) return; // 영속 열쇠가 없으면 앱 한도를 우회하는 익명 등록이 되므로 준비하지 않는다.
     const token = newToken();
-    if (token && !done.has(token)) ready = token;
+    if (!token || done.has(token)) return;
+    const t = now();
+    const r = await atomic((s: GiftState) => {
+      s.holds = s.holds.filter(h => h.until > t && h.until - t <= SHEET_HOLD_MS);
+      if ((s.days[kstDay(t)] ?? 0) + s.holds.length >= dayCap(via)) return false;
+      s.holds.push({ token, until: t + READY_HOLD_MS });
+      return true;
+    });
+    if (r?.value !== true) return;
+    if (ready || !enabled || !available) { void release(token); return; } // 그사이 다른 경로가 준비했거나 꺼졌다
+    ready = token; holdUntil = t + READY_HOLD_MS;
+  };
+  const release = (token: string) => atomic((s: GiftState) => { s.holds = s.holds.filter(h => h.token !== token); });
+  /** 준비·시트의 잡음을 연장한다. 잡음이 사라졌으면(만료 뒤 다른 문서가 가져갔을 수 있음) 준비를 버린다. */
+  const renew = async () => {
+    const prepared = ready;
+    const sheets = [...inSheet];
+    if (!prepared && !sheets.length) return;
+    const t = now();
+    const r = await atomic((s: GiftState) => {
+      s.holds = s.holds.filter(h => h.until > t && h.until - t <= SHEET_HOLD_MS);
+      let alive = false;
+      for (const h of s.holds) {
+        if (h.token === prepared) { h.until = t + READY_HOLD_MS; alive = true; }
+        else if (sheets.includes(h.token)) h.until = t + SHEET_HOLD_MS;
+      }
+      return alive;
+    });
+    if (ready !== prepared) return; // 그사이 클릭으로 내줬다
+    if (!r?.value) ready = null; // 몫이 사라졌다(만료 뒤 다른 문서가 가져갔을 수 있음) — 다음 준비에서 다시 잡는다
+    else holdUntil = t + READY_HOLD_MS;
   };
 
   /** 서버 등록 — at(공유 완료 시각)의 날짜로 한도를 센다. 같은 토큰 재등록은 서버가 차감 없이 «이미 있음»으로 답한다. */
@@ -149,35 +128,21 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
       return body?.ok === true;
     } catch { return false; }
   };
+  const forget = (token: string) => atomic((s: GiftState) => { s.sent = s.sent.filter(x => x.token !== token); });
 
   /**
-   * 공유는 됐지만 등록 응답을 못 받은 토큰만 다시 보낸다(5분 간격·최대 5회·47시간 안).
-   * 재시도는 처음 공유 완료 시각(at)을 그대로 보내므로 언제 처리돼도 공유한 날의 한도를 쓴다 — 오늘 셈과 무관하다.
+   * 공유는 됐지만 등록 응답을 못 받은 토큰만 다시 보낸다(5분 간격·최대 5회·47시간 안). 어느 문서가 보낼지는 장부 트랜잭션 안에서 정한다(중복 0).
+   * 재시도는 처음 공유 완료 시각(at)을 그대로 보내므로 언제 처리돼도 공유한 날의 한도를 쓴다.
    */
   const flush = async (via: ShareVia) => {
-    let storage: Storage;
-    try { storage = localStorage; readSent(storage); } catch { return; }
-    const live = (x: SentGift, t: number) => t - x.at < RETRY_WINDOW_MS && x.tries < MAX_TRIES;
-    const t0 = now();
-    const due = readSent(storage).filter(x => live(x, t0) && t0 - x.last >= RETRY_GAP_MS).slice(0, 3);
-    for (const item of due) {
-      let entry: SentGift | undefined;
-      try {
-        const t = now();
-        entry = readSent(storage).find(x => x.token === item.token);
-        if (!entry || !live(entry, t) || t - entry.last < RETRY_GAP_MS) continue; // 다른 문서가 먼저 재시도했거나 끝냈다
-        entry = { ...entry, tries: entry.tries + 1, last: t };
-        const saved = entry;
-        writeSent(storage, readSent(storage).map(x => x.token === saved.token ? saved : x));
-      } catch { return; }
-      if (await register(entry.token, entry.at, via)) {
-        try { writeSent(storage, readSent(storage).filter(x => x.token !== item.token)); } catch { return; }
-      }
-    }
-    try {
-      const t = now();
-      writeSent(storage, readSent(storage).filter(x => live(x, t)));
-    } catch { /* 다음 확인 때 */ }
+    const t = now();
+    const r = await atomic((s: GiftState) => {
+      s.sent = s.sent.filter(x => liveRetry(x, t));
+      const due = s.sent.filter(x => t - x.last >= RETRY_GAP_MS).slice(0, 3);
+      for (const x of due) { x.tries++; x.last = t; }
+      return due.map(x => ({ token: x.token, at: x.at }));
+    });
+    for (const x of r?.value ?? []) if (await register(x.token, x.at, via)) await forget(x.token);
   };
 
   const refresh = (via: ShareVia): Promise<void> => {
@@ -189,15 +154,14 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
         const config = await response.json();
         if (typeof config.enabled !== 'boolean') throw new Error();
         enabled = config.enabled;
-        // 꺼짐: 저장소·발행에 접근하지 않는다.
+        // 꺼짐: 장부·발행에 접근하지 않는다(잡음은 수명이 다하면 풀린다).
         if (!enabled) { available = false; ready = null; checkedAt = now(); return; }
         // 기기 시계가 서버와 크게 다르면 서버가 at 을 거부할 수 있다 — 선물 링크 없이 일반 공유.
         const skewOk = typeof config.now === 'number' && Math.abs(config.now - now()) <= CLOCK_TOLERANCE_MS;
         available = config.available === true && skewOk;
         await flush(via);
-        if (!available) ready = null;
-        else if (!ready) prepare(via);
-        else { try { if (sharedOn(localStorage, kstDay(now())) >= dayCap(via)) ready = null; } catch { ready = null; } }
+        if (!available) { const r = ready; ready = null; if (r) await release(r); }
+        else { await renew(); await reserve(via); }
         checkedAt = now();
       } catch { ready = null; available = false; checkedAt = 0; } finally { inflight = null; }
     })();
@@ -207,57 +171,55 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   const payload = (original: SharePayload, locale: string, via: ShareVia, ref?: string | null, giftOnly = false): SharePayload => {
     if (!enabled) return original; // 꺼짐은 객체와 문자열을 그대로 돌려준다.
     const lang = toGiftLang(locale);
-    let prepared = !!ready && available && now() - checkedAt < FRESH_MS;
-    if (prepared) {
-      try {
-        const storage = localStorage;
-        const t = now();
-        prepared = usedNow(storage, t, ready) < dayCap(via);
-        // 시트에 싣는 링크를 잡아 둔다(못 잡으면 선물 문구를 붙이지 않는다).
-        if (prepared) writeHolds(storage, [...readHolds(storage, t).filter(h => h.token !== ready), { token: ready!, until: t + HOLD_MS }]);
-      } catch { prepared = false; }
+    const t = now();
+    const token = ready && available && t - checkedAt < FRESH_MS && holdUntil - t >= CLICK_MARGIN_MS ? ready : null;
+    if (token) {
+      ready = null; inSheet.add(token); // 한 번만 내준다 — 같은 문서의 다른 단추는 새 준비 전까지 일반 공유.
+      // 시트에 실린 몫을 30분으로 연장(비동기 — 남은 1분 안에 트랜잭션이 끝난다). 연장 전에도 몫은 유효하므로 다른 문서는 이미 이 몫을 센다.
+      void atomic((st: GiftState) => { for (const h of st.holds) if (h.token === token) h.until = Math.max(h.until, t + SHEET_HOLD_MS); });
     }
     const validRef = normalizeGiftRef(ref);
     // 등록 API와 같은 출처를 쓴다. 프리뷰 토큰을 운영 재고 영역으로 보내지 않는다.
     const u = new URL('/app', typeof window === 'undefined' ? SHARE_ORIGIN : window.location.origin);
-    u.searchParams.set('from', prepared || validRef ? 'gift' : 'share');
+    u.searchParams.set('from', token || validRef ? 'gift' : 'share');
     if (validRef) u.searchParams.set('ref', validRef);
     if (lang !== 'en') u.searchParams.set('l', lang);
-    if (!prepared) return giftOnly ? { title: 'SIGNUM HQ', text: GENERAL[lang], url: u.toString() } : original;
+    if (!token) return giftOnly ? { title: 'SIGNUM HQ', text: GENERAL[lang], url: u.toString() } : original;
     u.searchParams.set('via', via);
-    u.searchParams.set('gift', ready!);
+    u.searchParams.set('gift', token);
     // 콘텐츠 주소와 설명은 보존하고, 마지막 주소를 수신자용 선물 링크로 쓴다.
     const context = giftOnly ? '' : `${original.text ? `${original.text}\n` : ''}${original.url}\n\n`;
     return { ...original, text: `${context}${COPY[lang]}`, url: u.toString() };
   };
 
   /**
-   * 공유·복사 완료 뒤 등록한다. 취소(cancelled)만 아무것도 하지 않는다(토큰은 아무에게도 가지 않았다).
+   * 공유·복사 완료 뒤 등록한다. 취소(cancelled)는 아무에게도 가지 않았으므로 그 토큰을 준비 칸으로 되돌린다(잡음 유지).
    * 실패(failed)는 공유 전송기가 마지막 수단으로 주소를 수동 복사 창에 띄웠을 수 있어 «보냈을 수 있음»으로 보고 등록·폐기한다(관문 10220553 ②).
    */
   const complete = (outcome: ShareOutcome, used: SharePayload, via: ShareVia) => {
     let usedToken: string | null;
     try { usedToken = giftToken(new URL(used.url).searchParams.get('gift')); } catch { return; }
-    if (!usedToken) return; // 선물 링크가 아니었다(꺼짐·일반 공유) — 저장소 접근 0
-    // 시트가 닫혔다 — 결과와 무관하게 잡아 둔 한도를 푼다(보냈으면 아래에서 그날 셈으로 옮긴다).
-    try { const t = now(); writeHolds(localStorage, readHolds(localStorage, t).filter(h => h.token !== usedToken)); } catch { /* 30분 뒤 저절로 풀린다 */ }
-    if (outcome !== 'shared' && outcome !== 'copied' && outcome !== 'failed') return;
+    if (!usedToken) return; // 선물 링크가 아니었다(꺼짐·일반 공유) — 장부 접근 0
+    const wasInSheet = inSheet.delete(usedToken);
+    if (outcome !== 'shared' && outcome !== 'copied' && outcome !== 'failed') {
+      if (!wasInSheet || done.has(usedToken)) return;
+      if (!ready && holdUntil - now() >= CLICK_MARGIN_MS) ready = usedToken; // 취소 뒤 다시 누르면 같은 토큰(몫은 시트 연장으로 유지)
+      else void release(usedToken);
+      return;
+    }
     if (done.has(usedToken)) return; // 중복 완료 통지는 한 번만 등록한다.
     done.add(usedToken);
-    // 보낸 토큰은 즉시 폐기한다 — 다음 공유는 반드시 새 토큰.
     if (ready === usedToken) ready = null;
-    // 공유 완료 시각 하나로 기기 셈(그 날짜 +1)과 서버 등록(at)을 묶는다. 등록·재시도가 언제 처리돼도 같은 날짜로 센다.
+    // 공유 완료 시각 하나로 기기 셈(그 날짜 +1)과 서버 등록(at)을 묶는다.
     const at = now();
-    try {
-      const storage = localStorage;
-      countShare(storage, kstDay(at));
-      writeSent(storage, [...readSent(storage), { token: usedToken, at, tries: 1, last: at }]);
-    } catch { /* 장부를 못 남겨도 등록은 한 번 시도한다 */ }
-    void register(usedToken, at, via).then(ok => {
-      if (!ok) return; // 장부에 남은 토큰은 다음 확인 때 같은 at 으로 재시도한다
-      try { writeSent(localStorage, readSent(localStorage).filter(x => x.token !== usedToken)); } catch { /* 다음 확인 때 */ }
+    const token = usedToken;
+    const recorded = atomic((s: GiftState) => {
+      s.holds = s.holds.filter(h => h.token !== token);
+      s.days[kstDay(at)] = (s.days[kstDay(at)] ?? 0) + 1;
+      s.sent.push({ token, at, tries: 1, last: at });
     });
-    prepare(via);
+    void register(token, at, via).then(async ok => { if (ok) { await recorded; await forget(token); } });
+    void recorded.then(() => reserve(via));
   };
   return { refresh, payload, complete };
 }
