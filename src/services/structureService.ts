@@ -1532,7 +1532,7 @@ async function getStructureDataImpl(
             gammaFlipType,
             zeroDteImpact: 0,      // [V45.17] Default for failed response
             squeezeRisk: 'LOW' as const, // [V45.17]
-            squeezeScore: 0,       // [V45.17]
+            squeezeScore: null,    // Not calculated on failure; 0 is a measured score to Alpha callers.
             // [SI%] Short Interest defaults
             siPercent: null as number | null,
             siPercentChange: null as number | null,

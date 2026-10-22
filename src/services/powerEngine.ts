@@ -342,6 +342,9 @@ export function computeQualityTier(
     // V3 handles partial data gracefully via dataCompleteness
     // ================================================================
     const optionsComplete = evidence?.options?.complete && evidence.options.status !== 'PENDING';
+    // 알파 옵션 입력은 원천이 성공(OK·READY)한 증거에서만 — 실패(PENDING·FAILED)·옵션 없음(NO_OPTIONS)이면
+    //   getOptionsData 가 pcr·gex 를 null 로 주고 terminalEnricher 가 0 으로 자리를 채운다(측정값이 아니다) → 결측(null)으로 넘긴다.
+    const alphaOptions = optionsComplete && evidence.options.status !== 'NO_OPTIONS' ? evidence.options : null;
     const wasInPrevReport = prevReportSymbols.has(symbol);
     let alphaV3: AlphaResult | null = null;
     try {
@@ -393,15 +396,15 @@ export function computeQualityTier(
             return3D: evidence?.price?.return3D ?? null,
             rsi14,
             sma20: evidence?.price?.sma20 ?? null,
-            pcr: evidence?.options?.pcr ?? evidence?.options?.putCallRatio ?? null,
-            gex,
-            callWall: evidence?.options?.callWall ?? null,
-            putFloor: evidence?.options?.putFloor ?? null,
-            gammaFlipLevel: evidence?.options?.gammaFlipLevel ?? null,
-            rawChain: evidence?.options?.rawChain ?? [],
-            squeezeScore: evidence?.options?.squeezeScore ?? null,
-            atmIv: evidence?.options?.atmIv ?? null,
-            ivSkew: evidence?.options?.ivSkew ?? computeIVSkew(evidence?.options?.rawChain ?? [], price),
+            pcr: alphaOptions?.pcr ?? alphaOptions?.putCallRatio ?? null,
+            gex: alphaOptions ? gex : null,
+            callWall: alphaOptions?.callWall ?? null,
+            putFloor: alphaOptions?.putFloor ?? null,
+            gammaFlipLevel: alphaOptions?.gammaFlipLevel ?? null,
+            rawChain: alphaOptions?.rawChain ?? [],
+            squeezeScore: alphaOptions?.squeezeScore ?? null,
+            atmIv: alphaOptions?.atmIv ?? null,
+            ivSkew: alphaOptions?.ivSkew ?? computeIVSkew(alphaOptions?.rawChain ?? [], price),
             darkPoolPct,
             shortVolPct,
             whaleIndex: whaleIdx,
@@ -419,7 +422,6 @@ export function computeQualityTier(
             impliedMovePct: evidence?.options?.impliedMovePct ?? null,
             sentiment: sentiment ?? null,
             wasInPrevReport,
-            optionsDataAvailable: !!optionsComplete,
             // [V5] Pre-Market data for PM Verification Layer
             preMarketPrice: evidence?.price?.pmPrice ?? null,
             preMarketChangePct: evidence?.price?.pmChangePct ?? null,

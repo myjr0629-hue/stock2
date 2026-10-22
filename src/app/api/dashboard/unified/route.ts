@@ -434,7 +434,6 @@ async function buildResponseFromResults(
                     blockTrades: data._blockTrades ?? null, // [V4.1]
                     tltChangePct: marketData?.tltChangePct ?? null, // [V4.1]
                     gldChangePct: marketData?.gldChangePct ?? null, // [V4.1]
-                    optionsDataAvailable: data.options_status === 'OK',
                     // [V3.4] Pre-Market Validation
                     preMarketChangePct: data._extendedChangePct ?? null,
                 });

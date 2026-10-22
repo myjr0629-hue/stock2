@@ -256,13 +256,15 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
             assert.deepEqual(result.body.flow.allExpiryChain, spy.flow.allExpiryChain, file);
         }
     });
-    await test('CMD source is unchanged; FLOW consumers only change the opt-in, preserving request order', async () => {
+    await test('CMD/FLOW consumers preserve request order; dashboard delegates Alpha availability', async () => {
         const files = ['src/app/[locale]/app-view/cmd/page.tsx', 'src/app/[locale]/app-view/flow/page.tsx',
             'src/app/api/flow/unified/route.ts', 'src/app/api/dashboard/unified/route.ts',
             'src/app/[locale]/flow/FlowPageClient.tsx', 'src/app/[locale]/flow/MobileFlowPage.tsx'];
         for (const file of files) {
             const old = execFileSync('git', ['show', `origin/main:${file}`], { cwd: root, encoding: 'utf8' });
-            const normalize = source => source.replace(/&chain=full/g, '').replace(/^        chain: 'full',\n/gm, '');
+            const normalize = source => source.replace(/&chain=full/g, '').replace(/^        chain: 'full',\n/gm, '')
+                // Alpha now decides availability from observed metrics, including partial/PENDING data.
+                .replace(/^\s+optionsDataAvailable: data\.options_status === 'OK',\n/gm, '');
             assert.equal(normalize(read(file)), normalize(old), file);
         }
     });

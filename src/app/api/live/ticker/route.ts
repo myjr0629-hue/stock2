@@ -1501,7 +1501,6 @@ export async function GET(req: NextRequest) {
                     fearGreedScore: fgCacheData?.score ?? null,
                     // Catalyst data
                     impliedMovePct,
-                    optionsDataAvailable: !!(alphaRawChain.length),
                     // [V5.5+] MACD Trend Crossover
                     macdHistogram: macdData?.histogram ?? null,
                     // [V5.5+] VIX Term Structure
