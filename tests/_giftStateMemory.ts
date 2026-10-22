@@ -9,12 +9,13 @@ import { normalizeState, trimState, type GiftAtomic, type GiftState } from '../s
 export function memoryAtomic() {
   let state: GiftState = normalizeState({});
   let queue: Promise<unknown> = Promise.resolve();
-  const box = { calls: 0, fail: false, get state() { return state; } };
+  /** failCalls: 이 번호의 호출(1부터)만 실패시킨다 — 특정 트랜잭션 장애 주입. */
+  const box = { calls: 0, fail: false, failCalls: new Set<number>(), get state() { return state; } };
   const atomic: GiftAtomic = <T>(fn: (s: GiftState) => T) => {
-    box.calls++;
+    const n = ++box.calls;
     const run = queue.then(async () => {
       await new Promise(r => setImmediate(r));
-      if (box.fail) return null;
+      if (box.fail || box.failCalls.has(n)) return null;
       const s = normalizeState(JSON.parse(JSON.stringify(state)));
       try { const value = fn(s); state = trimState(s); return { value }; } catch { return null; }
     });

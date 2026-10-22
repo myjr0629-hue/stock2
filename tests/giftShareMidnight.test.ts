@@ -27,7 +27,13 @@ function resetStorage() {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => { values.set(key, value); },
     removeItem: (key: string) => { values.delete(key); },
+    get length() { return values.size; },
+    key: (i: number) => [...values.keys()][i] ?? null,
   } });
+}
+/** 저장 장애 주입 뒤 같은 값으로 저장소를 되살린다(표식은 이미 못 남긴 상태). */
+function resetStorageKeepValues() {
+  const keep = values; resetStorage(); values = keep;
 }
 beforeEach(() => {
   resetStorage();
@@ -425,4 +431,47 @@ test('기본 장부(idbAtomic): IndexedDB 트랜잭션으로 동시 예약을 �
     await none.refresh('ios');
     assert.equal(none.payload(original, 'ko', 'ios'), original);
   } finally { delete (globalThis as any).indexedDB; }
+});
+
+test('관문 회귀(10222323): 완료 기록 트랜잭션이 실패해도(표식으로 다음 트랜잭션에서 합침) 같은 날 한도 초과 선물 링크 0', async () => {
+  // 공유 1번 = payload 연장(호출 n+1) · 완료 기록(호출 n+2). 완료 기록만 실패시킨다.
+  const failRecord = (x: Awaited<ReturnType<typeof world>>) => x.mem.failCalls.add(x.mem.calls + 2);
+  for (const via of ['web', 'ios'] as const) for (const after of ['same', 'reload', 'noMarker'] as const) {
+    resetStorage();
+    const cap = via === 'web' ? 1 : 3;
+    const x = await world(at('2026-10-22T09:00:00'), { via, account: '계정' });
+    let doc = x.client;
+    for (let i = 0; i < cap; i++) {
+      if (i === cap - 1) {
+        failRecord(x);
+        if (after === 'noMarker') (localStorage as any).setItem = () => { throw new Error('표식 저장 장애'); };
+      }
+      assert.ok(await x.share(doc), `${via}/${after}: ${i + 1}번째`);
+    }
+    if (after === 'noMarker') resetStorageKeepValues();
+    x.w.clock += 31 * MIN;
+    if (after === 'reload') { doc = x.doc(); }
+    await doc.refresh(via);
+    assert.equal(await x.share(doc), null, `${via}/${after}: 그날 한도 다 씀 → 일반 공유`);
+    const other = x.doc(); await other.refresh(via);
+    if (after !== 'noMarker') assert.equal(await x.share(other), null, `${via}/${after}: 다른 문서도 일반 공유`);
+    assert.equal(x.mem.state.days['2026-10-22'], cap, `${via}/${after}: 실패한 기록도 한 번만 반영`);
+    await assertNoBrokenLinks(x, `10222323 ${via}/${after}`);
+    // 다음 날은 정상
+    x.w.clock = at('2026-10-23T09:00:00'); await doc.refresh(via);
+    assert.ok(await x.share(doc), `${via}/${after}: 다음 날 선물`);
+    await assertNoBrokenLinks(x, `10222323 ${via}/${after} 다음 날`);
+  }
+});
+
+test('완료 기록 표식은 여러 문서가 동시에 합쳐도 한 번만 센다(counted)', async () => {
+  const x = await world(at('2026-10-22T09:00:00'));
+  x.mem.failCalls.add(x.mem.calls + 2);
+  assert.ok(await x.share());
+  const docs = Array.from({ length: 5 }, () => x.doc());
+  await Promise.all(docs.map(d => d.refresh('ios')));
+  await settle();
+  assert.equal(x.mem.state.days['2026-10-22'], 1);
+  assert.equal([...values.keys()].filter(k => k.startsWith('signumhq.gift.pending.v1.')).length, 0, '합친 표식은 지운다');
+  await assertNoBrokenLinks(x, '표식 중복 합치기');
 });
