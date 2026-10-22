@@ -1,3 +1,4 @@
+import { optionNumber, optionChain } from '@/lib/optionObservation';
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
@@ -97,8 +98,8 @@ async function getStockDataLight(symbol: string) {
  *   예상 변동 = 정의 표식이 있는 값만 · wallRangePct = 나가는 콜월·풋플로어·가격으로.
  */
 export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
-    const payload = await processPortfolioBatchCore(tickers, mode);
     const metrics = await readOptionMetrics(tickers);
+    const payload = await processPortfolioBatchCore(tickers, mode, metrics);
     const fallbacks = new Map((payload.results as any[]).map(r => [r.ticker, { ...r.realtime, alphaSnapshot: r.alphaSnapshot }]));
     const alpha = await readOptionAlpha(tickers, metrics, fallbacks);
     for (const r of payload.results as any[]) {
@@ -115,7 +116,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
 // Exported separately so it can be called seamlessly during SSR (Server Components)
 // without creating mock Request objects or failing on absolute URL resolution
 // ============================================================================
-async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
+async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full', metrics = new Map<string, import('@/lib/optionMetrics').OptionMetrics>()) {
     const startTime = Date.now();
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
@@ -232,12 +233,12 @@ async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'pric
                         vwap: base.vwap ?? null,
                         return3D: analysis.return3d ?? null,
                         rsi14: analysis.rsi ?? null,
-                        pcr: analysis.pcr ?? null,
-                        gex: analysis.gex ?? null,
-                        callWall: analysis.callWall ?? null,
-                        putFloor: analysis.putFloor ?? null,
-                        gammaFlipLevel: analysis.gammaFlipLevel ?? null,
-                        squeezeScore: analysis.squeezeScore ?? null,
+                        pcr: optionNumber(metrics.get(ticker), 'pcr'),
+                        gex: optionNumber(metrics.get(ticker), 'gex'),
+                        callWall: optionNumber(analysis, 'callWall'),
+                        putFloor: optionNumber(analysis, 'putFloor'),
+                        gammaFlipLevel: optionNumber(analysis, 'gammaFlipLevel'),
+                        squeezeScore: optionNumber(metrics.get(ticker), 'squeezeScore'),
                         atmIv: analysis.iv ?? null,
                         whaleIndex: analysis.whaleIndex ?? 0,
                         darkPoolPct: analysis.darkPoolPct ?? 0,
@@ -245,7 +246,7 @@ async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'pric
                         netFlow: analysis.netPremium ?? null,
                         // 정의 표식이 있는 예상 변동만(표식 없는 옛 값 = 벽 사이 폭은 버린다)
                         impliedMovePct: readImpliedMoveFields(analysis).impliedMovePct,
-                        ivSkew: analysis.ivSkew ?? null,
+                        ivSkew: optionNumber(analysis, 'ivSkew'),
                     });
                     alphaSnapshotV4 = {
                         score: alphaResult.score,
@@ -355,12 +356,12 @@ async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'pric
             }
 
             const opts = optionsData as any;
-            const alphaGex = structureRes?.netGex ?? opts?.gems?.gex ?? opts?.gex ?? null;
-            const alphaPcr = opts?.putCallRatio ?? null;
-            const alphaCallWall = structureRes?.levels?.callWall ?? structureRes?.callWall ?? opts?.callWall ?? null;
-            const alphaPutFloor = structureRes?.levels?.putFloor ?? structureRes?.putFloor ?? opts?.putFloor ?? null;
-            const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
-            const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
+            const alphaGex = optionNumber(structureRes, 'netGex') ?? optionNumber(opts, 'gems.gex', 'gex');
+            const alphaPcr = optionNumber(opts, 'putCallRatio');
+            const alphaCallWall = optionNumber(structureRes, 'levels.callWall', 'callWall') ?? optionNumber(opts, 'callWall');
+            const alphaPutFloor = optionNumber(structureRes, 'levels.putFloor', 'putFloor') ?? optionNumber(opts, 'putFloor');
+            const alphaGammaFlip = optionNumber(structureRes, 'gammaFlipLevel') ?? optionNumber(opts, 'gems.gammaFlipLevel');
+            const alphaSqueezeScore = optionNumber(structureRes, 'squeezeScore');
 
             // [V8] Flow pillar data for Composite WhaleIndex
             const darkPoolPct = (structureRes as any)?.darkPoolPct ?? null;
@@ -368,7 +369,7 @@ async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'pric
             const netPremium = structureRes?.netPremium ?? null;
             const whaleIndex = calculateWhaleIndex(alphaGex, darkPoolPct, blockTradesCount, netPremium);
 
-            const rawContracts = opts?.rawContracts || [];
+            const rawContracts = optionChain(opts, 'rawContracts');
             const currentPrice = stockData.price || 0;
             const ivSkew = computeIVSkew(rawContracts, currentPrice);
             // ★★ [2026-09-29] (콜월 − 풋플로어) ÷ 가격은 벽 사이 «폭»이지 예상 변동이 아니다 — watchlist/batch 와 같은 수리.
@@ -385,7 +386,7 @@ async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'pric
                     prevClose: stockData.prevClose || 0, changePct, vwap: stockData.vwap ?? null,
                     return3D, rsi14: stockData.rsi ?? null, pcr: alphaPcr, gex: alphaGex,
                     callWall: alphaCallWall, putFloor: alphaPutFloor, gammaFlipLevel: alphaGammaFlip,
-                    rawChain: opts?.rawChain || [], squeezeScore: alphaSqueezeScore, relVol,
+                    rawChain: optionChain(opts), squeezeScore: alphaSqueezeScore, relVol,
                     darkPoolPct, blockTrades: blockTradesCount, whaleIndex, netFlow: netPremium,
                     preMarketChangePct: (stockData as any).extendedChangePct ?? null,
                     ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),

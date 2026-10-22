@@ -108,8 +108,8 @@ export interface CachedOptionsChain {
     putFloor: number;
     maxPain: number;
     pinZone: number;
-    pcr: number;
-    gex: number;
+    pcr: number | null;
+    gex: number | null;
     gexZeroDte?: number;
     gexZeroDteRatio?: number;
     gammaRegime: string;

@@ -1,3 +1,4 @@
+import { optionNumber, optionChain } from '@/lib/optionObservation';
 // [S-56.4 Phase 7] Power Engine v2 - Score Normalization
 // NO 50-point clustering - Layer-based scoring with null for incomplete
 // Top3 Gate: Incomplete items cannot be promoted
@@ -349,7 +350,7 @@ export function computeQualityTier(
         const prevCloseV3 = evidence?.price?.prevClose || 0;
         const changePctV3 = evidence?.price?.changePct || (prevCloseV3 > 0 ? ((price - prevCloseV3) / prevCloseV3) * 100 : 0);
         const v3Session: AlphaSession = 'REG'; // [V4.2] Report data IS previous day's full REG session. Pre-market macro reflected via macro layer.
-        const gex = evidence?.options?.gex ?? evidence?.flow?.gammaExposure ?? null;
+        const gex = optionNumber(evidence?.options, 'gex') ?? optionNumber(evidence?.flow, 'gammaExposure');
         const relVol = evidence?.flow?.relVol ?? evidence?.price?.relativeVolume ?? null;
         const netFlow = evidence?.flow?.netFlow ?? evidence?.flow?.largeTradesUsd ?? null;
         const darkPoolPct = evidence?.stealth?.darkPoolPct ?? ((evidence?.flow?.offExPct ?? 0) > 0 ? evidence.flow.offExPct : null);
@@ -393,15 +394,15 @@ export function computeQualityTier(
             return3D: evidence?.price?.return3D ?? null,
             rsi14,
             sma20: evidence?.price?.sma20 ?? null,
-            pcr: evidence?.options?.pcr ?? evidence?.options?.putCallRatio ?? null,
+            pcr: optionNumber(evidence?.options, 'pcr', 'putCallRatio'),
             gex,
-            callWall: evidence?.options?.callWall ?? null,
-            putFloor: evidence?.options?.putFloor ?? null,
-            gammaFlipLevel: evidence?.options?.gammaFlipLevel ?? null,
-            rawChain: evidence?.options?.rawChain ?? [],
-            squeezeScore: evidence?.options?.squeezeScore ?? null,
-            atmIv: evidence?.options?.atmIv ?? null,
-            ivSkew: evidence?.options?.ivSkew ?? computeIVSkew(evidence?.options?.rawChain ?? [], price),
+            callWall: optionNumber(evidence?.options, 'callWall'),
+            putFloor: optionNumber(evidence?.options, 'putFloor'),
+            gammaFlipLevel: optionNumber(evidence?.options, 'gammaFlipLevel'),
+            rawChain: optionChain(evidence?.options),
+            squeezeScore: optionNumber(evidence?.options, 'squeezeScore'),
+            atmIv: optionNumber(evidence?.options, 'atmIv'),
+            ivSkew: optionNumber(evidence?.options, 'ivSkew') ?? computeIVSkew(optionChain(evidence?.options), price),
             darkPoolPct,
             shortVolPct,
             whaleIndex: whaleIdx,
@@ -439,13 +440,13 @@ export function computeQualityTier(
                 changePct: evidence?.price?.changePct || 0,
                 vwap: evidence?.price?.vwap ?? null,
                 sma20: evidence?.price?.sma20 ?? null,
-                callWall: evidence?.options?.callWall ?? null,
-                putFloor: evidence?.options?.putFloor ?? null,
+                callWall: optionNumber(evidence?.options, 'callWall'),
+                putFloor: optionNumber(evidence?.options, 'putFloor'),
                 maxPain: evidence?.options?.maxPain ?? null,
                 history3d: evidence?.price?.history3d || [],
                 alphaScore: alphaV3.score,
                 gatesApplied: alphaV3.gatesApplied || [],
-                atmIv: evidence?.options?.atmIv ?? null,
+                atmIv: optionNumber(evidence?.options, 'atmIv'),
             });
         } catch (e: any) {
             console.error(`[PowerEngine] TradePlan failed for ${symbol}:`, e?.message || e);

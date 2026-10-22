@@ -1,3 +1,4 @@
+import { optionNumber, optionSourceSucceeded } from './optionObservation';
 /** Display option metrics: structure:v2 GEX/squeeze + 35-day all-expiry OI put/call.
  * Never fill a missing measurement from analysis or a different expiry scope.
  */
@@ -14,10 +15,10 @@ export function optionMetricsRowHasOi(m: OptionMetrics | null | undefined): bool
 }
 const finite = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null;
 export function optionMetrics(structure: any, oiRow: any, now = Date.now()) {
-    const gex = finite(structure?.netGex);
-    const score = finite(structure?.squeezeScore);
+    const gex = optionNumber(structure, 'netGex');
+    const score = optionNumber(structure, 'squeezeScore');
     const timestamp = Number(oiRow?.timestamp);
-    const fresh = isFreshOptionsRow(timestamp, now);
+    const fresh = isFreshOptionsRow(timestamp, now) && optionSourceSucceeded(oiRow);
     const pcr = oiPcrAllExpiries(fresh ? oiRow : null);
     const out = {
         gex, netGex: gex, gexM: gex === null ? null : gex / 1e6,

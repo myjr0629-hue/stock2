@@ -60,6 +60,7 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
     const metrics = { pcr: flow.oiPcr, gex: flow.gex, squeezeScore: flow.squeezeScore };
     const levels = new Map([[snapshot.ticker, flow]]);
     const mocks = {
+        '@/lib/optionObservation': load(read('src/lib/optionObservation.ts'), {}),
         '@/lib/app/intelOptionsBasis': { latestCollectorGexRow: async () => null },
         'next/server': { after: fn => deferred.push(fn) },
         '@/services/optionMetricsService': { readOptionMetrics: async () => new Map([[snapshot.ticker, metrics]]) },

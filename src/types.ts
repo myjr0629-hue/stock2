@@ -7,10 +7,10 @@ export interface UnifiedOptions {
     status: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'PENDING' | 'FAILED' | 'OK' | 'READY' | 'NO_OPTIONS';
     coveragePct: number;
     gammaRegime: string;
-    gex: number;
+    gex: number | null;
     gexZeroDte?: number;
     gexZeroDteRatio?: number;
-    pcr: number;
+    pcr: number | null;
     callWall: number;
     putFloor: number;
     pinZone: number;
