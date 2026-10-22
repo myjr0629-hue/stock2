@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { Redis } from '@upstash/redis';
 import { kstDay, playRedeemUrl } from '@/lib/marketing/coupon';
-import { giftCap, giftPrefix, giftToken, type GiftOs } from './config';
+import { GIFT_SHARE_SKEW_MS, GIFT_SHARE_WINDOW_MS, giftCap, giftPrefix, giftToken, type GiftOs } from './config';
 import { CLAIM_LUA, ISSUE_LUA, AVAILABLE_LUA } from './atomic.cjs';
 
 export const digest = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -22,13 +22,16 @@ export function giftStore(): GiftStore | null {
 }
 /**
  * 공유 완료 뒤 발신 기기가 보낸 토큰을 1회 등록한다(코드는 수신자 등록 때 배정).
- * 'issued' = 새로 등록(한도 차감) · 'exists' = 이미 등록됨(차감 없음, 같은 토큰 재등록 거부) · null = 상한·형식 오류.
+ * 한도는 공유 완료 시각(sharedAt)의 KST 날짜로 센다 — 등록이 자정 뒤에 처리돼도 공유한 날의 한도를 쓴다(config 의 근거 참고).
+ * 'issued' = 새로 등록(한도 차감) · 'exists' = 이미 등록됨(차감 없음, 같은 토큰 재등록 거부) · null = 상한·형식·시각 범위 오류.
  */
-export async function issueGift(store: GiftStore, input: { device: string; account?: string; ip: string; app: boolean; token: unknown }, now = Date.now()) {
+export async function issueGift(store: GiftStore, input: { device: string; account?: string; ip: string; app: boolean; token: unknown; sharedAt: unknown }, now = Date.now()) {
   const token = giftToken(input.token);
   if (!token) return null;
+  const at = input.sharedAt;
+  if (typeof at !== 'number' || !Number.isSafeInteger(at) || at < now - GIFT_SHARE_WINDOW_MS || at > now + GIFT_SHARE_SKEW_MS) return null;
   const p = giftPrefix();
-  const day = kstDay(now);
+  const day = kstDay(at);
   const identities = [`${p}:issue:${day}:device:${input.device}`];
   const limits = [input.app ? 3 : 1];
   if (input.account) { identities.push(`${p}:issue:${day}:account:${input.account}`); limits.push(3); }

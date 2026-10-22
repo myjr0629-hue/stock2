@@ -1,5 +1,6 @@
 // 모든 검사 뒤에만 쓴다. Lua 실행 중 다른 요청이 끼어들 수 없다.
 // 토큰은 공유 완료 뒤 1회 등록한다. 이미 있는 토큰(응답 유실 재시도·재사용)은 한도 검사·차감 전에 'exists'로 끝낸다.
+// 한도 키는 공유한 날짜 키다. 그 날짜로 최대 48시간+하루 뒤까지 등록되므로 4일 보관한다(만료로 셈이 0이 되는 일 없음).
 exports.ISSUE_LUA = `
 local now = tonumber(ARGV[1])
 local ttl = tonumber(ARGV[2])
@@ -10,7 +11,7 @@ for i=2,#KEYS do
   if n >= tonumber(ARGV[i+1]) then return 'cap' end
 end
 redis.call('SET',KEYS[1],cjson.encode({expires=now+ttl*1000}), 'EX',ttl+86400)
-for i=2,#KEYS do redis.call('INCR',KEYS[i]); redis.call('EXPIRE',KEYS[i],172800) end
+for i=2,#KEYS do redis.call('INCR',KEYS[i]); redis.call('EXPIRE',KEYS[i],345600) end
 return 'issued'
 `;
 

@@ -33,17 +33,18 @@ const original = { title: 'SIGNUM HQ', text: '기존 종목 설명\n줄바꿈 ·
 const giftOf = (p: { url: string }) => new URL(p.url).searchParams.get('gift');
 
 /** 설정·등록 요청을 기록하는 모의 서버. 등록은 토큰별 1회만 issued, 이후 exists. */
-function server(opts: { available?: () => boolean; enabled?: () => boolean; issue?: (token: string) => unknown } = {}) {
+function server(opts: { available?: () => boolean; enabled?: () => boolean; issue?: (token: string) => unknown; now?: () => number } = {}) {
   const registered = new Set<string>();
-  const log = { config: 0, issues: [] as { token: string; device: string | null }[] };
+  const log = { config: 0, issues: [] as { token: string; device: string | null; at: number }[] };
   const request: typeof fetch = async (url, init) => {
     if (String(url).endsWith('share-config')) {
       log.config++;
-      return json({ enabled: opts.enabled ? opts.enabled() : true, available: opts.available ? opts.available() : true });
+      return json({ enabled: opts.enabled ? opts.enabled() : true, available: opts.available ? opts.available() : true, now: (opts.now ?? Date.now)() });
     }
     assert.equal(String(url), '/api/gift/issue'); assert.equal(init?.method, 'POST');
-    const token = JSON.parse(String(init?.body)).token;
-    log.issues.push({ token, device: (init?.headers as any)?.['x-gift-device'] ?? null });
+    const { token, at } = JSON.parse(String(init?.body));
+    assert.ok(Number.isSafeInteger(at), '등록은 공유 완료 시각을 함께 보낸다');
+    log.issues.push({ token, device: (init?.headers as any)?.['x-gift-device'] ?? null, at });
     if (opts.issue) { const r = opts.issue(token); if (r instanceof Error) throw r; return json(r); }
     registered.add(token);
     return json({ ok: true });
@@ -137,10 +138,14 @@ test('관문 회귀(10211609·10212017): 공유 없이 재로딩·동시 문서 
     docs.push(client);
   }
   assert.equal(s.log.issues.length, 0);
-  const tokens = docs.map(d => giftOf(d.payload(original, 'ko', 'ios')));
-  assert.equal(new Set(tokens).size, tokens.length);
-  // 실제 공유는 한 번 → 등록 한 번
-  docs[2].complete('shared', docs[2].payload(original, 'ko', 'ios'), 'ios'); await tick();
+  const opened = docs.map(d => d.payload(original, 'ko', 'ios'));
+  const tokens = opened.map(giftOf).filter(Boolean);
+  assert.equal(tokens.length, 3, '동시에 띄운 시트 6개 중 선물 링크는 기기 한도(3)만큼 — 나머지는 일반 공유');
+  assert.equal(new Set(tokens).size, tokens.length, '문서마다 다른 토큰');
+  // 실제 공유는 한 번 → 등록 한 번(나머지 시트는 취소)
+  docs[2].complete('shared', opened[2], 'ios');
+  for (const i of [0, 1, 3, 4, 5]) docs[i].complete('cancelled', opened[i], 'ios');
+  await tick();
   assert.equal(s.log.issues.length, 1);
 });
 
@@ -164,7 +169,7 @@ test('관문 회귀(10211928): 공유 도중 재조회 장애·일시 소진이 
 
 test('기기 일일 한도(앱 3·웹 1, KST 날짜) 도달 뒤엔 일반 공유 — 등록 실패할 선물 문구를 붙이지 않는다', async () => {
   let clock = Date.parse('2026-10-22T14:00:00Z'); // KST 23:00
-  const s = server();
+  const s = server({ now: () => clock });
   const client = createGiftPreparation(s.request, () => 'c'.repeat(64), () => clock);
   await client.refresh('ios');
   for (let i = 0; i < 3; i++) {
@@ -184,7 +189,7 @@ test('기기 일일 한도(앱 3·웹 1, KST 날짜) 도달 뒤엔 일반 공유
 
 test('등록 응답 유실: 같은 토큰을 5분 간격·최대 5회 다시 등록, 성공하면 장부에서 제거', async () => {
   let clock = Date.now(); let down = true;
-  const s = server({ issue: () => down ? new Error('유실') : { ok: true } });
+  const s = server({ issue: () => down ? new Error('유실') : { ok: true }, now: () => clock });
   const client = createGiftPreparation(s.request, () => 'd'.repeat(64), () => clock);
   await client.refresh('android');
   const sent = client.payload(original, 'ja', 'android');
@@ -198,10 +203,11 @@ test('등록 응답 유실: 같은 토큰을 5분 간격·최대 5회 다시 등
   const reopened = createGiftPreparation(s.request, () => 'd'.repeat(64), () => clock);
   await reopened.refresh('android');
   assert.deepEqual(s.log.issues.map(x => x.token), Array(3).fill(giftOf(sent)));
+  assert.equal(new Set(s.log.issues.map(x => x.at)).size, 1, '재시도는 처음 공유 완료 시각을 그대로 보낸다');
   assert.equal(values.get('signumhq.gift.sent.v1'), undefined);
   // 계속 실패하면 최대 5회 뒤 포기
   resetStorage(); down = true;
-  const s2 = server({ issue: () => new Error('계속 실패') });
+  const s2 = server({ issue: () => new Error('계속 실패'), now: () => clock });
   const c2 = createGiftPreparation(s2.request, () => 'e'.repeat(64), () => clock);
   await c2.refresh('ios'); c2.complete('shared', c2.payload(original, 'ko', 'ios'), 'ios'); await tick();
   for (let i = 0; i < 10; i++) { clock += 5 * 60_000; await c2.refresh('ios'); }
@@ -210,7 +216,7 @@ test('등록 응답 유실: 같은 토큰을 5분 간격·최대 5회 다시 등
 
 test('재고 0·설정 장애·오래된 확인(60초)·저장소 장애·기기 열쇠 없음은 일반 공유, 등록 0', async () => {
   let clock = Date.now(); let available = true; let fail = false;
-  const s = server({ available: () => available });
+  const s = server({ available: () => available, now: () => clock });
   const request: typeof fetch = async (url, init) => { if (fail) throw new Error(); return s.request(url, init); };
   const client = createGiftPreparation(request, () => 'f'.repeat(64), () => clock);
   await client.refresh('ios'); assert.notEqual(client.payload(original, 'ko', 'ios'), original);
@@ -293,77 +299,6 @@ test('연결 표면 JSX는 운영 기준과 동일하고 클릭에서 공유 전
   }
 });
 
-test('관문 회귀(10220544): 전날 미등록분이 자정 뒤 재시도로 오늘 기기 한도를 쓰면 새 선물 링크를 붙이지 않는다', async () => {
-  for (const pendingCount of [3, 1]) {
-    resetStorage();
-    let clock = Date.parse('2026-10-22T14:58:00Z'); // KST 23:58
-    let down = true;
-    const used = new Map<string, number>(); // 서버 기기 한도(KST 날짜별) 모형 — 등록 성공 때 차감, 3 초과 거부
-    const kst = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
-    const s = server({ issue: () => {
-      if (down) return new Error('미도달');
-      const d = kst(clock); const n = used.get(d) ?? 0;
-      if (n >= 3) return { ok: false };
-      used.set(d, n + 1); return { ok: true };
-    } });
-    const client = createGiftPreparation(s.request, () => '9'.repeat(64), () => clock);
-    await client.refresh('ios');
-    for (let i = 0; i < pendingCount; i++) {
-      const p = client.payload(original, 'ko', 'ios'); assert.ok(giftOf(p));
-      client.complete('shared', p, 'ios'); await tick();
-    }
-    down = false; clock = Date.parse('2026-10-22T15:04:00Z'); // KST 다음 날 00:04
-    const next = createGiftPreparation(s.request, () => '9'.repeat(64), () => clock);
-    await next.refresh('ios');
-    let fresh = 0;
-    for (let i = 0; i < 3; i++) {
-      const p = next.payload(original, 'ko', 'ios');
-      if (!giftOf(p)) break;
-      fresh++; next.complete('shared', p, 'ios'); await tick();
-    }
-    assert.equal(fresh, 3 - pendingCount, `전날 미등록 ${pendingCount}건이면 오늘 새 선물은 ${3 - pendingCount}건`);
-    const today = used.get(kst(clock)) ?? 0;
-    assert.ok(today <= 3);
-    assert.equal(today, 3, '보낸 선물 링크는 모두 서버 등록됨(거부된 링크 0)');
-  }
-});
-
-test('관문 회귀(10220553 ①): 23:59:59 공유가 00:00:01 에 처리되면 오늘 한도에도 반영 — 오늘 새 링크는 모두 등록 가능', async () => {
-  for (const retried of [false, true]) {
-    resetStorage();
-    let clock = Date.parse('2026-10-22T14:59:59Z'); // KST 23:59:59
-    const used = new Map<string, number>();
-    const kst = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
-    let lose = retried;
-    const seen = new Set<string>();
-    const request: typeof fetch = async (url, init) => {
-      if (String(url).endsWith('share-config')) return json({ enabled: true, available: true });
-      clock += 2000; // 요청이 자정을 넘어 처리된다
-      const tk = JSON.parse(String(init?.body)).token;
-      if (seen.has(tk)) return json({ ok: true }); // 서버: 이미 있는 토큰은 차감 없이 exists
-      const d = kst(clock); const n = used.get(d) ?? 0;
-      if (n >= 3) return json({ ok: false });
-      used.set(d, n + 1); seen.add(tk);
-      if (lose) { lose = false; throw new Error('응답 유실'); }
-      return json({ ok: true });
-    };
-    const client = createGiftPreparation(request, () => '8'.repeat(64), () => clock);
-    await client.refresh('ios');
-    const p = client.payload(original, 'ko', 'ios'); assert.ok(giftOf(p));
-    client.complete('shared', p, 'ios'); await tick(); await tick();
-    clock += 10 * 60_000;
-    await client.refresh('ios');
-    let fresh = 0;
-    for (let i = 0; i < 3; i++) {
-      const q = client.payload(original, 'ko', 'ios');
-      if (!giftOf(q)) break;
-      fresh++; client.complete('shared', q, 'ios'); await tick(); await tick();
-    }
-    assert.ok((used.get(kst(clock)) ?? 0) <= 3, `${retried}`);
-    assert.equal(fresh + 1, used.get(kst(clock)), `보낸 링크 전부 등록(${retried ? '응답 유실 뒤 재시도' : '첫 요청'})`);
-  }
-});
-
 test('관문 회귀(10220553 ②): 공유·복사 모두 실패해 수동 복사 창에 선물 주소가 보이면 그 토큰을 등록하고 폐기', async () => {
   const s = server();
   const client = createGiftPreparation(s.request, () => '7'.repeat(64));
@@ -380,35 +315,4 @@ test('관문 회귀(10220553 ②): 공유·복사 모두 실패해 수동 복사
   assert.notEqual(giftOf(client.payload(original, 'ko', 'ios')), giftOf(p));
   delete (globalThis as any).document;
 });
-
-test('관문 회귀(10220559): 전날 미등록 3건을 23:59:59 재진입에서 재시도하다 자정을 넘겨도 새날 한도를 정확히(이상으로) 센다', async () => {
-  resetStorage();
-  let clock = Date.parse('2026-10-21T14:58:00Z'); // KST 10/21 23:58
-  const used = new Map<string, number>(); const seen = new Set<string>();
-  const kst = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
-  let down = true;
-  const request: typeof fetch = async (url, init) => {
-    if (String(url).endsWith('share-config')) return json({ enabled: true, available: true });
-    if (down) throw new Error('미도달');
-    clock += 1000; // 재시도마다 1초 — 둘째 재시도부터 자정 이후 처리
-    const tk = JSON.parse(String(init?.body)).token;
-    if (seen.has(tk)) return json({ ok: true });
-    const d = kst(clock); const n = used.get(d) ?? 0;
-    if (n >= 3) return json({ ok: false });
-    used.set(d, n + 1); seen.add(tk); return json({ ok: true });
-  };
-  const a = createGiftPreparation(request, () => '6'.repeat(64), () => clock);
-  await a.refresh('ios');
-  for (let i = 0; i < 3; i++) { const p = a.payload(original, 'ko', 'ios'); a.complete('shared', p, 'ios'); await tick(); }
-  down = false; clock = Date.parse('2026-10-22T14:59:59Z'); // KST 10/22 23:59:59 재진입
-  const b = createGiftPreparation(request, () => '6'.repeat(64), () => clock);
-  await b.refresh('ios');
-  let fresh = 0;
-  for (let i = 0; i < 3; i++) {
-    const p = b.payload(original, 'ko', 'ios');
-    if (!giftOf(p)) break;
-    fresh++; b.complete('shared', p, 'ios'); await tick(); await tick();
-  }
-  for (const n of used.values()) assert.ok(n <= 3);
-  assert.equal(seen.size, 3 + fresh, '보낸 링크 전부 등록(거부 0)');
-});
+// 자정 경계 관문 회귀(10220544·10220553①·10220559·10220607)는 실제 서버 함수·Lua 를 연결한 tests/giftShareMidnight.test.ts 로 옮겼다.
