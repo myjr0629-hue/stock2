@@ -263,6 +263,12 @@ async function callIntrinio(path, params = {}, timeoutMs = 15000) {
 }
 
 const num = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
+// Vercel과 동일: 결측·빈 문자열·비유한 수는 null, 관측된 0은 0이다.
+const greekNumber = (v) => {
+  if (typeof v !== 'number' && (typeof v !== 'string' || !v.trim())) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
 const toMs = (iso) => { const t = Date.parse(iso || ''); return Number.isNaN(t) ? 0 : t; };
 const dateToMs = (d) => { const t = Date.parse(`${d}T00:00:00Z`); return Number.isNaN(t) ? 0 : t; };
 function addDays(d, n) {
@@ -749,16 +755,16 @@ async function getOptionChain(ticker, opts = {}) {
           strike_price: num(o.strike) || 0,
         },
         greeks: {
-          delta: num(rt && rt.delta) ?? num(p.delta) ?? 0,
+          delta: greekNumber(rt && rt.delta) ?? greekNumber(p.delta),
           // 없으면 0 이 아니라 null — 0 으로 채우면 Vercel 의 감마 커버리지가 늘 100% 로 읽혀 gexConfidence 가 거짓 HIGH (2026-09-27)
-          gamma: num(rt && rt.gamma) ?? num(p.gamma) ?? null,
-          theta: num(rt && rt.theta) ?? num(p.theta) ?? 0,
-          vega: num(rt && rt.vega) ?? num(p.vega) ?? 0,
+          gamma: greekNumber(rt && rt.gamma) ?? greekNumber(p.gamma),
+          theta: greekNumber(rt && rt.theta) ?? greekNumber(p.theta),
+          vega: greekNumber(rt && rt.vega) ?? greekNumber(p.vega),
         },
-        implied_volatility: num(rt && rt.implied_volatility) ?? num(p.implied_volatility) ?? 0,
+        implied_volatility: greekNumber(rt && rt.implied_volatility) ?? greekNumber(p.implied_volatility),
         // OI·감마 출처와 별개로 실제 IV의 날짜·시각을 보존한다.
-        ivSourceDate: num(rt && rt.implied_volatility) !== null ? null : p.date ?? null,
-        ivObservedAt: num(rt && rt.implied_volatility) !== null ? rt.ivObservedAt ?? null : null,
+        ivSourceDate: greekNumber(rt && rt.implied_volatility) !== null ? null : p.date ?? null,
+        ivObservedAt: greekNumber(rt && rt.implied_volatility) !== null ? rt.ivObservedAt ?? null : null,
         // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
         //   없으면 null — 0 으로 채우면 구조 서비스의 «OI 누락» 검사가 발동하지 않는다(2026-09-27). 소비처는 `|| 0` 로 읽는다.
         open_interest: num(p.open_interest),

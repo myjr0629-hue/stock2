@@ -171,6 +171,12 @@ async function callIntrinio(path, params = {}, timeoutMs = 15000) {
 }
 
 const num = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
+// Vercel과 동일: 결측·빈 문자열·비유한 수는 null, 관측된 0은 0이다.
+const greekNumber = (v) => {
+  if (typeof v !== 'number' && (typeof v !== 'string' || !v.trim())) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
 const toMs = (iso) => { const t = Date.parse(iso || ''); return Number.isNaN(t) ? 0 : t; };
 const dateToMs = (d) => { const t = Date.parse(`${d}T00:00:00Z`); return Number.isNaN(t) ? 0 : t; };
 function addDays(d, n) {
@@ -355,10 +361,10 @@ async function getOptionChain(ticker, opts = {}) {
           strike_price: num(o.strike) || 0,
         },
         greeks: {
-          delta: num(p.delta) || 0, gamma: num(p.gamma) || 0,
-          theta: num(p.theta) || 0, vega: num(p.vega) || 0,
+          delta: greekNumber(p.delta), gamma: greekNumber(p.gamma),
+          theta: greekNumber(p.theta), vega: greekNumber(p.vega),
         },
-        implied_volatility: num(p.implied_volatility) || 0,
+        implied_volatility: greekNumber(p.implied_volatility),
         open_interest: num(p.open_interest) || 0,
         break_even_price: type === 'put'
           ? (num(o.strike) || 0) - (num(p.close) || 0)

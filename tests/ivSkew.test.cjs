@@ -246,9 +246,12 @@ test('actual adapter keeps EOD null/zero before compatibility defaults and realt
     const ast = ts.createSourceFile('adapter.ts', source, ts.ScriptTarget.Latest, true);
     const fn = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'getOptionChainSnapshotIntrinio');
     assert.ok(fn);
+    const greek = ast.statements.filter(ts.isVariableStatement).flatMap(n => [...n.declarationList.declarations])
+        .find(n => ts.isIdentifier(n.name) && n.name.text === 'greekNumber');
+    assert.ok(greek);
     const fixtures = [null, 0, 0.25].map((iv, i) => ({ option: { code: `X${i}`, strike: 100 + i, type: 'call', expiration: expiry },
         prices: { date, implied_volatility: iv, gamma: iv, open_interest: iv, close: iv } }));
-    const { getOptionChainSnapshotIntrinio } = compile(fn.getText(ast), {}, {
+    const { getOptionChainSnapshotIntrinio } = compile(`const ${greek.getText(ast)};\n${fn.getText(ast)}`, {}, {
         process: { env: { INTRINIO_REALTIME_GREEKS: '1' } },
         num: x => typeof x === 'number' && Number.isFinite(x) ? x : null,
         fetchChainPagesIntrinio: async () => ({ rows: fixtures, missing: false, truncated: false, keys: [], pages: 1 }),
