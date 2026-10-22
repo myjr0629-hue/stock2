@@ -14,6 +14,10 @@ const allowed = new Set([
     'src/services/alphaEngine.ts', 'src/services/alphaEngineV2.ts',
     'src/lib/optionLevelGate.ts', 'src/lib/impliedMove.ts', 'src/lib/marketCalendar.ts',
     'src/lib/gammaFlipDistance.ts', 'src/lib/metrics/observation.ts',
+    'src/lib/quoteBasis.ts', 'src/lib/ivSkew.ts', 'src/lib/ivRank.ts',
+    'src/lib/tickerSymbol.ts', 'src/lib/levelsSupplierDelay.ts',
+    'src/lib/app/watchlistInsights.ts', 'src/utils/calcPriceDisplay.ts',
+    'src/services/marketDaySSOT.ts',
 ]);
 function load(file) {
     if (modules.has(file)) return modules.get(file);
@@ -25,6 +29,7 @@ function load(file) {
     } }).outputText;
     vm.runInNewContext(code, { exports, require(id) {
         if (file === 'src/services/alphaEngine.ts' && id === './xsScores') return { xsOverride: x => x };
+        if (id.startsWith('@/')) return load(`src/${id.slice(2)}.ts`);
         assert.ok(id.startsWith('.'), `Unexpected import: ${id}`);
         return load(path.posix.normalize(path.posix.join(path.posix.dirname(file), id)) + '.ts');
     } }, { filename: file });
@@ -65,7 +70,7 @@ const routes = [
     ['detail', 0], ['watchlist', 0], ['watchlist', 1], ['watchlist', 2],
     ['portfolio', 0], ['portfolio', 1], ['dashboard', 0], ['report', 0],
 ];
-function mappedInput(source, pcr, gex) {
+function mappedInput(source, pcr, gex, context = {}) {
     const metrics = { pcr, gex };
     return vm.runInNewContext(ts.transpileModule(`const input = ${source}; exports.input = input;`, {
         compilerOptions: { target: ts.ScriptTarget.ES2020 },
@@ -79,6 +84,7 @@ function mappedInput(source, pcr, gex) {
         alphaSqueezeScore: null, squeezeScore: null, ivSkew: null,
         computeIVSkew: engine.computeIVSkew, price: base.price,
         structureRes: null, directCallWall: null, directPutFloor: null, optionsComplete: false,
+        ...context,
     }) || {};
 }
 // vm.runInNewContext returns the final assignment's value (the production input object).
@@ -183,4 +189,139 @@ test('quick/batch callers inherit the same availability decision', () => {
     const expected = engine.calculateAlphaScore({ ...base, ...extras });
     assert.deepEqual(plain(engine.calculateAlphaScoreQuick('TEST', 100, 100, 'REG', extras).pillars.structure), plain(expected.pillars.structure));
     assert.deepEqual(plain(engine.calculateAlphaScoreBatch([{ ...base, ...extras }])[0].pillars.structure), plain(expected.pillars.structure));
+});
+
+// Execute the actual producer, sealing storage and provider imports before loading.
+// A fresh VM per response also prevents cache/memo state from hiding the failure branch.
+const structureCode = ts.transpileModule(read('src/services/structureService.ts'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText;
+async function structureResponse({ missingOi = 6, price = 100 } = {}) {
+    const now = Date.parse('2026-10-19T15:00:00Z'), expiration = '2026-11-06';
+    class ClockDate extends Date {
+        constructor(...args) { super(...(args.length ? args : [now])); }
+        static now() { return now; }
+    }
+    const contracts = [90, 100, 110].flatMap(strike => ['call', 'put'].map(type => ({
+        details: { strike_price: strike, contract_type: type, expiration_date: expiration },
+        open_interest: type === 'call' ? 1000 : 600,
+        greeks: { gamma: 0.02 },
+    })));
+    contracts.slice(0, missingOi).forEach(c => { c.open_interest = null; });
+    const writes = [];
+    const probe = { exactResults: contracts, weeklyExpiry: expiration, expirations: [expiration],
+        chainDate: '2026-10-16', _ts: now };
+    const forbidden = () => { throw new Error('Unexpected external I/O'); };
+    const mocks = {
+        '@/services/redisClient': {
+            getFromCache: async key => key === 'polygon:snapshot:probe:TEST' ? probe : null,
+            mgetFromCache: async keys => keys.map(() => null),
+            setInCache: async (...args) => { writes.push(args); return true; },
+        },
+        '@/services/massiveClient': { CACHE_POLICY: { LIVE: 'LIVE' }, fetchMassive: async url => {
+            assert.equal(price, 0, 'spot is injected for every priced scenario');
+            assert.equal(url, '/v2/snapshot/locale/us/markets/stocks/tickers/TEST');
+            return { ticker: {} };
+        } },
+        './extendedSessionClose': { isTradeInExtSession: () => false },
+        '@/services/holidayCache': { findWeeklyExpiration: forbidden },
+        '@/lib/sessionArchive': { saveSessionArchive: async () => {}, readSessionArchiveMany: forbidden,
+            isTradingDay: () => true },
+    };
+    const exports = {};
+    vm.runInNewContext(structureCode, {
+        exports, Date: ClockDate, console: { log() {}, warn() {}, error() {} },
+        fetch: forbidden, setTimeout: forbidden,
+        require(id) {
+            if (Object.hasOwn(mocks, id)) return mocks[id];
+            if (id.startsWith('@/')) return load(`src/${id.slice(2)}.ts`);
+            assert.ok(id.startsWith('.'), `Unexpected producer import: ${id}`);
+            return load(path.posix.normalize(path.posix.join('src/services', id)) + '.ts');
+        },
+    }, { filename: 'src/services/structureService.ts' });
+    const response = await exports.getStructureData('TEST', null, { price, prevClose: 100 }, true, { noRefresh: true });
+    return { response, writes };
+}
+
+// Include the full-mode portfolio pre-mapping; substituting alphaSqueezeScore=null here
+// would conceal the original bug even while testing the real engine call expression.
+const portfolioNames = ['alphaGex', 'alphaPcr', 'alphaCallWall', 'alphaPutFloor', 'alphaGammaFlip', 'alphaSqueezeScore'];
+const portfolioTree = ast(files.portfolio), portfolioDeclarations = [];
+function collectPortfolio(node) {
+    if (ts.isVariableDeclaration(node) && portfolioNames.includes(node.name.getText(portfolioTree))) {
+        portfolioDeclarations.push(node.getText(portfolioTree));
+    }
+    ts.forEachChild(node, collectPortfolio);
+}
+collectPortfolio(portfolioTree);
+assert.equal(portfolioDeclarations.length, portfolioNames.length);
+function inputFromStructure(route, response, opts = null) {
+    const source = route === 'portfolio'
+        ? `(() => { const ${portfolioDeclarations.join(',')}; return ${inputs.portfolio[1]}; })()`
+        : inputs.dashboard[0];
+    return mappedInput(source, null, null, { data: response, structureRes: response, opts });
+}
+
+test('failed producer: all OI missing is unmeasured squeeze, without storage writes', async () => {
+    const { response, writes } = await structureResponse();
+    assert.equal(response.options_status, 'PENDING');
+    assert.equal(response.partialReason, 'oi_missing:6/6');
+    assert.equal(response.pcr, null);
+    assert.equal(response.netGex, null);
+    assert.equal(response.gammaFlipLevel, null);
+    assert.deepEqual(plain(response.levels), { callWall: null, putFloor: null, pinZone: null });
+    assert.equal(response.squeezeScore, null);
+    assert.equal(writes.length, 0);
+});
+for (const route of ['dashboard', 'portfolio']) {
+    test(`${route}: actual failed producer and empty separate chain retain missing baseline 8 and V8 total 41`, async () => {
+        const { response } = await structureResponse();
+        const mapped = inputFromStructure(route, response);
+        const result = engine.calculateAlphaScore({ ...base, ...mapped });
+        const expected = engine.calculateAlphaScore(base);
+        assert.equal(result.pillars.structure.score, 8);
+        assert.deepEqual(plain(result.pillars.structure), plain(expected.pillars.structure));
+        assert.equal(mapped.squeezeScore, null);
+        assert.equal(result.pillars.structure.factors[0].name, 'optionsData');
+        assert.equal(result.score, 41);
+    });
+    test(`${route}: failed producer does not veto independently observed PCR/GEX, including zero`, async () => {
+        // 2/6 OI missing makes the producer PENDING, with the remaining PCR still observed.
+        const { response } = await structureResponse({ missingOi: 2 });
+        assert.equal(response.options_status, 'PENDING');
+        assert.equal(response.pcr, 0.6);
+        assert.equal(response.squeezeScore, null);
+        for (const [pcr, gex] of [[response.pcr, null], [0, null], [null, -6000], [null, 0]]) {
+            const opts = { putCallRatio: pcr, gex, rawChain: [] };
+            const mapped = inputFromStructure(route, { ...response, pcr, netGex: gex }, opts);
+            assert.equal(mapped.pcr, pcr);
+            assert.equal(mapped.gex, gex);
+            const result = engine.calculateAlphaScore({ ...base, ...mapped });
+            const expected = engine.calculateAlphaScore({ ...base, pcr, gex });
+            assert.deepEqual(plain(result.pillars.structure), plain(expected.pillars.structure));
+            assert.ok(result.pillars.structure.factors.every(f => f.name !== 'optionsData'));
+        }
+    });
+    test(`${route}: measured squeeze zero and successful producer values retain existing scoring`, async () => {
+        const { response } = await structureResponse({ missingOi: 0 });
+        assert.equal(response.options_status, 'OK');
+        assert.ok(Number.isFinite(response.squeezeScore));
+        for (const squeezeScore of [response.squeezeScore, 0]) {
+            const measured = { ...response, squeezeScore };
+            const mapped = inputFromStructure(route, measured, { putCallRatio: measured.pcr });
+            assert.equal(mapped.squeezeScore, squeezeScore);
+            const result = engine.calculateAlphaScore({ ...base, ...mapped });
+            const expected = engine.calculateAlphaScore({ ...base, pcr: measured.pcr, gex: measured.netGex,
+                callWall: measured.levels.callWall, putFloor: measured.levels.putFloor,
+                gammaFlipLevel: measured.gammaFlipLevel, squeezeScore });
+            assert.deepEqual(plain(result.pillars.structure), plain(expected.pillars.structure));
+        }
+    });
+}
+test('missing underlying price: status downgrade retains PCR but never invents squeeze zero', async () => {
+    const { response, writes } = await structureResponse({ missingOi: 0, price: 0 });
+    assert.equal(response.options_status, 'PENDING');
+    assert.equal(response.pcr, 0.6);
+    assert.equal(response.squeezeScore, null);
+    assert.equal(writes.length, 0);
 });
