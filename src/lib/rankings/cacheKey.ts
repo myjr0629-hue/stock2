@@ -11,7 +11,7 @@
 // 판본 이력은 api/ranking/route.ts 의 CACHE 주석에 있다.
 // ============================================================================
 
-export const RANKING_CACHE_VERSION = 'v10';
+export const RANKING_CACHE_VERSION = 'v11';
 
 /** /api/ranking 이 저장하는 키 */
 export const rankingCacheKey = (run: string, days: number, top: number): string =>

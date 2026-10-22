@@ -41,9 +41,11 @@ function technical(rows: any[], field = 'adx') {
 }
 function macro(inflation: any) {
     return load('src/services/macroHubProvider.ts', {
-        './massiveClient': {}, '@/services/intrinioClient': {}, './marketStatusProvider': {}, './eventHubProvider': {},
+        './massiveClient': {}, '@/services/intrinioClient': { getEconomicSeries: async () => [] }, './marketStatusProvider': {}, './eventHubProvider': {},
         './fedApiClient': { getInflationData: async () => { if (inflation instanceof Error) throw inflation; return inflation; } },
         './yahooFinanceHub': {}, './redisClient': {}, '@/lib/yieldChange': {},
+        '@/lib/macroSnapshotCarry': require('../src/lib/macroSnapshotCarry'),
+        '@/lib/macroFredFallback': { fredCreditSpread: async () => null, fredRealPair: async () => null },
     }, '\nexport { fetchRealYieldData };');
 }
 const engine = load('src/lib/rankings/engine.ts', { '@/lib/marketCalendar': {} });

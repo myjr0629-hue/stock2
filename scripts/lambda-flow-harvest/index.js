@@ -477,6 +477,7 @@ async function fetchOptionsSnapshotRaw(ticker) {
         strike_price: c.strike_price,
         contract_type: c.contract_type,
         open_interest: c.open_interest,
+        eodDate: c.eodDate,
         implied_volatility: c.implied_volatility,
         // 축약해도 IV 고유 날짜·실제 관측 시각은 버리지 않는다.
         ivSourceDate: c.ivSourceDate,

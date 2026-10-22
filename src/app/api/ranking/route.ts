@@ -108,6 +108,7 @@ export async function GET(req: NextRequest) {
     // v9 — [2026-10-07] 저장 TTL 을 12시간으로 늘렸다(아래 SWR). ⚠️ v8 키를 그대로 쓰면 «옛 코드»(적중이면 나이를 안 보고 그대로 응답)가
     //      12시간짜리 사본을 «신선»으로 내보낸다 — 프리뷰·운영이 한 Redis 를 쓰므로(배포 순서가 어긋나는 동안) 키를 올려 갈라 둔다.
     // v10 — [2026-10-19] rank 척도 변경(ratioDistance). 판본 문자열은 lib/rankings/cacheKey 하나에서만 올린다(소비자 aiqContextService 가 같은 키를 읽는다).
+    // v11 — 수집일 대신 원천 EOD 세션으로 대표 행·표시 날짜를 운반한다.
     const CACHE = rankingCacheKey(run, days, top);
 
     // ★ [2026-10-07 앱 성능] «사용자 요청 안에서 7~13초 계산을 기다리지 않는다».
@@ -172,8 +173,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 옵션이 보고 있는 최신 세션 — 옵션 축(IV 랭크)이 멈췄는지 판정할 때 쓴다.
-    // ⚠️ 다크풀 판정에는 쓰지 않는다. 옵션 수집은 주말 포함 매일 04:03 ET 에 새 달력
-    //    날짜를 시작해서, 이걸 기준으로 삼으면 마감 후 랭킹이 장중·주말 내내 빈다(9/28 대표 보고).
+    // 원천 날짜를 보존한 대표 행에서 구한다. 다크풀 판정은 독립된 마감 시계를 쓴다.
     const optionSession = [...Object.values(flowSnaps), ...Object.values(gexSnaps)]
         .flat().reduce<string | null>((m, s: any) => (s?._d && (!m || s._d > m) ? s._d : m), null);
 
