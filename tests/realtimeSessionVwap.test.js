@@ -38,11 +38,17 @@ function harness(options = {}) {
             shared.locks.set(key, now + ttl * 1000); return true;
         } } },
         './redisClient': {
-            getFromCache: async key => shared.cache.get(key) ?? null,
-            setInCache: async (key, value, ttl) => { shared.cache.set(key, value); shared.writes.push(ttl); return true; },
+            getFromCache: async key => { if (options.readError) throw Error('모형 읽기 장애'); return shared.cache.get(key) ?? null; },
+            setInCache: async (key, value, ttl) => {
+                if (key.endsWith(':diag:v1')) {
+                    if (options.diagError) throw Error('모형 진단 저장 장애');
+                } else shared.writes.push(ttl);
+                shared.cache.set(key, value); return true;
+            },
         },
     };
     const api = load('src/services/realtimeSessionVwap.ts', mocks, {
+        process: { env: options.noKey ? {} : { FMP_API_KEY: '모형' } },
         Date: class extends Date { static now() { return now; } },
         fetch: async (url, init) => {
             const u = new URL(url);
@@ -51,14 +57,14 @@ function harness(options = {}) {
             assert.equal(u.searchParams.get('from'), day); assert.equal(u.searchParams.get('to'), day);
             assert.equal(init.cache, 'no-store');
             shared.calls++;
-            if (options.error) throw Error('모형 시간 초과');
+            if (options.error) { const error = Error('원천 오류 내용은 노출 금지'); error.name = options.error; throw error; }
             if (options.started) options.started();
             if (options.wait) await options.wait;
             if (options.delay) await new Promise(resolve => setTimeout(resolve, 20));
-            return { status: options.status ?? 200, ok: options.status !== 429, json: async () => options.rows ?? [bar('30'), bar('31', 200, 300)] };
+            return { status: options.status ?? 200, ok: (options.status ?? 200) >= 200 && (options.status ?? 200) < 300, json: async () => { if (options.parseError) throw Error('원천 파싱 오류 노출 금지'); return options.rows ?? [bar('30'), bar('31', 200, 300)]; } };
         },
     });
-    return { api, shared, read: (symbol = 'IBM', date = day) => api.readRealtimeSessionVwap(symbol, date, now), setNow: value => { now = value; }, get: (symbol = 'IBM', date = day) => api.getRealtimeSessionVwap(symbol, date, now) };
+    return { api, shared, diag: (symbol = 'IBM', date = day) => api.readRealtimeSessionVwapDiagnostics(symbol, date, now), read: (symbol = 'IBM', date = day) => api.readRealtimeSessionVwap(symbol, date, now), setNow: value => { now = value; }, get: (symbol = 'IBM', date = day) => api.getRealtimeSessionVwap(symbol, date, now) };
 }
 
 test('개장 첫 봉과 당일 누적 산식: Σ가격×거래량/Σ거래량, 역순·동일 중복 허용', () => {
@@ -166,4 +172,117 @@ test('Intrinio 429로 이미 닫힌 관문: FMP 잠금·HTTP 0회', async () => 
     const ctx = background.newBgCtx('vwap:시험', { noRetry429: true, tripOn429: true }); ctx.tripped = true;
     await background.runWithBg(ctx, async () => assert.equal(await h.get(), null));
     assert.equal(h.shared.calls, 0); assert.equal(h.shared.locks.size, 0);
+});
+
+
+test('진단 GET용 읽기: 관측 없음을 명시하고 HTTP·잠금·쓰기 0회', async () => {
+    const h = harness();
+    const before = await h.diag();
+    assert.equal(before.fmpKeyPresent, true);
+    assert.equal(before.observationState, 'not_observed');
+    assert.equal(before.observation, null);
+    assert.equal(before.cache.hit, false);
+    assert.equal(h.shared.calls, 0); assert.equal(h.shared.locks.size, 0); assert.equal(h.shared.cache.size, 0);
+});
+
+test('진단: 실제 HTTP·ET 봉 범위·캐시 적중 및 만료 뒤에도 10분간 사유 보존', async () => {
+    const h = harness();
+    await h.get();
+    const d = await h.diag();
+    assert.equal(d.cache.hit, true); assert.equal(d.cache.valuePresent, true);
+    assert.equal(d.observation.httpAttempted, true); assert.equal(d.observation.httpStatus, 200);
+    assert.equal(d.observation.outcome, 'accepted');
+    assert.equal(d.observation.validation.barCount, 2);
+    assert.equal(d.observation.validation.firstBarET, `${day} 09:30:00`);
+    assert.equal(d.observation.validation.latestBarET, `${day} 09:31:00`);
+    const b = harness({ shared: h.shared });
+    assert.deepEqual(json((await b.diag()).observation), json(d.observation), '다른 인스턴스에서 관측 공유');
+    h.setNow(at('09:31:26'));
+    assert.equal((await h.diag()).cache.hit, false);
+    assert.equal((await h.diag()).observation.outcome, 'accepted');
+    h.setNow(at('09:41:10'));
+    assert.equal((await h.diag()).observationState, 'not_observed');
+    assert.equal(h.shared.calls, 1); assert.deepEqual(h.shared.writes, [15]);
+});
+
+for (const [opts, outcome, status] of [
+    [{ noKey: true }, 'missing_fmp_key', null],
+    [{ status: 403 }, 'http_error', 403],
+    [{ status: 429 }, 'http_error', 429],
+    [{ status: 500 }, 'http_error', 500],
+    [{ error: 'TimeoutError' }, 'fetch_timeout', null],
+    [{ error: 'Error' }, 'fetch_error', null],
+    [{ parseError: true }, 'parse_error', 200],
+    [{ lockError: true }, 'symbol_lock_error', null],
+    [{ readError: true }, 'cache_read_error', null],
+    [{ rows: [] }, 'validation_rejected', 200],
+]) test(`진단 실패 사유 구별: ${outcome} / ${status} / ${JSON.stringify(opts)}`, async () => {
+    const h = harness(opts);
+    await h.get();
+    const d = await h.diag();
+    assert.equal(d.observation.outcome, outcome); assert.equal(d.observation.httpStatus, status);
+    assert.equal(d.fmpKeyPresent, !opts.noKey);
+    assert.ok(!JSON.stringify(d).includes('원천'));
+    if (outcome === 'http_error') assert.equal(d.observation.validation, null, '오류 본문은 해석·반환하지 않는다');
+});
+
+test('진단: 공용 예산·종목 잠금·배경 차단을 HTTP 오류와 구별', async () => {
+    const h = harness();
+    await h.get(); await h.get('NVDA');
+    assert.equal((await h.diag('NVDA')).observation.outcome, 'budget_unavailable');
+    h.setNow(at('09:31:16')); await h.get('NVDA');
+    assert.equal((await h.diag('NVDA')).observation.outcome, 'symbol_lock_unavailable');
+    const ctx = background.newBgCtx('모형'); ctx.tripped = true;
+    await background.runWithBg(ctx, async () => h.get('AAPL'));
+    assert.equal((await h.diag('AAPL')).observation.outcome, 'background_tripped');
+    assert.equal(h.shared.calls, 1);
+});
+
+test('진단 저장 장애가 기존 계산·15초 TTL을 바꾸지 않음', async () => {
+    const h = harness({ diagError: true });
+    assert.equal((await h.get()).vwap, 175);
+    assert.equal((await h.read()).vwap, 175);
+    assert.equal((await h.diag()).observation.outcome, 'accepted');
+    assert.deepEqual(h.shared.writes, [15]);
+});
+
+for (const [rows, now, date, reason] of [
+    [{}, at('09:32:10'), day, 'not_array'],
+    [[], at('09:32:10'), '2026-10-20', 'date_mismatch'],
+    [[], at('09:29:59'), day, 'outside_regular_session'],
+    [[], at('09:32:10'), day, 'no_regular_minutes'],
+    [[bar('30', 0)], at('09:32:10'), day, 'invalid_price'],
+    [[bar('30', 100, -1)], at('09:32:10'), day, 'invalid_volume'],
+    [[bar('30', 100, 10n), bar('30')], at('09:32:10'), day, 'invalid_volume'],
+    [[bar('30'), bar('30', 200)], at('09:32:10'), day, 'conflicting_duplicate'],
+    [[bar('31')], at('09:32:10'), day, 'missing_open_minute'],
+    [[bar('30'), bar('32')], at('09:32:10'), day, 'missing_middle_minutes'],
+    [[bar('30')], at('09:33:00'), day, 'stale_latest_minute'],
+    [[bar('30', 100, 0)], at('09:32:10'), day, 'session_vwap_unavailable'],
+]) test(`분봉 조건별 진단: ${reason}`, () => {
+    const result = harness().api.inspectRealtimeVwapMinutes(rows, date, now);
+    assert.equal(result.value, null); assert.ok(result.validation.rejected.includes(reason));
+});
+
+test('진단: 분 누락 목록·건너뛴 봉의 각 조건, 원천 문자열은 반환하지 않음', () => {
+    const rows = [bar('30'), bar('32'), null,
+        { ...bar('30'), date: '해석 불가 원천 문자열' },
+        { ...bar('30'), date: `${day} 09:33:00` },
+        { ...bar('30'), date: '2026-10-20 09:30:00' },
+        { ...bar('30'), date: `${day} 09:29:00` }];
+    const r = harness().api.inspectRealtimeVwapMinutes(rows, day, at('09:32:10'));
+    assert.deepEqual(json(r.validation.missingMinutesET), [`${day} 09:31:00`]);
+    assert.deepEqual(json(r.validation.skipped), { invalidTime: 2, future: 1, otherDate: 1, outsideRegular: 1 });
+    assert.ok(!JSON.stringify(r).includes('원천 문자열'));
+});
+
+test('신선도 경계: 2분 지연 허용·3분 거절, 전부 0 거래량과 누적 오버플로 거절', () => {
+    const api = harness().api;
+    assert.equal(api.inspectRealtimeVwapMinutes([bar('30')], day, at('09:32:59')).value.vwap, 100);
+    assert.equal(api.inspectRealtimeVwapMinutes([bar('30')], day, at('09:33:00')).value, null);
+    for (const rows of [[bar('30', 100, 0)], [bar('30', Number.MAX_VALUE, Number.MAX_VALUE)]]) {
+        const result = api.inspectRealtimeVwapMinutes(rows, day, at('09:30:10'));
+        assert.equal(result.value, null);
+        assert.ok(result.validation.rejected.includes('session_vwap_unavailable'));
+    }
 });
