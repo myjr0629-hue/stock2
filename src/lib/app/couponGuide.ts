@@ -20,7 +20,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { PLAY_PROMO_END } from '@/lib/marketing/coupon';
-import { COUPON_SAFETY } from '@/lib/marketing/couponSafety';
+import { couponSafetyCopy } from '@/lib/marketing/couponSafety';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
 export type CgLocale = 'ko' | 'en' | 'ja';
@@ -67,7 +67,7 @@ export interface CouponGuideCopy {
   settingsSub: string;
 }
 
-export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCopy {
+export function couponGuideCopy(locale: string, now = Date.now(), priceString?: string | null): CouponGuideCopy {
   const d = freeDaysNow(now);
   const loc = toCgLocale(locale);
   if (loc === 'ko') {
@@ -84,7 +84,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       saved: 'Play 스토어에서 이미 적용한 쿠폰은 결제 창에 바로 보입니다',
       redeemCta: '① Play 스토어에서 코드 등록',
       redeemUnavailable: '코드 등록 화면을 열 수 없습니다 — Play 스토어 앱에서 직접 등록',
-      warning: COUPON_SAFETY.ko,
+      warning: couponSafetyCopy(loc, priceString),
       freeHead: d ? `${d}일 무료가 보이면 «구독»` : '무료 기간이 보이면 «구독»',
       after: (p) => `이후 월 ${p} 자동 갱신`,
       fine: d ? `구글 결제 수단이 필요합니다 · ${d}일 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서` : '구글 결제 수단이 필요합니다 · 무료 기간 안에 해지하면 0원 · 해지는 Play 스토어 → 결제 및 정기 결제에서',
@@ -112,7 +112,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       saved: 'Playストアで適用済みのクーポンは、購入画面に表示されます',
       redeemCta: '① Playストアでコードを登録',
       redeemUnavailable: 'コード登録画面を開けません — Playストアアプリで直接登録してください',
-      warning: COUPON_SAFETY.ja,
+      warning: couponSafetyCopy(loc, priceString),
       freeHead: d ? `${d}日間無料と表示されたら「定期購入」` : '無料期間が表示されたら「定期購入」',
       after: (p) => `以降は月額${p}で自動更新`,
       fine: d ? `Googleのお支払い方法が必要です・${d}日以内に解約すれば0円・解約はPlayストア → お支払いと定期購入から` : 'Googleのお支払い方法が必要です・無料期間内に解約すれば0円・解約はPlayストア → お支払いと定期購入から',
@@ -139,7 +139,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
     saved: 'Already applied your code in the Play Store? It shows at checkout.',
     redeemCta: '① Redeem code in Play Store',
     redeemUnavailable: 'Cannot open the code redemption screen — redeem directly in the Play Store app',
-    warning: COUPON_SAFETY.en,
+    warning: couponSafetyCopy(loc, priceString),
     freeHead: d ? `When ${d} days free shows, tap “Subscribe”` : 'When the free trial shows, tap “Subscribe”',
     after: (p) => `then ${p}/mo, auto-renews`,
     fine: d ? `A Google payment method is required · Cancel within ${d} days and pay nothing · Cancel in Play Store → Payments & subscriptions` : 'A Google payment method is required · Cancel during the trial and pay nothing · Cancel in Play Store → Payments & subscriptions',

@@ -31,13 +31,17 @@ const purchases: unknown[] = [];
 const opened: string[] = [];
 const fallbackOpened: string[] = [];
 let openFails = false, offerAvailable = true, preview = false;
+let monthlyPrice = 'store-price';
 let fallbackResult: object | null = null, fallbackThrows = false;
 let openGate: (() => Promise<void>) | null = null;
 let purchaseOutcome: { ok: boolean; isPro: boolean; cancelled?: boolean; error?: string } = { ok: false, isPro: false, cancelled: true };
 let closed = 0;
 mock('../src/hooks/useProStatus', { useProStatus: () => ({
   isPro: false, ready: true, iapAvailable: !preview,
-  offers: offerAvailable ? [{ plan: 'monthly', priceString: 'store-price' }] : [],
+  offers: [
+    { plan: 'annual', priceString: 'annual-price-must-not-appear' },
+    ...(offerAvailable ? [{ plan: 'monthly', priceString: monthlyPrice }] : []),
+  ],
   refreshOffers: async () => {},
   purchase: async (...args: unknown[]) => { purchases.push(args); return purchaseOutcome; },
 }) });
@@ -80,6 +84,7 @@ function reset() {
   slots = []; purchases.length = 0; opened.length = 0; closed = 0;
   fallbackOpened.length = 0; fallbackResult = null; fallbackThrows = false; openGate = null;
   openFails = false; offerAvailable = true; preview = false;
+  monthlyPrice = 'store-price';
   purchaseOutcome = { ok: false, isPro: false, cancelled: true };
 }
 let count = 0;
@@ -91,7 +96,7 @@ async function test(name: string, fn: () => Promise<void> | void) {
   await test('ko/en/ja: 미적용 상태에도 두 단추는 보임 · 구매 비활성 · 경고 · 조건부 무료 요약', async () => {
     for (const locale of ['ko', 'en', 'ja']) {
       slots = [];
-      const tree = render(locale), copy = couponGuideCopy(locale);
+      const tree = render(locale), copy = couponGuideCopy(locale, undefined, monthlyPrice);
       const html = renderToStaticMarkup(tree);
       assert.equal(redeem(tree).props.disabled, false);
       assert.equal(subscribe(tree).props.disabled, true);
@@ -109,6 +114,33 @@ async function test(name: string, fn: () => Promise<void> | void) {
       assert.ok(html.indexOf('data-coupon-redeem') < html.indexOf('data-coupon-subscribe'));
       await subscribe(tree).props.onClick();
       assert.equal(purchases.length, 0, '비활성 단추 핸들러 직접 호출도 차단');
+    }
+  });
+  await test('KRW/JPY/USD/빈 가격: ko/en/ja 경고와 갱신 줄이 같은 월간 가격 사용 · 오퍼 갱신 반영', () => {
+    for (const locale of ['ko', 'en', 'ja']) {
+      reset();
+      for (const price of ['₩11,900', '¥1,280', 'US$9.99', '', '  ']) {
+        monthlyPrice = price;
+        const nodes = elements(render(locale));
+        const warning = nodes.find((el) => el.props?.id === 'coupon-test-warning');
+        const copy = couponGuideCopy(locale, undefined, price);
+        assert.equal(warning.props.children, copy.warning);
+        assert.ok(nodes.some((el) => el.props?.className === 'after' && el.props.children === copy.after(price)));
+        assert.ok(!warning.props.children.includes('annual-price-must-not-appear'));
+        if (price.trim()) assert.ok(warning.props.children.includes(price));
+        else assert.ok(!/[₩¥$]|11,900|1,280|9\.99/.test(warning.props.children));
+      }
+    }
+  });
+  await test('월간 상품 없음: 연간 가격·프리뷰 자리표시자를 경고에 쓰지 않음 · 재수신 시 현지 가격 반영', () => {
+    for (const locale of ['ko', 'en', 'ja']) for (const isPreview of [false, true]) {
+      reset(); offerAvailable = false; preview = isPreview;
+      const warning = elements(render(locale)).find((el) => el.props?.id === 'coupon-test-warning');
+      assert.equal(warning.props.children, couponGuideCopy(locale).warning);
+      assert.ok(!/[₩¥$]|annual-price|store-price/.test(warning.props.children));
+      offerAvailable = true; monthlyPrice = '¥1,280';
+      assert.equal(elements(render(locale)).find((el) => el.props?.id === 'coupon-test-warning').props.children,
+        couponGuideCopy(locale, undefined, monthlyPrice).warning);
     }
   });
   await test('등록 화면을 열기 전 사용자 확인 핸들러를 호출해도 구독 불가', async () => {
@@ -218,7 +250,7 @@ async function test(name: string, fn: () => Promise<void> | void) {
       const tree = render(locale), btn = subscribe(tree);
       assert.equal(btn.props.disabled, false);
       const nodes = elements(tree);
-      assert.equal(nodes[nodes.findIndex((el) => 'data-coupon-subscribe' in (el.props || {})) - 1].props.children, couponGuideCopy(locale).warning);
+      assert.equal(nodes[nodes.findIndex((el) => 'data-coupon-subscribe' in (el.props || {})) - 1].props.children, couponGuideCopy(locale, undefined, monthlyPrice).warning);
       await Promise.all([btn.props.onClick(), btn.props.onClick()]);
       assert.deepEqual(purchases, [['monthly', 'settings']]);
       assert.equal(subscribe(render(locale)).props.disabled, true);
