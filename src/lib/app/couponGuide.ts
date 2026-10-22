@@ -44,6 +44,7 @@ export interface CouponGuideCopy {
   saved: string;
   /** 기존 웹 안내의 ① 등록 단추. 구매와 별도 동작. */
   redeemCta: string;
+  redeemUnavailable: string;
   warning: string;
   /** 큰 줄 — 적용을 단정하지 않고 결제 창의 무료 표시를 조건으로 삼는다. */
   freeHead: string;
@@ -79,6 +80,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       ],
       saved: 'Play 스토어에서 이미 적용한 쿠폰은 결제 창에 바로 보입니다',
       redeemCta: '① Play 스토어에서 적용',
+      redeemUnavailable: '코드 등록 화면을 열 수 없습니다 — Play 스토어 앱에서 직접 등록',
       warning: COUPON_SAFETY.ko,
       freeHead: d ? `${d}일 무료가 보이면 «구독»` : '무료 기간이 보이면 «구독»',
       after: (p) => `이후 월 ${p} 자동 갱신`,
@@ -105,6 +107,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
       ],
       saved: 'Playストアで適用済みのクーポンは、購入画面に表示されます',
       redeemCta: '① Playストアで適用',
+      redeemUnavailable: 'コード登録画面を開けません — Playストアアプリで直接登録してください',
       warning: COUPON_SAFETY.ja,
       freeHead: d ? `${d}日間無料と表示されたら「定期購入」` : '無料期間が表示されたら「定期購入」',
       after: (p) => `以降は月額${p}で自動更新`,
@@ -130,6 +133,7 @@ export function couponGuideCopy(locale: string, now = Date.now()): CouponGuideCo
     ],
     saved: 'Already applied your code in the Play Store? It shows at checkout.',
     redeemCta: '① Apply in Play Store',
+    redeemUnavailable: 'Cannot open the code redemption screen — redeem directly in the Play Store app',
     warning: COUPON_SAFETY.en,
     freeHead: d ? `When ${d} days free shows, tap “Subscribe”` : 'When the free trial shows, tap “Subscribe”',
     after: (p) => `then ${p}/mo, auto-renews`,

@@ -1,4 +1,4 @@
-/** Offline component exercise: real JSX/handlers, stubbed React hooks, SDK and native navigation. */
+/** Offline component exercise: real JSX/handlers and URL bridge; stubbed React hooks, SDK and platform APIs. */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
 
@@ -29,7 +29,10 @@ require.extensions['.css'] = (mod) => { mod.exports = new Proxy({}, { get: (_, n
 
 const purchases: unknown[] = [];
 const opened: string[] = [];
+const fallbackOpened: string[] = [];
 let openFails = false, offerAvailable = true, preview = false;
+let fallbackResult: object | null = null, fallbackThrows = false;
+let openGate: (() => Promise<void>) | null = null;
 let purchaseOutcome = { ok: false, isPro: false, cancelled: true };
 let closed = 0;
 mock('../src/hooks/useProStatus', { useProStatus: () => ({
@@ -41,10 +44,21 @@ mock('../src/hooks/useProStatus', { useProStatus: () => ({
 mock('../src/hooks/useBannerSuppression', { useBannerSuppression: () => {} });
 mock('../src/components/app/watchlist/BottomSheet', { useBackToClose: () => {}, useLayer: () => () => true });
 mock('../src/lib/app/redeem', { PLAY_REDEEM_URL: 'https://play.google.com/redeem', refreshProAfterRedeem: async () => false });
-mock('../src/lib/native/capacitorBridge', { openExternalUrl: async (url: string) => {
+// 실제 openExternalUrl의 네이티브 실패 → window.open 폴백까지 실행한다.
+(globalThis as any).window = {
+  location: { pathname: '/ko/app-view/settings' },
+  open: (url: string) => {
+    fallbackOpened.push(url);
+    if (fallbackThrows) throw new Error('offline');
+    return fallbackResult;
+  },
+};
+mock('@capacitor/core', { Capacitor: { isNativePlatform: () => true, getPlatform: () => 'android' } });
+mock('@capacitor/browser', { Browser: { open: async ({ url }: { url: string }) => {
   opened.push(url);
+  if (openGate) await openGate();
   if (openFails) throw new Error('offline');
-} });
+} } });
 mock('../src/lib/app/proEntitlement', { isPreviewHost: () => preview, notifyProPurchased: () => {} });
 mock('../src/lib/app/funnel', { trackFunnel: () => {} });
 
@@ -64,6 +78,7 @@ const subscribe = (tree: any) => elements(tree).find((el) => 'data-coupon-subscr
 const checkbox = (tree: any) => elements(tree).find((el) => el.type === 'input' && el.props.type === 'checkbox');
 function reset() {
   slots = []; purchases.length = 0; opened.length = 0; closed = 0;
+  fallbackOpened.length = 0; fallbackResult = null; fallbackThrows = false; openGate = null;
   openFails = false; offerAvailable = true; preview = false;
 }
 let count = 0;
@@ -108,14 +123,68 @@ async function test(name: string, fn: () => Promise<void> | void) {
     assert.equal(subscribe(render()).props.disabled, true);
     assert.equal(closed, 0);
   });
-  await test('등록 URL 실패: 오류 표시 · 체크와 구독 비활성 · 구매 0', async () => {
+  for (const locale of ['ko', 'en', 'ja']) {
+    for (const fallback of ['null', 'object', 'throw'] as const) {
+      await test(`${locale}: 실제 URL 함수의 네이티브 실패 + 폴백 ${fallback} → 지정 안내 · 구독 미노출 · 구매 0`, async () => {
+        openFails = true;
+        fallbackResult = fallback === 'object' ? {} : null;
+        fallbackThrows = fallback === 'throw';
+        const continueBeforeOpen = subscribe(render(locale)).props.onClick;
+        await redeem(render(locale)).props.onClick();
+        const tree = render(locale);
+        assert.deepEqual(opened, ['https://play.google.com/redeem']);
+        assert.deepEqual(fallbackOpened, opened);
+        assert.equal(checkbox(tree).props.disabled, true);
+        assert.equal(checkbox(tree).props.checked, false);
+        assert.equal(subscribe(tree), undefined);
+        assert.equal(redeem(tree).props.disabled, true);
+        const statuses = elements(tree).filter((el) => el.props?.role === 'status');
+        assert.deepEqual(statuses.map((el) => el.props.children), [couponGuideCopy(locale).redeemUnavailable]);
+        checkbox(tree).props.onChange({ target: { checked: true } });
+        await continueBeforeOpen();
+        await redeem(render(locale)).props.onClick();
+        assert.equal(opened.length, 1, '실패한 시트는 안내로 끝낸다');
+        assert.equal(subscribe(render(locale)), undefined);
+        assert.equal(purchases.length, 0); assert.equal(closed, 0);
+      });
+    }
+  }
+  await test('이전 등록·체크 성공 후 다시 열기 실패: 이전 활성 구매 핸들러도 차단', async () => {
+    await redeem(render()).props.onClick();
+    checkbox(render()).props.onChange({ target: { checked: true } });
+    const continueBeforeFailure = subscribe(render()).props.onClick;
     openFails = true;
     await redeem(render()).props.onClick();
-    const tree = render();
-    assert.equal(checkbox(tree).props.disabled, true);
-    assert.equal(subscribe(tree).props.disabled, true);
-    assert.ok(renderToStaticMarkup(tree).includes(couponGuideCopy('ko').failed));
+    await continueBeforeFailure();
+    assert.equal(checkbox(render()).props.checked, false);
+    assert.equal(subscribe(render()), undefined);
     assert.equal(purchases.length, 0);
+  });
+  await test('열기 응답 10초 확인 불가 → 안내 · 구독 미노출; 뒤늦은 성공도 구매 허용 안 함', async () => {
+    let release!: () => void, expire!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    openGate = () => gate;
+    const schedule = globalThis.setTimeout;
+    globalThis.setTimeout = ((fn: () => void, ms: number) => {
+      assert.equal(ms, 10_000); expire = fn; return 1;
+    }) as any;
+    try {
+      const opening = redeem(render()).props.onClick();
+      assert.equal(redeem(render()).props.disabled, true);
+      await redeem(render()).props.onClick();
+      expire(); await opening;
+      assert.equal(subscribe(render()), undefined);
+      assert.ok(renderToStaticMarkup(render()).includes(couponGuideCopy('ko').redeemUnavailable));
+      release(); await gate; await Promise.resolve(); await Promise.resolve();
+      assert.equal(subscribe(render()), undefined);
+      assert.equal(checkbox(render()).props.disabled, true);
+      assert.equal(opened.length, 1); assert.equal(purchases.length, 0);
+    } finally { globalThis.setTimeout = schedule; release(); }
+  });
+  await test('새 안내 문구만 ko/en/ja에 추가', () => {
+    assert.equal(couponGuideCopy('ko').redeemUnavailable, '코드 등록 화면을 열 수 없습니다 — Play 스토어 앱에서 직접 등록');
+    assert.equal(couponGuideCopy('en').redeemUnavailable, 'Cannot open the code redemption screen — redeem directly in the Play Store app');
+    assert.equal(couponGuideCopy('ja').redeemUnavailable, 'コード登録画面を開けません — Playストアアプリで直接登録してください');
   });
   await test('다시 등록을 열면 이전 사용자 확인 초기화', async () => {
     await redeem(render()).props.onClick();

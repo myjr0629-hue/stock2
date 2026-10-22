@@ -37,8 +37,10 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [redeemOpened, setRedeemOpened] = useState(false);
+  const [redeemBlocked, setRedeemBlocked] = useState(false);
   const [codeAppliedConfirmed, setCodeAppliedConfirmed] = useState(false);
   const busyRef = useRef(false);
+  const redeemOpenedRef = useRef(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -84,22 +86,38 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
   }, [isTop]);
 
   const onRedeem = useCallback(async () => {
-    if (busyRef.current) return;
+    if (busyRef.current || redeemBlocked) return;
     busyRef.current = true;
     setBusy(true);
     setNote(null);
     setCodeAppliedConfirmed(false);
     setRedeemOpened(false);
+    redeemOpenedRef.current = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      await openExternalUrl(PLAY_REDEEM_URL);
+      const result = await Promise.race([
+        openExternalUrl(PLAY_REDEEM_URL),
+        new Promise<'unconfirmed'>((resolve) => {
+          timeout = setTimeout(() => resolve('unconfirmed'), 10_000);
+        }),
+      ]);
+      if (result !== 'opened') {
+        setRedeemBlocked(true);
+        setNote(t.redeemUnavailable);
+        return;
+      }
       // URL 열림은 등록 완료가 아니다. 아래 체크는 사용자가 직접 해야 한다.
+      redeemOpenedRef.current = true;
       setRedeemOpened(true);
-    } catch { setNote(t.failed); }
-    finally { busyRef.current = false; setBusy(false); }
-  }, [t.failed]);
+    } catch {
+      setRedeemBlocked(true);
+      setNote(t.redeemUnavailable);
+    }
+    finally { clearTimeout(timeout); busyRef.current = false; setBusy(false); }
+  }, [t.redeemUnavailable, redeemBlocked]);
 
   const onContinue = useCallback(async () => {
-    if (busyRef.current || !redeemOpened || !codeAppliedConfirmed) return;
+    if (busyRef.current || !redeemOpenedRef.current || !redeemOpened || !codeAppliedConfirmed) return;
     busyRef.current = true;
     setBusy(true);
     setNote(null);
@@ -145,7 +163,7 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
           <p className={p.lede}>{t.lede}</p>
         </div>
 
-        <button type="button" className={`${p.cta} ${s.ctaTall}`} onClick={onRedeem} disabled={busy} data-coupon-redeem="">
+        <button type="button" className={`${p.cta} ${s.ctaTall}`} onClick={onRedeem} disabled={busy || redeemBlocked} data-coupon-redeem="">
           {t.redeemCta}
         </button>
 
@@ -170,10 +188,10 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
 
         <p className={p.note} id={`${titleId}-warning`}>{t.warning}</p>
 
-        <button type="button" className={`${p.cta} ${s.ctaTall}`} onClick={onContinue} disabled={busy || !canBuy}
+        {!redeemBlocked && <button type="button" className={`${p.cta} ${s.ctaTall}`} onClick={onContinue} disabled={busy || !canBuy}
           aria-describedby={`${titleId}-warning`} data-coupon-subscribe="">
           {busy ? t.busy : t.cta}
-        </button>
+        </button>}
 
         {note && <p className={p.note} role="status">{note}</p>}
 
