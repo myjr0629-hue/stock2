@@ -66,9 +66,10 @@ mock('../src/lib/app/redeem', {
   PLAY_REDEEM_URL: 'https://play.google.com/redeem',
   refreshProAfterRedeem: async (p: string) => {
     checks.push(p);
+    const result = checkResult;   // 조회 «시작» 시점의 서버 상태(늦게 도착하는 옛 응답 흉내)
     if (checkGate) await checkGate;
-    if (checkResult === 'throw') throw new Error('net');
-    return checkResult;
+    if (result === 'throw') throw new Error('net');
+    return result;
   },
 });
 let notified = 0;
@@ -243,6 +244,21 @@ async function openAndReturn(via: 'visibility' | 'app' = 'visibility', locale = 
     assert.equal(opened.length, 1, '확인 중 다시 누름 무시');
     release(); await settle();
     assert.deepEqual(checks, ['url']);
+  });
+  await test('확인 중 Play 스토어에 또 다녀오면 첫 확인 «아님» 뒤 한 번 더 읽어 → 적용됨', async () => {
+    let release!: () => void; checkGate = new Promise<void>((r) => { release = r; });
+    checkResult = false;
+    render(); await settle();
+    const opening = redeem(render()).props.onClick(); await settle();
+    visibility('hidden'); await opening; await settle();
+    visibility('visible'); await settle();
+    visibility('hidden'); await settle(); visibility('visible'); await settle();
+    assert.deepEqual(checks, ['url']);
+    checkGate = null; checkResult = true;   // 두 번째 조회는 PRO
+    release(); await settle();
+    assert.deepEqual(checks, ['url', 'url']);
+    assert.deepEqual(statusText(render()), [couponGuideCopy('ko').applied]);
+    assert.equal(notified, 1);
   });
   await test('«아직» 뒤 다시 Play 스토어에 다녀오면 한 번 더 읽음 → 적용됨', async () => {
     checkResult = false;

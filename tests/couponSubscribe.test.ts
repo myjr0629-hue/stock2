@@ -163,6 +163,20 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.equal(b.f.phase, 'not_applied');
     release('opened'); await p; assert.equal(b.f.phase, 'not_applied');
   });
+  await t('확인 중 다시 다녀오면(가려짐 → 복귀) 버리지 않고 끝난 뒤 한 번 더 읽는다 — 늦게 온 옛 «아님»으로 끝나지 않음', async () => {
+    const answers = [false, true]; let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
+    let n = 0;
+    const a = rflow({ pro: async () => { const i = n++; if (i === 0) await gate; return answers[i]; } });
+    await a.f.start(); a.f.away();
+    const p = a.f.back();
+    a.f.away(); await a.f.back();
+    release(); await p;
+    assert.equal(a.log.filter((x) => x === 'check').length, 2);
+    assert.equal(a.f.phase, 'applied');
+    const b = rflow({ pro: async () => false });
+    await b.f.start(); b.f.away(); await b.f.back();
+    assert.equal(b.log.filter((x) => x === 'check').length, 1, '다녀오지 않았으면 한 번만');
+  });
   await t('확인 예외 → not_applied · 확인 중 중복 복귀·재시작 무시', async () => {
     const a = rflow({ pro: async () => { throw new Error('net'); } });
     await a.f.start(); a.f.away(); await a.f.back();

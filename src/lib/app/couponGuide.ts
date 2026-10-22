@@ -227,6 +227,7 @@ export function couponRedeemFlow(deps: {
 }): CouponRedeemFlow {
   let phase: CouponRedeemPhase = 'idle';
   let wentAway = false;
+  let again = false;   // 확인 중에 또 다녀왔다 — 지금 확인이 «아님»이면 한 번 더 읽는다
   let run = 0;
   const set = (p: CouponRedeemPhase) => { phase = p; try { deps.onPhase(p); } catch { /* 화면 갱신 실패는 흐름과 무관 */ } };
   const tr = (st: 'code_cta' | 'code_pro') => { try { deps.track?.(st); } catch { /* 계측 실패 무시 */ } };
@@ -248,14 +249,23 @@ export function couponRedeemFlow(deps: {
       if (phase === 'opening' || phase === 'waiting' || phase === 'checking' || phase === 'not_applied') wentAway = true;
     },
     async back() {
+      if (phase === 'checking') {
+        // 확인 중 Play 스토어에 다시 다녀옴 — 버리지 않고 지금 확인이 끝난 뒤 한 번 더(관문 10230232)
+        if (wentAway) { wentAway = false; again = true; }
+        return;
+      }
       if (phase !== 'opening' && phase !== 'waiting' && phase !== 'not_applied') return;
       if (!wentAway) return;   // 나간 적 없는 «보임» 신호는 복귀가 아니다
       wentAway = false;
+      again = false;
       const my = ++run;
       set('checking');
       let pro = false;
-      try { pro = (await deps.checkPro()) === true; } catch { pro = false; }
-      if (my !== run) return;
+      do {
+        again = false;
+        try { pro = (await deps.checkPro()) === true; } catch { pro = false; }
+        if (my !== run) return;
+      } while (!pro && again);
       if (pro) { try { deps.notifyPro(); } catch { /* noop */ } tr('code_pro'); set('applied'); }
       else set('not_applied');
     },
