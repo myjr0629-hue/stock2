@@ -1,5 +1,5 @@
 /**
- * «쿠폰 → 구독 → PRO» 흐름(2026-10-06) — 안드로이드 «🎟 쿠폰 코드 입력»이 Play 코드 사용 화면 대신 앱 안 구독 결제 창으로 가는지,
+ * «쿠폰 등록 → 사용자 확인 → 구독 → PRO» 흐름 — 코드 미확인 구매 차단·조건부 무료 안내,
  *   [계속] 뒤 순서(계측·구매·PRO 알림·다시 읽기·취소·실패) · 복귀 때 밖-구매 동기화(10분 1회·PRO 면 안 함·결제 창 중엔 안 함) ·
  *   안내 문구(한·영·일 «구독» 단계·가격은 스토어 문자열·무료 일수는 Play 프로모션 기간에만) · 쿠폰 화면 안드로이드판 «② 구독» 단계.
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/couponSubscribe.test.ts
@@ -31,6 +31,7 @@ import { foregroundProSync, shouldForegroundSync, FOREGROUND_SYNC_MIN_GAP_MS } f
 import { PLAY_PROMO_END } from '../src/lib/marketing/coupon';
 import { couponHtml } from '../src/lib/marketing/couponHtml';
 import { FUNNEL_STAGES } from '../src/lib/app/funnelSchema';
+import { COUPON_SAFETY } from '../src/lib/marketing/couponSafety';
 
 const ROOT = path.join(__dirname, '..');
 const src = (p: string) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -42,20 +43,23 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
 (async () => {
   const BEFORE = Date.parse('2026-10-06T00:00:00Z');
   console.log('━━━ 1. 안내 문구(한·영·일) ━━━');
-  await t('세 언어 모두 3단계 · 마지막 단계 = «구독»(구글 결제 창 버튼) · 둘째 단계 = 결제 수단 → 코드 사용', () => {
+  await t('세 언어 모두 Play 코드 등록 → 계속(결제 창) → 무료 표시 확인 후 구독 순서', () => {
     const ko = couponGuideCopy('ko', BEFORE), en = couponGuideCopy('en', BEFORE), ja = couponGuideCopy('ja', BEFORE);
     assert.equal(ko.steps.length, 3); assert.equal(en.steps.length, 3); assert.equal(ja.steps.length, 3);
     assert.ok(ko.steps[2].includes('«구독»') && en.steps[2].includes('“Subscribe”') && ja.steps[2].includes('「定期購入」'));
-    assert.ok(ko.steps[1].includes('결제 수단') && ko.steps[1].includes('«코드 사용»'));
-    assert.ok(en.steps[1].includes('payment method') && en.steps[1].includes('“Redeem code”'));
-    assert.ok(ja.steps[1].includes('お支払い方法') && ja.steps[1].includes('「コードを利用」'));
-    assert.ok(ko.steps[0].includes('[계속]') && ko.cta === '계속' && en.cta === 'Continue' && ja.cta === '続ける');
+    assert.ok(ko.steps[0].includes('Play 스토어') && ko.steps[0].includes('코드 사용'));
+    assert.ok(en.steps[0].includes('Play Store') && en.steps[0].includes('Redeem code'));
+    assert.ok(ja.steps[0].includes('Playストア') && ja.steps[0].includes('コードを利用'));
+    assert.ok(ko.steps[1].includes('[구독 시작]') && ko.cta === '② 구독 시작' && en.cta === '② Start subscription' && ja.cta === '② 定期購入を開始');
     // 요점(대표 10/6): «구독»까지 해야 PRO
     assert.ok(ko.lede.includes('«구독»까지 눌러야 PRO가 켜집니다') && en.lede.includes('PRO starts only after you tap “Subscribe”') && ja.lede.includes('「定期購入」まで押すとPROが有効になります'));
   });
-  await t('무료·가격·해지 고지: 첫 30일 0원 · 이후 월 «스토어 가격» 자동 갱신 · 30일 안에 해지하면 0원 · 해지 위치', () => {
+  await t('무료 요약은 적용 완료가 아닌 조건부 안내 · 가격·해지 고지는 보존', () => {
     const ko = couponGuideCopy('ko', BEFORE), en = couponGuideCopy('en', BEFORE), ja = couponGuideCopy('ja', BEFORE);
-    assert.equal(ko.freeHead, '첫 30일 0원'); assert.equal(en.freeHead, 'First 30 days free'); assert.equal(ja.freeHead, '最初の30日間0円');
+    for (const c of [ko, en, ja]) assert.equal(c.freeHead, c.steps[2]);
+    assert.equal(ko.warning, '결제 창에 ₩0 · 30일 무료가 보일 때만 승인하세요. 금액(월 11,900원)이 바로 청구되는 화면이면 취소하세요.');
+    assert.equal(en.warning, 'Approve only when checkout shows ₩0 · 30 days free. Cancel if the screen shows an immediate charge (₩11,900/month).');
+    assert.equal(ja.warning, '購入画面に₩0・30日間無料と表示された場合のみ、承認してください。月11,900ウォンが、すぐに請求される画面なら、キャンセルしてください。');
     assert.equal(ko.after('₩11,900'), '이후 월 ₩11,900 자동 갱신');
     assert.equal(en.after('$9.99'), 'then $9.99/mo, auto-renews');
     assert.equal(ja.after('¥1,280'), '以降は月額¥1,280で自動更新');
@@ -73,9 +77,9 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.ok(ko.steps[2].includes('«구독»') && en.steps[2].includes('“Subscribe”'), '«구독» 단계는 그대로');
   });
   await t('설정 행 아래 한 줄(안드로이드) — «결제 창에서 코드 입력 → 구독»', () => {
-    assert.equal(couponGuideCopy('ko', BEFORE).settingsSub, '결제 창에서 코드 입력 → «구독» · 첫 30일 0원');
-    assert.equal(couponGuideCopy('en', BEFORE).settingsSub, 'Enter it at checkout → “Subscribe” · first 30 days free');
-    assert.equal(couponGuideCopy('ja', BEFORE).settingsSub, '購入画面でコード入力 →「定期購入」・最初の30日間0円');
+    assert.equal(couponGuideCopy('ko', BEFORE).settingsSub, 'Play 스토어 → 결제 및 정기 결제 → 코드 사용');
+    assert.equal(couponGuideCopy('en', BEFORE).settingsSub, 'Play Store → Payments & subscriptions → Redeem code');
+    assert.equal(couponGuideCopy('ja', BEFORE).settingsSub, 'Playストア → お支払いと定期購入 → コードを利用');
     assert.equal(toCgLocale('de'), 'en'); assert.equal(toCgLocale(null), 'en');
   });
 
@@ -107,12 +111,28 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   const flow = (buy: () => Promise<{ ok: boolean; isPro: boolean; cancelled?: boolean; error?: string }>, recheck = async () => false) => {
     const log: string[] = [];
     return { log, deps: {
+      redeemOpened: true,
+      codeAppliedConfirmed: true,
       purchase: async () => { log.push('purchase'); return buy(); },
       recheck: async () => { log.push('recheck'); return recheck(); },
       notifyPro: () => { log.push('notify'); },
       track: (st: string) => { log.push(st); },
     } };
   };
+  await t('코드 적용 미확인·필드 누락이면 구매·계측·권한 알림 모두 0', async () => {
+    for (const value of [false, undefined, null, 'true']) {
+      const f = flow(async () => ({ ok: true, isPro: true }));
+      assert.equal(await runCouponPurchase({ ...f.deps, codeAppliedConfirmed: value } as any), 'unconfirmed');
+      assert.deepEqual(f.log, []);
+    }
+  });
+  await t('등록 열기 미확인·필드 누락이면 사용자 확인만으로 구매 불가', async () => {
+    for (const redeemOpened of [false, undefined, null, 'true']) {
+      const f = flow(async () => ({ ok: true, isPro: true }));
+      assert.equal(await runCouponPurchase({ ...f.deps, redeemOpened } as any), 'unconfirmed');
+      assert.deepEqual(f.log, []);
+    }
+  });
   await t('구매 → PRO: code_cta → 구매 → 공용 상태 알림 → code_pro', async () => {
     const f = flow(async () => ({ ok: true, isPro: true }));
     assert.equal(await runCouponPurchase(f.deps as any), 'pro');
@@ -210,12 +230,25 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   console.log('━━━ 5. 쿠폰 화면 안드로이드판 — «② 구독» 단계 ━━━');
   const REDEEM = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=THREADSPRO';
   const PLAYI = 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dthreads';
-  await t('ko: ① Play 스토어에서 적용 → ② «구독»(30일 안에 해지하면 0원) → 구독 화면이 안 나오면 앱 안 경로 → 손입력(그다음 ②) 순서', () => {
+  await t('웹 ko/en/ja: 등록 → 무료 미표시 경고 → 구독 순서(일반·인앱·선물)', () => {
+    for (const lang of ['ko', 'en', 'ja'] as const) {
+      for (const variant of [{}, { androidInApp: true }, { gift: 'offline-test' }]) {
+        const h = couponHtml({ platform: 'android', lang, fromTag: null, code: 'ZZTEST', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI, ...variant });
+        const x = textOf(h);
+        assert.ok(x.includes(COUPON_SAFETY[lang]));
+        assert.ok(h.indexOf('id="coupon-warning"') < h.indexOf('id="step2"'));
+        if (!('gift' in variant)) assert.ok(h.indexOf('id="play"') < h.indexOf('id="coupon-warning"'));
+      }
+      const ios = couponHtml({ platform: 'ios', lang, fromTag: null, code: 'ZZTEST', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI });
+      assert.ok(!ios.includes(COUPON_SAFETY[lang]), 'iOS 경로에 안드 경고를 추가하지 않는다');
+    }
+  });
+  await t('ko: ① Play 스토어에서 코드 등록 → ② «구독»(30일 안에 해지하면 0원) → 구독 화면이 안 나오면 앱 안 경로 → 손입력(그다음 ②) 순서', () => {
     const h = couponHtml({ platform: 'android', lang: 'ko', fromTag: 'threads', code: 'THREADSPRO', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI });
     const x = textOf(h);
-    const i1 = x.indexOf('① Play 스토어에서 적용');
+    const i1 = x.indexOf('① Play 스토어에서 코드 등록');
     const i2 = x.indexOf('② 이어서 «구독»을 눌러야 PRO가 시작됩니다 — 30일 안에 해지하면 0원');
-    const i3 = x.indexOf('구독 화면이 안 나오면: SIGNUM HQ 앱 → 설정 → 🎟\u00a0쿠폰 코드 입력 → 계속 → «구독»');
+    const i3 = x.indexOf('구독 화면이 안 나오면: SIGNUM HQ 앱 → 설정 → 🎟\u00a0쿠폰 코드 입력 → ② 구독 시작 → «구독»');
     const i4 = x.indexOf('Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다(그다음 ②)');
     assert.ok(i1 > 0 && i2 > i1 && i3 > i2 && i4 > i3, `${i1} ${i2} ${i3} ${i4}`);
     assert.ok(h.includes('<p class="step2" id="step2">'));
@@ -225,11 +258,11 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   });
   await t('en·ja 도 같은 단계(“Subscribe” · 「定期購入」) · 앱 안 경로의 이름이 앱 설정 문구와 같다', () => {
     const en = textOf(couponHtml({ platform: 'android', lang: 'en', fromTag: 'x_us', code: 'XPRO', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI }));
-    assert.ok(en.includes('① Apply in Play Store') && en.includes('② Then tap “Subscribe” to start PRO — cancel within 30 days and pay nothing'));
-    assert.ok(en.includes('No subscribe screen? SIGNUM HQ app → Settings → 🎟\u00a0Redeem a code → Continue → “Subscribe”'));
+    assert.ok(en.includes('① Redeem code in Play Store') && en.includes('② Then tap “Subscribe” to start PRO — cancel within 30 days and pay nothing'));
+    assert.ok(en.includes('No subscribe screen? SIGNUM HQ app → Settings → 🎟\u00a0Redeem a code → ② Start subscription → “Subscribe”'));
     const ja = textOf(couponHtml({ platform: 'android', lang: 'ja', fromTag: 'note', code: 'NOTEJP', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI }));
-    assert.ok(ja.includes('① Playストアで適用') && ja.includes('② 続けて「定期購入」を押すとPROが始まります — 30日以内に解約すれば0円'));
-    assert.ok(ja.includes('購入画面が出ない場合: SIGNUM HQアプリ → 設定 → 🎟\u00a0クーポンコードを使う → 続ける →「定期購入」'));
+    assert.ok(ja.includes('① Playストアでコードを登録') && ja.includes('② 続けて「定期購入」を押すとPROが始まります — 30日以内に解約すれば0円'));
+    assert.ok(ja.includes('購入画面が出ない場合: SIGNUM HQアプリ → 設定 → 🎟\u00a0クーポンコードを使う → ② 定期購入を開始 →「定期購入」'));
     // 앱 문구와 같은 이름(설정 행 이름 · 시트 [계속])
     assert.ok(en.includes(couponGuideCopy('en').cta) && ja.includes(couponGuideCopy('ja').cta));
   });

@@ -1,3 +1,4 @@
+import { couponSafetyNormalized } from './_couponSafetyBaseline';
 /** 날짜 표시 회귀: 실제 GET 3곳·3언어·시각 경계와 수정 전 HTML 바이트 비교. 외부 접근 없음. */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
@@ -90,7 +91,7 @@ async function main() {
           next = next.replace(`https://www.signumhq.com/promo/redeem-card-${lang}.png`, `https://www.signumhq.com/api/og/promo?l=${lang}&code=SIGNUMPRO`);
           if (lang === 'en') next = next.replace(/(<p class="t-sub">[^<]*First )5,000/, '$1<span style="letter-spacing:-1.5px;white-space:nowrap">5,000</span>');
         }
-        check(couponHtml(opts) === next, '쿠폰 HTML: 날짜·한도 숫자·해당 이미지 주소 외 바이트 동일');
+        check(couponSafetyNormalized(couponHtml(opts)) === couponSafetyNormalized(next), '쿠폰 HTML: 날짜·한도 숫자·해당 이미지 주소 외 바이트 동일');
       }
     }
     const opts = { lang, fromTag: null, code, coupon: true, redeemUrl: '#' };

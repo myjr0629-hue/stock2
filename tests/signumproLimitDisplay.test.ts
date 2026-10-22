@@ -1,3 +1,4 @@
+import { couponSafetyNormalized } from './_couponSafetyBaseline';
 /** 코드별 한도 회귀: 기준 커밋과 실제 HTML·PNG 비교. 외부 통신·저장소 접근 없음. */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
@@ -111,7 +112,7 @@ async function main() {
       check(promoCodeLimit(code) === (extended ? 5000 : 500), '코드별 한도');
       for (const platform of ['ios', 'android'] as const) for (const fromTag of [null, 'gift', 'cr_test', 'threads']) {
         const opts = { platform, lang, fromTag, code, appleRedeemUrl: '#', playInstallUrl: '#' };
-        check(coupon.couponHtml(opts) === adjustCoupon(oldCoupon.couponHtml(opts), extended && platform === 'ios', lang), '쿠폰: 한도 숫자·숫자 자간·해당 이미지 주소 이외 HTML 바이트 동일');
+        check(couponSafetyNormalized(coupon.couponHtml(opts)) === couponSafetyNormalized(adjustCoupon(oldCoupon.couponHtml(opts), extended && platform === 'ios', lang)), '쿠폰: 한도 숫자·숫자 자간·해당 이미지 주소 이외 HTML 바이트 동일');
       }
       for (const gift of [undefined, 'SIGNUMPRO']) for (const androidCoupon of [false, true]) {
         const opts = { lang, fromTag: null, code, coupon: true, redeemUrl: '#', gift, androidCoupon };
@@ -139,7 +140,7 @@ async function main() {
         const afterHtml = await after.text();
         check(after.status === before.status, '실제 GET 응답 상태 유지');
         const expected = surface === 'coupon' ? adjustCoupon(beforeHtml, extended, lang) : adjust(beforeHtml, extended && surface !== 'android');
-        check(afterHtml === expected, '실제 GET: 3언어·4기기 허용된 숫자 변경 이외 바이트 동일');
+        check(couponSafetyNormalized(afterHtml) === couponSafetyNormalized(expected), '실제 GET: 3언어·4기기 허용된 숫자 변경 이외 바이트 동일');
         check(JSON.stringify([...after.headers]) === JSON.stringify([...before.headers]), '실제 GET 응답 헤더 유지');
         if (extended && surface !== 'android') {
           check(afterHtml.toLowerCase().includes(limits[lang]), 'SIGNUMPRO 실제 GET 5,000 표시');

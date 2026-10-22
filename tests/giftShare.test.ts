@@ -1,3 +1,4 @@
+import { couponSafetyNormalized } from './_couponSafetyBaseline';
 // 실행: npx tsx --test tests/giftShare.test.ts
 /** 로컬 가짜 저장소만 사용한다. 실제 Lua 동시성은 giftShareLua.test.mjs로 분리한다. */
 import assert from 'node:assert/strict';
@@ -30,6 +31,7 @@ require.cache[inviteStorePath]!.exports = inviteStore;
 const { giftIdentity } = require('../src/lib/giftShare/http');
 const { giftPrefix, giftCap, withGift } = require('../src/lib/giftShare/config');
 const { couponHtml } = require('../src/lib/marketing/couponHtml');
+const { COUPON_SAFETY } = require('../src/lib/marketing/couponSafety');
 const { desktopRedeemHtml } = require('../src/lib/marketing/desktopHandoff');
 const route = require('../src/app/app/route');
 const issue = require('../src/app/api/gift/issue/route');
@@ -63,6 +65,7 @@ const location = (r: Response) => r.headers.get('location') || '';
 // 현재 HEAD를 기준으로 삼으면 구현을 자신과 비교하게 된다. 기존 의존 템플릿도 origin/main에서 읽는다.
 const baselinePaths = new Set(['src/app/app/route.ts', 'src/lib/marketing/couponHtml.ts', 'src/lib/marketing/desktopHandoff.ts']);
 const baselineCache = new Map<string, Module>();
+const withoutCouponWarning = couponSafetyNormalized;
 function baseline(path: string): any {
   if (baselineCache.has(path)) return baselineCache.get(path)!.exports;
   const source = execFileSync('git', ['show', `origin/main:${path}`], { encoding: 'utf8' });
@@ -121,7 +124,7 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     assert.ok(withGift('/app?from=share', token).endsWith(`gift=${token}`));
     assert.equal(withGift('/app', '<bad>'), '/app');
   });
-  await t('플래그 꺼짐: origin/main /app과 상태·헤더·본문 144조합 동일', async () => {
+  await t('플래그 꺼짐: 안전 경고 외 origin/main /app 상태·헤더·본문 144조합 동일', async () => {
     delete process.env.GIFT_SHARE_ENABLED;
     const old = baseline('src/app/app/route.ts');
     for (const ua of [ios, android, desktop, 'facebookexternalhit/1.1']) {
@@ -133,20 +136,20 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
           const b = await old.GET(req(path, opts));
           assert.equal(a.status, b.status);
           assert.deepEqual([...a.headers], [...b.headers]);
-          assert.equal(await a.text(), await b.text());
+          assert.equal(withoutCouponWarning(await a.text()), withoutCouponWarning(await b.text()));
         }
       }
     }
     assert.equal(evalCalls, 0);
   });
-  await t('기존 쿠폰·QR 템플릿: origin/main 대비 48조합 바이트 동일', async () => {
+  await t('기존 쿠폰·QR 템플릿: 안전 경고 외 origin/main 대비 48조합 바이트 동일', async () => {
     const oldCoupon = baseline('src/lib/marketing/couponHtml.ts').couponHtml;
     const oldDesktop = baseline('src/lib/marketing/desktopHandoff.ts').desktopRedeemHtml;
     for (const lang of ['ko', 'en', 'ja']) {
       for (const platform of ['ios', 'android']) for (const inApp of [false, true]) for (const ref of [null, 'abcdefghjkmnpqrs']) {
         const opts = { platform, lang, fromTag: 'gift', code: 'WEBPRO', appleRedeemUrl: '#', playInstallUrl: '#', ref,
           androidInApp: inApp, iosInApp: inApp, iosStayHint: inApp };
-        assert.equal(couponHtml(opts), oldCoupon(opts));
+        assert.equal(withoutCouponWarning(couponHtml(opts)), withoutCouponWarning(oldCoupon(opts)));
       }
       for (const coupon of [false, true]) for (const androidCoupon of [false, true]) for (const code of ['WEBPRO', 'GZTEST123456789012']) {
         const opts = { lang, fromTag: 'gift', code, coupon, androidCoupon, redeemUrl: 'https://apps.apple.com/redeem?code=WEBPRO' };

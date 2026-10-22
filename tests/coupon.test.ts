@@ -199,7 +199,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.ok(textOf(h).includes('🎟 SIGNUM HQ PRO 30일 무료 쿠폰') && h.includes('Threads 독자 전용 · 선착순 200명 · 10/30까지'));
     assert.ok(h.includes('<button class="cta" id="claim" type="button">내 쿠폰 받기</button>'));
     assert.ok(h.includes("fetch('/api/coupon/claim'") && h.includes("'x-coupon':'1'"));
-    assert.ok(h.includes('Play 스토어에서 적용') && h.includes('Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다'));
+    assert.ok(h.includes('Play 스토어에서 코드 등록') && h.includes('Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다'));
     assert.ok(textOf(h).includes('② 이어서 «구독»을 눌러야 PRO가 시작됩니다'), '적용만으로는 PRO 가 안 켜진다 — «구독» 단계(2026-10-06)');
     assert.ok(h.includes('30일 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지'));
     assert.ok(h.includes(`href="${PLAYI.replace(/&/g, '&amp;')}">쿠폰 없이 앱만 설치하기</a>`));

@@ -323,15 +323,18 @@ export function maybePromptReview(delayMs = 2500): void {
 // ---------------------------------------------------------------------------
 // Open External URL (앱 내 브라우저)
 // ---------------------------------------------------------------------------
-export async function openExternalUrl(url: string) {
+export type ExternalUrlOpenResult = 'opened' | 'unconfirmed' | 'failed';
+
+export async function openExternalUrl(url: string): Promise<ExternalUrlOpenResult> {
   if (!isNativeApp) {
-    window.open(url, '_blank');
-    return;
+    // WebView의 window.open 반환값만으로는 외부 화면이 실제로 열렸는지 확인할 수 없다.
+    return window.open(url, '_blank') ? 'unconfirmed' : 'failed';
   }
   try {
     const { Browser } = await import('@capacitor/browser');
     await Browser.open({ url });
+    return 'opened';
   } catch {
-    window.open(url, '_blank');
+    return window.open(url, '_blank') ? 'unconfirmed' : 'failed';
   }
 }

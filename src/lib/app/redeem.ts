@@ -10,7 +10,7 @@
 //        애플 창에서 코드를 넣고 «사용»을 누르면 그 자리에서 구독이 시작된다(첫 달 무료 오퍼).
 //        맞춤 코드는 «사용 URL» 또는 «앱 안»에서만 쓸 수 있다(REDEEM-CODES F1) — 앱 안 시트가 가장 확실하다.
 //        실패하면(옛 바이너리·SDK 미설정) 애플 사용 URL 로 넘어간다.
-// Android(2026-10-06 교체): 안내 시트(lib/app/couponGuide.ts · components/app/CouponGuideSheet) → [계속] → RevenueCat 월간 패키지 구매
+// Android(2026-10-23 설계 B): 안내 시트 → ① Play 코드 등록 열기 → 사용자 확인 → ② 구독 시작 → RevenueCat 월간 패키지 구매
 //        (기존 구매 경로 useProStatus().purchase → services/revenueCat.purchasePro) → 구글 결제 창에서 결제 수단 → «코드 사용» → 번호 → «구독».
 //        예전엔 play.google.com/redeem 을 열었다 — 대표 실기기(10/6 00시대): «적용»만 되고 PRO 가 안 켜졌다(Play 콘솔 1/300 사용·주문 0건).
 //        구글 공식: 코드를 쓴 «뒤에도» 구독을 구매해야 한다(«they still need to purchase the subscription with the code applied») ·
@@ -36,7 +36,7 @@ import { couponGuide } from '@/lib/app/couponGuide';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
 export const APPLE_REDEEM_URL = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444';
-/** 프리뷰 웹(안드로이드 UA)이 새 탭으로 여는 주소 · 옛 import 경로(components/app/watchlist/redeem.ts) 호환 — 앱은 더 이상 열지 않는다 */
+/** Play 코드 등록 화면 — 안드로이드 쿠폰 시트 ① · 프리뷰 웹의 새 탭 · 옛 import 경로 호환 */
 export const PLAY_REDEEM_URL = 'https://play.google.com/redeem';
 
 /** 같은 문구를 모든 지점에서 — «코드가 있으신가요?» 결의 작은 링크 + 설정 행 이름 */
@@ -62,7 +62,7 @@ function platformOf(): 'ios' | 'android' | 'web' {
   return 'web';
 }
 
-/** 지금 안드로이드 앱(또는 프리뷰의 안드로이드 확인 모드)인가 — 설정 행 아래 안내 줄(«결제 창에서 코드 입력 → 구독»)을 고른다 */
+/** 지금 안드로이드 앱(또는 프리뷰의 안드로이드 확인 모드)인가 — 설정 행 아래 안내 줄(«Play 스토어 → 결제 및 정기 결제 → 코드 사용»)을 고른다 */
 export function redeemIsAndroid(): boolean {
   return platformOf() === 'android';
 }
@@ -163,7 +163,7 @@ export async function openRedeem(src?: FunnelSrc, locale?: string): Promise<Rede
     return 'url';
   }
   if (p === 'android') {
-    // 안내 시트 → [계속] → 앱 안 구독 결제 창(코드 사용 → 구독). 구매·계측·PRO 갱신은 시트가 맡는다(components/app/CouponGuideSheet).
+    // 안내 시트 → ① 등록 열기·사용자 확인 → ② 구독 시작. 구매·계측·PRO 갱신은 시트가 맡는다(components/app/CouponGuideSheet).
     couponGuide.open({ src, locale });
     return 'guide';
   }
