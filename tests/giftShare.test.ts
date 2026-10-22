@@ -35,7 +35,9 @@ const { COUPON_SAFETY } = require('../src/lib/marketing/couponSafety');
 const { desktopRedeemHtml } = require('../src/lib/marketing/desktopHandoff');
 const route = require('../src/app/app/route');
 const issue = require('../src/app/api/gift/issue/route');
+const reserve = require('../src/app/api/gift/reserve/route');
 const claim = require('../src/app/api/gift/claim/route');
+const shareConfig = require('../src/app/api/gift/share-config/route');
 const { memoryInviteStore } = require('../src/lib/invite/memoryStore');
 const { arrive, inviteKeys } = require('../src/lib/invite/engine');
 const { inviteIpHash, inviteSecret } = require('../src/lib/invite/guard');
@@ -162,7 +164,23 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     const r = await claim.POST(post()); assert.equal(r.status, 303); assert.ok(!location(r).includes('redeem'));
     assert.equal(evalCalls, 0);
   });
+  await t('공유 준비 꺼짐: 설정 조회도 Redis 무호출', async () => {
+    const before = evalCalls;
+    assert.deepEqual(await (await shareConfig.GET()).json(), { enabled: false, available: false });
+    assert.equal(evalCalls, before);
+  });
   process.env.GIFT_SHARE_ENABLED = '1';
+  await t('공유 준비 켜짐: 재고 유무·저장소 장애가 준비 가능 여부로 전달됨', async () => {
+    for (const [value, available] of [[1, true], [0, false], [new Error(), false]]) {
+      answer = value;
+      const before = Date.now();
+      const body = await (await shareConfig.GET()).json();
+      assert.deepEqual(Object.keys(body).sort(), ['available', 'enabled', 'now'], '켜짐에만 서버 시각(기기 시계 확인용)을 더한다');
+      assert.equal(body.enabled, true); assert.equal(body.available, available);
+      assert.ok(body.now >= before && body.now <= Date.now());
+    }
+    answer = ['empty'];
+  });
   await t('P1: 선물 토큰·기존 링크 모두 응답 뒤 터치 한 번 → 첫 실행 보상 연결·중복 방지', async () => {
     const ref = inviteRefOf(newInviteKey());
     const ipHash = inviteIpHash(baseHeaders['x-real-ip'], inviteSecret());
@@ -224,6 +242,7 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     inviteStore.upstashInviteStore = () => memoryInviteStore();
   });
   await t('GET·HEAD·OG·PC QR 무소비 및 코드 미노출', async () => {
+    const before = evalCalls;
     for (const ua of [ios, android, desktop, 'facebookexternalhit/1.1']) {
       for (const method of ['GET', 'HEAD']) {
         const r = await route.GET(req(`/app?gift=${token}&l=ko`, { method, headers: { ...baseHeaders, 'user-agent': ua } }));
@@ -236,7 +255,7 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
         else if (ua === ios || ua === android) { assert.ok(html.includes('method="post"') && html.includes('/api/gift/claim')); assert.ok(!html.includes('/api/coupon/claim')); }
       }
     }
-    assert.equal(evalCalls, 0);
+    assert.equal(evalCalls, before);
   });
   await t('쿠폰 CSS와 기존 제목·등록 문구·쿠폰 번호 영역 유지', () => {
     for (const platform of ['ios', 'android']) {
@@ -347,26 +366,63 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     assert.equal(evalCalls, before, 'QR·스캔 GET은 재고 무소비');
     inviteStore.upstashInviteStore = () => memoryInviteStore();
   });
-  await t('발행은 불투명 토큰만 반환하며 기기·계정·IP 제한 전달', async () => {
-    let keys: string[] = []; let args: unknown[] = [];
-    const capture = { eval: async (_: string, k: string[], a: unknown[]) => { keys = k; args = a; return 'issued'; } };
-    const r = await server.issueGift(capture, { device: '익명기기', account: '검증계정', ip: '해시', app: true });
-    assert.deepEqual(Object.keys(r).sort(), ['expiresAt', 'token']);
+  await t('등록은 발신 기기가 만든 토큰만 받으며 기기·계정·IP 제한 전달 · 형식 오류는 저장소 무호출', async () => {
+    let keys: string[] = []; let args: unknown[] = []; let calls = 0;
+    const capture = { eval: async (_: string, k: string[], a: unknown[]) => { calls++; keys = k; args = a; return 'issued'; } };
+    const tok = randomBytes(32).toString('base64url');
+    const nowMs = Date.now();
+    const r = await server.issueGift(capture, { device: '익명기기', account: '검증계정', ip: '해시', app: true, token: tok, sharedAt: nowMs }, nowMs);
+    assert.deepEqual(r, { status: 'issued' });
+    assert.equal(keys[0], `promo:pv:gift:v1:token:${server.digest(tok)}`, '토큰 원문은 저장 키에 싣지 않는다');
     assert.equal(keys.length, 5); assert.deepEqual(args.slice(2), [3, 3, 10, 400]);
-    await server.issueGift(capture, { device: '익명웹', ip: '해시', app: false });
+    await server.issueGift(capture, { device: '익명웹', ip: '해시', app: false, token: tok, sharedAt: nowMs }, nowMs);
     assert.equal(args[2], 1);
+    const before = calls;
+    for (const bad of [undefined, '', 'x'.repeat(42), `${tok}=`, '<script>'.padEnd(43, 'a')]) {
+      assert.equal(await server.issueGift(capture, { device: '익명기기', ip: '해시', app: true, token: bad, sharedAt: nowMs }, nowMs), null);
+    }
+    for (const badAt of [undefined, String(nowMs), nowMs - 49 * 3_600_000, nowMs + 11 * 60_000]) {
+      assert.equal(await server.issueGift(capture, { device: '익명기기', ip: '해시', app: true, token: tok, sharedAt: badAt }, nowMs), null, '공유 시각 없음·범위 밖');
+    }
+    assert.equal(calls, before);
+    const again = { eval: async () => 'exists' };
+    assert.deepEqual(await server.issueGift(again, { device: '익명기기', ip: '해시', app: true, token: tok, sharedAt: nowMs }, nowMs), { status: 'exists' });
   });
-  await t('발행 API 성공은 코드 없이 토큰만, 발행 상한·Redis 장애는 일반 설치 폴백', async () => {
-    answer = 'issued';
-    const success = await (await issue.POST(req('/api/gift/issue', { method: 'POST' }))).json();
-    assert.deepEqual(Object.keys(success).sort(), ['expiresAt', 'ok', 'token']);
-    assert.equal(success.ok, true); assert.match(success.token, /^[A-Za-z0-9_-]{43}$/);
-    for (const result of ['cap', new Error('가짜 장애')]) {
+  await t('등록 API: 성공·재등록은 {ok:true}만(토큰·코드 없음), 상한·장애·본문 오류는 일반 설치 폴백', async () => {
+    const tok = randomBytes(32).toString('base64url');
+    const postJson = (body: unknown, type = 'application/json') => issue.POST(req('/api/gift/issue', { method: 'POST',
+      headers: { ...baseHeaders, 'content-type': type }, body: typeof body === 'string' ? body : JSON.stringify(body) }));
+    for (const result of ['issued', 'exists']) {
       answer = result;
-      const body = await (await issue.POST(req('/api/gift/issue', { method: 'POST' }))).json();
+      assert.deepEqual(await (await postJson({ token: tok, at: Date.now() })).json(), { ok: true });
+    }
+    for (const result of ['cap', 'invalid', new Error('가짜 장애')]) {
+      answer = result;
+      const body = await (await postJson({ token: tok, at: Date.now() })).json();
       assert.deepEqual(Object.keys(body).sort(), ['ok', 'url']);
       assert.equal(body.ok, false); assert.ok(!body.url.includes('code='));
     }
+    answer = 'issued';
+    for (const bad of [{}, { token: 'short', at: Date.now() }, { token: tok }, { token: tok, at: Date.now() - 49 * 3_600_000 }, '{', ['x']]) assert.equal((await (await postJson(bad)).json()).ok, false);
+    assert.equal((await (await postJson({ token: tok, at: Date.now() }, 'text/plain')).json()).ok, false);
+    assert.equal((await (await issue.POST(req('/api/gift/issue', { method: 'POST' }))).json()).ok, false, '본문 없는 옛 요청은 발행하지 않는다');
+  });
+  await t('예약 API는 기존 등록의 플래그·출처 검증·원자 한도·장애 폴백을 그대로 재사용', async () => {
+    assert.equal(reserve.POST, issue.POST);
+    const tok = randomBytes(32).toString('base64url');
+    const request = (headers = baseHeaders) => req('/api/gift/reserve', { method: 'POST',
+      headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ token: tok, at: Date.now() }) });
+    for (const result of ['issued', 'exists', 'cap', new Error('예약 장애')]) {
+      answer = result;
+      const response = await reserve.POST(request());
+      assert.equal((await response.json()).ok, result === 'issued' || result === 'exists');
+    }
+    const before = evalCalls;
+    assert.equal((await (await reserve.POST(request({ ...baseHeaders, origin: 'https://example.invalid' }))).json()).ok, false);
+    process.env.GIFT_SHARE_ENABLED = '0';
+    assert.equal((await (await reserve.POST(request())).json()).ok, false);
+    process.env.GIFT_SHARE_ENABLED = '1';
+    assert.equal(evalCalls, before, '꺼짐·다른 출처는 저장소 무호출');
   });
   await t('동일 배정 재시도는 같은 스토어 주소·OS별 기존 등록 형식', async () => {
     for (const [ua, os] of [[ios, 'ios'], [android, 'android']]) {

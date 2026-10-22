@@ -1,6 +1,6 @@
 // 실행: node --test tests/giftShareLua.test.mjs   (npx tsx --test tests/giftShareLua.test.mjs 도 같다)
 /**
- * 선물 Lua(src/lib/giftShare/atomic.cjs) 시험 — 같은 8개 시나리오를 두 실행기에서 돌린다.
+ * 선물 Lua(src/lib/giftShare/atomic.cjs) 시험 — 같은 9개 시나리오를 두 실행기에서 돌린다.
  *  1) 실제 Redis: 로컬 redis-server(PATH·REDIS_SERVER_BIN 절대 경로)를 임시 Unix 소켓으로 띄워 실행. 없으면 이유를 출력하고 건너뛴다(skip).
  *     외부 Redis 주소는 받지 않는다.
  *  2) 순수 JS 모의(tests/_giftLuaMock.mjs): Lua «원문»을 해석기로 실행하고 EVAL 단위로 직렬 실행 — 원자성 검증. 항상 실행.
@@ -15,9 +15,9 @@ import { tmpdir } from 'node:os';
 import { delimiter, join, isAbsolute } from 'node:path';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { mockRedis } from './_giftLuaMock.mjs';
+import { mockRedis, runLua } from './_giftLuaMock.mjs';
 
-const { ISSUE_LUA, CLAIM_LUA, LOAD_LUA } = createRequire(import.meta.url)('../src/lib/giftShare/atomic.cjs');
+const { ISSUE_LUA, CLAIM_LUA, LOAD_LUA, AVAILABLE_LUA } = createRequire(import.meta.url)('../src/lib/giftShare/atomic.cjs');
 
 const p = 'promo:pv:gift:v1';
 const now = Date.now();
@@ -114,6 +114,33 @@ function scenarios() {
         assert.equal(await redis.hlen(`${p}:ledger`), 0);
       }
     }],
+    ['공유 완료 등록: 같은 토큰 재등록은 한도 검사·차감 전에 exists(재사용 거부·응답 유실 재시도 무해)', async (redis) => {
+      await redis.flushdb();
+      const keys = ['기기', '계정', '아이피', '전체'];
+      const t = random();
+      const first = await run(redis, ISSUE_LUA, [tokenKey(t), ...keys], [now, 86400, 3, 3, 10, 400]);
+      assert.equal(first, 'issued');
+      const again = await Promise.all(Array.from({ length: 5 }, () => run(redis, ISSUE_LUA, [tokenKey(t), ...keys], [now, 86400, 3, 3, 10, 400])));
+      assert.deepEqual([...new Set(again)], ['exists']);
+      for (const k of keys) assert.equal(await redis.get(k), '1', '재등록은 한도를 차감하지 않는다');
+      // 한도에 닿아도 이미 등록된 토큰의 재시도는 exists(성공)로 끝난다.
+      for (let i = 0; i < 2; i++) await run(redis, ISSUE_LUA, [tokenKey(random()), ...keys], [now, 86400, 3, 3, 10, 400]);
+      assert.equal(await run(redis, ISSUE_LUA, [tokenKey(random()), ...keys], [now, 86400, 3, 3, 10, 400]), 'cap');
+      assert.equal(await run(redis, ISSUE_LUA, [tokenKey(t), ...keys], [now, 86400, 3, 3, 10, 400]), 'exists');
+    }],
+    ['공유 준비: 양 OS 재고·한도 검사만 수행, 소진·만료·한도 0이면 일반 공유', async (redis) => {
+      const check = (at = now, iosCap = 20) => run(redis, AVAILABLE_LUA,
+        [`${p}:batches:ios`, `${p}:batches:android`, `${p}:day:test:ios`, `${p}:day:test:android`], [at, p, iosCap, 20]);
+      assert.equal(await check(), 0);
+      const ios = await load(redis, 'ios', 1, random(), now + 1000);
+      assert.equal(await check(), 0);
+      const android = await load(redis, 'android', 1);
+      assert.equal(await check(), 1);
+      assert.equal(await redis.llen(ios.keys[2]), 1); assert.equal(await redis.llen(android.keys[2]), 1);
+      assert.equal(await redis.hlen(`${p}:ledger`), 0);
+      assert.equal(await check(now + 1001), 0); assert.equal(await check(now, 0), 0);
+      await redis.set(`${p}:day:test:android`, '20'); assert.equal(await check(), 0);
+    }],
     ['재적재·다른 묶음 중복·기존 쿠폰 풀 중복 거부', async (redis) => {
       const original = await load(redis, 'ios', 2);
       assert.equal(await run(redis, LOAD_LUA, original.keys, original.args), 'batch_exists');
@@ -145,7 +172,7 @@ const skipReason = binary ? false
   : '로컬 redis-server 실행 파일 없음(PATH·/opt/homebrew·/usr/local·/usr/bin, REDIS_SERVER_BIN 미지정) — 실제 Redis 시험은 건너뛰고 원자성은 아래 순수 JS 모의(Lua 원문 해석·EVAL 직렬)로 검증';
 if (!binary) console.log(`건너뜀(실제 Redis Lua): ${skipReason}`);
 
-if (!binary) test('실제 Redis Lua(임시 Unix 소켓) 8개', { skip: skipReason }, () => {});
+if (!binary) test('실제 Redis Lua(임시 Unix 소켓) 9개', { skip: skipReason }, () => {});
 else describe('실제 Redis Lua(임시 Unix 소켓)', () => {
   let redis, child, directory, exited;
   before(async () => {
@@ -183,4 +210,13 @@ describe('대조군: 비원자 실행(redis.call 사이 끼어들기 허용)이�
       await assert.rejects(() => all[name](mockRedis({ atomic: false })), assert.AssertionError);
     });
   }
+});
+
+test('Lua 모의의 break는 가장 가까운 반복만 종료하고 return은 밖까지 전달', async () => {
+  assert.equal(await runLua(`local n=0
+    for i=1,3 do
+      for j=1,3 do n=n+1; break end
+    end
+    return n`, [], [], () => { throw new Error('Redis 무호출'); }), 3);
+  assert.equal(await runLua(`for i=1,3 do for j=1,3 do return 7 end end`, [], [], () => {}), 7);
 });

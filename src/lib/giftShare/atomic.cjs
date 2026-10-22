@@ -1,15 +1,17 @@
 // 모든 검사 뒤에만 쓴다. Lua 실행 중 다른 요청이 끼어들 수 없다.
+// 공유 전 예약도 이 등록을 사용한다. 이미 있는 토큰(완료 확인·응답 유실 재시도)은 한도 검사·차감 전에 'exists'로 끝낸다.
+// 한도 키는 공유한 날짜 키다. 그 날짜로 최대 48시간+하루 뒤까지 등록되므로 4일 보관한다(만료로 셈이 0이 되는 일 없음).
 exports.ISSUE_LUA = `
 local now = tonumber(ARGV[1])
 local ttl = tonumber(ARGV[2])
+if redis.call('EXISTS',KEYS[1]) == 1 then return 'exists' end
 for i=2,#KEYS do
   local n = tonumber(redis.call('GET',KEYS[i]) or '0')
   if not n or n < 0 or n ~= math.floor(n) then return 'invalid' end
   if n >= tonumber(ARGV[i+1]) then return 'cap' end
 end
-if redis.call('EXISTS',KEYS[1]) == 1 then return 'collision' end
 redis.call('SET',KEYS[1],cjson.encode({expires=now+ttl*1000}), 'EX',ttl+86400)
-for i=2,#KEYS do redis.call('INCR',KEYS[i]); redis.call('EXPIRE',KEYS[i],172800) end
+for i=2,#KEYS do redis.call('INCR',KEYS[i]); redis.call('EXPIRE',KEYS[i],345600) end
 return 'issued'
 `;
 
@@ -71,4 +73,31 @@ redis.call('SET',KEYS[1],ARGV[1])
 redis.call('ZADD',KEYS[2],ARGV[2],ARGV[3])
 for i=4,#ARGV do redis.call('RPUSH',KEYS[3],ARGV[i]); redis.call('SADD',KEYS[4],ARGV[i]) end
 return 'loaded'
+`;
+
+// 발송 전 두 수신 OS의 유효 재고·일 한도만 읽는다. 예약·차감·식별자 반환 없음.
+exports.AVAILABLE_LUA = `
+local now = tonumber(ARGV[1])
+for i=1,2 do
+  local os = ({'ios','android'})[i]
+  local count = tonumber(redis.call('GET',KEYS[i+2]) or '0')
+  if not count or count < 0 or count ~= math.floor(count) or count >= tonumber(ARGV[i+2]) then return 0 end
+  local found = false
+  local batches = redis.call('ZRANGEBYSCORE',KEYS[i],now+1,'+inf')
+  for _,batch in ipairs(batches) do
+    local raw = redis.call('GET',ARGV[2]..':batch:'..batch)
+    if raw then
+      local m = cjson.decode(raw)
+      if m.os == os and m.expiresAt > now then
+        local code = redis.call('LINDEX',ARGV[2]..':pool:'..os..':'..batch,0)
+        if code then
+          local valid = (os=='ios' and #code==18) or (os=='android' and #code==23)
+          if valid and not string.find(code,'[^A-Z0-9]') then found = true; break end
+        end
+      end
+    end
+  end
+  if not found then return 0 end
+end
+return 1
 `;
