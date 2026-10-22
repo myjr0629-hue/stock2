@@ -200,7 +200,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.ok(h.includes('<button class="cta" id="claim" type="button">내 쿠폰 받기</button>'));
     assert.ok(h.includes("fetch('/api/coupon/claim'") && h.includes("'x-coupon':'1'"));
     assert.ok(h.includes('Play 스토어에서 적용') && h.includes('Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다'));
-    assert.ok(textOf(h).includes('② 이어서 «구독»을 눌러야 PRO가 시작됩니다'), '적용만으로는 PRO 가 안 켜진다 — «구독» 단계(2026-10-06)');
+    assert.ok(textOf(h).includes('② 등록 후 앱에서 PRO 확인') && !textOf(h).includes('이어서 «구독»'), '② = 등록 뒤 앱에서 PRO 확인 — 쿠폰 화면이 구독(결제)을 지시하지 않는다(2026-10-23)');
     assert.ok(h.includes('30일 무료 뒤 월 ₩11,900 자동 갱신 · 언제든 해지'));
     assert.ok(h.includes(`href="${PLAYI.replace(/&/g, '&amp;')}">쿠폰 없이 앱만 설치하기</a>`));
     assert.ok(!h.includes(REDEEM.replace(/&/g, '&amp;')), '안드로이드 화면엔 애플 적용 주소 없음');

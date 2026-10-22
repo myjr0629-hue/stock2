@@ -32,6 +32,11 @@ const baselinePaths = new Set([
   'src/lib/marketing/linkPreview.ts', 'src/lib/marketing/couponHtml.ts',
   'src/lib/marketing/desktopHandoff.ts',
 ]);
+// 2026-10-23 결제 안전 변경(안전 경고 한 줄 · ② 단계 문구 · 옛 «구독 화면이 안 나오면» 줄 삭제)은 이 시험의 대상 밖 — 양쪽에서 같은 자리표시로 바꿔 비교한다.
+function couponSafetyNormalized(html: string): string {
+  return html.replace(/<p class="step2" id="coupon-warning">[^\n]*?<\/p>\n/g, '')
+    .replace(/<p class="step2" id="step2">[^\n]*?<\/p>(\n<p class="help">[^\n]*🎟[^\n]*<\/p>)?/g, '<p class="step2" id="step2">§</p>');
+}
 const baselineCache = new Map<string, Module>();
 function baseline(path: string): any {
   if (baselineCache.has(path)) return baselineCache.get(path)!.exports;
@@ -90,7 +95,7 @@ async function main() {
           next = next.replace(`https://www.signumhq.com/promo/redeem-card-${lang}.png`, `https://www.signumhq.com/api/og/promo?l=${lang}&code=SIGNUMPRO`);
           if (lang === 'en') next = next.replace(/(<p class="t-sub">[^<]*First )5,000/, '$1<span style="letter-spacing:-1.5px;white-space:nowrap">5,000</span>');
         }
-        check(couponHtml(opts) === next, '쿠폰 HTML: 날짜·한도 숫자·해당 이미지 주소 외 바이트 동일');
+        check(couponSafetyNormalized(couponHtml(opts)) === couponSafetyNormalized(next), '쿠폰 HTML: 날짜·한도 숫자·해당 이미지 주소(·결제 안전 안내) 외 바이트 동일');
       }
     }
     const opts = { lang, fromTag: null, code, coupon: true, redeemUrl: '#' };
