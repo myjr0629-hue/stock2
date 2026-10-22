@@ -14,7 +14,7 @@ import { beforeEach, test } from 'node:test';
 import { createGiftPreparation } from '../src/lib/giftShare/client';
 import { issueGift } from '../src/lib/giftShare/server';
 import { GIFT_SHARE_WINDOW_MS } from '../src/lib/giftShare/config';
-import { idbAtomic } from '../src/lib/giftShare/state';
+import { idbAtomic, type GiftAtomic } from '../src/lib/giftShare/state';
 import { fakeIndexedDB, memoryAtomic } from './_giftStateMemory';
 
 process.env.VERCEL_ENV = 'preview';
@@ -88,7 +88,7 @@ async function world(start: number, opts: { via?: 'ios' | 'android' | 'web'; acc
   };
   const device = 'a1'.repeat(32);
   const mem = memoryAtomic(); // 이 기기(출처)의 장부 — 모든 문서가 함께 쓴다
-  const doc = (later?: (fn: () => void, ms: number) => unknown) => createGiftPreparation(request, () => device, () => w.clock, undefined, mem.atomic, later);
+  const doc = () => createGiftPreparation(request, () => device, () => w.clock, undefined, mem.atomic);
   const client = doc();
   if (!opts.lazy) await client.refresh(w.via); // lazy: 기본 문서는 준비하지 않는다(몫을 잡지 않음)
   /** 한 번 공유를 시도한다. 선물 링크가 붙으면 그 토큰을 돌려준다. */
@@ -338,7 +338,7 @@ test('무작위 300회: 자정 앞뒤 3일·지연·미도달·응답 유실·�
   assert.ok(sentTotal > 300, `선물 링크 ${sentTotal}건 검사`);
 });
 
-test('동시 공유 시트(여러 문서·탭): 완료 전 시트에 실린 링크도 한도에 잡혀 거부 링크 0 · 취소하면 풀리고 · 닫힘 통지 없으면 30분 뒤 풀림', async () => {
+test('동시 공유 시트(여러 문서·탭): 완료 전 시트에 실린 링크도 한도에 잡혀 거부 링크 0 · 취소 뒤 재사용 · 미확정 발급은 만료로 풀리지 않음', async () => {
   for (const via of ['web', 'ios'] as const) {
     resetStorage();
     const cap = via === 'web' ? 1 : 3;
@@ -354,7 +354,7 @@ test('동시 공유 시트(여러 문서·탭): 완료 전 시트에 실린 링�
     await assertNoBrokenLinks(x, `동시 시트 ${via}`);
     assert.equal(await x.count('device', via === 'web' ? 'web-cookie' : x.device, '2026-10-23'), cap);
   }
-  // 취소: 그 문서가 같은 토큰을 다시 쓸 수 있게 몫을 유지 · 문서가 사라지면(연장 없음) 30분 뒤 다른 탭이 가져간다
+  // 취소 뒤 같은 토큰 재사용. 다시 발급한 뒤 미확정인 몫은 문서가 사라져도 풀지 않는다.
   resetStorage();
   const y = await world(at('2026-10-22T12:00:00'), { via: 'web' });
   const p1 = y.client.payload(original, 'ko', 'web'); assert.ok(giftOf(p1));
@@ -363,7 +363,7 @@ test('동시 공유 시트(여러 문서·탭): 완료 전 시트에 실린 링�
   y.client.complete('cancelled', p1, 'web'); await settle();
   assert.equal(giftOf(y.client.payload(original, 'ko', 'web')), giftOf(p1), '취소 뒤 다시 누르면 같은 토큰');
   y.w.clock += 30 * MIN + 1; await other.refresh('web');
-  assert.ok(giftOf(other.payload(original, 'ko', 'web')), '연장 없는 몫은 30분 뒤 풀려 다른 탭이 준비');
+  assert.equal(giftOf(other.payload(original, 'ko', 'web')), null, '이미 내준 링크는 회수할 수 없으므로 30분 뒤에도 미확정 몫 유지');
   assert.equal(y.w.posts.length, 0, '시트만 띄우고 보내지 않으면 등록 0');
 });
 
@@ -402,7 +402,7 @@ test('기본 장부(idbAtomic): IndexedDB 트랜잭션으로 동시 예약을 �
   Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: idb.factory });
   try {
     for (const via of ['web', 'android'] as const) {
-      idb.reset();
+      resetStorage(); idb.reset();
       const cap = via === 'web' ? 1 : 3;
       let clock = at('2026-10-22T23:59:59');
       const issued: string[] = [];
@@ -444,9 +444,13 @@ test('관문 회귀(10222323): 완료 기록 트랜잭션이 실패해도(표식
     for (let i = 0; i < cap; i++) {
       if (i === cap - 1) {
         failRecord(x);
-        if (after === 'noMarker') (localStorage as any).setItem = () => { throw new Error('표식 저장 장애'); };
+
       }
-      assert.ok(await x.share(doc), `${via}/${after}: ${i + 1}번째`);
+      if (after === 'noMarker' && i === cap - 1) {
+        const p = doc.payload(original, 'ko', via); assert.ok(giftOf(p));
+        (localStorage as any).setItem = () => { throw new Error('완료 표식 저장 장애'); };
+        doc.complete('shared', p, via); x.w.sent.push(giftOf(p)!); await settle();
+      } else assert.ok(await x.share(doc), `${via}/${after}: ${i + 1}번째`);
     }
     if (after === 'noMarker') resetStorageKeepValues();
     x.w.clock += 31 * MIN;
@@ -476,28 +480,84 @@ test('완료 기록 표식은 여러 문서가 동시에 합쳐도 한 번만 �
   await assertNoBrokenLinks(x, '표식 중복 합치기');
 });
 
-test('관문 회귀(10222333): 시트 몫 연장이 연달아 실패하고 탭이 숨어도(주기 refresh 없음) 다른 탭이 그 몫을 가져가지 못한다 — 거부 링크 0', async () => {
-  for (const fails of [1, 2, 5, 17]) {
+test('관문 수리: 발급 뒤 장부 연장 18회 실패·4분 숨김 / 연장 성공·31분 숨김에도 다른 탭에 몫을 다시 주지 않음', async () => {
+  for (const failPin of [false, true]) for (const via of ['web', 'ios'] as const) {
     resetStorage();
-    const x = await world(at('2026-10-22T09:00:00'), { via: 'web', lazy: true });
-    // A 문서: 수동 타이머(가짜 시계와 함께 흐름)
-    const timers: { due: number; fn: () => void }[] = [];
-    const A = x.doc((fn, ms) => { timers.push({ due: x.w.clock + ms, fn }); });
-    await A.refresh('web');
-    for (let i = 1; i <= fails; i++) x.mem.failCalls.add(x.mem.calls + i); // 클릭 직후 연장 시도부터 fails 번 실패
-    const pa = A.payload(original, 'ko', 'web'); assert.ok(giftOf(pa), `${fails}`);
+    const x = await world(at('2026-10-22T09:00:00'), { via });
+    const cap = via === 'web' ? 1 : 3;
+    for (let i = 1; i < cap; i++) assert.ok(await x.share());
+    if (failPin) for (let i = 1; i <= 18; i++) x.mem.failCalls.add(x.mem.calls + i);
+    const pa = x.client.payload(original, 'ko', via); assert.ok(giftOf(pa));
     await settle();
-    // 4분 동안 A 는 숨김(refresh 없음) — 타이머만 흐른다
-    for (let s2 = 0; s2 < 240; s2++) {
-      x.w.clock += 1000;
-      for (const t of timers.splice(0)) { if (t.due <= x.w.clock) t.fn(); else timers.push(t); }
-      await settle();
-    }
-    const B = x.doc(); await B.refresh('web');
-    const pb = B.payload(original, 'ko', 'web');
-    assert.equal(giftOf(pb), null, `${fails}회 실패: B 는 A 의 몫 때문에 일반 공유`);
-    A.complete('shared', pa, 'web'); x.w.sent.push(giftOf(pa)!);
-    await settle();
-    await assertNoBrokenLinks(x, `10222333 실패 ${fails}회`);
+    // pin 저장 + 이어지는 refresh 장부 17회가 실패해도 발급 전 표식은 유지된다.
+    if (failPin) for (let i = 1; i < 18; i++) await x.client.refresh(via);
+    x.mem.failCalls.clear();
+    x.w.clock += (failPin ? 4 : 31) * MIN;
+    const B = x.doc(); await B.refresh(via);
+    assert.equal(await x.share(B), null, `${via}/${failPin}: B 일반 공유`);
+    x.client.complete('shared', pa, via); x.w.sent.push(giftOf(pa)!); await settle();
+    assert.equal(x.w.sent.length, cap);
+    assert.equal(await x.count('device', via === 'web' ? 'web-cookie' : x.device, '2026-10-22'), cap);
+    await assertNoBrokenLinks(x, `만료 ${via}/${failPin}`);
   }
+});
+
+test('관문 수리: 완료 장부·표식 저장 모두 실패 후 문서 종료·저장소 복구·31분 뒤에도 일반 공유', async () => {
+  for (const via of ['web', 'ios'] as const) for (const nextDay of [false, true]) {
+    resetStorage();
+    const x = await world(at('2026-10-22T09:00:00'), { via });
+    const cap = via === 'web' ? 1 : 3;
+    for (let i = 1; i < cap; i++) assert.ok(await x.share());
+    const p = x.client.payload(original, 'ko', via); assert.ok(giftOf(p)); await settle();
+    x.mem.fail = true;
+    (localStorage as any).setItem = () => { throw new Error('완료 표식 저장 장애'); };
+    x.client.complete('shared', p, via); x.w.sent.push(giftOf(p)!); await settle();
+    assert.equal(x.w.posts.at(-1)?.status, 'issued', '서버 등록은 성공');
+    x.mem.fail = false; resetStorageKeepValues();
+    x.w.clock += nextDay ? 24 * 60 * MIN : 31 * MIN;
+    // 이전 문서의 unrecorded는 접근하지 않는다. 새 문서만 사용한다.
+    const reopened = x.doc(); await reopened.refresh(via);
+    // 앱은 남은 몫은 허용하되 미확정 1몫을 영구 보존한다. 웹은 새날에도 일반 공유.
+    const remaining = nextDay ? cap - 1 : 0;
+    for (let i = 0; i < remaining; i++) assert.ok(await x.share(reopened));
+    assert.equal(await x.share(reopened), null, `${via}/${nextDay}: 미확정 몫은 재사용 금지`);
+    await assertNoBrokenLinks(x, `기록 유실 ${via}/${nextDay}`);
+  }
+});
+
+test('준비만 하고 발급하지 않은 예약은 만료 후 다른 탭이 사용할 수 있음', async () => {
+  const x = await world(at('2026-10-22T09:00:00'), { via: 'web' });
+  x.w.clock += 4 * MIN;
+  assert.equal(giftOf(x.client.payload(original, 'ko', 'web')), null);
+  const other = x.doc(); await other.refresh('web');
+  assert.ok(await x.share(other));
+  await assertNoBrokenLinks(x, '미발급 예약 만료');
+});
+
+
+test('발급 표식을 잃어도 먼저 저장된 IDB 미확정 몫은 31분 뒤·다음 날에도 유지', async () => {
+  const x = await world(at('2026-10-22T09:00:00'), { via: 'web' });
+  const p = x.client.payload(original, 'ko', 'web'); assert.ok(giftOf(p)); await settle();
+  assert.equal(x.mem.state.holds.filter(h => h.issued).length, 1);
+  for (const key of [...values.keys()]) if (key.startsWith('signumhq.gift.issued.v1.')) values.delete(key);
+  for (const jump of [31 * MIN, 24 * 60 * MIN]) {
+    x.w.clock += jump; const other = x.doc(); await other.refresh('web');
+    assert.equal(await x.share(other), null);
+  }
+  x.client.complete('shared', p, 'web'); x.w.sent.push(giftOf(p)!); await settle();
+  await assertNoBrokenLinks(x, 'IDB 발급 몫 보존');
+});
+
+
+test('예약 트랜잭션 대기 중 자정을 넘으면 실제 판정 시각의 날짜 한도를 사용', async () => {
+  let clock = at('2026-10-22T23:59:59');
+  const mem = memoryAtomic(); await mem.atomic(s => { s.days['2026-10-23'] = 1; });
+  let calls = 0;
+  const atomic: GiftAtomic = fn => mem.atomic(s => {
+    if (++calls === 2) clock = at('2026-10-23T00:00:01'); // flush 다음 reserve가 대기 중 자정 통과
+    return fn(s);
+  });
+  const c = createGiftPreparation(async () => json({ enabled: true, available: true, now: clock }), undefined, () => clock, undefined, atomic);
+  await c.refresh('web');
+  assert.equal(giftOf(c.payload(original, 'ko', 'web')), null, '새날 한도가 이미 찼으면 발급하지 않음');
 });

@@ -9,16 +9,10 @@ const FRESH_MS = 60_000;
 const RETRY_WINDOW_MS = GIFT_SHARE_WINDOW_MS - 3_600_000;
 const RETRY_GAP_MS = 5 * 60_000;
 const MAX_TRIES = 5;
-/**
- * 잡아 둔 몫의 수명. 준비만 한 토큰은 3분(화면이 보이는 동안 refresh 60초마다 연장 — 닫히거나 새로 고친 문서의 몫은 3분 뒤 풀린다),
- * 클릭해 시트에 실은 토큰은 30분(클릭 즉시 연장 요청, 완료·취소 통지에 정리). 클릭 때 준비 몫이 90초 넘게 남아 있어야 선물 링크를 싣는다(연장이 한 번 실패해도 60초 refresh 연장이 먼저 닿게).
- */
+/** 준비 몫은 3분. 발급 직전 영속 표식을 남긴 몫은 완료·취소를 확인할 때까지 만료시키지 않는다. */
 const READY_HOLD_MS = 3 * 60_000;
 const SHEET_HOLD_MS = 30 * 60_000;
 const CLICK_MARGIN_MS = 90_000;
-/** 시트 몫 연장 재시도 — 5초 간격 최대 18회(= 클릭 여유 90초 안). */
-const EXTEND_GAP_MS = 5_000;
-const EXTEND_TRIES = 18;
 /** 기기 시계가 서버와 이만큼 넘게 다르면 등록 시각 검사에 걸릴 수 있어 선물 링크를 만들지 않는다. */
 const CLOCK_TOLERANCE_MS = 5 * 60_000;
 
@@ -65,20 +59,22 @@ const dayCap = (via: ShareVia) => via === 'web' ? 1 : 3;
  * 먼저 합친 뒤 한도를 본다(관문 10222323: 완료 기록 실패 뒤 한도 초과 링크). 토큰별 키라 탭 사이 읽고-쓰기 교차가 없다.
  */
 const PENDING_PREFIX = 'signumhq.gift.pending.v1.';
-function readPending(): { token: string; at: number }[] {
+const ISSUED_PREFIX = 'signumhq.gift.issued.v1.';
+/** 저장소를 못 읽거나 표식이 깨졌으면 한도를 알 수 없다. 빈 목록으로 취급하지 않는다. */
+function readMarkers(prefix: string): { token: string; at: number }[] {
   const out: { token: string; at: number }[] = [];
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k || !k.startsWith(PENDING_PREFIX)) continue;
-      const token = giftToken(k.slice(PENDING_PREFIX.length));
-      const at = Number(localStorage.getItem(k));
-      if (token && Number.isSafeInteger(at)) out.push({ token, at });
-    }
-  } catch { /* 표식을 못 읽으면 메모리 대기분만 */ }
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(prefix)) continue;
+    const token = giftToken(k.slice(prefix.length));
+    const raw = localStorage.getItem(k);
+    const at = raw === null ? NaN : Number(raw);
+    if (!token || !Number.isSafeInteger(at) || String(at) !== raw) throw new Error('gift marker unavailable');
+    out.push({ token, at });
+  }
   return out;
 }
-const dropPending = (token: string) => { try { localStorage.removeItem(PENDING_PREFIX + token); } catch { /* 다음에 다시 합쳐도 counted 로 한 번만 센다 */ } };
+const dropMarker = (prefix: string, token: string) => { try { localStorage.removeItem(prefix + token); } catch { /* 남은 표식은 보수적으로 다시 센다 */ } };
 const liveRetry = (x: SentGift, t: number) => t - x.at < RETRY_WINDOW_MS && x.tries < MAX_TRIES;
 
 /**
@@ -89,13 +85,13 @@ const liveRetry = (x: SentGift, t: number) => t - x.at < RETRY_WINDOW_MS && x.tr
  * 서버도 같은 at 의 KST 날짜로 세므로, 기기 셈이 한도 안이면 보낸 링크는 서버 한도에 걸리지 않는다(자정·재시도·응답 유실 무관).
  */
 export function createGiftPreparation(request: typeof fetch = (...args) => fetch(...args), getDevice = deviceKey, now = Date.now,
-  newToken = randomGiftToken, atomic: GiftAtomic = idbAtomic,
-  later: (fn: () => void, ms: number) => unknown = (fn, ms) => setTimeout(fn, ms)) {
+  newToken = randomGiftToken, atomic: GiftAtomic = idbAtomic) {
   let enabled = false;
   let available = false;
   /** 준비된(잡아 둔) 토큰 하나 — 클릭 때 내주고 비운다. */
   let ready: string | null = null;
-  /** 내준 뒤 완료 통지를 기다리는 토큰(시트에 실림). 잡음은 refresh 마다 함께 연장한다. */
+  let readyVia: ShareVia | null = null;
+  /** 내준 뒤 완료 통지를 기다리는 토큰(시트에 실림). 영속 발급 표식으로 몫을 유지한다. */
   const inSheet = new Set<string>();
   let holdUntil = 0;
   let checkedAt = 0;
@@ -110,11 +106,24 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     return pending.map(p => p.token);
   };
   const pendingNow = () => {
-    const list = readPending();
+    const list = readMarkers(PENDING_PREFIX);
     for (const [token, at] of unrecorded) if (!list.some(p => p.token === token)) list.push({ token, at });
     return list;
   };
-  const afterMerge = (tokens: string[]) => { for (const t of tokens) { unrecorded.delete(t); dropPending(t); } };
+  const afterMerge = (tokens: string[]) => { for (const t of tokens) { unrecorded.delete(t); dropMarker(PENDING_PREFIX, t); dropMarker(ISSUED_PREFIX, t); } };
+
+  /** 모든 한도 트랜잭션 안에서 최신 표식을 읽는다. 발급 후 미확정 몫은 날짜·숨김 시간과 무관하게 유지한다. */
+  const reconcile = (s: GiftState, t: number) => {
+    const merged = mergePending(s, pendingNow());
+    for (const { token } of readMarkers(ISSUED_PREFIX)) {
+      if (s.counted.includes(token)) continue;
+      const hold = s.holds.find(h => h.token === token);
+      if (hold) hold.issued = true;
+      else s.holds.push({ token, until: t, issued: true });
+    }
+    s.holds = s.holds.filter(h => h.issued || (h.until > t && h.until - t <= SHEET_HOLD_MS));
+    return merged;
+  };
 
   /** 한도가 남으면 새 토큰을 잡아 둔다. 오늘 보낸 수 + 모든 문서의 잡음(자정을 걸친 것도 오늘로)이 한도 미만일 때만. */
   const reserve = async (via: ShareVia) => {
@@ -122,19 +131,17 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     if (via !== 'web' && !getDevice()) return; // 영속 열쇠가 없으면 앱 한도를 우회하는 익명 등록이 되므로 준비하지 않는다.
     const token = newToken();
     if (!token || done.has(token)) return;
-    const t = now();
-    const pending = pendingNow();
     const r = await atomic((s: GiftState) => {
-      const merged = mergePending(s, pending); // 완료 기록 대기분을 먼저 센 뒤 한도를 본다
-      s.holds = s.holds.filter(h => h.until > t && h.until - t <= SHEET_HOLD_MS);
-      if ((s.days[kstDay(t)] ?? 0) + s.holds.length >= dayCap(via)) return { ok: false, merged };
+      const t = now();
+      const merged = reconcile(s, t);
+      if ((s.days[kstDay(t)] ?? 0) + s.holds.length >= dayCap(via)) return { ok: false, merged, until: 0 };
       s.holds.push({ token, until: t + READY_HOLD_MS });
-      return { ok: true, merged };
+      return { ok: true, merged, until: t + READY_HOLD_MS };
     });
     if (r) afterMerge(r.value.merged);
     if (r?.value.ok !== true) return;
     if (ready || !enabled || !available) { void release(token); return; } // 그사이 다른 경로가 준비했거나 꺼졌다
-    ready = token; holdUntil = t + READY_HOLD_MS;
+    ready = token; readyVia = via; holdUntil = r.value.until;
   };
   const release = (token: string) => atomic((s: GiftState) => { s.holds = s.holds.filter(h => h.token !== token); });
   /** 준비·시트의 잡음을 연장한다. 잡음이 사라졌으면(만료 뒤 다른 문서가 가져갔을 수 있음) 준비를 버린다. */
@@ -144,7 +151,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     if (!prepared && !sheets.length) return;
     const t = now();
     const r = await atomic((s: GiftState) => {
-      s.holds = s.holds.filter(h => h.until > t && h.until - t <= SHEET_HOLD_MS);
+      reconcile(s, t);
       let alive = false;
       for (const h of s.holds) {
         if (h.token === prepared) { h.until = t + READY_HOLD_MS; alive = true; }
@@ -178,16 +185,16 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
    */
   const flush = async (via: ShareVia) => {
     const t = now();
-    const pending = pendingNow();
     const r = await atomic((s: GiftState) => {
-      const merged = mergePending(s, pending);
+      const merged = reconcile(s, now());
       s.sent = s.sent.filter(x => liveRetry(x, t));
       const due = s.sent.filter(x => t - x.last >= RETRY_GAP_MS).slice(0, 3);
       for (const x of due) { x.tries++; x.last = t; }
       return { merged, due: due.map(x => ({ token: x.token, at: x.at })) };
     });
-    if (r) afterMerge(r.value.merged);
-    for (const x of r?.value.due ?? []) if (await register(x.token, x.at, via)) await forget(x.token);
+    if (!r) throw new Error('gift ledger unavailable');
+    afterMerge(r.value.merged);
+    for (const x of r.value.due) if (await register(x.token, x.at, via)) await forget(x.token);
   };
 
   const refresh = (via: ShareVia): Promise<void> => {
@@ -199,7 +206,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
         const config = await response.json();
         if (typeof config.enabled !== 'boolean') throw new Error();
         enabled = config.enabled;
-        // 꺼짐: 장부·발행에 접근하지 않는다(잡음은 수명이 다하면 풀린다).
+        // 꺼짐: 장부·발행에 접근하지 않는다. 미발급 준비 몫만 만료로 풀린다.
         if (!enabled) { available = false; ready = null; checkedAt = now(); return; }
         // 기기 시계가 서버와 크게 다르면 서버가 at 을 거부할 수 있다 — 선물 링크 없이 일반 공유.
         const skewOk = typeof config.now === 'number' && Math.abs(config.now - now()) <= CLOCK_TOLERANCE_MS;
@@ -213,20 +220,36 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     return inflight;
   };
 
+  /**
+   * 링크 발급 직전 유일한 판정. 동기 저장·재읽기까지 성공해야 URL에 토큰을 넣는다.
+   * 유효한 준비 몫이 남은 동안 먼저 영속 표식을 남기므로, 이후 IDB 연장/완료 저장이 모두 실패하거나
+   * 문서가 닫혀도 다른 탭은 이 미확정 몫을 회수할 수 없다. 확인되지 않은 한도를 시간으로 복구하지 않는다.
+   */
+  const issueToken = (via: ShareVia): string | null => {
+    const t = now();
+    if (!enabled || !available || !ready || readyVia !== via || done.has(ready) || t < checkedAt || t - checkedAt >= FRESH_MS
+      || holdUntil - t < CLICK_MARGIN_MS || (via !== 'web' && !getDevice())) return null;
+    const token = ready;
+    try {
+      if (pendingNow().length) return null;
+      readMarkers(ISSUED_PREFIX);
+      localStorage.setItem(ISSUED_PREFIX + token, String(t));
+      if (localStorage.getItem(ISSUED_PREFIX + token) !== String(t)) throw new Error('gift marker not saved');
+    } catch { ready = null; return null; }
+    ready = null;
+    inSheet.add(token);
+    // 표식이 이미 영속적이므로 이 저장이 실패해도 몫은 풀리지 않는다. 재시도 타이머에 정확성을 의존하지 않는다.
+    void atomic((s: GiftState) => {
+      const hold = s.holds.find(h => h.token === token);
+      if (hold) hold.issued = true;
+    });
+    return token;
+  };
+
   const payload = (original: SharePayload, locale: string, via: ShareVia, ref?: string | null, giftOnly = false): SharePayload => {
     if (!enabled) return original; // 꺼짐은 객체와 문자열을 그대로 돌려준다.
     const lang = toGiftLang(locale);
-    const t = now();
-    const token = ready && available && t - checkedAt < FRESH_MS && holdUntil - t >= CLICK_MARGIN_MS ? ready : null;
-    if (token) {
-      ready = null; inSheet.add(token); // 한 번만 내준다 — 같은 문서의 다른 단추는 새 준비 전까지 일반 공유.
-      // 시트에 실린 몫을 30분으로 연장(비동기 — 남은 1분 안에 트랜잭션이 끝난다). 연장 전에도 몫은 유효하므로 다른 문서는 이미 이 몫을 센다.
-      // 실패하면 시트가 열려 있는 동안 5초마다 다시 — 화면 숨김(주기 refresh 멈춤)과 무관하게 준비 몫(≥90초)이 끝나기 전에 연장이 닿게(관문 10222333).
-      const extend = (n: number) => void atomic((st: GiftState) => {
-        for (const h of st.holds) if (h.token === token) h.until = Math.max(h.until, t + SHEET_HOLD_MS);
-      }).then(r => { if (!r && n < EXTEND_TRIES && inSheet.has(token)) later(() => extend(n + 1), EXTEND_GAP_MS); });
-      extend(1);
-    }
+    const token = issueToken(via);
     const validRef = normalizeGiftRef(ref);
     // 등록 API와 같은 출처를 쓴다. 프리뷰 토큰을 운영 재고 영역으로 보내지 않는다.
     const u = new URL('/app', typeof window === 'undefined' ? SHARE_ORIGIN : window.location.origin);
@@ -252,8 +275,18 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     const wasInSheet = inSheet.delete(usedToken);
     if (outcome !== 'shared' && outcome !== 'copied' && outcome !== 'failed') {
       if (!wasInSheet || done.has(usedToken)) return;
-      if (!ready && holdUntil - now() >= CLICK_MARGIN_MS) ready = usedToken; // 취소 뒤 다시 누르면 같은 토큰(몫은 시트 연장으로 유지)
-      else void release(usedToken);
+      // 취소 확인도 저장을 마친 뒤에만 재사용한다. 저장 실패면 발급 표식과 미확정 몫을 유지한다.
+      void atomic((s: GiftState) => {
+        const hold = s.holds.find(h => h.token === usedToken);
+        if (!hold) return null;
+        hold.issued = false;
+        hold.until = now() + READY_HOLD_MS;
+        return hold.until;
+      }).then(r => {
+        if (!r?.value || done.has(usedToken!)) return;
+        dropMarker(ISSUED_PREFIX, usedToken!);
+        if (!ready && enabled && available) { ready = usedToken; readyVia = via; holdUntil = r.value; }
+      });
       return;
     }
     if (done.has(usedToken)) return; // 중복 완료 통지는 한 번만 등록한다.

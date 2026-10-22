@@ -324,3 +324,44 @@ test('관문 회귀(10220553 ②): 공유·복사 모두 실패해 수동 복사
   delete (globalThis as any).document;
 });
 // 자정 경계 관문 회귀(10220544·10220553①·10220559·10220607)는 실제 서버 함수·Lua 를 연결한 tests/giftShareMidnight.test.ts 로 옮겼다.
+
+
+test('단일 발급 판정: 준비 뒤 저장소 읽기·쓰기·재읽기·깨진 표식 장애는 일반 공유(3언어·모든 호출 형태)', async () => {
+  for (const fault of ['read', 'write', 'silentWrite', 'malformed', 'pending'] as const)
+    for (const via of ['web', 'ios', 'android'] as const) for (const lang of ['ko', 'en', 'ja']) for (const giftOnly of [false, true]) {
+      resetStorage();
+      const s = server(); const c = make(s.request, () => 'd'.repeat(64)); await c.refresh(via);
+      const ls = localStorage;
+      if (fault === 'read') (ls as any).getItem = () => { throw new Error('읽기 장애'); };
+      if (fault === 'write') (ls as any).setItem = () => { throw new Error('쓰기 장애'); };
+      if (fault === 'silentWrite') (ls as any).setItem = () => {};
+      if (fault === 'malformed') values.set('signumhq.gift.issued.v1.' + 'A'.repeat(43), 'broken');
+      if (fault === 'pending') values.set('signumhq.gift.pending.v1.' + 'A'.repeat(43), String(Date.now()));
+      const p = c.payload(original, lang, via, 'abc234defg', giftOnly);
+      assert.equal(giftOf(p), null, `${fault}/${via}/${lang}/${giftOnly}`);
+      if (!giftOnly) assert.equal(p, original);
+      else { assert.ok(!p.text!.includes('1개월')); assert.equal(new URL(p.url).searchParams.get('ref'), 'abc234defg'); }
+      c.complete('shared', p, via); await tick();
+      assert.equal(s.log.issues.length, 0);
+    }
+});
+
+
+test('단일 발급 판정: 예약 플랫폼 불일치·예약 연장 실패는 일반 공유', async () => {
+  const s = server(); const c = make(s.request, () => 'd'.repeat(64)); await c.refresh('ios');
+  assert.equal(c.payload(original, 'ko', 'web'), original, '앱 예약으로 웹 한도를 우회하지 않음');
+  resetStorage();
+  const web = make(s.request); await web.refresh('web');
+  mem.failCalls.add(mem.calls + 2); // flush 성공, 준비 몫 renew 실패
+  await web.refresh('web');
+  assert.equal(web.payload(original, 'ko', 'web'), original);
+  assert.equal(s.log.issues.length, 0);
+});
+
+test('취소 기록을 기다리는 동안 완료가 들어와도 같은 토큰을 다시 발급하지 않음', async () => {
+  const s = server(); const c = make(s.request); await c.refresh('web');
+  const p = c.payload(original, 'ko', 'web'); assert.ok(giftOf(p));
+  c.complete('cancelled', p, 'web'); c.complete('shared', p, 'web'); await tick();
+  assert.equal(c.payload(original, 'ko', 'web'), original);
+  assert.equal(s.log.issues.length, 1);
+});

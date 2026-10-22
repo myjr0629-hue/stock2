@@ -8,7 +8,7 @@
  * IndexedDB 를 쓸 수 없으면 null → 선물 문구 없이 일반 공유.
  */
 export type SentGift = { token: string; at: number; tries: number; last: number };
-export type Hold = { token: string; until: number };
+export type Hold = { token: string; until: number; issued?: boolean };
 /** counted = 이미 날짜 셈에 반영한 토큰(최근 30) — 완료 기록을 다시 합쳐도 두 번 세지 않는다. */
 export type GiftState = { days: Record<string, number>; holds: Hold[]; sent: SentGift[]; counted: string[] };
 /** fn 은 동기로 state 를 고친다(같은 트랜잭션 안). 반환값을 그대로 돌려준다. 장부를 열 수 없거나 실패하면 null. */
@@ -25,17 +25,17 @@ export function normalizeState(raw: unknown): GiftState {
     for (const [k, v] of Object.entries(r.days as Record<string, unknown>)) if (DAY.test(k) && Number.isInteger(v) && (v as number) >= 0) days[k] = v as number;
   }
   const holds = Array.isArray(r.holds) ? r.holds.filter((h: any) => okToken(h?.token) && Number.isFinite(h?.until))
-    .map((h: any) => ({ token: h.token, until: h.until })) : [];
+    .map((h: any) => ({ token: h.token, until: h.until, ...(h.issued === true ? { issued: true } : {}) })) : [];
   const sent = Array.isArray(r.sent) ? r.sent.filter((x: any) => okToken(x?.token) && Number.isSafeInteger(x?.at)
     && Number.isFinite(x?.tries) && Number.isFinite(x?.last)).map((x: any) => ({ token: x.token, at: x.at, tries: x.tries, last: x.last })) : [];
   const counted = Array.isArray(r.counted) ? r.counted.filter(okToken) as string[] : [];
   return { days, holds, sent, counted };
 }
-/** 보관 상한 — 날짜 4일·잡음 10·재시도 20·셈 반영 토큰 30. */
+/** 보관 상한 — 날짜 4일·미발급 잡음 10·재시도 20·셈 반영 토큰 30. 미확정 발급 몫은 잘라내지 않는다. */
 export function trimState(s: GiftState): GiftState {
   return {
     days: Object.fromEntries(Object.entries(s.days).sort(([a], [b]) => a < b ? -1 : 1).slice(-4)),
-    holds: s.holds.slice(-10),
+    holds: [...s.holds.filter(h => h.issued), ...s.holds.filter(h => !h.issued).slice(-10)],
     sent: s.sent.slice(-20),
     counted: s.counted.slice(-30),
   };
