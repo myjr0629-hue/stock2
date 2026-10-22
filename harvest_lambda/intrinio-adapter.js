@@ -369,6 +369,8 @@ async function getOptionChain(ticker, opts = {}) {
         },
         implied_volatility: greekNumber(p.implied_volatility),
         open_interest: num(p.open_interest) || 0,
+        // EOD 원천 날짜 — 수집 시각·시세 시각과 분리해 이력까지 운반한다.
+        eodDate: p.date || null,
         break_even_price: type === 'put'
           ? (num(o.strike) || 0) - (num(p.close) || 0)
           : (num(o.strike) || 0) + (num(p.close) || 0),

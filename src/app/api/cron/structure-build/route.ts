@@ -101,6 +101,7 @@ export type StructRow = {
     pOI: number;         // 풋 미결제약정
     oi: number;          // 당일 총 미결제약정 — 유동성 게이트용
     s: string | null;    // 세션
+    chainDate: string | null; // 옵션 OI의 원천 EOD 날짜 (s는 장 구간 문자열)
     // 이 «행»이 만들어진 시각. 부분 실패 때 직전 값을 들고 가되
     // 얼마나 낡았는지 알아야 버릴지 정할 수 있다.
     rt?: number;
@@ -187,6 +188,7 @@ export async function GET(req: NextRequest) {
                 sq: num(d?.squeezeScore),
                 cOI, pOI, oi,
                 s: typeof d?.session === 'string' ? d.session : null,
+                chainDate: typeof d?.chainDate === 'string' ? d.chainDate : null,
             };
         } catch {
             return null;
@@ -262,6 +264,7 @@ export async function GET(req: NextRequest) {
         const now = Date.now();
         const items = clean.map((r) => ({
             ticker: r.t, timestamp: now,
+            chainDate: r.chainDate, optionBasis: 'eod',
             pcr: r.pcr ?? (r.cOI > 0 ? Math.round((r.pOI / r.cOI) * 1000) / 1000 : null),
             totalCallOI: r.cOI, totalPutOI: r.pOI,
             maxPain: r.mp, gammaFlipLevel: r.fl, callWall: r.cw, putFloor: r.pf,

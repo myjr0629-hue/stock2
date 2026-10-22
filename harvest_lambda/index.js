@@ -2,6 +2,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const __intrinio = require('./intrinio-adapter');
 const __iv30 = require('./iv30'); // [2026-10-04] IV30 — 30일 고정 만기 ATM IV (정의·호출 비용은 iv30.js 머리말)
+const { optionHistoryDate } = require('./option-history-date');
 const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand, QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
 const { Redis } = require('@upstash/redis');
@@ -478,6 +479,8 @@ async function harvestGex(priceMap) {
 
         gexMap[ticker] = { gex, pcr, gammaRegime:gr, atmIv, squeezeScore };
         const gexItem = {ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,impliedMovePct:impliedMovePct,squeezeScore:squeezeScore,optionVolume:tVol};
+        const historyDate = optionHistoryDate(opts);
+        Object.assign(gexItem, historyDate);
         Object.assign(gexItem, __iv30.rowFields(iv30r));
         if (iv30r && iv30r.need === 'refresh' && iv30r.chainDate) __iv30Pending.push({ ticker, chainDate: iv30r.chainDate, spot: price, item: gexItem });
         await client.send(new PutCommand({ TableName:'signum-gex-history', Item: gexItem }));
@@ -486,7 +489,7 @@ async function harvestGex(priceMap) {
         //   → 이 Lambda 가 뒤에 쓸 때마다 netPremium 이 사라진 행이 최신이 됐다.
         //   인텔의 NET PREM 이 «—» 였던 이유다. 같은 표에 쓰려면 같은 모양이어야 한다.
         const netPrem = Math.round(callPrem - putPrem);
-        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:compositeClamped,opi:opi,whaleScore:whaleVal,dex:dexVal,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:smartVal,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,optionVolume:tVol,netPremium:netPrem,callPremium:Math.round(callPrem),putPremium:Math.round(putPrem),totalPremium:Math.round(callPrem+putPrem)}})).catch(()=>{});
+        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,...historyDate,compositeScore:compositeClamped,opi:opi,whaleScore:whaleVal,dex:dexVal,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:smartVal,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,optionVolume:tVol,netPremium:netPrem,callPremium:Math.round(callPrem),putPremium:Math.round(putPrem),totalPremium:Math.round(callPrem+putPrem)}})).catch(()=>{});
         ok++;
       } catch (e) { gexFail.push(ticker + ':' + String(e && e.message || e).slice(0, 40)); }
     }));
@@ -1077,6 +1080,8 @@ async function warmFlowCache(snapshotMap, lambdaContext) {
           if (_tp > 0) {
             await client.send(new PutCommand({ TableName: 'signum-flow-history', Item: {
               ticker, timestamp: Date.now(),
+              ...optionHistoryDate(results),
+              premiumBasis: hasLiveVolume ? 'volume-close' : 'oi-prev-close',
               totalCallOI: _cOI, totalPutOI: _pOI, optionVolume: _vol,
               ...(_cOI > 0 ? { pcr: Math.round((_pOI / _cOI) * 100) / 100 } : {}),
               callPremium: Math.round(callPremium),
