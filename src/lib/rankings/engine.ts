@@ -29,8 +29,23 @@ export const median = (a: number[]): number | null => {
 };
 export const mad = (a: number[], med: number) => median(a.map((v) => Math.abs(v - med)));
 
-/** ET 기준 날짜. 세션 경계를 UTC 로 자르면 새벽 값이 전날로 붙는다. */
-export const etDay = etDateOf;
+// 90일 × 15분 이력(2,160시간)을 종목·지표 간 재사용하되 워커 메모리는 제한한다.
+const ET_DAY_CACHE_LIMIT = 4096;
+const etDayCache = new Map<number, string>();
+
+/** ET 기준 날짜. 날짜 정본은 etDateOf, 반복되는 행의 변환만 UTC 시간별로 기억한다. */
+export function etDay(ms: number): string {
+    // 표준시 도입 전 뉴욕은 −04:56:02였다. 그때는 UTC 한 시간 안에도 날짜가 바뀐다.
+    if (!Number.isFinite(ms) || ms < Date.UTC(1883, 10, 18, 17) || ms > 8.64e15) return etDateOf(ms);
+    // Date의 밀리초 절삭과 맞춘다. 이후 ET 자정·DST 전환은 모두 UTC 정시에 있다.
+    const hour = Math.floor(Math.trunc(ms) / 3600_000);
+    const cached = etDayCache.get(hour);
+    if (cached !== undefined) return cached;
+    const day = etDateOf(ms);
+    if (etDayCache.size >= ET_DAY_CACHE_LIMIT) etDayCache.delete(etDayCache.keys().next().value!);
+    etDayCache.set(hour, day);
+    return day;
+}
 
 /** 원천 날짜가 있는 행은 수집 시각으로 다시 날짜를 만들지 않는다. */
 export function optionSessionDate(row: Record<string, any>): string | null {
