@@ -62,7 +62,8 @@ const route = (filename, builder) => load(filename, fs.readFileSync(path.join(ro
 const allRoute = route('src/app/sitemap.ts', current);
 const koRoute = route('src/app/sitemap-ko.xml/route.ts', current);
 const oldKoRoute = route('src/app/sitemap-ko.xml/route.ts', previous);
-const stripNewUrls = xml => xml.replace(/<url>\s*<loc>[^<]*\/tools\/read-check<\/loc>[\s\S]*?<\/url>\n?/g, '');
+// 후속 공개 도구도 제거한 뒤 read-check 도입 전 기준과 비교한다. 신규 시나리오는 전용 시험에서 검증한다.
+const stripNewUrls = xml => xml.replace(/<url>\s*<loc>[^<]*\/tools\/(?:read-check|earnings-scenario)<\/loc>[\s\S]*?<\/url>\n?/g, '');
 const text = { en: 'test', ko: '시험', ja: '試験' };
 const fullDoc = { v: 1, at: NOW, etDate: '2026-10-21', slot: 'pm', items: [{
   id: 'test', ticker: 'NVDA', kind: 'darkpool', asOf: '2026-10-21',

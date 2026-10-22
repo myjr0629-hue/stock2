@@ -114,6 +114,14 @@ export async function buildSitemap(locales: readonly (typeof LOCALES[number])[] 
         'x-default': `${base}/en/tools/read-check`,
       } },
     });
+    // 실적 옵션 시나리오. 2142/read-check와 같은 canonical·hreflang 등록 방식.
+    entries.push({
+      url: `${base}/${loc}/tools/earnings-scenario`, changeFrequency: 'weekly', priority: 0.7,
+      alternates: { languages: {
+        ...Object.fromEntries(LOCALES.map((l) => [l, `${base}/${l}/tools/earnings-scenario`])),
+        'x-default': `${base}/en/tools/earnings-scenario`,
+      } },
+    });
     for (const t of FLOW_TICKERS) {
       // Invalid symbols must never become submitted 404s; regression tests inspect the full list.
       if (!isFlowTicker(t)) continue;
