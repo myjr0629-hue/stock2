@@ -14,6 +14,8 @@
  *
  * ⚠ 이 파일은 서버(/app 라우트)·클라이언트가 같이 import 한다 — node 전용 모듈을 넣지 않는다.
  */
+import { SHARE_ORIGIN } from '@/lib/share/share';
+
 /** 스마트링크 태그 — 기존 클릭 집계(mkt:attr:hit:gift · clk:sg|code|coupon:gift)가 그대로 센다. */
 export const GIFT_FROM = 'gift';
 
@@ -70,6 +72,22 @@ export function getGiftRef(): string {
   } catch { /* 저장소 막힘 — 아래 메모리 값 */ }
   if (!memoryRef) memoryRef = newGiftRef();
   return memoryRef;
+}
+
+// ── 링크 ─────────────────────────────────────────────────────────────────────
+
+/**
+ * 기존 운영 선물 링크(공개 맞춤 코드) — 공유=선물 플래그(GIFT_SHARE_ENABLED)가 «꺼짐으로 확정»됐을 때만 쓴다(useGiftShare).
+ * 플래그 켜짐·미확정에는 쓰지 않는다(새 선물은 giftShare/client.ts 의 서버 예약 토큰만).
+ * 항상 운영 도메인(www)이다. l=<ko|ja> 는 링크 미리보기 카드·쿠폰 화면 언어(영어는 기본값이라 붙이지 않는다).
+ */
+export function buildGiftUrl(code: string, ref: string | null, lang: GiftLang = 'en'): string {
+  const u = new URL('/app', SHARE_ORIGIN);
+  u.searchParams.set('from', GIFT_FROM);
+  u.searchParams.set('code', code);
+  if (ref) u.searchParams.set('ref', ref);
+  if (lang !== 'en') u.searchParams.set('l', lang);
+  return u.toString();
 }
 
 // ── 문구(한·일·영) ───────────────────────────────────────────────────────────
