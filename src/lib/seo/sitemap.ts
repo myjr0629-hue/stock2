@@ -106,6 +106,14 @@ export async function buildSitemap(locales: readonly (typeof LOCALES[number])[] 
         'x-default': `${base}/en/receipts/earnings`,
       } },
     });
+    // 무료 해석 진단. 영수증과 같은 언어 대체 링크를 제공한다.
+    entries.push({
+      url: `${base}/${loc}/tools/read-check`, changeFrequency: 'weekly', priority: 0.7,
+      alternates: { languages: {
+        ...Object.fromEntries(LOCALES.map((l) => [l, `${base}/${l}/tools/read-check`])),
+        'x-default': `${base}/en/tools/read-check`,
+      } },
+    });
     for (const t of FLOW_TICKERS) {
       // Invalid symbols must never become submitted 404s; regression tests inspect the full list.
       if (!isFlowTicker(t)) continue;
