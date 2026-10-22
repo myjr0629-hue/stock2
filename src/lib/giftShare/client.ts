@@ -90,6 +90,11 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   newToken = randomGiftToken, atomic: GiftAtomic = idbAtomic) {
   // null은 최초 미조회·조회 중·실패다. 확정된 꺼짐과 구분하며 어느 쪽도 선물을 발급하지 않는다.
   let enabled: boolean | null = null;
+  /**
+   * 마지막으로 «성공한» 설정 응답이 꺼짐이었나. 조회 시작·실패에는 바꾸지 않는다(재조회 중에도 꺼짐 확정 유지).
+   * 선물 전용 입구가 꺼짐 확정일 때만 기존 운영 선물(공개 맞춤 코드) 공유를 그대로 쓰게 한다 — 새 토큰 발급과 무관.
+   */
+  let lastKnownOff = false;
   let available = false;
   /** 준비된(잡아 둔) 토큰 하나 — 클릭 때 내주고 비운다. */
   let ready: string | null = null;
@@ -234,6 +239,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
         const config = await response.json();
         if (typeof config.enabled !== 'boolean') throw new Error();
         enabled = config.enabled;
+        lastKnownOff = config.enabled === false;
         // 꺼짐: 장부·발행에 접근하지 않는다. 미발급 준비 몫만 만료로 풀린다.
         if (!enabled) { available = false; ready = null; checkedAt = now(); return; }
         // 기기 시계가 서버와 크게 다르면 서버가 at 을 거부할 수 있다 — 선물 링크 없이 일반 공유.
@@ -334,7 +340,10 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     void register(token, at, via).then(async ok => { if (ok) { await recorded; await forget(token); } });
     void recorded.then(() => reserve(via));
   };
-  return { refresh, payload, complete };
+  /** 플래그 꺼짐이 확정됐나(최초 미조회·조회 실패는 false). 기존 선물 입구의 운영 동일 경로 판정 전용. */
+  const confirmedOff = () => lastKnownOff;
+
+  return { refresh, payload, complete, confirmedOff };
 }
 
 export const giftPreparation = createGiftPreparation();
