@@ -1,8 +1,8 @@
 /**
  * «친구에게 PRO 1개월 선물» v1 — 공용 정의 (2026-10-06, 브랜치 feat/gift-pro)
  *
- * 무엇: 앱 안(설정 카드 · 대시보드 맨 아래 작은 단추)에서 «선물 링크»를 공유한다. 링크를 받은 친구는 기존 스마트링크·쿠폰 화면을 그대로 탄다.
- *   https://www.signumhq.com/app?from=gift&code=<선물 맞춤 코드>&ref=<익명 초대자 id>[&l=ko|ja]
+ * 무엇: 앱 안(설정 카드 · 대시보드 맨 아래 작은 단추)에서 «선물 링크»를 공유한다.
+ * 링크 발급은 giftShare/client.ts의 단일 판정에서 서버 예약 성공을 확인한 토큰에만 허용한다.
  *   · 아이폰 = 쿠폰 화면 → 애플 적용 주소(그 코드의 오퍼 «PRO 1개월 무료»)
  *   · 안드로이드 = «내 쿠폰 받기»(서버가 COUPON_ANDROID=1 일 때) → 개인 일회용 Play 번호
  *
@@ -14,8 +14,6 @@
  *
  * ⚠ 이 파일은 서버(/app 라우트)·클라이언트가 같이 import 한다 — node 전용 모듈을 넣지 않는다.
  */
-import { SHARE_ORIGIN } from '@/lib/share/share';
-
 /** 스마트링크 태그 — 기존 클릭 집계(mkt:attr:hit:gift · clk:sg|code|coupon:gift)가 그대로 센다. */
 export const GIFT_FROM = 'gift';
 
@@ -72,22 +70,6 @@ export function getGiftRef(): string {
   } catch { /* 저장소 막힘 — 아래 메모리 값 */ }
   if (!memoryRef) memoryRef = newGiftRef();
   return memoryRef;
-}
-
-// ── 링크 ─────────────────────────────────────────────────────────────────────
-
-/**
- * 선물 링크. 항상 운영 도메인(www)이다 — 프리뷰에서 눌러도 받는 사람은 운영 스마트링크를 탄다.
- * l=<ko|ja> 는 «링크 미리보기 카드·쿠폰 화면» 언어를 보낸 사람 언어로 맞춘다(영어는 기본값이라 붙이지 않는다).
- *   ?l= 이 없으면 미리보기 봇(언어 헤더 없음)이 from=gift 를 영어 카드로 그린다.
- */
-export function buildGiftUrl(code: string, ref: string | null, lang: GiftLang = 'en'): string {
-  const u = new URL('/app', SHARE_ORIGIN);
-  u.searchParams.set('from', GIFT_FROM);
-  u.searchParams.set('code', code);
-  if (ref) u.searchParams.set('ref', ref);
-  if (lang !== 'en') u.searchParams.set('l', lang);
-  return u.toString();
 }
 
 // ── 문구(한·일·영) ───────────────────────────────────────────────────────────

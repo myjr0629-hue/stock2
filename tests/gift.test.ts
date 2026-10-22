@@ -28,8 +28,10 @@ const slotKey = (ref: string, day: string) => `clkp:gift:${ref[0]}:${day}`;   //
 
 import { NextRequest } from 'next/server';
 import {
-  GIFT_FROM, GIFT_REF_RE, GIFT_COPY, normalizeGiftRef, newGiftRef, buildGiftUrl, giftShareText, getGiftRef, GIFT_REF_STORAGE_KEY,
+  GIFT_FROM, GIFT_REF_RE, GIFT_COPY, normalizeGiftRef, newGiftRef, giftShareText, getGiftRef, GIFT_REF_STORAGE_KEY, type GiftLang,
 } from '../src/lib/gift/gift';
+import { createGiftPreparation } from '../src/lib/giftShare/client';
+import { memoryAtomic } from './_giftStateMemory';
 import { giftConfig } from '../src/lib/gift/giftConfig';
 import { giftRefSlot, recordGiftRef } from '../src/lib/gift/giftClick';
 import { parseGiftConfig, loadGiftConfig } from '../src/lib/gift/useGift';
@@ -59,6 +61,33 @@ const req = (path: string, ua: string, extra: Record<string, string> = NAV) => n
 const CODE = 'GIFTTESTPRO';          // 형식 규칙(^[A-Z]{4,13}PRO$)만 맞춘 «가짜» — 진짜 코드 값이 아니다
 const REF = 'k7m2q9x4tb';           // 형식 맞는 익명 id(10자·숫자 포함)
 const NOW = Date.parse('2026-10-07T00:00:00Z');
+
+/** 이전 공용 코드 링크 대신 서버 예약 성공을 거친 실제 발신 경로를 검사한다. */
+async function reservedPayload(lang: GiftLang = 'en', ref: string | null = REF) {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: (k: string) => values.get(k) ?? null, setItem: (k: string, v: string) => { values.set(k, v); },
+    removeItem: (k: string) => { values.delete(k); }, key: (i: number) => [...values.keys()][i] ?? null,
+    get length() { return values.size; },
+  } });
+  try {
+    let reserved: string | null = null;
+    const client = createGiftPreparation(async (url, init) => {
+      if (String(url).endsWith('share-config')) return new Response(JSON.stringify({ enabled: true, available: true, now: NOW }));
+      assert.equal(url, '/api/gift/reserve');
+      reserved = JSON.parse(String(init?.body)).token;
+      return new Response(JSON.stringify({ ok: true }));
+    }, () => 'd'.repeat(64), () => NOW, undefined, memoryAtomic().atomic);
+    await client.refresh('ios');
+    const p = client.payload({ title: GIFT_COPY[lang].shareTitle, url: 'https://www.signumhq.com/app' }, lang, 'ios', ref, true);
+    assert.ok(reserved); assert.equal(new URL(p.url).searchParams.get('gift'), reserved);
+    return p;
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else delete (globalThis as { localStorage?: unknown }).localStorage;
+  }
+}
 
 let n = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); n++; console.log(`  ✓ ${name}`); };
@@ -97,12 +126,14 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   });
 
   // ─────────────────────────── 링크 · 문구 ───────────────────────────
-  await t('선물 링크: 운영 www 도메인 · from=gift&code=…&ref=… 순서 · 한·일만 &l= · 영어는 안 붙임', () => {
-    assert.equal(buildGiftUrl(CODE, REF), `https://www.signumhq.com/app?from=gift&code=${CODE}&ref=${REF}`);
-    assert.equal(buildGiftUrl(CODE, REF, 'en'), `https://www.signumhq.com/app?from=gift&code=${CODE}&ref=${REF}`);
-    assert.equal(buildGiftUrl(CODE, REF, 'ko'), `https://www.signumhq.com/app?from=gift&code=${CODE}&ref=${REF}&l=ko`);
-    assert.equal(buildGiftUrl(CODE, REF, 'ja'), `https://www.signumhq.com/app?from=gift&code=${CODE}&ref=${REF}&l=ja`);
-    assert.equal(buildGiftUrl(CODE, null), `https://www.signumhq.com/app?from=gift&code=${CODE}`);
+  await t('선물 링크: 예약 성공 토큰만 · 공용 코드 없음 · www 도메인 · ref 보존 · 한·일만 &l=', async () => {
+    for (const lang of ['en', 'ko', 'ja'] as const) for (const ref of [REF, null]) {
+      const u = new URL((await reservedPayload(lang, ref)).url);
+      assert.equal(u.origin, 'https://www.signumhq.com'); assert.equal(u.pathname, '/app');
+      assert.equal(u.searchParams.get('from'), 'gift'); assert.equal(u.searchParams.has('code'), false);
+      assert.equal(u.searchParams.get('ref'), ref);
+      assert.equal(u.searchParams.get('l'), lang === 'en' ? null : lang);
+    }
     assert.equal(GIFT_FROM, 'gift');
   });
   await t('문구(한·일·영): 자동 갱신 고지가 «무료» 문장 안 · 가짜 희소성(선착순·남은 수·타이머·숫자 한도) 없음 · 가격 숫자 없음', () => {
@@ -125,8 +156,9 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   await t('공유 문자열: Web Share 로 «text 하나»(링크가 맨 끝) 가 간다 — url 을 따로 주지 않는다(iOS «복사»가 링크를 떨구는 함정)', async () => {
     let got: { text?: string; url?: string; title?: string } | null = null;
     Object.defineProperty(globalThis, 'navigator', { value: { share: async (p: { text?: string; url?: string; title?: string }) => { got = p; } }, configurable: true });
-    const url = buildGiftUrl(CODE, REF, 'ko');
-    const out = await shareOrCopy({ title: GIFT_COPY.ko.shareTitle, text: giftShareText('ko', true), url });
+    const payload = await reservedPayload('ko');
+    const url = payload.url;
+    const out = await shareOrCopy(payload);
     assert.equal(out, 'shared');
     assert.ok(got);
     const g = got as unknown as { text?: string; url?: string; title?: string };

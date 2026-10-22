@@ -88,7 +88,8 @@ const liveRetry = (x: SentGift, t: number) => t - x.at < RETRY_WINDOW_MS && x.tr
  */
 export function createGiftPreparation(request: typeof fetch = (...args) => fetch(...args), getDevice = deviceKey, now = Date.now,
   newToken = randomGiftToken, atomic: GiftAtomic = idbAtomic) {
-  let enabled = false;
+  // null은 최초 미조회·조회 중·실패다. 확정된 꺼짐과 구분하며 어느 쪽도 선물을 발급하지 않는다.
+  let enabled: boolean | null = null;
   let available = false;
   /** 준비된(잡아 둔) 토큰 하나 — 클릭 때 내주고 비운다. */
   let ready: string | null = null;
@@ -226,6 +227,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   const refresh = (via: ShareVia): Promise<void> => {
     if (inflight) return inflight;
     inflight = (async () => {
+      enabled = null;
       try {
         const response = await request('/api/gift/share-config', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(4000) });
         if (!response.ok) throw new Error();
@@ -241,7 +243,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
         if (!available) { const r = ready; ready = null; if (r) await release(r); }
         else { await renew(); await reserve(via); }
         checkedAt = now();
-      } catch { ready = null; available = false; checkedAt = 0; } finally { inflight = null; }
+      } catch { enabled = null; ready = null; available = false; checkedAt = 0; } finally { inflight = null; }
     })();
     return inflight;
   };
@@ -254,7 +256,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   const issueToken = (via: ShareVia): string | null => {
     const t = now();
     const server = ready ? serverReservations.get(ready) : undefined;
-    if (!enabled || !available || !ready || readyVia !== via || done.has(ready) || t < checkedAt || t - checkedAt >= FRESH_MS
+    if (enabled !== true || !available || !ready || readyVia !== via || done.has(ready) || t < checkedAt || t - checkedAt >= FRESH_MS
       || holdUntil - t < CLICK_MARGIN_MS || !server || server.via !== via || server.until <= t
       || (via !== 'web' && (!server.device || server.device !== getDevice()))) return null;
     const token = ready;
@@ -275,9 +277,9 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   };
 
   const payload = (original: SharePayload, locale: string, via: ShareVia, ref?: string | null, giftOnly = false): SharePayload => {
-    if (!enabled) return original; // 꺼짐은 객체와 문자열을 그대로 돌려준다.
     const lang = toGiftLang(locale);
     const token = issueToken(via);
+    if (!token && !giftOnly) return original; // 일반 공유는 꺼짐·미확정에도 객체와 문자열을 보존한다.
     const validRef = normalizeGiftRef(ref);
     // 등록 API와 같은 출처를 쓴다. 프리뷰 토큰을 운영 재고 영역으로 보내지 않는다.
     const u = new URL('/app', typeof window === 'undefined' ? SHARE_ORIGIN : window.location.origin);

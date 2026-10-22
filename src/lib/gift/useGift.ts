@@ -12,9 +12,9 @@
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { shareBeacon, shareOrCopy, shareVia, type ShareOutcome } from '@/lib/share/share';
+import { SHARE_ORIGIN, shareBeacon, shareOrCopy, shareVia, type ShareOutcome } from '@/lib/share/share';
 import { usePreparedGift } from '@/lib/giftShare/usePreparedGift';
-import { GIFT_COPY, buildGiftUrl, giftShareText, toGiftLang, type GiftSurface } from './gift';
+import { GIFT_COPY, toGiftLang, type GiftSurface } from './gift';
 // ★2026-10-14 선물 링크의 초대자 id 도 공유 카드와 «같은 신원»(비공개 열쇠 → 공개 id)을 쓴다 — 친구가 설치하면 선물한 사람도 선물함에 PRO 1개월 코드를 받는다(lib/invite).
 import { getInviteRef, markInviteShared } from '@/lib/invite/identity';
 
@@ -96,8 +96,8 @@ export function useGiftShare(locale: string, surface: GiftSurface) {
     try {
       const payload = preparedGift.payload({
         title: GIFT_COPY[lang].shareTitle,
-        text: giftShareText(lang, cfg.android),
-        url: buildGiftUrl(cfg.code, ref, lang),
+        // 선물 URL은 준비 모듈의 단일 판정 뒤에만 만든다. 기존 설정 캐시는 발급 근거가 아니다.
+        url: `${SHARE_ORIGIN}/app`,
       }, locale, via, ref, true);
       out = await shareOrCopy(payload);
       preparedGift.complete(out, payload, via);

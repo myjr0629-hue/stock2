@@ -77,7 +77,14 @@ test('꺼짐: 기존 객체·공유/복사 바이트 동일, 저장소·발행 �
   const payload = client.payload(original, 'ko', 'ios');
   assert.equal(payload, original);
   for (const locale of ['ko', 'en', 'ja']) for (const giftOnly of [true, false]) for (const via of ['ios', 'android', 'web'] as const) {
-    assert.equal(client.payload(original, locale, via, 'abc234defg', giftOnly), original);
+    const p = client.payload(original, locale, via, 'abc234defg', giftOnly);
+    if (!giftOnly) assert.equal(p, original);
+    else {
+      assert.equal(p.title, 'SIGNUM HQ');
+      assert.equal(giftOf(p), null);
+      assert.equal(new URL(p.url).searchParams.has('code'), false);
+      assert.ok(!/PRO|🎁/.test(p.text!));
+    }
   }
   const sent: unknown[] = [];
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { share: async (d: unknown) => { sent.push(d); } } });

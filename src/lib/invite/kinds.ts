@@ -69,7 +69,7 @@ export function buildShareCardUrl(kind: ShareKind, p: { locale: string; ticker: 
 
 /**
  * 받은 쪽 페이지의 «앱에서 이어 보기» 주소 — 기존 스마트링크(/app). code 가 있으면(선물 코드가 켜져 있을 때) 쿠폰 화면이 먼저 뜬다.
- * 영어는 기본값이라 l 을 붙이지 않는다(미리보기 봇·쿠폰 화면 언어를 보낸 사람 언어로 맞추는 용도 — lib/gift/gift.buildGiftUrl 과 같은 규칙).
+ * 영어는 기본값이라 l 을 붙이지 않는다(미리보기 봇·쿠폰 화면 언어를 보낸 사람 언어로 맞추는 용도).
  */
 export function inviteAppHref(kind: ShareKind, p: { lang: string; ref?: string | null; code?: string | null; giftToken?: string | null }): string {
   const u = new URL('/app', SHARE_ORIGIN);
