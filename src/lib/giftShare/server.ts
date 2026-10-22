@@ -21,8 +21,8 @@ export function giftStore(): GiftStore | null {
   return { eval: (script, keys, args) => r.eval(script, keys, args) };
 }
 /**
- * 공유 완료 뒤 발신 기기가 보낸 토큰을 1회 등록한다(코드는 수신자 등록 때 배정).
- * 한도는 공유 완료 시각(sharedAt)의 KST 날짜로 센다 — 등록이 자정 뒤에 처리돼도 공유한 날의 한도를 쓴다(config 의 근거 참고).
+ * 발신 기기의 토큰을 1회 등록한다(공유 전 예약과 완료 후 멱등 확인이 같은 처리를 사용; 코드는 수신자 등록 때 배정).
+ * 한도는 최초 요청 sharedAt 의 KST 날짜로 센다. 이미 예약한 토큰은 날짜가 달라도 추가 차감하지 않는다.
  * 'issued' = 새로 등록(한도 차감) · 'exists' = 이미 등록됨(차감 없음, 같은 토큰 재등록 거부) · null = 상한·형식·시각 범위 오류.
  */
 export async function issueGift(store: GiftStore, input: { device: string; account?: string; ip: string; app: boolean; token: unknown; sharedAt: unknown }, now = Date.now()) {

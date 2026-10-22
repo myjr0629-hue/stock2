@@ -15,6 +15,8 @@ const SHEET_HOLD_MS = 30 * 60_000;
 const CLICK_MARGIN_MS = 90_000;
 /** 기기 시계가 서버와 이만큼 넘게 다르면 등록 시각 검사에 걸릴 수 있어 선물 링크를 만들지 않는다. */
 const CLOCK_TOLERANCE_MS = 5 * 60_000;
+/** 서버 토큰 7일 유효 기간보다 짧게 잡는다. 설정 갱신으로 예약 수명을 늘리지 않는다. */
+const SERVER_RESERVATION_MS = 6 * 86400_000;
 
 const COPY = {
   ko: '친구에게 SIGNUM PRO 1개월 이용권을 선물합니다. 링크에서 스토어 등록을 완료해야 적용됩니다. 링크당 1명, 대상 자격·재고에 따라 제공되며 이후 자동 갱신 조건은 등록 화면에서 확인하세요.',
@@ -79,10 +81,10 @@ const liveRetry = (x: SentGift, t: number) => t - x.at < RETRY_WINDOW_MS && x.tr
 
 /**
  * 공유=선물 준비 — 기기 한도의 셈은 «오늘 보낸 수 + 잡아 둔 몫»이며, 잡기·풀기·보낸 수 반영은 모두 원자 장부(state.ts)에서 한다.
- * - 화면 진입·복귀(refresh, 비동기): 설정·재고·시계 확인 → 재시도 → 한도가 남으면 새 토큰 하나를 «잡아 두고» 준비한다(서버 발행 없음).
+ * - 화면 진입·복귀(refresh, 비동기): 설정·재고·시계 확인 → 재시도 → 기기 몫 + 서버 원자 예약 성공 뒤에만 준비한다.
  * - 클릭(payload, 동기): 준비된 토큰을 한 번만 내준다(내준 뒤 준비 칸은 비운다 — 같은 문서의 다른 단추가 같은 토큰을 받지 않는다).
  * - 완료(complete): 보냈으면(shared·copied·failed) 그 시각(at)으로 서버 등록 + 장부에서 «잡음 → 그날 보낸 수»로 옮긴다. 취소면 그 토큰을 준비 칸으로 되돌린다.
- * 서버도 같은 at 의 KST 날짜로 세므로, 기기 셈이 한도 안이면 보낸 링크는 서버 한도에 걸리지 않는다(자정·재시도·응답 유실 무관).
+ * 서버 예약은 기존 등록을 먼저 확정하는 방식이다. 계정·IP·전체 몫도 확보하며, 완료 등록은 같은 토큰의 멱등 재요청이다.
  */
 export function createGiftPreparation(request: typeof fetch = (...args) => fetch(...args), getDevice = deviceKey, now = Date.now,
   newToken = randomGiftToken, atomic: GiftAtomic = idbAtomic) {
@@ -96,6 +98,8 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   let holdUntil = 0;
   let checkedAt = 0;
   let inflight: Promise<void> | null = null;
+  let reserving: Promise<void> | null = null;
+  const serverReservations = new Map<string, { via: ShareVia; device: string | null; until: number; owner: string }>();
   const done = new Set<string>();
   /** 이 문서가 보냈지만 장부 반영을 아직 확인 못 한 선물(표식 저장마저 실패한 경우의 대비). */
   const unrecorded = new Map<string, number>();
@@ -121,29 +125,51 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
       if (hold) hold.issued = true;
       else s.holds.push({ token, until: t, issued: true });
     }
-    s.holds = s.holds.filter(h => h.issued || (h.until > t && h.until - t <= SHEET_HOLD_MS));
+    s.holds = s.holds.filter(h => h.issued || (h.reservation
+      ? t >= h.reservation.at && t - h.reservation.at < SERVER_RESERVATION_MS
+      : h.until > t && h.until - t <= SHEET_HOLD_MS));
     return merged;
   };
 
   /** 한도가 남으면 새 토큰을 잡아 둔다. 오늘 보낸 수 + 모든 문서의 잡음(자정을 걸친 것도 오늘로)이 한도 미만일 때만. */
-  const reserve = async (via: ShareVia) => {
+  const reserve = (via: ShareVia): Promise<void> => {
+    if (reserving) return reserving;
+    reserving = reserveOne(via).finally(() => { reserving = null; });
+    return reserving;
+  };
+  const reserveOne = async (via: ShareVia) => {
     if (!enabled || !available || ready) return;
-    if (via !== 'web' && !getDevice()) return; // 영속 열쇠가 없으면 앱 한도를 우회하는 익명 등록이 되므로 준비하지 않는다.
-    const token = newToken();
-    if (!token || done.has(token)) return;
+    const key = via === 'web' ? null : getDevice();
+    if (via !== 'web' && !key) return;
+    const candidate = newToken();
+    if (!candidate || done.has(candidate)) return;
     const r = await atomic((s: GiftState) => {
       const t = now();
       const merged = reconcile(s, t);
-      if ((s.days[kstDay(t)] ?? 0) + s.holds.length >= dayCap(via)) return { ok: false, merged, until: 0 };
-      s.holds.push({ token, until: t + READY_HOLD_MS });
-      return { ok: true, merged, until: t + READY_HOLD_MS };
+      const used = (s.days[kstDay(t)] ?? 0) + s.holds.length;
+      const reusable = s.holds.find(h => !h.issued && h.until <= t && h.reservation?.via === via && h.reservation.device === key);
+      if (used > dayCap(via) || (!reusable && used >= dayCap(via))) return { ok: false as const, merged };
+      const hold = reusable ?? { token: candidate, until: 0, reservation: { at: t, via, device: key, owner: candidate } };
+      hold.until = t + READY_HOLD_MS;
+      hold.reservation!.owner = candidate;
+      if (!reusable) s.holds.push(hold);
+      return { ok: true as const, merged, token: hold.token, until: hold.until, at: hold.reservation!.at };
     });
     if (r) afterMerge(r.value.merged);
     if (r?.value.ok !== true) return;
-    if (ready || !enabled || !available) { void release(token); return; } // 그사이 다른 경로가 준비했거나 꺼졌다
+    const { token } = r.value;
+    // 설정 응답·기기 장부는 서버 한도를 보증하지 않는다. 이 토큰의 예약 성공 응답만 신뢰한다.
+    if (!await register(token, now(), via, true, key)) { await release(token, candidate); return; }
+    if (ready || !enabled || !available || r.value.until - now() < CLICK_MARGIN_MS) { await release(token, candidate); return; }
+    serverReservations.set(token, { via, device: key, until: r.value.at + SERVER_RESERVATION_MS, owner: candidate });
     ready = token; readyVia = via; holdUntil = r.value.until;
   };
-  const release = (token: string) => atomic((s: GiftState) => { s.holds = s.holds.filter(h => h.token !== token); });
+  const release = (token: string, owner = serverReservations.get(token)?.owner) => atomic((s: GiftState) => {
+    const hold = s.holds.find(h => h.token === token);
+    if (!hold || hold.issued || hold.reservation?.owner !== owner) return;
+    // 응답 유실이어도 서버가 처리했을 수 있다. 토큰은 남기고 다음 준비에서 같은 몫을 재확인한다.
+    hold.until = 0;
+  });
   /** 준비·시트의 잡음을 연장한다. 잡음이 사라졌으면(만료 뒤 다른 문서가 가져갔을 수 있음) 준비를 버린다. */
   const renew = async () => {
     const prepared = ready;
@@ -154,7 +180,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
       reconcile(s, t);
       let alive = false;
       for (const h of s.holds) {
-        if (h.token === prepared) { h.until = t + READY_HOLD_MS; alive = true; }
+        if (h.token === prepared && h.reservation?.owner === serverReservations.get(prepared!)?.owner) { h.until = t + READY_HOLD_MS; alive = true; }
         else if (sheets.includes(h.token)) h.until = t + SHEET_HOLD_MS;
       }
       return alive;
@@ -165,11 +191,11 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   };
 
   /** 서버 등록 — at(공유 완료 시각)의 날짜로 한도를 센다. 같은 토큰 재등록은 서버가 차감 없이 «이미 있음»으로 답한다. */
-  const register = async (token: string, at: number, via: ShareVia): Promise<boolean> => {
-    const key = via === 'web' ? null : getDevice();
+  const register = async (token: string, at: number, via: ShareVia, reserve = false,
+    key = via === 'web' ? null : getDevice()): Promise<boolean> => {
     if (via !== 'web' && !key) return false;
     try {
-      const r = await request('/api/gift/issue', { method: 'POST', credentials: 'same-origin',
+      const r = await request(reserve ? '/api/gift/reserve' : '/api/gift/issue', { method: 'POST', credentials: 'same-origin',
         headers: { 'content-type': 'application/json', ...(key ? { 'x-gift-device': key } : {}) },
         body: JSON.stringify({ token, at }), signal: AbortSignal.timeout(4000) });
       if (!r.ok) return false;
@@ -227,8 +253,10 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
    */
   const issueToken = (via: ShareVia): string | null => {
     const t = now();
+    const server = ready ? serverReservations.get(ready) : undefined;
     if (!enabled || !available || !ready || readyVia !== via || done.has(ready) || t < checkedAt || t - checkedAt >= FRESH_MS
-      || holdUntil - t < CLICK_MARGIN_MS || (via !== 'web' && !getDevice())) return null;
+      || holdUntil - t < CLICK_MARGIN_MS || !server || server.via !== via || server.until <= t
+      || (via !== 'web' && (!server.device || server.device !== getDevice()))) return null;
     const token = ready;
     try {
       if (pendingNow().length) return null;
@@ -291,6 +319,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     }
     if (done.has(usedToken)) return; // 중복 완료 통지는 한 번만 등록한다.
     done.add(usedToken);
+    serverReservations.delete(usedToken);
     if (ready === usedToken) ready = null;
     // 공유 완료 시각 하나로 기기 셈(그 날짜 +1)과 서버 등록(at)을 묶는다.
     const at = now();

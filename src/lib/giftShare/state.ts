@@ -8,7 +8,9 @@
  * IndexedDB 를 쓸 수 없으면 null → 선물 문구 없이 일반 공유.
  */
 export type SentGift = { token: string; at: number; tries: number; last: number };
-export type Hold = { token: string; until: number; issued?: boolean };
+export type Hold = { token: string; until: number; issued?: boolean;
+  /** 미발급 서버 몫은 같은 토큰으로 재확인한다. owner는 탭 사이 준비 사용권이다. */
+  reservation?: { at: number; via: 'web' | 'ios' | 'android'; device: string | null; owner: string } };
 /** counted = 이미 날짜 셈에 반영한 토큰(최근 30) — 완료 기록을 다시 합쳐도 두 번 세지 않는다. */
 export type GiftState = { days: Record<string, number>; holds: Hold[]; sent: SentGift[]; counted: string[] };
 /** fn 은 동기로 state 를 고친다(같은 트랜잭션 안). 반환값을 그대로 돌려준다. 장부를 열 수 없거나 실패하면 null. */
@@ -24,8 +26,14 @@ export function normalizeState(raw: unknown): GiftState {
   if (r.days && typeof r.days === 'object' && !Array.isArray(r.days)) {
     for (const [k, v] of Object.entries(r.days as Record<string, unknown>)) if (DAY.test(k) && Number.isInteger(v) && (v as number) >= 0) days[k] = v as number;
   }
-  const holds = Array.isArray(r.holds) ? r.holds.filter((h: any) => okToken(h?.token) && Number.isFinite(h?.until))
-    .map((h: any) => ({ token: h.token, until: h.until, ...(h.issued === true ? { issued: true } : {}) })) : [];
+  const holds: Hold[] = Array.isArray(r.holds) ? r.holds.filter((h: any) => okToken(h?.token) && Number.isFinite(h?.until))
+    .map((h: any) => {
+      const v = h.reservation;
+      const reservation = v && Number.isSafeInteger(v.at) && ['web', 'ios', 'android'].includes(v.via)
+        && (v.device === null || typeof v.device === 'string') && okToken(v.owner)
+        ? { at: v.at, via: v.via, device: v.device, owner: v.owner } : undefined;
+      return { token: h.token, until: h.until, ...(h.issued === true ? { issued: true } : {}), ...(reservation ? { reservation } : {}) };
+    }) : [];
   const sent = Array.isArray(r.sent) ? r.sent.filter((x: any) => okToken(x?.token) && Number.isSafeInteger(x?.at)
     && Number.isFinite(x?.tries) && Number.isFinite(x?.last)).map((x: any) => ({ token: x.token, at: x.at, tries: x.tries, last: x.last })) : [];
   const counted = Array.isArray(r.counted) ? r.counted.filter(okToken) as string[] : [];

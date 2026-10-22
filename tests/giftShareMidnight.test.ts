@@ -76,6 +76,11 @@ async function world(start: number, opts: { via?: 'ios' | 'android' | 'web'; acc
       return json({ enabled: true, available: opts.available ? opts.available() : true, now: w.serverNow ? w.serverNow() : w.clock });
     }
     const body = JSON.parse(String(init?.body));
+    if (String(url).endsWith('/reserve')) {
+      const device = (init?.headers as any)?.['x-gift-device'] ?? 'web-cookie';
+      const r = await issueGift(store, { device, account: opts.account, ip: 'ip-hash', app: device !== 'web-cookie', token: body.token, sharedAt: body.at }, w.clock);
+      return json({ ok: !!r });
+    }
     const mode = w.modes.shift() ?? 'ok';
     if (mode === 'down') { w.posts.push({ token: body.token, at: body.at, status: 'unreached', mode }); throw new Error('미도달'); }
     if (w.hold) { const h = w.hold; w.hold = null; await h; } // 첫 요청 하나만 붙잡는다
@@ -143,8 +148,8 @@ test('관문 회귀(10220553①): 23:59:59 공유의 첫 등록 응답이 유실
     let fresh = 0;
     for (let i = 0; i < 4; i++) if (await x.share()) fresh++;
     assert.equal(fresh, 3, mode);
-    assert.equal(await x.count('device', x.device, '2026-10-22'), 1, `${mode}: 23:59:59 공유는 전날로`);
-    assert.equal(await x.count('device', x.device, '2026-10-23'), 3, mode);
+    assert.equal(await x.count('device', x.device, '2026-10-22'), mode === 'down' ? 2 : 1, `${mode}: 최초 예약 날짜로 차감(미발급 다음 몫 포함)`);
+    assert.equal(await x.count('device', x.device, '2026-10-23'), mode === 'down' ? 2 : 3, '전날 예약 재사용은 오늘 추가 차감 없음');
     assert.equal(x.w.posts.filter(p => p.at === x.w.posts[0].at).every(p => p.at < at('2026-10-23T00:00:00')), true, '재시도도 같은 공유 시각');
     await assertNoBrokenLinks(x, mode);
   }
@@ -161,7 +166,7 @@ test('관문 회귀(10220544): 전날 미등록 3건이 자정 뒤 00:04 재시�
     let fresh = 0;
     for (let i = 0; i < 4; i++) if (await x.share(next)) fresh++;
     assert.equal(fresh, 3, `미등록 ${pending}건이어도 오늘 3건`);
-    assert.equal(await x.count('device', x.device, '2026-10-22'), pending);
+    assert.equal(await x.count('device', x.device, '2026-10-22'), Math.min(pending + 1, 3), '공유 완료분 + 미발급 다음 예약 몫');
     await assertNoBrokenLinks(x, `미등록 ${pending}`);
   }
 });
@@ -352,7 +357,8 @@ test('동시 공유 시트(여러 문서·탭): 완료 전 시트에 실린 링�
     for (const o of open) { o.d.complete('shared', o.p, via); if (giftOf(o.p)) x.w.sent.push(giftOf(o.p)!); }
     await settle();
     await assertNoBrokenLinks(x, `동시 시트 ${via}`);
-    assert.equal(await x.count('device', via === 'web' ? 'web-cookie' : x.device, '2026-10-23'), cap);
+    assert.equal(await x.count('device', via === 'web' ? 'web-cookie' : x.device, '2026-10-22'), cap, '공유 전 예약 날짜로 차감');
+    assert.equal(await x.count('device', via === 'web' ? 'web-cookie' : x.device, '2026-10-23'), 0, '자정 뒤 완료는 추가 차감 없음');
   }
   // 취소 뒤 같은 토큰 재사용. 다시 발급한 뒤 미확정인 몫은 문서가 사라져도 풀지 않는다.
   resetStorage();
@@ -408,7 +414,8 @@ test('기본 장부(idbAtomic): IndexedDB 트랜잭션으로 동시 예약을 �
       const issued: string[] = [];
       const request: typeof fetch = async (url, init) => {
         if (String(url).endsWith('share-config')) return json({ enabled: true, available: true, now: clock });
-        issued.push(JSON.parse(String(init?.body)).token); return json({ ok: true });
+        if (!String(url).endsWith('/reserve')) issued.push(JSON.parse(String(init?.body)).token);
+        return json({ ok: true });
       };
       const tabs = Array.from({ length: 9 }, () => createGiftPreparation(request, () => 'b2'.repeat(32), () => clock, undefined, idbAtomic));
       await Promise.all(tabs.map(t => t.refresh(via)));
@@ -512,7 +519,7 @@ test('관문 수리: 완료 장부·표식 저장 모두 실패 후 문서 종�
     x.mem.fail = true;
     (localStorage as any).setItem = () => { throw new Error('완료 표식 저장 장애'); };
     x.client.complete('shared', p, via); x.w.sent.push(giftOf(p)!); await settle();
-    assert.equal(x.w.posts.at(-1)?.status, 'issued', '서버 등록은 성공');
+    assert.equal(x.w.posts.at(-1)?.status, 'exists', '사전 예약된 토큰의 완료 확인 성공');
     x.mem.fail = false; resetStorageKeepValues();
     x.w.clock += nextDay ? 24 * 60 * MIN : 31 * MIN;
     // 이전 문서의 unrecorded는 접근하지 않는다. 새 문서만 사용한다.

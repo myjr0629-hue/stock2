@@ -1,5 +1,5 @@
 // 실행: npx tsx --test tests/giftShareClient.test.ts
-// 설계(관문 3회 보류 뒤 재설계): 화면 진입 = 설정·재고 확인 + 기기 토큰 생성(서버 발행 0) ·
+// 설계: 화면 진입 = 설정·재고 확인 + 기기 토큰 생성 + 서버 사전 예약 성공 ·
 // 공유/복사 «완료» 뒤에만 그 토큰을 1회 등록 · 보낸 토큰은 즉시 폐기(재사용 0) · 재고 0·기기 일일 한도면 일반 공유.
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -49,6 +49,7 @@ function server(opts: { available?: () => boolean; enabled?: () => boolean; issu
       log.config++;
       return json({ enabled: opts.enabled ? opts.enabled() : true, available: opts.available ? opts.available() : true, now: (opts.now ?? Date.now)() });
     }
+    if (String(url) === '/api/gift/reserve') return json({ ok: true }); // 사전 예약은 별도 통합 시험에서 실제 서버·Lua로 검증
     assert.equal(String(url), '/api/gift/issue'); assert.equal(init?.method, 'POST');
     const { token, at } = JSON.parse(String(init?.body));
     assert.ok(Number.isSafeInteger(at), '등록은 공유 완료 시각을 함께 보낸다');
@@ -92,13 +93,14 @@ test('꺼짐: 기존 객체·공유/복사 바이트 동일, 저장소·발행 �
   assert.equal(mem.calls, 0, '꺼짐: 기기 장부 접근 0');
 });
 
-test('켜짐 준비: 서버 발행 없이 기기 토큰 · 3언어·iOS/Android·웹 링크 · 콘텐츠/ref 보존', async () => {
+test('켜짐 준비: 서버 사전 예약 후 기기 토큰 · 3언어·iOS/Android·웹 링크 · 콘텐츠/ref 보존', async () => {
   for (const lang of ['ko', 'en', 'ja']) for (const via of ['ios', 'android', 'web'] as const) {
     resetStorage();
     const s = server();
-    const client = make(s.request, () => randomBytes(32).toString('hex'));
+    const device = randomBytes(32).toString('hex');
+    const client = make(s.request, () => device);
     await client.refresh(via);
-    assert.equal(s.log.issues.length, 0, '화면 진입은 발행하지 않는다');
+    assert.equal(s.log.issues.length, 0, '화면 진입은 완료 등록하지 않는다');
     const payload = client.payload(original, lang, via, 'abc234defg');
     const u = new URL(payload.url);
     assert.equal(u.origin, 'https://www.signumhq.com'); assert.equal(u.pathname, '/app');
@@ -138,7 +140,7 @@ test('공유·복사(·수동 복사 창 가능성 있는 실패) 뒤에만 그 
   }
 });
 
-test('관문 회귀(10211609·10212017): 공유 없이 재로딩·동시 문서 여러 개 → 발행 0, 문서마다 다른 토큰', async () => {
+test('관문 회귀(10211609·10212017): 공유 없이 재로딩·동시 문서 여러 개 → 완료 등록 0, 문서마다 다른 토큰', async () => {
   const s = server();
   const docs = [];
   for (let document = 0; document < 6; document++) {

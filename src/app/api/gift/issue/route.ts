@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const ip = giftIp(req);
     const store = giftStore();
     if (!identity || !ip || !store) return fallback();
-    // 공유 완료 뒤 발신 기기가 만든 토큰만 받는다(JSON {token, at} — at = 공유 완료 시각, 한도를 셀 날짜). 공유 전 서버 발행은 없다.
+    // JSON {token, at}. 사전 예약 경로도 이 처리를 재사용한다. 최초 성공 시각의 날짜 한도를 확보한다.
     if (!(req.headers.get('content-type') || '').startsWith('application/json') || Number(req.headers.get('content-length') || 0) > 512) return fallback();
     const body = await req.json().catch(() => null);
     const account = await giftAccount(req);

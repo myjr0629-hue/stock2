@@ -33,6 +33,7 @@ const { couponHtml } = require('../src/lib/marketing/couponHtml');
 const { desktopRedeemHtml } = require('../src/lib/marketing/desktopHandoff');
 const route = require('../src/app/app/route');
 const issue = require('../src/app/api/gift/issue/route');
+const reserve = require('../src/app/api/gift/reserve/route');
 const claim = require('../src/app/api/gift/claim/route');
 const shareConfig = require('../src/app/api/gift/share-config/route');
 const { memoryInviteStore } = require('../src/lib/invite/memoryStore');
@@ -402,6 +403,23 @@ async function submitLanding(response: Response, pageUrl: string, ua: string): P
     for (const bad of [{}, { token: 'short', at: Date.now() }, { token: tok }, { token: tok, at: Date.now() - 49 * 3_600_000 }, '{', ['x']]) assert.equal((await (await postJson(bad)).json()).ok, false);
     assert.equal((await (await postJson({ token: tok, at: Date.now() }, 'text/plain')).json()).ok, false);
     assert.equal((await (await issue.POST(req('/api/gift/issue', { method: 'POST' }))).json()).ok, false, '본문 없는 옛 요청은 발행하지 않는다');
+  });
+  await t('예약 API는 기존 등록의 플래그·출처 검증·원자 한도·장애 폴백을 그대로 재사용', async () => {
+    assert.equal(reserve.POST, issue.POST);
+    const tok = randomBytes(32).toString('base64url');
+    const request = (headers = baseHeaders) => req('/api/gift/reserve', { method: 'POST',
+      headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ token: tok, at: Date.now() }) });
+    for (const result of ['issued', 'exists', 'cap', new Error('예약 장애')]) {
+      answer = result;
+      const response = await reserve.POST(request());
+      assert.equal((await response.json()).ok, result === 'issued' || result === 'exists');
+    }
+    const before = evalCalls;
+    assert.equal((await (await reserve.POST(request({ ...baseHeaders, origin: 'https://example.invalid' }))).json()).ok, false);
+    process.env.GIFT_SHARE_ENABLED = '0';
+    assert.equal((await (await reserve.POST(request())).json()).ok, false);
+    process.env.GIFT_SHARE_ENABLED = '1';
+    assert.equal(evalCalls, before, '꺼짐·다른 출처는 저장소 무호출');
   });
   await t('동일 배정 재시도는 같은 스토어 주소·OS별 기존 등록 형식', async () => {
     for (const [ua, os] of [[ios, 'ios'], [android, 'android']]) {
