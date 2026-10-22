@@ -768,6 +768,7 @@ async function getOptionChain(ticker, opts = {}) {
         // ★ OI 는 실시간 피드에 없다. EOD 것이 정답이다(OCC 야간 정산).
         //   없으면 null — 0 으로 채우면 구조 서비스의 «OI 누락» 검사가 발동하지 않는다(2026-09-27). 소비처는 `|| 0` 로 읽는다.
         open_interest: num(p.open_interest),
+        eodDate: p.date ?? null,
         break_even_price: type === 'put'
           ? (num(o.strike) || 0) - (num(p.close) || 0)
           : (num(o.strike) || 0) + (num(p.close) || 0),

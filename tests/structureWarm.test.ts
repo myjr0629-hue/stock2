@@ -617,7 +617,7 @@ atNow(IN_WINDOW, async () => {
     walk('src');
     // (10/13 intel-fast-429) /api/intel/fast 배경 갱신 관문이 같은 계측(userRecent429 = «사용자 429 우선» 신호 · upstashMeterStore)을 읽는다 — 아래 셋이 의도된 추가다.
     //   사용자 경로 파일(라우트·화면)이 관문(intrinioWarmGate)·계획(structureWarmPlan)을 가져가지 않는다는 위 시험들의 약속은 그대로다.
-    // b86d5ddf1: VWAP 분봉 갱신, ff69ae91e: Today AI 생성에 SET NX EX 저장소 재사용.
+    // b86d5ddf1·4b20a19c7: VWAP 분봉 갱신, ff69ae91e: Today AI 생성에 SET NX EX 저장소 재사용.
     assert.deepEqual(hits.sort(), [
       'src/app/api/admin/intel-fast-meter/route.ts',
       'src/app/api/cron/structure-warm/route.ts',
@@ -626,6 +626,7 @@ atNow(IN_WINDOW, async () => {
       'src/lib/intelFastGovernor.ts',
       'src/lib/intrinioCallMeter.ts',
       'src/services/intrinioClient.ts',
+      'src/services/realtimeSessionVwap.ts',
     ]);
     assert.equal((read('src/services/intrinioClient.ts').match(/note429\(/g) || []).length, 1, '429 분기 한 곳');
   });

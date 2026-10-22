@@ -108,6 +108,8 @@ export function afterCloseState(dataDate: string | null | undefined, now = Date.
     return { state, lastClosed };
 }
 
+const measured = (v: unknown) => (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) && Number.isFinite(Number(v));
+
 /**
  * 하루의 «대표 스냅샷».
  *
@@ -117,6 +119,8 @@ export function afterCloseState(dataDate: string | null | undefined, now = Date.
  *    「그날 마지막 값」을 쓰면 어느 만기가 걸렸느냐가 곧 결과가 된다.
  *    → 그날 총 OI 가 가장 큰 스냅샷 하나를 골라 «모든 지표를 거기서» 읽는다.
  *       날짜 간 비교가 성립하고, 한 카드 안 숫자들이 같은 체인에서 나온다.
+ *       OI 동률이면 프리미엄 측정이 있는 행을 우선하고, 같은 품질 안에서 최신 판본을 쓴다.
+ *       structure-build의 프리미엄 없는 행이 FlowWarm 측정을 지우지 않게 한다.
  */
 export function dailySnapshots(items: Row[]) {
     const byDay = new Map<string, Row & { _oi: number; _d: string }>();
@@ -129,7 +133,10 @@ export function dailySnapshots(items: Row[]) {
         const oi = Number(it.totalCallOI || 0) + Number(it.totalPutOI || 0);
         if (!(oi > 0)) continue;              // OI 없는 행은 비교 기준을 못 준다
         const prev = byDay.get(d);
-        if (!prev || oi > prev._oi || (it.chainDate && oi === prev._oi && ts > Number(prev.timestamp))) {
+        const hasPremium = measured(it.totalPremium), prevHasPremium = measured(prev?.totalPremium);
+        if (!prev || oi > prev._oi || (it.chainDate && oi === prev._oi && (
+            (hasPremium && !prevHasPremium) || (hasPremium === prevHasPremium && ts > Number(prev.timestamp))
+        ))) {
             byDay.set(d, { ...it, _oi: oi, _d: d });
         }
     }
@@ -165,7 +172,6 @@ export function deviationOf(
 ): { ok: DevResult; reason?: string } {
     const g = { ...DEFAULT_GATES, ...gates };
     // The latest snapshot must own a measurement; never promote a past day to today.
-    const measured = (v: unknown) => (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) && Number.isFinite(Number(v));
     if (!snaps.length || !measured(snaps[snaps.length - 1][key])) return { ok: null, reason: '이력부족' };
     const series = snaps
         .filter(r => measured(r[key]))

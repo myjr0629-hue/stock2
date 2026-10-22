@@ -557,6 +557,19 @@ function contractsChainDate(contracts: any[]): string | null {
     return d;
 }
 
+/** 합계 이력은 모든 계약이 같은 유효 EOD 날짜를 밝힐 때만 세션을 지정한다. */
+function contractsHistoryDate(contracts: any[]): string | null {
+    if (!contracts.length) return null;
+    let date: string | null = null;
+    for (const c of contracts) {
+        // 슬림 수집기 프로브와 Vercel 직접 경로가 각각 운반하는 계약별 원천 날짜.
+        const d = sourceDate(c?.eodDate ?? c?._intrinio?.date);
+        if (!d || (date && date !== d)) return null;
+        date = d;
+    }
+    return date;
+}
+
 export async function getStructureData(
     ticker: string,
     requestedExp?: string | null,
@@ -968,6 +981,8 @@ async function getStructureDataImpl(
     if (!chainDate) chainDate = contractsChainDate(allContracts);
 
     const relevantContracts = allContracts;
+    // 판본용 chainDate(최댓값·추정 포함)와 분리한다. OI 합이 같아도 세션이 같다는 증거는 아니다.
+    const historyChainDate = contractsHistoryDate(relevantContracts);
 
     // 5. Structure & Integrity
     let nullOiCount = 0;
@@ -1383,6 +1398,7 @@ async function getStructureDataImpl(
             // ★ 미결제약정의 EOD 날짜. 맥스페인·콜월·풋플로어·핀존·OI 분포는 전부 «이 날짜 × 이 만기» 값이다.
             //   화면은 만기와 함께 이 날짜를 보여 줄 수 있고, 캐시는 이걸로 판본을 판정한다.
             chainDate,
+            historyChainDate,
             availableExpirations,
             underlyingPrice: underlyingPrice || null,
             prevClose: prevClose || null,
