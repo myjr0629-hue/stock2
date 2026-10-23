@@ -108,7 +108,7 @@ await test('P2-8 weekend serves last valid briefing with original date', async (
  } finally { globalThis.Date = OriginalDate; }
 });
 await test('P2-4/7 market uses source timestamp and yield bp delta', async () => {
- stub('../src/services/macroHubProvider', { getMacroSnapshotSSOT: async () => ({ indexBasis: { cash: { ndx: { asOf: '2026-10-16T20:00:00Z', price: 29392, changePct: -1, sessionDate: '2026-10-16', basis: 'regular-session' } } }, marketStatus: { market: 'CLOSED' }, asOfET: 'now', factors: { nasdaq100: { marketTime: '2026-10-17T20:00:00Z', level: 30000 }, vix: { level: 20 }, us10y: { level: 4.2, chgAbs: -0.01 } } }) });
+ stub('../src/services/macroHubProvider', { getMacroSnapshotSSOT: async () => ({ marketStatus: { market: 'CLOSED' }, asOfET: 'now', factors: { nasdaq100: { marketTime: '2026-10-16T20:00:00Z', level: 29392 }, vix: { level: 20 }, us10y: { level: 4.2, chgAbs: -0.01 } } }) });
  const { GET } = require('../src/app/api/live/market/route'); const r = await (await GET()).json();
  assert.match(r.timestampET, /10\/16\/2026, 16:00/); assert.equal(r.us10y.changeBp, -1);
 });

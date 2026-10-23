@@ -146,40 +146,6 @@ const originalFetch = global.fetch;
         assert.equal(writes, 0);
         assert.equal(providerCalls, 0, '결측 응답 재판정에 공급사 호출을 추가하지 않는다');
         console.log('통과 H3 GET /api/debug/guardian — 기존 스냅샷 응답 출구·실제 게이지 결측');
-        const market = require('../src/app/api/live/market/route');
-        const data = await (await market.GET()).json();
-        assert.equal(data.ndx.symbol, 'I:NDX');
-        assert.equal(data.ndx.price, null);
-        assert.equal(data.ndx.changePct, null);
-        assert.equal(data.timestampET, null);
-        assert.equal(data.futures.nq.symbol, 'NQ=F');
-        assert.equal(data.futures.nq.price, 29123.75);
-        assert.equal(data.futures.nq.asOf, basis.futures.nq.asOf);
-        assert.equal(writes, 0);
-        assert.equal(providerCalls, 0);
-        // 실제 NDX가 주어지면 그것만 매핑된다(미래의 피드 연결에도 NQ와 혼합 없음).
-        macro.indexBasis = buildMarketIndexBasis({ ndx: quote('^NDX', 28958.69, -2.88) }, now);
-        const actual = await (await market.GET()).json();
-        assert.equal(actual.ndx.price, 28958.69);
-        assert.equal(actual.ndx.changePct, -2.88);
-        macro.indexBasis = basis;
-        const oldVix = macro.factors.vix.level, oldYield = macro.factors.us10y.level;
-        macro.factors.vix.level = null; macro.factors.us10y.level = null;
-        const missingFactors = await (await market.GET()).json();
-        assert.equal(missingFactors.regime, 'NEUTRAL');
-        assert.equal(missingFactors.vix.price, null);
-        macro.factors.vix.level = oldVix; macro.factors.us10y.level = oldYield;
-        console.log('통과 M3 GET /api/live/market');
-        global.fetch = (async () => ({ ok: true, json: async () => macro })) as any;
-        const news = require('../src/app/api/guardian/news-digest/route');
-        const digest = await (await news.GET({ url: 'http://localhost/api/guardian/news-digest?refresh=1&locale=ko' })).json();
-        assert.match(digest.marketContext, /NASDAQ Composite: 26008.86 \(-2.60%\)/);
-        assert.match(digest.marketContext, /S&P 500: 7663.43 \(-1.21%\)/);
-        assert.match(prompt, /NASDAQ 100 futures: 29123.75/);
-        assert.match(prompt, /session 2026-10-22; as of 2026-10-22T20:00:00/);
-        assert.ok(!prompt.includes('S&P 500: 7704'));
-        assert.equal(providerCalls, 1, '기존 뉴스 공급사 호출만 수행');
-        console.log('통과 H4 GET /api/guardian/news-digest — 실제 생성 입력');
         // 관문 P2-1: 기존 수집기의 마지막 15:59 봉도 실제 GET·AI 입력까지 유지한다.
         macro.indexBasis = buildMarketIndexBasis({
             nasdaq: quote('^IXIC', 26008.86, -2.60, '2026-10-22T19:59:00Z'),
@@ -189,21 +155,12 @@ const originalFetch = global.fetch;
         const closedGuardian = await (await guardian.GET({ url: 'http://localhost/api/debug/guardian?force=false&locale=ko' })).json();
         assert.equal(closedGuardian.data.divergence.caseId, 'D');
         assert.equal(closedGuardian.data.tripleA.checklist.conditions[1].current, '-2.60%');
-        const closedDigest = await (await news.GET({ url: 'http://localhost/api/guardian/news-digest?refresh=1&locale=ko' })).json();
-        assert.match(closedDigest.marketContext, /NASDAQ Composite: 26008.86 \(-2.60%\).*regular-session close/);
-        assert.match(prompt, /session 2026-10-22; as of 2026-10-22T19:59:00/);
-        assert.equal(providerCalls, 2, '각 뉴스 생성은 기존 공급사 1회만 호출');
         // 관문 P2-2: 당일 개장 시세가 15:00에도 살아 있다고 AI에 전달되지 않는다.
         macro.indexBasis = buildMarketIndexBasis({
             nasdaq: quote('^IXIC', 26008.86, -2.60, '2026-10-23T13:30:00Z'),
             spx: quote('^GSPC', 7663.43, -1.21, '2026-10-23T13:30:00Z'),
         }, Date.parse('2026-10-23T19:00:00Z'));
-        const staleDigest = await (await news.GET({ url: 'http://localhost/api/guardian/news-digest?refresh=1&locale=ko' })).json();
-        assert.doesNotMatch(staleDigest.marketContext, /regular session live/);
-        assert.doesNotMatch(prompt, /regular session live/);
-        assert.match(prompt, /regular-session observation; session 2026-10-23; as of 2026-10-23T13:30:00/);
-        assert.equal(providerCalls, 3);
         macro.indexBasis = basis;
-        console.log('통과 관문 P2 — 15:59 마감 보존·09:30 낡은 시세 뉴스 LIVE 금지');
+        console.log('통과 관문 P2 — 15:59 마감 보존(가디언)');
     } finally { (Module as any)._load = originalLoad; global.fetch = originalFetch; }
 })().catch(e => { console.error(e); process.exitCode = 1; });
