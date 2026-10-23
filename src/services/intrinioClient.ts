@@ -1746,7 +1746,7 @@ export async function peekLatestCloseRow(ticker: string): Promise<{ date: string
 }
 
 /**
- * 그 거래일(date)의 종가 — 공식 종가(벌크 행 · 20거래일 종가 행렬)를 먼저, 둘 다 없을 때만 그 날짜의 15:57 세션 캡처. 없으면 null(API 콜 0).
+ * 그 거래일(date)의 «공식» 종가 — 벌크 행(캡처 아님) · 20거래일 종가 행렬. 없으면 null(API 콜 0).
  */
 export async function peekCloseOn(ticker: string, date: string): Promise<number | null> {
     const sym = ticker.toUpperCase();
@@ -1756,8 +1756,7 @@ export async function peekCloseOn(ticker: string, date: string): Promise<number 
     const hist = await loadEodHistory();
     const i = hist?.dates?.indexOf(date) ?? -1;
     const v = i >= 0 ? Number(hist!.closes?.[sym]?.[i]) : NaN;
-    if (Number.isFinite(v) && v > 0) return v;
-    return r && r.date === date && r.c > 0 ? r.c : null;
+    return Number.isFinite(v) && v > 0 ? v : null;   // 15:57 캡처는 기준 종가로 쓰지 않는다(공식 종가와 달라 환산 비율이 틀어진다)
 }
 
 /**

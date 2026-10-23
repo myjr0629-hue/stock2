@@ -222,12 +222,13 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         const sameSession = { topRelated: [{ ticker: 'GOOGL', price: 330.1, change: -1.39, prevClose: 334.76 }] };   // 10/22 장중 값 → 10/22 종가
         assert.equal((await relSvc.repriceRelated(sameSession, at('2026-10-23T14:00:00Z'))).topRelated[0].price, 324.22);
     });
-    await test('gate ⑤: before the close a same-day 15:57 capture is never applied (M9 and M1)', async () => {
-        const svc = service({ latest: { GOOGL: { date: '2026-10-23', close: 330, prevClose: 324.22, provisional: true } } });
+    await test('gate ⑤/5-①: a 15:57 capture is never used as the latest close (before or after the close) — M9 and M1', async () => {
+        const svc = service({ latest: { GOOGL: { date: '2026-10-23', close: 330, prevClose: 324.22, provisional: true }, NVDA: { date: '2026-10-22', close: 100, prevClose: 101, provisional: true } } });
         const stale = { topRelated: [{ ticker: 'GOOGL', price: 344.73, change: 1.22, prevClose: 340.58 }] };
         assert.equal(await withNow(at('2026-10-23T19:58:00Z'), () => svc.repriceRelated(stale, at('2026-10-23T19:50:00Z'))), stale);
-        const after = await withNow(at('2026-10-23T20:30:00Z'), () => svc.repriceRelated(stale, at('2026-10-23T19:50:00Z')));
-        assert.equal(after.topRelated[0].price, 330);
+        assert.equal(await withNow(at('2026-10-23T20:30:00Z'), () => svc.repriceRelated(stale, at('2026-10-23T19:50:00Z'))), stale);
+        const f = { pe: 24.9, marketCap: 1e12, score: 50, grade: 'B', _priceBasis: rebase.makePriceBasis({ pe: 24.9, marketCap: 1e12 }, '2026-10-21', 101) };
+        assert.equal(await svc.repriceFundamentals('NVDA', f), f);   // 공식 101→101 인데 캡처 100 으로 환산하지 않는다
     });
     await test('unified exit: cached edition reprices fundamentals (basis) and related (pre-close) together; fresh edition untouched', async () => {
         const svc = service({ ...EOD_1022, latest: { ...EOD_1022.latest, GOOGL: { date: '2026-10-22', close: 324.22, prevClose: 334.76 } } });
@@ -335,7 +336,7 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         try { assert.equal(await c.peekCloseOn('MSFT', '2026-10-23'), 526); assert.equal(await c.peekCloseOn('NVDA', '2026-10-23'), null); }
         finally { h.dates.pop(); h.closes.MSFT.pop(); h.closes.NVDA.pop(); }
         const d = intrinio({ date: '2026-10-23', rows: { MSFT: [525.04, 100] } });
-        assert.equal(await d.peekCloseOn('MSFT', '2026-10-23'), 525.04);   // 공식이 없을 때만 캡처
+        assert.equal(await d.peekCloseOn('MSFT', '2026-10-23'), null);   // 공식이 없으면 기준 없음 — 캡처를 기준 종가로 쓰지 않는다
     });
     await test('gate 2-②: latest close row prefers the official close once the history has that date', async () => {
         const h = history as any; h.dates.push('2026-10-23'); h.closes.MSFT.push(526); h.closes.NVDA.push(0);

@@ -61,10 +61,10 @@ function sameHarvestValues(f: any, fund: any): boolean {
     return matched >= 3;
 }
 
-/** 최신 «끝난» 정규장 종가 — 마감 전 15:57 캡처(오늘 날짜)는 쓰지 않는다. */
+/** 최신 «끝난» 정규장의 공식 종가 — 15:57 캡처(provisional)는 쓰지 않는다(공식 종가가 적재될 때까지 원래 값 그대로). */
 async function latestClosedRow(ticker: string, nowMs = Date.now()) {
     const row = await peekLatestCloseRow(ticker);
-    if (!row || !(row.close > 0) || row.date > etLastClosedSessionDate(nowMs)) return null;
+    if (!row || !(row.close > 0) || row.provisional || row.date > etLastClosedSessionDate(nowMs)) return null;
     return row;
 }
 
