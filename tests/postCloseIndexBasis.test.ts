@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import Module from 'node:module';
 import { buildMarketIndexBasis, guardianCashChange, indexContext } from '@/lib/marketIndexBasis';
 import { guardianNumsFromMarket } from '@/lib/ai/guardianNumbers';
-import { deriveLocaleParts, withCashIndexBasis } from '@/services/guardian/guardianCore';
+import { deriveLocaleParts, VERDICT_TEXTS, withCashIndexBasis } from '@/services/guardian/guardianCore';
 
 const now = Date.parse('2026-10-23T01:20:00Z');
 const quote = (symbol: string, price: number, changePct: number | null, marketTime = '2026-10-22T20:00:00Z') =>
@@ -39,8 +39,28 @@ assert.equal(guardianNumsFromMarket(macro, 29.2).SPX_CHG, -1.21);
 assert.equal(guardianCashChange({}), null);
 const missing = buildMarketIndexBasis({}, now);
 assert.equal(deriveLocaleParts({ ...core, market: { ...macro, indexBasis: missing } }, 'ko').tripleA.checklist.conditions[1].current, '—');
-assert.ok(!deriveLocaleParts({ ...core, market: { ...macro, indexBasis: missing } }, 'ko').divCase.verdictDesc.includes('이상 징후 미관측'));
-assert.equal(deriveLocaleParts({ ...core, market: { ...macro, indexBasis: missing } }, 'ko').divCase.verdictTitle, 'TACTICAL INSIGHT');
+// 관문 2차 P2-1: 결측 전용 제목·설명을 만들지 않고 원래 3언어 템플릿을 유지한다.
+const originalMissingDescriptions = {
+    ko: 'NASDAQ —, RLSI 29. 지수와 유동성 흐름이 동기화 상태. 이상 징후 미관측.',
+    en: 'NASDAQ —, RLSI 29. Index and liquidity flows are aligned. No divergence detected.',
+    ja: 'NASDAQ —、RLSI 29。指数と流動性フローが同期状態。乖離は未観測。',
+};
+for (const locale of ['ko', 'en', 'ja'] as const) {
+    const missingCore = { ...core, market: { ...macro, indexBasis: missing } };
+    const parts = deriveLocaleParts(missingCore, locale);
+    assert.equal(parts.divCase.verdictTitle, VERDICT_TEXTS.SYNC[locale].title);
+    assert.equal(parts.divCase.verdictDesc, originalMissingDescriptions[locale]);
+    assert.equal(parts.divCase.caseId, 'N');
+    assert.equal(parts.tripleA.regime, 'NEUTRAL');
+    assert.equal(parts.tripleA.checklist.conditions[1].passed, false);
+    assert.equal(guardianCashChange(missingCore.market), null, '문구 복원으로 원천 null을 0으로 만들지 않는다');
+    const oldDesc = 'NASDAQ —, RLSI 29.';
+    const repaired = withCashIndexBasis({ ...missingCore, divergence: { verdictDesc: oldDesc },
+        verdict: { title: 'TACTICAL INSIGHT', description: oldDesc } }, missing, locale);
+    assert.equal(repaired.divergence?.verdictTitle, parts.divCase.verdictTitle);
+    assert.equal(repaired.verdict?.description, parts.divCase.verdictDesc);
+    assert.equal(guardianCashChange(repaired.market), null);
+}
 assert.equal(guardianNumsFromMarket({ ...macro, indexBasis: missing }, 29).NDX_CHG, undefined);
 assert.equal(basis.cash.ndx.price, null, 'M3: NQ를 NDX로 쓰지 않는다');
 assert.equal(basis.cash.nasdaq.sessionDate, '2026-10-22');
@@ -122,6 +142,19 @@ const originalFetch = global.fetch;
         assert.equal(g.data.tripleA.checklist.conditions[1].current, '-2.60%');
         assert.equal(writes, 0);
         assert.equal(providerCalls, 0);
+        // 같은 coreAt의 기존 응답도 결측 원천과 기존 문구 템플릿을 함께 유지한다.
+        mocks['@/services/marketIndexBasis'].loadMarketIndexBasis = async () => missing;
+        for (const locale of ['ko', 'en', 'ja'] as const) {
+            const response = await (await guardian.GET({ url: `http://localhost/api/debug/guardian?force=false&locale=${locale}` })).json();
+            assert.equal(response.success, true);
+            assert.equal(response.data.market.indexBasis.cash.nasdaq.changePct, null);
+            assert.equal(response.data.divergence.verdictTitle, 'MARKET SYNCHRONIZED');
+            assert.equal(response.data.divergence.verdictDesc, originalMissingDescriptions[locale]);
+            assert.equal(response.data.tripleA.checklist.conditions[1].passed, false);
+        }
+        mocks['@/services/marketIndexBasis'].loadMarketIndexBasis = async () => basis;
+        assert.equal(writes, 0);
+        assert.equal(providerCalls, 0, '결측 응답 재판정에 공급사 호출을 추가하지 않는다');
         console.log('통과 H3 GET /api/debug/guardian — 기존 스냅샷 응답 출구·실제 게이지 결측');
         const market = require('../src/app/api/live/market/route');
         const data = await (await market.GET()).json();

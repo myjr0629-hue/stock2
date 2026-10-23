@@ -87,3 +87,30 @@
 `origin/main`의 DualGauge는 `priceValue: number`와 `priceValue.toFixed(1)`만 지원하고 결측 표시 계약이 없다. 그대로 원복하면 null 입력에서 오류가 나며, null을 0으로 치환하는 것은 이번 지시의 null 운반 원칙과 충돌한다. 화면 표시 변경도 금지돼 있어 결측 표시 정책을 사용자에게 질의했고 응답 대기 중이다. 새로운 표시를 임의 적용하거나 칸을 숨기지 않았다.
 
 운영 실측·실제 화면·최신 원격 main은 확인하지 않았다. NDX 원천 부재와 기존 뉴스 AI 본문의 소급 수정 불가는 앞 절과 같다.
+
+## 관문 2차 재심 수리 — 3차 작업
+
+### 확인한 원인과 현재 수정
+
+- 제목·설명: 1차 수리가 `deriveLocaleParts`의 현물 결측 분기에 전용 제목 `TACTICAL INSIGHT`와 짧은 설명을 추가했다. 해당 분기를 제거하고 기존 `VERDICT_TEXTS.SYNC` 제목과 ko/en/ja의 `reason.sync` 문장 템플릿을 복원했다. 원천 `indexBasis.cash.nasdaq.changePct`와 `guardianCashChange`는 null을 유지한다. Triple A의 상승 조건은 실패, regime은 NEUTRAL을 유지한다.
+- 게이지: 1차 수리가 `DualGauge`에 결측 전용 `—`·회색·원호 0 분기를 추가했다. 원래 게이지는 숫자만 받고 호출자가 결측을 0으로 넘겼다. null 원천을 유지하면서 기존 화면 출력만 복원할지 사용자에게 질의했다. 답변 전에는 게이지를 수정하지 않는다.
+- 기존 시험 3개 제외 지시에 따라 1차 수리에서 완화했던 `earningsScenario.test.cjs`와 `readCheck.test.cjs`를 `origin/main`과 동일한 원본으로 복원했다. 과거 범위 검증을 완화해서 전체 통과로 집계하지 않는다. `giftShareGate`도 수정하지 않는다.
+
+### 공유 함수 호출자·회귀 범위
+
+- `deriveLocaleParts`: 운영 직접 호출자는 `unifiedDataStream.computeGuardianSnapshot`과 `guardianCore.overlayCore`. `withCashIndexBasis`는 `overlayCore`를 통해 같은 coreAt의 기존 스냅샷을 재판정한다. 숫자 원천·추가 I/O·공급사 호출·캐시 정책에는 변화가 없다.
+- `overlayCore`: `unifiedDataStream.withSharedCore`와 `withCashIndexBasis`가 사용한다. 기존 AI 실패 폴백 본문이 옛 괴리 문장과 같을 때만 복원된 템플릿으로 교정한다. AI가 만든 별도 본문은 기존 정책대로 유지한다.
+- `DualGauge`: 운영 호출자는 `RealityCheck` 하나. 상위 `GuardianDesktop`과 `MobileGuardianReality`는 공용 현물 값 또는 null을 전달한다. `LiveTickerDashboard`의 `DualGaugeHUD`는 별개다.
+- `postCloseIndexBasis.test.ts`: 제목·설명 원문 3언어, 결측 원천 null, Triple A의 상승 실패·NEUTRAL, 기존 캐시/AI 실패 폴백 교정, 실제 Guardian GET 3언어의 null·원문 유지·공급사 호출 0을 추가했다. 기존 H3/H4/M3 및 세션 회귀는 유지한다.
+
+### 검증 상태
+
+- 모든 무거운 명령은 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 직렬 실행했다. 다른 작업공간이 먼저 보유한 잠금이 해제될 때까지 기다렸다.
+- 개별 회귀 `postCloseIndexBasis.test.ts guardianCore.test.ts guardianNumbers.test.ts`: 3/3 파일 통과. GuardianCore 35건, GuardianNumbers 24건 및 실제 H3/H4/M3 GET·추가 결측 회귀 통과. 개별 실행의 `final.json`에는 이전 전체 결과가 합쳐지므로 이번 전체 판정에 사용하지 않았다.
+- 전체 `node scripts/run-offline-tests.cjs`: 한 번 실행, 295개 파일 중 293개 통과/2개 실패, 종료 1. 실패는 `earningsScenario.test.cjs`의 기존 과거 범위 검사 2건과 `readCheck.test.cjs`의 기존 15번 기준 커밋 검사 1건이다. 각각 나머지 20/20건·17/17건은 통과했다. 지정된 제외 3개 파일 밖은 **292/292 파일 통과**이며, 제외 대상 `giftShareGate.test.ts`도 이번 환경에서는 통과했다. 현재 `.logs/ux-gate/results.json`과 `/tmp/signum-postclose-r3-offline.log`를 대조했다. 실패 검증을 완화하거나 전체 시험을 반복 실행하지 않았다.
+- tsc: 공용 잠금 획득 뒤 `node node_modules/typescript/bin/tsc --noEmit --incremental false` 한 번 실행, **종료 0·오류 0**. 로그 `/tmp/signum-postclose-r3-tsc.log` 0바이트. 요청 뒤 다른 작업공간의 잠금을 기다린 시간과 실제 실행 시간을 구분해 확인했다.
+- `git diff --check` 통과. 커밋·push·병합·배포·운영 쓰기·브라우저 접근은 실행하지 않았다.
+
+### 남은 미해결 사항
+
+두 관문 지적 중 제목·설명은 복원했지만, 게이지는 아직 미수리다. 기존 화면 출력 `+0.0%`·초록색·기본 원호를 마지막 표시 단계에서만 복원하고 원천·계산·전달값은 null로 유지해도 되는지, 또는 결측 표시 변경을 예외로 허용하는지 사용자 응답이 필요하다. 응답 부재를 승인으로 처리하지 않았으며 **전체 수리 완료로 판정하지 않는다**.

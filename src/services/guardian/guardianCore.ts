@@ -251,8 +251,8 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
     // caseId: 'N' (Neutral)
     let divCase: DivergenceAnalysis = {
         caseId: 'N',
-        verdictTitle: nq == null ? 'TACTICAL INSIGHT' : VERDICT_TEXTS.SYNC[locale].title,
-        verdictDesc: nq == null ? `NASDAQ —, RLSI ${scoreStr}.` : reason.sync,
+        verdictTitle: VERDICT_TEXTS.SYNC[locale].title,
+        verdictDesc: reason.sync,
         isDivergent: false,
         score: 0
     };
