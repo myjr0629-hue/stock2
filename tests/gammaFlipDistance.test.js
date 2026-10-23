@@ -240,6 +240,25 @@ test('H5: current structure wins over opposite prior EOD; rank excludes current/
     assert.equal((await premium.GET({ nextUrl: new URL('http://localhost?locale=ko') })).dealerGamma, null);
 });
 
+test('premium-metrics carries expired dealer GEX as null and accepts the next unexpired edition', async () => {
+    const premium = load('src/app/api/live/premium-metrics/route.ts');
+    const originalNow = Date.now;
+    try {
+        Date.now = () => Date.parse('2026-10-23T16:10:00-04:00');
+        seed(763.96, 770);
+        Object.assign(structure, { chainDate: '2026-10-22', netGex: 400297625 });
+        dealerPoints = Array.from({ length: 10 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, '0')}`, gex: -6017528 }));
+        const expired = await premium.GET({ nextUrl: new URL('http://localhost?locale=ko') });
+        assert.equal(expired.success, true);
+        assert.equal(expired.dealerGamma, null, 'expired current value must not be ranked or replaced from history');
+        structure.expiration = '2026-10-30';
+        const next = await premium.GET({ nextUrl: new URL('http://localhost?locale=ko') });
+        assert.equal(next.dealerGamma.gex, 400297625);
+        assert.equal(next.dealerGamma.percentile, 100);
+        assert.equal(next.dealerGamma.date, '2026-10-22', 'expiry roll must not relabel the chain session');
+    } finally { Date.now = originalNow; }
+});
+
 test('Flow overview, AI payload, hero and Command hero use the same spot distance', () => {
     const flow = 'src/app/[locale]/app-view/flow/page.tsx';
     const variable = (file, name, contains) => extract(file, n => ts.isVariableDeclaration(n)

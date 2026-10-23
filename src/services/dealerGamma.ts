@@ -28,6 +28,7 @@
 
 import { percentile, flipDistance } from '../lib/metrics/percentile';
 import type { Metric } from '../lib/metrics/contract';
+import { optionExpirationFloor } from '../lib/marketCalendar';
 
 const PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
 const PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
@@ -56,7 +57,13 @@ export interface DealerGammaSignal {
     metrics: { percentile: Metric; flipDistance: Metric };
 }
 
-type GammaEdition = { netGex?: number | null; chainDate?: string | null; underlyingPrice?: number | null };
+type GammaEdition = {
+    netGex?: number | null;
+    chainDate?: string | null;
+    underlyingPrice?: number | null;
+    expiration?: string | null;
+    options_status?: string;
+};
 
 async function readKey<T = any>(key: string): Promise<T | null> {
     const controller = new AbortController();
@@ -81,7 +88,7 @@ async function readKey<T = any>(key: string): Promise<T | null> {
  * @param ticker 기준 종목. 시장 전체 신호로는 SPY 를 쓴다.
  * @param flipLevel 감마 플립 레벨(있으면). 없으면 거리 계산을 생략한다.
  * @param price 현재가(있으면).
- * @param current 이미 읽은 구조 판본. null 이면 결측이며 백필로 대체하지 않는다.
+ * @param current 만기를 포함한 이미 읽은 구조 판본. null·만기 결측·만료는 백필로 대체하지 않는다.
  */
 export async function getDealerGamma(
     ticker = 'SPY',
@@ -95,6 +102,9 @@ export async function getDealerGamma(
         readKey<{ ticker: string; points: Array<{ date: string; gex: number }> }>(`intrinio:gex:bf:${symbol}`),
         current === undefined ? readKey<{ data?: GammaEdition }>(`structure:v2:${symbol}`).then(v => v?.data ?? null) : current,
     ]);
+    // 공통 옵션 지표와 같은 최소 유효 만기. I/O가 마감을 걸쳐도 지난 판본은 현재값이 아니다.
+    if (!edition || edition.options_status === 'NO_MARKET'
+        || typeof edition.expiration !== 'string' || edition.expiration < optionExpirationFloor()) return null;
     const gex = edition?.netGex;
     const date = edition?.chainDate;
     if (typeof gex !== 'number' || !Number.isFinite(gex) || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;

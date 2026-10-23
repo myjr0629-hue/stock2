@@ -206,7 +206,7 @@ test('gamma shield marks SPY-derived price fields as proxy on fresh and memory-c
 test('dealer gamma uses shared rank and flip denominator; missing rank samples stay null', async () => {
     const points = Array.from({ length: 11 }, (_, i) => ({ date: dates[i], gex: -10 + i, price: 100 }));
     points[10].gex = -1;
-    const edition = { netGex: -1, chainDate: dates[10], underlyingPrice: 100 };
+    const edition = { netGex: -1, chainDate: dates[10], underlyingPrice: 100, expiration: '2026-10-23' };
     const isolated = harness({}, { fetch: async () => ({ ok: true, json: async () => ({ result: { points } }) }) });
     const result = await isolated('src/services/dealerGamma').getDealerGamma('SPY', 100, 103.04, edition);
     assert.equal(result.samples, 10);

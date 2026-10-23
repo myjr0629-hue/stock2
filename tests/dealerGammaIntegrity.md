@@ -45,3 +45,22 @@
 - 검증은 외부 통신과 환경 파일 읽기를 차단한 오프라인 대역으로 수행했다. 운영 반영 후 같은 세션의 GET 대조는 운영 세션에서 필요하다.
 - `flow.gamma`는 이제 달러 GEX 별칭이다. 내부 화면 소비자는 발견하지 못했으나, 저장되지 않은 외부 소비자의 옛 단위 의존 여부는 확인할 수 없다.
 - 공급사/구조 판본 자체의 결측·지연은 이 수리로 생성하거나 보정하지 않는다. 현재 관측 근거가 없으면 `null`을 운반한다.
+
+## 관문 보류 후속 수리 (2026-10-23)
+
+- 원인: `getDealerGamma`의 기본 경로는 `structure:v2:SPY`의 `netGex`·`chainDate`만 검사하고 만기를 검사하지 않았다. 10/23 16:10 ET에도 10/23 만기·10/22 체인 판본을 현재값으로 순위 계산할 수 있었다.
+- 수리: 기본 경로와 전달받은 판본 모두 `optionMetricsService.readOptionEditions`와 같은 `optionExpirationFloor`를 적용한다. Redis I/O가 끝난 뒤 검사하므로 조회 중 마감 경계를 넘어도 만기 지난 판본은 `null`이다. 만기 결측·`NO_MARKET`도 `null`이며, 백필로 현재값을 대체하지 않는다. 공통 달력 함수 자체는 수정하지 않았다.
+- 운영 호출자 전수 확인은 2곳이다. Guardian `unifiedDataStream`은 기본 경로에서 만기 지난 백분위를 AI 입력으로 전달하지 않게 된다. premium API는 이미 읽은 같은 구조 판본에도 만기 검증을 적용해 `dealerGamma: null`을 운반한다. 정상 판본의 GEX·관측일·백분위 계산은 유지한다.
+- 읽기 수는 기본 경로의 이력 1회·구조 1회, 전달받은 판본의 이력 1회로 유지한다. 공급사 호출·운영 쓰기·화면 문구·라벨·레이아웃 변경은 없다.
+- `tests/dealerGammaExpiry.test.cjs`: 실제 dealerGamma와 공통 optionMetricsService를 같은 저장본·고정 시계로 실행한다. 정상 마감 직전/정각/16:10, UTC 날짜 경계, 주말, 월요일 장전, 조기 폐장 직전/정각, 휴장, DST 이후, 다음 유효 만기, 만기 결측, `NO_MARKET`, 명시적 null, 조회 도중 마감, 실제 0·이력 결측, Redis 읽기 수를 검사한다.
+- `tests/gammaFlipDistance.test.js`: 실제 premium GET에서 만기 지난 판본의 null과 다음 유효 판본의 GEX·백분위·체인 날짜를 검사한다.
+- `tests/b5MetricDefinitions.test.cjs`: 직접 전달하는 정상 판본 fixture에 만기를 추가했다. 기존 분모·반올림 전 임계값·이력 부족 검사는 유지한다.
+- 후속 작업 시작 HEAD: `8bf4981bf`, 브랜치 `fix/dealer-gamma-sign`. 후속 커밋·push·병합·배포·운영 GET·운영 쓰기는 수행하지 않았다.
+- 검증 결과: 전체 295개 파일 최초 실행은 294개 통과·1개 실패였다. 신규 시험의 두 호출이 선택 인수를 한쪽은 `null`, 한쪽은 생략해 `metrics.flipDistance.inputs` 비교가 달랐다. 비교 입력을 같은 생략값으로 맞춘 뒤 그 파일만 재검사하여 17개 사례 모두 통과했다. 만기 차단 사례는 최초 실행에서도 통과했다. 최종 **295/295개 통과·실패 0개**이며 전체 명령을 반복하지 않았다.
+- 실제 premium GET을 포함한 `gammaFlipDistance.test.js`도 **17개 사례 통과**했다. `tsc --noEmit --incremental false`는 **종료 코드 0·오류 0개**, 출력 파일 0바이트다. 최종 `git diff --check`도 통과했다.
+- 완료한 검증 명령은 모두 공용 잠금으로 직렬 실행했다.
+  - `/usr/bin/lockf -k /tmp/signum-heavy.lock node scripts/run-offline-tests.cjs`
+  - `/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false`
+  - `/usr/bin/lockf -k /tmp/signum-heavy.lock node scripts/run-offline-tests.cjs dealerGammaExpiry.test.cjs`
+- 로컬 증거: `.logs/ux-gate/results.json`(최초 전체), `recheck.json`(후속 1파일), `final.json`(최종 295개), `dealerGammaExpiry.initial.log`(비교 입력 수정 전), `dealerGammaExpiry.test.cjs.log`(수정 후), `dealer-gamma-tsc.log`(0바이트). 이전 수리의 재검사/최종 기록은 `dealer-gamma-prior-recheck.json`·`dealer-gamma-prior-final.json`으로 보존했다.
+- 남은 위험: 검증은 환경 파일 읽기·외부 통신을 차단한 오프라인 대역이다. 운영 발생 여부와 운영 GET은 미확인이다. 원천 판본의 결측·지연은 생성하거나 보정하지 않고 `null`로 운반한다.
