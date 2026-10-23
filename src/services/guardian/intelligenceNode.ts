@@ -1,5 +1,6 @@
+import { buildIndexFacts, tacticalSessionAt } from '@/lib/ai/tacticalIndexFacts';
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
-import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, polishTacticalText } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, internalSourceReasons, polishTacticalText } from '@/lib/ai/tacticalPrompt';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { textGate, triLangGate } from '@/lib/ai/ladderGates';
@@ -29,7 +30,7 @@ export type InsightType = 'rotation' | 'reality' | 'gamma';
 // Redis Keys for persistent cache (per locale)
 // ★2026-10-04 v2 — 저장 형식이 «자리표 글 + basis» 로 바뀌었다. 옛 키를 그대로 쓰면 배포 전후로 옛 코드가 자리표({NDX_CHG})가
 //   남은 글을 화면에 내보낼 수 있고, 옛 키의 글은 생성 시점 숫자가 박힌 글이다 → 키를 바꿔 옛 글은 버린다(최대 12시간 뒤 만료).
-const getRedisKey = (type: InsightType, locale: Locale) => `guardian:gemini:v2:${type}:${locale}`;
+const getRedisKey = (type: InsightType, locale: Locale) => `guardian:gemini:${type === 'reality' ? 'v3' : 'v2'}:${type}:${locale}`;
 
 // Get Redis client
 function getRedis(): Redis | null {
@@ -46,6 +47,8 @@ interface IntelligenceContext {
     asOf?: string;
     rlsiScore: number;
     nasdaqChange: number | null;
+    indexFacts?: import('@/lib/ai/tacticalIndexFacts').IndexFact[];
+    session?: import('@/lib/ai/tacticalIndexFacts').TacticalSession;
     indexBasis?: import('@/lib/marketIndexBasis').MarketIndexBasis;
     vectors: { source: string, target: string, strength: number }[];
     /** 정규장에서만 측정 가능. 시간외/휴장에는 undefined —
@@ -277,6 +280,16 @@ function isPlaceholder(text: string): boolean {
     return n.length < 160 && LEGACY_PLACEHOLDER_MARKERS.some((m) => n.includes(m));
 }
 
+/** Tactical 지수는 INDEX_FACTS가 검사한다. 현물 자리표로 선물 수익률을 덮지 않는다. */
+function insightNums(type: InsightType, nums: GNums | null | undefined): GNums | null | undefined {
+    if (type !== 'reality' || !nums) return nums;
+    const { NDX_CHG, SPX_CHG, ...rest } = nums;
+    return rest;
+}
+function tokenizeInsight(type: InsightType, text: string, nums: GNums | null | undefined): string {
+    return tokenizeGuardianLiterals(text, insightNums(type, nums));
+}
+
 /**
  * 정리 + 출구 검사. 사용자에게 나가는 모든 AI 글(생성·번역·캐시 읽기·저장된 판정)이 여기를 지난다.
  * ★2026-10-04 숫자 — tpl(자리표가 남은 정리본 = 저장용)을 화면 값(nums)으로 채운 text 를 검사한다:
@@ -293,15 +306,15 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
         if (strict) forecastReasons.push(`forecast:${fh[0].id}«${fh[0].match}»`);
         else { const st = stripForecastSentences(cleaned, locale, { allowEmptyLine: true }); if (st.usable && st.text) cleaned = st.text; }
     }
-    const n = guardianNumbersGate(cleaned, nums ?? basis ?? null, nums ? basis ?? null : null);
+    const n = guardianNumbersGate(cleaned, insightNums(type, nums ?? basis ?? null), nums ? insightNums(type, basis ?? null) : null);
     const r = validateInsight(n.text, locale);
     // ★2026-10-07 T5 문턱·비교·범위 문장 — «RLSI 42 sits below the 40 threshold»(42 는 40 아래가 아니다)
     const facts = guardianCmpFacts(nums ?? basis ?? null);
     const cmpReasons = [...checkComparisons(n.text, facts), ...checkRanges(n.text, facts)];
     // ★2026-10-21 Tactical «시장 상태» 낡음 — 생성 때 값과 지금 값의 상태 구간(지수·건강도·감마·변동성·참여폭)이 달라졌으면 탈락(결정적 비교, guardianNumbers.stateStaleReasons).
     //   장중만 — 장외 카드는 «Last session analysis»(지난 세션 해석)라 밤사이 선물 움직임으로 지우지 않는다(장외엔 다시 만들 수도 없다).
-    const implied = type === 'reality' && nums && !isOffHours() ? stateStaleReasons(nums, basis ?? null) : [];
-    const reasons = [...textIntegrityReasons(String(tpl ?? '')), ...r.reasons, ...n.reasons, ...implied, ...forecastReasons, ...cmpReasons,
+    const implied = type === 'reality' && nums && !isOffHours() ? stateStaleReasons(insightNums(type, nums)!, insightNums(type, basis ?? null) ?? null) : [];
+    const reasons = [...textIntegrityReasons(String(tpl ?? '')), ...r.reasons, ...n.reasons, ...implied, ...forecastReasons, ...cmpReasons, ...(type === 'reality' ? internalSourceReasons(n.text) : []),
         // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
         //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).
         ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text)
@@ -357,7 +370,7 @@ async function writeStoredInsight(type: InsightType, locale: Locale, text: strin
  * 검사를 통과한 글(자리표 원본)만 그날 키에 저장하고, 장외 복구 때 마지막 완료 세션 글을 같은 검사로 다시 거른다.
  * 장 전(09:30 ET 전)의 글은 그날 키로 저장하지 않는다(그 세션은 아직 끝나지 않았다 — 모듈이 거부).
  */
-const insightScope = (type: InsightType, locale: Locale) => `${type}_${locale}`;
+const insightScope = (type: InsightType, locale: Locale) => `${type === 'reality' ? 'reality_v3' : type}_${locale}`;
 async function archiveInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null): Promise<void> {
     try {
         if (!text || isPlaceholder(text)) return;
@@ -994,7 +1007,7 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
         if (!translated) continue;
         // 원본에 기준이 없으면(옛 저장본) 지금 화면 값이 기준 — 자리표로 바꾸는 숫자도 그 값과 같은 것뿐이다
         const basis = source.basis ?? nums ?? null;
-        const g = gateText(type, tokenizeGuardianLiterals(translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale));
+        const g = gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale));
         if (!g.ok || isPlaceholder(g.text)) {
             console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${g.reasons.join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);
             continue;
@@ -1034,7 +1047,9 @@ export class IntelligenceNode {
     static async generateRealityInsight(ctx: IntelligenceContext): Promise<string> {
         // [V11.1] Reality Insight downgraded to Haiku 4.5 — 350-char output, sufficient quality, 1/3 cost
         // 공유 코어의 관측 시각이 낡아도 일정의 미래 여부는 요청 시각으로 판정한다.
-        const current = { ...ctx, asOf: new Date(Date.now()).toISOString() };
+        const now = Date.now();
+        const current = { ...ctx, asOf: new Date(now).toISOString(),
+            ...(ctx.indexBasis ? { session: tacticalSessionAt(now), indexFacts: buildIndexFacts(ctx.indexBasis, tacticalSessionAt(now), now) } : {}) };
         return IntelligenceNode.produceInsight('reality', current, (locale) => REALITY_PROMPTS[locale](current));
     }
 
@@ -1077,7 +1092,7 @@ export class IntelligenceNode {
     private static async generateTrilingualOnce(type: InsightType, nums: GNums, buildPrompt: (locale: Locale) => string): Promise<TriOutcome> {
         const started = Date.now();
         const locales: Locale[] = ['ko', 'en', 'ja'];
-        const blocks = locales.map((l) => `=== ${LOCALE_NAMES[l].toUpperCase()} (${l}) INSTRUCTIONS ===\n${buildPrompt(l) + guardianTokenRules(l, nums)}`).join('\n\n');
+        const blocks = locales.map((l) => `=== ${LOCALE_NAMES[l].toUpperCase()} (${l}) INSTRUCTIONS ===\n${buildPrompt(l) + guardianTokenRules(l, insightNums(type, nums)!)}`).join('\n\n');
         const user = `Write the analysis once, in three languages, following each language's own instruction block below. All three must carry the same facts and the same placeholders. Return the JSON object only.\n\n${blocks}`;
         const call = async (extra: string, retry: boolean): Promise<Partial<Record<Locale, string>> | null> => {
             try {
@@ -1108,10 +1123,10 @@ export class IntelligenceNode {
             for (const l of only) {
                 const r = raw[l];
                 if (!r) { failed[l] = ['missing']; continue; }
-                let g = gateText(type, tokenizeGuardianLiterals(r, nums), l, nums, nums, true, type === 'reality' ? buildPrompt(l) : undefined);
+                let g = gateText(type, tokenizeInsight(type, r, nums), l, nums, nums, true, type === 'reality' ? buildPrompt(l) : undefined);
                 // 예측어만 걸렸고 이게 마지막 기회이면 그 문장을 빼고 쓴다(먼저 교정 재생성을 해 본다)
                 if (last && !g.ok && g.reasons.every((x) => x.startsWith('forecast:'))) {
-                    const lenient = gateText(type, tokenizeGuardianLiterals(r, nums), l, nums, nums, false, type === 'reality' ? buildPrompt(l) : undefined);
+                    const lenient = gateText(type, tokenizeInsight(type, r, nums), l, nums, nums, false, type === 'reality' ? buildPrompt(l) : undefined);
                     if (lenient.ok) g = lenient;
                 }
                 if (g.ok && !isPlaceholder(g.text)) into[l] = { tpl: g.tpl, basis: nums };
@@ -1209,22 +1224,22 @@ export class IntelligenceNode {
             return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums, tacticalPrompts });
         }
         // ④-b (3개 언어 호출이 응답·파싱에 실패했을 때만) 옛 방식 — 이 언어 하나만 생성 → (숫자를 직접 쓴 자리는 같은 값이면 자리표로) → 검사 → (떨어지면) 교정 지시 + 한 번 더 → 검사
-        const prompt = buildPrompt(locale) + guardianTokenRules(locale, nums);
+        const prompt = buildPrompt(locale) + guardianTokenRules(locale, insightNums(type, nums)!);
         const label = `${type.toUpperCase()}_${locale}`;
         let raw = await callInsightModel(prompt, locale, label);
-        let gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, true, tacticalPrompts?.(locale)) : null;
+        let gated = raw !== null ? gateText(type, tokenizeInsight(type, raw, nums), locale, nums, nums, true, tacticalPrompts?.(locale)) : null;
         if (raw !== null && gated && !gated.ok) {
             console.warn(`[InsightGate] REJECT generated ${type}/${locale} (1/2: ${gated.reasons.join(' | ')}) :: ${previewForLog(raw)}`);
             if (Date.now() - started < RETRY_BUDGET_MS) {
                 raw = await callInsightModel(prompt + CORRECTIVE_INSTRUCTION[locale](gated.reasons), locale, `${label}/retry`, true);
-                gated = raw !== null ? gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, true, tacticalPrompts?.(locale)) : null;
+                gated = raw !== null ? gateText(type, tokenizeInsight(type, raw, nums), locale, nums, nums, true, tacticalPrompts?.(locale)) : null;
                 if (raw !== null && gated && !gated.ok) {
                     console.warn(`[InsightGate] REJECT generated ${type}/${locale} (2/2: ${gated.reasons.join(' | ')}) :: ${previewForLog(raw)}`);
                 }
             }
             // 예측어만 걸렸으면 그 문장을 빼고 쓴다(사유가 forecast 뿐일 때)
             if (raw !== null && gated && !gated.ok && gated.reasons.every((r) => r.startsWith('forecast:'))) {
-                const lenient = gateText(type, tokenizeGuardianLiterals(raw, nums), locale, nums, nums, false, tacticalPrompts?.(locale));
+                const lenient = gateText(type, tokenizeInsight(type, raw, nums), locale, nums, nums, false, tacticalPrompts?.(locale));
                 if (lenient.ok) gated = lenient;
             }
         }

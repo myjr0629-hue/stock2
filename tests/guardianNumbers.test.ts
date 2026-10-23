@@ -10,6 +10,8 @@ import {
     checkGuardianLiterals, fillGuardianTokens, stateStaleReasons, formatGNum, guardianNumbersGate, guardianNumsFromAiContext, guardianNumsFromMarket,
     guardianNumsFromContext, guardianTokenRules, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, guardianLiterals,
 } from '@/lib/ai/guardianNumbers';
+import { buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
+import { INDEX_NAMES } from '@/lib/ai/tacticalIndexFacts';
 import { cleanInsight } from '@/lib/ai/outputGate';
 import { IntelligenceNode, _resetInsightStateForTest, _setMarketClockForTest } from '@/services/guardian/intelligenceNode';
 
@@ -221,34 +223,39 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
         assert.deepEqual(stateStaleReasons({ BREADTH: 55 }, { BREADTH: 61 }), []);
         assert.deepEqual(stateStaleReasons(null, basis), []);
         // 실제 출구(repairVerdictTexts): 장중 — 저장 판정의 «상승장» 이 나스닥 하락 전환 뒤 그대로 나가지 않는다 · 장외 — 지난 세션 해석이라 그대로
-        const verdictTpl = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 배경은 19:24 ET NEWS PULSE 보도로, 금 가격이 4,150달러 아래로 밀렸습니다. 시장 건강도(RLSI) {RLSI}점으로 약하고 옵션 포지션(GEX {GEX})은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+        const prompts = (change: number) => (locale: 'ko' | 'en' | 'ja') => buildTacticalPrompt({
+            rlsiScore: basis.RLSI, nasdaqChange: change, vix: basis.VIX, asOf: '2026-10-21T14:00:00Z', session: 'REG',
+            indexFacts: [{ id: 'nasdaq', kind: 'spot', name: INDEX_NAMES.nasdaq, chgPct: change,
+                basis: { ko: '전일 종가 대비', en: 'vs previous close', ja: '前日終値比' }, asOfET: '2026-10-21 10:00 ET', sessionDate: '2026-10-21' }],
+        }, locale);
+        const verdictTpl = '나스닥 종합(현물)은 전일 종가 대비 0.78% 오른 상승장입니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도(RLSI) {RLSI}점으로 약하고 옵션 포지션(GEX {GEX})은 중립이라 흔들림을 줄이지 않습니다. 다음 분기점은 미확인입니다.';
         const verdict: any = { realityInsight: fillGuardianTokens(verdictTpl, basis).text, num: { tpl: { realityInsight: verdictTpl }, basis: { realityInsight: basis } } };
         try {
             _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));   // 10:00 ET 장중
             _resetInsightStateForTest();
-            const same = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', basis);
-            assert.ok(same.verdict.realityInsight.startsWith('지수는 올랐지만') && !same.repaired.includes('realityInsight'));
-            const flipped = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+            const same = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', basis, prompts(basis.NDX_CHG));
+            assert.ok(same.verdict.realityInsight.startsWith('나스닥 종합(현물)은') && !same.repaired.includes('realityInsight'));
+            const flipped = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 }, prompts(-0.784));
             assert.ok(flipped.repaired.includes('realityInsight') && !String(flipped.verdict.realityInsight).includes('상승장'));
             _setMarketClockForTest(() => new Date('2026-10-21T02:00:00Z'));   // 22:00 ET 장외
             _resetInsightStateForTest();
-            const night = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });   // 밤사이 선물 반전
+            const night = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 }, prompts(basis.NDX_CHG));   // 밤사이 선물 반전, 현물 관측은 유지
             assert.ok(!night.repaired.includes('realityInsight'));
             // 관문 10211005 ① — 자리표 없는 Tactical 글도 기준값을 남긴다: 같은 값으로 한 번 복구해도 basis 유지 → 이후 반전에 탈락
             _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));
             _resetInsightStateForTest();
-            const plain = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 오늘 시장을 움직인 거시 원인은 아직 확인되지 않았습니다. 시장 건강도는 약하고 옵션 포지션은 중립입니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+            const plain = '나스닥 종합(현물)은 전일 종가 대비 0.78% 오른 상승장입니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도는 약하고 옵션 포지션은 중립입니다. 다음 분기점은 미확인입니다.';
             const v2: any = { realityInsight: plain, num: { tpl: { realityInsight: plain }, basis: { realityInsight: basis } } };
-            const once = await IntelligenceNode.repairVerdictTexts(v2, 'ko', 'test', basis);
+            const once = await IntelligenceNode.repairVerdictTexts(v2, 'ko', 'test', basis, prompts(basis.NDX_CHG));
             assert.deepEqual((once.verdict as any).num?.basis?.realityInsight, basis);
-            const later = await IntelligenceNode.repairVerdictTexts(once.verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+            const later = await IntelligenceNode.repairVerdictTexts(once.verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 }, prompts(-0.784));
             assert.ok(later.repaired.includes('realityInsight'));
             // 관문 10211010 — 생성 실패 뒤 직전 정상 글을 살릴 때(keepRealTextOverPlaceholders)도 기준값이 따라온다
             const pendingNext: any = { realityInsight: '[진단] 최신 시장 분석을 준비하고 있습니다\n[결론] 잠시 후 자동으로 갱신됩니다' };
-            const kept: any = IntelligenceNode.keepRealTextOverPlaceholders(pendingNext, v2, 'ko', basis);
+            const kept: any = IntelligenceNode.keepRealTextOverPlaceholders(pendingNext, v2, 'ko', basis, prompts(basis.NDX_CHG));
             assert.equal(kept.realityInsight, plain);
             assert.deepEqual(kept.num?.basis?.realityInsight, basis);
-            const afterFlip = await IntelligenceNode.repairVerdictTexts(kept, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
+            const afterFlip = await IntelligenceNode.repairVerdictTexts(kept, 'ko', 'test', { ...basis, NDX_CHG: -0.784 }, prompts(-0.784));
             assert.ok(afterFlip.repaired.includes('realityInsight'));
         } finally { _setMarketClockForTest(null); }
     });

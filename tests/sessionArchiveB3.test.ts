@@ -69,6 +69,9 @@ t('D26 장외(일요일) — 12시간 저장본 없음 + 금요일 보관본 →
     (Date as any).now = () => EDT(2026, 10, 18, 21);
     N._setMarketClockForTest(() => new Date(EDT(2026, 10, 18, 21)));
     try {
+        const old = await N.IntelligenceNode.recoverInsight('reality', 'ko', { translate: false, nums: null });
+        assert.match(old, /장외 시간/, 'v2 세션 보관본은 v3와 섞지 않는다');
+        await saveSessionArchive('insight', 'reality_v3_ko', '2026-10-16', { text: TEXT, basis: null }, { observedAt: EDT(2026, 10, 16, 17), nowMs: EDT(2026, 10, 16, 17) });
         const out = await N.IntelligenceNode.recoverInsight('reality', 'ko', { translate: false, nums: null });
         assert.equal(out, TEXT);
         assert.equal(out.includes('장외 시간'), false);
@@ -83,7 +86,7 @@ t('D26 장외(일요일) — 12시간 저장본 없음 + 금요일 보관본 →
         } finally { delete process.env.AWS_ACCESS_KEY_ID; }
         // 금요일 보관본이 없고 목요일 것만 있으면 결측(안내 문구) — 목요일 글을 «직전 세션»으로 내지 않는다
         store.clear(); _resetSessionArchiveMemo();
-        await saveSessionArchive('insight', 'reality_ko', '2026-10-15', { text: TEXT, basis: null }, { observedAt: EDT(2026, 10, 15, 17), nowMs: EDT(2026, 10, 15, 17) });
+        await saveSessionArchive('insight', 'reality_v3_ko', '2026-10-15', { text: TEXT, basis: null }, { observedAt: EDT(2026, 10, 15, 17), nowMs: EDT(2026, 10, 15, 17) });
         const thu = await N.IntelligenceNode.recoverInsight('reality', 'ko', { translate: false, nums: null });
         assert.match(thu, /장외 시간/);
     } finally { (Date as any).now = realNow; N._setMarketClockForTest(null); }

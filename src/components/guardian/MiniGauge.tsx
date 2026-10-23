@@ -153,7 +153,7 @@ export function MiniGauge({
 // ─────────────────────────────────────────────────────────────────
 
 interface DualGaugeProps {
-    priceValue: number | null;
+    priceValue: number;
     flowValue: number;
     size?: 'lg' | 'xl' | '2xl';
 }
@@ -176,12 +176,12 @@ export function DualGauge({ priceValue, flowValue, size = 'xl' }: DualGaugeProps
     const outerC = 2 * Math.PI * outerR;
     const innerC = 2 * Math.PI * innerR;
 
-    const priceColor = priceValue == null ? '#94a3b8' : priceValue >= 0 ? '#10b981' : '#f43f5e';
+    const priceColor = priceValue >= 0 ? '#10b981' : '#f43f5e';
     const flowColor = flowValue >= 50 ? '#06b6d4' : '#f97316';
 
     // Overall sentiment
-    const isBullish = priceValue != null && priceValue >= 0 && flowValue >= 50;
-    const isBearish = priceValue != null && priceValue < 0 && flowValue < 50;
+    const isBullish = priceValue >= 0 && flowValue >= 50;
+    const isBearish = priceValue < 0 && flowValue < 50;
     const sentimentColor = isBullish ? '#10b981' : isBearish ? '#f43f5e' : '#94a3b8';
     const sentimentText = isBullish ? t('bullMomentum') : isBearish ? t('bearPressure') : t('mixedSignal');
 
@@ -208,7 +208,7 @@ export function DualGauge({ priceValue, flowValue, size = 'xl' }: DualGaugeProps
                     <circle
                         cx={cfg.px / 2} cy={cfg.px / 2} r={outerR} fill="none"
                         stroke={priceColor} strokeWidth={2.5} strokeLinecap="round"
-                        strokeDasharray={`${(priceValue == null ? 0 : Math.abs(priceValue) * 8 + 40)} ${outerC}`}
+                        strokeDasharray={`${Math.abs(priceValue) * 8 + 40} ${outerC}`}
                         style={{ filter: `drop-shadow(0 0 4px ${priceColor})`, opacity: 0.65 }}
                     />
                     {/* Inner track + arc (FLOW) */}
@@ -231,7 +231,7 @@ export function DualGauge({ priceValue, flowValue, size = 'xl' }: DualGaugeProps
                         className={`${cfg.valueCls} font-black tabular-nums leading-none`}
                         style={{ color: priceColor, textShadow: `0 0 12px ${priceColor}` }}
                     >
-                        {priceValue == null ? '—' : `${priceValue >= 0 ? '+' : ''}${priceValue.toFixed(1)}%`}
+                        {priceValue >= 0 ? '+' : ''}{priceValue.toFixed(1)}%
                     </span>
                     <div className="h-px bg-white/15 my-0.5" style={{ width: 30 }} />
                     {/* FLOW label: 12px Jakarta white */}

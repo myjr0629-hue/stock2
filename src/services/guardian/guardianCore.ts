@@ -216,7 +216,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
     const rvolNdx = core.rvol.ndx;
     const rotationIntensity = core.rotationIntensity;
 
-    const nq = guardianCashChange(macro);
+    const nq = guardianCashChange(macro) ?? (macro?.nqChangePercent || 0);
     const score = rlsi.score;
     const nqSign = nq != null && nq >= 0 ? '+' : '';
     const nqStr = nq == null ? '—' : `${nqSign}${nq.toFixed(2)}%`;
@@ -369,7 +369,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
                 id: 'nasdaq',
                 label: CHECKLIST_TEXTS[locale].nasdaqUp,
                 passed: (nq != null && nq > 0),
-                current: nqStr,
+                current: `${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`,
                 required: '> 0%'
             },
             {

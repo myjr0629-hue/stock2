@@ -1,7 +1,6 @@
 
 "use client";
 
-import { guardianCashChange } from '@/lib/marketIndexBasis';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useTranslations, useLocale } from 'next-intl';
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock, BookOpen, Lock } from "lucide-react";
@@ -390,7 +389,7 @@ export default function GuardianDesktop() {
                 {/* ORACLE HEADER (Below fixed nav+ticker) */}
                 <div>
                     <OracleHeader
-                        nasdaq={guardianCashChange(data?.market)}
+                        nasdaq={data?.market?.nqChangePercent || 0}
                         rlsi={data?.rlsi.score || 0}
                         verdictTitle={verdict.title}
                         isDivergent={data?.divergence?.isDivergent || false}
@@ -472,7 +471,7 @@ export default function GuardianDesktop() {
                             />
                             <ProGate title="Reality Check" fomoMessage={gt('fomoRealityCheck')} description={gt('descRealityCheck')} mode="peek" compact blurPx={6}>
                                 <RealityCheck
-                                    nasdaqChange={guardianCashChange(data?.market)}
+                                    nasdaqChange={data?.market?.nqChangePercent || 0}
                                     guardianScore={data?.rlsi.score || 0}
                                     divergenceCase={data?.divergence?.caseId as "N" | "A" | "B" | "C" | "D" | undefined}
                                     // `|| 1.0` 금지 — null(측정 안 함)을 «평소만큼 거래됨»으로 바꾸면 안 된다

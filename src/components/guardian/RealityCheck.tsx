@@ -14,7 +14,7 @@ import { GuardianTooltip } from './GuardianTooltip';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 
 interface RealityCheckProps {
-    nasdaqChange: number | null;
+    nasdaqChange: number;
     guardianScore: number;
     divergenceCase?: 'A' | 'B' | 'C' | 'D' | 'N';
     rvolNdx?: number | null;

@@ -55,12 +55,12 @@ export const MacroIndicators = memo(() => {
 
     // [V6.0+] Fear Resolution Phase Detection
     // QQQ↓ + VIX↓ = "시장 빠졌지만 공포 줄었다" = 기관 바닥 확인
-    const nasdaq100 = snapshot?.indexBasis?.cash?.ndx;
+    const nasdaq100 = snapshot?.factors?.nasdaq100;
     const isFearResolution = React.useMemo(() => {
         if (!nasdaq100 || !vix) return false;
-        const qqChg = nasdaq100.changePct;
+        const qqChg = nasdaq100.chgPct ?? 0;
         const vixChg = vix.chgPct ?? 0;
-        return qqChg != null && qqChg < -0.5 && vixChg < -2;
+        return qqChg < -0.5 && vixChg < -2;
     }, [nasdaq100, vix]);
 
     return (

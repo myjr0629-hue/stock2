@@ -31,16 +31,16 @@ let calls: string[] = [];
 let reply: (opts: any) => Promise<string>;
 let count = 0;
 let failures = 0;
-const key = (locale: Locale) => `guardian:gemini:v2:reality:${locale}`;
+const key = (locale: Locale) => `guardian:gemini:v3:reality:${locale}`;
 const stale = {
-    ko: '오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인은 10/20(화) 08:30 ET CPI 예정입니다.',
-    en: 'The macro cause today is unconfirmed. Dealer gamma absorption is unconfirmed. The next test is CPI scheduled on 10/20 (Tue) at 08:30 ET.',
-    ja: '今日のマクロ要因は未確認です。ガンマによる圧力吸収も未確認です。次の確認は10/20(火) 08:30 ETのCPI発表予定です。',
+    ko: '나스닥 현물 관측은 미확인입니다. 오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인은 10/20(화) 08:30 ET(한국 21:30) CPI 예정입니다.',
+    en: 'Nasdaq spot observations are unavailable. The macro cause today is unconfirmed. Dealer gamma absorption is unconfirmed. The next test is CPI scheduled on 10/20 (Tue) at 08:30 ET.',
+    ja: 'ナスダック現物の観測は未確認です。今日のマクロ要因は未確認です。ガンマによる圧力吸収も未確認です。次の確認は10/20(火) 08:30 ET(日本時間 21:30)のCPI発表予定です。',
 };
 const fresh = {
-    ko: '오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인 기준은 미확인입니다.',
-    en: 'The macro cause today is unconfirmed. Dealer gamma absorption is unconfirmed. The next test is unconfirmed.',
-    ja: '今日のマクロ要因は未確認です。ガンマによる圧力吸収も未確認です。次の確認基準は未確認です。',
+    ko: '나스닥 현물 관측은 미확인입니다. 오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인 기준은 미확인입니다.',
+    en: 'Nasdaq spot observations are unavailable. The macro cause today is unconfirmed. Dealer gamma absorption is unconfirmed. The next test is unconfirmed.',
+    ja: 'ナスダック現物の観測は未確認です。今日のマクロ要因は未確認です。ガンマによる圧力吸収も未確認です。次の確認基準は未確認です。',
 };
 const ctx = (locale: Locale, iso = new Date(clock).toISOString()) => ({
     locale, rlsiScore: 34, nasdaqChange: -0.3, vectors: [], vix: 18.4,
@@ -270,9 +270,29 @@ async function main() {
             assert.equal(calls.length, 0);
         } finally { GuardianDataHub.computeGuardianSnapshot = saved; }
     });
+    await test('v3: 장전 선물 수익률은 현물 자리표로 바뀌지 않고, 선물 방향 반전 시 TTL 안 캐시도 탈락', async () => {
+        const { buildMarketIndexBasis } = require('../src/lib/marketIndexBasis');
+        const basis = (change: number) => buildMarketIndexBasis({
+            nasdaq: { symbol: '^IXIC', price: 100, changePct: -1.2, marketTime: '2026-10-19T19:59:00Z', source: 'YAHOO' },
+            nq: { symbol: 'NQ=F', price: 100, changePct: change, marketTime: new Date(clock).toISOString(), lastChangeAt: new Date(clock).toISOString(), source: 'YAHOO' },
+        }, clock);
+        const pre = {
+            ko: '개장 전 나스닥100 선물은 직전 정산 대비 0.1% 올랐습니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도(RLSI)는 34점으로 약하고 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.',
+            en: 'Premarket Nasdaq 100 futures rose 0.1% vs prior settlement. The market driver is unconfirmed. Market health (RLSI) is weak at 34 and options positioning (GEX) is unconfirmed. The next test is unconfirmed.',
+            ja: '取引開始前のナスダック100先物は前回清算値比0.1%上昇です。市場全体の材料は未確認です。市場の健全度(RLSI)は34点と弱く、オプション(GEX)は未確認です。次の分岐点は未確認です。',
+        };
+        reply = async () => JSON.stringify(pre);
+        const first = await N.generateRealityInsight({ ...ctx('ko'), nasdaqChange: -1.2, indexBasis: basis(0.1), scheduledEvents: [] });
+        assert.equal(first, pre.ko);
+        assert.ok(!store.get(key('ko')).text.includes('{NDX_CHG}'));
+        clock += 60_000;
+        reply = async () => { throw new Error('offline model failure'); };
+        const second = await N.generateRealityInsight({ ...ctx('ko'), nasdaqChange: -1.2, indexBasis: basis(-0.1), scheduledEvents: [] });
+        assert.ok(N.isPlaceholderInsight(second), '부호가 바뀐 선물 글을 복구 캐시로 다시 내보내지 않는다');
+    });
     await test('10/21 관문 10211022: 동시 요청으로 마지막 글이 바뀌어도 앞선 Tactical 화면 글의 생성 기준값을 찾는다(자리표 없는 글)', async () => {
         const textA = fresh.ko;
-        const textB = '오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인 기준은 아직 미확인입니다.';
+        const textB = '나스닥 현물 관측은 미확인입니다. 오늘 시장을 움직인 거시 원인은 미확인입니다. 감마 방어의 충격 흡수력도 미확인입니다. 다음 확인 기준은 아직 미확인입니다.';
         reply = async () => JSON.stringify({ ko: textA, en: fresh.en, ja: fresh.ja });
         const shownA = await N.generateRealityInsight({ ...ctx('ko'), nasdaqChange: 0.78 });
         assert.equal(shownA, textA);

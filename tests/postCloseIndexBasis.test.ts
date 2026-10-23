@@ -38,28 +38,16 @@ assert.equal(guardianNumsFromMarket(macro, 29.2).NDX_CHG, -2.60);
 assert.equal(guardianNumsFromMarket(macro, 29.2).SPX_CHG, -1.21);
 assert.equal(guardianCashChange({}), null);
 const missing = buildMarketIndexBasis({}, now);
-assert.equal(deriveLocaleParts({ ...core, market: { ...macro, indexBasis: missing } }, 'ko').tripleA.checklist.conditions[1].current, '—');
-// 관문 2차 P2-1: 결측 전용 제목·설명을 만들지 않고 원래 3언어 템플릿을 유지한다.
-const originalMissingDescriptions = {
-    ko: 'NASDAQ —, RLSI 29. 지수와 유동성 흐름이 동기화 상태. 이상 징후 미관측.',
-    en: 'NASDAQ —, RLSI 29. Index and liquidity flows are aligned. No divergence detected.',
-    ja: 'NASDAQ —、RLSI 29。指数と流動性フローが同期状態。乖離は未観測。',
-};
+// 3차 관문: 결측은 기존 입력(-0.06)을 써서 origin/main과 같은 판정을 낸다.
 for (const locale of ['ko', 'en', 'ja'] as const) {
-    const missingCore = { ...core, market: { ...macro, indexBasis: missing } };
+    const missingCore = { ...core, market: { ...macro, nqChangePercent: -1, indexBasis: missing } };
     const parts = deriveLocaleParts(missingCore, locale);
-    assert.equal(parts.divCase.verdictTitle, VERDICT_TEXTS.SYNC[locale].title);
-    assert.equal(parts.divCase.verdictDesc, originalMissingDescriptions[locale]);
-    assert.equal(parts.divCase.caseId, 'N');
-    assert.equal(parts.tripleA.regime, 'NEUTRAL');
-    assert.equal(parts.tripleA.checklist.conditions[1].passed, false);
-    assert.equal(guardianCashChange(missingCore.market), null, '문구 복원으로 원천 null을 0으로 만들지 않는다');
-    const oldDesc = 'NASDAQ —, RLSI 29.';
-    const repaired = withCashIndexBasis({ ...missingCore, divergence: { verdictDesc: oldDesc },
-        verdict: { title: 'TACTICAL INSIGHT', description: oldDesc } }, missing, locale);
-    assert.equal(repaired.divergence?.verdictTitle, parts.divCase.verdictTitle);
-    assert.equal(repaired.verdict?.description, parts.divCase.verdictDesc);
-    assert.equal(guardianCashChange(repaired.market), null);
+    assert.equal(parts.divCase.caseId, 'D', '결측을 동기화로 단정하지 않는다');
+    assert.match(parts.divCase.verdictDesc, /-1.00%/);
+    assert.equal(parts.tripleA.checklist.conditions[1].current, '-1.00%');
+    assert.equal(guardianCashChange(missingCore.market), null, '원천 null 자체는 보존');
+    const zero = buildMarketIndexBasis({ nasdaq: quote('^IXIC', 26008, 0) }, now);
+    assert.equal(deriveLocaleParts({ ...core, market: { ...macro, indexBasis: zero } }, locale).tripleA.checklist.conditions[1].current, '0.00%');
 }
 assert.equal(guardianNumsFromMarket({ ...macro, indexBasis: missing }, 29).NDX_CHG, undefined);
 assert.equal(basis.cash.ndx.price, null, 'M3: NQ를 NDX로 쓰지 않는다');
@@ -123,8 +111,9 @@ const originalFetch = global.fetch;
         const React = require('react');
         const { renderToStaticMarkup } = require('react-dom/server');
         const { DualGauge } = require('../src/components/guardian/MiniGauge');
-        const missingGauge = renderToStaticMarkup(React.createElement(DualGauge, { priceValue: null, flowValue: 29 }));
-        assert.ok(missingGauge.includes('—') && !missingGauge.includes('0.0%'));
+        const missingGauge = renderToStaticMarkup(React.createElement(DualGauge, { priceValue: 0, flowValue: 65 }));
+        assert.ok(missingGauge.includes('+0.0%') && missingGauge.includes('bullMomentum'));
+        assert.ok(missingGauge.includes('#10b981') && missingGauge.includes('stroke-dasharray="40 '));
         assert.ok(missingGauge.includes('PRICE'), '결측에도 칸과 라벨은 유지');
         const cashGauge = renderToStaticMarkup(React.createElement(DualGauge, { priceValue: guardianCashChange(macro), flowValue: 29 }));
         assert.ok(cashGauge.includes('-2.6%'));
@@ -149,7 +138,8 @@ const originalFetch = global.fetch;
             assert.equal(response.success, true);
             assert.equal(response.data.market.indexBasis.cash.nasdaq.changePct, null);
             assert.equal(response.data.divergence.verdictTitle, 'MARKET SYNCHRONIZED');
-            assert.equal(response.data.divergence.verdictDesc, originalMissingDescriptions[locale]);
+            assert.match(response.data.divergence.verdictDesc, /NASDAQ -0.06%/);
+            assert.match(response.data.divergence.verdictDesc, /RLSI 29/);
             assert.equal(response.data.tripleA.checklist.conditions[1].passed, false);
         }
         mocks['@/services/marketIndexBasis'].loadMarketIndexBasis = async () => basis;

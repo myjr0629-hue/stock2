@@ -1,3 +1,5 @@
+import { buildIndexFacts, tacticalSessionAt } from '@/lib/ai/tacticalIndexFacts';
+import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
 import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
 import { datedHeadline, cachedEvidence, buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
@@ -278,8 +280,10 @@ const CORE_DEPS: CoreDeps = {
 function currentTacticalPrompts(nums: GNums, core: GuardianCore | null, gamma?: GammaShieldData | null) {
     const ctx = {
         ...nums, rlsiScore: nums.RLSI!, nasdaqChange: nums.NDX_CHG ?? null,
-        indexBasis: core?.market.indexBasis, vix: nums.VIX!,
-        marketNewsHeadlines: core?.news, scheduledEvents: core?.scheduledEvents,
+        indexBasis: core?.market.indexBasis,
+        indexFacts: buildIndexFacts(core?.market.indexBasis, tacticalSessionAt(Date.now()), Date.now()),
+        session: tacticalSessionAt(Date.now()), vix: nums.VIX!,
+        marketNewsHeadlines: filterMarketHeadlines(core?.news || []), scheduledEvents: core?.scheduledEvents,
         asOf: new Date(Date.now()).toISOString(),
         triggerSupport: gamma?.supportWall, triggerResistance: gamma?.resistanceWall,
         triggerCurrent: gamma?.currentPrice, gammaFlipPoint: gamma?.gammaFlipPoint,
@@ -485,6 +489,8 @@ export class GuardianDataHub {
                         rlsiScore: rlsi.score,
                         nasdaqChange: guardianCashChange(macro),
                         indexBasis: macro.indexBasis,
+                        indexFacts: buildIndexFacts(macro.indexBasis, rlsi.session, Date.parse(core.timestamp)),
+                        session: rlsi.session,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
                         // ⚠️ rvolEngine 은 PRE/POST/CLOSED 에서 «측정 안 함»을 rvol:0 으로 표현한다.
                         //    그 0 을 그대로 AI 에 넘기면 «거래량 0.00x 저조»라는 **사실 주장**으로
@@ -515,7 +521,7 @@ export class GuardianDataHub {
                         rotationConviction: ri.conviction,
                         signalConflict,
                         // [V8.0] Market News Headlines
-                        marketNewsHeadlines: marketNews.length > 0 ? marketNews : undefined,
+                        marketNewsHeadlines: marketNews.length ? marketNews : undefined,
                         scheduledEvents,
                         asOf: core.timestamp,
                         // [V9.0] Macro Intelligence — full asset class context
@@ -569,7 +575,8 @@ export class GuardianDataHub {
 
                     // ★2026-10-04 생성 재료의 화면 숫자 — 자리표를 채우는 값이자 글의 기준(basis)
                     const aiNums = guardianNumsFromAiContext(aiContext);
-                    const tacticalPrompts = (l: Locale) => buildTacticalPrompt({ ...aiContext, asOf: new Date(Date.now()).toISOString() }, l);   // 일정의 미래 여부는 요청 시각으로
+                    const tacticalContext = { ...aiContext, marketNewsHeadlines: filterMarketHeadlines(marketNews) };
+                    const tacticalPrompts = (l: Locale) => buildTacticalPrompt({ ...tacticalContext, asOf: new Date(Date.now()).toISOString() }, l);   // 일정의 미래 여부는 요청 시각으로
                     const [rotationText, realityText, gammaText] = await Promise.all([
                         // ⚠️ 예전엔 실패 시 «Insight generation failed. …» 영어 문장을 돌려줬고, 그게 ko/ja 화면에 그대로 나갔다.
                         //    실패해도 «검사를 통과한 마지막 정상본 → 번역 → 안내 문구» 중 하나만 나간다.
@@ -577,7 +584,7 @@ export class GuardianDataHub {
                             console.error("[Guardian] Rotation AI failed:", e);
                             return IntelligenceNode.recoverInsight('rotation', locale, { nums: aiNums });
                         }),
-                        IntelligenceNode.generateRealityInsight(aiContext).catch(e => {
+                        IntelligenceNode.generateRealityInsight(tacticalContext).catch(e => {
                             console.error("[Guardian] Reality AI failed:", e);
                             return IntelligenceNode.recoverInsight('reality', locale, { nums: aiNums, tacticalPrompts });
                         }),
