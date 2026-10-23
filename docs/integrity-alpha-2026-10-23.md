@@ -45,6 +45,16 @@
 
 운영 세션 재확인 GET: `/api/intel/snapshot?sector=m7` ↔ `/api/intel/fast-all` ↔ `/api/watchlist/batch?mode=price&tickers=NVDA,MSFT,TSLA,ARM`; 근거는 `alphaSnapshot.pillars`와 `evidenceInputs`, 점수 시점은 `scoreAsOf`/`alpha_score_as_of`/`alphaScoreAsOf`를 비교한다.
 
+## 관문 보류 2건 후속 수리
+
+- 원인 1: `readOptionAlpha`의 V8 재계산 입력에 `impliedMovePct`가 없어, 유효한 7.9%도 결측으로 처리되고 근거 점수가 3에서 0으로 떨어졌다. 기존 `readImpliedMoveFields`로 정의 표식·만기·숫자를 검증한 값을 재계산과 `evidenceInputs`에 함께 전달한다. 분석 캐시에 유효한 값이 없으면 현재 응답의 검증된 값을 사용하고, 모두 없으면 null을 전달한다. 점수·행동 게시 정책과 근거 문구 템플릿은 수정하지 않는다.
+- 원인 2: 분석 캐시의 `alphaQuote`가 있으면 현재 배치 가격을 시각 비교 없이 버렸다. 같은 표시 세션의 유효한 ticker 저장본·분석 캐시·현재 배치 가격 후보를 관측 시각으로 비교한다. 선택한 가격 쌍으로 등락을 계산하고 그 관측 시각을 `evidenceAsOf`에 싣는다. 저장 가격의 VWAP 대체값도 선택한 가격 후보의 소유자에게서 읽는다.
+- 공용 함수의 직접 호출자 7곳: `watchlistBatchService`, `portfolioBatchService`, `/api/live/ticker`, `/api/command/unified`, `/api/intel/snapshot`, `/api/intel/fast`, `/api/intel/fast-all`. 모두 동일한 근거 재계산을 사용한다. 과거 날짜 snapshot 조회는 기존 우회 경로를 유지한다. 새 공급사 호출·캐시 쓰기·추가 저장본 조회는 없다. 화면 소스는 변경하지 않는다.
+- 변경 파일: `src/services/optionAlphaService.ts`, `tests/alphaCrossScreen.test.cjs`, 이 기록.
+- 추가 회귀 2건: 7.9%·3점 유지, 정의 표식 없음·만기 경과·null·NaN의 결측 처리, 현재 응답의 유효 예상 변동 복원; 과거 가격 100·0%보다 현재 배치 120·+20% 우선, 반대 시간 순서, 다른 세션·미래/비정상 시각·결측 가격 제외, ticker 저장본과의 시각 비교, 가격/VWAP/근거 시각의 출처 일치, 게시 점수·행동 유지. 기존 9건과 합쳐 11/11 통과했다. 시험은 메모리 저장소를 사용하며 외부 호출·운영 쓰기를 차단한다.
+- 이번 후속 수리 검증: `node scripts/run-offline-tests.cjs` 전체 1회 실행, 294/294개 파일 통과·실패 0·종료 코드 0 (`.logs/ux-gate/results.json`). 추가 회귀를 포함한 알파 시험은 11/11 통과했다. `node node_modules/typescript/lib/tsc.js --noEmit --incremental false --pretty false` 1회 실행, 종료 코드 0·오류 출력 0바이트 (`.logs/ux-gate/tsc-gate-followup.log`). 두 무거운 검사는 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 직렬 실행했다. `git diff --check`도 통과했다.
+- 운영·브라우저 검증, 커밋·push·병합·배포는 하지 않는다. 운영 반영 후 세션별 실측 확인은 운영 세션에 남긴다.
+
 ## 남은 확인
 
 배포 후 운영 세션에서 장외와 정규장 양쪽의 같은 종목·원천 날짜를 재측정해야 한다. XS 기존 저장 형식은 게시 시각 없이 거래일(date)만 제공하므로 scoreAsOf도 그 정밀도를 유지한다. 저장된 같은 세션 가격/분봉이 없는 종목은 공급사 추가 호출로 메우지 않는다.

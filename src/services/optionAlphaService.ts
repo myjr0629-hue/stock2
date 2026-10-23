@@ -5,6 +5,7 @@ import { mgetFromCache } from '@/services/redisClient';
 import { ensureXsScores, xsSnapshotOverride } from '@/services/xsScores';
 import { shownRegularSessionDate } from '@/lib/marketCalendar';
 import { alphaRegularQuote, alphaSessionVwap, alphaMacroInputs } from '@/lib/alphaEvidence';
+import { readImpliedMoveFields } from '@/lib/impliedMove';
 
 /** Prefer the published alphaSnapshot, retaining the response's own alpha on cache misses. */
 export async function readOptionAlpha(tickers: string[], metrics: Map<string, OptionMetrics>, fallbacks?: Map<string, any>): Promise<Map<string, any>> {
@@ -25,26 +26,38 @@ export async function readOptionAlpha(tickers: string[], metrics: Map<string, Op
         // A cold/missing analysis cache must not erase an alpha already computed for this response.
         const a = analysis[t]?.alphaSnapshot ? analysis[t] : fallbacks?.get(t);
         const m = metrics.get(t);
-        const quotes = rows.slice(i * 4, i * 4 + 2).filter(q => alphaRegularQuote(q, now)
-            && Number(q.tsServer) > 0 && Number(q.tsServer) <= now);
-        quotes.sort((a, b) => Number(b.tsServer) - Number(a.tsServer));
-        const quote = quotes[0];
-        const savedQuote = a?.alphaQuote ?? fallbacks?.get(t)?.alphaQuote;
-        const savedValid = savedQuote?.sessionDate === date
-            && typeof savedQuote.price === 'number' && Number.isFinite(savedQuote.price) && savedQuote.price > 0
-            && typeof savedQuote.prevClose === 'number' && Number.isFinite(savedQuote.prevClose) && savedQuote.prevClose > 0
-            && typeof savedQuote.changePct === 'number' && Number.isFinite(savedQuote.changePct)
-            && savedQuote.observedAt > 0 && savedQuote.observedAt <= now;
-        const regular = alphaRegularQuote(quote, now) ?? (savedValid ? {
-            price: savedQuote.price, prevClose: savedQuote.prevClose,
-            changePct: (savedQuote.price - savedQuote.prevClose) / savedQuote.prevClose * 100, sessionDate: date,
-        } : null);
-        const vwap = alphaSessionVwap(quote, rows[i * 4 + 2], rows[i * 4 + 3], now)
-            ?? (savedValid && typeof a?.vwap === 'number' && a.vwap > 0 ? a.vwap : null);
+        // Compare observations from all existing sources; source priority must not hide a newer batch.
+        const candidates: { regular: NonNullable<ReturnType<typeof alphaRegularQuote>>;
+            observedAt: number; quote?: any; vwap?: number | null }[] = [];
+        for (const quote of rows.slice(i * 4, i * 4 + 2)) {
+            const regular = alphaRegularQuote(quote, now), observedAt = Number(quote?.tsServer);
+            if (regular && Number.isFinite(observedAt) && observedAt > 0 && observedAt <= now) {
+                candidates.push({ regular, observedAt, quote });
+            }
+        }
+        for (const source of [a, fallbacks?.get(t)]) {
+            const saved = source?.alphaQuote;
+            if (saved?.sessionDate !== date
+                || typeof saved.price !== 'number' || !Number.isFinite(saved.price) || saved.price <= 0
+                || typeof saved.prevClose !== 'number' || !Number.isFinite(saved.prevClose) || saved.prevClose <= 0
+                || typeof saved.changePct !== 'number' || !Number.isFinite(saved.changePct)
+                || typeof saved.observedAt !== 'number' || !Number.isFinite(saved.observedAt)
+                || saved.observedAt <= 0 || saved.observedAt > now) continue;
+            candidates.push({ regular: { price: saved.price, prevClose: saved.prevClose,
+                changePct: (saved.price - saved.prevClose) / saved.prevClose * 100, sessionDate: date },
+                observedAt: saved.observedAt,
+                vwap: typeof source.vwap === 'number' && Number.isFinite(source.vwap) && source.vwap > 0 ? source.vwap : null });
+        }
+        candidates.sort((a, b) => b.observedAt - a.observedAt);
+        const selected = candidates[0], regular = selected?.regular;
+        const vwap = alphaSessionVwap(selected?.quote, rows[i * 4 + 2], rows[i * 4 + 3], now)
+            ?? selected?.vwap ?? null;
         const input = {
             gex: m?.gex ?? null, squeezeScore: m?.squeezeScore ?? null, pcr: m?.pcr ?? null,
             whaleIndex: a?.whaleIndex ?? null, darkPoolPct: a?.darkPoolPct ?? null,
             shortVolPct: a?.shortVolPct ?? null, relVol: a?.relVol ?? null,
+            impliedMovePct: readImpliedMoveFields(a, now).impliedMovePct
+                ?? readImpliedMoveFields(fallbacks?.get(t), now).impliedMovePct,
         };
         let snapshot = a?.alphaSnapshot;
         if (snapshot && regular) {
@@ -57,7 +70,7 @@ export async function readOptionAlpha(tickers: string[], metrics: Map<string, Op
             });
             // XS owns the published score; V8 pillars are diagnostics, rebuilt from the regular session.
             snapshot = { ...snapshot, pillars: result.pillars, dataCompleteness: result.dataCompleteness,
-                evidenceAsOf: new Date(Number(quote?.tsServer ?? savedQuote.observedAt)).toISOString(), evidenceSession: date,
+                evidenceAsOf: new Date(selected.observedAt).toISOString(), evidenceSession: date,
                 evidenceInputs: { ...regular, ...input, ...macro, vwap, blockTrades: null } };
         }
         return [t, explainAlphaSnapshot(snapshot ? xsSnapshotOverride(t, snapshot) : null, input)];

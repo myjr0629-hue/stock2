@@ -159,6 +159,61 @@ test('M8: measured zero is preserved; missing quote/VWAP/FINRA never becomes a m
     assert.equal(a.evidenceInputs.darkPoolPct, null); assert.equal(a.evidenceInputs.shortVolPct, null);
     analysis.NVDA = saved;
 });
+test('gate 1: recalculation retains validated implied move 7.9% and its three evidence points', async () => {
+    const saved = analysis.NVDA;
+    const valid = { impliedMovePct: 7.9, impliedMoveDef: 'atm-straddle-mid/1', impliedMoveExpiry: '2026-10-23',
+        impliedMoveBasis: 'eod', impliedMoveSession: '2026-10-22' };
+    const factor = a => Object.values(a.pillars).flatMap(p => p.factors).find(f => f.name === 'impliedMove');
+    try {
+        for (const [fields, expected] of [
+            [valid, 7.9], [{ ...valid, impliedMovePct: null }, null],
+            [{ ...valid, impliedMoveDef: null }, null], [{ ...valid, impliedMoveExpiry: '2026-10-21' }, null],
+            [{ ...valid, impliedMovePct: NaN }, null],
+        ]) {
+            analysis.NVDA = { ...saved, ...fields };
+            const a = (await service.readOptionAlpha(['NVDA'], metrics)).get('NVDA');
+            assert.equal(a.evidenceInputs.impliedMovePct, expected);
+            assert.equal(factor(a).detail, expected === null ? 'Implied Move 없음' : 'Implied Move ±7.9%');
+            assert.equal(factor(a).value, expected === null ? 0 : 3);
+            assert.equal(a.score, 72.5); assert.equal(a.action, 'HOLD');
+        }
+        analysis.NVDA = { ...saved, impliedMovePct: null };
+        const a = (await service.readOptionAlpha(['NVDA'], metrics,
+            new Map([['NVDA', { ...fallback.get('NVDA'), ...valid }]]))).get('NVDA');
+        assert.equal(a.evidenceInputs.impliedMovePct, 7.9);
+        assert.equal(factor(a).value, 3, 'current response supplies a valid move when cache lacks it');
+    } finally { analysis.NVDA = saved; }
+});
+test('gate 2: newest valid regular quote wins across analysis, current batch and ticker storage', async () => {
+    const saved = analysis.NVDA, live = store.get('flow:ticker:v6:NVDA');
+    const pair = (price, observedAt, extra = {}) => ({ price, prevClose: 100, changePct: price - 100,
+        sessionDate: '2026-10-22', observedAt, ...extra });
+    try {
+        for (const [cached, batch, ticker, price, observedAt, vwap] of [
+            [pair(100, now - 600000), pair(120, now - 1000), null, 120, now - 1000, 119],
+            [pair(120, now - 1000), pair(100, now - 600000), null, 120, now - 1000, 99],
+            [pair(100, now - 600000), pair(120, now - 1000, { sessionDate: '2026-10-21' }), null, 100, now - 600000, 99],
+            [pair(100, now - 600000), pair(120, now + 1000), null, 100, now - 600000, 99],
+            [pair(100, now - 600000, { price: null }), pair(120, now - 1000), null, 120, now - 1000, 119],
+            [pair(100, now - 600000), pair(120, now - 1000, { observedAt: 'invalid' }), null, 100, now - 600000, 99],
+            [pair(100, now - 600000), pair(120, now - 1000), quote(110, 100), 120, now - 1000, 119],
+            [pair(100, now - 600000), pair(120, now - 120000), quote(110, 100), 110, now - 60000, 213.659],
+        ]) {
+            analysis.NVDA = { ...saved, alphaQuote: cached, vwap: 99 };
+            if (ticker) store.set('flow:ticker:v6:NVDA', ticker); else store.delete('flow:ticker:v6:NVDA');
+            const inputs = new Map([['NVDA', { ...fallback.get('NVDA'), alphaQuote: batch, vwap: 119 }]]);
+            const a = (await service.readOptionAlpha(['NVDA'], metrics, inputs)).get('NVDA');
+            assert.equal(a.evidenceInputs.price, price);
+            assert.equal(a.evidenceInputs.changePct, price - 100);
+            assert.equal(a.evidenceInputs.vwap, vwap, 'VWAP fallback belongs to the selected quote owner');
+            assert.equal(a.evidenceAsOf, new Date(observedAt).toISOString());
+            assert.equal(a.pillars.momentum.factors.find(f => f.name === 'priceChange').detail,
+                `${price >= 100 ? '+' : ''}${(price - 100).toFixed(1)}%`);
+            assert.equal(a.score, 72.5); assert.equal(a.action, 'HOLD');
+            assert.equal(cached.price, analysis.NVDA.alphaQuote.price, 'stored input remains unchanged');
+        }
+    } finally { analysis.NVDA = saved; store.set('flow:ticker:v6:NVDA', live); }
+});
 test('M8: analysis FINRA overlay feeds short volume from the same real report as ticker', async () => {
     mocks['@/services/darkPool'] = { getDarkPoolBatch: async () => ({ NVDA: { pct: 39.5, shortPct: 41.5, date: '2026-10-22' } }) };
     const source = functions('src/services/analysisCache.ts', ['overlayLiveDarkPool']);
