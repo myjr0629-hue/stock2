@@ -479,6 +479,7 @@ test('공개 표시 함수: 기존 3개 언어 문구·23% 그대로, 원천 날
     const marketSession = compile(read('src/lib/marketSession.ts'), { './marketCalendar': calendar });
     const present = compile(read('src/lib/rankings/present.ts'), {
         '@/lib/net/publicBase': {}, '@/lib/marketSession': marketSession,
+        './engine': engine,
     });
     const it = engine.deviationOf(engine.dailySnapshots(history()), 'pcr').ok;
     for (const [locale, weekday] of [['ko', '수요일'], ['en', 'Wednesday'], ['ja', '水曜日']]) {
