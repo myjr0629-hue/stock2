@@ -986,6 +986,9 @@ export async function getDailyAggregates(
 
     const results = ordered.slice(0, limit).map((r) => ({
         ...bar(r.open, r.high, r.low, r.close, r.volume),
+        // RSI 전용 원천. 기존 OHLC/수익률/차트의 원본 종가는 보존한다.
+        adjustedClose: typeof r.adj_close === 'number' && Number.isFinite(r.adj_close) && r.adj_close > 0
+            ? r.adj_close : null,
         t: dateToMs(r.date),
         n: 0,
     }));

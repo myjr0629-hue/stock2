@@ -43,6 +43,8 @@ export interface AnalysisCacheEntry {
 
     // Analysis indicators (from realtime block)
     rsi: number | null;
+    rsi14Date?: string | null; // RSI 계산에 사용한 완료 세션(캐시 저장 시각과 다름)
+    rsi14Basis?: string | null; // 조정 종가·Wilder 계산 표식
     return3d: number | null;
     sparkline: number[];
     relVol: number | null;
