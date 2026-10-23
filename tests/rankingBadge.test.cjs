@@ -166,6 +166,7 @@ const common = {
     '@/components/share/ShareLanding': {},
     '@/lib/giftShare/config': { giftEnabled: () => false, withGift: x => x },
     '@/lib/share/shareQuery': { readShareQuery: async () => ({ fromShare: false }) },
+    '@/lib/rankings/engine': engine,
 };
 for (const locale of ['ko', 'en', 'ja']) for (const [label, iso, open] of cases.filter(x =>
     ['개장', '마감', '토요일', '노동절 휴장', '조기 폐장'].includes(x[0]))) {
@@ -193,7 +194,7 @@ for (const locale of ['ko', 'en', 'ja']) for (const [label, iso, open] of cases.
         const app = compile('src/app/[locale]/app-view/rankings/page.tsx', {
             ...imports,
             react: { useEffect: () => {}, useMemo: fn => fn(), useState: initial => {
-                const value = [initial, snap.results, { session: snap.session, phase: snap.session.phase }, false][stateIndex++];
+                const value = [initial, snap.results, { session: snap.session, phase: snap.session.phase }, false, now][stateIndex++];
                 return [value, () => {}];
             } },
             'next/navigation': { useRouter: () => ({}), useParams: () => ({ locale }), useSearchParams: () => new URLSearchParams() },
@@ -215,5 +216,136 @@ for (const locale of ['ko', 'en', 'ja']) for (const [label, iso, open] of cases.
         const colors = nodes.filter(x => x.props?.style?.['--c']).map(x => x.props.style['--c']);
         assert.deepEqual(colors, registry.RANKINGS.map(s => ({ intraday: '#22d3ee', postclose: '#a78bfa', anytime: '#fbbf24' })[s.phase]));
         assert.deepEqual(plain(snap.results), results);
+    });
+}
+
+// 같은 컴포넌트를 유지한다. 실제 effect·상태·타이머·탭 클릭을 실행하고 외부 I/O는 대역만 사용한다.
+async function mountedApp(locale, payload) {
+    const states = [], effects = [], pending = [], timers = new Map();
+    let stateIndex, effectIndex, tree, dirty = true, requests = 0, timerId = 0;
+    const target = () => {
+        const listeners = new Map();
+        return {
+            listeners,
+            addEventListener: (name, fn) => {
+                if (!listeners.has(name)) listeners.set(name, new Set());
+                listeners.get(name).add(fn);
+            },
+            removeEventListener: (name, fn) => listeners.get(name)?.delete(fn),
+            fire: name => { for (const fn of listeners.get(name) || []) fn(); },
+        };
+    };
+    const window = target(), document = { ...target(), visibilityState: 'visible' };
+    const app = compile('src/app/[locale]/app-view/rankings/page.tsx', {
+        ...common,
+        react: {
+            useState: initial => {
+                const i = stateIndex++;
+                if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : initial;
+                return [states[i], value => {
+                    const next = typeof value === 'function' ? value(states[i]) : value;
+                    if (!Object.is(states[i], next)) { states[i] = next; dirty = true; }
+                }];
+            },
+            useEffect: (fn, deps) => {
+                const i = effectIndex++;
+                if (!effects[i] || deps.some((value, j) => !Object.is(value, effects[i].deps[j]))) {
+                    pending.push(() => {
+                        effects[i]?.cleanup?.();
+                        effects[i] = { deps, cleanup: fn() };
+                    });
+                }
+            },
+            useMemo: fn => fn(),
+        },
+        'next/navigation': { useRouter: () => ({}), useParams: () => ({ locale }), useSearchParams: () => new URLSearchParams() },
+        '@/components/app/AppTickerLogo': {}, '@/components/app/watchlist/StarButton': {},
+        '@/components/app/watchlist/useLongPress': { useStarLongPress: () => () => ({}) },
+        '@/lib/app/watchlist': { useAppWatchlist: () => ({}) }, '@/components/share/ShareButton': {},
+        './rankings.module.css': { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) },
+        '@/lib/app/requestDeadline': { fetchResponseWithDeadline: async () => {
+            requests++;
+            return { ok: true, json: async () => payload };
+        } },
+        '@/lib/app/rankingFormat': {},
+    }, {
+        window, document, AbortController,
+        setTimeout: (fn, delay) => {
+            const id = ++timerId;
+            timers.set(id, { fn, at: now + delay });
+            return id;
+        },
+        clearTimeout: id => timers.delete(id),
+    });
+    function render() {
+        if (!dirty) return;
+        stateIndex = effectIndex = 0;
+        dirty = false;
+        tree = app.default();
+        while (pending.length) pending.shift()();
+    }
+    async function flush() {
+        for (let i = 0; i < 8; i++) { render(); await Promise.resolve(); }
+    }
+    await flush();
+    return {
+        nodes: () => elements(tree),
+        requests: () => requests,
+        timers,
+        window, document,
+        advance: async (iso, wake = 'timer') => {
+            now = Date.parse(iso);
+            if (wake === 'timer') {
+                for (const [id, task] of [...timers]) if (task.at <= now) { timers.delete(id); task.fn(); }
+            } else if (wake === 'tab') {
+                elements(tree).find(x => x.type === 'button' && x.props.children?.[0] === ({ ko: '장중', en: 'Intraday', ja: 'ザラ場' })[locale]).props.onClick();
+            } else if (wake === 'focus') window.fire('focus');
+            else document.fire('visibilitychange');
+            await flush();
+        },
+        unmount: () => { for (const effect of effects) effect?.cleanup?.(); },
+    };
+}
+
+const transitions = [
+    ['보고된 마감 누락', '2026-10-22T19:59:30Z', '2026-10-22T20:00:00Z', '2026-10-22T20:10:00Z'],
+    ['보고된 개장 누락', '2026-10-22T13:29:30Z', '2026-10-22T13:30:00Z', '2026-10-22T13:40:00Z'],
+    ['조기 폐장', '2026-11-27T17:59:30Z', '2026-11-27T18:00:00Z'],
+    ['EST 개장', '2026-12-01T14:29:30Z', '2026-12-01T14:30:00Z'],
+    ['EST 마감', '2026-12-01T20:59:30Z', '2026-12-01T21:00:00Z'],
+    ['휴장 중 09:30', '2026-09-07T13:29:30Z', '2026-09-07T13:30:00Z'],
+    ['주말 중 09:30', '2026-10-24T13:29:30Z', '2026-10-24T13:30:00Z'],
+    ['DST 종료 후 복귀', '2026-10-30T19:59:30Z', '2026-11-02T14:30:00Z'],
+];
+for (const locale of ['ko', 'en', 'ja']) for (const [label, start, boundary, reported] of transitions) {
+    for (const wake of ['timer', 'tab', 'focus', 'visibility']) test(`마운트 유지: ${locale} ${label} · ${wake}`, async () => {
+        now = Date.parse(start);
+        const payload = snapshot(now), before = plain(payload);
+        const app = await mountedApp(locale, payload);
+        const labels = { ko: ['장중', '장 마감 후', '상시'], en: ['Intraday', 'After close', 'Anytime'], ja: ['ザラ場', '引け後', '常時'] }[locale];
+        const check = () => {
+            const nodes = app.nodes();
+            const badges = nodes.filter(x => x.props?.className === 'rkCP');
+            const open = engine.sessionPhase().regularOpen;
+            const shown = registry.RANKINGS.filter(s => wake !== 'tab' || s.phase === 'intraday');
+            assert.equal(badges.length, shown.length);
+            shown.forEach((spec, i) => {
+                if (payload.results[spec.id].session) assert.match(badges[i].props.children, /10[/.]21/);
+                else assert.equal(badges[i].props.children, labels[spec.phase === 'anytime' ? 2 : spec.phase === 'postclose' || !open ? 1 : 0], spec.id);
+            });
+            assert.ok(nodes.find(x => x.props?.className === 'rkSub').props.children.includes(labels[open ? 0 : 1]), '상단 단계도 현재 세션');
+            assert.equal(app.requests(), 1, '배지 갱신은 재조회하지 않는다');
+            assert.deepEqual(plain(payload), before, '숫자·원천 날짜·결측을 바꾸지 않는다');
+        };
+        try {
+            if (wake !== 'tab') check();
+            await app.advance(wake === 'tab' ? reported || boundary : boundary, wake);
+            check();
+            if (reported && wake !== 'tab') { await app.advance(reported, wake); check(); }
+        } finally { app.unmount(); }
+        assert.equal(app.timers.size, 0, '언마운트 시 타이머 해제');
+        for (const target of [app.window, app.document]) {
+            assert.ok([...target.listeners.values()].every(set => set.size === 0), '언마운트 시 리스너 해제');
+        }
     });
 }
