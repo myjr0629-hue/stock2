@@ -39,7 +39,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v11:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v12:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -195,7 +195,7 @@ export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
     // v10 — darkPool 에 state·expected·inRanking 을 실었다(다크풀 축은 마지막 마감 기준).
-    const CACHE = `ranking:deviation:v12:${days}:${top}`;
+    const CACHE = `ranking:deviation:v13:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────

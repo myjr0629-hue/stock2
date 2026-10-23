@@ -147,12 +147,12 @@ test('만기 2개 중 1개 실패한 8세션: 실제 어댑터→수집→저장
         PutCommand: class { constructor(args) { Object.assign(this, args); } }, console: { log() {} },
     });
     try {
-        for (const fail of [false, true]) {
+        for (const mode of ['complete', 'partial-past', 'partial-today']) {
             const rows = [], counts = [];
             for (const [i, session] of [...baselineDates, '2026-10-21'].entries()) {
                 now = Date.parse(`${session}T21:00:00Z`);
-                const partial = fail && i < 8;
-                fixture = lambdaChainFixture({ session, premium: i < 8 ? [18, 19, 21, 22, 18, 19, 21, 22][i] * 1000000 : 23000000,
+                const partial = mode === 'partial-past' ? i < 8 : mode === 'partial-today' && i === 8;
+                fixture = lambdaChainFixture({ session, premium: i < 8 ? [18, 19, 21, 22, 18, 19, 21, 22][i] * 1000000 : mode === 'partial-today' ? 92000000 : 23000000,
                     failed: partial ? ['2026-10-30'] : [] });
                 writes.length = 0;
                 await harvest.run({ TEST: 100 });
@@ -167,7 +167,8 @@ test('만기 2개 중 1개 실패한 8세션: 실제 어댑터→수집→저장
     } finally { now = savedNow; }
     assert.deepEqual(callCounts[0], Array(9).fill(4));
     assert.deepEqual(callCounts[1], callCounts[0], '공급사 호출 증가 0');
-    const [full, missing] = histories;
+    assert.deepEqual(callCounts[2], callCounts[0], '부분 오늘도 공급사 호출 증가 0');
+    const [full, missing, partialToday] = histories;
     const before = missing.map(({ partial, ...r }) => r); // 부분 표시가 없던 저장 행
     const legacy = engine.deviationOf(engine.dailySnapshots(before), 'totalPremium').ok;
     assert.equal(legacy.baseline, 10000000);
@@ -182,6 +183,14 @@ test('만기 2개 중 1개 실패한 8세션: 실제 어댑터→수집→저장
     assert.equal(shared.out.results.deviation.items.length, 0);
     const separate = await runSeparateDeviation(missing);
     assert.equal(separate.writes[0][1].found.some(r => r.metric === 'totalPremium'), false);
+    assert.equal(shared.out.partial, false, '부분 과거 제외 뒤 완결 오늘 표식');
+    assert.equal(separate.out.partial, false);
+    const todayShared = await runSharedRanking(partialToday);
+    assert.equal(todayShared.out.partial, true);
+    assert.equal(todayShared.out.results.deviation.items[0].partial, true);
+    const todaySeparate = await runSeparateDeviation(partialToday);
+    assert.equal(todaySeparate.out.partial, true);
+    assert.equal(todaySeparate.writes[0][1].found.find(r => r.metric === 'totalPremium').partial, true);
 });
 
 test('장 전·장중·주말·휴장 재수집은 원천 날짜 하나로 묶는다', () => {
@@ -264,6 +273,39 @@ test('레거시 기준선 유지, 새 원천 세션 이후의 날짜 없는 행�
     assert.equal(engine.dailySnapshots([legacy])[0]._d, '2026-10-20');
     const snaps = engine.dailySnapshots([legacy, { ...legacy, timestamp: now }, row('2026-10-21')]);
     assert.deepEqual(plain(snaps.map(x => x._d)), ['2026-10-20', '2026-10-21']);
+});
+
+test('P2: 부분 원천만 있어도 PRE 레거시를 다시 선택하지 않는다 — 모든 전환 호출자', async () => {
+    const source = row('2026-10-21', now - 1000, { partial: true, callPremium: 30, putPremium: 30, atmIv: 25 });
+    const legacy = { timestamp: now, totalCallOI: 50000, totalPutOI: 50000,
+        callPremium: 200, putPremium: 30, pcr: 9, atmIv: 99 };
+    for (const input of [[legacy, source], [source, legacy]]) {
+        const snaps = engine.dailySnapshots(input);
+        assert.deepEqual(plain(snaps.map(r => r._d)), ['2026-10-21']);
+        assert.equal(snaps[0].partial, true);
+        assert.equal(engine.isCompleteOptionEod(snaps[0]), false);
+        const latest = engine.latestWith(input, ['callPremium', 'putPremium', 'totalCallOI', 'totalPutOI']);
+        assert.equal(latest._d, '2026-10-21');
+        assert.equal(latest.callPremium / latest.putPremium, 1);
+        for (const series of [engine.dailyValues(input, 'atmIv'), engine.sessionValues(input, 'atmIv')]) {
+            assert.deepEqual(plain(series), [{ d: '2026-10-21', v: 25 }]);
+        }
+        assert.equal(engine.readinessOf({ TEST: input }, 'atmIv', 2).ready, false);
+        const shared = await runSharedRanking(input);
+        assert.equal(shared.out.optionSession, '2026-10-21');
+        assert.equal(shared.out.results['money-vs-oi'].items.length, 0, '레거시 6.67배 후보 차단');
+        assert.equal(shared.out.partial, true);
+        const separate = await runSeparateDeviation(input);
+        assert.equal(separate.out.partial, true);
+        assert.equal(separate.writes[0][1].found.length, 0);
+    }
+    // 측정·날짜·시각이 없는 원천 행이 전환을 시작해서는 안 된다.
+    for (const unusable of [
+        { ...source, timestamp: NaN }, { ...source, chainDate: null }, { ...source, chainDate: '2026-02-30' },
+    ]) {
+        assert.equal(engine.dailySnapshots([legacy, unusable])[0]._d, '2026-10-22');
+        assert.equal(engine.latestWith([legacy, unusable], ['callPremium', 'putPremium'])._d, '2026-10-22');
+    }
 });
 
 test('latestWith: 더 늦게 수집한 옛 체인보다 최신 원천 세션, 한 행의 지표를 유지', () => {
@@ -511,6 +553,75 @@ async function runStructureBuild(getStructureData) {
     return { response, writes, caches };
 }
 
+test('P1 구조 8세션: 실제 생산자→구조 배치→저장→양 API에서 부분 기준군 제외·오늘 partial 보존', async () => {
+    const savedNow = now, histories = [], counts = [];
+    try {
+        for (const missing of [false, true]) {
+            const rows = [], calls = [];
+            for (const [i, session] of [...baselineDates, '2026-10-21'].entries()) {
+                now = Date.parse(`${session}T21:00:00Z`);
+                const partial = missing && i < 8;
+                const pcr = i < 8 ? [1.8, 1.9, 2.1, 2.2, 1.8, 1.9, 2.1, 2.2][i] / (partial ? 2 : 1) : 2.3;
+                const input = contracts().map((c, k) => ({ ...c, eodDate: session,
+                    open_interest: k ? pcr * 50000 : 50000 }));
+                const fixture = structureService([], {
+                    exactResults: input, weeklyExpiry: '2026-10-23', chainDate: session, _ts: now,
+                    expirationsTruncated: partial ? ['2026-10-23'] : [],
+                });
+                const { writes, caches } = await runStructureBuild((...args) => fixture.service.getStructureData(...args));
+                assert.equal(writes.length, 1);
+                assert.equal(writes[0].partial, partial);
+                assert.equal(caches[0][1].rows[0].partial, partial);
+                assert.equal(writes[0].chainDate, session);
+                assert.equal(writes[0].pcr, pcr);
+                rows.push(writes[0]);
+                calls.push(fixture.calls.length);
+            }
+            histories.push(rows);
+            counts.push(calls);
+        }
+    } finally { now = savedNow; }
+    assert.deepEqual(counts[0], Array(9).fill(0), '프로브 사용: 공급사 호출 없음');
+    assert.deepEqual(counts[1], counts[0], '공급사 호출 증가 0');
+    const [full, missing] = histories;
+    const before = missing.map(({ partial, ...r }) => r);
+    const vulnerable = engine.deviationOf(engine.dailySnapshots(before), 'pcr').ok;
+    assert.equal(vulnerable.baseline, 1);
+    assert.equal(vulnerable.ratio, 2.3);
+    assert.equal(engine.median(engine.deviationSeries(engine.dailySnapshots(full), 'pcr').slice(0, -1).map(r => r.v)), 2);
+    assert.equal(engine.deviationOf(engine.dailySnapshots(full), 'pcr').ok, null);
+    assert.equal(engine.deviationSeries(engine.dailySnapshots(missing), 'pcr').length, 1);
+    for (const [rows, expectedPartial] of [[full, false], [missing, false]]) {
+        const shared = await runSharedRanking(rows);
+        assert.equal(shared.out.results.deviation.items.length, 0);
+        assert.equal(shared.out.partial, expectedPartial);
+        const separate = await runSeparateDeviation(rows);
+        assert.equal(separate.writes[0][1].found.length, 0);
+        assert.equal(separate.out.partial, expectedPartial);
+    }
+    // 실제 구조 생산자가 부분 오늘을 만들었을 때도, 과거 완결 8세션은 유지한다.
+    const fixture = structureService([], {
+        exactResults: contracts().map((c, i) => ({ ...c, open_interest: i ? 230000 : 50000 })),
+        weeklyExpiry: '2026-10-23', chainDate: '2026-10-21', _ts: now,
+        expirationsTruncated: ['2026-10-23'],
+    });
+    const { writes } = await runStructureBuild((...args) => fixture.service.getStructureData(...args));
+    assert.equal(fixture.calls.length, 0);
+    const rows = [...full.slice(0, -1), ...writes];
+    const shared = await runSharedRanking(rows);
+    assert.equal(shared.out.partial, true);
+    assert.equal(shared.out.results.deviation.items[0].partial, true);
+    assert.equal(shared.out.results.deviation.items[0].baseline, 2);
+    const separate = await runSeparateDeviation(rows);
+    assert.equal(separate.out.partial, true);
+    assert.equal(separate.writes[0][1].partial, true);
+    assert.equal(separate.writes[0][1].found.find(r => r.metric === 'pcr').partial, true);
+    const parts = Array.from({ length: 8 }, (_, i) => i === 0 ? separate.writes[0][1] : { found: [], ratioPool: {}, partial: false });
+    const merged = await runSeparateDeviation([], parts);
+    assert.equal(merged.out.partial, true);
+    assert.equal(merged.out.groups.pcr[0].partial, true);
+});
+
 test('구조 생산자 GET: 검증한 원천 날짜를 Redis 행과 Dynamo 이력에 전달한다', async () => {
     const { response, writes, caches } = await runStructureBuild(async () => ({
         underlyingPrice: 100, chainDate: '2026-10-21', historyChainDate: '2026-10-21', session: 'PRE',
@@ -615,7 +726,7 @@ async function runSeparateDeviation(input, parts = null) {
         '@/lib/aws/dynamoClient': { TABLES: { FLOW_HISTORY: 'flow' }, queryItems: async () => input },
         '@/services/redisClient': { getFromCache: async key => {
             reads.push(key);
-            return parts && /^ranking:deviation:part:v11:30:\d$/.test(key) ? parts[Number(key.split(':').at(-1))] : null;
+            return parts && /^ranking:deviation:part:v12:30:\d$/.test(key) ? parts[Number(key.split(':').at(-1))] : null;
         }, setInCache: async (...args) => { writes.push(args); } },
         '@/services/darkPool': {}, '@/lib/rankings/engine': engine,
         '@/../data/stock_universe_us800.json': { symbols: ['TEST'] },
@@ -628,7 +739,7 @@ test('별도 deviation API도 같은 세션별 대표 행과 새 조각 캐시�
     const { out, writes } = await runSeparateDeviation(history());
     assert.equal(out.mode, 'build');
     assert.ok(out.candidates > 0);
-    assert.equal(writes[0][0], 'ranking:deviation:part:v11:30:0');
+    assert.equal(writes[0][0], 'ranking:deviation:part:v12:30:0');
     assert.ok(writes[0][1].found.every(x => x.date === '2026-10-21'));
 });
 
@@ -758,7 +869,7 @@ test('공유·별도 API: 부분 오늘의 날짜·수치 유지, partial을 항
     const merged = await runSeparateDeviation([], parts);
     assert.equal(merged.out.partial, true, '부분 오늘 표식이 8조각 병합 뒤에도 남는다');
     assert.equal(merged.out.groups.totalPremium[0].partial, true);
-    assert.ok(merged.reads.includes('ranking:deviation:v12:30:5'));
+    assert.ok(merged.reads.includes('ranking:deviation:v13:30:5'));
     const complete = await runSharedRanking(history());
     assert.equal(complete.out.partial, false);
     const empty = await runSharedRanking([...history(), row('2026-10-22', now, { totalCallOI: 5, totalPutOI: 5 })]);

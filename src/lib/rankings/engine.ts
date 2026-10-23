@@ -80,7 +80,8 @@ export function isCompleteOptionEod(row: Record<string, any>): boolean {
 
 function sourceHistoryStart(items: Array<Record<string, any>>, usable: (row: Record<string, any>) => boolean): string | null {
     return items.reduce<string | null>((first, row) => {
-        const d = usable(row) && isCompleteOptionEod(row) ? optionSessionDate(row) : null;
+        // 원천 존재와 기준군 적격성은 별개다. 부분 원천도 PRE 레거시의 재등장을 막는다.
+        const d = row.chainDate && Number.isFinite(Number(row.timestamp)) && usable(row) ? optionSessionDate(row) : null;
         return d && (!first || d < first) ? d : first;
     }, null);
 }

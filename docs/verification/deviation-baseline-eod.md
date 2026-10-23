@@ -8,9 +8,9 @@
 - 대표: 완결성 → 총 OI → 프리미엄 측정 보유 순으로 선택한다. 같은 premiumBasis·OI에서는 큰 프리미엄을 보존하고, 금액도 같으면 최신 행을 고른다. 서로 다른 기준의 금액은 크기로 비교하지 않는다. volume-close를 OI 대체보다 우선한다.
 - 프리미엄 평소: 오늘과 동일한 명시적 premiumBasis만 허용한다. 기준 미상끼리도 같은 계산법으로 추정하지 않는다. OI·PCR 축에는 프리미엄 기준 제한을 걸지 않는다.
 - 오늘: 최신 세션을 과거 측정으로 대체하지 않는다. 부분 자료는 항목·블록·응답의 partial로 전달한다. 별도 API의 조각 저장·병합에도 전달한다. 후보가 없어도 부분 자료 표식을 남긴다.
-- 전환 시작점: 해당 집계가 사용할 측정과 완결 EOD가 있는 원천 행으로만 정한다.
+- 전환 시작점: 해당 집계가 사용할 측정·유효한 원천 날짜·수집 시각이 있으면 정한다. 부분 원천도 포함하며, 평소 기준군 적격성은 별도로 검사한다(2차 관문 후속 수리).
 - 생산자: FlowWarm exact/probe의 다음 페이지 잔여, GEX 수집의 20페이지 상한을 partial로 기록한다. GEX 프리미엄은 실제 산식에 맞춰 volume-trade-or-close로 기록해 FlowWarm volume-close와 섞지 않는다. 호출 수·페이지 상한·계산식은 유지한다.
-- 캐시: 공용 v13, 별도 응답 v12, 별도 조각 v11. 운영 캐시 변경은 실행하지 않았다.
+- 캐시: 현재 공용 v14, 별도 응답 v13, 별도 조각 v12(2차 관문 후속). 운영 캐시 변경은 실행하지 않았다.
 
 ## 공유 함수의 모든 운영 코드 호출자와 영향
 
@@ -90,3 +90,48 @@
 - 각 무거운 명령은 한 번씩 전역 잠금으로 실행했다. 다른 작업의 잠금이 풀릴 때까지 기다렸으며 잠금을 우회하지 않았다. 로그는 `/tmp/signum-deviation-partial-targeted.log`, `/tmp/signum-deviation-partial-offline.log`, `/tmp/signum-deviation-partial-tsc.log`에 있다.
 
 화면 변경·환경 파일 읽기·브라우저·운영 접근·운영 쓰기·커밋·push·병합·Lambda 배포는 실행하지 않았다. 운영 영향 범위는 미측정이며, 표시 없이 이미 저장된 누락 행의 위험은 그대로 남는다.
+
+
+## 2차 관문 후속 수리 — 구조 partial 전달과 레거시 재선택
+
+관문 `gate-fix_deviation-baseline-partial-10232150.md`의 P1·P2를 대상으로 한다. 아래 수치는 운영 자료가 아닌 합성 입력과 메모리 저장 결과다.
+
+이번 변경 파일(6개): `src/lib/rankings/engine.ts`, `src/app/api/cron/structure-build/route.ts`, `src/lib/rankings/cacheKey.ts`, `src/app/api/ranking/deviation/route.ts`, `tests/rankingSessionDate.test.cjs`, 이 문서.
+
+### 확인한 원인과 변경
+
+- P1: `structureService.getStructureData`는 체인 잘림·OI 결측을 `partial:true`로 반환하지만, `structure-build`가 `StructRow`를 만들 때와 Flow 이력을 쓸 때 이 표식을 누락했다. 유효한 `historyChainDate`만으로 체인 완결성을 증명할 수 없는데 엔진에는 완결 EOD로 들어왔다. 이제 `d.partial → StructRow.partial → FLOW_HISTORY.partial`을 보존한다. `isCompleteOptionEod`와 두 API의 기존 공통 기준군 필터가 부분 과거를 제외하고, 부분 오늘은 기존 응답 `partial`로 운반한다. 기존 행에 표식이 없으면 기존 규칙을 유지한다.
+- P2: `sourceHistoryStart`가 `isCompleteOptionEod`를 요구해서 사용할 수 있는 원천 행이 부분 자료뿐일 때 시작점이 사라졌다. 원천 존재는 완결성 판정과 분리하고, 유효한 원천 날짜·수집 시각·호출자가 요청한 측정으로 판정한다. 부분 원천도 레거시 전환을 시작하지만 평소 기준군에는 여전히 들어가지 않는다. 요청 필드나 OI가 없는 원천 행이 레거시 이력을 지우지 않도록 기존 `usable` 조건은 보존한다.
+- 결과 캐시는 공용 `v14`, 별도 응답 `v13`, 별도 조각 `v12`로 올려 이전 선택 결과를 재사용하지 않는다. 구조 캐시 키·화면·라벨·공급사 호출·재시도·계산식은 바꾸지 않았다. 운영 캐시는 건드리지 않았다.
+
+### 공유 함수 호출자·영향과 시험
+
+| 변경 함수 | 모든 운영 호출자·영향 | 시험 |
+|---|---|---|
+| sourceHistoryStart | dailySnapshots → 두 랭킹 API(대표·deviation·multi-axis·optionSession·구조 fallback), latestWith → 공용 API money-vs-oi, dailyValues → readinessOf → volatility-bet 준비도, sessionValues → volatility-bet IV 백분위 | 부분 원천+PRE 레거시를 두 입력 순서로 넣어 네 집계의 날짜·측정을 검사. IV 준비도가 가짜 세션으로 채워지지 않고 money-vs-oi 6.67배 후보가 사라지는지 실제 GET 검사 |
+| structure-build GET | 같은 라우트의 팬아웃, 외부 크론 HTTP 진입. 생산한 StructRow는 같은 파일에서 Redis·Flow 이력으로 저장 | 실제 구조 계산→저장본 읽기→구조 GET→메모리 Flow 저장→엔진→양 API. 기존 구조 소비자는 추가 필드를 무시하며 키와 수치를 유지 |
+| rankingCacheKey | /api/ranking, aiqContextService, scripts/ai-quality-55/harness | 공용 키를 계속 사용하는 기존 회귀시험. 별도 API는 새 조각 키로 저장·병합 검사 |
+
+호출자는 `src`, `scripts`, `harvest_lambda`, `tests`에서 검색했다. `sourceHistoryStart`의 직접 호출자는 위 네 함수 전부다. 완결 EOD 판정 함수·기준군 필터·화면 소비자는 변경하지 않았다.
+
+### 재현 내용
+
+- 수정 전 새 P1·P2 시험을 이름으로 선택 실행해 실패 2건을 확인했다. 구조 저장 행의 `partial`이 `undefined`였고, 부분 원천 10/21 옆에 PRE 레거시 10/22가 추가됐다. 로그: `/tmp/signum-deviation-r3-before.log`.
+- 구조 경로: 과거 8세션의 실제 구조 생산자에 잘린 체인을 주입한다. 정상 PCR 중앙값은 2, 부분 체인에서 표식을 제거한 대조군은 중앙값 1·오늘 2.3배다. 표식을 보존한 부분 과거는 모두 기준군에서 제외돼 두 API가 가짜 후보를 반환하지 않는다. 완결 오늘은 `partial:false`, 실제 생산자가 만든 부분 오늘은 항목·응답·별도 조각·8조각 병합에서 `partial:true`다. 프로브 사용 시 정상·부분 모두 공급사 호출 0이다.
+- Lambda 경로: 실제 어댑터에서 만기 2개 중 1개 실패한 과거 8세션을 수집·저장한다. 정상 중앙값 2,000만, 표식 없는 대조군 1,000만·2.3배를 재현한다. 부분 과거는 양 API에서 제외되며, 별도 시나리오의 실제 Lambda 부분 오늘도 양 API에서 `partial:true`다. 정상·부분 과거·부분 오늘 모두 세션당 4콜로 증가 0이다.
+- 레거시 경로: 10/22 PRE 레거시(금액 비율 6.67)와 10/21 부분 원천(금액 비율 1)을 함께 넣어 10/21만 선택한다. 이는 확인한 `origin/main`의 선택 결과와 같다. 부분 원천은 `isCompleteOptionEod=false`로 유지된다. 유효하지 않은 날짜·수집 시각 및 요청 측정 없는 원천은 전환을 시작하지 않는다.
+
+### 검증 명령
+
+```sh
+/usr/bin/lockf -k /tmp/signum-heavy.lock node --require ./scripts/offline-test-preload.cjs --test --test-name-pattern='^P[12]' tests/rankingSessionDate.test.cjs
+/usr/bin/lockf -k /tmp/signum-heavy.lock node --require ./scripts/offline-test-preload.cjs --test tests/rankingSessionDate.test.cjs tests/rankingEtDay.test.cjs
+/usr/bin/lockf -k /tmp/signum-heavy.lock node scripts/run-offline-tests.cjs <제외 3개를 뺀 시험 파일 293개>
+/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false
+```
+
+오프라인 실행은 Node 래퍼가 시험 목록을 열거해 기존 실행기에 인자로 전달했다. 제외 목록은 요청한 `earningsScenario.test.cjs`, `giftShareGate.test.ts`, `readCheck.test.cjs`이며, 정확한 파일 목록은 `/tmp/signum-deviation-r3-offline-manifest.json`에 있다. 각 무거운 명령은 공용 잠금으로 직렬 실행했다. 수정 후 날짜·재현 시험은 50/50 통과(실패·건너뜀 0)했다. 전체 오프라인은 이번에 실행한 293/293파일 통과·실패 0, 종료 코드 0이다. 제외 3개는 이번에 실행하지 않았다. 실행기의 과거 결과 병합 수치(296)는 이번 검증 수로 세지 않았다. tsc는 종료 코드 0·오류 출력 0바이트다. `node --check tests/rankingSessionDate.test.cjs`와 `git diff --check`도 통과했다. 로그는 `/tmp/signum-deviation-r3-targeted.log`, `/tmp/signum-deviation-r3-offline.log`, `/tmp/signum-deviation-r3-tsc.log`에 있다.
+
+### 남은 위험
+
+부분 표식 없이 이미 저장된 과거 누락 행은 소급 판별하지 못한다. 운영 발생 범위·영향 종목 수는 측정하지 않았다. 이 변경은 작업 브랜치의 미커밋 수정이며 운영에 적용하지 않았다. 환경 파일 읽기·브라우저·운영 접근·운영 쓰기·커밋·push·병합·배포는 실행하지 않았다.
