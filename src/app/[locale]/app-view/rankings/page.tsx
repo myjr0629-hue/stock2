@@ -24,6 +24,8 @@ import { ShareButton } from '@/components/share/ShareButton';
 import s from './rankings.module.css';
 import { fetchResponseWithDeadline } from '@/lib/app/requestDeadline';
 import { fmtRankPair, fmtMoney } from '@/lib/app/rankingFormat';
+import { rankingBadgePhase } from '@/lib/rankings/badge';
+import { sessionPhase } from '@/lib/rankings/engine';
 
 type Phase = 'intraday' | 'postclose' | 'anytime';
 type Tab = 'all' | Phase;
@@ -236,11 +238,14 @@ export default function RankingsPage() {
     ['all', 'intraday', 'postclose', 'anytime'].includes(initial) ? initial : 'all',
   );
   const [res, setRes] = useState<Record<string, RankBlock> | null>(null);
-  const [meta, setMeta] = useState<{ universe: number | null; phase: string | null; dp: DarkPoolMeta | null;
+  const [meta, setMeta] = useState<{ universe: number | null; dp: DarkPoolMeta | null;
                                      asOf: string | null; ageSec: number | null }>(
-    { universe: null, phase: null, dp: null, asOf: null, ageSec: null },
+    { universe: null, dp: null, asOf: null, ageSec: null },
   );
   const [err, setErr] = useState(false);
+  const [sessionClock, setSessionClock] = useState<number | null>(null);
+  // API session은 조회 시각의 값이다. 탭 재렌더도 현재 달력으로 판정한다.
+  const currentSession = sessionClock === null ? null : sessionPhase();
 
   useEffect(() => {
     let dead = false;
@@ -255,7 +260,6 @@ export default function RankingsPage() {
           setRes(j.results);
           setMeta({
             universe: Number.isFinite(j.universe) ? j.universe : null,
-            phase: j?.session?.phase ?? null,
             dp: j?.darkPool ?? null,
             // ★ [2026-10-07] 서버가 «마지막 정상본»을 먼저 줄 수 있다 — 만든 시각·나이를 받아 낡았으면 기준 시각을 단다
             asOf: typeof j.generatedAt === 'string' ? j.generatedAt : null,
@@ -265,6 +269,27 @@ export default function RankingsPage() {
       } catch { if (!dead) setErr(true); }
     })();
     return () => { dead = true; controller.abort(); };
+  }, []);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const refreshSession = () => {
+      setSessionClock(Date.now());
+      clearTimeout(timer);
+      // 개장·마감은 분 경계다. 조회를 늘리지 않고 그 경계에 다시 렌더한다.
+      timer = setTimeout(refreshSession, 60_000 - Date.now() % 60_000);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshSession();
+    };
+    refreshSession();
+    window.addEventListener('focus', refreshSession);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('focus', refreshSession);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   const blocks = useMemo(() => {
@@ -303,7 +328,7 @@ export default function RankingsPage() {
         <div className={s.rkSub}>
           {/* 단계는 현지화해서 쓴다(원래 'intraday' 같은 영어 id 가 그대로 찍혔다). 날짜는 카드마다 단다 */}
           {res ? [meta.universe != null ? t.sub(meta.universe) : null,
-                  meta.phase === 'intraday' || meta.phase === 'postclose' ? t[meta.phase] : null,
+                  currentSession?.phase === 'intraday' || currentSession?.phase === 'postclose' ? t[currentSession.phase] : null,
                   /* 낡은 정상본(15분 이상)일 때만 «○/○ HH:MM ET 기준» — 평소(신선)엔 아무것도 달라지지 않는다 */
                   meta.ageSec != null && meta.ageSec >= 15 * 60 && meta.asOf ? asOfLabel(meta.asOf, locale) : null]
             .filter(Boolean).join(' · ') : err ? t.down : t.loading}
@@ -359,7 +384,7 @@ export default function RankingsPage() {
                 <span className={s.rkCW}>{RANK_WHAT[b.id][(locale as 'ko' | 'en' | 'ja')] ?? RANK_WHAT[b.id].en}</span>
               )}
               {/* 마감 후 목록은 «어느 마감»의 것인지가 곧 단계다 — 장중에 보이는 건 직전 마감분이다 */}
-              {b.phase && <span className={s.rkCP}>{b.session ? t.close(b.session) : t[b.phase]}</span>}
+              {b.phase && <span className={s.rkCP}>{b.session ? t.close(b.session) : t[rankingBadgePhase(b.phase, currentSession)]}</span>}
             </div>
 
             {b.available && items.length > 0 ? (

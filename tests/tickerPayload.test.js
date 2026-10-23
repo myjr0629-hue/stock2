@@ -67,7 +67,7 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
         '@/services/oiNear35Fallback': { readOi35Fallback: async () => null, readLastGoodOi: async () => null },
         '@/services/optionAlphaService': { readOptionAlpha: async () => new Map([[snapshot.ticker, snapshot.alpha]]) },
         // 저장 응답의 옵션 수집 행이 유효한 경로를 재생한다. 대체 OI 자체는 별도 NB1 시험에서 검증한다.
-        '@/lib/optionMetrics': { applyOptionMetrics: target => target, optionMetricsRowHasOi: () => true },
+        '@/lib/optionMetrics': { applyOptionMetrics: (target, m) => Object.assign(target, { netGex: m?.gex ?? null }), optionMetricsRowHasOi: () => true },
         '@/lib/vwap': vwap,
         '@/lib/intrinioBackground': background,
         '@/services/realtimeSessionVwap': { getRealtimeSessionVwap: async () => null, readRealtimeSessionVwap: async () => null },
@@ -192,8 +192,11 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
                 const b = await full.get('&chain=full');
                 const c = await slim.get('');
                 const d = await zero.get('&chain=0');
-                assert.deepEqual(b.body, a.body, 'full must preserve the old GET result');
-                assert.deepEqual(c.body, withoutChains(a.body), 'default may remove only the two chains');
+                // L9 수리는 레거시 gamma를 구조 달러 GEX로 통일한다. 나머지 본문 계약은 그대로다.
+                a.body.flow.gamma = a.body.flow.netGex ?? null;
+                assert.equal(b.body.flow.gamma, a.body.flow.gamma);
+                assert.deepEqual(b.body, a.body, 'full preserves the old GET result except the corrected gamma alias');
+                assert.deepEqual(c.body, withoutChains(a.body), 'default may remove only the two chains after gamma correction');
                 assert.deepEqual(d.body, c.body);
                 assert.equal(c.cache, mode === 'hit' ? 'HIT' : 'MISS');
                 assert.notEqual(full.calls.responseKeys[0], slim.calls.responseKeys[0]);

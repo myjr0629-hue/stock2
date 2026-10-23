@@ -4,10 +4,12 @@
 // ============================================================================
 import { publicBase } from '@/lib/net/publicBase';
 import { sessionYmd, weekdayName } from '@/lib/marketSession';
+import { sessionPhase } from './engine';
+import type { RankingSession } from './badge';
 
 export type PLoc = 'en' | 'ko' | 'ja';
 
-export type RankingSnapshot = { results?: Record<string, any>; generatedAt?: string } | null;
+export type RankingSnapshot = { results?: Record<string, any>; generatedAt?: string; session?: RankingSession } | null;
 
 /**
  * ★ 랭킹 공개 페이지 36장은 «한 스냅샷»을 나눠 쓴다.
@@ -25,7 +27,9 @@ export async function loadRankingSnapshot(): Promise<RankingSnapshot> {
         // ⚠️ 자체 API 는 «공개 도메인»으로 부른다 — 요청 origin 을 쓰면 보호된 주소로 나가 실패한다.
         const r = await fetch(`${publicBase()}/api/ranking?run=all&top=10`, { next: { revalidate: 600 } });
         if (!r.ok) return null;
-        return await r.json();
+        const snapshot = await r.json();
+        // fetch의 600초 사본도 개장·마감을 넘는다. 자료는 유지하고 표시 시계만 렌더 시점으로 맞춘다.
+        return { ...snapshot, session: sessionPhase() };
     } catch { return null; }
 }
 

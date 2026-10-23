@@ -375,6 +375,8 @@ async function withExitLevels(payload: any, finishLevels: () => Promise<Map<stri
     const fallbacks = new Map([[ticker, { ...payload.flow, alphaSnapshot: payload.alpha }]]);
     const alpha = includeAlpha ? (await readOptionAlpha([ticker], metrics, fallbacks)).get(ticker) ?? null : null;
     const flow = applyOptionMetrics({ ...payload.flow }, m);
+    // 레거시 gamma도 같은 구조 판본의 달러 감마를 운반한다. 별도 체인의 콜−풋 감마는 반대 규약·다른 단위였다.
+    flow.gamma = flow.netGex;
     flow.oiPcr = m?.pcr ?? null;
     // ★ [2026-10-20 NB1] 수집 행에 OI 수량(콜·풋)이 없으면(SPY·QQQ 장중) «같은 범위»의 대체를 읽는다 — /api/app/oi-pcr 와 같은 규칙(oiRowHasQuantities)·같은 순서:
     //   옵션 EOD 35일 합계 → 체인 35일 합산 저장본(oi-pcr 가 만든다). 검사는 services/oiNear35Fallback 한 곳.
