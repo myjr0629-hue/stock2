@@ -16,7 +16,7 @@ import { getFromCache, setInCache } from "./redisClient";
 import { observationMonthsAgo } from "@/lib/economicSeries";
 // 휴장 달력은 «단 하나의» 정본을 본다. 예전엔 이 파일 안에만 있어서
 // 다른 서비스가 물어볼 수 없었고, 각자 «값»으로 추측하다 버그가 났다.
-import { US_MARKET_HOLIDAYS, etDateOf as etDateOfEpochMs } from "@/lib/marketCalendar";
+import { US_MARKET_HOLIDAYS, etDateOf as etDateOfEpochMs, prevTradingDate } from "@/lib/marketCalendar";
 import { after } from "next/server";
 // 구조 판본 사전 갱신(cron/structure-warm) 전용 관문 — 그 흐름 안에서 시작된 호출만 본다(사용자 경로는 저장소가 없어 그대로).
 import { warmGateStore } from "@/lib/intrinioWarmGate";
@@ -1719,19 +1719,24 @@ export async function peekEodCloseRow(ticker: string): Promise<{ date: string; c
  */
 export async function peekLatestCloseRow(ticker: string): Promise<{ date: string; close: number; prevClose: number | null; provisional: boolean } | null> {
     const sym = ticker.toUpperCase();
-    const { date, rows } = await loadBulkEod();
+    const { date, prevDate, rows } = await loadBulkEod();
     const r = rows.get(sym);
     if (!r || !(r.c > 0)) return null;
+    const rowDate = r.date || date;
+    const wantPrev = prevTradingDate(rowDate);
     const prev = r.c - r.chg;
-    const prevClose = !r.prevMissing && prev > 0 ? prev : null;
-    if (r.provisional) {
-        // 캡처 행이어도 20거래일 종가 행렬에 그 날짜 공식 종가가 먼저 적재됐으면 공식 값을 쓴다.
+    // 행의 chg 는 벌크 «직전일»(prevDate) 기준이다 — 그 날이 이 행의 직전 거래일일 때만 직전 종가로 쓴다(벌크가 밀리면 행렬에서).
+    let prevClose: number | null = !r.prevMissing && prev > 0 && prevDate === wantPrev ? prev : null;
+    let close = r.c, provisional = !!r.provisional;
+    if (provisional || prevClose === null) {
         const hist = await loadEodHistory();
-        const i = hist?.dates?.indexOf(r.date) ?? -1;
-        const v = i >= 0 ? Number(hist!.closes?.[sym]?.[i]) : NaN;
-        if (Number.isFinite(v) && v > 0) return { date: r.date, close: v, prevClose, provisional: false };
+        const at = (d: string) => { const i = hist?.dates?.indexOf(d) ?? -1; const v = i >= 0 ? Number(hist!.closes?.[sym]?.[i]) : NaN; return Number.isFinite(v) && v > 0 ? v : null; };
+        // 캡처 행이어도 20거래일 종가 행렬에 그 날짜 공식 종가가 먼저 적재됐으면 공식 값을 쓴다.
+        const official = provisional ? at(rowDate) : null;
+        if (official !== null) { close = official; provisional = false; }
+        if (prevClose === null) prevClose = at(wantPrev);
     }
-    return { date: r.date || date, close: r.c, prevClose, provisional: !!r.provisional };
+    return { date: rowDate, close, prevClose, provisional };
 }
 
 /**
@@ -1755,9 +1760,9 @@ export async function peekCloseOn(ticker: string, date: string): Promise<number 
  */
 export async function peekOfficialSessionClose(ticker: string, date: string, prevTradingDay: string): Promise<{ close: number; prevClose: number } | null> {
     const sym = ticker.toUpperCase();
-    const { rows } = await loadBulkEod();
+    const { rows, prevDate } = await loadBulkEod();
     const r = rows.get(sym);
-    if (r && r.date === date && !r.provisional && !r.prevMissing && r.c > 0 && r.c - r.chg > 0) {
+    if (r && r.date === date && prevDate === prevTradingDay && !r.provisional && !r.prevMissing && r.c > 0 && r.c - r.chg > 0) {
         return { close: r.c, prevClose: r.c - r.chg };
     }
     const hist = await loadEodHistory();

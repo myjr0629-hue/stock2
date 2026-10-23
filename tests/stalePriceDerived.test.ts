@@ -129,6 +129,13 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         const up = rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 110 });   // 실제 10 % 상승 → P/E 16.5(16점) · FCF 2.7(8점)
         assert.equal(up.score, 44); assert.equal(up.grade, 'C+');
     });
+    await test('gate 3-①: rounded legacy 15.0/3.0 (52/B) scores a small real move from the estimated raw (100 → 100.3 = 48/C+)', () => {
+        const f = { score: 52, grade: 'B', pe: 15, fcfYield: 3, marketCap: 1e12, breakdown: { pe: { value: '15.0', score: 20, label: 'P/E' }, fcf: { value: '3.0%', score: 12, label: 'FCF' } } };
+        const g = { ...f, _priceBasis: rebase.makePriceBasis(f, '2026-10-21', 100, {}, true) };
+        const r = rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 100.3 });
+        assert.equal(r.score, 48); assert.equal(r.grade, 'C+');
+        assert.equal(rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 100 }).score, 52);
+    });
     await test('missing basis fields stay as stored; NO_DATA grade is not invented', () => {
         const f = { score: null, grade: 'NO_DATA', pe: null, marketCap: 1e9, breakdown: {} };
         const g = { ...f, _priceBasis: rebase.makePriceBasis(f, '2026-10-21', 10) };
@@ -329,6 +336,17 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
             const m = await c.peekLatestCloseRow('MSFT');
             assert.equal(m.close, 526); assert.equal(m.provisional, false); assert.equal(m.date, '2026-10-23');
         } finally { h.dates.pop(); h.closes.MSFT.pop(); h.closes.NVDA.pop(); }
+    });
+    await test('gate 3-②: bulk two sessions behind — official close and previous close both come from the history', async () => {
+        const saved = JSON.parse(JSON.stringify(eodPayload));
+        const h = history as any;
+        Object.assign(eodPayload, { date: '2026-10-20', prevDate: '2026-10-19', rows: [['NVDA', 1, 1, 1, 220, 10, 2, 0.9]] });
+        try {
+            const c = intrinio({ date: '2026-10-22', rows: { NVDA: [212.5, 100] } });
+            const n = await c.peekLatestCloseRow('NVDA');
+            assert.equal(n.date, '2026-10-22'); assert.equal(n.close, 212.21); assert.equal(n.prevClose, 221.97); assert.equal(n.provisional, false);
+            assert.equal(Math.round(((n.close - n.prevClose) / n.prevClose) * 10000) / 100, -4.4);
+        } finally { Object.assign(eodPayload, saved); void h; }
     });
     await test('EOD readers: bulk row without capture is official; capture row with unknown prev → prevClose null', async () => {
         const c = intrinio({ date: '2026-10-23', rows: { ZZZ: [7, 1] } });

@@ -62,13 +62,18 @@ export function fcfScoreOf(fcfYield: number | null): number {
 }
 
 /**
- * 반올림된 기준값(예: P/E 15.0)이 기준 점수와 다른 구간이면(원값 14.96 → 20점) 반올림 반 단위 안에서 기준 점수와 맞는 쪽 경계 안으로 옮긴다.
- * 원값을 모르는 옛 레코드가 «가격이 그대로인데 점수만 바뀌는» 회귀를 막는다. 맞출 수 없으면 그대로.
+ * 채점에 쓸 기준값. 원값을 아는 기준(raw)은 그대로 쓴다.
+ * 반올림된 옛 값(예: P/E 15.0, 저장 점수 20 = 원값 14.95~15.0)은 «반올림 반 단위 안에서 저장 점수와 같은 구간»의 가운데를 원값 추정치로 쓴다
+ *   → 종가가 그대로면 저장 점수 그대로(회귀 0), 움직이면 추정 원값 × k 로 채점. 맞는 구간이 없으면 그 값 그대로.
  */
-export function scoreConsistentValue(v: number, storedScore: number | null, scoreOf: (x: number) => number, half = 0.05): number {
-    if (storedScore === null || scoreOf(v) === storedScore) return v;
-    for (const c of [v - half * 0.999, v + half * 0.999]) if (scoreOf(c) === storedScore) return c;
-    return v;
+export function scoringBasisValue(v: number, storedScore: number | null, scoreOf: (x: number) => number, rounded: boolean, half = 0.05): number {
+    if (!rounded || storedScore === null) return v;
+    const hits: number[] = [];
+    for (let n = 0; n <= 200; n++) {
+        const x = v - half + (2 * half * n) / 200;
+        if (n < 200 && scoreOf(x) === storedScore) hits.push(x);
+    }
+    return hits.length ? (hits[0] + hits[hits.length - 1]) / 2 : v;
 }
 
 export function gradeOf(score: number): string {
@@ -121,15 +126,15 @@ export function rebaseFundamentals<T>(f: T, latest: { date: string; close: numbe
 
     // 점수: P/E·FCF 두 항목만 다시 매긴다(나머지 항목은 가격과 무관). 기준 점수·항목 점수를 알 때만.
     const bd = src.breakdown && typeof src.breakdown === 'object' ? { ...src.breakdown } : null;
-    //   채점은 기준 점수와 같은 구간에 놓인 기준값(scoreConsistentValue)에서 — 반올림만 다른 옛 레코드도 k=1 이면 점수 그대로.
+    //   채점은 scoringBasisValue(원값 · 반올림 옛 값은 저장 점수 구간의 가운데)에서 — 반올림만 다른 옛 레코드도 k=1 이면 점수 그대로.
     let score = b.score;
     if (bd && pe !== null && bd.pe && b.peScore !== null) {
-        const s = peScoreOf(scoreConsistentValue(b.pe!, b.peScore, peScoreOf) * k);
+        const s = peScoreOf(scoringBasisValue(b.pe!, b.peScore, peScoreOf, !!b.inferred) * k);
         bd.pe = { ...bd.pe, value: pe.toFixed(1), score: s };
         if (score !== null) score += s - b.peScore;
     }
     if (bd && fcf !== null && bd.fcf && b.fcfScore !== null) {
-        const s = fcfScoreOf(scoreConsistentValue(b.fcfYield!, b.fcfScore, fcfScoreOf) / k);
+        const s = fcfScoreOf(scoringBasisValue(b.fcfYield!, b.fcfScore, fcfScoreOf, !!b.inferred) / k);
         bd.fcf = { ...bd.fcf, value: fcf.toFixed(1) + '%', score: s };
         if (score !== null) score += s - b.fcfScore;
     }
