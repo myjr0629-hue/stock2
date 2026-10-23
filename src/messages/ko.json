@@ -136,6 +136,7 @@
     "rvol": "상대 거래량"
   },
   "guardian": {
+    "lastSessionAnalysis": "직전 세션 분석",
     "title": "GUARDIAN",
     "subtitle": "시장 전체의 GEX 포지셔닝과 거시적 상황을 분석합니다",
     "gravityGauge": "GRAVITY GAUGE",

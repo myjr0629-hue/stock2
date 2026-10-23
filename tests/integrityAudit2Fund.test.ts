@@ -44,6 +44,7 @@ function macro(inflation: any) {
         './massiveClient': {}, '@/services/intrinioClient': { getEconomicSeries: async () => [] }, './marketStatusProvider': {}, './eventHubProvider': {},
         './fedApiClient': { getInflationData: async () => { if (inflation instanceof Error) throw inflation; return inflation; } },
         './yahooFinanceHub': {}, './redisClient': {}, '@/lib/yieldChange': {},
+        './marketIndexBasis': { loadMarketIndexBasis: () => { throw new Error('Index cache I/O forbidden in REAL unit test'); } },
         '@/lib/macroSnapshotCarry': require('../src/lib/macroSnapshotCarry'),
         '@/lib/macroFredFallback': { fredCreditSpread: async () => null, fredRealPair: async () => null },
     }, '\nexport { fetchRealYieldData };');

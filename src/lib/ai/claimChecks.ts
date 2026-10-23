@@ -59,16 +59,18 @@ const SUBJECT_EN = ['yields?', 'treasur\\w*', 'bonds?', 'S&P', 'SPX', 'nasdaq', 
     'gamma', 'GEX', 'volatility', 'dollar', 'gold', 'oil', 'crude', 'brent', 'barrels?', 'bitcoin', 'fear', 'greed', 'squeeze',
     'max pain', 'call wall', 'put floor', 'gamma flip', 'implied (?:move|range)', '\\d{1,2}-?year', 'off-exchange', 'support', 'resistance', 'levels?', 'spread',
     'futures', 'index', 'stocks?', 'shares?', 'sectors?', 'semiconductors?', 'chips?', 'tech', 'prices?', 'rates?', 'inflation', 'payrolls?', 'claims',
-    'housing', 'permits', 'starts', 'sales', 'range', 'premium', 'calls?', 'puts?', 'flows?', 'market', 'equities'];
+    'housing', 'permits', 'starts', 'sales', 'range', 'premium', 'calls?', 'puts?', 'flows?', 'market', 'equities',
+    // 경제 지표 수준(«consumer sentiment holds at 48» — 실모델 10/23 23:3x 정상 문장 orphan-number 오탐 4건)
+    'sentiment', 'confidence', 'PMI', 'ISM', 'gold'];
 const SUBJECT_CJK = [
     // ko
     '맥스\\s?페인', '콜\\s?월', '풋\\s?플로어', '감마\\s?플립', '금리', '국채', '년물', '채권', '나스닥', '다우', '러셀', '참여폭', '시장 폭', '상승 종목', '하락 종목', '등락', '감마', '변동성', '달러', '금값', '금 ', '금은', '금이', '금도',
     '유가', '원유', '브렌트', '배럴', '비트코인', '공포', '탐욕', '스퀴즈', '예상 변동', '장외 비중', '장외', '지지', '저항', '레벨', '스프레드',
-    '선물', '지수', '주가', '종목', '섹터', '반도체', '기술주', '가격', '물가', '고용', '주택', '착공', '허가', '판매', '범위', '프리미엄', '콜', '풋', '시장',
+    '선물', '지수', '주가', '종목', '섹터', '반도체', '기술주', '가격', '물가', '고용', '주택', '착공', '허가', '판매', '범위', '프리미엄', '콜', '풋', '시장', '심리', '신뢰', '구매관리자',
     // ja
     'マックス\\s?ペイン', 'コール\\s?ウォール', 'プット\\s?フロア', 'ガンマ\\s?フリップ', '金利', '利回り', '国債', '年債', '債券', 'ナスダック', 'ダウ', 'ラッセル', 'ブレッドス', '騰落', '値上がり', '値下がり', 'ガンマ', 'ボラティリティ', 'ドル', '金価格', '金相場', '金は', '金が',
     '原油', 'ブレント', 'バレル', 'ビットコイン', '恐怖', '強欲', 'スクイーズ', '想定変動', '場外比率', '場外', 'サポート', 'レジスタンス', '水準', 'スプレッド',
-    '先物', '指数', '株価', '銘柄', 'セクター', '半導体', 'ハイテク', '価格', '物価', '雇用', '住宅', '着工', '許可', '販売', 'レンジ', '幅', 'プレミアム', 'コール', 'プット', '市場',
+    '先物', '指数', '株価', '銘柄', 'セクター', '半導体', 'ハイテク', '価格', '物価', '雇用', '住宅', '着工', '許可', '販売', 'レンジ', '幅', 'プレミアム', 'コール', 'プット', '市場', '心理', '信頼感', '景況感',
 ];
 // 영어는 낱말 경계(«moderate»의 rate·«decline»은 주어가 아니다 — 방향어는 주어로 치지 않는다)
 const SUBJECT = new RegExp(`(?<![A-Za-z])(?:${SUBJECT_EN.join('|')})(?![A-Za-z])|${SUBJECT_CJK.join('|')}`, 'i');
@@ -121,7 +123,10 @@ export function orphanNumberReasons(text: string): string[] {
             const fwd = text.slice(t.end, fwdTo);
             // 같은 지표의 수준·변화량 연달아(«금리 5.15%로 +6bp 상승») — 직전 숫자와 조사 하나 사이면 그 숫자의 주어를 잇는다(관문 10201522 ②)
             const adjacent = i > 0 && ADJ.test(back) && !orphanIdx.has(i - 1);   // «와·과·and»는 다른 대상의 나열이라 잇지 않는다
-            if (!hasSubject(back) && !subjectRightAfter(fwd) && !adjacent) { out.push(`orphan-number:${t.raw}`); orphanIdx.add(i); }
+            // 같은 절 직전 숫자의 기준선(«금리 5.00%가 5% 아래로»·«yield 5.00%, slipping below 5%»·«5.00%で5%を割り込み») — 실모델 10/24 00:0x 정상 문장 9/9 오탈락
+            const threshold = i > 0 && !orphanIdx.has(i - 1) && /^\s*(?:아래|밑|위|이하|이상|선|대|を割|割れ|割り込|超え|を上回|を下回|台)/.test(fwd)
+                || i > 0 && !orphanIdx.has(i - 1) && /(?:below|above|under|over|beneath|past|through)\s*$/i.test(back);
+            if (!hasSubject(back) && !subjectRightAfter(fwd) && !adjacent && !threshold) { out.push(`orphan-number:${t.raw}`); orphanIdx.add(i); }
         });
     }
     return out;
