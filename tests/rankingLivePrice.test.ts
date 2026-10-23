@@ -22,7 +22,7 @@ const flipRow = (ticker: string, price: number, level: number) => {
     return { ticker, metric: 'gamma-flip', label: { ko: '감마플립 근접' }, price, level, gapPct: Math.round(gap * 1000) / 10, date: null, rank: -Math.abs(gap) };
 };
 const mpRow = (ticker: string, price: number, level: number) => {
-    const gap = (price - level) / price;
+    const gap = (level - price) / price;
     return { ticker, metric: 'maxpain-gap', label: { ko: '맥스페인 이격도' }, price, level, gapPct: Math.round(gap * 1000) / 10, date: null, rank: Math.abs(gap) };
 };
 const block = (rows: any[], top = 5, poolSize = LIVE_POOL_SIZE) => {
@@ -84,9 +84,19 @@ const block = (rows: any[], top = 5, poolSize = LIVE_POOL_SIZE) => {
     await t('순위: 맥스페인 이격도는 «먼 순»', () => {
         const rows = [mpRow('A', 100, 90), mpRow('B', 100, 95), mpRow('C', 100, 99)];
         const { results } = applyLivePrices({ 'maxpain-gap': block(rows) }, { A: 96, B: 110, C: 99.5 }, { top: 3, asOf: ASOF });
-        // A: (96−90)/96 = 6.25%, B: (110−95)/110 = 13.6%, C: (99.5−99)/99.5 = 0.5%
+        // (레벨−가격)/가격: A −6.25%, B −13.6%, C −0.5%. 순위는 절댓값 기준.
         assert.deepEqual(results!['maxpain-gap'].items.map((r: any) => r.ticker), ['B', 'A', 'C']);
-        assert.deepEqual(results!['maxpain-gap'].items.map((r: any) => r.gapPct), [13.6, 6.3, 0.5]);
+        assert.deepEqual(results!['maxpain-gap'].items.map((r: any) => r.gapPct), [-13.6, -6.2, -0.5]);
+    });
+
+    await t('M11: 맥스페인 아래는 양수, 위는 음수, 일치는 0 — 장중 재계산도 같은 부호', () => {
+        const res = { 'maxpain-gap': block([mpRow('NVDA', 212.21, 220), mpRow('IBM', 252.11, 240), mpRow('ZERO', 100, 100)]) };
+        const { results } = applyLivePrices(res, { NVDA: 212.21, IBM: 252.11, ZERO: 100 }, { top: 5, asOf: ASOF });
+        const rows = results!['maxpain-gap'].items;
+        assert.equal(rows.find((r: any) => r.ticker === 'NVDA').gapPct, 3.7);
+        assert.equal(rows.find((r: any) => r.ticker === 'IBM').gapPct, -4.8);
+        assert.equal(rows.find((r: any) => r.ticker === 'ZERO').gapPct, 0);
+        assert.ok(rows.every((r: any) => r.priceSource === 'live'));
     });
 
     await t('시세 없는 종목은 스냅샷 값 그대로(priceSource snapshot) — 있는 종목과 한 줄에 섞여도 순서가 선다', () => {
