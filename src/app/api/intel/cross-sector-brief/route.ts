@@ -7,7 +7,7 @@
 // ==========================================================================
 
 import { NextResponse } from 'next/server';
-import { getLatestSnapshot } from '@/lib/supabase/snapshot';
+import { getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { callBedrock } from '@/services/bedrockClient';
 import { multiLangJsonGate } from '@/lib/ai/ladderGates';
@@ -55,6 +55,15 @@ function getTodayET(): string {
 
 function getDayOfWeekET(): string {
     return new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' });
+}
+
+/** Dry replay clock: the production cron's 17:50 ET for that session, never later than the real clock. */
+function dryClock(date: string, real: Date): Date {
+    for (const utc of ['21:50', '22:50']) {
+        const d = new Date(`${date}T${utc}:00Z`);
+        if (d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) === '17:50') return d < real ? d : real;
+    }
+    return real;
 }
 
 function getCacheKey(date: string) {
@@ -211,13 +220,26 @@ export async function POST(req: Request) {
     const startTime = Date.now();
 
     try {
-        const now = new Date();
-        const todayDate = getTodayET();
+        // Dry (?dry=1) never writes. Only a dry run may replay a past session (?date=YYYY-MM-DD) — inputs are limited to
+        // that ET session as of its 17:50 ET cron time; the scheduled path (no params) is unchanged.
+        const params = new URL(req.url).searchParams;
+        const dryRun = params.get('dry') === '1';
+        const dryDate = dryRun && params.has('date') ? reportDate(params.get('date')) : null;
+        if (dryRun && params.has('date') && !dryDate) return NextResponse.json({ error: 'Invalid report date' }, { status: 400 });
+        const now = dryDate ? dryClock(dryDate, new Date()) : new Date();
+        const todayDate = dryDate || getTodayET();
         const closeMinutes = sessionCloseMinutes(todayDate);
         // 1. Fetch all 10 sector snapshots from Supabase
         console.log('[CrossSectorBrief V3] Fetching 10 sector snapshots...');
         const snapshots = await Promise.all(
             SECTOR_IDS.map(async (id) => {
+                if (dryDate) {
+                    // snapshot_date is a label; the capture time must also fall on that ET session, before the replay clock.
+                    const snap = await getSnapshotByDate(id, dryDate);
+                    const at = new Date(String((snap?.data_json as any)?.meta?.snapshot_timestamp || ''));
+                    const ok = Number.isFinite(at.getTime()) && at <= now && at.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === dryDate;
+                    return { id, sessionDate: snap?.snapshot_date, data: ok ? snap!.data_json : null };
+                }
                 const snap = await getLatestSnapshot(id);
                 return { id, sessionDate: snap?.snapshot_date, data: snap?.snapshot_date === todayDate ? snap.data_json : null };
             })
@@ -259,7 +281,7 @@ export async function POST(req: Request) {
             // FMP economic calendar from Redis
             getFromCache<any[]>('fmp:econ-calendar'),
             // Market news with extended descriptions
-            fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '10', order: 'desc', sort: 'published_utc' }, true)
+            fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '10', order: 'desc', sort: 'published_utc', ...(dryDate ? { 'published_utc.lte': now.toISOString() } : {}) }, true)
                 .then((res: any) => CLOSING.newsEvidence(res?.results || [], todayDate, now, closeMinutes))
                 .catch(() => []),
             getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.DXY),
@@ -289,7 +311,7 @@ export async function POST(req: Request) {
         let indexRows: IndexLevelRow[] = [];
         try {
             const lvMap = await levelsForExit([...INDEX_LEVEL_TICKERS]);
-            const nowMs = Date.now();
+            const nowMs = dryDate ? now.getTime() : Date.now();
             indexRows = INDEX_LEVEL_TICKERS.map((t) => indexLevelRow(t, lvMap.get(t), nowMs)).filter((r): r is IndexLevelRow => !!r && r.asOf != null && new Date(r.asOf).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === todayDate);
         } catch (e: any) {
             console.warn('[CrossSectorBrief V3] 지수 ETF 레벨 판본 읽기 실패(블록 없이 진행):', e?.message);
@@ -371,6 +393,7 @@ export async function POST(req: Request) {
         const systemPrompt = 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive/advisory language (will, should, recommended). No investment advice. '
             // ★2026-10-10 Haiku 5.5 가 일본어 칸에 한글/영어를 섞는 일이 있었다(10건 중 1~2건, 규칙을 넣으면 9/10). 현행 모델에도 해가 없는 문장.
             + 'LANGUAGE RULES: write Korean fields in Hangul only and never insert Japanese kana or Chinese characters; write Japanese fields in Japanese only. Keep company names, tickers and other English proper nouns in their original Latin spelling in every language field; never transliterate them by sound into Hangul or katakana.';
+        const aiStarted = Date.now();
         const bedrockResult = await callBedrock({
             system: systemPrompt,
             userPrompt: prompt,
@@ -390,6 +413,8 @@ export async function POST(req: Request) {
                 } catch { return false; }
             },
         });
+
+        const aiMs = Date.now() - aiStarted;
 
         let structured: CrossSectorBriefV3;
         try {
@@ -478,7 +503,6 @@ export async function POST(req: Request) {
         });
         if (!briefData.guard.ok) console.warn(`[CrossSectorBrief V4] 서빙 가드 탈락(저장은 함, GET 은 v3 로): ${briefData.guard.reasons.join(', ')}`);
 
-        const dryRun = new URL(req.url).searchParams.get('dry') === '1';
         if (!dryRun) await setInCache(getCacheKey(today), briefData, 259200); // 72h TTL — covers weekends (Fri→Mon)
         const elapsed = Date.now() - startTime;
 
@@ -489,6 +513,7 @@ export async function POST(req: Request) {
             dryRun,
             ...briefData,
             elapsedMs: elapsed,
+            ...(dryRun ? { ai: { provider: bedrockResult.provider || 'legacy', model: bedrockResult.model, elapsedMs: aiMs, truncated: !!bedrockResult.truncated }, replayClock: now.toISOString() } : {}),
         });
 
     } catch (e: any) {
