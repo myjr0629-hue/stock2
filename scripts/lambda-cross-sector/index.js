@@ -164,7 +164,7 @@ exports.handler = async (event, context) => {
 
         // 2. Fetch Redis Macro + News
         console.log('Fetching Redis macros and market news...');
-        const [
+        let [
             redisVix, redisVix3m, redisSpx, redisNq, redisTnx,
             redisBtc, redisFng, redisGold, redisOil, redisTlt,
             redisRut, redisUsdkrw, redisUsdjpy,
@@ -195,6 +195,13 @@ exports.handler = async (event, context) => {
             ...INDEXLEVELS.TICKERS.map((t) => redisGet(`structure:v2:${t}`)),
         ]);
 
+        // All prompt and display readings must belong to the same ET session.
+        [redisVix, redisVix3m, redisSpx, redisNq, redisTnx, redisBtc, redisFng,
+            redisGold, redisOil, redisTlt, redisRut, redisUsdkrw, redisUsdjpy, redisDxy] =
+            [redisVix, redisVix3m, redisSpx, redisNq, redisTnx, redisBtc, redisFng,
+                redisGold, redisOil, redisTlt, redisRut, redisUsdkrw, redisUsdjpy, redisDxy]
+                .map(q => CLOSING.sessionReading(q, todayDate, now));
+
         const cashCloses = {
             spx: CLOSING.regularClose(redisIdxSpx, '^GSPC', todayDate, now, closeMinutes),
             nasdaq: CLOSING.regularClose(redisIdxNasdaq, '^IXIC', todayDate, now, closeMinutes),
@@ -207,7 +214,7 @@ exports.handler = async (event, context) => {
 
         // 2c. 지수 ETF 옵션 구조 레벨(SPY·QQQ·IWM) — 입력에 진짜 레벨이 없어 keyLevels 가 [VIX3M] 한 칸·빈 배열이 되던 것을 푼다(Vercel 판과 같은 블록·같은 출구)
         const nowMsLv = Date.now();
-        const indexRows = INDEXLEVELS.TICKERS.map((t, i) => INDEXLEVELS.rowFromStored(t, structureVersions[i], nowMsLv)).filter(Boolean);
+        const indexRows = INDEXLEVELS.TICKERS.map((t, i) => INDEXLEVELS.rowFromStored(t, structureVersions[i], nowMsLv)).filter(r => r && r.asOf != null && new Date(r.asOf).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === todayDate);
         const levelsBlock = INDEXLEVELS.buildLevelsBlock(indexRows);
         console.log(`[CrossSector] index levels: ${indexRows.map((r) => `${r.ticker}(${r.putFloor ?? '-'}/${r.callWall ?? '-'})`).join(' ') || 'none'}`);
 
@@ -259,7 +266,6 @@ exports.handler = async (event, context) => {
             fmt(redisNq, 'NQ=F NASDAQ100 daily futures change (not NASDAQ Composite)'),
             fmt(redisRut, 'RTY=F daily futures change (not cash close)'),
             redisTnx ? `US10Y: ${redisTnx.price.toFixed(2)}% (${tnxBp(redisTnx)})` : null,
-            fmt(redisDxy, 'DXY'),
             fmt(redisDxy, 'DXY'), fmt(redisTlt, 'TLT(20Y+Bond)'), fmt(redisGold, 'Gold'), fmt(redisOil, 'WTI Oil'),
             redisBtc ? `BTC: $${redisBtc.price.toFixed(0)} (${redisBtc.changePct >= 0 ? '+' : ''}${redisBtc.changePct.toFixed(2)}%)` : null,
             redisFng ? `Fear & Greed: ${redisFng.value || redisFng.score || 'N/A'}` : null,
@@ -269,10 +275,10 @@ exports.handler = async (event, context) => {
 
         const upcomingEvents = CLOSING.calendarEvidence(fmpCalendar, now);
 
-        const readings = { vix: redisVix, vix3m: redisVix3m, us10y: redisTnx, dollar: redisDxy,
+        const readings = { btc: redisBtc, fearGreed: redisFng, vix: redisVix, vix3m: redisVix3m, us10y: redisTnx, dollar: redisDxy,
             usdkrw: redisUsdkrw, usdjpy: redisUsdjpy, gold: redisGold, oil: redisOil, tlt: redisTlt,
             futures: { es: redisSpx, nq: redisNq, rty: redisRut } };
-        const reportEvidence = { readings, regularClose: cashCloses, news: [...marketNews, ...sectorSummaries.flatMap(s => s.news)], events: upcomingEvents };
+        const reportEvidence = { sessionDate: todayDate, readings, regularClose: cashCloses, news: [...marketNews, ...sectorSummaries.flatMap(s => s.news)], events: upcomingEvents };
         const prompt = CLOSING.buildClosingPrompt({ sessionDate: todayDate, macroStr, levelsSection: INDEXLEVELS.levelsPromptSection(levelsBlock.block),
             evidence: reportEvidence, sectorSummaries, keyLevelsSchema: KEYLEVELS.SCHEMA_EXAMPLE, keyLevelsRequirement: KEYLEVELS.REQUIREMENT });
 
@@ -377,6 +383,7 @@ exports.handler = async (event, context) => {
         const briefData = {
             structured,
             reportEvidence,
+            sectorInputs: sectorSummaries,
             reportSource: prompt,
             provider: 'bedrock',
             model: command.input.modelId,

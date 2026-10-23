@@ -263,7 +263,7 @@ export async function selectServedBrief(read: (key: string) => Promise<any>, dat
 export function toServedPayload(sel: SelectedBrief): Record<string, any> {
     // v4 는 서빙 가드가 keyLevels 근거를 이미 요구했으니 그대로, v3·v2 는 예전처럼 입력에 없는 칸을 걸러 내보낸다(lib/ai/keyLevels sanitizeServedBrief)
     const base = sel.source === 'v4' ? sel.brief : sanitizeServedBrief(sel.brief || {}).brief;
-    const { guard, reportSource: _source, reportEvidence: _evidence, ...rest } = base || {};
+    const { guard, reportSource: _source, reportEvidence: _evidence, sectorInputs: _sectors, ...rest } = base || {};
     const out: Record<string, any> = { ...rest, source: sel.source };
     if (sel.source === 'v4' && guard) out.generatedBy = { provider: guard.provider, model: guard.model };
     if (sel.v4Rejected?.length) out.v4Rejected = sel.v4Rejected;

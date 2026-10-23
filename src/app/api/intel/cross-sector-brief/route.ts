@@ -229,7 +229,7 @@ export async function POST(req: Request) {
         }
 
         // 2. Fetch ALL macro indicators + actual index closes + news + calendar from Redis
-        const [
+        let [
             redisVix, redisVix3m, redisSpx, redisNq, redisTnx,
             redisBtc, redisFng, redisGold, redisOil, redisTlt,
             redisRut, redisUsdkrw, redisUsdjpy,
@@ -265,6 +265,13 @@ export async function POST(req: Request) {
             getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.DXY),
         ]);
 
+        // All prompt and display readings must belong to the same ET session.
+        [redisVix, redisVix3m, redisSpx, redisNq, redisTnx, redisBtc, redisFng,
+            redisGold, redisOil, redisTlt, redisRut, redisUsdkrw, redisUsdjpy, redisDxy] =
+            [redisVix, redisVix3m, redisSpx, redisNq, redisTnx, redisBtc, redisFng,
+                redisGold, redisOil, redisTlt, redisRut, redisUsdkrw, redisUsdjpy, redisDxy]
+                .map(q => CLOSING.sessionReading(q, todayDate, now));
+
         // 2b. Use actual index data from Redis (regular session close, not futures)
         // Only same-session, timestamped actual cash index quotes qualify.
         const cashCloses = {
@@ -283,7 +290,7 @@ export async function POST(req: Request) {
         try {
             const lvMap = await levelsForExit([...INDEX_LEVEL_TICKERS]);
             const nowMs = Date.now();
-            indexRows = INDEX_LEVEL_TICKERS.map((t) => indexLevelRow(t, lvMap.get(t), nowMs)).filter((r): r is IndexLevelRow => !!r);
+            indexRows = INDEX_LEVEL_TICKERS.map((t) => indexLevelRow(t, lvMap.get(t), nowMs)).filter((r): r is IndexLevelRow => !!r && r.asOf != null && new Date(r.asOf).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === todayDate);
         } catch (e: any) {
             console.warn('[CrossSectorBrief V3] 지수 ETF 레벨 판본 읽기 실패(블록 없이 진행):', e?.message);
         }
@@ -352,10 +359,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'AWS credentials not configured' }, { status: 500 });
         }
 
-        const readings = { vix: redisVix, vix3m: redisVix3m, us10y: redisTnx, dollar: redisDxy,
+        const readings = { btc: redisBtc, fearGreed: redisFng, vix: redisVix, vix3m: redisVix3m, us10y: redisTnx, dollar: redisDxy,
             usdkrw: redisUsdkrw, usdjpy: redisUsdjpy, gold: redisGold, oil: redisOil, tlt: redisTlt,
             futures: { es: redisSpx, nq: redisNq, rty: redisRut } };
-        const reportEvidence = { readings, regularClose: cashCloses, news: [...marketNews, ...sectorSummaries.flatMap(s => s.news)], events: upcomingEvents };
+        const reportEvidence = { sessionDate: todayDate, readings, regularClose: cashCloses, news: [...marketNews, ...sectorSummaries.flatMap(s => s.news)], events: upcomingEvents };
         const prompt = CLOSING.buildClosingPrompt({ sessionDate: todayDate, macroStr, levelsSection: levelsPromptSection(levelsBlock.block),
             evidence: reportEvidence, sectorSummaries, keyLevelsSchema: KEYLEVELS_SCHEMA_EXAMPLE, keyLevelsRequirement: KEYLEVELS_REQUIREMENT });
 
@@ -447,6 +454,7 @@ export async function POST(req: Request) {
         const briefData: Record<string, any> = {
             structured,
             reportEvidence,
+            sectorInputs: sectorSummaries,
             reportSource: prompt,
             generatedAt: new Date().toISOString(),
             date: today,

@@ -18,6 +18,7 @@ export interface ClosingNarrative {
 export function closingReportProblems(brief: any): string[] {
     if (!brief?.reportEvidence && !brief?.structured?.closingNarrative) return [];
     const errors: string[] = contract.evidenceProblems(brief.structured, brief.reportEvidence);
+    if (brief.date && brief.reportEvidence?.regularClose?.spx?.sessionDate !== brief.date) errors.push('narrative:report-date');
     const n = brief.structured?.closingNarrative;
     for (const field of contract.FIELDS as (keyof Omit<ClosingNarrative, 'version' | 'causeRefs'>)[]) {
         for (const loc of ['ko', 'en', 'ja'] as const) {

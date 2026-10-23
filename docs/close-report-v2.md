@@ -49,3 +49,64 @@
 비교용 생성 경로는 Vercel 인증 POST의 `?dry=1`, Lambda 수동 이벤트의 `dryRun:true`다. 결과와 입력 근거를 반환하며 보고서 저장은 건너뛴다. 이 경로도 실제 모델 호출 비용은 발생하므로 운영 세션에서만 실행한다. 푸시는 별도 크론의 기존 `dry=1`을 사용한다.
 
 남은 한계: 뉴스의 사건 시각·인과관계와 세 언어 사건 의미 일치는 프롬프트·정형 검사만으로 증명되지 않는다. 기존 v3/v2로 대체되면 이전 서사가 보일 수 있다. Redis 보관 72시간이 지난 딥링크는 404로 종료한다. 푸시의 기존 비원자적 중복 방지·마지막 섹터 완료 표식은 이번 범위에서 바꾸지 않는다. 모바일 실제 화면 높이와 OS별 알림 탭은 운영 세션의 실기기 확인이 필요하다.
+
+## 날짜 혼합 관문 후속 수리 (2026-10-23)
+
+원인: 앱의 날짜 쿼리는 크로스 요약 GET에만 전달됐고, W/L은 `shownRegularSessionDate()`의 최신 시세, 섹터 카드는 최신 캐시·시세·옵션 보충으로 재계산됐다. 날짜 지정 스냅샷 API도 최신 AI 헤드라인을 덮었다.
+
+수리:
+
+- 보고서 GET이 반환한 `date`를 고정한다. 날짜 쿼리가 없는 경우도 반환된 보고서 날짜를 사용한다. 섹터 스냅샷은 전부 그 날짜로 조회하며 날짜가 다른 응답은 거절한다.
+- 보고서 전용 날짜·언어별 상태를 사용한다. W/L과 섹터 카드·펼침은 같은 저장 행에서 계산한다. 최신 시세·캐시·옵션 보충·상세 로더는 이 상태에 합치지 않는다. 없는 섹터는 이름과 기존 읽기 실패 문구를 표시한다. 섹터 칸을 숨기지 않는다.
+- 날짜 조회 API는 최신 AI 제목을 덮지 않는다. 캐시·DB 응답 날짜도 요청 날짜와 대조한다. 날짜가 없는 기존 조회 동작은 유지한다.
+- 보고서 뉴스는 타임존이 명시된 보도 시각의 ET 날짜가 맞는 것만 사용한다. Vercel·Lambda의 매크로 입력·표시값은 같은 ET 날짜의 관측으로 제한하고 날짜 없음·미래·stale 값을 제외한다. ETF 레벨도 계산 시각의 ET 날짜를 확인한다. 옵션 OI 기준일은 기존 레벨 블록에 날짜가 명시된다.
+- 공통 프롬프트는 모든 보조 필드까지 같은 정규장 세션을 요구한다. 장후 관측은 날짜·시각을 붙이며 현물 종가로 취급하지 않는다. 다음 일정·비교 기준은 날짜와 기준을 명시한다. 근거 가드는 현물 날짜, 뉴스 날짜, 매크로 날짜, 저장본 날짜의 불일치를 거절한다.
+
+공유 함수 호출자 확인:
+
+| 변경 함수 | 전체 호출자와 영향 | 검증 |
+|---|---|---|
+| `sessionReading` (신규) | Vercel·Lambda 입력, 공통 근거 가드, 비교 스크립트. 다른 날짜·날짜 미상 매크로 제외 | `closingSession`, `closingReport`, `compareCloseReport` |
+| `buildClosingPrompt` | Vercel·Lambda 생성, 비교 스크립트. 전 필드의 세션 날짜·장후 구분 강화 | `closingReport`, `closingSession`, `compareCloseReport` |
+| `evidenceProblems`·`closingReportProblems` | Lambda 생성, Vercel 생성 검증, `buildGenerationGuard`, `evaluateServedV4`, `newLegacyProblems`, 비교 스크립트. API·푸시의 새 서사 선택에 영향 | `closingReport`, `crossBriefServe`, `pushAiLine`, 전체 오프라인 시험 |
+| 앱 내부 `buildSnapshotReport` | 보고서 스냅샷 조회 effect 1곳. 명시 날짜와 응답 날짜 대조 | `closingSession` |
+| `closingReportForApp` (신규) | 보고서 탭 전용. 날짜가 맞는 저장 행을 설정 목록에 맞춘 뒤 관찰문을 만든다. 저장 옵션값을 보존한다. 기존 `viewReportForApp`의 실시간 상세·카드 호출은 유지 | `closingSession`, 기존 Intel 시험 |
+| `toServedPayload` | 보고서 API GET 호출. 비교 재생용 `sectorInputs`를 내부 입력으로 유지하고 공개 응답에서 제외 | `closingReport`, `crossBriefServe` |
+| 스냅샷 GET | 앱·웹·공유 데이터 훅의 조회. 날짜 지정 시 최신 제목 덮기 금지·응답 날짜 대조, 기본 latest 조회 유지 | `closingSession`, 기존 스냅샷 시험 |
+
+### 운영 비교 스크립트
+
+`scripts/compare-close-report.mjs`는 운영 세션에서만 실행한다. 이 작업에서는 운영 Redis·모델을 호출하지 않았다. 환경 파일을 읽지 않으며 프로세스에 이미 설정된 `UPSTASH_REDIS_REST_URL`과 `UPSTASH_REDIS_REST_READ_ONLY_TOKEN` (또는 `KV_REST_API_URL`·`KV_REST_API_READ_ONLY_TOKEN`)을 사용한다. Upstash 쓰기 토큰으로 대체하지 않는다. `EC2_REDIS_PROXY_URL`과 `EC2_REDIS_PROXY_KEY`(또는 `REDIS_PROXY_KEY`)가 함께 있으면 보고서 키는 운영 기본 저장소인 EC2 프록시에 GET으로 조회한다. 없으면 Upstash 사본을 조회하며 출력에 저장소 이름을 표시한다. 사다리 상태·한도는 항상 Upstash 읽기 전용 조회다. EC2가 응답한 결측을 Upstash의 오래된 사본으로 대체하지 않는다.
+
+```sh
+# 조회만: 최근 저장 키 최대 20개, 과거 90일 범위. 표는 stdout으로 출력.
+node scripts/compare-close-report.mjs --count 20 --days 90
+# 실제 비교: 저장본마다 3회 유료 생성. 검토 결과는 공개 저장소 밖에 보관.
+node scripts/compare-close-report.mjs --count 20 --days 90 --generate --runs 3
+```
+
+- 정확한 날짜 키 `postmarket:cross-brief-v4/v3/v2:YYYY-MM-DD`를 최신 날짜·버전 순으로 GET만 한다. N은 날짜 수가 아닌 저장 키 개수다. SCAN/KEYS나 API 자가 복구 경로를 호출하지 않는다.
+- 저장본의 `reportEvidence`, `sectorInputs` 또는 보존된 프롬프트의 섹터 입력으로 새 공통 프롬프트를 만든다. 원입력 또는 날짜 근거가 없으면 비교 불가로 표시한다. 현재의 Redis 시세로 과거를 재구성하지 않는다. 새 생성기는 `sectorInputs`도 저장한다.
+- 기존 `runLadder`·`callBedrock`·언어/숫자/서사 가드를 재사용한다. 사다리 상태·한도 조회는 읽기 전용 GET, 호출 기록·캡처·원장·서킷의 변경은 프로세스 메모리에만 수행한다. 운영 Redis에 쓰지 않는다. 실행 중 운영 원장에는 비용이 반영되지 않으므로 비교 횟수와 출력 비용을 운영 세션에서 별도 기록한다.
+- ko/en/ja별 모든 구조 필드를 저장본/새 결과로 나란히 출력한다. 모델·지연·비용·가드 사유·사다리 결과도 기록한다. 기존 fallback 클라이언트는 사용량을 반환하지 않으므로 그 경로의 비용은 `unknown`으로 남긴다. 탈락 결과도 검토할 수 있도록 표에 남긴다. 키·자격증명·오류 원문은 출력하지 않으며 출력 텍스트의 환경 비밀값은 가린다.
+- 요청 수 미달·원입력 없음·생성 실패·가드 탈락은 종료 코드 1이다. 보관 72시간으로 20개를 확보하지 못할 수 있다. 이 경우 충분한 보존 입력을 운영 세션에서 준비해야 하며, 스크립트 실행만으로 필수 비교를 통과했다고 보지 않는다.
+
+후속 변경 파일:
+
+- 날짜 조회·렌더: `src/app/[locale]/app-view/intel/page.tsx`, `src/app/api/intel/snapshot/route.ts`
+- 생산·가드·서빙: `scripts/lambda-cross-sector/closingReport.js`, `scripts/lambda-cross-sector/index.js`, `src/app/api/intel/cross-sector-brief/route.ts`, `src/lib/ai/closingReport.ts`, `src/lib/ai/crossBriefServe.ts`
+- 운영 비교: `scripts/compare-close-report.mjs`
+- 시험: `tests/closingSession.test.ts`, `tests/compareCloseReport.test.mjs`, `tests/closingReport.test.tsx`, `tests/appAccuracy2.test.ts`, `tests/appIntelNoFakeValues.test.ts`, `tests/intelFillFollowups.test.ts`, `tests/intelSectorBrief.test.ts`, `tests/intelSnapshotScore.test.ts`
+- 인계: `docs/close-report-v2.md`
+
+### 후속 검증 결과
+
+- 모든 무거운 실행은 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 직렬화했다. 전체 시험은 1회만 실행했다. 운영 Redis 조회·모델 호출·브라우저·실기기·발송·운영 쓰기·커밋·push·병합·배포는 실행하지 않았다.
+- 최초 표적 `closingReport`, `closingSession`, `compareCloseReport`, `crossBriefServe`, `reportLink`: 5/5 통과.
+- 전체 오프라인 시험: 297개 중 최초 291개 통과·6개 실패. 4개는 최신 화면 날짜/최신 캐시를 가정하던 기존 검사라 보고서 날짜·별도 상태를 검증하도록 갱신했다. 최신 시세가 없다는 이유로 저장 옵션값을 비우지 않도록 마감 전용 순수 경로도 검증했다.
+- 수정 후 표적 9개 (`appAccuracy2`, `appIntelNoFakeValues`, `closingReport`, `closingSession`, `compareCloseReport`, `crossBriefServe`, `intelFillFollowups`, `intelSectorBrief`, `intelSnapshotScore`): 9/9 통과. 합산 최종 **297개 중 295개 통과·2개 기존 실패**, 지정 제외 대상 외 실패 0. 기록은 `.logs/ux-gate/final.json`이다.
+- 제외된 실패: `earningsScenario`의 기준 커밋 바이트/범위 비교 2건 (22건 중 20건 통과), `readCheck` 15번 기준 커밋 비교 1건 (18건 중 17건 통과). 사용자 지정 기존 제외 범위다. `giftShareGate`는 이 환경에서 통과했다.
+- `./node_modules/.bin/tsc --noEmit --incremental false`: 1회 실행, 종료 코드 0·오류 0.
+- CJS 공유 계약·Lambda와 비교 스크립트 문법, 비교 CLI `--help`, `git diff --check`: 통과. 오프라인 비교 시험은 HTTP GET 경로·EC2/Upstash 분리·원입력 결측 거절·세 언어 표·비밀값 가림·기존 사다리 어댑터의 메모리 전용 쓰기를 검증한다.
+
+남은 위험: 운영 저장본 20개 이상·실모델 3회 이상 비교 및 실제 알림/실기기 검증은 운영 세션의 병합 전 과제로 남는다. 시각 근거가 없는 옛 저장본의 입력 날짜를 소급 증명할 수 없으며 그런 표본은 비교 불가로 표시한다. 날짜 검증 강화로 날짜가 없거나 다른 날인 매크로/뉴스/옵션 근거는 줄어들 수 있다. 실제 공급사 결측률·모델 탈락률·다국어 의미 정확성은 운영 비교에서 확인해야 한다.

@@ -127,6 +127,7 @@ t('푸시: 판정 숫자 포함, 권유 거절, 숫자 없는 요약은 정적 �
     const payload = toServedPayload(lambda!);
     assert.equal('reportSource' in payload, false);
     assert.equal('reportEvidence' in payload, false);
+    assert.equal('sectorInputs' in toServedPayload({ ...lambda!, brief: { ...lambda!.brief, sectorInputs: [] } }), false);
     const brokenNew = { ...old, ...brief(), date: DAY, generatedAt: NOW.toISOString(), reportSource: '' };
     brokenNew.structured.closingNarrative.causeRefs = [{ newsId: 'market-2', kind: 'reported_context' }];
     const reads: string[] = [];

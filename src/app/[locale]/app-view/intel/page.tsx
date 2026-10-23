@@ -483,6 +483,13 @@ function viewReportForApp(report: SectorReportData, sectorId: string, quotes: In
   return applySectorBrief(aligned, sec?.stocks || [], locale, avgChangeOfQuotes(quotes, sessionDate), sessionDate);
 }
 
+/** Dated closing rows retain their stored options; no live quote merge or blanking. */
+function closingReportForApp(report: SectorReportData, sectorId: string, locale: AppLocale, date: string): SectorReportData {
+  const sec = SECTOR_CONFIGS.find(item => item.id === sectorId);
+  const aligned = alignReportToConfig(report, sectorId, [], date);
+  return applySectorBrief(aligned, sec?.stocks || [], locale, null, date);
+}
+
 function mergeStockWithQuote(stock: KeyStockPremiumData, quote?: IntelQuote): KeyStockPremiumData {
   // 시세가 아직 없으면 리포트(스냅샷)의 GEX·PCR 도 쓰지 않는다 — 다른 만기 범위의 값이다. 시세가 오면 채워진다(칸은 «—»).
   if (!quote) return { ...stock, changePct: stock.changePctSourceDate ? stock.changePct : null, gex: null, pcr: null, gammaRegime: null };
@@ -1522,6 +1529,8 @@ function AppIntelContent() {
   }, []);
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [reportLoadingSector, setReportLoadingSector] = useState<string | null>(null);
+  const [closingDate, setClosingDate] = useState<string | null>(null);
+  const [closingReports, setClosingReports] = useState<{ date: string; locale: string; reports: Record<string, SectorReportData> } | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
   const [crossBriefError, setCrossBriefError] = useState(false);
   const [crossBriefGeneratedAt, setCrossBriefGeneratedAt] = useState<string>('');
@@ -1590,6 +1599,9 @@ function AppIntelContent() {
         if (res.ok && active) {
           const data = await res.json();
           if (!active) return;
+          const day = reportDate(data.date);
+          if (!day || (requestedDate && day !== requestedDate)) { setCrossBriefError(true); return; }
+          setClosingDate(day);
           if (data.success && data.structured) {
             setCrossBrief(data.structured);
           } else if (data.success && data.marketOverview) {
@@ -1605,6 +1617,9 @@ function AppIntelContent() {
       } catch { if (active) setCrossBriefError(true); }
     };
     setCrossBriefError(false);
+    setClosingDate(null);
+    setClosingReports(null);
+    setExpandedReport(null);
     setCrossBrief(null);
     setCrossMacro([]);
     setVixTerm(null);
@@ -2482,20 +2497,21 @@ function AppIntelContent() {
     };
   };
 
-  // [UNIFIED SOURCE] All 10 sector closing reports come from the same per-sector
-  // post-market snapshot endpoint the web uses (/api/intel/snapshot?sector=X).
-  // Every sector is generated fresh (~5-min stagger), so there is no reason for the
-  // app to fall back to the stale 2-sector type=global report. Pure builder shared
-  // shape with loadSectorReport's snapshot mapping.
-  const buildSnapshotReport = useCallback((data: any, sectorId: string): SectorReportData | null => {
-    if (!data?.success || !data?.snapshot) return null;
+  // Closing reports use the date returned by the cross brief, including default opens.
+  // This mapper accepts only that day's stored snapshot; its state stays separate from live sectors.
+  const buildSnapshotReport = useCallback((data: any, sectorId: string, date: string): SectorReportData | null => {
+    if (!data?.success || !data?.snapshot || data.snapshot_date !== date) return null;
     const sectorCopy = SECTOR_APP_COPY[appLocale][sectorId] || SECTOR_APP_COPY.en[sectorId];
     const summary = data.snapshot.sector_summary || {};
     const briefing = summary.briefing || {};
     const rawNewsDigest =
       summary.newsDigest || summary.news_digest ||
       data.snapshot.newsDigest || data.snapshot.news_digest || data.newsDigest;
-    const newsItems = normalizeNewsDigest(rawNewsDigest);
+    const newsItems = normalizeNewsDigest(rawNewsDigest).filter(item => {
+      const stamp = item.publishedAt || '';
+      const ms = /(?:Z|[+-]\d\d:\d\d)$/.test(stamp) ? Date.parse(stamp) : NaN;
+      return Number.isFinite(ms) && etDateOf(ms) === date;
+    });
     const sentiment = summary.outlook || data.snapshot.sentiment || 'NEUTRAL';
     const localizedHeadline = locale === 'ko'
       ? (briefing.headline || briefing.headlineEN || data.snapshot.verdict || '')
@@ -2538,7 +2554,7 @@ function AppIntelContent() {
       avgPcr: summary.avg_pcr ?? 0,
       totalGex: summary.total_gex ?? 0,
       dominantRegime: summary.dominant_regime || 'NEUTRAL',
-      avgAlpha: averageMeasured((data.snapshot.tickers || []).map((tick: any) => (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null))) ?? 0,
+      avgAlpha: averageMeasured((data.snapshot.tickers || []).map((tick: any) => (data.snapshot_date === date ? snapshotScoreOrNull(tick) : null))) ?? 0,
       snapshotTime: data.snapshot?.meta?.snapshot_timestamp || '',
       source: 'sector-snapshot',
       reportTitle,
@@ -2553,8 +2569,8 @@ function AppIntelContent() {
       keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
         sym: tick.ticker,
         grade: tick.grade || null,                       // 못 쟀으면 null («B»·55 를 채우지 않는다) — loadSectorReport 와 같은 규칙
-        score: (data.snapshot_date === shownRegularSessionDate() ? snapshotScoreOrNull(tick) : null),
-        alphaScoreSourceDate: data.snapshot_date === shownRegularSessionDate() && snapshotScoreOrNull(tick) != null ? data.snapshot_date : undefined,
+        score: (data.snapshot_date === date ? snapshotScoreOrNull(tick) : null),
+        alphaScoreSourceDate: data.snapshot_date === date && snapshotScoreOrNull(tick) != null ? data.snapshot_date : undefined,
         changePct: snapshotChangeOrNull(tick),
         changePctSourceDate: data.snapshot_date,
         closePrice: tick.close_price || tick.closePrice || 0,
@@ -2580,59 +2596,34 @@ function AppIntelContent() {
   }, [locale, appLocale]);
 
   useEffect(() => {
-    if (intelTab !== 'report') return;
-
+    if (intelTab !== 'report' || !closingDate || (requestedDate && closingDate !== requestedDate)) return;
     let active = true;
     const controller = new AbortController();
     setGlobalReportLoading(true);
-
-    // Instant fallback so cards render immediately; snapshot overwrites when it lands.
-    setReportCache(prev => {
-      const next = { ...prev };
-      SECTOR_CONFIGS.forEach(sec => { if (!next[sec.id]) next[sec.id] = buildSectorReportFromQuotes(sec.id); });
-      return next;
-    });
-
+    setClosingReports(null);
     const timeoutId = window.setTimeout(() => controller.abort(), 12000);
-
-    // Fetch all 10 per-sector closing snapshots in parallel — one unified source.
-    Promise.allSettled(
-      SECTOR_CONFIGS.map(sec =>
-        fetch(`/api/intel/snapshot?sector=${sec.id}`, { cache: 'no-store', signal: controller.signal })
-          .then(res => res.ok ? res.json() : null)
-          .then(data => ({ id: sec.id, report: buildSnapshotReport(data, sec.id) }))
-      )
-    )
-      .then(results => {
-        if (!active) return;
-        const fresh: Record<string, SectorReportData> = {};
-        results.forEach(r => {
-          if (r.status === 'fulfilled' && r.value?.report) fresh[r.value.id] = r.value.report;
-        });
-        if (Object.keys(fresh).length) {
-          setReportCache(prev => {
-            const next = { ...prev };
-            Object.entries(fresh).forEach(([id, rep]) => {
-              next[id] = mergeSectorReportStable(next[id], rep);
-            });
-            return next;
-          });
-          if (selectedSector && fresh[selectedSector]) {
-            setReportData(prev => mergeSectorReportStable(prev || buildSectorReportFromQuotes(selectedSector), fresh[selectedSector]));
-          }
-        }
-      })
-      .finally(() => {
-        window.clearTimeout(timeoutId);
-        if (active) setGlobalReportLoading(false);
-      });
-
-    return () => {
-      active = false;
+    Promise.allSettled(SECTOR_CONFIGS.map(async sec => {
+      const res = await fetch(`/api/intel/snapshot?sector=${sec.id}&date=${closingDate}`, { cache: 'no-store', signal: controller.signal });
+      const data = res.ok ? await res.json() : null;
+      const raw = buildSnapshotReport(data, sec.id, closingDate);
+      // Closing reports never merge live quotes, option batches or the live sector cache.
+      return { id: sec.id, report: raw ? closingReportForApp(raw, sec.id, appLocale, closingDate) : null };
+    })).then(results => {
+      if (!active) return;
+      const reports: Record<string, SectorReportData> = {};
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.report) reports[result.value.id] = result.value.report;
+      }
+      setClosingReports({ date: closingDate, locale: appLocale, reports });
+    }).finally(() => {
       window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [intelTab, selectedSector, buildSnapshotReport]);
+      if (active) setGlobalReportLoading(false);
+    });
+    return () => { active = false; window.clearTimeout(timeoutId); controller.abort(); };
+  }, [intelTab, closingDate, requestedDate, buildSnapshotReport, appLocale]);
+
+  const datedReports = closingReports?.date === closingDate && closingReports?.locale === appLocale
+    && (!requestedDate || closingDate === requestedDate) ? closingReports.reports : {};
 
   const sectorSummaries = SECTOR_CONFIGS.map(sec => {
     const quotes = getSectorQuotes(sec.id);
@@ -3107,7 +3098,7 @@ function AppIntelContent() {
       {!selectedSector && intelTab === 'report' && (
         <div style={{ padding: '12px 16px 0', animation: 'fadeSlideIn 0.25s ease' }}>
           {crossBriefError && <p role="status">{requestedDate || ''} {locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.'}</p>}
-          {Object.keys(reportCache).length === 0 && !crossBrief ? (
+          {(!crossBrief || (requestedDate && closingDate !== requestedDate)) ? (
             <div style={{
               padding: '48px 20px',
               textAlign: 'center',
@@ -3124,7 +3115,7 @@ function AppIntelContent() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {/* ═══ CROSS SECTOR SUMMARY CARD ═══ */}
-              {crossBrief && (() => {
+              {crossBrief && (!requestedDate || closingDate === requestedDate) && (() => {
                 const brief = crossBrief;
                 // Locale FX gating — USD/KRW is Korea-only, USD/JPY is Japan-only.
                 // The API returns both (and can bleed a KRW risk line into en/ja), so the
@@ -3159,9 +3150,9 @@ function AppIntelContent() {
                 const gammaInsight = gamma?.insight?.[L] || gamma?.insight?.en || '';
                 const gRegimeColor = gamma?.regime === 'LONG' ? '#10b981' : gamma?.regime === 'SHORT' ? '#ef4444' : '#f59e0b';
                 const keyLevels = (brief.outlook?.keyLevels || []).slice(0, 4);
-                // 저장 당시 W/L 대신 같은 화면의 기준 세션으로 다시 센다.
-                const breadthRows = SECTOR_CONFIGS.flatMap(sec => getSectorQuotes(sec.id));
-                const breadthValues = breadthRows.map(q => sessionChangeOrNull(q, sessionDate)).filter((v): v is number => v != null);
+                // W/L uses only the dated rows shown in the closing sector cards.
+                const breadthRows = Object.values(datedReports).flatMap(report => report.keyStocksData);
+                const breadthValues = breadthRows.map(q => sessionChangeOrNull(q, closingDate!)).filter((v): v is number => v != null);
                 const totalGainers = breadthValues.filter(v => v >= 0).length;
                 const totalLosers = breadthValues.filter(v => v < 0).length;
                 return (
@@ -3614,7 +3605,13 @@ function AppIntelContent() {
 
               {SECTOR_CONFIGS.map((sec) => {
                 // ★ [3차] 장마감 리포트 카드: 행·집계 = 설정 목록(카드와 같은 종목) · 글 = 그 행에서 만든 관찰 문장(서버 스냅샷 글은 엔진 목록 종목·마감 시각 숫자·예측어를 담는다)
-                const cached = viewReportForApp(reportCache[sec.id] || buildSectorReportFromQuotes(sec.id), sec.id, getSectorQuotes(sec.id), appLocale, sessionDate);
+                const cached = datedReports[sec.id];
+                if (!cached) return (
+                  <div key={sec.id}>
+                    <strong>{SECTOR_APP_COPY[appLocale][sec.id]?.name || sec.id}</strong>
+                    <p role="status">{closingDate} {globalReportLoading ? appCopy.reportLoading : (locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.')}</p>
+                  </div>
+                );
                 const englishName = TRANSLATIONS.en[sec.id] || sec.id;
                 const displayName = cached.reportTitle || englishName;
                 // Unified source: every sector is a real post-market closing report.
@@ -3673,10 +3670,7 @@ function AppIntelContent() {
                 const digestLines = newsItems.length ? [] : (sourceDigestLines.length ? sourceDigestLines : fallbackMetricLines);
                 const riskLines = (cached.riskNotes && cached.riskNotes.length > 0 ? cached.riskNotes : cached.catalysts || []).slice(0, 3);
                 const reportSourceText = reportLabels.sourceLive;
-                const needsSnapshotRefresh =
-                  (cached.source !== 'sector-snapshot' && newsItems.length === 0) ||
-                  (cached.source !== 'global-report' && !hasRichReportPayload(cached));
-                const isReportRefreshing = reportLoadingSector === sec.id;
+                const isReportRefreshing = globalReportLoading;
                 const digestTitle = appLocale === 'en'
                   ? `${sec.id === 'm7' ? 'M7' : (SECTOR_APP_COPY.en[sec.id]?.name || 'Sector').replace(/\s+Tech$/i, '').replace(/\s+Sector$/i, '')} News Digest`
                   : reportLabels.digest;
@@ -3704,9 +3698,7 @@ function AppIntelContent() {
                           return;
                         }
                         setExpandedReport(sec.id);
-                        if (needsSnapshotRefresh) {
-                          void loadSectorReport(sec.id);
-                        }
+                        // The dated snapshot is immutable for this report view.
                       }}
                       style={{
                         width: '100%',
