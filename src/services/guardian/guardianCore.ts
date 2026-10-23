@@ -216,7 +216,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
     const rvolNdx = core.rvol.ndx;
     const rotationIntensity = core.rotationIntensity;
 
-    const nq = guardianCashChange(macro) ?? (macro?.nqChangePercent || 0);
+    const nq = guardianCashChange(macro, core.session || rlsi.session) ?? (macro?.nqChangePercent || 0);
     const score = rlsi.score;
     const nqSign = nq != null && nq >= 0 ? '+' : '';
     const nqStr = nq == null ? '—' : `${nqSign}${nq.toFixed(2)}%`;
@@ -428,7 +428,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
             keyMetrics: [
                 `RLSI ${rlsi.score.toFixed(0)} (${RULE_VERDICT_TEXTS[locale].riskScore})`,
                 `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotDir}`,
-                `NASDAQ ${nqStr}`
+                `NASDAQ ${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`
             ],
             action: RULE_VERDICT_TEXTS[locale].bullish.action
         };

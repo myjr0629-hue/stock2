@@ -24,7 +24,7 @@ test('기존 수집기의 15:59 보정 봉이 17:00에도 Guardian·뉴스에 �
     const changePct = (rec.price / rec.prevClose! - 1) * 100;
     const basis = buildMarketIndexBasis({ nasdaq: { ...quote('^IXIC', marketTime), price: rec.price, changePct } }, ms('2026-10-22T21:00:00Z'));
     assert.equal(basis.cash.nasdaq.price, 26008.86);
-    assert.equal(guardianCashChange({ indexBasis: basis }), changePct);
+    assert.equal(guardianCashChange({ indexBasis: basis }, 'POST'), changePct);
     assert.equal(basis.cash.nasdaq.asOf, marketTime, '15:59를 16:00 또는 조회 시각으로 바꾸지 않는다');
     assert.equal(basis.cash.nasdaq.sessionDate, '2026-10-22');
     assert.equal(basis.cash.nasdaq.live, false);
@@ -65,7 +65,7 @@ test('정상·조기 마감의 마지막 분만 인정하며 더 이른 장중 �
 test('마감 봉의 실제 0과 결측 null을 구분한다', () => {
     for (const changePct of [0, null]) {
         const basis = cash('2026-10-22T19:59:00Z', '2026-10-22T21:00:00Z', changePct);
-        assert.equal(guardianCashChange({ indexBasis: basis }), changePct);
+        assert.equal(guardianCashChange({ indexBasis: basis }, 'POST'), changePct);
         assert.equal(basis.cash.spx.changePct, changePct);
     }
 });

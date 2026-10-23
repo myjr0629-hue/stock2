@@ -78,8 +78,10 @@ export function buildMarketIndexBasis(inputs: {
 }
 
 /** Guardian의 NASDAQ 판정은 종합 현물(^IXIC), NDX/API는 Nasdaq 100 현물(^NDX). */
-export function guardianCashChange(m: { indexBasis?: MarketIndexBasis } | null | undefined): number | null {
-    return finite(m?.indexBasis?.cash?.nasdaq?.changePct);
+export function guardianCashChange(m: { indexBasis?: MarketIndexBasis } | null | undefined, session: string): number | null {
+    const cash = m?.indexBasis?.cash?.nasdaq;
+    // 장중에는 현재 관측만 판정에 쓴다. 장외의 완료 세션 종가는 live:false여도 유효하다.
+    return session === 'REG' && !cash?.live ? null : finite(cash?.changePct);
 }
 
 export function indexContext(b: MarketIndexBasis | undefined): string[] {

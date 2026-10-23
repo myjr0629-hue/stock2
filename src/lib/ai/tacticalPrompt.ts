@@ -473,9 +473,10 @@ export function tacticalIndexReasons(first: string, prompt: string): string[] {
     try { facts = JSON.parse(prompt.match(/^INDEX_FACTS: (.*)$/m)?.[1] || '[]'); } catch { return ['tactical:index-facts']; }
     const session = prompt.match(/^SESSION: (.+)$/m)?.[1];
     const sessionReasons = session === 'REG' && /장후|개장\s*전|after[ -]?hours|pre[ -]?market|時間外|取引開始前|어제|\byesterday\b|昨日/i.test(first) ? ['tactical:session-mismatch'] : [];
-    if (!facts.length) return [...sessionReasons, ...(UNKNOWN.test(first) ? [] : ['tactical:index-unavailable'])];
+    // 관측 없음 문구가 다른 절의 지수 수치를 면제하지 않는다.
+    if (!facts.length && (!UNKNOWN.test(first) || /\d+(?:\.\d+)?\s*%/.test(first))) return [...sessionReasons, 'tactical:index-unavailable'];
     const refs = (Object.keys(INDEX_ALIASES) as IndexFact['id'][]).flatMap(id => [...first.matchAll(new RegExp(INDEX_ALIASES[id]))].map(m => ({ f: facts.find(f => f.id === id), id, at: m.index!, end: m.index! + m[0].length }))).sort((a, b) => a.at - b.at);
-    if (!refs.length) return [...sessionReasons, 'tactical:index-name-required'];
+    if (!refs.length) return [...sessionReasons, ...(facts.length ? ['tactical:index-name-required'] : [])];
     const reasons: string[] = [...sessionReasons, ...(/\{\s*(?:NDX_CHG|SPX_CHG)\s*\}/.test(first) ? ['tactical:index-token-forbidden'] : [])];
     if (session === 'PRE' && facts.some(f => f.kind === 'futures') && !refs.some(r => r.f?.kind === 'futures')) reasons.push('tactical:premarket-futures-required');
     if (session === 'PRE' && facts.some(f => f.kind === 'spot') && !refs.some(r => r.f?.kind === 'spot')) reasons.push('tactical:premarket-spot-required');
@@ -512,8 +513,13 @@ export function tacticalIndexReasons(first: string, prompt: string): string[] {
     let percentages = 0;
     refs.forEach((r, i) => {
         const clause = first.slice(r.end, refs[i + 1]?.at ?? first.length);
-        const m = clause.match(/([+−-]?)(\d+(?:\.\d+)?)\s*%/);
-        let dirs = directionFor(clause, m);
+        // 다음 지수명뿐 아니라 다른 주어의 절 앞에서 끊는다. 금리 등의 퍼센트를
+        // 이 지수의 숫자로 빌려 쓰지 않는다. 병렬 지수의 공유 후행 동사는 아래에서 별도 처리한다.
+        // «Nasdaq, with yields moving higher, fell 2.6%»의 비수치 삽입절은 건너뛰고 원래 주어로 돌아온다.
+        const mainClause = clause.replace(/^\s*,\s*with\b[^,%]*,\s*/i, ' ');
+        const subjectClause = mainClause.split(/[,;、，]|\b(?:with|while|and|but|whereas)\b|반면|한편|一方|(?:금리|利回り|\byields?\b)/i)[0];
+        const m = subjectClause.match(/([+−-]?)(\d+(?:\.\d+)?)\s*%/);
+        let dirs = directionFor(subjectClause, m);
         const flat = dirs.includes(0);
         if (!r.f) {
             if (m || dirs.length || !UNKNOWN.test(clause)) reasons.push('tactical:index-unavailable');
@@ -535,12 +541,13 @@ export function tacticalIndexReasons(first: string, prompt: string): string[] {
         if (value !== Number(Math.abs(r.f.chgPct).toFixed(decimals))) reasons.push('tactical:index-value');
         // 다음 동종 지수와 병렬인 쉼표 절에만 공유 방향어를 허용한다. «지금·반면»은 공유하지 않는다.
         if (!dirs.length && refs[i + 1]?.f?.kind === r.f.kind
-            && /^\s*(?:[,、，]\s*(?:and\s*)?|and\s*|と\s*)$/i.test(clause.slice(m.index! + m[0].length))) {
+            && /^\s*(?:[,、，]\s*(?:and\s*)?|and\s*|と\s*)$/i.test(mainClause.slice(m.index! + m[0].length))) {
             const next = first.slice(refs[i + 1].end, refs[i + 2]?.at ?? first.length);
             dirs = directionFor(next, next.match(/([+−-]?)(\d+(?:\.\d+)?)\s*%/), true);
         }
         // 방향어가 사전에 없어도 이름·숫자가 맞으면 통과한다. 명시된 부호·반대 방향은 계속 거절한다.
-        if ((m[1] && (m[1] === '+' ? r.f.chgPct < 0 : r.f.chgPct >= 0))
+        const roundedZero = Math.round(r.f.chgPct * 10) === 0 && value === 0;
+        if ((!roundedZero && m[1] && (m[1] === '+' ? r.f.chgPct < 0 : r.f.chgPct >= 0))
             || dirs.some(d => d === 0 ? !nearFlat && r.f!.chgPct !== 0 : Math.sign(r.f!.chgPct) !== d)) reasons.push('tactical:index-direction');
     });
     if (percentages !== [...first.matchAll(/\d+(?:\.\d+)?\s*%/g)].length) reasons.push('tactical:index-change-required');

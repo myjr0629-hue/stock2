@@ -36,7 +36,7 @@ for (const locale of ['ko', 'en', 'ja'] as const) {
 }
 assert.equal(guardianNumsFromMarket(macro, 29.2).NDX_CHG, -0.06);
 assert.equal(guardianNumsFromMarket(macro, 29.2).SPX_CHG, 0);
-assert.equal(guardianCashChange({}), null);
+assert.equal(guardianCashChange({}, 'CLOSED'), null);
 const missing = buildMarketIndexBasis({}, now);
 // 3차 관문: 결측은 기존 입력(-0.06)을 써서 origin/main과 같은 판정을 낸다.
 for (const locale of ['ko', 'en', 'ja'] as const) {
@@ -45,7 +45,7 @@ for (const locale of ['ko', 'en', 'ja'] as const) {
     assert.equal(parts.divCase.caseId, 'D', '결측을 동기화로 단정하지 않는다');
     assert.match(parts.divCase.verdictDesc, /-1.00%/);
     assert.equal(parts.tripleA.checklist.conditions[1].current, '-1.00%');
-    assert.equal(guardianCashChange(missingCore.market), null, '원천 null 자체는 보존');
+    assert.equal(guardianCashChange(missingCore.market, 'CLOSED'), null, '원천 null 자체는 보존');
     const zero = buildMarketIndexBasis({ nasdaq: quote('^IXIC', 26008, 0) }, now);
     assert.equal(deriveLocaleParts({ ...core, market: { ...macro, indexBasis: zero } }, locale).tripleA.checklist.conditions[1].current, '0.00%');
 }
@@ -115,7 +115,7 @@ const originalFetch = global.fetch;
         assert.ok(missingGauge.includes('+0.0%') && missingGauge.includes('bullMomentum'));
         assert.ok(missingGauge.includes('#10b981') && missingGauge.includes('stroke-dasharray="40 '));
         assert.ok(missingGauge.includes('PRICE'), '결측에도 칸과 라벨은 유지');
-        const cashGauge = renderToStaticMarkup(React.createElement(DualGauge, { priceValue: guardianCashChange(macro), flowValue: 29 }));
+        const cashGauge = renderToStaticMarkup(React.createElement(DualGauge, { priceValue: guardianCashChange(macro, 'CLOSED'), flowValue: 29 }));
         assert.ok(cashGauge.includes('-2.6%'));
         const { GuardianDataHub } = require('../src/services/guardian/unifiedDataStream');
         const legacy = { ...core, market: { ...macro, indexBasis: undefined }, coreAt: core.timestamp,

@@ -431,7 +431,7 @@ export class GuardianDataHub {
 
             // === STEP 3: DIVERGENCE ANALYSIS (The Logic) — 코어에서 파생(guardianCore.deriveLocaleParts) ===
             // Logic: Compare Nasdaq Change vs RLSI Score
-            const nq = guardianCashChange(macro);
+            const nq = guardianCashChange(macro, core.session);
             const parts = deriveLocaleParts(core, locale);
             const divCase = parts.divCase;
 
@@ -827,7 +827,7 @@ export class GuardianDataHub {
         //    그런데 그 자리를 채워 주는 코드가 어디에도 없어서, 가디언의
         //    Market Breadth 패널은 항상 «0↑ / 0↓ / 총 0» 이었다.
         //    → breadthEngine 은 메모리+Redis 캐시라 재호출이 사실상 공짜다. 직접 읽는다.
-        const breadthSnapshot = await getMarketBreadth(guardianCashChange(macro)).catch(() => null);
+        const breadthSnapshot = await getMarketBreadth(guardianCashChange(macro, rlsi.session)).catch(() => null);
 
         return {
             v: 1,
