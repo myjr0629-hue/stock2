@@ -11,8 +11,8 @@
 // 판본 이력은 api/ranking/route.ts 의 CACHE 주석에 있다.
 // ============================================================================
 
-// v12: 맥스페인 이격은 (레벨−가격)/가격. 이전 부호의 저장본은 재사용하지 않는다.
-export const RANKING_CACHE_VERSION = 'v12';
+// v13: deviation 평소는 완결 EOD·동일 premiumBasis, 오늘 부분 자료는 partial로 운반한다.
+export const RANKING_CACHE_VERSION = 'v13';
 
 /** /api/ranking 이 저장하는 키 */
 export const rankingCacheKey = (run: string, days: number, top: number): string =>

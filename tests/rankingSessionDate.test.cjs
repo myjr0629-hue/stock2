@@ -40,7 +40,7 @@ const ivSkew = compile(read('src/lib/ivSkew.ts'));
 const engine = compile(read('src/lib/rankings/engine.ts'), { '@/lib/marketCalendar': calendar });
 const keys = compile(read('src/lib/rankings/cacheKey.ts'));
 const row = (chainDate, timestamp = now, extra = {}) => ({
-    timestamp, chainDate, optionBasis: 'eod', totalCallOI: 50000, totalPutOI: 50000,
+    timestamp, chainDate, optionBasis: 'eod', premiumBasis: 'volume-close', totalCallOI: 50000, totalPutOI: 50000,
     pcr: 23, totalPremium: 230, callPremium: 200, putPremium: 30, ...extra,
 });
 const baselineDates = ['2026-10-09', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-19', '2026-10-20'];
@@ -332,43 +332,52 @@ test('회귀: 수집기 어댑터→슬림 프로브→구조 이력은 계약 �
 });
 
 test('GEX 수집기 실제 함수: GEX·Flow 두 이력에 원천 날짜와 기존 합계를 저장한다', async () => {
-    const writes = [];
-    const harvest = compile(`${fnSource('harvest_lambda/index.js', 'harvestGex')}\nexports.run = harvestGex;`, {}, {
-        GEX_TICKERS: ['TEST'], getAllOptions: async () => contracts(), optionHistoryDate,
-        __iv30Pending: [], __iv30: { planIv30: () => ({ iv30: null }), rowFields: () => ({}) },
-        client: { send: async command => { writes.push(command); } },
-        PutCommand: class { constructor(args) { Object.assign(this, args); } },
-        console: { log() {} },
-    });
-    await harvest.run({ TEST: 100 });
-    assert.equal(writes.length, 2);
-    for (const w of writes) {
-        assert.equal(w.Item.chainDate, '2026-10-21');
-        assert.equal(w.Item.timestamp, now);
-        assert.equal(w.Item.totalCallOI, 50000);
-        assert.equal(w.Item.totalPutOI, 50000);
+    for (const partial of [false, true]) {
+        const writes = [];
+        const input = contracts();
+        input.partial = partial;
+        const harvest = compile(`${fnSource('harvest_lambda/index.js', 'harvestGex')}\nexports.run = harvestGex;`, {}, {
+            GEX_TICKERS: ['TEST'], getAllOptions: async () => input, optionHistoryDate,
+            __iv30Pending: [], __iv30: { planIv30: () => ({ iv30: null }), rowFields: () => ({}) },
+            client: { send: async command => { writes.push(command); } },
+            PutCommand: class { constructor(args) { Object.assign(this, args); } },
+            console: { log() {} },
+        });
+        await harvest.run({ TEST: 100 });
+        assert.equal(writes.length, 2);
+        for (const w of writes) {
+            assert.equal(w.Item.chainDate, '2026-10-21');
+            assert.equal(w.Item.timestamp, now);
+            assert.equal(w.Item.totalCallOI, 50000);
+            assert.equal(w.Item.totalPutOI, 50000);
+            assert.equal(w.Item.partial, partial);
+        }
+        const flow = writes.find(x => x.TableName === 'signum-flow-history').Item;
+        assert.equal(flow.totalPremium, (10 + 11) * 2 * 100);
+        assert.equal(flow.premiumBasis, 'volume-trade-or-close');
     }
-    const flow = writes.find(x => x.TableName === 'signum-flow-history').Item;
-    assert.equal(flow.totalPremium, (10 + 11) * 2 * 100);
 });
 
 test('FlowWarm 실제 함수: 원천 날짜를 운반하며 volume·OI 대체 계산은 유지한다', async () => {
-    for (const volume of [true, false]) {
-        const writes = [];
-        const input = contracts().map(c => ({ ...c, day: { ...c.day, volume: volume ? c.day.volume : 0 } }));
-        const warm = compile(`${fnSource('harvest_lambda/index.js', 'warmFlowCache')}\nexports.run = warmFlowCache;`, {}, {
-            getRedis: () => ({}), redisGet: async () => null, redisSet: async () => true,
-            UNIVERSE: ['TEST'], POLYGON_KEY: '', process: { env: {} }, optionHistoryDate,
-            httpsGet: async () => ({ results: input }),
-            client: { send: async command => { writes.push(command); } },
-            PutCommand: class { constructor(args) { Object.assign(this, args); } },
-            console: { log() {}, warn() {} },
-        });
-        await warm.run({ TEST: { price: 100 } });
-        assert.equal(writes.length, 1);
-        assert.equal(writes[0].Item.chainDate, '2026-10-21');
-        assert.equal(writes[0].Item.premiumBasis, volume ? 'volume-close' : 'oi-prev-close');
-        assert.equal(writes[0].Item.totalPremium, volume ? 4200 : 10000000);
+    for (const partial of [false, true]) {
+        for (const volume of [true, false]) {
+            const writes = [];
+            const input = contracts().map(c => ({ ...c, day: { ...c.day, volume: volume ? c.day.volume : 0 } }));
+            const warm = compile(`${fnSource('harvest_lambda/index.js', 'warmFlowCache')}\nexports.run = warmFlowCache;`, {}, {
+                getRedis: () => ({}), redisGet: async () => null, redisSet: async () => true,
+                UNIVERSE: ['TEST'], POLYGON_KEY: '', process: { env: {} }, optionHistoryDate,
+                httpsGet: async () => ({ results: input, ...(partial ? { next_url: 'https://fixture/next' } : {}) }),
+                client: { send: async command => { writes.push(command); } },
+                PutCommand: class { constructor(args) { Object.assign(this, args); } },
+                console: { log() {}, warn() {} },
+            });
+            await warm.run({ TEST: { price: 100 } });
+            assert.equal(writes.length, 1);
+            assert.equal(writes[0].Item.chainDate, '2026-10-21');
+            assert.equal(writes[0].Item.premiumBasis, volume ? 'volume-close' : 'oi-prev-close');
+            assert.equal(writes[0].Item.totalPremium, volume ? 4200 : 10000000);
+            assert.equal(writes[0].Item.partial, partial);
+        }
     }
 });
 
@@ -489,24 +498,27 @@ test('공개 표시 함수: 기존 3개 언어 문구·23% 그대로, 원천 날
     }
 });
 
-async function runSeparateDeviation(input) {
-    const writes = [];
+async function runSeparateDeviation(input, parts = null) {
+    const writes = [], reads = [];
     const route = compile(read('src/app/api/ranking/deviation/route.ts'), {
         'next/server': { NextResponse: { json: x => x } },
         '@/lib/aws/dynamoClient': { TABLES: { FLOW_HISTORY: 'flow' }, queryItems: async () => input },
-        '@/services/redisClient': { getFromCache: async () => null, setInCache: async (...args) => { writes.push(args); } },
+        '@/services/redisClient': { getFromCache: async key => {
+            reads.push(key);
+            return parts && /^ranking:deviation:part:v11:30:\d$/.test(key) ? parts[Number(key.split(':').at(-1))] : null;
+        }, setInCache: async (...args) => { writes.push(args); } },
         '@/services/darkPool': {}, '@/lib/rankings/engine': engine,
         '@/../data/stock_universe_us800.json': { symbols: ['TEST'] },
     });
-    const out = await route.GET({ nextUrl: new URL('http://fixture/api/ranking/deviation?build=0') });
-    return { out, writes };
+    const out = await route.GET({ nextUrl: new URL(`http://fixture/api/ranking/deviation${parts ? '' : '?build=0'}`) });
+    return { out, writes, reads };
 }
 
 test('별도 deviation API도 같은 세션별 대표 행과 새 조각 캐시를 사용한다', async () => {
     const { out, writes } = await runSeparateDeviation(history());
     assert.equal(out.mode, 'build');
     assert.ok(out.candidates > 0);
-    assert.equal(writes[0][0], 'ranking:deviation:part:v10:30:0');
+    assert.equal(writes[0][0], 'ranking:deviation:part:v11:30:0');
     assert.ok(writes[0][1].found.every(x => x.date === '2026-10-21'));
 });
 
@@ -525,4 +537,175 @@ test('캐시 판본을 올려도 AI 사실 입력 소비자는 공용 기본 키
         '@/lib/marketCalendar': calendar, '@/lib/ai/aiqContext': {}, '@/lib/rankings/cacheKey': keys,
     });
     assert.equal(service.AIQ_RANK_KEY, keys.rankingCacheKey('all', 30, 5));
+});
+
+const earlyDates = ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-05', '2026-10-06', '2026-10-07'];
+const cohort = (dates, center, oi, extra = {}) => dates.map((d, i) => row(d, Date.parse(`${d}T21:00:00Z`), {
+    totalCallOI: oi / 2, totalPutOI: oi / 2,
+    totalPremium: center + [-10, -8, -5, -2, 2, 5, 8, 10][i] * Math.round(center / 100), ...extra,
+}));
+
+test('합성 조건 1·2: OI 감소 시 두 옛 선택 규칙의 43,302,986→111,623 급락을 차단한다', () => {
+    const full = cohort(baselineDates, 43302986, 1000000);
+    const partial = cohort(earlyDates, 111623, 100000, { partial: true });
+    const first = row('2026-10-21', now, { totalCallOI: 500000, totalPutOI: 500000, totalPremium: 86605972 });
+    const next = row('2026-10-22', now, { totalPremium: 230000 }); // 같은 날짜 05 ET, 아직 EOD 아님
+    const rows = [...partial, ...full, first];
+    // 동률이 없는 이 재현에서는 d78 전(첫 행)·d78(최신 행) 대표 규칙 모두 같은 OI 비교군을 만든다.
+    for (const latestOnTie of [false, true]) {
+        const vulnerable = input => {
+            const days = new Map();
+            for (const r of input) {
+                const prev = days.get(r.chainDate), oi = r.totalCallOI + r.totalPutOI;
+                if (!prev || oi > prev.oi || (latestOnTie && oi === prev.oi && r.timestamp > prev.timestamp)) {
+                    days.set(r.chainDate, { ...r, oi });
+                }
+            }
+            const series = [...days.values()].sort((a, b) => a.chainDate.localeCompare(b.chainDate));
+            const today = series.at(-1);
+            return engine.median(series.slice(0, -1).filter(r => r.oi >= today.oi * .5 && r.oi <= today.oi * 2).map(r => r.totalPremium));
+        };
+        assert.equal(vulnerable(rows), 43302986);
+        assert.equal(vulnerable([...rows, next]), 111623);
+    }
+    assert.equal(engine.deviationOf(engine.dailySnapshots(rows), 'totalPremium').ok.baseline, 43302986);
+    const fixed = engine.deviationOf(engine.dailySnapshots([...rows, next]), 'totalPremium');
+    assert.equal(fixed.ok, null, '완결 EOD의 OI 비교군이 없으면 부분 기준선을 만들지 않는다');
+    assert.equal(fixed.reason, '비교일부족(만기롤오버)');
+});
+
+test('합성 조건 3: 같은 세션·OI의 작은 늦은 프리미엄이 큰 완결 측정을 덮지 않는다', () => {
+    const full = row('2026-10-21', now, { totalPremium: 43302986 });
+    for (const extra of [{}, { partial: true }, { totalCallOI: 500000, totalPutOI: 500000, partial: true }]) {
+        const late = { ...full, timestamp: now + 1000, totalPremium: 111623, ...extra };
+        for (const input of [[full, late], [late, full]]) assert.equal(engine.dailySnapshots(input)[0].totalPremium, 43302986);
+    }
+});
+
+test('합성 조건 4: OI 없는 원천 행 하나로 레거시 대표 17개를 8개로 줄이지 않는다', () => {
+    const legacy = Array.from({ length: 17 }, (_, i) => ({ timestamp: Date.UTC(2026, 9, 1 + i, 21),
+        totalCallOI: 50000, totalPutOI: 50000, atmIv: 20 + i, callPremium: 200, putPremium: 30 }));
+    const unusable = { timestamp: now, chainDate: '2026-10-09', optionBasis: 'eod' };
+    for (const input of [legacy, [...legacy, unusable]]) {
+        assert.equal(engine.dailySnapshots(input).length, 17);
+        assert.equal(engine.dailyValues(input, 'atmIv').length, 17);
+        assert.equal(engine.sessionValues(input, 'atmIv').length, engine.sessionValues(legacy, 'atmIv').length);
+        assert.equal(engine.latestWith(input, ['callPremium', 'putPremium'])._d, '2026-10-17');
+    }
+    assert.equal(engine.deviationOf(engine.dailySnapshots(legacy), 'totalCallOI').ok, null, '레거시 날짜를 완결 EOD로 추정하지 않는다');
+});
+
+test('완결 EOD 판정: 부분·당일 PRE/장중·날짜 불명·휴장 제외, 전날 EOD 재수집·조기 마감 허용', () => {
+    for (const r of [row(null), row('2026-10-22'), row('2026-10-21', now, { partial: true }),
+        row('2026-10-21', now, { optionBasis: 'intraday' }), row('2026-10-17'),
+        row('2026-10-22', Date.parse('2026-10-22T19:59:00Z')),
+        row('2026-11-27', Date.parse('2026-11-27T17:59:00Z'))]) assert.equal(engine.isCompleteOptionEod(r), false);
+    for (const r of [row('2026-10-21'), row('2026-10-22', Date.parse('2026-10-22T20:00:00Z')),
+        row('2026-11-27', Date.parse('2026-11-27T18:00:00Z'))]) assert.equal(engine.isCompleteOptionEod(r), true);
+    const input = [...history(), ...cohort(earlyDates, 111623, 100000, { partial: true }), row(null)];
+    assert.equal(engine.deviationOf(engine.dailySnapshots(input), 'totalPremium').ok.baseline, 1000);
+});
+
+test('premiumBasis: 서로 다른 기준·알 수 없는 기준을 섞지 않고, OI 축은 독립이다', () => {
+    const volume = cohort(baselineDates, 1000, 100000);
+    const oi = cohort(earlyDates, 100, 100000, { premiumBasis: 'oi-prev-close' });
+    for (const [basis, center] of [['volume-close', 1000], ['oi-prev-close', 100]]) {
+        const today = row('2026-10-21', now, { premiumBasis: basis, totalPremium: center * 2.3 });
+        const result = engine.deviationOf(engine.dailySnapshots([...volume, ...oi, today]), 'totalPremium').ok;
+        assert.equal(result.baseline, center);
+        assert.equal(result.sessions, 8);
+    }
+    for (const premiumBasis of [undefined, null, '', 'other-basis']) {
+        const rows = [...history().slice(0, -1), row('2026-10-21', now, { premiumBasis })];
+        assert.equal(engine.deviationOf(engine.dailySnapshots(rows), 'totalPremium').ok, null);
+        assert.ok(engine.deviationOf(engine.dailySnapshots(rows), 'pcr').ok);
+    }
+    for (const input of [[volume[0], { ...volume[0], premiumBasis: 'oi-prev-close', totalPremium: 9999999 }],
+        [{ ...volume[0], premiumBasis: 'oi-prev-close', totalPremium: 9999999 }, volume[0]]]) {
+        assert.equal(engine.dailySnapshots(input)[0].premiumBasis, 'volume-close');
+    }
+});
+
+test('공유·별도 API: 부분 오늘의 날짜·수치 유지, partial을 항목·응답·조각에 전달', async () => {
+    const rows = history();
+    rows.at(-1).partial = true;
+    rows.at(-1).totalPremium = 2300;
+    const { out } = await runSharedRanking(rows);
+    assert.equal(out.partial, true);
+    for (const id of ['deviation', 'multi-axis', 'money-vs-oi']) {
+        assert.equal(out.results[id].partial, true);
+        assert.equal(out.results[id].items[0].partial, true);
+        assert.equal(out.results[id].items[0].date, '2026-10-21');
+    }
+    const separate = await runSeparateDeviation(rows);
+    assert.equal(separate.out.partial, true);
+    assert.equal(separate.writes[0][1].partial, true);
+    const fund = separate.writes[0][1].found.find(x => x.metric === 'totalPremium');
+    assert.equal(fund.baseline, 1000);
+    assert.equal(fund.today, 2300);
+    assert.equal(fund.partial, true);
+    const parts = Array.from({ length: 8 }, (_, i) => i === 0 ? separate.writes[0][1] : { found: [], ratioPool: {}, partial: false });
+    const merged = await runSeparateDeviation([], parts);
+    assert.equal(merged.out.partial, true, '부분 오늘 표식이 8조각 병합 뒤에도 남는다');
+    assert.equal(merged.out.groups.totalPremium[0].partial, true);
+    assert.ok(merged.reads.includes('ranking:deviation:v12:30:5'));
+    const complete = await runSharedRanking(history());
+    assert.equal(complete.out.partial, false);
+    const empty = await runSharedRanking([...history(), row('2026-10-22', now, { totalCallOI: 5, totalPutOI: 5 })]);
+    assert.equal(empty.out.results.deviation.items.length, 0);
+    assert.equal(empty.out.partial, true, '비교군 부족으로 후보가 없어도 부분 자료임을 응답한다');
+});
+
+test('별도 API: 최신 세션 프리미엄 결측을 과거 측정으로 대체하지 않는다', async () => {
+    const rows = history();
+    rows.at(-1).totalPremium = null;
+    const { writes } = await runSeparateDeviation(rows);
+    assert.equal(writes[0][1].found.some(x => x.metric === 'totalPremium'), false);
+});
+
+test('수집기 getAllOptions: 페이지 상한 부분 표식, IV Surface 호출자가 쓰는 배열 형태 유지', async () => {
+    for (const truncated of [false, true]) {
+        let calls = 0;
+        const get = compile(`${fnSource('harvest_lambda/index.js', 'getAllOptions')}\nexports.run = getAllOptions;`, {}, {
+            POLYGON_KEY: '', httpsGet: async () => { calls++; return { results: [{ open_interest: 1 }],
+                ...(truncated ? { next_url: 'https://fixture/next' } : {}) }; },
+        });
+        const result = await get.run('TEST');
+        assert.equal(Array.isArray(result), true);
+        assert.equal(calls, truncated ? 20 : 1);
+        assert.equal(result.partial, truncated);
+        assert.equal(result.reduce((s, r) => s + r.open_interest, 0), calls);
+    }
+});
+
+test('getAllOptions의 다른 호출자 computeIvSurface도 부분 표식이 붙은 배열을 그대로 소비한다', async () => {
+    const input = contracts().map(c => ({ ...c, greeks: { implied_volatility: .2, delta: c.details.contract_type === 'call' ? .25 : -.25 } }));
+    input.partial = true;
+    const writes = [];
+    const surface = compile(`${fnSource('harvest_lambda/index.js', 'computeIvSurface')}\nexports.run = computeIvSurface;`, {}, {
+        DETAIL_TICKERS: ['TEST'], getAllOptions: async () => input,
+        client: { send: async command => { writes.push(command); } },
+        PutCommand: class { constructor(args) { Object.assign(this, args); } },
+        console: { log() {} },
+    });
+    assert.equal(await surface.run({ TEST: 100 }), 1);
+    assert.equal(writes[0].Item.surface[0].atmCallIv, 20);
+    assert.equal(writes[0].Item.surface[0].atmPutIv, 20);
+});
+
+test('FlowWarm: exact 체인 실패 뒤 부분 probe로 대체하면 이력에도 partial을 유지한다', async () => {
+    const writes = [];
+    const warm = compile(`${fnSource('harvest_lambda/index.js', 'warmFlowCache')}\nexports.run = warmFlowCache;`, {}, {
+        getRedis: () => ({}), redisGet: async () => null, redisSet: async () => true,
+        UNIVERSE: ['TEST'], POLYGON_KEY: '', process: { env: {} }, optionHistoryDate,
+        httpsGet: async url => url.includes('expiration_date.gte=')
+            ? { results: contracts(), next_url: 'https://fixture/next' } : { results: [] },
+        client: { send: async command => { writes.push(command); } },
+        PutCommand: class { constructor(args) { Object.assign(this, args); } },
+        console: { log() {}, warn() {} },
+    });
+    await warm.run({ TEST: { price: 100 } });
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].Item.partial, true);
+    assert.equal(writes[0].Item.chainDate, '2026-10-21');
 });

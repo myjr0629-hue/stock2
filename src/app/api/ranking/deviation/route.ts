@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryItems, TABLES } from '@/lib/aws/dynamoClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
-import { afterCloseState, dailySnapshots } from '@/lib/rankings/engine';
+import { afterCloseState, dailySnapshots, deviationSeries, isCompleteOptionEod } from '@/lib/rankings/engine';
 
 // ============================================================================
 // /api/ranking/deviation — 「평소 대비 이탈」 랭킹.
@@ -39,7 +39,7 @@ const UNIVERSE: string[] = (UNIVERSE_FILE as any).symbols;
 const SHARDS = 8;                 // 2,001 ÷ 8 ≈ 251종목 · 실측 약 47초
 const CONCURRENCY = 80;           // 실측 40→289ms, 80→186ms (종목당)
 const PART_TTL = 6 * 3600;        // 부분 결과 보관 6시간
-const partKey = (days: number, i: number) => `ranking:deviation:part:v10:${days}:${i}`;
+const partKey = (days: number, i: number) => `ranking:deviation:part:v11:${days}:${i}`;
 
 /** 배열을 동시성 n 으로 훑는다. 하나가 실패해도 나머지를 죽이지 않는다. */
 async function mapPool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -191,17 +191,11 @@ async function history(ticker: string, days: number): Promise<Row[]> {
 //    하나를 골라 «모든 지표를 거기서» 읽는다. 이러면
 //      ① 날마다 같은 성격(가장 큰 만기)을 보므로 비교가 성립하고
 //      ② 한 카드 안의 지표들이 서로 같은 체인에서 나온다.
-function seriesOf(snaps: Row[], key: string) {
-    return snaps
-        .map((r) => ({ d: r._d as string, v: Number(r[key]), oi: r._oi as number }))
-        .filter((x) => Number.isFinite(x.v));
-}
-
 export async function GET(req: NextRequest) {
     const days = Math.min(90, Math.max(10, Number(req.nextUrl.searchParams.get('days')) || 30));
     const top = Math.min(25, Math.max(1, Number(req.nextUrl.searchParams.get('top')) || 5));
     // v10 — darkPool 에 state·expected·inRanking 을 실었다(다크풀 축은 마지막 마감 기준).
-    const CACHE = `ranking:deviation:v11:${days}:${top}`;
+    const CACHE = `ranking:deviation:v12:${days}:${top}`;
     const refresh = req.nextUrl.searchParams.get('refresh') === '1';
 
     // ── 샤드 굽기 모드 ────────────────────────────────────────────────
@@ -236,17 +230,19 @@ export async function GET(req: NextRequest) {
     //      빈 응답을 주느니 일부라도 정확히 주고 partial 을 명시한다.)
     let slice: string[] = [];
     let partialReason: string | null = null;
+    let partialData = false;
 
     if (buildShard !== null) {
         const per = Math.ceil(UNIVERSE.length / SHARDS);
         slice = UNIVERSE.slice(buildShard * per, (buildShard + 1) * per);
     } else {
-        type Part = { found: any[]; ratioPool: Record<string, number[]>; coverage?: typeof coverage };
+        type Part = { found: any[]; ratioPool: Record<string, number[]>; coverage?: typeof coverage; partial?: boolean };
         const parts = await Promise.all(
             Array.from({ length: SHARDS }, (_, i) => getFromCache<Part>(partKey(days, i)).catch(() => null)),
         );
         const have = parts.filter((x): x is Part => !!x && Array.isArray(x.found));
         for (const pt of have) {
+            partialData ||= !!pt.partial;
             found.push(...pt.found);
             for (const [k, arr] of Object.entries(pt.ratioPool || {})) {
                 (ratioPool[k] = ratioPool[k] || []).push(...arr);
@@ -304,9 +300,10 @@ export async function GET(req: NextRequest) {
         coverage.fresh++;
         const t = pr.t;
         const snaps = pr.snaps;
+        partialData ||= !isCompleteOptionEod(snaps[snaps.length - 1]);
 
         for (const m of METRICS) {
-            const series = seriesOf(snaps, m.key);
+            const series = deviationSeries(snaps, m.key);
             if (series.length < MIN_SESSIONS + 1) { bump('이력부족'); continue; }
             const today = series[series.length - 1];
 
@@ -361,6 +358,7 @@ export async function GET(req: NextRequest) {
                 // 배수만 보고 카드를 그려 「0.011배 1위」 같은 게 나온다.
                 direction: ratio >= 1 ? 'surge' : 'collapse',
                 sessions: cmp.length, date: today.d, totalOI: today.oi,
+                partial: today.partial,
                 rank: Math.abs(Math.log(ratio)),
             });
         }
@@ -371,10 +369,11 @@ export async function GET(req: NextRequest) {
     // 조각마다 계산하면 시장 중앙값이 조각별로 달라져 서로 다른 자로 잰다.
     // 그래서 다크풀은 **병합 시점에 한 번만** 계산한다.
     if (buildShard !== null) {
-        await setInCache(partKey(days, buildShard), { found, ratioPool, coverage }, PART_TTL);
+        await setInCache(partKey(days, buildShard), { found, ratioPool, coverage, partial: partialData }, PART_TTL);
         return NextResponse.json({
             ok: true, mode: 'build', shard: buildShard, shards: SHARDS,
             tickers: slice.length, candidates: found.length, skipped,
+            partial: partialData,
             generatedAt: new Date().toISOString(),
         });
     }
@@ -725,7 +724,7 @@ export async function GET(req: NextRequest) {
         // 이 랭킹이 «어느 세션» 이야기인지 응답이 직접 밝힌다.
         session: (found.reduce<string | null>((m, f) => (f.date && (!m || f.date > m) ? f.date : m), null)),
         scanned: partialReason ? slice.length : UNIVERSE.length,
-        partial: partialReason ?? false,
+        partial: partialReason ?? partialData,
         shards: SHARDS,
         darkPool,
         candidates: found.length, nanDropped,
