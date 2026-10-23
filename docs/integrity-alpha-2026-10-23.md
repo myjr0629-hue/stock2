@@ -58,3 +58,16 @@
 ## 남은 확인
 
 배포 후 운영 세션에서 장외와 정규장 양쪽의 같은 종목·원천 날짜를 재측정해야 한다. XS 기존 저장 형식은 게시 시각 없이 거래일(date)만 제공하므로 scoreAsOf도 그 정밀도를 유지한다. 저장된 같은 세션 가격/분봉이 없는 종목은 공급사 추가 호출로 메우지 않는다.
+
+## 관문 2차 보류 후속 수리 (3차)
+
+- 지적 1 원인: `readOptionAlpha`가 pillars를 재계산할 때 정상 계산에 사용한 F&G·MACD histogram·시간외 등락을 전달하지 않았다. 생산자도 이 입력을 snapshot에 남기지 않아, 응답과 분석 캐시를 다시 읽을 때 원천을 잃었다.
+- 수리: 워치리스트 full·캐시 재계산·Dynamo 복원 경로에서 실제 계산에 사용한 세 입력을 `alphaSnapshot.evidenceInputs`와 `evidenceSession`에 함께 운반한다. live ticker는 세 입력을, portfolio는 이미 계산에 쓰는 시간외 입력을 운반한다. 공통 출구는 현재 응답을 우선하고 같은 정규장 세션의 저장 입력으로 보충한다. 유효한 0은 유지하고 비유한 수·결측은 null이다. 게시 점수·등급·행동과 근거 문구 템플릿은 유지한다.
+- 지적 2 원인: 매크로의 legacy `vix`는 Yahoo 기본값 생성 결과인 15를 담을 수 있다. 숫자 유무만 검사하면 `FAIL`·`UNAVAILABLE` 값도 실측 VIX가 된다.
+- 수리: Yahoo 저장본의 `DEFAULT`·`FAIL`·`UNAVAILABLE`을 제외하고, 매크로 대체는 `status=OK`이며 실패 원천이 아닌 factor의 양수 level만 사용한다. VIX 등락도 선택한 같은 관측에서 읽는다. 정상 원천이 없으면 VIX·등락은 null이며 VIX3M 기본값도 제외한다. 매크로에 실린 정상 F&G도 공통 입력으로 전달한다.
+- 공용 함수 영향: `readOptionAlpha` 직접 호출자 7곳(`watchlistBatchService`, `portfolioBatchService`, `live/ticker`, `command/unified`, `intel/snapshot`, `intel/fast`, `intel/fast-all`), `alphaMacroInputs` 직접 호출자 2곳(`optionAlphaService`, `watchlistBatchService`)을 확인했다. 분석 캐시 타입에 선택적 입력 필드만 추가하며 저장 형식은 이전 항목과 호환된다. 공급사 호출·저장본 조회·운영 쓰기 증가는 없다. UI 컴포넌트·화면 문구·라벨·표시 소스와 엔진 문구 템플릿은 시작점 `d6c648194` 대비 변경 없음도 확인했다.
+- 추가 회귀 3건: 실제 워치리스트 snapshot 매퍼와 V8 엔진을 연결해 cold/warm/기존 캐시 우선 상황에서 `F&G 20`·MACD 3점·시간외 역행 -3점 보존, 유효한 0·null·NaN·다른 세션 제외를 확인했다. live ticker·portfolio snapshot 매퍼도 실제 공통 출구에 연결했다. 실제 `getDefaultQuote`와 `createYahooFactor`로 만든 실패 매크로·저장본 부재/기본값/실패 상태 조합에서 VIX null, 정상 Yahoo/매크로·보합 0 보존과 관측 혼합 방지도 확인했다. 기존 11건 포함 14/14 통과, 공급사 호출·운영 쓰기 0이다. 수정 전 두 공용 함수 구현을 각각 메모리에서 연결하면 해당 새 회귀가 실패함을 확인했다.
+- 변경 파일: `src/lib/alphaEvidence.ts`, `src/services/optionAlphaService.ts`, `src/services/analysisCache.ts`, `src/services/watchlistBatchService.ts`, `src/services/portfolioBatchService.ts`, `src/app/api/live/ticker/route.ts`, `tests/alphaCrossScreen.test.cjs`, 이 기록.
+- tsc: `/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/lib/tsc.js --noEmit --incremental false --pretty false` 1회, 종료 코드 0·오류 출력 0바이트 (`.logs/ux-gate/tsc-gate-r3.log`)다.
+- 전체 시험: `/usr/bin/lockf -k /tmp/signum-heavy.lock node scripts/run-offline-tests.cjs` 1회, 294/294개 파일 통과·실패 0·종료 코드 0 (`.logs/ux-gate/results.json`, `.logs/ux-gate/offline-gate-r3.log`)다. 사용자 지정 예외 3개(`earningsScenario`, `giftShareGate`, `readCheck`)도 이번 실행에서는 통과했다. 전역 잠금을 지켜 다른 작업공간의 무거운 검사와 직렬 실행했다. `node --check tests/alphaCrossScreen.test.cjs`와 최종 `git diff --check`도 통과했다.
+- 남은 위험: 입력을 저장하지 않았던 옛 snapshot의 MACD·시간외 원천은 추가 공급사 호출로 복원하지 않는다. 같은 세션의 실제 입력이 없으면 null이다. 운영·브라우저 확인은 수행하지 않는다. 커밋·push·병합·배포·운영 데이터 쓰기도 수행하지 않는다.

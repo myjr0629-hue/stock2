@@ -40,6 +40,8 @@ export interface AnalysisCacheEntry {
         gatesApplied?: any;
         engineVersion?: string;
         capturedAt: string;
+        evidenceSession?: string;
+        evidenceInputs?: { fearGreedScore?: number | null; macdHistogram?: number | null; preMarketChangePct?: number | null };
     };
 
     // Analysis indicators (from realtime block)

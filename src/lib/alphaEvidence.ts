@@ -33,11 +33,17 @@ export function alphaSessionVwap(quote: any, chart: any, minutes: any, now = Dat
 export function alphaMacroInputs(macro: any, vix: any, vix3m: any) {
     const ndx = macro?.factors?.nasdaq100;
     const cash = ['I:NDX', '^NDX', 'NDX', 'QQQ'].includes(ndx?.symbolUsed);
+    const measured = (q: any) => q?.source !== 'DEFAULT' && q?.source !== 'FAIL' && q?.status !== 'UNAVAILABLE';
+    const yahooVix = measured(vix) ? positive(vix?.price) : null;
+    const factor = macro?.factors?.vix;
+    // Legacy macro.vix can contain a default price. Only a successful factor proves observation.
+    const macroVix = factor?.status === 'OK' && measured(factor) ? positive(factor.level) : null;
     return {
         ndxChangePct: cash ? num(ndx.chgPct) : null,
-        vixValue: num(vix?.price) ?? num(macro?.vix),
-        vixChangePct: num(vix?.changePct) ?? num(macro?.factors?.vix?.chgPct),
-        vix3mValue: num(vix3m?.price),
+        vixValue: yahooVix ?? macroVix,
+        vixChangePct: yahooVix !== null ? num(vix?.changePct) : macroVix !== null ? num(factor.chgPct) : null,
+        vix3mValue: measured(vix3m) ? positive(vix3m?.price) : null,
+        fearGreedScore: num(macro?.fearGreed?.score),
         tltChangePct: num(macro?.tltChangePct), gldChangePct: num(macro?.gldChangePct),
         dxy: num(macro?.dxy), realYieldStance: macro?.realYield?.stance ?? null,
     };

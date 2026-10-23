@@ -1512,6 +1512,10 @@ export async function GET(req: NextRequest) {
 
                 return {
                     score: result.score,
+                    evidenceSession: shownRegularSessionDate(),
+                    evidenceInputs: { fearGreedScore: fgCacheData?.score ?? null,
+                        macdHistogram: macdData?.histogram ?? null,
+                        preMarketChangePct: changePctFrac_PRE !== null ? changePctFrac_PRE * 100 : null },
                     grade: result.grade,
                     action: result.action,
                     actionKR: result.actionKR,

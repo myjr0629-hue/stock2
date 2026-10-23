@@ -214,6 +214,124 @@ test('gate 2: newest valid regular quote wins across analysis, current batch and
         }
     } finally { analysis.NVDA = saved; store.set('flow:ticker:v6:NVDA', live); }
 });
+test('gate r3-1: real watchlist snapshot retains F&G, MACD and extended evidence through cold and warm exits', async () => {
+    const file = 'src/services/watchlistBatchService.ts';
+    const tree = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true);
+    let inputs, snapshot;
+    (function visit(n) {
+        if (ts.isVariableDeclaration(n) && n.name.getText(tree) === 'evidenceInputs'
+            && n.initializer?.getText(tree).includes('stockData')) inputs = n.initializer.getText(tree);
+        if (ts.isVariableDeclaration(n) && n.name.getText(tree) === 'fullObj') {
+            snapshot = n.initializer.properties.find(p => p.name?.getText(tree) === 'alphaSnapshot').initializer.getText(tree);
+        }
+        ts.forEachChild(n, visit);
+    })(tree);
+    assert.ok(inputs); assert.ok(snapshot);
+    const engine = load('src/services/alphaEngine.ts');
+    const saved = analysis.NVDA;
+    const factors = a => Object.values(a.pillars).flatMap(p => p.factors);
+    try {
+        for (const [fg, macd, pm] of [[20, 0.8, 2], [0, 0, 0], [null, null, null], [NaN, NaN, NaN]]) {
+            const carried = evaluate('watchlist-inputs.ts', `exports.value = ${inputs};`, {
+                fearGreedScore: fg, stockData: { macdHistogram: macd, extendedChangePct: pm },
+            }).value;
+            const valid = Object.fromEntries(Object.entries(carried).map(([k, v]) => [k, Number.isFinite(v) ? v : null]));
+            const original = engine.calculateAlphaScore({ ticker: 'NVDA', session: 'POST',
+                ...load('src/lib/alphaEvidence.ts').alphaRegularQuote(quote()), ...valid });
+            const produced = evaluate('watchlist-snapshot.ts', `exports.value = ${snapshot};`, {
+                ...original, alphaResult: original, confidence: original.dataCompleteness,
+                triggers: original.triggerCodes, evidenceInputs: carried, regularDate: '2026-10-22',
+            }).value;
+            const current = new Map([['NVDA', { ...saved, alphaSnapshot: produced }]]);
+            for (const mode of ['cold', 'warm', 'older-cache']) {
+                analysis = mode === 'cold' ? {} : { NVDA: mode === 'warm' ? current.get('NVDA') : saved };
+                const a = (await service.readOptionAlpha(['NVDA'], metrics, mode === 'warm' ? undefined : current)).get('NVDA');
+                for (const name of ['fearGreed', 'macdCross', 'preMarketValidation']) {
+                    assert.deepEqual(plain(factors(a).find(f => f.name === name) ?? null),
+                        plain(factors(original).find(f => f.name === name) ?? null), `${name}: ${mode}`);
+                }
+                assert.equal(a.evidenceInputs.fearGreedScore, valid.fearGreedScore);
+                assert.equal(a.evidenceInputs.macdHistogram, valid.macdHistogram);
+                assert.equal(a.evidenceInputs.preMarketChangePct, valid.preMarketChangePct);
+                if (fg === 20) {
+                    assert.equal(factors(a).find(f => f.name === 'fearGreed').detail, 'F&G 20');
+                    assert.equal(factors(a).find(f => f.name === 'macdCross').value, 3);
+                    assert.equal(factors(a).find(f => f.name === 'preMarketValidation').value, -3);
+                }
+                assert.equal(a.score, 72.5); assert.equal(a.action, produced.action);
+                assert.equal(produced.evidenceInputs.macdHistogram, macd, 'response is not mutated');
+            }
+        }
+        analysis = { NVDA: { ...saved, alphaSnapshot: { ...saved.alphaSnapshot,
+            evidenceSession: '2026-10-21', evidenceInputs: { fearGreedScore: 20, macdHistogram: 0.8, preMarketChangePct: 2 } } } };
+        const a = (await service.readOptionAlpha(['NVDA'], metrics)).get('NVDA');
+        for (const key of ['fearGreedScore', 'macdHistogram', 'preMarketChangePct']) assert.equal(a.evidenceInputs[key], null);
+    } finally { analysis = { NVDA: saved }; }
+});
+test('gate r3-1: live ticker and portfolio snapshot mappers carry their original supplemental inputs', async () => {
+    for (const file of ['src/app/api/live/ticker/route.ts', 'src/services/portfolioBatchService.ts']) {
+        const tree = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true);
+        let snapshot;
+        (function visit(n) {
+            if (ts.isObjectLiteralExpression(n) && n.properties.some(p => p.name?.getText(tree) === 'evidenceInputs')) snapshot = n.getText(tree);
+            ts.forEachChild(n, visit);
+        })(tree);
+        assert.ok(snapshot, file);
+        const original = load('src/services/alphaEngine.ts').calculateAlphaScore({ ticker: 'NVDA', session: 'PRE',
+            price: 100, prevClose: 110, changePct: -9, preMarketChangePct: 2, fearGreedScore: 20, macdHistogram: 0.8 });
+        const produced = evaluate('supplemental-snapshot.ts', `exports.value = ${snapshot};`, {
+            ...original, result: original, alphaResult: original, triggers: [], confidence: 50,
+            fgCacheData: { score: 20 }, macdData: { histogram: 0.8 }, changePctFrac_PRE: 0.02,
+            stockData: { extendedChangePct: 2 }, shownRegularSessionDate: () => '2026-10-22',
+        }).value;
+        const a = (await service.readOptionAlpha(['NVDA'], metrics, new Map([['NVDA', { alphaSnapshot: produced }]]))).get('NVDA');
+        assert.equal(a.evidenceInputs.preMarketChangePct, 2, file);
+        assert.equal(a.pillars.momentum.factors.find(f => f.name === 'preMarketValidation').value, -3);
+        if (file.includes('live/ticker')) {
+            assert.equal(a.evidenceInputs.fearGreedScore, 20);
+            assert.equal(a.evidenceInputs.macdHistogram, 0.8);
+        }
+    }
+});
+test('gate r3-2: actual Yahoo defaults and failed macro factors cannot become observed VIX', async () => {
+    const helper = load('src/lib/alphaEvidence.ts');
+    const defaults = evaluate('yahoo-default.ts', functions('src/services/yahooFinanceHub.ts', ['getDefaultQuote'])
+        + '\nexports.run = getDefaultQuote;', { console: { warn() {} } });
+    const factor = evaluate('macro-factor.ts', functions('src/services/macroHubProvider.ts', ['createYahooFactor'])
+        + '\nexports.run = createYahooFactor;');
+    const vix = defaults.run('^VIX', 15), vix3m = defaults.run('^VIX3M', 18);
+    const failed = factor.run(vix, 'VIX', '^VIX');
+    assert.equal(failed.status, 'UNAVAILABLE'); assert.equal(failed.source, 'FAIL');
+    const savedMacro = store.get('macro:snapshot:v5'), savedVix = store.get('yahoo:vix'), saved3m = store.get('yahoo:vix3m');
+    try {
+        for (const f of [failed, { ...failed, source: 'YAHOO' }, { ...failed, status: 'OK' },
+            { level: 15, chgPct: 0 }, null]) {
+            const macro = { vix: 15, factors: { vix: f } };
+            for (const y of [null, vix, { ...vix, source: 'REDIS', status: 'UNAVAILABLE' }]) {
+                const input = helper.alphaMacroInputs(macro, y, vix3m);
+                assert.equal(input.vixValue, null); assert.equal(input.vixChangePct, null); assert.equal(input.vix3mValue, null);
+                store.set('macro:snapshot:v5', { data: macro }); store.set('yahoo:vix', y); store.set('yahoo:vix3m', vix3m);
+                const a = (await service.readOptionAlpha(['NVDA'], metrics)).get('NVDA');
+                assert.equal(a.evidenceInputs.vixValue, null); assert.equal(a.evidenceInputs.vixChangePct, null);
+                const f = a.pillars.regime.factors.find(f => f.name === 'vixLevel');
+                assert.notEqual(f.detail, 'VIX 15.0'); assert.notEqual(f.value, 4);
+            }
+        }
+        const measured = { ...failed, source: 'YAHOO', status: 'OK', level: 19.03, chgPct: 0 };
+        const macro = { vix: 15, factors: { vix: measured }, fearGreed: { score: 20 } };
+        const fromMacro = helper.alphaMacroInputs(macro, vix, null);
+        assert.equal(fromMacro.vixValue, 19.03); assert.equal(fromMacro.vixChangePct, 0); assert.equal(fromMacro.fearGreedScore, 20);
+        const fromYahoo = helper.alphaMacroInputs({ factors: { vix: failed } }, { price: 22, changePct: 0 }, { price: 24 });
+        assert.equal(fromYahoo.vixValue, 22); assert.equal(fromYahoo.vixChangePct, 0); assert.equal(fromYahoo.vix3mValue, 24);
+        assert.equal(helper.alphaMacroInputs(macro, { price: 22 }, null).vixChangePct, null, 'do not mix changes from another observation');
+        for (const price of [null, NaN, Infinity, 0, -1]) {
+            assert.equal(helper.alphaMacroInputs(null, { price, changePct: 0 }, { price }).vixValue, null);
+        }
+    } finally {
+        store.set('macro:snapshot:v5', savedMacro); store.set('yahoo:vix', savedVix);
+        if (saved3m === undefined) store.delete('yahoo:vix3m'); else store.set('yahoo:vix3m', saved3m);
+    }
+});
 test('M8: analysis FINRA overlay feeds short volume from the same real report as ticker', async () => {
     mocks['@/services/darkPool'] = { getDarkPoolBatch: async () => ({ NVDA: { pct: 39.5, shortPct: 41.5, date: '2026-10-22' } }) };
     const source = functions('src/services/analysisCache.ts', ['overlayLiveDarkPool']);

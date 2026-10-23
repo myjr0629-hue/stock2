@@ -52,16 +52,31 @@ export async function readOptionAlpha(tickers: string[], metrics: Map<string, Op
         const selected = candidates[0], regular = selected?.regular;
         const vwap = alphaSessionVwap(selected?.quote, rows[i * 4 + 2], rows[i * 4 + 3], now)
             ?? selected?.vwap ?? null;
+        // Keep the original measured inputs when rebuilding diagnostics, including a warm cache read.
+        const sources = [fallbacks?.get(t), a];
+        const evidenceNumber = (key: string) => {
+            for (const source of sources) {
+                const snapshot = source?.alphaSnapshot;
+                const values = [source?.[key], snapshot?.evidenceSession === date ? snapshot.evidenceInputs?.[key] : null];
+                for (const value of values) {
+                    if (typeof value === 'number' && Number.isFinite(value)) return value;
+                }
+            }
+            return null;
+        };
         const input = {
             gex: m?.gex ?? null, squeezeScore: m?.squeezeScore ?? null, pcr: m?.pcr ?? null,
             whaleIndex: a?.whaleIndex ?? null, darkPoolPct: a?.darkPoolPct ?? null,
             shortVolPct: a?.shortVolPct ?? null, relVol: a?.relVol ?? null,
             impliedMovePct: readImpliedMoveFields(a, now).impliedMovePct
                 ?? readImpliedMoveFields(fallbacks?.get(t), now).impliedMovePct,
+            fearGreedScore: evidenceNumber('fearGreedScore') ?? macro.fearGreedScore,
+            macdHistogram: evidenceNumber('macdHistogram'),
+            preMarketChangePct: evidenceNumber('preMarketChangePct'),
         };
         let snapshot = a?.alphaSnapshot;
         if (snapshot && regular) {
-            const result = calculateAlphaScore({ ticker: t, session: 'REG', ...regular, ...input, ...macro,
+            const result = calculateAlphaScore({ ticker: t, session: 'REG', ...regular, ...macro, ...input,
                 vwap, rsi14: a?.rsi ?? null, return3D: a?.return3d ?? null,
                 callWall: a?.callWall ?? null, putFloor: a?.putFloor ?? null,
                 gammaFlipLevel: a?.gammaFlipLevel ?? null, atmIv: a?.iv ?? null,
@@ -71,7 +86,7 @@ export async function readOptionAlpha(tickers: string[], metrics: Map<string, Op
             // XS owns the published score; V8 pillars are diagnostics, rebuilt from the regular session.
             snapshot = { ...snapshot, pillars: result.pillars, dataCompleteness: result.dataCompleteness,
                 evidenceAsOf: new Date(selected.observedAt).toISOString(), evidenceSession: date,
-                evidenceInputs: { ...regular, ...input, ...macro, vwap, blockTrades: null } };
+                evidenceInputs: { ...regular, ...macro, ...input, vwap, blockTrades: null } };
         }
         return [t, explainAlphaSnapshot(snapshot ? xsSnapshotOverride(t, snapshot) : null, input)];
     }));

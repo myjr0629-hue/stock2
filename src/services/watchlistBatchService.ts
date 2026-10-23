@@ -617,6 +617,10 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
 
             if (alphaSession === 'REG' || alphaSession === 'PRE') {
               try {
+                const evidenceInputs = { fearGreedScore,
+                    macdHistogram: analysis.alphaSnapshot?.evidenceSession === regularDate
+                        ? analysis.alphaSnapshot.evidenceInputs?.macdHistogram ?? null : null,
+                    preMarketChangePct: base.extendedChangePct ?? null };
                 const alphaResult = calculateAlphaScore({
                     ticker: ticker.toUpperCase(),
                     session: alphaSession,
@@ -648,10 +652,11 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     gldChangePct: macroData?.gldChangePct ?? null,
                     dxy: macroData?.dxy ?? null,
                     realYieldStance: macroData?.realYieldStance ?? null,
-                    fearGreedScore,
+                    ...evidenceInputs,
                     vix3mValue: macroData?.vix3mValue ?? null,
                 });
                 alphaSnapshotV4 = {
+                    evidenceInputs, evidenceSession: regularDate,
                     score: alphaResult.score,
                     grade: alphaResult.grade,
                     action: alphaResult.action,
@@ -839,6 +844,10 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 const alphaSession2: AlphaSession = sessionMap2[currentSession] || 'CLOSED';
                 let alphaSnapshot2: any = { score: 50, grade: 'C', action: 'HOLD' };
                 try {
+                    const evidenceInputs = { fearGreedScore,
+                        macdHistogram: dynamoAnalysis.alphaSnapshot?.evidenceSession === regularDate
+                            ? dynamoAnalysis.alphaSnapshot.evidenceInputs?.macdHistogram ?? null : null,
+                        preMarketChangePct: base.extendedChangePct ?? null };
                     const ar = calculateAlphaScore({
                         ticker: ticker.toUpperCase(),
                         session: alphaSession2,
@@ -869,10 +878,11 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                         gldChangePct: macroData?.gldChangePct ?? null,
                         dxy: macroData?.dxy ?? null,
                         realYieldStance: macroData?.realYieldStance ?? null,
-                        fearGreedScore,
+                        ...evidenceInputs,
                         vix3mValue: macroData?.vix3mValue ?? null,
                     });
                     alphaSnapshot2 = {
+                        evidenceInputs, evidenceSession: regularDate,
                         score: ar.score, grade: ar.grade, action: ar.action,
                         actionKR: ar.actionKR,
                         confidence: Math.min(100, Math.max(0, Math.abs(ar.score - 50) * 2)),
@@ -1082,6 +1092,9 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             const netPremium = structureRes?.netPremium ?? null;
             const whaleIndex = calculateWhaleIndex(alphaGex, darkPoolPct, blockTradesCount, netPremium);
 
+            const evidenceInputs = { fearGreedScore,
+                macdHistogram: (stockData as any).macdHistogram ?? null,
+                preMarketChangePct: (stockData as any).extendedChangePct ?? null };
             let alphaResult;
             try {
                 alphaResult = calculateAlphaScore({
@@ -1101,7 +1114,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     gammaFlipLevel: alphaGammaFlip,
                     squeezeScore: alphaSqueezeScore,
                     relVol,
-                    preMarketChangePct: (stockData as any).extendedChangePct ?? null,
+                    ...evidenceInputs,
                     ndxChangePct: macroData?.ndxChangePct ?? null,
                     vixValue: macroData?.vixValue ?? null,
                     vixChangePct: macroData?.vixChangePct ?? null,
@@ -1111,9 +1124,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     realYieldStance: macroData?.realYieldStance ?? null,
                     darkPoolPct, shortVolPct, blockTrades: blockTradesCount,
                     whaleIndex, netFlow: netPremium, sma20, ivSkew, impliedMovePct,
-                    atmIv: structureRes?.atmIv ?? null, fearGreedScore,
+                    atmIv: structureRes?.atmIv ?? null,
                     // [V5.5+] MACD + VIX Term Structure
-                    macdHistogram: (stockData as any).macdHistogram ?? null,
                     vix3mValue: macroData?.vix3mValue ?? null,
                 });
             } catch (e) {
@@ -1153,6 +1165,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             const fullObj = {
                 ticker,
                 alphaSnapshot: {
+                    evidenceInputs, evidenceSession: regularDate,
                     score, grade, action, actionKR, whyKR, confidence: Math.round(confidence),
                     triggers, pillars: alphaResult.pillars, gatesApplied: alphaResult.gatesApplied,
                     engineVersion: alphaResult.engineVersion, capturedAt: new Date().toISOString()
