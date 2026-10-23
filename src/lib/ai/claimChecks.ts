@@ -123,7 +123,10 @@ export function orphanNumberReasons(text: string): string[] {
             const fwd = text.slice(t.end, fwdTo);
             // 같은 지표의 수준·변화량 연달아(«금리 5.15%로 +6bp 상승») — 직전 숫자와 조사 하나 사이면 그 숫자의 주어를 잇는다(관문 10201522 ②)
             const adjacent = i > 0 && ADJ.test(back) && !orphanIdx.has(i - 1);   // «와·과·and»는 다른 대상의 나열이라 잇지 않는다
-            if (!hasSubject(back) && !subjectRightAfter(fwd) && !adjacent) { out.push(`orphan-number:${t.raw}`); orphanIdx.add(i); }
+            // 같은 절 직전 숫자의 기준선(«금리 5.00%가 5% 아래로»·«yield 5.00%, slipping below 5%»·«5.00%で5%を割り込み») — 실모델 10/24 00:0x 정상 문장 9/9 오탈락
+            const threshold = i > 0 && !orphanIdx.has(i - 1) && /^\s*(?:아래|밑|위|이하|이상|선|대|を割|割れ|割り込|超え|を上回|を下回|台)/.test(fwd)
+                || i > 0 && !orphanIdx.has(i - 1) && /(?:below|above|under|over|beneath|past|through)\s*$/i.test(back);
+            if (!hasSubject(back) && !subjectRightAfter(fwd) && !adjacent && !threshold) { out.push(`orphan-number:${t.raw}`); orphanIdx.add(i); }
         });
     }
     return out;
