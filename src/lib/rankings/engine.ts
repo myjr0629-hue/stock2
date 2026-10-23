@@ -13,7 +13,7 @@
 //   ④ 시장 교란 — 시장 전체가 조용한 날엔 모든 종목이 «이탈»로 보인다
 // ============================================================================
 
-import { etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate, shownRegularSessionDate } from '@/lib/marketCalendar';
+import { cashSessionPhaseAt, etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate, shownRegularSessionDate } from '@/lib/marketCalendar';
 
 // 'anytime' = 세션과 무관하게 성립하는 랭킹(내부자 신고·펀더멘털).
 // 장중/마감후로만 나누면 이런 것들이 억지로 한쪽에 붙어 오해를 만든다.
@@ -72,7 +72,7 @@ function sourceHistoryStart(items: Array<Record<string, any>>): string | null {
  */
 export function sessionPhase(now = Date.now()): { phase: Phase; etTime: string; regularOpen: boolean } {
     const hm = etMinutesOf(now);
-    const regularOpen = !isNonTradingDay(etDateOf(now)) && hm >= 9 * 60 + 30 && hm < 16 * 60;
+    const regularOpen = cashSessionPhaseAt(now) === 'regular';
     return {
         phase: regularOpen ? 'intraday' : 'postclose',
         etTime: `${String(Math.floor(hm / 60)).padStart(2, '0')}:${String(hm % 60).padStart(2, '0')}`,

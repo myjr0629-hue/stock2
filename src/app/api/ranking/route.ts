@@ -257,14 +257,14 @@ export async function GET(req: NextRequest) {
                 //   수집 Lambda 의 «(콜월+풋플로어)/2», maxPain 은 여러 만기 합산이라 같은 이름의 다른 값이다.
                 //   조각이 없는 종목은 이 두 랭킹에서 뺀다(없는 것은 없다고).
                 const s = sr
-                    ? { price: sr.px, maxPain: sr.mp, flipLevel: sr.fl, _d: null, oi: sr.oi }
+                    ? { price: sr.px, maxPain: sr.mp, flipLevel: sr.fl, _d: sr.chainDate ?? null, oi: sr.oi }
                     : null;
                 if (!s) { bump('구조없음'); continue; }
                 // 저가주는 행사가 간격이 잡음이 된다($6 의 0.02% 는 0.1센트다)
                 if (sr && (!(sr.px >= 15) || !(sr.oi >= 20000))) { bump('저가·저유동성'); continue; }
                 const price = Number(s.price), lvl = Number(sr ? sr[F] : s[field]);
                 if (!(price > 0) || !(lvl > 0)) { bump('값없음'); continue; }
-                const gap = (price - lvl) / price;
+                const gap = spec.id === 'maxpain-gap' ? (lvl - price) / price : (price - lvl) / price;
                 // 계산이 어긋난 값은 지어내지 말고 버린다
                 if (Math.abs(gap) > bound) { bump('범위밖(계산오류 의심)'); continue; }
                 rows.push({
@@ -551,7 +551,8 @@ export async function GET(req: NextRequest) {
         const warming = q.get('refresh') === '1';
         if (warming && sess.regularOpen) await warmLiveQuotes(payload, quotesDeps);
         const out = await withLivePrices(payload, { regularOpen: sess.regularOpen && !warming, top, quotes: quotesDeps });
-        return NextResponse.json({ ...out, ...meta, _serverMs: Date.now() - t0 });
+        // hit·stale·miss 모두 저장 당시의 시계 대신 응답 직전의 현재 세션을 싣는다.
+        return NextResponse.json({ ...out, ...meta, session: sessionPhase(), _serverMs: Date.now() - t0 });
     };
 
     if (q.get('refresh') !== '1') {

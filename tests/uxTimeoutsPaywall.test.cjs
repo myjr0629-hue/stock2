@@ -91,7 +91,7 @@ test('6: Flow는 헤더 이후 멈춘 본문도 기한에 종료', async () => {
   assert.equal(result,'AbortError'); assert.equal(aborted,true);
 });
 test('6: 랭킹 실제 effect의 무응답은 실패 상태로 종료', async () => {
-  const root=ast(ranks);const effect=find(root,n=>ts.isCallExpression(n)&&n.expression.getText(root)==='useEffect');
+  const root=ast(ranks);const effect=find(root,n=>ts.isCallExpression(n)&&n.expression.getText(root)==='useEffect'&&n.arguments[0]?.getText(root).includes('/api/ranking?run=all'));
   let err=false;
   const helper=baseline?null:load('src/lib/app/requestDeadline.ts').fetchResponseWithDeadline;
   const cleanup=run(`(${effect.arguments[0].getText(root)})()`,{AbortController,fetch:()=>new Promise(()=>{}),
@@ -197,7 +197,7 @@ if(!baseline) {
 }
 if(!baseline) {
   test('6: 랭킹 정상 빈 결과와 요청·본문·형식 실패를 구분, 해제 뒤 반영 금지',async()=>{
-    const root=ast(ranks);const effect=find(root,n=>ts.isCallExpression(n)&&n.expression.getText(root)==='useEffect');
+    const root=ast(ranks);const effect=find(root,n=>ts.isCallExpression(n)&&n.expression.getText(root)==='useEffect'&&n.arguments[0]?.getText(root).includes('/api/ranking?run=all'));
     for(const mode of ['정상','빈 결과','요청 실패','본문 실패','형식 실패','해제']){
       let err=false,res=null,resolve;
       const response=mode==='정상'?{results:{one:{items:[]}},universe:10}:mode==='빈 결과'?{results:{}}:{};

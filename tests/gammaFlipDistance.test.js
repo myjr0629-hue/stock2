@@ -44,6 +44,7 @@ function load(relative) {
         setTimeout, clearTimeout,
         fetch: async url => {
             assert.match(file, /services\/dealerGamma\.ts$/);
+            if (url.endsWith('/get?key=structure%3Av2%3ASPY')) return { ok: true, json: async () => ({ result: { data: structure } }) };
             assert.ok(url.endsWith('/get?key=intrinio%3Agex%3Abf%3ASPY'));
             return { ok: true, json: async () => ({ result: { points: dealerPoints } }) };
         },
@@ -191,6 +192,7 @@ test('premium-metrics dealer distance and unstable use spot percent before round
         [103.05, 100, 1, 3, false], // long gamma never unstable
     ]) {
         seed(spot, flip);
+        Object.assign(structure, { netGex: gex, chainDate: '2026-10-19' });
         dealerPoints = [{ date: '2026-10-19', price: spot, gex }];
         const out = await premium.GET({ nextUrl: new URL('http://localhost?locale=ko') });
         assert.equal(out.success, true);
@@ -199,12 +201,62 @@ test('premium-metrics dealer distance and unstable use spot percent before round
     }
     assert.ok(Math.abs(gammaFlipDistancePct(103.05, 100) - 2.9597282872392014) < 1e-12);
     dealerPoints = [{ date: '2026-10-19', price: 103.05, gex: -1 }];
-    assert.equal((await dealer.getDealerGamma('SPY', 100)).flipDistancePct, 3, 'history price fallback');
+    structure.underlyingPrice = 103.05;
+    assert.equal((await dealer.getDealerGamma('SPY', 100)).flipDistancePct, 3, 'same structure price fallback');
     for (const flip of [null, 0, -1, NaN, Infinity]) {
         const out = await dealer.getDealerGamma('SPY', flip, 103.05);
         assert.equal(out.flipDistancePct, null);
         assert.equal(out.unstable, false);
     }
+});
+
+test('H5: current structure wins over opposite prior EOD; rank excludes current/future sessions and missing stays null', async () => {
+    const dealer = load('src/services/dealerGamma.ts');
+    const premium = load('src/app/api/live/premium-metrics/route.ts');
+    seed(763.96, 770);
+    Object.assign(structure, { chainDate: '2026-10-22', netGex: 400297625 });
+    dealerPoints = Array.from({ length: 10 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, '0')}`, gex: -6017528 }));
+    dealerPoints.push({ date: '2026-10-21', gex: -6017528 }, { date: '2026-10-22', gex: 9e9 }, { date: '2026-10-23', gex: 9e9 });
+    const out = await premium.GET({ nextUrl: new URL('http://localhost?locale=ko') });
+    assert.equal(out.dealerGamma.gex, out.volatilityRegime.metric.inputs.netGex);
+    assert.equal(out.dealerGamma.gex, 400297625);
+    assert.equal(out.dealerGamma.date, '2026-10-22');
+    assert.equal(out.dealerGamma.polarity, 'long');
+    assert.equal(out.dealerGamma.samples, 11);
+    assert.equal(out.dealerGamma.percentile, 100);
+    assert.equal((await dealer.getDealerGamma('SPY')).gex, 400297625, 'Guardian default reads structure, not backfill latest');
+    dealerPoints = [];
+    assert.equal((await dealer.getDealerGamma('SPY')).gex, 400297625, 'missing history does not erase observed GEX');
+    assert.equal((await dealer.getDealerGamma('SPY')).percentile, null);
+    for (const bad of [null, undefined, NaN, Infinity, '0']) {
+        structure.netGex = bad;
+        assert.equal(await dealer.getDealerGamma('SPY'), null);
+    }
+    structure.netGex = 0;
+    assert.equal((await dealer.getDealerGamma('SPY')).gex, 0, 'observed zero survives');
+    structure.chainDate = null;
+    assert.equal(await dealer.getDealerGamma('SPY'), null, 'unknown session cannot use history date');
+    structure = null;
+    assert.equal((await premium.GET({ nextUrl: new URL('http://localhost?locale=ko') })).dealerGamma, null);
+});
+
+test('premium-metrics carries expired dealer GEX as null and accepts the next unexpired edition', async () => {
+    const premium = load('src/app/api/live/premium-metrics/route.ts');
+    const originalNow = Date.now;
+    try {
+        Date.now = () => Date.parse('2026-10-23T16:10:00-04:00');
+        seed(763.96, 770);
+        Object.assign(structure, { chainDate: '2026-10-22', netGex: 400297625 });
+        dealerPoints = Array.from({ length: 10 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, '0')}`, gex: -6017528 }));
+        const expired = await premium.GET({ nextUrl: new URL('http://localhost?locale=ko') });
+        assert.equal(expired.success, true);
+        assert.equal(expired.dealerGamma, null, 'expired current value must not be ranked or replaced from history');
+        structure.expiration = '2026-10-30';
+        const next = await premium.GET({ nextUrl: new URL('http://localhost?locale=ko') });
+        assert.equal(next.dealerGamma.gex, 400297625);
+        assert.equal(next.dealerGamma.percentile, 100);
+        assert.equal(next.dealerGamma.date, '2026-10-22', 'expiry roll must not relabel the chain session');
+    } finally { Date.now = originalNow; }
 });
 
 test('Flow overview, AI payload, hero and Command hero use the same spot distance', () => {

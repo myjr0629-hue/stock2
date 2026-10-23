@@ -20,7 +20,7 @@
  *   숫자 자체(-1.7B ~ +526M)는 사람이 읽을 수 없지만, 「최근 20일 중
  *   가장 강한 롱감마」는 읽을 수 있다.
  *
- *   출처: `intrinio:gex:bf:<T>` — 백필해 둔 종목별 GEX 일별 이력(20일).
+ *   현재값: structure:v2 판본. `intrinio:gex:bf:<T>` 는 과거 비교 이력만 제공한다.
  *   실측(SPY 2026-08): -1.70e9 ~ +5.26e8, 최근 5일 67M·11M·-78M·-211M·160M
  *   → 실제로 크게 움직인다. 백분위가 의미를 갖는다.
  * ══════════════════════════════════════════════════════════════════════
@@ -28,6 +28,7 @@
 
 import { percentile, flipDistance } from '../lib/metrics/percentile';
 import type { Metric } from '../lib/metrics/contract';
+import { optionExpirationFloor } from '../lib/marketCalendar';
 
 const PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
 const PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
@@ -56,6 +57,14 @@ export interface DealerGammaSignal {
     metrics: { percentile: Metric; flipDistance: Metric };
 }
 
+type GammaEdition = {
+    netGex?: number | null;
+    chainDate?: string | null;
+    underlyingPrice?: number | null;
+    expiration?: string | null;
+    options_status?: string;
+};
+
 async function readKey<T = any>(key: string): Promise<T | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
@@ -79,43 +88,51 @@ async function readKey<T = any>(key: string): Promise<T | null> {
  * @param ticker 기준 종목. 시장 전체 신호로는 SPY 를 쓴다.
  * @param flipLevel 감마 플립 레벨(있으면). 없으면 거리 계산을 생략한다.
  * @param price 현재가(있으면).
+ * @param current 만기를 포함한 이미 읽은 구조 판본. null·만기 결측·만료는 백필로 대체하지 않는다.
  */
 export async function getDealerGamma(
     ticker = 'SPY',
     flipLevel?: number | null,
     price?: number | null,
+    current?: GammaEdition | null,
 ): Promise<DealerGammaSignal | null> {
-    const hist = await readKey<{ ticker: string; points: Array<{ date: string; gex: number; price?: number }> }>(
-        `intrinio:gex:bf:${ticker.toUpperCase()}`,
-    );
+    const symbol = ticker.toUpperCase();
+    // Guardian도 공급사를 새로 부르지 않고 저장된 구조 판본만 읽는다.
+    const [hist, edition] = await Promise.all([
+        readKey<{ ticker: string; points: Array<{ date: string; gex: number }> }>(`intrinio:gex:bf:${symbol}`),
+        current === undefined ? readKey<{ data?: GammaEdition }>(`structure:v2:${symbol}`).then(v => v?.data ?? null) : current,
+    ]);
+    // 공통 옵션 지표와 같은 최소 유효 만기. I/O가 마감을 걸쳐도 지난 판본은 현재값이 아니다.
+    if (!edition || edition.options_status === 'NO_MARKET'
+        || typeof edition.expiration !== 'string' || edition.expiration < optionExpirationFloor()) return null;
+    const gex = edition?.netGex;
+    const date = edition?.chainDate;
+    if (typeof gex !== 'number' || !Number.isFinite(gex) || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
     const points = Array.isArray(hist?.points) ? hist!.points : [];
-    if (points.length === 0) return null;
 
     // ⚠️ 배열 순서를 «가정»하지 않는다 — 날짜로 최신을 고른다.
     //    같은 이름의 함수가 오름차순/내림차순 두 벌 있어 [0] 의 뜻이 뒤집힌 적이 있다.
     const sorted = [...points]
-        .filter(p => typeof p?.gex === 'number' && Number.isFinite(p.gex) && typeof p?.date === 'string')
+        .filter(p => typeof p?.gex === 'number' && Number.isFinite(p.gex) && typeof p?.date === 'string' && p.date < date)
         .sort((a, b) => a.date.localeCompare(b.date));
-    if (sorted.length === 0) return null;
+    // 같은 세션·미래 행은 현재 관측의 백분위 분모에 넣지 않는다.
+    const history = [...new Map(sorted.map(p => [p.date, p.gex])).values()];
 
-    const latest = sorted[sorted.length - 1];
-    const history = sorted.slice(0, -1).map(p => p.gex);
-
-    const px = typeof price === 'number' && price > 0 ? price : latest.price ?? null;
+    const px = typeof price === 'number' && price > 0 ? price : edition?.underlyingPrice ?? null;
     const distanceMetric = flipDistance({ priceUsd: px, flipLevelUsd: flipLevel });
     const flipDistancePct = distanceMetric.value;
-    const rankMetric = percentile({ current: latest.gex, history, minimumSamples: MIN_POINTS,
+    const rankMetric = percentile({ current: gex, history, minimumSamples: MIN_POINTS,
         period: 'stored_prior_EOD_observations', basis: 'ticker_GEX_history_excluding_current' });
 
-    const polarity: 'long' | 'short' = latest.gex >= 0 ? 'long' : 'short';
+    const polarity: 'long' | 'short' = gex >= 0 ? 'long' : 'short';
 
     return {
-        gex: latest.gex,
+        gex,
         polarity,
         percentile: rankMetric.value,
         samples: history.length,
         flipDistancePct: flipDistancePct == null ? null : Math.round(flipDistancePct * 10) / 10,
-        date: latest.date,
+        date,
         metrics: { percentile: rankMetric, flipDistance: distanceMetric },
         // 숏감마 + 플립 ±3% = 작은 충격이 증폭되는 자리
         unstable: polarity === 'short' && flipDistancePct != null && Math.abs(flipDistancePct) <= 3,

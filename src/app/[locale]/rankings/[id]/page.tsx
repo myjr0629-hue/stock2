@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { publicBase } from '@/lib/net/publicBase';
 import { RANKINGS, byId, specCopy } from '@/lib/rankings/registry';
 import { loadRankingSnapshot, describeItem, emptyText } from '@/lib/rankings/present';
+import { rankingBadgePhase } from '@/lib/rankings/badge';
 
 // ============================================================================
 // /[locale]/rankings/[id] — 랭킹 «하나»에 대한 페이지.
@@ -85,7 +86,7 @@ export default async function RankingDetail({ params, searchParams }: { params: 
     const block: any = snap?.results?.[id] ?? null;
     const generatedAt: string | undefined = snap?.generatedAt;
 
-    const phase = spec.phase === 'intraday' ? u.intraday : spec.phase === 'postclose' ? u.postclose : u.anytime;
+    const phase = u[rankingBadgePhase(block?.phase ?? spec.phase, snap?.session)];
     const ld = {
         '@context': 'https://schema.org', '@type': 'Dataset',
         name: spec.name[l], description: c.what,
