@@ -1,6 +1,6 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { reportDate, crossBriefUrl, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
 import { ClosingNarrative } from '@/components/intel/ClosingNarrative';
 import type { ClosingNarrative as Narrative } from '@/lib/ai/closingReport';
@@ -486,7 +486,12 @@ function viewReportForApp(report: SectorReportData, sectorId: string, quotes: In
 /** Dated closing rows retain their stored options; no live quote merge or blanking. */
 function closingReportForApp(report: SectorReportData, sectorId: string, locale: AppLocale, date: string): SectorReportData {
   const sec = SECTOR_CONFIGS.find(item => item.id === sectorId);
-  const aligned = alignReportToConfig(report, sectorId, [], date);
+  // Keep the same configured universe as the latest view, without borrowing today's quotes.
+  const stored = new Set(report.keyStocksData.map(stock => stock.sym));
+  const missing = (sec?.stocks || []).filter(sym => !stored.has(sym)).map(sym => ({
+    sym, grade: null, score: null, changePct: null, closePrice: null, gex: null, pcr: null, gammaRegime: null,
+  }));
+  const aligned = alignReportToConfig({ ...report, keyStocksData: [...report.keyStocksData, ...missing] }, sectorId, [], date);
   return applySectorBrief(aligned, sec?.stocks || [], locale, null, date);
 }
 
@@ -1492,6 +1497,7 @@ export default function AppIntelPage() {
 }
 
 function AppIntelContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const requestedDate = reportDate(searchParams.get('date'));
   const requestedTab = searchParams.get('tab');
@@ -1533,6 +1539,7 @@ function AppIntelContent() {
   const [closingReports, setClosingReports] = useState<{ date: string; locale: string; reports: Record<string, SectorReportData> } | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
   const [crossBriefError, setCrossBriefError] = useState(false);
+  const [crossBriefLoading, setCrossBriefLoading] = useState(true);
   const [crossBriefGeneratedAt, setCrossBriefGeneratedAt] = useState<string>('');
   const [crossMacro, setCrossMacro] = useState<{ key: string; value: number; changePct: number; category: string }[]>([]);
   const [vixTerm, setVixTerm] = useState<{ vix: number; vix3m: number; ratio: number; state: string } | null>(null);
@@ -1593,14 +1600,17 @@ function AppIntelContent() {
   // Fetch Cross-Sector Brief for summary card
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12000);
     const fetchCrossBrief = async () => {
       try {
-        const res = await fetch(crossBriefUrl(requestedDate));
-        if (res.ok && active) {
+        const res = await fetch(crossBriefUrl(requestedDate), { signal: controller.signal });
+        if (!active) return;
+        if (res.ok) {
           const data = await res.json();
           if (!active) return;
           const day = reportDate(data.date);
-          if (!day || (requestedDate && day !== requestedDate)) { setCrossBriefError(true); return; }
+          if (!day || (requestedDate && day !== requestedDate) || !data.success || !(data.structured || data.marketOverview)) throw new Error('Unavailable closing report');
           setClosingDate(day);
           if (data.success && data.structured) {
             setCrossBrief(data.structured);
@@ -1612,21 +1622,34 @@ function AppIntelContent() {
             if (data.vixTermStructure) setVixTerm(data.vixTermStructure);
             if (data.generatedAt) setCrossBriefGeneratedAt(String(data.generatedAt));
           }
+        } else throw new Error('Unavailable closing report');
+      } catch {
+        if (!active) return;
+        setCrossBriefError(true);
+        if (requestedDate) {
+          // A stale push gets one latest-report lookup; the URL reflects the new target date.
+          router.replace(`/${locale}/app-view/intel?tab=report`, { scroll: false });
+        } else {
+          setIntelTab('sector');
         }
-        if (active && !res.ok) setCrossBriefError(true);
-      } catch { if (active) setCrossBriefError(true); }
+      } finally {
+        window.clearTimeout(timeoutId);
+        if (active) setCrossBriefLoading(false);
+      }
     };
     setCrossBriefError(false);
+    setCrossBriefLoading(true);
     setClosingDate(null);
     setClosingReports(null);
+    setGlobalReportLoading(false);
     setExpandedReport(null);
     setCrossBrief(null);
     setCrossMacro([]);
     setVixTerm(null);
     setCrossBriefGeneratedAt('');
     fetchCrossBrief();
-    return () => { active = false; };
-  }, [requestedDate]);
+    return () => { active = false; window.clearTimeout(timeoutId); controller.abort(); };
+  }, [requestedDate, router, locale]);
 
   // Fetch Report Data
   const loadSectorReport = async (sectorId: string) => {
@@ -3098,7 +3121,7 @@ function AppIntelContent() {
       {!selectedSector && intelTab === 'report' && (
         <div style={{ padding: '12px 16px 0', animation: 'fadeSlideIn 0.25s ease' }}>
           {crossBriefError && <p role="status">{requestedDate || ''} {locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.'}</p>}
-          {(!crossBrief || (requestedDate && closingDate !== requestedDate)) ? (
+          {!crossBriefError && (crossBriefLoading || !crossBrief || (requestedDate && closingDate !== requestedDate)) ? (
             <div style={{
               padding: '48px 20px',
               textAlign: 'center',
@@ -3609,7 +3632,7 @@ function AppIntelContent() {
                 if (!cached) return (
                   <div key={sec.id}>
                     <strong>{SECTOR_APP_COPY[appLocale][sec.id]?.name || sec.id}</strong>
-                    <p role="status">{closingDate} {globalReportLoading ? appCopy.reportLoading : (locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.')}</p>
+                    <p role="status">{closingDate} {globalReportLoading && !crossBriefError ? appCopy.reportLoading : (locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.')}</p>
                   </div>
                 );
                 const englishName = TRANSLATIONS.en[sec.id] || sec.id;

@@ -48,7 +48,7 @@
 
 비교용 생성 경로는 Vercel 인증 POST의 `?dry=1`, Lambda 수동 이벤트의 `dryRun:true`다. 결과와 입력 근거를 반환하며 보고서 저장은 건너뛴다. 이 경로도 실제 모델 호출 비용은 발생하므로 운영 세션에서만 실행한다. 푸시는 별도 크론의 기존 `dry=1`을 사용한다.
 
-남은 한계: 뉴스의 사건 시각·인과관계와 세 언어 사건 의미 일치는 프롬프트·정형 검사만으로 증명되지 않는다. 기존 v3/v2로 대체되면 이전 서사가 보일 수 있다. Redis 보관 72시간이 지난 딥링크는 404로 종료한다. 푸시의 기존 비원자적 중복 방지·마지막 섹터 완료 표식은 이번 범위에서 바꾸지 않는다. 모바일 실제 화면 높이와 OS별 알림 탭은 운영 세션의 실기기 확인이 필요하다.
+남은 한계: 뉴스의 사건 시각·인과관계와 세 언어 사건 의미 일치는 프롬프트·정형 검사만으로 증명되지 않는다. 기존 v3/v2로 대체되면 이전 서사가 보일 수 있다. Redis 보관 72시간이 지난 딥링크의 API는 404를 반환한다. 앱은 최신 리포트로 이동하며 최신 조회도 실패하면 인텔 기본 탭을 표시한다. 푸시의 기존 비원자적 중복 방지·마지막 섹터 완료 표식은 이번 범위에서 바꾸지 않는다. 모바일 실제 화면 높이와 OS별 알림 탭은 운영 세션의 실기기 확인이 필요하다.
 
 ## 날짜 혼합 관문 후속 수리 (2026-10-23)
 
@@ -126,3 +126,22 @@ node scripts/compare-close-report.mjs --count 20 --days 90 --generate --runs 3
 - `tests/tickerPayload.test.js`·`tests/uxTimeoutsPaywall.test.cjs`의 비교 기준을 `git merge-base HEAD origin/main`으로 고정했다. 기존 응답·태그·문구·사전·CSS 비교 검사는 유지한다. 두 파일만 재검사해 2/2 통과했다. 최종 합산 **298개 중 296개 통과·2개 파일의 기존 실패 3건**, 지정 제외 외 실패 0. 기록: `.logs/ux-gate/results.json`, `recheck.json`, `final.json`. 최종 변경 파일은 위 6개에 이 두 시험 파일을 더한 8개다.
 - `./node_modules/.bin/tsc --noEmit --incremental false`: 1회 실행, 종료 코드 0·오류 0. 모든 시험 실행·tsc는 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 직렬화했다. 비교 스크립트·비교 시험의 `node --check`와 `git diff --check`도 통과했다.
 - 운영 저장본·모델·브라우저·실기기·알림·운영 쓰기·커밋·push·병합·배포는 실행하지 않았다. 운영 비교와 실기기 검증은 앞의 운영 세션 과제로 남는다.
+
+## 앱 설정 종목·만료 알림 관문 수리 (2026-10-23 18:55 관문)
+
+- 원인: `closingReportForApp`은 설정 목록 정렬 시 보충 시세를 전달하지 않았다. 생산자 퀀텀 목록에는 IONQ만 겹쳐 RGTI·QBTS가 행과 W/L 분모에서 빠졌다. 마감 전용 경로에서 저장본에 없는 설정 종목을 결측 행으로 먼저 보충한다. 이후 기존 `alignReportToConfig`로 목록·집계를 맞춘다. 날짜가 같은 저장값과 옵션은 유지하며 현재 시세를 과거 값으로 사용하지 않는다. 최신 경로와 공통 정렬 함수는 변경하지 않았다.
+- 원인: 크로스 요약 404 후에도 `!crossBrief`가 로딩 분기를 선택했다. 별도 로딩 상태와 오류 분기를 두고 요청을 12초로 제한했다. 지정일 실패 시 날짜 쿼리를 해제한 리포트 URL로 한 번 이동한다. 최신 조회도 실패하면 인텔 기본 섹터 탭을 표시한다. API의 지정일 404·날짜 대조 정책은 유지한다. 응답·본문 수신 중 날짜 전환과 이전 요청의 실패가 새 화면을 덮거나 이동시키지 않도록 취소한다.
+- 호출자 확인: 수정한 앱 내부 `closingReportForApp`은 마감 스냅샷 조회 effect 1곳에서만 호출한다. `alignReportToConfig`의 다른 호출자인 `viewReportForApp`과 그 상세 화면 경로는 변경하지 않았다. `crossBriefUrl`·API·푸시 공용 함수도 변경하지 않았다.
+- 재현 시험: `closingSession`은 실제 생산자 퀀텀 목록·설정 목록·빈 저장 목록을 세 언어로 실행해 설정 행 전부 유지, 실측 0과 결측 구분, 저장 옵션 보존, W/L의 1/3·0/3 분모, 원본 불변을 검증한다. 실제 앱 행 JSX도 렌더해 RGTI·QBTS의 이름과 기존 결측 표시를 확인한다. `appClosingRecovery`는 실제 앱 effect·JSX를 실행해 404 뒤 로딩 종료·섹터 목록 유지, 최신 조회 성공/실패, 불완전·다른 날짜 응답, 시간 제한, 늦은 응답·본문 취소를 검증한다.
+- 화면 라벨·문구·펼침 방식은 변경하지 않았다. 운영 저장본·실모델·브라우저·실기기·발송·운영 쓰기·커밋·push·병합·배포는 실행하지 않는다.
+
+검증 결과:
+
+- 무거운 실행은 모두 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 직렬화했다. 다른 작업공간의 잠금을 기다렸으며 전체 시험과 tsc는 각각 1회 실행했다.
+- 최초 표적 시험 2개는 새 JSX 시험 도구에 `exports` 주입이 없어 검사 전에 실패했다. 도구를 수정한 뒤 `closingSession`·`appClosingRecovery`·`intelFillFollowups`·`intelSectorBrief`·`reportLink` 5/5 통과했다.
+- 수정 전 HEAD 소스를 같은 재현 시험에 입력하면 각각 실패한다. `closingSession`은 실제 결과가 IONQ 한 행인 것을, `appClosingRecovery`는 404 뒤 로딩 상태가 종료되지 않는 것을 확인했다. 기록: `.logs/ux-gate/close-report-v2-before-rows.log`, `close-report-v2-before-recovery.log`.
+- 기존 `appAccuracy2`의 배선 검사 1줄도 결측 행 보충 후 날짜 고정 정렬을 검증하도록 갱신했다. 최신 시세 미병합 검사는 유지했다. 전체 `node scripts/run-offline-tests.cjs`: **299개 중 297개 통과·2개 파일의 기존 제외 실패 3건**, 지정 제외 외 실패 0. `earningsScenario`의 과거 커밋 범위 비교 2건과 `readCheck`의 기준 커밋 비교 1건이다. `giftShareGate`는 통과했다. 기록: `.logs/ux-gate/results.json`, `final.json`.
+- `./node_modules/.bin/tsc --noEmit --incremental false`: 종료 코드 0·오류 0. 기록: `.logs/ux-gate/close-report-v2-tsc.log`, `close-report-v2-status.json`.
+- 변경 파일은 앱 `src/app/[locale]/app-view/intel/page.tsx`, 시험 `tests/closingSession.test.ts`·`tests/appClosingRecovery.test.ts`·`tests/appAccuracy2.test.ts`, 이 인계 문서 — 총 5개다. `git diff --check` 통과.
+
+남은 위험: 운영 저장본 20개·실모델 3회 이상 비교와 실기기 알림 검증은 이번에도 미실시이며 운영 세션의 병합 전 과제로 남는다.
