@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { Zap, Loader2 } from 'lucide-react';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
+import { vwapForCalculation } from '@/lib/sessionVwapPolicy';
 
 export const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaData, newsScore, liveQuote, analystData, fundamentalData, institutionalData, volatilityData, squeezeData, convictionData, earningsData }: any) => {
     const t = useTranslations('command');
@@ -129,7 +130,7 @@ export const DecisionGate = ({ ticker, displayPrice, session, structure, krNews,
 
     // 7. VWAP — REG only
     if (isREG) {
-        const vwap = liveQuote?.vwap || 0;
+        const vwap = vwapForCalculation(liveQuote?.vwap, liveQuote?.vwapDate) ?? 0;
         const price = displayPrice || 0;
         if (vwap > 0 && price > 0) {
             const vwapDiff = ((price - vwap) / vwap) * 100;

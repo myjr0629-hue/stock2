@@ -134,7 +134,7 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
             keepSessionScopedFresh: x => x, peekExtendedSessionCloses: async () => new Map(),
             pickRegularPreClose: () => null, recallProvisionalPreCloses: async () => new Map(), rememberProvisionalPreClose: async () => {},
         },
-        '@/lib/marketCalendar': { shownRegularSessionDate: () => '2026-10-19', etMinutesOf: () => 610,
+        '@/lib/marketCalendar': { shownRegularSessionDate: () => '2026-10-19', etLastClosedSessionDate: () => '2026-10-16', etMinutesOf: () => 610,
             cashSessionPhaseAt: () => 'regular' },
         '@/lib/putCall': putCall,
         '@/lib/quoteBasis': { priceAsOfET: () => snapshot.timestampET },
@@ -261,7 +261,7 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
             assert.deepEqual(result.body.flow.allExpiryChain, spy.flow.allExpiryChain, file);
         }
     });
-    await test('CMD/FLOW consumers preserve request order; dashboard delegates Alpha availability', async () => {
+    await test('CMD/FLOW consumers preserve network request order and arguments', async () => {
         const files = ['src/app/[locale]/app-view/cmd/page.tsx', 'src/app/[locale]/app-view/flow/page.tsx',
             'src/app/api/flow/unified/route.ts', 'src/app/api/dashboard/unified/route.ts',
             'src/app/[locale]/flow/FlowPageClient.tsx', 'src/app/[locale]/flow/MobileFlowPage.tsx'];
@@ -270,7 +270,11 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
             const normalize = source => source.replace(/&chain=full/g, '').replace(/^        chain: 'full',\n/gm, '')
                 // Alpha now decides availability from observed metrics, including partial/PENDING data.
                 .replace(/^\s+optionsDataAvailable: data\.options_status === 'OK',\n/gm, '');
-            assert.equal(normalize(read(file)), normalize(old), file);
+            // 계산·날짜 정책은 별도 회귀 시험에서 검증한다. 이 시험의 계약은 네트워크 요청 순서·인수다.
+            const requests = source => nodes(source).filter(ts.isCallExpression)
+                .filter(n => /fetch|callInternalGet/i.test(n.expression.getText()))
+                .map(n => normalize(n.getText()));
+            assert.deepEqual(requests(read(file)), requests(old), file);
         }
     });
     await test('chain diagnostic scripts only add chain=full to their requests (scripts are not executed)', async () => {

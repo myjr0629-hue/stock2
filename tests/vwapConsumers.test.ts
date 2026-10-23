@@ -15,6 +15,7 @@ import { computeUnifiedVolatilityRegime } from '../src/lib/metrics/volatilityReg
 import { resolveCommandVolatilityObservation, formatObservationTime } from '../src/lib/commandVolatilityObservation';
 import { carriedConvictionDate, commandConvictionRaw, convictionInputsOf, retainConvictionInputs, scoreCommandConviction } from '../src/lib/commandConviction';
 
+const vwapDate = marketCalendar.shownRegularSessionDate();
 const cmd = 'src/app/[locale]/app-view/cmd/page.tsx';
 function find(file: string, predicate: (n: ts.Node) => boolean) {
     const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -45,7 +46,7 @@ function chart(vwap: any, range = '1D', closes = [100, 110, 90, 100]) {
 function signals(vwap: any) {
     const decl = find(cmd, n => ts.isVariableDeclaration(n) && n.name.getText() === 'signalsData');
     return run(`const ${decl}; signalsData;`, {
-        data: { price: 123, vwap, unified: { structure: { underlyingPrice: 100 } } },
+        data: { price: 123, vwap, rawTickerData: { vwapDate }, unified: { structure: { underlyingPrice: 100 } } },
         tDashboard: (s: string) => s, readDarkPool: () => null, earningsWithin: () => false,
         iv30Level: null, batchIv: {}, ticker: undefined, locale: 'en', retainCommandIv: () => null, commandUnifiedIv: () => null, commandIvDateText: () => '', // signalsData 가 쓰는 컴포넌트 변수(IV30·IV 대체 경로) — VWAP 시험과 무관
     });
@@ -125,7 +126,7 @@ test('shared app/warm AI snapshot uses source VWAP, never underlying price or fa
     const buildDeepSnapshot = require('../src/lib/ai/deepSnapshot').buildDeepSnapshot;
     for (const [value, expected] of [[null, 'N/A'], [100, '23.0%'], [123, '0.0%']] as const) {
         const result = run('buildDeepSnapshot(x);', { buildDeepSnapshot,
-            x: { price: 123, rawTickerData: { vwap: value }, unified: { structure: { underlyingPrice: 100 } } },
+            x: { price: 123, rawTickerData: { vwap: value, vwapDate }, unified: { structure: { underlyingPrice: 100 } } },
             earningsDaysOrNull: () => null,
         });
         assert.equal(result.vwap, value); assert.equal(result.vwapDistance, expected);
@@ -138,7 +139,7 @@ test('mobile metrics conviction uses VWAP contract instead of structure underlyi
     const snapExpr = find('src/hooks/useMobileConvictionSnapshot.ts', n => ts.isVariableDeclaration(n) && n.name.getText() === 'snapshot');
     const decl = find(metricsFile, n => ts.isVariableDeclaration(n) && n.name.getText() === 'conviction');
     for (const [vwap, score] of [[null, 50], [100, 58], [150, 42]] as const) {
-        const result = run(`const convictionSnapshot = (() => { const ${snapExpr}; return snapshot; })(); const ${decl}; conviction;`, { vwap, vwapDate: undefined, vwapExplicitNull: false, ticker: 'TEST', mobileConvictionHistory: new Map(),
+        const result = run(`const convictionSnapshot = (() => { const ${snapExpr}; return snapshot; })(); const ${decl}; conviction;`, { vwap, vwapDate, vwapExplicitNull: false, ticker: 'TEST', mobileConvictionHistory: new Map(),
             unified: { sma: { cross: 'NONE' }, structure: { underlyingPrice: 100 } }, price: 123, netPremium: undefined, q: { price: 123 } });
         assert.equal(result.score, score);
     }
