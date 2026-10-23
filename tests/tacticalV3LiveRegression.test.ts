@@ -37,11 +37,11 @@ assert.deepEqual(tacticalIndexReasons(first.replace('1.2%', '1.21%'), prompt), [
 assert.ok(tacticalIndexReasons(first.replace('1.2%', '1.22%'), prompt).includes('tactical:index-value'));
 assert.ok(tacticalIndexReasons(first.replace('보합(+0.03%)', '보합(-0.03%)'), prompt).includes('tactical:index-direction'));
 assert.ok(tacticalIndexReasons(first.replace('0.2% 약세', '보합'), prompt).includes('tactical:index-direction'));
-for (const value of [-0.1, 0, 0.1]) {
+for (const value of [-0.106, -0.1, 0, 0.1, 0.149]) {  // 반올림 1자리 ±0.1 이내 = 보합 허용(실모델 10/23 20:33 NQ −0.106)
     const c = { ...context, indexFacts: context.indexFacts.map((f: IndexFact) => f.id === 'nq' ? { ...f, chgPct: value } : f) };
     assert.deepEqual(tacticalIndexReasons(first.replace('보합(+0.03%)', '보합'), buildTacticalPrompt(c, 'ko')), [], `flat boundary ${value}`);
 }
-for (const value of [-0.101, 0.101]) {
+for (const value of [-0.16, 0.16]) {
     const c = { ...context, indexFacts: context.indexFacts.map((f: IndexFact) => f.id === 'nq' ? { ...f, chgPct: value } : f) };
     assert.ok(tacticalIndexReasons(first.replace('보합(+0.03%)', '보합'), buildTacticalPrompt(c, 'ko')).includes('tactical:index-direction'));
 }
