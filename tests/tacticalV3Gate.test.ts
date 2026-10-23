@@ -106,7 +106,7 @@ async function main() {
         assert.ok(tacticalIndexReasons(first.replace('2.6', '2.5'), p(locale)).includes('tactical:index-value'));
     }
     assert.ok(tacticalIndexReasons('Nasdaq Composite registered +2.6%.', buildTacticalPrompt({ ...ctx('en'), session: 'REG', indexFacts: [{ ...fact, chgPct: -2.6 }] }, 'en')).includes('tactical:index-direction'));
-    // POST/CLOSED: 16:00 ET 마감 사실과 날짜·상대 날짜·시제를 대조한다. KST는 다음 날이어도 ET 기준이다.
+    // POST/CLOSED: 16:00 ET 마감 사실과 날짜 숫자·시제를 대조한다. 상대 날짜 낱말은 독자의 현지 날짜를 허용한다.
     for (const session of ['POST', 'CLOSED'] as const) for (const locale of locales) {
         reset(session === 'POST' ? '2026-10-23T20:00:00Z' : '2026-10-24T01:00:00Z');
         const p = (date: string, l = locale) => buildTacticalPrompt({ ...ctx(l), session, asOf: new Date(clock).toISOString(), indexFacts: [{ ...fact, chgPct: -2.6, sessionDate: date }] }, l);
@@ -123,7 +123,6 @@ async function main() {
                 : '本日(10/23)ナスダック総合は2.6%下落中です。';
         for (const [bad, reason] of [
             [ongoing, 'tactical:session-mismatch'], [first.replace('10/23', '10/22'), 'tactical:cash-session-date'],
-            [first.replace(/오늘|today’s|本日/, { ko: '어제', en: 'yesterday’s', ja: '昨日' }[locale]), 'tactical:cash-session-date'],
             [first.replace('(10/23)', ''), 'tactical:cash-session-date'],
         ]) {
             assert.ok(checkTacticalOutput(bad + ' ' + text[locale], locale, p('2026-10-23')).includes(reason), bad);
@@ -132,7 +131,7 @@ async function main() {
         clock = Date.parse('2026-10-24T05:00:00Z'); // 10/24 01:00 ET, 전날 마감
         const yesterday = first.replace(/오늘|today’s|本日/, { ko: '어제', en: 'yesterday’s', ja: '昨日' }[locale]);
         assert.deepEqual(tacticalIndexReasons(yesterday, p('2026-10-23')), []);
-        assert.ok(tacticalIndexReasons(first, p('2026-10-23')).includes('tactical:cash-session-date'));
+        assert.deepEqual(tacticalIndexReasons(first, p('2026-10-23')), [], '상대 날짜 낱말과 무관하게 M/D 숫자가 맞으면 통과');
     }
     reset('2026-10-23T20:00:00Z');
     const withFutures = buildTacticalPrompt({ ...ctx('ko'), session: 'POST', asOf: new Date(clock).toISOString(), indexFacts: [

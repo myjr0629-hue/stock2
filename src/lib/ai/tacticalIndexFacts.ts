@@ -26,6 +26,10 @@ export function tacticalSessionAt(nowMs: number): TacticalSession {
     if (phase === 'after-close') return etClock(nowMs).minutes < 1200 ? 'POST' : 'CLOSED';
     return phase === 'pre-open' && etClock(nowMs).minutes >= 240 ? 'PRE' : 'CLOSED';
 }
+/** REG는 현물 우선. 직접 전달된 indexFacts에도 같은 선택 규칙을 적용한다. */
+export function sessionIndexFacts(facts: IndexFact[], session: TacticalSession): IndexFact[] {
+    return session === 'REG' && facts.some(f => f.kind === 'spot') ? facts.filter(f => f.kind === 'spot') : facts;
+}
 /** Tactical 전용 어댑터. 화면·공통 숫자·수집기를 바꾸지 않는다. */
 export function buildIndexFacts(b: MarketIndexBasis | undefined, session: TacticalSession, nowMs: number): IndexFact[] {
     if (!b) return [];
@@ -67,5 +71,5 @@ export function buildIndexFacts(b: MarketIndexBasis | undefined, session: Tactic
         }
     };
     if (session === 'PRE') { futures(); cash(); } else { cash(); futures(); }
-    return facts;
+    return sessionIndexFacts(facts, session);
 }

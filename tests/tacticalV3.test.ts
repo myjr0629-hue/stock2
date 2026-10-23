@@ -16,7 +16,7 @@ assert.equal(facts[2].sessionDate, '2026-10-22');
 assert.equal(facts[0].asOfET, '2026-10-23 05:57 ET');
 const regAt = Date.parse('2026-10-23T15:00:00Z');
 const reg = buildMarketIndexBasis({ nasdaq: quote('^IXIC', -0.4, '2026-10-23T14:59:00Z'), spx: quote('^GSPC', -0.2, '2026-10-23T14:59:00Z'), nq: quote('NQ=F', 0.1, '2026-10-23T14:59:00Z') }, regAt);
-assert.deepEqual(buildIndexFacts(reg, 'REG', regAt).map(f => f.id), ['nasdaq', 'spx', 'nq']);
+assert.deepEqual(buildIndexFacts(reg, 'REG', regAt).map(f => f.id), ['nasdaq', 'spx']);
 assert.equal(buildIndexFacts(reg, 'REG', regAt + 30 * 60_000).length, 0, '캐시 live:true도 시각으로 재검사');
 assert.equal(buildIndexFacts(pre, 'REG', regAt).length, 0, '낡은 현물/선물은 현재 관측 아님');
 const postAt = Date.parse('2026-10-23T20:30:00Z');

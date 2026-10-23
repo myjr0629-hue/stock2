@@ -179,13 +179,13 @@ test('실적: 공급사 분 단위 시각 우선·BMO 당일=미확인/AMC 16:00
     assert.match(rowAt('2026-03-08T04:30:00Z', { ...row, date: '2026-03-08' }), /scheduled/);
 });
 
-test('ko/en/ja: 뉴스→전이+고유자원→한 가지 확인, ko/ja 420자·en 720자 계약', () => {
+test('ko/en/ja: 뉴스→전이+고유자원→한 가지 확인, ko/ja 460자·en 720자 계약', () => {
     for (const loc of ['ko', 'en', 'ja'] as const) {
         const p = buildTacticalPrompt(facts, loc);
         assert.match(p, /WHY[\s\S]*SO WHAT[\s\S]*NEXT/);
         assert.match(p, /at least one available proprietary resource/);
         assert.match(p, /exactly ONE supplied/);
-        assert.match(p, loc === 'en' ? /Maximum 720 characters/ : /Maximum 420 characters/);
+        assert.match(p, loc === 'en' ? /Maximum 720 characters/ : /Maximum 460 characters/);
         assert.match(p, /auction draws weak demand/);
         assert.match(p, /2026-10-21 08:30 ET/);
     }
@@ -210,7 +210,7 @@ test('뉴스 없는 입력: 명시적 미확인, 옛 코어의 무시각 헤드�
     assert.ok(checkTacticalOutput('연준의 금리 인하 발표가 오늘 시장을 움직였습니다.', 'ko', p).some(r => r.startsWith('event:unsupported:')));
     assert.ok(checkTacticalOutput('확인한 자료를 바탕으로 지금 매수하세요.', 'ko', p).includes('tactical:advice'));
     assert.ok(checkTacticalOutput('x'.repeat(721), 'en', p).includes('tactical:too-long'));
-    assert.ok(checkTacticalOutput('가'.repeat(421), 'ko', p).includes('tactical:too-long'));
+    assert.ok(checkTacticalOutput('가'.repeat(461), 'ko', p).includes('tactical:too-long'));
     assert.ok(!checkTacticalOutput('x'.repeat(720), 'en', p).includes('tactical:too-long'));
     assert.ok(checkTacticalOutput('Options support is 99999.', 'en', p).includes('tactical:number'));
     assert.ok(!checkTacticalOutput('Macro cause is unconfirmed. Dealer gamma buffers pressure. The next test going forward is options support.', 'en', p).some(r => r.startsWith('event:unsupported:')));

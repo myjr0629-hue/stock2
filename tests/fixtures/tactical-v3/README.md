@@ -24,3 +24,5 @@ node scripts/tactical-v3-compare.cjs \
 ```
 
 `--redis --capture`는 기존 Redis 공유 입력(gcore:v1, 없으면 guardian:snapshot:ko)을 GET하고, 시장 허용 목록만 `PRE.json`·`REG.json`·`POST.json`에 저장합니다. 생성·쓰기 부작용이 있는 앱 API는 호출하지 않습니다. `--live`만 쓰면 새 계약만 실행합니다. 기본 보고서 위치는 `~/Documents/signum-work/2026-10-23/tactical-v3/compare.md`입니다.
+
+`r4-outputs.json`은 `compare-v3-r4.md`(기준 087d21b75)의 새 계약 27행 원문과 시장 입력 허용 필드만 보관합니다. PRE는 21:05 KST 운영 실입력, REG/POST는 파생입니다. 새 회귀 검사는 기존 출력 재검사 19/27을 기대합니다(지난 세션 표현 REG 7개, 720자 초과 영어 PRE 1개는 거절 유지). 이 수치는 수정 후 새 실모델 생성 통과율이 아닙니다.
