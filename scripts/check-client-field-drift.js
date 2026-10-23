@@ -21,7 +21,7 @@ const TARGETS = [
 ];
 
 const get = (u) => new Promise((res, rej) => {
-  https.get(u, (r) => { let b = ""; r.on("data", (c) => (b += c)); r.on("end", () => res(b)); }).on("error", rej);
+  https.get(u, (r) => { let b = ""; r.setEncoding('utf8').on("data", (c) => (b += c)); r.on("end", () => res(b)); }).on("error", rej);
 });
 
 (async () => {

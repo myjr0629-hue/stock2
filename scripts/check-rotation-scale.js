@@ -11,7 +11,7 @@ const fs = require("fs");
 const https = require("https");
 // EC2 의 node 는 16 이라 전역 fetch 가 없다
 const fetch = globalThis.fetch || ((url) => new Promise((res, rej) => {
-  https.get(url, (r) => { let b = ""; r.on("data", c => b += c); r.on("end", () => res({ ok: r.statusCode === 200, json: async () => JSON.parse(b) })); }).on("error", rej);
+  https.get(url, (r) => { let b = ""; r.setEncoding('utf8').on("data", c => b += c); r.on("end", () => res({ ok: r.statusCode === 200, json: async () => JSON.parse(b) })); }).on("error", rej);
 }));
 const ENV_PATH = process.env.ENV_PATH || "/opt/signum-ws/.env";
 if (fs.existsSync(ENV_PATH)) {

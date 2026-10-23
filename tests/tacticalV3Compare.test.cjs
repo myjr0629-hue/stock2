@@ -1,5 +1,16 @@
 const assert = require('node:assert/strict');
-const { fixtureFromSnapshot, compareStored, readers, collectStored, markdown, deriveSessions, liveCompare, modelRequest, baseline } = require('../scripts/tactical-v3-compare.cjs');
+const childProcess = require('node:child_process');
+// v3 병합 직전 main을 옛 계약으로 고정한다. 움직이는 origin/main은 병합 후 이미 v3다.
+// 비교 도구의 git 의존성만 주입하고, 실제 프롬프트·검사는 이 SHA의 원본을 읽는다.
+const baselineRevision = '0b6afec9ffbaeac3844b8ff7874bc20cc06bdc29';
+const execFileSync = childProcess.execFileSync;
+let comparison;
+try {
+  childProcess.execFileSync = (command, args, options) => command === 'git' && args[0] === 'rev-parse' && args[1] === 'origin/main'
+    ? baselineRevision + '\n' : execFileSync(command, args, options);
+  comparison = require('../scripts/tactical-v3-compare.cjs');
+} finally { childProcess.execFileSync = execFileSync; }
+const { fixtureFromSnapshot, compareStored, readers, collectStored, markdown, deriveSessions, liveCompare, modelRequest, baseline } = comparison;
 const { buildMarketIndexBasis } = require('../src/lib/marketIndexBasis');
 async function main() {
   const timestamp = '2026-10-23T09:58:00Z';
@@ -57,7 +68,7 @@ async function main() {
   assert.match(modelRequest(withCompany, 'old', old).prompts.ko, /Volvo/);
   assert.doesNotMatch(modelRequest(withCompany, 'new', old).prompts.ko, /Volvo/);
   for (const locale of ['ko', 'en', 'ja']) assert.equal(require('../src/lib/ai/guardianNumbers').guardianTokenRules(locale, { NDX_CHG: -1.2, RLSI: 31 }), old.numbers.guardianTokenRules(locale, { NDX_CHG: -1.2, RLSI: 31 }), '공유 자리표 기본 모드 불변');
-  assert.equal(old.revision, require('node:child_process').execFileSync('git', ['rev-parse', 'origin/main'], { encoding: 'utf8' }).trim());
+  assert.equal(old.revision, baselineRevision);
   assert.match(modelRequest(fixture.context, 'old', old).userPrompt, /first sentence, no numbers, no times, no sources/);
   assert.match(modelRequest(fixture.context, 'old', old).userPrompt, /→ \{NDX_CHG\}/);
   assert.doesNotMatch(modelRequest(fixture.context, 'new', old).userPrompt, /→ \{(?:NDX_CHG|SPX_CHG)\}/);

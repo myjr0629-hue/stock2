@@ -1,7 +1,7 @@
 const http = require('http');
 http.get('http://localhost:3001/api/command/unified?t=NVDA', res => {
     let d = '';
-    res.on('data', c => d+=c);
+    res.setEncoding('utf8').on('data', c => d+=c);
     res.on('end', () => {
         try {
             const j = JSON.parse(d);

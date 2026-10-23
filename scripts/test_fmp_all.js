@@ -40,7 +40,7 @@ function testEndpoint(ep) {
         
         https.get(fullUrl, (res) => {
             let data = '';
-            res.on('data', chunk => data += chunk);
+            res.setEncoding('utf8').on('data', chunk => data += chunk);
             res.on('end', () => {
                 let success = false;
                 

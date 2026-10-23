@@ -7,7 +7,7 @@ function get(u) {
     const t = setTimeout(() => j(new Error('TO')), 15000);
     https.get(u, (s) => {
       let d = '';
-      s.on('data', c => d += c);
+      s.setEncoding('utf8').on('data', c => d += c);
       s.on('end', () => { clearTimeout(t); try { r(JSON.parse(d)); } catch { r(d); } });
     }).on('error', e => { clearTimeout(t); j(e); });
   });
