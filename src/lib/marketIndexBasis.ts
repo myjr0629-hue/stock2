@@ -1,5 +1,6 @@
 import { cashSessionPhaseAt, sessionCloseMinutes } from './marketCalendar';
 import { etClock, etDateOfIso, isEquityFuturesOpen, lastClosedSessionDate } from './marketSession';
+import { validFuturesCashCloseReference, type FuturesCashCloseReference } from './futuresCashClose';
 
 /** 현물과 선물은 교환할 수 없다. 조회 시각 대신 각 원자료의 체결 시각을 운반한다. */
 export interface IndexQuoteInput {
@@ -21,7 +22,7 @@ export interface IndexObservation {
     source: string | null;
 }
 export interface FuturesObservation extends IndexObservation {
-    /** 현물 마감 순간의 선물 기준 관측은 수집하지 않는다. 전일 정산 대비를 이 값으로 꾸미지 않는다. */
+    /** 같은 선물의 현물 마감 부근 실제 관측 대비. 전일 정산 대비와 구분한다. */
     sinceCashClosePct: number | null;
     cashCloseReferenceAt: string | null;
 }
@@ -41,7 +42,7 @@ const isCashCloseObservation = (time: number, sessionDate: string): boolean =>
 export function buildMarketIndexBasis(inputs: {
     nasdaq?: IndexQuoteInput | null; ndx?: IndexQuoteInput | null; spx?: IndexQuoteInput | null;
     nq?: IndexQuoteInput | null; es?: IndexQuoteInput | null;
-}, nowMs: number): MarketIndexBasis {
+}, nowMs: number, references: { nq?: FuturesCashCloseReference | null; es?: FuturesCashCloseReference | null } = {}): MarketIndexBasis {
     const phase = cashSessionPhaseAt(nowMs);
     const regular = phase === 'regular';
     const today = etClock(nowMs).date;
@@ -68,13 +69,18 @@ export function buildMarketIndexBasis(inputs: {
             live: price != null && (futures ? futureLive : regular && sessionDate === today && fresh),
             source: price != null ? raw?.source ?? null : null };
     };
-    const future = (raw: IndexQuoteInput | null | undefined, symbol: string): FuturesObservation => ({
-        ...point(raw, symbol, true), sinceCashClosePct: null, cashCloseReferenceAt: null,
-    });
+    const closedDate = lastClosedSessionDate(nowMs);
+    const future = (raw: IndexQuoteInput | null | undefined, symbol: string, ref: FuturesCashCloseReference | null | undefined): FuturesObservation => {
+        const p = point(raw, symbol, true);
+        const valid = p.price != null && p.asOf != null && validFuturesCashCloseReference(ref, symbol, closedDate)
+            && Date.parse(ref.asOf) <= Date.parse(p.asOf);
+        const pct = valid ? (p.price! / ref.price - 1) * 100 : null;
+        return { ...p, sinceCashClosePct: finite(pct), cashCloseReferenceAt: valid && finite(pct) != null ? ref.asOf : null };
+    };
     return { v: 1,
         cash: { nasdaq: point(inputs.nasdaq, '^IXIC'), ndx: point(inputs.ndx, '^NDX'), spx: point(inputs.spx, '^GSPC') },
         // 이 등락률은 전일 정산가 대비다. 현물 마감 이후 수익률로 다시 해석하지 않는다.
-        futures: { nq: future(inputs.nq, 'NQ=F'), es: future(inputs.es, 'ES=F') } };
+        futures: { nq: future(inputs.nq, 'NQ=F', references.nq), es: future(inputs.es, 'ES=F', references.es) } };
 }
 
 /** Guardian의 NASDAQ 판정은 종합 현물(^IXIC), NDX/API는 Nasdaq 100 현물(^NDX). */
