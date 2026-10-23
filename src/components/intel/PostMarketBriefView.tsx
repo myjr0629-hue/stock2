@@ -298,7 +298,8 @@ export function PostMarketBriefView() {
                 const res = await fetch(crossBriefUrl(requestedDate), { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
-                    if (active && data.success && data.structured) {
+                    if (active && data.success && data.structured && reportDate(data.date)
+                        && (!requestedDate || data.date === requestedDate)) {
                         setBrief(data);
                     }
                 }
@@ -324,6 +325,7 @@ export function PostMarketBriefView() {
     const collapseAll = () => setExpandedSectors(new Set());
 
     const d = brief?.structured;
+    const closingDate = (!requestedDate || brief?.date === requestedDate) ? reportDate(brief?.date) : null;
     const macroIndicators = brief?.macroIndicators || [];
     const vixTS = brief?.vixTermStructure;
     const upcomingEvents = brief?.upcomingEvents || [];
@@ -979,7 +981,7 @@ export function PostMarketBriefView() {
                         </button>
                         {isExpanded && (
                             <div className="border-t border-white/[0.06] animate-in slide-in-from-top-2 duration-300">
-                                <TacticalReportDeck config={config} />
+                                <TacticalReportDeck key={closingDate || 'unavailable'} config={config} date={closingDate} />
                             </div>
                         )}
                     </section>

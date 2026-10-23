@@ -110,3 +110,19 @@ node scripts/compare-close-report.mjs --count 20 --days 90 --generate --runs 3
 - CJS 공유 계약·Lambda와 비교 스크립트 문법, 비교 CLI `--help`, `git diff --check`: 통과. 오프라인 비교 시험은 HTTP GET 경로·EC2/Upstash 분리·원입력 결측 거절·세 언어 표·비밀값 가림·기존 사다리 어댑터의 메모리 전용 쓰기를 검증한다.
 
 남은 위험: 운영 저장본 20개 이상·실모델 3회 이상 비교 및 실제 알림/실기기 검증은 운영 세션의 병합 전 과제로 남는다. 시각 근거가 없는 옛 저장본의 입력 날짜를 소급 증명할 수 없으며 그런 표본은 비교 불가로 표시한다. 날짜 검증 강화로 날짜가 없거나 다른 날인 매크로/뉴스/옵션 근거는 줄어들 수 있다. 실제 공급사 결측률·모델 탈락률·다국어 의미 정확성은 운영 비교에서 확인해야 한다.
+
+## 웹 지정일·비교 근거 관문 수리 (2026-10-23)
+
+- 원인: 웹 `PostMarketBriefView`가 날짜를 요약 GET에만 전달했다. 하위 `TacticalReportDeck`은 최신 섹터를 조회하며 응답 날짜도 검사하지 않았다. 이제 검증된 요약 응답 날짜를 하위에 전달하며, 지정 날짜와 다른 요약·섹터 응답을 거절한다. 날짜 전환 시 하위를 다시 마운트하고 이전 요청의 늦은 성공·실패·본문 응답을 무시한다. 요약 날짜가 없으면 최신 섹터로 대체하지 않고 기존 결측 문구를 사용한다.
+- 공유 컴포넌트 호출자 전체: `PostMarketBriefView` 1곳과 `IntelClientPage`의 독립 섹터 화면 10곳이다. 전자는 반환된 보고서 날짜로 고정한다. 후자는 날짜 속성을 생략하므로 기존 최신 조회·`lockedTickers` 전달을 유지한다. `webClosingSession`이 날짜 전달·불일치·404·결측·요청 경합·독립 화면 조회를, `intelSnapshotNullRender`가 실제 웹·모바일 행과 결측 표시를 검증한다.
+- 원인: 비교 스크립트의 `macroStr` 복원이 현물 지수에 한정되어, 공통 출구 검사에 같은 날 VIX3M 근거를 전달하지 못했다. 이제 기존 `sessionReading`을 통과한 저장 매크로 관측값 전체를 생산자와 같은 이름·정밀도·금리 bp·선물 구분으로 복원한다. 원래 날짜·stale·미래 검사와 가격 출구 검사는 유지한다. 생산자·공유 가드 자체는 변경하지 않았다.
+- `compareCloseReport`는 Vercel·Lambda의 실제 매크로 표현식을 오프라인으로 실행해 복원 문자열이 같은지 대조한다. 가짜 모델을 통한 실제 비교 어댑터의 후처리에서 정상 VIX3M=22.37 보존과 다른 날·날짜 미상·stale·생성 이후 근거의 삭제도 확인한다. 운영 저장본·실모델은 호출하지 않는다.
+- 5단 구조·화면 라벨·문구·펼침 방식·한국어 제약·마감 푸시 딥링크는 변경하지 않았다. 이번 수리 파일은 `src/components/intel/PostMarketBriefView.tsx`, `src/components/intel/TacticalReportDeck.tsx`, `scripts/compare-close-report.mjs`, `tests/webClosingSession.test.ts`, `tests/compareCloseReport.test.mjs`, 이 문서다.
+
+검증 결과:
+
+- 표적 7개 파일 통과. 새 웹 시험의 초기 실패는 상위 컴포넌트 대신 파일 첫 애니메이션 훅을 추출한 시험 도구 문제였다. 실제 컴포넌트 함수를 먼저 찾도록 고친 후 해당 시험을 재검사해 통과했다.
+- 전체 `node scripts/run-offline-tests.cjs`는 1회 실행: 298개 중 294개 통과·4개 파일 실패. 기존 제외는 `earningsScenario` 2건·`readCheck` 1건이다. 추가 실패 두 파일은 분기 이후 `origin/main` 변경을 이 브랜치와 비교한 데서 발생했다. 당시 공통 조상은 `d6c648194`, `origin/main`은 `0b6afec9f`였다. main에만 현물 감마 정규화·랭킹 배지 변경이 있었고, 이 브랜치의 해당 두 생산 파일은 공통 조상과 동일함을 확인했다.
+- `tests/tickerPayload.test.js`·`tests/uxTimeoutsPaywall.test.cjs`의 비교 기준을 `git merge-base HEAD origin/main`으로 고정했다. 기존 응답·태그·문구·사전·CSS 비교 검사는 유지한다. 두 파일만 재검사해 2/2 통과했다. 최종 합산 **298개 중 296개 통과·2개 파일의 기존 실패 3건**, 지정 제외 외 실패 0. 기록: `.logs/ux-gate/results.json`, `recheck.json`, `final.json`. 최종 변경 파일은 위 6개에 이 두 시험 파일을 더한 8개다.
+- `./node_modules/.bin/tsc --noEmit --incremental false`: 1회 실행, 종료 코드 0·오류 0. 모든 시험 실행·tsc는 `/usr/bin/lockf -k /tmp/signum-heavy.lock`으로 직렬화했다. 비교 스크립트·비교 시험의 `node --check`와 `git diff --check`도 통과했다.
+- 운영 저장본·모델·브라우저·실기기·알림·운영 쓰기·커밋·push·병합·배포는 실행하지 않았다. 운영 비교와 실기기 검증은 앞의 운영 세션 과제로 남는다.

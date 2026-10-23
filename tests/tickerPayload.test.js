@@ -9,7 +9,9 @@ const root = path.resolve(__dirname, '..');
 const routeFile = 'src/app/api/live/ticker/route.ts';
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const current = read(routeFile);
-const original = execFileSync('git', ['show', `origin/main:${routeFile}`], { cwd: root, encoding: 'utf8' });
+// Compare this branch with its fork point; later main changes are separate work.
+const baselineRef = execFileSync('git', ['merge-base', 'HEAD', 'origin/main'], { cwd: root, encoding: 'utf8' }).trim();
+const original = execFileSync('git', ['show', `${baselineRef}:${routeFile}`], { cwd: root, encoding: 'utf8' });
 const snapshotDir = process.argv[2] || '/Users/eunhoon/Documents/signum-work/2026-10-19/reg-snapshots';
 const snapshots = fs.readdirSync(snapshotDir).filter(f => /^ticker-.*-2310\.json$/.test(f)).sort()
     .map(f => JSON.parse(fs.readFileSync(path.join(snapshotDir, f), 'utf8')));
@@ -187,7 +189,7 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
                 const full = harness(current, snapshot, mode, skipAlpha);
                 const slim = harness(current, snapshot, mode, skipAlpha);
                 const zero = harness(current, snapshot, mode, skipAlpha);
-                // origin/main에도 요약 기본값이 병합됐으므로 같은 full 계약을 비교한다.
+                // 분기 기준에도 요약 기본값이 병합됐으므로 같은 full 계약을 비교한다.
                 const a = await old.get('&chain=full');
                 const b = await full.get('&chain=full');
                 const c = await slim.get('');

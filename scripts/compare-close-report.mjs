@@ -40,6 +40,32 @@ export async function recentReports(read, { count, days, end }) {
     return found;
 }
 
+// Match the producers' numeric context, using only the session-checked archived readings.
+function archivedMacro({ regularClose: cash, readings: r }) {
+    const fmt = (q, label) => q ? `${label}: ${q.price.toFixed(q.price > 1000 ? 0 : 2)} (${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}%)` : null;
+    const tnxBp = q => {
+        const abs = Number.isFinite(q.change) ? q.change
+            : (Number.isFinite(q.price) && Number.isFinite(q.changePct) && q.changePct > -100 ? q.price - q.price / (1 + q.changePct / 100) : null);
+        if (abs == null) return '—';
+        const bp = Math.round(abs * 100);
+        return `${bp > 0 ? '+' : ''}${bp}bp`;
+    };
+    return [
+        fmt(r.vix, 'VIX'), fmt(r.vix3m, 'VIX3M'),
+        r.vix && r.vix3m ? `VIX/VIX3M Ratio: ${(r.vix.price / (r.vix3m.price || 1)).toFixed(3)} (${r.vix.price > r.vix3m.price ? 'BACKWARDATION ⚠️' : 'CONTANGO ✓'})` : null,
+        fmt(cash.spx, 'S&P500'), fmt(cash.nasdaq, 'NASDAQ'), fmt(cash.dow, 'DOW'),
+        fmt(r.futures?.es, 'ES=F daily futures change (not since cash close)'),
+        fmt(r.futures?.nq, 'NQ=F NASDAQ100 daily futures change (not NASDAQ Composite)'),
+        fmt(r.futures?.rty, 'RTY=F daily futures change (not cash close)'),
+        r.us10y ? `US10Y: ${r.us10y.price.toFixed(2)}% (${tnxBp(r.us10y)})` : null,
+        fmt(r.dollar, 'DXY'), fmt(r.tlt, 'TLT(20Y+Bond)'), fmt(r.gold, 'Gold'), fmt(r.oil, 'WTI Oil'),
+        r.btc ? `BTC: $${r.btc.price.toFixed(0)} (${r.btc.changePct >= 0 ? '+' : ''}${r.btc.changePct.toFixed(2)}%)` : null,
+        r.fearGreed ? `Fear & Greed: ${r.fearGreed.value || r.fearGreed.score || 'N/A'}` : null,
+        r.usdkrw ? `USD/KRW: ${r.usdkrw.price.toFixed(2)} (${r.usdkrw.changePct >= 0 ? '+' : ''}${r.usdkrw.changePct.toFixed(2)}%)` : null,
+        r.usdjpy ? `USD/JPY: ${r.usdjpy.price.toFixed(2)} (${r.usdjpy.changePct >= 0 ? '+' : ''}${r.usdjpy.changePct.toFixed(2)}%)` : null,
+    ].filter(Boolean).join(' | ');
+}
+
 export function archivedInput({ brief, date }) {
     // Without timestamped original inputs, regenerating an old date from today's Redis is invalid.
     if (!brief.reportEvidence?.regularClose?.spx || !brief.reportEvidence?.regularClose?.nasdaq) return null;
@@ -63,7 +89,7 @@ export function archivedInput({ brief, date }) {
     if (!Array.isArray(sectors)) return null;
     sectors = sectors.filter(s => s.sessionDate === date);
     // Rebuild numeric macro context from timestamped evidence. Never reuse an undated macro string.
-    const macroStr = Object.entries(evidence.regularClose).filter(([, q]) => q).map(([k, q]) => `${k}: ${q.price} (${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}%)`).join(' | ');
+    const macroStr = archivedMacro(evidence);
     const rows = (brief.optionLevels || []).filter(r => r.asOf != null && new Date(r.asOf).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === date);
     const block = LEVELS.buildLevelsBlock(rows);
     const prompt = C.buildClosingPrompt({ sessionDate: date, macroStr, levelsSection: LEVELS.levelsPromptSection(block.block), evidence, sectorSummaries: sectors,
