@@ -230,6 +230,21 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         assert.equal(await svc.repriceCachedDerived(fresh, 'NVDA'), fresh);
     });
 
+    await test('gate 2-①: unified legacy fundamentals (no basis) matching the harvest record reprice like live/fundamentals', async () => {
+        const svc = service({ ...EOD_1022, fund: { pattern: 'FUND:NVDA', timestamp: at('2026-10-22T13:30:00Z'), pe: 27.7, ps: 17.7, pb: 23.3, fcfYield: 2.4, de: 0.15, roe: 117.2 } });
+        const edition = { ticker: 'NVDA', timestamp: at('2026-10-23T13:00:00Z'), fundamentals: NVDA_LEGACY };
+        const out = await svc.repriceCachedDerived(edition, 'NVDA');
+        assert.equal(out.fundamentals.pe, 26.5); assert.equal(Math.round(out.fundamentals.marketCap / 1e9), 5114);
+        assert.equal(edition.fundamentals._priceBasis, undefined);
+    });
+    await test('gate 2-③: tiny move day (100 → 100.05) — a same-session intraday row is still replaced by the close', async () => {
+        const svc = service({ latest: { TINY: { date: '2026-10-22', close: 100.05, prevClose: 100 } } });
+        const r = await svc.repriceRelated({ topRelated: [{ ticker: 'TINY', price: 105, change: 5, prevClose: 100 }] }, at('2026-10-22T18:00:00Z'));
+        assert.equal(r.topRelated[0].price, 100.05); assert.equal(r.topRelated[0].change, 0.05);
+        const nextSession = { topRelated: [{ ticker: 'TINY', price: 101, change: 0.95, prevClose: 100.05 }] };
+        assert.equal(await svc.repriceRelated(nextSession, at('2026-10-19T18:00:00Z')), nextSession);
+    });
+
     // ── M7 섹터 스냅샷 ───────────────────────────────────────────
     const snapshotData = () => ({
         meta: { snapshot_timestamp: '2026-10-22T21:30:00.000Z', sector: 'm7', locked_until: '2026-10-23T21:00:00.000Z' },
@@ -306,6 +321,14 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         finally { h.dates.pop(); h.closes.MSFT.pop(); h.closes.NVDA.pop(); }
         const d = intrinio({ date: '2026-10-23', rows: { MSFT: [525.04, 100] } });
         assert.equal(await d.peekCloseOn('MSFT', '2026-10-23'), 525.04);   // 공식이 없을 때만 캡처
+    });
+    await test('gate 2-②: latest close row prefers the official close once the history has that date', async () => {
+        const h = history as any; h.dates.push('2026-10-23'); h.closes.MSFT.push(526); h.closes.NVDA.push(0);
+        try {
+            const c = intrinio({ date: '2026-10-23', rows: { MSFT: [525.04, 100] } });
+            const m = await c.peekLatestCloseRow('MSFT');
+            assert.equal(m.close, 526); assert.equal(m.provisional, false); assert.equal(m.date, '2026-10-23');
+        } finally { h.dates.pop(); h.closes.MSFT.pop(); h.closes.NVDA.pop(); }
     });
     await test('EOD readers: bulk row without capture is official; capture row with unknown prev → prevClose null', async () => {
         const c = intrinio({ date: '2026-10-23', rows: { ZZZ: [7, 1] } });

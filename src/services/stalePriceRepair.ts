@@ -27,14 +27,25 @@ export async function stampHarvestedValuation<T>(ticker: string, f: T): Promise<
     try {
         const src: any = f;
         if (!src || isPriceBasis(src._priceBasis)) return f;
-        const { getFundamentalsData } = await import('@/lib/aws/dynamoDataProvider');
-        const fund = await getFundamentalsData(ticker.toUpperCase());
+        const fund = await harvestRecord(ticker.toUpperCase());
         if (!fund || !sameHarvestValues(src, fund)) return f;
         const date = valuationBasisDate(Number(fund.timestamp));
         if (!date) return f;
         const basis = makePriceBasis(src, date, await peekCloseOn(ticker, date), {}, true);
         return basis ? { ...src, _priceBasis: basis } : f;
     } catch { return f; }
+}
+
+/** FUND 수확 기록(하루 1회 갱신) — unified 는 요청마다 지나가므로 인스턴스 메모리에 10분 둔다. */
+const _fundMemo = new Map<string, { at: number; fund: any }>();
+async function harvestRecord(sym: string): Promise<any> {
+    const hit = _fundMemo.get(sym);
+    if (hit && Date.now() - hit.at < 10 * 60_000) return hit.fund;
+    const { getFundamentalsData } = await import('@/lib/aws/dynamoDataProvider');
+    const fund = await getFundamentalsData(sym);
+    if (_fundMemo.size > 500) _fundMemo.clear();
+    _fundMemo.set(sym, { at: Date.now(), fund: fund ?? null });
+    return fund;
 }
 
 function sameHarvestValues(f: any, fund: any): boolean {
@@ -67,9 +78,9 @@ export async function repriceFundamentals<T>(ticker: string, f: T): Promise<T> {
 
 /**
  * [M9] unified 캐시의 연관 종목 가격·등락 — 최신 «끝난» 정규장 D 의 종가로 바꾸는 것은 그 행이 D 이전 세션 값일 때만이다.
- *   · 행의 직전 종가 = D 종가  → D 다음 세션 값(장중 보충 등) → 그대로
- *   · 행의 직전 종가 = D 전일 종가 → D 세션 값(장중 가격) → D 종가로
- *   · 둘 다 아니면 판본이 D 마감 전에 만들어졌을 때만(timestamp 는 구멍 보충 때 안 바뀌므로 «새 판본»의 행은 위 두 경우로 판정된다)
+ *   · 행의 직전 종가 = D 종가(공식이면 반 센트 · 캡처면 0.3 % 안)이고 D 전일 종가는 아님 → D 다음 세션 값(장중 보충 등) → 그대로
+ *   · 행의 직전 종가 = D 전일 종가(반 센트)이고 D 종가는 아님 → D 세션 값(장중 가격) → D 종가로
+ *   · 둘 다이거나(두 종가가 같은 날) 둘 다 아니면 판본이 D 마감 전에 만들어졌을 때만
  * EOD 가 최신 끝난 정규장을 아직 못 따라왔으면 아무것도 바꾸지 않는다.
  */
 export async function repriceRelated(related: any, cachedAtMs: number): Promise<any> {
@@ -82,9 +93,11 @@ export async function repriceRelated(related: any, cachedAtMs: number): Promise<
             const row = await latestClosedRow(item.ticker).catch(() => null);
             if (!row || row.prevClose === null || row.date !== etLastClosedSessionDate(Date.now())) return item;
             const pc = Number(item.prevClose);
-            const near = (a: number, b: number) => Number.isFinite(a) && a > 0 && Math.abs(a - b) / b <= 0.001;
-            if (near(pc, row.close)) return item;
-            if (!near(pc, row.prevClose) && !(sessionCloseMs(row.date) > cachedAtMs)) return item;
+            const ok = Number.isFinite(pc) && pc > 0;
+            const isNextSession = ok && (row.provisional ? Math.abs(pc - row.close) / row.close <= 0.003 : Math.abs(pc - row.close) < 0.005);
+            const isSameSession = ok && Math.abs(pc - row.prevClose) < 0.005;
+            if (isNextSession && !isSameSession) return item;
+            if (!(isSameSession && !isNextSession) && !(sessionCloseMs(row.date) > cachedAtMs)) return item;
             changed = true;
             return {
                 ...item,
@@ -106,7 +119,9 @@ export async function repriceCachedDerived(data: any, ticker?: string | null): P
     try {
         const sym = String(ticker || data.ticker || data.fundamentals?.ticker || '').toUpperCase();
         const [fundamentals, related] = await Promise.all([
-            sym && data.fundamentals ? repriceFundamentals(sym, data.fundamentals) : data.fundamentals,
+            // 기준이 없는 옛 재무는 live/fundamentals 와 같은 규칙(같은 값을 담은 FUND 수확 기록)으로 기준을 붙인 뒤 환산 — 붙인 기준은 응답에만.
+            sym && data.fundamentals ? stampHarvestedValuation(sym, data.fundamentals).then(f => repriceFundamentals(sym, f))
+                .then(f => (f === data.fundamentals || (f as any)?._repricedTo ? f : data.fundamentals)) : data.fundamentals,
             data.related ? repriceRelated(data.related, Number(data.timestamp)) : data.related,
         ]);
         if (fundamentals === data.fundamentals && related === data.related) return data;

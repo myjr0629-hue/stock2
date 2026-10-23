@@ -1718,11 +1718,20 @@ export async function peekEodCloseRow(ticker: string): Promise<{ date: string; c
  * 낡은 캐시의 가격 파생값(밸류에이션·연관 종목 등락)을 «최신 종가» 기준으로 다시 셀 때 쓴다(services/stalePriceRepair).
  */
 export async function peekLatestCloseRow(ticker: string): Promise<{ date: string; close: number; prevClose: number | null; provisional: boolean } | null> {
+    const sym = ticker.toUpperCase();
     const { date, rows } = await loadBulkEod();
-    const r = rows.get(ticker.toUpperCase());
+    const r = rows.get(sym);
     if (!r || !(r.c > 0)) return null;
     const prev = r.c - r.chg;
-    return { date: r.date || date, close: r.c, prevClose: !r.prevMissing && prev > 0 ? prev : null, provisional: !!r.provisional };
+    const prevClose = !r.prevMissing && prev > 0 ? prev : null;
+    if (r.provisional) {
+        // 캡처 행이어도 20거래일 종가 행렬에 그 날짜 공식 종가가 먼저 적재됐으면 공식 값을 쓴다.
+        const hist = await loadEodHistory();
+        const i = hist?.dates?.indexOf(r.date) ?? -1;
+        const v = i >= 0 ? Number(hist!.closes?.[sym]?.[i]) : NaN;
+        if (Number.isFinite(v) && v > 0) return { date: r.date, close: v, prevClose, provisional: false };
+    }
+    return { date: r.date || date, close: r.c, prevClose, provisional: !!r.provisional };
 }
 
 /**
