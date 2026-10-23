@@ -321,14 +321,19 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
     if (mode === 'full') {
         try {
             const macro = await getMacroSnapshotSSOT();
+            // ★ [2026-10-24 감사 M8] 아래 calculateAlphaScore 4곳은 매크로 «원래 키»(nqChangePercent·vix·factors.vix.chgPct·
+            //   realYield.stance)로 읽는데 여기서 ndxChangePct·vixValue… 로 이름을 바꿔 담아 NDX·VIX·금리가 늘 null 이었다
+            //   («NDX 데이터 없음»·«VIX 추정»). 종목 화면(live/ticker)과 같은 입력이 되도록 원래 키로 담는다.
+            //   금리 완화는 매크로 'LOOSE' → 엔진 'EASY'(live/ticker 와 같은 변환 — 완화를 0점으로 읽지 않게).
+            const stance = macro.realYield?.stance ?? null;
             macroData = {
-                ndxChangePct: macro.nqChangePercent ?? null,
-                vixValue: macro.vix ?? null,
-                vixChangePct: macro.factors?.vix?.chgPct ?? null,
+                nqChangePercent: macro.nqChangePercent ?? null,
+                vix: macro.vix ?? null,
+                factors: { vix: { chgPct: macro.factors?.vix?.chgPct ?? null } },
                 tltChangePct: macro.tltChangePct ?? null,
                 gldChangePct: macro.gldChangePct ?? null,
                 dxy: macro.dxy ?? null,
-                realYieldStance: macro.realYield?.stance ?? null,
+                realYield: { stance: stance === 'LOOSE' ? 'EASY' : stance },
             };
         } catch (e) { console.warn('[Watchlist Batch] Macro fetch failed:', e); }
 
