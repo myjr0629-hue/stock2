@@ -53,8 +53,8 @@ export function buildIndexFacts(b: MarketIndexBasis | undefined, session: Tactic
         for (const id of ['nq', 'es'] as const) {
             const p = b.futures?.[id];
             if (!p) continue;
-            // live는 마지막 가격 변화 유무도 요구한다. Tactical은 정체된 가격도 원관측 시각이 신선하면 사용한다.
-            if (p.price == null || !Number.isFinite(p.price) || p.price <= 0 || !p.asOf || nowMs - Date.parse(p.asOf) > 20 * 60_000) continue;
+            // 공통 수집기의 live는 원관측·마지막 가격 변화 모두 20분 이내여야 참이다. 시각만 전진한 정체 피드는 현재 사실에서 제외한다.
+            if (!p.live || p.price == null || !Number.isFinite(p.price) || p.price <= 0 || !p.asOf || nowMs - Date.parse(p.asOf) > 20 * 60_000) continue;
             if (session === 'POST' || session === 'CLOSED') {
                 const ref = p.cashCloseReferenceAt ? Date.parse(p.cashCloseReferenceAt) : NaN;
                 // 실제 같은 마감 기준 관측이 있을 때만 사용. 부모 수집기는 현재 이 값을 주지 않는다.

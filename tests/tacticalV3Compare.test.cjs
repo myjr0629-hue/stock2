@@ -18,8 +18,9 @@ async function main() {
   const calls = [];
   const read = { insight: async key => { calls.push(key); return null; }, archive: async key => { calls.push(key); return null; } };
   const captured = await collectStored(read, Date.parse(timestamp));
-  assert.equal(captured.length, 66, '언어별 v2/v3 현재본 2개 + 날짜별 완료 세션 최대20');
+  assert.equal(captured.length, 126, '언어별 v2/v3 현재본 2개 + 날짜별 REALITY/REALITY_V3 각각 최대20');
   for (const locale of ['KO', 'EN', 'JA']) assert.equal(calls.filter(k => k.startsWith(`session:insight:REALITY_${locale}:`)).length, 20);
+  for (const locale of ['KO', 'EN', 'JA']) assert.equal(calls.filter(k => k.startsWith(`session:insight:REALITY_V3_${locale}:`)).length, 20);
   const methods = [];
   const fetcher = async (url, opts) => {
     methods.push(opts.method);
@@ -36,6 +37,9 @@ async function main() {
   assert.ok(derived.every(f => f.provenance === 'derived-session' && f.derivedFrom === fixture.context.asOf));
   assert.equal(derived[0].context.asOf, '2026-10-22T19:30:00.000Z');
   assert.equal(derived[1].context.asOf, '2026-10-22T21:30:00.000Z');
+  assert.equal(derived[0].context.indexBasis.cash.nasdaq.live, true);
+  assert.equal(derived[0].context.indexBasis.cash.nasdaq.asOf, '2026-10-22T19:29:00.000Z');
+  assert.ok(derived[0].context.indexFacts.some(f => f.id === 'nasdaq' && f.asOfET === '2026-10-22 15:29 ET'));
   assert.equal(derived[0].context.indexBasis.cash.nasdaq.price, fixture.context.indexBasis.cash.nasdaq.price);
   assert.equal(derived[0].context.indexBasis.cash.nasdaq.changePct, -1.2);
   assert.equal(fixture.context.indexBasis.cash.nasdaq.asOf, '2026-10-22T19:59:00.000Z', '원본 불변');
@@ -73,6 +77,13 @@ async function main() {
     const count = live.filter(r => r.contract === contract && !r.reasons.length).length;
     assert.ok(report.includes(`${count}/27`));
   }
+  assert.match(report, /PRE\/ko/);
+  const allPass = live.map(r => ({ ...r, reasons: [] }));
+  assert.match(markdown([], allPass, []), /반영 조건.*충족/);
+  assert.match(markdown([], allPass.filter(r => r.contract !== 'old'), []), /반영 조건.*미측정/);
+  // 전체 26/27(96.3%)이어도 한 세션/언어가 옛 계약보다 나쁘면 보류.
+  const regression = allPass.map((r, i) => i === allPass.findIndex(x => x.contract === 'new') ? { ...r, reasons: ['mock:regression'] } : r);
+  assert.match(markdown([], regression, []), /반영 조건.*보류/);
   const failed = await liveCompare([fixture], { callModel: async () => { throw new Error('provider failure'); } });
   assert.equal(failed.length, 9);
   assert.ok(failed.every(r => r.reasons[0] === 'model:failed' && r.text === ''), '오류 본문 저장하지 않음');

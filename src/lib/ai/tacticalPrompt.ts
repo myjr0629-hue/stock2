@@ -130,7 +130,7 @@ const TACTICAL_STYLE: Record<Locale, { register: string; prospects: string; oneF
         noDisclaimer: '«연결은 해석입니다» · «오늘의 거시 원인은 이 보도로 확인되며» · «추가 확인이 필요합니다»',
         unconfirmed: '«오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다»',
         gloss: '«시장 건강도(RLSI)» · «옵션 포지션(GEX)» · «변동성 지수(VIX)» · «달러 인덱스(DXY)» · «미국 10년물 금리»',
-        reading: '«반등을 받칠 힘이 약합니다(시장 건강도 RLSI <값>, 약함)» · «옵션 포지션(GEX <값>)은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다»',
+        reading: '«시장 건강도(RLSI <값>)가 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX <값>)은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다»',
         scenario: '«다음 분기점은 M/D(요일) HH:MM ET(한국 HH:MM) 예정된 <사건 이름>로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 그 압력이 누그러지는 쪽으로 읽힙니다» · «다음 분기점은 S&P 500 옵션 지지선 <값>으로, 그 아래에서는 딜러 헤지가 흔들림을 키우고 위에서는 완충이 유지되는 구조입니다»',
         scheduled: '«예정된»',
     },
@@ -156,7 +156,7 @@ const TACTICAL_STYLE: Record<Locale, { register: string; prospects: string; oneF
         noDisclaimer: '「つながりは解釈です」・「本日のマクロ要因はこの報道で確認され」・「追加の確認が必要です」',
         unconfirmed: '「本日の相場を動かしたマクロ要因は未確認です」',
         gloss: '「市場の健全度(RLSI)」・「オプション・ポジション(GEX)」・「変動性指数(VIX)」・「ドル指数(DXY)」・「米10年債利回り」',
-        reading: '「市場の健全度(RLSI)は<値>点で弱い」・「オプション・ポジション(GEX <値>)は中立で、値動きを支えも増幅もしません」',
+        reading: '「市場の健全度(RLSI <値>)が弱く反発を支える力が乏しく、オプション・ポジション(GEX <値>)は中立で値動きを支えも増幅もしません」',
         scenario: '「次の分岐点は M/D(曜) HH:MM ET(日本時間 HH:MM) 予定の<イベント名>で、在庫が減れば原油高の圧力が続き、増えればその圧力が和らぐ方向と読めます」・「次の分岐点は S&P 500 のプット・フロア<値>で、その下ではディーラーのヘッジが値動きを増幅し、上ではクッションが保たれる構造です」',
         scheduled: '「予定の」',
     },
@@ -200,9 +200,9 @@ export function buildTacticalPrompt(ctx: TacticalContext, locale: Locale): strin
     const session = ctx.session ?? tacticalSessionAt(asOf.getTime());
     const facts = (ctx.indexFacts ?? buildIndexFacts(ctx.indexBasis, session, asOf.getTime())).map(f => ({ ...f, name: f.name[locale], basis: f.basis[locale] }));
     const firstExamples: Record<Locale, string> = {
-        ko: 'PRE: 어제(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 보합, S&P500 선물은 0.2% 약세입니다. REG: 지금 정규장에서 나스닥 종합은 0.4%, S&P500은 0.2% 하락 중입니다. POST: 오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 장후 나스닥100 선물은 종가 시점 대비 0.3% 상승 중입니다. POST missing: 오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 종가 이후 선물 변화는 미확인입니다.',
-        en: 'PRE: In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now premarket Nasdaq 100 futures are flat and S&P 500 futures are down 0.2%. REG: In regular trading now Nasdaq Composite is down 0.4% and S&P 500 is down 0.2%. POST: In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now after-hours Nasdaq 100 futures are up 0.3% since that cash close. POST missing: In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%; futures change since that close is unconfirmed.',
-        ja: 'PRE: 昨日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引開始前のナスダック100先物は横ばい、S&P500先物は0.2%下落です。REG: 現在の通常取引でナスダック総合は0.4%、S&P500は0.2%下落です。POST: 本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の時間外ナスダック100先物は取引終了時点比0.3%上昇です。POST missing: 本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引終了後の先物変化は未確認です。',
+        ko: 'PRE: 어제(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 보합, S&P500 선물은 0.2% 약세입니다. REG: 지금 정규장(장중) 나스닥 종합은 전일 종가 대비 0.4%, S&P500은 0.2% 하락 중입니다. POST: 오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 장후 나스닥100 선물은 종가 시점 대비 0.3% 상승 중입니다. POST missing: 오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 종가 이후 선물 변화는 미확인입니다.',
+        en: 'PRE: In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now premarket Nasdaq 100 futures are flat and S&P 500 futures are down 0.2%. REG: In regular trading now Nasdaq Composite is down 0.4% and S&P 500 is down 0.2% versus the previous close. POST: In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now after-hours Nasdaq 100 futures are up 0.3% since that cash close. POST missing: In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%; futures change since that close is unconfirmed.',
+        ja: 'PRE: 昨日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引開始前のナスダック100先物は横ばい、S&P500先物は0.2%下落です。REG: 現在の通常取引中、ナスダック総合は前日終値比0.4%、S&P500は0.2%下落中です。POST: 本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の時間外ナスダック100先物は取引終了時点比0.3%上昇です。POST missing: 本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引終了後の先物変化は未確認です。',
     };
     const groups = {
         ko: ['현물(직전 정규장; REG는 현재 정규장)', '선물(지금, 비교 기준 포함)'],
@@ -217,10 +217,10 @@ export function buildTacticalPrompt(ctx: TacticalContext, locale: Locale): strin
     });
     // ★2026-10-21 대표 «이것만 읽어도 지금 시장 상태를 이해·해석하고 인사이트를 받게» — 상태 판정 → 왜 → 그래서 무엇이 보이나 → 무엇을 볼지(결과별 읽기).
     //   방어 문구(«연결은 해석입니다»·«발표 결과 아님»)·내부 지표명 날것(RLSI·GEX 단독)·구어 오타(«밀렸데»)를 없앤다. 검사 계약(시각·숫자·권유·일정)은 그대로.
-    return `Write a SIGNUM Tactical Insight entirely in ${language}. A reader who sees only this paragraph must understand what state the US market is in right now, why, what the money and options positioning show, and what to watch next. Plain text, exactly four natural sentences in this order — STATE, WHY, SO WHAT, NEXT — with no headings, labels, markdown or bullets; never write the input labels (TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, OBSERVATIONS, AS_OF, MARKET_STATE, INDEX_FACTS, SESSION, EVENT_TIMES, REPORT_TIMES, AFTER_CLOSE_FUTURES) or section names (STATE, WHY, SO WHAT, NEXT) in the text; cite a report by its supplied date and ET time only; never expose internal provider names (Polygon, NEWS PULSE, FMP). Maximum ${locale === 'en' ? 620 : 420} characters including spaces; target ${locale === 'en' ? '500–590' : '330–400'} characters. The dismissible modal can scroll. Use exactly four complete sentences; the WHY sentence may begin with its report date. ${L.register}
-1. STATE: contrast the named spot and futures observations in ONE first sentence. PRE: when spot and futures facts exist, BOTH are mandatory: dated previous cash result, then NOW premarket named futures and their direction. REG: named current cash indices vs previous trading close. POST/CLOSED: dated cash result, then NOW named futures SINCE THAT CASH CLOSE only if supplied; otherwise explicitly say futures change since that close is unconfirmed. Never reinterpret settlement change as after-close change. Do not put a clock time in the first sentence; use the cash session date and current session words. Use INDEX_FACTS numbers directly, rounded to ONE decimal; NEVER use {NDX_CHG} or {SPX_CHG}. For futures within ±0.1% inclusive write 보합 / flat / 横ばい, without a percentage. Include all supplied indices where possible (up to four changes), and distinguish Nasdaq Composite from Nasdaq 100. Never use a nameless subject such as “지수는 / the index / 指数は”. If facts are empty say observations are unavailable. SESSION templates (FORMAT ONLY; replace every date, value and direction from INDEX_FACTS): ${firstExamples[locale]}
+    return `Write a SIGNUM Tactical Insight entirely in ${language}. A reader who sees only this paragraph must understand what state the US market is in right now, why, what the money and options positioning show, and what to watch next. Plain text, four or five natural sentences in this order — STATE, WHY, SO WHAT, NEXT — with no headings, labels, markdown or bullets; never write the input labels (TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, OBSERVATIONS, AS_OF, MARKET_STATE, INDEX_FACTS, SESSION, EVENT_TIMES, REPORT_TIMES, AFTER_CLOSE_FUTURES) or section names (STATE, WHY, SO WHAT, NEXT) in the text; cite a report by its supplied date and ET time only; never expose internal provider names (Polygon, NEWS PULSE, FMP). Maximum ${locale === 'en' ? 720 : 420} characters including spaces; target ${locale === 'en' ? '580–680' : '330–400'} characters. The dismissible modal can scroll. Prefer four complete sentences; five are allowed only if SO WHAT spans sentences three and four; the WHY sentence may begin with its report date. ${L.register}
+1. STATE: contrast the named spot and futures observations in ONE first sentence. PRE: when spot and futures facts exist, BOTH are mandatory: dated previous cash result, then NOW premarket named futures and their direction. REG: ONLY named current cash indices vs previous trading close, in ongoing present tense (하락 중 / is down / 下落中); futures are unnecessary. Never use 장후, 개장 전, after-hours, premarket, 時間外 or 取引開始前 in REG. POST/CLOSED: dated cash result, then NOW named futures SINCE THAT CASH CLOSE only if supplied; otherwise explicitly say futures change since that close is unconfirmed. Never reinterpret settlement change as after-close change. Do not put a clock time in the first sentence; use the cash session date and current session words. Use INDEX_FACTS numbers directly, rounded to ONE decimal; NEVER use {NDX_CHG} or {SPX_CHG}. For futures within ±0.1% inclusive write 보합 / flat / 横ばい, without a percentage. Include all supplied indices where possible (up to four changes), and distinguish Nasdaq Composite from Nasdaq 100. Never use a nameless subject such as “지수는 / the index / 指数は”. If futures facts are missing say current futures observations are unconfirmed; never copy the example values. If facts are empty say observations are unavailable. SESSION templates (FORMAT ONLY; replace every date, value and direction from INDEX_FACTS): ${session === 'REG' ? firstExamples[locale].split('REG: ')[1].split('POST:')[0].trim() : firstExamples[locale]}
 2. WHY: use only market-wide material in TODAY_NEWS (Fed, rates, inflation, jobs, tariffs, geopolitics, oil, dollar, M7 or sector-wide earnings). Choose exactly ONE report and cite its supplied M/D HH:MM ET followed by 보도 / report / 報道, with no provider/source name, then softly connect its content to the market. Do not invent causal certainty or use an individual small/foreign company's news as a market cause. If there is no relevant dated report, use ${L.unconfirmed}. This sentence contains no percent sign; never replace missing news with a made-up story.
-3. SO WHAT (ONE sentence): lead with what this means for the strength of a rebound or the size of swings, THEN support that meaning with readings, in everyday words. Use at most three metrics in total: market health and at least one available proprietary resource, plus at most one rates/dollar/VIX/breadth signal. Proprietary resources: Gamma Shield/GEX, SPY versus QQQ gamma, or institutional sector flow. Name every metric by its plain name first with the abbreviation only in parentheses (${L.gloss}) and explain what that reading means for the breadth of advancing stocks or how price swings are cushioned/amplified using READING GUIDE; connect the mechanisms, do not list readings (${L.reading}). Say plainly whether options positioning cushions or amplifies the move; never call any metric a "gate" or use the bare abbreviations RLSI or GEX without the plain name. Divergence, if present, is supporting evidence, never a replacement for the news-first structure. If positioning is missing, state its absence rather than inventing it. A dollar index level alone does not establish dollar strength; off-exchange share alone does not establish buying or accumulation.
+3. SO WHAT (ONE sentence): lead with what this means for the strength of a rebound or the size of swings, THEN support that meaning with readings, in everyday words. Use at most three metrics in total: market health and at least one available proprietary resource, plus at most one rates/dollar/VIX/breadth signal. Proprietary resources: Gamma Shield/GEX, SPY versus QQQ gamma, or institutional sector flow. Name every metric by its plain name first with the abbreviation only in parentheses (${L.gloss}) and explain what that reading means for the breadth of advancing stocks or how price swings are cushioned/amplified using READING GUIDE; connect the mechanisms, do not list readings (${L.reading}). MANDATORY / 반드시 / 必ず: include options positioning (GEX or gamma) in SO WHAT in EVERY session and EVERY language, even when shortening. Say plainly whether it cushions, amplifies or is neutral; never call any metric a "gate" or use the bare abbreviations RLSI or GEX without the plain name. Divergence, if present, is supporting evidence, never a replacement for the news-first structure. If positioning is missing, explicitly write 옵션 포지션 자료 없음 / options positioning data unavailable / オプション・ポジション資料なし rather than omitting it or inventing it. A dollar index level alone does not establish dollar strength; off-exchange share alone does not establish buying or accumulation.
 4. NEXT: name exactly ONE supplied upcoming event or ONE supplied options price boundary as the next conditional test, then in the SAME sentence give its two-way reading: what one outcome would mean versus the other, in conditional words and without extra numbers beyond supplied timing or boundary (${L.scenario}). Write an event's timing in ABSOLUTE form only — the exact localized timing supplied in EVENT_TIMES (including 한국 HH:MM for ko and 日本時間 HH:MM for ja; calculated for that event date with DST), starting with its date as DATE_LABELS gives it, then HH:MM ET (shape: ${{ ko: 'M/D(요일) HH:MM ET(한국 HH:MM)', en: 'M/D (Day) HH:MM ET', ja: 'M/D(曜) HH:MM ET(日本時間 HH:MM)' }[locale]}). Never use relative day words (today, tonight, tomorrow, 오늘, 내일, 今日, 本日, 今夜, 明日): readers in Korea and Japan are often already on the next calendar day. Mark an upcoming event as scheduled once, naturally (${L.scheduled}) — never add a parenthetical such as "(scheduled; not a released result)", "(예정, 발표 결과 아님)" or "(予定、発表結果ではない)". Entries marked released or release status unconfirmed are NEVER upcoming events. A timing boundary is not an actual result or an exact release time. No invented event, price, deadline, result, forecast or action directive. In this sentence name no other event, company, ticker or indicator — only the chosen event (or price boundary) and generic assets such as oil, yields, the dollar or stocks. If both are missing, state that the next test is unconfirmed. Do not list several variables.
 READING GUIDE (meaning first, readings second; never write these thresholds): breadth = how widely stocks are advancing (오른 종목의 폭 / 値上がり銘柄の広がり), only if breadth is supplied; weak health means fragile support for a rebound. market health RLSI below 45 = weak, 45-64 = middling, 65 or above = strong. GEX level LONG_GAMMA = dealers cushion swings, NEUTRAL = neither cushion nor amplify, SHORT_GAMMA = dealers amplify swings. VIX below 18 = calm, 18-24 = elevated, 25 or above = stressed.
 NUMBERS: every number sits right next to the name of what it measures, in the same clause ("TLT <value>", "나스닥 <value>", "10年債利回り<value>" — a placeholder counts as the value) — never a bare number after "this/이는/これは". A direction word must agree with the sign of the number it describes: a positive change is never weak/약세/약화/弱気 and a negative change is never strong/강세/強気 — for a smaller gain say it rose less (덜 올랐다 / lagged / 上昇幅が小さい). SO WHAT carries at most three numbers; no numeric roll call.
@@ -431,10 +431,11 @@ export function tacticalNextReasons(next: string, prompt: string, mode: 'generat
 }
 
 /** 저장본·복구·번역 글의 시각 검사 — 마지막 문장(NEXT)만 + 입력 이름표 노출(«TODAY_NEWS에 따르면» — 10/20 17:03 운영 ko·ja 실측). */
-export function checkTacticalStored(text: string, prompt: string): string[] {
+export function checkTacticalStored(text: string, prompt: string, allowSessionMismatch = false): string[] {
     const sentences = splitSentences(text);
+    const index = tacticalIndexReasons(sentences[0] || '', prompt);
     return [...internalLabelReasons(text, false), ...internalSourceReasons(text),
-        ...(/^INDEX_FACTS: \[(?!\])/m.test(prompt) ? tacticalIndexReasons(sentences[0] || '', prompt) : []), ...tacticalNextReasons(sentences[sentences.length - 1] || '', prompt, 'read')];
+        ...(/^INDEX_FACTS: \[(?!\])/m.test(prompt) ? index : index.filter(r => r === 'tactical:session-mismatch')), ...tacticalNextReasons(sentences[sentences.length - 1] || '', prompt, 'read')].filter(r => !allowSessionMismatch || r !== 'tactical:session-mismatch');
 }
 
 /** 프롬프트 입력 이름표·구조 이름이 글에 새어 나왔나 — 읽기(저장본)는 입력 이름표만, 생성은 «WHY:»·«NEXT:» 같은 구조 이름표까지 */
@@ -458,11 +459,12 @@ const INDEX_ALIASES: Record<IndexFact['id'], RegExp> = {
 export function tacticalIndexReasons(first: string, prompt: string): string[] {
     let facts: Array<{ id: IndexFact['id']; kind: IndexFact['kind']; chgPct: number }> = [];
     try { facts = JSON.parse(prompt.match(/^INDEX_FACTS: (.*)$/m)?.[1] || '[]'); } catch { return ['tactical:index-facts']; }
-    if (!facts.length) return UNKNOWN.test(first) ? [] : ['tactical:index-unavailable'];
-    const refs = (Object.keys(INDEX_ALIASES) as IndexFact['id'][]).flatMap(id => [...first.matchAll(new RegExp(INDEX_ALIASES[id]))].map(m => ({ f: facts.find(f => f.id === id), id, at: m.index!, end: m.index! + m[0].length }))).sort((a, b) => a.at - b.at);
-    if (!refs.length) return ['tactical:index-name-required'];
-    const reasons: string[] = /\{\s*(?:NDX_CHG|SPX_CHG)\s*\}/.test(first) ? ['tactical:index-token-forbidden'] : [];
     const session = prompt.match(/^SESSION: (.+)$/m)?.[1];
+    const sessionReasons = session === 'REG' && /장후|개장\s*전|after[ -]?hours|pre[ -]?market|時間外|取引開始前/i.test(first) ? ['tactical:session-mismatch'] : [];
+    if (!facts.length) return [...sessionReasons, ...(UNKNOWN.test(first) ? [] : ['tactical:index-unavailable'])];
+    const refs = (Object.keys(INDEX_ALIASES) as IndexFact['id'][]).flatMap(id => [...first.matchAll(new RegExp(INDEX_ALIASES[id]))].map(m => ({ f: facts.find(f => f.id === id), id, at: m.index!, end: m.index! + m[0].length }))).sort((a, b) => a.at - b.at);
+    if (!refs.length) return [...sessionReasons, 'tactical:index-name-required'];
+    const reasons: string[] = [...sessionReasons, ...(/\{\s*(?:NDX_CHG|SPX_CHG)\s*\}/.test(first) ? ['tactical:index-token-forbidden'] : [])];
     if (session === 'PRE' && facts.some(f => f.kind === 'futures') && !refs.some(r => r.f?.kind === 'futures')) reasons.push('tactical:premarket-futures-required');
     if (session === 'PRE' && facts.some(f => f.kind === 'spot') && !refs.some(r => r.f?.kind === 'spot')) reasons.push('tactical:premarket-spot-required');
     if ((session === 'POST' || session === 'CLOSED') && facts.some(f => f.kind === 'spot') && facts.some(f => f.kind === 'futures')
@@ -479,13 +481,13 @@ export function tacticalIndexReasons(first: string, prompt: string): string[] {
             return;
         }
         if (!m && !flat) { reasons.push('tactical:index-change-required'); return; }
-        const nearFlat = r.f.kind === 'futures' && Math.abs(r.f.chgPct) <= 0.1;
+        const nearFlat = Math.abs(r.f.chgPct) <= 0.1;
         if (flat && !nearFlat && r.f.chgPct !== 0) reasons.push('tactical:index-direction');
         if (!m) return;
         percentages++;
         const value = Number(m[2]);
-        // 기본 한 자리 반올림. 보합의 선택적 원수치(«보합(+0.03%)»)는 표시 자릿수로 대조한다.
-        const decimals = flat && nearFlat ? (m[2].split('.')[1]?.length ?? 0) : 1;
+        // 글에 실제로 표시한 자릿수로 반올림해 비교한다.
+        const decimals = m[2].split('.')[1]?.length ?? 0;
         if (value !== Number(Math.abs(r.f.chgPct).toFixed(decimals))) reasons.push('tactical:index-value');
         let direction = directions(clause.slice(m.index! + m[0].length))[0]?.dir ?? directions(clause.slice(0, m.index)).pop()?.dir;
         // 다음 동종 지수와 병렬인 쉼표 절에만 공유 방향어를 허용한다. «지금·반면»은 공유하지 않는다.
@@ -506,8 +508,8 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
     const { data, news } = promptEvidence(prompt);
     const reasons = [...textIntegrityReasons(text), ...unsupportedEventReasons(text, data), ...localePurityReasons(text, locale)];
     const sentences = splitSentences(text);
-    // STATE · WHY · SO WHAT · NEXT의 정확히 네 문장.
-    if (sentences.length !== 4) reasons.push('tactical:four-sentences');
+    // STATE · WHY · SO WHAT(1~2문장) · NEXT.
+    if (sentences.length !== 4 && sentences.length !== 5) reasons.push('tactical:four-sentences');
     reasons.push(...internalLabelReasons(text, true), ...internalSourceReasons(text), ...tacticalIndexReasons(sentences[0] || '', prompt));
     // NEXT의 일정 근거는 뉴스·관측 숫자와 분리한다. 같은 CPI/08:30이 뉴스에 남아도 지난 발표를 «다음 예정»으로 살리지 않는다.
     const nextSentence = sentences.length >= 3 ? sentences[sentences.length - 1] : (sentences[2] || '');
@@ -534,10 +536,10 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
     // 숫자마다 주어(지표 이름)·방향어와 부호 일치(claimChecks) · SO WHAT 숫자 나열 금지(시각·날짜 제외 4개까지)
     reasons.push(...claimReasons(text, 'tactical'));
     //   셈 범위 = 첫 문장·마지막 문장(NEXT)·WHY 문장을 뺀 가운데(SO WHAT) — 예전(WHY = 첫 문장)과 같은 범위를 상태 판정이 앞에 와도 유지한다
-    const soWhat = sentences.slice(2, 3);
+    const soWhat = sentences.slice(2, -1);
     if (valueTokens(soWhat.join(' ')).filter(t => !t.exempt).length > 3) reasons.push('tactical:number-rollcall');
     // 영어는 같은 내용이 글자 수로 길다 — 1차 이전 운영 영어 Tactical 은 600자대였다(10/19 보관본 638자). 운영 10/20 장전 영어가 350자 상한으로 연달아 탈락해 «준비 중»만 나갔다
-    if ([...text].length > (locale === 'en' ? 620 : 420)) reasons.push('tactical:too-long');
+    if ([...text].length > (locale === 'en' ? 720 : 420)) reasons.push('tactical:too-long');
     if (/\bUTC\b|\bGMT\b|協定世界時|협정 세계시/i.test(text)) reasons.push('tactical:utc-time');
     if (adviceHit(text)) reasons.push('tactical:advice');
     if (locale !== 'en' && !checkAmounts(data, text, locale).ok) reasons.push('tactical:amount');

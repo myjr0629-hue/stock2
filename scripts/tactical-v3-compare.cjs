@@ -146,8 +146,10 @@ async function collectStored(read, nowMs = Date.now()) {
     }
     let date = etDateOf(nowMs);
     for (let i = 0; i < 20; i++, date = prevTradingDate(date)) {
-      const key = `session:insight:REALITY_${locale.toUpperCase()}:${date}`;
-      rows.push({ key, locale, value: await read.archive(key) });
+      for (const scope of ['REALITY', 'REALITY_V3']) {
+        const key = `session:insight:${scope}_${locale.toUpperCase()}:${date}`;
+        rows.push({ key, locale, value: await read.archive(key) });
+      }
     }
   }
   return rows;
@@ -214,6 +216,16 @@ function markdown(stored, live, fixtures) {
   out.push('', '| 실모델 통과율 | 옛 계약(origin/main) | 새 계약 |', '|---|---|---|', `| 전체 | ${rate(live.filter(r => r.contract === 'old'))} | ${rate(live.filter(r => r.contract !== 'old'))} |`);
   for (const session of SESSIONS) out.push(`| ${session} | ${rate(live.filter(r => r.session === session && r.contract === 'old'))} | ${rate(live.filter(r => r.session === session && r.contract !== 'old'))} |`);
   for (const locale of LOCALES) out.push(`| ${locale} | ${rate(live.filter(r => r.locale === locale && r.contract === 'old'))} | ${rate(live.filter(r => r.locale === locale && r.contract !== 'old'))} |`);
+  // 세션 합계·언어 합계만 좋고 특정 세션×언어가 악화되는 경우도 반영 보류한다.
+  const cells = SESSIONS.flatMap(session => LOCALES.map(locale => ({ session, locale,
+    old: live.filter(r => r.contract === 'old' && r.session === session && r.locale === locale),
+    next: live.filter(r => r.contract !== 'old' && r.session === session && r.locale === locale) })));
+  const passedRate = rows => rows.filter(r => !r.reasons.length).length / rows.length;
+  for (const cell of cells) out.push(`| ${cell.session}/${cell.locale} | ${rate(cell.old)} | ${rate(cell.next)} |`);
+  const measured = cells.every(c => c.old.length >= 3 && c.next.length >= 3);
+  const newRows = live.filter(r => r.contract !== 'old');
+  const accepted = measured && passedRate(newRows) >= 0.85 && cells.every(c => passedRate(c.next) >= passedRate(c.old));
+  out.push('', `반영 조건(전체 85% 이상·각 세션/언어 옛 계약 이상): ${!measured ? '미측정 — 양쪽 계약 각각 27개 필요' : accepted ? '충족' : '보류'}.`);
   out.push('', '| 계약·세션·반복 | 입력 | 언어 | 검사 | 문장 |', '|---|---|---|---|---|');
   for (const r of live) out.push(`| ${r.contract || 'new'} ${r.session} ${r.repeat} | ${r.provenance === 'derived-session' ? '파생' : '운영 실입력'} | ${r.locale} | ${md(r.reasons.join(',') || '통과')} | ${md(r.text)} |`);
   out.push('', '파생 REG·POST는 세션별 실제 수집 검증을 대신하지 않는다. 환경 파일은 읽지 않는다. 운영 세션에서 인증 환경을 주입한 뒤 실행한다.', '');
