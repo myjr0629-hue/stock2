@@ -22,7 +22,7 @@ function sh(cmd, opts = {}) {
 }
 
 let raw = '';
-process.stdin.on('data', (d) => { raw += d; });
+process.stdin.setEncoding('utf8').on('data', (d) => { raw += d; });
 process.stdin.on('end', () => {
     let cmd = '';
     try { cmd = String(JSON.parse(raw)?.tool_input?.command || ''); } catch { process.exit(0); }

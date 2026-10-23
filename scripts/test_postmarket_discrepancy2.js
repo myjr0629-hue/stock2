@@ -8,7 +8,7 @@ const url = `https://api.polygon.io/v2/aggs/ticker/AMD/range/1/minute/1771966800
 
 https.get(url, (res) => {
     let data = '';
-    res.on('data', chunk => data += chunk);
+    res.setEncoding('utf8').on('data', chunk => data += chunk);
     res.on('end', () => {
         try {
             const parsed = JSON.parse(data);

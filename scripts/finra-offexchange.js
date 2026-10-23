@@ -206,7 +206,7 @@ function post(url, body) {
         const r = https.request(
             { hostname: u.hostname, path: u.pathname + u.search, method: "POST",
               headers: { "User-Agent": UA, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } },
-            (x) => { let b = ""; x.on("data", (c) => (b += c)); x.on("end", () => res({ status: x.statusCode, headers: x.headers, body: b })); },
+            (x) => { let b = ""; x.setEncoding('utf8').on("data", (c) => (b += c)); x.on("end", () => res({ status: x.statusCode, headers: x.headers, body: b })); },
         );
         r.on("error", rej);
         r.write(data);
@@ -219,7 +219,7 @@ function redis(path, method = "GET", body = null) {
         const opts = { host: PROXY_HOST, port: PROXY_PORT, path, method,
             headers: { Authorization: `Bearer ${PROXY_KEY}` } };
         if (body) { opts.headers["Content-Type"] = "application/json"; opts.headers["Content-Length"] = Buffer.byteLength(body); }
-        const r = http.request(opts, (x) => { let b = ""; x.on("data", (c) => (b += c)); x.on("end", () => res({ status: x.statusCode, body: b })); });
+        const r = http.request(opts, (x) => { let b = ""; x.setEncoding('utf8').on("data", (c) => (b += c)); x.on("end", () => res({ status: x.statusCode, body: b })); });
         r.on("error", rej);
         if (body) r.write(body);
         r.end();

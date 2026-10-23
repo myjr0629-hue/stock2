@@ -4,7 +4,7 @@ const http = require('http');
 function fetch(ticker) {
     return new Promise((resolve, reject) => {
         http.get(`http://localhost:3000/api/live/ticker?t=${ticker}`, (res) => {
-            let d = ''; res.on('data', c => d += c);
+            let d = ''; res.setEncoding('utf8').on('data', c => d += c);
             res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve(null); } });
         }).on('error', reject);
     });

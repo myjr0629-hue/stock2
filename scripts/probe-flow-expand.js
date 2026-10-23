@@ -25,7 +25,7 @@ const CONC = 5;
 const get = (u) => new Promise((r) => {
     const t = setTimeout(() => r(""), 45000);
     https.get(u, { headers: { "User-Agent": UA } }, (x) => {
-        let b = ""; x.on("data", (c) => (b += c));
+        let b = ""; x.setEncoding('utf8').on("data", (c) => (b += c));
         x.on("end", () => { clearTimeout(t); r(b); });
     }).on("error", () => { clearTimeout(t); r(""); });
 });

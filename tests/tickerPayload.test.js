@@ -283,7 +283,9 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
             'scripts/test_squeeze_weekly.js', 'scripts/verify_gamma_engine.js']) {
             const old = execFileSync('git', ['show', `origin/main:${file}`], { cwd: root, encoding: 'utf8' });
             assert.ok(read(file).includes('chain=full'), file);
-            const normalize = source => source.replace(/\+'&chain=full'/g, '').replace(/&chain=full/g, '');
+            const normalize = source => source.replace(/\+'&chain=full'/g, '').replace(/&chain=full/g, '')
+                // UTF-8 청크 디코딩은 요청 URL·체인 계약을 바꾸지 않는다(별도 회귀 시험).
+                .replace(/\.setEncoding\(['"]utf8['"]\)(?=\.on\(['"]data['"])/g, '');
             assert.equal(normalize(read(file)), normalize(old), file);
         }
     });

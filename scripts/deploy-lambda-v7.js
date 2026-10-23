@@ -59,7 +59,7 @@ function httpsGet(url, timeoutMs) {
     const to = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs || 15000);
     https.get(url, { headers: { 'User-Agent': 'SIGNUM-HQ/7.0' } }, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.setEncoding('utf8').on('data', chunk => data += chunk);
       res.on('end', () => { clearTimeout(to); try { resolve(JSON.parse(data)); } catch { resolve(data); } });
     }).on('error', (e) => { clearTimeout(to); reject(e); });
   });
@@ -99,7 +99,7 @@ function ec2ProxyGet(key, timeoutMs) {
     const to = setTimeout(() => resolve(null), timeoutMs || 3000);
     const req = http.request(options, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.setEncoding('utf8').on('data', chunk => data += chunk);
       res.on('end', () => {
         clearTimeout(to);
         try {
@@ -131,7 +131,7 @@ function ec2ProxyPost(path, body, timeoutMs) {
     const to = setTimeout(() => resolve(null), timeoutMs || 3000);
     const req = http.request(options, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.setEncoding('utf8').on('data', chunk => data += chunk);
       res.on('end', () => {
         clearTimeout(to);
         try { resolve(JSON.parse(data)); } catch { resolve(null); }
@@ -169,7 +169,7 @@ async function redisSet(key, value, ttl) {
     return new Promise((resolve) => {
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+        res.setEncoding('utf8').on('data', chunk => data += chunk);
         res.on('end', () => resolve(true));
       });
       req.on('error', () => resolve(false));
@@ -221,7 +221,7 @@ async function redisPipeline(commands) {
     return new Promise((resolve) => {
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+        res.setEncoding('utf8').on('data', chunk => data += chunk);
         res.on('end', () => {
           try {
             const parsed = JSON.parse(data);
@@ -2184,7 +2184,7 @@ exports.handler = async (event) => {
           headers: { 'Authorization': 'Bearer ' + UPSTASH_TOKEN, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
         }, (res) => {
           let data = '';
-          res.on('data', chunk => data += chunk);
+          res.setEncoding('utf8').on('data', chunk => data += chunk);
           res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
         });
         req.on('error', () => resolve(null));
@@ -2219,7 +2219,7 @@ exports.handler = async (event) => {
         const req = https.request({
           hostname: url.hostname, port: 443, path: '/', method: 'POST',
           headers: { 'Authorization': 'Bearer ' + UPSTASH_TOKEN, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-        }, (res) => { let d=''; res.on('data', c => d+=c); res.on('end', () => resolve(true)); });
+        }, (res) => { let d=''; res.setEncoding('utf8').on('data', c => d+=c); res.on('end', () => resolve(true)); });
         req.on('error', () => resolve(false));
         req.setTimeout(2000, () => { req.destroy(); resolve(false); });
         req.write(body); req.end();
