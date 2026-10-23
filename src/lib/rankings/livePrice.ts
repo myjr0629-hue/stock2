@@ -183,7 +183,7 @@ export function applyLivePrices(
             const live = Number(quotes[r.ticker]);
             const level = Number(r.level);
             if (!(live > 0) || !(level > 0)) return { ...r, priceSource: 'snapshot' };
-            const gap = (live - level) / live;
+            const gap = id === 'maxpain-gap' ? (level - live) / live : (live - level) / live;
             // 실시간 가격에서도 «정의상 없음»(계산 오류 의심) 범위를 지킨다 — build 와 같은 한계
             if (Math.abs(gap) > rule.bound) return null;
             quoted++;

@@ -405,24 +405,47 @@ test('구조 생산자 GET: 검증한 원천 날짜를 Redis 행과 Dynamo 이�
     assert.equal(caches[0][1].rows[0].s, 'PRE');
 });
 
-async function runSharedRanking(input) {
+async function runSharedRanking(input, structures) {
     const registry = compile(read('src/lib/rankings/registry.ts'));
-    const specs = registry.RANKINGS.filter(x => ['deviation', 'multi-axis', 'money-vs-oi'].includes(x.id));
+    const specs = registry.RANKINGS.filter(x => (structures ? ['maxpain-gap', 'gamma-flip'] : ['deviation', 'multi-axis', 'money-vs-oi']).includes(x.id));
     const writes = [], reads = [];
     const route = compile(read('src/app/api/ranking/route.ts'), {
         'next/server': { NextResponse: { json: x => x }, after: () => {} },
         '@/lib/aws/dynamoClient': { TABLES: { FLOW_HISTORY: 'flow', GEX_HISTORY: 'gex' }, queryItems: async () => input },
         '@/lib/app/intelOptionsBasis': { isGuardianSnapshotRow: () => false },
-        '@/services/redisClient': { getFromCache: async k => { reads.push(k); return null; }, setInCache: async (...args) => { writes.push(args); } },
+        '@/services/redisClient': { getFromCache: async k => { reads.push(k); return k === 'structure:part:v2:0' && structures ? { rows: structures } : null; }, setInCache: async (...args) => { writes.push(args); } },
         '@/services/darkPool': {}, '@/lib/rankings/engine': engine,
         '@/lib/rankings/registry': { RANKINGS: specs, byId: id => specs.find(x => x.id === id) },
         '@/lib/rankings/cacheKey': keys, '@/lib/rankings/sources': {}, '@/services/earningsCalendarService': {},
         '@/lib/earningsDate': {}, '@/lib/marketCalendar': calendar, '@/lib/cache/staleLock': {}, '@/services/massiveClient': {},
-        '@/lib/rankings/livePrice': { STRUCT_LIVE_RULES: {}, withLivePrices: async x => x },
+        '@/lib/rankings/livePrice': structures ? compile(read('src/lib/rankings/livePrice.ts')) : { STRUCT_LIVE_RULES: {}, withLivePrices: async x => x },
     });
     const out = await route.GET({ nextUrl: new URL('http://fixture/api/ranking?run=all&top=10') });
     return { out, writes, reads };
 }
+
+test('M11 GET: max pain uses (level−price)/price, keeps rank magnitude and carries chain session; flip keeps its sign', async () => {
+    const structures = [
+        { t: 'NVDA', px: 212.21, mp: 220, fl: 215, oi: 50000, chainDate: '2026-10-22' },
+        { t: 'IBM', px: 252.11, mp: 240, fl: 250, oi: 50000, chainDate: '2026-10-22' },
+        { t: 'UMC', px: 18.335, mp: 23, fl: 18, oi: 50000, chainDate: '2026-10-22' },
+        { t: 'ZERO', px: 100, mp: 100, fl: 100, oi: 50000 },
+        { t: 'MISSING', px: 100, mp: null, fl: null, oi: 50000 },
+    ];
+    const { out } = await runSharedRanking([], structures);
+    const mp = out.results['maxpain-gap'].items;
+    assert.equal(mp.find(x => x.ticker === 'NVDA').gapPct, 3.7);
+    assert.equal(mp.find(x => x.ticker === 'IBM').gapPct, -4.8);
+    assert.equal(mp.find(x => x.ticker === 'UMC').gapPct, 25.4);
+    assert.deepEqual(plain(mp.map(x => x.ticker)), ['UMC', 'IBM', 'NVDA', 'ZERO']);
+    assert.ok(mp.filter(x => x.ticker !== 'ZERO').every(x => x.date === '2026-10-22'));
+    assert.equal(mp.find(x => x.ticker === 'ZERO').gapPct, 0);
+    assert.equal(mp.find(x => x.ticker === 'ZERO').date, null);
+    assert.equal(mp.some(x => x.ticker === 'MISSING'), false);
+    assert.equal(out.results['gamma-flip'].items.find(x => x.ticker === 'NVDA').gapPct, -1.3);
+    assert.equal(out.results['gamma-flip'].items.find(x => x.ticker === 'NVDA').date, '2026-10-22');
+    assert.notEqual(keys.RANKING_CACHE_VERSION, 'v11', 'old opposite-sign cached rows cannot survive the fix');
+});
 
 test('공유 GET: deviation·multi-axis·money-vs-oi·optionSession과 새 캐시 키', async () => {
     const { out, writes, reads } = await runSharedRanking(history());

@@ -113,6 +113,7 @@ export async function GET(req: NextRequest) {
         let squeezeRisk: string | null = null;
         let gammaFlipLevel: number | null = null;
         let spyPrice: number | null = null;
+        let spyStructure: any = null;
         
         // ⚠️ 순서가 곧 지연이다 (2026-09-03 실측: **838바이트 응답에 4.7초**).
         //    예전엔 다섯 조회를 «차례로» 기다렸다. 실제 의존 관계는 하나뿐이다 —
@@ -203,6 +204,7 @@ export async function GET(req: NextRequest) {
         try {
             const { getStructureData } = await import('@/services/structureService');
             const st: any = await timed('structure', () => getStructureData('SPY'));
+            spyStructure = st;
             if (st) {
                 // 레짐 계산은 «공용 함수»를 쓴다 — 라우트와 같은 식이라 값이 갈라지지 않는다
                 const vr = computeStructureVolatilityRegime(st, Date.now());
@@ -252,7 +254,7 @@ export async function GET(req: NextRequest) {
         let dealerGamma: import('@/services/dealerGamma').DealerGammaSignal | null = null;
         try {
             const { getDealerGamma } = await import('@/services/dealerGamma');
-            dealerGamma = await timed('dealerGamma', () => getDealerGamma('SPY', gammaFlipLevel, spyPrice));
+            dealerGamma = await timed('dealerGamma', () => getDealerGamma('SPY', gammaFlipLevel, spyPrice, spyStructure));
         } catch (e) {
             console.warn('[premium-metrics] 딜러 감마 조회 실패:', e);
         }
