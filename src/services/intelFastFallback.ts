@@ -10,7 +10,7 @@ import { withinImpliedDeadline } from '@/lib/earnings/impliedDeadline';
 export async function readIntelTickerCache(ticker: string): Promise<any | null> {
     const T = ticker.toUpperCase();
     const rows = await mgetFromCache<any>([
-        `flow:ticker:v6:${T}`, `flow:ticker:nochain:v6:${T}`, `flow:ticker:v2:${T}`,
+        `flow:ticker:v7:${T}`, `flow:ticker:nochain:v7:${T}`, `flow:ticker:v2:${T}`,
     ]).catch(() => []);
     const base = rows.find(Boolean);
     if (!base) return null;

@@ -37,6 +37,7 @@ function load(source, mocks, extra = '', runtime = {}) {
 
 const background = load(read('src/lib/intrinioBackground.ts'), { 'node:async_hooks': require('node:async_hooks') });
 const calendar = load(read('src/lib/marketCalendar.ts'), {});
+const dailyRsi = load(read('src/lib/dailyRsi.ts'), { '@/lib/marketCalendar': calendar });
 const vwap = load(read('src/lib/vwap.ts'), {});
 const putCall = load(read('src/lib/putCall.ts'), {});
 const bars = date => [
@@ -54,7 +55,7 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
     const locks = opts.locks || new Set();
     const io = { minutes: 0, realtime: 0, writes: [], archiveReads: [] };
     const deferred = [];
-    const calls = { responseKeys: [], lastGoodKeys: [], alphaChains: [], skewChains: [], sourceChains: 0 };
+    const calls = { responseKeys: [], lastGoodKeys: [], alphaChains: [], alphaRsi: [], urls: [], skewChains: [], sourceChains: 0 };
     const flow = snapshot.flow;
     const price = snapshot.price;
     const metrics = { pcr: flow.oiPcr, gex: flow.gex, squeezeScore: flow.squeezeScore };
@@ -67,6 +68,7 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
         '@/services/optionAlphaService': { readOptionAlpha: async () => new Map([[snapshot.ticker, snapshot.alpha]]) },
         '@/lib/optionMetrics': { applyOptionMetrics: target => target, optionMetricsRowHasOi: () => true },
         '@/lib/vwap': vwap,
+        '@/lib/dailyRsi': dailyRsi,
         '@/lib/intrinioBackground': background,
         '@/services/realtimeSessionVwap': { readRealtimeSessionVwap: async (ticker, date) => store.get(`모형:실시간:${ticker}:${date}`) || null,
             getRealtimeSessionVwap: async (ticker, date, now = Date.now()) => {
@@ -87,19 +89,20 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
         '@/services/marketDaySSOT': { isUSMarketHolidayET: () => false },
         '@/services/buildMeta': { getBuildMeta: () => snapshot.meta },
         '@/services/massiveClient': { CACHE_POLICY: { LIVE: 'live' }, fetchMassive: async url => {
+            calls.urls.push(url);
             if (url.includes('/v2/snapshot/')) return { ticker: mode === 'stale' ? {} : {
                 _intrinio: { prevClose: snapshot.prevClose, regularDate: '2026-10-19' },
                 lastTrade: { p: price, t: NOW * 1e6 }, day: { c: price, v: 1000 }, prevDay: { c: snapshot.prevClose, v: 900 },
             } };
-            if (url.includes('/v2/aggs/')) return { results: mode === 'stale' ? [] : [
+            if (url.includes('/v2/aggs/')) return { results: opts.dailyRows ?? (mode === 'stale' ? [] : [
                 { c: snapshot.prevClose, v: 1000, t: RealDate.parse('2026-10-16T00:00:00Z') },
                 { c: snapshot.prevClose - 1, v: 900, t: RealDate.parse('2026-10-15T00:00:00Z') },
-            ] };
+            ]) };
             if (url.includes('/v1/open-close/')) return { close: price };
             return {};
         } },
         '@/services/alphaEngine': {
-            calculateAlphaScore: input => { calls.alphaChains.push(copy(input.rawChain)); return copy(snapshot.alpha); },
+            calculateAlphaScore: input => { calls.alphaChains.push(copy(input.rawChain)); calls.alphaRsi.push(input.rsi14); return copy(snapshot.alpha); },
             calculateWhaleIndex: () => 50, computeRSI14: () => 50, computeImpliedMovePct: () => 2,
             computeIVSkew: chain => { calls.skewChains.push(copy(chain)); return 0.9; },
         },
@@ -302,7 +305,7 @@ test('직접 조회로 얻은 최신 분봉이 오래된 차트보다 우선한�
     assert.equal(r.body.vwap, 241.5); assert.equal(h.io.minutes, 0);
 });
 
-test('워밍 종목 NVDA: 캐시 적중·새 계산, 네 응답 모양의 본문 바이트가 수정 전과 동일', async () => {
+test('워밍 종목 NVDA: 캐시 적중·새 계산, 네 응답 모양에서 H1 RSI 외 본문 동일', async () => {
     const before = execFileSync('git', ['show', '8415c9a2a11d83a1ea5a95e1706c1d577ea7a930:src/app/api/live/ticker/route.ts'], { cwd: root, encoding: 'utf8' });
     for (const [iso, date, session] of [
         ['2026-10-21T15:00:00Z', '2026-10-21', 'regular'],
@@ -316,7 +319,8 @@ test('워밍 종목 NVDA: 캐시 적중·새 계산, 네 응답 모양의 본문
         const old = harness(before, snapshot, mode, skipAlpha, opts());
         const fresh = harness(current, snapshot, mode, skipAlpha, opts());
         const a = await old.get(query), b = await fresh.get(query);
-        assert.equal(b.text, a.text, `${mode}/${skipAlpha}/${query}`);
+        const withoutRsi = body => { const out = copy(body); delete out.display.rsi14; delete out.display.rsi14Date; return out; };
+        assert.deepEqual(withoutRsi(b.body), withoutRsi(a.body), `${mode}/${skipAlpha}/${query}`);
         assert.equal(fresh.io.minutes, 0);
     }
 });
@@ -467,3 +471,58 @@ for (const swallow of [false, true]) {
         assert.equal(http, 1); assert.equal(h.io.realtime, 0);
     });
 }
+
+
+for (const [label, iso, date] of [
+    ['감사 마감 뒤', '2026-10-23T01:20:00Z', '2026-10-22'],
+    ['정규장 진행 중', '2026-10-23T15:00:00Z', '2026-10-22'],
+    ['금요일 POST', '2026-10-23T20:01:00Z', '2026-10-23'],
+    ['주말', '2026-10-24T12:00:00Z', '2026-10-23'],
+    ['월요일 PRE', '2026-10-26T12:00:00Z', '2026-10-23'],
+    ['조기 폐장', '2026-11-27T18:01:00Z', '2026-11-27'],
+]) {
+    test(`H1 실제 GET ${label}: Wilder·완료 세션·lite/full·캐시·호출 수`, async () => {
+        NOW = RealDate.parse(iso);
+        const end = RealDate.parse(`${date}T00:00:00Z`);
+        const closes = Array.from({ length: 250 }, (_, i) => 100 + i * .03 + Math.sin(i * .7) * 5);
+        const rows = closes.map((c, i) => ({ t: end - (249 - i) * 86400000, c, v: 1000 }));
+        // 시간외와 진행 중 봉은 가격이 달라도 RSI에 들어가면 안 된다.
+        rows.push({ t: end + 86400000, c: 99999, v: 1000 });
+        const expected = dailyRsi.dailyRsi14(rows, date);
+        assert.ok(expected > 0 && expected < 100);
+        for (const skip of [false, true]) for (const query of ['', '&chain=full']) {
+            const h = harness(current, fixture('MSFT', date), 'miss', skip, { dailyRows: rows.slice().reverse() });
+            const result = await h.get(query);
+            assert.equal(result.body.display.rsi14, expected);
+            assert.equal(result.body.display.rsi14Date, date);
+            if (!skip) assert.deepEqual(h.calls.alphaRsi, [expected]);
+            assert.equal(h.calls.urls.filter(u => u.includes('/range/1/day/')).length, 1);
+            assert.equal(h.calls.urls.filter(u => u.includes('/indicators/rsi/')).length, 0);
+            const count = h.calls.urls.length;
+            const cached = await h.get(query);
+            assert.equal(cached.cache, 'HIT');
+            assert.equal(cached.body.display.rsi14, expected);
+            assert.equal(h.calls.urls.length, count, '캐시 적중에 공급사 호출 없음');
+        }
+    });
+}
+
+test('H1 last-good 병합: 결측은 null, 실제 RSI 0은 0; 옛 세션 캐시는 재계산', async () => {
+    NOW = RealDate.parse('2026-10-23T01:20:00Z');
+    const date = '2026-10-22';
+    const end = RealDate.parse(`${date}T00:00:00Z`);
+    const stale = fixture('MSFT', date);
+    stale.display = { rsi14: 88, rsi14Date: date };
+    for (const rows of [[], Array.from({ length: 40 }, (_, i) => ({ t: end - (39-i)*86400000, c: 100-i }))]) {
+        const store = new Map([['flow:ticker:lastgood:v6:lite-nochain:MSFT', copy(stale)]]);
+        const h = harness(current, stale, 'miss', true, { store, dailyRows: rows });
+        assert.equal((await h.get('')).body.display.rsi14, rows.length ? 0 : null);
+        assert.ok(h.calls.lastGoodKeys.includes('flow:ticker:lastgood:v6:lite-nochain:MSFT'));
+        assert.equal((await h.get('')).body.display.rsi14, rows.length ? 0 : null);
+    }
+    const previous = copy(stale);
+    previous.display.rsi14Date = '2026-10-21';
+    const h = harness(current, previous, 'hit', true, { dailyRows: [] });
+    assert.equal((await h.get('')).cache, 'MISS');
+    assert.ok(h.calls.urls.length > 0);
+});

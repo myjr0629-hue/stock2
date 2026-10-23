@@ -41,7 +41,7 @@ const near = (a: any, b: number, eps = 0.005) => assert.ok(typeof a === 'number'
         bid_price: 153.5, ask_price: 153.7, open_price: 151.2, high_price: 158.34, low_price: 150.88, market_volume: 9e6,
     };
     store.set('intrinio:snap:lastgood:v1:MSTR', { rt: RT_1625, at: NOW - (2 * 3600 + 53 * 60) * 1000 });
-    store.set('flow:ticker:lastgood:v5:nochain:MSTR', {   // 12:59 ET(정규장) 정상 응답 — 기준선·직전 등락은 정확
+    store.set('flow:ticker:lastgood:v6:nochain:MSTR', {   // 12:59 ET(정규장) 정상 응답 — 기준선·직전 등락은 정확
         ticker: 'MSTR', session: 'REG', price: 151.7, prevClose: 154.34,
         prices: { prevRegularClose: 154.34, prevPrevRegularClose: 151.47, prevChangePct: 1.89, regularCloseToday: null, lastTrade: 151.7, prePrice: 153.58, postPrice: null },
         display: { price: 151.7, changePctPct: -1.7 }, extended: {}, flow: {}, _goodAt: NOW - 22786 * 1000,

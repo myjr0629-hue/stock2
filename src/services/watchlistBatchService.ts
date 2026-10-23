@@ -4,6 +4,7 @@ import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
 import { selectVwap } from '@/lib/vwap';
+import { dailyRsi14, dailyRsiWindow } from '@/lib/dailyRsi';
 // Watchlist Batch Analyze API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
 // [V5] Uses Alpha Engine V5 (calculateAlphaScore) with FULL data enrichment
@@ -170,19 +171,18 @@ async function fetchCachedTradeDataOnly_inner(ticker: string, timeoutMs = 3200) 
 
 // [PERF] Lightweight stock data fetcher - skips chart data entirely
 // Same data sources as getStockData(), minus getStockChartData() (which downloads 1000+ minute bars)
-// All prices, RSI, 3D return, VWAP are identical to getStockData()
+// RSI는 live/ticker와 같은 완료 일봉·Wilder 14 함수로 계산한다.
 async function getStockDataLight(symbol: string) {
     const to = new Date().toISOString().split('T')[0];
     const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]; // 30 days for SMA20
+    const rsiWindow = dailyRsiWindow();
 
-    // [PERF] All 4 calls in parallel (getStockData does snapshot+chart+RSI parallel, then 3D return SEQUENTIAL)
-    const [snapRes, rsiRes, dailyAggs, macdRes] = await Promise.all([
+    // 일봉 요청 범위만 확장한다. 별도 RSI 호출을 제거해 공급사 호출은 4 → 3회.
+    const [snapRes, dailyAggs, macdRes] = await Promise.all([
         // 1. Snapshot: price, change, volume, VWAP, prevClose (same as getStockData)
         fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`),
-        // 2. RSI: same API as getTechnicalRSI()
-        fetchMassive(`/v1/indicators/rsi/${symbol}`, { timespan: 'day', window: '14', limit: '1' }).catch(() => null),
         // 3. Daily aggregates: for 3D return + sparkline (same as getAggregates in getStockData)
-        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${fromDate}/${to}`, { limit: '5000', adjust: 'true', sort: 'asc' }).catch(() => null),
+        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${rsiWindow.from}/${to}`, { limit: '500', adjusted: 'true', sort: 'asc' }).catch(() => null),
         // 4. [V5.5+] MACD: for trend crossover detection in Momentum pillar
         fetchMassive(`/v1/indicators/macd/${symbol}`, { timespan: 'day', short_window: '12', long_window: '26', signal_window: '9', limit: '1' }).catch(() => null)
     ]);
@@ -217,11 +217,11 @@ async function getStockDataLight(symbol: string) {
     const regChange = t?.todaysChange || (todayClose - prevClose);
     const regChangePercent = t?.todaysChangePerc || (prevClose !== 0 ? ((todayClose - prevClose) / prevClose) * 100 : 0);
 
-    // RSI (same as getTechnicalRSI)
-    const rsi = rsiRes?.results?.values?.[0]?.value ?? null;
+    const rsi = dailyRsi14(dailyAggs?.results || [], rsiWindow.to);
 
     // 3D Return + Sparkline from daily aggregates (same calculation as getStockData lines 870-908)
-    const dailyResults = (dailyAggs?.results || []).map((r: any) => ({ close: r.c, volume: r.v || 0 }));
+    const dailyResults = (dailyAggs?.results || []).filter((r: any) => Number.isFinite(new Date(r.t).getTime()) && new Date(r.t).toISOString().slice(0, 10) >= fromDate)
+        .map((r: any) => ({ close: r.c, volume: r.v || 0 }));
     let return3d = 0;
     if (dailyResults.length >= 4) {
         const recentCandles = dailyResults.slice(-4);
@@ -485,7 +485,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                         const freshSparkline = healData.history?.slice(-20).map((h: any) => h.close) || [];
                         if (freshSparkline.length > 0) {
                             analysis.sparkline = freshSparkline;
-                            analysis.rsi = healData.rsi ?? analysis.rsi;
+                            analysis.rsi = healData.rsi;
                             analysis.return3d = healData.return3d ?? analysis.return3d;
                             // Update Redis cache with healed sparkline (fire-and-forget)
                             writeAnalysisCache(ticker, analysis as any).catch(() => {});
@@ -781,7 +781,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 const dynamoAnalysis: Record<string, any> = {
                     ticker,
                     timestamp: Date.now(),
-                    rsi: stockData?.rsi ?? dynAny._dynamoPrice?.rsi ?? null,
+                    rsi: stockData?.rsi ?? null,
                     return3d: stockData?.return3d ?? dynAny._dynamoPrice?.return3d ?? null,
                     sparkline: stockData?.history?.map((h: any) => h.close) ?? [],
                     relVol: null,
@@ -1137,7 +1137,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 },
                 realtime: {
                     price: stockData.price || 0, changePct, session: stockData.session || 'reg',
-                    rsi: stockData.rsi || null, return3d: stockData.return3d || null,
+                    rsi: stockData.rsi ?? null, return3d: stockData.return3d || null,
                     sparkline: stockData.history?.slice(-20).map((h: any) => h.close) || [],
                     maxPain: finalMaxPain, maxPainDist: finalMaxPainDist,
                     gex: structureRes?.netGex ?? null, gexM: structureGexM,
