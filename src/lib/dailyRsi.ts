@@ -8,8 +8,11 @@ export function dailyRsiWindow(nowMs: number = Date.now()): { from: string; to: 
     return { from: start.toISOString().slice(0, 10), to };
 }
 
-/** 일봉 정규장 종가(원래 가격 계열), Wilder 14. 시간외/진행 중 일봉은 제외한다. */
-export function dailyRsi14(rows: readonly { t: number; c: number | null }[], sessionDate: string): number | null {
+// 캐시의 원천·계산법을 구분한다. 옛 원본 종가/공급사 RSI에는 이 표식이 없다.
+export const DAILY_RSI_BASIS = 'intrinio-adj-close-wilder14-250-v1';
+
+/** 분할·배당 조정 일봉 종가, Wilder 14. 시간외/진행 중 일봉은 제외한다. */
+export function dailyRsi14(rows: readonly { t: number; adjustedClose?: number | null }[], sessionDate: string): number | null {
     if (rows.some(row => typeof row.t !== 'number' || !Number.isFinite(new Date(row.t).getTime()))) return null;
     const dated = rows.map(row => ({ row, date: new Date(row.t).toISOString().slice(0, 10) }))
         .filter(({ date }) => date && date <= sessionDate)
@@ -17,11 +20,11 @@ export function dailyRsi14(rows: readonly { t: number; c: number | null }[], ses
     const recent = dated.slice(-250);
     if (recent.length < 15 || recent.at(-1)?.date !== sessionDate) return null;
     // 결측 봉을 지워서 서로 다른 날짜를 이어 붙이거나 0으로 채우지 않는다.
-    if (recent.some(({ row }, i) => typeof row.c !== 'number' || !Number.isFinite(row.c) || row.c <= 0
+    if (recent.some(({ row }, i) => typeof row.adjustedClose !== 'number' || !Number.isFinite(row.adjustedClose) || row.adjustedClose <= 0
         || (i > 0 && recent[i - 1].date === recent[i].date))) return null;
     let gain = 0, loss = 0;
     for (let i = 1; i < recent.length; i++) {
-        const delta = recent[i].row.c! - recent[i - 1].row.c!;
+        const delta = recent[i].row.adjustedClose! - recent[i - 1].row.adjustedClose!;
         if (i <= 14) {
             gain += Math.max(delta, 0) / 14;
             loss += Math.max(-delta, 0) / 14;

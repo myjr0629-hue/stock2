@@ -4,7 +4,7 @@ import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
 import { selectVwap } from '@/lib/vwap';
-import { dailyRsi14, dailyRsiWindow } from '@/lib/dailyRsi';
+import { DAILY_RSI_BASIS, dailyRsi14, dailyRsiWindow } from '@/lib/dailyRsi';
 // Watchlist Batch Analyze API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
 // [V5] Uses Alpha Engine V5 (calculateAlphaScore) with FULL data enrichment
@@ -259,6 +259,8 @@ async function getStockDataLight(symbol: string) {
         prevDayVolume: t?.prevDay?.v || 0, // [V3.2] For relVol calculation
         session,
         rsi,
+        rsi14Date: rsiWindow.to,
+        rsi14Basis: DAILY_RSI_BASIS,
         return3d,
         vwap: selectVwap(t?.day?.vw, t?.prevDay?.vw),  // [FIX] Fallback to prev-day VWAP during pre-market
         history: sparkline.map((close: number) => ({ close })), // Compatible format
@@ -368,6 +370,10 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
         const chunk = tickers.slice(i, i + concurrencyLimit);
         const chunkResults = await Promise.all(chunk.map(async (ticker) => {
         const analysis = cached[ticker] ? { ...cached[ticker], ...metrics.get(ticker) } : null;
+        // 캐시 전체를 무효화하면 공급사 호출이 늘어난다. 완료 세션/원천이 다른 RSI만 결측으로 운반한다.
+        if (analysis && (analysis.rsi14Date !== dailyRsiWindow().to || analysis.rsi14Basis !== DAILY_RSI_BASIS)) {
+            analysis.rsi = null;
+        }
         const snap = snapshotMap[ticker];
 
         // --- Helper to build Base Price Object from Snapshot ---
@@ -486,6 +492,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                         if (freshSparkline.length > 0) {
                             analysis.sparkline = freshSparkline;
                             analysis.rsi = healData.rsi;
+                            analysis.rsi14Date = healData.rsi14Date;
+                            analysis.rsi14Basis = healData.rsi14Basis;
                             analysis.return3d = healData.return3d ?? analysis.return3d;
                             // Update Redis cache with healed sparkline (fire-and-forget)
                             writeAnalysisCache(ticker, analysis as any).catch(() => {});
@@ -782,6 +790,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     ticker,
                     timestamp: Date.now(),
                     rsi: stockData?.rsi ?? null,
+                    rsi14Date: stockData?.rsi14Date ?? null,
+                    rsi14Basis: stockData?.rsi14Basis ?? null,
                     return3d: stockData?.return3d ?? dynAny._dynamoPrice?.return3d ?? null,
                     sparkline: stockData?.history?.map((h: any) => h.close) ?? [],
                     relVol: null,
@@ -1161,6 +1171,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 timestamp: Date.now(),
                 alphaSnapshot: fullObj.alphaSnapshot,
                 rsi: fullObj.realtime.rsi,
+                rsi14Date: stockData.rsi14Date,
+                rsi14Basis: stockData.rsi14Basis,
                 return3d: fullObj.realtime.return3d,
                 sparkline: fullObj.realtime.sparkline,
                 relVol: fullObj.realtime.relVol,

@@ -485,7 +485,7 @@ for (const [label, iso, date] of [
         NOW = RealDate.parse(iso);
         const end = RealDate.parse(`${date}T00:00:00Z`);
         const closes = Array.from({ length: 250 }, (_, i) => 100 + i * .03 + Math.sin(i * .7) * 5);
-        const rows = closes.map((c, i) => ({ t: end - (249 - i) * 86400000, c, v: 1000 }));
+        const rows = closes.map((c, i) => ({ t: end - (249 - i) * 86400000, c, adjustedClose: c, v: 1000 }));
         // 시간외와 진행 중 봉은 가격이 달라도 RSI에 들어가면 안 된다.
         rows.push({ t: end + 86400000, c: 99999, v: 1000 });
         const expected = dailyRsi.dailyRsi14(rows, date);
@@ -513,11 +513,11 @@ test('H1 last-good 병합: 결측은 null, 실제 RSI 0은 0; 옛 세션 캐시�
     const end = RealDate.parse(`${date}T00:00:00Z`);
     const stale = fixture('MSFT', date);
     stale.display = { rsi14: 88, rsi14Date: date };
-    for (const rows of [[], Array.from({ length: 40 }, (_, i) => ({ t: end - (39-i)*86400000, c: 100-i }))]) {
-        const store = new Map([['flow:ticker:lastgood:v6:lite-nochain:MSFT', copy(stale)]]);
+    for (const rows of [[], Array.from({ length: 40 }, (_, i) => ({ t: end - (39-i)*86400000, c: 100-i, adjustedClose: 100-i }))]) {
+        const store = new Map([['flow:ticker:lastgood:v7:lite-nochain:MSFT', copy(stale)]]);
         const h = harness(current, stale, 'miss', true, { store, dailyRows: rows });
         assert.equal((await h.get('')).body.display.rsi14, rows.length ? 0 : null);
-        assert.ok(h.calls.lastGoodKeys.includes('flow:ticker:lastgood:v6:lite-nochain:MSFT'));
+        assert.ok(h.calls.lastGoodKeys.includes('flow:ticker:lastgood:v7:lite-nochain:MSFT'));
         assert.equal((await h.get('')).body.display.rsi14, rows.length ? 0 : null);
     }
     const previous = copy(stale);
@@ -525,4 +525,29 @@ test('H1 last-good 병합: 결측은 null, 실제 RSI 0은 0; 옛 세션 캐시�
     const h = harness(current, previous, 'hit', true, { dailyRows: [] });
     assert.equal((await h.get('')).cache, 'MISS');
     assert.ok(h.calls.urls.length > 0);
+});
+
+
+test('P1 실제 GET 분할 조정: raw 종가로 계산하지 않음·조정 종가 결측은 null·lite/full', async () => {
+    NOW = RealDate.parse('2026-10-23T01:20:00Z');
+    const date = '2026-10-22';
+    const end = RealDate.parse(`${date}T00:00:00Z`);
+    const rows = Array.from({length:250}, (_,i) => {
+        const adjustedClose = 100+i*.03+5*Math.sin(i*.7+2);
+        return {t:end-(249-i)*86400000,c:adjustedClose*(i<235 ? 10 : 1),adjustedClose,v:1000};
+    });
+    const expected = dailyRsi.dailyRsi14(rows,date);
+    assert.ok(Math.abs(expected - 54.38949017383266) < 1e-10);
+    for (const skip of [false,true]) for (const query of ['', '&chain=full']) {
+        for (const missing of [false,true]) {
+            const dailyRows = copy(rows);
+            if (missing) delete dailyRows[200].adjustedClose;
+            const h = harness(current,fixture('MSFT',date),'miss',skip,{dailyRows});
+            const result = await h.get(query);
+            assert.equal(result.body.display.rsi14,missing ? null : expected);
+            if (!skip) assert.deepEqual(h.calls.alphaRsi,[missing ? null : expected]);
+            assert.equal(h.calls.urls.filter(u => u.includes('/range/1/day/')).length,1);
+            assert.ok(h.calls.responseKeys.every(k => k.includes(':v8:')));
+        }
+    }
 });

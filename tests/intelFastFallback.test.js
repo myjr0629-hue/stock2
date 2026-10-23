@@ -127,7 +127,7 @@ async function test(name, run) {
     await test('v2 키만 읽을 때 결측이던 현재 full·nochain 점수 복구 (웹·앱)', async () => {
         for (const app of [false, true]) {
             mem.delete('cache:analysis:AMZN'); mem.delete('cache:analysis:GOOGL');
-            mem.set('flow:ticker:v7:AMZN', tickerRow(66)); mem.set('flow:ticker:nochain:v7:GOOGL', tickerRow(77));
+            mem.set('flow:ticker:v8:AMZN', tickerRow(66)); mem.set('flow:ticker:nochain:v8:GOOGL', tickerRow(77));
             const body = await get(app);
             assert.equal(row(body, 'AMZN').alphaScore, 66); assert.equal(row(body, 'GOOGL').alphaScore, 77);
             assert.ok(!row(body, 'AMZN').missingFields?.includes('alphaScore'));
@@ -259,11 +259,11 @@ async function test(name, run) {
         assert.equal(snapshotCalls + warmCalls + writes, 0);
     });
     await test('현재 키에 점수 없으면 nochain, 그 뒤에만 v2; 실측 0 유지', async () => {
-        mem.set('flow:ticker:v7:AMZN', { ...tickerRow(), alpha: null }); mem.set('flow:ticker:nochain:v7:AMZN', tickerRow(0));
+        mem.set('flow:ticker:v8:AMZN', { ...tickerRow(), alpha: null }); mem.set('flow:ticker:nochain:v8:AMZN', tickerRow(0));
         mem.set('flow:ticker:v2:AMZN', tickerRow(99));
         assert.equal((await helper.readIntelTickerCache('AMZN')).alpha.score, 0);
-        mem.delete('flow:ticker:nochain:v7:AMZN'); assert.equal((await helper.readIntelTickerCache('AMZN')).alpha.score, 99);
-        mem.delete('flow:ticker:v7:AMZN'); assert.equal((await helper.readIntelTickerCache('AMZN')).alpha.score, 99);
+        mem.delete('flow:ticker:nochain:v8:AMZN'); assert.equal((await helper.readIntelTickerCache('AMZN')).alpha.score, 99);
+        mem.delete('flow:ticker:v8:AMZN'); assert.equal((await helper.readIntelTickerCache('AMZN')).alpha.score, 99);
         assert.equal(writes, 0);
     });
     await test('다른 거래일 점수·정의 없는 폭·다른 세션·다른 만기 체인 제외', async () => {
@@ -291,7 +291,7 @@ async function test(name, run) {
         assert.equal(warmCalls, 0); assert.equal(snapshotCalls, 1);
     });
     await test('skip_alpha 데우기가 현재 캐시 점수를 null로 덮지 않음', async () => {
-        mem.delete('cache:analysis:AMZN'); mem.set('flow:ticker:v7:AMZN', { ...tickerRow(66), flow: {} });
+        mem.delete('cache:analysis:AMZN'); mem.set('flow:ticker:v8:AMZN', { ...tickerRow(66), flow: {} });
         const body = await get(); assert.equal(warmCalls, 1); assert.equal(row(body, 'AMZN').alphaScore, 66);
     });
     await test('전 종목 결측에도 기존 데우기 상한 유지·429 관문 닫히면 0', async () => {

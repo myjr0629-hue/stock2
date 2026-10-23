@@ -180,8 +180,8 @@ const TICKER_CACHE_TTL = 60; // 60 seconds
 // v4 = 레벨은 구조 한 벌뿐(없으면 null)·정의 게이트·levelsDropped 2026-09-29 — ㊲-2(v3) 프리뷰와도 섞이지 않게.
 // v3' = (㊺ 브랜치) 시간외 필드를 세션·날짜로 고르게 된 2026-09-25 — v2 에는 «정규장 분봉 PRE»·«어제 POST» 가 앉아 있다.
 // v5 = 레벨 판본(09-30) + 시간외 세션·날짜(㊺) 둘 다 — 두 브랜치의 v3·v4 어느 쪽과도 섞이지 않게 한 단계 위.
-// v6: Wilder 일봉 RSI. 옛 14일 단순평균과 병합하지 않는다.
-const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v6:';
+// v7: 조정 종가 Wilder 일봉 RSI. 옛 14일 단순평균과 병합하지 않는다.
+const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v7:';
 function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): string {
     const shape = skipAlpha ? (noChain ? 'lite-nochain' : 'lite-full') : (noChain ? 'nochain' : 'full');
     return `${LAST_GOOD_PREFIX}${shape}:${ticker}`;
@@ -463,9 +463,9 @@ function pickAlphaLevels(structureResult: any, flowData: any, spot: number | nul
 //    v5 = 레벨은 구조 한 벌뿐(없으면 null)·정의 게이트·levelsDropped 2026-09-29 (값이 바뀐다)
 //    v4' = (㊺ 브랜치) 시간외 PRE/POST 를 세션·날짜·체결 테이프로 고른다 2026-09-25 (값·필드가 바뀐다)
 //    v6 = 레벨 판본 + 시간외 세션·날짜 둘 다(두 브랜치 통합) — ⚠️ 프리뷰와 운영은 같은 Redis 를 쓴다(올리지 않으면 옛 코드가 쓴 값을 읽는다)
-//    v7 = 완료 세션의 일봉 Wilder RSI(옛 단순평균과 캐시 분리)
+//    v8 = 조정 종가의 완료 세션 Wilder RSI(원본 종가 캐시와 분리)
 function tickerCacheKey(ticker: string): string {
-    return `flow:ticker:v7:${ticker}`;
+    return `flow:ticker:v8:${ticker}`;
 }
 
 /** 계산·캐시·last-good 병합이 끝난 출구에서 전송할 체인만 제외한다. */
@@ -501,8 +501,8 @@ export async function GET(req: NextRequest) {
     // ⚠️ 체인 유무로 응답 «모양»이 달라진다 → 캐시를 반드시 분리한다.
     //    섞이면 Command 가 캐시에 넣은 체인 없는 응답을 Flow 가 받아 차트가 빈다.
     const cacheKey = skipAlpha
-        ? (noChain ? `flow:ticker:lite:nochain:v7:${ticker}` : `flow:ticker:lite:full:v7:${ticker}`)
-        : (noChain ? `flow:ticker:nochain:v7:${ticker}` : tickerCacheKey(ticker));
+        ? (noChain ? `flow:ticker:lite:nochain:v8:${ticker}` : `flow:ticker:lite:full:v8:${ticker}`)
+        : (noChain ? `flow:ticker:nochain:v8:${ticker}` : tickerCacheKey(ticker));
     // 옵션 레벨 판본과 응답 캐시를 Redis 한 번(mget)으로 읽는다 — 출구에서 판본으로 덮는다(캐시 적중·새 계산 모두).
     const optionBasis = readOptionMetrics([ticker]);
     const pre = prefetchLevelsWithKeys([ticker], [cacheKey]);
