@@ -136,6 +136,7 @@
     "rvol": "相対出来高"
   },
   "guardian": {
+    "lastSessionAnalysis": "前回セッションの分析",
     "title": "GUARDIAN",
     "subtitle": "市場全体のGEXポジショニングとマクロ状況を分析",
     "gravityGauge": "GRAVITY GAUGE",

@@ -9,7 +9,9 @@ const root = path.resolve(__dirname, '..');
 const routeFile = 'src/app/api/live/ticker/route.ts';
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const current = read(routeFile);
-const original = execFileSync('git', ['show', `origin/main:${routeFile}`], { cwd: root, encoding: 'utf8' });
+// 10/19 저장 응답의 감사 기준을 고정한다. 최신 origin/main의 다른 gamma 계산과 과거 저장 응답을 섞지 않는다.
+const baselineRef = 'd6c648194118fe0855bceb6b16a51fe208d021a5';
+const original = execFileSync('git', ['show', `${baselineRef}:${routeFile}`], { cwd: root, encoding: 'utf8' });
 const snapshotDir = process.argv[2] || '/Users/eunhoon/Documents/signum-work/2026-10-19/reg-snapshots';
 const snapshots = fs.readdirSync(snapshotDir).filter(f => /^ticker-.*-2310\.json$/.test(f)).sort()
     .map(f => JSON.parse(fs.readFileSync(path.join(snapshotDir, f), 'utf8')));
