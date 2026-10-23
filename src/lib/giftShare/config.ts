@@ -2,6 +2,13 @@
 export type GiftOs = 'ios' | 'android';
 export const giftToken = (v: unknown): string | null => typeof v === 'string' && /^[A-Za-z0-9_-]{43}$/.test(v) ? v : null;
 export const giftEnabled = () => process.env.GIFT_SHARE_ENABLED === '1';
+/**
+ * 등록 한도(기기·계정·IP·전체)는 최초 예약/등록 요청의 at 의 KST 날짜로 센다.
+ * 공유 전에 원자 예약 성공을 확인한다. 완료·재시도는 같은 토큰을 재요청하므로 날짜가 달라도 추가 차감하지 않는다.
+ * 서버는 at 이 [지금−48시간, 지금+10분] 안일 때만 받는다(과거 날짜 한도 끌어쓰기 상한). 기기 재시도는 47시간 안에서만 한다.
+ */
+export const GIFT_SHARE_WINDOW_MS = 48 * 3_600_000;
+export const GIFT_SHARE_SKEW_MS = 10 * 60_000;
 export function giftCap(os: GiftOs): number {
   const n = Number(process.env[os === 'ios' ? 'GIFT_SHARE_DAILY_CAP_IOS' : 'GIFT_SHARE_DAILY_CAP_ANDROID'] ?? 20);
   return Number.isInteger(n) && n >= 0 && n <= 200 ? n : 20;

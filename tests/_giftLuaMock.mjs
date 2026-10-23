@@ -102,6 +102,7 @@ function parse(src) {
   }
   function statement() {
     if (accept(';')) return null;
+    if (accept('break')) return { k: 'break' };
     if (accept('local')) {
       const names = [expect('name').v];
       while (accept(',')) names.push(expect('name').v);
@@ -276,6 +277,7 @@ async function execStat(s, scope) {
       return null;
     }
     case 'exprstat': await evaluate(s.e, scope); return null;
+    case 'break': return { breaking: true };
     case 'if': {
       for (const arm of s.arms) if (truthy(await evaluate(arm.cond, scope))) return execBlock(arm.body, scope);
       return s.orelse ? execBlock(s.orelse, scope) : null;
@@ -286,6 +288,7 @@ async function execStat(s, scope) {
       for (let i = start; step > 0 ? i <= stop : i >= stop; i += step) {
         const inner = new Scope(scope); inner.vars.set(s.name, i);
         const r = await execBlock(s.body, inner);
+        if (r?.breaking) break;
         if (r) return r;
       }
       return null;
@@ -297,6 +300,7 @@ async function execStat(s, scope) {
       for (let i = 1; t.get(i) !== undefined; i++) {
         const inner = new Scope(scope); inner.vars.set(s.names[0], i); if (s.names[1]) inner.vars.set(s.names[1], t.get(i));
         const r = await execBlock(s.body, inner);
+        if (r?.breaking) break;
         if (r) return r;
       }
       return null;
@@ -446,7 +450,7 @@ export function mockRedis({ atomic = true } = {}) {
   const plain = (cmd) => async (...a) => { const r = command(cmd, ...a); return r && typeof r === 'object' && !Array.isArray(r) ? r.ok : r; };
   return {
     eval: evalScript,
-    set: plain('SET'), flushdb: plain('FLUSHDB'), llen: plain('LLEN'), hlen: plain('HLEN'), hget: plain('HGET'),
+    get: plain('GET'), set: plain('SET'), flushdb: plain('FLUSHDB'), llen: plain('LLEN'), hlen: plain('HLEN'), hget: plain('HGET'),
     lset: plain('LSET'), exists: plain('EXISTS'), sadd: plain('SADD'),
     disconnect() {},
   };

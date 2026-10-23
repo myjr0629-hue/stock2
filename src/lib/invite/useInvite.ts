@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { shareBeacon, shareOrCopy, shareVia, type ShareOutcome } from '@/lib/share/share';
+import { usePreparedGift } from '@/lib/giftShare/usePreparedGift';
 import { INVITE_COPY } from './copy';
 import { getInviteRef, markInviteShared } from './identity';
 import { SHARE_SURFACE, buildShareCardUrl, toInviteLang, type ShareKind } from './kinds';
@@ -87,6 +88,7 @@ export function useInviteShareEnabled(): boolean {
  * line = 화면에 이미 그려진 줄(공유 문구에 싣는다 — 새로 지어내지 않는다).
  */
 export function useInviteShare(kind: ShareKind, locale: string) {
+  const gift = usePreparedGift();
   const busy = useRef(false);
   const share = useCallback(async (ticker: string, line: string | null): Promise<ShareOutcome | null> => {
     if (busy.current) return null;
@@ -98,11 +100,13 @@ export function useInviteShare(kind: ShareKind, locale: string) {
     shareBeacon('tap', surface, via);
     let out: ShareOutcome = 'failed';
     try {
-      out = await shareOrCopy({
+      const payload = gift.payload({
         title: INVITE_COPY[lang].shareTitle(ticker),
         text: INVITE_COPY[lang].shareText[kind](ticker, line),
         url: buildShareCardUrl(kind, { locale: lang, ticker, ref, via }),
-      });
+      }, locale, via, ref);
+      out = await shareOrCopy(payload);
+      gift.complete(out, payload, via);
     } finally {
       busy.current = false;
     }
@@ -111,6 +115,6 @@ export function useInviteShare(kind: ShareKind, locale: string) {
       markInviteShared();
     }
     return out;
-  }, [kind, locale]);
+  }, [kind, locale, gift]);
   return share;
 }

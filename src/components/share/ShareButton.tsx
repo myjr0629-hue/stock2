@@ -14,6 +14,8 @@ import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type 
 import { createPortal } from 'react-dom';
 import { buildShareUrl, shareBeacon, shareOrCopy, shareVia, type ShareOutcome, type ShareSurface } from '@/lib/share/share';
 
+import { usePreparedGift } from '@/lib/giftShare/usePreparedGift';
+
 const LABEL: Record<string, string> = { ko: '공유', en: 'Share', ja: '共有' };
 const COPIED: Record<string, string> = {
   ko: '링크를 복사했어요 — 붙여넣어 보내세요',
@@ -53,6 +55,7 @@ export interface ShareButtonProps {
 export function ShareButton({
   surface, locale, path, params, title, text, className, style, iconSize = 18, color, children, label: labelProp,
 }: ShareButtonProps) {
+  const gift = usePreparedGift(surface === 'ticker' || surface === 'rank');
   const [toast, setToast] = useState(false);
   const busy = useRef(false);
   const timer = useRef<number | undefined>(undefined);
@@ -67,7 +70,10 @@ export function ShareButton({
     shareBeacon('tap', surface, via);
     let out: ShareOutcome = 'failed';
     try {
-      out = await shareOrCopy({ title, text, url: buildShareUrl(path, params, via) });
+      const original = { title, text, url: buildShareUrl(path, params, via) };
+      const payload = surface === 'ticker' || surface === 'rank' ? gift.payload(original, locale, via) : original;
+      out = await shareOrCopy(payload);
+      gift.complete(out, payload, via);
     } finally {
       busy.current = false;
     }
