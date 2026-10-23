@@ -10,6 +10,8 @@ import {
     checkGuardianLiterals, fillGuardianTokens, stateStaleReasons, formatGNum, guardianNumbersGate, guardianNumsFromAiContext, guardianNumsFromMarket,
     guardianNumsFromContext, guardianTokenRules, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, guardianLiterals,
 } from '@/lib/ai/guardianNumbers';
+import { buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
+import { INDEX_NAMES } from '@/lib/ai/tacticalIndexFacts';
 import { cleanInsight } from '@/lib/ai/outputGate';
 import { IntelligenceNode, _resetInsightStateForTest, _setMarketClockForTest } from '@/services/guardian/intelligenceNode';
 
@@ -18,6 +20,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
 
 // 운영 응답 data.market (10/4 08:5x KST 읽기) — 화면 값
 const MARKET = {
+    indexBasis: { cash: { nasdaq: { changePct: 0.9793403878350482 }, spx: { changePct: 0.6894096323148627 } } },
     nqChangePercent: 0.9793403878350482, vix: 15.31, us10y: 5.28, dxy: 101.924,
     factors: {
         nasdaq100: { level: 31061.75, chgPct: 0.9793403878350482 }, vix: { level: 15.31 }, us10y: { level: 5.28, chgPct: 0.7634 },
@@ -107,11 +110,12 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
     // ── 출구(intelligenceNode.repairVerdictTexts) — Redis·AWS 없이(대체 경로 = 고정 안내 문구) ──
     delete process.env.UPSTASH_REDIS_REST_URL; delete process.env.KV_REST_API_URL; delete process.env.AWS_ACCESS_KEY_ID;
     _resetInsightStateForTest();
-    await t('출구: 운영 ko 판정 — 숫자가 틀린 TACTICAL·RLSI 칸은 교체, 감마 칸은 그대로', async () => {
+    await t('출구: rotation 숫자는 재검사, 저장 Tactical은 보존, 감마 칸은 그대로', async () => {
         const v = { title: 'TACTICAL INSIGHT', sentiment: 'NEUTRAL', description: KO_DESC, realityInsight: KO_REALITY, gammaInsight: KO_GAMMA };
         const r = await IntelligenceNode.repairVerdictTexts(v, 'ko', 'test', NUMS);
-        assert.deepEqual(r.repaired.sort(), ['description', 'realityInsight']);
-        assert.ok(!r.verdict.description.includes('+0.94%') && !r.verdict.realityInsight!.includes('41점'));
+        assert.deepEqual(r.repaired.sort(), ['description']);
+        assert.ok(!r.verdict.description.includes('+0.94%'));
+        assert.equal(r.verdict.realityInsight, KO_REALITY);
         assert.equal(r.verdict.gammaInsight, KO_GAMMA);
     });
     await t('출구: 자리표 원본이 있는 판정은 그 응답의 화면 값으로 채운다(장중 값 → 마감 값)', async () => {
@@ -219,36 +223,44 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
         assert.deepEqual(stateStaleReasons({ BREADTH: 30 }, { BREADTH: 61 }), ['state-stale:BREADTH:61%→30%']);
         assert.deepEqual(stateStaleReasons({ BREADTH: 55 }, { BREADTH: 61 }), []);
         assert.deepEqual(stateStaleReasons(null, basis), []);
-        // 실제 출구(repairVerdictTexts): 장중 — 저장 판정의 «상승장» 이 나스닥 하락 전환 뒤 그대로 나가지 않는다 · 장외 — 지난 세션 해석이라 그대로
-        const verdictTpl = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 배경은 19:24 ET NEWS PULSE 보도로, 금 가격이 4,150달러 아래로 밀렸습니다. 시장 건강도(RLSI) {RLSI}점으로 약하고 옵션 포지션(GEX {GEX})은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+        // 저장 판정 출구는 장중/장외 모두 기존 글을 보존한다. 낡음은 생성기의 재생성 판단에만 쓴다.
+        const prompts = (change: number) => (locale: 'ko' | 'en' | 'ja') => buildTacticalPrompt({
+            rlsiScore: basis.RLSI, nasdaqChange: change, vix: basis.VIX, asOf: '2026-10-21T14:00:00Z', session: 'REG',
+            indexFacts: [{ id: 'nasdaq', kind: 'spot', name: INDEX_NAMES.nasdaq, chgPct: change,
+                basis: { ko: '전일 종가 대비', en: 'vs previous close', ja: '前日終値比' }, asOfET: '2026-10-21 10:00 ET', sessionDate: '2026-10-21' }],
+        }, locale);
+        const verdictTpl = '나스닥 종합(현물)은 전일 종가 대비 0.8% 오른 상승장입니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도(RLSI) {RLSI}점으로 약하고 옵션 포지션(GEX {GEX})은 중립이라 흔들림을 줄이지 않습니다. 다음 분기점은 미확인입니다.';
         const verdict: any = { realityInsight: fillGuardianTokens(verdictTpl, basis).text, num: { tpl: { realityInsight: verdictTpl }, basis: { realityInsight: basis } } };
         try {
             _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));   // 10:00 ET 장중
             _resetInsightStateForTest();
-            const same = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', basis);
-            assert.ok(same.verdict.realityInsight.startsWith('지수는 올랐지만') && !same.repaired.includes('realityInsight'));
-            const flipped = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
-            assert.ok(flipped.repaired.includes('realityInsight') && !String(flipped.verdict.realityInsight).includes('상승장'));
+            const same = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', basis, prompts(basis.NDX_CHG));
+            assert.ok(same.verdict.realityInsight.startsWith('나스닥 종합(현물)은') && !same.repaired.includes('realityInsight'));
+            const flipped = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 }, prompts(-0.784));
+            assert.deepEqual(flipped.repaired, []);
+            assert.equal(flipped.verdict.realityInsight, verdict.realityInsight, '저장 verdict는 기존 글 유지');
             _setMarketClockForTest(() => new Date('2026-10-21T02:00:00Z'));   // 22:00 ET 장외
             _resetInsightStateForTest();
-            const night = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });   // 밤사이 선물 반전
+            const night = await IntelligenceNode.repairVerdictTexts(verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 }, prompts(basis.NDX_CHG));   // 밤사이 선물 반전, 현물 관측은 유지
             assert.ok(!night.repaired.includes('realityInsight'));
-            // 관문 10211005 ① — 자리표 없는 Tactical 글도 기준값을 남긴다: 같은 값으로 한 번 복구해도 basis 유지 → 이후 반전에 탈락
+            // 자리표 없는 Tactical도 basis를 보존한다. 이후 반전에도 복구 글은 유지하며 생성기에서 재생성을 유도한다.
             _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));
             _resetInsightStateForTest();
-            const plain = '지수는 올랐지만 시장 건강도가 약해 힘이 빠진 상승장입니다. 오늘 시장을 움직인 거시 원인은 아직 확인되지 않았습니다. 시장 건강도는 약하고 옵션 포지션은 중립입니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
+            const plain = '나스닥 종합(현물)은 전일 종가 대비 0.8% 오른 상승장입니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도는 약하고 옵션 포지션은 중립입니다. 다음 분기점은 미확인입니다.';
             const v2: any = { realityInsight: plain, num: { tpl: { realityInsight: plain }, basis: { realityInsight: basis } } };
-            const once = await IntelligenceNode.repairVerdictTexts(v2, 'ko', 'test', basis);
+            const once = await IntelligenceNode.repairVerdictTexts(v2, 'ko', 'test', basis, prompts(basis.NDX_CHG));
             assert.deepEqual((once.verdict as any).num?.basis?.realityInsight, basis);
-            const later = await IntelligenceNode.repairVerdictTexts(once.verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
-            assert.ok(later.repaired.includes('realityInsight'));
+            const later = await IntelligenceNode.repairVerdictTexts(once.verdict, 'ko', 'test', { ...basis, NDX_CHG: -0.784 }, prompts(-0.784));
+            assert.deepEqual(later.repaired, []);
+            assert.equal(later.verdict.realityInsight, plain);
             // 관문 10211010 — 생성 실패 뒤 직전 정상 글을 살릴 때(keepRealTextOverPlaceholders)도 기준값이 따라온다
             const pendingNext: any = { realityInsight: '[진단] 최신 시장 분석을 준비하고 있습니다\n[결론] 잠시 후 자동으로 갱신됩니다' };
-            const kept: any = IntelligenceNode.keepRealTextOverPlaceholders(pendingNext, v2, 'ko', basis);
+            const kept: any = IntelligenceNode.keepRealTextOverPlaceholders(pendingNext, v2, 'ko', basis, prompts(basis.NDX_CHG));
             assert.equal(kept.realityInsight, plain);
             assert.deepEqual(kept.num?.basis?.realityInsight, basis);
-            const afterFlip = await IntelligenceNode.repairVerdictTexts(kept, 'ko', 'test', { ...basis, NDX_CHG: -0.784 });
-            assert.ok(afterFlip.repaired.includes('realityInsight'));
+            const afterFlip = await IntelligenceNode.repairVerdictTexts(kept, 'ko', 'test', { ...basis, NDX_CHG: -0.784 }, prompts(-0.784));
+            assert.deepEqual(afterFlip.repaired, []);
+            assert.equal(afterFlip.verdict.realityInsight, plain);
         } finally { _setMarketClockForTest(null); }
     });
 
