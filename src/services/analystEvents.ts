@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 /**
  * 애널리스트 «변화 이벤트» — 등급 상하향 + 목표가 리비전 추세.
  *
@@ -96,20 +97,13 @@ export interface AnalystEvents {
 
 async function fmp(path: string, timeoutMs = 8000): Promise<any> {
     if (!FMP_KEY) return null;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
         const sep = path.includes("?") ? "&" : "?";
-        const res = await fetch(`${FMP_BASE}/${path}${sep}apikey=${FMP_KEY}`, {
-            signal: ctrl.signal,
-            cache: "no-store",
-        });
-        if (!res.ok) return null;
+        const res = await fmpFetch(`${FMP_BASE}/${path}${sep}apikey=${FMP_KEY}`, 'analyst', { timeoutMs });
+        if (!res?.ok) return null;
         return await res.json();
     } catch {
         return null;
-    } finally {
-        clearTimeout(timer);
     }
 }
 

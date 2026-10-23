@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 /**
  * FMP 뉴스 → Massive(/v2/reference/news) 응답 형태 어댑터
  *
@@ -111,15 +112,9 @@ function toMassiveShape(a: FmpArticle, requestedTickers: string[]) {
 async function fmpGet(path: string, timeoutMs = 12000): Promise<any> {
     const sep = path.includes("?") ? "&" : "?";
     const url = `${FMP_BASE}/${path.replace(/^\//, "")}${sep}apikey=${FMP_KEY}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
-        if (!res.ok) throw new Error(`FMP ${res.status}`);
-        return await res.json();
-    } finally {
-        clearTimeout(timer);
-    }
+    const res = await fmpFetch(url, 'news', { timeoutMs });
+    if (!res?.ok) throw new Error('FMP_NEWS_UNAVAILABLE');
+    return await res.json();
 }
 
 /**

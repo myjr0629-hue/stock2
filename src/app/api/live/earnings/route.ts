@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 import { NextRequest, NextResponse } from 'next/server';
 import { getEarningsCalendar, EarningsEvent } from '@/services/finnhubClient';
 import { swrFetch } from '@/lib/cache/redisSWR';
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
                 const [rawEarnings, forwardRes] = await Promise.all([
                     // 조회 시작일 = ET 오늘(기본값은 UTC 날짜라 ET 20:00 이후엔 오늘 실적이 창 밖이었다)
                     getEarningsCalendar(tickerUpper, todayET),
-                    fmpKeyToUse ? fetch(`https://financialmodelingprep.com/stable/analyst-estimates?symbol=${tickerUpper}&period=annual&apikey=${fmpKeyToUse}`).catch(()=>null) : null
+                    fmpKeyToUse ? fmpFetch(`https://financialmodelingprep.com/stable/analyst-estimates?symbol=${tickerUpper}&period=annual&apikey=${fmpKeyToUse}`, 'earnings').catch(()=>null) : null
                 ]);
                 // ★ Finnhub 는 ADR 요청에도 «해외 원주» 를 섞어 준다(TSM→2330.TW, ASML→ASML.AS,
                 //   NVO→"NOVO B.CO"). 그 EPS 는 TWD/EUR 인데 화면은 $ 를 붙여 그린다 —

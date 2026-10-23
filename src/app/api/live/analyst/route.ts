@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 import { NextRequest, NextResponse } from 'next/server';
 import { swrFetch } from '@/lib/cache/redisSWR';
 import { getAnalystEvents } from '@/services/analystEvents';
@@ -44,8 +45,8 @@ export async function GET(req: NextRequest) {
                 if (!FMP_API_KEY) throw new Error('FMP_API_KEY not set');
 
                 const [res, targetRes] = await Promise.all([
-                    fetch(`https://financialmodelingprep.com/stable/grades-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, { signal: AbortSignal.timeout(8000) }).catch(() => null),
-                    fetch(`https://financialmodelingprep.com/stable/price-target-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, { signal: AbortSignal.timeout(8000) }).catch(() => null)
+                    fmpFetch(`https://financialmodelingprep.com/stable/grades-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, 'analyst', { timeoutMs: 8000 }).catch(() => null),
+                    fmpFetch(`https://financialmodelingprep.com/stable/price-target-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, 'analyst', { timeoutMs: 8000 }).catch(() => null)
                 ]);
 
                 if (!res || !res.ok) throw new Error(`FMP Consensus Failed`);

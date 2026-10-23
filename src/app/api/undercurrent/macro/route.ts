@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 // ============================================================================
 // Undercurrent (spin-off prototype) — MACRO: the big picture that shakes markets
 // ----------------------------------------------------------------------------
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
     const fmpKey = process.env.FMP_API_KEY;
     const [fmpRes, fedRes, fearGreed, backdrop] = await Promise.all([
       fmpKey
-        ? fetch(`https://financialmodelingprep.com/stable/news/general-latest?limit=20&apikey=${fmpKey}`, { signal: AbortSignal.timeout(8000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        ? fmpFetch(`https://financialmodelingprep.com/stable/news/general-latest?limit=20&apikey=${fmpKey}`, 'news', { timeoutMs: 8000 }).then((r) => (r?.ok ? r.json() : null)).catch(() => null)
         : Promise.resolve(null),
       fetch(`${base}/api/guardian/fedwatch`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),

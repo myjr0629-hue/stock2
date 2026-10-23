@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 // ============================================================================
 // 시장 전체 실적 캘린더(FMP) — 읽기·만들기·캐시를 한 곳에
 //
@@ -251,20 +252,22 @@ async function buildMarketEarningsCalendar(): Promise<EarningsCalendarResult> {
       windows.push([addDaysYmd(today, off), addDaysYmd(today, Math.min(off + CHUNK_DAYS - 1, HORIZON_DAYS))]);
     }
 
+    let budgetDenied = false;
     const probe: Record<string, string> = {};
     const truncated: string[] = [];               // 상한에 닿은 창 — 있으면 더 쪼개야 한다는 신호
     const CAP = 4000;
     const chunks = await Promise.all(windows.map(async ([f, t2]) => {
       const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${f}&to=${t2}&apikey=${key}`;
       try {
-        const r = await fetch(url, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
-        if (!r.ok) { probe[f] = `http-${r.status}`; return []; }
+        const r = await fmpFetch(url, 'earnings', { timeoutMs: 15000 });
+        if (!r) budgetDenied = true;
+        if (!r?.ok) { probe[f] = r ? `http-${r.status}` : 'budget-unavailable'; return []; }
         const j = await r.json();
         if (!Array.isArray(j)) { probe[f] = `shape-${typeof j}`; return []; }
         probe[f] = `ok-${j.length}`;
         if (j.length >= CAP) truncated.push(`${f}~${t2}`);
         return j;
-      } catch (e: any) { probe[f] = `err-${String(e?.message || e).slice(0, 30)}`; return []; }
+      } catch (e: any) { probe[f] = 'fetch-error'; return []; }
     }));
     // ★ 상한에 닿은 창은 «반으로 쪼개 다시» 부른다.
     //   실측: 14일로 나눠도 성수기(11/01~11/14)는 4,000 에 닿았다 — Q3 실적이 몰리는 2주다.
@@ -281,20 +284,23 @@ async function buildMarketEarningsCalendar(): Promise<EarningsCalendarResult> {
       const got = await Promise.all(halves.map(async ([f, t2]) => {
         const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${f}&to=${t2}&apikey=${key}`;
         try {
-          const r = await fetch(url, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
-          if (!r.ok) { probe[`${f}*`] = `http-${r.status}`; return []; }
+          const r = await fmpFetch(url, 'earnings', { timeoutMs: 15000 });
+          if (!r) budgetDenied = true;
+          if (!r?.ok) { probe[`${f}*`] = r ? `http-${r.status}` : 'budget-unavailable'; return []; }
           const j = await r.json();
           if (!Array.isArray(j)) return [];
           probe[`${f}*`] = `ok-${j.length}`;
           if (j.length >= CAP) truncated.push(`${f}~${t2} (재분할 후에도 상한)`);
           return j;
-        } catch (e: any) { probe[`${f}*`] = `err-${String(e?.message || e).slice(0, 30)}`; return []; }
+        } catch (e: any) { probe[`${f}*`] = 'fetch-error'; return []; }
       }));
       extra.push(...got);
       // 잘렸던 원본 창은 «다시 받은 반쪽들»로 대체된다 — 목록에서 뺀다
       for (const w of [...truncated]) if (!w.includes('재분할')) truncated.splice(truncated.indexOf(w), 1);
     }
 
+    // A quota denial must not publish a partial calendar as a six-hour success.
+    if (budgetDenied) return rememberFailure('fmp-empty', probe);
     const raw: any[] = [...chunks.flat(), ...extra.flat()];
     const usedUrl = 'stable';
     if (!raw.length) return rememberFailure('fmp-empty', probe);

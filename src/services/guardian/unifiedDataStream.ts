@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 import { datedHeadline, cachedEvidence, buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
 import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rlsiEngine";
 // [FIX] Import getMarketSession for cache session validation
@@ -751,11 +752,10 @@ export class GuardianDataHub {
                 try {
                     const fmpKey = process.env.FMP_API_KEY;
                     if (!fmpKey) return [] as string[];
-                    const res = await fetch(
-                        `https://financialmodelingprep.com/stable/news/general-latest?limit=8&apikey=${fmpKey}`,
-                        { signal: AbortSignal.timeout(5000) }
+                    const res = await fmpFetch(
+                        `https://financialmodelingprep.com/stable/news/general-latest?limit=8&apikey=${fmpKey}`, 'news', { timeoutMs: 5000 }
                     );
-                    if (!res.ok) return [] as string[];
+                    if (!res?.ok) return [] as string[];
                     const data = await res.json();
                     if (!Array.isArray(data)) return [] as string[];
                     return data.map((n: any) => datedHeadline(n, 'FMP')).filter((h: string | null): h is string => !!h).slice(0, 5);
