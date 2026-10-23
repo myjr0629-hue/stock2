@@ -279,7 +279,8 @@ export function unsupportedEventReasons(text: string, evidence: string): string[
     return EVENT_FAMILIES.flatMap((re, i) => re.test(text) && !re.test(evidence) ? [`event:unsupported:${i}`] : []);
 }
 
-const UNKNOWN = /unconfirmed|no confirmed|not confirmed|not established|unknown|unavailable|미확인|확인되지|확인할[^.]*없|불명|미상|不足|未確認|確認でき|不明/i;
+// 관측 없음 정상 표현(«관측 자료가 없습니다»·«観測データはありません» — 관문 10232340 P1)
+const UNKNOWN = /unconfirmed|no confirmed|not confirmed|not established|unknown|unavailable|not available|no (?:observations?|data)|미확인|확인되지|확인할[^.]*없|불명|미상|(?:관측|자료|데이터)[^.]{0,6}없|不足|未確認|確認でき|不明|(?:観測|データ)[^。]{0,8}(?:ありません|なし|ない)/i;
 
 function splitSentences(text: string): string[] {
     return text.replace(/\b(?:U\.S|e\.g|i\.e)\./g, m => m.replace(/\./g, '·'))
@@ -483,10 +484,11 @@ export function tacticalIndexReasons(first: string, prompt: string): string[] {
     if ((session === 'POST' || session === 'CLOSED') && facts.some(f => f.kind === 'spot') && facts.some(f => f.kind === 'futures')
         && !(['spot', 'futures'] as const).every(k => refs.some(r => r.f?.kind === k))) reasons.push('tactical:postclose-both-required');
     if (session === 'REG' && facts.some(f => f.kind === 'spot') && !refs.some(r => r.f?.kind === 'spot')) reasons.push('tactical:regular-spot-required');
-    if ((session === 'REG' || session === 'POST' || session === 'CLOSED') && refs.some(r => r.f?.kind === 'spot')) {
+    // PRE 도 직전 정규장 날짜를 대조한다(관문 10232340 P2 — «10/23 정규장… −2.6%» 가 실제 10/22 세션인데 통과)
+    if ((session === 'PRE' || session === 'REG' || session === 'POST' || session === 'CLOSED') && refs.some(r => r.f?.kind === 'spot')) {
         const dates = [...first.matchAll(/(?<![\d/])(?:(\d{4})-)?(\d{1,2})[/-](\d{1,2})(?![\d/])/g)];
         const spotDates = refs.flatMap(r => r.f?.kind === 'spot' && r.f.sessionDate ? [r.f.sessionDate] : []);
-        if (spotDates.length && ((session !== 'REG' && !dates.length) || spotDates.some(date =>
+        if (spotDates.length && ((session !== 'REG' && session !== 'PRE' && !dates.length) || spotDates.some(date =>
             dates.some(m => (m[1] && m[1] !== date.slice(0, 4)) || Number(m[2]) !== Number(date.slice(5, 7)) || Number(m[3]) !== Number(date.slice(8, 10)))))) reasons.push('tactical:cash-session-date');
     }
     if ((session === 'POST' || session === 'CLOSED') && refs.some(r => r.f?.kind === 'spot')) {
