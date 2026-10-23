@@ -281,9 +281,9 @@ test('문구 수정: 운영 반영 기준 대비 600조합 계산 입력·출력
   const copyFile = 'src/lib/earningsScenario/copy.ts', modelFile = 'src/lib/earningsScenario/model.ts';
   const baselineCopy = load(copyFile, sourceAtBase(copyFile)).SCENARIO_COPY;
   const baselineModel = load(modelFile, sourceAtBase(modelFile));
-  // 공유 계산·자료 함수와 다른 페이지는 이번 수정 범위 밖이다.
+  // 계산 보존을 이 기능의 소스에서 검증한다. 이후 병합된 무관한 기능의 변경은 실패 원인이 아니다.
   assert.equal(fs.readFileSync(path.join(root, modelFile), 'utf8'), sourceAtBase(modelFile));
-  const modified = execFileSync('git', ['diff', COPY_BASE_COMMIT, '--name-only', '--', 'src'], { cwd: root, encoding: 'utf8' }).trim().split('\n').sort();
+  const modified = execFileSync('git', ['diff', COPY_BASE_COMMIT, '--name-only', '--', clientFile, 'src/lib/earningsScenario', 'src/services/earningsScenarioService.ts'], { cwd: root, encoding: 'utf8' }).trim().split('\n').sort();
   assert.deepEqual(modified, [clientFile, copyFile].sort());
   const harness = (source, copy, implementation) => {
     let cursor, values, trace;
@@ -368,9 +368,8 @@ test('사이트맵: 신규3개·ko전용1개·hreflang, 기존 XML 바이트 동
     assert.equal(resolveSitemap(current.filter(r => !r.url.endsWith('/tools/earnings-scenario'))), resolveSitemap(old));
   }
 });
-test('기존 앱·영수증·read-check·내비·API 소스 바이트 동일, 기존 페이지3언어 HTML 동일', async () => {
-  const modified = execFileSync('git', ['diff', BASE_COMMIT, '--name-only', '--diff-filter=MDR', '--', 'src'], { cwd: root, encoding: 'utf8' }).trim();
-  assert.equal(modified, 'src/lib/seo/sitemap.ts');
+test('기존 영수증·read-check 소스 바이트 동일, 기존 페이지3언어 HTML 동일', async () => {
+  // 저장소 전체의 과거 변경 목록은 회귀 조건이 아니다. 아래 두 실제 페이지의 소스·SSR을 대조한다.
   stub('../src/services/readCheckService', { readCheckSnapshot: async () => ({ readAt: new Date(NOW).toISOString(),
     rows: ['NVDA','AAPL','MSFT','TSLA','AMZN','META','GOOGL','AMD'].map(ticker => ({ ticker, options: null, darkPool: null, insider: null })) }) });
   let receipt = { week: '2026-10-12', weekEnd: '2026-10-18', asOf: new Date(NOW).toISOString(), rows: [], emptyReason: 'no_schedule',

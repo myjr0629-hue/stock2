@@ -45,7 +45,8 @@ interface IntelligenceContext {
     scheduledEvents?: string[];
     asOf?: string;
     rlsiScore: number;
-    nasdaqChange: number;
+    nasdaqChange: number | null;
+    indexBasis?: import('@/lib/marketIndexBasis').MarketIndexBasis;
     vectors: { source: string, target: string, strength: number }[];
     /** 정규장에서만 측정 가능. 시간외/휴장에는 undefined —
      *  0 을 넣으면 AI 가 «거래량 저조»라는 사실 주장으로 바꿔 쓴다. */
@@ -549,7 +550,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         당신은 기관 투자 전략가입니다. 5일 추세 데이터, 거시경제 자산 동향, 실시간 뉴스를 기반으로 정확한 순환매 분석을 제공합니다.
 
         현재 데이터:
-        - NASDAQ 변동: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - NASDAQ 변동: ${ctx.nasdaqChange == null ? '—' : `${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%`}
         - 오늘의 자금 흐름: [${vectorDesc}]
         - VIX: ${ctx.vix.toFixed(1)}
         - RVOL: ${rvolText(ctx.rvol)}
@@ -614,7 +615,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         You are an institutional investment strategist. Analyze sector rotation using 5-day trend data and real-time news.
 
         Current Data:
-        - NASDAQ Change: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - NASDAQ Change: ${ctx.nasdaqChange == null ? '—' : `${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%`}
         - Today's Money Flow: [${vectorDesc}]
         - VIX: ${ctx.vix.toFixed(1)}
         - RVOL: ${rvolText(ctx.rvol)}
@@ -675,7 +676,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         あなたは機関投資戦略家です。5日間のトレンドデータとリアルタイムニュースに基づいてセクターローテーションを分析します。
 
         現在のデータ:
-        - NASDAQ変動: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - NASDAQ変動: ${ctx.nasdaqChange == null ? '—' : `${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%`}
         - 本日の資金フロー: [${vectorDesc}]
         - VIX: ${ctx.vix.toFixed(1)}
         - RVOL: ${rvolText(ctx.rvol)}

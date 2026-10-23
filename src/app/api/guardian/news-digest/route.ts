@@ -25,6 +25,7 @@ import { fmpEtToIso } from '@/lib/fmpTime';
 import { pacingKnobs, effectiveDigestIntervalMin } from '@/lib/ai/creditPacing';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
 import { saveToPulseArchive, type ArchiveCounts } from '@/lib/news/pulseArchive';
+import { indexContext } from '@/lib/marketIndexBasis';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 /**
@@ -263,16 +264,16 @@ async function getMacroContext(baseUrl: string): Promise<string> {
         if (!res.ok) return '';
         const macro = await res.json();
         const f = macro.factors;
-        const parts: string[] = [];
-        if (f?.nasdaq100?.level) parts.push(`NASDAQ 100: ${f.nasdaq100.level.toFixed(0)} (${f.nasdaq100.chgPct >= 0 ? '+' : ''}${f.nasdaq100.chgPct?.toFixed(2) || '0'}%)`);
-        if (f?.spx?.level) parts.push(`S&P 500: ${f.spx.level.toFixed(0)} (${f.spx.chgPct >= 0 ? '+' : ''}${f.spx.chgPct?.toFixed(2) || '0'}%)`);
-        if (f?.vix?.level) parts.push(`VIX: ${f.vix.level.toFixed(1)} (${f.vix.chgPct >= 0 ? '+' : ''}${f.vix.chgPct?.toFixed(2) || '0'}%)`);
+        const parts: string[] = indexContext(macro.indexBasis);
+        const pct = (n: unknown) => typeof n === 'number' && Number.isFinite(n)
+            ? ` (${n >= 0 ? '+' : ''}${n.toFixed(2)}%)` : '';
+        if (f?.vix?.level) parts.push(`VIX: ${f.vix.level.toFixed(1)}${pct(f.vix.chgPct)}`);
         // 금리 변화는 bp 로 준다 — «(+1.08%)»(수익률의 상대 %)를 모델이 «+1.08%p 급등»으로 옮겨 쓴다
         if (f?.us10y?.level) { const bp = yieldChangeBp(f.us10y); parts.push(`US 10Y: ${f.us10y.level.toFixed(2)}%${bp != null ? ` (${fmtBp(bp)})` : ''}`); }
-        if (f?.oil?.level) parts.push(`Oil: $${f.oil.level.toFixed(1)} (${f.oil.chgPct >= 0 ? '+' : ''}${f.oil.chgPct?.toFixed(2) || '0'}%)`);
-        if (f?.gold?.level) parts.push(`Gold: $${f.gold.level.toFixed(0)} (${f.gold.chgPct >= 0 ? '+' : ''}${f.gold.chgPct?.toFixed(2) || '0'}%)`);
-        if (f?.dxy?.level) parts.push(`DXY: ${f.dxy.level.toFixed(1)} (${f.dxy.chgPct >= 0 ? '+' : ''}${f.dxy.chgPct?.toFixed(2) || '0'}%)`);
-        if (f?.btc?.level) parts.push(`BTC: $${f.btc.level.toFixed(0)} (${f.btc.chgPct >= 0 ? '+' : ''}${f.btc.chgPct?.toFixed(2) || '0'}%)`);
+        if (f?.oil?.level) parts.push(`Oil: $${f.oil.level.toFixed(1)}${pct(f.oil.chgPct)}`);
+        if (f?.gold?.level) parts.push(`Gold: $${f.gold.level.toFixed(0)}${pct(f.gold.chgPct)}`);
+        if (f?.dxy?.level) parts.push(`DXY: ${f.dxy.level.toFixed(1)}${pct(f.dxy.chgPct)}`);
+        if (f?.btc?.level) parts.push(`BTC: $${f.btc.level.toFixed(0)}${pct(f.btc.chgPct)}`);
         return parts.join(' | ');
     } catch {
         return '';
@@ -291,6 +292,7 @@ Your role: CURATE the most impactful global market news and provide institutiona
 </persona>
 
 <compliance>
+- Cash indices and index futures are separate instruments. Preserve each provided session date, as-of time and comparison basis. Futures changes are versus prior settlement, never the cash-session return or a return since the cash close. Missing cash data is unknown; never infer a cash index level or a flat market from futures.
 - Do NOT provide specific trading recommendations (buy/sell/hold)
 - Use conditional language: "may indicate", "suggests potential", "watch for"
 - Analysis format: conditional cause-and-effect connecting news to market data

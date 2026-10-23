@@ -13,7 +13,7 @@ interface IndexCloseData { nasdaq: IndexQuote | null; dow: IndexQuote | null; sp
 const indexFetcher = (url: string) => fetch(url).then(r => r.json());
 
 interface OracleHeaderProps {
-    nasdaq: number;
+    nasdaq: number | null;
     rlsi: number;
     verdictTitle: string;
     isDivergent: boolean;

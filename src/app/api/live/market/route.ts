@@ -10,7 +10,8 @@ export async function GET() {
 
     const snapshot = await getMacroSnapshotSSOT();
     const { marketStatus, factors } = snapshot;
-    const { nasdaq100, vix, us10y } = factors;
+    const { vix, us10y } = factors;
+    const ndx = snapshot.indexBasis?.cash.ndx;
 
     // Mapping to legacy response format for compatibility
     // DXY is removed from response structure as per S-48.2 policy
@@ -19,8 +20,11 @@ export async function GET() {
 
     const ndxObj = {
         symbol: "I:NDX",
-        price: nasdaq100.level ?? null,
-        changePct: nasdaq100.chgPct ?? null
+        price: ndx?.price ?? null,
+        changePct: ndx?.changePct ?? null,
+        asOf: ndx?.asOf ?? null,
+        sessionDate: ndx?.sessionDate ?? null,
+        basis: ndx?.basis ?? 'regular-session'
     };
     const vixObj = {
         symbol: "I:VIX",
@@ -35,18 +39,20 @@ export async function GET() {
 
     // [S-48.2] Regime Logic updated to SSOT
     let regime: "RISK_ON" | "NEUTRAL" | "RISK_OFF" = "NEUTRAL";
-    const vixLevel = vix.level ?? 0;
-    const tnxLevel = us10y.level ?? 0;
+    const vixLevel = vix.level;
+    const tnxLevel = us10y.level;
 
     // Simple Risk Logic based on Absolute Levels (aligned with Tier-01)
-    if (vixLevel > 20 || tnxLevel > 4.9) regime = "RISK_OFF";
-    else if (vixLevel < 16 && tnxLevel < 4.5) regime = "RISK_ON";
+    if ((vixLevel != null && vixLevel > 20) || (tnxLevel != null && tnxLevel > 4.9)) regime = "RISK_OFF";
+    else if (vixLevel != null && tnxLevel != null && vixLevel < 16 && tnxLevel < 4.5) regime = "RISK_ON";
 
     return NextResponse.json({
-        timestampET: priceAsOfET('LIVE', null, nasdaq100.marketTime ? Date.parse(nasdaq100.marketTime) : null, Date.now()),
+        timestampET: ndx?.asOf ? priceAsOfET('LIVE', null, Date.parse(ndx.asOf), Date.now()) : null,
         marketStatus: marketStatus.market, // "PRE" | "RTH" | "POST" | "CLOSED"
         regime,
         ndx: ndxObj,
+        indexBasis: snapshot.indexBasis ?? null,
+        futures: snapshot.indexBasis?.futures ?? null,
         vix: vixObj,
         us10y: us10yObj,
         // dxy: REMOVED

@@ -29,6 +29,7 @@ export interface RealYieldData {
 }
 
 export interface MacroSnapshot {
+    indexBasis?: import('@/lib/marketIndexBasis').MarketIndexBasis;
     asOfET: string;
     marketStatus: MarketStatusResult;
     factors: {

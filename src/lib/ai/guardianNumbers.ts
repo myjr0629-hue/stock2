@@ -1,3 +1,4 @@
+import { guardianCashChange } from '@/lib/marketIndexBasis';
 /**
  * 가디언 AI 문구(TACTICAL·RLSI INSIGHT·감마 브리프) — «글 속 시장 숫자 = 같은 화면의 숫자». 순수 함수만(네트워크·Redis 없음).
  *
@@ -48,8 +49,8 @@ function compact(o: GNums): GNums {
  */
 export function guardianNumsFromMarket(m: any, rlsiScore: unknown, extra?: { gexIndex?: unknown; squeezeRisk?: unknown; breadthPct?: unknown }): GNums {
     return compact({
-        NDX_CHG: fin(m?.nqChangePercent) ?? fin(m?.factors?.nasdaq100?.chgPct),
-        SPX_CHG: fin(m?.factors?.spx?.chgPct),
+        NDX_CHG: guardianCashChange(m) ?? undefined,
+        SPX_CHG: fin(m?.indexBasis?.cash?.spx?.changePct),
         GOLD_CHG: fin(m?.factors?.gold?.chgPct),
         OIL_CHG: fin(m?.factors?.oil?.chgPct),
         VIX: posv(m?.vix) ?? posv(m?.factors?.vix?.level),

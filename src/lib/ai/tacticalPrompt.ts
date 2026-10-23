@@ -14,7 +14,8 @@ type Locale = 'ko' | 'en' | 'ja';
 type CachedEarningsRow = OverlayRow & { etTime?: unknown; time?: unknown; epsActual?: unknown; revenueActual?: unknown };
 export interface TacticalContext {
     rlsiScore: number;
-    nasdaqChange: number;
+    nasdaqChange: number | null;
+    indexBasis?: import('@/lib/marketIndexBasis').MarketIndexBasis;
     vix: number;
     marketNewsHeadlines?: string[];
     scheduledEvents?: string[];

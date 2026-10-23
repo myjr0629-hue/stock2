@@ -248,9 +248,12 @@ async function main() {
             '../src/services/guardian/breadthEngine', '../src/services/indexBreadth',
             'next/server', '../src/lib/cache/staleLock', '../src/services/redisClient',
         ]) mockModule(id, {});
+        const basis = { cash: { nasdaq: { changePct: -0.3 } } };
+        mockModule('../src/services/marketIndexBasis', { loadMarketIndexBasis: async () => basis });
         const core = { news: [], scheduledEvents: ctx('en').scheduledEvents };
         mockModule('../src/services/guardian/guardianCore', {
             getSharedCore: async () => core, overlayCore: (c: unknown) => c,
+            withCashIndexBasis: (c: any, indexBasis: any) => ({ ...c, market: { ...c.market, indexBasis } }),
         });
         const { GuardianDataHub } = require('../src/services/guardian/unifiedDataStream');
         const saved = GuardianDataHub.computeGuardianSnapshot;

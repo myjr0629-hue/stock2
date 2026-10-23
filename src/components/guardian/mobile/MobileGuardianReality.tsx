@@ -6,6 +6,7 @@
 // Data: Identical props as desktop page.tsx L426-441
 // ============================================================================
 
+import { guardianCashChange } from '@/lib/marketIndexBasis';
 import React, { useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { ProGate } from '@/components/gate/FeatureGate';
@@ -66,7 +67,7 @@ export default function MobileGuardianReality({ data, verdict }: Props) {
                 />
                 <ProGate title="Reality Check" fomoMessage={gt('fomoRealityCheck')} description={gt('descRealityCheck')} mode="peek" compact blurPx={6}>
                     <RealityCheck
-                        nasdaqChange={data?.market?.nqChangePercent || 0}
+                        nasdaqChange={guardianCashChange(data?.market)}
                         guardianScore={data?.rlsi?.score || 0}
                         divergenceCase={data?.divergence?.caseId as "N" | "A" | "B" | "C" | "D" | undefined}
                         // ⚠️ `|| 1.0` 금지 — 엔진이 «측정 안 함»으로 null 을 주는데

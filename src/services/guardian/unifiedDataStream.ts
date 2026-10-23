@@ -1,3 +1,5 @@
+import { guardianCashChange } from '@/lib/marketIndexBasis';
+import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
 import { datedHeadline, cachedEvidence, buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
 import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rlsiEngine";
 // [FIX] Import getMarketSession for cache session validation
@@ -19,7 +21,7 @@ import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock'
 // ★2026-10-08 언어와 무관한 숫자는 «공유 코어» 하나 — 같은 시각 ko·ja·en 의 RLSI·GEX 가 갈리던 것을 막는다(guardianCore.ts 머리말)
 import {
     CORE_KEY, CORE_LOCK_KEY, CORE_LOCK_MS, VERDICT_TEXTS, deriveLocaleParts, getSharedCore, overlayCore,
-    type CoreDeps, type GuardianCore,
+    withCashIndexBasis, type CoreDeps, type GuardianCore,
 } from "./guardianCore";
 
 // === TYPES ===
@@ -275,7 +277,8 @@ const CORE_DEPS: CoreDeps = {
 /** 추가 공급사 호출 없이 공유 코어의 근거를 현재 시각으로 재검사한다. 결측은 그대로 둔다. */
 function currentTacticalPrompts(nums: GNums, core: GuardianCore | null, gamma?: GammaShieldData | null) {
     const ctx = {
-        ...nums, rlsiScore: nums.RLSI!, nasdaqChange: nums.NDX_CHG!, vix: nums.VIX!,
+        ...nums, rlsiScore: nums.RLSI!, nasdaqChange: nums.NDX_CHG ?? null,
+        indexBasis: core?.market.indexBasis, vix: nums.VIX!,
         marketNewsHeadlines: core?.news, scheduledEvents: core?.scheduledEvents,
         asOf: new Date(Date.now()).toISOString(),
         triggerSupport: gamma?.supportWall, triggerResistance: gamma?.resistanceWall,
@@ -295,7 +298,10 @@ export class GuardianDataHub {
         // ★2026-10-08 숫자는 언어와 무관한 «공유 코어» 하나 — 어느 경로(Redis 스냅샷·메모리·lastgood·새 계산)로 온 언어별 컨텍스트든
         //   응답 직전에 최신 코어로 맞춘다. 같은 시각 ko·ja·en 의 RLSI·GEX 가 갈리던 것(10/7 42.7·43.4·46.3 / −26·−10·−16)을 막는다.
         const shared = await GuardianDataHub.withSharedCore(context, locale);
-        return GuardianDataHub.guardVerdictOnExit(shared.context, locale, shared.core);
+        const indexBasis = await loadMarketIndexBasis();
+        const rebased = withCashIndexBasis(shared.context, indexBasis, locale);
+        const rebasedCore = shared.core ? { ...shared.core, market: rebased.market } : null;
+        return GuardianDataHub.guardVerdictOnExit(rebased, locale, rebasedCore);
     }
 
     /** 응답 출구의 숫자 일치 — 코어를 못 읽으면(장애) 컨텍스트를 그대로 둔다. 절대 던지지 않는다 */
@@ -421,7 +427,7 @@ export class GuardianDataHub {
 
             // === STEP 3: DIVERGENCE ANALYSIS (The Logic) — 코어에서 파생(guardianCore.deriveLocaleParts) ===
             // Logic: Compare Nasdaq Change vs RLSI Score
-            const nq = macro?.nqChangePercent || 0;
+            const nq = guardianCashChange(macro);
             const parts = deriveLocaleParts(core, locale);
             const divCase = parts.divCase;
 
@@ -469,15 +475,16 @@ export class GuardianDataHub {
 
                     // [V6.1] Detect signal conflicts before AI context
                     let signalConflict: string | undefined;
-                    if (rlsi.score >= 55 && nq > 0 && ri.direction === 'RISK_OFF' && ri.conviction === 'HIGH') {
-                        signalConflict = `겉은 강세(RLSI ${rlsi.score.toFixed(0)}, NQ +${nq.toFixed(2)}%), 속은 약세(${ri.direction} ${ri.conviction})`;
-                    } else if (rlsi.score <= 35 && nq < 0 && ri.direction === 'RISK_ON' && ri.conviction === 'HIGH') {
-                        signalConflict = `지표 약세(RLSI ${rlsi.score.toFixed(0)}, NQ ${nq.toFixed(2)}%), 성장주 유입(${ri.direction} ${ri.conviction})`;
+                    if (rlsi.score >= 55 && nq != null && nq > 0 && ri.direction === 'RISK_OFF' && ri.conviction === 'HIGH') {
+                        signalConflict = `겉은 강세(RLSI ${rlsi.score.toFixed(0)}, NASDAQ +${nq.toFixed(2)}%), 속은 약세(${ri.direction} ${ri.conviction})`;
+                    } else if (rlsi.score <= 35 && nq != null && nq < 0 && ri.direction === 'RISK_ON' && ri.conviction === 'HIGH') {
+                        signalConflict = `지표 약세(RLSI ${rlsi.score.toFixed(0)}, NASDAQ ${nq.toFixed(2)}%), 성장주 유입(${ri.direction} ${ri.conviction})`;
                     }
 
                     const aiContext = {
                         rlsiScore: rlsi.score,
-                        nasdaqChange: macro?.nqChangePercent || 0,
+                        nasdaqChange: guardianCashChange(macro),
+                        indexBasis: macro.indexBasis,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
                         // ⚠️ rvolEngine 은 PRE/POST/CLOSED 에서 «측정 안 함»을 rvol:0 으로 표현한다.
                         //    그 0 을 그대로 AI 에 넘기면 «거래량 0.00x 저조»라는 **사실 주장**으로
@@ -514,7 +521,7 @@ export class GuardianDataHub {
                         // [V9.0] Macro Intelligence — full asset class context
                         fearGreedScore: rlsi.components?.sentimentScore ?? undefined,
                         fearGreedRating: rlsi.components?.sentimentSource?.replace('CNN F&G: ', '') ?? undefined,
-                        spxChangePct: macro?.factors?.spx?.chgPct ?? undefined,
+                        spxChangePct: macro?.indexBasis?.cash?.spx?.changePct ?? undefined,
                         dxy: macro?.dxy ?? undefined,
                         goldChangePct: macro?.factors?.gold?.chgPct ?? undefined,
                         oilChangePct: macro?.factors?.oil?.chgPct ?? undefined,
@@ -813,7 +820,7 @@ export class GuardianDataHub {
         //    그런데 그 자리를 채워 주는 코드가 어디에도 없어서, 가디언의
         //    Market Breadth 패널은 항상 «0↑ / 0↓ / 총 0» 이었다.
         //    → breadthEngine 은 메모리+Redis 캐시라 재호출이 사실상 공짜다. 직접 읽는다.
-        const breadthSnapshot = await getMarketBreadth(macro?.nqChangePercent || 0).catch(() => null);
+        const breadthSnapshot = await getMarketBreadth(guardianCashChange(macro)).catch(() => null);
 
         return {
             v: 1,

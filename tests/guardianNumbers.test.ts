@@ -18,6 +18,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
 
 // 운영 응답 data.market (10/4 08:5x KST 읽기) — 화면 값
 const MARKET = {
+    indexBasis: { cash: { nasdaq: { changePct: 0.9793403878350482 }, spx: { changePct: 0.6894096323148627 } } },
     nqChangePercent: 0.9793403878350482, vix: 15.31, us10y: 5.28, dxy: 101.924,
     factors: {
         nasdaq100: { level: 31061.75, chgPct: 0.9793403878350482 }, vix: { level: 15.31 }, us10y: { level: 5.28, chgPct: 0.7634 },
