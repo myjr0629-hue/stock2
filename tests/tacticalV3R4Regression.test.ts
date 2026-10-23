@@ -14,14 +14,14 @@ for (const row of fixture.outputs) {
     const reasons = checkTacticalOutput(row.text, row.locale, p);
     const previousSession = row.session === 'REG' && /어제|yesterday|昨日/i.test(row.text);
     const expected = row.session === 'REG' ? [...(previousSession ? ['tactical:session-mismatch'] : []), 'tactical:index-unavailable']
-        : row.session === 'PRE' && row.locale === 'en' && row.repeat === 3 ? ['tactical:too-long'] : [];
+        : [];  // en 출구 허용 900 자(r7 실모델) — r4 PRE en 3 은 이제 통과
     assert.deepEqual(reasons, expected, `${row.session}/${row.locale}/${row.repeat}`);
     assert.ok(!reasons.includes('event:unsupported:7'));
     assert.ok(!reasons.includes('tactical:index-change-required'));
     if (!reasons.length) passed++;
     if (row.session === 'POST') assert.deepEqual(checkTacticalStored(row.text, p), []);
 }
-assert.equal(passed, 17, '실제 출력 재검사: 새 실모델 생성 통과율이 아님');
+assert.equal(passed, 18, '실제 출력 재검사: 새 실모델 생성 통과율이 아님');
 
 // REG의 실제 숫자 없는 선물 서술도 근거가 없으면 거절. 현물 값·방향·날짜 검사는 유지.
 const reg = fixture.contexts.REG;

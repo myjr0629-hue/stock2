@@ -209,9 +209,9 @@ test('뉴스 없는 입력: 명시적 미확인, 옛 코어의 무시각 헤드�
     assert.doesNotMatch(p.slice(p.indexOf('TODAY_NEWS:')), /Fed cuts/);
     assert.ok(checkTacticalOutput('연준의 금리 인하 발표가 오늘 시장을 움직였습니다.', 'ko', p).some(r => r.startsWith('event:unsupported:')));
     assert.ok(checkTacticalOutput('확인한 자료를 바탕으로 지금 매수하세요.', 'ko', p).includes('tactical:advice'));
-    assert.ok(checkTacticalOutput('x'.repeat(721), 'en', p).includes('tactical:too-long'));
+    assert.ok(checkTacticalOutput('x'.repeat(901), 'en', p).includes('tactical:too-long'));
     assert.ok(checkTacticalOutput('가'.repeat(461), 'ko', p).includes('tactical:too-long'));
-    assert.ok(!checkTacticalOutput('x'.repeat(720), 'en', p).includes('tactical:too-long'));
+    assert.ok(!checkTacticalOutput('x'.repeat(900), 'en', p).includes('tactical:too-long'));
     assert.ok(checkTacticalOutput('Options support is 99999.', 'en', p).includes('tactical:number'));
     assert.ok(!checkTacticalOutput('Macro cause is unconfirmed. Dealer gamma buffers pressure. The next test going forward is options support.', 'en', p).some(r => r.startsWith('event:unsupported:')));
 });

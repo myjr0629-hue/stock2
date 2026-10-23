@@ -585,7 +585,8 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
     const soWhat = sentences.slice(2, -1);
     if (valueTokens(soWhat.join(' ')).filter(t => !t.exempt).length > 3) reasons.push('tactical:number-rollcall');
     // 영어는 같은 내용이 글자 수로 길다 — 1차 이전 운영 영어 Tactical 은 600자대였다(10/19 보관본 638자). 운영 10/20 장전 영어가 350자 상한으로 연달아 탈락해 «준비 중»만 나갔다
-    if ([...text].length > (locale === 'en' ? 720 : 460)) reasons.push('tactical:too-long');
+    // 프롬프트 상한(en 720)보다 출구 허용폭을 넓게 — 실모델 r7 PRE en 767~832자 3/3 탈락(«준비 중» 위험이 길이 초과보다 나쁘다, 모달 스크롤)
+    if ([...text].length > (locale === 'en' ? 900 : 460)) reasons.push('tactical:too-long');
     if (/\bUTC\b|\bGMT\b|協定世界時|협정 세계시/i.test(text)) reasons.push('tactical:utc-time');
     if (adviceHit(text)) reasons.push('tactical:advice');
     if (locale !== 'en' && !checkAmounts(data, text, locale).ok) reasons.push('tactical:amount');
