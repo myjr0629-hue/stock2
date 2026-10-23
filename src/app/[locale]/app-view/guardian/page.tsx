@@ -233,12 +233,12 @@ function GuardianPageContent() {
   const fgStatus = getFgStatus(fgScore);
   const vixStatus = getVixStatus(vix);
 
-  const spxPrice = snapshot?.indexBasis?.futures?.es?.price ?? null;
-  const spxChg = snapshot?.indexBasis?.futures?.es?.changePct ?? null;
+  const spxPrice = snapshot?.factors?.spx?.level ?? idxData?.spx?.price ?? null;
+  const spxChg = snapshot?.factors?.spx?.chgPct ?? idxData?.spx?.changePct ?? null;
   const spxStatus = getIndexStatus(spxChg);
 
-  const ndxPrice = snapshot?.indexBasis?.cash?.ndx?.price ?? null;
-  const ndxChg = snapshot?.indexBasis?.cash?.ndx?.changePct ?? null;
+  const ndxPrice = snapshot?.factors?.nasdaq100?.level ?? idxData?.nasdaq?.price ?? null;
+  const ndxChg = snapshot?.factors?.nasdaq100?.chgPct ?? idxData?.nasdaq?.changePct ?? null;
   const ndxStatus = getIndexStatus(ndxChg);
 
   // RLSI score color
