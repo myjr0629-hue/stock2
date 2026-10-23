@@ -79,13 +79,15 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
     const cause = /\b(?:because|due to|driven by|on the back of|amid)\b|때문|영향|덕분|배경|여파|受け|背景|影響/i;
     if (!unconfirmed && event.test(text) && cause.test(text)) reasons.push('unsupported-cause');
     if (/매수(?:하|를 권)|매도(?:하|를 권)|買い推奨|売り推奨|\b(?:buy now|sell now|should buy|should sell)\b/i.test(text)) reasons.push('advice');
-    const allUp = /(?:전\s*종목|모든\s*종목).*상승|\ball (?:stocks|members) (?:are )?(?:up|rising)\b|全銘柄.*上昇/i;
-    const allDown = /(?:전\s*종목|모든\s*종목).*하락|\ball (?:stocks|members) (?:are )?(?:down|falling)\b|全銘柄.*下落/i;
+    // Require the universal subject to directly predicate the move. Scope phrases
+    // such as '모든 종목 중 NVDA만 상승' / '全銘柄のうちNVDAのみ上昇' are not unanimity.
+    const allUp = /(?:전\s*종목|모든\s*종목)\s*(?:이|가|은|는)?\s*(?:모두\s*|일제히\s*|동반\s*)?상승|\ball (?:stocks|members) (?:are )?(?:up|rising)\b|全銘柄\s*(?:が|は)?\s*(?:一斉に|そろって|揃って)?上昇/i;
+    const allDown = /(?:전\s*종목|모든\s*종목)\s*(?:이|가|은|는)?\s*(?:모두\s*|일제히\s*|동반\s*)?하락|\ball (?:stocks|members) (?:are )?(?:down|falling)\b|全銘柄\s*(?:が|は)?\s*(?:一斉に|そろって|揃って)?下落/i;
     const conditional = /\bif\b|면|なら|ば/i.test(text);
     if (!conditional && !unconfirmed && ((allUp.test(text) && f.up !== f.measured) || (allDown.test(text) && f.down !== f.measured))) reasons.push('breadth-contradiction');
-    // Direct ticker return only. Comparison/spread clauses do not match this grammar.
+    // Direct ticker return only. Percentage-point units denote a gap, not a return.
     for (const row of f.members || [f.leader, f.laggard]) {
-        const re = new RegExp(`\\b${row.t}\\b\\s*(?:은|는|이|가|は|が|:)?\\s*(?:(up|down|rose|fell|gained|lost)\\s+)?([+−-]?\\d+(?:\\.\\d+)?)\\s*[%％]\\s*(상승|하락|上昇|下落)?`, 'gi');
+        const re = new RegExp(`\\b${row.t}\\b\\s*(?:은|는|이|가|は|が|:)?\\s*(?:(up|down|rose|fell|gained|lost)\\s+)?([+−-]?\\d+(?:\\.\\d+)?)\\s*[%％](?!\\s*(?:p\\b|points?\\b|포인트|ポイント))\\s*(상승|하락|上昇|下落)?`, 'gi');
         for (const hit of text.matchAll(re)) {
             const raw = Number(hit[2].replace('−', '-'));
             const direction = hit[1] || hit[3] || '';

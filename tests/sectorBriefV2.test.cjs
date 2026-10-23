@@ -88,6 +88,69 @@ test('new-only unambiguous errors: stock sign, unsupported event/flow, internal 
   // Same strings keep the serving contract; new generation restrictions never apply to cache restore.
   for (const [text] of cases) assert.deepEqual(contract.checkSectorBriefStored(text), []);
 });
+test('gate regression: percentage-point gaps are not ticker returns in any locale', () => {
+  const cases = {
+    ko: ['정규장 NVDA 8%p 우위, TSLA와 큰 격차로 선별 강세 확인',
+      '정규장 NVDA 8% 포인트 우위, TSLA와 큰 격차로 선별 강세 확인'],
+    en: ['Cash: NVDA 8%p ahead of TSLA; strength remains concentrated',
+      'Cash: NVDA 8% points ahead of TSLA; strength remains concentrated'],
+    ja: ['通常取引でNVDA 8％p優位、TSLAとの差から一部への強さの集中を確認',
+      '通常取引でNVDA 8％ポイント優位、TSLAとの差から一部への強さの集中を確認'],
+  };
+  for (const [locale, texts] of Object.entries(cases)) for (const text of texts) {
+    assert.deepEqual(contract.checkSectorBriefLegacy(text, locale, fact), []);
+    assert.deepEqual(reasons(text, locale), [], text);
+  }
+  // An actual 8% stock return is still false for NVDA (+6%).
+  for (const [locale, text] of Object.entries({
+    ko: '정규장 NVDA 8% 상승, 나머지 종목과 선별 강세 확인',
+    en: 'Cash: NVDA up 8%; strength remains concentrated',
+    ja: '通常取引でNVDA 8％上昇、他銘柄と異なる強さを確認',
+  })) assert.ok(reasons(text, locale).includes('stock-number:NVDA'), text);
+  assert.ok(reasons('정규장 NVDA 9.75%p 우위, TSLA와 큰 격차로 선별 강세 확인').includes('number:9.75'));
+});
+test('gate regression: all-member scope with a single rising/falling name is not unanimous breadth', () => {
+  const singleDown = { ...fact, up: 5, down: 1, avgChangePct: -fact.avgChangePct,
+    leader: { t: 'TSLA', c: 2 }, laggard: { t: 'NVDA', c: -6 },
+    members: fact.members.map(r => ({ ...r, c: -r.c })), exLeaderAvgChangePct: -0.5 };
+  const cases = [
+    [fact, 'ko', '정규장 모든 종목 중 NVDA만 상승, 나머지는 보합 또는 하락 확인'],
+    [fact, 'ko', '정규장 전 종목 가운데 NVDA만 상승, 나머지는 보합 또는 하락 확인'],
+    [fact, 'en', 'Cash: among all stocks, only NVDA is rising; peers flat or lower'],
+    [fact, 'ja', '通常取引で全銘柄のうちNVDAのみ上昇、他は横ばいか下落を確認'],
+    [singleDown, 'ko', '정규장 모든 종목 중 NVDA만 하락, 나머지는 보합 또는 상승 확인'],
+    [singleDown, 'en', 'Cash: among all members, only NVDA is falling; peers flat or higher'],
+    [singleDown, 'ja', '通常取引で全銘柄の中でNVDAのみ下落、他は横ばいか上昇を確認'],
+  ];
+  for (const [f, locale, text] of cases) {
+    assert.deepEqual(contract.checkSectorBriefLegacy(text, locale, f), []);
+    assert.deepEqual(reasons(text, locale, f), [], text);
+  }
+  for (const [f, locale, text] of [
+    [fact, 'ko', '정규장 모든 종목이 상승, 섹터 전반의 동반 강세 확인'],
+    [singleDown, 'ko', '정규장 전 종목이 하락, 섹터 전반의 동반 약세 확인'],
+    [fact, 'en', 'Cash: all stocks are up; broad participation observed'],
+    [singleDown, 'en', 'Cash: all members are down; broad weakness observed'],
+    [fact, 'ja', '通常取引で全銘柄が上昇、セクター全体の強さを確認'],
+    [singleDown, 'ja', '通常取引で全銘柄が下落、セクター全体の弱さを確認'],
+  ]) assert.ok(reasons(text, locale, f).includes('breadth-contradiction'), text);
+});
+test('gate regression: three normal gap/scope lines in ten sectors preserve batch and every output', () => {
+  for (const ko of [
+    '정규장 NVDA 8%p 우위, TSLA와 큰 격차로 선별 강세 확인',
+    '정규장 모든 종목 중 NVDA만 상승, 나머지는 보합 또는 하락 확인',
+  ]) {
+    const facts = Array.from({ length: 10 }, (_, i) => ({ ...fact, id: `sector${i}` }));
+    const parsed = Object.fromEntries(facts.map((f, i) => [f.id, { ...good, ko: i < 3 ? ko : good.ko }]));
+    assert.equal(contract.sectorBriefBatchGate(JSON.stringify(parsed), facts), true);
+    const result = contract.selectSectorBriefOutput(parsed, facts);
+    assert.equal(result.kept, 10);
+    assert.deepEqual(result.rejected, []);
+    for (const f of facts) assert.deepEqual(result.sectors[f.id], {
+      headline: parsed[f.id].ko, headlineEN: good.en, headlineJP: good.ja,
+    });
+  }
+});
 test('partial language rejection is isolated; missing/bad batch never becomes a new blank payload', () => {
   const parsed = { m7: { ...good, en: 'Cash: NVDA will rally; peers follow' } };
   const result = contract.selectSectorBriefOutput(parsed, [fact]);
