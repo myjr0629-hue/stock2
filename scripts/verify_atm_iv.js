@@ -5,7 +5,7 @@ function fetch(url) {
     return new Promise((resolve, reject) => {
         http.get(url, res => {
             let data = '';
-            res.on('data', chunk => data += chunk);
+            res.setEncoding('utf8').on('data', chunk => data += chunk);
             res.on('end', () => resolve(JSON.parse(data)));
         }).on('error', reject);
     });

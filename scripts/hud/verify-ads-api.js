@@ -15,7 +15,7 @@ const GOOD = `\n[어제] 기간 표시=[]\n  SIGNUM JP - Search Results - Exact 
 function run(env) {
     return new Promise((resolve) => {
         let out = ''; const c = spawn(process.execPath, [REFRESH, 'run', 'ads'], { env: Object.assign({}, process.env, env), stdio: ['ignore', 'pipe', 'pipe'] });
-        c.stdout.on('data', (d) => (out += d)); c.stderr.on('data', (d) => (out += d)); c.on('close', (code) => resolve({ code, out }));
+        c.stdout.setEncoding('utf8').on('data', (d) => (out += d)); c.stderr.setEncoding('utf8').on('data', (d) => (out += d)); c.on('close', (code) => resolve({ code, out }));
     });
 }
 (async () => {

@@ -75,7 +75,7 @@ function request(mod, urlStr, opts) {
       headers: Object.assign({}, headers, data ? { 'Content-Length': Buffer.byteLength(data) } : {}),
     }, (res) => {
       let buf = '';
-      res.on('data', (c) => { buf += c; });
+      res.setEncoding('utf8').on('data', (c) => { buf += c; });
       res.on('end', () => {
         let j; try { j = JSON.parse(buf); } catch { j = null; }
         resolve({ status: res.statusCode || 0, json: j, text: buf });
