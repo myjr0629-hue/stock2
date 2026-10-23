@@ -986,6 +986,9 @@ export async function getDailyAggregates(
 
     const results = ordered.slice(0, limit).map((r) => ({
         ...bar(r.open, r.high, r.low, r.close, r.volume),
+        // RSI 전용 원천. 기존 OHLC/수익률/차트의 원본 종가는 보존한다.
+        adjustedClose: typeof r.adj_close === 'number' && Number.isFinite(r.adj_close) && r.adj_close > 0
+            ? r.adj_close : null,
         t: dateToMs(r.date),
         n: 0,
     }));
@@ -1712,6 +1715,26 @@ export async function peekEodCloseRow(ticker: string): Promise<{ date: string; c
     return { date: r.date || date, close: r.c, prevClose: r.c - r.chg };
 }
 
+/**
+ * 그 거래일(date)의 «공식» 정규장 종가와 직전 거래일 종가 — 15:57 캡처 행은 쓰지 않는다(API 콜 0).
+ * 벌크 행이 그 날짜이고 등락(chg)이 0 이 아니면 벌크 값, 아니면 20거래일 종가 행렬에서 날짜가 이웃한 두 칸(직전 칸이 prevTradingDay 여야 하고, 0 은 결측).
+ */
+export async function peekOfficialSessionClose(ticker: string, date: string, prevTradingDay: string): Promise<{ close: number; prevClose: number } | null> {
+    const sym = ticker.toUpperCase();
+    const { rows, prevDate } = await loadBulkEod();
+    const r = rows.get(sym);
+    // 적재기는 전일 종가가 없으면 chg=0 으로 저장한다 — chg 0 인 벌크 행은 «보합»인지 «결측»인지 모르므로 행렬로 확인한다.
+    if (r && r.date === date && prevDate === prevTradingDay && !r.provisional && !r.prevMissing && r.chg !== 0 && r.c > 0 && r.c - r.chg > 0) {
+        return { close: r.c, prevClose: r.c - r.chg };
+    }
+    const hist = await loadEodHistory();
+    const i = hist?.dates?.indexOf(date) ?? -1;
+    if (i < 1 || hist!.dates[i - 1] !== prevTradingDay) return null;
+    const series = hist!.closes?.[sym];
+    const close = Number(series?.[i]), prevClose = Number(series?.[i - 1]);
+    return Number.isFinite(close) && close > 0 && Number.isFinite(prevClose) && prevClose > 0 ? { close, prevClose } : null;
+}
+
 /** 20거래일 종가 시계열 — 이미 Redis 에 적재된 것을 읽는다 (API 콜 0) */
 export async function getCloseHistory(
     ticker: string
@@ -1785,7 +1808,13 @@ export async function getTickerDetails(ticker: string): Promise<any> {
  * 장중 실시간성이 필요하면 A 의 현재가로 B 의 종가를 덮어쓴다.
  */
 
-export interface EodRow { ticker: string; date: string; o: number; h: number; l: number; c: number; v: number; chg: number; chgPct: number; }
+export interface EodRow {
+    ticker: string; date: string; o: number; h: number; l: number; c: number; v: number; chg: number; chgPct: number;
+    /** 15:57 ET 세션 캡처를 얹은 행(공식 종가 아님). 기존 소비처는 이 표식을 읽지 않는다. */
+    provisional?: boolean;
+    /** 직전 종가를 몰라 chg 를 0 으로 둔 행 — 이때의 0 은 «보합»이 아니다. */
+    prevMissing?: boolean;
+}
 
 let _eodCache: { at: number; date: string; prevDate: string; rows: Map<string, EodRow> } | null = null;
 interface RealtimeSnapshotRow {
@@ -1873,6 +1902,8 @@ async function loadBulkEod(): Promise<{ date: string; prevDate: string; rows: Ma
                     c: close, v: vol,
                     chg: prevClose > 0 ? close - prevClose : 0,
                     chgPct: prevClose > 0 ? ((close - prevClose) / prevClose) * 100 : 0,
+                    provisional: true,
+                    ...(prevClose > 0 ? {} : { prevMissing: true }),
                 });
                 merged++;
             }

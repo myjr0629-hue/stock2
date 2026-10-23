@@ -18,7 +18,7 @@ console.log(`Fetching trades since 5 minutes ago...`);
 
 https.get(url, (res) => {
     let data = '';
-    res.on('data', chunk => data += chunk);
+    res.setEncoding('utf8').on('data', chunk => data += chunk);
     res.on('end', () => {
         if (res.statusCode !== 200) {
             console.error(`API Error: ${res.statusCode}`);

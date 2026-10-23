@@ -5,7 +5,7 @@ function fetch(url, timeout = 30000) {
     return new Promise((resolve, reject) => {
         const req = http.get(url, (res) => {
             let data = '';
-            res.on('data', d => data += d);
+            res.setEncoding('utf8').on('data', d => data += d);
             res.on('end', () => {
                 try { resolve(JSON.parse(data)); }
                 catch (e) { reject(new Error('Parse: ' + data.substring(0, 300))); }

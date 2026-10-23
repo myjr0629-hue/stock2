@@ -20,7 +20,7 @@ function ec2ProxyGet(key, timeoutMs) {
     const to = setTimeout(() => resolve(null), timeoutMs || 3000);
     const req = http.request(options, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.setEncoding('utf8').on('data', chunk => data += chunk);
       res.on('end', () => {
         clearTimeout(to);
         try {

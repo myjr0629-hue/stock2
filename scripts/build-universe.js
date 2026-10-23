@@ -70,7 +70,7 @@ function httpsGet(url) {
         const to = setTimeout(() => reject(new Error('TIMEOUT')), 30000);
         https.get(url, { headers: { 'User-Agent': 'SIGNUM-HQ/6.0' } }, (res) => {
             let data = '';
-            res.on('data', chunk => data += chunk);
+            res.setEncoding('utf8').on('data', chunk => data += chunk);
             res.on('end', () => { clearTimeout(to); try { resolve(JSON.parse(data)); } catch { resolve(data); } });
         }).on('error', (e) => { clearTimeout(to); reject(e); });
     });
