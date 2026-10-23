@@ -106,7 +106,14 @@ function compareStored(rows, ctx, old = baseline()) {
     const text = renderStored(row.value, guardianNumsFromAiContext(ctx));
     if (!text) return { key: row.key, locale: row.locale, missing: true };
     const oldReasons = old.checkTacticalStored(text, old.buildTacticalPrompt(ctx, row.locale));
-    const newReasons = current.checkTacticalStored(text, current.buildTacticalPrompt(ctx, row.locale));
+    const raw = decode(row.value);
+    const data = raw?.value || raw;
+    const version = data?.basis?.contractVersion;
+    const legacy = /guardian:gemini:v2:reality:|session:insight:REALITY_(?!V3_)/.test(row.key)
+      || [2, '2', 'v2'].includes(version) || /\{\s*(?:NDX_CHG|SPX_CHG)\s*\}/.test(data?.text || '');
+    const prompt = current.buildTacticalPrompt(ctx, row.locale);
+    // 보관본 비교도 실제 복구 출구와 같은 계약. v2의 옛 선물 숫자를 현재 현물과 대조하지 않는다.
+    const newReasons = current.checkTacticalStored(text, legacy ? prompt.replace(/^INDEX_FACTS: .*$/m, 'INDEX_FACTS: []') : prompt, true);
     return { key: row.key, locale: row.locale, oldReasons, newReasons };
   });
 }

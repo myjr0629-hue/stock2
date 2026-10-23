@@ -298,6 +298,14 @@ function recoveryNums(nums: GNums | null | undefined, basis: GNums | null | unde
     return { ...rest, NDX_CHG: basis?.NDX_CHG, SPX_CHG: basis?.SPX_CHG };
 }
 
+/** v2 개별 캐시가 만료돼 verdict/스냅샷에만 남아도 원래 계약으로 검사·채움한다. */
+function tacticalRecovery(type: InsightType, tpl: string, basis?: GNums | null, recovery?: RecoveryMode): RecoveryMode | undefined {
+    if (type !== 'reality') return recovery;
+    const version = (basis as (GNums & { contractVersion?: number | string }) | null | undefined)?.contractVersion;
+    return recovery === 'legacy' || version === 2 || version === '2' || version === 'v2' || /\{\s*(?:NDX_CHG|SPX_CHG)\s*\}/.test(tpl)
+        ? 'legacy' : recovery;
+}
+
 /**
  * 정리 + 출구 검사. 사용자에게 나가는 모든 AI 글(생성·번역·캐시 읽기·저장된 판정)이 여기를 지난다.
  * ★2026-10-04 숫자 — tpl(자리표가 남은 정리본 = 저장용)을 화면 값(nums)으로 채운 text 를 검사한다:
@@ -305,6 +313,7 @@ function recoveryNums(nums: GNums | null | undefined, basis: GNums | null | unde
  *   nums 가 없으면 basis(생성 때 값)로 채운다(숫자 대조도 basis 기준).
  */
 function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string, recovery?: RecoveryMode): { ok: boolean; tpl: string; text: string; reasons: string[] } {
+    if (!strict) recovery = tacticalRecovery(type, String(tpl ?? ''), basis, recovery);
     let cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
     // ★2026-10-07 T5 예측어 — 생성(strict)은 걸리면 탈락(교정 재생성), 읽기·복구(lenient)는 그 문장만 뺀다(쓸 만하게 남을 때) —
     //   이미 저장돼 있던 글이 새 사전 때문에 통째로 «준비 중»으로 바뀌지 않게(보이던 표시를 없애지 않는다).
@@ -426,7 +435,7 @@ function rememberInsight(type: InsightType, locale: Locale, text: string, at: nu
 
 /** 자리표 글 → 화면 글. 채울 값이 없어 자리표가 남으면 대기 문구(자리표가 화면에 나가지 않게). 내보낸 원본·기준을 기억한다. */
 function shownOut(type: InsightType, locale: Locale, out: InsightOut, nums?: GNums | null): string {
-    const f = fillGuardianTokens(out.tpl, recoveryNums(nums, out.basis, out.recovery));
+    const f = fillGuardianTokens(out.tpl, recoveryNums(nums, out.basis, tacticalRecovery(type, out.tpl, out.basis, out.recovery)));
     const shown = hasGuardianTokens(f.text) ? (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale] : f.text;
     _lastOut[type][locale] = shown === f.text ? { shown, tpl: out.tpl, basis: out.basis } : null;
     if (type === 'reality' && shown === f.text) rememberShown(locale, shown, out.tpl, out.basis ?? null);
@@ -1376,7 +1385,7 @@ export class IntelligenceNode {
             const tpl = typeof tplIn[field] === 'string' && tplIn[field] ? tplIn[field] as string : value;
             if (typeof tpl !== 'string' || !tpl.trim()) continue;
             const basis = basisIn[field] ?? null;
-            const g = gateText(type, tpl, locale, nums, basis, false, tacticalPrompts?.(locale));
+            const g = gateText(type, tpl, locale, nums, basis, false, tacticalPrompts?.(locale), type === 'reality' ? 'session' : undefined);
             if (g.ok) {
                 if (g.text !== value) { out = { ...out, [field]: g.text }; changed = true; }
                 setNum(field, g.tpl, g.text, basis, type);
@@ -1418,7 +1427,7 @@ export class IntelligenceNode {
             if (typeof before !== 'string' || isPlaceholder(before)) continue;
             const prevTpl = prev?.num?.tpl?.[field];
             const prevBasis = prev?.num?.basis?.[field] ?? null;
-            const g = gateText(type, typeof prevTpl === 'string' && prevTpl ? prevTpl : before, locale, nums, prevBasis, false, tacticalPrompts?.(locale));
+            const g = gateText(type, typeof prevTpl === 'string' && prevTpl ? prevTpl : before, locale, nums, prevBasis, false, tacticalPrompts?.(locale), type === 'reality' ? 'session' : undefined);
             if (!g.ok) continue;
             out = { ...out, [field]: g.text };
             // Tactical 은 자리표가 없어도 기준값을 함께 옮긴다 — 상태 판정 낡음 비교(관문 10211010)

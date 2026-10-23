@@ -14,7 +14,12 @@ async function main() {
   const results = compareStored(rows, fixture.context);
   assert.deepEqual(results[0].oldReasons, []);
   assert.ok(results[0].newReasons.includes('tactical:internal-source'));
-  assert.ok(results[0].newReasons.includes('tactical:index-change-required'));
+  assert.ok(!results[0].newReasons.includes('tactical:index-change-required'), '복구 비교에는 새 생성 계약을 적용하지 않음');
+  const legacyRows = [
+    { key: 'guardian:gemini:v2:reality:en', locale: 'en', value: { text: 'Nasdaq {NDX_CHG} and S&P500 {SPX_CHG} show a mixed market. The next test is unconfirmed.', basis: { NDX_CHG: -0.06, SPX_CHG: 0.15 } } },
+    { key: 'session:insight:REALITY_EN:2026-10-22', locale: 'en', value: { value: { text: 'Nasdaq -0.06% and S&P500 +0.15% show a mixed market. The next test is unconfirmed.' } } },
+  ];
+  for (const row of compareStored(legacyRows, fixture.context)) assert.deepEqual(row.newReasons, [], 'v2 복구는 옛 숫자 기준');
   const calls = [];
   const read = { insight: async key => { calls.push(key); return null; }, archive: async key => { calls.push(key); return null; } };
   const captured = await collectStored(read, Date.parse(timestamp));

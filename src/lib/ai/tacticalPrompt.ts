@@ -431,11 +431,18 @@ export function tacticalNextReasons(next: string, prompt: string, mode: 'generat
 }
 
 /** 저장본·복구·번역 글의 시각 검사 — 마지막 문장(NEXT)만 + 입력 이름표 노출(«TODAY_NEWS에 따르면» — 10/20 17:03 운영 ko·ja 실측). */
-export function checkTacticalStored(text: string, prompt: string, allowSessionMismatch = false): string[] {
+export function checkTacticalStored(text: string, prompt: string, recovery = false): string[] {
     const sentences = splitSentences(text);
     const index = tacticalIndexReasons(sentences[0] || '', prompt);
+    // 복구는 origin/main의 저장본 검사 + 내부 출처명 + 명백한 값·방향 모순만.
+    // 새 생성 계약(세션·날짜·이름·숫자 필수·현물/선물 동시 언급)은 정상 저장본을 지우는 이유가 아니다.
+    const next = sentences[sentences.length - 1] || '';
+    const { events, asOf } = promptEvidence(prompt);
     return [...internalLabelReasons(text, false), ...internalSourceReasons(text),
-        ...(/^INDEX_FACTS: \[(?!\])/m.test(prompt) ? index : index.filter(r => r === 'tactical:session-mismatch')), ...tacticalNextReasons(sentences[sentences.length - 1] || '', prompt, 'read')].filter(r => !allowSessionMismatch || r !== 'tactical:session-mismatch');
+        ...(recovery ? index.filter(r => r === 'tactical:index-value' || r === 'tactical:index-direction')
+            : /^INDEX_FACTS: \[(?!\])/m.test(prompt) ? index : index.filter(r => r === 'tactical:session-mismatch')),
+        ...(recovery ? scheduleClaimReasons(next.replace(/\((?:한국|日本時間) \d{2}:\d{2}\)/g, ''), events, asOf, 'claims')
+            : tacticalNextReasons(next, prompt, 'read'))];
 }
 
 /** 프롬프트 입력 이름표·구조 이름이 글에 새어 나왔나 — 읽기(저장본)는 입력 이름표만, 생성은 «WHY:»·«NEXT:» 같은 구조 이름표까지 */
@@ -484,40 +491,52 @@ export function tacticalIndexReasons(first: string, prompt: string): string[] {
             if (/(?:하락|상승|내리는|오르는)\s*중|\b(?:is|are)\s+(?:down|up|falling|rising|declining|gaining)\b|(?:下落|上昇|値下がり|値上がり)中/i.test(clause)) reasons.push('tactical:session-mismatch');
         });
     }
-    const down = /내렸|내린|내려|하락|약세|떨어|밀렸|밀려|빠졌|下落|下げ|下が|値下がり|弱含|軟調|\b(?:fell|fallen|falling|down|lower|declin\w*|drop\w*|lost|slipped|slid|tumbled|retreated)\b/i;
-    const up = /오른|올랐|올라|상승|강세|반등|上昇|上げ|値上がり|反発|\b(?:rose|risen|rise\w*|rising|up|gain\w*|rebound\w*|higher|jumped|climbed|advanced)\b/i;
+    const down = /내렸|내린|내려|하락|약세|떨어|밀렸|밀려|빠졌|빠지|급락|폭락|감소|下落|下げ|下が|値下がり|急落|暴落|反落|弱含|軟調|小幅安|\b(?:fell|fallen|falling|down|lower|declin\w*|decreas\w*|drop\w*|plung\w*|lost|slip\w*|slid|tumbl\w*|retreat\w*)\b/i;
+    const up = /오른|오르|올랐|올라|상승|강세|반등|급등|폭등|증가|뛰었|치솟|上昇|上げ|上が|値上がり|急騰|暴騰|反発|小幅高|\b(?:rose|risen|rise\w*|rising|up|gain\w*|rebound\w*|higher|jump\w*|climb\w*|advanc\w*|surg\w*|increas\w*|rall\w*)\b/i;
     const directions = (part: string) => [...part.matchAll(new RegExp(`${down.source}|${up.source}|보합|横ばい|\\bflat\\b`, 'gi'))]
         .map(m => ({ at: m.index!, dir: /보합|横ばい|flat/i.test(m[0]) ? 0 : down.test(m[0]) ? -1 : 1 }));
+    const directionFor = (clause: string, m: RegExpMatchArray | null, sharedPostfix = false) => {
+        // 동사는 그 지수명 뒤 첫 숫자까지에서 읽는다. 숫자 뒤는 곧바로 붙는 술어만
+        // 인정(ko/ja의 «2.6% 내렸고/下落», en의 «0.2% lower»). 다른 주어 절로 검색을 넓히지 않는다.
+        const before = (m ? clause.slice(0, m.index) : clause).split(/[,;、，]|\b(?:with|while|and|but)\b/i)[0];
+        const prefix = directions(before).map(d => d.dir);
+        const after = m ? clause.slice(m.index! + m[0].length) : '';
+        const suffix = after.match(new RegExp(`^(?:\\s|[()（）]|(?:를|가|는|로|を)|(?:slightly|modestly|sharply)\\s+)*(?:${down.source}|${up.source}|보합|横ばい|\\bflat\\b)`, 'i'));
+        return [...(sharedPostfix ? [] : prefix), ...directions(suffix?.[0] || '').map(d => d.dir)];
+    };
     let percentages = 0;
     refs.forEach((r, i) => {
         const clause = first.slice(r.end, refs[i + 1]?.at ?? first.length);
         const m = clause.match(/([+−-]?)(\d+(?:\.\d+)?)\s*%/);
-        const flat = /보합|横ばい|\bflat\b/i.test(clause);
-        // REG의 보조 선물 서술은 숫자 없이도 허용한다. 숫자가 있으면 기존 근거·부호 검사를 유지한다.
-        if (session === 'REG' && (r.id === 'nq' || r.id === 'es') && !m) return;
+        let dirs = directionFor(clause, m);
+        const flat = dirs.includes(0);
         if (!r.f) {
-            if (m || !UNKNOWN.test(clause)) reasons.push('tactical:index-unavailable');
+            if (m || dirs.length || !UNKNOWN.test(clause)) reasons.push('tactical:index-unavailable');
             return;
         }
-        if (!m && !flat) { reasons.push('tactical:index-change-required'); return; }
+        const optionalFutureNumber = session === 'REG' && r.f.kind === 'futures';
+        if (!m && !flat && (!optionalFutureNumber || (!dirs.length && !UNKNOWN.test(clause)))) { reasons.push('tactical:index-change-required'); return; }
         // 글은 소수 1자리로 반올림해 쓴다 — 반올림 값이 ±0.1 이내면 보합도 허용(−0.106 → «보합»·«0.1% 약세» 둘 다 통과, 실모델 10/23 20:33)
         const nearFlat = Math.abs(Math.round(r.f.chgPct * 10) / 10) <= 0.1;
         if (flat && !nearFlat && r.f.chgPct !== 0) reasons.push('tactical:index-direction');
-        if (!m) return;
+        if (!m) {
+            if (dirs.some(d => d === 0 ? !nearFlat : d !== Math.sign(r.f!.chgPct))) reasons.push('tactical:index-direction');
+            return;
+        }
         percentages++;
         const value = Number(m[2]);
         // 글에 실제로 표시한 자릿수로 반올림해 비교한다.
         const decimals = m[2].split('.')[1]?.length ?? 0;
         if (value !== Number(Math.abs(r.f.chgPct).toFixed(decimals))) reasons.push('tactical:index-value');
-        let direction = directions(clause.slice(m.index! + m[0].length))[0]?.dir ?? directions(clause.slice(0, m.index)).pop()?.dir;
         // 다음 동종 지수와 병렬인 쉼표 절에만 공유 방향어를 허용한다. «지금·반면»은 공유하지 않는다.
-        if (direction === undefined && refs[i + 1]?.f?.kind === r.f.kind && /[,、，]|\band\b|と/.test(clause)
-            && !/지금|반면|현재|while|but|現在|一方/i.test(clause)) {
-            direction = directions(first.slice(refs[i + 1].end, refs[i + 2]?.at ?? first.length))[0]?.dir;
+        if (!dirs.length && refs[i + 1]?.f?.kind === r.f.kind
+            && /^\s*(?:[,、，]\s*(?:and\s*)?|and\s*|と\s*)$/i.test(clause.slice(m.index! + m[0].length))) {
+            const next = first.slice(refs[i + 1].end, refs[i + 2]?.at ?? first.length);
+            dirs = directionFor(next, next.match(/([+−-]?)(\d+(?:\.\d+)?)\s*%/), true);
         }
         // 방향어가 사전에 없어도 이름·숫자가 맞으면 통과한다. 명시된 부호·반대 방향은 계속 거절한다.
         if ((m[1] && (m[1] === '+' ? r.f.chgPct < 0 : r.f.chgPct >= 0))
-            || (direction !== undefined && (direction === 0 ? !nearFlat && r.f.chgPct !== 0 : Math.sign(r.f.chgPct) !== direction))) reasons.push('tactical:index-direction');
+            || dirs.some(d => d === 0 ? !nearFlat && r.f!.chgPct !== 0 : Math.sign(r.f!.chgPct) !== d)) reasons.push('tactical:index-direction');
     });
     if (percentages !== [...first.matchAll(/\d+(?:\.\d+)?\s*%/g)].length) reasons.push('tactical:index-change-required');
     return [...new Set(reasons)];

@@ -13,16 +13,17 @@ for (const row of fixture.outputs) {
     const p = buildTacticalPrompt(fixture.contexts[row.session], row.locale);
     const reasons = checkTacticalOutput(row.text, row.locale, p);
     const previousSession = row.session === 'REG' && /어제|yesterday|昨日/i.test(row.text);
-    const expected = previousSession ? ['tactical:session-mismatch'] : row.session === 'PRE' && row.locale === 'en' && row.repeat === 3 ? ['tactical:too-long'] : [];
+    const expected = row.session === 'REG' ? [...(previousSession ? ['tactical:session-mismatch'] : []), 'tactical:index-unavailable']
+        : row.session === 'PRE' && row.locale === 'en' && row.repeat === 3 ? ['tactical:too-long'] : [];
     assert.deepEqual(reasons, expected, `${row.session}/${row.locale}/${row.repeat}`);
     assert.ok(!reasons.includes('event:unsupported:7'));
     assert.ok(!reasons.includes('tactical:index-change-required'));
     if (!reasons.length) passed++;
     if (row.session === 'POST') assert.deepEqual(checkTacticalStored(row.text, p), []);
 }
-assert.equal(passed, 19, '실제 출력 재검사: 새 실모델 생성 통과율이 아님');
+assert.equal(passed, 17, '실제 출력 재검사: 새 실모델 생성 통과율이 아님');
 
-// REG의 실제 숫자 없는 선물 서술은 허용. 현물 값·방향·날짜는 계속 검사한다.
+// REG의 실제 숫자 없는 선물 서술도 근거가 없으면 거절. 현물 값·방향·날짜 검사는 유지.
 const reg = fixture.contexts.REG;
 for (const locale of locales) {
     const prompt = buildTacticalPrompt(reg, locale);
@@ -31,7 +32,10 @@ for (const locale of locales) {
     const row = fixture.outputs.find((r: any) => r.session === 'REG' && r.locale === locale && r.repeat === 1);
     const first = row.text.split(locale === 'ja' ? '。' : /(?<!\d)\.(?!\d)/)[0];
     const current = first.replace('어제(10/22)', '10/22');
-    assert.deepEqual(tacticalIndexReasons(current, prompt), []);
+    assert.deepEqual(tacticalIndexReasons(current, prompt), ['tactical:index-unavailable']);
+    // 새 생성 계약에 맞는 현물 전용 문장은 통과한다(원문 fixture는 수정하지 않음).
+    const cashOnly = current.slice(0, current.indexOf({ ko: ', 현재', en: '; Nasdaq 100', ja: '、現在' }[locale]));
+    assert.deepEqual(tacticalIndexReasons(cashOnly, prompt), []);
     assert.ok(tacticalIndexReasons(current.replace('2.6%', '2.5%'), prompt).includes('tactical:index-value'));
     assert.ok(tacticalIndexReasons(current.replace('10/22', '10/21'), prompt).includes('tactical:cash-session-date'));
     const noSpotNumber = current.replace('2.6%', '').replace('1.2%', '');
@@ -41,7 +45,9 @@ for (const locale of locales) {
     const fallback = buildTacticalPrompt({ ...reg, indexFacts: reg.indexFacts.filter((f: IndexFact) => f.kind === 'futures') }, locale);
     assert.match(fallback, new RegExp({ ko: 'INDEX_FACTS_SPOT: 현물 관측 없음', en: 'INDEX_FACTS_SPOT: cash observations unavailable', ja: 'INDEX_FACTS_SPOT: 現物観測なし' }[locale]));
     const fallbackFirst = { ko: '현물 관측 없음, 나스닥100 선물은 소폭 하락 중입니다.', en: 'Cash observations unavailable; Nasdaq 100 futures are slightly lower.', ja: '現物観測なし、ナスダック100先物は小幅下落中です。' }[locale];
-    assert.deepEqual(tacticalIndexReasons(fallbackFirst, fallback), [], 'REG는 현물 숫자만 필수');
+    assert.ok(tacticalIndexReasons(fallbackFirst, fallback).includes('tactical:index-direction'), 'NQ 사실은 +0.0163%: 하락 서술은 거절');
+    const flatFirst = { ko: '현물 관측 없음, 나스닥100 선물은 보합입니다.', en: 'Cash observations unavailable; Nasdaq 100 futures are flat.', ja: '現物観測なし、ナスダック100先物は横ばいです。' }[locale];
+    assert.deepEqual(tacticalIndexReasons(flatFirst, fallback), [], '숫자 없는 REG 선물도 근거와 보합 방향이 맞으면 통과');
     assert.ok(tacticalIndexReasons(fallbackFirst.replace(/소폭|slightly|小幅/, '9%'), fallback).includes('tactical:index-value'));
 }
 const at = Date.parse(reg.asOf);
@@ -89,4 +95,4 @@ const upcoming = '[economic calendar; 2026-10-23 09:45 ET] warfare briefing (sch
 const claim = 'Conflict briefing scheduled 10/23 09:45 ET';
 assert.deepEqual(scheduleClaimReasons(claim, [upcoming], Date.parse('2026-10-23T12:00:00Z'), 'strict'), []);
 assert.ok(scheduleClaimReasons(claim, [upcoming.replace('warfare', 'oil')], Date.parse('2026-10-23T12:00:00Z'), 'strict').includes('event:unsupported:7'));
-console.log('통과 r4 실제 27출력(19통과·지난 세션 7/영어 길이 1 거절), REG 현물 우선·결측 선물·숫자, POST 날짜 숫자, 공유 사건 3경로');
+console.log('통과 r4 실제 27출력(17통과·근거 없는 REG 선물 9/영어 길이 1 거절), REG 현물 우선·결측 선물·숫자, POST 날짜 숫자, 공유 사건 3경로');

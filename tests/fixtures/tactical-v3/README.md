@@ -25,4 +25,8 @@ node scripts/tactical-v3-compare.cjs \
 
 `--redis --capture`는 기존 Redis 공유 입력(gcore:v1, 없으면 guardian:snapshot:ko)을 GET하고, 시장 허용 목록만 `PRE.json`·`REG.json`·`POST.json`에 저장합니다. 생성·쓰기 부작용이 있는 앱 API는 호출하지 않습니다. `--live`만 쓰면 새 계약만 실행합니다. 기본 보고서 위치는 `~/Documents/signum-work/2026-10-23/tactical-v3/compare.md`입니다.
 
-`r4-outputs.json`은 `compare-v3-r4.md`(기준 087d21b75)의 새 계약 27행 원문과 시장 입력 허용 필드만 보관합니다. PRE는 21:05 KST 운영 실입력, REG/POST는 파생입니다. 새 회귀 검사는 기존 출력 재검사 19/27을 기대합니다(지난 세션 표현 REG 7개, 720자 초과 영어 PRE 1개는 거절 유지). 이 수치는 수정 후 새 실모델 생성 통과율이 아닙니다.
+`r3-outputs.json`은 `compare-v3-r3.md`의 새 계약 27행 원문과 시장 입력 허용 필드만 보관합니다. 생성·복구 재검사 27/27을 기대합니다. PRE는 운영 실입력, REG/POST는 파생입니다.
+
+`r4-outputs.json`은 `compare-v3-r4.md`(기준 087d21b75)의 새 계약 27행 원문과 시장 입력 허용 필드만 보관합니다. PRE는 21:05 KST 운영 실입력, REG/POST는 파생입니다. 관문 10232108 적용 후 생성 재검사는 17/27을 기대합니다(REG 9개는 입력에서 빠진 선물 방향을 주장, 그중 7개는 지난 세션 표현도 포함; 영어 PRE 1개는 720자 초과). r5 당시 19/27에서 근거 없는 REG 선물 2개가 추가 거절됩니다. 원문은 바꾸지 않습니다. 이 수치는 수정 후 새 실모델 생성 통과율이 아닙니다.
+
+저장본 비교는 복구 계약으로 실행합니다. 새 v3 생성 형식 때문에 옛 정상본을 거절하지 않으며, v2 키·보관본·자리표·basis.contractVersion=2는 옛 지수 숫자로 검사합니다.
