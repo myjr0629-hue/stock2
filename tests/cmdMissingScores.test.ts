@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
 import { commandScores } from '../src/lib/commandScores';
 import { netPremiumOf, premiumLabel } from '../src/lib/premiumFlow';
@@ -62,6 +63,8 @@ function signals(overrides: Record<string, any> = {}) {
     // These are synthetic score fixtures. Date their explicit IV inputs so the
     // current production provenance contract is exercised, without filling missing IV.
     const data = { ticker: 'TEST', ...priceOnly, ...overrides };
+    // 유효 VWAP 점수 모형은 당일 원천 날짜도 명시한다.
+    data.rawTickerData = { ...data.rawTickerData, vwapDate: shownRegularSessionDate() };
     const u = data.unified;
     const dated = (v: any) => v == null ? v : { ivSourceDate: '2026-10-16', ...v };
     return run(`const ${memo}; signalsData;`, { data: { ...data,
@@ -580,6 +583,7 @@ function deepSnapshotModule() {
     const modules: Record<string, any> = {
         '@/lib/earningsDate': require('../src/lib/earningsDate'),
         '@/lib/vwap': require('../src/lib/vwap'),
+        '@/lib/sessionVwapPolicy': require('../src/lib/sessionVwapPolicy'),
         '@/lib/premiumFlow': require('../src/lib/premiumFlow'),
         '@/lib/metrics/volatilityRegime': require('../src/lib/metrics/volatilityRegime'),
         '@/lib/commandScores': { commandScores },

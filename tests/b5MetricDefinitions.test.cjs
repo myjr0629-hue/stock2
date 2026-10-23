@@ -686,15 +686,15 @@ test('AI gate 10191620 ②: unified squeeze producer never turns an absent SI in
 // ── Gate 10191711 (bundle 1) reproductions ───────────────────────────────────────────────
 const conv = load('src/lib/commandConviction');
 test('gate 10191711 ①: SSR VWAP 98 → live 102 → live VWAP missing keeps 102 (42), never re-observes the SSR', () => {
-    const stockSsr = { symbol: 'TEST', price: 100, vwap: 98 };
+    const stockSsr = { symbol: 'TEST', price: 100, vwap: 98, vwapDate: '2026-10-19' };
     const ssr = { unified: { ticker: 'TEST' }, stock: stockSsr };
     let state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST' }, stock: stockSsr, price: 100 });
     assert.equal(state.inputs.vwap, 98);
-    state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST', vwap: 102 }, stock: stockSsr, price: 100 }, state);
-    assert.equal(conv.scoreCommandConviction(state.inputs).score, 42);
+    state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST', vwap: 102, vwapDate: '2026-10-19' }, stock: stockSsr, price: 100 }, state);
+    assert.equal(conv.scoreCommandConviction(state.inputs, state.sourceDates).score, 42);
     for (let i = 0; i < 3; i++) {
         state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST' }, stock: stockSsr, price: 100 }, state);
-        assert.equal(state.inputs.vwap, 102); assert.equal(conv.scoreCommandConviction(state.inputs).score, 42);
+        assert.equal(state.inputs.vwap, 102); assert.equal(conv.scoreCommandConviction(state.inputs, state.sourceDates).score, 42);
     }
 });
 test('gate 10191711 ②: a newer overlay value equal to the cached value rounded (35.6 → 36) is the newer value', async () => {
@@ -732,9 +732,9 @@ test('gate 10191711 ④: a PENDING / invalid structure never votes in conviction
     const pending = { options_status: 'PENDING', pcRatio: 0, netGex: null, validation: { isValid: false } };
     let state = conv.webConvictionState('TEST', { unified: null, stock: null },
         { unified: { ticker: 'TEST', structure: { netGex: -1e6, pcRatio: 1.5, chainDate: '2026-10-19' } }, price: 100 });
-    assert.equal(conv.scoreCommandConviction(state.inputs).score, 38);
+    assert.equal(conv.scoreCommandConviction(state.inputs, state.sourceDates).score, 38);
     state = conv.webConvictionState('TEST', { unified: null, stock: null }, { unified: { ticker: 'TEST', structure: pending }, price: 100 }, state);
-    assert.equal(conv.scoreCommandConviction(state.inputs).score, 38);
+    assert.equal(conv.scoreCommandConviction(state.inputs, state.sourceDates).score, 38);
     const adapter = load('src/lib/commandScores').commandScores({ price: 100, unified: { structure: pending } });
     assert.equal(adapter.cScore, null, 'no history: no fabricated 50');
     assert.equal(appSignals({ structure: pending }).convictionScore, null);
@@ -801,7 +801,7 @@ test('gate 10191734 ①: AI conviction (no caller inputs) uses the shared select
     aiB({ structure: { netGex: -1e6, pcRatio: 0.5, chainDate: '2026-10-19' }, sma: { cross: 'GOLDEN' } });
     const partial = { structure: { netGex: -2e6, chainDate: '2026-10-20' } };
     hist = conv.retainConvictionInputs('G4B', conv.commandConvictionRaw(partial, 100, null, null).raw, conv.commandConvictionRaw(partial, 100, null, null).dates, hist);
-    assert.equal(aiB(partial).conviction.score, conv.scoreCommandConviction(hist.inputs).score);
+    assert.equal(aiB(partial).conviction.score, conv.scoreCommandConviction(hist.inputs, hist.sourceDates).score);
 });
 test('gate 10191734 ②: app keeps the VWAP source date — 102 (10/19) then 98 (10/16) stays 102 (42)', () => {
     const ref = { current: undefined };
@@ -809,7 +809,7 @@ test('gate 10191734 ②: app keeps the VWAP source date — 102 (10/19) then 98 
     poll({ ticker: 'TEST' }, { vwap: 102, vwapDate: '2026-10-19', flow: null });
     const snap = poll({ ticker: 'TEST' }, { vwap: 98, vwapDate: '2026-10-16', flow: null });
     assert.equal(snap.inputs.vwap, 102); assert.equal(snap.sourceDates.vwap, '2026-10-19');
-    assert.equal(conv.scoreCommandConviction(snap.inputs).score, 42);
+    assert.equal(conv.scoreCommandConviction(snap.inputs, snap.sourceDates).score, 42);
 });
 test('gate 10191734 ③: app re-entry restores the cached input history, so a failed unified keeps 45 and 58', () => {
     const { source, node } = findNode(appPage, n => ts.isIfStatement(n) && n.expression.getText() === 'cacheFresh');
@@ -822,7 +822,7 @@ test('gate 10191734 ③: app re-entry restores the cached input history, so a fa
         initialLoadRef: { current: true }, lastVolObservation: volRef, lastConviction: convRef });
     assert.equal(volRef.current, volObs); assert.equal(convRef.current, convSnap);
     const after = appPoller(convRef)({ error: 'Failed' });
-    assert.equal(conv.scoreCommandConviction(after.inputs).score, 45);
+    assert.equal(conv.scoreCommandConviction(after.inputs, after.sourceDates).score, 45);
     assert.equal(unifiedRegime(resolveCommandVolatilityObservation('TEST', { error: 'Failed' }, volRef.current).data).regimeScore, 58);
 });
 test('gate 10191734 ④: AI compares a date-only source as a day — same-day arrival wins (no invented midnight)', () => {
@@ -861,7 +861,7 @@ test('gate 10191753 ①: AI warm path selects the volatility edition — 10/19 5
 test('gate 10191753 ②: conviction dates use the edition time (asOf) when chainDate is absent — no 45→55', () => {
     let st = conv.webConvictionState('TEST', { unified: null, stock: null }, { unified: { ticker: 'TEST', structure: { netGex: -1e6, asOf: '2026-10-19T20:00:00Z' } }, price: 100 });
     st = conv.webConvictionState('TEST', { unified: null, stock: null }, { unified: { ticker: 'TEST', structure: { netGex: 1e6, asOf: '2026-10-16T20:00:00Z' } }, price: 100 }, st);
-    assert.equal(conv.scoreCommandConviction(st.inputs).score, 45);
+    assert.equal(conv.scoreCommandConviction(st.inputs, st.sourceDates).score, 45);
     const raw = conv.commandConvictionRaw({ structure: { netGex: 1e6, asOf: '2026-10-16T20:00:00Z' } }, 100, null, null);
     assert.equal(raw.dates.gex, '2026-10-16T20:00:00.000Z'); // normalized by the shared edition-time rule (10200907)
     const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
@@ -883,14 +883,14 @@ test('gate 10191753 ③④: mobile web — VWAP keeps its date (42 stays) and th
     };
     mount({ ticker: 'TEST' }, 102, '2026-10-19');
     const late = mount({ ticker: 'TEST' }, 98, '2026-10-16');
-    assert.equal(late.inputs.vwap, 102); assert.equal(conv.scoreCommandConviction(late.inputs).score, 42);
+    assert.equal(late.inputs.vwap, 102); assert.equal(conv.scoreCommandConviction(late.inputs, late.sourceDates).score, 42);
     const src = fs.readFileSync(path.join(root, file), 'utf8');
     assert.match(src, /^const mobileConvictionHistory = new Map<string, ConvictionSnapshot>\(\);$/m, 'module-level history');
     // Remount (tab switch): a fresh component reads the same module history; a failed poll keeps 45.
     history.clear();
     mount({ ticker: 'TEST', structure: { netGex: -1e6, chainDate: '2026-10-19' } }, null, null);
     const back = mount({ error: 'Failed' }, null, null);
-    assert.equal(conv.scoreCommandConviction(back.inputs).score, 45);
+    assert.equal(conv.scoreCommandConviction(back.inputs, back.sourceDates).score, 45);
     const page = fs.readFileSync(path.join(root, 'src/components/intel/mobile/MobileCommandPage.tsx'), 'utf8');
     assert.match(page, /useMobileConvictionSnapshot\(effectiveQuote\.ticker, unified, effectiveQuote\.price,\s+metricVwap, metricVwapDate,/);
 });
@@ -922,9 +922,9 @@ test('VWAP is session-scoped: an explicit null from the quote invalidates (no ca
     assert.equal(poll({ ticker: 'TEST' }, { flow: null }).inputs.vwap, 102, 'absent → previous real value');
     const inv = poll({ ticker: 'TEST' }, { vwap: null, vwapDate: null, flow: null });
     assert.equal(inv.inputs.vwap, null); assert.ok(!inv.carriedFields.includes('vwap'));
-    assert.equal(conv.scoreCommandConviction(inv.inputs), null);
+    assert.equal(conv.scoreCommandConviction(inv.inputs, inv.sourceDates), null);
     const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
-    const ai = vwap => build({ ticker: 'VWAPINV', price: 100, priceChange: 0, session: 'REG', unified: {}, rawTickerData: { vwap, flow: null },
+    const ai = vwap => build({ ticker: 'VWAPINV', price: 100, priceChange: 0, session: 'REG', unified: {}, rawTickerData: { vwap, vwapDate: '2026-10-19', flow: null },
         insider: null, technicals: null, creditSpread: null }).conviction.score;
     assert.equal(ai(102), 42); assert.equal(ai(undefined), 42); assert.equal(ai(null), null);
 });
@@ -999,10 +999,10 @@ test('gate 10191903 ③: mobile card and PRO AI share ONE conviction selection �
     };
     select(102, '2026-10-19');
     const snap = select(98, '2026-10-16');
-    const card = conv.scoreCommandConviction(snap.inputs);
+    const card = conv.scoreCommandConviction(snap.inputs, snap.sourceDates);
     assert.equal(card.score, 42); assert.equal(card.grade, 'D');
     const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
-    const ai = build({ ticker: 'G7C', price: 100, priceChange: 0, session: 'REG', unified: { ticker: 'G7C' }, convictionInputs: snap.inputs,
+    const ai = build({ ticker: 'G7C', price: 100, priceChange: 0, session: 'REG', unified: { ticker: 'G7C' }, convictionInputs: snap.inputs, convictionSourceDates: snap.sourceDates,
         rawTickerData: { vwap: 98, flow: { netPremium: undefined } }, insider: null, technicals: null, creditSpread: null });
     assert.equal(ai.conviction.score, 42); assert.equal(ai.conviction.grade, 'D');
     // Wiring: the page selects once and hands the same result to the card and the AI material.
@@ -1129,7 +1129,7 @@ test('gate 10200907: conviction and AI structure values use the edition instant 
     const eod = { structure: { netGex: 5e8, chainDate: '2026-10-16', levelsAsOf: Date.parse('2026-10-16T21:00:00Z') } };
     const step = (u, prev) => { const r = conv.commandConvictionRaw(u, null, undefined, null); return conv.retainConvictionInputs('G907', r.raw, r.dates, prev, r.invalidated); };
     const a = step(live); const b = step(eod, a);
-    assert.equal(b.inputs.gex, -1e8); assert.equal(conv.scoreCommandConviction(b.inputs).score, 45);
+    assert.equal(b.inputs.gex, -1e8); assert.equal(conv.scoreCommandConviction(b.inputs, b.sourceDates).score, 45);
     const build = load('src/lib/ai/deepSnapshot').buildDeepSnapshot;
     const base = { ticker: 'G907', price: 100, priceChange: 0, session: 'REG', rawTickerData: null, insider: null, technicals: null, creditSpread: null };
     build({ ...base, unified: live });
