@@ -59,16 +59,18 @@ const SUBJECT_EN = ['yields?', 'treasur\\w*', 'bonds?', 'S&P', 'SPX', 'nasdaq', 
     'gamma', 'GEX', 'volatility', 'dollar', 'gold', 'oil', 'crude', 'brent', 'barrels?', 'bitcoin', 'fear', 'greed', 'squeeze',
     'max pain', 'call wall', 'put floor', 'gamma flip', 'implied (?:move|range)', '\\d{1,2}-?year', 'off-exchange', 'support', 'resistance', 'levels?', 'spread',
     'futures', 'index', 'stocks?', 'shares?', 'sectors?', 'semiconductors?', 'chips?', 'tech', 'prices?', 'rates?', 'inflation', 'payrolls?', 'claims',
-    'housing', 'permits', 'starts', 'sales', 'range', 'premium', 'calls?', 'puts?', 'flows?', 'market', 'equities'];
+    'housing', 'permits', 'starts', 'sales', 'range', 'premium', 'calls?', 'puts?', 'flows?', 'market', 'equities',
+    // 경제 지표 수준(«consumer sentiment holds at 48» — 실모델 10/23 23:3x 정상 문장 orphan-number 오탐 4건)
+    'sentiment', 'confidence', 'PMI', 'ISM', 'gold'];
 const SUBJECT_CJK = [
     // ko
     '맥스\\s?페인', '콜\\s?월', '풋\\s?플로어', '감마\\s?플립', '금리', '국채', '년물', '채권', '나스닥', '다우', '러셀', '참여폭', '시장 폭', '상승 종목', '하락 종목', '등락', '감마', '변동성', '달러', '금값', '금 ', '금은', '금이', '금도',
     '유가', '원유', '브렌트', '배럴', '비트코인', '공포', '탐욕', '스퀴즈', '예상 변동', '장외 비중', '장외', '지지', '저항', '레벨', '스프레드',
-    '선물', '지수', '주가', '종목', '섹터', '반도체', '기술주', '가격', '물가', '고용', '주택', '착공', '허가', '판매', '범위', '프리미엄', '콜', '풋', '시장',
+    '선물', '지수', '주가', '종목', '섹터', '반도체', '기술주', '가격', '물가', '고용', '주택', '착공', '허가', '판매', '범위', '프리미엄', '콜', '풋', '시장', '심리', '신뢰', '구매관리자',
     // ja
     'マックス\\s?ペイン', 'コール\\s?ウォール', 'プット\\s?フロア', 'ガンマ\\s?フリップ', '金利', '利回り', '国債', '年債', '債券', 'ナスダック', 'ダウ', 'ラッセル', 'ブレッドス', '騰落', '値上がり', '値下がり', 'ガンマ', 'ボラティリティ', 'ドル', '金価格', '金相場', '金は', '金が',
     '原油', 'ブレント', 'バレル', 'ビットコイン', '恐怖', '強欲', 'スクイーズ', '想定変動', '場外比率', '場外', 'サポート', 'レジスタンス', '水準', 'スプレッド',
-    '先物', '指数', '株価', '銘柄', 'セクター', '半導体', 'ハイテク', '価格', '物価', '雇用', '住宅', '着工', '許可', '販売', 'レンジ', '幅', 'プレミアム', 'コール', 'プット', '市場',
+    '先物', '指数', '株価', '銘柄', 'セクター', '半導体', 'ハイテク', '価格', '物価', '雇用', '住宅', '着工', '許可', '販売', 'レンジ', '幅', 'プレミアム', 'コール', 'プット', '市場', '心理', '信頼感', '景況感',
 ];
 // 영어는 낱말 경계(«moderate»의 rate·«decline»은 주어가 아니다 — 방향어는 주어로 치지 않는다)
 const SUBJECT = new RegExp(`(?<![A-Za-z])(?:${SUBJECT_EN.join('|')})(?![A-Za-z])|${SUBJECT_CJK.join('|')}`, 'i');
