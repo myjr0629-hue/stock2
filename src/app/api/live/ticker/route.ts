@@ -5,6 +5,7 @@ import { applyOptionMetrics, optionMetricsRowHasOi } from '@/lib/optionMetrics';
 import { readOi35Fallback, readLastGoodOi } from '@/services/oiNear35Fallback';
 import { normalizeVwap, selectVwap, sessionVwapFromBars } from '@/lib/vwap';
 import { shortVolFields } from '@/lib/shortVolume';
+import { dailyRsi14Latest, dailyRsiWindow, isCurrentDailyRsiDate } from '@/lib/dailyRsi';
 import { readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
 import { getRegularSessionMinuteBars } from '@/services/stockApi';
 import { getRealtimeSessionVwap, readRealtimeSessionVwap } from '@/services/realtimeSessionVwap';
@@ -15,7 +16,7 @@ import { newBgCtx, runWithBg } from '@/lib/intrinioBackground';
 import { NextRequest, after } from 'next/server';
 import { getBuildMeta } from '@/services/buildMeta';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
-import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedMovePct, computeIVSkew, type AlphaSession } from '@/services/alphaEngine';
+import { calculateAlphaScore, calculateWhaleIndex, computeImpliedMovePct, computeIVSkew, type AlphaSession } from '@/services/alphaEngine';
 import { ensureXsScores } from '@/services/xsScores';
 import { CentralDataHub } from "@/services/centralDataHub";
 import { getStructureData, levelsFromStructure, displayLevels, prefetchLevelsWithKeys, type OptionLevels } from "@/services/structureService"; // [SQUEEZE FIX]
@@ -179,6 +180,7 @@ const TICKER_CACHE_TTL = 60; // 60 seconds
 // v4 = 레벨은 구조 한 벌뿐(없으면 null)·정의 게이트·levelsDropped 2026-09-29 — ㊲-2(v3) 프리뷰와도 섞이지 않게.
 // v3' = (㊺ 브랜치) 시간외 필드를 세션·날짜로 고르게 된 2026-09-25 — v2 에는 «정규장 분봉 PRE»·«어제 POST» 가 앉아 있다.
 // v5 = 레벨 판본(09-30) + 시간외 세션·날짜(㊺) 둘 다 — 두 브랜치의 v3·v4 어느 쪽과도 섞이지 않게 한 단계 위.
+// RSI는 병합 뒤 이번 계산값으로 덮는다. 가격 복구용 운영 키는 유지한다.
 const LAST_GOOD_PREFIX = 'flow:ticker:lastgood:v5:';
 function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): string {
     const shape = skipAlpha ? (noChain ? 'lite-nochain' : 'lite-full') : (noChain ? 'nochain' : 'full');
@@ -463,6 +465,7 @@ function pickAlphaLevels(structureResult: any, flowData: any, spot: number | nul
 //    v5 = 레벨은 구조 한 벌뿐(없으면 null)·정의 게이트·levelsDropped 2026-09-29 (값이 바뀐다)
 //    v4' = (㊺ 브랜치) 시간외 PRE/POST 를 세션·날짜·체결 테이프로 고른다 2026-09-25 (값·필드가 바뀐다)
 //    v6 = 레벨 판본 + 시간외 세션·날짜 둘 다(두 브랜치 통합) — ⚠️ 프리뷰와 운영은 같은 Redis 를 쓴다(올리지 않으면 옛 코드가 쓴 값을 읽는다)
+//    RSI 메타데이터는 필드로 추가한다. 운영 응답 캐시 키는 유지한다.
 function tickerCacheKey(ticker: string): string {
     return `flow:ticker:v6:${ticker}`;
 }
@@ -517,6 +520,12 @@ export async function GET(req: NextRequest) {
         if (cached && verdict.ok) {
             console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
             let checked = dropStaleLiveVwap(cached);
+            // RSI 세션만 다르다고 캐시 전체를 버리면 공급사 호출이 늘어난다.
+            // 계산 날짜가 있는 저장본만 검사한다. 무표식 운영 저장본은 기존 TTL 동안 운반한다.
+            // 완료 세션 일봉 도착 전(마감 직후)에는 직전 거래일 계산도 유효하다 — 새 계산도 같은 값을 낸다.
+            if (checked.display?.rsi14Date && !isCurrentDailyRsiDate(checked.display.rsi14Date, dailyRsiWindow().to)) {
+                checked = { ...checked, display: { ...checked.display, rsi14: null } };
+            }
             if (checked.vwap == null || cashSessionPhaseAt(Date.now()) === 'regular') {
                 const r = await resolveTargetSessionVwap(ticker, Date.now(), true);
                 checked = { ...checked, vwap: r?.vwap ?? null, vwapDate: r?.date ?? null };
@@ -587,7 +596,9 @@ export async function GET(req: NextRequest) {
     // Fetch Core Data
     const snapshotUrl = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${MASSIVE_API_KEY}`;
     // [S-52.2.3] Use proper date strings for agg API (not timestamps)
-    const aggUrl = `${MASSIVE_BASE_URL}/v2/aggs/ticker/${ticker}/range/1/day/${thirtyDaysAgoStr}/${yesterdayStr}?adjusted=true&sort=desc&limit=20&apiKey=${MASSIVE_API_KEY}`;
+    // 기존 일봉 한 번으로 RSI warm-up도 확보한다. 별도 지표 공급사 호출 없음.
+    const rsiWindow = dailyRsiWindow(serverTs);
+    const aggUrl = `${MASSIVE_BASE_URL}/v2/aggs/ticker/${ticker}/range/1/day/${rsiWindow.from}/${todayStr}?adjusted=true&sort=desc&limit=500&apiKey=${MASSIVE_API_KEY}`;
 
     const [snapshotRes, aggRes, detailsRes] = await Promise.all([
         fetchMassiveWithRetry(snapshotUrl),
@@ -600,7 +611,15 @@ export async function GET(req: NextRequest) {
 
     // [Fix] Determine Last Trading Day from Aggregates to safely fetch OC (Open-Close)
     // This ensures we get Friday's Pre/Post data even on a Sunday.
-    const historicalResults = aggRes.data?.results || [];
+    const dailyRows = aggRes.data?.results || [];
+    // 마감 직후 완료 세션 일봉이 아직 없으면 직전 거래일까지로 계산한다(빈칸 방지). rsi14Date = 실제 계산일.
+    const { rsi14, date: rsi14Date } = dailyRsi14Latest(dailyRows, rsiWindow.to);
+    // 가격 기준선·OC·3D 반환은 이전과 같은 «어제까지 20봉»을 유지한다.
+    const historicalResults = dailyRows.filter((r: any) => {
+        if (!Number.isFinite(new Date(r.t).getTime())) return false;
+        const date = new Date(r.t).toISOString().slice(0, 10);
+        return date >= thirtyDaysAgoStr && date <= yesterdayStr;
+    }).slice(0, 20);
     let ocDateStr = todayStr;
 
     // Use the most recent trading day from history if available
@@ -1302,7 +1321,8 @@ export async function GET(req: NextRequest) {
             baselineLabel,
             priceLabel,
             asOfET: priceAsOfET(session, snapRegDate || (historicalResults[0]?.t ? aggDateOf(historicalResults[0]) : null), Number(S.lastTrade?.t) / 1e6 || null, serverTs),
-            rsi14: (() => { const c = historicalResults.slice().reverse().map((h: any) => h.c).filter(Boolean); return c.length >= 15 ? computeRSI14(c) : null; })(),
+            rsi14,
+            rsi14Date,
         },
 
         // [S-52.2.1] All 3 sessions - both frac and pct
@@ -1453,9 +1473,7 @@ export async function GET(req: NextRequest) {
                     return3D = ((historicalResults[0].c - historicalResults[3].c) / historicalResults[3].c) * 100;
                 }
 
-                // [V3 PIPELINE] Compute RSI14 from historical closes (sorted desc, need to reverse)
-                const closesForRSI = historicalResults.slice().reverse().map((h: any) => h.c).filter(Boolean);
-                const rsi14 = computeRSI14(closesForRSI);
+                // 표시와 Alpha는 같은 완료 세션의 Wilder RSI를 사용한다.
 
                 // [V3 PIPELINE] Compute Implied Move % from rawChain ATM straddle
                 const alphaRawChain = (flowData as any)?.rawChain ?? [];
@@ -1579,6 +1597,8 @@ export async function GET(req: NextRequest) {
     }
     // 마지막 정상본 병합 뒤에도 모든 세션의 목표일을 재검사한다.
     finalPayload = dropStaleLiveVwap(finalPayload);
+    // 결측과 실제 RSI 0 모두 이번 관측을 운반한다(last-good 숫자로 되살리지 않는다).
+    finalPayload = { ...finalPayload, display: { ...finalPayload.display, rsi14, rsi14Date } };
 
     // 시간외 종가를 뒤에서 계산 중이면(예산 초과) 응답 캐시를 짧게 — 다음 요청이 저장된 값을 읽게 한다
     if (extPending.length) after(() => Promise.allSettled(extPending));
