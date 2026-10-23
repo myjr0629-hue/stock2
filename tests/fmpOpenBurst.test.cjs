@@ -46,6 +46,186 @@ function client(r, provider) {
 }
 const stateOf = () => ({ cursor: 0, calendarOffset: 0, calendar: {}, partial: [], complete: false });
 
+test('saturated 14-day calendar splits persist across slices and cover all 180 days without repeating a window', async () => {
+  const r = redisClock(), date = '2026-10-23', saved = [], paths = [], accepted = [];
+  let stored = stateOf(), slices = 0;
+  while (!stored.complete) {
+    await runSlice({ state: structuredClone(stored), universe: ['IBM'], date, now: r.now,
+      remainingMs: () => 900000, sleep: async ms => r.advance(ms), guard: guardAt(r),
+      request: async path => {
+        paths.push(path); r.advance(780000); // Exactly one endpoint per invocation.
+        if (!path.startsWith('earnings-calendar')) return Response.json([]);
+        const q = new URLSearchParams(path.split('?')[1]), from = q.get('from'), to = q.get('to');
+        if (from === date && to === '2026-11-05') return Response.json(Array(4000).fill({}));
+        accepted.push([from, to]);
+        return Response.json(from === date ? [{ symbol: 'IBM', date: '2026-10-28', epsEstimated: 2 }] : []);
+      }, checkpoint: async s => { stored = structuredClone(s); },
+      save: async (ticker, _payload, cal, complete) => saved.push({ ticker, cal, complete }),
+    });
+    if (++slices === 1) assert.deepEqual(stored.calendarWindows, [{ from: 0, to: 6 }, { from: 7, to: 13 }]);
+    assert.ok(slices < 30);
+  }
+  assert.equal(new Set(paths).size, paths.length);
+  assert.equal(paths.length, 18); // 13 original windows + 2 split children + 3 ticker requests.
+  const days = accepted.flatMap(([from, to]) => {
+    const out = [];
+    for (let at = Date.parse(from); at <= Date.parse(to); at += 86400000) out.push(at);
+    return out;
+  });
+  assert.equal(days.length, 180); assert.equal(new Set(days).size, 180);
+  assert.equal(Math.min(...days), Date.parse(date));
+  assert.equal(Math.max(...days), Date.parse(date) + 179 * 86400000);
+  assert.deepEqual(saved, [{ ticker: 'IBM', cal: { date: '2026-10-28', epsEstimated: 2 }, complete: true }]);
+});
+
+test('a persistently saturated single day advances, records failure and preserves published earnings in the real handler', async () => {
+  const { createHandler } = require('../scripts/lambda-fmp/index.js');
+  const r = redisClock(Date.parse('2026-10-23T10:15:00-04:00'));
+  let stored, calls = 0;
+  const records = [], windows = [];
+  const handler = createHandler({ now: r.now, command: r.command, universe: ['IBM'], sleep: async ms => r.advance(ms),
+    client: { send: async cmd => {
+      if (cmd.constructor.name === 'GetCommand') return { Item: stored ? { state: structuredClone(stored) } : undefined };
+      if (cmd.input.Item.pattern.startsWith('FMP:RUN:')) stored = structuredClone(cmd.input.Item.state);
+      else records.push(cmd.input.Item);
+      return {};
+    } },
+    request: async path => {
+      calls++;
+      assert.ok(!path.startsWith('analyst-estimates')); // Retained earnings need no unused forward request.
+      if (path.startsWith('earnings-calendar')) {
+        windows.push(path);
+        const q = new URLSearchParams(path.split('?')[1]);
+        return Response.json(q.get('from') === '2026-10-23' ? Array(4000).fill({}) : []);
+      }
+      return Response.json(path.startsWith('grades-consensus') ? [{ buy: 3 }] : [{ date: '2027-12-31', epsAvg: 9, revenueAvg: 200000000 }]);
+    },
+  });
+  const result = JSON.parse((await handler({})).body);
+  assert.equal(result.complete, true); assert.equal(result.failedCalendarWindows, 1);
+  assert.deepEqual(stored.calendarFailures, [{ from: 0, to: 0, reason: 'calendar_truncated' }]);
+  assert.equal(new Set(windows).size, windows.length);
+  assert.equal(calls, windows.length + 2);
+  assert.deepEqual(records.map(x => x.pattern), ['ANALYST:IBM']); // No partial EARNINGS overwrite.
+  const previous = calls;
+  await handler({}); assert.equal(calls, previous);
+});
+
+for (const failureAt of [0, 1, 2]) test(`persistent ticker 404 at endpoint ${failureAt} is checkpointed and never blocks later tickers`, async () => {
+  const r = redisClock(), paths = [], saved = [];
+  let stored = stateOf(), slices = 0;
+  stored.calendarOffset = 180;
+  while (!stored.complete) {
+    const previousCursor = stored.cursor;
+    await runSlice({ state: structuredClone(stored), universe: ['BAD', 'IBM'], date: '2026-10-23', now: r.now,
+      remainingMs: () => 900000, sleep: async ms => r.advance(ms), guard: guardAt(r),
+      request: async path => {
+        paths.push(path); r.advance(780000);
+        return path.includes('symbol=BAD') && path.startsWith(['grades-consensus?', 'price-target-consensus?', 'analyst-estimates?'][failureAt])
+          ? new Response('private-body-marker', { status: 404 }) : Response.json([]);
+      }, checkpoint: async s => { stored = structuredClone(s); }, save: async ticker => saved.push(ticker),
+    });
+    if (previousCursor === 0 && stored.cursor === 1) assert.equal(stored.partial.length, 0);
+    assert.ok(++slices < 10);
+  }
+  assert.deepEqual(saved, ['IBM']); assert.equal(stored.cursor, 2);
+  assert.equal(paths.length, failureAt + 4);
+  assert.equal(stored.failures.BAD.status, 404);
+  assert.equal(stored.failures.BAD.reason, 'http_unavailable');
+  assert.ok(!JSON.stringify(stored).includes('private-body-marker'));
+});
+
+for (const mode of ['transport', 'payload', 'json']) test(`ticker ${mode} failure skips partial work and collects the next ticker`, async () => {
+  const r = redisClock(), state = stateOf(), saved = [];
+  state.calendarOffset = 180; state.partial = [[]];
+  const result = await runSlice({ state, universe: ['BAD', 'IBM'], date: '2026-10-23', now: r.now,
+    remainingMs: () => 900000, sleep: async ms => r.advance(ms), guard: guardAt(r),
+    request: async path => {
+      if (!path.includes('symbol=BAD')) return Response.json([]);
+      if (mode === 'transport') throw Error('private-transport-marker');
+      return mode === 'payload' ? Response.json({ error: 'private-body-marker' }) : new Response('{');
+    }, checkpoint: async () => {}, save: async ticker => saved.push(ticker),
+  });
+  assert.equal(result.complete, true); assert.equal(result.failedTickers, 1);
+  assert.deepEqual(saved, ['IBM']); assert.equal(state.partial.length, 0);
+  assert.ok(!JSON.stringify(state).includes('private-'));
+});
+
+test('account-wide 402 retains ticker partial work and resumes the same endpoint later', async () => {
+  const r = redisClock(), state = stateOf(), paths = [];
+  state.calendarOffset = 180; state.partial = [[]];
+  let denied = true;
+  const run = () => runSlice({ state, universe: ['IBM'], date: '2026-10-23', now: r.now,
+    remainingMs: () => 900000, sleep: async ms => r.advance(ms), guard: guardAt(r),
+    request: async path => { paths.push(path); return denied ? new Response('Upgrade subscription', { status: 402 }) : Response.json([]); },
+    checkpoint: async () => {}, save: async () => {},
+  });
+  assert.equal((await run()).reason, 'http_unavailable');
+  assert.equal(state.cursor, 0); assert.equal(state.partial.length, 1); assert.equal(state.failures, undefined);
+  denied = false; assert.equal((await run()).complete, true); assert.equal(paths[0], paths[1]);
+});
+
+function analystRoute(fetcher, now) {
+  const cache = new Map(), writes = [];
+  const clock = { Date: class extends Date { static now() { return now(); } } };
+  const api = { fmpFetch: fetcher };
+  const { swrFetch } = loadTS('src/lib/cache/redisSWR.ts', {
+    '@/services/redisClient': {
+      getFromCache: async k => cache.get(k) ?? null,
+      setInCache: async (k, v, ttl) => { cache.set(k, v); writes.push({ k, v, ttl }); },
+    },
+  }, clock);
+  const events = loadTS('src/services/analystEvents.ts', { '@/lib/fmpClient': api }, clock);
+  const route = loadTS('src/app/api/live/analyst/route.ts', {
+    '@/lib/fmpClient': api, '@/lib/cache/redisSWR': { swrFetch }, '@/services/analystEvents': events,
+    'next/server': { NextResponse: { json: body => body } },
+  }, clock);
+  cache.set('swr:analyst:IBM', { data: { ticker: 'IBM', totalAnalysts: 4 }, timestamp: now() });
+  return { cache, writes, get: () => route.GET({ nextUrl: { searchParams: new URLSearchParams('t=IBM') } }) };
+}
+
+test('real analyst API + SWR keeps stale 3/1 events on budget denial, then refreshes immediately after recovery', async () => {
+  const r = redisClock(Date.parse('2026-10-23T15:00:00Z'));
+  let calls = 0;
+  const api = client(r, async url => {
+    calls++;
+    return Response.json(url.includes('/grades?') ? [{ date: '2026-10-22', action: 'upgrade', newGrade: 'Buy' }] : []);
+  });
+  const route = analystRoute(api.fmpFetch, r.now);
+  const key = 'swr:analyst-events:v2:IBM';
+  const prior = { data: { ticker: 'IBM', upgrades: 3, downgrades: 1 }, timestamp: r.now() - 6 * 3600000 - 1 };
+  route.cache.set(key, prior);
+  await guardAt(r).observe(new Response('', { status: 429, headers: { 'Retry-After': '120' } }), 'lambda');
+  assert.deepEqual((await route.get()).events, prior.data); assert.equal(calls, 0);
+  assert.equal(route.cache.get(key), prior); assert.equal(route.writes.length, 0);
+  r.advance(120000);
+  const fresh = await route.get();
+  assert.equal(fresh.events.upgrades, 1); assert.equal(fresh.events.downgrades, 0); assert.equal(calls, 5);
+  assert.equal(route.writes.length, 1); assert.equal(route.writes[0].ttl, 12 * 3600);
+  await route.get(); assert.equal(calls, 5);
+});
+
+for (const mode of ['denied', 'partial', 'http', 'payload', 'transport']) test(`analyst cache miss with ${mode} response does not cache fabricated zero events`, async () => {
+  let recovered = false, calls = 0;
+  const route = analystRoute(async url => {
+    calls++;
+    if (!recovered && (mode !== 'partial' || url.includes('/grades?'))) {
+      if (mode === 'transport') throw Error('private-transport-marker');
+      if (mode === 'denied' || mode === 'partial') return null;
+      if (mode === 'http') return new Response('', { status: 404 });
+      return Response.json({ error: 'private-body-marker' });
+    }
+    return Response.json([]);
+  }, Date.now);
+  assert.equal((await route.get()).events, null); assert.equal(route.writes.length, 0);
+  assert.equal(route.cache.has('swr:analyst-events:v2:IBM'), false);
+  recovered = true;
+  const fresh = await route.get();
+  assert.equal(fresh.events.upgrades, 0); assert.equal(fresh.events.downgrades, 0);
+  assert.equal(route.writes.length, 1); assert.equal(calls, 10);
+  await route.get(); assert.equal(calls, 10); // Real, successful empty arrays remain cacheable.
+});
+
 test('opening 15 minutes: concurrent warming/Lambda <=100 rolling calls/min; VWAP always gets its reserved 30', async () => {
   const r = redisClock(Date.parse('2026-10-23T09:30:00-04:00'));
   const workers = Array.from({ length: 8 }, () => guardAt(r));

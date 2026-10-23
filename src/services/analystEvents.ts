@@ -96,14 +96,18 @@ export interface AnalystEvents {
 }
 
 async function fmp(path: string, timeoutMs = 8000): Promise<any> {
-    if (!FMP_KEY) return null;
+    if (!FMP_KEY) throw new Error('ANALYST_EVENTS_UNAVAILABLE');
     try {
         const sep = path.includes("?") ? "&" : "?";
         const res = await fmpFetch(`${FMP_BASE}/${path}${sep}apikey=${FMP_KEY}`, 'analyst', { timeoutMs });
-        if (!res?.ok) return null;
-        return await res.json();
+        if (!res?.ok) throw new Error('ANALYST_EVENTS_UNAVAILABLE');
+        const data = await res.json();
+        if (!Array.isArray(data)) throw new Error('ANALYST_EVENTS_UNAVAILABLE');
+        return data;
     } catch {
-        return null;
+        // swrFetch retains the last successful value on rejection and never
+        // writes a denied/partial refresh as six hours of zero changes.
+        throw new Error('ANALYST_EVENTS_UNAVAILABLE');
     }
 }
 
