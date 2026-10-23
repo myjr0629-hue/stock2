@@ -1714,13 +1714,14 @@ export async function peekEodCloseRow(ticker: string): Promise<{ date: string; c
 
 /**
  * 그 거래일(date)의 «공식» 정규장 종가와 직전 거래일 종가 — 15:57 캡처 행은 쓰지 않는다(API 콜 0).
- * 벌크 행이 그 날짜면 벌크 값, 아니면 20거래일 종가 행렬에서 날짜가 이웃한 두 칸(직전 칸이 prevTradingDay 여야 한다).
+ * 벌크 행이 그 날짜이고 등락(chg)이 0 이 아니면 벌크 값, 아니면 20거래일 종가 행렬에서 날짜가 이웃한 두 칸(직전 칸이 prevTradingDay 여야 하고, 0 은 결측).
  */
 export async function peekOfficialSessionClose(ticker: string, date: string, prevTradingDay: string): Promise<{ close: number; prevClose: number } | null> {
     const sym = ticker.toUpperCase();
     const { rows, prevDate } = await loadBulkEod();
     const r = rows.get(sym);
-    if (r && r.date === date && prevDate === prevTradingDay && !r.provisional && !r.prevMissing && r.c > 0 && r.c - r.chg > 0) {
+    // 적재기는 전일 종가가 없으면 chg=0 으로 저장한다 — chg 0 인 벌크 행은 «보합»인지 «결측»인지 모르므로 행렬로 확인한다.
+    if (r && r.date === date && prevDate === prevTradingDay && !r.provisional && !r.prevMissing && r.chg !== 0 && r.c > 0 && r.c - r.chg > 0) {
         return { close: r.c, prevClose: r.c - r.chg };
     }
     const hist = await loadEodHistory();

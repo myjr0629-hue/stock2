@@ -116,6 +116,14 @@ const json = { json: (data: any) => ({ json: async () => data }) };
         assert.deepEqual(await d.peekOfficialSessionClose('MSFT', '2026-10-22', '2026-10-21'), { close: 521.08, prevClose: 521.08 - (521.08 - 532.95) });
     });
 
+    await test('gate 9: a bulk row with chg 0 (previous close missing at load) is not taken as a 0% flat close', async () => {
+        const c = intrinio(null);   // NEW: 벌크 close 5 · chg 0 · 행렬에 없음
+        assert.equal(await c.peekOfficialSessionClose('NEW', '2026-10-22', '2026-10-21'), null);
+        const h = history as any; h.closes.NEW = [0, 5, 5];   // 진짜 보합이면 행렬이 확인해 준다
+        try { assert.deepEqual(await intrinio(null).peekOfficialSessionClose('NEW', '2026-10-22', '2026-10-21'), { close: 5, prevClose: 5 }); }
+        finally { delete h.closes.NEW; }
+    });
+
     Date.now = REAL_NOW;
     console.log(`\n${passed} passed · ${failed} failed`);
     if (failed) process.exit(1);
