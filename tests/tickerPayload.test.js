@@ -47,6 +47,9 @@ function load(source, mocks, extra = '') {
 }
 const putCall = load(read('src/lib/putCall.ts'), {});
 const vwap = load(read('src/lib/vwap.ts'), {});
+const dailyRsi = load(read('src/lib/dailyRsi.ts'), {
+    '@/lib/marketCalendar': load(read('src/lib/marketCalendar.ts'), {}),
+});
 const background = load(read('src/lib/intrinioBackground.ts'), { 'node:async_hooks': require('node:async_hooks') });
 // 최신 수집 행 선택은 실제 순수 함수를 사용한다. 모듈의 날짜 함수는 이 경로에서 호출하지 않는다.
 const optionsBasis = load(read('src/lib/app/intelOptionsBasis.ts'), {
@@ -69,6 +72,7 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
         // 저장 응답의 옵션 수집 행이 유효한 경로를 재생한다. 대체 OI 자체는 별도 NB1 시험에서 검증한다.
         '@/lib/optionMetrics': { applyOptionMetrics: target => target, optionMetricsRowHasOi: () => true },
         '@/lib/vwap': vwap,
+        '@/lib/dailyRsi': dailyRsi,
         '@/lib/intrinioBackground': background,
         '@/services/realtimeSessionVwap': { getRealtimeSessionVwap: async () => null, readRealtimeSessionVwap: async () => null },
         '@/lib/shortVolume': { shortVolFields: () => ({}) },
@@ -192,8 +196,10 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
                 const b = await full.get('&chain=full');
                 const c = await slim.get('');
                 const d = await zero.get('&chain=0');
-                assert.deepEqual(b.body, a.body, 'full must preserve the old GET result');
-                assert.deepEqual(c.body, withoutChains(a.body), 'default may remove only the two chains');
+                // H1은 RSI 값·세션만 바꾼다. 체인 계약의 이전/이후 비교에서 그 두 필드만 제외한다.
+                const withoutRsi = body => { const out = copy(body); delete out.display.rsi14; delete out.display.rsi14Date; return out; };
+                assert.deepEqual(withoutRsi(b.body), withoutRsi(a.body), 'full must preserve other GET fields');
+                assert.deepEqual(withoutRsi(c.body), withoutRsi(withoutChains(a.body)), 'default may remove only chains plus the H1 RSI change');
                 assert.deepEqual(d.body, c.body);
                 assert.equal(c.cache, mode === 'hit' ? 'HIT' : 'MISS');
                 assert.notEqual(full.calls.responseKeys[0], slim.calls.responseKeys[0]);
