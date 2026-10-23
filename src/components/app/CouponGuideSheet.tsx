@@ -28,12 +28,12 @@ import { isPreviewHost, notifyProPurchased } from '@/lib/app/proEntitlement';
 const funnel = () => import('@/lib/app/funnel');
 
 export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; onClose: () => void }) {
-  const t = couponGuideCopy(req.locale);
   const titleId = useId();
   const { isPro, ready, offers, purchase, iapAvailable, refreshOffers } = useProStatus();
   // 브라우저(프리뷰 ?sgandroid=1)에선 결제 플러그인이 없다 — 가격 자리만 표시하고 [② 구독 시작]은 «실패» 안내로 끝난다
   const preview = !iapAvailable && isPreviewHost();
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
+  const t = couponGuideCopy(req.locale, undefined, monthly?.priceString);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [redeemOpened, setRedeemOpened] = useState(false);

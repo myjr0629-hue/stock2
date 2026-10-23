@@ -31,7 +31,7 @@ import { foregroundProSync, shouldForegroundSync, FOREGROUND_SYNC_MIN_GAP_MS } f
 import { PLAY_PROMO_END } from '../src/lib/marketing/coupon';
 import { couponHtml } from '../src/lib/marketing/couponHtml';
 import { FUNNEL_STAGES } from '../src/lib/app/funnelSchema';
-import { COUPON_SAFETY } from '../src/lib/marketing/couponSafety';
+import { COUPON_SAFETY, couponSafetyCopy } from '../src/lib/marketing/couponSafety';
 
 const ROOT = path.join(__dirname, '..');
 const src = (p: string) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -57,9 +57,9 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   await t('무료 요약은 적용 완료가 아닌 조건부 안내 · 가격·해지 고지는 보존', () => {
     const ko = couponGuideCopy('ko', BEFORE), en = couponGuideCopy('en', BEFORE), ja = couponGuideCopy('ja', BEFORE);
     for (const c of [ko, en, ja]) assert.equal(c.freeHead, c.steps[2]);
-    assert.equal(ko.warning, '결제 창에 ₩0 · 30일 무료가 보일 때만 승인하세요. 금액(월 11,900원)이 바로 청구되는 화면이면 취소하세요.');
-    assert.equal(en.warning, 'Approve only when checkout shows ₩0 · 30 days free. Cancel if the screen shows an immediate charge (₩11,900/month).');
-    assert.equal(ja.warning, '購入画面に₩0・30日間無料と表示された場合のみ、承認してください。月11,900ウォンが、すぐに請求される画面なら、キャンセルしてください。');
+    assert.equal(ko.warning, '결제 창에 30일 무료가 보일 때만 승인하세요. 금액이 바로 청구되는 화면이면 취소하세요.');
+    assert.equal(en.warning, 'Approve only when checkout shows free for 30 days. Cancel if the screen shows an immediate charge.');
+    assert.equal(ja.warning, '購入画面に30日間無料と表示された場合のみ、承認してください。金額が、すぐに請求される画面なら、キャンセルしてください。');
     assert.equal(ko.after('₩11,900'), '이후 월 ₩11,900 자동 갱신');
     assert.equal(en.after('$9.99'), 'then $9.99/mo, auto-renews');
     assert.equal(ja.after('¥1,280'), '以降は月額¥1,280で自動更新');
@@ -68,6 +68,36 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.equal(en.fine, 'A Google payment method is required · Cancel within 30 days and pay nothing · Cancel in Play Store → Payments & subscriptions');
     assert.equal(ja.fine, 'Googleのお支払い方法が必要です・30日以内に解約すれば0円・解約はPlayストア → お支払いと定期購入から');
     for (const c of [ko, en, ja]) assert.ok(!/[₩¥$]\s?\d/.test(c.lede + c.steps.join('') + c.freeHead + c.fine + c.saved), '가격 숫자를 문구에 박지 않는다(스토어 문자열만)');
+  });
+  await t('KRW/JPY/USD: 언어와 무관하게 월간 priceString 그대로 · 통화별 0 표기 없음 · 다른 문구 보존', () => {
+    for (const locale of ['ko', 'en', 'ja'] as const) {
+      for (const price of ['₩11,900', '¥1,280', 'US$9.99', ' US$9.99 ']) {
+        const copy = couponGuideCopy(locale, BEFORE, price);
+        const expected = {
+          ko: `결제 창에 30일 무료가 보일 때만 승인하세요. 금액(월 ${price})이 바로 청구되는 화면이면 취소하세요.`,
+          en: `Approve only when checkout shows free for 30 days. Cancel if the screen shows an immediate charge (${price}/month).`,
+          ja: `購入画面に30日間無料と表示された場合のみ、承認してください。月${price}が、すぐに請求される画面なら、キャンセルしてください。`,
+        };
+        assert.equal(copy.warning, expected[locale]);
+        assert.equal(copy.warning, couponSafetyCopy(locale, price));
+        assert.ok(!/[₩¥$]0\b/.test(copy.warning));
+        const { warning, after, ...rest } = copy;
+        const { warning: fallback, after: fallbackAfter, ...fallbackRest } = couponGuideCopy(locale, BEFORE);
+        assert.deepEqual(rest, fallbackRest);
+        assert.equal(after(price), fallbackAfter(price));
+      }
+    }
+    assert.equal(couponGuideCopy('de', BEFORE, '¥1,280').warning, couponSafetyCopy('en', '¥1,280'));
+  });
+  await t('가격 없음/null/빈 문자열/공백: 무료 30일과 취소 조건 유지 · 금액·자리표시자·빈 괄호 없음', () => {
+    for (const locale of ['ko', 'en', 'ja'] as const) {
+      for (const price of [undefined, null, '', '  ']) {
+        const copy = couponGuideCopy(locale, BEFORE, price);
+        assert.equal(copy.warning, COUPON_SAFETY[locale]);
+        assert.ok(copy.warning.includes({ ko: '30일 무료', en: 'free for 30 days', ja: '30日間無料' }[locale]));
+        assert.ok(!/[₩¥$]|11,900|1,280|9\.99|\(\)|undefined|null/.test(copy.warning));
+      }
+    }
   });
   await t('무료 일수는 Play 프로모션 기간에만(10/31 00:00 GMT 전) — 뒤엔 일수 없이 «무료 기간»', () => {
     assert.equal(PLAY_FREE_DAYS, 30);
@@ -236,6 +266,13 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
         const h = couponHtml({ platform: 'android', lang, fromTag: null, code: 'ZZTEST', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI, ...variant });
         const x = textOf(h);
         assert.ok(x.includes(COUPON_SAFETY[lang]));
+        const warning = textOf(h.match(/<p class="step2" id="coupon-warning">(.*?)<\/p>/)![1]);
+        assert.equal(warning, couponGuideCopy(lang, BEFORE).warning, '스토어 가격이 없는 서버 웹 경고는 금액 생략');
+        assert.ok(!/[₩¥$]|11,900|1,280|9\.99/.test(warning));
+        if (lang === 'ja') {
+          const chunks = [...h.match(/id="coupon-warning">(.*?)<\/p>/)![1].matchAll(/<span class="nw">(.*?)<\/span>/g)].map((m) => textOf(m[1]));
+          assert.deepEqual(chunks, ['購入画面に30日間無料と表示された場合のみ、', '承認してください。金額が、', 'すぐに請求される画面なら、', 'キャンセルしてください。'], '기존 구두점 줄바꿈 유지');
+        }
         assert.ok(h.indexOf('id="coupon-warning"') < h.indexOf('id="step2"'));
         if (!('gift' in variant)) assert.ok(h.indexOf('id="play"') < h.indexOf('id="coupon-warning"'));
       }
