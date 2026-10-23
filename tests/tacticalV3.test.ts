@@ -31,9 +31,9 @@ for (const [iso, expected] of [['2026-10-23T07:59:00Z', 'CLOSED'], ['2026-10-23T
 assert.deepEqual(filterMarketHeadlines(['Volvo Cars shares plunge on weak China sales', 'Smallcap reports disappointing earnings', 'Fed holds interest rates', 'Nvidia earnings lift shares', 'Banking sector earnings improve']), ['Fed holds interest rates', 'Nvidia earnings lift shares', 'Banking sector earnings improve']);
 const base = { rlsiScore: 31, nasdaqChange: -1.2, vix: 19.6, gexIndex: 13, gexLevel: 'NEUTRAL', scheduledEvents: [], marketNewsHeadlines: [] };
 const prePrompt = buildTacticalPrompt({ ...base, indexBasis: pre, session: 'PRE', asOf: new Date(preAt).toISOString() }, 'ko');
-const preFirst = '개장 전 나스닥100 선물은 어제 정규장 마감 대비 0.1% 오른 보합권이고 S&P500 선물도 비슷해, 본장 시작 전 숨 고르기입니다.';
+const preFirst = '어제(10/22) 정규장에서 나스닥 종합은 1.2%, S&P500은 0.6% 내렸고, 지금 개장 전 나스닥100 선물은 보합, S&P500 선물도 보합입니다.';
 const postFirst = '오늘 정규장에서 나스닥은 1.2% 내렸지만, 마감 뒤 나스닥100 선물은 0.3% 반등해 일부 되돌림이 나오고 있습니다.';
-const tail = ' 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 시장 건강도(RLSI)가 31점으로 약해 매수세의 폭이 좁고 옵션 포지션(GEX)은 중립이라 흔들림을 줄이지도 키우지도 않습니다. 다음 분기점은 미확인입니다.';
+const tail = ' 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 시장 건강도(RLSI)가 31점으로 약해 반등을 받칠 힘이 약하고 옵션 포지션(GEX)은 중립이라 흔들림을 줄이지도 키우지도 않습니다. 다음 분기점은 미확인입니다.';
 assert.deepEqual(tacticalIndexReasons(preFirst, prePrompt), []);
 assert.deepEqual(checkTacticalOutput(preFirst + tail, 'ko', prePrompt), []);
 const postPrompt = buildTacticalPrompt({ ...base, indexBasis: post, session: 'POST', asOf: new Date(postAt).toISOString() }, 'ko');
@@ -42,7 +42,7 @@ assert.deepEqual(checkTacticalOutput(postFirst + tail, 'ko', postPrompt), []);
 assert.ok(tacticalIndexReasons(postFirst.replace('반등', '하락'), postPrompt).includes('tactical:index-direction'));
 const enPrePrompt = buildTacticalPrompt({ ...base, indexBasis: pre, asOf: new Date(preAt).toISOString() }, 'en');
 assert.ok(tacticalIndexReasons('Premarket Nasdaq 100 futures fell 0.1% vs prior settlement.', enPrePrompt).includes('tactical:index-direction'));
-assert.deepEqual(tacticalIndexReasons('Premarket Nasdaq 100 futures rose 0.1% vs prior settlement, with narrow support.', enPrePrompt), []);
+assert.deepEqual(tacticalIndexReasons('In the 10/22 cash session Nasdaq Composite fell 1.2% and S&P 500 fell 0.6%, while now premarket Nasdaq 100 futures are flat and S&P 500 futures are flat.', enPrePrompt), []);
 assert.ok(tacticalIndexReasons(postFirst.replace('1.2%', '0.3%'), postPrompt).includes('tactical:index-value'));
 assert.ok(tacticalIndexReasons('지수는 제자리입니다.', prePrompt).includes('tactical:index-name-required'));
 assert.ok(tacticalIndexReasons('나스닥은 1.2% 내렸습니다.', postPrompt).includes('tactical:postclose-both-required'));
@@ -62,9 +62,9 @@ for (const [date, time, local] of [['2026-10-31', '09:45', '22:45'], ['2026-11-0
 }
 assert.equal(tacticalEventTime('2026-03-08', '02:30', 'ko'), null);
 for (const [locale, first, soWhat, next] of [
-    ['ko', preFirst, '시장 건강도(RLSI)가 31점으로 약해 매수세의 폭이 좁고 옵션 포지션(GEX)은 중립이라 흔들림을 줄이지 않습니다.', '다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 PMI로, 약하면 주식이 흔들리고 강하면 압력이 줄어드는 구조입니다.'],
-    ['ja', '取引開始前のナスダック100先物は前回清算値比0.1%上昇です。', '市場の健全度(RLSI)は31点と弱く、オプション(GEX)は中立で揺れを抑えません。', '次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のPMIで、弱ければ株価が揺れ、強ければ圧力が和らぐ構造です。'],
-    ['en', 'Premarket Nasdaq 100 futures rose 0.1% vs prior settlement.', 'Market health (RLSI) is weak at 31 and options positioning (GEX) is neutral, leaving swings uncushioned.', 'The next test is PMI scheduled for 10/23 (Fri) 09:45 ET: weak data add pressure, strong data ease it.'],
+    ['ko', preFirst, '시장 건강도(RLSI)가 31점으로 약해 반등을 받칠 힘이 약하고 옵션 포지션(GEX)은 중립이라 흔들림을 줄이지 않습니다.', '다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 PMI로, 약하면 주식이 흔들리고 강하면 압력이 줄어드는 구조입니다.'],
+    ['ja', '昨日(10/22)の通常取引でナスダック総合は1.2%、S&P500は0.6%下落し、現在の取引開始前のナスダック100先物は横ばい、S&P500先物も横ばいです。', '市場の健全度(RLSI)は31点と弱く、オプション(GEX)は中立で揺れを抑えません。', '次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のPMIで、弱ければ株価が揺れ、強ければ圧力が和らぐ構造です。'],
+    ['en', 'In the 10/22 cash session Nasdaq Composite fell 1.2% and S&P 500 fell 0.6%, while now premarket Nasdaq 100 futures are flat and S&P 500 futures are flat.', 'Market health (RLSI) is weak at 31 and options positioning (GEX) is neutral, leaving swings uncushioned.', 'The next test is PMI scheduled for 10/23 (Fri) 09:45 ET: weak data add pressure, strong data ease it.'],
 ] as const) {
     const p = buildTacticalPrompt({ ...base, indexBasis: pre, asOf: new Date(preAt).toISOString(), scheduledEvents: ['[economic calendar; 2026-10-23 09:45 ET] PMI (scheduled; not a released result)'] }, locale);
     const why = locale === 'ko' ? '오늘 시장 전체를 움직인 재료는 미확인입니다.' : locale === 'ja' ? '相場全体を動かした材料は未確認です。' : 'The market driver is unconfirmed.';

@@ -228,7 +228,7 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
             indexFacts: [{ id: 'nasdaq', kind: 'spot', name: INDEX_NAMES.nasdaq, chgPct: change,
                 basis: { ko: '전일 종가 대비', en: 'vs previous close', ja: '前日終値比' }, asOfET: '2026-10-21 10:00 ET', sessionDate: '2026-10-21' }],
         }, locale);
-        const verdictTpl = '나스닥 종합(현물)은 전일 종가 대비 0.78% 오른 상승장입니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도(RLSI) {RLSI}점으로 약하고 옵션 포지션(GEX {GEX})은 중립이라 흔들림을 줄이지 않습니다. 다음 분기점은 미확인입니다.';
+        const verdictTpl = '나스닥 종합(현물)은 전일 종가 대비 0.8% 오른 상승장입니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도(RLSI) {RLSI}점으로 약하고 옵션 포지션(GEX {GEX})은 중립이라 흔들림을 줄이지 않습니다. 다음 분기점은 미확인입니다.';
         const verdict: any = { realityInsight: fillGuardianTokens(verdictTpl, basis).text, num: { tpl: { realityInsight: verdictTpl }, basis: { realityInsight: basis } } };
         try {
             _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));   // 10:00 ET 장중
@@ -244,7 +244,7 @@ const KO_GAMMA = '[평소와 다른 점] 딜러 감마가 최근 41거래일 중
             // 관문 10211005 ① — 자리표 없는 Tactical 글도 기준값을 남긴다: 같은 값으로 한 번 복구해도 basis 유지 → 이후 반전에 탈락
             _setMarketClockForTest(() => new Date('2026-10-21T14:00:00Z'));
             _resetInsightStateForTest();
-            const plain = '나스닥 종합(현물)은 전일 종가 대비 0.78% 오른 상승장입니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도는 약하고 옵션 포지션은 중립입니다. 다음 분기점은 미확인입니다.';
+            const plain = '나스닥 종합(현물)은 전일 종가 대비 0.8% 오른 상승장입니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도는 약하고 옵션 포지션은 중립입니다. 다음 분기점은 미확인입니다.';
             const v2: any = { realityInsight: plain, num: { tpl: { realityInsight: plain }, basis: { realityInsight: basis } } };
             const once = await IntelligenceNode.repairVerdictTexts(v2, 'ko', 'test', basis, prompts(basis.NDX_CHG));
             assert.deepEqual((once.verdict as any).num?.basis?.realityInsight, basis);

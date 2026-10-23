@@ -1092,7 +1092,7 @@ export class IntelligenceNode {
     private static async generateTrilingualOnce(type: InsightType, nums: GNums, buildPrompt: (locale: Locale) => string): Promise<TriOutcome> {
         const started = Date.now();
         const locales: Locale[] = ['ko', 'en', 'ja'];
-        const blocks = locales.map((l) => `=== ${LOCALE_NAMES[l].toUpperCase()} (${l}) INSTRUCTIONS ===\n${buildPrompt(l) + guardianTokenRules(l, insightNums(type, nums)!)}`).join('\n\n');
+        const blocks = locales.map((l) => `=== ${LOCALE_NAMES[l].toUpperCase()} (${l}) INSTRUCTIONS ===\n${buildPrompt(l) + guardianTokenRules(l, insightNums(type, nums)!, type === 'reality' ? 'tactical' : undefined)}`).join('\n\n');
         const user = `Write the analysis once, in three languages, following each language's own instruction block below. All three must carry the same facts and the same placeholders. Return the JSON object only.\n\n${blocks}`;
         const call = async (extra: string, retry: boolean): Promise<Partial<Record<Locale, string>> | null> => {
             try {
@@ -1224,7 +1224,7 @@ export class IntelligenceNode {
             return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums, tacticalPrompts });
         }
         // ④-b (3개 언어 호출이 응답·파싱에 실패했을 때만) 옛 방식 — 이 언어 하나만 생성 → (숫자를 직접 쓴 자리는 같은 값이면 자리표로) → 검사 → (떨어지면) 교정 지시 + 한 번 더 → 검사
-        const prompt = buildPrompt(locale) + guardianTokenRules(locale, insightNums(type, nums)!);
+        const prompt = buildPrompt(locale) + guardianTokenRules(locale, insightNums(type, nums)!, type === 'reality' ? 'tactical' : undefined);
         const label = `${type.toUpperCase()}_${locale}`;
         let raw = await callInsightModel(prompt, locale, label);
         let gated = raw !== null ? gateText(type, tokenizeInsight(type, raw, nums), locale, nums, nums, true, tacticalPrompts?.(locale)) : null;

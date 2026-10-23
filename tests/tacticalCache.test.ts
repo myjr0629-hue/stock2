@@ -277,17 +277,17 @@ async function main() {
             nq: { symbol: 'NQ=F', price: 100, changePct: change, marketTime: new Date(clock).toISOString(), lastChangeAt: new Date(clock).toISOString(), source: 'YAHOO' },
         }, clock);
         const pre = {
-            ko: '개장 전 나스닥100 선물은 직전 정산 대비 0.1% 올랐습니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도(RLSI)는 34점으로 약하고 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.',
-            en: 'Premarket Nasdaq 100 futures rose 0.1% vs prior settlement. The market driver is unconfirmed. Market health (RLSI) is weak at 34 and options positioning (GEX) is unconfirmed. The next test is unconfirmed.',
-            ja: '取引開始前のナスダック100先物は前回清算値比0.1%上昇です。市場全体の材料は未確認です。市場の健全度(RLSI)は34点と弱く、オプション(GEX)は未確認です。次の分岐点は未確認です。',
+            ko: '어제 정규장에서 나스닥 종합은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 직전 정산 대비 0.2% 올랐습니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도(RLSI)는 34점으로 약하고 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.',
+            en: 'Nasdaq Composite fell 1.2% in the previous cash session, while now premarket Nasdaq 100 futures rose 0.2% vs prior settlement. The market driver is unconfirmed. Market health (RLSI) is weak at 34 and options positioning (GEX) is unconfirmed. The next test is unconfirmed.',
+            ja: '前回通常取引でナスダック総合は1.2%下落し、現在の取引開始前のナスダック100先物は前回清算値比0.2%上昇です。市場全体の材料は未確認です。市場の健全度(RLSI)は34点と弱く、オプション(GEX)は未確認です。次の分岐点は未確認です。',
         };
         reply = async () => JSON.stringify(pre);
-        const first = await N.generateRealityInsight({ ...ctx('ko'), nasdaqChange: -1.2, indexBasis: basis(0.1), scheduledEvents: [] });
+        const first = await N.generateRealityInsight({ ...ctx('ko'), nasdaqChange: -1.2, indexBasis: basis(0.2), scheduledEvents: [] });
         assert.equal(first, pre.ko);
         assert.ok(!store.get(key('ko')).text.includes('{NDX_CHG}'));
         clock += 60_000;
         reply = async () => { throw new Error('offline model failure'); };
-        const second = await N.generateRealityInsight({ ...ctx('ko'), nasdaqChange: -1.2, indexBasis: basis(-0.1), scheduledEvents: [] });
+        const second = await N.generateRealityInsight({ ...ctx('ko'), nasdaqChange: -1.2, indexBasis: basis(-0.2), scheduledEvents: [] });
         assert.ok(N.isPlaceholderInsight(second), '부호가 바뀐 선물 글을 복구 캐시로 다시 내보내지 않는다');
     });
     await test('10/21 관문 10211022: 동시 요청으로 마지막 글이 바뀌어도 앞선 Tactical 화면 글의 생성 기준값을 찾는다(자리표 없는 글)', async () => {

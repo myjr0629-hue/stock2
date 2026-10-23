@@ -179,13 +179,13 @@ test('실적: 공급사 분 단위 시각 우선·BMO 당일=미확인/AMC 16:00
     assert.match(rowAt('2026-03-08T04:30:00Z', { ...row, date: '2026-03-08' }), /scheduled/);
 });
 
-test('ko/en/ja: 뉴스→전이+고유자원→한 가지 확인, 공백 350자 계약', () => {
+test('ko/en/ja: 뉴스→전이+고유자원→한 가지 확인, ko/ja 420자·en 620자 계약', () => {
     for (const loc of ['ko', 'en', 'ja'] as const) {
         const p = buildTacticalPrompt(facts, loc);
         assert.match(p, /WHY[\s\S]*SO WHAT[\s\S]*NEXT/);
         assert.match(p, /at least one available proprietary resource/);
         assert.match(p, /exactly ONE supplied/);
-        assert.match(p, loc === 'en' ? /Maximum 480 characters/ : /Maximum 340 characters/);   // 10/21 — 4문장 구조에서 길이를 예전 글(ko 평균 250자)과 비슷하게(출구 상한 380/560 은 그대로)
+        assert.match(p, loc === 'en' ? /Maximum 620 characters/ : /Maximum 420 characters/);
         assert.match(p, /auction draws weak demand/);
         assert.match(p, /2026-10-21 08:30 ET/);
     }
@@ -209,9 +209,9 @@ test('뉴스 없는 입력: 명시적 미확인, 옛 코어의 무시각 헤드�
     assert.doesNotMatch(p.slice(p.indexOf('TODAY_NEWS:')), /Fed cuts/);
     assert.ok(checkTacticalOutput('연준의 금리 인하 발표가 오늘 시장을 움직였습니다.', 'ko', p).some(r => r.startsWith('event:unsupported:')));
     assert.ok(checkTacticalOutput('확인한 자료를 바탕으로 지금 매수하세요.', 'ko', p).includes('tactical:advice'));
-    assert.ok(checkTacticalOutput('x'.repeat(561), 'en', p).includes('tactical:too-long'));
-    assert.ok(checkTacticalOutput('가'.repeat(381), 'ko', p).includes('tactical:too-long'));
-    assert.ok(!checkTacticalOutput('x'.repeat(480), 'en', p).includes('tactical:too-long'));
+    assert.ok(checkTacticalOutput('x'.repeat(621), 'en', p).includes('tactical:too-long'));
+    assert.ok(checkTacticalOutput('가'.repeat(421), 'ko', p).includes('tactical:too-long'));
+    assert.ok(!checkTacticalOutput('x'.repeat(620), 'en', p).includes('tactical:too-long'));
     assert.ok(checkTacticalOutput('Options support is 99999.', 'en', p).includes('tactical:number'));
     assert.ok(!checkTacticalOutput('Macro cause is unconfirmed. Dealer gamma buffers pressure. The next test going forward is options support.', 'en', p).some(r => r.startsWith('event:unsupported:')));
 });
@@ -654,7 +654,7 @@ test('10/21 대표 «이것만 읽어도 시장 상태 이해» — 상태 판�
     assert.ok(checkTacticalOutput(roll, 'ko', p).includes('tactical:number-rollcall'));
     // 관문 10210927 ① — 첫 문장의 틀린 시각을 두 번째 문장의 «미확인»(다른 것에 대한)으로 빠져나가지 못한다
     const bypass = '10:30 ET 기준 지수는 올랐지만 힘이 빠진 상승장입니다. 옵션 포지션은 미확인입니다. 시장 건강도(RLSI) 36점으로 약하고 옵션 포지션(GEX +5)은 중립입니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
-    assert.ok(checkTacticalOutput(bypass, 'ko', p).includes('tactical:news-source-time-required'));
+    assert.ok(checkTacticalOutput(bypass, 'ko', p).includes('tactical:state-time-forbidden'));
     // 관문 10211005 ② — 첫 문장의 «미확인»(옵션 포지션)이 WHY 로 잡혀도 두 번째 문장의 틀린 뉴스 시각(실제 19:24 → 10:30)은 탈락
     const bypass2 = '지수는 올랐지만 옵션 포지션은 미확인인 상승장입니다. 배경은 10:30 ET NEWS PULSE 보도로, 금이 4,150달러 아래로 밀렸습니다. 시장 건강도(RLSI) 36점으로 약하고 옵션 포지션(GEX +5)은 중립입니다. 다음 분기점은 10/21(수) 10:30 ET 예정된 EIA Crude Oil Stocks Change(원유 재고)로, 재고가 줄면 유가 상승 압력이 이어지고 늘면 누그러지는 쪽으로 읽힙니다.';
     assert.ok(checkTacticalOutput(bypass2, 'ko', p).includes('tactical:news-source-time-required'));
