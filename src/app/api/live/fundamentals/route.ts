@@ -57,10 +57,10 @@ export async function GET(req: NextRequest) {
                             _incomeMetricsVersion: 1,
                             ...(f._priceBasis ? { _priceBasis: f._priceBasis } : {}),
                         };
-                        // [M1] 기준 종가가 안 적힌 레코드는 수확 일정(09:25 ET)으로 기준일을 정해 붙인다 — 실패하면 원래 값 그대로.
+                        // [M1] 기준 종가가 안 적힌 레코드는 같은 값을 담은 일일 수확 기록(FUND)의 읽은 시각으로 기준일을 정한다 — 없으면 원래 값 그대로.
                         try {
                             const { stampHarvestedValuation } = await import('@/services/stalePriceRepair');
-                            return await stampHarvestedValuation(ticker, hit, Number(dynData?.timestamp));
+                            return await stampHarvestedValuation(ticker, hit);
                         } catch { return hit; }
                     }
                 } catch (e: any) {

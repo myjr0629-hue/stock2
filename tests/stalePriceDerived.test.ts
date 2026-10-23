@@ -32,17 +32,23 @@ async function withNow<T>(ms: number, fn: () => Promise<T>): Promise<T> {
     try { return await fn(); } finally { Date.now = real; }
 }
 
+// 기본 «지금» = 금 10/23 10:00 ET (마지막으로 끝난 정규장 = 목 10/22). 시험마다 필요하면 withNow 로 바꾼다.
+const REAL_NOW = Date.now;
+Date.now = () => Date.parse('2026-10-23T14:00:00Z');
 const calendar = load('src/lib/marketCalendar.ts', {});
 const rebase = load('src/lib/valuationRebase.ts', { './marketCalendar': calendar });
 
 /** 실제 서비스 + 가짜 EOD 리더 */
-function service(eod: { closes?: Record<string, Record<string, number>>; latest?: Record<string, any>; official?: Record<string, any> }) {
+function service(eod: { closes?: Record<string, Record<string, number>>; latest?: Record<string, any>; official?: Record<string, any>; fund?: any }) {
     const intrinio = {
         peekCloseOn: async (t: string, d: string) => eod.closes?.[t]?.[d] ?? null,
         peekLatestCloseRow: async (t: string) => eod.latest?.[t] ?? null,
         peekOfficialSessionClose: async (t: string, d: string, p: string) => eod.official?.[`${t}:${d}:${p}`] ?? null,
     };
-    return load('src/services/stalePriceRepair.ts', { './intrinioClient': intrinio, '@/lib/valuationRebase': rebase, '@/lib/marketCalendar': calendar });
+    return load('src/services/stalePriceRepair.ts', {
+        './intrinioClient': intrinio, '@/lib/valuationRebase': rebase, '@/lib/marketCalendar': calendar,
+        '@/lib/aws/dynamoDataProvider': { getFundamentalsData: async () => eod.fund ?? null },
+    });
 }
 
 const json = { json: (data: any) => ({ json: async () => data }) };
@@ -78,11 +84,7 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
     await test('basis date: after close / before open is unknown (null, never invented)', () => {
         assert.equal(rebase.valuationBasisDate(at('2026-10-23T21:30:00Z')), null);   // 금 17:30 ET
         assert.equal(rebase.valuationBasisDate(at('2026-10-23T12:00:00Z')), null);   // 금 08:00 ET
-    });
-    await test('harvest basis: record after 09:35 ET → that day\'s run → previous close', () => {
-        assert.equal(rebase.harvestBasisDate(at('2026-10-22T16:00:00Z')), '2026-10-21');   // 목 12:00 ET
-        assert.equal(rebase.harvestBasisDate(at('2026-10-22T13:00:00Z')), '2026-10-20');   // 목 09:00 ET → 수 수확
-        assert.equal(rebase.harvestBasisDate(at('2026-10-24T16:00:00Z')), '2026-10-22');   // 토 → 금 수확 → 목 종가
+        assert.equal(rebase.valuationBasisDate(at('2026-10-22T13:25:00Z')), '2026-10-21');   // 목 09:25 ET 수확 창
     });
 
     // ── 순수 환산 ────────────────────────────────────────────────
@@ -119,6 +121,14 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         const down = rebase.rebaseFundamentals(g, { date: '2026-10-23', close: 99.9 });   // 14.945 · 3.043 → 점수 그대로
         assert.equal(down.score, 52); assert.equal(down.grade, 'B');
     });
+    await test('gate ①: legacy rounded 15.0/3.0 record (stored 52/B from 14.96/3.04) keeps 52/B on an unchanged next close', () => {
+        const f = { score: 52, grade: 'B', pe: 15, fcfYield: 3, marketCap: 1e12, breakdown: { pe: { value: '15.0', score: 20, label: 'P/E' }, fcf: { value: '3.0%', score: 12, label: 'FCF' } } };
+        const g = { ...f, _priceBasis: rebase.makePriceBasis(f, '2026-10-21', 100, {}, true) };
+        const same = rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 100 });
+        assert.equal(same.score, 52); assert.equal(same.grade, 'B'); assert.equal(same.pe, 15); assert.equal(same.breakdown.pe.score, 20); assert.equal(same.breakdown.fcf.score, 12);
+        const up = rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 110 });   // 실제 10 % 상승 → P/E 16.5(16점) · FCF 2.7(8점)
+        assert.equal(up.score, 44); assert.equal(up.grade, 'C+');
+    });
     await test('missing basis fields stay as stored; NO_DATA grade is not invented', () => {
         const f = { score: null, grade: 'NO_DATA', pe: null, marketCap: 1e9, breakdown: {} };
         const g = { ...f, _priceBasis: rebase.makePriceBasis(f, '2026-10-21', 10) };
@@ -127,28 +137,45 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
     });
 
     // ── live/fundamentals 실제 GET ───────────────────────────────
-    await test('M1 route: legacy DynamoDB record (no basis) is stamped by harvest schedule and repriced', async () => {
-        const d = await fundamentals({ unified: { fundamentals: NVDA_LEGACY, timestamp: at('2026-10-22T16:00:00Z') }, svc: service(EOD_1022) });
+    const FUND = { pattern: 'FUND:NVDA', timestamp: at('2026-10-22T13:30:00Z'), marketCap: null, pe: 27.7, ps: 17.7, pb: 23.3, fcfYield: 2.4, de: 0.15, roe: 117.2 };
+    const legacyRecord = { fundamentals: NVDA_LEGACY, timestamp: at('2026-10-23T13:58:00Z') };
+    await test('M1 route: legacy DynamoDB record matching the harvest record is based on its read time and repriced', async () => {
+        const d = await fundamentals({ unified: legacyRecord, svc: service({ ...EOD_1022, fund: FUND }) });
         assert.equal(Math.round(d.marketCap / 1e9), 5114); assert.equal(d.pe, 26.5);
         assert.equal(d._priceBasis.date, '2026-10-21'); assert.equal(d._priceBasis.inferred, true); assert.equal(d._source, 'dynamodb');
         assert.equal(d.score, 80); assert.equal(d.grade, 'A'); assert.equal(d.roe, 117.2);
     });
+    await test('gate ②: preserved older fundamentals (harvest record differs) are not given a guessed basis', async () => {
+        const newer = { ...FUND, pe: 26.5, ps: 16.9, pb: 22.3, fcfYield: 2.5 };
+        const d = await fundamentals({ unified: legacyRecord, svc: service({ ...EOD_1022, fund: newer }) });
+        assert.equal(d._priceBasis, undefined);
+        for (const k of ['pe', 'ps', 'pb', 'fcfYield', 'marketCap', 'score', 'grade']) assert.equal(d[k], (NVDA_LEGACY as any)[k], k);
+        const none = await fundamentals({ unified: legacyRecord, svc: service({ ...EOD_1022 }) });
+        assert.equal(none._priceBasis, undefined); assert.equal(none.pe, 27.7);
+    });
     await test('M1 route: without EOD closes the stored values are returned unchanged (no blanks)', async () => {
-        const d = await fundamentals({ unified: { fundamentals: NVDA_LEGACY, timestamp: at('2026-10-22T16:00:00Z') }, svc: service({}) });
+        const d = await fundamentals({ unified: legacyRecord, svc: service({ fund: FUND }) });
         for (const k of ['pe', 'ps', 'pb', 'fcfYield', 'marketCap', 'score', 'grade']) assert.equal(d[k], (NVDA_LEGACY as any)[k], k);
     });
     await test('M1 route: when the repair module is unavailable the old behavior is kept', async () => {
-        const d = await fundamentals({ unified: { fundamentals: NVDA_LEGACY, timestamp: at('2026-10-22T16:00:00Z') } });
+        const d = await fundamentals({ unified: legacyRecord });
         assert.equal(d.pe, 27.7); assert.equal(d.marketCap, 5349477000000); assert.equal(d._priceBasis, undefined);
     });
     const ratios = { price_to_earnings: 14.96, debt_to_equity: 0.5, return_on_equity: 0.2, price_to_book: 3.33, price_to_sales: 4.44, free_cash_flow: 30.4e9, market_cap: 1e12 };
-    await test('M1 route fresh read: raw basis keeps the original score (gate 52/B case) and reprices on next close', async () => {
-        const base = await withNow(at('2026-10-23T16:00:00Z'), () => fundamentals({ ratios }));   // 수리 모듈 없음 = 기존 동작
-        const same = await withNow(at('2026-10-23T16:00:00Z'), () => fundamentals({ ratios, svc: service({ closes: { NVDA: { '2026-10-22': 100 } }, latest: { NVDA: { date: '2026-10-22', close: 100, prevClose: 99 } } }) }));
+    await test('M1 route fresh read: raw basis keeps the original score (gate 52/B case) and reprices after the next close', async () => {
+        const fri12 = at('2026-10-23T16:00:00Z');
+        const base = await withNow(fri12, () => fundamentals({ ratios }));   // 수리 모듈 없음 = 기존 동작
+        const eod1022 = { closes: { NVDA: { '2026-10-22': 100 } }, latest: { NVDA: { date: '2026-10-22', close: 100, prevClose: 99 } } };
+        const same = await withNow(fri12, () => fundamentals({ ratios, svc: service(eod1022) }));
         for (const k of ['score', 'grade', 'pe', 'fcfYield', 'marketCap', 'ps', 'pb']) assert.equal(same[k], base[k], k);
         assert.deepEqual(same.breakdown, base.breakdown);
         assert.equal(same._priceBasis.pe, 14.96); assert.equal(same._priceBasis.date, '2026-10-22'); assert.equal(same._priceBasis.inferred, undefined);
-        const next = await withNow(at('2026-10-23T16:00:00Z'), () => fundamentals({ ratios, svc: service({ closes: { NVDA: { '2026-10-22': 100 } }, latest: { NVDA: { date: '2026-10-23', close: 110, prevClose: 100 } } }) }));
+        const { _cache, ...stored } = same;
+        const eod1023 = { latest: { NVDA: { date: '2026-10-23', close: 110, prevClose: 100 } } };
+        const swr = async () => ({ data: stored, _cache: 'hit' });
+        const before = await withNow(at('2026-10-23T19:58:00Z'), () => fundamentals({ svc: service(eod1023), swr }));   // 15:58 ET — 마감 전 캡처는 안 쓴다
+        assert.equal(before.pe, base.pe); assert.equal(before.marketCap, base.marketCap);
+        const next = await withNow(at('2026-10-23T21:00:00Z'), () => fundamentals({ svc: service(eod1023), swr }));
         assert.equal(next.marketCap, 1.1e12); assert.equal(next.pe, 16.5);
         assert.equal(next.score, base.score - 4 - 4);   // P/E 20→16 · FCF 12(3.04)→8(2.76)
     });
@@ -180,6 +207,19 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         assert.equal(await relSvc.repriceRelated(rel, NaN), rel);
     });
 
+    await test('gate ③: a related row refilled in the next session (prevClose = latest close) is kept despite an old edition timestamp', async () => {
+        const filled = { topRelated: [{ ticker: 'GOOGL', price: 330.1, change: 1.81, prevClose: 324.22 }] };
+        assert.equal(await relSvc.repriceRelated(filled, at('2026-10-19T18:00:00Z')), filled);
+        const sameSession = { topRelated: [{ ticker: 'GOOGL', price: 330.1, change: -1.39, prevClose: 334.76 }] };   // 10/22 장중 값 → 10/22 종가
+        assert.equal((await relSvc.repriceRelated(sameSession, at('2026-10-23T14:00:00Z'))).topRelated[0].price, 324.22);
+    });
+    await test('gate ⑤: before the close a same-day 15:57 capture is never applied (M9 and M1)', async () => {
+        const svc = service({ latest: { GOOGL: { date: '2026-10-23', close: 330, prevClose: 324.22, provisional: true } } });
+        const stale = { topRelated: [{ ticker: 'GOOGL', price: 344.73, change: 1.22, prevClose: 340.58 }] };
+        assert.equal(await withNow(at('2026-10-23T19:58:00Z'), () => svc.repriceRelated(stale, at('2026-10-23T19:50:00Z'))), stale);
+        const after = await withNow(at('2026-10-23T20:30:00Z'), () => svc.repriceRelated(stale, at('2026-10-23T19:50:00Z')));
+        assert.equal(after.topRelated[0].price, 330);
+    });
     await test('unified exit: cached edition reprices fundamentals (basis) and related (pre-close) together; fresh edition untouched', async () => {
         const svc = service({ ...EOD_1022, latest: { ...EOD_1022.latest, GOOGL: { date: '2026-10-22', close: 324.22, prevClose: 334.76 } } });
         const edition = { ticker: 'NVDA', timestamp: at('2026-10-19T18:00:00Z'), fundamentals: { ...NVDA_LEGACY, _priceBasis: basis }, related: { topRelated: [{ ticker: 'GOOGL', price: 344.73, change: 1.22, prevClose: 340.58 }] }, structure: { x: 1 } };
@@ -257,6 +297,14 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         const e = await c.peekEodCloseRow('MSFT');   // 기존 계약 그대로
         assert.equal(e.date, '2026-10-23'); assert.equal(e.close, 525.04);
     });
+    await test('gate ④: basis close prefers the official history over a same-day capture', async () => {
+        const c = intrinio({ date: '2026-10-23', rows: { MSFT: [525.04, 100] } });
+        const h = history as any; h.dates.push('2026-10-23'); h.closes.MSFT.push(526); h.closes.NVDA.push(0);
+        try { assert.equal(await c.peekCloseOn('MSFT', '2026-10-23'), 526); assert.equal(await c.peekCloseOn('NVDA', '2026-10-23'), null); }
+        finally { h.dates.pop(); h.closes.MSFT.pop(); h.closes.NVDA.pop(); }
+        const d = intrinio({ date: '2026-10-23', rows: { MSFT: [525.04, 100] } });
+        assert.equal(await d.peekCloseOn('MSFT', '2026-10-23'), 525.04);   // 공식이 없을 때만 캡처
+    });
     await test('EOD readers: bulk row without capture is official; capture row with unknown prev → prevClose null', async () => {
         const c = intrinio({ date: '2026-10-23', rows: { ZZZ: [7, 1] } });
         const o = await c.peekOfficialSessionClose('MSFT', '2026-10-22', '2026-10-21');
@@ -265,6 +313,7 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         assert.equal((await c.peekEodCloseRow('ZZZ')).prevClose, 7);   // 기존 함수 결과는 바꾸지 않았다
     });
 
+    Date.now = REAL_NOW;
     console.log(`\n${passed} passed · ${failed} failed`);
     if (failed) process.exit(1);
 })();

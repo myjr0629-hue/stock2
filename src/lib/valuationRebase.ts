@@ -27,39 +27,28 @@ export interface PriceBasis {
     score: number | null;
     peScore: number | null;
     fcfScore: number | null;
-    /** 원천 읽은 시각을 수확 일정으로 추정한 기준인가 (true) · 읽은 시각을 직접 안 기준인가 (없음) */
+    /** 기준을 DynamoDB 수확 기록(FUND)의 읽은 시각으로 정했는가 (true) · 응답이 직접 읽은 시각인가 (없음) */
     inferred?: boolean;
 }
 
-const OPEN_MIN = 570;          // 09:30 ET
-const HARVEST_DONE_MIN = 575;  // 09:35 ET — Lambda 일일 상세 수확 창(09:25~35 ET, scripts/lambda-harvest)
+/** 09:25 ET — 이 시각 이후 읽은 marketcap 은 직전 거래일 종가 기준이다(Lambda 일일 수확 09:25~35 ET 의 운영 실측 2점). */
+const MORNING_READY_MIN = 565;
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 /**
  * 그 시각에 Intrinio marketcap 을 읽었다면 그 값은 어느 거래일 종가 기준인가.
- *   거래일 09:30 ET ~ 정규장 마감 전 → 직전 거래일(그날 장은 아직 안 끝났고, 밤사이 갱신은 끝났다)
- *   휴장일·주말 09:30 ET 이후 → 직전 거래일
+ *   거래일 09:25 ET ~ 정규장 마감 전 → 직전 거래일(그날 장은 아직 안 끝났고, 밤사이 갱신은 끝났다)
+ *   휴장일·주말 09:25 ET 이후 → 직전 거래일
  *   그 밖(마감 뒤 저녁·새벽)은 벤더 갱신 시각을 모르므로 null — 기준을 지어내지 않는다.
  */
 export function valuationBasisDate(readAtMs: number): string | null {
     if (!Number.isFinite(readAtMs) || readAtMs <= 0) return null;
     const d = etDateOf(readAtMs);
     const m = etMinutesOf(readAtMs);
-    if (m < OPEN_MIN) return null;
+    if (m < MORNING_READY_MIN) return null;
     if (isNonTradingDay(d)) return prevTradingDate(d);
     return m < sessionCloseMinutes(d) ? prevTradingDate(d) : null;
-}
-
-/**
- * 기준이 안 적힌 DynamoDB 재무 레코드(기록 시각 T)의 기준일 추정 — 내용은 T 이전 가장 최근 일일 수확(거래일 09:25~35 ET)에서
- * 읽은 값이다 → 그 수확일의 직전 거래일 종가.
- */
-export function harvestBasisDate(recordTsMs: number): string | null {
-    if (!Number.isFinite(recordTsMs) || recordTsMs <= 0) return null;
-    const d = etDateOf(recordTsMs);
-    const runDay = !isNonTradingDay(d) && etMinutesOf(recordTsMs) >= HARVEST_DONE_MIN ? d : prevTradingDate(d);
-    return prevTradingDate(runDay);
 }
 
 export function peScoreOf(pe: number | null): number {
@@ -70,6 +59,16 @@ export function peScoreOf(pe: number | null): number {
 export function fcfScoreOf(fcfYield: number | null): number {
     if (fcfYield === null) return 0;
     return fcfYield > 8 ? 20 : fcfYield > 5 ? 16 : fcfYield > 3 ? 12 : fcfYield > 1 ? 8 : 4;
+}
+
+/**
+ * 반올림된 기준값(예: P/E 15.0)이 기준 점수와 다른 구간이면(원값 14.96 → 20점) 반올림 반 단위 안에서 기준 점수와 맞는 쪽 경계 안으로 옮긴다.
+ * 원값을 모르는 옛 레코드가 «가격이 그대로인데 점수만 바뀌는» 회귀를 막는다. 맞출 수 없으면 그대로.
+ */
+export function scoreConsistentValue(v: number, storedScore: number | null, scoreOf: (x: number) => number, half = 0.05): number {
+    if (storedScore === null || scoreOf(v) === storedScore) return v;
+    for (const c of [v - half * 0.999, v + half * 0.999]) if (scoreOf(c) === storedScore) return c;
+    return v;
 }
 
 export function gradeOf(score: number): string {
@@ -122,14 +121,15 @@ export function rebaseFundamentals<T>(f: T, latest: { date: string; close: numbe
 
     // 점수: P/E·FCF 두 항목만 다시 매긴다(나머지 항목은 가격과 무관). 기준 점수·항목 점수를 알 때만.
     const bd = src.breakdown && typeof src.breakdown === 'object' ? { ...src.breakdown } : null;
+    //   채점은 기준 점수와 같은 구간에 놓인 기준값(scoreConsistentValue)에서 — 반올림만 다른 옛 레코드도 k=1 이면 점수 그대로.
     let score = b.score;
     if (bd && pe !== null && bd.pe && b.peScore !== null) {
-        const s = peScoreOf(pe);
+        const s = peScoreOf(scoreConsistentValue(b.pe!, b.peScore, peScoreOf) * k);
         bd.pe = { ...bd.pe, value: pe.toFixed(1), score: s };
         if (score !== null) score += s - b.peScore;
     }
     if (bd && fcf !== null && bd.fcf && b.fcfScore !== null) {
-        const s = fcfScoreOf(fcf);
+        const s = fcfScoreOf(scoreConsistentValue(b.fcfYield!, b.fcfScore, fcfScoreOf) / k);
         bd.fcf = { ...bd.fcf, value: fcf.toFixed(1) + '%', score: s };
         if (score !== null) score += s - b.fcfScore;
     }

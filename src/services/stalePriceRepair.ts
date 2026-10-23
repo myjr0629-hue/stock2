@@ -5,8 +5,8 @@
  * 필요한 종가가 없으면 원래 값을 그대로 돌려준다(빈칸을 만들지 않는다).
  */
 import { peekCloseOn, peekLatestCloseRow, peekOfficialSessionClose } from './intrinioClient';
-import { harvestBasisDate, isPriceBasis, makePriceBasis, rebaseFundamentals, valuationBasisDate } from '@/lib/valuationRebase';
-import { etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate, sessionCloseMinutes } from '@/lib/marketCalendar';
+import { isPriceBasis, makePriceBasis, rebaseFundamentals, valuationBasisDate } from '@/lib/valuationRebase';
+import { etDateOf, etLastClosedSessionDate, etMinutesOf, isNonTradingDay, prevTradingDate, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 /** 막 읽은 원천 값(f)에 기준을 붙인다. readAtMs 로 기준일을 못 정하면 f 그대로. */
 export async function stampFreshValuation<T>(ticker: string, f: T, readAtMs: number, raw: Record<string, number | null> = {}): Promise<T> {
@@ -18,40 +18,73 @@ export async function stampFreshValuation<T>(ticker: string, f: T, readAtMs: num
     } catch { return f; }
 }
 
-/** 기준이 없는 DynamoDB 재무(기록 시각 recordTs)에 수확 일정으로 추정한 기준을 붙인다. */
-export async function stampHarvestedValuation<T>(ticker: string, f: T, recordTs: number): Promise<T> {
+/**
+ * 기준이 없는 DynamoDB 재무(f)에 기준을 붙인다 — 같은 값(P/E·P/S·P/B·FCF 수익률·D/E·ROE)을 담은 일일 수확 기록(pattern-db FUND)이
+ * 있을 때만, 그 기록이 «원천을 읽은 시각»으로 기준일을 정한다. 기록이 없거나 값이 하나라도 다르면 붙이지 않는다(원래 값 그대로).
+ * 판본 timestamp 는 보존된 옛 재무에도 갱신되므로 기준일 추정에 쓰지 않는다.
+ */
+export async function stampHarvestedValuation<T>(ticker: string, f: T): Promise<T> {
     try {
-        if (!f || isPriceBasis((f as any)._priceBasis)) return f;
-        const date = harvestBasisDate(recordTs);
+        const src: any = f;
+        if (!src || isPriceBasis(src._priceBasis)) return f;
+        const { getFundamentalsData } = await import('@/lib/aws/dynamoDataProvider');
+        const fund = await getFundamentalsData(ticker.toUpperCase());
+        if (!fund || !sameHarvestValues(src, fund)) return f;
+        const date = valuationBasisDate(Number(fund.timestamp));
         if (!date) return f;
-        const basis = makePriceBasis(f, date, await peekCloseOn(ticker, date), {}, true);
-        return basis ? { ...(f as any), _priceBasis: basis } : f;
+        const basis = makePriceBasis(src, date, await peekCloseOn(ticker, date), {}, true);
+        return basis ? { ...src, _priceBasis: basis } : f;
     } catch { return f; }
+}
+
+function sameHarvestValues(f: any, fund: any): boolean {
+    let matched = 0;
+    for (const k of ['pe', 'ps', 'pb', 'fcfYield', 'de', 'roe', 'marketCap']) {
+        const a = f?.[k], b = fund?.[k];
+        const na = typeof a === 'number' && Number.isFinite(a), nb = typeof b === 'number' && Number.isFinite(b);
+        if (na !== nb) { if (k === 'marketCap') continue; return false; }   // 수확 기록의 marketCap 은 비어 있을 수 있다
+        if (!na) continue;
+        if (a !== b) return false;
+        matched++;
+    }
+    return matched >= 3;
+}
+
+/** 최신 «끝난» 정규장 종가 — 마감 전 15:57 캡처(오늘 날짜)는 쓰지 않는다. */
+async function latestClosedRow(ticker: string, nowMs = Date.now()) {
+    const row = await peekLatestCloseRow(ticker);
+    if (!row || !(row.close > 0) || row.date > etLastClosedSessionDate(nowMs)) return null;
+    return row;
 }
 
 /** 기준이 붙은 재무를 최신 종가로 환산한다. */
 export async function repriceFundamentals<T>(ticker: string, f: T): Promise<T> {
     try {
         if (!f || !isPriceBasis((f as any)?._priceBasis)) return f;
-        const latest = await peekLatestCloseRow(ticker);
-        return rebaseFundamentals(f, latest);
+        return rebaseFundamentals(f, await latestClosedRow(ticker));
     } catch { return f; }
 }
 
 /**
- * [M9] unified 캐시(timestamp = 만든 시각)의 연관 종목 가격·등락 — 만든 뒤에 끝난 정규장이 있으면 그 종가·등락으로 바꾼다.
- * 캐시가 최신 종가보다 새로우면(장중에 만든 값 등) 손대지 않는다.
+ * [M9] unified 캐시의 연관 종목 가격·등락 — 최신 «끝난» 정규장 D 의 종가로 바꾸는 것은 그 행이 D 이전 세션 값일 때만이다.
+ *   · 행의 직전 종가 = D 종가  → D 다음 세션 값(장중 보충 등) → 그대로
+ *   · 행의 직전 종가 = D 전일 종가 → D 세션 값(장중 가격) → D 종가로
+ *   · 둘 다 아니면 판본이 D 마감 전에 만들어졌을 때만(timestamp 는 구멍 보충 때 안 바뀌므로 «새 판본»의 행은 위 두 경우로 판정된다)
+ * EOD 가 최신 끝난 정규장을 아직 못 따라왔으면 아무것도 바꾸지 않는다.
  */
 export async function repriceRelated(related: any, cachedAtMs: number): Promise<any> {
     try {
         const list = related?.topRelated;
-        if (!Array.isArray(list) || !list.length || !(Number.isFinite(cachedAtMs) && cachedAtMs > 0)) return related;
+        if (!Array.isArray(list) || !list.length) return related;
         let changed = false;
         const next = await Promise.all(list.map(async (item: any) => {
             if (!item || typeof item.ticker !== 'string') return item;
-            const row = await peekLatestCloseRow(item.ticker).catch(() => null);
-            if (!row || row.prevClose === null || !(row.close > 0)) return item;
-            if (!(sessionCloseMs(row.date) > cachedAtMs)) return item;
+            const row = await latestClosedRow(item.ticker).catch(() => null);
+            if (!row || row.prevClose === null || row.date !== etLastClosedSessionDate(Date.now())) return item;
+            const pc = Number(item.prevClose);
+            const near = (a: number, b: number) => Number.isFinite(a) && a > 0 && Math.abs(a - b) / b <= 0.001;
+            if (near(pc, row.close)) return item;
+            if (!near(pc, row.prevClose) && !(sessionCloseMs(row.date) > cachedAtMs)) return item;
             changed = true;
             return {
                 ...item,

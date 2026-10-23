@@ -1726,17 +1726,18 @@ export async function peekLatestCloseRow(ticker: string): Promise<{ date: string
 }
 
 /**
- * 그 거래일(date)의 종가 — 최신 EOD 행이 그 날짜면 그 값(캡처 포함), 아니면 20거래일 종가 행렬(벌크 공식 종가)에서 찾는다. 없으면 null(API 콜 0).
+ * 그 거래일(date)의 종가 — 공식 종가(벌크 행 · 20거래일 종가 행렬)를 먼저, 둘 다 없을 때만 그 날짜의 15:57 세션 캡처. 없으면 null(API 콜 0).
  */
 export async function peekCloseOn(ticker: string, date: string): Promise<number | null> {
     const sym = ticker.toUpperCase();
     const { rows } = await loadBulkEod();
     const r = rows.get(sym);
-    if (r && r.date === date && r.c > 0) return r.c;
+    if (r && r.date === date && !r.provisional && r.c > 0) return r.c;
     const hist = await loadEodHistory();
     const i = hist?.dates?.indexOf(date) ?? -1;
     const v = i >= 0 ? Number(hist!.closes?.[sym]?.[i]) : NaN;
-    return Number.isFinite(v) && v > 0 ? v : null;
+    if (Number.isFinite(v) && v > 0) return v;
+    return r && r.date === date && r.c > 0 ? r.c : null;
 }
 
 /**
