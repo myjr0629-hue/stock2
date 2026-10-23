@@ -27,7 +27,9 @@ import type { ClosingNarrative } from '@/lib/ai/closingReport';
 import { closingReportProblems } from '@/lib/ai/closingReport';
 import { reportDate } from '@/lib/app/reportLink';
 
-export const maxDuration = 60; // Bedrock AI analysis needs 30s+
+// ★2026-10-24 장마감 리포트 v2 — 5단 서사×3언어가 더해져 출력이 약 8천 토큰(옛 5.3~5.5천, a55 23초)이다. 60초 한도·① 30초로는
+//   시간 초과→현행 4.5 도 못 끝나 미저장이 된다. 한도 300초 · 모델 예산 240초(① 90초·재시도 1 → 남은 시간 현행).
+export const maxDuration = 300;
 
 
 
@@ -397,9 +399,9 @@ export async function POST(req: Request) {
         const bedrockResult = await callBedrock({
             system: systemPrompt,
             userPrompt: prompt,
-            maxTokens: 8192,
+            maxTokens: 12000,
             temperature: 0.4,
-            timeoutMs: 55000,
+            timeoutMs: 240_000,
             label: 'CrossSectorBrief',
             expectJson: true,   // ★2026-10-10 사다리 출구 가드: 필수 3개 섹션이 있어야 ①② 응답을 쓴다
             locale: 'multi',

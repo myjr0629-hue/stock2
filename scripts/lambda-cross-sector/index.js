@@ -287,7 +287,7 @@ exports.handler = async (event, context) => {
 
         const requestBody = {
             anthropic_version: "bedrock-2023-05-31",
-            max_tokens: 8192,
+            max_tokens: 12000, // 2026-10-24 v2 5단 서사×3언어 — 출력 약 8천 토큰(8192 면 잘림→압축 재요청)
             temperature: 0.4,
             system: "You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences.",
             messages: [{ role: "user", content: prompt }]

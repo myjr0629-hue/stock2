@@ -132,7 +132,8 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   크로스섹터 브리핑(8천 토큰 3개 언어 JSON): 5.5 9/10(언어 규칙 문장 포함) · p50 20s — 현행 Haiku 4.5 는 호출 하나가 54초(라우트 한도 60초 바로 아래)이고 두 번째 호출은 55초 시간 초과 3회로 실패했다.
     //   ① 30초: 5.5 p95 24~27초
     //   JSON 이 가끔 깨진다(구조 괄호 한 개 어긋남 — 25회 중 2회). 현행으로 넘기면 어차피 시간 초과라서 크레딧으로 한 번 더(retries 1)
-    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 30_000, retries: 1 },
+    //   ★2026-10-24 장마감 리포트 v2(5단 서사×3언어, 출력 약 8천 토큰): ① 90초 — 라우트 한도 300초·모델 예산 240초 안에서 재시도 1회 + 현행 이어받기
+    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 90_000, retries: 1 },
     //   플로우 AI(전 종목 3개 언어 JSON): 신뢰 경로는 진짜 출구 게이트(gateFlowAnalysis, 자리표 값을 프롬프트에서 복원)로, 음차 복원 적용 후 2회 합산 23/28 vs 현행 19/28
     //   (현행 실패 = 4096 토큰 상한 잘림·JSON 깨짐·일본어 한글 혼입·종합점수 숫자 / 5.5 실패 = 종합점수 숫자 — ① 가 못 넘으면 현행이 이어받는다). 사고 끔이 낫다(적응형 18/28). p50 8.7s vs 16.3s · 호출당 $0.0015 vs $0.0164
     FlowAI: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
