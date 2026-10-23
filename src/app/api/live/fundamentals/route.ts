@@ -17,7 +17,8 @@ export async function GET(req: NextRequest) {
             // ⚠️ 판정을 바꾸면 **키를 올려야 한다.** 안 올리면 옛 결과(NO_DATA)가
             //   TTL 동안 그대로 나가고 「고쳤는데 안 바뀐다」로 오진하게 된다.
             //   v2 = DynamoDB 껍데기 거절 (2026-09-04)
-            `fundamentals:v4:${ticker}`,
+            //   v5 = 밸류에이션 기준 종가(_priceBasis) 기록 — 응답 직전 최신 종가로 환산 (감사 M1, 2026-10-24)
+            `fundamentals:v5:${ticker}`,
             async () => {
                 // ── [AWS-FIRST] Tier 1: DynamoDB unified cache ──
                 try {
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
                     if (_hasSubstance && _f._incomeMetricsVersion === 1) {
                         const f = dynData!.fundamentals;
                         console.log(`[live/fundamentals] ✅ DynamoDB hit for ${ticker}: score=${f.score} grade=${f.grade}`);
-                        return {
+                        const hit = {
                             ticker,
                             score: f.score ?? null,
                             grade: f.grade ?? 'NO_DATA',
@@ -54,7 +55,13 @@ export async function GET(req: NextRequest) {
                             sector: f.sector ?? null,
                             _source: 'dynamodb',
                             _incomeMetricsVersion: 1,
+                            ...(f._priceBasis ? { _priceBasis: f._priceBasis } : {}),
                         };
+                        // [M1] 기준 종가가 안 적힌 레코드는 수확 일정(09:25 ET)으로 기준일을 정해 붙인다 — 실패하면 원래 값 그대로.
+                        try {
+                            const { stampHarvestedValuation } = await import('@/services/stalePriceRepair');
+                            return await stampHarvestedValuation(ticker, hit, Number(dynData?.timestamp));
+                        } catch { return hit; }
                     }
                 } catch (e: any) {
                     console.warn(`[live/fundamentals] DynamoDB error for ${ticker}:`, e.message);
@@ -102,7 +109,7 @@ export async function GET(req: NextRequest) {
                 if (!hasAnyData) { grade = 'NO_DATA'; finalScore = null; }
                 else { finalScore = score; grade = score >= 80 ? 'A' : score >= 70 ? 'A-' : score >= 60 ? 'B+' : score >= 50 ? 'B' : score >= 40 ? 'C+' : score >= 30 ? 'C' : score >= 20 ? 'D' : 'F'; }
 
-                return {
+                const fresh = {
                     ticker, score: finalScore, grade, breakdown,
                     pe: pe !== null ? Math.round(pe * 10) / 10 : null,
                     de: de !== null ? Math.round(de * 100) / 100 : null,
@@ -116,11 +123,22 @@ export async function GET(req: NextRequest) {
                     _source: 'polygon-fallback',
                     _incomeMetricsVersion: 1,
                 };
+                // [M1] 방금 읽은 시총·비율이 반영한 종가(직전 거래일)를 기준으로 적는다 — 반올림 전 원값으로.
+                try {
+                    const { stampFreshValuation } = await import('@/services/stalePriceRepair');
+                    return await stampFreshValuation(ticker, fresh, Date.now(), { marketCap, pe, ps, pb, fcfYield });
+                } catch { return fresh; }
             },
             { ttlSeconds: 21600, keyPrefix: 'swr' }
         );
 
-        return NextResponse.json({ ...result.data, _cache: result._cache });
+        // [M1] 캐시된 밸류에이션을 최신 종가로 환산한다(기준이 있을 때만 · 없으면 원래 값).
+        let data: any = result.data;
+        try {
+            const { repriceFundamentals } = await import('@/services/stalePriceRepair');
+            data = await repriceFundamentals(ticker, data);
+        } catch { /* 원래 값 그대로 */ }
+        return NextResponse.json({ ...data, _cache: result._cache });
     } catch (error) {
         console.error('[fundamentals] Error:', error);
         return NextResponse.json({ error: 'Failed' }, { status: 500 });

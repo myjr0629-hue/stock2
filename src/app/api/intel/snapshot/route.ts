@@ -91,6 +91,54 @@ function sanitizeStoredSnapshot(data: any): { data: any; healed: number } {
     return { data: { ...data, tickers: out }, healed };
 }
 
+/**
+ * [감사 M7 · 2026-10-24] 마감 뒤(17시대 ET) 만든 스냅샷의 close_price·change_pct 는 벤더 일봉 게시 전이라
+ *   «정규장 마지막 체결»이다(MSFT 521.62/−2.13% ↔ 공식 종가 521.08/−2.23%). 그 세션의 공식 종가가 EOD 에 적재되면
+ *   읽는 시점에 그 값으로 맞추고, 같은 입력에서 나오는 상승·하락 수와 템플릿 브리핑만 다시 계산한다.
+ *   공식 종가가 아직 없거나 스냅샷이 장중에 만들어졌으면 저장값 그대로다(빈칸 없음 · 벤더 콜 0 · 저장본은 안 바꾼다).
+ */
+async function reconcileOfficialCloses(data: any): Promise<any> {
+    const tickers = data?.tickers;
+    if (!Array.isArray(tickers) || !tickers.length) return data;
+    try {
+        const { officialCloseForSnapshot } = await import('@/services/stalePriceRepair');
+        const lookup = await officialCloseForSnapshot(data?.meta?.snapshot_timestamp);
+        if (!lookup) return data;
+        let changed = false;
+        const next: TickerSnapshot[] = await Promise.all(tickers.map(async (t: any) => {
+            if (!t || typeof t.ticker !== 'string') return t;
+            const o = await lookup(t.ticker);
+            if (!o) return t;
+            const close_price = Math.round(o.close * 100) / 100;
+            const change_pct = Math.round(((o.close - o.prevClose) / o.prevClose) * 10000) / 100;
+            if (close_price === t.close_price && change_pct === t.change_pct) return t;
+            changed = true;
+            return { ...t, close_price, change_pct };
+        }));
+        if (!changed) return data;
+        const out: any = { ...data, tickers: next };
+        const s = data.sector_summary;
+        if (s && typeof s === 'object') {
+            const gainers = next.filter(t => t?.change_pct != null && t.change_pct > 0).length;
+            const losers = next.filter(t => t?.change_pct != null && t.change_pct < 0).length;
+            const summary: any = { ...s, gainers, losers };
+            if (s.briefing || s.next_day_briefing_kr) {
+                const b = generateNextDayBriefing(next, {
+                    dominantRegime: s.dominant_regime, avgPcr: Number(s.avg_pcr) || 0, totalGex: Number(s.total_gex) || 0,
+                    gainers, losers, outlook: s.outlook,
+                });
+                summary.next_day_briefing_kr = b.legacy;
+                summary.briefing = { ...(s.briefing || {}), ...b.briefing };
+            }
+            out.sector_summary = summary;
+        }
+        out.meta = { ...(data.meta || {}), close_basis: 'official' };
+        return out;
+    } catch {
+        return data;
+    }
+}
+
 const SECTOR_ID_ALIASES: Record<string, string> = {
     cloudfortress: 'cloud_fortress',
     fintechpulse: 'fintech_pulse',
@@ -184,7 +232,7 @@ export async function GET(request: Request) {
             const s1 = sanitizeStoredSnapshot(cached.data_json);
             return NextResponse.json({
                 success: true,
-                snapshot: await overlayAiHeadline(s1.data, sector),
+                snapshot: await overlayAiHeadline(await reconcileOfficialCloses(s1.data), sector),
                 snapshot_date: cached.snapshot_date,
                 created_at: cached.created_at,
                 source: 'REDIS',
@@ -215,7 +263,7 @@ export async function GET(request: Request) {
         const s2 = sanitizeStoredSnapshot(snapshot.data_json);
         return NextResponse.json({
             success: true,
-            snapshot: await overlayAiHeadline(s2.data, sector),
+            snapshot: await overlayAiHeadline(await reconcileOfficialCloses(s2.data), sector),
             snapshot_date: snapshot.snapshot_date,
             created_at: snapshot.created_at,
             source: 'DB',
