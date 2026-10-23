@@ -99,7 +99,10 @@ t('restoreCommonTermsDeep: 한·일 칸의 음차만 영어 이름으로 · 숫�
 t('가디언: 입력 줄 3곳(자금 흐름·5일 유입/유출·STEALTH/EXIT)은 sectorLabelForAi, 출력 두 곳(3개 언어 JSON·단일 언어)은 영어 라벨 복원', () => {
     const node = read('src/services/guardian/intelligenceNode.ts');
     const uds = read('src/services/guardian/unifiedDataStream.ts');
-    assert.match(node, /etfToName = \(id: string\): string => sectorLabelForAi\(/);
+    // ★10/24 순환매 v3: 섹터 입력은 lib/ai/rotationPrompt.rotationFactsFrom 이 영어 이름(sectorLabelForAi)으로 만든다(옛 etfToName 대체)
+    const rot = read('src/lib/ai/rotationPrompt.ts');
+    assert.match(rot, /name: sectorLabelForAi\(it\.sector\)/);
+    assert.match(rot, /sector: sectorLabelForAi\(r\.name\)/);
     assert.equal((uds.match(/sectorLabelForAi\(/g) || []).length, 3, 'formatTopFlows 1 + stealth 1 + exit 1');
     assert.match(node, /return restoreSectorLabels\(parseTriJson\(result\.text \|\| ''\)\)/);
     assert.match(node, /restoreSectorLabelsIn\(locale, result\.text\?\.trim\(\) \?\? ''\)/);

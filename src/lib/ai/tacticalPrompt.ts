@@ -250,7 +250,7 @@ OBSERVATIONS: ${JSON.stringify(metrics)}`;
 }
 
 // 일반적인 사건 명칭의 입력 없는 누출을 차단한다. 인과의 진위 자체는 이 규칙으로 증명할 수 없다.
-const EVENT_FAMILIES = [
+export const EVENT_FAMILIES = [
     /\bCPI\b|consumer price|소비자물가|消費者物価/i,
     /\bPPI\b|producer price|생산자물가|生産者物価/i,
     /\bPCE\b|personal consumption|개인소비지출|個人消費支出/i,
@@ -280,16 +280,16 @@ export function unsupportedEventReasons(text: string, evidence: string): string[
 }
 
 // 관측 없음 정상 표현(«관측 자료가 없습니다»·«観測データはありません» — 관문 10232340 P1)
-const UNKNOWN = /unconfirmed|no confirmed|not confirmed|not established|unknown|unavailable|not available|no (?:observations?|data)|미확인|확인되지|확인할[^.]*없|불명|미상|(?:관측|자료|데이터)[^.]{0,6}없|不足|未確認|確認でき|不明|(?:観測|データ)[^。]{0,8}(?:ありません|なし|ない)/i;
+export const UNKNOWN = /unconfirmed|no confirmed|not confirmed|not established|unknown|unavailable|not available|no (?:observations?|data)|미확인|확인되지|확인할[^.]*없|불명|미상|(?:관측|자료|데이터)[^.]{0,6}없|不足|未確認|確認でき|不明|(?:観測|データ)[^。]{0,8}(?:ありません|なし|ない)/i;
 
-function splitSentences(text: string): string[] {
+export function splitSentences(text: string): string[] {
     return text.replace(/\b(?:U\.S|e\.g|i\.e)\./g, m => m.replace(/\./g, '·'))
         .replace(/\b(?:Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.(?=\s+\d)/gi, m => m.replace('.', '·'))
         .split(/(?<=[。！？])|(?<=[.!?])\s+/u).map(s => s.trim()).filter(Boolean);
 }
 
 /** 글 속 시각 표기(08:30 · 8:30 · 8시 30분 · 8時30分)를 HH:MM 으로. */
-function mentionedTimes(text: string): string[] {
+export function mentionedTimes(text: string): string[] {
     const out: string[] = [];
     for (const m of text.matchAll(/(?<![\d.])(\d{1,2}):(\d{2})(?!\d)/g)) out.push(`${m[1].padStart(2, '0')}:${m[2]}`);
     for (const m of text.matchAll(/(오전|오후|午前|午後)?\s*(?<!\d)(\d{1,2})\s*(?:시(?!간)|時(?!間))(?:\s*(\d{1,2})\s*(?:분|分))?/g)) {
@@ -300,7 +300,7 @@ function mentionedTimes(text: string): string[] {
 }
 
 /** 프롬프트의 데이터 부분(지시문 속 사건 이름은 근거가 아니다). */
-function promptEvidence(prompt: string): { data: string; news: string[]; events: string[]; asOf: number } {
+export function promptEvidence(prompt: string): { data: string; news: string[]; events: string[]; asOf: number } {
     const data = prompt.slice(Math.max(0, prompt.indexOf('TODAY_NEWS:')));
     const line = (tag: string) => data.split('\n').find(l => l.startsWith(`${tag}: `))?.slice(tag.length + 2) ?? '[]';
     let news: string[] = [];
@@ -326,7 +326,7 @@ function mentionsName(text: string, name: string): boolean {
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 /** 글 속 날짜 표기(2026-10-21 · 10/21 · 10월 21일 · 10月21日 · Oct 21) → MM-DD */
-function mentionedDates(text: string): string[] {
+export function mentionedDates(text: string): string[] {
     const out: string[] = [];
     const md = (m: number, d: number) => (m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null);
     for (const m of text.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) { const v = md(+m[2], +m[3]); if (v) out.push(`${m[1]}-${v}`); }   // 연도까지 비교
@@ -462,7 +462,7 @@ export function internalLabelReasons(text: string, generate: boolean): string[] 
 export function internalSourceReasons(text: string): string[] {
     return /\b(?:NEWS[ _-]*PULSE|Polygon|FMP|TODAY_NEWS)\b/i.test(text) ? ['tactical:internal-source'] : [];
 }
-const INDEX_ALIASES: Record<IndexFact['id'], RegExp> = {
+export const INDEX_ALIASES: Record<IndexFact['id'], RegExp> = {
     nq: /나스닥\s*100\s*선물|(?:Nasdaq\s*100|NQ)\s*futures|ナスダック\s*100\s*先物/gi,
     es: /S&P\s*500\s*(?:선물|futures|先物)|ES\s*futures/gi,
     nasdaq: /나스닥(?!\s*100|\s*선물)(?:\s*종합)?(?:\(현물\))?|Nasdaq(?!\s*100|\s*futures)(?:\s*Composite)?(?: \(spot\))?|ナスダック(?!\s*100|\s*先物)(?:総合)?(?:\(現物\))?/gi,

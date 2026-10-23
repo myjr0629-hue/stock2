@@ -3,6 +3,7 @@ import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
 import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
 import { datedHeadline, cachedEvidence, buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
+import { rotationFactsFrom } from '@/lib/ai/rotationPrompt';
 import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rlsiEngine";
 // [FIX] Import getMarketSession for cache session validation
 import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationIntensity } from "./sectorEngine";
@@ -446,17 +447,37 @@ export class GuardianDataHub {
 
             const storedVerdict = (!force && rlsi.session === 'CLOSED') ? await loadAiVerdict(locale) : null;
             if (storedVerdict) {
+                const storedNums = guardianNumsFromMarket(macro, rlsi.score, {
+                    gexIndex: gammaShieldData?.gexIndex, squeezeRisk: gammaShieldData?.squeezeRisk,
+                    breadthPct: rlsi.session === 'REG' ? rlsi.components?.breadthPct : undefined,
+                });
                 // [V12.0] Only truly CLOSED hours use cached AI verdict (weekends, nights 20:00-04:00 ET)
                 // [FIX] PRE and POST sessions now generate fresh AI analysis instead of returning stale off-hours cache
                 // ★2026-09-29 저장된 판정도 출구 검사를 지난다. 떨어진 칸은 교체하고 저장본도 고쳐 둔다
                 //   (이 키는 마케팅·콘텐츠 생성기도 직접 읽는다 — lib/marketing-v2/core/data.ts, api/admin/content-gen).
                 //   ★2026-10-04 숫자도 — 금요일 장중에 만든 글의 «나스닥 +0.94%·RLSI 41»이 주말 화면(+0.98%·38)과 달랐다.
-                const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict', guardianNumsFromMarket(macro, rlsi.score, {
-                    gexIndex: gammaShieldData?.gexIndex, squeezeRisk: gammaShieldData?.squeezeRisk,
-                    breadthPct: rlsi.session === 'REG' ? rlsi.components?.breadthPct : undefined,
-                }), currentTacticalPrompts(guardianNumsFromMarket(macro, rlsi.score), core, gammaShieldData));
+                const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict', storedNums, currentTacticalPrompts(guardianNumsFromMarket(macro, rlsi.score), core, gammaShieldData));
                 verdict = repaired.verdict;
-                if (repaired.changed) await saveAiVerdict(verdict, locale);
+                // ★2026-10-24 순환매 v3 — 장외 저장 판정의 옛 계약 글(레이블·선물 «나스닥»)을 v3 글로(저장본이 있으면 교체, 없으면 1회 백그라운드 생성 · 실패하면 옛 글 유지)
+                const upgraded = await IntelligenceNode.offHoursRotationUpgrade(verdict, locale, storedNums, () => ({
+                    rlsiScore: rlsi.score, nasdaqChange: macro?.nqChangePercent || 0, indexBasis: macro.indexBasis, session: rlsi.session,
+                    vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
+                    vix: macro?.vix || 0, locale,
+                    us10yChangeBp: us10yChangeBp(macro?.factors?.us10y),
+                    dxy: macro?.dxy ?? undefined,
+                    goldChangePct: macro?.factors?.gold?.chgPct ?? undefined,
+                    oilChangePct: macro?.factors?.oil?.chgPct ?? undefined,
+                    btcChangePct: macro?.factors?.btc?.chgPct ?? undefined,
+                    tltChangePct: macro?.tltChangePct ?? undefined,
+                    gexIndex: gammaShieldData?.gexIndex ?? undefined, gexLevel: gammaShieldData?.gexLevel ?? undefined,
+                    squeezeRisk: gammaShieldData?.squeezeRisk ?? undefined,
+                    triggerSupport: gammaShieldData?.supportWall ?? undefined, triggerResistance: gammaShieldData?.resistanceWall ?? undefined,
+                    marketNewsHeadlines: marketNews.length ? marketNews : undefined, scheduledEvents, asOf: core.timestamp,
+                    ...divergenceForAi,
+                    rotationFacts: rotationFactsFrom(rotationIntensity, flows, vectors),
+                }), (job) => CORE_DEPS.background?.(job) ?? false);
+                if (upgraded) verdict = upgraded;
+                if (repaired.changed || upgraded) await saveAiVerdict(verdict, locale);
             } else {
                 // Standard Market: Use Dual Stream AI (including divergence situations)
                 const staticVerdict: GuardianVerdict = {
@@ -519,6 +540,8 @@ export class GuardianDataHub {
                         noiseWarning: ri.noiseFlags?.join(', ') || undefined,
                         trendVsToday: detectBounceWarning(),
                         rotationConviction: ri.conviction,
+                        // ★2026-10-24 순환매 v3 재료 — 섹터 5거래일 등락률(소수 1자리)·강도·기관 수급(위 날것 문자열 대신 lib/ai/rotationPrompt 가 쓴다)
+                        rotationFacts: rotationFactsFrom(ri, flows, vectors),
                         signalConflict,
                         // [V8.0] Market News Headlines
                         marketNewsHeadlines: marketNews.length ? marketNews : undefined,
