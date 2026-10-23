@@ -206,16 +206,17 @@ test('gamma shield marks SPY-derived price fields as proxy on fresh and memory-c
 test('dealer gamma uses shared rank and flip denominator; missing rank samples stay null', async () => {
     const points = Array.from({ length: 11 }, (_, i) => ({ date: dates[i], gex: -10 + i, price: 100 }));
     points[10].gex = -1;
+    const edition = { netGex: -1, chainDate: dates[10], underlyingPrice: 100, expiration: '2026-10-23' };
     const isolated = harness({}, { fetch: async () => ({ ok: true, json: async () => ({ result: { points } }) }) });
-    const result = await isolated('src/services/dealerGamma').getDealerGamma('SPY', 100, 103.04);
+    const result = await isolated('src/services/dealerGamma').getDealerGamma('SPY', 100, 103.04, edition);
     assert.equal(result.samples, 10);
     assert.equal(result.percentile, 100);
     assert.equal(result.flipDistancePct, 3);
     assert.equal(result.unstable, true, 'spot denominator places 3.04/103.04 inside 3%');
     assert.equal(result.metrics.flipDistance.denominator, 'spot_price_USD');
-    assert.equal((await isolated('src/services/dealerGamma').getDealerGamma('SPY', 100, 103.1)).unstable, false, '3.006% rounded to 3.0% must remain outside');
+    assert.equal((await isolated('src/services/dealerGamma').getDealerGamma('SPY', 100, 103.1, edition)).unstable, false, '3.006% rounded to 3.0% must remain outside');
     points.splice(0, 1);
-    assert.equal((await isolated('src/services/dealerGamma').getDealerGamma('SPY')).percentile, null);
+    assert.equal((await isolated('src/services/dealerGamma').getDealerGamma('SPY', null, null, edition)).percentile, null);
 });
 
 test('Guardian AI percentile caller does not pass index proxy points as SPY share prices', () => {

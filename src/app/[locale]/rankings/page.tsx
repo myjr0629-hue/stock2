@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { publicBase } from '@/lib/net/publicBase';
 import { byId, specCopy } from '@/lib/rankings/registry';
 import { loadRankingSnapshot, describeItem, emptyText } from '@/lib/rankings/present';
+import { rankingBadgePhase } from '@/lib/rankings/badge';
 import { markPageView } from '@/lib/marketing/pageViewMark';
 
 // ============================================================================
@@ -92,7 +93,7 @@ export default async function RankingsPage({ params }: { params: Promise<{ local
     // 허브·상세 36장이 함께 쓰는 한 스냅샷(present.ts) — 여기선 랭킹마다 상위 5개만 보인다
     const data = await loadRankingSnapshot();
     const blocks = Object.entries((data?.results || {}) as Record<string, Block>);
-    const phaseLabel = (p?: string) => (p === 'intraday' ? c.intraday : p === 'postclose' ? c.postclose : c.anytime);
+    const phaseLabel = (p?: string) => c[rankingBadgePhase(p, data?.session)];
 
     // 구조화 데이터 — Dataset. creator 에 @type 을 «인라인»으로 넣어야 유효하다.
     const ld = {

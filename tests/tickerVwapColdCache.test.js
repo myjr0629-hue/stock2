@@ -65,7 +65,7 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
         '@/services/optionMetricsService': { readOptionMetrics: async () => new Map([[snapshot.ticker, metrics]]) },
         '@/services/oiNear35Fallback': { readOi35Fallback: async () => null },
         '@/services/optionAlphaService': { readOptionAlpha: async () => new Map([[snapshot.ticker, snapshot.alpha]]) },
-        '@/lib/optionMetrics': { applyOptionMetrics: target => target, optionMetricsRowHasOi: () => true },
+        '@/lib/optionMetrics': { applyOptionMetrics: (target, m) => Object.assign(target, { netGex: m?.gex ?? null }), optionMetricsRowHasOi: () => true },
         '@/lib/vwap': vwap,
         '@/lib/intrinioBackground': background,
         '@/services/realtimeSessionVwap': { readRealtimeSessionVwap: async (ticker, date) => store.get(`모형:실시간:${ticker}:${date}`) || null,
@@ -302,7 +302,7 @@ test('직접 조회로 얻은 최신 분봉이 오래된 차트보다 우선한�
     assert.equal(r.body.vwap, 241.5); assert.equal(h.io.minutes, 0);
 });
 
-test('워밍 종목 NVDA: 캐시 적중·새 계산, 네 응답 모양의 본문 바이트가 수정 전과 동일', async () => {
+test('워밍 종목 NVDA: 감마 별칭 수리를 제외한 본문 바이트·VWAP는 수정 전과 동일', async () => {
     const before = execFileSync('git', ['show', '8415c9a2a11d83a1ea5a95e1706c1d577ea7a930:src/app/api/live/ticker/route.ts'], { cwd: root, encoding: 'utf8' });
     for (const [iso, date, session] of [
         ['2026-10-21T15:00:00Z', '2026-10-21', 'regular'],
@@ -316,7 +316,10 @@ test('워밍 종목 NVDA: 캐시 적중·새 계산, 네 응답 모양의 본문
         const old = harness(before, snapshot, mode, skipAlpha, opts());
         const fresh = harness(current, snapshot, mode, skipAlpha, opts());
         const a = await old.get(query), b = await fresh.get(query);
-        assert.equal(b.text, a.text, `${mode}/${skipAlpha}/${query}`);
+        assert.equal(b.body.flow.gamma, b.body.flow.netGex ?? null, 'L9: structure dollar GEX alias');
+        // 의도적으로 수리한 gamma 한 필드만 분리하고 나머지 필드 순서·값은 바이트 비교한다.
+        delete a.body.flow.gamma; delete b.body.flow.gamma;
+        assert.equal(JSON.stringify(b.body), JSON.stringify(a.body), `${mode}/${skipAlpha}/${query}`);
         assert.equal(fresh.io.minutes, 0);
     }
 });
