@@ -55,7 +55,7 @@ function load(file, extra='') {
     if(id==='next/server') return {NextResponse:{json:x=>x},after:()=>{}};
     if(id.startsWith('@/')) {
       const rel=id.slice(2);
-      if(/^(lib\/(gammaFlipDistance|optionMetrics|impliedMove|putCall|ai\/(ucNumbers|fieldLeak|amountGuard)|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol|seo\/flowTicker|optionLevelGate|metrics\/observation)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
+      if(/^(lib\/(alphaEvidence|publishedAlpha|vwap|shortVolume|gammaFlipDistance|optionMetrics|impliedMove|putCall|ai\/(ucNumbers|fieldLeak|amountGuard)|app\/(intelOptionsBasis|intelExtraOptions)|marketCalendar|tickerSymbol|seo\/flowTicker|optionLevelGate|metrics\/observation)|services\/(optionMetricsService|optionAlphaService|alphaEngine|alphaEngineV2|volatilityRegime))$/.test(rel)) return load('src/'+rel+'.ts');
       return new Proxy({}, {get:()=>()=>null});
     }
     if(id.startsWith('.')) {

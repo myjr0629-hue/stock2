@@ -42,6 +42,9 @@ const mocks = {
         levelsForExit: async () => new Map(), applyLevelsToRealtime: () => {},
     },
     '@/services/optionMetricsService': { readOptionMetrics: async () => new Map() },
+    // Publication/diagnostics have their own real-engine regression (alphaCrossScreen).
+    '@/services/optionAlphaService': { readOptionAlpha: async (_tickers, _metrics, fallbacks) =>
+        new Map([...fallbacks].map(([t, row]) => [t, row.alphaSnapshot])) },
     '@/lib/optionMetrics': { applyOptionMetrics: () => {} },
     '@/services/massiveClient': { CACHE_POLICY: { LIVE: 'live' }, fetchMassive: async () => {
         snapshotCalls++;

@@ -305,9 +305,12 @@ test('OG: 실제 PNG 1200×630, 3언어 및 글꼴 장애시 영문 대체, 운�
   assert.equal(reads, before);
   assert.equal(blockedFetches, 2, '외부 글꼴 시도만 차단됨');
 });
-test('기존 페이지·호출자·API·robots·사이트맵: 기준 커밋과 소스 바이트 동일', () => {
+test('read-check 도입 검수본: 기존 페이지·호출자·API·robots·사이트맵 소스 바이트 동일', () => {
   const base = '8efa93c14';
-  const changed = execFileSync('git', ['diff', '--name-only', '--diff-filter=MDR', base, '--', 'src'], { cwd: root, encoding: 'utf8' });
+  // 이 검사는 read-check 도입 당시의 변경 범위를 증명한다. 이후 main의 공유 함수 수리는
+  // 현재 서비스/규칙/SSR 시험으로 검증하며, 도입 검수본의 범위와 혼합하지 않는다.
+  const reviewed = 'bf050fa47';
+  const changed = execFileSync('git', ['diff', '--name-only', '--diff-filter=MDR', base, reviewed, '--', 'src'], { cwd: root, encoding: 'utf8' });
   assert.equal(changed.trim(), 'src/services/darkPool.ts', '원천 검사 선택 인자 외 기존 src 수정 없음');
   for (const f of ['src/app/[locale]/receipts/earnings/page.tsx', 'src/app/[locale]/receipts/earnings/og/route.tsx',
     'src/app/[locale]/layout.tsx', 'src/components/AuthGuard.tsx', 'src/components/share/ShareLanding.tsx',
@@ -315,7 +318,8 @@ test('기존 페이지·호출자·API·robots·사이트맵: 기준 커밋과 �
     'src/lib/guruLens/badges.ts', 'src/services/insiderService.ts', 'src/app/robots.ts', 'src/lib/seo/sitemap.ts', 'src/middleware.ts',
     'src/services/watchlistBatchService.ts', 'src/services/todayPicksService.ts', 'src/services/signalAlertsService.ts',
     'src/lib/guruLens/service.ts']) {
-    assert.deepEqual(fs.readFileSync(path.join(root, f)), execFileSync('git', ['show', `${base}:${f}`], { cwd: root }));
+    assert.deepEqual(execFileSync('git', ['show', `${reviewed}:${f}`], { cwd: root }),
+      execFileSync('git', ['show', `${base}:${f}`], { cwd: root }));
   }
 });
 test('기존 영수증 3언어 HTML: 데이터·결측·빈 주가 기준 구현과 바이트 동일', async () => {

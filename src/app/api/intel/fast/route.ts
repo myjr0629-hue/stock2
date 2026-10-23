@@ -1,5 +1,7 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
+import { readOptionAlpha } from '@/services/optionAlphaService';
+import { applyPublishedAlpha } from '@/lib/publishedAlpha';
 // ============================================================================
 // /api/intel/fast — 경량 배치 Intel API
 // [PERF] Polygon snapshot batch (1 call for all tickers) + Redis cache
@@ -76,7 +78,12 @@ function callerKind(request: Request): 'app-warm' | 'fast-all' | 'signum-warm' |
 async function metricsResponse(body: any) {
     const data = Array.isArray(body?.data) ? body.data.map((q: any) => ({ ...q })) : [];
     const metrics = await readOptionMetrics(data.map((q: any) => q.ticker));
+    const alpha = await readOptionAlpha(data.map((q: any) => q.ticker), metrics, new Map(data.map((q: any) => [q.ticker, {
+        ...q, alphaSnapshot: { score: q.missingFields?.includes('alphaScore') ? null : q.alphaScore,
+            grade: q.grade, capturedAt: q.alphaCapturedAt },
+    }])));
     data.forEach((q: any) => applyOptionMetrics(q, metrics.get(q.ticker)));
+    data.forEach((q: any) => applyPublishedAlpha(q, alpha.get(q.ticker)));
     const meta = { ...body?.meta };
     if (meta.app || 'optionsAsOf' in meta) meta.optionsAsOf = latestOptionsAsOf(data);
     return NextResponse.json({ ...body, data, meta });

@@ -23,6 +23,25 @@ import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { publicBase } from '@/lib/net/publicBase';
+import { readOptionAlpha } from '@/services/optionAlphaService';
+
+/** Latest is the current alpha publication; explicit historical dates remain immutable. */
+async function overlayPublishedAlpha(data: any, historical: boolean): Promise<any> {
+    if (historical || !Array.isArray(data?.tickers)) return data;
+    const tickers = data.tickers.map((t: any) => t.ticker);
+    const alpha = await readOptionAlpha(tickers, new Map(), new Map(data.tickers.map((t: any) => [t.ticker, {
+        alphaSnapshot: { score: t.alpha_score, grade: t.grade, capturedAt: data.meta?.snapshot_timestamp },
+    }])));
+    const rows = data.tickers.map((t: any) => {
+        const a = alpha.get(t.ticker);
+        const score = nz(a?.score);
+        return { ...t, alpha_score: score, grade: score === null ? null : a?.grade ?? null,
+            alpha_captured_at: a?.capturedAt ?? null, alpha_score_as_of: a?.scoreAsOf ?? a?.capturedAt ?? null };
+    });
+    const scores = rows.map((t: any) => t.alpha_score).filter((v: any) => v !== null);
+    return { ...data, tickers: rows, sector_summary: { ...data.sector_summary,
+        avg_alpha: scores.length ? Math.round(scores.reduce((s: number, v: number) => s + v, 0) / scores.length * 10) / 10 : null } };
+}
 
 export const maxDuration = 60;
 
@@ -184,7 +203,7 @@ export async function GET(request: Request) {
             const s1 = sanitizeStoredSnapshot(cached.data_json);
             return NextResponse.json({
                 success: true,
-                snapshot: await overlayAiHeadline(s1.data, sector),
+                snapshot: await overlayAiHeadline(await overlayPublishedAlpha(s1.data, !!date), sector),
                 snapshot_date: cached.snapshot_date,
                 created_at: cached.created_at,
                 source: 'REDIS',
@@ -215,7 +234,7 @@ export async function GET(request: Request) {
         const s2 = sanitizeStoredSnapshot(snapshot.data_json);
         return NextResponse.json({
             success: true,
-            snapshot: await overlayAiHeadline(s2.data, sector),
+            snapshot: await overlayAiHeadline(await overlayPublishedAlpha(s2.data, !!date), sector),
             snapshot_date: snapshot.snapshot_date,
             created_at: snapshot.created_at,
             source: 'DB',

@@ -4,6 +4,8 @@ import { readOptionMetrics } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
 import { selectVwap } from '@/lib/vwap';
+import { alphaMacroInputs } from '@/lib/alphaEvidence';
+import { shortVolFields } from '@/lib/shortVolume';
 // Watchlist Batch Analyze API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
 // [V5] Uses Alpha Engine V5 (calculateAlphaScore) with FULL data enrichment
@@ -249,18 +251,21 @@ async function getStockDataLight(symbol: string) {
         }
     }
 
+    const regularPrice = typeof t?.day?.c === 'number' && Number.isFinite(t.day.c) && t.day.c > 0 ? t.day.c : null;
+    const regularPrev = typeof t?.prevDay?.c === 'number' && Number.isFinite(t.prevDay.c) && t.prevDay.c > 0 ? t.prevDay.c : null;
     return {
         symbol,
-        price: latestPrice,
-        change: isExtended ? (extChange || 0) : (regChange || 0),
-        changePercent: isExtended ? (extChangePercent || 0) : (regChangePercent || 0),
+        // Main/alpha inputs describe the regular session; extended returns have their own field.
+        price: regularPrice,
+        change: regularPrice !== null && regularPrev !== null ? regularPrice - regularPrev : null,
+        changePercent: regularPrice !== null && regularPrev !== null ? (regularPrice - regularPrev) / regularPrev * 100 : null,
         volume: t?.day?.v,
         prevClose,
         prevDayVolume: t?.prevDay?.v || 0, // [V3.2] For relVol calculation
         session,
         rsi,
         return3d,
-        vwap: selectVwap(t?.day?.vw, t?.prevDay?.vw),  // [FIX] Fallback to prev-day VWAP during pre-market
+        vwap: selectVwap(t?.day?.vw),
         history: sparkline.map((close: number) => ({ close })), // Compatible format
         dailyResults, // [V3.2] For session-aware changePct/relVol
         extendedChangePct, // [V5] For PM Gate 11 (preMarketChangePct)
@@ -276,13 +281,22 @@ async function getStockDataLight(symbol: string) {
  */
 export async function processWatchlistBatch(tickers: string[], mode: WatchlistBatchMode = 'full') {
     const metrics = await readOptionMetrics(tickers);
-    const payload = await processWatchlistBatchCore(tickers, mode, metrics);
-    const fallbacks = new Map((payload.results as any[]).map(r => [r.ticker, { ...r.realtime, alphaSnapshot: r.alphaSnapshot }]));
+    const alphaQuotes = new Map<string, any>();
+    const payload = await processWatchlistBatchCore(tickers, mode, metrics, alphaQuotes);
+    const fallbacks = new Map((payload.results as any[]).map(r => [r.ticker, {
+        ...r.realtime, alphaSnapshot: r.alphaSnapshot, alphaQuote: alphaQuotes.get(r.ticker),
+    }]));
     const alpha = await readOptionAlpha(tickers, metrics, fallbacks);
     for (const r of payload.results as any[]) {
         if (!r?.realtime) continue;
         applyOptionMetrics(r.realtime, metrics.get(r.ticker));
         r.alphaSnapshot = alpha.get(r.ticker) ?? null;
+        const evidence = r.alphaSnapshot?.evidenceInputs;
+        if (evidence && r.alphaSnapshot.evidenceSession === shownRegularSessionDate()) {
+            r.realtime.vwap = evidence.vwap;
+            r.realtime.vwapDist = evidence.vwap > 0 && evidence.price > 0
+                ? Number(((evidence.price - evidence.vwap) / evidence.vwap * 100).toFixed(2)) : null;
+        }
         r.realtime.whaleIndex = calculateWhaleIndex(r.realtime.gex, r.realtime.darkPoolPct, r.realtime.blockTrades, r.realtime.netPremium);
     }
     stampOptionMoveFields(payload.results);
@@ -294,7 +308,7 @@ export async function processWatchlistBatch(tickers: string[], mode: WatchlistBa
 // Exported separately so it can be called seamlessly during SSR (Server Components)
 // without creating mock Request objects or failing on absolute URL resolution
 // ============================================================================
-async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatchMode = 'full', metrics = new Map<string, import('@/lib/optionMetrics').OptionMetrics>()) {
+async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatchMode = 'full', metrics = new Map<string, import('@/lib/optionMetrics').OptionMetrics>(), alphaQuotes = new Map<string, any>()) {
     const startTime = Date.now();
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
@@ -309,6 +323,17 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
     const snapshotData = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers`, { tickers: tickers.join(',') }).catch(() => null);
     const snapshotMap: Record<string, any> = {};
     (snapshotData?.tickers || []).forEach((t: any) => { snapshotMap[t.ticker] = t; });
+    // Reuse this request's existing provider response even before older cache entries carry alphaQuote.
+    // A same-session regular pair is required; missing snapshots never acquire fabricated prices/returns.
+    const regularDate = shownRegularSessionDate();
+    for (const t of snapshotData?.tickers ?? []) {
+        const price = t?.day?.c, prevClose = t?.prevDay?.c;
+        if (t?._intrinio?.regularDate === regularDate && typeof price === 'number' && Number.isFinite(price) && price > 0
+            && typeof prevClose === 'number' && Number.isFinite(prevClose) && prevClose > 0) {
+            alphaQuotes.set(t.ticker, { price, prevClose, changePct: (price - prevClose) / prevClose * 100,
+                sessionDate: regularDate, observedAt: startTime });
+        }
+    }
 
     const { getMarketStatusSSOT } = await import('@/services/marketStatusProvider');
     const marketStatus = await getMarketStatusSSOT();
@@ -321,15 +346,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
     if (mode === 'full') {
         try {
             const macro = await getMacroSnapshotSSOT();
-            macroData = {
-                ndxChangePct: macro.nqChangePercent ?? null,
-                vixValue: macro.vix ?? null,
-                vixChangePct: macro.factors?.vix?.chgPct ?? null,
-                tltChangePct: macro.tltChangePct ?? null,
-                gldChangePct: macro.gldChangePct ?? null,
-                dxy: macro.dxy ?? null,
-                realYieldStance: macro.realYield?.stance ?? null,
-            };
+            macroData = alphaMacroInputs(macro, null, null);
         } catch (e) { console.warn('[Watchlist Batch] Macro fetch failed:', e); }
 
         try {
@@ -624,13 +641,13 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     netFlow: analysis.netPremium ?? null,
                     blockTrades: null,
                     impliedMovePct: readImpliedMoveFields(analysis).impliedMovePct,
-                    ndxChangePct: macroData?.nqChangePercent ?? null,
-                    vixValue: macroData?.vix ?? null,
-                    vixChangePct: macroData?.factors?.vix?.chgPct ?? null,
+                    ndxChangePct: macroData?.ndxChangePct ?? null,
+                    vixValue: macroData?.vixValue ?? null,
+                    vixChangePct: macroData?.vixChangePct ?? null,
                     tltChangePct: macroData?.tltChangePct ?? null,
                     gldChangePct: macroData?.gldChangePct ?? null,
                     dxy: macroData?.dxy ?? null,
-                    realYieldStance: macroData?.realYield?.stance ?? null,
+                    realYieldStance: macroData?.realYieldStance ?? null,
                     fearGreedScore,
                     vix3mValue: macroData?.vix3mValue ?? null,
                 });
@@ -658,7 +675,9 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 // This upgrades the Lambda's simplified score to the HD V4.6 Sector Grid score globally
                 // [FIX] Sanitize ivSkew: Lambda may have written impliedMovePct into ivSkew field
                 const sanitizedIvSkew = (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null;
-                const updatedAnalysis = { ...analysis, alphaSnapshot: alphaSnapshotV4, ivSkew: sanitizedIvSkew };
+                const updatedAnalysis = { ...analysis, alphaSnapshot: alphaSnapshotV4, ivSkew: sanitizedIvSkew,
+                    alphaQuote: { price: base.displayPrice, prevClose: base.prevDayClose, changePct: finalChangePct,
+                        sessionDate: shownRegularSessionDate(), observedAt: Date.now() } };
                 import('@/services/analysisCache').then(m => m.writeAnalysisCache(ticker, updatedAnalysis as any).catch(() => {}));
               } catch (e) {
                 console.warn(`[Watchlist CACHE HIT] V4.6 recalc failed for ${ticker}, using cached:`, e);
@@ -843,13 +862,13 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                         netFlow: dynamoAnalysis.netPremium ?? null,
                         blockTrades: null,
                         impliedMovePct: dynamoImForAlpha,
-                        ndxChangePct: macroData?.nqChangePercent ?? null,
-                        vixValue: macroData?.vix ?? null,
-                        vixChangePct: macroData?.factors?.vix?.chgPct ?? null,
+                        ndxChangePct: macroData?.ndxChangePct ?? null,
+                        vixValue: macroData?.vixValue ?? null,
+                        vixChangePct: macroData?.vixChangePct ?? null,
                         tltChangePct: macroData?.tltChangePct ?? null,
                         gldChangePct: macroData?.gldChangePct ?? null,
                         dxy: macroData?.dxy ?? null,
-                        realYieldStance: macroData?.realYield?.stance ?? null,
+                        realYieldStance: macroData?.realYieldStance ?? null,
                         fearGreedScore,
                         vix3mValue: macroData?.vix3mValue ?? null,
                     });
@@ -943,7 +962,10 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
 
             // [FIX] Use getStockDataLight's changePct directly (snapshot-based, always correct)
             // Previously: dailyResults[-2] could be wrong date due to weekends/holidays
-            const changePct = stockData.changePercent || 0;
+            const changePct = stockData.changePercent;
+            if (changePct === null) return { ticker, alphaSnapshot: null,
+                realtime: { ...stockData, changePct: null, missingFields: ['changePct'],
+                    sparkline: stockData.history?.map((h: any) => h.close) ?? [], vwap: stockData.vwap ?? null } };
 
             let relVol: number | null = null;
             if (isREG) {
@@ -1080,13 +1102,13 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     squeezeScore: alphaSqueezeScore,
                     relVol,
                     preMarketChangePct: (stockData as any).extendedChangePct ?? null,
-                    ndxChangePct: macroData?.nqChangePercent ?? null,
-                    vixValue: macroData?.vix ?? null,
-                    vixChangePct: macroData?.factors?.vix?.chgPct ?? null,
+                    ndxChangePct: macroData?.ndxChangePct ?? null,
+                    vixValue: macroData?.vixValue ?? null,
+                    vixChangePct: macroData?.vixChangePct ?? null,
                     tltChangePct: macroData?.tltChangePct ?? null,
                     gldChangePct: macroData?.gldChangePct ?? null,
                     dxy: macroData?.dxy ?? null,
-                    realYieldStance: macroData?.realYield?.stance ?? null,
+                    realYieldStance: macroData?.realYieldStance ?? null,
                     darkPoolPct, shortVolPct, blockTrades: blockTradesCount,
                     whaleIndex, netFlow: netPremium, sma20, ivSkew, impliedMovePct,
                     atmIv: structureRes?.atmIv ?? null, fearGreedScore,
@@ -1100,7 +1122,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                     ticker: ticker.toUpperCase(), session: alphaSession, price: currentPrice,
                     prevClose: stockData.prevClose || 0, changePct,
                     preMarketChangePct: (stockData as any).extendedChangePct ?? null,
-                    ndxChangePct: macroData?.nqChangePercent ?? null, vixValue: macroData?.vix ?? null,
+                    ndxChangePct: macroData?.ndxChangePct ?? null, vixValue: macroData?.vixValue ?? null,
                     tltChangePct: macroData?.tltChangePct ?? null, gldChangePct: macroData?.gldChangePct ?? null,
                 });
             }
@@ -1187,6 +1209,8 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
                 // [V3 FIX] Dashboard card fields
                 shortVolPct: shortVolPct ?? null,
                 vwap: stockData.vwap ?? null,
+                alphaQuote: { price: stockData.price, prevClose: stockData.prevClose, changePct,
+                    sessionDate: shownRegularSessionDate(), observedAt: Date.now() },
                 volumePcr: volumePcrVal,
                 volumePcrCallVol: volumePcrCallVolVal,
                 volumePcrPutVol: volumePcrPutVolVal,
@@ -1386,6 +1410,7 @@ async function processWatchlistBatchCore(tickers: string[], mode: WatchlistBatch
             r.realtime.darkPoolVol = dp?.volume ?? null;
             r.realtime.darkPoolDate = dp?.date ?? null;
             r.realtime.darkPoolSource = dp ? 'FINRA' : null;
+            Object.assign(r.realtime, shortVolFields(null, null, dp));
             // 틱 기반(체결 단위) 지표는 플랜 밖이라 여전히 «없음»이다 — 0 은 «0» 이라는 주장이 된다
             r.realtime.blockTrades = null;
             r.realtime.blockVolume = null;

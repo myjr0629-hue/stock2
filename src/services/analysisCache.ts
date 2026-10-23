@@ -25,6 +25,7 @@ const ANALYSIS_CACHE_TTL = 259200;
 export interface AnalysisCacheEntry {
     ticker: string;
     timestamp: number; // ms since epoch
+    alphaQuote?: { price: number | null; prevClose: number | null; changePct: number | null; sessionDate: string; observedAt: number };
 
     // Alpha Engine result
     alphaSnapshot: {
@@ -191,6 +192,8 @@ async function overlayLiveDarkPool(map: Record<string, AnalysisCacheEntry>): Pro
             if (row && typeof row.pct === 'number' && row.pct > 0) {
                 (map[t] as any).darkPoolPct = row.pct;
                 (map[t] as any).darkPoolDate = row.date ?? null;
+                // Same FINRA short-volume report used by live/ticker (no tick subscription needed).
+                map[t].shortVolPct = typeof row.shortPct === 'number' && Number.isFinite(row.shortPct) ? row.shortPct : null;
             }
         }
     } catch {

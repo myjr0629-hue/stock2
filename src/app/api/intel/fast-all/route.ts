@@ -1,5 +1,7 @@
 import { readOptionMetrics } from '@/services/optionMetricsService';
 import { applyOptionMetrics } from '@/lib/optionMetrics';
+import { readOptionAlpha } from '@/services/optionAlphaService';
+import { applyPublishedAlpha } from '@/lib/publishedAlpha';
 import { latestOptionsAsOf } from '@/lib/app/intelOptionsBasis';
 // ============================================================================
 // /api/intel/fast-all — 인텔 섹터 10곳의 «저장된 응답»을 한 번에 준다(가벼운 읽기 전용 경로).
@@ -72,7 +74,12 @@ export async function GET(request: Request) {
 
     const quotes: any[] = Object.values(sectors).flatMap((s: any) => s.data ?? []);
     const metrics = await readOptionMetrics(quotes.map(q => q.ticker), { cache: true });
+    const alpha = await readOptionAlpha(quotes.map(q => q.ticker), metrics, new Map(quotes.map(q => [q.ticker, {
+        ...q, alphaSnapshot: { score: q.missingFields?.includes('alphaScore') ? null : q.alphaScore,
+            grade: q.grade, capturedAt: q.alphaCapturedAt },
+    }])));
     quotes.forEach(q => applyOptionMetrics(q, metrics.get(q.ticker)));
+    quotes.forEach(q => applyPublishedAlpha(q, alpha.get(q.ticker)));
     Object.values(sectors).forEach((s: any) => {
         if (app || 'optionsAsOf' in s.meta) s.meta.optionsAsOf = latestOptionsAsOf(s.data ?? []);
     });
