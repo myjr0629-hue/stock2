@@ -52,3 +52,38 @@
 - 새 H3/H4/M3 GET 회귀 파일 통과. 기존 GuardianCore 35개, GuardianNumbers 24개 개별 검증도 통과했다.
 - UI 7개 파일의 JSX 문구·태그·고정 속성을 HEAD와 정적 대조해 동일함을 확인했다. 숫자 단위 `%`를 JSX 식 안으로 옮긴 부분은 제외하고 비교했으며, 실제 게이지의 -2.6%와 null→—는 React 정적 렌더로 별도 확인했다. 브라우저 화면 검증은 수행하지 않았다.
 - `git diff --check` 통과. 비밀 파일을 읽거나 운영 GET/쓰기·커밋·push·병합·배포를 실행하지 않았다.
+
+## 관문 재심 — 마감 1분봉·LIVE 신선도
+
+### 원인과 수정
+
+- 마감값 소실: `marketFeedJob.fetchOneQuote`는 기존 `reconcileIndexQuote`가 선택한 마지막 정규장 1분봉의 시작 시각을 `marketTime`에 보존한다. 기존 `buildMarketIndexBasis`의 장외 조건은 마감 시각 이후만 허용해 정상 15:59 봉을 버렸다. 이제 달력상 마감 직전 마지막 1분(정상 15:59, 조기 마감 12:59)의 관측도 완료된 세션 값으로 허용한다. 더 이른 장중 값·다른 세션·개장 전 시각은 계속 null이다. `asOf`는 원시각을 보존하며 조회 시각이나 16:00으로 바꾸지 않는다.
+- 낡은 장중 값 LIVE: 같은 ET 날짜라는 조건만 있어 15:00에 09:30 관측도 LIVE였다. 현물 LIVE에도 기존 선물과 같은 20분 상한을 적용했다. 20분 초과 관측은 가격·세션·원시각을 보존하되 `live: false`이며 뉴스 입력은 기존 `regular-session observation` 분류를 사용한다. 공급사·수집·캐시 갱신 경로는 수정하지 않았다.
+- `indexContext`의 마감 분류에도 마지막 1분봉 기준을 적용했다. 기존 문구를 사용하며 새 화면 문구를 만들지 않는다.
+
+### 공유 함수 호출자와 영향
+
+- `buildMarketIndexBasis`의 운영 호출자는 `services/marketIndexBasis.loadMarketIndexBasis` 하나다. 기존 Redis 4키 읽기와 미수집 NDX=null 계약은 유지된다. 그 반환값은 `macroHubProvider.getMacroSnapshotSSOT`와 `guardian/unifiedDataStream`의 기존 스냅샷 재판정으로 전달된다.
+- 가격·변화 소비자: GuardianCore의 `deriveLocaleParts` → 새 계산/`overlayCore`/`withCashIndexBasis`, `guardianNumbers`, `unifiedDataStream`의 AI 입력·breadth, GuardianDesktop/MobileGuardianReality → RealityCheck → DualGauge, 앱 Guardian 페이지·MacroIndicators, `/api/live/market`. 마지막 마감 봉의 정상값이 null로 사라지지 않으며 결측은 null을 유지한다.
+- `indexContext`의 운영 호출자는 news-digest의 `getMacroContext` 하나다. 오래된 장중 관측을 live로 설명하지 않으며 마감 보정 봉은 원시각과 함께 기존 마감 분류로 전달한다.
+- `getMacroSnapshotSSOT`의 간접 호출자는 앞 절의 목록과 같다. 원천 조회·공급사 호출 수·TTL·갱신 주기·캐시 쓰기에는 변경이 없다.
+
+### 회귀 범위
+
+- `marketIndexBasisSession.test.ts`: 실제 `reconcileIndexQuote`의 15:59 보정 결과 → 17:00 Guardian 숫자/뉴스 입력, 세 현물 심볼, 주말·휴장·다음 개장 전/후, 정상·조기 마감 마지막 분/직전 경계, 실제 0/null, 09:30→15:00 낡은 시세, 20분 경계와 미래/손상 시각을 검사한다.
+- `postCloseIndexBasis.test.ts`: 실제 Guardian GET의 15:59 마감값 보존, 실제 뉴스 생성 GET·AI 입력의 마감 원시각/분류, 오래된 장중 관측의 live 설명 차단을 추가했다. 공급사·AI·Redis는 시험 대역이며 각 뉴스 생성의 기존 공급사 호출 1회를 확인한다.
+
+### 이번 실행 결과
+
+- `/usr/bin/lockf -k /tmp/signum-heavy.lock node scripts/run-offline-tests.cjs marketIndexBasisSession.test.ts`: 새 세션 회귀 6/6 통과.
+- `/usr/bin/lockf -k /tmp/signum-heavy.lock node scripts/run-offline-tests.cjs`: 전체를 한 번 실행해 **295/295 파일 통과, 실패 0, 종료 0**. 기존 GuardianCore 35건과 실제 H3/H4/M3 GET 및 추가 관문 재현도 이 실행에서 통과했다. 이 결과는 이번 `results.json`과 `/tmp/signum-postclose-offline-current.log`로 확인했으며, 앞 절의 1차 수리 `final.json` 결과를 재사용하지 않았다.
+- `/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false`: 한 번 실행, **종료 0, 오류 0**. `/tmp/signum-postclose-tsc-current.log` 출력 0바이트.
+- `git diff --check` 통과. 커밋·push·병합·배포·운영 API/Redis/DB 쓰기·브라우저 접근은 실행하지 않았다.
+
+### 미완료: 결측 화면 정책
+
+이번 세션은 `guardianCore.ts`와 `MiniGauge.tsx`를 수정하지 않았다. 관문이 지적한 1차 수리의 결측 제목·설명과 게이지의 `—`·회색·원호 0은 여전히 남아 있으며, 관문 전체 수리 완료로 볼 수 없다.
+
+`origin/main`의 DualGauge는 `priceValue: number`와 `priceValue.toFixed(1)`만 지원하고 결측 표시 계약이 없다. 그대로 원복하면 null 입력에서 오류가 나며, null을 0으로 치환하는 것은 이번 지시의 null 운반 원칙과 충돌한다. 화면 표시 변경도 금지돼 있어 결측 표시 정책을 사용자에게 질의했고 응답 대기 중이다. 새로운 표시를 임의 적용하거나 칸을 숨기지 않았다.
+
+운영 실측·실제 화면·최신 원격 main은 확인하지 않았다. NDX 원천 부재와 기존 뉴스 AI 본문의 소급 수정 불가는 앞 절과 같다.

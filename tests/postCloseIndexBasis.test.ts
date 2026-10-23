@@ -157,5 +157,30 @@ const originalFetch = global.fetch;
         assert.ok(!prompt.includes('S&P 500: 7704'));
         assert.equal(providerCalls, 1, '기존 뉴스 공급사 호출만 수행');
         console.log('통과 H4 GET /api/guardian/news-digest — 실제 생성 입력');
+        // 관문 P2-1: 기존 수집기의 마지막 15:59 봉도 실제 GET·AI 입력까지 유지한다.
+        macro.indexBasis = buildMarketIndexBasis({
+            nasdaq: quote('^IXIC', 26008.86, -2.60, '2026-10-22T19:59:00Z'),
+            spx: quote('^GSPC', 7663.43, -1.21, '2026-10-22T19:59:00Z'),
+        }, Date.parse('2026-10-22T21:00:00Z'));
+        mocks['@/services/marketIndexBasis'].loadMarketIndexBasis = async () => macro.indexBasis;
+        const closedGuardian = await (await guardian.GET({ url: 'http://localhost/api/debug/guardian?force=false&locale=ko' })).json();
+        assert.equal(closedGuardian.data.divergence.caseId, 'D');
+        assert.equal(closedGuardian.data.tripleA.checklist.conditions[1].current, '-2.60%');
+        const closedDigest = await (await news.GET({ url: 'http://localhost/api/guardian/news-digest?refresh=1&locale=ko' })).json();
+        assert.match(closedDigest.marketContext, /NASDAQ Composite: 26008.86 \(-2.60%\).*regular-session close/);
+        assert.match(prompt, /session 2026-10-22; as of 2026-10-22T19:59:00/);
+        assert.equal(providerCalls, 2, '각 뉴스 생성은 기존 공급사 1회만 호출');
+        // 관문 P2-2: 당일 개장 시세가 15:00에도 살아 있다고 AI에 전달되지 않는다.
+        macro.indexBasis = buildMarketIndexBasis({
+            nasdaq: quote('^IXIC', 26008.86, -2.60, '2026-10-23T13:30:00Z'),
+            spx: quote('^GSPC', 7663.43, -1.21, '2026-10-23T13:30:00Z'),
+        }, Date.parse('2026-10-23T19:00:00Z'));
+        const staleDigest = await (await news.GET({ url: 'http://localhost/api/guardian/news-digest?refresh=1&locale=ko' })).json();
+        assert.doesNotMatch(staleDigest.marketContext, /regular session live/);
+        assert.doesNotMatch(prompt, /regular session live/);
+        assert.match(prompt, /regular-session observation; session 2026-10-23; as of 2026-10-23T13:30:00/);
+        assert.equal(providerCalls, 3);
+        macro.indexBasis = basis;
+        console.log('통과 관문 P2 — 15:59 마감 보존·09:30 낡은 시세 뉴스 LIVE 금지');
     } finally { (Module as any)._load = originalLoad; global.fetch = originalFetch; }
 })().catch(e => { console.error(e); process.exitCode = 1; });

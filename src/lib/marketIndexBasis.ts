@@ -31,6 +31,12 @@ export interface MarketIndexBasis {
     futures: { nq: FuturesObservation; es: FuturesObservation };
 }
 const finite = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null;
+const LIVE_QUOTE_MAX_AGE_MS = 20 * 60_000;
+
+// 기존 수집기는 마지막 1분봉의 시작 시각(15:59 / 조기 마감 12:59)을 보존한다.
+// 이 분보다 이른 장중 값은 완료된 세션의 종가로 승격하지 않는다.
+const isCashCloseObservation = (time: number, sessionDate: string): boolean =>
+    etClock(time).minutes >= sessionCloseMinutes(sessionDate) - 1;
 
 export function buildMarketIndexBasis(inputs: {
     nasdaq?: IndexQuoteInput | null; ndx?: IndexQuoteInput | null; spx?: IndexQuoteInput | null;
@@ -50,14 +56,16 @@ export function buildMarketIndexBasis(inputs: {
         // 장외에는 완료된 정규장만, 장중에는 그 세션 관측만 쓴다. 오래된 세션은 날짜를
         // 그대로 남기되 판정 숫자로 쓰지 않는다. 개장 전 벤더 시각만 전진한 값도 거절한다.
         const cashUsable = futures || (sessionDate === expectedCashDate
-            && (quotePhase === 'after-close' || (regular && quotePhase === 'regular')));
+            && (quotePhase === 'after-close' || (quotePhase === 'regular'
+                && (regular || isCashCloseObservation(time, sessionDate)))));
         const price = asOf && cashUsable && finite(raw?.price) != null && raw!.price! > 0 ? raw!.price! : null;
         const changedAt = raw?.lastChangeAt ? Date.parse(raw.lastChangeAt) : NaN;
-        const futureLive = futures && isEquityFuturesOpen(nowMs) && asOf != null && nowMs - time <= 20 * 60_000
-            && Number.isFinite(changedAt) && changedAt <= nowMs && nowMs - changedAt <= 20 * 60_000;
+        const fresh = asOf != null && nowMs - time <= LIVE_QUOTE_MAX_AGE_MS;
+        const futureLive = futures && isEquityFuturesOpen(nowMs) && fresh
+            && Number.isFinite(changedAt) && changedAt <= nowMs && nowMs - changedAt <= LIVE_QUOTE_MAX_AGE_MS;
         return { symbol, price, changePct: price == null ? null : finite(raw?.changePct), asOf,
             sessionDate, basis: futures ? 'prior-settlement' : 'regular-session',
-            live: price != null && (futures ? futureLive : regular && sessionDate === today),
+            live: price != null && (futures ? futureLive : regular && sessionDate === today && fresh),
             source: price != null ? raw?.source ?? null : null };
     };
     const future = (raw: IndexQuoteInput | null | undefined, symbol: string): FuturesObservation => ({
@@ -79,7 +87,7 @@ export function indexContext(b: MarketIndexBasis | undefined): string[] {
     const line = (name: string, p: IndexObservation): string | null => {
         if (p.price == null) return null;
         const chg = p.changePct == null ? '' : ` (${p.changePct >= 0 ? '+' : ''}${p.changePct.toFixed(2)}%)`;
-        const atClose = p.asOf && p.sessionDate && etClock(Date.parse(p.asOf)).minutes >= sessionCloseMinutes(p.sessionDate);
+        const atClose = p.asOf && p.sessionDate && isCashCloseObservation(Date.parse(p.asOf), p.sessionDate);
         const basis = p.basis === 'prior-settlement' ? 'vs prior settlement' : p.live ? 'regular session live'
             : atClose ? 'regular-session close' : 'regular-session observation';
         return `${name}: ${p.price.toFixed(2)}${chg} [${basis}; ${p.sessionDate ? `session ${p.sessionDate}; ` : ''}as of ${p.asOf}]`;
