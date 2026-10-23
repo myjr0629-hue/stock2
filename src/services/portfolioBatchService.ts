@@ -412,9 +412,7 @@ async function processPortfolioBatchCore(tickers: string[], mode: 'full' | 'pric
 
             const fullObj = {
                 ticker,
-                alphaSnapshot: { score, grade, action, confidence: Math.round(confidence), triggers, engineVersion: alphaResult.engineVersion, capturedAt: new Date().toISOString(),
-                    evidenceSession: shownRegularSessionDate(),
-                    evidenceInputs: { preMarketChangePct: (stockData as any).extendedChangePct ?? null } },
+                alphaSnapshot: { score, grade, action, confidence: Math.round(confidence), triggers, engineVersion: alphaResult.engineVersion, capturedAt: new Date().toISOString() },
                 realtime: {
                     price: stockData.price || 0, change: stockData.change || 0, changePct, session: stockData.session || 'reg',
                     extPrice: stockData.extPrice, extChangePercent: stockData.extChangePercent, isExtended: stockData.isExtended,

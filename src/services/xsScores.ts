@@ -51,9 +51,7 @@ function gradeFor(score: number): Grade {
 
 /** Await a fresh map when called from an async context (read-side override). */
 export async function ensureXsScores(): Promise<void> {
-    // Async response boundaries must observe the same publication, including the 22:10 update.
-    // A warm worker's ten-minute synchronous cache must not retain yesterday's score.
-    if (!loading) loading = load();
+    primeXsScores();
     if (loading) await loading;
 }
 
@@ -70,7 +68,6 @@ export function xsSnapshotOverride<T extends { score?: number; grade?: string; e
         score: Math.round(s * 10) / 10,
         grade: gradeFor(s),
         engineVersion: `XS-2.0.0/${asOf}+v8struct`,
-        scoreAsOf: asOf,
     };
 }
 
@@ -85,6 +82,5 @@ export function xsOverride<T extends { score: number; grade: Grade; ticker: stri
         score: Math.round(s * 10) / 10,
         grade: gradeFor(s),
         engineVersion: `XS-2.0.0/${asOf}+v8struct`,
-        scoreAsOf: asOf,
     };
 }
