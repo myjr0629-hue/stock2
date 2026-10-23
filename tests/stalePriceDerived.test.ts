@@ -201,6 +201,14 @@ const json = { json: (data: any) => ({ json: async () => data }) };
             assert.equal(r.topRelated[0].price, 212.21); assert.equal(r.topRelated[0].change, -4.4);
         } finally { Object.assign(eodPayload, saved); }
     });
+    await test('gate 7: a same-day capture does not hide the last closed session\'s official close (15:58 ET, MSFT 521.08); after the close it waits for the official close', async () => {
+        const c = intrinio({ date: '2026-10-23', rows: { MSFT: [525.04, 100] } });
+        const svc = load('src/services/stalePriceRepair.ts', { './intrinioClient': c, '@/lib/marketCalendar': calendar });
+        const r = await withNow(at('2026-10-23T19:58:00Z'), () => svc.repriceRelated({ topRelated: [{ ticker: 'MSFT', price: 550, change: 1, prevClose: 544.5 }] }, at('2026-10-21T15:00:00Z')));
+        assert.equal(r.topRelated[0].price, 521.08); assert.equal(r.topRelated[0].change, -2.23);
+        const stale = { topRelated: [{ ticker: 'MSFT', price: 550, change: 1, prevClose: 544.5 }] };
+        assert.equal(await withNow(at('2026-10-23T20:30:00Z'), () => svc.repriceRelated(stale, at('2026-10-21T15:00:00Z'))), stale);   // 마감 뒤 10/23 공식 종가 전: 캡처로 덮지 않고 그대로
+    });
     await test('EOD readers: bulk row without capture is official; capture row with unknown prev → prevClose null', async () => {
         const c = intrinio({ date: '2026-10-23', rows: { ZZZ: [7, 1] } });
         const o = await c.peekOfficialSessionClose('MSFT', '2026-10-22', '2026-10-21');

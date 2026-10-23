@@ -7,11 +7,16 @@
 import { peekLatestCloseRow, peekOfficialSessionClose } from './intrinioClient';
 import { etDateOf, etLastClosedSessionDate, etMinutesOf, isNonTradingDay, prevTradingDate, sessionCloseMinutes } from '@/lib/marketCalendar';
 
-/** 최신 «끝난» 정규장의 공식 종가 — 15:57 캡처(provisional)는 쓰지 않는다(공식 종가가 적재될 때까지 원래 값 그대로). */
+/**
+ * 최신 «끝난» 정규장의 공식 종가 — 15:57 캡처(provisional)는 쓰지 않는다. 최신 행이 캡처이거나 아직 안 끝난 날짜면
+ * 마지막으로 끝난 정규장의 공식 종가(벌크·20거래일 행렬)를 대신 찾는다. 없으면 null(원래 값 그대로).
+ */
 async function latestClosedRow(ticker: string, nowMs = Date.now()) {
+    const lastClosed = etLastClosedSessionDate(nowMs);
     const row = await peekLatestCloseRow(ticker);
-    if (!row || !(row.close > 0) || row.provisional || row.date > etLastClosedSessionDate(nowMs)) return null;
-    return row;
+    if (row && row.close > 0 && !row.provisional && row.date <= lastClosed) return row;
+    const o = await peekOfficialSessionClose(ticker, lastClosed, prevTradingDate(lastClosed));
+    return o ? { date: lastClosed, close: o.close, prevClose: o.prevClose, provisional: false } : null;
 }
 
 /**
