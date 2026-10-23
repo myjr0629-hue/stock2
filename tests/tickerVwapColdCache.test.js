@@ -55,7 +55,7 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
     const locks = opts.locks || new Set();
     const io = { minutes: 0, realtime: 0, writes: [], archiveReads: [] };
     const deferred = [];
-    const calls = { responseKeys: [], lastGoodKeys: [], alphaChains: [], alphaRsi: [], urls: [], skewChains: [], sourceChains: 0 };
+    const calls = { responseKeys: [], lastGoodKeys: [], cachedRows: [], alphaChains: [], alphaRsi: [], urls: [], skewChains: [], sourceChains: 0 };
     const flow = snapshot.flow;
     const price = snapshot.price;
     const metrics = { pcr: flow.oiPcr, gex: flow.gex, squeezeScore: flow.squeezeScore };
@@ -116,7 +116,9 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
             levelsFromStructure: x => x, displayLevels: x => x || {},
             prefetchLevelsWithKeys: (_tickers, keys) => {
                 calls.responseKeys.push(...keys);
-                return { extras: Promise.resolve(keys.map(k => mode === 'hit' ? copy(snapshot) : copy(store.get(k) ?? null))), finish: async () => levels };
+                const rows = keys.map(k => mode === 'hit' ? copy(snapshot) : copy(store.get(k) ?? null));
+                calls.cachedRows.push(...rows);
+                return { extras: Promise.resolve(rows), finish: async () => levels };
             },
         },
         '@/lib/optionLevelGate': { gammaFlipTypeOf: () => flow.gammaFlipType ?? null },
@@ -507,7 +509,7 @@ for (const [label, iso, date] of [
     });
 }
 
-test('H1 last-good 병합: 결측은 null, 실제 RSI 0은 0; 옛 세션 캐시는 재계산', async () => {
+test('H1 last-good 병합: 결측은 null, 실제 RSI 0은 0', async () => {
     NOW = RealDate.parse('2026-10-23T01:20:00Z');
     const date = '2026-10-22';
     const end = RealDate.parse(`${date}T00:00:00Z`);
@@ -520,11 +522,35 @@ test('H1 last-good 병합: 결측은 null, 실제 RSI 0은 0; 옛 세션 캐시�
         assert.ok(h.calls.lastGoodKeys.includes('flow:ticker:lastgood:v7:lite-nochain:MSFT'));
         assert.equal((await h.get('')).body.display.rsi14, rows.length ? 0 : null);
     }
-    const previous = copy(stale);
-    previous.display.rsi14Date = '2026-10-21';
-    const h = harness(current, previous, 'hit', true, { dailyRows: [] });
-    assert.equal((await h.get('')).cache, 'MISS');
-    assert.ok(h.calls.urls.length > 0);
+});
+
+test('P2 실제 GET 캐시: 마감 경계·무표식 RSI만 null, 실제 0·원본 날짜 보존·추가 공급사 호출 0', async () => {
+    for (const [iso, date, expected] of [
+        ['2026-10-22T19:59:59Z', '2026-10-21', 41.62],
+        ['2026-10-22T20:00:01Z', '2026-10-21', null],
+        ['2026-11-27T17:59:59Z', '2026-11-25', 41.62],
+        ['2026-11-27T18:00:01Z', '2026-11-25', null],
+        ['2026-10-24T12:00:00Z', '2026-10-23', 41.62],
+        ['2026-11-26T21:01:00Z', '2026-11-25', 41.62],
+        ['2026-10-22T20:00:01Z', undefined, null],
+    ]) for (const value of [41.62, 0, null]) for (const skip of [false, true]) for (const query of ['', '&chain=full']) {
+        NOW = RealDate.parse(iso);
+        const snapshot = fixture('MSFT', calendar.shownRegularSessionDate(NOW));
+        snapshot.display = { rsi14: value, ...(date ? { rsi14Date: date } : {}) };
+        const original = copy(snapshot);
+        const store = new Map([['chart:v5:MSFT:1d', { data: bars(snapshot.vwapDate), _builtAt: NOW }]]);
+        const h = harness(current, snapshot, 'hit', skip, { store });
+        const result = await h.get(query);
+        await h.flushAfter();
+        assert.equal(result.cache, 'HIT');
+        assert.equal(result.body.display.rsi14, expected === null ? null : value, iso);
+        assert.equal(result.body.display.rsi14Date, date, '반환 시각으로 계산 날짜를 덮지 않는다');
+        assert.equal(result.body.price, snapshot.price);
+        assert.equal(h.calls.urls.length, 0, 'RSI 검사로 시세·일봉을 다시 조회하지 않는다');
+        assert.equal(h.calls.sourceChains, 0);
+        assert.equal(h.io.minutes + h.io.realtime, 0, '준비된 VWAP 저장본도 그대로 재사용한다');
+        assert.deepEqual(h.calls.cachedRows[0], original, '라우트에 전달한 캐시 객체 원본 보존');
+    }
 });
 
 

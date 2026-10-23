@@ -509,8 +509,7 @@ export async function GET(req: NextRequest) {
     const finishLevels = pre.finish;
     try {
         const cached = (await pre.extras)[0] ?? null;
-        const verdict = cached?.display?.rsi14Date && cached.display.rsi14Date !== dailyRsiWindow().to
-            ? { ok: false, why: 'RSI session mismatch' } : isUsableTickerCache(cached);
+        const verdict = isUsableTickerCache(cached);
         if (cached && !verdict.ok) {
             // 캐시를 «버리고» 새로 계산한다. 이유를 남긴다 — 조용히 넘어가면
             // 다음에 또 같은 것을 찾느라 하루를 쓴다.
@@ -519,6 +518,11 @@ export async function GET(req: NextRequest) {
         if (cached && verdict.ok) {
             console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
             let checked = dropStaleLiveVwap(cached);
+            // RSI 세션만 다르다고 캐시 전체를 버리면 공급사 호출이 늘어난다.
+            // 계산 날짜는 보존하고 검증할 수 없는 RSI만 null로 운반한다.
+            if (checked.display?.rsi14Date !== dailyRsiWindow().to) {
+                checked = { ...checked, display: { ...checked.display, rsi14: null } };
+            }
             if (checked.vwap == null || cashSessionPhaseAt(Date.now()) === 'regular') {
                 const r = await resolveTargetSessionVwap(ticker, Date.now(), true);
                 checked = { ...checked, vwap: r?.vwap ?? null, vwapDate: r?.date ?? null };
