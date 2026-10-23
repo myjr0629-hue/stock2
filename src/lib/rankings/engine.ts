@@ -61,13 +61,15 @@ export function optionSessionDate(row: Record<string, any>): string | null {
     return Number.isFinite(ts) ? etDay(ts) : null;
 }
 
-/** 날짜가 확인된, 이미 끝난 정규장의 EOD만 기준선으로 인정한다.
+/** 새 원천 행은 이미 끝난 정규장 EOD인지 검사한다. 표식 없는 옛 행은 기존 규칙을 유지한다.
  * 다음 날 PRE에 재수집한 전날 EOD는 유효하다. 당일 PRE를 전날로 바꾸지는 않는다.
  */
 export function isCompleteOptionEod(row: Record<string, any>): boolean {
+    if (row.partial === true || (row.optionBasis !== undefined && row.optionBasis !== 'eod')) return false;
+    if (row.chainDate === undefined && row.optionBasis === undefined) return true;
     const d = row.chainDate ? optionSessionDate(row) : null;
     const ts = Number(row.timestamp);
-    if (!d || row.optionBasis !== 'eod' || row.partial || !Number.isFinite(ts) || isNonTradingDay(d)) return false;
+    if (!d || !Number.isFinite(ts) || isNonTradingDay(d)) return false;
     const hour = Math.floor(ts / 3600_000);
     let closed = closedSessionCache.get(hour);
     if (closed === undefined) {
@@ -215,14 +217,14 @@ export type DevResult = {
     today: number; baseline: number; ratio: number; z: number; sessions: number; date: string; partial: boolean;
 } | null;
 
-/** 두 API 공통: 오늘을 과거로 되돌리지 않고 평소만 완결 EOD·동일 계산 기준으로 좁힌다. */
+/** 두 API 공통: 옛 이력은 보존하고 명시된 부분·비EOD 및 다른 금액 계산 기준을 제외한다. */
 export function deviationSeries(snaps: Row[], key: string) {
     const today = snaps[snaps.length - 1];
     if (!today || !measured(today[key])) return [];
     const premium = /premium/i.test(key);
     const basis = typeof today.premiumBasis === 'string' ? today.premiumBasis.trim() : '';
     return snaps.filter((r, i) => measured(r[key]) && (i === snaps.length - 1 || (
-        isCompleteOptionEod(r) && (!premium || (!!basis && r.premiumBasis === today.premiumBasis))
+        isCompleteOptionEod(r) && (!premium || !basis || !r.premiumBasis || r.premiumBasis === today.premiumBasis)
     ))).map(r => ({ d: r._d as string, v: Number(r[key]), oi: r._oi as number, partial: !isCompleteOptionEod(r) }));
 }
 

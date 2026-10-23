@@ -641,7 +641,7 @@ async function runSharedRanking(input, structures) {
     const writes = [], reads = [];
     const route = compile(read('src/app/api/ranking/route.ts'), {
         'next/server': { NextResponse: { json: x => x }, after: () => {} },
-        '@/lib/aws/dynamoClient': { TABLES: { FLOW_HISTORY: 'flow', GEX_HISTORY: 'gex' }, queryItems: async () => input },
+        '@/lib/aws/dynamoClient': { TABLES: { FLOW_HISTORY: 'flow', GEX_HISTORY: 'gex' }, queryItems: async (_table, _condition, values) => Array.isArray(input) ? input : input[values[':t']] || [] },
         '@/lib/app/intelOptionsBasis': { isGuardianSnapshotRow: () => false },
         '@/services/redisClient': { getFromCache: async k => { reads.push(k); return k === 'structure:part:v2:0' && structures ? { rows: structures } : null; }, setInCache: async (...args) => { writes.push(args); } },
         '@/services/darkPool': {}, '@/lib/rankings/engine': engine,
@@ -726,7 +726,7 @@ async function runSeparateDeviation(input, parts = null) {
         '@/lib/aws/dynamoClient': { TABLES: { FLOW_HISTORY: 'flow' }, queryItems: async () => input },
         '@/services/redisClient': { getFromCache: async key => {
             reads.push(key);
-            return parts && /^ranking:deviation:part:v12:30:\d$/.test(key) ? parts[Number(key.split(':').at(-1))] : null;
+            return parts && /^ranking:deviation:part:v13:30:\d$/.test(key) ? parts[Number(key.split(':').at(-1))] : null;
         }, setInCache: async (...args) => { writes.push(args); } },
         '@/services/darkPool': {}, '@/lib/rankings/engine': engine,
         '@/../data/stock_universe_us800.json': { symbols: ['TEST'] },
@@ -739,7 +739,7 @@ test('별도 deviation API도 같은 세션별 대표 행과 새 조각 캐시�
     const { out, writes } = await runSeparateDeviation(history());
     assert.equal(out.mode, 'build');
     assert.ok(out.candidates > 0);
-    assert.equal(writes[0][0], 'ranking:deviation:part:v12:30:0');
+    assert.equal(writes[0][0], 'ranking:deviation:part:v13:30:0');
     assert.ok(writes[0][1].found.every(x => x.date === '2026-10-21'));
 });
 
@@ -765,6 +765,76 @@ const cohort = (dates, center, oi, extra = {}) => dates.map((d, i) => row(d, Dat
     totalCallOI: oi / 2, totalPutOI: oi / 2,
     totalPremium: center + [-10, -8, -5, -2, 2, 5, 8, 10][i] * Math.round(center / 100), ...extra,
 }));
+
+const withoutMarkers = rows => rows.map(({ chainDate, optionBasis, premiumBasis, partial, ...legacy }) => legacy);
+
+test('옛 행 호환: 날짜·금액 표식 없는 기준군과 오늘은 기존 수치·순위를 유지한다', async () => {
+    const marked = history();
+    const old = withoutMarkers(marked);
+    // 수집일이 원천일과 같은 옛 자료를 사용한다.
+    old.at(-1).timestamp = Date.parse('2026-10-21T21:00:00Z');
+    for (const key of ['pcr', 'totalPremium', 'totalCallOI', 'totalPutOI']) {
+        assert.deepEqual(plain(engine.deviationOf(engine.dailySnapshots(old), key)),
+            plain(engine.deviationOf(engine.dailySnapshots(marked), key)));
+    }
+    const legacy = await runSharedRanking(old), reference = await runSharedRanking(marked);
+    for (const id of ['deviation', 'multi-axis', 'money-vs-oi']) {
+        assert.deepEqual(plain(legacy.out.results[id].items), plain(reference.out.results[id].items));
+        assert.equal(legacy.out.results[id].candidates, reference.out.results[id].candidates);
+        assert.equal(legacy.out.results[id].partial, false);
+    }
+    const mixed = [...old.slice(0, -1), marked.at(-1)];
+    assert.equal(engine.deviationOf(engine.dailySnapshots(mixed), 'totalPremium').ok.baseline, 1000);
+    const separate = await runSeparateDeviation(mixed);
+    assert.ok(separate.writes[0][1].found.some(x => x.metric === 'pcr'));
+    assert.equal(separate.out.partial, false);
+    mixed[mixed.length - 1] = { ...mixed.at(-1), totalPremium: 2300 };
+    const separatePremium = await runSeparateDeviation(mixed);
+    assert.equal(separatePremium.writes[0][1].found.find(x => x.metric === 'totalPremium').baseline, 1000);
+});
+
+test('옛 행 호환: partial:true·명시적 비EOD만 제외하고 정상 옛 행은 남긴다', () => {
+    const old = withoutMarkers(history().slice(0, -1));
+    const excluded = [
+        { ...old[0], timestamp: Date.parse('2026-10-01T21:00:00Z'), partial: true },
+        { ...old[1], timestamp: Date.parse('2026-10-02T21:00:00Z'), optionBasis: 'intraday', chainDate: '2026-10-02' },
+        { ...old[2], timestamp: Date.parse('2026-10-05T21:00:00Z'), optionBasis: 'intraday' },
+    ];
+    const today = history().at(-1);
+    const reference = engine.deviationOf(engine.dailySnapshots([...old, today]), 'totalPremium');
+    // 과거 원천의 전환일이 옛 행을 지우지 않도록 서로 다른 날짜에서 검사한다.
+    for (const extra of [excluded[0], excluded[2]]) {
+        const snaps = engine.dailySnapshots([...old, extra, today]);
+        assert.equal(engine.deviationSeries(snaps, 'totalPremium').length, 9);
+        assert.deepEqual(plain(engine.deviationOf(snaps, 'totalPremium')), plain(reference));
+    }
+    assert.equal(engine.isCompleteOptionEod(excluded[1]), false);
+    assert.equal(engine.isCompleteOptionEod({ ...old[0], partial: false }), true);
+});
+
+test('운영 형태 fixture: 옛 행 2,995개+오늘 표식 5개, 카드 5·1·19와 LLY 1위를 보존한다', async () => {
+    const { fixture } = require('./fixtures/deviationLegacyHistory.cjs');
+    const savedNow = now;
+    now = Date.parse('2026-10-24T09:00:00Z');
+    try {
+        const old = fixture({ legacyToday: true }), mixed = fixture();
+        assert.equal(mixed.AVGO.length, 3000);
+        assert.equal(mixed.AVGO.filter(x => x.optionBasis === 'eod').length, 5);
+        const legacy = (await runSharedRanking(old)).out;
+        const current = (await runSharedRanking(mixed)).out;
+        for (const out of [legacy, current]) {
+            assert.deepEqual(plain(out.results.deviation.items.map(x => x.ticker)), ['AAPL', 'AVGO', 'MU', 'AMD', 'MSFT']);
+            assert.deepEqual(plain(out.results['multi-axis'].items.map(x => x.ticker)), ['AVGO']);
+            assert.equal(out.results['money-vs-oi'].candidates, 19);
+            assert.equal(out.results['money-vs-oi'].items[0].ticker, 'LLY');
+            assert.equal(out.results['money-vs-oi'].items.length, 10, 'top=10 표시 한도');
+        }
+        for (const id of ['deviation', 'multi-axis', 'money-vs-oi']) {
+            assert.deepEqual(plain(current.results[id]), plain(legacy.results[id]));
+        }
+        assert.equal(engine.deviationSeries(engine.dailySnapshots(mixed.AVGO), 'totalPremium').length, 24);
+    } finally { now = savedNow; }
+});
 
 test('합성 조건 1·2: OI 감소 시 두 옛 선택 규칙의 43,302,986→111,623 급락을 차단한다', () => {
     const full = cohort(baselineDates, 43302986, 1000000);
@@ -813,7 +883,7 @@ test('합성 조건 4: OI 없는 원천 행 하나로 레거시 대표 17개를 
         assert.equal(engine.sessionValues(input, 'atmIv').length, engine.sessionValues(legacy, 'atmIv').length);
         assert.equal(engine.latestWith(input, ['callPremium', 'putPremium'])._d, '2026-10-17');
     }
-    assert.equal(engine.deviationOf(engine.dailySnapshots(legacy), 'totalCallOI').ok, null, '레거시 날짜를 완결 EOD로 추정하지 않는다');
+    assert.equal(engine.deviationSeries(engine.dailySnapshots(legacy), 'totalCallOI').length, 17, '표식 없는 옛 행은 기존 기준군에 남는다');
 });
 
 test('완결 EOD 판정: 부분·당일 PRE/장중·날짜 불명·휴장 제외, 전날 EOD 재수집·조기 마감 허용', () => {
@@ -827,7 +897,7 @@ test('완결 EOD 판정: 부분·당일 PRE/장중·날짜 불명·휴장 제외
     assert.equal(engine.deviationOf(engine.dailySnapshots(input), 'totalPremium').ok.baseline, 1000);
 });
 
-test('premiumBasis: 서로 다른 기준·알 수 없는 기준을 섞지 않고, OI 축은 독립이다', () => {
+test('premiumBasis: 명시된 서로 다른 기준은 분리하고, 없는 기준은 기존 비교를 유지한다', () => {
     const volume = cohort(baselineDates, 1000, 100000);
     const oi = cohort(earlyDates, 100, 100000, { premiumBasis: 'oi-prev-close' });
     for (const [basis, center] of [['volume-close', 1000], ['oi-prev-close', 100]]) {
@@ -836,11 +906,13 @@ test('premiumBasis: 서로 다른 기준·알 수 없는 기준을 섞지 않고
         assert.equal(result.baseline, center);
         assert.equal(result.sessions, 8);
     }
-    for (const premiumBasis of [undefined, null, '', 'other-basis']) {
+    for (const premiumBasis of [undefined, null, '']) {
         const rows = [...history().slice(0, -1), row('2026-10-21', now, { premiumBasis })];
-        assert.equal(engine.deviationOf(engine.dailySnapshots(rows), 'totalPremium').ok, null);
+        assert.equal(engine.deviationOf(engine.dailySnapshots(rows), 'totalPremium').ok.baseline, 1000);
         assert.ok(engine.deviationOf(engine.dailySnapshots(rows), 'pcr').ok);
     }
+    const other = [...history().slice(0, -1), row('2026-10-21', now, { premiumBasis: 'other-basis' })];
+    assert.equal(engine.deviationOf(engine.dailySnapshots(other), 'totalPremium').ok, null);
     for (const input of [[volume[0], { ...volume[0], premiumBasis: 'oi-prev-close', totalPremium: 9999999 }],
         [{ ...volume[0], premiumBasis: 'oi-prev-close', totalPremium: 9999999 }, volume[0]]]) {
         assert.equal(engine.dailySnapshots(input)[0].premiumBasis, 'volume-close');
@@ -869,7 +941,7 @@ test('공유·별도 API: 부분 오늘의 날짜·수치 유지, partial을 항
     const merged = await runSeparateDeviation([], parts);
     assert.equal(merged.out.partial, true, '부분 오늘 표식이 8조각 병합 뒤에도 남는다');
     assert.equal(merged.out.groups.totalPremium[0].partial, true);
-    assert.ok(merged.reads.includes('ranking:deviation:v13:30:5'));
+    assert.ok(merged.reads.includes('ranking:deviation:v14:30:5'));
     const complete = await runSharedRanking(history());
     assert.equal(complete.out.partial, false);
     const empty = await runSharedRanking([...history(), row('2026-10-22', now, { totalCallOI: 5, totalPutOI: 5 })]);

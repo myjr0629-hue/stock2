@@ -13,7 +13,8 @@
 
 // v13: deviation 평소는 완결 EOD·동일 premiumBasis, 오늘 부분 자료는 partial로 운반한다.
 // v14: 구조 부분 이력·부분 원천의 레거시 전환 수리 전 결과를 재사용하지 않는다.
-export const RANKING_CACHE_VERSION = 'v14';
+// v15: 표식 없는 과거 이력·금액 계산 기준의 기존 비교 규칙을 보존한다.
+export const RANKING_CACHE_VERSION = 'v15';
 
 /** /api/ranking 이 저장하는 키 */
 export const rankingCacheKey = (run: string, days: number, top: number): string =>
