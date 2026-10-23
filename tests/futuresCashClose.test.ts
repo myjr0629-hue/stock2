@@ -18,11 +18,20 @@ const store = new Map<string, unknown>();
 const writes: { key: string; value: unknown; ttl: number }[] = [];
 const reads: string[] = [];
 let failRead = '', failWrite = '';
+let beforeWrite = async (_key: string, _value: unknown) => {};
 const redis = {
     getFromCache: async (key: string) => { reads.push(key); if (key === failRead) throw new Error('mock read failure'); return store.get(key) ?? null; },
     setInCache: async (key: string, value: unknown, ttl: number) => {
         if (key === failWrite) return false;
         writes.push({ key, value, ttl }); store.set(key, value); return true;
+    },
+    setFuturesCashCloseIfCloser: async (key: string, value: FuturesCashCloseReference, _closeAt: string, ttl: number) => {
+        await beforeWrite(key, value);
+        if (key === failWrite) return false;
+        const previous = store.get(key) as FuturesCashCloseReference | null ?? null;
+        const selected = closerCashCloseReference(previous, value);
+        if (selected !== previous) { writes.push({ key, value: selected, ttl }); store.set(key, selected); }
+        return true;
     },
 };
 const originalLoad = (Module as any)._load;
@@ -87,6 +96,33 @@ async function main() {
     }
 
     const date = '2026-10-22', close = Date.parse('2026-10-22T20:00:00Z'), at = close + 15 * 60_000;
+    // 관문 재현: 오래된 관측의 쓰기를 멈춘 사이 정각 기준이 먼저 저장된다.
+    store.clear();
+    let arrived!: () => void, release!: () => void;
+    const waiting = new Promise<void>(resolve => { arrived = resolve; });
+    const resume = new Promise<void>(resolve => { release = resolve; });
+    beforeWrite = async (_key, value) => {
+        if ((value as FuturesCashCloseReference).asOf === iso(close - 30_000)) { arrived(); await resume; }
+    };
+    const slow = captureFuturesCashClose(quote('NQ=F', close - 30_000, 20000), close);
+    await waiting;
+    assert.equal(await captureFuturesCashClose(quote('NQ=F', close, 20020), close), true);
+    release();
+    assert.equal(await slow, true);
+    beforeWrite = async () => {};
+    // 현재값은 정각 기준과 같으므로 실제 POST 변화는 0%다.
+    store.set('yahoo:nq', quote('NQ=F', at, 20020));
+    const racedBasis = await loadMarketIndexBasis(at);
+    assert.equal(racedBasis.futures.nq.sinceCashClosePct, 0, '먼 관측이 정각 기준을 덮어쓰면 +0.1% 오표시');
+    // 검증 조회 전에 다른 수집자가 개선한 기준도 성공으로 인정한다.
+    assert.equal(await captureFuturesCashClose(quote('NQ=F', close - 30_000), close,
+        async () => ({ ok: true, value: reference('NQ=F', date, close, 20020) })), true);
+    assert.equal(await captureFuturesCashClose(quote('NQ=F', close), close,
+        async () => ({ ok: true, value: reference('NQ=F', date, close - 30_000) })), false);
+    assert.equal(await captureFuturesCashClose(quote('NQ=F', close), close,
+        async () => ({ ok: true, value: reference('ES=F', date, close) })), false);
+    store.clear();
+
     const raw = quote('NQ=F', at - 60_000, 20060);
     for (const ref of [null, reference('NQ=F', date, close - 180_001), reference('NQ=F', date, close + 180_001),
         reference('ES=F', date, close), reference('NQ=F', '2026-10-21', close), reference('NQ=F', date, close, 0),

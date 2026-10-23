@@ -5,6 +5,7 @@
 // ===========================================================================
 
 import crypto from 'crypto';
+import type { FuturesCashCloseReference } from '@/lib/futuresCashClose';
 import { monitorEventLoopDelay, performance } from 'perf_hooks';
 import { Redis as UpstashRedis } from '@upstash/redis';
 
@@ -609,6 +610,87 @@ export async function setIfNewerAsOf<T extends AsOfValue>(key: string, value: T,
     const tu = performance.now();
     try {
         const result = await upstash.eval(ASOF_CAS_LUA, [key], [raw, ttl]);
+        obsUpDone(tu);
+        return ecOk || result === 0 || result === 1;
+    } catch {
+        obsUpDone(tu, true);
+        return ecOk;
+    }
+}
+
+/** 마감 기준 전용 원자 선택. scripts/ec2-redis-proxy.js와 동일하게 유지한다. */
+export const FUTURES_CASH_CLOSE_LUA = `
+local incoming = cjson.decode(ARGV[1])
+local close = tonumber(ARGV[3])
+local function at(value)
+    if type(value) ~= 'string' or not string.match(value, '^%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%d%.%d%d%dZ$')
+        or string.sub(value, 1, 10) ~= incoming.sessionDate then return nil end
+    local hour = tonumber(string.sub(value, 12, 13))
+    local minute = tonumber(string.sub(value, 15, 16))
+    local second = tonumber(string.sub(value, 18, 19))
+    if hour > 23 or minute > 59 or second > 59 then return nil end
+    return hour * 3600000 + minute * 60000 + second * 1000 + tonumber(string.sub(value, 21, 23))
+end
+local raw = redis.call('GET', KEYS[1])
+if raw then
+    local ok, previous = pcall(cjson.decode, raw)
+    if ok and type(previous) == 'table' and previous.symbol == incoming.symbol
+        and previous.sessionDate == incoming.sessionDate and type(previous.price) == 'number'
+        and previous.price > 0 and previous.price < math.huge then
+        local previousAt = at(previous.asOf)
+        if previousAt then
+            local oldDistance = math.abs(previousAt - close)
+            local newDistance = math.abs(at(incoming.asOf) - close)
+            if oldDistance <= 180000 and (oldDistance < newDistance
+                or (oldDistance == newDistance and previous.asOf <= incoming.asOf)) then return 0 end
+        end
+    end
+end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+return 1
+`;
+
+function validCashCloseWrite(key: string, value: FuturesCashCloseReference, closeAt: string, ttl: number): boolean {
+    const canonical = (s: unknown) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(s)
+        && Number.isFinite(Date.parse(s)) && new Date(s).toISOString() === s;
+    return !!value && (value.symbol === 'NQ=F' || value.symbol === 'ES=F')
+        && typeof value.sessionDate === 'string'
+        && key === `yahoo:cash-close:${value.symbol === 'NQ=F' ? 'nq' : 'es'}:${value.sessionDate}`
+        && typeof value.price === 'number' && Number.isFinite(value.price) && value.price > 0
+        && canonical(value.asOf) && canonical(closeAt)
+        && value.asOf.slice(0, 10) === value.sessionDate && closeAt.slice(0, 10) === value.sessionDate
+        && /T(?:17|18|20|21):00:00\.000Z$/.test(closeAt)
+        && Math.abs(Date.parse(value.asOf) - Date.parse(closeAt)) <= 180000
+        && Number.isInteger(ttl) && ttl >= 1 && ttl <= 2_147_483_647;
+}
+
+/** 두 저장소가 각자 EVAL 안에서 가까운 기준을 선택한다. 구형 프록시의 /set으로 폴백하지 않는다. */
+export async function setFuturesCashCloseIfCloser(key: string, value: FuturesCashCloseReference,
+    closeAt: string, ttlSeconds: number): Promise<boolean> {
+    if (!validCashCloseWrite(key, value, closeAt, ttlSeconds)) return false;
+    const raw = JSON.stringify(value), ttl = applyJitter(ttlSeconds);
+    const close = Date.parse(closeAt) % 86_400_000;
+    let ecOk = false;
+    const gate = ecAcquire();
+    if (gate !== 'skip') {
+        const t0 = performance.now();
+        const body = JSON.stringify({ key, value, closeAt, ttl });
+        const r = await ecCall('set', `${EC2_PROXY_URL}/set-futures-cash-close`, () => ({
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}`, 'Content-Type': 'application/json' },
+            body,
+        }));
+        ecOk = r.ok && r.res.ok && (r.body?.result === 0 || r.body?.result === 1);
+        obsRecord('set', !r.ok ? r.kind : ecOk ? 'ok' : 'http', t0);
+        ecSettle(gate, ecOk);
+    }
+    // 선택이 no-op이어도 복제한다. 각 저장소의 더 가까운 기준은 바꾸지 않는다.
+    const upstash = getUpstashClient();
+    if (!upstash) return ecOk;
+    obsUp('set', ecOk ? 'replicate' : 'ecFail');
+    const tu = performance.now();
+    try {
+        const result = await upstash.eval(FUTURES_CASH_CLOSE_LUA, [key], [raw, ttl, close]);
         obsUpDone(tu);
         return ecOk || result === 0 || result === 1;
     } catch {

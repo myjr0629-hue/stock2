@@ -49,7 +49,7 @@
 
 - 이번 작업에서 커밋·push·main 병합·배포·운영 읽기/쓰기·브라우저 접근·실모델 호출은 하지 않는다.
 - 기준은 실제 마감 관측이 수집된 뒤부터 생긴다. 과거 정산 대비 수치를 기준으로 보충하지 않는다.
-- 기준의 read/compare/write는 기존 Redis 인터페이스를 사용하며 분산 CAS가 아니다. EC2와 Vercel이 장애 전환 중 같은 심볼을 동시에 수집하면 더 먼 후보가 마지막에 저장될 가능성이 있다. 기존 EC2 중복 실행 방지·성공 표식 넘김은 유지하지만 이 경합을 원자적으로 막지는 않는다.
+- 최초 구현의 read/compare/write 경합은 아래 R2에서 고쳤다. EC2·Upstash 각각의 고정 Lua EVAL이 더 가까운 기준만 저장한다.
 - Claude 운영 세션에서 인증 환경을 프로세스로 주입하고 실제 PRE/REG/POST 입력을 각각 확보한 뒤 비교한다. POST 입력에 유효한 `cashCloseReferenceAt`·`sinceCashClosePct`가 들어 있는지 먼저 확인한다. 실입력 확인에는 `--derive-sessions`를 사용하지 않는다.
 
 ```sh
@@ -61,3 +61,40 @@
 `origin/main`이 비교 기준이다. 비교 시점의 기준 SHA는 보고서에 기록된다. 위 명령은 실모델을 호출하고 로컬 보고서만 저장한다. 환경 파일을 읽지 않고 Redis/DB에는 쓰지 않는다.
 
 이번 변경의 프롬프트는 main과 같다. 비교 스크립트는 양쪽에 같은 정규화 입력을 전달하므로 모델 문장 계약을 확인하는 용도이며, 출력 차이를 기준 수집 정확성의 증거로 삼지 않는다. 실제 마감 관측·기준 키·현재 선물 가격에서 계산한 변화율 확인은 별도로 필요하다.
+
+
+## R2 — 관문 10240620 동시 저장 경합 수리
+
+### 확인한 원인과 수리
+
+- 이전 `captureFuturesCashClose`는 GET → JS 선택 → SET이었다. 15:59:30 관측의 SET을 대기시키고 16:00 가격 20,020을 먼저 저장한 뒤 대기를 풀면 20,000으로 덮어썼다. 현재 가격 20,020의 POST 계산이 실제 0% 대신 `0.09999999999998899%`가 되는 실패를 새 재현 시험에서 확인했다. 로그: `/tmp/signum-futures-r2-repro.log`.
+- 기준 저장을 `setFuturesCashCloseIfCloser`로 교체했다. EC2의 새 `/set-futures-cash-close`와 Upstash가 동일한 고정 Lua를 EVAL한다. 각 저장소 안의 GET·거리 비교·SET이 한 원자 연산이다. 정각에 더 가까운 관측만 개선하고, 거리 동률은 이른 체결을 선택하며, 같은 체결의 최초 가격과 기존 TTL을 유지한다. 잘못된 기존 값은 유효 후보로 교체한다.
+- 모든 시각은 실제 관측의 UTC ISO를 보존한다. 마감 UTC는 기존 `sessionCloseMinutes`·`etWallTimeToMs`로 계산하므로 정상·조기 폐장·DST 계약을 유지한다. TTL은 종전처럼 86400초 인수에 ±10% 지터다.
+- EC2와 Upstash 각각에서 원자 선택한다. EC2가 no-op이어도 Upstash에 원자 복제를 시도하므로 요청 순서가 뒤집혀도 더 먼 관측이 덮어쓰지 않는다. 구형 프록시의 404/장애에서는 Upstash EVAL만 사용하고 무조건 `/set`으로 되돌아가지 않는다. 두 저장소 모두 실패하면 false로 기존 재시도 표식을 유지한다.
+- `verifyRead`는 주 저장소의 기준이 자신의 후보와 같거나 더 가까우면 성공이다. 동시 실행자가 더 좋은 기준을 저장한 정상 경우를 실패로 판정하지 않는다. 심볼·날짜·가격·시각 유효성과 후보보다 나쁘지 않은지를 확인한다.
+
+### 호출자와 영향 범위
+
+- `captureFuturesCashClose`의 운영 호출자는 `runMarketFeed` 한 곳이다. 그 진입점인 `/api/cron/market-feed`와 `scripts/ec2-cron/market-feed-worker.ts`의 성공·실패 표식 계약을 유지한다. 실제 수집 배선 시험에서 NQ/ES 기존 요청 2회만 발생함을 확인한다.
+- 새 `setFuturesCashCloseIfCloser`의 운영 호출자는 위 capture 한 곳이다. 기존 Redis 공유 함수 `getFromCache`, `setInCache`, `setIfNewerAsOf`, `mgetLatestAsOf`의 구현·호출자는 변경하지 않았다. 같은 Redis 모듈과 프록시를 쓰는 매크로 CAS 및 전체 오프라인 시험으로 회귀를 검사한다.
+- 기존 `closerCashCloseReference`는 구현을 바꾸지 않고 capture의 주 저장소 검증과 시험에서 사용한다. 기준 선택·장후 계산·Tactical 프롬프트·문장 출구 검사·복구·저장본 경로·화면 파일은 이번 R2에서 바꾸지 않았다.
+- 프록시는 고정 선물 기준 키만 허용한다. 임의 키·임의 Lua 실행은 허용하지 않는다. 새 시험은 HTTP 핸들러를 메모리에서 실행하고 환경 파일 읽기와 실제 통신을 막는다.
+
+### 검증 범위 및 운영 세션 인계
+
+- `futuresCashClose.test.ts`: 관문과 같은 15:59:30 → 16:00 저장 순서 역전 및 최종 POST 0% 재현, 더 좋은 기준의 주 저장소 재확인 성공·나쁜 기준/다른 심볼 거절을 추가했다. 기존 정상·조기 폐장·DST·결측·3언어 POST·공급사 호출 수 시험을 유지한다.
+- `futuresCashCloseAtomic.test.cjs`: EC2 정상/구형/장애, Upstash 복제 순서 역전, 독립 클라이언트, 동률·같은 체결·TTL, 불량 기준 교체, 저장 실패, 입력·키 제한, 조기 폐장·DST·NQ/ES, 프록시 핸들러 및 양쪽 Lua 원문 일치를 검사한다. 10개 통과. 원자 명령은 메모리 모형이며 실제 Redis/Lua 엔진 실행 증거는 아니다.
+- `git fetch origin`은 Git 작업공간의 `FETCH_HEAD` 쓰기 `Operation not permitted`로 실패했다. `git merge --no-commit --no-ff origin/main`도 `ORIG_HEAD.lock` 생성 권한 오류로 실패했다. 메타데이터 권한을 우회하거나 다른 경로로 저장소를 재구성하지 않았다. 로컬 origin/main은 `08c7d8bb0`이며 `51a0deea6` 포함을 확인했지만 최신 원격 확인·병합은 미완료다.
+- 이번 수정은 커밋·push·운영 main 병합·배포·운영 Redis/DB/외부 API 쓰기·실모델 호출·브라우저 접근 없이 작업공간에만 저장한다. 새 프록시 경로는 운영 세션이 실제 반영 후 확인해야 한다. 구형 프록시에서는 EC2 주 저장소 재확인이 실패하므로 성공 표식이 생기지 않고 기존 재시도 경로로 남는다.
+- 위 Git 제한 때문에 최신 origin/main 병합 후 검증을 완료했다고 보고할 수 없다. 운영 세션에서 병합을 마친 뒤 최종 관문을 확인해야 한다.
+
+
+### R2 최종 검증 기록
+
+- 전체 오프라인 시험은 공용 잠금을 기다린 뒤 **한 번** 실행했다. 제외는 지시된 `earningsScenario.test.cjs`, `giftShareGate.test.ts`, `readCheck.test.cjs`, `tacticalV3Compare.test.cjs` 4개다. 최초 결과는 **307/308 통과**이고 로그는 `/tmp/signum-futures-r2-offline.log`다. 관문 재현·EC2 넘김·매크로 CAS·시장 세션·Tactical v3 R4 회귀는 모두 통과했다.
+- 유일 실패 `tickerPayload.test.js`는 `origin/main`과 진단 스크립트/소비자 전체 소스를 비교하는 시험 기준 차이였다. main의 UTF-8 수신 처리 및 검증 중 공유 origin/main에 반영된 VWAP 계산 변경까지 체인 요청 계약 위반으로 판정했다. **운영 소스는 바꾸지 않고**, origin/main의 해당 시험 수정(UTF-8 디코딩 정규화·요청 순서와 인수만 AST 비교·기존 세션 날짜 모의)을 그대로 반영했다. 최종 시험 파일은 당시 origin/main `d975ab12a`와 diff 0이다.
+- 위 시험만 재검사해 **1/1 통과, 종료 0**을 확인했다. 전체 묶음은 반복하지 않았다. 로그 `/tmp/signum-futures-r2-ticker-final.log`, 최종 파일별 집계 `/tmp/signum-futures-r2-results.json`: **308/308 통과**. 이 집계는 전체 1회 실행과 수정 후 단일 재검사를 합친 결과다.
+- 타입 검사: `/usr/bin/lockf -k /tmp/signum-heavy.lock node --require ./scripts/offline-test-preload.cjs node_modules/typescript/bin/tsc --noEmit --incremental false` 한 번 실행, **종료 0·오류 0**. `/tmp/signum-futures-r2-tsc.log`는 0바이트다. 이후 변경은 위 JavaScript 시험과 이 감사 기록뿐이며 운영 TypeScript는 바꾸지 않았다.
+- 수정 파일 `git diff` 및 신규 시험 `git diff --no-index /dev/null tests/futuresCashCloseAtomic.test.cjs`로 저장을 확인했다. tracked/new 파일 `git diff --check` 통과. 프록시 JavaScript 구문 검사도 통과했다.
+- R2 변경 파일: `src/services/futuresCashClose.ts`, `src/services/redisClient.ts`, `scripts/ec2-redis-proxy.js`, `tests/futuresCashClose.test.ts`, `tests/futuresCashCloseAtomic.test.cjs`, `tests/tickerPayload.test.js`, 이 감사 문서(7개).
+- Git fetch·병합의 권한 제한은 해결되지 않았다. 최초 로컬 origin/main은 `08c7d8bb0`, 마지막 관측은 `d975ab12a`이며, 이는 공유 참조의 변화를 관측한 것이다. 우리 브랜치에 최신 main을 병합했거나 원격 fetch가 성공했다는 뜻이 아니다. 따라서 **최신 main 병합 후 최종 관문은 미완료**다. 실제 Redis/Lua 엔진·운영 수집·새 프록시 경로 반영·실모델 출력도 확인하지 않았다.

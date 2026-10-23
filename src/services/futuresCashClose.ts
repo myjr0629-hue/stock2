@@ -1,7 +1,9 @@
 import { closerCashCloseReference, futuresCashCloseCandidate, futuresCashCloseKey, FUTURES_CASH_CLOSE_TTL,
-    type FuturesCashCloseReference } from '@/lib/futuresCashClose';
+    validFuturesCashCloseReference, type FuturesCashCloseReference } from '@/lib/futuresCashClose';
 import type { IndexQuoteInput } from '@/lib/marketIndexBasis';
-import { getFromCache, setInCache } from './redisClient';
+import { setFuturesCashCloseIfCloser } from './redisClient';
+import { etWallTimeToMs } from '@/lib/marketSession';
+import { sessionCloseMinutes } from '@/lib/marketCalendar';
 
 /** market-feed 기존 관측만 저장한다. 조회 경로에서는 호출하지 않는다. */
 export async function captureFuturesCashClose(quote: IndexQuoteInput, nowMs = Date.now(),
@@ -9,12 +11,12 @@ export async function captureFuturesCashClose(quote: IndexQuoteInput, nowMs = Da
     const candidate = futuresCashCloseCandidate(quote, nowMs);
     if (!candidate) return true;
     const key = futuresCashCloseKey(candidate.symbol, candidate.sessionDate);
-    const previous = await getFromCache<FuturesCashCloseReference>(key);
-    const selected = closerCashCloseReference(previous, candidate);
-    if (selected !== previous && !await setInCache(key, selected, FUTURES_CASH_CLOSE_TTL)) return false;
+    const closeAt = new Date(etWallTimeToMs(candidate.sessionDate, sessionCloseMinutes(candidate.sessionDate))).toISOString();
+    if (!await setFuturesCashCloseIfCloser(key, candidate, closeAt, FUTURES_CASH_CLOSE_TTL)) return false;
     if (!verifyRead) return true;
     const back = await verifyRead(key).catch(() => ({ ok: false, value: null }));
     const value = back.value as FuturesCashCloseReference | null;
-    return back.ok && value?.symbol === selected.symbol && value?.sessionDate === selected.sessionDate
-        && value?.asOf === selected.asOf && value?.price === selected.price;
+    // 다른 수집자가 더 좋은 기준을 저장했어도 성공이다. 같은 체결은 최초 가격을 유지한다.
+    return back.ok && validFuturesCashCloseReference(value, candidate.symbol, candidate.sessionDate)
+        && closerCashCloseReference(value, candidate) === value;
 }
