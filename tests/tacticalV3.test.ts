@@ -32,7 +32,7 @@ assert.deepEqual(filterMarketHeadlines(['Volvo Cars shares plunge on weak China 
 const base = { rlsiScore: 31, nasdaqChange: -1.2, vix: 19.6, gexIndex: 13, gexLevel: 'NEUTRAL', scheduledEvents: [], marketNewsHeadlines: [] };
 const prePrompt = buildTacticalPrompt({ ...base, indexBasis: pre, session: 'PRE', asOf: new Date(preAt).toISOString() }, 'ko');
 const preFirst = '어제(10/22) 정규장에서 나스닥 종합은 1.2%, S&P500은 0.6% 내렸고, 지금 개장 전 나스닥100 선물은 보합, S&P500 선물도 보합입니다.';
-const postFirst = '오늘 정규장에서 나스닥은 1.2% 내렸지만, 마감 뒤 나스닥100 선물은 0.3% 반등해 일부 되돌림이 나오고 있습니다.';
+const postFirst = '오늘(10/23) 정규장에서 나스닥은 1.2% 내렸지만, 마감 뒤 나스닥100 선물은 0.3% 반등해 일부 되돌림이 나오고 있습니다.';
 const tail = ' 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 시장 건강도(RLSI)가 31점으로 약해 반등을 받칠 힘이 약하고 옵션 포지션(GEX)은 중립이라 흔들림을 줄이지도 키우지도 않습니다. 다음 분기점은 미확인입니다.';
 assert.deepEqual(tacticalIndexReasons(preFirst, prePrompt), []);
 assert.deepEqual(checkTacticalOutput(preFirst + tail, 'ko', prePrompt), []);

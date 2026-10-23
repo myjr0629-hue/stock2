@@ -31,7 +31,7 @@ assert.deepEqual(tacticalIndexReasons(first.replace('보합(+0.03%)', '보합'),
 assert.ok(tacticalIndexReasons('어제 나스닥 종합은 2.6% 내렸습니다.', prompt).includes('tactical:premarket-futures-required'));
 assert.ok(tacticalIndexReasons('지금 개장 전 나스닥100 선물은 보합입니다.', prompt).includes('tactical:premarket-spot-required'));
 assert.ok(tacticalIndexReasons(first.replace('0.2% 약세', '0.2% 상승'), prompt).includes('tactical:index-direction'));
-assert.ok(tacticalIndexReasons(first.replace('0.2% 약세', '0.2%'), prompt).includes('tactical:index-direction-required'));
+assert.deepEqual(tacticalIndexReasons(first.replace('0.2% 약세', '0.2%'), prompt), [], '이름·숫자가 맞고 반대 방향어가 없으면 통과');
 assert.ok(tacticalIndexReasons(first.replace('2.6%', '2.5%'), prompt).includes('tactical:index-value'));
 assert.deepEqual(tacticalIndexReasons(first.replace('1.2%', '1.21%'), prompt), [], '표시한 두 자리로 반올림 일치');
 assert.ok(tacticalIndexReasons(first.replace('1.2%', '1.22%'), prompt).includes('tactical:index-value'));

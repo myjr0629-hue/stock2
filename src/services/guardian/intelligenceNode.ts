@@ -291,6 +291,13 @@ function tokenizeInsight(type: InsightType, text: string, nums: GNums | null | u
     return tokenizeGuardianLiterals(text, insightNums(type, nums));
 }
 
+/** v2 지수는 선물 기준이었다. 현재 현물과 비교·치환하지 않고 저장된 기준을 유지한다. 다른 지표의 낡음 검사는 그대로다. */
+function recoveryNums(nums: GNums | null | undefined, basis: GNums | null | undefined, recovery?: RecoveryMode): GNums | null {
+    if (recovery !== 'legacy') return nums ?? basis ?? null;
+    const { NDX_CHG, SPX_CHG, ...rest } = nums ?? basis ?? {};
+    return { ...rest, NDX_CHG: basis?.NDX_CHG, SPX_CHG: basis?.SPX_CHG };
+}
+
 /**
  * 정리 + 출구 검사. 사용자에게 나가는 모든 AI 글(생성·번역·캐시 읽기·저장된 판정)이 여기를 지난다.
  * ★2026-10-04 숫자 — tpl(자리표가 남은 정리본 = 저장용)을 화면 값(nums)으로 채운 text 를 검사한다:
@@ -307,16 +314,17 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
         if (strict) forecastReasons.push(`forecast:${fh[0].id}«${fh[0].match}»`);
         else { const st = stripForecastSentences(cleaned, locale, { allowEmptyLine: true }); if (st.usable && st.text) cleaned = st.text; }
     }
-    // v2 복구본의 현물 자리표는 옛 숫자 계약으로 채운다. 신규 생성에는 적용하지 않는다.
+    // v2 복구본은 옛 선물 basis, v3는 INDEX_FACTS로 검사한다.
     const numberType = recovery === 'legacy' ? 'rotation' : type;
-    const n = guardianNumbersGate(cleaned, insightNums(numberType, nums ?? basis ?? null), nums ? insightNums(numberType, basis ?? null) : null);
+    const currentNums = recoveryNums(nums, basis, recovery);
+    const n = guardianNumbersGate(cleaned, insightNums(numberType, currentNums), nums ? insightNums(numberType, basis ?? null) : null);
     const r = validateInsight(n.text, locale);
     // ★2026-10-07 T5 문턱·비교·범위 문장 — «RLSI 42 sits below the 40 threshold»(42 는 40 아래가 아니다)
-    const facts = guardianCmpFacts(nums ?? basis ?? null);
+    const facts = guardianCmpFacts(currentNums);
     const cmpReasons = [...checkComparisons(n.text, facts), ...checkRanges(n.text, facts)];
     // ★2026-10-21 Tactical «시장 상태» 낡음 — 생성 때 값과 지금 값의 상태 구간(지수·건강도·감마·변동성·참여폭)이 달라졌으면 탈락(결정적 비교, guardianNumbers.stateStaleReasons).
     //   장중만 — 장외 카드는 «Last session analysis»(지난 세션 해석)라 밤사이 선물 움직임으로 지우지 않는다(장외엔 다시 만들 수도 없다).
-    const implied = type === 'reality' && nums && !isOffHours() ? stateStaleReasons(insightNums(type, nums)!, insightNums(type, basis ?? null) ?? null) : [];
+    const implied = type === 'reality' && nums && !isOffHours() ? stateStaleReasons(insightNums(numberType, currentNums)!, insightNums(numberType, basis ?? null) ?? null) : [];
     const reasons = [...textIntegrityReasons(String(tpl ?? '')), ...r.reasons, ...n.reasons, ...implied, ...forecastReasons, ...cmpReasons, ...(type === 'reality' ? internalSourceReasons(n.text) : []),
         ...(type === 'reality' && recovery === 'legacy' ? internalLabelReasons(n.text, false) : []),
         // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
@@ -418,7 +426,7 @@ function rememberInsight(type: InsightType, locale: Locale, text: string, at: nu
 
 /** 자리표 글 → 화면 글. 채울 값이 없어 자리표가 남으면 대기 문구(자리표가 화면에 나가지 않게). 내보낸 원본·기준을 기억한다. */
 function shownOut(type: InsightType, locale: Locale, out: InsightOut, nums?: GNums | null): string {
-    const f = fillGuardianTokens(out.tpl, nums ?? out.basis ?? null);
+    const f = fillGuardianTokens(out.tpl, recoveryNums(nums, out.basis, out.recovery));
     const shown = hasGuardianTokens(f.text) ? (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale] : f.text;
     _lastOut[type][locale] = shown === f.text ? { shown, tpl: out.tpl, basis: out.basis } : null;
     if (type === 'reality' && shown === f.text) rememberShown(locale, shown, out.tpl, out.basis ?? null);

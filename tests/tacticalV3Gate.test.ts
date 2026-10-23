@@ -62,23 +62,99 @@ async function main() {
         assert.ok(!N.isPlaceholderInsight(out.verdict.realityInsight));
     }
     assert.ok(tacticalIndexReasons('나스닥 종합은 0.7% 하락 중입니다.', numericPrompt()).includes('tactical:index-value'));
-    for (const change of [-0.1, 0, 0.1]) assert.deepEqual(tacticalIndexReasons('나스닥 종합은 보합입니다.', numericPrompt(change)), []);
-    for (const change of [-0.101, 0.101]) assert.ok(tacticalIndexReasons('나스닥 종합은 보합입니다.', numericPrompt(change)).includes('tactical:index-direction'));
+    for (const change of [-0.101, -0.1, 0, 0.1, 0.101]) assert.deepEqual(tacticalIndexReasons('나스닥 종합은 보합입니다.', numericPrompt(change)), []);
+    for (const change of [-0.16, 0.16]) assert.ok(tacticalIndexReasons('나스닥 종합은 보합입니다.', numericPrompt(change)).includes('tactical:index-direction'));
     // REG 오인은 세 언어에서 생성/저장 검사 모두 거부한다.
     for (const word of ['장후', '개장 전', 'after-hours', 'premarket', '時間外', '取引開始前']) {
         const first = `나스닥 종합은 0.8% 하락 중이며 ${word}입니다.`;
         assert.ok(tacticalIndexReasons(first, numericPrompt()).includes('tactical:session-mismatch'), word);
         assert.ok(checkTacticalStored(first + text.ko, numericPrompt()).includes('tactical:session-mismatch'), word);
     }
+    // 관문 10232033: 정상 방향 동사·미등록 방향 표현도 실제 verdict 출구에서 보존한다.
+    const directionCases: Array<[Locale, string]> = [
+        ...['has lost', 'lost', 'slipped', 'slid', 'tumbled', 'retreated'].map(word => ['en', `Nasdaq Composite ${word} 2.6%.`] as [Locale, string]),
+        ...['gained', 'jumped', 'climbed', 'advanced'].map(word => ['en', `Nasdaq Composite ${word} 2.6%.`] as [Locale, string]),
+        ['ko', '나스닥 종합은 2.6% 밀려 마쳤습니다.'],
+        ['ko', '나스닥 종합은 2.6% 빠졌습니다.'],
+        ['ko', '나스닥 종합은 2.6% 떨어졌습니다.'],
+        ['ko', '나스닥 종합은 2.6% 올라섰습니다.'],
+        ...['値下がり', '下げた', '値上がり', '上げた'].map(word => ['ja', `ナスダック総合は2.6%${word}結果です。`] as [Locale, string]),
+    ];
+    for (const [locale, first] of directionCases) {
+        reset('2026-10-23T13:31:00Z');
+        const positive = /gained|jumped|climbed|advanced|올라섰|値上がり|上げた/.test(first);
+        const c = { ...ctx(locale), session: 'REG' as const, asOf: new Date(clock).toISOString(), indexFacts: [{ ...fact, chgPct: positive ? 2.6 : -2.6 }] };
+        const p = (l: Locale) => buildTacticalPrompt(c, l);
+        assert.deepEqual(tacticalIndexReasons(first, p(locale)), [], first);
+        const full = first + ' ' + text[locale].slice(text[locale].indexOf(locale === 'ja' ? '。' : '.') + 1).trim();
+        assert.deepEqual(checkTacticalOutput(full, locale, p(locale)), [], first);
+        const out = await N.repairVerdictTexts({ realityInsight: full }, locale, 'direction', null, p);
+        assert.deepEqual(out.repaired, [], first);
+        assert.equal(out.verdict.realityInsight, full, '정상 문장을 준비 중으로 바꾸지 않음');
+        const opposite = buildTacticalPrompt({ ...c, indexFacts: [{ ...fact, chgPct: positive ? -2.6 : 2.6 }] }, locale);
+        assert.ok(tacticalIndexReasons(first, opposite).includes('tactical:index-direction'), `반대 방향 거절: ${first}`);
+    }
+    for (const [locale, first] of [
+        ['en', 'Nasdaq Composite registered 2.6%.'], ['en', 'Nasdaq Composite registered -2.6%.'],
+        ['ko', '나스닥 종합은 2.6%를 기록했습니다.'], ['ja', 'ナスダック総合は2.6%を記録しました。'],
+    ] as const) {
+        const p = (l: Locale) => buildTacticalPrompt({ ...ctx(locale), session: 'REG', asOf: '2026-10-23T13:31:00Z', indexFacts: [{ ...fact, chgPct: -2.6 }] }, l);
+        assert.deepEqual(tacticalIndexReasons(first, p(locale)), [], '방향어 미등록·생략은 탈락 아님');
+        const out = await N.repairVerdictTexts({ realityInsight: first + ' ' + text[locale] }, locale, 'unknown-direction', null, p);
+        assert.deepEqual(out.repaired, []);
+        assert.ok(!N.isPlaceholderInsight(out.verdict.realityInsight));
+        assert.ok(tacticalIndexReasons(first.replace('2.6', '2.5'), p(locale)).includes('tactical:index-value'));
+    }
+    assert.ok(tacticalIndexReasons('Nasdaq Composite registered +2.6%.', buildTacticalPrompt({ ...ctx('en'), session: 'REG', indexFacts: [{ ...fact, chgPct: -2.6 }] }, 'en')).includes('tactical:index-direction'));
+    // POST/CLOSED: 16:00 ET 마감 사실과 날짜·상대 날짜·시제를 대조한다. KST는 다음 날이어도 ET 기준이다.
+    for (const session of ['POST', 'CLOSED'] as const) for (const locale of locales) {
+        reset(session === 'POST' ? '2026-10-23T20:00:00Z' : '2026-10-24T01:00:00Z');
+        const p = (date: string, l = locale) => buildTacticalPrompt({ ...ctx(l), session, asOf: new Date(clock).toISOString(), indexFacts: [{ ...fact, chgPct: -2.6, sessionDate: date }] }, l);
+        const first = locale === 'ko' ? '오늘(10/23) 정규장에서 나스닥 종합은 전일 종가 대비 2.6% 내렸습니다.'
+            : locale === 'en' ? 'In today’s (10/23) cash session Nasdaq Composite lost 2.6%.'
+                : '本日(10/23)の通常取引でナスダック総合は2.6%値下がりしました。';
+        const full = first + ' ' + text[locale].slice(text[locale].indexOf(locale === 'ja' ? '。' : '.') + 1).trim();
+        assert.deepEqual(checkTacticalOutput(full, locale, p('2026-10-23')), []);
+        assert.deepEqual(checkTacticalStored(full, p('2026-10-23')), []);
+        const actual = await N.repairVerdictTexts({ realityInsight: full }, locale, 'post-close', null, l => p('2026-10-23', l));
+        assert.deepEqual(actual.repaired, []);
+        const ongoing = locale === 'ko' ? '오늘(10/23) 지금 정규장 나스닥 종합은 2.6% 하락 중입니다.'
+            : locale === 'en' ? 'Today (10/23) Nasdaq Composite is down 2.6%.'
+                : '本日(10/23)ナスダック総合は2.6%下落中です。';
+        for (const [bad, reason] of [
+            [ongoing, 'tactical:session-mismatch'], [first.replace('10/23', '10/22'), 'tactical:cash-session-date'],
+            [first.replace(/오늘|today’s|本日/, { ko: '어제', en: 'yesterday’s', ja: '昨日' }[locale]), 'tactical:cash-session-date'],
+            [first.replace('(10/23)', ''), 'tactical:cash-session-date'],
+        ]) {
+            assert.ok(checkTacticalOutput(bad + ' ' + text[locale], locale, p('2026-10-23')).includes(reason), bad);
+            assert.ok(checkTacticalStored(bad + ' ' + text[locale], p('2026-10-23')).includes(reason), bad);
+        }
+        clock = Date.parse('2026-10-24T05:00:00Z'); // 10/24 01:00 ET, 전날 마감
+        const yesterday = first.replace(/오늘|today’s|本日/, { ko: '어제', en: 'yesterday’s', ja: '昨日' }[locale]);
+        assert.deepEqual(tacticalIndexReasons(yesterday, p('2026-10-23')), []);
+        assert.ok(tacticalIndexReasons(first, p('2026-10-23')).includes('tactical:cash-session-date'));
+    }
+    reset('2026-10-23T20:00:00Z');
+    const withFutures = buildTacticalPrompt({ ...ctx('ko'), session: 'POST', asOf: new Date(clock).toISOString(), indexFacts: [
+        { ...fact, chgPct: -2.6 }, { ...fact, id: 'nq', kind: 'futures', name: INDEX_NAMES.nq, chgPct: 0.3 },
+    ] }, 'ko');
+    assert.deepEqual(tacticalIndexReasons('오늘(10/23) 정규장에서 나스닥 종합은 2.6% 내렸고, 지금 장후 나스닥100 선물은 0.3% 상승 중입니다.', withFutures), [], '장후 선물 진행형은 허용');
     // 첫 배포 v3 비어 있음. v2/REALITY 복구는 생성 실패·장외 모두 안내 문구 아님, 승격 쓰기 없음.
     for (const locale of locales) for (const source of ['v2', 'archive']) for (const offHours of [false, true]) {
         reset(offHours ? '2026-10-24T01:00:00Z' : undefined);
-        // 새 INDEX 계약으로는 거부할, 옛 정상 문장. 현물 자리표도 복구한다.
-        const old = locale === 'ko' ? text.ko.replace('나스닥 현물 관측은 미확인입니다.', '지수는 {NDX_CHG} 하락한 약세장입니다.') : text[locale].replace(/^[^.]+\./, locale === 'en' ? 'The market is weak.' : '相場は弱いです。');
-        const saved = { text: old, updatedAt: '2026-10-23T13:29:00Z', basis: { NDX_CHG: -0.784, RLSI: 31, VIX: 19.6 } };
+        // 새 INDEX 계약으로는 거부할, 옛 정상 문장. 옛 선물 자리표도 복구한다.
+        const old = locale === 'ko' ? text.ko.replace('나스닥 현물 관측은 미확인입니다.', '나스닥 {NDX_CHG}, S&P500 {SPX_CHG}로 혼조입니다.')
+            : locale === 'en' ? text.en.replace('Nasdaq spot observations are unavailable.', 'Nasdaq {NDX_CHG} and S&P500 {SPX_CHG} show a mixed market.')
+                : text.ja.replace('ナスダック現物の観測は未確認です。', 'ナスダック{NDX_CHG}、S&P500{SPX_CHG}のまちまちな相場です。');
+        const saved = { text: old, updatedAt: '2026-10-23T13:29:00Z', basis: { NDX_CHG: -0.06, SPX_CHG: 0.15, RLSI: 31, VIX: 19.6 } };
+        const recoveryCtx = { ...ctx(locale), nasdaqChange: -2.6, spxChangePct: -1.2, indexFacts: [{ ...fact, chgPct: -2.6 }] };
+        const recoveryPrompts = (l: Locale) => buildTacticalPrompt({ ...recoveryCtx, asOf: new Date(clock).toISOString() }, l);
+        const currentNums = { NDX_CHG: -2.6, SPX_CHG: -1.2, RLSI: 31, VIX: 19.6 };
         if (source === 'v2') store.set(key('v2', locale), saved);
         else archives.set(`reality_${locale}`, { value: saved, stamp: { observedAt: Date.parse(saved.updatedAt) } });
-        const out = await N.generateRealityInsight(ctx(locale));
+        const out = await N.generateRealityInsight(recoveryCtx);
+        assert.ok(out.includes('-0.06%') && out.includes('+0.15%'), 'v2 저장 선물 basis 유지');
+        assert.ok(!out.includes('2.60%') && !out.includes('1.20%'), '현물 값으로 덮지 않음');
         assert.ok(!N.isPlaceholderInsight(out), `${locale}/${source}/${offHours}: 안내 문구 아님`);
         assert.ok(!out.includes('{NDX_CHG}'));
         assert.equal(writes.length, 0, '복구본으로 v3 키를 채우지 않음');
@@ -86,10 +162,21 @@ async function main() {
         if (offHours) assert.equal(calls, 0, '장외 모델 호출 0');
         else assert.ok(calls > 0, '생성 시도 후에만 v2 복구');
         // 실제 verdict 출구 재검사에서도 복구 글을 살린다.
-        const repaired = await N.repairVerdictTexts({ realityInsight: 'NEWS PULSE 보고입니다.' }, locale, 'first-deploy', null, prompts);
+        const repaired = await N.repairVerdictTexts({ realityInsight: 'NEWS PULSE 보고입니다.' }, locale, 'first-deploy', currentNums, recoveryPrompts);
         assert.ok(!N.isPlaceholderInsight(repaired.verdict.realityInsight));
+        assert.equal(repaired.verdict.realityInsight, out, '실제 출구도 같은 저장 숫자로 복구');
         assert.equal(writes.length, 0);
     }
+    // 기준 전환 예외는 지수에만 적용한다. origin/main의 건강도 상태·자리표 낡음과 결측 검사는 유지한다.
+    for (const [offHours, metric, changedValue] of [[false, 'RLSI', 65], [true, 'VIX', 26]] as const) {
+        reset(offHours ? '2026-10-24T01:00:00Z' : undefined);
+        store.set(key('v2', 'ko'), { text: text.ko.replace('시장 건강도(RLSI)는', `변동성 지수(VIX) {VIX}, 시장 건강도(RLSI)는`), basis: { RLSI: 31, VIX: 19.6 } });
+        const out = await N.recoverInsight('reality', 'ko', { translate: false, nums: { RLSI: 31, VIX: 19.6, [metric]: changedValue }, tacticalPrompts: prompts });
+        assert.ok(N.isPlaceholderInsight(out), `${metric}: 기존 낡음 검사 유지`);
+    }
+    reset('2026-10-24T01:00:00Z');
+    store.set(key('v2', 'ko'), { text: text.ko.replace('나스닥 현물 관측은 미확인입니다.', '나스닥 {NDX_CHG}로 약세입니다.'), basis: { RLSI: 31, VIX: 19.6 } });
+    assert.ok(N.isPlaceholderInsight(await N.recoverInsight('reality', 'ko', { translate: false, nums: { NDX_CHG: -2.6, RLSI: 31, VIX: 19.6 }, tacticalPrompts: prompts })), 'v2 basis 결측을 새 현물로 채우지 않음');
     for (const bad of ['NEWS PULSE', 'Polygon', 'FMP', 'INDEX_FACTS']) {
         reset('2026-10-24T01:00:00Z');
         store.set(key('v2', 'ko'), { text: text.ko.replace('오늘 시장', `${bad} 오늘 시장`) });
@@ -160,6 +247,7 @@ async function main() {
     }
     const rollcall = text.en.replace('Market health (RLSI) is weak and options positioning (GEX) is unconfirmed.', 'Market health (RLSI) is 31 and volatility (VIX) is 19.6. Options positioning (GEX) is 13 and breadth is 34.');
     assert.ok(checkTacticalOutput(rollcall, 'en', prompts('en')).includes('tactical:number-rollcall'), '5문장 넷째의 숫자도 합산');
+    console.log('통과 관문 10232033: v2 선물 basis·3언어 방향 동사/미등록 방향·POST/CLOSED 날짜/시제·실제 repairVerdictTexts 출구');
     console.log('통과 관문 1~9: 반올림/현물보합·v2/REALITY 첫배포 안내문구 아님·세션경계·정체선물·5문장·옵션포지션');
 }
 main().catch(e => { console.error(e); process.exitCode = 1; }).finally(() => {
