@@ -1715,7 +1715,7 @@ export async function peekEodCloseRow(ticker: string): Promise<{ date: string; c
 /**
  * 가장 최근 EOD 행(벌크 + 세션 캡처)의 날짜·종가·직전 종가 — peekEodCloseRow 와 같은 원천(API 콜 0)이고,
  * 직전 종가를 모르는 캡처 행은 prevClose 를 null 로 돌려준다(0 % 를 «보합»으로 지어내지 않는다).
- * 낡은 캐시의 가격 파생값(밸류에이션·연관 종목 등락)을 «최신 종가» 기준으로 다시 셀 때 쓴다(services/stalePriceRepair).
+ * 낡은 캐시의 연관 종목 가격·등락을 «최신 종가» 기준으로 다시 셀 때 쓴다(services/stalePriceRepair).
  */
 export async function peekLatestCloseRow(ticker: string): Promise<{ date: string; close: number; prevClose: number | null; provisional: boolean } | null> {
     const sym = ticker.toUpperCase();
@@ -1743,20 +1743,6 @@ export async function peekLatestCloseRow(ticker: string): Promise<{ date: string
         if (prevClose === null) prevClose = hAt(wantPrev);
     }
     return { date: rowDate, close, prevClose, provisional };
-}
-
-/**
- * 그 거래일(date)의 «공식» 종가 — 벌크 행(캡처 아님) · 20거래일 종가 행렬. 없으면 null(API 콜 0).
- */
-export async function peekCloseOn(ticker: string, date: string): Promise<number | null> {
-    const sym = ticker.toUpperCase();
-    const { rows } = await loadBulkEod();
-    const r = rows.get(sym);
-    if (r && r.date === date && !r.provisional && r.c > 0) return r.c;
-    const hist = await loadEodHistory();
-    const i = hist?.dates?.indexOf(date) ?? -1;
-    const v = i >= 0 ? Number(hist!.closes?.[sym]?.[i]) : NaN;
-    return Number.isFinite(v) && v > 0 ? v : null;   // 15:57 캡처는 기준 종가로 쓰지 않는다(공식 종가와 달라 환산 비율이 틀어진다)
 }
 
 /**

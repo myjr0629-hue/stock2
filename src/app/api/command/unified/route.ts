@@ -623,7 +623,7 @@ async function recoverVolatilityIv(data: any, ticker: string, locale: string, ba
 async function jsonResponse(data: any, status = 200, ticker?: string | null) {
     const isMarket = isMarketHoursNow();
     let audited = await overlayFundamentals(data, ticker);
-    // [감사 M1·M9 · 2026-10-24] 캐시 판본의 가격 파생값(재무 밸류에이션·연관 종목 종가/등락)을 최신 종가로 — 적재된 EOD 만 읽는다(벤더 콜 0).
+    // [감사 M9 · 2026-10-24] 캐시 판본의 연관 종목 종가/등락을 최신 공식 종가로 — 적재된 EOD 만 읽는다(벤더 콜 0).
     //   실패·결측이면 원래 값 그대로(services/stalePriceRepair.repriceCachedDerived).
     try {
         const { repriceCachedDerived } = await import('@/services/stalePriceRepair');
