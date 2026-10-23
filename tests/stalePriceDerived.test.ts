@@ -126,15 +126,17 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         const g = { ...f, _priceBasis: rebase.makePriceBasis(f, '2026-10-21', 100, {}, true) };
         const same = rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 100 });
         assert.equal(same.score, 52); assert.equal(same.grade, 'B'); assert.equal(same.pe, 15); assert.equal(same.breakdown.pe.score, 20); assert.equal(same.breakdown.fcf.score, 12);
-        const up = rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 110 });   // 실제 10 % 상승 → P/E 16.5(16점) · FCF 2.7(8점)
-        assert.equal(up.score, 44); assert.equal(up.grade, 'C+');
+        const up = rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 110 });   // 정밀 원값 없음 → 표시값만 환산, 점수·등급은 저장값
+        assert.equal(up.pe, 16.5); assert.equal(up.fcfYield, 2.7); assert.equal(up.marketCap, 1.1e12);
+        assert.equal(up.score, 52); assert.equal(up.grade, 'B'); assert.equal(up.breakdown.pe.score, 20); assert.equal(up.breakdown.pe.value, '16.5');
     });
-    await test('gate 3-①: rounded legacy 15.0/3.0 (52/B) scores a small real move from the estimated raw (100 → 100.3 = 48/C+)', () => {
+    await test('gate 3-①/4-①: rounded legacy 15.0/3.0 (52/B) never re-scores from rounded values (100→100.2, 100→100.3 keep 52/B)', () => {
         const f = { score: 52, grade: 'B', pe: 15, fcfYield: 3, marketCap: 1e12, breakdown: { pe: { value: '15.0', score: 20, label: 'P/E' }, fcf: { value: '3.0%', score: 12, label: 'FCF' } } };
         const g = { ...f, _priceBasis: rebase.makePriceBasis(f, '2026-10-21', 100, {}, true) };
-        const r = rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 100.3 });
-        assert.equal(r.score, 48); assert.equal(r.grade, 'C+');
-        assert.equal(rebase.rebaseFundamentals(g, { date: '2026-10-22', close: 100 }).score, 52);
+        for (const close of [100, 100.2, 100.3]) {
+            const r = rebase.rebaseFundamentals(g, { date: '2026-10-22', close });
+            assert.equal(r.score, 52); assert.equal(r.grade, 'B'); assert.equal(r.breakdown.fcf.score, 12);
+        }
     });
     await test('missing basis fields stay as stored; NO_DATA grade is not invented', () => {
         const f = { score: null, grade: 'NO_DATA', pe: null, marketCap: 1e9, breakdown: {} };
@@ -252,6 +254,12 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         assert.equal(await svc.repriceRelated(nextSession, at('2026-10-19T18:00:00Z')), nextSession);
     });
 
+    await test('gate 4-③: flat day (previous two closes equal) keeps a next-session refilled row instead of overwriting it', async () => {
+        const svc = service({ latest: { FLAT: { date: '2026-10-22', close: 100, prevClose: 100 } } });
+        const row = { topRelated: [{ ticker: 'FLAT', price: 105, change: 5, prevClose: 100 }] };
+        assert.equal(await svc.repriceRelated(row, at('2026-10-19T18:00:00Z')), row);
+    });
+
     // ── M7 섹터 스냅샷 ───────────────────────────────────────────
     const snapshotData = () => ({
         meta: { snapshot_timestamp: '2026-10-22T21:30:00.000Z', sector: 'm7', locked_until: '2026-10-23T21:00:00.000Z' },
@@ -347,6 +355,19 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
             assert.equal(n.date, '2026-10-22'); assert.equal(n.close, 212.21); assert.equal(n.prevClose, 221.97); assert.equal(n.provisional, false);
             assert.equal(Math.round(((n.close - n.prevClose) / n.prevClose) * 10000) / 100, -4.4);
         } finally { Object.assign(eodPayload, saved); void h; }
+    });
+    await test('gate 4-②: bulk one session behind and no capture — the history\'s newer official close is the latest', async () => {
+        const saved = JSON.parse(JSON.stringify(eodPayload));
+        Object.assign(eodPayload, { date: '2026-10-21', prevDate: '2026-10-20', rows: [['NVDA', 1, 1, 1, 221.97, 10, 1.97, 0.9]] });
+        try {
+            const c = intrinio(null);
+            const n = await c.peekLatestCloseRow('NVDA');
+            assert.equal(n.date, '2026-10-22'); assert.equal(n.close, 212.21); assert.equal(n.prevClose, 221.97); assert.equal(n.provisional, false);
+            const svc = load('src/services/stalePriceRepair.ts', { './intrinioClient': c, '@/lib/valuationRebase': rebase, '@/lib/marketCalendar': calendar, '@/lib/aws/dynamoDataProvider': {} });
+            const f = { pe: 20, marketCap: 1e12, score: 50, grade: 'B', _priceBasis: rebase.makePriceBasis({ pe: 20, marketCap: 1e12 }, '2026-10-21', 221.97) };
+            const r = await svc.repriceFundamentals('NVDA', f);
+            assert.equal(r.pe, 19.1); assert.equal(Math.round(r.marketCap / 1e9), 956);
+        } finally { Object.assign(eodPayload, saved); }
     });
     await test('EOD readers: bulk row without capture is official; capture row with unknown prev → prevClose null', async () => {
         const c = intrinio({ date: '2026-10-23', rows: { ZZZ: [7, 1] } });

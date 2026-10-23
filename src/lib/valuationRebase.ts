@@ -61,21 +61,6 @@ export function fcfScoreOf(fcfYield: number | null): number {
     return fcfYield > 8 ? 20 : fcfYield > 5 ? 16 : fcfYield > 3 ? 12 : fcfYield > 1 ? 8 : 4;
 }
 
-/**
- * 채점에 쓸 기준값. 원값을 아는 기준(raw)은 그대로 쓴다.
- * 반올림된 옛 값(예: P/E 15.0, 저장 점수 20 = 원값 14.95~15.0)은 «반올림 반 단위 안에서 저장 점수와 같은 구간»의 가운데를 원값 추정치로 쓴다
- *   → 종가가 그대로면 저장 점수 그대로(회귀 0), 움직이면 추정 원값 × k 로 채점. 맞는 구간이 없으면 그 값 그대로.
- */
-export function scoringBasisValue(v: number, storedScore: number | null, scoreOf: (x: number) => number, rounded: boolean, half = 0.05): number {
-    if (!rounded || storedScore === null) return v;
-    const hits: number[] = [];
-    for (let n = 0; n <= 200; n++) {
-        const x = v - half + (2 * half * n) / 200;
-        if (n < 200 && scoreOf(x) === storedScore) hits.push(x);
-    }
-    return hits.length ? (hits[0] + hits[hits.length - 1]) / 2 : v;
-}
-
 export function gradeOf(score: number): string {
     return score >= 80 ? 'A' : score >= 70 ? 'A-' : score >= 60 ? 'B+' : score >= 50 ? 'B' : score >= 40 ? 'C+' : score >= 30 ? 'C' : score >= 20 ? 'D' : 'F';
 }
@@ -124,22 +109,23 @@ export function rebaseFundamentals<T>(f: T, latest: { date: string; close: numbe
     if (b.pb !== null) out.pb = r1(b.pb * k);
     if (fcf !== null) out.fcfYield = r1(fcf);
 
-    // 점수: P/E·FCF 두 항목만 다시 매긴다(나머지 항목은 가격과 무관). 기준 점수·항목 점수를 알 때만.
+    // 점수: P/E·FCF 두 항목만, 그리고 «반올림 전 원값»을 아는 기준(새로 읽은 값)일 때만 다시 매긴다(나머지 항목은 가격과 무관).
+    //   반올림된 저장값뿐인 옛 기준(inferred)은 구간 경계에서 오채점할 수 있으므로 점수·등급은 저장값 그대로 두고 표시값만 환산한다.
+    const rescore = !b.inferred;
     const bd = src.breakdown && typeof src.breakdown === 'object' ? { ...src.breakdown } : null;
-    //   채점은 scoringBasisValue(원값 · 반올림 옛 값은 저장 점수 구간의 가운데)에서 — 반올림만 다른 옛 레코드도 k=1 이면 점수 그대로.
     let score = b.score;
-    if (bd && pe !== null && bd.pe && b.peScore !== null) {
-        const s = peScoreOf(scoringBasisValue(b.pe!, b.peScore, peScoreOf, !!b.inferred) * k);
+    if (bd && pe !== null && bd.pe) {
+        const s = rescore && b.peScore !== null ? peScoreOf(pe) : bd.pe.score;
         bd.pe = { ...bd.pe, value: pe.toFixed(1), score: s };
-        if (score !== null) score += s - b.peScore;
+        if (rescore && score !== null && b.peScore !== null) score += s - b.peScore;
     }
-    if (bd && fcf !== null && bd.fcf && b.fcfScore !== null) {
-        const s = fcfScoreOf(scoringBasisValue(b.fcfYield!, b.fcfScore, fcfScoreOf, !!b.inferred) / k);
+    if (bd && fcf !== null && bd.fcf) {
+        const s = rescore && b.fcfScore !== null ? fcfScoreOf(fcf) : bd.fcf.score;
         bd.fcf = { ...bd.fcf, value: fcf.toFixed(1) + '%', score: s };
-        if (score !== null) score += s - b.fcfScore;
+        if (rescore && score !== null && b.fcfScore !== null) score += s - b.fcfScore;
     }
     if (bd) out.breakdown = bd;
-    if (score !== null && b.score !== null && src.grade !== 'NO_DATA' && num(src.score) !== null) {
+    if (rescore && score !== null && b.score !== null && src.grade !== 'NO_DATA' && num(src.score) !== null) {
         out.score = score;
         out.grade = gradeOf(score);
     }

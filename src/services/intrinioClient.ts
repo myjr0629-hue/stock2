@@ -1721,6 +1721,14 @@ export async function peekLatestCloseRow(ticker: string): Promise<{ date: string
     const sym = ticker.toUpperCase();
     const { date, prevDate, rows } = await loadBulkEod();
     const r = rows.get(sym);
+    // 20거래일 종가 행렬의 마지막 날짜가 행보다 뒤면(벌크·캡처가 그 세션을 못 따라왔다) 행렬의 공식 종가가 최신이다.
+    const hist0 = await loadEodHistory();
+    const hAt = (d: string) => { const i = hist0?.dates?.indexOf(d) ?? -1; const v = i >= 0 ? Number(hist0!.closes?.[sym]?.[i]) : NaN; return Number.isFinite(v) && v > 0 ? v : null; };
+    const hLast = hist0?.dates?.length ? hist0.dates[hist0.dates.length - 1] : '';
+    if (hLast && (!r || !(r.c > 0) || hLast > (r.date || date))) {
+        const c = hAt(hLast);
+        if (c !== null) return { date: hLast, close: c, prevClose: hAt(prevTradingDate(hLast)), provisional: false };
+    }
     if (!r || !(r.c > 0)) return null;
     const rowDate = r.date || date;
     const wantPrev = prevTradingDate(rowDate);
@@ -1729,12 +1737,10 @@ export async function peekLatestCloseRow(ticker: string): Promise<{ date: string
     let prevClose: number | null = !r.prevMissing && prev > 0 && prevDate === wantPrev ? prev : null;
     let close = r.c, provisional = !!r.provisional;
     if (provisional || prevClose === null) {
-        const hist = await loadEodHistory();
-        const at = (d: string) => { const i = hist?.dates?.indexOf(d) ?? -1; const v = i >= 0 ? Number(hist!.closes?.[sym]?.[i]) : NaN; return Number.isFinite(v) && v > 0 ? v : null; };
         // 캡처 행이어도 20거래일 종가 행렬에 그 날짜 공식 종가가 먼저 적재됐으면 공식 값을 쓴다.
-        const official = provisional ? at(rowDate) : null;
+        const official = provisional ? hAt(rowDate) : null;
         if (official !== null) { close = official; provisional = false; }
-        if (prevClose === null) prevClose = at(wantPrev);
+        if (prevClose === null) prevClose = hAt(wantPrev);
     }
     return { date: rowDate, close, prevClose, provisional };
 }

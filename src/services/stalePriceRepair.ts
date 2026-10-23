@@ -78,9 +78,9 @@ export async function repriceFundamentals<T>(ticker: string, f: T): Promise<T> {
 
 /**
  * [M9] unified 캐시의 연관 종목 가격·등락 — 최신 «끝난» 정규장 D 의 종가로 바꾸는 것은 그 행이 D 이전 세션 값일 때만이다.
- *   · 행의 직전 종가 = D 종가(공식이면 반 센트 · 캡처면 0.3 % 안)이고 D 전일 종가는 아님 → D 다음 세션 값(장중 보충 등) → 그대로
- *   · 행의 직전 종가 = D 전일 종가(반 센트)이고 D 종가는 아님 → D 세션 값(장중 가격) → D 종가로
- *   · 둘 다이거나(두 종가가 같은 날) 둘 다 아니면 판본이 D 마감 전에 만들어졌을 때만
+ *   · 행의 직전 종가 = D 종가(공식이면 반 센트 · 캡처면 0.3 % 안) → D 다음 세션 값일 수 있다(장중 보충·보합일 포함) → 그대로
+ *   · 행의 직전 종가 = D 전일 종가(반 센트)뿐 → D 세션 값(장중 가격) → D 종가로
+ *   · 둘 다 아니면 판본이 D 마감 전에 만들어졌을 때만
  * EOD 가 최신 끝난 정규장을 아직 못 따라왔으면 아무것도 바꾸지 않는다.
  */
 export async function repriceRelated(related: any, cachedAtMs: number): Promise<any> {
@@ -96,8 +96,9 @@ export async function repriceRelated(related: any, cachedAtMs: number): Promise<
             const ok = Number.isFinite(pc) && pc > 0;
             const isNextSession = ok && (row.provisional ? Math.abs(pc - row.close) / row.close <= 0.003 : Math.abs(pc - row.close) < 0.005);
             const isSameSession = ok && Math.abs(pc - row.prevClose) < 0.005;
-            if (isNextSession && !isSameSession) return item;
-            if (!(isSameSession && !isNextSession) && !(sessionCloseMs(row.date) > cachedAtMs)) return item;
+            // 다음 세션 값일 수 있으면(두 종가가 같은 보합일 포함) 최신 행을 보존한다 — 덮지 않는다.
+            if (isNextSession) return item;
+            if (!isSameSession && !(sessionCloseMs(row.date) > cachedAtMs)) return item;
             changed = true;
             return {
                 ...item,
