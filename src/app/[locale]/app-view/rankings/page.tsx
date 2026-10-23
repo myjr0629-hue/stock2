@@ -24,6 +24,7 @@ import { ShareButton } from '@/components/share/ShareButton';
 import s from './rankings.module.css';
 import { fetchResponseWithDeadline } from '@/lib/app/requestDeadline';
 import { fmtRankPair, fmtMoney } from '@/lib/app/rankingFormat';
+import { rankingBadgePhase, type RankingSession } from '@/lib/rankings/badge';
 
 type Phase = 'intraday' | 'postclose' | 'anytime';
 type Tab = 'all' | Phase;
@@ -236,9 +237,9 @@ export default function RankingsPage() {
     ['all', 'intraday', 'postclose', 'anytime'].includes(initial) ? initial : 'all',
   );
   const [res, setRes] = useState<Record<string, RankBlock> | null>(null);
-  const [meta, setMeta] = useState<{ universe: number | null; phase: string | null; dp: DarkPoolMeta | null;
+  const [meta, setMeta] = useState<{ universe: number | null; phase: string | null; session: RankingSession | null; dp: DarkPoolMeta | null;
                                      asOf: string | null; ageSec: number | null }>(
-    { universe: null, phase: null, dp: null, asOf: null, ageSec: null },
+    { universe: null, phase: null, session: null, dp: null, asOf: null, ageSec: null },
   );
   const [err, setErr] = useState(false);
 
@@ -256,6 +257,7 @@ export default function RankingsPage() {
           setMeta({
             universe: Number.isFinite(j.universe) ? j.universe : null,
             phase: j?.session?.phase ?? null,
+            session: j?.session ?? null,
             dp: j?.darkPool ?? null,
             // ★ [2026-10-07] 서버가 «마지막 정상본»을 먼저 줄 수 있다 — 만든 시각·나이를 받아 낡았으면 기준 시각을 단다
             asOf: typeof j.generatedAt === 'string' ? j.generatedAt : null,
@@ -359,7 +361,7 @@ export default function RankingsPage() {
                 <span className={s.rkCW}>{RANK_WHAT[b.id][(locale as 'ko' | 'en' | 'ja')] ?? RANK_WHAT[b.id].en}</span>
               )}
               {/* 마감 후 목록은 «어느 마감»의 것인지가 곧 단계다 — 장중에 보이는 건 직전 마감분이다 */}
-              {b.phase && <span className={s.rkCP}>{b.session ? t.close(b.session) : t[b.phase]}</span>}
+              {b.phase && <span className={s.rkCP}>{b.session ? t.close(b.session) : t[rankingBadgePhase(b.phase, meta.session)]}</span>}
             </div>
 
             {b.available && items.length > 0 ? (

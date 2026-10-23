@@ -551,7 +551,8 @@ export async function GET(req: NextRequest) {
         const warming = q.get('refresh') === '1';
         if (warming && sess.regularOpen) await warmLiveQuotes(payload, quotesDeps);
         const out = await withLivePrices(payload, { regularOpen: sess.regularOpen && !warming, top, quotes: quotesDeps });
-        return NextResponse.json({ ...out, ...meta, _serverMs: Date.now() - t0 });
+        // hit·stale·miss 모두 저장 당시의 시계 대신 응답 직전의 현재 세션을 싣는다.
+        return NextResponse.json({ ...out, ...meta, session: sessionPhase(), _serverMs: Date.now() - t0 });
     };
 
     if (q.get('refresh') !== '1') {
