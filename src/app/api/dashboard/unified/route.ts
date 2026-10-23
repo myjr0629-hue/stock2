@@ -1,4 +1,5 @@
 import { selectVwap } from '@/lib/vwap';
+import { vwapForCalculation } from '@/lib/sessionVwapPolicy';
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData, levelsForExit, displayLevels, rowSpot } from '@/services/structureService';
@@ -410,7 +411,7 @@ async function buildResponseFromResults(
                     price: data.underlyingPrice || 0,
                     prevClose: data.prevClose || 0,
                     changePct: data.changePercent || 0,
-                    vwap: data.vwap ?? null,
+                    vwap: vwapForCalculation(data.vwap, data.vwapDate),
                     return3D: data._return3D ?? null, // [V4.1]
                     sma20: data._sma20 ?? null, // [V4.1]
                     rsi14: data._rsi14 ?? null, // [V4.1]
@@ -1310,6 +1311,7 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
             structureData.prevRegularClose = tickerData.prices?.prevRegularClose ?? null;
             // [DASHBOARD V2] VWAP from ticker API
             structureData.vwap = tickerData.vwap ?? null;
+            (structureData as any).vwapDate = tickerData.vwapDate ?? null;
             // [DASHBOARD V2] Save rawChain for 0DTE/IM computation
             tickerRawChain = tickerData.flow?.rawChain || [];
 

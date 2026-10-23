@@ -10,6 +10,14 @@ import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
 import { convictionInputsOf, retainConvictionInputs, scoreCommandConviction, webConvictionSnapshot, webConvictionState,
     type ConvictionField, type ConvictionRawInputs, type ConvictionSnapshot } from '../src/lib/commandConviction';
 
+// 이월·원천 순서 시험은 POST 시각에서 검증한다. REG 당일 자격은 vwapSessionPolicy.test.ts에서 별도 검증.
+const RealDate = Date;
+const POST = Date.parse('2026-10-19T20:01:00Z');
+global.Date = class extends RealDate {
+    constructor(...args: any[]) { super(...(args.length ? args : [POST]) as [any]); }
+    static now() { return POST; }
+} as DateConstructor;
+
 const file = 'src/components/LiveTickerDashboard.tsx';
 const current = fs.readFileSync(file, 'utf8');
 const before = fs.readFileSync('tests/fixtures/webCmdConviction.before.tsx.txt', 'utf8');

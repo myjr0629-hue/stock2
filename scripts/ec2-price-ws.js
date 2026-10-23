@@ -55,7 +55,7 @@ function httpsGet(url) {
     return new Promise((resolve, reject) => {
         https.get(url, (res) => {
             let data = '';
-            res.on('data', chunk => data += chunk);
+            res.setEncoding('utf8').on('data', chunk => data += chunk);
             res.on('end', () => {
                 try { resolve(JSON.parse(data)); }
                 catch (e) { reject(new Error('JSON parse failed')); }

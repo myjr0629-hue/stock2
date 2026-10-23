@@ -5,7 +5,7 @@ function fetch(url) {
     return new Promise((resolve, reject) => {
         http.get(url, (res) => {
             let data = '';
-            res.on('data', d => data += d);
+            res.setEncoding('utf8').on('data', d => data += d);
             res.on('end', () => {
                 try { resolve(JSON.parse(data)); }
                 catch (e) { reject(new Error('Parse error: ' + data.substring(0, 500))); }
