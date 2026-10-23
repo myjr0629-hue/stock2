@@ -16,6 +16,8 @@ import {
     toCarryRecords, fromCarryRecords, MACRO_CARRY_BUNDLES, MACRO_CARRY_CAS_PREFIX,
     type MacroLastGood, type MacroCarryRecord,
 } from '@/lib/macroSnapshotCarry';
+import { loadMarketIndexBasis } from './marketIndexBasis';
+import type { MarketIndexBasis } from '@/lib/marketIndexBasis';
 import { fredCreditSpread, fredRealPair } from '@/lib/macroFredFallback';
 
 export interface MacroFactor {
@@ -45,6 +47,7 @@ export interface MacroFactor {
 }
 
 export interface MacroSnapshot {
+    indexBasis?: MarketIndexBasis;
     asOfET: string;
     fetchedAtET: string;
     ageSeconds: number;
@@ -545,6 +548,11 @@ function triggerCronIfNeeded(yahooData: any) {
  * 사용자를 상류 조회 때문에 기다리게 하지 않는 것이 목적이다.
  */
 export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
+    const [snapshot, indexBasis] = await Promise.all([getMacroSnapshotBaseSSOT(), loadMarketIndexBasis()]);
+    return { ...snapshot, indexBasis };
+}
+
+async function getMacroSnapshotBaseSSOT(): Promise<MacroSnapshot> {
     const now = Date.now();
 
     // 1) 프로세스 메모리 — 가장 빠르다

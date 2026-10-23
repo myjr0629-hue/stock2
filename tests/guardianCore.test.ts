@@ -35,7 +35,7 @@ function makeCore(over: { at?: number; score?: number; nq?: number; gex?: number
         session: over.session ?? 'REG',
         rlsi: { score, level: over.level ?? 'NEUTRAL', session: over.session ?? 'REG', regime: 'NEUTRAL', zScore: null, zSignal: null, gammaAdjustment: 0,
             components: { gexIndex: over.gex ?? -9, squeezeRisk: over.sq ?? 47, breadthPct: 16, adRatio: 0.2, volumeBreadth: 48, breadthSignal: 'BEARISH', breadthDivergent: false } } as any,
-        market: { nqChangePercent: over.nq ?? -0.73, vix: 15.71, factors: { us10y: { level: 5.33, chgPct: over.us10yChg ?? 0.4 } } } as any,
+        market: { indexBasis: { cash: { nasdaq: { changePct: over.nq ?? -0.73 } } }, nqChangePercent: over.nq ?? -0.73, vix: 15.71, factors: { us10y: { level: 5.33, chgPct: over.us10yChg ?? 0.4 } } } as any,
         sectors: sectors as any,
         vectors: (over.vectors ?? [{ sourceId: 'XLK', targetId: 'XLE', strength: 12, rank: 1 }]) as any,
         sourceId: 'XLK',

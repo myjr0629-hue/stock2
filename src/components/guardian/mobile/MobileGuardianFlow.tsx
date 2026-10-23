@@ -621,7 +621,7 @@ export default function MobileGuardianFlow({ data, loading, verdict, session, ap
                                     </div>
                                 )}
                             </div>
-                            <div className="text-[12px] text-amber-500/50 font-mono mt-2 font-jakarta">Last session analysis</div>
+                            <div className="text-[12px] text-amber-500/50 font-mono mt-2 font-jakarta">{t('lastSessionAnalysis')}</div>
                         </>
                     ) : (
                         <div className="flex-1 flex items-center justify-center py-4">

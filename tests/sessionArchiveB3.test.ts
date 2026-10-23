@@ -69,6 +69,9 @@ t('D26 장외(일요일) — 12시간 저장본 없음 + 금요일 보관본 →
     (Date as any).now = () => EDT(2026, 10, 18, 21);
     N._setMarketClockForTest(() => new Date(EDT(2026, 10, 18, 21)));
     try {
+        const old = await N.IntelligenceNode.recoverInsight('reality', 'ko', { translate: false, nums: null });
+        assert.equal(old, TEXT, '첫 v3 배포는 v2 세션 보관본을 복구용으로 읽어 안내 문구를 막는다');
+        await saveSessionArchive('insight', 'reality_v3_ko', '2026-10-16', { text: TEXT, basis: null }, { observedAt: EDT(2026, 10, 16, 17), nowMs: EDT(2026, 10, 16, 17) });
         const out = await N.IntelligenceNode.recoverInsight('reality', 'ko', { translate: false, nums: null });
         assert.equal(out, TEXT);
         assert.equal(out.includes('장외 시간'), false);
@@ -83,7 +86,7 @@ t('D26 장외(일요일) — 12시간 저장본 없음 + 금요일 보관본 →
         } finally { delete process.env.AWS_ACCESS_KEY_ID; }
         // 금요일 보관본이 없고 목요일 것만 있으면 결측(안내 문구) — 목요일 글을 «직전 세션»으로 내지 않는다
         store.clear(); _resetSessionArchiveMemo();
-        await saveSessionArchive('insight', 'reality_ko', '2026-10-15', { text: TEXT, basis: null }, { observedAt: EDT(2026, 10, 15, 17), nowMs: EDT(2026, 10, 15, 17) });
+        await saveSessionArchive('insight', 'reality_v3_ko', '2026-10-15', { text: TEXT, basis: null }, { observedAt: EDT(2026, 10, 15, 17), nowMs: EDT(2026, 10, 15, 17) });
         const thu = await N.IntelligenceNode.recoverInsight('reality', 'ko', { translate: false, nums: null });
         assert.match(thu, /장외 시간/);
     } finally { (Date as any).now = realNow; N._setMarketClockForTest(null); }
@@ -94,15 +97,15 @@ t('D26 장 전(09:30 ET 전) 글은 그날 키로 저장하지 않는다 · 정�
     assert.equal(await saveSessionArchive('insight', 'gamma_en', '2026-10-19', { text: 'x' }, { nowMs: EDT(2026, 10, 19, 17), observedAt: EDT(2026, 10, 19, 17) }), 'write');
     assert.equal((await readSessionArchive<any>('insight', 'gamma_en', { nowMs: EDT(2026, 10, 19, 21) }))?.stamp.sourceSessionDate, '2026-10-19');
 });
-t('D26 배선: 저장본 쓰기마다 보관(Upstash 유무와 별개, 장외 쓰기 제외) · 복구는 장외에만, 번역(모델 호출)보다 먼저 · 복구 글은 메모리에 안 올림 · 그 날짜만', () => {
+t('D26 배선: 저장본 쓰기마다 보관(Upstash 유무와 별개, 장외 쓰기 제외) · Tactical 복구는 생성 실패·장외에서 번역(모델 호출)보다 먼저 · 복구 글은 메모리에 안 올림 · 그 날짜만', () => {
     const s = fs.readFileSync(path.join(__dirname, '../src/services/guardian/intelligenceNode.ts'), 'utf8');
     const w = s.indexOf('async function writeStoredInsight');
-    assert.ok(s.indexOf('await archiveInsight(type, locale, text, basis);', w) < s.indexOf('const redis = getRedis();', w));
+    assert.ok(s.indexOf('await archiveInsight(type, locale, text, basis, session);', w) < s.indexOf('const redis = getRedis();', w));
     const r = s.indexOf('static async recoverInsightOut');
-    const archiveCall = s.indexOf('archivedInsight(type, locale, opts.nums, opts.tacticalPrompts)', r);
+    const archiveCall = s.indexOf('archivedInsight(type, locale, opts.nums, opts.tacticalPrompts,', r);
     const translateCall = s.indexOf('translatedInsight(type, locale, opts.nums, opts.tacticalPrompts)', r);
     assert.ok(archiveCall > r && translateCall > archiveCall);
-    assert.match(s, /if \(arch\) return \{ tpl: arch\.tpl, basis: arch\.basis \};/);   // 메모리에 올리지 않는다(번역 원천이 되지 않게)
+    assert.match(s, /if \(arch\) return \{ tpl: arch\.tpl, basis: arch\.basis \};/);   // 버전 분기 없이 반환, 메모리에 올리지 않는다(번역 원천이 되지 않게)
     assert.match(s, /\{ lookback: 0 \}/);
     const ai = s.indexOf('async function archiveInsight');
     assert.ok(s.indexOf('if (isOffHours()) return;', ai) > ai && s.indexOf('if (isOffHours()) return;', ai) < s.indexOf('saveSessionArchive(', ai));
