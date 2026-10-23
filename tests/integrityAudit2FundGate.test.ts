@@ -74,6 +74,7 @@ async function realYield(rows: any[]) {
     const macro = load('src/services/macroHubProvider.ts', {
         './massiveClient': {}, '@/services/intrinioClient': {}, './marketStatusProvider': {}, './eventHubProvider': {},
         './fedApiClient': fed, './yahooFinanceHub': {}, './redisClient': {}, '@/lib/yieldChange': {},
+        './marketIndexBasis': { loadMarketIndexBasis: forbidden },
         '@/lib/macroSnapshotCarry': require('../src/lib/macroSnapshotCarry'),
         '@/lib/macroFredFallback': require('../src/lib/macroFredFallback'),
     }, '\nexport { fetchRealYieldData };');

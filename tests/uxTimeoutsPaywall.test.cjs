@@ -1,12 +1,12 @@
-// 외부 연결 없는 감사 4·5·6 회귀 재현. UX_BASELINE=1은 분기 기준 원본으로 같은 시험을 수행한다.
+// 외부 연결 없는 감사 4·5·6 회귀 재현. UX_BASELINE=1은 고정 감사 기준으로 같은 시험을 수행한다.
 const fs = require('node:fs');
 const vm = require('node:vm');
 const cp = require('node:child_process');
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const ts = require('typescript');
-// 이후 main의 별도 수리가 이 브랜치의 원본 보존 검사에 섞이지 않게 한다.
-const baselineRef = cp.execFileSync('git', ['merge-base', 'HEAD', 'origin/main'], { encoding: 'utf8' }).trim();
+// 시작 브랜치와 main의 공통 조상. 최신 origin/main에 추가된 문구를 과거 작업공간의 삭제로 오인하지 않게 고정한다.
+const baselineRef = cp.execFileSync('git', ['rev-parse', '--verify', 'd6c648194118fe0855bceb6b16a51fe208d021a5^{commit}'], { encoding: 'utf8' }).trim();
 const baseline = process.env.UX_BASELINE === '1';
 const read = f => baseline ? cp.execFileSync('git', ['show', `${baselineRef}:${f}`], { encoding: 'utf8' }) : fs.readFileSync(f, 'utf8');
 const compile = s => ts.transpileModule(s, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText;
@@ -156,7 +156,7 @@ if(!baseline) {
   });
 }
 if(!baseline) {
-  test('화면 CSS·첫 가치·내 종목 3언어 사전은 분기 기준과 동일', () => {
+  test('화면 CSS·첫 가치·내 종목 3언어 사전은 origin/main과 동일', () => {
     for (const file of [
       'src/components/app/ProPaywall.module.css',
       'src/components/app/FirstRunValueStep.module.css',
