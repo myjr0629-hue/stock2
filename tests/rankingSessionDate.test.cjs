@@ -74,6 +74,116 @@ test('합계 원천이 혼합·결측·잘못된 날짜이면 수집일을 원�
     assert.equal(engine.optionSessionDate(row('2026-02-30')), null);
 });
 
+// 실제 Lambda 어댑터·라우터를 실행하고 공급사만 메모리 응답으로 바꾼다.
+function lambdaChainFixture({ session = '2026-10-21', premium = 20000000, failed = [], listFails = false, empty = false, malformed = false } = {}) {
+    const calls = [], expirations = ['2026-10-23', '2026-10-30'];
+    const adapter = compile(`${fnSource('harvest_lambda/intrinio-adapter.js', 'getOptionChain')}\n${fnSource('harvest_lambda/intrinio-adapter.js', 'routeMassiveUrl')}\nexports.run = routeMassiveUrl;`, {}, {
+        INTRINIO_KEY: true, PASSTHROUGH: [], UNSUPPORTED: [],
+        num: x => x ?? null, greekNumber: x => x ?? null, dateToMs: Date.parse,
+        callIntrinio: async path => {
+            calls.push(path);
+            if (path.startsWith('options/expirations/')) {
+                if (listFails) throw new Error('fixture expiration list failure');
+                return { expirations };
+            }
+            if (path.startsWith('securities/')) return { last_price: 100 };
+            const expiration = path.split('/').at(-2);
+            if (failed.includes(expiration)) throw new Error('fixture expiry failure');
+            if (malformed) return { chain: {} };
+            assert.ok(expirations.includes(expiration));
+            return { chain: empty ? [] : ['call', 'put'].map(type => ({
+                option: { code: `${expiration}-${type}`, expiration, strike: 100, type },
+                prices: { date: session, open_interest: 25000, close: 2, volume: premium / 800,
+                    gamma: .01, delta: .5, implied_volatility: .2 },
+            })) };
+        },
+    });
+    return { ...adapter, calls };
+}
+
+test('Lambda 어댑터·라우터: 만기 실패 수·요청 수, 전체 실패·빈 성공·목록 실패를 구분하고 재호출하지 않는다', async () => {
+    for (const failed of [[], ['2026-10-23'], ['2026-10-30'], ['2026-10-23', '2026-10-30']]) {
+        const fixture = lambdaChainFixture({ failed });
+        const data = await fixture.run('/v3/snapshot/options/TEST?contract_type=call');
+        assert.equal(data.requestedExpirations, 2);
+        assert.equal(data.failedExpirations, failed.length);
+        assert.equal(data.partial, failed.length > 0);
+        assert.equal(data.results.length, 2 - failed.length);
+        assert.equal(data.count, data.results.length);
+        assert.equal(fixture.calls.length, 4, '목록 1 + 시세 1 + 만기 2, 실패 재시도 없음');
+    }
+    const exact = lambdaChainFixture({ failed: ['2026-10-23'] });
+    const exactData = await exact.run('/v3/snapshot/options/TEST?expiration_date=2026-10-23');
+    assert.equal(exactData.requestedExpirations, 1);
+    assert.equal(exactData.failedExpirations, 1);
+    assert.equal(exactData.partial, true);
+    assert.equal(exact.calls.length, 2);
+    const empty = lambdaChainFixture({ empty: true });
+    assert.equal((await empty.run('/v3/snapshot/options/TEST')).partial, false);
+    const malformed = lambdaChainFixture({ malformed: true });
+    const malformedData = await malformed.run('/v3/snapshot/options/TEST');
+    assert.equal(malformedData.failedExpirations, 2);
+    assert.equal(malformedData.partial, true);
+    assert.equal(malformedData.results.length, 0);
+    const list = lambdaChainFixture({ listFails: true });
+    const listData = await list.run('/v3/snapshot/options/TEST');
+    assert.equal(listData.partial, true);
+    assert.equal(listData.requestedExpirations, 0);
+    assert.equal(listData.failedExpirations, 0);
+    assert.equal(list.calls.length, 1);
+});
+
+test('만기 2개 중 1개 실패한 8세션: 실제 어댑터→수집→저장→기준군에서 2.3배 가짜 이탈 차단, 기존 행 규칙 유지', async () => {
+    const savedNow = now, histories = [], callCounts = [];
+    let fixture;
+    const get = compile(`${fnSource('harvest_lambda/index.js', 'getAllOptions')}\nexports.run = getAllOptions;`, {}, {
+        POLYGON_KEY: '', httpsGet: url => fixture.run(url),
+    });
+    const writes = [];
+    const harvest = compile(`${fnSource('harvest_lambda/index.js', 'harvestGex')}\nexports.run = harvestGex;`, {}, {
+        GEX_TICKERS: ['TEST'], getAllOptions: get.run, optionHistoryDate,
+        __iv30Pending: [], __iv30: { planIv30: () => ({ iv30: null }), rowFields: () => ({}) },
+        client: { send: async command => { writes.push(command); } },
+        PutCommand: class { constructor(args) { Object.assign(this, args); } }, console: { log() {} },
+    });
+    try {
+        for (const fail of [false, true]) {
+            const rows = [], counts = [];
+            for (const [i, session] of [...baselineDates, '2026-10-21'].entries()) {
+                now = Date.parse(`${session}T21:00:00Z`);
+                const partial = fail && i < 8;
+                fixture = lambdaChainFixture({ session, premium: i < 8 ? [18, 19, 21, 22, 18, 19, 21, 22][i] * 1000000 : 23000000,
+                    failed: partial ? ['2026-10-30'] : [] });
+                writes.length = 0;
+                await harvest.run({ TEST: 100 });
+                counts.push(fixture.calls.length);
+                assert.equal(writes.length, 2);
+                assert.ok(writes.every(w => w.Item.partial === partial));
+                rows.push(writes.find(w => w.TableName === 'signum-flow-history').Item);
+            }
+            histories.push(rows);
+            callCounts.push(counts);
+        }
+    } finally { now = savedNow; }
+    assert.deepEqual(callCounts[0], Array(9).fill(4));
+    assert.deepEqual(callCounts[1], callCounts[0], '공급사 호출 증가 0');
+    const [full, missing] = histories;
+    const before = missing.map(({ partial, ...r }) => r); // 부분 표시가 없던 저장 행
+    const legacy = engine.deviationOf(engine.dailySnapshots(before), 'totalPremium').ok;
+    assert.equal(legacy.baseline, 10000000);
+    assert.equal(legacy.ratio, 2.3);
+    assert.equal(legacy.sessions, 8);
+    const fullSeries = engine.deviationSeries(engine.dailySnapshots(full), 'totalPremium');
+    assert.equal(engine.median(fullSeries.slice(0, -1).map(r => r.v)), 20000000);
+    assert.equal(engine.deviationOf(engine.dailySnapshots(full), 'totalPremium').ok, null);
+    assert.equal(engine.deviationSeries(engine.dailySnapshots(missing), 'totalPremium').length, 1);
+    assert.equal(engine.deviationOf(engine.dailySnapshots(missing), 'totalPremium').ok, null);
+    const shared = await runSharedRanking(missing);
+    assert.equal(shared.out.results.deviation.items.length, 0);
+    const separate = await runSeparateDeviation(missing);
+    assert.equal(separate.writes[0][1].found.some(r => r.metric === 'totalPremium'), false);
+});
+
 test('장 전·장중·주말·휴장 재수집은 원천 날짜 하나로 묶는다', () => {
     for (const timestamps of [
         ['2026-10-22T09:00:00Z', '2026-10-22T15:00:00Z'],
@@ -691,6 +801,47 @@ test('getAllOptions의 다른 호출자 computeIvSurface도 부분 표식이 붙
     assert.equal(await surface.run({ TEST: 100 }), 1);
     assert.equal(writes[0].Item.surface[0].atmCallIv, 20);
     assert.equal(writes[0].Item.surface[0].atmPutIv, 20);
+});
+
+test('getAllOptions: 첫 페이지의 공급사 partial을 뒤 페이지가 지우지 않으며 표시 없는 응답은 기존 판정 유지', async () => {
+    for (const partial of [undefined, false, true]) {
+        let calls = 0;
+        const get = compile(`${fnSource('harvest_lambda/index.js', 'getAllOptions')}\nexports.run = getAllOptions;`, {}, {
+            POLYGON_KEY: '', httpsGet: async () => ({ results: [{}],
+                ...(calls++ === 0 ? { partial, next_url: 'https://fixture/next' } : { partial: false }) }),
+        });
+        const result = await get.run('TEST');
+        assert.equal(calls, 2);
+        assert.equal(result.length, 2);
+        assert.equal(result.partial, !!partial);
+    }
+});
+
+test('FlowWarm: exact·probe 어댑터 partial을 선택한 체인 이력에 전달한다', async () => {
+    for (const fallback of [false, true]) {
+        for (const partial of [false, true]) {
+            const writes = [];
+            let calls = 0;
+            const warm = compile(`${fnSource('harvest_lambda/index.js', 'warmFlowCache')}\nexports.run = warmFlowCache;`, {}, {
+                getRedis: () => ({}), redisGet: async () => null, redisSet: async () => true,
+                UNIVERSE: ['TEST'], POLYGON_KEY: '', process: { env: {} }, optionHistoryDate,
+                httpsGet: async url => {
+                    calls++;
+                    if (url.includes('/SPY?')) return { results: contracts() };
+                    return url.includes('expiration_date.gte=') ? { results: contracts(), partial: fallback ? partial : !partial }
+                        : { results: fallback ? [] : contracts(), partial: fallback ? !partial : partial };
+                },
+                client: { send: async command => { writes.push(command); } },
+                PutCommand: class { constructor(args) { Object.assign(this, args); } },
+                console: { log() {}, warn() {} },
+            });
+            await warm.run({ TEST: { price: 100 } });
+            assert.equal(calls, 3, '기존 pilot 1 + probe 1 + exact 1');
+            assert.equal(writes.length, 1);
+            assert.equal(writes[0].Item.partial, partial);
+            assert.equal(writes[0].Item.totalPremium, 4200);
+        }
+    }
 });
 
 test('FlowWarm: exact 체인 실패 뒤 부분 probe로 대체하면 이력에도 partial을 유지한다', async () => {

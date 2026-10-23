@@ -107,13 +107,15 @@ async function getAllOptions(ticker) {
   let allResults = [];
   let url = 'https://api.polygon.io/v3/snapshot/options/' + ticker + '?limit=250&apiKey=' + POLYGON_KEY;
   let pages = 0;
+  let partial = false;
   while (url && pages < 20) {
     const data = await httpsGet(url);
+    partial = partial || !!data?.partial;
     if (data && data.results) allResults = allResults.concat(data.results);
     url = data && data.next_url ? data.next_url + '&apiKey=' + POLYGON_KEY : null;
     pages++;
   }
-  allResults.partial = !!url; // 페이지 상한으로 잘린 체인을 완결 EOD로 쓰지 않는다.
+  allResults.partial = partial || !!url; // 만기 조회 실패·페이지 상한을 완결 EOD로 쓰지 않는다.
   return allResults;
 }
 
@@ -952,7 +954,7 @@ async function warmFlowCache(snapshotMap, lambdaContext) {
           + '?limit=250&expiration_date=' + weeklyExpiry + '&apiKey=' + POLYGON_KEY;
         const exactRes = await httpsGet(exactUrl, 12000).catch(() => null);
         results = exactRes?.results || [];
-        let resultsPartial = !!exactRes?.next_url;
+        let resultsPartial = !!exactRes?.partial || !!exactRes?.next_url;
 
         // Fallback: if no results for globalWeeklyExpiry, use first expiration from probe
         if (results.length === 0 && probeResults.length > 0) {
@@ -960,7 +962,7 @@ async function warmFlowCache(snapshotMap, lambdaContext) {
           if (expirations.length > 0) {
             weeklyExpiry = expirations[0];
             results = probeResults.filter(c => c.details?.expiration_date === weeklyExpiry);
-            resultsPartial = !!probeRes?.next_url;
+            resultsPartial = !!probeRes?.partial || !!probeRes?.next_url;
           }
         }
 

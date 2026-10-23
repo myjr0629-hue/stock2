@@ -53,3 +53,40 @@
 ## 남은 위험
 
 운영 AVGO의 실제 원인·영향 종목 수는 미측정이다. 날짜·계산 기준이 불명인 과거 행은 기준군에서 제외되므로 충분한 적격 이력이 없는 축은 후보가 줄 수 있다. 과거 EOD 행에 부분 메타가 없으면 날짜·수집 시각 외의 체인 누락을 소급 판별할 수 없다. 새 생산자 메타는 이 작업만으로 운영에 적용되지 않는다. 부분 오늘은 OI가 맞는 완결 과거가 충분할 때만 비교되며, 결과의 partial은 자료 상태를 알리는 표식이다.
+
+## P1 후속 수리 — 공급사 만기별 실패
+
+관문 `gate-fix_deviation-baseline-partial-10231916.md`가 지적한 경로는 Lambda 어댑터의 만기별 요청 실패를 `null`로 바꾸는 처리와 수집기의 `next_url` 전용 완결성 판정이 결합한 것이다. 성공한 만기의 계약만 반환되면 누락된 체인이 `partial:false`로 저장됐다.
+
+- `harvest_lambda/intrinio-adapter.js:getOptionChain` 응답에 `requestedExpirations`, `failedExpirations`, `partial`을 추가한다. 요청 만기는 기존 제한으로 선택한 만기 수이며, 실패 또는 chain 배열 없는 응답이 하나라도 있으면 부분 자료다. 정상 빈 chain과 조회 실패를 구분한다. 만기 목록 조회 실패도 빈 성공으로 취급하지 않는다.
+- `getAllOptions`는 모든 페이지의 공급사 `partial`과 기존 페이지 상한 판정을 합친다. 배열 형태와 계약 수치는 유지하며, GEX·Flow 두 이력의 기존 `partial` 저장 경로로 전달한다.
+- `warmFlowCache`는 실제 선택한 exact 또는 대체 probe 응답의 `partial`도 전달한다. 채택하지 않은 probe의 실패가 정상 exact를 부분 자료로 바꾸지는 않는다.
+- 기존 저장 행의 표시 없음·`partial:false` 판정과 랭킹 엔진은 변경하지 않는다. 운영 자료 소급 수정도 없다. 실패 표식이 없는 과거 누락 행은 계속 소급 판별할 수 없다.
+- 만기 선택 수·요청 경로·재시도·페이지 상한은 바꾸지 않는다. 공급사 호출을 추가하는 코드는 없다.
+
+공유 함수 호출자 확인:
+
+| 변경 함수 | 모든 운영 호출자와 영향 | 검증 범위 |
+|---|---|---|
+| getOptionChain | 같은 파일의 routeMassiveUrl, index.js의 refreshIv30Pending.fetchChain. 라우터는 계약 유형 필터 뒤에도 새 메타를 보존한다. IV30은 기존 results 배열만 읽는다. | 실제 라우터의 전체·단일 만기·실패·계약 유형 필터, 기존 IV30·greeks 회귀 |
+| getAllOptions | harvestGex, computeIvSurface. 전자는 GEX·Flow 이력에 부분 표식을 저장하고 후자는 기존 배열을 그대로 계산한다. | 실제 수집·메모리 저장·IV Surface 계산·여러 페이지 표식 보존 |
+| warmFlowCache | handler. 선택한 exact/probe의 부분 표식을 Flow 이력에 저장한다. | exact·대체 probe 각각 부분/완결 조합, 기존 프리미엄과 호출 수 |
+
+호출자는 `harvest_lambda`, `scripts`, `src`, `tests`에서 검색했다. 다른 Lambda 사본의 어댑터·웹 공급사 경로·화면 파일은 수정하지 않았다.
+
+추가 시험은 `tests/rankingSessionDate.test.cjs`에 있다. 8개 과거 세션 각각 만기 2개 중 1개를 실패시키고, 실제 어댑터→라우터→getAllOptions→harvestGex→메모리 저장→두 랭킹 API를 실행한다. 정상 합성 자료의 중앙값은 2,000만이며 오늘은 2,300만이다. 같은 누락 자료에서 부분 표식을 제거하면 기준선 1,000만·2.3배가 재현되고, 새 표식이 있는 과거 8세션은 기준군에서 제외돼 가짜 후보를 내보내지 않아야 한다. 정상·실패 수집 모두 세션당 목록 1 + 시세 1 + 만기 2 = 4콜로 검증한다. 단일 만기 실패·전체 실패·정상 빈 chain·만기 목록 실패도 포함한다.
+
+후속 변경 후 실제 검증 결과:
+
+```sh
+/usr/bin/lockf -k /tmp/signum-heavy.lock node --require ./scripts/offline-test-preload.cjs --test tests/rankingSessionDate.test.cjs tests/rankingEtDay.test.cjs tests/greeksNull.test.cjs tests/iv30.harvest.test.js
+/usr/bin/lockf -k /tmp/signum-heavy.lock node scripts/run-offline-tests.cjs
+/usr/bin/lockf -k /tmp/signum-heavy.lock node node_modules/typescript/bin/tsc --noEmit --incremental false
+```
+
+- 개별 재현·회귀 69건 통과(실패 0). 정상 8세션 중앙값 2,000만, 표식 없는 누락 8세션 기준선 1,000만·2.3배를 확인했다. 새 부분 표식이 있는 누락 과거 8세션은 기준군에서 모두 제외되며 두 랭킹 API에서도 가짜 후보가 없다. 정상·실패 수집 각각 세션당 4콜, 증가 0이다. 운영 자료가 아닌 합성·메모리 대역 결과다.
+- 전체 오프라인 296파일 통과·실패 0, 종료 코드 0. 기존 실패로 언급된 integrityAudit2Fund·readCheck·structureWarm도 통과했다. 이번 실행에서 제외한 파일은 없다.
+- tsc 종료 코드 0·오류 출력 0건. 변경한 JavaScript 두 파일과 시험 파일의 `node --check`, `git diff --check`도 통과했다.
+- 각 무거운 명령은 한 번씩 전역 잠금으로 실행했다. 다른 작업의 잠금이 풀릴 때까지 기다렸으며 잠금을 우회하지 않았다. 로그는 `/tmp/signum-deviation-partial-targeted.log`, `/tmp/signum-deviation-partial-offline.log`, `/tmp/signum-deviation-partial-tsc.log`에 있다.
+
+화면 변경·환경 파일 읽기·브라우저·운영 접근·운영 쓰기·커밋·push·병합·Lambda 배포는 실행하지 않았다. 운영 영향 범위는 미측정이며, 표시 없이 이미 저장된 누락 행의 위험은 그대로 남는다.
