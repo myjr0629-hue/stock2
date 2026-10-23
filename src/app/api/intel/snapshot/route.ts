@@ -113,7 +113,13 @@ async function reconcileOfficialCloses(data: any): Promise<any> {
             const change_pct = Math.round(((o.close - o.prevClose) / o.prevClose) * 10000) / 100;
             if (close_price === t.close_price && change_pct === t.change_pct) return t;
             changed = true;
-            return { ...t, close_price, change_pct };
+            // 종목 판정·분석 문장도 POST 와 같은 입력 모양으로 다시 만든다(가격·등락만 공식 값으로).
+            const q = {
+                ticker: t.ticker, price: close_price, changePct: change_pct, alphaScore: t.alpha_score, gex: t.gex, pcr: t.pcr,
+                gammaRegime: t.gamma_regime, maxPain: t.max_pain, callWall: t.call_wall, putFloor: t.put_floor, rsi: t.rsi, rvol: t.rvol,
+            };
+            const verdict = generateVerdict(q);
+            return { ...t, close_price, change_pct, verdict, analysis_kr: generateAnalysisKR(q, verdict) };
         }));
         if (!changed) return data;
         const out: any = { ...data, tickers: next };

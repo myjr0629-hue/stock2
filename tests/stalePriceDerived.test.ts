@@ -257,6 +257,8 @@ const EOD_1022 = { closes: { NVDA: { '2026-10-21': 221.97, '2026-10-22': 212.21 
         const r = await snapshotGet(data, service({ official }));
         const by = Object.fromEntries(r.snapshot.tickers.map((t: any) => [t.ticker, t]));
         assert.equal(by.MSFT.close_price, 521.08); assert.equal(by.MSFT.change_pct, -2.23);
+        assert.ok(by.MSFT.analysis_kr.startsWith('▼ -2.23%')); assert.equal(typeof by.MSFT.verdict, 'string');
+        assert.equal(by.NVDA.analysis_kr, undefined);   // 공식 종가가 없는 행은 저장 그대로
         assert.equal(by.AAPL.close_price, 348.22); assert.equal(by.AAPL.change_pct, 1.23);
         assert.equal(by.NVDA.close_price, 212.5); assert.equal(by.NVDA.change_pct, -4.27);   // 공식 종가 없음 → 저장값
         assert.equal(r.snapshot.sector_summary.gainers, 1); assert.equal(r.snapshot.sector_summary.losers, 2);
