@@ -7,7 +7,7 @@
 // ==========================================================================
 
 import { NextResponse } from 'next/server';
-import { getLatestSnapshot } from '@/lib/supabase/snapshot';
+import { getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { callBedrock } from '@/services/bedrockClient';
 import { multiLangJsonGate } from '@/lib/ai/ladderGates';
@@ -202,11 +202,17 @@ export async function POST(req: Request) {
     const startTime = Date.now();
 
     try {
+        // [ops/close-dry-current — throwaway comparison deployment, never merged] ?dry=1 no write; ?date= replays that ET session as of 17:50 ET
+        const params = new URL(req.url).searchParams;
+        const dryRun = params.get('dry') === '1';
+        const dryDate = dryRun && /^\d{4}-\d{2}-\d{2}$/.test(params.get('date') || '') ? params.get('date')! : null;
+        let replayNow = new Date();
+        if (dryDate) for (const utc of ['21:50', '22:50']) { const d = new Date(`${dryDate}T${utc}:00Z`); if (d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) === '17:50' && d < replayNow) replayNow = d; }
         // 1. Fetch all 10 sector snapshots from Supabase
         console.log('[CrossSectorBrief V3] Fetching 10 sector snapshots...');
         const snapshots = await Promise.all(
             SECTOR_IDS.map(async (id) => {
-                const snap = await getLatestSnapshot(id);
+                const snap = dryDate ? await getSnapshotByDate(id, dryDate) : await getLatestSnapshot(id);
                 return { id, data: snap?.data_json || null };
             })
         );
@@ -247,7 +253,7 @@ export async function POST(req: Request) {
             // FMP economic calendar from Redis
             getFromCache<any[]>('fmp:econ-calendar'),
             // Market news with extended descriptions
-            fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '10', order: 'desc', sort: 'published_utc' }, true)
+            fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '10', order: 'desc', sort: 'published_utc', ...(dryDate ? { 'published_utc.lte': replayNow.toISOString() } : {}) }, true)
                 .then((res: any) => (res?.results || []).map((n: any) => {
                     const title = n.title || '';
                     const desc = n.description ? ` — ${n.description.slice(0, 300)}` : '';
@@ -346,7 +352,7 @@ export async function POST(req: Request) {
         let calendarContext = '';
         const upcomingEvents: { date: string; event: string; daysUntil: number; impact: string }[] = [];
         if (Array.isArray(fmpCalendar) && fmpCalendar.length > 0) {
-            const now = new Date();
+            const now = dryDate ? replayNow : new Date();
             const upcoming = fmpCalendar
                 .filter((e: any) => new Date(e.date || e.dateTime) > now)
                 .slice(0, 5);
@@ -370,8 +376,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'AWS credentials not configured' }, { status: 500 });
         }
 
-        const todayDate = getTodayET();
-        const dayOfWeek = getDayOfWeekET();
+        const todayDate = dryDate || getTodayET();
+        const dayOfWeek = dryDate ? new Date(`${dryDate}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }) : getDayOfWeekET();
 
         const prompt = `You are SIGNUM Intelligence, an elite institutional-grade financial analyst producing a Bloomberg-quality POST-MARKET CROSS-SECTOR BRIEF.
 
@@ -519,6 +525,7 @@ ${KEYLEVELS_REQUIREMENT}
         const systemPrompt = 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive/advisory language (will, should, recommended). No investment advice. '
             // ★2026-10-10 Haiku 5.5 가 일본어 칸에 한글/영어를 섞는 일이 있었다(10건 중 1~2건, 규칙을 넣으면 9/10). 현행 모델에도 해가 없는 문장.
             + 'LANGUAGE RULES: write Korean fields in Hangul only and never insert Japanese kana or Chinese characters; write Japanese fields in Japanese only. Keep company names, tickers and other English proper nouns in their original Latin spelling in every language field; never transliterate them by sound into Hangul or katakana.';
+        const aiStarted = Date.now();
         const bedrockResult = await callBedrock({
             system: systemPrompt,
             userPrompt: prompt,
@@ -591,7 +598,7 @@ ${KEYLEVELS_REQUIREMENT}
         } : null;
 
         // 9. Save to Redis (TTL: 24 hours)
-        const today = getTodayET();
+        const today = todayDate;
         const briefData: Record<string, any> = {
             structured,
             generatedAt: new Date().toISOString(),
@@ -616,7 +623,8 @@ ${KEYLEVELS_REQUIREMENT}
         });
         if (!briefData.guard.ok) console.warn(`[CrossSectorBrief V4] 서빙 가드 탈락(저장은 함, GET 은 v3 로): ${briefData.guard.reasons.join(', ')}`);
 
-        await setInCache(getCacheKey(today), briefData, 259200); // 72h TTL — covers weekends (Fri→Mon)
+        const aiMs = Date.now() - aiStarted;
+        if (!dryRun) await setInCache(getCacheKey(today), briefData, 259200); // 72h TTL — covers weekends (Fri→Mon)
         const elapsed = Date.now() - startTime;
 
         console.log(`[CrossSectorBrief V3] ✅ Generated Bloomberg-grade brief in ${elapsed}ms (${macroIndicators.length} macro indicators)`);
@@ -625,6 +633,7 @@ ${KEYLEVELS_REQUIREMENT}
             success: true,
             ...briefData,
             elapsedMs: elapsed,
+            ...(dryRun ? { dryRun, reportSource: prompt, ai: { provider: bedrockResult.provider || 'legacy', model: bedrockResult.model, elapsedMs: aiMs }, replayClock: replayNow.toISOString() } : {}),
         });
 
     } catch (e: any) {
