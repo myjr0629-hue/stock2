@@ -8,6 +8,7 @@ import { etClock } from '../src/lib/marketSession';
 
 const store = new Map<string, any>();
 let writes = 0, calls = 0, fetches = 0, denied = false, prompt = '';
+let invalidGenerated = false;
 function mock(name: string, exports: any) {
     const p = require.resolve(name);
     require.cache[p] = { id: p, filename: p, loaded: true, exports } as Module;
@@ -30,10 +31,10 @@ mock('../src/services/bedrockClient', {
         if (denied) throw new FreshTierSkipped(['cap']);
         const facts = promptFacts();
         const text = JSON.stringify(Object.fromEntries(facts.map((f: any) => [f.id, {
-            ko: '섹터 안 종목별 움직임 차이가 관측됩니다',
+            ko: invalidGenerated ? '기관 매집에 따른 섹터 동반 상승이 확인됩니다' : '섹터 안 종목별 움직임 차이가 관측됩니다',
             en: 'Differences across sector members observed', ja: 'セクター内の銘柄間で動きの差を確認',
         }])));
-        assert.equal(o.validate(text), true);
+        assert.equal(o.validate(text), !invalidGenerated);
         return { text, model: 'claude-haiku-5.5' };
     },
 });
@@ -51,6 +52,7 @@ function promptFacts(): any[] {
 
 function world(iso: string, currentPre: boolean) {
     store.clear(); writes = 0; calls = 0; fetches = 0; denied = false; prompt = '';
+    invalidGenerated = false;
     const now = Date.parse(iso); Date.now = () => now;
     for (const key of ['yahoo:nq', 'yahoo:spx']) store.set(key, { price: 20000, changePct: 1.25, source: 'YAHOO', lastChangeAt: iso });
     store.set('guardian:news:digest:v2', { items: [
@@ -101,7 +103,8 @@ function world(iso: string, currentPre: boolean) {
             assert.equal(doc.generatedAt, iso.replace('Z', '.000Z'));
             assert.equal(doc.optionsAsOf, '2026-10-16'); assert.equal(doc.optionsOpenedOn, '2026-10-15');
             assert.equal(doc.context.news.length, 1); assert.equal(doc.context.futures.live, true);
-            assert.match(prompt, /priceBasis/); assert.match(prompt, /priorOptions/);
+            assert.match(prompt, /priceBasis/); assert.doesNotMatch(prompt, /priorOptions|futures|publishedAt/);
+            assert.ok(doc.facts.every((f: any) => f.priorOptions && f.members.length === f.measured));
             assert.match(prompt, pre ? /"priceBasis": "PRE"/ : /"priceBasis": "REG"/);
             const again = await (await cron.GET(req())).json(); assert.equal(again.skipped, 'same-slot');
             assert.equal(calls, 1); assert.equal(fetches, 1);
@@ -122,7 +125,7 @@ function world(iso: string, currentPre: boolean) {
                 return Response.json(body);
             };
             await cron.GET(req());
-            const facts = JSON.parse(prompt.split('not necessarily today):\n')[1].split('\n\nPRE-OPEN')[0]);
+            const facts = promptFacts();
             assert.equal(facts.length, 10);
             for (const f of facts) {
                 assert.equal(f.priceBasis, 'PRE'); assert.equal(f.priceDate, '2026-10-19');
@@ -137,6 +140,17 @@ function world(iso: string, currentPre: boolean) {
             const prev = { date: '2026-10-16', session: 'AFTER HOURS' }; store.set(cron.HEADLINE_KEY, prev);
             assert.equal((await (await cron.GET(req())).json()).skipped, 'credit-cap-or-unavailable');
             assert.equal(store.get(cron.HEADLINE_KEY), prev); assert.equal(calls, 1);
+        });
+        await test('새 생성 전부 탈락이면 기존 정상 저장본을 새 검사 없이 보존', async () => {
+            world('2026-10-19T08:40:00Z', true); invalidGenerated = true;
+            const prev = { date: '2026-10-19', session: 'PRE-MARKET', sectors: {
+                m7: { headline: '기존 저장 글은 그대로 보존되는 문장입니다', headlineEN: 'Stored English remains available', headlineJP: '既存の日本語の文をそのまま保持' },
+            } };
+            store.set(cron.HEADLINE_KEY, prev);
+            const response = await cron.GET(req());
+            assert.equal(response.status, 502); assert.equal((await response.json()).error, 'all rejected');
+            assert.equal(store.get(cron.HEADLINE_KEY), prev);
+            assert.equal(writes, 1, 'PRE 배경 잠금만 기록하고 headline pack은 쓰지 않음');
         });
         await test('PRE 일부만 있으면 섞지 않고 REG 기준일로 평균', async () => {
             world('2026-10-19T08:40:00Z', true);
