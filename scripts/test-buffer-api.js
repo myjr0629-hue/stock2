@@ -16,7 +16,7 @@ function bufferQuery(queryStr) {
     };
     const req = https.request(options, (res) => {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
+      res.setEncoding('utf8').on('data', (chunk) => data += chunk);
       res.on('end', () => resolve(JSON.parse(data)));
     });
     req.on('error', (e) => resolve({ error: e.message }));

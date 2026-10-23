@@ -16,7 +16,7 @@ function httpsGet(url, timeoutMs) {
     const to = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs || 15000);
     https.get(url, { headers: { 'User-Agent': 'SIGNUM-FMP/1.0' } }, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.setEncoding('utf8').on('data', chunk => data += chunk);
       res.on('end', () => { clearTimeout(to); try { resolve(JSON.parse(data)); } catch { resolve(data); } });
     }).on('error', (e) => { clearTimeout(to); reject(e); });
   });

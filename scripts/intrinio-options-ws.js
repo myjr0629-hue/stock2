@@ -137,7 +137,7 @@ class OptionsWsClient {
         { headers: { 'Client-Information': CLIENT_INFO }, timeout: 10000 },
         (res) => {
           let d = '';
-          res.on('data', (c) => (d += c));
+          res.setEncoding('utf8').on('data', (c) => (d += c));
           res.on('end', () => {
             if (res.statusCode !== 200) return reject(new Error(`auth HTTP ${res.statusCode}: ${d.slice(0, 120)}`));
             resolve(d.trim());
@@ -171,7 +171,7 @@ class OptionsWsClient {
       ws.on('unexpected-response', (_q, res) => {
         clearTimeout(to);
         let b = '';
-        res.on('data', (c) => (b += c));
+        res.setEncoding('utf8').on('data', (c) => (b += c));
         res.on('end', () => reject(new Error(`업그레이드 거부 HTTP ${res.statusCode} ${b.slice(0, 80)}`)));
       });
       ws.on('error', (e) => { clearTimeout(to); this.onStatus('error: ' + e.message); reject(e); });

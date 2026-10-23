@@ -86,7 +86,7 @@ function httpsGet(url, timeoutMs) {
     const to = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs || 15000);
     https.get(url, { headers: { 'User-Agent': 'SIGNUM-FLOW/1.0' } }, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.setEncoding('utf8').on('data', chunk => data += chunk);
       res.on('end', () => { clearTimeout(to); try { resolve(JSON.parse(data)); } catch { resolve(data); } });
     }).on('error', (e) => { clearTimeout(to); reject(e); });
   });
@@ -104,7 +104,7 @@ async function redisSet(key, value, ttl) {
     return new Promise((resolve) => {
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+        res.setEncoding('utf8').on('data', chunk => data += chunk);
         res.on('end', () => resolve(true));
       });
       req.on('error', () => resolve(false));
@@ -128,7 +128,7 @@ async function redisGet(key) {
     return new Promise((resolve) => {
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+        res.setEncoding('utf8').on('data', chunk => data += chunk);
         res.on('end', () => {
           try {
             const parsed = JSON.parse(data);
@@ -159,7 +159,7 @@ async function redisPipeline(commands) {
     return new Promise((resolve) => {
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+        res.setEncoding('utf8').on('data', chunk => data += chunk);
         res.on('end', () => resolve(commands.length));
       });
       req.on('error', () => resolve(0));

@@ -25,7 +25,7 @@ import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPEL
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { sanitizeMaxPain } from '@/services/centralDataHub'; // [PERF] Redis caching
 import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFresh, peekExtendedSessionCloses, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose'; // ★ 시간외 종가 = 통합 체결 테이프(2026-09-25) · 전환 구간 잠정값(2026-10-05)
-import { shownRegularSessionDate, etMinutesOf, cashSessionPhaseAt } from '@/lib/marketCalendar';
+import { shownRegularSessionDate, etLastClosedSessionDate, etMinutesOf, cashSessionPhaseAt } from '@/lib/marketCalendar';
 import { volumePutCallFromChain } from '@/lib/putCall'; // ★ P/C 정의 한 곳(2026-10-07) — 풋÷콜, 기준(거래량/미결제약정)은 필드 이름에
 import { priceAsOfET } from '@/lib/quoteBasis';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
@@ -189,11 +189,14 @@ function lastGoodKey(ticker: string, skipAlpha: boolean, noChain: boolean): stri
 const LAST_GOOD_TTL = 12 * 3600;
 
 /**
- * 모든 세션에서 목표 정규장 날짜만 내보낸다. PRE·주말은 직전 완료 세션, 개장 뒤는 오늘이다.
+ * 정규장 결측 동안만 직전 완료 세션도 허용한다. 날짜를 오늘로 바꾸지 않는다.
  */
 function dropStaleLiveVwap(payload: any): any {
     if (!payload) return payload;
-    if (normalizeVwap(payload.vwap) == null || payload.vwapDate !== shownRegularSessionDate()) {
+    const now = Date.now();
+    const allowedDate = payload.vwapDate === shownRegularSessionDate(now)
+        || (cashSessionPhaseAt(now) === 'regular' && payload.vwapDate === etLastClosedSessionDate(now));
+    if (normalizeVwap(payload.vwap) == null || !allowedDate) {
         return { ...payload, vwap: null, vwapDate: null };
     }
     return payload;
@@ -281,6 +284,10 @@ async function resolveTargetSessionVwap(ticker: string, nowMs: number = Date.now
     if (cacheHit || cashSessionPhaseAt(nowMs) === 'regular') {
         const realtime = await readRealtimeSessionVwap(ticker, date, nowMs);
         after(async () => { await fetchTargetSessionVwap(ticker, date); });
+        if (!realtime && cashSessionPhaseAt(nowMs) === 'regular') {
+            // 기존 날짜별 차트·분봉 캐시·세션 보관본만 읽는다. 직전장 공급사 조회는 추가하지 않는다.
+            return (await readTargetSessionVwap(ticker, etLastClosedSessionDate(nowMs)))?.value ?? null;
+        }
         return realtime;
     }
     // 장외 콜드 요청은 기존처럼 같은 날짜의 완료 분봉을 직접 확보한다.
@@ -310,6 +317,15 @@ function mergeFreshOverStale(stale: any, fresh: any): any {
         }
         if (typeof v === 'number' && v === 0 && stale?.[k]) continue;
         out[k] = v;
+    }
+    if (cashSessionPhaseAt(Date.now()) === 'regular') {
+        // VWAP·날짜는 한 벌. 늦게 온 직전장 값이 이미 확보한 당일 값을 덮지 않는다.
+        const oldVwap = dropStaleLiveVwap(stale);
+        const newVwap = dropStaleLiveVwap(fresh);
+        const picked = oldVwap?.vwap != null && (newVwap?.vwap == null || oldVwap.vwapDate > newVwap.vwapDate)
+            ? oldVwap : newVwap;
+        out.vwap = picked?.vwap ?? null;
+        out.vwapDate = picked?.vwapDate ?? null;
     }
     return out;
 }
@@ -528,7 +544,9 @@ export async function GET(req: NextRequest) {
             }
             if (checked.vwap == null || cashSessionPhaseAt(Date.now()) === 'regular') {
                 const r = await resolveTargetSessionVwap(ticker, Date.now(), true);
-                checked = { ...checked, vwap: r?.vwap ?? null, vwapDate: r?.date ?? null };
+                if (r && (checked.vwap == null || r.date >= checked.vwapDate)) {
+                    checked = { ...checked, vwap: r.vwap, vwapDate: r.date };
+                }
             }
             return new Response(JSON.stringify(tickerPayloadForResponse(await withExitLevels({ ...checked, _cached: true, _cachedAt: cached.tsServer }, finishLevels, ticker, optionBasis, !skipAlpha), noChain)), {
                 status: 200,
@@ -1489,7 +1507,7 @@ export async function GET(req: NextRequest) {
                     prevClose: prevRegularClose || 0,
                     changePct: changePctForAlpha,
                     // Same source selection as the response: explicit null blocks older VWAP.
-                    vwap: vwapFromSnapshot ?? chartSessionVwap?.vwap ?? null,
+                    vwap: vwapFromSnapshot ?? (chartSessionVwap?.date === shownRegularSessionDate(serverTs) ? chartSessionVwap.vwap : null),
                     return3D,
                     rsi14,
                     sma20: sma20Value,  // [V3 PIPELINE] SMA20 from Polygon

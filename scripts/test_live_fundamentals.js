@@ -9,7 +9,7 @@ function fetchApi(ticker){
   return new Promise((resolve)=>{
     const url='https://www.signumhq.com/api/live/fundamentals?t='+ticker;
     https.get(url,(res)=>{
-      let d='';res.on('data',c=>d+=c);
+      let d='';res.setEncoding('utf8').on('data',c=>d+=c);
       res.on('end',()=>{try{resolve(JSON.parse(d));}catch{resolve({error:'parse error'});}});
     }).on('error',e=>resolve({error:e.message}));
   });

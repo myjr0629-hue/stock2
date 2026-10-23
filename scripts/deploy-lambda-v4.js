@@ -77,7 +77,7 @@ function httpsGet(url) {
     const timeout = setTimeout(() => reject(new Error('TIMEOUT')), 15000);
     https.get(url, { headers: { 'User-Agent': 'SIGNUM-HQ/4.0' } }, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.setEncoding('utf8').on('data', chunk => data += chunk);
       res.on('end', () => {
         clearTimeout(timeout);
         try { resolve(JSON.parse(data)); } catch (e) { resolve(data); }

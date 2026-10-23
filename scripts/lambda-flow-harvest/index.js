@@ -133,7 +133,7 @@ async function httpsGet(url, timeoutMs) {
     const to = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs || 15000);
     https.get(url, { headers: { 'User-Agent': 'SIGNUM-FLOW/1.0' } }, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.setEncoding('utf8').on('data', chunk => data += chunk);
       res.on('end', () => { clearTimeout(to); try { resolve(JSON.parse(data)); } catch { resolve(data); } });
     }).on('error', (e) => { clearTimeout(to); reject(e); });
   });
@@ -152,7 +152,7 @@ function ec2ProxyGet(pathWithQuery, timeoutMs) {
       headers: { 'Authorization': 'Bearer ' + EC2_PROXY_KEY },
     }, (res) => {
       let data = '';
-      res.on('data', (c) => data += c);
+      res.setEncoding('utf8').on('data', (c) => data += c);
       res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
     });
     const to = setTimeout(() => { req.destroy(); resolve(null); }, timeoutMs || 3000);
@@ -179,7 +179,7 @@ function ec2ProxyPost(path, body, timeoutMs) {
     const to = setTimeout(() => resolve(null), timeoutMs || 3000);
     const req = http.request(options, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.setEncoding('utf8').on('data', chunk => data += chunk);
       res.on('end', () => {
         clearTimeout(to);
         try { resolve(JSON.parse(data)); } catch { resolve(null); }
@@ -210,7 +210,7 @@ async function redisSet(key, value, ttl) {
     return new Promise((resolve) => {
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+        res.setEncoding('utf8').on('data', chunk => data += chunk);
         res.on('end', () => resolve(true));
       });
       req.on('error', () => resolve(false));
@@ -252,7 +252,7 @@ async function redisGet(key) {
     return new Promise((resolve) => {
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+        res.setEncoding('utf8').on('data', chunk => data += chunk);
         res.on('end', () => {
           try {
             const parsed = JSON.parse(data);
@@ -300,7 +300,7 @@ async function redisPipeline(commands) {
     return new Promise((resolve) => {
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+        res.setEncoding('utf8').on('data', chunk => data += chunk);
         res.on('end', () => resolve(commands.length));
       });
       req.on('error', () => resolve(0));
@@ -913,7 +913,7 @@ async function acquireLock() {
     return new Promise((resolve) => {
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+        res.setEncoding('utf8').on('data', chunk => data += chunk);
         res.on('end', () => {
           try {
             const parsed = JSON.parse(data);
