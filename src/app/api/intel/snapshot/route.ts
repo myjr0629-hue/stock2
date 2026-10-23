@@ -23,6 +23,45 @@ import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { publicBase } from '@/lib/net/publicBase';
+import { readOptionAlpha } from '@/services/optionAlphaService';
+import { ensureXsScores, xsSnapshotOverride } from '@/services/xsScores';
+
+/**
+ * ★ [2026-10-24 감사 H2] 최신 스냅샷의 알파 점수·등급은 «지금 게시된 값»으로 읽는다.
+ *   원인: 스냅샷은 마감 크론(21:00Z)이 그 시각의 알파 — XS 는 «전날판» — 로 저장하고 다음 마감까지 잠근다.
+ *   XS 는 22:10Z 에 새로 게시되고, 내 종목·종목·cmd·포트폴리오(readOptionAlpha)와 인텔 fast 는 곧바로 새 값을 쓴다
+ *   → 섹터 인텔만 하루 내내 전날 점수였다(10/22 ARM 7.5 F ↔ 36.6 D · MSFT 48.2 C ↔ 24.8 F).
+ *   같은 출구(readOptionAlpha = 분석 캐시 + XS)에서 점수·등급만 가져온다. 근거·문구·나머지 칸은 저장본 그대로.
+ *   분석 캐시가 없는 종목은 저장 점수에 같은 XS 덮기만 한다(못 잰 null 은 채우지 않는다).
+ *   date 지정 조회(과거 기록)는 바꾸지 않는다. 실패하면 저장본 그대로 — 화면을 비우지 않는다.
+ */
+async function overlayCurrentAlpha(data: any): Promise<any> {
+    const rows: any[] | null = Array.isArray(data?.tickers) ? data.tickers : null;
+    if (!rows || rows.length === 0) return data;
+    try {
+        await ensureXsScores();
+        const tickers = rows.map((t) => String(t?.ticker ?? '').toUpperCase()).filter(Boolean);
+        const alpha = await readOptionAlpha(tickers, new Map());
+        const next = rows.map((t) => {
+            const sym = String(t?.ticker ?? '').toUpperCase();
+            const a = alpha.get(sym);
+            const live = nz(a?.score);
+            if (live !== null) return { ...t, alpha_score: live, grade: a?.grade ?? t.grade ?? null };
+            const stored = nz(t?.alpha_score);
+            if (stored === null || !sym) return t;
+            const x = xsSnapshotOverride(sym, { score: stored, grade: t.grade ?? undefined });
+            return { ...t, alpha_score: nz(x.score) ?? stored, grade: x.grade ?? t.grade ?? null };
+        });
+        const measured = next.map((t) => nz(t.alpha_score)).filter((v): v is number => v !== null);
+        const summary = data.sector_summary && measured.length > 0
+            ? { ...data.sector_summary, avg_alpha: Math.round(measured.reduce((s, v) => s + v, 0) / measured.length * 10) / 10 }
+            : data.sector_summary;
+        return { ...data, tickers: next, ...(summary !== undefined && { sector_summary: summary }) };
+    } catch (e) {
+        console.warn('[Snapshot API] alpha overlay skipped:', e);
+        return data;
+    }
+}
 
 export const maxDuration = 60;
 
@@ -184,7 +223,7 @@ export async function GET(request: Request) {
             const s1 = sanitizeStoredSnapshot(cached.data_json);
             return NextResponse.json({
                 success: true,
-                snapshot: await overlayAiHeadline(s1.data, sector),
+                snapshot: await overlayAiHeadline(date ? s1.data : await overlayCurrentAlpha(s1.data), sector),
                 snapshot_date: cached.snapshot_date,
                 created_at: cached.created_at,
                 source: 'REDIS',
@@ -215,7 +254,7 @@ export async function GET(request: Request) {
         const s2 = sanitizeStoredSnapshot(snapshot.data_json);
         return NextResponse.json({
             success: true,
-            snapshot: await overlayAiHeadline(s2.data, sector),
+            snapshot: await overlayAiHeadline(date ? s2.data : await overlayCurrentAlpha(s2.data), sector),
             snapshot_date: snapshot.snapshot_date,
             created_at: snapshot.created_at,
             source: 'DB',
