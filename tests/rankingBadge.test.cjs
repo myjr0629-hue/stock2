@@ -25,12 +25,13 @@ function compile(file, imports = {}, globals = {}) {
 }
 const calendar = compile('src/lib/marketCalendar.ts');
 const engine = compile('src/lib/rankings/engine.ts', { '@/lib/marketCalendar': calendar });
-const badge = compile('src/lib/rankings/badge.ts');
+const badge = compile('src/lib/rankings/badge.ts', { './engine': engine });
 const registry = compile('src/lib/rankings/registry.ts');
 registry.RANKINGS = plain(registry.RANKINGS);
 const keys = compile('src/lib/rankings/cacheKey.ts');
 const marketSession = compile('src/lib/marketSession.ts', { './marketCalendar': calendar });
 const cases = [
+    ['정규장 11:00 ET', '2026-10-22T15:00:00Z', true],
     ['개장 직전', '2026-10-22T13:29:59.999Z', false],
     ['개장', '2026-10-22T13:30:00Z', true],
     ['마감 직전', '2026-10-22T19:59:59.999Z', true],
@@ -55,8 +56,16 @@ for (const [label, iso, open] of cases) test(`세션·배지: ${label}`, () => {
             spec.phase === 'intraday' && !open ? 'postclose' : spec.phase, spec.id);
     }
 });
-test('session 결측·모순은 장중으로 표시하지 않고, 나머지 분류는 그대로다', () => {
-    for (const session of [null, undefined, { phase: 'intraday', regularOpen: false },
+for (const [label, iso, open] of cases) test(`session 결측: ${label}에도 현재 달력으로 판정한다`, () => {
+    now = Date.parse(iso);
+    for (const session of [null, undefined]) {
+        assert.equal(badge.rankingBadgePhase('intraday', session), open ? 'intraday' : 'postclose');
+        assert.equal(badge.rankingBadgePhase('postclose', session), 'postclose');
+        assert.equal(badge.rankingBadgePhase('anytime', session), 'anytime');
+    }
+});
+test('session 모순은 장중으로 표시하지 않고, 나머지 분류는 그대로다', () => {
+    for (const session of [{ phase: 'intraday', regularOpen: false },
         { phase: 'postclose', regularOpen: true }, { phase: 'intraday' }]) {
         assert.equal(badge.rankingBadgePhase('intraday', session), 'postclose');
         assert.equal(badge.rankingBadgePhase('postclose', session), 'postclose');
@@ -128,13 +137,19 @@ test('API miss 및 서빙 도중 마감도 응답 직전에 세션을 갱신한�
     assert.equal(writes[0][1].session.regularOpen, true, '저장 당시 session은 응답과 별개');
 });
 
-function presentation(cached) {
+function presentation(cached, { failure, onFetch = () => {} } = {}) {
     return compile('src/lib/rankings/present.ts', {
         '@/lib/net/publicBase': { publicBase: () => 'http://fixture' },
         '@/lib/marketSession': marketSession, './engine': engine,
     }, { fetch: async (_url, options) => {
+        onFetch();
+        assert.equal(_url, 'http://fixture/api/ranking?run=all&top=10');
         assert.equal(options.next.revalidate, 600);
-        return { ok: true, json: async () => cached };
+        if (failure === 'network') throw new Error('synthetic network failure');
+        return { ok: failure !== '503', status: failure === '503' ? 503 : 200, json: async () => {
+            if (failure === 'json') throw new SyntaxError('synthetic JSON failure');
+            return cached;
+        } };
     } });
 }
 for (const [label, boundary] of [['개장', '2026-10-22T13:30:00Z'], ['마감', '2026-10-22T20:00:00Z']]) {
@@ -168,6 +183,33 @@ const common = {
     '@/lib/share/shareQuery': { readShareQuery: async () => ({ fromShare: false }) },
     '@/lib/rankings/engine': engine,
 };
+for (const locale of ['ko', 'en', 'ja']) for (const failure of ['503', 'network', 'json']) {
+    test(`조회 실패 실제 상세 JSX: ${locale} ${failure}, 결측 유지·세션 독립·호출 수 유지`, async () => {
+        let requests = 0;
+        const present = presentation(null, { failure, onFetch: () => requests++ });
+        const detail = compile('src/app/[locale]/rankings/[id]/page.tsx', {
+            ...common, '@/lib/rankings/present': present,
+            'next/navigation': { notFound: () => assert.fail('notFound') },
+        });
+        const labels = { ko: ['장중', '마감 후', '상시'], en: ['During the session', 'After the close', 'Any time'], ja: ['取引時間中', '引け後', '常時'] }[locale];
+        for (const [, iso, open] of cases) {
+            now = Date.parse(iso);
+            assert.equal(await present.loadRankingSnapshot(), null, '숫자·원천 날짜를 지어내지 않는다');
+            for (const spec of registry.RANKINGS) {
+                const before = requests;
+                const tree = await detail.default({ params: Promise.resolve({ locale, id: spec.id }) });
+                const nodes = elements(tree);
+                const spans = nodes.filter(x => x.type === 'span' && x.props.style?.borderRadius === 999);
+                assert.equal(spans.length, 1, '기존 배지를 숨기지 않는다');
+                assert.equal(spans[0].props.children, labels[spec.phase === 'anytime' ? 2 : spec.phase === 'postclose' || !open ? 1 : 0], spec.id);
+                assert.equal(nodes.filter(x => x.type === 'ol').length, 0, '결측 순위를 만들지 않는다');
+                const ld = nodes.find(x => x.type === 'script').props.dangerouslySetInnerHTML.__html;
+                assert.equal(Object.hasOwn(JSON.parse(ld), 'dateModified'), false, '결측 갱신 날짜 유지');
+                assert.equal(requests - before, 1, '실패 시 재시도나 공급사 추가 조회 없음');
+            }
+        }
+    });
+}
 for (const locale of ['ko', 'en', 'ja']) for (const [label, iso, open] of cases.filter(x =>
     ['개장', '마감', '토요일', '노동절 휴장', '조기 폐장'].includes(x[0]))) {
     test(`실제 허브·상세·앱 JSX: ${locale} ${label}, 전체 카드·기존 문구·분류 유지`, async () => {
