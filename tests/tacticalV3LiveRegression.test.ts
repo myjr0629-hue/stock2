@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildTacticalPrompt, checkTacticalOutput, tacticalIndexReasons } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, tacticalIndexReasons, tacticalTokenRules } from '@/lib/ai/tacticalPrompt';
 import { buildIndexFacts, type IndexFact } from '@/lib/ai/tacticalIndexFacts';
 import { guardianNumsFromAiContext, guardianNumbersGate, guardianTokenRules } from '@/lib/ai/guardianNumbers';
 import { deriveSessions, fixtureFromSnapshot } from '../scripts/tactical-v3-compare.cjs';
@@ -51,7 +51,7 @@ for (const invalidWhy of [why.replace('10/23', '10/22'), why.replace('06:29', '0
 }
 assert.ok(checkTacticalOutput(good.replace('지금 개장 전', '06:36 ET 개장 전'), 'ko', prompt).includes('tactical:state-time-forbidden'));
 for (const locale of ['ko', 'ja', 'en'] as const) {
-    const rules = guardianTokenRules(locale, { NDX_CHG: -2.6, SPX_CHG: -1.2, RLSI: 31 }, 'tactical');
+    const rules = tacticalTokenRules(locale, { NDX_CHG: -2.6, SPX_CHG: -1.2, RLSI: 31 });
     assert.doesNotMatch(rules, /→ \{(?:NDX_CHG|SPX_CHG)\}/);
     assert.match(rules, /never use \{NDX_CHG\} or \{SPX_CHG\}/);
     assert.match(rules, /→ \{RLSI\}/);

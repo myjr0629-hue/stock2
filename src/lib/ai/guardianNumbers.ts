@@ -1,4 +1,3 @@
-import { guardianCashChange } from '@/lib/marketIndexBasis';
 /**
  * 가디언 AI 문구(TACTICAL·RLSI INSIGHT·감마 브리프) — «글 속 시장 숫자 = 같은 화면의 숫자». 순수 함수만(네트워크·Redis 없음).
  *
@@ -49,8 +48,8 @@ function compact(o: GNums): GNums {
  */
 export function guardianNumsFromMarket(m: any, rlsiScore: unknown, extra?: { gexIndex?: unknown; squeezeRisk?: unknown; breadthPct?: unknown }): GNums {
     return compact({
-        NDX_CHG: guardianCashChange(m) ?? undefined,
-        SPX_CHG: fin(m?.indexBasis?.cash?.spx?.changePct),
+        NDX_CHG: fin(m?.nqChangePercent) ?? fin(m?.factors?.nasdaq100?.chgPct),
+        SPX_CHG: fin(m?.factors?.spx?.chgPct),
         GOLD_CHG: fin(m?.factors?.gold?.chgPct),
         OIL_CHG: fin(m?.factors?.oil?.chgPct),
         VIX: posv(m?.vix) ?? posv(m?.factors?.vix?.level),
@@ -122,19 +121,17 @@ const RULE_LABEL: Record<GLocale, Record<GKey, string>> = {
 };
 
 /** 생성 프롬프트 끝에 붙이는 자리표 규칙 — 값이 있는 지표만 */
-export function guardianTokenRules(loc: GLocale, nums: GNums, mode?: 'tactical'): string {
-    const keys = G_KEYS.filter((k) => typeof nums[k] === 'number' && (mode !== 'tactical' || (k !== 'NDX_CHG' && k !== 'SPX_CHG')));
-    const indexRule = mode === 'tactical' ? '\nINDEX_FACTS overrides index placeholders: never use {NDX_CHG} or {SPX_CHG}; write index changes directly to one decimal, or 보합 / flat / 横ばい for futures within ±0.1%.' : '';
-    if (!keys.length) return indexRule;
-    const indexExample = mode === 'tactical' ? '' : { ko: '«나스닥 {NDX_CHG} 상승», ', ja: '「ナスダック{NDX_CHG}」', en: '"NASDAQ {NDX_CHG}", ' }[loc];
+export function guardianTokenRules(loc: GLocale, nums: GNums): string {
+    const keys = G_KEYS.filter((k) => typeof nums[k] === 'number');
+    if (!keys.length) return '';
     const lines = keys.map((k) => `- ${RULE_LABEL[loc][k]} (${formatGNum(k, nums[k] as number)}) → {${k}}`).join('\n');
     if (loc === 'ko') {
-        return `\n\n[숫자 자리표 — 반드시 지킨다]\n아래 지표의 값을 본문에 쓸 때는 숫자를 직접 쓰지 말고 오른쪽 자리표를 중괄호까지 그대로 쓴다. 화면에 나갈 때 화면과 같은 최신 값으로 바뀐다.\n${lines}\n자리표에는 부호와 %가 이미 들어 있다(예: ${indexExample}«RLSI {RLSI}점», «10년물 금리 {US10Y}»). 자리표 뒤에 %를 다시 붙이지 않는다. 그 밖의 숫자(섹터 수치·옵션 가격대·GEX 등)는 데이터 값 그대로 쓴다.${indexRule}`;
+        return `\n\n[숫자 자리표 — 반드시 지킨다]\n아래 지표의 값을 본문에 쓸 때는 숫자를 직접 쓰지 말고 오른쪽 자리표를 중괄호까지 그대로 쓴다. 화면에 나갈 때 화면과 같은 최신 값으로 바뀐다.\n${lines}\n자리표에는 부호와 %가 이미 들어 있다(예: «나스닥 {NDX_CHG} 상승», «RLSI {RLSI}점», «10년물 금리 {US10Y}»). 자리표 뒤에 %를 다시 붙이지 않는다. 그 밖의 숫자(섹터 수치·옵션 가격대·GEX 등)는 데이터 값 그대로 쓴다.`;
     }
     if (loc === 'ja') {
-        return `\n\n[数値プレースホルダー — 必ず守る]\n次の指標の値を本文に書くときは数字を直接書かず、右側のプレースホルダーを波かっこごとそのまま書く。表示時に画面と同じ最新値に置き換わる。\n${lines}\nプレースホルダーには符号と%がすでに含まれる(例:${indexExample}「RLSI {RLSI}点」「米10年債利回り{US10Y}」)。プレースホルダーの後ろに%を付けない。それ以外の数字(セクター数値・オプション価格帯・GEXなど)はデータの値どおりに書く。${indexRule}`;
+        return `\n\n[数値プレースホルダー — 必ず守る]\n次の指標の値を本文に書くときは数字を直接書かず、右側のプレースホルダーを波かっこごとそのまま書く。表示時に画面と同じ最新値に置き換わる。\n${lines}\nプレースホルダーには符号と%がすでに含まれる(例:「ナスダック{NDX_CHG}」「RLSI {RLSI}点」「米10年債利回り{US10Y}」)。プレースホルダーの後ろに%を付けない。それ以外の数字(セクター数値・オプション価格帯・GEXなど)はデータの値どおりに書く。`;
     }
-    return `\n\n[Number placeholders — mandatory]\nWhen you mention any metric below, do not write its number; write the placeholder on the right exactly, braces included. It is replaced with the same live value the screen shows.\n${lines}\nPlaceholders already include the sign and % (e.g. ${indexExample}"RLSI at {RLSI}", "the 10-year at {US10Y}"). Do not add another %. Write every other number (sector figures, option levels, GEX) exactly as given in the data.${indexRule}`;
+    return `\n\n[Number placeholders — mandatory]\nWhen you mention any metric below, do not write its number; write the placeholder on the right exactly, braces included. It is replaced with the same live value the screen shows.\n${lines}\nPlaceholders already include the sign and % (e.g. "NASDAQ {NDX_CHG}", "RLSI at {RLSI}", "the 10-year at {US10Y}"). Do not add another %. Write every other number (sector figures, option levels, GEX) exactly as given in the data.`;
 }
 
 /** 생성 때 값과 지금 값 — 글의 서술(«상승»·«취약»)이 더는 맞지 않을 만큼 움직였는가 */

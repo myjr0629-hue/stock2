@@ -34,8 +34,8 @@ for (const locale of ['ko', 'en', 'ja'] as const) {
     assert.equal(repaired.divergence.caseId, 'D', '같은 coreAt의 기존 캐시도 판정 교정');
     assert.match(repaired.verdict.description, /-2.60%/);
 }
-assert.equal(guardianNumsFromMarket(macro, 29.2).NDX_CHG, -2.60);
-assert.equal(guardianNumsFromMarket(macro, 29.2).SPX_CHG, -1.21);
+assert.equal(guardianNumsFromMarket(macro, 29.2).NDX_CHG, -0.06);
+assert.equal(guardianNumsFromMarket(macro, 29.2).SPX_CHG, 0);
 assert.equal(guardianCashChange({}), null);
 const missing = buildMarketIndexBasis({}, now);
 // 3차 관문: 결측은 기존 입력(-0.06)을 써서 origin/main과 같은 판정을 낸다.
@@ -49,7 +49,7 @@ for (const locale of ['ko', 'en', 'ja'] as const) {
     const zero = buildMarketIndexBasis({ nasdaq: quote('^IXIC', 26008, 0) }, now);
     assert.equal(deriveLocaleParts({ ...core, market: { ...macro, indexBasis: zero } }, locale).tripleA.checklist.conditions[1].current, '0.00%');
 }
-assert.equal(guardianNumsFromMarket({ ...macro, indexBasis: missing }, 29).NDX_CHG, undefined);
+assert.equal(guardianNumsFromMarket({ ...macro, indexBasis: missing }, 29).NDX_CHG, -0.06);
 assert.equal(basis.cash.ndx.price, null, 'M3: NQ를 NDX로 쓰지 않는다');
 assert.equal(basis.cash.nasdaq.sessionDate, '2026-10-22');
 assert.equal(basis.cash.nasdaq.asOf, '2026-10-22T20:00:00.000Z');

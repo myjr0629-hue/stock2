@@ -8,6 +8,6 @@ for (const row of fixture.outputs) {
     const prompt = buildTacticalPrompt(fixture.contexts[row.session], row.locale);
     const label = `${row.session}/${row.locale}/${row.repeat}`;
     assert.deepEqual(checkTacticalOutput(row.text, row.locale, prompt), [], label);
-    assert.deepEqual(checkTacticalStored(row.text, prompt, true), [], `복구 ${label}`);
+    assert.deepEqual(checkTacticalStored(row.text, prompt), [], `복구 ${label}`);
 }
 console.log('통과 compare-v3-r3.md new 원문 27/27 생성·복구 재검사(새 실모델 생성 아님)');

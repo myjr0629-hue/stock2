@@ -98,7 +98,7 @@ function renderStored(row, fallbackNums) {
   const value = decode(row);
   const data = value?.value || value;
   if (typeof data?.text !== 'string') return null;
-  const filled = fillGuardianTokens(data.text, data.basis || fallbackNums || null);
+  const filled = fillGuardianTokens(data.text, data.basis ? { ...fallbackNums, ...data.basis } : fallbackNums || null);
   return filled.ok ? filled.text : data.text;
 }
 function compareStored(rows, ctx, old = baseline()) {
@@ -106,14 +106,8 @@ function compareStored(rows, ctx, old = baseline()) {
     const text = renderStored(row.value, guardianNumsFromAiContext(ctx));
     if (!text) return { key: row.key, locale: row.locale, missing: true };
     const oldReasons = old.checkTacticalStored(text, old.buildTacticalPrompt(ctx, row.locale));
-    const raw = decode(row.value);
-    const data = raw?.value || raw;
-    const version = data?.basis?.contractVersion;
-    const legacy = /guardian:gemini:v2:reality:|session:insight:REALITY_(?!V3_)/.test(row.key)
-      || [2, '2', 'v2'].includes(version) || /\{\s*(?:NDX_CHG|SPX_CHG)\s*\}/.test(data?.text || '');
     const prompt = current.buildTacticalPrompt(ctx, row.locale);
-    // 보관본 비교도 실제 복구 출구와 같은 계약. v2의 옛 선물 숫자를 현재 현물과 대조하지 않는다.
-    const newReasons = current.checkTacticalStored(text, legacy ? prompt.replace(/^INDEX_FACTS: .*$/m, 'INDEX_FACTS: []') : prompt, true);
+    const newReasons = current.checkTacticalStored(text, prompt);
     return { key: row.key, locale: row.locale, oldReasons, newReasons };
   });
 }
@@ -173,7 +167,7 @@ function modelRequest(ctx, contract, old) {
   let nums = numbers.guardianNumsFromAiContext(ctx);
   if (contract === 'new') { const { NDX_CHG, SPX_CHG, ...rest } = nums; nums = rest; }
   const prompts = Object.fromEntries(LOCALES.map(locale => [locale, implementation.buildTacticalPrompt(ctx, locale)]));
-  const userPrompt = LOCALES.map(l => `=== ${l} ===\n${prompts[l]}${numbers.guardianTokenRules(l, nums, contract === 'new' ? 'tactical' : undefined)}`).join('\n\n');
+  const userPrompt = LOCALES.map(l => `=== ${l} ===\n${prompts[l]}${(contract === 'new' ? current.tacticalTokenRules(l, nums) : numbers.guardianTokenRules(l, nums))}`).join('\n\n');
   return { implementation, numbers: contract === 'old' ? old.numbers : { guardianNumbersGate, guardianCmpFacts }, nums, prompts, userPrompt };
 }
 async function liveCompare(fixtures, options = {}) {

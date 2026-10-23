@@ -105,7 +105,7 @@ t('D26 배선: 저장본 쓰기마다 보관(Upstash 유무와 별개, 장외 �
     const archiveCall = s.indexOf('archivedInsight(type, locale, opts.nums, opts.tacticalPrompts,', r);
     const translateCall = s.indexOf('translatedInsight(type, locale, opts.nums, opts.tacticalPrompts)', r);
     assert.ok(archiveCall > r && translateCall > archiveCall);
-    assert.match(s, /if \(arch\) return \{ tpl: arch\.tpl, basis: arch\.basis, recovery: arch\.recovery \};/);   // 메모리에 올리지 않는다(번역 원천이 되지 않게)
+    assert.match(s, /if \(arch\) return \{ tpl: arch\.tpl, basis: arch\.basis \};/);   // 버전 분기 없이 반환, 메모리에 올리지 않는다(번역 원천이 되지 않게)
     assert.match(s, /\{ lookback: 0 \}/);
     const ai = s.indexOf('async function archiveInsight');
     assert.ok(s.indexOf('if (isOffHours()) return;', ai) > ai && s.indexOf('if (isOffHours()) return;', ai) < s.indexOf('saveSessionArchive(', ai));

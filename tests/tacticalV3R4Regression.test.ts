@@ -76,7 +76,7 @@ for (const session of ['POST', 'CLOSED'] as const) for (const locale of locales)
         assert.deepEqual(checkTacticalStored(text, prompt), []);
         for (const bad of [text.replace('10/22', '10/21'), text.replace('10/22', '')]) {
             assert.ok(checkTacticalOutput(bad, locale, prompt).includes('tactical:cash-session-date'));
-            assert.ok(checkTacticalStored(bad, prompt).includes('tactical:cash-session-date'));
+            assert.deepEqual(checkTacticalStored(bad, prompt), [], '복구는 현재 날짜와 대조하지 않음');
         }
     }
 }

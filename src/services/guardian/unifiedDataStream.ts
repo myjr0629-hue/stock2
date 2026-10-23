@@ -487,7 +487,7 @@ export class GuardianDataHub {
 
                     const aiContext = {
                         rlsiScore: rlsi.score,
-                        nasdaqChange: guardianCashChange(macro),
+                        nasdaqChange: macro?.nqChangePercent || 0,
                         indexBasis: macro.indexBasis,
                         indexFacts: buildIndexFacts(macro.indexBasis, rlsi.session, Date.parse(core.timestamp)),
                         session: rlsi.session,
@@ -527,7 +527,7 @@ export class GuardianDataHub {
                         // [V9.0] Macro Intelligence — full asset class context
                         fearGreedScore: rlsi.components?.sentimentScore ?? undefined,
                         fearGreedRating: rlsi.components?.sentimentSource?.replace('CNN F&G: ', '') ?? undefined,
-                        spxChangePct: macro?.indexBasis?.cash?.spx?.changePct ?? undefined,
+                        spxChangePct: macro?.factors?.spx?.chgPct ?? undefined,
                         dxy: macro?.dxy ?? undefined,
                         goldChangePct: macro?.factors?.gold?.chgPct ?? undefined,
                         oilChangePct: macro?.factors?.oil?.chgPct ?? undefined,

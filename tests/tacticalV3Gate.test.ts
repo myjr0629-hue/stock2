@@ -64,11 +64,11 @@ async function main() {
     assert.ok(tacticalIndexReasons('나스닥 종합은 0.7% 하락 중입니다.', numericPrompt()).includes('tactical:index-value'));
     for (const change of [-0.101, -0.1, 0, 0.1, 0.101]) assert.deepEqual(tacticalIndexReasons('나스닥 종합은 보합입니다.', numericPrompt(change)), []);
     for (const change of [-0.16, 0.16]) assert.ok(tacticalIndexReasons('나스닥 종합은 보합입니다.', numericPrompt(change)).includes('tactical:index-direction'));
-    // REG 오인은 세 언어에서 생성/저장 검사 모두 거부한다.
+    // REG 오인은 생성 검사에서 거부하며 저장본은 보존한다.
     for (const word of ['장후', '개장 전', 'after-hours', 'premarket', '時間外', '取引開始前']) {
         const first = `나스닥 종합은 0.8% 하락 중이며 ${word}입니다.`;
         assert.ok(tacticalIndexReasons(first, numericPrompt()).includes('tactical:session-mismatch'), word);
-        assert.ok(checkTacticalStored(first + text.ko, numericPrompt()).includes('tactical:session-mismatch'), word);
+        assert.deepEqual(checkTacticalStored(first + text.ko, numericPrompt()), [], word);
     }
     // 관문 10232033: 정상 방향 동사·미등록 방향 표현도 실제 verdict 출구에서 보존한다.
     const directionCases: Array<[Locale, string]> = [
@@ -126,7 +126,7 @@ async function main() {
             [first.replace('(10/23)', ''), 'tactical:cash-session-date'],
         ]) {
             assert.ok(checkTacticalOutput(bad + ' ' + text[locale], locale, p('2026-10-23')).includes(reason), bad);
-            assert.ok(checkTacticalStored(bad + ' ' + text[locale], p('2026-10-23')).includes(reason), bad);
+            assert.deepEqual(checkTacticalStored(bad + ' ' + text[locale], p('2026-10-23')), [], '복구는 세션/날짜 대조 없음');
         }
         clock = Date.parse('2026-10-24T05:00:00Z'); // 10/24 01:00 ET, 전날 마감
         const yesterday = first.replace(/오늘|today’s|本日/, { ko: '어제', en: 'yesterday’s', ja: '昨日' }[locale]);
@@ -166,16 +166,18 @@ async function main() {
         assert.equal(repaired.verdict.realityInsight, out, '실제 출구도 같은 저장 숫자로 복구');
         assert.equal(writes.length, 0);
     }
-    // 기준 전환 예외는 지수에만 적용한다. origin/main의 건강도 상태·자리표 낡음과 결측 검사는 유지한다.
+    // 낡음은 재생성을 유도하되 실패 시 저장 당시의 숫자와 글을 보존한다. 값 없는 자리표는 차단한다.
     for (const [offHours, metric, changedValue] of [[false, 'RLSI', 65], [true, 'VIX', 26]] as const) {
         reset(offHours ? '2026-10-24T01:00:00Z' : undefined);
         store.set(key('v2', 'ko'), { text: text.ko.replace('시장 건강도(RLSI)는', `변동성 지수(VIX) {VIX}, 시장 건강도(RLSI)는`), basis: { RLSI: 31, VIX: 19.6 } });
         const out = await N.recoverInsight('reality', 'ko', { translate: false, nums: { RLSI: 31, VIX: 19.6, [metric]: changedValue }, tacticalPrompts: prompts });
-        assert.ok(N.isPlaceholderInsight(out), `${metric}: 기존 낡음 검사 유지`);
+        assert.ok(!N.isPlaceholderInsight(out), `${metric}: 복구본 유지`);
+        assert.ok(out.includes('19.6'), '저장 당시 VIX 유지');
     }
     reset('2026-10-24T01:00:00Z');
     store.set(key('v2', 'ko'), { text: text.ko.replace('나스닥 현물 관측은 미확인입니다.', '나스닥 {NDX_CHG}로 약세입니다.'), basis: { RLSI: 31, VIX: 19.6 } });
-    assert.ok(N.isPlaceholderInsight(await N.recoverInsight('reality', 'ko', { translate: false, nums: { NDX_CHG: -2.6, RLSI: 31, VIX: 19.6 }, tacticalPrompts: prompts })), 'v2 basis 결측을 새 현물로 채우지 않음');
+    const partial = await N.recoverInsight('reality', 'ko', { translate: false, nums: { NDX_CHG: -0.4, RLSI: 31, VIX: 19.6 }, tacticalPrompts: prompts });
+    assert.ok(!N.isPlaceholderInsight(partial) && partial.includes('-0.40%'), 'basis에 빠진 자리표는 복원된 공유 선물 값으로 채움');
     for (const bad of ['NEWS PULSE', 'Polygon', 'FMP', 'INDEX_FACTS']) {
         reset('2026-10-24T01:00:00Z');
         store.set(key('v2', 'ko'), { text: text.ko.replace('오늘 시장', `${bad} 오늘 시장`) });
@@ -190,7 +192,7 @@ async function main() {
     response = () => JSON.stringify(text);
     assert.equal(await N.generateRealityInsight(ctx('ko')), text.ko);
     assert.ok(writes.includes(key('v3', 'ko')));
-    // 세션 경계는 메모리·콜드 Redis 모두 무효화. 실패 때는 글을 남기고 TTL은 갱신하지 않는다.
+    // 세션 경계만으로 무효화하지 않는다. 기존 TTL이 지나면 재생성하며 실패 시 글을 보존한다.
     for (const cold of [false, true]) for (const failure of [false, true]) {
         reset(); response = () => JSON.stringify(text);
         assert.equal(await N.generateRealityInsight(ctx('ko')), text.ko);
@@ -202,22 +204,26 @@ async function main() {
         const reg = { ...text, ko: text.ko.replace('나스닥 현물', '정규장 나스닥 현물') };
         response = failure ? null : () => JSON.stringify(reg);
         const out = await N.generateRealityInsight(ctx('ko'));
-        assert.ok(calls > before, '09:29 PRE → 09:31 REG, 숫자가 같아도 재생성');
-        assert.equal(out, failure ? text.ko : reg.ko);
+        assert.equal(calls, before, '09:29 PRE → 09:31 REG: TTL 안에는 기존 글 표시');
+        assert.equal(out, text.ko);
+        clock += 11 * 60000;
+        const refreshed = await N.generateRealityInsight(ctx('ko'));
+        assert.ok(calls > before, '기존 TTL 이후 재생성');
+        assert.equal(refreshed, failure ? text.ko : reg.ko);
         assert.ok(!N.isPlaceholderInsight(out), '세션 다른 글도 생성 실패 시 안내 문구보다 먼저');
         if (failure) assert.equal(JSON.stringify(store.get(key('v3', 'ko'))), saved);
         else assert.equal(store.get(key('v3', 'ko')).session, 'REG');
     }
     reset();
-    // 생성 도중 개장하더라도 PRE 프롬프트로 만든 글을 REG 정상 캐시로 승격하지 않는다.
+    // 생성 세션 메타데이터는 보존하며, 세션 변경만으로 TTL을 초기화하지 않는다.
     response = () => { clock = Date.parse('2026-10-23T13:31:00Z'); return JSON.stringify(text); };
     await N.generateRealityInsight(ctx('ko'));
     assert.equal(store.get(key('v3', 'ko')).session, 'PRE', '저장 시각과 생성 세션을 분리');
     const crossingCalls = calls;
     response = () => JSON.stringify(text);
     await N.generateRealityInsight(ctx('ko'));
-    assert.ok(calls > crossingCalls);
-    assert.equal(store.get(key('v3', 'ko')).session, 'REG');
+    assert.equal(calls, crossingCalls);
+    assert.equal(store.get(key('v3', 'ko')).session, 'PRE');
     // 신선한 marketTime + 2시간 전 마지막 변화도 선물 사실로 승격하지 않는다.
     reset();
     const q = (symbol: string, marketTime: string, lastChangeAt = marketTime) => ({ symbol, price: 100, changePct: 0.05, source: 'YAHOO', marketTime, lastChangeAt });

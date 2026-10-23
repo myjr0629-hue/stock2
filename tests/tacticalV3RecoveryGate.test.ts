@@ -50,16 +50,16 @@ async function main() {
     Date.now = () => clock;
     _setMarketClockForTest(() => new Date(clock));
     _setModelCallerForTest(async () => { calls++; throw new Error('offline model failure'); });
-    // 날짜 없는 REG 정상본 → POST/CLOSED: 생성·신선도 검사는 거부, 복구는 원문 보존.
+    // 날짜 없는 REG 정상본 → POST/CLOSED: 새 생성 검사는 거부, 저장본 검사는 원문 보존.
     for (const locale of locales) for (const source of ['redis', 'archive', 'verdict', 'previous'] as const) for (const offHours of [false, true]) {
         reset(); clock = Date.parse(offHours ? '2026-10-24T01:00:00Z' : '2026-10-23T20:01:00Z');
         const full = `${first[locale]} ${tail[locale]}`;
         const regPrompt = buildTacticalPrompt(ctx(locale, 'REG'), locale);
         assert.deepEqual(checkTacticalOutput(full, locale, regPrompt), []);
-        assert.ok(checkTacticalStored(full, prompt(locale)).includes('tactical:cash-session-date'));
-        assert.deepEqual(checkTacticalStored(full, prompt(locale), true), []);
+        assert.ok(checkTacticalOutput(full, locale, prompt(locale)).includes('tactical:cash-session-date'));
+        assert.deepEqual(checkTacticalStored(full, prompt(locale)), []);
         // v3 생성 계약 전체를 복구에 적용하지 않는다(지수명/숫자/양쪽 언급 요구 없음).
-        assert.deepEqual(checkTacticalStored(tail[locale], prompt(locale), true), []);
+        assert.deepEqual(checkTacticalStored(tail[locale], prompt(locale)), []);
         const saved = { text: full, basis: { RLSI: 31, VIX: 19.6, GEX: 13 }, session: 'REG', updatedAt: '2026-10-23T19:59:00Z' };
         if (source === 'redis') store.set(`guardian:gemini:v3:reality:${locale}`, saved);
         if (source === 'archive') archives.set(`reality_v3_${locale}`, { value: saved, stamp: { observedAt: Date.parse(saved.updatedAt) } });
@@ -130,7 +130,8 @@ async function main() {
         assert.deepEqual(checkTacticalStored(full, p('en', sign * 2.6)), [], sentence);
         const shown = await N.repairVerdictTexts({ realityInsight: full }, 'en', 'direction-scope', null, l => p(l, sign * 2.6));
         assert.equal(shown.verdict.realityInsight, full);
-        for (const reasons of [checkTacticalOutput(full, 'en', p('en', -sign * 2.6)), checkTacticalStored(full, p('en', -sign * 2.6), true)]) assert.ok(reasons.includes('tactical:index-direction'), sentence);
+        assert.ok(checkTacticalOutput(full, 'en', p('en', -sign * 2.6)).includes('tactical:index-direction'), sentence);
+        assert.deepEqual(checkTacticalStored(full, p('en', -sign * 2.6)), [], '복구에는 현재 방향 대조 없음');
     }
     for (const [locale, sentence, sign] of [
         ['ko', '나스닥 종합은 2.6% 급등했고, 금리는 하락했습니다.', 1],
@@ -158,16 +159,16 @@ async function main() {
         const futures = { ko: `나스닥100 선물은 ${word}입니다.`, en: `Nasdaq 100 futures are ${word}.`, ja: `ナスダック100先物は${word}です。` }[locale];
         const full = `${cash} ${futures} ${tail[locale]}`;
         assert.ok(checkTacticalOutput(full, locale, p(locale)).includes('tactical:index-unavailable'));
-        assert.ok(checkTacticalStored(full, p(locale)).includes('tactical:index-unavailable'));
+        assert.deepEqual(checkTacticalStored(full, p(locale)), [], '저장본은 현재 선물 유무와 대조하지 않음');
         // r5 REG 입력은 현물만: 선물이 있는 출구 검사 자체는 최소 프롬프트로 독립 시험.
         const withFact = (change: number) => p(locale).replace(/^INDEX_FACTS: .*$/m, `INDEX_FACTS: ${JSON.stringify([fact, { ...fact, id: 'nq', kind: 'futures', chgPct: change }])}`);
         assert.deepEqual(tacticalIndexReasons(`${cash} ${futures}`, withFact(value)), []);
         assert.ok(tacticalIndexReasons(`${cash} ${futures}`, withFact(value === 0.03 ? 0.3 : -value)).includes('tactical:index-direction'));
     }
-    // 복구에서도 명백한 숫자·방향 모순, 내부 출처명과 지난 일정은 막는다.
-    assert.ok(checkTacticalStored(`${first.ko.replace('2.6', '2.5')} ${tail.ko}`, prompt('ko'), true).includes('tactical:index-value'));
-    assert.ok(checkTacticalStored(`${first.ko.replace('하락', '상승')} ${tail.ko}`, prompt('ko'), true).includes('tactical:index-direction'));
-    assert.ok(checkTacticalStored(`${first.ko} NEWS PULSE. ${tail.ko}`, prompt('ko'), true).includes('tactical:internal-source'));
+    // 복구는 현재 숫자·방향을 대조하지 않으며 내부 출처명과 지난 일정은 막는다.
+    assert.deepEqual(checkTacticalStored(`${first.ko.replace('2.6', '2.5')} ${tail.ko}`, prompt('ko')), []);
+    assert.deepEqual(checkTacticalStored(`${first.ko.replace('하락', '상승')} ${tail.ko}`, prompt('ko')), []);
+    assert.ok(checkTacticalStored(`${first.ko} NEWS PULSE. ${tail.ko}`, prompt('ko')).includes('tactical:internal-source'));
     console.log('통과 10232108: 날짜 없는 REG→POST/CLOSED 24복구·v2 verdict-only 12복구·3언어 방향/다른 주어·REG 선물 근거/방향');
 }
 main().catch(e => { console.error(e); process.exitCode = 1; }).finally(() => {

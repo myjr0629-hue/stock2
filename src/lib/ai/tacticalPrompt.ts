@@ -1,3 +1,4 @@
+import { guardianTokenRules, type GNums } from './guardianNumbers';
 import { buildIndexFacts, sessionIndexFacts, tacticalSessionAt, type IndexFact, type TacticalSession } from './tacticalIndexFacts';
 import { filterMarketHeadlines } from './tacticalNews';
 import { checkNumberGrounding } from './depthNumbers';
@@ -24,6 +25,14 @@ export interface TacticalContext {
     marketNewsHeadlines?: string[];
     scheduledEvents?: string[];
     asOf?: string;
+}
+
+/** Tactical만 지수 자리표를 쓰지 않는다. 공유 숫자 계약은 origin/main 그대로 둔다. */
+export function tacticalTokenRules(locale: Locale, nums: GNums): string {
+    const { NDX_CHG, SPX_CHG, ...rest } = nums;
+    const example = { ko: '«나스닥 {NDX_CHG} 상승», ', ja: '「ナスダック{NDX_CHG}」', en: '"NASDAQ {NDX_CHG}", ' }[locale];
+    return guardianTokenRules(locale, rest).replace(example, '')
+        + '\nINDEX_FACTS overrides index placeholders: never use {NDX_CHG} or {SPX_CHG}; write index changes directly to one decimal, or 보합 / flat / 横ばい for futures within ±0.1%.';
 }
 
 /** 발행 시각 없는 뉴스와 오늘이 아닌 뉴스는 오늘의 원인 근거로 쓰지 않는다. */
@@ -431,18 +440,14 @@ export function tacticalNextReasons(next: string, prompt: string, mode: 'generat
 }
 
 /** 저장본·복구·번역 글의 시각 검사 — 마지막 문장(NEXT)만 + 입력 이름표 노출(«TODAY_NEWS에 따르면» — 10/20 17:03 운영 ko·ja 실측). */
-export function checkTacticalStored(text: string, prompt: string, recovery = false): string[] {
+export function checkTacticalStored(text: string, prompt: string): string[] {
     const sentences = splitSentences(text);
-    const index = tacticalIndexReasons(sentences[0] || '', prompt);
-    // 복구는 origin/main의 저장본 검사 + 내부 출처명 + 명백한 값·방향 모순만.
-    // 새 생성 계약(세션·날짜·이름·숫자 필수·현물/선물 동시 언급)은 정상 저장본을 지우는 이유가 아니다.
-    const next = sentences[sentences.length - 1] || '';
     const { events, asOf } = promptEvidence(prompt);
+    // origin/main 저장본 계약: 입력 이름표 + NEXT의 예정 주장. INDEX_FACTS와 대조하지 않는다.
+    // 현지 시각 병기는 새 생성 계약이므로 저장본에서는 ET만 기존 일정 검사로 넘긴다.
+    const next = (sentences[sentences.length - 1] || '').replace(/\((?:한국|日本時間) \d{2}:\d{2}\)/g, '');
     return [...internalLabelReasons(text, false), ...internalSourceReasons(text),
-        ...(recovery ? index.filter(r => r === 'tactical:index-value' || r === 'tactical:index-direction')
-            : /^INDEX_FACTS: \[(?!\])/m.test(prompt) ? index : index.filter(r => r === 'tactical:session-mismatch')),
-        ...(recovery ? scheduleClaimReasons(next.replace(/\((?:한국|日本時間) \d{2}:\d{2}\)/g, ''), events, asOf, 'claims')
-            : tacticalNextReasons(next, prompt, 'read'))];
+        ...scheduleClaimReasons(next, events, asOf, 'claims')];
 }
 
 /** 프롬프트 입력 이름표·구조 이름이 글에 새어 나왔나 — 읽기(저장본)는 입력 이름표만, 생성은 «WHY:»·«NEXT:» 같은 구조 이름표까지 */
