@@ -13,6 +13,7 @@ import { GiftAnnounceHost } from '@/components/app/GiftAnnounceHost';
 import { InviteHost } from '@/components/app/InviteHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
+import { reportPushPath, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
 import { resolveAppLocale } from '@/lib/appLocale';
 import { watchBottomSafe } from '@/utils/androidBottomInset';
 import { etDay } from '@/lib/app/funnelSchema';
@@ -71,7 +72,7 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       // which Capacitor treats as a top-level navigation and opens in an in-app
       // Safari. A router push/replace stays inside the WebView (same mechanism the
       // in-app language switcher uses).
-      router.replace(`/${desired}${rest}`);
+      router.replace(`/${desired}${rest}${window.location.search}`);
     }
   }, [router]);
 
@@ -113,17 +114,11 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
               ? watchlistAlertPath(action?.notification?.data?.path)
               : null;
             const sigPath = type === 'wl_signal' ? signalTapPath(action?.notification?.data?.path) : null;
-            const target = type === 'morning'
-              // Guardian overview → auto-open the AI morning-briefing report overlay.
-              ? `/${loc}/app-view/guardian?tab=overview&brief=1`
-              : type === 'closing'
-                ? `/${loc}/app-view/intel`
-                : sigPath
-                  ? `/${loc}${sigPath}`
-                  : wlPath
-                    ? `/${loc}${wlPath}`
-                    : null;
+            const target = reportPushPath(type, loc, action?.notification?.data?.date)
+              || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : null);
             if (!target) return;
+            // Re-tapping the same report URL must also close an open sector sheet.
+            if (type === 'closing') window.dispatchEvent(new Event(REPORT_OPEN_EVENT));
             // Persist the target so a COLD-start tap survives the root→/dash launch
             // redirect that would otherwise clobber this navigation. The plugin buffers
             // this action (retainUntilConsumed:true), so on cold start it fires only once

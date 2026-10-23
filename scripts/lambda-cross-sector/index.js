@@ -2,6 +2,7 @@ const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-be
 const https = require('https');
 const KEYLEVELS = require('./keyLevels');
 const INDEXLEVELS = require('./indexLevels');
+const CLOSING = require('./closingReport');
 
 const SECTOR_IDS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
@@ -105,11 +106,7 @@ async function fetchMassiveNews() {
         const res = await fetch(`https://api.polygon.io/v2/reference/news?ticker=SPY,QQQ,DIA,TLT,GLD&limit=10&order=desc&sort=published_utc&apiKey=${MASSIVE_KEY}`);
         const data = await res.json();
         if (!data || !data.results) return [];
-        return data.results.map(n => {
-            const title = n.title || '';
-            const desc = n.description ? ` — ${n.description.slice(0, 300)}` : '';
-            return title + desc;
-        }).filter(Boolean);
+        return data.results;
     } catch (e) {
         console.error('Polygon News fetch failed:', e.message);
         return [];
@@ -147,12 +144,15 @@ exports.handler = async (event, context) => {
     const startTime = Date.now();
 
     try {
+        const now = new Date();
+        const todayDate = getTodayET();
+        const closeMinutes = CLOSING.cashCloseMinutes(todayDate);
         // 1. Fetch all sector snapshots
         console.log('Fetching 10 sector snapshots from Supabase...');
         const snapshotsRes = await Promise.all(
             SECTOR_IDS.map(async (id) => {
                 const snap = await getLatestSnapshot(id);
-                return { id, data: snap?.data_json || null };
+                return { id, sessionDate: snap?.snapshot_date, data: snap?.snapshot_date === todayDate ? snap.data_json : null };
             })
         );
         const validSnapshots = snapshotsRes.filter(s => s.data);
@@ -169,7 +169,7 @@ exports.handler = async (event, context) => {
             redisBtc, redisFng, redisGold, redisOil, redisTlt,
             redisRut, redisUsdkrw, redisUsdjpy,
             redisIdxNasdaq, redisIdxDow, redisIdxSpx,
-            fmpCalendar, marketNews,
+            fmpCalendar, marketNews, redisDxy,
             ...structureVersions
         ] = await Promise.all([
             redisGet(YAHOO_CACHE_KEYS.VIX),
@@ -189,15 +189,21 @@ exports.handler = async (event, context) => {
             redisGet(YAHOO_CACHE_KEYS.IDX_DOW),
             redisGet(YAHOO_CACHE_KEYS.IDX_SPX),
             redisGet('fmp:econ-calendar'),
-            fetchMassiveNews(),
+            fetchMassiveNews().then(items => CLOSING.newsEvidence(items, todayDate, now, closeMinutes)),
+            redisGet('yahoo:dxy'),
             // ★2026-10-11 지수 ETF 옵션 구조 판본(structure:v2:{T}) — 앱·웹이 읽는 «한 문»의 저장본. 계산하지 않고 읽기만(없으면 블록을 뺀다)
             ...INDEXLEVELS.TICKERS.map((t) => redisGet(`structure:v2:${t}`)),
         ]);
 
-        const idxNasdaq = redisIdxNasdaq || redisNq;
-        const idxSpx    = redisIdxSpx || redisSpx;
-        const idxDow    = redisIdxDow || null;
-        const idxRut    = redisRut;
+        const cashCloses = {
+            spx: CLOSING.regularClose(redisIdxSpx, '^GSPC', todayDate, now, closeMinutes),
+            nasdaq: CLOSING.regularClose(redisIdxNasdaq, '^IXIC', todayDate, now, closeMinutes),
+            dow: CLOSING.regularClose(redisIdxDow, '^DJI', todayDate, now, closeMinutes),
+        };
+        if (!cashCloses.spx || !cashCloses.nasdaq) return { statusCode: 503, body: 'Regular-session cash closes unavailable' };
+        const idxNasdaq = cashCloses.nasdaq;
+        const idxSpx = cashCloses.spx;
+        const idxDow = cashCloses.dow;
 
         // 2c. 지수 ETF 옵션 구조 레벨(SPY·QQQ·IWM) — 입력에 진짜 레벨이 없어 keyLevels 가 [VIX3M] 한 칸·빈 배열이 되던 것을 푼다(Vercel 판과 같은 블록·같은 출구)
         const nowMsLv = Date.now();
@@ -213,20 +219,19 @@ exports.handler = async (event, context) => {
                 .sort((a, b) => b.change_pct - a.change_pct);
             const leader = sorted[0];
             const laggard = sorted[sorted.length - 1];
-            const news = (summary.newsDigest || []).slice(0, 3).map(n => ({
-                title: n.headline || n.summaryKR,
-                sentiment: n.sentiment,
-                publishedAt: n.publishedAt || '',
-            }));
+            const news = CLOSING.newsEvidence((summary.newsDigest || []).slice(0, 3), todayDate, now, closeMinutes, s.id);
+
             return {
                 sector: SECTOR_LABELS[s.id] || s.id,
                 sectorId: s.id,
+                sessionDate: s.sessionDate,
+                changePct: sorted.length ? sorted.reduce((sum, t) => sum + t.change_pct, 0) / sorted.length : null,
                 outlook: summary.outlook || 'NEUTRAL',
                 gainers: summary.gainers || 0,
                 losers: summary.losers || 0,
-                avgAlpha: summary.avg_alpha || 0,
-                avgPcr: summary.avg_pcr || 0,
-                totalGex: summary.total_gex || 0,
+                avgAlpha: summary.avg_alpha ?? null,
+                avgPcr: summary.avg_pcr ?? null,
+                totalGex: summary.total_gex ?? null,
                 dominantRegime: summary.dominant_regime || 'NEUTRAL',
                 leader: leader ? `${leader.ticker} ${leader.change_pct >= 0 ? '+' : ''}${leader.change_pct.toFixed(2)}%` : '-',
                 laggard: laggard ? `${laggard.ticker} ${laggard.change_pct.toFixed(2)}%` : '-',
@@ -250,186 +255,26 @@ exports.handler = async (event, context) => {
         const macroStr = [
             fmt(redisVix, 'VIX'), fmt(redisVix3m, 'VIX3M'),
             redisVix && redisVix3m ? `VIX/VIX3M Ratio: ${(redisVix.price / (redisVix3m.price || 1)).toFixed(3)} (${redisVix.price > redisVix3m.price ? 'BACKWARDATION ⚠️' : 'CONTANGO ✓'})` : null,
-            fmt(idxSpx, 'S&P500'), fmt(idxNasdaq, 'NASDAQ'), fmt(idxDow, 'DOW'), fmt(idxRut, 'Russell2000'),
+            fmt(idxSpx, 'S&P500'), fmt(idxNasdaq, 'NASDAQ'), fmt(idxDow, 'DOW'), fmt(redisSpx, 'ES=F daily futures change (not since cash close)'),
+            fmt(redisNq, 'NQ=F NASDAQ100 daily futures change (not NASDAQ Composite)'),
+            fmt(redisRut, 'RTY=F daily futures change (not cash close)'),
             redisTnx ? `US10Y: ${redisTnx.price.toFixed(2)}% (${tnxBp(redisTnx)})` : null,
-            fmt(redisTlt, 'TLT(20Y+Bond)'), fmt(redisGold, 'Gold'), fmt(redisOil, 'WTI Oil'),
+            fmt(redisDxy, 'DXY'),
+            fmt(redisDxy, 'DXY'), fmt(redisTlt, 'TLT(20Y+Bond)'), fmt(redisGold, 'Gold'), fmt(redisOil, 'WTI Oil'),
             redisBtc ? `BTC: $${redisBtc.price.toFixed(0)} (${redisBtc.changePct >= 0 ? '+' : ''}${redisBtc.changePct.toFixed(2)}%)` : null,
             redisFng ? `Fear & Greed: ${redisFng.value || redisFng.score || 'N/A'}` : null,
             redisUsdkrw ? `USD/KRW: ${redisUsdkrw.price.toFixed(2)} (${redisUsdkrw.changePct >= 0 ? '+' : ''}${redisUsdkrw.changePct.toFixed(2)}%)` : null,
             redisUsdjpy ? `USD/JPY: ${redisUsdjpy.price.toFixed(2)} (${redisUsdjpy.changePct >= 0 ? '+' : ''}${redisUsdjpy.changePct.toFixed(2)}%)` : null,
         ].filter(Boolean).join(' | ');
 
-        // 5. News & Calendar Context
-        const newsContext = marketNews.length > 0
-            ? `\n## Real-time Market News (from Polygon)\n${marketNews.map((n, i) => `${i + 1}. ${n}`).join('\n')}`
-            : '';
+        const upcomingEvents = CLOSING.calendarEvidence(fmpCalendar, now);
 
-        let calendarContext = '';
-        const upcomingEvents = [];
-        if (Array.isArray(fmpCalendar) && fmpCalendar.length > 0) {
-            const now = new Date();
-            const upcoming = fmpCalendar
-                .filter(e => new Date(e.date || e.dateTime) > now)
-                .slice(0, 5);
-            calendarContext = upcoming.length > 0
-                ? `\n## Upcoming Economic Events (FMP Live)\n${upcoming.map(e => {
-                    const evtDate = new Date(e.date || e.dateTime);
-                    const daysUntil = Math.ceil((evtDate.getTime() - now.getTime()) / 86400000);
-                    upcomingEvents.push({
-                        date: (e.date || e.dateTime || '').split('T')[0],
-                        event: e.event || e.name || '',
-                        daysUntil,
-                        impact: e.impact || 'MEDIUM',
-                    });
-                    return `- D-${daysUntil} ${(e.date || '').split(' ')[0]}: ${e.event || e.name} (${e.impact || 'MEDIUM'})`;
-                }).join('\n')}`
-                : '';
-        }
-
-        // 6. Bedrock Execution
-        const todayDate = getTodayET();
-        const dayOfWeek = getDayOfWeekET();
-
-        const prompt = `You are SIGNUM Intelligence, an elite institutional-grade financial analyst producing a Bloomberg-quality POST-MARKET CROSS-SECTOR BRIEF.
-
-## CRITICAL RULES
-1. Today's date is ${todayDate} (${dayOfWeek}), Eastern Time.
-2. DO NOT guess or fabricate earnings dates, events, or any information not present in the provided data.
-3. If a company has already reported earnings (e.g. past date), do NOT say "earnings upcoming."
-4. Only reference news items that appear in the provided data. Never hallucinate news.
-5. Base ALL analysis strictly on the provided sector data and macro numbers.
-6. NEVER provide investment advice, recommendations, or action directives. Use ONLY conditional observations (e.g. "IF X → THEN Y is historically associated with Z").
-7. Use "Market Breadth" (참여폭 in Korean) — never translate as 광폭.
-
-## 13 Macro Indicators (Full Cross-Asset View)
-${macroStr || 'Macro data unavailable'}${INDEXLEVELS.levelsPromptSection(levelsBlock.block)}
-${newsContext}
-${calendarContext}
-
-## 10 Sector Summaries (Today's Close Data)
-${JSON.stringify(sectorSummaries, null, 1)}
-
-## BLOOMBERG-GRADE ANALYSIS REQUIREMENTS (CRITICAL)
-
-### 1. Cross-Asset Correlation Analysis
-- VIX vs VIX3M: If VIX > VIX3M (Backwardation), note this is historically associated with near-term stress. Provide typical duration context.
-- Equity-Bond Correlation: If SPX and TLT move in same direction, flag the unusual correlation. If diverged, note if Risk-On or Risk-Off.
-- Gold-Dollar-Bond Triangle: Gold↑ + US10Y↑ = inflation hedge demand. Gold↑ + US10Y↓ = flight-to-safety. Flag which pattern is observed.
-- Oil Impact Chain: Oil price moves → inflation expectations → yield impact → growth stock sensitivity.
-- BTC as Risk Barometer: BTC correlating with NASDAQ = risk-on proxy. BTC diverging = crypto-specific flow.
-
-### 2. FX & International Context
-- USD/KRW context for Korean analysis: Strong dollar = foreign selling pressure on Korean equities, impact on export competitiveness.
-- USD/JPY context for Japanese analysis: Approaching intervention levels (155+), yen carry trade unwind risks, BOJ policy implications.
-- For English: DXY-equivalent strength assessment using the FX pairs.
-
-### 3. News Impact Chain (MANDATORY for each news item)
-For each news item, provide an "impactChain" showing the causal propagation:
-NEWS → Primary Indicator (direct effect) → Secondary Indicator (ripple) → Tertiary (sector impact)
-Example: "CPI beats expectations" → US10Y ↑ (direct) → NASDAQ ↓ (valuation) → VIX ↑ (uncertainty)
-
-### 4. Edge Detection (Premium Insights)
-Identify and flag as "edgeAlerts" any of these institutional-grade observations:
-- DIVERGENCE: When correlated assets break their normal relationship (e.g., stocks up + VIX up)
-- ANOMALY: When one sector moves opposite to macro (e.g., Bio +3% in a red tape day with no news)
-- EXTREME: When Fear & Greed < 25 or > 75, VIX term structure inversion, or unusual PCR readings
-
-### 5. Economic Calendar Awareness
-If an upcoming economic event (FOMC, CPI, NFP) is within 3 days, analyze current positioning as potential pre-event hedging. Cross-reference with options structure (GEX/PCR) to assess dealer hedging.
-
-### 6. Locale-Specific Depth
-- Korean (ko): Write like 삼성증권/미래에셋 리서치센터 수석 애널리스트. Use 원/달러 context, 외국인 수급 관점, KOSPI 연동성 언급.
-- English (en): Write like Bloomberg Terminal Morning Brief. Institutional jargon, DXY context, cross-asset correlation language.
-- Japanese (ja): Write like 日経QUICK or 野村證券マクロレポート. USD/JPY context, 日銀政策への影響, 円キャリー巻き戻しリスク.
-
-## OUTPUT FORMAT
-Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow this exact structure:
-
-{
-  "marketOverview": {
-    "tone": "BULLISH|BEARISH|MIXED|CAUTIOUS",
-    "summary": {
-      "ko": "2문장 이내. 핵심 수치 + Cross-Asset 상관관계 + 원화 맥락. 짧고 임팩트있게.",
-      "en": "Max 2 sentences. Key numbers + cross-asset signal + institutional edge.",
-      "ja": "2文以内。主要指標 + クロスアセット相関 + 円建てコンテキスト。"
-    },
-    "keyDrivers": {
-      "ko": ["1줄 팩트 (수치 포함)", "1줄 팩트", "1줄 팩트"],
-      "en": ["One-line fact with number", "One-line fact", "One-line fact"],
-      "ja": ["1行ファクト（数値含む）", "1行ファクト", "1行ファクト"]
-    }
-  },
-  "sectorRotation": {
-    "winners": [
-      { "sector": "Sector Name", "change": "+X.XX%", "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
-    ],
-    "losers": [
-      { "sector": "Sector Name", "change": "-X.XX%", "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
-    ],
-    "rotationInsight": {
-      "ko": "자금 흐름 패턴 1-2줄. defensive vs growth, 이상 신호 포함.",
-      "en": "Capital rotation 1-2 lines. Flag anomalies.",
-      "ja": "資金フロー1-2行。異常シグナル含む。"
-    }
-  },
-  "newsImpact": {
-    "items": [
-      {
-        "headline": { "ko": "헤드라인", "en": "Headline", "ja": "ヘッドライン" },
-        "impact": { "ko": "시장 영향 1줄", "en": "Market impact 1 line", "ja": "市場影響1行" },
-        "sentiment": "positive|negative|neutral",
-        "impactLevel": "LOW|MED|HIGH",
-        "relatedSectors": ["sector_id_1", "sector_id_2"],
-        "impactChain": [
-          { "indicator": "US10Y", "direction": "↑", "label": { "ko": "금리 직접 영향", "en": "Direct yield impact", "ja": "金利直接影響" } },
-          { "indicator": "NASDAQ", "direction": "↓", "label": { "ko": "밸류에이션 압력", "en": "Valuation pressure", "ja": "バリュエーション圧力" } }
-        ]
-      }
-    ]
-  },
-  "gammaOptions": {
-    "totalGexLabel": "e.g. -$271.6M (Negative Gamma)",
-    "avgPcr": 1.05,
-    "regime": "LONG|SHORT|MIXED",
-    "insight": { "ko": "2줄 이내", "en": "Max 2 lines", "ja": "2行以内" }
-  },
-  "outlook": {
-    "bias": "BULLISH|BEARISH|NEUTRAL|CAUTIOUS",
-    ${KEYLEVELS.SCHEMA_EXAMPLE}
-    "catalysts": {
-      "ko": ["IF 조건 → THEN 관찰 (1줄)", "IF → THEN"],
-      "en": ["IF condition → THEN observation (1 line)", "IF → THEN"],
-      "ja": ["IF条件 → THEN観察（1行）", "IF → THEN"]
-    },
-    "risks": {
-      "ko": ["IF → THEN 리스크"],
-      "en": ["IF → THEN risk"],
-      "ja": ["IF → THENリスク"]
-    },
-    "opportunities": {
-      "ko": ["조건부 관찰 팩트"],
-      "en": ["Conditional observation"],
-      "ja": ["条件付き観察"]
-    }
-  },
-  "edgeAlerts": [
-    {
-      "type": "DIVERGENCE|ANOMALY|EXTREME",
-      "title": { "ko": "SPX↑ + VIX↑ Divergence 관측", "en": "SPX↑ + VIX↑ Divergence Detected", "ja": "SPX↑ + VIX↑ ダイバージェンス観測" },
-      "detail": { "ko": "1-2줄 상관관계 설명 (수치 포함)", "en": "1-2 line correlation explanation with numbers", "ja": "1-2行相関説明（数値含む）" }
-    }
-  ]
-}
-
-## ANALYSIS REQUIREMENTS
-- Provide 3-5 news impact items with impactChain for each
-- Provide 2-3 winners and 2-3 losers based on avgAlpha and leader/laggard data
-${KEYLEVELS.REQUIREMENT}
-- Maximum 3 keyDrivers, 3 catalysts, 3 risks, 3 opportunities per language
-- ALL text fields should be CONCISE — no walls of text. 1-2 sentences max per field.
-- edgeAlerts: include 0-3 items. Only include if a genuine cross-asset anomaly exists. Don't force it.
-- Use IF→THEN conditional framing for catalysts, risks, and opportunities
-- Flag any cross-asset divergences explicitly in edgeAlerts`;
+        const readings = { vix: redisVix, vix3m: redisVix3m, us10y: redisTnx, dollar: redisDxy,
+            usdkrw: redisUsdkrw, usdjpy: redisUsdjpy, gold: redisGold, oil: redisOil, tlt: redisTlt,
+            futures: { es: redisSpx, nq: redisNq, rty: redisRut } };
+        const reportEvidence = { readings, regularClose: cashCloses, news: [...marketNews, ...sectorSummaries.flatMap(s => s.news)], events: upcomingEvents };
+        const prompt = CLOSING.buildClosingPrompt({ sessionDate: todayDate, macroStr, levelsSection: INDEXLEVELS.levelsPromptSection(levelsBlock.block),
+            evidence: reportEvidence, sectorSummaries, keyLevelsSchema: KEYLEVELS.SCHEMA_EXAMPLE, keyLevelsRequirement: KEYLEVELS.REQUIREMENT });
 
         console.log(`Calling Bedrock Claude with ${sectorSummaries.length} sectors + 13 macro indicators...`);
         const bedrockClient = new BedrockRuntimeClient({ region: 'us-east-1' });
@@ -492,6 +337,8 @@ ${KEYLEVELS.REQUIREMENT}
         if (!structured.marketOverview) {
             return { statusCode: 500, body: 'Bedrock response missing required sections' };
         }
+        const narrativeErrors = CLOSING.evidenceProblems(structured, reportEvidence);
+        if (narrativeErrors.length) return { statusCode: 500, body: JSON.stringify({ error: 'Closing narrative rejected', reasons: narrativeErrors }) };
 
         // ★2026-10-11 keyLevels 출구 — 입력(macroStr + 지수 ETF 레벨 근거 줄)에 없는 수준은 걸러 낸다(예전 프롬프트 예시가 S&P 지지·저항 4칸을 요구해 매일 지어냈다). Vercel 판과 같은 규칙.
         //   이어서 라벨↔값 대조 + 범위 바 순서(Put Floor → Call Wall, 빠진 쪽은 입력의 값 그대로).
@@ -506,7 +353,7 @@ ${KEYLEVELS.REQUIREMENT}
             idxSpx ? { key: 'S&P 500', value: idxSpx.price, changePct: idxSpx.changePct, category: 'equity' } : null,
             idxNasdaq ? { key: 'NASDAQ', value: idxNasdaq.price, changePct: idxNasdaq.changePct, category: 'equity' } : null,
             idxDow ? { key: 'DOW', value: idxDow.price, changePct: idxDow.changePct, category: 'equity' } : null,
-            idxRut ? { key: 'Russell 2K', value: idxRut.price, changePct: idxRut.changePct, category: 'equity' } : null,
+            redisRut ? { key: 'Russell 2K', value: redisRut.price, changePct: redisRut.changePct, category: 'equity' } : null,
             redisTnx ? { key: 'US 10Y', value: redisTnx.price, changePct: redisTnx.changePct, category: 'bond' } : null,
             redisTlt ? { key: 'TLT', value: redisTlt.price, changePct: redisTlt.changePct, category: 'bond' } : null,
             redisGold ? { key: 'Gold', value: redisGold.price, changePct: redisGold.changePct, category: 'commodity' } : null,
@@ -526,9 +373,14 @@ ${KEYLEVELS.REQUIREMENT}
         } : null;
 
         // 8. Save to Redis
-        const today = getTodayET();
+        const today = todayDate;
         const briefData = {
             structured,
+            reportEvidence,
+            reportSource: prompt,
+            provider: 'bedrock',
+            model: command.input.modelId,
+            usage: attempt.usage,
             generatedAt: new Date().toISOString(),
             date: today,
             sectorCount: validSnapshots.length,
@@ -545,7 +397,8 @@ ${KEYLEVELS.REQUIREMENT}
         const cacheKey = `postmarket:cross-brief-v3:${today}`;
         // 확인용 실행(event.dryRun === true, 수동 호출만) — 저장하지 않고 결과(keyLevels·입력 블록)만 돌려준다. 예약 실행(EventBridge)의 이벤트에는 이 값이 없다.
         if (event && event.dryRun === true) {
-            return { statusCode: 200, body: JSON.stringify({ success: true, dryRun: true, cacheKey, elapsedMs: Date.now() - startTime, keyLevels: structured.outlook && structured.outlook.keyLevels, levelsBlock: levelsBlock.block, optionLevels: indexRows, generatedAt: briefData.generatedAt }) };
+            return { statusCode: 200, body: JSON.stringify({ success: true, dryRun: true, cacheKey, elapsedMs: Date.now() - startTime, ...briefData,
+                model: command.input.modelId, provider: 'bedrock', usage: attempt.usage, levelsBlock: levelsBlock.block }) };
         }
         await redisSet(cacheKey, briefData, 259200); // 72h TTL
 

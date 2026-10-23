@@ -17,6 +17,7 @@
 import { evaluateOutput, collectLocaleStrings, scriptPurityReasons, refusalReasons } from '@/lib/ai/ladderGates';
 import { checkOutputNumbers } from '@/lib/ai/depthNumbers';
 import { groundKeyLevels, sanitizeServedBrief } from '@/lib/ai/keyLevels';
+import { closingReportProblems, narrativeLengthCeiling } from '@/lib/ai/closingReport';
 
 export type BriefSource = 'v4' | 'v3' | 'v2';
 
@@ -126,7 +127,7 @@ export function languageProblems(structured: unknown): string[] {
 export function lengthProblems(structured: unknown): string[] {
     const out: string[] = [];
     for (const it of collectLocaleStrings(structured, null)) {
-        const ceil = SLOT_LENGTH_CEILING[it.loc];
+        const ceil = narrativeLengthCeiling(it.path, it.loc) ?? SLOT_LENGTH_CEILING[it.loc];
         if (it.text.length > ceil) out.push(`length:${it.loc}:${it.path}:${it.text.length}>${ceil}`);
     }
     return out.slice(0, 4);
@@ -149,7 +150,7 @@ export const ungroundedKeyLevels = (brief: any): number => groundKeyLevels(brief
 // ─────────────────────────────────────────────────────────────────────────────
 export interface GenerationGuardInput {
     /** 출구 처리(음차 복원·keyLevels 정리)까지 끝난 최종 structured */
-    brief: { structured: any; macroSnapshot?: string; macroIndicators?: any[]; vixTermStructure?: any; levelsSnapshot?: string };
+    brief: { structured: any; macroSnapshot?: string; macroIndicators?: any[]; vixTermStructure?: any; levelsSnapshot?: string; reportEvidence?: any };
     /** 모델이 본 입력(프롬프트 + system) — 금액 자릿수·숫자 대조의 원문 */
     source: string;
     provider: string;
@@ -163,6 +164,7 @@ export function buildGenerationGuard(i: GenerationGuardInput): BriefGuard {
     if (!(V4_SERVE_PROVIDERS as readonly string[]).includes(i.provider)) reasons.push(`provider:${i.provider}`);
     reasons.push(...shapeProblems(s));
     reasons.push(...lengthProblems(s));
+    reasons.push(...closingReportProblems(i.brief));
     // 사다리 ①② 의 출구 가드와 같은 잣대(언어 혼입·거절·마크다운·연도·금액 자릿수) — 현행(legacy) 응답엔 사다리가 기록만 했으므로 여기서 다시 센다. 음차는 출구가 복원하므로 제외.
     const text = JSON.stringify(s ?? null);
     const ev = evaluateOutput({ purpose: 'CrossSector', locale: 'multi', text, source: i.source, expectJson: true, structured: true });
@@ -213,6 +215,7 @@ export function evaluateServedV4(brief: any, dateStr: string): ServedVerdict {
     reasons.push(...shapeProblems(brief.structured));
     reasons.push(...lengthProblems(brief.structured));
     reasons.push(...languageProblems(brief.structured));
+    reasons.push(...closingReportProblems(brief));
     const dropped = ungroundedKeyLevels(brief);
     if (dropped) reasons.push(`keyLevels:${dropped}`);
     return { ok: reasons.length === 0, reasons: reasons.slice(0, 8) };
@@ -221,6 +224,18 @@ export function evaluateServedV4(brief: any, dateStr: string): ServedVerdict {
 export interface SelectedBrief { source: BriefSource; date: string; brief: any; /** 같은 날 v4 가 있었지만 가드에서 탈락한 사유 */ v4Rejected?: string[] }
 
 export const crossBriefKey = (v: 'v2' | 'v3' | 'v4', date: string): string => `postmarket:cross-brief-${v}:${date}`;
+
+/** Lambda's new narrative uses the same content gates as v4, with its actual provider retained. */
+function newLegacyProblems(brief: any, date: string): string[] {
+    if (!brief?.reportEvidence && !brief?.structured?.closingNarrative) return [];
+    const reasons = [...shapeProblems(brief.structured), ...lengthProblems(brief.structured), ...closingReportProblems(brief)];
+    if (brief.date !== date || etDate(brief.generatedAt) !== date) reasons.push('narrative:date');
+    if (typeof brief.reportSource !== 'string') return [...reasons, 'narrative:source'];
+    const text = JSON.stringify(brief.structured);
+    reasons.push(...evaluateOutput({ purpose: 'CrossSector', locale: 'multi', text, source: brief.reportSource, expectJson: true, structured: true }).reasons.filter(r => !/transliterated/.test(r)));
+    if (new Set(checkOutputNumbers(text, brief.reportSource).ungrounded.map(u => u.value)).size > MAX_UNGROUNDED_DISTINCT) reasons.push('narrative:numbers');
+    return reasons;
+}
 
 /**
  * 서빙할 브리프 고르기 — 날짜는 최신순(`dates[0]` = 오늘 ET). 같은 날 안에서는 v4(가드 통과) → v3 → v2.
@@ -237,9 +252,9 @@ export async function selectServedBrief(read: (key: string) => Promise<any>, dat
             v4Rejected = verdict.reasons;
             log(`v4 ${date} 서빙 가드 탈락 → v3: ${verdict.reasons.join(', ')}`);
         }
-        if (v3) return { source: 'v3', date, brief: v3, ...(v4Rejected ? { v4Rejected } : {}) };
+        if (v3 && !newLegacyProblems(v3, date).length) return { source: 'v3', date, brief: v3, ...(v4Rejected ? { v4Rejected } : {}) };
         const v2 = await read(crossBriefKey('v2', date));
-        if (v2) return { source: 'v2', date, brief: v2, ...(v4Rejected ? { v4Rejected } : {}) };
+        if (v2 && !newLegacyProblems(v2, date).length) return { source: 'v2', date, brief: v2, ...(v4Rejected ? { v4Rejected } : {}) };
     }
     return null;
 }
@@ -248,7 +263,7 @@ export async function selectServedBrief(read: (key: string) => Promise<any>, dat
 export function toServedPayload(sel: SelectedBrief): Record<string, any> {
     // v4 는 서빙 가드가 keyLevels 근거를 이미 요구했으니 그대로, v3·v2 는 예전처럼 입력에 없는 칸을 걸러 내보낸다(lib/ai/keyLevels sanitizeServedBrief)
     const base = sel.source === 'v4' ? sel.brief : sanitizeServedBrief(sel.brief || {}).brief;
-    const { guard, ...rest } = base || {};
+    const { guard, reportSource: _source, reportEvidence: _evidence, ...rest } = base || {};
     const out: Record<string, any> = { ...rest, source: sel.source };
     if (sel.source === 'v4' && guard) out.generatedBy = { provider: guard.provider, model: guard.model };
     if (sel.v4Rejected?.length) out.v4Rejected = sel.v4Rejected;

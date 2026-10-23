@@ -18,9 +18,14 @@ import { getETOffsetHours } from '@/services/timezoneUtils';
 import { publicBase } from '@/lib/net/publicBase';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import { KEYLEVELS_SCHEMA_EXAMPLE, KEYLEVELS_REQUIREMENT } from '@/lib/ai/keyLevels';
-import { selectServedBrief, toServedPayload, buildGenerationGuard } from '@/lib/ai/crossBriefServe';
+import { selectServedBrief, toServedPayload, buildGenerationGuard, evaluateServedV4 } from '@/lib/ai/crossBriefServe';
 import { INDEX_LEVEL_TICKERS, indexLevelRow, buildLevelsBlock, levelsPromptSection, finalizeCrossSectorKeyLevels, type IndexLevelRow } from '@/lib/ai/crossSectorLevels';
 import { levelsForExit } from '@/services/structureService';
+import * as CLOSING from '../../../../../scripts/lambda-cross-sector/closingReport';
+import { sessionCloseMinutes } from '@/lib/marketCalendar';
+import type { ClosingNarrative } from '@/lib/ai/closingReport';
+import { closingReportProblems } from '@/lib/ai/closingReport';
+import { reportDate } from '@/lib/app/reportLink';
 
 export const maxDuration = 60; // Bedrock AI analysis needs 30s+
 
@@ -58,6 +63,7 @@ function getCacheKey(date: string) {
 
 // ── Structured Types (V3 — Bloomberg-Grade) ──
 export interface CrossSectorBriefV3 {
+    closingNarrative?: ClosingNarrative;
     marketOverview: {
         tone: 'BULLISH' | 'BEARISH' | 'MIXED' | 'CAUTIOUS';
         summary: { ko: string; en: string; ja: string };
@@ -105,6 +111,8 @@ export interface CrossSectorBriefV3 {
  */
 export async function GET(req: Request) {
     try {
+        const requested = new URL(req.url).searchParams.get('date');
+        if (requested !== null && !reportDate(requested)) return NextResponse.json({ success: false, error: 'Invalid report date' }, { status: 400 });
         // Check today + up to 4 days back (covers weekends & holidays)
         const dates: string[] = [];
         for (let daysBack = 0; daysBack <= 4; daysBack++) {
@@ -116,10 +124,12 @@ export async function GET(req: Request) {
         // ★2026-10-11 서빙 우선순위 — 같은 거래일이면 v4(Vercel 크론·Anthropic 크레딧 생성본)가 «서빙 출구 가드를 넘을 때만» 먼저, 아니면 v3(AWS Lambda) → v2.
         //   v4 는 그동안 화면이 읽지 않아 크레딧만 썼다. 가드: 저장본의 생성 때 판정 기록(guard) + 날짜 + 구조 + 문자 체계 + keyLevels 근거(lib/ai/crossBriefServe).
         //   v3·v2 는 예전처럼 입력에 없는 keyLevels 칸만 걸러 내보낸다(lib/ai/keyLevels sanitizeServedBrief). 응답의 `source` = v4|v3|v2 (관측용).
-        const picked = await selectServedBrief((key) => getFromCache<any>(key), dates, (msg) => console.warn(`[CrossSectorBrief] ${msg}`));
+        const picked = await selectServedBrief((key) => getFromCache<any>(key), requested ? [requested] : dates, (msg) => console.warn(`[CrossSectorBrief] ${msg}`));
         if (picked) {
             return NextResponse.json({ success: true, ...toServedPayload(picked) });
         }
+        // A dated push must never open another day's report or trigger a new generation.
+        if (requested) return NextResponse.json({ success: false, date: requested, error: 'No cross-sector brief available yet' }, { status: 404 });
 
         // ══════════════════════════════════════════════════════════
         // SELF-HEALING: No brief cached for last 4 days
@@ -154,10 +164,9 @@ export async function GET(req: Request) {
 
                     if (res.ok) {
                         const result = await res.json();
-                        if (result.success && result.structured) {
+                        if (result.success && result.structured && evaluateServedV4(result, getTodayET()).ok) {
                             console.log(`[CrossSectorBrief] ✅ Self-healing success (attempt ${attempt}): ${result.sectorCount} sectors in ${result.elapsedMs}ms`);
-                            const { guard: _guard, ...healed } = result;
-                            return NextResponse.json({ success: true, ...healed, source: 'v4', selfHealed: true });
+                            return NextResponse.json({ success: true, ...toServedPayload({ source: 'v4', date: getTodayET(), brief: result }), selfHealed: true });
                         }
                         break; // Got a response but no structured data
                     } else {
@@ -202,12 +211,15 @@ export async function POST(req: Request) {
     const startTime = Date.now();
 
     try {
+        const now = new Date();
+        const todayDate = getTodayET();
+        const closeMinutes = sessionCloseMinutes(todayDate);
         // 1. Fetch all 10 sector snapshots from Supabase
         console.log('[CrossSectorBrief V3] Fetching 10 sector snapshots...');
         const snapshots = await Promise.all(
             SECTOR_IDS.map(async (id) => {
                 const snap = await getLatestSnapshot(id);
-                return { id, data: snap?.data_json || null };
+                return { id, sessionDate: snap?.snapshot_date, data: snap?.snapshot_date === todayDate ? snap.data_json : null };
             })
         );
 
@@ -223,7 +235,7 @@ export async function POST(req: Request) {
             redisRut, redisUsdkrw, redisUsdjpy,
             // Actual index closing prices (regular session — not futures)
             redisIdxNasdaq, redisIdxDow, redisIdxSpx,
-            fmpCalendar, marketNews
+            fmpCalendar, marketNews, redisDxy
         ] = await Promise.all([
             // 6 existing
             getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX),
@@ -248,24 +260,22 @@ export async function POST(req: Request) {
             getFromCache<any[]>('fmp:econ-calendar'),
             // Market news with extended descriptions
             fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '10', order: 'desc', sort: 'published_utc' }, true)
-                .then((res: any) => (res?.results || []).map((n: any) => {
-                    const title = n.title || '';
-                    const desc = n.description ? ` — ${n.description.slice(0, 300)}` : '';
-                    return title + desc;
-                }).filter(Boolean))
-                .catch(() => [] as string[]),
+                .then((res: any) => CLOSING.newsEvidence(res?.results || [], todayDate, now, closeMinutes))
+                .catch(() => []),
+            getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.DXY),
         ]);
 
         // 2b. Use actual index data from Redis (regular session close, not futures)
-        // Priority: actual index (^IXIC/^DJI/^GSPC) > futures (NQ=F/ES=F) as fallback
-        const idxNasdaq = redisIdxNasdaq || redisNq;   // NASDAQ actual > NQ=F futures
-        const idxSpx    = redisIdxSpx || redisSpx;      // S&P 500 actual > ES=F futures  
-        const idxDow    = redisIdxDow || null;           // DOW (new, no futures fallback)
-        const idxRut    = redisRut;                      // Russell uses RTY=F (no actual index cached yet)
-
-        if (redisIdxNasdaq) console.log(`[CrossSectorBrief] NASDAQ: Index=${redisIdxNasdaq.price.toFixed(2)} (${redisIdxNasdaq.changePct.toFixed(2)}%) vs Futures=${redisNq?.price.toFixed(2)} (${redisNq?.changePct.toFixed(2)}%)`);
-        if (redisIdxSpx) console.log(`[CrossSectorBrief] S&P500: Index=${redisIdxSpx.price.toFixed(2)} (${redisIdxSpx.changePct.toFixed(2)}%) vs Futures=${redisSpx?.price.toFixed(2)} (${redisSpx?.changePct.toFixed(2)}%)`);
-        if (redisIdxDow) console.log(`[CrossSectorBrief] DOW: Index=${redisIdxDow.price.toFixed(2)} (${redisIdxDow.changePct.toFixed(2)}%)`);
+        // Only same-session, timestamped actual cash index quotes qualify.
+        const cashCloses = {
+            spx: CLOSING.regularClose(redisIdxSpx, '^GSPC', todayDate, now, closeMinutes),
+            nasdaq: CLOSING.regularClose(redisIdxNasdaq, '^IXIC', todayDate, now, closeMinutes),
+            dow: CLOSING.regularClose(redisIdxDow, '^DJI', todayDate, now, closeMinutes),
+        };
+        if (!cashCloses.spx || !cashCloses.nasdaq) return NextResponse.json({ error: 'Regular-session cash closes unavailable' }, { status: 503 });
+        const idxNasdaq = cashCloses.nasdaq;
+        const idxSpx = cashCloses.spx;
+        const idxDow = cashCloses.dow;
 
         // 2c. ★2026-10-11 지수 ETF 옵션 구조 레벨(SPY·QQQ·IWM) — 옵션 구조 «한 문»의 판본(structure:v2)에서만 읽는다(계산 없음, 화면과 같은 값·같은 게이트).
         //   입력에 진짜 레벨이 없어 keyLevels 가 [VIX3M] 한 칸·빈 배열이 되던 것(웹 범위 바 소멸·앱 칩 1개)을 푼다. 못 읽으면 블록을 빼고 예전 규칙 그대로(지어내지 않는다).
@@ -289,22 +299,19 @@ export async function POST(req: Request) {
             const leader = sorted[0];
             const laggard = sorted[sorted.length - 1];
 
-            const news = (summary?.newsDigest || []).slice(0, 3).map((n: any) => ({
-                title: n.headline || n.summaryKR,
-                sentiment: n.sentiment,
-                publishedAt: n.publishedAt || '',
-            }));
+            const news = CLOSING.newsEvidence((summary?.newsDigest || []).slice(0, 3), todayDate, now, closeMinutes, s.id);
 
             return {
                 sector: SECTOR_LABELS[s.id] || s.id,
                 sectorId: s.id,
+                sessionDate: s.sessionDate,
                 changePct: sorted.length ? sorted.reduce((sum: number, t: any) => sum + t.change_pct, 0) / sorted.length : null,
                 outlook: summary?.outlook || 'NEUTRAL',
                 gainers: summary?.gainers || 0,
                 losers: summary?.losers || 0,
-                avgAlpha: summary?.avg_alpha || 0,
-                avgPcr: summary?.avg_pcr || 0,
-                totalGex: summary?.total_gex || 0,
+                avgAlpha: summary?.avg_alpha ?? null,
+                avgPcr: summary?.avg_pcr ?? null,
+                totalGex: summary?.total_gex ?? null,
                 dominantRegime: summary?.dominant_regime || 'NEUTRAL',
                 leader: leader ? `${leader.ticker} ${leader.change_pct >= 0 ? '+' : ''}${leader.change_pct.toFixed(2)}%` : '-',
                 laggard: laggard ? `${laggard.ticker} ${laggard.change_pct.toFixed(2)}%` : '-',
@@ -314,7 +321,7 @@ export async function POST(req: Request) {
         });
 
         // 4. Build expanded macro string — Actual indices (reg-session close) + Yahoo for commodities/FX
-        const fmt = (q: YahooQuote | null, label: string, suffix = '') =>
+        const fmt = (q: { price: number; changePct: number } | null, label: string, suffix = '') =>
             q ? `${label}: ${q.price.toFixed(suffix === '%' ? 2 : (q.price > 1000 ? 0 : 2))}${suffix} (${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}%)` : null;
 
         const macroStr = [
@@ -325,9 +332,12 @@ export async function POST(req: Request) {
             fmt(idxSpx, 'S&P500'),
             fmt(idxNasdaq, 'NASDAQ'),
             fmt(idxDow, 'DOW'),
-            fmt(idxRut, 'Russell2000'),
+            fmt(redisSpx, 'ES=F daily futures change (not since cash close)'),
+            fmt(redisNq, 'NQ=F NASDAQ100 daily futures change (not NASDAQ Composite)'),
+            fmt(redisRut, 'RTY=F daily futures change (not cash close)'),
             // 금리 변화는 bp — «(+1.08%)»(수익률의 상대 %)를 모델이 «+1.08%p»로 옮겨 쓴다. Lambda 판과 같은 표기
             redisTnx ? `US10Y: ${redisTnx.price.toFixed(2)}% (${fmtBp(yieldChangeBp({ level: redisTnx.price, chgAbs: redisTnx.change, chgPct: redisTnx.changePct }))})` : null,
+            fmt(redisDxy, 'DXY'),
             fmt(redisTlt, 'TLT(20Y+Bond)'),
             fmt(redisGold, 'Gold'),
             fmt(redisOil, 'WTI Oil'),
@@ -337,182 +347,17 @@ export async function POST(req: Request) {
             redisUsdjpy ? `USD/JPY: ${redisUsdjpy.price.toFixed(2)} (${redisUsdjpy.changePct >= 0 ? '+' : ''}${redisUsdjpy.changePct.toFixed(2)}%)` : null,
         ].filter(Boolean).join(' | ');
 
-        // 5. Market news context
-        const newsContext = (marketNews as string[]).length > 0
-            ? `\n## Real-time Market News (from Polygon)\n${(marketNews as string[]).map((n: string, i: number) => `${i + 1}. ${n}`).join('\n')}`
-            : '';
-
-        // 6. FMP Economic Calendar from Redis (replaces hardcoded)
-        let calendarContext = '';
-        const upcomingEvents: { date: string; event: string; daysUntil: number; impact: string }[] = [];
-        if (Array.isArray(fmpCalendar) && fmpCalendar.length > 0) {
-            const now = new Date();
-            const upcoming = fmpCalendar
-                .filter((e: any) => new Date(e.date || e.dateTime) > now)
-                .slice(0, 5);
-            calendarContext = upcoming.length > 0
-                ? `\n## Upcoming Economic Events (FMP Live)\n${upcoming.map((e: any) => {
-                    const evtDate = new Date(e.date || e.dateTime);
-                    const daysUntil = Math.ceil((evtDate.getTime() - now.getTime()) / 86400000);
-                    upcomingEvents.push({
-                        date: (e.date || e.dateTime || '').split('T')[0],
-                        event: e.event || e.name || '',
-                        daysUntil,
-                        impact: e.impact || 'MEDIUM',
-                    });
-                    return `- D-${daysUntil} ${(e.date || '').split(' ')[0]}: ${e.event || e.name} (${e.impact || 'MEDIUM'})`;
-                }).join('\n')}`
-                : '';
-        }
-
-        // 7. Bedrock Claude Sonnet 4 API call
+        const upcomingEvents = CLOSING.calendarEvidence(fmpCalendar, now);
         if (!process.env.AWS_ACCESS_KEY_ID) {
             return NextResponse.json({ error: 'AWS credentials not configured' }, { status: 500 });
         }
 
-        const todayDate = getTodayET();
-        const dayOfWeek = getDayOfWeekET();
-
-        const prompt = `You are SIGNUM Intelligence, an elite institutional-grade financial analyst producing a Bloomberg-quality POST-MARKET CROSS-SECTOR BRIEF.
-
-## CRITICAL RULES
-1. Today's date is ${todayDate} (${dayOfWeek}), Eastern Time.
-2. DO NOT guess or fabricate earnings dates, events, or any information not present in the provided data.
-3. If a company has already reported earnings (e.g. past date), do NOT say "earnings upcoming."
-4. Only reference news items that appear in the provided data. Never hallucinate news.
-5. Base ALL analysis strictly on the provided sector data and macro numbers.
-6. NEVER provide investment advice, recommendations, or action directives. Use ONLY conditional observations (e.g. "IF X → THEN Y is historically associated with Z").
-7. Use "Market Breadth" (참여폭 in Korean) — never translate as 광폭.
-
-## 13 Macro Indicators (Full Cross-Asset View)
-${macroStr || 'Macro data unavailable'}${levelsPromptSection(levelsBlock.block)}
-${newsContext}
-${calendarContext}
-
-## 10 Sector Summaries (Today's Close Data)
-${JSON.stringify(sectorSummaries, null, 1)}
-
-## BLOOMBERG-GRADE ANALYSIS REQUIREMENTS (CRITICAL)
-
-### 1. Cross-Asset Correlation Analysis
-- VIX vs VIX3M: If VIX > VIX3M (Backwardation), note this is historically associated with near-term stress. Provide typical duration context.
-- Equity-Bond Correlation: If SPX and TLT move in same direction, flag the unusual correlation. If diverged, note if Risk-On or Risk-Off.
-- Gold-Dollar-Bond Triangle: Gold↑ + US10Y↑ = inflation hedge demand. Gold↑ + US10Y↓ = flight-to-safety. Flag which pattern is observed.
-- Oil Impact Chain: Oil price moves → inflation expectations → yield impact → growth stock sensitivity.
-- BTC as Risk Barometer: BTC correlating with NASDAQ = risk-on proxy. BTC diverging = crypto-specific flow.
-
-### 2. FX & International Context — STRICT locale scoping (NEVER cross-contaminate)
-- Korean (ko) ONLY: USD/KRW (원/달러) — strong dollar = foreign selling pressure on Korean equities, export competitiveness. The USD/KRW pair must appear ONLY in the "ko" text — NEVER in "en" or "ja".
-- Japanese (ja) ONLY: USD/JPY (円/ドル) — intervention levels (155+), yen carry unwind, BOJ policy. USD/JPY must appear ONLY in the "ja" text — NEVER in "en" or "ko".
-- English (en) ONLY: DXY / dollar-index strength (global). The "en" text must NEVER reference USD/KRW or USD/JPY — those are region-specific pairs for their own locale only.
-
-### 3. News Impact Chain (MANDATORY for each news item)
-For each news item, provide an "impactChain" showing the causal propagation:
-NEWS → Primary Indicator (direct effect) → Secondary Indicator (ripple) → Tertiary (sector impact)
-Example: "CPI beats expectations" → US10Y ↑ (direct) → NASDAQ ↓ (valuation) → VIX ↑ (uncertainty)
-
-### 4. Edge Detection (Premium Insights)
-Identify and flag as "edgeAlerts" any of these institutional-grade observations:
-- DIVERGENCE: When correlated assets break their normal relationship (e.g., stocks up + VIX up)
-- ANOMALY: When one sector moves opposite to macro (e.g., Bio +3% in a red tape day with no news)
-- EXTREME: When Fear & Greed < 25 or > 75, VIX term structure inversion, or unusual PCR readings
-
-### 5. Economic Calendar Awareness
-If an upcoming economic event (FOMC, CPI, NFP) is within 3 days, analyze current positioning as potential pre-event hedging. Cross-reference with options structure (GEX/PCR) to assess dealer hedging.
-
-### 6. Locale-Specific Depth
-- Korean (ko): Write like 삼성증권/미래에셋 리서치센터 수석 애널리스트. Use 원/달러 context, 외국인 수급 관점, KOSPI 연동성 언급.
-- English (en): Write like Bloomberg Terminal Morning Brief. Institutional jargon, DXY context, cross-asset correlation language.
-- Japanese (ja): Write like 日経QUICK or 野村證券マクロレポート. USD/JPY context, 日銀政策への影響, 円キャリー巻き戻しリスク.
-
-## OUTPUT FORMAT
-Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow this exact structure:
-
-{
-  "marketOverview": {
-    "tone": "BULLISH|BEARISH|MIXED|CAUTIOUS",
-    "summary": {
-      "ko": "2문장 이내. 핵심 수치 + Cross-Asset 상관관계 + 원화 맥락. 짧고 임팩트있게.",
-      "en": "Max 2 sentences. Key numbers + cross-asset signal + institutional edge.",
-      "ja": "2文以内。主要指標 + クロスアセット相関 + 円建てコンテキスト。"
-    },
-    "keyDrivers": {
-      "ko": ["1줄 팩트 (수치 포함)", "1줄 팩트", "1줄 팩트"],
-      "en": ["One-line fact with number", "One-line fact", "One-line fact"],
-      "ja": ["1行ファクト（数値含む）", "1行ファクト", "1行ファクト"]
-    }
-  },
-  "sectorRotation": {
-    "winners": [
-      { "sector": "Sector Name", "change": "+X.XX%", "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
-    ],
-    "losers": [
-      { "sector": "Sector Name", "change": "-X.XX%", "reason": { "ko": "1줄", "en": "1 line", "ja": "1行" } }
-    ],
-    "rotationInsight": {
-      "ko": "자금 흐름 패턴 1-2줄. defensive vs growth, 이상 신호 포함.",
-      "en": "Capital rotation 1-2 lines. Flag anomalies.",
-      "ja": "資金フロー1-2行。異常シグナル含む。"
-    }
-  },
-  "newsImpact": {
-    "items": [
-      {
-        "headline": { "ko": "헤드라인", "en": "Headline", "ja": "ヘッドライン" },
-        "impact": { "ko": "시장 영향 1줄", "en": "Market impact 1 line", "ja": "市場影響1行" },
-        "sentiment": "positive|negative|neutral",
-        "impactLevel": "LOW|MED|HIGH",
-        "relatedSectors": ["sector_id_1", "sector_id_2"],
-        "impactChain": [
-          { "indicator": "US10Y", "direction": "↑", "label": { "ko": "금리 직접 영향", "en": "Direct yield impact", "ja": "金利直接影響" } },
-          { "indicator": "NASDAQ", "direction": "↓", "label": { "ko": "밸류에이션 압력", "en": "Valuation pressure", "ja": "バリュエーション圧力" } }
-        ]
-      }
-    ]
-  },
-  "gammaOptions": {
-    "totalGexLabel": "e.g. -$271.6M (Negative Gamma)",
-    "avgPcr": 1.05,
-    "regime": "LONG|SHORT|MIXED",
-    "insight": { "ko": "2줄 이내", "en": "Max 2 lines", "ja": "2行以内" }
-  },
-  "outlook": {
-    "bias": "BULLISH|BEARISH|NEUTRAL|CAUTIOUS",
-    ${KEYLEVELS_SCHEMA_EXAMPLE}
-    "catalysts": {
-      "ko": ["IF 조건 → THEN 관찰 (1줄)", "IF → THEN"],
-      "en": ["IF condition → THEN observation (1 line)", "IF → THEN"],
-      "ja": ["IF条件 → THEN観察（1行）", "IF → THEN"]
-    },
-    "risks": {
-      "ko": ["IF → THEN 리스크"],
-      "en": ["IF → THEN risk"],
-      "ja": ["IF → THENリスク"]
-    },
-    "opportunities": {
-      "ko": ["조건부 관찰 팩트"],
-      "en": ["Conditional observation"],
-      "ja": ["条件付き観察"]
-    }
-  },
-  "edgeAlerts": [
-    {
-      "type": "DIVERGENCE|ANOMALY|EXTREME",
-      "title": { "ko": "SPX↑ + VIX↑ Divergence 관측", "en": "SPX↑ + VIX↑ Divergence Detected", "ja": "SPX↑ + VIX↑ ダイバージェンス観測" },
-      "detail": { "ko": "1-2줄 상관관계 설명 (수치 포함)", "en": "1-2 line correlation explanation with numbers", "ja": "1-2行相関説明（数値含む）" }
-    }
-  ]
-}
-
-## ANALYSIS REQUIREMENTS
-- Provide 3-5 news impact items with impactChain for each
-- Provide 2-3 winners and 2-3 losers based on avgAlpha and leader/laggard data
-${KEYLEVELS_REQUIREMENT}
-- Maximum 3 keyDrivers, 3 catalysts, 3 risks, 3 opportunities per language
-- ALL text fields should be CONCISE — no walls of text. 1-2 sentences max per field.
-- edgeAlerts: include 0-3 items. Only include if a genuine cross-asset anomaly exists. Don't force it.
-- Use IF→THEN conditional framing for catalysts, risks, and opportunities
-- Flag any cross-asset divergences explicitly in edgeAlerts`;
+        const readings = { vix: redisVix, vix3m: redisVix3m, us10y: redisTnx, dollar: redisDxy,
+            usdkrw: redisUsdkrw, usdjpy: redisUsdjpy, gold: redisGold, oil: redisOil, tlt: redisTlt,
+            futures: { es: redisSpx, nq: redisNq, rty: redisRut } };
+        const reportEvidence = { readings, regularClose: cashCloses, news: [...marketNews, ...sectorSummaries.flatMap(s => s.news)], events: upcomingEvents };
+        const prompt = CLOSING.buildClosingPrompt({ sessionDate: todayDate, macroStr, levelsSection: levelsPromptSection(levelsBlock.block),
+            evidence: reportEvidence, sectorSummaries, keyLevelsSchema: KEYLEVELS_SCHEMA_EXAMPLE, keyLevelsRequirement: KEYLEVELS_REQUIREMENT });
 
         console.log(`[CrossSectorBrief V3] Calling Bedrock Claude with ${sectorSummaries.length} sectors + 13 macro indicators...`);
 
@@ -529,7 +374,14 @@ ${KEYLEVELS_REQUIREMENT}
             expectJson: true,   // ★2026-10-10 사다리 출구 가드: 필수 3개 섹션이 있어야 ①② 응답을 쓴다
             locale: 'multi',
             // ★2026-10-10 필수 3개 섹션 + 3개 언어 칸의 언어 혼입·거절·금액 자릿수(구조화 모드) — 구조만 보던 가드로는 5.5 의 한·일 칸 혼입을 못 거른다
-            validate: multiLangJsonGate('CrossSector', prompt, { keys: ['marketOverview', 'sectorRotation', 'outlook'], structured: true }),
+            validate: (text) => {
+                const base = multiLangJsonGate('CrossSector', prompt, { keys: ['marketOverview', 'sectorRotation', 'outlook', 'closingNarrative'], structured: true })(text);
+                if (base !== true) return base;
+                try {
+                    const reasons = closingReportProblems({ structured: JSON.parse(text), reportEvidence });
+                    return reasons.length ? { ok: false, reasons } : true;
+                } catch { return false; }
+            },
         });
 
         let structured: CrossSectorBriefV3;
@@ -568,7 +420,7 @@ ${KEYLEVELS_REQUIREMENT}
             idxSpx ? { key: 'S&P 500', value: idxSpx.price, changePct: idxSpx.changePct, category: 'equity' } : null,
             idxNasdaq ? { key: 'NASDAQ', value: idxNasdaq.price, changePct: idxNasdaq.changePct, category: 'equity' } : null,
             idxDow ? { key: 'DOW', value: idxDow.price, changePct: idxDow.changePct, category: 'equity' } : null,
-            idxRut ? { key: 'Russell 2K', value: idxRut.price, changePct: idxRut.changePct, category: 'equity' } : null,
+            redisRut ? { key: 'Russell 2K', value: redisRut.price, changePct: redisRut.changePct, category: 'equity' } : null,
             // Bonds & Commodities
             redisTnx ? { key: 'US 10Y', value: redisTnx.price, changePct: redisTnx.changePct, category: 'bond' } : null,
             redisTlt ? { key: 'TLT', value: redisTlt.price, changePct: redisTlt.changePct, category: 'bond' } : null,
@@ -591,9 +443,11 @@ ${KEYLEVELS_REQUIREMENT}
         } : null;
 
         // 9. Save to Redis (TTL: 24 hours)
-        const today = getTodayET();
+        const today = todayDate; // Keep the input session date even if generation crosses midnight.
         const briefData: Record<string, any> = {
             structured,
+            reportEvidence,
+            reportSource: prompt,
             generatedAt: new Date().toISOString(),
             date: today,
             sectorCount: validSnapshots.length,
@@ -616,13 +470,15 @@ ${KEYLEVELS_REQUIREMENT}
         });
         if (!briefData.guard.ok) console.warn(`[CrossSectorBrief V4] 서빙 가드 탈락(저장은 함, GET 은 v3 로): ${briefData.guard.reasons.join(', ')}`);
 
-        await setInCache(getCacheKey(today), briefData, 259200); // 72h TTL — covers weekends (Fri→Mon)
+        const dryRun = new URL(req.url).searchParams.get('dry') === '1';
+        if (!dryRun) await setInCache(getCacheKey(today), briefData, 259200); // 72h TTL — covers weekends (Fri→Mon)
         const elapsed = Date.now() - startTime;
 
         console.log(`[CrossSectorBrief V3] ✅ Generated Bloomberg-grade brief in ${elapsed}ms (${macroIndicators.length} macro indicators)`);
 
         return NextResponse.json({
             success: true,
+            dryRun,
             ...briefData,
             elapsedMs: elapsed,
         });

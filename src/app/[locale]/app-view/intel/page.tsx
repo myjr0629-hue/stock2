@@ -1,6 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { reportDate, crossBriefUrl, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
+import { ClosingNarrative } from '@/components/intel/ClosingNarrative';
+import type { ClosingNarrative as Narrative } from '@/lib/ai/closingReport';
+import React, { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocale } from 'next-intl';
 import { TodayMoneyMap } from '@/components/intel/TodayMoneyMap';
@@ -955,6 +959,7 @@ function mapGlobalReportItemToStock(item: any): KeyStockPremiumData {
 }
 
 interface CrossSectorBrief {
+  closingNarrative?: Narrative;
   marketOverview: {
     tone: string;
     summary: { ko: string; en: string; ja: string };
@@ -1476,6 +1481,13 @@ function getBriefTitle(appLocale: AppLocale) {
 }
 
 export default function AppIntelPage() {
+  return <Suspense fallback={null}><AppIntelContent /></Suspense>;
+}
+
+function AppIntelContent() {
+  const searchParams = useSearchParams();
+  const requestedDate = reportDate(searchParams.get('date'));
+  const requestedTab = searchParams.get('tab');
   const locale = useLocale();
   const t = useMemo(() => TRANSLATIONS[locale] || TRANSLATIONS.en, [locale]);
   const appLocale = toAppLocale(locale);
@@ -1499,10 +1511,19 @@ export default function AppIntelPage() {
   const [showAdModal, setShowAdModal] = useState(false);
   const [reportCache, setReportCache] = useState<Record<string, SectorReportData>>({});
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
-  const [intelTab, setIntelTab] = useState<'sector' | 'report'>('sector');
+  const [intelTab, setIntelTab] = useState<'sector' | 'report'>(requestedTab === 'report' ? 'report' : 'sector');
+  useEffect(() => {
+    if (requestedTab === 'report') { setIntelTab('report'); setSelectedSector(null); setExpandedReport(null); }
+  }, [requestedTab, requestedDate]);
+  useEffect(() => {
+    const open = () => { setIntelTab('report'); setSelectedSector(null); setExpandedReport(null); };
+    window.addEventListener(REPORT_OPEN_EVENT, open);
+    return () => window.removeEventListener(REPORT_OPEN_EVENT, open);
+  }, []);
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [reportLoadingSector, setReportLoadingSector] = useState<string | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
+  const [crossBriefError, setCrossBriefError] = useState(false);
   const [crossBriefGeneratedAt, setCrossBriefGeneratedAt] = useState<string>('');
   const [crossMacro, setCrossMacro] = useState<{ key: string; value: number; changePct: number; category: string }[]>([]);
   const [vixTerm, setVixTerm] = useState<{ vix: number; vix3m: number; ratio: number; state: string } | null>(null);
@@ -1565,9 +1586,10 @@ export default function AppIntelPage() {
     let active = true;
     const fetchCrossBrief = async () => {
       try {
-        const res = await fetch('/api/intel/cross-sector-brief');
+        const res = await fetch(crossBriefUrl(requestedDate));
         if (res.ok && active) {
           const data = await res.json();
+          if (!active) return;
           if (data.success && data.structured) {
             setCrossBrief(data.structured);
           } else if (data.success && data.marketOverview) {
@@ -1579,11 +1601,17 @@ export default function AppIntelPage() {
             if (data.generatedAt) setCrossBriefGeneratedAt(String(data.generatedAt));
           }
         }
-      } catch { /* silent */ }
+        if (active && !res.ok) setCrossBriefError(true);
+      } catch { if (active) setCrossBriefError(true); }
     };
+    setCrossBriefError(false);
+    setCrossBrief(null);
+    setCrossMacro([]);
+    setVixTerm(null);
+    setCrossBriefGeneratedAt('');
     fetchCrossBrief();
     return () => { active = false; };
-  }, []);
+  }, [requestedDate]);
 
   // Fetch Report Data
   const loadSectorReport = async (sectorId: string) => {
@@ -3078,7 +3106,8 @@ export default function AppIntelPage() {
       {/* CLOSING REPORT VIEW */}
       {!selectedSector && intelTab === 'report' && (
         <div style={{ padding: '12px 16px 0', animation: 'fadeSlideIn 0.25s ease' }}>
-          {Object.keys(reportCache).length === 0 ? (
+          {crossBriefError && <p role="status">{requestedDate || ''} {locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.'}</p>}
+          {Object.keys(reportCache).length === 0 && !crossBrief ? (
             <div style={{
               padding: '48px 20px',
               textAlign: 'center',
@@ -3205,7 +3234,7 @@ export default function AppIntelPage() {
                         color: 'var(--text-dim)',
                         fontWeight: 400
                       }}>
-                        {summary}
+                        {brief.closingNarrative ? <ClosingNarrative narrative={brief.closingNarrative} locale={locale} /> : summary}
                       </div>
                     </div>
 

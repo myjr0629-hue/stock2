@@ -123,7 +123,8 @@ t('출구 복원 배선: 모닝 브리핑 · 크로스섹터 · 인텔 스냅샷
 
 t('가드 배선: 크로스섹터·스냅샷은 구조(필수 키) + 언어 혼입 가드(structured) · 스냅샷 프롬프트에 «회사명은 라틴 철자» 규칙', () => {
     const cross = read('src/app/api/intel/cross-sector-brief/route.ts');
-    assert.match(cross, /multiLangJsonGate\('CrossSector', prompt, \{ keys: \['marketOverview', 'sectorRotation', 'outlook'\], structured: true \}\)/);
+    assert.match(cross, /multiLangJsonGate\('CrossSector', prompt, \{ keys: \['marketOverview', 'sectorRotation', 'outlook', 'closingNarrative'\], structured: true \}\)/);
+    assert.match(cross, /closingReportProblems\(\{ structured: JSON\.parse\(text\), reportEvidence \}\)/);
     const snap = read('src/app/api/intel/snapshot/route.ts');
     assert.match(snap, /multiLangJsonGate\('IntelSnapshot', userPrompt, \{ keys: \['items'\], structured: true \}\)/);
     assert.match(snap, /LANGUAGE RULES: write Korean fields in Hangul only and never insert Japanese kana/);

@@ -8,8 +8,7 @@
 //
 // ★2026-10-12 본문 «AI 한 줄»(lib/push/aiLine) — 제목은 그대로, 본문만: 모닝 = 오늘(ET) AI 모닝 브리핑 첫 문장, 마감 = 앱이 보여 주는
 //   크로스섹터 브리프의 marketOverview.summary 첫 문장. 템플릿·degraded·금지어·예측어·언어 혼입 등은 예전 정적 문구로.
-// ★2026-10-13 «오늘 볼 것» — 마감 푸시에만 본문 뒤에 1번 항목 한 줄을 붙인다(저장본 읽기 · 공급사·AI 호출 0). 줄 길이 상한·금지어·예측어·언어는 위 «AI 한 줄»과 같은 규칙
-//   (lib/todayPicks/view.pushPickLine). 오늘(ET) 문서가 없거나 가드에 걸리면 줄을 붙이지 않는다. 끄기: 레디스 todaypicks:off.
+// 마감 본문은 숫자가 포함된 오늘 판정 한 줄만 사용한다. 제목·전체/마감 알림 선호는 유지한다.
 // ★2026-10-12 계측 — 실제 발송마다 push:stats:{type}:{ET날짜}(TTL 60일): 대상·성공·실패·토글로 끈 기기·언어·플랫폼별 + 본문 판정. scripts/mkt-push.js 가 읽는다.
 // ============================================================================
 import { NextResponse } from 'next/server';
@@ -18,8 +17,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { morningAiLines, closingAiLines, etToday, PUSH_LOCALES, type AiLineResult, type MorningBriefRecord, type PushLocale } from '@/lib/push/aiLine';
 import { selectServedBrief } from '@/lib/ai/crossBriefServe';
-import { readPicks } from '@/services/todayPicksService';
-import { pushPickLine } from '@/lib/todayPicks/view';
+import { reportPushPath } from '@/lib/app/reportLink';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -79,7 +77,6 @@ export async function GET(request: Request) {
     const dateParam = searchParams.get('date');
     const previewDate = type === 'closing' && /^\d{4}-\d{2}-\d{2}$/.test(dateParam || '') ? dateParam! : todayET;
     const lines = await composeLines(type, previewDate);
-    const picks = await pickLinesFor(type, todayET);
     let targets: Record<string, unknown> | null = null;
     try {
       const plan = await planPush(type);
@@ -88,10 +85,11 @@ export async function GET(request: Request) {
     } catch (e: any) { targets = { error: e?.message || 'plan failed' }; }
     const payloads = Object.fromEntries(PUSH_LOCALES.map((l) => [l, {
       title: PUSH_CONTENT[type][l].title,
-      body: composeBody(type, l, lines[l], picks?.[l]) ?? PUSH_CONTENT[type][l].body,
+      body: lines[l].line ?? PUSH_CONTENT[type][l].body,
+      path: reportPushPath(type, l, previewDate),
+      url: reportPushPath(type, l, previewDate, true),
       ai: !!lines[l].line,
       reason: lines[l].reason,
-      ...(picks ? { pick: picks[l].line ? 'ok' : picks[l].reason } : {}),
     }]));
     return NextResponse.json({ ok: true, dry: true, type, todayET, previewDate, gate, alreadySent: alreadySent || null, payloads, targets });
   }
@@ -103,12 +101,11 @@ export async function GET(request: Request) {
   try {
     // 본문 AI 한 줄 — 무슨 일이 있어도 발송을 막지 않는다(실패 = 정적 문구)
     const lines = await composeLines(type, todayET);
-    const picks = await pickLinesFor(type, todayET);
-    const bodies = Object.fromEntries(PUSH_LOCALES.map((l) => [l, composeBody(type, l, lines[l], picks?.[l])])) as Record<PushLocale, string | null>;
-    const result = await sendPushByType(type, { bodies });
+    const bodies = Object.fromEntries(PUSH_LOCALES.map((l) => [l, lines[l].line])) as Record<PushLocale, string | null>;
+    const result = await sendPushByType(type, { bodies, reportDate: todayET });
     await setInCache(sentKey, new Date().toISOString(), 60 * 60 * 18);
-    await writeStats(type, todayET, result.stats, lines, picks);
-    const aiTag = PUSH_LOCALES.map((l) => `${l}:${lines[l].line ? 'ai' : lines[l].reason}${picks ? `+pick:${picks[l].line ? 'ok' : picks[l].reason}` : ''}`).join(',');
+    await writeStats(type, todayET, result.stats, lines);
+    const aiTag = PUSH_LOCALES.map((l) => `${l}:${lines[l].line ? 'ai' : lines[l].reason}`).join(',');
     console.log(`[Cron/Push] type=${type} sent=${result.sent}/${result.total} targets=${result.stats.targets} optedOut=${result.stats.optedOut} pruned=${result.pruned} body=${aiTag}`);
     return NextResponse.json({ ok: true, type, total: result.total, sent: result.sent, pruned: result.pruned, targets: result.stats.targets, optedOut: result.stats.optedOut, body: aiTag });
   } catch (err: any) {
@@ -160,11 +157,8 @@ async function checkReady(type: 'morning' | 'closing', todayET: string): Promise
     console.warn(`[Cron/Push] closing sectors not ready (marker=${ready}, today=${todayET}) — skipping`);
     return { ready: false, reason: 'sectors-not-ready' };
   }
-  let brief: { generatedAt?: string } | null = null;
-  for (const v of ['v4', 'v3', 'v2']) {
-    brief = await getFromCache<{ generatedAt?: string }>(`postmarket:cross-brief-${v}:${todayET}`);
-    if (brief?.generatedAt) break;
-  }
+  const selected = await selectServedBrief((key) => getFromCache<any>(key), [todayET]);
+  const brief = selected?.brief;
   const briefET = brief?.generatedAt
     ? new Date(brief.generatedAt).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
     : null;
@@ -194,37 +188,13 @@ async function composeLines(type: 'morning' | 'closing', date: string): Promise<
   }
 }
 
-type PickLines = Record<PushLocale, { line: string | null; reason: string }>;
-
-/** 마감 푸시의 «오늘 볼 것» 1번 한 줄(ko/en/ja) — 마감 푸시만 · 읽기 실패·문서 없음·가드 걸림은 줄 없음(발송을 막지 않는다) */
-async function pickLinesFor(type: 'morning' | 'closing', todayET: string): Promise<PickLines | null> {
-  if (type !== 'closing') return null;
-  const none = (reason: string): PickLines => Object.fromEntries(PUSH_LOCALES.map((l) => [l, { line: null, reason }])) as PickLines;
-  try {
-    const read = await Promise.race([readPicks(), new Promise<null>((r) => setTimeout(() => r(null), 2500))]);
-    if (!read) return none('slow');
-    if (read.off) return none('off');
-    return Object.fromEntries(PUSH_LOCALES.map((l) => [l, pushPickLine(read.doc, l, todayET)])) as PickLines;
-  } catch (e: any) {
-    console.warn(`[Cron/Push] today-picks line failed — none: ${e?.message || e}`);
-    return none('error');
-  }
-}
-
-/** 최종 본문 — AI 한 줄(없으면 정적 문구) 뒤에 «오늘 볼 것» 줄이 있으면 줄바꿈으로 붙인다. 아무것도 없으면 null(= 정적 문구) */
-function composeBody(type: 'morning' | 'closing', l: PushLocale, ai: AiLineResult, pick?: { line: string | null }): string | null {
-  if (!pick?.line) return ai.line;
-  return `${ai.line || PUSH_CONTENT[type][l].body}\n${pick.line}`;
-}
-
 /** push:stats:{type}:{ET날짜} — 발송 결과 + 본문 판정(60일). 실패해도 발송 결과에는 영향 없음 */
-async function writeStats(type: 'morning' | 'closing', day: string, stats: PushSendStats, lines: Record<PushLocale, AiLineResult>, picks: PickLines | null = null) {
+async function writeStats(type: 'morning' | 'closing', day: string, stats: PushSendStats, lines: Record<PushLocale, AiLineResult>) {
   try {
     const body = Object.fromEntries(PUSH_LOCALES.map((l) => [l, {
       ai: !!lines[l].line,
       reason: lines[l].reason,
-      text: composeBody(type, l, lines[l], picks?.[l]) ?? PUSH_CONTENT[type][l].body,
-      ...(picks ? { pick: picks[l].line ? 'ok' : picks[l].reason } : {}),
+      text: lines[l].line ?? PUSH_CONTENT[type][l].body,
     }]));
     await setInCache(`push:stats:${type}:${day}`, { ...stats, day, body }, 60 * 60 * 24 * 60);
   } catch (e: any) {
