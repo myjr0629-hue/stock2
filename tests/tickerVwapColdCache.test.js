@@ -54,7 +54,7 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
     const locks = opts.locks || new Set();
     const io = { minutes: 0, realtime: 0, writes: [], archiveReads: [] };
     const deferred = [];
-    const calls = { responseKeys: [], lastGoodKeys: [], alphaChains: [], skewChains: [], sourceChains: 0 };
+    const calls = { responseKeys: [], lastGoodKeys: [], alphaVwaps: [], alphaChains: [], skewChains: [], sourceChains: 0 };
     const flow = snapshot.flow;
     const price = snapshot.price;
     const metrics = { pcr: flow.oiPcr, gex: flow.gex, squeezeScore: flow.squeezeScore };
@@ -99,7 +99,7 @@ function harness(source, snapshot, mode = 'miss', skipAlpha = false, opts = {}) 
             return {};
         } },
         '@/services/alphaEngine': {
-            calculateAlphaScore: input => { calls.alphaChains.push(copy(input.rawChain)); return copy(snapshot.alpha); },
+            calculateAlphaScore: input => { calls.alphaVwaps.push(input.vwap); calls.alphaChains.push(copy(input.rawChain)); return copy(snapshot.alpha); },
             calculateWhaleIndex: () => 50, computeRSI14: () => 50, computeImpliedMovePct: () => 2,
             computeIVSkew: chain => { calls.skewChains.push(copy(chain)); return 0.9; },
         },
@@ -171,13 +171,13 @@ test('개장 직후 Intrinio 봉 0: 첫 요청 null·배경 보충 뒤 다음 �
     assert.equal(h.io.realtime, 1, 'Intrinio가 있으면 보조 공급사를 부르지 않는다');
 });
 
-test('개장 직후 두 원천 없음: 전일 값 차단·null TTL 5초', async () => {
+test('개장 직후 당일 원천 없음: 캐시의 직전 값·날짜 유지', async () => {
     NOW = RealDate.parse('2026-10-21T13:30:10Z');
     const h = harness(current, fixture('IBM', '2026-10-20'), 'hit', false, {
         session: 'regular', provider: async () => [],
     });
     const result = await h.get('&chain=0');
-    assert.equal(result.body.vwap, null); assert.equal(result.body.vwapDate, null);
+    assert.equal(result.body.vwap, 241.5); assert.equal(result.body.vwapDate, '2026-10-20');
 });
 
 for (const [label, iso, date, session] of [
@@ -356,7 +356,7 @@ for (const [iso, date, oldDate, session] of [
     const cached = fixture('IBM', oldDate); cached.vwap = 999;
     const h = harness(current, cached, 'hit', false, { session });
     const r = await h.get('&chain=0');
-    assert.equal(r.cache, 'HIT'); assert.equal(r.body.vwap, null); assert.equal(r.body.vwapDate, null);
+    assert.equal(r.cache, 'HIT'); assert.equal(r.body.vwap, session === 'regular' ? 999 : null); assert.equal(r.body.vwapDate, session === 'regular' ? oldDate : null);
     assert.equal(h.io.minutes, 0);
     await h.flushAfter();
     const next = await h.get('&chain=0');
@@ -421,8 +421,8 @@ test('정규장 20요청·두 인스턴스: 응답 전 분봉 0회, 배경 공�
     NOW = RealDate.parse('2026-10-21T13:31:10Z');
     const date = '2026-10-21';
     const opts = { store: new Map(), locks: new Set(), session: 'regular' };
-    const a = harness(current, fixture('IBM', date), 'hit', false, opts);
-    const b = harness(current, fixture('IBM', date), 'hit', false, opts);
+    const a = harness(current, { ...fixture('IBM', date), vwap: null, vwapDate: null }, 'hit', false, opts);
+    const b = harness(current, { ...fixture('IBM', date), vwap: null, vwapDate: null }, 'hit', false, opts);
     const results = await promptly(Promise.all(Array.from({ length: 20 }, (_, i) => (i % 2 ? a : b).get('&chain=0'))));
     assert.ok(results.every(r => r.body.vwap === null)); assert.equal(a.io.minutes + b.io.minutes, 0);
     await Promise.all([a.flushAfter(), b.flushAfter()]);
@@ -456,7 +456,7 @@ for (const swallow of [false, true]) {
             './massiveClient': massive, '@/lib/marketCalendar': calendar, './extendedSessionClose': {},
             '@/services/stockTypes': {}, './weekendOptionsCache': {},
         });
-        const h = harness(current, fixture('IBM', date), 'hit', false, { session: 'regular',
+        const h = harness(current, { ...fixture('IBM', date), vwap: null, vwapDate: null }, 'hit', false, { session: 'regular',
             provider: async (ticker, date) => {
                 ctx = background.bgStore.getStore();
                 try { return await api.getRegularSessionMinuteBars(ticker, date); }
@@ -470,3 +470,71 @@ for (const swallow of [false, true]) {
         assert.equal(http, 1); assert.equal(h.io.realtime, 0);
     });
 }
+
+for (const source of ['archive', 'chart', 'minutes', 'lastgood']) {
+    test(`09:31→09:50 당일 전환·직전 날짜 유지·공급사 추가 0: ${source}`, async () => {
+        NOW = RealDate.parse('2026-10-21T13:31:00Z');
+        const date = '2026-10-21', prev = '2026-10-20';
+        const old = fixture('IBM', prev);
+        const store = new Map();
+        if (source === 'chart') store.set('chart:v5:IBM:1d', { data: bars(prev), _builtAt: NOW - 60_000 });
+        if (source === 'minutes') store.set(`vwap:minutes:IBM:${prev}`, { data: bars(prev), _builtAt: NOW - 60_000 });
+        const h = harness(current, old, source === 'lastgood' ? 'stale' : 'miss', false, {
+            store, session: 'regular', provider: async () => [],
+            archive: source === 'archive' ? { value: { vwap: 241.5, date: prev, bars: 390 }, stamp: { sourceSessionDate: prev } } : null,
+        });
+        const first = await h.get('&chain=0');
+        assert.equal(first.body.vwap, 241.5); assert.equal(first.body.vwapDate, prev);
+        assert.equal(h.io.minutes, 0); assert.equal(h.io.realtime, 0);
+        if (source !== 'lastgood') assert.ok(h.calls.alphaVwaps.length > 0, '실제 알파 입력 경로를 실행한다');
+        assert.ok(h.calls.alphaVwaps.every(v => v == null), '직전 VWAP은 알파 당일 입력에 쓰지 않는다');
+        // 공급사 작업을 실행하지 않고 이미 도착한 당일 차트만 넣는다.
+        NOW = RealDate.parse('2026-10-21T13:50:00Z');
+        store.set('chart:v5:IBM:1d', { data: bars(date).map(r => ({ ...r, high: 250, low: 250, close: 250 })), _builtAt: NOW });
+        const next = await h.get('&chain=0');
+        assert.equal(next.body.vwap, 250); assert.equal(next.body.vwapDate, date);
+        assert.equal(h.io.minutes, 0); assert.equal(h.io.realtime, 0);
+        const late = h.route.mergeFreshOverStale(next.body, old);
+        assert.equal(late.vwap, 250); assert.equal(late.vwapDate, date);
+    });
+}
+
+test('당일 캐시가 있으면 늦게 온 직전장 차트·보관본보다 우선', async () => {
+    NOW = RealDate.parse('2026-10-21T13:50:00Z');
+    const today = fixture('IBM', '2026-10-21'); today.vwap = 250;
+    const h = harness(current, today, 'hit', false, { session: 'regular',
+        store: new Map([['chart:v5:IBM:1d', { data: bars('2026-10-20'), _builtAt: NOW }]]) });
+    const result = await h.get('&chain=0');
+    assert.equal(result.body.vwap, 250); assert.equal(result.body.vwapDate, '2026-10-21');
+});
+
+for (const [iso, prev] of [
+    ['2026-10-26T13:31:00Z', '2026-10-23'],
+    ['2026-11-27T14:31:00Z', '2026-11-25'],
+]) test(`주말·휴장 건너뛴 직전 완료장만 허용: ${prev}`, async () => {
+    NOW = RealDate.parse(iso);
+    const h = harness(current, fixture('IBM', prev), 'hit', false, { session: 'regular' });
+    assert.equal((await h.get('&chain=0')).body.vwapDate, prev);
+    const bad = h.route.dropStaleLiveVwap({ vwap: 999, vwapDate: '2026-10-19' });
+    assert.equal(bad.vwap, null); assert.equal(bad.vwapDate, null);
+});
+
+ test('PRE·POST·주말·휴장 응답 전체 바이트: 작업 시작 HEAD와 동일', async () => {
+    const before = execFileSync('git', ['show', '0b6afec9ffbaeac3844b8ff7874bc20cc06bdc29:src/app/api/live/ticker/route.ts'], { cwd: root, encoding: 'utf8' });
+    for (const [iso, date, session] of [
+        ['2026-10-21T12:00:00Z', '2026-10-20', 'pre'],
+        ['2026-10-21T20:01:00Z', '2026-10-21', 'post'],
+        ['2026-10-24T12:00:00Z', '2026-10-23', 'closed'],
+        ['2026-11-26T17:00:00Z', '2026-11-25', 'closed'],
+        ['2026-11-27T18:01:00Z', '2026-11-27', 'post'],
+    ]) for (const available of [false, true]) for (const mode of ['hit', 'miss', 'stale'])
+        for (const skipAlpha of [false, true]) for (const query of ['&chain=0', '&chain=full']) {
+        NOW = RealDate.parse(iso);
+        const snapshot = fixture('IBM', date); snapshot.session = session.toUpperCase();
+        const opts = () => ({ session, provider: async () => available ? bars(date) : [], store: new Map(available
+            ? [['chart:v5:IBM:1d', { data: bars(date), _builtAt: NOW }]] : []) });
+        const old = harness(before, snapshot, mode, skipAlpha, opts());
+        const fresh = harness(current, snapshot, mode, skipAlpha, opts());
+        assert.equal((await fresh.get(query)).text, (await old.get(query)).text, `${iso}/${mode}/${available}/${skipAlpha}/${query}`);
+    }
+});

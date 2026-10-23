@@ -34,7 +34,7 @@ function httpsJson(urlStr, opts) {
       headers: Object.assign({}, headers, data ? { 'Content-Length': Buffer.byteLength(data) } : {}),
     }, (res) => {
       let buf = '';
-      res.on('data', (c) => { buf += c; });
+      res.setEncoding('utf8').on('data', (c) => { buf += c; });
       res.on('end', () => resolve({ status: res.statusCode || 0, text: buf }));
     });
     req.on('error', reject);
@@ -225,7 +225,7 @@ function guardOrder(body) {
 // ── server ──────────────────────────────────────────────────────────────────
 http.createServer((req, res) => {
   let raw = '';
-  req.on('data', (c) => { raw += c; if (raw.length > 64_000) req.destroy(); });
+  req.setEncoding('utf8').on('data', (c) => { raw += c; if (raw.length > 64_000) req.destroy(); });
   req.on('end', async () => {
     const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
     try {

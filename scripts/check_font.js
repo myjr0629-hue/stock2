@@ -9,7 +9,7 @@ function fetch(url) {
                 return fetch(newUrl).then(resolve).catch(reject);
             }
             let data = '';
-            res.on('data', c => data += c);
+            res.setEncoding('utf8').on('data', c => data += c);
             res.on('end', () => resolve(data));
         }).on('error', reject);
     });

@@ -93,7 +93,7 @@ function egoRun(label, scriptText, limitSec) {
         const child = spawn('/bin/bash', [EGO_RUN, f, String(limitSec)], { env: Object.assign({}, process.env, { EGO_LOCK_WAIT: String(LOCK_WAIT) }), stdio: ['ignore', 'pipe', 'pipe'] });
         const cap = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* 이미 끝남 */ } }, (limitSec + LOCK_WAIT + 120) * 1000);   // 줄 서기 + 실행 + 여유 — ego-run 의 -9 는 «스크립트»만 끊는다
         const take = (c) => { out = (out + c).slice(-400000); };
-        child.stdout.on('data', take); child.stderr.on('data', take);
+        child.stdout.setEncoding('utf8').on('data', take); child.stderr.setEncoding('utf8').on('data', take);
         const fin = (code) => { if (done) return; done = true; clearTimeout(cap); try { fs.unlinkSync(f); } catch { /* 없다 */ } resolve({ code, out }); };
         child.on('close', (code) => fin(code == null ? 137 : code));
         child.on('error', (e) => { out += '\nspawn 실패: ' + e.message; fin(127); });
@@ -199,7 +199,7 @@ function apiRun(limitSec) {
         const child = spawn(process.execPath, [ASA_API_SCRIPT, 'ads', '--periods', ADS_PERIODS.join(',')], { env: Object.assign({}, process.env, { HUD_EGO_IO: IO }), stdio: ['ignore', 'pipe', 'pipe'] });
         const cap = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* 이미 끝남 */ } }, limitSec * 1000);
         const take = (c) => { out = (out + c).slice(-400000); };
-        child.stdout.on('data', take); child.stderr.on('data', take);
+        child.stdout.setEncoding('utf8').on('data', take); child.stderr.setEncoding('utf8').on('data', take);
         const fin = (code) => { if (done) return; done = true; clearTimeout(cap); resolve({ code, out }); };
         child.on('close', (code) => fin(code == null ? 137 : code));
         child.on('error', (e) => { out += '\nspawn 실패: ' + e.message; fin(127); });

@@ -27,7 +27,7 @@ function request(port, route) {
     return new Promise((resolve, reject) => {
         const req = http.get({ host: '127.0.0.1', port, path: route, timeout: 30000 }, res => {
             let body = '';
-            res.on('data', chunk => { body += chunk; });
+            res.setEncoding('utf8').on('data', chunk => { body += chunk; });
             res.on('end', () => resolve({ status: res.statusCode, body, headers: res.headers }));
         });
         req.on('timeout', () => req.destroy(new Error('응답 시간 초과')));
@@ -72,7 +72,7 @@ async function startServer(tmp) {
         const timer = setTimeout(() => { child.kill(); reject(new Error('시험 서버 기동 시간 초과')); }, 15000);
         child.on('error', err => { clearTimeout(timer); reject(err); });
         child.on('exit', code => { clearTimeout(timer); reject(new Error(`시험 서버 조기 종료: ${code}`)); });
-        child.stdout.on('data', data => { if (String(data).includes('http://127.0.0.1:')) { clearTimeout(timer); resolve(); } });
+        child.stdout.setEncoding('utf8').on('data', data => { if (String(data).includes('http://127.0.0.1:')) { clearTimeout(timer); resolve(); } });
         // 원천 내용이나 실행 인자를 출력하지 않는다.
         child.stderr.resume();
     });
@@ -113,8 +113,8 @@ async function run() {
             env: { ...process.env, HUD_VERIFY_FROM_V2: '1' }, stdio: ['ignore', 'pipe', 'pipe'],
         });
         let output = '';
-        legacy.stdout.on('data', data => { output += data; });
-        legacy.stderr.on('data', data => { output += data; });
+        legacy.stdout.setEncoding('utf8').on('data', data => { output += data; });
+        legacy.stderr.setEncoding('utf8').on('data', data => { output += data; });
         const code = await new Promise(resolve => legacy.on('close', resolve));
         check('기존 판독기·시각표·설치·광고 회귀 시험', code === 0);
         if (code === 0) console.log(output.trim().split('\n').pop());

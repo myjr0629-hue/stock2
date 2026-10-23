@@ -18,7 +18,7 @@ console.log(`Fetching ${ticker} options for ${expiry}...`);
 const https = require('https');
 https.get(url, (res) => {
     let data = '';
-    res.on('data', c => data += c);
+    res.setEncoding('utf8').on('data', c => data += c);
     res.on('end', () => {
         const j = JSON.parse(data);
         if (!j.results) {
