@@ -39,6 +39,8 @@ export interface MorningMetric {
     id: string;
     name: Labels;
     value: string;
+    /** 변화(기준 포함 없이 «+4bp»·«+3.82%») — 글에는 «이름 값(변화)» 모양으로 쓴다(숫자 주어 검사가 괄호 속 변화를 그 이름에 붙여 읽는다) */
+    change?: string;
     reading?: string;
     asOf?: string;
 }
@@ -169,10 +171,10 @@ export function morningMetrics(m: RawMorningMetrics): MorningMetric[] {
     if (fin(m.breadthPct)) out.push({ id: 'breadth', name: N('오른 종목의 폭(참여 폭)', 'breadth of advancing stocks', '値上がり銘柄の広がり'), value: `${m.breadthPct.toFixed(1)}%`,
         reading: m.breadthPct >= 60 ? 'broad' : m.breadthPct <= 40 ? 'narrow' : 'mixed' });
     if (m.us10y && fin(m.us10y.level)) out.push({ id: 'us10y', name: N('미국 10년물 금리', 'the 10-year Treasury yield', '米10年債利回り'),
-        value: `${m.us10y.level.toFixed(2)}%${fin(m.us10y.bp) ? ` (${m.us10y.bp > 0 ? '+' : ''}${Math.round(m.us10y.bp)}bp vs previous close)` : ''}` });
+        value: `${m.us10y.level.toFixed(2)}%`, ...(fin(m.us10y.bp) ? { change: `${m.us10y.bp > 0 ? '+' : ''}${Math.round(m.us10y.bp)}bp` } : {}) });
     const asset = (id: string, name: Labels, a: { level: number | null; chgPct: number | null } | null | undefined, unit: (x: number) => string) => {
         if (!a || !fin(a.level) || a.level <= 0) return;
-        out.push({ id, name, value: `${unit(a.level)}${fin(a.chgPct) ? ` (${pct(a.chgPct)} vs previous close)` : ''}` });
+        out.push({ id, name, value: unit(a.level), ...(fin(a.chgPct) ? { change: pct(a.chgPct) } : {}) });
     };
     asset('dxy', N('달러 인덱스(DXY)', 'the dollar index (DXY)', 'ドル指数(DXY)'), m.dxy, (x) => x.toFixed(2));
     asset('oil', N('WTI 유가', 'WTI crude', 'WTI原油'), m.oil, (x) => `$${x.toFixed(2)}`);
@@ -189,7 +191,7 @@ export function morningMetrics(m: RawMorningMetrics): MorningMetric[] {
 export const MB_LENGTH: Record<MbLocale, { target: string; max: number; firstMax: number }> = {
     ko: { target: '300–400', max: 520, firstMax: 100 },
     ja: { target: '330–430', max: 560, firstMax: 100 },
-    en: { target: '620–820', max: 1050, firstMax: 170 },
+    en: { target: '600–780', max: 1050, firstMax: 200 },
 };
 
 const FIRST_EXAMPLES: Record<MbLocale, Record<'PRE' | 'REG' | 'POST' | 'PRE_NOFUT', string>> = {
@@ -200,8 +202,8 @@ const FIRST_EXAMPLES: Record<MbLocale, Record<'PRE' | 'REG' | 'POST' | 'PRE_NOFU
         POST: 'M/D(요일) 정규장에서 나스닥 종합은 X.X%, S&P500은 X.X% 올랐고, 지금 장후 나스닥100 선물은 종가 시점 대비 X.X% 하락 중입니다.',
     },
     en: {
-        PRE: 'In the M/D cash session the Nasdaq Composite fell X.X% and the S&P 500 fell X.X%, while now premarket Nasdaq 100 futures are flat and S&P 500 futures are down X.X%.',
-        PRE_NOFUT: 'In the M/D cash session the Nasdaq Composite rose X.X% and the S&P 500 rose X.X%; current premarket futures observations are unconfirmed.',
+        PRE: 'Nasdaq Composite fell X.X% and S&P 500 fell X.X% in the M/D cash session; now premarket Nasdaq 100 futures are flat and S&P 500 futures are down X.X%.',
+        PRE_NOFUT: 'Nasdaq Composite rose X.X% and S&P 500 rose X.X% in the M/D cash session; current premarket futures observations are unconfirmed.',
         REG: 'In regular trading now the Nasdaq Composite is down X.X% and the S&P 500 is down X.X% versus the previous close.',
         POST: 'In the M/D cash session the Nasdaq Composite rose X.X% and the S&P 500 rose X.X%, while now after-hours Nasdaq 100 futures are down X.X% since that cash close.',
     },
@@ -217,26 +219,26 @@ const STYLE: Record<MbLocale, { register: string; gloss: string; scenario: strin
     ko: {
         register: '한국어는 끝까지 «~입니다/~습니다» 합니다체 한 가지로, 맞춤법·조사를 바르게 쓴다.',
         gloss: '«시장 건강도(RLSI)» · «옵션 포지션(GEX)» · «변동성 지수(VIX)» · «미국 10년물 금리» · «달러 인덱스(DXY)»',
-        scenario: '«다음 분기점은 M/D(요일) HH:MM ET(한국 HH:MM) 예정된 <일정 이름>으로, 예상보다 강하면 금리 부담이 커지고 약하면 줄어드는 구조입니다»',
+        scenario: '«다음 분기점은 M/D(요일) HH:MM ET(한국 HH:MM) 예정된 <일정 이름>으로, 예상보다 강하면 금리 부담이 커지고 약하면 줄어드는 구조입니다» · 일정이 없을 때 «다음 분기점은 S&P 500 옵션 Put Floor <값>으로, 그 아래에서는 딜러 헤지가 흔들림을 키우고 위에서는 받쳐 주는 구조입니다»',
         unconfirmed: '«지금 개장 전 선물 관측은 미확인입니다»',
         noCause: '«밤사이 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다»',
-        nextUnknown: '«오늘 예정된 주요 일정은 확인되지 않았습니다»',
+        nextUnknown: '«다음 분기점이 될 경제 지표 발표는 확인되지 않았습니다»',
     },
     en: {
         register: 'Plain, everyday English a retail investor understands.',
         gloss: '"market health (RLSI)", "options positioning (GEX)", "the VIX volatility gauge", "the 10-year Treasury yield", "the dollar index (DXY)"',
-        scenario: '"The next test is the scheduled <event name> at M/D (Day) HH:MM ET: a hotter reading adds rate pressure, a softer one eases it"',
+        scenario: '"The next test is the scheduled <event name> at M/D (Day) HH:MM ET: a hotter reading adds rate pressure, a softer one eases it" · with no event: "The next test is the S&P 500 put floor at <value>: below it dealer hedging amplifies swings, above it the cushion holds"',
         unconfirmed: '"current premarket futures observations are unconfirmed"',
         noCause: '"no clear market-wide driver is confirmed overnight"',
-        nextUnknown: '"no major scheduled release is confirmed for today"',
+        nextUnknown: '"no economic release is confirmed as the next test"',
     },
     ja: {
         register: '日本語は最後まで「です・ます」調で統一し、自然な助詞で書く。',
         gloss: '「市場の健全度(RLSI)」・「オプション・ポジション(GEX)」・「変動性指数(VIX)」・「米10年債利回り」・「ドル指数(DXY)」',
-        scenario: '「次の分岐点は M/D(曜) HH:MM ET(日本時間 HH:MM) 予定の<イベント名>で、市場予想より強ければ金利の重荷が増し、弱ければ和らぐ構造です」',
+        scenario: '「次の分岐点は M/D(曜) HH:MM ET(日本時間 HH:MM) 予定の<イベント名>で、市場予想より強ければ金利の重荷が増し、弱ければ和らぐ構造です」・日程がない場合「次の分岐点はS&P 500オプションのPut Floor <値>で、その下ではディーラーのヘッジが値動きを増幅し、上では支えになる構造です」',
         unconfirmed: '「現在の取引開始前の先物観測は未確認です」',
         noCause: '「夜間に相場全体を動かした明確な材料は確認されていません」',
-        nextUnknown: '「本日予定の主要日程は確認されていません」',
+        nextUnknown: '「次の分岐点となる経済指標の発表は確認されていません」',
     },
 };
 
@@ -265,9 +267,9 @@ All three values carry the SAME facts: the same indices, the same report(s), the
  ja: {JA_FIRST}
 2. WHY (one sentence): from TODAY_NEWS choose the one or two most market-wide reports (Fed, rates, inflation, jobs, tariffs, geopolitics, oil, the dollar, mega-cap or sector-wide earnings). Cite each by its supplied M/D HH:MM ET followed by 보도 / report / 報道 (never a provider or source name), say what changed, and connect it softly to the move (…와 맞물려 / amid … / …を背景に). A report published after the move it would explain is not its cause. Never state the news caused the move as fact; never use a single small or foreign company's story as a market cause. If no relevant dated report exists, write ${STYLE.ko.noCause} / ${STYLE.en.noCause} / ${STYLE.ja.noCause}. This sentence has no percent sign.
 3. DISCLOSURE (only when DISCLOSURES is non-empty, one short sentence): the company and what the filing says, with its date. Otherwise skip this sentence entirely and never mention filings.
-4. CROSS-ASSET (one sentence): at most THREE readings among the 10-year Treasury yield, the dollar index, WTI crude, gold and bitcoin from METRICS, chosen because they explain the stock move; say what they mean together (for example falling yields easing pressure on growth stocks, oil adding inflation pressure). Copy values exactly as METRICS gives them; write yield changes in bp only as given.
+4. CROSS-ASSET (one sentence): at most THREE readings among the 10-year Treasury yield, the dollar index, WTI crude, gold and bitcoin from METRICS, chosen because they explain the stock move; say what they mean together (for example falling yields easing pressure on growth stocks, oil adding inflation pressure). Write each reading in the shape NAME VALUE(CHANGE) right after its plain name — 미국 10년물 금리 5.00%(+4bp) / the 10-year Treasury yield at 5.00% (+4bp) / 米10年債利回り5.00%(+4bp); WTI 유가 $103.27(+3.82%) — copying value and change exactly as METRICS gives them (never write 'vs previous close', never round or say 'about').
 5. RISK READ (one sentence): meaning first, readings second. Say whether market health, volatility (VIX and its term structure) and options positioning line up with or diverge from the direction in STATE, and what that means for how well a move can hold or how large swings can get. Name every gauge by its plain name with the abbreviation only in parentheses (${STYLE.ko.gloss} / ${STYLE.en.gloss} / ${STYLE.ja.gloss}); use the METRICS reading words (weak/middling/strong, calm/elevated/stressed, cushion/amplify/neutral) in everyday language, never the raw codes. At most three numbers. If options positioning is missing from METRICS say options positioning data is unavailable; never invent it.
-6. NEXT (the LAST sentence, shown in its own box): name exactly ONE item as the day's next test — one SCHEDULED_EVENTS entry, or one options boundary from METRICS when no scheduled event exists — and in the SAME sentence give its two-way reading in conditional words (${STYLE.ko.scenario} / ${STYLE.en.scenario} / ${STYLE.ja.scenario}). Write an event's timing in ABSOLUTE form only, exactly as EVENT_TIMES gives it for that language (ko: M/D(요일) HH:MM ET(한국 HH:MM); en: M/D (Day) HH:MM ET; ja: M/D(曜) HH:MM ET(日本時間 HH:MM)); never relative words (오늘·내일·오늘 밤 / today·tomorrow·tonight / 本日·明日·今夜). Keep the event name exactly as written in SCHEDULED_EVENTS (a short gloss in parentheses after it is fine). RELEASED_TODAY entries are results, never upcoming. Never name another event, company, ticker or indicator in this sentence. If neither an event nor a boundary exists, write ${STYLE.ko.nextUnknown} / ${STYLE.en.nextUnknown} / ${STYLE.ja.nextUnknown}.
+6. NEXT (the LAST sentence, shown in its own box): name exactly ONE item as the day's next test — one SCHEDULED_EVENTS entry, or one options boundary from METRICS when no scheduled event exists — and in the SAME sentence give its two-way reading in conditional words (${STYLE.ko.scenario} / ${STYLE.en.scenario} / ${STYLE.ja.scenario}). Write an event's timing in ABSOLUTE form only, exactly as EVENT_TIMES gives it for that language (ko: M/D(요일) HH:MM ET(한국 HH:MM); en: M/D (Day) HH:MM ET; ja: M/D(曜) HH:MM ET(日本時間 HH:MM)); never relative words (오늘·내일·오늘 밤 / today·tomorrow·tonight / 本日·明日·今夜). Keep the event name exactly as written in SCHEDULED_EVENTS (a short gloss in parentheses after it is fine). RELEASED_TODAY entries are results, never upcoming. Never name another event, company, ticker or indicator in this sentence. When you use a boundary, say nothing about missing events (no 예정 / scheduled / 予定 / 오늘 / today / 本日 words in that sentence). If neither an event nor a boundary exists, write ${STYLE.ko.nextUnknown} / ${STYLE.en.nextUnknown} / ${STYLE.ja.nextUnknown}.
 </sentences>
 
 <depth_standard>
@@ -304,7 +306,7 @@ export function buildMorningV2User(f: MorningFacts): string {
     const dates = [...new Set([...f.events, ...f.indexFacts.map(x => x.sessionDate || '')].map(l => l.match(/\d{4}-\d{2}-\d{2}/)?.[0]).filter((d): d is string => !!d))];
     const dateLabels = Object.fromEntries(MB_LOCALES.map(l => [l, Object.fromEntries(dates.map(d => [d, etDateLabel(d, l)]))]));
     const facts = f.indexFacts.map(x => ({ id: x.id, name: x.name, kind: x.kind, basis: x.basis, chgPct: Math.round(x.chgPct * 100) / 100, asOfET: x.asOfET, sessionDate: x.sessionDate }));
-    const metrics = Object.fromEntries(f.metrics.map(m => [m.id, { name: m.name, value: m.value, ...(m.reading ? { reading: m.reading } : {}) }]));
+    const metrics = Object.fromEntries(f.metrics.map(m => [m.id, { name: m.name, value: m.value, ...(m.change ? { change: `${m.change} vs previous close` } : {}), ...(m.reading ? { reading: m.reading } : {}) }]));
     return `Write the morning briefing JSON from these facts only.
 SESSION: ${f.session}
 AS_OF: ${Number.isFinite(asOfMs) ? new Date(asOfMs).toISOString() : f.asOf}

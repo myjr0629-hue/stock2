@@ -411,6 +411,26 @@ function bedrockLegacy(system: string, user: string) {
  */
 async function dryCompare(body: any): Promise<Response> {
     const t0 = Date.now();
+    // [비교 전용 — preview/* 배포에서만] 로컬에서 고친 지시문을 운영 모델(①)로 돌려 본다. main 배포에서는 꺼져 있다(병합 전 삭제)
+    if (body.custom && String(process.env.VERCEL_GIT_COMMIT_REF || '').startsWith('preview/')) {
+        const reps = Math.max(1, Math.min(8, Number(body.reps) || 3));
+        const outs: any[] = [];
+        let k = 0;
+        const jobs = Array.from({ length: reps }, () => async () => {
+            const raws: string[] = [];
+            const s0 = Date.now();
+            try {
+                const res = await withFreshTier(() => runLadder({
+                    purpose: 'MorningBriefing', system: String(body.custom.system), userPrompt: String(body.custom.user),
+                    maxTokens: 4096, jsonPrefill: true, temperature: 0.3, locale: 'multi', timeoutMs: 55000,
+                    validate: (text: string) => { raws.push(String(text).slice(0, 8000)); return true; },
+                }, async () => { throw new Error('dry: no legacy rung'); }));
+                outs.push({ ok: true, raw: res.text.slice(0, 8000), provider: res.provider, ms: Date.now() - s0 });
+            } catch (e: any) { outs.push({ ok: false, error: String(e?.message || e).slice(0, 200), raws, ms: Date.now() - s0 }); }
+        });
+        await Promise.all(Array.from({ length: Math.min(4, jobs.length) }, async () => { while (k < jobs.length) await jobs[k++](); }));
+        return NextResponse.json({ dry: true, custom: true, outs });
+    }
     const reps = Math.max(1, Math.min(6, Number(body.reps) || 2));
     const which: 'both' | 'old' | 'new' = body.which === 'old' || body.which === 'new' ? body.which : 'both';
     const sim: MorningSim = body.sim === 'pre' || body.sim === 'pre-nofut' || body.sim === 'reg' ? body.sim : null;
