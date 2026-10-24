@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
     morningNewsLines, morningCalendarLines, morningMetrics, buildMorningV2User, morningV2System, checkMorningV2, checkMorningLocale,
-    numberSignature, stateSentence, composeMorningText, type MorningFacts,
+    numberSignature, stateSentence, composeMorningText, systemNextSentence, type MorningFacts,
 } from '@/lib/ai/morningBriefingV2';
 import { INDEX_NAMES } from '@/lib/ai/tacticalIndexFacts';
 import { aiLineFromText } from '@/lib/push/aiLine';
@@ -151,6 +151,20 @@ test('휴장(CLOSED) 첫 문장의 «개장 전» 은 틀린 세션 · 일정 �
     const u = buildMorningV2User({ ...facts, events: [], metrics: [...facts.metrics, ...morningMetrics({ putFloor: 7450 })] });
     assert.match(u, /SPY 옵션 ×10 환산 S&P 500 Put Floor 7,450/);
     assert.match(u, /the S&P 500-equivalent put floor at 7,450 \(SPY options ×10\)/);
+    // Put Floor 에 딜러 헤지 전환 해석을 붙이지 않는다(그건 Gamma Flip) · Gamma Flip 이 있으면 그쪽(관문 10250239)
+    assert.doesNotMatch(u, /Put Floor[^"]*딜러 헤지/);
+    const uf = buildMorningV2User({ ...facts, events: [], metrics: [...facts.metrics, ...morningMetrics({ putFloor: 7450, gammaFlip: 7600 })] });
+    assert.match(uf, /Gamma Flip 7,600/);
+    const noBasis = { ...facts, events: [], metrics: [...facts.metrics, ...morningMetrics({ putFloor: 7450 })] };
+    // 일정 없는 날의 NEXT 는 코드가 쓴다 — 모델이 쓴 NEXT 는 빼고 붙인다
+    assert.equal(systemNextSentence(noBasis, 'ko'), '다음 분기점은 SPY 옵션 ×10 환산 S&P 500 Put Floor 7,450으로, 풋 미결제약정이 가장 많이 쌓인 옵션 쪽 하단 기준입니다.');
+    assert.equal(systemNextSentence(facts, 'ko'), null, '일정이 있으면 모델이 쓴다');
+    const body = '밤사이 뚜렷한 재료는 확인되지 않았습니다. 다음 분기점은 S&P 500 풋 하단 7,450입니다.';
+    const composed = composeMorningText(body, noBasis, 'ko');
+    assert.ok(composed.endsWith(systemNextSentence(noBasis, 'ko')!) && !composed.includes('풋 하단'), composed);
+    assert.equal(systemNextSentence({ ...facts, events: [], metrics: [] }, 'en'), 'No economic release is confirmed as the next test.');
+    const t2 = good.en.replace(/The next test is[^]*$/, 'The next test is the S&P 500 put floor at 7,450, the price where put open interest is largest.');
+    assert.ok(checkMorningLocale(t2, 'en', noBasis).includes('mb:next-basis'));
 });
 
 test('첫 문장(STATE)은 코드가 쓴다 — 세션 6가지 모두 지수 계약(이름·값·방향·세션·날짜) 통과·푸시 90자 안', () => {

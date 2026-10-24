@@ -203,7 +203,7 @@ const STYLE: Record<MbLocale, { register: string; gloss: string; scenario: strin
     ko: {
         register: '한국어는 끝까지 «~입니다/~습니다» 합니다체 한 가지로, 맞춤법·조사를 바르게 쓴다.',
         gloss: '«시장 건강도(RLSI)» · «옵션 포지션(GEX)» · «변동성 지수(VIX)» · «미국 10년물 금리» · «달러 인덱스(DXY)»',
-        scenario: '«다음 분기점은 M/D(요일) HH:MM ET(한국 HH:MM) 예정된 <일정 이름>으로, 예상보다 강하면 금리 부담이 커지고 약하면 줄어드는 구조입니다» · 일정이 없을 때 «다음 분기점은 SPY 옵션 ×10 환산 S&P 500 Put Floor <값>으로, 그 아래에서는 딜러 헤지가 흔들림을 키우고 위에서는 받쳐 주는 구조입니다»',
+        scenario: '«다음 분기점은 M/D(요일) HH:MM ET(한국 HH:MM) 예정된 <일정 이름>으로, 예상보다 강하면 금리 부담이 커지고 약하면 줄어드는 구조입니다» ',
         unconfirmed: '«지금 개장 전 선물 관측은 미확인입니다»',
         noCause: '«밤사이 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다»',
         nextUnknown: '«다음 분기점이 될 경제 지표 발표는 확인되지 않았습니다»',
@@ -211,7 +211,7 @@ const STYLE: Record<MbLocale, { register: string; gloss: string; scenario: strin
     en: {
         register: 'Plain, everyday English a retail investor understands.',
         gloss: '"market health (RLSI)", "options positioning (GEX)", "the VIX volatility gauge", "the 10-year Treasury yield", "the dollar index (DXY)"',
-        scenario: '"The next test is the scheduled <event name> at M/D (Day) HH:MM ET: a hotter reading adds rate pressure, a softer one eases it" · with no event: "The next test is the S&P 500-equivalent put floor at <value> (SPY options ×10): below it dealer hedging amplifies swings, above it the cushion holds"',
+        scenario: '"The next test is the scheduled <event name> at M/D (Day) HH:MM ET: a hotter reading adds rate pressure, a softer one eases it"',
         unconfirmed: '"current premarket futures observations are unconfirmed"',
         noCause: '"no clear market-wide driver is confirmed overnight"',
         nextUnknown: '"no economic release is confirmed as the next test"',
@@ -219,7 +219,7 @@ const STYLE: Record<MbLocale, { register: string; gloss: string; scenario: strin
     ja: {
         register: '日本語は最後まで「です・ます」調で統一し、自然な助詞で書く。',
         gloss: '「市場の健全度(RLSI)」・「オプション・ポジション(GEX)」・「変動性指数(VIX)」・「米10年債利回り」・「ドル指数(DXY)」',
-        scenario: '「次の分岐点は M/D(曜) HH:MM ET(日本時間 HH:MM) 予定の<イベント名>で、市場予想より強ければ金利の重荷が増し、弱ければ和らぐ構造です」・日程がない場合「次の分岐点はSPYオプション×10換算のS&P 500 Put Floor <値>で、その下ではディーラーのヘッジが値動きを増幅し、上では支えになる構造です」',
+        scenario: '「次の分岐点は M/D(曜) HH:MM ET(日本時間 HH:MM) 予定の<イベント名>で、市場予想より強ければ金利の重荷が増し、弱ければ和らぐ構造です」',
         unconfirmed: '「現在の取引開始前の先物観測は未確認です」',
         noCause: '「夜間に相場全体を動かした明確な材料は確認されていません」',
         nextUnknown: '「次の分岐点となる経済指標の発表は確認されていません」',
@@ -244,7 +244,7 @@ All three values carry the SAME facts: the same indices, the same report(s), the
 3. DISCLOSURE (only when DISCLOSURES is non-empty, one short sentence): the company and what the filing says, with its date. Otherwise skip this sentence entirely and never mention filings.
 4. CROSS-ASSET (one sentence): BOTH cross-asset readings in METRICS (the 10-year Treasury yield and the one other asset given), no other asset; say what they mean together (for example falling yields easing pressure on growth stocks, oil adding inflation pressure). Write each reading in the shape NAME VALUE(CHANGE) right after its plain name — 미국 10년물 금리 5.00%(+4bp) / the 10-year Treasury yield at 5.00% (+4bp) / 米10年債利回り5.00%(+4bp); WTI 유가 $103.27(+3.82%) — copying value and change exactly as METRICS gives them (never write 'vs previous close', never round or say 'about').
 5. RISK READ (one sentence): meaning first, readings second. Say whether market health, volatility (VIX and its term structure) and options positioning line up with or diverge from the direction in STATE, and what that means for how well a move can hold or how large swings can get. Name every gauge by its plain name with the abbreviation only in parentheses (${STYLE.ko.gloss} / ${STYLE.en.gloss} / ${STYLE.ja.gloss}); use the METRICS reading words (weak/middling/strong, calm/elevated/stressed, cushion/amplify/neutral) in everyday language, never the raw codes. At most TWO numbers in this sentence: market health and VIX values; describe options positioning, breadth and the VIX term structure in words only (no GEX value, no VIX3M value, no breadth percentage). If options positioning is missing from METRICS say options positioning data is unavailable; never invent it.
-6. NEXT (the LAST sentence, shown in its own box): the day's next test is NEXT_TEST — copy its text for that language EXACTLY (event name, date, ET time and local time are already formatted; never change, translate or recompute them) — and in the SAME sentence give its two-way reading in conditional words (${STYLE.ko.scenario} / ${STYLE.en.scenario} / ${STYLE.ja.scenario}). Write an event's timing in ABSOLUTE form only, exactly as EVENT_TIMES gives it for that language (ko: M/D(요일) HH:MM ET(한국 HH:MM); en: M/D (Day) HH:MM ET with NO Korea or Japan time; ja: M/D(曜) HH:MM ET(日本時間 HH:MM)); never relative words (오늘·내일·오늘 밤 / today·tomorrow·tonight / 本日·明日·今夜). Keep the event name in English exactly as written in SCHEDULED_EVENTS in every language, then optionally a short local gloss in parentheses right after it (e.g. Fed Interest Rate Decision(기준금리 결정) / Durable Goods Orders MoM Sep(耐久財受注)); never replace the name with a translation. RELEASED_TODAY entries are results, never upcoming. Never name another event, company, ticker or indicator in this sentence. When you use a boundary, say nothing about missing events (no 예정 / scheduled / 予定 / 오늘 / today / 本日 words in that sentence). If neither an event nor a boundary exists, write ${STYLE.ko.nextUnknown} / ${STYLE.en.nextUnknown} / ${STYLE.ja.nextUnknown}.
+6. NEXT (the LAST sentence, shown in its own box): when NEXT_TEST.systemWrites is true the system appends this sentence itself — do NOT write any NEXT sentence and end your text after RISK READ. Otherwise the day's next test is NEXT_TEST — copy its text for that language EXACTLY (event name, date, ET time and local time are already formatted; never change, translate or recompute them) — and in the SAME sentence give its two-way reading in conditional words (${STYLE.ko.scenario} / ${STYLE.en.scenario} / ${STYLE.ja.scenario}). Write an event's timing in ABSOLUTE form only, exactly as EVENT_TIMES gives it for that language (ko: M/D(요일) HH:MM ET(한국 HH:MM); en: M/D (Day) HH:MM ET with NO Korea or Japan time; ja: M/D(曜) HH:MM ET(日本時間 HH:MM)); never relative words (오늘·내일·오늘 밤 / today·tomorrow·tonight / 本日·明日·今夜). Keep the event name in English exactly as written in SCHEDULED_EVENTS in every language, then optionally a short local gloss in parentheses right after it (e.g. Fed Interest Rate Decision(기준금리 결정) / Durable Goods Orders MoM Sep(耐久財受注)); never replace the name with a translation. RELEASED_TODAY entries are results, never upcoming. Never name another event, company, ticker or indicator in this sentence. When you use a boundary, say nothing about missing events (no 예정 / scheduled / 予定 / 오늘 / today / 本日 words in that sentence). If neither an event nor a boundary exists, write ${STYLE.ko.nextUnknown} / ${STYLE.en.nextUnknown} / ${STYLE.ja.nextUnknown}.
 </sentences>
 
 <depth_standard>
@@ -314,10 +314,16 @@ export function stateSentence(f: MorningFacts, l: MbLocale): string {
     return { ko: `${cash}, ${futPart}입니다.`, en: `${cash}; ${futPart}.`, ja: `${cash}、${futPart}です。` }[l];
 }
 
-/** 모델 본문(둘째 문장부터) 앞에 STATE 를 붙인다 — 모델이 첫 문장을 되풀이했으면 그 문장을 빼고 붙인다 */
+/** 모델 본문(둘째 문장부터) 앞에 STATE 를, (일정 없는 날) 뒤에 NEXT 를 붙인다 — 모델이 그 문장을 되풀이했으면 빼고 붙인다 */
 export function composeMorningText(body: string, f: MorningFacts, l: MbLocale): string {
     const st = stateSentence(f, l);
     let b = String(body || '').trim();
+    const nx = systemNextSentence(f, l);
+    if (nx) {
+        const parts = splitSentences(b);
+        while (parts.length && /^(?:다음\s?분기점|The next test|次の分岐点)/i.test(parts[parts.length - 1])) parts.pop();
+        b = `${parts.join(' ')} ${nx}`.trim();
+    }
     // 첫 문장이 STATE 와 «같을 때만» 뺀다 — 앞 몇 글자가 같다는 이유로 모델의 WHY 문장을 지우지 않는다(관문 10250224 ②)
     const norm = (x: string) => x.replace(/\s+/g, ' ').trim();
     if (norm(b).startsWith(norm(st))) b = norm(b).slice(norm(st).length).trim();
@@ -337,7 +343,7 @@ export function promptMetrics(metrics: readonly MorningMetric[]): MorningMetric[
 
 /** 다음 분기점 하나를 코드가 고른다 — 언어마다 다른 일정을 고르거나 시각·이름을 옮겨 적다 틀리는 일을 없앤다(10/25 실모델: 한국 시각을 ET 로 · 행사명 번역). */
 const NEXT_PRIORITY = [/Interest Rate Decision|FOMC|Fed Chair|Powell/i, /\bCPI\b|Consumer Price/i, /\bPCE\b/i, /Non ?Farm|Payrolls|Unemployment Rate/i, /\bGDP\b/i, /Retail Sales/i, /\bISM\b|\bPMI\b/i, /\bPPI\b|Producer Price/i];
-export function nextTestFor(f: MorningFacts): { kind: 'event' | 'boundary' | 'none'; text: Labels } {
+export function nextTestFor(f: MorningFacts): { kind: 'event' | 'boundary' | 'none'; text: Labels; reading?: Labels } {
     const named = f.events.map(line => ({ line, name: line.replace(/^\[[^\]]*\]\s*/, '').replace(/\s*\(.*$/, ''), date: line.match(/\d{4}-\d{2}-\d{2}/)?.[0], time: line.match(/(\d{2}:\d{2}) ET/)?.[1] }))
         .filter(e => e.name && e.date && e.time);
     const rank = (n: string) => { const i = NEXT_PRIORITY.findIndex(re => re.test(n)); return i < 0 ? NEXT_PRIORITY.length : i; };
@@ -347,9 +353,26 @@ export function nextTestFor(f: MorningFacts): { kind: 'event' | 'boundary' | 'no
         return { kind: 'event', text: { ko: `${t('ko')} 예정된 ${ev.name}`, en: `the scheduled ${ev.name} at ${t('en')}`, ja: `${t('ja')}予定の${ev.name}` } };
     }
     const lv = f.metrics.find(m => m.id === 'optionsLevels')?.value.match(/put floor ([\d,]+)/)?.[1];
-    // SPY 옵션 값 ×10 환산이라는 사실을 글에도 남긴다(실제 S&P 500 지수 옵션 관측으로 읽히지 않게, 관문 10250203 ①)
-    if (lv) return { kind: 'boundary', text: { ko: `SPY 옵션 ×10 환산 S&P 500 Put Floor ${lv}`, en: `the S&P 500-equivalent put floor at ${lv} (SPY options ×10)`, ja: `SPYオプション×10換算のS&P 500 Put Floor ${lv}` } };
+    // SPY 옵션 값 ×10 환산이라는 사실을 글에도 남긴다(실제 S&P 500 지수 옵션 관측으로 읽히지 않게, 관문 10250203 ①).
+    // 딜러 헤지가 «키움↔받침»으로 바뀌는 경계는 Gamma Flip 이다 — Put Floor 는 풋이 가장 많이 쌓인 가격대일 뿐이라 그 해석을 붙이지 않는다(관문 10250239).
+    //   해석 문장도 코드가 준다(reading — 모델은 그대로 옮긴다)
+    const flip = f.metrics.find(m => m.id === 'optionsLevels')?.value.match(/gamma flip ([\d,]+)/)?.[1];
+    if (flip) return { kind: 'boundary', text: { ko: `SPY 옵션 ×10 환산 S&P 500 Gamma Flip ${flip}`, en: `the S&P 500-equivalent gamma flip at ${flip} (SPY options ×10)`, ja: `SPYオプション×10換算のS&P 500 Gamma Flip ${flip}` },
+        reading: { ko: '그 아래에서는 딜러 헤지가 흔들림을 키우고 위에서는 줄이는 구조입니다', en: 'below it dealer hedging amplifies swings, above it hedging dampens them', ja: 'その下ではディーラーのヘッジが値動きを増幅し、上では抑える構造です' } };
+    if (lv) return { kind: 'boundary', text: { ko: `SPY 옵션 ×10 환산 S&P 500 Put Floor ${lv}`, en: `the S&P 500-equivalent put floor at ${lv} (SPY options ×10)`, ja: `SPYオプション×10換算のS&P 500 Put Floor ${lv}` },
+        reading: { ko: '풋 미결제약정이 가장 많이 쌓인 옵션 쪽 하단 기준입니다', en: 'the price where put open interest is largest, the options market\'s reference floor', ja: 'プットの建玉が最も多く積み上がった価格帯で、オプション面での下値の目安です' } };
     return { kind: 'none', text: { ko: STYLE.ko.nextUnknown.replace(/[«»]/g, ''), en: STYLE.en.nextUnknown.replace(/"/g, ''), ja: STYLE.ja.nextUnknown.replace(/[「」]/g, '') } };
+}
+
+/** 일정이 없는 날의 NEXT 문장 — 경계 이름·SPY 환산·해석이 전부 정해져 있어 코드가 쓴다(모델이 «SPY ×10» 을 빼던 4/15, 10/25 실모델) */
+export function systemNextSentence(f: MorningFacts, l: MbLocale): string | null {
+    const n = nextTestFor(f);
+    if (n.kind === 'event') return null;
+    if (n.kind === 'none') { const t = n.text[l]; return { ko: `${t}.`, en: `${t.charAt(0).toUpperCase()}${t.slice(1)}.`, ja: `${t}。` }[l]; }
+    const t = n.text[l], r = n.reading![l];
+    // 한국어 조사: 숫자 끝자리 읽기가 받침으로 끝나면 «으로»(1·3·6·7·8·0), 아니면 «로»(2·4·5·9)
+    const ro = /[2459]$/.test(t.replace(/[^\d]/g, '').slice(-1)) ? '로' : '으로';
+    return { ko: `다음 분기점은 ${t}${ro}, ${r}.`, en: `The next test is ${t}: ${r}.`, ja: `次の分岐点は${t}で、${r}。` }[l];
 }
 
 /** 사실 칸(사용자 메시지). 줄 이름은 Tactical 검사기(promptEvidence·tacticalIndexReasons·tacticalNextReasons)가 읽는 모양 그대로 */
@@ -376,7 +399,7 @@ DATE_LABELS: ${JSON.stringify(dateLabels)}
 RELEASED_TODAY: ${JSON.stringify(f.released)}
 DISCLOSURES: ${JSON.stringify(f.disclosures)}
 METRICS: ${JSON.stringify(metrics)}
-NEXT_TEST: ${JSON.stringify(nextTestFor(f))}
+NEXT_TEST: ${JSON.stringify({ ...nextTestFor(f), systemWrites: nextTestFor(f).kind !== 'event' })}
 STATE_TEXT: ${JSON.stringify({ ko: stateSentence(f, 'ko'), en: stateSentence(f, 'en'), ja: stateSentence(f, 'ja') })}`;
 }
 
@@ -528,6 +551,8 @@ export function checkMorningLocale(text: string, locale: MbLocale, f: MorningFac
     // 마지막 문장 — 예정 주장(이름·시각·날짜·현지 시각)은 앞으로 있을 일정 줄만
     const next = sentences.length >= 3 ? sentences[sentences.length - 1] : '';
     reasons.push(...tacticalNextReasons(next, ev, 'generate'));
+    // 옵션 경계를 다음 분기점으로 쓰면 «SPY 옵션 ×10 환산» 을 빼지 않는다(실제 지수 옵션으로 읽히지 않게)
+    if (nextTestFor(f).kind === 'boundary' && !/SPY/.test(next)) reasons.push('mb:next-basis');
     // 가운데 문장의 시각 = 보도 인용(TODAY_NEWS 의 ET 시각) 또는 발표된 일정(RELEASED_TODAY) 시각만
     const { data, news } = promptEvidence(ev);
     const newsAt = news.flatMap(l => { const iso = l.match(/; (\d{4}-\d{2}-\d{2}T[^;]+);/)?.[1]; const at = iso ? evidenceTime('news:utc', iso) : null; return at ? [at] : []; });
