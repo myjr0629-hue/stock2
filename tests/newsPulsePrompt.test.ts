@@ -78,6 +78,11 @@ test('배열 — 80% 이상 통과해야 응답을 쓴다 · 중복 id 탈락', 
     const rangeArt = { ...art, desc: 'Capex guidance of $10-$12 billion for next year.' };
     const rangeItem = { ...good, summaryKR: '블룸 에너지는 내년 설비투자 가이던스를 100억~120억 달러로 제시했습니다.', summaryEN: 'Bloom Energy guided capex of $10-$12 billion for next year.', summaryJP: 'ブルーム・エナジーは来年の設備投資見通しではなく計画を100億～120億ドルと示しました。'.replace('見通しではなく', '') };
     assert.ok(!checkPulseItem(rangeItem, rangeArt, facts).reasons.some(r => /number/.test(r)), JSON.stringify(checkPulseItem(rangeItem, rangeArt, facts).reasons));
+    for (const [src0, ko0, en0, ja0] of [['Backlog of $1.2bn.', '수주잔고는 12억 달러입니다.', 'Backlog is $1.2bn.', '受注残は12億ドルです。'], ['Capex of $1,000–$1,200 million.', '설비투자는 10억~12억 달러입니다.', 'Capex is $1,000–$1,200 million.', '設備投資は10億～12億ドルです。']]) {
+        const it = { ...good, summaryKR: `블룸 에너지 ${ko0}`, summaryEN: `Bloom Energy: ${en0}`, summaryJP: `ブルーム・エナジーの${ja0}` };
+        const r = checkPulseItem(it, { ...art, desc: src0 }, facts).reasons.filter(x => /number|amount/.test(x));
+        assert.deepEqual(r, [], src0);
+    }
 
     const src = fs.readFileSync(path.join(__dirname, '../src/app/api/guardian/news-digest/route.ts'), 'utf8');
     assert.match(src, /let parsed = parsePulseArray\(bedrockResult\.text, v3\);/);

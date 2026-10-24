@@ -127,7 +127,11 @@ export function pulseNumberSig(text: string): string[] {
 
 /** 범위 금액의 배수를 앞 숫자에도(«$10-$12 billion» → «$10 billion - $12 billion») — 정확히 풀어 쓴 «100억~120억 달러»가 근거 대조에서 떨어지던 것(관문 10250345 ②) */
 export function expandRanges(text: string): string {
-    return String(text || '').replace(/(\$?)(\d+(?:\.\d+)?)\s?(?:-|–|~|to)\s?(\$?)(\d+(?:\.\d+)?)\s?(trillion|billion|million|thousand|[TBMK])\b/gi, '$1$2 $5 - $3$4 $5');
+    const N = '(\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)';
+    return String(text || '')
+        // 약어 배수(«$1.2bn» · «$300mn»)를 낱말로 — 숫자 파서가 bn·mn 을 모른다(관문 10250410)
+        .replace(/(\d)\s?bn\b/gi, '$1 billion').replace(/(\d)\s?mn\b/gi, '$1 million')
+        .replace(new RegExp(`(\\$?)${N}\\s?(?:-|–|~|to)\\s?(\\$?)${N}\\s?(trillion|billion|million|thousand|[TBMK])\\b`, 'gi'), '$1$2 $5 - $3$4 $5');
 }
 
 /** 한 항목 — 입력 기사(id 로 찾은 것)와 시장 사실로 판정 */
