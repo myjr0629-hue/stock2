@@ -90,8 +90,10 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
     void (!conditional && !unconfirmed && ((allUp.test(text) && f.up !== f.measured) || (allDown.test(text) && f.down !== f.measured)));
     // Direct ticker return only. Percentage-point units denote a gap, not a return.
     for (const row of f.members || [f.leader, f.laggard]) {
-        const re = new RegExp(`\\b${row.t}\\b\\s*(?:은|는|이|가|は|が|:)?\\s*(?:(up|down|rose|fell|gained|lost)\\s+)?([+−-]?\\d+(?:\\.\\d+)?)\\s*[%％](?!\\s*(?:p\\b|points?\\b|포인트|ポイント))\\s*(상승|하락|上昇|下落)?`, 'gi');
+        const re = new RegExp(`(?<![’'\\w])${row.t}\\b\\s*(?:은|는|이|가|は|が|:)?\\s*(?:(up|down|rose|fell|gained|lost)\\s+)?([+−-]?\\d+(?:\\.\\d+)?)\\s*[%％](?!\\s*(?:p\\b|points?\\b|포인트|ポイント))\\s*(상승|하락|上昇|下落)?`, 'gi');
         for (const hit of text.matchAll(re)) {
+            // 티커는 대소문자까지 같아야 한다(관문 10241806: 소유격 «CRWD's»의 s 를 티커 S 로 오인).
+            if (!hit[0].startsWith(row.t)) continue;
             const raw = Number(hit[2].replace('−', '-'));
             const direction = hit[1] || hit[3] || '';
             const negative = /down|fell|lost|하락|下落/i.test(direction);

@@ -159,6 +159,10 @@ test('gate regression 10240727: «여부·엇갈림» breadth and next-session w
     assert.deepEqual(contract.checkSectorBriefLegacy(text, locale, f), [], text);
     assert.deepEqual(reasons(text, locale, f), [], text);
   }
+  // 관문 10241806: 소유격 's·’s 는 티커 S 가 아니다.
+  const cyber = { ...fact, id: 'cyber_shield', members: [{ t: 'CRWD', c: 3 }, { t: 'NET', c: 0.5 }, { t: 'S', c: -1 }], leader: { t: 'CRWD', c: 3 }, laggard: { t: 'S', c: -1 }, spreadPct: 4 };
+  for (const text of ["Cash: CRWD's 3% rise stands apart as peers remain mixed", 'Cash: CRWD’s 3% rise stands apart as peers remain mixed']) assert.ok(!reasons(text, 'en', cyber).some(r => r.startsWith('stock-number')), text);
+  assert.ok(reasons('Cash: S +3% while CRWD leads', 'en', cyber).includes('stock-number:S'), '진짜 S 부호 오류는 계속 잡음');
   // 명백한 전체 상승 단정은 계속 거른다.
   for (const text of ['정규장 전 종목 상승, 섹터 전반의 동반 강세 확인', '정규장 전 종목 일제히 상승 확인']) assert.ok(!reasons(text, 'ko').includes('breadth-contradiction'), text);
 });
