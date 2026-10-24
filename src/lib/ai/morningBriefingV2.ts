@@ -325,18 +325,24 @@ export function citeTokens(body: string, f: MorningFacts): string {
 }
 
 /** 모델 원문(조립 전)의 규칙 — 보도 시각은 토큰으로만(마지막 NEXT 문장의 일정 시각은 NEXT_TEST 를 옮긴 것이라 제외) */
-export function rawBodyReasons(body: string): string[] {
+export function rawBodyReasons(body: string, f?: MorningFacts): string[] {
     const sentences = splitSentences(String(body || ''));
-    const middle = sentences.slice(0, Math.max(0, sentences.length - 1)).join(' ');
+    // 일정 있는 날만 마지막 문장(모델이 쓰는 NEXT — 시각은 NEXT_TEST 를 옮긴 것, 일정 검사가 따로 본다)을 뺀다. 일정 없는 날은 NEXT 를 코드가 쓰므로 모델 글 전부를 본다(관문 10250329 ①)
+    const eventDay = !f || nextTestFor(f).kind === 'event';
+    const middle = (eventDay ? sentences.slice(0, Math.max(0, sentences.length - 1)) : sentences).join(' ');
     return /(?<![\d.])\d{1,2}:\d{2}(?!\d)/.test(middle) ? ['mb:raw-citation-time'] : [];
 }
 
 /** «M/D(요일)» · «M/D (Day)» 의 요일이 그 날짜(asOf 연도)와 맞나 — 토요일 기사를 «10/24(Fri)» 로 쓰던 것 */
 export function weekdayLabelReasons(text: string, f: MorningFacts): string[] {
-    const year = Number(String(f.asOf).slice(0, 4)) || new Date().getUTCFullYear();
+    const year0 = Number(String(f.asOf).slice(0, 4)) || new Date().getUTCFullYear();
+    const month0 = Number(String(f.asOf).slice(5, 7)) || 6;
     const W = { ko: ['일', '월', '화', '수', '목', '금', '토'], en: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'], ja: ['日', '月', '火', '水', '木', '金', '土'] };
     for (const m of String(text).matchAll(/(?<![\d.:/$])(\d{1,2})\/(\d{1,2})\s?\(\s*(일|월|화|수|목|금|토|Sun|Mon|Tue|Wed|Thu|Fri|Sat|日|月|火|水|木|金|土)[a-z]*\.?\s*\)/gi)) {
-        const day = new Date(Date.UTC(year, Number(m[1]) - 1, Number(m[2]))).getUTCDay();
+        // 연초에 지난해 12월(또는 연말에 내년 1월)을 가리키면 그 해로(관문 10250329 ②)
+        const mo = Number(m[1]);
+        const year = mo - month0 > 6 ? year0 - 1 : month0 - mo > 6 ? year0 + 1 : year0;
+        const day = new Date(Date.UTC(year, mo - 1, Number(m[2]))).getUTCDay();
         const w = m[3].toLowerCase();
         if (![W.ko[day], W.en[day], W.ja[day]].includes(w)) return ['mb:weekday'];
     }

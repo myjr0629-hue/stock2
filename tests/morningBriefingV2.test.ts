@@ -218,6 +218,11 @@ test('보도 인용은 토큰 [Nk] → 코드가 그 보도의 시각으로 · �
     assert.deepEqual(rawBodyReasons('A 08:03 ET report said X. The next test is at 10/26 (Mon) 10:00 ET.'), ['mb:raw-citation-time']);
     assert.deepEqual(rawBodyReasons('A [N1] report said X. The next test is at 10/26 (Mon) 10:00 ET.'), []);
     assert.deepEqual(weekdayLabelReasons('a 10/24 (Fri) report', facts), ['mb:weekday']);
+    assert.deepEqual(weekdayLabelReasons('12/31(목) 정규장', { ...facts, asOf: '2027-01-01T13:00:00.000Z' }), [], '연초의 지난해 12/31');
+    // 일정 없는 날은 마지막 문장까지 본다(코드가 NEXT 를 덧붙이므로)
+    const noEv = { ...facts, events: [] };
+    assert.deepEqual(rawBodyReasons('Rates rose. A 10/24 10:51 ET report said X.', noEv), ['mb:raw-citation-time']);
+    assert.deepEqual(rawBodyReasons('Rates rose. The next test is at 10/26 (Mon) 10:00 ET.', facts), []);
     assert.deepEqual(weekdayLabelReasons('a 10/24 (Sat) report · 10/23(금)', facts), []);
 });
 

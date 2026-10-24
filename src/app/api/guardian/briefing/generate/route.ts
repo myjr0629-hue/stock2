@@ -361,7 +361,7 @@ function prepareBriefingJson(text: string, facts?: MorningFacts | null): { json:
         const rawReasons: string[] = [];
         for (const k of ['ko', 'en', 'ja'] as const) {
             const t = typeof b?.[k] === 'string' ? restoreCommonTermNames(b[k]).text : '';
-            if (facts && t) rawReasons.push(...rawBodyReasons(t).map(r => `${k}:${r}`));
+            if (facts && t) rawReasons.push(...rawBodyReasons(t, facts).map(r => `${k}:${r}`));
             out[k] = facts && t ? composeMorningText(t, facts, k) : t;
         }
         return { json: JSON.stringify(out), briefing: out, rawReasons };
