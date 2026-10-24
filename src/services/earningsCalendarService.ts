@@ -46,6 +46,13 @@ const TTL = 60 * 60 * 6;          // 6h — 발표일은 자주 안 바뀐다
  */
 export const EARNINGS_CALENDAR_FAIL_KEY = `${EARNINGS_CALENDAR_CACHE_KEY}:fail`;
 const FAIL_TTL = 90;
+/**
+ * Last complete calendar, kept beyond the 6-hour success key. Read only when a rebuild
+ * fails (budget denial, 429/402, timeout, partial windows) so an outage serves the
+ * previous complete calendar instead of nothing. Never written from a failure.
+ */
+export const EARNINGS_CALENDAR_LAST_GOOD_KEY = `${EARNINGS_CALENDAR_CACHE_KEY}:last-good`;
+const LAST_GOOD_TTL = 60 * 60 * 48;
 /** 인스턴스 메모 — 이 안에선 Redis 도 묻지 않는다 */
 const MEMO_FRESH_MS = 60_000;
 
@@ -117,7 +124,7 @@ export interface EarningsCalendarPayload {
 }
 
 export type EarningsCalendarResult =
-  | { ok: true; payload: EarningsCalendarPayload; cache: 'memo' | 'hit' | 'miss' }
+  | { ok: true; payload: EarningsCalendarPayload; cache: 'memo' | 'hit' | 'miss' | 'stale' }
   | { ok: false; reason: string; probe?: Record<string, string>; failedAt?: string; cache: 'fail-hit' | 'miss' };
 
 let memo: { at: number; payload: EarningsCalendarPayload } | null = null;
@@ -144,7 +151,23 @@ function youngerThanTtl(p: EarningsCalendarPayload | null | undefined, nowMs: nu
  *   ⚠️ 밖으로는 getMarketEarningsCalendar(회사 공지를 입힌 출구)만 쓴다 — 이 함수는 캐시 층이다.
  */
 async function getRawMarketEarningsCalendar(opts: { fresh?: boolean } = {}): Promise<EarningsCalendarResult> {
-  if (!opts.fresh) {
+  if (opts.fresh) return buildOnce();
+  const r = await readOrBuild();
+  if (r.ok) return r;
+  // Failure (fail key, fail memo or a failed build) → last complete calendar if any.
+  const last = await getFromCache<EarningsCalendarPayload>(EARNINGS_CALENDAR_LAST_GOOD_KEY).catch(() => null);
+  if (last && Array.isArray(last.rows) && last.rows.length && last.ok === true) return { ok: true, payload: last, cache: 'stale' };
+  if (memo?.payload?.rows?.length) return { ok: true, payload: memo.payload, cache: 'stale' };
+  return r;
+}
+
+function buildOnce(): Promise<EarningsCalendarResult> {
+  if (!building) building = buildMarketEarningsCalendar().finally(() => { building = null; });
+  return building;
+}
+
+async function readOrBuild(): Promise<EarningsCalendarResult> {
+  {
     const now = Date.now();
     if (memo && now - memo.at >= 0 && now - memo.at < MEMO_FRESH_MS) return { ok: true, payload: memo.payload, cache: 'memo' };
     const cached = await getFromCache<EarningsCalendarPayload>(EARNINGS_CALENDAR_CACHE_KEY);
@@ -163,8 +186,7 @@ async function getRawMarketEarningsCalendar(opts: { fresh?: boolean } = {}): Pro
       return { ok: false, reason: failMemo.reason, probe: failMemo.probe, failedAt: failMemo.failedAt, cache: 'fail-hit' };
     }
   }
-  if (!building) building = buildMarketEarningsCalendar().finally(() => { building = null; });
-  return building;
+  return buildOnce();
 }
 
 // ── 출구: 회사가 공지한 일정 덮기 (lib/earningsConfirmed.ts) ─────────────────────────────────
@@ -252,7 +274,9 @@ async function buildMarketEarningsCalendar(): Promise<EarningsCalendarResult> {
       windows.push([addDaysYmd(today, off), addDaysYmd(today, Math.min(off + CHUNK_DAYS - 1, HORIZON_DAYS))]);
     }
 
-    let budgetDenied = false;
+    // Any failed window (budget denial, 429/402, timeout, malformed body) means the
+    // calendar is incomplete. It is never published as a six-hour success.
+    let windowFailed = false;
     const probe: Record<string, string> = {};
     const truncated: string[] = [];               // 상한에 닿은 창 — 있으면 더 쪼개야 한다는 신호
     const CAP = 4000;
@@ -260,14 +284,13 @@ async function buildMarketEarningsCalendar(): Promise<EarningsCalendarResult> {
       const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${f}&to=${t2}&apikey=${key}`;
       try {
         const r = await fmpFetch(url, 'earnings', { timeoutMs: 15000 });
-        if (!r) budgetDenied = true;
-        if (!r?.ok) { probe[f] = r ? `http-${r.status}` : 'budget-unavailable'; return []; }
+        if (!r?.ok) { windowFailed = true; probe[f] = r ? `http-${r.status}` : 'budget-unavailable'; return []; }
         const j = await r.json();
-        if (!Array.isArray(j)) { probe[f] = `shape-${typeof j}`; return []; }
+        if (!Array.isArray(j)) { windowFailed = true; probe[f] = `shape-${typeof j}`; return []; }
         probe[f] = `ok-${j.length}`;
         if (j.length >= CAP) truncated.push(`${f}~${t2}`);
         return j;
-      } catch (e: any) { probe[f] = 'fetch-error'; return []; }
+      } catch (e: any) { windowFailed = true; probe[f] = 'fetch-error'; return []; }
     }));
     // ★ 상한에 닿은 창은 «반으로 쪼개 다시» 부른다.
     //   실측: 14일로 나눠도 성수기(11/01~11/14)는 4,000 에 닿았다 — Q3 실적이 몰리는 2주다.
@@ -285,22 +308,22 @@ async function buildMarketEarningsCalendar(): Promise<EarningsCalendarResult> {
         const url = `https://financialmodelingprep.com/stable/earnings-calendar?from=${f}&to=${t2}&apikey=${key}`;
         try {
           const r = await fmpFetch(url, 'earnings', { timeoutMs: 15000 });
-          if (!r) budgetDenied = true;
-          if (!r?.ok) { probe[`${f}*`] = r ? `http-${r.status}` : 'budget-unavailable'; return []; }
+          if (!r?.ok) { windowFailed = true; probe[`${f}*`] = r ? `http-${r.status}` : 'budget-unavailable'; return []; }
           const j = await r.json();
-          if (!Array.isArray(j)) return [];
+          if (!Array.isArray(j)) { windowFailed = true; probe[`${f}*`] = `shape-${typeof j}`; return []; }
           probe[`${f}*`] = `ok-${j.length}`;
           if (j.length >= CAP) truncated.push(`${f}~${t2} (재분할 후에도 상한)`);
           return j;
-        } catch (e: any) { probe[`${f}*`] = 'fetch-error'; return []; }
+        } catch (e: any) { windowFailed = true; probe[`${f}*`] = 'fetch-error'; return []; }
       }));
       extra.push(...got);
       // 잘렸던 원본 창은 «다시 받은 반쪽들»로 대체된다 — 목록에서 뺀다
       for (const w of [...truncated]) if (!w.includes('재분할')) truncated.splice(truncated.indexOf(w), 1);
     }
 
-    // A quota denial must not publish a partial calendar as a six-hour success.
-    if (budgetDenied) return rememberFailure('fmp-empty', probe);
+    // A failed window must not publish a partial calendar as a six-hour success;
+    // the caller keeps serving the last complete calendar (LAST_GOOD_KEY).
+    if (windowFailed) return rememberFailure('fmp-empty', probe);
     const raw: any[] = [...chunks.flat(), ...extra.flat()];
     const usedUrl = 'stable';
     if (!raw.length) return rememberFailure('fmp-empty', probe);
@@ -389,6 +412,7 @@ async function buildMarketEarningsCalendar(): Promise<EarningsCalendarResult> {
     // ⚠️ 캐시에는 «브리프 없는» 원본을 넣는다(라우트가 응답 직전에만 얹는다).
     //   기다린다 — 서버리스는 응답 뒤 쓰기를 끝내지 못할 수 있고(20KB), 못 쓰면 다음 요청이 FMP 를 다시 친다.
     await setInCache(EARNINGS_CALENDAR_CACHE_KEY, payload, TTL).catch(() => false);
+    await setInCache(EARNINGS_CALENDAR_LAST_GOOD_KEY, payload, LAST_GOOD_TTL).catch(() => false);
     memo = { at: Date.now(), payload };
     failMemo = null;
     return { ok: true, payload, cache: 'miss' };

@@ -1,4 +1,5 @@
 import { fmpFetch } from '@/lib/fmpClient';
+import { isFmpErrorBody } from '@/lib/fmp/errorBody';
 /**
  * 애널리스트 «변화 이벤트» — 등급 상하향 + 목표가 리비전 추세.
  *
@@ -102,7 +103,9 @@ async function fmp(path: string, timeoutMs = 8000): Promise<any> {
         const res = await fmpFetch(`${FMP_BASE}/${path}${sep}apikey=${FMP_KEY}`, 'analyst', { timeoutMs });
         if (!res?.ok) throw new Error('ANALYST_EVENTS_UNAVAILABLE');
         const data = await res.json();
-        if (!Array.isArray(data)) throw new Error('ANALYST_EVENTS_UNAVAILABLE');
+        // Error-shaped bodies are failures; any other shape keeps the pre-existing
+        // «not a list → no rows» handling below (e.g. a ticker without coverage).
+        if (isFmpErrorBody(data)) throw new Error('ANALYST_EVENTS_UNAVAILABLE');
         return data;
     } catch {
         // swrFetch retains the last successful value on rejection and never

@@ -1,7 +1,7 @@
 // One Redis authority for Lambda and web workers. Never log requests or provider bodies.
 const PREFIX = 'fmp:account:v1';
 const CALLERS = new Set(['lambda', 'vwap', 'analyst', 'earnings', 'news']);
-const RESERVE = `-- fmp-reserve-v1
+const RESERVE = `-- fmp-reserve-v2
 local t = redis.call('TIME')
 local now = tonumber(t[1])*1000 + math.floor(tonumber(t[2])/1000)
 local blocked = tonumber(redis.call('GET', KEYS[3]) or '0')
@@ -11,9 +11,11 @@ local old = tonumber(redis.call('GET', KEYS[5]) or cap)
 cap = math.min(cap, old)
 redis.call('SET', KEYS[5], cap, 'PX', 120000)
 local reserved = math.min(30, cap)
-for i=1,2 do redis.call('ZREMRANGEBYSCORE', KEYS[i], '-inf', now-60000) end
+local lambdaCap = math.floor(cap*3/10)
+for _,i in ipairs({1,2,6}) do redis.call('ZREMRANGEBYSCORE', KEYS[i], '-inf', now-60000) end
 if redis.call('ZCARD', KEYS[1]) >= cap then return {0, 1000} end
 if ARGV[1] ~= 'vwap' and redis.call('ZCARD', KEYS[2]) >= cap-reserved then return {0, 1000} end
+if ARGV[1] == 'lambda' and redis.call('ZCARD', KEYS[6]) >= lambdaCap then return {0, 1000} end
 local id = redis.call('INCR', KEYS[4])
 redis.call('PEXPIRE', KEYS[4], 120000)
 redis.call('ZADD', KEYS[1], now, id)
@@ -21,6 +23,10 @@ redis.call('PEXPIRE', KEYS[1], 120000)
 if ARGV[1] ~= 'vwap' then
  redis.call('ZADD', KEYS[2], now, id)
  redis.call('PEXPIRE', KEYS[2], 120000)
+end
+if ARGV[1] == 'lambda' then
+ redis.call('ZADD', KEYS[6], now, id)
+ redis.call('PEXPIRE', KEYS[6], 120000)
 end
 return {1, 0}`;
 const BACKOFF = `-- fmp-backoff-v1
@@ -81,7 +87,9 @@ function createGuard({ command, accountRpm = 300, now = Date.now }) {
     async reserve(caller) {
       if (!CALLERS.has(caller)) throw new Error('FMP_CALLER_INVALID');
       try {
-        const r = await command(['EVAL', RESERVE, 5, `${PREFIX}:all`, `${PREFIX}:other`, `${PREFIX}:backoff`, `${PREFIX}:seq`, `${PREFIX}:cap`, caller, cap]);
+        // The batch collector is held to 30% of the shared ceiling so web readers
+        // (analyst/earnings/news) always keep budget while it runs.
+        const r = await command(['EVAL', RESERVE, 6, `${PREFIX}:all`, `${PREFIX}:other`, `${PREFIX}:backoff`, `${PREFIX}:seq`, `${PREFIX}:cap`, `${PREFIX}:lambda`, caller, cap]);
         if (!Array.isArray(r)) throw new Error();
         return { allowed: Number(r[0]) === 1, retryMs: Math.max(1000, Number(r[1]) || 0) };
       } catch { return { allowed: false, retryMs: 2000 }; }

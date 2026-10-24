@@ -28,6 +28,7 @@ const {
   UpdateFunctionCodeCommand,
   UpdateFunctionConfigurationCommand,
   GetFunctionCommand,
+  GetFunctionConfigurationCommand,
   AddPermissionCommand,
 } = require('@aws-sdk/client-lambda');
 const {
@@ -39,17 +40,15 @@ const {
 const REGION = 'us-east-1';
 const FUNCTION_NAME = 'signum-fmp';
 const RULE_NAME = 'signum-fmp-daily';
-const FMP_API_KEY = process.env.FMP_API_KEY || '';
-
-if (!FMP_API_KEY) {
-  console.error('ERROR: FMP_API_KEY not set in .env.local');
-  process.exit(1);
-}
-
-if (!(process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) ||
-    !(process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN)) {
-  throw new Error('Shared FMP Redis authority is required');
-}
+// Values come from the shell/.env.local when present, otherwise the deployed
+// function keeps its own. Existing Environment keys are never dropped (a full
+// replacement once erased a live key on another Lambda). Values are never printed.
+const LOCAL_ENV = {
+  FMP_API_KEY: process.env.FMP_API_KEY || '',
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '',
+  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '',
+  FMP_ACCOUNT_RPM: process.env.FMP_ACCOUNT_RPM || '',
+};
 
 // Load universe (same source as signum-harvest)
 const universeFile = path.join(__dirname, '..', 'data', 'stock_universe_us800.json');
@@ -65,7 +64,11 @@ execSync('npm install --production', { cwd: lambdaDir, stdio: 'pipe' });
 
 const zipPath = path.join(__dirname, 'lambda-fmp.zip');
 if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+if (process.platform === 'win32') {
+  execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+} else {
+  execSync(`cd "${lambdaDir}" && /usr/bin/zip -q -r "${zipPath}" . -x "*.DS_Store" "*.zip"`, { stdio: 'pipe' });
+}
 const zipSize = Math.round(fs.statSync(zipPath).size / 1024 / 1024 * 10) / 10;
 console.log('Zip:', zipSize + 'MB');
 
@@ -94,28 +97,46 @@ async function deploy() {
     process.exit(1);
   }
 
-  const envVars = {
-    NODE_ENV: 'production',
-    FMP_API_KEY: FMP_API_KEY,
-    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '',
-    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '',
-    FMP_ACCOUNT_RPM: process.env.FMP_ACCOUNT_RPM || '300',
+  const existingEnv = functionExists
+    ? ((await lambda.send(new GetFunctionConfigurationCommand({ FunctionName: FUNCTION_NAME }))).Environment?.Variables || {})
+    : {};
+  const envVars = { ...existingEnv, NODE_ENV: 'production' };
+  for (const [name, value] of Object.entries(LOCAL_ENV)) if (value) envVars[name] = value;
+  if (!envVars.FMP_ACCOUNT_RPM) envVars.FMP_ACCOUNT_RPM = '300';
+  for (const name of ['FMP_API_KEY', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN']) {
+    if (!envVars[name]) throw new Error(`Missing ${name}: the collector fails closed without the shared FMP Redis authority`);
+  }
+  const dropped = Object.keys(existingEnv).filter(k => !(k in envVars));
+  if (dropped.length) throw new Error('Refusing to drop existing Lambda environment keys');
+  console.log('Environment keys:', Object.keys(envVars).sort().join(','));
+  const settle = async () => {
+    for (let i = 0; i < 60; i++) {
+      const c = await lambda.send(new GetFunctionConfigurationCommand({ FunctionName: FUNCTION_NAME }));
+      if (c.LastUpdateStatus !== 'InProgress') {
+        if (c.LastUpdateStatus === 'Failed') throw new Error('Lambda update failed');
+        return c;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    throw new Error('Lambda update did not settle');
   };
 
   if (functionExists) {
-    await lambda.send(new UpdateFunctionCodeCommand({
-      FunctionName: FUNCTION_NAME,
-      ZipFile: zipBuffer,
-    }));
-    console.log('Lambda code updated');
-    await new Promise(r => setTimeout(r, 5000));
+    // Environment first, so the new code never starts without the shared guard.
     await lambda.send(new UpdateFunctionConfigurationCommand({
       FunctionName: FUNCTION_NAME,
       Timeout: 900,      // 15 minutes
       MemorySize: 512,    // 512MB (lightweight — no Polygon/GEX)
       Environment: { Variables: envVars },
     }));
+    await settle();
     console.log('Lambda config updated (900s, 512MB)');
+    await lambda.send(new UpdateFunctionCodeCommand({
+      FunctionName: FUNCTION_NAME,
+      ZipFile: zipBuffer,
+    }));
+    const after = await settle();
+    console.log('Lambda code updated', after.LastModified, after.CodeSha256);
   } else {
     await lambda.send(new CreateFunctionCommand({
       FunctionName: FUNCTION_NAME,

@@ -18,6 +18,7 @@ function redisClock(start = 0) {
       if (until > now) return [0, until-now];
       const window = admitted.filter(x => x.at > now-60000);
       if (window.length >= cap || (caller !== 'vwap' && window.filter(x => x.caller !== 'vwap').length >= cap-Math.min(30,cap))) return [0,1000];
+      if (caller === 'lambda' && window.filter(x => x.caller === 'lambda').length >= Math.floor(cap*3/10)) return [0,1000];
       admitted.push({ at: now, caller }); return [1,0];
     }
     if (cmd[0] === 'EVAL' && cmd[1] === core.BACKOFF) { until = Math.max(until, now+Number(cmd.at(-2)), Number(cmd.at(-1))); return until; }
@@ -165,22 +166,27 @@ test('account-wide 402 retains ticker partial work and resumes the same endpoint
   denied = false; assert.equal((await run()).complete, true); assert.equal(paths[0], paths[1]);
 });
 
-function analystRoute(fetcher, now) {
-  const cache = new Map(), writes = [];
-  const clock = { Date: class extends Date { static now() { return now(); } } };
-  const api = { fmpFetch: fetcher };
-  const { swrFetch } = loadTS('src/lib/cache/redisSWR.ts', {
+const errorBody = loadTS('src/lib/fmp/errorBody.ts', {});
+function swrWith(cache, writes, clock) {
+  return loadTS('src/lib/cache/redisSWR.ts', {
     '@/services/redisClient': {
       getFromCache: async k => cache.get(k) ?? null,
       setInCache: async (k, v, ttl) => { cache.set(k, v); writes.push({ k, v, ttl }); },
     },
   }, clock);
-  const events = loadTS('src/services/analystEvents.ts', { '@/lib/fmpClient': api }, clock);
+}
+function analystRoute(fetcher, now, { seedConsensus = true } = {}) {
+  const cache = new Map(), writes = [];
+  const clock = { Date: class extends Date { static now() { return now(); } } };
+  const api = { fmpFetch: fetcher };
+  const swr = swrWith(cache, writes, clock);
+  const events = loadTS('src/services/analystEvents.ts', { '@/lib/fmpClient': api, '@/lib/fmp/errorBody': errorBody }, clock);
   const route = loadTS('src/app/api/live/analyst/route.ts', {
-    '@/lib/fmpClient': api, '@/lib/cache/redisSWR': { swrFetch }, '@/services/analystEvents': events,
+    '@/lib/fmpClient': api, '@/lib/fmp/errorBody': errorBody, '@/lib/cache/redisSWR': swr, '@/services/analystEvents': events,
+    '@/lib/aws/unifiedCacheProvider': { getUnifiedCache: async () => null },
     'next/server': { NextResponse: { json: body => body } },
-  }, clock);
-  cache.set('swr:analyst:IBM', { data: { ticker: 'IBM', totalAnalysts: 4 }, timestamp: now() });
+  }, { ...clock, console: { log() {}, warn() {}, error() {} } });
+  if (seedConsensus) cache.set('swr:analyst:IBM', { data: { ticker: 'IBM', totalAnalysts: 4 }, timestamp: now() });
   return { cache, writes, get: () => route.GET({ nextUrl: { searchParams: new URLSearchParams('t=IBM') } }) };
 }
 
@@ -372,7 +378,7 @@ test('real handler writes the same consensus/earnings arithmetic; daily completi
     else records.push(i.Item);
     return {};
   }};
-  const handler=createHandler({client,command:r.command,now:r.now,universe:['IBM'],request:async path=>{
+  const handler=createHandler({client,command:r.command,now:r.now,universe:['IBM'],sleep:async ms=>r.advance(ms),request:async path=>{
     calls++;
     if(path.startsWith('earnings-calendar')) return Response.json([{symbol:'IBM',date:'2026-10-28',epsEstimated:2}]);
     if(path.startsWith('grades-consensus')) return Response.json([{strongBuy:3,buy:4,hold:2,sell:1,strongSell:0,consensus:'BUY'}]);
@@ -425,7 +431,7 @@ test('real VWAP service respects another worker cooldown and exposes only the 40
       '@/lib/intrinioMeter':{upstashMeterStore:{setNxEx:async()=>true}},
       '@/lib/intrinioBackground':{bgStore:{getStore:()=>undefined}},
       './redisClient':{getFromCache:async k=>cache.get(k)??null,setInCache:async(k,v)=>{cache.set(k,v);return true;}},
-    },{Date:class extends Date{static now(){return r.now();}}});
+    },{Date:class extends Date{static now(){return r.now();}},process:{env:{FMP_API_KEY:'offline',ENABLE_FMP_SESSION_VWAP:'1'}}});
   };
   await guardAt(r).observe(new Response('',{status:429,headers:{'Retry-After':'120'}}),'lambda');
   const blocked=service();
@@ -438,4 +444,147 @@ test('real VWAP service respects another worker cooldown and exposes only the 40
   const d=await available.readRealtimeSessionVwapDiagnostics('IBM','2026-10-23',r.now());
   assert.equal(d.observation.httpStatus,402); assert.equal(d.observation.reason,'plan_restricted');
   assert.ok(!JSON.stringify(d).includes('private-body-marker'));
+});
+
+// ── r3: every budget path keeps the last good value (gate 10240448) ────────────
+const consensusRow = [{ strongBuy: 3, buy: 4, hold: 2, sell: 1, strongSell: 0, consensus: 'BUY' }];
+for (const mode of ['denied', '429', '402', 'timeout', 'unreadable', 'error-body']) test(`analyst target ${mode} keeps the previous 250 target; recovery refreshes it`, async () => {
+  let now = Date.parse('2026-10-26T15:00:00Z'), broken = true, calls = 0;
+  const route = analystRoute(async url => {
+    calls++;
+    if (url.includes('/analyst-events') || !/grades-consensus|price-target-consensus/.test(url)) return Response.json([]);
+    if (url.includes('grades-consensus')) return Response.json(consensusRow);
+    if (!broken) return Response.json([{ targetHigh: 300, targetLow: 200, targetConsensus: 260 }]);
+    if (mode === 'denied') return null;
+    if (mode === 'timeout') throw Object.assign(Error('FMP_REQUEST_UNAVAILABLE'), { name: 'TimeoutError' });
+    if (mode === 'unreadable') return new Response('{');
+    if (mode === 'error-body') return Response.json({ 'Error Message': 'Limit Reach' });
+    return new Response('', { status: Number(mode) });
+  }, () => now, { seedConsensus: false });
+  const prior = { data: { ticker: 'IBM', consensus: 'BUY', totalAnalysts: 10, priceTarget: { targetHigh: 300, targetLow: 200, targetConsensus: 250 } }, timestamp: now - 3600000 - 1 };
+  route.cache.set('swr:analyst:IBM', prior);
+  const stale = await route.get();
+  assert.equal(stale.priceTarget.targetConsensus, 250);
+  assert.equal(route.cache.get('swr:analyst:IBM'), prior);
+  assert.equal(route.writes.filter(w => w.k === 'swr:analyst:IBM').length, 0);
+  broken = false;
+  const fresh = await route.get();
+  assert.equal(fresh.priceTarget.targetConsensus, 260);
+  assert.equal(route.cache.get('swr:analyst:IBM').data.priceTarget.targetConsensus, 260);
+});
+
+test('analyst cache miss with a failed target serves consensus once but writes nothing; real empty target is cacheable', async () => {
+  let deny = true;
+  const route = analystRoute(async url => {
+    if (url.includes('grades-consensus')) return Response.json(consensusRow);
+    if (url.includes('price-target-consensus')) return deny ? null : Response.json([]);
+    return Response.json([]);
+  }, Date.now, { seedConsensus: false });
+  const first = await route.get();
+  assert.equal(first.totalAnalysts, 10); assert.equal(first.priceTarget, null);
+  assert.equal(route.cache.has('swr:analyst:IBM'), false);
+  deny = false;
+  await route.get();
+  assert.equal(route.cache.get('swr:analyst:IBM').data.priceTarget, null); // Provider said «no target»: a real value.
+});
+
+test('analyst unreadable or error-shaped consensus is a failure: stale value kept, nothing written', async () => {
+  for (const body of [() => new Response('{'), () => Response.json({ 'Error Message': 'Limit Reach' })]) {
+    let now = Date.parse('2026-10-26T15:00:00Z');
+    const route = analystRoute(async url => (url.includes('grades-consensus') ? body() : Response.json([])), () => now, { seedConsensus: false });
+    const prior = { data: { ticker: 'IBM', consensus: 'BUY', totalAnalysts: 10, priceTarget: null }, timestamp: now - 3600000 - 1 };
+    route.cache.set('swr:analyst:IBM', prior);
+    assert.equal((await route.get()).totalAnalysts, 10);
+    assert.equal(route.cache.get('swr:analyst:IBM'), prior);
+  }
+});
+
+function earningsRoute(fmpFetch, now) {
+  const cache = new Map(), writes = [];
+  const clock = { Date: class extends Date { static now() { return now(); } } };
+  const swr = swrWith(cache, writes, clock);
+  const marketCalendar = loadTS('src/lib/marketCalendar.ts', {}, clock);
+  const earningsDate = loadTS('src/lib/earningsDate.ts', { './marketCalendar': marketCalendar, './earningsDateStatus': loadTS('src/lib/earningsDateStatus.ts', {}) }, clock);
+  const route = loadTS('src/app/api/live/earnings/route.ts', {
+    '@/lib/fmpClient': { fmpFetch }, '@/lib/fmp/errorBody': errorBody, '@/lib/cache/redisSWR': swr,
+    '@/services/finnhubClient': { getEarningsCalendar: async () => [{ symbol: 'IBM', date: '2026-10-28', hour: 'amc', epsEstimate: 2 }] },
+    '@/lib/marketCalendar': marketCalendar, '@/lib/earningsDate': earningsDate,
+    '@/services/earningsCalendarService': { earningsCalendarRowsFor: async () => ({ rows: [], status: 'hit' }) },
+    'next/server': { NextResponse: { json: body => body } },
+  }, { ...clock, URL, console: { log() {}, warn() {}, error() {} } });
+  return { cache, writes, get: () => route.GET({ url: 'https://offline.invalid/api/live/earnings?t=IBM' }) };
+}
+
+for (const mode of ['denied', '429', '402', 'timeout', 'unreadable', 'error-body']) test(`earnings forward ${mode} keeps the previous forward EPS 8; recovery refreshes it`, async () => {
+  let now = Date.parse('2026-10-26T15:00:00Z'), broken = true;
+  const route = earningsRoute(async () => {
+    if (!broken) return Response.json([{ date: '2027-12-31', epsAvg: 9, revenueAvg: 200000000 }]);
+    if (mode === 'denied') return null;
+    if (mode === 'timeout') throw Object.assign(Error('FMP_REQUEST_UNAVAILABLE'), { name: 'TimeoutError' });
+    if (mode === 'unreadable') return new Response('{');
+    if (mode === 'error-body') return Response.json({ 'Error Message': 'Limit Reach' });
+    return new Response('', { status: Number(mode) });
+  }, () => now);
+  const prior = { data: { ticker: 'IBM', forwardEps: 8, forwardRevenue: 190000000, forwardYear: '2027', events: [{ date: '2026-10-28', hour: 'amc' }] }, timestamp: now - 3600000 - 1 };
+  route.cache.set('swr:earnings:IBM', prior);
+  const stale = await route.get();
+  assert.equal(stale.forwardEps, 8); assert.equal(stale.forwardRevenue, 190000000); assert.equal(stale.forwardYear, '2027');
+  assert.equal(route.cache.get('swr:earnings:IBM'), prior); assert.equal(route.writes.length, 0);
+  broken = false;
+  const fresh = await route.get();
+  assert.equal(fresh.forwardEps, 9); assert.equal(route.cache.get('swr:earnings:IBM').data.forwardEps, 9);
+});
+
+test('earnings cache miss with denied forward serves Finnhub date once and writes nothing', async () => {
+  const route = earningsRoute(async () => null, () => Date.parse('2026-10-26T15:00:00Z'));
+  const r = await route.get();
+  assert.equal(r.nextEarningsDate, '2026-10-28'); assert.equal(r.forwardEps, null);
+  assert.equal(route.cache.size, 0);
+});
+
+test('lambda lane: collector capped at 30/min while web readers keep budget; total stays <=100', async () => {
+  const r = redisClock(Date.parse('2026-10-26T10:15:00-04:00'));
+  const g = guardAt(r);
+  let lambda = 0, web = 0;
+  for (let sec = 0; sec < 600; sec++) {
+    for (let k = 0; k < 5; k++) if ((await g.reserve('lambda')).allowed) lambda++;
+    if (sec % 3 !== 2 && (await g.reserve(sec % 2 ? 'news' : 'analyst')).allowed) web++;
+    r.advance(1000);
+  }
+  assert.ok(lambda <= 30 * 10 + 30, `lambda ${lambda}`);
+  assert.equal(web, 400); // 40 web requests/min (the non-VWAP share left beside a saturated collector) are never starved.
+  for (const call of r.admitted) {
+    const win = r.admitted.filter(x => x.at > call.at - 60000 && x.at <= call.at);
+    assert.ok(win.length <= 100); assert.ok(win.filter(x => x.caller === 'lambda').length <= 30);
+  }
+  assert.ok(core.RESERVE.includes("ARGV[1] == 'lambda'") && core.RESERVE.includes('KEYS[6]'));
+});
+
+test('runner paces provider requests >= 2 s apart and a slice stays under 900 s', async () => {
+  const r = redisClock(Date.parse('2026-10-26T10:15:00-04:00')), starts = [];
+  const state = stateOf(); state.calendarOffset = 180;
+  const result = await runSlice({ state, universe: Array.from({ length: 400 }, (_, i) => 'T' + i), date: '2026-10-26', now: r.now,
+    remainingMs: () => 900000, sleep: async ms => r.advance(ms), guard: guardAt(r),
+    request: async () => { starts.push(r.now()); r.advance(100); return Response.json([]); },
+    checkpoint: async () => {}, save: async () => {},
+  });
+  for (let i = 1; i < starts.length; i++) assert.ok(starts[i] - starts[i - 1] >= 2000);
+  assert.ok(result.durationMs < 900000); assert.equal(result.reason, 'deadline');
+  assert.ok(starts.length >= 380 && starts.length <= 391, String(starts.length));
+});
+
+test('transport decodes UTF-8 split across chunks (no U+FFFD)', async () => {
+  const transport = { get(_url, _opts, onResponse) {
+    const req = new EventEmitter(); req.destroy = () => {};
+    setImmediate(() => {
+      const res = new EventEmitter(); res.statusCode = 200; res.headers = {};
+      onResponse(res);
+      const bytes = Buffer.from(JSON.stringify([{ name: '한국 Société' }]));
+      const cut = bytes.indexOf(Buffer.from('국')) + 1;
+      res.emit('data', bytes.subarray(0, cut)); res.emit('data', bytes.subarray(cut)); res.emit('end');
+    });
+    return req;
+  } };
+  const out = await httpsGet('https://offline.invalid', 1000, transport);
+  assert.equal(JSON.parse(out.body)[0].name, '한국 Société');
 });

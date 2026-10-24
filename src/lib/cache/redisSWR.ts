@@ -12,6 +12,18 @@
 
 import { getFromCache, setInCache } from '@/services/redisClient';
 
+/**
+ * Results assembled while a provider part failed (budget denial, 429/402, timeout,
+ * malformed body). They may be served once when nothing better exists, but are
+ * never written, and a stale complete value always wins over them.
+ */
+const transientResults = new WeakSet<object>();
+export function markTransient<T extends object>(data: T): T {
+    transientResults.add(data);
+    return data;
+}
+const isTransient = (data: unknown) => typeof data === 'object' && data !== null && transientResults.has(data);
+
 interface SWROptions {
     /** Time in seconds the data is considered fresh */
     ttlSeconds: number;
@@ -50,6 +62,8 @@ export async function swrFetch<T>(
             // This is critical for Vercel serverless: detached promises get killed
             try {
                 const freshData = await fetcher();
+                // A degraded refresh never replaces the last complete value.
+                if (isTransient(freshData)) return { data: cached.data, _cache: 'hit', _ageMs: age };
                 // Save fresh data to Redis
                 await setInCache(cacheKey, { data: freshData, timestamp: Date.now() }, options.ttlSeconds * 2);
                 return { data: freshData, _cache: 'revalidated', _ageMs: 0 };
@@ -64,6 +78,7 @@ export async function swrFetch<T>(
 
     // 2. Cache miss — fetch fresh data
     const data = await fetcher();
+    if (isTransient(data)) return { data, _cache: 'miss' };
 
     // 3. Store in Redis
     try {

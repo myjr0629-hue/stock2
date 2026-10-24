@@ -1,7 +1,8 @@
 import { fmpFetch } from '@/lib/fmpClient';
+import { isFmpErrorBody } from '@/lib/fmp/errorBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { getEarningsCalendar, EarningsEvent } from '@/services/finnhubClient';
-import { swrFetch } from '@/lib/cache/redisSWR';
+import { swrFetch, markTransient } from '@/lib/cache/redisSWR';
 import { etDateOf } from '@/lib/marketCalendar';
 import { earningsCountdown, pickNextEarnings, ymdOf, type EarningsCandidate } from '@/lib/earningsDate';
 import { earningsCalendarRowsFor } from '@/services/earningsCalendarService';
@@ -64,10 +65,14 @@ export async function GET(req: NextRequest) {
                 );
                 
                 let forwardEps = null, forwardRevenue = null, forwardYear = null;
+                // Forward failure (denied/429/402/timeout/unreadable) ≠ «no estimate»: the
+                // result is transient — never written, a stale complete value wins (swrFetch).
+                let forwardFailed = !!fmpKeyToUse && (!forwardRes || !forwardRes.ok);
                 if (forwardRes && forwardRes.ok) {
                     try {
                         const forwardData = await forwardRes.json();
-                        if (Array.isArray(forwardData)) {
+                        if (isFmpErrorBody(forwardData)) forwardFailed = true;
+                        else if (Array.isArray(forwardData)) {
                             const currentYearStr = new Date().toISOString().slice(0, 4);
                             const nextYearData = [...forwardData].reverse().find((f: any) => f.date && f.date.slice(0, 4) > currentYearStr);
                             if (nextYearData && nextYearData.epsAvg !== undefined && nextYearData.revenueAvg) {
@@ -76,8 +81,9 @@ export async function GET(req: NextRequest) {
                                 forwardYear = nextYearData.date.slice(0, 4);
                             }
                         }
-                    } catch (e) {}
+                    } catch (e) { forwardFailed = true; }
                 }
+                const settle = <T extends object>(value: T): T => (forwardFailed ? markTransient(value) : value);
 
                 // Finnhub 행들 — 고르기는 응답 직전에(요청마다) 한다
                 const events: EarningsCandidate[] = earnings.map((e: EarningsEvent) => ({
@@ -87,14 +93,14 @@ export async function GET(req: NextRequest) {
                 }));
 
                 if (!earnings || earnings.length === 0) {
-                    return {
+                    return settle({
                         ticker: tickerUpper,
                         nextEarningsDate: null, daysUntilEarnings: null,
                         daysLabel: 'TBD', epsEstimate: null, quarter: null, year: null,
                         forwardEps, forwardRevenue, forwardYear,
                         color: 'text-slate-400', hasData: false, events,
                         debug: { latencyMs: Date.now() - startTime, eventsFound: 0, droppedForeign }
-                    };
+                    });
                 }
 
                 // 오늘(ET) 실적도 «다가오는» 실적이다 — 날짜 글자로 견준다(서버 시간대와 무관)
@@ -110,7 +116,7 @@ export async function GET(req: NextRequest) {
 
                 const hourCode = targetEarnings?.hour || '';
 
-                return {
+                return settle({
                     ticker: tickerUpper,
                     nextEarningsDate, daysUntilEarnings, daysLabel,
                     epsEstimate: targetEarnings?.epsEstimate || null,
@@ -120,7 +126,7 @@ export async function GET(req: NextRequest) {
                     forwardEps, forwardRevenue, forwardYear,
                     hourLabel: hourCode, color, hasData: true, events,
                     debug: { latencyMs: Date.now() - startTime, eventsFound: earnings.length }
-                };
+                });
             },
             { ttlSeconds: 3600, keyPrefix: 'swr' }
         );

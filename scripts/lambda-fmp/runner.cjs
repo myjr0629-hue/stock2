@@ -1,4 +1,5 @@
 const { createHash } = require('node:crypto');
+const MIN_REQUEST_INTERVAL_MS = 2000;
 function marketDate(ms) {
   const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ms);
   const v = Object.fromEntries(p.map(x => [x.type, x.value]));
@@ -15,7 +16,12 @@ async function runSlice({ state, universe, date, now, remainingMs, sleep, guard,
   const finish = reason => ({ complete: state.complete, cursor: state.cursor, total: universe.length, reason, durationMs: now()-start,
     failedTickers: Object.keys(state.failures || {}).length, failedCalendarWindows: (state.calendarFailures || []).length });
   const tickerSet = new Set(universe);
+  // Self-pacing at the lambda lane rate (30/min of the shared ceiling) so the
+  // collector does not spin on Redis while its lane is full.
+  let lastRequestAt = -Infinity;
   while (!state.complete && timeLeft()) {
+    const pace = lastRequestAt + MIN_REQUEST_INTERVAL_MS - now();
+    if (pace > 0) { await sleep(pace); if (!timeLeft()) break; }
     const permit = await guard.reserve('lambda');
     if (!permit.allowed) {
       // Account cooldown/store outages yield immediately; short budget contention can wait in this slice.
@@ -50,6 +56,7 @@ async function runSlice({ state, universe, date, now, remainingMs, sleep, guard,
     };
     let response, data;
     let failure;
+    lastRequestAt = now();
     try {
       response = await request(path);
       await guard.observe(response, 'lambda');
@@ -102,4 +109,4 @@ async function runSlice({ state, universe, date, now, remainingMs, sleep, guard,
   await checkpoint(state);
   return finish(state.complete ? 'complete' : 'deadline');
 }
-module.exports = { marketDate, runSlice };
+module.exports = { marketDate, runSlice, MIN_REQUEST_INTERVAL_MS };

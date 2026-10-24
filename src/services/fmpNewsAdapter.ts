@@ -1,4 +1,5 @@
 import { fmpFetch } from '@/lib/fmpClient';
+import { isFmpErrorBody } from '@/lib/fmp/errorBody';
 /**
  * FMP 뉴스 → Massive(/v2/reference/news) 응답 형태 어댑터
  *
@@ -114,7 +115,9 @@ async function fmpGet(path: string, timeoutMs = 12000): Promise<any> {
     const url = `${FMP_BASE}/${path.replace(/^\//, "")}${sep}apikey=${FMP_KEY}`;
     const res = await fmpFetch(url, 'news', { timeoutMs });
     if (!res?.ok) throw new Error('FMP_NEWS_UNAVAILABLE');
-    return await res.json();
+    const data = await res.json();
+    if (isFmpErrorBody(data)) throw new Error('FMP_NEWS_UNAVAILABLE');
+    return data;
 }
 
 /**
