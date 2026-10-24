@@ -116,6 +116,27 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     // 번역 안 된 보조 뉴스 항목은 뺀다
     const untr = { newsImpact: { items: [{ headline: { ko: 'Gold extends weekly losses as crude rises', en: 'Gold extends weekly losses as crude rises', ja: 'Gold extends weekly losses as crude rises' } }, { headline: { ko: '금 약세', en: 'Gold weak', ja: '金が軟調' } }] } };
     assert.deepEqual(C.dropUntranslatedNews(untr).newsImpact.items.map((x: any) => x.headline.en), ['Gold weak']);
+    // 관문 10241205 반례 4건
+    const mSign = brief(); mSign.structured.closingNarrative.indicators = tri('GEX는 +6,222만 달러, 금리 +4bp.', 'GEX was about -$62.2M; yields +4bp.', 'GEXは約-6,222万ドル、金利+4bp。');
+    assert.ok(closingReportProblems(mSign).includes('narrative:indicators:cross-lang-facts'), '금액 부호 반전은 탈락');
+    const adv = brief(); adv.structured.closingNarrative.whatHappened.ko = '반도체가 강했다. 지금 매수에 나서세요.';
+    C.alignSummary(adv.structured);
+    assert.equal(adv.structured.closingNarrative.whatHappened.ko, '반도체가 강했다. 지금 매수에 나서세요.', '권유 문장은 정규화하지 않는다');
+    assert.ok(closingReportProblems(adv).some(r => r.endsWith(':advice')));
+    const advTail = brief(); advTail.structured.closingNarrative.whatHappened.ko = '반도체 매수로 반등했다. 반도체 매수가 기회다.';
+    C.alignSummary(advTail.structured);
+    assert.equal(advTail.structured.closingNarrative.whatHappened.ko, '반도체 매수세로 반등했다. 반도체 매수가 기회다.');
+    const guide = brief(); guide.structured.closingNarrative.why.ko = '회사는 매출 전망 46.3억 달러를 유지했다. 전망 46.3을 웃돌았다.';
+    C.alignSummary(guide.structured);
+    assert.equal(guide.structured.closingNarrative.why.ko, '회사는 매출 전망 46.3억 달러를 유지했다. 시장 예상치 46.3을 웃돌았다.', '회사 가이던스·금액은 그대로');
+    const hidden = brief(); const hev = { ...hidden.reportEvidence, news: [...hidden.reportEvidence.news, { id: 'zz-8', source: 'Kitco', publishedEt: '2026-10-22 17:42 ET', timing: 'after_cash_close' }] };
+    hidden.reportEvidence = hev;
+    hidden.structured.closingNarrative.causeRefs = [...hidden.structured.closingNarrative.causeRefs, { newsId: 'zz-8', kind: 'reported_context' }];
+    hidden.structured.closingNarrative.why = tri(hidden.structured.closingNarrative.why.ko + ' Kitco 장후 보도가 상승을 이끌었다.', hidden.structured.closingNarrative.why.en + ' A Kitco report drove the rally.', hidden.structured.closingNarrative.why.ja + ' Kitcoの報道が上昇を主導した。');
+    C.alignSummary(hidden.structured, hev);
+    assert.ok(hidden.structured.closingNarrative.causeRefs.some((r: any) => r.newsId === 'zz-8'), '출처 이름이 본문에 있으면 참조를 지우지 않는다');
+    const hp = closingReportProblems(hidden);
+    assert.ok(hp.includes('narrative:after-close-cause') && hp.some(r => r.startsWith('narrative:news-time')), hp.join(','));
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');

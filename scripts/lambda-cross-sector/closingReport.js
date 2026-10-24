@@ -81,7 +81,10 @@ function factSet(text) {
     // 금액(«-$62.2M» / «-6,222만 달러» / «-6,222万ドル»)은 언어마다 단위가 달라 같은 숫자로 쓸 수 없다 — 집합 비교에서 빼고, 자릿수는 금액 검사(checkAmounts)가 본다.
     // (10/24 5차 운영 실측: GEX 금액 표기 차이로 정상 지표 문단이 cross-lang-facts 탈락, 고침 2회에도 같은 표기)
     const MONEY = /[+-]?\s?\$?\s?\d[\d,]*(?:\.\d+)?\s?(?:[MBKT]\b|million|billion|trillion|만|억|조|万|億|兆)\s?(?:달러|원|ドル|円|dollars?)?|[+-]?\s?\$\s?\d[\d,]*(?:\.\d+)?/gi;
-    const t = String(text || '').replace(/−/g, '-').replace(/(\d)\s*(?:basis points?|베이시스\s*포인트|ベーシスポイント)/gi, '$1bp').replace(MONEY, ' ');
+    // 금액의 «부호»는 남겨 언어 간에 비교한다(관문 10241205: 영어 -$62.2M · 한국어 +6,222만 달러가 통과했다)
+    const moneySigns = [];
+    const t = String(text || '').replace(/−/g, '-').replace(/(\d)\s*(?:basis points?|베이시스\s*포인트|ベーシスポイント)/gi, '$1bp')
+        .replace(MONEY, (m, off, all) => { const sg = /^\s*([+-])/.exec(m)?.[1]; if (sg && !/[A-Za-z0-9]$/.test(all.slice(0, off))) moneySigns.push(sg); return ' '; });
     const keys = new Set(), signs = new Map();
     for (const m of t.matchAll(/\b(\d{1,2}):(\d{2})\b/g)) keys.add(`${Number(m[1])}:${m[2]}`);
     for (const m of t.replace(/\b\d{1,2}:\d{2}\b/g, ' ').matchAll(/(^|[^\d.])([+-]?)(\d+(?:,\d{3})*(?:\.\d+)?)\s?(%|bp)?/g)) {
@@ -91,7 +94,15 @@ function factSet(text) {
         keys.add(key);
         if (m[2] && !(m[2] === '-' && /\d$/.test(m[1]))) signs.set(key, m[2]);
     }
-    return { key: [...keys].sort().join('|'), signs };
+    return { key: [...keys].sort().join('|'), signs, moneySigns: moneySigns.sort() };
+}
+
+/** 금액 부호 충돌 — 명시 부호 개수가 같으면 같은 부호 묶음이어야 하고, 다르면 한쪽이 +만·다른 쪽이 −만일 때 충돌 */
+function moneySignConflict(a, b) {
+    if (!a.length || !b.length) return false;
+    if (a.length === b.length) return a.join('') !== b.join('');
+    const only = (x, sg) => x.every(v => v === sg);
+    return (only(a, '+') && only(b, '-')) || (only(a, '-') && only(b, '+'));
 }
 
 function narrativeProblems(s) {
@@ -109,7 +120,7 @@ function narrativeProblems(s) {
         // 2026-10-23 / 2026年10月23日 / 10월 23일 and counts as «6/7» differently per language (2026-10-24 운영 측정 오탐).
         const facts = factSet;
         const base = facts(n[field]?.en);
-        if (LOCALES.some(loc => { const f = facts(n[field]?.[loc]); return f.key !== base.key || [...f.signs].some(([k, sg]) => base.signs.has(k) && base.signs.get(k) !== sg); }))
+        if (LOCALES.some(loc => { const f = facts(n[field]?.[loc]); return f.key !== base.key || [...f.signs].some(([k, sg]) => base.signs.has(k) && base.signs.get(k) !== sg) || moneySignConflict(base.moneySigns, f.moneySigns); }))
             errors.push(`narrative:${field}:cross-lang-facts`);
     }
     for (const loc of LOCALES) {
@@ -198,6 +209,7 @@ const KO_PLAIN = [
     [/리스크[- ]?온/g, '위험 선호'], [/리스크[- ]?오프/g, '위험 회피'], [/Cross[- ]Asset/gi, '자산 간'],
 ];
 
+const KO_ADVICE_TAIL = /세요|십시오|하라|해라|해야|할\s?것|고려|검토|권유|권장|권고|추천|기회|나서|노려|담아|사라|팔아|적기|타이밍/;
 const pad2 = x => String(x).padStart(2, '0');
 function canonicalEtStamps(text) {
     const stamp = (y, mo, d, h, mi) => `${y}-${pad2(mo)}-${pad2(d)} ${pad2(h)}:${mi} ET`;
@@ -233,21 +245,24 @@ function alignSummary(s, evidence) {
     }
     // 한국어 «반도체 매수로 하락폭이 제한됐다»처럼 관찰된 매매를 «매수/매도»로 쓰면 권유어 검사에 걸린다(10/24 8차 실측) — 조사 앞의 관찰 표현만 «매수세/매도세»로
     if (n && typeof n === 'object') for (const f of FIELDS) {
-        if (typeof n[f]?.ko === 'string') n[f].ko = n[f].ko
-            .replace(/(?<![가-힣])((?:[가-힣A-Za-z]+\s)?)?매([수도])(?!세)(?=(?:로|가|에|와|도)(?:\s|$|[,.])|\s?지지)/g, (m, pre) => `${pre || ''}매${m.includes('매수') ? '수' : '도'}세`)
-            // 지표 일정의 «(사전·시장) 전망 46.3» = 시장 예상치(컨센서스) — «전망»은 예측어 검사에 걸린다(10/24 10차 실측)
-            .replace(/(?:(?:사전|시장|컨센서스)\s?)?전망치?(?=\s?(?:[(（]|[+\-−]?\d))/g, '시장 예상치');
+        // 권유·명령 꼬리가 있는 문장은 손대지 않는다 — 검사가 그대로 잡게(관문 10241205: «지금 매수에 나서세요»가 «매수세»로 바뀌어 통과)
+        if (typeof n[f]?.ko === 'string') n[f].ko = n[f].ko.split(/(?<=[.!?。])(?=\s)/).map(sent => KO_ADVICE_TAIL.test(sent) ? sent : sent
+            .replace(/(?<![가-힣])((?:[가-힣A-Za-z]+\s)?)?매([수도])(?!세)(?=(?:로|가|와|도)(?:\s|$|[,.])|\s?지지)/g, (m, pre) => `${pre || ''}매${m.includes('매수') ? '수' : '도'}세`)
+            // 지표 일정의 «(사전·시장) 전망 46.3» = 시장 예상치(컨센서스) — «전망»은 예측어 검사에 걸린다(10/24 10차 실측).
+            // 회사 가이던스(«매출 전망 46.3억 달러»)와 금액은 바꾸지 않는다(관문 10241205)
+            .replace(/(?<!(?:매출|실적|이익|영업이익|수익|가이던스|연간|분기|EPS|배당|회사|기업|업체)\s?)(?:(?:사전|시장|컨센서스)\s?)?전망치?(?=\s?(?:[(（]\s?)?[+\-−]?\d[\d.,]*(?!\d|[.,]?\d|\s?(?:억|조|만|달러|원|\$|%p)))/g, '시장 예상치')).join('');
     }
     // 일본어 «予想» 단독은 권유·예측어 검사에 걸린다 — 시장 예상치와 비교하는 자리(予想より·予想を上回/下回·予想比·予想値·予想-0.1)는 뜻 그대로 «市場予想»으로(10/24 7차 실측)
     if (n && typeof n === 'object') for (const f of FIELDS) {
-        if (typeof n[f]?.ja === 'string') n[f].ja = n[f].ja.replace(/(?<!市場|業績|通期|連結|売上|利益|配当|決算|コンセンサス)予想(?=より|を上回|を下回|に対し|比|値|[-−+\d（(、])/g, '市場予想');
+        if (typeof n[f]?.ja === 'string') n[f].ja = n[f].ja.replace(/(?<!市場|業績|通期|連結|売上|利益|配当|決算|コンセンサス|会社|企業|ガイダンス)予想(?=より|を上回|を下回|に対し|比|値|[-−+\d（(、])/g, '市場予想');
     }
     // 본문 어느 언어에도 시각이 안 나온 causeRefs 는 «인용하지 않은 참조»라 뺀다(10/24 9차 실측: 쓰지도 않은 m7-2 하나로 news-time 3언어 탈락, 고침 2회에도 그대로).
     // 한 언어라도 인용했으면 그대로 두어 검사가 언어 간 누락을 잡게 한다.
     if (n && typeof n === 'object' && Array.isArray(n.causeRefs) && Array.isArray(evidence?.news)) {
         n.causeRefs = n.causeRefs.filter(ref => {
             const item = evidence.news.find(x => x.id === ref?.newsId);
-            return !item || LOCALES.some(loc => typeof n.why?.[loc] === 'string' && n.why[loc].includes(item.publishedEt));
+            // 출처 이름이 본문에 있으면 «시각 없이 인용»일 수 있어 남긴다 — 검사가 시각 누락·장후 원인을 잡게(관문 10241205)
+            return !item || LOCALES.some(loc => typeof n.why?.[loc] === 'string' && (n.why[loc].includes(item.publishedEt) || (item.source && item.source !== 'not provided' && n.why[loc].includes(item.source))));
         });
     }
     const v = s?.closingNarrative?.verdict;

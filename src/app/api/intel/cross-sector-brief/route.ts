@@ -171,8 +171,8 @@ export async function GET(req: Request) {
 
             console.log('[CrossSectorBrief] 🔧 Self-healing: No brief cached, triggering generation...');
 
-            // Retry up to 2 attempts with 10s delay
-            for (let attempt = 1; attempt <= 2; attempt++) {
+            // 한 번만, 생성 예산(모델 240초)을 기다린다 — 예전 55초 중단 + 재시도는 생성이 끝나기 전에 POST 를 또 띄웠다(관문 10241205, 장마감 리포트 v2 는 25~150초)
+            for (let attempt = 1; attempt <= 1; attempt++) {
                 try {
                     const baseUrl = publicBase(new URL(req.url).origin);
                     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -185,7 +185,7 @@ export async function GET(req: Request) {
                     const res = await fetch(`${baseUrl}/api/intel/cross-sector-brief`, {
                         method: 'POST',
                         headers,
-                        signal: AbortSignal.timeout(55000),
+                        signal: AbortSignal.timeout(285_000),
                     });
 
                     if (res.ok) {
@@ -196,15 +196,12 @@ export async function GET(req: Request) {
                         }
                         break; // Got a response but no structured data
                     } else {
-                        console.error(`[CrossSectorBrief] Self-healing attempt ${attempt}/2 failed: ${res.status}`);
+                        console.error(`[CrossSectorBrief] Self-healing attempt ${attempt}/1 failed: ${res.status}`);
                     }
                 } catch (e: any) {
-                    console.error(`[CrossSectorBrief] Self-healing attempt ${attempt}/2 error:`, e.message);
+                    console.error(`[CrossSectorBrief] Self-healing attempt ${attempt}/1 error:`, e.message);
                 }
 
-                if (attempt < 2) {
-                    await new Promise(r => setTimeout(r, 10000));
-                }
             }
         }
 
