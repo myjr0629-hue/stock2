@@ -57,21 +57,29 @@ function nextRegularOpenMs(ms: number): number {
  *   closed(직전 종가) → 다음 정규장 개장 · reference(세션 미상) → 30분
  * 관문 10241926 ②: 08:00 ET 장전 저장본이 12:00 ET 에도 «장전»으로 나갔다 — 세션이 바뀌면 해석을 내리고 다시 만든다.
  */
-export function quoteSessionValidUntil(q: Pick<StockQuoteFact, 'session'>, atMs: number): number {
-    const d = etDateOf(atMs);
+export function quoteSessionValidUntil(q: QuoteSessionRef, atMs: number): number {
+    // 기준 시각 = 시세를 «수집한» 시각(저장 시각보다 이르면 그쪽) — 09:29:58 에 수집한 «직전 종가» 행을 09:30:02 에 저장해도
+    //   기한은 09:30(오늘 개장)이다(관문 10242158 ②: 저장 시각으로 세면 다음 날 개장까지 살아 정오에도 «직전 종가»가 나갔다)
+    const base = quoteBaseMs(q, atMs);
+    const d = etDateOf(base);
     switch (q.session) {
         case 'pre': return etWallTimeToMs(d, REG_OPEN_MIN);
         case 'reg': return etWallTimeToMs(d, sessionCloseMinutes(d));
         case 'post': return etWallTimeToMs(d, POST_END_MIN);
-        case 'closed': return nextRegularOpenMs(atMs);
-        default: return atMs + 30 * 60_000;
+        case 'closed': return nextRegularOpenMs(base);
+        default: return base + 30 * 60_000;
     }
+}
+type QuoteSessionRef = Pick<StockQuoteFact, 'session'> & { inputAsOf?: string };
+function quoteBaseMs(q: QuoteSessionRef, atMs: number): number {
+    const input = Date.parse(q.inputAsOf ?? '');
+    return Number.isFinite(input) ? Math.min(input, atMs) : atMs;
 }
 
 /** 저장본의 세션이 «지금»도 맞나 — 저장 시각부터 그 세션 끝 전까지만. 세션이 안 맞는 저장본은 해석을 내보내지 않는다. */
-export function quoteSessionLive(q: Pick<StockQuoteFact, 'session'> | null | undefined, atMs: number, nowMs: number): boolean {
+export function quoteSessionLive(q: QuoteSessionRef | null | undefined, atMs: number, nowMs: number): boolean {
     if (!q || !Number.isFinite(atMs)) return false;
-    return nowMs >= atMs - 60_000 && nowMs < quoteSessionValidUntil(q, atMs);
+    return nowMs >= quoteBaseMs(q, atMs) - 60_000 && nowMs < quoteSessionValidUntil(q, atMs);
 }
 
 /** 새 공급사 호출 없이, 지도 한 벌과 이미 수집한 종목 근거만 묶는다. 가격·등락 숫자는 싣지 않는다(위 StockQuoteFact.price 참고). */

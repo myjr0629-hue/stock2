@@ -102,6 +102,15 @@ test('관문 10241926 ①: 지표 이름과 숫자 사이 콜론·수식어로 �
     // 칩 줄의 날짜(10/20)는 지표 숫자로 결속하지 않는다
     assert.deepEqual(watchlistMetricReasons('장외 비중 40% (10/20)', f), []);
 });
+test('관문 10242158 ②: 세션 기한은 시세 수집 시각 기준 — 09:29:58 수집 «직전 종가»를 09:30:02 에 저장해도 09:30 에 끝난다', () => {
+    const q = { session: 'closed' as const, inputAsOf: '2026-10-21T13:29:58.000Z' };
+    const saved = Date.parse('2026-10-21T13:30:02Z');
+    assert.equal(quoteSessionValidUntil(q, saved), Date.parse('2026-10-21T13:30:00Z'));
+    assert.equal(quoteSessionLive(q, saved, Date.parse('2026-10-21T16:00:00Z')), false, '정오에 «직전 종가» 해석 미표시');
+    const pre = buildLineFacts('NVDA', { ...row, extendedPrice: null }, Date.parse('2026-10-21T13:29:58Z'))!;
+    assert.equal(pre.quote.session, 'closed');
+    assert.equal(quoteSessionValidUntil(pre.quote, saved), Date.parse('2026-10-21T13:30:00Z'));
+});
 test('세션 기한: 장전→09:30 · 정규장→마감(조기 폐장 13:00) · 시간외→20:00 · 직전 종가→다음 개장', () => {
     const et = (iso: string) => Date.parse(iso);
     assert.equal(quoteSessionValidUntil({ session: 'pre' }, et('2026-10-21T12:00:00Z')), et('2026-10-21T13:30:00Z'));
@@ -158,9 +167,9 @@ test('언어 판정은 세션 표지 포함 전체 글로(짧은 정상 문장 �
 });
 test('관문 10242151 ①: «주가는 Put Floor $135와 같은» 류 가격=레벨 주장 탈락(레벨 값이 맞아도) · 쪽 주장·at 사실은 통과', () => {
     const bad: Record<'ko' | 'en' | 'ja', string[]> = {
-        ko: ['NVDA 장전 주가는 Put Floor $135와 같은 자리로 양감마 완충', 'NVDA 장전 주가가 Put Floor $135에 붙어 양감마가 완충하는 자리', 'NVDA 장전 가격이 Put Floor $135와 일치하는 양감마 자리'],
-        en: ['NVDA pre-market: price equals the Put Floor $135; positive gamma dampens swings', 'NVDA pre-market: the stock sits at Put Floor $135; positive gamma dampens swings', 'NVDA pre-market: price matches Put Floor $135 as positive gamma dampens swings'],
-        ja: ['NVDA 寄り前、株価はPut Floor $135と同じ水準で正ガンマが緩和', 'NVDA 寄り前、株価がPut Floor $135に一致し正ガンマが緩和する位置'],
+        ko: ['NVDA 장전 주가는 Put Floor $135와 같은 자리로 양감마 완충', 'NVDA 장전 주가가 Put Floor $135에 붙어 양감마가 완충하는 자리', 'NVDA 장전 가격이 Put Floor $135와 일치하는 양감마 자리', 'NVDA 장전 주가는 Put Floor $135, 양감마가 변동을 완충', 'NVDA 장전 주가가 Put Floor $135 근처라 양감마가 변동을 완충'],
+        en: ['NVDA pre-market: price is Put Floor $135; positive gamma dampens swings', 'NVDA pre-market: price near Put Floor $135; positive gamma dampens swings', 'NVDA pre-market: price equals the Put Floor $135; positive gamma dampens swings', 'NVDA pre-market: the stock sits at Put Floor $135; positive gamma dampens swings', 'NVDA pre-market: price matches Put Floor $135 as positive gamma dampens swings'],
+        ja: ['NVDA 寄り前、株価はPut Floor $135と同じ水準で正ガンマが緩和', 'NVDA 寄り前、株価がPut Floor $135に一致し正ガンマが緩和する位置', 'NVDA 寄り前、株価はPut Floor $135で正ガンマが変動を緩和する位置'],
     };
     for (const loc of ['ko', 'en', 'ja'] as const) for (const t of bad[loc]) {
         assert.ok(checkWatchlistV3Insight(t, loc, f, now).includes('v3:metric:quote-level-equal'), `${loc} ${t}`);

@@ -164,11 +164,20 @@ export function watchlistMetricReasons(text: string, f: LineFacts): string[] {
  */
 const PRICE_WORD = /현재가|주가|가격|株価|現在値|現値|価格|\b(?:price|quote|shares?|stock)\b/i;
 const EQUAL_WORD = /같(?:은|다|아|고)|동일|일치|맞닿|붙어|그대로|equal\w*|same|match\w*|identical|\b(?:is|sits|trades|stands|stays|holds|pinned)\s+(?:right\s+|exactly\s+)?at\b|\bat\s+(?:the\s+)?(?:Max Pain|Call Wall|Put Floor|Gamma Flip)|と同じ|に等しい|等し|一致|ちょうど|張り付/i;
+/** 가격이 주어인 절에서 레벨과의 관계는 «쪽 말»로만(쪽의 참·거짓은 positioningSideReasons) — 쪽 말 없는 «주가는 Put Floor $135» 류는 등치로 읽힌다 */
+const SIDE_WORD = /위(?!치|험|기|원)|아래|밑|까지|상회|하회|넘|웃돌|밑돌|上(?!昇)|下(?!落)|まで|超|割れ|割り込|\b(?:above|below|over|under|beneath|beyond|past|toward|towards|up to)\b/i;
+const NEAR_WORD = /부근|근처|가까|付近|近く|近辺|\b(?:near|around|close to|next to)\b/i;
+const LEVEL_RES = ['Max\\s*Pain|맥스\\s*페인|マックス\\s*ペイン', 'Call\\s*Wall|콜\\s*월|コール\\s*ウォール', 'Put\\s*Floor|풋\\s*플로어|プット\\s*フロア', 'Gamma\\s*Flip|감마\\s*플립|ガンマ\\s*フリップ'].map(x => new RegExp(x, 'i'));
 export function quoteLevelClaimReasons(text: string, f: LineFacts): string[] {
     for (const clause of text.split(/[,，、;；。]|\.(?!\d)/)) {
-        if (!PRICE_WORD.test(clause) || !EQUAL_WORD.test(clause)) continue;
-        const named = (['mp', 'cw', 'pf', 'gf'] as const).filter(k => new RegExp(['Max\\s*Pain|맥스\\s*페인|マックス\\s*ペイン', 'Call\\s*Wall|콜\\s*월|コール\\s*ウォール', 'Put\\s*Floor|풋\\s*플로어|プット\\s*フロア', 'Gamma\\s*Flip|감마\\s*플립|ガンマ\\s*フリップ'][['mp', 'cw', 'pf', 'gf'].indexOf(k)], 'i').test(clause));
-        if (!named.length || named.some(k => f.sides[k] !== 'at')) return ['v3:metric:quote-level-equal'];
+        if (!PRICE_WORD.test(clause)) continue;
+        const named = (['mp', 'cw', 'pf', 'gf'] as const).filter((k, i) => LEVEL_RES[i].test(clause));
+        if (!named.length) { if (EQUAL_WORD.test(clause)) return ['v3:metric:quote-level-equal']; continue; }
+        const notAt = named.some(k => f.sides[k] !== 'at');
+        // 같다·일치·at·부근 = «가격이 그 레벨에 있다» — 사실이 at 일 때만 참
+        if ((EQUAL_WORD.test(clause) || NEAR_WORD.test(clause)) && notAt) return ['v3:metric:quote-level-equal'];
+        // 쪽 말이 없으면 «주가는 Put Floor $135» = 등치 — at 이 아니면 탈락
+        if (!SIDE_WORD.test(clause) && !NEAR_WORD.test(clause) && notAt) return ['v3:metric:quote-level-equal'];
     }
     return [];
 }

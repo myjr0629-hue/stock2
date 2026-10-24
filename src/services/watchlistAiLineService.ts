@@ -390,4 +390,3 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
     }
     return { asked: uniq.length, out, reasons, ms: Date.now() - t0, ...(opts.detail ? { detail } : {}) };
 }
-
