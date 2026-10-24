@@ -78,7 +78,10 @@ function calendarEvidence(items, now = new Date()) {
 const NEWS_ID_IN_TEXT = /\b(?:market|m7|physical_ai|silicon_core|power_matrix|bio_pulse|cyber_shield|orbit_defense|quantum_edge|fintech_pulse|cloud_fortress)-\d+\b/;
 
 function factSet(text) {
-    const t = String(text || '').replace(/−/g, '-').replace(/(\d)\s*(?:basis points?|베이시스\s*포인트|ベーシスポイント)/gi, '$1bp');
+    // 금액(«-$62.2M» / «-6,222만 달러» / «-6,222万ドル»)은 언어마다 단위가 달라 같은 숫자로 쓸 수 없다 — 집합 비교에서 빼고, 자릿수는 금액 검사(checkAmounts)가 본다.
+    // (10/24 5차 운영 실측: GEX 금액 표기 차이로 정상 지표 문단이 cross-lang-facts 탈락, 고침 2회에도 같은 표기)
+    const MONEY = /[+-]?\s?\$?\s?\d[\d,]*(?:\.\d+)?\s?(?:[MBKT]\b|million|billion|trillion|만|억|조|万|億|兆)\s?(?:달러|원|ドル|円|dollars?)?|[+-]?\s?\$\s?\d[\d,]*(?:\.\d+)?/gi;
+    const t = String(text || '').replace(/−/g, '-').replace(/(\d)\s*(?:basis points?|베이시스\s*포인트|ベーシスポイント)/gi, '$1bp').replace(MONEY, ' ');
     const keys = new Set(), signs = new Map();
     for (const m of t.matchAll(/\b(\d{1,2}):(\d{2})\b/g)) keys.add(`${Number(m[1])}:${m[2]}`);
     for (const m of t.replace(/\b\d{1,2}:\d{2}\b/g, ' ').matchAll(/(^|[^\d.])([+-]?)(\d+(?:,\d{3})*(?:\.\d+)?)\s?(%|bp)?/g)) {
