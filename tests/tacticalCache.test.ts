@@ -128,14 +128,14 @@ async function main() {
         assert.ok(N.isPlaceholderInsight(out));
         assert.equal(calls.length, 0);
     });
-    await test('복구 번역: 정상 원본이 있어도 Tactical 은 번역하지 않는다(밤 검토 10/24 ③) — 저장·반환 0', async () => {
+    await test('복구 번역: 정상 원본을 지난 일정으로 번역하면 저장·반환 거부', async () => {
         clock = Date.parse('2026-10-20T12:42:00Z');
         store.set(key('ko'), { text: fresh.ko, updatedAt: new Date(clock).toISOString() });
         reply = async () => stale.en;
         const out = await N.recoverInsight('reality', 'en', { tacticalPrompts: l => buildTacticalPrompt(ctx(l), l) });
         assert.ok(N.isPlaceholderInsight(out));
         assert.equal(store.has(key('en')), false);
-        assert.equal(calls.length, 0, 'Tactical 번역 모델 호출 0');
+        assert.equal(calls.length, 1);
     });
     await test('장외 세션 보관 복구도 현재 근거 검사·모델 호출 0', async () => {
         clock = Date.parse('2026-10-21T01:00:00Z'); // 21:00 ET

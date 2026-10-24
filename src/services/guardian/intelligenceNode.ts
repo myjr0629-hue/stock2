@@ -900,8 +900,13 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
         const translated = await translateInsight(source.text, src, locale, type);
         if (!translated) continue;
         // 원본에 기준이 없으면(옛 저장본) 지금 화면 값이 기준 — 자리표로 바꾸는 숫자도 그 값과 같은 것뿐이다
-        const basis = source.basis ?? nums ?? null;
-        const g = gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale));
+        // ★2026-10-24 밤 검토 ③ — Tactical 번역은 «새 글»이다: 새 생성과 같은 출구 계약(INDEX_FACTS 지수 값·방향 대조 + 기존 숫자 검사 guardianNumbersGate
+        //   + 구조·일정)으로 검사하고 기준값도 지금 값으로 저장한다. 예전엔 저장본 검사로 지나가 숫자 리터럴 대조가 빠졌다(VIX 99·지수 숫자 오역이 화면·캐시 통과).
+        //   순환매·감마 번역은 예전 그대로(원래부터 기존 숫자 검사를 지난다).
+        const basis = type === 'reality' ? nums ?? source.basis ?? null : source.basis ?? nums ?? null;
+        const g = type === 'reality'
+            ? gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale), false, true)
+            : gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale));
         if (!g.ok || isPlaceholder(g.text)) {
             console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${g.reasons.join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);
             continue;
@@ -1169,10 +1174,7 @@ export class IntelligenceNode {
                 const oldArchive = await archivedInsight(type, locale, opts.nums, opts.tacticalPrompts, { previousKey: true, restore: true });
                 if (oldArchive) return oldArchive;
             }
-            // ★2026-10-24 밤 검토 ③ — Tactical 은 번역으로 채우지 않는다. 번역은 INDEX_FACTS·숫자 계약 밖에서 숫자를 새로 쓰는 유일한 Tactical 경로였고
-            //   (VIX 99·지수 숫자 맞바꿈이 저장본 검사를 통과), v3 글의 번역은 원래도 기존 일정 검사에서 탈락한다(실모델 origin/main 0/5 · 이 브랜치 0/5) — 화면 영향 없이 모델 호출만 줄어든다.
-            //   Tactical 복구는 마지막 정상본(메모리·Redis)·완료 세션 보관본·v2 저장본까지. 순환매·감마 번역은 그대로.
-            if (opts.translate !== false && type !== 'reality') {
+            if (opts.translate !== false && (type !== 'reality' || !isOffHours())) {
                 const translated = await translatedInsight(type, locale, opts.nums, opts.tacticalPrompts);
                 if (translated) {
                     console.log(`[IntelligenceNode] ${type}/${locale}: 다른 언어의 정상 문구를 번역해 채웠다`);

@@ -1,5 +1,5 @@
 /**
- * 코덱스 밤 검토 2026-10-24 ③(Tactical 번역 숫자 미대조 → Tactical 번역 경로 제거) · TRACKER T21(같은 화면 RLSI 33 vs 29) 재현 — 네트워크 0.
+ * 코덱스 밤 검토 2026-10-24 ③(Tactical 번역 숫자 미대조 → 새 생성과 같은 출구 계약) · TRACKER T21(같은 화면 RLSI 33 vs 29) 재현 — 네트워크 0.
  *   ①(세션 재사용)은 tacticalV3Gate.test.ts 세션 경계 묶음, ②(장중 지연 현물 → 선물 판정)는 guardianCore.test.ts.
  */
 import assert from 'node:assert/strict';
@@ -82,26 +82,45 @@ async function main() {
     assert.ok(!N.isPlaceholderInsight(moved), '재생성 실패해도 «준비 중» 아님');
     assert.ok(moved.includes('29점') && !moved.includes('50점'), `구간이 바뀐 지금 값으로 «약하다» 서술을 채우지 않는다 — ${moved}`);
 
-    // ── 밤 검토 ③: Tactical 은 번역으로 채우지 않는다(번역 응답의 VIX 99 가 화면·캐시를 지날 길 자체가 없다) ──
+    // ── 밤 검토 ③: Tactical 번역은 새 생성과 같은 출구 계약(INDEX_FACTS 지수 대조 + 기존 숫자 검사)으로 — 틀린 숫자는 화면·캐시 0, 정상 번역은 통과 ──
     const translateTo = (body: string) => (opts: any) => (String(opts.label || '').startsWith('Translate/') ? body : (() => { throw new Error('generation offline'); })());
-    const translateCalls = () => modelLabels.filter((l) => l.startsWith('Translate/')).length;
-    reset();
-    store.set(key('en'), { text: text.en, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
-    response = translateTo('나스닥 현물 관측은 미확인입니다. 시장 전체 재료는 미확인입니다. 시장 건강도(RLSI)는 {RLSI}점으로 약하고 변동성(VIX)은 99이며 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.');
-    const noTr = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, tacticalPrompts: prompts() });
-    assert.equal(translateCalls(), 0, 'Tactical 번역 모델 호출 0');
-    assert.ok(!noTr.includes('99') && !writes.includes(key('ko')), `번역 글 화면·저장 0 — ${noTr}`);
-    // 생성 경로(③-b 실패 → 복구)에서도 번역하지 않는다
-    reset();
-    store.set(key('en'), { text: text.en, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
-    response = translateTo('VIX 99');
-    await N.generateRealityInsight(ctx('ko'));
-    assert.equal(translateCalls(), 0, '생성 실패 뒤에도 Tactical 번역 0');
-    // 같은 언어 정상본이 있으면 그 글을 유지한다
+    const koGood = '나스닥 현물 관측은 미확인입니다. 시장 전체 재료는 미확인입니다. 시장 건강도(RLSI)는 {RLSI}점으로 약하고 변동성(VIX)은 18.4이며 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.';
+    for (const [name, body, ok] of [
+        ['정상 번역(관문 10241232: 일정 없음·한국어만 생성 탈락 → 영어 번역 복구)', koGood, true],
+        ['VIX 99(기준 18.4)', koGood.replace('18.4', '99'), false],
+        ['근거 없는 지수 수치(INDEX_FACTS 없음)', koGood.replace('나스닥 현물 관측은 미확인입니다.', '나스닥 종합은 2.6% 하락 중입니다.'), false],
+    ] as const) {
+        reset();
+        store.set(key('en'), { text: text.en, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
+        response = translateTo(body);
+        const out = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4 }, tacticalPrompts: prompts() });
+        assert.equal(writes.includes(key('ko')), ok, `${name}: ${out}`);
+        assert.equal(N.isPlaceholderInsight(out), !ok, name);
+        if (ok) assert.ok(out.includes('33점') && out.includes('18.4'), out);
+        else assert.ok(!out.includes('99') && !out.includes('2.6%'), out);
+    }
+    // INDEX_FACTS 가 있으면 지수 값·방향을 새 생성처럼 대조한다(나스닥 종합 정규장 −0.784%)
+    const fact = { id: 'nasdaq' as const, kind: 'spot' as const, name: { ko: '나스닥 종합', en: 'Nasdaq Composite', ja: 'ナスダック総合' }, basis: { ko: '전일 종가 대비', en: 'vs prior close', ja: '前日終値比' }, asOfET: '2026-10-23 10:59 ET', sessionDate: '2026-10-23', chgPct: -0.784 };
+    const factPrompts = (l: Locale) => buildTacticalPrompt({ ...ctx(l), session: 'REG', asOf: new Date(clock).toISOString(), indexFacts: [fact as any] }, l);
+    const enIdx = text.en.replace('Nasdaq spot observations are unavailable.', 'In the regular session now, the Nasdaq Composite is down 0.8% versus the prior close.');
+    const koIdx = (first: string) => koGood.replace('나스닥 현물 관측은 미확인입니다.', first);
+    for (const [name, first, ok] of [
+        ['지수 정상', '지금 정규장 나스닥 종합은 전일 종가 대비 0.8% 하락 중입니다.', true],
+        ['지수 방향 뒤집기', '지금 정규장 나스닥 종합은 전일 종가 대비 0.8% 상승 중입니다.', false],
+        ['지수 값 바뀜', '지금 정규장 나스닥 종합은 전일 종가 대비 2.6% 하락 중입니다.', false],
+    ] as const) {
+        reset();
+        store.set(key('en'), { text: enIdx, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
+        response = translateTo(koIdx(first));
+        const out = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4 }, tacticalPrompts: factPrompts });
+        assert.equal(writes.includes(key('ko')), ok, `${name}: ${out}`);
+    }
+    // 같은 언어 정상본이 있으면 번역하지 않고 그 글을 유지한다
     reset();
     store.set(key('ko'), { text: text.ko, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
+    response = translateTo(koGood.replace('18.4', '99'));
     const kept = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, tacticalPrompts: prompts() });
-    assert.ok(kept.includes('33점'), kept);
+    assert.ok(kept.includes('33점') && !kept.includes('99'), kept);
     // 관문 10241132 ④: 감마·순환매 번역은 origin/main 방식 그대로 — «GEX has now fallen to +5» → «GEX는 +5로 하락» 정상 통과
     reset();
     store.set('guardian:gemini:v2:gamma:en', { text: "[What's different from normal] GEX has now fallen to +5, the lowest in a week.\n[Where this read breaks] Below 6,700 dealers flip to selling.", updatedAt: new Date(clock - 60_000).toISOString(), basis: null });
@@ -114,9 +133,9 @@ async function main() {
     response = translateTo('지난 5거래일 동안 자금이 기술(XLK) -2.1%에서 에너지(XLE) 1.4%로 옮겨 갔습니다.\n다음 분기점은 에너지(XLE)로 유입이 이어지는지입니다.');
     const rotOut = await N.recoverInsight('rotation', 'ko', { nums: { RLSI: 33, VIX: 18.4 } });
     assert.ok(!N.isPlaceholderInsight(rotOut) && rotOut.includes('-2.1%'), rotOut);
-    assert.equal(translateCalls(), 1);
+    assert.equal(modelLabels.filter((l) => l.startsWith('Translate/')).length, 1);
 
-    console.log('통과 밤 검토 10/24 ③ Tactical 번역 경로 제거(순환매·감마 번역 불변) · T21 같은 화면 RLSI 지금 값(구간 이동 시 생성 당시 값 보존)');
+    console.log('통과 밤 검토 10/24 ③ Tactical 번역 = 새 생성 출구 계약(순환매·감마 번역 불변) · T21 같은 화면 RLSI 지금 값(구간 이동 시 생성 당시 값 보존)');
 }
 main().catch((e) => { console.error(e); process.exitCode = 1; }).finally(() => {
     Date.now = actualNow; _setMarketClockForTest(null); _setModelCallerForTest(null); _resetInsightStateForTest();
