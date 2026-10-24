@@ -133,6 +133,8 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         const whole = t.replace(new RegExp(`(?:${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]})(?:하는|하고|하며|합니다|하여|해|이고|이며|입니다|웁니다|니다|는|고|며|します|する|し|[a-z]*)`, 'gi'), '')
             .replace(BRANCH_TOKENS, '').replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '');
         if (whole.length > 0) continue;
+        // «Gamma Flip»은 이름으로 한 번만(«dampens Gamma Flip»처럼 기전의 대상으로 다시 나오면 순수 구조가 아니다 — 관문 10242132).
+        if ((t.match(/Gamma\s*Flip/gi) || []).length > 1) continue;
         reasons = reasons.filter(r => !(r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`)));
     }
     reasons = [...new Set(reasons)];
