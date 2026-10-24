@@ -14,7 +14,7 @@
  *   - DynamoDB signum-pattern-db: ANALYST:{ticker}, EARNINGS:{ticker}
  * 
  * 스케줄:
- *   - EventBridge: 평일 09:30 ET (1일 1회)
+ *   - EventBridge: 15분마다 트리거; handler가 평일 ET 10:15~20:00만 처리(커서 재개)
  * 
  * Usage: node scripts/deploy-fmp.js
  */
@@ -28,6 +28,7 @@ const {
   UpdateFunctionCodeCommand,
   UpdateFunctionConfigurationCommand,
   GetFunctionCommand,
+  GetFunctionConfigurationCommand,
   AddPermissionCommand,
 } = require('@aws-sdk/client-lambda');
 const {
@@ -39,275 +40,35 @@ const {
 const REGION = 'us-east-1';
 const FUNCTION_NAME = 'signum-fmp';
 const RULE_NAME = 'signum-fmp-daily';
-const FMP_API_KEY = process.env.FMP_API_KEY || '';
-
-if (!FMP_API_KEY) {
-  console.error('ERROR: FMP_API_KEY not set in .env.local');
-  process.exit(1);
-}
+// Values come from the shell/.env.local when present, otherwise the deployed
+// function keeps its own. Existing Environment keys are never dropped (a full
+// replacement once erased a live key on another Lambda). Values are never printed.
+const LOCAL_ENV = {
+  FMP_API_KEY: process.env.FMP_API_KEY || '',
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '',
+  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '',
+  FMP_ACCOUNT_RPM: process.env.FMP_ACCOUNT_RPM || '',
+};
 
 // Load universe (same source as signum-harvest)
 const universeFile = path.join(__dirname, '..', 'data', 'stock_universe_us800.json');
 const universe = JSON.parse(fs.readFileSync(universeFile, 'utf-8')).symbols;
 console.log('Universe:', universe.length, 'tickers');
 
-// ── Lambda Handler Code ──
-const handlerCode = `
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
-const https = require('https');
-
-const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }), {
-  marshallOptions: { removeUndefinedValues: true }
-});
-
-const FMP_KEY = process.env.FMP_API_KEY || '';
-const UNIVERSE = ${JSON.stringify(universe)};
-const TABLE = 'signum-pattern-db';
-
-function httpsGet(url, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const to = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs || 15000);
-    https.get(url, { headers: { 'User-Agent': 'SIGNUM-FMP/1.0' } }, (res) => {
-      let data = '';
-      res.setEncoding('utf8').on('data', chunk => data += chunk);
-      res.on('end', () => { clearTimeout(to); try { resolve(JSON.parse(data)); } catch { resolve(data); } });
-    }).on('error', (e) => { clearTimeout(to); reject(e); });
-  });
-}
-
-exports.handler = async (event) => {
-  const start = Date.now();
-  const forceRun = event?.forceRun || false;
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Market hours check (skip weekends + non-market hours unless forceRun)
-  if (!forceRun) {
-    const now = new Date();
-    const day = now.getUTCDay();
-    if (day === 0 || day === 6) {
-      console.log('Weekend — skipping');
-      return { statusCode: 200, body: JSON.stringify({ success: true, skipped: 'weekend' }) };
-    }
-  }
-
-  if (!FMP_KEY) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'FMP_API_KEY not configured' }) };
-  }
-
-  console.log('signum-fmp v1.0 — ' + UNIVERSE.length + ' tickers, forceRun=' + forceRun);
-  const results = { analyst: 0, earnings: 0, forward: 0 };
-
-  // ═══════════════════════════════════════════
-  // Step 1: FMP Analyst Grades + Price Target + Forward Estimates
-  // 3 parallel API calls per ticker, batch 5, sleep 3s
-  // Rate: 225 req/min (75% of 300 limit)
-  // ═══════════════════════════════════════════
-  const forwardMap = {};  // ticker → { eps, revenue, year }
-
-  console.log('Step 1: FMP 3-API collection for ' + UNIVERSE.length + ' tickers...');
-  for (let i = 0; i < UNIVERSE.length; i += 5) {
-    const batch = UNIVERSE.slice(i, i + 5);
-    await Promise.all(batch.map(async (ticker) => {
-      try {
-        const [gradeData, targetData, forwardData] = await Promise.all([
-          httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol=' + ticker + '&apikey=' + FMP_KEY, 5000).catch(() => null),
-          httpsGet('https://financialmodelingprep.com/stable/price-target-consensus?symbol=' + ticker + '&apikey=' + FMP_KEY, 5000).catch(() => null),
-          httpsGet('https://financialmodelingprep.com/stable/analyst-estimates?symbol=' + ticker + '&period=annual&apikey=' + FMP_KEY, 5000).catch(() => null)
-        ]);
-
-        // ── Analyst Grade ──
-        const grade = Array.isArray(gradeData) ? gradeData[0] : gradeData;
-
-        // ── Price Target ──
-        let priceTarget = null;
-        if (Array.isArray(targetData) && targetData.length > 0) {
-          const t = targetData[0];
-          if (t.targetConsensus && t.targetHigh) {
-            priceTarget = { targetHigh: t.targetHigh, targetLow: t.targetLow, targetConsensus: t.targetConsensus };
-          }
-        }
-
-        // ── Forward Estimates ──
-        if (Array.isArray(forwardData)) {
-          const currentYearStr = new Date().toISOString().slice(0, 4);
-          const nextYearData = [...forwardData].reverse().find(f => f.date && f.date.slice(0, 4) > currentYearStr);
-          if (nextYearData && nextYearData.epsAvg !== undefined && nextYearData.revenueAvg) {
-            // Current fiscal year = the year immediately before the forward year — the base for
-            // forward-vs-current YoY growth. null if that year's estimate isn't available.
-            const baseYearStr = String(Number(nextYearData.date.slice(0, 4)) - 1);
-            const currentYearData = forwardData.find(f => f.date && f.date.slice(0, 4) === baseYearStr);
-            forwardMap[ticker] = {
-              eps: nextYearData.epsAvg,
-              revenue: nextYearData.revenueAvg,
-              year: nextYearData.date.slice(0, 4),
-              currentEps: (currentYearData && currentYearData.epsAvg !== undefined) ? currentYearData.epsAvg : null,
-              currentRevenue: (currentYearData && currentYearData.revenueAvg) ? currentYearData.revenueAvg : null,
-            };
-          }
-        }
-
-        // ── Save ANALYST record ──
-        if (grade && (grade.strongBuy || grade.buy || grade.hold)) {
-          const total = (grade.strongBuy || 0) + (grade.buy || 0) + (grade.hold || 0) + (grade.sell || 0) + (grade.strongSell || 0);
-          const bullishPct = total > 0 ? Math.round(((grade.strongBuy || 0) + (grade.buy || 0)) / total * 100) : 0;
-          let consensus = grade.consensus || 'N/A';
-          if (consensus === 'N/A' && total > 0) {
-            const ws = ((grade.strongBuy || 0) * 5 + (grade.buy || 0) * 4 + (grade.hold || 0) * 3 + (grade.sell || 0) * 2 + (grade.strongSell || 0)) / total;
-            consensus = ws >= 4.3 ? 'STRONG BUY' : ws >= 3.5 ? 'BUY' : ws >= 2.5 ? 'HOLD' : ws >= 1.7 ? 'SELL' : 'STRONG SELL';
-          }
-          const breakdown = { strongBuy: grade.strongBuy || 0, buy: grade.buy || 0, hold: grade.hold || 0, sell: grade.sell || 0, strongSell: grade.strongSell || 0 };
-          await client.send(new PutCommand({
-            TableName: TABLE,
-            Item: { pattern: 'ANALYST:' + ticker, timestamp: Date.now(), consensus, totalAnalysts: total, bullishPct, breakdown, priceTarget }
-          }));
-          results.analyst++;
-        }
-      } catch {}
-    }));
-    // Sleep 3s per batch (5 tickers × 3 APIs = 15 calls) — 225 req/min safe
-    await new Promise(r => setTimeout(r, 3000));
-  }
-  console.log('Step 1 done: analyst=' + results.analyst + '/' + UNIVERSE.length + ', forward=' + Object.keys(forwardMap).length);
-
-  // ═══════════════════════════════════════════
-  // Step 2: FMP Earnings Calendar (1 API call)
-  // ═══════════════════════════════════════════
-  const earningsMap = {};
-  try {
-    const toDate = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
-    const earningsAll = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from=' + today + '&to=' + toDate + '&apikey=' + FMP_KEY, 15000);
-    const earningsArr = Array.isArray(earningsAll) ? earningsAll : [];
-    const tickerSet = new Set(UNIVERSE);
-    for (const e of earningsArr) {
-      if (!tickerSet.has(e.symbol)) continue;
-      if (!earningsMap[e.symbol] || new Date(e.date) < new Date(earningsMap[e.symbol].date)) {
-        earningsMap[e.symbol] = e;
-      }
-    }
-    console.log('Step 2 done: ' + Object.keys(earningsMap).length + ' tickers with upcoming earnings from ' + earningsArr.length + ' events');
-  } catch (e) {
-    console.log('Step 2 earnings calendar error: ' + e.message);
-  }
-
-  // ═══════════════════════════════════════════
-  // Step 3: Save EARNINGS records for ALL tickers with forward data
-  // This fixes the 830-ticker forwardEps gap:
-  //   - earningsMap tickers: get nextDate + epsEstimate + forwardEps/Revenue
-  //   - non-earningsMap tickers: get forwardEps/Revenue only (no nextDate)
-  // Revision calculation (▲▼) for both groups
-  // ═══════════════════════════════════════════
-  console.log('Step 3: Saving EARNINGS records (forward + calendar)...');
-
-  // Collect all tickers that need EARNINGS records
-  const earningsTickers = new Set([
-    ...Object.keys(earningsMap),
-    ...Object.keys(forwardMap)
-  ]);
-
-  for (const ticker of earningsTickers) {
-    try {
-      const fw = forwardMap[ticker] || {};
-      const cal = earningsMap[ticker] || null;
-
-      // Skip if no data at all
-      if (!fw.eps && !cal) continue;
-
-      // Read previous EARNINGS record for revision calculation
-      let revisionEps = null, revisionRev = null;
-      let revisionDate = null, revRevisionDate = null;
-      try {
-        const oldRes = await client.send(new QueryCommand({
-          TableName: TABLE,
-          KeyConditionExpression: 'pattern = :p',
-          ExpressionAttributeValues: { ':p': 'EARNINGS:' + ticker },
-          Limit: 1, ScanIndexForward: false
-        }));
-        const oldData = oldRes.Items?.[0];
-
-        // EPS revision
-        if (oldData && fw.eps && oldData.forwardEps && Math.abs(fw.eps - oldData.forwardEps) > 0.001) {
-          revisionEps = Number((fw.eps - oldData.forwardEps).toFixed(3));
-          revisionDate = today;
-        } else if (oldData && oldData.forwardEpsRevision != null && oldData.forwardEpsRevisionDate) {
-          const ageDays = (new Date(today).getTime() - new Date(oldData.forwardEpsRevisionDate).getTime()) / 86400000;
-          if (ageDays <= 4 && fw.eps === oldData.forwardEps) {
-            revisionEps = oldData.forwardEpsRevision;
-            revisionDate = oldData.forwardEpsRevisionDate;
-          }
-        }
-
-        // Revenue revision
-        if (oldData && fw.revenue && oldData.forwardRevenue && Math.abs(fw.revenue - oldData.forwardRevenue) > 100000) {
-          revisionRev = fw.revenue - oldData.forwardRevenue;
-          revRevisionDate = today;
-        } else if (oldData && oldData.forwardRevRevision != null && oldData.forwardRevRevisionDate) {
-          const revAgeDays = (new Date(today).getTime() - new Date(oldData.forwardRevRevisionDate).getTime()) / 86400000;
-          if (revAgeDays <= 4 && fw.revenue === oldData.forwardRevenue) {
-            revisionRev = oldData.forwardRevRevision;
-            revRevisionDate = oldData.forwardRevRevisionDate;
-          }
-        }
-      } catch {}
-
-      // Build EARNINGS record
-      const daysUntil = cal ? Math.ceil((new Date(cal.date).getTime() - new Date(today).getTime()) / 86400000) : null;
-      const item = {
-        pattern: 'EARNINGS:' + ticker,
-        timestamp: Date.now(),
-        // Earnings calendar fields (null if not in calendar)
-        nextDate: cal ? cal.date : null,
-        daysUntil: daysUntil,
-        epsEstimate: cal ? (cal.epsEstimated || null) : null,
-        quarter: null,
-        year: null,
-        hour: null,
-        // Forward fields (from analyst-estimates)
-        forwardEps: fw.eps || null,
-        forwardRevenue: fw.revenue || null,
-        forwardYear: fw.year || null,
-        // Current-FY estimate (base for forward-vs-current YoY growth)
-        currentEps: (fw.currentEps != null) ? fw.currentEps : null,
-        currentRevenue: (fw.currentRevenue != null) ? fw.currentRevenue : null,
-        // Revision fields
-        forwardEpsRevision: revisionEps,
-        forwardEpsRevisionDate: revisionDate,
-        forwardRevRevision: revisionRev,
-        forwardRevRevisionDate: revRevisionDate,
-      };
-
-      await client.send(new PutCommand({ TableName: TABLE, Item: item })).catch(() => {});
-      results.earnings++;
-    } catch {}
-  }
-
-  results.forward = Object.keys(forwardMap).length;
-  console.log('Step 3 done: earnings=' + results.earnings + ' (calendar=' + Object.keys(earningsMap).length + ', forward=' + results.forward + ')');
-
-  const duration = Math.round((Date.now() - start) / 1000);
-  console.log('signum-fmp completed in ' + duration + 's');
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ success: true, version: '1.0', duration, results })
-  };
-};
-`;
-
-// ── Write Lambda Package ──
+// Runtime source is maintained in lambda-fmp; never regenerate/overwrite its handler.
 const lambdaDir = path.join(__dirname, 'lambda-fmp');
-if (!fs.existsSync(lambdaDir)) fs.mkdirSync(lambdaDir, { recursive: true });
-fs.writeFileSync(path.join(lambdaDir, 'index.js'), handlerCode);
-fs.writeFileSync(path.join(lambdaDir, 'package.json'), JSON.stringify({
-  name: 'signum-fmp-lambda', version: '1.0.0',
-  dependencies: { '@aws-sdk/client-dynamodb': '^3.0.0', '@aws-sdk/lib-dynamodb': '^3.0.0' }
-}, null, 2));
+fs.copyFileSync(path.join(__dirname, '../src/lib/fmp/accountGuard.cjs'), path.join(lambdaDir, 'accountGuard.cjs'));
 
 console.log('Installing deps...');
 execSync('npm install --production', { cwd: lambdaDir, stdio: 'pipe' });
 
 const zipPath = path.join(__dirname, 'lambda-fmp.zip');
 if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+if (process.platform === 'win32') {
+  execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+} else {
+  execSync(`cd "${lambdaDir}" && /usr/bin/zip -q -r "${zipPath}" . -x "*.DS_Store" "*.zip"`, { stdio: 'pipe' });
+}
 const zipSize = Math.round(fs.statSync(zipPath).size / 1024 / 1024 * 10) / 10;
 console.log('Zip:', zipSize + 'MB');
 
@@ -336,25 +97,46 @@ async function deploy() {
     process.exit(1);
   }
 
-  const envVars = {
-    NODE_ENV: 'production',
-    FMP_API_KEY: FMP_API_KEY,
+  const existingEnv = functionExists
+    ? ((await lambda.send(new GetFunctionConfigurationCommand({ FunctionName: FUNCTION_NAME }))).Environment?.Variables || {})
+    : {};
+  const envVars = { ...existingEnv, NODE_ENV: 'production' };
+  for (const [name, value] of Object.entries(LOCAL_ENV)) if (value) envVars[name] = value;
+  if (!envVars.FMP_ACCOUNT_RPM) envVars.FMP_ACCOUNT_RPM = '300';
+  for (const name of ['FMP_API_KEY', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN']) {
+    if (!envVars[name]) throw new Error(`Missing ${name}: the collector fails closed without the shared FMP Redis authority`);
+  }
+  const dropped = Object.keys(existingEnv).filter(k => !(k in envVars));
+  if (dropped.length) throw new Error('Refusing to drop existing Lambda environment keys');
+  console.log('Environment keys:', Object.keys(envVars).sort().join(','));
+  const settle = async () => {
+    for (let i = 0; i < 60; i++) {
+      const c = await lambda.send(new GetFunctionConfigurationCommand({ FunctionName: FUNCTION_NAME }));
+      if (c.LastUpdateStatus !== 'InProgress') {
+        if (c.LastUpdateStatus === 'Failed') throw new Error('Lambda update failed');
+        return c;
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    throw new Error('Lambda update did not settle');
   };
 
   if (functionExists) {
-    await lambda.send(new UpdateFunctionCodeCommand({
-      FunctionName: FUNCTION_NAME,
-      ZipFile: zipBuffer,
-    }));
-    console.log('Lambda code updated');
-    await new Promise(r => setTimeout(r, 5000));
+    // Environment first, so the new code never starts without the shared guard.
     await lambda.send(new UpdateFunctionConfigurationCommand({
       FunctionName: FUNCTION_NAME,
       Timeout: 900,      // 15 minutes
       MemorySize: 512,    // 512MB (lightweight — no Polygon/GEX)
       Environment: { Variables: envVars },
     }));
+    await settle();
     console.log('Lambda config updated (900s, 512MB)');
+    await lambda.send(new UpdateFunctionCodeCommand({
+      FunctionName: FUNCTION_NAME,
+      ZipFile: zipBuffer,
+    }));
+    const after = await settle();
+    console.log('Lambda code updated', after.LastModified, after.CodeSha256);
   } else {
     await lambda.send(new CreateFunctionCommand({
       FunctionName: FUNCTION_NAME,
@@ -365,23 +147,23 @@ async function deploy() {
       Timeout: 900,
       MemorySize: 512,
       Environment: { Variables: envVars },
-      Description: 'FMP analyst/earnings/forward data — independent from signum-harvest (daily 09:30 ET)',
+      Description: 'FMP analyst/earnings/forward data — independent from signum-harvest (resumable ET 10:15 onward)',
     }));
     console.log('Lambda function created: ' + FUNCTION_NAME);
     await new Promise(r => setTimeout(r, 5000));
   }
 
-  // ── EventBridge Schedule: weekdays 09:30 ET = 13:30 UTC ──
+  // ── Repeated UTC ticks; runtime ET gate handles DST and opening protection ──
   console.log('Setting up EventBridge schedule...');
   const eb = new EventBridgeClient({ region: REGION });
 
   await eb.send(new PutRuleCommand({
     Name: RULE_NAME,
-    ScheduleExpression: 'cron(30 13 ? * MON-FRI *)',
+    ScheduleExpression: 'cron(0/15 * * * ? *)',
     State: 'ENABLED',
-    Description: 'Trigger signum-fmp daily at 09:30 ET (13:30 UTC) on weekdays',
+    Description: 'Resume signum-fmp every 15 minutes; handler gates ET 10:15-20:00 weekdays',
   }));
-  console.log('EventBridge rule: ' + RULE_NAME + ' (cron 09:30 ET weekdays)');
+  console.log('EventBridge rule: ' + RULE_NAME + ' (15min ticks, ET runtime gate)');
 
   const fnInfo = await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME }));
   const lambdaArn = fnInfo.Configuration.FunctionArn;
@@ -411,7 +193,7 @@ async function deploy() {
 
   console.log('\n✅ Deploy complete!');
   console.log('  Function: ' + FUNCTION_NAME);
-  console.log('  Schedule: ' + RULE_NAME + ' (09:30 ET weekdays)');
+  console.log('  Schedule: ' + RULE_NAME + ' (15min ticks, ET runtime gate)');
   console.log('  Tickers: ' + universe.length);
   console.log('  Timeout: 900s, Memory: 512MB');
 }

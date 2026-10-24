@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 // ============================================================================
 // 실적 발표의 «실제 반응» 기록 — 읽기(페이지) · 채우기(크론) (2026-10-14)
 //
@@ -56,7 +57,8 @@ export const fmpCloses: BarsFn = async (ticker, from, to) => {
   const key = process.env.FMP_API_KEY;
   if (!key) throw new Error('fmp_key_missing');
   const u = `https://financialmodelingprep.com/stable/historical-price-eod/non-split-adjusted?symbol=${encodeURIComponent(ticker)}&from=${from}&to=${to}&apikey=${encodeURIComponent(key)}`;
-  const res = await fetch(u, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+  const res = await fmpFetch(u, 'earnings', { timeoutMs: 8000 });
+  if (!res) throw new Error('fmp_budget');
   if (!res.ok) throw new Error(`fmp_http_${res.status}`);
   const j: any = await res.json();
   if (!Array.isArray(j)) throw new Error('fmp_shape');

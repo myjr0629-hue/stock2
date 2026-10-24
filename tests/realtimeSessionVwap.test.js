@@ -47,7 +47,7 @@ function harness(options = {}) {
             },
         },
     };
-    const api = load('src/services/realtimeSessionVwap.ts', mocks, {
+    const extras = {
         process: { env: { ...(options.noKey ? {} : { FMP_API_KEY: '모형' }), ...(options.disabled ? {} : { ENABLE_FMP_SESSION_VWAP: '1' }) } },
         Date: class extends Date { static now() { return now; } },
         fetch: async (url, init) => {
@@ -63,7 +63,13 @@ function harness(options = {}) {
             if (options.delay) await new Promise(resolve => setTimeout(resolve, 20));
             return { status: options.status ?? 200, ok: (options.status ?? 200) >= 200 && (options.status ?? 200) < 300, json: async () => { if (options.parseError) throw Error('원천 파싱 오류 노출 금지'); return options.rows ?? [bar('30'), bar('31', 200, 300)]; } };
         },
-    });
+    };
+    mocks['@/lib/fmpClient'] = { fmpFetch: async (url, _caller, opts) => {
+        const response = await extras.fetch(url, { cache: 'no-store' });
+        opts.onDiagnostic?.({ reason: null, retryMs: null });
+        return response;
+    } };
+    const api = load('src/services/realtimeSessionVwap.ts', mocks, extras);
     return { api, shared, diag: (symbol = 'IBM', date = day) => api.readRealtimeSessionVwapDiagnostics(symbol, date, now), read: (symbol = 'IBM', date = day) => api.readRealtimeSessionVwap(symbol, date, now), setNow: value => { now = value; }, get: (symbol = 'IBM', date = day) => api.getRealtimeSessionVwap(symbol, date, now) };
 }
 
