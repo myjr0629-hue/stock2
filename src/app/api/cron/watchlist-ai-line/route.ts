@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PREWARM_TICKERS } from '@/lib/ai/creditPacing';
 import { etDateOf, isNonTradingDay } from '@/lib/marketCalendar';
-import { generateLines, callsToday, dailyCap } from '@/services/watchlistAiLineService';
+import { generateLines, callsToday, dailyCap, compareLinesDry } from '@/services/watchlistAiLineService';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -28,6 +28,12 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const q = new URL(req.url).searchParams;
+    if (q.get('dry') === 'compare') {
+        const t = (q.get('t') || '').split(',').map((x) => x.trim().toUpperCase()).filter((x) => /^[A-Z][A-Z0-9.]{0,6}$/.test(x));
+        const simRaw = q.get('sim');
+        const sim = simRaw === 'pre' || simRaw === 'reg' || simRaw === 'post' ? simRaw : null;
+        return NextResponse.json(await compareLinesDry(t, { reps: Number(q.get('reps')) || 2, sim, deadline: Date.now() + BUDGET_MS }));
+    }
     const force = q.get('force') === '1';
     const t0 = Date.now();
     const today = etDateOf(t0);
