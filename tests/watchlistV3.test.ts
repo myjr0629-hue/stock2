@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { buildLineFacts } from '../src/lib/ai/watchlistLine';
+import { buildLineFacts, checkLineOutput } from '../src/lib/ai/watchlistLine';
 import { stockFactsOf, quoteSessionValidUntil, quoteSessionLive } from '../src/lib/ai/watchlistStockFacts';
-import { checkWatchlistV3Output, checkWatchlistV3Insight, watchlistMetricReasons, watchlistInternalReasons, buildWatchlistV3Prompt } from '../src/lib/ai/watchlistV3';
+import { checkWatchlistV3Output, checkWatchlistV3Insight, watchlistMetricReasons, watchlistInternalReasons, buildWatchlistV3Prompt, chipFragments, factChips } from '../src/lib/ai/watchlistV3';
 const row = { price: 145, changePct: -1.2, session: 'pre', extendedPrice: 146, extendedChangePct: 0.69, maxPain: 155, callWall: 160, putFloor: 135, gammaFlipLevel: 140, levelsChainDate: '2026-10-20', levelsExpiration: '2026-10-30', levelsSource: 'structure', darkPoolPct: 40, darkPoolDate: '2026-10-20', impliedMovePct: 3.2, impliedMoveDef: 'atm-straddle-mid/1', impliedMoveExpiry: '2026-10-30' };
 const now = Date.parse('2026-10-21T12:00:00Z');
 const f = buildLineFacts('NVDA', row, now)!;
@@ -113,5 +113,30 @@ test('세션 기한: 장전→09:30 · 정규장→마감(조기 폐장 13:00) �
     assert.equal(quoteSessionLive({ session: 'pre' }, et('2026-10-21T12:00:00Z'), et('2026-10-21T16:00:00Z')), false);
     assert.equal(quoteSessionLive({ session: 'pre' }, et('2026-10-21T12:00:00Z'), et('2026-10-21T13:29:00Z')), true);
     assert.equal(quoteSessionLive(null, 0, 0), false);
+});
+test('칩 조각: 쪽을 사실로 미리 만든다 · 모델 칩 줄이 틀리면 사실 그대로의 칩 줄(같은 검사 통과) · 해석은 모델 것 그대로 검사', () => {
+    const fr = chipFragments(f);
+    assert.equal(fr.ko[0], 'Gamma Flip $140 위 {GF}, 양(+) 감마 구간');
+    assert.ok(fr.ko.includes('Put Floor $135 위 {PF}') && fr.ko.includes('Call Wall $160까지 {CW}') && fr.ko.includes('Max Pain $155 아래 {MP}'));
+    assert.ok(fr.en.includes('{PF} above Put Floor $135') && fr.ja.includes('Call Wall $160まで{CW}'));
+    assert.match(buildWatchlistV3Prompt(f), /CHIP FRAGMENTS[\s\S]*ko: Gamma Flip \$140 위 \{GF\}/);
+    // 쪽을 뒤집은 모델 칩 줄(Put Floor 아래) → 사실 칩 줄로 바뀌어 통과, 표식 남김
+    const wrong = check({ ko: 'Put Floor $135 아래 {PF}', en: '{PF} below Put Floor $135', ja: 'Put Floor $135の{PF}下', insight });
+    assert.equal(wrong.ok, true, wrong.reasons.join(','));
+    assert.equal((wrong as any).chipFallback, true);
+    assert.deepEqual(wrong.text, checkLineOutput(JSON.stringify(factChips(f)), f).text, '사실 칩 줄(길이 넘치면 뒤 조각부터 덜어 낸 것)');
+    assert.equal(wrong.text!.ko, 'Gamma Flip $140 위 {GF}, 양(+) 감마 구간 · Max Pain $155 아래 {MP}');
+    // 권유어 칩 줄도 사실 칩 줄로 — 모델 글이 화면에 나가지 않는다
+    assert.doesNotMatch(check({ ...chips, ko: 'Put Floor $135 위 {PF} · 매수 구간', insight }).text!.ko, /매수/);
+    // 해석이 틀리면 칩 대체와 무관하게 탈락
+    assert.equal(check({ ko: 'Put Floor $135 아래 {PF}', en: chips.en, ja: chips.ja, insight: { ...insight, ko: 'NVDA 장전 주가 $146, 양감마가 완충' } }).ok, false);
+    // 지형이 정상인 모델 칩 줄은 그대로(대체 표식 없음)
+    assert.equal((check(good) as any).chipFallback, undefined);
+});
+test('해석 길이: 첫머리 포함 ko/ja 48자·en 92자·46em(360폭 두 줄)', () => {
+    const long = 'NVDA 장전 예상 변동 ±3.2%가 양감마 구간에서 완충되며 Put Floor $135 위에서 움직임이 눌리는 자리';
+    assert.ok(checkWatchlistV3Insight(long, 'ko', f, now).includes('v3:too-long'));
+    assert.ok(!checkWatchlistV3Insight(insight.ko, 'ko', f, now).includes('v3:too-long'));
+    assert.match(buildWatchlistV3Prompt(f), /INSIGHT BUDGET[^\n]*ko ≤ 40/);
 });
 console.log(`${n} passed`);

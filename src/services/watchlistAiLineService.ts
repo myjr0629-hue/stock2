@@ -73,6 +73,8 @@ export interface StoredLine {
     /** 해석 탈락 사유·원문(실측용 · entryOf 가 내보내지 않는다) */
     insightWhy?: string[];
     insightRaw?: Partial<Record<AiLineLocale, string>> | null;
+    /** v3: 칩 줄을 사실 그대로의 칩 줄로 대신했다(실측용) */
+    chipFallback?: boolean;
     /** 생성 지연(ms) · 응답한 단 — 실측용 */
     ms: number;
     provider?: string;
@@ -195,7 +197,7 @@ export async function generateOne(f: LineFacts, cachedContextHash?: string): Pro
         }
         const line: StoredLine = {
             v: 1, t: f.ticker, at: Date.now(), chain: f.chain, lv: f.lv, sides: f.sides, spot: f.spot,
-            text: c.text, insight: c.insight, ...(c.insightReasons?.length ? { insightWhy: c.insightReasons.slice(0, 8), insightRaw: c.insightRaw ?? null } : {}), revision: 3, facts: f, source: buildWatchlistV3Prompt(f), inputHash: inputHashOf(f), cachedContextHash, checkedAt: Date.now(), ms: Date.now() - t0, provider: res.provider,
+            text: c.text, insight: c.insight, ...(c.insightReasons?.length ? { insightWhy: c.insightReasons.slice(0, 8), insightRaw: c.insightRaw ?? null } : {}), revision: 3, ...(c.chipFallback ? { chipFallback: true } : {}), facts: f, source: buildWatchlistV3Prompt(f), inputHash: inputHashOf(f), cachedContextHash, checkedAt: Date.now(), ms: Date.now() - t0, provider: res.provider,
         };
         const saved = await setInCache(lineKey(f.ticker), line, WL_AI_TTL_SEC);
         if (saved === false) return { outcome: 'error', reasons: ['cache-write'] };
@@ -425,7 +427,7 @@ export async function compareLinesDry(tickers: string[], opts: { reps?: number; 
                     validate: (text: string) => { const c = check(text); attempts.push(c.reasons); raws.push(String(text).slice(0, 1500)); return { ok: c.ok, reasons: c.reasons }; },
                 }));
                 const c = check(res.text);
-                out[t][which].push({ ok: c.ok, reasons: c.reasons, text: c.text, insight: c.insight, insightReasons: c.insightReasons, raw: res.text.slice(0, 1500), attempts, raws, provider: res.provider, ms: Date.now() - s0 });
+                out[t][which].push({ ok: c.ok, reasons: c.reasons, chipFallback: c.chipFallback, text: c.text, insight: c.insight, insightReasons: c.insightReasons, raw: res.text.slice(0, 1500), attempts, raws, provider: res.provider, ms: Date.now() - s0 });
             } catch (e) {
                 out[t][which].push({ ok: false, error: String((e as Error)?.message || e).slice(0, 160), attempts, raws, ms: Date.now() - s0 });
             }

@@ -542,7 +542,8 @@ async function asyncTests() {
     script.push({ text: JSON.stringify({ ko: 'Max Pain $215 위 {MP} · 매수 구간', en: '{MP} above Max Pain $215', ja: 'Max Pain $215の{MP}上' }) });
     const r = await generateLines(['NVDA']);
     assert.equal(r.out.NVDA, 'guard');
-    assert.ok(r.reasons.NVDA.some((x) => x.startsWith('ko:forbidden')));
+    // v3: 칩 줄은 사실 그대로의 칩 줄로 대신할 수 있어도, 해석이 없으면 후보 전체 탈락(옛 글 유지)
+    assert.ok(r.reasons.NVDA.some((x) => /^ko:(?:insight:empty|v3:first-subject)/.test(x)), r.reasons.NVDA.join(','));
     assert.equal((store.get(lineKey('NVDA')) as any).text.ko, '옛 글 {MP}');
     assert.ok(store.get(failKey('NVDA')));
     assert.equal(ttls.get(failKey('NVDA')), 30 * 60);

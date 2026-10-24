@@ -274,6 +274,8 @@ export interface LineCheck {
     insightReasons?: string[];
     /** 모델이 준 해석 원문(언어별 120자까지) — 탈락 원인 실측용, 화면에는 안 나간다 */
     insightRaw?: Partial<Record<AiLineLocale, string>> | null;
+    /** v3: 모델 칩 줄이 검사를 못 넘어 사실 그대로의 칩 줄을 썼다(기록용) */
+    chipFallback?: boolean;
 }
 
 export function lineLocaleReasons(s: string, loc: AiLineLocale): string[] {
