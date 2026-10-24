@@ -240,6 +240,8 @@ test('드라이런은 읽기 전용 — 매크로 공유 캐시를 다시 계산
     assert.doesNotMatch(dry, /GuardianDataHub\.getGuardianSnapshot/);
     const inputs = fs.readFileSync(path.join(__dirname, '../src/services/morningBriefingInputs.ts'), 'utf8');
     assert.match(inputs, /opts\.readOnly \? peekMacroSnapshot\(\) : getMacroSnapshotSSOT\(\)/);
+    assert.match(inputs, /opts\.readOnly \? Promise\.resolve\(\[\] as any\[\]\) : getOvernightHighlights\(3\)/);
+    assert.doesNotMatch(dry, /legacySec8kSection\(\)/);
 });
 
 console.log(`morningBriefingV2: ${passed} passed`);

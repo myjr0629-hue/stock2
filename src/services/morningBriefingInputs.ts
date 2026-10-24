@@ -63,7 +63,8 @@ export async function collectMorningRaw(snapshot: any, rlsiHistory: any[], nowMs
             return Array.isArray(j) ? j : [];
         }, [] as any[]),
         safe('econ calendar', () => getFromCache<any>('fmp:econ-calendar'), null),
-        safe('disclosures', () => getOvernightHighlights(3), [] as any[]),
+        // 드라이런은 공시 캐시를 채우지 않는다(없으면 3시간 저장하는 경로) — 비교 두 판 모두 공시 없이(관문 10250410 ①)
+        safe('disclosures', () => (opts.readOnly ? Promise.resolve([] as any[]) : getOvernightHighlights(3)), [] as any[]),
         safe('yahoo', () => getYahooDataSSOT(), null),
         safe('macro', () => (opts.readOnly ? peekMacroSnapshot() : getMacroSnapshotSSOT()), null),
     ]);

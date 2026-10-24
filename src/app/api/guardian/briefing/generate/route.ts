@@ -427,7 +427,8 @@ async function dryCompare(body: any): Promise<Response> {
     const historyRaw = await getFromCache<any>('guardian:rlsi_history').catch(() => null);
     const raw = await collectMorningRaw(snapshot, Array.isArray(historyRaw) ? historyRaw : [], Date.now(), { readOnly: true });
     const facts = morningFactsFromRaw(raw, { sim, asOfMs, newsMaxAgeH: Number(body.newsMaxAgeH) || 18 });
-    const sec8k = which === 'new' ? '' : await legacySec8kSection();
+    // 옛 판의 SEC 8-K 묶음은 드라이런에서 부르지 않는다(SEC 캐시 6시간 저장 경로, 관문 10250410 ②) — 옛 판 입력에서 이 칸만 빠진다
+    const sec8k = '';
     const old = legacyPrompts(raw, sec8k, asOfMs);
     const oldSystem = dateAnchor(new Date(asOfMs)) + financeTermsRule() + old.systemPrompt + await depthSuffixFor('MorningBriefing', old.systemPrompt);
     const newSystem = dateAnchor(new Date(asOfMs)) + financeTermsRule() + morningV2System(facts.session, facts.indexFacts.some(f => f.kind === 'futures'));
