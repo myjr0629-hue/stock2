@@ -423,7 +423,10 @@ export async function POST(req: Request) {
             // ★2026-10-10 필수 3개 섹션 + 3개 언어 칸의 언어 혼입·거절·금액 자릿수(구조화 모드) — 구조만 보던 가드로는 5.5 의 한·일 칸 혼입을 못 거른다
             // ★2026-10-24 서사 세부 검사(길이·언어 간 숫자·뉴스 시각 등)는 여기서 거르지 않고 아래 «고침 요청»으로 넘긴다 —
             //   같은 프롬프트 재생성(피드백 없음)은 운영 측정에서 2회 모두 같은 사유로 탈락하고 현행 4.5(95~118초·서빙 불가)로 떨어졌다.
-            validate: (text) => {
+            validate: (raw) => {
+                // 번역 안 된 보조 뉴스 항목은 출구에서 빼므로(아래 alignSummary) 가드도 뺀 모양으로 본다
+                let text = raw;
+                try { text = JSON.stringify(CLOSING.dropUntranslatedNews(JSON.parse(raw))); } catch { /* JSON 오류는 아래 가드가 판정 */ }
                 const base = multiLangJsonGate('CrossSector', prompt, { keys: ['marketOverview', 'sectorRotation', 'outlook', 'closingNarrative'], structured: true })(text);
                 logScriptCulprits(base, text);
                 if (base !== true) return base;
@@ -434,7 +437,7 @@ export async function POST(req: Request) {
         let structured: CrossSectorBriefV3;
         try {
             // ★2026-10-10 금융 공통어 음차(«콜월·맥스페인») 출구 복원 — 모델과 무관하게 영어 이름으로(lib/ai/commonTerms)
-            structured = CLOSING.alignSummary(restoreCommonTermsDeep(JSON.parse(bedrockResult.text))) as CrossSectorBriefV3;
+            structured = CLOSING.alignSummary(restoreCommonTermsDeep(JSON.parse(bedrockResult.text)), reportEvidence) as CrossSectorBriefV3;
         } catch (parseErr) {
             console.error('[CrossSectorBrief V3] JSON parse failed:', parseErr, 'Raw:', bedrockResult.text.substring(0, 500));
             return NextResponse.json({ error: 'Bedrock returned invalid JSON' }, { status: 500 });
@@ -461,7 +464,7 @@ export async function POST(req: Request) {
                 });
                 repairs++;
                 const candidate = CLOSING.alignSummary({ ...structured, marketOverview: { ...structured.marketOverview },
-                    closingNarrative: restoreCommonTermsDeep(JSON.parse(fix.text).closingNarrative) }) as CrossSectorBriefV3;
+                    closingNarrative: restoreCommonTermsDeep(JSON.parse(fix.text).closingNarrative) }, reportEvidence) as CrossSectorBriefV3;
                 const reasons = closingReportProblems({ structured: candidate, reportEvidence, date: todayDate });
                 if (reasons.length < narrativeReasons.length) { structured = candidate; narrativeReasons = reasons; providers.push(String(fix.provider || 'legacy')); }
             } catch (e: any) {

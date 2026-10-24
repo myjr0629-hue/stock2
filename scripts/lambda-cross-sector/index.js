@@ -344,7 +344,7 @@ exports.handler = async (event, context) => {
             return { statusCode: 500, body: 'Bedrock response missing required sections' };
         }
         // marketOverview.summary = verdict (코드로 복사) · 서사 검사 탈락이면 사유를 보여 주고 closingNarrative 만 고쳐 받는다(최대 2회, Vercel 판과 같은 계약)
-        CLOSING.alignSummary(structured);
+        CLOSING.alignSummary(structured, reportEvidence);
         let narrativeErrors = CLOSING.evidenceProblems(structured, reportEvidence);
         const firstNarrativeErrors = narrativeErrors;
         for (let round = 0; round < 2 && narrativeErrors.length; round++) {
@@ -353,7 +353,7 @@ exports.handler = async (event, context) => {
                 const fix = await invokeOnce({ ...requestBody, max_tokens: 8000, temperature: 0.2, messages: [{ role: 'user', content: fixPrompt }] });
                 const n = tryParse(extractJson(fix.text))?.closingNarrative;
                 if (!n) continue;
-                const candidate = CLOSING.alignSummary({ ...structured, marketOverview: { ...structured.marketOverview }, closingNarrative: n });
+                const candidate = CLOSING.alignSummary({ ...structured, marketOverview: { ...structured.marketOverview }, closingNarrative: n }, reportEvidence);
                 const errs = CLOSING.evidenceProblems(candidate, reportEvidence);
                 if (errs.length < narrativeErrors.length) { structured = candidate; narrativeErrors = errs; }
             } catch (e) { console.warn('[CrossSector] narrative repair failed:', e.message); break; }

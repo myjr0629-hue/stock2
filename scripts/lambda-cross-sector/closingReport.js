@@ -127,6 +127,18 @@ function narrativeProblems(s) {
     return errors;
 }
 
+const PHASE_WORDS = {
+    en: { during: /\b(?:during the (?:cash |regular |trading )?session|intraday|in-session|before the (?:cash )?close)\b/i, after: /\bafter(?:\s+the)?(?:\s+(?:cash|regular|closing))?\s+(?:close|bell)|after-close|post-close|post-market|after[- ]hours|after the session|after (?:the )?(?:cash |regular[- ]session )?(?:market )?close/i },
+    ko: { during: /장중|정규장\s*(?:중|동안)|마감\s*전/, after: /마감\s*(?:이후|후|뒤)|장\s*마감\s*이후|장후|시간외|(?:종가|종료|폐장)\s*(?:이후|후|뒤)/ },
+    ja: { during: /取引時間中|場中|取引中|引け前|立会時間中/, after: /取引終了後|引け後|終了後|大引け後|時間外|クローズ後|終値後|閉場後/ },
+};
+/** 장후 보도의 시각이 든 문장이 «장중» 표현만 있고 «장후» 표현은 없으면 true(같은 문장에 둘 다 있으면 대조 서술로 본다) */
+function afterCloseCalledIntraday(text, stamp, loc) {
+    if (typeof text !== 'string' || !stamp || !text.includes(stamp)) return false;
+    const w = PHASE_WORDS[loc];
+    return text.split(/(?<=[.!?。！？])\s*/).some(sent => sent.includes(stamp) && w.during.test(sent) && !w.after.test(sent));
+}
+
 function evidenceProblems(s, evidence) {
     const out = narrativeProblems(s);
     const n = s?.closingNarrative;
@@ -147,6 +159,10 @@ function evidenceProblems(s, evidence) {
         for (const loc of LOCALES) if (typeof n.why?.[loc] !== 'string' || !n.why[loc].includes(item.publishedEt)) out.push(`narrative:news-time:${loc}`);
     }
     if (news.length && (!Array.isArray(n.causeRefs) || !n.causeRefs.length)) out.push('narrative:missing-news-ref');
+    // 장후 보도를 «장중에 나온 보도»라고 쓴 문장(10/24 9차 실측: «Reports published during the session include … Schwab Network (2026-10-23 16:10 ET)»)
+    for (const item of news.filter(x => x.timing === 'after_cash_close')) for (const loc of LOCALES) {
+        if (afterCloseCalledIntraday(n.why?.[loc], item.publishedEt, loc)) out.push(`narrative:after-close-phase-text:${loc}`);
+    }
     const close = evidence.regularClose || {};
     if (!close.spx || !close.nasdaq) out.push('narrative:cash-close-missing');
     for (const loc of LOCALES) {
@@ -195,7 +211,8 @@ function canonicalEtStamps(text) {
 }
 
 /** Contract normalisation before checks: marketOverview.summary = verdict (copied in code) and plain Korean for banned jargon. */
-function alignSummary(s) {
+function alignSummary(s, evidence) {
+    dropUntranslatedNews(s);
     const n = s?.closingNarrative;
     if (n && typeof n === 'object') for (const f of FIELDS) {
         if (n[f] && typeof n[f].ko === 'string') n[f] = { ...n[f], ko: KO_PLAIN.reduce((t, [re, to]) => t.replace(re, to), n[f].ko) };
@@ -221,6 +238,14 @@ function alignSummary(s) {
     // 일본어 «予想» 단독은 권유·예측어 검사에 걸린다 — 시장 예상치와 비교하는 자리(予想より·予想を上回/下回·予想比·予想値·予想-0.1)는 뜻 그대로 «市場予想»으로(10/24 7차 실측)
     if (n && typeof n === 'object') for (const f of FIELDS) {
         if (typeof n[f]?.ja === 'string') n[f].ja = n[f].ja.replace(/(?<!市場|業績|通期|連結|売上|利益|配当|決算|コンセンサス)予想(?=より|を上回|を下回|に対し|比|値|[-−+\d（(、])/g, '市場予想');
+    }
+    // 본문 어느 언어에도 시각이 안 나온 causeRefs 는 «인용하지 않은 참조»라 뺀다(10/24 9차 실측: 쓰지도 않은 m7-2 하나로 news-time 3언어 탈락, 고침 2회에도 그대로).
+    // 한 언어라도 인용했으면 그대로 두어 검사가 언어 간 누락을 잡게 한다.
+    if (n && typeof n === 'object' && Array.isArray(n.causeRefs) && Array.isArray(evidence?.news)) {
+        n.causeRefs = n.causeRefs.filter(ref => {
+            const item = evidence.news.find(x => x.id === ref?.newsId);
+            return !item || LOCALES.some(loc => typeof n.why?.[loc] === 'string' && n.why[loc].includes(item.publishedEt));
+        });
     }
     const v = s?.closingNarrative?.verdict;
     if (v && typeof v === 'object' && s.marketOverview && typeof s.marketOverview === 'object') s.marketOverview.summary = { ko: v.ko, en: v.en, ja: v.ja };
@@ -249,8 +274,26 @@ function repairSpecifics({ evidence, narrative, reasons }) {
         const sets = Object.fromEntries(LOCALES.map(loc => [loc, factSet(n[f]?.[loc]).key.split('|').filter(Boolean)]));
         out.push(`${f}: measured numbers/ET times per language are ko=${JSON.stringify(sets.ko)} en=${JSON.stringify(sets.en)} ja=${JSON.stringify(sets.ja)} — make all three the identical set (add the missing ones or drop the extra ones in every language).`);
     }
+    if (rs.some(r => /after-close-phase-text/.test(r))) for (const item of news.filter(x => x.timing === 'after_cash_close')) {
+        if (LOCALES.some(loc => afterCloseCalledIntraday(n.why?.[loc], item.publishedEt, loc))) out.push(`${item.source} (${item.publishedEt}) was published AFTER the cash close (16:00 ET): never group it with reports "during the session"; describe it in its own sentence as after the close.`);
+    }
     if (rs.some(r => /:ja:advice$/.test(r))) out.push('Japanese: write 市場予想 (never a bare 予想) and avoid 見通し/予測/買い/売り/推奨.');
     return out.length ? `Specific fixes:\n- ${out.join('\n- ')}\n` : '';
+}
+
+const HANGUL_RE = /[\uac00-\ud7a3]/, JA_RE = /[\u3040-\u30ff\u4e00-\u9fff]/;
+/**
+ * 보조 칸 newsImpact 의 헤드라인을 번역하지 않고 영어 원문 그대로 ko/ja 에 둔 항목은 뺀다(0~3개 허용 칸).
+ * 10/24 9차 실측 로그: «newsImpact.items[0].headline.ko=Gold, silver extend weekly losses…» — 이 한 칸 때문에 ① 응답 전체가 언어 혼입으로 버려졌다.
+ */
+function dropUntranslatedNews(s) {
+    const items = s?.newsImpact?.items;
+    if (Array.isArray(items)) s.newsImpact.items = items.filter(it => {
+        const h = it?.headline;
+        if (!h || typeof h !== 'object') return true;
+        return !(typeof h.ko === 'string' && h.ko.trim() && !HANGUL_RE.test(h.ko)) && !(typeof h.ja === 'string' && h.ja.trim() && !JA_RE.test(h.ja));
+    });
+    return s;
 }
 
 /** One targeted repair: the model sees the exact rejected checks and returns only a corrected closingNarrative. */
@@ -267,7 +310,7 @@ ${macroStr || 'not provided'}
 ${JSON.stringify(narrative, null, 1)}`;
 }
 
-module.exports = { FIELDS, LIMITS, TARGETS, cashCloseMinutes, etStamp, regularClose, newsEvidence, calendarEvidence, sessionReading, narrativeProblems, evidenceProblems, narrativeDirective, alignSummary, narrativeRepairPrompt };
+module.exports = { FIELDS, LIMITS, TARGETS, cashCloseMinutes, etStamp, regularClose, newsEvidence, calendarEvidence, sessionReading, narrativeProblems, evidenceProblems, narrativeDirective, alignSummary, narrativeRepairPrompt, dropUntranslatedNews, afterCloseCalledIntraday };
 
 function buildClosingPrompt({ sessionDate, macroStr, levelsSection, evidence, sectorSummaries, keyLevelsSchema, keyLevelsRequirement }) {
     const KEYLEVELS_SCHEMA_EXAMPLE = keyLevelsSchema;

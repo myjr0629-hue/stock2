@@ -98,6 +98,21 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     C.alignSummary(buy.structured);
     assert.equal(buy.structured.closingNarrative.whatHappened.ko, '나스닥은 일부 반도체 매수세로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.', '관찰된 매매만 매수세로(10/24 8차 실측)');
     assert.equal(closingReportProblems(buy).some(r => r.endsWith(':advice')), false);
+    // 10/24 9차 실측 — 장후 보도를 «장중 보도»로 묶은 문장은 탈락, 같은 문장에 «마감 후»가 있으면 대조 서술로 통과
+    assert.equal(C.afterCloseCalledIntraday('Reports published during the session include FXEmpire (2026-10-23 14:29 ET) and Schwab Network (2026-10-23 16:10 ET).', '2026-10-23 16:10 ET', 'en'), true);
+    assert.equal(C.afterCloseCalledIntraday('FXEmpire reported during the session, while Schwab Network (2026-10-23 16:10 ET) came after the close.', '2026-10-23 16:10 ET', 'en'), false);
+    assert.equal(C.afterCloseCalledIntraday('정규장 중 나온 보도로는 Schwab Network(2026-10-23 16:10 ET)가 있었다.', '2026-10-23 16:10 ET', 'ko'), true);
+    assert.equal(C.afterCloseCalledIntraday('Kitco(2026-10-23 17:42 ET) 보도는 마감 이후 기사다.', '2026-10-23 17:42 ET', 'ko'), false);
+    assert.equal(C.afterCloseCalledIntraday('Kitcoは2026-10-23 17:42 ETに報じ、取引終了後の報道である。', '2026-10-23 17:42 ET', 'ja'), false);
+    // 본문 어느 언어에도 시각이 없는 causeRefs 는 뺀다(한 언어라도 인용하면 유지)
+    const orphan = brief(); const ev = orphan.reportEvidence;
+    orphan.structured.closingNarrative.causeRefs = [...orphan.structured.closingNarrative.causeRefs, { newsId: 'zz-9', kind: 'after_close' }];
+    C.alignSummary(orphan.structured, { ...ev, news: [...ev.news, { id: 'zz-9', publishedEt: '2026-10-22 23:59 ET', timing: 'after_cash_close' }] });
+    assert.equal(orphan.structured.closingNarrative.causeRefs.some((r: any) => r.newsId === 'zz-9'), false);
+    assert.deepEqual(orphan.structured.closingNarrative.causeRefs, narrative.causeRefs);
+    // 번역 안 된 보조 뉴스 항목은 뺀다
+    const untr = { newsImpact: { items: [{ headline: { ko: 'Gold extends weekly losses as crude rises', en: 'Gold extends weekly losses as crude rises', ja: 'Gold extends weekly losses as crude rises' } }, { headline: { ko: '금 약세', en: 'Gold weak', ja: '金が軟調' } }] } };
+    assert.deepEqual(C.dropUntranslatedNews(untr).newsImpact.items.map((x: any) => x.headline.en), ['Gold weak']);
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');
