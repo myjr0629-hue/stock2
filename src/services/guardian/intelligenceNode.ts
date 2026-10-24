@@ -11,7 +11,7 @@ import { readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
 import { restoreKoSectorNames, restoreJaSectorNames } from '@/lib/ai/sectorLabels';
 import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
-import { fillGuardianTokens, checkGuardianLiterals, guardianLiterals, stateStaleReasons, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
+import { fillGuardianTokens, checkGuardianLiterals, guardianLiterals, type GLiteral, stateStaleReasons, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
 import { forecastHits, stripForecastSentences, checkComparisons, checkRanges } from '@/lib/ai/trustLayer';
 
 // Supported locales
@@ -324,7 +324,8 @@ function tacticalFillNums(tpl: string, nums: GNums | null | undefined, basis: GN
     const old: GNums = { ...nums, ...basis };
     const f = fillGuardianTokens(tpl, live, basis);
     if (!f.ok) return old;
-    if (!isOffHours() && stateStaleReasons(live, basis).some((r) => tpl.includes(`{${r.split(':')[1]}}`))) return old;
+    // 상태 구간 비교는 장외에도 본다 — 여기서는 탈락이 아니라 «어느 값으로 채울지»만 고른다(관문 10241021 ②: 장외 «0.00% 상승»)
+    if (stateStaleReasons(live, basis).some((r) => tpl.includes(`{${r.split(':')[1]}}`))) return old;
     const facts = guardianCmpFacts(live);
     if (checkComparisons(f.text, facts).length || checkRanges(f.text, facts).length) return old;
     return live;
@@ -332,16 +333,50 @@ function tacticalFillNums(tpl: string, nums: GNums | null | undefined, basis: GN
 
 /**
  * ★2026-10-24 번역 숫자 대조(밤 검토 ③) — Tactical 번역은 저장본 경로로 검사돼 숫자 리터럴 대조가 빠졌다(VIX 99 가 화면·캐시 통과).
- *   ① 번역 글에 «지표 이름 + 숫자»로 박힌 값은 원문에 있는 숫자여야 한다(번역은 숫자를 바꾸지 않는다 — 지수 직접 표기 포함).
+ *   ① 번역 글에 «지표 이름 + 숫자»로 박힌 값은 원문의 «같은 지표» 값과 크기·부호·방향어까지 맞아야 한다(기존 숫자 검사 판정 literalMatchesValue).
+ *      지표끼리 숫자를 맞바꾸거나 «−2.6% 하락 → +2.6% 상승»으로 뒤집으면 탈락(관문 10241021 ①). 원문에서 «지표+숫자» 꼴로 안 잡힌 숫자
+ *      (예: 영어 «Nasdaq Composite closed down 0.2%» — 이름과 숫자 사이가 길다)는 같은 크기·부호·방향어로 대조한다(다른 지표 리터럴 자리는 제외).
  *   ② Tactical 은 원문의 생성 기준값(basis)과도 기존 숫자 검사(checkGuardianLiterals)로 대조한다(지수는 INDEX_FACTS 계약이라 제외).
  *   탈락하면 그 번역은 쓰지도 저장하지도 않는다(기존 정상본 유지).
  */
+// 번역 대조 전용 — lib/ai/guardianNumbers.literalMatches 와 같은 판정(허용 오차·명시 부호·방향어). 공유 파일은 origin/main 바이트 동일 유지(tacticalV3RecoveryBoundary).
+const TR_CHG_KEYS = new Set(['NDX_CHG', 'SPX_CHG', 'GOLD_CHG', 'OIL_CHG', 'TLT_CHG', 'BTC_CHG']);
+const TR_UP = /(상승|올라|오른|오르|강세|반등|급등|rose|rise|gain|up\b|climb|advanc|rall|jump|上昇|高く|上げ|反発)/i;
+const TR_DOWN = /(하락|내린|내려|약세|떨어|급락|fell|fall|drop|declin|down\b|slid|lost|lower|下落|安く|下げ|続落)/i;
+function literalMatchesValue(l: GLiteral, actual: number, text: string): boolean {
+    const written = l.written.replace(/^[+-]/, '');
+    const i = written.indexOf('.');
+    const half = 0.5 * Math.pow(10, -(i < 0 ? 0 : written.length - i - 1)) + 1e-9;
+    const kind = TR_CHG_KEYS.has(l.key) ? 'chg' : (l.key === 'RLSI' || l.key === 'GEX' || l.key === 'SQUEEZE' || l.key === 'BREADTH') ? 'score' : 'level';
+    const tol = kind === 'chg' ? Math.max(0.02, half + 0.005) : kind === 'score' ? Math.max(1, half) : Math.max(Math.abs(actual) * 0.015, half);
+    if (kind !== 'chg') return Math.abs(l.value - actual) <= tol;
+    if (/^[+-]/.test(l.written)) {
+        if (Math.abs(l.value - actual) > tol) return false;
+        return !(Math.abs(actual) >= 0.05 && Math.abs(l.value) >= 0.05 && Math.sign(l.value) !== Math.sign(actual));
+    }
+    if (Math.abs(Math.abs(l.value) - Math.abs(actual)) > tol) return false;
+    if (Math.abs(actual) >= 0.05) {
+        const around = text.slice(Math.max(0, l.numIndex - 12), l.numIndex + l.numLength + 10);
+        if (actual > 0 && TR_DOWN.test(around) && !TR_UP.test(around)) return false;
+        if (actual < 0 && TR_UP.test(around) && !TR_DOWN.test(around)) return false;
+    }
+    return true;
+}
+
 function translationNumberReasons(type: InsightType, sourceText: string, translatedTpl: string, basis: GNums | null | undefined): string[] {
-    const srcNums = (String(sourceText ?? '').match(/\d+(?:\.\d+)?/g) || []).map(Number);
+    const src = String(sourceText ?? '');
+    const srcLits = guardianLiterals(src);
+    // 원문 리터럴이 가질 수 있는 부호 있는 값(부호·방향어로 정해지면 하나, 방향 정보가 없으면 ±)
+    const signedOf = (l: GLiteral) => [l.value, -l.value].filter((c, i, a) => a.indexOf(c) === i && literalMatchesValue(l, c, src));
     const bad: string[] = [];
     for (const l of guardianLiterals(translatedTpl)) {
-        const v = Math.abs(l.value);
-        if (!srcNums.some((n) => Math.abs(n - v) < 1e-9)) bad.push(`translation-number:${l.key}:${l.written}`);
+        // 같은 지표 리터럴 + 원문에서 «지표+숫자»로 안 잡힌 같은 크기 숫자(다른 지표의 리터럴 자리는 빼서 지표 간 맞바꿈은 계속 잡는다)
+        const loose = [...src.matchAll(/[+\-−]?\d+(?:\.\d+)?/g)]
+            .filter((m) => Math.abs(Math.abs(Number(m[0].replace('−', '-'))) - Math.abs(l.value)) < 1e-9)
+            .filter((m) => !srcLits.some((s) => m.index! < s.numIndex + s.numLength && s.numIndex < m.index! + m[0].length))
+            .map((m): GLiteral => ({ key: l.key, written: m[0].replace('−', '-'), value: Number(m[0].replace('−', '-')), index: m.index!, numIndex: m.index!, numLength: m[0].length, ctx: '' }));
+        const pool: GLiteral[] = [...srcLits.filter((s) => s.key === l.key), ...loose];
+        if (!pool.some((s) => signedOf(s).some((c) => literalMatchesValue(l, c, translatedTpl)))) bad.push(`translation-number:${l.key}:${l.written}`);
     }
     if (type === 'reality') bad.push(...checkGuardianLiterals(translatedTpl, insightNums(type, basis)));
     return bad;
