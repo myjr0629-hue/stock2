@@ -118,9 +118,12 @@ const INTERNAL = /MARKET_FACTS|\bageMin\b|\bAS_OF\b|NEWS[ _-]*PULSE|\bPolygon\b|
 
 export interface PulseItemCheck { ok: boolean; reasons: string[] }
 
+/** 한·일 지수 이름 속 숫자(나스닥100·ナスダック100·다우30·日経225 …) — 값이 아니다(영어 이름은 숫자 검사기가 이미 뺀다) */
+const CJK_INDEX_NAMES = /(?:나스닥|ナスダック)\s?100|(?:러셀|ラッセル)\s?2000|(?:다우|ダウ)(?:\s?존스)?\s?30|(?:닛케이|니케이|日経)(?:平均)?\s?225|(?:코스피|KOSPI)\s?200|(?:Dow|DJIA)\s?30|Nikkei\s?225/gi;
+
 /** 3언어 숫자 서명 — 영문 날짜(«Oct. 28»)·분기 표기(Q3·3분기·4Q)는 값이 아니다 */
 export function pulseNumberSig(text: string): string[] {
-    return numberSignature(expandRanges(String(text || ''))
+    return numberSignature(expandRanges(String(text || '')).replace(CJK_INDEX_NAMES, ' ')
         .replace(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}\b/gi, ' ')
         .replace(/\b[1-4]Q\b|\bQ[1-4]\b|[1-4]\s?분기|第?[1-4]四半期/g, ' ')
         // 연도·회계연도(FY2027 · 2027회계연도 · 2027年度)는 값이 아니다(근거 대조는 따로 한다, 관문 10250424)
@@ -161,7 +164,7 @@ export function checkPulseItem(item: any, article: PulseArticle | undefined, mar
         if (adv) reasons.push(`${key}:advice:${adv}`);
         if (forecastHits(t, loc).length) reasons.push(`${key}:forecast`);
         // 한·일 지수 이름 속 숫자(나스닥100·ナスダック100·러셀2000)는 값이 아니다(영어 이름은 숫자 검사기가 이미 뺀다, 관문 10250439)
-        const ung = checkNumberGrounding(expandRanges(t).replace(/(?:나스닥|ナスダック)\s?100|(?:러셀|ラッセル)\s?2000|(?:다우|ダウ)\s?30|(?:닛케이|日経)\s?225/g, ' '), evidence).ungrounded;
+        const ung = checkNumberGrounding(expandRanges(t).replace(CJK_INDEX_NAMES, ' '), evidence).ungrounded;
         if (ung.length) reasons.push(`${key}:number:${ung[0].raw}`);
         if (loc !== 'en' && !checkAmounts(evidence, t, loc, [String(item?.summaryEN || ''), String(item?.analysisEN || '')]).ok) reasons.push(`${key}:amount`);
     }
