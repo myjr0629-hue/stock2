@@ -31,7 +31,7 @@ mock('../src/services/bedrockClient', {
         if (denied) throw new FreshTierSkipped(['cap']);
         const facts = promptFacts();
         const text = JSON.stringify(Object.fromEntries(facts.map((f: any) => [f.id, {
-            ko: invalidGenerated ? '기관 매집에 따른 섹터 동반 상승이 확인됩니다' : '섹터 안 종목별 움직임 차이가 관측됩니다',
+            ko: invalidGenerated ? 'NEWS PULSE 기준 섹터 동반 상승이 확인됩니다' : '섹터 안 종목별 움직임 차이가 관측됩니다',
             en: 'Differences across sector members observed', ja: 'セクター内の銘柄間で動きの差を確認',
         }])));
         assert.equal(o.validate(text), !invalidGenerated);

@@ -74,11 +74,8 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
     if (/\bfutures\b|선물|先物/i.test(text)) reasons.push('unsupported-futures');
     // 미확인·판단 보류 표현(관문 10241655: «판단 불가»·«판단하기 어려움»·cannot·unclear·判断できない)은 인과·자금 단정이 아니다.
     const unconfirmed = /아니|아님|않|없|미확인|불가|어렵|어려움|유보|보류|미검증|알\s*수\s*없|未確認|未検証|保留|ではな|確認されず|判断できな|分から|わから|不明|難し|\b(?:not|no|unconfirmed|unproven|unverified|cannot|can't|unclear|unknown|uncertain)\b/i.test(text);
-    if (!unconfirmed && /\b(?:institutional (?:buying|selling|accumulation)|fund inflows?|fund outflows?)\b|기관\s*(?:매집|매수|매도)|자금\s*(?:유입|유출)|機関投資家.*(?:買い|売り)|資金(?:流入|流出)/i.test(text)) reasons.push('unsupported-flow');
-    // Only explicit event causation, not ordinary 'leader lifts the measured mean'.
-    const event = /\b(?:earnings|Fed|rates?|tariffs?|AI demand)\b|실적|연준|금리|관세|AI\s*수요|決算|金利|関税/;
-    const cause = /\b(?:because|due to|driven by|on the back of|amid)\b|때문|영향|덕분|배경|여파|受け|背景|影響/i;
-    if (!unconfirmed && event.test(text) && cause.test(text)) reasons.push('unsupported-cause');
+    // 근거 없는 자금·인과 «단정» 검사는 거절하지 않는다(관문 10241655·10241720·10241742: «판단 유보·추가 확인 필요·確認できない» 등
+    // 유보 표현을 단정으로 오인하는 오탈락 반복). 운영(옛) 검사에도 없고, 운영 모델 실측 180줄에서 해당 주장 0건 — 프롬프트 지시로 다룬다.
     if (/매수(?:하|를 권)|매도(?:하|를 권)|買い推奨|売り推奨|\b(?:buy now|sell now|should buy|should sell)\b/i.test(text)) reasons.push('advice');
     // Require the universal subject to directly predicate the move. Scope phrases
     // such as '모든 종목 중 NVDA만 상승' / '全銘柄のうちNVDAのみ上昇' are not unanimity.
