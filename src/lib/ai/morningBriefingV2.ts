@@ -451,7 +451,7 @@ const METRIC_ALIASES: Record<string, Record<MbLocale, RegExp>> = {
 };
 // 다른 주어(지수·주가·증시)가 나오면 그 지표의 절은 끝난다 — «유가 … 주가 하락 흐름»의 «하락»은 유가의 방향이 아니다
 //   다른 절을 여는 접속어(as·while·반면·一方 …)와 다른 자산(채권·bonds)에서도 끊는다(«WTI … as bond prices fell», 관문 10250133 ①)
-const WINDOW_STOP = /S&P\s?500|나스닥|Nasdaq|NASDAQ|ナスダック|선물|futures|先物|주가|증시|株価|株式|채권|債券|\b(?:stocks?|equities|shares|bonds?|as|while|amid|but|whereas|after|though|although)\b|반면|한편|가운데|一方|中で|ながら|[.!?。！？](?:\s|$)/i;
+const WINDOW_STOP = /S&P\s?500|나스닥|Nasdaq|NASDAQ|ナスダック|선물|futures|先物|주가|증시|株価|株式|채권|債券|\b(?:stocks?|equities|shares|bonds?|as|while|amid|but|whereas|after|though|although)\b|반면|한편|가운데|一方|中で|ながら|[。！？]|[.!?](?:\s|$)/i;
 // 일본어 «高·安» 은 낱자로 쓰면 «安全資産»·«高まり» 를 방향어로 읽는다 — 숫자 뒤 꼴(3.82%高の · 1.29%安で)만
 const RATE_STOP = /금리|물가|인플레|金利|利回り|物価|インフレ|\b(?:yields?|rates?|inflation)\b/i;
 const UP_WORD = /올랐|오른|오르|올라|상승|높아|뛰었|뛴|\b(?:rose|up|higher|climb\w*|gain\w*|rising|jump\w*|advanc\w*)\b|上昇|上が|[%\d]高[のでと、]/i;
@@ -562,7 +562,9 @@ export function checkMorningLocale(text: string, locale: MbLocale, f: MorningFac
         const ds = mentionedDates(s);
         for (const tm of times) if (!newsAt.some(a => a.time === tm) && !releasedAt.some(a => a.time === tm)) { reasons.push('mb:citation-time'); break; }
         for (const d of ds) {
-            const ok = [...newsAt.map(a => a.date), ...releasedAt.map(a => a.date), ...f.indexFacts.map(x => x.sessionDate || ''), ...f.disclosures.map(x => x.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '')]
+            // 보도 본문에 적힌 날짜(«On Thursday, October 22» → 10-22)도 근거다
+            const newsTextDates = news.flatMap(l => mentionedDates(l.replace(/^\[[^\]]*\]\s*/, ''))).map(x => (x.length === 10 ? x : `0000-${x}`));
+            const ok = [...newsAt.map(a => a.date), ...releasedAt.map(a => a.date), ...f.indexFacts.map(x => x.sessionDate || ''), ...f.disclosures.map(x => x.match(/\d{4}-\d{2}-\d{2}/)?.[0] || ''), ...newsTextDates]
                 .some(date => date && (d.length === 10 ? d === date : d === date.slice(5)));
             if (!ok) { reasons.push('mb:citation-date'); break; }
         }
