@@ -1,5 +1,8 @@
 const { createHash } = require('node:crypto');
 const MIN_REQUEST_INTERVAL_MS = 2000;
+const STALL_LIMIT = 3;
+// Checkpoint-safe marker (plain JSON) for «forward estimates unavailable this run».
+const FORWARD_FAILED = { forwardUnavailable: true };
 function marketDate(ms) {
   const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ms);
   const v = Object.fromEntries(p.map(x => [x.type, x.value]));
@@ -54,24 +57,58 @@ async function runSlice({ state, universe, date, now, remainingMs, sleep, guard,
       state.complete = state.cursor === universe.length;
       await checkpoint(state);
     };
-    let response, data;
+    let response, data, diagnostic;
     let failure;
     lastRequestAt = now();
     try {
       response = await request(path);
-      await guard.observe(response, 'lambda');
+      diagnostic = await guard.observe(response, 'lambda');
       if (!response.ok) failure = 'http_unavailable';
       else {
         data = await response.json();
         if (!Array.isArray(data)) failure = 'invalid_payload';
       }
     } catch { failure = 'request_unavailable'; }
+    const endpoint = path.split('?')[0];
     if (failure) {
-      // Account-wide restrictions retain the current endpoint for a later slice.
-      if (inCalendar || response?.status === 402 || response?.status === 429) {
-        await checkpoint(state); return finish(failure);
+      const status = response?.status;
+      // 429 and account-level 402 (bandwidth/daily/key) pause the whole collector and retain
+      // the current endpoint. A plan restriction of ONE endpoint is local to that endpoint.
+      const accountWide = inCalendar || status === 429 || (status === 402 && diagnostic?.reason !== 'plan_restricted');
+      if (accountWide) {
+        // The same endpoint stalling three slices in a row is treated as local, so one
+        // persistent failure can never pin the daily cursor.
+        const at = inCalendar ? `calendar:${window.from}` : `${ticker}:${endpoint}`;
+        state.stall = state.stall?.at === at ? { at, n: state.stall.n + 1 } : { at, n: 1 };
+        if (state.stall.n < STALL_LIMIT) { await checkpoint(state); return finish(failure); }
       }
-      await skipTicker(failure, response?.status);
+      state.stall = null;
+      if (inCalendar) {
+        state.calendarFailures ||= [];
+        state.calendarFailures.push({ from: window.from, to: window.to, reason: 'calendar_unavailable' });
+        state.calendarWindows.shift();
+        state.calendarOffset = window.to+1;
+        await checkpoint(state);
+        continue;
+      }
+      if (endpoint === 'analyst-estimates') {
+        // Forward estimates failed alone: grades/targets are still saved, and the stored
+        // forward fields are carried instead of being overwritten (saveTicker).
+        state.failures ||= {};
+        state.failures[ticker] = { endpoint, reason: failure, ...(status == null ? {} : { status }) };
+        state.partial.push(FORWARD_FAILED);
+      } else {
+        // Grade/target failure: keep the whole published record for this ticker.
+        await skipTicker(failure, status);
+        continue;
+      }
+    } else state.stall = null;
+    if (failure) {
+      await save(ticker, state.partial, state.calendar[ticker] || null, !state.calendarFailures?.length);
+      state.cursor++;
+      state.partial = [];
+      state.complete = state.cursor === universe.length;
+      await checkpoint(state);
       continue;
     }
     if (inCalendar) {
@@ -109,4 +146,4 @@ async function runSlice({ state, universe, date, now, remainingMs, sleep, guard,
   await checkpoint(state);
   return finish(state.complete ? 'complete' : 'deadline');
 }
-module.exports = { marketDate, runSlice, MIN_REQUEST_INTERVAL_MS };
+module.exports = { marketDate, runSlice, MIN_REQUEST_INTERVAL_MS, STALL_LIMIT, FORWARD_FAILED };

@@ -129,7 +129,8 @@ for (const failureAt of [0, 1, 2]) test(`persistent ticker 404 at endpoint ${fai
     if (previousCursor === 0 && stored.cursor === 1) assert.equal(stored.partial.length, 0);
     assert.ok(++slices < 10);
   }
-  assert.deepEqual(saved, ['IBM']); assert.equal(stored.cursor, 2);
+  // Grade/target failure keeps BAD's published record; a forward-only failure still saves its grades/targets.
+  assert.deepEqual(saved, failureAt === 2 ? ['BAD', 'IBM'] : ['IBM']); assert.equal(stored.cursor, 2);
   assert.equal(paths.length, failureAt + 4);
   assert.equal(stored.failures.BAD.status, 404);
   assert.equal(stored.failures.BAD.reason, 'http_unavailable');
@@ -158,7 +159,7 @@ test('account-wide 402 retains ticker partial work and resumes the same endpoint
   let denied = true;
   const run = () => runSlice({ state, universe: ['IBM'], date: '2026-10-23', now: r.now,
     remainingMs: () => 900000, sleep: async ms => r.advance(ms), guard: guardAt(r),
-    request: async path => { paths.push(path); return denied ? new Response('Upgrade subscription', { status: 402 }) : Response.json([]); },
+    request: async path => { paths.push(path); return denied ? new Response('Bandwidth limit reached', { status: 402 }) : Response.json([]); },
     checkpoint: async () => {}, save: async () => {},
   });
   assert.equal((await run()).reason, 'http_unavailable');
@@ -587,4 +588,76 @@ test('transport decodes UTF-8 split across chunks (no U+FFFD)', async () => {
   } };
   const out = await httpsGet('https://offline.invalid', 1000, transport);
   assert.equal(JSON.parse(out.body)[0].name, '한국 Société');
+});
+
+// ── gate 10241641: forward-only failures never pin the cursor nor drop ANALYST ──
+for (const mode of ['402-plan', '404', 'transport']) test(`forward-only ${mode}: ANALYST saved, stored forward carried, next ticker collected`, async () => {
+  const { createHandler } = require('../scripts/lambda-fmp/index.js');
+  const r = redisClock(Date.parse('2026-10-26T10:15:00-04:00'));
+  let stored; const records = [];
+  const old = { pattern: 'EARNINGS:BAD', forwardEps: 8, forwardRevenue: 190000000, forwardYear: '2027', nextDate: '2026-10-20' };
+  const client = { send: async cmd => {
+    const n = cmd.constructor.name, i = cmd.input;
+    if (n === 'GetCommand') return { Item: stored ? { state: structuredClone(stored) } : undefined };
+    if (n === 'QueryCommand') return { Items: i.ExpressionAttributeValues[':p'] === 'EARNINGS:BAD' ? [old] : [] };
+    if (i.Item.pattern.startsWith('FMP:RUN:')) stored = structuredClone(i.Item.state); else records.push(i.Item);
+    return {};
+  } };
+  const handler = createHandler({ client, command: r.command, now: r.now, universe: ['BAD', 'IBM'], sleep: async ms => r.advance(ms), request: async path => {
+    if (path.startsWith('earnings-calendar')) return Response.json(new URLSearchParams(path.split('?')[1]).get('from') === '2026-10-26' ? [{ symbol: 'BAD', date: '2026-10-29', epsEstimated: 1 }, { symbol: 'IBM', date: '2026-10-28', epsEstimated: 2 }] : []);
+    if (path.startsWith('analyst-estimates') && path.includes('BAD')) {
+      if (mode === 'transport') throw Error('private-transport-marker');
+      return new Response('Premium subscription required private-body-marker', { status: mode === '402-plan' ? 402 : 404 });
+    }
+    if (path.startsWith('grades-consensus')) return Response.json([{ strongBuy: 1, buy: 2, hold: 1, consensus: 'BUY' }]);
+    if (path.startsWith('price-target-consensus')) return Response.json([{ targetHigh: 30, targetLow: 10, targetConsensus: 20 }]);
+    return Response.json([{ date: '2027-12-31', epsAvg: 9, revenueAvg: 200000000 }]);
+  } });
+  const out = JSON.parse((await handler({})).body);
+  assert.equal(out.complete, true); assert.equal(stored.cursor, 2);
+  const bad = records.filter(x => x.pattern.endsWith(':BAD'));
+  assert.equal(bad.find(x => x.pattern === 'ANALYST:BAD').priceTarget.targetConsensus, 20);
+  const earn = bad.find(x => x.pattern === 'EARNINGS:BAD');
+  assert.equal(earn.forwardEps, 8); assert.equal(earn.forwardRevenue, 190000000); assert.equal(earn.nextDate, '2026-10-29');
+  assert.ok(records.some(x => x.pattern === 'ANALYST:IBM')); assert.equal(records.find(x => x.pattern === 'EARNINGS:IBM').forwardEps, 9);
+  assert.ok(!JSON.stringify(stored).includes('private-'));
+});
+
+test('forward-only failure without a stored record writes no null forward fields', async () => {
+  const r = redisClock(), state = stateOf(); state.calendarOffset = 180;
+  const { FORWARD_FAILED } = require('../scripts/lambda-fmp/runner.cjs');
+  const saved = [];
+  await runSlice({ state, universe: ['BAD'], date: '2026-10-26', now: r.now, remainingMs: () => 900000, sleep: async ms => r.advance(ms), guard: guardAt(r),
+    request: async path => path.startsWith('analyst-estimates') ? new Response('', { status: 404 }) : Response.json([]),
+    checkpoint: async () => {}, save: async (t, payload) => saved.push(payload) });
+  assert.deepEqual(saved[0][2], FORWARD_FAILED);
+  const { createHandler } = require('../scripts/lambda-fmp/index.js');
+  assert.equal(typeof createHandler, 'function');
+});
+
+test('account-wide 402/429 on one endpoint stalls at most 3 slices, then that ticker is skipped and collection advances', async () => {
+  const r = redisClock(), paths = [], saved = [];
+  let stored = stateOf(); stored.calendarOffset = 180;
+  for (let slice = 0; slice < 6 && !stored.complete; slice++) {
+    await runSlice({ state: structuredClone(stored), universe: ['BAD', 'IBM'], date: '2026-10-26', now: r.now, remainingMs: () => 900000, sleep: async ms => r.advance(ms), guard: guardAt(r),
+      request: async path => { paths.push(path); return path.includes('BAD') && path.startsWith('grades') ? new Response('daily limit exceeded', { status: 402 }) : Response.json([]); },
+      checkpoint: async s => { stored = structuredClone(s); }, save: async t => saved.push(t) });
+    r.advance(900000);
+  }
+  assert.equal(stored.complete, true); assert.deepEqual(saved, ['IBM']);
+  assert.equal(paths.filter(p => p.includes('BAD')).length, 3);
+});
+
+test('persistent calendar failure stalls at most 3 slices, then the window is recorded and EARNINGS is withheld', async () => {
+  const r = redisClock(), saved = [];
+  let stored = stateOf();
+  for (let slice = 0; slice < 40 && !stored.complete; slice++) {
+    await runSlice({ state: structuredClone(stored), universe: ['IBM'], date: '2026-10-26', now: r.now, remainingMs: () => 900000, sleep: async ms => r.advance(ms), guard: guardAt(r),
+      request: async path => (path.startsWith('earnings-calendar') && path.includes('from=2026-10-26') ? new Response('', { status: 503 }) : Response.json([])),
+      checkpoint: async s => { stored = structuredClone(s); }, save: async (t, _p, _c, complete) => saved.push({ t, complete }) });
+    r.advance(900000);
+  }
+  assert.equal(stored.complete, true);
+  assert.deepEqual(stored.calendarFailures, [{ from: 0, to: 13, reason: 'calendar_unavailable' }]);
+  assert.deepEqual(saved, [{ t: 'IBM', complete: false }]);
 });
