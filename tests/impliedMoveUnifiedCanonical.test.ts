@@ -189,6 +189,43 @@ async function main() {
   await IMS.overlayCanonicalImpliedMoveRows(later, 500);
   assert.equal(later.AMZN.impliedMovePct, 7.9, '끝난 조회 결과는 다음 요청에 쓰인다');
 
+  // ⑧-c 다른 종목의 늦은 진행 중 조회가 이 행을 막지 않는다(관문 10250519 ①) — MSFT 메모 적중(5.1→5.3)은 AMZN 이 진행 중이어도 즉시
+  seed();
+  await at(WEEKEND, () => IMS.canonicalImpliedMoveFields([{ ticker: 'MSFT', fields: fields(5.1) }]));   // MSFT 정본 메모
+  slowStore.mgetFromCache = (keys: string[]) => new Promise((r) => setTimeout(() => r(keys.map((k) => structuredClone(store.get(k) ?? null))), 1200));
+  const first: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
+  await at(WEEKEND, () => IMS.overlayCanonicalImpliedMoveRows(first, 500));   // AMZN 진행 중으로 남음
+  const both: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8), MSFT: analysisEntry('MSFT', 5.1) };
+  const t2 = Date.now();
+  await at(WEEKEND + 1_000, () => IMS.overlayCanonicalImpliedMoveRows(both, 500));
+  assert.equal(both.MSFT.impliedMovePct, 5.3, '메모 적중 종목은 진행 중인 다른 종목과 무관하게 정본');
+  assert.equal(both.AMZN.impliedMovePct, 7.8, '진행 중 종목은 남은 시간만 — 그대로');
+  assert.ok(Date.now() - t2 < 300, '진행 중 조회의 남은 시간(0)만 기다림');
+  await new Promise((r) => setTimeout(r, 1300));
+  slowStore.mgetFromCache = realMget;
+
+  // ⑧-d 앞 단계가 고친 정본 행(7.9)을 다음 단계가 다시 조회하지 않는다(관문 10250519 ②)
+  seed();
+  const entry2: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
+  await at(WEEKEND, () => IMS.overlayCanonicalImpliedMoveRows(entry2, 500));
+  assert.equal(entry2.AMZN.impliedMovePct, 7.9);
+  reads.length = 0;
+  const exit2: Record<string, any> = { AMZN: { ...entry2.AMZN } };
+  await at(WEEKEND + 100, () => IMS.overlayCanonicalImpliedMoveRows(exit2, 500));
+  assert.equal(exit2.AMZN.impliedMovePct, 7.9);
+  assert.deepEqual(reads, [], '정본 행 재조회 0(MGET 0)');
+
+  // ⑧-e 끝나지 않는 조회는 상한(10초) 뒤 «모름»으로 정산 — 진행 중 항목이 영원히 남지 않는다
+  seed();
+  slowStore.mgetFromCache = () => new Promise(() => {});
+  const t3 = Date.now();
+  const hung = await IMS.canonicalImpliedMoveFields([{ ticker: 'AMZN', fields: fields(7.8) }]);
+  assert.equal(hung[0], null);
+  assert.ok(Date.now() - t3 >= 9_500 && Date.now() - t3 < 12_000, '상한 뒤 정산');
+  slowStore.mgetFromCache = realMget;
+  const after10 = await at(WEEKEND, () => IMS.canonicalImpliedMoveFields([{ ticker: 'AMZN', fields: fields(7.8) }]));
+  assert.deepEqual(after10[0], fields(7.9), '정산 뒤 다음 요청은 새로 대조(메모 안 됨)');
+
   // ⑨ 분석 캐시 입구(getAnalysisCacheForTickers·getAnalysisCache) — 이 캐시를 읽는 화면 전부가 7.9 · 저장본은 그대로(쓰기 0)
   seed();
   store.set('cache:analysis:AMZN', analysisEntry('AMZN', 7.8));
@@ -222,7 +259,7 @@ async function main() {
   assert.match(overlayBody, /await overlayCanonicalImpliedMove\(next\);\s*\n\s*return \{ \.\.\.payload, tickers: next \};/);
   assert.match(overlayBody, /overlayCanonicalImpliedMoveRows\(rows, 500\)/);
 
-  console.log('impliedMoveUnifiedCanonical: 13 묶음 통과');
+  console.log('impliedMoveUnifiedCanonical: 16 묶음 통과');
 }
 
 main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });

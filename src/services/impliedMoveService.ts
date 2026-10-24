@@ -349,6 +349,7 @@ function moveOfFields(f: ImpliedMoveFields): ImpliedMove | null {
 
 // 같은 키의 진행 중 대조 — 분석 캐시 입구가 상한(500ms)으로 먼저 돌아온 뒤 unified 출구가 같은 조회를 다시 시작하지 않게(관문 10250501 ②)
 const canonInflight = new Map<string, { at: number; promise: Promise<ImpliedMoveFields | null | undefined> }>();
+const CANON_INFLIGHT_MAX_MS = 10_000;
 
 const sameFields = (a: ImpliedMoveFields, b: ImpliedMoveFields) =>
     a.impliedMovePct === b.impliedMovePct && a.impliedMoveExpiry === b.impliedMoveExpiry && a.impliedMoveBasis === b.impliedMoveBasis
@@ -358,51 +359,68 @@ const sameFields = (a: ImpliedMoveFields, b: ImpliedMoveFields) =>
  * 이미 화면 필드로 저장·이월된 예상 변동에 T26 정본 규칙을 적용한다. 결과는 요청 순서 — 바꿀 때만 새 필드, 그대로면 null.
  *   쓰는 곳: services/analysisCache(읽는 입구 — 분석 캐시 소비처 전부) · api/dashboard/unified(응답 출구 — 응답 캐시·전체 경로).
  */
-export async function canonicalImpliedMoveFields(rows: Array<{ ticker: string; fields: ImpliedMoveFields }>): Promise<Array<ImpliedMoveFields | null>> {
-    const out: Array<ImpliedMoveFields | null> = rows.map(() => null);
+/** 행마다 따로 끝나는 대조 — 메모 적중은 즉시, 같은 키가 진행 중이면 그 조회를 공유(시작 시각과 함께) */
+function canonicalEach(rows: Array<{ ticker: string; fields: ImpliedMoveFields }>): Array<{ at: number; promise: Promise<ImpliedMoveFields | null | undefined> } | null> {
     const now = Date.now();
+    const out: Array<{ at: number; promise: Promise<ImpliedMoveFields | null | undefined> } | null> = rows.map(() => null);
     const work: Array<{ i: number; ticker: string; memoKey: string; fields: ImpliedMoveFields; im: ImpliedMove }> = [];
-    const waits: Array<{ i: number; promise: Promise<ImpliedMoveFields | null | undefined> }> = [];
     rows.forEach((row, i) => {
         const ticker = String(row?.ticker || '').toUpperCase();
         const im = ticker && row?.fields ? moveOfFields(row.fields) : null;
         if (!im) return;
         const memoKey = canonKeyOf(ticker, row.fields);
         const hit = canonMemo.get(memoKey);
-        if (hit && now - hit.at >= 0 && now - hit.at < CANON_MEMO_MS) { out[i] = hit.value; return; }
+        if (hit && now - hit.at >= 0 && now - hit.at < CANON_MEMO_MS) { out[i] = { at: now, promise: Promise.resolve(hit.value) }; return; }
         const running = canonInflight.get(memoKey);
-        if (running) { waits.push({ i, promise: running.promise }); return; }
+        if (running && now - running.at >= 0 && now - running.at < CANON_INFLIGHT_MAX_MS) { out[i] = running; return; }
         work.push({ i, ticker, memoKey, fields: row.fields, im });
     });
-    if (work.length) {
-        const batch = (async (): Promise<Array<ImpliedMoveFields | null | undefined>> => {
-            const reqs: ImpliedMoveRequest[] = work.map((w) => ({ ticker: w.ticker }));
-            const results: ResolvedImpliedMove[] = work.map((w) => resolvedMoveOf(w.ticker, w.im, 'structure', null));
-            let known: boolean[];
-            try {
-                known = await applyClosingObservations(reqs, results);
-            } catch {
-                return work.map(() => undefined);   // 읽기 실패 — 기억하지 않고 그대로
-            }
-            if (canonMemo.size > 2000) canonMemo.clear();
-            return work.map((w, k) => {
-                const next = results[k].im && results[k].im !== w.im ? impliedMoveFields(results[k].im) : null;
-                const value = next && next.impliedMovePct != null && !sameFields(next, w.fields) ? next : null;
-                // 그 종목을 못 읽어 «그대로»가 된 칸은 기억하지 않는다 — 다음 요청이 다시 대조한다(값을 바꾼 칸은 읽기에 성공한 것).
-                if (known[k] || value) { canonMemo.set(w.memoKey, { at: Date.now(), value }); return value; }
-                return undefined;
-            });
-        })();
-        work.forEach((w, k) => {
-            const promise = batch.then((vals) => vals[k], () => undefined);
-            canonInflight.set(w.memoKey, { at: now, promise });
-            void promise.finally(() => { if (canonInflight.get(w.memoKey)?.promise === promise) canonInflight.delete(w.memoKey); });
-            waits.push({ i: w.i, promise });
+    if (!work.length) return out;
+    const compute = (async (): Promise<Array<ImpliedMoveFields | null | undefined>> => {
+        const reqs: ImpliedMoveRequest[] = work.map((w) => ({ ticker: w.ticker }));
+        const results: ResolvedImpliedMove[] = work.map((w) => resolvedMoveOf(w.ticker, w.im, 'structure', null));
+        let known: boolean[];
+        try {
+            known = await applyClosingObservations(reqs, results);
+        } catch {
+            return work.map(() => undefined);   // 읽기 실패 — 기억하지 않고 그대로
+        }
+        if (canonMemo.size > 2000) canonMemo.clear();
+        const at = Date.now();
+        return work.map((w, k) => {
+            const next = results[k].im && results[k].im !== w.im ? impliedMoveFields(results[k].im) : null;
+            const value = next && next.impliedMovePct != null && !sameFields(next, w.fields) ? next : null;
+            // 그 종목을 못 읽어 «그대로»가 된 칸은 기억하지 않는다 — 다음 요청이 다시 대조한다(값을 바꾼 칸은 읽기에 성공한 것).
+            if (!known[k] && !value) return undefined;
+            canonMemo.set(w.memoKey, { at, value });
+            // 고친 값(정본)도 «이미 정본»으로 기억 — 앞 단계가 고친 행을 다음 단계(unified 출구)가 다시 조회하지 않게(관문 10250519 ②)
+            if (value) canonMemo.set(canonKeyOf(w.ticker, value), { at, value: null });
+            return value;
         });
-    }
-    const settled = await Promise.all(waits.map((w) => w.promise.catch(() => undefined)));
-    waits.forEach((w, k) => { out[w.i] = settled[k] ?? null; });
+    })();
+    // 끝나지 않는 조회가 진행 중 항목으로 영원히 남지 않게 — 상한 뒤엔 «모름»으로 정산(관문 10250519 남은 위험)
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const batch = Promise.race([compute, new Promise<Array<undefined>>((r) => { timer = setTimeout(() => r(work.map(() => undefined)), CANON_INFLIGHT_MAX_MS); })])
+        .catch(() => work.map(() => undefined))
+        .finally(() => { if (timer) clearTimeout(timer); });
+    work.forEach((w, k) => {
+        const entry = { at: now, promise: batch.then((vals) => vals[k]) };
+        if (canonInflight.size > 2000) canonInflight.clear();
+        canonInflight.set(w.memoKey, entry);
+        void entry.promise.finally(() => { if (canonInflight.get(w.memoKey) === entry) canonInflight.delete(w.memoKey); });
+        out[w.i] = entry;
+    });
     return out;
+}
+
+/**
+ * 이미 화면 필드로 저장·이월된 예상 변동에 T26 정본 규칙을 적용한다. 결과는 요청 순서 — 바꿀 때만 새 필드, 그대로면 null.
+ *   쓰는 곳: services/analysisCache(읽는 입구 — 분석 캐시 소비처 전부) · api/dashboard/unified(응답 출구 — 응답 캐시·전체 경로).
+ */
+export async function canonicalImpliedMoveFields(rows: Array<{ ticker: string; fields: ImpliedMoveFields }>): Promise<Array<ImpliedMoveFields | null>> {
+    const each = canonicalEach(rows);
+    const settled = await Promise.all(each.map((e) => (e ? e.promise.catch(() => undefined) : Promise.resolve(null))));
+    return settled.map((v) => v ?? null);
 }
 
 /** 시험용 — 진행 중 대조 비우기 */
@@ -410,27 +428,24 @@ export function _resetCanonicalInflightForTest(): void { canonInflight.clear(); 
 
 /**
  * 종목 → 행(화면 필드 impliedMove* 를 싣는 객체) 맵에 정본을 덮는다(맵의 값만 새 객체로 바꾼다 — 원본 행·캐시 객체는 안 고친다).
- *   budgetMs 안에 못 끝내거나 실패하면 그대로. 분석 캐시 입구·unified 출구가 같은 이 함수 하나를 쓴다.
+ *   행마다 따로 기다린다: 메모 적중은 즉시, 새 조회는 budgetMs, 앞 단계에서 이미 진행 중인 조회는 «그 시작 시각부터» budgetMs 까지만
+ *   (요청 전체 보정 대기 ≤ budgetMs, 같은 조회 공유 — 다른 종목의 늦은 조회가 이 행을 막지 않는다 · 관문 10250519 ①).
+ *   분석 캐시 입구·unified 출구가 같은 이 함수 하나를 쓴다. 실패·시간 초과는 그 행만 그대로.
  */
 export async function overlayCanonicalImpliedMoveRows(rows: Record<string, any>, budgetMs = 500): Promise<void> {
     const tickers = Object.keys(rows || {}).filter((t) => rows[t] && typeof rows[t] === 'object' && impliedMoveFieldsOfRow(rows[t]).impliedMovePct != null);
     if (!tickers.length) return;
     try {
-        const items = tickers.map((t) => ({ ticker: t, fields: impliedMoveFieldsOfRow(rows[t]) }));
-        // 같은 행의 대조가 이미 진행 중이면(앞 단계가 상한으로 먼저 돌아옴) 그 시작 시각부터 센 남은 시간만 — 요청 전체 보정 대기 ≤ budgetMs
+        const each = canonicalEach(tickers.map((t) => ({ ticker: t, fields: impliedMoveFieldsOfRow(rows[t]) })));
         const now = Date.now();
-        let started = now;
-        for (const it of items) {
-            const running = canonInflight.get(canonKeyOf(String(it.ticker).toUpperCase(), it.fields));
-            if (running && running.at < started) started = running.at;
-        }
-        const wait = Math.max(0, budgetMs - (now - started));
-        if (wait <= 0) return;
-        const work = canonicalImpliedMoveFields(items);
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        const fixed = await Promise.race([work, new Promise<null>((r) => { timer = setTimeout(() => r(null), wait); })]);
-        if (timer) clearTimeout(timer);
-        if (!fixed) return;
+        const timers: Array<ReturnType<typeof setTimeout>> = [];
+        const fixed = await Promise.all(each.map((e) => {
+            if (!e) return Promise.resolve(null);
+            const wait = Math.max(0, budgetMs - Math.max(0, now - e.at));
+            if (wait <= 0) return Promise.race([e.promise, Promise.resolve(undefined)]).catch(() => undefined);
+            return Promise.race([e.promise.catch(() => undefined), new Promise<undefined>((r) => { timers.push(setTimeout(() => r(undefined), wait)); })]);
+        }));
+        timers.forEach(clearTimeout);
         fixed.forEach((f, i) => { if (f) rows[tickers[i]] = { ...rows[tickers[i]], ...f }; });
     } catch { /* 그대로 */ }
 }
