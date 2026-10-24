@@ -194,6 +194,9 @@ test('첫 문장(STATE)은 코드가 쓴다 — 세션 6가지 모두 지수 계
     assert.match(stateSentence({ ...facts, indexFacts: facts.indexFacts.map(x => ({ ...x, chgPct: -0.91 })) }, 'ja'), /-0\.9%/);
     const amb: MorningFacts = { ...facts, metrics: morningMetrics({ rlsi: 28.7, vix: 19.57, us10y: { level: 4.99, bp: 4 }, oil: { level: 100.65, chgPct: 5.5 }, gold: { level: 4040.8, chgPct: -4.99 } }) };
     assert.ok(!checkMorningLocale(good.ko, 'ko', amb).includes('mb:unsigned-negative'), '금리 4.99% 수준은 금 -4.99% 와 같은 크기여도 정상');
+    const oilDown: MorningFacts = { ...facts, metrics: morningMetrics({ rlsi: 28.7, vix: 19.57, us10y: { level: 4.99, bp: 4 }, oil: { level: 100.65, chgPct: -4.99 }, gold: { level: 4040.8, chgPct: -0.48 } }) };
+    const unsignedOil = good.ko.replace('WTI 유가 $100.65(+1.19%)', 'WTI 유가 $100.65(4.99%) 하락');
+    assert.ok(checkMorningLocale(unsignedOil, 'ko', oilDown).includes('mb:metric-unsigned:oil'), JSON.stringify(checkMorningLocale(unsignedOil, 'ko', oilDown)));
     // 보도 속 숫자라도 지표 값과 가까우면(±25%) 지표 값 결속 면제 없음(관문 10250309 ②)
     const newsVix: MorningFacts = { ...facts, news: [...facts.news, '[report; 2026-10-26T10:20:00.000Z; 10/26 06:20 ET] VIX hit 20.00 last week'] };
     assert.ok(checkMorningLocale(good.en.replace('VIX volatility gauge at 19.57', 'VIX volatility gauge at 20.00'), 'en', newsVix).some(r => r.startsWith('mb:metric-value:vix')));
