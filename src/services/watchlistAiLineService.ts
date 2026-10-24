@@ -1,3 +1,4 @@
+import { WL_V3_SYSTEM, buildWatchlistV3Prompt, checkWatchlistV3Output, checkWatchlistV3Insight } from '@/lib/ai/watchlistV3';
 import { cachedEvidence } from '@/lib/ai/tacticalPrompt';
 import { evidenceValidUntil } from '@/lib/ai/evidenceTime';
 import { newsForStock } from '@/lib/ai/stockEvidence';
@@ -12,7 +13,7 @@ import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
  *   생성  응답 «뒤»(after) 또는 장전 크론 → generateLines
  *         재료: processWatchlistBatch(종목, 'price') — 앱 «내 종목»이 레벨을 읽는 그 묶음 응답(새 데이터 없음)
  *         모델: 사다리 ① Anthropic 크레딧 Haiku 5.5 만(withFreshTier — 크레딧이 안 되면 AWS 로 넘기지 않고 «건너뜀», 옛 글 유지)
- *         가드: lib/ai/watchlistLine.checkLineOutput(사다리 validate 와 저장 직전 두 번)
+ *         가드: lib/ai/watchlistV3.checkWatchlistV3Output(사다리 validate 와 저장 직전 두 번)
  *
  * 비용 상한(대표 «월 $3~15»): 하루 생성 시도 WL_AI_LINE_DAILY_CAP(기본 1,200회 ≈ $0.25/일 — 호출당 약 $0.0002) · 종목 잠금 2분 ·
  *   실패한 종목은 30분 쉬기 · 같은 지형(체인 날짜·레벨·가격의 쪽)이면 다시 만들지 않는다.
@@ -23,7 +24,7 @@ import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient'
 import { processWatchlistBatch } from '@/services/watchlistBatchService';
 import { callBedrock } from '@/services/bedrockClient';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
-import { buildLineFacts, buildLineUserPrompt, checkLineOutput, lineLocaleReasons, WL_LINE_LOCALES, WL_LINE_PURPOSE, WL_LINE_SYSTEM, type LineFacts } from '@/lib/ai/watchlistLine';
+import { buildLineFacts, lineLocaleReasons, WL_LINE_LOCALES, WL_LINE_PURPOSE, type LineFacts } from '@/lib/ai/watchlistLine';
 import { aiLineState, type AiLineEntry, type AiLineLevels, type AiLevelKey, type AiLineLocale, type AiSide } from '@/lib/app/watchlistAiLine';
 import { etDateOf } from '@/lib/marketCalendar';
 
@@ -36,9 +37,10 @@ export const WL_AI_REGEN_MIN_AGE_MS = 10 * 60_000;
 const GEN_CONCURRENCY = 4;
 const BATCH_CHUNK = 30;              // 묶음 서비스: 30개 이하만 종목별 실시간 스냅샷(useWatchlistData BATCH_MAX 와 같다)
 
-export const lineKey = (t: string) => `wlai:v1:${t}`;
+export const lineKey = (t: string) => `wlai:v2:${t}`;
+export const legacyLineKey = (t: string) => `wlai:v1:${t}`;
 const lockKey = (t: string) => `wlai:lock:${t}`;
-export const failKey = (t: string) => `wlai:fail:${t}`;
+export const failKey = (t: string) => `wlai:fail:v2:${t}`;
 const dayKey = (d: string) => `wlai:n:${d}`;
 /** 끄기 스위치 — 값이 있으면 읽기는 빈 응답, 생성은 0(재배포 없이) */
 export const OFF_KEY = 'wlai:off';
@@ -59,7 +61,8 @@ export interface StoredLine {
     spot: number;
     text: Record<AiLineLocale, string>;
     insight?: Partial<Record<AiLineLocale, string>>;
-    revision?: 2;
+    revision?: 2 | 3;
+    facts?: LineFacts;
     source?: string;
     inputHash?: string;
     cachedContextHash?: string;
@@ -78,9 +81,9 @@ export interface StoredLine {
  */
 export function insightLiveAt(s: StoredLine, loc: AiLineLocale, nowMs: number): string | undefined {
     const candidate = s.insight?.[loc];
-    if (!candidate || !s.source) return undefined;
+    if (!candidate || !s.source || (s.revision === 3 && !s.facts?.quote)) return undefined;
     if (nowMs >= evidenceValidUntil(s.source.split('\n'), s.at, { dayEnd: false })) return undefined;
-    return checkDepthLine(candidate, loc, s.source, nowMs).length ? undefined : candidate;
+    return (s.revision === 3 && s.facts ? checkWatchlistV3Insight(candidate, loc, s.facts, nowMs) : checkDepthLine(candidate, loc, s.source, nowMs)).length ? undefined : candidate;
 }
 
 export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale, nowMs: number = Date.now()): AiLineEntry | null {
@@ -93,6 +96,7 @@ export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale, now
 
 /** 저장본에 해석이 있었는데 지금은 못 내보낸다(예정 시각 경과 등) — 다시 만들 대상. */
 export function insightExpired(s: StoredLine | null | undefined, nowMs: number = Date.now()): boolean {
+    if (s?.revision === 3) return WL_LINE_LOCALES.some(loc => !s.insight?.[loc] || !insightLiveAt(s, loc, nowMs));
     return !!s?.insight && WL_LINE_LOCALES.some(loc => !!s.insight?.[loc] && !insightLiveAt(s, loc, nowMs));
 }
 
@@ -109,11 +113,13 @@ export interface ReadResult { lines: Record<string, StoredLine | null>; failed: 
 export async function readLines(tickers: string[]): Promise<ReadResult> {
     const lines: Record<string, StoredLine | null> = {};
     const failed = new Set<string>();
-    const keys = [OFF_KEY, ...tickers.map(lineKey), ...tickers.map(failKey)];
+    const keys = [OFF_KEY, ...tickers.map(lineKey), ...tickers.map(failKey), ...tickers.map(legacyLineKey)];
     const vals = await mgetFromCache<any>(keys).catch(() => keys.map(() => null));
     const off = !!vals[0];
     tickers.forEach((t, i) => {
-        const v = vals[1 + i];
+        const current = vals[1 + i];
+        // 옛 저장본은 복구용으로만 읽는다. 새 키로 승격하거나 현재 사실로 재검사하지 않는다.
+        const v = current?.revision === 3 && WL_LINE_LOCALES.every(loc => entryOf(current, loc)) ? current : vals[1 + tickers.length * 2 + i] || current;
         lines[t] = v && typeof v === 'object' && v.v === 1 ? (v as StoredLine) : null;
         if (vals[1 + tickers.length + i]) failed.add(t);
     });
@@ -141,7 +147,7 @@ export async function callsToday(): Promise<number> {
 }
 
 export type GenOutcome = 'generated' | 'fresh' | 'nodata' | 'guard' | 'skipped' | 'error' | 'locked' | 'cooling' | 'capped' | 'off';
-const inputHashOf = (f: LineFacts) => createHash('sha256').update(WL_LINE_SYSTEM).update('\0').update(buildLineUserPrompt(f)).digest('hex');
+const inputHashOf = (f: LineFacts) => createHash('sha256').update(WL_V3_SYSTEM).update('\0').update(buildWatchlistV3Prompt({ ...f, quote: { ...f.quote, inputAsOf: '' } })).digest('hex');
 
 /** 한 종목 생성 — 사실이 이미 있을 때. 저장까지. */
 export async function generateOne(f: LineFacts, cachedContextHash?: string): Promise<{ outcome: GenOutcome; line?: StoredLine; reasons?: string[] }> {
@@ -149,8 +155,8 @@ export async function generateOne(f: LineFacts, cachedContextHash?: string): Pro
     let last: string[] = [];
     try {
         const res = await withFreshTier(() => callBedrock({
-            system: WL_LINE_SYSTEM,
-            userPrompt: buildLineUserPrompt(f),
+            system: WL_V3_SYSTEM,
+            userPrompt: buildWatchlistV3Prompt(f),
             maxTokens: 700,
             temperature: 0.2,
             timeoutMs: 15_000,
@@ -158,20 +164,25 @@ export async function generateOne(f: LineFacts, cachedContextHash?: string): Pro
             purpose: WL_LINE_PURPOSE,
             expectJson: true,
             locale: 'multi',
-            validate: (text: string) => { const c = checkLineOutput(text, f); last = c.reasons; return { ok: c.ok, reasons: c.reasons }; },
+            validate: (text: string) => { const c = checkWatchlistV3Output(text, f); last = c.reasons; return { ok: c.ok, reasons: c.reasons }; },
         }));
-        const c = checkLineOutput(res.text, f);
+        const c = checkWatchlistV3Output(res.text, f);
         if (!c.ok || !c.text) {
             await setInCache(failKey(f.ticker), { at: Date.now(), why: c.reasons.slice(0, 6) }, FAIL_SEC).catch(() => false);
             return { outcome: 'guard', reasons: c.reasons };
         }
         const dup = await dropDuplicateInsights(f.ticker, c.insight);
-        if (dup.length) { c.insight = dup.kept; c.insightReasons = [...(c.insightReasons || []), ...dup.reasons]; }
+        if (dup.length) {
+            await setInCache(failKey(f.ticker), { at: Date.now(), why: dup.reasons }, FAIL_SEC).catch(() => false);
+            return { outcome: 'guard', reasons: dup.reasons };
+        }
         const line: StoredLine = {
             v: 1, t: f.ticker, at: Date.now(), chain: f.chain, lv: f.lv, sides: f.sides, spot: f.spot,
-            text: c.text, insight: c.insight, ...(c.insightReasons?.length ? { insightWhy: c.insightReasons.slice(0, 8), insightRaw: c.insightRaw ?? null } : {}), revision: 2, source: buildLineUserPrompt(f), inputHash: inputHashOf(f), cachedContextHash, checkedAt: Date.now(), ms: Date.now() - t0, provider: res.provider,
+            text: c.text, insight: c.insight, ...(c.insightReasons?.length ? { insightWhy: c.insightReasons.slice(0, 8), insightRaw: c.insightRaw ?? null } : {}), revision: 3, facts: f, source: buildWatchlistV3Prompt(f), inputHash: inputHashOf(f), cachedContextHash, checkedAt: Date.now(), ms: Date.now() - t0, provider: res.provider,
         };
-        await setInCache(lineKey(f.ticker), line, WL_AI_TTL_SEC);
+        const saved = await setInCache(lineKey(f.ticker), line, WL_AI_TTL_SEC);
+        if (saved === false) return { outcome: 'error', reasons: ['cache-write'] };
+        await setInCache(failKey(f.ticker), null, 1).catch(() => false);
         return { outcome: 'generated', line };
     } catch (e) {
         if (isFreshTierSkipped(e)) {
@@ -198,10 +209,10 @@ export function insiderLineFor(t: string, buys: any[], nowMs: number): string | 
 }
 
 /**
- * 같은 날 다른 종목과 «같은 해석»이면 그 언어의 해석을 뺀다(10/20: 음감마 종목끼리 같은 문장). 종목별 근거가 다르면 문장도 달라야 한다.
- * 키 wlai:ins:{ET 날짜} = {정규화 문장: 종목}. 한 인스턴스 안에서는 줄을 세운다(인스턴스 사이는 근사).
+ * 같은 날 다른 종목과 «같은 해석»이면 후보를 거절한다. 일부 언어만 정상본에 덮어쓰지 않는다.
+ * 키 wlai:ins:v2:{ET 날짜} = {정규화 문장: 종목}. 한 인스턴스 안에서는 줄을 세운다(인스턴스 사이는 근사).
  */
-const insKey = (d: string) => `wlai:ins:${d}`;
+const insKey = (d: string) => `wlai:ins:v2:${d}`;
 let insChain: Promise<unknown> = Promise.resolve();
 export function dropDuplicateInsights(ticker: string, insight: Partial<Record<AiLineLocale, string>> | undefined):
     Promise<{ length: number; kept: Partial<Record<AiLineLocale, string>> | undefined; reasons: string[] }> {
@@ -209,8 +220,10 @@ export function dropDuplicateInsights(ticker: string, insight: Partial<Record<Ai
         if (!insight || !Object.keys(insight).length) return { length: 0, kept: insight, reasons: [] };
         const k = insKey(etDateOf(Date.now()));
         const seen: Record<string, string> = (await getFromCache<Record<string, string>>(k).catch(() => null)) || {};
-        const { kept, reasons } = dedupeInsights(ticker, insight, seen);
-        await setInCache(k, seen, 30 * 3600).catch(() => false);
+        const draft = { ...seen };
+        const { kept, reasons } = dedupeInsights(ticker, insight, draft);
+        if (reasons.length) return { length: reasons.length, kept: undefined, reasons };
+        await setInCache(k, draft, 30 * 3600).catch(() => false);
         return { length: reasons.length, kept, reasons };
     });
     insChain = p.catch(() => undefined);
@@ -221,7 +234,7 @@ export function dropDuplicateInsights(ticker: string, insight: Partial<Record<Ai
 export function dedupeInsights(ticker: string, insight: Partial<Record<AiLineLocale, string>>, seen: Record<string, string>):
     { kept: Partial<Record<AiLineLocale, string>> | undefined; reasons: string[] } {
     // 숫자·기호를 지운 «틀»로 비교 — «예상 변동 ±3.1%가 음감마…»와 «±2.2%가 음감마…»는 같은 일반론이다(10/21 실제 모델 NVDA·AAPL)
-    const norm = (x: string) => x.replace(/[\s.,、。·!?！？±+\-−$%\d]/g, '').toLowerCase();
+    const norm = (x: string) => x.replace(/^[A-Z][A-Z0-9.]{0,6}(?:(?:은|는|이|가|は|が)\s*|\s+)/, '').replace(/[\s.,、。·!?！？±+\-−$%\d]/g, '').toLowerCase();
     const kept: Partial<Record<AiLineLocale, string>> = {};
     const reasons: string[] = [];
     for (const [loc, text] of Object.entries(insight) as Array<[AiLineLocale, string]>) {
@@ -289,17 +302,10 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
     });
     const contextFor = (t: string) => { const i = stockInput(t); return [...i.earnings, ...i.news, i.flow?.line ?? '', i.insider ?? ''].filter(Boolean); };
     // 시장 전체 일정은 넣지 않는다 — 종목 근거가 아니고, 일정이 지날 때마다 모든 종목을 다시 만들게 된다(호출 수).
-    const contextHashFor = (t: string) => createHash('sha256').update(WL_LINE_SYSTEM).update(JSON.stringify(contextFor(t))).digest('hex');
-    const batchTodo: string[] = [];
-    for (const t of todo) {
-        const saved = lines[t];
-        // 지형 변경 힌트가 없는 정기 확인은 기존 뉴스/일정 캐시만 비교한다.
-        // 가격·포지셔닝은 종전처럼 지형 변경 힌트 또는 크론이 들어올 때 배치로 다시 확인한다.
-        if (!opts.force && opts.cachedContextOnly?.includes(t) && saved?.revision === 2 && saved.inputHash && saved.cachedContextHash === contextHashFor(t) && !insightExpired(saved) && WL_LINE_LOCALES.every(loc => entryOf(saved, loc))) {
-            await setInCache(lineKey(t), { ...saved, checkedAt: Date.now() }, WL_AI_TTL_SEC);
-            out[t] = 'fresh';
-        } else batchTodo.push(t);
-    }
+    const contextHashFor = (t: string) => createHash('sha256').update(WL_V3_SYSTEM).update(JSON.stringify(contextFor(t))).digest('hex');
+    // v3 글에는 시세 사실이 있으므로 정기 확인도 배치 가격을 확인한다.
+    // 입력 수집 시각만 바뀐 경우에는 inputHashOf가 같은 값으로 유지되어 모델을 다시 부르지 않는다.
+    const batchTodo = todo;
     for (let c = 0; c < batchTodo.length && Date.now() < deadline; c += BATCH_CHUNK) {
         const chunk = batchTodo.slice(c, c + BATCH_CHUNK);
         let rows: Record<string, any> = {};
@@ -321,7 +327,7 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
             const ranked = rankStockContext({ ...stockInput(t), darkPool: f.darkPool, implied: f.implied }, Date.now());
             f.contextText = ranked.lines.join('\n');
             f.topLine = ranked.topLine;
-            if (!opts.force && lines[t]?.revision === 2 && lines[t]?.inputHash === inputHashOf(f) && !insightExpired(lines[t]) && storedMatchesFacts(lines[t], f)) {
+            if (!opts.force && lines[t]?.revision === 3 && lines[t]?.inputHash === inputHashOf(f) && !insightExpired(lines[t]) && storedMatchesFacts(lines[t], f)) {
                 // 15분은 입력 재확인 주기다. 같은 입력으로 모델을 다시 부르지 않는다.
                 await setInCache(lineKey(t), { ...lines[t]!, cachedContextHash: contextHashFor(t), checkedAt: Date.now() }, WL_AI_TTL_SEC);
                 out[t] = 'fresh'; continue;

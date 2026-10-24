@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         lines[t] = entryOf(s, loc, now);
         if (failed.has(t)) continue;                                           // 최근에 못 만든 종목(사실 부족·가드·크레딧) — 쉬는 중
         // 다시 확인: 없음·옛 형식·해석 기한 경과(지난 예정)·15분 근거 확인(같은 근거면 모델 호출 0)·화면의 지형 변경 알림
-        if (!s || !lines[t] || s.revision !== 2 || !s.inputHash || insightExpired(s, now) || now - (s.checkedAt || s.at) >= 15 * 60_000 || (staleHint.has(t) && now - s.at > WL_AI_REGEN_MIN_AGE_MS)) need.push(t);
+        if (!s || !lines[t] || s.revision !== 3 || !s.inputHash || insightExpired(s, now) || now - (s.checkedAt || s.at) >= 15 * 60_000 || (staleHint.has(t) && now - s.at > WL_AI_REGEN_MIN_AGE_MS)) need.push(t);
     }
     const bg = need.slice(0, MAX_BG);
     if (bg.length) {

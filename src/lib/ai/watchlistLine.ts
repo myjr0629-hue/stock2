@@ -1,3 +1,4 @@
+import { buildStockQuote, type StockQuoteFact } from './watchlistStockFacts';
 import { languageStats } from './outputGate';
 import { WATCHLIST_DEPTH_RULES, checkDepthLine, fitDepthLine } from './watchlistDepth';
 import { textIntegrityReasons } from './textIntegrity';
@@ -43,6 +44,7 @@ const LEVEL_NAME: Record<AiLevelKey, string> = { mp: 'Max Pain', cw: 'Call Wall'
 
 export interface LineFacts {
     ticker: string;
+    quote: StockQuoteFact;
     /** 이 글을 쓰는 가격(행의 화면 현물 — rowSpot: 정규장·마감은 표시 가격, 프리·애프터는 시간외 가격) */
     spot: number;
     chain: string;
@@ -64,7 +66,7 @@ export interface LineFacts {
  * 묶음 응답 한 행(realtime) → 사실. 지도(내 종목 PositionMap)가 서는 조건과 같게 — 구조 한 벌(levelsSource 'structure')·
  * 공급사 지연·오래됨 표식 없음·Put Floor·Max Pain·Call Wall 셋 다 있음. 하나라도 아니면 null(글을 만들지 않는다 = 줄을 그리지 않는다).
  */
-export function buildLineFacts(ticker: string, rt: any): LineFacts | null {
+export function buildLineFacts(ticker: string, rt: any, nowMs: number = Date.now()): LineFacts | null {
     if (!rt || typeof rt !== 'object') return null;
     const T = String(ticker || '').toUpperCase();
     const spot = rowSpot(rt);
@@ -85,7 +87,7 @@ export function buildLineFacts(ticker: string, rt: any): LineFacts | null {
     const implied = imPct != null && rt.impliedMoveDef === IMPLIED_MOVE_DEF && typeof rt.impliedMoveExpiry === 'string' && YMD.test(rt.impliedMoveExpiry)
         ? { pct: Math.round(imPct * 10) / 10, expiry: rt.impliedMoveExpiry } : null;
 
-    const f: LineFacts = { ticker: T, spot, chain, expiry, lv, sides, order, darkPool, implied, factsText: '' };
+    const f: LineFacts = { ticker: T, quote: buildStockQuote(T, rt, nowMs), spot, chain, expiry, lv, sides, order, darkPool, implied, factsText: '' };
     f.factsText = factsTextOf(f);
     return f;
 }
