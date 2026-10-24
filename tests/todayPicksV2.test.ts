@@ -90,6 +90,8 @@ test('관문 10241657 재현: 다음 절 부정·부정된 위치는 오탈락 �
   assert.equal(ok.reasons.some(x => x.includes('v2:')), false, String(ok.reasons));
   assert.deepEqual(ok.reasons, check(r, { ...branches, en: 'Above Gamma Flip, hedging dampens swings; below it, hedging does not dampen them' }, above).reasons);
   assert.equal(check(r, { ...branches, ko: 'Gamma Flip 아래에서는 완충이 아니라 증폭하는 쪽입니다' }, below).reasons.some(x => x.includes('v2:')), false, '관문 10241905 ko 대조 부정');
+  for (const ko of ['Gamma Flip 아래에서는 완충 효과 없이 움직임을 키웁니다', 'Gamma Flip 아래에서는 완충보다는 증폭하는 구조입니다'])
+    assert.equal(check(r, { ...branches, ko }, below).reasons.some(x => x.includes('v2:')), false, '관문 10241935 ' + ko);
   assert.equal(check(r, { ...branches, en: 'Above Gamma Flip, hedging cushions; below it, hedging amplifies. Price is over it' }, below).ok, false, '관문 10241905 over');
   assert.equal(check(r, { ...branches, en: 'Gamma Flip: above: cushions; below: amplifies, with expiry over two days away' }, below).reasons.some(x => x.includes('v2:current-side')), false, '일반어 over 는 위치 아님');
   for (const why of [{ ...branches, en: 'Gamma Flip: above: cushions; below: amplifies; currently cushions swings' },
