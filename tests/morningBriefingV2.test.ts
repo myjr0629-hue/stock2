@@ -232,4 +232,14 @@ test('장중(REG) 첫 문장에 장전 말·어제 결과는 탈락', () => {
     assert.ok(checkMorningLocale(bad, 'ko', reg).includes('mb:session-mismatch'));
 });
 
+test('드라이런은 읽기 전용 — 매크로 공유 캐시를 다시 계산하지 않고(peekMacroSnapshot), 길드 허브 재계산도 부르지 않는다(관문 10250345)', () => {
+    const fs = require('node:fs'); const path = require('node:path');
+    const route = fs.readFileSync(path.join(__dirname, '../src/app/api/guardian/briefing/generate/route.ts'), 'utf8');
+    const dry = route.slice(route.indexOf('async function dryCompare'), route.indexOf('export async function POST'));
+    assert.match(dry, /collectMorningRaw\(.*\{ readOnly: true \}\)/);
+    assert.doesNotMatch(dry, /GuardianDataHub\.getGuardianSnapshot/);
+    const inputs = fs.readFileSync(path.join(__dirname, '../src/services/morningBriefingInputs.ts'), 'utf8');
+    assert.match(inputs, /opts\.readOnly \? peekMacroSnapshot\(\) : getMacroSnapshotSSOT\(\)/);
+});
+
 console.log(`morningBriefingV2: ${passed} passed`);

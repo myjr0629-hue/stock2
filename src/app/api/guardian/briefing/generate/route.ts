@@ -422,9 +422,10 @@ async function dryCompare(body: any): Promise<Response> {
     const sim: MorningSim = body.sim === 'pre' || body.sim === 'pre-nofut' || body.sim === 'reg' ? body.sim : null;
     const asOfMs = typeof body.asOf === 'string' && Number.isFinite(Date.parse(body.asOf)) ? Date.parse(body.asOf) : Date.now();
     // 워커와 같은 입력 — EC2 워커가 30초마다 쓰는 스냅샷 키를 읽기만 한다(없을 때만 허브 계산)
-    const snapshot = await getFromCache<any>('guardian:snapshot:ko').catch(() => null) ?? await GuardianDataHub.getGuardianSnapshot(false);
+    // 읽기만 — 스냅샷 키가 없으면 허브 재계산(저장 경로)을 부르지 않고 빈 스냅샷으로(관문 10250345 ①와 같은 원칙)
+    const snapshot = await getFromCache<any>('guardian:snapshot:ko').catch(() => null);
     const historyRaw = await getFromCache<any>('guardian:rlsi_history').catch(() => null);
-    const raw = await collectMorningRaw(snapshot, Array.isArray(historyRaw) ? historyRaw : [], Date.now());
+    const raw = await collectMorningRaw(snapshot, Array.isArray(historyRaw) ? historyRaw : [], Date.now(), { readOnly: true });
     const facts = morningFactsFromRaw(raw, { sim, asOfMs, newsMaxAgeH: Number(body.newsMaxAgeH) || 18 });
     const sec8k = which === 'new' ? '' : await legacySec8kSection();
     const old = legacyPrompts(raw, sec8k, asOfMs);
