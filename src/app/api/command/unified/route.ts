@@ -16,6 +16,7 @@ import { GET as getAtm } from '@/app/api/live/options/atm/route';
 import { GET as getEarnings } from '@/app/api/live/earnings/route';
 import { GET as getSma } from '@/app/api/live/sma/route';
 import { GET as getRelated } from '@/app/api/live/related/route';
+import { officialCloseRelated } from '@/services/stalePriceRepair';
 import { GET as getAnalyst } from '@/app/api/live/analyst/route';
 import { GET as getVolatility } from '@/app/api/live/volatility-regime/route';
 import { GET as getSqueeze } from '@/app/api/live/short-squeeze/route';
@@ -623,7 +624,13 @@ async function recoverVolatilityIv(data: any, ticker: string, locale: string, ba
 async function jsonResponse(data: any, status = 200, ticker?: string | null) {
     const isMarket = isMarketHoursNow();
     const audited = await overlayFundamentals(data, ticker);
-    const body = await overlayEarningsDate(await overlayStructureLevels(normalizeShape(stripStaleInstitutional(audited)), ticker), ticker);
+    let body = await overlayEarningsDate(await overlayStructureLevels(normalizeShape(stripStaleInstitutional(audited)), ticker), ticker);
+    // [T12 · M9] 연관 종목 — 끝난 세션을 보여 줄 시간엔 그 세션의 공식 종가 한 쌍(services/stalePriceRepair.officialCloseRelated, 벤더 0·쓰기 0).
+    //   캐시는 «목록이 있으면 usable»이라 세션이 바뀌어도 related 를 다시 안 받는다(10/25 NVDA 연관 GOOGL 10/22 값 40시간). 모든 출구가 여기를 지난다.
+    if (body?.related) {
+        const related = await officialCloseRelated(body.related).catch(() => body.related);
+        if (related !== body.related) body = { ...body, related };
+    }
     if (body?.structure || body?.volatility) {
         body.volatility = { ...body.volatility, ...computeUnifiedVolatilityRegime(body) };
     }

@@ -213,6 +213,15 @@ export default async function TickerPage({ params, searchParams }: Props) {
         } catch { /* 캘린더 모듈을 못 읽었다 — 원래 값 */ }
     }
 
+    // [T12 · M9] 연관 종목도 API 출구(command/unified jsonResponse)와 같은 함수 — 끝난 세션을 보여 줄 시간엔 그 세션의 공식 종가 한 쌍.
+    if (initialUnifiedData?.related) {
+        try {
+            const { officialCloseRelated } = await import('@/services/stalePriceRepair');
+            const related = await officialCloseRelated(initialUnifiedData.related, Date.now(), 800);
+            if (related !== initialUnifiedData.related) initialUnifiedData = { ...initialUnifiedData, related };
+        } catch { /* 모듈을 못 읽었다 — 원래 값 */ }
+    }
+
     // [FINAL SSR BYPASS] Guarantee Alpha and SmartFlow injection for all Cache combinations
     if (initialUnifiedData) {
         try {
