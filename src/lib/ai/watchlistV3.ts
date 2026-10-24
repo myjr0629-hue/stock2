@@ -157,6 +157,22 @@ export function watchlistMetricReasons(text: string, f: LineFacts): string[] {
     return [...new Set(reasons)];
 }
 
+/**
+ * 가격 = 레벨 주장(관문 10242151 ①: «주가는 Put Floor $135와 같은» — $135 는 Put Floor 값으로 맞지만 «가격이 $135»라는 주장).
+ * 같은 절에 시세 말(주가·가격·price·株価…)과 «같다·일치·at·ちょうど» 류가 있고 그 절의 레벨이 사실상 «가격과 같은 자리(at)»가 아니면 탈락.
+ * 쪽(위/아래) 주장은 positioningSideReasons 가 본다.
+ */
+const PRICE_WORD = /현재가|주가|가격|株価|現在値|現値|価格|\b(?:price|quote|shares?|stock)\b/i;
+const EQUAL_WORD = /같(?:은|다|아|고)|동일|일치|맞닿|붙어|그대로|equal\w*|same|match\w*|identical|\b(?:is|sits|trades|stands|stays|holds|pinned)\s+(?:right\s+|exactly\s+)?at\b|\bat\s+(?:the\s+)?(?:Max Pain|Call Wall|Put Floor|Gamma Flip)|と同じ|に等しい|等し|一致|ちょうど|張り付/i;
+export function quoteLevelClaimReasons(text: string, f: LineFacts): string[] {
+    for (const clause of text.split(/[,，、;；。]|\.(?!\d)/)) {
+        if (!PRICE_WORD.test(clause) || !EQUAL_WORD.test(clause)) continue;
+        const named = (['mp', 'cw', 'pf', 'gf'] as const).filter(k => new RegExp(['Max\\s*Pain|맥스\\s*페인|マックス\\s*ペイン', 'Call\\s*Wall|콜\\s*월|コール\\s*ウォール', 'Put\\s*Floor|풋\\s*플로어|プット\\s*フロア', 'Gamma\\s*Flip|감마\\s*플립|ガンマ\\s*フリップ'][['mp', 'cw', 'pf', 'gf'].indexOf(k)], 'i').test(clause));
+        if (!named.length || named.some(k => f.sides[k] !== 'at')) return ['v3:metric:quote-level-equal'];
+    }
+    return [];
+}
+
 /** 저장본은 저장 당시 사실으로 검사한다. 현재 시세를 과거 문장의 숫자 계약으로 쓰지 않는다. */
 export function checkWatchlistV3Insight(text: string, loc: AiLineLocale, f: LineFacts, nowMs = Date.now()): string[] {
     const label = STOCK_SESSION_LABELS[f.quote.session][loc];
@@ -176,7 +192,7 @@ export function checkWatchlistV3Insight(text: string, loc: AiLineLocale, f: Line
     // 언어 판정(한글 10자·가나 3자·비율)은 화면에 나가는 «전체 글»로 — 세션 표지를 뺀 글로 세면 짧은 정상 문장이 탈락한다(10/24 실모델 ko 5·ja 5건)
     const depth = checkDepthLine(stripped, loc, buildLineUserPrompt(f), nowMs)
         .filter(r => (r !== 'insight:format' || /[\r\n{}]| · |…|\.\.\./.test(stripped)) && !r.startsWith('language:'));
-    reasons.push(...depth, ...validateInsight(text, loc, { minLength: 8 }).reasons.filter(r => r.startsWith('language:')), ...watchlistMetricReasons(text, f));
+    reasons.push(...depth, ...validateInsight(text, loc, { minLength: 8 }).reasons.filter(r => r.startsWith('language:')), ...watchlistMetricReasons(text, f), ...quoteLevelClaimReasons(text, f));
     // 숫자는 사실·근거 글에 «그대로» 있는 것만(시세 가격·등락은 근거에 없다 — 해석에 쓰지 않는다)
     const allowed = new Set(valueTokens(`${f.factsText}\n${f.contextText || ''}`).map(t => tokenKey(t.raw).replace(/^[+±]/, '')));
     for (const t of valueTokens(text)) if (!allowed.has(tokenKey(t.raw).replace(/^[+±]/, ''))) reasons.push('v3:exact-number');

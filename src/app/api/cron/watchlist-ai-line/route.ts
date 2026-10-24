@@ -9,12 +9,12 @@
 //   예열이 13:20 UTC 하루 한 번뿐이라 한국 낮(06시~22시 KST) 내내 인기 종목 글이 «없음»이었고, 사용자가 stale 알림을 줘야 종목마다 뒤에서 다시 만들었다.
 //   같은 지형이면 호출하지 않으므로(storedMatchesFacts) 체인이 아직 안 넘어갔으면 이 실행은 비용 0이다.
 // 크레딧으로만(withFreshTier) — 크레딧이 안 되면 건너뛴다. 하루 상한은 서비스가 지킨다.
-// 점검(인증된 호출만): ?dry=compare&t=A,B&reps=2&sim=pre (옛/새 프롬프트 실모델 비교 · 쓰기 0) · ?force=1 (휴장일에도 돌고, 같은 지형이어도 다시 만든다) · ?n=10 (앞 N종목만) · ?t=A,B (그 종목만, 30개까지) · ?detail=1 (만든 글·사실을 응답에)
+// 점검(인증된 호출만): ?force=1 (휴장일에도 돌고, 같은 지형이어도 다시 만든다) · ?n=10 (앞 N종목만) · ?t=A,B (그 종목만, 30개까지) · ?detail=1 (만든 글·사실을 응답에)
 // ============================================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { PREWARM_TICKERS } from '@/lib/ai/creditPacing';
 import { etDateOf, isNonTradingDay } from '@/lib/marketCalendar';
-import { generateLines, callsToday, dailyCap, compareLinesDry } from '@/services/watchlistAiLineService';
+import { generateLines, callsToday, dailyCap } from '@/services/watchlistAiLineService';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -28,13 +28,6 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const q = new URL(req.url).searchParams;
-    // 점검(쓰기 0): ?dry=compare&t=A,B&reps=2[&sim=pre|reg|post] — 같은 실데이터로 옛/새 프롬프트를 운영 모델로 생성·검사만(저장 안 함)
-    if (q.get('dry') === 'compare') {
-        const t = (q.get('t') || '').split(',').map((x) => x.trim().toUpperCase()).filter((x) => /^[A-Z][A-Z0-9.]{0,6}$/.test(x));
-        const simRaw = q.get('sim');
-        const sim = simRaw === 'pre' || simRaw === 'reg' || simRaw === 'post' ? simRaw : null;
-        return NextResponse.json(await compareLinesDry(t, { reps: Number(q.get('reps')) || 2, sim, deadline: Date.now() + BUDGET_MS }));
-    }
     const force = q.get('force') === '1';
     const t0 = Date.now();
     const today = etDateOf(t0);
