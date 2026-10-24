@@ -78,7 +78,8 @@ test('관문 10241657 재현: 다음 절 부정·부정된 위치는 오탈락 �
   for (const en of ['Gamma Flip: above: cushions; below: amplifies; no direction implied',
     'Gamma Flip: above: cushions; below: amplifies. Price is not above.',
     'Above Gamma Flip, hedging dampens swings; below it, hedging amplifies them',
-    'Gamma Flip: above: cushions; below: amplifies; currently amplifies swings']) {
+    'Gamma Flip: above: cushions; below: amplifies; currently amplifies swings',
+    'Below Gamma Flip, hedging amplifies rather than cushions swings', 'Below Gamma Flip, hedging amplifies moves instead of cushioning them']) {
     const c = check(r, { ...branches, en }, below);
     assert.ok(c.ok, en + ' ' + c.reasons);
   }

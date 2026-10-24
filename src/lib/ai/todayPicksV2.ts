@@ -90,6 +90,7 @@ const CURRENT_SIDE: Record<Loc, RegExp> = {
     ja: /(?<!その|以|向|値|株|史|最|地|底|天|浮|売|買|計|途|川|頭|手|年|目|部|形|陸|水|海|空|身|上|下)(上|下)(?=\s*(?:に|です|で|側|回|、|。|$))/g,
 };
 
+const CONTRAST = /\brather than\b|\binstead of\b|대신|아니라|이\s*아닌|가\s*아닌|ではなく|代わりに/i;
 const NEG_AFTER: Record<Loc, RegExp> = { ko: /^\s*(?:않|못|없)/, en: /(?!)/, ja: /^(?:せず|しない|されない|しません|ない|ず)/ };
 const CURRENT_MECH: Record<Loc, RegExp> = {
     ko: /(?:현재|지금)[^,;·。]{0,24}?(완충|줄이|줄입|줄여|억제|완화|증폭|확대|키우|키워|키웁)/g,
@@ -116,7 +117,8 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         const pair = BRANCHES[l];
         // 현재 쪽이 우연히 맞더라도 «위면 증폭/아래면 완충»이라는 뒤집힌 조건은 거절한다.
         // 부정된 반대 기전(«below it, hedging does not dampen»)은 뒤집힌 조건이 아니라 올바른 설명이다(관문 10241729).
-        const negatedClause = (m: RegExpMatchArray) => NEG_MECHANISM.test(m[0])
+        // «amplifies rather than cushions»·«instead of cushioning»·«완충이 아니라»·«緩和ではなく»처럼 대조로 부정된 기전도 같다(관문 10241801).
+        const negatedClause = (m: RegExpMatchArray) => NEG_MECHANISM.test(m[0]) || CONTRAST.test(m[0])
             || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6));
         if (pair.some((re, i) => [...t.matchAll(new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags))]
             .some(m => !negatedClause(m))))
