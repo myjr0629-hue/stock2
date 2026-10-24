@@ -177,7 +177,10 @@ const records = (s: Spy): CallRecord[] => {
         assert.ok(LADDER_PURPOSES.TickerNews.timeoutMs! <= 15_000, '종목 뉴스: ① 시간(14초) + Nova 가 라우트 한도(45초) 안');
         for (const off of ['WIM', 'Disclosures', 'IntelAnalysisLegacy']) assert.ok(!(off in LADDER_PURPOSES), off);   // IntelAnalysis 는 2026-10-12 aiq55 로 올라갔다(IntelAnalysisLegacy = aiq55:off 때 예전 그대로)
         assert.ok(TRACKED_PURPOSES.includes('IntelAnalysisLegacy') && LADDER_PURPOSES.IntelAnalysis.thinking === 'disabled' && LADDER_PURPOSES.IntelAnalysis.timeoutMs! <= 30_000);
-        for (const [k, v] of Object.entries(LADDER_PURPOSES)) assert.ok((v.timeoutMs ?? 30000) <= 30000 && v.effort === 'low', k);
+        // CrossSector 만 예외(2026-10-24 장마감 리포트 v2, 출력 약 8천 토큰): 라우트 한도 300초·모델 예산 240초 안에서 ① 2회 + 현행 이어받기 60초
+        for (const [k, v] of Object.entries(LADDER_PURPOSES)) assert.ok((v.timeoutMs ?? 30000) <= (k === 'CrossSector' ? 90_000 : 30000) && v.effort === 'low', k);
+        assert.ok(LADDER_PURPOSES.CrossSector.timeoutMs! * 2 + 60_000 <= 240_000, '크로스섹터: ① 두 번 + 현행이 모델 예산 240초 안');
+        { const r = fs.readFileSync('src/app/api/intel/cross-sector-brief/route.ts', 'utf8'); assert.match(r, /export const maxDuration = 300;/); assert.match(r, /timeoutMs: 240_000/); }
         assert.equal(LADDER_PURPOSES.UC.thinking, 'disabled'); assert.equal(LADDER_PURPOSES.NewsDigest.thinking, 'disabled'); assert.equal(LADDER_PURPOSES.UCTranslate.thinking, undefined);
         assert.ok(LADDER_PURPOSES.NewsDigest.timeoutMs! + 19_000 <= 45_000 + 1000, '뉴스 다이제스트: ① 시간 + 현행 나머지가 라우트 한도 안');
         // 10/10 저녁 전환 용도: 전부 사고 끔(적응형·중간 사고는 같은 표본에서 통과율이 같거나 낮고 느렸다) · ① 시간은 «현행이 이어받을 시간»을 남긴다(라우트 한도 안)

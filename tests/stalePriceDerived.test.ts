@@ -55,7 +55,7 @@ const json = { json: (data: any) => ({ json: async () => data }) };
     async function snapshotGet(data: any, svc: any) {
         const cache: Record<string, any> = { 'snapshot:m7:latest': { data_json: data, snapshot_date: '2026-10-22', created_at: data.meta.snapshot_timestamp } };
         const route = load('src/app/api/intel/snapshot/route.ts', {
-            'next/server': { NextResponse: json }, '@/lib/supabase/snapshot': {}, '@/services/newsHubProvider': {}, '@/services/bedrockClient': {},
+            'next/server': { NextResponse: json }, '@/lib/app/reportLink': { reportDate: (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null) }, '@/lib/supabase/snapshot': {}, '@/services/newsHubProvider': {}, '@/services/bedrockClient': {},
             '@/lib/ai/ladderGates': {}, '@/lib/ai/commonTerms': {}, '@/services/yahooFinanceHub': { YAHOO_CACHE_KEYS: {} }, '@/lib/net/publicBase': {},
             '@/services/redisClient': { getFromCache: async (k: string) => cache[k] ?? null, setInCache: async () => true },
             ...(svc ? { '@/services/stalePriceRepair': svc } : {}),

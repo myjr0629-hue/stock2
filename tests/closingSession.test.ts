@@ -98,8 +98,9 @@ assert.match(source, /Object.values\(datedReports\).flatMap/);
 const reportView = source.slice(source.indexOf('{/* CLOSING REPORT VIEW */}'), source.indexOf("intelTab === 'sector'", source.indexOf('{/* CLOSING REPORT VIEW */}')));
 assert.equal(/getSectorQuotes\(|loadSectorReport\(|reportCache\[/.test(reportView), false);
 const api = fs.readFileSync('src/app/api/intel/snapshot/route.ts', 'utf8');
-assert.match(api, /snapshot: date \? s1.data : await overlayAiHeadline/);
-assert.match(api, /snapshot: date \? s2.data : await overlayAiHeadline/);
+// 날짜 지정: 같은 스냅샷 시각의 공식 종가 보정(main M7)만 — 최신 AI 제목은 덮지 않는다
+assert.match(api, /snapshot: date \? await reconcileOfficialCloses\(s1.data\) : await overlayAiHeadline/);
+assert.match(api, /snapshot: date \? await reconcileOfficialCloses\(s2.data\) : await overlayAiHeadline/);
 for (const file of ['src/app/api/intel/cross-sector-brief/route.ts', 'scripts/lambda-cross-sector/index.js']) {
     const text = fs.readFileSync(file, 'utf8');
     assert.match(text, /CLOSING.sessionReading\(q, todayDate, now\)/);
