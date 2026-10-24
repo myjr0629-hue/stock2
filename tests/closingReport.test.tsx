@@ -88,6 +88,12 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.equal(stamps.structured.closingNarrative.why.ja, '2026-10-23 17:42 ET の報道と2026-10-23 09:05 ET の発表、2026-10-23 08:30 ET。', '시각 표기만 정본으로(10/24 6차 실측)');
     const already = brief(); already.structured.closingNarrative.why.en = 'At 2026-10-23 17:42 ET Kitco reported.';
     C.alignSummary(already.structured); assert.equal(already.structured.closingNarrative.why.en, 'At 2026-10-23 17:42 ET Kitco reported.');
+    const yoso = brief(); yoso.structured.closingNarrative.watchNext.ja = '市場予想7を上回れば製造業指標が予想より強いことを示し、予想-0.1に対し前回-0.04。予想される影響。';
+    C.alignSummary(yoso.structured);
+    assert.equal(yoso.structured.closingNarrative.watchNext.ja, '市場予想7を上回れば製造業指標が市場予想より強いことを示し、市場予想-0.1に対し前回-0.04。予想される影響。', '비교 자리의 予想만 市場予想으로');
+    const rp = C.narrativeRepairPrompt({ sessionDate: '2026-10-22', evidence: { news: [{ id: 'market-5', publishedEt: '2026-10-22 16:36 ET', timing: 'after_cash_close' }] }, macroStr: '', narrative: { ...narrative, causeRefs: [{ newsId: 'market-5', kind: 'reported_context' }] }, reasons: ['narrative:after-close-cause', 'narrative:why:cross-lang-facts'] });
+    assert.match(rp, /causeRefs market-5 was published 2026-10-22 16:36 ET, AFTER the cash close/);
+    assert.match(rp, /why: measured numbers\/ET times per language are ko=/);
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');

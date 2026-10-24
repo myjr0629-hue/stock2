@@ -214,9 +214,39 @@ function alignSummary(s) {
     if (n && typeof n === 'object') for (const f of FIELDS) for (const loc of LOCALES) {
         if (typeof n[f]?.[loc] === 'string') n[f][loc] = canonicalEtStamps(n[f][loc]);
     }
+    // 일본어 «予想» 단독은 권유·예측어 검사에 걸린다 — 시장 예상치와 비교하는 자리(予想より·予想を上回/下回·予想比·予想値·予想-0.1)는 뜻 그대로 «市場予想»으로(10/24 7차 실측)
+    if (n && typeof n === 'object') for (const f of FIELDS) {
+        if (typeof n[f]?.ja === 'string') n[f].ja = n[f].ja.replace(/(?<!市場|業績|通期|連結|売上|利益|配当|決算|コンセンサス)予想(?=より|を上回|を下回|に対し|比|値|[-−+\d（(、])/g, '市場予想');
+    }
     const v = s?.closingNarrative?.verdict;
     if (v && typeof v === 'object' && s.marketOverview && typeof s.marketOverview === 'object') s.marketOverview.summary = { ko: v.ko, en: v.en, ja: v.ja };
     return s;
+}
+
+/**
+ * 고침 요청에 «무엇을 어떻게»를 구체적으로 — 사유 이름만 보여 주면 같은 실수를 되풀이했다(10/24 7차 실측: 장후 보도 market-5 를 reported_context 로 두 번 그대로,
+ * 언어 간 숫자 집합 차이를 못 찾음). 근거·서사에서 계산만 한다(새 사실 없음).
+ */
+function repairSpecifics({ evidence, narrative, reasons }) {
+    const n = narrative || {}, news = evidence?.news || [], out = [];
+    const rs = Array.isArray(reasons) ? reasons : [];
+    if (rs.some(r => /after-close-cause|news-phase/.test(r))) for (const ref of Array.isArray(n.causeRefs) ? n.causeRefs : []) {
+        const item = news.find(x => x.id === ref?.newsId);
+        if (item?.timing === 'after_cash_close' && ref.kind === 'reported_context') out.push(`causeRefs ${item.id} was published ${item.publishedEt}, AFTER the cash close: set its kind to "after_close" (new development) or "retrospective" (look-back), and in why describe it as after the close, not as a cause.`);
+        if (item && item.timing !== 'after_cash_close' && ref.kind === 'after_close') out.push(`causeRefs ${item.id} was published ${item.publishedEt}, during the session: its kind must be "reported_context" or "retrospective".`);
+    }
+    if (rs.some(r => /news-time/.test(r))) for (const ref of Array.isArray(n.causeRefs) ? n.causeRefs : []) {
+        const item = news.find(x => x.id === ref?.newsId);
+        if (item) out.push(`why (ko, en and ja) must contain the exact text "${item.publishedEt}" for ${item.id}.`);
+    }
+    for (const r of rs) {
+        const f = /^narrative:(verdict|whatHappened|why|indicators|watchNext):cross-lang-facts$/.exec(r)?.[1];
+        if (!f) continue;
+        const sets = Object.fromEntries(LOCALES.map(loc => [loc, factSet(n[f]?.[loc]).key.split('|').filter(Boolean)]));
+        out.push(`${f}: measured numbers/ET times per language are ko=${JSON.stringify(sets.ko)} en=${JSON.stringify(sets.en)} ja=${JSON.stringify(sets.ja)} — make all three the identical set (add the missing ones or drop the extra ones in every language).`);
+    }
+    if (rs.some(r => /:ja:advice$/.test(r))) out.push('Japanese: write 市場予想 (never a bare 予想) and avoid 見通し/予測/買い/売り/推奨.');
+    return out.length ? `Specific fixes:\n- ${out.join('\n- ')}\n` : '';
 }
 
 /** One targeted repair: the model sees the exact rejected checks and returns only a corrected closingNarrative. */
@@ -224,7 +254,7 @@ function narrativeRepairPrompt({ sessionDate, evidence, macroStr, narrative, rea
     return `Your closingNarrative for the ${sessionDate} US cash session failed these automatic checks: ${JSON.stringify(reasons)}.
 Return ONLY valid JSON {"closingNarrative": {...}} with the same schema (version:1, verdict, whatHappened, why, indicators, watchNext as {ko,en,ja}, causeRefs) that fixes every failed check and keeps everything else.
 Check meanings: length = too long — rewrite that field within the target ${JSON.stringify(TARGETS)} characters (count characters; shorten by dropping detail, never cut mid-sentence) · cross-lang-facts = the numbers/signs/ET times in that field must be the identical set in ko, en and ja · verdict = one sentence with S&P 500 and NASDAQ Composite cash-close signed changes exactly as supplied · news-time = why must quote each causeRefs item's full publishedEt verbatim in every language · after-close-cause / news-phase = a report after the cash close is never a preceding cause (kind after_close or retrospective) · event-time = watchNext must quote a supplied event's full timeEt · ko:jargon = no Cross-Asset, 콘탱고, 백워데이션, 리스크온/오프 in Korean · script = Korean in Hangul, Japanese in Japanese; English only for tickers, company and metric names · advice = no buy/sell advice, targets, guarantees or forecasts (in Japanese a bare 予想 counts — write 市場予想) · sentences = verdict must be exactly one sentence · news-id-text = remove internal IDs like market-4 from the text (keep them only in causeRefs) · amount = amounts must keep the same magnitude across languages.
-Use only this evidence; never invent numbers, events or times.
+${repairSpecifics({ evidence, narrative, reasons })}Use only this evidence; never invent numbers, events or times.
 ## Evidence
 ${JSON.stringify(evidence, null, 1)}
 ## Same-session readings
