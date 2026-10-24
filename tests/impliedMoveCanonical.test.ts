@@ -133,6 +133,34 @@ async function savePack() {
     assert.equal((await withAfter('AMZN', '2026-10-29')).impliedMovePct, 7.8);
     console.log('✓ 5일 넘은 관측: 일반·after 모두 구조 7.8(서로 같음)');
 
+    // 관문 10250346 ①: 금요일 장중에 저장된 live 값을 토요일에 읽어도 같은 세션의 EOD 관측이 이긴다(두 경로 같은 값)
+    seedWeekend();
+    const friLive = im({ strike: 247.5, call: 10.125, put: 9.325, spot: 248.01, session: SESSION, basis: 'live', asOf: Date.parse('2026-10-23T19:00:00Z') });
+    store.set('structure:v2:AMZN', structure('AMZN', Date.parse('2026-10-23T19:00:00Z'), 248.01, friLive));
+    await savePack();
+    const stale = { base: (await base('AMZN'))[0], after: await withAfter('AMZN', '2026-10-29'), cal: await calendarCell('AMZN'),
+      shared: await IMS.impliedMoveOfStructure('AMZN', store.get('structure:v2:AMZN').data) };
+    assert.deepEqual([stale.base.impliedMovePct, stale.base.basis, stale.base.straddle], [7.9, 'eod', 19.47]);
+    assert.deepEqual([stale.after.impliedMovePct, stale.cal.pct, stale.shared?.pct, stale.shared?.basis], [7.9, 7.9, 7.9, 'eod']);
+    console.log('✓ 관문 10250346①: 지난 세션 live 저장본(금 장중)도 같은 세션 EOD 관측 7.9 — 일반·after·캘린더·공유 함수 같음');
+
+    // 관문 10250346 ②: next·same 관측이 서로 다른 세션이면 늦은 세션이 이긴다(비율이 같아도) — after 경로와 같은 관측
+    seedWeekend();
+    store.set('structure:v2:SPLT', structure('SPLT', Date.parse('2026-10-23T21:00:00Z'), 100, im({ strike: 100, call: 4.9, put: 4.9, spot: 100, session: '2026-10-22' })));
+    // 먼저 읽히는 후보(옛 발표일 칸·same 키)가 옛 세션 — 순서가 아니라 세션으로 골라야 한다
+    store.set(obsKey('SPLT', '2026-10-28', false), { im: im({ strike: 100, call: 5, put: 5, spot: 100, session: '2026-10-22', method: 'weekly' }), checkedAt: WEEKEND });
+    store.set(obsKey('SPLT', '2026-10-29', true), { im: im({ strike: 100, call: 5, put: 5, spot: 100, session: '2026-10-22', method: 'weekly' }), checkedAt: WEEKEND });
+    store.set(obsKey('SPLT', '2026-10-29', false), { im: im({ strike: 102.5, call: 5.1, put: 5.1, spot: 102, session: SESSION, method: 'weekly' }), checkedAt: WEEKEND });
+    store.set(EI.EARNINGS_IMPLIED_KEY, { v: 1, at: WEEKEND, day: '2026-10-24', cells: {
+      'SPLT|2026-10-28': { p: 10, e: EXPIRY, b: 'eod', s: '2026-10-22', r: null, method: 'weekly' },
+      'SPLT|2026-10-29': { p: 10, e: EXPIRY, b: 'eod', s: SESSION, r: null, method: 'weekly' } } });
+    IMS._resetImpliedPackMemoForTest();
+    const splt = (await base('SPLT'))[0];
+    const spltAfter = await withAfter('SPLT', '2026-10-29');
+    assert.deepEqual([splt.straddle, splt.spot, splt.session], [10.2, 102, SESSION]);
+    assert.deepEqual([spltAfter.straddle, spltAfter.spot, spltAfter.session], [10.2, 102, SESSION]);
+    console.log('✓ 관문 10250346②: 관측 후보끼리도 늦은 세션(10/23 10.2/102) — 일반 = after');
+
     // ── ② 장중: 실시간 값은 관측(지난 세션)에 밀리지 않고, 관측 키를 읽지도 않는다 ─────────────
     Date.now = () => INTRADAY;
     seedWeekend();

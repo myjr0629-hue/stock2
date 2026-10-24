@@ -240,14 +240,25 @@ function usableClosingObservation(im: any, expiry: string, today: string): im is
 
 /** 일반 요청(after 없음)의 결과에 같은 만기의 마감 관측을 실적 경로와 같은 규칙으로 적용한다(제자리 수정). */
 async function applyClosingObservations(reqs: ImpliedMoveRequest[], results: ResolvedImpliedMove[]): Promise<void> {
-    // 장중 실시간 값은 관측(지난 세션)보다 새롭다 — 규칙상 바뀌지 않으므로 읽지도 않는다.
+    // «지금 정규장의 실시간 값»만 관측(지난 세션)보다 새롭다 — 규칙상 바뀌지 않으므로 읽지도 않는다.
+    //   지난 세션에 저장된 live 값(예: 금요일 장중 값을 토요일에 읽음)·장 마감 뒤 남은 오늘 live 값은 같은 세션의 EOD 관측이
+    //   이긴다(shouldUseEarningsObservation: 같은 세션이면 EOD 우선) — 관문 10250346 ①.
+    const nowMs = Date.now();
+    const today = etDateOf(nowMs);
+    const marketOpen = !isNonTradingDay(today) && etMinutesOf(nowMs) >= 570 && etMinutesOf(nowMs) < sessionCloseMinutes(today);
     const targets = results
         .map((r, idx) => ({ r, idx }))
-        .filter(({ r, idx }) => !reqs[idx]?.after && r.im?.basis === 'eod' && typeof r.im.expiry === 'string' && ISO_DATE_RE.test(r.im.expiry));
+        .filter(({ r, idx }) => {
+            const im = r.im;
+            if (reqs[idx]?.after || !im || typeof im.expiry !== 'string' || !ISO_DATE_RE.test(im.expiry)) return false;
+            if (im.basis === 'eod') return true;
+            if (im.basis !== 'live') return false;
+            const session = impliedMoveFields(im).impliedMoveSession;
+            return !(marketOpen && (session == null || session === today));
+        });
     if (!targets.length) return;
     const pack = await readEarningsPackMemo();
     if (!pack) return;
-    const today = etDateOf(Date.now());
     const lookups: Array<{ idx: number; key: string; cellPct: number | null }> = [];
     for (const { r, idx } of targets) {
         const prefix = `${r.ticker}|`;
@@ -273,14 +284,16 @@ async function applyClosingObservations(reqs: ImpliedMoveRequest[], results: Res
         const im = values[i]?.im;
         if (!existing?.expiry || !usableClosingObservation(im, existing.expiry, today)) return;
         if (!shouldUseEarningsObservation(im, existing)) return;
-        // 캘린더 칸에 실린 값과 같은 관측을 먼저(묶음이 그 관측으로 만든 것) — 같은 EOD 체인이면 next·same 은 같은 다리다.
+        // 후보끼리도 같은 규칙 — 더 새 세션의 관측이 이긴다(관문 10250346 ②: next·same 이 다른 세션이면 늦은 쪽 = 지금 시각 키가 매시 갱신).
+        //   같은 세션이면 캘린더 칸에 실린 값과 같은 관측을 먼저(같은 EOD 체인이면 next·same 은 같은 다리다).
         const matchesCell = l.cellPct != null && (im.eventMovePct ?? im.pct) === l.cellPct;
         const prev = best.get(l.idx);
-        if (!prev || (matchesCell && !prev.matchesCell)) best.set(l.idx, { im, matchesCell });
+        const s = impliedMoveFields(im).impliedMoveSession!, ps = prev ? impliedMoveFields(prev.im).impliedMoveSession! : null;
+        if (!prev || s > ps! || (s === ps && matchesCell && !prev.matchesCell)) best.set(l.idx, { im, matchesCell });
     });
     for (const [idx, { im }] of best) {
         const existing = results[idx].im!;
-        if (existing.strike === im.strike && existing.spot === im.spot && existing.pct === im.pct
+        if (existing.basis === im.basis && existing.strike === im.strike && existing.spot === im.spot && existing.pct === im.pct
             && existing.straddle === im.straddle && impliedMoveFields(existing).impliedMoveSession === impliedMoveFields(im).impliedMoveSession) continue;
         // 일반 경로는 ATM 스트래들 정의값만 — 실적 전용(method·eventMovePct)은 싣지 않는다.
         const { method: _method, eventMovePct: _event, ...straddle } = im;
