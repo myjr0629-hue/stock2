@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { NEWS_PULSE_SYSTEM, buildNewsPulseUser, checkPulseItem, checkPulseBatch, publicSource, pulseMarketFacts, type PulseArticle } from '@/lib/ai/newsPulsePrompt';
+import { NEWS_PULSE_SYSTEM, buildNewsPulseUser, checkPulseItem, checkPulseBatch, publicSource, pulseMarketFacts, pulseNumberSig, type PulseArticle } from '@/lib/ai/newsPulsePrompt';
 import { morningMetrics } from '@/lib/ai/morningBriefingV2';
 import { INDEX_NAMES } from '@/lib/ai/tacticalIndexFacts';
 
@@ -87,16 +87,17 @@ test('배열 — 80% 이상 통과해야 응답을 쓴다 · 중복 id 탈락', 
     const src = fs.readFileSync(path.join(__dirname, '../src/app/api/guardian/news-digest/route.ts'), 'utf8');
     assert.match(src, /let parsed = parsePulseArray\(bedrockResult\.text, v3\);/);
     assert.match(src, /if \(v3\) return \[\];\n\s+\/\/ Fallback: return raw top items without AI/);
-    // 드라이런은 매크로 공유 캐시 읽기만(관문 10250345 ①)
-    assert.match(src, /getMarketFacts\(true\)/);
-    assert.doesNotMatch(src.slice(src.indexOf('async function dryCompare'), src.indexOf('export async function GET')), /getMacroContext\(baseUrl\)/);
+    // 운영 코드에는 비교 드라이런이 없다(비교는 preview 배포에서 마침, 관문 10250424) · 회계연도 표기는 3언어 서명 밖
+    assert.doesNotMatch(src, /dryCompare|dry'\) === 'compare'/);
+    assert.deepEqual(pulseNumberSig('FY2027 guidance'), pulseNumberSig('2027회계연도 가이던스'));
+    assert.deepEqual(pulseNumberSig('2027年度の見通し'), []);
 });
 
 test('라우트 배선 — v3 항목 검사로 거르고, 원문 id 가 없으면 다른 기사(articles[i])에 붙이지 않는다', () => {
     const src = fs.readFileSync(path.join(__dirname, '../src/app/api/guardian/news-digest/route.ts'), 'utf8');
     assert.match(src, /validate: v3 \? \(text: string\) => checkPulseBatch\(text, pulseInputs, marketFacts\) : newsDigestGate/);
     assert.match(src, /const matchedArticle = v3 \? articles\.find\(a => String\(a\.id\) === String\(item\.id\)\) : \(articles\.find\(a => a\.id === item\.id\) \|\| articles\[i\]\)/);
-    assert.match(src, /if \(searchParams\.get\('dry'\) === 'compare'\) \{\n\s+if \(!adminAuthorized\(req\.headers\)\)/);
+
 });
 
 console.log(`newsPulsePrompt: ${passed} passed`);

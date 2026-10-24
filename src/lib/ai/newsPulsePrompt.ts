@@ -122,7 +122,9 @@ export interface PulseItemCheck { ok: boolean; reasons: string[] }
 export function pulseNumberSig(text: string): string[] {
     return numberSignature(expandRanges(String(text || ''))
         .replace(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}\b/gi, ' ')
-        .replace(/\b[1-4]Q\b|\bQ[1-4]\b|[1-4]\s?분기|第?[1-4]四半期/g, ' '));
+        .replace(/\b[1-4]Q\b|\bQ[1-4]\b|[1-4]\s?분기|第?[1-4]四半期/g, ' ')
+        // 연도·회계연도(FY2027 · 2027회계연도 · 2027年度)는 값이 아니다(근거 대조는 따로 한다, 관문 10250424)
+        .replace(/\bFY\s?'?\d{2,4}\b/gi, ' ').replace(/(?<![\d.,])(?:19|20)\d{2}(?![\d.,]\d)/g, ' '));
 }
 
 /** 범위 금액의 배수를 앞 숫자에도(«$10-$12 billion» → «$10 billion - $12 billion») — 정확히 풀어 쓴 «100억~120억 달러»가 근거 대조에서 떨어지던 것(관문 10250345 ②) */

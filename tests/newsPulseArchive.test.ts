@@ -306,10 +306,7 @@ t('news-digest route: 저장 직전에 보관본을 쌓는다(이번에 가진 �
   assert.ok(R.includes('await saveToPulseArchive(sorted)'), '화면에 오른 10개가 아니라 정렬된 전부(sorted)를 넘긴다');
   assert.ok(R.indexOf('saveToPulseArchive(sorted)') < R.indexOf('await setInCache(REDIS_KEY, digest, ttl)'), '다이제스트 저장 전에(개수를 싣는다)');
   assert.ok(/\.\.\.\(archived \? \{ archiveCount: archived\.counts \} : \{\}\)/.test(R), '실패하면 archiveCount 만 빠진다');
-  // 10/25 v3: 관리자 인증 드라이런(dryCompare — 저장 0)의 비교 호출은 빼고 센다
-  const prod = R.replace(/async function dryCompare[\s\S]*?\n}\n/, '');
-  assert.ok(prod.length < R.length, 'dryCompare 구간');
-  assert.equal((prod.match(/callBedrock\(/g) || []).length, 1, 'AI 호출 지점은 그대로 1곳');
+  assert.equal((R.match(/callBedrock\(/g) || []).length, 1, 'AI 호출 지점은 그대로 1곳');
   // 보관 모듈·API 에는 벤더·AI·외부 호출이 없다
   for (const f of ['src/lib/news/pulseArchive.ts', 'src/app/api/guardian/news-archive/route.ts']) {
     const src = read(f).replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
