@@ -172,8 +172,15 @@ const LEVEL_RES = ['Max\\s*Pain|맥스\\s*페인|マックス\\s*ペイン', 'Ca
 const LOCATIVE_AFTER = /^\s*(?:\$\s?[\d,]+(?:\.\d+)?)?\s*(?:에서|에 있|에 머|에 위치|에 걸|에 붙|에 맞닿|에 바짝|에 닿|で|に位置|にあ|に留|に張り|に接|にくっつ|に貼り)/;
 // 영어: 절 첫머리의 on/at(«: on Put Floor $135») 또는 가격 동사 + on/at(«sits at», «trading on») — «lean on the Put Floor defense»·«focus on» 은 아니다
 const LOCATIVE_BEFORE = /(?:^|:|\b(?:price|stock|shares?|it|sits?|sitting|trades?|trading|rests?|resting|stays?|staying|is|holds?|holding|pinned|stuck|parked|lands?|landed|hovers?|hovering))\s*(?:(?:right|just|exactly|squarely|now|still|firmly)\s+)*(?:on|at|to)\s+(?:the\s+)?$/i;
-export function quoteLevelClaimReasons(text: string, f: LineFacts): string[] {
+/**
+ * 해석 전체에 «자리 말»(부근·붙어·같은·일치·付近·張り付·near·right on·at/on 레벨·«$X에서/で»)이 하나라도 있고, 글에 나온 레벨 중 at 이 아닌 것이 있으면 탈락.
+ * 문장 구조(쉼표 나열·세션 바로 뒤·주어 생략)와 무관하게 닫는다 — 관문 10242246: 절·결속 판정은 구두점 변형마다 새 우회가 나왔다.
+ * 실모델 f4 통과 94건 중 영향 0(«lean on the Put Floor defense» 류는 자리 말이 아니라 뺐다).
+ */
+const PROX_ANY = /부근|근처|가까|붙어|붙은|맞닿|바짝|같은|동일|일치|付近|近く|近辺|張り付|同じ|一致|に接|\b(?:near|around|close to|next to|right (?:on|at)|just (?:on|at)|pinned|equal\w*|same|identical)\b|\bat\s+(?:the\s+)?(?:Max\s*Pain|Call\s*Wall|Put\s*Floor|Gamma\s*Flip)|\bon\s+(?:Max\s*Pain|Call\s*Wall|Put\s*Floor|Gamma\s*Flip)|\$\s?[\d,.]+\s*(?:에서|で)/i;
+export function quoteLevelClaimReasons(text: string, f: LineFacts, opts: { whole?: boolean } = { whole: true }): string[] {
     const KEYS = ['mp', 'cw', 'pf', 'gf'] as const;
+    if (opts.whole !== false && PROX_ANY.test(text) && KEYS.some((k, i) => LEVEL_RES[i].test(text) && f.sides[k] !== 'at')) return ['v3:metric:quote-level-near'];
     // 천 단위 쉼표($1,350)는 절 경계가 아니다(관문 10242229) — 먼저 숫자 안 쉼표를 지우고 자른다. 칩 줄의 « · »도 경계
     for (const clause of text.replace(/(\d),(?=\d{3}(?!\d))/g, '$1').split(/[,，、;；。·]|\.(?!\d)/)) {
         const priceSubj = PRICE_WORD.test(clause);
@@ -250,7 +257,7 @@ export function checkWatchlistV3Output(raw: string, f: LineFacts): LineCheck {
     //   세 언어 칩 줄의 숫자·자리표가 서로 다르면(언어별 덜어 내기 등) 역시 사실 칩 줄로 — 언어 간 같은 사실
     const chipSig = (t: Record<AiLineLocale, string>) => new Set(WL_LINE_LOCALES.map(l => watchlistNumericSignature(t[l]) + '|' + [...(t[l].match(/\{(?:MP|CW|PF|GF)\}/g) || [])].sort().join(','))).size;
     //   칩 줄의 «부근·같은·에서» 자리 주장도 사실(at)과 맞아야 한다 — 아니면 사실 칩 줄로
-    const chipClaim = (t: Record<AiLineLocale, string>) => WL_LINE_LOCALES.some(l => quoteLevelClaimReasons(t[l], f).length > 0);
+    const chipClaim = (t: Record<AiLineLocale, string>) => WL_LINE_LOCALES.some(l => quoteLevelClaimReasons(t[l], f, { whole: false }).length > 0);
     if (!c.ok || (c.text && (chipSig(c.text) > 1 || chipClaim(c.text)))) { const d = checkLineOutput(JSON.stringify(factChips(f)), f); if (d.ok) { c = d; chipFallback = true; } }
     const reasons = [...c.reasons];
     const insight = {} as Record<AiLineLocale, string>;

@@ -218,7 +218,12 @@ test('관문 10242151 ①: «주가는 Put Floor $135와 같은» 류 가격=레
     for (const [loc, t] of [['ko', 'MU 장전 Gamma Flip $1,460과 Put Floor $1,350에 붙어 있는 자리'], ['en', 'MU pre-market: near Gamma Flip $1,460 and Put Floor $1,350, gamma flips'], ['ja', 'MU 寄り前、Gamma Flip $1,460とPut Floor $1,350に張り付く位置']] as const) {
         assert.ok(quoteLevelClaimReasons(t, mix).length > 0, `${loc} ${t}`);
     }
-    // at 레벨 하나에만 붙은 자리 말은 참
+    // 관문 10242246: 쉼표 나열·세션 바로 뒤 «right on» — 글 전체 판정
+    const mix2 = buildLineFacts('NVDA', { ...row, gammaFlipLevel: 146 }, now)!;
+    assert.ok(quoteLevelClaimReasons('NVDA 장전 Put Floor $135, Gamma Flip $146 부근에서 감마 전환', mix2).length > 0);
+    assert.ok(quoteLevelClaimReasons('NVDA pre-market right on Put Floor $135; positive gamma dampens swings', f).length > 0);
+    assert.ok(quoteLevelClaimReasons('NVDA pre-market on Put Floor $135; positive gamma dampens swings', f).length > 0);
+    // at 레벨만 나온 글의 자리 말은 참
     assert.deepEqual(quoteLevelClaimReasons('MU 장전 Gamma Flip $1,460 부근에서 감마 부호가 바뀌는 자리', mix), []);
     // 예상 변동이 레벨을 «덮는다·겹친다»(가격 위치 주장 아님)는 허용 — 실모델 정상 문장
     assert.deepEqual(quoteLevelClaimReasons('NVDA 장전 예상 변동 ±3.2%가 Max Pain $155 자리와 겹치는 구간', f), []);
