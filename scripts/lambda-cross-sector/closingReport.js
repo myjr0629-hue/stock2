@@ -182,6 +182,18 @@ const KO_PLAIN = [
     [/리스크[- ]?온/g, '위험 선호'], [/리스크[- ]?오프/g, '위험 회피'], [/Cross[- ]Asset/gi, '자산 간'],
 ];
 
+const pad2 = x => String(x).padStart(2, '0');
+function canonicalEtStamps(text) {
+    const stamp = (y, mo, d, h, mi) => `${y}-${pad2(mo)}-${pad2(d)} ${pad2(h)}:${mi} ET`;
+    return String(text)
+        // 2026年10月23日 17:42 ET · 2026年10月23日17:42（ET） · 2026년 10월 23일 17:42 ET
+        .replace(/(\d{4})\s*[年년]\s*(\d{1,2})\s*[月월]\s*(\d{1,2})\s*[日일]\s*(\d{1,2}):(\d{2})\s*(?:\(ET\)|（ET）|ET)/g, (_, y, mo, d, h, mi) => stamp(y, mo, d, h, mi))
+        // ET 2026-10-23 17:42 (ET 앞) — 뒤에 ET 가 이미 있으면 건드리지 않는다
+        .replace(/\bET\s+(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})(?!\s*(?:ET|\(ET\)|（ET）))/g, (_, y, mo, d, h, mi) => stamp(y, mo, d, h, mi))
+        // 2026-10-23 17:42（ET） · 2026-10-23 17:42 (ET)
+        .replace(/(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s*(?:\(ET\)|（ET）)/g, (_, y, mo, d, h, mi) => stamp(y, mo, d, h, mi));
+}
+
 /** Contract normalisation before checks: marketOverview.summary = verdict (copied in code) and plain Korean for banned jargon. */
 function alignSummary(s) {
     const n = s?.closingNarrative;
@@ -196,6 +208,11 @@ function alignSummary(s) {
             .replace(new RegExp(`\\s*[(（]\\s*${id}\\s*[)）]`, 'g'), '')
             .replace(new RegExp(`([(（]\\s*)${id}\\s*[,、]\\s*`, 'g'), '$1')
             .replace(new RegExp(`\\s*[,、]\\s*${id}(?=\\s*[)）])`, 'g'), '');
+    }
+    // 보도·일정 시각 표기를 근거의 정본(«YYYY-MM-DD HH:mm ET»)으로 — 같은 시각을 «ET 2026-10-23 17:42»·«2026年10月23日 17:42 ET»·«2026년 10월 23일 17:42 ET»로
+    // 쓴 정상 문장이 news-time·event-time 검사에서 탈락했다(10/24 6차 실측, 고침 2회에도 그대로). 날짜·시각 값은 바꾸지 않고 순서·구분자만 맞춘다.
+    if (n && typeof n === 'object') for (const f of FIELDS) for (const loc of LOCALES) {
+        if (typeof n[f]?.[loc] === 'string') n[f][loc] = canonicalEtStamps(n[f][loc]);
     }
     const v = s?.closingNarrative?.verdict;
     if (v && typeof v === 'object' && s.marketOverview && typeof s.marketOverview === 'object') s.marketOverview.summary = { ko: v.ko, en: v.en, ja: v.ja };

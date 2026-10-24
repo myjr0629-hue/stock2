@@ -83,6 +83,11 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.equal(closingReportProblems(money).includes('narrative:indicators:cross-lang-facts'), false, '금액 단위 표기 차이는 언어 간 충돌이 아니다(10/24 5차 실측)');
     const moneyBp = brief(); moneyBp.structured.closingNarrative.indicators = tri('GEX는 -6,222만 달러, 금리 +4bp.', 'GEX was about -$62.2M; yields +5bp.', 'GEXは約-6,222万ドル、金利+4bp。');
     assert.ok(closingReportProblems(moneyBp).includes('narrative:indicators:cross-lang-facts'), '금액을 빼도 다른 수치 차이는 잡는다');
+    const stamps = brief(); stamps.structured.closingNarrative.why.ja = 'ET 2026-10-23 17:42 の報道と2026年10月23日 9:05 ET の発表、2026-10-23 08:30（ET）。';
+    C.alignSummary(stamps.structured);
+    assert.equal(stamps.structured.closingNarrative.why.ja, '2026-10-23 17:42 ET の報道と2026-10-23 09:05 ET の発表、2026-10-23 08:30 ET。', '시각 표기만 정본으로(10/24 6차 실측)');
+    const already = brief(); already.structured.closingNarrative.why.en = 'At 2026-10-23 17:42 ET Kitco reported.';
+    C.alignSummary(already.structured); assert.equal(already.structured.closingNarrative.why.en, 'At 2026-10-23 17:42 ET Kitco reported.');
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');

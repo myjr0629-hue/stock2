@@ -10,7 +10,7 @@ import { NextResponse } from 'next/server';
 import { getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { callBedrock } from '@/services/bedrockClient';
-import { multiLangJsonGate } from '@/lib/ai/ladderGates';
+import { multiLangJsonGate, collectLocaleStrings, scriptPurityReasons } from '@/lib/ai/ladderGates';
 import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fetchMassive } from '@/services/massiveClient';
@@ -57,6 +57,15 @@ function getTodayET(): string {
 
 function getDayOfWeekET(): string {
     return new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' });
+}
+
+/** 관측 전용 — 언어 혼입(script:*)으로 ① 응답이 버려질 때 어느 칸이었는지 로그에 남긴다(10/24 6차 실측: 사유만 남아 원인 칸을 몰랐다). 판정은 바꾸지 않는다. */
+function logScriptCulprits(gate: unknown, text: string): void {
+    if (gate === true || !JSON.stringify(gate).includes('script:')) return;
+    try {
+        const hits = collectLocaleStrings(JSON.parse(text), null).filter((it) => scriptPurityReasons(it.text, it.loc).length);
+        if (hits.length) console.warn(`[CrossSectorBrief V4] 언어 혼입 칸: ${hits.slice(0, 4).map((h) => `${h.path}=${h.text.slice(0, 90)}`).join(' | ')}`);
+    } catch { /* 관측 실패는 무시 */ }
 }
 
 /** The five narrative paragraphs exist in all three languages (detailed checks run after parsing, with repair). */
@@ -416,6 +425,7 @@ export async function POST(req: Request) {
             //   같은 프롬프트 재생성(피드백 없음)은 운영 측정에서 2회 모두 같은 사유로 탈락하고 현행 4.5(95~118초·서빙 불가)로 떨어졌다.
             validate: (text) => {
                 const base = multiLangJsonGate('CrossSector', prompt, { keys: ['marketOverview', 'sectorRotation', 'outlook', 'closingNarrative'], structured: true })(text);
+                logScriptCulprits(base, text);
                 if (base !== true) return base;
                 try { return narrativeShapeOk(JSON.parse(text)?.closingNarrative) ? true : { ok: false, reasons: ['narrative:shape'] }; } catch { return false; }
             },
