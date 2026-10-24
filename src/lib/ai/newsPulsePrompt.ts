@@ -120,16 +120,21 @@ export interface PulseItemCheck { ok: boolean; reasons: string[] }
 
 /** 3언어 숫자 서명 — 영문 날짜(«Oct. 28»)·분기 표기(Q3·3분기·4Q)는 값이 아니다 */
 export function pulseNumberSig(text: string): string[] {
-    return numberSignature(String(text || '')
+    return numberSignature(expandRanges(String(text || ''))
         .replace(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}\b/gi, ' ')
         .replace(/\b[1-4]Q\b|\bQ[1-4]\b|[1-4]\s?분기|第?[1-4]四半期/g, ' '));
+}
+
+/** 범위 금액의 배수를 앞 숫자에도(«$10-$12 billion» → «$10 billion - $12 billion») — 정확히 풀어 쓴 «100억~120억 달러»가 근거 대조에서 떨어지던 것(관문 10250345 ②) */
+export function expandRanges(text: string): string {
+    return String(text || '').replace(/(\$?)(\d+(?:\.\d+)?)\s?(?:-|–|~|to)\s?(\$?)(\d+(?:\.\d+)?)\s?(trillion|billion|million|thousand|[TBMK])\b/gi, '$1$2 $5 - $3$4 $5');
 }
 
 /** 한 항목 — 입력 기사(id 로 찾은 것)와 시장 사실로 판정 */
 export function checkPulseItem(item: any, article: PulseArticle | undefined, marketFacts: readonly string[]): PulseItemCheck {
     const reasons: string[] = [];
     if (!article) return { ok: false, reasons: ['pulse:id-mismatch'] };
-    const evidence = `${article.title}\n${article.desc}\n${marketFacts.join('\n')}`;
+    const evidence = expandRanges(`${article.title}\n${article.desc}\n${marketFacts.join('\n')}`);
     for (const [key, loc, kind] of FIELDS) {
         const t = typeof item?.[key] === 'string' ? item[key].trim() : '';
         if (t.length < 10) { reasons.push(`${key}:missing`); continue; }
@@ -149,7 +154,7 @@ export function checkPulseItem(item: any, article: PulseArticle | undefined, mar
         const adv = adviceHit(t);
         if (adv) reasons.push(`${key}:advice:${adv}`);
         if (forecastHits(t, loc).length) reasons.push(`${key}:forecast`);
-        const ung = checkNumberGrounding(t, evidence).ungrounded;
+        const ung = checkNumberGrounding(expandRanges(t), evidence).ungrounded;
         if (ung.length) reasons.push(`${key}:number:${ung[0].raw}`);
         if (loc !== 'en' && !checkAmounts(evidence, t, loc, [String(item?.summaryEN || ''), String(item?.analysisEN || '')]).ok) reasons.push(`${key}:amount`);
     }

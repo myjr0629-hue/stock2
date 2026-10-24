@@ -74,6 +74,12 @@ test('배열 — 80% 이상 통과해야 응답을 쓴다 · 중복 id 탈락', 
     assert.ok(!checkPulseBatch('not json', [art], facts).ok);
     // 적격 기사 0건([])은 정상 — 다음 단을 부르지 않는다 · 라우트는 v3 실패 때 원문 대체 항목을 저장하지 않는다(관문 10250319)
     assert.ok(checkPulseBatch('[]', [art], facts).ok);
+    // 범위 금액을 정확히 풀어 쓰면 통과(관문 10250345 ②)
+    const rangeArt = { ...art, desc: 'Capex guidance of $10-$12 billion for next year.' };
+    const rangeItem = { ...good, summaryKR: '블룸 에너지는 내년 설비투자 가이던스를 100억~120억 달러로 제시했습니다.', summaryEN: 'Bloom Energy guided capex of $10-$12 billion for next year.', summaryJP: 'ブルーム・エナジーは来年の設備投資見通しではなく計画を100億～120億ドルと示しました。'.replace('見通しではなく', '') };
+    assert.ok(!checkPulseItem(rangeItem, rangeArt, facts).reasons.some(r => /number/.test(r)), JSON.stringify(checkPulseItem(rangeItem, rangeArt, facts).reasons));
+    assert.match(src, /getMarketFacts\(true\)/);
+    assert.doesNotMatch(src.slice(src.indexOf('async function dryCompare'), src.indexOf('export async function GET')), /getMacroContext\(baseUrl\)/);
     const src = fs.readFileSync(path.join(__dirname, '../src/app/api/guardian/news-digest/route.ts'), 'utf8');
     assert.match(src, /let parsed = parsePulseArray\(bedrockResult\.text, v3\);/);
     assert.match(src, /if \(v3\) return \[\];\n\s+\/\/ Fallback: return raw top items without AI/);
