@@ -94,6 +94,8 @@ const CONTRAST = /\brather than\b|\binstead of\b|대신|아니라|이\s*아닌|�
 
 // 부정·감소·부재(어디에 있든 순수 구조 설명이 아니다): n't·nothing·none·never·less·limits·관계없이(없)·줄·사라·잃·弱·消 …
 const HEDGE_ANY = /n't\b|\b(?:nothing|none|neither|nor|never|less|limits?|limited|loses?|lost|lacks?|without|absent|far)\b|없|않|못|아니|아닌|줄어|줄고|줄며|사라|잃|약해|ない|(?:せ|さ|ら)ず|ません|弱ま|消え|失わ/i;
+// 갈래 문형 낱말(조건·위치어)
+const BRANCH_TOKENS = /\b(?:if|when|above|below|it|the price is|price is)\b|위쪽|아래쪽|위|아래|라면|면|에서는|에선|上側|下側|上|下|なら|では/gi;
 // 순수 두 갈래 설명의 나머지로 허용하는 낱말(이름·조사·어미)뿐
 const RESIDUAL_FILLER = /Gamma\s*Flip|\b(?:dealer|dealers|hedging|hedges?|structure|options?|the|a|its|is|are|of|and|swings?|moves?|them|it|they|price)\b|딜러|헤지|구조|옵션|움직임|변동|흔들림|입니다|합니다|이며|이고|하는|하며|의|는|은|이|가|에서|에선|에|를|을|ディーラー|ヘッジ|構造|オプション|値動き|変動|です|である|します|ます|する|の|は|が|で|を|に/gi;
 // 나머지에 남으면 «현재 상태 단정»으로 보는 단어(at·switch·price·현재·가격·現在 …)
@@ -112,12 +114,11 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
     for (const l of TP_LOCALES) {
         const t = text[l];
         if (INTERNAL.test(t)) reasons.push(`${l}:v2:internal-or-freshness`);
-        // 부정은 그 표현 «바로 앞»(not/no/never·12자) 또는 «바로 뒤»(한·일 부정·8자)에 붙을 때만 면제(관문 10242104: «not its direction»이 앞 표현을 면제하지 않음, «not Fed policy»는 부정된 원인).
-        const negatedNear = (re: RegExp) => [...t.matchAll(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g'))].every(m =>
-            /\b(?:not|no|never|nor|rather than|instead of)\b(?![^,;.]*\b(?:but|yet|however)\b)[^,;.]{0,12}$/i.test(t.slice(Math.max(0, (m.index ?? 0) - 20), m.index))
-            || /^[^,;.。、]{0,6}?(?:아니|아닌|않|없|ではな|ではありません|でない|じゃな)/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 12)));
-        if (UNSUPPORTED_CAUSE.test(t) && !negatedNear(UNSUPPORTED_CAUSE)) reasons.push(`${l}:v2:unsupported-cause`);
-        if ((f.kind === 'earnings' || f.kind === 'whale') && HISTORY.test(t) && !negatedNear(HISTORY)) reasons.push(`${l}:v2:unsupported-history`);
+        // 원인·역사 새 검사는 글에 부정·유보 표현이 하나라도 있으면 거절하지 않는다(운영엔 없던 검사 — 부정 범위 해석은 관문 10242104~10242119에서
+        // 오탈락·오통과가 번갈아 나왔다. 부정이 섞인 글은 운영과 같은 판정으로 둔다).
+        const hedgedText = NEGATED.test(t) || /n't\b|\bno evidence\b|\bunclear\b|아닙|아니|않|없|ではな|ません/i.test(t);
+        if (UNSUPPORTED_CAUSE.test(t) && !hedgedText) reasons.push(`${l}:v2:unsupported-cause`);
+        if ((f.kind === 'earnings' || f.kind === 'whale') && HISTORY.test(t) && !hedgedText) reasons.push(`${l}:v2:unsupported-history`);
         if (f.kind !== 'gamma' || f.level !== 'gammaFlip') continue;
         // Gamma Flip 완화는 단 하나: «순수한 두 갈래 구조 설명»(위면 완충·아래면 증폭)일 때만 옛 검사의 위치·기전 사유를 뗀다.
         //   순수 = 정상 기전의 두 갈래가 모두 있고, 글 전체에 부정·대조·감소 표현이 없고, 두 갈래를 뗀 나머지에 위치·기전·현재·가격 단어가 없다.
@@ -133,6 +134,10 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
             || RESIDUAL_CLAIM.test(residual)) continue;
         // 나머지는 허용 목록 낱말(구조·헤지 같은 이름·조사)만 — 그 밖의 낱말이 하나라도 있으면 순수 구조가 아니다(관문 10242110: «spot exceeds Gamma Flip»).
         if (residual.replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '').length > 0) continue;
+        // 갈래 안쪽도 같은 허용 목록으로 본다 — 조건·위치어·기전 단어(어미 포함)·허용 낱말 말고 남는 것이 있으면(«fails to dampen») 순수 구조가 아니다(관문 10242119).
+        const whole = t.replace(new RegExp(`(?:${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]})(?:[가-힣]{1,3}|[ぁ-ん]{1,4}|[a-z]*)`, 'gi'), '')
+            .replace(BRANCH_TOKENS, '').replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '');
+        if (whole.length > 0) continue;
         reasons = reasons.filter(r => !(r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`)));
     }
     reasons = [...new Set(reasons)];
