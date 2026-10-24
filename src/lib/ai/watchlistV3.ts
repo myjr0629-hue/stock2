@@ -173,23 +173,29 @@ const LOCATIVE_AFTER = /^\s*(?:\$\s?[\d,]+(?:\.\d+)?)?\s*(?:에서|에 있|에 �
 // 영어: 절 첫머리의 on/at(«: on Put Floor $135») 또는 가격 동사 + on/at(«sits at», «trading on») — «lean on the Put Floor defense»·«focus on» 은 아니다
 const LOCATIVE_BEFORE = /(?:^|:)\s*(?:on|at)\s+(?:the\s+)?$|\b(?:sits?|sitting|trades?|trading|rests?|resting|stays?|staying|is|holds?|holding|pinned|stuck|parked)\s+(?:right\s+|exactly\s+)?(?:on|at|to)\s+(?:the\s+)?$/i;
 export function quoteLevelClaimReasons(text: string, f: LineFacts): string[] {
-    for (const clause of text.split(/[,，、;；。]|\.(?!\d)/)) {
-        const named = (['mp', 'cw', 'pf', 'gf'] as const).filter((k, i) => LEVEL_RES[i].test(clause));
+    const KEYS = ['mp', 'cw', 'pf', 'gf'] as const;
+    // 천 단위 쉼표($1,350)는 절 경계가 아니다(관문 10242229) — 먼저 숫자 안 쉼표를 지우고 자른다. 칩 줄의 « · »도 경계
+    for (const clause of text.replace(/(\d),(?=\d{3}(?!\d))/g, '$1').split(/[,，、;；。·]|\.(?!\d)/)) {
         const priceSubj = PRICE_WORD.test(clause);
-        if (!named.length) { if (priceSubj && EQUAL_WORD.test(clause)) return ['v3:metric:quote-level-equal']; continue; }
+        const mentions: Array<{ k: typeof KEYS[number]; start: number; end: number }> = [];
+        KEYS.forEach((k, i) => { for (const m of clause.matchAll(new RegExp(LEVEL_RES[i].source, 'gi'))) mentions.push({ k, start: m.index!, end: m.index! + m[0].length }); });
+        if (!mentions.length) { if (priceSubj && EQUAL_WORD.test(clause)) return ['v3:metric:quote-level-equal']; continue; }
         // 해석의 주어는 이 종목(첫머리 «NVDA 장전») — 주가 말이 없어도 «Put Floor $135와 같은 자리·에서·부근·on»은 가격이 거기 있다는 주장.
-        //   이런 «자리» 주장은 사실이 at(가격과 0.1% 안)일 때만 — at 은 가격이 조금만 움직여도 쪽이 바뀌어(화면 aiLineState 'stale') 낡은 글이 남지 않는다
+        //   자리 주장은 «그 레벨에 붙은» 말로 판정한다(뒤: 한·일 «$135 부근/와 같은/에서/で/付近», 앞: 영 «near/at/on the»).
+        //   사실이 at(가격과 0.1% 안)일 때만 참 — at 은 가격이 조금만 움직여도 쪽이 바뀌어(화면 aiLineState 'stale') 낡은 글이 남지 않는다
         //   (관문 10242207 ①·10242219 ①②: 부근을 거리 2%로 허용하면 저장 뒤 가격이 움직여도 같은 쪽이라 «부근»이 계속 나갔다)
-        const locative = named.some((k, _i) => {
-            const re = LEVEL_RES[['mp', 'cw', 'pf', 'gf'].indexOf(k)];
-            for (const m of clause.matchAll(new RegExp(re.source, 'gi'))) {
-                if (LOCATIVE_AFTER.test(clause.slice(m.index! + m[0].length)) || LOCATIVE_BEFORE.test(clause.slice(0, m.index))) return true;
-            }
-            return false;
-        });
-        if ((EQUAL_WORD.test(clause) || NEAR_WORD.test(clause) || locative) && named.some(k => f.sides[k] !== 'at')) return [NEAR_WORD.test(clause) ? 'v3:metric:quote-level-near' : 'v3:metric:quote-level-equal'];
+        for (const m of mentions) {
+            const after = clause.slice(m.end).replace(/^\s*\$\s?[\d.]+/, '').slice(0, 10);
+            const before = clause.slice(Math.max(0, m.start - 16), m.start);
+            const near = NEAR_WORD.test(after.slice(0, 6)) || /\b(?:near|around|close to|next to)\s+(?:the\s+)?$/i.test(before);
+            const equal = /^\s*(?:와|과|이랑|하고|と|に)?\s*(?:같|동일|일치|등し|同じ|一致)/.test(after) || /\b(?:equal(?:s|ing)?(?: to)?|same (?:level )?as|matches|matching)\s+(?:the\s+)?$/i.test(before);
+            const locative = LOCATIVE_AFTER.test(clause.slice(m.end)) || LOCATIVE_BEFORE.test(clause.slice(0, m.start));
+            if ((near || equal || locative) && f.sides[m.k] !== 'at') return [near ? 'v3:metric:quote-level-near' : 'v3:metric:quote-level-equal'];
+        }
+        // 이름에 붙지 않은 같다·일치(«주가가 Put Floor $135 와 거의 같은 수준») — 그 절의 레벨이 모두 at 이 아니면 탈락
+        if (EQUAL_WORD.test(clause) && mentions.every(m => f.sides[m.k] !== 'at')) return ['v3:metric:quote-level-equal'];
         // 주가가 주어인데 쪽 말이 없으면 «주가는 Put Floor $135» = 등치 — at 이 아니면 탈락
-        if (priceSubj && !SIDE_WORD.test(clause) && named.some(k => f.sides[k] !== 'at')) return ['v3:metric:quote-level-equal'];
+        if (priceSubj && !SIDE_WORD.test(clause) && !NEAR_WORD.test(clause) && mentions.some(m => f.sides[m.k] !== 'at')) return ['v3:metric:quote-level-equal'];
     }
     return [];
 }
@@ -237,7 +243,9 @@ export function checkWatchlistV3Output(raw: string, f: LineFacts): LineCheck {
     // 칩 줄만 틀렸으면(쪽·숫자·길이) 사실 그대로의 칩 줄로 — 같은 검사를 통과할 때만. 해석은 모델 것 그대로 검사한다.
     //   세 언어 칩 줄의 숫자·자리표가 서로 다르면(언어별 덜어 내기 등) 역시 사실 칩 줄로 — 언어 간 같은 사실
     const chipSig = (t: Record<AiLineLocale, string>) => new Set(WL_LINE_LOCALES.map(l => watchlistNumericSignature(t[l]) + '|' + [...(t[l].match(/\{(?:MP|CW|PF|GF)\}/g) || [])].sort().join(','))).size;
-    if (!c.ok || (c.text && chipSig(c.text) > 1)) { const d = checkLineOutput(JSON.stringify(factChips(f)), f); if (d.ok) { c = d; chipFallback = true; } }
+    //   칩 줄의 «부근·같은·에서» 자리 주장도 사실(at)과 맞아야 한다 — 아니면 사실 칩 줄로
+    const chipClaim = (t: Record<AiLineLocale, string>) => WL_LINE_LOCALES.some(l => quoteLevelClaimReasons(t[l], f).length > 0);
+    if (!c.ok || (c.text && (chipSig(c.text) > 1 || chipClaim(c.text)))) { const d = checkLineOutput(JSON.stringify(factChips(f)), f); if (d.ok) { c = d; chipFallback = true; } }
     const reasons = [...c.reasons];
     const insight = {} as Record<AiLineLocale, string>;
     for (const loc of WL_LINE_LOCALES) {

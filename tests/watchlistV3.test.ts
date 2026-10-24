@@ -148,6 +148,10 @@ test('칩 조각: 쪽을 사실로 미리 만든다 · 모델 칩 줄이 틀리�
     assert.doesNotMatch(check({ ...chips, ko: 'Put Floor $135 위 {PF} · 매수 구간', insight }).text!.ko, /매수/);
     // 해석이 틀리면 칩 대체와 무관하게 탈락
     assert.equal(check({ ko: 'Put Floor $135 아래 {PF}', en: chips.en, ja: chips.ja, insight: { ...insight, ko: 'NVDA 장전 주가 $146, 양감마가 완충' } }).ok, false);
+    // 모델 칩 줄의 «부근» 자리 주장(at 아님) → 사실 칩 줄
+    const nearChip = check({ ko: 'Put Floor $135 부근 {PF}', en: '{PF} near Put Floor $135', ja: 'Put Floor $135付近{PF}', insight });
+    assert.equal((nearChip as any).chipFallback, true);
+    assert.doesNotMatch(nearChip.text!.ko, /부근/);
     // 지형이 정상인 모델 칩 줄은 그대로(대체 표식 없음)
     assert.equal((check(good) as any).chipFallback, undefined);
 });
@@ -200,6 +204,12 @@ test('관문 10242151 ①: «주가는 Put Floor $135와 같은» 류 가격=레
     const atGf = buildLineFacts('NVDA', { ...row, gammaFlipLevel: 146 }, now)!;
     assert.equal(atGf.sides.gf, 'at');
     assert.deepEqual(quoteLevelClaimReasons('NVDA 장전 예상 변동 ±3.2%가 Gamma Flip $146 부근 자리', atGf), []);
+    // 관문 10242229: 천 단위 쉼표 레벨($1,350)도 같은 절 — 위치 주장 탈락, 화면 노출 0
+    const big = buildLineFacts('MU', { ...row, price: 1450, extendedPrice: 1460, maxPain: 1550, callWall: 1600, putFloor: 1350, gammaFlipLevel: 1400 }, now)!;
+    for (const [loc, t] of [['ko', 'MU 장전 Put Floor $1,350에서 양감마가 변동을 완충하는 자리'], ['en', 'MU pre-market: on Put Floor $1,350, positive gamma dampens swings'], ['ja', 'MU 寄り前、Put Floor $1,350で正ガンマが変動を緩和する位置'], ['ko', 'MU 장전 주가는 Put Floor $1,350, 양감마가 변동을 완충']] as const) {
+        assert.ok(quoteLevelClaimReasons(t, big).length > 0, `${loc} ${t}`);
+    }
+    assert.deepEqual(quoteLevelClaimReasons('MU 장전 Put Floor $1,350 위에서 양감마가 변동을 완충하는 자리', big), []);
     // «lean on the Put Floor defense»·«focus on» 은 위치 주장이 아니다(10/24 실모델 정상 문장)
     assert.deepEqual(quoteLevelClaimReasons('NVDA pre-market: puts at 70% lean on the Put Floor $135 defense', f), []);
     assert.ok(quoteLevelClaimReasons('NVDA pre-market: the stock sits at Put Floor $135, positive gamma', f).length > 0);
