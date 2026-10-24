@@ -94,6 +94,10 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     const rp = C.narrativeRepairPrompt({ sessionDate: '2026-10-22', evidence: { news: [{ id: 'market-5', publishedEt: '2026-10-22 16:36 ET', timing: 'after_cash_close' }] }, macroStr: '', narrative: { ...narrative, causeRefs: [{ newsId: 'market-5', kind: 'reported_context' }] }, reasons: ['narrative:after-close-cause', 'narrative:why:cross-lang-facts'] });
     assert.match(rp, /causeRefs market-5 was published 2026-10-22 16:36 ET, AFTER the cash close/);
     assert.match(rp, /why: measured numbers\/ET times per language are ko=/);
+    const buy = brief(); buy.structured.closingNarrative.whatHappened.ko = '나스닥은 일부 반도체 매수로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.';
+    C.alignSummary(buy.structured);
+    assert.equal(buy.structured.closingNarrative.whatHappened.ko, '나스닥은 일부 반도체 매수세로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.', '관찰된 매매만 매수세로(10/24 8차 실측)');
+    assert.equal(closingReportProblems(buy).some(r => r.endsWith(':advice')), false);
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');
