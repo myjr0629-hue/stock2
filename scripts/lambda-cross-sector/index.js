@@ -347,7 +347,8 @@ exports.handler = async (event, context) => {
         CLOSING.alignSummary(structured, reportEvidence);
         let narrativeErrors = CLOSING.evidenceProblems(structured, reportEvidence);
         const firstNarrativeErrors = narrativeErrors;
-        for (let round = 0; round < 2 && narrativeErrors.length; round++) {
+        // Lambda 는 15분 한도라 고침을 3회까지(Vercel 은 300초 예산 안에서 2회) — 10/24 Sonnet 4.6 모의 1/3 → 길이·언어 간 숫자 고침이 2회로 모자랐다
+        for (let round = 0; round < 3 && narrativeErrors.length; round++) {
             try {
                 const fixPrompt = CLOSING.narrativeRepairPrompt({ sessionDate: todayDate, evidence: reportEvidence, macroStr, narrative: structured.closingNarrative, reasons: narrativeErrors });
                 const fix = await invokeOnce({ ...requestBody, max_tokens: 8000, temperature: 0.2, messages: [{ role: 'user', content: fixPrompt }] });

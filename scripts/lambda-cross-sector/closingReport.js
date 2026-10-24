@@ -347,6 +347,11 @@ function repairSpecifics({ evidence, narrative, reasons }) {
         const item = news.find(x => x.id === ref?.newsId);
         if (item) out.push(`why (ko, en and ja) must contain the exact text "${item.publishedEt}" for ${item.id}.`);
     }
+    // 길이 초과는 지금 글자 수와 목표를 숫자로(10/24 Lambda 경로 Sonnet 4.6 모의: «length»만 보이면 고침 2회에도 382자 그대로)
+    for (const r of rs) {
+        const m = /^narrative:(verdict|whatHappened|why|indicators|watchNext):(ko|en|ja):length$/.exec(r);
+        if (m) out.push(`${m[1]}.${m[2]} is ${String(n[m[1]]?.[m[2]] || '').length} characters — rewrite it to at most ${TARGETS[m[1]][m[2]]} characters by dropping the least important details (keep the same facts in all three languages).`);
+    }
     for (const r of rs) {
         const f = /^narrative:(verdict|whatHappened|why|indicators|watchNext):cross-lang-facts$/.exec(r)?.[1];
         if (!f) continue;
