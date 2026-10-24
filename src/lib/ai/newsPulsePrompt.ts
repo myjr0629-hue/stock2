@@ -170,7 +170,9 @@ export function checkPulseBatch(text: string, articles: readonly PulseArticle[],
         const s = String(text || '');
         arr = JSON.parse(s.slice(Math.max(0, s.indexOf('['))));
     } catch { return { ok: false, reasons: ['json'], items: [] }; }
-    if (!Array.isArray(arr) || !arr.length) return { ok: false, reasons: ['empty-array'], items: [] };
+    if (!Array.isArray(arr)) return { ok: false, reasons: ['not-array'], items: [] };
+    // 적격 기사 0건은 정상 답이다(지시가 «부족하면 채우지 말라») — 다음 단을 부르지 않고 이번 갱신은 새 항목 없이 지나간다(관문 10250319 ①)
+    if (!arr.length) return { ok: true, reasons: [], items: [] };
     const byId = new Map(articles.map(a => [a.id, a]));
     const seen = new Set<string>();
     const items = arr.map((it: any) => {

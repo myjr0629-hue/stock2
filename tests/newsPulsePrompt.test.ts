@@ -72,6 +72,11 @@ test('배열 — 80% 이상 통과해야 응답을 쓴다 · 중복 id 탈락', 
     const dup = checkPulseBatch(JSON.stringify([good, good]), [art], facts);
     assert.ok(!dup.ok);
     assert.ok(!checkPulseBatch('not json', [art], facts).ok);
+    // 적격 기사 0건([])은 정상 — 다음 단을 부르지 않는다 · 라우트는 v3 실패 때 원문 대체 항목을 저장하지 않는다(관문 10250319)
+    assert.ok(checkPulseBatch('[]', [art], facts).ok);
+    const src = fs.readFileSync(path.join(__dirname, '../src/app/api/guardian/news-digest/route.ts'), 'utf8');
+    assert.match(src, /let parsed = parsePulseArray\(bedrockResult\.text, v3\);/);
+    assert.match(src, /if \(v3\) return \[\];\n\s+\/\/ Fallback: return raw top items without AI/);
 });
 
 test('라우트 배선 — v3 항목 검사로 거르고, 원문 id 가 없으면 다른 기사(articles[i])에 붙이지 않는다', () => {

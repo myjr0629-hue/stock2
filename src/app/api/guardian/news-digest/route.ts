@@ -397,7 +397,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
 }
 
 /** 모델 원문 → 배열(앞말·잘림 복구). 실패면 던진다 */
-function parsePulseArray(text: string): any[] {
+function parsePulseArray(text: string, allowEmpty = false): any[] {
     let json = String(text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
     const start = json.indexOf('[');
     if (start < 0) throw new Error('No JSON array in Claude response');
@@ -410,7 +410,7 @@ function parsePulseArray(text: string): any[] {
         if (lastObj < 0) throw new Error('Unparseable Claude response');
         parsed = JSON.parse(json.slice(0, lastObj + 1) + ']') as any[];
     }
-    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty Claude response');
+    if (!Array.isArray(parsed) || (parsed.length === 0 && !allowEmpty)) throw new Error('Empty Claude response');
     return parsed;
 }
 
@@ -450,7 +450,7 @@ async function analyzeWithClaude(articles: any[], macroContext: string, marketFa
         // News Pulse showed English in Korean/Japanese). Also 4096 tokens truncated big KR/JP
         // batches → same failure. Now: strip fences, slice from the first '[', and if the array
         // is truncated recover up to the last complete object instead of failing the batch.
-        let parsed = parsePulseArray(bedrockResult.text);
+        let parsed = parsePulseArray(bedrockResult.text, v3);
         console.log(`[NewsDigest] Claude: ${parsed.length} items in ${Date.now() - t0}ms (model: ${bedrockResult.model}, prompt v${v3 ? NEWS_PULSE_VERSION : 2})`);
         if (v3) {
             // 항목별 출구 검사 — 원문 id 가 없거나(다른 기사에 붙이지 않는다) 검사를 못 넘은 항목은 버린다(저장하지 않음 → 다음 주기에 다시)
@@ -493,6 +493,8 @@ async function analyzeWithClaude(articles: any[], macroContext: string, marketFa
         // 신선도 «증가분»(pace=1)이 크레딧 문제로 건너뛰었다 — 영어 원문 항목으로 채우지 말고 위로 올려 이번 갱신을 건너뛴다(기존 캐시 유지)
         if (isFreshTierSkipped(e)) throw e;
         console.error('[NewsDigest] Claude analysis failed:', e);
+        // v3: 원문 대체 항목을 저장하지 않는다 — 한·일 칸이 빈 원문이 «이미 있음» 키가 되어 같은 기사의 다음 AI 시도를 막았다(관문 10250319 ①). 기존 캐시 유지, 다음 주기에 다시
+        if (v3) return [];
         // Fallback: return raw top items without AI
         return articles.slice(0, BATCH_SIZE).map((a, i) => ({
             id: a.id || `news-${i}`,
@@ -549,6 +551,8 @@ function forLocale(items: NewsDigestItem[], locale: string): NewsDigestItem[] {
  * 드라이런 비교(관리자 인증, 저장 0) — 같은 후보 기사·같은 시각으로 옛 지시(v2·옛 게이트)와 새 지시(v3·항목 검사)를
  * 운영 모델(사다리 ① 크레딧 Haiku 5.5, 증가분 등급 = AWS 로 넘기지 않음)로 reps 번씩 생성해 원문을 돌려준다. 캐시·서명·보관본 쓰기 없음.
  */
+//   (쓰기: 다이제스트·서명·보관본 저장 경로를 타지 않는다. 시장 사실 조회가 낡은 매크로 공유 캐시를 갱신할 수는 있는데, 그건 어느 화면 요청이든 같은 값으로 하는 신선도 캐시이고,
+//    사다리의 호출·비용 기록은 운영 계측이다 — 사용자에게 나가는 저장본은 건드리지 않는다)
 async function dryCompare(req: NextRequest, reps: number): Promise<Response> {
     const t0 = Date.now();
     const baseUrl = publicBase(req.url.split('/api/')[0]);
@@ -779,4 +783,3 @@ export async function GET(req: NextRequest) {
         _locale: locale,
     });
 }
-
