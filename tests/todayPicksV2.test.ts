@@ -115,8 +115,14 @@ test('부정·대조가 섞인 나머지 위치 주장은 해석하지 않고 �
   for (const en of ['Gamma Flip: above: cushions; below: amplifies. Price is not above.', 'Above Gamma Flip, hedges dampen; below it, they amplify; price is not far above']) {
     const why = { ...branches, en };
     const old = checkPickWhy(JSON.stringify(why), r.ticker, below, 2026, r.etDate);
-    assert.equal(check(r, why, below).ok, old.ok, en);
+    const enOk = (x: string[]) => x.filter(y => y.startsWith('en:')).length === 0;
+    assert.equal(enOk(check(r, why, below).reasons), enOk(old.reasons), en);
   }
+  // 관문 10242047
+  assert.equal(check(r, { ...branches, en: 'If above, hedging cushions; if below, hedging amplifies; hedging dampens moves' }, below).ok, false, '단정 «dampens» 은 아래와 모순');
+  { const why = { ...branches, en: "If above, hedging cushions; if below, hedging amplifies; price isn't above" };
+    const en = (x: string[]) => x.filter(y => y.startsWith('en:')).length === 0;
+    assert.equal(en(check(r, why, below).reasons), en(checkPickWhy(JSON.stringify(why), r.ticker, below, 2026, r.etDate).reasons), "isn't 는 부정 — 영어 칸은 운영과 같은 판정"); }
   const ko = { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭, 현재 완충 효과는 없습니다' };
   assert.equal(check(r, ko, below).reasons.some(x => x.includes('v2:')), false, '«없습니다» 섞인 나머지는 새 판정 안 함');
 });

@@ -148,8 +148,12 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         if (residualClaims) {
             // 나머지에 부정·대조·감소 표현이 전혀 없을 때만 «현재 위치·기전» 단정을 실제 쪽과 맞춘다(«현재는 위입니다» 거절).
             // 부정 등이 섞이면 해석하지 않고 옛 검사 판정 그대로(관문 10242027·10242039: «not far above»·«완충 효과는 없습니다»).
-            const plain = !NEG_MECHANISM.test(residual) && !CONTRAST.test(residual) && !/아니|아닌|ではな|\b(?:far|less|limits?|nor)\b|줄|사라|잃|없|弱|消/i.test(residual);
-            if (plain) {
+            const plain = !NEG_MECHANISM.test(residual) && !CONTRAST.test(residual) && !/n't\b|아니|아닌|ではな|\b(?:far|less|limits?|nor|never)\b|줄|사라|잃|없|弱|消/i.test(residual);
+            // 나머지에 두 기전 단어가 함께 있으면(어느 쪽 단정인지 모호) 해석하지 않는다.
+            const cushionW = new RegExp(MECHANISM_WORDS[l][0], 'i').test(residual), ampW = new RegExp(MECHANISM_WORDS[l][1], 'i').test(residual);
+            if (plain && !(cushionW && ampW)) {
+                // currently/now 없이 쓴 기전 단정(«; hedging dampens moves»)도 실제 쪽과 맞춘다(관문 10242047).
+                if ((cushionW && f.side !== 'a') || (ampW && f.side !== 'b')) reasons.push(`${l}:v2:current-mechanism`);
                 for (const m of residual.matchAll(new RegExp(CURRENT_SIDE[l])))
                     if ((/^(?:위|above|over|上)$/i.test(m[1]) ? 'a' : 'b') !== f.side) reasons.push(`${l}:v2:current-side`);
                 for (const m of residual.matchAll(new RegExp(CURRENT_MECH[l])))
