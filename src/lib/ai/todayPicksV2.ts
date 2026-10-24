@@ -121,15 +121,10 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         const negatedClause = (m: RegExpMatchArray) => NEG_MECHANISM.test(m[0]) || CONTRAST.test(m[0])
             || /^\s*(?:이|가|은|는)?\s*(?:아니라|아닌|대신)|^\s*(?:では|じゃ)なく/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 8))
             || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6));
-        // 글 어디에든 부정·대조·부재 표현이 있으면 반대 기전 판정을 하지 않는다(관문 10242008: «완충 효과가 사라지는»·«lacks a cushioning effect»).
-        // 판정은 «위면 증폭·아래면 완충» 같은 부정 없는 뒤집힘만 — 오탈락이 오통과보다 나쁘다.
-        const hedged = NEG_MECHANISM.test(t) || CONTRAST.test(t) || /사라|부재|빠지|빠진|\black(?:s|ing)?\b|\babsent\b|\bwithout\b|\bno longer\b|消え|欠け|失わ/i.test(t);
-        if (!hedged && pair.some((re, i) => [...t.matchAll(new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags))]
-            // 같은 절(+뒤 12자)에 올바른 기전 단어가 함께 있으면(절+뒤 20자) 대조·부정 서술(«완충 효과 없이 키웁니다»·«완충보다는 증폭»)이다(관문 10241935).
-            // 같은 절 끝(다음 구두점)까지 부정·대조어가 있으면(«완충 역할을 하지 않습니다») 뒤집힌 조건이 아니다(관문 10241950).
-            .some(m => { const tail = t.slice((m.index ?? 0) + m[0].length).split(/[,;.。、·]/)[0];
-                return !negatedClause(m) && !NEG_MECHANISM.test(tail) && !CONTRAST.test(tail) && !/(?:では|じゃ)なく|ず(?:に|、|$)/.test(tail)
-                    && !new RegExp(MECHANISM_WORDS[l][i], 'i').test(m[0] + tail.slice(0, 20)); })))
+        // 뒤집힌 «두 갈래 구조»(위면 증폭 + 아래면 완충, 둘 다)만 거절한다. 한 갈래의 반대 기전 단어는 부정·부재·대조 서술
+        // («완충 효과가 사라지는»·«lacks/loses a cushioning effect»·«완충이 아니라»)일 수 있어 판정하지 않는다(관문 10241729~10242009 오탈락 반복).
+        if (pair.every((re, i) => new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags.replace('g', '')).test(t))
+            && !NEG_MECHANISM.test(t) && !CONTRAST.test(t))
             reasons.push(`${l}:v2:conditional-mechanism`);
         // new RegExp: g 플래그의 lastIndex가 다음 호출에 남지 않게 한다.
         // 위·아래 «두 갈래가 모두» 있을 때만 조건 구조로 본다 — 한 갈래만 쓰면 현재 위치 주장이므로 기존 검사 그대로.
