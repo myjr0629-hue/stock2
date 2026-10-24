@@ -135,6 +135,9 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         if (whole.length > 0) continue;
         // «Gamma Flip»은 이름으로 한 번만(«dampens Gamma Flip»처럼 기전의 대상으로 다시 나오면 순수 구조가 아니다 — 관문 10242132).
         if ((t.match(/Gamma\s*Flip/gi) || []).length > 1) continue;
+        // 이름은 기전 단어보다 앞(주어·표제)에만 — 기전 뒤에 오면 기전의 대상(«amplifies Gamma Flip»)이다(관문 10242137).
+        { const gf = t.search(/Gamma\s*Flip/i), mech = t.search(new RegExp(`${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]}`, 'i'));
+          if (gf >= 0 && mech >= 0 && gf > mech) continue; }
         reasons = reasons.filter(r => !(r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`)));
     }
     reasons = [...new Set(reasons)];
