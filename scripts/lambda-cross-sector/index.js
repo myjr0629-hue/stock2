@@ -343,8 +343,22 @@ exports.handler = async (event, context) => {
         if (!structured.marketOverview) {
             return { statusCode: 500, body: 'Bedrock response missing required sections' };
         }
-        const narrativeErrors = CLOSING.evidenceProblems(structured, reportEvidence);
-        if (narrativeErrors.length) return { statusCode: 500, body: JSON.stringify({ error: 'Closing narrative rejected', reasons: narrativeErrors }) };
+        // marketOverview.summary = verdict (코드로 복사) · 서사 검사 탈락이면 사유를 보여 주고 closingNarrative 만 고쳐 받는다(최대 2회, Vercel 판과 같은 계약)
+        CLOSING.alignSummary(structured);
+        let narrativeErrors = CLOSING.evidenceProblems(structured, reportEvidence);
+        const firstNarrativeErrors = narrativeErrors;
+        for (let round = 0; round < 2 && narrativeErrors.length; round++) {
+            try {
+                const fixPrompt = CLOSING.narrativeRepairPrompt({ sessionDate: todayDate, evidence: reportEvidence, macroStr, narrative: structured.closingNarrative, reasons: narrativeErrors });
+                const fix = await invokeOnce({ ...requestBody, max_tokens: 8000, temperature: 0.2, messages: [{ role: 'user', content: fixPrompt }] });
+                const n = tryParse(extractJson(fix.text))?.closingNarrative;
+                if (!n) continue;
+                const candidate = CLOSING.alignSummary({ ...structured, marketOverview: { ...structured.marketOverview }, closingNarrative: n });
+                const errs = CLOSING.evidenceProblems(candidate, reportEvidence);
+                if (errs.length < narrativeErrors.length) { structured = candidate; narrativeErrors = errs; }
+            } catch (e) { console.warn('[CrossSector] narrative repair failed:', e.message); break; }
+        }
+        if (narrativeErrors.length) return { statusCode: 500, body: JSON.stringify({ error: 'Closing narrative rejected', reasons: narrativeErrors, firstReasons: firstNarrativeErrors }) };
 
         // ★2026-10-11 keyLevels 출구 — 입력(macroStr + 지수 ETF 레벨 근거 줄)에 없는 수준은 걸러 낸다(예전 프롬프트 예시가 S&P 지지·저항 4칸을 요구해 매일 지어냈다). Vercel 판과 같은 규칙.
         //   이어서 라벨↔값 대조 + 범위 바 순서(Put Floor → Call Wall, 빠진 쪽은 입력의 값 그대로).

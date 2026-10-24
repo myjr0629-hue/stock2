@@ -59,6 +59,12 @@ function getDayOfWeekET(): string {
     return new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' });
 }
 
+/** The five narrative paragraphs exist in all three languages (detailed checks run after parsing, with repair). */
+function narrativeShapeOk(n: any): boolean {
+    return !!n && n.version === 1 && Array.isArray(n.causeRefs)
+        && CLOSING.FIELDS.every((f: string) => ['ko', 'en', 'ja'].every((l) => typeof n[f]?.[l] === 'string' && n[f][l].trim().length > 0));
+}
+
 /** Dry replay clock: the production cron's 17:50 ET for that session, never later than the real clock. */
 function dryClock(date: string, real: Date): Date {
     for (const utc of ['21:50', '22:50']) {
@@ -406,26 +412,57 @@ export async function POST(req: Request) {
             expectJson: true,   // ★2026-10-10 사다리 출구 가드: 필수 3개 섹션이 있어야 ①② 응답을 쓴다
             locale: 'multi',
             // ★2026-10-10 필수 3개 섹션 + 3개 언어 칸의 언어 혼입·거절·금액 자릿수(구조화 모드) — 구조만 보던 가드로는 5.5 의 한·일 칸 혼입을 못 거른다
+            // ★2026-10-24 서사 세부 검사(길이·언어 간 숫자·뉴스 시각 등)는 여기서 거르지 않고 아래 «고침 요청»으로 넘긴다 —
+            //   같은 프롬프트 재생성(피드백 없음)은 운영 측정에서 2회 모두 같은 사유로 탈락하고 현행 4.5(95~118초·서빙 불가)로 떨어졌다.
             validate: (text) => {
                 const base = multiLangJsonGate('CrossSector', prompt, { keys: ['marketOverview', 'sectorRotation', 'outlook', 'closingNarrative'], structured: true })(text);
                 if (base !== true) return base;
-                try {
-                    const reasons = closingReportProblems({ structured: JSON.parse(text), reportEvidence });
-                    return reasons.length ? { ok: false, reasons } : true;
-                } catch { return false; }
+                try { return narrativeShapeOk(JSON.parse(text)?.closingNarrative) ? true : { ok: false, reasons: ['narrative:shape'] }; } catch { return false; }
             },
         });
-
-        const aiMs = Date.now() - aiStarted;
 
         let structured: CrossSectorBriefV3;
         try {
             // ★2026-10-10 금융 공통어 음차(«콜월·맥스페인») 출구 복원 — 모델과 무관하게 영어 이름으로(lib/ai/commonTerms)
-            structured = restoreCommonTermsDeep(JSON.parse(bedrockResult.text)) as CrossSectorBriefV3;
+            structured = CLOSING.alignSummary(restoreCommonTermsDeep(JSON.parse(bedrockResult.text))) as CrossSectorBriefV3;
         } catch (parseErr) {
             console.error('[CrossSectorBrief V3] JSON parse failed:', parseErr, 'Raw:', bedrockResult.text.substring(0, 500));
             return NextResponse.json({ error: 'Bedrock returned invalid JSON' }, { status: 500 });
         }
+
+        // 서사 고침 요청(최대 2회) — 탈락한 검사 이름을 그대로 보여 주고 closingNarrative 만 다시 받는다. 나아진 경우에만 바꾼다.
+        const providers = [String(bedrockResult.provider || 'legacy')];
+        const firstNarrativeReasons = closingReportProblems({ structured, reportEvidence, date: todayDate });
+        let narrativeReasons = firstNarrativeReasons;
+        let repairs = 0;
+        for (let round = 0; round < 2 && narrativeReasons.length; round++) {
+            const left = 240_000 - (Date.now() - aiStarted);
+            if (left < 30_000) break;
+            const repairPrompt = CLOSING.narrativeRepairPrompt({ sessionDate: todayDate, evidence: reportEvidence, macroStr, narrative: structured.closingNarrative, reasons: narrativeReasons });
+            try {
+                const fix = await callBedrock({
+                    system: systemPrompt, userPrompt: repairPrompt, maxTokens: 8000, temperature: 0.2, timeoutMs: Math.min(100_000, left),
+                    label: 'CrossSectorBrief', expectJson: true, locale: 'multi',
+                    validate: (text) => {
+                        const base = multiLangJsonGate('CrossSector', `${prompt}\n${repairPrompt}`, { keys: ['closingNarrative'], structured: true })(text);
+                        if (base !== true) return base;
+                        try { return narrativeShapeOk(JSON.parse(text)?.closingNarrative) ? true : { ok: false, reasons: ['narrative:shape'] }; } catch { return false; }
+                    },
+                });
+                repairs++;
+                const candidate = CLOSING.alignSummary({ ...structured, marketOverview: { ...structured.marketOverview },
+                    closingNarrative: restoreCommonTermsDeep(JSON.parse(fix.text).closingNarrative) }) as CrossSectorBriefV3;
+                const reasons = closingReportProblems({ structured: candidate, reportEvidence, date: todayDate });
+                if (reasons.length < narrativeReasons.length) { structured = candidate; narrativeReasons = reasons; providers.push(String(fix.provider || 'legacy')); }
+            } catch (e: any) {
+                console.warn('[CrossSectorBrief V4] 서사 고침 요청 실패:', e?.message);
+                break;
+            }
+        }
+        if (narrativeReasons.length) console.warn(`[CrossSectorBrief V4] 서사 검사 남음(${repairs}회 고침 뒤): ${narrativeReasons.join(', ')}`);
+        // 서빙 가드의 제공자 — 한 조각이라도 현행(legacy)이 쓰면 legacy(서빙 대상 아님)
+        const servedProvider = providers.includes('legacy') ? 'legacy' : providers[0];
+        const aiMs = Date.now() - aiStarted;
 
         // Validate required fields
         if (!structured.marketOverview || !structured.sectorRotation || !structured.outlook) {
@@ -500,7 +537,7 @@ export async function POST(req: Request) {
         briefData.guard = buildGenerationGuard({
             brief: briefData as any,
             source: `${systemPrompt}\n${prompt}`,
-            provider: String(bedrockResult.provider || 'legacy'),
+            provider: servedProvider,
             model: String(bedrockResult.model || ''),
         });
         if (!briefData.guard.ok) console.warn(`[CrossSectorBrief V4] 서빙 가드 탈락(저장은 함, GET 은 v3 로): ${briefData.guard.reasons.join(', ')}`);
@@ -515,7 +552,7 @@ export async function POST(req: Request) {
             dryRun,
             ...briefData,
             elapsedMs: elapsed,
-            ...(dryRun ? { ai: { provider: bedrockResult.provider || 'legacy', model: bedrockResult.model, elapsedMs: aiMs, truncated: !!bedrockResult.truncated }, replayClock: now.toISOString() } : {}),
+            ...(dryRun ? { ai: { provider: servedProvider, providers, model: bedrockResult.model, elapsedMs: aiMs, truncated: !!bedrockResult.truncated, repairs, firstNarrativeReasons, narrativeReasons }, replayClock: now.toISOString() } : {}),
         });
 
     } catch (e: any) {

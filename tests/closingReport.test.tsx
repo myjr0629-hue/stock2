@@ -75,7 +75,16 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.ok(closingReportProblems(sign).includes('narrative:verdict:cross-lang-facts'));
     const missing = brief(); delete missing.structured.closingNarrative.watchNext;
     assert.ok(closingReportProblems(missing).includes('narrative:watchNext:en:empty'));
-    const long = brief(); long.structured.closingNarrative.why.ko = '가'.repeat(301);
+    const long = brief(); long.structured.closingNarrative.why.ko = '가'.repeat(C.LIMITS.why.ko + 1);
+    // 날짜·횟수 표기 차이(2026-10-23 / 2026年10月23日 / 10월 23일, «4 basis points»/«4bp»)는 언어 간 사실 충돌이 아니다 — 운영 측정 오탐(10/24)
+    const dates = brief(); dates.structured.closingNarrative.watchNext = tri('2026년 10월 26일 08:30 ET 지표(예상 -0.1). 금리 +4bp.', 'Index at 2026-10-26 08:30 ET (estimate -0.1). Yields +4 basis points.', '2026年10月26日 08:30 ETの指標(予想-0.1)。金利+4bp。');
+    assert.equal(closingReportProblems(dates).includes('narrative:watchNext:cross-lang-facts'), false);
+    const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
+    assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
+    const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');
+    assert.ok(closingReportProblems(value).includes('narrative:verdict:cross-lang-facts'), '수치가 다르면 탈락');
+    const summary = brief(); summary.structured.marketOverview.summary = tri('x', 'y', 'z');
+    assert.deepEqual(C.alignSummary(summary.structured).marketOverview.summary, narrative.verdict, '요약 = 판정(코드 복사)');
     assert.ok(lengthProblems(long.structured).length);
     const malformed = brief(); malformed.structured.closingNarrative.why.ko = 123;
     assert.doesNotThrow(() => closingReportProblems(malformed));
