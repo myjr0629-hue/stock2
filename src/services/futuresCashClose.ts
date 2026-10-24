@@ -1,7 +1,7 @@
 import { closerCashCloseReference, futuresCashCloseCandidate, futuresCashCloseKey, FUTURES_CASH_CLOSE_TTL,
     validFuturesCashCloseReference, type FuturesCashCloseReference } from '@/lib/futuresCashClose';
 import type { IndexQuoteInput } from '@/lib/marketIndexBasis';
-import { mgetBothStores, setFuturesCashCloseIfCloser } from './redisClient';
+import { readEachStoreStrict, setFuturesCashCloseIfCloser } from './redisClient';
 import { etWallTimeToMs } from '@/lib/marketSession';
 import { sessionCloseMinutes } from '@/lib/marketCalendar';
 
@@ -30,21 +30,23 @@ export function _resetSettledCashCloseRefsForTest(): void { settledRefs.clear();
  * EC2 장애 동안 Upstash 에만 더 가까운 기준이 저장됐다가 EC2 가 복구돼도 EC2 의 덜 정확한 값을 쓰지 않는다.
  */
 export async function loadFuturesCashCloseReference(symbol: 'NQ=F' | 'ES=F', date: string, nowMs = Date.now(),
-    readBoth: (keys: string[]) => Promise<{ primary: (FuturesCashCloseReference | null)[]; upstash: (FuturesCashCloseReference | null)[] }>
-        = (keys) => mgetBothStores<FuturesCashCloseReference>(keys, 'cashClose')): Promise<FuturesCashCloseReference | null> {
+    readEach: typeof readEachStoreStrict = readEachStoreStrict): Promise<FuturesCashCloseReference | null> {
     const key = futuresCashCloseKey(symbol, date);
     const memo = settledRefs.get(key);
     if (memo) return memo;
-    const both = await readBoth([key]).catch(() => ({ primary: [null], upstash: [null] }));
+    const none = { ok: false, values: [null] };
+    const both = await readEach<FuturesCashCloseReference>([key]).catch(() => ({ ec: none, upstash: none }));
+    const a = both.ec.ok ? both.ec.values[0] : null;
+    const b = both.upstash.ok ? both.upstash.values[0] : null;
     let best: FuturesCashCloseReference | null = null;
-    const [a, b] = [both.primary[0], both.upstash[0]];
     for (const v of [a, b]) {
         if (validFuturesCashCloseReference(v, symbol, date)) best = best ? closerCashCloseReference(best, v) : v;
     }
     const settledAt = etWallTimeToMs(date, sessionCloseMinutes(date)) + 10 * 60_000;
-    // 두 저장소가 같은 기준을 돌려줬을 때만 고정한다. 한쪽 읽기 실패·결측·불일치면 다음 조회에서 다시 읽는다.
-    const agreed = !!a && !!b && validFuturesCashCloseReference(a, symbol, date) && validFuturesCashCloseReference(b, symbol, date)
-        && a.asOf === b.asOf && a.price === b.price;
+    // 두 저장소가 «각각» 정상 응답했고 같은 기준일 때만 고정한다(폴백으로 같은 저장소를 두 번 읽은 결과는 합의가 아니다).
+    // 한쪽 읽기 실패·결측·불일치면 고정하지 않고 다음 조회에서 다시 읽는다.
+    const agreed = both.ec.ok && both.upstash.ok && validFuturesCashCloseReference(a, symbol, date)
+        && validFuturesCashCloseReference(b, symbol, date) && a.asOf === b.asOf && a.price === b.price;
     if (best && agreed && nowMs >= settledAt) {
         if (settledRefs.size > 64) settledRefs.clear();
         settledRefs.set(key, best);

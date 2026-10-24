@@ -18,15 +18,17 @@ const store = new Map<string, unknown>();
 const writes: { key: string; value: unknown; ttl: number }[] = [];
 const reads: string[] = [];
 let failRead = '', failWrite = '';
+let failEc = false, failUp = false;
 let beforeWrite = async (_key: string, _value: unknown) => {};
 const upstashStore = new Map<string, unknown>();
 const redis = {
     getFromCache: async (key: string) => { reads.push(key); if (key === failRead) throw new Error('mock read failure'); return store.get(key) ?? null; },
-    // store = EC2 우선 읽기 경로, upstashStore = Upstash 직접 읽기. 어느 쪽 사본이 나은지는 호출자가 고른다.
-    mgetBothStores: async (keys: string[]) => {
+    // store = EC2(엄격 읽기), upstashStore = Upstash 직접 읽기. failEc/failUp 은 그 저장소 응답 실패 모사.
+    readEachStoreStrict: async (keys: string[]) => {
         keys.forEach(k => reads.push(k));
         if (keys.includes(failRead)) throw new Error('mock read failure');
-        return { primary: keys.map(k => store.get(k) ?? null), upstash: keys.map(k => upstashStore.get(k) ?? null) };
+        return { ec: { ok: !failEc, values: keys.map(k => failEc ? null : store.get(k) ?? null) },
+            upstash: { ok: !failUp, values: keys.map(k => failUp ? null : upstashStore.get(k) ?? null) } };
     },
     setInCache: async (key: string, value: unknown, ttl: number) => {
         if (key === failWrite) return false;
@@ -155,8 +157,28 @@ async function main() {
     assert.ok(Math.abs((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct - 0.1) < 1e-10, '한쪽만 있으면 그 값(임시)');
     upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20020));
     assert.equal((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct, 0, 'Upstash 복구 뒤 더 가까운 기준으로 교정(고정 안 됨)');
+    // 관문 10241631 재현: EC2 16:00 20,060 · Upstash 15:59:30 20,000 상태에서 EC2 읽기 실패 → Upstash 값만(임시)·고정 금지 → EC2 복구 뒤 0%.
+    _resetSettledCashCloseRefsForTest();
+    store.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20060));
+    upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close - 30_000, 20000));
+    store.set('yahoo:nq', quote('NQ=F', at, 20060));
+    failEc = true;
+    assert.ok(Math.abs((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct - 0.3) < 1e-10, 'EC2 실패 중엔 Upstash 값(임시)');
+    failEc = false;
+    assert.equal((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct, 0, 'EC2 복구 뒤 더 가까운 EC2 기준으로 교정(고정 안 됨)');
+    // 같은 값이 양쪽에 있어도 한쪽 응답이 실패면 고정하지 않는다.
+    _resetSettledCashCloseRefsForTest();
+    upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20060));
+    failUp = true;
+    await loadMarketIndexBasis(at);
+    failUp = false;
+    reads.length = 0;
+    await loadMarketIndexBasis(at);
+    assert.ok(reads.some(k => k.startsWith('yahoo:cash-close:nq:')), 'Upstash 실패 때 고른 기준은 고정 안 됨');
+    store.set('yahoo:nq', quote('NQ=F', at, 20020));
     // 두 저장소가 같은 기준이면 마감 10분 뒤 고정 — 다음 조회는 저장소를 다시 읽지 않는다.
     store.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20020));
+    upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20020));
     await loadMarketIndexBasis(at);
     reads.length = 0;
     await loadMarketIndexBasis(at);

@@ -538,6 +538,33 @@ export async function getAuthoritativeCache<T>(key: string): Promise<{ ok: boole
     return result;
 }
 
+/**
+ * 두 저장소를 «각각» 읽는다 — EC2 는 폴백 없는 엄격 읽기(getAuthoritativeCache), Upstash 는 직접 MGET.
+ * ok=false 는 그 저장소의 응답을 확인하지 못했다는 뜻(값 없음과 구분). 어느 사본이 나은지는 호출자가 고른다.
+ */
+export async function readEachStoreStrict<T>(keys: string[]): Promise<{
+    ec: { ok: boolean; values: (T | null)[] }; upstash: { ok: boolean; values: (T | null)[] };
+}> {
+    const none = keys.map(() => null);
+    const readEc = async () => {
+        const rows = await Promise.all(keys.map(k => getAuthoritativeCache<T>(k).catch(() => ({ ok: false, value: null }))));
+        return { ok: rows.every(r => r.ok), values: rows.map(r => (r.ok ? r.value : null) as T | null) };
+    };
+    const readUp = async () => {
+        const upstash = getUpstashClient();
+        if (!upstash || !keys.length) return { ok: false, values: none as (T | null)[] };
+        obsUp('mget', 'strict');
+        const tu = performance.now();
+        try {
+            const values = await upstash.mget<(T | null)[]>(...keys);
+            obsUpDone(tu);
+            return { ok: true, values };
+        } catch { obsUpDone(tu, true); return { ok: false, values: none as (T | null)[] }; }
+    };
+    const [ec, upstash] = await Promise.all([readEc(), readUp()]);
+    return { ec, upstash };
+}
+
 /** Same store as getAuthoritativeCache. Never count a fallback write as publication success.
  * A single SET is atomic; this does not provide multi-key transactions or compare-and-set.
  */
@@ -699,13 +726,13 @@ export async function setFuturesCashCloseIfCloser(key: string, value: FuturesCas
     }
 }
 
-/** 두 저장소 사본을 함께 읽는다(EC2 우선 읽기 + Upstash 직접). 어느 쪽이 나은지는 호출자가 고른다. */
-export async function mgetBothStores<T>(keys: string[], reason = 'both'): Promise<{ primary: (T | null)[]; upstash: (T | null)[] }> {
-    if (!keys.length) return { primary: [], upstash: [] };
+/** Macro reads compare both stores, including after an old proxy recovers. */
+export async function mgetLatestAsOf<T extends AsOfValue>(keys: string[]): Promise<(T | null)[]> {
+    if (!keys.length) return [];
     const readUpstash = async (): Promise<(T | null)[]> => {
         const upstash = getUpstashClient();
         if (!upstash) return keys.map(() => null);
-        obsUp('mget', reason);
+        obsUp('mget', 'asOf');
         const tu = performance.now();
         try {
             const values = await upstash.mget<(T | null)[]>(...keys);
@@ -713,14 +740,7 @@ export async function mgetBothStores<T>(keys: string[], reason = 'both'): Promis
             return values;
         } catch { obsUpDone(tu, true); return keys.map(() => null); }
     };
-    const [primary, upstash] = await Promise.all([mgetFromCache<T>(keys).catch(() => keys.map(() => null)), readUpstash()]);
-    return { primary, upstash };
-}
-
-/** Macro reads compare both stores, including after an old proxy recovers. */
-export async function mgetLatestAsOf<T extends AsOfValue>(keys: string[]): Promise<(T | null)[]> {
-    if (!keys.length) return [];
-    const { primary: cached, upstash: fallback } = await mgetBothStores<T>(keys, 'asOf');
+    const [cached, fallback] = await Promise.all([mgetFromCache<T>(keys), readUpstash()]);
     return keys.map((_, i) => {
         const a = cached[i], b = fallback[i];
         const aValid = a && typeof a.value === 'number' && Number.isFinite(a.value);
