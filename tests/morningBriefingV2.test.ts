@@ -109,6 +109,20 @@ test('지어낸 숫자·내부 라벨·RLSI 단독·권유·예측은 탈락', (
     assert.ok(checkMorningLocale(good.ko.replace('줄어드는 구조입니다.', '줄어들 것으로 전망됩니다.'), 'ko', facts).includes('mb:forecast:next'));
 });
 
+test('지표 이름 ↔ 값 결속 — 영어판만 금리·VIX 값을 맞바꾸거나 변화 부호를 뒤집으면 탈락(관문 10250102 ②)', () => {
+    const swapped = good.en.replace('The 10-year Treasury yield at 4.99% (+4bp)', 'The 10-year Treasury yield at 19.57% (+4bp)').replace('VIX volatility gauge at 19.57', 'VIX volatility gauge at 4.99');
+    assert.ok(checkMorningLocale(swapped, 'en', facts).some(r => r.startsWith('mb:metric-value')), JSON.stringify(checkMorningLocale(swapped, 'en', facts)));
+    const flipped = good.en.replace('4.99% (+4bp)', '4.99% (-4bp)');
+    assert.ok(checkMorningLocale(flipped, 'en', facts).includes('mb:metric-sign:us10y'));
+    const koDir = good.ko.replace('미국 10년물 금리 4.99%(+4bp)와', '미국 10년물 금리는 4.99%로 4bp 내렸고');
+    assert.ok(checkMorningLocale(koDir, 'ko', facts).includes('mb:metric-sign:us10y'));
+    const koOk = good.ko.replace('미국 10년물 금리 4.99%(+4bp)와', '미국 10년물 금리는 4.99%로 4bp 올랐고');
+    assert.ok(!checkMorningLocale(koOk, 'ko', facts).some(r => /metric/.test(r)), JSON.stringify(checkMorningLocale(koOk, 'ko', facts)));
+    assert.ok(checkMorningV2(JSON.stringify({ ...good, en: flipped }), facts).reasons.includes('en:mb:metric-sign:us10y'));
+    // 조건문의 «would» 는 예측이 아니다(관문 ③)
+    assert.ok(!checkMorningLocale(good.en.replace('a stronger reading adds rate pressure', 'a stronger reading would add rate pressure'), 'en', facts).includes('mb:forecast:next'));
+});
+
 test('지나간 일정·근거 없는 일정은 다음 분기점이 될 수 없다', () => {
     const cpi = good.en.replace('New Home Sales (Sep) at 10/26 (Mon) 10:00 ET', 'CPI at 10/26 (Mon) 08:30 ET');
     assert.ok(checkMorningLocale(cpi, 'en', facts).length > 0);

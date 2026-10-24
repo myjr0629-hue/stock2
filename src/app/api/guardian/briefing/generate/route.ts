@@ -467,13 +467,15 @@ export async function POST(req: Request) {
     let fallbackNewsCount = 0;
     let fallbackCalendarCount = 0;
 
+    // 본문은 try 밖에서 읽는다 — 드라이런은 아래 생성 경로의 catch(템플릿 저장)에 절대 닿지 않게 따로 잡는다(관문 10250102 ①)
+    const body = await req.json().catch(() => null);
+    if (body?.dryCompare) {
+        if (!adminAuthorized(req.headers)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        try { return await dryCompare(body); } catch (e: any) { return NextResponse.json({ dry: true, error: String(e?.message || e).slice(0, 200) }, { status: 500 }); }
+    }
+
     try {
-        const body = await req.json();
-        // 드라이런 비교 — 관리자 인증만, 저장·잠금 0
-        if (body?.dryCompare) {
-            if (!adminAuthorized(req.headers)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-            return await dryCompare(body);
-        }
+        if (!body) throw new Error('invalid JSON body');
         let { snapshot, rlsiHistory } = body;
 
         // [V8.1] Self-Healing Data Injection

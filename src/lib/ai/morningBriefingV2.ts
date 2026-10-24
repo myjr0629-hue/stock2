@@ -381,11 +381,69 @@ const PLAIN: Record<MbLocale, { rlsi: RegExp; gex: RegExp }> = {
 /** NEXT(예정 문장)의 예측어 — 조건문(«…면 …구조입니다»)은 통과, 단정 미래·전망만 */
 const NEXT_FORECAST: Record<MbLocale, RegExp> = {
     ko: /(?:할|될|질|갈|올|날|칠|릴)\s?것(?:이다|입니다|으로|이며|이고)|전망(?:이다|입니다|된다|됩니다)|예상(?:된다|됩니다|되며)|가능성이\s?(?:높|크)/,
-    en: /\b(?:will|would|likely|probably|poised|bound to|set to|expected to|is going to)\b/i,
+    // «would» 는 조건문의 귀결(«a stronger reading would add rate pressure»)이라 허용 — 단정 미래·추정만(관문 10250102 ③)
+    en: /\b(?:will|likely|probably|poised|bound to|set to|expected to|is going to)\b/i,
     ja: /見込み|でしょう|だろう|予想され|見通し/,
 };
 
 const READER_TODO = /지켜볼|지켜봐|주시할|주시해|살펴볼|확인해\s?볼|봐야|눈여겨|\bto watch\b|\bwatch (?:for|closely)\b|\bkeep an eye\b|\bworth (?:watching|noting)\b|見極め|注視|注目すべき|見守/i;
+
+/**
+ * 지표 이름 ↔ 값 결속(관문 10250102 ②) — «근거 어딘가에 있는 숫자»가 아니라 «그 이름의 값»인지 본다.
+ *   이름 뒤(같은 절, 다른 지표·지수 이름 앞까지) 첫 두 숫자는 그 지표의 값 또는 변화여야 하고, 변화는 부호·방향어가 사실과 같아야 한다.
+ *   (영어판만 10년물 금리와 VIX 값을 맞바꾸거나 +4bp 를 −4bp 로 써도 숫자 대조·3언어 일치를 통과하던 구멍)
+ */
+const METRIC_ALIASES: Record<string, Record<MbLocale, RegExp>> = {
+    us10y: { ko: /10년물|국채\s?금리/g, en: /10-year|ten-year|\b10Y\b/gi, ja: /10年債|10年物/g },
+    vix: { ko: /VIX(?!3M)/g, en: /VIX(?!3M)/g, ja: /VIX(?!3M)/g },
+    marketHealth: { ko: /시장\s?건강도|RLSI/g, en: /market health|RLSI/gi, ja: /健全度|RLSI/g },
+    oil: { ko: /WTI|유가|원유/g, en: /WTI|crude|\boil\b/gi, ja: /WTI|原油/g },
+    gold: { ko: /금값|금\s?가격|금(?=은|이|도|\s)/g, en: /\bgold\b/gi, ja: /金価格|金相場|金(?=は|が|も)/g },
+    dxy: { ko: /달러\s?인덱스|DXY/g, en: /dollar index|DXY/gi, ja: /ドル指数|DXY/g },
+    btc: { ko: /비트코인/g, en: /bitcoin/gi, ja: /ビットコイン/g },
+};
+const WINDOW_STOP = /S&P\s?500|나스닥|Nasdaq|NASDAQ|ナスダック|선물|futures|先物|[.!?。！？](?:\s|$)/i;
+const UP_WORD = /올랐|오른|오르|올라|상승|높아|뛰|\b(?:rose|up|higher|climb\w*|gain\w*|rising|jump\w*|advanc\w*)\b|上昇|上が|高い|高く|高の/i;
+const DOWN_WORD = /내렸|내린|내려|하락|떨어|밀려|밀렸|낮아|\b(?:fell|down|lower|declin\w*|drop\w*|falling|slip\w*|eas\w*)\b|低下|下落|下が|安/i;
+const num = (raw: string) => Number(raw.replace(/,/g, ''));
+const tolOf = (raw: string) => { const d = raw.includes('.') ? raw.split('.')[1].length : 0; return d ? 0.5 * Math.pow(10, -d) + 1e-9 : 0.5; };
+export function metricBindingReasons(text: string, locale: MbLocale, f: MorningFacts): string[] {
+    const reasons: string[] = [];
+    const t = String(text || '');
+    const shown = promptMetrics(f.metrics);
+    const allAliases = Object.entries(METRIC_ALIASES).filter(([id]) => shown.some(m => m.id === id));
+    const reportNums = new Set(numberSignature(f.news.map(n => n.replace(/^\[[^\]]*\]\s*/, '')).join(' ')));
+    const aliasStarts = allAliases.flatMap(([id, a]) => [...t.matchAll(new RegExp(a[locale]))].map(m => ({ id, at: m.index!, end: m.index! + m[0].length })));
+    for (const [id] of allAliases) {
+        const m = shown.find(x => x.id === id)!;
+        const valueRaw = m.value.match(/[\d,]+(?:\.\d+)?/)?.[0];
+        const chg = m.change?.match(/^([+-])([\d.]+)(%|bp)$/);
+        for (const hit of aliasStarts.filter(h => h.id === id)) {
+            const nextAlias = aliasStarts.filter(h => h.id !== id && h.at >= hit.end).map(h => h.at).sort((x, y) => x - y)[0] ?? t.length;
+            let win = t.slice(hit.end, Math.min(nextAlias, hit.end + 45));
+            const stop = win.search(WINDOW_STOP);
+            if (stop >= 0) win = win.slice(0, stop);
+            // 값이 아닌 숫자(날짜 10/24 · 시각 08:30 · «3개월물»·«3カ月»·«3-month»)는 가린다(실모델 10/25 오탐 5건)
+            win = win.replace(/(?<![\d.])\d{1,2}\/\d{1,2}(?![\d])|(?<![\d.])\d{1,2}:\d{2}|\d+\s?(?:개월|ヶ月|カ月|か月|-?months?|일|日|년|年|주|週)/g, (x) => ' '.repeat(x.length));
+            const tokens = [...win.matchAll(/([+\-−]?)(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(\s?(?:%|bp))?/g)].slice(0, 2);
+            for (const k of tokens) {
+                const v = num(k[3]); const unit = (k[4] || '').trim();
+                const isValue = valueRaw != null && Math.abs(v - num(valueRaw)) <= tolOf(k[3]) && (unit !== 'bp');
+                const isChange = !!chg && unit === chg[3] && Math.abs(v - Number(chg[2])) <= tolOf(k[3]);
+                // 보도 속 숫자(«금 4,000달러»)는 그 보도의 값이다 — 지표 값 결속 대상이 아니다(근거 대조는 위에서 따로)
+                if (!isValue && !isChange && reportNums.has(String(Math.round(v * 100) / 100))) continue;
+                if (!isValue && !isChange) { reasons.push(`mb:metric-value:${id}:${k[0].trim()}`); continue; }
+                if (isChange && !isValue) {
+                    const sign = k[1] ? (k[1] === '+' ? '+' : '-') : null;
+                    const after = win.slice(k.index! + k[0].length, k.index! + k[0].length + 12);
+                    const dir = UP_WORD.test(after) ? '+' : DOWN_WORD.test(after) ? '-' : null;
+                    if ((sign && sign !== chg![1]) || (!sign && dir && dir !== chg![1] && Number(chg![2]) !== 0)) reasons.push(`mb:metric-sign:${id}`);
+                }
+            }
+        }
+    }
+    return [...new Set(reasons)];
+}
 
 /** 숫자 서명(시각·날짜·한국/일본 시각 병기·지수 이름 숫자 제외) — 3언어가 같은 숫자를 실었나 */
 export function numberSignature(text: string): string[] {
@@ -461,6 +519,7 @@ export function checkMorningLocale(text: string, locale: MbLocale, f: MorningFac
     const ung = checkNumberGrounding(numericText, numericEvidence).ungrounded;
     if (ung.length) reasons.push(`mb:number:${ung.slice(0, 2).map(u => u.raw).join('|')}`);
     reasons.push(...claimReasons(t, 'mb'));
+    reasons.push(...metricBindingReasons(t, locale, f));
     // 권유·예측·금액
     const adv = adviceHit(t);
     if (adv) reasons.push(`mb:advice:${adv}`);
