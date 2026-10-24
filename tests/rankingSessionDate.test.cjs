@@ -1048,7 +1048,7 @@ test('FlowWarm: exact 체인 실패 뒤 부분 probe로 대체하면 이력에�
 // 운영 10/23 행 모양(값은 운영 실측을 옮긴 것: flowwarm 흐름 행·Lambda 장중 행·구조 EOD 행). 비밀값 없음.
 const etMs = s => Date.parse(`${s}-04:00`);
 const flowRow = (at, cOI, pOI, cp, pp, extra = {}) => ({ timestamp: etMs(at), totalCallOI: cOI, totalPutOI: pOI, callPremium: cp, putPremium: pp, totalPremium: cp + pp, pcr: pOI / cOI, ...extra });
-const structEod = (at, chainDate, cOI, pOI) => ({ timestamp: etMs(at), chainDate, optionBasis: 'eod', totalCallOI: cOI, totalPutOI: pOI, pcr: pOI / cOI });
+const structEod = (at, chainDate, cOI, pOI) => ({ timestamp: etMs(at), chainDate, optionBasis: 'eod', totalCallOI: cOI, totalPutOI: pOI, pcr: pOI / cOI, _source: 'structure-build' });
 const opsShape = () => ({
     AVGO: [
         flowRow('2026-10-21T20:47', 63873, 40626, 11541079, 6398066),
@@ -1147,4 +1147,15 @@ test('r5 공유 GET: money-vs-oi 는 세 종목 모두 10/23 행, deviation·mul
         if (avgo) assert.equal(avgo.callOI, 67700);
         assert.equal(keys.RANKING_CACHE_VERSION, 'v16');
     } finally { now = savedNow; }
+});
+
+test('r5 관문 10241737: 수집 Lambda 의 EOD 표식 행(프리미엄·다른 범위)은 구조 기준이 아니다 — 자기 대조로 «일치»가 되지 않는다', () => {
+    const rows = [
+        structEod('2026-10-23T17:06', '2026-10-23', 67700, 43716),
+        flowRow('2026-10-23T20:47', 67700, 43716, 4006688, 10287084),
+        // harvestGex 재배포 뒤 모양: chainDate·optionBasis eod·프리미엄 보유, 여러 만기 합
+        flowRow('2026-10-23T21:30', 150000, 100000, 9000000, 1000000, { chainDate: '2026-10-23', optionBasis: 'eod', premiumBasis: 'volume-trade-or-close', partial: false }),
+    ];
+    const s = engine.latestCompleteWith(rows, K4);
+    assert.equal(s.totalCallOI, 67700); assert.equal(s._oiCheck, 'match'); assert.equal(s.callPremium, 4006688);
 });

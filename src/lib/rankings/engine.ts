@@ -296,7 +296,7 @@ export const MONEY_OI_MATCH_TOLERANCE = 0.02;
  *
  * latestWith 의 이력 시작점(sourceStart) 규칙은 구조 행(chainDate 있음)이 생긴 날부터 옛 흐름 행을 잘라
  * 10/23 세션에 10/21 행(2세션 전)을 쓰게 했다(운영 결함). 프리미엄을 가진 행은 전부 표식 없는 흐름 행이라
- * 그 규칙을 쓰지 않고, 같은 세션 구조 EOD(chainDate·optionBasis 'eod'·partial 아님)가 있으면 그것으로 검증한다.
+ * 그 규칙을 쓰지 않고, 같은 세션 구조 EOD(_source 'structure-build'·chainDate·optionBasis 'eod'·partial 아님)가 있으면 그것으로 검증한다.
  *   ① 같은 세션 구조 EOD 가 있으면 콜·풋 OI 가 각각 ±2% 안인 행만(어긋난 행 = 다른 수집 범위·부분 → 제외).
  *      맞는 행이 없으면 그 세션을 건너뛰고 직전 세션으로.
  *   ② 같은 세션 구조 EOD 가 없으면 그 세션의 최신 완결 행.
@@ -310,7 +310,8 @@ export const MONEY_OI_MATCH_TOLERANCE = 0.02;
 export function latestCompleteWith(items: Row[], keys: string[]): (Row & { _d: string; _oiCheck: 'match' | 'unverified' }) | null {
     const refs = new Map<string, { c: number; p: number; ts: number }>();
     for (const r of items) {
-        if (!r.chainDate || r.optionBasis !== 'eod' || r.partial === true) continue;
+        // 기준은 구조 생산자(structure-build) 행만 — 수집 Lambda 의 EOD 표식 행(프리미엄 보유·다른 만기 범위)이 자기 자신과 대조돼 «일치»가 되지 않게
+        if (r._source !== 'structure-build' || !r.chainDate || r.optionBasis !== 'eod' || r.partial === true) continue;
         const d = optionSessionDate(r);
         const c = Number(r.totalCallOI), p = Number(r.totalPutOI), ts = Number(r.timestamp);
         if (!d || !(c > 0) || !(p > 0) || !Number.isFinite(ts)) continue;
