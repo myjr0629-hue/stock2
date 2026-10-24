@@ -1,6 +1,7 @@
 import { setInCache, getFromCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { reconcileIndexQuote } from '@/lib/indexQuoteReconcile';
+import { captureFuturesCashClose } from '@/services/futuresCashClose';
 
 /**
  * [V8.0] Market Data → Redis Writer — 실행부(요청 객체와 분리)
@@ -269,6 +270,14 @@ export async function runMarketFeed(opts: MarketFeedOptions): Promise<MarketFeed
                 w = back.ok && (back.value as YahooQuote | null)?.updatedAt === quote.updatedAt;
             }
             if (w) {
+                // 기존 NQ/ES 관측만 사용. 기준 저장 실패는 다음 실행자가 재시도하도록 표식에 남긴다.
+                const closeSaved = await captureFuturesCashClose(quote, Date.now(), opts.verifyRead).catch(() => false);
+                if (!closeSaved) {
+                    results.push(`${yahoo}=CASH_CLOSE_WRITE_FAIL`);
+                    failed.push(yahoo);
+                    fail++;
+                    continue;
+                }
                 results.push(`${yahoo}=${quote.price}`);
                 written.push(key);
                 ok++;
