@@ -194,6 +194,15 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.ok(closingReportProblems(unsigned).includes('narrative:indicators:cross-lang-facts'), '음수 금액의 부호를 빠뜨리면 탈락');
     const worded = brief(); worded.structured.closingNarrative.indicators = tri('GEX는 마이너스 6,220만 달러, 금리 +4bp.', 'GEX -$62.2M; yields +4bp.', 'GEXは-6,220万ドル、金利+4bp。');
     assert.equal(closingReportProblems(worded).includes('narrative:indicators:cross-lang-facts'), false, '말로 음수를 밝히면 통과');
+    // 운영 dry 10/24 13:47 — 수동형 매수됐다 · 가장 가까운 일정 건너뛰기
+    const pass = brief(); pass.structured.closingNarrative.why.ko = 'FXEmpire는 장중에 일부 칩 종목만 매수됐다고 전했다.';
+    C.alignSummary(pass.structured);
+    assert.equal(pass.structured.closingNarrative.why.ko, 'FXEmpire는 장중에 일부 칩 종목만 매수세가 유입됐다고 전했다.');
+    const ev2 = brief(); ev2.reportEvidence = { ...ev2.reportEvidence, events: [{ at: '2026-10-26T12:30:00.000Z', timeEt: '2026-10-26 08:30 ET', event: 'Chicago Fed' }, { at: '2026-10-27T12:30:00.000Z', timeEt: '2026-10-27 08:30 ET', event: 'Durable Goods' }] };
+    ev2.structured.closingNarrative.watchNext = tri('다음 거래일 일정은 제공되지 않았다. 2026-10-27 08:30 ET 내구재.', 'No next-session calendar. 2026-10-27 08:30 ET durables.', '次の日程はない。2026-10-27 08:30 ETの耐久財。');
+    assert.ok(closingReportProblems(ev2).includes('narrative:event-next:en'));
+    ev2.structured.closingNarrative.watchNext = tri('2026-10-26 08:30 ET 시카고 연은, 2026-10-27 08:30 ET 내구재.', '2026-10-26 08:30 ET Chicago Fed, 2026-10-27 08:30 ET durables.', '2026-10-26 08:30 ETシカゴ連銀、2026-10-27 08:30 ET耐久財。');
+    assert.equal(closingReportProblems(ev2).some(r => r.startsWith('narrative:event-')), false);
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');
