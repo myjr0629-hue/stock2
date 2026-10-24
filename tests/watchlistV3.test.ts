@@ -210,6 +210,19 @@ test('관문 10242151 ①: «주가는 Put Floor $135와 같은» 류 가격=레
         assert.ok(quoteLevelClaimReasons(t, big).length > 0, `${loc} ${t}`);
     }
     assert.deepEqual(quoteLevelClaimReasons('MU 장전 Put Floor $1,350 위에서 양감마가 변동을 완충하는 자리', big), []);
+    // 관문 10242237: «right on» · 나열 중 at 레벨이 섞여도 다른 레벨의 자리 주장 탈락
+    assert.ok(quoteLevelClaimReasons('NVDA pre-market: price right on Put Floor $135, positive gamma dampens swings', f).length > 0);
+    assert.ok(quoteLevelClaimReasons('NVDA pre-market: right on Put Floor $135, positive gamma dampens swings', f).length > 0);
+    const mix = buildLineFacts('MU', { ...row, price: 1450, extendedPrice: 1460, maxPain: 1550, callWall: 1600, putFloor: 1350, gammaFlipLevel: 1460 }, now)!;
+    assert.equal(mix.sides.gf, 'at'); assert.notEqual(mix.sides.pf, 'at');
+    for (const [loc, t] of [['ko', 'MU 장전 Gamma Flip $1,460과 Put Floor $1,350에 붙어 있는 자리'], ['en', 'MU pre-market: near Gamma Flip $1,460 and Put Floor $1,350, gamma flips'], ['ja', 'MU 寄り前、Gamma Flip $1,460とPut Floor $1,350に張り付く位置']] as const) {
+        assert.ok(quoteLevelClaimReasons(t, mix).length > 0, `${loc} ${t}`);
+    }
+    // at 레벨 하나에만 붙은 자리 말은 참
+    assert.deepEqual(quoteLevelClaimReasons('MU 장전 Gamma Flip $1,460 부근에서 감마 부호가 바뀌는 자리', mix), []);
+    // 예상 변동이 레벨을 «덮는다·겹친다»(가격 위치 주장 아님)는 허용 — 실모델 정상 문장
+    assert.deepEqual(quoteLevelClaimReasons('NVDA 장전 예상 변동 ±3.2%가 Max Pain $155 자리와 겹치는 구간', f), []);
+    assert.deepEqual(quoteLevelClaimReasons('NVDA pre-market: implied move ±3.2% spans the Max Pain $155 zone', f), []);
     // «lean on the Put Floor defense»·«focus on» 은 위치 주장이 아니다(10/24 실모델 정상 문장)
     assert.deepEqual(quoteLevelClaimReasons('NVDA pre-market: puts at 70% lean on the Put Floor $135 defense', f), []);
     assert.ok(quoteLevelClaimReasons('NVDA pre-market: the stock sits at Put Floor $135, positive gamma', f).length > 0);

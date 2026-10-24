@@ -169,9 +169,9 @@ const SIDE_WORD = /위(?!치|험|기|원)|아래|밑|까지|상회|하회|넘|�
 const NEAR_WORD = /부근|근처|가까|付近|近く|近辺|\b(?:near|around|close to|next to)\b/i;
 const LEVEL_RES = ['Max\\s*Pain|맥스\\s*페인|マックス\\s*ペイン', 'Call\\s*Wall|콜\\s*월|コール\\s*ウォール', 'Put\\s*Floor|풋\\s*플로어|プット\\s*フロア', 'Gamma\\s*Flip|감마\\s*플립|ガンマ\\s*フリップ'].map(x => new RegExp(x, 'i'));
 /** 레벨 «에서·에 있는·で·on·at» — 가격이 그 레벨에 있다는 위치 주장 */
-const LOCATIVE_AFTER = /^\s*(?:\$\s?[\d,]+(?:\.\d+)?)?\s*(?:에서|에 있|에 머|에 위치|에 걸|で|に位置|にあ|に留|に張り)/;
+const LOCATIVE_AFTER = /^\s*(?:\$\s?[\d,]+(?:\.\d+)?)?\s*(?:에서|에 있|에 머|에 위치|에 걸|에 붙|에 맞닿|에 바짝|에 닿|で|に位置|にあ|に留|に張り|に接|にくっつ|に貼り)/;
 // 영어: 절 첫머리의 on/at(«: on Put Floor $135») 또는 가격 동사 + on/at(«sits at», «trading on») — «lean on the Put Floor defense»·«focus on» 은 아니다
-const LOCATIVE_BEFORE = /(?:^|:)\s*(?:on|at)\s+(?:the\s+)?$|\b(?:sits?|sitting|trades?|trading|rests?|resting|stays?|staying|is|holds?|holding|pinned|stuck|parked)\s+(?:right\s+|exactly\s+)?(?:on|at|to)\s+(?:the\s+)?$/i;
+const LOCATIVE_BEFORE = /(?:^|:|\b(?:price|stock|shares?|it|sits?|sitting|trades?|trading|rests?|resting|stays?|staying|is|holds?|holding|pinned|stuck|parked|lands?|landed|hovers?|hovering))\s*(?:(?:right|just|exactly|squarely|now|still|firmly)\s+)*(?:on|at|to)\s+(?:the\s+)?$/i;
 export function quoteLevelClaimReasons(text: string, f: LineFacts): string[] {
     const KEYS = ['mp', 'cw', 'pf', 'gf'] as const;
     // 천 단위 쉼표($1,350)는 절 경계가 아니다(관문 10242229) — 먼저 숫자 안 쉼표를 지우고 자른다. 칩 줄의 « · »도 경계
@@ -184,12 +184,18 @@ export function quoteLevelClaimReasons(text: string, f: LineFacts): string[] {
         //   자리 주장은 «그 레벨에 붙은» 말로 판정한다(뒤: 한·일 «$135 부근/와 같은/에서/で/付近», 앞: 영 «near/at/on the»).
         //   사실이 at(가격과 0.1% 안)일 때만 참 — at 은 가격이 조금만 움직여도 쪽이 바뀌어(화면 aiLineState 'stale') 낡은 글이 남지 않는다
         //   (관문 10242207 ①·10242219 ①②: 부근을 거리 2%로 허용하면 저장 뒤 가격이 움직여도 같은 쪽이라 «부근»이 계속 나갔다)
-        for (const m of mentions) {
-            const after = clause.slice(m.end).replace(/^\s*\$\s?[\d.]+/, '').slice(0, 10);
-            const before = clause.slice(Math.max(0, m.start - 16), m.start);
+        mentions.sort((x, y) => x.start - y.start);
+        // 나열(«Gamma Flip $1460과 Put Floor $1350에 붙어» · «near Gamma Flip $1460 and Put Floor $1350»)은 묶음 전체에 같은 서술이 걸린다(관문 10242237 ②)
+        const COORD_AFTER = /^\s*(?:\$\s?[\d.]+)?\s*(?:와|과|및|이랑|하고|と|や|および|、|and|&|or|,)\s*$/i;
+        const groupEnd = (i: number): number => i + 1 < mentions.length && COORD_AFTER.test(clause.slice(mentions[i].end, mentions[i + 1].start)) ? groupEnd(i + 1) : i;
+        const groupStart = (i: number): number => i > 0 && COORD_AFTER.test(clause.slice(mentions[i - 1].end, mentions[i].start)) ? groupStart(i - 1) : i;
+        for (let i = 0; i < mentions.length; i++) {
+            const m = mentions[i], last = mentions[groupEnd(i)], first = mentions[groupStart(i)];
+            const after = clause.slice(last.end).replace(/^\s*\$\s?[\d.]+/, '').slice(0, 10);
+            const before = clause.slice(Math.max(0, first.start - 24), first.start);
             const near = NEAR_WORD.test(after.slice(0, 6)) || /\b(?:near|around|close to|next to)\s+(?:the\s+)?$/i.test(before);
             const equal = /^\s*(?:와|과|이랑|하고|と|に)?\s*(?:같|동일|일치|등し|同じ|一致)/.test(after) || /\b(?:equal(?:s|ing)?(?: to)?|same (?:level )?as|matches|matching)\s+(?:the\s+)?$/i.test(before);
-            const locative = LOCATIVE_AFTER.test(clause.slice(m.end)) || LOCATIVE_BEFORE.test(clause.slice(0, m.start));
+            const locative = LOCATIVE_AFTER.test(clause.slice(last.end)) || LOCATIVE_BEFORE.test(clause.slice(0, first.start));
             if ((near || equal || locative) && f.sides[m.k] !== 'at') return [near ? 'v3:metric:quote-level-near' : 'v3:metric:quote-level-equal'];
         }
         // 이름에 붙지 않은 같다·일치(«주가가 Put Floor $135 와 거의 같은 수준») — 그 절의 레벨이 모두 at 이 아니면 탈락
