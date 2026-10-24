@@ -1,5 +1,16 @@
 const assert = require('node:assert/strict');
-const { fixtureFromSnapshot, compareStored, readers, collectStored, markdown, deriveSessions, liveCompare, modelRequest, baseline } = require('../scripts/tactical-v3-compare.cjs');
+const childProcess = require('node:child_process');
+// v3 병합 직전 main을 옛 계약으로 고정한다. 움직이는 origin/main은 병합 후 이미 v3다.
+// 비교 도구의 git 의존성만 주입하고, 실제 프롬프트·검사는 이 SHA의 원본을 읽는다.
+const baselineRevision = '0b6afec9ffbaeac3844b8ff7874bc20cc06bdc29';
+const execFileSync = childProcess.execFileSync;
+let comparison;
+try {
+  childProcess.execFileSync = (command, args, options) => command === 'git' && args[0] === 'rev-parse' && args[1] === 'origin/main'
+    ? baselineRevision + '\n' : execFileSync(command, args, options);
+  comparison = require('../scripts/tactical-v3-compare.cjs');
+} finally { childProcess.execFileSync = execFileSync; }
+const { fixtureFromSnapshot, compareStored, readers, collectStored, markdown, deriveSessions, liveCompare, modelRequest, baseline } = comparison;
 const { buildMarketIndexBasis } = require('../src/lib/marketIndexBasis');
 async function main() {
   const timestamp = '2026-10-23T09:58:00Z';
@@ -12,8 +23,7 @@ async function main() {
   assert.throws(() => fixtureFromSnapshot({ timestamp }, 'saved-input'));
   const rows = [{ key: 'cached-ko', locale: 'ko', value: { text: '나스닥 현물 관측은 미확인입니다. NEWS PULSE 보도는 미확인입니다. 옵션 포지션은 중립입니다. 다음 분기점은 미확인입니다.' } }];
   const results = compareStored(rows, fixture.context);
-  // origin/main에도 Tactical v3가 병합됨(51a0deea6). 기준 계약 역시 내부 출처 표현을 거절한다.
-  assert.deepEqual(results[0].oldReasons, ['tactical:internal-source']);
+  assert.deepEqual(results[0].oldReasons, []);
   assert.ok(results[0].newReasons.includes('tactical:internal-source'));
   assert.ok(!results[0].newReasons.includes('tactical:index-change-required'), '복구 비교에는 새 생성 계약을 적용하지 않음');
   const legacyRows = [
@@ -37,7 +47,7 @@ async function main() {
   await remote.insight('guardian:gemini:v2:reality:ko');
   await remote.archive('session:insight:REALITY_KO:2026-10-22');
   assert.deepEqual(methods, ['GET', 'GET'], '외부 쓰기 명령 없음');
-  assert.match(markdown(results, [], [fixture]), /이전 탈락 1개 \/ 새 탈락 1개/);
+  assert.match(markdown(results, [], [fixture]), /이전 탈락 0개 \/ 새 탈락 1개/);
   const derived = deriveSessions(fixture);
   assert.deepEqual(derived.map(f => f.context.session), ['REG', 'POST']);
   assert.ok(derived.every(f => f.provenance === 'derived-session' && f.derivedFrom === fixture.context.asOf));
@@ -55,11 +65,11 @@ async function main() {
   assert.equal(deriveSessions(winter)[0].context.asOf, '2026-12-01T20:30:00.000Z', '파생 시각도 DST 적용');
   const old = baseline();
   const withCompany = { ...fixture.context, marketNewsHeadlines: ['[NEWS PULSE; 2026-10-23T09:50:00.000Z; 05:50 ET] Volvo Cars shares plunge on weak China sales'] };
-  assert.doesNotMatch(modelRequest(withCompany, 'old', old).prompts.ko, /Volvo/);
+  assert.match(modelRequest(withCompany, 'old', old).prompts.ko, /Volvo/);
   assert.doesNotMatch(modelRequest(withCompany, 'new', old).prompts.ko, /Volvo/);
   for (const locale of ['ko', 'en', 'ja']) assert.equal(require('../src/lib/ai/guardianNumbers').guardianTokenRules(locale, { NDX_CHG: -1.2, RLSI: 31 }), old.numbers.guardianTokenRules(locale, { NDX_CHG: -1.2, RLSI: 31 }), '공유 자리표 기본 모드 불변');
-  assert.equal(old.revision, require('node:child_process').execFileSync('git', ['rev-parse', 'origin/main'], { encoding: 'utf8' }).trim());
-  assert.match(modelRequest(fixture.context, 'old', old).userPrompt, /contrast the named spot and futures observations in ONE first sentence/);
+  assert.equal(old.revision, baselineRevision);
+  assert.match(modelRequest(fixture.context, 'old', old).userPrompt, /first sentence, no numbers, no times, no sources/);
   assert.match(modelRequest(fixture.context, 'old', old).userPrompt, /→ \{NDX_CHG\}/);
   assert.doesNotMatch(modelRequest(fixture.context, 'new', old).userPrompt, /→ \{(?:NDX_CHG|SPX_CHG)\}/);
   assert.match(modelRequest(fixture.context, 'new', old).userPrompt, /never use \{NDX_CHG\} or \{SPX_CHG\}/);

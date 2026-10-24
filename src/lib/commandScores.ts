@@ -25,7 +25,8 @@ export function commandScores(data: any) {
     // A caller that keeps the shared input history (app/web card) passes its selected inputs,
     // so the AI's conviction is the card's conviction; otherwise this poll only, failed sections excluded.
     const conviction = scoreCommandConviction(q.convictionInputs
-        ?? convictionInputsOf(commandConvictionRaw(q.unified, priceVal, vwapVal, q.rawTickerData?.flow).raw));
+        ?? convictionInputsOf(commandConvictionRaw(q.unified, priceVal, vwapVal, q.rawTickerData?.flow).raw),
+        q.convictionSourceDates ?? { vwap: q.rawTickerData?.vwapDate ?? q.vwapDate });
     return {
         netGex: finite(structure.netGex), fLevel: regime.flipLevel, fDist: regime.flipDistance,
         rs: regime.regimeScore, rg: regime.regime, vwapVal, vwapDiff,

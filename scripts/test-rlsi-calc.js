@@ -6,7 +6,7 @@ function httpsGet(url) {
   return new Promise((resolve, reject) => {
     https.get(url, res => {
       let d = '';
-      res.on('data', c => d += c);
+      res.setEncoding('utf8').on('data', c => d += c);
       res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve(d); } });
     }).on('error', reject);
   });

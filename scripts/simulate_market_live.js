@@ -16,7 +16,7 @@ function httpsGet(url) {
     return new Promise((resolve, reject) => {
         https.get(url, (res) => {
             let data = '';
-            res.on('data', chunk => data += chunk);
+            res.setEncoding('utf8').on('data', chunk => data += chunk);
             res.on('end', () => {
                 if (res.statusCode !== 200) return reject(new Error(`API Error ${res.statusCode}: ${data}`));
                 resolve(JSON.parse(data));

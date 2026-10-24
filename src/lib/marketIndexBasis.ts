@@ -90,6 +90,11 @@ export function guardianCashChange(m: { indexBasis?: MarketIndexBasis } | null |
     return session === 'REG' && !cash?.live ? null : finite(cash?.changePct);
 }
 
+/** 같은 세션의 종합 현물 관측이 «있는가»(장중 지연분 포함) — 결측(기존 입력 대체)과 장중 지연(판정 보류)을 가른다. 판정 숫자는 guardianCashChange 만(밤 검토 10/24 ②). */
+export function guardianCashObserved(m: { indexBasis?: MarketIndexBasis } | null | undefined): number | null {
+    return finite(m?.indexBasis?.cash?.nasdaq?.changePct);
+}
+
 export function indexContext(b: MarketIndexBasis | undefined): string[] {
     if (!b) return [];
     const line = (name: string, p: IndexObservation): string | null => {

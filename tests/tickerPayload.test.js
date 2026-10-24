@@ -49,6 +49,9 @@ function load(source, mocks, extra = '') {
 }
 const putCall = load(read('src/lib/putCall.ts'), {});
 const vwap = load(read('src/lib/vwap.ts'), {});
+const dailyRsi = load(read('src/lib/dailyRsi.ts'), {
+    '@/lib/marketCalendar': load(read('src/lib/marketCalendar.ts'), {}),
+});
 const background = load(read('src/lib/intrinioBackground.ts'), { 'node:async_hooks': require('node:async_hooks') });
 // 최신 수집 행 선택은 실제 순수 함수를 사용한다. 모듈의 날짜 함수는 이 경로에서 호출하지 않는다.
 const optionsBasis = load(read('src/lib/app/intelOptionsBasis.ts'), {
@@ -71,6 +74,7 @@ function harness(source, snapshot, mode = 'hit', skipAlpha = false) {
         // 저장 응답의 옵션 수집 행이 유효한 경로를 재생한다. 대체 OI 자체는 별도 NB1 시험에서 검증한다.
         '@/lib/optionMetrics': { applyOptionMetrics: (target, m) => Object.assign(target, { netGex: m?.gex ?? null }), optionMetricsRowHasOi: () => true },
         '@/lib/vwap': vwap,
+        '@/lib/dailyRsi': dailyRsi,
         '@/lib/intrinioBackground': background,
         '@/services/realtimeSessionVwap': { getRealtimeSessionVwap: async () => null, readRealtimeSessionVwap: async () => null },
         '@/lib/shortVolume': { shortVolFields: () => ({}) },
@@ -194,11 +198,12 @@ async function test(name, fn) { await fn(); passed++; console.log(`PASS ${name}`
                 const b = await full.get('&chain=full');
                 const c = await slim.get('');
                 const d = await zero.get('&chain=0');
-                // L9 수리는 레거시 gamma를 구조 달러 GEX로 통일한다. 나머지 본문 계약은 그대로다.
+                // main의 감마 별칭 수리와 H1 RSI 변경을 함께 보존한다.
                 a.body.flow.gamma = a.body.flow.netGex ?? null;
                 assert.equal(b.body.flow.gamma, a.body.flow.gamma);
-                assert.deepEqual(b.body, a.body, 'full preserves the old GET result except the corrected gamma alias');
-                assert.deepEqual(c.body, withoutChains(a.body), 'default may remove only the two chains after gamma correction');
+                const withoutRsi = body => { const out = copy(body); delete out.display.rsi14; delete out.display.rsi14Date; return out; };
+                assert.deepEqual(withoutRsi(b.body), withoutRsi(a.body), 'full must preserve other GET fields after gamma correction');
+                assert.deepEqual(withoutRsi(c.body), withoutRsi(withoutChains(a.body)), 'default may remove only chains plus the H1 RSI change');
                 assert.deepEqual(d.body, c.body);
                 assert.equal(c.cache, mode === 'hit' ? 'HIT' : 'MISS');
                 assert.notEqual(full.calls.responseKeys[0], slim.calls.responseKeys[0]);

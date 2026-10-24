@@ -8,7 +8,7 @@ function ecGet(key) {
       timeout: 5000
     }, (res) => {
       let d = '';
-      res.on('data', c => d += c);
+      res.setEncoding('utf8').on('data', c => d += c);
       res.on('end', () => {
         try { const p = JSON.parse(d); resolve(p.result); } catch { resolve(null); }
       });
@@ -22,7 +22,7 @@ function httpsGet(url) {
   return new Promise((resolve) => {
     https.get(url, { timeout: 15000 }, (res) => {
       let d = '';
-      res.on('data', c => d += c);
+      res.setEncoding('utf8').on('data', c => d += c);
       res.on('end', () => {
         try { resolve(JSON.parse(d)); } catch { resolve(null); }
       });

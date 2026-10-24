@@ -12,7 +12,7 @@ function httpsGet(url) {
         const to = setTimeout(() => reject(new Error('TIMEOUT')), 15000);
         https.get(url, { headers: { 'User-Agent': 'SIGNUM' } }, (res) => {
             let d = '';
-            res.on('data', c => d += c);
+            res.setEncoding('utf8').on('data', c => d += c);
             res.on('end', () => { clearTimeout(to); try { resolve(JSON.parse(d)); } catch { resolve(d); } });
         }).on('error', e => { clearTimeout(to); reject(e); });
     });

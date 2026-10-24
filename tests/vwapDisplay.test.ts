@@ -7,8 +7,10 @@ import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CommandSSRCards } from '../src/app/[locale]/ticker/CommandSSRCards';
+import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 import { normalizeVwap, vwapDistancePct } from '../src/lib/vwap';
 
+const vwapDate = shownRegularSessionDate();
 const intelFile = 'src/app/[locale]/intel/IntelClientPage.tsx';
 const dashboardFile = 'src/components/LiveTickerDashboard.tsx';
 const source = (file: string) => ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -177,9 +179,9 @@ test('conviction does not score missing VWAP; measured above/below bonuses stay 
     const conv = require('../src/lib/commandConviction');
     for (const [value, expected] of [[null, 50], [100, 58], [150, 42]] as const) {
         const ssr = { unified: null, stock: { symbol: 'TEST', price: 123, vwap: 100 } };
-        const state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST', vwap: value }, stock: ssr.stock, price: 123,
+        const state = conv.webConvictionState('TEST', ssr, { quote: { ticker: 'TEST', vwap: value, vwapDate }, stock: ssr.stock, price: 123,
             unified: { ticker: 'TEST', sma: { cross: 'NONE' } } });
-        assert.equal(conv.scoreCommandConviction(state.inputs).score, expected);
+        assert.equal(conv.scoreCommandConviction(state.inputs, state.sourceDates).score, expected);
     }
 });
 test('AI snapshot distance follows the same missing/valid selection', () => {
@@ -188,7 +190,7 @@ test('AI snapshot distance follows the same missing/valid selection', () => {
         && n.initializer.getText().includes('liveQuote?.flow'));
     let seq = 0;
     for (const [value, expected] of [[null, 'N/A'], [100, '23.0%']] as const) {
-        const rawTickerData = execute(`({${aiVwap}}).rawTickerData;`, { liveQuote: { vwap: value, flow: null }, initialStockData: { vwap: 100 } });
+        const rawTickerData = execute(`({${aiVwap}}).rawTickerData;`, { liveQuote: { vwap: value, vwapDate, flow: null }, initialStockData: { vwap: 100 } });
         const snap = buildDeepSnapshot({ ticker: `VWAPAI${++seq}`, price: 123, priceChange: 0, session: 'REG', unified: {},
             rawTickerData, insider: null, technicals: null, creditSpread: null });
         assert.equal(snap.vwapDistance, expected);

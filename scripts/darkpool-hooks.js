@@ -21,7 +21,7 @@ const http = require("http");
 const g = (k) => new Promise((r) => {
     http.get({ host: "127.0.0.1", port: 8081, path: "/get?key=" + encodeURIComponent(k),
         headers: { Authorization: 'Bearer ' + (process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '') } }, (x) => {
-        let b = ""; x.on("data", (c) => (b += c));
+        let b = ""; x.setEncoding('utf8').on("data", (c) => (b += c));
         x.on("end", () => { try { const j = JSON.parse(b); r(typeof j.result === "string" ? JSON.parse(j.result) : j.result); } catch { r(null); } });
     }).on("error", () => r(null));
 });

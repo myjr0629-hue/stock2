@@ -192,7 +192,7 @@ async function main() {
     response = () => JSON.stringify(text);
     assert.equal(await N.generateRealityInsight(ctx('ko')), text.ko);
     assert.ok(writes.includes(key('v3', 'ko')));
-    // 세션 경계만으로 무효화하지 않는다. 기존 TTL이 지나면 재생성하며 실패 시 글을 보존한다.
+    // ★밤 검토 10/24 ① — 세션 경계는 메모리·콜드 Redis 모두 «신선한 캐시»에서 뺀다(재생성 유도). 실패 때는 글을 남기고(빈칸·«준비 중» 금지) TTL·저장본은 갱신하지 않는다.
     for (const cold of [false, true]) for (const failure of [false, true]) {
         reset(); response = () => JSON.stringify(text);
         assert.equal(await N.generateRealityInsight(ctx('ko')), text.ko);
@@ -204,26 +204,38 @@ async function main() {
         const reg = { ...text, ko: text.ko.replace('나스닥 현물', '정규장 나스닥 현물') };
         response = failure ? null : () => JSON.stringify(reg);
         const out = await N.generateRealityInsight(ctx('ko'));
-        assert.equal(calls, before, '09:29 PRE → 09:31 REG: TTL 안에는 기존 글 표시');
-        assert.equal(out, text.ko);
-        clock += 11 * 60000;
-        const refreshed = await N.generateRealityInsight(ctx('ko'));
-        assert.ok(calls > before, '기존 TTL 이후 재생성');
-        assert.equal(refreshed, failure ? text.ko : reg.ko);
+        assert.ok(calls > before, `09:29 PRE → 09:31 REG, 숫자가 같아도 재생성(cold=${cold})`);
+        assert.equal(out, failure ? text.ko : reg.ko);
         assert.ok(!N.isPlaceholderInsight(out), '세션 다른 글도 생성 실패 시 안내 문구보다 먼저');
         if (failure) assert.equal(JSON.stringify(store.get(key('v3', 'ko'))), saved);
         else assert.equal(store.get(key('v3', 'ko')).session, 'REG');
+        if (failure) {
+            // 쿨다운 동안은 다시 부르지 않고 같은 글(복구본)을 보여 준다
+            const c2 = calls;
+            clock += 30_000;
+            assert.equal(await N.generateRealityInsight(ctx('ko')), text.ko);
+            assert.equal(calls, c2, '실패 쿨다운 안에는 모델 재호출 0');
+        }
     }
+    // PRE 에서 실패해 쿨다운이 걸려도 개장(REG)하면 쿨다운을 넘어 새 세션 글을 만든다
+    reset(); response = null;
+    const pending = await N.generateRealityInsight(ctx('ko'));
+    assert.ok(N.isPlaceholderInsight(pending));
+    clock = Date.parse('2026-10-23T13:30:30Z');
+    response = () => JSON.stringify(text);
+    const callsAtOpen = calls;
+    assert.equal(await N.generateRealityInsight(ctx('ko')), text.ko);
+    assert.ok(calls > callsAtOpen, 'PRE 쿨다운이 REG 생성을 막지 않는다');
     reset();
-    // 생성 세션 메타데이터는 보존하며, 세션 변경만으로 TTL을 초기화하지 않는다.
+    // 생성 도중 개장하더라도 PRE 프롬프트로 만든 글을 REG 정상 캐시로 승격하지 않는다.
     response = () => { clock = Date.parse('2026-10-23T13:31:00Z'); return JSON.stringify(text); };
     await N.generateRealityInsight(ctx('ko'));
     assert.equal(store.get(key('v3', 'ko')).session, 'PRE', '저장 시각과 생성 세션을 분리');
     const crossingCalls = calls;
     response = () => JSON.stringify(text);
     await N.generateRealityInsight(ctx('ko'));
-    assert.equal(calls, crossingCalls);
-    assert.equal(store.get(key('v3', 'ko')).session, 'PRE');
+    assert.ok(calls > crossingCalls);
+    assert.equal(store.get(key('v3', 'ko')).session, 'REG');
     // 신선한 marketTime + 2시간 전 마지막 변화도 선물 사실로 승격하지 않는다.
     reset();
     const q = (symbol: string, marketTime: string, lastChangeAt = marketTime) => ({ symbol, price: 100, changePct: 0.05, source: 'YAHOO', marketTime, lastChangeAt });

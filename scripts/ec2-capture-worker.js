@@ -144,7 +144,7 @@ const server = http.createServer(async (req, res) => {
   // Capture endpoint
   if (req.url === '/capture' && req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    req.setEncoding('utf8').on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
         const { url, width, height, delay, cookies } = JSON.parse(body);

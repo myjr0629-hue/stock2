@@ -1,5 +1,8 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
+import { reportDate, crossBriefUrl } from '@/lib/app/reportLink';
+import { ClosingNarrative } from '@/components/intel/ClosingNarrative';
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronDown, Sparkles, Loader2, FileText, Orbit, Bot, Zap, Activity,
@@ -278,6 +281,8 @@ function PcrBar({ pcr }: { pcr: number }) {
 }
 
 export function PostMarketBriefView() {
+    const params = useSearchParams();
+    const requestedDate = reportDate(params.get('date'));
     const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
     const [brief, setBrief] = useState<any>(null);
     const [briefLoading, setBriefLoading] = useState(true);
@@ -285,23 +290,28 @@ export function PostMarketBriefView() {
     const locale = useLocale();
 
     useEffect(() => {
+        let active = true;
+        setBrief(null);
+        setBriefLoading(true);
         async function fetchBrief() {
             try {
-                const res = await fetch('/api/intel/cross-sector-brief', { cache: 'no-store' });
+                const res = await fetch(crossBriefUrl(requestedDate), { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.success && data.structured) {
+                    if (active && data.success && data.structured && reportDate(data.date)
+                        && (!requestedDate || data.date === requestedDate)) {
                         setBrief(data);
                     }
                 }
             } catch (e) {
                 console.error('[PostMarketBrief] Fetch failed:', e);
             } finally {
-                setBriefLoading(false);
+                if (active) setBriefLoading(false);
             }
         }
         fetchBrief();
-    }, []);
+        return () => { active = false; };
+    }, [requestedDate]);
 
     const toggleSector = (id: string) => {
         setExpandedSectors(prev => {
@@ -315,6 +325,7 @@ export function PostMarketBriefView() {
     const collapseAll = () => setExpandedSectors(new Set());
 
     const d = brief?.structured;
+    const closingDate = (!requestedDate || brief?.date === requestedDate) ? reportDate(brief?.date) : null;
     const macroIndicators = brief?.macroIndicators || [];
     const vixTS = brief?.vixTermStructure;
     const upcomingEvents = brief?.upcomingEvents || [];
@@ -580,9 +591,9 @@ export function PostMarketBriefView() {
                                     );
                                 })()}
 
-                                <p className="text-slate-200 text-[14px] leading-[1.7] mb-3">
-                                    {lt(d.marketOverview?.summary, locale)}
-                                </p>
+                                <div className="text-slate-200 text-[14px] leading-[1.7] mb-3">
+                                    {d.closingNarrative ? <ClosingNarrative narrative={d.closingNarrative} locale={locale} /> : lt(d.marketOverview?.summary, locale)}
+                                </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     {la(d.marketOverview?.keyDrivers, locale).map((driver: string, i: number) => (
                                         <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg border border-white/10"
@@ -970,7 +981,7 @@ export function PostMarketBriefView() {
                         </button>
                         {isExpanded && (
                             <div className="border-t border-white/[0.06] animate-in slide-in-from-top-2 duration-300">
-                                <TacticalReportDeck config={config} />
+                                <TacticalReportDeck key={closingDate || 'unavailable'} config={config} date={closingDate} />
                             </div>
                         )}
                     </section>

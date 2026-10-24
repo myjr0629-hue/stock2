@@ -81,7 +81,7 @@ HTTP 처리기는 포트 바인드 차단으로 임시 서버의 IPC로 검사�
 
 ```sh
 HUD_PORT=17788 HUD_NO_COLLECT=1 node scripts/hud/server.js
-curl --fail --silent http://127.0.0.1:17788/api/snapshot | node -e 'let b="";process.stdin.on("data",c=>b+=c);process.stdin.on("end",()=>{const s=JSON.parse(b);console.log("v2 필드:",Object.keys(s.v2).join(","))})'
+curl --fail --silent http://127.0.0.1:17788/api/snapshot | node -e 'let b="";process.stdin.setEncoding("utf8").on("data",c=>b+=c);process.stdin.on("end",()=>{const s=JSON.parse(b);console.log("v2 필드:",Object.keys(s.v2).join(","))})'
 ```
 
 운영 세션이 위 화면 주소를 열고 브라우저 개발자 도구의 반응형 모드에서 너비 **1280**과 **390**으로 설정한다. 9개 해시마다 전체 페이지를 촬영하고, 게시·할 일은 항목 하나를 펼친 상태도 찍는다. 확인할 것은 카드 겹침, 글자 잘림, 가로 넘침, 차트 범례, 하네스 상태 점과 마지막 시각, 빈 값의 판독 대기다. 이 작업 세션은 브라우저 접근 금지 지시를 따라 화면을 열거나 촬영하지 않았다.

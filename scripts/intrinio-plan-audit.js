@@ -118,7 +118,7 @@ const EP=[
 const get=(p)=>new Promise(res=>{
   const u=`${BASE}${p}${p.includes("?")?"&":"?"}page_size=1&api_key=${KEY}`;
   const t=setTimeout(()=>res({s:0,n:0,note:"timeout"}),15000);
-  https.get(u,r=>{let b="";r.on("data",c=>b+=c);r.on("end",()=>{clearTimeout(t);
+  https.get(u,r=>{let b="";r.setEncoding('utf8').on("data",c=>b+=c);r.on("end",()=>{clearTimeout(t);
     let n=0,note="";
     try{const j=JSON.parse(b);
       for(const k of Object.keys(j)){ if(Array.isArray(j[k])){n=j[k].length;break;} }

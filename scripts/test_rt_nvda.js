@@ -12,7 +12,7 @@ async function redisGet(key) {
             hostname: url.hostname, path: '/', method: 'POST',
             headers: { 'Authorization': 'Bearer ' + UPSTASH_TOKEN, 'Content-Type': 'application/json' }
         }, res => {
-            let data = ''; res.on('data', d => data += d);
+            let data = ''; res.setEncoding('utf8').on('data', d => data += d);
             res.on('end', () => resolve(JSON.parse(data).result));
         });
         req.write(body); req.end();

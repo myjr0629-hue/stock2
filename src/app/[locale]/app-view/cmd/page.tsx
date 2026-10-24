@@ -2582,7 +2582,7 @@ function CmdPageContent() {
           changePct: Math.abs(changePct),
           up,
           rsi14: u.rsi14 || u.technical?.rsi14 || t?.display?.rsi14 || t?.technical?.rsi14 || 0,
-          vwap: normalizeVwap(t?.vwap),
+          vwap: session === 'REG' ? (lastConviction.current?.inputs.vwap ?? null) : normalizeVwap(t?.vwap),
           session,
           analyst,
           fundamentals,
@@ -2950,7 +2950,8 @@ function CmdPageContent() {
     const convSnap: ConvictionSnapshot | undefined = (data as any).convictionSnapshot?.ticker === (data as any).ticker
       ? (data as any).convictionSnapshot : undefined;
     const conviction = scoreCommandConviction(convSnap ? convSnap.inputs
-      : convictionInputsOf(commandConvictionRaw(data.unified, priceVal, vwapVal, q.rawTickerData?.flow).raw));
+      : convictionInputsOf(commandConvictionRaw(data.unified, priceVal, vwapVal, q.rawTickerData?.flow).raw),
+      convSnap?.sourceDates ?? { vwap: q.rawTickerData?.vwapDate });
     const cScore = conviction?.score ?? null;
     const cLabel = conviction ? {
       convStrong: tDashboard('convStrong'), convBullish: tDashboard('convBullish'),

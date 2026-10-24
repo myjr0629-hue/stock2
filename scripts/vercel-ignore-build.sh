@@ -37,6 +37,12 @@ while IFS= read -r -d '' path; do
         src/*|public/*)
             exit 1
             ;;
+        # scripts/ files imported by src/ are app code (2026-10-24: the close-report
+        # contract shared with the Lambda; a scripts-only change was skipped on main).
+        # tests/vercelIgnoreBuild.test.cjs fails if src/ imports a scripts/ file not listed here.
+        scripts/lambda-cross-sector/closingReport.js|scripts/lambda-cross-sector/adviceGuard.generated.js|scripts/integrity/clock.js)
+            exit 1
+            ;;
         # package.json (build: next build) and next.config.mjs currently use
         # no scripts/ build helpers. Add any future helpers BEFORE this rule.
         .agent/*|docs/*|scripts/*|tests/*|.github/*|*.md)
