@@ -411,31 +411,12 @@ function bedrockLegacy(system: string, user: string) {
  */
 async function dryCompare(body: any): Promise<Response> {
     const t0 = Date.now();
-    // [비교 전용 — preview/* 배포에서만] 로컬에서 고친 지시문을 운영 모델(①)로 돌려 본다. main 배포에서는 꺼져 있다(병합 전 삭제)
-    if (body.custom && String(process.env.VERCEL_GIT_COMMIT_REF || '').startsWith('preview/')) {
-        const reps = Math.max(1, Math.min(8, Number(body.reps) || 3));
-        const outs: any[] = [];
-        let k = 0;
-        const jobs = Array.from({ length: reps }, () => async () => {
-            const raws: string[] = [];
-            const s0 = Date.now();
-            try {
-                const res = await withFreshTier(() => runLadder({
-                    purpose: 'MorningBriefing', system: String(body.custom.system), userPrompt: String(body.custom.user),
-                    maxTokens: 4096, jsonPrefill: true, temperature: 0.3, locale: 'multi', timeoutMs: 55000,
-                    validate: (text: string) => { raws.push(String(text).slice(0, 8000)); return true; },
-                }, async () => { throw new Error('dry: no legacy rung'); }));
-                outs.push({ ok: true, raw: res.text.slice(0, 8000), provider: res.provider, ms: Date.now() - s0 });
-            } catch (e: any) { outs.push({ ok: false, error: String(e?.message || e).slice(0, 200), raws, ms: Date.now() - s0 }); }
-        });
-        await Promise.all(Array.from({ length: Math.min(4, jobs.length) }, async () => { while (k < jobs.length) await jobs[k++](); }));
-        return NextResponse.json({ dry: true, custom: true, outs });
-    }
     const reps = Math.max(1, Math.min(6, Number(body.reps) || 2));
     const which: 'both' | 'old' | 'new' = body.which === 'old' || body.which === 'new' ? body.which : 'both';
     const sim: MorningSim = body.sim === 'pre' || body.sim === 'pre-nofut' || body.sim === 'reg' ? body.sim : null;
     const asOfMs = typeof body.asOf === 'string' && Number.isFinite(Date.parse(body.asOf)) ? Date.parse(body.asOf) : Date.now();
-    const snapshot = await GuardianDataHub.getGuardianSnapshot(false);
+    // 워커와 같은 입력 — EC2 워커가 30초마다 쓰는 스냅샷 키를 읽기만 한다(없을 때만 허브 계산)
+    const snapshot = await getFromCache<any>('guardian:snapshot:ko').catch(() => null) ?? await GuardianDataHub.getGuardianSnapshot(false);
     const historyRaw = await getFromCache<any>('guardian:rlsi_history').catch(() => null);
     const raw = await collectMorningRaw(snapshot, Array.isArray(historyRaw) ? historyRaw : [], Date.now());
     const facts = morningFactsFromRaw(raw, { sim, asOfMs, newsMaxAgeH: Number(body.newsMaxAgeH) || 18 });
@@ -547,9 +528,8 @@ export async function POST(req: Request) {
         );
 
         const prepared = prepareBriefingJson(ladder.text);
-        if (!prepared) {
-            return NextResponse.json({ error: 'Claude returned empty response' }, { status: 500 });
-        }
+        // 빈 응답·깨진 JSON — 예전처럼 아래 catch 의 템플릿(template-error, degraded)으로: 부르는 쪽이 다시 시도한다
+        if (!prepared) throw new Error('Claude returned empty or unparseable JSON');
         const briefing = prepared.briefing;
 
         // [V8.1] AI Refusal / Hallucination Validation — v2 는 사실 계약 검사(lib/ai/morningBriefingV2)까지 통과해야 저장한다

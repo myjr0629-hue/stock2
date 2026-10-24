@@ -193,29 +193,33 @@ export function morningMetrics(m: RawMorningMetrics): MorningMetric[] {
 
 /** 언어별 길이 — 목표(프롬프트)와 출구 상한(검사). 상한은 실모델 측정으로 정한다(Tactical·오늘 볼 것 교훈: 원안 0/75 = 길이 초과) */
 export const MB_LENGTH: Record<MbLocale, { target: string; max: number; firstMax: number }> = {
-    ko: { target: '300–400', max: 520, firstMax: 100 },
-    ja: { target: '330–430', max: 560, firstMax: 100 },
-    en: { target: '600–780', max: 1050, firstMax: 200 },
+    // 출구 상한은 지시 목표보다 넉넉히(Tactical 교훈) — 10/25 운영 모델 24회: 일정 많은 날 ko 586·en 1117자까지(옛 판 평균 ko 604·en 1142)
+    ko: { target: '300–400', max: 620, firstMax: 110 },
+    ja: { target: '330–430', max: 650, firstMax: 110 },
+    en: { target: '600–780', max: 1250, firstMax: 220 },
 };
 
-const FIRST_EXAMPLES: Record<MbLocale, Record<'PRE' | 'REG' | 'POST' | 'PRE_NOFUT', string>> = {
+const FIRST_EXAMPLES: Record<MbLocale, Record<'PRE' | 'REG' | 'POST' | 'PRE_NOFUT' | 'CLOSED', string>> = {
     ko: {
         PRE: 'M/D(요일) 정규장 나스닥 종합 X.X%·S&P500 X.X% 하락, 지금 개장 전 나스닥100 선물 보합·S&P500 선물 X.X% 약세입니다.',
         PRE_NOFUT: 'M/D(요일) 정규장 나스닥 종합 X.X%·S&P500 X.X% 상승, 지금 개장 전 선물 관측은 미확인입니다.',
         REG: '지금 정규장(장중) 나스닥 종합은 전일 종가 대비 X.X%, S&P500은 X.X% 하락 중입니다.',
-        POST: 'M/D(요일) 정규장에서 나스닥 종합은 X.X%, S&P500은 X.X% 올랐고, 지금 장후 나스닥100 선물은 종가 시점 대비 X.X% 하락 중입니다.',
+        POST: 'M/D(요일) 정규장 나스닥 종합 X.X%·S&P500 X.X% 상승, 지금 장후 나스닥100 선물은 종가 시점 대비 X.X% 하락 중입니다.',
+        CLOSED: 'M/D(요일) 정규장 나스닥 종합 X.X%·S&P500 X.X% 상승, 종가 이후 선물 변화는 미확인입니다.',
     },
     en: {
         PRE: 'Nasdaq Composite fell X.X% and S&P 500 fell X.X% in the M/D cash session; now premarket Nasdaq 100 futures are flat and S&P 500 futures are down X.X%.',
         PRE_NOFUT: 'Nasdaq Composite rose X.X% and S&P 500 rose X.X% in the M/D cash session; current premarket futures observations are unconfirmed.',
         REG: 'In regular trading now the Nasdaq Composite is down X.X% and the S&P 500 is down X.X% versus the previous close.',
-        POST: 'In the M/D cash session the Nasdaq Composite rose X.X% and the S&P 500 rose X.X%, while now after-hours Nasdaq 100 futures are down X.X% since that cash close.',
+        POST: 'Nasdaq Composite rose X.X% and S&P 500 rose X.X% in the M/D cash session; now after-hours Nasdaq 100 futures are down X.X% since that cash close.',
+        CLOSED: 'Nasdaq Composite rose X.X% and S&P 500 rose X.X% in the M/D cash session; the futures change since that close is unconfirmed.',
     },
     ja: {
         PRE: 'M/D(曜)の通常取引はナスダック総合X.X%・S&P500 X.X%下落、現在の取引開始前はナスダック100先物横ばい・S&P500先物X.X%下落です。',
         PRE_NOFUT: 'M/D(曜)の通常取引はナスダック総合X.X%・S&P500 X.X%上昇、現在の取引開始前の先物観測は未確認です。',
         REG: '現在の通常取引中、ナスダック総合は前日終値比X.X%、S&P500はX.X%下落中です。',
-        POST: 'M/D(曜)の通常取引でナスダック総合はX.X%、S&P500はX.X%上昇し、現在の時間外ナスダック100先物は取引終了時点比X.X%下落中です。',
+        POST: 'M/D(曜)の通常取引はナスダック総合X.X%・S&P500 X.X%上昇、現在の時間外ナスダック100先物は取引終了時点比X.X%下落中です。',
+        CLOSED: 'M/D(曜)の通常取引はナスダック総合X.X%・S&P500 X.X%上昇、取引終了後の先物変化は未確認です。',
     },
 };
 
@@ -291,7 +295,7 @@ The reader can see raw numbers elsewhere in the app; your value is the reading. 
 
 /** 세션별 첫 문장 형식 예시를 시스템 지시에 끼운다(형식만 — 숫자 자리는 X.X) */
 export function morningV2System(session: TacticalSession, hasFutures: boolean): string {
-    const key = session === 'REG' ? 'REG' : session === 'PRE' ? (hasFutures ? 'PRE' : 'PRE_NOFUT') : 'POST';
+    const key = session === 'REG' ? 'REG' : session === 'PRE' ? (hasFutures ? 'PRE' : 'PRE_NOFUT') : hasFutures ? 'POST' : 'CLOSED';
     return MORNING_V2_SYSTEM
         .replace('{KO_FIRST}', FIRST_EXAMPLES.ko[key])
         .replace('{EN_FIRST}', FIRST_EXAMPLES.en[key])
