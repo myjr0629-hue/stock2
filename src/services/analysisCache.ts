@@ -256,7 +256,11 @@ function dropUntaggedImpliedMove(entry: AnalysisCacheEntry): AnalysisCacheEntry 
  */
 async function overlayImpliedMove(results: Record<string, AnalysisCacheEntry>): Promise<void> {
     const need = Object.keys(results).filter((t) => results[t] && readImpliedMoveFields(results[t]).impliedMovePct == null);
-    if (!need.length) return;
+    if (need.length) await fillImpliedMove(results, need);
+    await canonicalizeImpliedMove(results);
+}
+
+async function fillImpliedMove(results: Record<string, AnalysisCacheEntry>, need: string[]): Promise<void> {
     try {
         const { peekStoredStructure, impliedMoveOfStructure, weeklyImpliedMoveFromProbe } = await import('@/services/impliedMoveService');
         const work = Promise.all(need.map(async (t) => {
@@ -271,6 +275,20 @@ async function overlayImpliedMove(results: Record<string, AnalysisCacheEntry>): 
         }));
         await Promise.race([work, new Promise((r) => setTimeout(r, 700))]);
     } catch { /* 채우지 못하면 그대로(«—») */ }
+}
+
+/**
+ * ★ [T26b 2026-10-25] 이 캐시에 «이미 있는» 예상 변동도 정본 규칙으로 — 10/25 운영 unified AMZN 7.8(이 캐시, 10/23 eod) vs 정본 7.9.
+ *   배치가 쓴 값은 장외 TTL 3일 동안 직전 세션 값 그대로 남고(배치는 적중이면 다시 안 쓴다), 그 값은 공급사 마감 호가가 아니라
+ *   수집기 FMV 로 계산됐을 수 있다. 같은 만기·세션의 «마감 관측»이 있으면 impliedMoveService.canonicalImpliedMoveFields
+ *   (= T26 applyClosingObservations 그대로)로 바꿔 읽는다. 이 캐시를 읽는 화면(unified·intel·티커 SSR)이 한 값을 본다.
+ *   ⛔ 저장본은 고치지 않는다(Redis 쓰기 0 — 읽는 입구 한 곳). 500ms 상한, 넘거나 실패하면 그대로.
+ */
+async function canonicalizeImpliedMove(results: Record<string, AnalysisCacheEntry>): Promise<void> {
+    try {
+        const { overlayCanonicalImpliedMoveRows } = await import('@/services/impliedMoveService');
+        await overlayCanonicalImpliedMoveRows(results, 500);
+    } catch { /* 그대로 */ }
 }
 
 /**
