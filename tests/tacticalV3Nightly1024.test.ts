@@ -143,6 +143,25 @@ async function main() {
     response = translateTo(koGood.replace('시장 전체 재료는 미확인입니다.', '금은 +1.2% 상승했습니다.'));
     const goldOut = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, GOLD_CHG: 1.2 }, tacticalPrompts: prompts() });
     assert.ok(!N.isPlaceholderInsight(goldOut) && goldOut.includes('+1.20%'), goldOut);
+    // 관문 10241151: 부호 뒤집기 · 자리표 방향어 뒤집기 · 금액 단위(ko→en/ja) · 쉼표 묶음
+    const koSrc = (first: string) => text.ko.replace('나스닥 현물 관측은 미확인입니다.', first);
+    const enOut = (first: string) => text.en.replace(', volatility (VIX) is {VIX}', '').replace('Nasdaq spot observations are unavailable.', first);
+    for (const [name, from, srcText, to, body, ok] of [
+        ['명시 부호 뒤집기(-2.6% → +2.6%)', 'en', enOut('The Nasdaq Composite is at -2.6% today.'), 'ko', koSrc('나스닥 종합은 오늘 +2.6%입니다.'), false],
+        ['명시 부호 그대로', 'en', enOut('The Nasdaq Composite is at -2.6% today.'), 'ko', koSrc('나스닥 종합은 오늘 -2.6%입니다.'), true],
+        ['자리표 방향어 뒤집기', 'en', enOut('Gold rose {GOLD_CHG} today.'), 'ko', koSrc('금은 오늘 {GOLD_CHG} 하락했습니다.'), false],
+        ['자리표 방향어 그대로', 'en', enOut('Gold rose {GOLD_CHG} today.'), 'ko', koSrc('금은 오늘 {GOLD_CHG} 상승했습니다.'), true],
+        ['400억 달러 → $40 million', 'ko', koSrc('채권으로 400억 달러가 이동했습니다.'), 'en', enOut('About $40 million moved into bonds.'), false],
+        ['400억 달러 → $40 billion', 'ko', koSrc('채권으로 400억 달러가 이동했습니다.'), 'en', enOut('About $40 billion moved into bonds.'), true],
+        ['400억 달러 → 400億ドル', 'ko', koSrc('채권으로 400억 달러가 이동했습니다.'), 'ja', '債券に400億ドルが移動しました。相場全体の材料は未確認です。市場の健全度(RLSI)は{RLSI}点で弱くオプション(GEX)は未確認です。次の分岐点は未確認です。', true],
+        ['6,700 → 6700선', 'en', enOut('S&P 500 options cluster at the 6,700 level.'), 'ko', koSrc('S&P 500 옵션은 6700선에 몰려 있습니다.'), true],
+    ] as const) {
+        reset();
+        store.set(key(from as Locale), { text: srcText, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, GOLD_CHG: 1.2 }, session: 'REG' });
+        response = translateTo(body);
+        const out = await N.recoverInsight('reality', to as Locale, { nums: { RLSI: 33, VIX: 18.4, GOLD_CHG: 1.2 }, tacticalPrompts: prompts() });
+        assert.equal(writes.includes(key(to as Locale)), ok, `${name}: ${out}`);
+    }
     // 관문 10241132 ④: 감마·순환매 번역은 origin/main 방식 그대로 — «GEX has now fallen to +5» → «GEX는 +5로 하락» 정상 통과
     reset();
     store.set('guardian:gemini:v2:gamma:en', { text: "[What's different from normal] GEX has now fallen to +5, the lowest in a week.\n[Where this read breaks] Below 6,700 dealers flip to selling.", updatedAt: new Date(clock - 60_000).toISOString(), basis: null });

@@ -13,7 +13,7 @@ import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
 import { fillGuardianTokens, checkGuardianLiterals, stateStaleReasons, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
 import { forecastHits, stripForecastSentences, checkComparisons, checkRanges } from '@/lib/ai/trustLayer';
-import { checkAmounts } from '@/lib/ai/amountGuard';
+import { translatedAmounts } from '@/lib/ai/amountGuard';
 
 // Supported locales
 type Locale = 'ko' | 'en' | 'ja';
@@ -342,13 +342,27 @@ function tacticalFillNums(tpl: string, nums: GNums | null | undefined, basis: GN
  */
 const TR_UP = /(상승|올라|올랐|오른|오르|강세|반등|급등|rose|rise|gain|up\b|climb|advanc|rall|jump|higher|上昇|高く|反発|値上がり|(?<!引き)上げ|上がっ|上がり|上伸)/i;
 const TR_DOWN = /(하락|내린|내려|내렸|밀렸|약세|떨어|급락|fell|fall|drop|declin|down\b|slid|lost|lower|下落|安く|続落|下回|値下がり|(?<!引き)下げ|下がっ|下がり|反落)/i;
-/** 금액(단위가 붙은 수 — 언어마다 자릿수 표기가 다르다: $40 billion = 400억) — 순서열에서 빼고 amountGuard 가 본다 */
-const TR_AMOUNT = /\$?\d[\d,]*(?:\.\d+)?\s*(?:(?:[천백千百]\s*)?[만억조万億兆]|(?:thousand|million|billion|trillion|bn|mn|tn)\b|[KMBT]\b)/gi;
-const trNums = (text: string) => {
-    const t = String(text ?? '').replace(/\{[^{}]*\}/g, (m) => ' '.repeat(m.length)).replace(TR_AMOUNT, (m) => ' '.repeat(m.length));
-    return [...t.matchAll(/\d+(?:\.\d+)?/g)].map((m) => ({ v: Number(m[0]), index: m.index!, len: m[0].length }));
-};
-/** 숫자 자리의 방향 — 같은 절(쉼표·마침표 경계) 안 앞뒤 16자의 방향어. 둘 다 있거나 없으면 0 */
+/** 금액(단위가 붙은 수 — 언어마다 자릿수 표기가 다르다: $40 billion = 400억) — 순서열에서 빼고 환산값끼리 따로 대조한다 */
+const TR_AMOUNT = /\$?\d[\d,]*(?:\.\d+)?(?:(?:[천백千百]\s*(?:\d[\d,]*)?)?[만억조万億兆]|\s+(?:[천백千百]\s*)?[만억조万億兆](?![가-힣])|\s*(?:thousand|million|billion|trillion|bn|mn|tn)\b|\s?[KMBT]\b)/gi;
+const TR_EN_MULT: Record<string, number> = { thousand: 1e3, k: 1e3, million: 1e6, mn: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, tn: 1e12, t: 1e12 };
+/** 글의 금액 환산값 — ko/ja 는 amountGuard.translatedAmounts(만·억·조/万·億·兆), en 은 thousand·million·billion·trillion(K·M·B·T) */
+function trAmounts(text: string, locale: Locale): number[] {
+    if (locale !== 'en') return translatedAmounts(text, locale);
+    return [...String(text ?? '').matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(thousand|million|billion|trillion|bn|mn|tn|[KMBT])\b/gi)]
+        .map((m) => Number(m[1].replace(/,/g, '')) * (TR_EN_MULT[m[2].toLowerCase()] ?? 1)).filter(Number.isFinite);
+}
+type TrItem = { kind: 'num'; v: number; sign: number; pct: boolean; index: number; len: number } | { kind: 'tok'; key: string; index: number; len: number };
+/** 글의 숫자·자리표를 나온 순서대로(금액 제외) — 쉼표 묶음(6,700)은 한 수, 부호는 따로 */
+function trItems(text: string): TrItem[] {
+    const t = String(text ?? '').replace(TR_AMOUNT, (m) => ' '.repeat(m.length));
+    const out: TrItem[] = [];
+    for (const m of t.matchAll(/\{\s*([A-Z0-9_]+)\s*\}|([+\-−])?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(\s?%)?/g)) {
+        if (m[1]) out.push({ kind: 'tok', key: m[1], index: m.index!, len: m[0].length });
+        else out.push({ kind: 'num', v: Number(m[3].replace(/,/g, '')), sign: m[2] ? (m[2] === '+' ? 1 : -1) : 0, pct: !!m[4], index: m.index!, len: m[0].length });
+    }
+    return out;
+}
+/** 숫자·자리표 자리의 방향 — 같은 절(쉼표·마침표 경계) 안 앞뒤 16자의 방향어. 둘 다 있거나 없으면 0 */
 function trDirection(text: string, index: number, len: number): number {
     const t = String(text ?? '').replace(/\{[^{}]*\}/g, (m) => ' '.repeat(m.length));
     const before = t.slice(Math.max(0, index - 16), index).split(/[,;。、，!?]|\.(?!\d)/).pop() || '';
@@ -357,24 +371,33 @@ function trDirection(text: string, index: number, len: number): number {
     const up = TR_UP.test(w), down = TR_DOWN.test(w);
     return up && !down ? 1 : down && !up ? -1 : 0;
 }
-function translationNumberReasons(type: InsightType, sourceTpl: string, translatedTpl: string, basis: GNums | null | undefined, to: Locale): string[] {
+function translationNumberReasons(type: InsightType, from: Locale, sourceTpl: string, to: Locale, translatedTpl: string, basis: GNums | null | undefined): string[] {
     if (type !== 'reality') return [];
     const reasons: string[] = [];
-    const a = trNums(sourceTpl);
-    let b = trNums(translatedTpl);
-    const seq = (x: typeof a) => x.map((n) => n.v).join(',');
-    // 번역이 원문 자리표({VIX})를 그 값(생성 기준값)으로 적었으면 그 숫자는 빼고 본다(뒤에서 자리표로 되돌리거나 기준값 대조를 받는다)
-    if (seq(a) !== seq(b) && basis) {
-        const tokenVals = [...String(sourceTpl ?? '').matchAll(/\{\s*([A-Z0-9_]+)\s*\}/g)].map((m) => (basis as Record<string, unknown>)[m[1]]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
-        const filtered = b.filter((n) => !tokenVals.some((v) => Math.abs(Math.abs(v) - n.v) < 0.006));
-        if (seq(filtered) === seq(a)) b = filtered;
-    }
-    if (seq(a) !== seq(b)) reasons.push(`translation-numbers:${seq(b)}≠${seq(a)}`);
-    else a.forEach((n, i) => {
-        const from = trDirection(sourceTpl, n.index, n.len), dst = trDirection(translatedTpl, b[i].index, b[i].len);
-        if (from && dst && from !== dst) reasons.push(`translation-direction:${n.v}`);
+    const a = trItems(sourceTpl), b = trItems(translatedTpl);
+    const label = (x: TrItem[]) => x.map((n) => (n.kind === 'tok' ? `{${n.key}}` : `${n.sign < 0 ? '-' : n.sign > 0 ? '+' : ''}${n.v}`)).join(',');
+    // 같은 자리인가: 같은 값(부호는 방향 검사에서) · 같은 자리표 · 원문 자리표를 그 기준값으로 적은 숫자
+    const same = (x: TrItem, y: TrItem) => x.kind === 'num' && y.kind === 'num' ? Math.abs(x.v - y.v) < 1e-9
+        : x.kind === 'tok' && y.kind === 'tok' ? x.key === y.key
+            : x.kind === 'tok' && y.kind === 'num' ? (() => { const v = (basis as Record<string, unknown> | null | undefined)?.[x.key]; return typeof v === 'number' && Math.abs(Math.abs(v) - y.v) < 0.006; })() : false;
+    if (a.length !== b.length || a.some((x, i) => !same(x, b[i]))) reasons.push(`translation-numbers:${label(b)}≠${label(a)}`);
+    else a.forEach((x, i) => {
+        const y = b[i];
+        // 방향은 변동률(%)·자리표에만 — 지수 이름 숫자(S&P 500)·시각·수준값(GEX +13)은 방향어가 그 숫자의 것이 아니다
+        if (!(x.kind === 'tok' || (x.kind === 'num' && x.pct) || (y.kind === 'num' && y.pct))) return;
+        // 방향: 변동률(%)의 명시 부호 또는 같은 절 방향어. 한 글 안에서 부호와 방향어가 어긋나도(«−2.6% 상승») 탈락
+        const tokSign = x.kind === 'tok' ? Math.sign(Number((basis as Record<string, unknown> | null | undefined)?.[x.key]) || 0) : 0;
+        const signOf = (n: TrItem) => (n.kind === 'num' && n.pct ? n.sign : 0);
+        const ws = trDirection(sourceTpl, x.index, x.len), wd = trDirection(translatedTpl, y.index, y.len);
+        const ds = signOf(x) || ws || 0, dd = signOf(y) || wd || 0;
+        if (ds && dd && ds !== dd) reasons.push(`translation-direction:${label([x])}`);
+        else if (signOf(y) && wd && signOf(y) !== wd) reasons.push(`translation-direction:${label([y])}`);
+        else if (x.kind === 'tok' && tokSign && wd && tokSign !== wd && !ws) reasons.push(`translation-direction:${label([x])}`);
     });
-    if (to !== 'en') { const am = checkAmounts(sourceTpl, translatedTpl, to); if (!am.ok) reasons.push(`translation-amount:${am.reason}`); }
+    // 금액: 환산값끼리 같은 개수·±2%
+    const am = (x: number[]) => [...x].sort((p, q) => p - q);
+    const sa = am(trAmounts(sourceTpl, from)), ta = am(trAmounts(translatedTpl, to));
+    if (sa.length !== ta.length || sa.some((v, i) => Math.abs(ta[i] - v) > Math.abs(v) * 0.02)) reasons.push(`translation-amount:${ta.join(',')}≠${sa.join(',')}`);
     reasons.push(...checkGuardianLiterals(translatedTpl, insightNums(type, basis)));
     return reasons;
 }
@@ -951,7 +974,7 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
         const basis = source.basis ?? nums ?? null;
         const tokenized = tokenizeInsight(type, translated, basis);
         const g = gateText(type, tokenized, locale, nums, basis, false, tacticalPrompts?.(locale));
-        const numReasons = translationNumberReasons(type, source.text, translated, basis, locale);
+        const numReasons = translationNumberReasons(type, src, source.text, locale, translated, basis);
         if (!g.ok || isPlaceholder(g.text) || numReasons.length) {
             console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${[...g.reasons, ...numReasons].join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);
             continue;
