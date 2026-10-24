@@ -13,7 +13,6 @@ import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
 import { fillGuardianTokens, checkGuardianLiterals, stateStaleReasons, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
 import { forecastHits, stripForecastSentences, checkComparisons, checkRanges } from '@/lib/ai/trustLayer';
-import { translatedAmounts } from '@/lib/ai/amountGuard';
 
 // Supported locales
 type Locale = 'ko' | 'en' | 'ja';
@@ -330,76 +329,6 @@ function tacticalFillNums(tpl: string, nums: GNums | null | undefined, basis: GN
     const facts = guardianCmpFacts(live);
     if (checkComparisons(f.text, facts).length || checkRanges(f.text, facts).length) return old;
     return live;
-}
-
-/**
- * ★2026-10-24 Tactical 번역 숫자 대조(밤 검토 ③ · 관문 10241021·10241104·10241132) — Tactical 번역은 저장본 경로로 검사돼 숫자 리터럴 대조가 빠졌다(VIX 99 가 화면·캐시 통과).
- *   Tactical(reality) 번역만 엄격하게 본다(순환매·감마 번역은 원래부터 기존 숫자 검사를 지나고, 번역 방식도 origin/main 그대로 — 정상 번역 오탈락 0):
- *   ① 숫자 순서열 보존 — 번역 글의 숫자(자리표 밖)가 원문 숫자와 «같은 값·같은 순서»여야 한다. 새 숫자(VIX 99·9.9%·10/24)·지표 간/현물↔선물 맞바꿈·누락은 전부 탈락.
- *   ② 숫자마다 같은 절의 방향어(상승/하락)가 원문과 반대면 탈락(«fell 2.6%» → «2.6% 상승»).
- *   ③ 금액 자릿수(lib/ai/amountGuard — «$40 billion» → «40억 달러» 10배 오류) · ④ 원문 생성 기준값과 기존 숫자 검사(checkGuardianLiterals).
- *   탈락하면 그 번역은 쓰지도 저장하지도 않는다(기존 정상본 유지). Tactical 번역은 v3 에서 원래도 일정 검사로 대부분 탈락한다(origin/main 실모델 0/5) — 엄격해도 화면 영향 없음.
- */
-const TR_UP = /(상승|올라|올랐|오른|오르|강세|반등|급등|rose|rise|gain|up\b|climb|advanc|rall|jump|higher|上昇|高く|反発|値上がり|(?<!引き)上げ|上がっ|上がり|上伸)/i;
-const TR_DOWN = /(하락|내린|내려|내렸|밀렸|약세|떨어|급락|fell|fall|drop|declin|down\b|slid|lost|lower|下落|安く|続落|下回|値下がり|(?<!引き)下げ|下がっ|下がり|反落)/i;
-/** 금액(단위가 붙은 수 — 언어마다 자릿수 표기가 다르다: $40 billion = 400억) — 순서열에서 빼고 환산값끼리 따로 대조한다 */
-const TR_AMOUNT = /\$?\d[\d,]*(?:\.\d+)?(?:(?:[천백千百]\s*(?:\d[\d,]*)?)?[만억조万億兆]|\s+(?:[천백千百]\s*)?[만억조万億兆](?![가-힣])|\s*(?:thousand|million|billion|trillion|bn|mn|tn)\b|\s?[KMBT]\b)/gi;
-const TR_EN_MULT: Record<string, number> = { thousand: 1e3, k: 1e3, million: 1e6, mn: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, tn: 1e12, t: 1e12 };
-/** 글의 금액 환산값 — ko/ja 는 amountGuard.translatedAmounts(만·억·조/万·億·兆), en 은 thousand·million·billion·trillion(K·M·B·T) */
-function trAmounts(text: string, locale: Locale): number[] {
-    if (locale !== 'en') return translatedAmounts(text, locale);
-    return [...String(text ?? '').matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(thousand|million|billion|trillion|bn|mn|tn|[KMBT])\b/gi)]
-        .map((m) => Number(m[1].replace(/,/g, '')) * (TR_EN_MULT[m[2].toLowerCase()] ?? 1)).filter(Number.isFinite);
-}
-type TrItem = { kind: 'num'; v: number; sign: number; pct: boolean; index: number; len: number } | { kind: 'tok'; key: string; index: number; len: number };
-/** 글의 숫자·자리표를 나온 순서대로(금액 제외) — 쉼표 묶음(6,700)은 한 수, 부호는 따로 */
-function trItems(text: string): TrItem[] {
-    const t = String(text ?? '').replace(TR_AMOUNT, (m) => ' '.repeat(m.length));
-    const out: TrItem[] = [];
-    for (const m of t.matchAll(/\{\s*([A-Z0-9_]+)\s*\}|([+\-−])?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(\s?%)?/g)) {
-        if (m[1]) out.push({ kind: 'tok', key: m[1], index: m.index!, len: m[0].length });
-        else out.push({ kind: 'num', v: Number(m[3].replace(/,/g, '')), sign: m[2] ? (m[2] === '+' ? 1 : -1) : 0, pct: !!m[4], index: m.index!, len: m[0].length });
-    }
-    return out;
-}
-/** 숫자·자리표 자리의 방향 — 같은 절(쉼표·마침표 경계) 안 앞뒤 16자의 방향어. 둘 다 있거나 없으면 0 */
-function trDirection(text: string, index: number, len: number): number {
-    const t = String(text ?? '').replace(/\{[^{}]*\}/g, (m) => ' '.repeat(m.length));
-    const before = t.slice(Math.max(0, index - 16), index).split(/[,;。、，!?]|\.(?!\d)/).pop() || '';
-    const after = t.slice(index + len, index + len + 16).split(/[,;。、，!?]|\.(?!\d)/)[0] || '';
-    const w = `${before} ${after}`.replace(/\d+(?:\.\d+)?/g, ' ');
-    const up = TR_UP.test(w), down = TR_DOWN.test(w);
-    return up && !down ? 1 : down && !up ? -1 : 0;
-}
-function translationNumberReasons(type: InsightType, from: Locale, sourceTpl: string, to: Locale, translatedTpl: string, basis: GNums | null | undefined): string[] {
-    if (type !== 'reality') return [];
-    const reasons: string[] = [];
-    const a = trItems(sourceTpl), b = trItems(translatedTpl);
-    const label = (x: TrItem[]) => x.map((n) => (n.kind === 'tok' ? `{${n.key}}` : `${n.sign < 0 ? '-' : n.sign > 0 ? '+' : ''}${n.v}`)).join(',');
-    // 같은 자리인가: 같은 값(부호는 방향 검사에서) · 같은 자리표 · 원문 자리표를 그 기준값으로 적은 숫자
-    const same = (x: TrItem, y: TrItem) => x.kind === 'num' && y.kind === 'num' ? Math.abs(x.v - y.v) < 1e-9
-        : x.kind === 'tok' && y.kind === 'tok' ? x.key === y.key
-            : x.kind === 'tok' && y.kind === 'num' ? (() => { const v = (basis as Record<string, unknown> | null | undefined)?.[x.key]; return typeof v === 'number' && Math.abs(Math.abs(v) - y.v) < 0.006; })() : false;
-    if (a.length !== b.length || a.some((x, i) => !same(x, b[i]))) reasons.push(`translation-numbers:${label(b)}≠${label(a)}`);
-    else a.forEach((x, i) => {
-        const y = b[i];
-        // 방향은 변동률(%)·자리표에만 — 지수 이름 숫자(S&P 500)·시각·수준값(GEX +13)은 방향어가 그 숫자의 것이 아니다
-        if (!(x.kind === 'tok' || (x.kind === 'num' && x.pct) || (y.kind === 'num' && y.pct))) return;
-        // 방향: 변동률(%)의 명시 부호 또는 같은 절 방향어. 한 글 안에서 부호와 방향어가 어긋나도(«−2.6% 상승») 탈락
-        const tokSign = x.kind === 'tok' ? Math.sign(Number((basis as Record<string, unknown> | null | undefined)?.[x.key]) || 0) : 0;
-        const signOf = (n: TrItem) => (n.kind === 'num' && n.pct ? n.sign : 0);
-        const ws = trDirection(sourceTpl, x.index, x.len), wd = trDirection(translatedTpl, y.index, y.len);
-        const ds = signOf(x) || ws || 0, dd = signOf(y) || wd || 0;
-        if (ds && dd && ds !== dd) reasons.push(`translation-direction:${label([x])}`);
-        else if (signOf(y) && wd && signOf(y) !== wd) reasons.push(`translation-direction:${label([y])}`);
-        else if (x.kind === 'tok' && tokSign && wd && tokSign !== wd && !ws) reasons.push(`translation-direction:${label([x])}`);
-    });
-    // 금액: 환산값끼리 같은 개수·±2%
-    const am = (x: number[]) => [...x].sort((p, q) => p - q);
-    const sa = am(trAmounts(sourceTpl, from)), ta = am(trAmounts(translatedTpl, to));
-    if (sa.length !== ta.length || sa.some((v, i) => Math.abs(ta[i] - v) > Math.abs(v) * 0.02)) reasons.push(`translation-amount:${ta.join(',')}≠${sa.join(',')}`);
-    reasons.push(...checkGuardianLiterals(translatedTpl, insightNums(type, basis)));
-    return reasons;
 }
 
 /**
@@ -972,11 +901,9 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
         if (!translated) continue;
         // 원본에 기준이 없으면(옛 저장본) 지금 화면 값이 기준 — 자리표로 바꾸는 숫자도 그 값과 같은 것뿐이다
         const basis = source.basis ?? nums ?? null;
-        const tokenized = tokenizeInsight(type, translated, basis);
-        const g = gateText(type, tokenized, locale, nums, basis, false, tacticalPrompts?.(locale));
-        const numReasons = translationNumberReasons(type, src, source.text, locale, translated, basis);
-        if (!g.ok || isPlaceholder(g.text) || numReasons.length) {
-            console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${[...g.reasons, ...numReasons].join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);
+        const g = gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale));
+        if (!g.ok || isPlaceholder(g.text)) {
+            console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${g.reasons.join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);
             continue;
         }
         const session = promptSession(tacticalPrompts?.(locale));
@@ -1242,7 +1169,10 @@ export class IntelligenceNode {
                 const oldArchive = await archivedInsight(type, locale, opts.nums, opts.tacticalPrompts, { previousKey: true, restore: true });
                 if (oldArchive) return oldArchive;
             }
-            if (opts.translate !== false && (type !== 'reality' || !isOffHours())) {
+            // ★2026-10-24 밤 검토 ③ — Tactical 은 번역으로 채우지 않는다. 번역은 INDEX_FACTS·숫자 계약 밖에서 숫자를 새로 쓰는 유일한 Tactical 경로였고
+            //   (VIX 99·지수 숫자 맞바꿈이 저장본 검사를 통과), v3 글의 번역은 원래도 기존 일정 검사에서 탈락한다(실모델 origin/main 0/5 · 이 브랜치 0/5) — 화면 영향 없이 모델 호출만 줄어든다.
+            //   Tactical 복구는 마지막 정상본(메모리·Redis)·완료 세션 보관본·v2 저장본까지. 순환매·감마 번역은 그대로.
+            if (opts.translate !== false && type !== 'reality') {
                 const translated = await translatedInsight(type, locale, opts.nums, opts.tacticalPrompts);
                 if (translated) {
                     console.log(`[IntelligenceNode] ${type}/${locale}: 다른 언어의 정상 문구를 번역해 채웠다`);

@@ -1,5 +1,5 @@
 /**
- * 코덱스 밤 검토 2026-10-24 ③(번역 숫자 미대조) · TRACKER T21(같은 화면 RLSI 33 vs 29) 재현 — 네트워크 0.
+ * 코덱스 밤 검토 2026-10-24 ③(Tactical 번역 숫자 미대조 → Tactical 번역 경로 제거) · TRACKER T21(같은 화면 RLSI 33 vs 29) 재현 — 네트워크 0.
  *   ①(세션 재사용)은 tacticalV3Gate.test.ts 세션 경계 묶음, ②(장중 지연 현물 → 선물 판정)는 guardianCore.test.ts.
  */
 import assert from 'node:assert/strict';
@@ -11,6 +11,7 @@ const writes: string[] = [];
 let clock = Date.parse('2026-10-23T15:00:00Z'); // 11:00 ET 정규장
 let calls = 0;
 let response: ((opts: any) => string) | null = null;
+const modelLabels: string[] = [];
 function mock(id: string, exports: unknown) {
     const filename = require.resolve(id);
     require.cache[filename] = { id: filename, filename, loaded: true, exports } as Module;
@@ -31,7 +32,7 @@ const key = (l: Locale) => `guardian:gemini:v3:reality:${l}`;
 const ctx = (locale: Locale, over: Record<string, unknown> = {}) => ({ locale, rlsiScore: 33, nasdaqChange: -0.2, vix: 18.4, vectors: [], scheduledEvents: [], ...over });
 const prompts = (over: Record<string, unknown> = {}) => (l: Locale) => buildTacticalPrompt({ ...ctx(l, over), asOf: new Date(clock).toISOString() }, l);
 function reset(iso = '2026-10-23T15:00:00Z') {
-    _resetInsightStateForTest(); store.clear(); writes.length = 0; clock = Date.parse(iso); calls = 0; response = null;
+    _resetInsightStateForTest(); store.clear(); writes.length = 0; modelLabels.length = 0; clock = Date.parse(iso); calls = 0; response = null;
 }
 
 async function main() {
@@ -41,7 +42,7 @@ async function main() {
     Date.now = () => clock;
     _setMarketClockForTest(() => new Date(clock));
     _setModelCallerForTest(async (opts) => {
-        calls++;
+        calls++; modelLabels.push(String(opts.label || ''));
         if (!response) throw new Error('offline failure');
         return { text: response(opts), model: 'mock', usedFallback: false, elapsedMs: 0 } as any;
     });
@@ -81,101 +82,41 @@ async function main() {
     assert.ok(!N.isPlaceholderInsight(moved), '재생성 실패해도 «준비 중» 아님');
     assert.ok(moved.includes('29점') && !moved.includes('50점'), `구간이 바뀐 지금 값으로 «약하다» 서술을 채우지 않는다 — ${moved}`);
 
-    // ── 밤 검토 ③: 번역 응답의 틀린 숫자(VIX 99)는 화면·캐시를 통과하지 못한다 ──
-    const enSource = () => store.set(key('en'), { text: text.en, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
+    // ── 밤 검토 ③: Tactical 은 번역으로 채우지 않는다(번역 응답의 VIX 99 가 화면·캐시를 지날 길 자체가 없다) ──
     const translateTo = (body: string) => (opts: any) => (String(opts.label || '').startsWith('Translate/') ? body : (() => { throw new Error('generation offline'); })());
-    const koGood = '나스닥 현물 관측은 미확인입니다. 시장 전체 재료는 미확인입니다. 시장 건강도(RLSI)는 {RLSI}점으로 약하고 변동성(VIX)은 18.4이며 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.';
-    for (const [name, body, ok] of [
-        ['VIX 99(원문·기준 18.4)', koGood.replace('18.4', '99'), false],
-        ['원문에 없는 지수 수치', koGood.replace('나스닥 현물 관측은 미확인입니다.', '나스닥 종합은 2.6% 하락 중입니다.'), false],
-        ['원문 숫자 그대로', koGood, true],
-    ] as const) {
-        reset(); enSource();
-        response = translateTo(body);
-        const out = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, tacticalPrompts: prompts() });
-        if (ok) {
-            assert.ok(!N.isPlaceholderInsight(out) && out.includes('18.4') && out.includes('33점'), `${name}: ${out}`);
-            assert.ok(writes.includes(key('ko')), `${name}: 통과 번역만 저장`);
-        } else {
-            assert.ok(!out.includes('99') && !out.includes('2.6%'), `${name}: 틀린 숫자 화면 통과 금지 — ${out}`);
-            assert.ok(!writes.includes(key('ko')), `${name}: 캐시 저장 금지`);
-            assert.ok(!store.has(key('ko')), `${name}: 저장본 없음`);
-        }
-    }
-    // 관문 10241021 ①: 지표 간 숫자 맞바꿈·부호/방향 뒤집기도 탈락, 원문에서 이름-숫자 사이가 길어 리터럴로 안 잡힌 숫자는 같은 값·방향이면 통과
-    const enIdx = 'In the cash session the Nasdaq Composite fell 2.6% and the S&P 500 rose 0.3%, while Nasdaq 100 futures in premarket trading are now down 0.4%. The market driver is unconfirmed. Market health (RLSI) is weak at {RLSI}, and options positioning (GEX) is unconfirmed. The next test is unconfirmed.';
-    const koIdx = (a: string) => `${a} 시장 전체 재료는 미확인입니다. 시장 건강도(RLSI)는 {RLSI}점으로 약하고 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.`;
-    for (const [name, first, ok] of [
-        ['지수 숫자 맞바꿈', '정규장에서 나스닥 종합은 0.3% 올랐고 S&P500은 2.6% 내렸으며, 지금 나스닥100 선물은 0.4% 하락 중입니다.', false],
-        ['현물·선물 맞바꿈', '정규장에서 나스닥 종합은 0.4% 내렸고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 2.6% 하락 중입니다.', false],
-        ['방향 뒤집기(fell → 상승)', '정규장에서 나스닥 종합은 2.6% 상승했고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 0.4% 하락 중입니다.', false],
-        ['명시 부호 + 반대 방향어', '정규장에서 나스닥 종합은 −2.6% 상승했고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 0.4% 하락 중입니다.', false],
-        ['선물 방향 뒤집기(원문은 긴 간격)', '정규장에서 나스닥 종합은 2.6% 내렸고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 0.4% 상승 중입니다.', false],
-        ['새 숫자(9.9%)', '정규장에서 나스닥 종합은 9.9% 내렸고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 0.4% 하락 중입니다.', false],
-        ['원문 그대로(긴 간격 숫자 포함)', '정규장에서 나스닥 종합은 2.6% 내렸고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 0.4% 하락 중입니다.', true],
-    ] as const) {
-        reset();
-        store.set(key('en'), { text: enIdx, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
-        response = translateTo(koIdx(first));
-        const out = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4 }, tacticalPrompts: prompts() });
-        assert.equal(writes.includes(key('ko')), ok, `${name}: ${out}`);
-        assert.equal(N.isPlaceholderInsight(out), !ok, name);
-    }
+    const translateCalls = () => modelLabels.filter((l) => l.startsWith('Translate/')).length;
     reset();
-    store.set(key('en'), { text: enIdx, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
-    response = translateTo(koIdx('정규장에서 나스닥 종합은 2.6% 내렸고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 0.4% 하락 중입니다.').replace('시장 전체 재료', '10/24 시장 전체 재료'));
-    await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4 }, tacticalPrompts: prompts() });
-    assert.ok(!writes.includes(key('ko')), '원문에 없는 날짜(10/24) 탈락');
-    // 금액 자릿수($40 billion → 40억 달러)는 amountGuard 로 탈락
+    store.set(key('en'), { text: text.en, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
+    response = translateTo('나스닥 현물 관측은 미확인입니다. 시장 전체 재료는 미확인입니다. 시장 건강도(RLSI)는 {RLSI}점으로 약하고 변동성(VIX)은 99이며 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.');
+    const noTr = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, tacticalPrompts: prompts() });
+    assert.equal(translateCalls(), 0, 'Tactical 번역 모델 호출 0');
+    assert.ok(!noTr.includes('99') && !writes.includes(key('ko')), `번역 글 화면·저장 0 — ${noTr}`);
+    // 생성 경로(③-b 실패 → 복구)에서도 번역하지 않는다
     reset();
-    store.set(key('en'), { text: text.en.replace('The market driver is unconfirmed.', 'Funds moved $40 billion into bonds.'), updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
-    response = translateTo(koGood.replace('18.4', '{VIX}').replace('시장 전체 재료는 미확인입니다.', '채권으로 40억 달러가 이동했습니다.'));
-    await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4 }, tacticalPrompts: prompts() });
-    assert.ok(!writes.includes(key('ko')), '금액 10배 오류 탈락');
+    store.set(key('en'), { text: text.en, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
+    response = translateTo('VIX 99');
+    await N.generateRealityInsight(ctx('ko'));
+    assert.equal(translateCalls(), 0, '생성 실패 뒤에도 Tactical 번역 0');
+    // 같은 언어 정상본이 있으면 그 글을 유지한다
     reset();
-    store.set(key('en'), { text: text.en.replace('The market driver is unconfirmed.', 'Funds moved $40 billion into bonds.'), updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
-    response = translateTo(koGood.replace('18.4', '{VIX}').replace('시장 전체 재료는 미확인입니다.', '채권으로 400억 달러가 이동했습니다.'));
-    await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4 }, tacticalPrompts: prompts() });
-    assert.ok(writes.includes(key('ko')), '맞는 금액(400억)은 통과');
-    // 관문 10241104 P2: 원문 자리표 값을 번역이 숫자로 정확히 써도 통과(자리표로 되돌림)
-    reset();
-    store.set(key('en'), { text: text.en.replace('The market driver is unconfirmed.', 'Gold rose {GOLD_CHG} on the session.'), updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, GOLD_CHG: 1.2 }, session: 'REG' });
-    response = translateTo(koGood.replace('시장 전체 재료는 미확인입니다.', '금은 +1.2% 상승했습니다.'));
-    const goldOut = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, GOLD_CHG: 1.2 }, tacticalPrompts: prompts() });
-    assert.ok(!N.isPlaceholderInsight(goldOut) && goldOut.includes('+1.20%'), goldOut);
-    // 관문 10241151: 부호 뒤집기 · 자리표 방향어 뒤집기 · 금액 단위(ko→en/ja) · 쉼표 묶음
-    const koSrc = (first: string) => text.ko.replace('나스닥 현물 관측은 미확인입니다.', first);
-    const enOut = (first: string) => text.en.replace(', volatility (VIX) is {VIX}', '').replace('Nasdaq spot observations are unavailable.', first);
-    for (const [name, from, srcText, to, body, ok] of [
-        ['명시 부호 뒤집기(-2.6% → +2.6%)', 'en', enOut('The Nasdaq Composite is at -2.6% today.'), 'ko', koSrc('나스닥 종합은 오늘 +2.6%입니다.'), false],
-        ['명시 부호 그대로', 'en', enOut('The Nasdaq Composite is at -2.6% today.'), 'ko', koSrc('나스닥 종합은 오늘 -2.6%입니다.'), true],
-        ['자리표 방향어 뒤집기', 'en', enOut('Gold rose {GOLD_CHG} today.'), 'ko', koSrc('금은 오늘 {GOLD_CHG} 하락했습니다.'), false],
-        ['자리표 방향어 그대로', 'en', enOut('Gold rose {GOLD_CHG} today.'), 'ko', koSrc('금은 오늘 {GOLD_CHG} 상승했습니다.'), true],
-        ['400억 달러 → $40 million', 'ko', koSrc('채권으로 400억 달러가 이동했습니다.'), 'en', enOut('About $40 million moved into bonds.'), false],
-        ['400억 달러 → $40 billion', 'ko', koSrc('채권으로 400억 달러가 이동했습니다.'), 'en', enOut('About $40 billion moved into bonds.'), true],
-        ['400억 달러 → 400億ドル', 'ko', koSrc('채권으로 400억 달러가 이동했습니다.'), 'ja', '債券に400億ドルが移動しました。相場全体の材料は未確認です。市場の健全度(RLSI)は{RLSI}点で弱くオプション(GEX)は未確認です。次の分岐点は未確認です。', true],
-        ['6,700 → 6700선', 'en', enOut('S&P 500 options cluster at the 6,700 level.'), 'ko', koSrc('S&P 500 옵션은 6700선에 몰려 있습니다.'), true],
-    ] as const) {
-        reset();
-        store.set(key(from as Locale), { text: srcText, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, GOLD_CHG: 1.2 }, session: 'REG' });
-        response = translateTo(body);
-        const out = await N.recoverInsight('reality', to as Locale, { nums: { RLSI: 33, VIX: 18.4, GOLD_CHG: 1.2 }, tacticalPrompts: prompts() });
-        assert.equal(writes.includes(key(to as Locale)), ok, `${name}: ${out}`);
-    }
+    store.set(key('ko'), { text: text.ko, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
+    const kept = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, tacticalPrompts: prompts() });
+    assert.ok(kept.includes('33점'), kept);
     // 관문 10241132 ④: 감마·순환매 번역은 origin/main 방식 그대로 — «GEX has now fallen to +5» → «GEX는 +5로 하락» 정상 통과
     reset();
     store.set('guardian:gemini:v2:gamma:en', { text: "[What's different from normal] GEX has now fallen to +5, the lowest in a week.\n[Where this read breaks] Below 6,700 dealers flip to selling.", updatedAt: new Date(clock - 60_000).toISOString(), basis: null });
     response = translateTo('[평소와 다른 점] GEX는 이제 +5로 하락해 일주일 중 가장 낮다.\n[이 판단이 깨지는 지점] 6,700 아래에서는 딜러가 매도로 돌아선다.');
     const gammaOut = await N.recoverInsight('gamma', 'ko', { nums: { GEX: 5, RLSI: 33, VIX: 18.4 } });
     assert.ok(!N.isPlaceholderInsight(gammaOut) && gammaOut.includes('+5'), gammaOut);
-    // 기존 정상본이 있으면 번역 탈락과 무관하게 그 글을 유지한다
-    reset(); enSource();
-    store.set(key('ko'), { text: text.ko, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
-    response = translateTo(koGood.replace('18.4', '99'));
-    const kept = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, tacticalPrompts: prompts() });
-    assert.ok(kept.includes('33점') && !kept.includes('99'), kept);
+    // 순환매 번역도 그대로(origin/main 경로)
+    reset();
+    store.set('guardian:gemini:v3:rotation:en', { text: 'Over the past five trading days money left Technology (XLK) -2.1% for Energy (XLE) 1.4%, a mild shift.\nThe next test is whether Energy (XLE) keeps drawing inflows.', updatedAt: new Date(clock - 60_000).toISOString(), basis: null });
+    response = translateTo('지난 5거래일 동안 자금이 기술(XLK) -2.1%에서 에너지(XLE) 1.4%로 옮겨 갔습니다.\n다음 분기점은 에너지(XLE)로 유입이 이어지는지입니다.');
+    const rotOut = await N.recoverInsight('rotation', 'ko', { nums: { RLSI: 33, VIX: 18.4 } });
+    assert.ok(!N.isPlaceholderInsight(rotOut) && rotOut.includes('-2.1%'), rotOut);
+    assert.equal(translateCalls(), 1);
 
-    console.log('통과 밤 검토 10/24 ③ 번역 숫자 대조 · T21 같은 화면 RLSI 지금 값(구간 이동 시 생성 당시 값 보존)');
+    console.log('통과 밤 검토 10/24 ③ Tactical 번역 경로 제거(순환매·감마 번역 불변) · T21 같은 화면 RLSI 지금 값(구간 이동 시 생성 당시 값 보존)');
 }
 main().catch((e) => { console.error(e); process.exitCode = 1; }).finally(() => {
     Date.now = actualNow; _setMarketClockForTest(null); _setModelCallerForTest(null); _resetInsightStateForTest();
