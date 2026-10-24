@@ -533,6 +533,8 @@ export function metricBindingReasons(text: string, locale: MbLocale, f: MorningF
                 if (!isValue && !isChange && !nearMetric && reportNums.has(String(Math.round(v * 100) / 100))) continue;
                 if (!isValue && !isChange) { reasons.push(`mb:metric-value:${id}:${k[0].trim()}`); continue; }
                 if (isChange && !isValue && chgSign && k[1] && (k[1] === '+' ? '+' : '-') !== chgSign) reasons.push(`mb:metric-sign:${id}`);
+                // 하락 변화를 부호 없이 쓰면(«WTI $100.65(4.99%) 하락») 화면이 상승색으로 칠한다 — 그 지표의 변화로 읽힌 자리에서 판정(관문 10250452)
+                if (isChange && !isValue && chgSign === '-' && !k[1]) reasons.push(`mb:metric-unsigned:${id}`);
             }
         }
     }
@@ -623,8 +625,8 @@ export function checkMorningLocale(text: string, locale: MbLocale, f: MorningFac
     reasons.push(...metricBindingReasons(t, locale, f));
     reasons.push(...weekdayLabelReasons(t, f));
     // 부호 없는 하락 변화(«0.6% 하락»)는 화면에서 상승색으로 칠해진다 — 음수 변화 크기와 같은 부호 없는 %·bp 는 탈락
-    const negs = new Set([...f.indexFacts.filter(x => x.chgPct < 0).map(x => Number(Math.abs(Math.round(x.chgPct * 100) / 100).toFixed(1))),
-        ...f.metrics.flatMap(m => (m.change && /^-/.test(m.change) ? [Number(m.change.replace(/[^\d.]/g, ''))] : []))]);
+    //   지표 변화의 부호는 지표 결속 검사가 그 자리에서 본다 — 여기는 지수 변화만(관문 10250452)
+    const negs = new Set(f.indexFacts.filter(x => x.chgPct < 0).map(x => Number(Math.abs(Math.round(x.chgPct * 100) / 100).toFixed(1))));
     //   같은 크기의 수준·상승 값(금리 4.99% · 유가 +4.99%)이 있으면 그 숫자일 수 있어 판정하지 않는다(관문 10250439)
     const nonNeg = new Set([...f.indexFacts.filter(x => x.chgPct >= 0).map(x => Number(Math.abs(Math.round(x.chgPct * 100) / 100).toFixed(1))),
         ...promptMetrics(f.metrics).flatMap(m => [...(m.value.match(/\d[\d,]*(?:\.\d+)?/g) || []).map(x => Number(x.replace(/,/g, ''))), ...(m.change && !/^-/.test(m.change) ? [Number(m.change.replace(/[^\d.]/g, ''))] : [])])]);
