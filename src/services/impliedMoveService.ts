@@ -10,7 +10,7 @@
  */
 import { getFromCache, mgetFromCache } from '@/services/redisClient';
 import { structureV2Key, structureLastGoodKey } from '@/services/structureService';
-import { atmStraddleImpliedMove, eodQuoteRows, etDateString, IMPLIED_MOVE_DEF, impliedMoveFields, type ImpliedMove, type ImpliedMoveBasis } from '@/lib/impliedMove';
+import { atmStraddleImpliedMove, eodQuoteRows, etDateString, IMPLIED_MOVE_DEF, impliedMoveFields, readImpliedMoveFields as impliedMoveFieldsOfRow, type ImpliedMove, type ImpliedMoveBasis, type ImpliedMoveFields } from '@/lib/impliedMove';
 import { readEodCloses } from '@/services/eodSnapshot';
 import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { optionExpirationFloor, weeklyOptionExpiryAt, isOptionExpiredAt } from '@/lib/marketCalendar';
@@ -207,13 +207,16 @@ function shouldUseEarningsObservation(candidate: EarningsMove, existing: Implied
 // ════════════════════════════════════════════════════════════════════════════
 
 const PACK_MEMO_MS = 60_000;
+// [T26b] 못 읽은 묶음(null — 키 없음·EC2 시간 초과 뒤 Upstash 미적중)은 5초만 기억한다. 60초를 기억하면 인스턴스가 1분 동안
+//   정본 대조를 건너뛴다(10/25 로컬 실측: EC2 프록시 시간 초과 1회 → 그 프로세스 전체가 7.8 그대로).
+const PACK_MISS_MEMO_MS = 5_000;
 let packMemo: { at: number; value: ImpliedPack | null } | null = null;
 /** 시험용 — 묶음 메모 비우기 */
 export function _resetImpliedPackMemoForTest(): void { packMemo = null; }
 
 async function readEarningsPackMemo(): Promise<ImpliedPack | null> {
     const now = Date.now();
-    if (packMemo && now - packMemo.at >= 0 && now - packMemo.at < PACK_MEMO_MS) return packMemo.value;
+    if (packMemo && now - packMemo.at >= 0 && now - packMemo.at < (packMemo.value ? PACK_MEMO_MS : PACK_MISS_MEMO_MS)) return packMemo.value;
     let value: ImpliedPack | null = null;
     try {
         const p = await getFromCache<ImpliedPack>(EARNINGS_IMPLIED_KEY);
@@ -239,7 +242,8 @@ function usableClosingObservation(im: any, expiry: string, today: string): im is
 }
 
 /** 일반 요청(after 없음)의 결과에 같은 만기의 마감 관측을 실적 경로와 같은 규칙으로 적용한다(제자리 수정). */
-async function applyClosingObservations(reqs: ImpliedMoveRequest[], results: ResolvedImpliedMove[]): Promise<void> {
+/** 반환: 대조를 끝냈나(false = 묶음·관측을 못 읽어 «모름» — 부르는 쪽은 그 결과를 기억하지 않는다 [T26b]) */
+async function applyClosingObservations(reqs: ImpliedMoveRequest[], results: ResolvedImpliedMove[]): Promise<boolean> {
     // «지금 정규장의 실시간 값»만 관측(지난 세션)보다 새롭다 — 규칙상 바뀌지 않으므로 읽지도 않는다.
     //   지난 세션에 저장된 live 값(예: 금요일 장중 값을 토요일에 읽음)·장 마감 뒤 남은 오늘 live 값은 같은 세션의 EOD 관측이
     //   이긴다(shouldUseEarningsObservation: 같은 세션이면 EOD 우선) — 관문 10250346 ①.
@@ -256,9 +260,9 @@ async function applyClosingObservations(reqs: ImpliedMoveRequest[], results: Res
             const session = impliedMoveFields(im).impliedMoveSession;
             return !(marketOpen && (session == null || session === today));
         });
-    if (!targets.length) return;
+    if (!targets.length) return true;
     const pack = await readEarningsPackMemo();
-    if (!pack) return;
+    if (!pack) return false;
     const lookups: Array<{ idx: number; key: string; cellPct: number | null }> = [];
     for (const { r, idx } of targets) {
         const prefix = `${r.ticker}|`;
@@ -271,13 +275,15 @@ async function applyClosingObservations(reqs: ImpliedMoveRequest[], results: Res
             lookups.push({ idx, key: earningsObservationKey(r.ticker, after, true), cellPct });
         }
     }
-    if (!lookups.length) return;
+    if (!lookups.length) return true;
     let values: any[] = [];
     try {
         values = await mgetFromCache<any>(lookups.map((l) => l.key));
     } catch {
-        return;
+        return false;
     }
+    // mgetFromCache 는 전부 실패해도 던지지 않고 null 배열을 준다 — 묶음에 행이 있는데 관측이 하나도 안 읽혔으면 «모름»으로 본다.
+    const consulted = values.some((v) => v != null);
     const best = new Map<number, { im: EarningsMove; matchesCell: boolean }>();
     lookups.forEach((l, i) => {
         const existing = results[l.idx].im;
@@ -299,6 +305,100 @@ async function applyClosingObservations(reqs: ImpliedMoveRequest[], results: Res
         const { method: _method, eventMovePct: _event, ...straddle } = im;
         results[idx] = resolvedMoveOf(results[idx].ticker, straddle as ImpliedMove, 'probe', null);
     }
+    return consulted;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// [T26b 2026-10-25] 이미 «화면 필드»(impliedMove*)로 굳어 있는 값에도 같은 정본 규칙을 — 종목 화면 IMP MOVE 경로.
+//
+// [사고] 10/25 운영: /api/dashboard/unified?tickers=AMZN = 7.8(eod·10/23·_status analysis-cache-hit) — T26 정본(마감 관측) 7.9 밖.
+//   unified 는 구조 사본을 직접 읽지 않는다. 값은 세 갈래로 «이미 계산된 필드»로 온다:
+//     ① 분석 캐시 cache:analysis:{T} — 배치가 쓴 값, TTL 3일·장외엔 직전 세션 값이 그대로 유효(배치는 캐시 적중이면 다시 안 씀)
+//     ② unified 응답 캐시(인스턴스 메모리 장외 1시간·Redis dashboard:unified:* 장외 12시간) — ①·③으로 만든 응답의 이월
+//     ③ 전체 경로 — /api/live/ticker 체인으로 atmStraddleImpliedMove 직접 계산(수집기 FMV, 공급사 마감 호가 아님)
+//   그래서 T26 이 resolveImpliedMoves 에 넣은 규칙(applyClosingObservations)이 닿지 않았다.
+//
+// [규칙] 필드 → ImpliedMove 꼴로 되돌려 «같은 함수»(applyClosingObservations = shouldUseEarningsObservation)를 그대로 통과시킨다.
+//   바뀌는 건 같은 만기·같은(또는 더 새) 세션의 마감 관측이 이길 때뿐 — 장중 오늘 실시간 값·다른 만기·관측 없음은 그대로(null).
+//   ⛔ 벤더 0 · Redis 쓰기 0. 읽기 = 묶음 GET(인스턴스 메모 60초) + 해당 종목 관측 mget. 결과 메모 60초(요청마다 다시 읽지 않게).
+//   실패·시간 초과는 «그대로»(null) — 지어내지 않는다.
+// ════════════════════════════════════════════════════════════════════════════
+
+const CANON_MEMO_MS = 60_000;
+const canonMemo = new Map<string, { at: number; value: ImpliedMoveFields | null }>();
+/** 시험용 — 필드 정본 메모 비우기 */
+export function _resetCanonicalFieldsMemoForTest(): void { canonMemo.clear(); }
+
+const canonKeyOf = (ticker: string, f: ImpliedMoveFields) =>
+    [ticker, f.impliedMoveExpiry, f.impliedMoveBasis, f.impliedMoveSession, f.impliedMovePct, f.impliedMoveAsOf ?? ''].join('|');
+
+/** 화면 필드를 같은 정의의 ImpliedMove 꼴로 — 다리·행사가·분모는 필드에 없으므로 비교에 안 걸리게 NaN(관측이 이기면 관측 값으로 통째 교체) */
+function moveOfFields(f: ImpliedMoveFields): ImpliedMove | null {
+    if (f.impliedMoveDef !== IMPLIED_MOVE_DEF || f.impliedMovePct == null || !f.impliedMoveBasis
+        || typeof f.impliedMoveExpiry !== 'string' || !ISO_DATE_RE.test(f.impliedMoveExpiry)) return null;
+    return {
+        def: IMPLIED_MOVE_DEF, pct: f.impliedMovePct, straddle: NaN, strike: NaN, expiry: f.impliedMoveExpiry,
+        callPrice: NaN, putPrice: NaN, spot: NaN, basis: f.impliedMoveBasis, asOf: f.impliedMoveAsOf,
+        chainDate: f.impliedMoveBasis === 'eod' ? f.impliedMoveSession : null, session: f.impliedMoveSession,
+    };
+}
+
+const sameFields = (a: ImpliedMoveFields, b: ImpliedMoveFields) =>
+    a.impliedMovePct === b.impliedMovePct && a.impliedMoveExpiry === b.impliedMoveExpiry && a.impliedMoveBasis === b.impliedMoveBasis
+    && a.impliedMoveAsOf === b.impliedMoveAsOf && a.impliedMoveSession === b.impliedMoveSession && a.impliedMoveDef === b.impliedMoveDef;
+
+/**
+ * 이미 화면 필드로 저장·이월된 예상 변동에 T26 정본 규칙을 적용한다. 결과는 요청 순서 — 바꿀 때만 새 필드, 그대로면 null.
+ *   쓰는 곳: services/analysisCache(읽는 입구 — 분석 캐시 소비처 전부) · api/dashboard/unified(응답 출구 — 응답 캐시·전체 경로).
+ */
+export async function canonicalImpliedMoveFields(rows: Array<{ ticker: string; fields: ImpliedMoveFields }>): Promise<Array<ImpliedMoveFields | null>> {
+    const out: Array<ImpliedMoveFields | null> = rows.map(() => null);
+    const now = Date.now();
+    const work: Array<{ i: number; ticker: string; memoKey: string; fields: ImpliedMoveFields; im: ImpliedMove }> = [];
+    rows.forEach((row, i) => {
+        const ticker = String(row?.ticker || '').toUpperCase();
+        const im = ticker && row?.fields ? moveOfFields(row.fields) : null;
+        if (!im) return;
+        const memoKey = canonKeyOf(ticker, row.fields);
+        const hit = canonMemo.get(memoKey);
+        if (hit && now - hit.at >= 0 && now - hit.at < CANON_MEMO_MS) { out[i] = hit.value; return; }
+        work.push({ i, ticker, memoKey, fields: row.fields, im });
+    });
+    if (!work.length) return out;
+    const reqs: ImpliedMoveRequest[] = work.map((w) => ({ ticker: w.ticker }));
+    const results: ResolvedImpliedMove[] = work.map((w) => resolvedMoveOf(w.ticker, w.im, 'structure', null));
+    let consulted = false;
+    try {
+        consulted = await applyClosingObservations(reqs, results);
+    } catch {
+        return out;   // 읽기 실패 — 메모하지 않고 그대로
+    }
+    if (canonMemo.size > 2000) canonMemo.clear();
+    work.forEach((w, k) => {
+        const next = results[k].im && results[k].im !== w.im ? impliedMoveFields(results[k].im) : null;
+        const value = next && next.impliedMovePct != null && !sameFields(next, w.fields) ? next : null;
+        // 못 읽어 «그대로»가 된 결과는 기억하지 않는다 — 다음 요청이 다시 대조한다(값을 바꾼 결과는 읽기에 성공한 것).
+        if (consulted || value) canonMemo.set(w.memoKey, { at: Date.now(), value });
+        out[w.i] = value;
+    });
+    return out;
+}
+
+/**
+ * 종목 → 행(화면 필드 impliedMove* 를 싣는 객체) 맵에 정본을 덮는다(맵의 값만 새 객체로 바꾼다 — 원본 행·캐시 객체는 안 고친다).
+ *   budgetMs 안에 못 끝내거나 실패하면 그대로. 분석 캐시 입구·unified 출구가 같은 이 함수 하나를 쓴다.
+ */
+export async function overlayCanonicalImpliedMoveRows(rows: Record<string, any>, budgetMs = 500): Promise<void> {
+    const tickers = Object.keys(rows || {}).filter((t) => rows[t] && typeof rows[t] === 'object' && impliedMoveFieldsOfRow(rows[t]).impliedMovePct != null);
+    if (!tickers.length) return;
+    try {
+        const work = canonicalImpliedMoveFields(tickers.map((t) => ({ ticker: t, fields: impliedMoveFieldsOfRow(rows[t]) })));
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const fixed = await Promise.race([work, new Promise<null>((r) => { timer = setTimeout(() => r(null), budgetMs); })]);
+        if (timer) clearTimeout(timer);
+        if (!fixed) return;
+        fixed.forEach((f, i) => { if (f) rows[tickers[i]] = { ...rows[tickers[i]], ...f }; });
+    } catch { /* 그대로 */ }
 }
 
 /** 종목별 (after, timing) 으로 예상 변동을 읽는다 — 결과는 요청 순서. 저장본이 없으면 값 없이 이유만(지어내지 않는다). */
