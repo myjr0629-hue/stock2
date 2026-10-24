@@ -339,6 +339,13 @@ if (cmd === 'pub') {
     process.exit(1);
   }
   const led = load(); led.entries.unshift({ ch, ...(via ? { via } : {}), url: url || '', note: rest.join(' '), at: new Date().toISOString(), kst: kstDate(), utc: utcDate() });
+  if (led.entries.length > 500) { // 넘친 옛 기록은 버리지 않고 보관 파일로(10/24 — 잘라 내기로 204건이 사라졌다)
+    const ARCH = LEDGER.replace(/\.json$/, '-archive.json');
+    let arch = { entries: [] }; try { arch = JSON.parse(fs.readFileSync(ARCH, 'utf8')); } catch {}
+    const seen = new Set(arch.entries.map((e) => e.at + '|' + e.url));
+    for (const e of led.entries.slice(500)) if (!seen.has(e.at + '|' + e.url)) arch.entries.push(e);
+    fs.writeFileSync(ARCH, JSON.stringify(arch, null, 1));
+  }
   led.entries = led.entries.slice(0, 500); save(led);
   if (!process.env.MKT_LEDGER_PATH && acctOf(ch) === 'bluesky_acct') { try { require('child_process').spawn(process.execPath, [path.join(__dirname, 'bsky-link-ratio.mjs'), '--quiet'], { detached: true, stdio: 'ignore' }).unref(); } catch {} } // 링크 비율 갱신(10/5)
   const c = counts()[ch]; console.log(`기록: ${ch} ${url || ''} → 오늘 ${c.used}/${c.cap} (${c.day} 기준)` + (c.acct ? ` · 계정 합계 ${c.acctUsed}/${c.acctCap}(${c.acct})` : ''));
