@@ -37,11 +37,15 @@ export async function loadFuturesCashCloseReference(symbol: 'NQ=F' | 'ES=F', dat
     if (memo) return memo;
     const both = await readBoth([key]).catch(() => ({ primary: [null], upstash: [null] }));
     let best: FuturesCashCloseReference | null = null;
-    for (const v of [both.primary[0], both.upstash[0]]) {
+    const [a, b] = [both.primary[0], both.upstash[0]];
+    for (const v of [a, b]) {
         if (validFuturesCashCloseReference(v, symbol, date)) best = best ? closerCashCloseReference(best, v) : v;
     }
     const settledAt = etWallTimeToMs(date, sessionCloseMinutes(date)) + 10 * 60_000;
-    if (best && nowMs >= settledAt) {
+    // 두 저장소가 같은 기준을 돌려줬을 때만 고정한다. 한쪽 읽기 실패·결측·불일치면 다음 조회에서 다시 읽는다.
+    const agreed = !!a && !!b && validFuturesCashCloseReference(a, symbol, date) && validFuturesCashCloseReference(b, symbol, date)
+        && a.asOf === b.asOf && a.price === b.price;
+    if (best && agreed && nowMs >= settledAt) {
         if (settledRefs.size > 64) settledRefs.clear();
         settledRefs.set(key, best);
     }

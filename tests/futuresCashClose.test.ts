@@ -147,10 +147,26 @@ async function main() {
     store.set(futuresCashCloseKey('NQ=F', date), { ...reference('NQ=F', date, close, 20020), asOf: 'bad' });
     upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close - 30_000, 20000));
     assert.ok(Math.abs((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct - 0.1) < 1e-10, '깨진 사본은 버리고 유효한 쪽');
-    // 마감 10분 뒤 고른 기준은 인스턴스에 고정 — 다음 조회는 저장소를 다시 읽지 않는다.
+    // 관문 10241622 재현: 한쪽(Upstash) 읽기 실패·불일치 때 고른 기준은 고정하지 않는다 → 복구 뒤 더 가까운 기준으로 바뀐다.
+    _resetSettledCashCloseRefsForTest();
+    store.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close - 30_000, 20000));
+    upstashStore.delete(futuresCashCloseKey('NQ=F', date));   // Upstash 읽기 실패(=null) 모사
+    store.set('yahoo:nq', quote('NQ=F', at, 20020));
+    assert.ok(Math.abs((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct - 0.1) < 1e-10, '한쪽만 있으면 그 값(임시)');
+    upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20020));
+    assert.equal((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct, 0, 'Upstash 복구 뒤 더 가까운 기준으로 교정(고정 안 됨)');
+    // 두 저장소가 같은 기준이면 마감 10분 뒤 고정 — 다음 조회는 저장소를 다시 읽지 않는다.
+    store.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20020));
+    await loadMarketIndexBasis(at);
     reads.length = 0;
     await loadMarketIndexBasis(at);
-    assert.ok(!reads.some(k => k.startsWith('yahoo:cash-close:nq:')), '확정된 기준은 다시 읽지 않음');
+    assert.ok(!reads.some(k => k.startsWith('yahoo:cash-close:nq:')), '두 저장소가 일치한 확정 기준은 다시 읽지 않음');
+    // 마감 10분 전에는 일치해도 고정하지 않는다.
+    _resetSettledCashCloseRefsForTest();
+    await loadMarketIndexBasis(close + 5 * 60_000);
+    reads.length = 0;
+    await loadMarketIndexBasis(close + 6 * 60_000);
+    assert.ok(reads.some(k => k.startsWith('yahoo:cash-close:nq:')), '마감 10분 전에는 매번 읽음');
     // 정규장·장전(PRE)·주말에는 기준을 읽지 않는다(읽기 비용 증가 0).
     reads.length = 0;
     await loadMarketIndexBasis(close - 60 * 60_000);
