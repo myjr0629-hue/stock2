@@ -136,7 +136,7 @@ let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = {
 // → 소비자는 «frozenSec 없음 = 모름»으로 읽어 전부 DELAYED 로 보인다.
 // [2026-09-29] v2 → v3: 곡선이 헤드라인일 때 us10y 변화량이 곡선 기준으로 바뀌었다(yieldCurve.prev*).
 // 프리뷰·운영이 같은 Redis 를 쓰므로, 키가 같으면 옛 코드와 새 코드가 서로의 값을 덮어쓴다.
-export const MACRO_REDIS_KEY = 'macro:snapshot:v5';   // 드라이런 읽기 전용 조회(peekMacroSnapshot)도 같은 키
+const MACRO_REDIS_KEY = 'macro:snapshot:v5';
 const MACRO_FRESH_MS = 60_000;        // 이 안쪽이면 «신선»
 const MACRO_RETENTION_SEC = 15 * 60;  // 낡아도 15분은 들고 있는다 (즉시 응답용)
 let macroRefreshing = false;          // 배경 갱신 중복 방지
