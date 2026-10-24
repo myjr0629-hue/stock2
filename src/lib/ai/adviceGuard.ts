@@ -120,7 +120,6 @@ const HARD_SWAPPED: RegExp[] = [
   /매[수도](?:를|을|가|이|는|은|에)\s?(?:고려|검토|추천|권유|권하|권장|노려|노리|서두|자제|피하|삼가|보류|답|정답|옳|맞|유리|최선|좋|낫|바람직|현명|필요)/,
   /매[수도][가-힣\s]{0,8}(?:세요|십시오|하라|해라|합시다)/,                                        // 매수에 나서세요 · 매수를 서두르세요
   /(?:지금|당장|바로|즉시|오늘|분할|추격|저점|눌림목|물타기|적극)\s?(?:매수|매도)(?!세)/,
-  /매[수도]로\s?(?:전환|대응|접근|돌아서|갈아타|나서|가는\s?(?:게|것))/,                            // «매도로 전환할 시점» 같은 행동 권유(서술 «매도로 금리가…»는 ③에서 허용)
   // ── 영어 ──
   /\b(?:buy|sell)\s+(?:now|today|immediately|aggressively|more|less|it|them|this|these|those|the\s+dip|on\s+(?:dips?|weakness|strength|pullbacks?))\b/i,
   /\b(?:buying|selling)\s+(?:is|looks|seems|appears|makes|remains|would\s+be|may\s+be|could\s+be)\s+(?:\w+\s+)?(?:attractive|wise|sensible|prudent|smart|justified|warranted|sense|appealing|advisable|recommended|favorable|compelling|better|best|good|great)\b/i,
@@ -136,8 +135,7 @@ const NOUN_FLOW: RegExp[] = [
   // 일본어: 買い/売り + 조사·구두점·서술 명사(優勢 · 先行 · 圧力 …). «買いです/買いだ» 같은 평가형은 여기 없다 → 막힌다
   /(?:買い|売り)(?=[がをにもはのと、。，,.\s)）」』]|で(?=は|も|始|推移|終|スタート|引け|寄り|寄付|幕|反応|動|進|開)|$|より|優勢|先行|圧力|一巡|一服|一色|地合|主導|中心|材料|観測|継続|拡大|加速|集中|殺到|優位|心理|需要|懸念|警戒|余波|ムード|意欲|支え)/g,
   // 한국어: 매수/매도 + 주격·목적격·보조사(조사 뒤가 한글이면 다른 낱말 — «매수가격» 은 아님) · 했다/하고 있다/한 뒤
-  // «기술주 매도로 금리가…»(원인 서술의 도구격 «로») — 실모델 Tactical ko 탈락 원인(10/24 운영 모델 6회 중 4회). «매도로 대응하세요» 같은 권유는 ②에서 이미 걸린다.
-  /매[수도](?=(?:가|이|를|을|도|는|은|에|와|과|로)(?![가-힣])|인지|보다)/g,
+  /매[수도](?=(?:가|이|를|을|도|는|은|에|와|과)(?![가-힣])|인지|보다)/g,
   /매[수도](?:했|한\s?(?:뒤|후|것)|하고\s?있)/g,
   // 영어: 동명사·복수(buying · selling · buys · sells) — 명사/3인칭 서술. 권유 틀(consider buying · worth selling …)은 ②에서 잡았다
   /\b(?:buying|selling|buys|sells)\b/gi,
