@@ -91,12 +91,11 @@ const CURRENT_SIDE: Record<Loc, RegExp> = {
 };
 
 const CONTRAST = /\brather than\b|\binstead of\b|대신|아니라|이\s*아닌|가\s*아닌|ではなく|代わりに/i;
-const NEG_AFTER: Record<Loc, RegExp> = { ko: /^\s*(?:않|못|없)/, en: /(?!)/, ja: /^(?:せず|しない|されない|しません|ない|ず)/ };
-const CURRENT_MECH: Record<Loc, RegExp> = {
-    ko: /(?:현재|지금)[^,;·。]{0,24}?(완충|줄이|줄입|줄여|억제|완화|증폭|확대|키우|키워|키웁)/g,
-    en: /\b(?:currently|now)\b[^,;.]{0,30}?\b(cushion\w*|dampen\w*|amplif\w*|magnif\w*)/gi,
-    ja: /(?:現在|今は)[^,;・、。]{0,24}?(緩和|抑え|抑制|増幅|拡大|強め)/g,
-};
+
+// 부정·감소·부재(어디에 있든 순수 구조 설명이 아니다): n't·nothing·none·never·less·limits·관계없이(없)·줄·사라·잃·弱·消 …
+const HEDGE_ANY = /n't\b|\b(?:nothing|none|neither|nor|never|less|limits?|limited|loses?|lost|lacks?|without|absent|far)\b|없|않|못|아니|아닌|줄어|줄고|줄며|사라|잃|약해|ない|(?:せ|さ|ら)ず|ません|弱ま|消え|失わ/i;
+// 나머지에 남으면 «현재 상태 단정»으로 보는 단어(at·switch·price·현재·가격·現在 …)
+const RESIDUAL_CLAIM = /\b(?:at|currently|now|price|it is|sits?|switch|flip(?!\b)|right)\b|현재|지금|주가|가격|전환점|경계에|現在|株価|価格|転換点|ちょうど/i;
 
 export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: number, today?: string): WhyCheck {
     const original = checkPickWhy(raw, ticker, f, year, today);
@@ -114,57 +113,17 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         if (UNSUPPORTED_CAUSE.test(t)) reasons.push(`${l}:v2:unsupported-cause`);
         if ((f.kind === 'earnings' || f.kind === 'whale') && HISTORY.test(t) && !NEGATED.test(t)) reasons.push(`${l}:v2:unsupported-history`);
         if (f.kind !== 'gamma' || f.level !== 'gammaFlip') continue;
+        // Gamma Flip 완화는 단 하나: «순수한 두 갈래 구조 설명»(위면 완충·아래면 증폭)일 때만 옛 검사의 위치·기전 사유를 뗀다.
+        //   순수 = 정상 기전의 두 갈래가 모두 있고, 글 전체에 부정·대조·감소 표현이 없고, 두 갈래를 뗀 나머지에 위치·기전·현재·가격 단어가 없다.
+        // 그 밖의 모든 글은 운영(옛) 검사 판정 그대로 — 새 검사는 운영보다 엄하지도 느슨하지도 않다.
+        // (나머지·부정 문형을 따로 해석하던 판정은 관문 14회 동안 오탈락·오통과가 번갈아 재현됐다: 10241657~10242053.)
         const pair = BRANCHES[l];
-        // 현재 쪽이 우연히 맞더라도 «위면 증폭/아래면 완충»이라는 뒤집힌 조건은 거절한다.
-        // 부정된 반대 기전(«below it, hedging does not dampen»)은 뒤집힌 조건이 아니라 올바른 설명이다(관문 10241729).
-        // «amplifies rather than cushions»·«instead of cushioning»·«완충이 아니라»·«緩和ではなく»처럼 대조로 부정된 기전도 같다(관문 10241801).
-        // 영어 부정은 «그 갈래의 기전 단어 바로 앞(10자)»에 있을 때만(«does not dampen»). «does not cushion but amplifies»의 not 은 다른 단어를 부정한다(관문 10242027).
-        const mechNegated = (m: RegExpMatchArray, i: number) => {
-            const w = [...m[0].matchAll(new RegExp(MECHANISM_WORDS[l][i], 'gi'))].pop();
-            if (!w) return false;
-            return /\b(?:not|no|never|n't|without)\b[^,;.]{0,10}$|n't\s*$/i.test(m[0].slice(Math.max(0, (w.index ?? 0) - 14), w.index));
-        };
-        const negatedClause = (m: RegExpMatchArray, i = BRANCHES[l].findIndex(re => new RegExp(re.source, re.flags.replace('g', '')).test(m[0]))) =>
-            (l === 'en' ? mechNegated(m, Math.max(0, i)) : NEG_MECHANISM.test(m[0])) || CONTRAST.test(m[0])
-            || /^\s*(?:이|가|은|는)?\s*(?:아니라|아닌|대신)|^\s*(?:では|じゃ)なく/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 8))
-            || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6));
-        // 반대 기전 «어휘» 판정은 두지 않는다 — 감소·부재·부정 서술(줄고·사라지는·limits·less·loses…)을 뒤집힘으로 오독하는 오탈락이
-        // 관문 10회 내내 반복됐다(10241729~10242022). 운영(옛) 검사와 같은 수준으로 두고, 뒤집힘 금지는 프롬프트 7항으로 다룬다
-        // (운영 모델 225건 실측 뒤집힘 0). 아래 «두 갈래 모두 정상 기전»일 때만 조건절을 떼어 현재 위치·기전을 다시 본다.
-        // new RegExp: g 플래그의 lastIndex가 다음 호출에 남지 않게 한다.
-        // 위·아래 «두 갈래가 모두» 있을 때만 조건 구조로 본다 — 한 갈래만 쓰면 현재 위치 주장이므로 기존 검사 그대로.
-        if (!pair.every(re => new RegExp(re).test(t))) continue;
-        // 기전을 부정한 조건절(«위면 완충하지 않는다»·«does not dampen»·«緩和せず»)은 올바른 조건 구조가 아니다(관문 10240458).
-        // 부정어는 절 안(영어) 또는 절 «바로 뒤»(한국어 «완충하지 않고»·일본어 «緩和せず»)만 본다 — «; no direction implied» 같은 다음 절은 제외(관문 10241657).
-        if (pair.some(re => [...t.matchAll(new RegExp(re))].some(m => negatedClause(m))))
-            reasons.push(`${l}:v2:conditional-mechanism`);
-        const residual = pair.reduce((s, re) => s.replace(new RegExp(re), ''), t);
-        // 두 갈래를 떼어 낸 나머지에 위치·기전·현재 단어가 «하나라도» 남으면 완화하지 않는다 — 운영(옛) 검사 판정을 그대로 쓴다.
-        // (나머지를 따로 해석하던 판정은 부정·대조 문형마다 오탈락·오통과가 번갈아 나왔다: 관문 10241657~10242039.)
-        // 완화는 «순수한 두 갈래 구조 설명»(나머지에 위치·기전 주장 없음)일 때만 — 그때만 옛 검사의 위치·기전 사유를 뗀다.
-        const residualClaims = new RegExp(CURRENT_SIDE[l]).test(residual) || new RegExp(CURRENT_MECH[l]).test(residual)
-            || new RegExp(`${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]}`, 'i').test(residual)
-            || /\b(?:currently|now|price|it is|sits?)\b|현재|지금|주가|가격|現在|株価|価格/i.test(residual);
-        if (residualClaims) {
-            // 나머지에 부정·대조·감소 표현이 전혀 없을 때만 «현재 위치·기전» 단정을 실제 쪽과 맞춘다(«현재는 위입니다» 거절).
-            // 부정 등이 섞이면 해석하지 않고 옛 검사 판정 그대로(관문 10242027·10242039: «not far above»·«완충 효과는 없습니다»).
-            const plain = !NEG_MECHANISM.test(residual) && !CONTRAST.test(residual) && !/n't\b|아니|아닌|ではな|\b(?:far|less|limits?|nor|never)\b|줄|사라|잃|없|弱|消/i.test(residual);
-            // 나머지에 두 기전 단어가 함께 있으면(어느 쪽 단정인지 모호) 해석하지 않는다.
-            const cushionW = new RegExp(MECHANISM_WORDS[l][0], 'i').test(residual), ampW = new RegExp(MECHANISM_WORDS[l][1], 'i').test(residual);
-            if (plain && !(cushionW && ampW)) {
-                // currently/now 없이 쓴 기전 단정(«; hedging dampens moves»)도 실제 쪽과 맞춘다(관문 10242047).
-                if ((cushionW && f.side !== 'a') || (ampW && f.side !== 'b')) reasons.push(`${l}:v2:current-mechanism`);
-                for (const m of residual.matchAll(new RegExp(CURRENT_SIDE[l])))
-                    if ((/^(?:위|above|over|上)$/i.test(m[1]) ? 'a' : 'b') !== f.side) reasons.push(`${l}:v2:current-side`);
-                for (const m of residual.matchAll(new RegExp(CURRENT_MECH[l])))
-                    if ((new RegExp(MECHANISM_WORDS[l][0], 'i').test(m[1]) ? 'a' : 'b') !== f.side) reasons.push(`${l}:v2:current-mechanism`);
-                // 단정이 실제 쪽과 맞으면 옛 검사가 두 갈래의 반대쪽 단어로 낸 위치·기전 사유는 뗀다(«… Price is below.» 정상).
-                reasons = reasons.filter(r => !(r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`)));
-            }
-            continue;
-        }
-        const isSideReason = (r: string) => r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`);
-        reasons = reasons.filter(r => !isSideReason(r));
+        if (!pair.every(re => new RegExp(re.source, re.flags.replace('g', '')).test(t))) continue;
+        if (NEG_MECHANISM.test(t) || CONTRAST.test(t) || HEDGE_ANY.test(t)) continue;
+        const residual = pair.reduce((s, re) => s.replace(new RegExp(re.source, re.flags.replace('g', '')), ''), t);
+        if (new RegExp(CURRENT_SIDE[l]).test(residual) || new RegExp(`${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]}`, 'i').test(residual)
+            || RESIDUAL_CLAIM.test(residual)) continue;
+        reasons = reasons.filter(r => !(r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`)));
     }
     reasons = [...new Set(reasons)];
     return reasons.length ? { ok: false, reasons } : { ok: true, reasons: [], text };
