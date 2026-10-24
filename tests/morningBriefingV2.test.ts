@@ -124,6 +124,9 @@ test('지표 이름 ↔ 값 결속 — 영어판만 금리·VIX 값을 맞바꾸
     const flat: MorningFacts = { ...facts, metrics: morningMetrics({ rlsi: 28.7, rlsiTrend: [28.7, 28.7, 28.7], vix: 19.57, vix3m: 20.12, gexIndex: -12, gexLevel: 'NEUTRAL', breadthPct: 42.6, us10y: { level: 4.99, bp: 0 }, oil: { level: 100.65, chgPct: 1.19 }, gold: { level: 4040.8, chgPct: -0.48 } }) };
     const zero = (x: string) => x.replace('4.99%(+4bp)', '4.99%(0bp)').replace('4.99% (+4bp)', '4.99% (0bp)');
     assert.deepEqual(checkMorningV2(JSON.stringify({ ko: zero(good.ko), en: zero(good.en), ja: zero(good.ja) }), flat).reasons, []);
+    // 다른 주어의 방향어는 그 지표의 방향이 아니다 · 가격에 % 단위는 값이 아니다(관문 10250133)
+    assert.ok(!checkMorningLocale(good.en.replace('WTI crude at $100.65 (+1.19%)', 'WTI crude at $100.65 (+1.19%) as bond prices fell'), 'en', facts).some(r => /metric/.test(r)));
+    assert.ok(checkMorningLocale(good.en.replace('WTI crude at $100.65', 'WTI crude at 100.65%'), 'en', facts).some(r => r.startsWith('mb:metric-value:oil')));
     // 조건문의 «would» 는 예측이 아니다(관문 ③)
     assert.ok(!checkMorningLocale(good.en.replace('a stronger reading adds rate pressure', 'a stronger reading would add rate pressure'), 'en', facts).includes('mb:forecast:next'));
 });

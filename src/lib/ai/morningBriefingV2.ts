@@ -403,7 +403,8 @@ const METRIC_ALIASES: Record<string, Record<MbLocale, RegExp>> = {
     btc: { ko: /비트코인/g, en: /bitcoin/gi, ja: /ビットコイン/g },
 };
 // 다른 주어(지수·주가·증시)가 나오면 그 지표의 절은 끝난다 — «유가 … 주가 하락 흐름»의 «하락»은 유가의 방향이 아니다
-const WINDOW_STOP = /S&P\s?500|나스닥|Nasdaq|NASDAQ|ナスダック|선물|futures|先物|주가|증시|株価|株式|\b(?:stocks?|equities|shares)\b|[.!?。！？](?:\s|$)/i;
+//   다른 절을 여는 접속어(as·while·반면·一方 …)와 다른 자산(채권·bonds)에서도 끊는다(«WTI … as bond prices fell», 관문 10250133 ①)
+const WINDOW_STOP = /S&P\s?500|나스닥|Nasdaq|NASDAQ|ナスダック|선물|futures|先物|주가|증시|株価|株式|채권|債券|\b(?:stocks?|equities|shares|bonds?|as|while|amid|but|whereas|after|though|although)\b|반면|한편|가운데|一方|中で|ながら|[.!?。！？](?:\s|$)/i;
 // 일본어 «高·安» 은 낱자로 쓰면 «安全資産»·«高まり» 를 방향어로 읽는다 — 숫자 뒤 꼴(3.82%高の · 1.29%安で)만
 const UP_WORD = /올랐|오른|오르|올라|상승|높아|뛰었|뛴|\b(?:rose|up|higher|climb\w*|gain\w*|rising|jump\w*|advanc\w*)\b|上昇|上が|[%\d]高[のでと、]/i;
 const DOWN_WORD = /내렸|내린|내려|하락|떨어|밀려|밀렸|낮아|\b(?:fell|down|lower|declin\w*|drop\w*|falling|slip\w*)\b|低下|下落|下が|[%\d]安[のでと、]/i;
@@ -435,7 +436,9 @@ export function metricBindingReasons(text: string, locale: MbLocale, f: MorningF
             const tokens = [...win.matchAll(/([+\-−]?)(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(\s?(?:%|bp))?/g)].slice(0, 2);
             for (const k of tokens) {
                 const v = num(k[3]); const unit = (k[4] || '').trim();
-                const isValue = valueRaw != null && Math.abs(v - num(valueRaw)) <= tolOf(k[3]) && (unit !== 'bp');
+                // 단위도 맞아야 값이다 — 금리는 %, 가격($)·지수 값은 %·bp 없이(«WTI 100.65%» 탈락, 관문 10250133 ②)
+                const valueUnit = /%/.test(m.value) ? '%' : '';
+                const isValue = valueRaw != null && Math.abs(v - num(valueRaw)) <= tolOf(k[3]) && unit === valueUnit;
                 const isChange = !!chg && unit === chg[3] && Math.abs(v - Number(chg[2])) <= tolOf(k[3]);
                 // 보도 속 숫자(«금 4,000달러»)는 그 보도의 값이다 — 지표 값 결속 대상이 아니다(근거 대조는 위에서 따로)
                 if (!isValue && !isChange && reportNums.has(String(Math.round(v * 100) / 100))) continue;
