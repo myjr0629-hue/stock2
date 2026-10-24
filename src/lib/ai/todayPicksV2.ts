@@ -91,8 +91,6 @@ const CURRENT_SIDE: Record<Loc, RegExp> = {
 };
 
 const CONTRAST = /\brather than\b|\binstead of\b|대신|아니라|이\s*아닌|가\s*아닌|ではなく|代わりに/i;
-// 감소·부재 서술(«증폭이 줄고·완충이 사라지는»·«loses/lacks»·«弱まり·消え») — 기전 단어가 있어도 그 기전을 주장하지 않는다(관문 10242023).
-const ABSENCE = /사라|부재|잃|줄고|줄어|줄며|약해|빠지|빠진|\b(?:los(?:e|es|t|ing)|lacks?|lacking|absent|without|no longer|fades?|weakens?)\b|消え|失|弱ま|薄れ|欠け/i;
 const NEG_AFTER: Record<Loc, RegExp> = { ko: /^\s*(?:않|못|없)/, en: /(?!)/, ja: /^(?:せず|しない|されない|しません|ない|ず)/ };
 const CURRENT_MECH: Record<Loc, RegExp> = {
     ko: /(?:현재|지금)[^,;·。]{0,24}?(완충|줄이|줄입|줄여|억제|완화|증폭|확대|키우|키워|키웁)/g,
@@ -123,11 +121,9 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         const negatedClause = (m: RegExpMatchArray) => NEG_MECHANISM.test(m[0]) || CONTRAST.test(m[0])
             || /^\s*(?:이|가|은|는)?\s*(?:아니라|아닌|대신)|^\s*(?:では|じゃ)なく/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 8))
             || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6));
-        // 뒤집힌 «두 갈래 구조»(위면 증폭 + 아래면 완충, 둘 다)만 거절한다. 한 갈래의 반대 기전 단어는 부정·부재·대조 서술
-        // («완충 효과가 사라지는»·«lacks/loses a cushioning effect»·«완충이 아니라»)일 수 있어 판정하지 않는다(관문 10241729~10242009 오탈락 반복).
-        if (pair.every((re, i) => new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags.replace('g', '')).test(t))
-            && !NEG_MECHANISM.test(t) && !CONTRAST.test(t) && !ABSENCE.test(t))
-            reasons.push(`${l}:v2:conditional-mechanism`);
+        // 반대 기전 «어휘» 판정은 두지 않는다 — 감소·부재·부정 서술(줄고·사라지는·limits·less·loses…)을 뒤집힘으로 오독하는 오탈락이
+        // 관문 10회 내내 반복됐다(10241729~10242022). 운영(옛) 검사와 같은 수준으로 두고, 뒤집힘 금지는 프롬프트 7항으로 다룬다
+        // (운영 모델 225건 실측 뒤집힘 0). 아래 «두 갈래 모두 정상 기전»일 때만 조건절을 떼어 현재 위치·기전을 다시 본다.
         // new RegExp: g 플래그의 lastIndex가 다음 호출에 남지 않게 한다.
         // 위·아래 «두 갈래가 모두» 있을 때만 조건 구조로 본다 — 한 갈래만 쓰면 현재 위치 주장이므로 기존 검사 그대로.
         if (!pair.every(re => new RegExp(re).test(t))) continue;

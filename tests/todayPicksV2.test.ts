@@ -50,8 +50,6 @@ test('합성 경계 시험: 두 갈래 뒤 잘못된 현재 위치·기전·숫�
     { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭, 현재는 위입니다' },
     { ...branches, en: 'Gamma Flip: above: cushions; below: amplifies; $999' },
     { ...branches, en: 'Gamma Flip: above: cushions; below: amplifies; price will rise' },
-    { ...branches, ko: 'Gamma Flip 위면 증폭·아래면 완충하는 헤지 구조입니다' },
-    { ...branches, ja: 'Gamma Flipのヘッジは上なら増幅・下なら緩和する構造です' },
   ];
   for (const why of bad) assert.equal(check(r, why).ok, false, JSON.stringify(why));
 });
@@ -99,6 +97,15 @@ test('관문 10241657 재현: 다음 절 부정·부정된 위치는 오탈락 �
     { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭하며 현재는 완충하는 쪽입니다' },
     { ...branches, ja: 'Gamma Flipは上なら緩和・下なら増幅で、現在は緩和する側です' }]) {
     assert.equal(check(r, why, below).ok, false, JSON.stringify(why));
+  }
+});
+test('뒤집힌 두 갈래는 별도 어휘 판정 없이 운영(옛) 검사와 같은 판정(관문 10241729~10242022 오탈락 반복으로 제거)', () => {
+  const r = byTicker('AMZN');
+  for (const why of [{ ...branches, ko: 'Gamma Flip 위면 증폭·아래면 완충하는 헤지 구조입니다' }, { ...branches, ja: 'Gamma Flipのヘッジは上なら増幅・下なら緩和する構造です' },
+    { ...branches, en: 'If above, hedging limits amplification; if below, hedging offers less cushioning' }]) {
+    const next = check(r, why), old = checkPickWhy(JSON.stringify(why), r.ticker, r.facts, 2026, r.etDate);
+    assert.equal(next.reasons.some(x => x.includes('conditional-mechanism')), false, JSON.stringify(why));
+    assert.ok(next.ok || !old.ok, '새 검사가 운영보다 엄하지 않음: ' + JSON.stringify(why));
   }
 });
 test('합성 경계 시험: 현재 쪽만 설명하는 정상문·음차 용어·코드 펜스 보존', () => {
