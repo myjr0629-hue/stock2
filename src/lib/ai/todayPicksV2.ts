@@ -91,6 +91,8 @@ const CURRENT_SIDE: Record<Loc, RegExp> = {
 };
 
 const CONTRAST = /\brather than\b|\binstead of\b|대신|아니라|이\s*아닌|가\s*아닌|ではなく|代わりに/i;
+// 감소·부재 서술(«증폭이 줄고·완충이 사라지는»·«loses/lacks»·«弱まり·消え») — 기전 단어가 있어도 그 기전을 주장하지 않는다(관문 10242023).
+const ABSENCE = /사라|부재|잃|줄고|줄어|줄며|약해|빠지|빠진|\b(?:los(?:e|es|t|ing)|lacks?|lacking|absent|without|no longer|fades?|weakens?)\b|消え|失|弱ま|薄れ|欠け/i;
 const NEG_AFTER: Record<Loc, RegExp> = { ko: /^\s*(?:않|못|없)/, en: /(?!)/, ja: /^(?:せず|しない|されない|しません|ない|ず)/ };
 const CURRENT_MECH: Record<Loc, RegExp> = {
     ko: /(?:현재|지금)[^,;·。]{0,24}?(완충|줄이|줄입|줄여|억제|완화|증폭|확대|키우|키워|키웁)/g,
@@ -124,7 +126,7 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         // 뒤집힌 «두 갈래 구조»(위면 증폭 + 아래면 완충, 둘 다)만 거절한다. 한 갈래의 반대 기전 단어는 부정·부재·대조 서술
         // («완충 효과가 사라지는»·«lacks/loses a cushioning effect»·«완충이 아니라»)일 수 있어 판정하지 않는다(관문 10241729~10242009 오탈락 반복).
         if (pair.every((re, i) => new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags.replace('g', '')).test(t))
-            && !NEG_MECHANISM.test(t) && !CONTRAST.test(t))
+            && !NEG_MECHANISM.test(t) && !CONTRAST.test(t) && !ABSENCE.test(t))
             reasons.push(`${l}:v2:conditional-mechanism`);
         // new RegExp: g 플래그의 lastIndex가 다음 호출에 남지 않게 한다.
         // 위·아래 «두 갈래가 모두» 있을 때만 조건 구조로 본다 — 한 갈래만 쓰면 현재 위치 주장이므로 기존 검사 그대로.
