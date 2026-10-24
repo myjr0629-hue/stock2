@@ -123,7 +123,10 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
             || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6));
         if (pair.some((re, i) => [...t.matchAll(new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags))]
             // 같은 절(+뒤 12자)에 올바른 기전 단어가 함께 있으면(절+뒤 20자) 대조·부정 서술(«완충 효과 없이 키웁니다»·«완충보다는 증폭»)이다(관문 10241935).
-            .some(m => !negatedClause(m) && !new RegExp(MECHANISM_WORDS[l][i], 'i').test(m[0] + t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 20)))))
+            // 같은 절 끝(다음 구두점)까지 부정·대조어가 있으면(«완충 역할을 하지 않습니다») 뒤집힌 조건이 아니다(관문 10241950).
+            .some(m => { const tail = t.slice((m.index ?? 0) + m[0].length).split(/[,;.。、·]/)[0];
+                return !negatedClause(m) && !NEG_MECHANISM.test(tail) && !CONTRAST.test(tail) && !/(?:では|じゃ)なく|ず(?:に|、|$)/.test(tail)
+                    && !new RegExp(MECHANISM_WORDS[l][i], 'i').test(m[0] + tail.slice(0, 20)); })))
             reasons.push(`${l}:v2:conditional-mechanism`);
         // new RegExp: g 플래그의 lastIndex가 다음 호출에 남지 않게 한다.
         // 위·아래 «두 갈래가 모두» 있을 때만 조건 구조로 본다 — 한 갈래만 쓰면 현재 위치 주장이므로 기존 검사 그대로.
