@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
     morningNewsLines, morningCalendarLines, morningMetrics, buildMorningV2User, morningV2System, checkMorningV2, checkMorningLocale,
-    numberSignature, stateSentence, composeMorningText, systemNextSentence, type MorningFacts,
+    numberSignature, stateSentence, composeMorningText, systemNextSentence, citeTokens, rawBodyReasons, weekdayLabelReasons, type MorningFacts,
 } from '@/lib/ai/morningBriefingV2';
 import { INDEX_NAMES } from '@/lib/ai/tacticalIndexFacts';
 import { aiLineFromText } from '@/lib/push/aiLine';
@@ -38,9 +38,9 @@ const facts: MorningFacts = {
 };
 
 const good = {
-    ko: '10/23(금) 정규장 나스닥 종합 0.9%·S&P500 0.5% 상승, 지금 개장 전 나스닥100 선물 0.2% 약세·S&P500 선물 보합입니다. 10/26 06:15 ET 보도에 따르면 미 국채 금리가 연준 경로를 저울질하며 내렸고, 이와 맞물려 선물은 금요일 상승 뒤 숨을 고르고 있습니다. 미국 10년물 금리 4.99%(+4bp)와 WTI 유가 $100.65(+1.19%)가 함께 오르면서 성장주의 금리 부담과 물가 부담이 겹쳐 있습니다. 시장 건강도(RLSI 28.7)는 약하고 변동성 지수(VIX 19.57)는 경계 수준이며 옵션 포지션(GEX)은 중립이라, 금요일 반등을 받칠 힘이 약하고 흔들림을 줄여 주지도 않습니다. 다음 분기점은 10/26(월) 10:00 ET(한국 23:00) 예정된 New Home Sales (Sep)(신규 주택 판매)로, 예상보다 강하면 금리 부담이 커지고 약하면 줄어드는 구조입니다.',
-    en: 'In the 10/23 cash session the Nasdaq Composite rose 0.9% and the S&P 500 rose 0.5%, while now premarket Nasdaq 100 futures are down 0.2% and S&P 500 futures are flat. A 10/26 06:15 ET report said Treasury yields slipped as investors weighed the Fed path, amid futures pausing after Friday\'s gains. The 10-year Treasury yield at 4.99% (+4bp) and WTI crude at $100.65 (+1.19%) together keep rate and inflation pressure on growth stocks. Market health (RLSI 28.7) is weak, the VIX volatility gauge at 19.57 is elevated and options positioning (GEX) is neutral, so the gauges conflict with Friday\'s rebound and offer no cushion for swings. The next test is the scheduled New Home Sales (Sep) at 10/26 (Mon) 10:00 ET: a stronger reading adds rate pressure, a softer one eases it.',
-    ja: '10/23(金)の通常取引はナスダック総合0.9%・S&P500 0.5%上昇、現在の取引開始前はナスダック100先物0.2%下落・S&P500先物横ばいです。10/26 06:15 ETの報道によると米国債利回りは利下げ観測を背景に低下し、先物は金曜日の上昇の後で一服しています。米10年債利回り4.99%(+4bp)とWTI原油$100.65(+1.19%)がそろって上昇し、成長株への金利と物価の重荷が重なっています。市場の健全度(RLSI 28.7)は弱く、変動性指数(VIX 19.57)は警戒水準で、オプション・ポジション(GEX)は中立のため、金曜日の反発を支える力は乏しく値動きを和らげもしません。次の分岐点は10/26(月) 10:00 ET(日本時間 23:00)予定のNew Home Sales (Sep)(新築住宅販売)で、市場予想より強ければ金利の重荷が増し、弱ければ和らぐ構造です。',
+    ko: '10/23(금) 정규장 나스닥 종합 +0.9%·S&P500 +0.5% 상승, 지금 개장 전 나스닥100 선물 -0.2% 약세·S&P500 선물 보합입니다. 10/26 06:15 ET 보도에 따르면 미 국채 금리가 연준 경로를 저울질하며 내렸고, 이와 맞물려 선물은 금요일 상승 뒤 숨을 고르고 있습니다. 미국 10년물 금리 4.99%(+4bp)와 WTI 유가 $100.65(+1.19%)가 함께 오르면서 성장주의 금리 부담과 물가 부담이 겹쳐 있습니다. 시장 건강도(RLSI 28.7)는 약하고 변동성 지수(VIX 19.57)는 경계 수준이며 옵션 포지션(GEX)은 중립이라, 금요일 반등을 받칠 힘이 약하고 흔들림을 줄여 주지도 않습니다. 다음 분기점은 10/26(월) 10:00 ET(한국 23:00) 예정된 New Home Sales (Sep)(신규 주택 판매)로, 예상보다 강하면 금리 부담이 커지고 약하면 줄어드는 구조입니다.',
+    en: 'In the 10/23 cash session the Nasdaq Composite rose +0.9% and the S&P 500 rose +0.5%, while now premarket Nasdaq 100 futures are at -0.2% and S&P 500 futures are flat. A 10/26 06:15 ET report said Treasury yields slipped as investors weighed the Fed path, amid futures pausing after Friday\'s gains. The 10-year Treasury yield at 4.99% (+4bp) and WTI crude at $100.65 (+1.19%) together keep rate and inflation pressure on growth stocks. Market health (RLSI 28.7) is weak, the VIX volatility gauge at 19.57 is elevated and options positioning (GEX) is neutral, so the gauges conflict with Friday\'s rebound and offer no cushion for swings. The next test is the scheduled New Home Sales (Sep) at 10/26 (Mon) 10:00 ET: a stronger reading adds rate pressure, a softer one eases it.',
+    ja: '10/23(金)の通常取引はナスダック総合+0.9%・S&P500 +0.5%上昇、現在の取引開始前はナスダック100先物-0.2%下落・S&P500先物横ばいです。10/26 06:15 ETの報道によると米国債利回りは利下げ観測を背景に低下し、先物は金曜日の上昇の後で一服しています。米10年債利回り4.99%(+4bp)とWTI原油$100.65(+1.19%)がそろって上昇し、成長株への金利と物価の重荷が重なっています。市場の健全度(RLSI 28.7)は弱く、変動性指数(VIX 19.57)は警戒水準で、オプション・ポジション(GEX)は中立のため、金曜日の反発を支える力は乏しく値動きを和らげもしません。次の分岐点は10/26(月) 10:00 ET(日本時間 23:00)予定のNew Home Sales (Sep)(新築住宅販売)で、市場予想より強ければ金利の重荷が増し、弱ければ和らぐ構造です。',
 };
 
 test('뉴스 줄 — 미래·오래된 기사 제외, 공급사명 없음, ET 시각', () => {
@@ -88,14 +88,14 @@ test('첫 문장 = 모닝 푸시 본문(90자 안·자르지 않음)', () => {
         const r = aiLineFromText(good[l], { locale: l, englishSource: good.en, currentYear: 2026 });
         assert.equal(r.reason, 'ok', l);
         if (l !== 'en') assert.ok(!r.line!.endsWith('…'), `${l} 잘림: ${r.line}`);
-        else assert.match(r.line!, /Nasdaq Composite rose 0\.9%/);   // 영어는 110자 — 절 경계에서 잘려도 현물 결과는 남는다
+        else assert.match(r.line!, /Nasdaq Composite rose \+0\.9%/);   // 영어는 110자 — 절 경계에서 잘려도 현물 결과는 남는다
     }
 });
 
 test('지수 값·방향·선물 누락은 탈락', () => {
-    const wrongValue = good.ko.replace('나스닥 종합 0.9%', '나스닥 종합 1.9%');
+    const wrongValue = good.ko.replace('나스닥 종합 +0.9%', '나스닥 종합 +1.9%');
     assert.ok(checkMorningLocale(wrongValue, 'ko', facts).includes('mb:index-value'));
-    const noFutures = '10/23(금) 정규장 나스닥 종합 0.9%·S&P500 0.5% 상승입니다. ' + good.ko.split('. ').slice(1).join('. ');
+    const noFutures = '10/23(금) 정규장 나스닥 종합 +0.9%·S&P500 +0.5% 상승입니다. ' + good.ko.split('. ').slice(1).join('. ');
     assert.ok(checkMorningLocale(noFutures, 'ko', facts).includes('mb:premarket-futures-required'));
 });
 
@@ -146,7 +146,7 @@ test('3언어 숫자 불일치는 탈락', () => {
 
 test('휴장(CLOSED) 첫 문장의 «개장 전» 은 틀린 세션 · 일정 없는 날의 경계는 SPY ×10 환산을 밝힌다(관문 10250203)', () => {
     const closed: MorningFacts = { ...facts, session: 'CLOSED', events: [], indexFacts: facts.indexFacts.filter(f => f.kind === 'spot') };
-    const t = 'Nasdaq Composite rose 0.9% and S&P 500 rose 0.5% in the 10/23 cash session; current premarket futures observations are unconfirmed. ' + good.en.split('. ').slice(1).join('. ');
+    const t = 'Nasdaq Composite rose +0.9% and S&P 500 rose +0.5% in the 10/23 cash session; current premarket futures observations are unconfirmed. ' + good.en.split('. ').slice(1).join('. ');
     assert.ok(checkMorningLocale(t, 'en', closed).includes('mb:session-word'));
     const u = buildMorningV2User({ ...facts, events: [], metrics: [...facts.metrics, ...morningMetrics({ putFloor: 7450 })] });
     assert.match(u, /SPY 옵션 ×10 환산 S&P 500 Put Floor 7,450/);
@@ -157,7 +157,7 @@ test('휴장(CLOSED) 첫 문장의 «개장 전» 은 틀린 세션 · 일정 �
     assert.match(uf, /Gamma Flip 7,600/);
     const noBasis = { ...facts, events: [], metrics: [...facts.metrics, ...morningMetrics({ putFloor: 7450 })] };
     // 일정 없는 날의 NEXT 는 코드가 쓴다 — 모델이 쓴 NEXT 는 빼고 붙인다
-    assert.equal(systemNextSentence(noBasis, 'ko'), '다음 분기점은 SPY 옵션 ×10 환산 S&P 500 Put Floor 7,450으로, 풋 미결제약정이 가장 많이 쌓인 옵션 쪽 하단 기준입니다.');
+    assert.equal(systemNextSentence(noBasis, 'ko'), '다음 분기점은 SPY 옵션 ×10 환산 S&P 500 Put Floor 7,450으로, 현재가 아래 구간에서 풋 미결제약정이 가장 많이 쌓인 옵션 쪽 하단 기준입니다.');
     assert.equal(systemNextSentence(facts, 'ko'), null, '일정이 있으면 모델이 쓴다');
     const body = '밤사이 뚜렷한 재료는 확인되지 않았습니다. 다음 분기점은 S&P 500 풋 하단 7,450입니다.';
     const composed = composeMorningText(body, noBasis, 'ko');
@@ -187,8 +187,14 @@ test('첫 문장(STATE)은 코드가 쓴다 — 세션 6가지 모두 지수 계
         // 장후(POST)는 모닝 경로에선 드문 저녁 자가복구뿐 — 90자를 넘으면 푸시가 절 경계에서 자른다
         if (l !== 'en') assert.ok([...st].length <= (label === 'POST' ? 100 : 90), `${label} ${l} 푸시 길이 ${[...st].length}: ${st}`);
     }
-    assert.equal(stateSentence(facts, 'ko'), '10/23(금) 정규장 나스닥 종합 0.9% 상승·S&P500 0.5% 상승, 지금 개장 전 나스닥100 선물 0.2% 하락·S&P500 선물 보합입니다.');
-    assert.equal(stateSentence(facts, 'en'), 'The Nasdaq Composite rose 0.9% and the S&P 500 rose 0.5% in the 10/23 (Fri) cash session; now premarket Nasdaq 100 futures are down 0.2% and S&P 500 futures are flat.');
+    assert.equal(stateSentence(facts, 'ko'), '10/23(금) 정규장 나스닥 종합 +0.9% 상승·S&P500 +0.5% 상승, 지금 개장 전 나스닥100 선물 -0.2% 하락·S&P500 선물 보합입니다.');
+    assert.equal(stateSentence(facts, 'en'), 'The Nasdaq Composite closed +0.9% and the S&P 500 closed +0.5% in the 10/23 (Fri) cash session; now premarket Nasdaq 100 futures are at -0.2% and S&P 500 futures are flat.');
+    // 부호 없는 하락 변화는 탈락(화면이 상승색으로 칠한다, 관문 10250309 ③)
+    assert.ok(checkMorningLocale(good.ko.replace('나스닥100 선물 -0.2% 약세', '나스닥100 선물 0.2% 약세'), 'ko', facts).includes('mb:unsigned-negative'));
+    assert.match(stateSentence({ ...facts, indexFacts: facts.indexFacts.map(x => ({ ...x, chgPct: -0.91 })) }, 'ja'), /-0\.9%/);
+    // 보도 속 숫자라도 지표 값과 가까우면(±25%) 지표 값 결속 면제 없음(관문 10250309 ②)
+    const newsVix: MorningFacts = { ...facts, news: [...facts.news, '[report; 2026-10-26T10:20:00.000Z; 10/26 06:20 ET] VIX hit 20.00 last week'] };
+    assert.ok(checkMorningLocale(good.en.replace('VIX volatility gauge at 19.57', 'VIX volatility gauge at 20.00'), 'en', newsVix).some(r => r.startsWith('mb:metric-value:vix')));
     // 반올림 경계(0.246·0.35)도 검사기와 같은 값 · 첫 낱말이 같아도 모델 WHY 문장은 지우지 않는다(관문 10250224)
     for (const v of [0.246, -0.246, 0.35, 0.05, -0.149, 0.151]) {
         const ff: MorningFacts = { ...facts, indexFacts: facts.indexFacts.map(x => ({ ...x, chgPct: v })) };
@@ -203,6 +209,21 @@ test('첫 문장(STATE)은 코드가 쓴다 — 세션 6가지 모두 지수 계
     // 모델이 첫 문장을 되풀이하면 한 번만
     const twice = composeMorningText(`${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`, facts, 'ko');
     assert.equal(twice, `${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`);
+});
+
+test('보도 인용은 토큰 [Nk] → 코드가 그 보도의 시각으로 · 모델이 시각을 직접 쓰면 탈락 · 요일 표기는 날짜와 맞아야(관문 10250319)', () => {
+    assert.equal(citeTokens('[N1] 보도에 따르면 금리가 내렸습니다.', facts), '10/26 06:15 ET 보도에 따르면 금리가 내렸습니다.');
+    assert.equal(citeTokens('[N9] report', facts), '[N9] report', '없는 토큰은 그대로 → 내부 라벨 검사로 탈락');
+    assert.ok(checkMorningLocale(good.ko.replace('10/26 06:15 ET 보도', '[N9] 보도'), 'ko', facts).includes('mb:internal-label'));
+    assert.deepEqual(rawBodyReasons('A 08:03 ET report said X. The next test is at 10/26 (Mon) 10:00 ET.'), ['mb:raw-citation-time']);
+    assert.deepEqual(rawBodyReasons('A [N1] report said X. The next test is at 10/26 (Mon) 10:00 ET.'), []);
+    assert.deepEqual(weekdayLabelReasons('a 10/24 (Fri) report', facts), ['mb:weekday']);
+    assert.deepEqual(weekdayLabelReasons('12/31(목) 정규장', { ...facts, asOf: '2027-01-01T13:00:00.000Z' }), [], '연초의 지난해 12/31');
+    // 일정 없는 날은 마지막 문장까지 본다(코드가 NEXT 를 덧붙이므로)
+    const noEv = { ...facts, events: [] };
+    assert.deepEqual(rawBodyReasons('Rates rose. A 10/24 10:51 ET report said X.', noEv), ['mb:raw-citation-time']);
+    assert.deepEqual(rawBodyReasons('Rates rose. The next test is at 10/26 (Mon) 10:00 ET.', facts), []);
+    assert.deepEqual(weekdayLabelReasons('a 10/24 (Sat) report · 10/23(금)', facts), []);
 });
 
 test('장중(REG) 첫 문장에 장전 말·어제 결과는 탈락', () => {
