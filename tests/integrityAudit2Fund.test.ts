@@ -49,8 +49,12 @@ function macro(inflation: any) {
         '@/lib/macroFredFallback': { fredCreditSpread: async () => null, fredRealPair: async () => null },
     }, '\nexport { fetchRealYieldData };');
 }
-const engine = load('src/lib/rankings/engine.ts', { '@/lib/marketCalendar': {} });
-const snapshots = (today: any) => [90,95,100,105,110,95,100,105,today].map((v, i) => ({ timestamp: i + 1, _oi: 1000, _d: `2026-10-${String(i+1).padStart(2,'0')}`, totalPremium: v }));
+const engine = load('src/lib/rankings/engine.ts', { '@/lib/marketCalendar': load('src/lib/marketCalendar.ts', {}) });
+const snapshots = (today: any) => [90,95,100,105,110,95,100,105,today].map((v, i) => {
+    const d = ['01','02','05','06','07','08','09','12','13'][i];
+    return { timestamp: Date.parse(`2026-10-${d}T21:00:00Z`), _oi: 1000, _d: `2026-10-${d}`,
+        chainDate: `2026-10-${d}`, optionBasis: 'eod', premiumBasis: 'volume-close', totalPremium: v };
+});
 const enhanced = load('src/app/api/flow/enhanced-metrics/route.ts', {
     'next/server': {}, '@/services/redisClient': {}, '@/lib/aws/dynamoDataProvider': {}, '@/lib/aws/dynamoClient': {},
 }, '\nexport { computeUoaZScore };');

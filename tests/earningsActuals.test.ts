@@ -40,6 +40,10 @@ let fmpRows: unknown = [];
   return new Response('not found', { status: 404 });
 };
 
+// Provider tests: the shared FMP guard has its own tests (fmpOpenBurst). Pass straight to the fetch stub.
+const fmpClientPath = require.resolve('../src/lib/fmpClient');
+require.cache[fmpClientPath] = { id: fmpClientPath, filename: fmpClientPath, loaded: true,
+  exports: { fmpFetch: (url: string) => globalThis.fetch(url) } } as NodeModule;
 const A = require('../src/lib/earnings/earningsActuals') as typeof import('../src/lib/earnings/earningsActuals');
 const EW = require('../src/lib/earningsWeek') as typeof import('../src/lib/earningsWeek');
 const V = require('../src/lib/earningsWeekView') as typeof import('../src/lib/earningsWeekView');

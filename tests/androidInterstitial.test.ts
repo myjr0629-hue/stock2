@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { setTimeout as realSetTimeout, clearTimeout as realClearTimeout } from 'node:timers';
 import { fake, AdMob, env, advance, flush, storage, mount, deferred } from './androidInterstitial.capacitor';
-import { adManager } from '../src/services/adManager';
+import { adManager, FULL_SCREEN_PREPARE_TIMEOUT_MS } from '../src/services/adManager';
 // Existing non-Pro user; individual install/Pro scenarios override these inputs.
 void adManager.setPro(false);
 storage.set('signum_app_first_run_at', '1');
@@ -224,6 +224,84 @@ const cases = {
     fake.emit(I.showed); fake.emit(I.dismissed); await flush();
     nav.unmount();
   },
+  // ★2026-10-24 T23 — 세션 밖 사전 로드가 끝나지 않을 때(네이티브 콜백 유실·브리지 정지)의 복구. 모의 시계.
+  'android-hung-prepare-times-out-then-retry-shows': async () => {
+    const original = fake.prepareInterstitial.bind(fake);
+    fake.prepareInterstitial = async () => { fake.prepareInterstitialCalls++; return new Promise(() => {}); };
+    await adManager.init(); await flush(); await flush();   // T0: 사전 로드 1건이 영원히 대기
+    assert.equal(fake.prepareInterstitialCalls, 1);
+    advance(FULL_SCREEN_PREPARE_TIMEOUT_MS - 1); await flush();
+    adManager['refreshInterstitialOnResume'](); await flush();
+    assert.equal(fake.prepareInterstitialCalls, 1, 'resume waits for the in-flight prepare (bounded)');
+    assert.notEqual(adManager['interstitialPreparation'], undefined);
+    fake.prepareInterstitial = original;
+    advance(1); await flush(); await flush();        // 상한 도달 → 로드 실패로 처리
+    assert.equal(adManager['interstitialPreparation'], undefined, 'timed-out prepare must be released');
+    assert.equal(await completed(adManager.maybeShowInterstitial()), false, 'nothing loaded yet');
+    advance(30_000); await flush(); await flush();   // 기존 백오프 첫 재시도
+    assert.equal(fake.prepareInterstitialCalls, 2);
+    assert.equal(adManager.canShowInterstitial(), true);
+    assert.equal(await show(), true);
+  },
+  'android-hung-prepares-exhaust-retries-then-resume-recovers': async () => {
+    const original = fake.prepareInterstitial.bind(fake);
+    fake.prepareInterstitial = async () => { fake.prepareInterstitialCalls++; return new Promise(() => {}); };
+    await adManager.init(); await flush(); await flush();
+    for (let i = 0; i < 80; i++) { advance(60_000); await flush(); await flush(); }   // 80분: 상한·백오프 전부 소진
+    assert.equal(fake.prepareInterstitialCalls, 7, 'one preload + six bounded retries, no storm');
+    assert.equal(adManager['interstitialPreparation'], undefined);
+    assert.equal(adManager['interstitialRetry'], undefined);
+    fake.prepareInterstitial = original;
+    adManager['refreshInterstitialOnResume'](); await flush(); await flush();   // 사람의 복귀 = 새 시작
+    assert.equal(fake.prepareInterstitialCalls, 8);
+    assert.equal(await show(), true);
+  },
+  'android-late-success-after-timeout-is-kept': async () => {
+    const late = deferred();
+    const original = fake.prepareInterstitial.bind(fake);
+    fake.prepareInterstitial = async () => { fake.prepareInterstitialCalls++; await late.promise; return {}; };
+    await adManager.init(); await flush(); await flush();
+    advance(FULL_SCREEN_PREPARE_TIMEOUT_MS); await flush(); await flush();
+    assert.notEqual(adManager['interstitialRetry'], undefined, 'timeout schedules the normal retry');
+    fake.prepareInterstitial = original;
+    late.resolve(); await flush(); await flush();    // 네이티브가 늦게 광고를 들고 왔다
+    assert.equal(adManager.canShowInterstitial(), true);
+    assert.equal(adManager['interstitialRetry'], undefined, 'usable late ad cancels the retry');
+    advance(30_000); await flush();
+    assert.equal(fake.prepareInterstitialCalls, 1, 'no extra request for an ad we already hold');
+    assert.equal(await show(), true);
+  },
+  'android-direct-show-on-hung-prepare-is-bounded-and-reloads': async () => {
+    fake.prepareInterstitial = async () => { fake.prepareInterstitialCalls++; return new Promise(() => {}); };
+    await adManager.init(); await flush(); await flush();
+    fake.prepareInterstitial = async () => { fake.prepareInterstitialCalls++; return {}; };
+    let done = false;
+    const result = adManager.showInterstitial(); void result.then(() => { done = true; });
+    await flush(); await flush();
+    assert.equal(done, false, 'the session waits on the in-flight preload');
+    advance(FULL_SCREEN_PREPARE_TIMEOUT_MS); await flush(); await flush(); await flush();
+    assert.equal(done, true, 'released by the prepare deadline instead of waiting forever');
+    assert.equal(await result, false);
+    assert.equal(fake.interstitialShows, 0);
+    assert.equal(fake.prepareInterstitialCalls, 2, 'a fresh prepare replaces the hung one');
+    assert.equal(await show(), true);
+  },
+  'android-rewarded-hung-prepare-is-bounded': async () => {
+    const original = fake.prepareRewardVideoAd.bind(fake);
+    fake.prepareRewardVideoAd = async () => { fake.prepareRewardCalls++; return new Promise(() => {}); };
+    await adManager.init(); await flush(); await flush();
+    assert.equal(adManager.isRewardedReady(), false);
+    advance(FULL_SCREEN_PREPARE_TIMEOUT_MS); await flush(); await flush();
+    assert.equal(adManager['rewardedPreparation'], undefined, 'timed-out rewarded prepare is released');
+    fake.prepareRewardVideoAd = original;
+    const result = adManager.showRewarded(); await flush(); await flush();
+    assert.equal(fake.prepareRewardCalls, 2, 'next attempt prepares again instead of waiting forever');
+    assert.equal(fake.rewardShows, 1);
+    fake.emit('onRewardedVideoAdShowed');
+    fake.emit('onRewardedVideoAdReward', { type: 'premium', amount: 1 });
+    fake.emit('onRewardedVideoAdDismissed');
+    assert.deepEqual(await completed(result), { type: 'premium', amount: 1 });
+  },
 };
 
 // Include assertions in ready(), show(), completed(), and fake bridge callbacks.
@@ -244,6 +322,11 @@ const expectedAssertions: Record<keyof typeof cases, number> = {
   'android-reward-unlock-suppresses-for-one-hour': 7,
   'android-first-install-then-existing-run-cadence': 7,
   'android-trigger-before-grace-retries-on-next-tab': 3,
+  'android-hung-prepare-times-out-then-retry-shows': 11,
+  'android-hung-prepares-exhaust-retries-then-resume-recovers': 7,
+  'android-late-success-after-timeout-is-kept': 7,
+  'android-direct-show-on-hung-prepare-is-bounded-and-reloads': 8,
+  'android-rewarded-hung-prepare-is-bounded': 6,
 };
 type CaseName = keyof typeof cases;
 const successLine = (name: CaseName) => `✓ ${name} (${expectedAssertions[name]} assertions)`;

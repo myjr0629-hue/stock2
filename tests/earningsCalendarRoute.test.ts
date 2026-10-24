@@ -28,6 +28,7 @@ let fmpCalls = 0;
 let fmpCalRows: Array<Record<string, unknown>> = [];
 let fmpCalCalls = 0;
 let fmpDelayMs = 0;
+let denyNextFmp = false;
 /** Redis 에서 캘린더 키를 읽은 횟수(메모가 막아야 한다) */
 let calGets = 0;
 /** Finnhub 실적 달력 흉내 — 요청한 from~to 창 안의 행만 준다(진짜처럼) · 요청 주소를 적는다 */
@@ -66,6 +67,14 @@ const realFetch = globalThis.fetch;
   }
   return new Response('not found', { status: 404 });
 };
+
+// Provider payload/date tests: the shared guard has its own concurrent/clock tests.
+const fmpClientPath = require.resolve('../src/lib/fmpClient');
+require.cache[fmpClientPath] = { id: fmpClientPath, filename: fmpClientPath, loaded: true,
+  exports: { fmpFetch: (url: string) => {
+    if (denyNextFmp) { denyNextFmp = false; return Promise.resolve(null); }
+    return globalThis.fetch(url);
+  } } } as NodeModule;
 
 const { GET } = require('../src/app/api/market/earnings-calendar/route') as typeof import('../src/app/api/market/earnings-calendar/route');
 const LIVE = require('../src/app/api/live/earnings/route') as typeof import('../src/app/api/live/earnings/route');
@@ -356,6 +365,13 @@ const call = async (q = '') => (await GET(new Request(`http://localhost/api/mark
     await liveAt(AT, 'MU');
     const mu: any = await at(AT, () => CAL.resolveEarningsCard('MU', { nextEarningsDate: '2026-09-30', hourLabel: '', hasData: true }, { waitMs: 1500 }));
     assert.equal(mu.hourLabel, 'amc');
+  });
+  await ta('공용 예산에서 한 창만 거절돼도 부분 캘린더를 6시간 성공 캐시로 쓰지 않음', async () => {
+    useRows(); denyNextFmp = true;
+    const r = await at(AT, () => CAL.getMarketEarningsCalendar());
+    assert.equal(r.ok, false);
+    assert.equal(store.has(OK_KEY), false);
+    assert.ok(store.has(FAIL_KEY));
   });
   await ta('키가 없어도 0건이 아닌 실패 — {ok:false, reason:no-key}', async () => {
     resetAll();

@@ -1,5 +1,6 @@
 import type { MarketIndexBasis, IndexObservation } from '@/lib/marketIndexBasis';
-import { sessionCloseMinutes, cashSessionPhaseAt } from '@/lib/marketCalendar';
+import { cashSessionPhaseAt } from '@/lib/marketCalendar';
+import { isCashCloseReferenceAt } from '@/lib/futuresCashClose';
 import { etClock, lastClosedSessionDate, isEquityFuturesOpen } from '@/lib/marketSession';
 
 export type TacticalLocale = 'ko' | 'en' | 'ja';
@@ -61,8 +62,8 @@ export function buildIndexFacts(b: MarketIndexBasis | undefined, session: Tactic
             if (!p.live || p.price == null || !Number.isFinite(p.price) || p.price <= 0 || !p.asOf || nowMs - Date.parse(p.asOf) > 20 * 60_000) continue;
             if (session === 'POST' || session === 'CLOSED') {
                 const ref = p.cashCloseReferenceAt ? Date.parse(p.cashCloseReferenceAt) : NaN;
-                // 실제 같은 마감 기준 관측이 있을 때만 사용. 부모 수집기는 현재 이 값을 주지 않는다.
-                if (!Number.isFinite(ref) || etClock(ref).date !== expectedCashDate || etClock(ref).minutes !== sessionCloseMinutes(expectedCashDate)
+                // 실제 마감 부근 관측만 사용. 날짜·3분 허용 오차를 공통 계산기와 동일하게 검사한다.
+                if (!isCashCloseReferenceAt(p.cashCloseReferenceAt, expectedCashDate)
                     || ref > Date.parse(p.asOf || '') || ref > nowMs) continue;
                 add(id, p, p.sinceCashClosePct, { ko: `${expectedCashDate} 정규장 마감 시점의 같은 선물 가격 대비`, en: `vs same futures at ${expectedCashDate} cash close`, ja: `${expectedCashDate}通常取引終了時の同じ先物価格比` });
             } else {

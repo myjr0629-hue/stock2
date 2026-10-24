@@ -97,6 +97,9 @@ console.log('━━━ 4. 앱 어댑터(getNewsFromFmp) — 시각·정렬·sinc
         ]), { status: 200, headers: { 'content-type': 'application/json' } });
     };
     try {
+        const guardBoundary = require.resolve('../src/lib/fmpClient');
+        require.cache[guardBoundary] = { id: guardBoundary, filename: guardBoundary, loaded: true,
+          exports: { fmpFetch: (url: string) => globalThis.fetch(url) } } as NodeModule;
         const { getNewsFromFmp } = require('../src/services/fmpNewsAdapter');
         const r = await getNewsFromFmp({ ticker: 'MU', limit: 10, since: '2026-09-29T14:30:00Z' });
         t('published_utc = 뉴욕 벽시계 해석(+4h) · 최신순', () => {

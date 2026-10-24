@@ -22,6 +22,7 @@ export const EARNINGS_IMPLIED_KEY = 'earnings:implied:v1';
 /** 묶음 한 칸 — 짧은 이름(묶음이 164행 × 몇 필드라 작게) */
 export interface ImpliedCell {
   method?: EarningsMoveMethod | null;
+  eventMovePct?: number | null;
   /** impliedMovePct (%, 소수 1자리로 반올림된 정의값) */
   p: number | null;
   /** 만기 YYYY-MM-DD */
@@ -54,6 +55,7 @@ export const timingOfHour = (hour: string | null | undefined): ImpliedTiming => 
 /** 화면에 붙는 값 */
 export interface RowImplied {
   method?: EarningsMoveMethod | null;
+  eventMovePct?: number | null;
   pct: number;
   expiry: string;
   basis: 'live' | 'eod' | null;
@@ -87,6 +89,7 @@ export function impliedForRow(
   return validateRowImplied(row, {
     pct: c.p!, expiry: c.e!, basis: c.b ?? null, session: c.s ?? null,
     ...(c.method ? { method: c.method } : {}),
+    ...(c.eventMovePct != null ? { eventMovePct: c.eventMovePct } : {}),
   }, nowMs);
 }
 
@@ -172,7 +175,8 @@ export function mergeImpliedPacks(next: ImpliedPack, prev: ImpliedPack | null | 
     if (!eventDate || !validateRowImplied(event, { pct: old.p, expiry: old.e, basis: old.b, session: old.s }, nowMs)) continue;
     const ageDays = old.s && /^\d{4}-\d{2}-\d{2}$/.test(old.s) ? (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${old.s}T00:00:00Z`)) / 86400e3 : Infinity;
     if (!(ageDays >= 0 && ageDays <= IMPLIED_CARRY_MAX_DAYS)) continue;
-    cells[key] = { p: old.p, e: old.e, b: old.b, s: old.s, r: null, k: 1, ...(old.method ? { method: old.method } : {}) };
+    cells[key] = { p: old.p, e: old.e, b: old.b, s: old.s, r: null, k: 1, ...(old.method ? { method: old.method } : {}),
+      ...(old.eventMovePct != null ? { eventMovePct: old.eventMovePct } : {}) };
   }
   return { ...next, cells };
 }
