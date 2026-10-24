@@ -26,7 +26,7 @@ import { stripForecastSentences } from '@/lib/ai/trustLayer';
 import { calendarPromptLines } from '@/lib/fmpCalendarTime';
 import { adminAuthorized } from '@/lib/ai/adminAuth';
 import { withFreshTier } from '@/lib/ai/freshTier';
-import { checkMorningV2, morningV2System, buildMorningV2User, MORNING_V2_VERSION, type MorningFacts } from '@/lib/ai/morningBriefingV2';
+import { checkMorningV2, morningV2System, buildMorningV2User, composeMorningText, MORNING_V2_VERSION, type MorningFacts } from '@/lib/ai/morningBriefingV2';
 import { collectMorningRaw, morningFactsFromRaw, type MorningRaw, type MorningSim } from '@/services/morningBriefingInputs';
 
 export const maxDuration = 60;
@@ -349,8 +349,8 @@ Output ONLY valid JSON (no markdown fences):
     return { systemPrompt, userPrompt, newsCount: marketNews.length, calendarCount: calendarEvents.length };
 }
 
-/** 모델 원문 → JSON 정리(앞말 제거) + 금융 공통어 음차 복원. 실패면 null */
-function prepareBriefingJson(text: string): { json: string; briefing: BriefingTexts } | null {
+/** 모델 원문 → JSON 정리(앞말 제거) + 금융 공통어 음차 복원(+ v2 는 코드가 쓴 첫 문장 STATE 를 앞에). 실패면 null */
+function prepareBriefingJson(text: string, facts?: MorningFacts | null): { json: string; briefing: BriefingTexts } | null {
     let raw = String(text || '').replace(/```json/g, '').replace(/```/g, '').trim();
     const start = raw.indexOf('{');
     if (start < 0) return null;
@@ -358,7 +358,10 @@ function prepareBriefingJson(text: string): { json: string; briefing: BriefingTe
     try {
         const b = JSON.parse(raw);
         const out = {} as BriefingTexts;
-        for (const k of ['ko', 'en', 'ja'] as const) out[k] = typeof b?.[k] === 'string' ? restoreCommonTermNames(b[k]).text : '';
+        for (const k of ['ko', 'en', 'ja'] as const) {
+            const t = typeof b?.[k] === 'string' ? restoreCommonTermNames(b[k]).text : '';
+            out[k] = facts && t ? composeMorningText(t, facts, k) : t;
+        }
         return { json: JSON.stringify(out), briefing: out };
     } catch { return null; }
 }
@@ -366,7 +369,7 @@ function prepareBriefingJson(text: string): { json: string; briefing: BriefingTe
 /** v2 출구 가드(사다리 validate · 최종 검사 공용) — 음차 복원 «뒤» 글로 판정한다(저장되는 글과 같은 글) */
 function v2Gate(facts: MorningFacts) {
     return (text: string) => {
-        const p = prepareBriefingJson(text);
+        const p = prepareBriefingJson(text, facts);
         if (!p) return { ok: false, reasons: ['mb:json'] };
         const c = checkMorningV2(p.json, facts);
         return { ok: c.ok, reasons: c.reasons };
@@ -439,11 +442,11 @@ async function dryCompare(body: any): Promise<Response> {
                     maxTokens: 4096, jsonPrefill: true, temperature: 0.3, locale: 'multi', timeoutMs: 55000,
                     validate: (text: string) => { raws.push(String(text).slice(0, 6000)); return gate(text); },
                 }, async () => { throw new Error('dry: no legacy rung'); }));
-                const p = prepareBriefingJson(res.text);
+                const p = prepareBriefingJson(res.text, w === 'new' ? facts : null);
                 out[w].push({ ok: true, text: p?.briefing ?? null, raw: res.text.slice(0, 6000), raws, provider: res.provider, ms: Date.now() - s0,
                     newCheck: p ? checkMorningV2(p.json, facts) : null });
             } catch (e: any) {
-                const p = raws.length ? prepareBriefingJson(raws[raws.length - 1]) : null;
+                const p = raws.length ? prepareBriefingJson(raws[raws.length - 1], w === 'new' ? facts : null) : null;
                 out[w].push({ ok: false, error: String(e?.message || e).slice(0, 200), raws, text: p?.briefing ?? null, ms: Date.now() - s0,
                     newCheck: p ? checkMorningV2(p.json, facts) : null, oldGate: p ? briefingGate(p.json) : null });
             }
@@ -529,7 +532,7 @@ export async function POST(req: Request) {
             bedrockLegacy(legacy ? legacy.systemPrompt : v2System, userPrompt),
         );
 
-        const prepared = prepareBriefingJson(ladder.text);
+        const prepared = prepareBriefingJson(ladder.text, legacy ? null : facts);
         // 빈 응답·깨진 JSON — 예전처럼 아래 catch 의 템플릿(template-error, degraded)으로: 부르는 쪽이 다시 시도한다
         if (!prepared) throw new Error('Claude returned empty or unparseable JSON');
         const briefing = prepared.briefing;

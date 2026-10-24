@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
     morningNewsLines, morningCalendarLines, morningMetrics, buildMorningV2User, morningV2System, checkMorningV2, checkMorningLocale,
-    numberSignature, type MorningFacts,
+    numberSignature, stateSentence, composeMorningText, type MorningFacts,
 } from '@/lib/ai/morningBriefingV2';
 import { INDEX_NAMES } from '@/lib/ai/tacticalIndexFacts';
 import { aiLineFromText } from '@/lib/push/aiLine';
@@ -142,6 +142,42 @@ test('3언어 숫자 불일치는 탈락', () => {
     const c = checkMorningV2(JSON.stringify({ ...good, en: good.en.replace(' and WTI crude at $100.65 (+1.19%) together keep', ' together keeps') }), facts);
     assert.ok(c.reasons.includes('cross:numbers'));
     assert.deepEqual(numberSignature(good.ko), numberSignature(good.ja));
+});
+
+test('휴장(CLOSED) 첫 문장의 «개장 전» 은 틀린 세션 · 일정 없는 날의 경계는 SPY ×10 환산을 밝힌다(관문 10250203)', () => {
+    const closed: MorningFacts = { ...facts, session: 'CLOSED', events: [], indexFacts: facts.indexFacts.filter(f => f.kind === 'spot') };
+    const t = 'Nasdaq Composite rose 0.9% and S&P 500 rose 0.5% in the 10/23 cash session; current premarket futures observations are unconfirmed. ' + good.en.split('. ').slice(1).join('. ');
+    assert.ok(checkMorningLocale(t, 'en', closed).includes('mb:session-word'));
+    const u = buildMorningV2User({ ...facts, events: [], metrics: [...facts.metrics, ...morningMetrics({ putFloor: 7450 })] });
+    assert.match(u, /SPY 옵션 ×10 환산 S&P 500 Put Floor 7,450/);
+    assert.match(u, /the S&P 500-equivalent put floor at 7,450 \(SPY options ×10\)/);
+});
+
+test('첫 문장(STATE)은 코드가 쓴다 — 세션 6가지 모두 지수 계약(이름·값·방향·세션·날짜) 통과·푸시 90자 안', () => {
+    const spot = facts.indexFacts.filter(f => f.kind === 'spot');
+    const fut = facts.indexFacts.filter(f => f.kind === 'futures');
+    const cases: Array<[string, MorningFacts]> = [
+        ['PRE', facts],
+        ['PRE 선물 없음', { ...facts, indexFacts: spot }],
+        ['REG', { ...facts, session: 'REG', indexFacts: spot.map(f => ({ ...f, sessionDate: '2026-10-26' })) }],
+        ['POST', { ...facts, session: 'POST', indexFacts: [...spot, ...fut.map(f => ({ ...f, basis: { ko: '종가 시점 대비', en: 'since close', ja: '終了時点比' } }))] }],
+        ['CLOSED', { ...facts, session: 'CLOSED', indexFacts: spot }],
+        ['관측 없음', { ...facts, indexFacts: [] }],
+    ];
+    for (const [label, f] of cases) for (const l of ['ko', 'en', 'ja'] as const) {
+        const st = stateSentence(f, l);
+        const full = composeMorningText(good[l].split(/(?<=[.。])\s*/).slice(1).join(' '), f, l);
+        assert.ok(full.startsWith(st), `${label} ${l}`);
+        const r = checkMorningLocale(full, l, f).filter(x => /index|session|cash|premarket|regular|postclose|state|first/.test(x));
+        assert.deepEqual(r, [], `${label} ${l}: ${st} → ${r}`);
+        // 장후(POST)는 모닝 경로에선 드문 저녁 자가복구뿐 — 90자를 넘으면 푸시가 절 경계에서 자른다
+        if (l !== 'en') assert.ok([...st].length <= (label === 'POST' ? 100 : 90), `${label} ${l} 푸시 길이 ${[...st].length}: ${st}`);
+    }
+    assert.equal(stateSentence(facts, 'ko'), '10/23(금) 정규장 나스닥 종합 0.9% 상승·S&P500 0.5% 상승, 지금 개장 전 나스닥100 선물 0.2% 하락·S&P500 선물 보합입니다.');
+    assert.equal(stateSentence(facts, 'en'), 'The Nasdaq Composite rose 0.9% and the S&P 500 rose 0.5% in the 10/23 (Fri) cash session; now premarket Nasdaq 100 futures are down 0.2% and S&P 500 futures are flat.');
+    // 모델이 첫 문장을 되풀이하면 한 번만
+    const twice = composeMorningText(`${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`, facts, 'ko');
+    assert.equal(twice, `${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`);
 });
 
 test('장중(REG) 첫 문장에 장전 말·어제 결과는 탈락', () => {
