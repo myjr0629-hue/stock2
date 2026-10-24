@@ -90,7 +90,7 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     C.alignSummary(already.structured); assert.equal(already.structured.closingNarrative.why.en, 'At 2026-10-23 17:42 ET Kitco reported.');
     const yoso = brief(); yoso.structured.closingNarrative.watchNext.ja = '市場予想7を上回れば製造業指標が予想より強いことを示し、成長率予想12.5%は維持。予想される影響。';
     C.alignSummary(yoso.structured);
-    assert.equal(yoso.structured.closingNarrative.watchNext.ja, '市場予想7を上回れば製造業指標が市場予想より強いことを示し、成長率予想12.5%は維持。予想される影響。', '비교형 予想より만 市場予想으로');
+    assert.equal(yoso.structured.closingNarrative.watchNext.ja, '市場予想7を上回れば製造業指標が予想より強いことを示し、成長率予想12.5%は維持。予想される影響。', '予想 자동 치환 없음(관문 10241411)');
     const rp = C.narrativeRepairPrompt({ sessionDate: '2026-10-22', evidence: { news: [{ id: 'market-5', publishedEt: '2026-10-22 16:36 ET', timing: 'after_cash_close' }] }, macroStr: '', narrative: { ...narrative, causeRefs: [{ newsId: 'market-5', kind: 'reported_context' }] }, reasons: ['narrative:after-close-cause', 'narrative:why:cross-lang-facts'] });
     assert.match(rp, /causeRefs market-5 was published 2026-10-22 16:36 ET, AFTER the cash close/);
     assert.match(rp, /why: measured numbers\/ET times per language are ko=/);
@@ -98,11 +98,11 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.match(rl, new RegExp(`whatHappened\\.ko is 382 characters — rewrite it to at most ${C.TARGETS.whatHappened.ko} characters`));
     const buy = brief(); buy.structured.closingNarrative.whatHappened.ko = '나스닥은 일부 반도체 매수로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.';
     C.alignSummary(buy.structured);
-    assert.equal(buy.structured.closingNarrative.whatHappened.ko, '나스닥은 일부 반도체 매수세로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.', '관찰된 매매만 매수세로(10/24 8차 실측)');
-    assert.equal(closingReportProblems(buy).some(r => r.endsWith(':advice')), false);
-    const est = brief(); est.structured.closingNarrative.why.ko = '소비자심리 48은 사전 전망 46.3을 웃돌았고 반도체 매수 지지가 있었다. 경기 전망은 불확실하다.';
+    assert.equal(buy.structured.closingNarrative.whatHappened.ko, '나스닥은 일부 반도체 매수로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.', '매수 자동 치환 없음 — 고침 요청으로(관문 10241411)');
+    assert.ok(closingReportProblems(buy).some(r => r.endsWith(':advice')), '서빙 가드가 잡고 고침 요청으로 간다');
+    const est = brief(); est.structured.closingNarrative.why.ko = '소비자심리 48은 시장 예상치 46.3을 웃돌았고 반도체 매수 지지가 있었다.';
     C.alignSummary(est.structured);
-    assert.equal(est.structured.closingNarrative.why.ko, '소비자심리 48은 시장 예상치 46.3을 웃돌았고 반도체 매수세 지지가 있었다. 경기 전망은 불확실하다.', '숫자 앞 전망만 시장 예상치로(10/24 10차 실측)');
+    assert.equal(est.structured.closingNarrative.why.ko, '소비자심리 48은 시장 예상치 46.3을 웃돌았고 반도체 매수 지지가 있었다.');
     // 10/24 9차 실측 — 장후 보도를 «장중 보도»로 묶은 문장은 탈락, 같은 문장에 «마감 후»가 있으면 대조 서술로 통과
     assert.equal(C.afterCloseCalledIntraday('Reports published during the session include FXEmpire (2026-10-23 14:29 ET) and Schwab Network (2026-10-23 16:10 ET).', '2026-10-23 16:10 ET', 'en'), true);
     assert.equal(C.afterCloseCalledIntraday('FXEmpire reported during the session, while Schwab Network (2026-10-23 16:10 ET) came after the close.', '2026-10-23 16:10 ET', 'en'), false);
@@ -127,10 +127,10 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.ok(closingReportProblems(adv).some(r => r.endsWith(':advice')));
     const advTail = brief(); advTail.structured.closingNarrative.whatHappened.ko = '반도체 매수로 반등했다. 반도체 매수가 기회다.';
     C.alignSummary(advTail.structured);
-    assert.equal(advTail.structured.closingNarrative.whatHappened.ko, '반도체 매수세로 반등했다. 반도체 매수가 기회다.');
-    const guide = brief(); guide.structured.closingNarrative.why.ko = '회사는 매출 전망 46.3억 달러를 유지했다. 시장 전망 46.3을 웃돌았다.';
+    assert.equal(advTail.structured.closingNarrative.whatHappened.ko, '반도체 매수로 반등했다. 반도체 매수가 기회다.');
+    const guide = brief(); guide.structured.closingNarrative.why.ko = '회사는 매출 전망 46.3억 달러를 유지했다.';
     C.alignSummary(guide.structured);
-    assert.equal(guide.structured.closingNarrative.why.ko, '회사는 매출 전망 46.3억 달러를 유지했다. 시장 예상치 46.3을 웃돌았다.', '회사 가이던스·금액은 그대로');
+    assert.equal(guide.structured.closingNarrative.why.ko, '회사는 매출 전망 46.3억 달러를 유지했다.', '회사 가이던스·금액은 그대로');
     const hidden = brief(); const hev = { ...hidden.reportEvidence, news: [...hidden.reportEvidence.news, { id: 'zz-8', source: 'Kitco', publishedEt: '2026-10-22 17:42 ET', timing: 'after_cash_close' }] };
     hidden.reportEvidence = hev;
     hidden.structured.closingNarrative.causeRefs = [...hidden.structured.closingNarrative.causeRefs, { newsId: 'zz-8', kind: 'reported_context' }];
@@ -180,7 +180,7 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.equal(closingReportProblems(order).includes('narrative:watchNext:cross-lang-facts'), false, '순서 차이');
     const state = brief(); state.structured.closingNarrative.whatHappened.ko = '반도체 매수로 하락폭이 제한된 상태다.';
     C.alignSummary(state.structured);
-    assert.equal(state.structured.closingNarrative.whatHappened.ko, '반도체 매수세로 하락폭이 제한된 상태다.');
+    assert.equal(state.structured.closingNarrative.whatHappened.ko, '반도체 매수로 하락폭이 제한된 상태다.');
     // 관문 10241251 반례 2건
     const gex2 = brief(); gex2.structured.closingNarrative.indicators = tri('GEX +6,000만 달러, 자금 -6,300만 달러, 금리 +4bp.', 'GEX -$62.2M, flows -$63M, yields +4bp.', 'GEX -6,220万ドル、資金 -6,300万ドル、金利+4bp。');
     assert.ok(closingReportProblems(gex2).includes('narrative:indicators:cross-lang-facts'));
@@ -194,6 +194,56 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.ok(closingReportProblems(unsigned).includes('narrative:indicators:cross-lang-facts'), '음수 금액의 부호를 빠뜨리면 탈락');
     const worded = brief(); worded.structured.closingNarrative.indicators = tri('GEX는 마이너스 6,220만 달러, 금리 +4bp.', 'GEX -$62.2M; yields +4bp.', 'GEXは-6,220万ドル、金利+4bp。');
     assert.equal(closingReportProblems(worded).includes('narrative:indicators:cross-lang-facts'), false, '말로 음수를 밝히면 통과');
+    // 운영 dry 10/24 13:47 — 수동형 매수됐다 · 가장 가까운 일정 건너뛰기
+    const pass = brief(); pass.structured.closingNarrative.why.ko = 'FXEmpire는 장중에 일부 칩 종목만 매수됐다고 전했다.';
+    C.alignSummary(pass.structured);
+    assert.equal(pass.structured.closingNarrative.why.ko, 'FXEmpire는 장중에 일부 칩 종목만 매수됐다고 전했다.');
+    const should = brief(); should.structured.closingNarrative.why.ko = '칩 종목은 지금 매수됐어야 했다고 판단했다.';
+    C.alignSummary(should.structured);
+    assert.equal(should.structured.closingNarrative.why.ko, '칩 종목은 지금 매수됐어야 했다고 판단했다.', '당위형은 정규화하지 않는다(관문 10241349)');
+    assert.ok(closingReportProblems(should).some(r => r.endsWith(':advice')));
+    const outlook = brief(); outlook.structured.closingNarrative.indicators.ko = '내년 시장 전망 10% 상승에 대비할 필요가 있었다.';
+    C.alignSummary(outlook.structured);
+    assert.equal(outlook.structured.closingNarrative.indicators.ko, '내년 시장 전망 10% 상승에 대비할 필요가 있었다.', '전망은 치환하지 않는다(관문 10241357)');
+    assert.ok(closingReportProblems(outlook).some(r => r.endsWith(':advice')));
+    const reason = brief(); reason.structured.closingNarrative.why.ko = '칩 종목은 매수됐고 지금도 계속 사는 것이 합리적이라고 판단했다.';
+    C.alignSummary(reason.structured);
+    assert.ok(closingReportProblems(reason).some(r => r.endsWith(':advice')), '정규화가 권유 검출 낱말을 지우지 않는다(관문 10241411)');
+    const keep = brief(); keep.structured.closingNarrative.why = tri('회사는 전망을 유지했다.', 'The company kept its outlook.', '会社は見通しを維持した。');
+    assert.deepEqual(C.adviceSuspects(keep.structured), [], '가이던스 유지·재확인은 의심 아님');
+    // 관문 10241426 — 한국어 매수 관찰문도 Lambda 고침 대상, 고침 지시는 걸린 구절을 인용
+    const kobuy = brief(); kobuy.structured.closingNarrative.whatHappened.ko = '나스닥은 일부 반도체 매수로 하락폭이 제한됐다.';
+    assert.ok(C.adviceSuspects(kobuy.structured).includes('narrative:whatHappened:ko:advice'));
+    assert.deepEqual(C.adviceSuspects((() => { const b = brief(); b.structured.closingNarrative.whatHappened.ko = '매수세가 몰렸고 순매수가 이어졌으며 공매도는 줄었다.'; return b; })().structured), []);
+    const rq = C.narrativeRepairPrompt({ sessionDate: '2026-10-22', evidence: { news: [] }, macroStr: '', narrative: { ...narrative, watchNext: { ...narrative.watchNext, ja: '市場予想-0.1を上回れば予想より強い活動を示す。' } }, reasons: ['narrative:watchNext:ja:advice'] });
+    assert.match(rq, /watchNext\.ja: rewrite these fragments without the flagged word — «.*予想より強い/);
+    const lam = fs.readFileSync('scripts/lambda-cross-sector/index.js', 'utf8');
+    assert.ok(/better\(score\(candidate\), score\(structured\)\)/.test(lam), 'Lambda 채택은 근거 검사 우선');
+    // Lambda 권유어 검사 = 서빙 가드(생성 파일이 원본과 같아야 한다)
+    const gen = require('../scripts/build-lambda-advice-guard.cjs');
+    assert.equal(fs.readFileSync(gen.OUT, 'utf8'), gen.build(), 'adviceGuard.generated.js 를 다시 만들어라: node scripts/build-lambda-advice-guard.cjs');
+    for (const t of ['나스닥은 일부 반도체 매수로 하락폭이 제한됐다.', 'FXEmpire는 나스닥의 선별적 반도체 매수를 전했다.', '市場予想-0.1を上回れば予想より強い活動を示す。']) {
+        const b = brief(); b.structured.closingNarrative.whatHappened.ko = t; b.structured.closingNarrative.whatHappened.ja = t;
+        const served = closingReportProblems(b).filter(r => r.endsWith(':advice') && r.startsWith('narrative:whatHappened:'));
+        assert.deepEqual(C.adviceSuspects(b.structured).filter((r: string) => r.startsWith('narrative:whatHappened:')).sort(), served.sort(), t);
+    }
+    const kind = brief(); kind.structured.closingNarrative.causeRefs = kind.structured.closingNarrative.causeRefs.map((r: any) => ({ ...r, kind: 'before_or_during_cash_session' }));
+    C.alignSummary(kind.structured);
+    assert.ok(kind.structured.closingNarrative.causeRefs.every((r: any) => r.kind === 'reported_context'), 'timing 값 kind 는 같은 뜻으로');
+    const best = brief(); best.structured.closingNarrative.why.ko = '칩 종목은 매수됐고 추가 진입이 최선이라고 판단했다.';
+    C.alignSummary(best.structured);
+    assert.equal(best.structured.closingNarrative.why.ko, '칩 종목은 매수됐고 추가 진입이 최선이라고 판단했다.', '평가어 문장은 정규화 제외(관문 10241403)');
+    // Lambda 권유어 의심: 서빙 가드가 잡는 낱말이면 고침을 부른다
+    const sus = brief(); sus.structured.closingNarrative.why.ko = '소비자심리 48은 시장 전망 46.3을 웃돌았다.';
+    assert.ok(C.adviceSuspects(sus.structured).includes('narrative:why:ko:advice'));
+    assert.deepEqual(C.adviceSuspects(brief().structured), [], '정상 서사는 의심 0');
+    const lambdaSrc = fs.readFileSync('scripts/lambda-cross-sector/index.js', 'utf8');
+    assert.ok(lambdaSrc.includes('CLOSING.adviceSuspects(s)'), 'Lambda 고침 사유에 권유어 의심 포함');
+    const ev2 = brief(); ev2.reportEvidence = { ...ev2.reportEvidence, events: [{ at: '2026-10-26T12:30:00.000Z', timeEt: '2026-10-26 08:30 ET', event: 'Chicago Fed' }, { at: '2026-10-27T12:30:00.000Z', timeEt: '2026-10-27 08:30 ET', event: 'Durable Goods' }] };
+    ev2.structured.closingNarrative.watchNext = tri('다음 거래일 일정은 제공되지 않았다. 2026-10-27 08:30 ET 내구재.', 'No next-session calendar. 2026-10-27 08:30 ET durables.', '次の日程はない。2026-10-27 08:30 ETの耐久財。');
+    assert.ok(closingReportProblems(ev2).includes('narrative:event-next:en'));
+    ev2.structured.closingNarrative.watchNext = tri('2026-10-26 08:30 ET 시카고 연은, 2026-10-27 08:30 ET 내구재.', '2026-10-26 08:30 ET Chicago Fed, 2026-10-27 08:30 ET durables.', '2026-10-26 08:30 ETシカゴ連銀、2026-10-27 08:30 ET耐久財。');
+    assert.equal(closingReportProblems(ev2).some(r => r.startsWith('narrative:event-')), false);
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');

@@ -445,7 +445,8 @@ export async function POST(req: Request) {
         const firstNarrativeReasons = closingReportProblems({ structured, reportEvidence, date: todayDate });
         let narrativeReasons = firstNarrativeReasons;
         let repairs = 0;
-        for (let round = 0; round < 2 && narrativeReasons.length; round++) {
+        // 고침은 최대 4회 — 한 번에 6~10초라 모델 예산(240초) 안이고, 남은 시간이 30초 미만이면 멈춘다(10/24 18차 실측: 2회로는 일본어 見通し·일정 시각 고침이 모자랐다)
+        for (let round = 0; round < 4 && narrativeReasons.length; round++) {
             const left = 240_000 - (Date.now() - aiStarted);
             if (left < 30_000) break;
             const repairPrompt = CLOSING.narrativeRepairPrompt({ sessionDate: todayDate, evidence: reportEvidence, macroStr, narrative: structured.closingNarrative, reasons: narrativeReasons });
