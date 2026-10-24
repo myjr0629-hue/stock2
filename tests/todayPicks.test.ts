@@ -38,6 +38,7 @@ const script: Script[] = [];
 let aiCalls = 0;
 let sawFresh = true;
 const prompts: string[] = [];
+const validators: Array<(raw: string) => { ok: boolean }> = [];
 const bcPath = require.resolve('../src/services/bedrockClient');
 require.cache[bcPath] = {
   id: bcPath, filename: bcPath, loaded: true,
@@ -45,6 +46,7 @@ require.cache[bcPath] = {
     callBedrock: async (o: any) => {
       aiCalls++;
       prompts.push(o.userPrompt);
+      validators.push(o.validate);
       sawFresh = sawFresh && inFreshTier();
       const s = script.shift() ?? { throwSkip: true };
       if (s.throwErr) throw new Error('boom');
@@ -465,7 +467,8 @@ t('한국 저녁: 금요일판 → 월요일 pre 날짜·세션 교체, 같은 �
   assert.equal(doc.slot, 'pre'); assert.equal(doc.etDate, '2026-10-19'); assert.equal(doc.session, 'PRE-MARKET');
   assert.equal(doc.stamp.opt, '2026-10-16'); assert.equal(doc.stamp.opened, '2026-10-15');
   assert.equal(doc.context?.lastRegularDate, '2026-10-16');
-  assert.ok(prompts.slice(before).every(p => p.includes('PRE-OPEN CONTEXT') && p.includes('2026-10-16')));
+  assert.ok(prompts.slice(before).every(p => p.includes('CONTRACT: today-picks-v2') && p.includes('LAST_REGULAR_DATE: 2026-10-16')));
+  assert.ok(prompts.slice(before).every(p => !p.includes('PRE-OPEN CONTEXT')), '배경 시세·뉴스를 개별 옵션의 원인으로 전달하지 않는다');
   const calls = aiCalls;
   assert.equal((await svc.runPicks({ now: pre + 60_000 })).status, 'fresh'); assert.equal(aiCalls, calls);
   assert.equal((await svc.runPicks({ now: Date.parse('2026-10-19T12:00:00Z') })).status, 'generated');
@@ -503,7 +506,7 @@ t('서비스(마감 뒤 슬롯): 읽기 전용 재료로 선별 → 항목마다
   for (const k of writes) assert.ok(/^(todaypicks:|perf:lock:todaypicks)/.test(k), k);
   assert.equal(store.has('perf:lock:todaypicks'), false, '잠금은 끝나면 푼다');
   assert.equal(store.get(svc.TP_KEYS.day('2026-10-12')), 5);
-  assert.ok(prompts.every((p) => /^FACTS — [A-Z]+/.test(p)));
+  assert.ok(prompts.every((p) => /^CONTRACT: today-picks-v2/.test(p) && /FACTS — [A-Z]+/.test(p)));
 });
 t('서비스: AI 가드 실패·크레딧 건너뜀·오류·하루 상한 → 그 항목만 규칙 해설(whyAi=false) — 카드는 비지 않는다', async () => {
   stubWorld();
@@ -584,6 +587,32 @@ t('끄기 스위치: 레디스 todaypicks:off 또는 환경변수 → 생성 0 �
   assert.equal(j.action, 'off'); assert.equal(store.has(svc.TP_KEYS.off), true);
   const j2 = await (await cron.GET(new Request('http://x/api/cron/today-picks?off=0'))).json();
   assert.equal(j2.action, 'on'); assert.equal(store.has(svc.TP_KEYS.off), false);
+});
+t('v2: 새 생성에서만 출처명 탈락, 기존 계약 저장본은 카드·전체보기에 보존(쓰기·AI 0)', async () => {
+  stubWorld();
+  const saved = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/today-picks-v2/existing-model.json'), 'utf8')).find((r: any) => r.ticker === 'MU');
+  // 기존 실제 문장에 기존 계약이 허용하는 출처를 덧붙인 합성 회귀 입력이다.
+  saved.why.en += ' (OCC)';
+  const c: Cand = { id: 'gamma:MU', ticker: 'MU', kind: 'gamma', asOf: '2026-10-12', score: 1, facts: saved.facts };
+  script.push({ text: JSON.stringify(saved.why) });
+  const generated = await svc.writeWhy(c, saved.etDate, 2026);
+  assert.equal(generated.outcome, 'guard');
+  assert.ok(generated.reasons.some((r: string) => r.includes('internal-or-freshness')));
+  assert.equal(validators.at(-1)!(JSON.stringify(saved.why)).ok, false, '모델 재시도의 validate 콜백도 새 생성 검사 사용');
+  const rt = ruleTexts(c.ticker, c.facts);
+  const doc: TodayPicksDoc = { v: 1, slot: 'pm', etDate: saved.etDate, at: NOW_PM,
+    stamp: { opt: null, opened: null, finra: null, chain: '2026-10-12', earn: null },
+    items: [{ ...c, what: rt.what, why: saved.why, whyAi: true, push: rt.push }],
+    gen: { calls: 1, ok: 1, fallback: 0, ms: 0 } };
+  store.set(svc.TP_KEYS.latest, doc);
+  const beforeCalls = aiCalls, beforeWrites = writes.length;
+  const read = await svc.readPicks(NOW_PM + 1000);
+  assert.deepEqual(read.doc!.items[0].why, saved.why);
+  for (const loc of LOCS) {
+    assert.equal(buildView(read.doc, loc).items[0].why, saved.why[loc]);
+    assert.equal(buildView(read.doc, loc).items[0].ai, true);
+  }
+  assert.equal(aiCalls, beforeCalls); assert.equal(writes.length, beforeWrites);
 });
 t('읽기: 문서가 5일보다 오래되면 없음 · 항목이 없으면 없음 · 크론 시간 창(ET 07:30~10:30 · 16:30~21:00)', async () => {
   stubWorld();

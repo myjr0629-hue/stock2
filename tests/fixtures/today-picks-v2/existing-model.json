@@ -1,0 +1,163 @@
+[
+  {
+    "id": "existing-haiku-1",
+    "provenance": "existing-model-test-output",
+    "source": "tests/todayPicks.test.ts: 가드 통과: 운영 실제 Haiku 5.5 출력(10/13 시험)",
+    "ticker": "INTC",
+    "etDate": "2026-10-13",
+    "facts": {
+      "kind": "whale",
+      "openedOn": "2026-10-09",
+      "notional": 1372663000,
+      "callPct": 100,
+      "best": {
+        "type": "call",
+        "strike": 115,
+        "expiry": "2026-10-23",
+        "added": 35418,
+        "oi": 39675,
+        "notional": 407307000
+      },
+      "jump": 9.3
+    },
+    "why": {
+      "ko": "한 행사가의 미결제약정이 하루 만에 크게 늘어 새 포지션이 열렸습니다",
+      "en": "One strike's open interest jumped in a single session, so new positions were opened",
+      "ja": "ある行使価格の建玉が一日で大きく増え、新規ポジションが開かれました"
+    }
+  },
+  {
+    "id": "existing-haiku-2",
+    "provenance": "existing-model-test-output",
+    "source": "tests/todayPicks.test.ts: 가드 통과: 운영 실제 Haiku 5.5 출력(10/13 시험)",
+    "ticker": "INTC",
+    "etDate": "2026-10-13",
+    "facts": {
+      "kind": "whale",
+      "openedOn": "2026-10-09",
+      "notional": 1372663000,
+      "callPct": 100,
+      "best": {
+        "type": "call",
+        "strike": 115,
+        "expiry": "2026-10-23",
+        "added": 35418,
+        "oi": 39675,
+        "notional": 407307000
+      },
+      "jump": 9.3
+    },
+    "why": {
+      "ko": "한 행사가의 미결제약정이 하루 만에 열 배 가까이 늘어 새 포지션이 열렸습니다",
+      "en": "One strike's open interest jumped nearly tenfold in a session, so new positions were opened",
+      "ja": "ある行使価格の建玉が一日でほぼ十倍に増え、新規ポジションが開かれました"
+    }
+  },
+  {
+    "id": "existing-haiku-3",
+    "provenance": "existing-model-test-output",
+    "source": "tests/todayPicks.test.ts: 가드 통과: 운영 실제 Haiku 5.5 출력(10/13 시험)",
+    "ticker": "BMY",
+    "etDate": "2026-10-13",
+    "facts": {
+      "kind": "darkpool",
+      "date": "2026-10-12",
+      "pct": 35.6,
+      "ratio": 2.3,
+      "volume": 8041637,
+      "marketAvg": 51.1
+    },
+    "why": {
+      "ko": "장외 거래량이 최근 20일 평균의 2.3배로 늘어 거래소 밖 체결이 크게 늘었습니다",
+      "en": "Off-exchange volume ran at 2.3 times its 20-day average, a sharp rise outside the exchanges",
+      "ja": "場外の出来高が直近20日平均の2.3倍に膨らみ、取引所外の約定が大きく増えました"
+    }
+  },
+  {
+    "id": "existing-haiku-4",
+    "provenance": "existing-model-test-output",
+    "source": "tests/todayPicks.test.ts: 가드 통과: 운영 실제 Haiku 5.5 출력(10/13 시험)",
+    "ticker": "AAPL",
+    "etDate": "2026-10-13",
+    "facts": {
+      "kind": "gamma",
+      "level": "gammaFlip",
+      "chainDate": "2026-10-12",
+      "expiry": "2026-10-16",
+      "spot": 340.7,
+      "levelPrice": 340,
+      "distPct": 0.21,
+      "side": "a"
+    },
+    "why": {
+      "ko": "Gamma Flip 바로 위라 딜러 헤지가 움직임을 줄이는 쪽입니다",
+      "en": "Just above Gamma Flip, where dealer hedging tends to dampen moves",
+      "ja": "Gamma Flipのすぐ上で、ディーラーのヘッジが値動きを抑える側です"
+    }
+  },
+  {
+    "id": "existing-haiku-5",
+    "provenance": "existing-model-test-output",
+    "source": "tests/todayPicks.test.ts: 가드 통과: 운영 실제 Haiku 5.5 출력(10/13 시험)",
+    "ticker": "AMZN",
+    "etDate": "2026-10-13",
+    "facts": {
+      "kind": "gamma",
+      "level": "gammaFlip",
+      "chainDate": "2026-10-12",
+      "expiry": "2026-10-16",
+      "spot": 259.7,
+      "levelPrice": 260,
+      "distPct": 0.12,
+      "side": "b"
+    },
+    "why": {
+      "ko": "Gamma Flip 아래라 딜러 헤지가 움직임을 키우는 쪽입니다",
+      "en": "Below Gamma Flip, where dealer hedging tends to amplify moves",
+      "ja": "Gamma Flipの下で、ディーラーのヘッジが値動きを増幅する側です"
+    }
+  },
+  {
+    "id": "existing-haiku-6",
+    "provenance": "existing-model-test-output",
+    "source": "tests/todayPicks.test.ts: 가드 통과: 운영 실제 Haiku 5.5 출력(10/13 시험)",
+    "ticker": "MU",
+    "etDate": "2026-10-13",
+    "facts": {
+      "kind": "gamma",
+      "level": "maxPain",
+      "chainDate": "2026-10-12",
+      "expiry": "2026-10-16",
+      "spot": 980,
+      "levelPrice": 980,
+      "distPct": 0,
+      "side": "at"
+    },
+    "why": {
+      "ko": "만기가 가까워 가격이 Max Pain 근처에 붙어 있는 경향이 보입니다",
+      "en": "With expiry close, price sits near Max Pain, a tendency rather than a promise",
+      "ja": "満期が近く、価格はMax Painの近くに張り付く傾向が見られます"
+    }
+  },
+  {
+    "id": "existing-haiku-7",
+    "provenance": "existing-model-test-output",
+    "source": "tests/todayPicks.test.ts: 가드 통과: 운영 실제 Haiku 5.5 출력(10/13 시험)",
+    "ticker": "UNH",
+    "etDate": "2026-10-13",
+    "facts": {
+      "kind": "earnings",
+      "date": "2026-10-13",
+      "hour": "bmo",
+      "etTime": null,
+      "impliedPct": 6.7,
+      "impliedExpiry": "2026-10-16",
+      "session": "2026-10-12"
+    },
+    "why": {
+      "ko": "발표를 낀 만기의 옵션이 이만큼의 움직임을 가격에 반영하고 있습니다",
+      "en": "Options for the expiry containing the report price in a move of this size",
+      "ja": "決算を含む満期のオプションが、この大きさの値動きを織り込んでいます"
+    }
+  }
+]
