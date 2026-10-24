@@ -139,26 +139,28 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         if (pair.some(re => [...t.matchAll(new RegExp(re))].some(m => negatedClause(m))))
             reasons.push(`${l}:v2:conditional-mechanism`);
         const residual = pair.reduce((s, re) => s.replace(new RegExp(re), ''), t);
-        // 남은 절의 위치·기전 단어 = 현재 상태 주장. 부정된 절(«Price is not above»)은 판정하지 않는다(오탈락 방지).
-        const segments = residual.split(/[,;.。、·]/);
-        // 부정은 그 위치어에 붙은 것만(«not below», «아래가 아니라», «下ではなく»). 같은 절의 다른 긍정 위치어(«…but above»)는 계속 판정(관문 10242027).
-        const negatedAt = (index: number, len = 0) => /\b(?:not|no|never|isn't|aren't|nor)\s+(?:\w+\s+)?$/i.test(residual.slice(Math.max(0, index - 14), index))
-            || /^\s*(?:이|가|은|는|에)?\s*(?:아니|아닌|아닙)|^\s*(?:では|じゃ)な|^\s*に(?:は)?(?:ない|ありません)/.test(residual.slice(index + len, index + len + 8));
-        for (const m of residual.matchAll(new RegExp(CURRENT_SIDE[l]))) {
-            if (negatedAt(m.index ?? 0, m[0].length)) continue;
-            const side = /^(?:위|above|over|上)$/i.test(m[1]) ? 'a' : 'b';
-            if (side !== f.side) reasons.push(`${l}:v2:current-side`);
+        // 두 갈래를 떼어 낸 나머지에 위치·기전·현재 단어가 «하나라도» 남으면 완화하지 않는다 — 운영(옛) 검사 판정을 그대로 쓴다.
+        // (나머지를 따로 해석하던 판정은 부정·대조 문형마다 오탈락·오통과가 번갈아 나왔다: 관문 10241657~10242039.)
+        // 완화는 «순수한 두 갈래 구조 설명»(나머지에 위치·기전 주장 없음)일 때만 — 그때만 옛 검사의 위치·기전 사유를 뗀다.
+        const residualClaims = new RegExp(CURRENT_SIDE[l]).test(residual) || new RegExp(CURRENT_MECH[l]).test(residual)
+            || new RegExp(`${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]}`, 'i').test(residual)
+            || /\b(?:currently|now|price|it is|sits?)\b|현재|지금|주가|가격|現在|株価|価格/i.test(residual);
+        if (residualClaims) {
+            // 나머지에 부정·대조·감소 표현이 전혀 없을 때만 «현재 위치·기전» 단정을 실제 쪽과 맞춘다(«현재는 위입니다» 거절).
+            // 부정 등이 섞이면 해석하지 않고 옛 검사 판정 그대로(관문 10242027·10242039: «not far above»·«완충 효과는 없습니다»).
+            const plain = !NEG_MECHANISM.test(residual) && !CONTRAST.test(residual) && !/아니|아닌|ではな|\b(?:far|less|limits?|nor)\b|줄|사라|잃|없|弱|消/i.test(residual);
+            if (plain) {
+                for (const m of residual.matchAll(new RegExp(CURRENT_SIDE[l])))
+                    if ((/^(?:위|above|over|上)$/i.test(m[1]) ? 'a' : 'b') !== f.side) reasons.push(`${l}:v2:current-side`);
+                for (const m of residual.matchAll(new RegExp(CURRENT_MECH[l])))
+                    if ((new RegExp(MECHANISM_WORDS[l][0], 'i').test(m[1]) ? 'a' : 'b') !== f.side) reasons.push(`${l}:v2:current-mechanism`);
+                // 단정이 실제 쪽과 맞으면 옛 검사가 두 갈래의 반대쪽 단어로 낸 위치·기전 사유는 뗀다(«… Price is below.» 정상).
+                reasons = reasons.filter(r => !(r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`)));
+            }
+            continue;
         }
-        // «currently cushions swings»처럼 위치 단어 없이 현재 기전만 쓴 주장도 실제 쪽과 맞춘다(관문 10241657).
-        for (const m of residual.matchAll(new RegExp(CURRENT_MECH[l]))) {
-            if (negatedAt(m.index ?? 0, m[0].length) || NEG_MECHANISM.test(m[0])) continue;
-            const side = new RegExp(MECHANISM_WORDS[l][0]).test(m[1]) ? 'a' : 'b';
-            if (side !== f.side) reasons.push(`${l}:v2:current-mechanism`);
-        }
-        const checked = checkPickWhy(JSON.stringify({ ...text, [l]: residual.length >= 8 ? residual : { ko: '감마 경계의 구조입니다', en: 'Options boundary structure', ja: 'ガンマ境界の構造です' }[l] }), ticker, f, year, today);
         const isSideReason = (r: string) => r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`);
         reasons = reasons.filter(r => !isSideReason(r));
-        reasons.push(...checked.reasons.filter(isSideReason));
     }
     reasons = [...new Set(reasons)];
     return reasons.length ? { ok: false, reasons } : { ok: true, reasons: [], text };

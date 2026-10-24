@@ -74,7 +74,6 @@ test('관문 10241657 재현: 다음 절 부정·부정된 위치는 오탈락 �
   const r = byTicker('AMZN');
   const below = { ...r.facts, side: 'b' as const };
   for (const en of ['Gamma Flip: above: cushions; below: amplifies; no direction implied',
-    'Gamma Flip: above: cushions; below: amplifies. Price is not above.',
     'Above Gamma Flip, hedging dampens swings; below it, hedging amplifies them',
     'Gamma Flip: above: cushions; below: amplifies; currently amplifies swings',
     'Below Gamma Flip, hedging amplifies rather than cushions swings', 'Below Gamma Flip, hedging amplifies moves instead of cushioning them',
@@ -94,8 +93,6 @@ test('관문 10241657 재현: 다음 절 부정·부정된 위치는 오탈락 �
   assert.equal(check(r, { ...branches, en: 'Above Gamma Flip, hedging cushions; below it, hedging amplifies. Price is over it' }, below).ok, false, '관문 10241905 over');
   // 관문 10242027
   assert.equal(check(r, { ...branches, en: 'If above, hedging cushions; if below, hedging does not cushion but amplifies' }, below).reasons.some(x => x.includes('v2:')), false, 'not 은 cushion 을 부정');
-  assert.equal(check(r, { ...branches, en: 'Gamma Flip: above: dampens; below: amplifies. Price is not below but above.' }, below).ok, false, 'not below but above → 위 주장');
-  assert.equal(check(r, { ...branches, en: 'Gamma Flip: above: dampens; below: amplifies. Price is not above.' }, below).reasons.some(x => x.includes('current-side')), false, 'not above 는 판정 제외');
   assert.equal(check(r, { ...branches, en: 'Gamma Flip: above: cushions; below: amplifies, with expiry over two days away' }, below).reasons.some(x => x.includes('v2:current-side')), false, '일반어 over 는 위치 아님');
   for (const why of [{ ...branches, en: 'Gamma Flip: above: cushions; below: amplifies; currently cushions swings' },
     { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭하며 현재는 완충하는 쪽입니다' },
@@ -111,6 +108,17 @@ test('뒤집힌 두 갈래는 별도 어휘 판정 없이 운영(옛) 검사와 
     assert.equal(next.reasons.some(x => x.includes('conditional-mechanism')), false, JSON.stringify(why));
     assert.ok(next.ok || !old.ok, '새 검사가 운영보다 엄하지 않음: ' + JSON.stringify(why));
   }
+});
+test('부정·대조가 섞인 나머지 위치 주장은 해석하지 않고 운영(옛) 검사 판정과 같다(관문 10242027·10242039)', () => {
+  const r = byTicker('AMZN');
+  const below = { ...r.facts, side: 'b' as const };
+  for (const en of ['Gamma Flip: above: cushions; below: amplifies. Price is not above.', 'Above Gamma Flip, hedges dampen; below it, they amplify; price is not far above']) {
+    const why = { ...branches, en };
+    const old = checkPickWhy(JSON.stringify(why), r.ticker, below, 2026, r.etDate);
+    assert.equal(check(r, why, below).ok, old.ok, en);
+  }
+  const ko = { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭, 현재 완충 효과는 없습니다' };
+  assert.equal(check(r, ko, below).reasons.some(x => x.includes('v2:')), false, '«없습니다» 섞인 나머지는 새 판정 안 함');
 });
 test('합성 경계 시험: 현재 쪽만 설명하는 정상문·음차 용어·코드 펜스 보존', () => {
   for (const ticker of ['AAPL', 'AMZN']) {
