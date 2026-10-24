@@ -19,8 +19,15 @@ const writes: { key: string; value: unknown; ttl: number }[] = [];
 const reads: string[] = [];
 let failRead = '', failWrite = '';
 let beforeWrite = async (_key: string, _value: unknown) => {};
+const upstashStore = new Map<string, unknown>();
 const redis = {
     getFromCache: async (key: string) => { reads.push(key); if (key === failRead) throw new Error('mock read failure'); return store.get(key) ?? null; },
+    // store = EC2 우선 읽기 경로, upstashStore = Upstash 직접 읽기. 어느 쪽 사본이 나은지는 호출자가 고른다.
+    mgetBothStores: async (keys: string[]) => {
+        keys.forEach(k => reads.push(k));
+        if (keys.includes(failRead)) throw new Error('mock read failure');
+        return { primary: keys.map(k => store.get(k) ?? null), upstash: keys.map(k => upstashStore.get(k) ?? null) };
+    },
     setInCache: async (key: string, value: unknown, ttl: number) => {
         if (key === failWrite) return false;
         writes.push({ key, value, ttl }); store.set(key, value); return true;
@@ -38,7 +45,7 @@ const originalLoad = (Module as any)._load;
 (Module as any)._load = function(id: string, ...args: any[]) {
     return id === './redisClient' || id === '@/services/redisClient' ? redis : originalLoad.call(this, id, ...args);
 };
-const { captureFuturesCashClose } = require('../src/services/futuresCashClose');
+const { captureFuturesCashClose, _resetSettledCashCloseRefsForTest } = require('../src/services/futuresCashClose');
 const { loadMarketIndexBasis } = require('../src/services/marketIndexBasis');
 const { runMarketFeed } = require('../src/services/jobs/marketFeedJob');
 
@@ -52,7 +59,7 @@ async function main() {
         ['2026-10-30', '2026-10-30T20:00:00.000Z'],
         ['2026-11-02', '2026-11-02T21:00:00.000Z'],
     ]) {
-        store.clear(); writes.length = 0;
+        store.clear(); upstashStore.clear(); _resetSettledCashCloseRefsForTest(); writes.length = 0;
         const close = etWallTimeToMs(date, sessionCloseMinutes(date));
         assert.equal(iso(close), closeISO, date);
         for (const symbol of ['NQ=F', 'ES=F'] as const) {
@@ -97,7 +104,7 @@ async function main() {
 
     const date = '2026-10-22', close = Date.parse('2026-10-22T20:00:00Z'), at = close + 15 * 60_000;
     // 관문 재현: 오래된 관측의 쓰기를 멈춘 사이 정각 기준이 먼저 저장된다.
-    store.clear();
+    store.clear(); upstashStore.clear(); _resetSettledCashCloseRefsForTest();
     let arrived!: () => void, release!: () => void;
     const waiting = new Promise<void>(resolve => { arrived = resolve; });
     const resume = new Promise<void>(resolve => { release = resolve; });
@@ -121,7 +128,36 @@ async function main() {
         async () => ({ ok: true, value: reference('NQ=F', date, close - 30_000) })), false);
     assert.equal(await captureFuturesCashClose(quote('NQ=F', close), close,
         async () => ({ ok: true, value: reference('ES=F', date, close) })), false);
-    store.clear();
+    store.clear(); upstashStore.clear(); _resetSettledCashCloseRefsForTest();
+
+    // 관문 10240752 재현: 15:59:30 20,000 을 양쪽에 저장 → EC2 장애 중 16:00 20,020 은 Upstash 에만 → EC2 복구.
+    // EC2 값이 있어도 Upstash 의 더 가까운 기준을 써야 실제 0% 가 된다(예전 +0.1% 오표시).
+    store.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close - 30_000, 20000));
+    upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20020));
+    store.set('yahoo:nq', quote('NQ=F', at, 20020));
+    const recovered = await loadMarketIndexBasis(at);
+    assert.equal(recovered.futures.nq.sinceCashClosePct, 0, 'EC2 복구 뒤에도 마감에 더 가까운 Upstash 기준');
+    assert.equal(recovered.futures.nq.cashCloseReferenceAt, iso(close));
+    // 반대(Upstash 가 덜 정확)도 가까운 쪽. 한쪽이 깨진 값이면 다른 쪽.
+    _resetSettledCashCloseRefsForTest();
+    store.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20020));
+    upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close - 30_000, 20000));
+    assert.equal((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct, 0, 'EC2 가 더 가까우면 EC2');
+    _resetSettledCashCloseRefsForTest();
+    store.set(futuresCashCloseKey('NQ=F', date), { ...reference('NQ=F', date, close, 20020), asOf: 'bad' });
+    upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close - 30_000, 20000));
+    assert.ok(Math.abs((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct - 0.1) < 1e-10, '깨진 사본은 버리고 유효한 쪽');
+    // 마감 10분 뒤 고른 기준은 인스턴스에 고정 — 다음 조회는 저장소를 다시 읽지 않는다.
+    reads.length = 0;
+    await loadMarketIndexBasis(at);
+    assert.ok(!reads.some(k => k.startsWith('yahoo:cash-close:nq:')), '확정된 기준은 다시 읽지 않음');
+    // 정규장·장전(PRE)·주말에는 기준을 읽지 않는다(읽기 비용 증가 0).
+    reads.length = 0;
+    await loadMarketIndexBasis(close - 60 * 60_000);
+    await loadMarketIndexBasis(Date.parse('2026-10-22T12:00:00Z'));
+    await loadMarketIndexBasis(Date.parse('2026-10-24T18:00:00Z'));
+    assert.ok(!reads.some(k => k.startsWith('yahoo:cash-close:')), 'REG·PRE·주말에는 기준 읽기 0');
+    store.clear(); upstashStore.clear(); _resetSettledCashCloseRefsForTest();
 
     const raw = quote('NQ=F', at - 60_000, 20060);
     for (const ref of [null, reference('NQ=F', date, close - 180_001), reference('NQ=F', date, close + 180_001),
@@ -157,7 +193,7 @@ async function main() {
     const earlier = reference('NQ=F', date, close - 30_000);
     assert.equal(closerCashCloseReference(earlier, reference('NQ=F', date, close + 30_000)), earlier, '동률은 이른 관측');
 
-    store.clear(); writes.length = 0; reads.length = 0;
+    store.clear(); upstashStore.clear(); _resetSettledCashCloseRefsForTest(); writes.length = 0; reads.length = 0;
     failRead = futuresCashCloseKey('NQ=F', date);
     const missing = await loadMarketIndexBasis(at);
     assert.equal(missing.futures.nq.sinceCashClosePct, null, 'Redis 읽기 실패는 결측');
@@ -168,7 +204,7 @@ async function main() {
         '이미 저장된 기준도 EC2 성공 표식에는 주 저장소 확인 필요');
     assert.equal(await captureFuturesCashClose(quote('NQ=F', close), close,
         async key => ({ ok: true, value: store.get(key) })), true);
-    store.clear();
+    store.clear(); upstashStore.clear(); _resetSettledCashCloseRefsForTest();
 
     // 실제 market-feed 배선: NQ/ES당 기존 chart 요청 1회만, 기준 저장 실패는 재시도 표식.
     const savedFetch = global.fetch, savedNow = Date.now;
