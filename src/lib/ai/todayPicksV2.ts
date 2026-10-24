@@ -121,7 +121,10 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         const negatedClause = (m: RegExpMatchArray) => NEG_MECHANISM.test(m[0]) || CONTRAST.test(m[0])
             || /^\s*(?:이|가|은|는)?\s*(?:아니라|아닌|대신)|^\s*(?:では|じゃ)なく/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 8))
             || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6));
-        if (pair.some((re, i) => [...t.matchAll(new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags))]
+        // 글 어디에든 부정·대조·부재 표현이 있으면 반대 기전 판정을 하지 않는다(관문 10242008: «완충 효과가 사라지는»·«lacks a cushioning effect»).
+        // 판정은 «위면 증폭·아래면 완충» 같은 부정 없는 뒤집힘만 — 오탈락이 오통과보다 나쁘다.
+        const hedged = NEG_MECHANISM.test(t) || CONTRAST.test(t) || /사라|부재|빠지|빠진|\black(?:s|ing)?\b|\babsent\b|\bwithout\b|\bno longer\b|消え|欠け|失わ/i.test(t);
+        if (!hedged && pair.some((re, i) => [...t.matchAll(new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags))]
             // 같은 절(+뒤 12자)에 올바른 기전 단어가 함께 있으면(절+뒤 20자) 대조·부정 서술(«완충 효과 없이 키웁니다»·«완충보다는 증폭»)이다(관문 10241935).
             // 같은 절 끝(다음 구두점)까지 부정·대조어가 있으면(«완충 역할을 하지 않습니다») 뒤집힌 조건이 아니다(관문 10241950).
             .some(m => { const tail = t.slice((m.index ?? 0) + m[0].length).split(/[,;.。、·]/)[0];
