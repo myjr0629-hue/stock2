@@ -72,6 +72,22 @@ test('관문 10240458 재현: currently/now 없는 반대 위치 주장·부정�
     { ...branches, ja: 'Gamma Flipは上なら緩和・下なら増幅で、価格は下です' },
   ]) assert.ok(check(r, why, below).ok, JSON.stringify(why) + ' ' + check(r, why, below).reasons);
 });
+test('관문 10241657 재현: 다음 절 부정·부정된 위치는 오탈락 금지, 콤마형 두 갈래 허용, 현재 기전 반전은 탈락', () => {
+  const r = byTicker('AMZN');
+  const below = { ...r.facts, side: 'b' as const };
+  for (const en of ['Gamma Flip: above: cushions; below: amplifies; no direction implied',
+    'Gamma Flip: above: cushions; below: amplifies. Price is not above.',
+    'Above Gamma Flip, hedging dampens swings; below it, hedging amplifies them',
+    'Gamma Flip: above: cushions; below: amplifies; currently amplifies swings']) {
+    const c = check(r, { ...branches, en }, below);
+    assert.ok(c.ok, en + ' ' + c.reasons);
+  }
+  for (const why of [{ ...branches, en: 'Gamma Flip: above: cushions; below: amplifies; currently cushions swings' },
+    { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭하며 현재는 완충하는 쪽입니다' },
+    { ...branches, ja: 'Gamma Flipは上なら緩和・下なら増幅で、現在は緩和する側です' }]) {
+    assert.equal(check(r, why, below).ok, false, JSON.stringify(why));
+  }
+});
 test('합성 경계 시험: 현재 쪽만 설명하는 정상문·음차 용어·코드 펜스 보존', () => {
   for (const ticker of ['AAPL', 'AMZN']) {
     const r = byTicker(ticker);

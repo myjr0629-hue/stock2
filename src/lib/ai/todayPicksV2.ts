@@ -60,8 +60,8 @@ const BRANCHES: Record<Loc, [RegExp, RegExp]> = {
         /아래(?:쪽)?(?:면|라면|에서는|에선)\s*(?:(?!위|현재|지금)[^,;·。]){0,26}?(?:증폭|확대|키우|키워|키웁)[가-힣]*/g,
     ],
     en: [
-        /(?:\b(?:if|when)\s+(?:the\s+price\s+is\s+)?above(?:\s+(?:Gamma Flip|it|the\s+(?:boundary|level)))?[, :]?|\babove\s*:)\s*(?:(?!below|currently|\bnow\b)[^,;]){0,48}?(?:cushion|dampen)\w*(?:\s+(?:swings|moves))?\b/gi,
-        /(?:\b(?:if|when)\s+(?:the\s+price\s+is\s+)?below(?:\s+(?:Gamma Flip|it|the\s+(?:boundary|level)))?[, :]?|\bbelow\s*:)\s*(?:(?!above|currently|\bnow\b)[^,;]){0,48}?(?:amplif|magnif)\w*(?:\s+(?:swings|moves))?\b/gi,
+        /(?:\b(?:if|when)\s+(?:the\s+price\s+is\s+)?above(?:\s+(?:Gamma Flip|it|the\s+(?:boundary|level)))?[, :]?|\babove\s*:|\babove\s+(?:Gamma Flip|it|the\s+(?:boundary|level))\s*,)\s*(?:(?!below|currently|\bnow\b)[^,;]){0,48}?(?:cushion|dampen)\w*(?:\s+(?:swings|moves))?\b/gi,
+        /(?:\b(?:if|when)\s+(?:the\s+price\s+is\s+)?below(?:\s+(?:Gamma Flip|it|the\s+(?:boundary|level)))?[, :]?|\bbelow\s*:|\bbelow\s+(?:Gamma Flip|it|the\s+(?:boundary|level))\s*,)\s*(?:(?!above|currently|\bnow\b)[^,;]){0,48}?(?:amplif|magnif)\w*(?:\s+(?:swings|moves))?\b/gi,
     ],
     ja: [
         /上(?:側)?(?:なら|では)(?:(?!下|現在|今)[^,;・、。]){0,24}?(?:緩和|抑え|抑制)/g,
@@ -85,6 +85,13 @@ const CURRENT_SIDE: Record<Loc, RegExp> = {
     ja: /(?<!その|以|向|値|株|史|最|地|底|天|浮|売|買|計|途|川|頭|手|年|目|部|形|陸|水|海|空|身|上|下)(上|下)(?=\s*(?:に|です|で|側|回|、|。|$))/g,
 };
 
+const NEG_AFTER: Record<Loc, RegExp> = { ko: /^\s*(?:않|못|없)/, en: /(?!)/, ja: /^(?:せず|しない|されない|しません|ない|ず)/ };
+const CURRENT_MECH: Record<Loc, RegExp> = {
+    ko: /(?:현재|지금)[^,;·。]{0,24}?(완충|줄이|줄입|줄여|억제|완화|증폭|확대|키우|키워|키웁)/g,
+    en: /\b(?:currently|now)\b[^,;.]{0,30}?\b(cushion\w*|dampen\w*|amplif\w*|magnif\w*)/gi,
+    ja: /(?:現在|今は)[^,;・、。]{0,24}?(緩和|抑え|抑制|増幅|拡大|強め)/g,
+};
+
 export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: number, today?: string): WhyCheck {
     const original = checkPickWhy(raw, ticker, f, year, today);
     if (original.reasons.includes('json')) return original;
@@ -106,15 +113,31 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         if (pair.some((re, i) => new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags).test(t)))
             reasons.push(`${l}:v2:conditional-mechanism`);
         // new RegExp: g 플래그의 lastIndex가 다음 호출에 남지 않게 한다.
-        if (!pair.some(re => new RegExp(re).test(t))) continue;
-        // 기전을 부정한 조건절(«위면 완충하지 않는다»·«does not dampen»)은 올바른 조건 구조가 아니다(관문 10240458).
-        // 한국어 «완충하지 않고»처럼 부정어가 절 바로 뒤에 오는 경우까지 본다(절 + 뒤 6자).
-        if (pair.some(re => [...t.matchAll(new RegExp(re))].some(m => NEG_MECHANISM.test(m[0] + t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6)))))
+        // 위·아래 «두 갈래가 모두» 있을 때만 조건 구조로 본다 — 한 갈래만 쓰면 현재 위치 주장이므로 기존 검사 그대로.
+        if (!pair.every(re => new RegExp(re).test(t))) continue;
+        // 기전을 부정한 조건절(«위면 완충하지 않는다»·«does not dampen»·«緩和せず»)은 올바른 조건 구조가 아니다(관문 10240458).
+        // 부정어는 절 안(영어) 또는 절 «바로 뒤»(한국어 «완충하지 않고»·일본어 «緩和せず»)만 본다 — «; no direction implied» 같은 다음 절은 제외(관문 10241657).
+        if (pair.some(re => [...t.matchAll(new RegExp(re))].some(m => NEG_MECHANISM.test(m[0])
+            || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6)))))
             reasons.push(`${l}:v2:conditional-mechanism`);
         const residual = pair.reduce((s, re) => s.replace(new RegExp(re), ''), t);
+        // 남은 절의 위치·기전 단어 = 현재 상태 주장. 부정된 절(«Price is not above»)은 판정하지 않는다(오탈락 방지).
+        const segments = residual.split(/[,;.。、·]/);
+        const negatedAt = (index: number) => {
+            let at = 0;
+            for (const seg of segments) { if (index <= at + seg.length) return NEG_MECHANISM.test(seg) || /아니|ではな/.test(seg); at += seg.length + 1; }
+            return false;
+        };
         for (const m of residual.matchAll(new RegExp(CURRENT_SIDE[l]))) {
+            if (negatedAt(m.index ?? 0)) continue;
             const side = /^(?:위|above|上)$/i.test(m[1]) ? 'a' : 'b';
             if (side !== f.side) reasons.push(`${l}:v2:current-side`);
+        }
+        // «currently cushions swings»처럼 위치 단어 없이 현재 기전만 쓴 주장도 실제 쪽과 맞춘다(관문 10241657).
+        for (const m of residual.matchAll(new RegExp(CURRENT_MECH[l]))) {
+            if (negatedAt(m.index ?? 0)) continue;
+            const side = new RegExp(MECHANISM_WORDS[l][0]).test(m[1]) ? 'a' : 'b';
+            if (side !== f.side) reasons.push(`${l}:v2:current-mechanism`);
         }
         const checked = checkPickWhy(JSON.stringify({ ...text, [l]: residual.length >= 8 ? residual : { ko: '감마 경계의 구조입니다', en: 'Options boundary structure', ja: 'ガンマ境界の構造です' }[l] }), ticker, f, year, today);
         const isSideReason = (r: string) => r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`);
