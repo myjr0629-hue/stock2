@@ -780,20 +780,3 @@ export async function GET(req: NextRequest) {
     });
 }
 
-// [비교 전용 — preview/* 배포에서만, 병합 전 삭제] 로컬에서 고친 지시를 운영 모델(①)로 돌려 본다
-export async function POST(req: NextRequest) {
-    if (!String(process.env.VERCEL_GIT_COMMIT_REF || '').startsWith('preview/') || !adminAuthorized(req.headers)) return NextResponse.json({ error: 'not found' }, { status: 404 });
-    const body = await req.json().catch(() => null);
-    if (!body?.custom) return NextResponse.json({ error: 'bad request' }, { status: 400 });
-    const reps = Math.max(1, Math.min(4, Number(body.reps) || 2));
-    const outs: any[] = [];
-    await Promise.all(Array.from({ length: reps }, async () => {
-        const raws: string[] = []; const s0 = Date.now();
-        try {
-            const res = await withFreshTier(() => callBedrock({ modelId: MODELS.HAIKU_35, system: String(body.custom.system), userPrompt: String(body.custom.user), maxTokens: 8192, temperature: 0.3, timeoutMs: 45000,
-                jsonPrefill: false, fallbackModel: null, label: 'NewsDigest-Batch5', expectJson: 'array', locale: 'multi', validate: (t: string) => { raws.push(String(t).slice(0, 20000)); return true; } }));
-            outs.push({ ok: true, raw: res.text.slice(0, 20000), provider: res.provider, ms: Date.now() - s0 });
-        } catch (e: any) { outs.push({ ok: false, error: String(e?.message || e).slice(0, 200), raws, ms: Date.now() - s0 }); }
-    }));
-    return NextResponse.json({ dry: true, custom: true, outs });
-}
