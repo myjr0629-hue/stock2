@@ -301,11 +301,12 @@ export const MONEY_OI_SUSPECT_RATIO = 0.65;
  * 10/23 세션에 10/21 행(2세션 전)을 쓰게 했다. 프리미엄을 가진 행은 전부 표식 없는 흐름 행이라
  * 그 규칙을 쓰지 않고, 대신 구조 EOD(chainDate·optionBasis 'eod'·partial 아님)의 미결제약정으로 검증한다.
  *   ① 같은 세션 구조 EOD 가 있으면 콜·풋 OI 가 각각 허용 오차 안인 행만(«일치») — 어긋나면 제외
- *   ② 없으면 직전 구조 EOD 대비 총 OI 가 MONEY_OI_SUSPECT_RATIO 미만인 행은 제외(부분 체인 의심), 나머지는 «미검증» 허용
+ *   ② 없으면 직전 구조 EOD 대비 총 OI 가 MONEY_OI_SUSPECT_RATIO 미만인 행은 제외(부분 체인 의심), 나머지는 «미검증» 허용 —
+ *      같은 범위(0.65~1.54배) 행을 범위 밖 행(다른 수집기의 여러 만기 합 등)보다 우선
  *   ③ 구조 EOD 가 전혀 없는 종목은 예전처럼 최신 행
  *   ④ 생산자가 partial·비EOD 로 밝힌 행은 같은 세션에 완결 행이 없을 때만 쓰고 partial 로 운반(오늘을 과거로 대체하지 않는 기존 원칙)
  *   표식 없는 흐름 행은 정규장 개장(09:30 ET) 전·휴장일에 찍힌 것을 그 날짜 세션으로 쓰지 않는다(직전 세션 자료다).
- * 고르기: 최신 세션 → 같은 세션 안에서 «일치» > 완결 > 밝힌 부분 → 최신 시각. 최신 세션에 쓸 행이 없으면 직전 세션으로 내려간다.
+ * 고르기: 최신 세션 → 같은 세션 안에서 «일치» > 같은 범위 완결 > 범위 밖 완결 > 밝힌 부분 → 최신 시각. 최신 세션에 쓸 행이 없으면 직전 세션으로 내려간다.
  */
 export function latestCompleteWith(items: Row[], keys: string[]): (Row & { _d: string; _oiCheck: 'match' | 'unverified' }) | null {
     const refs = new Map<string, { c: number; p: number; ts: number }>();
@@ -332,19 +333,25 @@ export function latestCompleteWith(items: Row[], keys: string[]): (Row & { _d: s
         if (!it.chainDate && (isNonTradingDay(d) || etMinutesOf(ts) < 570)) continue;
         const c = Number(it.totalCallOI), p = Number(it.totalPutOI);
         const same = refs.get(d);
-        // 2 = 같은 세션 구조 EOD 와 일치 · 1 = 완결(미검증) · 0 = 생산자가 밝힌 부분/비EOD(같은 세션에 완결 행이 없을 때만, partial 로 운반)
-        let match = isCompleteOptionEod(it) ? 1 : 0;
+        // 3 = 같은 세션 구조 EOD 와 일치 · 2 = 완결, 직전 구조 EOD 와 같은 범위(총 OI 0.65~1.54배) · 1 = 완결, 범위 밖(다른 수집 범위)
+        // · 0 = 생산자가 밝힌 부분/비EOD(같은 세션에 완결 행이 없을 때만, partial 로 운반)
+        const complete = isCompleteOptionEod(it);
+        let match = complete ? 1 : 0;
         if (same) {
             if (Math.abs(c - same.c) > MONEY_OI_MATCH_TOLERANCE * same.c || Math.abs(p - same.p) > MONEY_OI_MATCH_TOLERANCE * same.p) continue;
-            if (match) match = 2;
+            if (complete) match = 3;
         } else {
             const prior = priorRef(d);
-            if (prior && c + p < MONEY_OI_SUSPECT_RATIO * (prior.c + prior.p)) continue;
+            if (prior) {
+                const ratio = (c + p) / (prior.c + prior.p);
+                if (ratio < MONEY_OI_SUSPECT_RATIO) continue;
+                if (complete && ratio <= 1 / MONEY_OI_SUSPECT_RATIO) match = 2;
+            } else if (complete) match = 2;
         }
         if (d < bestDate || (d === bestDate && (match < bestMatch || (match === bestMatch && ts <= bestTs)))) continue;
         best = it; bestDate = d; bestMatch = match; bestTs = ts;
     }
-    return best ? { ...best, _d: bestDate, _oiCheck: bestMatch === 2 ? 'match' : 'unverified' } : null;
+    return best ? { ...best, _d: bestDate, _oiCheck: bestMatch === 3 ? 'match' : 'unverified' } : null;
 }
 
 /**
