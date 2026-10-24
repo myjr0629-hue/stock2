@@ -1,0 +1,215 @@
+{
+  "api": {
+    "results": [
+      {
+        "ticker": "SPLIT",
+        "impliedMovePct": 9.8,
+        "expiry": "2026-11-20",
+        "asOf": null,
+        "basis": "eod",
+        "strike": 100,
+        "straddle": 8.6,
+        "spot": 100,
+        "source": "probe",
+        "session": "2026-10-09",
+        "reason": null,
+        "method": "event-split",
+        "straddlePct": 8.6
+      },
+      {
+        "ticker": "MONTHLY",
+        "impliedMovePct": 8.6,
+        "expiry": "2026-11-20",
+        "asOf": null,
+        "basis": "eod",
+        "strike": 100,
+        "straddle": 8.6,
+        "spot": 100,
+        "source": "probe",
+        "session": "2026-10-09",
+        "reason": null,
+        "method": "monthly",
+        "straddlePct": 8.6
+      },
+      {
+        "ticker": "EMPTY",
+        "impliedMovePct": null,
+        "expiry": null,
+        "asOf": null,
+        "basis": null,
+        "strike": null,
+        "straddle": null,
+        "spot": null,
+        "source": null,
+        "session": null,
+        "reason": "no_snapshot",
+        "method": null,
+        "straddlePct": null
+      }
+    ],
+    "meta": {
+      "def": "atm-straddle-mid/1",
+      "definition": "ATM straddle (call + put mid at the strike nearest the price, same strike both legs) ÷ price, nearest expiry (or first expiry after `after`). Live mids in the regular session; otherwise the closing mid of the last session (basis eod, session = that date).",
+      "after": "2026-10-16",
+      "timing": "amc",
+      "generatedAt": 1791806400000
+    }
+  },
+  "plain": {
+    "results": [
+      {
+        "ticker": "SPLIT",
+        "impliedMovePct": 9.8,
+        "expiry": "2026-11-20",
+        "asOf": null,
+        "basis": "eod",
+        "strike": 100,
+        "straddle": 8.6,
+        "spot": 100,
+        "source": "structure",
+        "session": "2026-10-09",
+        "reason": null
+      }
+    ],
+    "meta": {
+      "def": "atm-straddle-mid/1",
+      "definition": "ATM straddle (call + put mid at the strike nearest the price, same strike both legs) ÷ price, nearest expiry (or first expiry after `after`). Live mids in the regular session; otherwise the closing mid of the last session (basis eod, session = that date).",
+      "after": null,
+      "timing": null,
+      "generatedAt": 1791806400000
+    }
+  },
+  "week": {
+    "range": {
+      "start": "2026-10-12",
+      "end": "2026-10-16",
+      "today": "2026-10-12",
+      "rolled": false
+    },
+    "rows": [
+      {
+        "ticker": "EMPTY",
+        "date": "2026-10-16",
+        "hour": "amc",
+        "etTime": null,
+        "impliedMovePct": null,
+        "method": null,
+        "impliedExpiry": null,
+        "impliedBasis": null,
+        "impliedSession": null,
+        "impliedAsOf": null,
+        "straddle": null,
+        "strike": null,
+        "spot": null,
+        "impliedReason": "no_snapshot",
+        "maxPain": null,
+        "callWall": null,
+        "putFloor": null,
+        "levelsExpiry": null,
+        "levelsChainDate": null,
+        "levelsAsOf": null,
+        "expectedAtReport": null,
+        "actual": null
+      },
+      {
+        "ticker": "MONTHLY",
+        "date": "2026-10-16",
+        "hour": "amc",
+        "etTime": null,
+        "impliedMovePct": 8.6,
+        "method": "monthly",
+        "impliedExpiry": "2026-11-20",
+        "impliedBasis": "eod",
+        "impliedSession": "2026-10-09",
+        "impliedAsOf": null,
+        "straddle": 8.6,
+        "strike": 100,
+        "spot": 100,
+        "impliedReason": null,
+        "maxPain": null,
+        "callWall": null,
+        "putFloor": null,
+        "levelsExpiry": null,
+        "levelsChainDate": null,
+        "levelsAsOf": null,
+        "expectedAtReport": null,
+        "actual": null
+      },
+      {
+        "ticker": "SPLIT",
+        "date": "2026-10-16",
+        "hour": "amc",
+        "etTime": null,
+        "impliedMovePct": 9.8,
+        "method": "event-split",
+        "impliedExpiry": "2026-11-20",
+        "impliedBasis": "eod",
+        "impliedSession": "2026-10-09",
+        "impliedAsOf": null,
+        "straddle": 8.6,
+        "strike": 100,
+        "spot": 100,
+        "impliedReason": null,
+        "maxPain": null,
+        "callWall": null,
+        "putFloor": null,
+        "levelsExpiry": null,
+        "levelsChainDate": null,
+        "levelsAsOf": null,
+        "expectedAtReport": null,
+        "actual": null
+      }
+    ],
+    "pending": [],
+    "listVerifiedAt": "2026-10-09T12:00:00Z",
+    "dataSession": "2026-10-09",
+    "dataBasis": "eod",
+    "dataAt": null,
+    "generatedAt": 1791806400000
+  },
+  "calendar": {
+    "ok": true,
+    "rows": [
+      {
+        "ticker": "SPLIT",
+        "date": "2026-10-16",
+        "hour": "amc",
+        "epsEstimate": 1.2,
+        "implied": {
+          "pct": 9.8,
+          "expiry": "2026-11-20",
+          "basis": "eod",
+          "session": "2026-10-09",
+          "method": "event-split"
+        }
+      },
+      {
+        "ticker": "MONTHLY",
+        "date": "2026-10-16",
+        "hour": "amc",
+        "epsEstimate": 1.2,
+        "implied": {
+          "pct": 8.6,
+          "expiry": "2026-11-20",
+          "basis": "eod",
+          "session": "2026-10-09",
+          "method": "monthly"
+        }
+      },
+      {
+        "ticker": "EMPTY",
+        "date": "2026-10-16",
+        "hour": "amc",
+        "epsEstimate": 1.2,
+        "implied": null
+      }
+    ],
+    "fixture": "preserve",
+    "aiCount": 0,
+    "aiAt": null,
+    "aiBlocked": 0,
+    "impliedCount": 2,
+    "impliedAt": 1791806400000,
+    "_cache": "hit"
+  }
+}

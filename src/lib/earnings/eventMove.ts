@@ -33,6 +33,7 @@ function atmIv(rows: any[], im: ImpliedMove): number | null {
 }
 
 /** User-specified event variance approximation. Missing/zero estimates retain the real monthly straddle. */
+// eventMovePct 생략(null): post가 발표 전 EOD가 아니거나 직전 만기·동일 체인 날짜·양쪽 ATM 호가/IV가 없거나 기간·분리값 범위가 유효하지 않을 때.
 export function splitMonthlyEvent(post: ImpliedMove, postRows: any[], preRows: any[], after: string, sameDay = true): EarningsMove {
   const monthly: EarningsMove = { ...post, method: 'monthly' };
   if (!post.expiry || !post.session || post.session >= after || post.basis !== 'eod') return monthly;

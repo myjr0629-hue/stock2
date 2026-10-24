@@ -7,7 +7,7 @@
 'use client';
 
 import { unitsFor, hasRealUnits, adsAllowed, testUnits } from '@/config/admob';
-import { fullScreenAds } from './fullScreenAdSession';
+import { fullScreenAds, FULL_SCREEN_AD_TIMEOUT_MS } from './fullScreenAdSession';
 import { isFirstRunGraceActive } from './interstitialFirstRun';
 
 // ---------------------------------------------------------------------------
@@ -170,6 +170,27 @@ export function bannerGeometryDiag(platform: string): string {
 
 /** app-view.css 의 --app-anchor-ad-height 기본값과 같아야 한다. */
 const AD_SLOT_DEFAULT_PX = 50;
+
+/**
+ * 전면·보상형 «준비(prepare)» 한 건의 상한 — 표시 세션 밖의 사전 로드에도 건다.
+ *
+ * ★2026-10-24 (TRACKER T23): 사전 로드 Promise 가 끝나지 않으면 interstitialPreparation 이 영원히 남아
+ *   ① 표시 판정(interstitialLoaded=false) ② 앱 복귀 재준비(«진행 중»이라 건너뜀) ③ 실패 재시도(거절이 없어 예약 0)
+ *   셋이 한꺼번에 막혀 그 JS 수명 내내 전면이 0 이 된다. 안드로이드는 프로세스·웹뷰가 며칠씩 살아 있어
+ *   한 번 막히면 오래간다. 상한에 닿으면 «로드 실패»로 보고 기존 백오프 재시도에 태운다.
+ *   값은 표시 세션의 시작 상한(FULL_SCREEN_AD_TIMEOUT_MS 120초)과 같다 — 더 짧으면 세션이 받아 주던
+ *   «느리지만 정상인 로드»(예: 110초 뒤 도착한 보상형, regressions slow-load-earned-reward)를 끊는다.
+ *   상한 뒤에 늦게 도착한 성공도 새 준비가 없으면 받아들인다(preload 의 lateButUsable).
+ */
+export const FULL_SCREEN_PREPARE_TIMEOUT_MS = FULL_SCREEN_AD_TIMEOUT_MS;
+
+function withDeadline<T>(work: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(label)), ms);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
 
 // ---------------------------------------------------------------------------
 // Ad Manager Singleton
@@ -620,17 +641,22 @@ class AdManagerService {
     if (this.interstitialPreparation) return this.interstitialPreparation;
     clearTimeout(this.interstitialRetry);
     this.interstitialRetry = undefined;
-    const pending = import('@capacitor-community/admob').then(async ({ AdMob }) => {
+    const pending: Promise<void> = withDeadline(import('@capacitor-community/admob').then(async ({ AdMob }) => {
       if (!this.proKnown || this.proActive) return;
       await AdMob.prepareInterstitial({
         adId: this.config.interstitialId,
         isTesting: this.config.testMode,
       });
-      if (this.interstitialPreparation === pending) {
+      // 상한 뒤에 늦게 끝난 성공도 네이티브는 그 광고를 들고 있다. 그 사이 새 준비가 없고
+      // 준비된 광고도 없을 때만 받아들인다(새 준비가 있으면 그쪽 결과가 기준이다).
+      const lateButUsable = !this.interstitialPreparation && !this.interstitialLoaded && this.proKnown && !this.proActive;
+      if (this.interstitialPreparation === pending || lateButUsable) {
         this.interstitialLoaded = true;
         this.interstitialLoadFailures = 0;
+        clearTimeout(this.interstitialRetry);
+        this.interstitialRetry = undefined;
       }
-    });
+    }), FULL_SCREEN_PREPARE_TIMEOUT_MS, 'interstitial prepare timeout');
     this.interstitialPreparation = pending;
     // Keep the original rejection for a waiting session, but handle background failures.
     void pending.catch(() => {
@@ -764,17 +790,19 @@ class AdManagerService {
     clearTimeout(this.rewardedRetry);
     this.rewardedRetry = undefined;
     if (this.rewardedPreparation) return this.rewardedPreparation;
-    const pending = import('@capacitor-community/admob').then(async ({ AdMob }) => {
+    // 전면과 같은 상한 — 끝나지 않는 준비가 rewardedPreparation 을 붙잡아 다음 시청 시도까지 막지 않게 한다.
+    const pending: Promise<void> = withDeadline(import('@capacitor-community/admob').then(async ({ AdMob }) => {
       if (!this.proKnown || this.proActive) return;
       await AdMob.prepareRewardVideoAd({
         adId: this.config.rewardedId,
         isTesting: this.config.testMode,
       });
-      if (this.rewardedPreparation === pending) {
+      const lateButUsable = !this.rewardedPreparation && !this.rewardedLoaded && this.proKnown && !this.proActive;
+      if (this.rewardedPreparation === pending || lateButUsable) {
         this.rewardedLoaded = true;
         this.emit('rewardedReady');
       }
-    });
+    }), FULL_SCREEN_PREPARE_TIMEOUT_MS, 'rewarded prepare timeout');
     this.rewardedPreparation = pending;
     void pending.catch(() => {}).finally(() => {
       if (this.rewardedPreparation === pending) this.rewardedPreparation = undefined;
