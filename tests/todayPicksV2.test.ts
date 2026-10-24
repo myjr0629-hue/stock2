@@ -30,18 +30,16 @@ test('공유 푸시 고래·다크풀은 옛 프롬프트·입력·검사 유지
 });
 const branches = { ko: 'Gamma Flip 위면 완충·아래면 증폭하는 헤지 구조입니다',
   en: 'Gamma Flip hedging: above: cushions swings; below: amplifies swings', ja: 'Gamma Flipのヘッジは上なら緩和・下なら増幅する構造です' };
-test('합성 경계 시험: 구조의 두 갈래는 현재 위치 반전으로 오탈락시키지 않는다(위·아래·같음)', () => {
+test('Gamma Flip 두 갈래 설명도 운영(옛) 검사와 같은 판정 — 완화 없음(관문 23회 오통과 재현으로 제거)', () => {
   const r = byTicker('AMZN');
-  for (const side of ['a', 'b', 'at'] as const) assert.ok(check(r, branches, { ...r.facts, side }).ok);
-  const repeated = check(r, branches);
-  assert.ok(repeated.ok, '정규식 lastIndex에 따른 결과 변동 없음');
-  assert.ok(check(r, {
-    ko: 'Gamma Flip 위에서는 딜러 헤지가 움직임을 줄이고 아래에서는 키웁니다',
-    en: 'If above Gamma Flip, hedging dampens; if below it, hedging amplifies',
-    ja: 'Gamma Flipの上ではヘッジが値動きを抑え、下では増幅します',
-  }).ok, '완결된 자연어 조건절도 허용');
+  const natural = { ko: 'Gamma Flip 위에서는 딜러 헤지가 움직임을 줄이고 아래에서는 키웁니다',
+    en: 'If above Gamma Flip, hedging dampens; if below it, hedging amplifies', ja: 'Gamma Flipの上ではヘッジが値動きを抑え、下では増幅します' };
+  for (const side of ['a', 'b', 'at'] as const) for (const why of [branches, natural]) {
+    const f = { ...r.facts, side };
+    assert.deepEqual(check(r, why, f).reasons, checkPickWhy(JSON.stringify(why), r.ticker, f, 2026, r.etDate).reasons);
+  }
 });
-test('Gamma Flip: 순수 두 갈래 설명이 아닌 글은 운영(옛) 검사와 칸별 판정이 같다 — 관문 10240458~10242053 재현문 전부', () => {
+test('Gamma Flip: 모든 문형이 운영(옛) 검사와 칸별 판정이 같다 — 관문 10240458~10242209 재현문 전부', () => {
   const r = byTicker('AMZN');
   const sides = { a: { ...r.facts, side: 'a' as const }, b: { ...r.facts, side: 'b' as const } };
   const cases: Array<[keyof typeof branches, string]> = [
@@ -70,9 +68,11 @@ test('Gamma Flip: 순수 두 갈래 설명이 아닌 글은 운영(옛) 검사�
     const next = check(r, why, f), old = checkPickWhy(JSON.stringify(why), r.ticker, f, 2026, r.etDate);
     assert.equal(ok(next.reasons, l), ok(old.reasons, l), `${f.side} ${l}: ${text} → new ${next.reasons} / old ${old.reasons}`);
   }
-  // 순수 두 갈래 설명(콤마형 포함)은 위치와 무관하게 새 검사만 통과시킨다(의도된 유일한 완화).
-  for (const f of Object.values(sides)) for (const en of ['Above Gamma Flip, hedging dampens swings; below it, hedging amplifies them', branches.en])
-    assert.ok(ok(check(r, { ...branches, en }, f).reasons, 'en'), en);
+  // 콤마형 두 갈래도 운영과 같은 판정
+  for (const f of Object.values(sides)) for (const en of ['Above Gamma Flip, hedging dampens swings; below it, hedging amplifies them', branches.en]) {
+    const why = { ...branches, en };
+    assert.equal(ok(check(r, why, f).reasons, 'en'), ok(checkPickWhy(JSON.stringify(why), r.ticker, f, 2026, r.etDate).reasons, 'en'), en);
+  }
   // 숫자·예측 오류는 언제나 거절
   for (const en of ['Gamma Flip: above: cushions; below: amplifies; $999', 'Gamma Flip: above: cushions; below: amplifies; price will rise'])
     assert.equal(check(r, { ...branches, en }).ok, false, en);

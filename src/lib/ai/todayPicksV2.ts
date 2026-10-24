@@ -37,7 +37,7 @@ function caseReading(f: PickFacts, today: string): string {
         case 'gamma':
             return f.level === 'maxPain'
                 ? 'The price sits near Max Pain, the expiry payoff reference. Describe only that proximity, in one short clause.'
-                : `The supplied price-side reading is ${f.side === 'at' ? 'AT the boundary: write only that the price is at the switch point (전환점·転換点) — no above/below/위/아래/上/下, no dampen/amplify, no can/could/수 있/可能' : f.side === 'a' ? 'ABOVE: dampening side' : 'BELOW: amplifying side'}. Explain the boundary's two mechanisms, not a price destination.`;
+                : `The supplied price-side reading is ${f.side === 'at' ? 'AT the boundary: write only that the price is at the switch point (전환점·転換点) — no above/below/위/아래/上/下, no dampen/amplify, no can/could/수 있/可能' : f.side === 'a' ? 'ABOVE: dampening side' : 'BELOW: amplifying side'}. Describe only this side (do not explain both sides), not a price destination.`;
         case 'earnings':
             return `The supplied report timing is ${f.hour === 'bmo' ? 'before the open' : f.hour === 'amc' ? 'after the close' : 'unannounced'}. The supplied expiry contains the report. Explain that priced-in magnitude is separate from direction. No historical implied-move comparison or actual report result supplied.`;
     }
@@ -57,47 +57,7 @@ export function buildPickV2Prompt(ticker: string, f: PickFacts, today: string, c
     return `CONTRACT: ${TP_V2_VERSION}\nGENERATION_DATE_ET: ${today}\nSESSION: ${context?.session || 'not supplied'} (generation only)\nLAST_REGULAR_DATE: ${context?.lastRegularDate || 'not supplied'} (calendar only, not the item observation date)\n${facts}${priceBasis}\nMECHANISM: ${mechanism}\nCASE: ${caseReading(f, today)}\nUse only this dated item. JSON only.`;
 }
 
-// 조건별 기전은 현재 위치 주장이 아니다. 정확히 인식한 절만 기존 쪽 검사에서 분리한다.
-// 그 밖의 숫자·길이·언어·권유·예측 검사는 원문 전체에 기존 계약 그대로 적용한다.
-const BRANCHES: Record<Loc, [RegExp, RegExp]> = {
-    ko: [
-        /위(?:쪽)?(?:면|라면|에서는|에선)\s*(?:(?!아래|현재|지금)[^,;·。]){0,26}?(?:완충|줄이|줄입|줄여|억제|완화)[가-힣]*/g,
-        /아래(?:쪽)?(?:면|라면|에서는|에선)\s*(?:(?!위|현재|지금)[^,;·。]){0,26}?(?:증폭|확대|키우|키워|키웁)[가-힣]*/g,
-    ],
-    en: [
-        /(?:\b(?:if|when)\s+(?:the\s+price\s+is\s+)?above(?:\s+(?:Gamma Flip|it|the\s+(?:boundary|level)))?[, :]?|\babove\s*:|\babove\s+(?:Gamma Flip|it|the\s+(?:boundary|level))\s*,)\s*(?:(?!below|currently|\bnow\b)[^,;]){0,48}?(?:cushion|dampen)\w*(?:\s+(?:swings|moves))?\b/gi,
-        /(?:\b(?:if|when)\s+(?:the\s+price\s+is\s+)?below(?:\s+(?:Gamma Flip|it|the\s+(?:boundary|level)))?[, :]?|\bbelow\s*:|\bbelow\s+(?:Gamma Flip|it|the\s+(?:boundary|level))\s*,)\s*(?:(?!above|currently|\bnow\b)[^,;]){0,48}?(?:amplif|magnif)\w*(?:\s+(?:swings|moves))?\b/gi,
-    ],
-    ja: [
-        /上(?:側)?(?:なら|では)(?:(?!下|現在|今)[^,;・、。]){0,24}?(?:緩和|抑え|抑制)/g,
-        /下(?:側)?(?:なら|では)(?:(?!上|現在|今)[^,;・、。]){0,24}?(?:増幅|拡大|強め)/g,
-    ],
-};
-const MECHANISM_WORDS: Record<Loc, [string, string]> = {
-    ko: ['(?:완충|줄이|줄입|줄여|억제|완화)', '(?:증폭|확대|키우|키워|키웁)'],
-    en: ['(?:cushion|dampen)', '(?:amplif|magnif)'],
-    ja: ['(?:緩和|抑え|抑制)', '(?:増幅|拡大|強め)'],
-};
-const INTERNAL = /\b(?:FINRA|OCC|Intrinio|Polygon|Redis|Bedrock|Haiku|Upstash)\b|지연|\bdelayed\b|遅延/i;
-const NEGATED = /없|아닙|않|\b(?:not|no|neither|without)\b|ません|ない|ありません/i;
-const NEG_MECHANISM = new RegExp(`${NEGATED.source}|못|せず|しない|されない`, 'i');
-// 조건절을 떼어 낸 나머지에 남은 위치 단어는 «현재 위치 주장»으로 본다(관문 10240458: «Price is above.»처럼 currently/now 없이도).
-const CURRENT_SIDE: Record<Loc, RegExp> = {
-    ko: /(?<![가-힣])(위|아래)(?=\s*(?:에|입니|이며|이고|이라|라서|쪽|로|서|$|[,.。]))/g,
-    en: /\b(above|below|beneath|over(?=\s+(?:it|Gamma Flip|the\s+(?:level|boundary|flip|line))\b)|under(?=\s+(?:it|Gamma Flip|the\s+(?:level|boundary|flip|line))\b))\b/gi,
-    ja: /(?<!その|以|向|値|株|史|最|地|底|天|浮|売|買|計|途|川|頭|手|年|目|部|形|陸|水|海|空|身|上|下)(上|下)(?=\s*(?:に|です|で|側|回|、|。|$))/g,
-};
-
-const CONTRAST = /\brather than\b|\binstead of\b|대신|아니라|이\s*아닌|가\s*아닌|ではなく|代わりに/i;
-
-// 부정·감소·부재(어디에 있든 순수 구조 설명이 아니다): n't·nothing·none·never·less·limits·관계없이(없)·줄·사라·잃·弱·消 …
-const HEDGE_ANY = /n't\b|\b(?:nothing|none|neither|nor|never|less|limits?|limited|loses?|lost|lacks?|without|absent|far)\b|없|않|못|아니|아닌|줄어|줄고|줄며|사라|잃|약해|ない|(?:せ|さ|ら)ず|ません|弱ま|消え|失わ/i;
-// 갈래 문형 낱말(조건·위치어)
-const BRANCH_TOKENS = /\b(?:if|when|above|below|it)\b|위쪽|아래쪽|위|아래|라면|면|에서는|에선|上側|下側|上|下|なら|では/gi;
-// 순수 두 갈래 설명의 나머지로 허용하는 낱말(이름·조사·어미)뿐
-const RESIDUAL_FILLER = /Gamma\s*Flip|\b(?:dealer|dealers|hedging|hedges?|structure|options?|the|a|its|is|are|of|and|swings?|moves?|them|it|they)\b|딜러|헤지|구조|옵션|움직임|변동|흔들림|입니다|합니다|이며|이고|하는|하며|의|는|은|이|가|에서|에선|에|를|을|ディーラー|ヘッジ|構造|オプション|値動き|変動|です|である|します|ます|する|の|は|が|で|を|に/gi;
-// 나머지에 남으면 «현재 상태 단정»으로 보는 단어(at·switch·price·현재·가격·現在 …)
-const RESIDUAL_CLAIM = /\b(?:at|currently|now|price|it is|sits?|switch|flip(?!\b)|right)\b|현재|지금|주가|가격|전환점|경계에|現在|株価|価格|転換点|ちょうど/i;
+const INTERNAL = /\b(?:FINRA|OCC|Intrinio|Polygon|Redis|Bedrock|Haiku|Upstash)\b|지연\s*(?:시세|가격|데이터|자료)|(?:시세|가격|데이터|자료)\s*(?:가\s*|이\s*)?지연|\bdelayed\s+(?:\w+\s+)?(?:quotes?|prices?|pricing|data|feed)\b|遅延\s*の?\s*(?:データ|相場|気配|価格)|(?:データ|相場|気配|価格)\s*(?:の|が)?\s*遅延/i;
 
 export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: number, today?: string): WhyCheck {
     const original = checkPickWhy(raw, ticker, f, year, today);
@@ -108,37 +68,14 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         obj = JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
     } catch { return original; }
     const text = Object.fromEntries(TP_LOCALES.map(l => [l, normalizeLine(obj[l])])) as LocText;
-    let reasons = [...original.reasons];
+    let reasons = [...original.reasons];   // 운영(옛) 검사 사유 전부 + 새 생성 전용(내부 출처·시세 지연 표기)
     for (const l of TP_LOCALES) {
         const t = text[l];
         if (INTERNAL.test(t)) reasons.push(`${l}:v2:internal-or-freshness`);
         // 원인(연준·관세 등)·역사 비교(«평소보다·unusually») 새 검사는 거절하지 않는다 — 부정·유보 문형(«no evidence links…»·«불명확»·«unconfirmed»)을
         // 단정으로 오독하는 오탈락이 관문마다 재현됐고(10242104~10242126) 운영엔 없던 검사다. 운영 모델 225건 실측 해당 0 — 프롬프트 3항으로 다룬다.
-        if (f.kind !== 'gamma' || f.level !== 'gammaFlip') continue;
-        // Gamma Flip 완화는 단 하나: «순수한 두 갈래 구조 설명»(위면 완충·아래면 증폭)일 때만 옛 검사의 위치·기전 사유를 뗀다.
-        //   순수 = 정상 기전의 두 갈래가 모두 있고, 글 전체에 부정·대조·감소 표현이 없고, 두 갈래를 뗀 나머지에 위치·기전·현재·가격 단어가 없다.
-        // 그 밖의 모든 글은 운영(옛) 검사 판정 그대로 — 새 검사는 운영보다 엄하지도 느슨하지도 않다.
-        // (나머지·부정 문형을 따로 해석하던 판정은 관문 14회 동안 오탈락·오통과가 번갈아 재현됐다: 10241657~10242053.)
-        const pair = BRANCHES[l];
-        if (!pair.every(re => new RegExp(re.source, re.flags.replace('g', '')).test(t))) continue;
-        if (NEG_MECHANISM.test(t) || CONTRAST.test(t) || HEDGE_ANY.test(t)) continue;
-        // 기전 단어는 갈래마다 정확히 하나씩(«amplifies then dampens»처럼 한 갈래에 둘이면 순수 구조가 아니다 — 관문 10242104).
-        if ((t.match(new RegExp(MECHANISM_WORDS[l][0], 'gi')) || []).length !== 1 || (t.match(new RegExp(MECHANISM_WORDS[l][1], 'gi')) || []).length !== 1) continue;
-        const residual = pair.reduce((s, re) => s.replace(new RegExp(re.source, re.flags.replace('g', '')), ''), t);
-        if (new RegExp(CURRENT_SIDE[l]).test(residual) || new RegExp(`${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]}`, 'i').test(residual)
-            || RESIDUAL_CLAIM.test(residual)) continue;
-        // 나머지는 허용 목록 낱말(구조·헤지 같은 이름·조사)만 — 그 밖의 낱말이 하나라도 있으면 순수 구조가 아니다(관문 10242110: «spot exceeds Gamma Flip»).
-        if (residual.replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '').length > 0) continue;
-        // 갈래 안쪽도 같은 허용 목록으로 본다 — 조건·위치어·기전 단어(어미 포함)·허용 낱말 말고 남는 것이 있으면(«fails to dampen») 순수 구조가 아니다(관문 10242119).
-        const whole = t.replace(new RegExp(`(?:${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]})(?:하는|하고|하며|합니다|하여|해|이고|이며|입니다|웁니다|니다|는|고|며|します|する|し|ies|ied|ying|y|ing|ed|es|s)?(?![a-z])`, 'gi'), '')
-            .replace(BRANCH_TOKENS, '').replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '');
-        if (whole.length > 0) continue;
-        // «Gamma Flip»은 이름으로 한 번만(«dampens Gamma Flip»처럼 기전의 대상으로 다시 나오면 순수 구조가 아니다 — 관문 10242132).
-        if ((t.match(/Gamma\s*Flip/gi) || []).length > 1) continue;
-        // 이름은 기전 단어보다 앞(주어·표제)에만 — 기전 뒤에 오면 기전의 대상(«amplifies Gamma Flip»)이다(관문 10242137).
-        { const gf = t.search(/Gamma\s*Flip/i), mech = t.search(new RegExp(`${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]}`, 'i'));
-          if (gf >= 0 && mech >= 0 && gf > mech) continue; }
-        reasons = reasons.filter(r => !(r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`)));
+        // Gamma Flip 위치·기전은 운영(옛) 검사 판정 그대로 — «두 갈래 구조 설명» 완화는 두지 않는다.
+        // (운영 모델 v2.5 225건 실측에서 완화가 판정을 바꾼 경우 0건이고, 완화 판정은 관문 23회 동안 문형마다 오통과가 재현됐다: 10241657~10242209.)
     }
     reasons = [...new Set(reasons)];
     return reasons.length ? { ok: false, reasons } : { ok: true, reasons: [], text };
