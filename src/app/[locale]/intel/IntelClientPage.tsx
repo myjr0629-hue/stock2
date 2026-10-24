@@ -1149,7 +1149,8 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
     // State
     const [report, setReport] = useState<any>(initialReport || null);
-    const [activeTab, setActiveTab] = useState('SECTOR_COMMAND');
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') === 'report' ? 'POST_MARKET_ALL' : 'SECTOR_COMMAND');
+    useEffect(() => { if (searchParams.get('tab') === 'report') setActiveTab('POST_MARKET_ALL'); }, [searchParams]);
     const [isLoading, setIsLoading] = useState(!initialReport);
     const [error, setError] = useState<string | null>(null);
     const [liveQuotes, setLiveQuotes] = useState<Record<string, any>>({}); // [Live Overlay]

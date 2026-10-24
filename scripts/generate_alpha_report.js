@@ -13,7 +13,7 @@ const startTime = Date.now();
 
 const req = http.request(URL, { method: 'POST', timeout: 300000 }, (res) => {
     let data = '';
-    res.on('data', chunk => data += chunk);
+    res.setEncoding('utf8').on('data', chunk => data += chunk);
     res.on('end', () => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`\n=== RESULT (${elapsed}s) ===`);

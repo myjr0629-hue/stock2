@@ -6,7 +6,7 @@
 // ============================================================================
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
 import {
@@ -23,6 +23,8 @@ interface TacticalReportDeckProps {
     config: SectorConfig;
     /** Tickers to gate behind ProGate blur (e.g., ['TSLA', 'NVDA']) */
     lockedTickers?: string[];
+    /** undefined: standalone latest report; null: cross-report date unavailable, do not fetch latest. */
+    date?: string | null;
 }
 
 // ── Helpers ──
@@ -374,7 +376,7 @@ function generateClientBriefing(all: TickerSnapshot[], summary: any, tr: any): B
 // MAIN COMPONENT
 // ============================================================================
 
-export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeckProps) {
+export function TacticalReportDeck({ config, lockedTickers, date }: TacticalReportDeckProps) {
     const tr = useTranslations('tacticalReport');
     const gt = useTranslations('gate');
     const locale = useLocale();
@@ -385,40 +387,55 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
 
     const accentColor = config.theme.accentHex;
 
-    const fetchSnapshot = useCallback(async () => {
-        try {
-            const res = await fetch(config.apiEndpoints.snapshot, { cache: 'no-store' });
-            if (!res.ok) {
-                if (res.status === 404) {
-                    setError(tr('snapshotNotReady'));
-                } else {
-                    setError(tr('snapshotLoadFail'));
-                }
-                setLoading(false);
-                return;
-            }
-            const text = await res.text();
-            if (!text) { setError(tr('emptyResponse')); setLoading(false); return; }
-            let data: any;
-            try { data = JSON.parse(text); } catch { setError(tr('jsonParseError')); setLoading(false); return; }
-
-            if (data.success && data.snapshot) {
-                setSnapshot(data.snapshot);
-                setSnapshotDate(data.snapshot_date);
-                setError(null);
-            } else {
-                setError(tr('noSnapshotData'));
-            }
-        } catch (e: any) {
-            setError(tr('networkError'));
-        } finally {
-            setLoading(false);
-        }
-    }, [config.apiEndpoints.snapshot]);
-
     useEffect(() => {
+        let active = true;
+        setSnapshot(null);
+        setSnapshotDate(null);
+        setError(null);
+        setLoading(true);
+        if (date === null) {
+            setError(tr('noSnapshotData'));
+            setLoading(false);
+            return;
+        }
+        const query = new URLSearchParams(config.apiEndpoints.snapshot.split('?')[1]);
+        if (date) query.set('date', date);
+        const endpoint = `${config.apiEndpoints.snapshot.split('?')[0]}?${query}`;
+        async function fetchSnapshot() {
+            try {
+                const res = await fetch(endpoint, { cache: 'no-store' });
+                if (!active) return;
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        setError(tr('snapshotNotReady'));
+                    } else {
+                        setError(tr('snapshotLoadFail'));
+                    }
+                    setLoading(false);
+                    return;
+                }
+                const text = await res.text();
+                if (!active) return;
+                if (!text) { setError(tr('emptyResponse')); setLoading(false); return; }
+                let data: any;
+                try { data = JSON.parse(text); } catch { setError(tr('jsonParseError')); setLoading(false); return; }
+
+                if (data.success && data.snapshot && (!date || data.snapshot_date === date)) {
+                    setSnapshot(data.snapshot);
+                    setSnapshotDate(data.snapshot_date);
+                    setError(null);
+                } else {
+                    setError(tr('noSnapshotData'));
+                }
+            } catch (e: any) {
+                if (active) setError(tr('networkError'));
+            } finally {
+                if (active) setLoading(false);
+            }
+        }
         fetchSnapshot();
-    }, [fetchSnapshot]);
+        return () => { active = false; };
+    }, [config.apiEndpoints.snapshot, date, tr]);
 
     // ── Loading state ──
     if (loading) {

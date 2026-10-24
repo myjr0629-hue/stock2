@@ -667,7 +667,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             if (oldest !== undefined) convictionHistory.current.delete(oldest);
         }
     }, [ticker, convictionSnapshot]);
-    const convictionResult = scoreCommandConviction(convictionSnapshot.inputs);
+    const convictionResult = scoreCommandConviction(convictionSnapshot.inputs, convictionSnapshot.sourceDates);
     const conviction = convictionResult ? {
         ...convictionResult, label: td(convictionResult.labelKey),
     } : null;
@@ -2416,7 +2416,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             squeeze: effectiveSqueeze, related: effectiveRelated,
                                             earnings: { daysUntilEarnings: daysFromEarningsLabel(effectiveEarnings?.daysLabel), nextEarningsDate: effectiveEarnings?.nextDate, epsEstimate: effectiveEarnings?.epsEstimate },
                                         },
-                                        rawTickerData: { vwap: liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap, flow: liveQuote?.flow },
+                                        rawTickerData: { vwap: liveQuote?.vwap !== undefined ? liveQuote.vwap : initialStockData?.vwap,
+                                            vwapDate: liveQuote?.vwap !== undefined ? liveQuote.vwapDate : (initialStockData as any)?.vwapDate, flow: liveQuote?.flow },
                                         // Same selected edition as the VOL REGIME card (lib/metrics/observation).
                                         volatilityData: volatilityObservation?.data ?? null,
                                         volatilitySource: volatilityObservation,

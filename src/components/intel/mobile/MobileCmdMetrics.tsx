@@ -102,7 +102,7 @@ export function MobileCmdMetrics({ ticker, quote, unified, volatilityData, volat
     // The page selects the inputs once (useMobileConvictionSnapshot) — the PRO AI material receives the same inputs.
     const convictionCarriedAsOf = carriedConvictionDate(convictionSnapshot);
     const conviction = useMemo(() => {
-        const result = scoreCommandConviction(convictionSnapshot.inputs);
+        const result = scoreCommandConviction(convictionSnapshot.inputs, convictionSnapshot.sourceDates);
         if (!result) return { score: null as number | null, label: '—', grade: '—' };
         const score = result.score;
         // 모바일 카드의 기존 영어 상태어·등급 경계 그대로(문구 변경 없음).

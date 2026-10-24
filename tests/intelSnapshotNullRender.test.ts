@@ -113,6 +113,7 @@ test(`${source} 실제 매퍼: null 제외, 전부 결측은 기존 - 경로`, (
     const cross = parse(source);
     const summarize = (stored: any[]) => run(`return ${decl(cross, 'sectorSummaries').initializer!.getText(cross)};`, {
         validSnapshots: [{ id: 'm7', data: payload(stored).snapshot }], SECTOR_LABELS: { m7: 'M7' },
+        CLOSING: require('../scripts/lambda-cross-sector/closingReport'), todayDate: '2026-10-22', now: new Date('2026-10-22T21:50:00Z'), closeMinutes: 960,
     })[0];
     for (const stored of [save([quote('MISSING', null)]), []]) {
         const row = summarize(stored); assert.equal(row.leader, '-'); assert.equal(row.laggard, '-');

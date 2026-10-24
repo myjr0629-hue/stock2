@@ -19,6 +19,7 @@ import { readIntelTickerCache, readIntelImpliedMoves } from '@/services/intelFas
 import { readImpliedMoveFields, NO_IMPLIED_MOVE, type ImpliedMoveFields } from '@/lib/impliedMove';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { xsSnapshotOverride } from '@/services/xsScores';
+import { overlayIntelAlpha } from '@/services/lastKnownAlpha';
 import { peekExtendedSessionClosesAndWarm, isTradeInExtSession, pickRegularPreClose, recallProvisionalPreCloses, rememberProvisionalPreClose, type ExtSessionClose, type ProvisionalPreStored } from '@/services/extendedSessionClose';
 import { etDateOf, shownRegularSessionDate } from '@/lib/marketCalendar';
 import { calculateWhaleIndex } from '@/services/alphaEngine';
@@ -77,6 +78,9 @@ async function metricsResponse(body: any) {
     const data = Array.isArray(body?.data) ? body.data.map((q: any) => ({ ...q })) : [];
     const metrics = await readOptionMetrics(data.map((q: any) => q.ticker));
     data.forEach((q: any) => applyOptionMetrics(q, metrics.get(q.ticker)));
+    // ★ [2026-10-24 알파 0점] 저장 봉투·새 계산 모두 나가기 직전에 «지금 게시된 표시 점수»로 — 분석 캐시가 낡음 판정으로 빠지고
+    //   flow:ticker 도 없던 순간 구운 0·«-» 를 그대로 주지 않는다(services/lastKnownAlpha). fast-all 과 같은 함수.
+    await overlayIntelAlpha(data);
     const meta = { ...body?.meta };
     if (meta.app || 'optionsAsOf' in meta) meta.optionsAsOf = latestOptionsAsOf(data);
     return NextResponse.json({ ...body, data, meta });

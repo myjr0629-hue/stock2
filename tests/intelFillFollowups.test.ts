@@ -262,6 +262,7 @@ t('nightly 중간2: 이전 날짜 보충은 칸에만 유지, Intel 평균·W/L�
     visit(page);
     const breadth = run(['breadthRows', 'breadthValues', 'totalGainers', 'totalLosers'].map(name => `const ${decl(page, name).getText(page)};`).join('\n') + '\nreturn [totalGainers, totalLosers, breadthValues.length];', {
         SECTOR_CONFIGS: [{ id: 'test' }], getSectorQuotes: () => rows, sessionChangeOrNull, sessionDate: date,
+        datedReports: { test: { keyStocksData: rows } }, closingDate: date,
         reportCache: { old: { gainers: 99, losers: 99 } },
     });
     assert.deepEqual(breadth, [0, 1, 1]);

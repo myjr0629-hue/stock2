@@ -10,7 +10,7 @@ function httpsGet(url, timeoutMs) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers: { 'User-Agent': 'SIGNUM/1.0' } }, res => {
       let body = '';
-      res.on('data', chunk => body += chunk);
+      res.setEncoding('utf8').on('data', chunk => body += chunk);
       res.on('end', () => {
         try { resolve(JSON.parse(body)); } catch (e) { resolve(null); }
       });

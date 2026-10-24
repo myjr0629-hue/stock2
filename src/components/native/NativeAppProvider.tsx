@@ -5,6 +5,7 @@
 
 'use client';
 
+import { matchesReportTarget } from '@/lib/app/reportLink';
 import React, { useEffect, useState, useCallback, createContext, useContext } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useProStatus } from '@/hooks/useProStatus';
@@ -92,8 +93,7 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
       try { target = sessionStorage.getItem(KEY); } catch { /* storage off */ }
       if (target) {
         try { sessionStorage.removeItem(KEY); } catch {}
-        const targetPath = target.split('?')[0];
-        if (!window.location.pathname.startsWith(targetPath)) router.replace(target);
+        if (!matchesReportTarget(window.location.pathname, window.location.search, target)) router.replace(target);
         clearInterval(id);
       } else if (tries >= 16) {
         clearInterval(id); // ~2.4s window, then stop polling

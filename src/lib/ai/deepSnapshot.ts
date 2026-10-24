@@ -8,6 +8,7 @@
 import { earningsDaysOrNull } from '@/lib/earningsDate';
 import { computeUnifiedVolatilityRegime } from '@/lib/metrics/volatilityRegime';
 import { selectVwap, vwapDistancePct } from '@/lib/vwap';
+import { vwapForCalculation } from '@/lib/sessionVwapPolicy';
 import { netPremiumOf } from '@/lib/premiumFlow';
 import { commandScores } from '@/lib/commandScores';
 import { compareSourceTime, isFailedSection, observationTime } from '@/lib/metrics/observation';
@@ -98,9 +99,9 @@ export function buildDeepSnapshot(x: DeepSnapshotInput) {
     convictionDates = snap.sourceDates; convictionCarried = snap.carriedFields;
   }
   // 관문 10200752 ②: AI 의 VWAP·거리 = 확신도가 고른 같은 VWAP(늦게 온 옛 VWAP 이 AI 에만 들어가지 않게), 그 원천 날짜와 함께.
-  const aiVwap = convictionInputs ? convictionInputs.vwap : vwap;
+  const aiVwap = vwapForCalculation(convictionInputs ? convictionInputs.vwap : vwap, convictionDates?.vwap);
   const aiVwapDistance = convictionInputs ? vwapDistancePct(x.price, aiVwap) : distance;
-  const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData, convictionInputs });
+  const scores = commandScores({ price: x.price, vwap, unified: { ...u, structure: s, volatility: vol, sma }, rawTickerData: x.rawTickerData, convictionInputs, convictionSourceDates: convictionDates });
   const ticker = String(x.ticker || '').toUpperCase();
   const saved = lastGood.get(ticker) || new Map<string, SavedField>();
   const sources: Record<string, Source> = {};

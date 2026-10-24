@@ -39,6 +39,11 @@ export function primeXsScores(): void {
     if (Date.now() - loadedAt > REFRESH_MS && !loading) loading = load();
 }
 
+/** 점수 → 등급(엔진 등급 경계 그대로). 등급 없이 점수만 저장된 행에 «-» 대신 붙인다. */
+export function gradeForScore(score: number): Grade {
+    return gradeFor(score);
+}
+
 function gradeFor(score: number): Grade {
     const g = ALPHA_V3_CONFIG.GRADE_THRESHOLDS;
     if (score >= g.S) return 'S';

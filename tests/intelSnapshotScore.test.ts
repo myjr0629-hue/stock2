@@ -125,7 +125,7 @@ test('로드·프리페치 두 실제 스냅샷 매퍼: 원천 날짜·결측 �
     const visit = (n: ts.Node) => { if (ts.isPropertyAssignment(n) && ['score', 'alphaScoreSourceDate'].includes(n.name.getText(page)) && n.initializer.getText(page).includes('data.snapshot_date')) maps.push(n); ts.forEachChild(n, visit); };
     visit(page); assert.equal(maps.length, 4);
     for (const date of ['2026-10-16', '2026-10-15', undefined]) for (const score of [0, 61, null]) for (const node of maps) {
-        const result = run(`return ${node.initializer.getText(page)};`, { data: { ...payload([]), snapshot_date: date }, tick: { alpha_score: score }, shownRegularSessionDate: () => '2026-10-16', snapshotScoreOrNull });
+        const result = run(`return ${node.initializer.getText(page)};`, { data: { ...payload([]), snapshot_date: date }, tick: { alpha_score: score }, shownRegularSessionDate: () => '2026-10-16', date: '2026-10-16', snapshotScoreOrNull });
         assert.equal(result, node.name.getText(page) === 'score' ? (date === '2026-10-16' ? score : null) : date === '2026-10-16' && score != null ? date : undefined);
     }
 });

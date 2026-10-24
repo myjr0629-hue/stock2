@@ -133,6 +133,19 @@ export function waivedBySource(reason: string, source: string): boolean {
     return false;
 }
 
+/**
+ * 크로스섹터(장마감 리포트) 전용 — «…라고 할 수 없습니다»·«…으로 단정할 수 없습니다»는 거절문이 아니라 분석의 부정 판단이다.
+ * 2026-10-24 운영 실측(10/23 입력 dry): 서사 지시(«마감 후 보도는 선행 원인이 될 수 없다»)를 따른 Haiku 5.5 응답이 ko 거절 패턴 «할 수 없습니다»에
+ * 걸려 3회 중 2회 첫 시도를 버렸고, 1회는 재시도까지 걸려 현행 4.5(서빙 불가)로 떨어졌다. 모든 출현이 «라고/으로/로 (+단정·확정·판단·간주)» 바로 뒤일 때만 면제한다
+ * — «분석을 제공할 수 없습니다»·«요청에 응할 수 없습니다» 같은 진짜 거절은 그대로 걸린다.
+ */
+export function analyticNegationOnly(reason: string, text: string): boolean {
+    if (!/^refusal:ko:"할\s*수\s*없습니다/.test(reason)) return false;
+    const t = String(text || '');
+    const hits = [...t.matchAll(/할\s*수\s*없습니다/g)];
+    return hits.length > 0 && hits.every((m) => /(?:라고|으로|로)\s*(?:단정|확정|판단|간주)?\s*$/.test(t.slice(Math.max(0, (m.index ?? 0) - 12), m.index)));
+}
+
 /** 소문자 영어 단어가 4개 이상 = «영어 문장» (티커·약어·회사명 몇 개는 문장이 아니다) */
 const englishSentence = (t: string): boolean => (t.match(/\b[a-z]{3,}\b/g) || []).length >= 4;
 
@@ -187,7 +200,7 @@ export function evaluateOutput(i: EvalInput): EvalResult {
         : single ? [{ loc: single, text, path: '' }] : [];
     const seen = new Set<string>();
     for (const it of items) {
-        const prose = proseReasons(it.text, it.loc, 15).filter((x) => !waivedBySource(x, i.source));
+        const prose = proseReasons(it.text, it.loc, 15).filter((x) => !waivedBySource(x, i.source) && !(i.purpose === 'CrossSector' && analyticNegationOnly(x, it.text)));
         const reasonsHere = i.structured ? [...prose.filter((x) => !x.startsWith('language:')), ...scriptPurityReasons(it.text, it.loc)] : prose;
         for (const r of reasonsHere) { const k = `${it.loc}:${r.split(':')[0]}`; if (!seen.has(k)) { seen.add(k); reasons.push(`${it.loc}:${r.slice(0, 60)}`); } }
         if (it.loc !== 'en') {

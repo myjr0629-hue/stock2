@@ -243,7 +243,7 @@ const rec = (briefing: string, extra: Record<string, unknown> = {}) => ({ briefi
     assert.ok(a > 0 && b > a);
     const block = ROUTE.slice(a, b);
     assert.equal(/sendPushByType|setInCache|writeStats/.test(block), false);
-    assert.ok(a < ROUTE.indexOf('await sendPushByType(type, { bodies })'), '실제 발송보다 앞');
+    assert.ok(a < ROUTE.indexOf('await sendPushByType(type, { bodies, reportDate: todayET })'), '실제 발송보다 앞');
     assert.ok(/searchParams\.get\('test'\) === '1' && searchParams\.get\('dry'\) !== '1'/.test(ROUTE), '?test=1&dry=1 은 보내지 않는다');
   });
   t('제목은 그대로 — 본문만 바꾼다(PUSH_CONTENT 제목 불변)', () => {

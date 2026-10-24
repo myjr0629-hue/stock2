@@ -1,0 +1,222 @@
+{
+  "source": "compare-v3-r2.md; 88f66d61f; generated prose only",
+  "outputs": [
+    {
+      "session": "PRE",
+      "repeat": 1,
+      "locale": "ko",
+      "previousReasons": [
+        "tactical:four-sentences"
+      ],
+      "text": "어제(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 보합, S&P500 선물은 0.2% 약세입니다. 10/23(금) 06:29 ET 보도에 따르면 AI 거래 약세와 미국채 수익률 급락으로 시장이 양분되고 있습니다. 반등을 받칠 힘이 약합니다(시장 건강도 RLSI 31점, 약함). 옵션 포지션(GEX +13)은 중립이라 흔들림을 받쳐 주지도 키우지도 않으며, 변동성 지수(VIX 19.6)는 높아 긴장이 남아 있습니다. 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI (Oct)로, 경기 신호가 약하면 약세 압력이 이어지고 강하면 그 압력이 누그러지는 쪽으로 읽힙니다."
+    },
+    {
+      "session": "PRE",
+      "repeat": 1,
+      "locale": "en",
+      "previousReasons": [
+        "tactical:too-long"
+      ],
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now premarket Nasdaq 100 futures are flat and S&P 500 futures are down 0.2%. A 10/23 06:29 ET report noted the U.S. stock market fracturing as AI trade falters and Treasury yields drop sharply. Support for a rebound is fragile: market health (RLSI 31) is weak, options positioning (GEX +13) is neutral and neither cushions nor amplifies swings, and the VIX volatility gauge at 19.6 signals elevated tension. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: weak economic signals extend downside pressure, while stronger readings ease it."
+    },
+    {
+      "session": "PRE",
+      "repeat": 1,
+      "locale": "ja",
+      "previousReasons": [],
+      "text": "昨日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引開始前のナスダック100先物は横ばい、S&P500先物は0.2%下落です。10/23(金) 06:29 ET の報道によると、AI取引の弱さと米国債利回りの急落で市場が二分されています。反発を支える力は弱いです(市場の健全度(RLSI 31点)は弱く、オプション・ポジション(GEX +13)は中立で値動きを支えも増幅もせず、変動性指数(VIX 19.6)は高止まりしています)。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45) 予定の S&P Global Composite PMI (Oct) で、経済指標が弱ければ下値圧力が続き、強ければその圧力が和らぐ方向と読めます。"
+    },
+    {
+      "session": "PRE",
+      "repeat": 2,
+      "locale": "ko",
+      "previousReasons": [],
+      "text": "어제(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 보합, S&P500 선물은 0.2% 약세입니다. 10/23(금) 06:29 ET 보도에 따르면 AI 거래 약세와 미국채 수익률 급락으로 시장이 두 진영으로 나뉘고 있습니다. 반등을 받칠 힘이 약합니다—시장 건강도(RLSI) 31점으로 약하고, 옵션 포지션(GEX +13)은 중립이라 흔들림을 받쳐 주지도 키우지도 않으며, 변동성 지수(VIX) 19.6은 높아져 있습니다. 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI (Oct)로, 경기 신호가 약하면 낙폭이 이어지고 강하면 반등 여력이 생기는 구조입니다."
+    },
+    {
+      "session": "PRE",
+      "repeat": 2,
+      "locale": "en",
+      "previousReasons": [
+        "tactical:too-long"
+      ],
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now premarket Nasdaq 100 futures are flat and S&P 500 futures are down 0.2%. A 10/23 06:29 ET report noted the U.S. stock market fracturing into two camps as AI trade falters and Treasury yields drop sharply. Rebound strength is fragile: market health (RLSI) at 31 is weak, options positioning (GEX +13) is neutral and neither cushions nor amplifies swings, and the VIX volatility gauge stands at 19.6, elevated. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a weak reading extends losses, while a stronger one opens room for a bounce."
+    },
+    {
+      "session": "PRE",
+      "repeat": 2,
+      "locale": "ja",
+      "previousReasons": [],
+      "text": "昨日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引開始前のナスダック100先物は横ばい、S&P500先物は0.2%下落です。10/23(金) 06:29 ET の報道によると、AI取引の弱さと米国債利回りの急低下で市場が二つの陣営に分かれています。反発を支える力は弱いです—市場の健全度(RLSI) 31点で弱く、オプション・ポジション(GEX +13)は中立で値動きを支えも増幅もせず、変動性指数(VIX) 19.6は高まっています。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45) 予定の S&P Global Composite PMI (Oct) で、景気シグナルが弱ければ下げが続き、強ければ反発の余地が生まれる構造です。"
+    },
+    {
+      "session": "PRE",
+      "repeat": 3,
+      "locale": "ko",
+      "previousReasons": [
+        "tactical:four-sentences"
+      ],
+      "text": "어제(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 보합, S&P500 선물은 0.2% 약세입니다. 10/23(금) 06:29 ET 보도에 따르면 AI 거래 약세와 미국채 수익률 급락으로 시장이 두 진영으로 나뉘고 있습니다. 반등을 받칠 힘이 약합니다. 시장 건강도(RLSI) 31점으로 약하고, 옵션 포지션(GEX +13)은 중립이라 흔들림을 받쳐 주지도 키우지도 않으며, 변동성 지수(VIX) 19.6은 높아 있습니다. 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI (Oct)로, 경기 신호가 약하면 낙폭이 이어지고 강하면 반등 가능성이 커지는 쪽으로 읽힙니다."
+    },
+    {
+      "session": "PRE",
+      "repeat": 3,
+      "locale": "en",
+      "previousReasons": [
+        "tactical:too-long"
+      ],
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now premarket Nasdaq 100 futures are flat and S&P 500 futures are down 0.2%. A 10/23 06:29 ET report noted the U.S. stock market fracturing as AI trade falters and Treasury yields drop sharply. Support for a rebound is fragile: market health (RLSI) at 31 is weak, options positioning (GEX +13) is neutral and neither cushions nor amplifies swings, and the VIX volatility gauge stands at 19.6, elevated. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: weak activity signals extend losses, while stronger readings could open room for a bounce."
+    },
+    {
+      "session": "PRE",
+      "repeat": 3,
+      "locale": "ja",
+      "previousReasons": [
+        "tactical:four-sentences"
+      ],
+      "text": "昨日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引開始前のナスダック100先物は横ばい、S&P500先物は0.2%下落です。10/23(金) 06:29 ET の報道によれば、AI取引の弱さと米国債利回りの急落で市場が二つの陣営に分かれています。反発を支える力は弱いです。市場の健全度(RLSI) 31点で弱く、オプション・ポジション(GEX +13)は中立で値動きを支えも増幅もせず、変動性指数(VIX) 19.6は高い水準にあります。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45) 予定の S&P Global Composite PMI (Oct) で、経済指標が弱ければ下落が続き、強ければ反発の可能性が広がる方向と読めます。"
+    },
+    {
+      "session": "REG",
+      "repeat": 1,
+      "locale": "ko",
+      "previousReasons": [
+        "tactical:positioning-required"
+      ],
+      "text": "오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 장후 나스닥100 선물은 보합, S&P500 선물은 0.2% 약세입니다. 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 반등을 받칠 힘이 약합니다(시장 건강도(RLSI) 31점, 약함). 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI(10월)로, 경기 신호가 약하면 낙폭이 이어지고 강하면 반등 여력이 생기는 쪽으로 읽힙니다."
+    },
+    {
+      "session": "REG",
+      "repeat": 1,
+      "locale": "en",
+      "previousReasons": [
+        "tactical:positioning-required"
+      ],
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now after-hours Nasdaq 100 futures are flat and S&P 500 futures are down 0.2%. Today's macro driver is unconfirmed. Rebound strength is fragile, with market health (RLSI) at 31 showing weak support for advancing breadth. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a weak reading extends losses, while a stronger one opens room for recovery."
+    },
+    {
+      "session": "REG",
+      "repeat": 1,
+      "locale": "ja",
+      "previousReasons": [
+        "tactical:positioning-required"
+      ],
+      "text": "本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の時間外ナスダック100先物は横ばい、S&P500先物は0.2%下落です。本日の相場を動かしたマクロ要因は未確認です。反発を支える力が弱く、市場の健全度(RLSI)31点で値上がり銘柄の広がりに脆さが見られます。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45) 予定の S&P Global Composite PMI(10月)で、経済指標が弱ければ下落が続き、強ければ反発の余地が生まれる方向と読めます。"
+    },
+    {
+      "session": "REG",
+      "repeat": 2,
+      "locale": "ko",
+      "previousReasons": [],
+      "text": "오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 장후 나스닥100 선물은 보합, S&P500 선물은 0.2% 약세입니다. 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 반등을 받칠 힘이 약합니다(시장 건강도 RLSI 31점, 약함; 옵션 포지션 GEX +13은 중립이라 흔들림을 받쳐 주지도 키우지도 않습니다). 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI(10월)로, 경기 신호가 약하면 약세 압력이 이어지고 강하면 그 압력이 누그러지는 쪽으로 읽힙니다."
+    },
+    {
+      "session": "REG",
+      "repeat": 2,
+      "locale": "en",
+      "previousReasons": [],
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now after-hours Nasdaq 100 futures are flat and S&P 500 futures are down 0.2%. Today's macro driver is unconfirmed. Support for a rebound is fragile: market health (RLSI 31) is weak, and options positioning (GEX +13) is neutral, neither cushioning nor amplifying swings. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a weak reading extends selling pressure, while a strong one eases it."
+    },
+    {
+      "session": "REG",
+      "repeat": 2,
+      "locale": "ja",
+      "previousReasons": [],
+      "text": "本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の時間外ナスダック100先物は横ばい、S&P500先物は0.2%下落です。本日の相場を動かしたマクロ要因は未確認です。反発を支える力は弱いです(市場の健全度(RLSI 31点)は弱く、オプション・ポジション(GEX +13)は中立で値動きを支えも増幅もしません)。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45) 予定の S&P Global Composite PMI(10月)で、弱い結果なら売り圧力が続き、強い結果なら圧力が和らぐ方向と読めます。"
+    },
+    {
+      "session": "REG",
+      "repeat": 3,
+      "locale": "ko",
+      "previousReasons": [
+        "tactical:positioning-required"
+      ],
+      "text": "오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 장후 나스닥100 선물은 보합, S&P500 선물은 0.2% 약세입니다. 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 반등을 받칠 힘이 약합니다(시장 건강도 RLSI 31점, 약함). 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI(10월)로, 경기 신호가 약하면 약세 압력이 이어지고 강하면 그 압력이 누그러지는 쪽으로 읽힙니다."
+    },
+    {
+      "session": "REG",
+      "repeat": 3,
+      "locale": "en",
+      "previousReasons": [],
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while now after-hours Nasdaq 100 futures are flat and S&P 500 futures are down 0.2%. Today's macro driver is unconfirmed. Rebound support is fragile, with market health (RLSI) at 31, weak, and options positioning (GEX +13) neutral, neither cushioning nor amplifying swings. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a weak reading extends selling pressure, while a strong one eases it."
+    },
+    {
+      "session": "REG",
+      "repeat": 3,
+      "locale": "ja",
+      "previousReasons": [
+        "tactical:four-sentences"
+      ],
+      "text": "本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の時間外ナスダック100先物は横ばい、S&P500先物は0.2%下落です。本日の相場を動かしたマクロ要因は未確認です。市場の健全度(RLSI)は31点で弱く、反発を支える力が限定的です。オプション・ポジション(GEX +13)は中立で、値動きを支えも増幅もしません。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のS&P Global Composite PMI(10月)で、経済指標が弱ければ売り圧力が続き、強ければその圧力が和らぐ方向と読めます。"
+    },
+    {
+      "session": "POST",
+      "repeat": 1,
+      "locale": "ko",
+      "previousReasons": [
+        "tactical:positioning-required"
+      ],
+      "text": "오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 장후 선물 변화는 미확인입니다. 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 반등을 받칠 힘이 약합니다(시장 건강도(RLSI) 31점, 약함). 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI(10월)로, 경기 신호가 약하면 낙폭이 이어지고 강하면 반등 가능성이 커지는 쪽으로 읽힙니다."
+    },
+    {
+      "session": "POST",
+      "repeat": 1,
+      "locale": "en",
+      "previousReasons": [],
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%; futures change since that close is unconfirmed. Today's macro driver is unconfirmed. Support for a rebound is fragile, with market health (RLSI) at 31, weak, while options positioning (GEX 13) is neutral and neither cushions nor amplifies swings. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a weak reading extends losses, while a strong one opens the door to recovery."
+    },
+    {
+      "session": "POST",
+      "repeat": 1,
+      "locale": "ja",
+      "previousReasons": [],
+      "text": "本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引終了後の先物変化は未確認です。本日の相場を動かしたマクロ要因は未確認です。反発を支える力は弱く、市場の健全度(RLSI)は31点で脆弱であり、オプション・ポジション(GEX 13)は中立で値動きを支えも増幅もしません。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45) 予定の S&P Global Composite PMI(10月)で、経済指標が弱ければ下落が続き、強ければ反発の可能性が広がる方向と読めます。"
+    },
+    {
+      "session": "POST",
+      "repeat": 2,
+      "locale": "ko",
+      "previousReasons": [],
+      "text": "오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 장후 선물 변화는 미확인입니다. 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 반등을 받칠 힘이 약합니다(시장 건강도 RLSI 31점으로 약함, 옵션 포지션 GEX +13은 중립이라 흔들림을 받쳐 주지도 키우지도 않음). 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI(10월)로, 경기 신호가 약하면 낙폭이 이어지고 강하면 반등 여력이 생기는 쪽으로 읽힙니다."
+    },
+    {
+      "session": "POST",
+      "repeat": 2,
+      "locale": "en",
+      "previousReasons": [],
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%; futures change since that close is unconfirmed. Today's macro driver is unconfirmed. Support for a rebound is fragile, with market health (RLSI 31) weak and options positioning (GEX +13) neutral, neither cushioning nor amplifying swings. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a weak reading extends the decline, while a stronger one opens room for recovery."
+    },
+    {
+      "session": "POST",
+      "repeat": 2,
+      "locale": "ja",
+      "previousReasons": [],
+      "text": "本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引終了後の先物変化は未確認です。本日の相場を動かしたマクロ要因は未確認です。反発を支える力が弱く、市場の健全度(RLSI 31点)は弱い状態で、オプション・ポジション(GEX +13)は中立のため値動きを支えも増幅もしません。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のS&P Global Composite PMI(10月)で、経済指標が弱ければ下落が続き、強ければ反発の余地が生まれる方向と読めます。"
+    },
+    {
+      "session": "POST",
+      "repeat": 3,
+      "locale": "ko",
+      "previousReasons": [
+        "tactical:positioning-required"
+      ],
+      "text": "오늘(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 장후 선물 변화는 미확인입니다. 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 반등을 받칠 힘이 약합니다(시장 건강도(RLSI) 31점, 약함). 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI(10월)로, 경기 신호가 약하면 낙폭이 이어지고 강하면 반등 가능성이 커지는 구조입니다."
+    },
+    {
+      "session": "POST",
+      "repeat": 3,
+      "locale": "en",
+      "previousReasons": [],
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%; futures change since that close is unconfirmed. Today's macro driver is unconfirmed. Support for a rebound is fragile, with market health (RLSI) at 31, weak, while options positioning (GEX 13) is neutral and neither cushions nor amplifies swings. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a weak reading extends losses, while a stronger one opens room for recovery."
+    },
+    {
+      "session": "POST",
+      "repeat": 3,
+      "locale": "ja",
+      "previousReasons": [
+        "tactical:positioning-required"
+      ],
+      "text": "本日(10/22)の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引終了後の先物変化は未確認です。本日の相場を動かしたマクロ要因は未確認です。反発を支える力は弱く、市場の健全度(RLSI)は31点で弱い状態です。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45) 予定の S&P Global Composite PMI(10月)で、経済指標が弱ければ下落が続き、強ければ反発の可能性が高まる構造です。"
+    }
+  ]
+}
