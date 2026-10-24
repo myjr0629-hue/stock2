@@ -622,7 +622,20 @@ async function recoverVolatilityIv(data: any, ticker: string, locale: string, ba
 
 async function jsonResponse(data: any, status = 200, ticker?: string | null) {
     const isMarket = isMarketHoursNow();
-    const audited = await overlayFundamentals(data, ticker);
+    let audited = await overlayFundamentals(data, ticker);
+    // [T12 · M1] 재무 P/E·시총·점수 — 저장된 직접 재무 API 항목(기준 세션 표식 있음)이 이 사본 이상이면 그 값으로(앱 직접 API·웹 unified 같은 값).
+    //   unified 캐시는 «값이 있으면 usable»이라 세션이 바뀌어도 fundamentals 를 다시 안 받는다(10/25 NVDA 26.5·5.114T vs 직접 26.4·5.084T). 읽기만·벤더 0.
+    if (audited?.fundamentals) try {
+        const { alignFundamentalsToSource, shouldKickSourceRecheck } = await import('@/services/fundamentalsSession');
+        const fundamentals = await alignFundamentalsToSource(audited.fundamentals, ticker || audited.ticker).catch(() => audited.fundamentals);
+        if (fundamentals !== audited.fundamentals) audited = { ...audited, fundamentals };
+        // 저장된 직접 재무 항목이 마지막 끝난 세션 뒤에 읽은 것이 아니면 응답 뒤 한 번 직접 API 를 불러 원천 재조회 기회를 준다(웹은 직접 API 를 안 부른다).
+        //   재조회 여부·횟수는 그 API(공식 종가 확정·종목·세션당 1회)가 정한다. 종목당 10분에 한 번.
+        const symbol = ticker || audited.ticker;
+        if (symbol && shouldKickSourceRecheck(symbol)) {
+            after(async () => { await callInternalGet(getFundamentals, `http://localhost/api/live/fundamentals?t=${encodeURIComponent(symbol)}`).catch(() => null); });
+        }
+    } catch { /* 모듈을 못 읽었다 — 원래 값 */ }
     const body = await overlayEarningsDate(await overlayStructureLevels(normalizeShape(stripStaleInstitutional(audited)), ticker), ticker);
     if (body?.structure || body?.volatility) {
         body.volatility = { ...body.volatility, ...computeUnifiedVolatilityRegime(body) };
