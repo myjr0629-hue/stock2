@@ -42,6 +42,8 @@ const mocks = {
   '@/services/intrinioClient': {sessionAwareLiquidity:async()=>({})},
   '@/services/darkPool': {getDarkPoolBatch:async()=>({})},
   '@/services/xsScores': {xsOverride:x=>x,xsSnapshotOverride:(_,x)=>x,ensureXsScores:async()=>{}},
+  // 10/24 알파 0점 수리: 마지막 분석 행·인텔 덮기 — 이 시험은 «마지막 행 없음»(예전 순서 그대로)
+  '@/services/lastKnownAlpha': {readLastKnownAnalysis:async()=>new Map(),readLastKnownAlpha:async()=>new Map(),overlayIntelAlpha:async()=>{}},
   // NB1(2026-10-20): 수집 행에 35일 OI 가 없을 때의 같은 범위 대체(옵션 EOD 35일 → 체인 35일 저장본). 시험 종목 SPY 만 값이 있다.
   '@/services/oiNear35Fallback': {readOi35Fallback:async t=>oi35Fallback[t]??null},
 };
