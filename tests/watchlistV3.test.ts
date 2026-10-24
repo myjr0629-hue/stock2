@@ -141,7 +141,7 @@ test('해석 길이 = 화면 폭 46em(360폭 두 줄, 첫머리 포함) — 라�
     assert.ok(!checkWatchlistV3Insight(latin, 'ko', f, now).some(r => /too-long|insight:format/.test(r)), checkWatchlistV3Insight(latin, 'ko', f, now).join(','));
     assert.ok(!checkWatchlistV3Insight(insight.ko, 'ko', f, now).includes('v3:too-long'));
     assert.ok(checkWatchlistV3Insight('NVDA 장전 예상 변동 ±3.2% · 양감마 완충 자리', 'ko', f, now).includes('insight:format'), '형식 문자는 계속 막는다');
-    assert.match(buildWatchlistV3Prompt(f), /INSIGHT BUDGET[^\n]*ko ≤ 45/);
+    assert.match(buildWatchlistV3Prompt(f), /INSIGHT BUDGET[^\n]*ko ≤ 38/);
 });
 test('칩 줄 언어 간 숫자가 다르면 사실 칩 줄(세 언어 같은 조각 수)', () => {
     const r = check({ ko: chips.ko + ' · 장외 비중 40.0%', en: chips.en, ja: chips.ja, insight });
