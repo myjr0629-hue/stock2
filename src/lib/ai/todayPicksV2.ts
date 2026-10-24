@@ -94,6 +94,8 @@ const CONTRAST = /\brather than\b|\binstead of\b|대신|아니라|이\s*아닌|�
 
 // 부정·감소·부재(어디에 있든 순수 구조 설명이 아니다): n't·nothing·none·never·less·limits·관계없이(없)·줄·사라·잃·弱·消 …
 const HEDGE_ANY = /n't\b|\b(?:nothing|none|neither|nor|never|less|limits?|limited|loses?|lost|lacks?|without|absent|far)\b|없|않|못|아니|아닌|줄어|줄고|줄며|사라|잃|약해|ない|(?:せ|さ|ら)ず|ません|弱ま|消え|失わ/i;
+// 순수 두 갈래 설명의 나머지로 허용하는 낱말(이름·조사·어미)뿐
+const RESIDUAL_FILLER = /Gamma\s*Flip|\b(?:dealer|dealers|hedging|hedges?|structure|options?|the|a|its|is|are|of|and|swings?|moves?|them|it|they|price)\b|딜러|헤지|구조|옵션|움직임|변동|흔들림|입니다|합니다|이며|이고|하는|하며|의|는|은|이|가|에서|에선|에|를|을|ディーラー|ヘッジ|構造|オプション|値動き|変動|です|である|します|ます|する|の|は|が|で|を|に/gi;
 // 나머지에 남으면 «현재 상태 단정»으로 보는 단어(at·switch·price·현재·가격·現在 …)
 const RESIDUAL_CLAIM = /\b(?:at|currently|now|price|it is|sits?|switch|flip(?!\b)|right)\b|현재|지금|주가|가격|전환점|경계에|現在|株価|価格|転換点|ちょうど/i;
 
@@ -112,7 +114,7 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         if (INTERNAL.test(t)) reasons.push(`${l}:v2:internal-or-freshness`);
         // 부정은 그 표현 «바로 앞»(not/no/never·12자) 또는 «바로 뒤»(한·일 부정·8자)에 붙을 때만 면제(관문 10242104: «not its direction»이 앞 표현을 면제하지 않음, «not Fed policy»는 부정된 원인).
         const negatedNear = (re: RegExp) => [...t.matchAll(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g'))].every(m =>
-            /\b(?:not|no|never|nor|rather than|instead of)\b[^,;.]{0,12}$/i.test(t.slice(Math.max(0, (m.index ?? 0) - 20), m.index))
+            /\b(?:not|no|never|nor|rather than|instead of)\b(?![^,;.]*\b(?:but|yet|however)\b)[^,;.]{0,12}$/i.test(t.slice(Math.max(0, (m.index ?? 0) - 20), m.index))
             || /^[^,;.。、]{0,6}?(?:아니|아닌|않|없|ではな|ではありません|でない|じゃな)/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 12)));
         if (UNSUPPORTED_CAUSE.test(t) && !negatedNear(UNSUPPORTED_CAUSE)) reasons.push(`${l}:v2:unsupported-cause`);
         if ((f.kind === 'earnings' || f.kind === 'whale') && HISTORY.test(t) && !negatedNear(HISTORY)) reasons.push(`${l}:v2:unsupported-history`);
@@ -129,6 +131,8 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         const residual = pair.reduce((s, re) => s.replace(new RegExp(re.source, re.flags.replace('g', '')), ''), t);
         if (new RegExp(CURRENT_SIDE[l]).test(residual) || new RegExp(`${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]}`, 'i').test(residual)
             || RESIDUAL_CLAIM.test(residual)) continue;
+        // 나머지는 허용 목록 낱말(구조·헤지 같은 이름·조사)만 — 그 밖의 낱말이 하나라도 있으면 순수 구조가 아니다(관문 10242110: «spot exceeds Gamma Flip»).
+        if (residual.replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '').length > 0) continue;
         reasons = reasons.filter(r => !(r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`)));
     }
     reasons = [...new Set(reasons)];
