@@ -20,6 +20,7 @@ import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/st
 import { INTEL_FAST_SECTORS, intelFastKey, etPhase, intelFastWindow, usableEnvelope, type IntelFastEnvelope } from '@/lib/cache/intelFastCache';
 import { runPool } from '@/lib/asyncPool';
 import { governorOff } from '@/lib/intelFastGovernor';
+import { overlayIntelAlpha } from '@/services/lastKnownAlpha';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,9 @@ export async function GET(request: Request) {
     const quotes: any[] = Object.values(sectors).flatMap((s: any) => s.data ?? []);
     const metrics = await readOptionMetrics(quotes.map(q => q.ticker), { cache: true });
     quotes.forEach(q => applyOptionMetrics(q, metrics.get(q.ticker)));
+    // ★ [2026-10-24 알파 0점] 봉투는 최대 12시간 묵는다 — 구운 순간 못 잰 알파(0·«-»)나 XS 게시(22:10Z) 전 점수를
+    //   그대로 주지 않고 /api/intel/fast 와 같은 함수로 «지금 게시된 표시 점수»를 덮는다(요청마다 새로 읽은 봉투 객체 — 저장본은 안 바뀐다).
+    await overlayIntelAlpha(quotes);
     Object.values(sectors).forEach((s: any) => {
         if (app || 'optionsAsOf' in s.meta) s.meta.optionsAsOf = latestOptionsAsOf(s.data ?? []);
     });
