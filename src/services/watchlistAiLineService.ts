@@ -411,22 +411,23 @@ export async function compareLinesDry(tickers: string[], opts: { reps?: number; 
             darkPool: f.darkPool, implied: f.implied,
         }, Date.now());
         f.contextText = ranked.lines.join('\n'); f.topLine = ranked.topLine;
-        out[t] = { top: ranked.top, quote: f.quote, factsText: f.factsText, contextText: f.contextText, stored: { v1: stored.v1 ? { at: stored.v1.at, text: stored.v1.text, insight: stored.v1.insight, insightWhy: stored.v1.insightWhy, revision: stored.v1.revision } : null, v2: stored.v2 ? { at: stored.v2.at, text: stored.v2.text, insight: stored.v2.insight } : null }, old: [], new: [] };
+        out[t] = { top: ranked.top, facts: f, quote: f.quote, factsText: f.factsText, contextText: f.contextText, stored: { v1: stored.v1 ? { at: stored.v1.at, text: stored.v1.text, insight: stored.v1.insight, insightWhy: stored.v1.insightWhy, revision: stored.v1.revision } : null, v2: stored.v2 ? { at: stored.v2.at, text: stored.v2.text, insight: stored.v2.insight } : null }, old: [], new: [] };
         for (let r = 0; r < reps; r++) for (const which of ['old', 'new'] as const) jobs.push(async () => {
             if (Date.now() > deadline) return;
             const attempts: string[][] = [];
+            const raws: string[] = [];
             const s0 = Date.now();
             const check = (text: string) => which === 'old' ? oldCheck(text, f) : checkWatchlistV3Output(text, f);
             try {
                 const res = await withFreshTier(() => callBedrock({
                     system: which === 'old' ? oldSystem : WL_V3_SYSTEM, userPrompt: which === 'old' ? oldUser(f) : buildWatchlistV3Prompt(f),
                     maxTokens: 700, temperature: 0.2, timeoutMs: 15_000, label: WL_LINE_PURPOSE, purpose: WL_LINE_PURPOSE, expectJson: true, locale: 'multi',
-                    validate: (text: string) => { const c = check(text); attempts.push(c.reasons); return { ok: c.ok, reasons: c.reasons }; },
+                    validate: (text: string) => { const c = check(text); attempts.push(c.reasons); raws.push(String(text).slice(0, 1500)); return { ok: c.ok, reasons: c.reasons }; },
                 }));
                 const c = check(res.text);
-                out[t][which].push({ ok: c.ok, reasons: c.reasons, text: c.text, insight: c.insight, insightReasons: c.insightReasons, raw: res.text.slice(0, 1200), attempts, provider: res.provider, ms: Date.now() - s0 });
+                out[t][which].push({ ok: c.ok, reasons: c.reasons, text: c.text, insight: c.insight, insightReasons: c.insightReasons, raw: res.text.slice(0, 1500), attempts, raws, provider: res.provider, ms: Date.now() - s0 });
             } catch (e) {
-                out[t][which].push({ ok: false, error: String((e as Error)?.message || e).slice(0, 160), attempts, ms: Date.now() - s0 });
+                out[t][which].push({ ok: false, error: String((e as Error)?.message || e).slice(0, 160), attempts, raws, ms: Date.now() - s0 });
             }
         });
     });
