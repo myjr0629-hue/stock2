@@ -99,7 +99,11 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     const buy = brief(); buy.structured.closingNarrative.whatHappened.ko = '나스닥은 일부 반도체 매수로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.';
     C.alignSummary(buy.structured);
     assert.equal(buy.structured.closingNarrative.whatHappened.ko, '나스닥은 일부 반도체 매수로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.', '매수 자동 치환 없음 — 고침 요청으로(관문 10241411)');
-    assert.ok(closingReportProblems(buy).some(r => r.endsWith(':advice')), '서빙 가드가 잡고 고침 요청으로 간다');
+    // ★10/24 T25 — «반도체 매수로 하락폭이 제한됐다»는 시장 참여자 행동(원인·수단의 «로») 서술이다. 권유로 막던 기대값을 바꾼다(운영 Tactical ko 6회 중 4회가 같은 «매도로» 오탐).
+    //   같은 «매수로»라도 권유(전략 행동·평가·명령)면 계속 서빙 가드가 잡고 고침 요청으로 간다.
+    assert.equal(closingReportProblems(buy).some(r => r.endsWith(':advice')), false, '원인 서술 «매수로»는 권유 아님');
+    const buyAdv = brief(); buyAdv.structured.closingNarrative.whatHappened.ko = '나스닥은 하락했다. 지금은 반도체 매수로 접근하는 게 좋다.';
+    assert.ok(closingReportProblems(buyAdv).some(r => r.endsWith(':advice')), '«매수로 접근하는 게 좋다»는 서빙 가드가 잡고 고침 요청으로 간다');
     const est = brief(); est.structured.closingNarrative.why.ko = '소비자심리 48은 시장 예상치 46.3을 웃돌았고 반도체 매수 지지가 있었다.';
     C.alignSummary(est.structured);
     assert.equal(est.structured.closingNarrative.why.ko, '소비자심리 48은 시장 예상치 46.3을 웃돌았고 반도체 매수 지지가 있었다.');
@@ -213,7 +217,9 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.deepEqual(C.adviceSuspects(keep.structured), [], '가이던스 유지·재확인은 의심 아님');
     // 관문 10241426 — 한국어 매수 관찰문도 Lambda 고침 대상, 고침 지시는 걸린 구절을 인용
     const kobuy = brief(); kobuy.structured.closingNarrative.whatHappened.ko = '나스닥은 일부 반도체 매수로 하락폭이 제한됐다.';
-    assert.ok(C.adviceSuspects(kobuy.structured).includes('narrative:whatHappened:ko:advice'));
+    assert.equal(C.adviceSuspects(kobuy.structured).includes('narrative:whatHappened:ko:advice'), false, '★10/24 T25 원인 서술 «매수로»는 Lambda 고침 대상 아님(서빙 가드와 같게)');
+    const kobuyAdv = brief(); kobuyAdv.structured.closingNarrative.whatHappened.ko = '반도체 매수로 전환할 시점이다.';
+    assert.ok(C.adviceSuspects(kobuyAdv.structured).includes('narrative:whatHappened:ko:advice'), '권유 «매수로 전환할 시점»은 Lambda 도 고침');
     assert.deepEqual(C.adviceSuspects((() => { const b = brief(); b.structured.closingNarrative.whatHappened.ko = '매수세가 몰렸고 순매수가 이어졌으며 공매도는 줄었다.'; return b; })().structured), []);
     const rq = C.narrativeRepairPrompt({ sessionDate: '2026-10-22', evidence: { news: [] }, macroStr: '', narrative: { ...narrative, watchNext: { ...narrative.watchNext, ja: '市場予想-0.1を上回れば予想より強い活動を示す。' } }, reasons: ['narrative:watchNext:ja:advice'] });
     assert.match(rq, /watchNext\.ja: rewrite these fragments without the flagged word — «.*予想より強い/);
