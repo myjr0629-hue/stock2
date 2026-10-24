@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 // ============================================================================
 // Undercurrent — "심판일" (judgment days): upcoming earnings for covered names
 // ----------------------------------------------------------------------------
@@ -30,11 +31,11 @@ export async function GET() {
         to.setDate(to.getDate() + 7);
         const fmt = (d: Date) => d.toISOString().split('T')[0];
 
-        const res = await fetch(
+        const res = await fmpFetch(
             `https://financialmodelingprep.com/stable/earnings-calendar?from=${fmt(today)}&to=${fmt(to)}&apikey=${fmpKey}`,
-            { signal: AbortSignal.timeout(10000) }
+            'earnings', { timeoutMs: 10000 }
         );
-        if (!res.ok) return NextResponse.json({ success: true, events: [] });
+        if (!res?.ok) return NextResponse.json({ success: true, events: [] });
         const rows = await res.json();
         if (!Array.isArray(rows)) return NextResponse.json({ success: true, events: [] });
 

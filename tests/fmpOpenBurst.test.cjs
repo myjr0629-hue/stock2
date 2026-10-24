@@ -14,11 +14,11 @@ function redisClock(start = 0) {
   const admitted = [], values = new Map();
   const command = async cmd => {
     if (cmd[0] === 'EVAL' && cmd[1] === core.RESERVE) {
-      const caller = cmd.at(-2); cap = Math.min(cap, Number(cmd.at(-1)));
+      const caller = cmd.at(-3), lane = Number(cmd.at(-1)); cap = Math.min(cap, Number(cmd.at(-2)));
       if (until > now) return [0, until-now];
       const window = admitted.filter(x => x.at > now-60000);
       if (window.length >= cap || (caller !== 'vwap' && window.filter(x => x.caller !== 'vwap').length >= cap-Math.min(30,Math.floor(cap*3/10)))) return [0,1000];
-      if (caller === 'lambda' && window.filter(x => x.caller === 'lambda').length >= Math.floor(cap*3/10)) return [0,1000];
+      if (lane > 0 && window.filter(x => x.caller === caller).length >= Math.floor(cap*lane/100)) return [0,1000];
       admitted.push({ at: now, caller }); return [1,0];
     }
     if (cmd[0] === 'EVAL' && cmd[1] === core.BACKOFF) { until = Math.max(until, now+Number(cmd.at(-2)), Number(cmd.at(-1))); return until; }
@@ -558,7 +558,7 @@ test('lambda lane: collector capped at 30/min while web readers keep budget; tot
     const win = r.admitted.filter(x => x.at > call.at - 60000 && x.at <= call.at);
     assert.ok(win.length <= 100); assert.ok(win.filter(x => x.caller === 'lambda').length <= 30);
   }
-  assert.ok(core.RESERVE.includes("ARGV[1] == 'lambda'") && core.RESERVE.includes('KEYS[6]'));
+  assert.ok(core.RESERVE.includes('lanePct') && core.RESERVE.includes('KEYS[6]')); assert.equal(core.LANE_PCT.lambda, 30);
 });
 
 test('runner paces provider requests >= 2 s apart and a slice stays under 900 s', async () => {
@@ -701,4 +701,16 @@ test('low contract: an unfinished day hands its cursor to the next day, so every
   const covered = new Set([...savedBy['2026-10-26'], ...savedBy['2026-10-27']]);
   assert.equal(covered.size, 600, `covered ${covered.size}`);
   assert.equal(savedBy['2026-10-27'][0], 'T' + day1.cursor); // resumes where the previous day stopped
+});
+
+test('search and misc have their own sub-lanes (15%/10%): a search burst never starves analyst/news', async () => {
+  const r = redisClock(), g = guardAt(r);
+  let search = 0, misc = 0, web = 0;
+  for (let i = 0; i < 100; i++) if ((await g.reserve('search')).allowed) search++;
+  for (let i = 0; i < 50; i++) if ((await g.reserve('misc')).allowed) misc++;
+  for (let i = 0; i < 100; i++) if ((await g.reserve(i % 2 ? 'analyst' : 'news')).allowed) web++;
+  assert.equal(search, 15); assert.equal(misc, 10); assert.equal(web, 45); // 70 non-VWAP − 15 − 10
+  const routes = ['src/app/api/tickers/search/route.ts', 'src/app/api/cron/economic-calendar/route.ts', 'src/services/congressTrades.ts',
+    'src/services/earningsActualsService.ts', 'src/app/api/undercurrent/judgment/route.ts'];
+  for (const f of routes) { const s = fs.readFileSync(f, 'utf8'); assert.ok(s.includes('fmpFetch('), f); assert.ok(!/await fetch\(/.test(s.replace(/await fetch\(`\$\{base\}/g, '')) || f.includes('judgment'), f); }
 });

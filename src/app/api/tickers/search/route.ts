@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 // [Autocomplete] Ticker Search API — Returns filtered symbols from stock universe
 // Uses Redis cache (ElastiCache) with fallback to local JSON
 import { NextRequest, NextResponse } from 'next/server';
@@ -101,8 +102,9 @@ async function searchByName(q: string): Promise<{ symbol: string; name: string }
     try {
         const url = `https://financialmodelingprep.com/stable/search-name`
             + `?query=${encodeURIComponent(q)}&limit=20&apikey=${key}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(3500), cache: 'no-store' });
-        if (!res.ok) return [];
+        // Shared FMP guard: account cooldown + its own small lane (search is uncached, per keystroke).
+        const res = await fmpFetch(url, 'search', { timeoutMs: 3500 });
+        if (!res?.ok) return [];
         const rows = await res.json();
         if (!Array.isArray(rows)) return [];
         return rows

@@ -1,6 +1,6 @@
 import { createGuard, createRedisCommand } from './fmp/accountGuard.cjs';
 
-type Caller = 'vwap' | 'analyst' | 'earnings' | 'news';
+type Caller = 'vwap' | 'analyst' | 'earnings' | 'news' | 'search' | 'misc';
 type Diagnostic = { status: number; reason: string | null; retryMs: number | null; caller: string; at: number };
 const guard = createGuard({ command: createRedisCommand(), accountRpm: Number(process.env.FMP_ACCOUNT_RPM || 300) });
 

@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 /**
  * 의회 거래 공시 (상·하원) — 「스마트머니」 축의 신규 지표.
  *
@@ -218,11 +219,8 @@ async function fetchChamber(
         const timer = setTimeout(() => ctrl.abort(), PAGE_TIMEOUT_MS);
         let rows: any[];
         try {
-            const res = await fetch(`${FMP_BASE}/${path}?page=${page}&limit=${PAGE_LIMIT}&apikey=${FMP_KEY}`, {
-                signal: ctrl.signal,
-                cache: "no-store",
-            });
-            if (res.status === 429) { cov.stop = "rate-limited"; break; }
+            const res = await fmpFetch(`${FMP_BASE}/${path}?page=${page}&limit=${PAGE_LIMIT}&apikey=${FMP_KEY}`, 'misc', { timeoutMs: PAGE_TIMEOUT_MS });
+            if (!res || res.status === 429) { cov.stop = "rate-limited"; break; }
             if (!res.ok) { cov.stop = "http-error"; break; }
             const j = await res.json();
             // 플랜 한도 등은 200 + {"Error Message": …} 로 온다 — 배열이 아니면 실패다
