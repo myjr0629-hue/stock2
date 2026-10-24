@@ -26,6 +26,11 @@ import { fmpEtToIso } from '@/lib/fmpTime';
 import { pacingKnobs, effectiveDigestIntervalMin } from '@/lib/ai/creditPacing';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
 import { saveToPulseArchive, type ArchiveCounts } from '@/lib/news/pulseArchive';
+import { NEWS_PULSE_SYSTEM, buildNewsPulseUser, checkPulseBatch, checkPulseItem, publicSource, pulseMarketFacts, NEWS_PULSE_VERSION, type PulseArticle } from '@/lib/ai/newsPulsePrompt';
+import { morningMetrics } from '@/lib/ai/morningBriefingV2';
+import { buildIndexFacts, tacticalSessionAt } from '@/lib/ai/tacticalIndexFacts';
+import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
+import { adminAuthorized } from '@/lib/ai/adminAuth';
 
 const REDIS_KEY = 'guardian:news:digest:v2'; // v2: flush cache poisoned with English-in-KR/JP fallback (2026-07-14)
 /**
@@ -278,7 +283,45 @@ async function getMacroContext(baseUrl: string): Promise<string> {
     }
 }
 
+// ★2026-10-25 v3(TRACKER T7) — 시장 사실은 이름·현물/선물·비교 기준·관측 시각을 단 줄로(옛 문자열은 NQ·ES 선물을 «NASDAQ 100»·«S&P 500»으로만 넘겼다)
+async function getMarketFacts(): Promise<string[]> {
+    try {
+        const macro = await getMacroSnapshotSSOT();
+        const now = Date.now();
+        const f: any = macro?.factors || {};
+        const ok = (x: any) => x && x.status === 'OK' && Number.isFinite(x.level) && x.level > 0;
+        const asset = (x: any) => (ok(x) ? { level: x.level, chgPct: Number.isFinite(x.chgPct) ? x.chgPct : null } : null);
+        const metrics = morningMetrics({
+            vix: ok(f.vix) ? f.vix.level : null,
+            us10y: ok(f.us10y) ? { level: f.us10y.level, bp: yieldChangeBp(f.us10y) } : null,
+            dxy: asset(f.dxy), oil: asset(f.oil), gold: asset(f.gold), btc: asset(f.btc),
+        });
+        return pulseMarketFacts(buildIndexFacts(macro?.indexBasis, tacticalSessionAt(now), now), metrics);
+    } catch (e) {
+        console.warn('[NewsDigest] market facts failed:', (e as Error)?.message);
+        return [];
+    }
+}
+
+/** 기사 → 모델 입력(공급사 내부 이름 지우기 · 발행 시각은 ET 벽시계 M/D HH:MM) */
+function pulseArticles(articles: any[]): PulseArticle[] {
+    return articles.slice(0, 28).map((a, i) => {
+        const iso = a.published_utc || new Date().toISOString();
+        const et = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso));
+        const p = Object.fromEntries(et.map(x => [x.type, x.value]));
+        return {
+            id: String(a.id || `news-${i}`),
+            title: String(a.title || '').replace(/"/g, "'"),
+            desc: String(a.description || '').substring(0, 200).replace(/"/g, "'"),
+            source: publicSource(a.publisher?.name),
+            publishedET: `${p.month}/${p.day} ${p.hour}:${p.minute} ET`,
+            ageMin: getAgeMinutes(iso),
+        };
+    });
+}
+
 // ===== Claude AI Analysis (Bedrock) =====
+// v2 지시(옛) — 되돌림 스위치(NEWS_PULSE_PROMPT=v2)와 드라이런 비교에서만 쓴다. 글자 그대로 보존.
 const SYSTEM_PROMPT = `You are a top-tier macro strategist at a Bloomberg-class institutional terminal.
 Your role: CURATE the most impactful global market news and provide institutional-grade analysis.
 
@@ -329,10 +372,8 @@ Your role: CURATE the most impactful global market news and provide institutiona
 - urgency 1-10: 8+ only for BREAKING (<60 min old + extreme keywords: crash/halt/war/collapse/default)
 </output_rules>`;
 
-async function analyzeWithClaude(articles: any[], macroContext: string): Promise<NewsDigestItem[]> {
-    // 후보창 20 → 28. 풀이 «분 단위»로 신선해진 뒤로는 상위 20이 전부 몇 분 전 기사라서
-    // AI 가 «관련 없는 최신 기사»를 거절할 여지가 없었다(정치자금·건강기사가 뽑혔다).
-    // 후보를 넓혀야 거절하고도 5건을 채울 수 있다.
+/** v2(옛) 지시의 사용자 메시지 — 되돌림·드라이런 비교용 */
+function legacyPulseUser(articles: any[], macroContext: string): string {
     const inputItems = articles.slice(0, 28).map((a, i) => ({
         id: a.id || `news-${i}`,
         title: a.title || '',
@@ -341,8 +382,7 @@ async function analyzeWithClaude(articles: any[], macroContext: string): Promise
         published: a.published_utc || '',
         ageMin: getAgeMinutes(a.published_utc || new Date().toISOString()),
     }));
-
-    const userPrompt = `<market_data>
+    return `<market_data>
 ${macroContext || 'Market data unavailable — weekend/holiday'}
 </market_data>
 
@@ -354,12 +394,43 @@ Select TOP ${BATCH_SIZE} and output as JSON array with this exact schema per ite
 {"id","headline","summaryKR","summaryEN","summaryJP","analysisKR","analysisEN","analysisJP","category":"US_MARKET|GLOBAL|GEOPOLITICAL|MACRO|SECTOR","impact":"BULLISH|BEARISH|MIXED|NEUTRAL","urgency":1-10}
 
 Output ONLY the JSON array — no explanation, no markdown.`;
+}
+
+/** 모델 원문 → 배열(앞말·잘림 복구). 실패면 던진다 */
+function parsePulseArray(text: string): any[] {
+    let json = String(text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+    const start = json.indexOf('[');
+    if (start < 0) throw new Error('No JSON array in Claude response');
+    json = json.slice(start);
+    let parsed: any[];
+    try {
+        parsed = JSON.parse(json) as any[];
+    } catch {
+        const lastObj = json.lastIndexOf('}');
+        if (lastObj < 0) throw new Error('Unparseable Claude response');
+        parsed = JSON.parse(json.slice(0, lastObj + 1) + ']') as any[];
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty Claude response');
+    return parsed;
+}
+
+const pulseV2 = () => process.env.NEWS_PULSE_PROMPT === 'v2';
+
+async function analyzeWithClaude(articles: any[], macroContext: string, marketFacts: string[] = []): Promise<NewsDigestItem[]> {
+    // ★2026-10-25 v3(TRACKER T7): 관찰형 기제 해석 · 기사 id 정확 매칭 · 항목별 출구 검사(lib/ai/newsPulsePrompt). 되돌림 = NEWS_PULSE_PROMPT=v2
+    const v3 = !pulseV2();
+    // 후보창 20 → 28. 풀이 «분 단위»로 신선해진 뒤로는 상위 20이 전부 몇 분 전 기사라서
+    // AI 가 «관련 없는 최신 기사»를 거절할 여지가 없었다(정치자금·건강기사가 뽑혔다).
+    // 후보를 넓혀야 거절하고도 5건을 채울 수 있다.
+    const pulseInputs = pulseArticles(articles);
+
+    const userPrompt = v3 ? buildNewsPulseUser(pulseInputs, marketFacts, new Date().toISOString()) : legacyPulseUser(articles, macroContext);
 
     try {
         const t0 = Date.now();
         const bedrockResult = await callBedrock({
             modelId: MODELS.HAIKU_35,
-            system: SYSTEM_PROMPT,
+            system: v3 ? NEWS_PULSE_SYSTEM : SYSTEM_PROMPT,
             userPrompt,
             maxTokens: 8192,   // 5 items × 3 langs × (summary+analysis); KR/JP are token-heavy → 4096 truncated → parse failed → English fallback
             temperature: 0.3,
@@ -369,7 +440,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             label: 'NewsDigest-Batch5',
             expectJson: 'array',   // ★2026-10-10 사다리: 배열 JSON 이어야 ①② 응답을 쓴다
             locale: 'multi',
-            validate: newsDigestGate,
+            validate: v3 ? (text: string) => checkPulseBatch(text, pulseInputs, marketFacts) : newsDigestGate,
         });
 
         // [FIX 2026-07-14] Robust extraction. The old parser prepended '[' whenever the text
@@ -379,23 +450,24 @@ Output ONLY the JSON array — no explanation, no markdown.`;
         // News Pulse showed English in Korean/Japanese). Also 4096 tokens truncated big KR/JP
         // batches → same failure. Now: strip fences, slice from the first '[', and if the array
         // is truncated recover up to the last complete object instead of failing the batch.
-        let json = bedrockResult.text.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const start = json.indexOf('[');
-        if (start < 0) throw new Error('No JSON array in Claude response');
-        json = json.slice(start);
-        let parsed: any[];
-        try {
-            parsed = JSON.parse(json) as any[];
-        } catch {
-            const lastObj = json.lastIndexOf('}');
-            if (lastObj < 0) throw new Error('Unparseable Claude response');
-            parsed = JSON.parse(json.slice(0, lastObj + 1) + ']') as any[];
+        let parsed = parsePulseArray(bedrockResult.text);
+        console.log(`[NewsDigest] Claude: ${parsed.length} items in ${Date.now() - t0}ms (model: ${bedrockResult.model}, prompt v${v3 ? NEWS_PULSE_VERSION : 2})`);
+        if (v3) {
+            // 항목별 출구 검사 — 원문 id 가 없거나(다른 기사에 붙이지 않는다) 검사를 못 넘은 항목은 버린다(저장하지 않음 → 다음 주기에 다시)
+            const byId = new Map(pulseInputs.map(a => [a.id, a]));
+            const seen = new Set<string>();
+            parsed = parsed.filter((item: any) => {
+                const id = String(item?.id ?? '');
+                if (seen.has(id)) return false;
+                seen.add(id);
+                const c = checkPulseItem(item, byId.get(id), marketFacts);
+                if (!c.ok) console.warn(`[NewsDigest] v3 항목 제외 ${id}: ${c.reasons.slice(0, 4).join(',')}`);
+                return c.ok;
+            });
         }
-        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty Claude response');
-        console.log(`[NewsDigest] Claude: ${parsed.length} items in ${Date.now() - t0}ms (model: ${bedrockResult.model})`);
 
         return guardItems(parsed.map((item, i) => {
-            const matchedArticle = articles.find(a => a.id === item.id) || articles[i];
+            const matchedArticle = v3 ? articles.find(a => String(a.id) === String(item.id)) : (articles.find(a => a.id === item.id) || articles[i]);
             return {
                 id: item.id || `digest-${i}`,
                 headline: item.headline || matchedArticle?.title || 'No Title',
@@ -473,9 +545,56 @@ function forLocale(items: NewsDigestItem[], locale: string): NewsDigestItem[] {
     return items.filter(it => readableIn(it, locale));
 }
 
+/**
+ * 드라이런 비교(관리자 인증, 저장 0) — 같은 후보 기사·같은 시각으로 옛 지시(v2·옛 게이트)와 새 지시(v3·항목 검사)를
+ * 운영 모델(사다리 ① 크레딧 Haiku 5.5, 증가분 등급 = AWS 로 넘기지 않음)로 reps 번씩 생성해 원문을 돌려준다. 캐시·서명·보관본 쓰기 없음.
+ */
+async function dryCompare(req: NextRequest, reps: number): Promise<Response> {
+    const t0 = Date.now();
+    const baseUrl = publicBase(req.url.split('/api/')[0]);
+    const [polygonArticles, fmpArticles, stockArticles, rssPools, macroContext, marketFacts] = await Promise.all([
+        fetchMarketNews(30), fetchFMPGeneralNews(15), fetchFMPStockNews(40),
+        Promise.all(RSS_FEEDS.map(f => fetchRssPool(f.tag, f.url, f.limit))), getMacroContext(baseUrl), getMarketFacts(),
+    ]);
+    const articles = mergeAndDeduplicate(polygonArticles, fmpArticles, stockArticles, ...rssPools);
+    const pulseInputs = pulseArticles(articles);
+    const prompts = {
+        old: { system: SYSTEM_PROMPT, user: legacyPulseUser(articles, macroContext) },
+        new: { system: NEWS_PULSE_SYSTEM, user: buildNewsPulseUser(pulseInputs, marketFacts, new Date().toISOString()) },
+    };
+    const out: Record<'old' | 'new', any[]> = { old: [], new: [] };
+    const jobs: Array<() => Promise<void>> = [];
+    for (let r = 0; r < reps; r++) for (const w of ['old', 'new'] as const) jobs.push(async () => {
+        const raws: string[] = [];
+        const s0 = Date.now();
+        const gate = w === 'old' ? newsDigestGate : (text: string) => checkPulseBatch(text, pulseInputs, marketFacts);
+        try {
+            const res = await withFreshTier(() => callBedrock({
+                modelId: MODELS.HAIKU_35, system: prompts[w].system, userPrompt: prompts[w].user, maxTokens: 8192, temperature: 0.3, timeoutMs: 45000,
+                jsonPrefill: false, fallbackModel: null, label: 'NewsDigest-Batch5', expectJson: 'array', locale: 'multi',
+                validate: (text: string) => { raws.push(String(text).slice(0, 20000)); return gate(text); },
+            }));
+            out[w].push({ ok: true, raw: res.text.slice(0, 20000), provider: res.provider, ms: Date.now() - s0 });
+        } catch (e: any) {
+            out[w].push({ ok: false, error: String(e?.message || e).slice(0, 200), raws, ms: Date.now() - s0 });
+        }
+    });
+    let k = 0;
+    // 라우트 한도 60초 — 전부 동시에(reps ≤ 2 → 4건)
+    await Promise.all(Array.from({ length: jobs.length }, async () => { while (k < jobs.length) await jobs[k++](); }));
+    return NextResponse.json({ dry: true, at: new Date(t0).toISOString(), ms: Date.now() - t0, reps, macroContext, marketFacts,
+        articles: articles.slice(0, 28).map(a => ({ id: a.id, title: a.title, description: String(a.description || '').slice(0, 300), published_utc: a.published_utc, publisher: a.publisher?.name })),
+        pulseInputs, prompts, old: out.old, new: out.new });
+}
+
 // ===== Main API Handler =====
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
+    if (searchParams.get('dry') === 'compare') {
+        if (!adminAuthorized(req.headers)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        try { return await dryCompare(req, Math.max(1, Math.min(2, Number(searchParams.get('reps')) || 2))); }
+        catch (e: any) { return NextResponse.json({ dry: true, error: String(e?.message || e).slice(0, 200) }, { status: 500 }); }
+    }
     const debugSources = searchParams.get('debug') === 'sources';
     const forceRefresh = searchParams.get('refresh') === '1' || debugSources;
     const isUrgent = searchParams.get('urgent') === '1';
@@ -519,12 +638,13 @@ export async function GET(req: NextRequest) {
     // Step 2: Fetch fresh articles from BOTH sources
     const baseUrl = publicBase(req.url.split('/api/')[0]); // self-call must hit public domain, not the protected cron origin
     const t0 = Date.now();
-    const [polygonArticles, fmpArticles, stockArticles, rssPools, macroContext] = await Promise.all([
+    const [polygonArticles, fmpArticles, stockArticles, rssPools, macroContext, marketFacts] = await Promise.all([
         fetchMarketNews(30),
         fetchFMPGeneralNews(15),
         fetchFMPStockNews(40),
         Promise.all(RSS_FEEDS.map(f => fetchRssPool(f.tag, f.url, f.limit))),
-        getMacroContext(baseUrl),
+        pulseV2() ? getMacroContext(baseUrl) : Promise.resolve(''),
+        pulseV2() ? Promise.resolve([] as string[]) : getMarketFacts(),
     ]);
     const newest = (arr: any[]) => (arr.length
         ? Math.min(...arr.map(a => getAgeMinutes(a.published_utc)))
@@ -584,8 +704,8 @@ export async function GET(req: NextRequest) {
         const t1 = Date.now();
         try {
             newItems = paceExtra
-                ? await withFreshTier(() => analyzeWithClaude(freshArticles, macroContext))
-                : await analyzeWithClaude(freshArticles, macroContext);
+                ? await withFreshTier(() => analyzeWithClaude(freshArticles, macroContext, marketFacts))
+                : await analyzeWithClaude(freshArticles, macroContext, marketFacts);
         } catch (e) {
             if (!isFreshTierSkipped(e)) throw e;
             console.warn('[NewsDigest] 신선도 증가분 건너뜀(크레딧 불가) — 기존 캐시 유지, AWS 로 넘기지 않음');
@@ -637,7 +757,7 @@ export async function GET(req: NextRequest) {
         generatedAt: now.toISOString(),
         generatedAtET: formatET(now.toISOString()),
         nextRefreshAt: new Date(now.getTime() + 15 * 60000).toISOString(),
-        marketContext: macroContext,
+        marketContext: macroContext || marketFacts.join(' | '),
         _source: existingItems.length > 0 && newItems.length > 0 ? 'accumulated' : 'fresh',
         ...(archived ? { archiveCount: archived.counts } : {}),
     };
@@ -658,4 +778,22 @@ export async function GET(req: NextRequest) {
         items: forLocale(displayItems, locale),
         _locale: locale,
     });
+}
+
+// [비교 전용 — preview/* 배포에서만, 병합 전 삭제] 로컬에서 고친 지시를 운영 모델(①)로 돌려 본다
+export async function POST(req: NextRequest) {
+    if (!String(process.env.VERCEL_GIT_COMMIT_REF || '').startsWith('preview/') || !adminAuthorized(req.headers)) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    const body = await req.json().catch(() => null);
+    if (!body?.custom) return NextResponse.json({ error: 'bad request' }, { status: 400 });
+    const reps = Math.max(1, Math.min(4, Number(body.reps) || 2));
+    const outs: any[] = [];
+    await Promise.all(Array.from({ length: reps }, async () => {
+        const raws: string[] = []; const s0 = Date.now();
+        try {
+            const res = await withFreshTier(() => callBedrock({ modelId: MODELS.HAIKU_35, system: String(body.custom.system), userPrompt: String(body.custom.user), maxTokens: 8192, temperature: 0.3, timeoutMs: 45000,
+                jsonPrefill: false, fallbackModel: null, label: 'NewsDigest-Batch5', expectJson: 'array', locale: 'multi', validate: (t: string) => { raws.push(String(t).slice(0, 20000)); return true; } }));
+            outs.push({ ok: true, raw: res.text.slice(0, 20000), provider: res.provider, ms: Date.now() - s0 });
+        } catch (e: any) { outs.push({ ok: false, error: String(e?.message || e).slice(0, 200), raws, ms: Date.now() - s0 }); }
+    }));
+    return NextResponse.json({ dry: true, custom: true, outs });
 }
