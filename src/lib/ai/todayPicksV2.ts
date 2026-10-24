@@ -130,7 +130,7 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         // 나머지는 허용 목록 낱말(구조·헤지 같은 이름·조사)만 — 그 밖의 낱말이 하나라도 있으면 순수 구조가 아니다(관문 10242110: «spot exceeds Gamma Flip»).
         if (residual.replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '').length > 0) continue;
         // 갈래 안쪽도 같은 허용 목록으로 본다 — 조건·위치어·기전 단어(어미 포함)·허용 낱말 말고 남는 것이 있으면(«fails to dampen») 순수 구조가 아니다(관문 10242119).
-        const whole = t.replace(new RegExp(`(?:${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]})(?:하는|하고|하며|합니다|하여|해|이고|이며|입니다|웁니다|니다|는|고|며|します|する|し|[a-z]*)`, 'gi'), '')
+        const whole = t.replace(new RegExp(`(?:${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]})(?:하는|하고|하며|합니다|하여|해|이고|이며|입니다|웁니다|니다|는|고|며|します|する|し|ies|ied|ying|y|ing|ed|es|s)?(?![a-z])`, 'gi'), '')
             .replace(BRANCH_TOKENS, '').replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '');
         if (whole.length > 0) continue;
         // «Gamma Flip»은 이름으로 한 번만(«dampens Gamma Flip»처럼 기전의 대상으로 다시 나오면 순수 구조가 아니다 — 관문 10242132).
