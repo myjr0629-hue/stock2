@@ -88,9 +88,9 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.equal(stamps.structured.closingNarrative.why.ja, '2026-10-23 17:42 ET の報道と2026-10-23 09:05 ET の発表、2026-10-23 08:30 ET。', '시각 표기만 정본으로(10/24 6차 실측)');
     const already = brief(); already.structured.closingNarrative.why.en = 'At 2026-10-23 17:42 ET Kitco reported.';
     C.alignSummary(already.structured); assert.equal(already.structured.closingNarrative.why.en, 'At 2026-10-23 17:42 ET Kitco reported.');
-    const yoso = brief(); yoso.structured.closingNarrative.watchNext.ja = '市場予想7を上回れば製造業指標が予想より強いことを示し、予想-0.1に対し前回-0.04。予想される影響。';
+    const yoso = brief(); yoso.structured.closingNarrative.watchNext.ja = '市場予想7を上回れば製造業指標が予想より強いことを示し、成長率予想12.5%は維持。予想される影響。';
     C.alignSummary(yoso.structured);
-    assert.equal(yoso.structured.closingNarrative.watchNext.ja, '市場予想7を上回れば製造業指標が市場予想より強いことを示し、市場予想-0.1に対し前回-0.04。予想される影響。', '비교 자리의 予想만 市場予想으로');
+    assert.equal(yoso.structured.closingNarrative.watchNext.ja, '市場予想7を上回れば製造業指標が市場予想より強いことを示し、成長率予想12.5%は維持。予想される影響。', '비교형 予想より만 市場予想으로');
     const rp = C.narrativeRepairPrompt({ sessionDate: '2026-10-22', evidence: { news: [{ id: 'market-5', publishedEt: '2026-10-22 16:36 ET', timing: 'after_cash_close' }] }, macroStr: '', narrative: { ...narrative, causeRefs: [{ newsId: 'market-5', kind: 'reported_context' }] }, reasons: ['narrative:after-close-cause', 'narrative:why:cross-lang-facts'] });
     assert.match(rp, /causeRefs market-5 was published 2026-10-22 16:36 ET, AFTER the cash close/);
     assert.match(rp, /why: measured numbers\/ET times per language are ko=/);
@@ -126,7 +126,7 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     const advTail = brief(); advTail.structured.closingNarrative.whatHappened.ko = '반도체 매수로 반등했다. 반도체 매수가 기회다.';
     C.alignSummary(advTail.structured);
     assert.equal(advTail.structured.closingNarrative.whatHappened.ko, '반도체 매수세로 반등했다. 반도체 매수가 기회다.');
-    const guide = brief(); guide.structured.closingNarrative.why.ko = '회사는 매출 전망 46.3억 달러를 유지했다. 전망 46.3을 웃돌았다.';
+    const guide = brief(); guide.structured.closingNarrative.why.ko = '회사는 매출 전망 46.3억 달러를 유지했다. 시장 전망 46.3을 웃돌았다.';
     C.alignSummary(guide.structured);
     assert.equal(guide.structured.closingNarrative.why.ko, '회사는 매출 전망 46.3억 달러를 유지했다. 시장 예상치 46.3을 웃돌았다.', '회사 가이던스·금액은 그대로');
     const hidden = brief(); const hev = { ...hidden.reportEvidence, news: [...hidden.reportEvidence.news, { id: 'zz-8', source: 'Kitco', publishedEt: '2026-10-22 17:42 ET', timing: 'after_cash_close' }] };
@@ -137,6 +137,18 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.ok(hidden.structured.closingNarrative.causeRefs.some((r: any) => r.newsId === 'zz-8'), '출처 이름이 본문에 있으면 참조를 지우지 않는다');
     const hp = closingReportProblems(hidden);
     assert.ok(hp.includes('narrative:after-close-cause') && hp.some(r => r.startsWith('narrative:news-time')), hp.join(','));
+    // 관문 10241213 반례 3건
+    const adv2 = brief(); adv2.structured.closingNarrative.whatHappened.ko = '지금 매수가 정답이다.';
+    C.alignSummary(adv2.structured);
+    assert.equal(adv2.structured.closingNarrative.whatHappened.ko, '지금 매수가 정답이다.');
+    assert.ok(closingReportProblems(adv2).some(r => r.endsWith(':advice')));
+    const swap = brief(); swap.structured.closingNarrative.indicators = tri('GEX +6,220만 달러, 자금흐름 -2억 7,160만 달러, 금리 +4bp.', 'GEX -$62.2M, flows +$271.6M, yields +4bp.', 'GEX -6,220万ドル、資金フロー +2億7,160万ドル、金利+4bp。');
+    assert.ok(closingReportProblems(swap).includes('narrative:indicators:cross-lang-facts'), '두 금액의 부호를 바꿔도 잡는다');
+    const same = brief(); same.structured.closingNarrative.indicators = tri('GEX -6,220만 달러, 자금흐름 +2억 7,160만 달러, 금리 +4bp.', 'GEX -$62.2M, flows +$271.6M, yields +4bp.', 'GEX -6,220万ドル、資金フロー +2億7,160万ドル、金利+4bp。');
+    assert.equal(closingReportProblems(same).includes('narrative:indicators:cross-lang-facts'), false);
+    const growth = brief(); growth.structured.closingNarrative.why.ko = '회사는 매출 성장률 전망 12.5%를 유지했다.';
+    C.alignSummary(growth.structured);
+    assert.equal(growth.structured.closingNarrative.why.ko, '회사는 매출 성장률 전망 12.5%를 유지했다.');
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');

@@ -81,10 +81,10 @@ function factSet(text) {
     // 금액(«-$62.2M» / «-6,222만 달러» / «-6,222万ドル»)은 언어마다 단위가 달라 같은 숫자로 쓸 수 없다 — 집합 비교에서 빼고, 자릿수는 금액 검사(checkAmounts)가 본다.
     // (10/24 5차 운영 실측: GEX 금액 표기 차이로 정상 지표 문단이 cross-lang-facts 탈락, 고침 2회에도 같은 표기)
     const MONEY = /[+-]?\s?\$?\s?\d[\d,]*(?:\.\d+)?\s?(?:[MBKT]\b|million|billion|trillion|만|억|조|万|億|兆)\s?(?:달러|원|ドル|円|dollars?)?|[+-]?\s?\$\s?\d[\d,]*(?:\.\d+)?/gi;
-    // 금액의 «부호»는 남겨 언어 간에 비교한다(관문 10241205: 영어 -$62.2M · 한국어 +6,222만 달러가 통과했다)
-    const moneySigns = [];
-    const t = String(text || '').replace(/−/g, '-').replace(/(\d)\s*(?:basis points?|베이시스\s*포인트|ベーシスポイント)/gi, '$1bp')
-        .replace(MONEY, (m, off, all) => { const sg = /^\s*([+-])/.exec(m)?.[1]; if (sg && !/[A-Za-z0-9]$/.test(all.slice(0, off))) moneySigns.push(sg); return ' '; });
+    // 금액은 «부호+크기(달러 환산)»로 따로 모아 언어 간에 짝지어 비교한다(관문 10241205·10241213: 부호만 정렬 비교하면 두 금액의 부호를 서로 바꿔도 통과)
+    const t0 = String(text || '').replace(/−/g, '-').replace(/(\d)\s*(?:basis points?|베이시스\s*포인트|ベーシスポイント)/gi, '$1bp');
+    const money = moneyAmounts(t0);
+    const t = t0.replace(MONEY_SPAN, ' ').replace(MONEY, ' ');
     const keys = new Set(), signs = new Map();
     for (const m of t.matchAll(/\b(\d{1,2}):(\d{2})\b/g)) keys.add(`${Number(m[1])}:${m[2]}`);
     for (const m of t.replace(/\b\d{1,2}:\d{2}\b/g, ' ').matchAll(/(^|[^\d.])([+-]?)(\d+(?:,\d{3})*(?:\.\d+)?)\s?(%|bp)?/g)) {
@@ -94,15 +94,28 @@ function factSet(text) {
         keys.add(key);
         if (m[2] && !(m[2] === '-' && /\d$/.test(m[1]))) signs.set(key, m[2]);
     }
-    return { key: [...keys].sort().join('|'), signs, moneySigns: moneySigns.sort() };
+    return { key: [...keys].sort().join('|'), signs, money };
 }
 
-/** 금액 부호 충돌 — 명시 부호 개수가 같으면 같은 부호 묶음이어야 하고, 다르면 한쪽이 +만·다른 쪽이 −만일 때 충돌 */
+const MONEY_UNIT = { k: 1e3, m: 1e6, b: 1e9, t: 1e12, thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12, '만': 1e4, '억': 1e8, '조': 1e12, '万': 1e4, '億': 1e8, '兆': 1e12 };
+const MONEY_PART = '\\d[\\d,]*(?:\\.\\d+)?\\s?(?:[MBKT]\\b|thousand|million|billion|trillion|만|억|조|万|億|兆)';
+// 부호 + ($) + 금액 조각 1~3개(«2억 7,160만») + (통화) — 조각 없는 «$4,010»은 단위 없는 달러 값
+const MONEY_SPAN = new RegExp(`(^|[^A-Za-z0-9])([+-]?)\\s?\\$?\\s?((?:${MONEY_PART}\\s?){1,3})(?:달러|원|ドル|円|dollars?)?|(^|[^A-Za-z0-9])([+-]?)\\s?\\$\\s?(\\d[\\d,]*(?:\\.\\d+)?)(?![\\d.,]|\\s?(?:[MBKT]\\b|thousand|million|billion|trillion))`, 'gi');
+/** 글 속 금액 → [{sign:'+'|'-'|'', value}] (단위 환산, 한국어·일본어 복합 «2억 7,160만» 합산) */
+function moneyAmounts(text) {
+    const out = [];
+    for (const m of String(text).matchAll(MONEY_SPAN)) {
+        if (m[3]) {
+            let v = 0;
+            for (const p of m[3].matchAll(/(\d[\d,]*(?:\.\d+)?)\s?([MBKT](?![a-z])|thousand|million|billion|trillion|만|억|조|万|億|兆)/gi)) v += Number(p[1].replace(/,/g, '')) * MONEY_UNIT[p[2].toLowerCase()];
+            out.push({ sign: m[2] || '', value: v });
+        } else out.push({ sign: m[5] || '', value: Number(m[6].replace(/,/g, '')) });
+    }
+    return out;
+}
+/** 같은 크기(±3%)의 금액이 두 언어에서 반대 명시 부호면 충돌 */
 function moneySignConflict(a, b) {
-    if (!a.length || !b.length) return false;
-    if (a.length === b.length) return a.join('') !== b.join('');
-    const only = (x, sg) => x.every(v => v === sg);
-    return (only(a, '+') && only(b, '-')) || (only(a, '-') && only(b, '+'));
+    return b.some(x => x.sign && x.value > 0 && a.some(y => y.sign && y.sign !== x.sign && Math.abs(y.value - x.value) <= 0.03 * Math.max(x.value, y.value)));
 }
 
 function narrativeProblems(s) {
@@ -120,7 +133,7 @@ function narrativeProblems(s) {
         // 2026-10-23 / 2026年10月23日 / 10월 23일 and counts as «6/7» differently per language (2026-10-24 운영 측정 오탐).
         const facts = factSet;
         const base = facts(n[field]?.en);
-        if (LOCALES.some(loc => { const f = facts(n[field]?.[loc]); return f.key !== base.key || [...f.signs].some(([k, sg]) => base.signs.has(k) && base.signs.get(k) !== sg) || moneySignConflict(base.moneySigns, f.moneySigns); }))
+        if (LOCALES.some(loc => { const f = facts(n[field]?.[loc]); return f.key !== base.key || [...f.signs].some(([k, sg]) => base.signs.has(k) && base.signs.get(k) !== sg) || moneySignConflict(base.money, f.money); }))
             errors.push(`narrative:${field}:cross-lang-facts`);
     }
     for (const loc of LOCALES) {
@@ -209,7 +222,6 @@ const KO_PLAIN = [
     [/리스크[- ]?온/g, '위험 선호'], [/리스크[- ]?오프/g, '위험 회피'], [/Cross[- ]Asset/gi, '자산 간'],
 ];
 
-const KO_ADVICE_TAIL = /세요|십시오|하라|해라|해야|할\s?것|고려|검토|권유|권장|권고|추천|기회|나서|노려|담아|사라|팔아|적기|타이밍/;
 const pad2 = x => String(x).padStart(2, '0');
 function canonicalEtStamps(text) {
     const stamp = (y, mo, d, h, mi) => `${y}-${pad2(mo)}-${pad2(d)} ${pad2(h)}:${mi} ET`;
@@ -245,16 +257,15 @@ function alignSummary(s, evidence) {
     }
     // 한국어 «반도체 매수로 하락폭이 제한됐다»처럼 관찰된 매매를 «매수/매도»로 쓰면 권유어 검사에 걸린다(10/24 8차 실측) — 조사 앞의 관찰 표현만 «매수세/매도세»로
     if (n && typeof n === 'object') for (const f of FIELDS) {
-        // 권유·명령 꼬리가 있는 문장은 손대지 않는다 — 검사가 그대로 잡게(관문 10241205: «지금 매수에 나서세요»가 «매수세»로 바뀌어 통과)
-        if (typeof n[f]?.ko === 'string') n[f].ko = n[f].ko.split(/(?<=[.!?。])(?=\s)/).map(sent => KO_ADVICE_TAIL.test(sent) ? sent : sent
-            .replace(/(?<![가-힣])((?:[가-힣A-Za-z]+\s)?)?매([수도])(?!세)(?=(?:로|가|와|도)(?:\s|$|[,.])|\s?지지)/g, (m, pre) => `${pre || ''}매${m.includes('매수') ? '수' : '도'}세`)
-            // 지표 일정의 «(사전·시장) 전망 46.3» = 시장 예상치(컨센서스) — «전망»은 예측어 검사에 걸린다(10/24 10차 실측).
-            // 회사 가이던스(«매출 전망 46.3억 달러»)와 금액은 바꾸지 않는다(관문 10241205)
-            .replace(/(?<!(?:매출|실적|이익|영업이익|수익|가이던스|연간|분기|EPS|배당|회사|기업|업체)\s?)(?:(?:사전|시장|컨센서스)\s?)?전망치?(?=\s?(?:[(（]\s?)?[+\-−]?\d[\d.,]*(?!\d|[.,]?\d|\s?(?:억|조|만|달러|원|\$|%p)))/g, '시장 예상치')).join('');
+        // 관찰 서술 자리만 바꾼다(화이트리스트) — 권유 문장(«지금 매수에 나서세요»·«매수가 정답이다»)은 그대로 두어 검사가 잡게(관문 10241205·10241213)
+        if (typeof n[f]?.ko === 'string') n[f].ko = n[f].ko
+            .replace(/(?<![공순])매([수도])(?!세)(?=\s?(?:로\s?(?:하락폭|낙폭|상승폭|지수|나스닥|반등|버티|버텼|제한|지지|올랐|내렸)|가\s?(?:몰리|몰려|몰렸|유입|이어|들어|나타|쏟아|출회|늘어|늘었|줄어|줄었)|\s?지지))/g, '매$1세')
+            // 지표 일정의 «사전·시장·컨센서스 전망 46.3» = 시장 예상치 — 접두어가 있고 금액·%p 가 아닐 때만(회사 가이던스 «매출 성장률 전망 12.5%»는 그대로)
+            .replace(/(?:사전|시장|컨센서스)\s?전망치?(?=\s?(?:[(（]\s?)?[+\-−]?\d[\d.,]*(?![\d.,]|\s?(?:억|조|만|달러|원|\$|%p)))/g, '시장 예상치');
     }
-    // 일본어 «予想» 단독은 권유·예측어 검사에 걸린다 — 시장 예상치와 비교하는 자리(予想より·予想を上回/下回·予想比·予想値·予想-0.1)는 뜻 그대로 «市場予想»으로(10/24 7차 실측)
+    // 일본어 «予想より強い/弱い»(시장 예상치와 비교)만 «市場予想»으로 — 검사가 이 비교형을 예측어로 잡는다(10/24 7차 실측). 다른 予想은 그대로 두어 검사·고침 요청이 본다
     if (n && typeof n === 'object') for (const f of FIELDS) {
-        if (typeof n[f]?.ja === 'string') n[f].ja = n[f].ja.replace(/(?<!市場|業績|通期|連結|売上|利益|配当|決算|コンセンサス|会社|企業|ガイダンス)予想(?=より|を上回|を下回|に対し|比|値|[-−+\d（(、])/g, '市場予想');
+        if (typeof n[f]?.ja === 'string') n[f].ja = n[f].ja.replace(/(?<!市場|業績|通期|連結|売上|利益|配当|決算|コンセンサス|会社|企業|ガイダンス|成長率)予想(?=より(?:強|弱|高|低|良|悪|大き|小さ|上振れ|下振れ))/g, '市場予想');
     }
     // 본문 어느 언어에도 시각이 안 나온 causeRefs 는 «인용하지 않은 참조»라 뺀다(10/24 9차 실측: 쓰지도 않은 m7-2 하나로 news-time 3언어 탈락, 고침 2회에도 그대로).
     // 한 언어라도 인용했으면 그대로 두어 검사가 언어 간 누락을 잡게 한다.
