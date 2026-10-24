@@ -65,7 +65,7 @@ test('ordinary good text, dated REG fallback and optional two-way tests are not 
   assert.deepEqual(reasons('Cash: not all stocks are up; NVDA leads but peers remain weak', 'en'), []);
   assert.deepEqual(reasons('개장 전 확인한 10/23 정규장 NVDA +6%, 나머지는 약세로 관측'), []);
 });
-test('new-only unambiguous errors: stock sign, unsupported event/flow, internal source, latency and session', () => {
+test('new-only unambiguous errors: stock sign, unsupported event/flow, internal source and latency', () => {
   const cases = [
     ['정규장 NVDA -6%, 나머지 약세와 동반 하락 관측', 'stock-number:NVDA'],
     ['정규장 NVDA 6% 하락, 나머지 약세와 동반 하락 관측', 'stock-number:NVDA'],
@@ -79,7 +79,6 @@ test('new-only unambiguous errors: stock sign, unsupported event/flow, internal 
     ['지연 시세 기준 정규장 NVDA 상승과 나머지 약세 확인', 'latency-label'],
     ['Delayed cash prices: NVDA +6%; peers remain weak', 'latency-label', 'en'],
     ['遅延の通常取引でNVDAの上昇集中を確認', 'latency-label', 'ja'],
-    ['개장 전 NVDA 강세, 나머지 종목은 약세로 관측', 'session-contradiction'],
     ['정규장 전 종목 상승, 섹터 전반의 동반 강세 확인', 'breadth-contradiction'],
     ['정규장 NVDA 강세와 선물 동반 상승이 관측됨', 'unsupported-futures'],
     ['Cash: NVDA will rally while peers are weak', 'forecast:', 'en'],
@@ -134,6 +133,24 @@ test('gate regression: all-member scope with a single rising/falling name is not
     [fact, 'ja', '通常取引で全銘柄が上昇、セクター全体の強さを確認'],
     [singleDown, 'ja', '通常取引で全銘柄が下落、セクター全体の弱さを確認'],
   ]) assert.ok(reasons(text, locale, f).includes('breadth-contradiction'), text);
+});
+test('gate regression 10240727: «여부·엇갈림» breadth and next-session watch lines are not contradictions', () => {
+  const pre = { ...fact, priceBasis: 'PRE' };
+  for (const [f, locale, text] of [
+    [fact, 'ko', '정규장 전 종목 상승 여부는 엇갈리며 NVDA만 강세 확인'],
+    [fact, 'ko', '정규장 모든 종목 상승은 아니며 NVDA만 강세 확인'],
+    [fact, 'ja', '通常取引で全銘柄上昇かどうかは分かれ、NVDAのみ強さを確認'],
+    [fact, 'en', 'Cash: whether all stocks are up is mixed; only NVDA leads'],
+    [pre, 'en', 'NVDA +6%; watch peer participation in the upcoming cash session'],
+    [pre, 'ko', '개장 전 NVDA +6%, 다음 정규장에서 나머지 종목 동참 여부 관찰'],
+    [pre, 'ja', '取引開始前NVDA +6%、次の通常取引で他銘柄の追随を確認'],
+    [fact, 'ko', '개장 전 확인한 정규장 NVDA 강세, 나머지 종목은 약세로 관측'],
+  ]) {
+    assert.deepEqual(contract.checkSectorBriefLegacy(text, locale, f), [], text);
+    assert.deepEqual(reasons(text, locale, f), [], text);
+  }
+  // 명백한 전체 상승 단정은 계속 거른다.
+  for (const text of ['정규장 전 종목 상승, 섹터 전반의 동반 강세 확인', '정규장 전 종목 일제히 상승 확인']) assert.ok(reasons(text, 'ko').includes('breadth-contradiction'), text);
 });
 test('gate regression: three normal gap/scope lines in ten sectors preserve batch and every output', () => {
   for (const ko of [

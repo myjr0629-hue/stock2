@@ -81,9 +81,12 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
     if (/매수(?:하|를 권)|매도(?:하|를 권)|買い推奨|売り推奨|\b(?:buy now|sell now|should buy|should sell)\b/i.test(text)) reasons.push('advice');
     // Require the universal subject to directly predicate the move. Scope phrases
     // such as '모든 종목 중 NVDA만 상승' / '全銘柄のうちNVDAのみ上昇' are not unanimity.
-    const allUp = /(?:전\s*종목|모든\s*종목)\s*(?:이|가|은|는)?\s*(?:모두\s*|일제히\s*|동반\s*)?상승|\ball (?:stocks|members) (?:are )?(?:up|rising)\b|全銘柄\s*(?:が|は)?\s*(?:一斉に|そろって|揃って)?上昇/i;
-    const allDown = /(?:전\s*종목|모든\s*종목)\s*(?:이|가|은|는)?\s*(?:모두\s*|일제히\s*|동반\s*)?하락|\ball (?:stocks|members) (?:are )?(?:down|falling)\b|全銘柄\s*(?:が|は)?\s*(?:一斉に|そろって|揃って)?下落/i;
-    const conditional = /\bif\b|면|なら|ば/i.test(text);
+    // 질문·여부·엇갈림처럼 «전 종목이 올랐다»를 단정하지 않는 표현은 제외한다(관문 10240727: «전 종목 상승 여부는 엇갈리며»).
+    const notClaimKo = '(?!\\s*(?:여부|인지|이\\s*아니|은\\s*아니|는\\s*아니|하지|한\\s*것은\\s*아니|과|와|또는|혹은|·|/|엇갈|혼조))';
+    const notClaimJa = '(?!\\s*(?:かどうか|するか|ではな|せず|とは限ら|・|/|と下落|と上昇|か下落|か上昇))';
+    const allUp = new RegExp(`(?:전\\s*종목|모든\\s*종목)\\s*(?:이|가|은|는)?\\s*(?:모두\\s*|일제히\\s*|동반\\s*)?상승${notClaimKo}|(?<!whether |if )\\ball (?:stocks|members) (?:are )?(?:up|rising)\\b|全銘柄\\s*(?:が|は)?\\s*(?:一斉に|そろって|揃って)?上昇${notClaimJa}`, 'i');
+    const allDown = new RegExp(`(?:전\\s*종목|모든\\s*종목)\\s*(?:이|가|은|는)?\\s*(?:모두\\s*|일제히\\s*|동반\\s*)?하락${notClaimKo}|(?<!whether |if )\\ball (?:stocks|members) (?:are )?(?:down|falling)\\b|全銘柄\\s*(?:が|は)?\\s*(?:一斉に|そろって|揃って)?下落${notClaimJa}`, 'i');
+    const conditional = /\bif\b|\bwhether\b|면|なら|ば/i.test(text);
     if (!conditional && !unconfirmed && ((allUp.test(text) && f.up !== f.measured) || (allDown.test(text) && f.down !== f.measured))) reasons.push('breadth-contradiction');
     // Direct ticker return only. Percentage-point units denote a gap, not a return.
     for (const row of f.members || [f.leader, f.laggard]) {
@@ -100,14 +103,8 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
             if (badValue || (written !== 0 && (signed || direction) && Math.sign(written) !== Math.sign(row.c))) reasons.push(`stock-number:${row.t}`);
         }
     }
-    // Explicitly false session labels only; omissions stay prompt-quality issues, not blank-producing gates.
-    const hasPre = /개장\s*전|프리마켓|\bpremarket\b|取引開始前/i.test(text);
-    const hasReg = /정규장|\bcash(?: session)?\b|通常取引/i.test(text);
-    const hasPost = /장후|\bafter[ -]hours\b|時間外/i.test(text);
-    // A line can legitimately say 'before the open, the prior cash session ...'.
-    // Reject only a competing session with no matching basis or qualification.
-    const matching = { PRE: hasPre, REG: hasReg, POST: hasPost }[f.priceBasis];
-    if (!matching && !conditional && !unconfirmed && (hasPre || hasReg || hasPost)) reasons.push('session-contradiction');
+    // 세션 모순 검사는 두지 않는다(관문 10240727: «upcoming cash session» 같은 다음 세션 관찰점을 현재 가격 세션으로 오인).
+    // 세션 표기는 프롬프트 지시로 다루고, 출구에서는 숫자·부호·근거 없는 인과처럼 명백한 오류만 거른다.
     return [...new Set(reasons)];
 }
 
