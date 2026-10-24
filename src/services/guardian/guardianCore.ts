@@ -1,3 +1,4 @@
+import { guardianCashChange, guardianCashObserved, type MarketIndexBasis } from '@/lib/marketIndexBasis';
 /**
  * 가디언 «공유 코어» — 언어와 무관한 시장 숫자는 한 번만 계산해 ko·ja·en 이 같이 쓴다. 문장만 언어별로 만든다.
  *
@@ -215,10 +216,15 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
     const rvolNdx = core.rvol.ndx;
     const rotationIntensity = core.rotationIntensity;
 
-    const nq = macro?.nqChangePercent || 0;
+    // ★2026-10-24 밤 검토 ② — 판정(괴리·국면·체크 통과)은 장중 실시간 현물·장외 완료 세션 현물(guardianCashChange).
+    //   현물 관측이 «있는데» 장중 신선도에서 거절됐으면(지연) 판정하지 않는다 — 선물 등락률로 덮어 «NASDAQ +1.00% 상승 중»·상승 체크 통과를
+    //   만들지 않는다(예전 동작). 현물 관측이 «아예 없을» 때만 기존 입력(나스닥100 선물 등락률 = 10/23 전 origin/main 판정, 3차 관문 결정).
+    //   표시 숫자는 비우지 않는다(기존 표시 방식) — 판정값, 판정 보류면 기존 입력(같은 화면 다른 NASDAQ 표시와 같은 값). 낡은 현물 값은 표시도 판정도 하지 않는다(관문 10232306 ①).
+    const nq = guardianCashChange(macro, core.session || rlsi.session) ?? (guardianCashObserved(macro) == null ? (macro?.nqChangePercent || 0) : null);
+    const nqShown = nq ?? (macro?.nqChangePercent || 0);
     const score = rlsi.score;
-    const nqSign = nq >= 0 ? '+' : '';
-    const nqStr = `${nqSign}${nq.toFixed(2)}%`;
+    const nqSign = nqShown >= 0 ? '+' : '';
+    const nqStr = `${nqSign}${nqShown.toFixed(2)}%`;
     const scoreStr = score.toFixed(0);
 
     // Dynamic reasoning builders per locale
@@ -257,7 +263,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
     };
 
     // CASE A (False Rally): Index UP (+), RLSI LOW (<40)
-    if (nq > 0.3 && score < 40) {
+    if ((nq != null && nq > 0.3) && score < 40) {
         divCase = {
             caseId: 'A',
             verdictTitle: VERDICT_TEXTS.RETAIL_TRAP[locale].title,
@@ -267,7 +273,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
         };
     }
     // CASE B (Hidden Opportunity): Index DOWN (-), RLSI HIGH (>60)
-    else if (nq < -0.2 && score > 60) {
+    else if ((nq != null && nq < -0.2) && score > 60) {
         divCase = {
             caseId: 'B',
             verdictTitle: VERDICT_TEXTS.SILENT_ACCUM[locale].title,
@@ -277,7 +283,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
         };
     }
     // CASE C (Full Bull): Index UP, RLSI HIGH (>70)
-    else if (nq > 0.5 && score > 70) {
+    else if ((nq != null && nq > 0.5) && score > 70) {
         divCase = {
             caseId: 'C',
             verdictTitle: VERDICT_TEXTS.QUANTUM_LEAP[locale].title,
@@ -287,7 +293,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
         };
     }
     // CASE D (Deep Freeze): Index DOWN, RLSI LOW (<30)
-    else if (nq < -0.5 && score < 30) {
+    else if ((nq != null && nq < -0.5) && score < 30) {
         divCase = {
             caseId: 'D',
             verdictTitle: VERDICT_TEXTS.DEEP_FREEZE[locale].title,
@@ -309,8 +315,8 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
     // Alignment / Acceleration / Accumulation
     // 1. Regime Detection — [V6.1] Cross-validated with Rotation Direction
     let regime: 'BULL' | 'BEAR' | 'NEUTRAL' = 'NEUTRAL';
-    if (rlsi.score >= 55 && nq > 0) regime = 'BULL';
-    else if (rlsi.score <= 35 && nq < 0) regime = 'BEAR';
+    if (rlsi.score >= 55 && (nq != null && nq > 0)) regime = 'BULL';
+    else if (rlsi.score <= 35 && (nq != null && nq < 0)) regime = 'BEAR';
 
     // [V6.1] Rotation Cross-Validation — prevent conflicting signals
     const rotDir = rotationIntensity?.direction;
@@ -367,8 +373,8 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
             {
                 id: 'nasdaq',
                 label: CHECKLIST_TEXTS[locale].nasdaqUp,
-                passed: nq > 0,
-                current: `${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`,
+                passed: (nq != null && nq > 0),
+                current: `${nqShown > 0 ? '+' : ''}${nqShown.toFixed(2)}%`,
                 required: '> 0%'
             },
             {
@@ -396,7 +402,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
                 required: `< 2.5%`
             }
         ],
-        passedCount: [rlsi.score >= 55, nq > 0, isSectorAligned, isAccelerating, !yieldSpike].filter(Boolean).length,
+        passedCount: [rlsi.score >= 55, (nq != null && nq > 0), isSectorAligned, isAccelerating, !yieldSpike].filter(Boolean).length,
         totalCount: 5,
         isLocked: isTargetLock,
         message: isTargetLock
@@ -427,7 +433,7 @@ export function deriveLocaleParts(core: GuardianCore, locale: Locale): LocalePar
             keyMetrics: [
                 `RLSI ${rlsi.score.toFixed(0)} (${RULE_VERDICT_TEXTS[locale].riskScore})`,
                 `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotDir}`,
-                `NASDAQ ${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`
+                `NASDAQ ${nqShown > 0 ? '+' : ''}${nqShown.toFixed(2)}%`
             ],
             action: RULE_VERDICT_TEXTS[locale].bullish.action
         };
@@ -507,6 +513,14 @@ export function overlayCore(context: GuardianContext, core: GuardianCore, locale
         gammaShield: core.gammaShield,
         coreAt: core.timestamp,
     };
+}
+
+/** 옛 스냅샷·lastgood도 현물 기준으로 파생 판정을 다시 만든다. 엔진/공급사 재계산 없음. */
+export function withCashIndexBasis(context: GuardianContext, indexBasis: MarketIndexBasis, locale: Locale): GuardianContext {
+    const core = { ...context, market: { ...context.market, indexBasis },
+        targetId: context.verdictTargetId, sourceId: context.verdictSourceId,
+        timestamp: context.coreAt || context.timestamp } as unknown as GuardianCore;
+    return overlayCore({ ...context, coreAt: undefined }, core, locale);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

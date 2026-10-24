@@ -203,9 +203,11 @@ function fetchJSON(url, timeoutMs = 15000) {
         const lib = parsedUrl.protocol === "https:" ? https : http;
 
         const req = lib.get(url, { timeout: timeoutMs }, (res) => {
-            let data = "";
-            res.on("data", (chunk) => (data += chunk));
+            // Decode once after collection: a UTF-8 character may span chunks.
+            const chunks = [];
+            res.on("data", (chunk) => chunks.push(chunk));
             res.on("end", () => {
+                const data = Buffer.concat(chunks).toString("utf8");
                 try {
                     resolve(JSON.parse(data));
                 } catch (e) {
@@ -238,9 +240,10 @@ function postJSON(url, bodyData, timeoutMs = 20000) {
         };
 
         const req = lib.request(url, options, (res) => {
-            let data = "";
-            res.on("data", (chunk) => (data += chunk));
+            const chunks = [];
+            res.on("data", (chunk) => chunks.push(chunk));
             res.on("end", () => {
+                const data = Buffer.concat(chunks).toString("utf8");
                 if (res.statusCode < 200 || res.statusCode >= 300) {
                     return reject(new Error(`Server responded with status ${res.statusCode}: ${data.substring(0, 200)}`));
                 }

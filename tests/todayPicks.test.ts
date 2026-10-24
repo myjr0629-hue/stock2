@@ -667,13 +667,12 @@ t('푸시 한 줄: 오늘(ET) 문서의 1번 항목만 · 어제 문서·문서 
   assert.equal(pushPickLine({ ...doc, items: [] }, 'en', '2026-10-12').reason, 'no-doc');
 });
 const PUSH = fs.readFileSync(path.join(__dirname, '../src/app/api/cron/push/route.ts'), 'utf8');
-t('푸시 크론: 마감에만 «오늘 볼 것» 줄을 붙이고 모닝은 그대로 · 제목 불변 · 줄바꿈으로 잇는다 · 드라이런은 여전히 보내지도 쓰지도 않는다', () => {
-  assert.ok(/if \(type !== 'closing'\) return null;/.test(PUSH), '모닝은 줄을 붙이지 않는다');
-  assert.ok(/`\$\{ai\.line \|\| PUSH_CONTENT\[type\]\[l\]\.body\}\\n\$\{pick\.line\}`/.test(PUSH), 'AI 한 줄(없으면 정적 문구) 뒤 줄바꿈 + 오늘 볼 것');
+t('푸시 크론: 마감은 검증된 오늘 판정 한 줄만 · 제목 불변 · 드라이런은 보내지도 쓰지도 않는다', () => {
+  assert.equal(/pickLinesFor|readPicks|pushPickLine/.test(PUSH), false, '오늘 볼 것 문구를 판정 한 줄 뒤에 추가하지 않는다');
   const a = PUSH.indexOf('if (dry) {'), b = PUSH.indexOf('return NextResponse.json({ ok: true, dry: true', a);
   assert.equal(/sendPushByType|setInCache|writeStats/.test(PUSH.slice(a, b)), false);
-  assert.ok(/pickLinesFor\(type, todayET\)/.test(PUSH) && /await sendPushByType\(type, \{ bodies \}\)/.test(PUSH));
-  assert.ok(/catch \(e: any\) \{[\s\S]*today-picks line failed — none/.test(PUSH), '읽기 실패는 발송을 막지 않는다');
+  assert.ok(PUSH.includes('await sendPushByType(type, { bodies, reportDate: todayET })'));
+  assert.ok(PUSH.includes('body: lines[l].line ?? PUSH_CONTENT[type][l].body'));
   const SEND = fs.readFileSync(path.join(__dirname, '../src/lib/push/send.ts'), 'utf8');
   for (const title of ["'📊 장마감 리포트'", "'📊 Closing Report'", "'📊 クロージングレポート'"]) assert.ok(SEND.includes(`title: ${title}`), title);
 });

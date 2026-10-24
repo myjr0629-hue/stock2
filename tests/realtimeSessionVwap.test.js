@@ -48,7 +48,7 @@ function harness(options = {}) {
         },
     };
     const extras = {
-        process: { env: options.noKey ? {} : { FMP_API_KEY: '모형' } },
+        process: { env: { ...(options.noKey ? {} : { FMP_API_KEY: '모형' }), ...(options.disabled ? {} : { ENABLE_FMP_SESSION_VWAP: '1' }) } },
         Date: class extends Date { static now() { return now; } },
         fetch: async (url, init) => {
             const u = new URL(url);
@@ -291,4 +291,14 @@ test('신선도 경계: 2분 지연 허용·3분 거절, 전부 0 거래량과 �
         assert.equal(result.value, null);
         assert.ok(result.validation.rejected.includes('session_vwap_unavailable'));
     }
+});
+
+for (const noKey of [false, true]) test(`FMP 기본 disabled: HTTP·잠금·저장소 읽기/쓰기 0 (${noKey})`, async () => {
+    const h = harness({ disabled: true, noKey, readError: true });
+    assert.equal(await h.get(), null);
+    assert.equal(await h.read(), null);
+    const d = await h.diag();
+    assert.equal(d.observationState, 'disabled'); assert.equal(d.eligible, false);
+    assert.equal(d.cache.hit, false); assert.equal(d.observation, null);
+    assert.equal(h.shared.calls, 0); assert.equal(h.shared.locks.size, 0); assert.equal(h.shared.cache.size, 0);
 });

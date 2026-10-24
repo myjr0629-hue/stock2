@@ -1,0 +1,603 @@
+{
+ "provenance": "operational gcore:v1 (EC2 프록시 GET, 읽기 전용)",
+ "timestamp": "2026-10-23T13:05:20.422Z",
+ "session": "PRE",
+ "rlsi": {
+  "score": 30.5,
+  "session": "PRE",
+  "components": {
+   "breadthPct": 42.6,
+   "adRatio": 0.76,
+   "volumeBreadth": 41.4,
+   "breadthSignal": "NEUTRAL",
+   "sentimentScore": 23.5,
+   "sentimentSource": "CNN F&G: extreme fear"
+  }
+ },
+ "market": {
+  "indexBasis": {
+   "v": 1,
+   "cash": {
+    "nasdaq": {
+     "symbol": "^IXIC",
+     "price": 26008.86,
+     "changePct": -2.5989702647715025,
+     "asOf": "2026-10-22T21:15:59.000Z",
+     "sessionDate": "2026-10-22",
+     "basis": "regular-session",
+     "live": false,
+     "source": "YAHOO"
+    },
+    "ndx": {
+     "symbol": "^NDX",
+     "price": null,
+     "changePct": null,
+     "asOf": null,
+     "sessionDate": null,
+     "basis": "regular-session",
+     "live": false,
+     "source": null
+    },
+    "spx": {
+     "symbol": "^GSPC",
+     "price": 7663.43,
+     "changePct": -1.2084293991118562,
+     "asOf": "2026-10-22T20:31:48.000Z",
+     "sessionDate": "2026-10-22",
+     "basis": "regular-session",
+     "live": false,
+     "source": "YAHOO"
+    }
+   },
+   "futures": {
+    "nq": {
+     "symbol": "NQ=F",
+     "price": 29025.75,
+     "changePct": -0.3989087914350422,
+     "asOf": "2026-10-23T12:55:03.000Z",
+     "sessionDate": null,
+     "basis": "prior-settlement",
+     "live": true,
+     "source": "YAHOO",
+     "sinceCashClosePct": null,
+     "cashCloseReferenceAt": null
+    },
+    "es": {
+     "symbol": "ES=F",
+     "price": 7662.75,
+     "changePct": -0.5418911026023752,
+     "asOf": "2026-10-23T12:55:05.000Z",
+     "sessionDate": null,
+     "basis": "prior-settlement",
+     "live": true,
+     "source": "YAHOO",
+     "sinceCashClosePct": null,
+     "cashCloseReferenceAt": null
+    }
+   }
+  },
+  "vix": 20.04,
+  "nqChangePercent": -0.35773110973852174,
+  "dxy": 101.626,
+  "tltChangePct": 1.8694,
+  "factors": {
+   "spx": {
+    "level": 7665.25,
+    "chgPct": -0.5094425335842689,
+    "chgAbs": -39.25
+   },
+   "gold": {
+    "level": 4042.7,
+    "chgPct": -0.43591764358191987,
+    "chgAbs": -17.700000000000273
+   },
+   "oil": {
+    "level": 101.34,
+    "chgPct": 1.8799638081833765,
+    "chgAbs": 1.8700000000000045
+   },
+   "btc": {
+    "level": 81636.5,
+    "chgPct": 0.3938944515361058,
+    "chgAbs": 320.3000000000029
+   },
+   "us10y": {
+    "level": 4.97,
+    "chgPct": 0.3432263274782851,
+    "chgAbs": 0.01699999999999946
+   },
+   "nasdaq100": {
+    "level": 29037.75,
+    "chgPct": -0.35773110973852174,
+    "chgAbs": -104.25
+   }
+  },
+  "yieldCurve": {
+   "us2y": 4.65,
+   "us10y": 4.96,
+   "spread2s10s": 0.31,
+   "trend": "NORMAL",
+   "date": "2026-10-22",
+   "source": "US_TREASURY",
+   "prevDate": "2026-10-21",
+   "prevUs10y": 5.13
+  },
+  "realYield": {}
+ },
+ "sectors": [
+  {
+   "id": "XLRE",
+   "name": "부동산",
+   "change": 1.2111947318908594
+  },
+  {
+   "id": "XLB",
+   "name": "소재",
+   "change": 0.720966484801242
+  },
+  {
+   "id": "XLE",
+   "name": "에너지",
+   "change": 0.6437768240343382
+  },
+  {
+   "id": "HACK",
+   "name": "사이버보안",
+   "change": 0.41731445871860334
+  },
+  {
+   "id": "SMH",
+   "name": "반도체",
+   "change": 0.042036877806422776,
+   "instFlow": {
+    "ifs": -18.7,
+    "divergence": "NEUTRAL"
+   }
+  },
+  {
+   "id": "SAFE_HAVEN",
+   "name": "안전자산",
+   "change": 0.03887972245327035
+  },
+  {
+   "id": "XLU",
+   "name": "유틸리티",
+   "change": -0.2799160251924363
+  },
+  {
+   "id": "XLK",
+   "name": "기술주",
+   "change": -0.29340791927168836,
+   "instFlow": {
+    "ifs": -4.4,
+    "divergence": "CONFIRMED"
+   }
+  },
+  {
+   "id": "XLP",
+   "name": "필수소비재",
+   "change": -0.4000444493832642
+  },
+  {
+   "id": "XLV",
+   "name": "헬스케어",
+   "change": -0.40264754550469833
+  },
+  {
+   "id": "XLF",
+   "name": "금융",
+   "change": -0.5472197705207329
+  },
+  {
+   "id": "XLI",
+   "name": "산업재",
+   "change": -0.6327595513704664
+  },
+  {
+   "id": "XLY",
+   "name": "임의소비재",
+   "change": -0.6999391357273339,
+   "instFlow": {
+    "ifs": -18.5,
+    "divergence": "CONFIRMED"
+   }
+  },
+  {
+   "id": "XLC",
+   "name": "커뮤니케이션",
+   "change": -1.1590020480357517,
+   "instFlow": {
+    "ifs": -26.2,
+    "divergence": "CONFIRMED"
+   }
+  },
+  {
+   "id": "AI_PWR",
+   "name": "AI 전력망",
+   "change": -1.8519749221429813
+  },
+  {
+   "id": "ICLN",
+   "name": "클린에너지",
+   "change": -1.9999999999999896
+  }
+ ],
+ "vectors": [
+  {
+   "sourceId": "AI_PWR",
+   "targetId": "HACK",
+   "strength": 60.510000000000005,
+   "rank": 1
+  },
+  {
+   "sourceId": "XLC",
+   "targetId": "XLF",
+   "strength": 19.955,
+   "rank": 2
+  },
+  {
+   "sourceId": "SMH",
+   "targetId": "XLV",
+   "strength": 19.18,
+   "rank": 3
+  }
+ ],
+ "sourceId": "AI_PWR",
+ "targetId": "HACK",
+ "rotationIntensity": {
+  "score": 60,
+  "direction": "RISK_OFF",
+  "topInflow": [
+   {
+    "sector": "사이버보안",
+    "flow": 4.6
+   },
+   {
+    "sector": "금융",
+    "flow": 1.51
+   },
+   {
+    "sector": "헬스케어",
+    "flow": 1.47
+   }
+  ],
+  "topOutflow": [
+   {
+    "sector": "AI 전력망",
+    "flow": -7.5
+   },
+   {
+    "sector": "커뮤니케이션",
+    "flow": -2.48
+   },
+   {
+    "sector": "반도체",
+    "flow": -2.37
+   }
+  ],
+  "breadth": 56.3,
+  "conviction": "MEDIUM",
+  "regime": "RISK_OFF_DEFENSE",
+  "fiveDayData": {
+   "XLRE": {
+    "changes": [
+     -1.162,
+     1.704,
+     -0.755,
+     1.094
+    ],
+    "cumReturn": 0.881,
+    "rvol": 1.1,
+    "consistency": 0.5,
+    "flowScore": 0.485,
+    "todayChange": 1.211,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "XLB": {
+    "changes": [
+     0.059,
+     0.55,
+     0.176,
+     0.721
+    ],
+    "cumReturn": 1.506,
+    "rvol": 0.87,
+    "consistency": 1,
+    "flowScore": 1.31,
+    "todayChange": 0.721,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "XLE": {
+    "changes": [
+     -0.645,
+     0.251,
+     0.28,
+     -0.866
+    ],
+    "cumReturn": -0.98,
+    "rvol": 0.98,
+    "consistency": 0.5,
+    "flowScore": -0.48,
+    "todayChange": 0.644,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "HACK": {
+    "changes": [
+     1.399,
+     -0.165,
+     4.664,
+     0.36
+    ],
+    "cumReturn": 6.258,
+    "rvol": 0.98,
+    "consistency": 0.75,
+    "flowScore": 4.6,
+    "todayChange": 0.417,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "equalWeight"
+   },
+   "SMH": {
+    "changes": [
+     1.515,
+     -0.924,
+     2.057,
+     -7.028
+    ],
+    "cumReturn": -4.38,
+    "rvol": 1.08,
+    "consistency": 0.5,
+    "flowScore": -2.365,
+    "todayChange": 0.042,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "equalWeight"
+   },
+   "SAFE_HAVEN": {
+    "changes": [
+     -0.521,
+     -0.192,
+     0.219,
+     -1.149
+    ],
+    "cumReturn": -1.643,
+    "rvol": 1.24,
+    "consistency": 0.75,
+    "flowScore": -1.528,
+    "todayChange": 0.039,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "equalWeight"
+   },
+   "XLU": {
+    "changes": [
+     -2.014,
+     1.257,
+     0.287,
+     2.071
+    ],
+    "cumReturn": 1.601,
+    "rvol": 1.22,
+    "consistency": 0.75,
+    "flowScore": 1.465,
+    "todayChange": -0.28,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "XLK": {
+    "changes": [
+     1.357,
+     -0.28,
+     1.672,
+     -3.288
+    ],
+    "cumReturn": -0.539,
+    "rvol": 0.98,
+    "consistency": 0.5,
+    "flowScore": -0.264,
+    "todayChange": -0.293,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "XLP": {
+    "changes": [
+     -0.468,
+     0.619,
+     -0.729,
+     3.306
+    ],
+    "cumReturn": 2.728,
+    "rvol": 1.02,
+    "consistency": 0.5,
+    "flowScore": 1.391,
+    "todayChange": -0.4,
+    "isBounce": true,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "XLV": {
+    "changes": [
+     -0.6,
+     2.374,
+     -0.489,
+     1.319
+    ],
+    "cumReturn": 2.604,
+    "rvol": 1.13,
+    "consistency": 0.5,
+    "flowScore": 1.471,
+    "todayChange": -0.403,
+    "isBounce": true,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "XLF": {
+    "changes": [
+     -0.829,
+     1.199,
+     0.574,
+     1.089
+    ],
+    "cumReturn": 2.033,
+    "rvol": 0.99,
+    "consistency": 0.75,
+    "flowScore": 1.51,
+    "todayChange": -0.547,
+    "isBounce": true,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "XLI": {
+    "changes": [
+     -0.644,
+     0.072,
+     0.905,
+     -0.939
+    ],
+    "cumReturn": -0.606,
+    "rvol": 1.05,
+    "consistency": 0.5,
+    "flowScore": -0.318,
+    "todayChange": -0.633,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "XLY": {
+    "changes": [
+     1.778,
+     0.909,
+     0.026,
+     -0.45
+    ],
+    "cumReturn": 2.263,
+    "rvol": 0.81,
+    "consistency": 0.75,
+    "flowScore": 1.375,
+    "todayChange": -0.7,
+    "isBounce": true,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "XLC": {
+    "changes": [
+     -0.208,
+     0.091,
+     -1.107,
+     -1.422
+    ],
+    "cumReturn": -2.646,
+    "rvol": 1.25,
+    "consistency": 0.75,
+    "flowScore": -2.481,
+    "todayChange": -1.159,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "ETF"
+   },
+   "AI_PWR": {
+    "changes": [
+     -1.454,
+     -2.344,
+     2.729,
+     -7.408
+    ],
+    "cumReturn": -8.477,
+    "rvol": 1.18,
+    "consistency": 0.75,
+    "flowScore": -7.502,
+    "todayChange": -1.852,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "equalWeight"
+   },
+   "ICLN": {
+    "changes": [
+     -0.877,
+     1.997,
+     0.128,
+     -0.272
+    ],
+    "cumReturn": 0.976,
+    "rvol": 0.88,
+    "consistency": 0.5,
+    "flowScore": 0.429,
+    "todayChange": -2,
+    "isBounce": false,
+    "asOf": "2026-10-22",
+    "basis": "equalWeight"
+   }
+  },
+  "noiseFlags": [
+   "XLRE",
+   "XLE",
+   "SMH",
+   "XLK",
+   "XLP",
+   "XLV",
+   "XLI",
+   "ICLN"
+  ],
+  "bounceWarnings": [
+   "XLP: today -0.4% but 5d +2.728%",
+   "XLV: today -0.403% but 5d +2.604%",
+   "XLF: today -0.547% but 5d +2.033%",
+   "XLY: today -0.7% but 5d +2.263%"
+  ],
+  "scoreBasis": "percentile",
+  "rawSpread": 19.93,
+  "sampleWindows": 25
+ },
+ "gammaShield": {
+  "gexIndex": 13,
+  "gexLevel": "NEUTRAL",
+  "squeezeRisk": 44,
+  "squeezeLevel": "MEDIUM",
+  "supportWall": 7450,
+  "resistanceWall": 7900,
+  "currentPrice": 7640,
+  "gammaFlipPoint": null,
+  "gexChange": 0,
+  "spyGexIndex": 10,
+  "qqqGexIndex": 19
+ },
+ "rvol": {
+  "ndx": {
+   "status": "PRE_MARKET",
+   "rvol": null
+  }
+ },
+ "news": [
+  "[NEWS PULSE; 2026-10-23T12:47:17.000Z; 08:47 ET] BP valuation discount offers opportunity ahead of results, says Citi",
+  "[NEWS PULSE; 2026-10-23T12:46:11.000Z; 08:46 ET] U.S. oil rises above $100, Brent at five-month high as Iran says it's prepared for warfare",
+  "[NEWS PULSE; 2026-10-23T12:45:57.000Z; 08:45 ET] Arm's ready-made blueprints challenge Marvell's custom-chip position",
+  "[NEWS PULSE; 2026-10-23T12:38:19.000Z; 08:38 ET] Apple's first folding iPhone, the iPhone Duo, goes on sale",
+  "[NEWS PULSE; 2026-10-23T12:33:24.000Z; 08:33 ET] Amazon Q3 Preview: CAPEX Spending In Focus, Shares Fairly Valued",
+  "[NEWS PULSE; 2026-10-23T12:30:00.000Z; 08:30 ET] Shell: Refining Should Continue To Drive Earnings Higher",
+  "[Polygon; 2026-10-23T12:59:40.000Z; 08:59 ET] Gold heads for steep weekly loss as Hormuz tensions lift crude toward five-month highs - Kitco AM Report — Spot gold and silver prices were sharply lower in early U.S. trading Friday, extending Thursday's heavy losses as renewe",
+  "[Polygon; 2026-10-23T12:09:08.000Z; 08:09 ET] U.S. economist says ‘stock market crash will be bullish' for Gold — Reacting to Gold's $116 drop on October 22, the popular American economist Peter Schiff estimated that the downturn is l",
+  "[Polygon; 2026-10-23T08:02:02.000Z; 04:02 ET] The S&P 500 May Depend on the Fortunes of These 3 Companies Right Now. Here's the Good News and the Bad News for Investors. — The type of company leading the S&P 500 has changed over the years, from energy and manufacturing to technology. Tech st",
+  "[Polygon; 2026-10-23T06:36:08.000Z; 02:36 ET] Stock Market: Will S&P 500 Open Up or Down Today? — U.S. stock futures are leaning slightly lower early Friday as Wall Street navigates geopolitical stalemates, soaring oil",
+  "[FMP; 2026-10-23T12:28:31.000Z; 08:28 ET] iPhone Duo hits store shelves",
+  "[FMP; 2026-10-23T12:23:00.000Z; 08:23 ET] It's been a painful month for hedge funds. To turn it around, they are shorting U.S. stocks."
+ ],
+ "scheduledEvents": [
+  "[economic calendar; 2026-10-23 09:45 ET] S&P Global Composite PMI (Oct) (scheduled; not a released result)",
+  "[economic calendar; 2026-10-23 09:45 ET] S&P Global Manufacturing PMI (Oct) (scheduled; not a released result)",
+  "[economic calendar; 2026-10-23 09:45 ET] S&P Global Services PMI (Oct) (scheduled; not a released result)",
+  "[economic calendar; 2026-10-23 15:30 ET] CFTC Crude Oil speculative net positions (scheduled; not a released result)",
+  "[economic calendar; 2026-10-23 15:30 ET] CFTC S&P 500 speculative net positions (scheduled; not a released result)",
+  "[economic calendar; 2026-10-23 15:30 ET] CFTC Nasdaq 100 speculative net positions (scheduled; not a released result)",
+  "[economic calendar; 2026-10-23 15:30 ET] CFTC Gold Speculative net positions (scheduled; not a released result)",
+  "[earnings calendar; 2026-10-23; BMO; exact release time unknown] AXP (released; epsActual=4.68; revenueActual=20062000000)",
+  "[earnings calendar; 2026-10-23; BMO; exact release time unknown] SLB (released; epsActual=0.64; revenueActual=9449000000)"
+ ]
+}

@@ -10,6 +10,8 @@ type SessionVwap = NonNullable<ReturnType<typeof sessionVwapFromBars>>;
 type Cached = { value: SessionVwap | null; expiresAt: number };
 const pending = new Map<string, Promise<SessionVwap | null>>();
 const local = new Map<string, Cached>();
+// 상업용 사용 승인 전에는 호출·저장본 사용 모두 중단. 명시적 opt-in만 허용한다.
+const fmpVwapEnabled = () => process.env.ENABLE_FMP_SESSION_VWAP === '1';
 
 export type MinuteValidation = {
     barCount: number | null;
@@ -103,6 +105,12 @@ async function rememberObservation(key: string, observation: Observation): Promi
 export async function readRealtimeSessionVwapDiagnostics(symbol: string, date: string, now: number = Date.now()) {
     const ticker = symbol.toUpperCase();
     const key = `vwap:fmp:minutes:v1:${ticker}:${date}`;
+    if (!fmpVwapEnabled()) return {
+        ticker, date, timezone: 'America/New_York', fmpKeyPresent: Boolean(process.env.FMP_API_KEY),
+        session: cashSessionPhaseAt(now), eligible: false,
+        cache: { hit: false, valuePresent: false, expiresAt: null },
+        observation: null, observationState: 'disabled', retentionSeconds: DIAGNOSTIC_TTL,
+    };
     const [cached, sharedObservation] = await Promise.all([
         readCached(key, now).catch(() => null),
         getFromCache<Observation>(diagnosticKey(key)).catch(() => null),
@@ -139,6 +147,7 @@ async function readCached(key: string, now: number): Promise<Cached | null> {
 
 /** 응답용 저장본 읽기. 공급사 호출·진행 중 작업 합류·잠금 대기는 하지 않는다. */
 export async function readRealtimeSessionVwap(symbol: string, date: string, now: number = Date.now()): Promise<SessionVwap | null> {
+    if (!fmpVwapEnabled()) return null;
     const key = sessionCacheKey(symbol, date, now);
     if (!key) return null;
     try { return (await readCached(key, now))?.value ?? null; } catch { return null; }
@@ -146,6 +155,7 @@ export async function readRealtimeSessionVwap(symbol: string, date: string, now:
 
 /** 정규장 Intrinio 결측 때만 호출. 종목·날짜 잠금과 캐시는 인스턴스 사이에도 공유한다. */
 export function getRealtimeSessionVwap(symbol: string, date: string, now: number = Date.now()): Promise<SessionVwap | null> {
+    if (!fmpVwapEnabled()) return Promise.resolve(null);
     const key = sessionCacheKey(symbol, date, now);
     if (!key) return Promise.resolve(null);
     const observation: Observation = { observedAt: Date.now(), outcome: 'background_tripped', httpAttempted: false, httpStatus: null, validation: null };

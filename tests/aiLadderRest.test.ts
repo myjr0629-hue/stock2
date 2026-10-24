@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { SECTOR_MAP } from '@/services/universePolicy';
 import { SECTOR_NAME_EN, SECTOR_NAME_JA, sectorLabelForAi, restoreKoSectorNames, restoreJaSectorNames } from '@/lib/ai/sectorLabels';
-import { scriptPurityReasons, multiLangJsonGate, evaluateOutput } from '@/lib/ai/ladderGates';
+import { scriptPurityReasons, multiLangJsonGate, evaluateOutput, analyticNegationOnly } from '@/lib/ai/ladderGates';
 import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 
 const root = path.join(__dirname, '..');
@@ -81,6 +81,20 @@ t('evaluateOutput(structured): 글자 비율 검사 대신 문자 체계 — «P
     assert.equal(evaluateOutput({ purpose: 'CrossSector', locale: 'multi', text: o, source: 'x', expectJson: true, structured: true }).ok, true);
 });
 
+t('evaluateOutput(CrossSector): «…라고 할 수 없습니다» 분석 부정은 거절이 아니다 · 진짜 거절과 다른 용도는 그대로 걸린다(10/24 운영 실측 오탐)', () => {
+    const why = (ko: string) => JSON.stringify({ closingNarrative: { why: { ko, en: 'This was after the cash close and cannot be a preceding cause.', ja: 'これは取引終了後の報道で、先行原因ではありません。' } } });
+    const analytic = '2026-10-23 17:42 ET Kitco 보도는 마감 후 보도이므로 정규장 하락의 선행 원인이라고 할 수 없습니다. 원인으로 단정할 수 없습니다.';
+    assert.equal(evaluateOutput({ purpose: 'CrossSector', locale: 'multi', text: why(analytic), source: 'x', expectJson: true, structured: true }).ok, true);
+    const refusal = '요청하신 내용은 정책상 분석을 제공할 수 없습니다. 다른 질문을 해 주세요.';
+    const r1 = evaluateOutput({ purpose: 'CrossSector', locale: 'multi', text: why(refusal), source: 'x', expectJson: true, structured: true });
+    assert.equal(r1.ok, false); assert.ok(r1.reasons.some((r) => /ko:refusal/.test(r)), JSON.stringify(r1));
+    // 한 글에 분석 부정과 진짜 거절이 섞이면 면제하지 않는다
+    assert.equal(analyticNegationOnly('refusal:ko:"할 수 없습니다"', '원인이라고 할 수 없습니다. 분석을 제공할 수 없습니다.'), false);
+    assert.equal(analyticNegationOnly('refusal:ko:"할 수 없습니다"', '선행 원인으로 확정할 수 없습니다.'), true);
+    // 다른 용도에는 면제가 없다
+    assert.equal(evaluateOutput({ purpose: 'IntelAnalysis', locale: 'multi', text: why(analytic), source: 'x', expectJson: true, structured: true }).ok, false);
+});
+
 // ── 음차 출구 복원(JSON 전체) ────────────────────────────────────────────────
 t('restoreCommonTermsDeep: 한·일 칸의 음차만 영어 이름으로 · 숫자·불리언·키·영어 칸은 그대로', () => {
     const src = { ko: '콜월 $785 와 맥스 페인 $768 사이', en: 'Between Call Wall $785 and Max Pain $768', ja: 'コールウォール$785とマックスペイン$768の間', n: 3, ok: true, list: ['풋플로어 $625', '감마 플립'], nested: { ja: 'ガンマフリップ付近' } };
@@ -99,7 +113,10 @@ t('restoreCommonTermsDeep: 한·일 칸의 음차만 영어 이름으로 · 숫�
 t('가디언: 입력 줄 3곳(자금 흐름·5일 유입/유출·STEALTH/EXIT)은 sectorLabelForAi, 출력 두 곳(3개 언어 JSON·단일 언어)은 영어 라벨 복원', () => {
     const node = read('src/services/guardian/intelligenceNode.ts');
     const uds = read('src/services/guardian/unifiedDataStream.ts');
-    assert.match(node, /etfToName = \(id: string\): string => sectorLabelForAi\(/);
+    // ★10/24 순환매 v3: 섹터 입력은 lib/ai/rotationPrompt.rotationFactsFrom 이 영어 이름(sectorLabelForAi)으로 만든다(옛 etfToName 대체)
+    const rot = read('src/lib/ai/rotationPrompt.ts');
+    assert.match(rot, /name: sectorLabelForAi\(it\.sector\)/);
+    assert.match(rot, /sector: sectorLabelForAi\(r\.name\)/);
     assert.equal((uds.match(/sectorLabelForAi\(/g) || []).length, 3, 'formatTopFlows 1 + stealth 1 + exit 1');
     assert.match(node, /return restoreSectorLabels\(parseTriJson\(result\.text \|\| ''\)\)/);
     assert.match(node, /restoreSectorLabelsIn\(locale, result\.text\?\.trim\(\) \?\? ''\)/);
@@ -123,7 +140,12 @@ t('출구 복원 배선: 모닝 브리핑 · 크로스섹터 · 인텔 스냅샷
 
 t('가드 배선: 크로스섹터·스냅샷은 구조(필수 키) + 언어 혼입 가드(structured) · 스냅샷 프롬프트에 «회사명은 라틴 철자» 규칙', () => {
     const cross = read('src/app/api/intel/cross-sector-brief/route.ts');
-    assert.match(cross, /multiLangJsonGate\('CrossSector', prompt, \{ keys: \['marketOverview', 'sectorRotation', 'outlook'\], structured: true \}\)/);
+    assert.match(cross, /multiLangJsonGate\('CrossSector', prompt, \{ keys: \['marketOverview', 'sectorRotation', 'outlook', 'closingNarrative'\], structured: true \}\)/);
+    // 2026-10-24: 서사 세부 검사는 사다리 재생성 대신 «고침 요청»(사유 제시, 최대 2회) — 사다리 출구는 다섯 칸×3언어 모양만
+    assert.match(cross, /narrativeShapeOk\(JSON\.parse\(text\)\?\.closingNarrative\)/);
+    assert.match(cross, /closingReportProblems\(\{ structured, reportEvidence, date: todayDate \}\)/);
+    assert.match(cross, /CLOSING\.narrativeRepairPrompt\(/);
+    assert.match(cross, /providers\.includes\('legacy'\) \? 'legacy'/);
     const snap = read('src/app/api/intel/snapshot/route.ts');
     assert.match(snap, /multiLangJsonGate\('IntelSnapshot', userPrompt, \{ keys: \['items'\], structured: true \}\)/);
     assert.match(snap, /LANGUAGE RULES: write Korean fields in Hangul only and never insert Japanese kana/);

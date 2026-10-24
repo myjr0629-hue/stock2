@@ -321,7 +321,8 @@ t('Intel 날짜 혼합 회귀: 상세·캐시 리포트가 화면 세션 날짜�
   const page = read('src/app/[locale]/app-view/intel/page.tsx');
   assert.ok(/\}, \[reportRaw, selectedSector, selectedQuotesSig, appLocale, sessionDate\]\);/.test(page), '세션 전환 시 상세 리포트 재계산');
   assert.ok(/viewReportForApp\(cachedRaw, sec\.id, quotes, appLocale, sessionDate\)/.test(page), '캐시 리포트도 화면 날짜 사용');
-  assert.ok(/viewReportForApp\(reportCache\[sec\.id\] \|\| buildSectorReportFromQuotes\(sec\.id\), sec\.id, getSectorQuotes\(sec\.id\), appLocale, sessionDate\)/.test(page), '리포트 탭도 화면 날짜 사용');
+  assert.ok(/closingReportForApp\(raw, sec\.id, appLocale, closingDate\)/.test(page), '리포트 탭은 저장본 날짜 사용');
+  assert.ok(/const aligned = alignReportToConfig\(\{ \.\.\.report, keyStocksData: \[\.\.\.report\.keyStocksData, \.\.\.missing\] \}, sectorId, \[\], date\)/.test(page), '설정 종목 결측 행 보충 후 같은 날짜로 정렬, 최신 시세 병합 없음');
   assert.ok(/return applySectorBrief\(aligned, sec\?\.stocks \|\| \[\], locale, avgChangeOfQuotes\(quotes, sessionDate\), sessionDate\);/.test(page), '관찰 문장·평균도 동일 날짜 사용');
 });
 

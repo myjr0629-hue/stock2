@@ -1,0 +1,608 @@
+{
+  "source": "compare-v3-r7.md new 27 rows; PRE/REG operational snapshots, POST derived; market fields and generated prose only; rechecked after en limit 900",
+  "contexts": {
+    "PRE": {
+      "asOf": "2026-10-23T13:05:20.422Z",
+      "session": "PRE",
+      "rlsiScore": 30.5,
+      "nasdaqChange": -2.5989702647715025,
+      "vix": 20.04,
+      "dxy": 101.626,
+      "gexIndex": 13,
+      "gexLevel": "NEUTRAL",
+      "spxChangePct": -1.2084293991118562,
+      "triggerResistance": 7900,
+      "triggerSupport": 7450,
+      "us10y": 4.97,
+      "marketNewsHeadlines": [
+        "[NEWS PULSE; 2026-10-23T12:47:17.000Z; 08:47 ET] BP valuation discount offers opportunity ahead of results, says Citi",
+        "[NEWS PULSE; 2026-10-23T12:46:11.000Z; 08:46 ET] U.S. oil rises above $100, Brent at five-month high as Iran says it's prepared for warfare",
+        "[NEWS PULSE; 2026-10-23T12:45:57.000Z; 08:45 ET] Arm's ready-made blueprints challenge Marvell's custom-chip position",
+        "[NEWS PULSE; 2026-10-23T12:38:19.000Z; 08:38 ET] Apple's first folding iPhone, the iPhone Duo, goes on sale",
+        "[NEWS PULSE; 2026-10-23T12:33:24.000Z; 08:33 ET] Amazon Q3 Preview: CAPEX Spending In Focus, Shares Fairly Valued",
+        "[NEWS PULSE; 2026-10-23T12:30:00.000Z; 08:30 ET] Shell: Refining Should Continue To Drive Earnings Higher",
+        "[Polygon; 2026-10-23T12:59:40.000Z; 08:59 ET] Gold heads for steep weekly loss as Hormuz tensions lift crude toward five-month highs - Kitco AM Report — Spot gold and silver prices were sharply lower in early U.S. trading Friday, extending Thursday's heavy losses as renewe",
+        "[Polygon; 2026-10-23T12:09:08.000Z; 08:09 ET] U.S. economist says ‘stock market crash will be bullish' for Gold — Reacting to Gold's $116 drop on October 22, the popular American economist Peter Schiff estimated that the downturn is l",
+        "[Polygon; 2026-10-23T08:02:02.000Z; 04:02 ET] The S&P 500 May Depend on the Fortunes of These 3 Companies Right Now. Here's the Good News and the Bad News for Investors. — The type of company leading the S&P 500 has changed over the years, from energy and manufacturing to technology. Tech st",
+        "[Polygon; 2026-10-23T06:36:08.000Z; 02:36 ET] Stock Market: Will S&P 500 Open Up or Down Today? — U.S. stock futures are leaning slightly lower early Friday as Wall Street navigates geopolitical stalemates, soaring oil",
+        "[FMP; 2026-10-23T12:28:31.000Z; 08:28 ET] iPhone Duo hits store shelves",
+        "[FMP; 2026-10-23T12:23:00.000Z; 08:23 ET] It's been a painful month for hedge funds. To turn it around, they are shorting U.S. stocks."
+      ],
+      "scheduledEvents": [
+        "[economic calendar; 2026-10-23 09:45 ET] S&P Global Composite PMI (Oct) (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 09:45 ET] S&P Global Manufacturing PMI (Oct) (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 09:45 ET] S&P Global Services PMI (Oct) (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC Crude Oil speculative net positions (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC S&P 500 speculative net positions (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC Nasdaq 100 speculative net positions (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC Gold Speculative net positions (scheduled; not a released result)",
+        "[earnings calendar; 2026-10-23; BMO; exact release time unknown] AXP (released; epsActual=4.68; revenueActual=20062000000)",
+        "[earnings calendar; 2026-10-23; BMO; exact release time unknown] SLB (released; epsActual=0.64; revenueActual=9449000000)"
+      ],
+      "indexBasis": {
+        "v": 1,
+        "cash": {
+          "nasdaq": {
+            "symbol": "^IXIC",
+            "price": 26008.86,
+            "changePct": -2.5989702647715025,
+            "asOf": "2026-10-22T21:15:59.000Z",
+            "sessionDate": "2026-10-22",
+            "basis": "regular-session",
+            "live": false,
+            "source": "YAHOO"
+          },
+          "ndx": {
+            "symbol": "^NDX",
+            "price": null,
+            "changePct": null,
+            "asOf": null,
+            "sessionDate": null,
+            "basis": "regular-session",
+            "live": false,
+            "source": null
+          },
+          "spx": {
+            "symbol": "^GSPC",
+            "price": 7663.43,
+            "changePct": -1.2084293991118562,
+            "asOf": "2026-10-22T20:31:48.000Z",
+            "sessionDate": "2026-10-22",
+            "basis": "regular-session",
+            "live": false,
+            "source": "YAHOO"
+          }
+        },
+        "futures": {
+          "nq": {
+            "symbol": "NQ=F",
+            "price": 29025.75,
+            "changePct": -0.3989087914350422,
+            "asOf": "2026-10-23T12:55:03.000Z",
+            "sessionDate": null,
+            "basis": "prior-settlement",
+            "live": true,
+            "source": "YAHOO",
+            "sinceCashClosePct": null,
+            "cashCloseReferenceAt": null
+          },
+          "es": {
+            "symbol": "ES=F",
+            "price": 7662.75,
+            "changePct": -0.5418911026023752,
+            "asOf": "2026-10-23T12:55:05.000Z",
+            "sessionDate": null,
+            "basis": "prior-settlement",
+            "live": true,
+            "source": "YAHOO",
+            "sinceCashClosePct": null,
+            "cashCloseReferenceAt": null
+          }
+        }
+      },
+      "indexFacts": [
+        {
+          "id": "nq",
+          "kind": "futures",
+          "chgPct": -0.3989087914350422,
+          "asOfET": "2026-10-23 08:55 ET",
+          "sessionDate": null,
+          "name": {
+            "ko": "나스닥100 선물",
+            "en": "Nasdaq 100 futures",
+            "ja": "ナスダック100先物"
+          },
+          "basis": {
+            "ko": "직전 정규장 마감 무렵(정산) 대비",
+            "en": "vs prior settlement near previous cash close",
+            "ja": "前回通常取引終了頃の清算値比"
+          }
+        },
+        {
+          "id": "es",
+          "kind": "futures",
+          "chgPct": -0.5418911026023752,
+          "asOfET": "2026-10-23 08:55 ET",
+          "sessionDate": null,
+          "name": {
+            "ko": "S&P500 선물",
+            "en": "S&P 500 futures",
+            "ja": "S&P500先物"
+          },
+          "basis": {
+            "ko": "직전 정규장 마감 무렵(정산) 대비",
+            "en": "vs prior settlement near previous cash close",
+            "ja": "前回通常取引終了頃の清算値比"
+          }
+        },
+        {
+          "id": "nasdaq",
+          "kind": "spot",
+          "chgPct": -2.5989702647715025,
+          "asOfET": "2026-10-22 17:15 ET",
+          "sessionDate": "2026-10-22",
+          "name": {
+            "ko": "나스닥 종합(현물)",
+            "en": "Nasdaq Composite (spot)",
+            "ja": "ナスダック総合(現物)"
+          },
+          "basis": {
+            "ko": "2026-10-22 정규장: 전 거래일 종가 대비",
+            "en": "2026-10-22 cash session vs previous trading close",
+            "ja": "2026-10-22通常取引: 前営業日終値比"
+          }
+        },
+        {
+          "id": "spx",
+          "kind": "spot",
+          "chgPct": -1.2084293991118562,
+          "asOfET": "2026-10-22 16:31 ET",
+          "sessionDate": "2026-10-22",
+          "name": {
+            "ko": "S&P500(현물)",
+            "en": "S&P 500 (spot)",
+            "ja": "S&P500(現物)"
+          },
+          "basis": {
+            "ko": "2026-10-22 정규장: 전 거래일 종가 대비",
+            "en": "2026-10-22 cash session vs previous trading close",
+            "ja": "2026-10-22通常取引: 前営業日終値比"
+          }
+        }
+      ]
+    },
+    "REG": {
+      "asOf": "2026-10-23T14:02:08.898Z",
+      "session": "REG",
+      "rlsiScore": 29,
+      "nasdaqChange": 0.019907159038958285,
+      "vix": 20.12,
+      "dxy": 101.752,
+      "gexIndex": 15,
+      "gexLevel": "NEUTRAL",
+      "spxChangePct": -0.3805107518745915,
+      "triggerResistance": 7900,
+      "triggerSupport": 7450,
+      "us10y": 4.978,
+      "marketNewsHeadlines": [
+        "[NEWS PULSE; 2026-10-23T13:53:56.000Z; 09:53 ET] Stocks open lower as U.S. oil tops $100 amid escalating Iran tensions",
+        "[NEWS PULSE; 2026-10-23T13:50:46.000Z; 09:50 ET] Brent crude tops $116, a six-month high, as Middle East tensions swell",
+        "[NEWS PULSE; 2026-10-23T13:49:57.000Z; 09:49 ET] American Express cutting 5% of its workforce to 'prepare for AI'",
+        "[NEWS PULSE; 2026-10-23T13:47:41.000Z; 09:47 ET] Dow falls 500 points on rising oil prices; AI players slide amid earnings news",
+        "[NEWS PULSE; 2026-10-23T13:42:24.000Z; 09:42 ET] Stocks extend declines as 10-year Treasury holds below 5%",
+        "[NEWS PULSE; 2026-10-23T13:39:35.000Z; 09:39 ET] Stocks open lower as oil tops $100 amid escalating Iran tensions",
+        "[Polygon; 2026-10-23T13:22:56.000Z; 09:22 ET] Gold Is Sliding Back Toward $4,000 as the Haven Trade Breaks — Stocks sold off, Treasuries rallied, and gold collapsed anyway, breaking the rule that bullion rises when markets panic.",
+        "[Polygon; 2026-10-23T12:59:40.000Z; 08:59 ET] Gold heads for steep weekly loss as Hormuz tensions lift crude toward five-month highs - Kitco AM Report — Spot gold and silver prices were sharply lower in early U.S. trading Friday, extending Thursday's heavy losses as renewe",
+        "[Polygon; 2026-10-23T12:09:08.000Z; 08:09 ET] U.S. economist says ‘stock market crash will be bullish' for Gold — Reacting to Gold's $116 drop on October 22, the popular American economist Peter Schiff estimated that the downturn is l",
+        "[Polygon; 2026-10-23T08:50:58.000Z; 04:50 ET] iShares 20+ Year Treasury Bond ETF $TLT Shares Sold by Integrated Advisors Network LLC — Integrated Advisors Network LLC trimmed its position in iShares 20+ Year Treasury Bond ETF (NASDAQ: TLT) by 28.5% in the",
+        "[Polygon; 2026-10-23T08:29:15.000Z; 04:29 ET] 2,147 Invesco QQQ $QQQ Shares Sold by Clarity Wealth Advisors LLC — Clarity Wealth Advisors LLC trimmed its position in shares of Invesco QQQ (NASDAQ: QQQ) by 4.0% during the third quarter",
+        "[Polygon; 2026-10-23T08:02:02.000Z; 04:02 ET] The S&P 500 May Depend on the Fortunes of These 3 Companies Right Now. Here's the Good News and the Bad News for Investors. — The type of company leading the S&P 500 has changed over the years, from energy and manufacturing to technology. Tech st"
+      ],
+      "scheduledEvents": [
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC Gold Speculative net positions (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC Crude Oil speculative net positions (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC Nasdaq 100 speculative net positions (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC S&P 500 speculative net positions (scheduled; not a released result)",
+        "[earnings calendar; 2026-10-23; BMO; exact release time unknown] AXP (released; epsActual=4.68; revenueActual=20062000000)",
+        "[earnings calendar; 2026-10-23; BMO; exact release time unknown] SLB (released; epsActual=0.64; revenueActual=9449000000)"
+      ],
+      "indexBasis": {
+        "v": 1,
+        "cash": {
+          "nasdaq": {
+            "symbol": "^IXIC",
+            "price": 26014.037,
+            "changePct": 0.019907159038958285,
+            "asOf": "2026-10-23T14:02:03.000Z",
+            "sessionDate": "2026-10-23",
+            "basis": "regular-session",
+            "live": true,
+            "source": "YAHOO"
+          },
+          "ndx": {
+            "symbol": "^NDX",
+            "price": null,
+            "changePct": null,
+            "asOf": null,
+            "sessionDate": null,
+            "basis": "regular-session",
+            "live": false,
+            "source": null
+          },
+          "spx": {
+            "symbol": "^GSPC",
+            "price": 7634.27,
+            "changePct": -0.3805107518745915,
+            "asOf": "2026-10-23T14:02:07.000Z",
+            "sessionDate": "2026-10-23",
+            "basis": "regular-session",
+            "live": true,
+            "source": "YAHOO"
+          }
+        },
+        "futures": {
+          "nq": {
+            "symbol": "NQ=F",
+            "price": 29135.75,
+            "changePct": -0.021446709216937754,
+            "asOf": "2026-10-23T13:52:05.000Z",
+            "sessionDate": null,
+            "basis": "prior-settlement",
+            "live": true,
+            "source": "YAHOO",
+            "sinceCashClosePct": null,
+            "cashCloseReferenceAt": null
+          },
+          "es": {
+            "symbol": "ES=F",
+            "price": 7671,
+            "changePct": -0.43481082484262445,
+            "asOf": "2026-10-23T13:52:07.000Z",
+            "sessionDate": null,
+            "basis": "prior-settlement",
+            "live": true,
+            "source": "YAHOO",
+            "sinceCashClosePct": null,
+            "cashCloseReferenceAt": null
+          }
+        }
+      },
+      "indexFacts": [
+        {
+          "id": "nasdaq",
+          "kind": "spot",
+          "chgPct": 0.019907159038958285,
+          "asOfET": "2026-10-23 10:02 ET",
+          "sessionDate": "2026-10-23",
+          "name": {
+            "ko": "나스닥 종합(현물)",
+            "en": "Nasdaq Composite (spot)",
+            "ja": "ナスダック総合(現物)"
+          },
+          "basis": {
+            "ko": "2026-10-23 정규장: 전 거래일 종가 대비",
+            "en": "2026-10-23 cash session vs previous trading close",
+            "ja": "2026-10-23通常取引: 前営業日終値比"
+          }
+        },
+        {
+          "id": "spx",
+          "kind": "spot",
+          "chgPct": -0.3805107518745915,
+          "asOfET": "2026-10-23 10:02 ET",
+          "sessionDate": "2026-10-23",
+          "name": {
+            "ko": "S&P500(현물)",
+            "en": "S&P 500 (spot)",
+            "ja": "S&P500(現物)"
+          },
+          "basis": {
+            "ko": "2026-10-23 정규장: 전 거래일 종가 대비",
+            "en": "2026-10-23 cash session vs previous trading close",
+            "ja": "2026-10-23通常取引: 前営業日終値比"
+          }
+        }
+      ]
+    },
+    "POST": {
+      "asOf": "2026-10-22T21:30:00.000Z",
+      "session": "POST",
+      "rlsiScore": 30.5,
+      "nasdaqChange": -2.5989702647715025,
+      "vix": 20.04,
+      "dxy": 101.626,
+      "gexIndex": 13,
+      "gexLevel": "NEUTRAL",
+      "spxChangePct": -1.2084293991118562,
+      "triggerResistance": 7900,
+      "triggerSupport": 7450,
+      "us10y": 4.97,
+      "marketNewsHeadlines": [
+        "[NEWS PULSE; 2026-10-23T12:47:17.000Z; 08:47 ET] BP valuation discount offers opportunity ahead of results, says Citi",
+        "[NEWS PULSE; 2026-10-23T12:46:11.000Z; 08:46 ET] U.S. oil rises above $100, Brent at five-month high as Iran says it's prepared for warfare",
+        "[NEWS PULSE; 2026-10-23T12:45:57.000Z; 08:45 ET] Arm's ready-made blueprints challenge Marvell's custom-chip position",
+        "[NEWS PULSE; 2026-10-23T12:38:19.000Z; 08:38 ET] Apple's first folding iPhone, the iPhone Duo, goes on sale",
+        "[NEWS PULSE; 2026-10-23T12:33:24.000Z; 08:33 ET] Amazon Q3 Preview: CAPEX Spending In Focus, Shares Fairly Valued",
+        "[NEWS PULSE; 2026-10-23T12:30:00.000Z; 08:30 ET] Shell: Refining Should Continue To Drive Earnings Higher",
+        "[Polygon; 2026-10-23T12:59:40.000Z; 08:59 ET] Gold heads for steep weekly loss as Hormuz tensions lift crude toward five-month highs - Kitco AM Report — Spot gold and silver prices were sharply lower in early U.S. trading Friday, extending Thursday's heavy losses as renewe",
+        "[Polygon; 2026-10-23T12:09:08.000Z; 08:09 ET] U.S. economist says ‘stock market crash will be bullish' for Gold — Reacting to Gold's $116 drop on October 22, the popular American economist Peter Schiff estimated that the downturn is l",
+        "[Polygon; 2026-10-23T08:02:02.000Z; 04:02 ET] The S&P 500 May Depend on the Fortunes of These 3 Companies Right Now. Here's the Good News and the Bad News for Investors. — The type of company leading the S&P 500 has changed over the years, from energy and manufacturing to technology. Tech st",
+        "[Polygon; 2026-10-23T06:36:08.000Z; 02:36 ET] Stock Market: Will S&P 500 Open Up or Down Today? — U.S. stock futures are leaning slightly lower early Friday as Wall Street navigates geopolitical stalemates, soaring oil",
+        "[FMP; 2026-10-23T12:28:31.000Z; 08:28 ET] iPhone Duo hits store shelves",
+        "[FMP; 2026-10-23T12:23:00.000Z; 08:23 ET] It's been a painful month for hedge funds. To turn it around, they are shorting U.S. stocks."
+      ],
+      "scheduledEvents": [
+        "[economic calendar; 2026-10-23 09:45 ET] S&P Global Composite PMI (Oct) (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 09:45 ET] S&P Global Manufacturing PMI (Oct) (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 09:45 ET] S&P Global Services PMI (Oct) (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC Crude Oil speculative net positions (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC S&P 500 speculative net positions (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC Nasdaq 100 speculative net positions (scheduled; not a released result)",
+        "[economic calendar; 2026-10-23 15:30 ET] CFTC Gold Speculative net positions (scheduled; not a released result)",
+        "[earnings calendar; 2026-10-23; BMO; exact release time unknown] AXP (released; epsActual=4.68; revenueActual=20062000000)",
+        "[earnings calendar; 2026-10-23; BMO; exact release time unknown] SLB (released; epsActual=0.64; revenueActual=9449000000)"
+      ],
+      "indexBasis": {
+        "v": 1,
+        "cash": {
+          "nasdaq": {
+            "symbol": "^IXIC",
+            "price": 26008.86,
+            "changePct": -2.5989702647715025,
+            "asOf": "2026-10-22T21:15:59.000Z",
+            "sessionDate": "2026-10-22",
+            "basis": "regular-session",
+            "live": false,
+            "source": "YAHOO"
+          },
+          "ndx": {
+            "symbol": "^NDX",
+            "price": null,
+            "changePct": null,
+            "asOf": null,
+            "sessionDate": null,
+            "basis": "regular-session",
+            "live": false,
+            "source": null
+          },
+          "spx": {
+            "symbol": "^GSPC",
+            "price": 7663.43,
+            "changePct": -1.2084293991118562,
+            "asOf": "2026-10-22T20:31:48.000Z",
+            "sessionDate": "2026-10-22",
+            "basis": "regular-session",
+            "live": false,
+            "source": "YAHOO"
+          }
+        },
+        "futures": {
+          "nq": {
+            "symbol": "NQ=F",
+            "price": 29025.75,
+            "changePct": -0.3989087914350422,
+            "asOf": "2026-10-22T21:29:00.000Z",
+            "sessionDate": null,
+            "basis": "prior-settlement",
+            "live": true,
+            "source": "YAHOO",
+            "sinceCashClosePct": null,
+            "cashCloseReferenceAt": null
+          },
+          "es": {
+            "symbol": "ES=F",
+            "price": 7662.75,
+            "changePct": -0.5418911026023752,
+            "asOf": "2026-10-22T21:29:00.000Z",
+            "sessionDate": null,
+            "basis": "prior-settlement",
+            "live": true,
+            "source": "YAHOO",
+            "sinceCashClosePct": null,
+            "cashCloseReferenceAt": null
+          }
+        }
+      },
+      "indexFacts": [
+        {
+          "id": "nasdaq",
+          "kind": "spot",
+          "chgPct": -2.5989702647715025,
+          "asOfET": "2026-10-22 17:15 ET",
+          "sessionDate": "2026-10-22",
+          "name": {
+            "ko": "나스닥 종합(현물)",
+            "en": "Nasdaq Composite (spot)",
+            "ja": "ナスダック総合(現物)"
+          },
+          "basis": {
+            "ko": "2026-10-22 정규장: 전 거래일 종가 대비",
+            "en": "2026-10-22 cash session vs previous trading close",
+            "ja": "2026-10-22通常取引: 前営業日終値比"
+          }
+        },
+        {
+          "id": "spx",
+          "kind": "spot",
+          "chgPct": -1.2084293991118562,
+          "asOfET": "2026-10-22 16:31 ET",
+          "sessionDate": "2026-10-22",
+          "name": {
+            "ko": "S&P500(현물)",
+            "en": "S&P 500 (spot)",
+            "ja": "S&P500(現物)"
+          },
+          "basis": {
+            "ko": "2026-10-22 정규장: 전 거래일 종가 대비",
+            "en": "2026-10-22 cash session vs previous trading close",
+            "ja": "2026-10-22通常取引: 前営業日終値比"
+          }
+        }
+      ]
+    }
+  },
+  "outputs": [
+    {
+      "session": "PRE",
+      "repeat": 1,
+      "locale": "ko",
+      "text": "10/22(목) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 0.4%, S&P500 선물은 0.5% 추가 약세입니다. 10/23(금) 08:46 ET 보도에 따르면 이란의 전쟁 준비 발언과 함께 미국 유가가 100달러를 넘어 5개월 최고치를 기록하며 시장 전반의 부담이 커졌습니다. 시장 건강도(RLSI)가 31점으로 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX +13)은 중립이라 흔들림을 완충하지도 키우지도 않으며, 변동성 지수(VIX) 20.0은 경계 수준입니다. 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI (Oct)로, 수치가 예상을 밑돌면 경기 우려가 커지고 웃돌면 낙폭 회복 여지가 생깁니다."
+    },
+    {
+      "session": "PRE",
+      "repeat": 1,
+      "locale": "en",
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while premarket Nasdaq 100 futures are now down 0.4% and S&P 500 futures are down 0.5%. An 10/23 (Fri) 08:46 ET report noted U.S. oil surging past $100 and Brent hitting a five-month high as Iran signaled readiness for warfare, adding broad pressure on equities. Any rebound looks fragile: market health (RLSI) at 31 is weak, leaving little underlying support, while options positioning (GEX +13) is neutral — neither cushioning nor amplifying swings — and the VIX volatility gauge at 20.0 sits at an elevated level. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a reading below expectations would deepen growth concerns, while a stronger print could open room for stocks to recover some ground."
+    },
+    {
+      "session": "PRE",
+      "repeat": 1,
+      "locale": "ja",
+      "text": "10/22の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引開始前のナスダック100先物は0.4%安、S&P500先物は0.5%安です。10/23(金) 08:46 ET の報道によれば、イランが戦争準備を表明するなか米原油が100ドルを超え5か月ぶり高値となり、株式市場全体に重荷となっています。市場の健全度(RLSI)が31と弱く反発を支える力が乏しく、オプション・ポジション(GEX +13)は中立で値動きを支えも増幅もしない一方、変動性指数(VIX)20.0は警戒水準にあります。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のS&P Global Composite PMI (Oct)で、結果が弱ければ景気懸念が強まり、強ければ株価が下げを取り戻す余地が生まれます。"
+    },
+    {
+      "session": "PRE",
+      "repeat": 2,
+      "locale": "ko",
+      "text": "10/22(목) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 0.4%, S&P500 선물은 0.5% 추가 약세입니다. 10/23(금) 08:46 ET 보도에 따르면 이란의 전쟁 준비 발언으로 미국 유가가 100달러를 넘어 5개월 최고치를 기록했으며, 이것이 위험 회피 심리와 맞닿아 있습니다. 시장 건강도(RLSI)가 31점으로 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX +13)은 중립이라 딜러 헤지가 흔들림을 키우지도 완충하지도 않으며, 변동성 지수(VIX) 20.0은 경계 수준입니다. 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI (Oct)로, 수치가 예상을 밑돌면 경기 우려가 커지고 웃돌면 낙폭 일부를 되돌릴 수 있습니다."
+    },
+    {
+      "session": "PRE",
+      "repeat": 2,
+      "locale": "en",
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while premarket Nasdaq 100 futures are down 0.4% and S&P 500 futures are down 0.5% from the prior settlement. An 10/23 (Fri) 08:46 ET report that U.S. oil has surged above $100 and Brent hit a five-month high amid Iran's warnings of warfare is weighing on risk appetite heading into the open. Any rebound looks fragile: market health (RLSI) at 31 is weak, leaving little broad support, while options positioning (GEX +13) is neutral — dealers are neither cushioning nor amplifying swings — and the VIX volatility gauge at 20.0 sits at an elevated level. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a reading below expectations would deepen growth concerns, while a stronger print could help stocks pare some losses."
+    },
+    {
+      "session": "PRE",
+      "repeat": 2,
+      "locale": "ja",
+      "text": "10/22の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在のナスダック100先物は0.4%安、S&P500先物は0.5%安です。10/23(金) 08:46 ET の報道によれば、イランの開戦準備発言を受けて米原油が100ドルを超え5か月ぶり高値となっており、リスク回避の動きと重なっています。市場の健全度(RLSI)が31と弱く反発を支える力が乏しく、オプション・ポジション(GEX +13)は中立でディーラーのヘッジが値動きを支えも増幅もしない一方、変動性指数(VIX)20.0は警戒水準です。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のS&P Global Composite PMI (Oct)で、結果が弱ければ景気懸念が強まり、強ければ下落幅を一部取り戻す展開が考えられます。"
+    },
+    {
+      "session": "PRE",
+      "repeat": 3,
+      "locale": "ko",
+      "text": "10/22(목) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 0.4%, S&P500 선물은 0.5% 추가 약세입니다. 10/23(금) 08:46 ET 보도에 따르면 이란의 전쟁 준비 발언으로 유가가 100달러를 넘어 5개월 최고치를 기록하며 위험 심리를 짓누르고 있습니다. 시장 건강도(RLSI)가 31점으로 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX +13)은 중립이라 흔들림을 키우지도 완충하지도 않으며, 변동성 지수(VIX) 20.0은 경계 수준입니다. 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI (Oct)로, 수치가 예상을 밑돌면 경기 우려가 커지고 웃돌면 낙폭 일부를 되돌릴 수 있습니다."
+    },
+    {
+      "session": "PRE",
+      "repeat": 3,
+      "locale": "en",
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%, while premarket Nasdaq 100 futures are down 0.4% and S&P 500 futures are down 0.5%. An 10/23 (Fri) 08:46 ET report that U.S. oil has surged above $100 and Brent hit a five-month high amid Iran's warnings of warfare is weighing on risk appetite heading into the open. Market health (RLSI) at 31 is weak, leaving little support for a rebound, while options positioning (GEX +13) is neutral — neither cushioning nor amplifying swings — and the VIX volatility gauge at 20.0 sits at an elevated level. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a reading below consensus would deepen growth concerns, while a beat could help stocks claw back some losses."
+    },
+    {
+      "session": "PRE",
+      "repeat": 3,
+      "locale": "ja",
+      "text": "10/22の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引開始前のナスダック100先物は0.4%安、S&P500先物は0.5%安です。10/23(金) 08:46 ET の報道によれば、イランの開戦準備発言を受けて原油が100ドルを超え5か月ぶり高値となり、リスク心理を圧迫しています。市場の健全度(RLSI)は31と弱く反発を支える力が乏しく、オプション・ポジション(GEX +13)は中立で値動きを支えも増幅もしない一方、変動性指数(VIX)20.0は警戒水準にあります。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のS&P Global Composite PMI (Oct)で、結果が弱ければ景気懸念が強まり、強ければ株価が下落分を一部取り戻す方向と読めます。"
+    },
+    {
+      "session": "REG",
+      "repeat": 1,
+      "locale": "ko",
+      "text": "지금 정규장에서 나스닥 종합은 전일 종가 대비 보합 수준인 반면 S&P500은 0.4% 하락 중입니다. 10/23(금) 09:50 ET 보도에 따르면 브렌트유가 6개월 만에 최고치를 기록하며 중동 긴장이 고조되고 있어 시장 전반에 부담을 주고 있습니다. 시장 건강도(RLSI 29점)가 매우 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX +15)은 중립이라 흔들림을 완충하지도 키우지도 않는 가운데 변동성 지수(VIX 20.1)는 경계 수준입니다. 다음 분기점은 10/23(금) 15:30 ET(한국 04:30) 예정된 CFTC Crude Oil speculative net positions로, 투기 포지션이 줄면 유가 압력이 완화되고 늘면 부담이 이어집니다."
+    },
+    {
+      "session": "REG",
+      "repeat": 1,
+      "locale": "en",
+      "text": "In regular trading now, Nasdaq Composite is flat versus the previous close while S&P 500 is down 0.4%. A 10/23 (Fri) 09:50 ET report noted Brent crude topping a six-month high as Middle East tensions swell, weighing broadly on equities. Market health (RLSI at 29) is weak, leaving any rebound with fragile support, while options positioning (GEX at +15) is neutral — neither cushioning nor amplifying swings — and the VIX volatility gauge at 20.1 sits in elevated territory. The next test is the scheduled CFTC Crude Oil speculative net positions, 10/23 (Fri) 15:30 ET: a drop in speculative length would ease oil pressure on stocks, while a rise would keep it on."
+    },
+    {
+      "session": "REG",
+      "repeat": 1,
+      "locale": "ja",
+      "text": "現在の通常取引中、ナスダック総合は前日終値比ほぼ横ばいで、S&P500は0.4%下落中です。10/23(金) 09:50 ET報道によれば、中東情勢の緊迫化でブレント原油が6か月ぶりの高値を付けており、株式市場全体に重荷となっています。市場の健全度(RLSI 29)が弱く反発を支える力が乏しく、オプション・ポジション(GEX +15)は中立で値動きを支えも増幅もしない一方、変動性指数(VIX 20.1)は警戒水準にあります。次の分岐点は10/23(金) 15:30 ET(日本時間 04:30)予定のCFTC Crude Oil speculative net positionsで、投機ポジションが減れば原油高の圧力が和らぎ、増えれば続く構造です。"
+    },
+    {
+      "session": "REG",
+      "repeat": 2,
+      "locale": "ko",
+      "text": "지금 정규장에서 나스닥 종합은 전일 종가 대비 보합 수준(+0.0%)이고 S&P500은 0.4% 하락 중입니다. 10/23(금) 09:50 ET 보도에 따르면 이란 긴장 고조로 브렌트유가 6개월 최고치를 기록하며 시장 전반에 하방 압력이 이어지고 있습니다. 시장 건강도(RLSI 29점)가 매우 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX +15)은 중립이라 흔들림을 완충하지도 키우지도 않으며, 변동성 지수(VIX 20.1)는 경계 구간에 있어 추가 변동 가능성이 열려 있습니다. 다음 분기점은 10/23(금) 15:30 ET(한국 04:30) 예정된 CFTC Crude Oil speculative net positions로, 투기 포지션이 줄면 유가 압력이 완화되고 늘면 하방 압력이 지속될 수 있습니다."
+    },
+    {
+      "session": "REG",
+      "repeat": 2,
+      "locale": "en",
+      "text": "In regular trading now, the Nasdaq Composite is flat (+0.0%) versus the previous close while the S&P 500 is down 0.4%. The 10/23 (Fri) 09:50 ET report noted Brent crude topping a six-month high amid escalating Iran tensions, weighing on the broader market. Market health (RLSI at 29) is weak, leaving little support for a rebound, while options positioning (GEX +15) is neutral — neither cushioning nor amplifying swings — and the VIX volatility gauge at 20.1 sits in elevated territory, keeping the door open for sharper moves. The next test is the scheduled CFTC Crude Oil speculative net positions, 10/23 (Fri) 15:30 ET: a drop in speculative length would ease oil pressure on stocks, while a rise would keep it on."
+    },
+    {
+      "session": "REG",
+      "repeat": 2,
+      "locale": "ja",
+      "text": "現在の通常取引中、ナスダック総合は前営業日終値比ほぼ横ばい(+0.0%)、S&P500は0.4%下落中です。10/23(金) 09:50 ET報道によれば、イラン情勢の緊迫化でブレント原油が6か月ぶり高値を付け、相場全体に下押し圧力がかかっています。市場の健全度(RLSI 29)が弱く反発を支える力が乏しく、オプション・ポジション(GEX +15)は中立で値動きを支えも増幅もしない一方、変動性指数(VIX 20.1)は警戒水準にあり一段の振れに注意が必要です。次の分岐点は10/23(金) 15:30 ET(日本時間 04:30)予定のCFTC Crude Oil speculative net positionsで、投機ポジションが減れば原油高の圧力が和らぎ、増えれば下押しが続く構造です。"
+    },
+    {
+      "session": "REG",
+      "repeat": 3,
+      "locale": "ko",
+      "text": "지금 정규장에서 나스닥 종합은 전일 종가 대비 보합 수준(+0.0%)인 반면 S&P500은 0.4% 하락 중입니다. 10/23(금) 09:50 ET 보도에 따르면 브렌트유가 6개월 최고치를 경신하며 중동 긴장이 고조되고 있어 시장 전반에 부담을 주고 있습니다. 시장 건강도(RLSI 29점)가 매우 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX +15)은 중립이라 흔들림을 완충하지도 키우지도 않으며, 변동성 지수(VIX 20.1)는 경계 구간에 있어 추가 변동 가능성이 남아 있습니다. 다음 분기점은 10/23(금) 15:30 ET(한국 04:30) 예정된 CFTC Crude Oil speculative net positions(원유 투기 포지션)로, 순매수가 늘면 유가 상승 압력이 이어지고 줄면 부담이 완화될 수 있습니다."
+    },
+    {
+      "session": "REG",
+      "repeat": 3,
+      "locale": "en",
+      "text": "In regular trading now, Nasdaq Composite is flat (+0.0%) while S&P 500 is down 0.4% versus the previous close. The 10/23 (Fri) 09:50 ET report noted Brent crude topping a six-month high as Middle East tensions swell, weighing broadly on equities. Market health (RLSI at 29) is weak, leaving any rebound without solid footing, while options positioning (GEX at +15) is neutral — neither cushioning nor amplifying swings — and the VIX volatility gauge at 20.1 sits in elevated territory, keeping the risk of sharper moves alive. The next test is the scheduled CFTC Crude Oil speculative net positions, 10/23 (Fri) 15:30 ET: a rise in net long positions would keep oil pressure on stocks, while a decline could ease it."
+    },
+    {
+      "session": "REG",
+      "repeat": 3,
+      "locale": "ja",
+      "text": "現在の通常取引中、ナスダック総合は前営業日終値比ほぼ横ばい(+0.0%)、S&P500は0.4%下落中です。10/23(金) 09:50 ET報道によれば、中東情勢の緊迫化でブレント原油が6か月ぶり高値を更新しており、株式市場全体に重荷となっています。市場の健全度(RLSI 29)が弱く反発を支える力が乏しく、オプション・ポジション(GEX +15)は中立で値動きを支えも増幅もしない一方、変動性指数(VIX 20.1)は警戒水準にあり一段の変動余地が残っています。次の分岐点は10/23(金) 15:30 ET(日本時間 04:30)予定のCFTC Crude Oil speculative net positions(原油投機ポジション)で、買い越しが増えれば原油高圧力が続き、減れば和らぐ方向と読めます。"
+    },
+    {
+      "session": "POST",
+      "repeat": 1,
+      "locale": "ko",
+      "text": "10/22(목) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 종가 이후 선물 변화는 미확인입니다. 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 시장 건강도(RLSI 31점)가 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX +13)은 중립이라 흔들림을 완충하지도 키우지도 않으며, 변동성 지수(VIX 20.0)는 경계 수준입니다. 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI (Oct)로, 수치가 강하면 경기 우려가 줄고 약하면 하락 압력이 커집니다."
+    },
+    {
+      "session": "POST",
+      "repeat": 1,
+      "locale": "en",
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%; futures change since that close is unconfirmed. Today's macro driver is unconfirmed. Any rebound looks fragile here: market health (RLSI 31) is weak, leaving little underlying support, while options positioning (GEX +13) is neutral — dealers are neither cushioning nor amplifying swings — and the VIX volatility gauge at 20.0 remains elevated. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a strong reading could ease growth concerns and steady stocks, while a weak one would add to the downside pressure."
+    },
+    {
+      "session": "POST",
+      "repeat": 1,
+      "locale": "ja",
+      "text": "10/22の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引終了後の先物変化は未確認です。本日の相場を動かしたマクロ要因は未確認です。市場の健全度(RLSI 31)が弱く反発を支える力が乏しく、オプション・ポジション(GEX +13)は中立で値動きを支えも増幅もせず、変動性指数(VIX 20.0)は警戒水準です。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のS&P Global Composite PMI (Oct)で、強い結果なら景気懸念が和らぎ、弱ければ下落圧力が増す方向と読めます。"
+    },
+    {
+      "session": "POST",
+      "repeat": 2,
+      "locale": "ko",
+      "text": "10/22(목) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 종가 이후 선물 변화는 미확인입니다. 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 시장 건강도(RLSI 31점)가 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX +13)은 중립이라 흔들림을 키우지도 완충하지도 않으며, 변동성 지수(VIX 20.0)는 경계 수준입니다. 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI (Oct)로, 수치가 강하면 경기 우려가 줄고 약하면 하락 압력이 커집니다."
+    },
+    {
+      "session": "POST",
+      "repeat": 2,
+      "locale": "en",
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%; futures change since that close is unconfirmed. Today's macro driver is unconfirmed. Any rebound looks fragile here: market health (RLSI 31) is weak, leaving little underlying support, while options positioning (GEX +13) is neutral — dealers are neither cushioning nor amplifying swings — and the VIX volatility gauge at 20.0 sits in elevated territory. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a strong reading could ease growth concerns and steady stocks, while a weak one would add to the downside pressure."
+    },
+    {
+      "session": "POST",
+      "repeat": 2,
+      "locale": "ja",
+      "text": "10/22の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引終了後の先物変化は未確認です。本日の相場を動かしたマクロ要因は未確認です。市場の健全度(RLSI 31)が弱く反発を支える力が乏しく、オプション・ポジション(GEX +13)は中立で値動きを支えも増幅もせず、変動性指数(VIX 20.0)は警戒水準にあります。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のS&P Global Composite PMI (Oct)で、強い結果なら景気懸念が和らぎ、弱ければ下落圧力が増す方向と読めます。"
+    },
+    {
+      "session": "POST",
+      "repeat": 3,
+      "locale": "ko",
+      "text": "10/22(목) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 종가 이후 선물 변화는 미확인입니다. 오늘 시장 전체를 움직인 뚜렷한 재료는 확인되지 않았습니다. 시장 건강도(RLSI 31점)가 약해 반등을 받칠 힘이 부족하고, 옵션 포지션(GEX +13)은 중립이라 흔들림을 받쳐 주지도 키우지도 않으며, 변동성 지수(VIX 20.0)는 경계 수준입니다. 다음 분기점은 10/23(금) 09:45 ET(한국 22:45) 예정된 S&P Global Composite PMI (Oct)로, 수치가 강하면 경기 우려가 줄고 약하면 하락 압력이 커집니다."
+    },
+    {
+      "session": "POST",
+      "repeat": 3,
+      "locale": "en",
+      "text": "In the 10/22 cash session Nasdaq Composite fell 2.6% and S&P 500 fell 1.2%; futures change since that close is unconfirmed. Today's macro driver is unconfirmed. Any rebound looks fragile here: market health (RLSI at 31) is weak, offering little support for a recovery, while options positioning (GEX +13) is neutral — dealers are neither cushioning nor amplifying swings — and the VIX volatility gauge at 20.0 remains elevated. The next test is the scheduled S&P Global Composite PMI (Oct), 10/23 (Fri) 09:45 ET: a strong reading could ease growth concerns and steady stocks, while a weak one would add to the selling pressure."
+    },
+    {
+      "session": "POST",
+      "repeat": 3,
+      "locale": "ja",
+      "text": "10/22の通常取引でナスダック総合は2.6%、S&P500は1.2%下落し、現在の取引終了後の先物変化は未確認です。本日の相場を動かしたマクロ要因は未確認です。市場の健全度(RLSI 31点)が弱く反発を支える力が乏しく、オプション・ポジション(GEX +13)は中立で値動きを支えも増幅もせず、変動性指数(VIX 20.0)は警戒水準にあります。次の分岐点は10/23(金) 09:45 ET(日本時間 22:45)予定のS&P Global Composite PMI (Oct)で、強い結果なら景気懸念が和らぎ、弱ければ株価への下押し圧力が強まる方向と読めます。"
+    }
+  ]
+}

@@ -450,7 +450,7 @@ export default function RLSIInsightPanel({
                                 <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5" style={{ fontFamily: 'Pretendard, sans-serif', maxHeight: '145px' }}>
                                     {renderColoredText(insightDesc)}
                                 </div>
-                                <div className="text-xs text-amber-500/50 font-mono mt-1.5 font-jakarta">Last session analysis</div>
+                                <div className="text-xs text-amber-500/50 font-mono mt-1.5 font-jakarta">{t('lastSessionAnalysis')}</div>
                             </>
                         ) : (
                             <div className="flex items-center gap-3 py-1.5">
@@ -692,7 +692,7 @@ export default function RLSIInsightPanel({
                             {renderColoredText(fullView === 'briefing' ? (briefingData?.briefing || '') : insightDesc)}
                         </div>
                         {fullView === 'tactical' && !isMarketActive && (
-                            <div className="text-xs text-amber-500/60 font-mono mt-2 flex-none font-jakarta">Last session analysis</div>
+                            <div className="text-xs text-amber-500/60 font-mono mt-2 flex-none font-jakarta">{t('lastSessionAnalysis')}</div>
                         )}
                         {fullView === 'briefing' && briefingData?.generatedAt && (
                             <div className="text-xs text-amber-500/60 font-mono mt-2 flex-none font-jakarta">

@@ -120,7 +120,7 @@ function probe(key, p) {
         const url = `https://${BASE}/${p}${p.includes('?') ? '&' : '?'}api_key=${key}`;
         const req = https.get(url, { timeout: 20000 }, (res) => {
             let d = '';
-            res.on('data', (c) => (d += c));
+            res.setEncoding('utf8').on('data', (c) => (d += c));
             res.on('end', () => resolve({ code: res.statusCode, body: d, ms: Date.now() - t0 }));
         });
         req.on('timeout', () => { req.destroy(); resolve({ code: 0, body: 'timeout', ms: Date.now() - t0 }); });

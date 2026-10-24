@@ -89,7 +89,7 @@ let memoryCache: { data: BreadthSnapshot | null; expiry: number } = {
  * Get Market Breadth - queries 5000+ US stocks via Massive Snapshot API
  * Uses 3-tier cache: Memory → Redis → Massive API
  */
-export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<BreadthSnapshot> {
+export async function getMarketBreadth(nasdaqChangePct: number | null = 0): Promise<BreadthSnapshot> {
     const now = Date.now();
     const session = marketSession();
     let nonRegRequiresCompletedSession = false;
@@ -112,11 +112,11 @@ export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<Bre
         const lrNewerSameSession = archOk && lrOk && lrDate === arch!.stamp.sourceSessionDate
             && Number.isFinite(lrTs) && lrTs > (arch!.stamp.observedAt ?? 0);
         if (archOk && !lrNewerSameSession) {
-            return { ...arch!.value, sourceSessionDate: arch!.stamp.sourceSessionDate, isDivergent: nasdaqChangePct > 0.3 && arch!.value.breadthPct < 40 };
+            return { ...arch!.value, sourceSessionDate: arch!.stamp.sourceSessionDate, isDivergent: (nasdaqChangePct != null && nasdaqChangePct > 0.3) && arch!.value.breadthPct < 40 };
         }
         if (lrOk) {
             console.log(`[Breadth] ${session}: 직전 정규장 판독값 유지 (${lastReg!.advancers}↑/${lastReg!.decliners}↓ @ ${lastReg!.timestamp}) · 기대 세션 ${lastCompletedSessionDate(now)}`);
-            return { ...lastReg!, sourceSessionDate: lrDate, isDivergent: nasdaqChangePct > 0.3 && lastReg!.breadthPct < 40 };
+            return { ...lastReg!, sourceSessionDate: lrDate, isDivergent: (nasdaqChangePct != null && nasdaqChangePct > 0.3) && lastReg!.breadthPct < 40 };
         }
         // 폴백: 아래 일반 경로로 내려가되, **완료된 거래일의 전수 데이터일 때만** 쓴다.
         // 시간외 호가로 다시 재면 유동성 좋은 종목만 남은 편향 표본이 되고
@@ -129,7 +129,7 @@ export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<Bre
     if (memoryCache.data && memoryCache.expiry > now) {
         // Re-evaluate divergence with latest NQ data
         const cached = { ...memoryCache.data };
-        cached.isDivergent = nasdaqChangePct > 0.3 && cached.breadthPct < 40;
+        cached.isDivergent = (nasdaqChangePct != null && nasdaqChangePct > 0.3) && cached.breadthPct < 40;
         return cached;
     }
 
@@ -139,7 +139,7 @@ export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<Bre
         if (redisData) {
             console.log(`[Breadth] From Redis: ${redisData.advancers}↑ / ${redisData.decliners}↓`);
             memoryCache = { data: redisData, expiry: now + MEMORY_TTL_MS };
-            redisData.isDivergent = nasdaqChangePct > 0.3 && redisData.breadthPct < 40;
+            redisData.isDivergent = (nasdaqChangePct != null && nasdaqChangePct > 0.3) && redisData.breadthPct < 40;
             return redisData;
         }
     } catch (e) {
@@ -156,7 +156,7 @@ export async function getMarketBreadth(nasdaqChangePct: number = 0): Promise<Bre
  * Endpoint: /v2/snapshot/locale/us/markets/stocks/tickers
  */
 async function fetchFreshBreadth(
-    nasdaqChangePct: number,
+    nasdaqChangePct: number | null,
     requireCompletedSession = false
 ): Promise<BreadthSnapshot> {
     const mkDefault = (reason: string) => createDefaultSnapshot(reason);
@@ -240,7 +240,7 @@ async function fetchFreshBreadth(
         else if (breadthPct <= 40) signal = 'WEAK';
 
         // Divergence: Index UP but breadth is weak
-        const isDivergent = nasdaqChangePct > 0.3 && breadthPct < 40;
+        const isDivergent = (nasdaqChangePct != null && nasdaqChangePct > 0.3) && breadthPct < 40;
 
         const snapshot: BreadthSnapshot = {
             advancers,

@@ -1,5 +1,10 @@
 import { fmpFetch } from '@/lib/fmpClient';
+import { buildIndexFacts, tacticalSessionAt } from '@/lib/ai/tacticalIndexFacts';
+import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
+import { guardianCashChange } from '@/lib/marketIndexBasis';
+import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
 import { datedHeadline, cachedEvidence, buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
+import { rotationFactsFrom } from '@/lib/ai/rotationPrompt';
 import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rlsiEngine";
 // [FIX] Import getMarketSession for cache session validation
 import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationIntensity } from "./sectorEngine";
@@ -20,7 +25,7 @@ import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock'
 // ★2026-10-08 언어와 무관한 숫자는 «공유 코어» 하나 — 같은 시각 ko·ja·en 의 RLSI·GEX 가 갈리던 것을 막는다(guardianCore.ts 머리말)
 import {
     CORE_KEY, CORE_LOCK_KEY, CORE_LOCK_MS, VERDICT_TEXTS, deriveLocaleParts, getSharedCore, overlayCore,
-    type CoreDeps, type GuardianCore,
+    withCashIndexBasis, type CoreDeps, type GuardianCore,
 } from "./guardianCore";
 
 // === TYPES ===
@@ -273,11 +278,40 @@ const CORE_DEPS: CoreDeps = {
     log: (m) => console.warn(m),
 };
 
+/**
+ * ★2026-10-24 장외 순환매 v3 승격용 생성 재료 — 공유 코어만으로(공급사 호출 없음). 장중 aiContext 의 순환매 관련 필드와 같은 출처.
+ *   장외 경로(저장 판정·스냅샷 출구)는 aiContext 를 만들지 않아 여기서 만든다.
+ */
+function offHoursRotationContext(core: GuardianCore, locale: Locale) {
+    const macro = core.market, g = core.gammaShield;
+    let divergenceCase: 'A' | 'B' | 'C' | 'D' | 'N' | undefined;
+    try { divergenceCase = deriveLocaleParts(core, locale).divCase.caseId as typeof divergenceCase; } catch { divergenceCase = undefined; }
+    return {
+        rlsiScore: core.rlsi.score, nasdaqChange: macro?.nqChangePercent || 0, indexBasis: macro?.indexBasis, session: core.rlsi.session,
+        vectors: core.vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
+        vix: macro?.vix || 0, locale,
+        us10yChangeBp: us10yChangeBp(macro?.factors?.us10y),
+        dxy: macro?.dxy ?? undefined,
+        goldChangePct: macro?.factors?.gold?.chgPct ?? undefined,
+        oilChangePct: macro?.factors?.oil?.chgPct ?? undefined,
+        btcChangePct: macro?.factors?.btc?.chgPct ?? undefined,
+        tltChangePct: macro?.tltChangePct ?? undefined,
+        gexIndex: g?.gexIndex ?? undefined, gexLevel: g?.gexLevel ?? undefined, squeezeRisk: g?.squeezeRisk ?? undefined,
+        triggerSupport: g?.supportWall ?? undefined, triggerResistance: g?.resistanceWall ?? undefined,
+        marketNewsHeadlines: core.news?.length ? core.news : undefined, scheduledEvents: core.scheduledEvents, asOf: core.timestamp,
+        divergenceCase,
+        rotationFacts: rotationFactsFrom(core.rotationIntensity, core.sectors, core.vectors),
+    };
+}
+
 /** 추가 공급사 호출 없이 공유 코어의 근거를 현재 시각으로 재검사한다. 결측은 그대로 둔다. */
 function currentTacticalPrompts(nums: GNums, core: GuardianCore | null, gamma?: GammaShieldData | null) {
     const ctx = {
-        ...nums, rlsiScore: nums.RLSI!, nasdaqChange: nums.NDX_CHG!, vix: nums.VIX!,
-        marketNewsHeadlines: core?.news, scheduledEvents: core?.scheduledEvents,
+        ...nums, rlsiScore: nums.RLSI!, nasdaqChange: nums.NDX_CHG ?? null,
+        indexBasis: core?.market.indexBasis,
+        indexFacts: buildIndexFacts(core?.market.indexBasis, tacticalSessionAt(Date.now()), Date.now()),
+        session: tacticalSessionAt(Date.now()), vix: nums.VIX!,
+        marketNewsHeadlines: filterMarketHeadlines(core?.news || []), scheduledEvents: core?.scheduledEvents,
         asOf: new Date(Date.now()).toISOString(),
         triggerSupport: gamma?.supportWall, triggerResistance: gamma?.resistanceWall,
         triggerCurrent: gamma?.currentPrice, gammaFlipPoint: gamma?.gammaFlipPoint,
@@ -296,7 +330,10 @@ export class GuardianDataHub {
         // ★2026-10-08 숫자는 언어와 무관한 «공유 코어» 하나 — 어느 경로(Redis 스냅샷·메모리·lastgood·새 계산)로 온 언어별 컨텍스트든
         //   응답 직전에 최신 코어로 맞춘다. 같은 시각 ko·ja·en 의 RLSI·GEX 가 갈리던 것(10/7 42.7·43.4·46.3 / −26·−10·−16)을 막는다.
         const shared = await GuardianDataHub.withSharedCore(context, locale);
-        return GuardianDataHub.guardVerdictOnExit(shared.context, locale, shared.core);
+        const indexBasis = await loadMarketIndexBasis();
+        const rebased = withCashIndexBasis(shared.context, indexBasis, locale);
+        const rebasedCore = shared.core ? { ...shared.core, market: rebased.market } : null;
+        return GuardianDataHub.guardVerdictOnExit(rebased, locale, rebasedCore);
     }
 
     /** 응답 출구의 숫자 일치 — 코어를 못 읽으면(장애) 컨텍스트를 그대로 둔다. 절대 던지지 않는다 */
@@ -324,6 +361,10 @@ export class GuardianDataHub {
         // ★2026-10-04 같은 응답의 화면 숫자(market·rlsi)로 자리표를 채우고, 숫자로 박힌 지표를 대조한다(lib/ai/guardianNumbers)
         const nums = guardianNumsFromContext(context);   // ★2026-10-07 T5: 시장·RLSI + 감마 쉴드(GEX·스퀴즈)·참여폭
         const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums, currentTacticalPrompts(nums, core, context.gammaShield));
+        // ★2026-10-24 순환매 v3 — 장외 스냅샷은 워커가 이 응답을 다시 써서 재계산 없이 돈다(저장 판정 경로를 안 탄다). 출구에서도 옛 계약 글을 승격한다
+        //   (v3 저장본이 있으면 교체 · 없으면 잠금 1회 백그라운드 생성 · 실패하면 옛 글 그대로). 승격본은 워커가 스냅샷에 다시 쓴다.
+        const up = core ? await IntelligenceNode.offHoursRotationUpgrade(r.verdict, locale, nums, () => offHoursRotationContext(core, locale), (job) => CORE_DEPS.background?.(job) ?? false) : null;
+        if (up) return { ...context, verdict: up };
         return r.changed ? { ...context, verdict: r.verdict } : context;
     }
 
@@ -422,7 +463,7 @@ export class GuardianDataHub {
 
             // === STEP 3: DIVERGENCE ANALYSIS (The Logic) — 코어에서 파생(guardianCore.deriveLocaleParts) ===
             // Logic: Compare Nasdaq Change vs RLSI Score
-            const nq = macro?.nqChangePercent || 0;
+            const nq = guardianCashChange(macro, core.session);
             const parts = deriveLocaleParts(core, locale);
             const divCase = parts.divCase;
 
@@ -437,17 +478,21 @@ export class GuardianDataHub {
 
             const storedVerdict = (!force && rlsi.session === 'CLOSED') ? await loadAiVerdict(locale) : null;
             if (storedVerdict) {
+                const storedNums = guardianNumsFromMarket(macro, rlsi.score, {
+                    gexIndex: gammaShieldData?.gexIndex, squeezeRisk: gammaShieldData?.squeezeRisk,
+                    breadthPct: rlsi.session === 'REG' ? rlsi.components?.breadthPct : undefined,
+                });
                 // [V12.0] Only truly CLOSED hours use cached AI verdict (weekends, nights 20:00-04:00 ET)
                 // [FIX] PRE and POST sessions now generate fresh AI analysis instead of returning stale off-hours cache
                 // ★2026-09-29 저장된 판정도 출구 검사를 지난다. 떨어진 칸은 교체하고 저장본도 고쳐 둔다
                 //   (이 키는 마케팅·콘텐츠 생성기도 직접 읽는다 — lib/marketing-v2/core/data.ts, api/admin/content-gen).
                 //   ★2026-10-04 숫자도 — 금요일 장중에 만든 글의 «나스닥 +0.94%·RLSI 41»이 주말 화면(+0.98%·38)과 달랐다.
-                const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict', guardianNumsFromMarket(macro, rlsi.score, {
-                    gexIndex: gammaShieldData?.gexIndex, squeezeRisk: gammaShieldData?.squeezeRisk,
-                    breadthPct: rlsi.session === 'REG' ? rlsi.components?.breadthPct : undefined,
-                }), currentTacticalPrompts(guardianNumsFromMarket(macro, rlsi.score), core, gammaShieldData));
+                const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict', storedNums, currentTacticalPrompts(guardianNumsFromMarket(macro, rlsi.score), core, gammaShieldData));
                 verdict = repaired.verdict;
-                if (repaired.changed) await saveAiVerdict(verdict, locale);
+                // ★2026-10-24 순환매 v3 — 장외 저장 판정의 옛 계약 글(레이블·선물 «나스닥»)을 v3 글로(저장본이 있으면 교체, 없으면 1회 백그라운드 생성 · 실패하면 옛 글 유지)
+                const upgraded = await IntelligenceNode.offHoursRotationUpgrade(verdict, locale, storedNums, () => offHoursRotationContext(core, locale), (job) => CORE_DEPS.background?.(job) ?? false);
+                if (upgraded) verdict = upgraded;
+                if (repaired.changed || upgraded) await saveAiVerdict(verdict, locale);
             } else {
                 // Standard Market: Use Dual Stream AI (including divergence situations)
                 const staticVerdict: GuardianVerdict = {
@@ -470,15 +515,18 @@ export class GuardianDataHub {
 
                     // [V6.1] Detect signal conflicts before AI context
                     let signalConflict: string | undefined;
-                    if (rlsi.score >= 55 && nq > 0 && ri.direction === 'RISK_OFF' && ri.conviction === 'HIGH') {
-                        signalConflict = `겉은 강세(RLSI ${rlsi.score.toFixed(0)}, NQ +${nq.toFixed(2)}%), 속은 약세(${ri.direction} ${ri.conviction})`;
-                    } else if (rlsi.score <= 35 && nq < 0 && ri.direction === 'RISK_ON' && ri.conviction === 'HIGH') {
-                        signalConflict = `지표 약세(RLSI ${rlsi.score.toFixed(0)}, NQ ${nq.toFixed(2)}%), 성장주 유입(${ri.direction} ${ri.conviction})`;
+                    if (rlsi.score >= 55 && nq != null && nq > 0 && ri.direction === 'RISK_OFF' && ri.conviction === 'HIGH') {
+                        signalConflict = `겉은 강세(RLSI ${rlsi.score.toFixed(0)}, NASDAQ +${nq.toFixed(2)}%), 속은 약세(${ri.direction} ${ri.conviction})`;
+                    } else if (rlsi.score <= 35 && nq != null && nq < 0 && ri.direction === 'RISK_ON' && ri.conviction === 'HIGH') {
+                        signalConflict = `지표 약세(RLSI ${rlsi.score.toFixed(0)}, NASDAQ ${nq.toFixed(2)}%), 성장주 유입(${ri.direction} ${ri.conviction})`;
                     }
 
                     const aiContext = {
                         rlsiScore: rlsi.score,
                         nasdaqChange: macro?.nqChangePercent || 0,
+                        indexBasis: macro.indexBasis,
+                        indexFacts: buildIndexFacts(macro.indexBasis, rlsi.session, Date.parse(core.timestamp)),
+                        session: rlsi.session,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
                         // ⚠️ rvolEngine 은 PRE/POST/CLOSED 에서 «측정 안 함»을 rvol:0 으로 표현한다.
                         //    그 0 을 그대로 AI 에 넘기면 «거래량 0.00x 저조»라는 **사실 주장**으로
@@ -507,9 +555,11 @@ export class GuardianDataHub {
                         noiseWarning: ri.noiseFlags?.join(', ') || undefined,
                         trendVsToday: detectBounceWarning(),
                         rotationConviction: ri.conviction,
+                        // ★2026-10-24 순환매 v3 재료 — 섹터 5거래일 등락률(소수 1자리)·강도·기관 수급(위 날것 문자열 대신 lib/ai/rotationPrompt 가 쓴다)
+                        rotationFacts: rotationFactsFrom(ri, flows, vectors),
                         signalConflict,
                         // [V8.0] Market News Headlines
-                        marketNewsHeadlines: marketNews.length > 0 ? marketNews : undefined,
+                        marketNewsHeadlines: marketNews.length ? marketNews : undefined,
                         scheduledEvents,
                         asOf: core.timestamp,
                         // [V9.0] Macro Intelligence — full asset class context
@@ -563,7 +613,8 @@ export class GuardianDataHub {
 
                     // ★2026-10-04 생성 재료의 화면 숫자 — 자리표를 채우는 값이자 글의 기준(basis)
                     const aiNums = guardianNumsFromAiContext(aiContext);
-                    const tacticalPrompts = (l: Locale) => buildTacticalPrompt({ ...aiContext, asOf: new Date(Date.now()).toISOString() }, l);   // 일정의 미래 여부는 요청 시각으로
+                    const tacticalContext = { ...aiContext, marketNewsHeadlines: filterMarketHeadlines(marketNews) };
+                    const tacticalPrompts = (l: Locale) => buildTacticalPrompt({ ...tacticalContext, asOf: new Date(Date.now()).toISOString() }, l);   // 일정의 미래 여부는 요청 시각으로
                     const [rotationText, realityText, gammaText] = await Promise.all([
                         // ⚠️ 예전엔 실패 시 «Insight generation failed. …» 영어 문장을 돌려줬고, 그게 ko/ja 화면에 그대로 나갔다.
                         //    실패해도 «검사를 통과한 마지막 정상본 → 번역 → 안내 문구» 중 하나만 나간다.
@@ -571,7 +622,7 @@ export class GuardianDataHub {
                             console.error("[Guardian] Rotation AI failed:", e);
                             return IntelligenceNode.recoverInsight('rotation', locale, { nums: aiNums });
                         }),
-                        IntelligenceNode.generateRealityInsight(aiContext).catch(e => {
+                        IntelligenceNode.generateRealityInsight(tacticalContext).catch(e => {
                             console.error("[Guardian] Reality AI failed:", e);
                             return IntelligenceNode.recoverInsight('reality', locale, { nums: aiNums, tacticalPrompts });
                         }),
@@ -813,7 +864,7 @@ export class GuardianDataHub {
         //    그런데 그 자리를 채워 주는 코드가 어디에도 없어서, 가디언의
         //    Market Breadth 패널은 항상 «0↑ / 0↓ / 총 0» 이었다.
         //    → breadthEngine 은 메모리+Redis 캐시라 재호출이 사실상 공짜다. 직접 읽는다.
-        const breadthSnapshot = await getMarketBreadth(macro?.nqChangePercent || 0).catch(() => null);
+        const breadthSnapshot = await getMarketBreadth(guardianCashChange(macro, rlsi.session)).catch(() => null);
 
         return {
             v: 1,
