@@ -118,7 +118,14 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         // 현재 쪽이 우연히 맞더라도 «위면 증폭/아래면 완충»이라는 뒤집힌 조건은 거절한다.
         // 부정된 반대 기전(«below it, hedging does not dampen»)은 뒤집힌 조건이 아니라 올바른 설명이다(관문 10241729).
         // «amplifies rather than cushions»·«instead of cushioning»·«완충이 아니라»·«緩和ではなく»처럼 대조로 부정된 기전도 같다(관문 10241801).
-        const negatedClause = (m: RegExpMatchArray) => NEG_MECHANISM.test(m[0]) || CONTRAST.test(m[0])
+        // 영어 부정은 «그 갈래의 기전 단어 바로 앞(10자)»에 있을 때만(«does not dampen»). «does not cushion but amplifies»의 not 은 다른 단어를 부정한다(관문 10242027).
+        const mechNegated = (m: RegExpMatchArray, i: number) => {
+            const w = [...m[0].matchAll(new RegExp(MECHANISM_WORDS[l][i], 'gi'))].pop();
+            if (!w) return false;
+            return /\b(?:not|no|never|n't|without)\b[^,;.]{0,10}$|n't\s*$/i.test(m[0].slice(Math.max(0, (w.index ?? 0) - 14), w.index));
+        };
+        const negatedClause = (m: RegExpMatchArray, i = BRANCHES[l].findIndex(re => new RegExp(re.source, re.flags.replace('g', '')).test(m[0]))) =>
+            (l === 'en' ? mechNegated(m, Math.max(0, i)) : NEG_MECHANISM.test(m[0])) || CONTRAST.test(m[0])
             || /^\s*(?:이|가|은|는)?\s*(?:아니라|아닌|대신)|^\s*(?:では|じゃ)なく/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 8))
             || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6));
         // 반대 기전 «어휘» 판정은 두지 않는다 — 감소·부재·부정 서술(줄고·사라지는·limits·less·loses…)을 뒤집힘으로 오독하는 오탈락이
@@ -129,24 +136,22 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         if (!pair.every(re => new RegExp(re).test(t))) continue;
         // 기전을 부정한 조건절(«위면 완충하지 않는다»·«does not dampen»·«緩和せず»)은 올바른 조건 구조가 아니다(관문 10240458).
         // 부정어는 절 안(영어) 또는 절 «바로 뒤»(한국어 «완충하지 않고»·일본어 «緩和せず»)만 본다 — «; no direction implied» 같은 다음 절은 제외(관문 10241657).
-        if (pair.some(re => [...t.matchAll(new RegExp(re))].some(negatedClause)))
+        if (pair.some(re => [...t.matchAll(new RegExp(re))].some(m => negatedClause(m))))
             reasons.push(`${l}:v2:conditional-mechanism`);
         const residual = pair.reduce((s, re) => s.replace(new RegExp(re), ''), t);
         // 남은 절의 위치·기전 단어 = 현재 상태 주장. 부정된 절(«Price is not above»)은 판정하지 않는다(오탈락 방지).
         const segments = residual.split(/[,;.。、·]/);
-        const negatedAt = (index: number) => {
-            let at = 0;
-            for (const seg of segments) { if (index <= at + seg.length) return NEG_MECHANISM.test(seg) || /아니|ではな/.test(seg); at += seg.length + 1; }
-            return false;
-        };
+        // 부정은 그 위치어에 붙은 것만(«not below», «아래가 아니라», «下ではなく»). 같은 절의 다른 긍정 위치어(«…but above»)는 계속 판정(관문 10242027).
+        const negatedAt = (index: number, len = 0) => /\b(?:not|no|never|isn't|aren't|nor)\s+(?:\w+\s+)?$/i.test(residual.slice(Math.max(0, index - 14), index))
+            || /^\s*(?:이|가|은|는|에)?\s*(?:아니|아닌|아닙)|^\s*(?:では|じゃ)な|^\s*に(?:は)?(?:ない|ありません)/.test(residual.slice(index + len, index + len + 8));
         for (const m of residual.matchAll(new RegExp(CURRENT_SIDE[l]))) {
-            if (negatedAt(m.index ?? 0)) continue;
+            if (negatedAt(m.index ?? 0, m[0].length)) continue;
             const side = /^(?:위|above|over|上)$/i.test(m[1]) ? 'a' : 'b';
             if (side !== f.side) reasons.push(`${l}:v2:current-side`);
         }
         // «currently cushions swings»처럼 위치 단어 없이 현재 기전만 쓴 주장도 실제 쪽과 맞춘다(관문 10241657).
         for (const m of residual.matchAll(new RegExp(CURRENT_MECH[l]))) {
-            if (negatedAt(m.index ?? 0)) continue;
+            if (negatedAt(m.index ?? 0, m[0].length) || NEG_MECHANISM.test(m[0])) continue;
             const side = new RegExp(MECHANISM_WORDS[l][0]).test(m[1]) ? 'a' : 'b';
             if (side !== f.side) reasons.push(`${l}:v2:current-mechanism`);
         }
