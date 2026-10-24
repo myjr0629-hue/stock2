@@ -229,6 +229,8 @@ async function readEarningsPackMemo(): Promise<ImpliedPack | null> {
 }
 
 const OBS_MAX_AGE_DAYS = 5;
+/** 구조 경로(resolveImpliedMoves)의 마감 관측 대조 상한 — 넘으면 구조 값 그대로 */
+const CLOSING_OBS_BUDGET_MS = 300;
 
 /** 저장된 마감 관측이 «쓸 수 있는 정의값»인가 — 만기 일치·EOD·세션 5일 이내·다리 값 양수 */
 function usableClosingObservation(im: any, expiry: string, today: string): im is EarningsMove {
@@ -376,6 +378,7 @@ function canonicalEach(rows: Array<{ ticker: string; fields: ImpliedMoveFields }
         work.push({ i, ticker, memoKey, fields: row.fields, im });
     });
     if (!work.length) return out;
+    let expired = false;   // 상한으로 이미 «모름» 정산된 조회 — 늦게 끝나도 메모를 쓰지 않는다(새 조회의 더 새 값을 덮지 않게 · 관문 10250531 ①)
     const compute = (async (): Promise<Array<ImpliedMoveFields | null | undefined>> => {
         const reqs: ImpliedMoveRequest[] = work.map((w) => ({ ticker: w.ticker }));
         const results: ResolvedImpliedMove[] = work.map((w) => resolvedMoveOf(w.ticker, w.im, 'structure', null));
@@ -385,6 +388,7 @@ function canonicalEach(rows: Array<{ ticker: string; fields: ImpliedMoveFields }
         } catch {
             return work.map(() => undefined);   // 읽기 실패 — 기억하지 않고 그대로
         }
+        if (expired) return work.map(() => undefined);
         if (canonMemo.size > 2000) canonMemo.clear();
         const at = Date.now();
         return work.map((w, k) => {
@@ -400,7 +404,7 @@ function canonicalEach(rows: Array<{ ticker: string; fields: ImpliedMoveFields }
     })();
     // 끝나지 않는 조회가 진행 중 항목으로 영원히 남지 않게 — 상한 뒤엔 «모름»으로 정산(관문 10250519 남은 위험)
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const batch = Promise.race([compute, new Promise<Array<undefined>>((r) => { timer = setTimeout(() => r(work.map(() => undefined)), CANON_INFLIGHT_MAX_MS); })])
+    const batch = Promise.race([compute, new Promise<Array<undefined>>((r) => { timer = setTimeout(() => { expired = true; r(work.map(() => undefined)); }, CANON_INFLIGHT_MAX_MS); })])
         .catch(() => work.map(() => undefined))
         .finally(() => { if (timer) clearTimeout(timer); });
     work.forEach((w, k) => {
@@ -601,7 +605,18 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
     }
     // [T26] 같은 종목·만기의 «마감 관측»이 있으면 실적 경로와 같은 규칙(shouldUseEarningsObservation)으로 고른다.
     //   after 요청은 readImpliedMoveRows 가 그 발표의 관측을 직접 읽으므로 여기선 일반 요청만.
-    await applyClosingObservations(reqs, results);
+    //   [T26b 관문 10250531 ②] 상한(300ms) 안에서만 — 넘으면 구조 값 그대로. 상한이 짧은 호출자(Intel readIntelImpliedMoves 700ms)가
+    //   대조 지연 때문에 정상 구조 값까지 잃지 않게. 늦게 끝난 대조는 사본에만 쓰여 버려진다.
+    {
+        const canon = results.slice();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const done = await Promise.race([
+            applyClosingObservations(reqs, canon).then(() => true, () => false),
+            new Promise<boolean>((r) => { timer = setTimeout(() => r(false), CLOSING_OBS_BUDGET_MS); }),
+        ]);
+        if (timer) clearTimeout(timer);
+        if (done) canon.forEach((row, i) => { results[i] = row; });
+    }
     // 위 조회를 기다리는 사이 마감됐을 수 있다 — 먼저 채운 행도 응답 직전에 다시 검사한다(지난 만기 값은 내지 않는다).
     const end = Date.now();
     return results.map((row) => (row.im?.expiry && isOptionExpiredAt(row.im.expiry, end) ? resolvedMoveOf(row.ticker, null, null, 'no_straddle') : row));

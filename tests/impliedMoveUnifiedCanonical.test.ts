@@ -226,6 +226,35 @@ async function main() {
   const after10 = await at(WEEKEND, () => IMS.canonicalImpliedMoveFields([{ ticker: 'AMZN', fields: fields(7.8) }]));
   assert.deepEqual(after10[0], fields(7.9), '정산 뒤 다음 요청은 새로 대조(메모 안 됨)');
 
+  // ⑧-f 상한으로 정산된 옛 조회가 늦게 끝나도 메모를 쓰지 않는다(관문 10250531 ①) — 새 조회의 더 새 값(10/26 8.1)이 남는다
+  seed();
+  const realMget2 = slowStore.mgetFromCache;
+  const oldSnapshot = structuredClone(store.get(obsKey('AMZN', '2026-10-29')));   // 10/23 관측(7.9)
+  slowStore.mgetFromCache = (keys: string[]) => new Promise((r) => setTimeout(() => r(keys.map((k) => (k === obsKey('AMZN', '2026-10-29') ? oldSnapshot : null))), 11_000));
+  const POST1026 = Date.parse('2026-10-26T21:30:00Z');
+  const slowOld = at(POST1026, () => IMS.canonicalImpliedMoveFields([{ ticker: 'AMZN', fields: fields(7.8) }]));
+  await new Promise((r) => setTimeout(r, 10_300));                 // 10초 정산 뒤
+  slowStore.mgetFromCache = realMget2;
+  store.set(obsKey('AMZN', '2026-10-29'), obs({ strike: 245, call: 10.2, put: 9.65, spot: 245, session: '2026-10-26' }));
+  const fresh8 = await at(POST1026 + 10_300, () => IMS.canonicalImpliedMoveFields([{ ticker: 'AMZN', fields: fields(7.8) }]));
+  assert.equal(fresh8[0]?.impliedMovePct, 8.1, '새 조회 = 10/26 관측');
+  assert.equal((await slowOld)[0], null, '옛 조회는 «모름»');
+  await new Promise((r) => setTimeout(r, 1_000));                  // 옛 조회 실제 완료
+  const memoAfter = await at(POST1026 + 11_500, () => IMS.canonicalImpliedMoveFields([{ ticker: 'AMZN', fields: fields(7.8) }]));
+  assert.equal(memoAfter[0]?.impliedMovePct, 8.1, '늦게 끝난 옛 조회가 메모를 덮지 않는다(7.9 재노출 없음)');
+
+  // ⑧-g 구조 경로(impliedMoveOfStructure — Intel 700ms 상한 호출자 포함)의 마감 관측 대조는 300ms 상한 — 늦으면 구조 값 그대로(관문 10250531 ②)
+  seed();
+  slowStore.mgetFromCache = (keys: string[]) => new Promise((r) => setTimeout(() => r(keys.map((k) => structuredClone(store.get(k) ?? null))), 900));
+  const st = { options_status: 'OK', expiration: EXPIRY, chainDate: SESSION, availableExpirations: [EXPIRY], underlyingPrice: 248.01,
+    impliedMove: { def: DEF, pct: 7.8, straddle: 19.45, strike: 247.5, expiry: EXPIRY, callPrice: 10.125, putPrice: 9.325, spot: 248.01, basis: 'eod', asOf: null, chainDate: SESSION, session: SESSION } };
+  const t4 = Date.now();
+  const viaStructure = await at(WEEKEND, () => IMS.impliedMoveOfStructure('AMZN', st, 248.01));
+  assert.ok(Date.now() - t4 < 650, `구조 경로 ${Date.now() - t4}ms — Intel 700ms 상한 안`);
+  assert.equal(viaStructure?.pct, 7.8, '대조가 늦으면 정상 구조 값 그대로(누락 아님)');
+  slowStore.mgetFromCache = realMget2;
+  await new Promise((r) => setTimeout(r, 1_000));
+
   // ⑨ 분석 캐시 입구(getAnalysisCacheForTickers·getAnalysisCache) — 이 캐시를 읽는 화면 전부가 7.9 · 저장본은 그대로(쓰기 0)
   seed();
   store.set('cache:analysis:AMZN', analysisEntry('AMZN', 7.8));
@@ -259,7 +288,7 @@ async function main() {
   assert.match(overlayBody, /await overlayCanonicalImpliedMove\(next\);\s*\n\s*return \{ \.\.\.payload, tickers: next \};/);
   assert.match(overlayBody, /overlayCanonicalImpliedMoveRows\(rows, 500\)/);
 
-  console.log('impliedMoveUnifiedCanonical: 16 묶음 통과');
+  console.log('impliedMoveUnifiedCanonical: 18 묶음 통과');
 }
 
 main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
