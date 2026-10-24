@@ -2,6 +2,7 @@
 // V10: Polygon snapshot with manual changePct calculation — works for ALL tickers
 import { NextRequest } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
+import { officialCloseRelated } from "@/services/stalePriceRepair";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -35,6 +36,9 @@ export async function GET(req: NextRequest) {
     }
 
     const ticker = t.toUpperCase();
+    // [T12 · M9] 행마다 «값의 기준»을 함께 싣는다 — session = 공급사 스냅샷이 말한 본장 날짜(_intrinio.regularDate, 읽은 시각이 아니다 — 관문 10250504 ①),
+    //   asOf = 그 행을 계산한 시각(스냅샷을 받은 뒤 — 관문 10250519 ①). unified 캐시가 이 행을 그대로 저장하고, 출구(stalePriceRepair.officialCloseRelated)는
+    //   끝난 세션 S 를 보여 줄 시간에 «S 마감 뒤 계산한 S 행»이 아닌 행을 그 세션의 공식 종가 한 쌍으로 다시 계산한다. 일봉 폴백·실패 행은 session 없음.
 
     try {
         // Step 1: Get related ticker LIST (DynamoDB first, Polygon fallback)
@@ -79,7 +83,9 @@ export async function GET(req: NextRequest) {
             return fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${snapTicker}`, {}, true)
                 .then(async (snap: any) => {
                     const { price, change, prevClose } = calcChangeFromSnapshot(snap?.ticker);
-                    if (price > 0) return { ticker: relT, price, change, logo: null, prevClose };
+                    const rd = snap?.ticker?._intrinio?.regularDate;
+                    const session = typeof rd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rd) ? rd : null;
+                    if (price > 0) return { ticker: relT, price, change, logo: null, prevClose, session, asOf: Date.now() };
                     // [V11] Snapshot failed (weekend/after-hours) — fallback to v2/aggs 2-day bar
                     try {
                         const today = new Date();
@@ -95,7 +101,7 @@ export async function GET(req: NextRequest) {
                             const aggChange = prevBar.c > 0
                                 ? Math.round(((lastBar.c - prevBar.c) / prevBar.c) * 10000) / 100
                                 : 0;
-                            return { ticker: relT, price: Math.round(lastBar.c * 100) / 100, change: aggChange, logo: null, prevClose: prevBar.c };
+                            return { ticker: relT, price: Math.round(lastBar.c * 100) / 100, change: aggChange, logo: null, prevClose: prevBar.c, session: null, asOf: Date.now() };
                         }
                     } catch {}
                     return { ticker: relT, price: 0, change: 0, logo: null, prevClose: 0 };
@@ -103,12 +109,15 @@ export async function GET(req: NextRequest) {
                 .catch(() => ({ ticker: relT, price: 0, change: 0, logo: null, prevClose: 0 }));
         });
 
-        const topRelated = await Promise.race([
+        const fetched = await Promise.race([
             Promise.all(snapPromises),
             new Promise<{ ticker: string; price: number; change: number; logo: null; prevClose?: number }[]>(
                 r => setTimeout(() => r(top4.map((relT: string) => ({ ticker: relT, price: 0, change: 0, logo: null, prevClose: 0 }))), 3000)
             )
         ]);
+        // [T12 · M9] 끝난 세션을 보여 줄 시간에 공급사 스냅샷이 아직 전 세션이거나(본장 날짜 ≠ S) 일봉 폴백·실패 행이면 그 세션의 공식 종가 한 쌍 —
+        //   unified 출구와 같은 함수(앱 직접 화면·웹 마운트 응답이 unified 와 같은 행 계약). S 의 정상 스냅샷 행(시간외 체결 포함)은 그대로.
+        const topRelated = ((await officialCloseRelated({ topRelated: fetched }, Date.now(), 1000).catch(() => null)) ?? { topRelated: fetched }).topRelated;
 
         return new Response(JSON.stringify({
             ticker,

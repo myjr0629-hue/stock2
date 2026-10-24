@@ -213,12 +213,21 @@ export default async function TickerPage({ params, searchParams }: Props) {
         } catch { /* 캘린더 모듈을 못 읽었다 — 원래 값 */ }
     }
 
-    // [T12 · M1] 재무도 API 출구(command/unified jsonResponse)와 같은 함수 — 저장된 직접 재무 API 항목(기준 세션 표식)으로 맞춘다.
+    // [T12 · M1] 재무도 API 출구(command/unified jsonResponse)와 같은 함수 — 저장된 직접 재무 API 항목(더 늦게 읽은 것)으로 맞춘다.
     if (initialUnifiedData?.fundamentals) {
         try {
             const { alignFundamentalsToSource } = await import('@/services/fundamentalsSession');
             const fundamentals = await alignFundamentalsToSource(initialUnifiedData.fundamentals, ticker, Date.now(), 500);
             if (fundamentals !== initialUnifiedData.fundamentals) initialUnifiedData = { ...initialUnifiedData, fundamentals };
+        } catch { /* 모듈을 못 읽었다 — 원래 값 */ }
+    }
+
+    // [T12 · M9] 연관 종목도 API 출구(command/unified jsonResponse)와 같은 함수 — 끝난 세션을 보여 줄 시간엔 그 세션의 공식 종가 한 쌍.
+    if (initialUnifiedData?.related) {
+        try {
+            const { officialCloseRelated } = await import('@/services/stalePriceRepair');
+            const related = await officialCloseRelated(initialUnifiedData.related, Date.now(), 800);
+            if (related !== initialUnifiedData.related) initialUnifiedData = { ...initialUnifiedData, related };
         } catch { /* 모듈을 못 읽었다 — 원래 값 */ }
     }
 
