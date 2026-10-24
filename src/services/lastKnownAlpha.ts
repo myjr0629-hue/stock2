@@ -27,9 +27,13 @@ const num = (x: unknown): number | null => {
     return Number.isFinite(n) ? n : null;
 };
 
-/** 종목들의 «지금 표시해야 할» 알파 점수·등급. 못 잰 종목은 Map 에 없다. */
-export async function readLastKnownAlpha(tickers: string[], now: number = Date.now()): Promise<Map<string, DisplayAlpha>> {
-    const out = new Map<string, DisplayAlpha>();
+/**
+ * 종목들의 «마지막 분석 행» — 알파 스냅샷은 XS 게시본으로 덮은 것. readOptionAlpha(내 종목·종목·cmd·포트폴리오·스냅샷 공통 출구)가
+ * 분석 캐시(낡음 판정)와 응답 자체 알파가 둘 다 없을 때 쓴다. XS 에만 있는 종목은 점수·등급만 담은 스냅샷.
+ * 죽은 체결 필드(다크풀·공매도 비중)는 되살리지 않는다(analysisCache.stripDeadTickFields 와 같은 이유) — null.
+ */
+export async function readLastKnownAnalysis(tickers: string[], now: number = Date.now()): Promise<Map<string, any>> {
+    const out = new Map<string, any>();
     const syms = [...new Set(tickers.map((t) => String(t ?? '').toUpperCase()).filter(Boolean))];
     if (syms.length === 0) return out;
     let rows: any[] = syms.map(() => null);
@@ -38,19 +42,31 @@ export async function readLastKnownAlpha(tickers: string[], now: number = Date.n
     syms.forEach((t, i) => {
         const e = rows?.[i];
         const ts = num(e?.timestamp);
-        const snap = e?.alphaSnapshot && ts !== null && ts <= now + 60_000 && now - ts <= LAST_KNOWN_MAX_AGE_MS ? e.alphaSnapshot : {};
-        const x: any = xsSnapshotOverride(t, { ...snap });
+        const recent = !!e?.alphaSnapshot && ts !== null && ts <= now + 60_000 && now - ts <= LAST_KNOWN_MAX_AGE_MS;
+        const x: any = xsSnapshotOverride(t, recent ? { ...e.alphaSnapshot } : {});
         const score = num(x?.score);
         if (score === null) return;
-        out.set(t, { score, grade: typeof x.grade === 'string' && x.grade && x.grade !== '-' ? x.grade : gradeForScore(score) });
+        const grade = typeof x.grade === 'string' && x.grade && x.grade !== '-' ? x.grade : gradeForScore(score);
+        out.set(t, {
+            alphaSnapshot: { ...x, score, grade },
+            whaleIndex: recent ? (e.whaleIndex ?? null) : null,
+            relVol: recent ? (e.relVol ?? null) : null,
+            darkPoolPct: null, shortVolPct: null,
+        });
     });
     return out;
+}
+
+/** 종목들의 «지금 표시해야 할» 알파 점수·등급. 못 잰 종목은 Map 에 없다. */
+export async function readLastKnownAlpha(tickers: string[], now: number = Date.now()): Promise<Map<string, DisplayAlpha>> {
+    const rows = await readLastKnownAnalysis(tickers, now);
+    return new Map([...rows].map(([t, r]) => [t, { score: r.alphaSnapshot.score, grade: r.alphaSnapshot.grade }]));
 }
 
 /**
  * 인텔 quote 배열(fast·fast-all 응답의 data)에 «지금 게시된 표시 점수»를 덮는다 — 제자리 수정.
  *   · XS 게시본에 있는 종목: XS 점수·등급(저장된 봉투가 22:10Z XS 게시 전에 구워졌어도 스냅샷·워치리스트와 같은 값)
- *   · 그 밖에 못 잰 종목(missingFields 에 alphaScore): 분석 캐시의 마지막 알파
+ *   · XS 밖 종목: 분석 캐시의 마지막 알파(4일 이내)가 있으면 그것, 없으면 봉투 값 그대로(못 잰 0 은 missingFields 유지)
  *   · 채웠으면 missingFields 에서 alphaScore 를 뺀다. 실패하면 받은 그대로 — 화면을 비우지 않는다.
  */
 export async function overlayIntelAlpha(quotes: any[]): Promise<void> {
@@ -61,11 +77,12 @@ export async function overlayIntelAlpha(quotes: any[]): Promise<void> {
         for (const q of quotes) {
             const sym = String(q?.ticker ?? '').toUpperCase();
             if (!sym) continue;
-            const missing = Array.isArray(q.missingFields) && q.missingFields.includes('alphaScore');
             const x: any = xsSnapshotOverride(sym, {});
             const xs = num(x?.score);
             if (xs !== null) { setAlpha(q, xs, x.grade || gradeForScore(xs)); continue; }
-            if (missing || num(q.alphaScore) === null || !q.grade || q.grade === '-') need.push(sym);
+            // XS 밖 종목: 봉투에 잰 값이 있어도 분석 캐시의 마지막 알파가 있으면 그것으로 — 스냅샷·워치리스트 공통 출구와 같은 값
+            //   (봉투는 최대 12시간 묵는다 · 워치리스트가 장중 재계산해 분석 캐시에 써 넣는다)
+            need.push(sym);
         }
         if (need.length === 0) return;
         const last = await readLastKnownAlpha(need);

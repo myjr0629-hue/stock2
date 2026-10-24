@@ -82,6 +82,7 @@ const overlay = evaluate(route, functions(route, ['nz', 'overlayCurrentAlpha']) 
     readOptionAlpha: (...a) => { if (exitThrows) throw Error('exit down'); return service.readOptionAlpha(...a); },
     ensureXsScores: () => xs.ensureXsScores(),
     xsSnapshotOverride: (t, s) => xs.xsSnapshotOverride(t, s),
+    gradeForScore: (v) => xs.gradeForScore(v),
     readLastKnownAlpha: (...a) => load('src/services/lastKnownAlpha.ts').readLastKnownAlpha(...a),
 }).overlayCurrentAlpha;
 
@@ -243,7 +244,7 @@ const baked = () => [
     { ticker: 'NOXS', alphaScore: 0, grade: '-', missingFields: ['alphaScore'] },   // XS 밖 — 분석 캐시 마지막 알파(20분 전)
     { ticker: 'OLDX', alphaScore: 0, grade: '-', missingFields: ['alphaScore'] },   // XS 밖 — 5일 전 행뿐
     { ticker: 'NONE', alphaScore: 0, grade: '-', missingFields: ['alphaScore'] },   // 아무 데도 없음
-    { ticker: 'V8OK', alphaScore: 63, grade: 'B' },                          // XS 밖 · 잰 값 — 그대로
+    { ticker: 'V8OK', alphaScore: 63, grade: 'B' },                          // XS 밖 · 봉투에 잰 옛 값, 분석 캐시엔 새 값 99 S
 ];
 const nowMs = Date.now();
 store.set('cache:analysis:NOXS', { timestamp: nowMs - 20 * 60_000, alphaSnapshot: { score: 55, grade: 'B' } });
@@ -260,7 +261,7 @@ test('수리: fast·fast-all 출구 덮기 — 0·«-» 를 XS 게시 점수로,
     assert.deepEqual([by.NOXS.alphaScore, by.NOXS.grade, by.NOXS.missingFields], [55, 'B', undefined]);
     assert.deepEqual([by.OLDX.alphaScore, by.OLDX.grade, by.OLDX.missingFields], [0, '-', ['alphaScore']]);
     assert.deepEqual([by.NONE.alphaScore, by.NONE.grade, by.NONE.missingFields], [0, '-', ['alphaScore']]);
-    assert.deepEqual([by.V8OK.alphaScore, by.V8OK.grade], [63, 'B']);
+    assert.deepEqual([by.V8OK.alphaScore, by.V8OK.grade], [99, 'S'], 'XS 밖 잰 값도 분석 캐시 마지막 알파로(공통 출구와 같게)');
     assert.equal(by.AMZN.price, 1, '다른 칸은 그대로');
 });
 
@@ -289,10 +290,43 @@ test('수리: 등급 없는 행은 점수로 등급 · Redis 실패해도 XS 로
         const q = baked(); await lka.overlayIntelAlpha(q);
         assert.deepEqual([q[0].alphaScore, q[0].grade], [94, 'S']);
         assert.deepEqual([q[3].alphaScore, q[3].grade], [0, '-'], 'XS 밖은 못 읽으면 그대로');
+        assert.deepEqual([q[6].alphaScore, q[6].grade], [63, 'B'], 'XS 밖 잰 값은 못 읽으면 봉투 그대로');
     } finally { mocks['@/services/redisClient'].mgetFromCache = orig; }
     await lka.overlayIntelAlpha([]); await lka.overlayIntelAlpha(null);
     assert.match(fastSrc, /async function metricsResponse\(body: any\) \{[\s\S]{0,700}await overlayIntelAlpha\(data\);/);
     assert.match(read('src/app/api/intel/fast-all/route.ts'), /applyOptionMetrics\(q, metrics\.get\(q\.ticker\)\)\);[\s\S]{0,400}await overlayIntelAlpha\(quotes\);/);
+});
+
+
+test('관문 보류 1: 워치리스트 price·ssr 캐시 미스(응답에 알파 없음) + 분석 캐시 낡음 → 공통 출구 readOptionAlpha 가 마지막 분석 행(XS 덮음)', async () => {
+    // processWatchlistBatch 는 fallbacks = { ...realtime, alphaSnapshot: r.alphaSnapshot } — price 캐시 미스 행은 alphaSnapshot 이 undefined
+    const fb = new Map([['AMZN', { price: 1, alphaSnapshot: undefined }], ['NOXS', { price: 2, alphaSnapshot: undefined }], ['NONE', { price: 3 }]]);
+    const out = await service.readOptionAlpha(['AMZN', 'NOXS', 'NONE'], new Map(), fb);
+    assert.deepEqual([out.get('AMZN').score, out.get('AMZN').grade], [94, 'S']);
+    assert.deepEqual([out.get('NOXS').score, out.get('NOXS').grade], [55, 'B']);
+    assert.equal(out.get('NONE'), null, '어디에도 없으면 지어내지 않는다');
+    assert.equal(out.get('AMZN').darkPoolPct ?? null, null);
+    // 응답 자체 알파(새 계산)가 있으면 그게 먼저 — 마지막 행이 덮지 않는다
+    const fb2 = new Map([['NOXS', { alphaSnapshot: { score: 61, grade: 'B', action: 'WATCH' } }]]);
+    assert.equal((await service.readOptionAlpha(['NOXS'], new Map(), fb2)).get('NOXS').score, 61);
+    // 세 출구 일치: 같은 순간 fast 덮기 값
+    const q = baked(); await lka.overlayIntelAlpha(q);
+    assert.deepEqual([q[0].alphaScore, q[0].grade], [out.get('AMZN').score, out.get('AMZN').grade]);
+    assert.deepEqual([q[3].alphaScore, q[3].grade], [out.get('NOXS').score, out.get('NOXS').grade]);
+});
+
+test('관문 보류 2: XS 밖 종목 — 봉투 55 B · 최신 분석 81 A → fast·fast-all = 스냅샷 = 공통 출구 = 81 A', async () => {
+    store.set('cache:analysis:NEWV', { timestamp: nowMs - 60_000, alphaSnapshot: { score: 81, grade: 'A', action: 'BULLISH' } });
+    analysis.NEWV = { alphaSnapshot: { score: 81, grade: 'A', action: 'BULLISH' } };
+    try {
+        const q = [{ ticker: 'NEWV', alphaScore: 55, grade: 'B' }];
+        await lka.overlayIntelAlpha(q);
+        const shared = (await service.readOptionAlpha(['NEWV'], new Map())).get('NEWV');
+        const snap = (await overlay({ tickers: [{ ticker: 'NEWV', alpha_score: 55, grade: 'B' }] })).tickers[0];
+        assert.deepEqual([q[0].alphaScore, q[0].grade], [81, 'A']);
+        assert.deepEqual([shared.score, shared.grade], [81, 'A']);
+        assert.deepEqual([snap.alpha_score, snap.grade], [81, 'A']);
+    } finally { delete analysis.NEWV; }
 });
 
 (async () => {

@@ -25,7 +25,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { publicBase } from '@/lib/net/publicBase';
 import { readOptionAlpha } from '@/services/optionAlphaService';
-import { ensureXsScores, xsSnapshotOverride } from '@/services/xsScores';
+import { ensureXsScores, xsSnapshotOverride, gradeForScore } from '@/services/xsScores';
 import { readLastKnownAlpha } from '@/services/lastKnownAlpha';
 
 /**
@@ -52,7 +52,7 @@ async function overlayCurrentAlpha(data: any): Promise<any> {
             const sym = String(t?.ticker ?? '').toUpperCase();
             const a = alpha.get(sym);
             const live = nz(a?.score);
-            if (live !== null) return { ...t, alpha_score: live, grade: a?.grade ?? t.grade ?? null };
+            if (live !== null) return { ...t, alpha_score: live, grade: a?.grade || gradeForScore(live) };
             const lk = last.get(sym);
             if (lk) return { ...t, alpha_score: lk.score, grade: lk.grade };
             const stored = nz(t?.alpha_score);
