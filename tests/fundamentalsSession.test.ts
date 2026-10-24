@@ -148,6 +148,26 @@ async function main() {
   const memoed: any = await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT + 16_000);
   assert.equal(memoed.pe, 26.4); assert.equal(memoed.score, 84, '15초 뒤엔 새 항목');
 
+  // ⑤-d 기존 손익 정의 보정(overlayFundamentals — null 은 건너뛰는 부분 합치기) 뒤에도 출구가 원천 값을 그대로(관문 10250605)
+  //      옛 사본 pe 26.5·de 0.2 + 직접 API 항목 pe·de null(같은 읽기 시각) → unified 도 null(직접 API·SSR 과 같음)
+  {
+    const ts = require('typescript');
+    const rel = 'src/app/api/command/unified/route.ts';
+    const source = fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
+    const ast = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true);
+    const fnText = ast.statements.filter((n: any) => n.name?.text === 'overlayFundamentals').map((n: any) => n.getText(ast)).join('\n');
+    const js = ts.transpileModule(fnText, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+    const directResult = { ...legacyEntry(0).data, pe: null, de: null, score: 64, grade: 'B+', _incomeMetricsVersion: 1, _sourceFetchedAt: SAT - 5_000 };
+    const overlay = new Function('callInternalGet', 'getFundamentals', js + ';return overlayFundamentals;')(async () => directResult, () => {});
+    const oldCopy = { fundamentals: { ...legacyEntry(0).data, pe: 26.5, de: 0.2, _incomeMetricsVersion: undefined, name: 'NVIDIA Corp' } };
+    const repaired = await overlay(oldCopy, 'NVDA');
+    assert.equal(repaired.fundamentals._sourceFetchedAt, undefined, '부분 합치기에 읽은 시각 표식을 옮기지 않는다');
+    FS._resetFundamentalsMemoForTest();
+    store.set(KEY, { timestamp: SAT - 5_000, data: directResult });
+    const exitF: any = await FS.alignFundamentalsToSource(repaired.fundamentals, 'NVDA', SAT);
+    assert.equal(exitF.pe, null); assert.equal(exitF.de, null); assert.equal(exitF.score, 64); assert.equal(exitF.name, 'NVIDIA Corp');
+  }
+
   // ⑥ 배선 — command/unified 의 모든 출구(jsonResponse)·종목 SSR 이 같은 함수, 직접 API 는 기준 세션·isFresh 를 넘긴다
   const unified = fs.readFileSync(path.join(__dirname, '../src/app/api/command/unified/route.ts'), 'utf8');
   const jr = unified.slice(unified.indexOf('async function jsonResponse('), unified.indexOf('// Helper to reliably get the localhost URL'));
@@ -160,7 +180,7 @@ async function main() {
   const swrSrc = fs.readFileSync(path.join(__dirname, '../src/lib/cache/redisSWR.ts'), 'utf8');
   assert.ok(!swrSrc.includes('isFresh'), 'swrFetch 공용 동작 불변');
 
-  console.log('fundamentalsSession: 5 묶음 통과');
+  console.log('fundamentalsSession: 6 묶음 통과');
 }
 
 main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });

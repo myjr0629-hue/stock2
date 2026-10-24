@@ -574,6 +574,9 @@ async function overlayFundamentals(data: any, ticker?: string | null): Promise<a
     // A missing fallback field must not erase market cap, sector, name, or unknown fields.
     const fundamentals = { ...previous };
     for (const [key, value] of Object.entries(result ?? {})) {
+        // [T12 · M1 관문 10250605] 읽은 시각 표식은 «그 결과 전체»에 대한 것 — null 을 건너뛰는 부분 합치기에 옮겨 붙이면
+        //   옛 값이 섞인 사본이 «같은 시각에 읽은 값»처럼 보여 출구 정렬(alignFundamentalsToSource)이 건너뛴다. 옮기지 않는다.
+        if (key === '_sourceFetchedAt') continue;
         if (value !== null && value !== undefined) fundamentals[key] = value;
     }
     fundamentals.netMargin = result?.netMargin ?? null;
