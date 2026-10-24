@@ -55,6 +55,23 @@ test('합성 경계 시험: 두 갈래 뒤 잘못된 현재 위치·기전·숫�
   ];
   for (const why of bad) assert.equal(check(r, why).ok, false, JSON.stringify(why));
 });
+test('관문 10240458 재현: currently/now 없는 반대 위치 주장·부정된 기전 조건절은 탈락, 맞는 위치는 통과', () => {
+  const r = byTicker('AMZN');
+  const below = { ...r.facts, side: 'b' as const };
+  for (const why of [
+    { ...branches, en: 'Gamma Flip: above: cushions swings; below: amplifies swings. Price is above.' },
+    { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭하며 가격은 위에 있습니다' },
+    { ...branches, ja: 'Gamma Flipは上なら緩和・下なら増幅で、価格は上です' },
+    { ...branches, en: 'If above Gamma Flip, hedging does not dampen; if below, it amplifies' },
+    { ...branches, ko: 'Gamma Flip 위면 완충하지 않고 아래면 증폭하는 구조입니다' },
+    { ...branches, ja: 'Gamma Flipの上なら緩和せず、下なら増幅する構造です' },
+  ]) assert.equal(check(r, why, below).ok, false, JSON.stringify(why));
+  for (const why of [
+    { ...branches, en: 'Gamma Flip: above: cushions swings; below: amplifies swings. Price is below.' },
+    { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭하며 가격은 아래에 있습니다' },
+    { ...branches, ja: 'Gamma Flipは上なら緩和・下なら増幅で、価格は下です' },
+  ]) assert.ok(check(r, why, below).ok, JSON.stringify(why) + ' ' + check(r, why, below).reasons);
+});
 test('합성 경계 시험: 현재 쪽만 설명하는 정상문·음차 용어·코드 펜스 보존', () => {
   for (const ticker of ['AAPL', 'AMZN']) {
     const r = byTicker(ticker);

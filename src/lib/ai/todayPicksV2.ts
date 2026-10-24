@@ -75,12 +75,14 @@ const MECHANISM_WORDS: Record<Loc, [string, string]> = {
 };
 const INTERNAL = /\b(?:FINRA|OCC|Intrinio|Polygon|Redis|Bedrock|Haiku|Upstash)\b|지연|\bdelayed\b|遅延/i;
 const NEGATED = /없|아닙|않|\b(?:not|no|neither|without)\b|ません|ない|ありません/i;
+const NEG_MECHANISM = new RegExp(`${NEGATED.source}|못|せず|しない|されない`, 'i');
 const UNSUPPORTED_CAUSE = /\b(?:CPI|FOMC|Fed|tariffs?|inflation)\b|연준|관세|물가\s*발표|関税|インフレ/i;
 const HISTORY = /평소보다|이례적|유례|\b(?:unusually|unprecedented|larger than usual)\b|普段より|異例/i;
+// 조건절을 떼어 낸 나머지에 남은 위치 단어는 «현재 위치 주장»으로 본다(관문 10240458: «Price is above.»처럼 currently/now 없이도).
 const CURRENT_SIDE: Record<Loc, RegExp> = {
-    ko: /(?:현재|지금)[^,;·。]{0,18}?(위|아래)/g,
-    en: /\b(?:currently|now)\b[^,;.]{0,30}?\b(above|below)\b/gi,
-    ja: /(?:現在|今は)[^,;・、。]{0,18}?(上|下)/g,
+    ko: /(?<![가-힣])(위|아래)(?=\s*(?:에|입니|이며|이고|이라|라서|쪽|로|서|$|[,.。]))/g,
+    en: /\b(above|below)\b/gi,
+    ja: /(?<!その|以|向|値|株|史|最|地|底|天|浮|売|買|計|途|川|頭|手|年|目|部|形|陸|水|海|空|身|上|下)(上|下)(?=\s*(?:に|です|で|側|回|、|。|$))/g,
 };
 
 export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: number, today?: string): WhyCheck {
@@ -105,6 +107,10 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
             reasons.push(`${l}:v2:conditional-mechanism`);
         // new RegExp: g 플래그의 lastIndex가 다음 호출에 남지 않게 한다.
         if (!pair.some(re => new RegExp(re).test(t))) continue;
+        // 기전을 부정한 조건절(«위면 완충하지 않는다»·«does not dampen»)은 올바른 조건 구조가 아니다(관문 10240458).
+        // 한국어 «완충하지 않고»처럼 부정어가 절 바로 뒤에 오는 경우까지 본다(절 + 뒤 6자).
+        if (pair.some(re => [...t.matchAll(new RegExp(re))].some(m => NEG_MECHANISM.test(m[0] + t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6)))))
+            reasons.push(`${l}:v2:conditional-mechanism`);
         const residual = pair.reduce((s, re) => s.replace(new RegExp(re), ''), t);
         for (const m of residual.matchAll(new RegExp(CURRENT_SIDE[l]))) {
             const side = /^(?:위|above|上)$/i.test(m[1]) ? 'a' : 'b';
