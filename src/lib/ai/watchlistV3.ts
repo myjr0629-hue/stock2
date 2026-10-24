@@ -18,7 +18,7 @@ CONTENT by TOP EVIDENCE:
 · company headline → what that dated headline means against the options map (a report, not proof of cause);
 · options flow / insider → what that activity means against the map (calls/puts share of large premium; trade direction unknown; never proof of buying);
 · positioning only → the mechanism tied to THIS stock's own number (its implied move % or its nearest level $) and where its price sits (nearest level, gamma side).
-Say WHY it matters (mechanism or implication), not a list of numbers. Dealer hedging AMPLIFIES moves in a negative gamma zone and DAMPENS them in a positive gamma zone — never the reverse; with no gamma zone in FACTS, do not mention gamma.
+Say WHY it matters (mechanism or implication), not a list of numbers. If you say which side of a level the price is on, copy that level's side wording from CHIP FRAGMENTS (ko «Max Pain $217.5 아래» / en «below Max Pain $217.5» / ja «Max Pain $217.5の下» — the price is the subject); never call a level "above/below the price" yourself. Dealer hedging AMPLIFIES moves in a negative gamma zone and DAMPENS them in a positive gamma zone — never the reverse; with no gamma zone in FACTS, do not mention gamma.
 NUMBERS: one or two numbers, the SAME ones in all three languages, each right after its own name and copied exactly from FACTS/CONTEXT: a level price (Put Floor $210), the implied move (예상 변동 ±4.3% / implied move ±4.3% / 想定変動幅±4.3%), the off-exchange share (장외 비중 41.2% / off-exchange 41.2% / 場外比率41.2%) or the calls/puts share (풋 73% / puts 73% / プット73%). NEVER write the stock's own price or % change — the app row shows them live and this sentence is cached.
 LENGTH — HARD LIMIT, two lines on a phone: use the character budget given in the user message (opening included). Korean ends as a short noun phrase (…자리 / …구간 / …구조), Japanese in 体言止め (…位置 / …構図), English as one terse clause. No polite endings (입니다/です/ます), no second clause, no " · ", no ellipses.
 Style only (another stock, never copy the wording): ko «XYZ 장전 실적 앞 예상 변동 ±6.0%가 음감마와 겹치는 자리» · en «XYZ pre-market: puts at 70% lean on the Put Floor $40 defense» · ja «XYZ 寄り前、場外比率45.0%でもCall Wall $90が上値の壁になる位置».
@@ -60,7 +60,7 @@ export function factChips(f: LineFacts): Record<AiLineLocale, string> {
 }
 
 /** 해석 길이 요청(글자) — 검사는 화면 폭 46em(360폭 두 줄) */
-export const INSIGHT_ASK: Record<AiLineLocale, number> = { ko: 45, en: 82, ja: 45 };
+export const INSIGHT_ASK: Record<AiLineLocale, number> = { ko: 45, en: 72, ja: 45 };
 /** 언어별 해석 첫머리(티커 + 세션 표지) — 모델에게 그대로 준다(검사는 «티커[조사] + 세션 표지로 시작») */
 export function insightOpenings(f: LineFacts): Record<AiLineLocale, string> {
     const l = STOCK_SESSION_LABELS[f.quote.session];
