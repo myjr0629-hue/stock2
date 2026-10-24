@@ -98,6 +98,9 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     C.alignSummary(buy.structured);
     assert.equal(buy.structured.closingNarrative.whatHappened.ko, '나스닥은 일부 반도체 매수세로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.', '관찰된 매매만 매수세로(10/24 8차 실측)');
     assert.equal(closingReportProblems(buy).some(r => r.endsWith(':advice')), false);
+    const est = brief(); est.structured.closingNarrative.why.ko = '소비자심리 48은 사전 전망 46.3을 웃돌았고 반도체 매수 지지가 있었다. 경기 전망은 불확실하다.';
+    C.alignSummary(est.structured);
+    assert.equal(est.structured.closingNarrative.why.ko, '소비자심리 48은 시장 예상치 46.3을 웃돌았고 반도체 매수세 지지가 있었다. 경기 전망은 불확실하다.', '숫자 앞 전망만 시장 예상치로(10/24 10차 실측)');
     // 10/24 9차 실측 — 장후 보도를 «장중 보도»로 묶은 문장은 탈락, 같은 문장에 «마감 후»가 있으면 대조 서술로 통과
     assert.equal(C.afterCloseCalledIntraday('Reports published during the session include FXEmpire (2026-10-23 14:29 ET) and Schwab Network (2026-10-23 16:10 ET).', '2026-10-23 16:10 ET', 'en'), true);
     assert.equal(C.afterCloseCalledIntraday('FXEmpire reported during the session, while Schwab Network (2026-10-23 16:10 ET) came after the close.', '2026-10-23 16:10 ET', 'en'), false);
