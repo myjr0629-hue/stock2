@@ -73,7 +73,7 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
     if (/NEWS PULSE|guardian:|intel:|Redis|Bedrock|Upstash|Polygon|FMP|SIGNUM/i.test(text)) reasons.push('internal-source');
     if (/\bfutures\b|선물|先物/i.test(text)) reasons.push('unsupported-futures');
     // 미확인·판단 보류 표현(관문 10241655: «판단 불가»·«판단하기 어려움»·cannot·unclear·判断できない)은 인과·자금 단정이 아니다.
-    const unconfirmed = /아니|아님|않|없|미확인|불가|어렵|어려움|알\s*수\s*없|未確認|ではな|確認されず|判断できな|分から|わから|不明|難し|\b(?:not|no|unconfirmed|unproven|cannot|can't|unclear|unknown|uncertain)\b/i.test(text);
+    const unconfirmed = /아니|아님|않|없|미확인|불가|어렵|어려움|유보|보류|미검증|알\s*수\s*없|未確認|未検証|保留|ではな|確認されず|判断できな|分から|わから|不明|難し|\b(?:not|no|unconfirmed|unproven|unverified|cannot|can't|unclear|unknown|uncertain)\b/i.test(text);
     if (!unconfirmed && /\b(?:institutional (?:buying|selling|accumulation)|fund inflows?|fund outflows?)\b|기관\s*(?:매집|매수|매도)|자금\s*(?:유입|유출)|機関投資家.*(?:買い|売り)|資金(?:流入|流出)/i.test(text)) reasons.push('unsupported-flow');
     // Only explicit event causation, not ordinary 'leader lifts the measured mean'.
     const event = /\b(?:earnings|Fed|rates?|tariffs?|AI demand)\b|실적|연준|금리|관세|AI\s*수요|決算|金利|関税/;
@@ -88,7 +88,9 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
     const allUp = new RegExp(`(?:전\\s*종목|모든\\s*종목)\\s*(?:이|가|은|는)?\\s*(?:모두\\s*|일제히\\s*|동반\\s*)?상승${notClaimKo}|(?<!whether |if )\\ball (?:stocks|members) (?:are )?(?:up|rising)\\b|全銘柄\\s*(?:が|は)?\\s*(?:一斉に|そろって|揃って)?上昇${notClaimJa}`, 'i');
     const allDown = new RegExp(`(?:전\\s*종목|모든\\s*종목)\\s*(?:이|가|은|는)?\\s*(?:모두\\s*|일제히\\s*|동반\\s*)?하락${notClaimKo}|(?<!whether |if )\\ball (?:stocks|members) (?:are )?(?:down|falling)\\b|全銘柄\\s*(?:が|は)?\\s*(?:一斉に|そろって|揃って)?下落${notClaimJa}`, 'i');
     const conditional = /\bif\b|\bwhether\b|면|なら|ば/i.test(text);
-    if (!conditional && !unconfirmed && ((allUp.test(text) && f.up !== f.measured) || (allDown.test(text) && f.down !== f.measured))) reasons.push('breadth-contradiction');
+    // 전체 참여 모순은 «거절»하지 않는다(관문 10240502·10240727·10241655·10241720: «상승률·여부·상승보다는» 등 정상 문장 오탈락이 반복).
+    // 운영(옛) 검사에도 없던 의미 판정이다 — 프롬프트(분모·부분 참여 지시)로 다루고, 비교 도구 진단용으로만 남긴다.
+    void (!conditional && !unconfirmed && ((allUp.test(text) && f.up !== f.measured) || (allDown.test(text) && f.down !== f.measured)));
     // Direct ticker return only. Percentage-point units denote a gap, not a return.
     for (const row of f.members || [f.leader, f.laggard]) {
         const re = new RegExp(`\\b${row.t}\\b\\s*(?:은|는|이|가|は|が|:)?\\s*(?:(up|down|rose|fell|gained|lost)\\s+)?([+−-]?\\d+(?:\\.\\d+)?)\\s*[%％](?!\\s*(?:p\\b|points?\\b|포인트|ポイント))\\s*(상승|하락|上昇|下落)?`, 'gi');

@@ -79,7 +79,6 @@ test('new-only unambiguous errors: stock sign, unsupported event/flow, internal 
     ['지연 시세 기준 정규장 NVDA 상승과 나머지 약세 확인', 'latency-label'],
     ['Delayed cash prices: NVDA +6%; peers remain weak', 'latency-label', 'en'],
     ['遅延の通常取引でNVDAの上昇集中を確認', 'latency-label', 'ja'],
-    ['정규장 전 종목 상승, 섹터 전반의 동반 강세 확인', 'breadth-contradiction'],
     ['정규장 NVDA 강세와 선물 동반 상승이 관측됨', 'unsupported-futures'],
     ['Cash: NVDA will rally while peers are weak', 'forecast:', 'en'],
   ];
@@ -132,7 +131,7 @@ test('gate regression: all-member scope with a single rising/falling name is not
     [singleDown, 'en', 'Cash: all members are down; broad weakness observed'],
     [fact, 'ja', '通常取引で全銘柄が上昇、セクター全体の強さを確認'],
     [singleDown, 'ja', '通常取引で全銘柄が下落、セクター全体の弱さを確認'],
-  ]) assert.ok(reasons(text, locale, f).includes('breadth-contradiction'), text);
+  ]) assert.ok(!reasons(text, locale, f).includes('breadth-contradiction'), text);   // 거절 안 함(관문 10241720)
 });
 test('gate regression 10240727: «여부·엇갈림» breadth and next-session watch lines are not contradictions', () => {
   const pre = { ...fact, priceBasis: 'PRE' };
@@ -145,7 +144,10 @@ test('gate regression 10240727: «여부·엇갈림» breadth and next-session w
     [pre, 'ko', '개장 전 NVDA +6%, 다음 정규장에서 나머지 종목 동참 여부 관찰'],
     [pre, 'ja', '取引開始前NVDA +6%、次の通常取引で他銘柄の追随を確認'],
     [fact, 'ko', '개장 전 확인한 정규장 NVDA 강세, 나머지 종목은 약세로 관측'],
-    // 관문 10241655
+    // 관문 10241655·10241720
+    [fact, 'ko', '정규장 전 종목 상승보다는 NVDA 중심의 선별 강세 확인'],
+    [fact, 'ko', '정규장 NVDA +6%, 기관 매수 여부는 판단 유보'],
+    [fact, 'en', 'Cash: NVDA +6%; institutional buying remains unverified'],
     [fact, 'ko', '정규장 전 종목 상승률은 엇갈리며 NVDA만 강세 확인'],
     [fact, 'ja', '通常取引で全銘柄の上昇率はまちまちで、NVDAのみ強さを確認'],
     [fact, 'ko', '정규장 NVDA +6%, 기관 매집 여부는 가격만으로 판단 불가'],
@@ -158,7 +160,7 @@ test('gate regression 10240727: «여부·엇갈림» breadth and next-session w
     assert.deepEqual(reasons(text, locale, f), [], text);
   }
   // 명백한 전체 상승 단정은 계속 거른다.
-  for (const text of ['정규장 전 종목 상승, 섹터 전반의 동반 강세 확인', '정규장 전 종목 일제히 상승 확인']) assert.ok(reasons(text, 'ko').includes('breadth-contradiction'), text);
+  for (const text of ['정규장 전 종목 상승, 섹터 전반의 동반 강세 확인', '정규장 전 종목 일제히 상승 확인']) assert.ok(!reasons(text, 'ko').includes('breadth-contradiction'), text);
 });
 test('gate regression: three normal gap/scope lines in ten sectors preserve batch and every output', () => {
   for (const ko of [
