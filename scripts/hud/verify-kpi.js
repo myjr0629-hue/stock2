@@ -60,25 +60,31 @@ test('Overview never borrows values from adjacent cards or percentages', async (
     assert.equal((await readDom([card('Revenue', '-$5.20')])).metrics.Revenue.value, -5.2);
 });
 
-test('Reader stops for user-owned or absent space 0 without claiming another space', async (t) => {
+test('Reader never touches space 0 and stops when its own HUD space is user-controlled or unavailable', async (t) => {
     const originalLog = console.log;
     const output = [];
     console.log = (...args) => output.push(args.join(' '));
-    t.after(() => { console.log = originalLog; delete global.listTaskSpaces; delete global.claimTaskSpace; delete global.taskSpace; });
-    global.claimTaskSpace = () => assert.fail('Must not claim a user-owned space');
-    global.taskSpace = () => assert.fail('Must not open another space');
-    for (const [i, spaces] of [[0, [{ id: 0, ownership: 'user' }]], [1, [{ id: 3, ownership: 'agent' }]], [2, [{ id: 0, ownership: 'agentDelegatedToUser' }]]]) {
-        global.listTaskSpaces = async () => spaces;
+    t.after(() => { console.log = originalLog; delete global.listTaskSpaces; delete global.claimTaskSpace; delete global.takeOverTaskSpace; delete global.taskSpace; });
+    global.listTaskSpaces = async () => [{ id: 0, ownership: 'agentDelegatedToUser' }];
+    global.claimTaskSpace = () => assert.fail('Must not claim any space');
+    global.takeOverTaskSpace = () => assert.fail('Must not take over any space');
+    const asked = [];
+    for (const [i, impl] of [
+        [0, async (name) => { asked.push(name); return { spaceId: 9, ownership: 'agentDelegatedToUser' }; }],
+        [1, async (name) => { asked.push(name); throw new Error('EGO_TASK_SPACE_NAME_IN_USE'); }],
+    ]) {
+        global.taskSpace = impl;
         await import(pathToFileURL(path.join(__dirname, 'rc-auto.mjs')).href + '?busy=' + i);
     }
-    assert.deepEqual(output, ['SPACE_BUSY', 'SPACE_BUSY', 'SPACE_BUSY']);
+    assert.deepEqual(output, ['SPACE_BUSY', 'SPACE_BUSY']);
+    assert.equal(asked.every((name) => /^hud-reader/.test(name)), true);
 });
 
-test('Reader claims exactly space 0 and preserves the Overview and chart sequence', async (t) => {
+test('Reader runs in its own HUD space even when space 0 is user-controlled, and preserves the Overview and chart sequence', async (t) => {
     const originalLog = console.log, originalTimeout = global.setTimeout, calls = [], output = [];
     console.log = (...args) => output.push(args.join(' '));
     global.setTimeout = (callback) => { callback(); return 0; };
-    t.after(() => { console.log = originalLog; global.setTimeout = originalTimeout; delete global.listTaskSpaces; delete global.claimTaskSpace; delete global.taskSpace; });
+    t.after(() => { console.log = originalLog; global.setTimeout = originalTimeout; delete global.listTaskSpaces; delete global.claimTaskSpace; delete global.takeOverTaskSpace; delete global.taskSpace; });
     const page = {
         current: '',
         async goto(url) { this.current = url; calls.push(['goto', url]); },
@@ -89,11 +95,12 @@ test('Reader claims exactly space 0 and preserves the Overview and chart sequenc
         },
         async close() { calls.push(['close']); },
     };
-    global.listTaskSpaces = async () => [{ id: 0, ownership: 'agent' }];
-    global.claimTaskSpace = async (id) => { calls.push(['claim', id]); };
-    global.taskSpace = async (id) => { calls.push(['space', id]); return { newPage: async () => page }; };
+    global.listTaskSpaces = async () => [{ id: 0, ownership: 'agentDelegatedToUser' }];
+    global.claimTaskSpace = async () => assert.fail('Must not claim any space');
+    global.takeOverTaskSpace = async () => assert.fail('Must not take over any space');
+    global.taskSpace = async (name, opts) => { calls.push(['space', name, opts && opts.profileId]); return { spaceId: 18, ownership: 'agent', newPage: async () => page }; };
     await import(pathToFileURL(path.join(__dirname, 'rc-auto.mjs')).href + '?success');
-    assert.deepEqual(calls.slice(0, 2), [['claim', 0], ['space', 0]]);
+    assert.deepEqual(calls.slice(0, 1), [['space', 'hud-reader', 'Profile 1']]);
     const navigations = calls.filter(([kind]) => kind === 'goto').map(([, url]) => url);
     assert.equal(navigations.length, 4);
     assert.match(navigations[0], /\/overview$/);
@@ -104,6 +111,20 @@ test('Reader claims exactly space 0 and preserves the Overview and chart sequenc
     assert.equal(output.some((line) => line.startsWith('RC_OVERVIEW ')), true);
     assert.equal(output.some((line) => line.startsWith('플랫폼별(ok):')), true);
     assert.equal(output.some((line) => line.startsWith('신규체험(ok):')), true);
+});
+
+test('Reader resumes an existing HUD space by id (no profileId) and skips a user-controlled one', async (t) => {
+    const originalLog = console.log, originalTimeout = global.setTimeout, calls = [];
+    console.log = () => {};
+    global.setTimeout = (callback) => { callback(); return 0; };
+    t.after(() => { console.log = originalLog; global.setTimeout = originalTimeout; delete global.listTaskSpaces; delete global.claimTaskSpace; delete global.takeOverTaskSpace; delete global.taskSpace; });
+    const page = { async goto() {}, async url() { return ''; }, async evaluate() { return { metrics: {}, missing: [], signin: true, dates: [], rows: [], labels: [] }; }, async close() { calls.push(['close']); } };
+    global.listTaskSpaces = async () => [{ id: 0, name: 'mkt', ownership: 'agentDelegatedToUser' }, { id: 18, name: 'hud-reader', ownership: 'agentDelegatedToUser' }, { id: 19, name: 'hud-reader-2', ownership: 'agent' }];
+    global.claimTaskSpace = async () => assert.fail('Must not claim any space');
+    global.takeOverTaskSpace = async () => assert.fail('Must not take over any space');
+    global.taskSpace = async (...args) => { calls.push(['space', ...args]); return { spaceId: 19, ownership: 'agent', newPage: async () => page }; };
+    await import(pathToFileURL(path.join(__dirname, 'rc-auto.mjs')).href + '?resume');
+    assert.deepEqual(calls[0], ['space', 19]);
 });
 
 test('Redeem uses only read-only count commands and keeps unreported totals null', () => {

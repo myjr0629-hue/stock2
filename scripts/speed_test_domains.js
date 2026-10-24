@@ -9,7 +9,7 @@ function httpGet(url) {
         const start = Date.now();
         https.get(url, (res) => {
             let data = '';
-            res.on('data', chunk => data += chunk);
+            res.setEncoding('utf8').on('data', chunk => data += chunk);
             res.on('end', () => {
                 resolve({ ms: Date.now() - start, status: res.statusCode, size: data.length });
             });

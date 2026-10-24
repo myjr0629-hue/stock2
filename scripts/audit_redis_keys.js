@@ -7,7 +7,7 @@ function ecGet(key) {
     http.get('http://52.23.98.13:8081/get?key=' + encodeURIComponent(key), {
       headers: {'Authorization': 'Bearer ' + (process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '')}, timeout: 5000
     }, res => {
-      let d = ''; res.on('data', c => d += c);
+      let d = ''; res.setEncoding('utf8').on('data', c => d += c);
       res.on('end', () => { try { const j = JSON.parse(d); resolve(j.result); } catch { resolve(null); } });
     }).on('error', () => resolve(null)).on('timeout', function() { this.destroy(); resolve(null); });
   });
@@ -19,7 +19,7 @@ function ecPing() {
     http.get('http://52.23.98.13:8081/ping', {
       headers: {'Authorization': 'Bearer ' + (process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '')}, timeout: 3000
     }, res => {
-      let d = ''; res.on('data', c => d += c);
+      let d = ''; res.setEncoding('utf8').on('data', c => d += c);
       res.on('end', () => resolve({ ok: true, latency: Date.now() - start, body: d }));
     }).on('error', e => resolve({ ok: false, error: e.message }))
       .on('timeout', function() { this.destroy(); resolve({ ok: false, error: 'timeout' }); });
@@ -30,7 +30,7 @@ function ecPing() {
 function captureWorkerCheck() {
   return new Promise(resolve => {
     http.get('http://52.23.98.13:3100/health', { timeout: 3000 }, res => {
-      let d = ''; res.on('data', c => d += c);
+      let d = ''; res.setEncoding('utf8').on('data', c => d += c);
       res.on('end', () => resolve({ ok: res.statusCode === 200, status: res.statusCode, body: d.substring(0, 100) }));
     }).on('error', e => resolve({ ok: false, error: e.message }))
       .on('timeout', function() { this.destroy(); resolve({ ok: false, error: 'timeout' }); });

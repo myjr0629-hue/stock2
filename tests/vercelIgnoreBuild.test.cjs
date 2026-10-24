@@ -143,3 +143,35 @@ test('main builds outside a Git repository', t => {
     fs.rmSync(path.join(repo.cwd, '.git'), { recursive: true, force: true });
     assert.equal(repo.run(), 1);
 });
+
+test('main builds when a scripts/ file imported by src/ changes', t => {
+    // Every scripts/ module that src/ imports is part of the web build.
+    const root = path.resolve(__dirname, '..');
+    const imported = new Set();
+    const walk = dir => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) { walk(full); continue; }
+            if (!/\.(?:ts|tsx|js|mjs|cjs)$/.test(entry.name)) continue;
+            for (const m of fs.readFileSync(full, 'utf8').matchAll(/(?:from\s+|require\()['"]((?:\.\.\/)+scripts\/[^'"]+)['"]/g)) {
+                let rel = path.relative(root, path.resolve(path.dirname(full), m[1]));
+                if (!/\.[a-z]+$/.test(rel)) rel += '.js';
+                imported.add(rel);
+            }
+        }
+    };
+    walk(path.join(root, 'src'));
+    // src 가 가져다 쓰는 scripts 파일이 다시 require 하는 같은 폴더 파일도 앱 코드다(closingReport.js → adviceGuard.generated.js)
+    for (const rel of [...imported]) {
+        const full = path.join(root, rel);
+        if (!fs.existsSync(full)) continue;
+        for (const m of fs.readFileSync(full, 'utf8').matchAll(/require\(['"](\.\/[^'"]+)['"]\)/g)) imported.add(path.relative(root, path.resolve(path.dirname(full), m[1])));
+    }
+    assert.ok(imported.size > 0);
+    for (const name of imported) {
+        const repo = repository(t);
+        repo.write(name);
+        repo.commit();
+        assert.equal(repo.run(), 1, name);
+    }
+});

@@ -12,7 +12,7 @@ const TICKERS = ["QQQ", "VIXY", "UUP"];
 const get = (url) => new Promise((resolve, reject) => {
     https.get(url, (res) => {
         let data = '';
-        res.on('data', (chunk) => data += chunk);
+        res.setEncoding('utf8').on('data', (chunk) => data += chunk);
         res.on('end', () => resolve(JSON.parse(data)));
     }).on('error', reject);
 });

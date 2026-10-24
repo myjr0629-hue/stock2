@@ -50,12 +50,13 @@ fs.writeFileSync(path.join(dir, 'preload.js'), `
 // https.get 가로채기 — prevClose REST(fetchPreviousClose)를 가짜로 답하고 호출 수를 센다(벤더 REST 0 확인용).
 require(${JSON.stringify(transportFile)}).installServerTransport();
 const https = require('https'); const { EventEmitter } = require('events');
+const { PassThrough } = require('node:stream');
 const fs = require('fs'); const read = fs.readFileSync;
 fs.readFileSync = function(p, ...args) { if (String(p).split('/').pop().startsWith('.env')) throw new Error('blocked env file'); return read.call(this, p, ...args); };
 https.get = (url, cb) => {
   console.log('FAKE REST ' + String(url).replace(/api_key=[^&]*/, 'api_key=x'));
-  const res = new EventEmitter(); const req = new EventEmitter();
-  setImmediate(() => { cb(res); res.emit('data', JSON.stringify({ eod_close_price: 100 })); res.emit('end'); });
+  const res = new PassThrough(); const req = new EventEmitter();
+  setImmediate(() => { cb(res); res.end(Buffer.from(JSON.stringify({ eod_close_price: 100 }))); });
   return req;
 };
 `);

@@ -313,7 +313,8 @@ test('기존 보호 대상 페이지·호출자·API·robots·사이트맵: 로�
     'src/app/[locale]/layout.tsx', 'src/components/AuthGuard.tsx', 'src/components/share/ShareLanding.tsx',
     'src/app/api/flow/options-eod/route.ts', 'src/app/api/flow/dark-pool/route.ts', 'src/app/api/command/insider/route.ts',
     'src/lib/guruLens/badges.ts', 'src/services/insiderService.ts', 'src/app/robots.ts', 'src/lib/seo/sitemap.ts', 'src/middleware.ts',
-    'src/services/watchlistBatchService.ts', 'src/services/todayPicksService.ts', 'src/services/signalAlertsService.ts',
+    // watchlistBatchService 는 뺐다(2026-10-24 감사 M8 매크로 입력 키 수리 — 의도된 변경, tests/alphaCrossScreen 이 그 입력을 지킨다).
+    'src/services/todayPicksService.ts', 'src/services/signalAlertsService.ts',
     'src/lib/guruLens/service.ts']) {
     assert.deepEqual(fs.readFileSync(path.join(root, f)), execFileSync('git', ['show', `${base}:${f}`], { cwd: root }));
   }

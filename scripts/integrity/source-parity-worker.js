@@ -20,10 +20,11 @@ function readJson(url, deadline) {
         timer = setTimeout(() => { finish(null); if (req) req.destroy(); }, Math.max(1, deadline - Date.now()));
         try {
             req = (new URL(url).protocol === 'http:' ? http : https).get(url, { headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' } }, (res) => {
-                let body = '', bytes = 0;
-                res.on('data', (part) => { bytes += part.length; if (bytes > 256 * 1024) { finish(null); req.destroy(); } else body += part; });
+                const chunks = [];
+                let bytes = 0;
+                res.on('data', (part) => { bytes += part.length; if (bytes > 256 * 1024) { finish(null); req.destroy(); } else chunks.push(part); });
                 res.on('error', () => finish(null));
-                res.on('end', () => { try { finish(res.statusCode === 200 ? JSON.parse(body) : null); } catch { finish(null); } });
+                res.on('end', () => { try { finish(res.statusCode === 200 ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : null); } catch { finish(null); } });
             });
             req.on('error', () => finish(null));
         } catch { finish(null); }

@@ -4,7 +4,7 @@ const KEY = process.env.POLYGON_API_KEY;
 
 function get(url) {
     return new Promise((resolve, reject) => {
-        https.get(url, r => { let d = ''; r.on('data', c => d += c); r.on('end', () => resolve(JSON.parse(d))); }).on('error', reject);
+        https.get(url, r => { let d = ''; r.setEncoding('utf8').on('data', c => d += c); r.on('end', () => resolve(JSON.parse(d))); }).on('error', reject);
     });
 }
 

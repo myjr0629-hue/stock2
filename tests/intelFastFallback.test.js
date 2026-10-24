@@ -124,7 +124,7 @@ async function test(name, run) {
     catch (e) { fails++; console.error('실패: ' + name + ': ' + e.message); }
 }
 (async () => {
-    await test('v2 키만 읽을 때 결측이던 v6 full·nochain 점수 복구 (웹·앱)', async () => {
+    await test('v2 키만 읽을 때 결측이던 현재 full·nochain 점수 복구 (웹·앱)', async () => {
         for (const app of [false, true]) {
             mem.delete('cache:analysis:AMZN'); mem.delete('cache:analysis:GOOGL');
             mem.set('flow:ticker:v6:AMZN', tickerRow(66)); mem.set('flow:ticker:nochain:v6:GOOGL', tickerRow(77));

@@ -12,6 +12,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import * as calendar from '../src/lib/marketCalendar';
 import { acceptHubTick, applyHubLast, regularOpenMs } from '../src/lib/hubLiveOverlay';
 import * as ext from '../src/services/extendedSessionClose';
@@ -531,8 +532,10 @@ function moversText(tick: any) {
         const received = p.message(replay);
         assert.equal(received.priceTime, event); assert.equal(received.ts, now);
         assert.equal(received.sourceReceivedAt, now - 60000);
+        (h.context as any).restResponse = new PassThrough();
         h.run(`require('https').get = (_url, cb) => {
-            cb({on(ev,fn) { if(ev==='data') fn(JSON.stringify({last_price:102,last_time:'2026-10-16T13:46:00Z',source:'cboe_one_delayed',eod_close_price:100})); if(ev==='end') fn(); }});
+            cb(restResponse);
+            restResponse.end(Buffer.from(JSON.stringify({last_price:102,last_time:'2026-10-16T13:46:00Z',source:'cboe_one_delayed',eod_close_price:100})));
             return {on(){}};
         };`);
         await h.run(`fetchSnapshotREST(['AAPL'])`);

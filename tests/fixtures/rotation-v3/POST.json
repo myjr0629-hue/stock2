@@ -1,0 +1,604 @@
+{
+ "provenance": "operational gcore:v1 (EC2 프록시 GET, 읽기 전용)",
+ "timestamp": "2026-10-23T22:37:36.530Z",
+ "session": "POST",
+ "rlsi": {
+  "score": 28.8,
+  "session": "POST",
+  "components": {
+   "breadthPct": 32.2,
+   "adRatio": 0.52,
+   "volumeBreadth": 40.6,
+   "breadthSignal": "WEAK",
+   "sentimentScore": 21,
+   "sentimentSource": "CNN F&G: extreme fear"
+  }
+ },
+ "market": {
+  "indexBasis": {
+   "v": 1,
+   "cash": {
+    "nasdaq": {
+     "symbol": "^IXIC",
+     "price": 25955.342,
+     "changePct": -0.20576594393616868,
+     "asOf": "2026-10-23T21:15:59.000Z",
+     "sessionDate": "2026-10-23",
+     "basis": "regular-session",
+     "live": false,
+     "source": "YAHOO"
+    },
+    "ndx": {
+     "symbol": "^NDX",
+     "price": null,
+     "changePct": null,
+     "asOf": null,
+     "sessionDate": null,
+     "basis": "regular-session",
+     "live": false,
+     "source": null
+    },
+    "spx": {
+     "symbol": "^GSPC",
+     "price": 7623.68,
+     "changePct": -0.5186995231831334,
+     "asOf": "2026-10-23T20:38:20.000Z",
+     "sessionDate": "2026-10-23",
+     "basis": "regular-session",
+     "live": false,
+     "source": "YAHOO"
+    }
+   },
+   "futures": {
+    "nq": {
+     "symbol": "NQ=F",
+     "price": 29175,
+     "changePct": 0.11323862466543133,
+     "asOf": "2026-10-23T20:59:59.000Z",
+     "sessionDate": null,
+     "basis": "prior-settlement",
+     "live": false,
+     "source": "YAHOO",
+     "sinceCashClosePct": null,
+     "cashCloseReferenceAt": null
+    },
+    "es": {
+     "symbol": "ES=F",
+     "price": 7672.5,
+     "changePct": -0.41534168343176064,
+     "asOf": "2026-10-23T21:00:00.000Z",
+     "sessionDate": null,
+     "basis": "prior-settlement",
+     "live": false,
+     "source": "YAHOO",
+     "sinceCashClosePct": null,
+     "cashCloseReferenceAt": null
+    }
+   }
+  },
+  "vix": 19.45,
+  "nqChangePercent": 0.11323862466543133,
+  "dxy": 101.752,
+  "tltChangePct": -0.4894,
+  "factors": {
+   "spx": {
+    "level": 7672.5,
+    "chgPct": -0.41534168343176064,
+    "chgAbs": -32
+   },
+   "gold": {
+    "level": 4010,
+    "chgPct": -1.2412570190129073,
+    "chgAbs": -50.40000000000009
+   },
+   "oil": {
+    "level": 103.44,
+    "chgPct": 3.9911531114909007,
+    "chgAbs": 3.969999999999999
+   },
+   "btc": {
+    "level": 81029.71,
+    "chgPct": -0.3523160206699166,
+    "chgAbs": -286.4899999999907
+   },
+   "us10y": {
+    "level": 5,
+    "chgPct": 0.8065,
+    "chgAbs": 0.04
+   },
+   "nasdaq100": {
+    "level": 29175,
+    "chgPct": 0.11323862466543133,
+    "chgAbs": 33
+   }
+  },
+  "yieldCurve": {
+   "us2y": 4.69,
+   "us10y": 5,
+   "spread2s10s": 0.31,
+   "trend": "NORMAL",
+   "date": "2026-10-23",
+   "source": "US_TREASURY",
+   "prevDate": "2026-10-22",
+   "prevUs10y": 4.96
+  },
+  "realYield": {
+   "realYield": 2.52,
+   "stance": "TIGHT"
+  }
+ },
+ "sectors": [
+  {
+   "id": "HACK",
+   "name": "사이버보안",
+   "change": 4.163950456323337,
+   "instFlow": {
+    "ifs": 22.4,
+    "divergence": "CONFIRMED"
+   }
+  },
+  {
+   "id": "XLE",
+   "name": "에너지",
+   "change": 2.7675003699866876
+  },
+  {
+   "id": "SMH",
+   "name": "반도체",
+   "change": 0.9181236266360847,
+   "instFlow": {
+    "ifs": 23.6,
+    "divergence": "CONFIRMED"
+   }
+  },
+  {
+   "id": "XLK",
+   "name": "기술주",
+   "change": 0.7760228145223165,
+   "instFlow": {
+    "ifs": 24,
+    "divergence": "CONFIRMED"
+   }
+  },
+  {
+   "id": "XLRE",
+   "name": "부동산",
+   "change": 0.11759172154279669
+  },
+  {
+   "id": "AI_PWR",
+   "name": "AI 전력망",
+   "change": -0.3038009483748801
+  },
+  {
+   "id": "SAFE_HAVEN",
+   "name": "안전자산",
+   "change": -0.3372891170480181
+  },
+  {
+   "id": "XLU",
+   "name": "유틸리티",
+   "change": -0.7347795661301721
+  },
+  {
+   "id": "XLB",
+   "name": "소재",
+   "change": -0.7351518668988248
+  },
+  {
+   "id": "ICLN",
+   "name": "클린에너지",
+   "change": -0.9276437847866333
+  },
+  {
+   "id": "XLV",
+   "name": "헬스케어",
+   "change": -1.017650303364604
+  },
+  {
+   "id": "XLI",
+   "name": "산업재",
+   "change": -1.0376057098302753
+  },
+  {
+   "id": "XLF",
+   "name": "금융",
+   "change": -1.2709620476610748
+  },
+  {
+   "id": "XLY",
+   "name": "임의소비재",
+   "change": -1.3781410312146718,
+   "instFlow": {
+    "ifs": 30.1,
+    "divergence": "DIVERGENT"
+   }
+  },
+  {
+   "id": "XLC",
+   "name": "커뮤니케이션",
+   "change": -1.559299944144477,
+   "instFlow": {
+    "ifs": 23.1,
+    "divergence": "DIVERGENT"
+   }
+  },
+  {
+   "id": "XLP",
+   "name": "필수소비재",
+   "change": -1.7001889098788925
+  }
+ ],
+ "vectors": [
+  {
+   "sourceId": "AI_PWR",
+   "targetId": "HACK",
+   "strength": 86.31,
+   "rank": 1
+  },
+  {
+   "sourceId": "XLC",
+   "targetId": "XLRE",
+   "strength": 25.465,
+   "rank": 2
+  },
+  {
+   "sourceId": "SMH",
+   "targetId": "XLU",
+   "strength": 23.695000000000004,
+   "rank": 3
+  }
+ ],
+ "sourceId": "AI_PWR",
+ "targetId": "HACK",
+ "rotationIntensity": {
+  "score": 80,
+  "direction": "RISK_OFF",
+  "topInflow": [
+   {
+    "sector": "사이버보안",
+    "flow": 10.02
+   },
+   {
+    "sector": "부동산",
+    "flow": 2.03
+   },
+   {
+    "sector": "유틸리티",
+    "flow": 2
+   }
+  ],
+  "topOutflow": [
+   {
+    "sector": "AI 전력망",
+    "flow": -7.25
+   },
+   {
+    "sector": "커뮤니케이션",
+    "flow": -3.07
+   },
+   {
+    "sector": "반도체",
+    "flow": -2.74
+   }
+  ],
+  "breadth": 56.3,
+  "conviction": "HIGH",
+  "regime": "RISK_OFF_DEFENSE",
+  "fiveDayData": {
+   "HACK": {
+    "changes": [
+     -0.165,
+     4.664,
+     0.36,
+     6.754
+    ],
+    "cumReturn": 11.613,
+    "rvol": 1.15,
+    "consistency": 0.75,
+    "flowScore": 10.016,
+    "todayChange": 4.164,
+    "isBounce": false,
+    "asOf": "2026-10-23",
+    "basis": "equalWeight"
+   },
+   "XLE": {
+    "changes": [
+     0.251,
+     0.28,
+     -0.866,
+     2.605
+    ],
+    "cumReturn": 2.27,
+    "rvol": 1.14,
+    "consistency": 0.75,
+    "flowScore": 1.941,
+    "todayChange": 2.768,
+    "isBounce": false,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "SMH": {
+    "changes": [
+     -0.924,
+     2.057,
+     -7.028,
+     0.995
+    ],
+    "cumReturn": -4.9,
+    "rvol": 1.12,
+    "consistency": 0.5,
+    "flowScore": -2.744,
+    "todayChange": 0.918,
+    "isBounce": true,
+    "asOf": "2026-10-23",
+    "basis": "equalWeight"
+   },
+   "XLK": {
+    "changes": [
+     -0.28,
+     1.672,
+     -3.288,
+     0.488
+    ],
+    "cumReturn": -1.408,
+    "rvol": 1.03,
+    "consistency": 0.5,
+    "flowScore": -0.725,
+    "todayChange": 0.776,
+    "isBounce": true,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "XLRE": {
+    "changes": [
+     1.704,
+     -0.755,
+     1.094,
+     0.118
+    ],
+    "cumReturn": 2.161,
+    "rvol": 1.25,
+    "consistency": 0.75,
+    "flowScore": 2.026,
+    "todayChange": 0.118,
+    "isBounce": false,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "AI_PWR": {
+    "changes": [
+     -2.344,
+     2.729,
+     -7.408,
+     -0.832
+    ],
+    "cumReturn": -7.855,
+    "rvol": 1.23,
+    "consistency": 0.75,
+    "flowScore": -7.246,
+    "todayChange": -0.304,
+    "isBounce": false,
+    "asOf": "2026-10-23",
+    "basis": "equalWeight"
+   },
+   "SAFE_HAVEN": {
+    "changes": [
+     -0.192,
+     0.219,
+     -1.149,
+     -0.475
+    ],
+    "cumReturn": -1.597,
+    "rvol": 1.38,
+    "consistency": 0.75,
+    "flowScore": -1.653,
+    "todayChange": -0.337,
+    "isBounce": false,
+    "asOf": "2026-10-23",
+    "basis": "equalWeight"
+   },
+   "XLU": {
+    "changes": [
+     1.257,
+     0.287,
+     2.071,
+     -0.723
+    ],
+    "cumReturn": 2.892,
+    "rvol": 0.92,
+    "consistency": 0.75,
+    "flowScore": 1.995,
+    "todayChange": -0.735,
+    "isBounce": true,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "XLB": {
+    "changes": [
+     0.55,
+     0.176,
+     0.721,
+     -0.735
+    ],
+    "cumReturn": 0.712,
+    "rvol": 0.97,
+    "consistency": 0.75,
+    "flowScore": 0.518,
+    "todayChange": -0.735,
+    "isBounce": false,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "ICLN": {
+    "changes": [
+     1.997,
+     0.128,
+     -0.272,
+     0.492
+    ],
+    "cumReturn": 2.345,
+    "rvol": 0.96,
+    "consistency": 0.75,
+    "flowScore": 1.688,
+    "todayChange": -0.928,
+    "isBounce": true,
+    "asOf": "2026-10-23",
+    "basis": "equalWeight"
+   },
+   "XLV": {
+    "changes": [
+     2.374,
+     -0.489,
+     1.319,
+     -1.114
+    ],
+    "cumReturn": 2.09,
+    "rvol": 1.1,
+    "consistency": 0.5,
+    "flowScore": 1.149,
+    "todayChange": -1.018,
+    "isBounce": true,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "XLI": {
+    "changes": [
+     0.072,
+     0.905,
+     -0.939,
+     -1.266
+    ],
+    "cumReturn": -1.228,
+    "rvol": 1.1,
+    "consistency": 0.5,
+    "flowScore": -0.675,
+    "todayChange": -1.038,
+    "isBounce": false,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "XLF": {
+    "changes": [
+     1.199,
+     0.574,
+     1.089,
+     -1.324
+    ],
+    "cumReturn": 1.538,
+    "rvol": 1.09,
+    "consistency": 0.75,
+    "flowScore": 1.257,
+    "todayChange": -1.271,
+    "isBounce": true,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "XLY": {
+    "changes": [
+     0.909,
+     0.026,
+     -0.45,
+     -1.661
+    ],
+    "cumReturn": -1.176,
+    "rvol": 1.04,
+    "consistency": 0.5,
+    "flowScore": -0.612,
+    "todayChange": -1.378,
+    "isBounce": false,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "XLC": {
+    "changes": [
+     0.091,
+     -1.107,
+     -1.422,
+     -1.778
+    ],
+    "cumReturn": -4.216,
+    "rvol": 0.97,
+    "consistency": 0.75,
+    "flowScore": -3.067,
+    "todayChange": -1.559,
+    "isBounce": false,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   },
+   "XLP": {
+    "changes": [
+     0.619,
+     -0.729,
+     3.306,
+     -1.922
+    ],
+    "cumReturn": 1.274,
+    "rvol": 1.25,
+    "consistency": 0.5,
+    "flowScore": 0.796,
+    "todayChange": -1.7,
+    "isBounce": true,
+    "asOf": "2026-10-23",
+    "basis": "ETF"
+   }
+  },
+  "noiseFlags": [
+   "SMH",
+   "XLK",
+   "XLV",
+   "XLI",
+   "XLY",
+   "XLP"
+  ],
+  "bounceWarnings": [
+   "SMH: today +0.918% but 5d -4.9%",
+   "XLK: today +0.776% but 5d -1.408%",
+   "XLU: today -0.735% but 5d +2.892%",
+   "ICLN: today -0.928% but 5d +2.345%",
+   "XLV: today -1.018% but 5d +2.09%",
+   "XLF: today -1.271% but 5d +1.538%",
+   "XLP: today -1.7% but 5d +1.274%"
+  ],
+  "scoreBasis": "percentile",
+  "rawSpread": 27.09,
+  "sampleWindows": 25
+ },
+ "gammaShield": {
+  "gexIndex": 16,
+  "gexLevel": "NEUTRAL",
+  "squeezeRisk": 26,
+  "squeezeLevel": "MEDIUM",
+  "supportWall": 7450,
+  "resistanceWall": 8000,
+  "currentPrice": 7599,
+  "gammaFlipPoint": null,
+  "gexChange": 0,
+  "spyGexIndex": 14,
+  "qqqGexIndex": 18
+ },
+ "rvol": {
+  "ndx": {
+   "status": "AFTER_HOURS",
+   "rvol": null
+  }
+ },
+ "news": [
+  "[NEWS PULSE; 2026-10-23T22:18:29.000Z; 18:18 ET] Gold Extends Weekly Slide as Oil, Inflation Fears and Fed Tightening Expectations Overwhelm Safe-Haven Demand",
+  "[NEWS PULSE; 2026-10-23T22:18:10.000Z; 18:18 ET] Moody's Affirms France at Aa3 Amid Political Turmoil and Rising Yields",
+  "[NEWS PULSE; 2026-10-23T22:05:35.000Z; 18:05 ET] Instacart Explores Potential Sale, Holds Talks With Uber and DoorDash",
+  "[NEWS PULSE; 2026-10-23T22:00:00.000Z; 18:00 ET] Will Anthropic pull off a November IPO? Time is running out to file key paperwork.",
+  "[NEWS PULSE; 2026-10-23T21:49:37.000Z; 17:49 ET] Treasuries Rally on AI Investment Jitters as Meta Eyes $40 Billion Raise",
+  "[NEWS PULSE; 2026-10-23T21:49:08.000Z; 17:49 ET] Turmoil hits AI buildout as neoclouds face pressure, credit risks mount and Solidigm pulls IPO",
+  "[Polygon; 2026-10-23T22:18:29.000Z; 18:18 ET] Wall Street doubts gold's near-term strength, Main Street maintains bullish minority as central banks take center stage — Gold prices suffered another sharp weekly decline as rising oil prices, persistent inflation fears, and expectations for",
+  "[Polygon; 2026-10-23T22:00:07.000Z; 18:00 ET] Wes Moss Says $1 Million in the S&P 500 Pays Just $12,000 a Year in Dividends. Here’s His Fix. — A million dollars in the S&P 500 generates far less dividend income than most retirees expect, and climbing toward highe",
+  "[Polygon; 2026-10-23T21:42:28.000Z; 17:42 ET] Gold, silver extend weekly losses as Hormuz tensions push crude above $116 - Kitco PM Report — Spot gold and silver prices were lower in late U.S. trading Friday, extending a week of heavy selling as renewed concern",
+  "[Polygon; 2026-10-23T20:36:54.000Z; 16:36 ET] Gold's $4,000 support breaks, but is the selloff overdone? — The gold market can't catch a break as prices have fallen below a key pivot level ahead of the weekend, even as U.S. 10-",
+  "[Polygon; 2026-10-23T18:29:31.000Z; 14:29 ET] S&P500: Defensive Stocks Slide as Nasdaq Finds Narrow Chip Support — The Dow leads U.S. stocks lower as defensive sectors weaken, while selective chip buying keeps the Nasdaq from joining t",
+  "[Polygon; 2026-10-23T18:07:04.000Z; 14:07 ET] Gold (XAUUSD), Silver, Platinum Forecasts – Gold Tests $4000 As Pullback Continues — Precious metals remain under pressure amid rally in the oil markets."
+ ],
+ "scheduledEvents": [
+  "[earnings calendar; 2026-10-23; BMO; exact release time unknown] AXP (released; epsActual=4.68; revenueActual=20062000000)",
+  "[earnings calendar; 2026-10-23; BMO; exact release time unknown] SLB (released; epsActual=0.64; revenueActual=9449000000)"
+ ]
+}

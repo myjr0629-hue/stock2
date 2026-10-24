@@ -38,6 +38,18 @@ function rcCode(e: unknown): string | undefined {
   return /^\d{1,2}$/.test(s) ? `rc${s}` : undefined;
 }
 
+/**
+ * 사용자가 스토어 결제 창을 «직접 닫았나»(2026-10-24).
+ * ⚠️ 캡시터 플러그인은 userCancelled 를 오류 객체 «맨 위»에 싣지 않는다 —
+ *    안드는 e.data.userCancelled, iOS 는 아예 없고 code "1" 만 온다(rejectWithErrorContainer).
+ *    그래서 구판(err.userCancelled 만 봄)은 취소를 전부 «오류 rc1»로 셌다(10/24 실측: 오류 28 중 안드 rc1 26).
+ *    RevenueCat 권장 판정 = code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR("1").
+ */
+export function isPurchaseCancelled(e: unknown): boolean {
+  const err = e as { userCancelled?: boolean | null; data?: { userCancelled?: boolean | null } | null } | null;
+  return Boolean(err?.userCancelled || err?.data?.userCancelled) || rcCode(e) === 'rc1';
+}
+
 let configured = false;
 let configuring: Promise<boolean> | null = null;
 
@@ -170,8 +182,8 @@ export async function purchasePro(plan: PlanId = 'monthly'): Promise<PurchaseOut
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
     return { ok: true, isPro: isProFromCustomerInfo(customerInfo) };
   } catch (e) {
-    const err = e as { userCancelled?: boolean | null; message?: string };
-    if (err?.userCancelled) return { ok: false, isPro: false, cancelled: true };
+    const err = e as { message?: string };
+    if (isPurchaseCancelled(e)) return { ok: false, isPro: false, cancelled: true };
     return { ok: false, isPro: false, error: err?.message ?? 'purchase_failed', code: rcCode(e) };
   } finally {
     storeFlows = Math.max(0, storeFlows - 1);

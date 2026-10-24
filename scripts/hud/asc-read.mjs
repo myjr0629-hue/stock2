@@ -25,23 +25,13 @@ const T0 = Date.now(); const el = () => Math.round((Date.now() - T0) / 1000) + '
 const log = (...a) => console.log(`[${el()}]`, ...a);
 const APP_ID = '6783130444';             // 공개 값(스토어 주소의 id)
 const DAYS = 30;                          // 하루 단위로 읽는 일수(UTC)
-const NO_SPACES = [3, 5];                 // 쓰지 않는 공간(3 = 뉴스 검증, 5 = 구글 광고 인증 대기 — 대표 지시)
 const out = (o) => { try { fs.writeFileSync(L.ioDir() + '/asc-analytics.json', JSON.stringify(o)); } catch { /* 사본 저장 실패 무시 */ } console.log('ASC_DATA ' + JSON.stringify(o)); };
 const R = { at: Date.now(), appId: APP_ID, ok: false, error: null, fails: [] };
 
-// ── 공간 고르기: 0 우선 · 3·5·예약 공간 제외 · 사용자 제어 공간은 건드리지 않는다 ─────────
-async function pickSpace() {
-    const list = (await listTaskSpaces()) || [];
-    const reserved = L.reservedSpaceIds();
-    const userHeld = (s) => /user/i.test(String(s.ownership || '')) && s.ownership !== 'agent';
-    const cand = list.filter((s) => s.profileId === 'Profile 1' && !NO_SPACES.includes(Number(s.id)) && !reserved.includes(String(s.id)) && !userHeld(s));
-    const sp = cand.find((s) => Number(s.id) === 0) || cand[0];
-    if (!sp) return null;
-    try { await claimTaskSpace(sp.id); } catch (e) { log('claim 실패(대표 사용 중일 수 있다): ' + String(e.message).slice(0, 80)); }
-    try { return await taskSpace(sp.id); } catch { return null; }
-}
+// ── 공간: 관제 전용 에이전트 공간(hud-reader) — 공간 0 이 사용자 제어여도 읽는다. 대표 공간은 건드리지 않는다(2026-10-24) ─────────
+const pickSpace = () => L.hudSpace();
 const ts = await pickSpace();
-if (!ts) { console.log('SPACE_BUSY — 쓸 수 있는 공간이 없다(0 은 사용자 제어이거나 없음 · 3·5 는 쓰지 않는다). 되찾지 않는다.'); R.error = 'SPACE_BUSY'; out(R); process.exit(0); }
+if (!ts) { console.log('SPACE_BUSY — 관제 전용 공간(hud-reader)을 쓸 수 없다(사용자 제어로 넘어갔거나 생성 실패). 되찾지 않는다.'); R.error = 'SPACE_BUSY'; out(R); process.exit(0); }
 log('공간', ts.spaceId);
 
 let page = null, mine = false;

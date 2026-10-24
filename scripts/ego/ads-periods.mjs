@@ -16,7 +16,7 @@ const ALIAS = { '지난 7일': '최근 7일', '지난 30일': '최근 30일', '�
 //   작업 파일을 쓰면 운영 세션이 같은 시각에 쓰는 ads-periods-task.json 과 경쟁한다. 이 값이 있으면 작업 파일은 읽지 않는다.
 if (Array.isArray(globalThis.__ADS_PERIODS) && globalThis.__ADS_PERIODS.length) P = globalThis.__ADS_PERIODS;
 else try { P = JSON.parse(fs.readFileSync(await L.taskPath('ads-periods-task.json'), 'utf8')).periods || P; } catch { /* 기본값 */ }
-const ts = await L.space(); if (!ts) { console.log('SPACE_BUSY — 대표가 브라우저를 쓰고 있다. 되찾지 않는다.'); process.exit(0); }
+const ts = await L.hudSpace(); if (!ts) { console.log('SPACE_BUSY — 관제 전용 공간(hud-reader)을 쓸 수 없다. 되찾지 않는다.'); process.exit(0); }   // 10/24: 공간 0 사용자 제어여도 읽는다
 const REPORT = 'https://app-ads.apple.com/cm/app/23872040/report';
 const page = await L.findPage(ts, /app-ads\.apple\.com/, REPORT);
 const out = [];
@@ -55,6 +55,7 @@ for (const LABEL of P) {
 // ★2026-10-05 17시 회차: 읽은 기간이 «하나도 없으면»(세션 만료 등) 마지막 성공 결과를 덮지 않고 다른 파일에 쓴다.
 //   실패가 ads-periods-result.json 의 시각을 갱신하면 slot «⏱» 줄이 «광고 마지막 16:05 → 17:05 이후»로 읽혀 다음 회차가 «방금 읽었다»고 오인하고,
 //   직전 성공 값도 사라진다(10/5 16:04 애플 광고 콘솔 세션 만료 실측). 실패는 ads-periods-fail.json — slot 은 이 파일을 «읽은 시각»으로 세지 않는다.
+try { await page.close(); } catch { /* 닫기 실패 무시 — 관제 전용 공간의 페이지는 끝나면 닫는다(finish 는 부르지 않는다) */ }
 const okAny = out.some((o) => !o.fail && o.total);
 const resName = okAny ? 'ads-periods-result.json' : 'ads-periods-fail.json';
 fs.writeFileSync(L.ioDir() + '/' + resName, JSON.stringify(out, null, 1));
