@@ -19,6 +19,14 @@ import type { EarningsMoveMethod } from '@/lib/earnings/eventMove';
 
 export const EARNINGS_IMPLIED_KEY = 'earnings:implied:v1';
 
+/**
+ * 발표 뒤 첫 만기의 «마감 관측»(services/earningsMonthlyProbe — 공급사 EOD 마감 호가 mark ÷ 공식 종가) 저장 키.
+ * 쓰는 곳(earningsMonthlyProbe)과 읽는 곳(impliedMoveService 의 일반 경로 [T26])이 같은 키를 쓰게 여기 한 곳에 둔다.
+ */
+export const EARNINGS_OBSERVATION_PREFIX = 'earnings:event-probe:v3';
+export const earningsObservationKey = (ticker: string, after: string, sameDay: boolean): string =>
+  `${EARNINGS_OBSERVATION_PREFIX}:${String(ticker).toUpperCase()}:${after}:${sameDay ? 'same' : 'next'}`;
+
 /** 묶음 한 칸 — 짧은 이름(묶음이 164행 × 몇 필드라 작게) */
 export interface ImpliedCell {
   method?: EarningsMoveMethod | null;

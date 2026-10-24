@@ -5,11 +5,12 @@ import { readEodCloses } from '@/services/eodSnapshot';
 import { ImpliedDeadlineError, withinImpliedDeadline } from '@/lib/earnings/impliedDeadline';
 import { bgStore } from '@/lib/intrinioBackground';
 import { expiryMethod, splitMonthlyEvent, type EarningsMove } from '@/lib/earnings/eventMove';
+import { earningsObservationKey } from '@/lib/earnings/earningsImplied';
 export { monthlyExpiryAfter } from '@/lib/earnings/eventMove';
 
 const DAY = 86400_000;
 // v3: actual expiry list + event-date/timing key; v2 monthly-only values cannot suppress weekly collection.
-const PREFIX = 'earnings:event-probe:v3';
+//   키 모양은 lib/earnings/earningsImplied.earningsObservationKey 한 곳(일반 경로도 같은 관측을 읽는다 — T26).
 
 /** Ordinary readers only read this dated observation. Only the background pack refresh may collect. */
 export async function earningsMonthlyMove(
@@ -18,7 +19,7 @@ export async function earningsMonthlyMove(
   const today = etDateOf(Date.now());
   const distance = (Date.parse(`${after}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY;
   if (distance < 0 || distance > 45) return null;
-  const key = `${PREFIX}:${ticker}:${after}:${sameDay ? 'same' : 'next'}`;
+  const key = earningsObservationKey(ticker, after, sameDay);
   const cached = await withinImpliedDeadline(() => getFromCache<{ im: EarningsMove | null; checkedAt: number }>(key), deadlineMs)
     .catch(error => { if (error instanceof ImpliedDeadlineError) throw error; return null; });
   const stored = cached?.im ?? null;

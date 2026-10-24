@@ -19,6 +19,7 @@ import { regularReferencePrice } from '@/lib/quoteBasis';
 import { ImpliedDeadlineError, withinImpliedDeadline, IMPLIED_REFRESH_BUDGET_MS, IMPLIED_SAVE_RESERVE_MS } from '@/lib/earnings/impliedDeadline';
 import { bgStore } from '@/lib/intrinioBackground';
 import { expiryMethod, type EarningsMoveMethod, type EarningsMove } from '@/lib/earnings/eventMove';
+import { EARNINGS_IMPLIED_KEY, earningsObservationKey, type ImpliedPack } from '@/lib/earnings/earningsImplied';
 
 const MEMO_MS = 60_000;
 const memo = new Map<string, { at: number; value: ImpliedMove | null }>();
@@ -188,6 +189,105 @@ function shouldUseEarningsObservation(candidate: EarningsMove, existing: Implied
         && (!(typeof prevAt === 'number' && Number.isFinite(prevAt) && prevAt > 0) || nextAt > prevAt);
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// [T26 2026-10-25] «같은 종목·같은 만기·같은 세션 = 한 값» — 일반 경로도 실적 경로의 «마감 관측»을 같은 규칙으로 쓴다.
+//
+// [사고] 10/24 운영: AMZN 10/30 만기 10/23 세션 — GET /api/options/implied-move 7.8 vs 실적 캘린더 7.9.
+//   행사가(247.5)·분모(공식 종가 248)·세션은 같고 «다리 가격의 원천»만 달랐다:
+//     · 구조 사본 = 수집기 체인 midpoint = 실시간 FMV(synthetic_price) 콜 10.125 + 풋 9.325 = 19.45 → 7.843 → 7.8
+//       (정규장 밖에서 받은 실시간 호가라 basis eod 로 바뀌지만 공급사 마감 호가는 아니다)
+//     · 실적 관측 = 공급사 EOD 체인 mark(마감 호가 중간) 콜 10.10 + 풋 9.375 = 19.475 → 7.853 → 7.9
+//   정의(lib/impliedMove [정의]·meta.definition)는 장외 = «마지막 세션의 마감 중간값»이므로 정본은 마감 관측이다.
+//   실적 경로는 이미 shouldUseEarningsObservation(같은 만기·같은 세션이면 EOD 관측 우선)으로 관측을 쓴다 — 일반 경로만 몰랐다.
+//
+// [규칙] 관측 «레지스트리» = 실적 캘린더 묶음(earnings:implied:v1)의 행 키 «티커|발표일». 그 발표의 관측 키(next·same)를 읽어
+//   만기가 같은 관측만 shouldUseEarningsObservation 으로 고른다(장중 실시간 값은 더 새 세션이라 그대로 — 관측은 읽지도 않는다).
+//   관측 값은 저장된 그대로 쓴다(재계산·지어내기 0). 다리·행사가·분모가 같으면 기존 행을 그대로 둔다(출처 표기 불변).
+//   ⛔ 벤더 0 · Redis 쓰기 0. 읽기 = 묶음 GET 1(인스턴스 메모 60초) + 관측 mget 1(해당 종목만). 실패하면 기존 값 그대로.
+// ════════════════════════════════════════════════════════════════════════════
+
+const PACK_MEMO_MS = 60_000;
+let packMemo: { at: number; value: ImpliedPack | null } | null = null;
+/** 시험용 — 묶음 메모 비우기 */
+export function _resetImpliedPackMemoForTest(): void { packMemo = null; }
+
+async function readEarningsPackMemo(): Promise<ImpliedPack | null> {
+    const now = Date.now();
+    if (packMemo && now - packMemo.at >= 0 && now - packMemo.at < PACK_MEMO_MS) return packMemo.value;
+    let value: ImpliedPack | null = null;
+    try {
+        const p = await getFromCache<ImpliedPack>(EARNINGS_IMPLIED_KEY);
+        value = p && p.v === 1 && p.cells && typeof p.cells === 'object' ? p : null;
+    } catch {
+        value = null;
+    }
+    packMemo = { at: Date.now(), value };
+    return value;
+}
+
+const OBS_MAX_AGE_DAYS = 5;
+
+/** 저장된 마감 관측이 «쓸 수 있는 정의값»인가 — 만기 일치·EOD·세션 5일 이내·다리 값 양수 */
+function usableClosingObservation(im: any, expiry: string, today: string): im is EarningsMove {
+    if (!im || typeof im !== 'object' || im.def !== IMPLIED_MOVE_DEF || im.basis !== 'eod' || im.expiry !== expiry) return false;
+    if (isOptionExpiredAt(im.expiry)) return false;
+    const f = impliedMoveFields(im);
+    if (f.impliedMovePct == null || !f.impliedMoveSession) return false;
+    const age = (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${f.impliedMoveSession}T00:00:00Z`)) / 86400_000;
+    if (!(age >= 0 && age <= OBS_MAX_AGE_DAYS)) return false;
+    return [im.spot, im.strike, im.callPrice, im.putPrice, im.straddle].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
+}
+
+/** 일반 요청(after 없음)의 결과에 같은 만기의 마감 관측을 실적 경로와 같은 규칙으로 적용한다(제자리 수정). */
+async function applyClosingObservations(reqs: ImpliedMoveRequest[], results: ResolvedImpliedMove[]): Promise<void> {
+    // 장중 실시간 값은 관측(지난 세션)보다 새롭다 — 규칙상 바뀌지 않으므로 읽지도 않는다.
+    const targets = results
+        .map((r, idx) => ({ r, idx }))
+        .filter(({ r, idx }) => !reqs[idx]?.after && r.im?.basis === 'eod' && typeof r.im.expiry === 'string' && ISO_DATE_RE.test(r.im.expiry));
+    if (!targets.length) return;
+    const pack = await readEarningsPackMemo();
+    if (!pack) return;
+    const today = etDateOf(Date.now());
+    const lookups: Array<{ idx: number; key: string; cellPct: number | null }> = [];
+    for (const { r, idx } of targets) {
+        const prefix = `${r.ticker}|`;
+        for (const [rowKey, cell] of Object.entries(pack.cells)) {
+            if (!rowKey.startsWith(prefix) || !cell || cell.e !== r.im!.expiry) continue;
+            const after = rowKey.slice(prefix.length);
+            if (!ISO_DATE_RE.test(after)) continue;
+            const cellPct = typeof cell.p === 'number' && cell.p > 0 ? cell.p : null;
+            lookups.push({ idx, key: earningsObservationKey(r.ticker, after, false), cellPct });
+            lookups.push({ idx, key: earningsObservationKey(r.ticker, after, true), cellPct });
+        }
+    }
+    if (!lookups.length) return;
+    let values: any[] = [];
+    try {
+        values = await mgetFromCache<any>(lookups.map((l) => l.key));
+    } catch {
+        return;
+    }
+    const best = new Map<number, { im: EarningsMove; matchesCell: boolean }>();
+    lookups.forEach((l, i) => {
+        const existing = results[l.idx].im;
+        const im = values[i]?.im;
+        if (!existing?.expiry || !usableClosingObservation(im, existing.expiry, today)) return;
+        if (!shouldUseEarningsObservation(im, existing)) return;
+        // 캘린더 칸에 실린 값과 같은 관측을 먼저(묶음이 그 관측으로 만든 것) — 같은 EOD 체인이면 next·same 은 같은 다리다.
+        const matchesCell = l.cellPct != null && (im.eventMovePct ?? im.pct) === l.cellPct;
+        const prev = best.get(l.idx);
+        if (!prev || (matchesCell && !prev.matchesCell)) best.set(l.idx, { im, matchesCell });
+    });
+    for (const [idx, { im }] of best) {
+        const existing = results[idx].im!;
+        if (existing.strike === im.strike && existing.spot === im.spot && existing.pct === im.pct
+            && existing.straddle === im.straddle && impliedMoveFields(existing).impliedMoveSession === impliedMoveFields(im).impliedMoveSession) continue;
+        // 일반 경로는 ATM 스트래들 정의값만 — 실적 전용(method·eventMovePct)은 싣지 않는다.
+        const { method: _method, eventMovePct: _event, ...straddle } = im;
+        results[idx] = resolvedMoveOf(results[idx].ticker, straddle as ImpliedMove, 'probe', null);
+    }
+}
+
 /** 종목별 (after, timing) 으로 예상 변동을 읽는다 — 결과는 요청 순서. 저장본이 없으면 값 없이 이유만(지어내지 않는다). */
 export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today: string = etDateString(), opts: { probeMonthly?: boolean; deadlineMs?: number } = {}): Promise<ImpliedMoveRow[]> {
     const reqs = requests.map((r) => ({ ticker: String(r.ticker || '').toUpperCase(), after: r.after && ISO_DATE_RE.test(r.after) ? r.after : null, timing: r.timing ?? 'unknown' }));
@@ -250,7 +350,10 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             ? regularReferencePrice({ day: { c: eod.rows.get(r.ticker)?.c } }, true) : null;
         const spot = regularClose ?? (reference ? reference.spot ?? NaN : Number(st.underlyingPrice));
         if (weeklyIm && regularClose && regularClose > 0 && weeklyIm.spot !== regularClose) {
-            weeklyIm = { ...weeklyIm, spot: regularClose, pct: Math.round(weeklyIm.straddle / regularClose * 1000) / 10 };
+            // [T26] 표시용으로 소수 2자리 반올림된 straddle 이 아니라 원래 두 다리 합으로 한 번만 반올림한다(관측 경로와 같은 계산).
+            const legs = Number(weeklyIm.callPrice) + Number(weeklyIm.putPrice);
+            const sum = Number.isFinite(legs) && legs > 0 ? legs : weeklyIm.straddle;
+            weeklyIm = { ...weeklyIm, spot: regularClose, pct: Math.round(sum / regularClose * 1000) / 10 };
         }
         const session = reference?.session ?? (closed ? impliedMoveFields(weeklyIm).impliedMoveSession ?? st.chainDate ?? null : null);
         const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations.filter((e: string) => e >= today) : [];
@@ -334,6 +437,9 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             if (!results[n.idx].im && eligible.length > 0) results[n.idx].reason = chain.length ? 'no_straddle' : 'no_snapshot';
         });
     }
+    // [T26] 같은 종목·만기의 «마감 관측»이 있으면 실적 경로와 같은 규칙(shouldUseEarningsObservation)으로 고른다.
+    //   after 요청은 readImpliedMoveRows 가 그 발표의 관측을 직접 읽으므로 여기선 일반 요청만.
+    await applyClosingObservations(reqs, results);
     // 위 조회를 기다리는 사이 마감됐을 수 있다 — 먼저 채운 행도 응답 직전에 다시 검사한다(지난 만기 값은 내지 않는다).
     const end = Date.now();
     return results.map((row) => (row.im?.expiry && isOptionExpiredAt(row.im.expiry, end) ? resolvedMoveOf(row.ticker, null, null, 'no_straddle') : row));
