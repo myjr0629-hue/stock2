@@ -110,15 +110,18 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         if (f.kind !== 'gamma' || f.level !== 'gammaFlip') continue;
         const pair = BRANCHES[l];
         // 현재 쪽이 우연히 맞더라도 «위면 증폭/아래면 완충»이라는 뒤집힌 조건은 거절한다.
-        if (pair.some((re, i) => new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags).test(t)))
+        // 부정된 반대 기전(«below it, hedging does not dampen»)은 뒤집힌 조건이 아니라 올바른 설명이다(관문 10241729).
+        const negatedClause = (m: RegExpMatchArray) => NEG_MECHANISM.test(m[0])
+            || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6));
+        if (pair.some((re, i) => [...t.matchAll(new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags))]
+            .some(m => !negatedClause(m))))
             reasons.push(`${l}:v2:conditional-mechanism`);
         // new RegExp: g 플래그의 lastIndex가 다음 호출에 남지 않게 한다.
         // 위·아래 «두 갈래가 모두» 있을 때만 조건 구조로 본다 — 한 갈래만 쓰면 현재 위치 주장이므로 기존 검사 그대로.
         if (!pair.every(re => new RegExp(re).test(t))) continue;
         // 기전을 부정한 조건절(«위면 완충하지 않는다»·«does not dampen»·«緩和せず»)은 올바른 조건 구조가 아니다(관문 10240458).
         // 부정어는 절 안(영어) 또는 절 «바로 뒤»(한국어 «완충하지 않고»·일본어 «緩和せず»)만 본다 — «; no direction implied» 같은 다음 절은 제외(관문 10241657).
-        if (pair.some(re => [...t.matchAll(new RegExp(re))].some(m => NEG_MECHANISM.test(m[0])
-            || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6)))))
+        if (pair.some(re => [...t.matchAll(new RegExp(re))].some(negatedClause)))
             reasons.push(`${l}:v2:conditional-mechanism`);
         const residual = pair.reduce((s, re) => s.replace(new RegExp(re), ''), t);
         // 남은 절의 위치·기전 단어 = 현재 상태 주장. 부정된 절(«Price is not above»)은 판정하지 않는다(오탈락 방지).

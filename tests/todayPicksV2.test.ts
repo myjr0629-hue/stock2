@@ -82,6 +82,11 @@ test('관문 10241657 재현: 다음 절 부정·부정된 위치는 오탈락 �
     const c = check(r, { ...branches, en }, below);
     assert.ok(c.ok, en + ' ' + c.reasons);
   }
+  // 관문 10241729: 위(side=a)에서 «below it, hedging does not dampen» 은 올바른 설명 — 운영 검사와 같이 통과.
+  const above = { ...r.facts, side: 'a' as const };
+  const ok = check(r, { ...branches, en: 'Above Gamma Flip, hedging dampens swings; below it, hedging does not dampen them' }, above);
+  assert.equal(ok.reasons.some(x => x.includes('v2:')), false, String(ok.reasons));
+  assert.deepEqual(ok.reasons, check(r, { ...branches, en: 'Above Gamma Flip, hedging dampens swings; below it, hedging does not dampen them' }, above).reasons);
   for (const why of [{ ...branches, en: 'Gamma Flip: above: cushions; below: amplifies; currently cushions swings' },
     { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭하며 현재는 완충하는 쪽입니다' },
     { ...branches, ja: 'Gamma Flipは上なら緩和・下なら増幅で、現在は緩和する側です' }]) {
