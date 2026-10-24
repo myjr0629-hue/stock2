@@ -42,6 +42,9 @@ let finnhubRows: Array<Record<string, unknown>> = [];
   return new Response('not found', { status: 404 });
 };
 
+const guardBoundary = require.resolve('../src/lib/fmpClient');
+require.cache[guardBoundary] = { id: guardBoundary, filename: guardBoundary, loaded: true,
+  exports: { fmpFetch: (url: string) => globalThis.fetch(url) } } as NodeModule;
 const C = require('../src/lib/earningsConfirmed') as typeof import('../src/lib/earningsConfirmed');
 const ED = require('../src/lib/earningsDate') as typeof import('../src/lib/earningsDate');
 const CAL = require('../src/services/earningsCalendarService') as typeof import('../src/services/earningsCalendarService');

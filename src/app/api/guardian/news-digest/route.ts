@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 // ============================================================================
 // Guardian News Intelligence — Market-Wide News Digest API
 // Polygon News (no ticker = global market news) → Claude AI Analysis/Curation
@@ -137,11 +138,10 @@ const FMP_API_KEY = process.env.FMP_API_KEY || '';
 async function fetchFMPGeneralNews(limit: number = 15): Promise<any[]> {
     if (!FMP_API_KEY) return [];
     try {
-        const res = await fetch(
-            `https://financialmodelingprep.com/stable/news/general-latest?limit=${limit}&apikey=${FMP_API_KEY}`,
-            { signal: AbortSignal.timeout(8000) }
+        const res = await fmpFetch(
+            `https://financialmodelingprep.com/stable/news/general-latest?limit=${limit}&apikey=${FMP_API_KEY}`, 'news', { timeoutMs: 8000 }
         );
-        if (!res.ok) return [];
+        if (!res?.ok) return [];
         const data = await res.json();
         if (!Array.isArray(data)) return [];
         return data.map((n: any) => ({
@@ -177,11 +177,10 @@ async function fetchFMPStockNews(limit: number = 30): Promise<any[]> {
 async function fmpNewsPool(path: string, limit: number, tag: string): Promise<any[]> {
     if (!FMP_API_KEY) return [];
     try {
-        const res = await fetch(
-            `https://financialmodelingprep.com/stable/${path}?limit=${limit}&apikey=${FMP_API_KEY}`,
-            { signal: AbortSignal.timeout(8000), cache: 'no-store' }
+        const res = await fmpFetch(
+            `https://financialmodelingprep.com/stable/${path}?limit=${limit}&apikey=${FMP_API_KEY}`, 'news', { timeoutMs: 8000 }
         );
-        if (!res.ok) return [];
+        if (!res?.ok) return [];
         const data = await res.json();
         if (!Array.isArray(data)) return [];
         return data.map((n: any) => ({

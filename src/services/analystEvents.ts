@@ -1,3 +1,5 @@
+import { fmpFetch } from '@/lib/fmpClient';
+import { isFmpErrorBody } from '@/lib/fmp/errorBody';
 /**
  * 애널리스트 «변화 이벤트» — 등급 상하향 + 목표가 리비전 추세.
  *
@@ -95,21 +97,20 @@ export interface AnalystEvents {
 }
 
 async function fmp(path: string, timeoutMs = 8000): Promise<any> {
-    if (!FMP_KEY) return null;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    if (!FMP_KEY) throw new Error('ANALYST_EVENTS_UNAVAILABLE');
     try {
         const sep = path.includes("?") ? "&" : "?";
-        const res = await fetch(`${FMP_BASE}/${path}${sep}apikey=${FMP_KEY}`, {
-            signal: ctrl.signal,
-            cache: "no-store",
-        });
-        if (!res.ok) return null;
-        return await res.json();
+        const res = await fmpFetch(`${FMP_BASE}/${path}${sep}apikey=${FMP_KEY}`, 'analyst', { timeoutMs });
+        if (!res?.ok) throw new Error('ANALYST_EVENTS_UNAVAILABLE');
+        const data = await res.json();
+        // Error-shaped bodies are failures; any other shape keeps the pre-existing
+        // «not a list → no rows» handling below (e.g. a ticker without coverage).
+        if (isFmpErrorBody(data)) throw new Error('ANALYST_EVENTS_UNAVAILABLE');
+        return data;
     } catch {
-        return null;
-    } finally {
-        clearTimeout(timer);
+        // swrFetch retains the last successful value on rejection and never
+        // writes a denied/partial refresh as six hours of zero changes.
+        throw new Error('ANALYST_EVENTS_UNAVAILABLE');
     }
 }
 
