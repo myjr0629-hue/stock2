@@ -126,7 +126,7 @@ function factsTextOf(f: LineFacts): string {
     return lines.join('\n');
 }
 
-const OPTIONS_MAP_SYSTEM = `You write the one-line «options map» reading under a stock in a watchlist (SIGNUM HQ app). The row above already shows the ticker, the price and a map bar (Put Floor — Max Pain — price — Call Wall). Your line says in plain words where the price sits on that map, for a retail investor.
+export const OPTIONS_MAP_SYSTEM = `You write the one-line «options map» reading under a stock in a watchlist (SIGNUM HQ app). The row above already shows the ticker, the price and a map bar (Put Floor — Max Pain — price — Call Wall). Your line says in plain words where the price sits on that map, for a retail investor.
 
 Return ONLY JSON: {"ko":"…","en":"…","ja":"…"} — the same reading in Korean, English and Japanese.
 
