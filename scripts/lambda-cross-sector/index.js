@@ -347,6 +347,9 @@ exports.handler = async (event, context) => {
         CLOSING.alignSummary(structured, reportEvidence);
         // 고침을 부르는 사유 = 근거 검사 + 권유어 의심(서빙 가드는 TS 라 Lambda 가 못 부른다, 관문 10241403). 저장 거부는 근거 검사만으로.
         const repairReasons = s => [...new Set([...CLOSING.evidenceProblems(s, reportEvidence), ...CLOSING.adviceSuspects(s)])];
+        // 고친 판 채택: 근거 검사 수가 줄면 채택, 같으면 권유어 의심 수로 — 의심(넓게 잡음)이 근거 검사를 고친 판을 버리게 하지 않는다(관문 10241426)
+        const score = s => [CLOSING.evidenceProblems(s, reportEvidence).length, CLOSING.adviceSuspects(s).length];
+        const better = (a, b) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
         let narrativeErrors = repairReasons(structured);
         const firstNarrativeErrors = narrativeErrors;
         // Lambda 는 15분 한도라 고침을 3회까지(Vercel 은 300초 예산 안에서 2회) — 10/24 Sonnet 4.6 모의 1/3 → 길이·언어 간 숫자 고침이 2회로 모자랐다
@@ -357,8 +360,7 @@ exports.handler = async (event, context) => {
                 const n = tryParse(extractJson(fix.text))?.closingNarrative;
                 if (!n) continue;
                 const candidate = CLOSING.alignSummary({ ...structured, marketOverview: { ...structured.marketOverview }, closingNarrative: n }, reportEvidence);
-                const errs = repairReasons(candidate);
-                if (errs.length < narrativeErrors.length) { structured = candidate; narrativeErrors = errs; }
+                if (better(score(candidate), score(structured))) { structured = candidate; narrativeErrors = repairReasons(candidate); }
             } catch (e) { console.warn('[CrossSector] narrative repair failed:', e.message); break; }
         }
         if (narrativeErrors.length) console.warn(`[CrossSector] 서사 사유 남음(${narrativeErrors.join(', ')}) — 근거 검사 실패만 저장 거부, 권유어는 서빙 가드가 판정`);

@@ -211,6 +211,22 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.ok(closingReportProblems(reason).some(r => r.endsWith(':advice')), '정규화가 권유 검출 낱말을 지우지 않는다(관문 10241411)');
     const keep = brief(); keep.structured.closingNarrative.why = tri('회사는 전망을 유지했다.', 'The company kept its outlook.', '会社は見通しを維持した。');
     assert.deepEqual(C.adviceSuspects(keep.structured), [], '가이던스 유지·재확인은 의심 아님');
+    // 관문 10241426 — 한국어 매수 관찰문도 Lambda 고침 대상, 고침 지시는 걸린 구절을 인용
+    const kobuy = brief(); kobuy.structured.closingNarrative.whatHappened.ko = '나스닥은 일부 반도체 매수로 하락폭이 제한됐다.';
+    assert.ok(C.adviceSuspects(kobuy.structured).includes('narrative:whatHappened:ko:advice'));
+    assert.deepEqual(C.adviceSuspects((() => { const b = brief(); b.structured.closingNarrative.whatHappened.ko = '매수세가 몰렸고 순매수가 이어졌으며 공매도는 줄었다.'; return b; })().structured), []);
+    const rq = C.narrativeRepairPrompt({ sessionDate: '2026-10-22', evidence: { news: [] }, macroStr: '', narrative: { ...narrative, watchNext: { ...narrative.watchNext, ja: '市場予想-0.1を上回れば予想より強い活動を示す。' } }, reasons: ['narrative:watchNext:ja:advice'] });
+    assert.match(rq, /watchNext\.ja: rewrite these fragments without the flagged word — «.*予想より強い/);
+    const lam = fs.readFileSync('scripts/lambda-cross-sector/index.js', 'utf8');
+    assert.ok(/better\(score\(candidate\), score\(structured\)\)/.test(lam), 'Lambda 채택은 근거 검사 우선');
+    // Lambda 권유어 검사 = 서빙 가드(생성 파일이 원본과 같아야 한다)
+    const gen = require('../scripts/build-lambda-advice-guard.cjs');
+    assert.equal(fs.readFileSync(gen.OUT, 'utf8'), gen.build(), 'adviceGuard.generated.js 를 다시 만들어라: node scripts/build-lambda-advice-guard.cjs');
+    for (const t of ['나스닥은 일부 반도체 매수로 하락폭이 제한됐다.', 'FXEmpire는 나스닥의 선별적 반도체 매수를 전했다.', '市場予想-0.1を上回れば予想より強い活動を示す。']) {
+        const b = brief(); b.structured.closingNarrative.whatHappened.ko = t; b.structured.closingNarrative.whatHappened.ja = t;
+        const served = closingReportProblems(b).filter(r => r.endsWith(':advice') && r.startsWith('narrative:whatHappened:'));
+        assert.deepEqual(C.adviceSuspects(b.structured).filter((r: string) => r.startsWith('narrative:whatHappened:')).sort(), served.sort(), t);
+    }
     const best = brief(); best.structured.closingNarrative.why.ko = '칩 종목은 매수됐고 추가 진입이 최선이라고 판단했다.';
     C.alignSummary(best.structured);
     assert.equal(best.structured.closingNarrative.why.ko, '칩 종목은 매수됐고 추가 진입이 최선이라고 판단했다.', '평가어 문장은 정규화 제외(관문 10241403)');

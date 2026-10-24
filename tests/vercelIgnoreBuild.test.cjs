@@ -161,6 +161,12 @@ test('main builds when a scripts/ file imported by src/ changes', t => {
         }
     };
     walk(path.join(root, 'src'));
+    // src 가 가져다 쓰는 scripts 파일이 다시 require 하는 같은 폴더 파일도 앱 코드다(closingReport.js → adviceGuard.generated.js)
+    for (const rel of [...imported]) {
+        const full = path.join(root, rel);
+        if (!fs.existsSync(full)) continue;
+        for (const m of fs.readFileSync(full, 'utf8').matchAll(/require\(['"](\.\/[^'"]+)['"]\)/g)) imported.add(path.relative(root, path.resolve(path.dirname(full), m[1])));
+    }
     assert.ok(imported.size > 0);
     for (const name of imported) {
         const repo = repository(t);

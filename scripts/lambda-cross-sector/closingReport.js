@@ -139,21 +139,16 @@ function moneySignConflict(a, b) {
 }
 
 /**
- * Lambda 전용 «권유어 의심» — 서빙 가드(lib/ai/adviceGuard, TS)를 Lambda 가 못 불러 고침 요청을 건너뛰고 저장본이 서빙에서 거부됐다(관문 10241403).
- * 고침을 «부르는» 데만 쓴다(넓게 잡아도 비용은 고침 한 번) — 저장 여부·서빙 판정은 기존 검사가 한다.
+ * Lambda 의 권유어 검사 — 서빙 가드(src/lib/ai/adviceGuard.ts)를 그대로 옮긴 생성 파일로 판정한다(scripts/build-lambda-advice-guard.cjs).
+ * Lambda 는 TS 를 못 불러 권유어 고침 요청을 건너뛰고 저장본이 서빙에서 거부됐다(관문 10241403·10241426). 고침을 «부르는» 데만 쓴다.
  */
-const ADVICE_SUSPECT = {
-    // 서빙 가드(adviceGuard)가 복합어 예외 없이 잡는 예측·권유 낱말만 — 매수·매도·買い·売り·buy·sell 은 관찰 복합어가 많아 넣지 않는다(오탐으로 고침만 낭비)
-    ko: { hit: /전망|예측|추천|목표\s?주?가|손절|익절/, ok: /(?:매출|실적|이익|영업이익|수익|가이던스|연간|분기|EPS|배당)\s?전망(?:치)?|전망치|전망(?:치)?\s?(?:을\s?)?(?:재확인|유지)/g },
-    en: { hit: /\b(?:recommend\w*|price target|target price|forecast\w*|predict\w*|guarantee[sd]?)\b/i, ok: /$^/g },
-    ja: { hit: /推奨|目標株価|目標価格|予測|予想|見通し/, ok: /市場予想|(?:業績|通期|連結|売上|利益|配当|決算|コンセンサス)予想|予想(?:益回り|PER|EPS|配当)|予想(?:を|は|より|に対し)(?:大きく)?(?:上回|下回|裏切|超え)|予想(?:外|通り|どおり|以上|以下|比)|(?:売上|業績|利益|通期|連結|収益|配当|ガイダンス|会社|決算)見通し|見通し(?:を)?(?:再確認|維持|据え置|引き上げ|引き下げ|上方修正|下方修正|確認|発表|公表|開示)/g },
-}
+const { adviceHit: servedAdviceHit } = require('./adviceGuard.generated.js');
 function adviceSuspects(s) {
     const n = s?.closingNarrative, out = [];
     if (!n || typeof n !== 'object') return out;
     for (const f of FIELDS) for (const loc of LOCALES) {
-        const t = typeof n[f]?.[loc] === 'string' ? n[f][loc].replace(ADVICE_SUSPECT[loc].ok, ' ') : '';
-        if (ADVICE_SUSPECT[loc].hit.test(t)) out.push(`narrative:${f}:${loc}:advice`);
+        const t = n[f]?.[loc];
+        if (typeof t === 'string' && servedAdviceHit(t)) out.push(`narrative:${f}:${loc}:advice`);
     }
     return out;
 }
@@ -378,6 +373,15 @@ function repairSpecifics({ evidence, narrative, reasons }) {
         if (evs.length) out.push(`watchNext must include at least one event of the next session date ${day}: ${evs.map(e => `${e.event} at "${e.timeEt}" (market estimate ${e.estimate ?? 'not provided'}, previous ${e.previous ?? 'not provided'})`).join('; ')}; never say the next-session calendar is not provided.`);
     }
     if (rs.some(r => /:ko:advice$/.test(r))) out.push('Korean: write 시장 예상치 for a consensus estimate (never 전망), 매수세/매도세 for observed buying/selling (never a bare 매수/매도), and no 추천/권유/목표가/예측.');
+    // 걸린 낱말이 든 구절을 그대로 보여 준다 — 일반 지시만으로는 «予想より強い»·«반도체 매수로»를 고침 2회에도 그대로 썼다(10/24 실측)
+    for (const r of rs) {
+        const m = /^narrative:(verdict|whatHappened|why|indicators|watchNext):(ko|ja):advice$/.exec(r);
+        if (!m) continue;
+        const t = String(n[m[1]]?.[m[2]] || '');
+        const re = m[2] === 'ja' ? /.{0,8}(?<!市場)予想.{0,6}|.{0,8}(?:予測|見通し|推奨).{0,6}/g : /.{0,8}(?<![순공])매[수도](?!세).{0,6}|.{0,8}(?:전망|예측|추천).{0,6}/g;
+        const frags = [...new Set([...t.matchAll(re)].map(x => x[0]))].slice(0, 4);
+        if (frags.length) out.push(`${m[1]}.${m[2]}: rewrite these fragments without the flagged word — ${frags.map(f => `«${f}»`).join(', ')} (${m[2] === 'ja' ? '予想 → 市場予想' : '매수/매도 → 매수세/매도세, 전망 → 시장 예상치'}).`);
+    }
     if (rs.some(r => /:ja:advice$/.test(r))) out.push('Japanese: write 市場予想 (never a bare 予想) and avoid 見通し/予測/買い/売り/推奨.');
     return out.length ? `Specific fixes:\n- ${out.join('\n- ')}\n` : '';
 }
