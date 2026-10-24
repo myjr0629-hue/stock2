@@ -80,6 +80,7 @@ test('관문 10241657 재현: 다음 절 부정·부정된 위치는 오탈락 �
     'Above Gamma Flip, hedging dampens swings; below it, hedging amplifies them',
     'Gamma Flip: above: cushions; below: amplifies; currently amplifies swings',
     'Below Gamma Flip, hedging amplifies rather than cushions swings', 'Below Gamma Flip, hedging amplifies moves instead of cushioning them']) {
+    // (관문 10241905 ko 는 아래 별도)
     const c = check(r, { ...branches, en }, below);
     assert.ok(c.ok, en + ' ' + c.reasons);
   }
@@ -88,6 +89,9 @@ test('관문 10241657 재현: 다음 절 부정·부정된 위치는 오탈락 �
   const ok = check(r, { ...branches, en: 'Above Gamma Flip, hedging dampens swings; below it, hedging does not dampen them' }, above);
   assert.equal(ok.reasons.some(x => x.includes('v2:')), false, String(ok.reasons));
   assert.deepEqual(ok.reasons, check(r, { ...branches, en: 'Above Gamma Flip, hedging dampens swings; below it, hedging does not dampen them' }, above).reasons);
+  assert.equal(check(r, { ...branches, ko: 'Gamma Flip 아래에서는 완충이 아니라 증폭하는 쪽입니다' }, below).reasons.some(x => x.includes('v2:')), false, '관문 10241905 ko 대조 부정');
+  assert.equal(check(r, { ...branches, en: 'Above Gamma Flip, hedging cushions; below it, hedging amplifies. Price is over it' }, below).ok, false, '관문 10241905 over');
+  assert.equal(check(r, { ...branches, en: 'Gamma Flip: above: cushions; below: amplifies, with expiry over two days away' }, below).reasons.some(x => x.includes('v2:current-side')), false, '일반어 over 는 위치 아님');
   for (const why of [{ ...branches, en: 'Gamma Flip: above: cushions; below: amplifies; currently cushions swings' },
     { ...branches, ko: 'Gamma Flip 위면 완충·아래면 증폭하며 현재는 완충하는 쪽입니다' },
     { ...branches, ja: 'Gamma Flipは上なら緩和・下なら増幅で、現在は緩和する側です' }]) {

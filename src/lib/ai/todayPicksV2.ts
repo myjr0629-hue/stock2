@@ -21,7 +21,7 @@ Voice examples (length and tone only — write a NEW sentence for THIS case, nev
 whale: {"ko":"전날 없던 행사가에 새 미결제약정이 크게 열렸습니다","en":"A strike with no prior open interest saw a large new position opened","ja":"前日に建玉のなかった行使価格で新規の建玉が大きく開かれました"}
 dark pool: {"ko":"장외 거래량은 평소보다 많지만 비중은 시장 평균보다 낮습니다","en":"Off-exchange volume ran above its norm, yet its share stayed below the market average","ja":"場外の出来高は平常より多い一方、比率は市場平均を下回っています"}
 gamma: {"ko":"Gamma Flip 아래라 딜러 헤지가 움직임을 키우는 쪽입니다","en":"Below Gamma Flip, where dealer hedging tends to amplify moves","ja":"Gamma Flipの下で、ディーラーのヘッジが値動きを増幅する側です"}
-earnings: {"ko":"개장 전 발표라 옵션은 첫 거래일 움직임의 크기만 반영합니다","en":"Reporting before the open, so options price only the size of the first-day move","ja":"寄り付き前の発表で、オプションは初日の値動きの大きさだけを織り込んでいます"}`;
+earnings: {"ko":"개장 전 발표를 낀 만기의 옵션은 방향이 아닌 움직임 크기를 반영합니다","en":"With a before-open report inside the expiry, options price the move's size, not its direction","ja":"寄り付き前の決算を含む満期のオプションは、方向ではなく値動きの大きさを織り込みます"}`;
 
 function caseReading(f: PickFacts, today: string): string {
     switch (f.kind) {
@@ -86,7 +86,7 @@ const HISTORY = /평소보다|이례적|유례|\b(?:unusually|unprecedented|larg
 // 조건절을 떼어 낸 나머지에 남은 위치 단어는 «현재 위치 주장»으로 본다(관문 10240458: «Price is above.»처럼 currently/now 없이도).
 const CURRENT_SIDE: Record<Loc, RegExp> = {
     ko: /(?<![가-힣])(위|아래)(?=\s*(?:에|입니|이며|이고|이라|라서|쪽|로|서|$|[,.。]))/g,
-    en: /\b(above|below)\b/gi,
+    en: /\b(above|below|beneath|over(?=\s+(?:it|Gamma Flip|the\s+(?:level|boundary|flip|line))\b)|under(?=\s+(?:it|Gamma Flip|the\s+(?:level|boundary|flip|line))\b))\b/gi,
     ja: /(?<!その|以|向|値|株|史|最|地|底|天|浮|売|買|計|途|川|頭|手|年|目|部|形|陸|水|海|空|身|上|下)(上|下)(?=\s*(?:に|です|で|側|回|、|。|$))/g,
 };
 
@@ -119,6 +119,7 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         // 부정된 반대 기전(«below it, hedging does not dampen»)은 뒤집힌 조건이 아니라 올바른 설명이다(관문 10241729).
         // «amplifies rather than cushions»·«instead of cushioning»·«완충이 아니라»·«緩和ではなく»처럼 대조로 부정된 기전도 같다(관문 10241801).
         const negatedClause = (m: RegExpMatchArray) => NEG_MECHANISM.test(m[0]) || CONTRAST.test(m[0])
+            || /^\s*(?:이|가|은|는)?\s*(?:아니라|아닌|대신)|^\s*(?:では|じゃ)なく/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 8))
             || NEG_AFTER[l].test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 6));
         if (pair.some((re, i) => [...t.matchAll(new RegExp(re.source.replace(MECHANISM_WORDS[l][i], MECHANISM_WORDS[l][1 - i]), re.flags))]
             .some(m => !negatedClause(m))))
@@ -140,7 +141,7 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         };
         for (const m of residual.matchAll(new RegExp(CURRENT_SIDE[l]))) {
             if (negatedAt(m.index ?? 0)) continue;
-            const side = /^(?:위|above|上)$/i.test(m[1]) ? 'a' : 'b';
+            const side = /^(?:위|above|over|上)$/i.test(m[1]) ? 'a' : 'b';
             if (side !== f.side) reasons.push(`${l}:v2:current-side`);
         }
         // «currently cushions swings»처럼 위치 단어 없이 현재 기전만 쓴 주장도 실제 쪽과 맞춘다(관문 10241657).
