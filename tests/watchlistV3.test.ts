@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { buildLineFacts } from '../src/lib/ai/watchlistLine';
-import { stockFactsOf } from '../src/lib/ai/watchlistStockFacts';
+import { stockFactsOf, quoteSessionValidUntil, quoteSessionLive } from '../src/lib/ai/watchlistStockFacts';
 import { checkWatchlistV3Output, checkWatchlistV3Insight, watchlistMetricReasons, watchlistInternalReasons, buildWatchlistV3Prompt } from '../src/lib/ai/watchlistV3';
 const row = { price: 145, changePct: -1.2, session: 'pre', extendedPrice: 146, extendedChangePct: 0.69, maxPain: 155, callWall: 160, putFloor: 135, gammaFlipLevel: 140, levelsChainDate: '2026-10-20', levelsExpiration: '2026-10-30', levelsSource: 'structure', darkPoolPct: 40, darkPoolDate: '2026-10-20', impliedMovePct: 3.2, impliedMoveDef: 'atm-straddle-mid/1', impliedMoveExpiry: '2026-10-30' };
 const now = Date.parse('2026-10-21T12:00:00Z');
@@ -56,9 +56,9 @@ test('정상 문장 오탈락 방지: 준비 중·매개·자료 같은 일반�
 test('숫자 계약: 역순 주어·레벨 교체·콜/풋 비중 교체·숫자 나열 차단', () => {
     assert.deepEqual(watchlistMetricReasons('off-exchange 40%', f), []);
     assert.ok(watchlistMetricReasons('40%의 예상 변동', f).includes('v3:metric:implied'));
-    assert.ok(watchlistMetricReasons('주가 $135', f).includes('v3:metric:quote-price'));
-    assert.ok(watchlistMetricReasons('現在値$135', f).includes('v3:metric:quote-price'));
-    assert.ok(checkWatchlistV3Insight('NVDA 장전 +3.2%, 양감마가 완충', 'ko', f, now).includes('v3:metric:quote-change'));
+    assert.ok(watchlistMetricReasons('주가 $135', f).includes('v3:metric:quote-number'));
+    assert.ok(watchlistMetricReasons('現在値$135', f).includes('v3:metric:quote-number'));
+    assert.ok(checkWatchlistV3Insight('NVDA 장전 +3.2%, 양감마가 완충', 'ko', f, now).includes('v3:metric:quote-number'));
     assert.ok(watchlistMetricReasons('Call Wall $135', f).includes('v3:metric:cw'));
     const flow = { ...f, contextText: '[options flow; EOD 2026-10-20; contract volume x close, trade direction unknown] NVDA large-premium (>= $50k) contracts: 10; calls 70% / puts 30% of that premium (not net buying)' };
     assert.deepEqual(watchlistMetricReasons('calls 70% / puts 30%', flow), []);
@@ -70,6 +70,48 @@ test('숫자 계약: 역순 주어·레벨 교체·콜/풋 비중 교체·숫자
 });
 test('저장 당시 사실으로 검사: 생성 시각이 달라도 숫자를 현재 값으로 바꾸지 않음', () => {
     assert.deepEqual(checkWatchlistV3Insight(insight.ko, 'ko', f, now + 3600_000), []);
-    assert.match(buildWatchlistV3Prompt(f), /"observedAt": null/);
+    // 모델 입력에 시세 가격·등락·수집 시각이 없다(36시간 저장 글에 지금 가격을 박지 않는다 · 입력 해시가 15분마다 바뀌지 않는다)
+    const p = buildWatchlistV3Prompt(f);
+    assert.doesNotMatch(p, /146|0\.69|inputAsOf|2026-10-21T12/);
+    assert.equal(buildWatchlistV3Prompt(buildLineFacts('NVDA', { ...row, extendedPrice: 147.3, extendedChangePct: 1.5 }, now + 900_000)!), p);
+    assert.match(p, /"sessionLabel"/);
+});
+test('관문 10241926 ①: 지표 이름과 숫자 사이 콜론·수식어로 결속을 우회하지 못한다 — 시세 숫자는 해석에 못 쓴다', () => {
+    const cases: Record<'ko' | 'en' | 'ja', string[]> = {
+        ko: ['NVDA 장전 주가: $135, 양감마가 완충', 'NVDA 장전 주가는 현재 $135로 양감마가 완충', 'NVDA 장전 $135 수준에서 양감마가 완충', 'NVDA 장전 주가 $146.00, 양감마가 완충', 'NVDA 장전 가격 = $135, 양감마가 완충'],
+        en: ['NVDA pre-market: price: $135; positive gamma dampens swings', 'NVDA pre-market price is now $135; positive gamma dampens swings', 'NVDA pre-market $135 area; positive gamma dampens swings', 'NVDA pre-market, quote $146; positive gamma dampens swings'],
+        ja: ['NVDA 寄り前、株価:$135で正ガンマが緩和', 'NVDA 寄り前、株価は現在$135、正ガンマが緩和', 'NVDA 寄り前、$135付近で正ガンマが緩和'],
+    };
+    for (const loc of ['ko', 'en', 'ja'] as const) for (const text of cases[loc]) {
+        const r = checkWatchlistV3Insight(text, loc, f, now);
+        assert.ok(r.some(x => /^v3:metric:(?:quote-number|unbound-price)$/.test(x)), `${loc} ${text} → ${r.join(',')}`);
+        assert.equal(check({ ...good, insight: { ...insight, [loc]: text } }).ok, false, text);
+    }
+    // 같은 $135 라도 Put Floor 의 값으로 결속되면 정상(앞·뒤 모두)
+    assert.deepEqual(watchlistMetricReasons('Put Floor: $135 위', f), []);
+    assert.deepEqual(watchlistMetricReasons('$135 Put Floor 위', f), []);
+    assert.deepEqual(watchlistMetricReasons('$135의 Put Floor', f), []);
+    assert.deepEqual(checkWatchlistV3Insight('NVDA 장전 Put Floor $135 위에서 양감마가 변동을 완충', 'ko', f, now), []);
+    assert.deepEqual(checkWatchlistV3Insight('NVDA pre-market: Put Floor $135 below; positive gamma dampens swings', 'en', f, now), []);
+    // 다른 지표 값을 빌리면(예상 변동 자리에 장외 비중 40%) 이름과 숫자 사이가 떨어져 있어도 탈락
+    assert.ok(watchlistMetricReasons('예상 변동은 대략 40%', f).includes('v3:metric:implied'));
+    assert.ok(watchlistMetricReasons('Call Wall: $135', f).includes('v3:metric:cw'));
+    // 이름 없는 ±% 는 예상 변동과 같을 때만
+    assert.deepEqual(watchlistMetricReasons('±3.2% 범위', f), []);
+    assert.ok(watchlistMetricReasons('5.5% 범위', f).includes('v3:metric:unbound-pct'));
+    // 칩 줄의 날짜(10/20)는 지표 숫자로 결속하지 않는다
+    assert.deepEqual(watchlistMetricReasons('장외 비중 40% (10/20)', f), []);
+});
+test('세션 기한: 장전→09:30 · 정규장→마감(조기 폐장 13:00) · 시간외→20:00 · 직전 종가→다음 개장', () => {
+    const et = (iso: string) => Date.parse(iso);
+    assert.equal(quoteSessionValidUntil({ session: 'pre' }, et('2026-10-21T12:00:00Z')), et('2026-10-21T13:30:00Z'));
+    assert.equal(quoteSessionValidUntil({ session: 'reg' }, et('2026-10-21T15:00:00Z')), et('2026-10-21T20:00:00Z'));
+    assert.equal(quoteSessionValidUntil({ session: 'reg' }, et('2026-11-27T15:00:00Z')), et('2026-11-27T18:00:00Z'), '조기 폐장 13:00 ET(EST)');
+    assert.equal(quoteSessionValidUntil({ session: 'post' }, et('2026-10-21T21:00:00Z')), et('2026-10-22T00:00:00Z'));
+    assert.equal(quoteSessionValidUntil({ session: 'closed' }, et('2026-10-24T12:00:00Z')), et('2026-10-26T13:30:00Z'), '토 → 월 09:30 ET');
+    assert.equal(quoteSessionValidUntil({ session: 'closed' }, et('2026-11-25T23:00:00Z')), et('2026-11-27T14:30:00Z'), '추수감사절 휴장 건너뜀(EST)');
+    assert.equal(quoteSessionLive({ session: 'pre' }, et('2026-10-21T12:00:00Z'), et('2026-10-21T16:00:00Z')), false);
+    assert.equal(quoteSessionLive({ session: 'pre' }, et('2026-10-21T12:00:00Z'), et('2026-10-21T13:29:00Z')), true);
+    assert.equal(quoteSessionLive(null, 0, 0), false);
 });
 console.log(`${n} passed`);

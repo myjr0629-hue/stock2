@@ -1,6 +1,6 @@
 import { rowSpot, formatLevelPrice } from '@/lib/optionLevelGate';
-import { etDateOf } from '@/lib/marketCalendar';
-import { lastClosedSessionDate } from '@/lib/marketSession';
+import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
+import { lastClosedSessionDate, etWallTimeToMs, shiftDate } from '@/lib/marketSession';
 import type { LineFacts } from './watchlistLine';
 import type { AiLineLocale } from '@/lib/app/watchlistAiLine';
 
@@ -15,6 +15,7 @@ export const STOCK_SESSION_LABELS: Record<StockSession, Record<AiLineLocale, str
 };
 export interface StockQuoteFact {
     subject: string;
+    /** 기록용(저장본). 모델에게는 주지 않는다 — 36시간 저장되는 글에 «지금 가격»을 박으면 몇 분 뒤 틀린 숫자가 된다(행 위에 실시간 가격이 이미 있다). */
     price: number;
     changePct: number | null;
     session: StockSession;
@@ -40,11 +41,44 @@ export function buildStockQuote(ticker: string, rt: any, nowMs: number): StockQu
     };
 }
 
-/** 새 공급사 호출 없이, 지도 한 벌과 이미 수집한 종목 근거만 묶는다. */
+const POST_END_MIN = 20 * 60;
+const REG_OPEN_MIN = 9 * 60 + 30;
+/** 다음 정규장 개장(ET) — 그 시점이 거래일 09:30 전이면 그날, 아니면 다음 거래일. */
+function nextRegularOpenMs(ms: number): number {
+    let d = etDateOf(ms);
+    if (isNonTradingDay(d) || etMinutesOf(ms) >= REG_OPEN_MIN) d = shiftDate(d, 1);
+    for (let i = 0; i < 12 && isNonTradingDay(d); i++) d = shiftDate(d, 1);
+    return etWallTimeToMs(d, REG_OPEN_MIN);
+}
+
+/**
+ * 세션 표현(«NVDA 장전 …»)이 참인 마지막 시각 — 저장 시각(atMs) 기준.
+ *   pre  → 그날 09:30 ET · reg → 그날 정규장 마감(조기 폐장 13:00) · post → 그날 20:00 ET
+ *   closed(직전 종가) → 다음 정규장 개장 · reference(세션 미상) → 30분
+ * 관문 10241926 ②: 08:00 ET 장전 저장본이 12:00 ET 에도 «장전»으로 나갔다 — 세션이 바뀌면 해석을 내리고 다시 만든다.
+ */
+export function quoteSessionValidUntil(q: Pick<StockQuoteFact, 'session'>, atMs: number): number {
+    const d = etDateOf(atMs);
+    switch (q.session) {
+        case 'pre': return etWallTimeToMs(d, REG_OPEN_MIN);
+        case 'reg': return etWallTimeToMs(d, sessionCloseMinutes(d));
+        case 'post': return etWallTimeToMs(d, POST_END_MIN);
+        case 'closed': return nextRegularOpenMs(atMs);
+        default: return atMs + 30 * 60_000;
+    }
+}
+
+/** 저장본의 세션이 «지금»도 맞나 — 저장 시각부터 그 세션 끝 전까지만. 세션이 안 맞는 저장본은 해석을 내보내지 않는다. */
+export function quoteSessionLive(q: Pick<StockQuoteFact, 'session'> | null | undefined, atMs: number, nowMs: number): boolean {
+    if (!q || !Number.isFinite(atMs)) return false;
+    return nowMs >= atMs - 60_000 && nowMs < quoteSessionValidUntil(q, atMs);
+}
+
+/** 새 공급사 호출 없이, 지도 한 벌과 이미 수집한 종목 근거만 묶는다. 가격·등락 숫자는 싣지 않는다(위 StockQuoteFact.price 참고). */
 export function stockFactsOf(f: LineFacts) {
     return {
-        contractVersion: STOCK_CONTRACT_VERSION, subject: f.ticker, quote: f.quote,
-        sessionLabels: STOCK_SESSION_LABELS[f.quote.session],
+        contractVersion: STOCK_CONTRACT_VERSION, subject: f.ticker,
+        quote: { subject: f.ticker, session: f.quote.session, sessionLabel: STOCK_SESSION_LABELS[f.quote.session], sessionDate: f.quote.sessionDate, note: 'The app row shows the live price and % change. Do not write them.' },
         levels: f.order.map(id => ({ id, subject: f.ticker, price: formatLevelPrice(f.lv[id]), side: f.sides[id], chainDate: f.chain, expiry: f.expiry })),
         offExchange: f.darkPool ? { ...f.darkPool, subject: f.ticker, basis: 'FINRA off-exchange share; not net buying' } : null,
         impliedMove: f.implied ? { ...f.implied, subject: f.ticker, basis: 'ATM straddle; not a forecast' } : null,

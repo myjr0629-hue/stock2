@@ -271,6 +271,15 @@ t('측정: 퍼널 닫힌 목록에 ai_seen·ai_tap·wl_ai', () => {
 });
 
 async function asyncTests() {
+  // v3 해석은 세션 표현을 담는다(관문 10241926 ②) — 표본 행(session 'pre')과 맞는 장전 시각(수 10/21 08:00 ET)으로 시계를 고정해 흐르게 한다
+  {
+    const Real = Date, t0 = Real.now(), base = Real.parse('2026-10-21T12:00:00Z');
+    class ShiftedDate extends Real {
+      constructor(...a: any[]) { super(...((a.length ? a : [ShiftedDate.now()]) as [any])); }
+      static now() { return base + (Real.now() - t0); }
+    }
+    (globalThis as any).Date = ShiftedDate;
+  }
   const reset = () => { store.clear(); ttls.clear(); script.length = 0; aiCalls = 0; batchCalls = 0; delete process.env.WL_AI_LINE_OFF; delete process.env.WL_AI_LINE_DAILY_CAP; };
   const at = async (name: string, fn: () => Promise<void>) => { reset(); await fn(); n++; console.log('ok -', name); };
   batchRows.NVDA = NVDA;
@@ -332,6 +341,49 @@ async function asyncTests() {
     const seen: Record<string, string> = {};
     dedupeInsights('NVDA', { ko: 'NVDA 장전 예상 변동 ±3.2%, 양감마가 완충' }, seen);
     assert.equal(dedupeInsights('AAPL', { ko: 'AAPL 장전 예상 변동 ±2.2%, 양감마가 완충' }, seen).reasons.length, 1, '티커 접두사로 중복 검사를 우회하지 않는다');
+  });
+
+  await at('세션 전환(관문 10241926 ②): 장전 저장본은 09:30 ET 부터 해석을 내리고 다시 만든다 · 같은 입력이면 매 요청 재생성 안 함', async () => {
+    const clock = Date.now;
+    const pre = Date.parse('2026-10-21T12:00:00Z');            // 08:00 ET 장전
+    let now = pre;
+    Date.now = () => now;
+    try {
+      script.push({ text: SERVICE_GOOD });
+      assert.equal((await generateLines(['NVDA'])).out.NVDA, 'generated');
+      const saved: any = store.get(lineKey('NVDA'));
+      const open = Date.parse('2026-10-21T13:30:00Z');           // 09:30 ET
+      const e = entryOf(saved, 'ko', pre + 30 * 60_000)!;
+      assert.equal(e.insight, JSON.parse(SERVICE_GOOD).insight.ko);
+      assert.equal(e.insightUntil, open, '장전 해석의 기한 = 정규장 개장');
+      assert.equal(insightExpired(saved, open - 1), false);
+      const noon = Date.parse('2026-10-21T16:00:00Z');           // 12:00 ET
+      assert.equal(entryOf(saved, 'ko', noon)!.insight, undefined, '정규장에 «장전» 해석을 내보내지 않는다');
+      assert.equal(entryOf(saved, 'ko', noon)!.text, saved.text.ko, '칩 줄은 그대로');
+      assert.equal(insightExpired(saved, noon), true);
+      // 행이 아직 'pre'(시세 원천이 늦게 넘어감) — 만들자마자 기한이 지날 글이라 부르지 않는다
+      now = open + 60_000;
+      store.delete('wlai:lock:NVDA');
+      assert.equal((await generateLines(['NVDA'])).out.NVDA, 'session-lag');
+      assert.equal(aiCalls, 1);
+      assert.ok(!store.get(failKey('NVDA')), '쉬기 표식 없음 — 다음 확인에서 바로 다시');
+      // 행이 정규장으로 넘어가면 입력이 바뀌어 새로 만든다 — 새 글은 «정규장»
+      batchRows.NVDA = { ...NVDA, session: 'reg' };
+      store.delete('wlai:lock:NVDA');
+      script.push({ text: JSON.stringify({ ...JSON.parse(SERVICE_GOOD), insight: { ko: 'NVDA 정규장 예상 변동 ±3.2%, 양감마가 완충', en: 'NVDA regular session: implied move ±3.2%; positive gamma dampens swings', ja: 'NVDA 通常取引の想定変動幅±3.2%、正ガンマが緩和' } }) });
+      const g = await generateLines(['NVDA']);
+      assert.equal(g.out.NVDA, 'generated', JSON.stringify(g.reasons));
+      const reg: any = store.get(lineKey('NVDA'));
+      assert.equal(reg.facts.quote.session, 'reg');
+      assert.match(entryOf(reg, 'ko', noon)!.insight!, /^NVDA 정규장/);
+      assert.equal(entryOf(reg, 'ko', noon)!.insightUntil, Date.parse('2026-10-21T20:00:00Z'), '정규장 해석의 기한 = 16:00 ET 마감');
+      // 라우트: 해석이 내려간 저장본은 2분에 한 번만 다시 확인을 건다
+      afterCalls.length = 0;
+      store.set(lineKey('NVDA'), { ...saved, checkedAt: now });
+      const j = await (await route.GET(new Request('http://x/api/watchlist/ai-line?t=NVDA&loc=ko'))).json();
+      assert.deepEqual(j.pending, [], '방금 확인한 저장본은 다시 걸지 않는다');
+      assert.equal(j.lines.NVDA.insight, undefined);
+    } finally { Date.now = clock; batchRows.NVDA = NVDA; }
   });
 
   await at('입력: 뉴스 펄스·회사 공지 보정 실적 캐시 중 해당 종목만 합성', async () => {
@@ -449,14 +501,14 @@ async function asyncTests() {
         assert.deepEqual(j.pending, [], '입력 확인 시각부터 15분 계산');
       }
       assert.equal(aiCalls, 1);
-      assert.equal(batchCalls, 5, 'v3 시세 사실도 확인하되 같은 값이면 모델 호출은 1회');
+      assert.equal(batchCalls, 1, '같은 뉴스/일정·같은 세션이면 가격 공급사 경로도 다시 부르지 않는다(옛 판과 같은 비용)');
       assert.equal((store.get(lineKey('NVDA')) as any).at, generatedAt, '모델 생성 시각 유지');
       store.set('guardian:news:digest:v2', { items: [{ headline: 'New supply agreement', tickers: ['NVDA'], publishedAt: new Date(now).toISOString() }] });
       store.delete('wlai:lock:NVDA');
       script.push({ text: SERVICE_GOOD });
       assert.equal((await generateLines(['NVDA'], { cachedContextOnly: ['NVDA'] })).out.NVDA, 'generated');
       assert.equal(aiCalls, 2);
-      assert.equal(batchCalls, 6);
+      assert.equal(batchCalls, 2);
     } finally { Date.now = clock; }
   });
 

@@ -1,4 +1,5 @@
 import { WL_V3_SYSTEM, buildWatchlistV3Prompt, checkWatchlistV3Output, checkWatchlistV3Insight } from '@/lib/ai/watchlistV3';
+import { quoteSessionLive, quoteSessionValidUntil } from '@/lib/ai/watchlistStockFacts';
 import { cachedEvidence } from '@/lib/ai/tacticalPrompt';
 import { evidenceValidUntil } from '@/lib/ai/evidenceTime';
 import { newsForStock } from '@/lib/ai/stockEvidence';
@@ -35,6 +36,8 @@ const SKIP_SEC = 5 * 60;            // 크레딧 불가(건너뜀) — 짧게 �
 /** 화면이 «지형이 바뀌었다»고 알려도 이보다 최근에 만든 글이면 다시 만들지 않는다(가격이 레벨 언저리에서 오갈 때 되먹임 방지) */
 export const WL_AI_REGEN_MIN_AGE_MS = 10 * 60_000;
 const GEN_CONCURRENCY = 4;
+/** 같은 입력인데 해석이 내려간 저장본(세션 경계·근거 기한) — 이 시간 안에는 같은 입력으로 다시 부르지 않는다 */
+const SAME_INPUT_RETRY_MS = 30 * 60_000;
 const BATCH_CHUNK = 30;              // 묶음 서비스: 30개 이하만 종목별 실시간 스냅샷(useWatchlistData BATCH_MAX 와 같다)
 
 export const lineKey = (t: string) => `wlai:v2:${t}`;
@@ -82,6 +85,8 @@ export interface StoredLine {
 export function insightLiveAt(s: StoredLine, loc: AiLineLocale, nowMs: number): string | undefined {
     const candidate = s.insight?.[loc];
     if (!candidate || !s.source || (s.revision === 3 && !s.facts?.quote)) return undefined;
+    // v3 해석은 세션 표현(«NVDA 장전 …»)으로 시작한다 — 세션이 바뀌면 내보내지 않는다(관문 10241926 ②)
+    if (s.revision === 3 && !quoteSessionLive(s.facts!.quote, s.at, nowMs)) return undefined;
     if (nowMs >= evidenceValidUntil(s.source.split('\n'), s.at, { dayEnd: false })) return undefined;
     return (s.revision === 3 && s.facts ? checkWatchlistV3Insight(candidate, loc, s.facts, nowMs) : checkDepthLine(candidate, loc, s.source, nowMs)).length ? undefined : candidate;
 }
@@ -90,7 +95,7 @@ export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale, now
     if (!s || s.v !== 1 || !s.text || typeof s.text[loc] !== 'string' || !s.text[loc]) return null;
     if (textIntegrityReasons(s.text[loc]).length || lineLocaleReasons(s.text[loc], loc).length) return null;
     const insight = insightLiveAt(s, loc, nowMs);
-    const until = insight ? evidenceValidUntil(s.source!.split('\n'), s.at, { dayEnd: false }) : Infinity;
+    const until = insight ? Math.min(evidenceValidUntil(s.source!.split('\n'), s.at, { dayEnd: false }), s.revision === 3 && s.facts?.quote ? quoteSessionValidUntil(s.facts.quote, s.at) : Infinity) : Infinity;
     return { text: s.text[loc], insight, ...(insight && Number.isFinite(until) ? { insightUntil: until } : {}), chain: s.chain, lv: s.lv, sides: s.sides, at: s.at };
 }
 
@@ -98,6 +103,17 @@ export function entryOf(s: StoredLine | null | undefined, loc: AiLineLocale, now
 export function insightExpired(s: StoredLine | null | undefined, nowMs: number = Date.now()): boolean {
     if (s?.revision === 3) return WL_LINE_LOCALES.some(loc => !s.insight?.[loc] || !insightLiveAt(s, loc, nowMs));
     return !!s?.insight && WL_LINE_LOCALES.some(loc => !!s.insight?.[loc] && !insightLiveAt(s, loc, nowMs));
+}
+
+/**
+ * 해석이 내려간 저장본을 «지금» 다시 확인할 때인가 — 기한이 지난 뒤 아직 확인한 적이 없으면 바로, 확인했으면 2분에 한 번.
+ * (세션 경계에서 시세 원천의 세션이 늦게 넘어가면 같은 입력이 계속 들어온다 — 매 요청 배치를 부르지 않게)
+ */
+export function insightRecheckDue(s: StoredLine | null | undefined, nowMs: number = Date.now()): boolean {
+    if (!s || !insightExpired(s, nowMs)) return false;
+    const checked = s.checkedAt || s.at;
+    const until = s.source ? Math.min(evidenceValidUntil(s.source.split('\n'), s.at, { dayEnd: false }), s.revision === 3 && s.facts?.quote ? quoteSessionValidUntil(s.facts.quote, s.at) : Infinity) : s.at;
+    return checked < until || nowMs - checked >= 2 * 60_000;
 }
 
 /** 이미 있는 글이 지금 행(가격·레벨)에도 맞나 — 화면과 같은 판정(aiLineState)을 서버 가격으로 */
@@ -146,8 +162,9 @@ export async function callsToday(): Promise<number> {
     return Number(await getFromCache<number>(dayKey(etDateOf(Date.now()))).catch(() => 0)) || 0;
 }
 
-export type GenOutcome = 'generated' | 'fresh' | 'nodata' | 'guard' | 'skipped' | 'error' | 'locked' | 'cooling' | 'capped' | 'off';
-const inputHashOf = (f: LineFacts) => createHash('sha256').update(WL_V3_SYSTEM).update('\0').update(buildWatchlistV3Prompt({ ...f, quote: { ...f.quote, inputAsOf: '' } })).digest('hex');
+export type GenOutcome = 'generated' | 'fresh' | 'nodata' | 'guard' | 'skipped' | 'error' | 'locked' | 'cooling' | 'capped' | 'off' | 'session-lag';
+/** 모델 입력 그대로의 해시 — 시세 가격·등락·수집 시각은 입력에 없다(세션·지형·근거가 바뀔 때만 다시 만든다 = 옛 판과 같은 호출 수 + 세션 전환). */
+export const inputHashOf = (f: LineFacts) => createHash('sha256').update(WL_V3_SYSTEM).update('\0').update(buildWatchlistV3Prompt(f)).digest('hex');
 
 /** 한 종목 생성 — 사실이 이미 있을 때. 저장까지. */
 export async function generateOne(f: LineFacts, cachedContextHash?: string): Promise<{ outcome: GenOutcome; line?: StoredLine; reasons?: string[] }> {
@@ -303,9 +320,16 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
     const contextFor = (t: string) => { const i = stockInput(t); return [...i.earnings, ...i.news, i.flow?.line ?? '', i.insider ?? ''].filter(Boolean); };
     // 시장 전체 일정은 넣지 않는다 — 종목 근거가 아니고, 일정이 지날 때마다 모든 종목을 다시 만들게 된다(호출 수).
     const contextHashFor = (t: string) => createHash('sha256').update(WL_V3_SYSTEM).update(JSON.stringify(contextFor(t))).digest('hex');
-    // v3 글에는 시세 사실이 있으므로 정기 확인도 배치 가격을 확인한다.
-    // 입력 수집 시각만 바뀐 경우에는 inputHashOf가 같은 값으로 유지되어 모델을 다시 부르지 않는다.
-    const batchTodo = todo;
+    const batchTodo: string[] = [];
+    for (const t of todo) {
+        const saved = lines[t];
+        // 지형 변경 힌트가 없는 정기 확인은 기존 뉴스/일정 캐시만 비교한다(옛 판과 같다 — 배치 호출 0).
+        // v3 는 세션 표현이 있으므로 세션이 아직 맞을 때만(insightExpired 가 세션 경과를 본다). 세션이 바뀌었으면 배치로 다시 확인한다.
+        if (!opts.force && opts.cachedContextOnly?.includes(t) && saved?.revision === 3 && saved.inputHash && saved.cachedContextHash === contextHashFor(t) && !insightExpired(saved) && WL_LINE_LOCALES.every(loc => entryOf(saved, loc))) {
+            await setInCache(lineKey(t), { ...saved, checkedAt: Date.now() }, WL_AI_TTL_SEC);
+            out[t] = 'fresh';
+        } else batchTodo.push(t);
+    }
     for (let c = 0; c < batchTodo.length && Date.now() < deadline; c += BATCH_CHUNK) {
         const chunk = batchTodo.slice(c, c + BATCH_CHUNK);
         let rows: Record<string, any> = {};
@@ -327,11 +351,17 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
             const ranked = rankStockContext({ ...stockInput(t), darkPool: f.darkPool, implied: f.implied }, Date.now());
             f.contextText = ranked.lines.join('\n');
             f.topLine = ranked.topLine;
-            if (!opts.force && lines[t]?.revision === 3 && lines[t]?.inputHash === inputHashOf(f) && !insightExpired(lines[t]) && storedMatchesFacts(lines[t], f)) {
+            // 같은 입력이면 모델을 다시 불러도 같은 글이다 — 세션 경계에서 시세 원천(행의 session)이 시계보다 늦게 넘어가도
+            // 매 요청 재생성하지 않게, 해석이 내려간 저장본도 30분 안이면 그대로 둔다(행의 세션이 바뀌면 입력이 바뀌어 다시 만든다).
+            const savedT = lines[t];
+            if (!opts.force && savedT?.revision === 3 && savedT.inputHash === inputHashOf(f) && storedMatchesFacts(savedT, f) && (!insightExpired(savedT) || Date.now() - savedT.at < SAME_INPUT_RETRY_MS)) {
                 // 15분은 입력 재확인 주기다. 같은 입력으로 모델을 다시 부르지 않는다.
                 await setInCache(lineKey(t), { ...lines[t]!, cachedContextHash: contextHashFor(t), checkedAt: Date.now() }, WL_AI_TTL_SEC);
                 out[t] = 'fresh'; continue;
             }
+            // 행의 세션이 시계와 안 맞으면(09:30 이 지났는데 아직 'pre' — 시세 원천의 전환 지연) 만들자마자 기한이 지난 글이 된다 → 부르지 않는다(다음 확인에서)
+            const nowT = Date.now();
+            if (!quoteSessionLive(f.quote, nowT, nowT)) { out[t] = 'session-lag'; continue; }
             work.push(f);
         }
         await pool(work, GEN_CONCURRENCY, deadline, async (f) => {
@@ -343,4 +373,64 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
         });
     }
     return { asked: uniq.length, out, reasons, ms: Date.now() - t0, ...(opts.detail ? { detail } : {}) };
+}
+
+/**
+ * 점검(쓰기 0) — 같은 실데이터 사실로 옛 프롬프트(v2: WL_LINE_SYSTEM·checkLineOutput)와 새 프롬프트(v3)를 운영 모델(사다리 ① 크레딧)로 각각 reps 번
+ * 생성해 출구 검사 결과·원문을 돌려준다. 저장·잠금·하루 상한·쉬기 표식을 건드리지 않는다(운영 저장본은 읽기만 — 비교용).
+ * sim = 행의 세션을 바꿔 본다(주말에 장전·정규장·시간외 세션 표현을 시험) — 시세 원천은 그대로, 세션 표지만.
+ * 크론 라우트 ?dry=compare 에서만(인증) — 2026-10-24 T7 실모델 비교.
+ */
+export async function compareLinesDry(tickers: string[], opts: { reps?: number; sim?: 'pre' | 'reg' | 'post' | null; deadline?: number } = {}) {
+    const t0 = Date.now();
+    const deadline = opts.deadline ?? t0 + 240_000;
+    const reps = Math.max(1, Math.min(5, opts.reps ?? 2));
+    const uniq = [...new Set(tickers.map((t) => String(t || '').toUpperCase()).filter(Boolean))].slice(0, 20);
+    const storedVals = await mgetFromCache<any>([...uniq.map(legacyLineKey), ...uniq.map(lineKey)]).catch(() => []);
+    const evidenceValues = await mgetFromCache<any>(['guardian:news:digest:v2', 'fmp:econ-calendar', 'market:earnings-calendar:v4', INSIDER_CACHE_KEY]).catch(() => []);
+    const evidence = cachedEvidence(evidenceValues[0], evidenceValues[1], evidenceValues[2], new Date(Date.now()), { stockDays: 5 });
+    const flows = await readSessionArchiveMany<any>('whale', uniq, { lookback: 1 }).catch(() => new Map());
+    const insiderBuys: any[] = Array.isArray(evidenceValues[3]?.buys) ? evidenceValues[3].buys : [];
+    let rows: Record<string, any> = {};
+    const payload = await processWatchlistBatch(uniq, 'price');
+    for (const r of (payload?.results || []) as any[]) if (r?.ticker && r.realtime) rows[String(r.ticker).toUpperCase()] = r.realtime;
+    const out: Record<string, any> = {};
+    const jobs: Array<() => Promise<void>> = [];
+    const { buildLineUserPrompt: oldUser, WL_LINE_SYSTEM: oldSystem, checkLineOutput: oldCheck } = await import('@/lib/ai/watchlistLine');
+    uniq.forEach((t, i) => {
+        let rt = rows[t];
+        if (rt && opts.sim) rt = { ...rt, session: opts.sim, ...(opts.sim !== 'reg' && !(rt.extendedPrice > 0) ? { extendedPrice: rt.price, extendedChangePct: 0 } : {}) };
+        const f = buildLineFacts(t, rt);
+        const stored = { v1: storedVals[i] ?? null, v2: storedVals[uniq.length + i] ?? null };
+        if (!f) { out[t] = { nodata: true, stored }; return; }
+        const ranked = rankStockContext({
+            ticker: t,
+            earnings: evidence.stockEvents.filter(e => e.ticker === t).map(e => e.text),
+            news: evidence.stockNews.filter(n => newsForStock(n, t)).slice(0, 6).map(n => n.text),
+            flow: flowSummary(t, flows.get(t)?.value), insider: insiderLineFor(t, insiderBuys, Date.now()),
+            darkPool: f.darkPool, implied: f.implied,
+        }, Date.now());
+        f.contextText = ranked.lines.join('\n'); f.topLine = ranked.topLine;
+        out[t] = { top: ranked.top, quote: f.quote, factsText: f.factsText, contextText: f.contextText, stored: { v1: stored.v1 ? { at: stored.v1.at, text: stored.v1.text, insight: stored.v1.insight, insightWhy: stored.v1.insightWhy, revision: stored.v1.revision } : null, v2: stored.v2 ? { at: stored.v2.at, text: stored.v2.text, insight: stored.v2.insight } : null }, old: [], new: [] };
+        for (let r = 0; r < reps; r++) for (const which of ['old', 'new'] as const) jobs.push(async () => {
+            if (Date.now() > deadline) return;
+            const attempts: string[][] = [];
+            const s0 = Date.now();
+            const check = (text: string) => which === 'old' ? oldCheck(text, f) : checkWatchlistV3Output(text, f);
+            try {
+                const res = await withFreshTier(() => callBedrock({
+                    system: which === 'old' ? oldSystem : WL_V3_SYSTEM, userPrompt: which === 'old' ? oldUser(f) : buildWatchlistV3Prompt(f),
+                    maxTokens: 700, temperature: 0.2, timeoutMs: 15_000, label: WL_LINE_PURPOSE, purpose: WL_LINE_PURPOSE, expectJson: true, locale: 'multi',
+                    validate: (text: string) => { const c = check(text); attempts.push(c.reasons); return { ok: c.ok, reasons: c.reasons }; },
+                }));
+                const c = check(res.text);
+                out[t][which].push({ ok: c.ok, reasons: c.reasons, text: c.text, insight: c.insight, insightReasons: c.insightReasons, raw: res.text.slice(0, 1200), attempts, provider: res.provider, ms: Date.now() - s0 });
+            } catch (e) {
+                out[t][which].push({ ok: false, error: String((e as Error)?.message || e).slice(0, 160), attempts, ms: Date.now() - s0 });
+            }
+        });
+    });
+    let k = 0;
+    await Promise.all(Array.from({ length: Math.min(GEN_CONCURRENCY, jobs.length) }, async () => { while (k < jobs.length) await jobs[k++](); }));
+    return { dry: true, sim: opts.sim ?? null, reps, at: new Date(t0).toISOString(), ms: Date.now() - t0, tickers: out };
 }
