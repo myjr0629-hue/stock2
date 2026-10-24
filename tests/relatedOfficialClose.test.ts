@@ -48,14 +48,14 @@ const seed1023 = () => {
 };
 
 async function main() {
-  // ① 주말 — 10/22 값 → 10/23 공식 종가 한 쌍 · 실패 행(0)도 채움 · 공식 값 없는 행은 그대로 · 다른 필드 보존
+  // ① 주말 — 10/22 값 → 10/23 공식 종가 한 쌍 · 실패 행(0)은 그대로 · 공식 값 없는 행은 그대로 · 다른 필드 보존
   seed1023();
   const input = stale();
   const out: any = await SPR.officialCloseRelated(input, SAT);
   assert.notEqual(out, input, '새 객체');
   assert.deepEqual(out.topRelated[0], { ticker: 'GOOGL', price: 320.21, change: -1.24, logo: null, prevClose: 324.22, session: '2026-10-23', closeSession: '2026-10-23', asOf: SAT });
   assert.deepEqual(out.topRelated[1], { ticker: 'AMD', price: 516.79, change: 1.74, logo: null, prevClose: 507.93, session: '2026-10-23', closeSession: '2026-10-23', asOf: SAT });
-  assert.deepEqual(out.topRelated[2], { ticker: 'MSFT', price: 524.51, change: 0.66, logo: null, prevClose: 0, session: '2026-10-23', closeSession: '2026-10-23', asOf: SAT }, '{price:0} 행도 공식 값(분모 0 은 그대로 — 웹은 옛 행 분모)');
+  assert.deepEqual(out.topRelated[2], input.topRelated[2], '{price:0} 실패 행은 채우지 않는다(웹 병합이 0 을 결측으로 보고 더 새 값을 지킨다 — 관문 10250550)');
   assert.deepEqual(out.topRelated[3], input.topRelated[3], '공식 값 없음 → 그대로(0·보합 금지)');
   assert.equal(out.count, 10); assert.equal(out.label, '다수'); assert.deepEqual(out.allTickers, input.allTickers);
   assert.equal(input.topRelated[0].price, 324.2, '입력(캐시 객체)은 고치지 않는다');
@@ -126,8 +126,8 @@ async function main() {
   ] };
   const keptOut: any = await SPR.officialCloseRelated(fresh, SAT);
   assert.deepEqual(keptOut.topRelated[0], fresh.topRelated[0], 'S 마감 뒤 계산한 S 행 → 직접 API 값 그대로');
-  assert.equal(keptOut.topRelated[1].price, 524.51, '가격 0 행은 공식 값');
-  assert.deepEqual(calls, ['MSFT:2026-10-23:2026-10-22'], '필요한 행만 읽는다');
+  assert.equal(keptOut, fresh, '가격 0 행도 그대로 → 같은 객체');
+  assert.deepEqual(calls, [], '고칠 행이 없으면 읽지 않는다');
   const allFresh = { topRelated: [fresh.topRelated[0]] };
   assert.equal(await SPR.officialCloseRelated(allFresh, SAT), allFresh, '전부 그대로 → 같은 객체·읽기 0');
   const cases: Array<[string, any]> = [
@@ -172,6 +172,19 @@ async function main() {
   //   행 계산 시각은 스냅샷을 받은 «뒤»(요청 시작 시각이 아니다 — 관문 10250519 ①)
   const src = fs.readFileSync(path.join(__dirname, '../src/app/api/live/related/route.ts'), 'utf8');
   assert.ok(!/const asOf = Date\.now\(\);/.test(src) && /prevClose, session, asOf: Date\.now\(\) \}/.test(src));
+
+  // ⑨-b2 관문 10250550 재현 — 03:59 직접 API 실패 행(0)이 공식 값으로 채워져 unified 캐시에 남으면, 04:00 뒤 웹 병합(실제 규칙)이
+  //       직접 API 의 새 프리마켓 값(530/+1.05%)을 524.51/+0.66% 로 덮었다 → 실패 행은 0 그대로라 병합이 새 값을 지킨다
+  const failedAt0359: any = await SPR.officialCloseRelated({ topRelated: [{ ticker: 'MSFT', price: 0, change: 0, logo: null, prevClose: 0 }] }, Date.parse('2026-10-26T07:59:00Z'));
+  const webMerge = (oldItem: any, newItem: any) => {   // LiveTickerDashboard 병합 규칙(이 변경에서 바꾸지 않음) 그대로
+    const hasLiveOldData = oldItem && (oldItem.price > 0 || Math.abs(oldItem.change) > 0);
+    return { ...newItem, price: (hasLiveOldData && newItem.price === 0) ? oldItem.price : newItem.price,
+      change: (hasLiveOldData && newItem.change === 0) ? oldItem.change : newItem.change, prevClose: newItem.prevClose || oldItem?.prevClose };
+  };
+  const merged = webMerge({ ticker: 'MSFT', price: 530, change: 1.05, logo: null, prevClose: 524.51 }, failedAt0359.topRelated[0]);
+  assert.deepEqual([merged.price, merged.change, merged.prevClose], [530, 1.05, 524.51], '새 프리마켓 값·분모 유지');
+  const dashSrc = fs.readFileSync(path.join(__dirname, '../src/components/LiveTickerDashboard.tsx'), 'utf8');
+  assert.ok(dashSrc.includes('price: (hasLiveOldData && newItem.price === 0) ? oldItem.price : newItem.price,'), '시험의 병합 규칙 = 실제 화면 코드');
 
   // ⑨-c 분모 없던 행(수확본)엔 분모를 새로 넣지 않는다 — 웹 병합(«prevClose: 새 행 || 옛 행»)이 직접 API 의 더 새 분모를 덮지 않게(관문 10250519 ③ 경로)
   const noDen: any = await SPR.officialCloseRelated({ topRelated: [{ ticker: 'AMZN', price: 252.36, change: 0, logo: null }, { ticker: 'GOOGL', price: 324.2, change: -3.15, logo: null, prevClose: 0 }] }, SAT);

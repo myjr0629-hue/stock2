@@ -38,6 +38,7 @@ export async function officialCloseForSnapshot(snapshotTsIso: unknown): Promise<
 //     session = S 이고 S 마감 뒤에 계산했고 가격이 있는 행은 그대로(직접 API 와 같은 값 — 시간외 체결 포함) — 다르거나 없으면(DynamoDB 수확본·장중 값·옛 캐시·
 //     공급사 스냅샷이 아직 전 세션·일봉 폴백) 공식 한 쌍으로 다시 계산한다(읽은 시각으로 기준을 정하지 않는다 — 관문 10250504 ①)
 //   · 공식 값이 아직 없거나(마감 직후 게시 전) 못 읽으면 그 행은 그대로(0·보합을 만들지 않는다)
+//   · 가격 0 인 실패 행은 채우지 않는다 — 웹 병합(«새 행 0 이면 옛 값 유지»)이 04:00 뒤 직접 API 의 새 프리마켓 값을 지키게(관문 10250550)
 //   · 프리마켓~마감(다음 세션이 살아 있는 구간)에는 손대지 않는다 — 행은 실시간 값이어야 하고, 공식 종가로 메우면 실시간 분모가 틀어진다
 //   · GOOG 는 직접 API(/api/live/related SNAPSHOT_ALIAS)와 같이 GOOGL 값을 쓴다
 //   · 범위(관문 10250519 뒤 축소): 웹 병합 규칙(LiveTickerDashboard)은 바꾸지 않는다 — 서버가 내는 행만 고친다. 직접 API·unified 출구·종목 SSR 이 같은 함수.
@@ -69,8 +70,9 @@ export async function officialCloseRelated<T = any>(related: T, nowMs: number = 
     const session = relatedCompletedSession(nowMs);
     if (!session) return related;
     const prev = prevTradingDate(session);
-    // 그대로 두는 행 = 공급사가 말한 본장 날짜가 S 이고, S 마감 «뒤»에 계산했고(장중 값이 아니다), 가격이 있는 행
-    const need = (row: any) => !(row?.session === session && Number(row?.price) > 0 && computedAfterClose(row?.asOf, session));
+    // 고치는 행 = 가격이 있는데(실패 행 0 은 그대로 — 웹 병합이 0 을 «결측»으로 보고 더 새 값을 지킨다, 관문 10250550)
+    //   공급사가 말한 본장 날짜가 S 가 아니거나, S 마감 «뒤»에 계산한 값이 아닌 행(장중 값·전 세션 스냅샷·수확본·일봉 폴백)
+    const need = (row: any) => Number(row?.price) > 0 && !(row?.session === session && computedAfterClose(row?.asOf, session));
     if (!rows.some(need)) return related;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const work = Promise.all(rows.map(async (row) => {
