@@ -54,7 +54,10 @@ async function run() {
   let task = null;
   for (const name of ['hud-reader', 'hud-reader-2', 'hud-reader-3']) {
     try {
-      const ts = await taskSpace(name, { profileId: 'Profile 1' });
+      // 이미 있는 공간에 profileId 를 주면 던진다(10/24 실측) → 목록에서 이름으로 찾아 번호로 잇고, 없을 때만 profileId 로 만든다.
+      const have = ((await listTaskSpaces()) || []).find((x) => x.name === name);
+      if (have && have.ownership !== 'agent') continue;               // 사용자 제어로 넘어간 공간 — 건드리지 않고 다음 이름
+      const ts = have ? await taskSpace(have.id) : await taskSpace(name, { profileId: 'Profile 1' });
       if (ts && (ts.ownership === undefined || ts.ownership === 'agent')) { task = ts; break; }
     } catch { /* 이름이 사용자 소유이거나 생성 실패 — 다음 이름 */ }
   }

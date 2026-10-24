@@ -85,7 +85,10 @@ export const HUD_SPACE_NAMES = ['hud-reader', 'hud-reader-2', 'hud-reader-3'];
 export async function hudSpace(names = HUD_SPACE_NAMES) {
     for (const name of names) {
         try {
-            const ts = await taskSpace(name, { profileId: 'Profile 1' });
+            // taskSpace(이름, {profileId}) 는 «이미 있는 공간»에 profileId 를 주면 던진다(10/24 실측) → 목록에서 이름으로 찾아 번호로 잇고, 없을 때만 profileId 로 만든다.
+            const have = ((await listTaskSpaces()) || []).find((x) => x.name === name);
+            if (have && have.ownership !== 'agent') { console.log(`ego: 관제 전용 공간 ${name}(#${have.id})이 ${have.ownership} — 건드리지 않는다`); continue; }
+            const ts = have ? await taskSpace(have.id) : await taskSpace(name, { profileId: 'Profile 1' });
             if (ts && (ts.ownership === undefined || ts.ownership === 'agent')) return ts;
             console.log(`ego: 관제 전용 공간 ${name}(#${ts && ts.spaceId})이 에이전트 소유가 아님(${ts && ts.ownership}) — 건드리지 않는다`);
         } catch (e) { console.log(`ego: 관제 전용 공간 ${name} 사용 불가: ` + String((e && e.message) || e).slice(0, 100)); }

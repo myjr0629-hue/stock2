@@ -113,6 +113,20 @@ test('Reader runs in its own HUD space even when space 0 is user-controlled, and
     assert.equal(output.some((line) => line.startsWith('신규체험(ok):')), true);
 });
 
+test('Reader resumes an existing HUD space by id (no profileId) and skips a user-controlled one', async (t) => {
+    const originalLog = console.log, originalTimeout = global.setTimeout, calls = [];
+    console.log = () => {};
+    global.setTimeout = (callback) => { callback(); return 0; };
+    t.after(() => { console.log = originalLog; global.setTimeout = originalTimeout; delete global.listTaskSpaces; delete global.claimTaskSpace; delete global.takeOverTaskSpace; delete global.taskSpace; });
+    const page = { async goto() {}, async url() { return ''; }, async evaluate() { return { metrics: {}, missing: [], signin: true, dates: [], rows: [], labels: [] }; }, async close() { calls.push(['close']); } };
+    global.listTaskSpaces = async () => [{ id: 0, name: 'mkt', ownership: 'agentDelegatedToUser' }, { id: 18, name: 'hud-reader', ownership: 'agentDelegatedToUser' }, { id: 19, name: 'hud-reader-2', ownership: 'agent' }];
+    global.claimTaskSpace = async () => assert.fail('Must not claim any space');
+    global.takeOverTaskSpace = async () => assert.fail('Must not take over any space');
+    global.taskSpace = async (...args) => { calls.push(['space', ...args]); return { spaceId: 19, ownership: 'agent', newPage: async () => page }; };
+    await import(pathToFileURL(path.join(__dirname, 'rc-auto.mjs')).href + '?resume');
+    assert.deepEqual(calls[0], ['space', 19]);
+});
+
 test('Redeem uses only read-only count commands and keeps unreported totals null', () => {
     const calls = [];
     const result = R.collect({ dir: '/fixture/redeem', now: at, execute: (command, args) => {
