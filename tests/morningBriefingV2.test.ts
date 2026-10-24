@@ -119,6 +119,11 @@ test('지표 이름 ↔ 값 결속 — 영어판만 금리·VIX 값을 맞바꾸
     const koOk = good.ko.replace('미국 10년물 금리 4.99%(+4bp)와', '미국 10년물 금리는 4.99%로 4bp 올랐고');
     assert.ok(!checkMorningLocale(koOk, 'ko', facts).some(r => /metric/.test(r)), JSON.stringify(checkMorningLocale(koOk, 'ko', facts)));
     assert.ok(checkMorningV2(JSON.stringify({ ...good, en: flipped }), facts).reasons.includes('en:mb:metric-sign:us10y'));
+    // 방향어가 숫자 앞에 와도(관문 10250112 ②) · 0bp 는 부호 없이 정상(관문 10250112 ①)
+    assert.ok(checkMorningLocale(good.en.replace('The 10-year Treasury yield at 4.99% (+4bp) and WTI crude', 'The 10-year Treasury yield fell 4bp to 4.99% and WTI crude'), 'en', facts).includes('mb:metric-sign:us10y'));
+    const flat: MorningFacts = { ...facts, metrics: morningMetrics({ rlsi: 28.7, rlsiTrend: [28.7, 28.7, 28.7], vix: 19.57, vix3m: 20.12, gexIndex: -12, gexLevel: 'NEUTRAL', breadthPct: 42.6, us10y: { level: 4.99, bp: 0 }, oil: { level: 100.65, chgPct: 1.19 }, gold: { level: 4040.8, chgPct: -0.48 } }) };
+    const zero = (x: string) => x.replace('4.99%(+4bp)', '4.99%(0bp)').replace('4.99% (+4bp)', '4.99% (0bp)');
+    assert.deepEqual(checkMorningV2(JSON.stringify({ ko: zero(good.ko), en: zero(good.en), ja: zero(good.ja) }), flat).reasons, []);
     // 조건문의 «would» 는 예측이 아니다(관문 ③)
     assert.ok(!checkMorningLocale(good.en.replace('a stronger reading adds rate pressure', 'a stronger reading would add rate pressure'), 'en', facts).includes('mb:forecast:next'));
 });

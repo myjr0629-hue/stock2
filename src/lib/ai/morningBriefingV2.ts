@@ -394,7 +394,7 @@ const READER_TODO = /지켜볼|지켜봐|주시할|주시해|살펴볼|확인해
  *   (영어판만 10년물 금리와 VIX 값을 맞바꾸거나 +4bp 를 −4bp 로 써도 숫자 대조·3언어 일치를 통과하던 구멍)
  */
 const METRIC_ALIASES: Record<string, Record<MbLocale, RegExp>> = {
-    us10y: { ko: /10년물|국채\s?금리/g, en: /10-year|ten-year|\b10Y\b/gi, ja: /10年債|10年物/g },
+    us10y: { ko: /10년물/g, en: /10-year|ten-year|\b10Y\b/gi, ja: /10年債|10年物/g },
     vix: { ko: /VIX(?!3M)/g, en: /VIX(?!3M)/g, ja: /VIX(?!3M)/g },
     marketHealth: { ko: /시장\s?건강도|RLSI/g, en: /market health|RLSI/gi, ja: /健全度|RLSI/g },
     oil: { ko: /WTI|유가|원유/g, en: /WTI|crude|\boil\b/gi, ja: /WTI|原油/g },
@@ -402,9 +402,11 @@ const METRIC_ALIASES: Record<string, Record<MbLocale, RegExp>> = {
     dxy: { ko: /달러\s?인덱스|DXY/g, en: /dollar index|DXY/gi, ja: /ドル指数|DXY/g },
     btc: { ko: /비트코인/g, en: /bitcoin/gi, ja: /ビットコイン/g },
 };
-const WINDOW_STOP = /S&P\s?500|나스닥|Nasdaq|NASDAQ|ナスダック|선물|futures|先物|[.!?。！？](?:\s|$)/i;
-const UP_WORD = /올랐|오른|오르|올라|상승|높아|뛰|\b(?:rose|up|higher|climb\w*|gain\w*|rising|jump\w*|advanc\w*)\b|上昇|上が|高い|高く|高の/i;
-const DOWN_WORD = /내렸|내린|내려|하락|떨어|밀려|밀렸|낮아|\b(?:fell|down|lower|declin\w*|drop\w*|falling|slip\w*|eas\w*)\b|低下|下落|下が|安/i;
+// 다른 주어(지수·주가·증시)가 나오면 그 지표의 절은 끝난다 — «유가 … 주가 하락 흐름»의 «하락»은 유가의 방향이 아니다
+const WINDOW_STOP = /S&P\s?500|나스닥|Nasdaq|NASDAQ|ナスダック|선물|futures|先物|주가|증시|株価|株式|\b(?:stocks?|equities|shares)\b|[.!?。！？](?:\s|$)/i;
+// 일본어 «高·安» 은 낱자로 쓰면 «安全資産»·«高まり» 를 방향어로 읽는다 — 숫자 뒤 꼴(3.82%高の · 1.29%安で)만
+const UP_WORD = /올랐|오른|오르|올라|상승|높아|뛰었|뛴|\b(?:rose|up|higher|climb\w*|gain\w*|rising|jump\w*|advanc\w*)\b|上昇|上が|[%\d]高[のでと、]/i;
+const DOWN_WORD = /내렸|내린|내려|하락|떨어|밀려|밀렸|낮아|\b(?:fell|down|lower|declin\w*|drop\w*|falling|slip\w*)\b|低下|下落|下が|[%\d]安[のでと、]/i;
 const num = (raw: string) => Number(raw.replace(/,/g, ''));
 const tolOf = (raw: string) => { const d = raw.includes('.') ? raw.split('.')[1].length : 0; return d ? 0.5 * Math.pow(10, -d) + 1e-9 : 0.5; };
 export function metricBindingReasons(text: string, locale: MbLocale, f: MorningFacts): string[] {
@@ -417,7 +419,8 @@ export function metricBindingReasons(text: string, locale: MbLocale, f: MorningF
     for (const [id] of allAliases) {
         const m = shown.find(x => x.id === id)!;
         const valueRaw = m.value.match(/[\d,]+(?:\.\d+)?/)?.[0];
-        const chg = m.change?.match(/^([+-])([\d.]+)(%|bp)$/);
+        const chg = m.change?.match(/^([+-]?)([\d.]+)(%|bp)$/);   // «0bp»·«0.00%» 는 부호가 없다(관문 10250112 ①)
+        const chgSign = chg && Number(chg[2]) !== 0 ? (chg[1] === '-' ? '-' : '+') : null;
         for (const hit of aliasStarts.filter(h => h.id === id)) {
             const nextAlias = aliasStarts.filter(h => h.id !== id && h.at >= hit.end).map(h => h.at).sort((x, y) => x - y)[0] ?? t.length;
             let win = t.slice(hit.end, Math.min(nextAlias, hit.end + 45));
@@ -425,6 +428,10 @@ export function metricBindingReasons(text: string, locale: MbLocale, f: MorningF
             if (stop >= 0) win = win.slice(0, stop);
             // 값이 아닌 숫자(날짜 10/24 · 시각 08:30 · «3개월물»·«3カ月»·«3-month»)는 가린다(실모델 10/25 오탐 5건)
             win = win.replace(/(?<![\d.])\d{1,2}\/\d{1,2}(?![\d])|(?<![\d.])\d{1,2}:\d{2}|\d+\s?(?:개월|ヶ月|カ月|か月|-?months?|일|日|년|年|주|週)/g, (x) => ' '.repeat(x.length));
+            // 이름 뒤 같은 절의 첫 방향어(숫자 앞이든 뒤든 — «yield fell 4bp to 4.99%», 관문 10250112 ②)가 사실의 변화 부호와 같아야 한다
+            const u = win.search(UP_WORD), dn = win.search(DOWN_WORD);
+            const winDir = u < 0 && dn < 0 ? null : u < 0 ? '-' : dn < 0 ? '+' : u < dn ? '+' : '-';
+            if (chgSign && winDir && winDir !== chgSign) reasons.push(`mb:metric-sign:${id}`);
             const tokens = [...win.matchAll(/([+\-−]?)(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(\s?(?:%|bp))?/g)].slice(0, 2);
             for (const k of tokens) {
                 const v = num(k[3]); const unit = (k[4] || '').trim();
@@ -433,12 +440,7 @@ export function metricBindingReasons(text: string, locale: MbLocale, f: MorningF
                 // 보도 속 숫자(«금 4,000달러»)는 그 보도의 값이다 — 지표 값 결속 대상이 아니다(근거 대조는 위에서 따로)
                 if (!isValue && !isChange && reportNums.has(String(Math.round(v * 100) / 100))) continue;
                 if (!isValue && !isChange) { reasons.push(`mb:metric-value:${id}:${k[0].trim()}`); continue; }
-                if (isChange && !isValue) {
-                    const sign = k[1] ? (k[1] === '+' ? '+' : '-') : null;
-                    const after = win.slice(k.index! + k[0].length, k.index! + k[0].length + 12);
-                    const dir = UP_WORD.test(after) ? '+' : DOWN_WORD.test(after) ? '-' : null;
-                    if ((sign && sign !== chg![1]) || (!sign && dir && dir !== chg![1] && Number(chg![2]) !== 0)) reasons.push(`mb:metric-sign:${id}`);
-                }
+                if (isChange && !isValue && chgSign && k[1] && (k[1] === '+' ? '+' : '-') !== chgSign) reasons.push(`mb:metric-sign:${id}`);
             }
         }
     }
