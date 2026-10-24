@@ -184,6 +184,14 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.ok(closingReportProblems(gex2).includes('narrative:indicators:cross-lang-facts'));
     const bag = brief(); bag.structured.closingNarrative.watchNext = tri('2026-10-26 08:30 ET 내구재 -0.1%, 물가 +0.1%.', 'At 2026-10-26 08:30 ET durables -0.1%, prices -0.1%.', '2026-10-26 08:30 ETの耐久財-0.1%、物価+0.1%。');
     assert.ok(closingReportProblems(bag).includes('narrative:watchNext:cross-lang-facts'));
+    // 관문 10241258 반례 2건
+    const swapIdx = brief(); for (const l of ['ko', 'en', 'ja'] as const) swapIdx.structured.closingNarrative.verdict[l] = swapIdx.structured.closingNarrative.verdict[l].replace('-1.21%', '#').replace('-2.60%', '-1.21%').replace('#', '-2.60%');
+    C.alignSummary(swapIdx.structured);
+    assert.ok(closingReportProblems(swapIdx).some(r => r.startsWith('narrative:cash-close-index')), '지수와 값을 맞바꾸면 탈락');
+    const unsigned = brief(); unsigned.structured.closingNarrative.indicators = tri('GEX는 6,220만 달러, 금리 +4bp.', 'GEX -$62.2M; yields +4bp.', 'GEXは-6,220万ドル、金利+4bp。');
+    assert.ok(closingReportProblems(unsigned).includes('narrative:indicators:cross-lang-facts'), '음수 금액의 부호를 빠뜨리면 탈락');
+    const worded = brief(); worded.structured.closingNarrative.indicators = tri('GEX는 마이너스 6,220만 달러, 금리 +4bp.', 'GEX -$62.2M; yields +4bp.', 'GEXは-6,220万ドル、金利+4bp。');
+    assert.equal(closingReportProblems(worded).includes('narrative:indicators:cross-lang-facts'), false, '말로 음수를 밝히면 통과');
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');

@@ -102,14 +102,20 @@ const MONEY_PART = '\\d[\\d,]*(?:\\.\\d+)?\\s?(?:[MBKT]\\b|thousand|million|bill
 // 부호 + ($) + 금액 조각 1~3개(«2억 7,160만») + (통화) — 조각 없는 «$4,010»은 단위 없는 달러 값
 const MONEY_SPAN = new RegExp(`(^|[^A-Za-z0-9])([+-]?)\\s?\\$?\\s?((?:${MONEY_PART}\\s?){1,3})(?:달러|원|ドル|円|dollars?)?|(^|[^A-Za-z0-9])([+-]?)\\s?\\$\\s?(\\d[\\d,]*(?:\\.\\d+)?)(?![\\d.,]|\\s?(?:[MBKT]\\b|thousand|million|billion|trillion))`, 'gi');
 /** 글 속 금액 → [{sign:'+'|'-'|'', value}] (단위 환산, 한국어·일본어 복합 «2억 7,160만» 합산) */
+/** 부호 없이 쓴 금액의 방향 — 앞뒤 낱말로 음수를 밝힌 경우만 '-', 아니면 '+'(부호 없는 금액은 양수로 읽힌다 — 관문 10241258: ko «GEX는 6,220만 달러») */
+const NEG_WORD = /마이너스|음수|음의|순유출|유출|감소|적자|マイナス|負の|減少|流出|赤字|negative|minus|outflow|deficit|short of/i;
+function impliedSign(text, at, len) {
+    const around = String(text).slice(Math.max(0, at - 8), at + len + 10);
+    return NEG_WORD.test(around) ? '-' : '+';
+}
 function moneyAmounts(text) {
     const out = [];
     for (const m of String(text).matchAll(MONEY_SPAN)) {
         if (m[3]) {
             let v = 0;
             for (const p of m[3].matchAll(/(\d[\d,]*(?:\.\d+)?)\s?([MBKT](?![a-z])|thousand|million|billion|trillion|만|억|조|万|億|兆)/gi)) v += Number(p[1].replace(/,/g, '')) * MONEY_UNIT[p[2].toLowerCase()];
-            out.push({ sign: m[2] || '', value: v });
-        } else out.push({ sign: m[5] || '', value: Number(m[6].replace(/,/g, '')) });
+            out.push({ sign: m[2] || impliedSign(text, m.index, m[0].length), value: v });
+        } else out.push({ sign: m[5] || impliedSign(text, m.index, m[0].length), value: Number(m[6].replace(/,/g, '')) });
     }
     return out;
 }
@@ -197,6 +203,8 @@ function afterCloseCalledIntraday(text, stamp, loc) {
     return text.split(/(?<=[.!?。！？])\s*/).some(sent => sent.includes(stamp) && w.during.test(sent) && !w.after.test(sent));
 }
 
+const INDEX_LABEL = { spx: /S&P\s?500/, nasdaq: /NASDAQ|Nasdaq|나스닥|ナスダック/ };
+
 function evidenceProblems(s, evidence) {
     const out = narrativeProblems(s);
     const n = s?.closingNarrative;
@@ -225,10 +233,15 @@ function evidenceProblems(s, evidence) {
     if (!close.spx || !close.nasdaq) out.push('narrative:cash-close-missing');
     for (const loc of LOCALES) {
         const v = typeof n.verdict?.[loc] === 'string' ? n.verdict[loc] : '';
-        for (const q of [close.spx, close.nasdaq].filter(Boolean)) {
+        for (const [q, label] of [[close.spx, INDEX_LABEL.spx], [close.nasdaq, INDEX_LABEL.nasdaq]]) {
+            if (!q) continue;
             if (!Number.isFinite(q.changePct)) { out.push('narrative:cash-close-invalid'); continue; }
             const pct = `${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}%`;
             if (!v.includes(pct)) out.push(`narrative:cash-close-value:${loc}`);
+            // 지수 이름 바로 뒤의 첫 등락률이 그 지수의 값이어야 한다 — 두 값을 맞바꾼 판정(관문 10241258)
+            const at = v.search(label);
+            const first = at < 0 ? null : /[+\-−]\d+(?:\.\d+)?%/.exec(v.slice(at))?.[0]?.replace('−', '-');
+            if (first !== pct) out.push(`narrative:cash-close-index:${loc}`);
         }
         if (evidence.events?.length && !evidence.events.some(e => typeof n.watchNext?.[loc] === 'string' && n.watchNext[loc].includes(e.timeEt))) out.push(`narrative:event-time:${loc}`);
     }
