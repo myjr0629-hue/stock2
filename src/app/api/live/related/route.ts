@@ -2,7 +2,6 @@
 // V10: Polygon snapshot with manual changePct calculation — works for ALL tickers
 import { NextRequest } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
-import { relatedBasisKey } from "@/services/stalePriceRepair";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,9 +35,10 @@ export async function GET(req: NextRequest) {
     }
 
     const ticker = t.toUpperCase();
-    // [T12 · M9] 이 응답 값의 기준(읽은 시각 기준 — «close:S» = 끝난 세션 S 를 보여 줄 시간에 읽음). unified 캐시가 이 블록을 그대로 저장하고,
-    //   출구(services/stalePriceRepair.officialCloseRelated)는 기준이 지금과 다르면 그 세션의 공식 종가 한 쌍으로 다시 계산한다.
-    const _basis = relatedBasisKey(Date.now());
+    // [T12 · M9] 행마다 «값의 기준»을 함께 싣는다 — session = 공급사 스냅샷이 말한 본장 날짜(_intrinio.regularDate, 읽은 시각이 아니다 — 관문 10250504 ①),
+    //   asOf = 계산 시각(웹 병합이 늦게 도착한 옛 행을 거른다). unified 캐시가 이 행을 그대로 저장하고, 출구(stalePriceRepair.officialCloseRelated)는
+    //   끝난 세션 S 를 보여 줄 시간에 session ≠ S 인 행을 그 세션의 공식 종가 한 쌍으로 다시 계산한다. 일봉 폴백·실패 행은 session 없음.
+    const asOf = Date.now();
 
     try {
         // Step 1: Get related ticker LIST (DynamoDB first, Polygon fallback)
@@ -83,7 +83,9 @@ export async function GET(req: NextRequest) {
             return fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${snapTicker}`, {}, true)
                 .then(async (snap: any) => {
                     const { price, change, prevClose } = calcChangeFromSnapshot(snap?.ticker);
-                    if (price > 0) return { ticker: relT, price, change, logo: null, prevClose };
+                    const rd = snap?.ticker?._intrinio?.regularDate;
+                    const session = typeof rd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rd) ? rd : null;
+                    if (price > 0) return { ticker: relT, price, change, logo: null, prevClose, session, asOf };
                     // [V11] Snapshot failed (weekend/after-hours) — fallback to v2/aggs 2-day bar
                     try {
                         const today = new Date();
@@ -99,7 +101,7 @@ export async function GET(req: NextRequest) {
                             const aggChange = prevBar.c > 0
                                 ? Math.round(((lastBar.c - prevBar.c) / prevBar.c) * 10000) / 100
                                 : 0;
-                            return { ticker: relT, price: Math.round(lastBar.c * 100) / 100, change: aggChange, logo: null, prevClose: prevBar.c };
+                            return { ticker: relT, price: Math.round(lastBar.c * 100) / 100, change: aggChange, logo: null, prevClose: prevBar.c, session: null, asOf };
                         }
                     } catch {}
                     return { ticker: relT, price: 0, change: 0, logo: null, prevClose: 0 };
@@ -121,7 +123,6 @@ export async function GET(req: NextRequest) {
             topRelated,
             allTickers: relatedTickers,
             _source: source,
-            _basis,
         }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
 
     } catch (error: any) {

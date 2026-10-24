@@ -53,9 +53,9 @@ async function main() {
   const input = stale();
   const out: any = await SPR.officialCloseRelated(input, SAT);
   assert.notEqual(out, input, '새 객체');
-  assert.deepEqual(out.topRelated[0], { ticker: 'GOOGL', price: 320.21, change: -1.24, logo: null, prevClose: 324.22, closeSession: '2026-10-23' });
-  assert.deepEqual(out.topRelated[1], { ticker: 'AMD', price: 516.79, change: 1.74, logo: null, prevClose: 507.93, closeSession: '2026-10-23' });
-  assert.deepEqual(out.topRelated[2], { ticker: 'MSFT', price: 524.51, change: 0.66, logo: null, prevClose: 521.08, closeSession: '2026-10-23' }, '{price:0} 행도 공식 값으로');
+  assert.deepEqual(out.topRelated[0], { ticker: 'GOOGL', price: 320.21, change: -1.24, logo: null, prevClose: 324.22, session: '2026-10-23', closeSession: '2026-10-23', asOf: SAT });
+  assert.deepEqual(out.topRelated[1], { ticker: 'AMD', price: 516.79, change: 1.74, logo: null, prevClose: 507.93, session: '2026-10-23', closeSession: '2026-10-23', asOf: SAT });
+  assert.deepEqual(out.topRelated[2], { ticker: 'MSFT', price: 524.51, change: 0.66, logo: null, prevClose: 521.08, session: '2026-10-23', closeSession: '2026-10-23', asOf: SAT }, '{price:0} 행도 공식 값으로');
   assert.deepEqual(out.topRelated[3], input.topRelated[3], '공식 값 없음 → 그대로(0·보합 금지)');
   assert.equal(out.count, 10); assert.equal(out.label, '다수'); assert.deepEqual(out.allTickers, input.allTickers);
   assert.equal(input.topRelated[0].price, 324.2, '입력(캐시 객체)은 고치지 않는다');
@@ -115,49 +115,89 @@ async function main() {
   delayMs = 0;
   await new Promise((r) => setTimeout(r, 350));
 
-  // ⑨-a 기준 세션 저장 — 직접 API 가 같은 «close:S»에 읽은 블록(운영 AMZN unified live-direct)은 그대로(직접 API 와 같은 값),
-  //      가격 0 행만 공식 값 · 옛 기준(close:10/22)·장중 기준(live:)·기준 없음(DynamoDB 수확본)은 다시 계산
+  // ⑨-a 기준 세션 저장 — 행의 session(공급사 스냅샷 본장 날짜)·asOf(계산 시각). S 마감 뒤에 계산한 S 행(운영 AMZN unified live-direct)은
+  //      그대로(직접 API 와 같은 값), 가격 0 행만 공식 값. 스냅샷이 아직 전 세션(목)·장중에 계산한 S 행·기준 없음(DynamoDB 수확본)은 다시 계산
   seed1023();
   calls.length = 0;
-  const fresh = { _basis: 'close:2026-10-23', topRelated: [
-    { ticker: 'GOOGL', price: 321.11, change: -0.96, logo: null, prevClose: 324.22 },
-    { ticker: 'MSFT', price: 0, change: 0, logo: null, prevClose: 0 },
+  const AFTER = Date.parse('2026-10-24T14:00:00Z');   // 토 10:00 ET 계산
+  const fresh = { topRelated: [
+    { ticker: 'GOOGL', price: 321.11, change: -0.96, logo: null, prevClose: 324.22, session: '2026-10-23', asOf: AFTER },
+    { ticker: 'MSFT', price: 0, change: 0, logo: null, prevClose: 0, session: null, asOf: AFTER },
   ] };
   const keptOut: any = await SPR.officialCloseRelated(fresh, SAT);
-  assert.deepEqual(keptOut.topRelated[0], fresh.topRelated[0], '같은 기준·가격 있음 → 직접 API 값 그대로');
-  assert.equal(keptOut.topRelated[1].price, 524.51, '같은 기준이어도 가격 0 행은 공식 값');
+  assert.deepEqual(keptOut.topRelated[0], fresh.topRelated[0], 'S 마감 뒤 계산한 S 행 → 직접 API 값 그대로');
+  assert.equal(keptOut.topRelated[1].price, 524.51, '가격 0 행은 공식 값');
   assert.deepEqual(calls, ['MSFT:2026-10-23:2026-10-22'], '필요한 행만 읽는다');
-  const allFresh = { _basis: 'close:2026-10-23', topRelated: [fresh.topRelated[0]] };
-  assert.equal(await SPR.officialCloseRelated(allFresh, SAT), allFresh, '전부 같은 기준 → 같은 객체·읽기 0');
-  for (const basis of ['close:2026-10-22', 'live:2026-10-23', undefined]) {
-    const b: any = { _basis: basis, topRelated: [{ ticker: 'GOOGL', price: 321.11, change: -0.96, logo: null, prevClose: 324.22 }] };
+  const allFresh = { topRelated: [fresh.topRelated[0]] };
+  assert.equal(await SPR.officialCloseRelated(allFresh, SAT), allFresh, '전부 그대로 → 같은 객체·읽기 0');
+  const cases: Array<[string, any]> = [
+    ['토요일 요청인데 공급사 스냅샷이 목요일(관문 10250504 ①)', { session: '2026-10-22', asOf: AFTER }],
+    ['금요일 장중(14:00 ET)에 계산한 금요일 행', { session: '2026-10-23', asOf: Date.parse('2026-10-23T18:00:00Z') }],
+    ['기준 없음(DynamoDB 수확본·일봉 폴백)', {}],
+  ];
+  for (const [name, extra] of cases) {
+    const b: any = { topRelated: [{ ticker: 'GOOGL', price: 324.22, change: -3.15, logo: null, prevClose: 334.76, ...extra }] };
     const o: any = await SPR.officialCloseRelated(b, SAT);
-    assert.equal(o.topRelated[0].price, 320.21, `기준 ${basis} → 다시 계산`);
+    assert.equal(o.topRelated[0].price, 320.21, name);
+    assert.equal(o.topRelated[0].prevClose, 324.22, name);
+    assert.equal(o.topRelated[0].asOf, SAT, '고친 행은 계산 시각을 싣는다');
   }
-  // 기준 키 — 끝난 세션을 보여 줄 시간 «close:S», 다음 세션이 살아 있으면 «live:오늘»
-  assert.equal(SPR.relatedBasisKey(SAT), 'close:2026-10-23');
-  assert.equal(SPR.relatedBasisKey(MON_0300), 'close:2026-10-23');
-  assert.equal(SPR.relatedBasisKey(MON_1000), 'live:2026-10-26');
-  assert.equal(SPR.relatedBasisKey(FRI_1630), 'close:2026-10-23');
+  //      금 16:05 ET(조기 폐장 아님) 계산 금요일 행은 마감 뒤 — 그대로
+  const at1605 = { topRelated: [{ ticker: 'GOOGL', price: 320.4, change: -1.18, logo: null, prevClose: 324.22, session: '2026-10-23', asOf: Date.parse('2026-10-23T20:05:00Z') }] };
+  assert.equal(await SPR.officialCloseRelated(at1605, SAT), at1605);
 
-  // ⑨-b 직접 API 응답에 기준이 실린다(라우트 실행 — 공급사·DynamoDB 는 가짜)
+  // ⑨-b 직접 API 응답 행에 기준이 실린다(라우트 실행 — 공급사·DynamoDB 는 가짜) · 행 값 불변 · 스냅샷 본장 날짜 그대로
   stub('../src/services/massiveClient', {
     CACHE_POLICY: { LIVE: 'live' },
     fetchMassive: async (url: string) => {
       const sym = url.split('/').pop();
-      return { ticker: { lastTrade: { p: sym === 'GOOGL' ? 321.11 : 524.54 }, prevDay: { c: sym === 'GOOGL' ? 324.22 : 521.08 } } };
+      if (sym === 'XYZQ') return { ticker: { lastTrade: { p: 0 }, prevDay: { c: 0 } } };   // 스냅샷 실패 → 일봉 폴백
+      if (url.includes('/v2/aggs/')) return { results: [{ c: 12.5 }, { c: 12.35 }] };
+      return { ticker: { lastTrade: { p: sym === 'GOOGL' ? 321.11 : 524.54 }, prevDay: { c: sym === 'GOOGL' ? 324.22 : 521.08 }, _intrinio: { regularDate: sym === 'GOOGL' ? '2026-10-23' : '2026-10-22' } } };
     },
   });
-  stub('../src/lib/aws/dynamoDataProvider', { getRelatedData: async () => ({ tickers: ['GOOGL', 'MSFT'] }) });
+  stub('../src/lib/aws/dynamoDataProvider', { getRelatedData: async () => ({ tickers: ['GOOGL', 'MSFT', 'XYZQ'] }) });
   const { NextRequest } = require('next/server');
   const relatedRoute = require('../src/app/api/live/related/route');
   const realNow = Date.now;
   Date.now = () => SAT;
   let body: any;
   try { body = await (await relatedRoute.GET(new NextRequest('https://x.test/api/live/related?t=NVDA'))).json(); } finally { Date.now = realNow; }
-  assert.equal(body._basis, 'close:2026-10-23');
-  assert.deepEqual(body.topRelated.map((r: any) => [r.ticker, r.price, r.change, r.prevClose]), [['GOOGL', 321.11, -0.96, 324.22], ['MSFT', 524.54, 0.66, 521.08]], '행 값 불변');
-  assert.equal(await SPR.officialCloseRelated(body, SAT), body, '방금 읽은 직접 API 블록은 unified 출구에서도 그대로');
+  assert.deepEqual(body.topRelated.map((r: any) => [r.ticker, r.price, r.change, r.prevClose, r.session, r.asOf]),
+    [['GOOGL', 321.11, -0.96, 324.22, '2026-10-23', SAT], ['MSFT', 524.54, 0.66, 521.08, '2026-10-22', SAT], ['XYZQ', 12.5, 1.21, 12.35, null, SAT]], '행 값 불변 + 기준');
+  const viaExit: any = await SPR.officialCloseRelated(body, SAT);
+  assert.deepEqual(viaExit.topRelated[0], body.topRelated[0], '같은 세션·마감 뒤 행은 unified 출구에서도 그대로');
+  assert.equal(viaExit.topRelated[1].price, 524.51, '스냅샷이 전 세션(10/22)인 행은 공식 값');
+
+  // ⑨-c 웹 병합(lib/relatedRowMerge) — 관문 10250504 ②·③ + 예전 규칙 보존
+  const { mergeRelatedRow } = require('../src/lib/relatedRowMerge');
+  const T0400 = Date.parse('2026-10-26T08:00:05Z');
+  const directNew = { ticker: 'GOOGL', price: 321.5, change: 0.4, logo: null, prevClose: 320.21, session: '2026-10-23', asOf: T0400 };
+  const lateUnified = { ticker: 'GOOGL', price: 320.21, change: -1.24, logo: null, prevClose: 324.22, session: '2026-10-23', closeSession: '2026-10-23', asOf: T0400 - 6_000 };
+  const m2 = mergeRelatedRow(directNew, lateUnified);
+  assert.equal(m2.prevClose, 320.21, '② 늦게 도착한 옛 응답이 새 분모를 못 덮는다');
+  const ws = 322;
+  assert.equal(Number(((ws - m2.prevClose!) / m2.prevClose! * 100).toFixed(2)), 0.56, '② WebSocket 등락 +0.56% 유지(−0.68% 반전 없음)');
+  const flat = { ticker: 'GOOGL', price: 320.21, change: 0, logo: null, prevClose: 320.21, session: '2026-10-23', closeSession: '2026-10-23', asOf: T0400 + 60_000 };
+  const oldLive = { ticker: 'GOOGL', price: 322, change: 0.56, logo: null, prevClose: 320.21, asOf: T0400 };
+  const m3 = mergeRelatedRow(oldLive, flat);
+  assert.equal(m3.change, 0, '③ 공식 보합 0% 그대로(옛 +0.56% 안 남김)');
+  assert.equal(m3.price, 320.21);
+  //   예전 규칙: 새 행 가격·등락 0(실패) → 옛 실시간 값 · 분모 없으면 옛 분모 · 계산 시각 없는 두 행은 새 행
+  const legacyOld = { ticker: 'AMD', price: 516.21, change: 1.63, logo: null, prevClose: 507.93 };
+  assert.deepEqual(mergeRelatedRow(legacyOld, { ticker: 'AMD', price: 0, change: 0, logo: null }), { ticker: 'AMD', price: 516.21, change: 1.63, logo: null, prevClose: 507.93 });
+  assert.deepEqual(mergeRelatedRow(legacyOld, { ticker: 'AMD', price: 517, change: 1.8, logo: null }), { ticker: 'AMD', price: 517, change: 1.8, logo: null, prevClose: 507.93 });
+  //   계산 시각 있는 옛 행(직접 API) vs 시각 없는 새 행(옛 캐시·수확본) → 옛 행 값(낡은 캐시가 방금 받은 값을 못 덮는다)
+  const stamped = { ...legacyOld, asOf: T0400 };
+  const mx = mergeRelatedRow(stamped, { ticker: 'AMD', price: 505.6, change: -8.53, logo: null, prevClose: 552.72 });
+  assert.equal(mx.price, 516.21); assert.equal(mx.prevClose, 507.93);
+  //   새 행이 더 늦게 계산됐으면 새 행
+  assert.equal(mergeRelatedRow(stamped, { ticker: 'AMD', price: 518, change: 2, logo: null, prevClose: 507.93, asOf: T0400 + 1 }).price, 518);
+  //   옛 행 실패(가격 0)면 시각과 무관하게 새 행
+  assert.equal(mergeRelatedRow({ ticker: 'AMD', price: 0, change: 0, logo: null, asOf: T0400 }, { ticker: 'AMD', price: 517, change: 1.8, logo: null }).price, 517);
+  //   웹 화면이 이 함수를 쓴다(소스 배선)
+  const dash = fs.readFileSync(path.join(__dirname, '../src/components/LiveTickerDashboard.tsx'), 'utf8');
+  assert.match(dash, /return mergeRelatedRow\(oldItem, newItem\);/);
 
   // ⑨ 빈 블록·모양 아님 — 그대로
   assert.equal(await SPR.officialCloseRelated(null as any, SAT), null);
@@ -174,7 +214,7 @@ async function main() {
   const ssr = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/ticker/page.tsx'), 'utf8');
   assert.match(ssr, /officialCloseRelated\(/, '종목 SSR 도 같은 함수');
 
-  console.log('relatedOfficialClose: 12 묶음 통과');
+  console.log('relatedOfficialClose: 13 묶음 통과');
 }
 
 main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });

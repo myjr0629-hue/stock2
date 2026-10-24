@@ -24,17 +24,18 @@ export async function officialCloseForSnapshot(snapshotTsIso: unknown): Promise<
 // ══════════════════════════════════════════════════════════════════════
 // [T12 · 감사 10/23 M9] 연관 종목(related.topRelated) 행 — 끝난 세션을 보여 줄 시간엔 «그 세션의 공식 종가 한 쌍»으로.
 //
-// [사고] 10/25(토) 운영: /api/command/unified?t=NVDA `_source:cache`·`_ageMs` 40시간 — 연관 GOOGL 324.2(−3.15%) = 10/22 종가.
+// [사고] 10/25(토) 운영: /api/command/unified?t=NVDA `_source:cache`·`_ageMs` 40시간 — 연관 GOOGL 324.2(−3.15%) = 10/22 세션 값.
 //   마지막으로 끝난 정규장은 10/23(GOOGL 공식 종가 320.21, −1.24% · 직접 /api/live/related 321.11 시간외 포함 −0.96%).
 //   unified 캐시는 «목록이 있으면 usable»이라 세션이 바뀌어도 related 를 다시 받지 않는다(isFieldUsable).
-//   웹 종목 화면(LiveTickerDashboard)은 unified 의 related 를 직접 조회 값 위에 덮고, prevClose 를 실시간 등락 분모로 쓴다.
+//   웹 종목 화면(LiveTickerDashboard)은 unified 의 related 를 직접 조회 값 위에 합치고(lib/relatedRowMerge), prevClose 를 실시간 등락 분모로 쓴다.
 //
 // [규칙] 화면이 «끝난 세션 S»를 보여 줄 시간(그 세션 마감 뒤 ~ 다음 거래일 04:00 ET 프리마켓 전 · 주말 · 휴장)에만,
 //   행마다 peekOfficialSessionClose(종목, S, S 직전 거래일) — M7 과 같은 공식 종가 한 쌍(15:57 캡처 제외) — 이 있으면
-//   price = S 종가 · change = S 등락률(직전 거래일 공식 종가 대비) · prevClose = 직전 거래일 공식 종가(직접 API 의 prevDay.c 와 같은 뜻)로 바꾼다.
-//   · 기준 세션을 값과 함께 저장: 직접 API(/api/live/related)가 응답에 `_basis`(relatedBasisKey — «close:S» = S 마감 뒤 읽은 값)를 싣는다.
-//     블록의 `_basis` 가 지금의 «close:S» 와 같고 가격이 있는 행은 그대로(직접 API 와 같은 값 — 시간외 체결 포함) — 다르거나 없으면
-//     (DynamoDB 수확본·장중에 읽은 값·옛 캐시) 공식 한 쌍으로 다시 계산한다
+//   price = S 종가 · change = S 등락률(직전 거래일 공식 종가 대비) · prevClose = 직전 거래일 공식 종가(직접 API 의 prevDay.c 와 같은 뜻)로 바꾸고
+//   closeSession = S · asOf = 계산 시각을 싣는다.
+//   · 기준 세션을 값과 함께 저장: 직접 API 가 행마다 session(공급사 스냅샷의 본장 날짜 _intrinio.regularDate)·asOf 를 싣는다.
+//     session = S 이고 S 마감 뒤에 계산했고 가격이 있는 행은 그대로(직접 API 와 같은 값 — 시간외 체결 포함) — 다르거나 없으면(DynamoDB 수확본·장중 값·옛 캐시·
+//     공급사 스냅샷이 아직 전 세션·일봉 폴백) 공식 한 쌍으로 다시 계산한다(읽은 시각으로 기준을 정하지 않는다 — 관문 10250504 ①)
 //   · 공식 값이 아직 없거나(마감 직후 게시 전) 못 읽으면 그 행은 그대로(0·보합을 만들지 않는다)
 //   · 프리마켓~마감(다음 세션이 살아 있는 구간)에는 손대지 않는다 — 행은 실시간 값이어야 하고, 공식 종가로 메우면 실시간 분모가 틀어진다
 //   · GOOG 는 직접 API(/api/live/related SNAPSHOT_ALIAS)와 같이 GOOGL 값을 쓴다
@@ -49,10 +50,11 @@ export function relatedCompletedSession(nowMs: number = Date.now()): string | nu
     return session;
 }
 
-/** 직접 API 가 연관 종목 응답에 싣는 «기준» — 끝난 세션 S 를 보여 줄 시간이면 «close:S», 다음 세션이 살아 있으면 «live:오늘» */
-export function relatedBasisKey(nowMs: number = Date.now()): string {
-    const session = relatedCompletedSession(nowMs);
-    return session ? `close:${session}` : `live:${etDateOf(nowMs)}`;
+/** asOf(ms) 가 그 세션 정규장 마감(평소 16:00 · 조기 폐장 13:00 ET) 뒤인가 */
+function computedAfterClose(asOf: unknown, session: string): boolean {
+    if (typeof asOf !== 'number' || !Number.isFinite(asOf) || asOf <= 0) return false;
+    const d = etDateOf(asOf);
+    return d > session || (d === session && etMinutesOf(asOf) >= sessionCloseMinutes(session));
 }
 
 const RELATED_PRICE_ALIAS: Record<string, string> = { GOOG: 'GOOGL' };
@@ -65,8 +67,8 @@ export async function officialCloseRelated<T = any>(related: T, nowMs: number = 
     const session = relatedCompletedSession(nowMs);
     if (!session) return related;
     const prev = prevTradingDate(session);
-    const sameBasis = (related as any)?._basis === `close:${session}`;
-    const need = (row: any) => !(sameBasis && Number(row?.price) > 0);
+    // 그대로 두는 행 = 공급사가 말한 본장 날짜가 S 이고, S 마감 «뒤»에 계산했고(장중 값이 아니다), 가격이 있는 행
+    const need = (row: any) => !(row?.session === session && Number(row?.price) > 0 && computedAfterClose(row?.asOf, session));
     if (!rows.some(need)) return related;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const work = Promise.all(rows.map(async (row) => {
@@ -81,9 +83,9 @@ export async function officialCloseRelated<T = any>(related: T, nowMs: number = 
     const next = rows.map((row, i) => {
         const p = pairs[i];
         if (!p || !(p.close > 0) || !(p.prevClose > 0)) return row;
-        const out = { ...row, price: round2(p.close), change: round2((p.close - p.prevClose) / p.prevClose * 100), prevClose: round2(p.prevClose), closeSession: session };
-        if (out.price !== row.price || out.change !== row.change || out.prevClose !== row.prevClose || row.closeSession !== session) changed = true;
-        return out;
+        changed = true;
+        return { ...row, price: round2(p.close), change: round2((p.close - p.prevClose) / p.prevClose * 100), prevClose: round2(p.prevClose),
+            session, closeSession: session, asOf: nowMs };
     });
     return changed ? ({ ...(related as any), topRelated: next } as T) : related;
 }
