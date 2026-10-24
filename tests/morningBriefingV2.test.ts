@@ -127,6 +127,8 @@ test('지표 이름 ↔ 값 결속 — 영어판만 금리·VIX 값을 맞바꾸
     // 다른 주어의 방향어는 그 지표의 방향이 아니다 · 가격에 % 단위는 값이 아니다(관문 10250133)
     assert.ok(!checkMorningLocale(good.en.replace('WTI crude at $100.65 (+1.19%)', 'WTI crude at $100.65 (+1.19%) as bond prices fell'), 'en', facts).some(r => /metric/.test(r)));
     assert.ok(checkMorningLocale(good.en.replace('WTI crude at $100.65', 'WTI crude at 100.65%'), 'en', facts).some(r => r.startsWith('mb:metric-value:oil')));
+    const jaRate = good.ja.replace('WTI原油$100.65(+1.19%)がそろって上昇し、成長株への金利と物価の重荷が重なっています', 'WTI原油$100.65(+1.19%)が金利低下の効果を弱めています');
+    assert.ok(!checkMorningLocale(jaRate, 'ja', facts).some(r => /metric/.test(r)), JSON.stringify(checkMorningLocale(jaRate, 'ja', facts)));
     // 조건문의 «would» 는 예측이 아니다(관문 ③)
     assert.ok(!checkMorningLocale(good.en.replace('a stronger reading adds rate pressure', 'a stronger reading would add rate pressure'), 'en', facts).includes('mb:forecast:next'));
 });

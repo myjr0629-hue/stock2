@@ -406,6 +406,7 @@ const METRIC_ALIASES: Record<string, Record<MbLocale, RegExp>> = {
 //   다른 절을 여는 접속어(as·while·반면·一方 …)와 다른 자산(채권·bonds)에서도 끊는다(«WTI … as bond prices fell», 관문 10250133 ①)
 const WINDOW_STOP = /S&P\s?500|나스닥|Nasdaq|NASDAQ|ナスダック|선물|futures|先物|주가|증시|株価|株式|채권|債券|\b(?:stocks?|equities|shares|bonds?|as|while|amid|but|whereas|after|though|although)\b|반면|한편|가운데|一方|中で|ながら|[.!?。！？](?:\s|$)/i;
 // 일본어 «高·安» 은 낱자로 쓰면 «安全資産»·«高まり» 를 방향어로 읽는다 — 숫자 뒤 꼴(3.82%高の · 1.29%安で)만
+const RATE_STOP = /금리|물가|인플레|金利|利回り|物価|インフレ|\b(?:yields?|rates?|inflation)\b/i;
 const UP_WORD = /올랐|오른|오르|올라|상승|높아|뛰었|뛴|\b(?:rose|up|higher|climb\w*|gain\w*|rising|jump\w*|advanc\w*)\b|上昇|上が|[%\d]高[のでと、]/i;
 const DOWN_WORD = /내렸|내린|내려|하락|떨어|밀려|밀렸|낮아|\b(?:fell|down|lower|declin\w*|drop\w*|falling|slip\w*)\b|低下|下落|下が|[%\d]安[のでと、]/i;
 const num = (raw: string) => Number(raw.replace(/,/g, ''));
@@ -427,6 +428,8 @@ export function metricBindingReasons(text: string, locale: MbLocale, f: MorningF
             let win = t.slice(hit.end, Math.min(nextAlias, hit.end + 45));
             const stop = win.search(WINDOW_STOP);
             if (stop >= 0) win = win.slice(0, stop);
+            // 금리·물가 낱말은 10년물 금리 자신이 아니면 다른 주어다(«WTI … 金利低下の効果» 의 低下는 유가 방향이 아니다, 관문 10250148)
+            if (id !== 'us10y') { const r = win.search(RATE_STOP); if (r >= 0) win = win.slice(0, r); }
             // 값이 아닌 숫자(날짜 10/24 · 시각 08:30 · «3개월물»·«3カ月»·«3-month»)는 가린다(실모델 10/25 오탐 5건)
             win = win.replace(/(?<![\d.])\d{1,2}\/\d{1,2}(?![\d])|(?<![\d.])\d{1,2}:\d{2}|\d+\s?(?:개월|ヶ月|カ月|か月|-?months?|일|日|년|年|주|週)/g, (x) => ' '.repeat(x.length));
             // 이름 뒤 같은 절의 첫 방향어(숫자 앞이든 뒤든 — «yield fell 4bp to 4.99%», 관문 10250112 ②)가 사실의 변화 부호와 같아야 한다
