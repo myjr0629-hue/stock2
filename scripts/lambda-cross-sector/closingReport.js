@@ -323,6 +323,9 @@ function alignSummary(s, evidence) {
     }
     // 한국어 «매수로/매수됐다»→매수세, 일본어 «予想より»→市場予想 자동 치환은 하지 않는다 — 치환이 권유 문장의 유일한 검출 낱말을 지워 서빙 가드를 우회시켰다
     // (관문 10241229·10241349·10241411). 대신 지시문과 고침 요청의 구체 지시(«매수세/매도세», «市場予想»)로 모델이 고치게 하고, 못 고치면 닫힌 쪽(폴백)으로 간다.
+    // causeRefs.kind 에 근거의 timing 값(before_or_during_cash_session/after_cash_close)을 그대로 쓴 경우 — 같은 뜻의 kind 로(10/24 18차 실측 news-ref 탈락)
+    if (n && typeof n === 'object' && Array.isArray(n.causeRefs)) n.causeRefs = n.causeRefs.map(ref => ref && typeof ref === 'object'
+        ? { ...ref, kind: ref.kind === 'before_or_during_cash_session' ? 'reported_context' : ref.kind === 'after_cash_close' ? 'after_close' : ref.kind } : ref);
     // 본문 어느 언어에도 시각이 안 나온 causeRefs 는 «인용하지 않은 참조»라 뺀다(10/24 9차 실측: 쓰지도 않은 m7-2 하나로 news-time 3언어 탈락, 고침 2회에도 그대로).
     // 한 언어라도 인용했으면 그대로 두어 검사가 언어 간 누락을 잡게 한다.
     if (n && typeof n === 'object' && Array.isArray(n.causeRefs) && Array.isArray(evidence?.news)) {
@@ -367,6 +370,7 @@ function repairSpecifics({ evidence, narrative, reasons }) {
     if (rs.some(r => /after-close-phase-text/.test(r))) for (const item of news.filter(x => x.timing === 'after_cash_close')) {
         if (LOCALES.some(loc => afterCloseCalledIntraday(n.why?.[loc], item.publishedEt, loc))) out.push(`${item.source} (${item.publishedEt}) was published AFTER the cash close (16:00 ET): never group it with reports "during the session"; describe it in its own sentence as after the close.`);
     }
+    if (rs.some(r => /event-time|event-next/.test(r))) out.push('watchNext must quote each cited event time as the full stamp "YYYY-MM-DD HH:mm ET" exactly as in the calendar (e.g. "2026-10-26 08:30 ET"), not the date and the time separately.');
     if (rs.some(r => /event-next/.test(r))) {
         const day = [...(evidence?.events || [])].map(e => String(e.timeEt || '').slice(0, 10)).filter(Boolean).sort()[0];
         const evs = (evidence?.events || []).filter(e => String(e.timeEt || '').startsWith(day));

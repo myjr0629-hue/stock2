@@ -227,6 +227,9 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
         const served = closingReportProblems(b).filter(r => r.endsWith(':advice') && r.startsWith('narrative:whatHappened:'));
         assert.deepEqual(C.adviceSuspects(b.structured).filter((r: string) => r.startsWith('narrative:whatHappened:')).sort(), served.sort(), t);
     }
+    const kind = brief(); kind.structured.closingNarrative.causeRefs = kind.structured.closingNarrative.causeRefs.map((r: any) => ({ ...r, kind: 'before_or_during_cash_session' }));
+    C.alignSummary(kind.structured);
+    assert.ok(kind.structured.closingNarrative.causeRefs.every((r: any) => r.kind === 'reported_context'), 'timing 값 kind 는 같은 뜻으로');
     const best = brief(); best.structured.closingNarrative.why.ko = '칩 종목은 매수됐고 추가 진입이 최선이라고 판단했다.';
     C.alignSummary(best.structured);
     assert.equal(best.structured.closingNarrative.why.ko, '칩 종목은 매수됐고 추가 진입이 최선이라고 판단했다.', '평가어 문장은 정규화 제외(관문 10241403)');
