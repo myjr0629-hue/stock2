@@ -121,7 +121,9 @@ test('입력: 건별 차이·기준 세션 보존, 배경 뉴스·선물·공급
   assert.match(buildPickV2Prompt('BMY', byTicker('BMY').facts, '2026-10-13'), /share of total volume is below/);
   assert.match(buildPickV2Prompt('INTC', { ...byTicker('INTC').facts, jump: null }, '2026-10-13'), /prior comparison unavailable/);
   assert.doesNotMatch(buildPickV2Prompt('INTC', { ...byTicker('INTC').facts, jump: null }, '2026-10-13'), /a brand-new line/);
-  assert.match(TP_V2_SYSTEM, /TWO short connected clauses/);
+  // 운영 모델 실측(10/24): 두 절 허용·46/100자 목표 판은 75건 중 0건 통과(길이 초과) → 한 절·40/85자 상한·예시 복원(v2.5 142/150)
+  assert.match(TP_V2_SYSTEM, /ONE short sentence, ONE clause/);
+  assert.match(TP_V2_SYSTEM, /Korean ≤ 40 characters, Japanese ≤ 40 characters, English ≤ 85 characters/);
   assert.deepEqual(TP_WHY_MAX, { ko: 56, ja: 56, en: 120 });
 });
 test('실제 모델 시험 fixture의 상세 문장을 새 계약으로 재생: 3언어 상한·통과', () => {
