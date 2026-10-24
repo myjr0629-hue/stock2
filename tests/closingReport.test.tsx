@@ -179,6 +179,11 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     const state = brief(); state.structured.closingNarrative.whatHappened.ko = '반도체 매수로 하락폭이 제한된 상태다.';
     C.alignSummary(state.structured);
     assert.equal(state.structured.closingNarrative.whatHappened.ko, '반도체 매수세로 하락폭이 제한된 상태다.');
+    // 관문 10241251 반례 2건
+    const gex2 = brief(); gex2.structured.closingNarrative.indicators = tri('GEX +6,000만 달러, 자금 -6,300만 달러, 금리 +4bp.', 'GEX -$62.2M, flows -$63M, yields +4bp.', 'GEX -6,220万ドル、資金 -6,300万ドル、金利+4bp。');
+    assert.ok(closingReportProblems(gex2).includes('narrative:indicators:cross-lang-facts'));
+    const bag = brief(); bag.structured.closingNarrative.watchNext = tri('2026-10-26 08:30 ET 내구재 -0.1%, 물가 +0.1%.', 'At 2026-10-26 08:30 ET durables -0.1%, prices -0.1%.', '2026-10-26 08:30 ETの耐久財-0.1%、物価+0.1%。');
+    assert.ok(closingReportProblems(bag).includes('narrative:watchNext:cross-lang-facts'));
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');

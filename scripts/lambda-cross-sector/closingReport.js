@@ -114,15 +114,32 @@ function moneyAmounts(text) {
     return out;
 }
 /**
- * 금액 부호 충돌 — 서로가 서로의 «가장 가까운 크기(±15% 안)»인 금액 쌍(상호 최근접)의 부호가 반대면 충돌.
- * 관문 10241222·10241229·10241236 반례: ±3%는 반올림된 반대 부호를 놓쳤고, 한쪽 기준 최근접은 정상 반올림(-6,000만 vs -$62.2M·+$63M)을 다른 항목과 짝지었다.
+ * 금액 부호 충돌 — 두 언어의 부호 붙은 금액을 크기만으로 1:1 짝짓고(±15% 안, 차이 작은 쌍부터 탐욕 배정, 같으면 같은 부호 우선) 짝의 부호가 반대면 충돌.
+ * 관문 10241205~1251 반례 전부(부호 맞바꿈·반올림·근접 금액·상호 최근접 누락)를 한 규칙으로 막는다.
  */
 function moneySignConflict(a, b) {
     const rel = (x, y) => Math.abs(y.value - x.value) / Math.max(x.value, y.value);
-    const signed = arr => arr.filter(v => v.sign && v.value > 0);
-    const A = signed(a), B = signed(b);
-    const nearest = (x, pool) => pool.filter(y => rel(x, y) <= 0.15).sort((p, q) => rel(x, p) - rel(x, q) || (p.sign === x.sign ? -1 : 1))[0];
-    return B.some(x => { const y = nearest(x, A); return !!y && nearest(y, B) === x && y.sign !== x.sign; });
+    const A = a.filter(v => v.sign && v.value > 0), B = b.filter(v => v.sign && v.value > 0);
+    const pairs = [];
+    A.forEach((x, i) => B.forEach((y, j) => { const r = rel(x, y); if (r <= 0.15) pairs.push({ i, j, r, same: x.sign === y.sign }); }));
+    pairs.sort((p, q) => p.r - q.r || (p.same === q.same ? 0 : p.same ? -1 : 1));
+    const usedA = new Set(), usedB = new Set();
+    for (const p of pairs) {
+        if (usedA.has(p.i) || usedB.has(p.j)) continue;
+        usedA.add(p.i); usedB.add(p.j);
+        if (!p.same) return true;
+    }
+    return false;
+}
+
+/** 같은 값의 명시 부호 묶음 비교 — 개수가 같으면 묶음이 같아야 하고(순서 무관), 다르면 적은 쪽이 많은 쪽에 포함돼야 한다(빠뜨림 허용) */
+function signBagClash(p, q) {
+    const bag = x => [...x].sort().join('');
+    if (p.length === q.length) return bag(p) !== bag(q);
+    const [small, big] = p.length < q.length ? [p, q] : [q, p];
+    const rest = [...big];
+    for (const c of small) { const k = rest.indexOf(c); if (k < 0) return true; rest.splice(k, 1); }
+    return false;
 }
 
 function narrativeProblems(s) {
@@ -147,9 +164,8 @@ function narrativeProblems(s) {
         const lonely = [...new Set(keySets.flatMap(k => [...k]))].some(k => keySets.filter(set => set.has(k)).length < 2);
         // 부호는 세 언어 모든 쌍을 본다(관문 10241229: 영어가 값을 빠뜨리면 ko -0.1% · ja +0.1% 충돌을 놓쳤다)
         const pairs = [[0, 1], [0, 2], [1, 2]];
-        // 같은 값이 여러 번 나오면 부호 묶음으로 본다 — 두 언어의 부호 묶음이 겹치지 않을 때만 충돌(순서 차이 «-0.1%·+0.1%»는 통과, 관문 10241236)
-        const disjoint = (p, q) => ![...p].some(c => q.includes(c));
-        const signClash = pairs.some(([i, j]) => [...per[i].signs].some(([k, sg]) => per[j].signs.has(k) && disjoint(sg, per[j].signs.get(k)))
+        // 같은 값이 여러 번 나오면 부호 묶음으로 본다(순서 차이 «-0.1%·+0.1%»는 통과 — 관문 10241236, 묶음이 다르면 충돌 — 관문 10241251)
+        const signClash = pairs.some(([i, j]) => [...per[i].signs].some(([k, sg]) => per[j].signs.has(k) && signBagClash(sg, per[j].signs.get(k)))
             || moneySignConflict(per[i].money, per[j].money) || moneySignConflict(per[j].money, per[i].money));
         if (lonely || signClash)
             errors.push(`narrative:${field}:cross-lang-facts`);
