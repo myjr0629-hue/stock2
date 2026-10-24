@@ -288,6 +288,65 @@ export function latestWith(items: Row[], keys: string[]): (Row & { _d: string })
     return best ? { ...best, _d: bestDate } : null;
 }
 
+/** 같은 세션 구조 EOD 와의 일치 허용 오차 — 콜·풋 OI 각각 ±2%(실측 일치 종목은 0%). */
+export const MONEY_OI_MATCH_TOLERANCE = 0.02;
+/** 같은 세션 구조 EOD 가 없을 때, 직전 구조 EOD 대비 총 OI 가 이 비율 미만이면 표식 없는 부분·다른 체인으로 본다.
+ *  (10/23 실측: LLY 8,000/21,758·XOM 11,660/51,656 등 40~77% 감소 = 만기 소멸 뒤 다른 체인. 정상 일간 변화는 ±10% 안팎.) */
+export const MONEY_OI_SUSPECT_RATIO = 0.65;
+
+/**
+ * «돈과 포지션의 불일치»용 — 필요한 필드를 한 행에 모두 가진 «가장 최신 세션의 완결 행».
+ *
+ * latestWith 의 이력 시작점(sourceStart) 규칙은 구조 행(chainDate 있음)이 생긴 날부터 옛 흐름 행을 잘라
+ * 10/23 세션에 10/21 행(2세션 전)을 쓰게 했다. 프리미엄을 가진 행은 전부 표식 없는 흐름 행이라
+ * 그 규칙을 쓰지 않고, 대신 구조 EOD(chainDate·optionBasis 'eod'·partial 아님)의 미결제약정으로 검증한다.
+ *   ① 같은 세션 구조 EOD 가 있으면 콜·풋 OI 가 각각 허용 오차 안인 행만(«일치») — 어긋나면 제외
+ *   ② 없으면 직전 구조 EOD 대비 총 OI 가 MONEY_OI_SUSPECT_RATIO 미만인 행은 제외(부분 체인 의심), 나머지는 «미검증» 허용
+ *   ③ 구조 EOD 가 전혀 없는 종목은 예전처럼 최신 행
+ *   ④ 생산자가 partial·비EOD 로 밝힌 행은 같은 세션에 완결 행이 없을 때만 쓰고 partial 로 운반(오늘을 과거로 대체하지 않는 기존 원칙)
+ *   표식 없는 흐름 행은 정규장 개장(09:30 ET) 전·휴장일에 찍힌 것을 그 날짜 세션으로 쓰지 않는다(직전 세션 자료다).
+ * 고르기: 최신 세션 → 같은 세션 안에서 «일치» > 완결 > 밝힌 부분 → 최신 시각. 최신 세션에 쓸 행이 없으면 직전 세션으로 내려간다.
+ */
+export function latestCompleteWith(items: Row[], keys: string[]): (Row & { _d: string; _oiCheck: 'match' | 'unverified' }) | null {
+    const refs = new Map<string, { c: number; p: number; ts: number }>();
+    for (const r of items) {
+        if (!r.chainDate || r.optionBasis !== 'eod' || r.partial === true) continue;
+        const d = optionSessionDate(r);
+        const c = Number(r.totalCallOI), p = Number(r.totalPutOI), ts = Number(r.timestamp);
+        if (!d || !(c > 0) || !(p > 0) || !Number.isFinite(ts)) continue;
+        const prev = refs.get(d);
+        if (!prev || ts > prev.ts) refs.set(d, { c, p, ts });
+    }
+    const refDates = [...refs.keys()].sort();
+    const priorRef = (d: string) => {
+        let found: string | null = null;
+        for (const x of refDates) { if (x < d) found = x; else break; }
+        return found ? refs.get(found)! : null;
+    };
+    let best: Row | null = null, bestDate = '', bestMatch = -1, bestTs = -1;
+    for (const it of items) {
+        const ts = Number(it.timestamp);
+        const d = optionSessionDate(it);
+        if (!Number.isFinite(ts) || !d) continue;
+        if (!keys.every((k) => Number.isFinite(Number(it[k])) && Number(it[k]) > 0)) continue;
+        if (!it.chainDate && (isNonTradingDay(d) || etMinutesOf(ts) < 570)) continue;
+        const c = Number(it.totalCallOI), p = Number(it.totalPutOI);
+        const same = refs.get(d);
+        // 2 = 같은 세션 구조 EOD 와 일치 · 1 = 완결(미검증) · 0 = 생산자가 밝힌 부분/비EOD(같은 세션에 완결 행이 없을 때만, partial 로 운반)
+        let match = isCompleteOptionEod(it) ? 1 : 0;
+        if (same) {
+            if (Math.abs(c - same.c) > MONEY_OI_MATCH_TOLERANCE * same.c || Math.abs(p - same.p) > MONEY_OI_MATCH_TOLERANCE * same.p) continue;
+            if (match) match = 2;
+        } else {
+            const prior = priorRef(d);
+            if (prior && c + p < MONEY_OI_SUSPECT_RATIO * (prior.c + prior.p)) continue;
+        }
+        if (d < bestDate || (d === bestDate && (match < bestMatch || (match === bestMatch && ts <= bestTs)))) continue;
+        best = it; bestDate = d; bestMatch = match; bestTs = ts;
+    }
+    return best ? { ...best, _d: bestDate, _oiCheck: bestMatch === 2 ? 'match' : 'unverified' } : null;
+}
+
 /**
  * 랭킹의 «준비 상태».
  *

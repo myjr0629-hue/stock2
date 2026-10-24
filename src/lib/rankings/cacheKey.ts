@@ -14,7 +14,8 @@
 // v13: deviation 평소는 완결 EOD·동일 premiumBasis, 오늘 부분 자료는 partial로 운반한다.
 // v14: 구조 부분 이력·부분 원천의 레거시 전환 수리 전 결과를 재사용하지 않는다.
 // v15: 표식 없는 과거 이력·금액 계산 기준의 기존 비교 규칙을 보존한다.
-export const RANKING_CACHE_VERSION = 'v15';
+// v16: money-vs-oi 는 구조 EOD 로 검증한 최신 세션 행(latestCompleteWith) — 2세션 전 행으로 계산한 저장본을 재사용하지 않는다.
+export const RANKING_CACHE_VERSION = 'v16';
 
 /** /api/ranking 이 저장하는 키 */
 export const rankingCacheKey = (run: string, days: number, top: number): string =>

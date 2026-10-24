@@ -4,7 +4,7 @@ import { isGuardianSnapshotRow } from '@/lib/app/intelOptionsBasis';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
 import {
-    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith, readinessOf, dailyValues, sessionValues,
+    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestCompleteWith, readinessOf, dailyValues, sessionValues,
     afterCloseState, isCompleteOptionEod,
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
@@ -278,8 +278,8 @@ export async function GET(req: NextRequest) {
 
         if (spec.id === 'money-vs-oi') {
             for (const t of UNIVERSE) {
-                // 프리미엄과 OI 를 «한 행에» 가진 최신 스냅샷만 쓴다.
-                const s = latestWith(flowRaw[t] || [], ['callPremium', 'putPremium', 'totalCallOI', 'totalPutOI']);
+                // 프리미엄과 OI 를 «한 행에» 가진, 구조 EOD 로 검증한 최신 세션 행만 쓴다(engine.latestCompleteWith).
+                const s = latestCompleteWith(flowRaw[t] || [], ['callPremium', 'putPremium', 'totalCallOI', 'totalPutOI']);
                 if (!s) { bump('프리미엄+OI 동시 보유 행 없음'); continue; }
                 const cp = Number(s.callPremium), pp = Number(s.putPremium);
                 const co = Number(s.totalCallOI), po = Number(s.totalPutOI);
