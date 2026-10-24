@@ -206,6 +206,15 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     C.alignSummary(outlook.structured);
     assert.equal(outlook.structured.closingNarrative.indicators.ko, '내년 시장 전망 10% 상승에 대비할 필요가 있었다.', '전망은 치환하지 않는다(관문 10241357)');
     assert.ok(closingReportProblems(outlook).some(r => r.endsWith(':advice')));
+    const best = brief(); best.structured.closingNarrative.why.ko = '칩 종목은 매수됐고 추가 진입이 최선이라고 판단했다.';
+    C.alignSummary(best.structured);
+    assert.equal(best.structured.closingNarrative.why.ko, '칩 종목은 매수됐고 추가 진입이 최선이라고 판단했다.', '평가어 문장은 정규화 제외(관문 10241403)');
+    // Lambda 권유어 의심: 서빙 가드가 잡는 낱말이면 고침을 부른다
+    const sus = brief(); sus.structured.closingNarrative.why.ko = '소비자심리 48은 시장 전망 46.3을 웃돌았다.';
+    assert.ok(C.adviceSuspects(sus.structured).includes('narrative:why:ko:advice'));
+    assert.deepEqual(C.adviceSuspects(brief().structured), [], '정상 서사는 의심 0');
+    const lambdaSrc = fs.readFileSync('scripts/lambda-cross-sector/index.js', 'utf8');
+    assert.ok(lambdaSrc.includes('CLOSING.adviceSuspects(s)'), 'Lambda 고침 사유에 권유어 의심 포함');
     const ev2 = brief(); ev2.reportEvidence = { ...ev2.reportEvidence, events: [{ at: '2026-10-26T12:30:00.000Z', timeEt: '2026-10-26 08:30 ET', event: 'Chicago Fed' }, { at: '2026-10-27T12:30:00.000Z', timeEt: '2026-10-27 08:30 ET', event: 'Durable Goods' }] };
     ev2.structured.closingNarrative.watchNext = tri('다음 거래일 일정은 제공되지 않았다. 2026-10-27 08:30 ET 내구재.', 'No next-session calendar. 2026-10-27 08:30 ET durables.', '次の日程はない。2026-10-27 08:30 ETの耐久財。');
     assert.ok(closingReportProblems(ev2).includes('narrative:event-next:en'));

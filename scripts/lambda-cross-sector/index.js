@@ -345,7 +345,9 @@ exports.handler = async (event, context) => {
         }
         // marketOverview.summary = verdict (코드로 복사) · 서사 검사 탈락이면 사유를 보여 주고 closingNarrative 만 고쳐 받는다(최대 2회, Vercel 판과 같은 계약)
         CLOSING.alignSummary(structured, reportEvidence);
-        let narrativeErrors = CLOSING.evidenceProblems(structured, reportEvidence);
+        // 고침을 부르는 사유 = 근거 검사 + 권유어 의심(서빙 가드는 TS 라 Lambda 가 못 부른다, 관문 10241403). 저장 거부는 근거 검사만으로.
+        const repairReasons = s => [...new Set([...CLOSING.evidenceProblems(s, reportEvidence), ...CLOSING.adviceSuspects(s)])];
+        let narrativeErrors = repairReasons(structured);
         const firstNarrativeErrors = narrativeErrors;
         // Lambda 는 15분 한도라 고침을 3회까지(Vercel 은 300초 예산 안에서 2회) — 10/24 Sonnet 4.6 모의 1/3 → 길이·언어 간 숫자 고침이 2회로 모자랐다
         for (let round = 0; round < 3 && narrativeErrors.length; round++) {
@@ -355,10 +357,12 @@ exports.handler = async (event, context) => {
                 const n = tryParse(extractJson(fix.text))?.closingNarrative;
                 if (!n) continue;
                 const candidate = CLOSING.alignSummary({ ...structured, marketOverview: { ...structured.marketOverview }, closingNarrative: n }, reportEvidence);
-                const errs = CLOSING.evidenceProblems(candidate, reportEvidence);
+                const errs = repairReasons(candidate);
                 if (errs.length < narrativeErrors.length) { structured = candidate; narrativeErrors = errs; }
             } catch (e) { console.warn('[CrossSector] narrative repair failed:', e.message); break; }
         }
+        if (narrativeErrors.length) console.warn(`[CrossSector] 서사 사유 남음(${narrativeErrors.join(', ')}) — 근거 검사 실패만 저장 거부, 권유어는 서빙 가드가 판정`);
+        narrativeErrors = CLOSING.evidenceProblems(structured, reportEvidence);
         if (narrativeErrors.length) return { statusCode: 500, body: JSON.stringify({ error: 'Closing narrative rejected', reasons: narrativeErrors, firstReasons: firstNarrativeErrors }) };
 
         // ★2026-10-11 keyLevels 출구 — 입력(macroStr + 지수 ETF 레벨 근거 줄)에 없는 수준은 걸러 낸다(예전 프롬프트 예시가 S&P 지지·저항 4칸을 요구해 매일 지어냈다). Vercel 판과 같은 규칙.

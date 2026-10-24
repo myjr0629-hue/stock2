@@ -138,6 +138,26 @@ function moneySignConflict(a, b) {
     return false;
 }
 
+/**
+ * Lambda 전용 «권유어 의심» — 서빙 가드(lib/ai/adviceGuard, TS)를 Lambda 가 못 불러 고침 요청을 건너뛰고 저장본이 서빙에서 거부됐다(관문 10241403).
+ * 고침을 «부르는» 데만 쓴다(넓게 잡아도 비용은 고침 한 번) — 저장 여부·서빙 판정은 기존 검사가 한다.
+ */
+const ADVICE_SUSPECT = {
+    // 서빙 가드(adviceGuard)가 복합어 예외 없이 잡는 예측·권유 낱말만 — 매수·매도·買い·売り·buy·sell 은 관찰 복합어가 많아 넣지 않는다(오탐으로 고침만 낭비)
+    ko: { hit: /전망|예측|추천|목표\s?주?가|손절|익절/, ok: /(?:매출|실적|이익|영업이익|수익|가이던스|연간|분기|EPS|배당)\s?전망(?:치)?|전망치/g },
+    en: { hit: /\b(?:recommend\w*|price target|target price|forecast\w*|predict\w*|guarantee[sd]?)\b/i, ok: /$^/g },
+    ja: { hit: /推奨|目標株価|目標価格|予測|予想|見通し/, ok: /市場予想|(?:業績|通期|連結|売上|利益|配当|決算|コンセンサス)予想|予想(?:益回り|PER|EPS|配当)|予想(?:を|は|より|に対し)(?:大きく)?(?:上回|下回|裏切|超え)|予想(?:外|通り|どおり|以上|以下|比)|(?:売上|業績|利益|通期|連結|収益|配当|ガイダンス|会社|決算)見通し/g },
+}
+function adviceSuspects(s) {
+    const n = s?.closingNarrative, out = [];
+    if (!n || typeof n !== 'object') return out;
+    for (const f of FIELDS) for (const loc of LOCALES) {
+        const t = typeof n[f]?.[loc] === 'string' ? n[f][loc].replace(ADVICE_SUSPECT[loc].ok, ' ') : '';
+        if (ADVICE_SUSPECT[loc].hit.test(t)) out.push(`narrative:${f}:${loc}:advice`);
+    }
+    return out;
+}
+
 /** 같은 값의 명시 부호 묶음 비교 — 개수가 같으면 묶음이 같아야 하고(순서 무관), 다르면 적은 쪽이 많은 쪽에 포함돼야 한다(빠뜨림 허용) */
 function signBagClash(p, q) {
     const bag = x => [...x].sort().join('');
@@ -274,7 +294,7 @@ const KO_PLAIN = [
 ];
 
 // 평서문(…다.)이 아니거나 권유·평가 낱말이 있는 문장은 정규화하지 않는다(관문 10241222: «지금 매수로 반등을 노려라»)
-const KO_ADVICE_WORDS = /세요|십시오|하라|해라|해야|할\s?것|고려|검토|권유|권장|권고|추천|기회|나서|노려|노릴|담아|사라|팔아|적기|타이밍|정답|유리|바람직|필요|준비|시다|하자|겠|어야|아야|여야|야\s?(?:했|한|할)|좋|낫|싸|저평가|고평가/;
+const KO_ADVICE_WORDS = /세요|십시오|하라|해라|해야|할\s?것|고려|검토|권유|권장|권고|추천|기회|나서|노려|노릴|담아|사라|팔아|적기|타이밍|정답|유리|바람직|필요|준비|시다|하자|겠|어야|아야|여야|야\s?(?:했|한|할)|좋|낫|싸|저평가|고평가|최선|최적|매력|유망|진입|비중|담을|살\s?만/;
 const pad2 = x => String(x).padStart(2, '0');
 function canonicalEtStamps(text) {
     const stamp = (y, mo, d, h, mi) => `${y}-${pad2(mo)}-${pad2(d)} ${pad2(h)}:${mi} ET`;
@@ -407,7 +427,7 @@ ${macroStr || 'not provided'}
 ${JSON.stringify(narrative, null, 1)}`;
 }
 
-module.exports = { FIELDS, LIMITS, TARGETS, cashCloseMinutes, etStamp, regularClose, newsEvidence, calendarEvidence, sessionReading, narrativeProblems, evidenceProblems, narrativeDirective, alignSummary, narrativeRepairPrompt, dropUntranslatedNews, afterCloseCalledIntraday };
+module.exports = { FIELDS, LIMITS, TARGETS, cashCloseMinutes, etStamp, regularClose, newsEvidence, calendarEvidence, sessionReading, narrativeProblems, evidenceProblems, narrativeDirective, alignSummary, narrativeRepairPrompt, dropUntranslatedNews, afterCloseCalledIntraday, adviceSuspects };
 
 /** 가장 가까운 일정 날짜를 명시 — 모델이 중요도 높은 뒷날 일정만 쓰고 «다음 거래일 일정 없음»이라고 쓰는 오류(10/24 실측 약 10%)를 줄인다 */
 function nextSessionLine(evidence) {
