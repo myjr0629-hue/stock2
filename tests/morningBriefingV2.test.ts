@@ -175,6 +175,17 @@ test('첫 문장(STATE)은 코드가 쓴다 — 세션 6가지 모두 지수 계
     }
     assert.equal(stateSentence(facts, 'ko'), '10/23(금) 정규장 나스닥 종합 0.9% 상승·S&P500 0.5% 상승, 지금 개장 전 나스닥100 선물 0.2% 하락·S&P500 선물 보합입니다.');
     assert.equal(stateSentence(facts, 'en'), 'The Nasdaq Composite rose 0.9% and the S&P 500 rose 0.5% in the 10/23 (Fri) cash session; now premarket Nasdaq 100 futures are down 0.2% and S&P 500 futures are flat.');
+    // 반올림 경계(0.246·0.35)도 검사기와 같은 값 · 첫 낱말이 같아도 모델 WHY 문장은 지우지 않는다(관문 10250224)
+    for (const v of [0.246, -0.246, 0.35, 0.05, -0.149, 0.151]) {
+        const ff: MorningFacts = { ...facts, indexFacts: facts.indexFacts.map(x => ({ ...x, chgPct: v })) };
+        for (const l of ['ko', 'en', 'ja'] as const) {
+            const full = composeMorningText(good[l].split(/(?<=[.。])\s*/).slice(1).join(' '), ff, l);
+            const r = checkMorningLocale(full, l, ff).filter(x => /index|session|cash|premarket/.test(x));
+            assert.deepEqual(r, [], `${v} ${l}: ${stateSentence(ff, l)} → ${r}`);
+        }
+    }
+    const why = 'The Nasdaq Composite slide came amid a 10/26 06:15 ET report on yields.';
+    assert.ok(composeMorningText(why, facts, 'en').endsWith(why));
     // 모델이 첫 문장을 되풀이하면 한 번만
     const twice = composeMorningText(`${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`, facts, 'ko');
     assert.equal(twice, `${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`);

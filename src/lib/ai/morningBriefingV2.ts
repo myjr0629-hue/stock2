@@ -274,8 +274,10 @@ export function morningV2System(_session?: TacticalSession, _hasFutures?: boolea
 export function stateSentence(f: MorningFacts, l: MbLocale): string {
     const spot = f.indexFacts.filter(x => x.kind === 'spot');
     const fut = f.indexFacts.filter(x => x.kind === 'futures');
-    const r1 = (v: number) => Math.abs(Math.round(v * 10) / 10);
-    const flat = (x: IndexFact) => (x.kind === 'futures' ? r1(x.chgPct) <= 0.1 : r1(x.chgPct) === 0);
+    // 검사기와 같은 값으로 — 프롬프트 INDEX_FACTS 는 소수 2자리(0.246 → 0.25)이고 검사기는 그 값을 toFixed(1) 로 맞춘다(관문 10250224 ①)
+    const v2 = (v: number) => Math.round(v * 100) / 100;
+    const r1 = (v: number) => Number(Math.abs(v2(v)).toFixed(1));
+    const flat = (x: IndexFact) => (x.kind === 'futures' ? Math.abs(Math.round(v2(x.chgPct) * 10) / 10) <= 0.1 : r1(x.chgPct) === 0);
     const name = (x: IndexFact) => ({ nasdaq: { ko: '나스닥 종합', en: 'the Nasdaq Composite', ja: 'ナスダック総合' }, spx: { ko: 'S&P500', en: 'the S&P 500', ja: 'S&P500' }, nq: { ko: '나스닥100 선물', en: 'Nasdaq 100 futures', ja: 'ナスダック100先物' }, es: { ko: 'S&P500 선물', en: 'S&P 500 futures', ja: 'S&P500先物' } } as const)[x.id][l];
     const ko = (x: IndexFact, ongoing = false) => flat(x) ? `${name(x)} 보합` : `${name(x)} ${r1(x.chgPct).toFixed(1)}% ${x.chgPct > 0 ? '상승' : '하락'}${ongoing ? ' 중' : ''}`;
     const ja = (x: IndexFact, ongoing = false) => flat(x) ? `${name(x)}横ばい` : `${name(x)}${/[A-Za-z0-9]$/.test(name(x)) ? ' ' : ''}${r1(x.chgPct).toFixed(1)}%${x.chgPct > 0 ? '上昇' : '下落'}${ongoing ? '中' : ''}`;
@@ -316,8 +318,9 @@ export function stateSentence(f: MorningFacts, l: MbLocale): string {
 export function composeMorningText(body: string, f: MorningFacts, l: MbLocale): string {
     const st = stateSentence(f, l);
     let b = String(body || '').trim();
-    const head = splitSentences(b)[0] || '';
-    if (head && (head === st || (head.length > 20 && st.startsWith(head.slice(0, 20))))) b = b.slice(head.length).trim();
+    // 첫 문장이 STATE 와 «같을 때만» 뺀다 — 앞 몇 글자가 같다는 이유로 모델의 WHY 문장을 지우지 않는다(관문 10250224 ②)
+    const norm = (x: string) => x.replace(/\s+/g, ' ').trim();
+    if (norm(b).startsWith(norm(st))) b = norm(b).slice(norm(st).length).trim();
     return b ? `${st} ${b}` : st;
 }
 
