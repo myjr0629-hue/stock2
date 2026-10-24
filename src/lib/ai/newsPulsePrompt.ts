@@ -160,7 +160,8 @@ export function checkPulseItem(item: any, article: PulseArticle | undefined, mar
         const adv = adviceHit(t);
         if (adv) reasons.push(`${key}:advice:${adv}`);
         if (forecastHits(t, loc).length) reasons.push(`${key}:forecast`);
-        const ung = checkNumberGrounding(expandRanges(t), evidence).ungrounded;
+        // 한·일 지수 이름 속 숫자(나스닥100·ナスダック100·러셀2000)는 값이 아니다(영어 이름은 숫자 검사기가 이미 뺀다, 관문 10250439)
+        const ung = checkNumberGrounding(expandRanges(t).replace(/(?:나스닥|ナスダック)\s?100|(?:러셀|ラッセル)\s?2000|(?:다우|ダウ)\s?30|(?:닛케이|日経)\s?225/g, ' '), evidence).ungrounded;
         if (ung.length) reasons.push(`${key}:number:${ung[0].raw}`);
         if (loc !== 'en' && !checkAmounts(evidence, t, loc, [String(item?.summaryEN || ''), String(item?.analysisEN || '')]).ok) reasons.push(`${key}:amount`);
     }

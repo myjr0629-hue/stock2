@@ -91,6 +91,10 @@ test('배열 — 80% 이상 통과해야 응답을 쓴다 · 중복 id 탈락', 
     assert.doesNotMatch(src, /dryCompare|dry'\) === 'compare'/);
     assert.deepEqual(pulseNumberSig('FY2027 guidance'), pulseNumberSig('2027회계연도 가이던스'));
     assert.deepEqual(pulseNumberSig('2027年度の見通し'), []);
+    // 한·일 지수 이름 속 100 은 숫자 근거 대상이 아니다
+    const ndx = { ...art, title: 'Nasdaq 100 futures edge down 0.08% as yields rise', desc: '' };
+    const ndxItem = { ...good, summaryKR: '나스닥100 선물이 금리 상승 속에 0.08% 내렸습니다.', summaryEN: 'Nasdaq 100 futures edged down 0.08% as yields rose.', summaryJP: 'ナスダック100先物は金利上昇の中で0.08%下落しました。' };
+    assert.ok(!checkPulseItem(ndxItem, ndx, facts).reasons.some(r => /summary(KR|JP):number/.test(r)), JSON.stringify(checkPulseItem(ndxItem, ndx, facts).reasons));
 });
 
 test('라우트 배선 — v3 항목 검사로 거르고, 원문 id 가 없으면 다른 기사(articles[i])에 붙이지 않는다', () => {
