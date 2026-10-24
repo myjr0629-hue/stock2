@@ -168,18 +168,28 @@ const EQUAL_WORD = /같(?:은|다|아|고)|동일|일치|맞닿|붙어|그대로
 const SIDE_WORD = /위(?!치|험|기|원)|아래|밑|까지|상회|하회|넘|웃돌|밑돌|上(?!昇)|下(?!落)|まで|超|割れ|割り込|\b(?:above|below|over|under|beneath|beyond|past|toward|towards|up to)\b/i;
 const NEAR_WORD = /부근|근처|가까|付近|近く|近辺|\b(?:near|around|close to|next to)\b/i;
 const LEVEL_RES = ['Max\\s*Pain|맥스\\s*페인|マックス\\s*ペイン', 'Call\\s*Wall|콜\\s*월|コール\\s*ウォール', 'Put\\s*Floor|풋\\s*플로어|プット\\s*フロア', 'Gamma\\s*Flip|감마\\s*플립|ガンマ\\s*フリップ'].map(x => new RegExp(x, 'i'));
+/** 레벨 «에서·에 있는·で·on·at» — 가격이 그 레벨에 있다는 위치 주장 */
+const LOCATIVE_AFTER = /^\s*(?:\$\s?[\d,]+(?:\.\d+)?)?\s*(?:에서|에 있|에 머|에 위치|에 걸|で|に位置|にあ|に留|に張り)/;
+// 영어: 절 첫머리의 on/at(«: on Put Floor $135») 또는 가격 동사 + on/at(«sits at», «trading on») — «lean on the Put Floor defense»·«focus on» 은 아니다
+const LOCATIVE_BEFORE = /(?:^|:)\s*(?:on|at)\s+(?:the\s+)?$|\b(?:sits?|sitting|trades?|trading|rests?|resting|stays?|staying|is|holds?|holding|pinned|stuck|parked)\s+(?:right\s+|exactly\s+)?(?:on|at|to)\s+(?:the\s+)?$/i;
 export function quoteLevelClaimReasons(text: string, f: LineFacts): string[] {
-    const dist = (k: 'mp' | 'cw' | 'pf' | 'gf') => f.lv[k] != null && f.spot > 0 ? Math.abs(f.spot - f.lv[k]!) / f.spot * 100 : Infinity;
     for (const clause of text.split(/[,，、;；。]|\.(?!\d)/)) {
         const named = (['mp', 'cw', 'pf', 'gf'] as const).filter((k, i) => LEVEL_RES[i].test(clause));
         const priceSubj = PRICE_WORD.test(clause);
         if (!named.length) { if (priceSubj && EQUAL_WORD.test(clause)) return ['v3:metric:quote-level-equal']; continue; }
-        // 해석의 주어는 이 종목(첫머리 «NVDA 장전») — 주가 말이 없어도 «Put Floor $135와 같은 자리»는 가격이 거기 있다는 주장(관문 10242207 ①)
-        //   같다·일치·붙어·at = 가격과 레벨 거리 1% 이하일 때만 · 부근·근처·near·付近 = 2% 이하일 때만(10/24 실모델: 5.9~8.6% 떨어진 Max Pain 을 «부근»이라 쓴 글 다수)
-        if (EQUAL_WORD.test(clause) && named.some(k => dist(k) > 1)) return ['v3:metric:quote-level-equal'];
-        if (NEAR_WORD.test(clause) && named.some(k => dist(k) > 2)) return ['v3:metric:quote-level-near'];
+        // 해석의 주어는 이 종목(첫머리 «NVDA 장전») — 주가 말이 없어도 «Put Floor $135와 같은 자리·에서·부근·on»은 가격이 거기 있다는 주장.
+        //   이런 «자리» 주장은 사실이 at(가격과 0.1% 안)일 때만 — at 은 가격이 조금만 움직여도 쪽이 바뀌어(화면 aiLineState 'stale') 낡은 글이 남지 않는다
+        //   (관문 10242207 ①·10242219 ①②: 부근을 거리 2%로 허용하면 저장 뒤 가격이 움직여도 같은 쪽이라 «부근»이 계속 나갔다)
+        const locative = named.some((k, _i) => {
+            const re = LEVEL_RES[['mp', 'cw', 'pf', 'gf'].indexOf(k)];
+            for (const m of clause.matchAll(new RegExp(re.source, 'gi'))) {
+                if (LOCATIVE_AFTER.test(clause.slice(m.index! + m[0].length)) || LOCATIVE_BEFORE.test(clause.slice(0, m.index))) return true;
+            }
+            return false;
+        });
+        if ((EQUAL_WORD.test(clause) || NEAR_WORD.test(clause) || locative) && named.some(k => f.sides[k] !== 'at')) return [NEAR_WORD.test(clause) ? 'v3:metric:quote-level-near' : 'v3:metric:quote-level-equal'];
         // 주가가 주어인데 쪽 말이 없으면 «주가는 Put Floor $135» = 등치 — at 이 아니면 탈락
-        if (priceSubj && !SIDE_WORD.test(clause) && !NEAR_WORD.test(clause) && named.some(k => f.sides[k] !== 'at')) return ['v3:metric:quote-level-equal'];
+        if (priceSubj && !SIDE_WORD.test(clause) && named.some(k => f.sides[k] !== 'at')) return ['v3:metric:quote-level-equal'];
     }
     return [];
 }

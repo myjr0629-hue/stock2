@@ -189,9 +189,22 @@ test('관문 10242151 ①: «주가는 Put Floor $135와 같은» 류 가격=레
         assert.ok(checkWatchlistV3Insight(t, loc, f, now).some(r => /quote-level-(?:equal|near)/.test(r)), `${loc} ${t}`);
         assert.equal(check({ ...good, insight: { ...insight, [loc]: t } }).ok, false, t);
     }
-    // 2% 안의 레벨은 «부근» 참 — Gamma Flip $140 은 가격 $146 에서 4.1% → 탈락, $145 레벨이면 0.7% → 통과
+    // 관문 10242219 ①: «에서·で·on» 위치 주장도 at 이 아니면 탈락
+    for (const [loc, t] of [['ko', 'NVDA 장전 Put Floor $135에서 양감마가 변동을 완충하는 자리'], ['en', 'NVDA pre-market: on Put Floor $135, positive gamma dampens swings'], ['ja', 'NVDA 寄り前、Put Floor $135で正ガンマが変動を緩和する位置']] as const) {
+        assert.ok(checkWatchlistV3Insight(t, loc, f, now).some(r => /quote-level-(?:equal|near)/.test(r)), `${loc} ${t}`);
+    }
+    // 관문 10242219 ②: «부근»은 at(0.1% 안)일 때만 — 0.7% 떨어진 레벨도 탈락(저장 뒤 가격이 같은 쪽으로 움직여도 «부근»이 남지 않게). at 이면 쪽이 바뀌는 순간 화면이 낡은 글을 버린다
     const nearF = buildLineFacts('NVDA', { ...row, gammaFlipLevel: 145 }, now)!;
-    assert.deepEqual(quoteLevelClaimReasons('NVDA 장전 예상 변동 ±3.2%가 Gamma Flip $145 부근 자리', nearF), []);
+    assert.notEqual(nearF.sides.gf, 'at');
+    assert.ok(quoteLevelClaimReasons('NVDA 장전 예상 변동 ±3.2%가 Gamma Flip $145 부근 자리', nearF).length > 0);
+    const atGf = buildLineFacts('NVDA', { ...row, gammaFlipLevel: 146 }, now)!;
+    assert.equal(atGf.sides.gf, 'at');
+    assert.deepEqual(quoteLevelClaimReasons('NVDA 장전 예상 변동 ±3.2%가 Gamma Flip $146 부근 자리', atGf), []);
+    // «lean on the Put Floor defense»·«focus on» 은 위치 주장이 아니다(10/24 실모델 정상 문장)
+    assert.deepEqual(quoteLevelClaimReasons('NVDA pre-market: puts at 70% lean on the Put Floor $135 defense', f), []);
+    assert.ok(quoteLevelClaimReasons('NVDA pre-market: the stock sits at Put Floor $135, positive gamma', f).length > 0);
+    // 쪽 말 뒤의 «에서»(«Put Floor $135 위에서»)는 위치 주장이 아니다
+    assert.deepEqual(quoteLevelClaimReasons('NVDA 장전 Put Floor $135 위에서 양감마가 변동을 완충하는 자리', f), []);
     // 쪽 주장(주가가 Put Floor $135 위)은 이 검사가 아니라 쪽 검사가 본다 — 사실과 맞으면 통과
     assert.deepEqual(quoteLevelClaimReasons('NVDA 장전 주가가 Put Floor $135 위에서 양감마가 변동을 완충하는 자리', f), []);
     // 가격이 실제로 그 레벨에 있는(at) 사실이면 «같은 자리»는 참
