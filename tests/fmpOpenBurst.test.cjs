@@ -17,7 +17,7 @@ function redisClock(start = 0) {
       const caller = cmd.at(-2); cap = Math.min(cap, Number(cmd.at(-1)));
       if (until > now) return [0, until-now];
       const window = admitted.filter(x => x.at > now-60000);
-      if (window.length >= cap || (caller !== 'vwap' && window.filter(x => x.caller !== 'vwap').length >= cap-Math.min(30,cap))) return [0,1000];
+      if (window.length >= cap || (caller !== 'vwap' && window.filter(x => x.caller !== 'vwap').length >= cap-Math.min(30,Math.floor(cap*3/10)))) return [0,1000];
       if (caller === 'lambda' && window.filter(x => x.caller === 'lambda').length >= Math.floor(cap*3/10)) return [0,1000];
       admitted.push({ at: now, caller }); return [1,0];
     }
@@ -255,7 +255,7 @@ test('lower configured contract wins across workers; store failure sends no HTTP
   await guardAt(r, 150).reserve('analyst');
   const defaultWorker = guardAt(r);
   for (let n=0;n<150;n++) await defaultWorker.reserve('analyst');
-  assert.equal(r.admitted.length,20);
+  assert.equal(r.admitted.length,35); // ceiling 50 − VWAP reserve 15 (30% of the ceiling)
   for (let n=0;n<50;n++) await defaultWorker.reserve('vwap');
   assert.equal(r.admitted.length,50);
   const bad = core.createGuard({ command: async () => { throw Error('offline'); } });
@@ -660,4 +660,15 @@ test('persistent calendar failure stalls at most 3 slices, then the window is re
   assert.equal(stored.complete, true);
   assert.deepEqual(stored.calendarFailures, [{ from: 0, to: 13, reason: 'calendar_unavailable' }]);
   assert.deepEqual(saved, [{ t: 'IBM', complete: false }]);
+});
+
+test('low contract (FMP_ACCOUNT_RPM 90 → ceiling 30): collector and web readers still get budget; VWAP reserve scales', async () => {
+  const r = redisClock();
+  const g = guardAt(r, 90);
+  let lambda = 0, web = 0, vwap = 0;
+  for (let i = 0; i < 40; i++) { if ((await g.reserve('lambda')).allowed) lambda++; }
+  for (let i = 0; i < 40; i++) { if ((await g.reserve('analyst')).allowed) web++; }
+  for (let i = 0; i < 40; i++) { if ((await g.reserve('vwap')).allowed) vwap++; }
+  assert.equal(lambda, 9); assert.equal(web, 12); assert.equal(vwap, 9); // 9 + 12 = 30 − 9 reserved
+  assert.ok(core.RESERVE.includes('math.floor(cap*3/10)'));
 });

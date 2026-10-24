@@ -1,7 +1,7 @@
 // One Redis authority for Lambda and web workers. Never log requests or provider bodies.
 const PREFIX = 'fmp:account:v1';
 const CALLERS = new Set(['lambda', 'vwap', 'analyst', 'earnings', 'news']);
-const RESERVE = `-- fmp-reserve-v2
+const RESERVE = `-- fmp-reserve-v3
 local t = redis.call('TIME')
 local now = tonumber(t[1])*1000 + math.floor(tonumber(t[2])/1000)
 local blocked = tonumber(redis.call('GET', KEYS[3]) or '0')
@@ -10,7 +10,8 @@ local cap = tonumber(ARGV[2])
 local old = tonumber(redis.call('GET', KEYS[5]) or cap)
 cap = math.min(cap, old)
 redis.call('SET', KEYS[5], cap, 'PX', 120000)
-local reserved = math.min(30, cap)
+-- VWAP reserve and collector lane scale with the ceiling, so a low contract never zeroes other callers.
+local reserved = math.min(30, math.floor(cap*3/10))
 local lambdaCap = math.floor(cap*3/10)
 for _,i in ipairs({1,2,6}) do redis.call('ZREMRANGEBYSCORE', KEYS[i], '-inf', now-60000) end
 if redis.call('ZCARD', KEYS[1]) >= cap then return {0, 1000} end
