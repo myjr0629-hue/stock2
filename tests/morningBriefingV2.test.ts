@@ -192,6 +192,8 @@ test('첫 문장(STATE)은 코드가 쓴다 — 세션 6가지 모두 지수 계
     // 부호 없는 하락 변화는 탈락(화면이 상승색으로 칠한다, 관문 10250309 ③)
     assert.ok(checkMorningLocale(good.ko.replace('나스닥100 선물 -0.2% 약세', '나스닥100 선물 0.2% 약세'), 'ko', facts).includes('mb:unsigned-negative'));
     assert.match(stateSentence({ ...facts, indexFacts: facts.indexFacts.map(x => ({ ...x, chgPct: -0.91 })) }, 'ja'), /-0\.9%/);
+    const amb: MorningFacts = { ...facts, metrics: morningMetrics({ rlsi: 28.7, vix: 19.57, us10y: { level: 4.99, bp: 4 }, oil: { level: 100.65, chgPct: 5.5 }, gold: { level: 4040.8, chgPct: -4.99 } }) };
+    assert.ok(!checkMorningLocale(good.ko, 'ko', amb).includes('mb:unsigned-negative'), '금리 4.99% 수준은 금 -4.99% 와 같은 크기여도 정상');
     // 보도 속 숫자라도 지표 값과 가까우면(±25%) 지표 값 결속 면제 없음(관문 10250309 ②)
     const newsVix: MorningFacts = { ...facts, news: [...facts.news, '[report; 2026-10-26T10:20:00.000Z; 10/26 06:20 ET] VIX hit 20.00 last week'] };
     assert.ok(checkMorningLocale(good.en.replace('VIX volatility gauge at 19.57', 'VIX volatility gauge at 20.00'), 'en', newsVix).some(r => r.startsWith('mb:metric-value:vix')));

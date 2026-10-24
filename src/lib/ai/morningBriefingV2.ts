@@ -625,7 +625,10 @@ export function checkMorningLocale(text: string, locale: MbLocale, f: MorningFac
     // 부호 없는 하락 변화(«0.6% 하락»)는 화면에서 상승색으로 칠해진다 — 음수 변화 크기와 같은 부호 없는 %·bp 는 탈락
     const negs = new Set([...f.indexFacts.filter(x => x.chgPct < 0).map(x => Number(Math.abs(Math.round(x.chgPct * 100) / 100).toFixed(1))),
         ...f.metrics.flatMap(m => (m.change && /^-/.test(m.change) ? [Number(m.change.replace(/[^\d.]/g, ''))] : []))]);
-    for (const m of t.matchAll(/(^|[^+\-−\d.])(\d+(?:\.\d+)?)\s?(%|bp)/g)) if (negs.has(Number(m[2])) && Number(m[2]) > 0) { reasons.push('mb:unsigned-negative'); break; }
+    //   같은 크기의 수준·상승 값(금리 4.99% · 유가 +4.99%)이 있으면 그 숫자일 수 있어 판정하지 않는다(관문 10250439)
+    const nonNeg = new Set([...f.indexFacts.filter(x => x.chgPct >= 0).map(x => Number(Math.abs(Math.round(x.chgPct * 100) / 100).toFixed(1))),
+        ...promptMetrics(f.metrics).flatMap(m => [...(m.value.match(/\d[\d,]*(?:\.\d+)?/g) || []).map(x => Number(x.replace(/,/g, ''))), ...(m.change && !/^-/.test(m.change) ? [Number(m.change.replace(/[^\d.]/g, ''))] : [])])]);
+    for (const m of t.matchAll(/(^|[^+\-−\d.])(\d+(?:\.\d+)?)\s?(%|bp)/g)) if (negs.has(Number(m[2])) && !nonNeg.has(Number(m[2])) && Number(m[2]) > 0) { reasons.push('mb:unsigned-negative'); break; }
     // 권유·예측·금액
     const adv = adviceHit(t);
     if (adv) reasons.push(`mb:advice:${adv}`);
