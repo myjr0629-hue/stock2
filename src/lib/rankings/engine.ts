@@ -288,25 +288,24 @@ export function latestWith(items: Row[], keys: string[]): (Row & { _d: string })
     return best ? { ...best, _d: bestDate } : null;
 }
 
-/** 같은 세션 구조 EOD 와의 일치 허용 오차 — 콜·풋 OI 각각 ±2%(실측 일치 종목은 0%). */
+/** 같은 세션 구조 EOD 와의 일치 허용 오차 — 콜·풋 OI 각각 ±2%(10/23 실측 일치 10종목은 0%). */
 export const MONEY_OI_MATCH_TOLERANCE = 0.02;
-/** 같은 세션 구조 EOD 가 없을 때, 직전 구조 EOD 대비 총 OI 가 이 비율 미만이면 표식 없는 부분·다른 체인으로 본다.
- *  (10/23 실측: LLY 8,000/21,758·XOM 11,660/51,656 등 40~77% 감소 = 만기 소멸 뒤 다른 체인. 정상 일간 변화는 ±10% 안팎.) */
-export const MONEY_OI_SUSPECT_RATIO = 0.65;
 
 /**
  * «돈과 포지션의 불일치»용 — 필요한 필드를 한 행에 모두 가진 «가장 최신 세션의 완결 행».
  *
  * latestWith 의 이력 시작점(sourceStart) 규칙은 구조 행(chainDate 있음)이 생긴 날부터 옛 흐름 행을 잘라
- * 10/23 세션에 10/21 행(2세션 전)을 쓰게 했다. 프리미엄을 가진 행은 전부 표식 없는 흐름 행이라
- * 그 규칙을 쓰지 않고, 대신 구조 EOD(chainDate·optionBasis 'eod'·partial 아님)의 미결제약정으로 검증한다.
- *   ① 같은 세션 구조 EOD 가 있으면 콜·풋 OI 가 각각 허용 오차 안인 행만(«일치») — 어긋나면 제외
- *   ② 없으면 직전 구조 EOD 대비 총 OI 가 MONEY_OI_SUSPECT_RATIO 미만인 행은 제외(부분 체인 의심), 나머지는 «미검증» 허용 —
- *      같은 범위(0.65~1.54배) 행을 범위 밖 행(다른 수집기의 여러 만기 합 등)보다 우선
- *   ③ 구조 EOD 가 전혀 없는 종목은 예전처럼 최신 행
- *   ④ 생산자가 partial·비EOD 로 밝힌 행은 같은 세션에 완결 행이 없을 때만 쓰고 partial 로 운반(오늘을 과거로 대체하지 않는 기존 원칙)
- *   표식 없는 흐름 행은 정규장 개장(09:30 ET) 전·휴장일에 찍힌 것을 그 날짜 세션으로 쓰지 않는다(직전 세션 자료다).
- * 고르기: 최신 세션 → 같은 세션 안에서 «일치» > 같은 범위 완결 > 범위 밖 완결 > 밝힌 부분 → 최신 시각. 최신 세션에 쓸 행이 없으면 직전 세션으로 내려간다.
+ * 10/23 세션에 10/21 행(2세션 전)을 쓰게 했다(운영 결함). 프리미엄을 가진 행은 전부 표식 없는 흐름 행이라
+ * 그 규칙을 쓰지 않고, 같은 세션 구조 EOD(chainDate·optionBasis 'eod'·partial 아님)가 있으면 그것으로 검증한다.
+ *   ① 같은 세션 구조 EOD 가 있으면 콜·풋 OI 가 각각 ±2% 안인 행만(어긋난 행 = 다른 수집 범위·부분 → 제외).
+ *      맞는 행이 없으면 그 세션을 건너뛰고 직전 세션으로.
+ *   ② 같은 세션 구조 EOD 가 없으면 그 세션의 최신 완결 행.
+ *      ⚠ 직전 세션 대비 OI 감소로 «부분»을 판정하지 않는다 — 10/23 실측: 구조 EOD 가 있는 10종목 모두 구조 EOD =
+ *        장 마감 뒤 마지막 흐름 행이었고 직전 대비 0.41~2.25배(주간 만기 소멸 뒤 다음 주 만기). 10/16 은 전 종목 0.14~0.58배.
+ *        감소로 제외하면 종목마다 다른 만기를 섞는다.
+ *   ③ 표식 없는 흐름 행이 정규장 개장(09:30 ET) 전·휴장일에 찍혔으면 그 날짜 세션으로 쓰지 않는다(직전 세션 자료다).
+ *   ④ 생산자가 partial·비EOD 로 밝힌 행은 같은 세션에 완결 행이 없을 때만 쓰고 partial 로 운반(오늘을 과거로 대체하지 않는 원칙).
+ * 고르기: 최신 세션 → 같은 세션 안에서 «일치» > 완결 > 밝힌 부분 → 최신 시각.
  */
 export function latestCompleteWith(items: Row[], keys: string[]): (Row & { _d: string; _oiCheck: 'match' | 'unverified' }) | null {
     const refs = new Map<string, { c: number; p: number; ts: number }>();
@@ -318,12 +317,6 @@ export function latestCompleteWith(items: Row[], keys: string[]): (Row & { _d: s
         const prev = refs.get(d);
         if (!prev || ts > prev.ts) refs.set(d, { c, p, ts });
     }
-    const refDates = [...refs.keys()].sort();
-    const priorRef = (d: string) => {
-        let found: string | null = null;
-        for (const x of refDates) { if (x < d) found = x; else break; }
-        return found ? refs.get(found)! : null;
-    };
     let best: Row | null = null, bestDate = '', bestMatch = -1, bestTs = -1;
     for (const it of items) {
         const ts = Number(it.timestamp);
@@ -333,25 +326,17 @@ export function latestCompleteWith(items: Row[], keys: string[]): (Row & { _d: s
         if (!it.chainDate && (isNonTradingDay(d) || etMinutesOf(ts) < 570)) continue;
         const c = Number(it.totalCallOI), p = Number(it.totalPutOI);
         const same = refs.get(d);
-        // 3 = 같은 세션 구조 EOD 와 일치 · 2 = 완결, 직전 구조 EOD 와 같은 범위(총 OI 0.65~1.54배) · 1 = 완결, 범위 밖(다른 수집 범위)
-        // · 0 = 생산자가 밝힌 부분/비EOD(같은 세션에 완결 행이 없을 때만, partial 로 운반)
+        // 2 = 같은 세션 구조 EOD 와 일치 · 1 = 완결 · 0 = 생산자가 밝힌 부분/비EOD
         const complete = isCompleteOptionEod(it);
         let match = complete ? 1 : 0;
         if (same) {
             if (Math.abs(c - same.c) > MONEY_OI_MATCH_TOLERANCE * same.c || Math.abs(p - same.p) > MONEY_OI_MATCH_TOLERANCE * same.p) continue;
-            if (complete) match = 3;
-        } else {
-            const prior = priorRef(d);
-            if (prior) {
-                const ratio = (c + p) / (prior.c + prior.p);
-                if (ratio < MONEY_OI_SUSPECT_RATIO) continue;
-                if (complete && ratio <= 1 / MONEY_OI_SUSPECT_RATIO) match = 2;
-            } else if (complete) match = 2;
+            if (complete) match = 2;
         }
         if (d < bestDate || (d === bestDate && (match < bestMatch || (match === bestMatch && ts <= bestTs)))) continue;
         best = it; bestDate = d; bestMatch = match; bestTs = ts;
     }
-    return best ? { ...best, _d: bestDate, _oiCheck: bestMatch === 3 ? 'match' : 'unverified' } : null;
+    return best ? { ...best, _d: bestDate, _oiCheck: bestMatch === 2 ? 'match' : 'unverified' } : null;
 }
 
 /**

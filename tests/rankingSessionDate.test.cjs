@@ -1066,7 +1066,7 @@ const opsShape = () => ({
         structEod('2026-10-23T15:06', '2026-10-22', 21758, 20608),
         flowRow('2026-10-23T15:48', 21758, 20608, 7000000, 2000000),        // 만기 소멸 전 마지막 완결 행
         flowRow('2026-10-23T16:32', 34427, 43356, 5000000, 2800000),        // Lambda 여러 만기 합(다른 범위) — 더 늦어도 후순위
-        flowRow('2026-10-23T20:48', 8000, 11876, 4604040, 3464012),         // 표식 없는 다른 체인(−53%)
+        flowRow('2026-10-23T20:48', 8000, 11876, 4604040, 3464012),         // 주간 만기 소멸 뒤 다음 만기(−53%)
     ],
     XOM: [
         flowRow('2026-10-21T20:50', 49999, 14657, 3000000, 1000000),
@@ -1079,18 +1079,16 @@ const opsShape = () => ({
 });
 const K4 = ['callPremium', 'putPremium', 'totalCallOI', 'totalPutOI'];
 
-test('r5 money-vs-oi: 운영 형태 10/23 — 구조 EOD 일치 행 우선, 부분 의심 제외, 2세션 전 낙하 없음', () => {
+test('r5 money-vs-oi: 운영 형태 10/23 — 최신 세션(10/23) 행, 같은 세션 구조 EOD 일치 우선, 2세션 전 낙하 없음', () => {
     const shape = opsShape();
     const avgo = engine.latestCompleteWith(shape.AVGO, K4);
     assert.equal(avgo._d, '2026-10-23'); assert.equal(avgo._oiCheck, 'match');
-    assert.equal(avgo.totalCallOI, 67700); assert.equal(avgo.callPremium, 4006688);
+    assert.equal(avgo.totalCallOI, 67700); assert.equal(avgo.callPremium, 4006688);   // Lambda 다른 범위 행·토요일 행이 아니라
+    // 같은 세션 구조 EOD 가 없는 종목: 마감 뒤 마지막 흐름 행(주간 만기 소멸 뒤 다음 만기 — 구조 EOD 가 있는 종목과 같은 기준)
     const lly = engine.latestCompleteWith(shape.LLY, K4);
-    assert.equal(lly._d, '2026-10-23'); assert.equal(lly.totalCallOI, 21758); assert.equal(lly.callPremium, 7000000);
-    assert.equal(lly._oiCheck, 'unverified');
+    assert.equal(lly._d, '2026-10-23'); assert.equal(lly.totalCallOI, 8000); assert.equal(lly._oiCheck, 'unverified');
     const xom = engine.latestCompleteWith(shape.XOM, K4);
-    assert.equal(xom._d, '2026-10-23'); assert.equal(xom.totalCallOI, 51656); assert.equal(xom.putPremium, 2600000);
-    // r4 미리보기 결함 재현: latestWith 는 만기 소멸 뒤 다른 체인(콜 OI 8,000) 행을 골랐다.
-    assert.equal(engine.latestWith(shape.LLY, K4).totalCallOI, 8000);
+    assert.equal(xom._d, '2026-10-23'); assert.equal(xom.totalCallOI, 11660);
     // 운영(main) 결함 재현: 구조 행을 이력 시작점으로 세면 10/21 행(2세션 전)으로 떨어진다.
     const mainRule = (items) => {
         const start = items.filter(r => r.chainDate).map(r => r.chainDate).sort()[0];
@@ -1098,6 +1096,8 @@ test('r5 money-vs-oi: 운영 형태 10/23 — 구조 EOD 일치 행 우선, 부�
             .sort((a, b) => a.timestamp - b.timestamp).pop();
     };
     assert.equal(engine.optionSessionDate(mainRule(shape.LLY)), '2026-10-21');
+    // 옛 latestWith(r4)는 토요일 04:03 행을 «10/24 세션»으로 골랐다 — 휴장일 흐름 행은 세션이 아니다.
+    assert.equal(engine.latestWith(shape.AVGO, K4)._d, '2026-10-24');
 });
 
 test('r5 money-vs-oi: 같은 세션 구조 EOD 와 어긋난 행은 제외, 그 세션에 맞는 행이 없으면 직전 세션(2세션 전 아님)', () => {
@@ -1114,7 +1114,7 @@ test('r5 money-vs-oi: 같은 세션 구조 EOD 와 어긋난 행은 제외, 그 
     rows.push(flowRow('2026-10-23T19:00', 31500, 28500, 4, 6));
     const t = engine.latestCompleteWith(rows, K4);
     assert.equal(t._d, '2026-10-23'); assert.equal(t._oiCheck, 'match'); assert.equal(t.callPremium, 4);
-    assert.equal(engine.MONEY_OI_MATCH_TOLERANCE, 0.02); assert.equal(engine.MONEY_OI_SUSPECT_RATIO, 0.65);
+    assert.equal(engine.MONEY_OI_MATCH_TOLERANCE, 0.02);
 });
 
 test('r5 money-vs-oi: 구조 EOD 가 없는 종목·장중 행은 예전처럼 최신 행, 명시적 partial·비EOD 는 제외', () => {
@@ -1126,9 +1126,11 @@ test('r5 money-vs-oi: 구조 EOD 가 없는 종목·장중 행은 예전처럼 �
     const onlyPartial = [plainRows[0], marked[2]];
     const op = engine.latestCompleteWith(onlyPartial, K4);
     assert.equal(op._d, '2026-10-23'); assert.equal(engine.isCompleteOptionEod(op), false);
-    // 장중(같은 세션 구조 없음): 직전 구조 대비 정상 범위면 오늘 행
-    const live = [structEod('2026-10-23T09:05', '2026-10-22', 100, 100), flowRow('2026-10-23T11:00', 98, 103, 6, 4)];
+    // 장중(같은 세션 구조 없음): 오늘 행 — 개장 전(09:30 ET 전) 흐름 행은 오늘 세션으로 쓰지 않는다
+    const live = [structEod('2026-10-23T09:05', '2026-10-22', 100, 100), flowRow('2026-10-22T20:00', 100, 100, 1, 9), flowRow('2026-10-23T11:00', 40, 103, 6, 4)];
     assert.equal(engine.latestCompleteWith(live, K4)._d, '2026-10-23');
+    const pre = [flowRow('2026-10-22T20:00', 100, 100, 1, 9), flowRow('2026-10-23T08:00', 100, 100, 6, 4)];
+    assert.equal(engine.latestCompleteWith(pre, K4)._d, '2026-10-22');
 });
 
 test('r5 공유 GET: money-vs-oi 는 세 종목 모두 10/23 행, deviation·multi-axis 계산 경로는 그대로', async () => {
@@ -1140,7 +1142,7 @@ test('r5 공유 GET: money-vs-oi 는 세 종목 모두 10/23 행, deviation·mul
         assert.ok(items.length >= 2);
         for (const it of items) assert.equal(it.date, '2026-10-23', it.ticker);
         const lly = items.find(x => x.ticker === 'LLY');
-        if (lly) { assert.equal(lly.callOI, 21758); assert.equal(lly.callPremium, 7000000); }
+        if (lly) { assert.equal(lly.callOI, 8000); assert.equal(lly.callPremium, 4604040); }
         const avgo = items.find(x => x.ticker === 'AVGO');
         if (avgo) assert.equal(avgo.callOI, 67700);
         assert.equal(keys.RANKING_CACHE_VERSION, 'v16');
