@@ -93,9 +93,9 @@ const CONTRAST = /\brather than\b|\binstead of\b|대신|아니라|이\s*아닌|�
 // 부정·감소·부재(어디에 있든 순수 구조 설명이 아니다): n't·nothing·none·never·less·limits·관계없이(없)·줄·사라·잃·弱·消 …
 const HEDGE_ANY = /n't\b|\b(?:nothing|none|neither|nor|never|less|limits?|limited|loses?|lost|lacks?|without|absent|far)\b|없|않|못|아니|아닌|줄어|줄고|줄며|사라|잃|약해|ない|(?:せ|さ|ら)ず|ません|弱ま|消え|失わ/i;
 // 갈래 문형 낱말(조건·위치어)
-const BRANCH_TOKENS = /\b(?:if|when|above|below|it|the price is|price is)\b|위쪽|아래쪽|위|아래|라면|면|에서는|에선|上側|下側|上|下|なら|では/gi;
+const BRANCH_TOKENS = /\b(?:if|when|above|below|it)\b|위쪽|아래쪽|위|아래|라면|면|에서는|에선|上側|下側|上|下|なら|では/gi;
 // 순수 두 갈래 설명의 나머지로 허용하는 낱말(이름·조사·어미)뿐
-const RESIDUAL_FILLER = /Gamma\s*Flip|\b(?:dealer|dealers|hedging|hedges?|structure|options?|the|a|its|is|are|of|and|swings?|moves?|them|it|they|price)\b|딜러|헤지|구조|옵션|움직임|변동|흔들림|입니다|합니다|이며|이고|하는|하며|의|는|은|이|가|에서|에선|에|를|을|ディーラー|ヘッジ|構造|オプション|値動き|変動|です|である|します|ます|する|の|は|が|で|を|に/gi;
+const RESIDUAL_FILLER = /Gamma\s*Flip|\b(?:dealer|dealers|hedging|hedges?|structure|options?|the|a|its|is|are|of|and|swings?|moves?|them|it|they)\b|딜러|헤지|구조|옵션|움직임|변동|흔들림|입니다|합니다|이며|이고|하는|하며|의|는|은|이|가|에서|에선|에|를|을|ディーラー|ヘッジ|構造|オプション|値動き|変動|です|である|します|ます|する|の|は|が|で|を|に/gi;
 // 나머지에 남으면 «현재 상태 단정»으로 보는 단어(at·switch·price·현재·가격·現在 …)
 const RESIDUAL_CLAIM = /\b(?:at|currently|now|price|it is|sits?|switch|flip(?!\b)|right)\b|현재|지금|주가|가격|전환점|경계에|現在|株価|価格|転換点|ちょうど/i;
 
