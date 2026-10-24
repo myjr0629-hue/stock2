@@ -556,6 +556,23 @@ export function tacticalIndexReasons(first: string, prompt: string): string[] {
     return [...new Set(reasons)];
 }
 
+/**
+ * ★2026-10-24 번역 글 검사(밤 검토 ③) — 저장본 검사 + «숫자 계약»은 새 생성과 같게: 첫 문장 지수 값·방향·세션(INDEX_FACTS) · 모든 숫자 근거(입력 자료) ·
+ *   숫자의 주어·방향어·부호(claimChecks) · 금액 자릿수. 구조·현지 시각 병기·보도 인용 형식은 번역이 원문을 따르므로 보지 않는다(원문은 이미 생성 검사를 지났다 —
+ *   번역기에 현지 시각 규칙을 주지 않으므로 그 요구로 정상 번역을 버리지 않는다, 관문 10241304 ①).
+ */
+export function checkTacticalTranslated(text: string, locale: Locale, prompt: string): string[] {
+    const { data } = promptEvidence(prompt);
+    const sentences = splitSentences(text);
+    const reasons = [...checkTacticalStored(text, prompt), ...tacticalIndexReasons(sentences[0] || '', prompt)];
+    const numericEvidence = data.replace(/; \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z;/g, ';').replace(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/g, '$1 $2');
+    const numericText = Object.values(INDEX_ALIASES).reduce((t, re) => t.replace(new RegExp(re), ' '), text);
+    if (checkNumberGrounding(numericText, numericEvidence).ungrounded.length) reasons.push('tactical:number');
+    reasons.push(...claimReasons(text, 'tactical'));
+    if (locale !== 'en' && !checkAmounts(data, text, locale).ok) reasons.push('tactical:amount');
+    return [...new Set(reasons)];
+}
+
 /** 생성 직후 검사(구조·근거·시각·숫자·권유·금액). */
 export function checkTacticalOutput(text: string, locale: Locale, prompt: string): string[] {
     const { data, news } = promptEvidence(prompt);

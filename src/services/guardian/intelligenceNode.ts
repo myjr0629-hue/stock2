@@ -1,6 +1,6 @@
 import { buildIndexFacts, tacticalSessionAt, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
-import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, tacticalTokenRules, internalSourceReasons, polishTacticalText } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, tacticalTokenRules, internalSourceReasons, polishTacticalText } from '@/lib/ai/tacticalPrompt';
 import { buildRotationPrompt, checkRotationOutput, polishRotationText, rotationNums, rotationTokenRules, isLegacyRotationText, rotationHints, type RotationFacts, type RotationContext } from '@/lib/ai/rotationPrompt';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
@@ -313,12 +313,41 @@ function rotationStoredGate(text: string, nums: GNums | null | undefined, basis:
 }
 
 /**
+ * ★2026-10-24 T21 — Tactical 저장본(복구·캐시 재사용)의 자리표를 «지금 값»으로 채운다(같은 화면 순환매 카드·지표와 같은 시점 값 — 10/24 운영 RLSI 33 vs 29).
+ *   지금 값으로 채우면 서술이 낡는 경우(자리표 지표의 구간 이동·큰 변화, 장중 상태 구간 변경)나 비교 문장이 틀어지는 경우에만
+ *   생성 당시 값(basis)으로 채운다 — 복구본을 버리지 않는다(오탈락 금지, 10/21 사고 교훈). 숫자를 고르는 일만 하고 탈락은 만들지 않는다.
+ */
+function tacticalFillNums(tpl: string, nums: GNums | null | undefined, basis: GNums | null | undefined): GNums | null {
+    if (!basis) return nums ?? null;
+    if (!nums) return basis;
+    const live: GNums = { ...basis, ...nums };
+    const old: GNums = { ...nums, ...basis };
+    const f = fillGuardianTokens(tpl, live, basis);
+    if (!f.ok) return old;
+    // 부호 있는 지표(변동률·GEX)는 표시 자릿수에서 부호가 바뀌면(0 포함) 서술(«상승»·«양수»)이 틀린다 — 생성 당시 값(관문 10241304 ②)
+    const tokenIn = (k: string) => new RegExp(`\\{\\s*${k}\\s*\\}`).test(tpl);
+    for (const k of ['NDX_CHG', 'SPX_CHG', 'GOLD_CHG', 'OIL_CHG', 'TLT_CHG', 'BTC_CHG', 'GEX'] as const) {
+        const b = basis[k], v = nums[k];
+        if (!tokenIn(k) || typeof b !== 'number' || typeof v !== 'number') continue;
+        const r = (x: number) => (k === 'GEX' ? Math.round(x) : Math.round(x * 100) / 100);
+        if (Math.sign(r(b)) !== Math.sign(r(v))) return old;
+    }
+    // 상태 구간 비교는 장외에도 본다 — 여기서는 탈락이 아니라 «어느 값으로 채울지»만 고른다(관문 10241021 ②: 장외 «0.00% 상승»)
+    if (stateStaleReasons(live, basis).some((r) => tokenIn(r.split(':')[1]))) return old;
+    const facts = guardianCmpFacts(live);
+    if (checkComparisons(f.text, facts).length || checkRanges(f.text, facts).length) return old;
+    return live;
+}
+
+/**
  * 정리 + 출구 검사. 사용자에게 나가는 모든 AI 글(생성·번역·캐시 읽기·저장된 판정)이 여기를 지난다.
  * ★2026-10-04 숫자 — tpl(자리표가 남은 정리본 = 저장용)을 화면 값(nums)으로 채운 text 를 검사한다:
  *   언어·거절·마크다운·연도(outputGate) + 화면 숫자 대조·낡은 서술(lib/ai/guardianNumbers).
  *   nums 가 없으면 basis(생성 때 값)로 채운다(숫자 대조도 basis 기준).
  */
-function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string, restore = false, generated = strict): { ok: boolean; tpl: string; text: string; reasons: string[] } {
+function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string, restore = false, generatedIn = strict, translation = false): { ok: boolean; tpl: string; text: string; reasons: string[] } {
+    // 번역 글(translation)은 숫자 대조를 새 생성처럼(지금 값·기존 숫자 검사), Tactical 구조 검사는 checkTacticalTranslated
+    const generated = generatedIn || translation;
     let cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
     // ★2026-10-07 T5 예측어 — 생성(strict)은 걸리면 탈락(교정 재생성), 읽기·복구(lenient)는 그 문장만 뺀다(쓸 만하게 남을 때) —
     //   이미 저장돼 있던 글이 새 사전 때문에 통째로 «준비 중»으로 바뀌지 않게(보이던 표시를 없애지 않는다).
@@ -329,8 +358,8 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
         else { const st = stripForecastSentences(cleaned, locale, { allowEmptyLine: true }); if (st.usable && st.text) cleaned = st.text; }
     }
     // 새 생성만 INDEX_FACTS로 검사한다. 저장본의 지수 리터럴은 현재 선물/현물과 재대조하지 않는다.
-    // 마지막 정상본은 저장 당시 기준으로 채워 재생성 실패에도 보존한다(버전 판별 없음).
-    const currentNums = type === 'reality' && restore ? (basis ? { ...nums, ...basis } : nums ?? null) : nums ?? basis ?? null;
+    // 마지막 정상본은 재생성 실패에도 보존한다 — 자리표는 지금 값(같은 화면 다른 카드와 같은 시점), 지금 값이면 서술이 낡을 때만 저장 당시 값(T21 · tacticalFillNums).
+    const currentNums = type === 'reality' && restore ? tacticalFillNums(cleaned, nums, basis) : nums ?? basis ?? null;
     const appliedNums = generated ? insightNums(type, currentNums) : currentNums;
     // 순환매: 새 생성 = v3 계약(지수·자산 등락률 자리표 없음) · 저장본은 레이블 유무로 옛/새 계약을 가른다(옛 글은 옛 검사 그대로)
     const rotationV3 = type === 'rotation' && (generated || !isLegacyRotationText(cleaned));
@@ -354,7 +383,7 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
         // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
         //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).
         ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text)
-            ? (generated ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
+            ? (translation ? checkTacticalTranslated(n.text, locale, tacticalPrompt) : generated ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
     // ★2026-10-21 Tactical 다듬기 — 내부 지표명 날것(RLSI·GEX 단독)·«게이트»·한국어 연결어미 오타를 읽는 말로(lib/ai/tacticalPrompt.polishTacticalText).
     //   검사는 다듬기 «전» 글로 한다(다듬기가 «RLSI36» 의 숫자를 셈에 드러내거나 글을 늘려 새 탈락을 만들지 않게 — 측정 2/180).
     //   저장·화면 글만 다듬는다(뜻·숫자·시각·사건 이름·자리표 불변, 같은 글을 다시 다듬어도 그대로).
@@ -363,7 +392,7 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
 }
 
 /** Redis 에서 읽기 — 읽을 때도 검사한다(언어·거절 + 화면 숫자). 검사를 도입하기 전에 저장된 나쁜 글이 TTL 동안 나가지 않게. */
-async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums | null, tacticalPrompts?: TacticalPrompts, opts: { previousKey?: boolean; restore?: boolean } = {}): Promise<CachedInsight | null> {
+async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums | null, tacticalPrompts?: TacticalPrompts, opts: { previousKey?: boolean; restore?: boolean; anySession?: boolean } = {}): Promise<CachedInsight | null> {
     const redis = getRedis();
     if (!redis) return null;
     const key = opts.previousKey ? `guardian:gemini:v2:reality:${locale}` : getRedisKey(type, locale);
@@ -371,6 +400,8 @@ async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums
         const data = await redis.get(key) as { text?: string; updatedAt?: string; basis?: GNums | null; session?: TacticalSession } | null;
         if (!data?.text) return null;
         const at = data.updatedAt ? Date.parse(data.updatedAt) : 0;
+        // ★2026-10-24 밤 검토 ① — 신선한 캐시로 쓸 때만 세션 일치를 본다(09:29 PRE 글이 09:31 REG 에서 «지금 개장 전» 그대로 나갔다). 복구는 세션 무관(글 보존).
+        if (!opts.restore && !opts.previousKey && !opts.anySession && !sameTacticalSession(type, at, tacticalPrompts?.(locale), data.session)) return null;
         const basis = data.basis && typeof data.basis === 'object' ? data.basis : null;
         const g = gateText(type, data.text, locale, nums, basis, false, tacticalPrompts?.(locale), opts.restore);
         if (!g.ok) {
@@ -434,13 +465,23 @@ function promptSession(prompt?: string): TacticalSession | undefined {
     return session as TacticalSession | undefined;
 }
 
+/**
+ * Tactical 저장 글의 생성 세션(PRE·REG·POST·CLOSED)이 지금 프롬프트의 세션과 같은가 — 다르면 «신선한 캐시»로 쓰지 않고 재생성을 유도한다.
+ *   (재생성이 실패하면 복구 경로가 같은 글을 그대로 보여 준다 — 빈칸·«준비 중» 금지.) 생성 세션을 모르면 저장 시각으로 판정한다. Tactical 외에는 늘 true.
+ */
+function sameTacticalSession(type: InsightType, at: number, prompt?: string, savedSession?: string): boolean {
+    if (type !== 'reality' || !prompt) return true;
+    const current = promptSession(prompt);
+    return !!at && Number.isFinite(at) && (savedSession || tacticalSessionAt(at)) === current;
+}
+
 function rememberInsight(type: InsightType, locale: Locale, text: string, at: number, basis?: GNums | null, session?: TacticalSession): void {
     _mem[type][locale] = { text, at, basis: basis ?? null, session };
 }
 
 /** 자리표 글 → 화면 글. 채울 값이 없어 자리표가 남으면 대기 문구(자리표가 화면에 나가지 않게). 내보낸 원본·기준을 기억한다. */
 function shownOut(type: InsightType, locale: Locale, out: InsightOut, nums?: GNums | null): string {
-    const f = fillGuardianTokens(out.tpl, type === 'reality' && out.basis ? { ...nums, ...out.basis } : nums ?? out.basis ?? null);
+    const f = fillGuardianTokens(out.tpl, type === 'reality' ? tacticalFillNums(out.tpl, nums, out.basis) : nums ?? out.basis ?? null);
     const shown = hasGuardianTokens(f.text) ? (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale] : f.text;
     _lastOut[type][locale] = shown === f.text ? { shown, tpl: out.tpl, basis: out.basis } : null;
     if (type === 'reality' && shown === f.text) rememberShown(locale, shown, out.tpl, out.basis ?? null);
@@ -864,13 +905,19 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
     if (!process.env.AWS_ACCESS_KEY_ID) return null;
     for (const src of TRANSLATE_SOURCES[locale]) {
         const m = _mem[type][src];
-        const source = m && gateText(type, m.text, src, nums, m.basis, false, tacticalPrompts?.(src)).ok ? m : await readStoredInsight(type, src, nums, tacticalPrompts);
+        // 번역 원본은 세션이 달라도 된다(관문 10241248) — Tactical 번역 글은 아래에서 «지금 세션» 새 생성 계약(INDEX_FACTS·세션 문구 포함)으로 다시 검사한다
+        const source = m && gateText(type, m.text, src, nums, m.basis, false, tacticalPrompts?.(src)).ok ? m : await readStoredInsight(type, src, nums, tacticalPrompts, { anySession: true });
         if (!source) continue;
         const translated = await translateInsight(source.text, src, locale, type);
         if (!translated) continue;
         // 원본에 기준이 없으면(옛 저장본) 지금 화면 값이 기준 — 자리표로 바꾸는 숫자도 그 값과 같은 것뿐이다
-        const basis = source.basis ?? nums ?? null;
-        const g = gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale));
+        // ★2026-10-24 밤 검토 ③ — Tactical 번역은 «새 글»이다: 숫자 계약은 새 생성과 같게(INDEX_FACTS 지수 값·방향 + 숫자 근거·주어/방향어 + 기존 숫자 검사 guardianNumbersGate,
+        //   lib/ai/tacticalPrompt.checkTacticalTranslated) 검사하고 기준값도 지금 값으로 저장한다. 구조·현지 시각 요구는 원문을 따른다. 예전엔 저장본 검사로 지나가 숫자 리터럴 대조가 빠졌다(VIX 99·지수 숫자 오역이 화면·캐시 통과).
+        //   순환매·감마 번역은 예전 그대로(원래부터 기존 숫자 검사를 지난다).
+        const basis = type === 'reality' ? nums ?? source.basis ?? null : source.basis ?? nums ?? null;
+        const g = type === 'reality'
+            ? gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale), false, false, true)
+            : gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale));
         if (!g.ok || isPlaceholder(g.text)) {
             console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${g.reasons.join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);
             continue;
@@ -1030,7 +1077,7 @@ export class IntelligenceNode {
 
         // ① 메모리 — 검사를 통과한 글만 들어 있다. 화면 값이 움직여 서술이 낡았으면 쓰지 않는다.
         const mem = _mem[type][locale];
-        if (mem && now - mem.at < ttl && gateText(type, mem.text, locale, nums, mem.basis, false, tacticalPrompts?.(locale)).ok) return { tpl: mem.text, basis: mem.basis ?? null };
+        if (mem && now - mem.at < ttl && sameTacticalSession(type, mem.at, tacticalPrompts?.(locale), mem.session) && gateText(type, mem.text, locale, nums, mem.basis, false, tacticalPrompts?.(locale)).ok) return { tpl: mem.text, basis: mem.basis ?? null };
 
         // ② Redis — 콜드 스타트마다 모델을 부르지 않게. 읽을 때도 검사한다.
         const stored = await readStoredInsight(type, locale, nums, tacticalPrompts);
@@ -1054,7 +1101,8 @@ export class IntelligenceNode {
         }
 
         // 직전 생성이 두 번 다 검사에서 떨어졌다 — 쿨다운 동안은 모델을 두드리지 않는다
-        if (now < _genFailUntil[type][locale]) {
+        // (세션이 바뀌었으면 — 예: PRE 실패 직후 개장 — 쿨다운을 넘어 새 세션 글을 만든다)
+        if (now < _genFailUntil[type][locale] && sameTacticalSession(type, _genFailUntil[type][locale] - GEN_FAIL_COOLDOWN_MS, tacticalPrompts?.(locale))) {
             return IntelligenceNode.recoverInsightOut(type, locale, { translate: false, storedChecked: true, nums, tacticalPrompts });
         }
 
