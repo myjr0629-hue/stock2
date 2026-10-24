@@ -13,7 +13,7 @@
 //   ④ 시장 교란 — 시장 전체가 조용한 날엔 모든 종목이 «이탈»로 보인다
 // ============================================================================
 
-import { cashSessionPhaseAt, etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate, shownRegularSessionDate } from '@/lib/marketCalendar';
+import { cashSessionPhaseAt, etDateOf, etLastClosedSessionDate, etMinutesOf, isNonTradingDay, prevTradingDate, shownRegularSessionDate } from '@/lib/marketCalendar';
 
 // 'anytime' = 세션과 무관하게 성립하는 랭킹(내부자 신고·펀더멘털).
 // 장중/마감후로만 나누면 이런 것들이 억지로 한쪽에 붙어 오해를 만든다.
@@ -32,6 +32,8 @@ export const mad = (a: number[], med: number) => median(a.map((v) => Math.abs(v 
 // 90일 × 15분 이력(2,160시간)을 종목·지표 간 재사용하되 워커 메모리는 제한한다.
 const ET_DAY_CACHE_LIMIT = 4096;
 const etDayCache = new Map<number, string>();
+// 정규장 마감(13/16 ET)도 UTC 정시 경계다. 이력의 같은 수집 시각을 매번 Intl 변환하지 않는다.
+const closedSessionCache = new Map<number, string>();
 
 /** ET 기준 날짜. 날짜 정본은 etDateOf, 반복되는 행의 변환만 UTC 시간별로 기억한다. */
 export function etDay(ms: number): string {
@@ -59,9 +61,29 @@ export function optionSessionDate(row: Record<string, any>): string | null {
     return Number.isFinite(ts) ? etDay(ts) : null;
 }
 
-function sourceHistoryStart(items: Array<Record<string, any>>): string | null {
+/** 새 원천 행은 이미 끝난 정규장 EOD인지 검사한다. 표식 없는 옛 행은 기존 규칙을 유지한다.
+ * 다음 날 PRE에 재수집한 전날 EOD는 유효하다. 당일 PRE를 전날로 바꾸지는 않는다.
+ */
+export function isCompleteOptionEod(row: Record<string, any>): boolean {
+    if (row.partial === true || (row.optionBasis !== undefined && row.optionBasis !== 'eod')) return false;
+    if (row.chainDate === undefined && row.optionBasis === undefined) return true;
+    const d = row.chainDate ? optionSessionDate(row) : null;
+    const ts = Number(row.timestamp);
+    if (!d || !Number.isFinite(ts) || isNonTradingDay(d)) return false;
+    const hour = Math.floor(ts / 3600_000);
+    let closed = closedSessionCache.get(hour);
+    if (closed === undefined) {
+        closed = etLastClosedSessionDate(ts);
+        if (closedSessionCache.size >= ET_DAY_CACHE_LIMIT) closedSessionCache.delete(closedSessionCache.keys().next().value!);
+        closedSessionCache.set(hour, closed);
+    }
+    return d <= closed;
+}
+
+function sourceHistoryStart(items: Array<Record<string, any>>, usable: (row: Record<string, any>) => boolean): string | null {
     return items.reduce<string | null>((first, row) => {
-        const d = Number.isFinite(Number(row.timestamp)) && row.chainDate ? optionSessionDate(row) : null;
+        // 원천 존재와 기준군 적격성은 별개다. 부분 원천도 PRE 레거시의 재등장을 막는다.
+        const d = row.chainDate && Number.isFinite(Number(row.timestamp)) && usable(row) ? optionSessionDate(row) : null;
         return d && (!first || d < first) ? d : first;
     }, null);
 }
@@ -134,24 +156,43 @@ const measured = (v: unknown) => (typeof v === 'number' || (typeof v === 'string
  *    「그날 마지막 값」을 쓰면 어느 만기가 걸렸느냐가 곧 결과가 된다.
  *    → 그날 총 OI 가 가장 큰 스냅샷 하나를 골라 «모든 지표를 거기서» 읽는다.
  *       날짜 간 비교가 성립하고, 한 카드 안 숫자들이 같은 체인에서 나온다.
- *       OI 동률이면 프리미엄 측정이 있는 행을 우선하고, 같은 품질 안에서 최신 판본을 쓴다.
+ *       완결 EOD를 부분 행보다 우선한다. OI 동률이면 프리미엄 측정을 보존하고,
+ *       같은 계산 기준에서는 더 큰 프리미엄을 보존한다(작은 늦은 행의 덮어쓰기 방지).
  *       structure-build의 프리미엄 없는 행이 FlowWarm 측정을 지우지 않게 한다.
  */
 export function dailySnapshots(items: Row[]) {
     const byDay = new Map<string, Row & { _oi: number; _d: string }>();
-    const sourceStart = sourceHistoryStart(items);
+    const sourceStart = sourceHistoryStart(items, r => {
+        const oi = Number(r.totalCallOI || 0) + Number(r.totalPutOI || 0);
+        return Number.isFinite(oi) && oi > 0;
+    });
     for (const it of items) {
         const ts = Number(it.timestamp);
         if (!Number.isFinite(ts)) continue;
         const d = optionSessionDate(it);
         if (!d || (!it.chainDate && sourceStart && d >= sourceStart)) continue;
         const oi = Number(it.totalCallOI || 0) + Number(it.totalPutOI || 0);
-        if (!(oi > 0)) continue;              // OI 없는 행은 비교 기준을 못 준다
+        if (!(oi > 0) || !Number.isFinite(oi)) continue; // OI 없는 행은 비교 기준을 못 준다
         const prev = byDay.get(d);
         const hasPremium = measured(it.totalPremium), prevHasPremium = measured(prev?.totalPremium);
-        if (!prev || oi > prev._oi || (it.chainDate && oi === prev._oi && (
-            (hasPremium && !prevHasPremium) || (hasPremium === prevHasPremium && ts > Number(prev.timestamp))
-        ))) {
+        const complete = isCompleteOptionEod(it), prevComplete = prev ? isCompleteOptionEod(prev) : false;
+        // 실제 거래량 측정을 OI 대체보다 우선한다. 다른 기준의 금액끼리는 비교하지 않는다.
+        const basisQuality = (r: Row) => r.premiumBasis === 'volume-close' ? 2 : r.premiumBasis === 'oi-prev-close' ? 1 : 0;
+        let replace = !prev;
+        if (prev) {
+            if (complete !== prevComplete) replace = complete;
+            else if (oi !== prev._oi) replace = oi > prev._oi;
+            else if (it.chainDate) {
+                if (hasPremium !== prevHasPremium) replace = hasPremium;
+                else if (hasPremium && it.premiumBasis === prev.premiumBasis && Number(it.totalPremium) !== Number(prev.totalPremium)) {
+                    replace = Number(it.totalPremium) > Number(prev.totalPremium);
+                } else if (hasPremium && it.premiumBasis !== prev.premiumBasis) {
+                    replace = basisQuality(it) > basisQuality(prev)
+                        || (basisQuality(it) === basisQuality(prev) && ts < Number(prev.timestamp));
+                } else replace = ts > Number(prev.timestamp);
+            }
+        }
+        if (replace) {
             byDay.set(d, { ...it, _oi: oi, _d: d });
         }
     }
@@ -173,8 +214,19 @@ export const DEFAULT_GATES: Required<DeviationGates> = {
 };
 
 export type DevResult = {
-    today: number; baseline: number; ratio: number; z: number; sessions: number; date: string;
+    today: number; baseline: number; ratio: number; z: number; sessions: number; date: string; partial: boolean;
 } | null;
+
+/** 두 API 공통: 옛 이력은 보존하고 명시된 부분·비EOD 및 다른 금액 계산 기준을 제외한다. */
+export function deviationSeries(snaps: Row[], key: string) {
+    const today = snaps[snaps.length - 1];
+    if (!today || !measured(today[key])) return [];
+    const premium = /premium/i.test(key);
+    const basis = typeof today.premiumBasis === 'string' ? today.premiumBasis.trim() : '';
+    return snaps.filter((r, i) => measured(r[key]) && (i === snaps.length - 1 || (
+        isCompleteOptionEod(r) && (!premium || !basis || !r.premiumBasis || r.premiumBasis === today.premiumBasis)
+    ))).map(r => ({ d: r._d as string, v: Number(r[key]), oi: r._oi as number, partial: !isCompleteOptionEod(r) }));
+}
 
 /**
  * 한 지표의 «평소 대비 이탈». 통과 못 하면 null 과 사유를 준다 —
@@ -188,10 +240,7 @@ export function deviationOf(
     const g = { ...DEFAULT_GATES, ...gates };
     // The latest snapshot must own a measurement; never promote a past day to today.
     if (!snaps.length || !measured(snaps[snaps.length - 1][key])) return { ok: null, reason: '이력부족' };
-    const series = snaps
-        .filter(r => measured(r[key]))
-        .map((r) => ({ d: r._d, v: Number(r[key]), oi: r._oi }))
-        .filter((x) => Number.isFinite(x.v));
+    const series = deviationSeries(snaps, key);
     if (series.length < g.minSessions + 1) return { ok: null, reason: '이력부족' };
 
     const today = series[series.length - 1];
@@ -214,7 +263,7 @@ export function deviationOf(
     const ratio = today.v / med;
     if (!(ratio >= g.minRatio || ratio <= 1 / g.minRatio)) return { ok: null, reason: '배수작음' };
 
-    return { ok: { today: today.v, baseline: med, ratio, z, sessions: cmp.length, date: today.d } };
+    return { ok: { today: today.v, baseline: med, ratio, z, sessions: cmp.length, date: today.d, partial: today.partial } };
 }
 
 /**
@@ -228,7 +277,7 @@ export function deviationOf(
  */
 export function latestWith(items: Row[], keys: string[]): (Row & { _d: string }) | null {
     let best: Row | null = null, bestTs = -1, bestDate = '';
-    const sourceStart = sourceHistoryStart(items);
+    const sourceStart = sourceHistoryStart(items, r => keys.every(k => measured(r[k]) && Number(r[k]) > 0));
     for (const it of items) {
         const ts = Number(it.timestamp);
         const d = optionSessionDate(it);
@@ -237,6 +286,58 @@ export function latestWith(items: Row[], keys: string[]): (Row & { _d: string })
         if (keys.every((k) => Number.isFinite(Number(it[k])) && Number(it[k]) > 0)) { best = it; bestTs = ts; bestDate = d; }
     }
     return best ? { ...best, _d: bestDate } : null;
+}
+
+/** 같은 세션 구조 EOD 와의 일치 허용 오차 — 콜·풋 OI 각각 ±2%(10/23 실측 일치 10종목은 0%). */
+export const MONEY_OI_MATCH_TOLERANCE = 0.02;
+
+/**
+ * «돈과 포지션의 불일치»용 — 필요한 필드를 한 행에 모두 가진 «가장 최신 세션의 완결 행».
+ *
+ * latestWith 의 이력 시작점(sourceStart) 규칙은 구조 행(chainDate 있음)이 생긴 날부터 옛 흐름 행을 잘라
+ * 10/23 세션에 10/21 행(2세션 전)을 쓰게 했다(운영 결함). 프리미엄을 가진 행은 전부 표식 없는 흐름 행이라
+ * 그 규칙을 쓰지 않고, 같은 세션 구조 EOD(_source 'structure-build'·chainDate·optionBasis 'eod'·partial 아님)가 있으면 그것으로 검증한다.
+ *   ① 같은 세션 구조 EOD 가 있으면 콜·풋 OI 가 각각 ±2% 안인 행만(어긋난 행 = 다른 수집 범위·부분 → 제외).
+ *      맞는 행이 없으면 그 세션을 건너뛰고 직전 세션으로.
+ *   ② 같은 세션 구조 EOD 가 없으면 그 세션의 최신 완결 행.
+ *      ⚠ 직전 세션 대비 OI 감소로 «부분»을 판정하지 않는다 — 10/23 실측: 구조 EOD 가 있는 10종목 모두 구조 EOD =
+ *        장 마감 뒤 마지막 흐름 행이었고 직전 대비 0.41~2.25배(주간 만기 소멸 뒤 다음 주 만기). 10/16 은 전 종목 0.14~0.58배.
+ *        감소로 제외하면 종목마다 다른 만기를 섞는다.
+ *   ③ 표식 없는 흐름 행이 정규장 개장(09:30 ET) 전·휴장일에 찍혔으면 그 날짜 세션으로 쓰지 않는다(직전 세션 자료다).
+ *   ④ 생산자가 partial·비EOD 로 밝힌 행은 같은 세션에 완결 행이 없을 때만 쓰고 partial 로 운반(오늘을 과거로 대체하지 않는 원칙).
+ * 고르기: 최신 세션 → 같은 세션 안에서 «일치» > 완결 > 밝힌 부분 → 최신 시각.
+ */
+export function latestCompleteWith(items: Row[], keys: string[]): (Row & { _d: string; _oiCheck: 'match' | 'unverified' }) | null {
+    const refs = new Map<string, { c: number; p: number; ts: number }>();
+    for (const r of items) {
+        // 기준은 구조 생산자(structure-build) 행만 — 수집 Lambda 의 EOD 표식 행(프리미엄 보유·다른 만기 범위)이 자기 자신과 대조돼 «일치»가 되지 않게
+        if (r._source !== 'structure-build' || !r.chainDate || r.optionBasis !== 'eod' || r.partial === true) continue;
+        const d = optionSessionDate(r);
+        const c = Number(r.totalCallOI), p = Number(r.totalPutOI), ts = Number(r.timestamp);
+        if (!d || !(c > 0) || !(p > 0) || !Number.isFinite(ts)) continue;
+        const prev = refs.get(d);
+        if (!prev || ts > prev.ts) refs.set(d, { c, p, ts });
+    }
+    let best: Row | null = null, bestDate = '', bestMatch = -1, bestTs = -1;
+    for (const it of items) {
+        const ts = Number(it.timestamp);
+        const d = optionSessionDate(it);
+        if (!Number.isFinite(ts) || !d) continue;
+        if (!keys.every((k) => Number.isFinite(Number(it[k])) && Number(it[k]) > 0)) continue;
+        if (!it.chainDate && (isNonTradingDay(d) || etMinutesOf(ts) < 570)) continue;
+        const c = Number(it.totalCallOI), p = Number(it.totalPutOI);
+        const same = refs.get(d);
+        // 2 = 같은 세션 구조 EOD 와 일치 · 1 = 완결 · 0 = 생산자가 밝힌 부분/비EOD
+        const complete = isCompleteOptionEod(it);
+        let match = complete ? 1 : 0;
+        if (same) {
+            if (Math.abs(c - same.c) > MONEY_OI_MATCH_TOLERANCE * same.c || Math.abs(p - same.p) > MONEY_OI_MATCH_TOLERANCE * same.p) continue;
+            if (complete) match = 2;
+        }
+        if (d < bestDate || (d === bestDate && (match < bestMatch || (match === bestMatch && ts <= bestTs)))) continue;
+        best = it; bestDate = d; bestMatch = match; bestTs = ts;
+    }
+    return best ? { ...best, _d: bestDate, _oiCheck: bestMatch === 2 ? 'match' : 'unverified' } : null;
 }
 
 /**
@@ -265,7 +366,7 @@ export type Readiness = {
  */
 export function dailyValues(rows: Array<Record<string, any>>, field: string) {
     const byDay = new Map<string, { ts: number; v: number }>();
-    const sourceStart = sourceHistoryStart(rows);
+    const sourceStart = sourceHistoryStart(rows, r => measured(r[field]) && Number(r[field]) !== 0);
     for (const r of rows) {
         const v = Number(r?.[field]);
         if (!Number.isFinite(v) || v === 0) continue;      // NULL·0 은 «측정 안 됨»으로 본다
@@ -288,7 +389,7 @@ export function dailyValues(rows: Array<Record<string, any>>, field: string) {
  */
 export function sessionValues(rows: Array<Record<string, any>>, field: string) {
     const bySession = new Map<string, { ts: number; v: number }>();
-    const sourceStart = sourceHistoryStart(rows);
+    const sourceStart = sourceHistoryStart(rows, r => measured(r[field]) && Number(r[field]) !== 0);
     for (const r of rows) {
         const v = Number(r?.[field]);
         if (!Number.isFinite(v) || v === 0) continue;
