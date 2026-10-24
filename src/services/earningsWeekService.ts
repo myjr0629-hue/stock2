@@ -29,6 +29,7 @@ import type { EarningsMoveMethod } from '@/lib/earnings/eventMove';
 
 export interface EarningsWeekRow {
   method?: EarningsMoveMethod | null;
+  eventMovePct?: number | null;
   ticker: string;
   date: string;
   hour: 'amc' | 'bmo' | '';
@@ -138,6 +139,7 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
       ticker: e.ticker, date: e.date, hour: e.hour, etTime: e.etTime ?? null,
       impliedMovePct: im?.impliedMovePct ?? null,
       method: im?.method ?? null,
+      ...(im?.eventMovePct != null ? { eventMovePct: im.eventMovePct } : {}),
       impliedExpiry: im?.expiry ?? null,
       impliedBasis: im?.basis ?? null,
       impliedSession: im?.session ?? null,

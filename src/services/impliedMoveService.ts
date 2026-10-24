@@ -124,6 +124,7 @@ export interface ImpliedMoveRow {
     session: string | null;
     reason: string | null;
     method?: EarningsMoveMethod | null;
+    eventMovePct?: number | null;
     /** 같은 관측의 ATM 스트래들/현물. 이벤트 분리값과 별도로 보존한다. */
     straddlePct?: number | null;
 }
@@ -133,6 +134,7 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 function impliedRowOf(ticker: string, im: ImpliedMove | null, source: ImpliedMoveRow['source'], reason: string | null, earnings = false): ImpliedMoveRow {
     const f = impliedMoveFields(im);
     if (f.impliedMovePct == null) { im = null; reason ??= 'no_straddle'; }
+    const event = im as EarningsMove | null;
     return {
         ticker,
         impliedMovePct: f.impliedMovePct != null ? ((im as EarningsMove).eventMovePct ?? f.impliedMovePct) : null,
@@ -148,7 +150,8 @@ function impliedRowOf(ticker: string, im: ImpliedMove | null, source: ImpliedMov
         ...(earnings ? {
             method: im?.expiry ? (im as EarningsMove).method ?? expiryMethod(im.expiry) : null,
             straddlePct: f.impliedMovePct,
-        } : {}),
+        } : event?.method ? { method: event.method } : {}),
+        ...(event?.eventMovePct != null ? { eventMovePct: event.eventMovePct } : {}),
     };
 }
 

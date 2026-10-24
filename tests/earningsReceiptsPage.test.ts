@@ -183,11 +183,12 @@ const test = async (name: string, fn: () => unknown) => {
     }
   });
   await test('실적·영수증 화면·문구·OG와 읽기 서비스·API·robots 소스는 기준 커밋과 바이트 동일', () => {
+    // 주간 서비스의 추가 API 필드는 exposeEventMove.test.ts가 변경 전 응답 스냅샷으로 검사한다.
     for (const p of [
       'src/app/[locale]/earnings-week/page.tsx', 'src/app/[locale]/app-view/earnings/page.tsx',
       'src/app/[locale]/receipts/earnings/page.tsx', 'src/lib/earnings/earningsReceiptsCopy.ts',
       'src/app/[locale]/receipts/earnings/og/route.tsx',
-      'src/services/earningsWeekService.ts', 'src/services/earningsScorecardService.ts',
+      'src/services/earningsScorecardService.ts',
       'src/app/api/earnings/scorecard/route.ts', 'src/app/robots.ts',
     ]) assert.equal(readFileSync(p, 'utf8'), execFileSync('git', ['show', `df149853d0574ee5209ea8e02cd23eb0710f1bd5:${p}`], { encoding: 'utf8' }), p);
   });
