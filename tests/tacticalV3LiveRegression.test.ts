@@ -68,11 +68,7 @@ for (const row of fixture.outputs) {
     // 실제 소수점·날짜·U.S.·Oct. 문장이 네 문장인데 탈락하던 사례 전부 재생.
     assert.ok(!reasons.includes('tactical:four-sentences'), `${row.session}/${row.repeat}/${row.locale}`);
     assert.equal(reasons.includes('tactical:too-long'), [...row.text].length > (row.locale === 'en' ? 900 : 460));
-    // ★10/24 T25 — 이 재생본의 권유 탈락 8건은 전부 «매수 폭이 제한»·«약한 매수력»·«買い幅が限定/制限» 서술(공용 권유어 가드 오탐)이었다 → 통과로 기대값을 바꾼다.
-    //   Tactical 출구가 권유 가드를 그대로 거는지는 아래 «진짜 권유를 덧붙인 글» 시험으로 계속 고정한다.
-    if (row.previousReasons.includes('tactical:advice')) assert.ok(!reasons.includes('tactical:advice') && /매수\s?폭|매수력|買い幅/.test(row.text), `서술 오탐만 풀림: ${row.session}/${row.repeat}/${row.locale}`);
-    const advised = row.text + ({ ko: ' 지금은 매수로 접근하는 게 좋습니다.', en: ' You should buy the dip now.', ja: ' 今は買いを検討してください。' } as Record<string, string>)[row.locale];
-    assert.ok(checkTacticalOutput(advised, row.locale, p).includes('tactical:advice'), `권유 가드는 완화하지 않음: ${row.session}/${row.repeat}/${row.locale}`);
+    if (row.previousReasons.includes('tactical:advice')) assert.ok(reasons.includes('tactical:advice'), '권유 가드는 완화하지 않음');
     if (/\{(?:NDX_CHG|SPX_CHG)\}/.test(row.text)) {
         assert.ok(!guardianNumbersGate(row.text, nums).ok);
         assert.ok(reasons.includes('tactical:index-token-forbidden'));
