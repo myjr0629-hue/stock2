@@ -14,6 +14,7 @@
 //   APNS_TEAM_ID              — e.g. 25RG9GSHHZ
 //   APNS_SANDBOX (optional)   — "true" to use the sandbox APNs gateway (dev builds)
 // ============================================================================
+import { reportPushPath, reportDate } from '@/lib/app/reportLink';
 import 'server-only';
 import { Redis } from '@upstash/redis';
 import http2 from 'node:http2';
@@ -202,7 +203,7 @@ export interface PushSendStats {
 
 export async function sendPushByType(
   type: 'morning' | 'closing',
-  opts: { bodies?: Partial<Record<Locale, string | null>> } = {},
+  opts: { bodies?: Partial<Record<Locale, string | null>>; reportDate?: string } = {},
 ): Promise<SendResult & { stats: PushSendStats }> {
   const plan = await planPush(type);
   const stats: PushSendStats = {
@@ -229,6 +230,12 @@ export async function sendPushByType(
     stats.byLocale[locale].targets += targets; stats.byLocale[locale].sent += ok; stats.byLocale[locale].fail += targets - ok;
   };
 
+  const dataFor = (locale: Locale): Record<string, string> => ({
+    type, locale,
+    ...(type === 'closing' && reportDate(opts.reportDate) ? { date: opts.reportDate! } : {}),
+    path: reportPushPath(type, locale, opts.reportDate)!,
+    url: reportPushPath(type, locale, opts.reportDate, true)!,
+  });
   const fcm = plan.targets.android;
   const apns = plan.targets.ios;
   let sent = 0;
@@ -247,7 +254,7 @@ export async function sendPushByType(
         const res = await messaging.sendEachForMulticast({
           tokens: batch,
           notification: { title: copy.title, body: copy.body },
-          data: { type, locale },
+          data: dataFor(locale),
         });
         sent += res.successCount;
         tally('android', locale, batch.length, res.successCount);
@@ -273,12 +280,12 @@ export async function sendPushByType(
     const toks = apns[locale];
     if (!toks.length) continue;
     const copy = copyFor(locale);
-    const first = await sendApns(primaryHost, toks, copy, { type, locale });
+    const first = await sendApns(primaryHost, toks, copy, dataFor(locale));
     sent += first.sent;
     let ok = first.sent;
     deadTokens.push(...first.gone);
     if (first.badToken.length) {
-      const retry = await sendApns(fallbackHost, first.badToken, copy, { type, locale });
+      const retry = await sendApns(fallbackHost, first.badToken, copy, dataFor(locale));
       sent += retry.sent;
       ok += retry.sent;
       deadTokens.push(...retry.gone);

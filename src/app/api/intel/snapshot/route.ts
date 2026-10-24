@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server';
+import { reportDate } from '@/lib/app/reportLink';
 import { saveSnapshot, getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem, BriefingData } from '@/types/sector';
 
@@ -210,6 +211,7 @@ export async function GET(request: Request) {
     const sector = searchParams.get('sector');
     const date = searchParams.get('date');
 
+    if (date && !reportDate(date)) return NextResponse.json({ error: 'Invalid date' }, { status: 400 });
     if (!sector) {
         return NextResponse.json(
             { error: 'Missing sector parameter' },
@@ -234,11 +236,11 @@ export async function GET(request: Request) {
     try {
         const cacheKey = `snapshot:${sector}:${date || 'latest'}`;
         const cached = await getFromCache<any>(cacheKey).catch(() => null);
-        if (cached) {
+        if (cached && (!date || cached.snapshot_date === date)) {
             const s1 = sanitizeStoredSnapshot(cached.data_json);
             return NextResponse.json({
                 success: true,
-                snapshot: await overlayAiHeadline(await reconcileOfficialCloses(s1.data), sector),
+                snapshot: date ? await reconcileOfficialCloses(s1.data) : await overlayAiHeadline(await reconcileOfficialCloses(s1.data), sector),
                 snapshot_date: cached.snapshot_date,
                 created_at: cached.created_at,
                 source: 'REDIS',
@@ -249,7 +251,8 @@ export async function GET(request: Request) {
         let snapshot = null;
         for (const id of aliases) {
             snapshot = date ? await getSnapshotByDate(id, date) : await getLatestSnapshot(id);
-            if (snapshot) break;
+            if (snapshot && (!date || snapshot.snapshot_date === date)) break;
+            snapshot = null;
         }
 
         if (!snapshot) {
@@ -269,7 +272,7 @@ export async function GET(request: Request) {
         const s2 = sanitizeStoredSnapshot(snapshot.data_json);
         return NextResponse.json({
             success: true,
-            snapshot: await overlayAiHeadline(await reconcileOfficialCloses(s2.data), sector),
+            snapshot: date ? await reconcileOfficialCloses(s2.data) : await overlayAiHeadline(await reconcileOfficialCloses(s2.data), sector),
             snapshot_date: snapshot.snapshot_date,
             created_at: snapshot.created_at,
             source: 'DB',

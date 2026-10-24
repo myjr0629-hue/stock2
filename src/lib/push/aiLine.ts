@@ -251,6 +251,7 @@ export function closingAiLines(brief: any, briefDate: string | null, todayET: st
     if (!summary || typeof summary[l] !== 'string') { out[l] = { line: null, reason: 'no-text' }; continue; }
     if (!sameDay) { out[l] = { line: null, reason: 'not-today' }; continue; }
     out[l] = aiLineFromText(summary[l], { locale: l, englishSource, currentYear: year });
+    if (out[l].line && !/[+−-]?\d+(?:\.\d+)?%/.test(out[l].line!)) out[l] = { line: null, reason: 'no-close-number' };
   }
   return out;
 }
