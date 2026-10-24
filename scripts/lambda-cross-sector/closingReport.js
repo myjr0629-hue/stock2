@@ -317,9 +317,8 @@ function alignSummary(s, evidence) {
             // 수동형 «칩 종목만 매수됐다»(운영 dry 10/24 13:47) → 매수세가 유입됐다 / 매도 물량이 나왔다
             .replace(/(?<![공순])매수(되었|됐)/g, '매수세가 유입$1').replace(/(?<![공순])매도(되었|됐)/g, '매도 물량이 나왔')
             .replace(/(?<![공순])매([수도])(?!세)(?=\s?(?:로\s?(?:하락폭|낙폭|상승폭|지수|나스닥|반등|버티|버텼|제한|지지|올랐|내렸)|가\s?(?:몰리|몰려|몰렸|유입|이어|들어|나타|쏟아|출회|늘어|늘었|줄어|줄었)|\s?지지))/g, '매$1세'))
-            // 지표 일정의 «사전·시장·컨센서스 전망 46.3» = 시장 예상치 — 평서문이면 권유어와 무관하게(매수·매도 낱말은 건드리지 않음, 관문 10241352 «…보다 좋았다»),
-            // 접두어가 있고 정수부 세 자리 이하(지수 목표 «8,000»·금액·%p 는 그대로)
-            .replace(/(?:사전|시장|컨센서스)\s?전망치?(?=\s?(?:[(（]\s?)?[+\-−]?\d{1,3}(?:\.\d+)?%?(?![\d.,]|\s?(?:억|조|만|달러|원|\$|%p)))/g, '시장 예상치')).join('');
+            // «시장 전망 46.3» 자동 치환은 하지 않는다 — 시장 상승 전망(«시장 전망 10% 상승»)을 예상치로 바꿔 검사를 우회시켰다(관문 10241357). 지시문(«시장 예상치, never 전망»)과 고침 요청으로 처리
+            ).join('');
     }
     // 일본어 «予想より強い/弱い»(시장 예상치와 비교)만 «市場予想»으로 — 검사가 이 비교형을 예측어로 잡는다(10/24 7차 실측). 다른 予想은 그대로 두어 검사·고침 요청이 본다
     if (n && typeof n === 'object') for (const f of FIELDS) {
@@ -374,6 +373,7 @@ function repairSpecifics({ evidence, narrative, reasons }) {
         const evs = (evidence?.events || []).filter(e => String(e.timeEt || '').startsWith(day));
         if (evs.length) out.push(`watchNext must include at least one event of the next session date ${day}: ${evs.map(e => `${e.event} at "${e.timeEt}" (market estimate ${e.estimate ?? 'not provided'}, previous ${e.previous ?? 'not provided'})`).join('; ')}; never say the next-session calendar is not provided.`);
     }
+    if (rs.some(r => /:ko:advice$/.test(r))) out.push('Korean: write 시장 예상치 for a consensus estimate (never 전망), 매수세/매도세 for observed buying/selling (never a bare 매수/매도), and no 추천/권유/목표가/예측.');
     if (rs.some(r => /:ja:advice$/.test(r))) out.push('Japanese: write 市場予想 (never a bare 予想) and avoid 見通し/予測/買い/売り/推奨.');
     return out.length ? `Specific fixes:\n- ${out.join('\n- ')}\n` : '';
 }

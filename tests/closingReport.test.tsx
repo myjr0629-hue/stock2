@@ -100,9 +100,9 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     C.alignSummary(buy.structured);
     assert.equal(buy.structured.closingNarrative.whatHappened.ko, '나스닥은 일부 반도체 매수세로 하락폭이 제한됐다. 공매도가 늘었고 순매수가 이어졌다.', '관찰된 매매만 매수세로(10/24 8차 실측)');
     assert.equal(closingReportProblems(buy).some(r => r.endsWith(':advice')), false);
-    const est = brief(); est.structured.closingNarrative.why.ko = '소비자심리 48은 사전 전망 46.3을 웃돌았고 반도체 매수 지지가 있었다. 경기 전망은 불확실하다.';
+    const est = brief(); est.structured.closingNarrative.why.ko = '소비자심리 48은 시장 예상치 46.3을 웃돌았고 반도체 매수 지지가 있었다.';
     C.alignSummary(est.structured);
-    assert.equal(est.structured.closingNarrative.why.ko, '소비자심리 48은 시장 예상치 46.3을 웃돌았고 반도체 매수세 지지가 있었다. 경기 전망은 불확실하다.', '숫자 앞 전망만 시장 예상치로(10/24 10차 실측)');
+    assert.equal(est.structured.closingNarrative.why.ko, '소비자심리 48은 시장 예상치 46.3을 웃돌았고 반도체 매수세 지지가 있었다.');
     // 10/24 9차 실측 — 장후 보도를 «장중 보도»로 묶은 문장은 탈락, 같은 문장에 «마감 후»가 있으면 대조 서술로 통과
     assert.equal(C.afterCloseCalledIntraday('Reports published during the session include FXEmpire (2026-10-23 14:29 ET) and Schwab Network (2026-10-23 16:10 ET).', '2026-10-23 16:10 ET', 'en'), true);
     assert.equal(C.afterCloseCalledIntraday('FXEmpire reported during the session, while Schwab Network (2026-10-23 16:10 ET) came after the close.', '2026-10-23 16:10 ET', 'en'), false);
@@ -128,9 +128,9 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     const advTail = brief(); advTail.structured.closingNarrative.whatHappened.ko = '반도체 매수로 반등했다. 반도체 매수가 기회다.';
     C.alignSummary(advTail.structured);
     assert.equal(advTail.structured.closingNarrative.whatHappened.ko, '반도체 매수세로 반등했다. 반도체 매수가 기회다.');
-    const guide = brief(); guide.structured.closingNarrative.why.ko = '회사는 매출 전망 46.3억 달러를 유지했다. 시장 전망 46.3을 웃돌았다.';
+    const guide = brief(); guide.structured.closingNarrative.why.ko = '회사는 매출 전망 46.3억 달러를 유지했다.';
     C.alignSummary(guide.structured);
-    assert.equal(guide.structured.closingNarrative.why.ko, '회사는 매출 전망 46.3억 달러를 유지했다. 시장 예상치 46.3을 웃돌았다.', '회사 가이던스·금액은 그대로');
+    assert.equal(guide.structured.closingNarrative.why.ko, '회사는 매출 전망 46.3억 달러를 유지했다.', '회사 가이던스·금액은 그대로');
     const hidden = brief(); const hev = { ...hidden.reportEvidence, news: [...hidden.reportEvidence.news, { id: 'zz-8', source: 'Kitco', publishedEt: '2026-10-22 17:42 ET', timing: 'after_cash_close' }] };
     hidden.reportEvidence = hev;
     hidden.structured.closingNarrative.causeRefs = [...hidden.structured.closingNarrative.causeRefs, { newsId: 'zz-8', kind: 'reported_context' }];
@@ -202,9 +202,10 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     C.alignSummary(should.structured);
     assert.equal(should.structured.closingNarrative.why.ko, '칩 종목은 지금 매수됐어야 했다고 판단했다.', '당위형은 정규화하지 않는다(관문 10241349)');
     assert.ok(closingReportProblems(should).some(r => r.endsWith(':advice')));
-    const good = brief(); good.structured.closingNarrative.indicators.ko = '소비자심리 48은 시장 전망 46.3보다 좋았다. S&P 500 시장 전망 8,000은 그대로다.';
-    C.alignSummary(good.structured);
-    assert.equal(good.structured.closingNarrative.indicators.ko, '소비자심리 48은 시장 예상치 46.3보다 좋았다. S&P 500 시장 전망 8,000은 그대로다.', '평가어가 있어도 지표 예상치는 정규화, 지수 목표는 그대로(관문 10241352)');
+    const outlook = brief(); outlook.structured.closingNarrative.indicators.ko = '내년 시장 전망 10% 상승에 대비할 필요가 있었다.';
+    C.alignSummary(outlook.structured);
+    assert.equal(outlook.structured.closingNarrative.indicators.ko, '내년 시장 전망 10% 상승에 대비할 필요가 있었다.', '전망은 치환하지 않는다(관문 10241357)');
+    assert.ok(closingReportProblems(outlook).some(r => r.endsWith(':advice')));
     const ev2 = brief(); ev2.reportEvidence = { ...ev2.reportEvidence, events: [{ at: '2026-10-26T12:30:00.000Z', timeEt: '2026-10-26 08:30 ET', event: 'Chicago Fed' }, { at: '2026-10-27T12:30:00.000Z', timeEt: '2026-10-27 08:30 ET', event: 'Durable Goods' }] };
     ev2.structured.closingNarrative.watchNext = tri('다음 거래일 일정은 제공되지 않았다. 2026-10-27 08:30 ET 내구재.', 'No next-session calendar. 2026-10-27 08:30 ET durables.', '次の日程はない。2026-10-27 08:30 ETの耐久財。');
     assert.ok(closingReportProblems(ev2).includes('narrative:event-next:en'));
