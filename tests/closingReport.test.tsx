@@ -149,6 +149,19 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     const growth = brief(); growth.structured.closingNarrative.why.ko = '회사는 매출 성장률 전망 12.5%를 유지했다.';
     C.alignSummary(growth.structured);
     assert.equal(growth.structured.closingNarrative.why.ko, '회사는 매출 성장률 전망 12.5%를 유지했다.');
+    // 관문 10241222 반례 3건 + 13차 실측(한 언어의 빠뜨림은 통과)
+    const imp = brief(); imp.structured.closingNarrative.whatHappened.ko = '지금 매수로 반등을 노려라.';
+    C.alignSummary(imp.structured);
+    assert.equal(imp.structured.closingNarrative.whatHappened.ko, '지금 매수로 반등을 노려라.');
+    assert.ok(closingReportProblems(imp).some(r => r.endsWith(':advice')));
+    const near = brief(); near.structured.closingNarrative.indicators = tri('GEX +6,000만 달러, 금리 +4bp.', 'GEX -$62.2M; yields +4bp.', 'GEX -6,220万ドル、金利+4bp。');
+    assert.ok(closingReportProblems(near).includes('narrative:indicators:cross-lang-facts'), '크기가 조금 달라도 반대 부호는 잡는다');
+    const pair = brief(); pair.structured.closingNarrative.indicators = tri('GEX -6,220만 달러, 자금 +6,300만 달러, 금리 +4bp.', 'GEX -$62.2M, flows +$63M, yields +4bp.', 'GEX -6,220万ドル、資金 +6,300万ドル、金利+4bp。');
+    assert.equal(closingReportProblems(pair).includes('narrative:indicators:cross-lang-facts'), false, '비슷한 크기의 두 금액은 짝지어 비교');
+    const omit = brief(); omit.structured.closingNarrative.watchNext = tri('2026-10-26 08:30 ET 지표 시장 예상치 -0.1, 이전 -0.04. 내구재는 시장 예상치 0.6%.', 'At 2026-10-26 08:30 ET estimate -0.1, prior -0.04. Durables estimate 0.6%, prior -0.1%.', '2026-10-26 08:30 ETの指標は市場予想-0.1、前回-0.04。耐久財は市場予想0.6%、前回-0.1%。');
+    assert.equal(closingReportProblems(omit).includes('narrative:watchNext:cross-lang-facts'), false, '한 언어의 빠뜨림은 틀림이 아니다');
+    const solo = brief(); solo.structured.closingNarrative.watchNext = tri('2026-10-26 08:30 ET 지표 시장 예상치 -0.2.', 'At 2026-10-26 08:30 ET estimate -0.1.', '2026-10-26 08:30 ETの指標は市場予想-0.1。');
+    assert.ok(closingReportProblems(solo).includes('narrative:watchNext:cross-lang-facts'), '한 언어만 다른 값은 잡는다');
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');
