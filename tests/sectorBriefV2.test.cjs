@@ -145,6 +145,14 @@ test('gate regression 10240727: «여부·엇갈림» breadth and next-session w
     [pre, 'ko', '개장 전 NVDA +6%, 다음 정규장에서 나머지 종목 동참 여부 관찰'],
     [pre, 'ja', '取引開始前NVDA +6%、次の通常取引で他銘柄の追随を確認'],
     [fact, 'ko', '개장 전 확인한 정규장 NVDA 강세, 나머지 종목은 약세로 관측'],
+    // 관문 10241655
+    [fact, 'ko', '정규장 전 종목 상승률은 엇갈리며 NVDA만 강세 확인'],
+    [fact, 'ja', '通常取引で全銘柄の上昇率はまちまちで、NVDAのみ強さを確認'],
+    [fact, 'ko', '정규장 NVDA +6%, 기관 매집 여부는 가격만으로 판단 불가'],
+    [fact, 'ko', '정규장 NVDA 강세, 실적 영향은 판단하기 어려움'],
+    [fact, 'en', 'Cash: NVDA +6%; whether institutional buying drove it is unclear'],
+    [fact, 'en', 'Cash: NVDA leads; an earnings effect cannot be determined from prices'],
+    [fact, 'ja', '通常取引でNVDA +6%、機関投資家の買いかどうかは価格だけでは判断できない'],
   ]) {
     assert.deepEqual(contract.checkSectorBriefLegacy(text, locale, f), [], text);
     assert.deepEqual(reasons(text, locale, f), [], text);
