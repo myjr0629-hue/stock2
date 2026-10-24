@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
     morningNewsLines, morningCalendarLines, morningMetrics, buildMorningV2User, morningV2System, checkMorningV2, checkMorningLocale,
-    numberSignature, stateSentence, composeMorningText, systemNextSentence, type MorningFacts,
+    numberSignature, stateSentence, composeMorningText, systemNextSentence, citeTokens, rawBodyReasons, weekdayLabelReasons, type MorningFacts,
 } from '@/lib/ai/morningBriefingV2';
 import { INDEX_NAMES } from '@/lib/ai/tacticalIndexFacts';
 import { aiLineFromText } from '@/lib/push/aiLine';
@@ -209,6 +209,16 @@ test('첫 문장(STATE)은 코드가 쓴다 — 세션 6가지 모두 지수 계
     // 모델이 첫 문장을 되풀이하면 한 번만
     const twice = composeMorningText(`${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`, facts, 'ko');
     assert.equal(twice, `${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`);
+});
+
+test('보도 인용은 토큰 [Nk] → 코드가 그 보도의 시각으로 · 모델이 시각을 직접 쓰면 탈락 · 요일 표기는 날짜와 맞아야(관문 10250319)', () => {
+    assert.equal(citeTokens('[N1] 보도에 따르면 금리가 내렸습니다.', facts), '10/26 06:15 ET 보도에 따르면 금리가 내렸습니다.');
+    assert.equal(citeTokens('[N9] report', facts), '[N9] report', '없는 토큰은 그대로 → 내부 라벨 검사로 탈락');
+    assert.ok(checkMorningLocale(good.ko.replace('10/26 06:15 ET 보도', '[N9] 보도'), 'ko', facts).includes('mb:internal-label'));
+    assert.deepEqual(rawBodyReasons('A 08:03 ET report said X. The next test is at 10/26 (Mon) 10:00 ET.'), ['mb:raw-citation-time']);
+    assert.deepEqual(rawBodyReasons('A [N1] report said X. The next test is at 10/26 (Mon) 10:00 ET.'), []);
+    assert.deepEqual(weekdayLabelReasons('a 10/24 (Fri) report', facts), ['mb:weekday']);
+    assert.deepEqual(weekdayLabelReasons('a 10/24 (Sat) report · 10/23(금)', facts), []);
 });
 
 test('장중(REG) 첫 문장에 장전 말·어제 결과는 탈락', () => {

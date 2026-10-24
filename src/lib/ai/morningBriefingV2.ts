@@ -240,7 +240,7 @@ All three values carry the SAME facts: the same indices, the same report(s), the
 
 <sentences>
 1. STATE is written by the system: STATE_TEXT in the data is the exact first sentence for each language (the dated cash result and the current futures, already checked against INDEX_FACTS) and it is placed in front of your text automatically. Do NOT write it, do not repeat or paraphrase it; begin each value with the WHY sentence. Your later sentences refer to the direction it states.
-2. WHY (one sentence): from TODAY_NEWS choose the one or two most market-wide reports (Fed, rates, inflation, jobs, tariffs, geopolitics, oil, the dollar, mega-cap or sector-wide earnings). Cite each by its supplied M/D HH:MM ET followed by 보도 / report / 報道 (never a provider or source name), say what changed, and connect it softly to the move (…와 맞물려 / amid … / …を背景に). Apart from the citation's date and time this sentence carries NO number at all (describe the report's figures in words, e.g. 금값이 4,000달러 아래로 → 금값이 심리적 고비 아래로). A report published after the move it would explain is not its cause. Never state the news caused the move as fact; never use a single small or foreign company's story as a market cause. If no relevant dated report exists, write ${STYLE.ko.noCause} / ${STYLE.en.noCause} / ${STYLE.ja.noCause}. This sentence has no percent sign.
+2. WHY (one sentence): from TODAY_NEWS choose the one or two most market-wide reports (Fed, rates, inflation, jobs, tariffs, geopolitics, oil, the dollar, mega-cap or sector-wide earnings). Cite each report ONLY by its token [N1], [N2] … (the k-th TODAY_NEWS entry is [Nk]) followed by 보도 / report / 報道 — the system replaces the token with that report's exact date and ET time, so never write a report's date, weekday or clock time yourself and never a provider or source name (shape: [N2] 보도에 따르면 … / A [N2] report said … / [N2]の報道によると …); say what changed, and connect it softly to the move (…와 맞물려 / amid … / …を背景に). Apart from the citation's date and time this sentence carries NO number at all (describe the report's figures in words, e.g. 금값이 4,000달러 아래로 → 금값이 심리적 고비 아래로). A report published after the move it would explain is not its cause. Never state the news caused the move as fact; never use a single small or foreign company's story as a market cause. If no relevant dated report exists, write ${STYLE.ko.noCause} / ${STYLE.en.noCause} / ${STYLE.ja.noCause}. This sentence has no percent sign.
 3. DISCLOSURE (only when DISCLOSURES is non-empty, one short sentence): the company and what the filing says, with its date. Otherwise skip this sentence entirely and never mention filings.
 4. CROSS-ASSET (one sentence): BOTH cross-asset readings in METRICS (the 10-year Treasury yield and the one other asset given), no other asset; say what they mean together (for example falling yields easing pressure on growth stocks, oil adding inflation pressure). Write each reading in the shape NAME VALUE(CHANGE) right after its plain name — 미국 10년물 금리 5.00%(+4bp) / the 10-year Treasury yield at 5.00% (+4bp) / 米10年債利回り5.00%(+4bp); WTI 유가 $103.27(+3.82%) — copying value and change exactly as METRICS gives them (never write 'vs previous close', never round or say 'about').
 5. RISK READ (one sentence): meaning first, readings second. Say whether market health, volatility (VIX and its term structure) and options positioning line up with or diverge from the direction in STATE, and what that means for how well a move can hold or how large swings can get. Name every gauge by its plain name with the abbreviation only in parentheses (${STYLE.ko.gloss} / ${STYLE.en.gloss} / ${STYLE.ja.gloss}); use the METRICS reading words (weak/middling/strong, calm/elevated/stressed, cushion/amplify/neutral) in everyday language, never the raw codes. At most TWO numbers in this sentence: market health and VIX values; describe options positioning, breadth and the VIX term structure in words only (no GEX value, no VIX3M value, no breadth percentage). If options positioning is missing from METRICS say options positioning data is unavailable; never invent it.
@@ -315,10 +315,38 @@ export function stateSentence(f: MorningFacts, l: MbLocale): string {
     return { ko: `${cash}, ${futPart}입니다.`, en: `${cash}; ${futPart}.`, ja: `${cash}、${futPart}です。` }[l];
 }
 
-/** 모델 본문(둘째 문장부터) 앞에 STATE 를, (일정 없는 날) 뒤에 NEXT 를 붙인다 — 모델이 그 문장을 되풀이했으면 빼고 붙인다 */
+/** 보도 인용 토큰 [Nk] → 그 보도의 «M/D HH:MM ET»(관문 10250319: 모델이 다른 기사의 시각을 붙이던 7/24) */
+export function citeTokens(body: string, f: MorningFacts): string {
+    return String(body || '').replace(/\[N(\d+)\]/g, (m, k: string) => {
+        const line = f.news[Number(k) - 1];
+        const at = line?.match(/; (\d{1,2}\/\d{1,2} \d{2}:\d{2} ET)\]/)?.[1];
+        return at ?? m;
+    });
+}
+
+/** 모델 원문(조립 전)의 규칙 — 보도 시각은 토큰으로만(마지막 NEXT 문장의 일정 시각은 NEXT_TEST 를 옮긴 것이라 제외) */
+export function rawBodyReasons(body: string): string[] {
+    const sentences = splitSentences(String(body || ''));
+    const middle = sentences.slice(0, Math.max(0, sentences.length - 1)).join(' ');
+    return /(?<![\d.])\d{1,2}:\d{2}(?!\d)/.test(middle) ? ['mb:raw-citation-time'] : [];
+}
+
+/** «M/D(요일)» · «M/D (Day)» 의 요일이 그 날짜(asOf 연도)와 맞나 — 토요일 기사를 «10/24(Fri)» 로 쓰던 것 */
+export function weekdayLabelReasons(text: string, f: MorningFacts): string[] {
+    const year = Number(String(f.asOf).slice(0, 4)) || new Date().getUTCFullYear();
+    const W = { ko: ['일', '월', '화', '수', '목', '금', '토'], en: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'], ja: ['日', '月', '火', '水', '木', '金', '土'] };
+    for (const m of String(text).matchAll(/(?<![\d.:/$])(\d{1,2})\/(\d{1,2})\s?\(\s*(일|월|화|수|목|금|토|Sun|Mon|Tue|Wed|Thu|Fri|Sat|日|月|火|水|木|金|土)[a-z]*\.?\s*\)/gi)) {
+        const day = new Date(Date.UTC(year, Number(m[1]) - 1, Number(m[2]))).getUTCDay();
+        const w = m[3].toLowerCase();
+        if (![W.ko[day], W.en[day], W.ja[day]].includes(w)) return ['mb:weekday'];
+    }
+    return [];
+}
+
+/** 모델 본문(둘째 문장부터) 앞에 STATE 를, (일정 없는 날) 뒤에 NEXT 를 붙인다 — 모델이 그 문장을 되풀이했으면 빼고 붙인다 · 인용 토큰은 시각으로 */
 export function composeMorningText(body: string, f: MorningFacts, l: MbLocale): string {
     const st = stateSentence(f, l);
-    let b = String(body || '').trim();
+    let b = citeTokens(String(body || '').trim(), f);
     const nx = systemNextSentence(f, l);
     if (nx) {
         const parts = splitSentences(b);
@@ -418,7 +446,7 @@ export function morningEvidenceFor(locale: MbLocale, f: MorningFacts): string {
 }
 
 // 대문자 이름표는 대소문자 구분(영어 «session·metrics·bear market» 은 정상 낱말이다)
-const INTERNAL = /\b(?:SESSION|AS_OF|TODAY_NEWS|REPORT_TIMES|INDEX_FACTS|SCHEDULED_EVENTS|EVENT_TIMES|DATE_LABELS|RELEASED_TODAY|DISCLOSURES|METRICS|NEXT_TEST|STATE_TEXT|LONG_GAMMA|SHORT_GAMMA|RISK_OFF|RISK_ON|BEAR|BULL)\b|N\/A|(?:^|[\s.。、,])(?:STATE|WHY|CROSS-ASSET|RISK READ|NEXT|DISCLOSURE)\s*[:：]|\b(?:Massive|Yahoo)\b|[{}<>]|X\.X|M\/D/;
+const INTERNAL = /\[N\d+\]|\b(?:SESSION|AS_OF|TODAY_NEWS|REPORT_TIMES|INDEX_FACTS|SCHEDULED_EVENTS|EVENT_TIMES|DATE_LABELS|RELEASED_TODAY|DISCLOSURES|METRICS|NEXT_TEST|STATE_TEXT|LONG_GAMMA|SHORT_GAMMA|RISK_OFF|RISK_ON|BEAR|BULL)\b|N\/A|(?:^|[\s.。、,])(?:STATE|WHY|CROSS-ASSET|RISK READ|NEXT|DISCLOSURE)\s*[:：]|\b(?:Massive|Yahoo)\b|[{}<>]|X\.X|M\/D/;
 const INTERNAL_CI = /(?:레짐|regime|レジーム)/i;
 const REFUSAL = /죄송|할 수 없습니다|불가능합니다|I\s+(?:can(?:no|')t|am\s+unable|apologi[sz]e)|\bAs an AI\b|申し訳|できません|temporarily unavailable|cannot generate/i;
 /** RLSI·GEX 를 쉬운 이름 없이 단독으로 쓰면 탈락(괄호 속 약어·쉬운 이름 뒤는 통과) */
@@ -587,6 +615,7 @@ export function checkMorningLocale(text: string, locale: MbLocale, f: MorningFac
     if (ung.length) reasons.push(`mb:number:${ung.slice(0, 2).map(u => u.raw).join('|')}`);
     reasons.push(...claimReasons(t, 'mb'));
     reasons.push(...metricBindingReasons(t, locale, f));
+    reasons.push(...weekdayLabelReasons(t, f));
     // 부호 없는 하락 변화(«0.6% 하락»)는 화면에서 상승색으로 칠해진다 — 음수 변화 크기와 같은 부호 없는 %·bp 는 탈락
     const negs = new Set([...f.indexFacts.filter(x => x.chgPct < 0).map(x => Number(Math.abs(Math.round(x.chgPct * 100) / 100).toFixed(1))),
         ...f.metrics.flatMap(m => (m.change && /^-/.test(m.change) ? [Number(m.change.replace(/[^\d.]/g, ''))] : []))]);

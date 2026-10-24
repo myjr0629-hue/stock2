@@ -26,7 +26,7 @@ import { stripForecastSentences } from '@/lib/ai/trustLayer';
 import { calendarPromptLines } from '@/lib/fmpCalendarTime';
 import { adminAuthorized } from '@/lib/ai/adminAuth';
 import { withFreshTier } from '@/lib/ai/freshTier';
-import { checkMorningV2, morningV2System, buildMorningV2User, composeMorningText, MORNING_V2_VERSION, type MorningFacts } from '@/lib/ai/morningBriefingV2';
+import { checkMorningV2, morningV2System, buildMorningV2User, composeMorningText, rawBodyReasons, MORNING_V2_VERSION, type MorningFacts } from '@/lib/ai/morningBriefingV2';
 import { collectMorningRaw, morningFactsFromRaw, type MorningRaw, type MorningSim } from '@/services/morningBriefingInputs';
 
 export const maxDuration = 60;
@@ -350,7 +350,7 @@ Output ONLY valid JSON (no markdown fences):
 }
 
 /** 모델 원문 → JSON 정리(앞말 제거) + 금융 공통어 음차 복원(+ v2 는 코드가 쓴 첫 문장 STATE 를 앞에). 실패면 null */
-function prepareBriefingJson(text: string, facts?: MorningFacts | null): { json: string; briefing: BriefingTexts } | null {
+function prepareBriefingJson(text: string, facts?: MorningFacts | null): { json: string; briefing: BriefingTexts; rawReasons: string[] } | null {
     let raw = String(text || '').replace(/```json/g, '').replace(/```/g, '').trim();
     const start = raw.indexOf('{');
     if (start < 0) return null;
@@ -358,11 +358,13 @@ function prepareBriefingJson(text: string, facts?: MorningFacts | null): { json:
     try {
         const b = JSON.parse(raw);
         const out = {} as BriefingTexts;
+        const rawReasons: string[] = [];
         for (const k of ['ko', 'en', 'ja'] as const) {
             const t = typeof b?.[k] === 'string' ? restoreCommonTermNames(b[k]).text : '';
+            if (facts && t) rawReasons.push(...rawBodyReasons(t).map(r => `${k}:${r}`));
             out[k] = facts && t ? composeMorningText(t, facts, k) : t;
         }
-        return { json: JSON.stringify(out), briefing: out };
+        return { json: JSON.stringify(out), briefing: out, rawReasons };
     } catch { return null; }
 }
 
@@ -372,7 +374,8 @@ function v2Gate(facts: MorningFacts) {
         const p = prepareBriefingJson(text, facts);
         if (!p) return { ok: false, reasons: ['mb:json'] };
         const c = checkMorningV2(p.json, facts);
-        return { ok: c.ok, reasons: c.reasons };
+        const reasons = [...p.rawReasons, ...c.reasons];
+        return { ok: reasons.length === 0, reasons };
     };
 }
 
@@ -444,11 +447,11 @@ async function dryCompare(body: any): Promise<Response> {
                 }, async () => { throw new Error('dry: no legacy rung'); }));
                 const p = prepareBriefingJson(res.text, w === 'new' ? facts : null);
                 out[w].push({ ok: true, text: p?.briefing ?? null, raw: res.text.slice(0, 6000), raws, provider: res.provider, ms: Date.now() - s0,
-                    newCheck: p ? checkMorningV2(p.json, facts) : null });
+                    newCheck: p ? { ...checkMorningV2(p.json, facts), rawReasons: p.rawReasons } : null });
             } catch (e: any) {
                 const p = raws.length ? prepareBriefingJson(raws[raws.length - 1], w === 'new' ? facts : null) : null;
                 out[w].push({ ok: false, error: String(e?.message || e).slice(0, 200), raws, text: p?.briefing ?? null, ms: Date.now() - s0,
-                    newCheck: p ? checkMorningV2(p.json, facts) : null, oldGate: p ? briefingGate(p.json) : null });
+                    newCheck: p ? { ...checkMorningV2(p.json, facts), rawReasons: p.rawReasons } : null, oldGate: p ? briefingGate(p.json) : null });
             }
         });
     }
@@ -538,7 +541,7 @@ export async function POST(req: Request) {
         const briefing = prepared.briefing;
 
         // [V8.1] AI Refusal / Hallucination Validation — v2 는 사실 계약 검사(lib/ai/morningBriefingV2)까지 통과해야 저장한다
-        const v2Check = legacy ? null : checkMorningV2(prepared.json, facts);
+        const v2Check = legacy ? null : (() => { const c = checkMorningV2(prepared.json, facts); const reasons = [...prepared.rawReasons, ...c.reasons]; return { ...c, ok: reasons.length === 0, reasons }; })();
         if (
             briefingTextInvalid(briefing.ko) ||
             briefingTextInvalid(briefing.en) ||
