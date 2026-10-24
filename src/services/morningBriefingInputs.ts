@@ -7,8 +7,7 @@ import { fmpFetch } from '@/lib/fmpClient';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache } from '@/services/redisClient';
 import { getYahooDataSSOT } from '@/services/yahooFinanceHub';
-import { getMacroSnapshotSSOT, MACRO_REDIS_KEY } from '@/services/macroHubProvider';
-import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
+import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 import { getOvernightHighlights } from '@/services/disclosures';
 import { buildIndexFacts, tacticalSessionAt, INDEX_NAMES, type IndexFact, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
 import { evidenceTime } from '@/lib/ai/evidenceTime';
@@ -37,18 +36,8 @@ async function safe<T>(label: string, fn: () => Promise<T>, fallback: T): Promis
     try { return await fn(); } catch (e: any) { console.warn(`[Briefing Inputs] ${label} failed:`, e?.message || e); return fallback; }
 }
 
-/**
- * 매크로 스냅샷을 «읽기만» — 공유 캐시가 없거나 낡아도 다시 계산하지 않는다(재계산 경로는 시세 수집·뉴스 긴급 갱신까지 부를 수 있다).
- * 드라이런 전용(관문 10250345 ①). 운영 생성은 getMacroSnapshotSSOT 그대로.
- */
-export async function peekMacroSnapshot(): Promise<any | null> {
-    const cached = await getFromCache<any>(MACRO_REDIS_KEY).catch(() => null);
-    if (!cached?.data) return null;
-    return { ...cached.data, indexBasis: await loadMarketIndexBasis().catch(() => null) };
-}
-
-/** 원자료 수집 — 실패한 칸은 비운다(사실이 없으면 그 문장은 «미확인»으로 쓰인다). readOnly = 드라이런(공유 캐시 재계산 없음) */
-export async function collectMorningRaw(snapshot: any, rlsiHistory: any[], nowMs = Date.now(), opts: { readOnly?: boolean } = {}): Promise<MorningRaw> {
+/** 원자료 수집 — 실패한 칸은 비운다(사실이 없으면 그 문장은 «미확인»으로 쓰인다) */
+export async function collectMorningRaw(snapshot: any, rlsiHistory: any[], nowMs = Date.now()): Promise<MorningRaw> {
     const [polygonNews, fmpNews, calRaw, disclosures, yahoo, macro] = await Promise.all([
         safe('polygon news', async () => {
             const d = await fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '10', order: 'desc', sort: 'published_utc' }, true);
@@ -63,10 +52,9 @@ export async function collectMorningRaw(snapshot: any, rlsiHistory: any[], nowMs
             return Array.isArray(j) ? j : [];
         }, [] as any[]),
         safe('econ calendar', () => getFromCache<any>('fmp:econ-calendar'), null),
-        // 드라이런은 공시 캐시를 채우지 않는다(없으면 3시간 저장하는 경로) — 비교 두 판 모두 공시 없이(관문 10250410 ①)
-        safe('disclosures', () => (opts.readOnly ? Promise.resolve([] as any[]) : getOvernightHighlights(3)), [] as any[]),
+        safe('disclosures', () => getOvernightHighlights(3), [] as any[]),
         safe('yahoo', () => getYahooDataSSOT(), null),
-        safe('macro', () => (opts.readOnly ? peekMacroSnapshot() : getMacroSnapshotSSOT()), null),
+        safe('macro', () => getMacroSnapshotSSOT(), null),
     ]);
     return {
         nowMs, snapshot, rlsiHistory: Array.isArray(rlsiHistory) ? rlsiHistory : [],

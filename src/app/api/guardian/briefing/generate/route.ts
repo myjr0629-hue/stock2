@@ -24,10 +24,8 @@ import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import { stripForecastSentences } from '@/lib/ai/trustLayer';
 import { calendarPromptLines } from '@/lib/fmpCalendarTime';
-import { adminAuthorized } from '@/lib/ai/adminAuth';
-import { withFreshTier } from '@/lib/ai/freshTier';
 import { checkMorningV2, morningV2System, buildMorningV2User, composeMorningText, rawBodyReasons, MORNING_V2_VERSION, type MorningFacts } from '@/lib/ai/morningBriefingV2';
-import { collectMorningRaw, morningFactsFromRaw, type MorningRaw, type MorningSim } from '@/services/morningBriefingInputs';
+import { collectMorningRaw, morningFactsFromRaw, type MorningRaw } from '@/services/morningBriefingInputs';
 
 export const maxDuration = 60;
 
@@ -201,7 +199,7 @@ function getBedrock(): BedrockRuntimeClient {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// v1(옛) 프롬프트 — 드라이런 비교(?dryCompare)와 되돌림 스위치(MORNING_BRIEFING_PROMPT=v1)에서만 쓴다. 글자 그대로 보존.
+// v1(옛) 프롬프트 — 되돌림 스위치(MORNING_BRIEFING_PROMPT=v1)에서만 쓴다. 글자 그대로 보존.
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function legacySec8kSection(): Promise<string> {
@@ -411,76 +409,14 @@ function bedrockLegacy(system: string, user: string) {
     };
 }
 
-/**
- * 드라이런 비교(관리자 인증, 저장 0) — 같은 원자료로 옛 프롬프트(v1·옛 게이트)와 새 프롬프트(v2·새 검사)를 운영 모델(사다리 ① 크레딧 Haiku 5.5, 증가분 등급 = AWS 로 넘기지 않음)로
- * reps 번씩 생성해 원문·검사 결과를 돌려준다. sim = 주말에 장전·장중 문장을 시험(시세 값은 실제 관측, 세션 표지·기준 시각만).
- */
-async function dryCompare(body: any): Promise<Response> {
-    const t0 = Date.now();
-    const reps = Math.max(1, Math.min(6, Number(body.reps) || 2));
-    const which: 'both' | 'old' | 'new' = body.which === 'old' || body.which === 'new' ? body.which : 'both';
-    const sim: MorningSim = body.sim === 'pre' || body.sim === 'pre-nofut' || body.sim === 'reg' ? body.sim : null;
-    const asOfMs = typeof body.asOf === 'string' && Number.isFinite(Date.parse(body.asOf)) ? Date.parse(body.asOf) : Date.now();
-    // 워커와 같은 입력 — EC2 워커가 30초마다 쓰는 스냅샷 키를 읽기만 한다(없을 때만 허브 계산)
-    // 읽기만 — 스냅샷 키가 없으면 허브 재계산(저장 경로)을 부르지 않고 빈 스냅샷으로(관문 10250345 ①와 같은 원칙)
-    const snapshot = await getFromCache<any>('guardian:snapshot:ko').catch(() => null);
-    const historyRaw = await getFromCache<any>('guardian:rlsi_history').catch(() => null);
-    const raw = await collectMorningRaw(snapshot, Array.isArray(historyRaw) ? historyRaw : [], Date.now(), { readOnly: true });
-    const facts = morningFactsFromRaw(raw, { sim, asOfMs, newsMaxAgeH: Number(body.newsMaxAgeH) || 18 });
-    // 옛 판의 SEC 8-K 묶음은 드라이런에서 부르지 않는다(SEC 캐시 6시간 저장 경로, 관문 10250410 ②) — 옛 판 입력에서 이 칸만 빠진다
-    const sec8k = '';
-    const old = legacyPrompts(raw, sec8k, asOfMs);
-    const oldSystem = dateAnchor(new Date(asOfMs)) + financeTermsRule() + old.systemPrompt + await depthSuffixFor('MorningBriefing', old.systemPrompt);
-    const newSystem = dateAnchor(new Date(asOfMs)) + financeTermsRule() + morningV2System(facts.session, facts.indexFacts.some(f => f.kind === 'futures'));
-    const newUser = buildMorningV2User(facts);
-    const out: Record<'old' | 'new', any[]> = { old: [], new: [] };
-    const jobs: Array<() => Promise<void>> = [];
-    for (let r = 0; r < reps; r++) for (const w of ['old', 'new'] as const) {
-        if (which !== 'both' && which !== w) continue;
-        jobs.push(async () => {
-            const raws: string[] = [];
-            const s0 = Date.now();
-            const gate = w === 'old' ? briefingGate : v2Gate(facts);
-            try {
-                const res = await withFreshTier(() => runLadder({
-                    purpose: 'MorningBriefing', system: w === 'old' ? oldSystem : newSystem, userPrompt: w === 'old' ? old.userPrompt : newUser,
-                    maxTokens: 4096, jsonPrefill: true, temperature: 0.3, locale: 'multi', timeoutMs: 55000,
-                    validate: (text: string) => { raws.push(String(text).slice(0, 6000)); return gate(text); },
-                }, async () => { throw new Error('dry: no legacy rung'); }));
-                const p = prepareBriefingJson(res.text, w === 'new' ? facts : null);
-                out[w].push({ ok: true, text: p?.briefing ?? null, raw: res.text.slice(0, 6000), raws, provider: res.provider, ms: Date.now() - s0,
-                    newCheck: p ? { ...checkMorningV2(p.json, facts), rawReasons: p.rawReasons } : null });
-            } catch (e: any) {
-                const p = raws.length ? prepareBriefingJson(raws[raws.length - 1], w === 'new' ? facts : null) : null;
-                out[w].push({ ok: false, error: String(e?.message || e).slice(0, 200), raws, text: p?.briefing ?? null, ms: Date.now() - s0,
-                    newCheck: p ? { ...checkMorningV2(p.json, facts), rawReasons: p.rawReasons } : null, oldGate: p ? briefingGate(p.json) : null });
-            }
-        });
-    }
-    let k = 0;
-    await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, async () => { while (k < jobs.length) await jobs[k++](); }));
-    return NextResponse.json({
-        dry: true, sim, asOf: new Date(asOfMs).toISOString(), ms: Date.now() - t0, reps, facts,
-        prompts: { oldSystem, oldUser: old.userPrompt, newSystem, newUser },
-        inputs: { snapshotGamma: snapshot?.gammaShield ? { gexIndex: snapshot.gammaShield.gexIndex, gexLevel: snapshot.gammaShield.gexLevel, supportWall: snapshot.gammaShield.supportWall, resistanceWall: snapshot.gammaShield.resistanceWall, gammaFlipPoint: snapshot.gammaShield.gammaFlipPoint } : null,
-            rlsi: snapshot?.rlsi?.score ?? null, yahooTnx: raw.yahoo?.tnx ? { price: raw.yahoo.tnx.price, change: raw.yahoo.tnx.change, changePct: raw.yahoo.tnx.changePct } : null,
-            macroUs10y: raw.macro?.factors?.us10y ? { level: raw.macro.factors.us10y.level, chgAbs: raw.macro.factors.us10y.chgAbs, chgPct: raw.macro.factors.us10y.chgPct, source: raw.macro.factors.us10y.source } : null },
-        old: out.old, new: out.new,
-    });
-}
-
 export async function POST(req: Request) {
     const startTime = Date.now();
     let snapshotForFallback: any = null;
     let fallbackNewsCount = 0;
     let fallbackCalendarCount = 0;
 
-    // 본문은 try 밖에서 읽는다 — 드라이런은 아래 생성 경로의 catch(템플릿 저장)에 절대 닿지 않게 따로 잡는다(관문 10250102 ①)
+    // ★2026-10-25 옛/새 실모델 비교는 preview 배포의 드라이런으로 마쳤다(~/Documents/signum-work/2026-10-25/morning-briefing-v2/runs) — 운영 코드에는 비교 경로를 두지 않는다(관문 10250424: 모델·공급사 호출은 계측·예산 키를 쓴다)
     const body = await req.json().catch(() => null);
-    if (body?.dryCompare) {
-        if (!adminAuthorized(req.headers)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-        try { return await dryCompare(body); } catch (e: any) { return NextResponse.json({ dry: true, error: String(e?.message || e).slice(0, 200) }, { status: 500 }); }
-    }
 
     try {
         if (!body) throw new Error('invalid JSON body');
