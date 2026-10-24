@@ -162,6 +162,15 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.equal(closingReportProblems(omit).includes('narrative:watchNext:cross-lang-facts'), false, '한 언어의 빠뜨림은 틀림이 아니다');
     const solo = brief(); solo.structured.closingNarrative.watchNext = tri('2026-10-26 08:30 ET 지표 시장 예상치 -0.2.', 'At 2026-10-26 08:30 ET estimate -0.1.', '2026-10-26 08:30 ETの指標は市場予想-0.1。');
     assert.ok(closingReportProblems(solo).includes('narrative:watchNext:cross-lang-facts'), '한 언어만 다른 값은 잡는다');
+    // 관문 10241229 반례 3건
+    const hort = brief(); hort.structured.closingNarrative.whatHappened.ko = '지금 매수로 반등을 준비합시다.';
+    C.alignSummary(hort.structured);
+    assert.equal(hort.structured.closingNarrative.whatHappened.ko, '지금 매수로 반등을 준비합시다.');
+    assert.ok(closingReportProblems(hort).some(r => r.endsWith(':advice')));
+    const koja = brief(); koja.structured.closingNarrative.watchNext = tri('2026-10-26 08:30 ET 내구재 이전 -0.1%.', 'At 2026-10-26 08:30 ET durables.', '2026-10-26 08:30 ETの耐久財は前回+0.1%。');
+    assert.ok(closingReportProblems(koja).includes('narrative:watchNext:cross-lang-facts'), 'ko·ja 부호 충돌도 잡는다');
+    const swap2 = brief(); swap2.structured.closingNarrative.indicators = tri('GEX +6,220만 달러, 자금 -6,300만 달러, 금리 +4bp.', 'GEX -$62.2M, flows +$63M, yields +4bp.', 'GEX -6,220万ドル、資金 +6,300万ドル、金利+4bp。');
+    assert.ok(closingReportProblems(swap2).includes('narrative:indicators:cross-lang-facts'), '비슷한 크기 두 금액의 부호 맞바꿈도 잡는다');
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');

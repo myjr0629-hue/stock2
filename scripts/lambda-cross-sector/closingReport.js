@@ -114,12 +114,16 @@ function moneyAmounts(text) {
     return out;
 }
 /**
- * 금액 부호 충돌 — b 의 부호 붙은 금액마다, a 에 «비슷한 크기(±15%, 금액 검사 12%보다 넓게)»의 같은 부호 금액이 없고 반대 부호 금액만 있으면 충돌.
- * (관문 10241222: ±3%는 «-$62.2M vs +6,000만 달러»를 놓쳤고, 짝짓기 없이 보면 정상 «-$62.2M, +$63M»을 충돌로 봤다)
+ * 금액 부호 충돌 — b 의 부호 붙은 금액마다 a 에서 크기가 가장 가까운(±15% 안) 부호 붙은 금액을 짝으로 삼고, 그 짝의 부호가 반대면 충돌.
+ * (관문 10241222·10241229: ±3%는 «-$62.2M vs +6,000만 달러»를 놓쳤고, «같은 부호가 하나라도 있으면 통과»는 두 금액의 부호를 맞바꾼 글을 통과시켰다)
  */
 function moneySignConflict(a, b) {
-    const near = (x, y) => Math.abs(y.value - x.value) <= 0.15 * Math.max(x.value, y.value);
-    return b.some(x => x.sign && x.value > 0 && !a.some(y => y.sign === x.sign && near(x, y)) && a.some(y => y.sign && y.sign !== x.sign && near(x, y)));
+    const rel = (x, y) => Math.abs(y.value - x.value) / Math.max(x.value, y.value);
+    return b.some(x => {
+        if (!x.sign || !(x.value > 0)) return false;
+        const cands = a.filter(y => y.sign && y.value > 0 && rel(x, y) <= 0.15).sort((p, q) => rel(x, p) - rel(x, q) || (p.sign === x.sign ? -1 : 1));
+        return cands.length > 0 && cands[0].sign !== x.sign;
+    });
 }
 
 function narrativeProblems(s) {
@@ -142,7 +146,11 @@ function narrativeProblems(s) {
         const per = LOCALES.map(loc => facts(n[field]?.[loc]));
         const keySets = per.map(f => new Set(f.key.split('|').filter(Boolean)));
         const lonely = [...new Set(keySets.flatMap(k => [...k]))].some(k => keySets.filter(set => set.has(k)).length < 2);
-        if (lonely || per.some(f => [...f.signs].some(([k, sg]) => base.signs.has(k) && base.signs.get(k) !== sg) || moneySignConflict(base.money, f.money) || moneySignConflict(f.money, base.money)))
+        // 부호는 세 언어 모든 쌍을 본다(관문 10241229: 영어가 값을 빠뜨리면 ko -0.1% · ja +0.1% 충돌을 놓쳤다)
+        const pairs = [[0, 1], [0, 2], [1, 2]];
+        const signClash = pairs.some(([i, j]) => [...per[i].signs].some(([k, sg]) => per[j].signs.has(k) && per[j].signs.get(k) !== sg)
+            || moneySignConflict(per[i].money, per[j].money) || moneySignConflict(per[j].money, per[i].money));
+        if (lonely || signClash)
             errors.push(`narrative:${field}:cross-lang-facts`);
     }
     for (const loc of LOCALES) {
@@ -232,7 +240,7 @@ const KO_PLAIN = [
 ];
 
 // 평서문(…다.)이 아니거나 권유·평가 낱말이 있는 문장은 정규화하지 않는다(관문 10241222: «지금 매수로 반등을 노려라»)
-const KO_ADVICE_WORDS = /세요|십시오|하라|해라|해야|할\s?것|고려|검토|권유|권장|권고|추천|기회|나서|노려|노릴|담아|사라|팔아|적기|타이밍|정답|유리|바람직|필요/;
+const KO_ADVICE_WORDS = /세요|십시오|하라|해라|해야|할\s?것|고려|검토|권유|권장|권고|추천|기회|나서|노려|노릴|담아|사라|팔아|적기|타이밍|정답|유리|바람직|필요|준비|시다|하자|겠/;
 const pad2 = x => String(x).padStart(2, '0');
 function canonicalEtStamps(text) {
     const stamp = (y, mo, d, h, mi) => `${y}-${pad2(mo)}-${pad2(d)} ${pad2(h)}:${mi} ET`;
@@ -269,7 +277,8 @@ function alignSummary(s, evidence) {
     // 한국어 «반도체 매수로 하락폭이 제한됐다»처럼 관찰된 매매를 «매수/매도»로 쓰면 권유어 검사에 걸린다(10/24 8차 실측) — 조사 앞의 관찰 표현만 «매수세/매도세»로
     if (n && typeof n === 'object') for (const f of FIELDS) {
         // 관찰 서술 자리만 바꾼다(화이트리스트) — 권유 문장(«지금 매수에 나서세요»·«매수가 정답이다»)은 그대로 두어 검사가 잡게(관문 10241205·10241213)
-        if (typeof n[f]?.ko === 'string') n[f].ko = n[f].ko.split(/(?<=[.!?。])(?=\s)/).map(sent => !/다[.!?。]?\s*$/.test(sent.trim()) || KO_ADVICE_WORDS.test(sent) ? sent : sent
+        // 과거·상태 평서문(…했다/됐다/몰렸다/있었다)만 — 청유·명령·의지(합시다·하자·노려라·하겠다)는 그대로(관문 10241229: «반등을 준비합시다»)
+        if (typeof n[f]?.ko === 'string') n[f].ko = n[f].ko.split(/(?<=[.!?。])(?=\s)/).map(sent => !/(?:었|았|였|됐|했|졌|났|렸|왔|웠|쳤|켰|갔)다[.!?。]?\s*$/.test(sent.trim()) || KO_ADVICE_WORDS.test(sent) ? sent : sent
             .replace(/(?<![공순])매([수도])(?!세)(?=\s?(?:로\s?(?:하락폭|낙폭|상승폭|지수|나스닥|반등|버티|버텼|제한|지지|올랐|내렸)|가\s?(?:몰리|몰려|몰렸|유입|이어|들어|나타|쏟아|출회|늘어|늘었|줄어|줄었)|\s?지지))/g, '매$1세')
             // 지표 일정의 «사전·시장·컨센서스 전망 46.3» = 시장 예상치 — 접두어가 있고 금액·%p 가 아닐 때만(회사 가이던스 «매출 성장률 전망 12.5%»는 그대로)
             .replace(/(?:사전|시장|컨센서스)\s?전망치?(?=\s?(?:[(（]\s?)?[+\-−]?\d[\d.,]*(?![\d.,]|\s?(?:억|조|만|달러|원|\$|%p)))/g, '시장 예상치')).join('');
