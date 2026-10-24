@@ -69,6 +69,10 @@ async function main() {
     const offFut = await N.repairVerdictTexts(fut, 'ko', 't21-off-flat', { NDX_CHG: 0, RLSI: 33, VIX: 18.4 }, prompts());
     assert.ok(offFut.verdict.realityInsight.includes('+0.40% 상승') && !offFut.verdict.realityInsight.includes('0.00%'), offFut.verdict.realityInsight);
     assert.ok(!N.isPlaceholderInsight(offFut.verdict.realityInsight));
+    // 관문 10241104: 공백 있는 자리표({ NDX_CHG })도 같은 판정
+    const futSp = { ...fut, num: { ...fut.num, tpl: { realityInsight: fut.num.tpl.realityInsight.replace('{NDX_CHG}', '{ NDX_CHG }') } } };
+    const offSp = await N.repairVerdictTexts(futSp, 'ko', 't21-off-flat-sp', { NDX_CHG: 0, RLSI: 33, VIX: 18.4 }, prompts());
+    assert.ok(offSp.verdict.realityInsight.includes('+0.40% 상승') && !offSp.verdict.realityInsight.includes('0.00%'), offSp.verdict.realityInsight);
     // 서술 구간이 바뀌면(RLSI 29 → 50: «약하다»가 틀림) 지금 값으로 채우지 않고, 재생성 실패 시 생성 당시 값의 글을 보존(오탈락 금지)
     reset();
     store.set(key('ko'), { text: text.ko, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 29, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
@@ -102,10 +106,13 @@ async function main() {
     const enIdx = 'In the cash session the Nasdaq Composite fell 2.6% and the S&P 500 rose 0.3%, while Nasdaq 100 futures in premarket trading are now down 0.4%. The market driver is unconfirmed. Market health (RLSI) is weak at {RLSI}, and options positioning (GEX) is unconfirmed. The next test is unconfirmed.';
     const koIdx = (a: string) => `${a} 시장 전체 재료는 미확인입니다. 시장 건강도(RLSI)는 {RLSI}점으로 약하고 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.`;
     for (const [name, first, ok] of [
-        ['지수 숫자 맞바꿈', '정규장에서 나스닥 종합은 0.3% 올랐고 S&P500은 2.6% 내렸으며, 지금 나스닥100 선물은 0.4% 하락 중입니다.', false],
-        ['부호·방향 뒤집기', '정규장에서 나스닥 종합은 +2.6% 상승했고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 0.4% 하락 중입니다.', false],
-        ['선물 방향 뒤집기(원문은 긴 간격)', '정규장에서 나스닥 종합은 2.6% 내렸고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 0.4% 상승 중입니다.', false],
-        ['원문 그대로(긴 간격 숫자 포함)', '정규장에서 나스닥 종합은 2.6% 내렸고 S&P500은 0.3% 올랐으며, 지금 나스닥100 선물은 0.4% 하락 중입니다.', true],
+        ['지수 숫자 맞바꿈(표식 순서 바뀜)', '정규장에서 나스닥 종합은 ⟦2⟧% 올랐고 S&P500은 ⟦1⟧% 내렸으며, 지금 나스닥100 선물은 ⟦3⟧% 하락 중입니다.', false],
+        ['현물·선물 맞바꿈', '정규장에서 나스닥 종합은 ⟦3⟧% 내렸고 S&P500은 ⟦2⟧% 올랐으며, 지금 나스닥100 선물은 ⟦1⟧% 하락 중입니다.', false],
+        ['방향 뒤집기(fell → 상승)', '정규장에서 나스닥 종합은 ⟦1⟧% 상승했고 S&P500은 ⟦2⟧% 올랐으며, 지금 나스닥100 선물은 ⟦3⟧% 하락 중입니다.', false],
+        ['선물 방향 뒤집기(원문은 긴 간격)', '정규장에서 나스닥 종합은 ⟦1⟧% 내렸고 S&P500은 ⟦2⟧% 올랐으며, 지금 나스닥100 선물은 ⟦3⟧% 상승 중입니다.', false],
+        ['새 숫자(9.9%)', '정규장에서 나스닥 종합은 9.9% 내렸고 S&P500은 ⟦2⟧% 올랐으며, 지금 나스닥100 선물은 ⟦3⟧% 하락 중입니다.', false],
+        ['표식 대신 숫자 직접', '정규장에서 나스닥 종합은 2.6% 내렸고 S&P500은 ⟦2⟧% 올랐으며, 지금 나스닥100 선물은 ⟦3⟧% 하락 중입니다.', false],
+        ['원문 그대로(긴 간격 숫자 포함)', '정규장에서 나스닥 종합은 ⟦1⟧% 내렸고 S&P500은 ⟦2⟧% 올랐으며, 지금 나스닥100 선물은 ⟦3⟧% 하락 중입니다.', true],
     ] as const) {
         reset();
         store.set(key('en'), { text: enIdx, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
@@ -114,6 +121,19 @@ async function main() {
         assert.equal(writes.includes(key('ko')), ok, `${name}: ${out}`);
         assert.equal(N.isPlaceholderInsight(out), !ok, name);
     }
+    reset();
+    store.set(key('en'), { text: enIdx, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
+    let seenPrompt = '';
+    response = (opts: any) => { if (!String(opts.label || '').startsWith('Translate/')) throw new Error('generation offline'); seenPrompt = opts.userPrompt; return koIdx('정규장에서 나스닥 종합은 ⟦1⟧% 내렸고 S&P500은 ⟦2⟧% 올랐으며, 지금 나스닥100 선물은 ⟦3⟧% 하락 중입니다.'); };
+    const restoredOut = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4 }, tacticalPrompts: prompts() });
+    assert.ok(restoredOut.includes('나스닥 종합은 2.6% 내렸고') && restoredOut.includes('S&P500은 0.3%') && restoredOut.includes('선물은 0.4% 하락'), restoredOut);
+    assert.ok(seenPrompt.includes('fell ⟦1⟧%') && !/fell 2\.6/.test(seenPrompt) && seenPrompt.includes('S&P 500') && seenPrompt.includes('Nasdaq 100'), '모델에는 숫자 대신 표식(고유명 숫자는 그대로)');
+    // 관문 10241104 P2: 원문 자리표 값을 번역이 숫자로 정확히 써도 통과(자리표로 되돌림)
+    reset();
+    store.set(key('en'), { text: text.en.replace('The market driver is unconfirmed.', 'Gold rose {GOLD_CHG} on the session.'), updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, GOLD_CHG: 1.2 }, session: 'REG' });
+    response = translateTo(koGood.replace('시장 전체 재료는 미확인입니다.', '금은 +1.2% 상승했습니다.'));
+    const goldOut = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, GOLD_CHG: 1.2 }, tacticalPrompts: prompts() });
+    assert.ok(!N.isPlaceholderInsight(goldOut) && goldOut.includes('+1.20%'), goldOut);
     // 기존 정상본이 있으면 번역 탈락과 무관하게 그 글을 유지한다
     reset(); enSource();
     store.set(key('ko'), { text: text.ko, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });

@@ -11,7 +11,7 @@ import { readSessionArchive, saveSessionArchive } from '@/lib/sessionArchive';
 import { restoreKoSectorNames, restoreJaSectorNames } from '@/lib/ai/sectorLabels';
 import { restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { cleanInsight, validateInsight, previewForLog } from '@/lib/ai/outputGate';
-import { fillGuardianTokens, checkGuardianLiterals, guardianLiterals, type GLiteral, stateStaleReasons, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
+import { fillGuardianTokens, checkGuardianLiterals, guardianLiterals, stateStaleReasons, guardianNumbersGate, guardianNumsFromAiContext, guardianTokenRules, hasGuardianTokens, tokenizeGuardianLiterals, guardianMaterialIssues, guardianCmpFacts, type GNums } from '@/lib/ai/guardianNumbers';
 import { forecastHits, stripForecastSentences, checkComparisons, checkRanges } from '@/lib/ai/trustLayer';
 
 // Supported locales
@@ -325,61 +325,125 @@ function tacticalFillNums(tpl: string, nums: GNums | null | undefined, basis: GN
     const f = fillGuardianTokens(tpl, live, basis);
     if (!f.ok) return old;
     // 상태 구간 비교는 장외에도 본다 — 여기서는 탈락이 아니라 «어느 값으로 채울지»만 고른다(관문 10241021 ②: 장외 «0.00% 상승»)
-    if (stateStaleReasons(live, basis).some((r) => tpl.includes(`{${r.split(':')[1]}}`))) return old;
+    if (stateStaleReasons(live, basis).some((r) => new RegExp(`\\{\\s*${r.split(':')[1]}\\s*\\}`).test(tpl))) return old;
     const facts = guardianCmpFacts(live);
     if (checkComparisons(f.text, facts).length || checkRanges(f.text, facts).length) return old;
     return live;
 }
 
 /**
- * ★2026-10-24 번역 숫자 대조(밤 검토 ③) — Tactical 번역은 저장본 경로로 검사돼 숫자 리터럴 대조가 빠졌다(VIX 99 가 화면·캐시 통과).
- *   ① 번역 글에 «지표 이름 + 숫자»로 박힌 값은 원문의 «같은 지표» 값과 크기·부호·방향어까지 맞아야 한다(기존 숫자 검사 판정 literalMatchesValue).
- *      지표끼리 숫자를 맞바꾸거나 «−2.6% 하락 → +2.6% 상승»으로 뒤집으면 탈락(관문 10241021 ①). 원문에서 «지표+숫자» 꼴로 안 잡힌 숫자
- *      (예: 영어 «Nasdaq Composite closed down 0.2%» — 이름과 숫자 사이가 길다)는 같은 크기·부호·방향어로 대조한다(다른 지표 리터럴 자리는 제외).
- *   ② Tactical 은 원문의 생성 기준값(basis)과도 기존 숫자 검사(checkGuardianLiterals)로 대조한다(지수는 INDEX_FACTS 계약이라 제외).
- *   탈락하면 그 번역은 쓰지도 저장하지도 않는다(기존 정상본 유지).
+ * ★2026-10-24 번역 숫자 보존(밤 검토 ③ · 관문 10241021·10241104) — 번역은 숫자를 «옮겨 적지» 않는다.
+ *   원문의 숫자(부호 포함 · 자리표 {X} 안·고유명 숫자·날짜·시각·기간 제외)를 ⟦1⟧⟦2⟧… 표식으로 가려 번역시키고, 표식이 모두 한 번씩 돌아왔는지,
+ *   읽힌 지표가 원문과 같은지(나스닥↔S&P 맞바꿈), 같은 지표 숫자끼리 원문 순서인지(현물↔선물 맞바꿈), 방향어가 원문과 반대가 아닌지 본 뒤 되돌린다.
+ *   새 숫자(VIX 99·9.9%)는 구조적으로 안 생긴다 — 표식 밖 숫자는 원문 자리표 값(basis)·원문의 날짜/시각/기간 숫자만 허용(restoreNumbers).
+ *   탈락하면 그 번역은 쓰지도 저장하지도 않는다(기존 정상본 유지). Tactical 은 추가로 기준값과 기존 숫자 검사(translationNumberReasons).
  */
-// 번역 대조 전용 — lib/ai/guardianNumbers.literalMatches 와 같은 판정(허용 오차·명시 부호·방향어). 공유 파일은 origin/main 바이트 동일 유지(tacticalV3RecoveryBoundary).
-const TR_CHG_KEYS = new Set(['NDX_CHG', 'SPX_CHG', 'GOLD_CHG', 'OIL_CHG', 'TLT_CHG', 'BTC_CHG']);
-const TR_UP = /(상승|올라|오른|오르|강세|반등|급등|rose|rise|gain|up\b|climb|advanc|rall|jump|上昇|高く|上げ|反発)/i;
-const TR_DOWN = /(하락|내린|내려|약세|떨어|급락|fell|fall|drop|declin|down\b|slid|lost|lower|下落|安く|下げ|続落)/i;
-function literalMatchesValue(l: GLiteral, actual: number, text: string): boolean {
-    const written = l.written.replace(/^[+-]/, '');
-    const i = written.indexOf('.');
-    const half = 0.5 * Math.pow(10, -(i < 0 ? 0 : written.length - i - 1)) + 1e-9;
-    const kind = TR_CHG_KEYS.has(l.key) ? 'chg' : (l.key === 'RLSI' || l.key === 'GEX' || l.key === 'SQUEEZE' || l.key === 'BREADTH') ? 'score' : 'level';
-    const tol = kind === 'chg' ? Math.max(0.02, half + 0.005) : kind === 'score' ? Math.max(1, half) : Math.max(Math.abs(actual) * 0.015, half);
-    if (kind !== 'chg') return Math.abs(l.value - actual) <= tol;
-    if (/^[+-]/.test(l.written)) {
-        if (Math.abs(l.value - actual) > tol) return false;
-        return !(Math.abs(actual) >= 0.05 && Math.abs(l.value) >= 0.05 && Math.sign(l.value) !== Math.sign(actual));
-    }
-    if (Math.abs(Math.abs(l.value) - Math.abs(actual)) > tol) return false;
-    if (Math.abs(actual) >= 0.05) {
-        const around = text.slice(Math.max(0, l.numIndex - 12), l.numIndex + l.numLength + 10);
-        if (actual > 0 && TR_DOWN.test(around) && !TR_UP.test(around)) return false;
-        if (actual < 0 && TR_UP.test(around) && !TR_DOWN.test(around)) return false;
-    }
-    return true;
+const TR_NUM = /[+\-−]?\d+(?:\.\d+)?/g;
+/** 가리지 않는 숫자 — 고유명(S&P 500·Nasdaq 100·10년물)·날짜(10/23)·시각(10:51)·기간(5일·five-day) — 번역이 어순을 바꿔도 되는 것 */
+const TR_KEEP = /(?:S&P\s?500|(?:Nasdaq|NASDAQ|나스닥|ナスダック|NDX)\s?100|(?<![\d.])10(?=\s?(?:년물|년\s?만기|년\s?국채|-?[Yy]ear|年|Y\b))|(?<![\d.])\d{1,2}\/\d{1,2}(?![\d.])|(?<![\d.])\d{1,2}:\d{2}(?![\d.])|(?<![\d.])\d{1,2}(?=\s?(?:월|月))|(?<![\d.])\d{1,3}(?=\s?(?:개\s?)?(?:-?\s?(?:trading\s|business\s)?(?:days?|sessions?)\b|거래일|영업일|일|営業日|日)))/g;
+const TR_UP = /(상승|올라|올랐|오른|오르|강세|반등|급등|rose|rise|gain|up\b|climb|advanc|rall|jump|higher|上昇|高く|反発|値上がり)/i;
+const TR_DOWN = /(하락|내린|내려|내렸|밀렸|약세|떨어|급락|fell|fall|drop|declin|down\b|slid|lost|lower|下落|安く|続落|下回|値下がり)/i;
+const TR_MARK = /⟦(\d+)⟧/g;
+function trSpans(text: string, keep = true): Array<[number, number]> {
+    const spans: Array<[number, number]> = [];
+    for (const m of text.matchAll(/\{[^{}]*\}/g)) spans.push([m.index!, m.index! + m[0].length]);
+    if (keep) for (const m of text.matchAll(TR_KEEP)) spans.push([m.index!, m.index! + m[0].length]);
+    return spans;
 }
-
-function translationNumberReasons(type: InsightType, sourceText: string, translatedTpl: string, basis: GNums | null | undefined): string[] {
-    const src = String(sourceText ?? '');
-    const srcLits = guardianLiterals(src);
-    // 원문 리터럴이 가질 수 있는 부호 있는 값(부호·방향어로 정해지면 하나, 방향 정보가 없으면 ±)
-    const signedOf = (l: GLiteral) => [l.value, -l.value].filter((c, i, a) => a.indexOf(c) === i && literalMatchesValue(l, c, src));
-    const bad: string[] = [];
-    for (const l of guardianLiterals(translatedTpl)) {
-        // 같은 지표 리터럴 + 원문에서 «지표+숫자»로 안 잡힌 같은 크기 숫자(다른 지표의 리터럴 자리는 빼서 지표 간 맞바꿈은 계속 잡는다)
-        const loose = [...src.matchAll(/[+\-−]?\d+(?:\.\d+)?/g)]
-            .filter((m) => Math.abs(Math.abs(Number(m[0].replace('−', '-'))) - Math.abs(l.value)) < 1e-9)
-            .filter((m) => !srcLits.some((s) => m.index! < s.numIndex + s.numLength && s.numIndex < m.index! + m[0].length))
-            .map((m): GLiteral => ({ key: l.key, written: m[0].replace('−', '-'), value: Number(m[0].replace('−', '-')), index: m.index!, numIndex: m.index!, numLength: m[0].length, ctx: '' }));
-        const pool: GLiteral[] = [...srcLits.filter((s) => s.key === l.key), ...loose];
-        if (!pool.some((s) => signedOf(s).some((c) => literalMatchesValue(l, c, translatedTpl)))) bad.push(`translation-number:${l.key}:${l.written}`);
+/** 가릴 숫자 자리(자리표·TR_KEEP 과 겹치지 않는 것) */
+function trNumberHits(text: string): Array<{ index: number; str: string }> {
+    const spans = trSpans(text);
+    return [...text.matchAll(TR_NUM)].filter((m) => !spans.some(([a, b]) => m.index! < b && a < m.index! + m[0].length)).map((m) => ({ index: m.index!, str: m[0] }));
+}
+function maskNumbers(text: string): { masked: string; nums: string[]; at: number[]; kept: string[] } {
+    const hits = trNumberHits(text);
+    let masked = '', pos = 0;
+    hits.forEach((h, i) => { masked += text.slice(pos, h.index) + `⟦${i + 1}⟧`; pos = h.index + h.str.length; });
+    const kept = [...text.matchAll(TR_KEEP)].map((m) => m[0].replace(/\s+/g, ''));
+    return { masked: masked + text.slice(pos), nums: hits.map((h) => h.str), at: hits.map((h) => h.index), kept };
+}
+/** 표식 i 의 방향 — 같은 절(쉼표·마침표 경계) 안 앞뒤 16자의 방향어. 둘 다 있거나 없으면 0 */
+function markDirection(masked: string, i: number): number {
+    const at = masked.indexOf(`⟦${i}⟧`);
+    if (at < 0) return 0;
+    const before = masked.slice(Math.max(0, at - 16), at).split(/[,.;。、，!?]/).pop() || '';
+    const after = masked.slice(at + `⟦${i}⟧`.length, at + `⟦${i}⟧`.length + 16).split(/[,.;。、，!?]/)[0] || '';
+    const w = `${before} ${after}`.replace(TR_MARK, ' ');
+    const up = TR_UP.test(w), down = TR_DOWN.test(w);
+    return up && !down ? 1 : down && !up ? -1 : 0;
+}
+/** 숫자 자리 → 그 숫자를 «지표 이름 + 숫자»로 읽은 지표(guardianLiterals) */
+function metricAt(text: string, positions: number[]): Array<string | null> {
+    const lits = guardianLiterals(text);
+    return positions.map((p) => lits.find((l) => l.numIndex <= p && p < l.numIndex + l.numLength)?.key ?? null);
+}
+/**
+ * 번역 결과(표식 글)를 검사하고 원래 숫자로 되돌린다 — 실패면 사유.
+ *   표식은 한 번씩 모두(어순 변화는 허용 — 언어마다 어순이 다르다). 같은 지표로 읽히는 숫자끼리는 원문 순서 그대로(현물↔선물 맞바꿈 차단),
+ *   원문과 번역에서 읽힌 지표가 다르면 탈락(나스닥↔S&P 맞바꿈 차단). 표식 밖 숫자는 원문 자리표 값·원문의 날짜/시각/기간 숫자만.
+ */
+function restoreNumbers(src: { text: string; masked: string; nums: string[]; at: number[]; kept: string[] }, translated: string, allowed: number[]): { text: string | null; reasons: string[] } {
+    const marks = [...translated.matchAll(TR_MARK)].map((m) => Number(m[1]));
+    const sorted = [...marks].sort((x, y) => x - y);
+    if (sorted.length !== src.nums.length || sorted.some((n, i) => n !== i + 1)) return { text: null, reasons: [`translation-marker:${marks.join(',')}≠1..${src.nums.length}`] };
+    const reasons: string[] = [];
+    // 표식 밖 숫자
+    const plain = translated.replace(TR_MARK, ' ');
+    const keptHere = [...plain.matchAll(TR_KEEP)];
+    // 날짜·시각은 표기가 바뀔 수 있다(10/23 → 10월 23일) — 숫자 조각이 원문의 날짜·시각·기간 숫자에 있으면 허용
+    const keptDigits = new Set(src.kept.flatMap((k) => (k.match(/\d+/g) || []).map(Number)));
+    for (const m of keptHere) {
+        const k = m[0].replace(/\s+/g, '');
+        if (/^(?:S&P500|.*100|10)$/i.test(k)) continue;   // 고유명 숫자
+        const dayCount = /^\d{1,3}$/.test(k) && Number(k) <= 31;   // «five trading days» → «5거래일» 같은 기간·날짜 숫자
+        if (!dayCount && !(k.match(/\d+/g) || []).every((d) => keptDigits.has(Number(d)))) reasons.push(`translation-number:${k}`);
     }
-    if (type === 'reality') bad.push(...checkGuardianLiterals(translatedTpl, insightNums(type, basis)));
-    return bad;
+    for (const h of trNumberHits(plain)) {
+        const v = Math.abs(Number(h.str.replace('−', '-')));
+        if (!allowed.some((a) => Math.abs(Math.abs(a) - v) < 0.006)) reasons.push(`translation-number:${h.str}`);
+    }
+    // 방향어
+    src.nums.forEach((n, k) => {
+        const i = k + 1, mag = Math.abs(Number(n.replace('−', '-')));
+        const explicit = /^[+\-−]/.test(n) ? (n.startsWith('+') ? 1 : -1) : 0;
+        const from = explicit || markDirection(src.masked, i);
+        const to = markDirection(translated, i);
+        if (from && to && from !== to && mag >= 0.05) reasons.push(`translation-direction:${n}`);
+    });
+    if (reasons.length) return { text: null, reasons };
+    // 되돌리기(자리 기록) → 지표 대조
+    let text = '', pos = 0;
+    const outAt: number[] = new Array(src.nums.length).fill(-1);
+    const order: number[] = [];
+    for (const m of translated.matchAll(TR_MARK)) {
+        const i = Number(m[1]) - 1;
+        text += translated.slice(pos, m.index!);
+        outAt[i] = text.length; order.push(i);
+        text += src.nums[i];
+        pos = m.index! + m[0].length;
+    }
+    text += translated.slice(pos);
+    const srcKey = metricAt(src.text, src.at);
+    const dstKey = metricAt(text, outAt);
+    const lastByKey = new Map<string, number>();
+    for (const i of order) {
+        if (srcKey[i] && dstKey[i] && srcKey[i] !== dstKey[i]) reasons.push(`translation-metric:${src.nums[i]}:${srcKey[i]}→${dstKey[i]}`);
+        const key = dstKey[i] ?? srcKey[i];
+        if (key) {
+            if ((lastByKey.get(key) ?? -1) > i) reasons.push(`translation-order:${key}:${src.nums[i]}`);
+            lastByKey.set(key, Math.max(lastByKey.get(key) ?? -1, i));
+        }
+    }
+    return reasons.length ? { text: null, reasons } : { text, reasons: [] };
+}
+/** 원문 자리표의 값(번역 글이 자리표 대신 값을 써도 허용하는 숫자) */
+function sourceTokenValues(sourceTpl: string, basis: GNums | null | undefined): number[] {
+    if (!basis) return [];
+    return [...String(sourceTpl ?? '').matchAll(/\{\s*([A-Z0-9_]+)\s*\}/g)].map((m) => (basis as Record<string, unknown>)[m[1]]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+}
+/** Tactical 번역 — 원문 생성 기준값과 기존 숫자 검사(지수는 INDEX_FACTS 계약이라 제외) */
+function translationNumberReasons(type: InsightType, translatedTpl: string, basis: GNums | null | undefined): string[] {
+    return type === 'reality' ? checkGuardianLiterals(translatedTpl, insightNums(type, basis)) : [];
 }
 
 /**
@@ -851,8 +915,9 @@ const LOCALE_NAMES: Record<Locale, string> = { ko: 'Korean', en: 'English', ja: 
 /** 번역 원본으로 먼저 볼 언어 순서 */
 const TRANSLATE_SOURCES: Record<Locale, Locale[]> = { ko: ['en', 'ja'], en: ['ko', 'ja'], ja: ['ko', 'en'] };
 
-async function translateInsight(sourceText: string, from: Locale, to: Locale, type: InsightType): Promise<string | null> {
+async function translateInsight(sourceText: string, from: Locale, to: Locale, type: InsightType, allowedNumbers: number[] = []): Promise<string | null> {
     try {
+        const mask = maskNumbers(sourceText);
         const pairs = (n: number) => SECTION_LABELS[type][from].slice(0, n)
             .map((l, i) => `[${l}] -> [${SECTION_LABELS[type][to][i]}]`).join(', ');
         // ★2026-10-24 순환매 v3 글은 레이블이 없다(4문장 3줄) — 옛 계약 글만 레이블을 옮긴다
@@ -865,11 +930,11 @@ async function translateInsight(sourceText: string, from: Locale, to: Locale, ty
                 : 'Do NOT add labels such as [Diagnosis] or [Conclusion]; keep the same sentences in the same order.';
         const prompt = `Translate the following ${LOCALE_NAMES[from]} market analysis into natural ${LOCALE_NAMES[to]}.
 ${structure}
-Keep every number, ticker and index name exactly as written. Keep placeholders in curly braces such as {NDX_CHG} or {RLSI} exactly as written, braces included. Keep the tone factual and observational: no recommendations or action directives.
+Numbers are hidden behind markers such as ⟦1⟧, ⟦2⟧. Copy every marker exactly once, unchanged, in the same order, right where its number belongs, and never write any digit yourself. Keep every ticker and index name exactly as written. Keep placeholders in curly braces such as {NDX_CHG} or {RLSI} exactly as written, braces included. Keep the tone factual and observational: no recommendations or action directives.
 Output ONLY the ${LOCALE_NAMES[to]} translation as plain text: no preamble, no notes, no Markdown, no emoji.
 
 ${LOCALE_NAMES[from]} text:
-${sourceText}`;
+${mask.masked}`;
 
         const result = await _modelCaller({
             modelId: MODELS.HAIKU_35,
@@ -887,7 +952,13 @@ ${sourceText}`;
             validate: textGate(to),   // ★2026-10-10 사다리 출구 가드(언어·거절·마크다운·연도)
         });
 
-        const text = restoreSectorLabelsIn(to, result.text?.trim() ?? '');   // 영어 원문의 섹터 라벨·음차를 이 언어의 표준 이름으로(번역 결과도 같은 출구 규칙)
+        const raw = restoreSectorLabelsIn(to, result.text?.trim() ?? '');   // 영어 원문의 섹터 라벨·음차를 이 언어의 표준 이름으로(번역 결과도 같은 출구 규칙)
+        const restored = restoreNumbers({ text: sourceText, ...mask }, raw, allowedNumbers);
+        if (!restored.text) {
+            console.warn(`[InsightGate] REJECT translation ${type} ${from}→${to} (${restored.reasons.join(' | ')}) :: ${previewForLog(raw)}`);
+            return null;
+        }
+        const text = restored.text;
         if (text && text.length > 10) {
             console.log(`[IntelligenceNode] Translated ${type} ${from}→${to} (${text.length} chars)`);
             return text;
@@ -948,13 +1019,13 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
         const m = _mem[type][src];
         const source = m && sameTacticalSession(type, m.at, tacticalPrompts?.(src), m.session) && gateText(type, m.text, src, nums, m.basis, false, tacticalPrompts?.(src)).ok ? m : await readStoredInsight(type, src, nums, tacticalPrompts);
         if (!source) continue;
-        const translated = await translateInsight(source.text, src, locale, type);
+        const translated = await translateInsight(source.text, src, locale, type, sourceTokenValues(source.text, source.basis ?? nums ?? null));
         if (!translated) continue;
         // 원본에 기준이 없으면(옛 저장본) 지금 화면 값이 기준 — 자리표로 바꾸는 숫자도 그 값과 같은 것뿐이다
         const basis = source.basis ?? nums ?? null;
         const tokenized = tokenizeInsight(type, translated, basis);
         const g = gateText(type, tokenized, locale, nums, basis, false, tacticalPrompts?.(locale));
-        const numReasons = translationNumberReasons(type, source.text, tokenized, basis);
+        const numReasons = translationNumberReasons(type, tokenized, basis);
         if (!g.ok || isPlaceholder(g.text) || numReasons.length) {
             console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${[...g.reasons, ...numReasons].join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);
             continue;
