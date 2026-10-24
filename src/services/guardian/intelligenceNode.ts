@@ -1,6 +1,6 @@
 import { buildIndexFacts, tacticalSessionAt, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
-import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, tacticalTokenRules, internalSourceReasons, polishTacticalText } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, tacticalTokenRules, internalSourceReasons, polishTacticalText } from '@/lib/ai/tacticalPrompt';
 import { buildRotationPrompt, checkRotationOutput, polishRotationText, rotationNums, rotationTokenRules, isLegacyRotationText, rotationHints, type RotationFacts, type RotationContext } from '@/lib/ai/rotationPrompt';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
@@ -324,8 +324,16 @@ function tacticalFillNums(tpl: string, nums: GNums | null | undefined, basis: GN
     const old: GNums = { ...nums, ...basis };
     const f = fillGuardianTokens(tpl, live, basis);
     if (!f.ok) return old;
+    // 부호 있는 지표(변동률·GEX)는 표시 자릿수에서 부호가 바뀌면(0 포함) 서술(«상승»·«양수»)이 틀린다 — 생성 당시 값(관문 10241304 ②)
+    const tokenIn = (k: string) => new RegExp(`\\{\\s*${k}\\s*\\}`).test(tpl);
+    for (const k of ['NDX_CHG', 'SPX_CHG', 'GOLD_CHG', 'OIL_CHG', 'TLT_CHG', 'BTC_CHG', 'GEX'] as const) {
+        const b = basis[k], v = nums[k];
+        if (!tokenIn(k) || typeof b !== 'number' || typeof v !== 'number') continue;
+        const r = (x: number) => (k === 'GEX' ? Math.round(x) : Math.round(x * 100) / 100);
+        if (Math.sign(r(b)) !== Math.sign(r(v))) return old;
+    }
     // 상태 구간 비교는 장외에도 본다 — 여기서는 탈락이 아니라 «어느 값으로 채울지»만 고른다(관문 10241021 ②: 장외 «0.00% 상승»)
-    if (stateStaleReasons(live, basis).some((r) => new RegExp(`\\{\\s*${r.split(':')[1]}\\s*\\}`).test(tpl))) return old;
+    if (stateStaleReasons(live, basis).some((r) => tokenIn(r.split(':')[1]))) return old;
     const facts = guardianCmpFacts(live);
     if (checkComparisons(f.text, facts).length || checkRanges(f.text, facts).length) return old;
     return live;
@@ -337,7 +345,9 @@ function tacticalFillNums(tpl: string, nums: GNums | null | undefined, basis: GN
  *   언어·거절·마크다운·연도(outputGate) + 화면 숫자 대조·낡은 서술(lib/ai/guardianNumbers).
  *   nums 가 없으면 basis(생성 때 값)로 채운다(숫자 대조도 basis 기준).
  */
-function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string, restore = false, generated = strict): { ok: boolean; tpl: string; text: string; reasons: string[] } {
+function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string, restore = false, generatedIn = strict, translation = false): { ok: boolean; tpl: string; text: string; reasons: string[] } {
+    // 번역 글(translation)은 숫자 대조를 새 생성처럼(지금 값·기존 숫자 검사), Tactical 구조 검사는 checkTacticalTranslated
+    const generated = generatedIn || translation;
     let cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
     // ★2026-10-07 T5 예측어 — 생성(strict)은 걸리면 탈락(교정 재생성), 읽기·복구(lenient)는 그 문장만 뺀다(쓸 만하게 남을 때) —
     //   이미 저장돼 있던 글이 새 사전 때문에 통째로 «준비 중»으로 바뀌지 않게(보이던 표시를 없애지 않는다).
@@ -373,7 +383,7 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
         // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
         //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).
         ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text)
-            ? (generated ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
+            ? (translation ? checkTacticalTranslated(n.text, locale, tacticalPrompt) : generated ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
     // ★2026-10-21 Tactical 다듬기 — 내부 지표명 날것(RLSI·GEX 단독)·«게이트»·한국어 연결어미 오타를 읽는 말로(lib/ai/tacticalPrompt.polishTacticalText).
     //   검사는 다듬기 «전» 글로 한다(다듬기가 «RLSI36» 의 숫자를 셈에 드러내거나 글을 늘려 새 탈락을 만들지 않게 — 측정 2/180).
     //   저장·화면 글만 다듬는다(뜻·숫자·시각·사건 이름·자리표 불변, 같은 글을 다시 다듬어도 그대로).
@@ -901,12 +911,12 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
         const translated = await translateInsight(source.text, src, locale, type);
         if (!translated) continue;
         // 원본에 기준이 없으면(옛 저장본) 지금 화면 값이 기준 — 자리표로 바꾸는 숫자도 그 값과 같은 것뿐이다
-        // ★2026-10-24 밤 검토 ③ — Tactical 번역은 «새 글»이다: 새 생성과 같은 출구 계약(INDEX_FACTS 지수 값·방향 대조 + 기존 숫자 검사 guardianNumbersGate
-        //   + 구조·일정)으로 검사하고 기준값도 지금 값으로 저장한다. 예전엔 저장본 검사로 지나가 숫자 리터럴 대조가 빠졌다(VIX 99·지수 숫자 오역이 화면·캐시 통과).
+        // ★2026-10-24 밤 검토 ③ — Tactical 번역은 «새 글»이다: 숫자 계약은 새 생성과 같게(INDEX_FACTS 지수 값·방향 + 숫자 근거·주어/방향어 + 기존 숫자 검사 guardianNumbersGate,
+        //   lib/ai/tacticalPrompt.checkTacticalTranslated) 검사하고 기준값도 지금 값으로 저장한다. 구조·현지 시각 요구는 원문을 따른다. 예전엔 저장본 검사로 지나가 숫자 리터럴 대조가 빠졌다(VIX 99·지수 숫자 오역이 화면·캐시 통과).
         //   순환매·감마 번역은 예전 그대로(원래부터 기존 숫자 검사를 지난다).
         const basis = type === 'reality' ? nums ?? source.basis ?? null : source.basis ?? nums ?? null;
         const g = type === 'reality'
-            ? gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale), false, true)
+            ? gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale), false, false, true)
             : gateText(type, tokenizeInsight(type, translated, basis), locale, nums, basis, false, tacticalPrompts?.(locale));
         if (!g.ok || isPlaceholder(g.text)) {
             console.warn(`[InsightGate] REJECT translation ${type} ${src}→${locale} (${g.reasons.join(' | ') || 'placeholder'}) :: ${previewForLog(translated)}`);

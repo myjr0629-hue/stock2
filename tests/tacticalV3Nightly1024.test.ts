@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
-import { buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, cachedEvidence } from '@/lib/ai/tacticalPrompt';
 
 const store = new Map<string, any>();
 const writes: string[] = [];
@@ -74,6 +74,18 @@ async function main() {
     const futSp = { ...fut, num: { ...fut.num, tpl: { realityInsight: fut.num.tpl.realityInsight.replace('{NDX_CHG}', '{ NDX_CHG }') } } };
     const offSp = await N.repairVerdictTexts(futSp, 'ko', 't21-off-flat-sp', { NDX_CHG: 0, RLSI: 33, VIX: 18.4 }, prompts());
     assert.ok(offSp.verdict.realityInsight.includes('+0.40% 상승') && !offSp.verdict.realityInsight.includes('0.00%'), offSp.verdict.realityInsight);
+    // 관문 10241304 ②: 부호 있는 지표가 표시 자릿수에서 부호를 바꾸면(0 포함) 생성 당시 값 — «GEX -5로 양수»·«금 0.00% 상승»·«-0.04% 상승» 방지
+    for (const [tok, phrase, b, v, keep] of [
+        ['GEX', '옵션 포지션(GEX)은 {GEX}로 양수입니다.', 5, -5, '+5'],
+        ['GOLD_CHG', '금은 {GOLD_CHG} 상승했습니다.', 0.4, 0, '+0.40%'],
+        ['NDX_CHG', '나스닥100 선물은 {NDX_CHG} 상승했습니다.', 0.04, -0.04, '+0.04%'],
+    ] as const) {
+        reset();
+        const tpl = text.ko.replace('옵션 포지션(GEX)은 미확인입니다.', phrase);
+        const vv = { realityInsight: 'x', num: { tpl: { realityInsight: tpl }, basis: { realityInsight: { [tok]: b, RLSI: 33, VIX: 18.4 } } } };
+        const r = await N.repairVerdictTexts(vv, 'ko', 't21-sign', { [tok]: v, RLSI: 33, VIX: 18.4 }, prompts());
+        assert.ok(r.verdict.realityInsight.includes(keep), `${tok}: ${r.verdict.realityInsight}`);
+    }
     // 서술 구간이 바뀌면(RLSI 29 → 50: «약하다»가 틀림) 지금 값으로 채우지 않고, 재생성 실패 시 생성 당시 값의 글을 보존(오탈락 금지)
     reset();
     store.set(key('ko'), { text: text.ko, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 29, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
@@ -111,6 +123,17 @@ async function main() {
         const before = calls;
         await N.generateRealityInsight(ctx('en'));
         assert.ok(calls > before, '영어 PRE 글은 REG 에서 재생성 유도');
+    }
+    // 관문 10241304 ①: 원문에 다음 예정 일정(ET)만 있고 번역에 현지 시각 병기가 없어도 정상 번역은 통과(번역기에 현지 시각 규칙을 주지 않는다)
+    {
+        reset();
+        const evCtx = (l: Locale) => ({ ...ctx(l), scheduledEvents: cachedEvidence(null, { updatedAt: new Date(clock).toISOString(), events: [{ date: '2026-10-23', time: '17:00', event: 'CPI' }] }, null, new Date(clock)).events });
+        const evPrompts = (l: Locale) => buildTacticalPrompt({ ...evCtx(l), asOf: new Date(clock).toISOString() }, l);
+        const enEv = text.en.replace('The next test is unconfirmed.', 'The next test is CPI scheduled on 10/23 (Fri) at 13:00 ET.');
+        store.set(key('en'), { text: enEv, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
+        response = translateTo(koGood.replace('다음 분기점은 미확인입니다.', '다음 확인은 10/23(금) 13:00 ET CPI 예정입니다.'));
+        const evOut = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4 }, tacticalPrompts: evPrompts });
+        assert.ok(!N.isPlaceholderInsight(evOut) && evOut.includes('13:00 ET'), evOut);
     }
     // INDEX_FACTS 가 있으면 지수 값·방향을 새 생성처럼 대조한다(나스닥 종합 정규장 −0.784%)
     const fact = { id: 'nasdaq' as const, kind: 'spot' as const, name: { ko: '나스닥 종합', en: 'Nasdaq Composite', ja: 'ナスダック総合' }, basis: { ko: '전일 종가 대비', en: 'vs prior close', ja: '前日終値比' }, asOfET: '2026-10-23 10:59 ET', sessionDate: '2026-10-23', chgPct: -0.784 };
