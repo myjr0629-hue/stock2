@@ -150,6 +150,8 @@ async function saveTicker(client, ticker, payload, calendarRow, today, results, 
   results.earnings++;
 }
 
+const previousDate = (date, n) => new Date(Date.parse(date + 'T00:00:00Z') - n * 86400000).toISOString().slice(0, 10);
+
 function createHandler(deps = {}) {
   const command = deps.command || createRedisCommand();
   const guard = deps.guard || createGuard({ command, accountRpm: Number(process.env.FMP_ACCOUNT_RPM || 300) });
@@ -172,10 +174,25 @@ function createHandler(deps = {}) {
       }
       const key = { pattern: 'FMP:RUN:v2:' + day.date, timestamp: 0 };
       const existing = await client.send(new GetCommand({ TableName: TABLE, Key: key, ConsistentRead: true }));
-      const state = existing.Item?.state || { cursor: 0, calendarOffset: 0, calendar: {}, partial: [], complete: false };
+      const base = deps.universe || UNIVERSE;
+      let state = existing.Item?.state;
+      if (!state) {
+        // A day that could not finish (low contract, outages) hands its position to the next
+        // day, so the same tail symbols are never skipped every day. Look back over weekends.
+        let rotation = 0;
+        for (let back = 1; back <= 5; back++) {
+          const prev = (await client.send(new GetCommand({ TableName: TABLE, Key: { pattern: 'FMP:RUN:v2:' + previousDate(day.date, back), timestamp: 0 } }))).Item?.state;
+          if (!prev) continue;
+          if (!prev.complete && Number.isInteger(prev.cursor)) rotation = ((prev.rotation || 0) + prev.cursor) % base.length;
+          break;
+        }
+        state = { cursor: 0, calendarOffset: 0, calendar: {}, partial: [], complete: false, rotation };
+      }
+      const r0 = (state.rotation || 0) % base.length;
+      const universe = r0 ? base.slice(r0).concat(base.slice(0, r0)) : base;
       const results = { analyst: 0, earnings: 0, forward: 0 };
       const result = await runSlice({
-        state, universe: deps.universe || UNIVERSE, date: day.date, now,
+        state, universe, date: day.date, now,
         remainingMs: () => context?.getRemainingTimeInMillis?.() ?? 900000,
         sleep: deps.sleep || (ms => new Promise(r => setTimeout(r, ms))),
         guard, command,

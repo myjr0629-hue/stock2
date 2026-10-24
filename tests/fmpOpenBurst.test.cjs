@@ -672,3 +672,33 @@ test('low contract (FMP_ACCOUNT_RPM 90 → ceiling 30): collector and web reader
   assert.equal(lambda, 9); assert.equal(web, 12); assert.equal(vwap, 9); // 9 + 12 = 30 − 9 reserved
   assert.ok(core.RESERVE.includes('math.floor(cap*3/10)'));
 });
+
+test('low contract: an unfinished day hands its cursor to the next day, so every symbol is refreshed within two days', async () => {
+  const { createHandler } = require('../scripts/lambda-fmp/index.js');
+  const universe = Array.from({ length: 600 }, (_, i) => 'T' + i);
+  const r = redisClock(Date.parse('2026-10-26T10:15:00-04:00'));
+  const db = new Map(), savedBy = { '2026-10-26': [], '2026-10-27': [] };
+  let today = '2026-10-26';
+  const client = { send: async cmd => {
+    const n = cmd.constructor.name, i = cmd.input;
+    if (n === 'GetCommand') { const v = db.get(i.Key.pattern); return { Item: v ? { state: structuredClone(v) } : undefined }; }
+    if (n === 'QueryCommand') return { Items: [] };
+    if (i.Item.pattern.startsWith('FMP:RUN:')) db.set(i.Item.pattern, structuredClone(i.Item.state));
+    else if (i.Item.pattern.startsWith('ANALYST:')) savedBy[today].push(i.Item.pattern.slice(8));
+    return {};
+  } };
+  const handler = createHandler({ client, command: r.command, now: r.now, universe, sleep: async ms => r.advance(ms),
+    guard: core.createGuard({ command: r.command, now: r.now, accountRpm: 90 }), // collector lane 9/min
+    request: async path => (path.startsWith('earnings-calendar') ? Response.json([]) : Response.json(path.startsWith('grades') ? [{ buy: 1 }] : [])) });
+  const runDay = async (date, slices) => {
+    today = date; r.advance(Date.parse(`${date}T10:15:00-04:00`) - r.now());
+    for (let k = 0; k < slices; k++) { await handler({}, { getRemainingTimeInMillis: () => 900000 }); r.advance(900000); }
+  };
+  await runDay('2026-10-26', 10);
+  const day1 = db.get('FMP:RUN:v2:2026-10-26');
+  assert.equal(day1.complete, false); assert.ok(day1.cursor > 0 && day1.cursor < 600);
+  await runDay('2026-10-27', 10);
+  const covered = new Set([...savedBy['2026-10-26'], ...savedBy['2026-10-27']]);
+  assert.equal(covered.size, 600, `covered ${covered.size}`);
+  assert.equal(savedBy['2026-10-27'][0], 'T' + day1.cursor); // resumes where the previous day stopped
+});
