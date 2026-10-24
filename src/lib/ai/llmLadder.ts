@@ -120,7 +120,8 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     SectorHeadlines: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
     //   모닝 브리핑: 10/10 vs 10/10(음차는 출구 복원) · p50 6.9s vs 10.7s · 호출당 $0.0014 vs $0.0098
     //   ★10/11 «해석의 깊이»: 지시문은 라우트가 직접 붙인다(EC2 워커도 같은 프롬프트) — 짝 비교 Haiku 5.5 +28.9 · Sonnet 4.6(EC2 경로) +8.8
-    MorningBriefing: { effort: 'low', thinking: 'disabled', timeoutMs: 25_000, depth: true },
+    //   ★2026-10-25 v2(사실 계약 검사, TRACKER T7): 크레딧 1회 재시도 — 실모델 1회 통과율이 100% 가 아니라(3언어 숫자 일치·지표 주어) Bedrock 로 내려가기 전 한 번 더(생성 p50 5초)
+    MorningBriefing: { effort: 'low', thinking: 'disabled', timeoutMs: 25_000, depth: true, retries: 1 },
     //   실적 브리핑(8종목×3언어 배치): 10/10 vs 10/10 · p50 13s 동률 · 호출당 $0.0015 vs $0.0108. 라우트 40초 중 ① 22초 + 현행 이어받기 18초
     EarningsBrief: { effort: 'low', thinking: 'disabled', timeoutMs: 22_000 },
     //   인텔 섹터 스냅샷(뉴스 인사이트): 규칙(회사명은 라틴 철자·한국어 칸에 가나 금지)을 넣고 30/30 vs 현행 10/10 · p50 7.5s vs 10.8s. 라우트 30초 중 ① 14초

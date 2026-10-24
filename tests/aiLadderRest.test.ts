@@ -130,7 +130,8 @@ t('딥 분석: 프롬프트에 금융 공통어 원문 유지 규칙 · 파서 �
 });
 
 t('출구 복원 배선: 모닝 브리핑 · 크로스섹터 · 인텔 스냅샷 · 플로우 AI', () => {
-    assert.match(read('src/app/api/guardian/briefing/generate/route.ts'), /briefing\[k\] = restoreCommonTermNames\(briefing\[k\]\)\.text/);
+    // 10/25 v2: 복원은 prepareBriefingJson 한 곳(사다리 검사·최종 검사·저장이 모두 이 글을 쓴다)
+    assert.match(read('src/app/api/guardian/briefing/generate/route.ts'), /const t = typeof b\?\.\[k\] === 'string' \? restoreCommonTermNames\(b\[k\]\)\.text/);
     assert.match(read('src/app/api/intel/cross-sector-brief/route.ts'), /restoreCommonTermsDeep\(JSON\.parse\(bedrockResult\.text\)\)/);
     assert.match(read('src/app/api/intel/snapshot/route.ts'), /restoreCommonTermsDeep\(JSON\.parse\(bedrockResult\.text\)\)/);
     const flow = read('src/app/api/flow/ai-analysis/route.ts');

@@ -455,6 +455,14 @@ class MemStorage implements StorageLike {
     assert.equal(r.j.morning.body, null);
     r = await callPv('xx');    // 모르는 언어 → en
     assert.ok(r.j.morning.body);
+    // ★2026-10-25 당일 키(24시간)가 비었거나 템플릿이면 정상 보존본(lastgood)으로 — 주말·월요일 아침 미리보기 null 수리
+    store.delete('guardian:morning_briefing:ko');
+    store.set('guardian:morning_briefing:lastgood:ko', rec(MORNING_KO, { date: nowIso }));
+    r = await callPv('ko');
+    assert.ok(r.j.morning.body.startsWith('화요일 개장 전 거래에서'), JSON.stringify(r.j));
+    store.set('guardian:morning_briefing:ko', rec(MORNING_KO, { date: nowIso, source: 'template' }));
+    r = await callPv('ko');
+    assert.ok(r.j.morning.body.startsWith('화요일 개장 전 거래에서'), '템플릿 당일 판 대신 보존본');
   });
   t('알림 단계 화면: 주 버튼이 크고(bigPrimary) 바로 권한 창(onAllow) · [나중에]는 작은 글자 링크(laterLink) · 실제 푸시 본문 미리보기', () => {
     const v = read('src/components/app/FirstRunValueStep.tsx');
