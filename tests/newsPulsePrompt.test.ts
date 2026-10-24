@@ -78,11 +78,13 @@ test('배열 — 80% 이상 통과해야 응답을 쓴다 · 중복 id 탈락', 
     const rangeArt = { ...art, desc: 'Capex guidance of $10-$12 billion for next year.' };
     const rangeItem = { ...good, summaryKR: '블룸 에너지는 내년 설비투자 가이던스를 100억~120억 달러로 제시했습니다.', summaryEN: 'Bloom Energy guided capex of $10-$12 billion for next year.', summaryJP: 'ブルーム・エナジーは来年の設備投資見通しではなく計画を100億～120億ドルと示しました。'.replace('見通しではなく', '') };
     assert.ok(!checkPulseItem(rangeItem, rangeArt, facts).reasons.some(r => /number/.test(r)), JSON.stringify(checkPulseItem(rangeItem, rangeArt, facts).reasons));
-    assert.match(src, /getMarketFacts\(true\)/);
-    assert.doesNotMatch(src.slice(src.indexOf('async function dryCompare'), src.indexOf('export async function GET')), /getMacroContext\(baseUrl\)/);
+
     const src = fs.readFileSync(path.join(__dirname, '../src/app/api/guardian/news-digest/route.ts'), 'utf8');
     assert.match(src, /let parsed = parsePulseArray\(bedrockResult\.text, v3\);/);
     assert.match(src, /if \(v3\) return \[\];\n\s+\/\/ Fallback: return raw top items without AI/);
+    // 드라이런은 매크로 공유 캐시 읽기만(관문 10250345 ①)
+    assert.match(src, /getMarketFacts\(true\)/);
+    assert.doesNotMatch(src.slice(src.indexOf('async function dryCompare'), src.indexOf('export async function GET')), /getMacroContext\(baseUrl\)/);
 });
 
 test('라우트 배선 — v3 항목 검사로 거르고, 원문 id 가 없으면 다른 기사(articles[i])에 붙이지 않는다', () => {
