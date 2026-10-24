@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { SECTOR_MAP } from '@/services/universePolicy';
 import { SECTOR_NAME_EN, SECTOR_NAME_JA, sectorLabelForAi, restoreKoSectorNames, restoreJaSectorNames } from '@/lib/ai/sectorLabels';
-import { scriptPurityReasons, multiLangJsonGate, evaluateOutput } from '@/lib/ai/ladderGates';
+import { scriptPurityReasons, multiLangJsonGate, evaluateOutput, analyticNegationOnly } from '@/lib/ai/ladderGates';
 import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 
 const root = path.join(__dirname, '..');
@@ -79,6 +79,20 @@ t('evaluateOutput(structured): 글자 비율 검사 대신 문자 체계 — «P
     const o = JSON.stringify({ a: { ko: 'PLTR +5.16% 리더, 4/7 상승, Goldman 상향 뉴스 반영', en: 'PLTR leads', ja: 'PLTRが主導' } });
     assert.equal(evaluateOutput({ purpose: 'CrossSector', locale: 'multi', text: o, source: 'x', expectJson: true, structured: false }).ok, false);
     assert.equal(evaluateOutput({ purpose: 'CrossSector', locale: 'multi', text: o, source: 'x', expectJson: true, structured: true }).ok, true);
+});
+
+t('evaluateOutput(CrossSector): «…라고 할 수 없습니다» 분석 부정은 거절이 아니다 · 진짜 거절과 다른 용도는 그대로 걸린다(10/24 운영 실측 오탐)', () => {
+    const why = (ko: string) => JSON.stringify({ closingNarrative: { why: { ko, en: 'This was after the cash close and cannot be a preceding cause.', ja: 'これは取引終了後の報道で、先行原因ではありません。' } } });
+    const analytic = '2026-10-23 17:42 ET Kitco 보도는 마감 후 보도이므로 정규장 하락의 선행 원인이라고 할 수 없습니다. 원인으로 단정할 수 없습니다.';
+    assert.equal(evaluateOutput({ purpose: 'CrossSector', locale: 'multi', text: why(analytic), source: 'x', expectJson: true, structured: true }).ok, true);
+    const refusal = '요청하신 내용은 정책상 분석을 제공할 수 없습니다. 다른 질문을 해 주세요.';
+    const r1 = evaluateOutput({ purpose: 'CrossSector', locale: 'multi', text: why(refusal), source: 'x', expectJson: true, structured: true });
+    assert.equal(r1.ok, false); assert.ok(r1.reasons.some((r) => /ko:refusal/.test(r)), JSON.stringify(r1));
+    // 한 글에 분석 부정과 진짜 거절이 섞이면 면제하지 않는다
+    assert.equal(analyticNegationOnly('refusal:ko:"할 수 없습니다"', '원인이라고 할 수 없습니다. 분석을 제공할 수 없습니다.'), false);
+    assert.equal(analyticNegationOnly('refusal:ko:"할 수 없습니다"', '선행 원인으로 확정할 수 없습니다.'), true);
+    // 다른 용도에는 면제가 없다
+    assert.equal(evaluateOutput({ purpose: 'IntelAnalysis', locale: 'multi', text: why(analytic), source: 'x', expectJson: true, structured: true }).ok, false);
 });
 
 // ── 음차 출구 복원(JSON 전체) ────────────────────────────────────────────────

@@ -186,7 +186,7 @@ const records = (s: Spy): CallRecord[] => {
         // 10/10 저녁 전환 용도: 전부 사고 끔(적응형·중간 사고는 같은 표본에서 통과율이 같거나 낮고 느렸다) · ① 시간은 «현행이 이어받을 시간»을 남긴다(라우트 한도 안)
         for (const k of ['SectorHeadlines', 'MorningBriefing', 'EarningsBrief', 'IntelSnapshot', 'Guardian', 'GuardianTranslate', 'FlowAI', 'CrossSector', 'DeepAnalysis']) assert.equal((LADDER_PURPOSES as any)[k].thinking, 'disabled', k);
         // retries 는 «현행으로 넘길 수 없는» 용도만: 크로스섹터(현행이 한도 안에 못 끝난다) · 내 종목 AI 한 줄(크레딧 전용 — 현행 경로가 없다, 2026-10-12)
-        assert.equal(LADDER_PURPOSES.CrossSector.retries, 1, '크로스섹터: 현행이 한도 안에 못 끝난다'); assert.equal(LADDER_PURPOSES.WatchlistLine.retries, 1, '내 종목 AI 한 줄: 크레딧 전용'); assert.equal(LADDER_PURPOSES.TodayPicks.retries, 1, '오늘 볼 것 해설: 크레딧 전용');
+        assert.equal(LADDER_PURPOSES.CrossSector.retries, 2, '크로스섹터: ① 재시도 2회(예산 검사 안에서) — 현행 4.5 는 서빙 대상 아님'); assert.equal(LADDER_PURPOSES.WatchlistLine.retries, 1, '내 종목 AI 한 줄: 크레딧 전용'); assert.equal(LADDER_PURPOSES.TodayPicks.retries, 1, '오늘 볼 것 해설: 크레딧 전용');
         assert.deepEqual(Object.entries(LADDER_PURPOSES).filter(([, v]) => v.retries).map(([k]) => k).sort(), ['CrossSector', 'IntelAnalysis', 'TodayPicks', 'TodaySummaryEcon', 'WatchlistLine']);   // IntelAnalysis: 10/12 aiq55 — 3종목 중 1종목만 오는 경우 크레딧 재시도
         assert.ok(LADDER_PURPOSES.IntelSnapshot.timeoutMs! <= 14_000, '스냅샷: 라우트 30초 중 ① 14초 + 현행 이어받기 16초');
         assert.ok(LADDER_PURPOSES.EarningsBrief.timeoutMs! + 15_000 <= 40_000, '실적 브리핑: 라우트 40초 중 ① + 현행 15초');
