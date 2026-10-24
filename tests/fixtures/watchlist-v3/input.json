@@ -1,0 +1,87 @@
+[
+  {
+    "ticker": "NVDA",
+    "asOf": "2026-10-21T12:00:00Z",
+    "realtime": {
+      "price": 145,
+      "changePct": -1.2,
+      "session": "pre",
+      "extendedPrice": 146,
+      "extendedChangePct": 0.69,
+      "maxPain": 155,
+      "callWall": 160,
+      "putFloor": 135,
+      "gammaFlipLevel": 140,
+      "levelsChainDate": "2026-10-20",
+      "levelsExpiration": "2026-10-30",
+      "levelsSource": "structure",
+      "darkPoolPct": 40,
+      "darkPoolDate": "2026-10-20",
+      "impliedMovePct": 3.2,
+      "impliedMoveDef": "atm-straddle-mid/1",
+      "impliedMoveExpiry": "2026-10-30"
+    },
+    "context": {
+      "earnings": [
+        "[earnings calendar; 2026-10-22; 16:00 ET] NVDA (estimated schedule; scheduled; not a released result)"
+      ],
+      "news": []
+    }
+  },
+  {
+    "ticker": "NVDA",
+    "asOf": "2026-10-21T12:00:00Z",
+    "realtime": {
+      "price": 145,
+      "changePct": -1.2,
+      "session": "pre",
+      "extendedPrice": 146,
+      "extendedChangePct": 0.69,
+      "maxPain": 155,
+      "callWall": 160,
+      "putFloor": 135,
+      "gammaFlipLevel": 140,
+      "levelsChainDate": "2026-10-20",
+      "levelsExpiration": "2026-10-30",
+      "levelsSource": "structure",
+      "darkPoolPct": 40,
+      "darkPoolDate": "2026-10-20",
+      "impliedMovePct": 3.2,
+      "impliedMoveDef": "atm-straddle-mid/1",
+      "impliedMoveExpiry": "2026-10-30"
+    },
+    "context": {
+      "earnings": [],
+      "news": [
+        "[news; 2026-10-21T11:00:00Z] NVDA supply agreement announced (synthetic fixture)"
+      ]
+    }
+  },
+  {
+    "ticker": "NVDA",
+    "asOf": "2026-10-21T12:00:00Z",
+    "realtime": {
+      "price": 145,
+      "changePct": -1.2,
+      "session": "pre",
+      "extendedPrice": 146,
+      "extendedChangePct": 0.69,
+      "maxPain": 155,
+      "callWall": 160,
+      "putFloor": 135,
+      "gammaFlipLevel": 140,
+      "levelsChainDate": "2026-10-20",
+      "levelsExpiration": "2026-10-30",
+      "levelsSource": "structure",
+      "darkPoolPct": 40,
+      "darkPoolDate": "2026-10-20",
+      "impliedMovePct": 3.2,
+      "impliedMoveDef": "atm-straddle-mid/1",
+      "impliedMoveExpiry": "2026-10-30"
+    },
+    "context": {
+      "earnings": [],
+      "news": []
+    }
+  }
+]
