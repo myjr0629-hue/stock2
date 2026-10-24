@@ -159,6 +159,8 @@ const OFF_HOURS_UPGRADE_TTL_SEC = 72 * 3600;
 /** 장외 순환매 v3 재작성 잠금(인스턴스 간 1회) — 실패해도 3시간 뒤에만 다시 시도 */
 const OFF_HOURS_UPGRADE_LOCK = 'guardian:rotation:v3:offhours-lock';
 const OFF_HOURS_UPGRADE_LOCK_SEC = 3 * 3600;
+/** 장외 승격의 저장본·잠금 확인 시각(언어별, 인스턴스 메모리) — 60초에 한 번 */
+const _upgradeCheckedAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 /** 생성 + 교정 재시도가 둘 다 검사에서 떨어지면, 이 시간 동안은 모델을 다시 부르지 않는다(요청마다 두드리지 않게) */
 const GEN_FAIL_COOLDOWN_MS = 90 * 1000;
 /** 첫 생성이 이 시간 안에 끝났을 때만 교정 재시도를 한다 — 라우트 한도(60초)를 넘기지 않게 */
@@ -458,6 +460,7 @@ export function _resetInsightStateForTest(): void {
             _mem[type][locale] = null;
             _genFailUntil[type][locale] = 0;
             _outByShown[locale].clear();
+            _upgradeCheckedAt[locale] = 0;
         }
     }
 }
@@ -1270,7 +1273,16 @@ export class IntelligenceNode {
             if (!isOffHours()) return null;
             const desc = verdict?.description;
             if (typeof desc !== 'string' || !(isLegacyRotationText(desc) || isPlaceholder(desc))) return null;
-            const stored = await readStoredInsight('rotation', locale, nums);
+            // 요청마다 Redis 를 두드리지 않게 — 메모리(검사 통과 v3 글) 먼저, 없으면 언어당 60초에 한 번만 저장본·잠금을 본다
+            const m = _mem.rotation[locale];
+            // 메모리 글도 지금 값으로 검사를 통과할 때만(낡은 메모리 글이 Redis 의 새 글을 가리지 않게 — 관문 10240908)
+            let stored: CachedInsight | null = m && !isLegacyRotationText(m.text) && gateText('rotation', m.text, locale, nums, m.basis).ok ? m : null;
+            if (!stored) {
+                if (Date.now() - _upgradeCheckedAt[locale] < 60_000) return null;
+                _upgradeCheckedAt[locale] = Date.now();
+                stored = await readStoredInsight('rotation', locale, nums);
+                if (stored && !isLegacyRotationText(stored.text)) rememberInsight('rotation', locale, stored.text, stored.at, stored.basis);
+            }
             if (stored && !isLegacyRotationText(stored.text)) {
                 const g = gateText('rotation', stored.text, locale, nums, stored.basis);
                 if (!g.ok || isPlaceholder(g.text)) return null;
