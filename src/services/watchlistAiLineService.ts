@@ -1,4 +1,4 @@
-import { WL_V3_SYSTEM, buildWatchlistV3Prompt, checkWatchlistV3Output, checkWatchlistV3Insight } from '@/lib/ai/watchlistV3';
+import { WL_V3_SYSTEM, buildWatchlistV3Prompt, checkWatchlistV3Output, checkWatchlistV3Insight, factChips } from '@/lib/ai/watchlistV3';
 import { quoteSessionLive, quoteSessionValidUntil } from '@/lib/ai/watchlistStockFacts';
 import { cachedEvidence } from '@/lib/ai/tacticalPrompt';
 import { evidenceValidUntil } from '@/lib/ai/evidenceTime';
@@ -25,7 +25,7 @@ import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient'
 import { processWatchlistBatch } from '@/services/watchlistBatchService';
 import { callBedrock } from '@/services/bedrockClient';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
-import { buildLineFacts, lineLocaleReasons, WL_LINE_LOCALES, WL_LINE_PURPOSE, type LineFacts } from '@/lib/ai/watchlistLine';
+import { buildLineFacts, checkLineOutput, lineLocaleReasons, WL_LINE_LOCALES, WL_LINE_PURPOSE, type LineFacts } from '@/lib/ai/watchlistLine';
 import { aiLineState, type AiLineEntry, type AiLineLevels, type AiLevelKey, type AiLineLocale, type AiSide } from '@/lib/app/watchlistAiLine';
 import { etDateOf } from '@/lib/marketCalendar';
 
@@ -169,9 +169,20 @@ export type GenOutcome = 'generated' | 'fresh' | 'nodata' | 'guard' | 'skipped' 
 export const inputHashOf = (f: LineFacts) => createHash('sha256').update(WL_V3_SYSTEM).update('\0').update(buildWatchlistV3Prompt(f)).digest('hex');
 
 /** 한 종목 생성 — 사실이 이미 있을 때. 저장까지. */
-export async function generateOne(f: LineFacts, cachedContextHash?: string): Promise<{ outcome: GenOutcome; line?: StoredLine; reasons?: string[] }> {
+export async function generateOne(f: LineFacts, cachedContextHash?: string, prev?: StoredLine | null): Promise<{ outcome: GenOutcome; line?: StoredLine; reasons?: string[] }> {
     const t0 = Date.now();
     let last: string[] = [];
+    /**
+     * 해석이 검사를 못 넘었을 때 — 지금 지형에 맞는 저장본(prev)이 있으면 그대로 둔다(정상본 보존).
+     * 없으면(첫 생성·체인/쪽이 바뀌어 화면이 옛 줄을 그리지 않는 경우) 사실 그대로의 칩 줄만 저장한다 — 지도 설명은 늘 최신, 해석은 30분 뒤 다시.
+     */
+    const chipsOnly = async (why: string[], provider?: string): Promise<StoredLine | null> => {
+        if (prev && storedMatchesFacts(prev, f)) return null;
+        const d = checkLineOutput(JSON.stringify(factChips(f)), f);
+        if (!d.ok || !d.text) return null;
+        const line: StoredLine = { v: 1, t: f.ticker, at: Date.now(), chain: f.chain, lv: f.lv, sides: f.sides, spot: f.spot, text: d.text, insightWhy: why.slice(0, 8), revision: 3, chipFallback: true, facts: f, source: buildWatchlistV3Prompt(f), inputHash: inputHashOf(f), cachedContextHash, checkedAt: Date.now(), ms: Date.now() - t0, provider };
+        return (await setInCache(lineKey(f.ticker), line, WL_AI_TTL_SEC)) === false ? null : line;
+    };
     try {
         const res = await withFreshTier(() => callBedrock({
             system: WL_V3_SYSTEM,
@@ -188,12 +199,14 @@ export async function generateOne(f: LineFacts, cachedContextHash?: string): Pro
         const c = checkWatchlistV3Output(res.text, f);
         if (!c.ok || !c.text) {
             await setInCache(failKey(f.ticker), { at: Date.now(), why: c.reasons.slice(0, 6) }, FAIL_SEC).catch(() => false);
-            return { outcome: 'guard', reasons: c.reasons };
+            const line = await chipsOnly(c.reasons, res.provider);
+            return { outcome: 'guard', reasons: c.reasons, ...(line ? { line } : {}) };
         }
         const dup = await dropDuplicateInsights(f.ticker, c.insight);
         if (dup.length) {
             await setInCache(failKey(f.ticker), { at: Date.now(), why: dup.reasons }, FAIL_SEC).catch(() => false);
-            return { outcome: 'guard', reasons: dup.reasons };
+            const line = await chipsOnly(dup.reasons, res.provider);
+            return { outcome: 'guard', reasons: dup.reasons, ...(line ? { line } : {}) };
         }
         const line: StoredLine = {
             v: 1, t: f.ticker, at: Date.now(), chain: f.chain, lv: f.lv, sides: f.sides, spot: f.spot,
@@ -208,7 +221,8 @@ export async function generateOne(f: LineFacts, cachedContextHash?: string): Pro
             // 크레딧 불가(상한·차단기·킬 스위치) 또는 가드를 두 번 못 넘음 — 옛 글은 그대로 두고 잠시 쉰다
             const guard = last.length > 0;
             await setInCache(failKey(f.ticker), { at: Date.now(), why: guard ? last.slice(0, 6) : ['credit-skip'] }, guard ? FAIL_SEC : SKIP_SEC).catch(() => false);
-            return { outcome: guard ? 'guard' : 'skipped', reasons: guard ? last : ['credit-skip'] };
+            const line = guard ? await chipsOnly(last) : null;
+            return { outcome: guard ? 'guard' : 'skipped', reasons: guard ? last : ['credit-skip'], ...(line ? { line } : {}) };
         }
         await setInCache(failKey(f.ticker), { at: Date.now(), why: ['error'] }, SKIP_SEC).catch(() => false);
         return { outcome: 'error', reasons: [String((e as Error)?.message || e).slice(0, 120)] };
@@ -368,7 +382,7 @@ export async function generateLines(tickers: string[], opts: { deadline?: number
         }
         await pool(work, GEN_CONCURRENCY, deadline, async (f) => {
             if (!(await reserveCall())) { out[f.ticker] = 'capped'; return; }
-            const r = await generateOne(f, contextHashFor(f.ticker));
+            const r = await generateOne(f, contextHashFor(f.ticker), lines[f.ticker]);
             out[f.ticker] = r.outcome;
             if (r.reasons?.length) reasons[f.ticker] = r.reasons;
             if (opts.detail) detail[f.ticker] = { facts: f.factsText, text: r.line?.text, ms: r.line?.ms, provider: r.line?.provider };

@@ -434,7 +434,13 @@ async function asyncTests() {
         // 일정을 말하는 후보는 생성 단계에서 전체 거절
         script.push({ text: JSON.stringify({ ...JSON.parse(SERVICE_GOOD), insight: { ko: '08:30 실적 발표 예정, 옵션 벽 반응이 관건', en: 'Earnings scheduled 08:30 ET, Call Wall test', ja: '08:30決算発表予定、オプション壁の反応が焦点' } }) });
         assert.equal((await generateLines(['NVDA'])).out.NVDA, 'guard');
-        assert.equal(store.get(lineKey('NVDA')), undefined);
+        // 저장본이 없으면 사실 그대로의 칩 줄만 저장(해석 없음) — 지도 설명은 바로 보이고 해석은 30분 뒤 다시
+        const only = store.get(lineKey('NVDA')) as any;
+        assert.equal(only.revision, 3); assert.equal(only.chipFallback, true); assert.equal(only.insight, undefined);
+        assert.equal(entryOf(only, 'ko', now)!.insight, undefined);
+        assert.ok(entryOf(only, 'ko', now)!.text.includes('{'), '칩 줄(자리표)');
+        assert.ok(store.get(failKey('NVDA')), '30분 쉬기');
+        store.delete(failKey('NVDA'));
         store.delete('wlai:lock:NVDA');
         script.push({ text: SCHED });
         const g0 = await generateLines(['NVDA'], { force: true });
@@ -544,7 +550,11 @@ async function asyncTests() {
     assert.equal(r.out.NVDA, 'guard');
     // v3: 칩 줄은 사실 그대로의 칩 줄로 대신할 수 있어도, 해석이 없으면 후보 전체 탈락(옛 글 유지)
     assert.ok(r.reasons.NVDA.some((x) => /^ko:(?:insight:empty|v3:first-subject)/.test(x)), r.reasons.NVDA.join(','));
-    assert.equal((store.get(lineKey('NVDA')) as any).text.ko, '옛 글 {MP}');
+    // 옛 글은 체인(10/08)이 지금(10/09)과 달라 화면이 그리지 않는다 → 사실 칩 줄로 바꿔 둔다(해석 없음). 지금 지형에 맞는 정상본이면 보존(위 «정상본 보존» 시험)
+    const replaced = store.get(lineKey('NVDA')) as any;
+    assert.notEqual(replaced.text.ko, '옛 글 {MP}');
+    assert.equal(replaced.chipFallback, true); assert.equal(replaced.insight, undefined); assert.equal(replaced.chain, '2026-10-09');
+    assert.doesNotMatch(replaced.text.ko, /매수/, '모델의 권유어 칩 줄은 저장하지 않는다');
     assert.ok(store.get(failKey('NVDA')));
     assert.equal(ttls.get(failKey('NVDA')), 30 * 60);
     store.delete('wlai:lock:NVDA');

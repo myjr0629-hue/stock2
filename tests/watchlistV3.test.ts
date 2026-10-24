@@ -150,4 +150,10 @@ test('칩 줄 언어 간 숫자가 다르면 사실 칩 줄(세 언어 같은 �
     const sig = (t: string) => (t.match(/\$[\d.]+|[\d.]+%|\{[A-Z]+\}/g) || []).sort().join('|');
     assert.equal(new Set(['ko', 'en', 'ja'].map(l => sig((r.text as any)[l]))).size, 1);
 });
+test('언어 판정은 세션 표지 포함 전체 글로(짧은 정상 문장 오탈락 방지) · 외국어 글은 그대로 탈락', () => {
+    const reg = buildLineFacts('NVDA', { ...row, session: 'reg' }, now)!;
+    assert.ok(!checkWatchlistV3Insight('NVDA 정규장 예상 변동 ±3.2%가 Put Floor $135 위 자리', 'ko', reg, now).some(r => r.startsWith('language:')));
+    assert.ok(checkWatchlistV3Insight('NVDA 정규장 implied move ±3.2% dampens swings', 'ko', reg, now).some(r => r.startsWith('language:')));
+    assert.ok(!checkWatchlistV3Insight('NVDA 通常取引、想定変動幅±3.2%が正ガンマ圏で緩和される位置', 'ja', reg, now).some(r => r.startsWith('language:')));
+});
 console.log(`${n} passed`);

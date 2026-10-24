@@ -1,5 +1,6 @@
 import { buildLineUserPrompt, checkLineOutput, fitsLine, lineWidthEm, OPTIONS_MAP_SYSTEM, WL_LINE_MAX_EM, type LineFacts, type LineCheck, WL_LINE_LOCALES, WL_LINE_FORBIDDEN } from './watchlistLine';
 import { checkDepthLine } from './watchlistDepth';
+import { validateInsight } from './outputGate';
 import { STOCK_SESSION_LABELS, stockFactsOf } from './watchlistStockFacts';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 import { AI_PLACEHOLDER } from '@/lib/app/watchlistAiLine';
@@ -172,8 +173,10 @@ export function checkWatchlistV3Insight(text: string, loc: AiLineLocale, f: Line
     //   (10/24 실모델 NVDA ko 64자 = 39em — 두 줄 안). 글자 수는 터무니없는 글만 막는다(ko/ja 70 · en 110).
     if ([...text].length > (loc === 'en' ? 110 : 70) || lineWidthEm(text) > WL_LINE_MAX_EM) reasons.push('v3:too-long');
     // 옛 해석 검사의 글자 수 상한(44·84, 첫머리 없는 글 기준)은 위 폭 검사가 대신한다 — 형식 문자(줄바꿈·{}·« · »·말줄임)는 그대로 막는다
-    const depth = checkDepthLine(stripped, loc, buildLineUserPrompt(f), nowMs).filter(r => r !== 'insight:format' || /[\r\n{}]| · |…|\.\.\./.test(stripped));
-    reasons.push(...depth, ...watchlistMetricReasons(text, f));
+    // 언어 판정(한글 10자·가나 3자·비율)은 화면에 나가는 «전체 글»로 — 세션 표지를 뺀 글로 세면 짧은 정상 문장이 탈락한다(10/24 실모델 ko 5·ja 5건)
+    const depth = checkDepthLine(stripped, loc, buildLineUserPrompt(f), nowMs)
+        .filter(r => (r !== 'insight:format' || /[\r\n{}]| · |…|\.\.\./.test(stripped)) && !r.startsWith('language:'));
+    reasons.push(...depth, ...validateInsight(text, loc, { minLength: 8 }).reasons.filter(r => r.startsWith('language:')), ...watchlistMetricReasons(text, f));
     // 숫자는 사실·근거 글에 «그대로» 있는 것만(시세 가격·등락은 근거에 없다 — 해석에 쓰지 않는다)
     const allowed = new Set(valueTokens(`${f.factsText}\n${f.contextText || ''}`).map(t => tokenKey(t.raw).replace(/^[+±]/, '')));
     for (const t of valueTokens(text)) if (!allowed.has(tokenKey(t.raw).replace(/^[+±]/, ''))) reasons.push('v3:exact-number');
