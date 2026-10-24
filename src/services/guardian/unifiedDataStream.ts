@@ -277,6 +277,32 @@ const CORE_DEPS: CoreDeps = {
     log: (m) => console.warn(m),
 };
 
+/**
+ * ★2026-10-24 장외 순환매 v3 승격용 생성 재료 — 공유 코어만으로(공급사 호출 없음). 장중 aiContext 의 순환매 관련 필드와 같은 출처.
+ *   장외 경로(저장 판정·스냅샷 출구)는 aiContext 를 만들지 않아 여기서 만든다.
+ */
+function offHoursRotationContext(core: GuardianCore, locale: Locale) {
+    const macro = core.market, g = core.gammaShield;
+    let divergenceCase: 'A' | 'B' | 'C' | 'D' | 'N' | undefined;
+    try { divergenceCase = deriveLocaleParts(core, locale).divCase.caseId as typeof divergenceCase; } catch { divergenceCase = undefined; }
+    return {
+        rlsiScore: core.rlsi.score, nasdaqChange: macro?.nqChangePercent || 0, indexBasis: macro?.indexBasis, session: core.rlsi.session,
+        vectors: core.vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
+        vix: macro?.vix || 0, locale,
+        us10yChangeBp: us10yChangeBp(macro?.factors?.us10y),
+        dxy: macro?.dxy ?? undefined,
+        goldChangePct: macro?.factors?.gold?.chgPct ?? undefined,
+        oilChangePct: macro?.factors?.oil?.chgPct ?? undefined,
+        btcChangePct: macro?.factors?.btc?.chgPct ?? undefined,
+        tltChangePct: macro?.tltChangePct ?? undefined,
+        gexIndex: g?.gexIndex ?? undefined, gexLevel: g?.gexLevel ?? undefined, squeezeRisk: g?.squeezeRisk ?? undefined,
+        triggerSupport: g?.supportWall ?? undefined, triggerResistance: g?.resistanceWall ?? undefined,
+        marketNewsHeadlines: core.news?.length ? core.news : undefined, scheduledEvents: core.scheduledEvents, asOf: core.timestamp,
+        divergenceCase,
+        rotationFacts: rotationFactsFrom(core.rotationIntensity, core.sectors, core.vectors),
+    };
+}
+
 /** 추가 공급사 호출 없이 공유 코어의 근거를 현재 시각으로 재검사한다. 결측은 그대로 둔다. */
 function currentTacticalPrompts(nums: GNums, core: GuardianCore | null, gamma?: GammaShieldData | null) {
     const ctx = {
@@ -334,6 +360,10 @@ export class GuardianDataHub {
         // ★2026-10-04 같은 응답의 화면 숫자(market·rlsi)로 자리표를 채우고, 숫자로 박힌 지표를 대조한다(lib/ai/guardianNumbers)
         const nums = guardianNumsFromContext(context);   // ★2026-10-07 T5: 시장·RLSI + 감마 쉴드(GEX·스퀴즈)·참여폭
         const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums, currentTacticalPrompts(nums, core, context.gammaShield));
+        // ★2026-10-24 순환매 v3 — 장외 스냅샷은 워커가 이 응답을 다시 써서 재계산 없이 돈다(저장 판정 경로를 안 탄다). 출구에서도 옛 계약 글을 승격한다
+        //   (v3 저장본이 있으면 교체 · 없으면 잠금 1회 백그라운드 생성 · 실패하면 옛 글 그대로). 승격본은 워커가 스냅샷에 다시 쓴다.
+        const up = core ? await IntelligenceNode.offHoursRotationUpgrade(r.verdict, locale, nums, () => offHoursRotationContext(core, locale), (job) => CORE_DEPS.background?.(job) ?? false) : null;
+        if (up) return { ...context, verdict: up };
         return r.changed ? { ...context, verdict: r.verdict } : context;
     }
 
@@ -459,23 +489,7 @@ export class GuardianDataHub {
                 const repaired = await IntelligenceNode.repairVerdictTexts(storedVerdict, locale, 'ai_verdict', storedNums, currentTacticalPrompts(guardianNumsFromMarket(macro, rlsi.score), core, gammaShieldData));
                 verdict = repaired.verdict;
                 // ★2026-10-24 순환매 v3 — 장외 저장 판정의 옛 계약 글(레이블·선물 «나스닥»)을 v3 글로(저장본이 있으면 교체, 없으면 1회 백그라운드 생성 · 실패하면 옛 글 유지)
-                const upgraded = await IntelligenceNode.offHoursRotationUpgrade(verdict, locale, storedNums, () => ({
-                    rlsiScore: rlsi.score, nasdaqChange: macro?.nqChangePercent || 0, indexBasis: macro.indexBasis, session: rlsi.session,
-                    vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
-                    vix: macro?.vix || 0, locale,
-                    us10yChangeBp: us10yChangeBp(macro?.factors?.us10y),
-                    dxy: macro?.dxy ?? undefined,
-                    goldChangePct: macro?.factors?.gold?.chgPct ?? undefined,
-                    oilChangePct: macro?.factors?.oil?.chgPct ?? undefined,
-                    btcChangePct: macro?.factors?.btc?.chgPct ?? undefined,
-                    tltChangePct: macro?.tltChangePct ?? undefined,
-                    gexIndex: gammaShieldData?.gexIndex ?? undefined, gexLevel: gammaShieldData?.gexLevel ?? undefined,
-                    squeezeRisk: gammaShieldData?.squeezeRisk ?? undefined,
-                    triggerSupport: gammaShieldData?.supportWall ?? undefined, triggerResistance: gammaShieldData?.resistanceWall ?? undefined,
-                    marketNewsHeadlines: marketNews.length ? marketNews : undefined, scheduledEvents, asOf: core.timestamp,
-                    ...divergenceForAi,
-                    rotationFacts: rotationFactsFrom(rotationIntensity, flows, vectors),
-                }), (job) => CORE_DEPS.background?.(job) ?? false);
+                const upgraded = await IntelligenceNode.offHoursRotationUpgrade(verdict, locale, storedNums, () => offHoursRotationContext(core, locale), (job) => CORE_DEPS.background?.(job) ?? false);
                 if (upgraded) verdict = upgraded;
                 if (repaired.changed || upgraded) await saveAiVerdict(verdict, locale);
             } else {

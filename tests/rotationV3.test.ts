@@ -128,10 +128,24 @@ async function main() {
     assert.equal(store.get('guardian:gemini:v3:rotation:ko'), undefined, '모델 실패 → 저장 없음(옛 글 유지)');
     // 다른 인스턴스가 만든 v3 저장본이 있으면 교체
     const tpl = H.gateText('rotation', H.tokenizeInsight('rotation', GOOD.ko, futNums), 'ko', futNums, futNums, true, prompt('ko')).tpl;
+    // 언어당 60초 확인 간격(요청마다 Redis 를 두드리지 않는다) — 간격 안에서는 저장본이 생겨도 다시 보지 않는다
     store.set('guardian:gemini:v3:rotation:ko', { text: tpl, basis: futNums, updatedAt: new Date(weekend).toISOString() });
+    assert.equal(await N.offHoursRotationUpgrade(legacyVerdict, 'ko', futNums, () => ctx, () => true), null, '60초 간격 안');
+    _resetInsightStateForTest();
     const up3 = await N.offHoursRotationUpgrade(legacyVerdict, 'ko', futNums, () => ctx, () => true);
     assert.ok(up3 && !isLegacyRotationText(up3.description) && up3.description.includes('나스닥 종합이 -0.2%'), up3?.description);
     assert.equal(await N.offHoursRotationUpgrade({ ...legacyVerdict, description: GOOD.ko }, 'ko', futNums, () => ctx, () => true), null, 'v3 글은 그대로');
+    // 한 번 읽은 v3 글은 메모리에서 — Redis 를 다시 읽지 않고도 교체
+    store.delete('guardian:gemini:v3:rotation:ko');
+    const up4 = await N.offHoursRotationUpgrade(legacyVerdict, 'ko', futNums, () => ctx, () => true);
+    assert.equal(up4?.description, up3!.description, '메모리의 v3 글로 교체');
+    // 메모리 글이 지금 값으로 검사에 떨어지면(자리표 값 없음) Redis 의 새 글을 본다(60초 간격 뒤)
+    const fresh = { text: tpl, basis: futNums, updatedAt: new Date(weekend).toISOString() };
+    store.set('guardian:gemini:v3:rotation:ko', fresh);
+    const { RLSI: _drop, ...noRlsi } = futNums;
+    assert.equal(await N.offHoursRotationUpgrade(legacyVerdict, 'ko', noRlsi, () => ctx, () => true), null, '메모리 글 탈락 + 60초 안 → 아직 무변경');
+    _resetInsightStateForTest();
+    assert.ok(await N.offHoursRotationUpgrade(legacyVerdict, 'ko', futNums, () => ctx, () => true), 'Redis 새 글로 교체');
     _setMarketClockForTest(() => new Date('2026-10-23T15:00:00Z'));
     assert.equal(await N.offHoursRotationUpgrade(legacyVerdict, 'ko', futNums, () => ctx, () => true), null, '장중은 정상 생성 경로가 맡는다');
     // 저장된 판정 출구(repairVerdictTexts)도 v3 글을 그대로 둔다(«준비 중» 아님)
