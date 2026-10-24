@@ -223,6 +223,9 @@ test('관문 10242151 ①: «주가는 Put Floor $135와 같은» 류 가격=레
     assert.ok(quoteLevelClaimReasons('NVDA 장전 Put Floor $135, Gamma Flip $146 부근에서 감마 전환', mix2).length > 0);
     assert.ok(quoteLevelClaimReasons('NVDA pre-market right on Put Floor $135; positive gamma dampens swings', f).length > 0);
     assert.ok(quoteLevelClaimReasons('NVDA pre-market on Put Floor $135; positive gamma dampens swings', f).length > 0);
+    assert.ok(quoteLevelClaimReasons('NVDA pre-market on the Put Floor $135; positive gamma dampens swings', f).length > 0, '관문 10242256');
+    assert.deepEqual(quoteLevelClaimReasons('NVDA pre-market: puts at 70% lean on Put Floor $135 defense', f), []);
+    assert.deepEqual(quoteLevelClaimReasons('NVDA pre-market: puts at 70% keep focus on the Put Floor $135 defense', f), []);
     // at 레벨만 나온 글의 자리 말은 참
     assert.deepEqual(quoteLevelClaimReasons('MU 장전 Gamma Flip $1,460 부근에서 감마 부호가 바뀌는 자리', mix), []);
     // 예상 변동이 레벨을 «덮는다·겹친다»(가격 위치 주장 아님)는 허용 — 실모델 정상 문장

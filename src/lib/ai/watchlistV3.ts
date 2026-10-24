@@ -175,9 +175,9 @@ const LOCATIVE_BEFORE = /(?:^|:|\b(?:price|stock|shares?|it|sits?|sitting|trades
 /**
  * 해석 전체에 «자리 말»(부근·붙어·같은·일치·付近·張り付·near·right on·at/on 레벨·«$X에서/で»)이 하나라도 있고, 글에 나온 레벨 중 at 이 아닌 것이 있으면 탈락.
  * 문장 구조(쉼표 나열·세션 바로 뒤·주어 생략)와 무관하게 닫는다 — 관문 10242246: 절·결속 판정은 구두점 변형마다 새 우회가 나왔다.
- * 실모델 f4 통과 94건 중 영향 0(«lean on the Put Floor defense» 류는 자리 말이 아니라 뺐다).
+ * 실모델 f4 통과 94건 중 영향 0(«lean/focus on the Put Floor defense» 류 동사 + on 은 자리 말이 아니다).
  */
-const PROX_ANY = /부근|근처|가까|붙어|붙은|맞닿|바짝|같은|동일|일치|付近|近く|近辺|張り付|同じ|一致|に接|\b(?:near|around|close to|next to|right (?:on|at)|just (?:on|at)|pinned|equal\w*|same|identical)\b|\bat\s+(?:the\s+)?(?:Max\s*Pain|Call\s*Wall|Put\s*Floor|Gamma\s*Flip)|\bon\s+(?:Max\s*Pain|Call\s*Wall|Put\s*Floor|Gamma\s*Flip)|\$\s?[\d,.]+\s*(?:에서|で)/i;
+const PROX_ANY = /부근|근처|가까|붙어|붙은|맞닿|바짝|같은|동일|일치|付近|近く|近辺|張り付|同じ|一致|に接|\b(?:near|around|close to|next to|right (?:on|at)|just (?:on|at)|pinned|equal\w*|same|identical)\b|\bat\s+(?:the\s+)?(?:Max\s*Pain|Call\s*Wall|Put\s*Floor|Gamma\s*Flip)|(?<!\b(?:lean|leans|leaning|focus|focuses|focused|weigh|weighs|weighing|rely|relies|press|presses|bet|bets|center|centers|centered|draw|draws|act|acts|pull|pulls)\s)\bon\s+(?:the\s+)?(?:Max\s*Pain|Call\s*Wall|Put\s*Floor|Gamma\s*Flip)|\$\s?[\d,.]+\s*(?:에서|で)/i;
 export function quoteLevelClaimReasons(text: string, f: LineFacts, opts: { whole?: boolean } = { whole: true }): string[] {
     const KEYS = ['mp', 'cw', 'pf', 'gf'] as const;
     if (opts.whole !== false && PROX_ANY.test(text) && KEYS.some((k, i) => LEVEL_RES[i].test(text) && f.sides[k] !== 'at')) return ['v3:metric:quote-level-near'];
