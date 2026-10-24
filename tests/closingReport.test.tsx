@@ -88,7 +88,9 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     const abbr = brief(); abbr.structured.closingNarrative.verdict.en = 'S&P 500 -1.21% and NASDAQ Composite -2.60% closed lower, so U.S. stocks ended down.';
     assert.equal(closingReportProblems(C.alignSummary(abbr.structured) && abbr).some(r => r === 'narrative:verdict:en:sentences'), false, '«U.S.» 약어는 문장 끝이 아니다');
     const two = brief(); two.structured.closingNarrative.verdict.en = 'S&P 500 -1.21% and NASDAQ Composite -2.60% closed lower. Growth led.';
-    assert.ok(closingReportProblems(C.alignSummary(two.structured) && two).includes('narrative:verdict:en:sentences'));
+    assert.equal(closingReportProblems(C.alignSummary(two.structured) && two).includes('narrative:verdict:en:sentences'), false, '짧은 두 문장은 허용(10/24 일본어 실측)');
+    const three = brief(); three.structured.closingNarrative.verdict.en = 'S&P 500 -1.21% and NASDAQ Composite -2.60% closed lower. Growth led. Defensives lagged.';
+    assert.ok(closingReportProblems(C.alignSummary(three.structured) && three).includes('narrative:verdict:en:sentences'));
     const ids = brief(); ids.structured.closingNarrative.why.ko = '2026-10-22 08:30 ET Source 보도(market-1)는 장중 재료다. 인과는 미확인이다.';
     C.alignSummary(ids.structured);
     assert.equal(ids.structured.closingNarrative.why.ko.includes('market-1'), false, '괄호 속 뉴스 ID 는 지운다');

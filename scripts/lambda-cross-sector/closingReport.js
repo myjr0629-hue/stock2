@@ -113,7 +113,9 @@ function narrativeProblems(s) {
         if (n.verdict?.[loc] !== s.marketOverview?.summary?.[loc]) errors.push(`narrative:summary:${loc}`);
         if (!/[+−-]?\d+(?:\.\d+)?%/.test(n.verdict?.[loc] || '')) errors.push(`narrative:verdict:${loc}:number`);
         // «U.S.»·«S.»처럼 한 글자 약어의 마침표는 문장 끝이 아니다(10/24 운영 측정 오탐)
-        if ((String(n.verdict?.[loc] || '').match(/[。！？]|(?<!(?:^|[^A-Za-z])[A-Z])[.!?](?=\s|$)/g) || []).length > 1) errors.push(`narrative:verdict:${loc}:sentences`);
+        // 지시는 한 문장이지만 검사는 두 문장까지 — 10/24 4차 실측: 일본어가 «…で引けた。防御株を中心に…»(76자)처럼 짧은 두 문장으로 쓰고 고침 2회에도
+        // 그대로라 정상 리포트 전체가 탈락했다. 분량은 LIMITS.verdict 가 막고, 푸시는 첫 문장(숫자 포함)만 쓴다.
+        if ((String(n.verdict?.[loc] || '').match(/[。！？]|(?<!(?:^|[^A-Za-z])[A-Z])[.!?](?=\s|$)/g) || []).length > 2) errors.push(`narrative:verdict:${loc}:sentences`);
     }
     if (FIELDS.some(f => /Cross[- ]Asset|콘탱고|백워데이션|리스크[- ]?온|리스크[- ]?오프/i.test(n[f]?.ko || ''))) errors.push('narrative:ko:jargon');
     if (!Array.isArray(n.causeRefs)) errors.push('narrative:causeRefs');
