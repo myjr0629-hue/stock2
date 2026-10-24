@@ -67,6 +67,10 @@ t('한국어 — 매수세 · 매도 압력 · 순매수 · 공매도 · 제3자
   '광범위한 매수세가 관찰됨', '기술주 중심 매수 심리를 뒷받침', '대형 바이오에 매도 압력', '매도세가 이어짐', '오늘 매수세가 유입', '순매수 전환', '외국인 매수 전환', '공매도 비중이 낮아짐', '대주주 매도 신고', '대주주 매도 신청',
   '콜 매수 증가', '매수가 몰리며', '선별적 매수세', '기술 섹터 순환 매수', '내부자는 30일간 매수 0, 매도 5', '광범위한 매수인지 구분되지 않음', '매출 전망 재확인', '컨센서스 전망치를 상회',
 ]));
+t('한국어 — 원인 서술 «매도로»(10/24 운영 모델 Tactical ko 오탐)는 허용, «매도로 전환·대응»은 막음', () => {
+  allowed(['10/23(금) 10:51 ET 보도에 따르면 기술주 매도로 10년물 금리가 5% 아래로 내려갔습니다.', 'AI 관련 기술주 매도로 채권 선호가 나타났습니다', '기관 매도로 하락했습니다', '차익 실현 매수로 반등했습니다']);
+  blocked(['지금은 매도로 대응하세요', '매도로 전환할 시점입니다', '매수로 접근하는 게 좋습니다', '이제 매수로 갈아타기']);
+});
 t('영어 — buying/selling pressure · sell-off · net buying · insider sells · dealer hedging …', () => allowed([
   'tech-led buying', 'broad-based buying', 'selling pressure in semis', 'a sell-off in chips', 'Sell-off in chips deepened', 'net buying by institutions', 'heavy call buying', 'short selling rose', 'Selling pressure mounts',
   'Insiders show 0 buys and 12 sells', 'Dealer hedging adds to moves: selling into strength and buying into weakness', 'dealers sell rallies and buy dips', "Eli Lilly's Biggest Shareholder Filed to Sell $347 Million of Stock",
