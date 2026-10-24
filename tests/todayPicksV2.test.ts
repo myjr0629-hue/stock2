@@ -84,16 +84,13 @@ test('합성 경계 시험: 현재 쪽만 설명하는 정상문·음차 용어�
     assert.ok(checkPickV2Why('```json\n' + JSON.stringify(r.why) + '\n```', ticker, r.facts, 2026, r.etDate).ok);
   }
 });
-test('합성 경계 시험: 내부 출처·새 원인·근거 없는 역사 비교만 새 생성에서 거절', () => {
+test('합성 경계 시험: 내부 출처·지연 표기만 새 생성에서 거절, 원인·역사 서술은 운영과 같은 판정(관문 10242126)', () => {
   const r = byTicker('UNH');
-  // 관문 10242104: 다른 표현의 부정(«not its direction»)은 역사 비교를 면제하지 않고, 부정된 원인(«not Fed policy»)은 원인 주장이 아니다.
-  assert.ok(!check(r, { ...r.why, en: 'Options price move size, not Fed policy' }).reasons.some(x => x.includes('unsupported-cause')));
-  // 관문 10242119: 부정·유보가 섞인 글은 새 원인·역사 검사로 거절하지 않는다(운영과 같은 판정)
-  for (const [l, text] of [['en', 'No evidence links Fed news to this move'], ['ko', '평소보다 큰 움직임이라는 뜻은 아닙니다']] as const)
-    assert.ok(!check(r, { ...r.why, [l]: text }).reasons.some(x => x.includes('unsupported-')), text);
-  assert.ok(!check(r, { ...r.why, en: 'Options price a move that is not unusually large' }).reasons.some(x => x.includes('unsupported-history')));
-  for (const en of ['FINRA options price a move', 'Delayed options price a move', 'Fed news explains this move', 'Options price an unusually large move']) {
-    assert.equal(check(r, { ...r.why, en }).ok, false, en);
+  for (const en of ['FINRA options price a move', 'Delayed options price a move']) assert.equal(check(r, { ...r.why, en }).ok, false, en);
+  for (const [l, text] of [['en', 'Fed news explains this move'], ['en', 'Options price an unusually large move'], ['en', 'No evidence links Fed news to this move'],
+    ['ko', '평소보다 큰 움직임이라는 뜻은 아닙니다'], ['en', 'The link to Fed policy remains unconfirmed'], ['ko', '평소보다 큰 움직임인지는 불명확합니다']] as const) {
+    const why = { ...r.why, [l]: text };
+    assert.ok(!check(r, why).reasons.some(x => x.includes('unsupported-')), text);
   }
   assert.ok(check(byTicker('MU'), { ko: 'Max Pain 근접은 가격이 붙는다는 근거가 아닙니다',
     en: 'Near Max Pain is not evidence of pinning', ja: 'Max Painの近くでも張り付く証拠ではありません' }).ok, '부정문을 실제 pinning 주장으로 오독하지 않는다');

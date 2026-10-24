@@ -81,8 +81,6 @@ const MECHANISM_WORDS: Record<Loc, [string, string]> = {
 const INTERNAL = /\b(?:FINRA|OCC|Intrinio|Polygon|Redis|Bedrock|Haiku|Upstash)\b|지연|\bdelayed\b|遅延/i;
 const NEGATED = /없|아닙|않|\b(?:not|no|neither|without)\b|ません|ない|ありません/i;
 const NEG_MECHANISM = new RegExp(`${NEGATED.source}|못|せず|しない|されない`, 'i');
-const UNSUPPORTED_CAUSE = /\b(?:CPI|FOMC|Fed|tariffs?|inflation)\b|연준|관세|물가\s*발표|関税|インフレ/i;
-const HISTORY = /평소보다|이례적|유례|\b(?:unusually|unprecedented|larger than usual)\b|普段より|異例/i;
 // 조건절을 떼어 낸 나머지에 남은 위치 단어는 «현재 위치 주장»으로 본다(관문 10240458: «Price is above.»처럼 currently/now 없이도).
 const CURRENT_SIDE: Record<Loc, RegExp> = {
     ko: /(?<![가-힣])(위|아래)(?=\s*(?:에|입니|이며|이고|이라|라서|쪽|로|서|$|[,.。]))/g,
@@ -114,11 +112,8 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
     for (const l of TP_LOCALES) {
         const t = text[l];
         if (INTERNAL.test(t)) reasons.push(`${l}:v2:internal-or-freshness`);
-        // 원인·역사 새 검사는 글에 부정·유보 표현이 하나라도 있으면 거절하지 않는다(운영엔 없던 검사 — 부정 범위 해석은 관문 10242104~10242119에서
-        // 오탈락·오통과가 번갈아 나왔다. 부정이 섞인 글은 운영과 같은 판정으로 둔다).
-        const hedgedText = NEGATED.test(t) || /n't\b|\bno evidence\b|\bunclear\b|아닙|아니|않|없|ではな|ません/i.test(t);
-        if (UNSUPPORTED_CAUSE.test(t) && !hedgedText) reasons.push(`${l}:v2:unsupported-cause`);
-        if ((f.kind === 'earnings' || f.kind === 'whale') && HISTORY.test(t) && !hedgedText) reasons.push(`${l}:v2:unsupported-history`);
+        // 원인(연준·관세 등)·역사 비교(«평소보다·unusually») 새 검사는 거절하지 않는다 — 부정·유보 문형(«no evidence links…»·«불명확»·«unconfirmed»)을
+        // 단정으로 오독하는 오탈락이 관문마다 재현됐고(10242104~10242126) 운영엔 없던 검사다. 운영 모델 225건 실측 해당 0 — 프롬프트 3항으로 다룬다.
         if (f.kind !== 'gamma' || f.level !== 'gammaFlip') continue;
         // Gamma Flip 완화는 단 하나: «순수한 두 갈래 구조 설명»(위면 완충·아래면 증폭)일 때만 옛 검사의 위치·기전 사유를 뗀다.
         //   순수 = 정상 기전의 두 갈래가 모두 있고, 글 전체에 부정·대조·감소 표현이 없고, 두 갈래를 뗀 나머지에 위치·기전·현재·가격 단어가 없다.
@@ -135,7 +130,7 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         // 나머지는 허용 목록 낱말(구조·헤지 같은 이름·조사)만 — 그 밖의 낱말이 하나라도 있으면 순수 구조가 아니다(관문 10242110: «spot exceeds Gamma Flip»).
         if (residual.replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '').length > 0) continue;
         // 갈래 안쪽도 같은 허용 목록으로 본다 — 조건·위치어·기전 단어(어미 포함)·허용 낱말 말고 남는 것이 있으면(«fails to dampen») 순수 구조가 아니다(관문 10242119).
-        const whole = t.replace(new RegExp(`(?:${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]})(?:[가-힣]{1,3}|[ぁ-ん]{1,4}|[a-z]*)`, 'gi'), '')
+        const whole = t.replace(new RegExp(`(?:${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]})(?:하는|하고|하며|합니다|하여|해|이고|이며|입니다|웁니다|니다|는|고|며|します|する|し|[a-z]*)`, 'gi'), '')
             .replace(BRANCH_TOKENS, '').replace(RESIDUAL_FILLER, '').replace(/[\s,;:.·・･、。()\-–—]/g, '');
         if (whole.length > 0) continue;
         reasons = reasons.filter(r => !(r.startsWith(`${l}:dir:`) || r.startsWith(`${l}:mechanism:`)));
