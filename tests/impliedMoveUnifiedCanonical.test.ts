@@ -57,6 +57,7 @@ function seed() {
   reads.length = 0;
   IMS._resetImpliedPackMemoForTest();
   IMS._resetCanonicalFieldsMemoForTest();
+  IMS._resetCanonicalInflightForTest();
   // 실적 캘린더 묶음(관측 레지스트리) — 행 키 «티커|발표일», e = 그 발표 뒤 첫 만기
   store.set('earnings:implied:v1', { v: 1, cells: {
     'AMZN|2026-10-29': { e: EXPIRY, p: 7.9 },
@@ -132,6 +133,17 @@ async function main() {
   const obsBack = await at(WEEKEND + 1_000, () => IMS.canonicalImpliedMoveFields([{ ticker: 'AMZN', fields: fields(7.8) }]));
   assert.deepEqual(obsBack[0], fields(7.9), '관측 전부 null 은 메모하지 않는다');
 
+  // ⑥-b 한 묶음에서 한 종목만 못 읽었으면 그 종목만 기억하지 않는다(관문 10250501 ①) — AMZN 관측 성공·MSFT 관측 null
+  seed();
+  const msftObs = store.get(obsKey('MSFT', '2026-10-28'));
+  store.delete(obsKey('MSFT', '2026-10-28'));
+  const mixed = await at(WEEKEND, () => IMS.canonicalImpliedMoveFields([{ ticker: 'AMZN', fields: fields(7.8) }, { ticker: 'MSFT', fields: fields(5.1) }]));
+  assert.deepEqual(mixed[0], fields(7.9));
+  assert.equal(mixed[1], null, 'MSFT 못 읽음 → 그대로');
+  store.set(obsKey('MSFT', '2026-10-28'), msftObs);
+  const mixed2 = await at(WEEKEND + 6_000, () => IMS.canonicalImpliedMoveFields([{ ticker: 'MSFT', fields: fields(5.1) }]));
+  assert.deepEqual(mixed2[0], fields(5.3), '못 읽은 종목은 다음 요청이 다시 대조(60초 고정 안 됨)');
+
   // ⑦ 행 맵 덮기 — 원본 행 객체는 그대로, 맵 값만 새 객체 · 다른 필드(방향 등)는 보존 · 표식 없는 값은 건드리지 않음
   seed();
   const original = { ...analysisEntry('AMZN', 7.8) };
@@ -157,6 +169,25 @@ async function main() {
   assert.equal(slowRows.AMZN.impliedMovePct, 7.8, '시간 초과 — 그대로');
   slowStore.mgetFromCache = realMget;
   await new Promise((r) => setTimeout(r, 350));
+
+  // ⑧-b 입구가 상한으로 먼저 돌아온 뒤 출구가 같은 행을 다시 대조하지 않는다 — 요청 전체 대기 ≤ 상한·관측 MGET 1회(관문 10250501 ②)
+  seed();
+  let mgets = 0;
+  slowStore.mgetFromCache = (keys: string[]) => { mgets++; return new Promise((r) => setTimeout(() => r(keys.map((k) => structuredClone(store.get(k) ?? null))), 1200)); };
+  const entryRows: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
+  const t1 = Date.now();
+  await IMS.overlayCanonicalImpliedMoveRows(entryRows, 500);       // 분석 캐시 입구
+  const exitRows: Record<string, any> = { AMZN: { ...entryRows.AMZN } };
+  await IMS.overlayCanonicalImpliedMoveRows(exitRows, 500);        // unified 출구(같은 요청)
+  const spent = Date.now() - t1;
+  assert.ok(spent < 700, `요청 전체 보정 대기 ${spent}ms ≤ 상한`);
+  assert.equal(mgets, 1, '같은 조회 공유 — MGET 1회');
+  assert.equal(exitRows.AMZN.impliedMovePct, 7.8, '상한 안에 못 끝냄 → 그대로');
+  await new Promise((r) => setTimeout(r, 1300));                   // 진행 중 조회가 끝나면 다음 요청은 메모로 정본
+  slowStore.mgetFromCache = realMget;
+  const later: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
+  await IMS.overlayCanonicalImpliedMoveRows(later, 500);
+  assert.equal(later.AMZN.impliedMovePct, 7.9, '끝난 조회 결과는 다음 요청에 쓰인다');
 
   // ⑨ 분석 캐시 입구(getAnalysisCacheForTickers·getAnalysisCache) — 이 캐시를 읽는 화면 전부가 7.9 · 저장본은 그대로(쓰기 0)
   seed();
@@ -191,7 +222,7 @@ async function main() {
   assert.match(overlayBody, /await overlayCanonicalImpliedMove\(next\);\s*\n\s*return \{ \.\.\.payload, tickers: next \};/);
   assert.match(overlayBody, /overlayCanonicalImpliedMoveRows\(rows, 500\)/);
 
-  console.log('impliedMoveUnifiedCanonical: 11 묶음 통과');
+  console.log('impliedMoveUnifiedCanonical: 13 묶음 통과');
 }
 
 main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
