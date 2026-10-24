@@ -58,6 +58,10 @@ const json = { json: (data: any) => ({ json: async () => data }) };
             'next/server': { NextResponse: json }, '@/lib/app/reportLink': { reportDate: (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null) }, '@/lib/supabase/snapshot': {}, '@/services/newsHubProvider': {}, '@/services/bedrockClient': {},
             '@/lib/ai/ladderGates': {}, '@/lib/ai/commonTerms': {}, '@/services/yahooFinanceHub': { YAHOO_CACHE_KEYS: {} }, '@/lib/net/publicBase': {},
             '@/services/redisClient': { getFromCache: async (k: string) => cache[k] ?? null, setInCache: async () => true },
+            // 최신 조회의 알파 덮기(감사 H2) — 이 시험은 종가만 본다: 알파 출구는 «값 없음»으로 두어 저장 점수 그대로
+            '@/services/optionAlphaService': { readOptionAlpha: async () => new Map() },
+            '@/services/xsScores': { ensureXsScores: async () => {}, xsSnapshotOverride: (_t: string, s: any) => s },
+            '@/services/lastKnownAlpha': { readLastKnownAlpha: async () => new Map() },
             ...(svc ? { '@/services/stalePriceRepair': svc } : {}),
         });
         return (await route.GET(new Request('https://offline.invalid/api/intel/snapshot?sector=m7'))).json();
