@@ -70,7 +70,7 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
     const allowed = [...numericFacts(f), ...(f.members?.map(r => r.c) || []), f.exLeaderAvgChangePct ?? NaN];
     reasons.push(...ungroundedNumbers(dateFree, allowed).map(n => `number:${n}`));
     // 시세·자료의 지연 표기만(관문 10241828: «동료 종목 동참 지연»·«participation is delayed»는 시세 표기가 아니다).
-    if (/지연\s*(?:시세|가격|데이터|자료|호가)|(?:시세|가격|데이터|자료|호가)\s*(?:가\s*|이\s*)?지연|\bdelayed\s+(?:\w+\s+)?(?:quotes?|prices?|pricing|data|feed)\b|\b(?:quotes?|prices?|data|feed)\s+(?:is\s+|are\s+)?delayed\b|遅延\s*の?\s*(?:データ|相場|気配|価格|通常取引|時間外|取引開始前)|(?:データ|相場|気配|価格)\s*(?:の|が)?\s*遅延|^\s*(?:지연|delayed\b|遅延)/i.test(text)) reasons.push('latency-label');
+    if (/지연\s*(?:시세|가격|데이터|자료|호가)|(?:시세|가격|데이터|자료|호가)\s*(?:가\s*|이\s*)?지연|\bdelayed\s+(?:\w+\s+)?(?:quotes?|prices?|pricing|data|feed)\b|\b(?:quotes?|prices?|data|feed)\s+(?:is\s+|are\s+)?delayed\b|遅延\s*の?\s*(?:データ|相場|気配|価格|通常取引|時間外|取引開始前)|(?:データ|相場|気配|価格)\s*(?:の|が)?\s*遅延/i.test(text)) reasons.push('latency-label');
     if (/NEWS PULSE|guardian:|intel:|Redis|Bedrock|Upstash|Polygon|FMP|SIGNUM/i.test(text)) reasons.push('internal-source');
     if (/\bfutures\b|선물|先物/i.test(text)) reasons.push('unsupported-futures');
     // 미확인·판단 보류 표현(관문 10241655: «판단 불가»·«판단하기 어려움»·cannot·unclear·判断できない)은 인과·자금 단정이 아니다.

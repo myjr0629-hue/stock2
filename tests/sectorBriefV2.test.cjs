@@ -144,6 +144,7 @@ test('gate regression 10240727: «여부·엇갈림» breadth and next-session w
     // 관문 10241655·10241720
     [fact, 'ko', '정규장 NVDA +6%, 동료 종목 동참 지연으로 선별 강세 확인'],
     [fact, 'en', 'Cash: NVDA +6%; peer participation is delayed, leadership concentrated'],
+    [fact, 'en', 'Delayed peer participation leaves NVDA +6% isolated in cash trading'],
     [fact, 'ja', '通常取引でNVDA +6%、他銘柄の追随遅延で選別的な強さを確認'],
     [fact, 'ko', '정규장 NVDA +6%, 기관 매수 여부는 추가 확인 필요'],
     [fact, 'ko', '정규장 NVDA 강세, 실적 영향은 추가 확인 필요'],
