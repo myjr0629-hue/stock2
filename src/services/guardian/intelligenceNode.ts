@@ -382,7 +382,7 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
 }
 
 /** Redis 에서 읽기 — 읽을 때도 검사한다(언어·거절 + 화면 숫자). 검사를 도입하기 전에 저장된 나쁜 글이 TTL 동안 나가지 않게. */
-async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums | null, tacticalPrompts?: TacticalPrompts, opts: { previousKey?: boolean; restore?: boolean } = {}): Promise<CachedInsight | null> {
+async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums | null, tacticalPrompts?: TacticalPrompts, opts: { previousKey?: boolean; restore?: boolean; anySession?: boolean } = {}): Promise<CachedInsight | null> {
     const redis = getRedis();
     if (!redis) return null;
     const key = opts.previousKey ? `guardian:gemini:v2:reality:${locale}` : getRedisKey(type, locale);
@@ -391,7 +391,7 @@ async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums
         if (!data?.text) return null;
         const at = data.updatedAt ? Date.parse(data.updatedAt) : 0;
         // ★2026-10-24 밤 검토 ① — 신선한 캐시로 쓸 때만 세션 일치를 본다(09:29 PRE 글이 09:31 REG 에서 «지금 개장 전» 그대로 나갔다). 복구는 세션 무관(글 보존).
-        if (!opts.restore && !opts.previousKey && !sameTacticalSession(type, at, tacticalPrompts?.(locale), data.session)) return null;
+        if (!opts.restore && !opts.previousKey && !opts.anySession && !sameTacticalSession(type, at, tacticalPrompts?.(locale), data.session)) return null;
         const basis = data.basis && typeof data.basis === 'object' ? data.basis : null;
         const g = gateText(type, data.text, locale, nums, basis, false, tacticalPrompts?.(locale), opts.restore);
         if (!g.ok) {
@@ -895,7 +895,8 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
     if (!process.env.AWS_ACCESS_KEY_ID) return null;
     for (const src of TRANSLATE_SOURCES[locale]) {
         const m = _mem[type][src];
-        const source = m && sameTacticalSession(type, m.at, tacticalPrompts?.(src), m.session) && gateText(type, m.text, src, nums, m.basis, false, tacticalPrompts?.(src)).ok ? m : await readStoredInsight(type, src, nums, tacticalPrompts);
+        // 번역 원본은 세션이 달라도 된다(관문 10241248) — Tactical 번역 글은 아래에서 «지금 세션» 새 생성 계약(INDEX_FACTS·세션 문구 포함)으로 다시 검사한다
+        const source = m && gateText(type, m.text, src, nums, m.basis, false, tacticalPrompts?.(src)).ok ? m : await readStoredInsight(type, src, nums, tacticalPrompts, { anySession: true });
         if (!source) continue;
         const translated = await translateInsight(source.text, src, locale, type);
         if (!translated) continue;

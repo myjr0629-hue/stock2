@@ -99,6 +99,19 @@ async function main() {
         if (ok) assert.ok(out.includes('33점') && out.includes('18.4'), out);
         else assert.ok(!out.includes('99') && !out.includes('2.6%'), out);
     }
+    // 관문 10241248: 09:29 PRE 영어 정상본만 있고 09:31 REG 한국어 생성 실패 → 영어 번역으로 복구(번역 글은 REG 새 생성 계약으로 검사)
+    for (const session of ['PRE', undefined] as const) {
+        reset('2026-10-23T13:31:00Z');
+        store.set(key('en'), { text: text.en, updatedAt: '2026-10-23T13:29:00.000Z', basis: { RLSI: 33, VIX: 18.4 }, ...(session ? { session } : {}) });
+        response = translateTo(koGood);
+        const out = await N.generateRealityInsight(ctx('ko'));
+        assert.ok(!N.isPlaceholderInsight(out) && out.includes('33점'), `${session ?? '세션 없음'}: ${out}`);
+        assert.equal(store.get(key('ko'))?.session, 'REG');
+        // 영어 PRE 글은 REG 신선한 캐시로 쓰지 않는다(①) — 영어 요청은 재생성 시도
+        const before = calls;
+        await N.generateRealityInsight(ctx('en'));
+        assert.ok(calls > before, '영어 PRE 글은 REG 에서 재생성 유도');
+    }
     // INDEX_FACTS 가 있으면 지수 값·방향을 새 생성처럼 대조한다(나스닥 종합 정규장 −0.784%)
     const fact = { id: 'nasdaq' as const, kind: 'spot' as const, name: { ko: '나스닥 종합', en: 'Nasdaq Composite', ja: 'ナスダック総合' }, basis: { ko: '전일 종가 대비', en: 'vs prior close', ja: '前日終値比' }, asOfET: '2026-10-23 10:59 ET', sessionDate: '2026-10-23', chgPct: -0.784 };
     const factPrompts = (l: Locale) => buildTacticalPrompt({ ...ctx(l), session: 'REG', asOf: new Date(clock).toISOString(), indexFacts: [fact as any] }, l);
