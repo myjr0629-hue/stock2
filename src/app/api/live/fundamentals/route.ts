@@ -13,19 +13,11 @@ export async function GET(req: NextRequest) {
     if (!ticker) return NextResponse.json({ error: 'Missing ticker' }, { status: 400 });
 
     try {
-        // [T12 · M1 — 관문 10250533 뒤 최소 범위] 공급사에서 «방금» 읽은 결과에만 기준 세션 표식(_sourceCheckedAfter = 그 종목 공식 종가가
-        //   적재된 마지막 끝난 세션)을 함께 저장한다(services/fundamentalsSession). 값·점수는 원천 그대로(다시 계산 0). 재조회 주기·저장 규칙은 예전 그대로.
-        //   · DynamoDB 수확본은 표식 없음(수확 시점의 가격 기준을 모른다 — 관문 10250533 ①)
-        //   · 빈 결과(NO_DATA — 공급사 실패를 어댑터가 빈 응답으로 바꾼 경우 포함)·시총 없음은 표식 없음(출구가 정상 값을 빈 값으로 덮지 않게 — 관문 10250533 ②)
-        //   세션 판정 모듈을 못 읽거나 실패하면 표식 없음 — 재무 응답을 막지 않는다.
-        const stampFromSource = async <T extends { grade?: string; marketCap?: number | null }>(data: T): Promise<T> => {
-            if (!data || data.grade === 'NO_DATA' || !(typeof data.marketCap === 'number' && data.marketCap > 0)) return data;
-            try {
-                const fsm = await import('@/services/fundamentalsSession');
-                const session = await fsm.confirmedCloseSession(ticker);
-                return session ? { ...data, [fsm.SOURCE_CHECKED_AFTER]: session } : data;
-            } catch { return data; }
-        };
+        // [T12 · M1 — 관문 10250533·10250551 뒤 최소 범위] 공급사 경로로 얻은 정상 결과(시총 있음·NO_DATA 아님)에만 «읽은 시각» 표식
+        //   (_sourceFetchedAt, services/fundamentalsSession)을 함께 저장한다 — unified 출구가 «더 늦게 읽은 값»으로 맞춘다. 세션 기준은 주장하지 않는다.
+        //   DynamoDB 수확본·빈 결과(공급사 실패를 어댑터가 빈 응답으로 바꾼 경우 포함)는 표식 없음. 값·점수·재조회 주기·저장 규칙은 예전 그대로.
+        const stampFromSource = <T extends { grade?: string; marketCap?: number | null }>(data: T): T =>
+            (!data || data.grade === 'NO_DATA' || !(typeof data.marketCap === 'number' && data.marketCap > 0)) ? data : { ...data, _sourceFetchedAt: Date.now() };
         const result = await swrFetch(
             // ⚠️ 판정을 바꾸면 **키를 올려야 한다.** 안 올리면 옛 결과(NO_DATA)가
             //   TTL 동안 그대로 나가고 「고쳤는데 안 바뀐다」로 오진하게 된다.

@@ -59,16 +59,6 @@ const legacyEntry = (ts: number) => ({ timestamp: ts, data: {
 } });
 
 async function main() {
-  // ② 기준 세션 — 그 종목 공식 종가가 적재된 마지막 끝난 세션, 게시 전·못 읽음·상한 초과는 null(강제 재조회 없음)
-  official = OFFICIAL;
-  assert.equal(await at(SAT, () => FS.confirmedCloseSession('NVDA', SAT)), '2026-10-23');
-  official = {};
-  assert.equal(await FS.confirmedCloseSession('NVDA', FRI_1630), null, '마감 시각 도달만으로 확정하지 않는다');
-  official = OFFICIAL; eodDelay = 300;
-  const t0 = Date.now();
-  assert.equal(await FS.confirmedCloseSession('NVDA', SAT, 50), null); assert.ok(Date.now() - t0 < 250);
-  eodDelay = 0; await new Promise((r) => setTimeout(r, 350));
-
   // ③ 직접 재무 API — 재조회 주기·저장 규칙은 예전 그대로(6시간 안 적중·원천 0), 공급사에서 «방금» 읽은 정상 결과에만 기준 세션 표식
   store.clear(); writes.length = 0; vendor.length = 0; official = OFFICIAL;
   store.set(KEY, legacyEntry(SAT - 2 * 3600_000));
@@ -77,12 +67,9 @@ async function main() {
   store.set(KEY, legacyEntry(SAT - 7 * 3600_000));
   const r1 = await at(SAT, () => get());
   assert.equal(r1._cache, 'revalidated'); assert.equal(r1.pe, 26.4); assert.equal(r1.marketCap, 5084136000000);
-  assert.equal(r1._sourceCheckedAfter, '2026-10-23', '공급사에서 방금 읽은 정상 결과 → 기준 세션 표식');
-  assert.equal(store.get(KEY).data._sourceCheckedAfter, '2026-10-23', '표식을 값과 함께 저장');
-  //    공식 종가 게시 전(금 16:30) — 표식 없음(마감 시각만으로 확정하지 않는다)
-  store.clear(); official = {};
-  const r3 = await at(FRI_1630, () => get());
-  assert.equal(r3.pe, 26.4); assert.equal(r3._sourceCheckedAfter, undefined);
+  assert.equal(r1._sourceFetchedAt, SAT, '공급사 경로 정상 결과 → 읽은 시각 표식');
+  assert.equal(store.get(KEY).data._sourceFetchedAt, SAT, '표식을 값과 함께 저장');
+  assert.equal(r1._sourceCheckedAfter, undefined, '세션 기준은 주장하지 않는다(어댑터 캐시 적중도 새 조회로 보임 — 관문 10250551 ①)');
   //    공급사 실패 → 빈 결과(NO_DATA) — 표식 없음(출구가 정상 값을 빈 값으로 덮지 않는다, 관문 10250533 ②)
   store.clear(); official = OFFICIAL;
   const fm = require('../src/services/massiveClient');
@@ -90,7 +77,7 @@ async function main() {
   fm.fetchMassive = async () => ({ results: [] });   // 어댑터가 429 를 빈 응답으로 바꾼 모양
   const r4 = await at(SAT, () => get());
   fm.fetchMassive = realFetch;
-  assert.equal(r4.grade, 'NO_DATA'); assert.equal(r4._sourceCheckedAfter, undefined);
+  assert.equal(r4.grade, 'NO_DATA'); assert.equal(r4._sourceFetchedAt, undefined);
   //    DynamoDB 수확본 — 표식 없음(수확 시점의 가격 기준을 모른다, 관문 10250533 ①)
   store.clear();
   const ucp = require('../src/lib/aws/unifiedCacheProvider');
@@ -98,40 +85,43 @@ async function main() {
   ucp.getUnifiedCache = async () => ({ fundamentals: { ...legacyEntry(0).data, _incomeMetricsVersion: 1 } });
   const r5 = await at(SAT, () => get());
   ucp.getUnifiedCache = realU;
-  assert.equal(r5._source, 'dynamodb'); assert.equal(r5.pe, 26.5); assert.equal(r5._sourceCheckedAfter, undefined);
+  assert.equal(r5._source, 'dynamodb'); assert.equal(r5.pe, 26.5); assert.equal(r5._sourceFetchedAt, undefined);
 
   // ⑤ unified 출구 — 저장된 직접 API 항목(표식 있음)으로 맞춘다: 앱(직접)·웹(unified) 같은 값, 회사 정보는 unified 사본 그대로
   FS._resetFundamentalsMemoForTest();
   store.clear(); readFails = false;
-  store.set(KEY, { timestamp: SAT - 60_000, data: { ...legacyEntry(0).data, pe: 26.4, marketCap: 5084136000000, ps: 17.1, pb: 22.1, score: 80, grade: 'A', breakdown: { pe: { value: '26.4', score: 12, label: 'P/E' } }, _sourceCheckedAfter: '2026-10-23' } });
+  store.set(KEY, { timestamp: SAT - 60_000, data: { ...legacyEntry(0).data, pe: 26.4, marketCap: 5084136000000, ps: 17.1, pb: 22.1, score: 80, grade: 'A', breakdown: { pe: { value: '26.4', score: 12, label: 'P/E' } }, _sourceFetchedAt: SAT - 60_000 } });
   const unifiedCopy = { ...legacyEntry(0).data, name: 'NVIDIA Corp', sector: 'Semiconductors', description: 'GPU', exchange: 'XNAS' };
   const aligned: any = await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT);
   assert.notEqual(aligned, unifiedCopy);
   assert.equal(aligned.pe, 26.4); assert.equal(aligned.marketCap, 5084136000000); assert.equal(aligned.ps, 17.1);
   assert.deepEqual(aligned.breakdown, { pe: { value: '26.4', score: 12, label: 'P/E' } }, '점수 내역도 원천 결과 그대로(다시 계산 0)');
   assert.equal(aligned.name, 'NVIDIA Corp'); assert.equal(aligned.description, 'GPU'); assert.equal(aligned.exchange, 'XNAS');
-  assert.equal(aligned._sourceCheckedAfter, '2026-10-23');
+  assert.equal(aligned._sourceFetchedAt, SAT - 60_000);
   assert.equal(unifiedCopy.pe, 26.5, '입력(캐시 객체) 불변');
   assert.equal(await FS.alignFundamentalsToSource(aligned, 'NVDA', SAT), aligned, '이미 같으면 같은 객체');
-  //    unified 사본이 더 새 세션 → 그대로 · 원천 항목에 표식 없음(옛 저장본) → 그대로 · 다른 종목 항목 → 그대로
-  const newer = { ...unifiedCopy, _sourceCheckedAfter: '2026-10-26' };
+  //    unified 사본이 같거나 더 늦게 읽은 값 → 그대로(역행 0 — 관문 10250551 ②: 26.4·84 사본을 옛 26.5·80 항목이 덮지 않는다)
+  const newer = { ...unifiedCopy, pe: 26.4, score: 84, _sourceFetchedAt: SAT - 30_000 };
   assert.equal(await FS.alignFundamentalsToSource(newer, 'NVDA', SAT), newer);
+  const same = { ...unifiedCopy, _sourceFetchedAt: SAT - 60_000 };
+  assert.equal(await FS.alignFundamentalsToSource(same, 'NVDA', SAT), same);
+  //    원천 항목에 표식 없음(옛 저장본·수확본) → 그대로 · 다른 종목 항목 → 그대로
   FS._resetFundamentalsMemoForTest();
   store.set(KEY, legacyEntry(SAT - 60_000));
   assert.equal(await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT), unifiedCopy, '표식 없는 원천 항목은 쓰지 않는다');
   FS._resetFundamentalsMemoForTest();
-  store.set(KEY, { timestamp: SAT, data: { ...legacyEntry(0).data, ticker: 'AMD', _sourceCheckedAfter: '2026-10-23' } });
+  store.set(KEY, { timestamp: SAT, data: { ...legacyEntry(0).data, ticker: 'AMD', _sourceFetchedAt: SAT } });
   assert.equal(await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT), unifiedCopy, '다른 종목 항목 거절');
   //    적자 전환(P/E null)도 원천 그대로 — 옛 양수 P/E 를 남기지 않는다
   FS._resetFundamentalsMemoForTest();
-  store.set(KEY, { timestamp: SAT, data: { ...legacyEntry(0).data, pe: null, _sourceCheckedAfter: '2026-10-23' } });
+  store.set(KEY, { timestamp: SAT, data: { ...legacyEntry(0).data, pe: null, _sourceFetchedAt: SAT } });
   assert.equal((await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT) as any).pe, null);
   //    읽기 실패 — 그대로, 기억하지 않는다(다음 요청이 다시 읽는다)
   FS._resetFundamentalsMemoForTest();
   readFails = true;
   assert.equal(await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT), unifiedCopy);
   readFails = false;
-  store.set(KEY, { timestamp: SAT, data: { ...legacyEntry(0).data, pe: 26.4, _sourceCheckedAfter: '2026-10-23' } });
+  store.set(KEY, { timestamp: SAT, data: { ...legacyEntry(0).data, pe: 26.4, _sourceFetchedAt: SAT } });
   assert.equal((await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT + 1000) as any).pe, 26.4, '실패는 메모 안 함');
 
   // ⑤-b 웹만 보는 종목의 갱신 기회 — 저장 항목이 없거나 6시간이 지났을 때만, 종목당 10분에 한 번(신선한 항목이면 안 부름)
@@ -149,6 +139,14 @@ async function main() {
   store.set(KEY, legacyEntry(SAT - 7 * 3600_000));
   await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT);
   assert.equal(FS.shouldKickSourceRecheck('NVDA', SAT), true, '6시간 지난 항목 → 한 번');
+
+  // ⑤-c 메모 15초 — 직접 API 가 막 갱신한 항목을 오래 놓치지 않는다(관문 10250551 ②)
+  FS._resetFundamentalsMemoForTest();
+  store.set(KEY, { timestamp: SAT, data: { ...legacyEntry(0).data, pe: 26.5, _sourceFetchedAt: SAT - 120_000 } });
+  await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT);
+  store.set(KEY, { timestamp: SAT + 1000, data: { ...legacyEntry(0).data, pe: 26.4, score: 84, _sourceFetchedAt: SAT + 1000 } });
+  const memoed: any = await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT + 16_000);
+  assert.equal(memoed.pe, 26.4); assert.equal(memoed.score, 84, '15초 뒤엔 새 항목');
 
   // ⑥ 배선 — command/unified 의 모든 출구(jsonResponse)·종목 SSR 이 같은 함수, 직접 API 는 기준 세션·isFresh 를 넘긴다
   const unified = fs.readFileSync(path.join(__dirname, '../src/app/api/command/unified/route.ts'), 'utf8');
