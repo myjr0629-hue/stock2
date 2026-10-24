@@ -22,12 +22,13 @@ import { getDarkPoolBatchChecked } from '@/services/darkPool';
 import { readImpliedMoveRows } from '@/services/impliedMoveService';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
 import { indexLevelRowFromStored } from '@/lib/ai/crossSectorLevels';
-import { buildPickUserPrompt, checkPickWhy, TP_PURPOSE, TP_SYSTEM } from '@/lib/ai/todayPicksLine';
+import { TP_PURPOSE } from '@/lib/ai/todayPicksLine';
+import { buildPickV2Prompt, checkPickV2Why, TP_V2_SYSTEM } from '@/lib/ai/todayPicksV2';
 import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
 import { phaseOf, selectWeekEntries } from '@/lib/earningsWeek';
 import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
 import { readPreMarketContext, readPickPreQuotes } from '@/services/preMarketContext';
-import { generationSession, preMarketPrompt, type PreMarketContext } from '@/lib/ai/preMarketContext';
+import { generationSession, type PreMarketContext } from '@/lib/ai/preMarketContext';
 import { lastClosedSessionDate } from '@/lib/marketSession';
 import { isEtf } from '@/lib/seo/etfSet';
 import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
@@ -267,8 +268,8 @@ export async function writeWhy(c: Cand, etDate: string, year: number, context?: 
     let last: string[] = [];
     try {
         const res = await withFreshTier(() => callBedrock({
-            system: TP_SYSTEM,
-            userPrompt: buildPickUserPrompt(c.ticker, c.facts, etDate) + (context ? preMarketPrompt({ ...context, quotes: context.quotes.filter(q => q.ticker === c.ticker) }) : ''),
+            system: TP_V2_SYSTEM,
+            userPrompt: buildPickV2Prompt(c.ticker, c.facts, etDate, context),
             maxTokens: 400,
             temperature: 0.2,
             timeoutMs: 15_000,
@@ -276,9 +277,9 @@ export async function writeWhy(c: Cand, etDate: string, year: number, context?: 
             purpose: TP_PURPOSE,
             expectJson: true,
             locale: 'multi',
-            validate: (text: string) => { const r = checkPickWhy(text, c.ticker, c.facts, year, etDate); last = r.reasons; return { ok: r.ok, reasons: r.reasons }; },
+            validate: (text: string) => { const r = checkPickV2Why(text, c.ticker, c.facts, year, etDate); last = r.reasons; return { ok: r.ok, reasons: r.reasons }; },
         }));
-        const chk = checkPickWhy(res.text, c.ticker, c.facts, year, etDate);
+        const chk = checkPickV2Why(res.text, c.ticker, c.facts, year, etDate);
         if (!chk.ok || !chk.text) return { outcome: 'guard', reasons: chk.reasons, ms: Date.now() - t0, provider: res.provider };
         return { outcome: 'ai', text: chk.text, reasons: [], ms: Date.now() - t0, provider: res.provider };
     } catch (e) {
