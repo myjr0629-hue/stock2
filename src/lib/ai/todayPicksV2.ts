@@ -110,8 +110,12 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
     for (const l of TP_LOCALES) {
         const t = text[l];
         if (INTERNAL.test(t)) reasons.push(`${l}:v2:internal-or-freshness`);
-        if (UNSUPPORTED_CAUSE.test(t)) reasons.push(`${l}:v2:unsupported-cause`);
-        if ((f.kind === 'earnings' || f.kind === 'whale') && HISTORY.test(t) && !NEGATED.test(t)) reasons.push(`${l}:v2:unsupported-history`);
+        // 부정은 그 표현 «바로 앞»(not/no/never·12자) 또는 «바로 뒤»(한·일 부정·8자)에 붙을 때만 면제(관문 10242104: «not its direction»이 앞 표현을 면제하지 않음, «not Fed policy»는 부정된 원인).
+        const negatedNear = (re: RegExp) => [...t.matchAll(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g'))].every(m =>
+            /\b(?:not|no|never|nor|rather than|instead of)\b[^,;.]{0,12}$/i.test(t.slice(Math.max(0, (m.index ?? 0) - 20), m.index))
+            || /^[^,;.。、]{0,6}?(?:아니|아닌|않|없|ではな|ではありません|でない|じゃな)/.test(t.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 12)));
+        if (UNSUPPORTED_CAUSE.test(t) && !negatedNear(UNSUPPORTED_CAUSE)) reasons.push(`${l}:v2:unsupported-cause`);
+        if ((f.kind === 'earnings' || f.kind === 'whale') && HISTORY.test(t) && !negatedNear(HISTORY)) reasons.push(`${l}:v2:unsupported-history`);
         if (f.kind !== 'gamma' || f.level !== 'gammaFlip') continue;
         // Gamma Flip 완화는 단 하나: «순수한 두 갈래 구조 설명»(위면 완충·아래면 증폭)일 때만 옛 검사의 위치·기전 사유를 뗀다.
         //   순수 = 정상 기전의 두 갈래가 모두 있고, 글 전체에 부정·대조·감소 표현이 없고, 두 갈래를 뗀 나머지에 위치·기전·현재·가격 단어가 없다.
@@ -120,6 +124,8 @@ export function checkPickV2Why(raw: string, ticker: string, f: PickFacts, year: 
         const pair = BRANCHES[l];
         if (!pair.every(re => new RegExp(re.source, re.flags.replace('g', '')).test(t))) continue;
         if (NEG_MECHANISM.test(t) || CONTRAST.test(t) || HEDGE_ANY.test(t)) continue;
+        // 기전 단어는 갈래마다 정확히 하나씩(«amplifies then dampens»처럼 한 갈래에 둘이면 순수 구조가 아니다 — 관문 10242104).
+        if ((t.match(new RegExp(MECHANISM_WORDS[l][0], 'gi')) || []).length !== 1 || (t.match(new RegExp(MECHANISM_WORDS[l][1], 'gi')) || []).length !== 1) continue;
         const residual = pair.reduce((s, re) => s.replace(new RegExp(re.source, re.flags.replace('g', '')), ''), t);
         if (new RegExp(CURRENT_SIDE[l]).test(residual) || new RegExp(`${MECHANISM_WORDS[l][0]}|${MECHANISM_WORDS[l][1]}`, 'i').test(residual)
             || RESIDUAL_CLAIM.test(residual)) continue;

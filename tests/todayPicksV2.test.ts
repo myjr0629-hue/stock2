@@ -62,6 +62,7 @@ test('Gamma Flip: 순수 두 갈래 설명이 아닌 글은 운영(옛) 검사�
     ['en', 'If above, hedging cushions; if below, hedging amplifies; hedging dampens moves'], ['en', "If above, hedging cushions; if below, hedging amplifies; price isn't above"],
     ['ko', 'Gamma Flip 위면 완충·아래면 증폭, 현재 완충 효과는 없습니다'], ['en', 'If above, hedging dampens; if below, hedging amplifies; price is at Gamma Flip.'],
     ['ko', '위면 방향에 관계없이 완충·아래면 증폭하는 구조입니다'], ['en', 'If above, hedging dampens nothing; if below, hedging amplifies moves.'],
+    ['en', 'If above, hedging amplifies then dampens; if below, hedging amplifies'], ['ko', 'Gamma Flip 위면 증폭 뒤 완충·아래면 증폭하는 구조입니다'],
   ];
   const ok = (reasons: string[], l: string) => !reasons.some(x => x.startsWith(l + ':'));
   for (const f of Object.values(sides)) for (const [l, text] of cases) {
@@ -85,6 +86,10 @@ test('합성 경계 시험: 현재 쪽만 설명하는 정상문·음차 용어�
 });
 test('합성 경계 시험: 내부 출처·새 원인·근거 없는 역사 비교만 새 생성에서 거절', () => {
   const r = byTicker('UNH');
+  // 관문 10242104: 다른 표현의 부정(«not its direction»)은 역사 비교를 면제하지 않고, 부정된 원인(«not Fed policy»)은 원인 주장이 아니다.
+  assert.equal(check(r, { ...r.why, en: 'Options price an unusually large move, not its direction' }).ok, false);
+  assert.ok(!check(r, { ...r.why, en: 'Options price move size, not Fed policy' }).reasons.some(x => x.includes('unsupported-cause')));
+  assert.ok(!check(r, { ...r.why, en: 'Options price a move that is not unusually large' }).reasons.some(x => x.includes('unsupported-history')));
   for (const en of ['FINRA options price a move', 'Delayed options price a move', 'Fed news explains this move', 'Options price an unusually large move']) {
     assert.equal(check(r, { ...r.why, en }).ok, false, en);
   }
