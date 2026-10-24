@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
     morningNewsLines, morningCalendarLines, morningMetrics, buildMorningV2User, morningV2System, checkMorningV2, checkMorningLocale,
-    numberSignature, type MorningFacts,
+    numberSignature, stateSentence, composeMorningText, systemNextSentence, type MorningFacts,
 } from '@/lib/ai/morningBriefingV2';
 import { INDEX_NAMES } from '@/lib/ai/tacticalIndexFacts';
 import { aiLineFromText } from '@/lib/push/aiLine';
@@ -119,6 +119,16 @@ test('지표 이름 ↔ 값 결속 — 영어판만 금리·VIX 값을 맞바꾸
     const koOk = good.ko.replace('미국 10년물 금리 4.99%(+4bp)와', '미국 10년물 금리는 4.99%로 4bp 올랐고');
     assert.ok(!checkMorningLocale(koOk, 'ko', facts).some(r => /metric/.test(r)), JSON.stringify(checkMorningLocale(koOk, 'ko', facts)));
     assert.ok(checkMorningV2(JSON.stringify({ ...good, en: flipped }), facts).reasons.includes('en:mb:metric-sign:us10y'));
+    // 방향어가 숫자 앞에 와도(관문 10250112 ②) · 0bp 는 부호 없이 정상(관문 10250112 ①)
+    assert.ok(checkMorningLocale(good.en.replace('The 10-year Treasury yield at 4.99% (+4bp) and WTI crude', 'The 10-year Treasury yield fell 4bp to 4.99% and WTI crude'), 'en', facts).includes('mb:metric-sign:us10y'));
+    const flat: MorningFacts = { ...facts, metrics: morningMetrics({ rlsi: 28.7, rlsiTrend: [28.7, 28.7, 28.7], vix: 19.57, vix3m: 20.12, gexIndex: -12, gexLevel: 'NEUTRAL', breadthPct: 42.6, us10y: { level: 4.99, bp: 0 }, oil: { level: 100.65, chgPct: 1.19 }, gold: { level: 4040.8, chgPct: -0.48 } }) };
+    const zero = (x: string) => x.replace('4.99%(+4bp)', '4.99%(0bp)').replace('4.99% (+4bp)', '4.99% (0bp)');
+    assert.deepEqual(checkMorningV2(JSON.stringify({ ko: zero(good.ko), en: zero(good.en), ja: zero(good.ja) }), flat).reasons, []);
+    // 다른 주어의 방향어는 그 지표의 방향이 아니다 · 가격에 % 단위는 값이 아니다(관문 10250133)
+    assert.ok(!checkMorningLocale(good.en.replace('WTI crude at $100.65 (+1.19%)', 'WTI crude at $100.65 (+1.19%) as bond prices fell'), 'en', facts).some(r => /metric/.test(r)));
+    assert.ok(checkMorningLocale(good.en.replace('WTI crude at $100.65', 'WTI crude at 100.65%'), 'en', facts).some(r => r.startsWith('mb:metric-value:oil')));
+    const jaRate = good.ja.replace('WTI原油$100.65(+1.19%)がそろって上昇し、成長株への金利と物価の重荷が重なっています', 'WTI原油$100.65(+1.19%)が金利低下の効果を弱めています');
+    assert.ok(!checkMorningLocale(jaRate, 'ja', facts).some(r => /metric/.test(r)), JSON.stringify(checkMorningLocale(jaRate, 'ja', facts)));
     // 조건문의 «would» 는 예측이 아니다(관문 ③)
     assert.ok(!checkMorningLocale(good.en.replace('a stronger reading adds rate pressure', 'a stronger reading would add rate pressure'), 'en', facts).includes('mb:forecast:next'));
 });
@@ -132,6 +142,67 @@ test('3언어 숫자 불일치는 탈락', () => {
     const c = checkMorningV2(JSON.stringify({ ...good, en: good.en.replace(' and WTI crude at $100.65 (+1.19%) together keep', ' together keeps') }), facts);
     assert.ok(c.reasons.includes('cross:numbers'));
     assert.deepEqual(numberSignature(good.ko), numberSignature(good.ja));
+});
+
+test('휴장(CLOSED) 첫 문장의 «개장 전» 은 틀린 세션 · 일정 없는 날의 경계는 SPY ×10 환산을 밝힌다(관문 10250203)', () => {
+    const closed: MorningFacts = { ...facts, session: 'CLOSED', events: [], indexFacts: facts.indexFacts.filter(f => f.kind === 'spot') };
+    const t = 'Nasdaq Composite rose 0.9% and S&P 500 rose 0.5% in the 10/23 cash session; current premarket futures observations are unconfirmed. ' + good.en.split('. ').slice(1).join('. ');
+    assert.ok(checkMorningLocale(t, 'en', closed).includes('mb:session-word'));
+    const u = buildMorningV2User({ ...facts, events: [], metrics: [...facts.metrics, ...morningMetrics({ putFloor: 7450 })] });
+    assert.match(u, /SPY 옵션 ×10 환산 S&P 500 Put Floor 7,450/);
+    assert.match(u, /the S&P 500-equivalent put floor at 7,450 \(SPY options ×10\)/);
+    // Put Floor 에 딜러 헤지 전환 해석을 붙이지 않는다(그건 Gamma Flip) · Gamma Flip 이 있으면 그쪽(관문 10250239)
+    assert.doesNotMatch(u, /Put Floor[^"]*딜러 헤지/);
+    const uf = buildMorningV2User({ ...facts, events: [], metrics: [...facts.metrics, ...morningMetrics({ putFloor: 7450, gammaFlip: 7600 })] });
+    assert.match(uf, /Gamma Flip 7,600/);
+    const noBasis = { ...facts, events: [], metrics: [...facts.metrics, ...morningMetrics({ putFloor: 7450 })] };
+    // 일정 없는 날의 NEXT 는 코드가 쓴다 — 모델이 쓴 NEXT 는 빼고 붙인다
+    assert.equal(systemNextSentence(noBasis, 'ko'), '다음 분기점은 SPY 옵션 ×10 환산 S&P 500 Put Floor 7,450으로, 풋 미결제약정이 가장 많이 쌓인 옵션 쪽 하단 기준입니다.');
+    assert.equal(systemNextSentence(facts, 'ko'), null, '일정이 있으면 모델이 쓴다');
+    const body = '밤사이 뚜렷한 재료는 확인되지 않았습니다. 다음 분기점은 S&P 500 풋 하단 7,450입니다.';
+    const composed = composeMorningText(body, noBasis, 'ko');
+    assert.ok(composed.endsWith(systemNextSentence(noBasis, 'ko')!) && !composed.includes('풋 하단'), composed);
+    assert.equal(systemNextSentence({ ...facts, events: [], metrics: [] }, 'en'), 'No economic release is confirmed as the next test.');
+    const t2 = good.en.replace(/The next test is[^]*$/, 'The next test is the S&P 500 put floor at 7,450, the price where put open interest is largest.');
+    assert.ok(checkMorningLocale(t2, 'en', noBasis).includes('mb:next-basis'));
+});
+
+test('첫 문장(STATE)은 코드가 쓴다 — 세션 6가지 모두 지수 계약(이름·값·방향·세션·날짜) 통과·푸시 90자 안', () => {
+    const spot = facts.indexFacts.filter(f => f.kind === 'spot');
+    const fut = facts.indexFacts.filter(f => f.kind === 'futures');
+    const cases: Array<[string, MorningFacts]> = [
+        ['PRE', facts],
+        ['PRE 선물 없음', { ...facts, indexFacts: spot }],
+        ['REG', { ...facts, session: 'REG', indexFacts: spot.map(f => ({ ...f, sessionDate: '2026-10-26' })) }],
+        ['POST', { ...facts, session: 'POST', indexFacts: [...spot, ...fut.map(f => ({ ...f, basis: { ko: '종가 시점 대비', en: 'since close', ja: '終了時点比' } }))] }],
+        ['CLOSED', { ...facts, session: 'CLOSED', indexFacts: spot }],
+        ['관측 없음', { ...facts, indexFacts: [] }],
+    ];
+    for (const [label, f] of cases) for (const l of ['ko', 'en', 'ja'] as const) {
+        const st = stateSentence(f, l);
+        const full = composeMorningText(good[l].split(/(?<=[.。])\s*/).slice(1).join(' '), f, l);
+        assert.ok(full.startsWith(st), `${label} ${l}`);
+        const r = checkMorningLocale(full, l, f).filter(x => /index|session|cash|premarket|regular|postclose|state|first/.test(x));
+        assert.deepEqual(r, [], `${label} ${l}: ${st} → ${r}`);
+        // 장후(POST)는 모닝 경로에선 드문 저녁 자가복구뿐 — 90자를 넘으면 푸시가 절 경계에서 자른다
+        if (l !== 'en') assert.ok([...st].length <= (label === 'POST' ? 100 : 90), `${label} ${l} 푸시 길이 ${[...st].length}: ${st}`);
+    }
+    assert.equal(stateSentence(facts, 'ko'), '10/23(금) 정규장 나스닥 종합 0.9% 상승·S&P500 0.5% 상승, 지금 개장 전 나스닥100 선물 0.2% 하락·S&P500 선물 보합입니다.');
+    assert.equal(stateSentence(facts, 'en'), 'The Nasdaq Composite rose 0.9% and the S&P 500 rose 0.5% in the 10/23 (Fri) cash session; now premarket Nasdaq 100 futures are down 0.2% and S&P 500 futures are flat.');
+    // 반올림 경계(0.246·0.35)도 검사기와 같은 값 · 첫 낱말이 같아도 모델 WHY 문장은 지우지 않는다(관문 10250224)
+    for (const v of [0.246, -0.246, 0.35, 0.05, -0.149, 0.151]) {
+        const ff: MorningFacts = { ...facts, indexFacts: facts.indexFacts.map(x => ({ ...x, chgPct: v })) };
+        for (const l of ['ko', 'en', 'ja'] as const) {
+            const full = composeMorningText(good[l].split(/(?<=[.。])\s*/).slice(1).join(' '), ff, l);
+            const r = checkMorningLocale(full, l, ff).filter(x => /index|session|cash|premarket/.test(x));
+            assert.deepEqual(r, [], `${v} ${l}: ${stateSentence(ff, l)} → ${r}`);
+        }
+    }
+    const why = 'The Nasdaq Composite slide came amid a 10/26 06:15 ET report on yields.';
+    assert.ok(composeMorningText(why, facts, 'en').endsWith(why));
+    // 모델이 첫 문장을 되풀이하면 한 번만
+    const twice = composeMorningText(`${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`, facts, 'ko');
+    assert.equal(twice, `${stateSentence(facts, 'ko')} 밤사이 재료는 확인되지 않았습니다.`);
 });
 
 test('장중(REG) 첫 문장에 장전 말·어제 결과는 탈락', () => {
