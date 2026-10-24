@@ -171,6 +171,14 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     assert.ok(closingReportProblems(koja).includes('narrative:watchNext:cross-lang-facts'), 'ko·ja 부호 충돌도 잡는다');
     const swap2 = brief(); swap2.structured.closingNarrative.indicators = tri('GEX +6,220만 달러, 자금 -6,300만 달러, 금리 +4bp.', 'GEX -$62.2M, flows +$63M, yields +4bp.', 'GEX -6,220万ドル、資金 +6,300万ドル、金利+4bp。');
     assert.ok(closingReportProblems(swap2).includes('narrative:indicators:cross-lang-facts'), '비슷한 크기 두 금액의 부호 맞바꿈도 잡는다');
+    // 관문 10241236 정상본 오탐 3건
+    const round = brief(); round.structured.closingNarrative.indicators = tri('GEX 약 -6,000만 달러, 자금 +6,300만 달러, 금리 +4bp.', 'GEX -$62.2M, flows +$63M, yields +4bp.', 'GEX -6,220万ドル、資金 +6,300万ドル、金利+4bp。');
+    assert.equal(closingReportProblems(round).includes('narrative:indicators:cross-lang-facts'), false, '정상 반올림');
+    const order = brief(); order.structured.closingNarrative.watchNext = tri('2026-10-26 08:30 ET 내구재 -0.1%, 물가 +0.1%.', 'At 2026-10-26 08:30 ET.', '2026-10-26 08:30 ETの物価+0.1%、耐久財-0.1%。');
+    assert.equal(closingReportProblems(order).includes('narrative:watchNext:cross-lang-facts'), false, '순서 차이');
+    const state = brief(); state.structured.closingNarrative.whatHappened.ko = '반도체 매수로 하락폭이 제한된 상태다.';
+    C.alignSummary(state.structured);
+    assert.equal(state.structured.closingNarrative.whatHappened.ko, '반도체 매수세로 하락폭이 제한된 상태다.');
     const clock = brief(); clock.structured.closingNarrative.watchNext.ja = clock.structured.closingNarrative.watchNext.ja + ' 10:30 ET';
     assert.ok(closingReportProblems(clock).includes('narrative:watchNext:cross-lang-facts'), 'ET 시각이 다르면 탈락');
     const value = brief(); value.structured.closingNarrative.verdict.ko = value.structured.closingNarrative.verdict.ko.replace('-2.60%', '-2.50%');

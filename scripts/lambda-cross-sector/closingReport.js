@@ -92,7 +92,7 @@ function factSet(text) {
         if (!unit && !raw.includes('.')) continue;
         const key = `${Number(raw)}${unit}`;
         keys.add(key);
-        if (m[2] && !(m[2] === '-' && /\d$/.test(m[1]))) signs.set(key, m[2]);
+        if (m[2] && !(m[2] === '-' && /\d$/.test(m[1]))) signs.set(key, (signs.get(key) || '') + m[2]);
     }
     return { key: [...keys].sort().join('|'), signs, money };
 }
@@ -114,16 +114,15 @@ function moneyAmounts(text) {
     return out;
 }
 /**
- * 금액 부호 충돌 — b 의 부호 붙은 금액마다 a 에서 크기가 가장 가까운(±15% 안) 부호 붙은 금액을 짝으로 삼고, 그 짝의 부호가 반대면 충돌.
- * (관문 10241222·10241229: ±3%는 «-$62.2M vs +6,000만 달러»를 놓쳤고, «같은 부호가 하나라도 있으면 통과»는 두 금액의 부호를 맞바꾼 글을 통과시켰다)
+ * 금액 부호 충돌 — 서로가 서로의 «가장 가까운 크기(±15% 안)»인 금액 쌍(상호 최근접)의 부호가 반대면 충돌.
+ * 관문 10241222·10241229·10241236 반례: ±3%는 반올림된 반대 부호를 놓쳤고, 한쪽 기준 최근접은 정상 반올림(-6,000만 vs -$62.2M·+$63M)을 다른 항목과 짝지었다.
  */
 function moneySignConflict(a, b) {
     const rel = (x, y) => Math.abs(y.value - x.value) / Math.max(x.value, y.value);
-    return b.some(x => {
-        if (!x.sign || !(x.value > 0)) return false;
-        const cands = a.filter(y => y.sign && y.value > 0 && rel(x, y) <= 0.15).sort((p, q) => rel(x, p) - rel(x, q) || (p.sign === x.sign ? -1 : 1));
-        return cands.length > 0 && cands[0].sign !== x.sign;
-    });
+    const signed = arr => arr.filter(v => v.sign && v.value > 0);
+    const A = signed(a), B = signed(b);
+    const nearest = (x, pool) => pool.filter(y => rel(x, y) <= 0.15).sort((p, q) => rel(x, p) - rel(x, q) || (p.sign === x.sign ? -1 : 1))[0];
+    return B.some(x => { const y = nearest(x, A); return !!y && nearest(y, B) === x && y.sign !== x.sign; });
 }
 
 function narrativeProblems(s) {
@@ -148,7 +147,9 @@ function narrativeProblems(s) {
         const lonely = [...new Set(keySets.flatMap(k => [...k]))].some(k => keySets.filter(set => set.has(k)).length < 2);
         // 부호는 세 언어 모든 쌍을 본다(관문 10241229: 영어가 값을 빠뜨리면 ko -0.1% · ja +0.1% 충돌을 놓쳤다)
         const pairs = [[0, 1], [0, 2], [1, 2]];
-        const signClash = pairs.some(([i, j]) => [...per[i].signs].some(([k, sg]) => per[j].signs.has(k) && per[j].signs.get(k) !== sg)
+        // 같은 값이 여러 번 나오면 부호 묶음으로 본다 — 두 언어의 부호 묶음이 겹치지 않을 때만 충돌(순서 차이 «-0.1%·+0.1%»는 통과, 관문 10241236)
+        const disjoint = (p, q) => ![...p].some(c => q.includes(c));
+        const signClash = pairs.some(([i, j]) => [...per[i].signs].some(([k, sg]) => per[j].signs.has(k) && disjoint(sg, per[j].signs.get(k)))
             || moneySignConflict(per[i].money, per[j].money) || moneySignConflict(per[j].money, per[i].money));
         if (lonely || signClash)
             errors.push(`narrative:${field}:cross-lang-facts`);
@@ -278,7 +279,7 @@ function alignSummary(s, evidence) {
     if (n && typeof n === 'object') for (const f of FIELDS) {
         // 관찰 서술 자리만 바꾼다(화이트리스트) — 권유 문장(«지금 매수에 나서세요»·«매수가 정답이다»)은 그대로 두어 검사가 잡게(관문 10241205·10241213)
         // 과거·상태 평서문(…했다/됐다/몰렸다/있었다)만 — 청유·명령·의지(합시다·하자·노려라·하겠다)는 그대로(관문 10241229: «반등을 준비합시다»)
-        if (typeof n[f]?.ko === 'string') n[f].ko = n[f].ko.split(/(?<=[.!?。])(?=\s)/).map(sent => !/(?:었|았|였|됐|했|졌|났|렸|왔|웠|쳤|켰|갔)다[.!?。]?\s*$/.test(sent.trim()) || KO_ADVICE_WORDS.test(sent) ? sent : sent
+        if (typeof n[f]?.ko === 'string') n[f].ko = n[f].ko.split(/(?<=[.!?。])(?=\s)/).map(sent => !/(?:(?:었|았|였|됐|했|졌|났|렸|왔|웠|쳤|켰|갔)다|(?:상태|모습|흐름|국면)(?:이)?다)[.!?。]?\s*$/.test(sent.trim()) || KO_ADVICE_WORDS.test(sent) ? sent : sent
             .replace(/(?<![공순])매([수도])(?!세)(?=\s?(?:로\s?(?:하락폭|낙폭|상승폭|지수|나스닥|반등|버티|버텼|제한|지지|올랐|내렸)|가\s?(?:몰리|몰려|몰렸|유입|이어|들어|나타|쏟아|출회|늘어|늘었|줄어|줄었)|\s?지지))/g, '매$1세')
             // 지표 일정의 «사전·시장·컨센서스 전망 46.3» = 시장 예상치 — 접두어가 있고 금액·%p 가 아닐 때만(회사 가이던스 «매출 성장률 전망 12.5%»는 그대로)
             .replace(/(?:사전|시장|컨센서스)\s?전망치?(?=\s?(?:[(（]\s?)?[+\-−]?\d[\d.,]*(?![\d.,]|\s?(?:억|조|만|달러|원|\$|%p)))/g, '시장 예상치')).join('');
