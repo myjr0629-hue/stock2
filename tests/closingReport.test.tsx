@@ -198,6 +198,10 @@ t('서사: 5단계·요약 동일·길이·권유·금액·언어 간 부호 검
     const pass = brief(); pass.structured.closingNarrative.why.ko = 'FXEmpire는 장중에 일부 칩 종목만 매수됐다고 전했다.';
     C.alignSummary(pass.structured);
     assert.equal(pass.structured.closingNarrative.why.ko, 'FXEmpire는 장중에 일부 칩 종목만 매수세가 유입됐다고 전했다.');
+    const should = brief(); should.structured.closingNarrative.why.ko = '칩 종목은 지금 매수됐어야 했다고 판단했다.';
+    C.alignSummary(should.structured);
+    assert.equal(should.structured.closingNarrative.why.ko, '칩 종목은 지금 매수됐어야 했다고 판단했다.', '당위형은 정규화하지 않는다(관문 10241349)');
+    assert.ok(closingReportProblems(should).some(r => r.endsWith(':advice')));
     const ev2 = brief(); ev2.reportEvidence = { ...ev2.reportEvidence, events: [{ at: '2026-10-26T12:30:00.000Z', timeEt: '2026-10-26 08:30 ET', event: 'Chicago Fed' }, { at: '2026-10-27T12:30:00.000Z', timeEt: '2026-10-27 08:30 ET', event: 'Durable Goods' }] };
     ev2.structured.closingNarrative.watchNext = tri('다음 거래일 일정은 제공되지 않았다. 2026-10-27 08:30 ET 내구재.', 'No next-session calendar. 2026-10-27 08:30 ET durables.', '次の日程はない。2026-10-27 08:30 ETの耐久財。');
     assert.ok(closingReportProblems(ev2).includes('narrative:event-next:en'));
