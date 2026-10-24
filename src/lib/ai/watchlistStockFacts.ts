@@ -1,5 +1,5 @@
 import { rowSpot, formatLevelPrice } from '@/lib/optionLevelGate';
-import { etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
+import { cashSessionPhaseAt, etDateOf, etMinutesOf, isNonTradingDay, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { lastClosedSessionDate, etWallTimeToMs, shiftDate } from '@/lib/marketSession';
 import type { LineFacts } from './watchlistLine';
 import type { AiLineLocale } from '@/lib/app/watchlistAiLine';
@@ -66,7 +66,8 @@ export function quoteSessionValidUntil(q: QuoteSessionRef, atMs: number): number
         case 'pre': return etWallTimeToMs(d, REG_OPEN_MIN);
         case 'reg': return etWallTimeToMs(d, sessionCloseMinutes(d));
         case 'post': return etWallTimeToMs(d, POST_END_MIN);
-        case 'closed': return nextRegularOpenMs(base);
+        // «직전 종가»는 정규장 시간에 수집한 행이면 거짓(시세 원천의 세션 전환 지연) — 바로 만료(관문 10242207 ②)
+        case 'closed': return cashSessionPhaseAt(base) === 'regular' ? base : nextRegularOpenMs(base);
         default: return base + 30 * 60_000;
     }
 }

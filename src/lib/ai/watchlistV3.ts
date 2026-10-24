@@ -19,7 +19,7 @@ CONTENT by TOP EVIDENCE:
 · company headline → what that dated headline means against the options map (a report, not proof of cause);
 · options flow / insider → what that activity means against the map (calls/puts share of large premium; trade direction unknown; never proof of buying);
 · positioning only → the mechanism tied to THIS stock's own number (its implied move % or its nearest level $) and where its price sits (nearest level, gamma side).
-Say WHY it matters (mechanism or implication), not a list of numbers. If you say which side of a level the price is on, copy that level's side wording from CHIP FRAGMENTS (ko «Max Pain $217.5 아래» / en «below Max Pain $217.5» / ja «Max Pain $217.5の下» — the price is the subject); never call a level "above/below the price" yourself. Dealer hedging AMPLIFIES moves in a negative gamma zone and DAMPENS them in a positive gamma zone — never the reverse; with no gamma zone in FACTS, do not mention gamma.
+Say WHY it matters (mechanism or implication), not a list of numbers. Never call a level near / 부근 / 근처 / 付近 / "same as" / "at" the price unless its CHIP FRAGMENT says 부근 / at / 付近 (the live % already shows distance). If you say which side of a level the price is on, copy that level's side wording from CHIP FRAGMENTS (ko «Max Pain $217.5 아래» / en «below Max Pain $217.5» / ja «Max Pain $217.5の下» — the price is the subject); never call a level "above/below the price" yourself. Dealer hedging AMPLIFIES moves in a negative gamma zone and DAMPENS them in a positive gamma zone — never the reverse; with no gamma zone in FACTS, do not mention gamma.
 NUMBERS: ONE number (a second only if it is essential — never three, never a level range like "between $X and $Y"), the SAME number(s) in all three languages, each right after its own name and copied exactly from FACTS/CONTEXT: a level price (Put Floor $210), the implied move (예상 변동 ±4.3% / implied move ±4.3% / 想定変動幅±4.3%), the off-exchange share (장외 비중 41.2% / off-exchange 41.2% / 場外比率41.2%) or the calls/puts share (풋 73% / puts 73% / プット73%). NEVER write the stock's own price or % change — the app row shows them live and this sentence is cached.
 LENGTH — HARD LIMIT, two lines on a phone: stay within the character budget given in the user message (opening included) — longer candidates are discarded. One idea only: the evidence, its number, and what it means. Korean ends as a short noun phrase (…자리 / …구간 / …구조), Japanese in 体言止め (…位置 / …構図), English as one terse clause. No polite endings (입니다/です/ます), no second clause, no " · ", no ellipses.
 Style only (another stock, never copy the wording): ko «XYZ 장전 실적 앞 예상 변동 ±6.0%가 음감마와 겹치는 자리» · en «XYZ pre-market: puts at 70% lean on the Put Floor $40 defense» · ja «XYZ 寄り前、場外比率45.0%でもCall Wall $90が上値の壁になる位置».
@@ -169,15 +169,17 @@ const SIDE_WORD = /위(?!치|험|기|원)|아래|밑|까지|상회|하회|넘|�
 const NEAR_WORD = /부근|근처|가까|付近|近く|近辺|\b(?:near|around|close to|next to)\b/i;
 const LEVEL_RES = ['Max\\s*Pain|맥스\\s*페인|マックス\\s*ペイン', 'Call\\s*Wall|콜\\s*월|コール\\s*ウォール', 'Put\\s*Floor|풋\\s*플로어|プット\\s*フロア', 'Gamma\\s*Flip|감마\\s*플립|ガンマ\\s*フリップ'].map(x => new RegExp(x, 'i'));
 export function quoteLevelClaimReasons(text: string, f: LineFacts): string[] {
+    const dist = (k: 'mp' | 'cw' | 'pf' | 'gf') => f.lv[k] != null && f.spot > 0 ? Math.abs(f.spot - f.lv[k]!) / f.spot * 100 : Infinity;
     for (const clause of text.split(/[,，、;；。]|\.(?!\d)/)) {
-        if (!PRICE_WORD.test(clause)) continue;
         const named = (['mp', 'cw', 'pf', 'gf'] as const).filter((k, i) => LEVEL_RES[i].test(clause));
-        if (!named.length) { if (EQUAL_WORD.test(clause)) return ['v3:metric:quote-level-equal']; continue; }
-        const notAt = named.some(k => f.sides[k] !== 'at');
-        // 같다·일치·at·부근 = «가격이 그 레벨에 있다» — 사실이 at 일 때만 참
-        if ((EQUAL_WORD.test(clause) || NEAR_WORD.test(clause)) && notAt) return ['v3:metric:quote-level-equal'];
-        // 쪽 말이 없으면 «주가는 Put Floor $135» = 등치 — at 이 아니면 탈락
-        if (!SIDE_WORD.test(clause) && !NEAR_WORD.test(clause) && notAt) return ['v3:metric:quote-level-equal'];
+        const priceSubj = PRICE_WORD.test(clause);
+        if (!named.length) { if (priceSubj && EQUAL_WORD.test(clause)) return ['v3:metric:quote-level-equal']; continue; }
+        // 해석의 주어는 이 종목(첫머리 «NVDA 장전») — 주가 말이 없어도 «Put Floor $135와 같은 자리»는 가격이 거기 있다는 주장(관문 10242207 ①)
+        //   같다·일치·붙어·at = 가격과 레벨 거리 1% 이하일 때만 · 부근·근처·near·付近 = 2% 이하일 때만(10/24 실모델: 5.9~8.6% 떨어진 Max Pain 을 «부근»이라 쓴 글 다수)
+        if (EQUAL_WORD.test(clause) && named.some(k => dist(k) > 1)) return ['v3:metric:quote-level-equal'];
+        if (NEAR_WORD.test(clause) && named.some(k => dist(k) > 2)) return ['v3:metric:quote-level-near'];
+        // 주가가 주어인데 쪽 말이 없으면 «주가는 Put Floor $135» = 등치 — at 이 아니면 탈락
+        if (priceSubj && !SIDE_WORD.test(clause) && !NEAR_WORD.test(clause) && named.some(k => f.sides[k] !== 'at')) return ['v3:metric:quote-level-equal'];
     }
     return [];
 }

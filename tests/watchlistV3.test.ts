@@ -111,6 +111,15 @@ test('관문 10242158 ②: 세션 기한은 시세 수집 시각 기준 — 09:2
     assert.equal(pre.quote.session, 'closed');
     assert.equal(quoteSessionValidUntil(pre.quote, saved), Date.parse('2026-10-21T13:30:00Z'));
 });
+test('관문 10242207 ②: 정규장 시간에 수집한 «직전 종가» 행(시세 원천 세션 지연)은 바로 만료 → 생성 안 함(session-lag)', () => {
+    const lag = buildLineFacts('NVDA', { ...row, extendedPrice: null }, Date.parse('2026-10-21T13:30:02Z'))!;
+    assert.equal(lag.quote.session, 'closed');
+    assert.equal(quoteSessionLive(lag.quote, Date.parse('2026-10-21T13:30:02Z'), Date.parse('2026-10-21T13:30:03Z')), false);
+    assert.equal(quoteSessionLive(lag.quote, Date.parse('2026-10-21T13:30:02Z'), Date.parse('2026-10-21T16:00:00Z')), false);
+    // 주말·장 마감 뒤 «직전 종가»는 다음 개장까지
+    const sat = buildLineFacts('NVDA', { ...row, session: 'closed' }, Date.parse('2026-10-24T12:00:00Z'))!;
+    assert.equal(quoteSessionLive(sat.quote, Date.parse('2026-10-24T12:00:00Z'), Date.parse('2026-10-26T13:29:00Z')), true);
+});
 test('세션 기한: 장전→09:30 · 정규장→마감(조기 폐장 13:00) · 시간외→20:00 · 직전 종가→다음 개장', () => {
     const et = (iso: string) => Date.parse(iso);
     assert.equal(quoteSessionValidUntil({ session: 'pre' }, et('2026-10-21T12:00:00Z')), et('2026-10-21T13:30:00Z'));
@@ -172,9 +181,17 @@ test('관문 10242151 ①: «주가는 Put Floor $135와 같은» 류 가격=레
         ja: ['NVDA 寄り前、株価はPut Floor $135と同じ水準で正ガンマが緩和', 'NVDA 寄り前、株価がPut Floor $135に一致し正ガンマが緩和する位置', 'NVDA 寄り前、株価はPut Floor $135で正ガンマが変動を緩和する位置'],
     };
     for (const loc of ['ko', 'en', 'ja'] as const) for (const t of bad[loc]) {
-        assert.ok(checkWatchlistV3Insight(t, loc, f, now).includes('v3:metric:quote-level-equal'), `${loc} ${t}`);
+        assert.ok(checkWatchlistV3Insight(t, loc, f, now).some(r => /quote-level-(?:equal|near)/.test(r)), `${loc} ${t}`);
         assert.equal(check({ ...good, insight: { ...insight, [loc]: t } }).ok, false, t);
     }
+    // 주가 말 없이도(주어 = 이 종목) 등치·부근 주장 탈락 — 관문 10242207 ①
+    for (const [loc, t] of [['ko', 'NVDA 장전 Put Floor $135와 같은 자리에서 양감마가 변동을 완충'], ['en', 'NVDA pre-market: same level as the Put Floor $135; positive gamma dampens swings'], ['ja', 'NVDA 寄り前、Put Floor $135と同じ水準で正ガンマが変動を緩和'], ['ko', 'NVDA 장전 예상 변동 ±3.2%가 Put Floor $135 부근 자리'], ['en', 'NVDA pre-market: implied move ±3.2% near Put Floor $135'], ['ja', 'NVDA 寄り前、想定変動幅±3.2%がPut Floor $135付近の位置']] as const) {
+        assert.ok(checkWatchlistV3Insight(t, loc, f, now).some(r => /quote-level-(?:equal|near)/.test(r)), `${loc} ${t}`);
+        assert.equal(check({ ...good, insight: { ...insight, [loc]: t } }).ok, false, t);
+    }
+    // 2% 안의 레벨은 «부근» 참 — Gamma Flip $140 은 가격 $146 에서 4.1% → 탈락, $145 레벨이면 0.7% → 통과
+    const nearF = buildLineFacts('NVDA', { ...row, gammaFlipLevel: 145 }, now)!;
+    assert.deepEqual(quoteLevelClaimReasons('NVDA 장전 예상 변동 ±3.2%가 Gamma Flip $145 부근 자리', nearF), []);
     // 쪽 주장(주가가 Put Floor $135 위)은 이 검사가 아니라 쪽 검사가 본다 — 사실과 맞으면 통과
     assert.deepEqual(quoteLevelClaimReasons('NVDA 장전 주가가 Put Floor $135 위에서 양감마가 변동을 완충하는 자리', f), []);
     // 가격이 실제로 그 레벨에 있는(at) 사실이면 «같은 자리»는 참
