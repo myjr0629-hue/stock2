@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 import { fmpEtToMs } from '@/lib/fmpTime';
 import { cashSessionPhaseAt, etDateOf, etMinutesOf } from '@/lib/marketCalendar';
 import { sessionVwapFromBars } from '@/lib/vwap';
@@ -86,6 +87,8 @@ type Observation = {
     httpAttempted: boolean;
     httpStatus: number | null;
     validation: MinuteValidation | null;
+    reason?: string | null;
+    retryMs?: number | null;
 };
 const diagnosticLocal = new Map<string, Observation>();
 const DIAGNOSTIC_TTL = 600;
@@ -124,9 +127,8 @@ export async function readRealtimeSessionVwapDiagnostics(symbol: string, date: s
     };
 }
 
-/** 신규 경로 전체에서 이동 60초당 HTTP 최대 30회. 저장소 장애 시 호출하지 않는다. */
+/** Keep the VWAP lane at its existing rolling 30/minute ceiling too. */
 async function reserveCall(): Promise<boolean> {
-    // 공용 2초 간격: 분 경계에서 두 배로 몰리는 고정 분 버킷을 쓰지 않는다.
     return upstashMeterStore.setNxEx('vwap:fmp:budget', '1', 2);
 }
 
@@ -182,9 +184,11 @@ export function getRealtimeSessionVwap(symbol: string, date: string, now: number
                 // 자동 재시도 없음. URL·오류 객체는 자격값을 포함하므로 기록하지 않는다.
                 stage = 'fetch';
                 observation.httpAttempted = true;
-                const response = await fetch(`https://financialmodelingprep.com/stable/historical-chart/1min?${params}`, {
-                    cache: 'no-store', signal: AbortSignal.timeout(4000),
+                const response = await fmpFetch(`https://financialmodelingprep.com/stable/historical-chart/1min?${params}`, 'vwap', {
+                    timeoutMs: 4000,
+                    onDiagnostic: diagnostic => { observation.reason = diagnostic.reason; observation.retryMs = diagnostic.retryMs; },
                 });
+                if (!response) { observation.httpAttempted = false; observation.outcome = 'budget_unavailable'; return null; }
                 observation.httpStatus = response.status;
                 observation.outcome = 'http_error';
                 if (response.status === 429) {

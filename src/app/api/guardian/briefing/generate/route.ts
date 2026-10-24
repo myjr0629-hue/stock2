@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 /**
  * POST /api/guardian/briefing/generate
  * 
@@ -233,11 +234,10 @@ export async function POST(req: Request) {
         try {
             const fmpKey = process.env.FMP_API_KEY;
             if (fmpKey) {
-                const fmpRes = await fetch(
-                    `https://financialmodelingprep.com/stable/news/general-latest?limit=8&apikey=${fmpKey}`,
-                    { signal: AbortSignal.timeout(6000) }
+                const fmpRes = await fmpFetch(
+                    `https://financialmodelingprep.com/stable/news/general-latest?limit=8&apikey=${fmpKey}`, 'news', { timeoutMs: 6000 }
                 );
-                if (fmpRes.ok) {
+                if (fmpRes?.ok) {
                     const fmpData = await fmpRes.json();
                     if (Array.isArray(fmpData)) {
                         const fmpNews = fmpData

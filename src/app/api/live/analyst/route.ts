@@ -1,5 +1,7 @@
+import { fmpFetch } from '@/lib/fmpClient';
+import { isFmpErrorBody } from '@/lib/fmp/errorBody';
 import { NextRequest, NextResponse } from 'next/server';
-import { swrFetch } from '@/lib/cache/redisSWR';
+import { swrFetch, markTransient } from '@/lib/cache/redisSWR';
 import { getAnalystEvents } from '@/services/analystEvents';
 
 const FMP_API_KEY = process.env.FMP_API_KEY || '';
@@ -44,33 +46,42 @@ export async function GET(req: NextRequest) {
                 if (!FMP_API_KEY) throw new Error('FMP_API_KEY not set');
 
                 const [res, targetRes] = await Promise.all([
-                    fetch(`https://financialmodelingprep.com/stable/grades-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, { signal: AbortSignal.timeout(8000) }).catch(() => null),
-                    fetch(`https://financialmodelingprep.com/stable/price-target-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, { signal: AbortSignal.timeout(8000) }).catch(() => null)
+                    fmpFetch(`https://financialmodelingprep.com/stable/grades-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, 'analyst', { timeoutMs: 8000 }).catch(() => null),
+                    fmpFetch(`https://financialmodelingprep.com/stable/price-target-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, 'analyst', { timeoutMs: 8000 }).catch(() => null)
                 ]);
 
                 if (!res || !res.ok) throw new Error(`FMP Consensus Failed`);
-                const data = await res.json().catch(() => []);
+                // Unreadable or error-shaped consensus is a provider failure: reject so
+                // swrFetch keeps the last good value instead of caching «N/A».
+                const data = await res.json().catch(() => { throw new Error('FMP Consensus Failed'); });
+                if (isFmpErrorBody(data)) throw new Error('FMP Consensus Failed');
                 const grade = Array.isArray(data) ? data[0] : data;
 
+                // Target failure (denied/429/402/timeout/unreadable) ≠ «no target». The
+                // result is then transient: served only when no complete value exists,
+                // never written, and a stale complete target wins (swrFetch).
                 let priceTarget = null;
-                if (targetRes && targetRes.ok) {
-                    const targetData = await targetRes.json().catch(() => []);
-                    if (Array.isArray(targetData) && targetData.length > 0) {
+                let targetFailed = !targetRes || !targetRes.ok;
+                if (!targetFailed) {
+                    const targetData = await targetRes!.json().catch(() => undefined);
+                    if (targetData === undefined || isFmpErrorBody(targetData)) targetFailed = true;
+                    else if (Array.isArray(targetData) && targetData.length > 0) {
                         const t = targetData[0];
                         if (t.targetConsensus && t.targetHigh) {
                             priceTarget = { targetHigh: t.targetHigh, targetLow: t.targetLow, targetConsensus: t.targetConsensus };
                         }
                     }
                 }
+                const settle = <T extends object>(value: T): T => (targetFailed ? markTransient(value) : value);
 
                 if (!grade || (!grade.strongBuy && !grade.buy && !grade.hold)) {
-                    return {
+                    return settle({
                         ticker: ticker.toUpperCase(),
                         consensus: 'N/A' as const,
                         totalAnalysts: 0, bullishPct: 0,
                         breakdown: { strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0 },
                         priceTarget,
-                    };
+                    });
                 }
 
                 const strongBuy = grade.strongBuy || 0;
@@ -100,12 +111,12 @@ export async function GET(req: NextRequest) {
                     else consensus = 'STRONG SELL';
                 }
 
-                return {
+                return settle({
                     ticker: ticker.toUpperCase(), consensus, totalAnalysts, bullishPct,
                     breakdown: { strongBuy, buy, hold, sell, strongSell },
                     priceTarget,
                     _source: 'fmp-fallback',
-                };
+                });
             },
             { ttlSeconds: 3600, keyPrefix: 'swr' }
         );

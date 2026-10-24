@@ -1,3 +1,4 @@
+import { fmpFetch } from '@/lib/fmpClient';
 import { NextResponse } from 'next/server';
 import { setInCache } from '@/services/redisClient';
 
@@ -59,14 +60,12 @@ export async function GET() {
         const to = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
         const url = `${FMP_BASE}?from=${from}&to=${to}&apikey=${FMP_API_KEY}`;
-        const res = await fetch(url, {
-            signal: AbortSignal.timeout(10000),
-            cache: 'no-store',
-        });
+        const res = await fmpFetch(url, 'misc', { timeoutMs: 10000 });
 
-        if (!res.ok) {
-            console.error(`[econ-cal] FMP fetch failed: ${res.status}`);
-            return NextResponse.json({ error: `FMP ${res.status}` }, { status: 502 });
+        if (!res?.ok) {
+            // Budget denial/cooldown keeps the previous Redis value (nothing is written).
+            console.error(`[econ-cal] FMP fetch failed: ${res ? res.status : 'budget'}`);
+            return NextResponse.json({ error: `FMP ${res ? res.status : 'budget'}` }, { status: 502 });
         }
 
         const rawEvents: any[] = await res.json();

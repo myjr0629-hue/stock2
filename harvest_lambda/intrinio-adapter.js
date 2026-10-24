@@ -329,14 +329,17 @@ async function getOptionChain(ticker, opts = {}) {
   const maxExp = opts.maxExpirations || 6;
 
   let expirations = [];
+  let expirationListFailed = false;
   if (opts.expiration) expirations = [opts.expiration];
   else {
     const exp = await callIntrinio(`options/expirations/${sym}/eod`, {
       after: new Date().toISOString().slice(0, 10),
     }).catch(() => null);
-    expirations = ((exp && exp.expirations) || []).slice().sort().slice(0, maxExp);
+    expirationListFailed = !exp || !Array.isArray(exp.expirations);
+    expirations = expirationListFailed ? [] : exp.expirations.slice().sort().slice(0, maxExp);
   }
-  if (!expirations.length) return { results: [], status: 'OK', count: 0 };
+  if (!expirations.length) return { results: [], status: 'OK', count: 0,
+    requestedExpirations: 0, failedExpirations: 0, partial: expirationListFailed };
 
   let underlying = opts.underlyingPrice || 0;
   if (!underlying) {
@@ -347,10 +350,13 @@ async function getOptionChain(ticker, opts = {}) {
   const chains = await Promise.all(
     expirations.map((e) => callIntrinio(`options/chain/${sym}/${e}/eod`).catch(() => null))
   );
+  // 실패 만기를 합계에서 생략하더라도 완결 EOD로 오인되지 않게 운반한다.
+  const failedExpirations = chains.filter(ch => !ch || !Array.isArray(ch.chain)).length;
 
   const results = [];
   for (const ch of chains) {
-    for (const row of (ch && ch.chain) || []) {
+    if (!ch || !Array.isArray(ch.chain)) continue;
+    for (const row of ch.chain) {
       const o = row.option || {};
       const p = row.prices || {};
       const type = String(o.type || '').toLowerCase();
@@ -390,7 +396,8 @@ async function getOptionChain(ticker, opts = {}) {
       });
     }
   }
-  return { results, status: 'OK', count: results.length };
+  return { results, status: 'OK', count: results.length,
+    requestedExpirations: expirations.length, failedExpirations, partial: failedExpirations > 0 };
 }
 
 // ── 4) 기술지표 ──────────────────────────────────────────────

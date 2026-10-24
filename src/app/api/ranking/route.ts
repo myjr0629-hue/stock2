@@ -4,8 +4,8 @@ import { isGuardianSnapshotRow } from '@/lib/app/intelOptionsBasis';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getDarkPoolBatch } from '@/services/darkPool';
 import {
-    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestWith, readinessOf, dailyValues, sessionValues,
-    afterCloseState,
+    Row, dailySnapshots, deviationOf, median, ratioDistance, sessionPhase, latestCompleteWith, readinessOf, dailyValues, sessionValues,
+    afterCloseState, isCompleteOptionEod,
 } from '@/lib/rankings/engine';
 import { RANKINGS, byId } from '@/lib/rankings/registry';
 import { rankingCacheKey, RANKING_DEFAULT_DAYS, RANKING_DEFAULT_TOP } from '@/lib/rankings/cacheKey';
@@ -278,8 +278,8 @@ export async function GET(req: NextRequest) {
 
         if (spec.id === 'money-vs-oi') {
             for (const t of UNIVERSE) {
-                // 프리미엄과 OI 를 «한 행에» 가진 최신 스냅샷만 쓴다.
-                const s = latestWith(flowRaw[t] || [], ['callPremium', 'putPremium', 'totalCallOI', 'totalPutOI']);
+                // 프리미엄과 OI 를 «한 행에» 가진, 구조 EOD 로 검증한 최신 세션 행만 쓴다(engine.latestCompleteWith).
+                const s = latestCompleteWith(flowRaw[t] || [], ['callPremium', 'putPremium', 'totalCallOI', 'totalPutOI']);
                 if (!s) { bump('프리미엄+OI 동시 보유 행 없음'); continue; }
                 const cp = Number(s.callPremium), pp = Number(s.putPremium);
                 const co = Number(s.totalCallOI), po = Number(s.totalPutOI);
@@ -291,6 +291,7 @@ export async function GET(req: NextRequest) {
                     dollarRatio: Math.round(dollarRatio * 100) / 100,
                     oiRatio: Math.round(oiRatio * 100) / 100,
                     callPremium: cp, putPremium: pp, callOI: co, putOI: po,
+                    partial: !isCompleteOptionEod(s),
                     rank: disagree,
                 });
             }
@@ -487,6 +488,7 @@ export async function GET(req: NextRequest) {
                         ticker: t, axisCount: axes.length,
                         axes: axes.map((a) => ({ metric: a.metric, label: a.label, ratio: Math.round(a.ratio * 100) / 100, today: a.today, baseline: a.baseline })),
                         date: axes[0]?.date ?? null,
+                        partial: axes.some(a => a.partial),
                         rank: axes.length + axes.reduce((s, a) => s + a.rank, 0) / 10,
                     };
                 })
@@ -513,6 +515,8 @@ export async function GET(req: NextRequest) {
             available: picked.length > 0, phase: spec.phase,
             name: spec.name, what: spec.what, why: spec.why, guards: spec.guards,
             candidates: rows.length, skipped, items: picked,
+            ...(['deviation', 'multi-axis', 'money-vs-oi'].includes(spec.id)
+                ? { partial: picked.some(r => r.partial) || Object.values(flowSnaps).some(s => s.length && !isCompleteOptionEod(s[s.length - 1])) } : {}),
             ...(poolSize ? { _pool: pool } : {}),
             // 마감 후 블록은 «어느 마감»의 순위인지 싣는다 — 화면은 이걸 날짜 칩으로 그린다
             ...(spec.needsPostClose ? { session: dpMeta.date, state: dpMeta.state } : {}),
@@ -523,6 +527,7 @@ export async function GET(req: NextRequest) {
         ok: true, _v: 12, docs: 'https://www.signumhq.com/ranking-api.md',
         generatedAt: new Date().toISOString(), session: sess,
         optionSession, darkPool: dpMeta,
+        partial: Object.values(results).some(r => r.partial),
         // 실제로 훑은 종목 수를 말한다. 하드코딩 25 를 그대로 말하면 거짓말이 된다.
         universe: (STRUCT_UNIVERSE.length || UNIVERSE.length),
         universeSource: STRUCT_UNIVERSE.length ? 'structure-build (2,001종목)' : '하드코딩 25종목(구조 캐시 없음)',

@@ -22,46 +22,20 @@ import { NextResponse } from 'next/server';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
-import { forecastHits } from '@/lib/ai/trustLayer';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
 import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
-import { etClock, lastClosedSessionDate } from '@/lib/marketSession';
+import { etClock } from '@/lib/marketSession';
 import { isNonTradingDay } from '@/lib/marketCalendar';
-import { sessionQuote, generationSession, preMarketPrompt, type SessionQuote } from '@/lib/ai/preMarketContext';
+import { sessionQuote, generationSession, type SessionQuote } from '@/lib/ai/preMarketContext';
 import { readPreMarketContext } from '@/services/preMarketContext';
 import { loadBundle } from '@/services/todayPicksService';
-import { ungroundedNumbers } from '@/lib/ai/factGrounding';
+import { buildSectorFacts, SECTOR_TICKERS } from '@/lib/ai/sectorBriefFacts';
+import { buildSectorBriefPrompt, sectorBriefBatchGate, selectSectorBriefOutput } from '@/lib/ai/sectorBrief';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export const HEADLINE_KEY = 'intel:ai_headlines:v1';
-
-const SECTOR_TICKERS: Record<string, string[]> = {
-    m7: ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'],
-    physical_ai: ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG'],
-    silicon_core: ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'],
-    power_matrix: ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'],
-    bio_pulse: ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'],
-    cyber_shield: ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'],
-    orbit_defense: ['LMT', 'RTX', 'AXON', 'SPCX', 'LDOS', 'ASTS', 'LUNR'],
-    quantum_edge: ['SMCI', 'SNOW', 'IONQ', 'DELL', 'AI', 'PATH', 'TWLO'],
-    fintech_pulse: ['XYZ', 'PYPL', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'UPST'],
-    cloud_fortress: ['CRM', 'NOW', 'DDOG', 'WDAY', 'MDB', 'TEAM', 'HUBS'],
-};
-
-const SECTOR_LABEL: Record<string, string> = {
-    m7: 'Magnificent 7 (mega-cap tech)',
-    physical_ai: 'Physical AI / robotics',
-    silicon_core: 'Semiconductors',
-    power_matrix: 'Power & nuclear infrastructure',
-    bio_pulse: 'Biotech / pharma',
-    cyber_shield: 'Cybersecurity',
-    orbit_defense: 'Defense & space',
-    quantum_edge: 'AI infrastructure / quantum',
-    fintech_pulse: 'Fintech / crypto-adjacent',
-    cloud_fortress: 'Enterprise software / cloud',
-};
 
 // UTC 고정 08:40·10:40 = 17:40·19:40 KST(평일).
 // EDT 04:40·06:40, 11/1 종료 뒤 EST 03:40·05:40. 첫 회는 개장 전이므로 CLOSED가 맞다.
@@ -139,46 +113,7 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
     ]) : [null, null];
 
     // ── 2) 섹터별 «사실»만 계산한다. 해석은 AI 가 한다 ──
-    const facts: any[] = [];
-    for (const [id, tickers] of Object.entries(SECTOR_TICKERS)) {
-        let rows = tickers.map((t) => quotes[t]).filter((q): q is SessionQuote => !!q && q.changePct != null);
-        const extendedBasis = preOpen ? 'PRE' : quoteSession === 'post' ? 'POST' : null;
-        if (extendedBasis) {
-            const measured = rows.filter(q => q.basis === extendedBasis && q.date === todayET);
-            // PRE·POST 모두 REG와 섞지 않는다. 해당 세션 표본 부족이면 섹터 전체를
-            // 직전 정규장 값+날짜로 계산한다(POST에는 방금 끝난 당일·조기 폐장 포함).
-            rows = measured.length >= Math.ceil(tickers.length / 2) ? measured
-                : tickers.map(t => regularQuotes[t]).filter((q): q is SessionQuote => !!q && q.changePct != null);
-        }
-        // 절반도 못 재면 그 섹터는 넘긴다 — 반쪽 자료로 «판정»을 만들면 틀린 말이 나간다.
-        if (rows.length < Math.ceil(tickers.length / 2)) continue;
-        const sorted = [...rows].sort((a, b) => (b.changePct as number) - (a.changePct as number));
-        const up = rows.filter((r) => (r.changePct as number) > 0).length;
-        const down = rows.filter((r) => (r.changePct as number) < 0).length;
-        const avg = rows.reduce((s, r) => s + (r.changePct as number), 0) / rows.length;
-        const optionsRows = tickers.map(t => bundle?.tickers?.[t]).filter(r => r && typeof r.callOI === 'number' && typeof r.putOI === 'number');
-        facts.push({
-            id,
-            label: SECTOR_LABEL[id],
-            priceBasis: rows[0].basis,
-            priceDate: rows[0].date,
-            ...(bundle ? { priorOptions: { recordDate: bundle.date, openedOn: bundle.prevDate ?? null,
-                lastRegularDate: lastClosedSessionDate(now),
-                measured: optionsRows.length,
-                callOI: optionsRows.length ? optionsRows.reduce((n, r) => n + r!.callOI!, 0) : null,
-                putOI: optionsRows.length ? optionsRows.reduce((n, r) => n + r!.putOI!, 0) : null,
-            } } : {}),
-            measured: rows.length,
-            total: tickers.length,
-            up,
-            down,
-            flat: rows.length - up - down,
-            avgChangePct: Number(avg.toFixed(2)),
-            leader: { t: sorted[0].ticker, c: Number((sorted[0].changePct as number).toFixed(2)) },
-            laggard: { t: sorted[sorted.length - 1].ticker, c: Number((sorted[sorted.length - 1].changePct as number).toFixed(2)) },
-            spreadPct: Number(((sorted[0].changePct as number) - (sorted[sorted.length - 1].changePct as number)).toFixed(2)),
-        });
-    }
+    const facts = buildSectorFacts(quotes, regularQuotes, quoteSession, preOpen, todayET, now, bundle);
     if (!facts.length) {
         return NextResponse.json({
             success: false,
@@ -195,55 +130,12 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
         post: 'AFTER HOURS', closed: 'CLOSED',
     };
     const session = preOpen ? generationSession(now) : SESSION_MAP[quoteSession] || generationSession(now);
-    const system = [
-        'You write one-line sector verdicts for an institutional-grade US equity intelligence app.',
-        'You are given measured facts only. Interpret them — do not restate them.',
-        '',
-        'RULES',
-        '- One line per sector per language. 40-70 characters for Korean/Japanese, 55-95 for English.',
-        '- Say what the DISPERSION means, not just the count. A sector where the leader is +6% and the',
-        '  laggard is -2% is not the same as one where everything moved together, even if the average matches.',
-        '- Never predict. Describe the observed structure in the present tense. No "will", "expect", "likely", "target"; no future tense; Korean: no 할 것이다/예상/전망/임박; Japanese: no 見込み/予想/だろう/今後.',
-        '- No investment advice, no buy/sell language.',
-        '- Do not invent numbers. Only use numbers present in the facts.',
-        '- Korean: 관측/확인 같은 관찰형 종결. Japanese: 観測/確認. English: observed/holding/diverging.',
-        '- LANGUAGE PURITY (strict): the "ko" field must be Korean ONLY, "en" English ONLY, "ja" Japanese ONLY.',
-        '  Never let one language leak into another field. Ticker symbols and numbers are fine everywhere.',
-        '- Each sector must read differently. If two sectors have similar numbers, separate them by what',
-        '  is actually distinct (which name leads, how wide the spread is, breadth vs magnitude).',
-        '',
-        'Return ONLY a JSON object keyed by sector id:',
-        '{"m7":{"ko":"...","en":"...","ja":"..."}, ...}',
-    ].join('\n');
-
-    const userPrompt = [
-        `Session: ${session} (ET). Trading date: ${todayET}.`,
-        '',
-        'Measured facts per sector (change % belongs to priceBasis and priceDate, not necessarily today):',
-        JSON.stringify(facts, null, 1),
-        ...(context ? [preMarketPrompt(context)] : []),
-        'Only use numeric values from the measured price/breadth fields in verdicts. Prior options are dated background, never current PRE trades.',
-        '',
-        `Write a verdict line for each of these ${facts.length} sectors, in ko/en/ja.`,
-        `Return ALL ${facts.length} sector ids — do not omit any: ${facts.map((f: any) => f.id).join(', ')}.`,
-        'JSON only, no prose before or after.',
-    ].join('\n');
+    const { system, userPrompt } = buildSectorBriefPrompt(facts, session, todayET);
 
     let parsed: Record<string, { ko?: string; en?: string; ja?: string }> | null = null;
     let model = '';
     // ★2026-10-10 사다리 출구 가드 — 아래 «4) 검증»과 같은 규칙(길이·스크립트·예측어·재료에 없는 숫자)으로 한국어 칸이 통과한 섹터가 80% 이상일 때만 ①② 응답을 쓴다
-    const ladderGate = (text: string): boolean => {
-        try {
-            const p = JSON.parse(text.startsWith('{') ? text : `{${text}`);
-            let good = 0;
-            for (const f of facts) {
-                const ko = String(p?.[f.id]?.ko || '').trim();
-                const allowedNums = [f.measured, f.total, f.up, f.down, f.flat, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
-                if (ko.length >= 12 && /[가-힣]/.test(ko) && forecastHits(ko, 'ko').length === 0 && ungroundedNumbers(ko, allowedNums).length === 0) good++;
-            }
-            return good >= Math.ceil(facts.length * 0.8);
-        } catch { return false; }
-    };
+    const ladderGate = (text: string): boolean => sectorBriefBatchGate(text, facts);
     try {
         const generate = () => callBedrock({
             modelId: MODELS.HAIKU_35,
@@ -268,39 +160,7 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
     }
 
     // ── 4) 검증 — AI 가 준 것 중 «쓸 수 있는 것»만 저장한다 ──
-    const HANGUL = /[가-힣]/, KANA = /[぀-ヿ]/, KANJI = /[一-鿿]/;
-    const out: Record<string, any> = {};
-    let kept = 0;
-    // «모델이 아예 안 준 것»과 «주긴 줬는데 검증에 걸린 것»을 구분한다.
-    const missing: string[] = [], rejected: string[] = [];
-
-    // ★ 언어별로 «따로» 받는다.
-    //   첫 판은 셋 중 하나만 오염돼도 그 섹터를 통째로 버렸다(bio_pulse 가 그랬다 —
-    //   영어·일본어 칸에 한글이 섞였다). 그러면 멀쩡한 한국어까지 같이 버려진다.
-    //   → 통과한 언어만 채택하고 나머지는 기존 템플릿이 남게 둔다. 부분 성공이 전패보다 낫다.
-    const okKo = (t: string) => t.length >= 12 && HANGUL.test(t);
-    const okEn = (t: string) => t.length >= 16 && !HANGUL.test(t) && !KANA.test(t) && !KANJI.test(t);
-    const okJa = (t: string) => t.length >= 8 && !HANGUL.test(t) && (KANA.test(t) || KANJI.test(t));
-
-    for (const f of facts) {
-        const v = parsed?.[f.id];
-        if (!v) { missing.push(f.id); continue; }
-        const ko = String(v?.ko || '').trim(), en = String(v?.en || '').trim(), ja = String(v?.ja || '').trim();
-        const entry: Record<string, string> = {};
-        const dropped: string[] = [];
-        // ★2026-10-07 앱 강화 T5 출구 게이트 — ① 예측어(전망·will·見込み …) ② 재료(섹터별 사실)에 없는 숫자. 걸린 언어는 쓰지 않는다(템플릿 판정문이 남는다).
-        const allowedNums = [f.measured, f.total, f.up, f.down, f.flat, f.avgChangePct, f.leader?.c, f.laggard?.c, f.spreadPct];
-        const gateOk = (loc: 'ko' | 'en' | 'ja', text: string) => forecastHits(text, loc).length === 0 && ungroundedNumbers(text, allowedNums).length === 0;
-        if (okKo(ko) && gateOk('ko', ko)) entry.headline = ko; else dropped.push('ko');
-        if (okEn(en) && gateOk('en', en)) entry.headlineEN = en; else dropped.push('en');
-        if (okJa(ja) && gateOk('ja', ja)) entry.headlineJP = ja; else dropped.push('ja');
-
-        // 한국어가 없으면 이 섹터는 쓰지 않는다 — 앱 기본 표시가 한국어 필드다.
-        if (!entry.headline) { rejected.push(`${f.id}(ko실패)`); continue; }
-        if (dropped.length) rejected.push(`${f.id}(부분:${dropped.join(',')}만 탈락)`);
-        out[f.id] = entry;
-        kept++;
-    }
+    const { sectors: out, kept, missing, rejected } = selectSectorBriefOutput(parsed, facts);
     if (!kept) {
         return NextResponse.json({ success: false, error: 'all rejected', rejected, missing, ms: Date.now() - t0 }, { status: 502 });
     }
@@ -312,6 +172,8 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
         ...(context ? { context, optionsAsOf: bundle?.date ?? null, optionsOpenedOn: bundle?.prevDate ?? null } : {}),
         generatedAt: new Date(now).toISOString(),
         source: 'claude',
+        promptVersion: 'sector-brief-v2',
+        facts,
         model,
         sectors: out,
     };

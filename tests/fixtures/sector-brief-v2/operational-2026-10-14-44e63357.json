@@ -1,0 +1,50 @@
+{
+  "contract": "sector-brief-v2",
+  "provenance": "operational-snapshot",
+  "source": "saved-public-input",
+  "asOf": "2026-10-14T21:00:24.235Z",
+  "date": "2026-10-14",
+  "session": "AFTER HOURS",
+  "facts": [
+    {
+      "id": "m7",
+      "label": "Magnificent 7 (mega-cap tech)",
+      "priceBasis": "POST",
+      "priceDate": "2026-10-14",
+      "members": [
+        {
+          "t": "NVDA",
+          "c": -0.04
+        },
+        {
+          "t": "META",
+          "c": -0.06
+        },
+        {
+          "t": "TSLA",
+          "c": -0.08
+        },
+        {
+          "t": "AMZN",
+          "c": -0.19
+        }
+      ],
+      "exLeaderAvgChangePct": -0.11,
+      "measured": 4,
+      "total": 7,
+      "up": 0,
+      "down": 4,
+      "flat": 0,
+      "avgChangePct": -0.09,
+      "leader": {
+        "t": "NVDA",
+        "c": -0.04
+      },
+      "laggard": {
+        "t": "AMZN",
+        "c": -0.19
+      },
+      "spreadPct": 0.15
+    }
+  ]
+}
