@@ -109,7 +109,7 @@ const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: proces
     const data = await new Promise((resolve, reject) => {
       https.get(flowApiUrl, { timeout: 30000 }, r => {
         let d = '';
-        r.on('data', c => d += c);
+        r.setEncoding('utf8').on('data', c => d += c);
         r.on('end', () => resolve(d));
       }).on('error', reject);
     });

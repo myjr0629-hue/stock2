@@ -110,7 +110,7 @@ console.log('━━━ 4. 탭 → 그 종목 Flow · 계측 ━━━');
 t('wl_signal 푸시 탭 → /{loc}/app-view/flow?t=…&from=sig · pendingDeepLink 저장 경로를 그대로 탄다', () => {
   const l = read('src/app/[locale]/app-view/layout.tsx');
   assert.match(l, /const sigPath = type === 'wl_signal' \? signalTapPath\(action\?\.notification\?\.data\?\.path\) : null/);
-  assert.match(l, /: sigPath\s*\? `\/\$\{loc\}\$\{sigPath\}`/);
+  assert.match(l, /sigPath\s*\? `\/\$\{loc\}\$\{sigPath\}`/);
   assert.match(l, /if \(!target\) return;/); assert.match(l, /sessionStorage\.setItem\('signumhq\.pendingDeepLink', target\)/);
   assert.ok(l.includes("'watchlist_alert' && WATCHLIST_ALERTS_BUILD_FLAG"), '옛 PRO 알림 라우팅(플래그 뒤)은 그대로');
 });

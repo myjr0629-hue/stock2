@@ -35,7 +35,7 @@ function makeCore(over: { at?: number; score?: number; nq?: number; gex?: number
         session: over.session ?? 'REG',
         rlsi: { score, level: over.level ?? 'NEUTRAL', session: over.session ?? 'REG', regime: 'NEUTRAL', zScore: null, zSignal: null, gammaAdjustment: 0,
             components: { gexIndex: over.gex ?? -9, squeezeRisk: over.sq ?? 47, breadthPct: 16, adRatio: 0.2, volumeBreadth: 48, breadthSignal: 'BEARISH', breadthDivergent: false } } as any,
-        market: { nqChangePercent: over.nq ?? -0.73, vix: 15.71, factors: { us10y: { level: 5.33, chgPct: over.us10yChg ?? 0.4 } } } as any,
+        market: { indexBasis: { cash: { nasdaq: { changePct: over.nq ?? -0.73, live: true } } }, nqChangePercent: over.nq ?? -0.73, vix: 15.71, factors: { us10y: { level: 5.33, chgPct: over.us10yChg ?? 0.4 } } } as any,
         sectors: sectors as any,
         vectors: (over.vectors ?? [{ sourceId: 'XLK', targetId: 'XLE', strength: 12, rank: 1 }]) as any,
         sourceId: 'XLK',
@@ -109,6 +109,31 @@ function makeDeps(init: { redis?: GuardianCore | null; lockAt?: number | null; n
         const d = deriveLocaleParts(makeCore({ nq: -0.51, score: 29 }), 'ko').divCase;
         assert.equal(d.caseId, 'D'); assert.equal(d.verdictTitle, 'MOMENTUM DEPLETION');
         assert.equal(VERDICT_TEXTS.RETAIL_TRAP.ko.title, 'DIVERGENCE DETECTED');
+    });
+
+    await t('밤 검토 10/24 ②: 장중 현물 지연(live:false) → 선물로 판정하지 않는다(«상승 중»·상승 체크 통과 없음) · 표시는 기존 입력 · 결측만 기존 입력 판정', () => {
+        for (const locale of ['ko', 'en', 'ja'] as const) {
+            // REG · 현물 관측 30분 지연(같은 세션 -0.40%) · NQ 선물 +1.00% · RLSI 29 — 예전: «NASDAQ +1.00% 상승 중» CASE A + 체크 통과
+            const stale = makeCore({ nq: 1, score: 29 });
+            (stale.market as any).indexBasis = { cash: { nasdaq: { changePct: -0.4, live: false } } };
+            const p = deriveLocaleParts(stale, locale);
+            assert.equal(p.divCase.caseId, 'N', `${locale}: 지연 현물을 선물로 덮어 괴리 판정 금지`);
+            assert.ok(!/상승 중|rising|上昇中/.test(p.divCase.verdictDesc), p.divCase.verdictDesc);
+            const nqCond = p.tripleA.checklist.conditions.find((c) => c.id === 'nasdaq')!;
+            assert.equal(nqCond.passed, false, '선물 +1% 로 상승 체크 통과 금지');
+            assert.equal(nqCond.current, '+1.00%', '표시는 비우지 않고 기존 입력(같은 화면 NASDAQ 표시와 같은 값)');
+            assert.ok(!p.divCase.verdictDesc.includes('-0.40%'), '낡은 현물 값은 표시하지 않는다(관문 10232306 ①)');
+            assert.notEqual(p.tripleA.regime, 'BULL');
+            // 실시간 현물이면 현물로 판정
+            const live = makeCore({ nq: 1, score: 29 });
+            (live.market as any).indexBasis = { cash: { nasdaq: { changePct: 0.5, live: true } } };
+            assert.equal(deriveLocaleParts(live, locale).divCase.caseId, 'A');
+            assert.match(deriveLocaleParts(live, locale).divCase.verdictDesc, /\+0\.50%/);
+            // 현물 관측이 아예 없으면 기존 입력으로 판정(origin/main 과 같다 — 3차 관문)
+            const missing = makeCore({ nq: 1, score: 29 });
+            (missing.market as any).indexBasis = undefined;
+            assert.equal(deriveLocaleParts(missing, locale).divCase.caseId, 'A');
+        }
     });
 
     await t('파생: marketStatus — OPTIMAL=GO · DANGER=STOP · 그 외 RLSI ≥ 50 이면 GO', () => {

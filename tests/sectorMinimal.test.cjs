@@ -33,6 +33,7 @@ const renderTiles = (sectors, wsData = null, active = true) => renderToStaticMar
 }));
 const summaries = validSnapshots => run(`return ${decl(route, 'sectorSummaries').initializer.getText(route)};`, {
   validSnapshots, SECTOR_LABELS: { m7: 'M7 (Magnificent 7)' },
+  CLOSING: require('../scripts/lambda-cross-sector/closingReport'), todayDate: '2026-10-22', now: new Date('2026-10-22T21:50:00Z'), closeMinutes: 960,
 });
 const attach = find(route, n => ts.isForOfStatement(n) && n.expression.getText(route).includes('structured.sectorRotation.winners'));
 const produce = (structured, sectorSummaries) => {

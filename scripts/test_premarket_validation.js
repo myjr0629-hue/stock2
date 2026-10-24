@@ -9,7 +9,7 @@ async function fetchTicker(ticker) {
     return new Promise((resolve, reject) => {
         http.get(`${BASE}/api/live/ticker?t=${ticker}`, (res) => {
             let data = '';
-            res.on('data', chunk => data += chunk);
+            res.setEncoding('utf8').on('data', chunk => data += chunk);
             res.on('end', () => {
                 try { resolve(JSON.parse(data)); } catch { resolve(null); }
             });

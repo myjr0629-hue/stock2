@@ -6,7 +6,8 @@
 import { NextResponse } from 'next/server';
 import { publicBase } from '@/lib/net/publicBase';
 
-export const maxDuration = 60;
+// 생성 본체(POST)를 기다린다 — 본체 한도 300초(2026-10-24 장마감 리포트 v2)와 같게
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
     // [Security] CRON_SECRET 검증 — 다른 cron 라우트(uc-warm·snapshot·warm-news-digest 등)와 같은 방식(헤더 또는 ?secret=).

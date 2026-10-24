@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 http.get('http://localhost:3000/api/reports/latest?type=morning', r => {
     let d = '';
-    r.on('data', c => d += c);
+    r.setEncoding('utf8').on('data', c => d += c);
     r.on('end', () => {
         const j = JSON.parse(d);
         let out = 'V5 TRADE PLAN REPORT\n';

@@ -21,7 +21,7 @@ async function saveToRedis(data) {
                 headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
             }, (res) => {
                 let d = '';
-                res.on('data', c => d += c);
+                res.setEncoding('utf8').on('data', c => d += c);
                 res.on('end', () => { 
                     console.log('[Redis] Status:', res.statusCode, d.slice(0, 100));
                     resolve(d); 

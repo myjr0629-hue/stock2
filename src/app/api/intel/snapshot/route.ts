@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server';
+import { reportDate } from '@/lib/app/reportLink';
 import { saveSnapshot, getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem, BriefingData } from '@/types/sector';
 
@@ -23,6 +24,52 @@ import { restoreCommonTermsDeep } from '@/lib/ai/commonTerms';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { publicBase } from '@/lib/net/publicBase';
+import { readOptionAlpha } from '@/services/optionAlphaService';
+import { ensureXsScores, xsSnapshotOverride, gradeForScore } from '@/services/xsScores';
+import { readLastKnownAlpha } from '@/services/lastKnownAlpha';
+
+/**
+ * ★ [2026-10-24 감사 H2] 최신 스냅샷의 알파 점수·등급은 «지금 게시된 값»으로 읽는다.
+ *   원인: 스냅샷은 마감 크론(21:00Z)이 그 시각의 알파 — XS 는 «전날판» — 로 저장하고 다음 마감까지 잠근다.
+ *   XS 는 22:10Z 에 새로 게시되고, 내 종목·종목·cmd·포트폴리오(readOptionAlpha)와 인텔 fast 는 곧바로 새 값을 쓴다
+ *   → 섹터 인텔만 하루 내내 전날 점수였다(10/22 ARM 7.5 F ↔ 36.6 D · MSFT 48.2 C ↔ 24.8 F).
+ *   같은 출구(readOptionAlpha = 분석 캐시 + XS)에서 점수·등급만 가져온다. 근거·문구·나머지 칸은 저장본 그대로.
+ *   분석 캐시가 없는 종목은 저장 점수에 같은 XS 덮기만 한다(못 잰 null 은 채우지 않는다).
+ *   date 지정 조회(과거 기록)는 바꾸지 않는다. 실패하면 저장본 그대로 — 화면을 비우지 않는다.
+ */
+async function overlayCurrentAlpha(data: any): Promise<any> {
+    const rows: any[] | null = Array.isArray(data?.tickers) ? data.tickers : null;
+    if (!rows || rows.length === 0) return data;
+    try {
+        await ensureXsScores();
+        const tickers = rows.map((t) => String(t?.ticker ?? '').toUpperCase()).filter(Boolean);
+        const alpha = await readOptionAlpha(tickers, new Map());
+        // ★ [2026-10-24 알파 0점] 분석 캐시는 장중·시간외(04~20 ET)엔 15분 지난 행을 버린다 → 그 종목은 fast·fast-all 과 같은
+        //   «마지막 표시 점수»(XS 게시본 → 분석 캐시 마지막 알파, services/lastKnownAlpha)로. 그래도 없으면 아래 저장 점수.
+        const coldSyms = tickers.filter((s) => nz(alpha.get(s)?.score) === null);
+        const last = coldSyms.length ? await readLastKnownAlpha(coldSyms).catch(() => new Map()) : new Map();
+        const next = rows.map((t) => {
+            const sym = String(t?.ticker ?? '').toUpperCase();
+            const a = alpha.get(sym);
+            const live = nz(a?.score);
+            if (live !== null) return { ...t, alpha_score: live, grade: a?.grade || gradeForScore(live) };
+            const lk = last.get(sym);
+            if (lk) return { ...t, alpha_score: lk.score, grade: lk.grade };
+            const stored = nz(t?.alpha_score);
+            if (stored === null || !sym) return t;
+            const x = xsSnapshotOverride(sym, { score: stored, grade: t.grade ?? undefined });
+            return { ...t, alpha_score: nz(x.score) ?? stored, grade: x.grade ?? t.grade ?? null };
+        });
+        const measured = next.map((t) => nz(t.alpha_score)).filter((v): v is number => v !== null);
+        const summary = data.sector_summary && measured.length > 0
+            ? { ...data.sector_summary, avg_alpha: Math.round(measured.reduce((s, v) => s + v, 0) / measured.length * 10) / 10 }
+            : data.sector_summary;
+        return { ...data, tickers: next, ...(summary !== undefined && { sector_summary: summary }) };
+    } catch (e) {
+        console.warn('[Snapshot API] alpha overlay skipped:', e);
+        return data;
+    }
+}
 
 export const maxDuration = 60;
 
@@ -91,6 +138,60 @@ function sanitizeStoredSnapshot(data: any): { data: any; healed: number } {
     return { data: { ...data, tickers: out }, healed };
 }
 
+/**
+ * [감사 M7 · 2026-10-24] 마감 뒤(17시대 ET) 만든 스냅샷의 close_price·change_pct 는 벤더 일봉 게시 전이라
+ *   «정규장 마지막 체결»이다(MSFT 521.62/−2.13% ↔ 공식 종가 521.08/−2.23%). 그 세션의 공식 종가가 EOD 에 적재되면
+ *   읽는 시점에 그 값으로 맞추고, 같은 입력에서 나오는 상승·하락 수와 템플릿 브리핑만 다시 계산한다.
+ *   공식 종가가 아직 없거나 스냅샷이 장중에 만들어졌으면 저장값 그대로다(빈칸 없음 · 벤더 콜 0 · 저장본은 안 바꾼다).
+ */
+async function reconcileOfficialCloses(data: any): Promise<any> {
+    const tickers = data?.tickers;
+    if (!Array.isArray(tickers) || !tickers.length) return data;
+    try {
+        const { officialCloseForSnapshot } = await import('@/services/stalePriceRepair');
+        const lookup = await officialCloseForSnapshot(data?.meta?.snapshot_timestamp);
+        if (!lookup) return data;
+        let changed = false;
+        const next: TickerSnapshot[] = await Promise.all(tickers.map(async (t: any) => {
+            if (!t || typeof t.ticker !== 'string') return t;
+            const o = await lookup(t.ticker);
+            if (!o) return t;
+            const close_price = Math.round(o.close * 100) / 100;
+            const change_pct = Math.round(((o.close - o.prevClose) / o.prevClose) * 10000) / 100;
+            if (close_price === t.close_price && change_pct === t.change_pct) return t;
+            changed = true;
+            // 종목 판정·분석 문장도 POST 와 같은 입력 모양으로 다시 만든다(가격·등락만 공식 값으로).
+            const q = {
+                ticker: t.ticker, price: close_price, changePct: change_pct, alphaScore: t.alpha_score, gex: t.gex, pcr: t.pcr,
+                gammaRegime: t.gamma_regime, maxPain: t.max_pain, callWall: t.call_wall, putFloor: t.put_floor, rsi: t.rsi, rvol: t.rvol,
+            };
+            const verdict = generateVerdict(q);
+            return { ...t, close_price, change_pct, verdict, analysis_kr: generateAnalysisKR(q, verdict) };
+        }));
+        if (!changed) return data;
+        const out: any = { ...data, tickers: next };
+        const s = data.sector_summary;
+        if (s && typeof s === 'object') {
+            const gainers = next.filter(t => t?.change_pct != null && t.change_pct > 0).length;
+            const losers = next.filter(t => t?.change_pct != null && t.change_pct < 0).length;
+            const summary: any = { ...s, gainers, losers };
+            if (s.briefing || s.next_day_briefing_kr) {
+                const b = generateNextDayBriefing(next, {
+                    dominantRegime: s.dominant_regime, avgPcr: Number(s.avg_pcr) || 0, totalGex: Number(s.total_gex) || 0,
+                    gainers, losers, outlook: s.outlook,
+                });
+                summary.next_day_briefing_kr = b.legacy;
+                summary.briefing = { ...(s.briefing || {}), ...b.briefing };
+            }
+            out.sector_summary = summary;
+        }
+        out.meta = { ...(data.meta || {}), close_basis: 'official' };
+        return out;
+    } catch {
+        return data;
+    }
+}
+
 const SECTOR_ID_ALIASES: Record<string, string> = {
     cloudfortress: 'cloud_fortress',
     fintechpulse: 'fintech_pulse',
@@ -156,6 +257,7 @@ export async function GET(request: Request) {
     const sector = searchParams.get('sector');
     const date = searchParams.get('date');
 
+    if (date && !reportDate(date)) return NextResponse.json({ error: 'Invalid date' }, { status: 400 });
     if (!sector) {
         return NextResponse.json(
             { error: 'Missing sector parameter' },
@@ -180,11 +282,11 @@ export async function GET(request: Request) {
     try {
         const cacheKey = `snapshot:${sector}:${date || 'latest'}`;
         const cached = await getFromCache<any>(cacheKey).catch(() => null);
-        if (cached) {
+        if (cached && (!date || cached.snapshot_date === date)) {
             const s1 = sanitizeStoredSnapshot(cached.data_json);
             return NextResponse.json({
                 success: true,
-                snapshot: await overlayAiHeadline(s1.data, sector),
+                snapshot: date ? await reconcileOfficialCloses(s1.data) : await overlayAiHeadline(await overlayCurrentAlpha(await reconcileOfficialCloses(s1.data)), sector),
                 snapshot_date: cached.snapshot_date,
                 created_at: cached.created_at,
                 source: 'REDIS',
@@ -195,7 +297,8 @@ export async function GET(request: Request) {
         let snapshot = null;
         for (const id of aliases) {
             snapshot = date ? await getSnapshotByDate(id, date) : await getLatestSnapshot(id);
-            if (snapshot) break;
+            if (snapshot && (!date || snapshot.snapshot_date === date)) break;
+            snapshot = null;
         }
 
         if (!snapshot) {
@@ -215,7 +318,7 @@ export async function GET(request: Request) {
         const s2 = sanitizeStoredSnapshot(snapshot.data_json);
         return NextResponse.json({
             success: true,
-            snapshot: await overlayAiHeadline(s2.data, sector),
+            snapshot: date ? await reconcileOfficialCloses(s2.data) : await overlayAiHeadline(await overlayCurrentAlpha(await reconcileOfficialCloses(s2.data)), sector),
             snapshot_date: snapshot.snapshot_date,
             created_at: snapshot.created_at,
             source: 'DB',

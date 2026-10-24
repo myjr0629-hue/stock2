@@ -75,6 +75,27 @@ export async function space() {
     try { return await taskSpace(sp.id); } catch { return null; }
 }
 
+/** ★2026-10-24 16시: 관제 판독기(rc·asc·ads)는 «관제 전용 에이전트 공간»만 쓴다.
+ *  공간 0(mkt)이 사이트 알림 권한 프롬프트로 «사용자 제어»(agentDelegatedToUser)가 되자 rc 판독이 01:54 KST 부터 14시간 SPACE_BUSY 로 건너뛰어
+ *  관제 «오늘 신규·체험» 칸이 «판독 대기»로 비었다(대표 «아무것도 진행 안 한 것이냐»). 같은 프로필(Profile 1)의 로그인 쿠키는 공간끼리 공유되므로
+ *  이름 있는 에이전트 공간 하나(hud-reader)를 만들어 쓰고 다음 회차에 같은 이름으로 이어 쓴다. 대표가 쥔 공간은 건드리지 않는다(takeOver·claim 없음).
+ *  이름이 사용자 소유이거나 이 공간까지 사용자 제어로 넘어가면 다음 이름(hud-reader-2…)을 시도하고, 모두 안 되면 null(호출자가 SPACE_BUSY 로 끝낸다).
+ *  task.finish() 는 부르지 않는다(공간이 사라져 다음 회차가 새로 만들어야 함) — 페이지만 호출자가 닫는다. */
+export const HUD_SPACE_NAMES = ['hud-reader', 'hud-reader-2', 'hud-reader-3'];
+export async function hudSpace(names = HUD_SPACE_NAMES) {
+    for (const name of names) {
+        try {
+            // taskSpace(이름, {profileId}) 는 «이미 있는 공간»에 profileId 를 주면 던진다(10/24 실측) → 목록에서 이름으로 찾아 번호로 잇고, 없을 때만 profileId 로 만든다.
+            const have = ((await listTaskSpaces()) || []).find((x) => x.name === name);
+            if (have && have.ownership !== 'agent') { console.log(`ego: 관제 전용 공간 ${name}(#${have.id})이 ${have.ownership} — 건드리지 않는다`); continue; }
+            const ts = have ? await taskSpace(have.id) : await taskSpace(name, { profileId: 'Profile 1' });
+            if (ts && (ts.ownership === undefined || ts.ownership === 'agent')) return ts;
+            console.log(`ego: 관제 전용 공간 ${name}(#${ts && ts.spaceId})이 에이전트 소유가 아님(${ts && ts.ownership}) — 건드리지 않는다`);
+        } catch (e) { console.log(`ego: 관제 전용 공간 ${name} 사용 불가: ` + String((e && e.message) || e).slice(0, 100)); }
+    }
+    return null;
+}
+
 /** ★2026-10-04 13시: 발행기 35곳이 «Profile 1 의 첫 공간 + takeOverTaskSpace(sp.id)» 로 공간을 잡았다. 공간 0 이 사용자 제어
  *  (agentDelegatedToUser)면 그 호출이 대표 제어를 «빼앗는다»(slot 경고 «발행기 실행 금지»의 정체 · MISTAKES #56) — 10:38 의 2e69fdb96 은
  *  lib.space() 만 고쳐서 발행기에는 닿지 않았다(13:00 회차가 Threads 발행기 코드를 읽다가 발견).

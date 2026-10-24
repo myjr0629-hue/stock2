@@ -136,6 +136,7 @@
     "rvol": "Relative Volume"
   },
   "guardian": {
+    "lastSessionAnalysis": "Last session analysis",
     "title": "GUARDIAN",
     "subtitle": "Analyze market-wide GEX positioning and macro conditions",
     "gravityGauge": "GRAVITY GAUGE",

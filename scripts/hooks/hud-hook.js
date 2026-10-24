@@ -14,14 +14,14 @@ const PORT = Number(process.env.HUD_PORT || 7788);
 let raw = '';
 const done = (out) => { if (out) process.stdout.write(out); process.exit(0); };
 const timer = setTimeout(() => done(''), 1500); // 최후 안전장치
-process.stdin.on('data', (d) => { raw += d; if (raw.length > 2e6) raw = raw.slice(0, 2e6); });
+process.stdin.setEncoding('utf8').on('data', (d) => { raw += d; if (raw.length > 2e6) raw = raw.slice(0, 2e6); });
 process.stdin.on('error', () => done(''));
 process.stdin.on('end', () => {
     let body = raw;
     try { const j = JSON.parse(raw); body = JSON.stringify(j); } catch { /* 원문 그대로 보낸다 */ }
     const req = http.request({ host: '127.0.0.1', port: PORT, path: '/hook', method: 'POST', timeout: 400,
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
-        (res) => { let b = ''; res.on('data', (c) => (b += c)); res.on('end', () => { clearTimeout(timer);
+        (res) => { let b = ''; res.setEncoding('utf8').on('data', (c) => (b += c)); res.on('end', () => { clearTimeout(timer);
             try { const j = JSON.parse(b); if (j && j.hookSpecificOutput) return done(JSON.stringify(j)); } catch {}
             done(''); }); });
     req.on('error', () => { clearTimeout(timer); done(''); });

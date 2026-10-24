@@ -9,7 +9,7 @@ https.get(url, (res) => {
     let data = '';
     console.log(`Status: ${res.statusCode} ${res.statusMessage}`);
 
-    res.on('data', (chunk) => {
+    res.setEncoding('utf8').on('data', (chunk) => {
         data += chunk;
     });
 

@@ -232,7 +232,7 @@ function runCollector(reason) {
     catch (e) { collector.running = false; collector.endedAt = Date.now(); collector.code = -1; collector.lastErr = String(e.message).slice(0, 120); return false; }
     collector.pid = child.pid; collectorChild = child;
     let err = '';
-    child.stderr.on('data', (c) => { err = (err + c).slice(-600); });
+    child.stderr.setEncoding('utf8').on('data', (c) => { err = (err + c).slice(-600); });
     const killer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, 9 * 60e3);   // 9분을 넘기면 끊는다(다음 회차를 막지 않게)
     child.on('close', (code) => { clearTimeout(killer); collector.running = false; collector.endedAt = Date.now(); collector.code = code; collector.lastErr = err.trim().split('\n').slice(-1)[0] || ''; console.log(`[HUD] 수집기(${reason}) 종료 code=${code} ${((collector.endedAt - collector.startedAt) / 1000) | 0}s ${collector.lastErr}`); });
     child.on('error', (e) => { clearTimeout(killer); collector.running = false; collector.endedAt = Date.now(); collector.code = -1; collector.lastErr = String(e.message).slice(0, 120); });
@@ -403,7 +403,7 @@ http.createServer((req, res) => {
         catch (e) { return json(res, { error: 'index.html 없음: ' + e.message }, 500); }
     }
     let body = '';
-    req.on('data', (c) => { body += c; if (body.length > 8e6) body = body.slice(0, 8e6); });
+    req.setEncoding('utf8').on('data', (c) => { body += c; if (body.length > 8e6) body = body.slice(0, 8e6); });
     req.on('end', () => {
         if (req.method === 'POST' && url === '/hook') {
             let j = {}; try { j = JSON.parse(body); } catch {}

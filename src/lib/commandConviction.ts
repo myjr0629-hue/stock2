@@ -1,5 +1,6 @@
 import { netPremiumOf } from './premiumFlow';
 import { normalizeVwap, vwapDistancePct } from './vwap';
+import { vwapForCalculation } from './sessionVwapPolicy';
 import { compareSourceTime, isFailedSection, selectValue } from './metrics/observation';
 import { isCommandResponseUnavailable, volatilitySourceTime } from './commandVolatilityObservation';
 
@@ -38,10 +39,11 @@ export type ConvictionInputs = ReturnType<typeof convictionInputsOf>;
 export type ConvictionField = keyof ConvictionInputs;
 
 /** App and web share the N4 observation gate, weights, thresholds and translation keys. */
-export function scoreCommandConviction(input: ConvictionInputs) {
+export function scoreCommandConviction(input: ConvictionInputs, dates: { vwap?: unknown } = {}, nowMs: number = Date.now()) {
     const votes: number[] = [];
     if (input.cross !== null) votes.push(input.cross === 'GOLDEN' ? 15 : input.cross === 'DEAD' ? -15 : 0);
-    const distance = vwapDistancePct(input.price, input.vwap);
+    // 날짜 선택(늦게 온 옛 값 차단)은 유지하고, 선택된 값의 당일 투표 자격만 검사한다.
+    const distance = vwapDistancePct(input.price, vwapForCalculation(input.vwap, dates.vwap, nowMs));
     if (distance !== null) votes.push(distance > 1 ? 8 : distance < -1 ? -8 : 0);
     if (input.pcr !== null) votes.push(input.pcr > 0 && input.pcr < 0.7 ? 7 : input.pcr > 1.2 ? -7 : 0);
     if (input.gex !== null) votes.push(input.gex > 0 ? 5 : input.gex < 0 ? -5 : 0);
