@@ -1,4 +1,4 @@
-import { buildLineUserPrompt, checkLineOutput, lineWidthEm, OPTIONS_MAP_SYSTEM, WL_LINE_MAX_EM, type LineFacts, type LineCheck, WL_LINE_LOCALES, WL_LINE_FORBIDDEN } from './watchlistLine';
+import { buildLineUserPrompt, checkLineOutput, fitsLine, lineWidthEm, OPTIONS_MAP_SYSTEM, WL_LINE_MAX_EM, type LineFacts, type LineCheck, WL_LINE_LOCALES, WL_LINE_FORBIDDEN } from './watchlistLine';
 import { checkDepthLine } from './watchlistDepth';
 import { STOCK_SESSION_LABELS, stockFactsOf } from './watchlistStockFacts';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
@@ -49,12 +49,18 @@ export function chipFragments(f: LineFacts): Record<AiLineLocale, string[]> {
 export function factChips(f: LineFacts): Record<AiLineLocale, string> {
     const fr = chipFragments(f);
     const lv = f.order.length;
-    const pick = (a: string[]) => (f.darkPool ? [...a.slice(0, Math.min(2, lv)), a[a.length - 1]] : a.slice(0, 3)).join(' · ');
-    return { ko: pick(fr.ko), en: pick(fr.en), ja: pick(fr.ja) };
+    const pick = (a: string[]) => f.darkPool ? [...a.slice(0, Math.min(2, lv)), a[a.length - 1]] : a.slice(0, 3);
+    const parts = { ko: pick(fr.ko), en: pick(fr.en), ja: pick(fr.ja) };
+    // 세 언어가 같은 조각 수 — 한 언어만 길어 덜어 내면 언어마다 다른 사실이 된다. 가장 긴 언어가 들어가는 수로 맞춘다
+    for (let k = parts.ko.length; k >= 1; k--) {
+        const cut = { ko: parts.ko.slice(0, k).join(' · '), en: parts.en.slice(0, k).join(' · '), ja: parts.ja.slice(0, k).join(' · ') };
+        if (WL_LINE_LOCALES.every(l => fitsLine(cut[l], l))) return cut;
+    }
+    return { ko: parts.ko[0], en: parts.en[0], ja: parts.ja[0] };
 }
 
-/** 해석 길이 — 요청(INSIGHT_ASK)은 검사 상한(ko/ja 48 · en 92 · 46em)보다 짧게 */
-export const INSIGHT_ASK: Record<AiLineLocale, number> = { ko: 40, en: 80, ja: 40 };
+/** 해석 길이 요청(글자) — 검사는 화면 폭 46em(360폭 두 줄) */
+export const INSIGHT_ASK: Record<AiLineLocale, number> = { ko: 45, en: 82, ja: 45 };
 /** 언어별 해석 첫머리(티커 + 세션 표지) — 모델에게 그대로 준다(검사는 «티커[조사] + 세션 표지로 시작») */
 export function insightOpenings(f: LineFacts): Record<AiLineLocale, string> {
     const l = STOCK_SESSION_LABELS[f.quote.session];
@@ -162,9 +168,12 @@ export function checkWatchlistV3Insight(text: string, loc: AiLineLocale, f: Line
     // 근거에 실제 EOD 흐름이 있을 때만 같은 길이의 소문자로 바꿔 기존 고유명 가드에 전달한다.
     let stripped = text.replace(label, '').trim();
     if (/\[options flow; EOD \d{4}-\d{2}-\d{2}/.test(f.contextText || '')) stripped = stripped.replace(/\bEOD\b/g, 'eod');
-    // 길이: 글자 수(ko/ja 48 · en 92) + 화면 폭(칩 줄과 같은 46em = 360폭 두 줄) — 첫머리(티커·세션)를 포함한 전체
-    if ([...text].length > (loc === 'en' ? 92 : 48) || lineWidthEm(text) > WL_LINE_MAX_EM) reasons.push('v3:too-long');
-    reasons.push(...checkDepthLine(stripped, loc, buildLineUserPrompt(f), nowMs), ...watchlistMetricReasons(text, f));
+    // 길이 = 화면 폭(칩 줄과 같은 46em = 360폭 두 줄 · 첫머리 포함). 글자 수는 라틴 이름($·레벨명)이 섞이면 폭과 따로 논다
+    //   (10/24 실모델 NVDA ko 64자 = 39em — 두 줄 안). 글자 수는 터무니없는 글만 막는다(ko/ja 70 · en 110).
+    if ([...text].length > (loc === 'en' ? 110 : 70) || lineWidthEm(text) > WL_LINE_MAX_EM) reasons.push('v3:too-long');
+    // 옛 해석 검사의 글자 수 상한(44·84, 첫머리 없는 글 기준)은 위 폭 검사가 대신한다 — 형식 문자(줄바꿈·{}·« · »·말줄임)는 그대로 막는다
+    const depth = checkDepthLine(stripped, loc, buildLineUserPrompt(f), nowMs).filter(r => r !== 'insight:format' || /[\r\n{}]| · |…|\.\.\./.test(stripped));
+    reasons.push(...depth, ...watchlistMetricReasons(text, f));
     // 숫자는 사실·근거 글에 «그대로» 있는 것만(시세 가격·등락은 근거에 없다 — 해석에 쓰지 않는다)
     const allowed = new Set(valueTokens(`${f.factsText}\n${f.contextText || ''}`).map(t => tokenKey(t.raw).replace(/^[+±]/, '')));
     for (const t of valueTokens(text)) if (!allowed.has(tokenKey(t.raw).replace(/^[+±]/, ''))) reasons.push('v3:exact-number');
@@ -186,7 +195,9 @@ export function checkWatchlistV3Output(raw: string, f: LineFacts): LineCheck {
     let c = checkLineOutput(JSON.stringify({ ko: inner.ko, en: inner.en, ja: inner.ja }), f);
     let chipFallback = false;
     // 칩 줄만 틀렸으면(쪽·숫자·길이) 사실 그대로의 칩 줄로 — 같은 검사를 통과할 때만. 해석은 모델 것 그대로 검사한다.
-    if (!c.ok) { const d = checkLineOutput(JSON.stringify(factChips(f)), f); if (d.ok) { c = d; chipFallback = true; } }
+    //   세 언어 칩 줄의 숫자·자리표가 서로 다르면(언어별 덜어 내기 등) 역시 사실 칩 줄로 — 언어 간 같은 사실
+    const chipSig = (t: Record<AiLineLocale, string>) => new Set(WL_LINE_LOCALES.map(l => watchlistNumericSignature(t[l]) + '|' + [...(t[l].match(/\{(?:MP|CW|PF|GF)\}/g) || [])].sort().join(','))).size;
+    if (!c.ok || (c.text && chipSig(c.text) > 1)) { const d = checkLineOutput(JSON.stringify(factChips(f)), f); if (d.ok) { c = d; chipFallback = true; } }
     const reasons = [...c.reasons];
     const insight = {} as Record<AiLineLocale, string>;
     for (const loc of WL_LINE_LOCALES) {

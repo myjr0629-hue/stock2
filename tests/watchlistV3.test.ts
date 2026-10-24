@@ -133,10 +133,21 @@ test('칩 조각: 쪽을 사실로 미리 만든다 · 모델 칩 줄이 틀리�
     // 지형이 정상인 모델 칩 줄은 그대로(대체 표식 없음)
     assert.equal((check(good) as any).chipFallback, undefined);
 });
-test('해석 길이: 첫머리 포함 ko/ja 48자·en 92자·46em(360폭 두 줄)', () => {
-    const long = 'NVDA 장전 예상 변동 ±3.2%가 양감마 구간에서 완충되며 Put Floor $135 위에서 움직임이 눌리는 자리';
+test('해석 길이 = 화면 폭 46em(360폭 두 줄, 첫머리 포함) — 라틴 이름이 섞인 64자는 통과, 한글만 긴 글은 탈락', () => {
+    const long = 'NVDA 장전 예상 변동 ±3.2%가 양감마 구간에서 완충되며 풋 플로어 위에서 움직임이 눌리고 변동이 줄어드는 자리';
     assert.ok(checkWatchlistV3Insight(long, 'ko', f, now).includes('v3:too-long'));
+    const latin = 'NVDA 장전 예상 변동 ±3.2%가 Put Floor $135와 Gamma Flip $140 사이 양감마 자리';
+    assert.ok([...latin].length > 48);
+    assert.ok(!checkWatchlistV3Insight(latin, 'ko', f, now).some(r => /too-long|insight:format/.test(r)), checkWatchlistV3Insight(latin, 'ko', f, now).join(','));
     assert.ok(!checkWatchlistV3Insight(insight.ko, 'ko', f, now).includes('v3:too-long'));
-    assert.match(buildWatchlistV3Prompt(f), /INSIGHT BUDGET[^\n]*ko ≤ 40/);
+    assert.ok(checkWatchlistV3Insight('NVDA 장전 예상 변동 ±3.2% · 양감마 완충 자리', 'ko', f, now).includes('insight:format'), '형식 문자는 계속 막는다');
+    assert.match(buildWatchlistV3Prompt(f), /INSIGHT BUDGET[^\n]*ko ≤ 45/);
+});
+test('칩 줄 언어 간 숫자가 다르면 사실 칩 줄(세 언어 같은 조각 수)', () => {
+    const r = check({ ko: chips.ko + ' · 장외 비중 40.0%', en: chips.en, ja: chips.ja, insight });
+    assert.equal(r.ok, true, r.reasons.join(','));
+    assert.equal((r as any).chipFallback, true);
+    const sig = (t: string) => (t.match(/\$[\d.]+|[\d.]+%|\{[A-Z]+\}/g) || []).sort().join('|');
+    assert.equal(new Set(['ko', 'en', 'ja'].map(l => sig((r.text as any)[l]))).size, 1);
 });
 console.log(`${n} passed`);
