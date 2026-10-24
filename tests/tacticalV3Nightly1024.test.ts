@@ -1,0 +1,106 @@
+/**
+ * 코덱스 밤 검토 2026-10-24 ③(번역 숫자 미대조) · TRACKER T21(같은 화면 RLSI 33 vs 29) 재현 — 네트워크 0.
+ *   ①(세션 재사용)은 tacticalV3Gate.test.ts 세션 경계 묶음, ②(장중 지연 현물 → 선물 판정)는 guardianCore.test.ts.
+ */
+import assert from 'node:assert/strict';
+import Module from 'node:module';
+import { buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
+
+const store = new Map<string, any>();
+const writes: string[] = [];
+let clock = Date.parse('2026-10-23T15:00:00Z'); // 11:00 ET 정규장
+let calls = 0;
+let response: ((opts: any) => string) | null = null;
+function mock(id: string, exports: unknown) {
+    const filename = require.resolve(id);
+    require.cache[filename] = { id: filename, filename, loaded: true, exports } as Module;
+}
+mock('@upstash/redis', { Redis: class {
+    async get(key: string) { return store.get(key) ?? null; }
+    async set(key: string, value: string) { writes.push(key); store.set(key, JSON.parse(value)); }
+} });
+mock('../src/lib/sessionArchive', { readSessionArchive: async () => null, saveSessionArchive: async () => false });
+const { IntelligenceNode: N, _resetInsightStateForTest, _setMarketClockForTest, _setModelCallerForTest } = require('../src/services/guardian/intelligenceNode') as typeof import('../src/services/guardian/intelligenceNode');
+const actualNow = Date.now;
+type Locale = 'ko' | 'en' | 'ja';
+const text = {
+    ko: '나스닥 현물 관측은 미확인입니다. 오늘 시장 전체를 움직인 재료는 미확인입니다. 시장 건강도(RLSI)는 {RLSI}점으로 약하고 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.',
+    en: 'Nasdaq spot observations are unavailable. The market driver is unconfirmed. Market health (RLSI) is weak at {RLSI}, volatility (VIX) is {VIX}, and options positioning (GEX) is unconfirmed. The next test is unconfirmed.',
+};
+const key = (l: Locale) => `guardian:gemini:v3:reality:${l}`;
+const ctx = (locale: Locale, over: Record<string, unknown> = {}) => ({ locale, rlsiScore: 33, nasdaqChange: -0.2, vix: 18.4, vectors: [], scheduledEvents: [], ...over });
+const prompts = (over: Record<string, unknown> = {}) => (l: Locale) => buildTacticalPrompt({ ...ctx(l, over), asOf: new Date(clock).toISOString() }, l);
+function reset(iso = '2026-10-23T15:00:00Z') {
+    _resetInsightStateForTest(); store.clear(); writes.length = 0; clock = Date.parse(iso); calls = 0; response = null;
+}
+
+async function main() {
+    process.env.UPSTASH_REDIS_REST_URL = 'https://offline.invalid';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 'offline-placeholder';
+    process.env.AWS_ACCESS_KEY_ID = 'offline-placeholder';
+    Date.now = () => clock;
+    _setMarketClockForTest(() => new Date(clock));
+    _setModelCallerForTest(async (opts) => {
+        calls++;
+        if (!response) throw new Error('offline failure');
+        return { text: response(opts), model: 'mock', usedFallback: false, elapsedMs: 0 } as any;
+    });
+
+    // ── T21: Tactical 저장본(생성 당시 RLSI 29)을 같은 화면 지금 값(33)으로 채운다 ──
+    reset();
+    store.set(key('ko'), { text: text.ko, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 29, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
+    const fresh = await N.generateRealityInsight(ctx('ko'));
+    assert.ok(fresh.includes('33점'), `캐시 재사용: 지금 값 33 — ${fresh}`);
+    assert.ok(!fresh.includes('29'), '생성 당시 값 29 를 같은 화면에 내지 않는다');
+    assert.equal(calls, 0, '구간 안 움직임은 재생성 없이 숫자만 맞춘다');
+    // 실제 출구(저장 판정 verdict.num) — 복구 계약(restore)도 지금 값
+    const verdict = { realityInsight: text.ko.replace('{RLSI}', '29'), num: { tpl: { realityInsight: text.ko }, basis: { realityInsight: { RLSI: 29, VIX: 18.4 } } } };
+    const repaired = await N.repairVerdictTexts(verdict, 'ko', 't21', { RLSI: 33, VIX: 18.4 }, prompts());
+    assert.ok(repaired.verdict.realityInsight.includes('33점'), repaired.verdict.realityInsight);
+    assert.equal(repaired.repaired.length, 0, '탈락 아님(숫자만 지금 값)');
+    // 장외(주말 «Last session analysis»)도 같은 화면의 다른 카드와 같은 시점 값
+    reset('2026-10-24T01:00:00Z');
+    const off = await N.repairVerdictTexts(verdict, 'ko', 't21-off', { RLSI: 33, VIX: 18.4 }, prompts());
+    assert.ok(off.verdict.realityInsight.includes('33점'), off.verdict.realityInsight);
+    assert.equal(calls, 0, '장외 모델 호출 0');
+    // 서술 구간이 바뀌면(RLSI 29 → 50: «약하다»가 틀림) 지금 값으로 채우지 않고, 재생성 실패 시 생성 당시 값의 글을 보존(오탈락 금지)
+    reset();
+    store.set(key('ko'), { text: text.ko, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 29, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
+    const moved = await N.generateRealityInsight(ctx('ko', { rlsiScore: 50 }));
+    assert.ok(calls > 0, '낡음은 재생성 유도');
+    assert.ok(!N.isPlaceholderInsight(moved), '재생성 실패해도 «준비 중» 아님');
+    assert.ok(moved.includes('29점') && !moved.includes('50점'), `구간이 바뀐 지금 값으로 «약하다» 서술을 채우지 않는다 — ${moved}`);
+
+    // ── 밤 검토 ③: 번역 응답의 틀린 숫자(VIX 99)는 화면·캐시를 통과하지 못한다 ──
+    const enSource = () => store.set(key('en'), { text: text.en, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, session: 'REG' });
+    const translateTo = (body: string) => (opts: any) => (String(opts.label || '').startsWith('Translate/') ? body : (() => { throw new Error('generation offline'); })());
+    const koGood = '나스닥 현물 관측은 미확인입니다. 시장 전체 재료는 미확인입니다. 시장 건강도(RLSI)는 {RLSI}점으로 약하고 변동성(VIX)은 18.4이며 옵션 포지션(GEX)은 미확인입니다. 다음 분기점은 미확인입니다.';
+    for (const [name, body, ok] of [
+        ['VIX 99(원문·기준 18.4)', koGood.replace('18.4', '99'), false],
+        ['원문에 없는 지수 수치', koGood.replace('나스닥 현물 관측은 미확인입니다.', '나스닥 종합은 2.6% 하락 중입니다.'), false],
+        ['원문 숫자 그대로', koGood, true],
+    ] as const) {
+        reset(); enSource();
+        response = translateTo(body);
+        const out = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, tacticalPrompts: prompts() });
+        if (ok) {
+            assert.ok(!N.isPlaceholderInsight(out) && out.includes('18.4') && out.includes('33점'), `${name}: ${out}`);
+            assert.ok(writes.includes(key('ko')), `${name}: 통과 번역만 저장`);
+        } else {
+            assert.ok(!out.includes('99') && !out.includes('2.6%'), `${name}: 틀린 숫자 화면 통과 금지 — ${out}`);
+            assert.ok(!writes.includes(key('ko')), `${name}: 캐시 저장 금지`);
+            assert.ok(!store.has(key('ko')), `${name}: 저장본 없음`);
+        }
+    }
+    // 기존 정상본이 있으면 번역 탈락과 무관하게 그 글을 유지한다
+    reset(); enSource();
+    store.set(key('ko'), { text: text.ko, updatedAt: new Date(clock - 60_000).toISOString(), basis: { RLSI: 33, VIX: 18.4 }, session: 'REG' });
+    response = translateTo(koGood.replace('18.4', '99'));
+    const kept = await N.recoverInsight('reality', 'ko', { nums: { RLSI: 33, VIX: 18.4, NDX_CHG: -0.2 }, tacticalPrompts: prompts() });
+    assert.ok(kept.includes('33점') && !kept.includes('99'), kept);
+
+    console.log('통과 밤 검토 10/24 ③ 번역 숫자 대조 · T21 같은 화면 RLSI 지금 값(구간 이동 시 생성 당시 값 보존)');
+}
+main().catch((e) => { console.error(e); process.exitCode = 1; }).finally(() => {
+    Date.now = actualNow; _setMarketClockForTest(null); _setModelCallerForTest(null); _resetInsightStateForTest();
+});
