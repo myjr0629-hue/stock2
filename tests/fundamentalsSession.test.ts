@@ -38,7 +38,6 @@ stub('../src/services/massiveClient', {
 });
 
 const FS = require('../src/services/fundamentalsSession') as typeof import('../src/services/fundamentalsSession');
-const SWR = require('../src/lib/cache/redisSWR') as typeof import('../src/lib/cache/redisSWR');
 const { NextRequest } = require('next/server');
 const route = require('../src/app/api/live/fundamentals/route');
 
@@ -60,17 +59,6 @@ const legacyEntry = (ts: number) => ({ timestamp: ts, data: {
 } });
 
 async function main() {
-  // ① swrFetch 의 새 선택 인자 isFresh — 없으면 동작 불변(나이로만), false 면 동기 재조회·저장, 재조회 실패면 저장값
-  store.clear(); writes.length = 0;
-  store.set('swr:k', { timestamp: SAT - 1000, data: { v: 1 } });
-  let n = 0;
-  const plain = await at(SAT, () => SWR.swrFetch('k', async () => ({ v: ++n }), { ttlSeconds: 60, keyPrefix: 'swr' }));
-  assert.equal(plain._cache, 'hit'); assert.equal(n, 0, '기본 동작 불변');
-  const forced = await at(SAT, () => SWR.swrFetch('k', async () => ({ v: ++n }), { ttlSeconds: 60, keyPrefix: 'swr', isFresh: () => false }));
-  assert.equal(forced._cache, 'revalidated'); assert.deepEqual(forced.data, { v: 1 }); assert.deepEqual(writes, ['swr:k']);
-  const failed = await at(SAT, () => SWR.swrFetch('k', async () => { throw new Error('vendor 429'); }, { ttlSeconds: 60, keyPrefix: 'swr', isFresh: () => false }));
-  assert.equal(failed._cache, 'hit'); assert.deepEqual(failed.data, { v: 1 }, '재조회 실패 → 저장값 유지');
-
   // ② 기준 세션 — 그 종목 공식 종가가 적재된 마지막 끝난 세션, 게시 전·못 읽음·상한 초과는 null(강제 재조회 없음)
   official = OFFICIAL;
   assert.equal(await at(SAT, () => FS.confirmedCloseSession('NVDA', SAT)), '2026-10-23');
@@ -81,48 +69,36 @@ async function main() {
   assert.equal(await FS.confirmedCloseSession('NVDA', SAT, 50), null); assert.ok(Date.now() - t0 < 250);
   eodDelay = 0; await new Promise((r) => setTimeout(r, 350));
 
-  // ③ 재조회 간격 — 표식이 다르면 한 번 다시 읽고, 실패해 표식이 그대로여도 10분 안엔 다시 안 두드린다
-  FS._resetRecheckForTest();
-  const fresh = FS.freshForSession('NVDA', '2026-10-23', SAT);
-  assert.equal(fresh({ _sourceCheckedAfter: '2026-10-23' }), true);
-  assert.equal(fresh({}), false, '표식 없음 → 다시 읽기');
-  assert.equal(FS.freshForSession('NVDA', '2026-10-23', SAT + 5 * 60_000)({}), true, '10분 안 재시도 없음');
-  assert.equal(FS.freshForSession('NVDA', '2026-10-23', SAT + 11 * 60_000)({}), false, '10분 뒤 재시도');
-  assert.equal(FS.freshForSession('NVDA', null, SAT)({}), true, '기준 세션 없음 → 기존 6시간 규칙만');
-
-  // ④ 직접 재무 API — 6시간 안 옛 값(표식 없음)이어도 10/23 공식 종가 확정 뒤엔 원천 1회 → 새 값 + 표식 저장, 다음 요청은 적중(원천 0)
-  FS._resetRecheckForTest();
+  // ③ 직접 재무 API — 재조회 주기·저장 규칙은 예전 그대로(6시간 안 적중·원천 0), 공급사에서 «방금» 읽은 정상 결과에만 기준 세션 표식
   store.clear(); writes.length = 0; vendor.length = 0; official = OFFICIAL;
   store.set(KEY, legacyEntry(SAT - 2 * 3600_000));
+  const r0 = await at(SAT, () => get());
+  assert.equal(r0._cache, 'hit'); assert.equal(r0.pe, 26.5); assert.equal(vendor.length, 0, '6시간 안 — 강제 재조회 없음(예전 규칙)'); assert.equal(writes.length, 0);
+  store.set(KEY, legacyEntry(SAT - 7 * 3600_000));
   const r1 = await at(SAT, () => get());
-  assert.equal(r1.pe, 26.4); assert.equal(r1.marketCap, 5084136000000); assert.equal(r1._sourceCheckedAfter, '2026-10-23');
-  assert.equal(r1._cache, 'revalidated'); assert.deepEqual(writes, [KEY]);
-  assert.equal(store.get(KEY).data._sourceCheckedAfter, '2026-10-23', '기준 세션을 값과 함께 저장');
-  const firstVendor = vendor.length; assert.ok(firstVendor > 0);
-  const r2 = await at(SAT + 60_000, () => get());
-  assert.equal(r2._cache, 'hit'); assert.equal(vendor.length, firstVendor, '같은 세션 두 번째 요청 원천 0'); assert.equal(writes.length, 1);
-  //    공식 종가 게시 전(금 16:30) — 옛 값 그대로·원천 0(마감 시각만으로 재조회하지 않는다)
-  FS._resetRecheckForTest();
-  store.clear(); writes.length = 0; vendor.length = 0; official = {};
-  store.set(KEY, legacyEntry(FRI_1630 - 3600_000));
+  assert.equal(r1._cache, 'revalidated'); assert.equal(r1.pe, 26.4); assert.equal(r1.marketCap, 5084136000000);
+  assert.equal(r1._sourceCheckedAfter, '2026-10-23', '공급사에서 방금 읽은 정상 결과 → 기준 세션 표식');
+  assert.equal(store.get(KEY).data._sourceCheckedAfter, '2026-10-23', '표식을 값과 함께 저장');
+  //    공식 종가 게시 전(금 16:30) — 표식 없음(마감 시각만으로 확정하지 않는다)
+  store.clear(); official = {};
   const r3 = await at(FRI_1630, () => get());
-  assert.equal(r3.pe, 26.5); assert.equal(r3._cache, 'hit'); assert.equal(vendor.length, 0); assert.equal(writes.length, 0);
-  //    재조회 실패(공급사 오류 → 일시 결과) — 옛 값 유지, 저장 0, 10분 안 재시도 0
-  FS._resetRecheckForTest();
-  store.clear(); writes.length = 0; vendor.length = 0; official = OFFICIAL;
-  store.set(KEY, legacyEntry(SAT - 3600_000));
-  const realRatios = ratios; ratios = undefined;
+  assert.equal(r3.pe, 26.4); assert.equal(r3._sourceCheckedAfter, undefined);
+  //    공급사 실패 → 빈 결과(NO_DATA) — 표식 없음(출구가 정상 값을 빈 값으로 덮지 않는다, 관문 10250533 ②)
+  store.clear(); official = OFFICIAL;
   const fm = require('../src/services/massiveClient');
   const realFetch = fm.fetchMassive;
-  fm.fetchMassive = async (url: string) => { vendor.push(url); throw new Error('429'); };
+  fm.fetchMassive = async () => ({ results: [] });   // 어댑터가 429 를 빈 응답으로 바꾼 모양
   const r4 = await at(SAT, () => get());
-  assert.equal(r4.pe, 26.5, '공급사 실패 결과(NO_DATA)로 옛 값을 덮지 않는다');
-  assert.equal(r4._cache, 'hit'); assert.equal(writes.length, 0, '실패 결과 저장 0');
-  fm.fetchMassive = realFetch; ratios = realRatios;
-  const v4 = vendor.length;
-  const r5 = await at(SAT + 2 * 60_000, () => get());
-  assert.equal(vendor.length, v4, '실패 뒤 10분 안 원천 재조회 0');
-  assert.equal(r5._cache, 'hit');
+  fm.fetchMassive = realFetch;
+  assert.equal(r4.grade, 'NO_DATA'); assert.equal(r4._sourceCheckedAfter, undefined);
+  //    DynamoDB 수확본 — 표식 없음(수확 시점의 가격 기준을 모른다, 관문 10250533 ①)
+  store.clear();
+  const ucp = require('../src/lib/aws/unifiedCacheProvider');
+  const realU = ucp.getUnifiedCache;
+  ucp.getUnifiedCache = async () => ({ fundamentals: { ...legacyEntry(0).data, _incomeMetricsVersion: 1 } });
+  const r5 = await at(SAT, () => get());
+  ucp.getUnifiedCache = realU;
+  assert.equal(r5._source, 'dynamodb'); assert.equal(r5.pe, 26.5); assert.equal(r5._sourceCheckedAfter, undefined);
 
   // ⑤ unified 출구 — 저장된 직접 API 항목(표식 있음)으로 맞춘다: 앱(직접)·웹(unified) 같은 값, 회사 정보는 unified 사본 그대로
   FS._resetFundamentalsMemoForTest();
@@ -158,17 +134,21 @@ async function main() {
   store.set(KEY, { timestamp: SAT, data: { ...legacyEntry(0).data, pe: 26.4, _sourceCheckedAfter: '2026-10-23' } });
   assert.equal((await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT + 1000) as any).pe, 26.4, '실패는 메모 안 함');
 
-  // ⑤-b 웹 경로의 원천 재조회 기회 — 메모된 항목 표식이 마지막 끝난 세션과 다를 때만, 종목당 10분에 한 번
+  // ⑤-b 웹만 보는 종목의 갱신 기회 — 저장 항목이 없거나 6시간이 지났을 때만, 종목당 10분에 한 번(신선한 항목이면 안 부름)
   FS._resetFundamentalsMemoForTest(); FS._resetKickForTest();
   assert.equal(FS.shouldKickSourceRecheck('NVDA', SAT), false, '아직 읽지 않았으면 판단 안 함');
-  store.set(KEY, legacyEntry(SAT - 60_000));
+  store.delete(KEY);
   await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT);
-  assert.equal(FS.shouldKickSourceRecheck('NVDA', SAT), true, '표식 없음 → 한 번');
+  assert.equal(FS.shouldKickSourceRecheck('NVDA', SAT), true, '항목 없음 → 한 번');
   assert.equal(FS.shouldKickSourceRecheck('NVDA', SAT + 30_000), false, '10분 안 다시 안 부름');
   FS._resetFundamentalsMemoForTest(); FS._resetKickForTest();
-  store.set(KEY, { timestamp: SAT, data: { ...legacyEntry(0).data, _sourceCheckedAfter: '2026-10-23' } });
+  store.set(KEY, legacyEntry(SAT - 60_000));
   await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT);
-  assert.equal(FS.shouldKickSourceRecheck('NVDA', SAT), false, '이미 마지막 끝난 세션 표식 → 안 부름');
+  assert.equal(FS.shouldKickSourceRecheck('NVDA', SAT), false, '신선한 항목(6시간 안) → 안 부름');
+  FS._resetFundamentalsMemoForTest(); FS._resetKickForTest();
+  store.set(KEY, legacyEntry(SAT - 7 * 3600_000));
+  await FS.alignFundamentalsToSource(unifiedCopy, 'NVDA', SAT);
+  assert.equal(FS.shouldKickSourceRecheck('NVDA', SAT), true, '6시간 지난 항목 → 한 번');
 
   // ⑥ 배선 — command/unified 의 모든 출구(jsonResponse)·종목 SSR 이 같은 함수, 직접 API 는 기준 세션·isFresh 를 넘긴다
   const unified = fs.readFileSync(path.join(__dirname, '../src/app/api/command/unified/route.ts'), 'utf8');
@@ -178,10 +158,11 @@ async function main() {
   const ssr = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/ticker/page.tsx'), 'utf8');
   assert.match(ssr, /alignFundamentalsToSource\(/);
   const direct = fs.readFileSync(path.join(__dirname, '../src/app/api/live/fundamentals/route.ts'), 'utf8');
-  assert.match(direct, /isFresh = fsm\.freshForSession\(ticker, session\)/);
-  assert.match(direct, /keyPrefix: 'swr', isFresh \}/);
+  assert.match(direct, /keyPrefix: 'swr' \}/, '재무 SWR 규칙 불변');
+  const swrSrc = fs.readFileSync(path.join(__dirname, '../src/lib/cache/redisSWR.ts'), 'utf8');
+  assert.ok(!swrSrc.includes('isFresh'), 'swrFetch 공용 동작 불변');
 
-  console.log('fundamentalsSession: 6 묶음 통과');
+  console.log('fundamentalsSession: 5 묶음 통과');
 }
 
 main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });

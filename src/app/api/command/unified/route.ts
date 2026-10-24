@@ -629,8 +629,8 @@ async function jsonResponse(data: any, status = 200, ticker?: string | null) {
         const { alignFundamentalsToSource, shouldKickSourceRecheck } = await import('@/services/fundamentalsSession');
         const fundamentals = await alignFundamentalsToSource(audited.fundamentals, ticker || audited.ticker).catch(() => audited.fundamentals);
         if (fundamentals !== audited.fundamentals) audited = { ...audited, fundamentals };
-        // 저장된 직접 재무 항목이 마지막 끝난 세션 뒤에 읽은 것이 아니면 응답 뒤 한 번 직접 API 를 불러 원천 재조회 기회를 준다(웹은 직접 API 를 안 부른다).
-        //   재조회 여부·횟수는 그 API(공식 종가 확정·종목·세션당 1회)가 정한다. 종목당 10분에 한 번.
+        // 저장된 직접 재무 항목이 없거나 6시간(그 API 의 신선 기간)이 지났으면 응답 뒤 한 번 직접 API 를 부른다(웹은 직접 API 를 안 부른다).
+        //   재조회 여부·저장은 그 API 의 예전 규칙대로. 인스턴스 안 종목당 10분에 한 번.
         const symbol = ticker || audited.ticker;
         if (symbol && shouldKickSourceRecheck(symbol)) {
             after(async () => { await callInternalGet(getFundamentals, `http://localhost/api/live/fundamentals?t=${encodeURIComponent(symbol)}`).catch(() => null); });

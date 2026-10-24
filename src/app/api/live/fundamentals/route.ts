@@ -3,7 +3,7 @@
 // Grade: A(80+) B(60+) C(40+) D(20+) F(<20)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { swrFetch, markTransient } from '@/lib/cache/redisSWR';
+import { swrFetch } from '@/lib/cache/redisSWR';
 import { computeIncomeMetrics } from '@/lib/incomeMetrics';
 
 export const revalidate = 3600;
@@ -13,19 +13,19 @@ export async function GET(req: NextRequest) {
     if (!ticker) return NextResponse.json({ error: 'Missing ticker' }, { status: 400 });
 
     try {
-        // [T12 · M1] 그 종목의 공식 종가가 적재된 마지막 끝난 세션 — 저장값의 표식이 다르면 6시간 안이어도 원천을 한 번 다시 읽고,
-        //   결과에 표식(_sourceCheckedAfter)을 함께 저장한다(services/fundamentalsSession). 값·점수는 원천 그대로(다시 계산 0).
-        //   세션 판정 모듈을 못 읽거나 실패하면 예전 규칙(저장 시각 6시간)만 — 재무 응답을 막지 않는다.
-        let session: string | null = null;
-        let isFresh: ((data: any) => boolean) | undefined;
-        let stampKey: string | null = null;
-        try {
-            const fsm = await import('@/services/fundamentalsSession');
-            session = await fsm.confirmedCloseSession(ticker);
-            isFresh = fsm.freshForSession(ticker, session);
-            stampKey = fsm.SOURCE_CHECKED_AFTER;
-        } catch { /* 예전 규칙 */ }
-        const stamp = <T extends object>(data: T): T => (session && stampKey ? { ...data, [stampKey]: session } : data);
+        // [T12 · M1 — 관문 10250533 뒤 최소 범위] 공급사에서 «방금» 읽은 결과에만 기준 세션 표식(_sourceCheckedAfter = 그 종목 공식 종가가
+        //   적재된 마지막 끝난 세션)을 함께 저장한다(services/fundamentalsSession). 값·점수는 원천 그대로(다시 계산 0). 재조회 주기·저장 규칙은 예전 그대로.
+        //   · DynamoDB 수확본은 표식 없음(수확 시점의 가격 기준을 모른다 — 관문 10250533 ①)
+        //   · 빈 결과(NO_DATA — 공급사 실패를 어댑터가 빈 응답으로 바꾼 경우 포함)·시총 없음은 표식 없음(출구가 정상 값을 빈 값으로 덮지 않게 — 관문 10250533 ②)
+        //   세션 판정 모듈을 못 읽거나 실패하면 표식 없음 — 재무 응답을 막지 않는다.
+        const stampFromSource = async <T extends { grade?: string; marketCap?: number | null }>(data: T): Promise<T> => {
+            if (!data || data.grade === 'NO_DATA' || !(typeof data.marketCap === 'number' && data.marketCap > 0)) return data;
+            try {
+                const fsm = await import('@/services/fundamentalsSession');
+                const session = await fsm.confirmedCloseSession(ticker);
+                return session ? { ...data, [fsm.SOURCE_CHECKED_AFTER]: session } : data;
+            } catch { return data; }
+        };
         const result = await swrFetch(
             // ⚠️ 판정을 바꾸면 **키를 올려야 한다.** 안 올리면 옛 결과(NO_DATA)가
             //   TTL 동안 그대로 나가고 「고쳤는데 안 바뀐다」로 오진하게 된다.
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
                     if (_hasSubstance && _f._incomeMetricsVersion === 1) {
                         const f = dynData!.fundamentals;
                         console.log(`[live/fundamentals] ✅ DynamoDB hit for ${ticker}: score=${f.score} grade=${f.grade}`);
-                        return stamp({
+                        return {
                             ticker,
                             score: f.score ?? null,
                             grade: f.grade ?? 'NO_DATA',
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
                             sector: f.sector ?? null,
                             _source: 'dynamodb',
                             _incomeMetricsVersion: 1,
-                        });
+                        };
                     }
                 } catch (e: any) {
                     console.warn(`[live/fundamentals] DynamoDB error for ${ticker}:`, e.message);
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
                 if (!hasAnyData) { grade = 'NO_DATA'; finalScore = null; }
                 else { finalScore = score; grade = score >= 80 ? 'A' : score >= 70 ? 'A-' : score >= 60 ? 'B+' : score >= 50 ? 'B' : score >= 40 ? 'C+' : score >= 30 ? 'C' : score >= 20 ? 'D' : 'F'; }
 
-                const fallback = stamp({
+                return stampFromSource({
                     ticker, score: finalScore, grade, breakdown,
                     pe: pe !== null ? Math.round(pe * 10) / 10 : null,
                     de: de !== null ? Math.round(de * 100) / 100 : null,
@@ -129,11 +129,8 @@ export async function GET(req: NextRequest) {
                     _source: 'polygon-fallback',
                     _incomeMetricsVersion: 1,
                 });
-                // [T12] 두 공급사 호출이 모두 실패해 빈 결과(NO_DATA)면 저장하지 않는다 — 옛 정상 값을 덮지 않고 다음에 다시 읽는다
-                //   (공급사가 «없음»을 정상 응답한 종목은 그대로 저장된다 — 그건 실패가 아니다).
-                return ratiosRes === null && vxFinRes === null && !hasAnyData ? markTransient(fallback) : fallback;
             },
-            { ttlSeconds: 21600, keyPrefix: 'swr', isFresh }
+            { ttlSeconds: 21600, keyPrefix: 'swr' }
         );
 
         return NextResponse.json({ ...result.data, _cache: result._cache });

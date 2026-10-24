@@ -29,11 +29,6 @@ interface SWROptions {
     ttlSeconds: number;
     /** Key prefix for Redis (e.g., 'swr:live:ticker') */
     keyPrefix: string;
-    /**
-     * [T12 2026-10-25] 나이로는 신선한 저장값을 «다시 읽어야 하나» 추가로 판정한다(false = 지금 동기 재조회, 실패·일시 결과면 저장값).
-     * 없으면 예전 그대로(나이로만). 재무 API 가 «새 공식 종가 확정 뒤 원천 1회 재조회»에 쓴다.
-     */
-    isFresh?: (data: any) => boolean;
 }
 
 /**
@@ -56,7 +51,7 @@ export async function swrFetch<T>(
         const cached = await getFromCache<{ data: T; timestamp: number }>(cacheKey);
         if (cached && cached.data) {
             const age = Date.now() - (cached.timestamp || 0);
-            const isStale = age > options.ttlSeconds * 1000 || (options.isFresh ? !options.isFresh(cached.data) : false);
+            const isStale = age > options.ttlSeconds * 1000;
 
             if (!isStale) {
                 // Fresh data — return immediately
