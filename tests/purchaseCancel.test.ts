@@ -58,6 +58,7 @@ async function t(name: string, fn: () => Promise<void> | void) { await fn(); n +
     assert.equal(rc.isPurchaseCancelled(IOS_CANCEL), true);
     assert.equal(rc.isPurchaseCancelled({ userCancelled: true }), true);
     assert.equal(rc.isPurchaseCancelled({ code: 1 }), true);
+    assert.equal(rc.isPurchaseCancelled({ message: 'm', data: { userCancelled: true } }), true);
     for (const code of ['0', '10', '11', '12', '15', '20', '23', 'NOT_SUPPORTED', undefined]) {
       assert.equal(rc.isPurchaseCancelled(capError({ message: 'm', code, data: { userCancelled: false } })), false, String(code));
     }
