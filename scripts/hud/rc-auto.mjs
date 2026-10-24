@@ -48,13 +48,17 @@ export function readOverviewDocument() {
 
 async function run() {
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  // Only the existing space 0 is allowed; never create a named space or take user control.
-  const spaces = await listTaskSpaces();
-  const sp = (spaces || []).find((s) => String(s.id) === '0');
-  if (!sp || sp.ownership !== 'agent') { console.log('SPACE_BUSY'); return; }
-  let task;
-  try { await claimTaskSpace(0); task = await taskSpace(0); }
-  catch { console.log('SPACE_BUSY'); return; }
+  // ★2026-10-24: 공간 0(mkt)은 사이트 알림 권한 프롬프트로 «사용자 제어»가 되면 며칠씩 돌아오지 않는다(01:54 KST 부터 14시간 SPACE_BUSY → 관제 «판독 대기»).
+  //   그래서 관제 전용 «에이전트 공간»(이름 hud-reader · 같은 Profile 1 이라 로그인 공유)만 쓴다. 공간 0 은 건드리지 않는다 — claim·takeOver·finish 없음.
+  //   (ego-run 은 이 스크립트를 «공간 불명»으로 보고 전체 잠금으로 직렬화한다 — 안전한 쪽.) lib.mjs hudSpace() 와 같은 규칙(이 파일은 단독 사본으로 돈다).
+  let task = null;
+  for (const name of ['hud-reader', 'hud-reader-2', 'hud-reader-3']) {
+    try {
+      const ts = await taskSpace(name, { profileId: 'Profile 1' });
+      if (ts && (ts.ownership === undefined || ts.ownership === 'agent')) { task = ts; break; }
+    } catch { /* 이름이 사용자 소유이거나 생성 실패 — 다음 이름 */ }
+  }
+  if (!task) { console.log('SPACE_BUSY'); return; }
   const day = (ms) => new Date(ms).toISOString().slice(0, 10);
   const now = Date.now();
   const TO = day(now), FROM = day(now - 7 * 86400e3);
