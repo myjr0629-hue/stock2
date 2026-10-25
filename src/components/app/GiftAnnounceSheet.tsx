@@ -29,7 +29,7 @@ export function GiftAnnounceSheet({ locale, onClose }: { locale: string; onClose
   const lang = toGiftLang(locale);
   const c = GIFT_COPY[lang];
   const a = GIFT_ANNOUNCE_COPY[lang];
-  const { cfg, share } = useGiftShare(locale, 'gift_pop');
+  const { cfg, share, visibleRef } = useGiftShare(locale, 'gift_pop');
   const titleId = useId();
   const [copied, setCopied] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -85,7 +85,7 @@ export function GiftAnnounceSheet({ locale, onClose }: { locale: string; onClose
           <p className={`${p.lede} ${s.lede}`}><Kept text={cfg && !cfg.android ? c.subIosOnly : c.sub} keep={a.keep} /></p>
         </div>
 
-        <button type="button" className={`${p.cta} ${s.cta}`} onClick={() => { void onSend(); }} disabled={!cfg}>
+        <button ref={visibleRef} type="button" className={`${p.cta} ${s.cta}`} onClick={() => { void onSend(); }} disabled={!cfg}>
           {a.cta}
         </button>
 

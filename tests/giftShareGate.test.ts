@@ -40,6 +40,8 @@ function hook(client: ReturnType<typeof createGiftPreparation>, locale: string, 
       useState: () => [{ code: 'TESTONLYPRO', android: true }, () => {}], // 기존 설정 캐시로 입구가 이미 열린 상태
       useEffect: () => {}, useRef: () => ({ current: false }), useCallback: (fn: unknown) => fn,
     };
+    if (id === '@/lib/giftShare/useGiftVisibility') return { useGiftVisibility: () => () => {} };
+    if (id === '@/lib/giftShare/funnelClient') return { giftFunnel: () => {}, giftPayloadMetric: () => '', giftOutcomeMetric: () => {} };
     if (id === '@/lib/giftShare/usePreparedGift') return { usePreparedGift: () => client };
     if (id === '@/lib/invite/identity') return { getInviteRef: () => 'abc234defg', markInviteShared: () => {} };
     if (id === '@/lib/share/share') return {

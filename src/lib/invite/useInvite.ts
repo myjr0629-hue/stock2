@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { shareBeacon, shareOrCopy, shareVia, type ShareOutcome } from '@/lib/share/share';
 import { usePreparedGift } from '@/lib/giftShare/usePreparedGift';
+import { giftFunnel, giftPayloadMetric, giftOutcomeMetric } from '@/lib/giftShare/funnelClient';
 import { INVITE_COPY } from './copy';
 import { getInviteRef, markInviteShared } from './identity';
 import { SHARE_SURFACE, buildShareCardUrl, toInviteLang, type ShareKind } from './kinds';
@@ -98,6 +99,7 @@ export function useInviteShare(kind: ShareKind, locale: string) {
     const via = shareVia();
     const ref = getInviteRef();
     shareBeacon('tap', surface, via);
+    giftFunnel('tap', surface, via);
     let out: ShareOutcome = 'failed';
     try {
       const payload = gift.payload({
@@ -105,7 +107,9 @@ export function useInviteShare(kind: ShareKind, locale: string) {
         text: INVITE_COPY[lang].shareText[kind](ticker, line),
         url: buildShareCardUrl(kind, { locale: lang, ticker, ref, via }),
       }, locale, via, ref);
+      const payloadKind = giftPayloadMetric(payload, surface, via, gift.gateReason());
       out = await shareOrCopy(payload);
+      giftOutcomeMetric(out, surface, via, payloadKind);
       gift.complete(out, payload, via);
     } finally {
       busy.current = false;

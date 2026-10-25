@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { couponHtml } from '@/lib/marketing/couponHtml';
 import { desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
-import { isPreviewBot, UA_BOT_RE } from '@/lib/marketing/clickHuman';
+import { classifyClick, isPreviewBot, UA_BOT_RE } from '@/lib/marketing/clickHuman';
 import { previewHtml, previewResponseInit, visitorLang } from '@/lib/marketing/linkPreview';
 import { normalizeFrom } from '@/lib/marketing/storeRedirect';
 import { normalizeGiftRef } from '@/lib/gift/gift';
+import { bumpGiftFunnel } from './funnelServer';
 import { giftToken, installUrl } from './config';
 import { giftHeaders, giftIdentity, giftOs, setGiftCookie } from './http';
 
-/** GET·HEAD는 Redis 호출 없이 기존 쿠폰·QR 템플릿만 렌더한다. */
+/** GET·HEAD는 배정 없이 기존 템플릿을 렌더한다. 사람 GET 열람만 응답 뒤 집계한다. */
 export async function giftLanding(req: NextRequest): Promise<NextResponse> {
   const os = giftOs(req);
   const token = giftToken(req.nextUrl.searchParams.get('gift'));
@@ -31,6 +32,7 @@ export async function giftLanding(req: NextRequest): Promise<NextResponse> {
     : await desktopRedeemHtml({ fromTag, lang, code: masked, gift: token, giftRef: ref,
       redeemUrl: `https://www.signumhq.com/app?from=${encodeURIComponent(fromTag)}&gift=${encodeURIComponent(token)}&l=${lang}${refQuery}`,
       coupon: true, androidCoupon: true });
+  if (classifyClick(req.headers, req.method) === 'human') after(() => bumpGiftFunnel('open', 'all', os ?? 'desktop'));
   const res = new NextResponse(req.method === 'HEAD' ? null : html, { headers });
   return identity ? setGiftCookie(res, identity.cookie) : res;
 }

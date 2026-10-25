@@ -578,6 +578,7 @@ export default function SettingsPage() {
               <div
                 className={s.row}
                 role="button"
+                ref={gift.visibleRef}
                 tabIndex={0}
                 onClick={() => { void handleGift(); }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void handleGift(); } }}

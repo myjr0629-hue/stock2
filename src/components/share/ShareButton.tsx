@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom';
 import { buildShareUrl, shareBeacon, shareOrCopy, shareVia, type ShareOutcome, type ShareSurface } from '@/lib/share/share';
 
 import { usePreparedGift } from '@/lib/giftShare/usePreparedGift';
+import { giftFunnel, giftPayloadMetric, giftOutcomeMetric } from '@/lib/giftShare/funnelClient';
 
 const LABEL: Record<string, string> = { ko: '공유', en: 'Share', ja: '共有' };
 const COPIED: Record<string, string> = {
@@ -68,11 +69,15 @@ export function ShareButton({
     busy.current = true;
     const via = shareVia();
     shareBeacon('tap', surface, via);
+    const giftEligible = surface === 'ticker' || surface === 'rank';
+    if (giftEligible) giftFunnel('tap', surface, via);
     let out: ShareOutcome = 'failed';
     try {
       const original = { title, text, url: buildShareUrl(path, params, via) };
       const payload = surface === 'ticker' || surface === 'rank' ? gift.payload(original, locale, via) : original;
+      const payloadKind = giftEligible ? giftPayloadMetric(payload, surface, via, gift.gateReason()) : '';
       out = await shareOrCopy(payload);
+      if (giftEligible) giftOutcomeMetric(out, surface, via, payloadKind);
       gift.complete(out, payload, via);
     } finally {
       busy.current = false;

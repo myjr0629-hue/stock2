@@ -90,6 +90,8 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   newToken = randomGiftToken, atomic: GiftAtomic = idbAtomic) {
   // null은 최초 미조회·조회 중·실패다. 확정된 꺼짐과 구분하며 어느 쪽도 선물을 발급하지 않는다.
   let enabled: boolean | null = null;
+  // 마지막 준비/발급 차단 사유만 메모리에 보관한다(식별자 없음).
+  let gate = 'config_pending';
   /**
    * 마지막으로 «성공한» 설정 응답이 꺼짐이었나. 조회 시작·실패에는 바꾸지 않는다(재조회 중에도 꺼짐 확정 유지).
    * 선물 전용 입구가 꺼짐 확정일 때만 기존 운영 선물(공개 맞춤 코드) 공유를 그대로 쓰게 한다 — 새 토큰 발급과 무관.
@@ -146,9 +148,9 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   const reserveOne = async (via: ShareVia) => {
     if (!enabled || !available || ready) return;
     const key = via === 'web' ? null : getDevice();
-    if (via !== 'web' && !key) return;
+    if (via !== 'web' && !key) { gate = 'device'; return; }
     const candidate = newToken();
-    if (!candidate || done.has(candidate)) return;
+    if (!candidate || done.has(candidate)) { gate = 'random'; return; }
     const r = await atomic((s: GiftState) => {
       const t = now();
       const merged = reconcile(s, t);
@@ -162,11 +164,11 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
       return { ok: true as const, merged, token: hold.token, until: hold.until, at: hold.reservation!.at };
     });
     if (r) afterMerge(r.value.merged);
-    if (r?.value.ok !== true) return;
+    if (r?.value.ok !== true) { gate = r ? 'local_cap' : 'ledger'; return; }
     const { token } = r.value;
     // 설정 응답·기기 장부는 서버 한도를 보증하지 않는다. 이 토큰의 예약 성공 응답만 신뢰한다.
     if (!await register(token, now(), via, true, key)) { await release(token, candidate); return; }
-    if (ready || !enabled || !available || r.value.until - now() < CLICK_MARGIN_MS) { await release(token, candidate); return; }
+    if (ready || !enabled || !available || r.value.until - now() < CLICK_MARGIN_MS) { gate = 'hold'; await release(token, candidate); return; }
     serverReservations.set(token, { via, device: key, until: r.value.at + SERVER_RESERVATION_MS, owner: candidate });
     ready = token; readyVia = via; holdUntil = r.value.until;
   };
@@ -204,10 +206,11 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
       const r = await request(reserve ? '/api/gift/reserve' : '/api/gift/issue', { method: 'POST', credentials: 'same-origin',
         headers: { 'content-type': 'application/json', ...(key ? { 'x-gift-device': key } : {}) },
         body: JSON.stringify({ token, at }), signal: AbortSignal.timeout(4000) });
-      if (!r.ok) return false;
+      if (!r.ok) { if (reserve) gate = 'reserve_rejected'; return false; }
       const body = await r.json();
+      if (reserve && body?.ok !== true) gate = 'reserve_rejected';
       return body?.ok === true;
-    } catch { return false; }
+    } catch { if (reserve) gate = 'reserve_error'; return false; }
   };
   const forget = (token: string) => atomic((s: GiftState) => { s.sent = s.sent.filter(x => x.token !== token); });
 
@@ -233,6 +236,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     if (inflight) return inflight;
     inflight = (async () => {
       enabled = null;
+      gate = 'config_pending';
       try {
         const response = await request('/api/gift/share-config', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(4000) });
         if (!response.ok) throw new Error();
@@ -241,15 +245,16 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
         enabled = config.enabled;
         lastKnownOff = config.enabled === false;
         // 꺼짐: 장부·발행에 접근하지 않는다. 미발급 준비 몫만 만료로 풀린다.
-        if (!enabled) { available = false; ready = null; checkedAt = now(); return; }
+        if (!enabled) { gate = 'off'; available = false; ready = null; checkedAt = now(); return; }
         // 기기 시계가 서버와 크게 다르면 서버가 at 을 거부할 수 있다 — 선물 링크 없이 일반 공유.
         const skewOk = typeof config.now === 'number' && Math.abs(config.now - now()) <= CLOCK_TOLERANCE_MS;
         available = config.available === true && skewOk;
+        gate = !skewOk ? 'clock' : !available ? 'unavailable' : 'not_ready';
         await flush(via);
         if (!available) { const r = ready; ready = null; if (r) await release(r); }
         else { await renew(); await reserve(via); }
         checkedAt = now();
-      } catch { enabled = null; ready = null; available = false; checkedAt = 0; } finally { inflight = null; }
+      } catch { gate = enabled === true ? 'ledger' : 'config_error'; enabled = null; ready = null; available = false; checkedAt = 0; } finally { inflight = null; }
     })();
     return inflight;
   };
@@ -264,15 +269,21 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     const server = ready ? serverReservations.get(ready) : undefined;
     if (enabled !== true || !available || !ready || readyVia !== via || done.has(ready) || t < checkedAt || t - checkedAt >= FRESH_MS
       || holdUntil - t < CLICK_MARGIN_MS || !server || server.via !== via || server.until <= t
-      || (via !== 'web' && (!server.device || server.device !== getDevice()))) return null;
+      || (via !== 'web' && (!server.device || server.device !== getDevice()))) {
+      if (enabled === true && available) gate = !ready ? gate : readyVia !== via ? 'platform' : done.has(ready) ? 'consumed'
+        : t < checkedAt || t - checkedAt >= FRESH_MS ? 'stale' : holdUntil - t < CLICK_MARGIN_MS ? 'hold'
+        : !server || server.via !== via || server.until <= t ? 'reservation' : 'device_changed';
+      return null;
+    }
     const token = ready;
     try {
-      if (pendingNow().length) return null;
+      if (pendingNow().length) { gate = 'pending'; return null; }
       readMarkers(ISSUED_PREFIX);
       localStorage.setItem(ISSUED_PREFIX + token, String(t));
       if (localStorage.getItem(ISSUED_PREFIX + token) !== String(t)) throw new Error('gift marker not saved');
-    } catch { ready = null; return null; }
+    } catch { gate = 'storage'; ready = null; return null; }
     ready = null;
+    gate = 'consumed';
     inSheet.add(token);
     // 표식이 이미 영속적이므로 이 저장이 실패해도 몫은 풀리지 않는다. 재시도 타이머에 정확성을 의존하지 않는다.
     void atomic((s: GiftState) => {
@@ -343,7 +354,7 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
   /** 플래그 꺼짐이 확정됐나(최초 미조회·조회 실패는 false). 기존 선물 입구의 운영 동일 경로 판정 전용. */
   const confirmedOff = () => lastKnownOff;
 
-  return { refresh, payload, complete, confirmedOff };
+  return { refresh, payload, complete, confirmedOff, gateReason: () => gate };
 }
 
 export const giftPreparation = createGiftPreparation();

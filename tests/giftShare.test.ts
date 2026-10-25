@@ -55,7 +55,8 @@ const baseHeaders = { 'user-agent': ios, 'accept-language': 'ko-KR', origin: 'ht
 const req = (path: string, opts: Record<string, unknown> = {}) => new NextRequest(`https://www.signumhq.com${path}`, { headers: baseHeaders, ...opts });
 let evalCalls = 0;
 let answer: unknown = ['empty'];
-const store = { eval: async () => { evalCalls++; if (answer instanceof Error) throw answer; return answer; } };
+const { BUMP_LUA } = require('../src/lib/giftShare/funnel.cjs');
+const store = { eval: async (script: string) => { if (script === BUMP_LUA) return 1; evalCalls++; if (answer instanceof Error) throw answer; return answer; } };
 process.env.GIFT_SHARE_SECRET = randomBytes(32).toString('hex');
 process.env.INVITE_IP_SALT = randomBytes(32).toString('hex');
 process.env.VERCEL_ENV = 'preview';
