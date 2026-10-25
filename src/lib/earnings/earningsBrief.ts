@@ -22,6 +22,7 @@
 // ============================================================================
 
 import { daysBetweenYmd } from '../marketCalendar';
+import { briefCompanyFor, checkBriefCompany, type BriefCompany } from './earningsBriefIdentity';
 
 /** v2(티커 키·숫자 박힌 글)는 이 키로 바꾸며 버린다 — 더는 아무도 읽지 않는다 */
 export const EARNINGS_BRIEF_KEY = 'earnings:brief:v3';
@@ -253,6 +254,8 @@ export function briefDraftOk(watch: string, row: BriefRowNumbers): BriefCheck {
 export interface BriefCell { name?: string; watch?: string }
 export interface BriefEntry {
   ko?: BriefCell; en?: BriefCell; ja?: BriefCell;
+  /** 생성 전에 공급사/고정 매핑에서 확인한 회사. 모델 출력에서 만들지 않는다. */
+  company?: BriefCompany;
   /** 이 글을 쓸 때 모델이 본 행 — 다음에 «무엇으로 썼나»를 되물을 수 있게 */
   for?: { date: string; eps: number | null; rev: number | null; quarter: number | null; year: number | null };
   at?: string;
@@ -329,6 +332,13 @@ export function attachBriefs<R extends BriefAttachRow>(
   const merged = rows.map((r) => {
     const e = findBriefEntry(entries, byTicker, r.ticker, r.date, r.dateFrom);
     if (!e) return r;
+    const company = briefCompanyFor(r.ticker, e.company ? { ...e.company, symbol: r.ticker } : null);
+    // 기존 부분 언어 글은 채우기 대상으로 남긴다. 다른 회사라고 확인된 글은 모든 언어가 같은 오염 단위다.
+    if (company && e.en?.name && !checkBriefCompany(e, company).ok) {
+      blocked++;
+      if (blockedSample.length < 8) blockedSample.push(`${r.ticker}|${r.date}:company-name-mismatch`);
+      return r;
+    }
     const brief: Partial<Record<BriefLangCode, BriefCell>> = {};
     let anyWatch = false;
     for (const lang of BRIEF_LANGS) {
@@ -365,7 +375,18 @@ export function briefMissingLangs(e: BriefEntry | null | undefined): BriefLangCo
 }
 
 /** 이 행의 글을 (다시) 만들어야 하나 — 글이 없거나, 언어가 빠졌고 시도 횟수가 상한 아래 */
-export function briefNeedsFill(entry: BriefEntry | null | undefined): boolean {
+export function briefNeedsFill(entry: BriefEntry | null | undefined, company?: BriefCompany | null): boolean {
   if (!entry) return true;
+  // 완성 글/재시도 상한도 회사 불일치를 보호하지 않는다. 크론은 이 글 전체를 버리고 새로 만든다.
+  if (company && !checkBriefCompany(entry, company).ok) return true;
   return briefMissingLangs(entry).length > 0 && (Number(entry.tries) || 0) < BRIEF_FILL_MAX_TRIES;
+}
+
+/** 순수 무효화 계획. 실제 Redis 쓰기는 크론 실행 때만 한다(운영자가 실행). */
+export function briefInvalidationKeys(entries: Record<string, BriefEntry>, companies: Record<string, BriefCompany | null>, forceTickers: readonly string[] = []): string[] {
+  const forced = new Set(forceTickers.map((t) => t.toUpperCase()));
+  return Object.entries(entries).filter(([key, entry]) => {
+    const ticker = key.split('|')[0].toUpperCase();
+    return forced.has(ticker) || (!!companies[ticker] && !checkBriefCompany(entry, companies[ticker]).ok);
+  }).map(([key]) => key);
 }

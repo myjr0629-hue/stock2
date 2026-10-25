@@ -135,7 +135,7 @@ const PACK2 = {
   entries: {
     'META|2026-10-22': {
       ko: { name: '메타', watch: 'EPS 추정 {EPS}, 매출 추정 {REV} 대비 발표를 지켜봅니다' },
-      en: { name: 'Meta', watch: 'Watching the report against an EPS estimate of {EPS}' },
+      en: { name: 'Meta Platforms', watch: 'Watching the report against an EPS estimate of {EPS}' },
       ja: { name: 'メタ', watch: 'EPS予想{EPS}に対する発表に注目します' },
     },
   },
@@ -349,6 +349,17 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     assert.equal(composeEarn(w, null, 'NFLX', 'ko', NOW).rows[0].value, '10/15(목) 16:05 ET');
   });
 
+  t('공유 카드도 TER/TDC 혼동을 차단하고 정상 Teradyne 글과 실적 숫자는 보존한다', () => {
+    const r = { ticker: 'TER', date: '2026-10-27', epsEstimate: 2.66, revenueEstimate: 1e9 };
+    const wrong = { en: { name: 'Teradata', watch: 'Data warehousing customer subscriptions' }, ko: { name: '테라도스', watch: '데이터 웨어하우스 구독 고객 수' } };
+    const bad = pickEarnExtra([r], { entries: { 'TER|2026-10-27': wrong } }, r)!;
+    assert.equal(bad.brief, undefined);
+    assert.equal(bad.eps, 2.66); assert.equal(bad.rev, 1e9);
+    const correct = { en: { name: 'Teradyne', watch: 'Semiconductor test equipment demand' }, ko: { name: '테라다인', watch: '반도체 테스트 장비 수요' } };
+    const clean = pickEarnExtra([r], { entries: { 'TER|2026-10-27': correct } }, r)!;
+    assert.equal(clean.brief!.ko!.name, '테라다인');
+    assert.equal(clean.brief!.ko!.watch, '반도체 테스트 장비 수요');
+  });
   console.log('4b. earn — 이번 주 밖 행은 «앱과 같은 원천»에서 읽는다');
   t('이번 주 목록에 없는 종목 — 가장 가까운 «아직 안 지난» 행 + 변동폭 묶음 + 브리프로 같은 카드(발표일·시간·변동폭·기준·EPS/매출·✦AI)', () => {
     const v = appEarn('ko', 'META');

@@ -20,6 +20,7 @@ const store = new Map<string, { value: unknown; ttl?: number }>();
 let calendarForCron: any = null;
 (globalThis as any).fetch = async (url: string, init?: { method?: string; body?: string }) => {
   const u = new URL(url);
+  if (u.pathname === '/mget') return Response.json({ results: (u.searchParams.get('keys') || '').split(',').map((k) => store.get(k)?.value ?? null) });
   if (u.pathname === '/get') return Response.json({ result: store.get(u.searchParams.get('key') || '')?.value ?? null });
   if (u.pathname === '/set' && init?.method === 'POST') {
     const b = JSON.parse(init.body || '{}');
@@ -35,10 +36,12 @@ let calendarForCron: any = null;
 const bedrockMod = require('@aws-sdk/client-bedrock-runtime');
 let modelReply: (tickers: string[]) => any = () => ({});
 const modelCalls: string[][] = [];
+const modelInputs: string[] = [];
 bedrockMod.BedrockRuntimeClient.prototype.send = async function (cmd: any) {
   const userText: string = cmd.input.messages[0].content[0].text;
   const tickers = (userText.match(/Return ALL \d+ tickers: ([^.]+)\./)?.[1] || '').split(',').map((x) => x.trim()).filter(Boolean);
   modelCalls.push(tickers);
+  modelInputs.push(userText);
   return { output: { message: { content: [{ text: JSON.stringify(modelReply(tickers)) }] } } };
 };
 
@@ -219,14 +222,17 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
   console.log('━━━ 6. 크론 저장 전 검사 ━━━');
   const DOW1 = { ticker: 'DOW', date: '2026-10-22', epsEstimate: 0.12, revenueEstimate: 10e9, quarter: 3, year: 2026, hour: 'bmo' };
   const DOW2 = { ticker: 'DOW', date: '2027-01-28', epsEstimate: 0.2, revenueEstimate: 10.2e9, quarter: 4, year: 2026, hour: 'bmo' };
+  for (const [ticker, name, sector] of [['C', 'Citigroup', 'Financial Services'], ['GS', 'Goldman Sachs', 'Financial Services'], ['DOW', 'Dow', 'Basic Materials']]) {
+    store.set(`cmd:data:${ticker}`, { value: { fundamentals: { symbol: ticker, name, sector } } });
+  }
   calendarForCron = { ok: true, rows: [C, GS, DOW1, DOW2] };
   store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: {
-    'GS|2026-10-13': { ko: { name: '골드만삭스', watch: 'FICC 거래 수익; EPS {EPS}는 투자은행 회복 측정' } },
+    'GS|2026-10-13': { en: { name: 'Goldman Sachs' }, ko: { name: '골드만삭스', watch: 'FICC 거래 수익; EPS {EPS}는 투자은행 회복 측정' } },
     'MU|2026-09-23': { ko: { name: '마이크론', watch: '지난 보고 글' } },
   } } });
   const good = (tk: string) => ({
     ko: { name: tk, watch: `${tk} 핵심 부문 매출과 마진 동인; EPS ${'{EPS}'}가 구조적 변화를 얼마나 반영하는지 확인` },
-    en: { name: tk, watch: `${tk} core segment revenue and margin drivers; how much of the {EPS} EPS reflects the structural shift` },
+    en: { name: ({ C: 'Citigroup', GS: 'Goldman Sachs', DOW: 'Dow' } as Record<string, string>)[tk] || tk, watch: `${tk} core segment revenue and margin drivers; how much of the {EPS} EPS reflects the structural shift` },
     ja: { name: tk, watch: `${tk}の主力部門売上と利益率の要因；EPS {EPS}が構造変化をどこまで反映するか` },
   });
   modelReply = (tickers) => Object.fromEntries(tickers.map((tk) => [tk, tk === 'C'
@@ -237,7 +243,7 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
     assert.equal(res.success, true);
     const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
     assert.deepEqual(Object.keys(saved.entries).sort(), ['C|2026-10-13', 'DOW|2026-10-22', 'DOW|2027-01-28', 'GS|2026-10-13']);
-    assert.equal(saved.entries['C|2026-10-13'].en, undefined, 'en 은 literal 로 거절');
+    assert.deepEqual(saved.entries['C|2026-10-13'].en, { name: 'Citigroup' }, 'en.watch 는 literal 로 거절, 정식명은 보존');
     assert.ok(saved.entries['C|2026-10-13'].ko.watch.includes('{EPS}'), '저장본은 자리표 그대로');
     assert.deepEqual(saved.entries['C|2026-10-13'].for, { date: '2026-10-13', eps: 2.66, rev: 23699740000, quarter: 3, year: 2026 });
     assert.equal(res.pruned, 1);
@@ -260,7 +266,7 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
       assert.equal((store.get(B.EARNINGS_BRIEF_KEY)!.value as any).entries['C|2026-10-13'].tries, n);
     }
     const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
-    assert.equal(saved.entries['C|2026-10-13'].en, undefined, '또 literal — 여전히 저장 안 함');
+    assert.equal(saved.entries['C|2026-10-13'].en.watch, undefined, '또 literal — 여전히 watch 저장 안 함');
     assert.ok(saved.entries['C|2026-10-13'].ko.watch.includes('{EPS}'), 'ko 는 그대로');
     const before = modelCalls.length;
     const res = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
@@ -269,6 +275,79 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
     const m = B.attachBriefs([DOW1, DOW2], store.get(B.EARNINGS_BRIEF_KEY)!.value as any);
     assert.match(m.rows[0].brief!.ko!.watch!, /EPS \$0\.12가/);
     assert.match(m.rows[1].brief!.ko!.watch!, /EPS \$0\.20가/);
+  });
+
+  console.log('━━━ 7. 회사 혼동 — TER/TDC 입력·저장·전체 재생성 ━━━');
+  const TER = { ...C, ticker: 'TER', date: '2026-10-27' };
+  const TDC = { ...C, ticker: 'TDC', date: '2026-11-05' };
+  const identified = (ticker: string, name: string) => ({ ...good(ticker), en: { ...good(ticker).en, name } });
+  calendarForCron = { ok: true, rows: [TER, TDC] };
+  await t('완성·tries 상한의 TER 오염 글을 모든 언어째 버린다; 정식명·업종 입력 후 Teradyne/Teradata 각각 저장', async () => {
+    store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: {
+      [B.briefEntryKey(TER.ticker, TER.date)]: { ...identified('TER', 'Teradata'), tries: 99 },
+    } } });
+    modelReply = (tickers) => Object.fromEntries(tickers.map((tk) => [tk, identified(tk, tk === 'TER' ? 'Teradyne' : 'Teradata')]));
+    const result = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
+    assert.deepEqual(result.invalidated, ['TER|2026-10-27']);
+    const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
+    assert.equal(saved.entries['TER|2026-10-27'].en.name, 'Teradyne');
+    assert.equal(saved.entries['TDC|2026-11-05'].en.name, 'Teradata');
+    assert.equal(saved.entries['TER|2026-10-27'].ko.name, '테라다인');
+    assert.equal(saved.entries['TER|2026-10-27'].ja.name, 'テラダイン');
+    assert.equal(saved.entries['TER|2026-10-27'].tries, undefined, '전체 재생성 시 오염 글 tries도 초기화');
+    assert.equal(saved.entries['TER|2026-10-27'].company.industry, 'Semiconductor test equipment');
+    assert.match(modelInputs.at(-1)!, /Teradyne/);
+    assert.match(modelInputs.at(-1)!, /Semiconductor test equipment/);
+    assert.match(modelInputs.at(-1)!, /Teradata/);
+    assert.match(modelInputs.at(-1)!, /Data warehousing and analytics software/);
+  });
+  await t('운영자 invalidate=TER: 정상 TDC 보존·TER 전체 재생성; 모델이 다시 Teradata를 주면 어떤 언어도 저장하지 않는다', async () => {
+    modelReply = (tickers) => Object.fromEntries(tickers.map((tk) => [tk, identified(tk, 'Teradata')]));
+    const before = modelCalls.length;
+    const result = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief?invalidate=TER'))).json() as any;
+    assert.deepEqual(modelCalls.slice(before).flat(), ['TER']);
+    assert.deepEqual(result.invalidated, ['TER|2026-10-27']);
+    assert.ok(result.rejected.includes('TER(company-name-mismatch)'));
+    const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
+    assert.equal(saved.entries['TER|2026-10-27'], undefined);
+    assert.equal(saved.entries['TDC|2026-11-05'].en.name, 'Teradata');
+    // 탈락 글은 저장하지 않아 다음 회차에도 생성 대상이다.
+    const retry = modelCalls.length;
+    await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'));
+    assert.deepEqual(modelCalls.slice(retry).flat(), ['TER']);
+  });
+  await t('현재 키 밖 옛 날짜의 오염 fallback도 생성 실패 전에 캐시에서 무효화한다', async () => {
+    store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: {
+      'TER|2026-10-25': { ...identified('TER', 'Teradata'), tries: 99 },
+      'TDC|2026-11-05': identified('TDC', 'Teradata'),
+    } } });
+    modelReply = (tickers) => Object.fromEntries(tickers.map((tk) => [tk, identified(tk, 'Teradata')]));
+    const result = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
+    assert.deepEqual(result.invalidated, ['TER|2026-10-25']);
+    const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
+    assert.equal(saved.entries['TER|2026-10-25'], undefined);
+    assert.equal(saved.entries['TER|2026-10-27'], undefined);
+    assert.equal(saved.entries['TDC|2026-11-05'].en.name, 'Teradata');
+  });
+  await t('출구 exact/dateFrom/±30일 모두 TER→Teradata 오염 글을 막고 새 정식 글은 표시한다', () => {
+    for (const date of ['2026-10-27', '2026-10-29']) {
+      const rows = [{ ...TER, date }];
+      const bad = B.attachBriefs(rows, { entries: { 'TER|2026-10-27': identified('TER', 'Teradata') } });
+      assert.equal(bad.rows[0].brief, undefined);
+      assert.equal(bad.blocked, 1);
+      const clean = B.attachBriefs(rows, { entries: { 'TER|2026-10-27': identified('TER', 'Teradyne') } });
+      assert.equal(clean.rows[0].brief!.en!.name, 'Teradyne');
+      const from = B.attachBriefs([{ ...TER, date: '2026-12-27', dateFrom: '2026-10-27' }], { entries: { 'TER|2026-10-27': identified('TER', 'Teradata') } });
+      assert.equal(from.rows[0].brief, undefined);
+    }
+  });
+  await t('정식명·업종 미확인 종목은 모델에 보내지 않고 unresolved로 보고한다', async () => {
+    calendarForCron = { ok: true, rows: [{ ...TER, ticker: 'ZZZZ' }] };
+    const before = modelCalls.length;
+    const result = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
+    assert.equal(result.skipped, 'company-unresolved');
+    assert.deepEqual(result.unresolved, ['ZZZZ']);
+    assert.equal(modelCalls.length, before);
   });
 
   console.log(`\n${n}건 통과`);

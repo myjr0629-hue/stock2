@@ -22,12 +22,15 @@ import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-r
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { publicBase } from '@/lib/net/publicBase';
 import {
-    EARNINGS_BRIEF_KEY, briefEntryKey, briefDraftOk, briefNeedsFill, BRIEF_EPS_TOKEN, BRIEF_REV_TOKEN,
+    EARNINGS_BRIEF_KEY, briefEntryKey, briefDraftOk, briefNeedsFill, briefInvalidationKeys, BRIEF_EPS_TOKEN, BRIEF_REV_TOKEN,
     type BriefEntry, type BriefPack,
 } from '@/lib/earnings/earningsBrief';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { runLadder } from '@/lib/ai/llmLadder';
 import { dateAnchor } from '@/services/bedrockClient';
+import { BRIEF_LOCAL_NAMES, briefCompanyReady, checkBriefCompany } from '@/lib/earnings/earningsBriefIdentity';
+import { COMPANY_NAMES } from '@/lib/companyNames';
+import { readBriefCompanies } from '@/services/earningsBriefCompanyService';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -115,7 +118,7 @@ function batchGate(slice: any[]) {
             for (const row of slice) {
                 const watch = String(parsed?.[row.ticker]?.ko?.watch || '').trim();
                 const ko = LANG_OK[0][1];
-                if (ko(watch) && briefDraftOk(watch, row).ok) good++;
+                if (checkBriefCompany(parsed?.[row.ticker], row.company).ok && ko(watch) && briefDraftOk(watch, row).ok) good++;
             }
             return good >= Math.ceil(slice.length * 0.75);
         } catch { return false; }
@@ -125,6 +128,9 @@ function batchGate(slice: any[]) {
 const SYSTEM = [
     'You write the "what to watch" line for upcoming US earnings in an institutional-grade stock app.',
     'For each ticker produce: name (company name in that language) and watch.',
+    'COMPANY IDENTITY: company.name, company.sector and company.industry in each input row are authoritative.',
+    'Copy company.name EXACTLY into en.name. Do not guess a company from its ticker or substitute a similar name.',
+    'Every language watch must describe THAT company and its supplied industry. TER is Teradyne (semiconductor test equipment), never Teradata (TDC, data warehousing).',
     '',
     'DEPTH — this is the whole point. A generic line is worthless.',
     '- Name the SPECIFIC line item, segment, or metric that decides this quarter for THIS company.',
@@ -195,10 +201,22 @@ export async function GET(request: Request) {
     const out: Record<string, BriefEntry> = {};
     for (const [k, v] of Object.entries(prevEntries)) if (live.has(k)) out[k] = v;
     const pruned = Object.keys(prevEntries).length - Object.keys(out).length;
+    const companies = await readBriefCompanies(rows.map((r) => r.ticker), { deadlineMs: t0 + 12_000 });
+    // 운영 세션이 인증된 크론에 ?invalidate=TER,TDC 를 붙이면 해당 티커의 모든 보고·언어·tries 를 새로 만든다.
+    const invalidationParam = new URL(request.url).searchParams.get('invalidate') || '';
+    if (invalidationParam && !/^[A-Za-z0-9.-]+(?:,[A-Za-z0-9.-]+)*$/.test(invalidationParam)) {
+        return NextResponse.json({ success: false, error: 'invalid invalidate tickers' }, { status: 400 });
+    }
+    // 정확한 키 밖의 옛 날짜 글도 dateFrom/±30일 fallback으로 붙을 수 있어 원본 팩 전체에서 찾는다.
+    const invalidated = briefInvalidationKeys(prevEntries, companies, invalidationParam ? invalidationParam.split(',') : []);
+    for (const k of invalidated) delete out[k];
+    const unresolved = rows.filter((r) => !briefCompanyReady(companies[r.ticker])).map((r) => r.ticker);
     // ★ [2026-10-12] 글이 있어도 언어가 빠졌으면(가드 탈락) 상한(2회) 안에서 다시 만든다 — 있는 언어는 지키고 빠진 언어만 채운다.
-    const todoRows = rows.filter((r) => briefNeedsFill(out[keyOf(r)]));
+    const todoRows = rows.filter((r) => briefCompanyReady(companies[r.ticker]) && briefNeedsFill(out[keyOf(r)], companies[r.ticker]))
+        .map((r) => ({ ...r, company: companies[r.ticker] }));
     if (!todoRows.length) {
-        return NextResponse.json({ success: true, skipped: 'all-cached', have: Object.keys(out).length, ms: Date.now() - t0 });
+        if (invalidated.length || pruned) await setInCache(EARNINGS_BRIEF_KEY, { ...prev, entries: out }, 30 * 24 * 3600);
+        return NextResponse.json({ success: true, skipped: unresolved.length ? 'company-unresolved' : 'all-cached', unresolved, invalidated, have: Object.keys(out).length, ms: Date.now() - t0 });
     }
 
     // ── 2) 배치로 만든다. ──
@@ -224,13 +242,15 @@ export async function GET(request: Request) {
         model: LIGHT_MODEL,
         entries: out,
     } satisfies BriefPack, 30 * 24 * 3600);
+    // 생성 실패여도 오염된 옛 글을 되살리지 않는다. 무효화·모델 호출은 이 크론 실행에서만 일어난다.
+    if (invalidated.length || pruned) await save();
 
     // 새 배치는 38초 안에서만 시작한다 — 한 배치(8종목×3개국어)가 실측 15~17초라 46초에 시작하면
     //   60초(maxDuration)를 넘겨 잘렸다(2026-10-04 로컬 실측 4배치 61.2초). 배치마다 저장하므로 다음 회차가 잇는다.
     for (let bi = 0; bi < batches.length && Date.now() - t0 < 38_000; bi++) {
         const slice = batches[bi];
         const facts = slice.map((r: any) => (
-            { ticker: r.ticker, date: r.date, hour: r.hour || null, eps: r.epsEstimate, rev: r.revenueEstimate, q: r.quarter, y: r.year }
+            { ticker: r.ticker, company: r.company, date: r.date, hour: r.hour || null, eps: r.epsEstimate, rev: r.revenueEstimate, q: r.quarter, y: r.year }
         ));
         const tickers = slice.map((r: any) => r.ticker);
         const user = [
@@ -284,6 +304,9 @@ export async function GET(request: Request) {
                     if (prevEntry) out[keyOf(row)] = { ...prevEntry, tries: (Number(prevEntry.tries) || 0) + 1 };
                     continue;
                 }
+                // 이름만 덮으면 다른 회사 watch 가 그대로 남는다. 배치 가드/legacy 어느 경로도 여기서 전체 탈락.
+                const identity = checkBriefCompany(v, row.company);
+                if (!identity.ok) { rejected.push(`${t}(${identity.reason})`); continue; }
                 // 다시 채우는 글이면 이미 있는 언어는 그대로 둔다(새 글이 가드를 넘은 언어만 빈 칸에 넣는다)
                 const entry: BriefEntry = prevEntry ? { ko: prevEntry.ko, en: prevEntry.en, ja: prevEntry.ja } : {};
                 // 언어별로 따로 받는다 — 하나가 오염돼도 나머지는 살린다.
@@ -296,9 +319,9 @@ export async function GET(request: Request) {
                     const nums = briefDraftOk(watch, row);
                     if (!nums.ok) { rejected.push(`${t}/${lang}(${nums.reason})`); continue; }
                     // ★ 회사명은 사전이 이긴다. 모델이 지어낸 이름을 쓰지 않는다.
-                    const name = lang === 'ko' ? (NAME_KO[t] || String(cell.name || '').trim())
-                               : lang === 'ja' ? (NAME_JA[t] || String(cell.name || '').trim())
-                               : String(cell.name || '').trim();
+                    const name = lang === 'ko' ? (NAME_KO[t] || BRIEF_LOCAL_NAMES[t]?.ko || COMPANY_NAMES[t]?.ko || String(cell.name || '').trim())
+                               : lang === 'ja' ? (NAME_JA[t] || BRIEF_LOCAL_NAMES[t]?.ja || COMPANY_NAMES[t]?.ja || String(cell.name || '').trim())
+                               : row.company.name;
                     if (!name) continue;
                     entry[lang] = { name, watch };
                 }
@@ -317,6 +340,9 @@ export async function GET(request: Request) {
                     year: typeof row.year === 'number' ? row.year : null,
                 };
                 entry.at = new Date().toISOString();
+                // en.watch가 숫자 가드에서 빠져도 회사 검증용 정식명은 남긴다.
+                entry.en = { ...entry.en, name: row.company.name };
+                entry.company = row.company;
                 out[keyOf(row)] = entry;
                 made++; madeHere++;
             }
@@ -339,7 +365,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
         success: true, made, total: Object.keys(out).length, todo: todoRows.length, pruned,
-        calls, batches: batches.length, rejected: rejected.slice(0, 12), ms: Date.now() - t0,
+        calls, batches: batches.length, invalidated, unresolved, rejected: rejected.slice(0, 12), ms: Date.now() - t0,
         sample: out[keyOf(todoRows[0])] || null,
     });
 }
