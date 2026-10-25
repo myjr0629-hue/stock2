@@ -208,14 +208,19 @@ test('천장 전에는 사람 수준 저빈도 이벤트가 유실 없이 반영
   assert.equal(h.get('tap|gift_set|ios|all'), '6'); assert.equal(store.calls, 31);
 });
 
-test('인스턴스 일일 EVAL 상한·장애 재시도 0·KST 자정 재개·40일 키 상한·차단 스위치', async () => {
+test('인스턴스 일일 EVAL 상한·장애 = 당일 정지(재시도 0)·KST 자정 재개·40일 키 상한·차단 스위치', async () => {
   const s = sim('2026-10-25T00:00:00+09:00');
   let calls = 0;
   const rec = funnel.createGiftFunnelRecorder(() => ({ eval: async () => { calls++; throw new Error('offline'); } }), s.now, s.sleep);
   for (let i = 0; i < 20000; i++) { await rec(forged(i), 'tap', 'gift_dash', 'ios')?.(); s.clock.t += 3000; if (s.clock.t >= Date.parse('2026-10-25T23:59:00+09:00')) break; }
-  assert.equal(calls, limits.instanceCalls);
+  assert.equal(calls, 1); // 오류 뒤 그 인스턴스·레인은 당일 호출 0
   s.clock.t = Date.parse('2026-10-26T00:00:00+09:00');
-  await rec(forged(1), 'tap', 'gift_dash', 'ios')?.(); assert.equal(calls, limits.instanceCalls + 1);
+  await rec(forged(1), 'tap', 'gift_dash', 'ios')?.(); assert.equal(calls, 2);
+  // 정상 응답이면 인스턴스 일일 상한까지만 호출
+  let ok = 0;
+  const busy = funnel.createGiftFunnelRecorder(() => ({ eval: async () => { ok++; return 1; } }), s.now, s.sleep);
+  for (let i = 0; i < 20000; i++) { await busy(forged(i), 'tap', 'gift_dash', 'ios')?.(); s.clock.t += 2500; if (s.clock.t >= Date.parse('2026-10-26T23:59:00+09:00')) break; }
+  assert.equal(ok, limits.instanceCalls);
   const store = luaStore(s.now);
   const daily = funnel.createGiftFunnelRecorder(() => store, s.now, s.sleep);
   for (let i = 0; i < 85; i++) {
@@ -231,4 +236,38 @@ test('인스턴스 일일 EVAL 상한·장애 재시도 0·KST 자정 재개·40
   await killed(request(), 'open', 'all', 'ios')?.();
   assert.equal(off.calls, 1);
   delete process.env.GIFT_FUNNEL_CLIENT;
+});
+
+test('관문 10251927 재현: 천장 도달 뒤 -1 응답이 10회 유실돼도 같은 인스턴스의 거부 EVAL ≤ 1', async () => {
+  const s = sim('2026-10-25T12:00:00+09:00');
+  const store = luaStore(s.now);
+  // 천장을 미리 채운다(다른 인스턴스들이 이미 1,500회 받은 상태).
+  store.hashes.set('promo:pv:gift:v1:funnel:2026-10-25', new Map([['_calls:client', String(limits.calls)], ['_calls:server', String(limits.calls)]]));
+  for (const lane of [['tap', 'gift_dash', 'ios', 'all'], ['open', 'all', 'ios', 'all']]) {
+    let lost = 0;
+    const lossy = { eval: async (a: string, b: string[], c: (string | number)[]) => { await store.eval(a, b, c); lost++; throw new Error('response lost'); } };
+    const rec = funnel.createGiftFunnelRecorder(() => lossy, s.now, s.sleep);
+    for (let i = 0; i < 1000; i++) { await rec(forged(i), lane[0], lane[1], lane[2], lane[3])?.(); s.clock.t += 5000; }
+    assert.equal(lost, 1, lane[0]);
+  }
+  // 응답이 정상 도착하는 인스턴스도 거부 1회 뒤 0
+  const before = store.calls;
+  const rec = funnel.createGiftFunnelRecorder(() => store, s.now, s.sleep);
+  for (let i = 0; i < 1000; i++) { await rec(forged(i), 'copy', 'gift_set', 'android', 'attached')?.(); s.clock.t += 5000; }
+  assert.equal(store.calls - before, 1);
+});
+
+test('EVAL 이 오래 걸려도(멈춤 교대 시간 초과) 레인당 동시 EVAL 1개', async () => {
+  const s = sim('2026-10-25T12:00:00+09:00');
+  let concurrent = 0, peak = 0, release: () => void = () => {};
+  const slow = { eval: async () => { concurrent++; peak = Math.max(peak, concurrent); await new Promise<void>(r => { release = r; }); concurrent--; return -1; } };
+  const rec = funnel.createGiftFunnelRecorder(() => slow, s.now, s.sleep);
+  const first = rec(forged(0), 'tap', 'gift_dash', 'ios')!;
+  const running = first();
+  await Promise.resolve(); await Promise.resolve();
+  s.clock.t += limits.staleMs * 3;
+  for (let i = 1; i < 100; i++) { const t = rec(forged(i), 'tap', 'gift_dash', 'ios'); if (t) void t(); }
+  release(); await running;
+  assert.equal(peak, 1);
+  assert.equal(rec(forged(200), 'tap', 'gift_dash', 'ios'), null); // -1 뒤 당일 0
 });
