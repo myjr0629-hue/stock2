@@ -1,4 +1,3 @@
-import { fmpFetch } from '@/lib/fmpClient';
 /**
  * POST /api/guardian/briefing/generate
  * 
@@ -19,15 +18,14 @@ import { financeTermsRule, restoreCommonTermNames } from '@/lib/ai/commonTerms';
 import { runLadder, depthSuffixFor } from '@/lib/ai/llmLadder';
 import { dateAnchor } from '@/services/bedrockClient';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
-import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { getYahooDataSSOT } from '@/services/yahooFinanceHub';
 import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
-import { getOvernightHighlights } from '@/services/disclosures';
 import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 import { yieldChangeBp, fmtBp } from '@/lib/yieldChange';
 import { stripForecastSentences } from '@/lib/ai/trustLayer';
 import { calendarPromptLines } from '@/lib/fmpCalendarTime';
+import { checkMorningV2, morningV2System, buildMorningV2User, composeMorningText, rawBodyReasons, MORNING_V2_VERSION, type MorningFacts } from '@/lib/ai/morningBriefingV2';
+import { collectMorningRaw, morningFactsFromRaw, type MorningRaw } from '@/services/morningBriefingInputs';
 
 export const maxDuration = 60;
 
@@ -134,6 +132,9 @@ async function saveBriefingTexts(briefing: BriefingTexts, meta: {
     source: string;
     newsCount?: number;
     calendarCount?: number;
+    /** ★2026-10-25 v2 사실 계약 판(TRACKER T7) — 읽는 쪽은 모르는 칸을 무시한다(분석·되돌림 판정용) */
+    contract?: number;
+    session?: string;
 }) {
     const locales = ['ko', 'en', 'ja'] as const;
     const generatedAt = new Date().toISOString();
@@ -164,6 +165,7 @@ async function saveBriefingTexts(briefing: BriefingTexts, meta: {
             degraded: isFallback,
             newsCount: meta.newsCount || 0,
             calendarCount: meta.calendarCount || 0,
+            ...(meta.contract ? { contract: meta.contract, session: meta.session } : {}),
         };
         await setInCache(`guardian:morning_briefing:${loc}`, payload, ttl);
         if (!isFallback) await setInCache(`guardian:morning_briefing:lastgood:${loc}`, payload, 7 * 24 * 3600);
@@ -196,179 +198,82 @@ function getBedrock(): BedrockRuntimeClient {
     return _bedrockClient;
 }
 
-export async function POST(req: Request) {
-    const startTime = Date.now();
-    let snapshotForFallback: any = null;
-    let fallbackNewsCount = 0;
-    let fallbackCalendarCount = 0;
+// ─────────────────────────────────────────────────────────────────────────────
+// v1(옛) 프롬프트 — 되돌림 스위치(MORNING_BRIEFING_PROMPT=v1)에서만 쓴다. 글자 그대로 보존.
+// ─────────────────────────────────────────────────────────────────────────────
 
+async function legacySec8kSection(): Promise<string> {
     try {
-        const body = await req.json();
-        let { snapshot, rlsiHistory } = body;
-
-        // [V8.1] Self-Healing Data Injection
-        if (!snapshot) {
-            console.log('[Briefing Gen] Snapshot missing or null, fetching via GuardianDataHub...');
-            snapshot = await GuardianDataHub.getGuardianSnapshot(false);
+        const majorTickers = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
+        const sec8kMap = await fetchBatch8K(majorTickers);
+        const secLines: string[] = [];
+        for (const ticker of majorTickers) {
+            const filings = sec8kMap[ticker] || [];
+            if (filings.length > 0) secLines.push(`${ticker}: ${buildSECTextBlock(filings)}`);
         }
-        snapshotForFallback = snapshot;
+        return secLines.join('\n');
+    } catch (e) {
+        console.warn('[Briefing Gen] SEC 8-K fetch failed:', e);
+        return '';
+    }
+}
 
-        // 1. Fetch Polygon broad market news (stock/sector)
-        let marketNews: string[] = [];
-        try {
-            const newsData = await fetchMassive(
-                '/v2/reference/news',
-                { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '10', order: 'desc', sort: 'published_utc' },
-                true
-            );
-            marketNews = (newsData?.results || []).map((n: any) => {
-                const title = n.title || '';
-                const desc = n.description ? ` — ${n.description.slice(0, 200)}` : '';
-                return title + desc;
-            }).filter(Boolean).slice(0, 7);
-        } catch (e) {
-            console.warn('[Briefing Gen] Polygon news fetch failed:', e);
-        }
+function legacyPrompts(raw: MorningRaw, sec8kSection: string, nowMs: number): { systemPrompt: string; userPrompt: string; newsCount: number; calendarCount: number } {
+    const snapshot = raw.snapshot;
+    let marketNews: string[] = raw.polygonNews.map((n: any) => {
+        const title = n.title || '';
+        const desc = n.description ? ` — ${n.description.slice(0, 200)}` : '';
+        return title + desc;
+    }).filter(Boolean).slice(0, 7);
+    marketNews = [...marketNews, ...raw.fmpNews.map((n: any) => n.title || '').filter(Boolean).slice(0, 5)].slice(0, 10);
+    const todayET = new Date(nowMs).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const calendarEvents = calendarPromptLines(raw.calendar, todayET, 5);
+    const overnightDisclosures = raw.disclosures.map(h => `${h.ticker} [${h.primary}${h.tertiary ? '/' + h.tertiary : ''}] (${h.date}): ${h.text}`).join('\n');
+    let marketDataStr = '';
+    const mkt = raw.yahoo;
+    if (mkt) {
+        const fmt = (q: any, label: string) => {
+            if (!q || q.source === 'DEFAULT') return null;
+            return `${label}: ${q.price?.toFixed(2)} (${q.changePct >= 0 ? '+' : ''}${q.changePct?.toFixed(2)}%)`;
+        };
+        marketDataStr = [
+            fmt(mkt.spx, 'S&P 500 Futures (ES)'),
+            fmt(mkt.nq, 'NASDAQ 100 Futures (NQ)'),
+            fmt(mkt.rut, 'Russell 2000 Futures (RTY)'),
+            mkt.tnx && mkt.tnx.source !== 'DEFAULT'
+                ? `US 10Y Yield: ${mkt.tnx.price?.toFixed(2)}% (${fmtBp(yieldChangeBp({ level: mkt.tnx.price, chgAbs: mkt.tnx.change, chgPct: mkt.tnx.changePct }))})`
+                : null,
+            fmt(mkt.tlt, 'TLT (20Y+ Bond ETF)'),
+            fmt(mkt.btc, 'Bitcoin (BTC)'),
+            fmt(mkt.gold, 'Gold (GC)'),
+            fmt(mkt.oil, 'WTI Oil (CL)'),
+            mkt.vix && mkt.vix3m && mkt.vix.source !== 'DEFAULT' && mkt.vix3m.source !== 'DEFAULT'
+                ? `VIX Term Structure: VIX ${mkt.vix.price?.toFixed(2)} / VIX3M ${mkt.vix3m.price?.toFixed(2)} (Ratio: ${(mkt.vix.price / (mkt.vix3m.price || 1)).toFixed(3)}, ${mkt.vix.price > mkt.vix3m.price ? 'BACKWARDATION' : 'CONTANGO'})`
+                : null,
+        ].filter(Boolean).join('\n');
+    }
+    const rlsi = snapshot?.rlsi?.score ?? 'N/A';
+    const vix = snapshot?.rlsi?.components?.vix ?? 'N/A';
+    const gex = snapshot?.gammaShield?.gexIndex ?? 'N/A';
+    const squeeze = snapshot?.gammaShield?.squeezeRisk ?? 'N/A';
+    const breadth = snapshot?.breadth?.breadthPct ?? 'N/A';
+    const triggerHigh = snapshot?.gammaShield?.triggerHigh ?? 'N/A';
+    const triggerLow = snapshot?.gammaShield?.triggerLow ?? 'N/A';
+    const flipPoint = snapshot?.gammaShield?.flipPoint ?? 'N/A';
+    const regime = snapshot?.tripleA?.regime ?? 'N/A';
+    const sectors = [...(snapshot?.sectors || [])]
+        .sort((a: any, b: any) => Math.abs(b.change || 0) - Math.abs(a.change || 0))
+        .slice(0, 5)
+        .map((s: any) => `${sectorNameForBriefing(s)} ${s.change >= 0 ? '+' : ''}${s.change?.toFixed(1)}%`)
+        .join(', ');
+    const historyStr = (raw.rlsiHistory || []).slice(-5).map((h: any) => h.score).join(' → ');
+    const now = new Date(nowMs);
+    const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' });
+    const dayOfWeekKo = now.toLocaleDateString('ko-KR', { weekday: 'long', timeZone: 'America/New_York' });
+    const dayOfWeekJa = now.toLocaleDateString('ja-JP', { weekday: 'long', timeZone: 'America/New_York' });
 
-        // 1.5 Fetch FMP General News (macro/geopolitical — not covered by Polygon)
-        try {
-            const fmpKey = process.env.FMP_API_KEY;
-            if (fmpKey) {
-                const fmpRes = await fmpFetch(
-                    `https://financialmodelingprep.com/stable/news/general-latest?limit=8&apikey=${fmpKey}`, 'news', { timeoutMs: 6000 }
-                );
-                if (fmpRes?.ok) {
-                    const fmpData = await fmpRes.json();
-                    if (Array.isArray(fmpData)) {
-                        const fmpNews = fmpData
-                            .map((n: any) => n.title || '')
-                            .filter(Boolean)
-                            .slice(0, 5);
-                        // Append FMP news (geopolitical/macro) after Polygon news
-                        marketNews = [...marketNews, ...fmpNews].slice(0, 10);
-                        console.log(`[Briefing Gen] FMP General: +${fmpNews.length} headlines merged`);
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('[Briefing Gen] FMP news fetch failed:', e);
-        }
-        fallbackNewsCount = marketNews.length;
-
-        // 2. Get economic calendar from Redis
-        let calendarEvents: string[] = [];
-        try {
-            const calRaw = await getFromCache<any>('fmp:econ-calendar');
-            if (calRaw?.events) {
-                const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-                // ★2026-10-07 FMP 캘린더의 date·time 은 UTC — «ET» 라고 붙이려면 먼저 바꿔야 한다(운영 브리핑 «FOMC Minutes 18:00 ET»(실제 14:00 ET)). lib/fmpCalendarTime
-                calendarEvents = calendarPromptLines(calRaw.events, todayET, 5);
-            }
-        } catch (e) {
-            console.warn('[Briefing Gen] Calendar fetch failed:', e);
-        }
-        fallbackCalendarCount = calendarEvents.length;
-
-        // 2.3. Fetch SEC 8-K filings for major tickers
-        let sec8kSection = '';
-        try {
-            const majorTickers = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
-            const sec8kMap = await fetchBatch8K(majorTickers);
-            const secLines: string[] = [];
-            for (const ticker of majorTickers) {
-                const filings = sec8kMap[ticker] || [];
-                if (filings.length > 0) {
-                    secLines.push(`${ticker}: ${buildSECTextBlock(filings)}`);
-                }
-            }
-            if (secLines.length > 0) {
-                sec8kSection = secLines.join('\n');
-                console.log(`[Briefing Gen] SEC 8-K: ${secLines.length} tickers with filings`);
-            }
-        } catch (e) {
-            console.warn('[Briefing Gen] SEC 8-K fetch failed:', e);
-        }
-
-        // [8-K DISCLOSURES] High-impact categorized events from the coverage
-        // universe (last 3 days) → one "밤사이 주요 공시" sentence in the brief.
-        // Empty on failure/no events → the sentence is simply omitted.
-        let overnightDisclosures = '';
-        try {
-            const highlights = await getOvernightHighlights(3);
-            if (highlights.length > 0) {
-                overnightDisclosures = highlights
-                    .map(h => `${h.ticker} [${h.primary}${h.tertiary ? '/' + h.tertiary : ''}] (${h.date}): ${h.text}`)
-                    .join('\n');
-                console.log(`[Briefing Gen] Overnight disclosures: ${highlights.length}`);
-            }
-        } catch (e) {
-            console.warn('[Briefing Gen] Overnight disclosures fetch failed:', e);
-        }
-
-        // 2.5. Fetch ALL market data from Redis (cron-updated every minute)
-        let marketDataStr = '';
-        try {
-            const mkt = await getYahooDataSSOT();
-            const fmt = (q: any, label: string) => {
-                if (!q || q.source === 'DEFAULT') return null;
-                return `${label}: ${q.price?.toFixed(2)} (${q.changePct >= 0 ? '+' : ''}${q.changePct?.toFixed(2)}%)`;
-            };
-            const lines = [
-                fmt(mkt.spx, 'S&P 500 Futures (ES)'),
-                fmt(mkt.nq, 'NASDAQ 100 Futures (NQ)'),
-                fmt(mkt.rut, 'Russell 2000 Futures (RTY)'),
-                // 금리는 «4.72% (+5bp)» — «4.72 (+1.08%)»(수익률의 상대 %)를 모델이 «+1.08%p»로 옮겨 쓴다.
-                // 이 브리핑은 guardian:morning_briefing 으로 소셜 게시물까지 간다
-                mkt.tnx && mkt.tnx.source !== 'DEFAULT'
-                    ? `US 10Y Yield: ${mkt.tnx.price?.toFixed(2)}% (${fmtBp(yieldChangeBp({ level: mkt.tnx.price, chgAbs: mkt.tnx.change, chgPct: mkt.tnx.changePct }))})`
-                    : null,
-                fmt(mkt.tlt, 'TLT (20Y+ Bond ETF)'),
-                fmt(mkt.btc, 'Bitcoin (BTC)'),
-                fmt(mkt.gold, 'Gold (GC)'),
-                fmt(mkt.oil, 'WTI Oil (CL)'),
-                mkt.vix && mkt.vix3m && mkt.vix.source !== 'DEFAULT' && mkt.vix3m.source !== 'DEFAULT'
-                    ? `VIX Term Structure: VIX ${mkt.vix.price?.toFixed(2)} / VIX3M ${mkt.vix3m.price?.toFixed(2)} (Ratio: ${(mkt.vix.price / (mkt.vix3m.price || 1)).toFixed(3)}, ${mkt.vix.price > mkt.vix3m.price ? 'BACKWARDATION' : 'CONTANGO'})`
-                    : null,
-            ].filter(Boolean);
-            marketDataStr = lines.join('\n');
-            console.log(`[Briefing Gen] Market data: ${lines.length} indicators loaded`);
-        } catch (e) {
-            console.warn('[Briefing Gen] Market data fetch failed:', e);
-        }
-
-        // 3. Extract key metrics from snapshot
-        const rlsi = snapshot?.rlsi?.score ?? 'N/A';
-        const vix = snapshot?.rlsi?.components?.vix ?? 'N/A';
-        const gex = snapshot?.gammaShield?.gexIndex ?? 'N/A';
-        const squeeze = snapshot?.gammaShield?.squeezeRisk ?? 'N/A';
-        const breadth = snapshot?.breadth?.breadthPct ?? 'N/A';
-        const triggerHigh = snapshot?.gammaShield?.triggerHigh ?? 'N/A';
-        const triggerLow = snapshot?.gammaShield?.triggerLow ?? 'N/A';
-        const flipPoint = snapshot?.gammaShield?.flipPoint ?? 'N/A';
-        const regime = snapshot?.tripleA?.regime ?? 'N/A';
-
-        // Top moving sectors
-        const sectors = (snapshot?.sectors || [])
-            .sort((a: any, b: any) => Math.abs(b.change || 0) - Math.abs(a.change || 0))
-            .slice(0, 5)
-            .map((s: any) => `${sectorNameForBriefing(s)} ${s.change >= 0 ? '+' : ''}${s.change?.toFixed(1)}%`)
-            .join(', ');
-
-        // RLSI trend
-        const historyStr = (rlsiHistory || []).slice(-5)
-            .map((h: any) => h.score).join(' → ');
-
-        // 4. Build Claude Prompt — NARRATIVE-DRIVEN
-        if (!process.env.AWS_ACCESS_KEY_ID) {
-            return NextResponse.json({ error: 'AWS credentials not configured' }, { status: 500 });
-        }
-
-        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-        const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' });
-        const dayOfWeekKo = new Date().toLocaleDateString('ko-KR', { weekday: 'long', timeZone: 'America/New_York' });
-        const dayOfWeekJa = new Date().toLocaleDateString('ja-JP', { weekday: 'long', timeZone: 'America/New_York' });
-
-        const systemPrompt = `You are a Bloomberg Terminal Pre-Market Analyst writing the MORNING BRIEFING.
+    const systemPrompt = `You are a Bloomberg Terminal Pre-Market Analyst writing the MORNING BRIEFING.
 Your briefing must read like a NARRATIVE STORY that weaves together overnight news, market data, and risk indicators.
 
 <critical_rules>
@@ -406,7 +311,7 @@ PART 3 (2-3 sentences): Risk Assessment
 - End with the key variable to observe for the trading day ahead, stated as a present-tense fact (e.g. "the CPI print at 12:30 ET is the key variable") — not as a prediction.
 </structure>`;
 
-        const userPrompt = `<market_snapshot>
+    const userPrompt = `<market_snapshot>
 - RLSI: ${rlsi} | Recent Trend: ${historyStr || 'N/A'}
 - VIX: ${vix} | GEX: ${gex} | Squeeze Risk: ${squeeze}%
 - Breadth: ${breadth}% | Regime: ${regime}
@@ -439,112 +344,169 @@ KO example: "수요일 개장 전 거래에서 S&P 500 선물이 5,650(+0.45%), 
 
 Output ONLY valid JSON (no markdown fences):
 {"ko": "한국어 브리핑 (6-8문장)", "en": "English briefing (6-8 sentences)", "ja": "日本語ブリーフィング (6-8文)"}`;
+    return { systemPrompt, userPrompt, newsCount: marketNews.length, calendarCount: calendarEvents.length };
+}
 
-        // ★2026-10-11 «해석의 깊이» 지시문(lib/ai/depthDirective) — 이 프롬프트는 EC2 워커(Bedrock Sonnet 4.6)도 그대로 받아 쓰므로 라우트에서 붙인다.
-        //   같은 스위치(허용 목록 depth · 킬 스위치 · `depth-off`)를 따른다. ③ 현행(아래 legacy)은 예전 프롬프트(systemPrompt) 그대로.
-        //   시험(HAIKU55-AB-2026-10-10.md 14절): Haiku 5.5 깊이 종합 0.5 → 29.4(짝 비교 +28.9, 9/10 표본) · Sonnet 4.6 0.0 → 8.1(+8.8, 7/7) · 숫자 지어냄 0.
-        const systemPromptDepth = systemPrompt + await depthSuffixFor('MorningBriefing', systemPrompt);
+/** 모델 원문 → JSON 정리(앞말 제거) + 금융 공통어 음차 복원(+ v2 는 코드가 쓴 첫 문장 STATE 를 앞에). 실패면 null */
+function prepareBriefingJson(text: string, facts?: MorningFacts | null): { json: string; briefing: BriefingTexts; rawReasons: string[] } | null {
+    let raw = String(text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+    const start = raw.indexOf('{');
+    if (start < 0) return null;
+    if (start > 0) raw = raw.slice(start);
+    try {
+        const b = JSON.parse(raw);
+        const out = {} as BriefingTexts;
+        const rawReasons: string[] = [];
+        for (const k of ['ko', 'en', 'ja'] as const) {
+            const t = typeof b?.[k] === 'string' ? restoreCommonTermNames(b[k]).text : '';
+            if (facts && t) rawReasons.push(...rawBodyReasons(t, facts).map(r => `${k}:${r}`));
+            out[k] = facts && t ? composeMorningText(t, facts, k) : t;
+        }
+        return { json: JSON.stringify(out), briefing: out, rawReasons };
+    } catch { return null; }
+}
+
+/** v2 출구 가드(사다리 validate · 최종 검사 공용) — 음차 복원 «뒤» 글로 판정한다(저장되는 글과 같은 글) */
+function v2Gate(facts: MorningFacts) {
+    return (text: string) => {
+        const p = prepareBriefingJson(text, facts);
+        if (!p) return { ok: false, reasons: ['mb:json'] };
+        const c = checkMorningV2(p.json, facts);
+        const reasons = [...p.rawReasons, ...c.reasons];
+        return { ok: reasons.length === 0, reasons };
+    };
+}
+
+function bedrockLegacy(system: string, user: string) {
+    return async (ctx: { elapsedMs: number }) => {
+        const client = getBedrock();
+        const command = new InvokeModelCommand({
+            modelId: BEDROCK_MODEL,
+            contentType: 'application/json',
+            accept: 'application/json',
+            body: JSON.stringify({
+                anthropic_version: 'bedrock-2023-05-31',
+                max_tokens: 4096,
+                temperature: 0.3,
+                // ★2026-10-08 금융 공통어(GEX·Max Pain·Call Wall·Gamma Flip …)는 한국어·일본어 브리핑에서도 번역하지 않는다(lib/ai/commonTerms)
+                system: financeTermsRule() + system,
+                messages: [{ role: 'user', content: user }],
+            }),
+        });
+        await reserveBedrockSlot('guardian-briefing');
+        const result = await Promise.race([
+            client.send(command),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 60s')), ctx.elapsedMs > 0 ? Math.max(8000, 55000 - ctx.elapsedMs) : 55000)),
+        ]);
+        const body = JSON.parse(new TextDecoder().decode(result.body));
+        const u = body.usage || {};
+        return {
+            text: (body.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim(),
+            model: 'claude-haiku-4.5',
+            priceModel: 'haiku-4.5' as const,
+            usage: { input: Number(u.input_tokens) || 0, output: Number(u.output_tokens) || 0, cacheWrite: Number(u.cache_creation_input_tokens) || 0, cacheRead: Number(u.cache_read_input_tokens) || 0 },
+        };
+    };
+}
+
+export async function POST(req: Request) {
+    const startTime = Date.now();
+    let snapshotForFallback: any = null;
+    let fallbackNewsCount = 0;
+    let fallbackCalendarCount = 0;
+
+    // ★2026-10-25 옛/새 실모델 비교는 preview 배포의 드라이런으로 마쳤다(~/Documents/signum-work/2026-10-25/morning-briefing-v2/runs) — 운영 코드에는 비교 경로를 두지 않는다(관문 10250424: 모델·공급사 호출은 계측·예산 키를 쓴다)
+    const body = await req.json().catch(() => null);
+
+    try {
+        if (!body) throw new Error('invalid JSON body');
+        let { snapshot, rlsiHistory } = body;
+
+        // [V8.1] Self-Healing Data Injection
+        if (!snapshot) {
+            console.log('[Briefing Gen] Snapshot missing or null, fetching via GuardianDataHub...');
+            snapshot = await GuardianDataHub.getGuardianSnapshot(false);
+        }
+        snapshotForFallback = snapshot;
+
+        if (!process.env.AWS_ACCESS_KEY_ID) {
+            return NextResponse.json({ error: 'AWS credentials not configured' }, { status: 500 });
+        }
+
+        // ★2026-10-25 v2(TRACKER T7) — 원자료는 한 번만 모은다. 되돌림 스위치(MORNING_BRIEFING_PROMPT=v1)면 옛 프롬프트·옛 게이트 그대로.
+        // 자가복구 경로는 RLSI 이력을 안 준다 — 워커와 같은 키에서 읽는다(추세 낱말용, 실패는 빈 이력)
+        if (!Array.isArray(rlsiHistory) || !rlsiHistory.length) rlsiHistory = await getFromCache<any>('guardian:rlsi_history').catch(() => null) || [];
+        const raw = await collectMorningRaw(snapshot, rlsiHistory);
+        const useV1 = process.env.MORNING_BRIEFING_PROMPT === 'v1';
+        const facts = morningFactsFromRaw(raw);
+        const legacy = useV1 ? legacyPrompts(raw, await legacySec8kSection(), raw.nowMs) : null;
+        const newsCount = legacy ? legacy.newsCount : facts.news.length;
+        const calendarCount = legacy ? legacy.calendarCount : facts.events.length + facts.released.length;
+        fallbackNewsCount = newsCount;
+        fallbackCalendarCount = calendarCount;
+
+        const v2System = morningV2System(facts.session, facts.indexFacts.some(f => f.kind === 'futures'));
+        const v2User = buildMorningV2User(facts);
+        // v1: 깊이 지시문은 라우트가 붙인다(예전 그대로) · v2: 지시문 안에 <depth_standard> 가 있어 사다리가 일반 깊이 지시를 덧붙이지 않는다
+        const system = legacy ? legacy.systemPrompt + await depthSuffixFor('MorningBriefing', legacy.systemPrompt) : v2System;
+        const userPrompt = legacy ? legacy.userPrompt : v2User;
 
         // [V8.2] Fast path for EC2 Worker (return prompt only, skip Bedrock)
         if (body.returnPromptOnly) {
-            return NextResponse.json({
-                success: true,
-                prompts: { systemPrompt: systemPromptDepth, userPrompt },
-                newsCount: marketNews.length,
-                calendarCount: calendarEvents.length
-            });
+            return NextResponse.json({ success: true, prompts: { systemPrompt: system, userPrompt }, newsCount, calendarCount });
         }
 
-        // ★2026-10-10 제공자 사다리 — 허용 목록에 오른 용도만 ①Anthropic 크레딧·②Bedrock 5.5 를 먼저 시도한다.
-        //   아니면(또는 둘 다 실패·가드 불통과면) 아래 legacy = 예전 코드 그대로(Bedrock Haiku 4.5, 같은 시간 제한·같은 오류 모양).
+        // ★2026-10-10 제공자 사다리 — ①Anthropic 크레딧 → ②Bedrock 5.5 → ③ Bedrock Haiku 4.5. v2 는 ③ 도 같은 v2 지시(옛 지시로 떨어지면 사실 계약이 깨진다).
+        const gate = legacy ? briefingGate : v2Gate(facts);
         const ladder = await runLadder(
             {
                 purpose: 'MorningBriefing',
-                system: dateAnchor() + financeTermsRule() + systemPromptDepth,
+                system: dateAnchor() + financeTermsRule() + system,
                 userPrompt,
                 maxTokens: 4096,
                 jsonPrefill: true,
                 temperature: 0.3,
                 locale: 'multi',
                 timeoutMs: 55000,
-                validate: briefingGate,
+                validate: gate,
             },
-            async (ctx) => {
-                const client = getBedrock();
-                const command = new InvokeModelCommand({
-                    modelId: BEDROCK_MODEL,
-                    contentType: 'application/json',
-                    accept: 'application/json',
-                    body: JSON.stringify({
-                        anthropic_version: 'bedrock-2023-05-31',
-                        max_tokens: 4096,
-                        temperature: 0.3,
-                        // ★2026-10-08 금융 공통어(GEX·Max Pain·Call Wall·Gamma Flip …)는 한국어·일본어 브리핑에서도 번역하지 않는다(lib/ai/commonTerms)
-                        system: financeTermsRule() + systemPrompt,
-                        messages: [
-                            { role: 'user', content: userPrompt },
-                            // Note: Sonnet 4.6 does NOT support assistant prefill
-                        ],
-                    }),
-                });
-
-                await reserveBedrockSlot('guardian-briefing');
-                const result = await Promise.race([
-                    client.send(command),
-                    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 60s')), ctx.elapsedMs > 0 ? Math.max(8000, 55000 - ctx.elapsedMs) : 55000))
-                ]);
-
-                const body = JSON.parse(new TextDecoder().decode(result.body));
-                const u = body.usage || {};
-                return {
-                    text: (body.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim(),
-                    model: 'claude-haiku-4.5',
-                    priceModel: 'haiku-4.5' as const,
-                    usage: { input: Number(u.input_tokens) || 0, output: Number(u.output_tokens) || 0, cacheWrite: Number(u.cache_creation_input_tokens) || 0, cacheRead: Number(u.cache_read_input_tokens) || 0 },
-                };
-            },
+            bedrockLegacy(legacy ? legacy.systemPrompt : v2System, userPrompt),
         );
 
-        let rawText = ladder.text;
-        // Extract JSON object from response (may have preamble text)
-        const jsonStart = rawText.indexOf('{');
-        if (jsonStart > 0) rawText = rawText.slice(jsonStart);
-        if (!rawText || !rawText.startsWith('{')) {
-            return NextResponse.json({ error: 'Claude returned empty response' }, { status: 500 });
-        }
+        const prepared = prepareBriefingJson(ladder.text, legacy ? null : facts);
+        // 빈 응답·깨진 JSON — 예전처럼 아래 catch 의 템플릿(template-error, degraded)으로: 부르는 쪽이 다시 시도한다
+        if (!prepared) throw new Error('Claude returned empty or unparseable JSON');
+        const briefing = prepared.briefing;
 
-        const briefing = JSON.parse(rawText);
-        // ★2026-10-10 금융 공통어 음차(«ガンマフリップ·콜월») 출구 복원 — 어느 모델이 썼든 영어 이름으로(소셜 게시물까지 가는 글이다)
-        for (const k of ['ko', 'en', 'ja'] as const) if (typeof briefing?.[k] === 'string') briefing[k] = restoreCommonTermNames(briefing[k]).text;
-
-        // [V8.1] AI Refusal / Hallucination Validation
-        const isInvalid = briefingTextInvalid;
-
+        // [V8.1] AI Refusal / Hallucination Validation — v2 는 사실 계약 검사(lib/ai/morningBriefingV2)까지 통과해야 저장한다
+        const v2Check = legacy ? null : (() => { const c = checkMorningV2(prepared.json, facts); const reasons = [...prepared.rawReasons, ...c.reasons]; return { ...c, ok: reasons.length === 0, reasons }; })();
         if (
-            isInvalid(briefing.ko) ||
-            isInvalid(briefing.en) ||
-            isInvalid(briefing.ja) ||
+            briefingTextInvalid(briefing.ko) ||
+            briefingTextInvalid(briefing.en) ||
+            briefingTextInvalid(briefing.ja) ||
             hasWrongLocaleText('en', briefing.en) ||
-            hasWrongLocaleText('ja', briefing.ja)
+            hasWrongLocaleText('ja', briefing.ja) ||
+            (v2Check && !v2Check.ok)
         ) {
-            console.error('[Briefing Gen] AI generated invalid/mixed-locale text. Saving clean template fallback.');
+            console.error(`[Briefing Gen] AI text failed the exit check (${ladder.provider}; ${v2Check?.reasons.slice(0, 6).join(',') || 'v1 gate'}). Saving clean template fallback.`);
             const etDateStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
             const fallback = buildTemplateBriefing(snapshot, etDateStr);
             await saveBriefingTexts(fallback, {
                 date: etDateStr,
                 source: 'template-validation',
-                newsCount: marketNews.length,
-                calendarCount: calendarEvents.length,
+                newsCount,
+                calendarCount,
             });
             return NextResponse.json({
                 success: true,
                 briefing: fallback,
-                newsCount: marketNews.length,
-                calendarCount: calendarEvents.length,
+                newsCount,
+                calendarCount,
                 savedToRedis: true,
                 source: 'template-validation',
                 // ★2026-10-14 부르는 쪽(EC2 워커·자가복구)이 «템플릿이니 다시 시도»를 알 수 있게 — 오류 경로(template-error)와 같은 표식
                 degraded: true,
+                ...(v2Check ? { reasons: v2Check.reasons.slice(0, 12) } : {}),
             });
         }
 
@@ -557,14 +519,15 @@ Output ONLY valid JSON (no markdown fences):
         const elapsed = Date.now() - startTime;
         const etDateStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
 
-        console.log(`[Briefing Gen] ✅ Narrative briefing generated in ${elapsed}ms`);
+        console.log(`[Briefing Gen] ✅ Narrative briefing generated in ${elapsed}ms (${legacy ? 'v1' : `v${MORNING_V2_VERSION} ${facts.session}`}, ${ladder.provider})`);
 
         // [AUTO-SAVE] Store directly in Redis — no Worker dependency
-        await saveBriefingTexts(briefing as BriefingTexts, {
+        await saveBriefingTexts(briefing, {
             date: etDateStr,
             source: 'claude',
-            newsCount: marketNews.length,
-            calendarCount: calendarEvents.length,
+            newsCount,
+            calendarCount,
+            ...(legacy ? {} : { contract: MORNING_V2_VERSION, session: facts.session }),
         });
 
         console.log(`[Briefing Gen] ✅ Saved to Redis (3 locales + legacy)`);
@@ -572,8 +535,8 @@ Output ONLY valid JSON (no markdown fences):
         return NextResponse.json({
             success: true,
             briefing,  // { ko: "...", en: "...", ja: "..." }
-            newsCount: marketNews.length,
-            calendarCount: calendarEvents.length,
+            newsCount,
+            calendarCount,
             elapsedMs: elapsed,
             savedToRedis: true,
         });

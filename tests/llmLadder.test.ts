@@ -187,7 +187,7 @@ const records = (s: Spy): CallRecord[] => {
         for (const k of ['SectorHeadlines', 'MorningBriefing', 'EarningsBrief', 'IntelSnapshot', 'Guardian', 'GuardianTranslate', 'FlowAI', 'CrossSector', 'DeepAnalysis']) assert.equal((LADDER_PURPOSES as any)[k].thinking, 'disabled', k);
         // retries 는 «현행으로 넘길 수 없는» 용도만: 크로스섹터(현행이 한도 안에 못 끝난다) · 내 종목 AI 한 줄(크레딧 전용 — 현행 경로가 없다, 2026-10-12)
         assert.equal(LADDER_PURPOSES.CrossSector.retries, 2, '크로스섹터: ① 재시도 2회(예산 검사 안에서) — 현행 4.5 는 서빙 대상 아님'); assert.equal(LADDER_PURPOSES.WatchlistLine.retries, 1, '내 종목 AI 한 줄: 크레딧 전용'); assert.equal(LADDER_PURPOSES.TodayPicks.retries, 1, '오늘 볼 것 해설: 크레딧 전용');
-        assert.deepEqual(Object.entries(LADDER_PURPOSES).filter(([, v]) => v.retries).map(([k]) => k).sort(), ['CrossSector', 'IntelAnalysis', 'TodayPicks', 'TodaySummaryEcon', 'WatchlistLine']);   // IntelAnalysis: 10/12 aiq55 — 3종목 중 1종목만 오는 경우 크레딧 재시도
+        assert.deepEqual(Object.entries(LADDER_PURPOSES).filter(([, v]) => v.retries).map(([k]) => k).sort(), ['CrossSector', 'IntelAnalysis', 'MorningBriefing', 'TodayPicks', 'TodaySummaryEcon', 'WatchlistLine']);   // MorningBriefing: 10/25 v2 사실 계약 검사 — 크레딧 1회 재시도 · IntelAnalysis: 10/12 aiq55 — 3종목 중 1종목만 오는 경우 크레딧 재시도
         assert.ok(LADDER_PURPOSES.IntelSnapshot.timeoutMs! <= 14_000, '스냅샷: 라우트 30초 중 ① 14초 + 현행 이어받기 16초');
         assert.ok(LADDER_PURPOSES.EarningsBrief.timeoutMs! + 15_000 <= 40_000, '실적 브리핑: 라우트 40초 중 ① + 현행 15초');
         assert.ok(LADDER_PURPOSES.Guardian.timeoutMs! <= 14_000, '가디언: 첫 호출 32초 중 ① 14초 + 현행 이어받기 18초');
@@ -736,12 +736,16 @@ const records = (s: Spy): CallRecord[] => {
         const stats = summarizeCalls(records(s));
         assert.ok(stats[0].byProvider['a55s'] && stats[0].byProvider['a55s'].n === 1);
     });
-    await t('배선: 모닝 브리핑 라우트는 EC2 워커에 주는 프롬프트에도 같은 스위치로 지시문을 붙이고, ③ 현행은 예전 프롬프트 그대로', () => {
+    await t('배선: 모닝 브리핑 — v1(되돌림 스위치)은 라우트가 같은 스위치로 지시문을 붙이고 ③ 은 옛 지시 그대로 · v2 는 지시문 안의 <depth_standard> 로 일반 깊이 지시를 받지 않는다(10/25)', async () => {
         const src = fs.readFileSync(path.join(root, 'src/app/api/guardian/briefing/generate/route.ts'), 'utf8');
-        assert.match(src, /const systemPromptDepth = systemPrompt \+ await depthSuffixFor\('MorningBriefing', systemPrompt\)/);
-        assert.match(src, /prompts: \{ systemPrompt: systemPromptDepth, userPrompt \}/);
-        assert.match(src, /system: dateAnchor\(\) \+ financeTermsRule\(\) \+ systemPromptDepth/);
-        assert.match(src, /system: financeTermsRule\(\) \+ systemPrompt,/);
+        assert.match(src, /legacy\.systemPrompt \+ await depthSuffixFor\('MorningBriefing', legacy\.systemPrompt\)/);
+        assert.match(src, /prompts: \{ systemPrompt: system, userPrompt \}/);
+        assert.match(src, /system: dateAnchor\(\) \+ financeTermsRule\(\) \+ system,/);
+        assert.match(src, /bedrockLegacy\(legacy \? legacy\.systemPrompt : v2System, userPrompt\)/);
+        assert.match(src, /system: financeTermsRule\(\) \+ system,/);
+        const { MORNING_V2_SYSTEM } = await import('../src/lib/ai/morningBriefingV2');
+        const s = mk({ allow: { MorningBriefing: { effort: 'low', thinking: 'disabled', depth: true } } as any });
+        assert.equal(await depthSuffixFor('MorningBriefing', MORNING_V2_SYSTEM, s.deps), '', 'v2 지시엔 일반 깊이 지시가 붙지 않는다');
     });
     await t('관리자: depth-off · sonnet-off 액션과 깊이 전·후 필터(depth=1|0)가 있다', () => {
         const src = fs.readFileSync(path.join(root, 'src/app/api/admin/ai-ladder/route.ts'), 'utf8');

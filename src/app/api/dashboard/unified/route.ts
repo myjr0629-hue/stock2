@@ -10,6 +10,7 @@ import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route'; // [FIX] Direct import (no HTTP loopback)
 import { fetchMassive } from '@/services/massiveClient';
 import { atmStraddleImpliedMove, impliedMoveFields, readImpliedMoveFields } from '@/lib/impliedMove';
+import { overlayCanonicalImpliedMoveRows } from '@/services/impliedMoveService';
 
 // ============================================================
 // [PREV-CHANGE FIX] Accurate previous regular session change from Polygon Daily Bars
@@ -1063,7 +1064,18 @@ async function overlayDashboardLevels(payload: any): Promise<any> {
             levelsStaleAsOf: d.levelsStaleAsOf ?? null,
         };
     }
+    await overlayCanonicalImpliedMove(next);
     return { ...payload, tickers: next };
+}
+
+/**
+ * ★ [T26b 2026-10-25] 예상 변동도 «출구 한 곳»에서 정본으로 — 10/25 운영 AMZN 7.8(analysis-cache-hit) vs 정본(마감 관측) 7.9.
+ *   응답은 분석 캐시·인스턴스 메모리(장외 1시간)·Redis 응답 캐시(장외 12시간)·전체 경로(체인 직접 계산)에서 온다 —
+ *   어느 갈래든 여기를 지난다. 같은 만기·세션의 마감 관측이 이기면 그 값으로(impliedMoveService.canonicalImpliedMoveFields
+ *   = T26 규칙 그대로), 아니면 그대로. 응답 캐시에 저장된 원본은 고치지 않는다(쓰기 0). 500ms 상한.
+ */
+async function overlayCanonicalImpliedMove(rows: Record<string, any>): Promise<void> {
+    await overlayCanonicalImpliedMoveRows(rows, 500);
 }
 
 export async function GET(request: NextRequest) {
