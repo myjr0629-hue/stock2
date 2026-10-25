@@ -50,7 +50,8 @@ t('주입 지점: callBedrock 단일 입구 — 날짜 뒤·원 system 앞(dateA
 
 t('주입 지점: 직접 호출 4곳(UC·모닝브리핑·종목 뉴스·실적 브리핑)도 같은 규칙을 system 앞에 붙인다', () => {
     assert.ok(read('src/app/api/undercurrent/shared.ts').includes('system: financeTermsRule() + system,'));
-    assert.ok(read('src/app/api/guardian/briefing/generate/route.ts').includes('system: financeTermsRule() + systemPrompt,'));
+    // 10/25 v2: Bedrock 현행(③) 호출이 bedrockLegacy(system, user) 로 묶였다 — v1·v2 지시 모두 같은 규칙을 앞에 붙인다
+    assert.ok(read('src/app/api/guardian/briefing/generate/route.ts').includes('system: financeTermsRule() + system,'));
     assert.ok(read('src/app/api/live/ticker-news/route.ts').includes('system: [{ text: financeTermsRule() + SYSTEM }],'));
     assert.ok(read('src/app/api/cron/earnings-brief/route.ts').includes('system: [{ text: financeTermsRule() + SYSTEM }],'));
 });
