@@ -37,6 +37,9 @@ export function createGiftFunnelRecorder(store: () => GiftStore | null = giftSto
         if (st.gen !== gen || !st.pending.size || st.capped === day || st.calls >= FUNNEL_LIMITS.instanceCalls) break;
         const batch = [...st.pending];
         st.pending = new Map();
+        // 관문 10251954: 자정 직전 5초에는 시작하지 않는다(지난 날 묶음은 자정 뒤 roll 로 버려진다).
+        // 저장소 시간 상한 3초 < 5초 → 오늘 시작한 EVAL 은 오늘 안에 전송·종료(또는 중단)된다.
+        if (Date.parse(`${day}T00:00:00+09:00`) + 86400000 - now() <= FUNNEL_LIMITS.midnightGuardMs) break;
         const db = store();
         if (!db) break;
         st.calls++; st.lastCall = now(); st.inflightAt = st.lastCall;

@@ -293,3 +293,27 @@ test('관문 10251936 재현: 23:59:59 예약이 자정 뒤 실행돼도 어제 
   assert.equal(store.hashes.get('promo:pv:gift:v1:funnel:2026-10-26')!.get('_calls:client'), String(limits.calls));
   assert.ok(!store.hashes.has('promo:pv:gift:v1:funnel:2026-10-25'));
 });
+
+test('관문 10251954 재현: 자정 직전 보호 구간(5초)에는 EVAL 시작 0 — 전송 지연이 있어도 어제 키 전송이 오늘로 넘어가지 않음', async () => {
+  for (const start of ['2026-10-25T23:59:59.999+09:00', '2026-10-25T23:59:55.001+09:00']) {
+    const s = sim(start);
+    let calls = 0;
+    const store = { eval: async () => { calls++; return 1; } };
+    const inst = Array.from({ length: 6 }, () => funnel.createGiftFunnelRecorder(() => store, s.now, s.sleep));
+    for (let i = 0; i < 6; i++) await inst[i](forged(i), 'tap', 'gift_dash', 'ios')?.();
+    assert.equal(calls, 0, start);
+    // 자정 뒤 첫 이벤트는 오늘 키로 정상 반영(지난 날 묶음은 버림)
+    s.clock.t = Date.parse('2026-10-26T00:00:01+09:00');
+    const keys: string[] = [];
+    const rec = funnel.createGiftFunnelRecorder(() => ({ eval: async (_a: string, k: string[]) => { keys.push(k[0]); return 1; } }), s.now, s.sleep);
+    await rec(forged(9), 'tap', 'gift_dash', 'ios')?.();
+    assert.deepEqual(keys, ['promo:pv:gift:v1:funnel:2026-10-26']);
+  }
+  // 보호 구간 밖(23:59:54.9)은 정상 호출 — 저장소 시간 상한 3초를 다 써도 오늘 안
+  const s = sim('2026-10-25T23:59:54.900+09:00');
+  let n = 0;
+  const rec = funnel.createGiftFunnelRecorder(() => ({ eval: async () => { n++; return 1; } }), s.now, s.sleep);
+  await rec(forged(1), 'tap', 'gift_dash', 'ios')?.();
+  assert.equal(n, 1);
+  assert.ok(limits.midnightGuardMs > 3000);
+});

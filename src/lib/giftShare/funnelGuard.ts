@@ -14,6 +14,8 @@ import { giftSecret } from './server';
 export const FUNNEL_LIMITS = {
   slots: 256, ipMinute: 120, deviceMinute: 60, processMinute: 300, processDay: 10000,
   day: 10000, calls: 1500, instanceCalls: 300, flushMs: 2000, batchFields: 64, staleMs: 20000, chain: 5,
+  // KST 자정 직전 보호 구간: 새 EVAL 을 시작하지 않는다. SDK 전송 지연·시간 상한(3초)을 다 써도 전송일 = 키 날짜.
+  midnightGuardMs: 5000,
   retentionDays: 40,
 } as const;
 
