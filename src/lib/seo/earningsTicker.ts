@@ -21,8 +21,64 @@ import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfir
 import { COPY, mdw, pctText, phaseOf, selectWeekEntries, toLoc, weekRangeET, type Loc } from '@/lib/earningsWeek';
 import type { EarningsWeekRow } from '@/services/earningsWeekService';
 
-import { COMPANY_NAMES } from '@/lib/companyNames';
-export { COMPANY_NAMES, type CompanyName } from '@/lib/companyNames';
+export interface CompanyName { en: string; ko: string; ja: string }
+
+/** 티커 → 회사명(영·한·일). 이름이 티커와 같은 회사(KLA·UPS 등)는 넣지 않는다 — 검색어에 더하는 것이 없다. */
+export const COMPANY_NAMES: Readonly<Record<string, CompanyName>> = {
+  AAPL: { en: 'Apple', ko: '애플', ja: 'アップル' },
+  ABBV: { en: 'AbbVie', ko: '애브비', ja: 'アッヴィ' },
+  AFRM: { en: 'Affirm', ko: '어펌', ja: 'アファーム' },
+  AMGN: { en: 'Amgen', ko: '암젠', ja: 'アムジェン' },
+  AMZN: { en: 'Amazon', ko: '아마존', ja: 'アマゾン' },
+  ARM: { en: 'Arm Holdings', ko: 'Arm 홀딩스', ja: 'アーム・ホールディングス' },
+  BA: { en: 'Boeing', ko: '보잉', ja: 'ボーイング' },
+  BKNG: { en: 'Booking Holdings', ko: '부킹홀딩스', ja: 'ブッキング・ホールディングス' },
+  CAT: { en: 'Caterpillar', ko: '캐터필러', ja: 'キャタピラー' },
+  CCJ: { en: 'Cameco', ko: '카메코', ja: 'カメコ' },
+  COIN: { en: 'Coinbase', ko: '코인베이스', ja: 'コインベース' },
+  COP: { en: 'ConocoPhillips', ko: '코노코필립스', ja: 'コノコフィリップス' },
+  CVX: { en: 'Chevron', ko: '셰브론', ja: 'シェブロン' },
+  DD: { en: 'DuPont', ko: '듀폰', ja: 'デュポン' },
+  DDOG: { en: 'Datadog', ko: '데이터독', ja: 'データドッグ' },
+  ENPH: { en: 'Enphase Energy', ko: '엔페이즈 에너지', ja: 'エンフェーズ・エナジー' },
+  FCX: { en: 'Freeport-McMoRan', ko: '프리포트맥모란', ja: 'フリーポート・マクモラン' },
+  FSLR: { en: 'First Solar', ko: '퍼스트솔라', ja: 'ファースト・ソーラー' },
+  FTNT: { en: 'Fortinet', ko: '포티넷', ja: 'フォーティネット' },
+  GEV: { en: 'GE Vernova', ko: 'GE 버노바', ja: 'GEベルノバ' },
+  GILD: { en: 'Gilead Sciences', ko: '길리어드 사이언스', ja: 'ギリアド・サイエンシズ' },
+  GOOG: { en: 'Alphabet (Google)', ko: '알파벳(구글)', ja: 'アルファベット(グーグル)' },
+  GOOGL: { en: 'Alphabet (Google)', ko: '알파벳(구글)', ja: 'アルファベット(グーグル)' },
+  HOOD: { en: 'Robinhood', ko: '로빈후드', ja: 'ロビンフッド' },
+  INTC: { en: 'Intel', ko: '인텔', ja: 'インテル' },
+  KO: { en: 'Coca-Cola', ko: '코카콜라', ja: 'コカ・コーラ' },
+  LIN: { en: 'Linde', ko: '린데', ja: 'リンデ' },
+  LLY: { en: 'Eli Lilly', ko: '일라이릴리', ja: 'イーライリリー' },
+  MA: { en: 'Mastercard', ko: '마스터카드', ja: 'マスターカード' },
+  MCD: { en: "McDonald's", ko: '맥도날드', ja: 'マクドナルド' },
+  META: { en: 'Meta Platforms', ko: '메타 플랫폼스', ja: 'メタ・プラットフォームズ' },
+  MO: { en: 'Altria', ko: '알트리아', ja: 'アルトリア' },
+  MRK: { en: 'Merck', ko: '머크', ja: 'メルク' },
+  MSFT: { en: 'Microsoft', ko: '마이크로소프트', ja: 'マイクロソフト' },
+  NFLX: { en: 'Netflix', ko: '넷플릭스', ja: 'ネットフリックス' },
+  NOW: { en: 'ServiceNow', ko: '서비스나우', ja: 'サービスナウ' },
+  NVDA: { en: 'NVIDIA', ko: '엔비디아', ja: 'エヌビディア' },
+  NVO: { en: 'Novo Nordisk', ko: '노보 노디스크', ja: 'ノボ ノルディスク' },
+  PFE: { en: 'Pfizer', ko: '화이자', ja: 'ファイザー' },
+  PLTR: { en: 'Palantir', ko: '팔란티어', ja: 'パランティア' },
+  PYPL: { en: 'PayPal', ko: '페이팔', ja: 'ペイパル' },
+  QCOM: { en: 'Qualcomm', ko: '퀄컴', ja: 'クアルコム' },
+  REGN: { en: 'Regeneron', ko: '리제네론', ja: 'リジェネロン' },
+  SBUX: { en: 'Starbucks', ko: '스타벅스', ja: 'スターバックス' },
+  SMCI: { en: 'Super Micro Computer', ko: '슈퍼마이크로컴퓨터', ja: 'スーパー・マイクロ・コンピューター' },
+  SOFI: { en: 'SoFi Technologies', ko: '소파이', ja: 'ソーファイ' },
+  TMUS: { en: 'T-Mobile US', ko: 'T모바일', ja: 'Tモバイル' },
+  TSLA: { en: 'Tesla', ko: '테슬라', ja: 'テスラ' },
+  UPST: { en: 'Upstart', ko: '업스타트', ja: 'アップスタート' },
+  V: { en: 'Visa', ko: '비자', ja: 'ビザ' },
+  VRTX: { en: 'Vertex Pharmaceuticals', ko: '버텍스 파마슈티컬스', ja: 'バーテックス・ファーマシューティカルズ' },
+  VZ: { en: 'Verizon', ko: '버라이즌', ja: 'ベライゾン' },
+  XOM: { en: 'Exxon Mobil', ko: '엑슨모빌', ja: 'エクソンモービル' },
+};
 
 export const companyName = (ticker: string, loc: string): string | null => COMPANY_NAMES[ticker]?.[toLoc(loc)] ?? null;
 

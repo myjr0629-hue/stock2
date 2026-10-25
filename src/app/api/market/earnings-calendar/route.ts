@@ -13,7 +13,6 @@ import { attachBriefs, briefEntryKey, briefNeedsFill, EARNINGS_BRIEF_KEY, type B
 import { attachImplied, impliedPackStale } from '@/lib/earnings/earningsImplied';
 import { readImpliedPack, refreshImpliedPack } from '@/services/earningsImpliedService';
 import { publicBase } from '@/lib/net/publicBase';
-import { briefCompanyFor } from '@/lib/earnings/earningsBriefIdentity';
 
 export type { EarningsRow } from '@/services/earningsCalendarService';
 
@@ -39,12 +38,8 @@ async function attachEarningsBrief(rows: any[]): Promise<{ rows: any[]; aiCount:
     try {
         const pack = await getFromCache<BriefPack>(EARNINGS_BRIEF_KEY);
         // ★ [2026-10-12] 글이 없거나 언어가 빠진 행 — 크론(earnings-brief)과 같은 규칙(briefNeedsFill)으로 센다. 응답 «뒤»에 채우기를 부른다.
-        const needFill = rows.filter((r) => {
-            if (!r?.ticker || !r?.date) return false;
-            const entry = pack?.entries?.[briefEntryKey(r.ticker, r.date)];
-            const company = pack?.companies?.[r.ticker.toUpperCase()] ?? entry?.company;
-            return briefNeedsFill(entry, briefCompanyFor(r.ticker, company ? { ...company, symbol: r.ticker } : null));
-        }).length;
+        //   [T30] 정식명 표에 있는 종목은 회사가 다른 글도 «채울 행»으로 센다(크론이 버리고 새로 만든다).
+        const needFill = rows.filter((r) => r?.ticker && r?.date && briefNeedsFill(pack?.entries?.[briefEntryKey(r.ticker, r.date)], r.ticker)).length;
         if (!pack?.entries) return { rows, aiCount: 0, aiAt: null, aiBlocked: 0, needFill };
         const m = attachBriefs(rows, pack);
         if (m.blocked) console.warn(`[earnings-calendar] brief blocked ${m.blocked}: ${m.blockedSample.join(' · ')}`);
