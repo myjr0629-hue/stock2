@@ -30,6 +30,7 @@ import { peekStructureLevelsDetailed } from '@/services/structureService';
 import { displayLevels } from '@/lib/optionLevelGate';
 import { markPageView } from '@/lib/marketing/pageViewMark';
 import { ucGenVerdict, hasCampaignParam } from '@/lib/seo/ucGenGate';
+import { corporationLd, earningsSeo, readEarningsRow } from '@/lib/seo/earningsTicker';
 
 // ⚠️ 이 페이지는 ISR 이 아니다. [locale]/layout 이 headers()·cookies() 를 읽어 매 요청
 //    동적 렌더다(실측: cache-control private, no-store · x-vercel-cache MISS). 아래 값은
@@ -228,6 +229,12 @@ const getView = cache(async (locale: string, ticker: string, gen: boolean): Prom
   m.maxPain = lvl?.maxPain ?? null; m.callWall = lvl?.callWall ?? null; m.putFloor = lvl?.putFloor ?? null;
   return { data, m, levelsFresh, levelsAsOf: data ? f.levelsAsOf : null, proseFresh, lvl };
 });
+
+/**
+ * ★2026-10-25 T28 실적 시즌 메타 — 이번 주 회사 공지 실적이 있는 종목만 실적 주간 행을 «읽기만» 한다(같은 요청의 메타·JSON-LD 가 한 번 공유).
+ *   화면에는 쓰지 않는다(화면 문구는 대표 지시 때만) — 제목·설명·OG·JSON-LD 에만. 값이 없거나 발표가 끝났으면 기존 메타 그대로.
+ */
+const getEarn = cache((ticker: string) => readEarningsRow(ticker));
 
 type Strings = {
   kicker: string; h1: (t: string) => string; sub: (t: string) => string; money: string; read: string; news: string;
@@ -434,9 +441,9 @@ function joinSeg(locale: string, seg: string[]): string {
  *   레벨을 «현재»로 말할 수 없으면(판본 뒤처짐·없음) 예전 다크풀 문장(seoDescDp)으로 내려간다.
  *   price 는 페이로드가 지금 다크풀 판본과 같은 세션일 때만(levelsFresh) 넘어온다 — 본문 «현재가» 칸과 같은 규칙.
  */
-function seoDesc(locale: string, t: string, m: Money | undefined, l: Strings, lvl: Lvl | null, price: number | null): string {
+function seoDesc(locale: string, t: string, m: Money | undefined, l: Strings, lvl: Lvl | null, price: number | null, lead: string[] = []): string {
   const mp = lvl?.live ? px(lvl.maxPain) : null;
-  if (!lvl || !mp) return seoDescDp(locale, t, m, l);
+  if (!lvl || !mp) return seoDescDp(locale, t, m, l, lead);
   const dp = n1(m?.darkPoolPct);
   // 날짜 표기는 만기와 같은 모양으로(en «Oct 2» · ko/ja «10/2»)
   const sd = (ymd: string | null | undefined) => (!isYmd(ymd) ? null : locale === 'ko' || locale === 'ja' ? monthDay(ymd) : dayLbl('en', ymd));
@@ -445,7 +452,7 @@ function seoDesc(locale: string, t: string, m: Money | undefined, l: Strings, lv
   const ch = sd(lvl.chain);
   const g = gapOf(price, lvl.maxPain);
   const cw = px(lvl.callWall), pf = px(lvl.putFloor);
-  const seg: string[] = [];
+  const seg: string[] = [...lead];
   if (locale === 'ko') {
     seg.push(`${t} 맥스페인 ${mp}${exp ? ` — ${exp} 만기` : ''}${ch ? `, ${ch} 옵션 체인 기준` : ''}.`);
     if (g) seg.push(g.side === 'at' ? `최근가 ${px(price)}, 맥스페인과 같은 자리.` : `최근가 ${px(price)}, 맥스페인보다 ${g.pct}% ${g.side === 'above' ? '위' : '아래'}.`);
@@ -465,7 +472,7 @@ function seoDesc(locale: string, t: string, m: Money | undefined, l: Strings, lv
     if (cw || pf) seg.push(`${cap([cw ? `call wall ${cw}` : '', pf ? `put floor ${pf}` : ''].filter(Boolean).join(', '))}.`);
     seg.push('Free, updated daily.');
   }
-  return joinSeg(locale, seg) || seoDescDp(locale, t, m, l);
+  return joinSeg(locale, seg) || seoDescDp(locale, t, m, l, lead);
 }
 
 /** 본문 첫 문단 — 질의 의도(맥스페인이 얼마인가)에 바로 답한다. 낡은 판본이면 «as of» 로 과거형. */
@@ -502,16 +509,16 @@ function answerLine(locale: string, t: string, lvl: Lvl | null, price: number | 
 }
 
 /** 레벨을 «현재»로 말할 수 없을 때의 설명문 — 다크풀 숫자부터. 데이터가 없으면 기존 정적 문구로 안전하게 내려간다. */
-function seoDescDp(locale: string, t: string, m: Money | undefined, l: Strings): string {
+function seoDescDp(locale: string, t: string, m: Money | undefined, l: Strings, lead: string[] = []): string {
   const dp = n1(m?.darkPoolPct);
-  if (!dp) return l.sub(t).slice(0, DESC_MAX);
+  if (!dp) return (lead.length ? joinSeg(locale, lead) : '') || l.sub(t).slice(0, DESC_MAX);
 
   const avg = n0(m?.darkPoolMarketAvg);
   const vr = m?.darkPoolVolRatio != null ? m.darkPoolVolRatio.toFixed(1) : null;
   // FINRA 는 T+1 이다 — 날짜를 밝혀야 «오늘 갱신»이 거짓말이 되지 않는다.
   const day = m?.darkPoolDate ? m.darkPoolDate.slice(5).replace('-', '/') : null;
 
-  const seg: string[] = [];
+  const seg: string[] = [...lead];
   if (locale === 'ko') {
     seg.push(`${t} 다크풀 ${dp}%${avg ? ` (시장 평균 ${avg}%)` : ''}${vr ? `, 평소의 ${vr}배` : ''}.`);
     seg.push(`FINRA 원본, 매일 무료${day ? ` — ${day} 기준` : ''}.`);
@@ -532,7 +539,9 @@ export async function generateMetadata(
   const ticker = (raw || '').toUpperCase();
   const l = L[locale] ?? L.en;
   const base = publicBase();
-  const v = isTicker(ticker) ? await getView(locale, ticker, await ucGenAllowed(await searchParams)) : null;
+  const [v, earnRow] = isTicker(ticker)
+    ? await Promise.all([getView(locale, ticker, await ucGenAllowed(await searchParams)), getEarn(ticker)])
+    : [null, null];
   const m = v?.m;
   const fresh = !!v?.levelsFresh;
   // ★ 로케일별 제목은 그대로 유지한다 (2026-08-22 실측 근거):
@@ -541,8 +550,11 @@ export async function generateMetadata(
   //   "Duplicate without user-selected canonical" 로 색인에서 뺐다.
   //   제목을 언어별로 갈라야 «다른 문서»가 된다 — seoTitle 이 그 규칙을 지킨다.
   const lvl = v?.lvl ?? null;
-  const title = seoTitle(locale, ticker, m, lvl);
-  const desc = seoDesc(locale, ticker, m, l, lvl, fresh ? m?.price ?? null : null);
+  // 실적 시즌(T28): 이번 주 회사 공지 실적 + 유효한 예상 변동이 있을 때만 «회사명 + 실적 + 예상 변동»을 앞세운다. 아니면 기존 그대로.
+  //   맥스페인은 기존 제목과 같은 조건(현재 판본)일 때만 꼬리에 남긴다 — «{T} max pain» 질의의 기존 유입을 지키려고.
+  const es = earningsSeo(ticker, locale, earnRow, { maxPain: lvl?.live ? px(lvl.maxPain) : null });
+  const title = es ? (es.titles.find((x) => x.length <= TITLE_MAX) ?? es.titles[es.titles.length - 1]) : seoTitle(locale, ticker, m, lvl);
+  const desc = seoDesc(locale, ticker, m, l, lvl, fresh ? m?.price ?? null : null, es?.lead ?? []);
   // 소셜 카드에는 서술 요약을 그대로 쓴다 — 공유는 이야기로 읽힌다(지금 숫자와 같은 판본일 때만).
   const social = ((v?.proseFresh && v.data?.tickerRead) || desc).slice(0, 200);
   const og = new URLSearchParams({ ticker, priceLabel: 'PRICE' });
@@ -668,11 +680,14 @@ export default async function FlowTickerPage(
   //      Organization   — 브랜드 엔티티(sameAs 로 스토어·SNS 를 묶는다)
   //    FAQ 항목은 LLM 추출용으로 Dataset.description 에 문장으로 남긴다(마크업이 아니라 텍스트).
   const brand = `${base}/#org`;
+  const corp = corporationLd(ticker, locale);
   const jsonLd: Record<string, unknown>[] = [
     {
       '@context': 'https://schema.org', '@type': 'Dataset', '@id': `${url}#dataset`,
       name: `${ticker} options flow, dark pool and max pain`,
       description: [desc, ...faq.map((f) => `${f.q} ${f.a}`)].join(' ').slice(0, 1200),
+      // T28: 이 데이터셋의 주제 회사(이름이 등록된 종목만) — 회사명 질의와 티커 페이지를 잇는 엔티티 신호
+      ...(corp ? { about: corp } : {}),
       url,
       isAccessibleForFree: true,
       // ⚠️ `@id` 참조만 두면 구글이 객체 타입을 못 읽는다
