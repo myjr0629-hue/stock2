@@ -271,3 +271,25 @@ test('EVAL 이 오래 걸려도(멈춤 교대 시간 초과) 레인당 동시 EV
   assert.equal(peak, 1);
   assert.equal(rec(forged(200), 'tap', 'gift_dash', 'ios'), null); // -1 뒤 당일 0
 });
+
+test('관문 10251936 재현: 23:59:59 예약이 자정 뒤 실행돼도 어제 키 호출 0 — 실제 호출일 기준 EVAL ≤ 천장 + 인스턴스 수', async () => {
+  const s = sim('2026-10-25T23:59:59+09:00');
+  const store = luaStore(s.now);
+  const N = 6;
+  const inst = Array.from({ length: N }, () => funnel.createGiftFunnelRecorder(() => store, s.now, s.sleep));
+  const late = inst.map((r: any, i: number) => r(forged(i), 'tap', 'gift_dash', 'ios')!);
+  s.clock.t = Date.parse('2026-10-26T00:00:01+09:00');
+  // 호출 시각 기록: 실행 시각 기준 KST 날짜별 EVAL 수
+  const perDay = new Map<string, number>();
+  const counted = { eval: (a: string, k: string[], v: (string | number)[]) => { const d = schema.kstDay(s.now()); perDay.set(d, (perDay.get(d) || 0) + 1); return store.eval(a, k, v); } };
+  const inst2 = Array.from({ length: N }, () => funnel.createGiftFunnelRecorder(() => counted, s.now, s.sleep));
+  for (const t of late) await t();
+  assert.equal(store.calls, 0); // 지난 날 묶음은 버려졌다
+  assert.equal(store.hashes.size, 0);
+  // 이후 당일 위조 폭주(같은 6개 인스턴스 + 기존 6개는 계속 store 직결)
+  const all = [...inst, ...inst2];
+  for (let i = 0; i < 60000; i++) { const t = all[i % all.length](forged(i), 'tap', 'gift_dash', 'ios'); if (t) await t(); s.clock.t += 1000; if (s.clock.t >= Date.parse('2026-10-26T23:59:00+09:00')) break; }
+  assert.ok(store.calls <= limits.calls + all.length, `EVAL ${store.calls}`);
+  assert.equal(store.hashes.get('promo:pv:gift:v1:funnel:2026-10-26')!.get('_calls:client'), String(limits.calls));
+  assert.ok(!store.hashes.has('promo:pv:gift:v1:funnel:2026-10-25'));
+});

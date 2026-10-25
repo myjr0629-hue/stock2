@@ -22,6 +22,8 @@ export function createGiftFunnelRecorder(store: () => GiftStore | null = giftSto
   const fresh = (): LaneState => ({ day: '', pending: new Map(), inflight: false, inflightAt: 0, lastCall: -Infinity, calls: 0, capped: '', gen: 0, evaluating: false, admission: createFunnelAdmission() });
   // 클라이언트 위조가 서버 확정 단계의 몫·호출을 소진하지 못하게 레인을 분리한다.
   const lanes: Record<Lane, LaneState> = { client: fresh(), server: fresh() };
+  // KST 자정: 묶음·인스턴스 호출 수를 새 날로. 지난 날의 묶음은 버린다 — 호출은 언제나 «실행 시각의 오늘 키»로만.
+  const roll = (st: LaneState, day: string) => { if (st.day !== day) { st.day = day; st.pending = new Map(); st.calls = 0; } };
 
   const drain = async (lane: Lane, gen: number): Promise<void> => {
     const st = lanes[lane];
@@ -29,7 +31,9 @@ export function createGiftFunnelRecorder(store: () => GiftStore | null = giftSto
       for (let round = 0; round < FUNNEL_LIMITS.chain; round++) {
         const wait = st.lastCall + FUNNEL_LIMITS.flushMs - now();
         if (wait > 0) await sleep(Math.min(wait, FUNNEL_LIMITS.flushMs));
-        const day = st.day;
+        // 실행 시각 기준 날짜(관문 10251936): 자정 전 예약이 자정 뒤 실행돼도 어제 키로 호출하지 않는다.
+        const day = kstDay(now());
+        roll(st, day);
         if (st.gen !== gen || !st.pending.size || st.capped === day || st.calls >= FUNNEL_LIMITS.instanceCalls) break;
         const batch = [...st.pending];
         st.pending = new Map();
@@ -61,8 +65,8 @@ export function createGiftFunnelRecorder(store: () => GiftStore | null = giftSto
       if (lane === 'client' && process.env.GIFT_FUNNEL_CLIENT === '0') return null;
       const st = lanes[lane];
       const at = now(), day = kstDay(at);
-      // KST 자정: 묶음·인스턴스 호출 수를 새 날로. 서버 시각의 오늘 키 하나만 쓴다(요청에서 날짜를 받지 않는다).
-      if (st.day !== day) { st.day = day; st.pending = new Map(); st.calls = 0; }
+      // 서버 시각의 오늘 키 하나만 쓴다(요청에서 날짜를 받지 않는다).
+      roll(st, day);
       if (st.capped === day || st.calls >= FUNNEL_LIMITS.instanceCalls) return null;
       const buckets = funnelBuckets(req, day);
       if (!buckets || !st.admission(...buckets, day, at)) return null;
