@@ -150,12 +150,17 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
   console.log('━━━ 4. 행에 붙이기 — 티커|보고일 · 언어별로 뺀다 ━━━');
   const pack = {
     generatedAt: '2026-10-04T00:00:00Z',
+    companies: {
+      C: { name: 'Citigroup', sector: 'Financial Services', industry: 'Banks', source: 'profile' as const },
+      GS: { name: 'Goldman Sachs', sector: 'Financial Services', industry: 'Investment banking', source: 'profile' as const },
+      COST: { name: 'Costco', sector: 'Consumer Defensive', industry: 'Discount stores', source: 'profile' as const },
+    },
     entries: {
       'C|2026-10-13': { ko: { name: '씨티그룹', watch: '순이자마진(NIM)과 PCL; Q3 EPS {EPS}은 금리와 신용 비용의 결합 신호' },
         en: { name: 'Citigroup', watch: 'NIM and PCL; Q3 $2.68 EPS reflects rate environment' },     // 옛 글자 숫자 → 막힘
         ja: { name: 'シティグループ', watch: '純利息マージンとPCL；Q3 EPS {EPS}は金利と信用コストの複合シグナル' } },
       'MU|2026-09-23': { ko: { name: '마이크론', watch: 'DRAM ASP; $31.16 EPS 는 사이클 정점 신호' } },   // 직전 보고의 글
-      'GS|2026-10-13': { ko: { name: '골드만삭스', watch: 'FICC 거래 수익; EPS {EPS}는 투자은행 회복 측정' } },
+      'GS|2026-10-13': { en: { name: 'Goldman Sachs' }, ko: { name: '골드만삭스', watch: 'FICC 거래 수익; EPS {EPS}는 투자은행 회복 측정' } },
     },
   };
   await t('C: ko·ja 는 표 값($2.66)으로 채워 붙고, en(옛 $2.68)은 빠진다 — 회사명은 남는다', () => {
@@ -177,7 +182,7 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
   const calPayload = { ok: true, rows: [C, GS, MU, COST], universe: 4, source: 'test', from: '2026-10-03', to: '2027-01-31', generatedAt: new Date().toISOString() };
   store.set(CAL.EARNINGS_CALENDAR_CACHE_KEY, { value: calPayload });
   store.set(B.EARNINGS_BRIEF_KEY, { value: { ...pack, entries: { ...pack.entries,
-    'COST|2026-12-10': { ko: { name: '코스트코', watch: '회원 갱신율; 순환 회원 수수료 인상이 Q4 EPS 6.53에 반영되는 정도' } } } } });
+    'COST|2026-12-10': { en: { name: 'Costco' }, ko: { name: '코스트코', watch: '회원 갱신율; 순환 회원 수수료 인상이 Q4 EPS 6.53에 반영되는 정도' } } } } });
   store.set('earnings:brief:v2', { value: { tickers: { C: { ko: { name: '씨티그룹', watch: 'Q3 EPS $2.68 옛 글' } } } } });
   CAL._resetEarningsCalendarMemo();
   const call = async () => (await GET(new Request('http://localhost/api/market/earnings-calendar'))).json() as Promise<any>;
@@ -209,7 +214,7 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
     };
     const previous = store.get(B.EARNINGS_BRIEF_KEY);
     try {
-      store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: { 'C|2026-10-13': long } } });
+      store.set(B.EARNINGS_BRIEF_KEY, { value: { companies: pack.companies, entries: { 'C|2026-10-13': long } } });
       const j = await call();
       const brief = j.rows.find((r: any) => r.ticker === 'C').brief;
       for (const lang of ['ko', 'en', 'ja'] as const) assert.equal(brief[lang].watch, long[lang].watch);

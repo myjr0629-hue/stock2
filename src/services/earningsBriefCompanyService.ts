@@ -1,11 +1,18 @@
 import { briefCompanyFor, briefCompanyReady, type BriefCompany, type BriefCompanyProfile } from '@/lib/earnings/earningsBriefIdentity';
 
 /** 읽기만: 저장된 공급사 fundamentals 우선, 부족한 회사만 FMP 프로필 GET. API 라우트/워머는 부르지 않는다. */
-export async function readBriefCompanies(tickers: string[], opts: { deadlineMs?: number; profiles?: Record<string, BriefCompanyProfile>; fetchProfiles?: boolean } = {}): Promise<Record<string, BriefCompany | null>> {
+export async function readBriefCompanies(tickers: string[], opts: { deadlineMs?: number; profiles?: Record<string, BriefCompanyProfile>; companies?: Record<string, BriefCompany>; fetchProfiles?: boolean } = {}): Promise<Record<string, BriefCompany | null>> {
   const unique = [...new Set(tickers.map((t) => t.toUpperCase()))];
-  const profiles = opts.profiles ?? Object.fromEntries((await (await import('./redisClient')).mgetFromCache<{ fundamentals?: BriefCompanyProfile }>(unique.map((t) => `cmd:data:${t}`)))
+  const profiles = opts.profiles ?? Object.fromEntries((await (await import('./redisClient')).mgetFromCache<{ fundamentals?: BriefCompanyProfile }>(unique.map((t) => `cmd:data:${t}`)).catch(() => unique.map(() => null)))
     .map((v, i) => [unique[i], v?.fundamentals ?? {}]));
   const result = Object.fromEntries(unique.map((t) => [t, briefCompanyFor(t, profiles[t])])) as Record<string, BriefCompany | null>;
+  // 이전에 공급사/고정 자료에서 확인한 메타데이터만 재사용한다. en.name/watch로 프로필을 만들지 않는다.
+  for (const t of unique) {
+    const saved = opts.companies?.[t];
+    if (briefCompanyReady(result[t]) || !saved || !['profile', 'mapping'].includes(saved.source)) continue;
+    const cached = briefCompanyFor(t, { ...saved, symbol: t });
+    if (briefCompanyReady(cached)) result[t] = cached;
+  }
   const key = process.env.FMP_API_KEY;
   if (!key || opts.fetchProfiles === false) return result;
   const todo = unique.filter((t) => !briefCompanyReady(result[t]));

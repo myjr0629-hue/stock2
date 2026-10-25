@@ -309,9 +309,9 @@ const freeze = <T,>(o: T): T => { const f = (x: any): any => { if (x && typeof x
     useRows();
     const pack = { generatedAt: '2026-10-07T11:40:41Z', entries: {
       'TSLA|2026-10-28': { ko: { name: '테슬라', watch: '인도량과 마진; 가격 인하의 영향' }, en: { name: 'Tesla', watch: 'Deliveries and margin' } },
-      'AAPL|2026-10-29': { ko: { name: '애플', watch: 'iPhone 판매량; EPS {EPS}' } },
-      'INTC|2026-10-29': { ko: { name: '인텔', watch: '새 키의 글' } },
-      'INTC|2026-10-22': { ko: { name: '인텔', watch: '옛 키의 글' } },
+      'AAPL|2026-10-29': { en: { name: 'Apple' }, ko: { name: '애플', watch: 'iPhone 판매량; EPS {EPS}' } },
+      'INTC|2026-10-29': { en: { name: 'Intel' }, ko: { name: '인텔', watch: '새 키의 글' } },
+      'INTC|2026-10-22': { en: { name: 'Intel' }, ko: { name: '인텔', watch: '옛 키의 글' } },
     } };
     store.set(B.EARNINGS_BRIEF_KEY, { value: pack });
     const j = await callRoute();
@@ -329,8 +329,8 @@ const freeze = <T,>(o: T): T => { const f = (x: any): any => { if (x && typeof x
     fmpCalRows = [{ symbol: 'TSLA', date: '2026-10-21', epsEstimated: 0.4525 }, { symbol: 'TSLA', date: '2027-02-03', epsEstimated: 0.4729 }, { symbol: 'KO', date: '2026-10-20', epsEstimated: 0.88 }];
     finnhubRows = [];
     store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: {
-      'TSLA|2026-10-28': { ko: { name: '테슬라', watch: '7일 뒤 글' } },
-      'TSLA|2026-10-18': { ko: { name: '테슬라', watch: '3일 전 글' } },
+      'TSLA|2026-10-28': { en: { name: 'Tesla' }, ko: { name: '테슬라', watch: '7일 뒤 글' } },
+      'TSLA|2026-10-18': { en: { name: 'Tesla' }, ko: { name: '테슬라', watch: '3일 전 글' } },
       'KO|2026-07-21': { ko: { name: '코카콜라', watch: '지난 분기 글(91일 전)' } },
     } } });
     const j = await callRoute();

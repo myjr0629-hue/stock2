@@ -42,7 +42,8 @@ async function attachEarningsBrief(rows: any[]): Promise<{ rows: any[]; aiCount:
         const needFill = rows.filter((r) => {
             if (!r?.ticker || !r?.date) return false;
             const entry = pack?.entries?.[briefEntryKey(r.ticker, r.date)];
-            return briefNeedsFill(entry, briefCompanyFor(r.ticker, entry?.company ? { ...entry.company, symbol: r.ticker } : null));
+            const company = pack?.companies?.[r.ticker.toUpperCase()] ?? entry?.company;
+            return briefNeedsFill(entry, briefCompanyFor(r.ticker, company ? { ...company, symbol: r.ticker } : null));
         }).length;
         if (!pack?.entries) return { rows, aiCount: 0, aiAt: null, aiBlocked: 0, needFill };
         const m = attachBriefs(rows, pack);

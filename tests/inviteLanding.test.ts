@@ -104,8 +104,9 @@ const CAL_ROWS = [
 const PACK = {
   entries: {
     'TSM|2026-10-15': {
+      company: { name: 'Taiwan Semiconductor Manufacturing', sector: 'Technology', industry: 'Semiconductors', source: 'profile' as const },
       ko: { name: '타이완 반도체', watch: 'EPS 추정 {EPS}, 매출 추정 {REV}를 앞두고 발표를 기다립니다' },
-      en: { name: 'TSMC', watch: 'Awaiting the report against an EPS estimate of {EPS} and revenue of {REV}' },
+      en: { name: 'Taiwan Semiconductor Manufacturing', watch: 'Awaiting the report against an EPS estimate of {EPS} and revenue of {REV}' },
       ja: { name: 'TSMC', watch: 'EPS予想{EPS}、売上予想{REV}で発表を待ちます' },
     },
   },
@@ -318,9 +319,9 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     assert.equal(pickEarnExtra([], null, { ticker: 'TSM', date: '2026-10-15' }), null, '캘린더 행도 브리프도 없으면 null');
   });
   t('관전 포인트의 숫자가 표와 다르면(가드) 문구를 내보내지 않는다 — 이름만 남는다', () => {
-    const bad = { entries: { 'TSM|2026-10-15': { ko: { name: '타이완 반도체', watch: 'EPS 추정 $9.99를 앞두고 있습니다' } } } };
+    const bad = { entries: { 'TSM|2026-10-15': { company: PACK.entries['TSM|2026-10-15'].company, en: { name: 'Taiwan Semiconductor Manufacturing' }, ko: { name: '타이완 반도체', watch: 'EPS 추정 $9.99를 앞두고 있습니다' } } } };
     const x = pickEarnExtra(CAL_ROWS, bad, { ticker: 'TSM', date: '2026-10-15' })!;
-    assert.deepEqual(x.brief, { ko: { name: '타이완 반도체' } });
+    assert.deepEqual(x.brief, { en: { name: 'Taiwan Semiconductor Manufacturing' }, ko: { name: '타이완 반도체' } });
     const v = earnView('ko', 'TSM', x);
     assert.equal(v.aiLine, undefined); assert.equal(v.name, '타이완 반도체'); assert.equal(v.aiBadge, false);
   });
@@ -355,6 +356,9 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     const bad = pickEarnExtra([r], { entries: { 'TER|2026-10-27': wrong } }, r)!;
     assert.equal(bad.brief, undefined);
     assert.equal(bad.eps, 2.66); assert.equal(bad.rev, 1e9);
+    const noEnglish = pickEarnExtra([r], { entries: { 'TER|2026-10-27': { ko: wrong.ko } } }, r)!;
+    assert.equal(noEnglish.brief, undefined, '영어가 없는 오염본도 공통 회사 가드로 거절');
+    assert.equal(noEnglish.eps, 2.66); assert.equal(noEnglish.rev, 1e9);
     const correct = { en: { name: 'Teradyne', watch: 'Semiconductor test equipment demand' }, ko: { name: '테라다인', watch: '반도체 테스트 장비 수요' } };
     const clean = pickEarnExtra([r], { entries: { 'TER|2026-10-27': correct } }, r)!;
     assert.equal(clean.brief!.ko!.name, '테라다인');
@@ -615,7 +619,7 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     const ymd = (days: number) => etDateOf(real + days * 86_400_000);
     const d1 = ymd(10), ex = ymd(12), sess = ymd(-1);
     store.set(EARNINGS_CALENDAR_CACHE_KEY, { ok: true, rows: [...CAL_ROWS, { ticker: T, date: d1, hour: 'bmo', epsEstimate: 1.25, revenueEstimate: 2.5e9, quarter: 3, year: 2026 }] });
-    store.set(EARNINGS_BRIEF_KEY, { entries: { ...PACK.entries, [`${T}|${d1}`]: { ko: { name: '시험회사', watch: 'EPS 추정 {EPS} 대비 발표를 지켜봅니다' } } } });
+    store.set(EARNINGS_BRIEF_KEY, { entries: { ...PACK.entries, [`${T}|${d1}`]: { company: { name: 'Test Company', industry: 'Test equipment', sector: null, source: 'profile' }, en: { name: 'Test Company' }, ko: { name: '시험회사', watch: 'EPS 추정 {EPS} 대비 발표를 지켜봅니다' } } } });
     store.set(EARNINGS_IMPLIED_KEY, { v: 1, at: real - 600_000, day: etDateOf(real), cells: { [`${T}|${d1}`]: { p: 7.4, e: ex, b: 'eod', s: sess, r: null } } });
     const alt = await loadLanding('earn', T, 'ko', deps);
     assert.equal(alt.ok, true, JSON.stringify([alt.fallbackReason, alt.fallbackText]));

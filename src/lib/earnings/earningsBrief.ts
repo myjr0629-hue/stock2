@@ -22,7 +22,7 @@
 // ============================================================================
 
 import { daysBetweenYmd } from '../marketCalendar';
-import { briefCompanyFor, checkBriefCompany, type BriefCompany } from './earningsBriefIdentity';
+import { briefCompanyFor, briefCompanyReady, checkBriefCompany, type BriefCompany } from './earningsBriefIdentity';
 
 /** v2(티커 키·숫자 박힌 글)는 이 키로 바꾸며 버린다 — 더는 아무도 읽지 않는다 */
 export const EARNINGS_BRIEF_KEY = 'earnings:brief:v3';
@@ -267,6 +267,8 @@ export interface BriefPack {
   source?: string;
   model?: string;
   entries?: Record<string, BriefEntry>;
+  /** AI 생성 성공 여부와 독립적으로 보존하는 공급사/고정 자료의 회사 식별 정보. */
+  companies?: Record<string, BriefCompany>;
 }
 
 export interface BriefAttachRow extends BriefRowNumbers {
@@ -332,11 +334,13 @@ export function attachBriefs<R extends BriefAttachRow>(
   const merged = rows.map((r) => {
     const e = findBriefEntry(entries, byTicker, r.ticker, r.date, r.dateFrom);
     if (!e) return r;
-    const company = briefCompanyFor(r.ticker, e.company ? { ...e.company, symbol: r.ticker } : null);
-    // 기존 부분 언어 글은 채우기 대상으로 남긴다. 다른 회사라고 확인된 글은 모든 언어가 같은 오염 단위다.
-    if (company && e.en?.name && !checkBriefCompany(e, company).ok) {
+    const savedCompany = pack?.companies?.[r.ticker.toUpperCase()] ?? e.company;
+    const company = briefCompanyFor(r.ticker, savedCompany ? { ...savedCompany, symbol: r.ticker } : null);
+    // 영어 셀/이름이 없어도 검증한다. 미확인·이름 누락·불일치는 모든 언어가 같은 재생성 단위다.
+    const identity = checkBriefCompany(e, company);
+    if (!identity.ok) {
       blocked++;
-      if (blockedSample.length < 8) blockedSample.push(`${r.ticker}|${r.date}:company-name-mismatch`);
+      if (blockedSample.length < 8) blockedSample.push(`${r.ticker}|${r.date}:${identity.reason}`);
       return r;
     }
     const brief: Partial<Record<BriefLangCode, BriefCell>> = {};
@@ -378,7 +382,7 @@ export function briefMissingLangs(e: BriefEntry | null | undefined): BriefLangCo
 export function briefNeedsFill(entry: BriefEntry | null | undefined, company?: BriefCompany | null): boolean {
   if (!entry) return true;
   // 완성 글/재시도 상한도 회사 불일치를 보호하지 않는다. 크론은 이 글 전체를 버리고 새로 만든다.
-  if (company && !checkBriefCompany(entry, company).ok) return true;
+  if (company !== undefined && !checkBriefCompany(entry, company).ok) return true;
   return briefMissingLangs(entry).length > 0 && (Number(entry.tries) || 0) < BRIEF_FILL_MAX_TRIES;
 }
 
@@ -387,6 +391,7 @@ export function briefInvalidationKeys(entries: Record<string, BriefEntry>, compa
   const forced = new Set(forceTickers.map((t) => t.toUpperCase()));
   return Object.entries(entries).filter(([key, entry]) => {
     const ticker = key.split('|')[0].toUpperCase();
-    return forced.has(ticker) || (!!companies[ticker] && !checkBriefCompany(entry, companies[ticker]).ok);
+    // 프로필 실패/업종 미확인은 삭제 근거가 아니다. 다음 회차까지 기존 저장본을 보존한다.
+    return briefCompanyReady(companies[ticker]) && (forced.has(ticker) || !checkBriefCompany(entry, companies[ticker]).ok);
   }).map(([key]) => key);
 }

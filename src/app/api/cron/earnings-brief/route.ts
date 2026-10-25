@@ -28,7 +28,7 @@ import {
 import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { runLadder } from '@/lib/ai/llmLadder';
 import { dateAnchor } from '@/services/bedrockClient';
-import { BRIEF_LOCAL_NAMES, briefCompanyReady, checkBriefCompany } from '@/lib/earnings/earningsBriefIdentity';
+import { BRIEF_LOCAL_NAMES, briefCompanyReady, checkBriefCompany, type BriefCompany } from '@/lib/earnings/earningsBriefIdentity';
 import { COMPANY_NAMES } from '@/lib/companyNames';
 import { readBriefCompanies } from '@/services/earningsBriefCompanyService';
 
@@ -198,10 +198,20 @@ export async function GET(request: Request) {
     const prev = (await getFromCache<BriefPack>(EARNINGS_BRIEF_KEY).catch(() => null)) || {};
     const prevEntries: Record<string, BriefEntry> = prev.entries && typeof prev.entries === 'object' ? prev.entries : {};
     const live = new Set(rows.map(keyOf));
+    const savedCompanies = { ...prev.companies };
+    for (const [k, entry] of Object.entries(prevEntries)) {
+        const ticker = k.split('|')[0].toUpperCase();
+        if (!briefCompanyReady(savedCompanies[ticker]) && briefCompanyReady(entry.company)) savedCompanies[ticker] = entry.company;
+    }
+    const companies = await readBriefCompanies(rows.map((r) => r.ticker), { deadlineMs: t0 + 12_000, companies: savedCompanies });
+    const unresolved = [...new Set(rows.filter((r) => !briefCompanyReady(companies[r.ticker])).map((r) => r.ticker))];
+    const unresolvedTickers = new Set(unresolved);
     const out: Record<string, BriefEntry> = {};
-    for (const [k, v] of Object.entries(prevEntries)) if (live.has(k)) out[k] = v;
+    // 프로필 확인 실패 시 dateFrom/근접 날짜 저장본까지 보존한다. 새 생성과 번역 채우기는 보류한다.
+    for (const [k, v] of Object.entries(prevEntries)) if (live.has(k) || unresolvedTickers.has(k.split('|')[0])) out[k] = v;
     const pruned = Object.keys(prevEntries).length - Object.keys(out).length;
-    const companies = await readBriefCompanies(rows.map((r) => r.ticker), { deadlineMs: t0 + 12_000 });
+    const companyCache = Object.fromEntries(Object.entries(companies).filter((pair): pair is [string, BriefCompany] => briefCompanyReady(pair[1])));
+    const companiesChanged = JSON.stringify(prev.companies ?? {}) !== JSON.stringify(companyCache);
     // 운영 세션이 인증된 크론에 ?invalidate=TER,TDC 를 붙이면 해당 티커의 모든 보고·언어·tries 를 새로 만든다.
     const invalidationParam = new URL(request.url).searchParams.get('invalidate') || '';
     if (invalidationParam && !/^[A-Za-z0-9.-]+(?:,[A-Za-z0-9.-]+)*$/.test(invalidationParam)) {
@@ -210,12 +220,24 @@ export async function GET(request: Request) {
     // 정확한 키 밖의 옛 날짜 글도 dateFrom/±30일 fallback으로 붙을 수 있어 원본 팩 전체에서 찾는다.
     const invalidated = briefInvalidationKeys(prevEntries, companies, invalidationParam ? invalidationParam.split(',') : []);
     for (const k of invalidated) delete out[k];
-    const unresolved = rows.filter((r) => !briefCompanyReady(companies[r.ticker])).map((r) => r.ticker);
+    // 모든 저장 경로(이월·번역 채우기·새 생성)는 같은 회사 검사를 통과한다.
+    // 미확인 회사는 위에서 유지한 기존 저장본만 남고, 아래 todoRows에는 들어가지 않는다.
+    const save = (generated = false) => {
+        for (const [k, entry] of Object.entries(out)) {
+            const company = companies[k.split('|')[0]];
+            if (briefCompanyReady(company) && !checkBriefCompany(entry, company).ok) delete out[k];
+        }
+        return setInCache(EARNINGS_BRIEF_KEY, {
+            generatedAt: generated ? new Date().toISOString() : prev.generatedAt,
+            source: 'ai', model: LIGHT_MODEL,
+            entries: out, companies: companyCache,
+        } satisfies BriefPack, 30 * 24 * 3600);
+    };
     // ★ [2026-10-12] 글이 있어도 언어가 빠졌으면(가드 탈락) 상한(2회) 안에서 다시 만든다 — 있는 언어는 지키고 빠진 언어만 채운다.
     const todoRows = rows.filter((r) => briefCompanyReady(companies[r.ticker]) && briefNeedsFill(out[keyOf(r)], companies[r.ticker]))
         .map((r) => ({ ...r, company: companies[r.ticker] }));
     if (!todoRows.length) {
-        if (invalidated.length || pruned) await setInCache(EARNINGS_BRIEF_KEY, { ...prev, entries: out }, 30 * 24 * 3600);
+        if (invalidated.length || pruned || companiesChanged) await save();
         return NextResponse.json({ success: true, skipped: unresolved.length ? 'company-unresolved' : 'all-cached', unresolved, invalidated, have: Object.keys(out).length, ms: Date.now() - t0 });
     }
 
@@ -236,14 +258,9 @@ export async function GET(request: Request) {
     const client = bedrock();
     let made = 0, calls = 0;
     const rejected: string[] = [];
-    const save = () => setInCache(EARNINGS_BRIEF_KEY, {
-        generatedAt: new Date().toISOString(),
-        source: 'ai',
-        model: LIGHT_MODEL,
-        entries: out,
-    } satisfies BriefPack, 30 * 24 * 3600);
     // 생성 실패여도 오염된 옛 글을 되살리지 않는다. 무효화·모델 호출은 이 크론 실행에서만 일어난다.
-    if (invalidated.length || pruned) await save();
+    // 모델 실패/시간 부족이어도 조회 진도를 저장해 다음 회차는 미확인 종목부터 조회한다.
+    if (invalidated.length || pruned || companiesChanged) await save();
 
     // 새 배치는 38초 안에서만 시작한다 — 한 배치(8종목×3개국어)가 실측 15~17초라 46초에 시작하면
     //   60초(maxDuration)를 넘겨 잘렸다(2026-10-04 로컬 실측 4배치 61.2초). 배치마다 저장하므로 다음 회차가 잇는다.
@@ -347,21 +364,21 @@ export async function GET(request: Request) {
                 made++; madeHere++;
             }
             // 배치마다 저장한다 — maxDuration(60초)에 잘려도 앞 배치는 남는다
-            if (madeHere) await save().catch(() => false);
+            if (madeHere) await save(true).catch(() => false);
         } catch (e: any) {
             rejected.push(`batch@${bi}(${e?.name || 'err'})`);
         }
     }
 
     if (!made && !Object.keys(out).length) {
-        return NextResponse.json({ success: false, error: 'nothing produced', rejected, ms: Date.now() - t0 }, { status: 502 });
+        return NextResponse.json({ success: false, error: 'nothing produced', rejected, unresolved, invalidated, ms: Date.now() - t0 }, { status: 502 });
     }
 
     // ★ 실적 «관전 포인트»는 분기 단위 정보다 — 매일 다시 만들 이유가 없다.
     //   크론은 «새로 들어온 보고만» 만들고(이미 있으면 all-cached 로 즉시 종료,
     //   Bedrock 호출 0건), TTL 은 30일로 둔다. 묶음에는 «지금 캘린더에 있는 보고»의 글만 남는다.
     //   추정치가 바뀌어도 글은 다시 쓸 필요가 없다 — 숫자는 응답 직전에 표 값으로 채운다.
-    if (made || pruned) await save();
+    if (made || pruned) await save(made > 0);
 
     return NextResponse.json({
         success: true, made, total: Object.keys(out).length, todo: todoRows.length, pruned,

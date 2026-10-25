@@ -57,4 +57,3 @@ export const COMPANY_NAMES: Readonly<Record<string, CompanyName>> = {
   VZ: { en: 'Verizon', ko: '버라이즌', ja: 'ベライゾン' },
   XOM: { en: 'Exxon Mobil', ko: '엑슨모빌', ja: 'エクソンモービル' },
 };
-
