@@ -15,7 +15,11 @@ const realSleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolv
  * 레인별로 한 번에 EVAL 1개만 날고(in-flight 1), 간격 flushMs·인스턴스 일일 instanceCalls 를 넘지 않는다.
  * Redis 쪽 _calls 천장에 닿아 -1 을 받으면 그 인스턴스는 당일 그 레인 호출 0.
  * 응답 유실·오류도 «천장일 수 있음»으로 보고 당일 0 — 천장 뒤 인스턴스당 EVAL 은 성공·실패 무관 최대 1회.
- * → 위조 요청이 몇 건이든 하루 EVAL ≤ calls + 인스턴스 수(레인별). 요청 수와 무관하다.
+ * → 위조 요청이 몇 건이든 레인별로:
+ *   · 키 날짜(서버 판정 KST)별 EVAL ≤ calls + 인스턴스 수 — Redis 원자 검사로 정확.
+ *   · 공급사 «전송 시각» 날짜별 EVAL ≤ calls + 2 × 인스턴스 수 — 자정을 걸친 EVAL 은 레인당 동시 1개뿐이라
+ *     인스턴스당 최대 1회가 다음 날로 넘어간다(자정 직전 5초 보호 구간은 이 경우를 수 초 이상의 정지로 좁힌다).
+ *   요청 수와 무관하다(관문 10252001: 절대 상한 문구를 증명 가능한 형태로 정정).
  * 시계·저장소·대기 주입은 오프라인 다중 인스턴스 시험용. 운영은 아래 싱글턴만 사용.
  */
 export function createGiftFunnelRecorder(store: () => GiftStore | null = giftStore, now = Date.now, sleep = realSleep) {

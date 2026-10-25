@@ -317,3 +317,32 @@ test('관문 10251954 재현: 자정 직전 보호 구간(5초)에는 EVAL 시�
   assert.equal(n, 1);
   assert.ok(limits.midnightGuardMs > 3000);
 });
+
+test('관문 10252001: 자정 직전 EVAL 이 수 초 정지돼 다음 날 전송돼도 인스턴스당 1회뿐 — 전송일 기준 ≤ 천장 + 2 × 인스턴스 수', async () => {
+  const s = sim('2026-10-25T23:59:54.900+09:00');
+  const store = luaStore(s.now);
+  const N = 6;
+  const sentDay = new Map<string, number>();
+  const gates: (() => void)[] = [];
+  // 전송을 붙잡아 두었다가 자정 뒤에 내보내는 저장소(SDK 정지 흉내). 전송 시각의 KST 날짜로 센다.
+  const stalled = { eval: (a: string, k: string[], v: (string | number)[]) => new Promise(resolve => {
+    gates.push(() => { const d = schema.kstDay(s.now()); sentDay.set(d, (sentDay.get(d) || 0) + 1); resolve(store.eval(a, k, v)); });
+  }) };
+  const inst = Array.from({ length: N }, () => funnel.createGiftFunnelRecorder(() => stalled, s.now, s.sleep));
+  const running = inst.map((r: any, i: number) => r(forged(i), 'tap', 'gift_dash', 'ios')!());
+  await Promise.resolve();
+  // 정지 중 같은 인스턴스에 몰린 위조는 새 EVAL 을 만들지 못한다(레인당 동시 1개)
+  for (let i = 0; i < 6000; i++) assert.equal(inst[i % N](forged(i), 'tap', 'gift_dash', 'ios'), null);
+  assert.equal(gates.length, N);
+  s.clock.t = Date.parse('2026-10-26T00:00:07+09:00');
+  for (const g of gates.splice(0)) g();
+  await Promise.all(running);
+  // 이후 당일 폭주
+  const direct = { eval: (a: string, k: string[], v: (string | number)[]) => { const d = schema.kstDay(s.now()); sentDay.set(d, (sentDay.get(d) || 0) + 1); return store.eval(a, k, v); } };
+  const more = Array.from({ length: N }, () => funnel.createGiftFunnelRecorder(() => direct, s.now, s.sleep));
+  for (let i = 0; i < 60000; i++) { const t = more[i % N](forged(i), 'tap', 'gift_dash', 'ios'); if (t) await t(); s.clock.t += 1000; if (s.clock.t >= Date.parse('2026-10-26T23:59:00+09:00')) break; }
+  const today = sentDay.get('2026-10-26') || 0;
+  assert.ok(today <= limits.calls + 2 * (2 * N), `전송일 EVAL ${today}`); // 모듈 인스턴스 2N개
+  assert.ok(today >= limits.calls);
+  assert.equal(store.hashes.get('promo:pv:gift:v1:funnel:2026-10-26')!.get('_calls:client'), String(limits.calls));
+});
