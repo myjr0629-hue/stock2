@@ -35,10 +35,12 @@ let calendarForCron: any = null;
 const bedrockMod = require('@aws-sdk/client-bedrock-runtime');
 let modelReply: (tickers: string[]) => any = () => ({});
 const modelCalls: string[][] = [];
+const modelInputs: string[] = [];
 bedrockMod.BedrockRuntimeClient.prototype.send = async function (cmd: any) {
   const userText: string = cmd.input.messages[0].content[0].text;
   const tickers = (userText.match(/Return ALL \d+ tickers: ([^.]+)\./)?.[1] || '').split(',').map((x) => x.trim()).filter(Boolean);
   modelCalls.push(tickers);
+  modelInputs.push(userText);
   return { output: { message: { content: [{ text: JSON.stringify(modelReply(tickers)) }] } } };
 };
 
@@ -152,7 +154,7 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
         en: { name: 'Citigroup', watch: 'NIM and PCL; Q3 $2.68 EPS reflects rate environment' },     // 옛 글자 숫자 → 막힘
         ja: { name: 'シティグループ', watch: '純利息マージンとPCL；Q3 EPS {EPS}は金利と信用コストの複合シグナル' } },
       'MU|2026-09-23': { ko: { name: '마이크론', watch: 'DRAM ASP; $31.16 EPS 는 사이클 정점 신호' } },   // 직전 보고의 글
-      'GS|2026-10-13': { ko: { name: '골드만삭스', watch: 'FICC 거래 수익; EPS {EPS}는 투자은행 회복 측정' } },
+      'GS|2026-10-13': { en: { name: 'Goldman Sachs' }, ko: { name: '골드만삭스', watch: 'FICC 거래 수익; EPS {EPS}는 투자은행 회복 측정' } },
     },
   };
   await t('C: ko·ja 는 표 값($2.66)으로 채워 붙고, en(옛 $2.68)은 빠진다 — 회사명은 남는다', () => {
@@ -174,7 +176,7 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
   const calPayload = { ok: true, rows: [C, GS, MU, COST], universe: 4, source: 'test', from: '2026-10-03', to: '2027-01-31', generatedAt: new Date().toISOString() };
   store.set(CAL.EARNINGS_CALENDAR_CACHE_KEY, { value: calPayload });
   store.set(B.EARNINGS_BRIEF_KEY, { value: { ...pack, entries: { ...pack.entries,
-    'COST|2026-12-10': { ko: { name: '코스트코', watch: '회원 갱신율; 순환 회원 수수료 인상이 Q4 EPS 6.53에 반영되는 정도' } } } } });
+    'COST|2026-12-10': { en: { name: 'Costco Wholesale' }, ko: { name: '코스트코', watch: '회원 갱신율; 순환 회원 수수료 인상이 Q4 EPS 6.53에 반영되는 정도' } } } } });
   store.set('earnings:brief:v2', { value: { tickers: { C: { ko: { name: '씨티그룹', watch: 'Q3 EPS $2.68 옛 글' } } } } });
   CAL._resetEarningsCalendarMemo();
   const call = async () => (await GET(new Request('http://localhost/api/market/earnings-calendar'))).json() as Promise<any>;
@@ -221,12 +223,12 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
   const DOW2 = { ticker: 'DOW', date: '2027-01-28', epsEstimate: 0.2, revenueEstimate: 10.2e9, quarter: 4, year: 2026, hour: 'bmo' };
   calendarForCron = { ok: true, rows: [C, GS, DOW1, DOW2] };
   store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: {
-    'GS|2026-10-13': { ko: { name: '골드만삭스', watch: 'FICC 거래 수익; EPS {EPS}는 투자은행 회복 측정' } },
+    'GS|2026-10-13': { en: { name: 'Goldman Sachs' }, ko: { name: '골드만삭스', watch: 'FICC 거래 수익; EPS {EPS}는 투자은행 회복 측정' } },
     'MU|2026-09-23': { ko: { name: '마이크론', watch: '지난 보고 글' } },
   } } });
   const good = (tk: string) => ({
     ko: { name: tk, watch: `${tk} 핵심 부문 매출과 마진 동인; EPS ${'{EPS}'}가 구조적 변화를 얼마나 반영하는지 확인` },
-    en: { name: tk, watch: `${tk} core segment revenue and margin drivers; how much of the {EPS} EPS reflects the structural shift` },
+    en: { name: ({ C: 'Citigroup', GS: 'Goldman Sachs', DOW: 'Dow' } as Record<string, string>)[tk] || tk, watch: `${tk} core segment revenue and margin drivers; how much of the {EPS} EPS reflects the structural shift` },
     ja: { name: tk, watch: `${tk}の主力部門売上と利益率の要因；EPS {EPS}が構造変化をどこまで反映するか` },
   });
   modelReply = (tickers) => Object.fromEntries(tickers.map((tk) => [tk, tk === 'C'
@@ -237,7 +239,7 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
     assert.equal(res.success, true);
     const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
     assert.deepEqual(Object.keys(saved.entries).sort(), ['C|2026-10-13', 'DOW|2026-10-22', 'DOW|2027-01-28', 'GS|2026-10-13']);
-    assert.equal(saved.entries['C|2026-10-13'].en, undefined, 'en 은 literal 로 거절');
+    assert.deepEqual(saved.entries['C|2026-10-13'].en, { name: 'Citigroup' }, 'en.watch 는 literal 로 거절, 정식명은 보존');
     assert.ok(saved.entries['C|2026-10-13'].ko.watch.includes('{EPS}'), '저장본은 자리표 그대로');
     assert.deepEqual(saved.entries['C|2026-10-13'].for, { date: '2026-10-13', eps: 2.66, rev: 23699740000, quarter: 3, year: 2026 });
     assert.equal(res.pruned, 1);
@@ -260,7 +262,7 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
       assert.equal((store.get(B.EARNINGS_BRIEF_KEY)!.value as any).entries['C|2026-10-13'].tries, n);
     }
     const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
-    assert.equal(saved.entries['C|2026-10-13'].en, undefined, '또 literal — 여전히 저장 안 함');
+    assert.equal(saved.entries['C|2026-10-13'].en.watch, undefined, '또 literal — 여전히 watch 저장 안 함');
     assert.ok(saved.entries['C|2026-10-13'].ko.watch.includes('{EPS}'), 'ko 는 그대로');
     const before = modelCalls.length;
     const res = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
@@ -269,6 +271,80 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
     const m = B.attachBriefs([DOW1, DOW2], store.get(B.EARNINGS_BRIEF_KEY)!.value as any);
     assert.match(m.rows[0].brief!.ko!.watch!, /EPS \$0\.12가/);
     assert.match(m.rows[1].brief!.ko!.watch!, /EPS \$0\.20가/);
+  });
+
+  console.log('━━━ 7. 회사 혼동(T30) — TER/VRT 정식명 입력·저장·전체 재생성 ━━━');
+  const TER = { ...C, ticker: 'TER', date: '2026-10-27' };
+  const VRT = { ...C, ticker: 'VRT', date: '2026-10-28' };
+  const identified = (ticker: string, name: string) => ({ ...good(ticker), en: { ...good(ticker).en, name } });
+  calendarForCron = { ok: true, rows: [TER, VRT] };
+  await t('완성·tries 상한의 TER(Teradata)·VRT(Virtus) 오염 글을 모든 언어째 버리고, 정식명·업종 입력 후 Teradyne/Vertiv 로 저장', async () => {
+    store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: {
+      [B.briefEntryKey(TER.ticker, TER.date)]: { ...identified('TER', 'Teradata'), tries: 99 },
+      [B.briefEntryKey(VRT.ticker, VRT.date)]: { ...identified('VRT', 'Virtus Investment Partners'), tries: 99 },
+    } } });
+    modelReply = (tickers) => Object.fromEntries(tickers.map((tk) => [tk, identified(tk, tk === 'TER' ? 'Teradyne' : 'Vertiv')]));
+    const result = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
+    assert.deepEqual(result.invalidated, ['TER|2026-10-27', 'VRT|2026-10-28']);
+    const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
+    assert.equal(saved.entries['TER|2026-10-27'].en.name, 'Teradyne');
+    assert.equal(saved.entries['TER|2026-10-27'].ko.name, '테라다인');
+    assert.equal(saved.entries['TER|2026-10-27'].ja.name, 'テラダイン');
+    assert.equal(saved.entries['VRT|2026-10-28'].en.name, 'Vertiv');
+    assert.equal(saved.entries['TER|2026-10-27'].tries, undefined, '전체 재생성 시 오염 글 tries도 초기화');
+    assert.match(modelInputs.at(-1)!, /Teradyne/);
+    assert.match(modelInputs.at(-1)!, /Semiconductor test equipment/);
+    assert.match(modelInputs.at(-1)!, /Data center power and cooling/);
+    assert.doesNotMatch(modelInputs.at(-1)!, /Teradata"|Virtus/, '입력에 다른 회사 이름 없음');
+  });
+  await t('운영자 invalidate=TER: 정상 VRT 보존·TER 전체 재생성; 모델이 다시 Teradata를 주면 어떤 언어도 저장하지 않는다', async () => {
+    modelReply = (tickers) => Object.fromEntries(tickers.map((tk) => [tk, identified(tk, 'Teradata')]));
+    const before = modelCalls.length;
+    const result = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief?invalidate=TER'))).json() as any;
+    assert.deepEqual(modelCalls.slice(before).flat(), ['TER']);
+    assert.deepEqual(result.invalidated, ['TER|2026-10-27']);
+    assert.ok(result.rejected.includes('TER(company-name-mismatch)'));
+    const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
+    assert.equal(saved.entries['TER|2026-10-27'], undefined);
+    assert.equal(saved.entries['VRT|2026-10-28'].en.name, 'Vertiv');
+    // 탈락 글은 저장하지 않아 다음 회차에도 생성 대상이다.
+    const retry = modelCalls.length;
+    await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'));
+    assert.deepEqual(modelCalls.slice(retry).flat(), ['TER']);
+  });
+  await t('현재 키 밖 옛 날짜의 오염 fallback도 생성 실패 전에 캐시에서 무효화한다', async () => {
+    store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: {
+      'TER|2026-10-25': { ...identified('TER', 'Teradata'), tries: 99 },
+      'VRT|2026-10-28': identified('VRT', 'Vertiv'),
+    } } });
+    modelReply = (tickers) => Object.fromEntries(tickers.map((tk) => [tk, identified(tk, 'Teradata')]));
+    const result = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
+    assert.deepEqual(result.invalidated, ['TER|2026-10-25']);
+    const saved = store.get(B.EARNINGS_BRIEF_KEY)!.value as any;
+    assert.equal(saved.entries['TER|2026-10-25'], undefined);
+    assert.equal(saved.entries['TER|2026-10-27'], undefined);
+    assert.equal(saved.entries['VRT|2026-10-28'].en.name, 'Vertiv');
+  });
+  await t('출구 exact/dateFrom/±30일 모두 TER→Teradata 오염 글을 막고 새 정식 글은 표시한다', () => {
+    for (const date of ['2026-10-27', '2026-10-29']) {
+      const rows = [{ ...TER, date }];
+      const bad = B.attachBriefs(rows, { entries: { 'TER|2026-10-27': identified('TER', 'Teradata') } });
+      assert.equal(bad.rows[0].brief, undefined);
+      assert.equal(bad.blocked, 1);
+      const clean = B.attachBriefs(rows, { entries: { 'TER|2026-10-27': identified('TER', 'Teradyne') } });
+      assert.equal(clean.rows[0].brief!.en!.name, 'Teradyne');
+      assert.equal(clean.rows[0].brief!.ko!.name, '테라다인', '모델 ko 이름 대신 정식명');
+      const from = B.attachBriefs([{ ...TER, date: '2026-12-27', dateFrom: '2026-10-27' }], { entries: { 'TER|2026-10-27': identified('TER', 'Teradata') } });
+      assert.equal(from.rows[0].brief, undefined);
+    }
+  });
+  await t('정식명 표에 없는 종목은 모델에 보내지 않고 unresolved로 보고한다(다른 종목은 진행)', async () => {
+    calendarForCron = { ok: true, rows: [{ ...TER, ticker: 'ZZZZ' }] };
+    const before = modelCalls.length;
+    const result = await (await CRON.GET(new Request('http://localhost/api/cron/earnings-brief'))).json() as any;
+    assert.equal(result.skipped, 'all-cached');
+    assert.deepEqual(result.unresolved, ['ZZZZ']);
+    assert.equal(modelCalls.length, before);
   });
 
   console.log(`\n${n}건 통과`);

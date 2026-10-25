@@ -22,6 +22,7 @@
 // ============================================================================
 
 import { daysBetweenYmd } from '../marketCalendar';
+import { briefCompanyFor, checkBriefCompany } from './earningsBriefIdentity';
 
 /** v2(티커 키·숫자 박힌 글)는 이 키로 바꾸며 버린다 — 더는 아무도 읽지 않는다 */
 export const EARNINGS_BRIEF_KEY = 'earnings:brief:v3';
@@ -329,12 +330,25 @@ export function attachBriefs<R extends BriefAttachRow>(
   const merged = rows.map((r) => {
     const e = findBriefEntry(entries, byTicker, r.ticker, r.date, r.dateFrom);
     if (!e) return r;
+    // ★ [2026-10-26 T30] 정식명 표에 있는 종목은 en.name 이 정식명과 같아야 붙는다(영어 셀이 없어도 거절 — 언어째 같은 재생성 단위).
+    //   TER 에 Teradata 설명이 붙어 나갔다. 표에 없는 종목(company=null)은 검증 대상 밖 — 기존 그대로.
+    const company = briefCompanyFor(r.ticker);
+    if (company) {
+      const identity = checkBriefCompany(e, company);
+      if (!identity.ok) {
+        blocked++;
+        if (blockedSample.length < 8) blockedSample.push(`${r.ticker}|${r.date}:${identity.reason}`);
+        return r;
+      }
+    }
     const brief: Partial<Record<BriefLangCode, BriefCell>> = {};
     let anyWatch = false;
     for (const lang of BRIEF_LANGS) {
       const cell = e[lang];
       if (!cell || typeof cell !== 'object') continue;
-      const name = typeof cell.name === 'string' && cell.name.trim() ? cell.name.trim() : undefined;
+      // 회사명은 정식명 표가 이긴다(모델이 지은 «펠리칸 파이프라인»(PSX) 같은 이름을 내보내지 않는다).
+      const canonical = company ? (lang === 'en' ? company.name : company[lang]) : '';
+      const name = canonical || (typeof cell.name === 'string' && cell.name.trim() ? cell.name.trim() : undefined);
       let watch: string | undefined;
       if (typeof cell.watch === 'string' && cell.watch.trim()) {
         const filled = fillBriefNumbers(cell.watch.trim(), r);
@@ -365,7 +379,20 @@ export function briefMissingLangs(e: BriefEntry | null | undefined): BriefLangCo
 }
 
 /** 이 행의 글을 (다시) 만들어야 하나 — 글이 없거나, 언어가 빠졌고 시도 횟수가 상한 아래 */
-export function briefNeedsFill(entry: BriefEntry | null | undefined): boolean {
+export function briefNeedsFill(entry: BriefEntry | null | undefined, ticker?: string): boolean {
   if (!entry) return true;
+  // 완성 글/재시도 상한도 회사 불일치를 보호하지 않는다. 크론은 이 글 전체를 버리고 새로 만든다(표에 있는 종목만).
+  const company = ticker ? briefCompanyFor(ticker) : null;
+  if (company && !checkBriefCompany(entry, company).ok) return true;
   return briefMissingLangs(entry).length > 0 && (Number(entry.tries) || 0) < BRIEF_FILL_MAX_TRIES;
+}
+
+/** 순수 무효화 계획 — 정식명 표에 있는 종목 중 회사가 다른 글(또는 운영자가 지정한 티커)의 키. 실제 Redis 쓰기는 크론에서만. */
+export function briefInvalidationKeys(entries: Record<string, BriefEntry>, forceTickers: readonly string[] = []): string[] {
+  const forced = new Set(forceTickers.map((t) => t.toUpperCase()));
+  return Object.entries(entries).filter(([key, entry]) => {
+    const company = briefCompanyFor(key.split('|')[0]);
+    // 표에 없는 종목은 삭제 근거가 없다 — 기존 저장본을 보존한다.
+    return !!company && (forced.has(key.split('|')[0].toUpperCase()) || !checkBriefCompany(entry, company).ok);
+  }).map(([key]) => key);
 }

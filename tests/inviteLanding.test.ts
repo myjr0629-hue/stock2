@@ -135,7 +135,7 @@ const PACK2 = {
   entries: {
     'META|2026-10-22': {
       ko: { name: '메타', watch: 'EPS 추정 {EPS}, 매출 추정 {REV} 대비 발표를 지켜봅니다' },
-      en: { name: 'Meta', watch: 'Watching the report against an EPS estimate of {EPS}' },
+      en: { name: 'Meta Platforms', watch: 'Watching the report against an EPS estimate of {EPS}' },
       ja: { name: 'メタ', watch: 'EPS予想{EPS}に対する発表に注目します' },
     },
   },
@@ -300,7 +300,7 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
   t('EPS/매출 추정(표와 같은 서식) · 회사명 · AI 관전 포인트(자리표를 같은 행 값으로 채움, ✦AI)', () => {
     const v = earnView('ko');
     assert.deepEqual(v.rows.slice(2).map((r) => [r.label, r.value, r.note]), [['EPS 추정', '$2.66', 'Q3 FY26'], ['매출 추정', '$34.0B', undefined]]);
-    assert.equal(v.name, '타이완 반도체');
+    assert.equal(v.name, 'TSMC');
     assert.deepEqual(v.aiLine, { text: 'EPS 추정 $2.66, 매출 추정 $34.0B를 앞두고 발표를 기다립니다', ai: true });
     assert.equal(v.aiBadge, true);
     assert.equal(earnView('en').aiLine!.text, 'Awaiting the report against an EPS estimate of $2.66 and revenue of $34.0B');
@@ -314,15 +314,15 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     // ±30일 밖 행뿐이면 추정치가 없다 → {EPS}·{REV} 를 채울 수 없어 관전 포인트는 나가지 않고(회사명만), 추정치 줄도 없다
     const far = pickEarnExtra([CAL_ROWS[1]], PACK, { ticker: 'TSM', date: '2026-10-15' })!;
     assert.deepEqual([far.eps, far.rev, far.quarter], [null, null, null]);
-    assert.equal(far.brief?.ko?.watch, undefined); assert.equal(far.brief?.ko?.name, '타이완 반도체');
+    assert.equal(far.brief?.ko?.watch, undefined); assert.equal(far.brief?.ko?.name, 'TSMC');
     assert.equal(pickEarnExtra([], null, { ticker: 'TSM', date: '2026-10-15' }), null, '캘린더 행도 브리프도 없으면 null');
   });
   t('관전 포인트의 숫자가 표와 다르면(가드) 문구를 내보내지 않는다 — 이름만 남는다', () => {
-    const bad = { entries: { 'TSM|2026-10-15': { ko: { name: '타이완 반도체', watch: 'EPS 추정 $9.99를 앞두고 있습니다' } } } };
+    const bad = { entries: { 'TSM|2026-10-15': { en: { name: 'TSMC' }, ko: { name: '타이완 반도체', watch: 'EPS 추정 $9.99를 앞두고 있습니다' } } } };
     const x = pickEarnExtra(CAL_ROWS, bad, { ticker: 'TSM', date: '2026-10-15' })!;
-    assert.deepEqual(x.brief, { ko: { name: '타이완 반도체' } });
+    assert.deepEqual(x.brief, { en: { name: 'TSMC' }, ko: { name: 'TSMC' } });
     const v = earnView('ko', 'TSM', x);
-    assert.equal(v.aiLine, undefined); assert.equal(v.name, '타이완 반도체'); assert.equal(v.aiBadge, false);
+    assert.equal(v.aiLine, undefined); assert.equal(v.name, 'TSMC'); assert.equal(v.aiBadge, false);
   });
   t('날짜가 FMP 와 달라진 행(dateFrom)도 옛 날짜 키의 글을 찾는다', () => {
     const cal = [{ ticker: 'TSM', date: '2026-10-14', hour: 'bmo', epsEstimate: 2.66, revenueEstimate: 3.4e10, quarter: 3, year: 2026 }];
@@ -349,6 +349,20 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     assert.equal(composeEarn(w, null, 'NFLX', 'ko', NOW).rows[0].value, '10/15(목) 16:05 ET');
   });
 
+  t('[T30] 공유 카드도 TER→Teradata 혼동을 차단하고 정상 Teradyne 글과 실적 숫자는 보존한다', () => {
+    const r = { ticker: 'TER', date: '2026-10-27', epsEstimate: 2.66, revenueEstimate: 1e9 };
+    const wrong = { en: { name: 'Teradata', watch: 'Data warehousing customer subscriptions' }, ko: { name: '테라도스', watch: '데이터 웨어하우스 구독 고객 수' } };
+    const bad = pickEarnExtra([r], { entries: { 'TER|2026-10-27': wrong } }, r)!;
+    assert.equal(bad.brief, undefined);
+    assert.equal(bad.eps, 2.66); assert.equal(bad.rev, 1e9);
+    const noEnglish = pickEarnExtra([r], { entries: { 'TER|2026-10-27': { ko: wrong.ko } } }, r)!;
+    assert.equal(noEnglish.brief, undefined, '영어가 없는 오염본도 공통 회사 가드로 거절');
+    assert.equal(noEnglish.eps, 2.66); assert.equal(noEnglish.rev, 1e9);
+    const correct = { en: { name: 'Teradyne', watch: 'Semiconductor test equipment demand' }, ko: { name: '테라도스', watch: '반도체 테스트 장비 수요' } };
+    const clean = pickEarnExtra([r], { entries: { 'TER|2026-10-27': correct } }, r)!;
+    assert.equal(clean.brief!.ko!.name, '테라다인', '회사명은 정식명 표가 이긴다');
+    assert.equal(clean.brief!.ko!.watch, '반도체 테스트 장비 수요');
+  });
   console.log('4b. earn — 이번 주 밖 행은 «앱과 같은 원천»에서 읽는다');
   t('이번 주 목록에 없는 종목 — 가장 가까운 «아직 안 지난» 행 + 변동폭 묶음 + 브리프로 같은 카드(발표일·시간·변동폭·기준·EPS/매출·✦AI)', () => {
     const v = appEarn('ko', 'META');
@@ -571,7 +585,7 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     assert.equal(ln.ok, true); assert.equal(ln.headline, '가격이 Max Pain 6.2% 위, Call Wall까지 9.1%');
     assert.deepEqual(ln.rows.map((r) => r.value), ['$229.10', '$215', '$250', '$200']);
     const er = await loadLanding('earn', 'TSM', 'ko', deps, NOW);
-    assert.equal(er.ok, true); assert.equal(er.hero!.value, '±4.3%'); assert.equal(er.name, '타이완 반도체');
+    assert.equal(er.ok, true); assert.equal(er.hero!.value, '±4.3%'); assert.equal(er.name, 'TSMC');
     assert.deepEqual(er.rows.slice(2).map((r) => r.value), ['$2.66', '$34.0B']);
     assert.ok(er.aiLine!.text.includes('$2.66'));
 
