@@ -40,9 +40,10 @@ export async function issueGift(store: GiftStore, input: { device: string; accou
   const result = await store.eval(ISSUE_LUA, [`${p}:token:${digest(token)}`, ...identities], [now, 7 * 86400, ...limits]);
   return result === 'issued' || result === 'exists' ? { status: result as 'issued' | 'exists' } : null;
 }
-export async function claimGift(store: GiftStore, input: { token: unknown; os: GiftOs; device: string; account?: string }, now = Date.now()): Promise<string | null> {
+export async function claimGift(store: GiftStore, input: { token: unknown; os: GiftOs; device: string; account?: string }, now = Date.now(), onResult?: (status: string) => void): Promise<string | null> {
+  const report = (status: string) => { try { onResult?.(status); } catch { /* 계측 실패 무해 */ } };
   const token = giftToken(input.token);
-  if (!token) return null;
+  if (!token) { report('invalid'); return null; }
   const p = giftPrefix();
   const hash = digest(token);
   const recipients = [`${p}:recipient:device:${input.device}`];
@@ -51,9 +52,13 @@ export async function claimGift(store: GiftStore, input: { token: unknown; os: G
     `${p}:token:${hash}`, `${p}:batches:${input.os}`,
     `${p}:day:${kstDay(now)}:${input.os}`, `${p}:ledger`, ...recipients,
   ], [now, input.os, input.device, giftCap(input.os), hash, p, input.account || '']);
-  if (!Array.isArray(result) || !['new', 'again'].includes(result[0]) || typeof result[1] !== 'string') return null;
+  if (!Array.isArray(result) || !['new', 'again'].includes(result[0]) || typeof result[1] !== 'string') {
+    const status = Array.isArray(result) && ['expired', 'taken', 'recipient', 'cap', 'empty', 'invalid'].includes(result[0]) ? result[0] : 'error';
+    report(status); return null;
+  }
   const code = result[1];
-  if (!(input.os === 'ios' ? /^[A-Z0-9]{18}$/ : /^[A-Z0-9]{23}$/).test(code)) return null;
+  if (!(input.os === 'ios' ? /^[A-Z0-9]{18}$/ : /^[A-Z0-9]{23}$/).test(code)) { report('invalid'); return null; }
+  report(result[0]);
   return input.os === 'ios'
     ? `https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=${encodeURIComponent(code)}`
     : playRedeemUrl(code);

@@ -13,7 +13,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SHARE_ORIGIN, shareBeacon, shareOrCopy, shareVia, type ShareOutcome } from '@/lib/share/share';
+import { useGiftVisibility } from '@/lib/giftShare/useGiftVisibility';
 import { usePreparedGift } from '@/lib/giftShare/usePreparedGift';
+import { giftFunnel, giftPayloadMetric, giftOutcomeMetric } from '@/lib/giftShare/funnelClient';
 import { GIFT_COPY, buildGiftUrl, giftShareText, toGiftLang, type GiftSurface } from './gift';
 // ★2026-10-14 선물 링크의 초대자 id 도 공유 카드와 «같은 신원»(비공개 열쇠 → 공개 id)을 쓴다 — 친구가 설치하면 선물한 사람도 선물함에 PRO 1개월 코드를 받는다(lib/invite).
 import { getInviteRef, markInviteShared } from '@/lib/invite/identity';
@@ -83,10 +85,12 @@ export function useGiftConfig(): GiftConfig | null {
  */
 export function useGiftShare(locale: string, surface: GiftSurface) {
   const cfg = useGiftConfig();
+  const visibleRef = useGiftVisibility(surface);
   const preparedGift = usePreparedGift();
   const busy = useRef(false);
   const share = useCallback(async (): Promise<ShareOutcome | null> => {
-    if (!cfg || busy.current) return null;
+    giftFunnel('tap', surface, shareVia());
+    if (!cfg || busy.current) { giftFunnel('gate', surface, shareVia(), !cfg ? 'cfg_missing' : 'busy'); return null; }
     busy.current = true;
     const lang = toGiftLang(locale);
     const via = shareVia();
@@ -104,7 +108,9 @@ export function useGiftShare(locale: string, surface: GiftSurface) {
         // 선물 URL은 준비 모듈의 단일 판정 뒤에만 만든다. 기존 설정 캐시는 발급 근거가 아니다.
         url: `${SHARE_ORIGIN}/app`,
       }, locale, via, ref, true);
+      const payloadKind = giftPayloadMetric(payload, surface, via, preparedGift.gateReason());
       out = await shareOrCopy(payload);
+      giftOutcomeMetric(out, surface, via, payloadKind);
       preparedGift.complete(out, payload, via);
     } finally {
       busy.current = false;
@@ -112,5 +118,5 @@ export function useGiftShare(locale: string, surface: GiftSurface) {
     if (out === 'shared' || out === 'copied') { shareBeacon('sent', surface, via, ref); markInviteShared(); }
     return out;
   }, [cfg, locale, surface, preparedGift]);
-  return { cfg, share };
+  return { cfg, share, visibleRef };
 }

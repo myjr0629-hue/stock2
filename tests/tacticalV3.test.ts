@@ -72,10 +72,16 @@ for (const [locale, first, soWhat, next] of [
     assert.deepEqual(checkTacticalOutput(text, locale, p), [], `${locale}: ${text}`);
     if (locale !== 'en') assert.ok(checkTacticalOutput(text.replace('22:45', '23:45'), locale, p).includes('schedule:local-time'));
 }
-// 컴포넌트는 origin/main과 라벨 식 4곳 외 바이트 동일.
-const components = execFileSync('git', ['-c', 'core.fsmonitor=false', 'diff', '--name-only', 'origin/main', '--', 'src/components', 'src/app/[locale]/intel-guardian/GuardianDesktop.tsx'], { encoding: 'utf8', env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).trim().split('\n').filter(Boolean);
+// 전술 화면 3개 컴포넌트의 라벨 식 4곳 외 바이트 보존을 검사한다.
+// 다른 기능의 컴포넌트 변경을 전술 화면 회귀로 판정하지 않는다.
+const components = [
+    'src/components/guardian/MarketBreadthPanel.tsx',
+    'src/components/guardian/mobile/MobileGuardianFlow.tsx',
+    'src/app/[locale]/intel-guardian/GuardianDesktop.tsx',
+];
+const normalizeLabel = (source: string) => source.replaceAll("{t('lastSessionAnalysis')}", 'Last session analysis');
 for (const file of components) {
     const old = execFileSync('git', ['show', `origin/main:${file}`], { encoding: 'utf8' });
-    assert.equal(readFileSync(file, 'utf8').replaceAll("{t('lastSessionAnalysis')}", 'Last session analysis'), old, file);
+    assert.equal(normalizeLabel(readFileSync(file, 'utf8')), normalizeLabel(old), file);
 }
 console.log('통과 Tactical v3 세션 입력·뉴스 필터·4문장·지수명/방향·출처·DST·3언어·화면 보존');

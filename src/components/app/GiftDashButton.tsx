@@ -16,7 +16,7 @@ import { GiftIcon } from './GiftIcon';
 import s from './GiftDashButton.module.css';
 
 export function GiftDashButton({ locale }: { locale: string }) {
-  const { cfg, share } = useGiftShare(locale, 'gift_dash');
+  const { cfg, share, visibleRef } = useGiftShare(locale, 'gift_dash');
   const [toast, setToast] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -32,7 +32,7 @@ export function GiftDashButton({ locale }: { locale: string }) {
   };
   return (
     <div className={s.wrap} data-gift-dash="">
-      <button type="button" className={s.btn} onClick={() => { void onClick(); }}>
+      <button ref={visibleRef} type="button" className={s.btn} onClick={() => { void onClick(); }}>
         <GiftIcon size={16} />
         <span>{c.dashLabel}</span>
       </button>
