@@ -368,7 +368,11 @@ test('사이트맵: 신규3개·ko전용1개·hreflang, 기존 XML 바이트 동
     const added = current.filter(r => r.url.endsWith('/tools/earnings-scenario'));
     assert.equal(added.length, locales ? 1 : 3);
     assert.ok(added.every(r => Object.keys(r.alternates.languages).length === 4 && !r.lastModified));
-    assert.equal(resolveSitemap(current.filter(r => !r.url.endsWith('/tools/earnings-scenario'))), resolveSitemap(old));
+    // T28(2026-10-25): flow·실적 주간에 의도적으로 더한 hreflang 대체 링크만 걷어 내고 기존 XML 과 바이트 비교한다(대체 링크 자체는 seoEarningsTicker 시험이 검사).
+    const t28 = r => /\/flow\/[^/]+$|\/earnings-week$/.test(r.url);
+    assert.ok(current.filter(t28).every(r => Object.keys(r.alternates?.languages ?? {}).length === 4));
+    const withoutT28 = current.map(r => (t28(r) ? (({ alternates, ...rest }) => rest)(r) : r));
+    assert.equal(resolveSitemap(withoutT28.filter(r => !r.url.endsWith('/tools/earnings-scenario'))), resolveSitemap(old));
   }
 });
 test('보호 대상 영수증·read-check 소스 바이트 동일, 기존 페이지3언어 HTML 동일', async () => {

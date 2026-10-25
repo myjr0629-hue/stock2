@@ -312,7 +312,8 @@ test('기존 보호 대상 페이지·호출자·API·robots·사이트맵: 로�
   for (const f of ['src/app/[locale]/receipts/earnings/page.tsx', 'src/app/[locale]/receipts/earnings/og/route.tsx',
     'src/app/[locale]/layout.tsx', 'src/components/AuthGuard.tsx', 'src/components/share/ShareLanding.tsx',
     'src/app/api/flow/options-eod/route.ts', 'src/app/api/flow/dark-pool/route.ts', 'src/app/api/command/insider/route.ts',
-    'src/lib/guruLens/badges.ts', 'src/services/insiderService.ts', 'src/app/robots.ts', 'src/lib/seo/sitemap.ts', 'src/middleware.ts',
+    'src/lib/guruLens/badges.ts', 'src/services/insiderService.ts', 'src/app/robots.ts', 'src/middleware.ts',
+    // src/lib/seo/sitemap.ts 는 뺐다(2026-10-25 T28 flow·실적 주간 hreflang — 의도된 변경, 기존 URL 출력 바이트 동일은 tests/readCheckSeo·earningsScenario 가, 추가 링크는 seoEarningsTicker 가 지킨다).
     // watchlistBatchService 는 뺐다(2026-10-24 감사 M8 매크로 입력 키 수리 — 의도된 변경, tests/alphaCrossScreen 이 그 입력을 지킨다).
     'src/services/todayPicksService.ts', 'src/services/signalAlertsService.ts',
     'src/lib/guruLens/service.ts']) {

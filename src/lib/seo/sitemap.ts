@@ -41,6 +41,14 @@ const LEARN_PATHS = CONCEPT_SLUGS.map((c) => `/learn/${c}`);
  */
 const STATIC_LASTMOD = new Date('2026-08-31T00:00:00Z');  // 다크풀 복원으로 전 페이지 내용 변경
 
+/**
+ * 언어 대체 URL(hreflang) — 페이지 메타의 alternates.languages 와 같은 모양(세 언어 + x-default=en).
+ *   ★2026-10-25 T28: flow·실적 주간은 페이지 메타에만 있었다(감사 seo-gift-loop-audit-1025 P1) — 제출 URL 과 페이지 메타를 맞춘다.
+ */
+function langAlternates(base: string, path: string): { languages: Record<string, string> } {
+  return { languages: { ...Object.fromEntries(LOCALES.map((l) => [l, `${base}/${l}${path}`])), 'x-default': `${base}/en${path}` } };
+}
+
 /** 마지막 미국 거래일(주말 보정). 데이터는 T+1 이므로 «전 거래일»이 기준이다. */
 function lastSessionDate(): Date {
   const d = new Date();
@@ -93,6 +101,7 @@ export async function buildSitemap(locales: readonly (typeof LOCALES[number])[] 
         lastModified: session,
         changeFrequency: 'daily',
         priority: 0.9,
+        ...(hub === '/earnings-week' ? { alternates: langAlternates(base, hub) } : {}),
       });
     }
     for (const p of LEARN_PATHS) {
@@ -131,6 +140,7 @@ export async function buildSitemap(locales: readonly (typeof LOCALES[number])[] 
         lastModified: session,
         changeFrequency: 'daily',
         priority: 0.7,
+        alternates: langAlternates(base, `/flow/${t}`),
       });
     }
   }
