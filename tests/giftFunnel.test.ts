@@ -18,16 +18,16 @@ const { NextRequest } = ns;
 const serverPath = require.resolve('../src/lib/giftShare/server');
 const server = { ...require(serverPath) };
 require.cache[serverPath]!.exports = server;
-const writes: { key: string; field: string; ttl: number }[] = [];
+const writes: { key: string; field: string; expires: number }[] = [];
 let answer: unknown = ['empty'];
 let inventory = 0;
 server.giftStore = () => ({ eval: async (script: string, keys: string[], args: (string | number)[]) => {
-  if (script === schema.BUMP_LUA) { writes.push({ key: keys[0], field: String(args[0]), ttl: Number(args[1]) }); return 1; }
+  if (script === schema.BUMP_LUA) { writes.push({ key: keys[0], field: String(args[0]), expires: Number(args[1]) }); return 1; }
   inventory++;
   if (answer instanceof Error) throw answer;
   return answer;
 } });
-const { bumpGiftFunnel } = require('../src/lib/giftShare/funnelServer');
+const { createGiftFunnelRecorder } = require('../src/lib/giftShare/funnelServer');
 const eventRoute = require('../src/app/api/gift/event/route');
 const { giftLanding } = require('../src/lib/giftShare/landing');
 const claimRoute = require('../src/app/api/gift/claim/route');
@@ -36,7 +36,7 @@ const flush = async () => { for (const fn of queue.splice(0)) await fn(); };
 const ios = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1';
 const android = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/129.0 Mobile Safari/537.36';
 const desktop = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Safari/537.36';
-const nav = { 'user-agent': ios, 'accept-language': 'ko-KR', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document', origin: 'https://www.signumhq.com', 'sec-fetch-site': 'same-origin' };
+const nav = { 'user-agent': ios, 'accept-language': 'ko-KR', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document', origin: 'https://www.signumhq.com', 'sec-fetch-site': 'same-origin', 'x-real-ip': '192.0.2.10' };
 const req = (path: string, opts: any = {}) => new NextRequest(`https://www.signumhq.com${path}`, { headers: nav, ...opts });
 const reset = () => { queue.length = 0; writes.length = 0; inventory = 0; };
 const payload = { url: 'https://www.signumhq.com/app', title: 'unchanged', text: 'unchanged' };
@@ -58,16 +58,17 @@ test('KST 날짜 경계·운영/시험 키·닫힌 필드·원자 카운터', as
   assert.equal(schema.kstDay(Date.parse('2026-10-24T14:59:59Z')), '2026-10-24');
   assert.equal(schema.kstDay(Date.parse('2026-10-24T15:00:00Z')), '2026-10-25');
   reset();
-  await bumpGiftFunnel('copy', 'gift_dash', 'android', 'attached', '2026-10-25');
-  assert.deepEqual(writes, [{ key: 'promo:pv:gift:v1:funnel:2026-10-25', field: 'copy|gift_dash|android|attached', ttl: 45 * 86400 }]);
+  const record = createGiftFunnelRecorder(server.giftStore, () => Date.parse('2026-10-25T12:00:00+09:00'));
+  await record(req('/app'), 'copy', 'gift_dash', 'android', 'attached')?.();
+  assert.deepEqual(writes, [{ key: 'promo:pv:gift:v1:funnel:2026-10-25', field: 'copy|gift_dash|android|attached', expires: Date.parse('2026-12-04T00:00:00+09:00') / 1000 }]);
   process.env.VERCEL_ENV = 'production';
-  await bumpGiftFunnel('tap', 'gift_set', 'ios', 'all', '2026-10-25');
+  await record(req('/app'), 'tap', 'gift_set', 'ios')?.();
   assert.equal(writes[1].key, 'promo:gift:v1:funnel:2026-10-25');
   process.env.VERCEL_ENV = 'preview';
-  await bumpGiftFunnel('tap', 'private-id', 'ios');
-  await bumpGiftFunnel('gate', 'gift_set', 'ios', 'arbitrary-error');
+  assert.equal(record(req('/app'), 'tap', 'private-id', 'ios'), null);
+  assert.equal(record(req('/app'), 'gate', 'gift_set', 'ios', 'arbitrary-error'), null);
   assert.equal(writes.length, 2);
-  assert.match(schema.BUMP_LUA, /HINCRBY/); assert.match(schema.BUMP_LUA, /EXPIRE/);
+  assert.match(schema.BUMP_LUA, /HSET/); assert.match(schema.BUMP_LUA, /EXPIREAT/);
 });
 
 test('클라이언트: 실제 시트 완료·복사·취소·실패 및 첨부/대체 분리, 식별자 전송 없음', async () => {
@@ -152,8 +153,21 @@ test('비콘 API: 응답 뒤 쓰기·봇/외부 출처/미지 값/서버 단계 
   assert.equal(response.status, 204); assert.equal(writes.length, 0);
   await flush(); assert.equal(writes.length, 1);
   for (const opts of [{ headers: { ...nav, origin: 'https://invalid.example' } }, { headers: { ...nav, 'user-agent': 'Mozilla/5.0 HeadlessChrome' } }]) await eventRoute.POST(req(url, { method: 'POST', ...opts }));
-  for (const bad of ['e=claim&s=all&p=ios&d=new', 'e=open&s=all&p=ios&d=all', 'e=redeem&s=all&p=ios&d=all', 'e=tap&s=private&p=ios&d=all', 'e=gate&s=gift_set&p=ios&d=private']) await eventRoute.POST(req(`/api/gift/event?${bad}`, { method: 'POST' }));
+  for (const bad of ['e=issue&s=all&p=ios&d=new', 'e=claim&s=all&p=ios&d=new', 'e=open&s=all&p=ios&d=all', 'e=redeem&s=all&p=ios&d=all', 'e=tap&s=private&p=ios&d=all', 'e=gate&s=gift_set&p=ios&d=private']) await eventRoute.POST(req(`/api/gift/event?${bad}`, { method: 'POST' }));
   await flush(); assert.equal(writes.length, 1);
+});
+
+test('새 선물 예약은 서버 성공 시에만 집계, 멱등 확인·거부·오류는 신규 발급 0', async () => {
+  const issue = require('../src/app/api/gift/issue/route');
+  const reserve = require('../src/app/api/gift/reserve/route');
+  for (const route of [issue, reserve]) for (const status of ['issued', 'exists', 'cap', 'error']) {
+    reset(); answer = status === 'error' ? new Error('synthetic') : status;
+    const response = await route.POST(req('/api/gift/issue', { method: 'POST', headers: { ...nav, 'content-type': 'application/json' }, body: JSON.stringify({ token, at: Date.now() }) }));
+    assert.equal((await response.json()).ok, ['issued', 'exists'].includes(status));
+    assert.equal(writes.length, 0);
+    await flush();
+    assert.deepEqual(writes.map(w => w.field), status === 'issued' ? ['issue|all|ios|new'] : []);
+  }
 });
 
 test('수신 열람: iOS/Android/PC/iPad 사람 GET만, HEAD·미리보기·prefetch·비탐색 제외, 재고 무호출', async () => {
@@ -202,7 +216,7 @@ test('읽기 스크립트: HGETALL만·KST 날짜/시험 분리·미관측·부�
   assert.deepEqual(calls, [['HGETALL', 'promo:pv:gift:v1:funnel:2026-10-25'], ['HGETALL', 'promo:pv:gift:v1:funnel:2026-10-24']]);
   assert.equal(result[0].totals.copy, 2); assert.equal(result[1].status, 'missing'); assert.equal(result[1].totals, null);
   assert.ok(!JSON.stringify(result).includes('arbitrary'));
-  assert.throws(() => reader.options(['--days=46'])); assert.throws(() => reader.options(['--end=2026-02-30']));
+  assert.throws(() => reader.options(['--days=41'])); assert.throws(() => reader.options(['--end=2026-02-30']));
   await assert.rejects(reader.readDays(opts, {}));
   await assert.rejects(reader.readDays(opts, { UPSTASH_REDIS_REST_URL: 'https://redis.example', UPSTASH_REDIS_REST_READ_ONLY_TOKEN: 'synthetic' }, async () => json({ error: 'synthetic' })));
   assert.throws(() => reader.decode('2026-10-25', ['copy|gift_dash|android|attached', 'bad']));

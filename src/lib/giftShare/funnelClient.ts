@@ -1,10 +1,10 @@
-import { validEvent } from './funnel.cjs';
+import { validClientEvent } from './funnel.cjs';
 import type { ShareOutcome } from '@/lib/share/share';
 
 /** 쿼리에는 닫힌 목록 4개만. URL·토큰·코드·ref·기기값은 보내지 않는다. */
 export function giftFunnel(stage: string, surface: string, platform: string, detail = 'all'): void {
   try {
-    if (!validEvent(stage, surface, platform, detail)) return;
+    if (!validClientEvent(stage, surface, platform, detail)) return;
     const q = `/api/gift/event?e=${stage}&s=${surface}&p=${platform}&d=${detail}`;
     try { if (typeof navigator.sendBeacon === 'function' && navigator.sendBeacon(q)) return; } catch { /* fetch 폴백 */ }
     void fetch(q, { method: 'POST', keepalive: true }).catch(() => {});

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 읽기 전용 선물 일별 집계(KST, 45일). .env 파일을 읽지 않는다.
+ * 읽기 전용 선물 일별 집계(KST, 40일). .env 파일을 읽지 않는다.
  * 사용: node scripts/gift-funnel.js [--days=7] [--end=YYYY-MM-DD] [--probe] [--json]
  *       node scripts/gift-funnel.js --help
  * 연결은 운영 세션이 환경으로 제공한다(값을 인자/파일/출력에 넣지 말 것):
@@ -11,7 +11,7 @@
  */
 'use strict';
 const { validEvent, kstDay, funnelKey } = require('../src/lib/giftShare/funnel.cjs');
-const STAGES = ['visible', 'tap', 'payload', 'sheet', 'copy', 'cancel', 'failed', 'gate', 'open', 'redeem', 'claim'];
+const STAGES = ['visible', 'tap', 'payload', 'sheet', 'copy', 'cancel', 'failed', 'gate', 'issue', 'open', 'redeem', 'claim'];
 function options(args) {
   const opts = { days: 7, end: kstDay(), probe: false, json: false, help: false };
   for (const arg of args) {
@@ -22,7 +22,7 @@ function options(args) {
     else if (/^--end=\d{4}-\d{2}-\d{2}$/.test(arg)) opts.end = arg.slice(6);
     else throw new Error('사용법 오류: --help 참고');
   }
-  if (opts.days < 1 || opts.days > 45 || !Number.isFinite(Date.parse(opts.end)) || new Date(opts.end).toISOString().slice(0, 10) !== opts.end) throw new Error('날짜/일수 오류(1~45일)');
+  if (opts.days < 1 || opts.days > 40 || !Number.isFinite(Date.parse(opts.end)) || new Date(opts.end).toISOString().slice(0, 10) !== opts.end) throw new Error('날짜/일수 오류(1~40일)');
   return opts;
 }
 function decode(day, raw) {
@@ -62,7 +62,7 @@ async function readDays(opts, env = process.env, request = fetch) {
 }
 async function main(args = process.argv.slice(2)) {
   const opts = options(args);
-  if (opts.help) { console.log('node scripts/gift-funnel.js [--days=7] [--end=YYYY-MM-DD] [--probe] [--json]\nKST · 45일 · HGETALL 전용 · 환경의 읽기 전용 토큰 사용 · .env 읽기 없음'); return; }
+  if (opts.help) { console.log('node scripts/gift-funnel.js [--days=7] [--end=YYYY-MM-DD] [--probe] [--json]\nKST · 40일 · HGETALL 전용 · 환경의 읽기 전용 토큰 사용 · .env 읽기 없음'); return; }
   const days = await readDays(opts);
   if (opts.json) console.log(JSON.stringify({ timezone: 'Asia/Seoul', namespace: opts.probe ? 'preview' : 'production', days }, null, 2));
   else {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
-import { bumpGiftFunnel } from '@/lib/giftShare/funnelServer';
+import { giftFunnelTask } from '@/lib/giftShare/funnelServer';
 import { giftEnabled, installUrl } from '@/lib/giftShare/config';
 import { claimGift, giftStore } from '@/lib/giftShare/server';
 import { giftAccount, giftHeaders, giftIdentity, giftOs, setGiftCookie, validGiftPost } from '@/lib/giftShare/http';
@@ -9,7 +9,10 @@ export async function POST(req: NextRequest) {
   const os = giftOs(req);
   const valid = validGiftPost(req);
   const metric = (stage: string, detail = 'all') => {
-    if (valid) after(() => bumpGiftFunnel(stage, 'all', os ?? 'desktop', detail));
+    if (valid) {
+      const task = giftFunnelTask(req, stage, 'all', os ?? 'desktop', detail);
+      if (task) after(task);
+    }
   };
   const fallback = (reason?: string) => {
     if (reason) metric('claim', reason);

@@ -5,7 +5,7 @@ import { classifyClick, isPreviewBot, UA_BOT_RE } from '@/lib/marketing/clickHum
 import { previewHtml, previewResponseInit, visitorLang } from '@/lib/marketing/linkPreview';
 import { normalizeFrom } from '@/lib/marketing/storeRedirect';
 import { normalizeGiftRef } from '@/lib/gift/gift';
-import { bumpGiftFunnel } from './funnelServer';
+import { giftFunnelTask } from './funnelServer';
 import { giftToken, installUrl } from './config';
 import { giftHeaders, giftIdentity, giftOs, setGiftCookie } from './http';
 
@@ -32,7 +32,10 @@ export async function giftLanding(req: NextRequest): Promise<NextResponse> {
     : await desktopRedeemHtml({ fromTag, lang, code: masked, gift: token, giftRef: ref,
       redeemUrl: `https://www.signumhq.com/app?from=${encodeURIComponent(fromTag)}&gift=${encodeURIComponent(token)}&l=${lang}${refQuery}`,
       coupon: true, androidCoupon: true });
-  if (classifyClick(req.headers, req.method) === 'human') after(() => bumpGiftFunnel('open', 'all', os ?? 'desktop'));
+  if (classifyClick(req.headers, req.method) === 'human') {
+    const task = giftFunnelTask(req, 'open', 'all', os ?? 'desktop');
+    if (task) after(task);
+  }
   const res = new NextResponse(req.method === 'HEAD' ? null : html, { headers });
   return identity ? setGiftCookie(res, identity.cookie) : res;
 }
