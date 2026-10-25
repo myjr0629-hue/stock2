@@ -43,11 +43,26 @@ const { auditSnapshot, weekWindow, cacheReader, main } = require('../scripts/che
   assert.equal(checkBriefCompany({ en: { name: 'Anything' } }, null).reason, 'company-unresolved');
   // aka — 운영 저장본의 정상 표기가 오탐으로 지워지지 않는다
   for (const [t, name] of [['VST', 'Vistra Energy'], ['VST', 'Vistra Corp'], ['GOOGL', 'Alphabet (Google)'], ['GOOGL', 'Alphabet Inc.'], ['KO', 'The Coca-Cola Company'],
-    ['NVDA', 'NVIDIA Corporation'], ['META', 'Meta'], ['TSM', 'Taiwan Semiconductor Manufacturing Company'], ['HOOD', 'Robinhood'], ['DIS', 'The Walt Disney Company'],
-    ['JPM', 'JPMorgan Chase & Co.'], ['PG', 'P&G'], ['MRK', 'Merck & Co., Inc.']] as const) {
+    ['NVDA', 'NVIDIA Corporation'], ['META', 'Meta Platforms, Inc.'], ['TSM', 'Taiwan Semiconductor Manufacturing Company, Limited'], ['HOOD', 'Robinhood Markets, Inc.'], ['DIS', 'The Walt Disney Company'],
+    ['JPM', 'JPMorgan Chase & Co.'], ['PG', 'P&G'], ['MRK', 'Merck & Co., Inc.'], ['RKLB', 'Rocket Lab Corporation'], ['RKLB', 'Rocket Lab USA, Inc.'], ['HON', 'Honeywell Technologies']] as const) {
     assert.equal(checkBriefCompany({ en: { name } }, briefCompanyFor(t)).ok, true, `${t}=${name}`);
   }
   assert.equal(checkBriefCompany({ en: { name: 'Virtus Investment Partners' } }, briefCompanyFor('VRT')).ok, false);
+  // 관문 10260403 P1 — 정식명보다 짧은 통칭은 다른 상장사를 통과시킨다(대만 Taiwan Semiconductor Co.·세무 SW Vertex Inc.(VERX))
+  for (const [t, name] of [['TSM', 'Taiwan Semiconductor Co., Ltd.'], ['VRTX', 'Vertex, Inc.'], ['VRTX', 'Vertex'], ['MO', 'Philip Morris'], ['PM', 'Philip Morris Companies'],
+    ['META', 'Meta Materials'], ['COST', 'Costco Wholesale Industries'], ['GOOGL', 'Google'], ['DE', 'Deere Park']] as const) {
+    assert.equal(checkBriefCompany({ en: { name } }, briefCompanyFor(t)).ok, false, `${t}≠${name}`);
+  }
+  // 짧은 통칭 aka 금지 규칙 자체를 고정 — aka 가 정식명의 앞부분만 잘라 낸 형태면 실패
+  for (const [t, c] of Object.entries(EARNINGS_COMPANIES)) for (const a of c.aka ?? []) {
+    const na = normalizeBriefCompanyName(a), ne = normalizeBriefCompanyName(c.en);
+    assert.ok(!(ne.startsWith(na + ' ') && na.split(' ').length === 1), `${t} aka «${a}» 는 정식명의 짧은 통칭`);
+  }
+  // 관문 10260403 P2 — 매각·분사가 끝난 사업을 업종 입력에 넣지 않는다
+  assert.doesNotMatch(briefCompanyFor('CCI')!.industry, /fiber/i);
+  assert.doesNotMatch(briefCompanyFor('OXY')!.industry, /chemical/i);
+  assert.doesNotMatch(briefCompanyFor('HON')!.industry, /aerospace/i);
+  assert.equal(briefCompanyFor('RKLB')!.name, 'Rocket Lab');
   assert.equal(checkBriefCompany({ en: { name: 'Sprint (T-Mobile)' } }, briefCompanyFor('S')).ok, false);
 
   // 4) 채우기 판정·무효화 계획

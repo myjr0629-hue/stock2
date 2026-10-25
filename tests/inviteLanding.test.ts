@@ -135,7 +135,7 @@ const PACK2 = {
   entries: {
     'META|2026-10-22': {
       ko: { name: '메타', watch: 'EPS 추정 {EPS}, 매출 추정 {REV} 대비 발표를 지켜봅니다' },
-      en: { name: 'Meta', watch: 'Watching the report against an EPS estimate of {EPS}' },
+      en: { name: 'Meta Platforms', watch: 'Watching the report against an EPS estimate of {EPS}' },
       ja: { name: 'メタ', watch: 'EPS予想{EPS}に対する発表に注目します' },
     },
   },

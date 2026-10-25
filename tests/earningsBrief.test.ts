@@ -176,7 +176,7 @@ const SERV = { ticker: 'SERV', date: '2026-11-11', epsEstimate: -0.69, revenueEs
   const calPayload = { ok: true, rows: [C, GS, MU, COST], universe: 4, source: 'test', from: '2026-10-03', to: '2027-01-31', generatedAt: new Date().toISOString() };
   store.set(CAL.EARNINGS_CALENDAR_CACHE_KEY, { value: calPayload });
   store.set(B.EARNINGS_BRIEF_KEY, { value: { ...pack, entries: { ...pack.entries,
-    'COST|2026-12-10': { en: { name: 'Costco' }, ko: { name: '코스트코', watch: '회원 갱신율; 순환 회원 수수료 인상이 Q4 EPS 6.53에 반영되는 정도' } } } } });
+    'COST|2026-12-10': { en: { name: 'Costco Wholesale' }, ko: { name: '코스트코', watch: '회원 갱신율; 순환 회원 수수료 인상이 Q4 EPS 6.53에 반영되는 정도' } } } } });
   store.set('earnings:brief:v2', { value: { tickers: { C: { ko: { name: '씨티그룹', watch: 'Q3 EPS $2.68 옛 글' } } } } });
   CAL._resetEarningsCalendarMemo();
   const call = async () => (await GET(new Request('http://localhost/api/market/earnings-calendar'))).json() as Promise<any>;
