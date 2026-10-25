@@ -100,10 +100,12 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
             const negative = /down|fell|lost|하락|下落/i.test(direction);
             const positive = /up|rose|gained|상승|上昇/i.test(direction);
             const signed = /^[+−-]/.test(hit[2]);
+            // 방향어로 정규화하기 전에 숫자에 명시된 부호와의 모순을 보존한다.
+            const badDirection = signed && ((negative && raw > 0) || (positive && raw < 0));
             const written = negative ? -Math.abs(raw) : positive ? Math.abs(raw) : raw;
             const decimals = hit[2].split('.')[1]?.length || 0;
             const badValue = Math.abs(Math.abs(written) - Math.abs(row.c)) > 0.5 * 10 ** -decimals + 0.005;
-            if (badValue || (written !== 0 && (signed || direction) && Math.sign(written) !== Math.sign(row.c))) reasons.push(`stock-number:${row.t}`);
+            if (badDirection || badValue || (written !== 0 && (signed || direction) && Math.sign(written) !== Math.sign(row.c))) reasons.push(`stock-number:${row.t}`);
         }
     }
     // 세션 모순 검사는 두지 않는다(관문 10240727: «upcoming cash session» 같은 다음 세션 관찰점을 현재 가격 세션으로 오인).

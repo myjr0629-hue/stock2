@@ -83,6 +83,37 @@ test('new-only unambiguous errors: stock sign, unsupported event/flow, internal 
   // Same strings keep the serving contract; new generation restrictions never apply to cache restore.
   for (const [text] of cases) assert.deepEqual(contract.checkSectorBriefStored(text), []);
 });
+test('gate regression: six explicit sign/direction contradictions reject; twelve normal lines pass', () => {
+  const falling = { ...fact, up: fact.down, down: fact.up, avgChangePct: -fact.avgChangePct,
+    leader: { t: 'TSLA', c: 2 }, laggard: { t: 'NVDA', c: -6 },
+    members: fact.members.map(r => ({ ...r, c: -r.c })), exLeaderAvgChangePct: -0.5 };
+  const cases = [
+    ['ko', '정규장 NVDA -6% 상승, 선별 강세 확인', '정규장 NVDA +6% 하락, 선별 약세 확인',
+      '정규장 NVDA 6% 상승, 선별 강세 확인', '정규장 NVDA 6% 하락, 선별 약세 확인',
+      '정규장 NVDA +6%, 선별 강세 확인', '정규장 NVDA -6%, 선별 약세 확인'],
+    ['en', 'Cash: NVDA rose -6%; concentrated strength observed', 'Cash: NVDA fell +6%; concentrated weakness observed',
+      'Cash: NVDA up 6%; concentrated strength observed', 'Cash: NVDA down 6%; concentrated weakness observed',
+      'Cash: NVDA +6%; concentrated strength observed', 'Cash: NVDA -6%; concentrated weakness observed'],
+    ['ja', '通常取引でNVDA -6%上昇、一部への強さの集中を確認', '通常取引でNVDA +6%下落、一部への弱さの集中を確認',
+      '通常取引でNVDA 6%上昇、一部への強さの集中を確認', '通常取引でNVDA 6%下落、一部への弱さの集中を確認',
+      '通常取引でNVDA +6%、一部への強さの集中を確認', '通常取引でNVDA -6%、一部への弱さの集中を確認'],
+  ];
+  for (const [locale, badUp, badDown, unsignedUp, unsignedDown, signedUp, signedDown] of cases) {
+    for (const [f, text] of [[fact, badUp], [falling, badDown]]) {
+      assert.deepEqual(reasons(text, locale, f), ['stock-number:NVDA'], text);
+      const parsed = { [f.id]: { ...good, [locale]: text } };
+      const selected = contract.selectSectorBriefOutput(parsed, [f]);
+      const field = { ko: 'headline', en: 'headlineEN', ja: 'headlineJP' }[locale];
+      assert.equal(selected.sectors[f.id]?.[field], undefined, text);
+      assert.ok(selected.rejected.some(r => r.includes(`${locale}:stock-number:NVDA`)), text);
+      if (locale === 'ko') assert.equal(contract.sectorBriefBatchGate(JSON.stringify(parsed), [f]), false, text);
+      assert.deepEqual(contract.checkSectorBriefStored(text), [], text);
+    }
+    for (const [f, text] of [[fact, unsignedUp], [falling, unsignedDown], [fact, signedUp], [falling, signedDown]]) {
+      assert.deepEqual(reasons(text, locale, f), [], text);
+    }
+  }
+});
 test('gate regression: percentage-point gaps are not ticker returns in any locale', () => {
   const cases = {
     ko: ['정규장 NVDA 8%p 우위, TSLA와 큰 격차로 선별 강세 확인',
