@@ -22,12 +22,20 @@ const writes: { key: string; field: string; expires: number }[] = [];
 let answer: unknown = ['empty'];
 let inventory = 0;
 server.giftStore = () => ({ eval: async (script: string, keys: string[], args: (string | number)[]) => {
-  if (script === schema.BUMP_LUA) { writes.push({ key: keys[0], field: String(args[0]), expires: Number(args[1]) }); return 1; }
+  if (script === schema.BUMP_LUA) {
+    // 묶음 인자 [만료, 레인, 일일천장, 호출천장, 필드, 개수, …] — 개수만큼 펼쳐 기록한다.
+    for (let i = 4; i < args.length; i += 2) for (let n = 0; n < Number(args[i + 1]); n++) writes.push({ key: keys[0], field: String(args[i]), expires: Number(args[0]) });
+    return 1;
+  }
   inventory++;
   if (answer instanceof Error) throw answer;
   return answer;
 } });
-const { createGiftFunnelRecorder } = require('../src/lib/giftShare/funnelServer');
+const funnelPath = require.resolve('../src/lib/giftShare/funnelServer');
+const funnelMod = { ...require(funnelPath) };
+require.cache[funnelPath]!.exports = funnelMod;
+const { createGiftFunnelRecorder } = funnelMod;
+const noWait = async () => {};
 const eventRoute = require('../src/app/api/gift/event/route');
 const { giftLanding } = require('../src/lib/giftShare/landing');
 const claimRoute = require('../src/app/api/gift/claim/route');
@@ -38,7 +46,8 @@ const android = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chr
 const desktop = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Safari/537.36';
 const nav = { 'user-agent': ios, 'accept-language': 'ko-KR', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document', origin: 'https://www.signumhq.com', 'sec-fetch-site': 'same-origin', 'x-real-ip': '192.0.2.10' };
 const req = (path: string, opts: any = {}) => new NextRequest(`https://www.signumhq.com${path}`, { headers: nav, ...opts });
-const reset = () => { queue.length = 0; writes.length = 0; inventory = 0; };
+// 라우트가 쓰는 싱글턴을 대기 없는 새 기록기로 교체(묶음 간격은 남용 시험이 따로 검사).
+const reset = () => { queue.length = 0; writes.length = 0; inventory = 0; funnelMod.giftFunnelTask = createGiftFunnelRecorder(server.giftStore, Date.now, noWait); };
 const payload = { url: 'https://www.signumhq.com/app', title: 'unchanged', text: 'unchanged' };
 const json = (body: unknown) => new Response(JSON.stringify(body));
 function storage() {
@@ -58,7 +67,7 @@ test('KST 날짜 경계·운영/시험 키·닫힌 필드·원자 카운터', as
   assert.equal(schema.kstDay(Date.parse('2026-10-24T14:59:59Z')), '2026-10-24');
   assert.equal(schema.kstDay(Date.parse('2026-10-24T15:00:00Z')), '2026-10-25');
   reset();
-  const record = createGiftFunnelRecorder(server.giftStore, () => Date.parse('2026-10-25T12:00:00+09:00'));
+  const record = createGiftFunnelRecorder(server.giftStore, () => Date.parse('2026-10-25T12:00:00+09:00'), noWait);
   await record(req('/app'), 'copy', 'gift_dash', 'android', 'attached')?.();
   assert.deepEqual(writes, [{ key: 'promo:pv:gift:v1:funnel:2026-10-25', field: 'copy|gift_dash|android|attached', expires: Date.parse('2026-12-04T00:00:00+09:00') / 1000 }]);
   process.env.VERCEL_ENV = 'production';

@@ -12,7 +12,11 @@ const serverPath = require.resolve('../src/lib/giftShare/server');
 const server = { ...require(serverPath) };
 require.cache[serverPath]!.exports = server;
 let evals = 0;
-server.giftStore = () => ({ eval: async () => { evals++; return 1; } });
+const batches: (string | number)[][] = [];
+server.giftStore = () => ({ eval: async (_s: string, _k: string[], args: (string | number)[]) => { evals++; batches.push(args); return 1; } });
+const noWait = async () => {};
+// 묶음 인자 [만료, 레인, 일일천장, 호출천장, 필드, 개수, …] → 이벤트 합계
+const batchSum = () => batches.reduce((n, a) => { for (let i = 4; i < a.length; i += 2) n += Number(a[i + 1]); return n; }, 0);
 const funnelPath = require.resolve('../src/lib/giftShare/funnelServer');
 const funnel = { ...require(funnelPath) };
 require.cache[funnelPath]!.exports = funnel;
@@ -27,8 +31,8 @@ const eventUrl = 'https://www.signumhq.com/api/gift/event?e=copy&s=gift_dash&p=i
 const request = (h = headers, extra: Record<string, unknown> = {}) => new ns.NextRequest(eventUrl, { method: 'POST', headers: h, ...extra });
 const flush = async () => { for (const fn of pending.splice(0)) await fn(); };
 function reset() {
-  pending.length = 0; evals = 0;
-  funnel.giftFunnelTask = funnel.createGiftFunnelRecorder(server.giftStore, () => Date.parse('2026-10-25T12:00:00+09:00'));
+  pending.length = 0; evals = 0; batches.length = 0;
+  funnel.giftFunnelTask = funnel.createGiftFunnelRecorder(server.giftStore, () => Date.parse('2026-10-25T12:00:00+09:00'), noWait);
 }
 // 원문의 Lua를 기존 miniLua로 실행한다. 한도 로직을 JS로 옮겨 쓰지 않는다.
 function luaStore(clock: () => number) {
@@ -96,18 +100,18 @@ test('Next 어댑터의 0바이트 스트림은 허용, 끝나지 않는 본문�
   await flush(); assert.equal(evals, 0);
 });
 
-test('정상 헤더 위조 동시 10,000 POST → 기기/분 상한 60 EVAL, 식별자 회전도 IP·프로세스 상한', async () => {
+test('정상 헤더 위조 동시 10,000 POST → 요청당 호출 0, 배출 작업 1개·EVAL 1회(묶음 60건)', async () => {
   reset();
   await Promise.all(Array.from({ length: 10000 }, () => route.POST(request())));
-  assert.equal(pending.length, limits.deviceMinute); await flush(); assert.equal(evals, limits.deviceMinute);
+  assert.equal(pending.length, 1); await flush();
+  assert.equal(evals, 1); assert.equal(batchSum(), limits.deviceMinute);
   reset();
-  // 임의 기기 헤더는 바꿔도 IP 상한을 넘지 못한다.
+  // 임의 기기 헤더 회전 → IP 상한, 양쪽 회전 → 인스턴스 분 상한. 어느 경우도 EVAL 은 1회.
   for (let i = 0; i < 1000; i++) await route.POST(request({ ...headers, 'x-gift-device': String(i).padStart(32, '0') } as typeof headers));
-  await flush(); assert.equal(evals, limits.ipMinute);
+  await flush(); assert.equal(evals, 1); assert.equal(batchSum(), limits.ipMinute);
   reset();
-  // 양쪽 값을 회전시켜도 고정 메모리와 프로세스 전역 상한이 있다.
   for (let i = 0; i < 1000; i++) await route.POST(request({ ...headers, 'x-real-ip': `192.0.${i >> 8}.${i % 256}`, 'x-gift-device': String(i).padStart(32, '0') } as typeof headers));
-  await flush(); assert.equal(evals, limits.processMinute);
+  await flush(); assert.equal(evals, 1); assert.equal(batchSum(), limits.processMinute);
 });
 
 test('서명 기기 쿠키는 IP가 바뀌어도 같은 버킷, IPv6 /64·운영 신뢰 IP·일별 분리', () => {
@@ -124,60 +128,107 @@ test('서명 기기 쿠키는 IP가 바뀌어도 같은 버킷, IPv6 /64·운영
   process.env.VERCEL_ENV = 'preview';
 });
 
-test('실제 Lua 원문: 여러 인스턴스의 IP·기기 분 상한, 거부 뒤 쓰기·TTL 변경 0', async () => {
-  let time = Date.parse('2026-10-25T12:00:00+09:00');
-  const store = luaStore(() => time);
-  const records = Array.from({ length: 10 }, () => funnel.createGiftFunnelRecorder(() => store, () => time));
-  // 기기를 회전시켜도 같은 IP는 총 120회만 쓴다.
-  for (let i = 0; i < 1000; i++) await records[i % 10](request({ ...headers, 'x-gift-device': String(i).padStart(32, '0') } as typeof headers), 'copy', 'gift_dash', 'ios', 'attached')?.();
-  assert.equal(store.commands, limits.ipMinute * 2);
-  assert.equal(store.hashes.size, 1);
-  time += 60000;
-  const cookie = `sg_gift_recipient=${giftIdentity(request()).cookie}`;
-  const before = store.commands;
-  // IP를 회전시켜도 같은 서명 기기는 총 60회만 쓴다.
-  for (let i = 0; i < 1000; i++) await records[i % 10](request({ ...headers, cookie, 'x-real-ip': `192.0.${i >> 8}.${i % 256}` } as typeof headers), 'copy', 'gift_dash', 'ios', 'attached')?.();
-  assert.equal(store.commands - before, limits.deviceMinute * 2);
+// 시뮬레이션 시계: 대기(sleep)는 시계만 앞으로 민다.
+function sim(start: string) {
+  const clock = { t: Date.parse(start) };
+  return { clock, now: () => clock.t, sleep: async (ms: number) => { clock.t += ms; } };
+}
+const forged = (i: number) => request({ ...headers, 'x-real-ip': `198.51.${(i >> 8) & 255}.${i & 255}`, 'x-gift-device': String(i).padStart(32, '0') } as typeof headers);
+
+test('관문 10251712 재현 반전: 같은 IP·기기·분 위조 1,000건을 인스턴스 10개에 분산 → EVAL ≤ 20(이전 600, 인스턴스당 선두 1 + 꼬리 묶음 1)', async () => {
+  const s = sim('2026-10-25T12:00:00+09:00');
+  const store = luaStore(s.now);
+  const inst = Array.from({ length: 10 }, () => funnel.createGiftFunnelRecorder(() => store, s.now, s.sleep));
+  const tasks: Promise<void>[] = [];
+  for (let i = 0; i < 1000; i++) { const t = inst[i % 10](request(), 'copy', 'gift_dash', 'ios', 'attached'); if (t) tasks.push(t()); }
+  await Promise.all(tasks);
+  assert.ok(store.calls <= 20, `EVAL ${store.calls}`);
+  assert.equal(tasks.length, 10);
+  assert.equal(store.hashes.get('promo:pv:gift:v1:funnel:2026-10-25')!.get('copy|gift_dash|ios|attached'), String(10 * limits.deviceMinute));
 });
 
-test('대량 위조·냉시작: 공유 일일 예산 10,000건/20,000 쓰기 명령, 서버 몫 독립·과거 날짜 입력 없음', async () => {
-  let time = Date.parse('2026-10-25T00:00:00+09:00');
-  const store = luaStore(() => time);
-  let record: any;
-  for (let i = 0; i < 10500; i++) {
-    // 별도 인스턴스가 같은 Redis 예산을 쓰는 경우도 검사한다.
-    if (i % 100 === 0) record = funnel.createGiftFunnelRecorder(() => store, () => time);
-    await record(request(), 'copy', 'gift_dash', 'ios', 'attached')?.();
-    time += 1000;
+test('다중 인스턴스 대량 위조(50 인스턴스·하루 20만 건): 전역 EVAL ≤ 레인 호출 천장 + 인스턴스 수, 천장 뒤 호출 0', async () => {
+  const s = sim('2026-10-25T00:00:00+09:00');
+  const store = luaStore(s.now);
+  const N = 50;
+  const inst = Array.from({ length: N }, () => funnel.createGiftFunnelRecorder(() => store, s.now, s.sleep));
+  let returned = 0;
+  for (let i = 0; i < 200000; i++) {
+    const t = inst[i % N](forged(i), 'tap', 'gift_dash', 'ios');
+    if (t) { returned++; await t(); }
+    s.clock.t += 375; // 하루 ≈ 75,000초에 걸쳐 고르게
   }
-  assert.equal(store.commands, limits.day * 2);
   const key = 'promo:pv:gift:v1:funnel:2026-10-25';
-  assert.equal(store.hashes.get(key)!.get('copy|gift_dash|ios|attached'), String(limits.day));
-  assert.equal(store.hashes.get(key)!.get('_budget:client'), String(limits.day));
-  assert.equal(store.hashes.size, 1);
-  const recordServer = funnel.createGiftFunnelRecorder(() => store, () => time);
-  await recordServer(request(), 'claim', 'all', 'ios', 'new')?.();
-  assert.equal(store.commands, limits.day * 2 + 2);
-  assert.equal(store.hashes.get(key)!.get('claim|all|ios|new'), '1');
-  assert.ok(store.hashes.get(key)!.size <= 2 * 2 * limits.slots * 2 + 4);
+  const h = store.hashes.get(key)!;
+  assert.ok(store.calls <= limits.calls + N, `EVAL ${store.calls}`);
+  assert.equal(h.get('_calls:client'), String(limits.calls));
+  assert.ok(Number(h.get('_budget:client')) <= limits.day);
+  assert.ok(Number(h.get('tap|gift_dash|ios|all')) <= limits.day);
+  // 천장에 닿은 뒤: 같은 인스턴스들에 추가 위조 10만 건 → 호출 0
+  const before = store.calls;
+  for (let i = 0; i < 100000; i++) { const t = inst[i % N](forged(i), 'tap', 'gift_dash', 'ios'); if (t) await t(); s.clock.t += 10; }
+  assert.equal(store.calls, before);
+  assert.ok(returned < 200000 / 10);
+  // 서버 레인은 별도 천장 — 클라이언트 위조가 서버 확정 수치를 막지 못한다.
+  await inst[0](request(), 'claim', 'all', 'ios', 'new')?.();
+  assert.equal(h.get('claim|all|ios|new'), '1');
   const stored = JSON.stringify([...store.hashes].map(([k, v]) => [k, [...v]]));
-  for (const privateValue of [headers['x-real-ip'], ua, headers.origin]) assert.ok(!stored.includes(privateValue));
+  for (const privateValue of [headers['x-real-ip'], ua, headers.origin, '198.51.']) assert.ok(!stored.includes(privateValue));
   assert.equal(store.expirations.get(key), Date.parse('2026-12-04T00:00:00+09:00') / 1000);
+  assert.ok(h.size <= 64 * 2 + 4);
 });
 
-test('프로세스 일일 EVAL 상한·장애 재시도 0·KST 자정 재개·40일 키 상한', async () => {
-  let time = Date.parse('2026-10-25T00:00:00+09:00'), calls = 0;
-  const record = funnel.createGiftFunnelRecorder(() => ({ eval: async () => { calls++; throw new Error('offline'); } }), () => time);
-  for (let i = 0; i < 10500; i++) { await record(request(), 'tap', 'gift_dash', 'ios')?.(); time += 1000; }
-  assert.equal(calls, limits.processDay);
-  time = Date.parse('2026-10-26T00:00:00+09:00');
-  await record(request(), 'tap', 'gift_dash', 'ios')?.(); assert.equal(calls, limits.processDay + 1);
-  const store = luaStore(() => time);
-  const daily = funnel.createGiftFunnelRecorder(() => store, () => time);
+test('냉시작 폭주(새 인스턴스 2,000개): 천장 도달 뒤 새 인스턴스는 정확히 1회 거부 호출 뒤 0', async () => {
+  const s = sim('2026-10-25T00:00:00+09:00');
+  const store = luaStore(s.now);
+  let created = 0, rec: any;
+  for (let i = 0; i < 200000; i++) {
+    if (i % 100 === 0) { rec = funnel.createGiftFunnelRecorder(() => store, s.now, s.sleep); created++; }
+    const t = rec(forged(i), 'copy', 'gift_pop', 'android', 'general'); if (t) await t();
+    s.clock.t += 50;
+  }
+  const h = store.hashes.get('promo:pv:gift:v1:funnel:2026-10-25')!;
+  assert.equal(h.get('_calls:client'), String(limits.calls));
+  assert.ok(store.calls <= limits.calls + created, `EVAL ${store.calls} / 인스턴스 ${created}`);
+  // 각 인스턴스 100건 중 EVAL 은 최대 몇 회: 요청 수에 비례하지 않는다.
+  assert.ok(store.calls < 200000 / 50);
+});
+
+test('천장 전에는 사람 수준 저빈도 이벤트가 유실 없이 반영, 간격·묶음으로 호출 최소', async () => {
+  const s = sim('2026-10-25T09:00:00+09:00');
+  const store = luaStore(s.now);
+  const rec = funnel.createGiftFunnelRecorder(() => store, s.now, s.sleep);
+  for (let i = 0; i < 30; i++) { await rec(forged(i), 'visible', 'gift_set', 'ios')?.(); s.clock.t += 60000; }
+  const h = store.hashes.get('promo:pv:gift:v1:funnel:2026-10-25')!;
+  assert.equal(h.get('visible|gift_set|ios|all'), '30'); assert.equal(store.calls, 30);
+  // 날고 있는 동안 들어온 몫은 같은 배출 작업이 간격 뒤 이어 가져간다.
+  const first = rec(forged(1), 'tap', 'gift_set', 'ios')!;
+  for (let i = 0; i < 5; i++) assert.equal(rec(forged(i + 2), 'tap', 'gift_set', 'ios'), null);
+  await first();
+  assert.equal(h.get('tap|gift_set|ios|all'), '6'); assert.equal(store.calls, 31);
+});
+
+test('인스턴스 일일 EVAL 상한·장애 재시도 0·KST 자정 재개·40일 키 상한·차단 스위치', async () => {
+  const s = sim('2026-10-25T00:00:00+09:00');
+  let calls = 0;
+  const rec = funnel.createGiftFunnelRecorder(() => ({ eval: async () => { calls++; throw new Error('offline'); } }), s.now, s.sleep);
+  for (let i = 0; i < 20000; i++) { await rec(forged(i), 'tap', 'gift_dash', 'ios')?.(); s.clock.t += 3000; if (s.clock.t >= Date.parse('2026-10-25T23:59:00+09:00')) break; }
+  assert.equal(calls, limits.instanceCalls);
+  s.clock.t = Date.parse('2026-10-26T00:00:00+09:00');
+  await rec(forged(1), 'tap', 'gift_dash', 'ios')?.(); assert.equal(calls, limits.instanceCalls + 1);
+  const store = luaStore(s.now);
+  const daily = funnel.createGiftFunnelRecorder(() => store, s.now, s.sleep);
   for (let i = 0; i < 85; i++) {
     await daily(request(), 'tap', 'gift_dash', 'ios')?.(); store.purge();
     assert.ok(store.hashes.size <= limits.retentionDays);
-    time += 86400000;
+    s.clock.t += 86400000;
   }
   store.purge(); assert.equal(store.hashes.size, limits.retentionDays - 1);
+  process.env.GIFT_FUNNEL_CLIENT = '0';
+  const off = luaStore(s.now);
+  const killed = funnel.createGiftFunnelRecorder(() => off, s.now, s.sleep);
+  assert.equal(killed(request(), 'tap', 'gift_dash', 'ios'), null);
+  await killed(request(), 'open', 'all', 'ios')?.();
+  assert.equal(off.calls, 1);
+  delete process.env.GIFT_FUNNEL_CLIENT;
 });

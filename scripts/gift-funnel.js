@@ -11,6 +11,7 @@
  */
 'use strict';
 const { validEvent, kstDay, funnelKey } = require('../src/lib/giftShare/funnel.cjs');
+const META = ['_calls:client', '_calls:server', '_budget:client', '_budget:server'];
 const STAGES = ['visible', 'tap', 'payload', 'sheet', 'copy', 'cancel', 'failed', 'gate', 'issue', 'open', 'redeem', 'claim'];
 function options(args) {
   const opts = { days: 7, end: kstDay(), probe: false, json: false, help: false };
@@ -29,7 +30,10 @@ function decode(day, raw) {
   if (!Array.isArray(raw) || raw.length % 2) throw new Error('집계 응답 형식 오류');
   const breakdown = [];
   const totals = Object.fromEntries(STAGES.map(s => [s, 0]));
+  const meta = {};
   for (let i = 0; i < raw.length; i += 2) {
+    // 상한 장부(_calls:<레인> = 받아들인 EVAL 수, _budget:<레인> = 반영 이벤트 수)는 운영 감시용으로 따로 보인다.
+    if (META.includes(raw[i])) { meta[raw[i].slice(1)] = Number(raw[i + 1]) || 0; continue; }
     const parts = typeof raw[i] === 'string' ? raw[i].split('|') : [];
     if (parts.length !== 4 || !validEvent(...parts)) continue; // 임의 필드·식별자는 출력하지 않는다
     const count = Number(raw[i + 1]);
@@ -38,7 +42,7 @@ function decode(day, raw) {
     totals[stage] += count;
     breakdown.push({ stage, surface, platform, detail, count });
   }
-  return { day, status: breakdown.length ? 'ok' : 'missing', totals: breakdown.length ? totals : null, breakdown };
+  return { day, status: breakdown.length ? 'ok' : 'missing', totals: breakdown.length ? totals : null, breakdown, meta };
 }
 async function readDays(opts, env = process.env, request = fetch) {
   const endpoint = env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL;
@@ -68,6 +72,8 @@ async function main(args = process.argv.slice(2)) {
   else {
     console.log('KST 일별 이벤트 수(고유 인원/전달/스토어 등록 완료 아님). missing = 미관측.');
     console.table(days.map(d => ({ day: d.day, status: d.status, ...(d.totals || {}) })));
+    console.log('상한 장부(받아들인 EVAL·반영 이벤트 수):');
+    console.table(days.map(d => ({ day: d.day, ...d.meta })));
     for (const d of days) {
       console.log(d.day);
       console.table(d.breakdown);

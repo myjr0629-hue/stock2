@@ -11,9 +11,10 @@ export async function POST(req: NextRequest) {
   const keys = [...q.keys()];
   if (/^(0)?$/.test(req.headers.get('content-length') || '') && req.url.length <= 512 &&
       keys.length === 4 && keys.every(k => ['e', 's', 'p', 'd'].includes(k)) &&
-      validFunnelPost(req) && validClientEvent(e, s, p, d)) {
+      validFunnelPost(req) && validClientEvent(e, s, p, d) && await emptyFunnelBody(req)) {
+    // 여기서는 메모리 묶음에 1을 더할 뿐이다. Upstash 호출은 인스턴스·레인당 하나의 배출 작업이 전역 상한 안에서만 한다.
     const task = giftFunnelTask(req, e, s, p, d);
-    if (task && await emptyFunnelBody(req)) after(task);
+    if (task) after(task);
   }
   return new NextResponse(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 }

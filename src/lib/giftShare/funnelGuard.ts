@@ -5,9 +5,16 @@ import { inviteClientIp, ipFamily } from '@/lib/invite/guard';
 import { giftIdentity } from './http';
 import { giftSecret } from './server';
 
+/**
+ * 앞 5개 = 인스턴스 메모리 입장 한도(이벤트가 묶음에 들어갈 수 있는가 — 호출 0).
+ * day = 레인별 일일 반영 이벤트 천장(Redis, 전역) · calls = 레인별 일일 «받아들인 EVAL» 천장(Redis, 전역).
+ * instanceCalls = 인스턴스·레인별 일일 EVAL 천장 · flushMs = 인스턴스·레인별 EVAL 최소 간격 · batchFields = 묶음 필드 수 상한.
+ * 전역 호출 상한(레인별) = calls + 인스턴스 수 × 1(상한 도달을 알게 되는 거부 1회). 요청 수와 무관하다.
+ */
 export const FUNNEL_LIMITS = {
-  slots: 256, ipMinute: 120, deviceMinute: 60, processMinute: 300,
-  processDay: 10000, day: 10000, retentionDays: 40,
+  slots: 256, ipMinute: 120, deviceMinute: 60, processMinute: 300, processDay: 10000,
+  day: 10000, calls: 1500, instanceCalls: 300, flushMs: 2000, batchFields: 64, staleMs: 20000, chain: 5,
+  retentionDays: 40,
 } as const;
 
 /** Origin/UA는 인증이 아니다. 위조 가능한 요청은 아래 비용 한도로도 막는다. */
@@ -56,7 +63,7 @@ export function funnelBuckets(req: NextRequest, day: string): [number, number] |
   const device = identity?.validCookie || identity?.app ? identity.device : `${family}|${req.headers.get('user-agent') || ''}`;
   return [bucket('ip', family), bucket('device', device)];
 }
-/** Upstash 호출 전 고정 메모리 상한. 실패·동시 요청도 먼저 몫을 소비한다. */
+/** 묶음 입장 전 고정 메모리 상한(호출과 무관). 한 IP·기기가 묶음 수치를 채우지 못하게 한다. */
 export function createFunnelAdmission() {
   let minute = -1, day = '';
   let calls = 0, daily = 0;

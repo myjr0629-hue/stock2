@@ -20,26 +20,35 @@ function validClientEvent(stage, surface, platform, detail) {
   return CLIENT_STAGES.includes(stage) && surface !== 'all' && platform !== 'desktop' &&
     (stage !== 'visible' || surface.startsWith('gift_')) && validEvent(stage, surface, platform, detail);
 }
-// ISSUE_LUA와 같은 원칙: 모든 상한을 먼저 읽고 검사한 뒤에만 원자로 쓴다.
-// 분산 인스턴스도 같은 일별 예산·256개 충돌 버킷을 공유한다. 거부 시 쓰기 0회.
+// 인스턴스 메모리에 모은 «묶음» 하나를 EVAL 1회로 반영한다(요청마다 호출하지 않는다).
+// 전역 상한 2개를 Redis 한 키에서 원자적으로 검사한다:
+//  ① _calls:<lane> — 이 레인이 오늘 받아들인 EVAL 수. CALL_CAP 이상이면 쓰기 0으로 -1 반환 →
+//     인스턴스는 당일 그 레인의 호출을 0으로 멈춘다(인스턴스당 거부 호출 최대 1회).
+//  ② _budget:<lane> — 오늘 반영한 이벤트 수. DAY_CAP 에서 잘라 쓴다(위조 수치의 천장).
+// ARGV: 1 만료(초) · 2 레인 · 3 DAY_CAP · 4 CALL_CAP · 5.. (필드, 개수) 쌍. 필드는 서버 코드가 닫힌 목록에서 만든다.
 const BUMP_LUA = `
-local lane = ARGV[3]
+local lane = ARGV[2]
+local calls = tonumber(redis.call('HGET',KEYS[1],'_calls:'..lane) or '0')
+if not calls then return 0 end
+if calls >= tonumber(ARGV[4]) then return -1 end
 local total = tonumber(redis.call('HGET',KEYS[1],'_budget:'..lane) or '0')
 if not total then return 0 end
-if total >= tonumber(ARGV[4]) then return -1 end
-local minute = ARGV[5]
-local fields = {'_ip:'..lane..':'..ARGV[6], '_device:'..lane..':'..ARGV[7]}
-local counts = {}
-for i=1,2 do
-  local stamp = redis.call('HGET',KEYS[1],fields[i]..':m')
-  counts[i] = stamp == minute and tonumber(redis.call('HGET',KEYS[1],fields[i]..':n') or '0') or 0
-  if counts[i] >= tonumber(ARGV[i+7]) then return 0 end
+local cap = tonumber(ARGV[3])
+redis.call('HSET',KEYS[1],'_calls:'..lane,calls+1)
+redis.call('EXPIREAT',KEYS[1],ARGV[1])
+if total >= cap then return -1 end
+local sum = 0
+for i=5,#ARGV,2 do
+  local n = tonumber(ARGV[i+1])
+  if n and n > 0 and total + sum < cap then
+    if total + sum + n > cap then n = cap - total - sum end
+    local value = tonumber(redis.call('HGET',KEYS[1],ARGV[i]) or '0')
+    if value then
+      redis.call('HSET',KEYS[1],ARGV[i],value+n)
+      sum = sum + n
+    end
+  end
 end
-local value = tonumber(redis.call('HGET',KEYS[1],ARGV[1]) or '0')
-if not value then return 0 end
-redis.call('HSET',KEYS[1],ARGV[1],value+1,'_budget:'..lane,total+1,
-  fields[1]..':m',minute,fields[1]..':n',counts[1]+1,
-  fields[2]..':m',minute,fields[2]..':n',counts[2]+1)
-redis.call('EXPIREAT',KEYS[1],ARGV[2])
+redis.call('HSET',KEYS[1],'_budget:'..lane,total+sum)
 return 1`;
 module.exports = { SURFACES, PLATFORMS, KINDS, GATES, CLAIMS, CLIENT_STAGES, validEvent, validClientEvent, kstDay, funnelKey, field, BUMP_LUA };
