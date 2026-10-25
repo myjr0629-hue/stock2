@@ -63,7 +63,10 @@ const allRoute = route('src/app/sitemap.ts', current);
 const koRoute = route('src/app/sitemap-ko.xml/route.ts', current);
 const oldKoRoute = route('src/app/sitemap-ko.xml/route.ts', previous);
 // 후속 공개 도구도 제거한 뒤 read-check 도입 전 기준과 비교한다. 신규 시나리오는 전용 시험에서 검증한다.
-const stripNewUrls = xml => xml.replace(/<url>\s*<loc>[^<]*\/tools\/(?:read-check|earnings-scenario)<\/loc>[\s\S]*?<\/url>\n?/g, '');
+// T28(2026-10-25): flow·실적 주간 URL 에 의도적으로 더한 hreflang 대체 링크도 걷어 낸다(대체 링크 자체는 seoEarningsTicker 시험이 검사).
+const stripT28 = xml => xml.replace(/<url>\s*<loc>[^<]*\/(?:flow\/[^<\/]+|earnings-week)<\/loc>[\s\S]*?<\/url>/g,
+  block => block.replace(/\s*<xhtml:link rel="alternate" hreflang="[^"]+" href="[^"]+" \/>/g, ''));
+const stripNewUrls = xml => stripT28(xml).replace(/<url>\s*<loc>[^<]*\/tools\/(?:read-check|earnings-scenario)<\/loc>[\s\S]*?<\/url>\n?/g, '');
 const text = { en: 'test', ko: '시험', ja: '試験' };
 const fullDoc = { v: 1, at: NOW, etDate: '2026-10-21', slot: 'pm', items: [{
   id: 'test', ticker: 'NVDA', kind: 'darkpool', asOf: '2026-10-21',

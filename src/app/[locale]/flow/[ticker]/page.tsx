@@ -589,7 +589,7 @@ export default async function FlowTickerPage(
   const { locale, ticker: raw } = await params;
   const ticker = (raw || '').toUpperCase();
   if (!isTicker(ticker)) notFound();
-  const [view, earnRow] = await Promise.all([getView(locale, ticker, await ucGenAllowed(await searchParams)), getEarn(ticker)]);
+  const view = await getView(locale, ticker, await ucGenAllowed(await searchParams));
   if (!view) notFound();
   await markPageView('ticker', locale); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
   const { data, m, levelsFresh, levelsAsOf, proseFresh, lvl } = view;
@@ -680,14 +680,12 @@ export default async function FlowTickerPage(
   //      Organization   — 브랜드 엔티티(sameAs 로 스토어·SNS 를 묶는다)
   //    FAQ 항목은 LLM 추출용으로 Dataset.description 에 문장으로 남긴다(마크업이 아니라 텍스트).
   const brand = `${base}/#org`;
-  const earnLd = earningsSeo(ticker, locale, earnRow)?.ld ?? null;
   const corp = corporationLd(ticker, locale);
   const jsonLd: Record<string, unknown>[] = [
     {
       '@context': 'https://schema.org', '@type': 'Dataset', '@id': `${url}#dataset`,
       name: `${ticker} options flow, dark pool and max pain`,
-      // T28: 실적 시즌 문장(메타와 같은 값 — 값 없음·발표 완료면 없음)을 앞에. 화면 본문은 바꾸지 않는다.
-      description: [earnLd, desc, ...faq.map((f) => `${f.q} ${f.a}`)].filter(Boolean).join(' ').slice(0, 1200),
+      description: [desc, ...faq.map((f) => `${f.q} ${f.a}`)].join(' ').slice(0, 1200),
       // T28: 이 데이터셋의 주제 회사(이름이 등록된 종목만) — 회사명 질의와 티커 페이지를 잇는 엔티티 신호
       ...(corp ? { about: corp } : {}),
       url,

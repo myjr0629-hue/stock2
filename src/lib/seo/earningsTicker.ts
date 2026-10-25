@@ -6,6 +6,8 @@
 //
 // 지키는 것(대표 규칙):
 //   · 화면 문구·라벨은 바꾸지 않는다 — 여기서 만드는 문장은 <title>·description·OG·JSON-LD(기계가 읽는 곳)에만 쓴다.
+//   · 산출 방식(ATM 스트래들·이벤트 분리 등)은 실적 주간 화면처럼 이름 붙이지 않는다 — 만기·기준 세션만(관문 10251320: 이벤트 분리값을 «ATM 스트래들»로 적었다).
+//   · JSON-LD 에 실적·예상 변동 문장을 넣지 않는다 — 본문에 없는 내용의 마크업 금지(구글 구조화 데이터 지침, 관문 10251320). 회사 엔티티(about)만.
 //   · 값을 만들지 않는다 — 일정은 회사 공지 목록(CONFIRMED_EARNINGS)만, 예상 변동은 실적 주간 페이지와 «같은 행»
 //     (getEarningsWeek({readOnly:true}) — T26 정본, 장외엔 같은 만기 마감 관측)의 impliedMovePct 를 같은 표기(pctText)로.
 //   · 값이 없거나 발표가 끝났으면(phaseOf = done) null → 호출부는 기존 메타 그대로.
@@ -99,8 +101,6 @@ export interface EarningsSeo {
   titles: string[];
   /** 설명문 맨 앞에 붙는 문장들(문장 단위) */
   lead: string[];
-  /** JSON-LD Dataset.description 앞에 붙는 한 문장(현지어) */
-  ld: string;
 }
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -130,21 +130,21 @@ export function earningsSeo(ticker: string, locale: string, row: EarningsWeekRow
 
   if (loc === 'ko') {
     const head = `${tag} 실적 옵션 예상 변동폭 ${mv}`;
-    const basis = [exp ? `${exp} 만기 ATM 스트래들` : 'ATM 스트래들', live ? '장중 호가 기준' : ses ? `${ses} 마감 호가 기준` : null].filter(Boolean).join(', ');
-    const lead = [`${tag} 실적 발표 ${day}${hr ? ` ${hr}` : ''}(회사 공지).`, `옵션이 반영한 예상 변동폭 ${mv} — ${basis}.`];
-    return { titles: [mp ? `${head} · ${day} 발표 · 맥스페인 ${mp}` : '', `${head} · ${day} 발표`, head].filter(Boolean), lead, ld: lead.join(' ') };
+    const basis = [exp ? `${exp} 만기` : null, live ? '장중 호가 기준' : ses ? `${ses} 마감 호가 기준` : null].filter(Boolean).join(', ');
+    const lead = [`${tag} 실적 발표 ${day}${hr ? ` ${hr}` : ''}(회사 공지).`, `옵션이 반영한 예상 변동폭 ${mv}${basis ? ` — ${basis}` : ''}.`];
+    return { titles: [mp ? `${head} · ${day} 발표 · 맥스페인 ${mp}` : '', `${head} · ${day} 발표`, head].filter(Boolean), lead };
   }
   if (loc === 'ja') {
     const head = `${tag} 決算の予想変動幅${mv}`;
-    const basis = [exp ? `${exp}満期ATMストラドル` : 'ATMストラドル', live ? '場中気配基準' : ses ? `${ses}引け気配基準` : null].filter(Boolean).join('、');
-    const lead = [`${tag}の決算発表は${day}${hr ? `${hr}` : ''}(企業告知)。`, `オプションが織り込む予想変動幅は${mv}(${basis})。`];
-    return { titles: [mp ? `${head}・${day}発表・マックスペイン${mp}` : '', `${head}・${day}発表`, head].filter(Boolean), lead, ld: lead.join('') };
+    const basis = [exp ? `${exp}満期` : null, live ? '場中気配基準' : ses ? `${ses}引け気配基準` : null].filter(Boolean).join('、');
+    const lead = [`${tag}の決算発表は${day}${hr ? `${hr}` : ''}(企業告知)。`, `オプションが織り込む予想変動幅は${mv}${basis ? `(${basis})` : ''}。`];
+    return { titles: [mp ? `${head}・${day}発表・マックスペイン${mp}` : '', `${head}・${day}発表`, head].filter(Boolean), lead };
   }
   const head = `${tag} Earnings Expected Move ${mv}`;
-  const basis = [exp ? `${exp} expiry ATM straddle` : 'ATM straddle', live ? 'live quotes' : ses ? `${ses} closing quotes` : null].filter(Boolean).join(', ');
+  const basis = [exp ? `${exp} expiry` : null, live ? 'live quotes' : ses ? `${ses} closing quotes` : null].filter(Boolean).join(', ');
   const hrEn = row.hour === 'bmo' ? ' before the open' : row.hour === 'amc' ? ' after the close' : '';
-  const lead = [`${tag} reports earnings ${md(row.date, 'en')}${hrEn} (company-announced).`, `Options imply a ${mv} move (${basis}).`];
-  return { titles: [mp ? `${head} · Reports ${md(row.date, 'en')} · Max Pain ${mp}` : '', `${head} · Reports ${md(row.date, 'en')}`, head].filter(Boolean), lead, ld: lead.join(' ') };
+  const lead = [`${tag} reports earnings ${md(row.date, 'en')}${hrEn} (company-announced).`, `Options imply a ${mv} move${basis ? ` (${basis})` : ''}.`];
+  return { titles: [mp ? `${head} · Reports ${md(row.date, 'en')} · Max Pain ${mp}` : '', `${head} · Reports ${md(row.date, 'en')}`, head].filter(Boolean), lead };
 }
 
 /** schema.org Corporation(이 페이지의 주제 회사) — 이름이 등록된 종목만. 현지어 이름을 name, 나머지 표기는 alternateName. */
