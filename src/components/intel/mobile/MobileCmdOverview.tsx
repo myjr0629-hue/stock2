@@ -18,7 +18,7 @@ import { useTranslations } from 'next-intl';
 import { normalizeVwap } from '@/lib/vwap';
 import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
 import { deepMaterialIssues } from '@/lib/ai/deepTrust';
-import { mergeRelatedRow, relatedLivePrevClose } from '@/lib/relatedRowMerge';
+import { mergeRelatedRow, relatedLivePrevClose, relatedSessionContext } from '@/lib/relatedRowMerge';
 
 interface Props {
     ticker: string;
@@ -314,7 +314,7 @@ export function MobileCmdOverview({ ticker, quote, unified, volatilityData, vola
 
             {/* ═══ RELATED PEERS ═══ */}
             {relatedData.length > 0 && (
-                <RelatedPeersLive tickers={relatedData.slice(0, 4)} currentPrice={q.price} isRegularSession={q.session === 'REG'} />
+                <RelatedPeersLive tickers={relatedData.slice(0, 4)} currentPrice={q.price} />
             )}
 
             {/* ═══ COMPANY OVERVIEW ═══ */}
@@ -333,9 +333,11 @@ export function MobileCmdOverview({ ticker, quote, unified, volatilityData, vola
 }
 
 // ── Related Peers with LIVE prices — same WebSocket as desktop ──
-function RelatedPeersLive({ tickers, currentPrice, isRegularSession }: { tickers: any[]; currentPrice: number; isRegularSession: boolean }) {
+function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPrice: number }) {
     const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);
     const { getPrice: wsGetPrice } = useRealtimeData(peerTickers);
+    // 정규장 판정은 달력(렌더 시각) — 부모 세션 문자열('REG'/'reg'·SSR 고정값)에 기대지 않는다(관문 10261523). 틱마다 재렌더되어 PRE→REG 전환도 따라간다.
+    const isRegularSession = relatedSessionContext(Date.now()).regular;
     const router = useRouter();
 
     return (

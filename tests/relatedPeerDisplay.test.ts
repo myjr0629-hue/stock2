@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
-import { relatedLivePrevClose } from '../src/lib/relatedRowMerge';
+import { relatedLivePrevClose, relatedSessionContext } from '../src/lib/relatedRowMerge';
 
 // 두 화면의 실제 표시 계산을 실행한다. React·브라우저·네트워크·환경 파일 접근 없음.
 function parse(file: string) {
@@ -25,9 +25,10 @@ function compile(args: string[], body: string) {
 }
 const mobile = parse('src/components/intel/mobile/MobileCmdOverview.tsx');
 const desktop = parse('src/components/LiveTickerDashboard.tsx');
-const mobileSessionProp = find(mobile, node => ts.isJsxAttribute(node) && node.name.getText(mobile) === 'isRegularSession') as ts.JsxAttribute;
-assert.ok(mobileSessionProp.initializer && ts.isJsxExpression(mobileSessionProp.initializer));
-const mobileRegular = compile(['q'], `return ${mobileSessionProp.initializer.expression!.getText(mobile)};`);
+// 앱: 부모 세션 문자열이 아니라 렌더 시각의 달력 판정(관문 10261523 — SSR 은 소문자 'reg'·초기값 고정)
+const mobileSessionDecl = find(mobile, node => ts.isVariableDeclaration(node) && node.name.getText(mobile) === 'isRegularSession') as ts.VariableDeclaration;
+const mobileRegularAt = compile(['relatedSessionContext', 'Date'], `return ${mobileSessionDecl.initializer!.getText(mobile)};`);
+assert.doesNotMatch(fs.readFileSync('src/components/intel/mobile/MobileCmdOverview.tsx', 'utf8'), /q\.session === 'REG'/, '부모 세션 문자열 의존 제거');
 function declaration(name: string) {
     const node = find(desktop, node => ts.isVariableDeclaration(node) && node.name.getText(desktop) === name) as ts.VariableDeclaration;
     return `const ${name} = ${node.initializer!.getText(desktop)};`;
@@ -62,14 +63,14 @@ function check(calc: Function, regular: boolean, row: any, tick: any, expected: 
     checks++;
 }
 const states = [
-    { session: 'pre', market: 'open', isHoliday: false, quoteSession: 'PRE' },
-    { session: 'post', market: 'open', isHoliday: false, quoteSession: 'POST' },
-    { session: 'closed', market: 'closed', isHoliday: false, quoteSession: 'CLOSED' },
-    { session: 'closed', market: 'closed', isHoliday: false, quoteSession: 'CLOSED', weekend: true },
-    { session: 'regular', market: 'closed', isHoliday: true, quoteSession: 'CLOSED' },
+    { session: 'pre', market: 'open', isHoliday: false, at: Date.parse('2026-10-26T12:00:00Z') },
+    { session: 'post', market: 'open', isHoliday: false, at: Date.parse('2026-10-26T21:00:00Z') },
+    { session: 'closed', market: 'closed', isHoliday: false, at: Date.parse('2026-10-27T03:00:00Z') },
+    { session: 'closed', market: 'closed', isHoliday: false, at: SUN },
+    { session: 'regular', market: 'closed', isHoliday: true, at: Date.parse('2026-11-26T17:00:00Z') },
 ];
 for (const state of states) {
-    const mobileReg = mobileRegular({ session: state.quoteSession });
+    const mobileReg = mobileRegularAt(relatedSessionContext, { now: () => state.at });
     const desktopReg = desktopRegular(state);
     assert.equal(mobileReg, false); assert.equal(desktopReg, false);
     for (const [calc, regular] of [[mobileDisplay, mobileReg], [desktopDisplay, desktopReg]] as const) {
@@ -80,7 +81,10 @@ for (const state of states) {
         check(calc, regular, { ...official, prevClose: undefined }, extendedTick, [320.21, -1.24]);
     }
 }
-const mobileReg = mobileRegular({ session: 'REG' });
+const mobileReg = mobileRegularAt(relatedSessionContext, { now: () => MON_REG });
+// SSR 이 소문자 'reg' 를 넘기거나 PRE 에 고정돼도 정규장 시각이면 실시간(관문 10261523)
+assert.equal(mobileRegularAt(relatedSessionContext, { now: () => Date.parse('2026-10-26T13:30:00Z') }), true, '09:30 ET 개장 즉시');
+assert.equal(mobileRegularAt(relatedSessionContext, { now: () => Date.parse('2026-11-27T18:00:00Z') }), false, '조기 폐장 13:00 뒤');
 const desktopReg = desktopRegular({ session: 'regular', market: 'open', isHoliday: false });
 assert.equal(mobileReg, true); assert.equal(desktopReg, true);
 const liveRow = { ticker: 'GOOGL', price: 321, change: 0.25, prevClose: 320.21, session: '2026-10-26' };
