@@ -43,7 +43,7 @@ test('prompt retains existing lengths/tone and excludes options/futures/undated 
   assert.match(p.system, /Causal evidence: NONE/); assert.match(p.system, /two interpretations/);
   assert.match(p.system, /equal-weight mean/); assert.match(p.system, /percentage POINTS/);
   assert.doesNotMatch(p.userPrompt, /priorOptions|callOI|futures|news|999/);
-  assert.match(p.userPrompt, /exLeaderAvgChangePct/); assert.match(p.userPrompt, /members/);
+  assert.match(p.userPrompt, /avgWithoutBest/); assert.match(p.userPrompt, /members/); assert.doesNotMatch(p.userPrompt, /exLeader/);
 });
 test('ordinary good text, dated REG fallback and optional two-way tests are not over-rejected in 3 languages', () => {
   for (const locale of contract.SECTOR_LOCALES) assert.deepEqual(reasons(good[locale], locale), []);

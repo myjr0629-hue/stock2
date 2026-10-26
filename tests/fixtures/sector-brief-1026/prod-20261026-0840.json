@@ -1,0 +1,546 @@
+{
+ "source": "운영 intel:ai_headlines:v1 저장본(2026-10-26 08:40 UTC 생성, 공개 시세 사실·공개 문장만)",
+ "date": "2026-10-26",
+ "session": "PRE-MARKET",
+ "generatedAt": "2026-10-26T08:40:40.211Z",
+ "promptVersion": "sector-brief-v2",
+ "facts": [
+  {
+   "id": "m7",
+   "label": "Magnificent 7 (mega-cap tech)",
+   "priceBasis": "REG",
+   "priceDate": "2026-10-23",
+   "members": [
+    {
+     "t": "MSFT",
+     "c": 0.66
+    },
+    {
+     "t": "AAPL",
+     "c": -0.14
+    },
+    {
+     "t": "NVDA",
+     "c": -0.59
+    },
+    {
+     "t": "TSLA",
+     "c": -0.63
+    },
+    {
+     "t": "AMZN",
+     "c": -0.95
+    },
+    {
+     "t": "META",
+     "c": -0.96
+    },
+    {
+     "t": "GOOGL",
+     "c": -1.24
+    }
+   ],
+   "exLeaderAvgChangePct": -0.75,
+   "measured": 7,
+   "total": 7,
+   "up": 1,
+   "down": 6,
+   "flat": 0,
+   "avgChangePct": -0.55,
+   "leader": {
+    "t": "MSFT",
+    "c": 0.66
+   },
+   "laggard": {
+    "t": "GOOGL",
+    "c": -1.24
+   },
+   "spreadPct": 1.9
+  },
+  {
+   "id": "physical_ai",
+   "label": "Physical AI / robotics",
+   "priceBasis": "PRE",
+   "priceDate": "2026-10-26",
+   "members": [
+    {
+     "t": "SERV",
+     "c": 1.08
+    },
+    {
+     "t": "SYM",
+     "c": -0.08
+    },
+    {
+     "t": "PL",
+     "c": -0.82
+    },
+    {
+     "t": "RKLB",
+     "c": -1.14
+    }
+   ],
+   "exLeaderAvgChangePct": -0.68,
+   "measured": 4,
+   "total": 7,
+   "up": 1,
+   "down": 3,
+   "flat": 0,
+   "avgChangePct": -0.24,
+   "leader": {
+    "t": "SERV",
+    "c": 1.08
+   },
+   "laggard": {
+    "t": "RKLB",
+    "c": -1.14
+   },
+   "spreadPct": 2.22
+  },
+  {
+   "id": "silicon_core",
+   "label": "Semiconductors",
+   "priceBasis": "REG",
+   "priceDate": "2026-10-23",
+   "members": [
+    {
+     "t": "MU",
+     "c": 2.46
+    },
+    {
+     "t": "MRVL",
+     "c": 2.26
+    },
+    {
+     "t": "AMD",
+     "c": 1.74
+    },
+    {
+     "t": "TSM",
+     "c": 1.49
+    },
+    {
+     "t": "ASML",
+     "c": 0.72
+    },
+    {
+     "t": "ARM",
+     "c": 0.11
+    },
+    {
+     "t": "AVGO",
+     "c": -0.48
+    }
+   ],
+   "exLeaderAvgChangePct": 0.97,
+   "measured": 7,
+   "total": 7,
+   "up": 6,
+   "down": 1,
+   "flat": 0,
+   "avgChangePct": 1.19,
+   "leader": {
+    "t": "MU",
+    "c": 2.46
+   },
+   "laggard": {
+    "t": "AVGO",
+    "c": -0.48
+   },
+   "spreadPct": 2.94
+  },
+  {
+   "id": "power_matrix",
+   "label": "Power & nuclear infrastructure",
+   "priceBasis": "REG",
+   "priceDate": "2026-10-23",
+   "members": [
+    {
+     "t": "SMR",
+     "c": 0
+    },
+    {
+     "t": "CCJ",
+     "c": -0.42
+    },
+    {
+     "t": "VST",
+     "c": -0.48
+    },
+    {
+     "t": "CEG",
+     "c": -0.69
+    },
+    {
+     "t": "ETN",
+     "c": -0.78
+    },
+    {
+     "t": "PWR",
+     "c": -1.09
+    },
+    {
+     "t": "GEV",
+     "c": -1.5
+    }
+   ],
+   "exLeaderAvgChangePct": -0.83,
+   "measured": 7,
+   "total": 7,
+   "up": 0,
+   "down": 6,
+   "flat": 1,
+   "avgChangePct": -0.71,
+   "leader": {
+    "t": "SMR",
+    "c": 0
+   },
+   "laggard": {
+    "t": "GEV",
+    "c": -1.5
+   },
+   "spreadPct": 1.5
+  },
+  {
+   "id": "bio_pulse",
+   "label": "Biotech / pharma",
+   "priceBasis": "REG",
+   "priceDate": "2026-10-23",
+   "members": [
+    {
+     "t": "GILD",
+     "c": -0.73
+    },
+    {
+     "t": "NVO",
+     "c": -0.96
+    },
+    {
+     "t": "REGN",
+     "c": -1.72
+    },
+    {
+     "t": "AMGN",
+     "c": -1.79
+    },
+    {
+     "t": "VRTX",
+     "c": -2.1
+    },
+    {
+     "t": "LLY",
+     "c": -2.54
+    },
+    {
+     "t": "VKTX",
+     "c": -5.54
+    }
+   ],
+   "exLeaderAvgChangePct": -2.44,
+   "measured": 7,
+   "total": 7,
+   "up": 0,
+   "down": 7,
+   "flat": 0,
+   "avgChangePct": -2.2,
+   "leader": {
+    "t": "GILD",
+    "c": -0.73
+   },
+   "laggard": {
+    "t": "VKTX",
+    "c": -5.54
+   },
+   "spreadPct": 4.8
+  },
+  {
+   "id": "cyber_shield",
+   "label": "Cybersecurity",
+   "priceBasis": "PRE",
+   "priceDate": "2026-10-26",
+   "members": [
+    {
+     "t": "OKTA",
+     "c": -0.02
+    },
+    {
+     "t": "FTNT",
+     "c": -0.08
+    },
+    {
+     "t": "ZS",
+     "c": -0.31
+    },
+    {
+     "t": "S",
+     "c": -0.33
+    }
+   ],
+   "exLeaderAvgChangePct": -0.24,
+   "measured": 4,
+   "total": 7,
+   "up": 0,
+   "down": 4,
+   "flat": 0,
+   "avgChangePct": -0.19,
+   "leader": {
+    "t": "OKTA",
+    "c": -0.02
+   },
+   "laggard": {
+    "t": "S",
+    "c": -0.33
+   },
+   "spreadPct": 0.31
+  },
+  {
+   "id": "orbit_defense",
+   "label": "Defense & space",
+   "priceBasis": "PRE",
+   "priceDate": "2026-10-26",
+   "members": [
+    {
+     "t": "LMT",
+     "c": 1.16
+    },
+    {
+     "t": "SPCX",
+     "c": 0.31
+    },
+    {
+     "t": "AXON",
+     "c": -0.14
+    },
+    {
+     "t": "LDOS",
+     "c": -0.38
+    },
+    {
+     "t": "ASTS",
+     "c": -2.21
+    }
+   ],
+   "exLeaderAvgChangePct": -0.61,
+   "measured": 5,
+   "total": 7,
+   "up": 2,
+   "down": 3,
+   "flat": 0,
+   "avgChangePct": -0.25,
+   "leader": {
+    "t": "LMT",
+    "c": 1.16
+   },
+   "laggard": {
+    "t": "ASTS",
+    "c": -2.21
+   },
+   "spreadPct": 3.38
+  },
+  {
+   "id": "quantum_edge",
+   "label": "AI infrastructure / quantum",
+   "priceBasis": "REG",
+   "priceDate": "2026-10-23",
+   "members": [
+    {
+     "t": "SNOW",
+     "c": 3.65
+    },
+    {
+     "t": "AI",
+     "c": 3.57
+    },
+    {
+     "t": "TWLO",
+     "c": 3.22
+    },
+    {
+     "t": "PATH",
+     "c": 1.36
+    },
+    {
+     "t": "DELL",
+     "c": 0.77
+    },
+    {
+     "t": "IONQ",
+     "c": 0.35
+    },
+    {
+     "t": "SMCI",
+     "c": -2.31
+    }
+   ],
+   "exLeaderAvgChangePct": 1.16,
+   "measured": 7,
+   "total": 7,
+   "up": 6,
+   "down": 1,
+   "flat": 0,
+   "avgChangePct": 1.52,
+   "leader": {
+    "t": "SNOW",
+    "c": 3.65
+   },
+   "laggard": {
+    "t": "SMCI",
+    "c": -2.31
+   },
+   "spreadPct": 5.97
+  },
+  {
+   "id": "fintech_pulse",
+   "label": "Fintech / crypto-adjacent",
+   "priceBasis": "REG",
+   "priceDate": "2026-10-23",
+   "members": [
+    {
+     "t": "UPST",
+     "c": -0.29
+    },
+    {
+     "t": "PYPL",
+     "c": -0.89
+    },
+    {
+     "t": "SOFI",
+     "c": -1.05
+    },
+    {
+     "t": "HOOD",
+     "c": -1.56
+    },
+    {
+     "t": "COIN",
+     "c": -2.74
+    },
+    {
+     "t": "AFRM",
+     "c": -3.2
+    },
+    {
+     "t": "XYZ",
+     "c": -3.24
+    }
+   ],
+   "exLeaderAvgChangePct": -2.11,
+   "measured": 7,
+   "total": 7,
+   "up": 0,
+   "down": 7,
+   "flat": 0,
+   "avgChangePct": -1.85,
+   "leader": {
+    "t": "UPST",
+    "c": -0.29
+   },
+   "laggard": {
+    "t": "XYZ",
+    "c": -3.24
+   },
+   "spreadPct": 2.95
+  },
+  {
+   "id": "cloud_fortress",
+   "label": "Enterprise software / cloud",
+   "priceBasis": "REG",
+   "priceDate": "2026-10-23",
+   "members": [
+    {
+     "t": "DDOG",
+     "c": 4.62
+    },
+    {
+     "t": "MDB",
+     "c": 2.44
+    },
+    {
+     "t": "TEAM",
+     "c": 1.99
+    },
+    {
+     "t": "HUBS",
+     "c": 1.38
+    },
+    {
+     "t": "NOW",
+     "c": 1.25
+    },
+    {
+     "t": "WDAY",
+     "c": 0
+    },
+    {
+     "t": "CRM",
+     "c": -0.69
+    }
+   ],
+   "exLeaderAvgChangePct": 1.06,
+   "measured": 7,
+   "total": 7,
+   "up": 5,
+   "down": 1,
+   "flat": 1,
+   "avgChangePct": 1.57,
+   "leader": {
+    "t": "DDOG",
+    "c": 4.62
+   },
+   "laggard": {
+    "t": "CRM",
+    "c": -0.69
+   },
+   "spreadPct": 5.3
+  }
+ ],
+ "stored": {
+  "m7": {
+   "headline": "MSFT 상승 속 나머지 6종목 하락, 7종 중 6종 약세로 집중이 아닌 확산 관측.",
+   "headlineEN": "MSFT rose while 6 of 7 measured names fell (10/23 REG), so weakness looks broad rather than concentrated.",
+   "headlineJP": "MSFTのみ上昇し、計測7銘柄のうち6銘柄が下落（10/23 通常取引）。集中ではなく広範な弱含みを観測。"
+  },
+  "physical_ai": {
+   "headline": "SERV 1.08% 상승, 측정 4/7종목 중 3종 하락으로 개장 전 약세 확산 관측.",
+   "headlineEN": "SERV +1.08% premarket, but 3 of 4 measured names are lower; breadth looks weak (10/26 PRE).",
+   "headlineJP": "SERVは+1.08%だが、計測4銘柄中3銘柄が下落。取引開始前は広がりの弱さを観測（10/26 取引開始前）。"
+  },
+  "silicon_core": {
+   "headline": "MU 2.46%로 선두, 7종 중 6종 상승·exLeader 0.97%로 리더 외 종목도 동반 강세 관측.",
+   "headlineEN": "MU +2.46% leads, 6 of 7 rose, and ex-leader average is +0.97%, so strength is shared (10/23 REG)."
+  },
+  "power_matrix": {
+   "headline": "7종 중 6종 하락, GEV −1.5%로 최약이며 SMR 보합은 확산 약세 속 예외 관측.",
+   "headlineEN": "6 of 7 fell, with GEV −1.5% weakest and SMR flat as the only non-decliner (10/23 REG).",
+   "headlineJP": "7銘柄中6銘柄が下落。GEV −1.5%が最弱で、SMRは横ばいにとどまったと観測（10/23 通常取引）。"
+  },
+  "bio_pulse": {
+   "headline": "7종 전부 하락, VKTX −5.54%로 낙폭 최대이며 제외 평균 −2.44%로 약세가 폭넓게 관측.",
+   "headlineEN": "All 7 fell, led lower by VKTX −5.54%; ex-leader average is −2.44%, so the decline looks widespread (10/23 REG).",
+   "headlineJP": "7銘柄すべてが下落。VKTX −5.54%が最大の下げで、リーダー除く平均は−2.44%と広範な弱さを観測（10/23 通常取引）。"
+  },
+  "cyber_shield": {
+   "headline": "개장 전 4종 모두 소폭 하락, 최대 낙폭도 −0.33%로 제한적인 약세 관측.",
+   "headlineEN": "All 4 measured names are slightly lower premarket, with the largest drop only −0.33%, a limited decline (10/26 PRE).",
+   "headlineJP": "取引開始前は計測4銘柄すべてが小幅安、最大の下げも−0.33%にとどまると観測（10/26 取引開始前）。"
+  },
+  "orbit_defense": {
+   "headline": "LMT 1.16% 상승 대비 ASTS −2.21%로 측정 5종 중 3종 하락, 방산·우주 내 분화 관측.",
+   "headlineEN": "LMT +1.16% contrasts with ASTS −2.21%, and 3 of 5 measured names fell, a divergence within the group (10/26 PRE).",
+   "headlineJP": "LMT +1.16%に対しASTS −2.21%。計測5銘柄中3銘柄が下落し、グループ内の乖離を観測（10/26 取引開始前）。"
+  },
+  "quantum_edge": {
+   "headline": "SNOW 3.65%로 선두, 7종 중 6종 상승하고 제외 평균 1.16%로 강세가 여러 종목에 걸쳐 관측.",
+   "headlineEN": "SNOW +3.65% leads, 6 of 7 rose, and ex-leader average is +1.16%, so strength spans several names (10/23 REG)."
+  },
+  "fintech_pulse": {
+   "headline": "7종 전부 하락, XYZ −3.24%로 최약이며 제외 평균 −2.11%로 약세가 넓게 관측.",
+   "headlineEN": "All 7 fell, with XYZ −3.24% weakest and an ex-leader average of −2.11%, a broad decline (10/23 REG).",
+   "headlineJP": "7銘柄すべてが下落。XYZ −3.24%が最弱で、除くリーダー平均−2.11%と広範な下落を観測（10/23 通常取引）。"
+  },
+  "cloud_fortress": {
+   "headline": "DDOG 4.62%로 선두, 7종 중 5종 상승·제외 평균 1.06%로 리더 외 종목도 동반 강세 관측.",
+   "headlineEN": "DDOG +4.62% leads, 5 of 7 rose, and ex-leader average is +1.06%, so strength extends beyond the leader (10/23 REG)."
+  }
+ }
+}
