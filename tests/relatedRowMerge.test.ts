@@ -59,6 +59,20 @@ for (const closeSession of [undefined, '2026-10-23']) {
 }
 assert.deepEqual(values(merge(oldRow, { ticker: 'XYZ', price: 0, change: 0 })), values(oldRow), '시각·분모 없는 실패 행');
 
+// 08:01 정상 → 시각 없는 가격 0 실패 → 07:59 지연 응답에도 비교 기준을 잃지 않는다.
+for (const asOf of [undefined, null]) {
+    const failed = merge(oldRow, { ticker: 'XYZ', price: 0, change: 0, asOf });
+    assert.equal(failed.asOf, after0400, '가격 0 실패 뒤 기존 계산 시각 유지');
+    const delayed = merge(failed, lateRow);
+    assert.deepEqual(values(delayed), values(oldRow), '실패 뒤 과거 행도 가격·등락·분모를 덮지 않는다');
+    assert.equal(delayed.asOf, after0400, '연속 병합 뒤 계산 시각 유지');
+    assert.equal(Math.round((delayed.price - delayed.prevClose) / delayed.prevClose * 10000) / 100, 0.56);
+    assert.deepEqual(values(merge(failed, { ...lateRow, asOf: after0400 + 1000 })), values(lateRow), '실패 뒤 새 시각 정상 행은 채택');
+}
+const noTimeFailed = merge(oldRow, { ticker: 'XYZ', price: 0, change: 0 });
+assert.equal(noTimeFailed.asOf, after0400, 'asOf 필드 없는 실패 행도 기존 계산 시각 유지');
+assert.deepEqual(values(merge(noTimeFailed, lateRow)), values(oldRow), 'asOf 필드 없는 실패 뒤 과거 행 거절');
+
 // ④ 과거 관문 회귀: 한쪽만 시각이 있으면 분모 보충을 막지 않는다.
 for (const prevClose of [undefined, 0]) {
     const missing = { ...oldRow, prevClose };

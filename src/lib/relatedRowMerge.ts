@@ -34,5 +34,7 @@ export function mergeRelatedRow<T extends RelatedRow>(oldItem: T | null | undefi
         price: (hasLiveOldData && newItem.price === 0) ? oldItem.price : newItem.price,
         change: (hasLiveOldData && newItem.change === 0 && !officialFlat) ? oldItem.change : newItem.change,
         prevClose: newItem.prevClose || oldItem?.prevClose,
+        // A failed row without a calculation time must not erase the stale-response guard.
+        asOf: (hasLiveOldData && newItem.price === 0 && !validAsOf(newItem.asOf)) ? oldItem.asOf : newItem.asOf,
     };
 }
