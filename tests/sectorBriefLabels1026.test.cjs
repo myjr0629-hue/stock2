@@ -80,7 +80,9 @@ test('결함 3: 직전 정규장 섹터 문장에 기준일이 없으면 사실 
 });
 
 test('운영 저장 문장 중 결함 없는 칸은 새 검사도 통과(과잉 탈락 0)', () => {
-  const flagged = new Set(['silicon_core:ko', 'bio_pulse:ko', 'bio_pulse:en', 'bio_pulse:ja', 'fintech_pulse:ko', 'fintech_pulse:en', 'fintech_pulse:ja']);
+  assert.ok(sb.checkSectorBriefNew(fx.stored.quantum_edge.headline, 'ko', F('quantum_edge')).includes('ex-average-unnamed:1.16'));
+  // quantum_edge ko «제외 평균 1.16%»는 뺀 종목 없는 맨 «제외 평균»(bio_pulse 결함과 같은 형태) — 새 검사가 거른다.
+  const flagged = new Set(['quantum_edge:ko', 'cloud_fortress:ko', 'silicon_core:ko', 'bio_pulse:ko', 'bio_pulse:en', 'bio_pulse:ja', 'fintech_pulse:ko', 'fintech_pulse:en', 'fintech_pulse:ja']);
   for (const f of fx.facts) for (const loc of sb.SECTOR_LOCALES) {
     const t = fx.stored[f.id][FIELD[loc]];
     if (!t || flagged.has(`${f.id}:${loc}`)) continue;
@@ -98,4 +100,41 @@ test('실모델 dry 회귀: en «average ex-T X%»는 T 의 등락으로 읽지 
   // 종목 자신의 등락 오기는 그대로 탈락
   assert.ok(sb.checkSectorBriefNew('GOOGL −0.43% was the weakest (10/23 REG)', 'en', F('m7')).includes('stock-number:GOOGL'));
   assert.match(sb.buildSectorBriefPrompt(fx.facts, fx.session, fx.date).system, /Never use 先行\/선행/);
+});
+
+test('관문 10261816 반례: 제외 표현 뒤 종목 오기·다른 종목 제외 평균 오결속·날짜 표지로 언어 검사 우회 — 모두 탈락', () => {
+  assert.notDeepEqual(sb.checkSectorBriefNew('Other than MSFT +6%, all 6 measured names fell (10/23 REG).', 'en', F('m7')), []);
+  assert.deepEqual(sb.checkSectorBriefNew('Other than MSFT +0.66%, all 6 measured names fell (10/23 REG).', 'en', F('m7')), []);
+  for (const [loc, t] of [['ko', 'GILD 선방 속 VKTX 제외 시 평균 −2.44%로 폭넓은 약세 관측 (10/23 정규장)'],
+    ['ko', '7개 전부 하락, VKTX -5.54%를 제외해도 -2.44%로 약세가 넓게 관측, GILD 선방 (10/23 정규장)'],
+    ['en', 'GILD held up best; excluding VKTX, the average was −2.44% (10/23 REG).'],
+    ['en', 'GILD held up best; without VKTX the group averaged −2.44% (10/23 REG).'],
+    ['ja', 'GILDが最も底堅く、VKTXを除いた場合の平均は−2.44%（10/23 通常取引）'],
+    ['ja', 'GILDが底堅い一方、VKTX以外も−2.44%と広く下落（10/23 通常取引）']])
+    assert.ok(sb.checkSectorBriefNew(t, loc, F('bio_pulse')).some(r => r.startsWith('ex-average')), `${loc} ${t}`);
+  for (const [loc, t] of [['ko', 'GILD 선방 속 VKTX 제외 시 평균 −1.64%로 폭넓은 약세 관측 (10/23 정규장)'],
+    ['ja', 'GILDが底堅い一方、VKTX以外も−1.64%と広く下落（10/23 通常取引）'],
+    ['en', 'GILD held up best; without VKTX the group averaged −1.64% (10/23 REG).']])
+    assert.deepEqual(sb.checkSectorBriefNew(t, loc, F('bio_pulse')), [], `${loc} ${t}`);
+  // ja 칸에 영어 본문 + 붙인 일본어 표지 → 언어 검사 탈락(원문 기준)
+  const parsed = { m7: { ko: fx.stored.m7.headline, en: fx.stored.m7.headlineEN, ja: 'MSFT rose while 6 of 7 measured names fell' } };
+  const sel = sb.selectSectorBriefOutput(parsed, [F('m7')], fx.date);
+  assert.equal(sel.sectors.m7.headlineJP, undefined);
+  assert.ok(sel.rejected.some(r => r.includes('ja:language-or-min-length')));
+});
+
+test('실모델 표본 형태: 뒤붙임 ex-T·괄호 속 자기 등락·«나머지 N개 평균»은 바르게 묶이면 통과, 틀리면 탈락', () => {
+  assert.deepEqual(sb.checkSectorBriefNew('All seven fell; average −2.20%, still −1.64% ex-VKTX, so the decline is broad (10/23 REG)', 'en', F('bio_pulse')), []);
+  assert.ok(sb.checkSectorBriefNew('All seven fell; still −2.44% ex-VKTX (10/23 REG)', 'en', F('bio_pulse')).includes('ex-average:VKTX'));
+  assert.deepEqual(sb.checkSectorBriefNew('On 10/23 REG, 5 of 7 rose, avg +1.57%; ex-DDOG (+4.62%) still +1.06%, showing broad participation', 'en', F('cloud_fortress')), []);
+  assert.deepEqual(sb.checkSectorBriefNew('MSFT 강세에도 7개 중 6개 하락, 나머지 6개 평균 -0.75%로 약세가 넓게 확인됨(10/23 정규장 기준).', 'ko', F('m7')), []);
+  assert.ok(sb.checkSectorBriefNew('VKTX −5.54%로 최약, 나머지 6개 평균 −2.44%로 약세 관측 (10/23 정규장)', 'ko', F('bio_pulse')).includes('ex-average:VKTX'));
+  assert.ok(sb.checkSectorBriefNew('5개 중 LMT 1.16% 상승에 비해 ASTS −2.21% 하락 — 제외 평균 −0.61%로 LMT 의존 흐름 관측 (10/26 개장 전).', 'ko', F('orbit_defense')).some(r => r.startsWith('ex-average')));
+});
+
+test('«나머지 N종목 하락, 평균 X%»의 섹터 전체 평균은 제외 평균으로 묶지 않는다', () => {
+  assert.deepEqual(sb.checkSectorBriefNew('MSFT 상승 속 나머지 6종목 하락, 평균 -0.55% 관측 (10/23 정규장)', 'ko', F('m7')), []);
+  assert.deepEqual(sb.checkSectorBriefNew('10/23 정규장 기준 MSFT 제외 6개 하락, 평균 −0.55%; GOOGL 제외 시 −0.43%로 하락은 대체로 공유됨 관측', 'ko', F('m7')), []);
+  assert.ok(sb.checkSectorBriefNew('MSFT 제외 6개 하락, 평균 −0.43% 관측 (10/23 정규장)', 'ko', F('m7')).includes('ex-average:MSFT'));
+  assert.deepEqual(sb.checkSectorBriefNew('10/23 通常取引では MSFT のみ上昇し、残り6銘柄は下落。平均 -0.55%、MSFTを除く平均 -0.75%で広く弱さを観測', 'ja', F('m7')), []);
 });

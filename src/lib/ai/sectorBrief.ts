@@ -124,31 +124,67 @@ const close = (written: string, value: number) => {
     return Math.abs(Math.abs(Number(written.replace('−', '-'))) - Math.abs(value)) <= 0.5 * 10 ** -dec + 0.005;
 };
 const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-/** 제외 평균 결속: ① «T 제외 평균 X%»의 X 는 T 를 뺀 평균이어야 하고 ② 제외 평균 값만 쓴 숫자는 뺀 종목이 글에 있어야 한다. */
+/**
+ * 제외 평균 결속(10/26 bio_pulse «VKTX −5.54%로 낙폭 최대이며 제외 평균 −2.44%» = GILD 제외값, 관문 10261816).
+ * 제외 표현(제외·빼면·除く·以外·ex-·excluding·without·other than)마다 가장 가까운 종목(ko·ja 는 앞, en 은 뒤)과 바로 뒤 % 숫자를 묶는다.
+ *   묶인 숫자 = 그 종목을 뺀 평균이어야 한다(부호 포함). 평균 단어 없이 붙은 숫자는 그 종목 자신의 등락이어도 된다(«Other than MSFT +0.66%»).
+ *   제외 평균 값과만 일치하는 숫자는 반드시 이 방식으로 뺀 종목에 묶여야 한다(«제외 평균 −2.44%»처럼 종목 없이 쓰면 탈락).
+ */
+const EX_WORD = /제외|빼면|빼고|뺀|(?<=[A-Z\s])외(?=\s|에|의)|나머지|除く|除いた|除外|除いても|以外|残り|\bex-|\bexcluding\b|\bwithout\b|\bother than\b|\bthe rest\b|\bremaining\b/gi;
+const REST_WORD = /^(?:나머지|残り|the rest|remaining)$/i;
+const COUNT_TOKEN = /\d+\s*(?:개|종목|종|銘柄|names?|stocks?|members?)/gi;
+const AVG_WORD = /평균|平均|\baverag(?:e|ed|es|ing)\b|\bavg\b|\bmean\b/i;
+// 종목 대신 «선두/리더» 같은 말로 뺀 경우 — 최고 종목(best)을 뺀 평균에만 묶이고, 그 종목 이름이 글에 있어야 한다.
+const LEADER_WORD = /리더|선두|선도주|주도주|1위|リーダー|首位|先頭|主導株|トップ|\bleader\b|\btop (?:name|gainer|stock)\b/gi;
 function exAverageReasons(text: string, f: SectorFact, exAvgs: ReturnType<typeof sectorExAverages>): string[] {
     const out: string[] = [];
     if (!f.members || f.members.length < 3) return out;
-    const NUM = '([+−-]?\\d+(?:\\.\\d+)?)\\s*[%％]';
-    for (const row of f.members) {
-        const T = escapeRe(row.t);
-        const pats = [
-            `(?<![A-Za-z])${T}(?![A-Za-z])\\s*(?:을|를)?\\s*(?:제외(?:한|하면|하고)?|뺀|빼면|외)\\s*(?:나머지\\s*)?(?:\\d+\\s*종(?:목)?\\s*)?(?:의\\s*)?평균\\s*(?:은|는|이|가|도)?\\s*(?:약\\s*)?${NUM}`,
-            `(?:\\bex-|\\bexcluding\\s+|\\bwithout\\s+|\\bminus\\s+|\\bother than\\s+)${T}(?![A-Za-z])[^%％.;]{0,30}?\\b(?:average|avg|mean)\\b[^%％.;]{0,12}?${NUM}`,
-            `\\b(?:average|avg|mean)\\s+(?:ex-|excluding\\s+|without\\s+|other than\\s+)${T}(?![A-Za-z])\\s*(?:is|was|of|at|stands at|:|,)?\\s*${NUM}`,
-            `(?<![A-Za-z])${T}(?![A-Za-z])\\s*(?:を)?\\s*(?:除く|除いた|除外した|以外の?)\\s*(?:\\d+銘柄\\s*の?\\s*)?平均\\s*(?:は|が|:|：)?\\s*${NUM}`,
-        ];
-        const expect = avgWithout(f, row.t);
-        for (const p of pats) for (const hit of text.matchAll(new RegExp(p, 'g'))) {
-            const signed = /^[+−-]/.test(hit[1]) && expect != null && Math.abs(expect) >= 0.005
-                && Math.sign(Number(hit[1].replace('−', '-'))) !== Math.sign(expect);
-            if (expect == null || !close(hit[1], expect) || signed) out.push(`ex-average:${row.t}`);
+    const tickers = f.members.map(r => r.t);
+    const tickerHits = [...text.matchAll(new RegExp(`(?<![A-Za-z])(?:${tickers.map(escapeRe).join('|')})(?![A-Za-z])`, 'g'))].map(m => ({ t: m[0], i: m.index!, e: m.index! + m[0].length }));
+    const nums = numbersInText(text).filter(h => /^\s*[%％](?!\s*(?:p\b|points?\b|포인트|ポイント))/.test(text.slice(h.index + h.written.length)));
+    const bound = new Set<number>();   // 제외 표현에 묶인 숫자 위치
+    for (const k of text.matchAll(EX_WORD)) {
+        const ki = k.index!, ke = ki + k[0].length;
+        const rest = REST_WORD.test(k[0]);   // «나머지/残り/the rest» = 앞에 나온 종목을 뺀 나머지
+        const en = /^[a-z]/i.test(k[0]) && !rest;
+        const cand = tickerHits.filter(h => en ? h.i >= ke && h.i - ke <= 3 : h.e <= ki && ki - h.e <= (rest ? 30 : 20));
+        let tk = en ? cand[0] : cand[cand.length - 1];
+        if (!tk) {
+            // «리더 제외 평균»·«ex-leader average»·«主導株除く平均» — 선두 말이 제외 표현 바로 앞(ko·ja) 또는 뒤(en)에 있을 때
+            const lw = [...text.matchAll(LEADER_WORD)].find(m => en ? m.index! >= ke && m.index! - ke <= 3 : m.index! + m[0].length <= ki && ki - (m.index! + m[0].length) <= 4);
+            if (!lw || !new RegExp(`(?<![A-Za-z])${escapeRe(f.members[0].t)}(?![A-Za-z])`).test(text)) continue;
+            tk = { t: f.members[0].t, i: lw.index!, e: lw.index! + lw[0].length };
         }
+        let from = Math.max(ke, tk.e);
+        // «ex-DDOG (+4.62%) still +1.06%» — 종목 바로 뒤 괄호 속 숫자는 그 종목 자신의 등락(종목 숫자 검사가 따로 본다)
+        const paren = /^\s*\([^()]{0,16}\)/.exec(text.slice(from));
+        if (paren) from += paren[0].length;
+        let num = nums.find(h => h.index >= from && h.index - from <= 24);
+        // en 뒤붙임 «still −1.64% ex-VKTX»
+        if (!num && en) num = nums.find(h => { const end = text.indexOf('%', h.index + h.written.length) + 1 || text.indexOf('％', h.index) + 1; return end > 0 && end <= ki && ki - end <= 3; });
+        if (!num) continue;
+        const between = num.index >= from ? text.slice(from, num.index) : '';
+        if (/\d/.test(between.replace(COUNT_TOKEN, '')) || tickerHits.some(h => h.i >= from && h.i < num!.index)) continue;   // 다른 숫자·종목이 끼면 묶지 않는다
+        const hasAvg = AVG_WORD.test(between) || AVG_WORD.test(text.slice(Math.max(0, ki - 8), ki));
+        if (rest && !hasAvg) continue;
+        if (!hasAvg && between.replace(/\s/g, '').length > 12) continue;
+        const expect = avgWithout(f, tk.t);
+        const own = f.members.find(r => r.t === tk.t)!.c;
+        const n = num;
+        const sign = (v: number) => (/^[+−-]/.test(n.written) && Math.abs(v) >= 0.005 && Math.sign(n.value) !== Math.sign(v));
+        const okEx = expect != null && close(n.written, expect) && !sign(expect);
+        const okOwn = !hasAvg && !rest && close(n.written, own) && !sign(own);
+        // «나머지 6종목 하락, 평균 −0.55%»의 평균은 섹터 전체 평균일 수 있다 — 전체 평균 값이면 묶지 않는다
+        // «MSFT 제외 6개 하락, 평균 −0.55%»처럼 절이 끊긴 뒤의 섹터 전체 평균도 마찬가지
+        if ((rest || /[,;、。·]/.test(between)) && close(n.written, f.avgChangePct)) continue;
+        bound.add(num.index);
+        if (!okEx && !okOwn) out.push(`ex-average:${tk.t}`);
     }
     const others = [...numericFacts(f), ...f.members.map(r => r.c)];
-    for (const h of numbersInText(text)) {
-        const owners = exAvgs.filter(e => close(h.written, e.pct));
-        if (!owners.length || others.some(v => close(h.written, v))) continue;
-        if (!owners.some(e => new RegExp(`(?<![A-Za-z])${escapeRe(e.excludedTicker)}(?![A-Za-z])`).test(text))) out.push(`ex-average-unnamed:${h.written}`);
+    for (const h of nums) {
+        if (bound.has(h.index)) continue;
+        if (!exAvgs.some(e => close(h.written, e.pct)) || others.some(v => close(h.written, v))) continue;
+        out.push(`ex-average-unnamed:${h.written}`);
     }
     return out;
 }
@@ -194,7 +230,8 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
             // 티커는 대소문자까지 같아야 한다(관문 10241806: 소유격 «CRWD's»의 s 를 티커 S 로 오인).
             if (!hit[0].startsWith(row.t)) continue;
             // «average ex-GOOGL −0.43%»·«excluding GOOGL −0.43%»는 그 종목을 뺀 평균이다(종목 등락 아님) — 결속은 exAverageReasons 가 본다.
-            if (/(?:\bex-|\bexcluding\s+|\bwithout\s+|\bother than\s+)$/i.test(text.slice(0, hit.index))) continue;
+            const exAvg = avgWithout(f, row.t);
+            if (/(?:\bex-|\bexcluding\s+|\bwithout\s+|\bother than\s+)$/i.test(text.slice(0, hit.index)) && exAvg != null && close(hit[2], exAvg)) continue;
             const raw = Number(hit[2].replace('−', '-'));
             const direction = hit[1] || hit[3] || '';
             const negative = /down|fell|lost|하락|下落/i.test(direction);
@@ -241,8 +278,10 @@ export function selectSectorBriefOutput(parsed: Record<string, Partial<Record<Se
         const entry: Record<string, string> = {};
         const dropped: string[] = [];
         for (const locale of SECTOR_LOCALES) {
-            const text = withPriceDateTag(String(value[locale] || '').trim(), locale, f, tradingDate);
-            const reasons = checkSectorBriefNew(text, locale, f);
+            const raw = String(value[locale] || '').trim();
+            // 검사는 모델 원문으로(관문 10261816: 붙인 일본어 표지가 영어 본문의 언어 검사를 통과시키면 안 된다), 저장은 표지를 붙인 글.
+            const text = withPriceDateTag(raw, locale, f, tradingDate);
+            const reasons = [...new Set([...checkSectorBriefNew(raw, locale, f), ...checkSectorBriefNew(text, locale, f)])];
             if (!reasons.length) entry[fields[locale]] = text;
             else dropped.push(`${locale}:${reasons.join('+')}`);
         }
