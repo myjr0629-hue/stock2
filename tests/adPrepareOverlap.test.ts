@@ -22,7 +22,7 @@ for (const format of ['interstitial', 'rewarded'] as const) {
 
   async function setup() {
     const a = deferred(), b = deferred(), c = deferred();
-    const requests = [a, b, c];
+    const requests = [a, b, c, deferred()];
     let calls = 0;
     let nativeSlot: typeof a | undefined;
     fake[interstitial ? 'prepareInterstitial' : 'prepareRewardVideoAd'] = async () => {
@@ -36,7 +36,7 @@ for (const format of ['interstitial', 'rewarded'] as const) {
       return {};
     };
     fake.onShow = () => {
-      assert.equal(nativeSlot, shows() === 1 ? a : b, 'native show consumes the available request');
+      assert.equal(nativeSlot, shows() === 1 ? a : c, 'native show consumes the available request');
       nativeSlot = undefined;
       return new Promise(() => {});
     };
@@ -52,7 +52,10 @@ for (const format of ['interstitial', 'rewarded'] as const) {
     assert.equal(calls, 2, 'B starts while native A is outstanding');
     const pendingB = prepared();
     assert.ok(pendingB);
-    return { a, b, calls: () => calls, pendingB };
+    return { a, b, c, calls: () => calls, pendingB, consume(expected: typeof a) {
+      assert.equal(nativeSlot, expected, 'native show consumes the available request');
+      nativeSlot = undefined;
+    } };
   }
   async function finish(p: Promise<unknown>, ending = 'Dismissed') {
     fake.emit(event('Showed'));
@@ -62,6 +65,67 @@ for (const format of ['interstitial', 'rewarded'] as const) {
     assert.equal(fullScreenAds.isBusy(), false);
     assert.deepEqual(await p, interstitial ? ending !== 'FailedToShow' : ending === 'FailedToShow' ? null : reward);
     assert.equal(waiterCount(), 0, 'terminal session removes its readiness subscription');
+  }
+
+  for (const acknowledgement of ['Showed', 'show-promise', 'Dismissed']) {
+    cases[`${format}-B-loads-after-JS-check-before-native-show-${acknowledgement}`] = async () => {
+      const state = await setup();
+      state.a.resolve(); await flush();
+      const nativeShow = deferred();
+      fake.onShow = async () => {
+        // Capacitor가 show를 큐에 넣은 뒤 네이티브 UI 스레드가 슬롯을 읽기 직전 B가 교체한다.
+        await nativeShow.promise;
+        state.consume(state.b);
+        if (acknowledgement === 'Showed') fake.emit(event('Showed'));
+        if (acknowledgement === 'show-promise') return {};
+        if (acknowledgement === 'Dismissed') fake.emit(event('Dismissed'));
+        return new Promise(() => {});
+      };
+      const p = show(); await flush();
+      assert.equal(shows(), 1);
+      state.b.resolve(); await flush();
+      nativeShow.resolve(); await flush();
+      if (acknowledgement === 'Dismissed') {
+        assert.deepEqual(await p, interstitial ? true : null);
+      } else {
+        assert.equal(ready(), false, 'native acknowledgement immediately invalidates consumed B');
+        await finish(p);
+      }
+      assert.equal(ready(), false, 'consumed B must not remain ready');
+      assert.equal(state.calls(), 3, 'closing consumed B prepares C exactly once');
+      state.c.resolve(); await flush();
+      assert.equal(ready(), true);
+      fake.onShow = () => { state.consume(state.c); return new Promise(() => {}); };
+      const next = show(); await flush();
+      assert.equal(shows(), 2, 'next show uses fresh C');
+      await finish(next);
+    };
+  }
+
+  for (const outcome of ['reject', 'timeout', 'next-show-waits']) {
+    cases[`${format}-pending-B-after-close-${outcome}`] = async () => {
+      const state = await setup();
+      state.a.resolve(); await flush();
+      const p = show(); await flush();
+      // No reward: exercise a second user request while the obsolete B is pending.
+      fake.emit(event('Showed')); fake.emit(event('Dismissed')); await flush();
+      assert.deepEqual(await p, interstitial ? true : null);
+      assert.equal(state.calls(), 2);
+      let next: Promise<unknown> | undefined;
+      if (outcome === 'next-show-waits') { next = show(); await flush(); }
+      if (outcome === 'reject') state.b.reject(new Error('B no fill'));
+      else if (outcome === 'timeout') advance(FULL_SCREEN_PREPARE_TIMEOUT_MS);
+      else state.b.resolve();
+      await flush();
+      assert.equal(ready(), false);
+      assert.equal(state.calls(), 3, 'one C after B ends, including timeout or rejection');
+      if (next) assert.equal(shows(), 1, 'next session waits for current-generation C');
+      state.c.resolve(); await flush();
+      if (next) {
+        assert.equal(shows(), 2);
+        await finish(next);
+      } else assert.equal(ready(), true);
+    };
   }
 
   for (const waiting of [false, true]) {
@@ -91,10 +155,12 @@ for (const format of ['interstitial', 'rewarded'] as const) {
         }
         await finish(p!);
         if (!failB) {
-          assert.equal(prepared(), state.pendingB, 'cleanup preserves B ownership');
+          assert.equal(prepared(), state.pendingB, 'cleanup waits for B without duplicating C');
           assert.equal(state.calls(), 2, 'no duplicate C request while B is pending');
           state.b.resolve(); await flush();
-          // Rewarded unlock blocks auto interstitial only, so test the slot itself.
+          assert.equal(ready(), false, 'pre-show generation B cannot restore readiness');
+          assert.equal(state.calls(), 3, 'B completion releases exactly one fresh C preload');
+          state.c.resolve(); await flush();
           assert.equal(adManager[interstitial ? 'interstitialLoaded' : 'rewardedLoaded'], true);
         }
       };
@@ -113,10 +179,13 @@ for (const format of ['interstitial', 'rewarded'] as const) {
         await flush();
         assert.deepEqual(await p, interstitial ? ending === 'Dismissed' : null);
         assert.equal(fullScreenAds.isBusy(), false);
-        assert.equal(ready(), true, 'cleanup must preserve newly prepared B');
-        assert.equal(state.calls(), 2, 'B must not be overwritten by a needless C preload');
+        assert.equal(ready(), false, 'old-generation B must not survive presentation');
+        if (!interstitial && ending === 'FailedToShow') { advance(2_000); await flush(); }
+        assert.equal(state.calls(), 3, 'C replaces the ambiguous pre-show slot once');
+        state.c.resolve(); await flush();
+        assert.equal(ready(), true);
         assert.equal(waiterCount(), 0);
-        // No reward above: next show can use B, including after a failed A presentation.
+        // No reward above: next show consumes fresh C, including after a failed A presentation.
         const next = show(); await flush();
         assert.equal(shows(), 2);
         await finish(next);

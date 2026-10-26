@@ -60,6 +60,8 @@ export class FullScreenAdSession {
     load: () => Promise<LoadedFullScreenAd<T> | null>;
     prepare: (ad: T) => Promise<unknown>;
     canShow?: () => boolean;
+    /** Native presentation acknowledgement; called once, never by a stale run. */
+    onShowStarted?: () => void;
   }): Promise<{ reward: AdReward | null; shown: boolean }> {
     // Do not share a successful result with a second caller: it could grant twice.
     if (this.busy) return Promise.resolve({ reward: null, shown: false });
@@ -69,10 +71,16 @@ export class FullScreenAdSession {
     return new Promise((resolve) => {
       let settled = false;
       let presenting = false;
+      let started = false;
       let reward: AdReward | null = null;
       let shown = false;
       let timer: ReturnType<typeof setTimeout>;
       const active = () => !settled && generation === this.generation;
+      const markStarted = () => {
+        if (!active() || !presenting || started) return;
+        started = true;
+        options.onShowStarted?.();
+      };
       const handles: PluginListenerHandle[] = [];
       const remove = (handle: PluginListenerHandle) => {
         try { void Promise.resolve(handle.remove()).catch(() => {}); } catch { /* bridge unavailable */ }
@@ -104,6 +112,7 @@ export class FullScreenAdSession {
         await Promise.all([
           listen(events.showed, () => {
             if (!presenting) return;
+            markStarted();
             shown = true;
             // A visible ad may run past either startup deadline. Keep listening
             // for its earned reward and dismissal; do not time out viewing.
@@ -111,6 +120,7 @@ export class FullScreenAdSession {
           }),
           listen(events.dismissed, () => {
             if (!presenting) return;
+            markStarted();
             shown = true;
             settle();
           }),
@@ -121,6 +131,7 @@ export class FullScreenAdSession {
           listen(events.failedShow, () => { if (presenting) settle(); }),
           ...(options.format === 'rewarded' ? [listen(EVENTS.rewarded.reward, (value) => {
             if (presenting && !reward) {
+              markStarted();
               reward = value;
               shown = true;
               clearTimeout(timer);
@@ -140,6 +151,7 @@ export class FullScreenAdSession {
         // Wait for terminal events, not the platform-dependent show promise.
         // A rejection is still a terminal failure; a late rejection is harmless.
         await (options.format === 'rewarded' ? ad.showRewardVideoAd() : ad.showInterstitial());
+        markStarted();
       })().catch(settle);
     });
   }
