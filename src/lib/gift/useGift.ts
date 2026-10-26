@@ -22,6 +22,11 @@ import { getInviteRef, markInviteShared } from '@/lib/invite/identity';
 
 export interface GiftConfig { code: string; android: boolean }
 
+/** 준비 모듈이 만든 링크에 서버 예약 토큰이 실렸나(형식만 본다 — 값은 다루지 않는다). */
+function hasGiftToken(url: string): boolean {
+  try { return /^[A-Za-z0-9_-]{43}$/.test(new URL(url).searchParams.get('gift') || ''); } catch { return false; }
+}
+
 const CACHE_KEY = 'signumhq.gift.cfg';
 const TTL_MS = 10 * 60_000;
 type Cached = { at: number; cfg: GiftConfig | null };
@@ -99,15 +104,22 @@ export function useGiftShare(locale: string, surface: GiftSurface) {
     let out: ShareOutcome = 'failed';
     try {
       // 플래그 꺼짐 확정 = 운영 기존 선물 그대로(공개 맞춤 코드 링크·문구 바이트 동일). 켜짐·미확정은 준비 모듈의 단일 판정만.
-      const payload = preparedGift.confirmedOff() ? {
+      // ★2026-10-26 켜짐이어도 서버 예약 토큰이 «이 순간» 없으면(설정 조회 중·기기 하루 한도·재고 없음 등) 선물 메뉴가
+      //   선물 없는 일반 안내를 보내지 않게, 기존 운영 선물(공개 맞춤 코드 — 이미 공개된 번호)로 되돌아간다. 새 토큰 발급과 무관.
+      const legacy = {
         title: GIFT_COPY[lang].shareTitle,
         text: giftShareText(lang, cfg.android),
         url: buildGiftUrl(cfg.code, ref, lang),
-      } : preparedGift.payload({
+      };
+      const prepared = preparedGift.confirmedOff() ? null : preparedGift.payload({
         title: GIFT_COPY[lang].shareTitle,
         // 선물 URL은 준비 모듈의 단일 판정 뒤에만 만든다. 기존 설정 캐시는 발급 근거가 아니다.
         url: `${SHARE_ORIGIN}/app`,
       }, locale, via, ref, true);
+      const attached = prepared !== null && hasGiftToken(prepared.url);
+      const payload = attached ? prepared : legacy;
+      // 대체된 경우에도 «왜 토큰이 없었나»는 그대로 센다(기존 gate 사유 목록).
+      if (prepared && !attached) giftFunnel('gate', surface, via, preparedGift.gateReason());
       const payloadKind = giftPayloadMetric(payload, surface, via, preparedGift.gateReason());
       out = await shareOrCopy(payload);
       giftOutcomeMetric(out, surface, via, payloadKind);

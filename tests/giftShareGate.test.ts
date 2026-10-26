@@ -54,13 +54,17 @@ function hook(client: ReturnType<typeof createGiftPreparation>, locale: string, 
   (m as any)._compile(hookCode, filename);
   return { share: m.exports.useGiftShare(locale, surface).share as () => Promise<unknown>, sent };
 }
+/**
+ * 토큰 없음 = 새 선물 토큰 0. ★2026-10-26: 선물 «메뉴»(gift_set·gift_dash·gift_pop)는 선물 없는 일반 안내 대신
+ * 기존 운영 선물(이미 공개된 맞춤 코드 링크 — 꺼짐 확정 때와 같은 문구)로 되돌아간다. 새 토큰 발급·예약과 무관.
+ */
 function general(p: SharePayload) {
   const u = new URL(p.url);
   assert.equal(u.searchParams.has('gift'), false);
-  assert.equal(u.searchParams.has('code'), false);
+  assert.equal(u.searchParams.get('code'), 'TESTONLYPRO');
+  assert.equal(u.searchParams.get('from'), 'gift');
   assert.equal(u.searchParams.get('ref'), 'abc234defg');
-  assert.equal(p.title, 'SIGNUM HQ');
-  assert.ok(!/PRO|🎁/.test(`${p.title} ${p.text}`));
+  assert.ok(/PRO/.test(`${p.title}`) && /🎁/.test(`${p.text}`));
 }
 
 test('최초 설정 미조회·대기·유실·늦은 도착: 실제 선물 입구는 예약 성공 응답 전 일반 공유만 발송', async () => {
@@ -143,7 +147,7 @@ test('꺼짐 확정: 기존 선물 입구 = origin/main 운영 선물 바이트 
       await h.share(); assert.deepEqual(h.sent.at(-1), expected); // 조회 실패는 확정 상태를 바꾸지 않는다
       assert.equal(reserves, 0); assert.equal(mem.calls, 0); // 꺼짐 동안 예약·기기 장부 접근 0
       mode = 'on'; await c.refresh(via);
-      await h.share(); general(h.sent.at(-1)!); // 켜짐 응답(재고 없음) → 기존 공개 코드 링크 0
+      await h.share(); assert.deepEqual(h.sent.at(-1), expected); // 켜짐 응답(재고 없음) → 새 토큰 0, 기존 운영 선물로 대체(10/26)
       assert.equal(reserves, 0);
     }
 });
@@ -214,7 +218,10 @@ test('소스 grep 관문: 새 선물 URL 생성 1곳·판정 호출 1곳, 기존
   assert.deepEqual(sources.filter(x => /\bbuildGiftUrl\b/.test(x.source)).map(x => x.path).sort(), ['src/lib/gift/gift.ts', 'src/lib/gift/useGift.ts']);
   const hookSrc = readFileSync('src/lib/gift/useGift.ts', 'utf8');
   assert.equal((hookSrc.match(/buildGiftUrl\(/g) || []).length, 1);
-  assert.match(hookSrc, /preparedGift\.confirmedOff\(\) \? \{[^}]*url: buildGiftUrl\(cfg\.code, ref, lang\),\s*\} : preparedGift\.payload\(/);
+  // 기존 공개 코드 링크는 «꺼짐 확정» 또는 «토큰 없음»에서만 쓴다(새 토큰 링크에 섞지 않는다).
+  assert.match(hookSrc, /const legacy = \{[^}]*url: buildGiftUrl\(cfg\.code, ref, lang\),\s*\};/);
+  assert.match(hookSrc, /const prepared = preparedGift\.confirmedOff\(\) \? null : preparedGift\.payload\(/);
+  assert.match(hookSrc, /const payload = attached \? prepared : legacy;/);
   const writers = sources.flatMap(({ path, source }) => [...source.matchAll(/searchParams\.(?:set|append)\(\s*['"]gift['"]|\bgift=/g)].map(() => path)).sort();
   // 수신한 토큰의 링크·QR 전달은 신규 발급이 아니다. 전달 함수·호출자도 아래 목록으로 고정한다.
   assert.deepEqual(writers, ['src/lib/giftShare/client.ts', 'src/lib/giftShare/config.ts', 'src/lib/giftShare/landing.ts', 'src/lib/marketing/desktopHandoff.ts']);
