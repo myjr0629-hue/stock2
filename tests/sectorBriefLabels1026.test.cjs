@@ -87,6 +87,8 @@ test('관문 10261929: 다른 사실값과 같은 틀린 제외 평균(«VKTX �
     ['en', 'Other than VKTX, the remaining 6 stocks averaged −2.54% (10/23 REG).'], ['en', 'Excluding VKTX, the other 6 names had an average of −2.54% (10/23 REG).']])
     assert.ok(sb.checkSectorBriefNew(t, loc, F('bio_pulse')).includes('excluded-average'), t);
   for (const [loc, t] of [['ko', '5/7 상승, 평균 1.57% — DDOG 4.62% 선두, CRM -0.69% 제외 대부분 상승 관측 (10/23 정규장)'],
-    ['en', 'DDOG leads at +4.62%; five of seven rose, broad participation (10/23 REG)']])
+    ['en', 'DDOG leads at +4.62%; five of seven rose, broad participation (10/23 REG)'],
+    // 관문 10262002: 쉼표 너머 «전체 평균»은 제외 평균이 아니다
+    ['ko', 'CRM 제외 대부분 상승, 전체 평균 1.57%로 폭넓은 강세 관측 (10/23 정규장)']])
     assert.deepEqual(sb.checkSectorBriefNew(t, loc, F('cloud_fortress')), [], t);
 });
