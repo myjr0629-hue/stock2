@@ -89,6 +89,7 @@ export function buildSectorBriefPrompt(facts: SectorFact[], session: string, tod
         'Use members, avgWithoutBest and avgWithoutWorst to distinguish a single-name move from participation; equalWeightAvgPct is an equal-weight mean of measured members, never an ETF or index return.',
         'An excluding average belongs ONLY to its excludedTicker. Whenever you cite one, name that excluded ticker right next to it: ko «GILD 제외 평균 −2.44%», en «average ex-GILD −2.44%», ja «GILDを除く平均−2.44%». Never place it next to a different ticker or call it a generic leader/선두/리더 average.',
         'For a mostly falling sector the useful check is usually avgWithoutWorst (is the drop only the worst name?); for a mostly rising sector, avgWithoutBest.',
+        'Name the top mover as 선두/최대 상승 (ko), leads (en), 首位/最大の上昇 (ja). Never use 先行/선행 for it: those words read as a forecast and the line is rejected.',
         'Keep the denominator honest: measured members are a sample of total members. Never turn partial coverage into all-sector participation.',
         'Explain dispersion as a gap between stock moves; bestToWorstGapPoints is percentage POINTS, not a stock return. Avoid bare jargon such as risk-on, rotation, bifurcation or alpha.',
         'If room remains, name the next observable test with two interpretations: peers join = broader participation; peers do not = concentrated leadership. This is a conditional reading, never a price forecast.',
@@ -192,6 +193,8 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
         for (const hit of text.matchAll(re)) {
             // 티커는 대소문자까지 같아야 한다(관문 10241806: 소유격 «CRWD's»의 s 를 티커 S 로 오인).
             if (!hit[0].startsWith(row.t)) continue;
+            // «average ex-GOOGL −0.43%»·«excluding GOOGL −0.43%»는 그 종목을 뺀 평균이다(종목 등락 아님) — 결속은 exAverageReasons 가 본다.
+            if (/(?:\bex-|\bexcluding\s+|\bwithout\s+|\bother than\s+)$/i.test(text.slice(0, hit.index))) continue;
             const raw = Number(hit[2].replace('−', '-'));
             const direction = hit[1] || hit[3] || '';
             const negative = /down|fell|lost|하락|下落/i.test(direction);

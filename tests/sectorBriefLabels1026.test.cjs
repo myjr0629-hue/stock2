@@ -87,3 +87,15 @@ test('운영 저장 문장 중 결함 없는 칸은 새 검사도 통과(과잉 
     assert.deepEqual(sb.checkSectorBriefNew(sb.withPriceDateTag(t, loc, f, fx.date), loc, f), [], `${f.id} ${loc} ${t}`);
   }
 });
+
+test('실모델 dry 회귀: en «average ex-T X%»는 T 의 등락으로 읽지 않는다(바르게 묶이면 통과, 틀리면 ex-average 탈락)', () => {
+  const ok = [['m7', 'Six of seven fell; average ex-GOOGL −0.43%, so the drop is broad rather than just the worst name (10/23 REG)'],
+    ['bio_pulse', 'All seven fell; average ex-GILD −2.44%, so the decline spans nearly all members (10/23 REG)'],
+    ['silicon_core', 'Six of seven rose; average ex-MU +0.97%, so the advance is broad and not just MU (10/23 REG)'],
+    ['fintech_pulse', 'All 7 fell, with XYZ −3.24% and AFRM −3.20% (10/23 REG); average ex-UPST −2.11%, so the decline is not confined to one name']];
+  for (const [id, t] of ok) assert.deepEqual(sb.checkSectorBriefNew(t, 'en', F(id)), [], t);
+  assert.ok(sb.checkSectorBriefNew('Six of seven fell; average ex-GOOGL −0.75% (10/23 REG)', 'en', F('m7')).includes('ex-average:GOOGL'));
+  // 종목 자신의 등락 오기는 그대로 탈락
+  assert.ok(sb.checkSectorBriefNew('GOOGL −0.43% was the weakest (10/23 REG)', 'en', F('m7')).includes('stock-number:GOOGL'));
+  assert.match(sb.buildSectorBriefPrompt(fx.facts, fx.session, fx.date).system, /Never use 先行\/선행/);
+});
