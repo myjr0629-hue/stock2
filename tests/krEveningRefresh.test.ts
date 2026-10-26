@@ -103,9 +103,9 @@ function world(iso: string, currentPre: boolean) {
             assert.equal(doc.generatedAt, iso.replace('Z', '.000Z'));
             assert.equal(doc.optionsAsOf, '2026-10-16'); assert.equal(doc.optionsOpenedOn, '2026-10-15');
             assert.equal(doc.context.news.length, 1); assert.equal(doc.context.futures.live, true);
-            assert.match(prompt, /priceBasis/); assert.doesNotMatch(prompt, /priorOptions|futures|publishedAt/);
+            assert.match(prompt, /priceSession/); assert.doesNotMatch(prompt, /priorOptions|futures|publishedAt/);
             assert.ok(doc.facts.every((f: any) => f.priorOptions && f.members.length === f.measured));
-            assert.match(prompt, pre ? /"priceBasis": "PRE"/ : /"priceBasis": "REG"/);
+            assert.match(prompt, pre ? /"priceSession": "PRE"/ : /"priceSession": "REG"/);
             const again = await (await cron.GET(req())).json(); assert.equal(again.skipped, 'same-slot');
             assert.equal(calls, 1); assert.equal(fetches, 1);
         });
@@ -128,9 +128,9 @@ function world(iso: string, currentPre: boolean) {
             const facts = promptFacts();
             assert.equal(facts.length, 10);
             for (const f of facts) {
-                assert.equal(f.priceBasis, 'PRE'); assert.equal(f.priceDate, '2026-10-19');
-                assert.equal(f.avgChangePct, 0); assert.equal(f.up, 0); assert.equal(f.down, 0);
-                assert.equal(f.flat, f.measured);
+                assert.equal(f.priceSession, 'PRE'); assert.equal(f.priceDate, '2026-10-19');
+                assert.equal(f.equalWeightAvgPct, 0); assert.equal(f.up, 0); assert.equal(f.down, 0);
+                assert.equal(f.flat, f.measuredNames);
             }
             const doc = store.get(cron.HEADLINE_KEY);
             assert.ok(doc.context.quotes.every((q: any) => q.basis === 'PRE' && q.changePct === 0));
@@ -160,8 +160,8 @@ function world(iso: string, currentPre: boolean) {
                 for (const [t, r] of Object.entries<any>(body.data)) if (t !== 'AAPL') { r.extendedPrice = 0; r.extendedChangePercent = 0; }
                 return Response.json(body);
             };
-            await cron.GET(req()); assert.match(prompt, /"priceBasis": "REG"/);
-            assert.match(prompt, /"avgChangePct": -3/); assert.match(prompt, /"priceDate": "2026-10-16"/);
+            await cron.GET(req()); assert.match(prompt, /"priceSession": "REG"/);
+            assert.match(prompt, /"equalWeightAvgPct": -3/); assert.match(prompt, /"priceDate": "2026-10-16"/);
         });
         for (const [measured, pct, basis] of [[1, 1, 'REG'], [4, 1, 'POST'], [7, 0, 'POST']] as const) {
             await test(`2차 관문 POST 재현: 실측 ${measured}종목 ${pct}%·나머지 REG -5%를 섞지 않음`, async () => {
@@ -178,10 +178,10 @@ function world(iso: string, currentPre: boolean) {
                 };
                 await cron.GET(req());
                 const f = promptFacts().find(f => f.id === 'm7');
-                assert.equal(f.priceBasis, basis);
+                assert.equal(f.priceSession, basis);
                 assert.equal(f.priceDate, '2026-10-19');
-                assert.equal(f.avgChangePct, basis === 'REG' ? -5 : pct);
-                assert.equal(f.measured, basis === 'REG' ? 7 : measured);
+                assert.equal(f.equalWeightAvgPct, basis === 'REG' ? -5 : pct);
+                assert.equal(f.measuredNames, basis === 'REG' ? 7 : measured);
                 assert.equal(f.down, basis === 'REG' ? 7 : 0);
                 assert.equal(f.flat, pct === 0 ? measured : 0);
                 assert.equal(store.get(cron.HEADLINE_KEY).session, 'AFTER HOURS');

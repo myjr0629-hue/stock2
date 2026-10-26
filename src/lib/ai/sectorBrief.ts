@@ -1,5 +1,5 @@
 import { forecastHits } from './trustLayer';
-import { ungroundedNumbers, numbersInText } from './factGrounding';
+import { ungroundedNumbers } from './factGrounding';
 import type { SectorFact } from './sectorBriefFacts';
 
 export type SectorLocale = 'ko' | 'en' | 'ja';
@@ -8,9 +8,9 @@ const fields = { ko: 'headline', en: 'headlineEN', ja: 'headlineJP' } as const;
 const HANGUL = /[가-힣]/, KANA = /[぀-ヿ]/, KANJI = /[一-鿿]/;
 const numericFacts = (f: SectorFact) => [f.measured, f.total, f.up, f.down, f.flat, f.avgChangePct, f.leader.c, f.laggard.c, f.spreadPct];
 
-// ★2026-10-26 첫 운영 생성 결함(T6): ① 입력 필드 이름(exLeader)이 한국어 문장에 그대로 노출 ② «제외 평균»이 어느 종목을 뺀 값인지
-//   없이 최약 종목 옆에 붙어 «최약 제외»로 오독(bio_pulse VKTX −5.54% 옆 −2.44% = GILD 제외값) ③ 직전 정규장 섹터의 ko 문장에 기준일 누락.
-//   → 모델에 주는 입력은 «무엇을 뺐는지»가 이름에 든 값으로 바꾸고(SectorFact 저장 형태는 그대로), 출구에서 내부 이름·뺀 종목 없는 평균을 거른다.
+// ★2026-10-26 첫 운영 생성 결함(T6): ① 입력 필드 이름(exLeader)이 한국어 문장에 그대로 노출 ② «제외 평균»(선두 제외)이 뺀 종목 이름 없이
+//   최약 종목 옆에 붙어 «최약 제외»로 오독(bio_pulse VKTX −5.54% 옆 −2.44% = GILD 제외값) ③ 직전 정규장 섹터의 ko 문장에 기준일 누락.
+//   → 입력은 뜻이 드러나는 이름으로 바꾸고 «제외 평균» 값은 빼며(SectorFact 저장 형태는 그대로), 출구에서 내부 이름을 거르고 제외 평균 숫자는 근거 없는 숫자로 탈락.
 const SESSION_WORD: Record<SectorLocale, Record<string, string>> = {
     ko: { PRE: '개장 전', REG: '정규장', POST: '장후' },
     en: { PRE: 'PRE', REG: 'REG', POST: 'POST' },
@@ -27,27 +27,8 @@ export function hasPriceDate(text: string, priceDate: string): boolean {
     const { m, d } = monthDay(priceDate);
     return new RegExp(`(?<!\\d)0?${m}\\s*/\\s*0?${d}(?!\\d)|(?<!\\d)0?${m}\\s*월\\s*0?${d}\\s*일|(?<!\\d)0?${m}\\s*月\\s*0?${d}\\s*日`).test(text);
 }
-const mean = (xs: number[]) => xs.reduce((n, x) => n + x, 0) / xs.length;
-/** 한 종목을 뺀 나머지 측정 종목 평균(종목 자료가 3개 이상일 때만). */
-function avgWithout(f: SectorFact, ticker: string): number | null {
-    const rest = (f.members || []).filter(r => r.t !== ticker).map(r => r.c);
-    return (f.members?.length || 0) >= 3 && rest.length === (f.members!.length - 1) ? mean(rest) : null;
-}
-/** 최고·최저 종목을 각각 뺀 평균 — 어느 종목을 뺐는지를 값과 함께 둔다. */
-export function sectorExAverages(f: SectorFact): Array<{ role: 'best' | 'worst'; excludedTicker: string; pct: number }> {
-    if (!f.members || f.members.length < 3) return [];
-    const best = f.members[0].t, worst = f.members[f.members.length - 1].t;
-    const out: Array<{ role: 'best' | 'worst'; excludedTicker: string; pct: number }> = [];
-    const b = f.exLeaderAvgChangePct ?? avgWithout(f, best);
-    if (b != null && Number.isFinite(b)) out.push({ role: 'best', excludedTicker: best, pct: Number(b.toFixed(2)) });
-    const w = avgWithout(f, worst);
-    if (w != null && best !== worst) out.push({ role: 'worst', excludedTicker: worst, pct: Number(w.toFixed(2)) });
-    return out;
-}
-/** 모델 입력 — 필드 이름만으로 뜻이 드러나게(내부 약칭 exLeader 등 금지). 저장되는 SectorFact 는 바꾸지 않는다. */
+/** 모델 입력 — 필드 이름만으로 뜻이 드러나게(내부 약칭 exLeader 등 금지). «제외 평균» 값은 주지 않는다(10/26 오독 — 범위 축소). 저장되는 SectorFact 는 바꾸지 않는다. */
 export function sectorBriefModelInput(f: SectorFact) {
-    const ex = sectorExAverages(f);
-    const best = ex.find(e => e.role === 'best'), worst = ex.find(e => e.role === 'worst');
     return {
         id: f.id, sector: f.label,
         priceSession: f.priceBasis, priceDate: f.priceDate,
@@ -57,8 +38,6 @@ export function sectorBriefModelInput(f: SectorFact) {
         best: { ticker: f.leader.t, pct: f.leader.c }, worst: { ticker: f.laggard.t, pct: f.laggard.c },
         bestToWorstGapPoints: f.spreadPct,
         ...(f.members ? { members: f.members.map(r => ({ ticker: r.t, pct: r.c })) } : {}),
-        ...(best ? { avgWithoutBest: { excludedTicker: best.excludedTicker, pct: best.pct } } : {}),
-        ...(worst ? { avgWithoutWorst: { excludedTicker: worst.excludedTicker, pct: worst.pct } } : {}),
     };
 }
 
@@ -86,9 +65,8 @@ export function buildSectorBriefPrompt(facts: SectorFact[], session: string, tod
         'One line per sector per language. 40-70 characters for Korean/Japanese, 55-95 for English. Same existing space; no lists or extra fields.',
         'Priority within that space: named subject + one measured move, then what the rest of the measured members say about it.',
         'Explain whether strength/weakness is shared or concentrated. A positive leader alone does not make a sector rally.',
-        'Use members, avgWithoutBest and avgWithoutWorst to distinguish a single-name move from participation; equalWeightAvgPct is an equal-weight mean of measured members, never an ETF or index return.',
-        'An excluding average belongs ONLY to its excludedTicker. Whenever you cite one, name that excluded ticker right next to it: ko «GILD 제외 평균 −2.44%», en «average ex-GILD −2.44%», ja «GILDを除く平均−2.44%». Never place it next to a different ticker or call it a generic leader/선두/리더 average.',
-        'For a mostly falling sector the useful check is usually avgWithoutWorst (is the drop only the worst name?); for a mostly rising sector, avgWithoutBest.',
+        'Use members (up/down counts and each pct) to distinguish a single-name move from participation; equalWeightAvgPct is an equal-weight mean of measured members, never an ETF or index return.',
+        'Do not compute or cite any average that excludes a name (no 제외 평균/ex-leader average/除く平均): it is not supplied and such a number is rejected. Say it in words instead (e.g. most of the other names also fell).',
         'Name the top mover as 선두/최대 상승 (ko), leads (en), 首位/最大の上昇 (ja). Never use 先行/선행 for it: those words read as a forecast and the line is rejected.',
         'Keep the denominator honest: measured members are a sample of total members. Never turn partial coverage into all-sector participation.',
         'Explain dispersion as a gap between stock moves; bestToWorstGapPoints is percentage POINTS, not a stock return. Avoid bare jargon such as risk-on, rotation, bifurcation or alpha.',
@@ -104,7 +82,7 @@ export function buildSectorBriefPrompt(facts: SectorFact[], session: string, tod
         'Korean ends in 관측/확인 or a natural observational sentence; Japanese 観測/確認; English plain observed/holding/diverging when natural.',
         'ko is Korean, en English, ja Japanese; ticker symbols/numbers/session abbreviations are allowed. All three must express the same facts and interpretation.',
         'No internal provider/cache/source names, meta commentary, markdown, bullet points or readiness placeholders.',
-        'Input keys (sessionTag, avgWithoutBest, avgWithoutWorst, equalWeightAvgPct, bestToWorstGapPoints, members, sector ids such as silicon_core) are internal names: never write them; say what they mean in the reader\'s language.',
+        'Input keys (sessionTag, equalWeightAvgPct, bestToWorstGapPoints, measuredNames, members, sector ids such as silicon_core) are internal names: never write them; say what they mean in the reader\'s language.',
         'Return ONLY JSON keyed by every supplied sector id: {"m7":{"ko":"...","en":"...","ja":"..."}, ...}',
     ].join('\n');
     // Do not pass unrelated PRE news, futures or dated options into a price-distribution line.
@@ -119,40 +97,6 @@ export function buildSectorBriefPrompt(facts: SectorFact[], session: string, tod
     return { system, userPrompt };
 }
 
-const close = (written: string, value: number) => {
-    const dec = written.split('.')[1]?.length || 0;
-    return Math.abs(Math.abs(Number(written.replace('−', '-'))) - Math.abs(value)) <= 0.5 * 10 ** -dec + 0.005;
-};
-const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-/** 제외 평균 결속: ① «T 제외 평균 X%»의 X 는 T 를 뺀 평균이어야 하고 ② 제외 평균 값만 쓴 숫자는 뺀 종목이 글에 있어야 한다. */
-function exAverageReasons(text: string, f: SectorFact, exAvgs: ReturnType<typeof sectorExAverages>): string[] {
-    const out: string[] = [];
-    if (!f.members || f.members.length < 3) return out;
-    const NUM = '([+−-]?\\d+(?:\\.\\d+)?)\\s*[%％]';
-    for (const row of f.members) {
-        const T = escapeRe(row.t);
-        const pats = [
-            `(?<![A-Za-z])${T}(?![A-Za-z])\\s*(?:을|를)?\\s*(?:제외(?:한|하면|하고)?|뺀|빼면|외)\\s*(?:나머지\\s*)?(?:\\d+\\s*종(?:목)?\\s*)?(?:의\\s*)?평균\\s*(?:은|는|이|가|도)?\\s*(?:약\\s*)?${NUM}`,
-            `(?:\\bex-|\\bexcluding\\s+|\\bwithout\\s+|\\bminus\\s+|\\bother than\\s+)${T}(?![A-Za-z])[^%％.;]{0,30}?\\b(?:average|avg|mean)\\b[^%％.;]{0,12}?${NUM}`,
-            `\\b(?:average|avg|mean)\\s+(?:ex-|excluding\\s+|without\\s+|other than\\s+)${T}(?![A-Za-z])\\s*(?:is|was|of|at|stands at|:|,)?\\s*${NUM}`,
-            `(?<![A-Za-z])${T}(?![A-Za-z])\\s*(?:を)?\\s*(?:除く|除いた|除外した|以外の?)\\s*(?:\\d+銘柄\\s*の?\\s*)?平均\\s*(?:は|が|:|：)?\\s*${NUM}`,
-        ];
-        const expect = avgWithout(f, row.t);
-        for (const p of pats) for (const hit of text.matchAll(new RegExp(p, 'g'))) {
-            const signed = /^[+−-]/.test(hit[1]) && expect != null && Math.abs(expect) >= 0.005
-                && Math.sign(Number(hit[1].replace('−', '-'))) !== Math.sign(expect);
-            if (expect == null || !close(hit[1], expect) || signed) out.push(`ex-average:${row.t}`);
-        }
-    }
-    const others = [...numericFacts(f), ...f.members.map(r => r.c)];
-    for (const h of numbersInText(text)) {
-        const owners = exAvgs.filter(e => close(h.written, e.pct));
-        if (!owners.length || others.some(v => close(h.written, v))) continue;
-        if (!owners.some(e => new RegExp(`(?<![A-Za-z])${escapeRe(e.excludedTicker)}(?![A-Za-z])`).test(text))) out.push(`ex-average-unnamed:${h.written}`);
-    }
-    return out;
-}
-
 /** New generations only. Do not reject for style, length target, missing jargon/gloss or absent two-way clause. */
 export function checkSectorBriefNew(text: string, locale: SectorLocale, f: SectorFact): string[] {
     // Session dates are not price/count numbers. Strip only the supplied date, never arbitrary numbers.
@@ -160,13 +104,11 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
     const dateFree = text.replaceAll(f.priceDate, '').replace(new RegExp(`\\b0?${Number(m)}/0?${Number(d)}\\b`, 'g'), '')
         .replace(new RegExp(`(?<!\\d)0?${Number(m)}\\s*(?:월|月)\\s*0?${Number(d)}\\s*(?:일|日)`, 'g'), '');
     const reasons = checkSectorBriefLegacy(text, locale);
-    const exAvgs = sectorExAverages(f);
-    const allowed = [...numericFacts(f), ...(f.members?.map(r => r.c) || []), f.exLeaderAvgChangePct ?? NaN, ...exAvgs.map(e => e.pct)];
+    // «제외 평균»은 입력에 없다 — 문장에 나오면 근거 없는 숫자로 탈락(10/26 bio_pulse «제외 평균 −2.44%» 오독, 범위 축소).
+    const allowed = [...numericFacts(f), ...(f.members?.map(r => r.c) || [])];
     reasons.push(...ungroundedNumbers(dateFree, allowed).map(n => `number:${n}`));
     // 입력 필드 이름 노출(10/26 운영 ko «exLeader 0.97%»): 소문자로 시작하는 camelCase·snake_case 식별자. 티커(대문자)·mRNA·iPhone 류는 해당 없음.
     if (/(?<![A-Za-z])[a-z]{2,}[A-Z][A-Za-z]*|(?<![A-Za-z])[a-z]+_[a-z]+(?![A-Za-z])/.test(text)) reasons.push('internal-field');
-    // «제외 평균»은 뺀 종목과 묶여야 한다(10/26 bio_pulse «VKTX −5.54%로 낙폭 최대이며 제외 평균 −2.44%» = GILD 제외값).
-    reasons.push(...exAverageReasons(dateFree, f, exAvgs));
     // 시세·자료의 지연 표기만(관문 10241828: «동료 종목 동참 지연»·«participation is delayed»는 시세 표기가 아니다).
     if (/지연\s*(?:시세|가격|데이터|자료|호가)|(?:시세|가격|데이터|자료|호가)\s*(?:가\s*|이\s*)?지연|\bdelayed\s+(?:\w+\s+)?(?:quotes?|prices?|pricing|data|feed)\b|\b(?:quotes?|prices?|data|feed)\s+(?:is\s+|are\s+)?delayed\b|遅延\s*の?\s*(?:データ|相場|気配|価格|通常取引|時間外|取引開始前)|(?:データ|相場|気配|価格)\s*(?:の|が)?\s*遅延/i.test(text)) reasons.push('latency-label');
     if (/NEWS PULSE|guardian:|intel:|Redis|Bedrock|Upstash|Polygon|FMP|SIGNUM/i.test(text)) reasons.push('internal-source');
@@ -193,8 +135,6 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
         for (const hit of text.matchAll(re)) {
             // 티커는 대소문자까지 같아야 한다(관문 10241806: 소유격 «CRWD's»의 s 를 티커 S 로 오인).
             if (!hit[0].startsWith(row.t)) continue;
-            // «average ex-GOOGL −0.43%»·«excluding GOOGL −0.43%»는 그 종목을 뺀 평균이다(종목 등락 아님) — 결속은 exAverageReasons 가 본다.
-            if (/(?:\bex-|\bexcluding\s+|\bwithout\s+|\bother than\s+)$/i.test(text.slice(0, hit.index))) continue;
             const raw = Number(hit[2].replace('−', '-'));
             const direction = hit[1] || hit[3] || '';
             const negative = /down|fell|lost|하락|下落/i.test(direction);
@@ -241,8 +181,10 @@ export function selectSectorBriefOutput(parsed: Record<string, Partial<Record<Se
         const entry: Record<string, string> = {};
         const dropped: string[] = [];
         for (const locale of SECTOR_LOCALES) {
-            const text = withPriceDateTag(String(value[locale] || '').trim(), locale, f, tradingDate);
-            const reasons = checkSectorBriefNew(text, locale, f);
+            const raw = String(value[locale] || '').trim();
+            // 검사는 모델 원문으로(관문 10261816: 붙인 일본어 표지가 영어 본문의 언어 검사를 통과시키면 안 된다), 저장은 표지를 붙인 글.
+            const text = withPriceDateTag(raw, locale, f, tradingDate);
+            const reasons = [...new Set([...checkSectorBriefNew(raw, locale, f), ...checkSectorBriefNew(text, locale, f)])];
             if (!reasons.length) entry[fields[locale]] = text;
             else dropped.push(`${locale}:${reasons.join('+')}`);
         }
