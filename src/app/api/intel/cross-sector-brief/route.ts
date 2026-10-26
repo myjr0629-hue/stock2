@@ -231,6 +231,20 @@ export async function POST(req: Request) {
         }
     }
     console.log('[CrossSectorBrief V3] POST handler entered');
+    // preview only(병합 금지) — T4b 실모델 비교: 로컬이 만든 system/user 를 운영과 같은 callBedrock 사다리(① 크레딧 Haiku 5.5)로만 돌려 원문을 돌려준다. 저장·푸시 0.
+    if (new URL(req.url).searchParams.get('dry') === 'prompt') {
+        const b: any = await req.json();
+        const outs: any[] = [];
+        for (let i = 0; i < Math.min(Number(b.reps) || 1, 3); i++) {
+            const t = Date.now();
+            try {
+                const r: any = await callBedrock({ system: b.system, userPrompt: b.user, maxTokens: b.maxTokens || 12000, temperature: b.temperature ?? 0.4,
+                    timeoutMs: b.timeoutMs || 240_000, label: 'CrossSectorBrief', expectJson: true, locale: 'multi' } as any);
+                outs.push({ text: r.text, provider: r.provider, model: r.model, ms: Date.now() - t });
+            } catch (e: any) { outs.push({ error: String(e?.message || e).slice(0, 200), ms: Date.now() - t }); }
+        }
+        return NextResponse.json({ outs });
+    }
     const startTime = Date.now();
 
     try {
