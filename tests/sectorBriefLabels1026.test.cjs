@@ -135,6 +135,23 @@ test('실모델 표본 형태: 뒤붙임 ex-T·괄호 속 자기 등락·«나�
 test('«나머지 N종목 하락, 평균 X%»의 섹터 전체 평균은 제외 평균으로 묶지 않는다', () => {
   assert.deepEqual(sb.checkSectorBriefNew('MSFT 상승 속 나머지 6종목 하락, 평균 -0.55% 관측 (10/23 정규장)', 'ko', F('m7')), []);
   assert.deepEqual(sb.checkSectorBriefNew('10/23 정규장 기준 MSFT 제외 6개 하락, 평균 −0.55%; GOOGL 제외 시 −0.43%로 하락은 대체로 공유됨 관측', 'ko', F('m7')), []);
-  assert.ok(sb.checkSectorBriefNew('MSFT 제외 6개 하락, 평균 −0.43% 관측 (10/23 정규장)', 'ko', F('m7')).includes('ex-average:MSFT'));
+  assert.ok(sb.checkSectorBriefNew('MSFT 제외 6개 하락, 평균 −0.43% 관측 (10/23 정규장)', 'ko', F('m7')).some(r => r.startsWith('ex-average')));
   assert.deepEqual(sb.checkSectorBriefNew('10/23 通常取引では MSFT のみ上昇し、残り6銘柄は下落。平均 -0.55%、MSFTを除く平均 -0.75%で広く弱さを観測', 'ja', F('m7')), []);
+});
+
+test('관문 10261842 반례: 방향어 붙은 종목 등락·쉼표 뒤 틀린 제외 평균은 탈락, 다른 종목 값·앞붙임 ex-T 는 정상', () => {
+  assert.ok(sb.checkSectorBriefNew('Other than MSFT down 0.75%, all 6 measured names fell (10/23 REG).', 'en', F('m7')).includes('stock-number:MSFT'));
+  assert.ok(sb.checkSectorBriefNew('All 7 fell; excluding VKTX, the average was −2.20% (10/23 REG).', 'en', F('bio_pulse')).includes('ex-average:VKTX'));
+  assert.deepEqual(sb.checkSectorBriefNew('MSFT 제외 6개 하락, 최대 낙폭 −1.24%로 약세 관측 (10/23 정규장)', 'ko', F('m7')), []);
+  assert.deepEqual(sb.checkSectorBriefNew('Mean −2.44% ex-GILD; VKTX −5.54% was worst (10/23 REG).', 'en', F('bio_pulse')), []);
+  assert.ok(sb.checkSectorBriefNew('Mean −1.64% ex-GILD; VKTX −5.54% was worst (10/23 REG).', 'en', F('bio_pulse')).includes('ex-average:GILD'));
+  assert.deepEqual(sb.checkSectorBriefNew('Six of seven rose; average excluding MU +0.97%, so strength is shared (10/23 REG).', 'en', F('silicon_core')), []);
+});
+
+test('제외 평균 방향어 모순(부호 없이 «상승»·«up»)도 탈락', () => {
+  assert.ok(sb.checkSectorBriefNew('7종 전부 하락, VKTX 제외 평균 1.64% 상승 관측 (10/23 정규장)', 'ko', F('bio_pulse')).includes('ex-average:VKTX'));
+  assert.deepEqual(sb.checkSectorBriefNew('7종 전부 하락, VKTX 제외 평균 1.64% 하락으로 약세 확산 관측 (10/23 정규장)', 'ko', F('bio_pulse')), []);
+  assert.ok(sb.checkSectorBriefNew('VKTXを除く平均は1.64%上昇（10/23 通常取引）', 'ja', F('bio_pulse')).includes('ex-average:VKTX'));
+  assert.ok(sb.checkSectorBriefNew('All 7 fell; the average without VKTX was up 1.64% (10/23 REG).', 'en', F('bio_pulse')).includes('ex-average:VKTX'));
+  assert.deepEqual(sb.checkSectorBriefNew('All 7 fell; the average without VKTX was down 1.64% (10/23 REG).', 'en', F('bio_pulse')), []);
 });

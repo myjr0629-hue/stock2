@@ -159,24 +159,32 @@ function exAverageReasons(text: string, f: SectorFact, exAvgs: ReturnType<typeof
         // «ex-DDOG (+4.62%) still +1.06%» — 종목 바로 뒤 괄호 속 숫자는 그 종목 자신의 등락(종목 숫자 검사가 따로 본다)
         const paren = /^\s*\([^()]{0,16}\)/.exec(text.slice(from));
         if (paren) from += paren[0].length;
-        let num = nums.find(h => h.index >= from && h.index - from <= 24);
-        // en 뒤붙임 «still −1.64% ex-VKTX»
-        if (!num && en) num = nums.find(h => { const end = text.indexOf('%', h.index + h.written.length) + 1 || text.indexOf('％', h.index) + 1; return end > 0 && end <= ki && ki - end <= 3; });
+        // en 뒤붙임 «still −1.64% ex-VKTX»·«Mean −2.44% ex-GILD; …»를 먼저 본다(관문 10261842)
+        const post = en ? nums.find(h => { const m = /^\s*[%％]/.exec(text.slice(h.index + h.written.length)); const end = m ? h.index + h.written.length + m[0].length : -1; return end > 0 && end <= ki && /^\s{0,2}$/.test(text.slice(end, ki)); }) : undefined;
+        const num = post || nums.find(h => h.index >= from && h.index - from <= 24);
         if (!num) continue;
-        const between = num.index >= from ? text.slice(from, num.index) : '';
+        const between = post ? '' : text.slice(from, num.index);
         if (/\d/.test(between.replace(COUNT_TOKEN, '')) || tickerHits.some(h => h.i >= from && h.i < num!.index)) continue;   // 다른 숫자·종목이 끼면 묶지 않는다
-        const hasAvg = AVG_WORD.test(between) || AVG_WORD.test(text.slice(Math.max(0, ki - 8), ki));
+        const hasAvg = AVG_WORD.test(between) || AVG_WORD.test(text.slice(Math.max(0, ki - 8), ki)) || (!!post && AVG_WORD.test(text.slice(Math.max(0, num.index - 16), num.index)));
         if (rest && !hasAvg) continue;
-        if (!hasAvg && between.replace(/\s/g, '').length > 12) continue;
+        // 평균 말이 없으면 바로 붙은 숫자만(«VKTX를 제외해도 −2.44%»·«Other than MSFT +6%») — «MSFT 제외 6개 하락, 최대 낙폭 −1.24%»는 다른 종목 값
+        if (!hasAvg && between.replace(COUNT_TOKEN, '').replace(/\b(?:still|also|even|only|just|yet|is|was|at|stands)\b/gi, '').replace(/\s/g, '').length > 4) continue;
+        // 제외 표현 뒤에 서술어(하락·상승·fell…)로 절이 끝나고 끊긴 뒤의 숫자는 그 절과 묶지 않는다(«MSFT 제외 6개 하락, 평균 −0.55%» = 섹터 전체 평균)
+        const brk = /[,;、。·]/.exec(between);
+        if (brk && /하락|상승|보합|내렸|올랐|下落|上昇|横ばい|\b(?:fell|rose|declined|gained|dropped|slipped|advanced|were (?:up|down|flat))\b/i.test(between.slice(0, brk.index))) continue;
         const expect = avgWithout(f, tk.t);
         const own = f.members.find(r => r.t === tk.t)!.c;
         const n = num;
-        const sign = (v: number) => (/^[+−-]/.test(n.written) && Math.abs(v) >= 0.005 && Math.sign(n.value) !== Math.sign(v));
+        // 부호 또는 방향어(«평균 1.64% 상승»·«down 1.64%»)로 적힌 방향이 실제와 다르면 틀린 값이다
+        const after = text.slice(n.index + n.written.length).replace(/^\s*[%％]\s*/, '').slice(0, 4);
+        const dirBefore = between.slice(-12);
+        const dir = /^[+]/.test(n.written) || /^(?:상승|上昇|高)/.test(after) || /\b(?:up|rose|gained|higher)\s*$/i.test(dirBefore) ? 1
+            : /^[−-]/.test(n.written) || /^(?:하락|下落|安)/.test(after) || /\b(?:down|fell|lost|lower)\s*$/i.test(dirBefore) ? -1 : 0;
+        const sign = (v: number) => dir !== 0 && Math.abs(v) >= 0.005 && dir !== Math.sign(v);
         const okEx = expect != null && close(n.written, expect) && !sign(expect);
         const okOwn = !hasAvg && !rest && close(n.written, own) && !sign(own);
         // «나머지 6종목 하락, 평균 −0.55%»의 평균은 섹터 전체 평균일 수 있다 — 전체 평균 값이면 묶지 않는다
-        // «MSFT 제외 6개 하락, 평균 −0.55%»처럼 절이 끊긴 뒤의 섹터 전체 평균도 마찬가지
-        if ((rest || /[,;、。·]/.test(between)) && close(n.written, f.avgChangePct)) continue;
+        if (rest && close(n.written, f.avgChangePct)) continue;
         bound.add(num.index);
         if (!okEx && !okOwn) out.push(`ex-average:${tk.t}`);
     }
@@ -231,7 +239,10 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
             if (!hit[0].startsWith(row.t)) continue;
             // «average ex-GOOGL −0.43%»·«excluding GOOGL −0.43%»는 그 종목을 뺀 평균이다(종목 등락 아님) — 결속은 exAverageReasons 가 본다.
             const exAvg = avgWithout(f, row.t);
-            if (/(?:\bex-|\bexcluding\s+|\bwithout\s+|\bother than\s+)$/i.test(text.slice(0, hit.index)) && exAvg != null && close(hit[2], exAvg)) continue;
+            // 생략은 방향어 없이 평균을 꾸미는 경우만(관문 10261842: «Other than MSFT down 0.75%»는 MSFT 등락 주장).
+            const pre = /(\bex-|\bexcluding\s+|\bwithout\s+|\bother than\s+)$/i.exec(text.slice(0, hit.index));
+            if (pre && !hit[1] && !hit[3] && exAvg != null && close(hit[2], exAvg)
+                && (/^ex-$/i.test(pre[1]) || AVG_WORD.test(text.slice(Math.max(0, pre.index - 16), pre.index)))) continue;
             const raw = Number(hit[2].replace('−', '-'));
             const direction = hit[1] || hit[3] || '';
             const negative = /down|fell|lost|하락|下落/i.test(direction);
