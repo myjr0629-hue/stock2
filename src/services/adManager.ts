@@ -180,14 +180,17 @@ const AD_SLOT_DEFAULT_PX = 50;
  *   한 번 막히면 오래간다. 상한에 닿으면 «로드 실패»로 보고 기존 백오프 재시도에 태운다.
  *   값은 표시 세션의 시작 상한(FULL_SCREEN_AD_TIMEOUT_MS 120초)과 같다 — 더 짧으면 세션이 받아 주던
  *   «느리지만 정상인 로드»(예: 110초 뒤 도착한 보상형, regressions slow-load-earned-reward)를 끊는다.
- *   상한 뒤에 늦게 도착한 성공도 새 준비가 없으면 받아들인다(preload 의 lateButUsable).
+ *   상한은 네이티브 요청을 취소하지 않으므로 늦은 성공도 준비 완료로 받아들인다.
  */
 export const FULL_SCREEN_PREPARE_TIMEOUT_MS = FULL_SCREEN_AD_TIMEOUT_MS;
 
-function withDeadline<T>(work: Promise<T>, ms: number, label: string): Promise<T> {
+function withDeadline<T>(work: Promise<T>, ms: number, label: string, onTimeout: () => void): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(label)), ms);
+    timer = setTimeout(() => {
+      onTimeout();
+      reject(new Error(label));
+    }, ms);
   });
   return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
 }
@@ -200,6 +203,9 @@ class AdManagerService {
   private initialized = false;
   private interstitialLoaded = false;
   private rewardedLoaded = false;
+  // 네이티브는 형식별 마지막 로드 1개만 보관한다. 표시 전 세대의 성공은 재사용하지 않는다.
+  private interstitialGeneration = 0;
+  private rewardedGeneration = 0;
   private interstitialPreparation?: Promise<void>;
   private rewardedPreparation?: Promise<void>;
   private rewardedRetry?: ReturnType<typeof setTimeout>;
@@ -641,29 +647,35 @@ class AdManagerService {
     if (this.interstitialPreparation) return this.interstitialPreparation;
     clearTimeout(this.interstitialRetry);
     this.interstitialRetry = undefined;
+    const generation = this.interstitialGeneration;
     const pending: Promise<void> = withDeadline(import('@capacitor-community/admob').then(async ({ AdMob }) => {
       if (!this.proKnown || this.proActive) return;
       await AdMob.prepareInterstitial({
         adId: this.config.interstitialId,
         isTesting: this.config.testMode,
       });
-      // 상한 뒤에 늦게 끝난 성공도 네이티브는 그 광고를 들고 있다. 그 사이 새 준비가 없고
-      // 준비된 광고도 없을 때만 받아들인다(새 준비가 있으면 그쪽 결과가 기준이다).
-      const lateButUsable = !this.interstitialPreparation && !this.interstitialLoaded && this.proKnown && !this.proActive;
-      if (this.interstitialPreparation === pending || lateButUsable) {
+      // 상한 뒤 늦은 성공도 표시가 시작되기 전 같은 세대라면 사용할 수 있다.
+      if (generation === this.interstitialGeneration && this.proKnown && !this.proActive) {
         this.interstitialLoaded = true;
         this.interstitialLoadFailures = 0;
         clearTimeout(this.interstitialRetry);
         this.interstitialRetry = undefined;
+        this.emit('interstitialReady');
       }
-    }), FULL_SCREEN_PREPARE_TIMEOUT_MS, 'interstitial prepare timeout');
-    this.interstitialPreparation = pending;
-    // Keep the original rejection for a waiting session, but handle background failures.
-    void pending.catch(() => {
-      if (this.interstitialPreparation === pending) this.scheduleInterstitialRetry();
+    }), FULL_SCREEN_PREPARE_TIMEOUT_MS, 'interstitial prepare timeout', () => {
+      if (this.interstitialPreparation !== pending) return;
+      // 세션 상한도 같은 시각에 끝날 수 있다. 후속 prepare 전에 만료한 요청만 해제한다.
+      this.interstitialPreparation = undefined;
+      if (!this.interstitialLoaded) this.scheduleInterstitialRetry();
+    }).catch(error => {
+      if (this.interstitialPreparation === pending && !this.interstitialLoaded) this.scheduleInterstitialRetry();
+      throw error;
     }).finally(() => {
       if (this.interstitialPreparation === pending) this.interstitialPreparation = undefined;
     });
+    this.interstitialPreparation = pending;
+    // Keep the original rejection for a waiting session, but handle background failures.
+    void pending.catch(() => {});
     return pending;
   }
 
@@ -691,20 +703,79 @@ class AdManagerService {
     void this.preloadInterstitial();
   }
 
+  /** 특정 요청의 종료 또는 다른 요청의 유효한 성공을 기다린다. 세션 종료 시 구독도 해제한다. */
+  private waitForPreparedAd(format: 'interstitial' | 'rewarded') {
+    const event = format === 'interstitial' ? 'interstitialReady' : 'rewardedReady';
+    const ready = () => format === 'interstitial' ? this.interstitialLoaded : this.rewardedLoaded;
+    let notify!: () => void;
+    let cancelled = false;
+    const cancel = () => { cancelled = true; this.off(event, notify); };
+    const promise = new Promise<void>((resolve, reject) => {
+      notify = () => { if (ready()) { cancel(); resolve(); } };
+      this.on(event, notify);
+      const prepare = () => {
+        if (cancelled) return;
+        const pending = format === 'interstitial' ? this.preloadInterstitial() : this.preloadRewarded();
+        void pending.then(() => {
+          if (cancelled) return;
+          if (ready() || !this.proKnown || this.proActive) { cancel(); resolve(); }
+          // 이전 세대의 준비가 끝났다면 현재 세대의 준비까지 기다린다.
+          else prepare();
+        }, error => {
+          cancel();
+          if (ready()) resolve();
+          else reject(error);
+        });
+      };
+      prepare();
+      notify();
+    });
+    return { promise, cancel };
+  }
+
+  /** 종료 후 한 번 재준비한다. 이전 세대의 진행 중 로드는 끝날 때까지 중복 요청하지 않는다. */
+  private async prepareNextAd(format: 'interstitial' | 'rewarded'): Promise<void> {
+    const interstitial = format === 'interstitial';
+    const generation = interstitial ? this.interstitialGeneration : this.rewardedGeneration;
+    const pending = interstitial ? this.interstitialPreparation : this.rewardedPreparation;
+    if (pending) await pending.catch(() => {});
+    if (generation !== (interstitial ? this.interstitialGeneration : this.rewardedGeneration)) return;
+    await (interstitial ? this.preloadInterstitial() : this.preloadRewarded()).catch(() => {});
+  }
+
   async showInterstitial(): Promise<boolean> {
     if (!this.initialized || !this.proKnown || this.proActive || fullScreenAds.isBusy()) return false;
+    let showAttempted = false;
+    let invalidated = false;
+    const invalidate = () => {
+      if (invalidated) return;
+      invalidated = true;
+      this.interstitialLoaded = false;
+      this.interstitialGeneration++;
+    };
+    let cancelPrepare = () => {};
     const result = await fullScreenAds.run({
       format: 'interstitial',
       // { ad } 상자로 넘긴다 — 플러그인 자체를 resolve 하면 Capacitor 프록시의 `then` 때문에
       // 영원히 안 끝난다(fullScreenAdSession.ts LoadedFullScreenAd 주석, 10/15~ 노출 0 의 원인).
       load: async () => ({ ad: (await import('@capacitor-community/admob')).AdMob }),
-      prepare: async () => { if (!this.interstitialLoaded) await this.preloadInterstitial(); },
-      canShow: () => !this.proActive,
+      prepare: async () => {
+        if (this.interstitialLoaded) return;
+        const waiting = this.waitForPreparedAd('interstitial');
+        cancelPrepare = waiting.cancel;
+        await waiting.promise;
+      },
+      canShow: () => {
+        showAttempted = !this.proActive && this.interstitialLoaded;
+        return showAttempted;
+      },
+      onShowStarted: invalidate,
     });
-    this.interstitialLoaded = false;
-    this.interstitialPreparation = undefined;
+    cancelPrepare();
+    // 거절·시작 통지 누락도 소비 여부를 알 수 없는 슬롯은 재사용하지 않는다.
+    if (showAttempted) invalidate();
     if (result.shown) this.trackImpression('interstitial');
-    void this.preloadInterstitial();
+    void this.prepareNextAd('interstitial');
     return result.shown;
   }
 
@@ -787,9 +858,11 @@ class AdManagerService {
   // --- Rewarded Video (보상형, 프리미엄 지표 언락) ---
   private preloadRewarded(): Promise<void> {
     if (!this.initialized || !this.proKnown || this.proActive) return Promise.resolve();
+    if (this.rewardedLoaded) return Promise.resolve();
     clearTimeout(this.rewardedRetry);
     this.rewardedRetry = undefined;
     if (this.rewardedPreparation) return this.rewardedPreparation;
+    const generation = this.rewardedGeneration;
     // 전면과 같은 상한 — 끝나지 않는 준비가 rewardedPreparation 을 붙잡아 다음 시청 시도까지 막지 않게 한다.
     const pending: Promise<void> = withDeadline(import('@capacitor-community/admob').then(async ({ AdMob }) => {
       if (!this.proKnown || this.proActive) return;
@@ -797,16 +870,17 @@ class AdManagerService {
         adId: this.config.rewardedId,
         isTesting: this.config.testMode,
       });
-      const lateButUsable = !this.rewardedPreparation && !this.rewardedLoaded && this.proKnown && !this.proActive;
-      if (this.rewardedPreparation === pending || lateButUsable) {
+      if (generation === this.rewardedGeneration && this.proKnown && !this.proActive) {
         this.rewardedLoaded = true;
         this.emit('rewardedReady');
       }
-    }), FULL_SCREEN_PREPARE_TIMEOUT_MS, 'rewarded prepare timeout');
-    this.rewardedPreparation = pending;
-    void pending.catch(() => {}).finally(() => {
+    }), FULL_SCREEN_PREPARE_TIMEOUT_MS, 'rewarded prepare timeout', () => {
+      if (this.rewardedPreparation === pending) this.rewardedPreparation = undefined;
+    }).finally(() => {
       if (this.rewardedPreparation === pending) this.rewardedPreparation = undefined;
     });
+    this.rewardedPreparation = pending;
+    void pending.catch(() => {});
     return pending;
   }
 
@@ -815,26 +889,40 @@ class AdManagerService {
     clearTimeout(this.rewardedRetry);
     this.rewardedRetry = undefined;
     let showAttempted = false;
+    let invalidated = false;
+    const invalidate = () => {
+      if (invalidated) return;
+      invalidated = true;
+      this.rewardedLoaded = false;
+      this.rewardedGeneration++;
+      this.emit('rewardedReady');
+    };
+    let cancelPrepare = () => {};
     const result = await fullScreenAds.run({
       format: 'rewarded',
       load: async () => ({ ad: (await import('@capacitor-community/admob')).AdMob }),
-      prepare: async () => { if (!this.rewardedLoaded) await this.preloadRewarded(); },
+      prepare: async () => {
+        if (this.rewardedLoaded) return;
+        const waiting = this.waitForPreparedAd('rewarded');
+        cancelPrepare = waiting.cancel;
+        await waiting.promise;
+      },
       canShow: () => {
-        showAttempted = !this.proActive;
+        showAttempted = !this.proActive && this.rewardedLoaded;
         return showAttempted;
       },
+      onShowStarted: invalidate,
     });
-    this.rewardedLoaded = false;
-    this.emit('rewardedReady');
-    this.rewardedPreparation = undefined;
-    if (result.shown) void this.preloadRewarded();
+    cancelPrepare();
+    if (showAttempted) invalidate();
+    if (result.shown) void this.prepareNextAd('rewarded');
     else if (showAttempted && !this.proActive) {
       // One delayed retry after a failed presentation; a failed reload does not
       // schedule another retry. A new user attempt cancels this pending timer.
       this.rewardedRetry = setTimeout(() => {
         this.rewardedRetry = undefined;
         if (!this.proActive && !this.rewardedLoaded) {
-          void this.preloadRewarded();
+          void this.prepareNextAd('rewarded');
         }
       }, 2_000);
     }
