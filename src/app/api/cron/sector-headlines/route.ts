@@ -54,6 +54,9 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
     }
+    // [preview only] 실모델 비교 dry — 운영 쓰기 0(사다리·원장·캐시 미사용), 10/26 08:40 UTC 운영 입력 고정.
+    const dryMode = new URL(request.url).searchParams.get('dry');
+    if (dryMode === 'compare') return dryCompare(new URL(request.url).searchParams.get('contract') === 'old' ? 'old' : 'new');
     const t0 = Date.now();
     const now = t0;
     const { date: todayET, minutes } = etClock(now);
@@ -185,4 +188,40 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
         ms: Date.now() - t0,
         sample: out[facts[0].id],
     });
+}
+
+async function dryCompare(contract: 'old' | 'new') {
+    const fx: any = (await import('./dryFixture.json')).default;
+    const cur = await import('@/lib/ai/sectorBrief');
+    const old = await import('@/lib/ai/sectorBriefOld');
+    const { defaultCallAnthropic, A55_MODEL } = await import('@/lib/ai/llmLadder');
+    const { shapeH55Body, normalizeJsonText } = await import('@/lib/ai/llmRequest');
+    const { financeTermsRule } = await import('@/lib/ai/commonTerms');
+    const { dateAnchor } = await import('@/services/bedrockClient');
+    const key = (process.env.ANTHROPIC_API_KEY_CREDITS || '').trim();
+    if (!key) return NextResponse.json({ ok: false, error: 'no-credit-key' }, { status: 500 });
+    const lib: any = contract === 'old' ? old : cur;
+    const { system, userPrompt } = lib.buildSectorBriefPrompt(fx.facts, fx.session, fx.date);
+    const body = shapeH55Body(A55_MODEL, { system: dateAnchor(new Date(fx.generatedAt)) + financeTermsRule() + system,
+        userPrompt, maxTokens: 4000, jsonPrefill: true, effort: 'low', thinking: 'disabled' });
+    const t = Date.now();
+    try {
+        const r = await defaultCallAnthropic({ body, timeoutMs: 40000 }, key);
+        const j = normalizeJsonText(r.parsed.text, 'object');
+        let parsed: any = null; try { parsed = cur.parseSectorBrief(j.text); } catch { /* json */ }
+        const oldSel = parsed ? old.selectSectorBriefOutput(parsed, fx.facts) : null;
+        const newSel = parsed ? cur.selectSectorBriefOutput(parsed, fx.facts, fx.date) : null;
+        const reasons: Record<string, Record<string, { old: string[]; new: string[]; text: string; served: string }>> = {};
+        for (const f of fx.facts) for (const loc of cur.SECTOR_LOCALES) {
+            const text = String(parsed?.[f.id]?.[loc] || '');
+            const served = cur.withPriceDateTag(text.trim(), loc, f, fx.date);
+            (reasons[f.id] ||= {})[loc] = { old: old.checkSectorBriefNew(text.trim(), loc, f), new: cur.checkSectorBriefNew(served, loc, f), text, served };
+        }
+        return NextResponse.json({ ok: true, contract, ms: Date.now() - t, model: r.modelUsed, stopReason: r.parsed.stopReason,
+            gateOld: parsed ? old.sectorBriefBatchGate(j.text, fx.facts) : false, gateNew: parsed ? cur.sectorBriefBatchGate(j.text, fx.facts) : false,
+            oldSel: oldSel && { kept: oldSel.kept, rejected: oldSel.rejected }, newSel: newSel && { kept: newSel.kept, rejected: newSel.rejected, sectors: newSel.sectors },
+            reasons, raw: r.parsed.text });
+    } catch (e: any) {
+        return NextResponse.json({ ok: false, contract, ms: Date.now() - t, error: String(e?.message || e).slice(0, 300) }, { status: 502 });
+    }
 }
