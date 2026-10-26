@@ -36,7 +36,7 @@ function service(eod: { official?: Record<string, any> }) {
     const intrinio = {
         peekOfficialSessionClose: async (t: string, d: string, p: string) => eod.official?.[`${t}:${d}:${p}`] ?? null,
     };
-    return load('src/services/stalePriceRepair.ts', { './intrinioClient': intrinio, '@/lib/marketCalendar': calendar });
+    return load('src/services/stalePriceRepair.ts', { './intrinioClient': intrinio, '@/lib/marketCalendar': calendar, '@/lib/marketSession': require('../src/lib/marketSession') });
 }
 
 const json = { json: (data: any) => ({ json: async () => data }) };
