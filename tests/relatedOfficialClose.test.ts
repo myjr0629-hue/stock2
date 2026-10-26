@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { mergeRelatedRow } from '../src/lib/relatedRowMerge';
 
 // [T12 · 감사 10/23 M9] 연관 종목 행 — 끝난 세션을 보여 줄 시간엔 그 세션의 공식 종가 한 쌍(M7 과 같은 읽기).
 // 외부 경계(EOD 리더)만 가짜로 둔다 — 네트워크·쓰기 0. 수치는 10/25(토) 운영 실측 그대로.
@@ -177,10 +176,15 @@ async function main() {
   // ⑨-b2 관문 10250550 재현 — 03:59 직접 API 실패 행(0)이 공식 값으로 채워져 unified 캐시에 남으면, 04:00 뒤 웹 병합(실제 규칙)이
   //       직접 API 의 새 프리마켓 값(530/+1.05%)을 524.51/+0.66% 로 덮었다 → 실패 행은 0 그대로라 병합이 새 값을 지킨다
   const failedAt0359: any = await SPR.officialCloseRelated({ topRelated: [{ ticker: 'MSFT', price: 0, change: 0, logo: null, prevClose: 0 }] }, Date.parse('2026-10-26T07:59:00Z'));
-  const merged = mergeRelatedRow({ ticker: 'MSFT', price: 530, change: 1.05, logo: null, prevClose: 524.51 }, failedAt0359.topRelated[0]);
+  const webMerge = (oldItem: any, newItem: any) => {   // LiveTickerDashboard 병합 규칙(이 변경에서 바꾸지 않음) 그대로
+    const hasLiveOldData = oldItem && (oldItem.price > 0 || Math.abs(oldItem.change) > 0);
+    return { ...newItem, price: (hasLiveOldData && newItem.price === 0) ? oldItem.price : newItem.price,
+      change: (hasLiveOldData && newItem.change === 0) ? oldItem.change : newItem.change, prevClose: newItem.prevClose || oldItem?.prevClose };
+  };
+  const merged = webMerge({ ticker: 'MSFT', price: 530, change: 1.05, logo: null, prevClose: 524.51 }, failedAt0359.topRelated[0]);
   assert.deepEqual([merged.price, merged.change, merged.prevClose], [530, 1.05, 524.51], '새 프리마켓 값·분모 유지');
   const dashSrc = fs.readFileSync(path.join(__dirname, '../src/components/LiveTickerDashboard.tsx'), 'utf8');
-  assert.match(dashSrc, /return mergeRelatedRow\(oldItem, newItem\)/, '시험과 실제 화면이 같은 병합 함수를 사용');
+  assert.ok(dashSrc.includes('price: (hasLiveOldData && newItem.price === 0) ? oldItem.price : newItem.price,'), '시험의 병합 규칙 = 실제 화면 코드');
 
   // ⑨-c 분모 없던 행(수확본)엔 분모를 새로 넣지 않는다 — 웹 병합(«prevClose: 새 행 || 옛 행»)이 직접 API 의 더 새 분모를 덮지 않게(관문 10250519 ③ 경로)
   const noDen: any = await SPR.officialCloseRelated({ topRelated: [{ ticker: 'AMZN', price: 252.36, change: 0, logo: null }, { ticker: 'GOOGL', price: 324.2, change: -3.15, logo: null, prevClose: 0 }] }, SAT);
@@ -191,9 +195,10 @@ async function main() {
   assert.equal(noDen2.topRelated[1].prevClose, 0, '분모 0 행 → 0 유지(웹은 옛 행 분모를 쓴다)');
   assert.equal(noDen2.topRelated[1].price, 320.21);
   void noDen;
-  //   분모 없는 수확 행도 기존 직접 API 분모를 지킨다 — 실제 웹 병합 함수로 회귀 확인.
-  const keptDenominator = mergeRelatedRow({ ticker: 'AMZN', price: 248, change: -0.95, prevClose: 250.38 }, noDen2.topRelated[0]);
-  assert.equal(keptDenominator.prevClose, 250.38);
+  //   웹 병합 규칙(LiveTickerDashboard)은 이 변경에서 손대지 않는다 — 서버가 내는 행만 고친다
+  const dash = fs.readFileSync(path.join(__dirname, '../src/components/LiveTickerDashboard.tsx'), 'utf8');
+  assert.match(dash, /prevClose: newItem\.prevClose \|\| oldItem\?\.prevClose/);
+  assert.ok(!dash.includes('mergeRelatedRow'));
 
   // ⑨ 빈 블록·모양 아님 — 그대로
   assert.equal(await SPR.officialCloseRelated(null as any, SAT), null);

@@ -46,7 +46,6 @@ import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 import { netPremiumOf } from '@/lib/premiumFlow';
 import { scoreCommandConviction, webConvictionState, type ConvictionSnapshot } from '@/lib/commandConviction';
 import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
-import { mergeRelatedRow } from '@/lib/relatedRowMerge';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -497,7 +496,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     const oldItem = prev?.topRelated?.find((r: any) => r.ticker === newItem.ticker);
                     // [ABSOLUTE FIX V2] Preserve deeply fetched live data (price, change) if backend sends {price:0, change:0}
                     // This prevents SWR from blindly resetting live metrics back to 0.00%.
-                    return mergeRelatedRow(oldItem, newItem);
+                    const hasLiveOldData = oldItem && (oldItem.price > 0 || Math.abs(oldItem.change) > 0);
+                    
+                    return {
+                        ...newItem,
+                        price: (hasLiveOldData && newItem.price === 0) ? oldItem.price : newItem.price,
+                        change: (hasLiveOldData && newItem.change === 0) ? oldItem.change : newItem.change,
+                        prevClose: newItem.prevClose || oldItem?.prevClose
+                    };
                 });
                 return {
                     count: unifiedData.related.count || 0,
