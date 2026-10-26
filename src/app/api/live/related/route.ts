@@ -3,6 +3,7 @@
 import { NextRequest } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { officialCloseRelated } from "@/services/stalePriceRepair";
+import { cashSessionPhaseAt } from "@/lib/marketCalendar";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,6 +25,16 @@ function calcChangeFromSnapshot(tickerData: any): { price: number; change: numbe
     }
 
     return { price: Math.round(currentPrice * 100) / 100, change: 0, prevClose };
+}
+
+// 정규장 밖에는 스냅샷이 이미 실어 온 «본장 종가 한 쌍»(_intrinio.regularClose·prevClose — 공식 일봉 기준, regularDate 의 정규장)을 쓴다.
+//   lastTrade.p 는 시간외 체결이라 전일 종가와 섞으면 혼합 등락이 된다(10/26 GOOGL 321.11 −0.96% ↔ 320.21 −1.24%). 호출 추가 0.
+//   그 값이 없으면(다른 원천·결측) 기존 계산 그대로.
+function regularPairFromSnapshot(tickerData: any): { price: number; change: number; prevClose: number } | null {
+    const close = Number(tickerData?._intrinio?.regularClose);
+    const prev = Number(tickerData?._intrinio?.prevClose);
+    if (!(close > 0) || !(prev > 0)) return null;
+    return { price: Math.round(close * 100) / 100, change: Math.round(((close - prev) / prev) * 10000) / 100, prevClose: prev };
 }
 
 // Massive 호환 시각은 ns. 어댑터/폴백의 ms·us·초도 원천 시각으로 보존하며, 없는 시각은 만들지 않는다.
@@ -86,10 +97,12 @@ export async function GET(req: NextRequest) {
             const snapTicker = SNAPSHOT_ALIAS[relT] || relT;
             return fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${snapTicker}`, {}, true)
                 .then(async (snap: any) => {
-                    const { price, change, prevClose } = calcChangeFromSnapshot(snap?.ticker);
+                    const regularPair = cashSessionPhaseAt(Date.now()) === 'regular' ? null : regularPairFromSnapshot(snap?.ticker);
+                    const { price, change, prevClose } = regularPair ?? calcChangeFromSnapshot(snap?.ticker);
                     const rd = snap?.ticker?._intrinio?.regularDate;
                     const session = typeof rd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rd) ? rd : null;
-                    const asOf = (snap?.ticker?.lastTrade?.p > 0 ? sourceTimeMs(snap?.ticker?.lastTrade?.t) : null)
+                    const asOf = (regularPair ? null : snap?.ticker?.lastTrade?.p > 0 ? sourceTimeMs(snap?.ticker?.lastTrade?.t) : null)
+                        ?? (regularPair ? sourceTimeMs(Date.parse(snap?.ticker?._intrinio?.regularLastTime || '')) : null)
                         ?? sourceTimeMs(snap?.ticker?.updated);
                     if (price > 0) return { ticker: relT, price, change, logo: null, prevClose, session, asOf };
                     // [V11] Snapshot failed (weekend/after-hours) — fallback to v2/aggs 2-day bar

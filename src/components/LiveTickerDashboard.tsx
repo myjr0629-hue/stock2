@@ -46,7 +46,7 @@ import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
 import { netPremiumOf } from '@/lib/premiumFlow';
 import { scoreCommandConviction, webConvictionState, type ConvictionSnapshot } from '@/lib/commandConviction';
 import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
-import { mergeRelatedRow } from '@/lib/relatedRowMerge';
+import { mergeRelatedRow, relatedLivePrevClose } from '@/lib/relatedRowMerge';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -164,8 +164,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const { status: marketStatus } = useMarketStatus();
     const isClosed = marketStatus.isHoliday || marketStatus.market === 'closed';
     const isRelatedRegularSession = !isClosed && marketStatus.session === 'regular';
-    const relatedRegularSessionRef = useRef(isRelatedRegularSession);
-    relatedRegularSessionRef.current = isRelatedRegularSession;
 
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
         refreshInterval: isClosed ? 0 : 10000, // [COST OPT] 10s polling (WS provides real-time prices)
@@ -328,7 +326,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         count: data.count || data.topRelated.length,
                         topRelated: data.topRelated.map((newItem: any) => {
                             const oldItem = prev?.topRelated?.find((r: any) => r.ticker === newItem.ticker);
-                            return mergeRelatedRow(oldItem, newItem, relatedRegularSessionRef.current);
+                            return mergeRelatedRow(oldItem, newItem, Date.now());
                         })
                     }));
                 }
@@ -503,7 +501,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     const oldItem = prev?.topRelated?.find((r: any) => r.ticker === newItem.ticker);
                     // [ABSOLUTE FIX V2] Preserve deeply fetched live data (price, change) if backend sends {price:0, change:0}
                     // This prevents SWR from blindly resetting live metrics back to 0.00%.
-                    return mergeRelatedRow(oldItem, newItem, isRelatedRegularSession);
+                    return mergeRelatedRow(oldItem, newItem, Date.now());
                 });
                 return {
                     count: unifiedData.related.count || 0,
@@ -1621,7 +1619,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             
                                             // STRICT MATH OVERRIDE
                                             const validWsPrice = wsPrice?.price || 0;
-                                            const validPrevClose = item.prevClose || 0;
+                                            const validPrevClose = relatedLivePrevClose(item, Date.now());
 
                                             if (validWsPrice > 0 && validPrevClose > 0) {
                                                 displayChange = ((validWsPrice - validPrevClose) / validPrevClose) * 100;

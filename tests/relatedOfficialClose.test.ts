@@ -172,6 +172,10 @@ async function main() {
   let regularDate = '2026-10-23';
   let omitTimes = false;
   let updateOnly = false;
+  let withRegularPair = false; // 실제 Intrinio 어댑터 스냅샷처럼 _intrinio.regularClose·prevClose(본장 종가 한 쌍)를 싣는다
+  const regularPairs: Record<string, [number, number]> = {
+    GOOGL: [320.21, 324.22], AMD: [516.79, 507.93], META: [642.62, 648.85], MSFT: [524.51, 521.08],
+  };
   const quotes: Record<string, [number, number]> = {
     GOOGL: [321.11, 324.22], AMD: [516.21, 507.93], META: [640.05, 648.85], MSFT: [524.54, 521.08],
   };
@@ -184,7 +188,8 @@ async function main() {
       if (sym === 'XYZQ') return { ticker: { lastTrade: { p: 0 }, prevDay: { c: 0 } } };
       const [price, prevClose] = quotes[sym];
       return { ticker: { lastTrade: { p: price, t: omitTimes || updateOnly ? undefined : tradeTime * 1e6 },
-        updated: omitTimes ? undefined : tradeTime * 1e6, prevDay: { c: prevClose }, _intrinio: { regularDate } } };
+        updated: omitTimes ? undefined : tradeTime * 1e6, prevDay: { c: prevClose }, _intrinio: { regularDate,
+        ...(withRegularPair ? { regularClose: regularPairs[sym][0], prevClose: regularPairs[sym][1], regularLastTime: '2026-10-23T19:59:59.000Z' } : {}) } } };
     },
   });
   stub('../src/lib/aws/dynamoDataProvider', { getRelatedData: async () => ({ tickers: relatedList }) });
@@ -219,8 +224,8 @@ async function main() {
   assert.equal(viaExit, body, '직접 API 공식 행은 unified 출구에서 같은 객체·같은 시각');
   assert.deepEqual(calls, [], 'unified 출구 추가 읽기 0');
   const unified: any = await SPR.officialCloseRelated(fresh, SUN);
-  assert.deepEqual(values(mergeRelatedRow(unified.topRelated[0], body.topRelated[0], false)), values(body.topRelated[0]), 'unified → direct 병합 공식 종가 유지');
-  assert.deepEqual(values(mergeRelatedRow(body.topRelated[0], unified.topRelated[0], false)), values(body.topRelated[0]), 'direct → unified 병합 공식 종가 유지');
+  assert.deepEqual(values(mergeRelatedRow(unified.topRelated[0], body.topRelated[0], SUN)), values(body.topRelated[0]), 'unified → direct 병합 공식 종가 유지');
+  assert.deepEqual(values(mergeRelatedRow(body.topRelated[0], unified.topRelated[0], SUN)), values(body.topRelated[0]), 'direct → unified 병합 공식 종가 유지');
   const laterRequest = await getAt(SUN + 120_000);
   assert.equal(laterRequest.topRelated[0].asOf, FRI_CLOSE, '같은 종가 재요청은 asOf 를 갱신하지 않는다');
 
@@ -235,9 +240,9 @@ async function main() {
     assert.ok(live.topRelated.every((r: any) => r.asOf === tradeTime && r.session === regularDate && !r.closeSession));
     assert.deepEqual(calls, [], '정규장 공식 저장본 읽기 0');
     assert.equal(vendor.length, 4, '정규장 공급사 호출 수도 동일');
-    const mergedLive = mergeRelatedRow(live.topRelated[0], laterRequest.topRelated[0], true);
+    const mergedLive = mergeRelatedRow(live.topRelated[0], laterRequest.topRelated[0], at);
     assert.deepEqual(values(mergedLive), values(live.topRelated[0]), '지연 도착한 직전 공식 종가가 새 정규장 값을 덮지 않는다');
-    assert.deepEqual(values(mergeRelatedRow(body.topRelated[0], live.topRelated[0], true)), values(live.topRelated[0]), '새 정규장 값은 채택');
+    assert.deepEqual(values(mergeRelatedRow(body.topRelated[0], live.topRelated[0], at)), values(live.topRelated[0]), '새 정규장 값은 채택');
   }
   updateOnly = true;
   assert.equal((await getAt(MON_1000)).topRelated[0].asOf, tradeTime, '체결 시각 없으면 원천 updated 사용');
@@ -261,9 +266,26 @@ async function main() {
   const failedRow = unavailable.topRelated[0], recoveredRow = recovered.topRelated[0];
   assert.ok(recoveredRow.asOf < failedRow.asOf, '16:00 공식 종가 < 시간외 체결 시각');
   for (const [oldRow, newRow] of [[failedRow, recoveredRow], [recoveredRow, failedRow]]) {
-    assert.deepEqual(values(mergeRelatedRow(oldRow, newRow, false)),
+    assert.deepEqual(values(mergeRelatedRow(oldRow, newRow, SUN)),
       [320.21, -1.24, 324.22, '2026-10-23', FRI_CLOSE], '조회 복구·응답 순서 무관 공식 종가 유지');
   }
+  // 공식 EOD 를 못 읽어도 장외엔 스냅샷의 본장 종가 한 쌍 — 시간외 321.11 을 내지 않는다(추가 호출 0). 정규장엔 실시간 그대로.
+  withRegularPair = true; regularDate = '2026-10-23'; tradeTime = Date.parse('2026-10-23T23:59:00Z');
+  official = {}; vendor.length = 0;
+  const pairOnly = await getAt(SUN);
+  assert.deepEqual(pairOnly.topRelated.map((r: any) => [r.price, r.change, r.prevClose, r.session, r.closeSession]), [
+    [320.21, -1.24, 324.22, '2026-10-23', undefined], [516.79, 1.74, 507.93, '2026-10-23', undefined],
+    [642.62, -0.96, 648.85, '2026-10-23', undefined], [524.51, 0.66, 521.08, '2026-10-23', undefined],
+  ], 'EOD 읽기 실패에도 정규장 종가·등락');
+  assert.equal(pairOnly.topRelated[0].asOf, Date.parse('2026-10-23T19:59:59.000Z'), '정규장 마지막 체결 시각');
+  assert.equal(vendor.length, 4, '공급사 호출 수 동일');
+  official = savedOfficial;
+  const pairOfficial = await getAt(SUN);
+  assert.deepEqual(values(pairOfficial.topRelated[0]), [320.21, -1.24, 324.22, '2026-10-23', FRI_CLOSE], 'EOD 가 있으면 공식 표식');
+  regularDate = '2026-10-26'; tradeTime = MON_1000 - 30_000;
+  const pairReg = await getAt(MON_1000);
+  assert.deepEqual([pairReg.topRelated[0].price, pairReg.topRelated[0].change], [321.11, -0.96], '정규장엔 실시간 체결(본장 쌍 미사용)');
+  withRegularPair = false;
   relatedList = ['XYZQ']; vendor.length = 0;
   const fallback = await getAt(SUN);
   assert.deepEqual(values(fallback.topRelated[0]), [12.5, 1.21, 12.35, undefined, Date.parse('2026-10-23T04:00:00Z')]);
@@ -287,10 +309,10 @@ async function main() {
   // ⑨-b2 관문 10250550 재현 — 03:59 직접 API 실패 행(0)이 공식 값으로 채워져 unified 캐시에 남으면, 04:00 뒤 웹 병합(실제 규칙)이
   //       직접 API 의 새 프리마켓 값(530/+1.05%)을 524.51/+0.66% 로 덮었다 → 실패 행은 0 그대로라 병합이 새 값을 지킨다
   const failedAt0359: any = await SPR.officialCloseRelated({ topRelated: [{ ticker: 'MSFT', price: 0, change: 0, logo: null, prevClose: 0 }] }, Date.parse('2026-10-26T07:59:00Z'));
-  const merged = mergeRelatedRow({ ticker: 'MSFT', price: 530, change: 1.05, logo: null, prevClose: 524.51 }, failedAt0359.topRelated[0], false);
+  const merged = mergeRelatedRow({ ticker: 'MSFT', price: 530, change: 1.05, logo: null, prevClose: 524.51 }, failedAt0359.topRelated[0], Date.parse('2026-10-26T08:01:00Z'));
   assert.deepEqual([merged.price, merged.change, merged.prevClose], [530, 1.05, 524.51], '새 프리마켓 값·분모 유지');
   const dashSrc = fs.readFileSync(path.join(__dirname, '../src/components/LiveTickerDashboard.tsx'), 'utf8');
-  assert.match(dashSrc, /return mergeRelatedRow\(oldItem, newItem, isRelatedRegularSession\)/, '시험과 실제 화면이 같은 병합 함수를 사용');
+  assert.match(dashSrc, /return mergeRelatedRow\(oldItem, newItem, Date\.now\(\)\)/, '시험과 실제 화면이 같은 병합 함수를 사용');
 
   // ⑨-c 분모 없던 행(수확본)엔 분모를 새로 넣지 않는다 — 웹 병합(«prevClose: 새 행 || 옛 행»)이 직접 API 의 더 새 분모를 덮지 않게(관문 10250519 ③ 경로)
   const noDen: any = await SPR.officialCloseRelated({ topRelated: [{ ticker: 'AMZN', price: 252.36, change: 0, logo: null }, { ticker: 'GOOGL', price: 324.2, change: -3.15, logo: null, prevClose: 0 }] }, SAT);
@@ -302,7 +324,7 @@ async function main() {
   assert.equal(noDen2.topRelated[1].price, 320.21);
   void noDen;
   //   분모 없는 수확 행도 기존 직접 API 분모를 지킨다 — 실제 웹 병합 함수로 회귀 확인.
-  const keptDenominator = mergeRelatedRow({ ticker: 'AMZN', price: 248, change: -0.95, prevClose: 250.38 }, noDen2.topRelated[0], false);
+  const keptDenominator = mergeRelatedRow({ ticker: 'AMZN', price: 248, change: -0.95, prevClose: 250.38 }, noDen2.topRelated[0], SAT);
   assert.equal(keptDenominator.prevClose, 250.38);
 
   // ⑨ 빈 블록·모양 아님 — 그대로

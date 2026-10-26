@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
+import { relatedLivePrevClose } from '../src/lib/relatedRowMerge';
 
 // 두 화면의 실제 표시 계산을 실행한다. React·브라우저·네트워크·환경 파일 접근 없음.
 function parse(file: string) {
@@ -42,18 +43,21 @@ function displayCalculation(ast: ts.SourceFile, getter: string) {
         if (ts.isReturnStatement(statement)) break;
         statements.push(statement.getText(ast));
     }
-    return compile(['r', 'item', 'wsGetPrice', 'relWsGetPrice', 'isRegularSession', 'isRelatedRegularSession', 'relWsConnected'],
+    return compile(['r', 'item', 'wsGetPrice', 'relWsGetPrice', 'isRegularSession', 'isRelatedRegularSession', 'relWsConnected', 'relatedLivePrevClose', 'Date'],
         `${statements.join('\n')}\nreturn [displayPrice, displayChange];`);
 }
 const mobileDisplay = displayCalculation(mobile, 'wsGetPrice');
 const desktopDisplay = displayCalculation(desktop, 'relWsGetPrice');
-const official = { ticker: 'GOOGL', price: 320.21, change: -1.24, prevClose: 324.22, closeSession: '2026-10-23' };
+const SUN = Date.parse('2026-10-26T02:55:00Z');      // 일요일 CLOSED(운영 실측 10/26 11:55 KST)
+const MON_REG = Date.parse('2026-10-26T14:00:00Z');  // 월 10:00 ET 정규장
+// 서버 공식 행(10/23 GOOGL 공식 320.21 · 전일 324.22)
+const official = { ticker: 'GOOGL', price: 320.21, change: -1.24, prevClose: 324.22, session: '2026-10-23', closeSession: '2026-10-23' };
 const extendedTick = { price: 321.11, changePct: -0.96 };
 let tickReads = 0, checks = 0;
-function check(calc: Function, regular: boolean, row: any, tick: any, expected: number[], connected = true) {
+function check(calc: Function, regular: boolean, row: any, tick: any, expected: number[], connected = true, nowMs = regular ? MON_REG : SUN) {
     const before = tickReads;
     const getPrice = () => { tickReads++; return tick; };
-    assert.deepEqual(calc(row, row, getPrice, getPrice, regular, regular, connected), expected);
+    assert.deepEqual(calc(row, row, getPrice, getPrice, regular, regular, connected, relatedLivePrevClose, { now: () => nowMs }), expected);
     if (!regular) assert.equal(tickReads, before, '장외에서는 잔류 WebSocket 틱도 읽지 않음');
     checks++;
 }
@@ -69,6 +73,7 @@ for (const state of states) {
     const desktopReg = desktopRegular(state);
     assert.equal(mobileReg, false); assert.equal(desktopReg, false);
     for (const [calc, regular] of [[mobileDisplay, mobileReg], [desktopDisplay, desktopReg]] as const) {
+        // 관문 1206 ① — 장외엔 WebSocket 321.11 이 와도 공식 320.21 −1.24%
         check(calc, regular, official, extendedTick, [320.21, -1.24]);
         check(calc, regular, { ...official, price: 100, change: 0, prevClose: 100 }, { price: 99, changePct: -1 }, [100, 0]);
         check(calc, regular, { ...official, price: 100.56, change: -0.44, prevClose: 101 }, { price: 101.56, changePct: 0.56 }, [100.56, -0.44]);
@@ -78,13 +83,21 @@ for (const state of states) {
 const mobileReg = mobileRegular({ session: 'REG' });
 const desktopReg = desktopRegular({ session: 'regular', market: 'open', isHoliday: false });
 assert.equal(mobileReg, true); assert.equal(desktopReg, true);
+const liveRow = { ticker: 'GOOGL', price: 321, change: 0.25, prevClose: 320.21, session: '2026-10-26' };
 for (const calc of [mobileDisplay, desktopDisplay]) {
     const before = tickReads;
-    check(calc, true, official, { ...extendedTick, changePct: 4.4 }, [321.11, -0.96]);
-    assert.ok(tickReads > before, '정규장 실시간 가격을 읽고 서버 분모로 등락 계산');
+    // 관문 1305 ① — PRE 에 받은 금요일 공식 행이 그대로 정규장에 들어가도 분모는 금요일 공식 종가 320.21 → +0.28%(−0.96% 아님)
+    check(calc, true, official, { ...extendedTick, changePct: 4.4 }, [321.11, 0.28]);
+    assert.ok(tickReads > before, '정규장 실시간 가격을 읽는다');
+    check(calc, true, { ...official, prevClose: undefined }, extendedTick, [321.11, 0.28]);
+    // 정규장 실시간 행 — 공급사 전일 종가 분모
+    check(calc, true, liveRow, { price: 322, changePct: 4.4 }, [322, 0.56]);
+    check(calc, true, liveRow, undefined, [321, 0.25], true);
+    check(calc, true, { ...liveRow, price: 320.21, change: 0 }, { price: 320.21, changePct: 0 }, [320.21, 0], true);
+    // 기준이 오래된 행(지난 거래일 시간외 캐시)은 그 분모(324.22)로 계산하지 않는다 → 기존 무분모 경로
+    check(calc, true, { ...official, price: 321.11, change: -0.96, closeSession: undefined }, { price: 322, changePct: 0.56 }, [322, 0.56]);
+    check(calc, true, { ...official, price: 321.11, change: -0.96, closeSession: undefined }, { price: 322, changePct: 0 }, [322, -0.96]);
     check(calc, true, official, undefined, [320.21, -1.24]);
-    check(calc, true, { ...official, prevClose: undefined }, extendedTick, [321.11, -0.96]);
-    check(calc, true, { ...official, price: 100, change: -1, prevClose: 100 }, { price: 100, changePct: -1 }, [100, 0]);
 }
 check(desktopDisplay, true, official, extendedTick, [320.21, -1.24], false);
-console.log(`relatedPeerDisplay: 실제 모바일·웹 계산 ${checks}개 통과 — PRE·POST·CLOSED·주말·휴장 공식 종가, 부호·보합, REG 실시간`);
+console.log(`relatedPeerDisplay: 실제 모바일·웹 계산 ${checks}개 통과 — PRE·POST·CLOSED·주말·휴장 공식 종가, PRE→REG 분모 재설정, 부호·보합, REG 실시간`);
