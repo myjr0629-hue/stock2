@@ -160,7 +160,7 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
     }
 
     // ── 4) 검증 — AI 가 준 것 중 «쓸 수 있는 것»만 저장한다 ──
-    const { sectors: out, kept, missing, rejected } = selectSectorBriefOutput(parsed, facts);
+    const { sectors: out, kept, missing, rejected } = selectSectorBriefOutput(parsed, facts, todayET);
     if (!kept) {
         return NextResponse.json({ success: false, error: 'all rejected', rejected, missing, ms: Date.now() - t0 }, { status: 502 });
     }
@@ -172,7 +172,7 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
         ...(context ? { context, optionsAsOf: bundle?.date ?? null, optionsOpenedOn: bundle?.prevDate ?? null } : {}),
         generatedAt: new Date(now).toISOString(),
         source: 'claude',
-        promptVersion: 'sector-brief-v2',
+        promptVersion: 'sector-brief-v2.1',
         facts,
         model,
         sectors: out,
