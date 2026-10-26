@@ -155,3 +155,11 @@ test('제외 평균 방향어 모순(부호 없이 «상승»·«up»)도 탈락
   assert.ok(sb.checkSectorBriefNew('All 7 fell; the average without VKTX was up 1.64% (10/23 REG).', 'en', F('bio_pulse')).includes('ex-average:VKTX'));
   assert.deepEqual(sb.checkSectorBriefNew('All 7 fell; the average without VKTX was down 1.64% (10/23 REG).', 'en', F('bio_pulse')), []);
 });
+
+test('관문 10261850 반례: «나머지 6종목 평균»에 전체 평균·부호와 방향어 모순은 탈락', () => {
+  assert.ok(sb.checkSectorBriefNew('MSFT 상승, 나머지 6종목 평균 −0.55%로 약세 관측 (10/23 정규장)', 'ko', F('m7')).includes('ex-average:MSFT'));
+  assert.ok(sb.checkSectorBriefNew('MSFTのみ上昇、残り6銘柄の平均−0.55%と弱さを観測（10/23 通常取引）', 'ja', F('m7')).includes('ex-average:MSFT'));
+  assert.deepEqual(sb.checkSectorBriefNew('MSFT 상승, 나머지 6종목 평균 −0.75%로 약세 관측 (10/23 정규장)', 'ko', F('m7')), []);
+  assert.ok(sb.checkSectorBriefNew('MU 제외 평균 +0.97% 하락으로 약세 확산 관측 (10/23 정규장)', 'ko', F('silicon_core')).includes('ex-average:MU'));
+  assert.deepEqual(sb.checkSectorBriefNew('MU 제외 평균 +0.97% 상승으로 강세 확산 관측 (10/23 정규장)', 'ko', F('silicon_core')), []);
+});

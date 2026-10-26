@@ -178,13 +178,14 @@ function exAverageReasons(text: string, f: SectorFact, exAvgs: ReturnType<typeof
         // 부호 또는 방향어(«평균 1.64% 상승»·«down 1.64%»)로 적힌 방향이 실제와 다르면 틀린 값이다
         const after = text.slice(n.index + n.written.length).replace(/^\s*[%％]\s*/, '').slice(0, 4);
         const dirBefore = between.slice(-12);
-        const dir = /^[+]/.test(n.written) || /^(?:상승|上昇|高)/.test(after) || /\b(?:up|rose|gained|higher)\s*$/i.test(dirBefore) ? 1
-            : /^[−-]/.test(n.written) || /^(?:하락|下落|安)/.test(after) || /\b(?:down|fell|lost|lower)\s*$/i.test(dirBefore) ? -1 : 0;
-        const sign = (v: number) => dir !== 0 && Math.abs(v) >= 0.005 && dir !== Math.sign(v);
+        const signDir = /^[+]/.test(n.written) ? 1 : /^[−-]/.test(n.written) ? -1 : 0;
+        const wordDir = /^(?:상승|上昇|高)/.test(after) || /\b(?:up|rose|gained|higher)\s*$/i.test(dirBefore) ? 1
+            : /^(?:하락|下落|安)/.test(after) || /\b(?:down|fell|lost|lower)\s*$/i.test(dirBefore) ? -1 : 0;
+        const conflict = signDir !== 0 && wordDir !== 0 && signDir !== wordDir;   // «+0.97% 하락»(관문 10261850)
+        const dir = signDir || wordDir;
+        const sign = (v: number) => conflict || (dir !== 0 && Math.abs(v) >= 0.005 && dir !== Math.sign(v));
         const okEx = expect != null && close(n.written, expect) && !sign(expect);
         const okOwn = !hasAvg && !rest && close(n.written, own) && !sign(own);
-        // «나머지 6종목 하락, 평균 −0.55%»의 평균은 섹터 전체 평균일 수 있다 — 전체 평균 값이면 묶지 않는다
-        if (rest && close(n.written, f.avgChangePct)) continue;
         bound.add(num.index);
         if (!okEx && !okOwn) out.push(`ex-average:${tk.t}`);
     }
