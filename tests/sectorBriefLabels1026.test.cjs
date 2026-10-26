@@ -81,7 +81,10 @@ test('운영 저장 문장 중 결함 없는 칸은 새 검사도 통과(과잉 
 
 test('관문 10261929: 다른 사실값과 같은 틀린 제외 평균(«VKTX 제외 평균 −2.54%» = LLY 값)도 표현 자체로 탈락, 일반 문장은 정상', () => {
   for (const [loc, t] of [['ko', 'VKTX 제외 평균 −2.54%로 약세 관측 (10/23 정규장)'], ['ja', 'VKTXを除く平均は−2.54%（10/23 通常取引）'],
-    ['en', 'All 7 fell; average ex-VKTX −2.54% (10/23 REG).'], ['en', 'Excluding VKTX, the average was −2.54% (10/23 REG).']])
+    ['en', 'All 7 fell; average ex-VKTX −2.54% (10/23 REG).'], ['en', 'Excluding VKTX, the average was −2.54% (10/23 REG).'],
+    // 관문 10261947: 사이에 «나머지 6종목»(숫자)이 끼어도 탈락
+    ['ko', 'VKTX 제외 나머지 6종목 평균 −2.54% (10/23 정규장)'], ['ja', 'VKTXを除く残り6銘柄の平均は−2.54%（10/23 通常取引）'],
+    ['en', 'Other than VKTX, the remaining 6 stocks averaged −2.54% (10/23 REG).'], ['en', 'Excluding VKTX, the other 6 names had an average of −2.54% (10/23 REG).']])
     assert.ok(sb.checkSectorBriefNew(t, loc, F('bio_pulse')).includes('excluded-average'), t);
   for (const [loc, t] of [['ko', '5/7 상승, 평균 1.57% — DDOG 4.62% 선두, CRM -0.69% 제외 대부분 상승 관측 (10/23 정규장)'],
     ['en', 'DDOG leads at +4.62%; five of seven rose, broad participation (10/23 REG)']])
