@@ -163,6 +163,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [S-45] SSOT Integration (Moved up to control polling)
     const { status: marketStatus } = useMarketStatus();
     const isClosed = marketStatus.isHoliday || marketStatus.market === 'closed';
+    const isRelatedRegularSession = !isClosed && marketStatus.session === 'regular';
+    const relatedRegularSessionRef = useRef(isRelatedRegularSession);
+    relatedRegularSessionRef.current = isRelatedRegularSession;
 
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
         refreshInterval: isClosed ? 0 : 10000, // [COST OPT] 10s polling (WS provides real-time prices)
@@ -321,10 +324,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             .then(res => res.json())
             .then(data => {
                 if (isMounted && data?.topRelated) {
-                    setRelatedData({
+                    setRelatedData(prev => ({
                         count: data.count || data.topRelated.length,
-                        topRelated: data.topRelated
-                    });
+                        topRelated: data.topRelated.map((newItem: any) => {
+                            const oldItem = prev?.topRelated?.find((r: any) => r.ticker === newItem.ticker);
+                            return mergeRelatedRow(oldItem, newItem, relatedRegularSessionRef.current);
+                        })
+                    }));
                 }
             })
             .catch(() => {});
@@ -497,7 +503,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     const oldItem = prev?.topRelated?.find((r: any) => r.ticker === newItem.ticker);
                     // [ABSOLUTE FIX V2] Preserve deeply fetched live data (price, change) if backend sends {price:0, change:0}
                     // This prevents SWR from blindly resetting live metrics back to 0.00%.
-                    return mergeRelatedRow(oldItem, newItem);
+                    return mergeRelatedRow(oldItem, newItem, isRelatedRegularSession);
                 });
                 return {
                     count: unifiedData.related.count || 0,
@@ -1602,14 +1608,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             // [V11] Show Live Absolute Price AND Server Percentage to prevent Pre-Market Confusion
                                             const serverChange = item.change ?? 0;
                                             const serverPrice = item.price ?? 0;
-                                            const wsPrice = relWsConnected ? relWsGetPrice(item.ticker) : undefined;
+                                            const wsPrice = isRelatedRegularSession && relWsConnected ? relWsGetPrice(item.ticker) : undefined;
                                             
                                             // Prefer Live WebSocket price if available, otherwise server
                                             const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;
                                             
-                                            // Percentage calculation: 
-                                            // During Pre-Market, serverChange is forcefully 0 to avoid hybrid math.
-                                            // Live WebSocket (wsChangePct) streams real-time Pre-Market percentage.
+                                            // Outside REG, retain the server's official close and change.
                                             // [ABSOLUTE FIX] EC2 WebSocket is broadcasting massively corrupted changePct (+4.40% for GOOG).
                                             // We NEVER trust ANY external changePct (not from Polygon, not from WebSocket) if we have the true prevClose.
                                             // The backend now passes `item.prevClose` from the snapshot. We strictly calculate ((price - prevClose) / prevClose) * 100.

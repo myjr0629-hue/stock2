@@ -293,7 +293,7 @@ export function MobileCmdOverview({ ticker, quote, unified, volatilityData, vola
 
             {/* ═══ RELATED PEERS ═══ */}
             {relatedData.length > 0 && (
-                <RelatedPeersLive tickers={relatedData.slice(0, 4)} currentPrice={q.price} />
+                <RelatedPeersLive tickers={relatedData.slice(0, 4)} currentPrice={q.price} isRegularSession={q.session === 'REG'} />
             )}
 
             {/* ═══ COMPANY OVERVIEW ═══ */}
@@ -312,7 +312,7 @@ export function MobileCmdOverview({ ticker, quote, unified, volatilityData, vola
 }
 
 // ── Related Peers with LIVE prices — same WebSocket as desktop ──
-function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPrice: number }) {
+function RelatedPeersLive({ tickers, currentPrice, isRegularSession }: { tickers: any[]; currentPrice: number; isRegularSession: boolean }) {
     const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);
     const { getPrice: wsGetPrice } = useRealtimeData(peerTickers);
     const router = useRouter();
@@ -322,7 +322,7 @@ function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPr
             <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-3">Related Peers</div>
             <div className="space-y-2.5">
                 {tickers.map((r: any) => {
-                    const wsPrice = wsGetPrice(r.ticker);
+                    const wsPrice = isRegularSession ? wsGetPrice(r.ticker) : undefined;
                     const serverPrice = r.price || 0;
                     const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;
                     let displayChange = r.change ?? 0;

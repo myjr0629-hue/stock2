@@ -11,11 +11,17 @@ interface RelatedRow {
 const validAsOf = (value: unknown): value is number =>
     typeof value === 'number' && Number.isFinite(value) && value > 0;
 
-export function mergeRelatedRow<T extends RelatedRow>(oldItem: T | null | undefined, newItem: T): T {
+export function mergeRelatedRow<T extends RelatedRow>(oldItem: T | null | undefined, newItem: T, isRegularSession: boolean): T {
     const hasLiveOldData = !!oldItem && (oldItem.price > 0 || Math.abs(oldItem.change) > 0);
+    const oldOfficial = !!oldItem && oldItem.price > 0 && !!oldItem.closeSession;
+    const newOfficial = newItem.price > 0 && !!newItem.closeSession;
+    // Outside REG, official close provenance wins over extended trade time in
+    // either arrival order. Within the same basis, retain the asOf guard.
+    const keepOfficial = !isRegularSession && oldOfficial && !newOfficial;
+    const takeOfficial = !isRegularSession && newOfficial && !oldOfficial;
     // Compare only two server calculation times. A missing time must not block
     // the existing denominator backfill (T12 gate 10250519).
-    if (hasLiveOldData && validAsOf(oldItem.asOf) && validAsOf(newItem.asOf) && newItem.asOf < oldItem.asOf) {
+    if (hasLiveOldData && (keepOfficial || (!takeOfficial && validAsOf(oldItem.asOf) && validAsOf(newItem.asOf) && newItem.asOf < oldItem.asOf))) {
         return {
             ...newItem,
             price: oldItem.price,
