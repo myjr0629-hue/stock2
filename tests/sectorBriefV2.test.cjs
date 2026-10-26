@@ -43,7 +43,7 @@ test('prompt retains existing lengths/tone and excludes options/futures/undated 
   assert.match(p.system, /Causal evidence: NONE/); assert.match(p.system, /two interpretations/);
   assert.match(p.system, /equal-weight mean/); assert.match(p.system, /percentage POINTS/);
   assert.doesNotMatch(p.userPrompt, /priorOptions|callOI|futures|news|999/);
-  assert.match(p.userPrompt, /avgWithoutBest/); assert.match(p.userPrompt, /members/); assert.doesNotMatch(p.userPrompt, /exLeader/);
+  assert.match(p.userPrompt, /equalWeightAvgPct/); assert.match(p.userPrompt, /members/); assert.doesNotMatch(p.userPrompt, /exLeader|avgWithout/);
 });
 test('ordinary good text, dated REG fallback and optional two-way tests are not over-rejected in 3 languages', () => {
   for (const locale of contract.SECTOR_LOCALES) assert.deepEqual(reasons(good[locale], locale), []);
@@ -58,7 +58,8 @@ test('ordinary good text, dated REG fallback and optional two-way tests are not 
     ja: '他銘柄が上がれば広がり、上がらなければ一部銘柄への集中と読む',
   })) assert.deepEqual(reasons(text, locale), []);
   assert.deepEqual(reasons('섹터 안 종목별 움직임 차이가 관측됩니다'), []);
-  assert.deepEqual(reasons('정규장 NVDA를 제외한 평균 -0.83%, 선두만 강한 모습 확인'), []);
+  // 10/26 범위 축소(T6): «제외 평균»은 모델 입력에서 빠졌다 — 문장에 나오면 근거 없는 숫자로 탈락.
+  assert.deepEqual(reasons('정규장 NVDA를 제외한 평균 -0.83%, 선두만 강한 모습 확인'), ['number:-0.83']);
   assert.deepEqual(reasons('정규장 NVDA 상승, 기관 매집 여부는 가격만으로 확인되지 않음'), []);
   assert.deepEqual(reasons('정규장 NVDA 상승, 금리 영향은 확인되지 않음'), []);
   assert.deepEqual(reasons('Cash: NVDA +6%; institutional buying is unconfirmed', 'en'), []);
