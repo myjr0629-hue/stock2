@@ -106,6 +106,8 @@ export function checkSectorBriefNew(text: string, locale: SectorLocale, f: Secto
     const reasons = checkSectorBriefLegacy(text, locale);
     // «제외 평균»은 입력에 없다 — 문장에 나오면 근거 없는 숫자로 탈락(10/26 bio_pulse «제외 평균 −2.44%» 오독, 범위 축소).
     const allowed = [...numericFacts(f), ...(f.members?.map(r => r.c) || [])];
+    // 다른 사실값과 우연히 같은 틀린 제외 평균(관문 10261929: «VKTX 제외 평균 −2.54%» = LLY 값)도 막는다 — 제외 평균 표현 자체를 탈락.
+    if (/(?:제외|뺀|빼면|빼고)[^.,;%\d]{0,8}평균|(?:除く|除いた|除外|以外の?)[^。、%\d]{0,8}平均|\b(?:ex-[A-Za-z]+|excluding\s+[A-Za-z]+|without\s+[A-Za-z]+)\b[^.;%\d]{0,20}\b(?:average|avg|mean)\b|\b(?:average|avg|mean)\s+(?:ex-|excluding\s|without\s)/i.test(text)) reasons.push('excluded-average');
     reasons.push(...ungroundedNumbers(dateFree, allowed).map(n => `number:${n}`));
     // 입력 필드 이름 노출(10/26 운영 ko «exLeader 0.97%»): 소문자로 시작하는 camelCase·snake_case 식별자. 티커(대문자)·mRNA·iPhone 류는 해당 없음.
     if (/(?<![A-Za-z])[a-z]{2,}[A-Z][A-Za-z]*|(?<![A-Za-z])[a-z]+_[a-z]+(?![A-Za-z])/.test(text)) reasons.push('internal-field');
