@@ -5,7 +5,8 @@
  * 필요한 종가가 없으면 null — 호출자는 저장값을 그대로 쓴다(빈칸을 만들지 않는다).
  */
 import { peekOfficialSessionClose } from './intrinioClient';
-import { etDateOf, etLastClosedSessionDate, etMinutesOf, isNonTradingDay, prevTradingDate, sessionCloseMinutes } from '@/lib/marketCalendar';
+import { cashSessionPhaseAt, etDateOf, etLastClosedSessionDate, etMinutesOf, isNonTradingDay, prevTradingDate, sessionCloseMinutes } from '@/lib/marketCalendar';
+import { etWallTimeToMs } from '@/lib/marketSession';
 
 /**
  * [M7] 마감 뒤 만든 섹터 스냅샷의 close_price·change_pct 를 그 세션의 «공식» 종가로 맞춘다.
@@ -29,35 +30,19 @@ export async function officialCloseForSnapshot(snapshotTsIso: unknown): Promise<
 //   unified 캐시는 «목록이 있으면 usable»이라 세션이 바뀌어도 related 를 다시 받지 않는다(isFieldUsable).
 //   웹 종목 화면(LiveTickerDashboard)은 unified 의 related 를 직접 조회 값 위에 합치고(«prevClose: 새 행 || 옛 행»), prevClose 를 실시간 등락 분모로 쓴다.
 //
-// [규칙] 화면이 «끝난 세션 S»를 보여 줄 시간(그 세션 마감 뒤 ~ 다음 거래일 04:00 ET 프리마켓 전 · 주말 · 휴장)에만,
-//   행마다 peekOfficialSessionClose(종목, S, S 직전 거래일) — M7 과 같은 공식 종가 한 쌍(15:57 캡처 제외) — 이 있으면
-//   price = S 종가 · change = S 등락률(직전 거래일 공식 종가 대비) · prevClose = 직전 거래일 공식 종가(직접 API 의 prevDay.c 와 같은 뜻 —
-//   원래 분모가 있던 행만)로 바꾸고
-//   closeSession = S · asOf = 계산 시각을 싣는다.
-//   · 기준 세션을 값과 함께 저장: 직접 API 가 행마다 session(공급사 스냅샷의 본장 날짜 _intrinio.regularDate)·asOf 를 싣는다.
-//     session = S 이고 S 마감 뒤에 계산했고 가격이 있는 행은 그대로(직접 API 와 같은 값 — 시간외 체결 포함) — 다르거나 없으면(DynamoDB 수확본·장중 값·옛 캐시·
-//     공급사 스냅샷이 아직 전 세션·일봉 폴백) 공식 한 쌍으로 다시 계산한다(읽은 시각으로 기준을 정하지 않는다 — 관문 10250504 ①)
-//   · 공식 값이 아직 없거나(마감 직후 게시 전) 못 읽으면 그 행은 그대로(0·보합을 만들지 않는다)
-//   · 가격 0 인 실패 행은 채우지 않는다 — 웹 병합(«새 행 0 이면 옛 값 유지»)이 04:00 뒤 직접 API 의 새 프리마켓 값을 지키게(관문 10250550)
-//   · 프리마켓~마감(다음 세션이 살아 있는 구간)에는 손대지 않는다 — 행은 실시간 값이어야 하고, 공식 종가로 메우면 실시간 분모가 틀어진다
-//   · GOOG 는 직접 API(/api/live/related SNAPSHOT_ALIAS)와 같이 GOOGL 값을 쓴다
-//   · 범위(관문 10250519 뒤 축소): 웹 병합 규칙(LiveTickerDashboard)은 바꾸지 않는다 — 서버가 내는 행만 고친다. 직접 API·unified 출구·종목 SSR 이 같은 함수.
+// [규칙] 정규장 밖(PRE·POST·CLOSED·주말·휴장)에는 직전 정규장 S 의 공식 종가 한 쌍을 쓴다.
+//   session 이 S 이거나 마감 뒤 받은 스냅샷이어도 시간외 체결일 수 있다. closeSession = S 인 공식 행만 재사용한다.
+//   price = S 종가 · change = 그 전 정규장 공식 종가 대비 등락 · closeSession = S.
+//   asOf = S 정규장 마감 시각(ET·DST·조기 폐장 반영). 요청·재계산 시각으로 새 값처럼 만들지 않는다.
+//   · 공식 값이 없거나 읽기 실패·시간 초과이면 원래 행 유지. 가격 0 실패 행은 채우지 않는다.
+//   · prevClose 는 원래 분모가 있던 행만 바꾼다. GOOG 는 직접 API 와 같이 GOOGL 값을 쓴다.
+//   · 정규장에는 손대지 않으며 읽기도 없다. 직접 API·unified 출구·종목 SSR 이 같은 함수를 쓴다.
 //   ⛔ 벤더 호출 0 · 저장본 쓰기 0(이미 적재된 EOD 읽기) · 1.5초 상한(넘으면 그대로)
 // ══════════════════════════════════════════════════════════════════════
 
-/** 연관 종목 행이 «끝난 세션»을 보여 줄 시간이면 그 세션(ET YYYY-MM-DD), 다음 세션이 살아 있는 구간이면 null */
+/** 정규장 밖이면 직전 정규장 날짜(ET YYYY-MM-DD), 정규장 중이면 null */
 export function relatedCompletedSession(nowMs: number = Date.now()): string | null {
-    const today = etDateOf(nowMs);
-    const session = etLastClosedSessionDate(nowMs);
-    if (!isNonTradingDay(today) && today !== session && etMinutesOf(nowMs) >= 4 * 60) return null;
-    return session;
-}
-
-/** asOf(ms) 가 그 세션 정규장 마감(평소 16:00 · 조기 폐장 13:00 ET) 뒤인가 */
-function computedAfterClose(asOf: unknown, session: string): boolean {
-    if (typeof asOf !== 'number' || !Number.isFinite(asOf) || asOf <= 0) return false;
-    const d = etDateOf(asOf);
-    return d > session || (d === session && etMinutesOf(asOf) >= sessionCloseMinutes(session));
+    return cashSessionPhaseAt(nowMs) === 'regular' ? null : etLastClosedSessionDate(nowMs);
 }
 
 const RELATED_PRICE_ALIAS: Record<string, string> = { GOOG: 'GOOGL' };
@@ -70,10 +55,11 @@ export async function officialCloseRelated<T = any>(related: T, nowMs: number = 
     const session = relatedCompletedSession(nowMs);
     if (!session) return related;
     const prev = prevTradingDate(session);
-    // 고치는 행 = 가격이 있는데(실패 행 0 은 그대로 — 웹 병합이 0 을 «결측»으로 보고 더 새 값을 지킨다, 관문 10250550)
-    //   공급사가 말한 본장 날짜가 S 가 아니거나, S 마감 «뒤»에 계산한 값이 아닌 행(장중 값·전 세션 스냅샷·수확본·일봉 폴백)
-    const need = (row: any) => Number(row?.price) > 0 && !(row?.session === session && computedAfterClose(row?.asOf, session));
-    if (!rows.some(need)) return related;
+    const asOf = etWallTimeToMs(session, sessionCloseMinutes(session));
+    const isOfficial = (row: any) => Number(row?.price) > 0 && row?.session === session && row?.closeSession === session;
+    // session·asOf 만으로는 공식 종가를 증명할 수 없다(10/26 GOOGL 시간외 321.11 반례).
+    const need = (row: any) => Number(row?.price) > 0 && !isOfficial(row);
+    if (!rows.some((row) => need(row) || (isOfficial(row) && row.asOf !== asOf))) return related;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const work = Promise.all(rows.map(async (row) => {
         const t = typeof row?.ticker === 'string' ? row.ticker.toUpperCase() : '';
@@ -85,13 +71,18 @@ export async function officialCloseRelated<T = any>(related: T, nowMs: number = 
     if (!pairs) return related;
     let changed = false;
     const next = rows.map((row, i) => {
+        if (isOfficial(row)) {
+            if (row.asOf === asOf) return row;
+            changed = true;
+            return { ...row, asOf }; // 예전 공식 캐시의 요청 시각도 종가 기준 시각으로 정규화(추가 읽기 0).
+        }
         const p = pairs[i];
         if (!p || !(p.close > 0) || !(p.prevClose > 0)) return row;
         changed = true;
         // prevClose 는 원래 분모가 있던 행만 바꾼다 — 분모 없던 행(수확본)에 새로 넣으면 웹 병합(«새 행 || 옛 행»)이
         //   직접 API 의 더 새 분모를 덮을 수 있다(관문 10250519 ③ 와 같은 경로). 등락률은 공식 한 쌍으로.
         return { ...row, price: round2(p.close), change: round2((p.close - p.prevClose) / p.prevClose * 100),
-            prevClose: Number(row?.prevClose) > 0 ? round2(p.prevClose) : row?.prevClose, session, closeSession: session, asOf: nowMs };
+            prevClose: Number(row?.prevClose) > 0 ? round2(p.prevClose) : row?.prevClose, session, closeSession: session, asOf };
     });
     return changed ? ({ ...(related as any), topRelated: next } as T) : related;
 }

@@ -18,6 +18,7 @@ import { useTranslations } from 'next-intl';
 import { normalizeVwap } from '@/lib/vwap';
 import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
 import { deepMaterialIssues } from '@/lib/ai/deepTrust';
+import { mergeRelatedRow, relatedLivePrevClose, relatedSessionContext } from '@/lib/relatedRowMerge';
 
 interface Props {
     ticker: string;
@@ -189,12 +190,32 @@ export function MobileCmdOverview({ ticker, quote, unified, volatilityData, vola
             .then(res => res.json())
             .then(data => {
                 if (isMounted && data?.topRelated) {
-                    setRelatedData(data.topRelated);
+                    setRelatedData(prev => data.topRelated.map((newItem: any) =>
+                        mergeRelatedRow(prev.find((r: any) => r.ticker === newItem.ticker), newItem, Date.now())));
                 }
             })
             .catch(() => {});
         return () => { isMounted = false; };
     }, [ticker]);
+    // 이미 30초마다 받는 unified 의 연관 행(서버가 장외엔 공식 종가로 맞춤)을 같은 병합으로 합친다 — 세션 전환 뒤 갱신, 요청 추가 0.
+    //   목록은 직접 API 그대로, 같은 종목의 값만 갱신한다.
+    const unifiedRelatedRows = unified?.related?.topRelated;
+    useEffect(() => {
+        if (!Array.isArray(unifiedRelatedRows) || unifiedRelatedRows.length === 0) return;
+        setRelatedData(prev => {
+            if (prev.length === 0) return prev;
+            let changed = false;
+            const next = prev.map((oldItem: any) => {
+                const newItem = unifiedRelatedRows.find((r: any) => r?.ticker === oldItem.ticker);
+                if (!newItem) return oldItem;
+                const merged = mergeRelatedRow(oldItem, newItem, Date.now());
+                if (merged.price !== oldItem.price || merged.change !== oldItem.change || merged.prevClose !== oldItem.prevClose
+                    || merged.closeSession !== oldItem.closeSession || merged.session !== oldItem.session || merged.asOf !== oldItem.asOf) changed = true;
+                return merged;
+            });
+            return changed ? next : prev;
+        });
+    }, [unifiedRelatedRows]);
 
     return (
         <div className="space-y-4">
@@ -315,6 +336,8 @@ export function MobileCmdOverview({ ticker, quote, unified, volatilityData, vola
 function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPrice: number }) {
     const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);
     const { getPrice: wsGetPrice } = useRealtimeData(peerTickers);
+    // 정규장 판정은 달력(렌더 시각) — 부모 세션 문자열('REG'/'reg'·SSR 고정값)에 기대지 않는다(관문 10261523). 틱마다 재렌더되어 PRE→REG 전환도 따라간다.
+    const isRegularSession = relatedSessionContext(Date.now()).regular;
     const router = useRouter();
 
     return (
@@ -322,12 +345,12 @@ function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPr
             <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-3">Related Peers</div>
             <div className="space-y-2.5">
                 {tickers.map((r: any) => {
-                    const wsPrice = wsGetPrice(r.ticker);
+                    const wsPrice = isRegularSession ? wsGetPrice(r.ticker) : undefined;
                     const serverPrice = r.price || 0;
                     const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;
                     let displayChange = r.change ?? 0;
                     const validWsPrice = wsPrice?.price || 0;
-                    const validPrevClose = r.prevClose || 0;
+                    const validPrevClose = relatedLivePrevClose(r, Date.now());
                     if (validWsPrice > 0 && validPrevClose > 0) {
                         displayChange = Number((((validWsPrice - validPrevClose) / validPrevClose) * 100).toFixed(2));
                     } else {
