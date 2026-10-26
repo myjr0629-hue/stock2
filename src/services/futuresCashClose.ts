@@ -1,4 +1,4 @@
-import { closerCashCloseReference, futuresCashCloseCandidate, futuresCashCloseKey, FUTURES_CASH_CLOSE_TTL,
+import { CASH_CLOSE_OBSERVATION_MAX_AGE_MS, closerCashCloseReference, futuresCashCloseCandidate, futuresCashCloseKey, FUTURES_CASH_CLOSE_TTL,
     validFuturesCashCloseReference, type FuturesCashCloseReference } from '@/lib/futuresCashClose';
 import type { IndexQuoteInput } from '@/lib/marketIndexBasis';
 import { readEachStoreStrict, setFuturesCashCloseIfCloser } from './redisClient';
@@ -21,7 +21,9 @@ export async function captureFuturesCashClose(quote: IndexQuoteInput, nowMs = Da
         && closerCashCloseReference(value, candidate) === value;
 }
 
-// 마감 10분 뒤에는 후보 관측(마감 ±1분·관측 3분 이내)이 더 생길 수 없다(쓰기 지연 여유 포함) → 그 뒤 고른 기준은 인스턴스 메모리에 둔다.
+// 마감 20분 뒤에는 후보 관측(체결 마감 ±1분대·관측 나이 15분 이내 — 야후 선물 10분 지연)이 더 생길 수 없다(쓰기 지연 여유 포함)
+// → 그 뒤 고른 기준은 인스턴스 메모리에 둔다.
+const SETTLE_AFTER_CLOSE_MS = 2 * 60_000 + CASH_CLOSE_OBSERVATION_MAX_AGE_MS + 3 * 60_000;
 const settledRefs = new Map<string, FuturesCashCloseReference>();
 export function _resetSettledCashCloseRefsForTest(): void { settledRefs.clear(); }
 
@@ -42,7 +44,7 @@ export async function loadFuturesCashCloseReference(symbol: 'NQ=F' | 'ES=F', dat
     for (const v of [a, b]) {
         if (validFuturesCashCloseReference(v, symbol, date)) best = best ? closerCashCloseReference(best, v) : v;
     }
-    const settledAt = etWallTimeToMs(date, sessionCloseMinutes(date)) + 10 * 60_000;
+    const settledAt = etWallTimeToMs(date, sessionCloseMinutes(date)) + SETTLE_AFTER_CLOSE_MS;
     // 두 저장소가 «각각» 정상 응답했고 같은 기준일 때만 고정한다(폴백으로 같은 저장소를 두 번 읽은 결과는 합의가 아니다).
     // 한쪽 읽기 실패·결측·불일치면 고정하지 않고 다음 조회에서 다시 읽는다.
     const agreed = both.ec.ok && both.upstash.ok && validFuturesCashCloseReference(a, symbol, date)

@@ -166,29 +166,35 @@ async function main() {
     assert.ok(Math.abs((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct - 0.3) < 1e-10, 'EC2 실패 중엔 Upstash 값(임시)');
     failEc = false;
     assert.equal((await loadMarketIndexBasis(at)).futures.nq.sinceCashClosePct, 0, 'EC2 복구 뒤 더 가까운 EC2 기준으로 교정(고정 안 됨)');
-    // 같은 값이 양쪽에 있어도 한쪽 응답이 실패면 고정하지 않는다.
+    // 같은 값이 양쪽에 있어도 한쪽 응답이 실패면 고정하지 않는다(고정 가능 시각 = 마감 20분 뒤 이후에서 확인).
+    const late = close + 25 * 60_000;
     _resetSettledCashCloseRefsForTest();
     upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20060));
     failUp = true;
-    await loadMarketIndexBasis(at);
+    await loadMarketIndexBasis(late);
     failUp = false;
     reads.length = 0;
-    await loadMarketIndexBasis(at);
+    await loadMarketIndexBasis(late);
     assert.ok(reads.some(k => k.startsWith('yahoo:cash-close:nq:')), 'Upstash 실패 때 고른 기준은 고정 안 됨');
     store.set('yahoo:nq', quote('NQ=F', at, 20020));
-    // 두 저장소가 같은 기준이면 마감 10분 뒤 고정 — 다음 조회는 저장소를 다시 읽지 않는다.
+    // 두 저장소가 같은 기준이면 마감 20분 뒤 고정 — 다음 조회는 저장소를 다시 읽지 않는다.
     store.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20020));
     upstashStore.set(futuresCashCloseKey('NQ=F', date), reference('NQ=F', date, close, 20020));
-    await loadMarketIndexBasis(at);
+    await loadMarketIndexBasis(late);
     reads.length = 0;
-    await loadMarketIndexBasis(at);
+    await loadMarketIndexBasis(late);
     assert.ok(!reads.some(k => k.startsWith('yahoo:cash-close:nq:')), '두 저장소가 일치한 확정 기준은 다시 읽지 않음');
-    // 마감 10분 전에는 일치해도 고정하지 않는다.
+    // 마감 20분 전에는 일치해도 고정하지 않는다.
     _resetSettledCashCloseRefsForTest();
     await loadMarketIndexBasis(close + 5 * 60_000);
     reads.length = 0;
     await loadMarketIndexBasis(close + 6 * 60_000);
     assert.ok(reads.some(k => k.startsWith('yahoo:cash-close:nq:')), '마감 10분 전에는 매번 읽음');
+    // 지연 피드의 마지막 후보(마감+1분대 체결이 15분 뒤 도착)가 저장될 수 있는 동안(마감+20분 전)은 고정하지 않는다.
+    await loadMarketIndexBasis(close + 16 * 60_000);
+    reads.length = 0;
+    await loadMarketIndexBasis(close + 19 * 60_000);
+    assert.ok(reads.some(k => k.startsWith('yahoo:cash-close:nq:')), '마감 20분 전에는 매번 읽음(지연 피드 후보 대기)');
     // 정규장·장전(PRE)·주말에는 기준을 읽지 않는다(읽기 비용 증가 0).
     reads.length = 0;
     await loadMarketIndexBasis(close - 60 * 60_000);
@@ -224,7 +230,13 @@ async function main() {
         { ...quote('NQ=F', close), marketTime: 'bad' }, { ...quote('NQ=F', close), lastChangeAt: iso(close - 21 * 60_000) }]) {
         assert.equal(futuresCashCloseCandidate(q, close + 120_000), null);
     }
-    assert.equal(futuresCashCloseCandidate(quote('NQ=F', close), close + 180_001), null, '수집 시점도 3분 이상 지연되면 거절');
+    // 야후 CME 선물은 약 10분 지연(10/26 실측) — 마감 체결이 10분 뒤 보여도 후보다. 15분 넘게 낡은 관측은 거절.
+    assert.equal(futuresCashCloseCandidate({ ...quote('NQ=F', close - 1_000), lastChangeAt: iso(close + 10 * 60_000) }, close + 10 * 60_000 + 8_000)?.asOf,
+        iso(close - 1_000), '10분 지연 피드의 마감 체결을 기준으로 채택');
+    assert.equal(futuresCashCloseCandidate({ ...quote('NQ=F', close), lastChangeAt: iso(close + 14 * 60_000) }, close + 15 * 60_000)?.asOf,
+        iso(close), '관측 나이 15분까지 허용');
+    assert.equal(futuresCashCloseCandidate({ ...quote('NQ=F', close), lastChangeAt: iso(close + 15 * 60_000) }, close + 15 * 60_000 + 1), null,
+        '관측 나이 15분 초과는 거절');
     assert.equal(futuresCashCloseCandidate(quote('NQ=F', close + 1), close), null);
     assert.equal(futuresCashCloseCandidate(quote('NQ=F', Date.parse('2026-10-24T20:00:00Z')), Date.parse('2026-10-24T20:00:00Z')), null);
     assert.equal(isCashCloseReferenceAt('2026-11-27T21:00:00Z', '2026-11-27'), false, '조기 폐장일 16시 기준 금지');
@@ -270,6 +282,29 @@ async function main() {
         assert.deepEqual(result.failed, ['NQ=F']);
         assert.equal(result.fail, 1);
         assert.ok(result.results.includes('NQ=F=CASH_CLOSE_WRITE_FAIL'));
+        failWrite = '';
+        // 10/26 운영 재현: 수집 시각 마감+10분 8초, 야후 체결 시각 마감 1초 전(10분 지연 피드) → 기준 저장.
+        store.clear(); providerCalls = 0;
+        const delayedNow = close + 10 * 60_000 + 8_000;
+        Date.now = () => delayedNow;
+        global.fetch = (async (url: string) => {
+            providerCalls++;
+            const symbol = decodeURIComponent(url.match(/chart\/([^?]+)/)![1]);
+            const price = symbol === 'NQ=F' ? 20010 : 5001;
+            return { ok: true, json: async () => ({ chart: { result: [{ meta: { regularMarketPrice: price,
+                previousClose: price * 0.99, regularMarketTime: (close - 1_000) / 1000 } }] } }) };
+        }) as any;
+        // 직전 관측과 값이 같아 lastChangeAt 은 이전 기록(마감+9분 38초에 값이 바뀐 시각)을 이어받는다
+        // (수집기 updatedAt 은 실제 시계라 모의 시각과 비교할 수 없다).
+        store.set('yahoo:nq', { ...quote('NQ=F', close - 1_000, 20010), lastChangeAt: iso(delayedNow - 30_000) });
+        store.set('yahoo:spx', { ...quote('ES=F', close - 1_000, 5001), lastChangeAt: iso(delayedNow - 30_000) });
+        result = await runMarketFeed({ only: ['NQ=F', 'ES=F'], fearGreed: false, vixCheck: false, newsBaseUrl: 'http://localhost',
+            verifyRead: async (key: string) => ({ ok: true, value: store.get(key) }) });
+        assert.equal(result.fail, 0);
+        assert.equal(providerCalls, 2, '지연 피드에서도 공급사 추가 호출 0');
+        const nqRef = store.get(futuresCashCloseKey('NQ=F', date)) as FuturesCashCloseReference;
+        assert.deepEqual(nqRef, { symbol: 'NQ=F', sessionDate: date, price: 20010, asOf: iso(close - 1_000) }, '지연 피드 마감 체결 저장');
+        assert.equal((store.get(futuresCashCloseKey('ES=F', date)) as FuturesCashCloseReference).price, 5001);
     } finally { global.fetch = savedFetch; Date.now = savedNow; failWrite = ''; }
     console.log('통과 마감 기준 저장·정상/조기폐장·DST 양 경계·결측/3분·실제 수집 호출 수·3언어 POST 계약');
 }
