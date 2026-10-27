@@ -19,6 +19,8 @@ import { giftFunnel, giftPayloadMetric, giftOutcomeMetric } from '@/lib/giftShar
 import { GIFT_COPY, buildGiftUrl, giftShareText, toGiftLang, type GiftSurface } from './gift';
 // ★2026-10-14 선물 링크의 초대자 id 도 공유 카드와 «같은 신원»(비공개 열쇠 → 공개 id)을 쓴다 — 친구가 설치하면 선물한 사람도 선물함에 PRO 1개월 코드를 받는다(lib/invite).
 import { getInviteRef, markInviteShared } from '@/lib/invite/identity';
+// ★2026-10-27 선물 링크를 «누른» 기기에는 앱 내 선물 안내를 더 띄우지 않는다(어느 입구든 — lib/gift/giftAnnounce 최대 3회 규칙의 멈춤 조건)
+import { markGiftAnnounceStop } from '@/lib/gift/giftAnnounce';
 
 export interface GiftConfig { code: string; android: boolean }
 
@@ -95,6 +97,7 @@ export function useGiftShare(locale: string, surface: GiftSurface) {
   const busy = useRef(false);
   const share = useCallback(async (): Promise<ShareOutcome | null> => {
     giftFunnel('tap', surface, shareVia());
+    try { markGiftAnnounceStop(window.localStorage); } catch { /* 저장소 막힘 — 안내는 최대 3회 안에서 끝난다 */ }
     if (!cfg || busy.current) { giftFunnel('gate', surface, shareVia(), !cfg ? 'cfg_missing' : 'busy'); return null; }
     busy.current = true;
     const lang = toGiftLang(locale);

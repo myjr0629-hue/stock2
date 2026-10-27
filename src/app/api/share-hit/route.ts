@@ -3,6 +3,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { PREVIEW_BOT_RE } from '@/lib/marketing/linkPreview';
 import { normalizeGiftRef } from '@/lib/gift/gift';
 import { noteSender } from '@/lib/invite/metrics';
+import { GIFT_BLOCK_METRICS } from '@/lib/gift/giftAnnounce';
 
 // ============================================================================
 // /api/share-hit — 공유 루프 퍼널 비콘 (2026-09-29, 브랜치 feat/share-loop)
@@ -24,6 +25,9 @@ import { noteSender } from '@/lib/invite/metrics';
 const EVENTS = new Set(['tap', 'sent', 'open', 'click']);
 const SURFACES = new Set(['ticker', 'rank', 'uc', 'wim', 'sh_pick', 'sh_line', 'sh_earn', 'gift_set', 'gift_dash', 'gift_pop']);   // gift_* = «친구에게 PRO 1개월 선물»(2026-10-06, lib/gift) · sh_* = 공유 카드 3종(2026-10-14, lib/invite)
 const VIAS = new Set(['ios', 'android', 'web', 'na']);
+// ★2026-10-27 선물 안내(gift_pop) 전용 — 어디서 띄웠나(at:*) · 막힌 이유(block:*, 실행당 사유마다 1회). 닫힌 목록, 다른 표면엔 받지 않는다.
+//   키 = share:<at:dash|at:earn|at:report|block:<사유>>:gift_pop:<via>:<ET날짜> — 하루 합계 숫자만(식별자 없음). 읽기: scripts/mkt-gift.js
+const POP_EVENTS = new Set(['at:dash', 'at:earn', 'at:report', ...GIFT_BLOCK_METRICS.map((b) => `block:${b}`)]);
 
 // ET 날짜 — /app 의 etDate()·mkt.ts 와 같은 형식(YYYY-MM-DD, America/New_York).
 function etDate(): string {
@@ -53,7 +57,7 @@ export async function POST(req: NextRequest) {
   const s = q.get('s') || '';
   const v = q.get('v') || 'na';
   const ua = req.headers.get('user-agent') || '';
-  if (EVENTS.has(e) && SURFACES.has(s) && VIAS.has(v) && !PREVIEW_BOT_RE.test(ua) && originOk(req)) {
+  if ((EVENTS.has(e) || (s === 'gift_pop' && POP_EVENTS.has(e))) && SURFACES.has(s) && VIAS.has(v) && !PREVIEW_BOT_RE.test(ua) && originOk(req)) {
     const ns = process.env.VERCEL_ENV === 'production' ? 'share' : 'share:probe';
     after(async () => {
       try { await bump(`${ns}:${e}:${s}:${v}:${etDate()}`); } catch { /* 집계 실패는 삼킨다 */ }
