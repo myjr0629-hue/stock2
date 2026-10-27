@@ -17,6 +17,8 @@ import { GET as getEarnings } from '@/app/api/live/earnings/route';
 import { GET as getSma } from '@/app/api/live/sma/route';
 import { GET as getRelated } from '@/app/api/live/related/route';
 import { officialCloseRelated } from '@/services/stalePriceRepair';
+import { cashSessionPhaseAt } from '@/lib/marketCalendar';
+import { relatedSourceTimeMs } from '@/lib/relatedRowMerge';
 import { GET as getAnalyst } from '@/app/api/live/analyst/route';
 import { GET as getVolatility } from '@/app/api/live/volatility-regime/route';
 import { GET as getSqueeze } from '@/app/api/live/short-squeeze/route';
@@ -1746,6 +1748,16 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                                     const change = currentPrice > 0 && prevClose > 0
                                         ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100
                                         : 0;
+                                    // [T31b] 정규장에 받은 행은 직접 API(/api/live/related)와 같은 기준 표식(본장 날짜·원천 시각·분모)을 단다 —
+                                    //   표식이 없으면 웹·앱 병합(lib/relatedRowMerge)이 «나이 모름»으로 보고 갓 받은 값도 버린다(밤 검토 1027).
+                                    //   장외 행은 그대로(출구 officialCloseRelated 가 공식 종가 한 쌍으로 맞춘다).
+                                    if (currentPrice > 0 && cashSessionPhaseAt(Date.now()) === 'regular') {
+                                        const rd = td?._intrinio?.regularDate;
+                                        return { ticker: t, price: Math.round(currentPrice * 100) / 100, change, logo: null,
+                                            prevClose: prevClose || undefined,
+                                            session: typeof rd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rd) ? rd : null,
+                                            asOf: (td?.lastTrade?.p > 0 ? relatedSourceTimeMs(td?.lastTrade?.t) : null) ?? relatedSourceTimeMs(td?.updated) };
+                                    }
                                     if (currentPrice > 0) return { ticker: t, price: Math.round(currentPrice * 100) / 100, change, logo: null };
                                     // [V11] Snapshot failed — fallback to v2/aggs 2-day bar
                                     try {

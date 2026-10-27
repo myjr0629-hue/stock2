@@ -29,6 +29,12 @@ const ymd = (value: unknown): string =>
     typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
 const priced = (row: RelatedRow | null | undefined): row is RelatedRow => !!row && Number(row.price) > 0;
 
+/** 공급사 원천 시각(ns·us·ms·초)을 ms 로 — 없는 시각은 만들지 않는다(null). 직접 API·unified 연관 행 공용 */
+export function relatedSourceTimeMs(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
+    return Math.round(value > 1e17 ? value / 1e6 : value > 1e14 ? value / 1e3 : value < 1e11 ? value * 1000 : value);
+}
+
 /** 그 시각의 연관 행 문맥 — 정규장이면 오늘(D), 아니면 직전 끝난 정규장(S*). 달력이 정본(휴장·조기 폐장 포함). */
 export function relatedSessionContext(nowMs: number): { regular: boolean; date: string } {
     const regular = cashSessionPhaseAt(nowMs) === 'regular';
@@ -40,11 +46,24 @@ function basisDate(row: RelatedRow): string {
     return ymd(row.closeSession) || ymd(row.session);
 }
 
+/**
+ * 병합 비교용 기준 날짜 — basisDate 에 «정규장 중 오늘 체결 시각» 하나만 더한다(T31b, 밤 검토 1027).
+ *   정규장 중 session 이 없는 행이라도 원천 시각(asOf = 체결·공급사 시각)이 오늘(ET)이면 오늘 관측이다(직접 API 의 일봉 폴백 행 등).
+ *   ⛔ 날짜도 시각도 없는 행은 여전히 '' = 나이 모름 — unified 캐시의 옛 연관 행이 이 모양이다
+ *      (10/27 운영 Redis 실측: NVDA 캐시 10/22 23:40 ET 의 GOOGL 324.2 −3.15%·분모 334.76, session·asOf 없음 — 정규장엔 출구 보정도 안 탄다).
+ *      그것을 «오늘»로 치면 5일 지난 값과 그 분모가 실시간 행을 덮는다. 장외 문맥은 바꾸지 않는다.
+ */
+function mergeBasisDate(row: RelatedRow, ctx: { regular: boolean; date: string }): string {
+    const date = basisDate(row);
+    if (date || !ctx.regular || !validAsOf(row.asOf)) return date;
+    return etDateOf(row.asOf) === ctx.date ? ctx.date : '';
+}
+
 /** 사전식 비교용 순위(클수록 우선). 가격 0 실패 행은 null */
 function rank(row: RelatedRow | null | undefined, ctx: { regular: boolean; date: string }): [number, string, number] | null {
     if (!priced(row)) return null;
     const official = !!ymd(row.closeSession);
-    const date = basisDate(row);
+    const date = mergeBasisDate(row, ctx);
     if (ctx.regular) return [0, date, official ? 0 : 1];
     return [official && row.closeSession === ctx.date ? 1 : 0, date, official ? 1 : 0];
 }
@@ -78,7 +97,8 @@ export function mergeRelatedRow<T extends RelatedRow>(oldItem: T | null | undefi
     if (order < 0) return keepOld(oldItem, newItem);
     // 같은 기준 — 두 원천 시각이 모두 있을 때만 비교한다(한쪽이 없으면 기존 도착 순서·분모 보충, 관문 10250519).
     if (order === 0 && validAsOf(oldItem.asOf) && validAsOf(newItem.asOf) && newItem.asOf < oldItem.asOf) return keepOld(oldItem, newItem);
-    const sameBasis = !basisDate(oldItem) || !basisDate(newItem) || basisDate(oldItem) === basisDate(newItem);
+    const oldBasis = mergeBasisDate(oldItem, ctx), newBasis = mergeBasisDate(newItem, ctx);
+    const sameBasis = !oldBasis || !newBasis || oldBasis === newBasis;
     // 분모·공식 표식 없는 0 은 «등락 모름»(수확본·분모 없는 스냅샷) — 같은 기준의 이전 등락을 유지(옛 V2 규칙).
     const unknownChange = newItem.change === 0 && !(Number(newItem.prevClose) > 0) && !ymd(newItem.closeSession);
     return {

@@ -185,10 +185,67 @@ assert.deepEqual(official, o1); assert.deepEqual(extended, o2);
     assert.equal(mobileUnified({ unifiedRelatedRows: [official], mergeRelatedRow, Date })(empty), empty);
 }
 
+// ── T31b(밤 검토 1027) — 정규장 중 날짜 없는 행. 시각은 화요일 10/27(EDT).
+{
+    const TUE_PRE = Date.parse('2026-10-27T12:00:00Z');    // 08:00 ET
+    const TUE_OPEN = Date.parse('2026-10-27T13:30:30Z');   // 09:30:30 ET 개장 직후
+    const TUE_REG = Date.parse('2026-10-27T14:00:00Z');    // 10:00 ET
+    const TUE_CLOSE1 = Date.parse('2026-10-27T20:00:30Z'); // 16:00:30 ET 장후 시작
+    const MON_CLOSE = Date.parse('2026-10-26T20:00:00Z');
+    assert.deepEqual(relatedSessionContext(Date.parse('2026-10-27T13:29:30Z')), { regular: false, date: '2026-10-26' }, '09:29:30 ET 은 장전');
+    assert.deepEqual(relatedSessionContext(TUE_OPEN), { regular: true, date: '2026-10-27' });
+    assert.deepEqual(relatedSessionContext(TUE_CLOSE1), { regular: false, date: '2026-10-27' });
+    // 운영 실측(10/27 10:0x KST): 장전에 받은 월요일 공식 행 = 직접 API·unified 출구 모두 이 모양
+    const monOff = { ticker: 'GOOGL', price: 316.8, change: -1.06, prevClose: 320.21, logo: null,
+        session: '2026-10-26', closeSession: '2026-10-26', asOf: MON_CLOSE };
+    // 운영 Redis 원본(unified 캐시 NVDA, 10/22 23:40 ET 저장) — session·asOf 없음. 정규장엔 출구 보정이 없어 이대로 나간다.
+    const staleCache = { ticker: 'GOOGL', price: 324.2, change: -3.15, prevClose: 334.76, logo: null };
+    const todayLive = { ticker: 'GOOGL', price: 318.4, change: 0.51, prevClose: 316.8, logo: null, session: '2026-10-27', asOf: TUE_REG - 20_000 };
+    for (const at of [TUE_OPEN, TUE_REG]) {
+        // ① 나이 모르는 캐시 행은 정규장에서도 계속 거절(«오늘»으로 치면 5일 전 값·분모가 덮는다)
+        assert.deepEqual(key(merge(monOff, staleCache, at)), key(monOff), '장전 공식 행 위에 옛 캐시 행 거절');
+        assert.deepEqual(key(merge(todayLive, staleCache, at)), key(todayLive), '오늘 실시간 행 위에 옛 캐시 행 거절');
+        assert.equal(relatedLivePrevClose(merge(monOff, staleCache, at), at), 316.8, '실시간 분모는 월요일 공식 종가 유지(334.76 아님)');
+        // ② 표식을 단 unified 정규장 행(수리 뒤 모양)은 채택 — 코덱스 재현(320.21 −1.24% 위에 325 +1.50%)의 오늘판
+        const unifiedFresh = { ticker: 'GOOGL', price: 321.55, change: 1.5, prevClose: 316.8, logo: null, session: '2026-10-27', asOf: at - 5000 };
+        assert.deepEqual(v(merge(monOff, unifiedFresh, at)), [321.55, 1.5, 316.8], '오늘 날짜 unified 행 채택');
+        assert.equal(relatedLivePrevClose(merge(monOff, unifiedFresh, at), at), 316.8);
+        // ③ session 없이 원천 시각만 오늘인 행(일봉 폴백 등)도 오늘 관측 — 지난 기준의 분모를 섞지 않는다
+        const asOfOnly = { ticker: 'GOOGL', price: 321.55, change: 1.5, logo: null, session: null, asOf: at - 5000 };
+        const m = merge(monOff, asOfOnly, at);
+        assert.deepEqual([m.price, m.change], [321.55, 1.5], '원천 시각 오늘 → 채택');
+        assert.equal(m.prevClose, undefined, '다른 기준(월요일 공식 행의 분모 320.21) 보충 안 함');
+        assert.equal(relatedLivePrevClose(m, at), 0, '분모 모름 → 화면은 무분모 경로');
+        assert.deepEqual(v(merge(monOff, { ...asOfOnly, prevClose: 316.8 }, at)), [321.55, 1.5, 316.8]);
+        // 같은 날 비교는 원천 시각 — 늦게 온 옛 응답 거절
+        assert.deepEqual(v(merge(unifiedFresh, { ...asOfOnly, price: 300, asOf: at - 60_000 }, at)), v(unifiedFresh));
+        // ④ 원천 시각이 지난 날이면 여전히 나이 모름
+        assert.deepEqual(key(merge(monOff, { ...staleCache, asOf: Date.parse('2026-10-23T03:40:00Z') }, at)), key(monOff), '어제 시각 행 거절');
+    }
+    // ⑤ 장외 문맥은 그대로 — 장전·장후·휴장에 원천 시각만 있는 행은 공식 행을 못 이긴다
+    const preTrade = { ticker: 'GOOGL', price: 317.9, change: 0.35, prevClose: 316.8, logo: null, asOf: TUE_PRE - 60_000 };
+    assert.deepEqual(key(merge(monOff, preTrade, TUE_PRE)), key(monOff), '장전: 월요일 공식 유지');
+    const tueOff = { ...monOff, price: 319.9, change: 0.98, prevClose: 316.8, session: '2026-10-27', closeSession: '2026-10-27', asOf: Date.parse('2026-10-27T20:00:00Z') };
+    assert.deepEqual(key(merge(tueOff, { ...preTrade, asOf: TUE_CLOSE1 }, TUE_CLOSE1)), key(tueOff), '장후: 화요일 공식 유지');
+    const THANKS = Date.parse('2026-11-26T17:00:00Z');
+    const wedOff = { ...monOff, session: '2026-11-25', closeSession: '2026-11-25', asOf: Date.parse('2026-11-25T21:00:00Z') };
+    assert.deepEqual(key(merge(wedOff, { ...preTrade, asOf: THANKS - 1000 }, THANKS)), key(wedOff), '휴장: 수요일 공식 유지');
+    assert.deepEqual(key(merge(wedOff, staleCache, THANKS)), key(wedOff));
+}
+
+// unified 스냅샷 경로(tryDynamoFast) — 정규장 행은 직접 API 와 같은 기준 표식(session·asOf·prevClose)을 단다
+{
+    const unifiedSrc = fs.readFileSync('src/app/api/command/unified/route.ts', 'utf8');
+    const i = unifiedSrc.indexOf("cashSessionPhaseAt(Date.now()) === 'regular') {\n                                        const rd = td?._intrinio?.regularDate;");
+    assert.ok(i > 0, 'unified 정규장 연관 행 표식 분기');
+    const block = unifiedSrc.slice(i, i + 700);
+    for (const f of ['prevClose:', 'session:', 'asOf:', 'relatedSourceTimeMs(td?.lastTrade?.t)']) assert.ok(block.includes(f), f);
+}
+
 // 화면 소스가 이 함수를 그대로 쓰는가
 const webSrc = fs.readFileSync('src/components/LiveTickerDashboard.tsx', 'utf8');
 const mobileSrc = fs.readFileSync('src/components/intel/mobile/MobileCmdOverview.tsx', 'utf8');
 assert.equal((webSrc.match(/mergeRelatedRow\(oldItem, newItem, Date\.now\(\)\)/g) || []).length, 2, '웹 두 경로 같은 병합');
 assert.match(webSrc, /const validPrevClose = relatedLivePrevClose\(item, Date\.now\(\)\);/);
 assert.match(mobileSrc, /const validPrevClose = relatedLivePrevClose\(r, Date\.now\(\)\);/);
-console.log('relatedRowMerge: 운영 사고·관문 1010/1206/1305 반례·밤 검토 2건·정규장 실시간·가격 0 보호·분모 규칙 통과(웹·앱 4경로 동일)');
+console.log('relatedRowMerge: 운영 사고·관문 1010/1206/1305 반례·밤 검토 2건·T31b 정규장 날짜 없는 행·정규장 실시간·가격 0 보호·분모 규칙 통과(웹·앱 4경로 동일)');
