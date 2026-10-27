@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { useGiftConfig } from '@/lib/gift/useGift';
+import { loadGiftConfig, useGiftConfig, type GiftConfig } from '@/lib/gift/useGift';
 import { useGiftMoment } from '@/lib/gift/useGiftMoment';
 import { reviewRequestedAt } from '@/hooks/useReviewPrompt';
 import { shareBeacon, shareVia } from '@/lib/share/share';
@@ -51,7 +51,11 @@ function onboardedAtStart(): boolean {
 }
 
 export function GiftAnnounceHost() {
-  const cfg = useGiftConfig();
+  const mountCfg = useGiftConfig();
+  /** 6시간+ 재개 뒤 서버 설정을 다시 읽은 값(undefined = 재개 전 → 마운트 때 값) — 백그라운드 중 선물이 꺼졌으면 띄우지 않는다(관문 10271857).
+   *  다시 읽는 동안은 null(대시보드 입구·좋은 순간 모두 멈춤), 못 읽으면 null 그대로(다음 재개·재실행에 다시 본다). */
+  const [resumeCfg, setResumeCfg] = useState<GiftConfig | null | undefined>(undefined);
+  const cfg = resumeCfg === undefined ? mountCfg : resumeCfg;
   const pathname = usePathname();
   const [locale, setLocale] = useState<string | null>(null);
   /** 6시간+ 재개 때 올린다 — 대시보드 입구를 다시 잰다 */
@@ -78,7 +82,13 @@ export function GiftAnnounceHost() {
           const now = Date.now();
           if (!isActive) { noteGiftBackground(run, now); return; }
           noteGiftHeartbeat(run, now);
-          if (resumeGiftRun(run, now, readOnboarded(localStore()), sheetOpenRef.current)) setResumeTick((n) => n + 1);
+          if (!resumeGiftRun(run, now, readOnboarded(localStore()), sheetOpenRef.current)) return;
+          setResumeCfg(null);
+          void loadGiftConfig().then((c) => {                 // 캐시 10분 — 6시간 뒤엔 서버에서 새로 읽는다
+            if (cancelled) return;
+            setResumeCfg(c);
+            setResumeTick((n) => n + 1);
+          });
         });
         if (cancelled) { void h.remove(); return; }
         handle = h;

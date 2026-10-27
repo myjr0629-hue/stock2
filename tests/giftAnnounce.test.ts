@@ -255,7 +255,10 @@ t('재개 배선 — 네이티브 appStateChange 로만, 6시간+ 재개 때 대
   assert.match(host, /if \(!Capacitor\.isNativePlatform\(\) \|\| cancelled\) return;/);
   assert.match(host, /App\.addListener\('appStateChange'/);
   assert.match(host, /if \(!isActive\) \{ noteGiftBackground\(run, now\); return; \}/);
-  assert.match(host, /if \(resumeGiftRun\(run, now, readOnboarded\(localStore\(\)\), sheetOpenRef\.current\)\) setResumeTick\(\(n\) => n \+ 1\);/);
+  assert.match(host, /if \(!resumeGiftRun\(run, now, readOnboarded\(localStore\(\)\), sheetOpenRef\.current\)\) return;\s*setResumeCfg\(null\);\s*void loadGiftConfig\(\)\.then\(\(c\) => \{[^}]*if \(cancelled\) return;\s*setResumeCfg\(c\);\s*setResumeTick\(\(n\) => n \+ 1\);/);
+  // 관문 10271857: 재개 뒤엔 서버 설정을 다시 읽은 값으로만 판정(백그라운드 중 꺼졌으면 없다)
+  assert.match(host, /const cfg = resumeCfg === undefined \? mountCfg : resumeCfg;/);
+  assert.match(read('src/lib/gift/useGift.ts'), /const TTL_MS = 10 \* 60_000;/);   // 6시간 뒤 loadGiftConfig 는 캐시가 아니라 서버를 읽는다
   assert.match(host, /sheetOpenRef\.current = !!locale;/);
   assert.match(host, /\}, \[cfg, pathname, locale, input, countBlock, show, resumeTick\]\);/);
   assert.match(host, /window\.clearInterval\(beat\)/);
