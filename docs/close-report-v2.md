@@ -145,3 +145,14 @@ node scripts/compare-close-report.mjs --count 20 --days 90 --generate --runs 3
 - 변경 파일은 앱 `src/app/[locale]/app-view/intel/page.tsx`, 시험 `tests/closingSession.test.ts`·`tests/appClosingRecovery.test.ts`·`tests/appAccuracy2.test.ts`, 이 인계 문서 — 총 5개다. `git diff --check` 통과.
 
 남은 위험: 운영 저장본 20개·실모델 3회 이상 비교와 실기기 알림 검증은 이번에도 미실시이며 운영 세션의 병합 전 과제로 남는다.
+
+## T4b 운영 첫 생성(10/26) 품질 결함 수리 (2026-10-27)
+
+- ① ko «평상시 구조(평상시 구조)»: 모델이 쉬운 말 뒤에 원어를 괄호로 붙이고(«평상시 구조(콘탱고)», 옛 실측 6회 중 3회) 출구 치환 `KO_PLAIN` 이 괄호 안 «콘탱고»까지 바꿔 같은 말이 겹쳤다. 치환 전에 원어 괄호 풀이(`KO_GLOSS`)를 지우고, 지시문에서 «쉬운 말(풀이)» 괄호 예시를 없앴다.
+- ② why: 입력 뉴스가 최신순이라 장후 보도가 맨 앞에 있었고, 지시가 «최대 4건 시간순 + 인과 미확인이면 미확인이라 쓰라»뿐이라 장후 보도 나열·«인과 확인 안 됨»으로 시작했다. 프롬프트에는 정규장 시간대 보도를 먼저 보이고(저장 근거·검사 불변), why 를 «가능한 원인 후보 + 확인 수준 + 시장 내부 근거(섹터·VIX·금리 bp·달러·유가·금)»로, 장후 보도는 빼거나 «마감 뒤 소식:» 한 문장으로 분리하게 했다. 참조 검사·정리는 옛 그대로다.
+- ③ 섹터 표시명: 입력 섹터 이름이 영어 라벨뿐이었다. `SECTOR_DISPLAY`(앱 상단 카드 `SECTOR_APP_COPY.name` 과 같은 사전, 오프라인 시험이 일치 검사)를 `displayName` 으로 입력에 넣고, 출구에서 ko·ja 글의 영어 섹터 이름을 표시명으로 바꾼다(숫자·괄호 값 불변, 매칭용 `sector` 칸 불변).
+- ④ ko·ja 일정 이름의 영어(MoM·Ex Transp 등): 일정 이름 현지화 지시와 예시.
+- ⑤ MIXED 배지: 코드 판정 없이 모델이 고르던 값(같은 입력 a55 3회 MIXED, Lambda Sonnet BULLISH). `settleTone` — 두 지수가 같은 방향 ±0.30% 이상이고 VIX 가 반대로 움직이지 않은 날만 MIXED·반대 톤을 판정 방향으로. CAUTIOUS·애매한 날은 모델 판단 그대로. 배지 문구 불변.
+- 한국어 서사의 한자·가나(`narrative:ko:script`)를 고침 요청 사유로 추가(실측 8회 중 2회 «美»·«整合», 출구 게이트는 한국어 칸의 가나만 봤다).
+- 실측 중 추가로 막은 것: 참조·인용 불일치(본문에서 뺀 장후 참조·같은 출처 다른 시각·지어낸 ID)는 출구에서 고치지 않고(관문 10270904·10270912: 휴리스틱 정리가 장후 원인 서술의 검사를 지웠다) 고침 요청에 «인용하거나 참조에서 빼라»·실제 ID 목록 · «반도체 코어(Silicon Core)» 겹침 정리·음역 별칭(«실리콘 코어» 등) · 일정 이름 현지화를 고침 요청에도 · «판매도»(매도 오탐)·«…の買いです»·뉴스 속 목표가 인용 회피 지시.
+- 측정: `~/Documents/signum-work/2026-10-27/close-report-v2/t4b/`(harness.cjs = Vercel 경로 재현, 모델 호출만 비승격 운영 배포 preview/t4b-close-dry 의 `?dry=prompt` → 운영 사다리 ① claude-haiku-5.5, 저장 0 · lambda-sim.cjs = Lambda 경로 Sonnet 4.6 · analyze.cjs). preview 브랜치는 병합 금지.
