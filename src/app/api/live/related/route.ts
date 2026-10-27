@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { officialCloseRelated } from "@/services/stalePriceRepair";
 import { cashSessionPhaseAt } from "@/lib/marketCalendar";
+import { relatedSourceTimeMs } from "@/lib/relatedRowMerge";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -37,11 +38,8 @@ function regularPairFromSnapshot(tickerData: any): { price: number; change: numb
     return { price: Math.round(close * 100) / 100, change: Math.round(((close - prev) / prev) * 10000) / 100, prevClose: prev };
 }
 
-// Massive 호환 시각은 ns. 어댑터/폴백의 ms·us·초도 원천 시각으로 보존하며, 없는 시각은 만들지 않는다.
-function sourceTimeMs(value: unknown): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
-    return Math.round(value > 1e17 ? value / 1e6 : value > 1e14 ? value / 1e3 : value < 1e11 ? value * 1000 : value);
-}
+// Massive 호환 시각은 ns. 어댑터/폴백의 ms·us·초도 원천 시각으로 보존하며, 없는 시각은 만들지 않는다(unified 연관 행과 같은 함수).
+const sourceTimeMs = relatedSourceTimeMs;
 
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
