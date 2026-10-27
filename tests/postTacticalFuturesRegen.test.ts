@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildMarketIndexBasis } from '@/lib/marketIndexBasis';
-import { hasFuturesSinceCloseFact, postTacticalMayLackFutures, promptHasFuturesFacts, POST_TACTICAL_RETRY_MS } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, promptHasFuturesFacts, POST_TACTICAL_RETRY_MS } from '@/lib/ai/tacticalIndexFacts';
 
 const MIN = 60_000;
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -34,9 +34,29 @@ assert.equal(promptHasFuturesFacts('SESSION: POST\nINDEX_FACTS: [{"id":"nasdaq",
 assert.equal(promptHasFuturesFacts('INDEX_FACTS: not-json'), false);
 assert.equal(promptHasFuturesFacts(undefined), false);
 
+// 장후 생성 재료 합치기(관문 10280621 ②): 다시 읽은 값의 결측 칸은 코어 값을 지키고, 선물은 기준 붙은 쪽 먼저
+const cashQ = (symbol: string, changePct: number) => ({ symbol, price: 100, changePct, marketTime: '2026-10-27T19:59:00.000Z', lastChangeAt: '2026-10-27T19:59:00.000Z', source: 'YAHOO' });
+const coreB = buildMarketIndexBasis({ nasdaq: cashQ('^IXIC', 1.2), spx: cashQ('^GSPC', 0.6), nq, es }, now, {});   // 코어: 현물 있음·기준 저장 전
+const freshB = buildMarketIndexBasis({ nq, es }, now, refs);                                                        // 재조회: 현물 키 결측·기준 있음
+const merged = mergePostIndexBasis(coreB, freshB)!;
+assert.equal(merged.cash.nasdaq.changePct, 1.2, '현물 결측은 코어 값 유지');
+assert.equal(merged.cash.spx.changePct, 0.6);
+assert.ok(merged.futures.nq.cashCloseReferenceAt, '선물은 기준 붙은 재조회 값');
+const mf = buildIndexFacts(merged, 'POST', now);
+assert.deepEqual(mf.map(f => f.id), ['nasdaq', 'spx', 'nq', 'es'], '현물 2 + 장후 선물 2');
+assert.equal(mergePostIndexBasis(coreB, freshB)!.futures.es.cashCloseReferenceAt, refs.es.asOf);
+const coreWithRef = buildMarketIndexBasis({ nq, es }, now, refs);
+const freshNoRef = buildMarketIndexBasis({ nasdaq: cashQ('^IXIC', 1.2), nq, es }, now, {});
+assert.ok(mergePostIndexBasis(coreWithRef, freshNoRef)!.futures.nq.cashCloseReferenceAt, '재조회가 기준을 못 읽으면 코어의 기준 붙은 값');
+assert.equal(mergePostIndexBasis(null, freshB), freshB);
+assert.equal(mergePostIndexBasis(coreB, null), coreB);
+assert.equal(mergePostIndexBasis(undefined, undefined), null);
+
 const src = fs.readFileSync(path.join(__dirname, '../src/services/guardian/unifiedDataStream.ts'), 'utf8');
 assert.equal((src.match(/await postTacticalNeedsFutures\(/g) || []).length, 2, 'Redis·메모리 두 캐시 경로');
 assert.match(src, /rlsi\.session === 'POST' \? \{ tacticalFutures \} : \{\}/, '장후 스냅샷에 표식');
 assert.match(src, /IntelligenceNode\.tacticalHasFutures\(locale, realityText\)/);
 assert.match(src, /indexBasis: postBasis \?\? macro\.indexBasis/, '장후 생성 재료 지수 기준은 지금 다시 읽음');
+assert.match(src, /mergePostIndexBasis\(macro\.indexBasis, await loadMarketIndexBasis\(\)/);
+assert.equal((src.match(/repaired\.includes\('realityInsight'\)/g) || []).length, 2, '새 판정·출구 두 곳에서 복구 글이면 표식 내림');
 console.log('통과 장후 스냅샷 재계산 판정(운영 10/27 값·표식·5분 간격·세션별·프롬프트 선물 사실)');

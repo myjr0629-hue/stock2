@@ -98,3 +98,16 @@ export function postTacticalMayLackFutures(c: { tacticalFutures?: boolean; times
     const at = c.timestamp ? Date.parse(c.timestamp) : NaN;
     return !Number.isFinite(at) || nowMs - at >= POST_TACTICAL_RETRY_MS;
 }
+/**
+ * 장후 생성 재료용 지수 기준 합치기 — 지금 다시 읽은 값(fresh)을 칸별로 쓰되, 그 칸이 결측(price 없음)이면 코어 값을 지킨다.
+ * 선물은 «종가 이후 기준이 붙은» 쪽을 먼저(코어는 기준 저장 전 값일 수 있다). 둘 다 없으면 null.
+ */
+export function mergePostIndexBasis(core: MarketIndexBasis | null | undefined, fresh: MarketIndexBasis | null | undefined): MarketIndexBasis | null {
+    if (!core || !fresh) return fresh ?? core ?? null;
+    const pick = <T extends IndexObservation>(a: T, b: T): T => (a?.price != null ? a : b);
+    const pickFut = <T extends MarketIndexBasis['futures']['nq']>(f: T, c: T): T =>
+        f?.price != null && f.cashCloseReferenceAt ? f : c?.price != null && c.cashCloseReferenceAt ? c : pick(f, c);
+    return { v: 1,
+        cash: { nasdaq: pick(fresh.cash.nasdaq, core.cash.nasdaq), ndx: pick(fresh.cash.ndx, core.cash.ndx), spx: pick(fresh.cash.spx, core.cash.spx) },
+        futures: { nq: pickFut(fresh.futures.nq, core.futures.nq), es: pickFut(fresh.futures.es, core.futures.es) } };
+}

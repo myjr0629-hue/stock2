@@ -1,5 +1,5 @@
 import { fmpFetch } from '@/lib/fmpClient';
-import { buildIndexFacts, hasFuturesSinceCloseFact, postTacticalMayLackFutures, tacticalSessionAt } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, tacticalSessionAt } from '@/lib/ai/tacticalIndexFacts';
 import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
 import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
@@ -379,6 +379,8 @@ export class GuardianDataHub {
         const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums, currentTacticalPrompts(nums, core, context.gammaShield));
         // ★2026-10-24 순환매 v3 — 장외 스냅샷은 워커가 이 응답을 다시 써서 재계산 없이 돈다(저장 판정 경로를 안 탄다). 출구에서도 옛 계약 글을 승격한다
         //   (v3 저장본이 있으면 교체 · 없으면 잠금 1회 백그라운드 생성 · 실패하면 옛 글 그대로). 승격본은 워커가 스냅샷에 다시 쓴다.
+        // ★2026-10-28 T2 출구에서 Tactical 글을 복구 글로 바꿨으면 장후 표식도 내린다(복구 글엔 선물 사실이 없을 수 있다 — 5분 뒤 다시 계산, 관문 10280621 ①)
+        if (r.repaired.includes('realityInsight') && context.tacticalFutures === true) context = { ...context, tacticalFutures: false };
         const up = core ? await IntelligenceNode.offHoursRotationUpgrade(r.verdict, locale, nums, () => offHoursRotationContext(core, locale), (job) => CORE_DEPS.background?.(job) ?? false) : null;
         if (up) return { ...context, verdict: up };
         return r.changed ? { ...context, verdict: r.verdict } : context;
@@ -544,7 +546,8 @@ export class GuardianDataHub {
                     }
 
                     // ★2026-10-28 T2 장후에는 지수 기준을 지금 다시 읽는다(캐시 읽기만) — 공유 코어(prefer)는 종가 이후 선물 기준이 저장되기 전 값일 수 있다
-                    const postBasis = rlsi.session === 'POST' ? await loadMarketIndexBasis().catch(() => null) : null;
+                    //   다시 읽은 값에 결측이 있으면 코어 값을 지킨다(칸별 합치기 — 관문 10280621 ②)
+                    const postBasis = rlsi.session === 'POST' ? mergePostIndexBasis(macro.indexBasis, await loadMarketIndexBasis().catch(() => null)) : null;
                     const aiContext = {
                         rlsiScore: rlsi.score,
                         nasdaqChange: macro?.nqChangePercent || 0,
@@ -705,7 +708,9 @@ export class GuardianDataHub {
                         }
                         // ★2026-09-29 저장 전 출구 검사 — 생성기가 이미 검사하지만, 이 키(24h)는 장외 내내 그대로 나가고
                         //   마케팅·콘텐츠 생성기도 직접 읽는다. 검사를 통과한 글만 저장한다.
-                        verdict = (await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums, tacticalPrompts)).verdict;
+                        const checked = await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums, tacticalPrompts);
+                        verdict = checked.verdict;
+                        if (checked.repaired.includes('realityInsight')) tacticalFutures = false;   // ★T2 복구 글로 바뀌면 표식도 내린다
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
                         //   대기 문구(«준비 중»)가 된 칸은 직전 저장본의 정상 글을 살려서 저장한다 — 밤새 «준비 중»으로 굳지 않게.
                         const hasPlaceholder = [verdict.description, verdict.realityInsight, verdict.gammaInsight]
