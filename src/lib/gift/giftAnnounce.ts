@@ -73,30 +73,41 @@ export interface AnnounceRun {
   bgAt: number;
   /** 마지막 심장 박동 시각 */
   aliveAt: number;
-  /** 심장 박동이 끊겼던 구간의 시작(백그라운드에서 타이머가 멈춘 경우 — 비활성 알림이 늦게 와도 재개 길이를 잰다), 0 = 없음 */
-  stalledFrom: number;
+  /** 가장 최근에 심장 박동이 끊겼던 구간 [stallFrom, stallTo](백그라운드에서 타이머가 멈춘 경우 — 비활성 알림이 늦게 와도
+   *  재개 길이를 잰다). 재개 «바로 전»에 끝난 구간만 쓴다(stallTo 가 재개 시각에서 GIFT_SUSPEND_DRIFT_MS 안). 0 = 없음 */
+  stallFrom: number;
+  stallTo: number;
 }
 export const newAnnounceRun = (now = Date.now()): AnnounceRun =>
-  ({ shown: false, dashDone: false, counted: new Set(), onboarded: null, bgAt: 0, aliveAt: now, stalledFrom: 0 });
+  ({ shown: false, dashDone: false, counted: new Set(), onboarded: null, bgAt: 0, aliveAt: now, stallFrom: 0, stallTo: 0 });
 
 /** 백그라운드로 갔다 — 처음 간 시각만 남긴다(재개 전 중복 알림은 무시) */
 export function noteGiftBackground(run: AnnounceRun, now: number): void {
   if (!run.bgAt) run.bgAt = now;
 }
-/** 심장 박동 — 직전 박동과 간격이 크면(타이머가 멈췄었다) 그 시작을 남긴다 */
+/** 심장 박동 — 직전 박동과 간격이 크면(타이머가 멈췄었다) 그 구간을 남긴다(가장 최근 것으로 덮는다) */
 export function noteGiftHeartbeat(run: AnnounceRun, now: number): void {
-  if (now - run.aliveAt > GIFT_SUSPEND_DRIFT_MS && !run.stalledFrom) run.stalledFrom = run.aliveAt;
+  if (now - run.aliveAt > GIFT_SUSPEND_DRIFT_MS) { run.stallFrom = run.aliveAt; run.stallTo = now; }
   run.aliveAt = now;
 }
 /**
  * 앱이 돌아왔다 — 백그라운드가 GIFT_RESUME_MIN_BG_MS 이상이면 «새 실행»으로 되돌리고 true.
- * 백그라운드 시작 = 비활성 알림 시각과 심장 박동이 끊긴 시각 중 이른 쪽(둘 다 없으면 재지 않는다). 재개마다 두 표식은 지운다.
+ * 백그라운드 시작(resumeBgStart): 비활성 알림이 제때 왔으면 그 시각. 알림이 재개 «뒤»에 늦게 처리됐으면(JS 가 멈춰 있었다)
+ *   바로 전 박동 끊김 구간의 «시작 + 박동 간격»(멈춘 시점의 가장 늦은 추정 = 짧게 잰다). 둘 다 없으면 재지 않는다. 재개마다 표식은 지운다.
  * 첫 안내 완료 여부는 지금 값으로 다시 읽는다 — 6시간 전에 첫 안내를 마친 사람은 이제 «막 설치한 첫 실행»이 아니다.
  */
+export function resumeBgStart(run: AnnounceRun, now: number): number {
+  const stall = run.stallTo > 0 && now - run.stallTo <= GIFT_SUSPEND_DRIFT_MS;   // 재개 바로 전에 끝난 끊김만
+  if (run.bgAt && (!stall || run.bgAt < run.stallTo)) return run.bgAt;         // 비활성 알림이 제때 왔다
+  if (stall) return run.stallFrom + GIFT_HEARTBEAT_MS;                          // 알림이 늦었거나 없다 — 짧게 잰다
+  return NaN;
+}
+/** 위 머리말대로 재개를 판정한다(6시간 이상 = 새 실행으로 되돌리고 true) */
 export function resumeGiftRun(run: AnnounceRun, now: number, onboardedNow: boolean): boolean {
-  const from = Math.min(run.bgAt || Infinity, run.stalledFrom || Infinity);
+  const from = resumeBgStart(run, now);
   run.bgAt = 0;
-  run.stalledFrom = 0;
+  run.stallFrom = 0;
+  run.stallTo = 0;
   run.aliveAt = now;
   if (!Number.isFinite(from) || now - from < GIFT_RESUME_MIN_BG_MS) return false;
   run.shown = false;

@@ -15,6 +15,7 @@ import {
   GIFT_MOMENT_EVENT, GIFT_REVIEW_QUIET_MS, ONBOARDING_DONE_KEY, giftAnnounceBlock, isDashPath, isEarningsPath, localeFromPath,
   keepTogether, markGiftAnnounceStop, markGiftAnnounced, readAnnounceState, readOnboarded, type AnnounceInput, type StoreLike,
   GIFT_RESUME_MIN_BG_MS, GIFT_HEARTBEAT_MS, GIFT_SUSPEND_DRIFT_MS, newAnnounceRun, noteGiftBackground, noteGiftHeartbeat, resumeGiftRun,
+  resumeBgStart,
 } from '../src/lib/gift/giftAnnounce';
 import { GIFT_COPY } from '../src/lib/gift/gift';
 import { APP_SESSION_REVIEW } from '../src/lib/app/reviewMoments';
@@ -150,7 +151,7 @@ t('재개 — 6시간 미만 백그라운드는 새 실행이 아니다(판정 �
   r.aliveAt = NOW - 6 * H + 1;
   assert.equal(resumeGiftRun(r, NOW, true), false);
   assert.equal(r.shown, true); assert.equal(r.dashDone, true); assert.equal(r.onboarded, false); assert.equal(r.counted.has('gap'), true);
-  assert.equal(r.bgAt, 0); assert.equal(r.stalledFrom, 0);   // 표식은 재개마다 지운다
+  assert.equal(r.bgAt, 0); assert.equal(r.stallFrom, 0); assert.equal(r.stallTo, 0);   // 표식은 재개마다 지운다
   // 표식이 전혀 없으면(비활성 알림·박동 끊김 둘 다 없음) 재지 않는다
   assert.equal(resumeGiftRun(usedRun(NOW), NOW, true), false);
 });
@@ -168,23 +169,55 @@ t('재개 — 6시간 이상 백그라운드면 새 실행(띄움·판정·사�
   assert.equal(resumeGiftRun(r2, NOW, false), true);
   assert.equal(giftAnnounceBlock(base({ onboardedAtMount: r2.onboarded! })), 'new');
 });
-t('재개 — 비활성 알림이 늦게 와도(백그라운드에서 JS 멈춤) 심장 박동이 끊긴 시각으로 잰다', () => {
+t('재개 — 비활성 알림이 늦게 와도(백그라운드에서 JS 멈춤) 심장 박동이 끊긴 구간으로 «짧게» 잰다', () => {
   assert.equal(GIFT_HEARTBEAT_MS, 60_000);
   const r = newAnnounceRun(NOW - 8 * H);
   noteGiftHeartbeat(r, NOW - 8 * H + GIFT_HEARTBEAT_MS);       // 앞쪽: 정상 박동
-  assert.equal(r.stalledFrom, 0);
+  assert.equal(r.stallTo, 0);
   noteGiftHeartbeat(r, NOW - 1000);                           // 8시간 가까이 끊겼다가 돌아온 첫 박동
-  assert.equal(r.stalledFrom, NOW - 8 * H + GIFT_HEARTBEAT_MS);
-  noteGiftBackground(r, NOW - 500);                           // 늦게 도착한 비활성 알림
+  assert.equal(r.stallFrom, NOW - 8 * H + GIFT_HEARTBEAT_MS);
+  noteGiftBackground(r, NOW - 500);                           // 늦게 도착한 비활성 알림(재개 뒤 처리)
+  assert.equal(resumeBgStart(r, NOW), NOW - 8 * H + 2 * GIFT_HEARTBEAT_MS);   // 끊김 시작 + 박동 간격
   assert.equal(resumeGiftRun(r, NOW, true), true);
   // 박동 간격이 짧으면(포그라운드) 끊김 아님
   const r2 = newAnnounceRun(NOW - GIFT_SUSPEND_DRIFT_MS);
   noteGiftHeartbeat(r2, NOW);
-  assert.equal(r2.stalledFrom, 0);
+  assert.equal(r2.stallTo, 0);
   // 끊김이 6시간 미만이면 새 실행 아님
   const r3 = newAnnounceRun(NOW - 5 * H);
   noteGiftHeartbeat(r3, NOW);
   assert.equal(resumeGiftRun(r3, NOW, true), false);
+  // 경계: 6시간 + 박동 간격 미만 끊김은 짧게 재서 새 실행 아님(늦은 알림만 있을 때 넉넉히 세지 않는다)
+  const r4 = newAnnounceRun(NOW - 6 * H - 30_000);
+  noteGiftHeartbeat(r4, NOW); noteGiftBackground(r4, NOW);
+  assert.equal(resumeGiftRun(r4, NOW, true), false);
+});
+t('재개 — 관문 10271834 오판 2건: 지난 끊김이 남아 짧은 재개를 6시간+로 · 제때 온 알림보다 이른 박동을 고름', () => {
+  // ① 4분 끊긴 뒤 정상 박동을 6시간 이어가다 10초 백그라운드 → 새 실행 아님
+  const r = newAnnounceRun(NOW - 7 * H);
+  noteGiftHeartbeat(r, NOW - 7 * H + 4 * 60_000);             // 4분 끊김(오래전)
+  for (let at = NOW - 7 * H + 5 * 60_000; at <= NOW - 20_000; at += GIFT_HEARTBEAT_MS) noteGiftHeartbeat(r, at);
+  noteGiftBackground(r, NOW - 10_000);
+  noteGiftHeartbeat(r, NOW);                                  // 재개 처리 직전 박동(간격 20초 — 끊김 아님)
+  assert.equal(resumeBgStart(r, NOW), NOW - 10_000);
+  assert.equal(resumeGiftRun(r, NOW, true), false);
+  // 비활성 알림도 없으면 오래된 끊김으로 재지 않는다
+  const r1 = newAnnounceRun(NOW - 7 * H);
+  noteGiftHeartbeat(r1, NOW - 7 * H + 4 * 60_000);
+  for (let at = NOW - 7 * H + 5 * 60_000; at <= NOW; at += GIFT_HEARTBEAT_MS) noteGiftHeartbeat(r1, at);
+  assert.equal(resumeGiftRun(r1, NOW, true), false);
+  // ② 마지막 박동 45초 뒤 백그라운드 → 5시간 59분 30초 뒤 복귀: 제때 온 알림 시각으로 잰다 → 새 실행 아님
+  const bg = NOW - (6 * H - 30_000);
+  const r2 = newAnnounceRun(bg - 45_000);
+  noteGiftBackground(r2, bg);
+  noteGiftHeartbeat(r2, NOW);                                 // 복귀 첫 박동 = 끊김 [bg-45s, NOW]
+  assert.equal(resumeBgStart(r2, NOW), bg);
+  assert.equal(resumeGiftRun(r2, NOW, false), false);
+  // 같은 상황에서 6시간 1초면 새 실행
+  const bg3 = NOW - 6 * H - 1000;
+  const r3 = newAnnounceRun(bg3 - 45_000);
+  noteGiftBackground(r3, bg3); noteGiftHeartbeat(r3, NOW);
+  assert.equal(resumeGiftRun(r3, NOW, true), true);
 });
 t('재개 뒤에도 48시간 간격·최대 3회·멈춤은 그대로(giftAnnounceBlock)', () => {
   const r = usedRun(NOW); noteGiftBackground(r, NOW - 12 * H);
