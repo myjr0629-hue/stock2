@@ -6,6 +6,7 @@ import { ClosingNarrative } from '@/components/intel/ClosingNarrative';
 import type { ClosingNarrative as Narrative } from '@/lib/ai/closingReport';
 import React, { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useGiftMoment } from '@/lib/gift/useGiftMoment';
 import { useLocale } from 'next-intl';
 import { TodayMoneyMap } from '@/components/intel/TodayMoneyMap';
 import { AdBanner } from '@/components/app/AdBanner';
@@ -1556,6 +1557,8 @@ function AppIntelContent() {
   //   시트 아래쪽을 가렸다. 배너는 OS 가 웹뷰 «위»에 그려 z-index 로 못 이긴다 → 열린 동안 배너를 내린다.
   //   조건은 시트가 실제로 그려지는 조건과 같다(아래 «CLOSING REPORT VIEW» 의 createPortal).
   useBannerSuppression(!!expandedReport && !selectedSector && intelTab === 'report');
+  // ★2026-10-27 선물 안내 «좋은 순간» — 장마감 리포트 탭을 읽고 머문 뒤(전체 화면 리포트·광고 창이 닫혀 있을 때만). 화면에는 아무것도 그리지 않는다(lib/gift/useGiftMoment)
+  useGiftMoment(intelTab === 'report' && !selectedSector && !expandedReport && !showAdModal, 'report');
   const [globalReportLoading, setGlobalReportLoading] = useState(false);
   const [stockAiAnalyses, setStockAiAnalyses] = useState<Record<string, StockAiAnalysis>>({});
   const [stockAiLoading, setStockAiLoading] = useState<Record<string, boolean>>({});

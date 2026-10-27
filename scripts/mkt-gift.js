@@ -31,6 +31,10 @@ const dates = [...Array(days)].map((_, i) => etDay(new Date(Date.now() - i * 864
 const BUCKETS = [...'abcdefghijklmnopqrstuvwxyz0123456789'];   // 초대자 id 첫 글자(lib/gift/gift.ts GIFT_REF_RE)
 const SURF = ['gift_set', 'gift_dash', 'gift_pop'];   // gift_pop = 앱 내 1회 안내(10/8)
 const VIAS = ['ios', 'android', 'web', 'na'];
+// ★2026-10-27 선물 안내(gift_pop) — 어디서 띄웠나 · 막힌 이유(실행당 사유마다 1회) — lib/gift/giftAnnounce GIFT_BLOCK_METRICS 와 같은 목록
+const POP_AT = ['at:dash', 'at:earn', 'at:report'];
+const POP_BLOCK = ['nostore', 'stop', 'cap', 'gap', 'new', 'review', 'busy'].map((b) => `block:${b}`);
+const POP_EXTRA = [...POP_AT, ...POP_BLOCK];
 
 async function mget(keys) {
   const out = [];
@@ -61,6 +65,7 @@ const sum = (o, re) => Object.entries(o).reduce((a, [f, n]) => a + (re.test(f) ?
   const keys = [];
   for (const d of dates) {
     for (const e of ['open', 'tap', 'sent']) for (const s of SURF) for (const v of VIAS) keys.push(`${SHARE}:${e}:${s}:${v}:${d}`);
+    for (const e of POP_EXTRA) for (const v of VIAS) keys.push(`${SHARE}:${e}:gift_pop:${v}:${d}`);
     for (const a of ['sg', 'code', 'coupon']) keys.push(`${CLK}:${a}:gift:${d}`);
     keys.push(`mkt:attr:hit:gift:${d}`, `mkt:attr:code:gift:${d}`);
     for (const b of BUCKETS) keys.push(`${CLK}:gift:${b}:${d}`);
@@ -78,6 +83,15 @@ const sum = (o, re) => Object.entries(o).reduce((a, [f, n]) => a + (re.test(f) ?
     const open = dates.reduce((a, d) => a + num(at(`${SHARE}:open:${s}:${v}:${d}`)), 0);
     if (open || tap || sent) console.log(`   ${s.padEnd(10)} ${v.padEnd(8)} ${String(open).padStart(6)} ${String(tap).padStart(6)} ${String(sent).padStart(6)}`);
   }
+
+  // 1b) 선물 안내(gift_pop) — 어디서 띄웠나 · 막힌 이유(실행당 사유마다 1회 — 10/27 계측 시작, 그 전은 0)
+  const popLine = (list) => list.map((e) => {
+    const n = dates.reduce((a, d) => a + VIAS.reduce((b, v) => b + num(at(`${SHARE}:${e}:gift_pop:${v}:${d}`)), 0), 0);
+    return `${e.replace(/^(at|block):/, '')} ${n}`;
+  }).join(' · ');
+  console.log(`\n   선물 안내 띄운 곳: ${popLine(POP_AT)}`);
+  console.log(`   선물 안내 막힌 이유(실행당 1회): ${popLine(POP_BLOCK)}`);
+  console.log('     stop=선물 링크를 이미 누름 · cap=3회 다 씀 · gap=48시간 안 · new=설치 첫 실행 · review=평점 회차 · busy=다른 시트 · nostore=저장소 막힘');
 
   // 2) 받은 쪽 — 태그(from=gift) 합계, 날짜별
   console.log('\n② 받은 쪽(from=gift 합계, 사람 판정 기준)');
