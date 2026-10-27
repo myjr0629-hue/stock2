@@ -138,6 +138,35 @@ for (const [name, calc] of screens) {
     eq(show(calc, officialYesterday, hub(317.2, 0.13, PRE), PRE), [316.8, -1.06], `${name}: 장전 공식 행`);
 }
 
+// ── 앱 셸: 정규장에 열어 둔 화면이 마감을 지나면 unified 공식 종가 행으로 넘어간다(관문 10280530 보류 수리) ──
+{
+    const ast = parse('src/app/[locale]/app-view/cmd/page.tsx');
+    const effects = findAll(ast, node => ts.isCallExpression(node) && node.expression.getText(ast) === 'useEffect'
+        && node.arguments[0]?.getText(ast).includes('unifiedRelatedRows.find')) as ts.CallExpression[];
+    assert.equal(effects.length, 1, '앱 셸 unified 병합 효과 하나');
+    const fn = effects[0].arguments[0] as ts.ArrowFunction;
+    const effect = compile(['unifiedRelatedRows', 'setRelatedData', 'mergeRelatedRow', 'Date'], `(${fn.getText(ast)})();`);
+    const runEffect = (prev: any[], unifiedRows: any, nowMs: number) => {
+        let out: any[] = prev;
+        effect(unifiedRows, (u: (p: any[]) => any[]) => { out = u(prev); }, mergeRelatedRow, { now: () => nowMs });
+        return out;
+    };
+    const intraday = { ticker: 'GOOGL', price: 99, change: -1, prevClose: 100, session: '2026-10-27', asOf: at('2026-10-27T19:59:30Z') };
+    const officialClose = { ticker: 'GOOGL', price: 103, change: 3, prevClose: 100, session: '2026-10-27', closeSession: '2026-10-27', asOf: at('2026-10-27T20:00:00Z') };
+    const other = { ticker: 'AMD', price: 50, change: 1, prevClose: 49.5, session: '2026-10-27', asOf: at('2026-10-27T19:59:00Z') };
+    for (const iso of ['2026-10-27T20:05:00Z', '2026-10-28T03:00:00Z', '2026-10-28T12:00:00Z']) {
+        const out = runEffect([intraday, other], [officialClose], at(iso));
+        eq([out[0].price, out[0].change], [103, 3], `${iso}: 마감 뒤 공식 종가 행`);
+        eq(out[1], other, `${iso}: unified 에 없는 종목은 그대로`);
+    }
+    // 정규장 중엔 오늘 직접 API 행이 지난 세션 unified 행에 밀리지 않는다(T31b 순위 그대로)
+    const staleUnified = { ticker: 'GOOGL', price: 316.8, change: -1.06, prevClose: 320.21, session: '2026-10-26', closeSession: '2026-10-26', asOf: 1793044800000 };
+    eq(runEffect([googlApi], [staleUnified], REG_2247)[0].price, 318.64, '정규장: 오늘 직접 API 유지');
+    const prevList = [googlApi];
+    ok(runEffect(prevList, [staleUnified], REG_2247) === prevList, '바뀐 것 없으면 같은 목록(재렌더 0)');
+    ok(runEffect([], [officialClose], at('2026-10-27T20:05:00Z')).length === 0, '직접 목록 전엔 손대지 않음');
+}
+
 // ── 60초 재조회 시점 ──
 const open0930 = at('2026-10-27T13:30:20Z');
 ok(!relatedRefreshDue(open0930, open0930 - 10 * 60_000), '09:30 ET대는 묻지 않음(장전 캐시)');
