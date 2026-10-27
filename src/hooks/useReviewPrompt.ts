@@ -26,6 +26,14 @@
 
 import { useCallback } from 'react';
 
+/**
+ * ★2026-10-27 마지막으로 OS 평점 시트를 «요청»한 시각(ms, 요청 지연 포함) — 같은 웹뷰 실행 안에서만 의미가 있다.
+ * 선물 안내(lib/gift/useGiftMoment·GiftAnnounceHost)가 이 시각 뒤 일정 시간은 띄우지 않는다(OS 시트와 겹치지 않게).
+ * 결과(표시 여부)는 여전히 읽지 않는다 — «요청했다»만 적는다.
+ */
+let lastReviewRequestAt = 0;
+export const reviewRequestedAt = (): number => lastReviewRequestAt;
+
 type Options = {
   /** 누적 성공 횟수를 담는 localStorage 키 */
   storageKey: string;
@@ -58,6 +66,7 @@ export function useReviewPrompt({
       const n = (parseInt(localStorage.getItem(storageKey) || '0', 10) || 0) + 1;
       localStorage.setItem(storageKey, String(n));
       if (!milestones.includes(n)) return;
+      lastReviewRequestAt = Date.now() + delayMs;
 
       window.setTimeout(() => {
         try {

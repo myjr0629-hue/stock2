@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   GIFT_ANNOUNCE_COPY, GIFT_ANNOUNCE_GAP_MS, GIFT_ANNOUNCE_KEY, GIFT_ANNOUNCE_MAX, GIFT_BLOCK_METRICS, GIFT_MOMENT_DWELL_MS,
-  GIFT_MOMENT_EVENT, ONBOARDING_DONE_KEY, giftAnnounceBlock, isDashPath, isEarningsPath, localeFromPath,
+  GIFT_MOMENT_EVENT, GIFT_REVIEW_QUIET_MS, ONBOARDING_DONE_KEY, giftAnnounceBlock, isDashPath, isEarningsPath, localeFromPath,
   keepTogether, markGiftAnnounceStop, markGiftAnnounced, readAnnounceState, readOnboarded, type AnnounceInput, type StoreLike,
 } from '../src/lib/gift/giftAnnounce';
 import { GIFT_COPY } from '../src/lib/gift/gift';
@@ -81,6 +81,15 @@ t('평점 요청 회차(앱 세션 3·10)엔 띄우지 않는다', () => {
   for (const k of ['3', '10']) assert.equal(giftAnnounceBlock(base({ store: mem({ [APP_SESSION_REVIEW.storageKey]: k }) })), 'review');
   for (const k of ['1', '2', '4', '11']) assert.equal(giftAnnounceBlock(base({ store: mem({ [APP_SESSION_REVIEW.storageKey]: k }) })), null);
 });
+t('OS 평점 시트를 요청한 뒤 60초는 띄우지 않는다(인텔 열람 2·7회 등 어떤 순간이든)', () => {
+  assert.equal(GIFT_REVIEW_QUIET_MS, 60_000);
+  assert.equal(giftAnnounceBlock(base({ moment: true, path: '/ko/app-view/intel', reviewAt: NOW - 59_000 })), 'review');
+  assert.equal(giftAnnounceBlock(base({ moment: true, path: '/ko/app-view/intel', reviewAt: NOW + 1_000 })), 'review');   // 요청 지연 중
+  assert.equal(giftAnnounceBlock(base({ moment: true, path: '/ko/app-view/intel', reviewAt: NOW - 61_000 })), null);
+  assert.equal(giftAnnounceBlock(base({ reviewAt: 0 })), null);
+  const hook = read('src/hooks/useReviewPrompt.ts');
+  assert.match(hook, /if \(!milestones\.includes\(n\)\) return;\n\s*lastReviewRequestAt = Date\.now\(\) \+ delayMs;/);
+});
 t('다른 시트·결제 창이 떠 있으면 미룬다', () => assert.equal(giftAnnounceBlock(base({ dialogOpen: true })), 'busy'));
 t('표식 — 띄울 때마다 횟수 +1·시각, 쓰고 다시 읽혀야 true(못 쓰면 띄우지 않는다)', () => {
   const s = mem();
@@ -123,7 +132,9 @@ t('좋은 순간 입구 — 실적 캘린더·장마감 리포트 탭에서만, 
   const host = read('src/components/app/GiftAnnounceHost.tsx');
   assert.match(host, new RegExp(`GIFT_MOMENT_EVENT`));
   assert.equal(GIFT_MOMENT_EVENT, 'sg:gift-moment');
-  assert.match(host, /if \(shown\.current\) return;\s*shown\.current = true;/);   // 한 실행 최대 1회
+  assert.match(host, /if \(run\.shown\) return;\s*run\.shown = true;/);   // 한 실행 최대 1회
+  assert.match(host, /^const run = \{ shown: false, dashDone: false, counted: new Set<string>\(\), onboarded: null as boolean \| null \};$/m);   // 재마운트에도 유지(모듈 상태)
+  assert.match(host, /reviewAt: reviewRequestedAt\(\)/);
 });
 t('첫 안내 완료 = AppFirstRunOnboarding 과 같은 키·값', () => {
   const src = read('src/components/app/AppFirstRunOnboarding.tsx');

@@ -16,7 +16,8 @@
  *   ④ 띄운 횟수 < 3('cap') · 마지막으로 띄운 지 48시간이 지났다('gap') — 옛 표식(첫 띄움 시각 숫자)은 «1회»로 읽는다
  *   ⑤ 첫 안내(AppFirstRunOnboarding)를 «이번 실행 전에» 이미 마쳤다 — 막 설치한 사람의 첫 실행엔 띄우지 않는다('new')
  *   ⑥ 대시보드(홈) 화면이다('route') — 또는 «좋은 순간»(실적 캘린더·장마감 리포트 탭에서 GIFT_MOMENT_DWELL_MS 머문 뒤, useGiftMoment)
- *   ⑦ 이번 실행이 평점 요청 회차(앱 세션 3·10번째, lib/app/reviewMoments)가 아니다 — OS 평점 시트와 겹치지 않게('review')
+ *   ⑦ 이번 실행이 평점 요청 회차(앱 세션 3·10번째, lib/app/reviewMoments)가 아니고, 최근 60초 안에 OS 평점 시트를 요청하지 않았다
+ *      (인텔 열람·담기·AI 한 줄 순간 — hooks/useReviewPrompt reviewRequestedAt) — OS 평점 시트와 겹치지 않게('review')
  *   ⑧ 다른 시트·결제 창(aria-modal)이 떠 있지 않다('busy')
  * 시점: 대시보드가 뜬 뒤 3.5초 — 첫 화면의 숫자를 본 다음(평점 요청 2.5초보다 늦게).
  * 측정: 띄움 = share-hit 'open' · 누름 'tap' · 보냄 'sent'(표면 gift_pop) · 어디서 띄웠나 'at:dash|earn|report'
@@ -45,6 +46,8 @@ export const GIFT_ANNOUNCE_MAX = 3;
 export const GIFT_ANNOUNCE_GAP_MS = 48 * 3600_000;
 /** «좋은 순간» — 그 화면에 이만큼 머문 뒤 */
 export const GIFT_MOMENT_DWELL_MS = 10_000;
+/** OS 평점 시트를 요청한 뒤 이만큼은 띄우지 않는다(인텔 열람·담기·AI 한 줄 등 어떤 순간이든 — hooks/useReviewPrompt) */
+export const GIFT_REVIEW_QUIET_MS = 60_000;
 /** «좋은 순간» 알림 이벤트(useGiftMoment → GiftAnnounceHost) */
 export const GIFT_MOMENT_EVENT = 'sg:gift-moment';
 export type GiftMomentWhere = 'earn' | 'report';
@@ -96,6 +99,8 @@ export interface AnnounceInput {
   now: number;
   /** «좋은 순간» 입구 — 경로 검사(⑥ 대시보드)를 건너뛴다(부른 화면이 이미 그 순간을 확인했다) */
   moment?: boolean;
+  /** 이번 실행에서 마지막으로 OS 평점 시트를 요청한 시각(ms, 없으면 0) */
+  reviewAt?: number;
 }
 
 export const isDashPath = (path: string): boolean => /\/app-view\/dash\/?$/.test(path);
@@ -116,6 +121,7 @@ export function giftAnnounceBlock(i: AnnounceInput): AnnounceBlock | null {
     const n = parseInt(i.store!.getItem(APP_SESSION_REVIEW.storageKey) || '0', 10) || 0;
     if ((APP_SESSION_REVIEW.milestones ?? []).includes(n)) return 'review';
   } catch { /* 회차를 못 읽으면 겹침 검사만 건너뛴다 */ }
+  if (i.reviewAt && i.now - i.reviewAt < GIFT_REVIEW_QUIET_MS) return 'review';
   if (i.dialogOpen) return 'busy';
   return null;
 }

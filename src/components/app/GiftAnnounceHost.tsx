@@ -14,6 +14,7 @@ import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { useGiftConfig } from '@/lib/gift/useGift';
 import { useGiftMoment } from '@/lib/gift/useGiftMoment';
+import { reviewRequestedAt } from '@/hooks/useReviewPrompt';
 import { shareBeacon, shareVia } from '@/lib/share/share';
 import {
   GIFT_ANNOUNCE_DELAY_MS, GIFT_ANNOUNCE_RETRY_MS, GIFT_BLOCK_METRICS, GIFT_MOMENT_EVENT, giftAnnounceBlock, localeFromPath,
@@ -38,34 +39,39 @@ function popBeacon(e: string): void {
 }
 const COUNTED = new Set<string>(GIFT_BLOCK_METRICS);
 
+// «이번 실행» 상태는 모듈에 둔다 — 언어 변경 등으로 레이아웃이 다시 마운트돼도 같은 웹뷰 실행에서 두 번 띄우지 않는다(관문 10270948 P3).
+//   웹뷰가 새로 뜨면(앱 재실행) 모듈도 새로 읽혀 초기화된다 = «한 실행 최대 1회».
+const run = { shown: false, dashDone: false, counted: new Set<string>(), onboarded: null as boolean | null };
+/** ④ 첫 안내 완료 여부는 «실행 시작 때» 값 — 이번 실행 중에 첫 안내를 마친 새 사용자에겐 띄우지 않는다(재마운트돼도 처음 읽은 값) */
+function onboardedAtStart(): boolean {
+  if (run.onboarded === null) run.onboarded = readOnboarded(localStore());
+  return run.onboarded;
+}
+
 export function GiftAnnounceHost() {
   const cfg = useGiftConfig();
   const pathname = usePathname();
-  const onboarded = useRef<boolean | null>(null);
-  const done = useRef(false);   // 이번 실행의 대시보드 입구는 끝났다(띄웠거나 이번 실행 내내 막힌다)
-  const shown = useRef(false);  // 이번 실행에서 띄웠다 — 한 실행 최대 1회
-  const counted = useRef(new Set<string>());
   const [locale, setLocale] = useState<string | null>(null);
 
-  // ④ 첫 안내 완료 여부는 «실행 시작 때» 값 — 이번 실행 중에 첫 안내를 마친 새 사용자에겐 띄우지 않는다
-  if (onboarded.current === null && typeof window !== 'undefined') onboarded.current = readOnboarded(localStore());
+  // ④ 실행 시작 때 값을 마운트 직후 한 번 고정한다(첫 안내 오버레이가 «마침»을 쓰기 전에)
+  useEffect(() => { onboardedAtStart(); }, []);
 
   const input = useCallback((moment = false) => ({
-    live: true, store: localStore(), onboardedAtMount: onboarded.current === true,
-    path: window.location.pathname, dialogOpen: dialogOpen(), now: Date.now(), moment,
+    live: true, store: localStore(), onboardedAtMount: onboardedAtStart(),
+    path: window.location.pathname, dialogOpen: dialogOpen(), now: Date.now(), moment, reviewAt: reviewRequestedAt(),
   }), []);
 
   const countBlock = useCallback((why: AnnounceBlock) => {
-    if (!COUNTED.has(why) || counted.current.has(why)) return;
-    counted.current.add(why);
+    if (!COUNTED.has(why) || run.counted.has(why)) return;
+    run.counted.add(why);
     popBeacon(`block:${why}`);
   }, []);
 
   /** 띄운다 — 표식을 못 남기면 띄우지 않는다 */
   const show = useCallback((at: GiftShowAt) => {
-    if (shown.current) return;
-    shown.current = true;
-    done.current = true;
+    if (run.shown) return;
+    run.shown = true;
+    run.dashDone = true;
     if (!markGiftAnnounced(localStore())) return;
     setLocale(localeFromPath(window.location.pathname));
     shareBeacon('open', 'gift_pop', shareVia());
@@ -74,17 +80,17 @@ export function GiftAnnounceHost() {
 
   // ① 대시보드 입구
   useEffect(() => {
-    if (!cfg || done.current || shown.current || locale) return;
+    if (!cfg || run.dashDone || run.shown || locale) return;
     // 지금 막힌 이유가 «다른 화면»·«시트»가 아니면 이번 실행의 대시보드 입구는 끝(다음 실행·좋은 순간에 다시 본다)
     const pre = giftAnnounceBlock({ ...input(), dialogOpen: false });
     if (pre === 'route') return;              // 대시보드로 오면 다시 잰다
-    if (pre) { done.current = true; countBlock(pre); return; }
+    if (pre) { run.dashDone = true; countBlock(pre); return; }
     let retried = false;
     let t = 0;
     const fire = () => {
       const why = giftAnnounceBlock(input());
       if (why === 'busy' && !retried) { retried = true; t = window.setTimeout(fire, GIFT_ANNOUNCE_RETRY_MS); return; }
-      if (why) { if (why !== 'route') { done.current = true; countBlock(why); } return; }
+      if (why) { if (why !== 'route') { run.dashDone = true; countBlock(why); } return; }
       show('dash');
     };
     t = window.setTimeout(fire, GIFT_ANNOUNCE_DELAY_MS);
@@ -97,7 +103,7 @@ export function GiftAnnounceHost() {
   useEffect(() => {
     if (!cfg) return;
     const onMoment = (ev: Event) => {
-      if (shown.current || locale) return;
+      if (run.shown || locale) return;
       const where = (ev as CustomEvent<{ where?: unknown }>).detail?.where;
       if (where !== 'earn' && where !== 'report') return;
       const why = giftAnnounceBlock(input(true));
