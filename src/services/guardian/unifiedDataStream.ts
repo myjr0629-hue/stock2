@@ -1,5 +1,5 @@
 import { fmpFetch } from '@/lib/fmpClient';
-import { buildIndexFacts, tacticalSessionAt } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, tacticalSessionAt } from '@/lib/ai/tacticalIndexFacts';
 import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
 import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
@@ -120,6 +120,11 @@ export interface GuardianContext {
     timestamp: string;
     /** ★2026-10-08 이 컨텍스트의 «숫자»가 나온 공유 코어의 계산 시각(ISO) — 응답 출구(overlayCore)가 더 새 코어로 맞출지 판단한다 */
     coreAt?: string;
+    /**
+     * ★2026-10-28 T2 장후(POST) 스냅샷에만 — 이 스냅샷의 Tactical 글이 «종가 이후 선물 사실이 있는 재료»로 만들어졌나.
+     *   스냅샷은 세션 전환 때 한 번 계산된 뒤 워커가 도장만 갱신하므로, false 인데 지금 선물 사실이 있으면 다시 계산한다.
+     */
+    tacticalFutures?: boolean;
 }
 
 // === CACHE CONFIG (per-locale to prevent AI text cross-contamination) ===
@@ -128,6 +133,17 @@ const _lastFetchTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 // [LAST GOOD] Throttle for refreshing the long-TTL last-good snapshot copy
 const _lastGoodWriteTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 const CACHE_TTL_MS = 25 * 1000; // 25 seconds — matches 30s polling interval
+
+/**
+ * ★2026-10-28 T2 장후 스냅샷의 Tactical 글이 «종가 이후 선물 사실 없이» 만들어졌는데 지금은 그 사실이 있다 → 다시 계산.
+ *   10/27 실측: 기준 키는 16:10 ET 무렵 EC2·Upstash 둘 다 저장됐지만 글은 16:01 ET 스냅샷 그대로 장후 내내 «종가 이후 변화 미확인».
+ *   값싼 판정(POST·표식 없음·계산 뒤 5분)을 먼저 하고, 통과할 때만 지수 기준을 읽는다(캐시 읽기만 — 공급사 호출 0).
+ */
+async function postTacticalNeedsFutures(c: { tacticalFutures?: boolean; timestamp?: string } | null | undefined, session: string | undefined, now: number): Promise<boolean> {
+    if (!postTacticalMayLackFutures(c, session, now)) return false;
+    const basis = await loadMarketIndexBasis(now).catch(() => null);
+    return hasFuturesSinceCloseFact(basis, now);
+}
 
 // [V12.0] Persistent AI verdict cache — Redis-based for deploy survival & EC2 sync
 // [FIX] Per-locale keys to prevent English verdict being served to Korean/Japanese
@@ -363,6 +379,8 @@ export class GuardianDataHub {
         const r = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'snapshot', nums, currentTacticalPrompts(nums, core, context.gammaShield));
         // ★2026-10-24 순환매 v3 — 장외 스냅샷은 워커가 이 응답을 다시 써서 재계산 없이 돈다(저장 판정 경로를 안 탄다). 출구에서도 옛 계약 글을 승격한다
         //   (v3 저장본이 있으면 교체 · 없으면 잠금 1회 백그라운드 생성 · 실패하면 옛 글 그대로). 승격본은 워커가 스냅샷에 다시 쓴다.
+        // ★2026-10-28 T2 출구에서 Tactical 글을 복구 글로 바꿨으면 장후 표식도 내린다(복구 글엔 선물 사실이 없을 수 있다 — 5분 뒤 다시 계산, 관문 10280621 ①)
+        if (r.repaired.includes('realityInsight') && context.tacticalFutures === true) context = { ...context, tacticalFutures: false };
         const up = core ? await IntelligenceNode.offHoursRotationUpgrade(r.verdict, locale, nums, () => offHoursRotationContext(core, locale), (job) => CORE_DEPS.background?.(job) ?? false) : null;
         if (up) return { ...context, verdict: up };
         return r.changed ? { ...context, verdict: r.verdict } : context;
@@ -388,6 +406,9 @@ export class GuardianDataHub {
                     if (cachedSession && cachedSession !== currentSession) {
                         console.log(`[Guardian FIX] Session mismatch: cached=${cachedSession}, current=${currentSession} — recomputing for ${locale}`);
                         // Don't return stale cache, fall through to recompute
+                    } else if (await postTacticalNeedsFutures(cached, cachedSession, now)) {
+                        // ★2026-10-28 T2 장후 글이 종가 이후 선물 사실 없이 만들어졌는데 지금은 있다 — 다시 계산한다
+                        console.log(`[Guardian] POST tactical lacks after-close futures that are now available (snapshot ${cached.timestamp}) — recomputing for ${locale}`);
                     } else {
                         // [FIX] Staleness check: if data is older than FRESH_MS, recompute for real-time freshness
                         // ★2026-09-23 실측: 워커는 약 30초마다 쓰는데(읽힌 나이 25~41초) 기준이 25초라 거의 모든 요청이
@@ -428,6 +449,8 @@ export class GuardianDataHub {
             const memSession = (_cachedContext[locale] as any)?.rlsi?.session;
             if (memSession && memSession !== currentSession) {
                 console.log(`[Guardian FIX] In-memory session mismatch: cached=${memSession}, current=${currentSession} — recomputing for ${locale}`);
+            } else if (await postTacticalNeedsFutures(_cachedContext[locale], memSession, now)) {
+                // 위 Redis 경로와 같은 이유(T2) — 메모리 사본도 다시 계산한다
             } else {
                 return _cachedContext[locale]!;
             }
@@ -469,6 +492,7 @@ export class GuardianDataHub {
 
             // === STEP 4: GENERATE VERDICT NARRATIVE (AI + Templates) ===
             let verdict: GuardianVerdict;
+            let tacticalFutures = false;   // ★T2 장후 스냅샷에 싣는 표식 — Tactical 글이 종가 이후 선물 사실이 있는 재료로 만들어졌나
 
             // [V13.0] Divergence info for AI context (used in all paths)
             const divergenceForAi = {
@@ -521,11 +545,14 @@ export class GuardianDataHub {
                         signalConflict = `지표 약세(RLSI ${rlsi.score.toFixed(0)}, NASDAQ ${nq.toFixed(2)}%), 성장주 유입(${ri.direction} ${ri.conviction})`;
                     }
 
+                    // ★2026-10-28 T2 장후에는 지수 기준을 지금 다시 읽는다(캐시 읽기만) — 공유 코어(prefer)는 종가 이후 선물 기준이 저장되기 전 값일 수 있다
+                    //   다시 읽은 값에 결측이 있으면 코어 값을 지킨다(칸별 합치기 — 관문 10280621 ②)
+                    const postBasis = rlsi.session === 'POST' ? mergePostIndexBasis(macro.indexBasis, await loadMarketIndexBasis().catch(() => null)) : null;
                     const aiContext = {
                         rlsiScore: rlsi.score,
                         nasdaqChange: macro?.nqChangePercent || 0,
-                        indexBasis: macro.indexBasis,
-                        indexFacts: buildIndexFacts(macro.indexBasis, rlsi.session, Date.parse(core.timestamp)),
+                        indexBasis: postBasis ?? macro.indexBasis,
+                        indexFacts: postBasis ? buildIndexFacts(postBasis, rlsi.session, Date.now()) : buildIndexFacts(macro.indexBasis, rlsi.session, Date.parse(core.timestamp)),
                         session: rlsi.session,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
                         // ⚠️ rvolEngine 은 PRE/POST/CLOSED 에서 «측정 안 함»을 rvol:0 으로 표현한다.
@@ -632,6 +659,7 @@ export class GuardianDataHub {
                         })
                     ]);
 
+                    if (rlsi.session === 'POST') tacticalFutures = IntelligenceNode.tacticalHasFutures(locale, realityText);
                     // [PART 3] Construct Verdict
                     if (rotationText.includes("NO KEY")) {
                         verdict = {
@@ -680,7 +708,9 @@ export class GuardianDataHub {
                         }
                         // ★2026-09-29 저장 전 출구 검사 — 생성기가 이미 검사하지만, 이 키(24h)는 장외 내내 그대로 나가고
                         //   마케팅·콘텐츠 생성기도 직접 읽는다. 검사를 통과한 글만 저장한다.
-                        verdict = (await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums, tacticalPrompts)).verdict;
+                        const checked = await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums, tacticalPrompts);
+                        verdict = checked.verdict;
+                        if (checked.repaired.includes('realityInsight')) tacticalFutures = false;   // ★T2 복구 글로 바뀌면 표식도 내린다
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
                         //   대기 문구(«준비 중»)가 된 칸은 직전 저장본의 정상 글을 살려서 저장한다 — 밤새 «준비 중»으로 굳지 않게.
                         const hasPlaceholder = [verdict.description, verdict.realityInsight, verdict.gammaInsight]
@@ -727,7 +757,8 @@ export class GuardianDataHub {
                 rlsiHistory: core.rlsiHistory,  // [V9.0] Intraday sparkline data
                 gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence
                 timestamp: new Date().toISOString(),
-                coreAt: core.timestamp   // ★2026-10-08 이 컨텍스트의 숫자가 나온 코어의 계산 시각 — 응답 출구가 더 새 코어로 맞출지 판단한다
+                coreAt: core.timestamp,   // ★2026-10-08 이 컨텍스트의 숫자가 나온 코어의 계산 시각 — 응답 출구가 더 새 코어로 맞출지 판단한다
+                ...(rlsi.session === 'POST' ? { tacticalFutures } : {}),
             };
 
             // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon

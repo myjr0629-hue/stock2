@@ -1,4 +1,4 @@
-import { buildIndexFacts, tacticalSessionAt, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, promptHasFuturesFacts, tacticalSessionAt, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
 import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, tacticalTokenRules, internalSourceReasons, polishTacticalText } from '@/lib/ai/tacticalPrompt';
 import { buildRotationPrompt, checkRotationOutput, polishRotationText, rotationNums, rotationTokenRules, isLegacyRotationText, rotationHints, type RotationFacts, type RotationContext } from '@/lib/ai/rotationPrompt';
@@ -169,9 +169,9 @@ const RETRY_BUDGET_MS = 25 * 1000;
 const TRANSLATE_BUDGET_MS = 35 * 1000;
 
 /** text = 자리표가 남은 정리본(저장·번역 원본) · basis = 그 글을 만들 때 프롬프트에 들어간 화면 숫자(2026-10-04) */
-interface CachedInsight { text: string; at: number; basis?: GNums | null; session?: TacticalSession }
+interface CachedInsight { text: string; at: number; basis?: GNums | null; session?: TacticalSession; /** Tactical: 생성 재료에 종가 이후 선물 사실이 있었나(T2) */ futures?: boolean }
 /** 생성기·복구가 돌려주는 단위 — tpl 은 자리표가 남은 글, 화면 글은 출구에서 화면 값으로 채운다 */
-export interface InsightOut { tpl: string; basis: GNums | null; session?: TacticalSession }
+export interface InsightOut { tpl: string; basis: GNums | null; session?: TacticalSession; /** Tactical 새 생성·신선 캐시만: 생성 재료에 선물 사실이 있었나(복구 글은 없음, T2) */ futures?: boolean }
 const emptyByLocale = <T,>(v: T): Record<Locale, T> => ({ ko: v, en: v, ja: v });
 /** 메모리 캐시 — «검사를 통과한 글»만 들어간다(그래서 나이가 지나도 «마지막 정상본»으로 쓸 수 있다) */
 const _mem: Record<InsightType, Record<Locale, CachedInsight | null>> = {
@@ -196,11 +196,11 @@ const _lastOut: Record<InsightType, Record<Locale, { shown: string; tpl: string;
  * ★2026-10-21 Tactical 은 «화면 글 → 원본·기준»을 글마다 기억한다(언어당 최근 64개) — 동시 요청이 _lastOut 을 덮어도 그 글의 생성 기준값을 찾는다.
  *   자리표 없는 Tactical 의 «상태 판정» 낡음 비교는 생성 기준값이 있어야 한다(관문 10211015·10211022: 덮인 뒤 «지금 값»을 기준으로 저장하면 낡음이 안 보인다).
  */
-const _outByShown: Record<Locale, Map<string, { tpl: string; basis: GNums | null }>> = { ko: new Map(), en: new Map(), ja: new Map() };
-function rememberShown(locale: Locale, shown: string, tpl: string, basis: GNums | null): void {
+const _outByShown: Record<Locale, Map<string, { tpl: string; basis: GNums | null; futures?: boolean }>> = { ko: new Map(), en: new Map(), ja: new Map() };
+function rememberShown(locale: Locale, shown: string, tpl: string, basis: GNums | null, futures?: boolean): void {
     const m = _outByShown[locale];
     m.delete(shown);
-    m.set(shown, { tpl, basis });
+    m.set(shown, { tpl, basis, futures });
     while (m.size > 64) m.delete(m.keys().next().value as string);   // 언어당 64개(글 하나 ~1KB) — 새 Tactical 은 언어당 10분에 하나라 64개 = 10시간+
 }
 
@@ -397,7 +397,7 @@ async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums
     if (!redis) return null;
     const key = opts.previousKey ? `guardian:gemini:v2:reality:${locale}` : getRedisKey(type, locale);
     try {
-        const data = await redis.get(key) as { text?: string; updatedAt?: string; basis?: GNums | null; session?: TacticalSession } | null;
+        const data = await redis.get(key) as { text?: string; updatedAt?: string; basis?: GNums | null; session?: TacticalSession; futures?: boolean } | null;
         if (!data?.text) return null;
         const at = data.updatedAt ? Date.parse(data.updatedAt) : 0;
         // ★2026-10-24 밤 검토 ① — 신선한 캐시로 쓸 때만 세션 일치를 본다(09:29 PRE 글이 09:31 REG 에서 «지금 개장 전» 그대로 나갔다). 복구는 세션 무관(글 보존).
@@ -409,7 +409,7 @@ async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums
             return null;
         }
         if (isPlaceholder(g.text)) return null;
-        return { text: g.tpl, at: Number.isFinite(at) ? at : 0, basis, session: data.session };
+        return { text: g.tpl, at: Number.isFinite(at) ? at : 0, basis, session: data.session, ...(typeof data.futures === 'boolean' ? { futures: data.futures } : {}) };
     } catch (e) {
         console.warn("[IntelligenceNode] Redis load error:", e);
         return null;
@@ -417,13 +417,13 @@ async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums
 }
 
 /** Redis 에 쓰기 — 호출자는 반드시 gateText 를 통과한(그리고 대기 문구가 아닌) 글만 넘긴다. 나쁜 글로 좋은 캐시를 덮지 않는다. */
-async function writeStoredInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null, session?: TacticalSession, ttlSec = REDIS_TTL_SEC): Promise<void> {
+async function writeStoredInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null, session?: TacticalSession, ttlSec = REDIS_TTL_SEC, futures?: boolean): Promise<void> {
     await archiveInsight(type, locale, text, basis, session);   // 완료 세션 보관본(EC2) — Upstash 저장본과 별개로
     const redis = getRedis();
     if (!redis) return;
     const key = getRedisKey(type, locale);
     try {
-        await redis.set(key, JSON.stringify({ text, basis: basis ?? null, updatedAt: new Date(Date.now()).toISOString(), ...(type === 'reality' ? { session: session ?? tacticalSessionAt(Date.now()) } : {}) }), { ex: ttlSec });
+        await redis.set(key, JSON.stringify({ text, basis: basis ?? null, updatedAt: new Date(Date.now()).toISOString(), ...(type === 'reality' ? { session: session ?? tacticalSessionAt(Date.now()), ...(typeof futures === 'boolean' ? { futures } : {}) } : {}) }), { ex: ttlSec });
         console.log(`[IntelligenceNode] Saved ${key} to Redis (${text.length} chars)`);
     } catch (e) {
         console.warn("[IntelligenceNode] Redis save error:", e);
@@ -475,8 +475,16 @@ function sameTacticalSession(type: InsightType, at: number, prompt?: string, sav
     return !!at && Number.isFinite(at) && (savedSession || tacticalSessionAt(at)) === current;
 }
 
-function rememberInsight(type: InsightType, locale: Locale, text: string, at: number, basis?: GNums | null, session?: TacticalSession): void {
-    _mem[type][locale] = { text, at, basis: basis ?? null, session };
+/**
+ * ★2026-10-28 T2 장후(POST) Tactical 글이 «종가 이후 선물 사실 없이» 만들어졌는데 지금 프롬프트에는 그 사실이 있다 — TTL 안이어도 신선한 캐시로 쓰지 않는다.
+ *   (16:01 ET 에 만든 «미확인» 글이 기준 저장(16:10 ET 무렵) 뒤에도 재사용돼 굳던 경로. 재생성이 실패하면 복구 경로가 같은 글을 그대로 보여 준다.) Tactical·POST 외에는 늘 false.
+ */
+function lacksFuturesNow(type: InsightType, savedFutures: boolean | undefined, prompt?: string): boolean {
+    return type === 'reality' && savedFutures !== true && promptSession(prompt) === 'POST' && promptHasFuturesFacts(prompt);
+}
+
+function rememberInsight(type: InsightType, locale: Locale, text: string, at: number, basis?: GNums | null, session?: TacticalSession, futures?: boolean): void {
+    _mem[type][locale] = { text, at, basis: basis ?? null, session, ...(typeof futures === 'boolean' ? { futures } : {}) };
 }
 
 /** 자리표 글 → 화면 글. 채울 값이 없어 자리표가 남으면 대기 문구(자리표가 화면에 나가지 않게). 내보낸 원본·기준을 기억한다. */
@@ -484,7 +492,7 @@ function shownOut(type: InsightType, locale: Locale, out: InsightOut, nums?: GNu
     const f = fillGuardianTokens(out.tpl, type === 'reality' ? tacticalFillNums(out.tpl, nums, out.basis) : nums ?? out.basis ?? null);
     const shown = hasGuardianTokens(f.text) ? (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale] : f.text;
     _lastOut[type][locale] = shown === f.text ? { shown, tpl: out.tpl, basis: out.basis } : null;
-    if (type === 'reality' && shown === f.text) rememberShown(locale, shown, out.tpl, out.basis ?? null);
+    if (type === 'reality' && shown === f.text) rememberShown(locale, shown, out.tpl, out.basis ?? null, out.futures === true);
     return shown;
 }
 
@@ -1033,7 +1041,7 @@ export class IntelligenceNode {
                     const lenient = gateText(type, tokenizeInsight(type, r, nums), l, nums, nums, false, type !== 'gamma' ? buildPrompt(l) : undefined, false, true);
                     if (lenient.ok) g = lenient;
                 }
-                if (g.ok && !isPlaceholder(g.text)) into[l] = { tpl: g.tpl, basis: nums, session: type === 'reality' ? promptSession(buildPrompt(l)) : undefined };
+                if (g.ok && !isPlaceholder(g.text)) into[l] = { tpl: g.tpl, basis: nums, session: type === 'reality' ? promptSession(buildPrompt(l)) : undefined, ...(type === 'reality' ? { futures: promptHasFuturesFacts(buildPrompt(l)) } : {}) };
                 else { failed[l] = g.reasons.length ? g.reasons : ['placeholder']; console.warn(`[InsightGate] REJECT generated ${type}/${l} (tri: ${(failed[l] || []).join(' | ')}) :: ${previewForLog(r)}`); }
             }
             return failed;
@@ -1061,8 +1069,8 @@ export class IntelligenceNode {
         for (const l of locales) {
             const o = out[l];
             if (!o) continue;
-            rememberInsight(type, l, o.tpl, now, nums, o.session);
-            await writeStoredInsight(type, l, o.tpl, nums, o.session, opts.ttlSec);
+            rememberInsight(type, l, o.tpl, now, nums, o.session, o.futures);
+            await writeStoredInsight(type, l, o.tpl, nums, o.session, opts.ttlSec, o.futures);
         }
         console.log(`[IntelligenceNode] trilingual ${type}: ${Object.keys(out).join(',') || '없음'} 통과 (${Date.now() - started}ms)`);
         return { parsed: true, out };
@@ -1077,15 +1085,15 @@ export class IntelligenceNode {
 
         // ① 메모리 — 검사를 통과한 글만 들어 있다. 화면 값이 움직여 서술이 낡았으면 쓰지 않는다.
         const mem = _mem[type][locale];
-        if (mem && now - mem.at < ttl && sameTacticalSession(type, mem.at, tacticalPrompts?.(locale), mem.session) && gateText(type, mem.text, locale, nums, mem.basis, false, tacticalPrompts?.(locale)).ok) return { tpl: mem.text, basis: mem.basis ?? null };
+        if (mem && now - mem.at < ttl && sameTacticalSession(type, mem.at, tacticalPrompts?.(locale), mem.session) && !lacksFuturesNow(type, mem.futures, tacticalPrompts?.(locale)) && gateText(type, mem.text, locale, nums, mem.basis, false, tacticalPrompts?.(locale)).ok) return { tpl: mem.text, basis: mem.basis ?? null, futures: mem.futures };
 
         // ② Redis — 콜드 스타트마다 모델을 부르지 않게. 읽을 때도 검사한다.
         const stored = await readStoredInsight(type, locale, nums, tacticalPrompts);
         if (stored) {
-            if (!mem || stored.at >= mem.at) rememberInsight(type, locale, stored.text, stored.at, stored.basis, stored.session);
-            if (now - stored.at < ttl) {
+            if (!mem || stored.at >= mem.at) rememberInsight(type, locale, stored.text, stored.at, stored.basis, stored.session, stored.futures);
+            if (now - stored.at < ttl && !lacksFuturesNow(type, stored.futures, tacticalPrompts?.(locale))) {
                 console.log(`[IntelligenceNode] Redis cache hit for ${type}/${locale} (age: ${((now - stored.at) / 1000).toFixed(0)}s, TTL: ${ttl / 1000}s)`);
-                return { tpl: stored.text, basis: stored.basis ?? null };
+                return { tpl: stored.text, basis: stored.basis ?? null, futures: stored.futures };
             }
         }
 
@@ -1152,9 +1160,10 @@ export class IntelligenceNode {
 
         if (gated?.ok && !isPlaceholder(gated.text)) {
             const session = promptSession(tacticalPrompts?.(locale));
-            rememberInsight(type, locale, gated.tpl, Date.now(), nums, session);
-            await writeStoredInsight(type, locale, gated.tpl, nums, session);
-            return { tpl: gated.tpl, basis: nums };
+            const futures = type === 'reality' ? promptHasFuturesFacts(tacticalPrompts?.(locale)) : undefined;
+            rememberInsight(type, locale, gated.tpl, Date.now(), nums, session, futures);
+            await writeStoredInsight(type, locale, gated.tpl, nums, session, undefined, futures);
+            return { tpl: gated.tpl, basis: nums, futures };
         }
 
         // ⑤ 검사를 통과한 새 글이 없다 → 마지막 정상본 / 번역 / 고정 문구
@@ -1168,6 +1177,12 @@ export class IntelligenceNode {
      * Tactical은 저장 당시 기준으로 복구하고, 다른 유형은 현재 화면 숫자를 대조한다. 절대 throw 하지 않는다. 돌려주는 tpl 은 자리표가 남은 글.
      */
     static async recoverInsightOut(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null; tacticalPrompts?: TacticalPrompts } = {}): Promise<InsightOut> {
+        // 복구 글은 «선물 사실 있음» 표식을 싣지 않는다 — 장후 스냅샷이 다음 수확 때 다시 만들게(T2)
+        const { tpl, basis } = await IntelligenceNode.recoverInsightOutAny(type, locale, opts);
+        return { tpl, basis };
+    }
+
+    private static async recoverInsightOutAny(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null; tacticalPrompts?: TacticalPrompts } = {}): Promise<InsightOut> {
         try {
             const last = await lastValidInsight(type, locale, opts.storedChecked === true, opts.nums, opts.tacticalPrompts);
             if (last) return last;
@@ -1216,6 +1231,14 @@ export class IntelligenceNode {
         }
         const o = _lastOut[type][locale];
         return o && typeof shown === 'string' && o.shown === shown && o.tpl !== o.shown ? { tpl: o.tpl, basis: o.basis } : null;
+    }
+
+    /**
+     * ★2026-10-28 T2 이 화면 Tactical 글이 «종가 이후 선물 사실이 있는 재료»로 새로 만들어졌거나 그런 신선 캐시인가. 복구·번역·안내 문구면 false.
+     *   unifiedDataStream 이 장후 스냅샷에 실어(tacticalFutures), 지금 선물 사실이 생겼으면 다음 수확 때 다시 계산하게 한다.
+     */
+    static tacticalHasFutures(locale: Locale, shown: string | null | undefined): boolean {
+        return typeof shown === 'string' && _outByShown[locale].get(shown)?.futures === true;
     }
 
     /** 대기·장외 안내 문구인가 */
