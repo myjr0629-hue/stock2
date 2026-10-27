@@ -14,6 +14,7 @@ import {
   GIFT_ANNOUNCE_COPY, GIFT_ANNOUNCE_GAP_MS, GIFT_ANNOUNCE_KEY, GIFT_ANNOUNCE_MAX, GIFT_BLOCK_METRICS, GIFT_MOMENT_DWELL_MS,
   GIFT_MOMENT_EVENT, GIFT_REVIEW_QUIET_MS, ONBOARDING_DONE_KEY, giftAnnounceBlock, isDashPath, isEarningsPath, localeFromPath,
   keepTogether, markGiftAnnounceStop, markGiftAnnounced, readAnnounceState, readOnboarded, type AnnounceInput, type StoreLike,
+  GIFT_RESUME_MIN_BG_MS, GIFT_HEARTBEAT_MS, GIFT_SUSPEND_DRIFT_MS, newAnnounceRun, noteGiftBackground, noteGiftHeartbeat, resumeGiftRun,
 } from '../src/lib/gift/giftAnnounce';
 import { GIFT_COPY } from '../src/lib/gift/gift';
 import { APP_SESSION_REVIEW } from '../src/lib/app/reviewMoments';
@@ -133,8 +134,76 @@ t('좋은 순간 입구 — 실적 캘린더·장마감 리포트 탭에서만, 
   assert.match(host, new RegExp(`GIFT_MOMENT_EVENT`));
   assert.equal(GIFT_MOMENT_EVENT, 'sg:gift-moment');
   assert.match(host, /if \(run\.shown\) return;\s*run\.shown = true;/);   // 한 실행 최대 1회
-  assert.match(host, /^const run = \{ shown: false, dashDone: false, counted: new Set<string>\(\), onboarded: null as boolean \| null \};$/m);   // 재마운트에도 유지(모듈 상태)
+  assert.match(host, /^const run = newAnnounceRun\(\);$/m);   // 재마운트에도 유지(모듈 상태)
   assert.match(host, /reviewAt: reviewRequestedAt\(\)/);
+});
+// ★10/27 저녁 앱 재개 = 새 기회(코디네이터 결정) — 6시간 미만 재개는 판정 안 함, 6시간 이상은 «새 실행», 나머지 규칙은 그대로
+const usedRun = (now: number) => {
+  const r = newAnnounceRun(now - 10 * H);
+  r.shown = true; r.dashDone = true; r.counted.add('gap'); r.onboarded = false; r.aliveAt = now - 10 * H;
+  return r;
+};
+t('재개 — 6시간 미만 백그라운드는 새 실행이 아니다(판정 안 함)', () => {
+  assert.equal(GIFT_RESUME_MIN_BG_MS, 6 * H);
+  const r = usedRun(NOW);
+  noteGiftBackground(r, NOW - 6 * H + 1);
+  r.aliveAt = NOW - 6 * H + 1;
+  assert.equal(resumeGiftRun(r, NOW, true), false);
+  assert.equal(r.shown, true); assert.equal(r.dashDone, true); assert.equal(r.onboarded, false); assert.equal(r.counted.has('gap'), true);
+  assert.equal(r.bgAt, 0); assert.equal(r.stalledFrom, 0);   // 표식은 재개마다 지운다
+  // 표식이 전혀 없으면(비활성 알림·박동 끊김 둘 다 없음) 재지 않는다
+  assert.equal(resumeGiftRun(usedRun(NOW), NOW, true), false);
+});
+t('재개 — 6시간 이상 백그라운드면 새 실행(띄움·판정·사유 집계 초기화, 첫 안내는 지금 값으로)', () => {
+  const r = usedRun(NOW);
+  noteGiftBackground(r, NOW - 6 * H);
+  noteGiftBackground(r, NOW - 1 * H);                         // 재개 전 중복 알림은 처음 시각 유지
+  assert.equal(resumeGiftRun(r, NOW, true), true);
+  assert.equal(r.shown, false); assert.equal(r.dashDone, false); assert.equal(r.counted.size, 0); assert.equal(r.onboarded, true);
+  assert.equal(r.bgAt, 0);
+  // 다시 재개하면(표식 없음) 또 새 실행이 되지 않는다
+  assert.equal(resumeGiftRun(r, NOW + 1000, true), false);
+  // 첫 안내를 아직 못 마친 기기는 새 실행이어도 'new' 그대로
+  const r2 = usedRun(NOW); noteGiftBackground(r2, NOW - 7 * H);
+  assert.equal(resumeGiftRun(r2, NOW, false), true);
+  assert.equal(giftAnnounceBlock(base({ onboardedAtMount: r2.onboarded! })), 'new');
+});
+t('재개 — 비활성 알림이 늦게 와도(백그라운드에서 JS 멈춤) 심장 박동이 끊긴 시각으로 잰다', () => {
+  assert.equal(GIFT_HEARTBEAT_MS, 60_000);
+  const r = newAnnounceRun(NOW - 8 * H);
+  noteGiftHeartbeat(r, NOW - 8 * H + GIFT_HEARTBEAT_MS);       // 앞쪽: 정상 박동
+  assert.equal(r.stalledFrom, 0);
+  noteGiftHeartbeat(r, NOW - 1000);                           // 8시간 가까이 끊겼다가 돌아온 첫 박동
+  assert.equal(r.stalledFrom, NOW - 8 * H + GIFT_HEARTBEAT_MS);
+  noteGiftBackground(r, NOW - 500);                           // 늦게 도착한 비활성 알림
+  assert.equal(resumeGiftRun(r, NOW, true), true);
+  // 박동 간격이 짧으면(포그라운드) 끊김 아님
+  const r2 = newAnnounceRun(NOW - GIFT_SUSPEND_DRIFT_MS);
+  noteGiftHeartbeat(r2, NOW);
+  assert.equal(r2.stalledFrom, 0);
+  // 끊김이 6시간 미만이면 새 실행 아님
+  const r3 = newAnnounceRun(NOW - 5 * H);
+  noteGiftHeartbeat(r3, NOW);
+  assert.equal(resumeGiftRun(r3, NOW, true), false);
+});
+t('재개 뒤에도 48시간 간격·최대 3회·멈춤은 그대로(giftAnnounceBlock)', () => {
+  const r = usedRun(NOW); noteGiftBackground(r, NOW - 12 * H);
+  assert.equal(resumeGiftRun(r, NOW, true), true);
+  const st = (o: object) => mem({ [GIFT_ANNOUNCE_KEY]: JSON.stringify(o) });
+  assert.equal(giftAnnounceBlock(base({ onboardedAtMount: r.onboarded!, store: st({ n: 1, last: NOW - 12 * H }) })), 'gap');
+  assert.equal(giftAnnounceBlock(base({ onboardedAtMount: r.onboarded!, store: st({ n: 3, last: NOW - 99 * H }) })), 'cap');
+  assert.equal(giftAnnounceBlock(base({ onboardedAtMount: r.onboarded!, store: st({ n: 1, last: NOW - 99 * H, stop: 1 }) })), 'stop');
+  assert.equal(giftAnnounceBlock(base({ onboardedAtMount: r.onboarded!, store: st({ n: 1, last: NOW - 49 * H }) })), null);
+  assert.equal(giftAnnounceBlock(base({ onboardedAtMount: r.onboarded!, store: st({ n: 1, last: NOW - 49 * H }), dialogOpen: true })), 'busy');
+});
+t('재개 배선 — 네이티브 appStateChange 로만, 6시간+ 재개 때 대시보드 입구를 다시 잰다', () => {
+  const host = read('src/components/app/GiftAnnounceHost.tsx');
+  assert.match(host, /if \(!Capacitor\.isNativePlatform\(\) \|\| cancelled\) return;/);
+  assert.match(host, /App\.addListener\('appStateChange'/);
+  assert.match(host, /if \(!isActive\) \{ noteGiftBackground\(run, now\); return; \}/);
+  assert.match(host, /if \(resumeGiftRun\(run, now, readOnboarded\(localStore\(\)\)\)\) setResumeTick\(\(n\) => n \+ 1\);/);
+  assert.match(host, /\}, \[cfg, pathname, locale, input, countBlock, show, resumeTick\]\);/);
+  assert.match(host, /window\.clearInterval\(beat\)/);
 });
 t('첫 안내 완료 = AppFirstRunOnboarding 과 같은 키·값', () => {
   const src = read('src/components/app/AppFirstRunOnboarding.tsx');

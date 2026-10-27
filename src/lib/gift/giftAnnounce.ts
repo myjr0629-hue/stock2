@@ -20,6 +20,7 @@
  *      (인텔 열람·담기·AI 한 줄 순간 — hooks/useReviewPrompt reviewRequestedAt) — OS 평점 시트와 겹치지 않게('review')
  *   ⑧ 다른 시트·결제 창(aria-modal)이 떠 있지 않다('busy')
  * 시점: 대시보드가 뜬 뒤 3.5초 — 첫 화면의 숫자를 본 다음(평점 요청 2.5초보다 늦게).
+ *   «실행» = 웹뷰가 새로 뜬 것 + (10/27 저녁) 6시간 이상 백그라운드였다가 돌아온 것(resumeGiftRun — 아래 GIFT_RESUME_MIN_BG_MS).
  * 측정: 띄움 = share-hit 'open' · 누름 'tap' · 보냄 'sent'(표면 gift_pop) · 어디서 띄웠나 'at:dash|earn|report'
  *   · 막힌 이유 'block:<사유>'(실행당 사유마다 1회, 하루 합계 숫자만 — 식별자 없음) — scripts/mkt-gift.js 가 센다.
  *
@@ -48,6 +49,63 @@ export const GIFT_ANNOUNCE_GAP_MS = 48 * 3600_000;
 export const GIFT_MOMENT_DWELL_MS = 10_000;
 /** OS 평점 시트를 요청한 뒤 이만큼은 띄우지 않는다(인텔 열람·담기·AI 한 줄 등 어떤 순간이든 — hooks/useReviewPrompt) */
 export const GIFT_REVIEW_QUIET_MS = 60_000;
+/**
+ * ★2026-10-27 저녁(코디네이터 결정, ops-1028) 앱 재개 = 새 기회 — 네이티브 앱은 백그라운드에서 돌아와도 웹뷰를 다시 읽지 않아
+ *   («app:resume» 만, NativeAppProvider) «한 실행 최대 1회»가 며칠씩 이어진다. 이만큼 이상 백그라운드였다가 돌아오면
+ *   대시보드 입구를 «새 실행»처럼 다시 잰다. 48시간 간격·최대 3회·멈춤·첫 실행 제외·평점/시트 겹침 금지는 그대로(giftAnnounceBlock).
+ */
+export const GIFT_RESUME_MIN_BG_MS = 6 * 3600_000;
+/** 백그라운드 중 타이머가 멈췄는지 보는 심장 박동 간격 — 박동 사이가 GIFT_SUSPEND_DRIFT_MS 보다 길면 그 사이 앱이 멈춰 있었다 */
+export const GIFT_HEARTBEAT_MS = 60_000;
+export const GIFT_SUSPEND_DRIFT_MS = 180_000;
+
+/** «이번 실행» 상태 — GiftAnnounceHost 가 모듈에 하나 둔다(재마운트돼도 같은 웹뷰 실행이면 같은 값) */
+export interface AnnounceRun {
+  /** 이번 실행(또는 6시간+ 재개 뒤)에 띄웠다 */
+  shown: boolean;
+  /** 대시보드 입구 판정을 끝냈다 */
+  dashDone: boolean;
+  /** 이번 실행에 센 막힌 사유 */
+  counted: Set<string>;
+  /** 실행 시작 때 첫 안내를 마친 상태였나(null = 아직 안 읽음) */
+  onboarded: boolean | null;
+  /** 백그라운드로 간 시각(appStateChange isActive=false), 0 = 모름 */
+  bgAt: number;
+  /** 마지막 심장 박동 시각 */
+  aliveAt: number;
+  /** 심장 박동이 끊겼던 구간의 시작(백그라운드에서 타이머가 멈춘 경우 — 비활성 알림이 늦게 와도 재개 길이를 잰다), 0 = 없음 */
+  stalledFrom: number;
+}
+export const newAnnounceRun = (now = Date.now()): AnnounceRun =>
+  ({ shown: false, dashDone: false, counted: new Set(), onboarded: null, bgAt: 0, aliveAt: now, stalledFrom: 0 });
+
+/** 백그라운드로 갔다 — 처음 간 시각만 남긴다(재개 전 중복 알림은 무시) */
+export function noteGiftBackground(run: AnnounceRun, now: number): void {
+  if (!run.bgAt) run.bgAt = now;
+}
+/** 심장 박동 — 직전 박동과 간격이 크면(타이머가 멈췄었다) 그 시작을 남긴다 */
+export function noteGiftHeartbeat(run: AnnounceRun, now: number): void {
+  if (now - run.aliveAt > GIFT_SUSPEND_DRIFT_MS && !run.stalledFrom) run.stalledFrom = run.aliveAt;
+  run.aliveAt = now;
+}
+/**
+ * 앱이 돌아왔다 — 백그라운드가 GIFT_RESUME_MIN_BG_MS 이상이면 «새 실행»으로 되돌리고 true.
+ * 백그라운드 시작 = 비활성 알림 시각과 심장 박동이 끊긴 시각 중 이른 쪽(둘 다 없으면 재지 않는다). 재개마다 두 표식은 지운다.
+ * 첫 안내 완료 여부는 지금 값으로 다시 읽는다 — 6시간 전에 첫 안내를 마친 사람은 이제 «막 설치한 첫 실행»이 아니다.
+ */
+export function resumeGiftRun(run: AnnounceRun, now: number, onboardedNow: boolean): boolean {
+  const from = Math.min(run.bgAt || Infinity, run.stalledFrom || Infinity);
+  run.bgAt = 0;
+  run.stalledFrom = 0;
+  run.aliveAt = now;
+  if (!Number.isFinite(from) || now - from < GIFT_RESUME_MIN_BG_MS) return false;
+  run.shown = false;
+  run.dashDone = false;
+  run.counted = new Set();
+  run.onboarded = onboardedNow;
+  return true;
+}
+
 /** «좋은 순간» 알림 이벤트(useGiftMoment → GiftAnnounceHost) */
 export const GIFT_MOMENT_EVENT = 'sg:gift-moment';
 export type GiftMomentWhere = 'earn' | 'report';
