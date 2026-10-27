@@ -56,8 +56,10 @@ export function GiftAnnounceHost() {
   /** 안내 시트가 열려 있나(재개 판정이 읽는다) */
   const sheetOpenRef = useRef(false);
   sheetOpenRef.current = !!locale;
-  /** 걸려 있는 대시보드 타이머 취소(백그라운드 진입 때 부른다) */
-  const dashCancelRef = useRef<(() => void) | null>(null);
+  /** 걸려 있는 대시보드 타이머 취소(백그라운드 진입 때 부른다) — 아직 판정 전이었으면 true */
+  const dashCancelRef = useRef<(() => boolean) | null>(null);
+  /** 대시보드 판정이 백그라운드 때문에 빠졌다(타이머 취소·늦게 깨어남) — 다음 재개에 6시간 조건 없이 판정한다(관문 10271937) */
+  const dashMissedRef = useRef(false);
 
   // ④ 실행 시작 때 값을 마운트 직후 한 번 고정한다(첫 안내 오버레이가 «마침»을 쓰기 전에)
   useEffect(() => { onboardedAtStart(); }, []);
@@ -94,14 +96,16 @@ export function GiftAnnounceHost() {
     const native = shareVia() !== 'web';
     let retried = false;
     let t = 0;
+    let pending = true;
     let armedAt = Date.now();
     let delay = GIFT_ANNOUNCE_DELAY_MS;
     const fire = () => {
-      // 네이티브: 백그라운드에서 멈췄다 늦게 깨어난 타이머면 띄우지 않는다(재개 재판정이 맡는다 — 판정 시각을 남기지 않았으니 차례가 된다)
-      if (native && timerWokeLate(armedAt, delay, Date.now())) return;
+      pending = false;
+      // 네이티브: 백그라운드에서 멈췄다 늦게 깨어난 타이머면 띄우지 않는다(재개 재판정이 맡는다 — 빠짐 표식)
+      if (native && timerWokeLate(armedAt, delay, Date.now())) { dashMissedRef.current = true; return; }
       const why = giftAnnounceBlock(input());
       if (why === 'busy' && !retried) {
-        retried = true; armedAt = Date.now(); delay = GIFT_ANNOUNCE_RETRY_MS;
+        retried = true; armedAt = Date.now(); delay = GIFT_ANNOUNCE_RETRY_MS; pending = true;
         t = window.setTimeout(fire, GIFT_ANNOUNCE_RETRY_MS); return;
       }
       if (why) { if (why !== 'route') { run.dashDone = true; markDashChecked(localStore(), Date.now()); countBlock(why); } return; }
@@ -109,7 +113,7 @@ export function GiftAnnounceHost() {
       show('dash');
     };
     t = window.setTimeout(fire, GIFT_ANNOUNCE_DELAY_MS);
-    const cancel = () => window.clearTimeout(t);
+    const cancel = () => { window.clearTimeout(t); const was = pending; pending = false; return was; };
     dashCancelRef.current = cancel;
     return () => { cancel(); if (dashCancelRef.current === cancel) dashCancelRef.current = null; };
   }, [cfg, pathname, locale, input, countBlock, show]);
@@ -122,11 +126,14 @@ export function GiftAnnounceHost() {
     let seq = 0;
     let timer = 0;
     let handle: { remove: () => Promise<void> | void } | null = null;
-    const cancelAll = () => { seq++; window.clearTimeout(timer); dashCancelRef.current?.(); };
+    const cancelAll = () => { seq++; window.clearTimeout(timer); if (dashCancelRef.current?.()) dashMissedRef.current = true; };
     const onResume = () => {
       seq++;
       window.clearTimeout(timer);
-      if (!resumeRecheckDue(localStore(), Date.now(), window.location.pathname, sheetOpenRef.current)) return;
+      // 백그라운드 때문에 빠진 대시보드 판정은 6시간 조건 없이(기존 동작 복원) · 아니면 마지막 판정 6시간+ 일 때만
+      const missed = dashMissedRef.current;
+      if (!resumeRecheckDue(localStore(), Date.now(), window.location.pathname, sheetOpenRef.current, missed)) return;
+      dashMissedRef.current = false;
       const my = seq;
       void loadGiftConfig().then((c) => {                 // 설정 캐시 10분 — 6시간 뒤엔 서버에서 새로 읽는다. 꺼졌거나 못 읽으면 판정 안 함
         if (dead || my !== seq || !c) return;

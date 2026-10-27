@@ -65,9 +65,13 @@ export function markDashChecked(store: StoreLike | null, now: number): void {
   try { store?.setItem(GIFT_DASH_CHECK_KEY, String(now)); } catch { /* 저장소 막힘 */ }
 }
 
-/** app:resume 때 다시 판정할 차례인가 — 대시보드 · 시트 닫힘 · 마지막 판정 6시간+(기록 없음·깨진 값 = 차례). 저장소가 없으면 아니다. */
-export function resumeRecheckDue(store: StoreLike | null, now: number, path: string, sheetOpen: boolean): boolean {
+/**
+ * app:resume 때 다시 판정할 차례인가 — 대시보드 · 시트 닫힘 · 마지막 판정 6시간+(기록 없음·깨진 값 = 차례). 저장소가 없으면 아니다.
+ * missed = 이번 실행의 대시보드 판정이 백그라운드 때문에 빠졌다(타이머 취소·늦게 깨어남) — 6시간 조건 없이 차례(기존 동작 복원).
+ */
+export function resumeRecheckDue(store: StoreLike | null, now: number, path: string, sheetOpen: boolean, missed = false): boolean {
   if (!store || sheetOpen || !isDashPath(path)) return false;
+  if (missed) return true;
   let raw: string | null;
   try { raw = store.getItem(GIFT_DASH_CHECK_KEY); } catch { return false; }
   const last = raw && /^\d{1,16}$/.test(raw) ? Number(raw) : 0;

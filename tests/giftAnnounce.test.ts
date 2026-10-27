@@ -158,6 +158,11 @@ t('재개 재판정 차례 — 6시간 미만 = 판정 안 함 · 6시간 이상
   assert.equal(resumeRecheckDue(s2, NOW + 5 * H, dash, false), false);
   assert.equal(resumeRecheckDue(s2, NOW + 6 * H, dash, false), true);
   markDashChecked(broken, NOW); markDashChecked(null, NOW);     // 던지지 않는다
+  // 관문 10271937: 이번 실행의 대시보드 판정이 백그라운드로 빠졌으면 6시간 조건 없이 차례(대시보드·시트 닫힘은 그대로)
+  assert.equal(resumeRecheckDue(st(NOW - H), NOW, dash, false, true), true);
+  assert.equal(resumeRecheckDue(st(NOW - H), NOW, dash, false, false), false);
+  assert.equal(resumeRecheckDue(st(NOW - H), NOW, '/ko/app-view/intel', false, true), false);
+  assert.equal(resumeRecheckDue(st(NOW - H), NOW, dash, true, true), false);
 });
 t('재개 재판정도 기존 판정 그대로 — 48시간 간격 안 = gap · 최대 3회 · 멈춤 · 첫 실행 · 시트', () => {
   const st = (o: object) => mem({ [GIFT_ANNOUNCE_KEY]: JSON.stringify(o) });
@@ -179,13 +184,15 @@ t('재개 배선 — app:resume 에서만 · 차례 확인 → 설정 재조회(
   const host = read('src/components/app/GiftAnnounceHost.tsx');
   assert.match(host, /document\.addEventListener\('app:resume', onResume\);/);
   assert.match(host, /document\.removeEventListener\('app:resume', onResume\);/);
-  assert.match(host, /if \(!resumeRecheckDue\(localStore\(\), Date\.now\(\), window\.location\.pathname, sheetOpenRef\.current\)\) return;/);
+  assert.match(host, /const missed = dashMissedRef\.current;\s*if \(!resumeRecheckDue\(localStore\(\), Date\.now\(\), window\.location\.pathname, sheetOpenRef\.current, missed\)\) return;\s*dashMissedRef\.current = false;/);
+  // 백그라운드 진입 때 «판정 전» 대시보드 타이머를 취소했거나 늦게 깨어난 타이머를 넘겼으면 빠짐 표식(관문 10271937)
+  assert.match(host, /if \(dashCancelRef\.current\?\.\(\)\) dashMissedRef\.current = true;/);
+  assert.match(host, /if \(native && timerWokeLate\(armedAt, delay, Date\.now\(\)\)\) \{ dashMissedRef\.current = true; return; \}/);
+  assert.match(host, /const cancel = \(\) => \{ window\.clearTimeout\(t\); const was = pending; pending = false; return was; \};/);
   assert.match(host, /void loadGiftConfig\(\)\.then\(\(c\) => \{[^\n]*\n\s*if \(dead \|\| my !== seq \|\| !c\) return;/);
   assert.match(host, /if \(dead \|\| my !== seq \|\| sheetOpenRef\.current\) return;\s*if \(timerWokeLate\(armedAt, GIFT_ANNOUNCE_DELAY_MS, Date\.now\(\)\)\) return;\s*const why = giftAnnounceBlock\(input\(\)\);/);
   assert.match(host, /show\('dash', true\);/);
   assert.match(host, /App\.addListener\('appStateChange', \(\{ isActive \}\) => \{ if \(!isActive\) cancelAll\(\); \}\)/);
-  assert.match(host, /const cancelAll = \(\) => \{ seq\+\+; window\.clearTimeout\(timer\); dashCancelRef\.current\?\.\(\); \};/);
-  assert.match(host, /if \(native && timerWokeLate\(armedAt, delay, Date\.now\(\)\)\) return;/);
   assert.match(host, /const native = shareVia\(\) !== 'web';/);
   // app:resume 은 네이티브에서만 쏜다(웹 동작 그대로)
   const nap = read('src/components/native/NativeAppProvider.tsx');
