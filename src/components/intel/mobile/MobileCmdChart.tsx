@@ -8,6 +8,7 @@ import { DecisionGate } from '@/components/DecisionGate';
 import { EliteGate } from '@/components/gate/FeatureGate';
 import { useTranslations } from 'next-intl';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { liveWsTick, screenSessionOf } from '@/lib/liveTickFreshness';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
@@ -30,14 +31,11 @@ export function MobileCmdChart({ ticker, quote, unified, unifiedLoading, initial
 
     // Same live price hooks as desktop
     const { status: marketStatus } = useMarketStatus();
-    const isClosed = marketStatus.isHoliday || marketStatus.market === 'closed';
     const livePrice = useLivePrice(ticker, marketStatus.market);
     const { getPrice: wsGetPrice } = useRealtimeData([ticker]);
-    const wsPrice = wsGetPrice(ticker);
+    const wsPrice = liveWsTick(wsGetPrice(ticker), livePrice, Date.now()); // [T31c] 정규장 지연 허브 값은 최신 폴링 값을 덮지 않는다
 
-    const effectiveSession = isClosed
-        ? 'CLOSED'
-        : (q.session || 'CLOSED').toUpperCase();
+    const effectiveSession = screenSessionOf(marketStatus, q.session, Date.now()); // [T31c] 정규장이면 REG(SSR 세션 고정 방지)
 
     const { displayPrice, displayChangePct, activeExtPrice } = calcPriceDisplay({
         livePrice: wsPrice?.price || livePrice?.price,

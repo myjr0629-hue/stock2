@@ -19,6 +19,7 @@ import { premiumLabel, totalPremiumOf, fmtPremiumM } from '@/lib/premiumFlow';
 
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { liveWsTick } from '@/lib/liveTickFreshness';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { AiBadge } from '@/components/app/AiBadge';
@@ -754,7 +755,7 @@ export default function AppFlowPage() {
   const { status: marketStatus } = useMarketStatus();
   const livePrice = useLivePrice(ticker, marketStatus.market);
   const { getPrice: wsGetPrice } = useRealtimeData([ticker]);
-  const wsPrice = wsGetPrice(ticker);
+  const wsPrice = liveWsTick(wsGetPrice(ticker), livePrice, Date.now()); // [T31c] 정규장 지연 허브 값은 최신 폴링 값을 덮지 않는다
 
   // Flow State
   const [tickerData, setTickerData] = useState<any>(null);

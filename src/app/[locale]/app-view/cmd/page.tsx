@@ -38,6 +38,9 @@ import { ivLevelForRank } from '@/lib/ivRank';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { liveWsTick, relatedWsTick } from '@/lib/liveTickFreshness';
+import { relatedSessionContext, mergeRelatedRow, relatedLivePrevClose } from '@/lib/relatedRowMerge';
+import { useRegularRelatedRefresh } from '@/hooks/useRegularRelatedRefresh';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
@@ -1760,12 +1763,13 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
       <div className={s.sectHead}><span className={s.sectTitle}>{title}</span></div>
       <div className={s.peerList}>
         {tickers.map((r: any) => {
-          const wsPrice = wsGetPrice(r.ticker);
+          // [T31c] 웹과 같은 규칙 — 정규장(달력)에만 허브 값, 그것도 행(직접 API)의 체결 시각보다 오래됐거나 장전 체결이면 행 값 그대로
+          const wsPrice = relatedSessionContext(Date.now()).regular ? relatedWsTick(wsGetPrice(r.ticker), r, Date.now()) : undefined;
           const serverPrice = r.price || 0;
           const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;
           let displayChange = r.change ?? 0;
           const validWsPrice = wsPrice?.price || 0;
-          const validPrevClose = r.prevClose || 0;
+          const validPrevClose = relatedLivePrevClose(r, Date.now());
           if (validWsPrice > 0 && validPrevClose > 0) {
             displayChange = Number((((validWsPrice - validPrevClose) / validPrevClose) * 100).toFixed(2));
           } else {
@@ -2313,6 +2317,28 @@ function CmdPageContent() {
       .catch(() => {});
     return () => { isMounted = false; };
   }, [ticker]);
+  // ★ [T31c] 정규장 중엔 직접 API 행을 60초마다 다시 받아 웹과 같은 병합으로 합친다 — 허브(약 15분 지연) 대신 최신 체결로 갱신. 장외 요청 0.
+  useRegularRelatedRefresh(ticker, rows => setRelatedData(prev => rows.map((newItem: any) =>
+    mergeRelatedRow(prev.find((r: any) => r.ticker === newItem.ticker), newItem, Date.now()))));
+  // ★ [T31c 관문 10280530] 30초마다 받는 unified 연관 행(서버가 장외엔 공식 종가로 맞춤)도 웹·모바일 웹과 같은 병합으로 합친다 —
+  //   정규장에 열어 둔 화면이 마감을 지나면 마지막 장중 직접 API 행에 굳지 않고 공식 종가 행으로 넘어간다. 목록은 직접 API 그대로, 같은 종목 값만.
+  const unifiedRelatedRows = data?.unified?.related?.topRelated;
+  useEffect(() => {
+    if (!Array.isArray(unifiedRelatedRows) || unifiedRelatedRows.length === 0) return;
+    setRelatedData(prev => {
+      if (prev.length === 0) return prev;
+      let changed = false;
+      const next = prev.map((oldItem: any) => {
+        const newItem = unifiedRelatedRows.find((r: any) => r?.ticker === oldItem.ticker);
+        if (!newItem) return oldItem;
+        const merged = mergeRelatedRow(oldItem, newItem, Date.now());
+        if (merged.price !== oldItem.price || merged.change !== oldItem.change || merged.prevClose !== oldItem.prevClose
+          || merged.closeSession !== oldItem.closeSession || merged.session !== oldItem.session || merged.asOf !== oldItem.asOf) changed = true;
+        return merged;
+      });
+      return changed ? next : prev;
+    });
+  }, [unifiedRelatedRows]);
 
   // 내부자 거래 — 메인 로드를 막지 않도록 별도로 가져온다 (10분 서버 캐시)
   useEffect(() => {
@@ -2698,7 +2724,8 @@ function CmdPageContent() {
   const { status: marketStatus } = useMarketStatus();
   const livePrice = useLivePrice(ticker, marketStatus.market);
   const { getPrice: wsGetPrice } = useRealtimeData([ticker]);
-  const wsPrice = wsGetPrice(ticker);
+  // ★ [T31c] 정규장엔 허브(약 15분 지연)가 폴링 값의 체결 시각보다 오래됐으면 쓰지 않는다 — 장외는 기존 동작
+  const wsPrice = liveWsTick(wsGetPrice(ticker), livePrice, Date.now());
 
   const t = data?.rawTickerData;
 

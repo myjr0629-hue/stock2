@@ -47,6 +47,8 @@ import { netPremiumOf } from '@/lib/premiumFlow';
 import { scoreCommandConviction, webConvictionState, type ConvictionSnapshot } from '@/lib/commandConviction';
 import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
 import { mergeRelatedRow, relatedLivePrevClose } from '@/lib/relatedRowMerge';
+import { liveWsTick, relatedWsTick } from '@/lib/liveTickFreshness';
+import { useRegularRelatedRefresh } from '@/hooks/useRegularRelatedRefresh';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -175,7 +177,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const livePrice = useLivePrice(ticker, marketStatus.market);
     // [AWS Phase 3] WebSocket real-time price/GEX from EC2 Hub
     const { connected: wsConnected, getPrice: wsGetPrice, getGex: wsGetGex, getQuote: wsGetQuote } = useRealtimeData([ticker]);
-    const wsPrice = wsGetPrice(ticker);
+    const wsTick = wsGetPrice(ticker);
+    // ★ [T31c] 정규장엔 허브(약 15분 지연)가 폴링 값의 체결 시각보다 오래됐으면 쓰지 않는다 — 장외는 기존 동작
+    const wsPrice = liveWsTick(wsTick, livePrice, Date.now());
     const wsGex = wsGetGex(ticker);
     // Use SWR data when available, SSR fallback otherwise — keeps 'liveQuote' name for compatibility
     const liveQuote = _swrQuote || ssrFallback || null;
@@ -334,6 +338,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             .catch(() => {});
         return () => { isMounted = false; };
     }, [ticker]);
+    // ★ [T31c] 정규장 중엔 직접 API 행을 60초마다 다시 받아 같은 병합으로 합친다 — 허브(약 15분 지연) 대신 최신 체결로 갱신. 장외 요청 0.
+    useRegularRelatedRefresh(ticker, (rows, count) => setRelatedData(prev => ({
+        count: count || prev?.count || rows.length,
+        topRelated: rows.map((newItem: any) => mergeRelatedRow(prev?.topRelated?.find((r: any) => r.ticker === newItem.ticker), newItem, Date.now())),
+    })));
 
     // [INSIDER] Fetch insider data on every ticker change (SEC Form 4)
     useEffect(() => {
@@ -1606,7 +1615,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             // [V11] Show Live Absolute Price AND Server Percentage to prevent Pre-Market Confusion
                                             const serverChange = item.change ?? 0;
                                             const serverPrice = item.price ?? 0;
-                                            const wsPrice = isRelatedRegularSession && relWsConnected ? relWsGetPrice(item.ticker) : undefined;
+                                            const wsPrice = isRelatedRegularSession && relWsConnected ? relatedWsTick(relWsGetPrice(item.ticker), item, Date.now()) : undefined;
                                             
                                             // Prefer Live WebSocket price if available, otherwise server
                                             const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;

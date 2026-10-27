@@ -19,6 +19,8 @@ import { normalizeVwap } from '@/lib/vwap';
 import { buildDeepSnapshot } from '@/lib/ai/deepSnapshot';
 import { deepMaterialIssues } from '@/lib/ai/deepTrust';
 import { mergeRelatedRow, relatedLivePrevClose, relatedSessionContext } from '@/lib/relatedRowMerge';
+import { relatedWsTick } from '@/lib/liveTickFreshness';
+import { useRegularRelatedRefresh } from '@/hooks/useRegularRelatedRefresh';
 
 interface Props {
     ticker: string;
@@ -197,6 +199,9 @@ export function MobileCmdOverview({ ticker, quote, unified, volatilityData, vola
             .catch(() => {});
         return () => { isMounted = false; };
     }, [ticker]);
+    // ★ [T31c] 정규장 중엔 직접 API 행을 60초마다 다시 받아 같은 병합으로 합친다 — 허브(약 15분 지연) 대신 최신 체결로 갱신. 장외 요청 0.
+    useRegularRelatedRefresh(ticker, rows => setRelatedData(prev => rows.map((newItem: any) =>
+        mergeRelatedRow(prev.find((r: any) => r.ticker === newItem.ticker), newItem, Date.now()))));
     // 이미 30초마다 받는 unified 의 연관 행(서버가 장외엔 공식 종가로 맞춤)을 같은 병합으로 합친다 — 세션 전환 뒤 갱신, 요청 추가 0.
     //   목록은 직접 API 그대로, 같은 종목의 값만 갱신한다.
     const unifiedRelatedRows = unified?.related?.topRelated;
@@ -345,7 +350,8 @@ function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPr
             <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-3">Related Peers</div>
             <div className="space-y-2.5">
                 {tickers.map((r: any) => {
-                    const wsPrice = isRegularSession ? wsGetPrice(r.ticker) : undefined;
+                    // [T31c] 허브 값이 행(직접 API·unified)의 체결 시각보다 오래됐거나 장전 체결이면 행 값 그대로
+                    const wsPrice = isRegularSession ? relatedWsTick(wsGetPrice(r.ticker), r, Date.now()) : undefined;
                     const serverPrice = r.price || 0;
                     const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;
                     let displayChange = r.change ?? 0;
