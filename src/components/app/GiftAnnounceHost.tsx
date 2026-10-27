@@ -56,6 +56,9 @@ export function GiftAnnounceHost() {
   const [locale, setLocale] = useState<string | null>(null);
   /** 6시간+ 재개 때 올린다 — 대시보드 입구를 다시 잰다 */
   const [resumeTick, setResumeTick] = useState(0);
+  /** 안내 시트가 열려 있나(재개 리스너가 읽는다 — 열려 있으면 «새 실행»으로 되돌리지 않는다) */
+  const sheetOpenRef = useRef(false);
+  sheetOpenRef.current = !!locale;
 
   // ④ 실행 시작 때 값을 마운트 직후 한 번 고정한다(첫 안내 오버레이가 «마침»을 쓰기 전에)
   useEffect(() => { onboardedAtStart(); }, []);
@@ -75,7 +78,7 @@ export function GiftAnnounceHost() {
           const now = Date.now();
           if (!isActive) { noteGiftBackground(run, now); return; }
           noteGiftHeartbeat(run, now);
-          if (resumeGiftRun(run, now, readOnboarded(localStore()))) setResumeTick((n) => n + 1);
+          if (resumeGiftRun(run, now, readOnboarded(localStore()), sheetOpenRef.current)) setResumeTick((n) => n + 1);
         });
         if (cancelled) { void h.remove(); return; }
         handle = h;

@@ -81,8 +81,13 @@ export interface AnnounceRun {
 export const newAnnounceRun = (now = Date.now()): AnnounceRun =>
   ({ shown: false, dashDone: false, counted: new Set(), onboarded: null, bgAt: 0, aliveAt: now, stallFrom: 0, stallTo: 0 });
 
-/** 백그라운드로 갔다 — 처음 간 시각만 남긴다(재개 전 중복 알림은 무시) */
+/**
+ * 백그라운드로 갔다 — 처음 간 시각만 남긴다(재개 전 중복 알림은 무시).
+ * 박동 검사를 먼저 한다: 알림이 JS 가 멈췄다 깨어난 «뒤»에 처리되면(늦은 알림) 그 끊김 구간의 끝 = 이 시각이 되어
+ * resumeBgStart 가 이 알림을 «제때 온 것»으로 오인하지 않는다(관문 10271845).
+ */
 export function noteGiftBackground(run: AnnounceRun, now: number): void {
+  noteGiftHeartbeat(run, now);
   if (!run.bgAt) run.bgAt = now;
 }
 /** 심장 박동 — 직전 박동과 간격이 크면(타이머가 멈췄었다) 그 구간을 남긴다(가장 최근 것으로 덮는다) */
@@ -102,14 +107,17 @@ export function resumeBgStart(run: AnnounceRun, now: number): number {
   if (stall) return run.stallFrom + GIFT_HEARTBEAT_MS;                          // 알림이 늦었거나 없다 — 짧게 잰다
   return NaN;
 }
-/** 위 머리말대로 재개를 판정한다(6시간 이상 = 새 실행으로 되돌리고 true) */
-export function resumeGiftRun(run: AnnounceRun, now: number, onboardedNow: boolean): boolean {
+/**
+ * 위 머리말대로 재개를 판정한다(6시간 이상 = 새 실행으로 되돌리고 true).
+ * 안내 시트가 아직 열려 있으면 되돌리지 않는다 — 닫자마자 같은 안내가 다시 뜨지 않게(관문 10271845).
+ */
+export function resumeGiftRun(run: AnnounceRun, now: number, onboardedNow: boolean, sheetOpen = false): boolean {
   const from = resumeBgStart(run, now);
   run.bgAt = 0;
   run.stallFrom = 0;
   run.stallTo = 0;
   run.aliveAt = now;
-  if (!Number.isFinite(from) || now - from < GIFT_RESUME_MIN_BG_MS) return false;
+  if (sheetOpen || !Number.isFinite(from) || now - from < GIFT_RESUME_MIN_BG_MS) return false;
   run.shown = false;
   run.dashDone = false;
   run.counted = new Set();

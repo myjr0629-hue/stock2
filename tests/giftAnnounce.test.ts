@@ -219,6 +219,27 @@ t('재개 — 관문 10271834 오판 2건: 지난 끊김이 남아 짧은 재개
   noteGiftBackground(r3, bg3); noteGiftHeartbeat(r3, NOW);
   assert.equal(resumeGiftRun(r3, NOW, true), true);
 });
+t('재개 — 관문 10271845: 늦은 비활성 알림이 첫 박동보다 먼저 처리돼도 끊김으로 잰다 · 시트가 열려 있으면 되돌리지 않는다', () => {
+  // 8시간 멈춤 → 늦은 비활성 알림 → 첫 박동 → 활성 알림
+  const r = newAnnounceRun(NOW - 8 * H);
+  noteGiftBackground(r, NOW - 3);
+  noteGiftHeartbeat(r, NOW - 1);
+  noteGiftHeartbeat(r, NOW);
+  assert.equal(resumeBgStart(r, NOW), NOW - 8 * H + GIFT_HEARTBEAT_MS);
+  assert.equal(resumeGiftRun(r, NOW, true), true);
+  // 순서 바뀜: 첫 박동 → 늦은 비활성 알림 → 활성 알림
+  const r2 = newAnnounceRun(NOW - 8 * H);
+  noteGiftHeartbeat(r2, NOW - 3); noteGiftBackground(r2, NOW - 2); noteGiftHeartbeat(r2, NOW);
+  assert.equal(resumeGiftRun(r2, NOW, true), true);
+  // 제때 온 알림(박동 30초 뒤)은 그대로 알림 시각
+  const r3 = newAnnounceRun(NOW - 7 * H - 30_000);
+  noteGiftBackground(r3, NOW - 7 * H); noteGiftHeartbeat(r3, NOW);
+  assert.equal(resumeBgStart(r3, NOW), NOW - 7 * H);
+  // 시트가 열린 채 49시간 백그라운드 → 되돌리지 않는다(닫아도 다시 안 뜸), 표식은 지운다
+  const r4 = usedRun(NOW); noteGiftBackground(r4, NOW - 49 * H);
+  assert.equal(resumeGiftRun(r4, NOW, true, true), false);
+  assert.equal(r4.shown, true); assert.equal(r4.dashDone, true); assert.equal(r4.bgAt, 0);
+});
 t('재개 뒤에도 48시간 간격·최대 3회·멈춤은 그대로(giftAnnounceBlock)', () => {
   const r = usedRun(NOW); noteGiftBackground(r, NOW - 12 * H);
   assert.equal(resumeGiftRun(r, NOW, true), true);
@@ -234,7 +255,8 @@ t('재개 배선 — 네이티브 appStateChange 로만, 6시간+ 재개 때 대
   assert.match(host, /if \(!Capacitor\.isNativePlatform\(\) \|\| cancelled\) return;/);
   assert.match(host, /App\.addListener\('appStateChange'/);
   assert.match(host, /if \(!isActive\) \{ noteGiftBackground\(run, now\); return; \}/);
-  assert.match(host, /if \(resumeGiftRun\(run, now, readOnboarded\(localStore\(\)\)\)\) setResumeTick\(\(n\) => n \+ 1\);/);
+  assert.match(host, /if \(resumeGiftRun\(run, now, readOnboarded\(localStore\(\)\), sheetOpenRef\.current\)\) setResumeTick\(\(n\) => n \+ 1\);/);
+  assert.match(host, /sheetOpenRef\.current = !!locale;/);
   assert.match(host, /\}, \[cfg, pathname, locale, input, countBlock, show, resumeTick\]\);/);
   assert.match(host, /window\.clearInterval\(beat\)/);
 });
