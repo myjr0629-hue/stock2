@@ -308,6 +308,107 @@ t('푸시: 판정 숫자 포함, 권유 거절, 숫자 없는 요약은 정적 �
     assert.equal(closingAiLines(b, DAY, DAY, 2026).ko.reason, 'no-close-number');
 });
 
+t('T4b ①: 쉬운 말 뒤 원어 괄호 풀이는 치환 전에 지워 «평상시 구조(평상시 구조)» 중복이 생기지 않는다', () => {
+    const b: any = brief();
+    b.structured.closingNarrative.indicators.ko = '단기 불안이 3개월 불안보다 낮은 평상시 구조(콘탱고)가 유지됐다. 역전 구조(백워데이션 구조)는 아니다. 콘탱고 상태다.';
+    C.alignSummary(b.structured);
+    assert.equal(b.structured.closingNarrative.indicators.ko, '단기 불안이 3개월 불안보다 낮은 평상시 구조가 유지됐다. 역전 구조는 아니다. 평상시 구조다.');
+    assert.doesNotMatch(C.narrativeDirective(), /평상시 구조\(단기/, '지시문 예시가 «쉬운 말(풀이)» 괄호 모양을 보이지 않는다');
+});
+t('T4b ③: ko·ja 본문의 영어 섹터 이름 → 상단 카드와 같은 표시명(숫자·괄호 값 불변, en 그대로)', () => {
+    assert.equal(C.localizeSectorNames('Silicon Core(+2.73%)와 Cyber Shield (AI Security & Zero Trust)(+2.80%), Fintech Pulse (-2.36) · Silicon Core (ARM 6.08%) · M7', 'ko'),
+        '반도체 코어(+2.73%)와 사이버 쉴드(+2.80%), 핀테크 펄스 (-2.36) · 반도체 코어 (ARM 6.08%) · M7');
+    assert.equal(C.localizeSectorNames('Cyber Shield（+2.80%）', 'ja'), 'サイバーシールド（+2.80%）');
+    assert.equal(C.localizeSectorNames('실리콘 코어(+2.73%)와 사이버 실드, 오빗 디펜스', 'ko'), '반도체 코어(+2.73%)와 사이버 쉴드, 우주 방산');
+    assert.equal(C.localizeSectorNames('クォンタムエッジとオービット・ディフェンス', 'ja'), '量子エッジとオービット防衛');
+    assert.equal(C.localizeSectorNames('반도체 코어(Silicon Core)가 +2.73%', 'ko'), '반도체 코어가 +2.73%');
+    assert.equal(C.localizeSectorNames('シリコンコア（Silicon Core）', 'ja'), 'シリコンコア');
+    assert.equal(C.localizeSectorNames('Cyber Shield (+2.80%)', 'en'), 'Cyber Shield (+2.80%)');
+    const b: any = brief();
+    b.structured.closingNarrative.whatHappened = tri('Cyber Shield(+2.80%)가 강했다.', 'Cyber Shield (+2.80%) led.', 'Cyber Shield（+2.80%）が強かった。');
+    b.structured.marketOverview.keyDrivers = { ko: ['Fintech Pulse -2.36%'], en: ['Fintech Pulse -2.36%'], ja: ['Fintech Pulse -2.36%'] };
+    b.structured.sectorRotation = { winners: [{ sector: 'Cyber Shield', change: '+2.80%', reason: tri('Cyber Shield 강세', 'Cyber Shield strength', 'Cyber Shield高') }] };
+    C.alignSummary(b.structured);
+    assert.equal(b.structured.closingNarrative.whatHappened.ko, '사이버 쉴드(+2.80%)가 강했다.');
+    assert.equal(b.structured.closingNarrative.whatHappened.ja, 'サイバーシールド（+2.80%）が強かった。');
+    assert.equal(b.structured.closingNarrative.whatHappened.en, 'Cyber Shield (+2.80%) led.');
+    assert.deepEqual(b.structured.marketOverview.keyDrivers.ko, ['핀테크 펄스 -2.36%']);
+    assert.equal(b.structured.sectorRotation.winners[0].sector, 'Cyber Shield', '언어 없는 매칭용 sector 칸은 그대로');
+    assert.equal(b.structured.sectorRotation.winners[0].reason.ko, '사이버 쉴드 강세');
+});
+t('T4b ③: 섹터 표시명 사전 = 앱 리포트 상단 카드 사전(SECTOR_APP_COPY.name)', () => {
+    const page = fs.readFileSync('src/app/[locale]/app-view/intel/page.tsx', 'utf8');
+    const block = page.slice(page.indexOf('const SECTOR_APP_COPY'), page.indexOf('function toAppLocale'));
+    for (const loc of ['ko', 'en', 'ja'] as const) {
+        const part = block.slice(block.indexOf(`  ${loc}: {`));
+        for (const [id, names] of Object.entries(C.SECTOR_DISPLAY) as [string, Record<string, string>][]) {
+            const m = new RegExp(`\\b${id}: \\{ name: '([^']+)'`).exec(part);
+            assert.equal(m?.[1], names[loc], `${loc}.${id}`);
+        }
+    }
+});
+t('T4b ②③: 프롬프트 — 정규장 시간대 보도를 장후 보도보다 먼저, 섹터 displayName 포함, 원본 근거·섹터 입력 불변', () => {
+    const ev: any = { sessionDate: DAY, regularClose: cash, news: [
+        { id: 'market-1', publishedEt: '2026-10-22 17:23 ET', timing: 'after_cash_close', title: 'late' },
+        { id: 'market-2', publishedEt: '2026-10-22 11:00 ET', timing: 'before_or_during_cash_session', title: 'mid' },
+        { id: 'cyber_shield-1', publishedEt: '2026-10-22 09:24 ET', timing: 'before_or_during_cash_session', title: 'cyber' },
+    ], events: [] };
+    const sectors: any[] = [{ sector: 'Cyber Shield (AI Security & Zero Trust)', sectorId: 'cyber_shield', changePct: 2.8 }];
+    const before = JSON.stringify({ ev, sectors });
+    const prompt = C.buildClosingPrompt({ sessionDate: DAY, macroStr: '', levelsSection: '', evidence: ev, sectorSummaries: sectors, keyLevelsSchema: '', keyLevelsRequirement: '' });
+    assert.ok(prompt.indexOf('"market-2"') < prompt.indexOf('"market-1"') && prompt.indexOf('"cyber_shield-1"') < prompt.indexOf('"market-1"'));
+    assert.ok(prompt.indexOf('"market-2"') < prompt.indexOf('"cyber_shield-1"'), '정규장 보도끼리는 원래 순서');
+    assert.match(prompt, /"displayName": \{\s*"ko": "사이버 쉴드",\s*"en": "Cyber Shield",\s*"ja": "サイバーシールド"/);
+    assert.equal(JSON.stringify({ ev, sectors }), before);
+    assert.match(prompt, /마감 뒤 소식:/);
+    assert.match(prompt, /NEVER a cause of the session move/);
+    assert.match(prompt, /ko 운송 제외 내구재 주문\(전월 대비\)/);
+});
+t('T4b ⑤: 배지 — 두 지수 같은 방향 ±0.30% 이상·VIX 반대 아님일 때만 MIXED·반대 톤을 판정 방향으로, CAUTIOUS·애매한 날은 그대로', () => {
+    const ev = (sp: number, nq: number, vix?: number) => ({ regularClose: { spx: { changePct: sp }, nasdaq: { changePct: nq } }, readings: vix == null ? {} : { vix: { changePct: vix } } });
+    const tone = (t: string, e: any) => C.settleTone({ marketOverview: { tone: t } }, e).marketOverview.tone;
+    assert.equal(tone('MIXED', ev(0.70, 0.82, -5.45)), 'BULLISH', '10/26 운영 입력');
+    assert.equal(tone('BEARISH', ev(0.70, 0.82, -5.45)), 'BULLISH');
+    assert.equal(tone('CAUTIOUS', ev(0.70, 0.82, -5.45)), 'CAUTIOUS');
+    assert.equal(tone('MIXED', ev(0.70, 0.82, 3.1)), 'MIXED', 'VIX 상승이면 그대로');
+    assert.equal(tone('BEARISH', ev(-0.52, -0.21, 2.2)), 'BEARISH', '10/23: NASDAQ -0.21% 애매 — 모델 판단');
+    assert.equal(tone('MIXED', ev(-0.52, -0.21, 2.2)), 'MIXED');
+    assert.equal(tone('MIXED', ev(-1.2, -2.6, 4)), 'BEARISH');
+    assert.equal(tone('BULLISH', ev(-1.2, -2.6)), 'BEARISH', 'VIX 없음은 반대 아님');
+    assert.equal(tone('MIXED', ev(0.4, -0.5, -1)), 'MIXED', '지수 엇갈림');
+    assert.equal(tone('MIXED', { regularClose: {} }), 'MIXED', '종가 없음');
+});
+t('T4b ②: 장후로 분류하고 본문에서 뺀 참조는 정리, 원인(reported_context)으로 분류한 장후 참조는 남겨 검사가 잡는다', () => {
+    const ev: any = { news: [
+        { id: 'market-10', publishedEt: '2026-10-22 10:17 ET', timing: 'before_or_during_cash_session', source: 'Kitco' },
+        { id: 'market-5', publishedEt: '2026-10-22 16:36 ET', timing: 'after_cash_close', source: 'Kitco' },
+    ] };
+    const mk = (kind: string) => ({ closingNarrative: { why: tri('Kitco(2026-10-22 10:17 ET) 보도.', 'Kitco (2026-10-22 10:17 ET) reported.', 'Kitco（2026-10-22 10:17 ET）の報道。'),
+        causeRefs: [{ newsId: 'market-10', kind: 'reported_context' }, { newsId: 'market-5', kind }] } });
+    for (const kind of ['after_close', 'retrospective']) assert.deepEqual(C.alignSummary(mk(kind), ev).closingNarrative.causeRefs.map((r: any) => r.newsId), ['market-10'], kind);
+    assert.deepEqual(C.alignSummary(mk('reported_context'), ev).closingNarrative.causeRefs.map((r: any) => r.newsId), ['market-10', 'market-5']);
+});
+t('T4b: 한국어 서사의 한자·가나는 고침 요청 사유(구체 구절 포함)', () => {
+    const b: any = brief();
+    b.structured.closingNarrative.why.ko = '美 10년물 금리는 보합이었고 이는 위험 회피와 整合한다. ' + b.structured.closingNarrative.why.ko;
+    const reasons = closingReportProblems(b);
+    assert.ok(reasons.includes('narrative:ko:script'));
+    const rp = C.narrativeRepairPrompt({ sessionDate: DAY, evidence: b.reportEvidence, macroStr: '', narrative: b.structured.closingNarrative, reasons: ['narrative:ko:script'] });
+    assert.match(rp, /Hangul only/); assert.match(rp, /美 10년물/);
+    assert.ok(!closingReportProblems(brief()).includes('narrative:ko:script'));
+});
+t('T4b ②: 참조 ID 바로잡기 — 본문이 시각까지 인용한 참조 안 된 같은 출처 보도가 하나뿐일 때만', () => {
+    const ev: any = { news: [
+        { id: 'market-7', publishedEt: '2026-10-22 14:07 ET', timing: 'before_or_during_cash_session', source: 'FXEmpire' },
+        { id: 'silicon_core-2', publishedEt: '2026-10-22 14:29 ET', timing: 'before_or_during_cash_session', source: 'FXEmpire' },
+        { id: 'market-3', publishedEt: '2026-10-22 15:38 ET', timing: 'before_or_during_cash_session', source: 'CNBC' },
+    ] };
+    const why = tri('FXEmpire(2026-10-22 14:29 ET)와 CNBC(2026-10-22 15:38 ET) 보도.', 'FXEmpire (2026-10-22 14:29 ET) and CNBC (2026-10-22 15:38 ET).', 'FXEmpire（2026-10-22 14:29 ET）とCNBC（2026-10-22 15:38 ET）。');
+    const out = C.alignSummary({ closingNarrative: { why, causeRefs: [{ newsId: 'market-7', kind: 'reported_context' }, { newsId: 'cnbc-amd', kind: 'reported_context' }] } }, ev);
+    assert.deepEqual(out.closingNarrative.causeRefs.map((r: any) => r.newsId), ['silicon_core-2', 'market-3']);
+    const keep = C.alignSummary({ closingNarrative: { why, causeRefs: [{ newsId: 'zzz-1', kind: 'reported_context' }] } }, ev);
+    assert.deepEqual(keep.closingNarrative.causeRefs.map((r: any) => r.newsId), ['zzz-1'], '후보가 여럿이거나 출처가 안 맞으면 그대로(검사가 잡는다)');
+});
 (async () => {
     const fixture = JSON.parse(fs.readFileSync('tests/fixtures/crossBriefServe.v4.json', 'utf8'));
     const old = fixture.brief;
