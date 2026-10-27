@@ -18,7 +18,7 @@ import { reviewRequestedAt } from '@/hooks/useReviewPrompt';
 import { shareBeacon, shareVia } from '@/lib/share/share';
 import {
   GIFT_ANNOUNCE_DELAY_MS, GIFT_ANNOUNCE_RETRY_MS, GIFT_BLOCK_METRICS, GIFT_HEARTBEAT_MS, GIFT_MOMENT_EVENT, giftAnnounceBlock, localeFromPath,
-  isEarningsPath, markGiftAnnounced, newAnnounceRun, noteGiftBackground, noteGiftHeartbeat, readOnboarded, resumeGiftRun,
+  isEarningsPath, markGiftAnnounced, newAnnounceRun, noteGiftBackground, noteGiftHeartbeat, readOnboarded, resumeGiftRun, wokeFromSuspend,
   type AnnounceBlock, type GiftShowAt, type StoreLike,
 } from '@/lib/gift/giftAnnounce';
 
@@ -63,6 +63,8 @@ export function GiftAnnounceHost() {
   /** 안내 시트가 열려 있나(재개 리스너가 읽는다 — 열려 있으면 «새 실행»으로 되돌리지 않는다) */
   const sheetOpenRef = useRef(false);
   sheetOpenRef.current = !!locale;
+  /** 재개 뒤 설정을 다시 읽는 중이면 false — 상태 반영 전에 깨어난 타이머도 막는다(동기 표식) */
+  const cfgLiveRef = useRef(true);
 
   // ④ 실행 시작 때 값을 마운트 직후 한 번 고정한다(첫 안내 오버레이가 «마침»을 쓰기 전에)
   useEffect(() => { onboardedAtStart(); }, []);
@@ -83,9 +85,11 @@ export function GiftAnnounceHost() {
           if (!isActive) { noteGiftBackground(run, now); return; }
           noteGiftHeartbeat(run, now);
           if (!resumeGiftRun(run, now, readOnboarded(localStore()), sheetOpenRef.current)) return;
+          cfgLiveRef.current = false;
           setResumeCfg(null);
           void loadGiftConfig().then((c) => {                 // 캐시 10분 — 6시간 뒤엔 서버에서 새로 읽는다
             if (cancelled) return;
+            cfgLiveRef.current = !!c;
             setResumeCfg(c);
             setResumeTick((n) => n + 1);
           });
@@ -110,6 +114,9 @@ export function GiftAnnounceHost() {
 
   /** 띄운다 — 표식을 못 남기면 띄우지 않는다 */
   const show = useCallback((at: GiftShowAt) => {
+    // 관문 10271911: 백그라운드 전에 걸어 둔 타이머가 깨어나자마자(재개 처리·설정 재조회 전) 띄우지 않는다 —
+    //   설정을 다시 읽는 중이거나(cfgLiveRef) 방금 멈췄다 깨어났으면(wokeFromSuspend) 이번 기회는 넘긴다(재개 판정·경로 이동 때 다시 잰다)
+    if (!cfgLiveRef.current || wokeFromSuspend(run, Date.now())) return;
     if (run.shown) return;
     run.shown = true;
     run.dashDone = true;

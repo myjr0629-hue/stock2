@@ -15,7 +15,7 @@ import {
   GIFT_MOMENT_EVENT, GIFT_REVIEW_QUIET_MS, ONBOARDING_DONE_KEY, giftAnnounceBlock, isDashPath, isEarningsPath, localeFromPath,
   keepTogether, markGiftAnnounceStop, markGiftAnnounced, readAnnounceState, readOnboarded, type AnnounceInput, type StoreLike,
   GIFT_RESUME_MIN_BG_MS, GIFT_HEARTBEAT_MS, GIFT_SUSPEND_DRIFT_MS, newAnnounceRun, noteGiftBackground, noteGiftHeartbeat, resumeGiftRun,
-  resumeBgStart,
+  resumeBgStart, wokeFromSuspend,
 } from '../src/lib/gift/giftAnnounce';
 import { GIFT_COPY } from '../src/lib/gift/gift';
 import { APP_SESSION_REVIEW } from '../src/lib/app/reviewMoments';
@@ -240,6 +240,18 @@ t('재개 — 관문 10271845: 늦은 비활성 알림이 첫 박동보다 먼�
   assert.equal(resumeGiftRun(r4, NOW, true, true), false);
   assert.equal(r4.shown, true); assert.equal(r4.dashDone, true); assert.equal(r4.bgAt, 0);
 });
+t('재개 — 관문 10271911: 백그라운드 전 타이머가 재개 처리·설정 재조회 전에 깨어나면 띄우지 않는다', () => {
+  const r = newAnnounceRun(NOW - 7 * H);
+  noteGiftBackground(r, NOW - 7 * H + 1000);                  // 대시보드 진입 3.5초 안에 백그라운드
+  assert.equal(wokeFromSuspend(r, NOW), true);                 // 7시간 뒤 깨어난 타이머
+  noteGiftHeartbeat(r, NOW);
+  assert.equal(wokeFromSuspend(r, NOW + 1000), false);         // 깨어난 뒤 박동이 돌면 정상
+  assert.equal(wokeFromSuspend(newAnnounceRun(NOW - GIFT_HEARTBEAT_MS), NOW), false);   // 포그라운드 박동 간격 안
+  const host = read('src/components/app/GiftAnnounceHost.tsx');
+  assert.match(host, /if \(!cfgLiveRef\.current \|\| wokeFromSuspend\(run, Date\.now\(\)\)\) return;\s*if \(run\.shown\) return;/);
+  assert.match(host, /cfgLiveRef\.current = false;\s*setResumeCfg\(null\);/);
+  assert.match(host, /cfgLiveRef\.current = !!c;\s*setResumeCfg\(c\);/);
+});
 t('재개 뒤에도 48시간 간격·최대 3회·멈춤은 그대로(giftAnnounceBlock)', () => {
   const r = usedRun(NOW); noteGiftBackground(r, NOW - 12 * H);
   assert.equal(resumeGiftRun(r, NOW, true), true);
@@ -255,7 +267,7 @@ t('재개 배선 — 네이티브 appStateChange 로만, 6시간+ 재개 때 대
   assert.match(host, /if \(!Capacitor\.isNativePlatform\(\) \|\| cancelled\) return;/);
   assert.match(host, /App\.addListener\('appStateChange'/);
   assert.match(host, /if \(!isActive\) \{ noteGiftBackground\(run, now\); return; \}/);
-  assert.match(host, /if \(!resumeGiftRun\(run, now, readOnboarded\(localStore\(\)\), sheetOpenRef\.current\)\) return;\s*setResumeCfg\(null\);\s*void loadGiftConfig\(\)\.then\(\(c\) => \{[^}]*if \(cancelled\) return;\s*setResumeCfg\(c\);\s*setResumeTick\(\(n\) => n \+ 1\);/);
+  assert.match(host, /if \(!resumeGiftRun\(run, now, readOnboarded\(localStore\(\)\), sheetOpenRef\.current\)\) return;\s*cfgLiveRef\.current = false;\s*setResumeCfg\(null\);\s*void loadGiftConfig\(\)\.then\(\(c\) => \{[^}]*if \(cancelled\) return;\s*cfgLiveRef\.current = !!c;\s*setResumeCfg\(c\);\s*setResumeTick\(\(n\) => n \+ 1\);/);
   // 관문 10271857: 재개 뒤엔 서버 설정을 다시 읽은 값으로만 판정(백그라운드 중 꺼졌으면 없다)
   assert.match(host, /const cfg = resumeCfg === undefined \? mountCfg : resumeCfg;/);
   assert.match(read('src/lib/gift/useGift.ts'), /const TTL_MS = 10 \* 60_000;/);   // 6시간 뒤 loadGiftConfig 는 캐시가 아니라 서버를 읽는다

@@ -107,6 +107,8 @@ export function resumeBgStart(run: AnnounceRun, now: number): number {
   if (stall) return run.stallFrom + GIFT_HEARTBEAT_MS;                          // 알림이 늦었거나 없다 — 짧게 잰다
   return NaN;
 }
+/** 방금 멈췄다 깨어났나 — 마지막 박동(또는 비활성 알림)이 끊김 기준보다 오래전(재개 처리 전에 깨어난 타이머) */
+export const wokeFromSuspend = (run: AnnounceRun, now: number): boolean => now - run.aliveAt > GIFT_SUSPEND_DRIFT_MS;
 /**
  * 위 머리말대로 재개를 판정한다(6시간 이상 = 새 실행으로 되돌리고 true).
  * 안내 시트가 아직 열려 있으면 되돌리지 않는다 — 닫자마자 같은 안내가 다시 뜨지 않게(관문 10271845).
