@@ -74,3 +74,27 @@ export function buildIndexFacts(b: MarketIndexBasis | undefined, session: Tactic
     if (session === 'PRE') { futures(); cash(); } else { cash(); futures(); }
     return sessionIndexFacts(facts, session);
 }
+
+/**
+ * ★2026-10-28 T2 장후(POST) Tactical 의 «종가 이후 선물» 사실.
+ *   10/27 실측: 기준 키 yahoo:cash-close:nq|es 는 16:10 ET 무렵 EC2·Upstash 둘 다 저장됐지만, 가디언 스냅샷은 세션 전환 직후(16:01 ET)
+ *   한 번 계산된 뒤 EC2 워커가 도장만 새로 찍어 다시 써서 장후 내내(그리고 그 글을 이어 쓰는 야간 저장 판정까지) «종가 이후 변화 미확인»으로 굳었다.
+ *   야후 선물은 약 10분 지연이라 장후 첫 계산 때는 기준이 있을 수 없다 → «글을 만들 때 선물 사실이 없었는데 지금은 있다»면 다시 만든다.
+ */
+export function hasFuturesSinceCloseFact(b: MarketIndexBasis | null | undefined, nowMs: number): boolean {
+    return !!b && tacticalSessionAt(nowMs) === 'POST' && buildIndexFacts(b, 'POST', nowMs).some(f => f.kind === 'futures');
+}
+/** Tactical 프롬프트의 INDEX_FACTS 에 선물 사실이 있었나(생성 재료 기록용). */
+export function promptHasFuturesFacts(prompt: string | null | undefined): boolean {
+    const line = prompt?.match(/^INDEX_FACTS: (.*)$/m)?.[1];
+    if (!line) return false;
+    try { return (JSON.parse(line) as Array<{ kind?: string }>).some(f => f?.kind === 'futures'); } catch { return false; }
+}
+/** 장후 스냅샷 재계산 최소 간격 — 선물 사실이 없는 글을 다시 만들 때(재생성 실패·선물 휴식 중 포함) 모델 호출을 5분에 한 번 이하로. */
+export const POST_TACTICAL_RETRY_MS = 5 * 60_000;
+/** 지금 선물 사실을 읽어 볼 가치가 있나(입출력 전 값싼 판정): POST 이고, 글이 선물 사실 없이 만들어졌고, 스냅샷 계산 뒤 5분이 지났다. 글 정보가 없는 옛 스냅샷도 대상. */
+export function postTacticalMayLackFutures(c: { tacticalFutures?: boolean; timestamp?: string } | null | undefined, session: string | null | undefined, nowMs: number): boolean {
+    if (!c || session !== 'POST' || c.tacticalFutures === true) return false;
+    const at = c.timestamp ? Date.parse(c.timestamp) : NaN;
+    return !Number.isFinite(at) || nowMs - at >= POST_TACTICAL_RETRY_MS;
+}
