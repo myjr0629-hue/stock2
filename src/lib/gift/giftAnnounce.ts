@@ -20,6 +20,7 @@
  *      (인텔 열람·담기·AI 한 줄 순간 — hooks/useReviewPrompt reviewRequestedAt) — OS 평점 시트와 겹치지 않게('review')
  *   ⑧ 다른 시트·결제 창(aria-modal)이 떠 있지 않다('busy')
  * 시점: 대시보드가 뜬 뒤 3.5초 — 첫 화면의 숫자를 본 다음(평점 요청 2.5초보다 늦게).
+ *   (10/27 저녁) 네이티브 app:resume 때 마지막 대시보드 판정이 6시간+ 전이면 한 번 더(GIFT_RESUME_RECHECK_MS 아래).
  * 측정: 띄움 = share-hit 'open' · 누름 'tap' · 보냄 'sent'(표면 gift_pop) · 어디서 띄웠나 'at:dash|earn|report'
  *   · 막힌 이유 'block:<사유>'(실행당 사유마다 1회, 하루 합계 숫자만 — 식별자 없음) — scripts/mkt-gift.js 가 센다.
  *
@@ -48,6 +49,35 @@ export const GIFT_ANNOUNCE_GAP_MS = 48 * 3600_000;
 export const GIFT_MOMENT_DWELL_MS = 10_000;
 /** OS 평점 시트를 요청한 뒤 이만큼은 띄우지 않는다(인텔 열람·담기·AI 한 줄 등 어떤 순간이든 — hooks/useReviewPrompt) */
 export const GIFT_REVIEW_QUIET_MS = 60_000;
+/**
+ * ★2026-10-27 저녁(코디네이터 결정·범위 축소안) 앱 재개 재판정 — 네이티브는 백그라운드에서 돌아와도 웹뷰를 다시 읽지 않아(app:resume 만)
+ *   «한 실행 최대 1회»가 며칠씩 이어진다. 그래서 app:resume 때 «지금 대시보드이고 · 마지막 대시보드 판정이 6시간 이상 전이고 · 시트가 닫혀 있으면»
+ *   설정을 다시 읽은 뒤 giftAnnounceBlock 으로 1회 더 판정한다. 백그라운드 길이는 재지 않는다(마지막 «판정» 시각만 — 기기 저장소).
+ *   48시간 간격·최대 3회·멈춤·첫 실행 제외·평점/다른 시트 겹침 금지는 그대로. 웹(브라우저)엔 app:resume 이 없어 동작 그대로.
+ */
+export const GIFT_DASH_CHECK_KEY = 'signumhq.gift.dashcheck.v1';
+export const GIFT_RESUME_RECHECK_MS = 6 * 3600_000;
+/** 네이티브에서 백그라운드 전에 걸린 대시보드 타이머가 이만큼 넘게 늦게 깨어나면(앱이 멈춰 있었다) 그 타이머로는 띄우지 않는다 */
+export const GIFT_TIMER_LATE_MS = 5 * 60_000;
+
+/** 대시보드 판정을 했다(띄움·막힘 모두) — 시각을 남긴다. 실패는 삼킨다(최악이면 재개 때 한 번 더 판정 — 간격·횟수는 표식이 지킨다). */
+export function markDashChecked(store: StoreLike | null, now: number): void {
+  try { store?.setItem(GIFT_DASH_CHECK_KEY, String(now)); } catch { /* 저장소 막힘 */ }
+}
+
+/** app:resume 때 다시 판정할 차례인가 — 대시보드 · 시트 닫힘 · 마지막 판정 6시간+(기록 없음·깨진 값 = 차례). 저장소가 없으면 아니다. */
+export function resumeRecheckDue(store: StoreLike | null, now: number, path: string, sheetOpen: boolean): boolean {
+  if (!store || sheetOpen || !isDashPath(path)) return false;
+  let raw: string | null;
+  try { raw = store.getItem(GIFT_DASH_CHECK_KEY); } catch { return false; }
+  const last = raw && /^\d{1,16}$/.test(raw) ? Number(raw) : 0;
+  return now - last >= GIFT_RESUME_RECHECK_MS;
+}
+
+/** 네이티브 타이머가 너무 늦게 깨어났나(걸 때 시각 대비) — 백그라운드에서 멈췄다 깨어난 옛 타이머 */
+export const timerWokeLate = (scheduledAt: number, delayMs: number, now: number): boolean =>
+  now - scheduledAt - delayMs > GIFT_TIMER_LATE_MS;
+
 /** «좋은 순간» 알림 이벤트(useGiftMoment → GiftAnnounceHost) */
 export const GIFT_MOMENT_EVENT = 'sg:gift-moment';
 export type GiftMomentWhere = 'earn' | 'report';

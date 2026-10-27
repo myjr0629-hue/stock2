@@ -14,6 +14,7 @@ import {
   GIFT_ANNOUNCE_COPY, GIFT_ANNOUNCE_GAP_MS, GIFT_ANNOUNCE_KEY, GIFT_ANNOUNCE_MAX, GIFT_BLOCK_METRICS, GIFT_MOMENT_DWELL_MS,
   GIFT_MOMENT_EVENT, GIFT_REVIEW_QUIET_MS, ONBOARDING_DONE_KEY, giftAnnounceBlock, isDashPath, isEarningsPath, localeFromPath,
   keepTogether, markGiftAnnounceStop, markGiftAnnounced, readAnnounceState, readOnboarded, type AnnounceInput, type StoreLike,
+  GIFT_DASH_CHECK_KEY, GIFT_RESUME_RECHECK_MS, GIFT_TIMER_LATE_MS, GIFT_ANNOUNCE_DELAY_MS, markDashChecked, resumeRecheckDue, timerWokeLate,
 } from '../src/lib/gift/giftAnnounce';
 import { GIFT_COPY } from '../src/lib/gift/gift';
 import { APP_SESSION_REVIEW } from '../src/lib/app/reviewMoments';
@@ -132,9 +133,65 @@ t('좋은 순간 입구 — 실적 캘린더·장마감 리포트 탭에서만, 
   const host = read('src/components/app/GiftAnnounceHost.tsx');
   assert.match(host, new RegExp(`GIFT_MOMENT_EVENT`));
   assert.equal(GIFT_MOMENT_EVENT, 'sg:gift-moment');
-  assert.match(host, /if \(run\.shown\) return;\s*run\.shown = true;/);   // 한 실행 최대 1회
+  assert.match(host, /if \(run\.shown && !again\) return;\s*run\.shown = true;/);   // 한 실행 최대 1회(앱 재개 재판정만 예외 — 아래)
   assert.match(host, /^const run = \{ shown: false, dashDone: false, counted: new Set<string>\(\), onboarded: null as boolean \| null \};$/m);   // 재마운트에도 유지(모듈 상태)
   assert.match(host, /reviewAt: reviewRequestedAt\(\)/);
+});
+// ★10/27 저녁 앱 재개 재판정(범위 축소안) — app:resume 때 대시보드·시트 닫힘·마지막 대시보드 판정 6시간+ 일 때만, 설정 재조회 뒤 1회
+t('재개 재판정 차례 — 6시간 미만 = 판정 안 함 · 6시간 이상 = 판정 · 기록 없음 = 판정', () => {
+  assert.equal(GIFT_RESUME_RECHECK_MS, 6 * H);
+  const st = (last?: number) => mem(last === undefined ? {} : { [GIFT_DASH_CHECK_KEY]: String(last) });
+  const dash = '/ko/app-view/dash';
+  assert.equal(resumeRecheckDue(st(NOW - 6 * H + 1), NOW, dash, false), false);
+  assert.equal(resumeRecheckDue(st(NOW - 6 * H), NOW, dash, false), true);
+  assert.equal(resumeRecheckDue(st(NOW - 30 * H), NOW, dash, false), true);
+  assert.equal(resumeRecheckDue(st(), NOW, dash, false), true);
+  assert.equal(resumeRecheckDue(mem({ [GIFT_DASH_CHECK_KEY]: 'x' }), NOW, dash, false), true);
+  // 대시보드 아님 · 시트 열림 · 저장소 없음/막힘 = 판정 안 함
+  assert.equal(resumeRecheckDue(st(), NOW, '/ko/app-view/intel', false), false);
+  assert.equal(resumeRecheckDue(st(), NOW, dash, true), false);
+  assert.equal(resumeRecheckDue(null, NOW, dash, false), false);
+  assert.equal(resumeRecheckDue(broken, NOW, dash, false), false);
+  // 판정하면 시각을 남긴다 → 바로 다음 재개는 차례 아님
+  const s2 = st(); markDashChecked(s2, NOW);
+  assert.equal(s2.m[GIFT_DASH_CHECK_KEY], String(NOW));
+  assert.equal(resumeRecheckDue(s2, NOW + 5 * H, dash, false), false);
+  assert.equal(resumeRecheckDue(s2, NOW + 6 * H, dash, false), true);
+  markDashChecked(broken, NOW); markDashChecked(null, NOW);     // 던지지 않는다
+});
+t('재개 재판정도 기존 판정 그대로 — 48시간 간격 안 = gap · 최대 3회 · 멈춤 · 첫 실행 · 시트', () => {
+  const st = (o: object) => mem({ [GIFT_ANNOUNCE_KEY]: JSON.stringify(o) });
+  assert.equal(giftAnnounceBlock(base({ store: st({ n: 1, last: NOW - 7 * H }) })), 'gap');
+  assert.equal(giftAnnounceBlock(base({ store: st({ n: 1, last: NOW - 49 * H }) })), null);
+  assert.equal(giftAnnounceBlock(base({ store: st({ n: 3, last: NOW - 99 * H }) })), 'cap');
+  assert.equal(giftAnnounceBlock(base({ store: st({ n: 1, last: NOW - 99 * H, stop: 1 }) })), 'stop');
+  assert.equal(giftAnnounceBlock(base({ onboardedAtMount: false })), 'new');
+  assert.equal(giftAnnounceBlock(base({ dialogOpen: true })), 'busy');
+});
+t('늦게 깨어난 타이머 — 걸 때 대비 5분 넘게 늦으면 그 타이머로는 띄우지 않는다(네이티브)', () => {
+  assert.equal(GIFT_TIMER_LATE_MS, 5 * 60_000);
+  assert.equal(timerWokeLate(NOW, GIFT_ANNOUNCE_DELAY_MS, NOW + GIFT_ANNOUNCE_DELAY_MS + 1000), false);
+  assert.equal(timerWokeLate(NOW, GIFT_ANNOUNCE_DELAY_MS, NOW + GIFT_ANNOUNCE_DELAY_MS + 60_000), false);   // 웹 숨은 탭 1분 지연 수준은 정상
+  assert.equal(timerWokeLate(NOW, GIFT_ANNOUNCE_DELAY_MS, NOW + GIFT_ANNOUNCE_DELAY_MS + 5 * 60_000 + 1), true);
+  assert.equal(timerWokeLate(NOW, GIFT_ANNOUNCE_DELAY_MS, NOW + 7 * H), true);
+});
+t('재개 배선 — app:resume 에서만 · 차례 확인 → 설정 재조회(꺼짐·실패면 없음) → 3.5초 뒤 1회 · 백그라운드 진입 때 타이머 취소 · 웹 늦은 타이머 검사 없음', () => {
+  const host = read('src/components/app/GiftAnnounceHost.tsx');
+  assert.match(host, /document\.addEventListener\('app:resume', onResume\);/);
+  assert.match(host, /document\.removeEventListener\('app:resume', onResume\);/);
+  assert.match(host, /if \(!resumeRecheckDue\(localStore\(\), Date\.now\(\), window\.location\.pathname, sheetOpenRef\.current\)\) return;/);
+  assert.match(host, /void loadGiftConfig\(\)\.then\(\(c\) => \{[^\n]*\n\s*if \(dead \|\| my !== seq \|\| !c\) return;/);
+  assert.match(host, /if \(dead \|\| my !== seq \|\| sheetOpenRef\.current\) return;\s*if \(timerWokeLate\(armedAt, GIFT_ANNOUNCE_DELAY_MS, Date\.now\(\)\)\) return;\s*const why = giftAnnounceBlock\(input\(\)\);/);
+  assert.match(host, /show\('dash', true\);/);
+  assert.match(host, /App\.addListener\('appStateChange', \(\{ isActive \}\) => \{ if \(!isActive\) cancelAll\(\); \}\)/);
+  assert.match(host, /const cancelAll = \(\) => \{ seq\+\+; window\.clearTimeout\(timer\); dashCancelRef\.current\?\.\(\); \};/);
+  assert.match(host, /if \(native && timerWokeLate\(armedAt, delay, Date\.now\(\)\)\) return;/);
+  assert.match(host, /const native = shareVia\(\) !== 'web';/);
+  // app:resume 은 네이티브에서만 쏜다(웹 동작 그대로)
+  const nap = read('src/components/native/NativeAppProvider.tsx');
+  assert.match(nap, /App\.addListener\('appStateChange', \(\{ isActive \}\) => \{\s*if \(isActive\) \{[^}]*document\.dispatchEvent\(new CustomEvent\('app:resume'\)\);/);
+  // 대시보드 판정(띄움·막힘)마다 시각을 남긴다
+  assert.equal(host.split('markDashChecked(localStore(), Date.now())').length - 1, 4);
 });
 t('첫 안내 완료 = AppFirstRunOnboarding 과 같은 키·값', () => {
   const src = read('src/components/app/AppFirstRunOnboarding.tsx');
