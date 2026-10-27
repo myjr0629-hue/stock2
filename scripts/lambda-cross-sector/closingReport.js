@@ -373,6 +373,17 @@ function settleTone(s, evidence) {
     return s;
 }
 
+/**
+ * 출처 이름이 나오는 why 문장마다 근거 보도의 시각(publishedEt)이 함께 있는가 — 그렇다면 그 출처 언급은 «시각까지 인용한 다른 보도»로 설명된다.
+ * 시각 없이 출처만 나온 문장이 하나라도 있으면 false(그 문장이 장후 보도를 원인으로 쓴 것일 수 있어 참조를 그대로 두고 검사에 맡긴다 — 관문 10270904 P1).
+ */
+function sourceAccounted(n, source, news) {
+    if (!source || source === 'not provided') return true;
+    const stamps = (news || []).map(x => x.publishedEt).filter(Boolean);
+    return LOCALES.every(loc => String(n.why?.[loc] || '').split(/(?<=[.!?。！？])\s*/)
+        .filter(sent => sent.includes(source)).every(sent => stamps.some(st => sent.includes(st))));
+}
+
 /** Contract normalisation before checks: marketOverview.summary = verdict (copied in code) and plain Korean for banned jargon. */
 function alignSummary(s, evidence) {
     dropUntranslatedNews(s);
@@ -411,6 +422,8 @@ function alignSummary(s, evidence) {
             if (!ref || typeof ref !== 'object') return ref;
             const item = evidence.news.find(x => x.id === ref.newsId);
             if (item && isQuoted(item)) return ref;
+            // 장후 보도 참조는 바꾸지 않는다 — 시각 없이 «장후 보도가 원인»이라 쓴 글의 검사(after-close-cause·news-time)를 지우지 않게(관문 10270904 P1)
+            if (item && (item.timing === 'after_cash_close' || !sourceAccounted(n, item.source, evidence.news))) return ref;
             const taken = new Set(n.causeRefs.map(r => r?.newsId));
             const pool = evidence.news.filter(x => isQuoted(x) && !taken.has(x.id) && (item ? x.source === item.source : String(ref.newsId || '').toLowerCase().includes(String(x.source || '').toLowerCase().split(/\s+/)[0] || '\u0000')));
             if (pool.length !== 1) return ref;
@@ -426,7 +439,7 @@ function alignSummary(s, evidence) {
             const quoted = LOCALES.some(loc => typeof n.why?.[loc] === 'string' && n.why[loc].includes(item.publishedEt));
             // 장후 보도를 장후로 분류(after_close·retrospective)해 놓고 본문에서 뺀 참조는 «인용하지 않은 참조»다 — 같은 출처의 장중 보도를 인용했다고 남기면
             // news-time 3언어 탈락(T4b 실측 10/23 1/6, 고침 4회에도 그대로). 원인(reported_context)으로 분류한 장후 참조는 남겨 검사가 잡게 한다.
-            if (!quoted && item.timing === 'after_cash_close' && ref?.kind !== 'reported_context') return false;
+            if (!quoted && item.timing === 'after_cash_close' && ref?.kind !== 'reported_context' && sourceAccounted(n, item.source, evidence.news)) return false;
             return quoted || LOCALES.some(loc => typeof n.why?.[loc] === 'string' && item.source && item.source !== 'not provided' && n.why[loc].includes(item.source));
         });
     }

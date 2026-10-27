@@ -409,6 +409,20 @@ t('T4b ②: 참조 ID 바로잡기 — 본문이 시각까지 인용한 참조 �
     const keep = C.alignSummary({ closingNarrative: { why, causeRefs: [{ newsId: 'zzz-1', kind: 'reported_context' }] } }, ev);
     assert.deepEqual(keep.closingNarrative.causeRefs.map((r: any) => r.newsId), ['zzz-1'], '후보가 여럿이거나 출처가 안 맞으면 그대로(검사가 잡는다)');
 });
+t('T4b 관문 10270904: 시각 없이 장후 보도를 원인으로 쓴 글은 참조 정리·바로잡기가 검사를 지우지 않는다', () => {
+    const ev: any = { news: [
+        { id: 'market-10', publishedEt: '2026-10-22 10:17 ET', timing: 'before_or_during_cash_session', source: 'Kitco' },
+        { id: 'market-5', publishedEt: '2026-10-22 16:36 ET', timing: 'after_cash_close', source: 'Kitco' },
+    ] };
+    const why = tri('Kitco(2026-10-22 10:17 ET) 보도. Kitco의 장후 보도가 하락을 이끌었다.', 'Kitco (2026-10-22 10:17 ET) reported. A Kitco after-close report drove the decline.', 'Kitco（2026-10-22 10:17 ET）の報道。Kitcoの引け後報道が下落を招いた。');
+    for (const kind of ['reported_context', 'after_close', 'retrospective']) {
+        const out = C.alignSummary({ closingNarrative: { why, causeRefs: [{ newsId: 'market-10', kind: 'reported_context' }, { newsId: 'market-5', kind }] } }, ev);
+        assert.deepEqual(out.closingNarrative.causeRefs.map((r: any) => r.newsId), ['market-10', 'market-5'], kind);
+        assert.ok(C.evidenceProblems(out, { ...ev, regularClose: cash, sessionDate: DAY }).some((r: string) => /news-time|after-close-cause/.test(r)), kind);
+    }
+    const solo = C.alignSummary({ closingNarrative: { why, causeRefs: [{ newsId: 'market-5', kind: 'reported_context' }] } }, ev);
+    assert.deepEqual(solo.closingNarrative.causeRefs, [{ newsId: 'market-5', kind: 'reported_context' }], '장후 참조를 장중 보도로 바꾸지 않는다');
+});
 (async () => {
     const fixture = JSON.parse(fs.readFileSync('tests/fixtures/crossBriefServe.v4.json', 'utf8'));
     const old = fixture.brief;
