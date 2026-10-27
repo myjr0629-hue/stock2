@@ -6,6 +6,7 @@
 import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { pickExtPrice } from '@/utils/extWsTrust';
+import { regularWsUsable, wsTickSourceMs } from '@/lib/liveTickFreshness';
 
 const fetcher = (url: string) => fetch(url).then(res => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -28,6 +29,10 @@ export interface LivePriceData {
     extendedTime?: string | null;
     volume: number;
     session: string;
+    /** 이 price 를 고른 원천 — 'ws' 허브 · 'rest' /api/live/quotes (T31c: 머리말이 같은 판정을 쓴다) */
+    source?: 'ws' | 'rest';
+    /** 그 price 의 원천 시각(ms) — 허브는 체결 시각 또는 받은 시각 − 15분, 폴링은 서버 priceTime(정규장)·regularTime. 모르면 null */
+    priceTime?: number | null;
 }
 
 /**
@@ -90,7 +95,12 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
             }
         }
 
-        if (wsPrice && wsPrice.price > 0 && wsTrustworthy) {
+        // ★ [T31c 10/28] 정규장엔 허브가 약 15분 늦다(체결 시각도 안 보낸다) — 폴링 값의 체결 시각(오늘 정규장)이 더 새로우면 허브 값을 쓰지 않는다.
+        //   정규장 밖은 판단하지 않는다(기존 동작). 폴링 값이 없으면 허브 그대로.
+        const restTime = restQuote?.priceTime ?? restQuote?.regularTime ?? null;
+        const wsFresh = !(restQuote?.price > 0) || regularWsUsable(wsPrice, restTime, Date.now());
+
+        if (wsPrice && wsPrice.price > 0 && wsTrustworthy && wsFresh) {
             // Merge WS real-time price with SWR extended session data
             const q = data?.data?.[ticker];
             
@@ -143,6 +153,8 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
                 extendedTime: isRegular ? (q?.extendedTime ?? null) : (extPick && !extPick.fromWs ? (q?.extendedTime ?? null) : null),
                 volume: wsPrice.volume || q?.volume || 0,
                 session: sessionRaw,
+                source: 'ws',
+                priceTime: wsTickSourceMs(wsPrice),
             };
         }
     }
@@ -162,5 +174,7 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
         extendedTime: q.extendedTime ?? null,
         volume: q.volume || 0,
         session: q.session || data.session || 'closed',
+        source: 'rest',
+        priceTime: typeof (q.priceTime ?? q.regularTime) === 'number' ? (q.priceTime ?? q.regularTime) : null,
     };
 }

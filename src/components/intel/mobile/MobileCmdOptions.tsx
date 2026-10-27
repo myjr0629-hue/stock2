@@ -12,6 +12,7 @@ import { FlowSniper } from '@/components/FlowSniper';
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { liveWsTick, screenSessionOf } from '@/lib/liveTickFreshness';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
@@ -40,11 +41,9 @@ export function MobileCmdOptions({ ticker, quote, unified, unifiedLoading, initi
     const isClosed = marketStatus.isHoliday || marketStatus.market === 'closed';
     const livePrice = useLivePrice(ticker, marketStatus.market);
     const { getPrice: wsGetPrice } = useRealtimeData([ticker]);
-    const wsPrice = wsGetPrice(ticker);
+    const wsPrice = liveWsTick(wsGetPrice(ticker), livePrice, Date.now()); // [T31c] 정규장 지연 허브 값은 최신 폴링 값을 덮지 않는다
 
-    const effectiveSession = isClosed
-        ? 'CLOSED'
-        : (q.session || 'CLOSED').toUpperCase();
+    const effectiveSession = screenSessionOf(marketStatus, q.session, Date.now()); // [T31c] 정규장이면 REG(SSR 세션 고정 방지)
 
     const { displayPrice } = calcPriceDisplay({
         livePrice: wsPrice?.price || livePrice?.price,

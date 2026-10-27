@@ -16,6 +16,7 @@ import { useDashboardStore } from '@/stores/dashboardStore';
 import { useLocale } from 'next-intl';
 import useSWR from 'swr';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { liveWsTick, screenSessionOf } from '@/lib/liveTickFreshness';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
@@ -178,10 +179,10 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
 
     // ── Live Price (same hooks as desktop LiveTickerDashboard) ──
     const { status: marketStatus } = useMarketStatus();
-    const isClosed = marketStatus.isHoliday || marketStatus.market === 'closed';
     const livePrice = useLivePrice(effectiveTicker, marketStatus.market);
     const { getPrice: wsGetPrice } = useRealtimeData([effectiveTicker]);
-    const wsPrice = wsGetPrice(effectiveTicker);
+    // ★ [T31c] 정규장엔 허브(약 15분 지연)가 폴링 값의 체결 시각보다 오래됐으면 쓰지 않는다 — 장외는 기존 동작
+    const wsPrice = liveWsTick(wsGetPrice(effectiveTicker), livePrice, Date.now());
 
     // [FIX 2026-05-06] Ticker API에서 prevChangePct 확보 (PRE 마켓 본장 등락률용)
     // Flow 페이지와 동일한 데이터 소스 — ticker API가 daily aggs에서 2거래일 전 종가를 제공
@@ -202,9 +203,8 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
     const convictionSnapshot = useMobileConvictionSnapshot(effectiveQuote.ticker, unified, effectiveQuote.price,
         metricVwap, metricVwapDate, tickerApiData?.vwap === null, effectiveQuote.netPremium);
 
-    const effectiveSession = isClosed
-        ? 'CLOSED'
-        : (effectiveQuote.session || 'CLOSED').toUpperCase();
+    // ★ [T31c] 정규장(달력)이면 REG — SSR 세션(장전 'PRE')이 정규장까지 남아 «PRE» 배지·전일 종가 머리말로 굳던 것. 장외는 기존 값 그대로.
+    const effectiveSession = screenSessionOf(marketStatus, effectiveQuote.session, Date.now());
 
     // ── calcPriceDisplay — SAME function, SAME params as desktop ──
     // [FIX] prevChangePct 전달: ticker API → prices.prevChangePct

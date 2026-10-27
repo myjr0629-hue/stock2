@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 import { relatedLivePrevClose, relatedSessionContext } from '../src/lib/relatedRowMerge';
+import { relatedWsTick } from '../src/lib/liveTickFreshness';
 
 // 두 화면의 실제 표시 계산을 실행한다. React·브라우저·네트워크·환경 파일 접근 없음.
 function parse(file: string) {
@@ -44,7 +45,7 @@ function displayCalculation(ast: ts.SourceFile, getter: string) {
         if (ts.isReturnStatement(statement)) break;
         statements.push(statement.getText(ast));
     }
-    return compile(['r', 'item', 'wsGetPrice', 'relWsGetPrice', 'isRegularSession', 'isRelatedRegularSession', 'relWsConnected', 'relatedLivePrevClose', 'Date'],
+    return compile(['r', 'item', 'wsGetPrice', 'relWsGetPrice', 'isRegularSession', 'isRelatedRegularSession', 'relWsConnected', 'relatedLivePrevClose', 'Date', 'relatedWsTick'],
         `${statements.join('\n')}\nreturn [displayPrice, displayChange];`);
 }
 const mobileDisplay = displayCalculation(mobile, 'wsGetPrice');
@@ -58,7 +59,7 @@ let tickReads = 0, checks = 0;
 function check(calc: Function, regular: boolean, row: any, tick: any, expected: number[], connected = true, nowMs = regular ? MON_REG : SUN) {
     const before = tickReads;
     const getPrice = () => { tickReads++; return tick; };
-    assert.deepEqual(calc(row, row, getPrice, getPrice, regular, regular, connected, relatedLivePrevClose, { now: () => nowMs }), expected);
+    assert.deepEqual(calc(row, row, getPrice, getPrice, regular, regular, connected, relatedLivePrevClose, { now: () => nowMs }, relatedWsTick), expected);
     if (!regular) assert.equal(tickReads, before, '장외에서는 잔류 WebSocket 틱도 읽지 않음');
     checks++;
 }
