@@ -240,6 +240,12 @@ assert.deepEqual(official, o1); assert.deepEqual(extended, o2);
     assert.ok(i > 0, 'unified 정규장 연관 행 표식 분기');
     const block = unifiedSrc.slice(i, i + 700);
     for (const f of ['prevClose:', 'session:', 'asOf:', 'relatedSourceTimeMs(td?.lastTrade?.t)']) assert.ok(block.includes(f), f);
+    // 관문 10271018 — 정규장 표식 행의 가격은 직접 API 와 같은 선택(체결가 먼저). day.c(덧입히기 실패 때 전일 값)에 체결 시각을 붙이지 않는다.
+    const head = unifiedSrc.slice(i - 600, i);
+    assert.match(head, /const livePrice = td\?\.lastTrade\?\.p \|\| td\?\.day\?\.c \|\| 0;/);
+    assert.match(unifiedSrc.slice(i, i + 900), /price: Math\.round\(livePrice \* 100\) \/ 100/);
+    const relatedSrc = fs.readFileSync('src/app/api/live/related/route.ts', 'utf8');
+    assert.match(relatedSrc, /const currentPrice = tickerData\?\.lastTrade\?\.p \|\| tickerData\?\.day\?\.c \|\| 0;/, '직접 API 의 같은 선택');
 }
 
 // 화면 소스가 이 함수를 그대로 쓰는가

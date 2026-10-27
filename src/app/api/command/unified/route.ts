@@ -1750,10 +1750,14 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                                         : 0;
                                     // [T31b] 정규장에 받은 행은 직접 API(/api/live/related)와 같은 기준 표식(본장 날짜·원천 시각·분모)을 단다 —
                                     //   표식이 없으면 웹·앱 병합(lib/relatedRowMerge)이 «나이 모름»으로 보고 갓 받은 값도 버린다(밤 검토 1027).
+                                    //   가격 선택도 직접 API(calcChangeFromSnapshot)와 같다 — 체결가(lastTrade.p) 먼저, 원천 시각은 그 체결 시각
+                                    //   (day.c 를 고르고 체결 시각을 붙이면 덧입히기 실패 때의 전일 값이 «최신»으로 둔갑한다, 관문 10271018).
                                     //   장외 행은 그대로(출구 officialCloseRelated 가 공식 종가 한 쌍으로 맞춘다).
-                                    if (currentPrice > 0 && cashSessionPhaseAt(Date.now()) === 'regular') {
+                                    const livePrice = td?.lastTrade?.p || td?.day?.c || 0;
+                                    if (livePrice > 0 && cashSessionPhaseAt(Date.now()) === 'regular') {
                                         const rd = td?._intrinio?.regularDate;
-                                        return { ticker: t, price: Math.round(currentPrice * 100) / 100, change, logo: null,
+                                        return { ticker: t, price: Math.round(livePrice * 100) / 100, logo: null,
+                                            change: prevClose > 0 ? Math.round(((livePrice - prevClose) / prevClose) * 10000) / 100 : 0,
                                             prevClose: prevClose || undefined,
                                             session: typeof rd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rd) ? rd : null,
                                             asOf: (td?.lastTrade?.p > 0 ? relatedSourceTimeMs(td?.lastTrade?.t) : null) ?? relatedSourceTimeMs(td?.updated) };
