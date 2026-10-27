@@ -373,17 +373,6 @@ function settleTone(s, evidence) {
     return s;
 }
 
-/**
- * 출처 이름이 나오는 why 문장마다 근거 보도의 시각(publishedEt)이 함께 있는가 — 그렇다면 그 출처 언급은 «시각까지 인용한 다른 보도»로 설명된다.
- * 시각 없이 출처만 나온 문장이 하나라도 있으면 false(그 문장이 장후 보도를 원인으로 쓴 것일 수 있어 참조를 그대로 두고 검사에 맡긴다 — 관문 10270904 P1).
- */
-function sourceAccounted(n, source, news) {
-    if (!source || source === 'not provided') return true;
-    const stamps = (news || []).map(x => x.publishedEt).filter(Boolean);
-    return LOCALES.every(loc => String(n.why?.[loc] || '').split(/(?<=[.!?。！？])\s*/)
-        .filter(sent => sent.includes(source)).every(sent => stamps.some(st => sent.includes(st))));
-}
-
 /** Contract normalisation before checks: marketOverview.summary = verdict (copied in code) and plain Korean for banned jargon. */
 function alignSummary(s, evidence) {
     dropUntranslatedNews(s);
@@ -413,34 +402,11 @@ function alignSummary(s, evidence) {
         ? { ...ref, kind: ref.kind === 'before_or_during_cash_session' ? 'reported_context' : ref.kind === 'after_cash_close' ? 'after_close' : ref.kind } : ref);
     // 본문 어느 언어에도 시각이 안 나온 causeRefs 는 «인용하지 않은 참조»라 뺀다(10/24 9차 실측: 쓰지도 않은 m7-2 하나로 news-time 3언어 탈락, 고침 2회에도 그대로).
     // 한 언어라도 인용했으면 그대로 두어 검사가 언어 간 누락을 잡게 한다.
-    // 참조 ID 바로잡기 — 없는 ID(«cnbc-amd»)나 본문에 시각이 없는 ID 인데, 본문이 시각까지 인용한 «참조 안 된» 같은 출처 보도가 하나뿐이면 그 보도의 ID 로.
-    // (T4b 실측: 본문은 FXEmpire 14:29 ET 를 인용하고 참조는 같은 출처 14:07 ET 항목 → news-time 3언어 탈락, 지어낸 ID → news-ref 탈락)
-    if (n && typeof n === 'object' && Array.isArray(n.causeRefs) && Array.isArray(evidence?.news)) {
-        const whyAll = LOCALES.map(loc => String(n.why?.[loc] || '')).join('\n');
-        const isQuoted = it => !!it?.publishedEt && whyAll.includes(it.publishedEt);
-        n.causeRefs = n.causeRefs.map(ref => {
-            if (!ref || typeof ref !== 'object') return ref;
-            const item = evidence.news.find(x => x.id === ref.newsId);
-            if (item && isQuoted(item)) return ref;
-            // 장후 보도 참조는 바꾸지 않는다 — 시각 없이 «장후 보도가 원인»이라 쓴 글의 검사(after-close-cause·news-time)를 지우지 않게(관문 10270904 P1)
-            if (item && (item.timing === 'after_cash_close' || !sourceAccounted(n, item.source, evidence.news))) return ref;
-            const taken = new Set(n.causeRefs.map(r => r?.newsId));
-            const pool = evidence.news.filter(x => isQuoted(x) && !taken.has(x.id) && (item ? x.source === item.source : String(ref.newsId || '').toLowerCase().includes(String(x.source || '').toLowerCase().split(/\s+/)[0] || '\u0000')));
-            if (pool.length !== 1) return ref;
-            const to = pool[0];
-            return { ...ref, newsId: to.id, kind: to.timing === 'after_cash_close' ? (ref.kind === 'reported_context' ? 'reported_context' : ref.kind) : (ref.kind === 'after_close' ? 'reported_context' : ref.kind) };
-        });
-    }
     if (n && typeof n === 'object' && Array.isArray(n.causeRefs) && Array.isArray(evidence?.news)) {
         n.causeRefs = n.causeRefs.filter(ref => {
             const item = evidence.news.find(x => x.id === ref?.newsId);
             // 출처 이름이 본문에 있으면 «시각 없이 인용»일 수 있어 남긴다 — 검사가 시각 누락·장후 원인을 잡게(관문 10241205)
-            if (!item) return true;
-            const quoted = LOCALES.some(loc => typeof n.why?.[loc] === 'string' && n.why[loc].includes(item.publishedEt));
-            // 장후 보도를 장후로 분류(after_close·retrospective)해 놓고 본문에서 뺀 참조는 «인용하지 않은 참조»다 — 같은 출처의 장중 보도를 인용했다고 남기면
-            // news-time 3언어 탈락(T4b 실측 10/23 1/6, 고침 4회에도 그대로). 원인(reported_context)으로 분류한 장후 참조는 남겨 검사가 잡게 한다.
-            if (!quoted && item.timing === 'after_cash_close' && ref?.kind !== 'reported_context' && sourceAccounted(n, item.source, evidence.news)) return false;
-            return quoted || LOCALES.some(loc => typeof n.why?.[loc] === 'string' && item.source && item.source !== 'not provided' && n.why[loc].includes(item.source));
+            return !item || LOCALES.some(loc => typeof n.why?.[loc] === 'string' && (n.why[loc].includes(item.publishedEt) || (item.source && item.source !== 'not provided' && n.why[loc].includes(item.source))));
         });
     }
     settleTone(s, evidence);
@@ -461,9 +427,13 @@ function repairSpecifics({ evidence, narrative, reasons }) {
         if (item?.timing === 'after_cash_close' && ref.kind === 'reported_context') out.push(`causeRefs ${item.id} was published ${item.publishedEt}, AFTER the cash close: set its kind to "after_close" (new development) or "retrospective" (look-back), and in why describe it as after the close, not as a cause.`);
         if (item && item.timing !== 'after_cash_close' && ref.kind === 'after_close') out.push(`causeRefs ${item.id} was published ${item.publishedEt}, during the session: its kind must be "reported_context" or "retrospective".`);
     }
+    // 참조와 본문 인용이 어긋난 경우 «인용하거나 참조에서 빼라» 둘 다 열어 둔다 — «본문에 넣어라»만 보이면 장후 보도를 빼라는 지시와 부딪혀 고침 4회에도 그대로였다(T4b 실측)
     if (rs.some(r => /news-time/.test(r))) for (const ref of Array.isArray(n.causeRefs) ? n.causeRefs : []) {
         const item = news.find(x => x.id === ref?.newsId);
-        if (item) out.push(`why (ko, en and ja) must contain the exact text "${item.publishedEt}" for ${item.id}.`);
+        if (item && LOCALES.some(loc => !String(n.why?.[loc] || '').includes(item.publishedEt))) out.push(`causeRefs ${item.id} (${item.source}, ${item.publishedEt}) is not quoted with that exact time in every language of why: either quote "${item.publishedEt}" in ko, en and ja, or remove ${item.id} from causeRefs if why does not use it. If why cites another report of the same source, use that report's own id.`);
+    }
+    if (rs.some(r => /news-ref/.test(r))) for (const ref of Array.isArray(n.causeRefs) ? n.causeRefs : []) {
+        if (!news.some(x => x.id === ref?.newsId)) out.push(`causeRefs newsId "${ref?.newsId}" does not exist — use the exact id of the cited evidence item (ids: ${news.filter(x => LOCALES.some(loc => String(n.why?.[loc] || '').includes(x.publishedEt))).map(x => `${x.id}=${x.source} ${x.publishedEt}`).join('; ') || 'none quoted'}) or remove it.`);
     }
     // 길이 초과는 지금 글자 수와 목표를 숫자로(10/24 Lambda 경로 Sonnet 4.6 모의: «length»만 보이면 고침 2회에도 382자 그대로)
     for (const r of rs) {

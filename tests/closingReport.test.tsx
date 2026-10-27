@@ -378,16 +378,6 @@ t('T4b ⑤: 배지 — 두 지수 같은 방향 ±0.30% 이상·VIX 반대 아�
     assert.equal(tone('MIXED', ev(0.4, -0.5, -1)), 'MIXED', '지수 엇갈림');
     assert.equal(tone('MIXED', { regularClose: {} }), 'MIXED', '종가 없음');
 });
-t('T4b ②: 장후로 분류하고 본문에서 뺀 참조는 정리, 원인(reported_context)으로 분류한 장후 참조는 남겨 검사가 잡는다', () => {
-    const ev: any = { news: [
-        { id: 'market-10', publishedEt: '2026-10-22 10:17 ET', timing: 'before_or_during_cash_session', source: 'Kitco' },
-        { id: 'market-5', publishedEt: '2026-10-22 16:36 ET', timing: 'after_cash_close', source: 'Kitco' },
-    ] };
-    const mk = (kind: string) => ({ closingNarrative: { why: tri('Kitco(2026-10-22 10:17 ET) 보도.', 'Kitco (2026-10-22 10:17 ET) reported.', 'Kitco（2026-10-22 10:17 ET）の報道。'),
-        causeRefs: [{ newsId: 'market-10', kind: 'reported_context' }, { newsId: 'market-5', kind }] } });
-    for (const kind of ['after_close', 'retrospective']) assert.deepEqual(C.alignSummary(mk(kind), ev).closingNarrative.causeRefs.map((r: any) => r.newsId), ['market-10'], kind);
-    assert.deepEqual(C.alignSummary(mk('reported_context'), ev).closingNarrative.causeRefs.map((r: any) => r.newsId), ['market-10', 'market-5']);
-});
 t('T4b: 한국어 서사의 한자·가나는 고침 요청 사유(구체 구절 포함)', () => {
     const b: any = brief();
     b.structured.closingNarrative.why.ko = '美 10년물 금리는 보합이었고 이는 위험 회피와 整合한다. ' + b.structured.closingNarrative.why.ko;
@@ -397,19 +387,7 @@ t('T4b: 한국어 서사의 한자·가나는 고침 요청 사유(구체 구절
     assert.match(rp, /Hangul only/); assert.match(rp, /美 10년물/);
     assert.ok(!closingReportProblems(brief()).includes('narrative:ko:script'));
 });
-t('T4b ②: 참조 ID 바로잡기 — 본문이 시각까지 인용한 참조 안 된 같은 출처 보도가 하나뿐일 때만', () => {
-    const ev: any = { news: [
-        { id: 'market-7', publishedEt: '2026-10-22 14:07 ET', timing: 'before_or_during_cash_session', source: 'FXEmpire' },
-        { id: 'silicon_core-2', publishedEt: '2026-10-22 14:29 ET', timing: 'before_or_during_cash_session', source: 'FXEmpire' },
-        { id: 'market-3', publishedEt: '2026-10-22 15:38 ET', timing: 'before_or_during_cash_session', source: 'CNBC' },
-    ] };
-    const why = tri('FXEmpire(2026-10-22 14:29 ET)와 CNBC(2026-10-22 15:38 ET) 보도.', 'FXEmpire (2026-10-22 14:29 ET) and CNBC (2026-10-22 15:38 ET).', 'FXEmpire（2026-10-22 14:29 ET）とCNBC（2026-10-22 15:38 ET）。');
-    const out = C.alignSummary({ closingNarrative: { why, causeRefs: [{ newsId: 'market-7', kind: 'reported_context' }, { newsId: 'cnbc-amd', kind: 'reported_context' }] } }, ev);
-    assert.deepEqual(out.closingNarrative.causeRefs.map((r: any) => r.newsId), ['silicon_core-2', 'market-3']);
-    const keep = C.alignSummary({ closingNarrative: { why, causeRefs: [{ newsId: 'zzz-1', kind: 'reported_context' }] } }, ev);
-    assert.deepEqual(keep.closingNarrative.causeRefs.map((r: any) => r.newsId), ['zzz-1'], '후보가 여럿이거나 출처가 안 맞으면 그대로(검사가 잡는다)');
-});
-t('T4b 관문 10270904: 시각 없이 장후 보도를 원인으로 쓴 글은 참조 정리·바로잡기가 검사를 지우지 않는다', () => {
+t('T4b ②: 참조·인용 불일치는 정리하지 않고(검사 유지) 고침 요청에 «인용 또는 참조에서 제거»·실제 ID 목록을 보인다', () => {
     const ev: any = { news: [
         { id: 'market-10', publishedEt: '2026-10-22 10:17 ET', timing: 'before_or_during_cash_session', source: 'Kitco' },
         { id: 'market-5', publishedEt: '2026-10-22 16:36 ET', timing: 'after_cash_close', source: 'Kitco' },
@@ -420,8 +398,11 @@ t('T4b 관문 10270904: 시각 없이 장후 보도를 원인으로 쓴 글은 �
         assert.deepEqual(out.closingNarrative.causeRefs.map((r: any) => r.newsId), ['market-10', 'market-5'], kind);
         assert.ok(C.evidenceProblems(out, { ...ev, regularClose: cash, sessionDate: DAY }).some((r: string) => /news-time|after-close-cause/.test(r)), kind);
     }
-    const solo = C.alignSummary({ closingNarrative: { why, causeRefs: [{ newsId: 'market-5', kind: 'reported_context' }] } }, ev);
-    assert.deepEqual(solo.closingNarrative.causeRefs, [{ newsId: 'market-5', kind: 'reported_context' }], '장후 참조를 장중 보도로 바꾸지 않는다');
+    const bogus = C.alignSummary({ closingNarrative: { why, causeRefs: [{ newsId: 'kitco-after', kind: 'after_close' }] } }, ev);
+    assert.ok(C.evidenceProblems(bogus, { ...ev, regularClose: cash, sessionDate: DAY }).includes('narrative:news-ref'));
+    const rp = C.narrativeRepairPrompt({ sessionDate: DAY, evidence: ev, macroStr: '', narrative: { why, causeRefs: [{ newsId: 'market-5', kind: 'after_close' }, { newsId: 'kitco-after', kind: 'after_close' }] }, reasons: ['narrative:news-time:ko', 'narrative:news-ref'] });
+    assert.match(rp, /or remove market-5 from causeRefs/);
+    assert.match(rp, /"kitco-after" does not exist — use the exact id of the cited evidence item \(ids: market-10=Kitco 2026-10-22 10:17 ET\)/);
 });
 (async () => {
     const fixture = JSON.parse(fs.readFileSync('tests/fixtures/crossBriefServe.v4.json', 'utf8'));
