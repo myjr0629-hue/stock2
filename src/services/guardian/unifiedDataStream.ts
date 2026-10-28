@@ -1,5 +1,5 @@
 import { fmpFetch } from '@/lib/fmpClient';
-import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, tacticalSessionAt } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
 import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
 import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
@@ -125,6 +125,12 @@ export interface GuardianContext {
      *   스냅샷은 세션 전환 때 한 번 계산된 뒤 워커가 도장만 갱신하므로, false 인데 지금 선물 사실이 있으면 다시 계산한다.
      */
     tacticalFutures?: boolean;
+    /** 글을 만들 때 INDEX_FACTS의 종가 대비 선물 변화율(pp). 옛 스냅샷에는 없음. */
+    tacticalFuturesPct?: TacticalFuturesPct;
+    /** 워커가 갱신하는 도장과 별개인 마지막 변동 재계산 시각(실패 포함). */
+    tacticalFuturesCheckedAt?: string;
+    /** 이 스냅샷이 살펴본 가장 새 Tactical 저장본 시각(ISO). 저장소에 이보다 새 글이 있으면 30분 간격과 무관하게 채택한다(관문 10281110). 없으면 timestamp. */
+    tacticalSeenAt?: string;
 }
 
 // === CACHE CONFIG (per-locale to prevent AI text cross-contamination) ===
@@ -137,12 +143,40 @@ const CACHE_TTL_MS = 25 * 1000; // 25 seconds — matches 30s polling interval
 /**
  * ★2026-10-28 T2 장후 스냅샷의 Tactical 글이 «종가 이후 선물 사실 없이» 만들어졌는데 지금은 그 사실이 있다 → 다시 계산.
  *   10/27 실측: 기준 키는 16:10 ET 무렵 EC2·Upstash 둘 다 저장됐지만 글은 16:01 ET 스냅샷 그대로 장후 내내 «종가 이후 변화 미확인».
- *   값싼 판정(POST·표식 없음·계산 뒤 5분)을 먼저 하고, 통과할 때만 지수 기준을 읽는다(캐시 읽기만 — 공급사 호출 0).
+ *   선물 사실 없는 글은 기존 5분 재시도, 생성 기준 있는 글은 30분 뒤 변동을 비교한다.
+ *   값싼 판정을 통과할 때만 지수 기준을 읽는다(캐시 읽기만 — 공급사 호출 0).
  */
-async function postTacticalNeedsFutures(c: { tacticalFutures?: boolean; timestamp?: string } | null | undefined, session: string | undefined, now: number): Promise<boolean> {
-    if (!postTacticalMayLackFutures(c, session, now)) return false;
+async function postTacticalNeedsFutures(c: PostTacticalFuturesState | null | undefined, session: string | undefined, now: number): Promise<boolean> {
+    const lacks = postTacticalMayLackFutures(c, session, now);
+    if (!lacks && !postTacticalMayDriftFutures(c, session, now)) return false;
     const basis = await loadMarketIndexBasis(now).catch(() => null);
-    return hasFuturesSinceCloseFact(basis, now);
+    if (lacks) return hasFuturesSinceCloseFact(basis, now);
+    const pct = Object.fromEntries(buildIndexFacts(basis ?? undefined, 'POST', now).filter(f => f.kind === 'futures').map(f => [f.id, f.chgPct]));
+    return postTacticalNeedsDriftRefresh(c, session, now, pct);
+}
+
+/** 저장본 채택 검사(GET 한 번) 최소 간격 — 인스턴스·언어별. 모델 호출 없음. 30분 재생성 간격과 별개. */
+const POST_TACTICAL_ADOPT_CHECK_MS = 30 * 1000;
+const _tacticalAdoptCheckAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
+/** 시험 전용 — 인스턴스 메모리(스냅샷 사본·채택 검사 간격)를 비워 «다른 인스턴스»를 흉내 낸다. */
+export function _resetGuardianHubStateForTest(): void {
+    for (const l of ['ko', 'en', 'ja'] as const) { _cachedContext[l] = null; _lastFetchTime[l] = 0; _tacticalAdoptCheckAt[l] = 0; }
+}
+const tacticalSeenAtOf = (c: { tacticalSeenAt?: string; timestamp?: string }): number => {
+    const at = Date.parse(c.tacticalSeenAt || c.timestamp || '');
+    return Number.isFinite(at) ? at : 0;
+};
+/**
+ * ★2026-10-28 관문 10281110 — 다른 인스턴스가 변동 재생성으로 저장한 새 Tactical 이 있나(생성 시각이 이 스냅샷이 본 글보다 늦음).
+ *   예약 거절 쪽 스냅샷이 30분 간격에 묶여 새 정상본을 두고 옛 «보합» 글을 계속 내보내던 경로. 생성 기준이 있는 POST 스냅샷만(옛 스냅샷·다른 세션 기존 동작).
+ */
+async function postTacticalHasNewerStored(c: (PostTacticalFuturesState & { tacticalSeenAt?: string }) | null | undefined, session: string | undefined, locale: Locale, now: number): Promise<boolean> {
+    if (!c || session !== 'POST' || c.tacticalFutures !== true || !c.tacticalFuturesPct) return false;
+    const last = _tacticalAdoptCheckAt[locale];
+    if (now >= last && now - last < POST_TACTICAL_ADOPT_CHECK_MS) return false;
+    _tacticalAdoptCheckAt[locale] = now;
+    const latest = await IntelligenceNode.latestStoredTacticalAt(locale, now).catch(() => null);
+    return latest != null && latest > tacticalSeenAtOf(c);
 }
 
 // [V12.0] Persistent AI verdict cache — Redis-based for deploy survival & EC2 sync
@@ -386,6 +420,54 @@ export class GuardianDataHub {
         return r.changed ? { ...context, verdict: r.verdict } : context;
     }
 
+    /**
+     * 선물 변동으로 재생성할 때는 Tactical 한 칸만 갱신한다. 실패·예산 소진 시 기존 글과 생성 기준을 보존한다.
+     *   mode 'adopt' = 다른 인스턴스가 저장한 더 새 글만 채택(모델 호출·예약 0, 30분 확인 시각을 소비하지 않음).
+     *   'drift' 에서 재생성이 막혀도 저장소에 내 글보다 새 정상본이 있으면 그것을 쓴다(관문 10281110).
+     */
+    private static async refreshPostTacticalFutures(previous: GuardianContext, locale: Locale, now: number, mode: 'drift' | 'adopt' = 'drift'): Promise<GuardianContext> {
+        const adopt = mode === 'adopt';
+        const seenBefore = tacticalSeenAtOf(previous);
+        let context: GuardianContext = adopt ? { ...previous } : { ...previous, tacticalFuturesCheckedAt: new Date(now).toISOString() };
+        let changed = !adopt;
+        try {
+            const core = await getFromCache<GuardianCore>(CORE_KEY).catch(() => null);
+            const basis = mergePostIndexBasis(core?.market.indexBasis ?? previous.market.indexBasis, await loadMarketIndexBasis(now).catch(() => null));
+            const base = core ? offHoursRotationContext(core, locale) : {
+                locale, rlsiScore: previous.rlsi.score, nasdaqChange: previous.market.nqChangePercent ?? null,
+                vectors: [], vix: previous.market.vix ?? 0,
+            };
+            const r = await IntelligenceNode.refreshRealityForFuturesDriftDetailed({ ...base, indexBasis: basis ?? undefined,
+                marketNewsHeadlines: filterMarketHeadlines(core?.news || []) }, { regen: !adopt, newerThan: seenBefore });
+            const text = r.text;
+            const pct = text ? IntelligenceNode.tacticalFuturesPct(locale, text) : undefined;
+            if (text && pct && !IntelligenceNode.isPlaceholderInsight(text)) {
+                const n = IntelligenceNode.numbersFor('reality', locale, text);
+                const tpl = { ...previous.verdict.num?.tpl }, numBasis = { ...previous.verdict.num?.basis };
+                delete tpl.realityInsight; delete numBasis.realityInsight;
+                if (n) { tpl.realityInsight = n.tpl; numBasis.realityInsight = n.basis; }
+                const at = r.at ?? now;
+                context = { ...context, tacticalFuturesPct: pct, tacticalSeenAt: new Date(Math.max(seenBefore, at)).toISOString(),
+                    // 채택한 글은 그 생성 시각부터 30분 뒤 변동을 비교한다(채택이 재생성 간격을 앞당기거나 미루지 않게).
+                    ...(adopt ? { tacticalFuturesCheckedAt: new Date(at).toISOString() } : {}),
+                    verdict: { ...previous.verdict, realityInsight: text, num: { tpl, basis: numBasis } } };
+                changed = true;
+                await saveAiVerdict(context.verdict, locale);
+            } else if (typeof r.seenAt === 'number' && r.seenAt > seenBefore) {
+                // 채택하지 못한 저장본(검사 탈락 등)은 «본 것»으로 적어 같은 글을 매번 다시 검사하지 않는다. 새 글이 저장되면 다시 본다.
+                context = { ...context, tacticalSeenAt: new Date(r.seenAt).toISOString() };
+                changed = true;
+            }
+        } catch { /* 새 글이 없으면 기존 글 유지. 확인 시각은 30분 재조회에 사용하며, 공급사 실패 시 공유 예산의 60분 대기·2회 중지를 따른다. */ }
+        if (!changed) return previous;
+        _cachedContext[locale] = context;
+        _lastFetchTime[locale] = now;
+        const stored = { ...context, _workerTimestamp: new Date(now).toISOString(), _source: 'vercel' };
+        await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}${locale}`, stored, 600).catch(() => false);
+        await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}lastgood:${locale}`, stored, 72 * 60 * 60).catch(() => false);
+        return context;
+    }
+
     private static async computeGuardianSnapshot(force: boolean, locale: Locale): Promise<GuardianContext> {
         const now = Date.now();
 
@@ -407,6 +489,7 @@ export class GuardianDataHub {
                         console.log(`[Guardian FIX] Session mismatch: cached=${cachedSession}, current=${currentSession} — recomputing for ${locale}`);
                         // Don't return stale cache, fall through to recompute
                     } else if (await postTacticalNeedsFutures(cached, cachedSession, now)) {
+                        if (cached.tacticalFutures === true) return GuardianDataHub.refreshPostTacticalFutures(cached, locale, now);
                         // ★2026-10-28 T2 장후 글이 종가 이후 선물 사실 없이 만들어졌는데 지금은 있다 — 다시 계산한다
                         console.log(`[Guardian] POST tactical lacks after-close futures that are now available (snapshot ${cached.timestamp}) — recomputing for ${locale}`);
                     } else {
@@ -425,6 +508,11 @@ export class GuardianDataHub {
                             console.log(`[Guardian] Redis cache stale (${(dataAge/1000).toFixed(0)}s old) — recomputing for ${locale}`);
                             // Fall through to recompute
                         } else {
+                            // ★관문 10281110 다른 인스턴스가 저장한 더 새 Tactical(변동 재생성) — 30분 간격과 무관하게 채택(모델 호출 0)
+                            if (await postTacticalHasNewerStored(cached, cachedSession, locale, now)) {
+                                const adopted = await GuardianDataHub.refreshPostTacticalFutures(cached, locale, now, 'adopt');
+                                if (adopted !== cached) return adopted;
+                            }
                             // Session matches and data is fresh, safe to return
                             _cachedContext[locale] = cached;
                             _lastFetchTime[locale] = now;
@@ -450,9 +538,12 @@ export class GuardianDataHub {
             if (memSession && memSession !== currentSession) {
                 console.log(`[Guardian FIX] In-memory session mismatch: cached=${memSession}, current=${currentSession} — recomputing for ${locale}`);
             } else if (await postTacticalNeedsFutures(_cachedContext[locale], memSession, now)) {
+                if (_cachedContext[locale]!.tacticalFutures === true) return GuardianDataHub.refreshPostTacticalFutures(_cachedContext[locale]!, locale, now);
                 // 위 Redis 경로와 같은 이유(T2) — 메모리 사본도 다시 계산한다
             } else {
-                return _cachedContext[locale]!;
+                const mem = _cachedContext[locale]!;
+                if (await postTacticalHasNewerStored(mem, memSession, locale, now)) return GuardianDataHub.refreshPostTacticalFutures(mem, locale, now, 'adopt');
+                return mem;
             }
         }
 
@@ -492,6 +583,7 @@ export class GuardianDataHub {
 
             // === STEP 4: GENERATE VERDICT NARRATIVE (AI + Templates) ===
             let verdict: GuardianVerdict;
+            let tacticalFuturesPct: TacticalFuturesPct | undefined;
             let tacticalFutures = false;   // ★T2 장후 스냅샷에 싣는 표식 — Tactical 글이 종가 이후 선물 사실이 있는 재료로 만들어졌나
 
             // [V13.0] Divergence info for AI context (used in all paths)
@@ -659,7 +751,10 @@ export class GuardianDataHub {
                         })
                     ]);
 
-                    if (rlsi.session === 'POST') tacticalFutures = IntelligenceNode.tacticalHasFutures(locale, realityText);
+                    if (rlsi.session === 'POST') {
+                        tacticalFutures = IntelligenceNode.tacticalHasFutures(locale, realityText);
+                        if (tacticalFutures) tacticalFuturesPct = IntelligenceNode.tacticalFuturesPct(locale, realityText);
+                    }
                     // [PART 3] Construct Verdict
                     if (rotationText.includes("NO KEY")) {
                         verdict = {
@@ -759,6 +854,7 @@ export class GuardianDataHub {
                 timestamp: new Date().toISOString(),
                 coreAt: core.timestamp,   // ★2026-10-08 이 컨텍스트의 숫자가 나온 코어의 계산 시각 — 응답 출구가 더 새 코어로 맞출지 판단한다
                 ...(rlsi.session === 'POST' ? { tacticalFutures } : {}),
+                ...(tacticalFutures && tacticalFuturesPct ? { tacticalFuturesPct, tacticalFuturesCheckedAt: new Date(now).toISOString(), tacticalSeenAt: new Date(now).toISOString() } : {}),
             };
 
             // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon

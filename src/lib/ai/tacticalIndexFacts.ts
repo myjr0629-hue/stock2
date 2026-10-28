@@ -1,3 +1,4 @@
+import { tacticalFuturesDirection } from './tacticalFuturesRules';
 import type { MarketIndexBasis, IndexObservation } from '@/lib/marketIndexBasis';
 import { cashSessionPhaseAt } from '@/lib/marketCalendar';
 import { isCashCloseReferenceAt } from '@/lib/futuresCashClose';
@@ -110,4 +111,47 @@ export function mergePostIndexBasis(core: MarketIndexBasis | null | undefined, f
     return { v: 1,
         cash: { nasdaq: pick(fresh.cash.nasdaq, core.cash.nasdaq), ndx: pick(fresh.cash.ndx, core.cash.ndx), spx: pick(fresh.cash.spx, core.cash.spx) },
         futures: { nq: pickFut(fresh.futures.nq, core.futures.nq), es: pickFut(fresh.futures.es, core.futures.es) } };
+}
+
+/** POST 추가 재생성: pp 차이·최소 간격·ET 세션당 모든 언어 합산 생성 시도 상한. */
+export const POST_TACTICAL_DRIFT_PP = 0.3;
+export const POST_TACTICAL_REFRESH_MS = 30 * 60_000;
+/** 생성 시도 단위, 공급사 사다리 내부 전환은 기존 일반 생성 정책. */
+export const POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS = 8;
+export type TacticalFuturesPct = Partial<Record<'nq' | 'es', number>>;
+export interface PostTacticalFuturesState {
+    tacticalFutures?: boolean;
+    tacticalFuturesPct?: TacticalFuturesPct;
+    tacticalFuturesCheckedAt?: string;
+    timestamp?: string;
+}
+/** INDEX_FACTS 생성 재료만 기록한다. 현재 값으로 기존 글의 생성 기준을 덮지 않는다. */
+export function promptFuturesPct(prompt: string | null | undefined): TacticalFuturesPct | undefined {
+    const line = prompt?.match(/^INDEX_FACTS: (.*)$/m)?.[1];
+    try {
+        const facts: IndexFact[] = JSON.parse(line || 'null');
+        if (!Array.isArray(facts)) return undefined;
+        const pct: TacticalFuturesPct = {};
+        for (const f of facts) {
+            if (f?.kind === 'futures' && (f.id === 'nq' || f.id === 'es') && typeof f.chgPct === 'number' && Number.isFinite(f.chgPct)) pct[f.id] = f.chgPct;
+        }
+        return Object.keys(pct).length ? pct : undefined;
+    } catch { return undefined; }
+}
+export function tacticalFuturesDrifted(generated: TacticalFuturesPct | undefined, current: TacticalFuturesPct | undefined): boolean {
+    return (['nq', 'es'] as const).some(id => {
+        const before = generated?.[id], now = current?.[id];
+        if (typeof before !== 'number' || !Number.isFinite(before) || typeof now !== 'number' || !Number.isFinite(now)) return false;
+        // 부동소수 뺄셈 오차로 정확히 0.3pp인 차이를 놓치지 않는다.
+        return Math.abs(now - before) + Number.EPSILON >= POST_TACTICAL_DRIFT_PP || tacticalFuturesDirection(before) !== tacticalFuturesDirection(now);
+    });
+}
+/** 값을 읽기 전 값싼 판정. 옛 스냅샷과 POST 외 세션은 기존 동작 유지. */
+export function postTacticalMayDriftFutures(c: PostTacticalFuturesState | null | undefined, session: string | null | undefined, nowMs: number): boolean {
+    if (!c || session !== 'POST' || c.tacticalFutures !== true || !c.tacticalFuturesPct) return false;
+    const at = Date.parse(c.tacticalFuturesCheckedAt || c.timestamp || '');
+    return Number.isFinite(at) && nowMs - at >= POST_TACTICAL_REFRESH_MS;
+}
+export function postTacticalNeedsDriftRefresh(c: PostTacticalFuturesState | null | undefined, session: string | null | undefined, nowMs: number, current: TacticalFuturesPct | undefined): boolean {
+    return postTacticalMayDriftFutures(c, session, nowMs) && tacticalFuturesDrifted(c?.tacticalFuturesPct, current);
 }

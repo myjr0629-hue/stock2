@@ -1,3 +1,4 @@
+import { tacticalFuturesDirection } from './tacticalFuturesRules';
 import { guardianTokenRules, type GNums } from './guardianNumbers';
 import { buildIndexFacts, sessionIndexFacts, tacticalSessionAt, type IndexFact, type TacticalSession } from './tacticalIndexFacts';
 import { filterMarketHeadlines } from './tacticalNews';
@@ -530,7 +531,7 @@ export function tacticalIndexReasons(first: string, prompt: string): string[] {
         const optionalFutureNumber = session === 'REG' && r.f.kind === 'futures';
         if (!m && !flat && (!optionalFutureNumber || (!dirs.length && !UNKNOWN.test(clause)))) { reasons.push('tactical:index-change-required'); return; }
         // 글은 소수 1자리로 반올림해 쓴다 — 반올림 값이 ±0.1 이내면 보합도 허용(−0.106 → «보합»·«0.1% 약세» 둘 다 통과, 실모델 10/23 20:33)
-        const nearFlat = Math.abs(Math.round(r.f.chgPct * 10) / 10) <= 0.1;
+        const nearFlat = tacticalFuturesDirection(r.f.chgPct) === 0;
         if (flat && !nearFlat && r.f.chgPct !== 0) reasons.push('tactical:index-direction');
         if (!m) {
             if (dirs.some(d => d === 0 ? !nearFlat : d !== Math.sign(r.f!.chgPct))) reasons.push('tactical:index-direction');
