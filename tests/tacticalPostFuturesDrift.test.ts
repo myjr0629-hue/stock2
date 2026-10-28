@@ -198,7 +198,7 @@ async function main() {
         mock('../src/services/redisClient', { getFromCache: async (key: string) => store.get(key) ?? null,
             setInCache: async (key: string, value: any) => { store.set(key, value); return true; } });
         mock('../src/services/guardian/guardianCore', { CORE_KEY: 'offline:core' });
-        const { GuardianDataHub: Hub } = require('../src/services/guardian/unifiedDataStream');
+        const { GuardianDataHub: Hub, _resetGuardianHubStateForTest: resetHub } = require('../src/services/guardian/unifiedDataStream');
 
         for (const cold of [false, true]) {
             store.clear(); budgets.clear(); _resetInsightStateForTest(); modelCalls = 0; nq = es = 0; reply = flat;
@@ -242,6 +242,70 @@ async function main() {
         store.delete('guardian:snapshot:en'); nq = 0.9; es = 0.5; reply = moved;
         assert.equal((await Hub.computeGuardianSnapshot(false, 'en')).verdict.realityInsight, moved.en);
         assert.equal(modelCalls, 1, '메모리 경로 추가 생성 1회');
+
+        // 관문 10281110: 인스턴스 A 재생성 중 B 요청은 예약 거절 → 기존 글 유지 → A 저장 → B 다음 요청에서 새 글(모델 호출·예약 0).
+        //   30분 간격은 모델 호출에만 — 다른 인스턴스가 저장한 더 새 정상본은 언제든 채택한다.
+        {
+            const budgetKey = 'guardian:tactical:futures-refresh:2026-10-27';
+            const enSnap = () => ({ ...makeSnapshot(), verdict: { ...makeSnapshot().verdict, realityInsight: flat.en } });
+            store.clear(); budgets.clear(); _resetInsightStateForTest(); resetHub(); modelCalls = 0; nq = es = 0; reply = flat;
+            clock = generatedAt;
+            assert.equal(await N.generateRealityInsight(ctx()), flat.ko);   // 16:12 ET 보합 글(3언어 저장)
+            modelCalls = 0;
+            const start = Date.parse('2026-10-27T20:50:00Z');
+            clock = start; nq = 0.9; es = 0.5; reply = moved;
+            store.set('guardian:snapshot:en', enSnap());
+            budgets.set(budgetKey, { count: 1, at: clock, failures: 1, retryAt: clock + POST_TACTICAL_FAILURE_COOLDOWN_MS });   // A가 예약을 쥐고 생성 중
+            _resetInsightStateForTest(); resetHub();   // B = 다른 인스턴스(메모리 공유 없음)
+            const rejected = await Hub.computeGuardianSnapshot(false, 'en');
+            assert.equal(rejected.verdict.realityInsight, flat.en, '예약 거절 쪽은 기존 글 유지');
+            assert.equal(rejected.tacticalFuturesCheckedAt, iso(clock));
+            assert.equal(modelCalls, 0, '예약 거절 → 모델 호출 0');
+            // A 저장 전 B 재요청: 더 새 저장본 없음 → 기존 글.
+            clock = start + 5_000; store.get('guardian:snapshot:en')._workerTimestamp = iso(clock);
+            assert.equal((await Hub.computeGuardianSnapshot(false, 'en')).verdict.realityInsight, flat.en, 'A 저장 전엔 기존 글');
+            // A(별도 인스턴스) 완료: 자기 예약으로 3언어 새 글 저장.
+            clock = start + 20_000; budgets.clear();
+            _resetInsightStateForTest();
+            assert.equal(await N.refreshRealityForFuturesDrift({ ...ctx(), locale: 'ko' }), moved.ko);
+            assert.equal(modelCalls, 1, 'A 생성 1회');
+            assert.equal(store.get('guardian:gemini:v3:reality:en').text.includes('0.9'), true, 'A가 en 새 글 저장');
+            _resetInsightStateForTest();   // B 메모리에는 A의 글이 없다
+            // B 다음 요청(채택 검사 간격 30초 안): 값싼 검사 생략 → 아직 기존 글.
+            clock = start + 25_000; store.get('guardian:snapshot:en')._workerTimestamp = iso(clock);
+            assert.equal((await Hub.computeGuardianSnapshot(false, 'en')).verdict.realityInsight, flat.en, '채택 검사 30초 간격');
+            // 30초 뒤: 30분 재생성 간격과 무관하게 A의 새 글 채택, 모델 호출 0.
+            clock = start + 35_000; store.get('guardian:snapshot:en')._workerTimestamp = iso(clock);
+            const adopted = await Hub.computeGuardianSnapshot(false, 'en');
+            assert.equal(adopted.verdict.realityInsight, moved.en, 'B 다음 요청에서 A의 새 글');
+            assert.ok(Math.abs(adopted.tacticalFuturesPct.nq - 0.9) < 1e-10, '채택 글의 생성 기준');
+            assert.equal(adopted.tacticalFuturesCheckedAt, iso(start + 20_000), '채택 글 생성 시각부터 30분 비교');
+            assert.equal(store.get('guardian:snapshot:en').verdict.realityInsight, moved.en, '공유 스냅샷도 새 글');
+            assert.equal(modelCalls, 1, '채택은 모델 호출 0');
+            // 1분 뒤·다른 인스턴스 콜드 스타트에서도 새 글 유지(같은 글 재채택·재생성 없음).
+            clock = start + 95_000; store.get('guardian:snapshot:en')._workerTimestamp = iso(clock);
+            _resetInsightStateForTest(); resetHub();
+            assert.equal((await Hub.computeGuardianSnapshot(false, 'en')).verdict.realityInsight, moved.en, '1분 뒤에도 새 글');
+            assert.equal(modelCalls, 1);
+            // 재생성이 막혀도(예약 장애) 변동 판정이 난 쪽은 내 글보다 새 정상본을 쓴다 — 새 글이 다시 변동했어도 옛 글보다 새 글.
+            clock = start + 8 * MIN; nq = 1.8; store.set('guardian:snapshot:en', enSnap());   // 16:58 ET
+            _resetInsightStateForTest(); resetHub(); budgetFails = true;
+            const blocked = await Hub.computeGuardianSnapshot(false, 'en');
+            budgetFails = false;
+            assert.equal(blocked.verdict.realityInsight, moved.en, '재생성 막힘 → 더 새 저장본');
+            assert.equal(modelCalls, 1, '예약 장애 → 모델 호출 0');
+            // 선물 휴식(17~18 ET)에는 재생성 0이지만 더 새 저장본 채택은 계속한다.
+            clock = start + 40 * MIN; store.set('guardian:snapshot:en', enSnap());   // 17:30 ET
+            _resetInsightStateForTest(); resetHub();
+            assert.equal((await Hub.computeGuardianSnapshot(false, 'en')).verdict.realityInsight, moved.en, '선물 휴식 중에도 새 글 채택');
+            assert.equal(modelCalls, 1, '선물 휴식 → 모델 호출 0');
+            // 옛 글보다 새 저장본이 없으면(저장본이 내 글과 같거나 오래됨) 채택하지 않는다.
+            store.set('guardian:snapshot:en', { ...enSnap(), tacticalSeenAt: iso(start + 20_000), tacticalFuturesCheckedAt: iso(clock) });
+            clock += MIN; store.get('guardian:snapshot:en')._workerTimestamp = iso(clock); resetHub();
+            assert.equal((await Hub.computeGuardianSnapshot(false, 'en')).verdict.realityInsight, flat.en, '이미 본 저장본은 재채택 안 함');
+            assert.equal(modelCalls, 1);
+            clock = start; nq = 0.9; es = 0.5; resetHub();   // 아래 기존 시험의 시계(16:50 ET)로 되돌린다
+        }
 
         // 옛 스냅샷은 실제 캐시 반환 경로에서도 기존 동작 유지.
         store.clear(); budgets.clear(); _resetInsightStateForTest(); modelCalls = 0;
@@ -296,7 +360,7 @@ async function main() {
                 assert.equal(modelCalls, 2, '연속 실패 2회 → 이후 대상 false, 기존 글 유지');
             }
         }
-        console.log('통과 POST drift (a)~(f), 보합 경계, Redis·메모리·콜드 스타트, 언어 공유, 실패 보존·60분 대기·연속 실패 2회 중지·생성 시도 8회 상한(공급사 사다리 내부 전환은 기존 일반 생성 정책)');
+        console.log('통과 POST drift (a)~(f), 보합 경계, 동시 요청 새 글 채택(관문 10281110), Redis·메모리·콜드 스타트, 언어 공유, 실패 보존·60분 대기·연속 실패 2회 중지·생성 시도 8회 상한(공급사 사다리 내부 전환은 기존 일반 생성 정책)');
     } finally { Date.now = realNow; _setModelCallerForTest(null); _setMarketClockForTest(null); }
 }
 main().catch(e => { console.error(e); process.exitCode = 1; });

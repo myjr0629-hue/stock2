@@ -968,27 +968,56 @@ export class IntelligenceNode {
 
     /** POST 선물 변동 전용. 다른 언어가 이미 만든 최신 정상본은 공유하고, 실패하면 호출자가 기존 글을 유지한다. */
     static async refreshRealityForFuturesDrift(ctx: IntelligenceContext): Promise<string | null> {
+        return (await IntelligenceNode.refreshRealityForFuturesDriftDetailed(ctx)).text;
+    }
+
+    /**
+     * ★2026-10-28 관문 10281110 — 30분 간격·예산은 «모델 호출(재생성)»에만 건다. 저장소에 내 글보다 새 정상본(newerThan 보다 늦게 저장)이 있으면
+     *   변동 여부와 무관하게 언제든 그것을 돌려준다(다른 인스턴스가 재생성 중이라 예약이 거절된 쪽이 옛 «보합» 글을 굳히지 않게).
+     *   regen=false 는 저장본 채택만(모델 호출·예약 0). seenAt = 이번에 살펴본 가장 새 저장본의 시각(채택 못 했어도 같은 글을 반복 검사하지 않게).
+     */
+    static async refreshRealityForFuturesDriftDetailed(ctx: IntelligenceContext, opts: { regen?: boolean; newerThan?: number } = {}): Promise<{ text: string | null; at?: number; seenAt?: number }> {
         const now = Date.now();
-        if (tacticalSessionAt(now) !== 'POST' || !process.env.AWS_ACCESS_KEY_ID) return null;
+        if (tacticalSessionAt(now) !== 'POST' || !process.env.AWS_ACCESS_KEY_ID) return { text: null };
         const current = { ...ctx, asOf: new Date(now).toISOString(), session: 'POST' as const,
             ...(ctx.indexBasis ? { indexFacts: buildIndexFacts(ctx.indexBasis, 'POST', now) } : {}) };
         const locale = ctx.locale || 'ko';
         const nums = guardianNumsFromAiContext(current);
-        if (guardianMaterialIssues(nums).length) return null;
+        if (guardianMaterialIssues(nums).length) return { text: null };
         const prompts = (l: Locale) => REALITY_PROMPTS[l](current);
         const pct = promptFuturesPct(prompts(locale));
-        if (!pct) return null;
+        // 재생성은 지금 선물 사실이 있어야 한다. 채택(regen=false)은 선물 휴식(17~18 ET) 중에도 더 새 저장본이면 쓴다.
+        if (!pct && opts.regen !== false) return { text: null };
         const mem = _mem.reality[locale];
         const stored = await readStoredInsight('reality', locale, nums, prompts);
         const saved = !mem || (stored && stored.at > mem.at) ? stored : mem;
-        if (saved?.futures === true && saved.futuresPct && saved.at <= now && etDateOf(saved.at) === etDateOf(now)
+        const valid = !!saved && saved.futures === true && !!saved.futuresPct && saved.at <= now && etDateOf(saved.at) === etDateOf(now)
             && sameTacticalSession('reality', saved.at, prompts(locale), saved.session)
-            && !tacticalFuturesDrifted(saved.futuresPct, pct) && gateText('reality', saved.text, locale, nums, saved.basis, false, prompts(locale)).ok) {
-            return shownOut('reality', locale, { tpl: saved.text, basis: saved.basis ?? null, futures: true, futuresPct: saved.futuresPct }, nums);
-        }
+            && gateText('reality', saved.text, locale, nums, saved.basis, false, prompts(locale)).ok;
+        const reuse = () => ({ text: shownOut('reality', locale, { tpl: saved!.text, basis: saved!.basis ?? null, futures: true, futuresPct: saved!.futuresPct }, nums), at: saved!.at, seenAt: saved!.at });
+        const newer = valid && typeof opts.newerThan === 'number' && saved!.at > opts.newerThan;
+        if (opts.regen === false) return newer ? reuse() : { text: null, ...(saved ? { seenAt: saved.at } : {}) };
+        if (valid && !tacticalFuturesDrifted(saved!.futuresPct, pct)) return reuse();
         const tri = await IntelligenceNode.generateTrilingual('reality', nums, prompts, { postFuturesDrift: true });
         const out = tri.out[locale];
-        return out?.futures === true && out.futuresPct ? shownOut('reality', locale, out, nums) : null;
+        if (out?.futures === true && out.futuresPct) {
+            const at = Math.max(_mem.reality[locale]?.at ?? 0, Date.now());   // 저장 시각(updatedAt) 이상 — 같은 글을 «더 새 글»로 다시 채택하지 않게
+            return { text: shownOut('reality', locale, out, nums), at, seenAt: at };
+        }
+        // 재생성이 없거나(예약 거절·예산·실패) 막혔어도 내 글보다 새 정상본이면 그것을 쓴다(변동 차이가 남아 있어도 옛 글보다 새 글).
+        if (newer) return reuse();
+        return { text: null, ...(saved ? { seenAt: saved.at } : {}) };
+    }
+
+    /** POST 저장본(Tactical·종가 이후 선물 사실 있음·같은 ET 날짜) 의 저장 시각 — 검사 없는 값싼 GET 한 번. 다른 인스턴스가 새 글을 저장했는지 보는 데만 쓴다. */
+    static async latestStoredTacticalAt(locale: Locale, now = Date.now()): Promise<number | null> {
+        const redis = getRedis();
+        if (!redis) return null;
+        try {
+            const data = await redis.get(getRedisKey('reality', locale)) as { updatedAt?: string; session?: string; futures?: boolean } | null;
+            const at = data?.updatedAt ? Date.parse(data.updatedAt) : NaN;
+            return data?.session === 'POST' && data.futures === true && Number.isFinite(at) && at <= now && etDateOf(at) === etDateOf(now) ? at : null;
+        } catch { return null; }
     }
 
     static async generateGammaInsight(ctx: IntelligenceContext): Promise<string> {
