@@ -18,24 +18,48 @@ export function TodaySummary({ locale, items }: { locale: Loc; items: PickView[]
     let alive = true;
     const controller = new AbortController();
     let retry: number | undefined;
+    let retryCount = 0;
+    let eventKey: string | null = null;
+    let loading = false;
     const load = async () => {
+      if (loading || document.visibilityState !== 'visible') return;
+      loading = true;
       try {
         const response = await fetch('/api/today-summary', { signal: controller.signal, cache: 'no-store' });
         const data = response.ok ? await response.json() : null;
         if (!alive) return;
         setNext(data?.nextEvent ?? null); setAi(data?.ai ?? null); setNow(Date.now());
-        // AI 줄은 서버가 응답 뒤에 만든다 — 없으면 한 번 더 읽는다.
-        if (data?.nextEvent && !data?.ai && retry === undefined) retry = window.setTimeout(() => { void load(); }, 25_000);
+        const nextKey = data?.nextEvent ? JSON.stringify([data.nextEvent.event, data.nextEvent.utcMs]) : null;
+        if (nextKey !== eventKey) {
+          eventKey = nextKey;
+          retryCount = 0;
+          if (retry !== undefined) window.clearTimeout(retry);
+          retry = undefined;
+        }
+        if (!data?.aiPending) {
+          if (retry !== undefined) window.clearTimeout(retry);
+          retry = undefined;
+          retryCount = 0;
+        } else if (document.visibilityState === 'visible' && retry === undefined && retryCount < 3) {
+          retry = window.setTimeout(() => {
+            retry = undefined;
+            if (document.visibilityState === 'visible') { retryCount++; void load(); }
+          }, 25_000);
+        }
       } catch { if (alive) { setNext(null); setAi(null); } }
+      finally { loading = false; }
     };
     void load();
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 15 * 60_000);
     const tick = window.setInterval(() => setNow(Date.now()), 60_000);
-    const resume = () => { if (document.visibilityState === 'visible') void load(); };
+    const resume = () => {
+      if (document.visibilityState === 'visible') void load();
+      else if (retry !== undefined) { window.clearTimeout(retry); retry = undefined; }
+    };
     document.addEventListener('visibilitychange', resume);
     document.addEventListener('app:resume', resume);
     return () => {
-      alive = false; controller.abort(); window.clearInterval(timer); window.clearInterval(tick); if (retry) window.clearTimeout(retry);
+      alive = false; controller.abort(); window.clearInterval(timer); window.clearInterval(tick); if (retry !== undefined) window.clearTimeout(retry);
       document.removeEventListener('visibilitychange', resume);
       document.removeEventListener('app:resume', resume);
     };
