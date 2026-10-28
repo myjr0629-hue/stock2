@@ -10,7 +10,7 @@
  *   4. 라우트 전체 — 정규장 31~100개 요청만 허브를 부른다(30개 이하·101개 이상·정규장 밖은 부르지 않는다) · 벤더(massiveClient) 호출 수는 그대로
  */
 import assert from 'node:assert/strict';
-import { acceptHubTick, overlayBulkRow, applyHubLast, fetchHubLast, overlayBulkWithHub, regularOpenMs, __resetHubBreaker, HUB_TICK_MAX_AGE_MS } from '../src/lib/hubLiveOverlay';
+import { acceptHubTick, overlayBulkRow, applyHubLast, fetchHubLast, overlayBulkWithHub, regularOpenMs, __resetHubBreaker, HUB_TICK_MAX_AGE_MS, HUB_TRADE_MAX_LAG_MS } from '../src/lib/hubLiveOverlay';
 
 const RealDate = Date;
 function setNow(ms: number) {
@@ -42,7 +42,12 @@ const row = (over: any = {}) => ({
     await t('정상 체결 → 가격', () => near(acceptHubTick(tick(), ctx) as number, 110.19));
     await t('개장 전(프리마켓) 체결은 쓰지 않는다 — 09:29:50 체결 거부 · 09:30:00 이후는 받는다', () => {
         assert.equal(acceptHubTick(tick({ trade: OPEN - 10_000 }), ctx), null);
-        assert.notEqual(acceptHubTick(tick({ trade: OPEN + 1000 }), ctx), null);
+        assert.notEqual(acceptHubTick(tick({ trade: OPEN + 1000, rx: OPEN + 1000 }), { ...ctx, hubNowMs: OPEN + 1000 }), null);
+    });
+    await t('원천 체결 지연 90초 경계', () => {
+        assert.notEqual(acceptHubTick(tick({ trade: REG_NOW - HUB_TRADE_MAX_LAG_MS, rx: REG_NOW }), ctx), null);
+        assert.equal(acceptHubTick(tick({ trade: REG_NOW - HUB_TRADE_MAX_LAG_MS - 1, rx: REG_NOW }), ctx), null);
+        assert.notEqual(acceptHubTick(tick({ trade: REG_NOW - 91_000, rx: REG_NOW - 91_000 }), ctx), null);
     });
     await t('허브가 받은 지 15분 넘은 체결 · 미래 시각은 거부', () => {
         assert.equal(acceptHubTick(tick({ rx: REG_NOW - HUB_TICK_MAX_AGE_MS - 1000 }), ctx), null);

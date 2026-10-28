@@ -17,6 +17,8 @@ export const HUB_OVERLAY_MIN_SYMBOLS = 31;
 export const HUB_OVERLAY_MAX_SYMBOLS = 100;
 /** 마지막 체결을 믿는 나이 — 허브가 받은 뒤 이 시간이 지난 체결은 쓰지 않는다(체결이 드문 종목은 예전 값으로 남는다) */
 export const HUB_TICK_MAX_AGE_MS = 15 * 60_000;
+/** 허브 시계 기준 원천 체결 시각의 최대 지연 */
+export const HUB_TRADE_MAX_LAG_MS = 90_000;
 /** 벌크 행 가격(최대 20분 묵음)과 이만큼 넘게 벗어난 체결은 믿지 않는다(이상 체결 방어 · 20분에 8% 넘게 움직인 종목은 예전 값이 남는다) */
 export const HUB_MAX_DEVIATION = 0.08;
 /** 전일 종가와 이만큼 넘게 벗어난 체결은 믿지 않는다(허브 값이 엉뚱한 종목 값일 때) */
@@ -58,6 +60,7 @@ export function acceptHubTick(
     if (!(p > 0) || !Number.isFinite(p) || !Number.isFinite(trade) || !Number.isFinite(rx)) return null;
     if (trade < ctx.openMs - 2000) return null;
     if (trade > ctx.hubNowMs + 60_000) return null;
+    if (rx - trade > HUB_TRADE_MAX_LAG_MS) return null;
     const age = ctx.hubNowMs - rx;
     if (age > HUB_TICK_MAX_AGE_MS || age < -60_000) return null;
     if (ctx.refPrice > 0 && Math.abs(p - ctx.refPrice) / ctx.refPrice > HUB_MAX_DEVIATION) return null;
