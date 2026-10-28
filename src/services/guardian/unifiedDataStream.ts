@@ -416,7 +416,7 @@ export class GuardianDataHub {
                     num: { tpl, basis: numBasis } } };
                 await saveAiVerdict(context.verdict, locale);
             }
-        } catch { /* 새 글이 없으면 기존 글 유지. 확인 시각은 실패 후 30분 재시도에 사용한다. */ }
+        } catch { /* 새 글이 없으면 기존 글 유지. 확인 시각은 30분 재조회에 사용하며, 공급사 실패 시 공유 예산의 60분 대기·2회 중지를 따른다. */ }
         _cachedContext[locale] = context;
         _lastFetchTime[locale] = now;
         const stored = { ...context, _workerTimestamp: new Date(now).toISOString(), _source: 'vercel' };

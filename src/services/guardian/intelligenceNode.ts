@@ -1,4 +1,4 @@
-import { reservePostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
+import { reservePostTacticalRefresh, finishPostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
 import { buildIndexFacts, promptHasFuturesFacts, promptFuturesPct, tacticalFuturesDrifted, tacticalSessionAt, type TacticalFuturesPct, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
 import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, tacticalTokenRules, internalSourceReasons, polishTacticalText } from '@/lib/ai/tacticalPrompt';
@@ -1033,8 +1033,11 @@ export class IntelligenceNode {
         const blocks = locales.map((l) => `=== ${LOCALE_NAMES[l].toUpperCase()} (${l}) INSTRUCTIONS ===\n${buildPrompt(l) + tokenRulesFor(type, l, nums)}`).join('\n\n');
         const user = `Write the analysis once, in three languages, following each language's own instruction block below. All three must carry the same facts and the same placeholders. Return the JSON object only.\n\n${blocks}`;
         const call = async (extra: string, retry: boolean): Promise<Partial<Record<Locale, string>> | null> => {
+            const reservedAt = Date.now();
+            const driftRedis = opts.postFuturesDrift ? getRedis() : null;
+            if (opts.postFuturesDrift && !await reservePostTacticalRefresh(driftRedis, reservedAt)) return null;
+            let succeeded = false;
             try {
-                if (opts.postFuturesDrift && !await reservePostTacticalRefresh(getRedis(), Date.now())) return null;
                 const result = await _modelCaller({
                     modelId: MODELS.HAIKU_35,
                     system: TRI_SYSTEM,
@@ -1050,10 +1053,13 @@ export class IntelligenceNode {
                     validate: triLangGate(),   // ★2026-10-10 사다리 출구 가드: ko/en/ja 세 칸이 각자 언어 규칙을 통과해야 ①② 응답을 쓴다
                     ...(retry || opts.postFuturesDrift ? { maxRetries: 1, allowLastResort: false } : {}),
                 });
+                succeeded = true; // 공급사 응답 성공. 파싱·출구 검사 결과는 기존 규칙을 따른다.
                 return restoreSectorLabels(parseTriJson(result.text || ''));
             } catch (e: any) {
                 console.error(`[IntelligenceNode] trilingual call failed (${type}):`, e?.message);
                 return null;
+            } finally {
+                if (opts.postFuturesDrift) await finishPostTacticalRefresh(driftRedis, reservedAt, succeeded, Date.now());
             }
         };
         let out: Partial<Record<Locale, InsightOut>> = {};

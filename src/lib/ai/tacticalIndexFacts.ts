@@ -113,10 +113,11 @@ export function mergePostIndexBasis(core: MarketIndexBasis | null | undefined, f
         futures: { nq: pickFut(fresh.futures.nq, core.futures.nq), es: pickFut(fresh.futures.es, core.futures.es) } };
 }
 
-/** POST 추가 재생성: pp 차이·최소 간격·ET 세션당 모든 언어 합산 모델 호출 상한. */
+/** POST 추가 재생성: pp 차이·최소 간격·ET 세션당 모든 언어 합산 생성 시도 상한. */
 export const POST_TACTICAL_DRIFT_PP = 0.3;
 export const POST_TACTICAL_REFRESH_MS = 30 * 60_000;
-export const POST_TACTICAL_MAX_REFRESHES = 8;
+/** 생성 시도 단위, 공급사 사다리 내부 전환은 기존 일반 생성 정책. */
+export const POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS = 8;
 export type TacticalFuturesPct = Partial<Record<'nq' | 'es', number>>;
 export interface PostTacticalFuturesState {
     tacticalFutures?: boolean;

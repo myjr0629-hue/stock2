@@ -4,10 +4,10 @@ import Module from 'node:module';
 import { buildMarketIndexBasis } from '@/lib/marketIndexBasis';
 import {
     postTacticalNeedsDriftRefresh, promptFuturesPct, tacticalFuturesDrifted,
-    POST_TACTICAL_DRIFT_PP, POST_TACTICAL_REFRESH_MS, POST_TACTICAL_MAX_REFRESHES,
+    POST_TACTICAL_DRIFT_PP, POST_TACTICAL_REFRESH_MS, POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS,
 } from '@/lib/ai/tacticalIndexFacts';
 import { tacticalFuturesDirection } from '@/lib/ai/tacticalFuturesRules';
-import { POST_TACTICAL_REFRESH_LUA, reservePostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
+import { POST_TACTICAL_REFRESH_LUA, POST_TACTICAL_REFRESH_RESULT_LUA, POST_TACTICAL_FAILURE_COOLDOWN_MS, POST_TACTICAL_MAX_CONSECUTIVE_FAILURES, reservePostTacticalRefresh, finishPostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
 
 const MIN = 60_000;
 const generatedAt = Date.parse('2026-10-27T20:12:00Z'); // 16:12 ET
@@ -20,7 +20,7 @@ assert.equal(postTacticalNeedsDriftRefresh(snapshot, 'POST', generatedAt + 30 * 
 assert.equal(postTacticalNeedsDriftRefresh(snapshot, 'POST', generatedAt + 30 * MIN, { nq: 0.9 }), true, '정확히 30분');
 assert.equal(postTacticalNeedsDriftRefresh({ timestamp: snapshot.timestamp, tacticalFutures: true }, 'POST', clock, { nq: 0.9 }), false, '(d) 옛 스냅샷');
 for (const session of ['PRE', 'REG', 'CLOSED']) assert.equal(postTacticalNeedsDriftRefresh(snapshot, session, clock, { nq: 0.9 }), false, `(e) ${session}`);
-assert.equal(postTacticalNeedsDriftRefresh({ ...snapshot, tacticalFuturesCheckedAt: iso(clock - MIN) }, 'POST', clock, { nq: 0.9 }), false, '실패 후 확인 시각으로 30분 대기');
+assert.equal(postTacticalNeedsDriftRefresh({ ...snapshot, tacticalFuturesCheckedAt: iso(clock - MIN) }, 'POST', clock, { nq: 0.9 }), false, '스냅샷 확인 간격 30분, 공급사 실패 대기는 공유 예산에서 판정');
 assert.equal(tacticalFuturesDrifted({ nq: 0.4 }, { nq: 0.7 }), true, '정확히 0.3pp');
 assert.equal(tacticalFuturesDrifted({ es: -0.3 }, { es: -0.7 }), true, 'ES만 변동');
 assert.equal(tacticalFuturesDrifted({ nq: 0.149 }, { nq: 0.15 }), true, '보합 → 상승, 차이가 작아도 대상');
@@ -38,25 +38,42 @@ for (const pct of [-0.2, -0.15, -0.149, -0.106, -0.1, -0.001, 0, 0.1, 0.149, 0.1
 }
 assert.equal(POST_TACTICAL_DRIFT_PP, 0.3);
 assert.equal(POST_TACTICAL_REFRESH_MS, 30 * MIN);
-assert.equal(POST_TACTICAL_MAX_REFRESHES, 8);
+assert.equal(POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS, 8, '생성 시도 단위, 공급사 사다리 내부 전환은 기존 일반 생성 정책');
+assert.equal(POST_TACTICAL_FAILURE_COOLDOWN_MS, 60 * MIN);
+assert.equal(POST_TACTICAL_MAX_CONSECUTIVE_FAILURES, 2);
 
 const store = new Map<string, any>();
-const budgets = new Map<string, { count: number; at: number }>();
+const budgets = new Map<string, { count: number; at: number; failures?: number; retryAt?: number }>();
+let resultFails = false;
 let budgetFails = false;
 class OfflineRedis {
     async get(key: string) { return store.get(key) ?? null; }
     async set(key: string, value: string) { store.set(key, JSON.parse(value)); }
     async eval(script: string, keys: string[], args: number[]) {
         // 저장 전 읽기·판정을 하나의 명령으로 모의한다. 실제 Redis/Lua 통신 없음.
+        if (script === POST_TACTICAL_REFRESH_RESULT_LUA) {
+            assert.match(script, /state.at ~= tonumber\(ARGV\[1\]\)/);
+            assert.match(script, /state.failures = 0/);
+            assert.match(script, /state.retryAt = tonumber\(ARGV\[3\]\) \+ tonumber\(ARGV\[5\]\)/);
+            if (resultFails) throw new Error('offline result failure');
+            const [at, succeeded, finishedAt, interval, cooldown] = args;
+            const state = budgets.get(keys[0]);
+            if (!state || state.at !== at) return 0;
+            if (succeeded) state.failures = 0;
+            state.retryAt = succeeded ? state.at + interval : finishedAt + cooldown;
+            return 1;
+        }
         assert.equal(script, POST_TACTICAL_REFRESH_LUA);
         assert.match(script, /state.count >= tonumber\(ARGV\[3\]\)/);
-        assert.match(script, /now - state.at < tonumber\(ARGV\[2\]\)/);
+        assert.match(script, /failures >= tonumber\(ARGV\[5\]\)/);
+        assert.match(script, /state.retryAt or state.at \+ tonumber\(ARGV\[2\]\)/);
         assert.match(script, /redis.call\('SET'.*'EX', 86400\)/);
         if (budgetFails) throw new Error('offline reservation failure');
-        const [now, interval, cap] = args;
+        const [now, interval, cap, cooldown, maxFailures] = args;
         const state = budgets.get(keys[0]) ?? { count: 0, at: 0 };
-        if (state.count >= cap || now - state.at < interval) return 0;
-        budgets.set(keys[0], { count: state.count + 1, at: now });
+        const failures = state.failures ?? 0;
+        if (state.count >= cap || failures >= maxFailures || now < (state.retryAt ?? state.at + interval)) return 0;
+        budgets.set(keys[0], { count: state.count + 1, at: now, failures: failures + 1, retryAt: now + cooldown });
         return 1;
     }
 }
@@ -111,7 +128,7 @@ async function main() {
     _setMarketClockForTest(() => new Date(clock));
     _setModelCallerForTest(async opts => {
         modelCalls++;
-        if (opts.maxRetries === 1) assert.equal(opts.allowLastResort, false, '추가 생성은 내부 반복 호출 제한');
+        if (opts.maxRetries === 1) assert.equal(opts.allowLastResort, false, '생성 시도 안의 legacy 반복 제한, 공급사 사다리 전환은 기존 일반 생성 정책');
         if (failModel) throw new Error('offline model failure');
         return { text: invalidModel ? JSON.stringify({ ko: 'invalid', en: 'invalid', ja: 'invalid' }) : JSON.stringify(reply), model: 'mock', usedFallback: false, elapsedMs: 0 } as any;
     });
@@ -120,13 +137,56 @@ async function main() {
         const redis = new OfflineRedis();
         const t0 = Date.parse('2026-10-27T20:00:00Z');
         assert.deepEqual(await Promise.all([reservePostTacticalRefresh(redis, t0), reservePostTacticalRefresh(redis, t0)]), [true, false]);
-        for (let i = 1; i < 8; i++) assert.equal(await reservePostTacticalRefresh(redis, t0 + i * 30 * MIN), true);
+        await finishPostTacticalRefresh(redis, t0, true, t0);
+        for (let i = 1; i < POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS; i++) {
+            const at = t0 + i * 30 * MIN;
+            assert.equal(await reservePostTacticalRefresh(redis, at), true);
+            await finishPostTacticalRefresh(redis, at, true, at);
+        }
         budgets.set('guardian:tactical:futures-refresh:2026-10-27', { count: 8, at: generatedAt });
-        assert.equal(await reservePostTacticalRefresh(redis, clock), false, '(f) 8회 상한, 30분 경과해도 불가');
+        assert.equal(await reservePostTacticalRefresh(redis, clock), false, '(f) 생성 시도 8회 상한, 공급사 사다리 내부 전환은 기존 일반 생성 정책');
         assert.equal(await reservePostTacticalRefresh(redis, Date.parse('2026-10-28T20:00:00Z')), true, '다음 ET 세션 초기화');
         budgetFails = true;
         assert.equal(await reservePostTacticalRefresh(redis, clock), false, '예약 장애 시 호출 금지');
         budgetFails = false; budgets.clear();
+
+        // 전체 공급사 실패: 종료부터 60분 경계, 연속 2회 이후 대상 false(ET 세션·언어 공유).
+        assert.equal(await reservePostTacticalRefresh(redis, t0), true);
+        const ended = t0 + MIN;
+        await finishPostTacticalRefresh(redis, t0, false, ended);
+        for (const at of [t0 + 30 * MIN, ended + 60 * MIN - 1]) {
+            assert.equal(await reservePostTacticalRefresh(redis, at), false, '실패 종료 후 60분 전 대상 false');
+        }
+        const second = ended + 60 * MIN;
+        assert.equal(await reservePostTacticalRefresh(redis, second), true, '정확히 60분 뒤 두 번째 생성 시도');
+        await finishPostTacticalRefresh(redis, second, false, second + MIN);
+        for (const at of [second + 61 * MIN, Date.parse('2026-10-27T23:59:00Z')]) {
+            assert.equal(await reservePostTacticalRefresh(redis, at), false, '연속 실패 2회 → 이후 대상 false');
+        }
+        assert.equal(await reservePostTacticalRefresh(redis, Date.parse('2026-10-28T20:00:00Z')), true, '중지 후 다음 ET 세션 초기화');
+        budgets.clear();
+
+        // 성공은 실패 연속 횟수를 초기화하고, 오래된 예약 결과는 새 상태를 덮지 않는다.
+        assert.equal(await reservePostTacticalRefresh(redis, t0), true);
+        await finishPostTacticalRefresh(redis, t0, false, t0);
+        assert.equal(await reservePostTacticalRefresh(redis, t0 + 60 * MIN), true);
+        await finishPostTacticalRefresh(redis, t0, true, t0 + 60 * MIN);
+        assert.equal(budgets.get('guardian:tactical:futures-refresh:2026-10-27')!.failures, 2, '지난 예약 결과 무시');
+        await finishPostTacticalRefresh(redis, t0 + 60 * MIN, true, t0 + 60 * MIN);
+        assert.equal(await reservePostTacticalRefresh(redis, t0 + 90 * MIN), true, '성공 뒤 30분 경과');
+        await finishPostTacticalRefresh(redis, t0 + 90 * MIN, false, t0 + 90 * MIN);
+        assert.equal(await reservePostTacticalRefresh(redis, t0 + 150 * MIN), true, '실패·성공·실패는 연속 2회가 아님');
+        budgets.clear();
+
+        // 결과 기록 장애·프로세스 소실은 잠정 실패를 유지하므로 추가 비용을 제한한다.
+        assert.equal(await reservePostTacticalRefresh(redis, t0), true);
+        resultFails = true;
+        await finishPostTacticalRefresh(redis, t0, true, t0);
+        resultFails = false;
+        assert.equal(await reservePostTacticalRefresh(redis, t0 + 30 * MIN), false);
+        assert.equal(await reservePostTacticalRefresh(redis, t0 + 60 * MIN), true);
+        assert.equal(await reservePostTacticalRefresh(redis, t0 + 120 * MIN), false, '결과 2회 유실도 중지');
+        budgets.clear();
 
         for (const id of [
             '../src/services/guardian/sectorEngine', '../src/services/macroHubProvider', '../src/services/guardian/rvolEngine',
@@ -202,7 +262,7 @@ async function main() {
 
         for (const failure of ['throw', 'invalid', 'budget', 'reservation']) {
             store.clear(); budgets.clear(); _resetInsightStateForTest(); modelCalls = 0;
-            clock = Date.parse('2026-10-27T22:00:00Z'); nq = 0.9; es = 0.5; // 선물 휴식(17~18 ET) 뒤
+            clock = Date.parse(failure === 'throw' ? '2026-10-27T20:50:00Z' : '2026-10-27T22:00:00Z'); nq = 0.9; es = 0.5;
             const previous = makeSnapshot(); store.set('guardian:snapshot:ko', previous);
             failModel = failure === 'throw'; invalidModel = failure === 'invalid'; budgetFails = failure === 'reservation';
             if (failure === 'budget') budgets.set('guardian:tactical:futures-refresh:2026-10-27', { count: 8, at: generatedAt });
@@ -219,10 +279,24 @@ async function main() {
             const beforeRetry = modelCalls;
             clock += MIN; reply = moved; store.get('guardian:snapshot:ko')._workerTimestamp = iso(clock);
             const retry = await Hub.computeGuardianSnapshot(false, 'ko');
-            assert.equal(retry.verdict.realityInsight, failure === 'budget' ? flat.ko : moved.ko, '정확히 30분 뒤 재시도');
-            assert.equal(modelCalls, beforeRetry + (failure === 'budget' ? 0 : 1));
+            const blocked = failure === 'budget' || failure === 'throw';
+            assert.equal(retry.verdict.realityInsight, blocked ? flat.ko : moved.ko, '30분: 전체 공급사 실패는 60분 대기, 나머지는 기존 정책');
+            assert.equal(modelCalls, beforeRetry + (blocked ? 0 : 1));
+            if (failure === 'throw') {
+                // 콜드 스타트·다른 언어에서도 공유 예산의 중지 상태를 따른다.
+                clock += 60 * MIN; failModel = true; // 17~18 ET 선물 휴식 뒤, 첫 실패로부터 90분
+                store.get('guardian:snapshot:ko')._workerTimestamp = iso(clock);
+                assert.equal((await Hub.computeGuardianSnapshot(false, 'ko')).verdict.realityInsight, flat.ko);
+                assert.equal(modelCalls, 2, '60분 이상 경과 후 두 번째 전체 공급사 실패');
+                failModel = false;
+                clock += 60 * MIN; _resetInsightStateForTest();
+                store.get('guardian:snapshot:ko')._workerTimestamp = iso(clock);
+                assert.equal((await Hub.computeGuardianSnapshot(false, 'ko')).verdict.realityInsight, flat.ko);
+                assert.equal(await N.refreshRealityForFuturesDrift({ ...ctx(), locale: 'ja' }), null);
+                assert.equal(modelCalls, 2, '연속 실패 2회 → 이후 대상 false, 기존 글 유지');
+            }
         }
-        console.log('통과 POST drift (a)~(f), 보합 경계, Redis·메모리·콜드 스타트, 언어 공유, 실패 보존·30분 재시도·합산 상한');
+        console.log('통과 POST drift (a)~(f), 보합 경계, Redis·메모리·콜드 스타트, 언어 공유, 실패 보존·60분 대기·연속 실패 2회 중지·생성 시도 8회 상한(공급사 사다리 내부 전환은 기존 일반 생성 정책)');
     } finally { Date.now = realNow; _setModelCallerForTest(null); _setMarketClockForTest(null); }
 }
 main().catch(e => { console.error(e); process.exitCode = 1; });
