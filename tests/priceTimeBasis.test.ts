@@ -48,14 +48,16 @@ async function test(name: string, fn: () => any) {
 }
 function hub() {
     let feed: (t: any) => void = () => {};
+    const intervals: { fn: () => void; ms: number }[] = [];
     class WS extends EventEmitter { static OPEN = 1; static Server = class extends EventEmitter {}; }
     const h = load('scripts/ec2-price-ws.js', {
         ws: WS, http: { createServer: () => ({ listen() {} }) }, https: {},
         fs: { readFileSync() { throw new Error('Blocked .env read'); } }, path,
         'intrinio-realtime': { RealtimeClient: class { constructor(_key: any, onTrade: any) { feed = onTrade; } join() {} } },
-    }, { process: { env: { INTRINIO_API_KEY: 'fixture-placeholder' }, argv: [], on() {} } });
+    }, { process: { env: { INTRINIO_API_KEY: 'fixture-placeholder' }, argv: [], on() {} },
+        setInterval: (fn: () => void, ms: number) => { intervals.push({ fn, ms }); return 1; } });
     h.run('connectIntrinioWs(); serverJoined.add("AAPL");');
-    return { ...h, feed, tick: () => plain(h.run('lastSnapshot(["AAPL"])')) };
+    return { ...h, feed, intervals, tick: () => plain(h.run('lastSnapshot(["AAPL"])')) };
 }
 const headers = 'SYMBOL,TRADE PRICE,TOTAL TRADE VOLUME,TRADE HIGH PRICE,TRADE LOW PRICE,ASK PRICE,BID PRICE,LAST TRADE TIMESTAMP,LAST ASK TIMESTAMP,LAST BID TIMESTAMP';
 function client(csvRow: string, eodDate = '2026-10-15', lastGood: any = null, store?: Map<string, any>) {
@@ -492,23 +494,52 @@ function moversText(tick: any) {
             }
         }
     });
-    await test('SDK -> /last preserves 09:25 event received at 09:40; overlay rejects PRE tick', () => {
+    await test('SDK -> /last drops 09:25 event received at 09:40', () => {
         now = at('2026-10-16T13:40:00Z');
         const h = hub(), event = at('2026-10-16T13:25:00Z');
         h.feed({ Symbol: 'AAPL', Price: 101, Size: 1, Timestamp: event / 1000 });
         const result = h.tick();
-        assert.equal(result.ticks.AAPL.trade, event);
-        assert.equal(result.ticks.AAPL.rx, now);
-        assert.equal(acceptHubTick(result.ticks.AAPL, { hubNowMs: now, openMs: at('2026-10-16T13:30:00Z'), refPrice: 100, prevClose: 100 }), null);
+        assert.equal(result.ticks.AAPL, undefined);
+        assert.equal(h.run("staleDropped.get('AAPL')"), 1);
     });
     await test('SDK preserves s/ms/us/ns and timezone instants; missing time stays unknown', () => {
-        const h = hub(), event = now - 900000;
+        now = at('2026-10-16T13:27:00Z');
+        const h = hub(), event = now - 120000;
         for (const t of [event / 1000, event, event * 1000, event * 1e6, '2026-10-16T09:25:00-04:00']) {
             h.feed({ Symbol: 'AAPL', Price: 101, Timestamp: t }); assert.equal(h.tick().ticks.AAPL.trade, event);
         }
         for (const t of [undefined, '', 0, 'bad', '2026-10-16T09:25:00']) {
             h.feed({ Symbol: 'AAPL', Price: 101, Timestamp: t }); assert.equal(h.tick().ticks.AAPL.trade, 0);
         }
+    });
+    await test('delayed trades do not suppress REST fallback or replay stale cache; REST value replays', async () => {
+        now = at('2026-10-16T13:30:30Z');
+        const h = hub();
+        h.run(`globalThis.sent = []; globalThis.socket = new (require('ws'))(); socket.readyState = 1;
+            socket.send = data => sent.push(JSON.parse(data));
+            latestPrices.set('AAPL', {price: 99, ts: Date.now() - 45_000, prevClose: 98});
+            tickerSubscribers.set('AAPL', new Set([socket]));`);
+        h.feed({ Symbol: 'AAPL', Price: 101, Timestamp: (now - 900_000) / 1000 });
+        assert.equal(h.run('lastPolygonDataTs'), 0);
+        assert.equal(h.run('latestPrices.get("AAPL").price'), undefined);
+        assert.equal(h.run('latestPrices.get("AAPL").ts'), undefined);
+        assert.equal(h.run('latestPrices.get("AAPL").prevClose'), 98);
+        h.run(`wss.emit('connection', socket, {});
+            socket.emit('message', Buffer.from(JSON.stringify({type:'subscribe',tickers:['AAPL']})));`);
+        assert.equal(h.run('sent.filter(m => m.type === "prices").length'), 0);
+        h.run('globalThis.realFetchSnapshotREST = fetchSnapshotREST; fetchSnapshotREST = async () => {};');
+        h.intervals.find(i => i.ms === 5000)!.fn();
+        assert.equal(h.run('restFallbackActive'), true);
+        h.feed({ Symbol: 'AAPL', Price: 101, Timestamp: (now - 900_000) / 1000 });
+        assert.equal(h.run('restFallbackActive'), true);
+        (h.context as any).restResponse = new PassThrough();
+        h.run(`require('https').get = (_url, cb) => { cb(restResponse);
+            restResponse.end(Buffer.from(JSON.stringify({last_price:102,last_time:'2026-10-16T13:30:25Z',source:'equities_edge',eod_close_price:100})));
+            return {on(){}}; };`);
+        h.run('fetchSnapshotREST = realFetchSnapshotREST;');
+        await h.run('fetchSnapshotREST(["AAPL"])');
+        h.run(`sent.length = 0; socket.emit('message', Buffer.from(JSON.stringify({type:'subscribe',tickers:['AAPL']})));`);
+        assert.equal(h.run('sent.find(m => m.type === "prices").price'), 102);
     });
     await test('actual hub broadcast and cached subscription preserve event time into Provider; REST fallback keeps provider time', async () => {
         now = at('2026-10-16T14:00:00Z');
@@ -519,7 +550,7 @@ function moversText(tick: any) {
             latestPrices.set('AAPL',{prevClose:100,prevCloseDate:getETDateString()});
             wss.emit('connection',socket,{});
             socket.emit('message',Buffer.from(JSON.stringify({type:'subscribe',tickers:['AAPL']})));`);
-        const event = now - 900000;
+        const event = now - 30000;
         h.feed({ Symbol: 'AAPL', Price: 101, Size: 1, Timestamp: event / 1000 });
         const message = plain(h.run(`sent.filter(m=>m.type==='prices').at(-1)`));
         assert.equal(message.ts, event); assert.equal(message.receivedAt, now); assert.equal(message.priceBasis, 'fair_value');
@@ -535,12 +566,31 @@ function moversText(tick: any) {
         (h.context as any).restResponse = new PassThrough();
         h.run(`require('https').get = (_url, cb) => {
             cb(restResponse);
-            restResponse.end(Buffer.from(JSON.stringify({last_price:102,last_time:'2026-10-16T13:46:00Z',source:'cboe_one_delayed',eod_close_price:100})));
+            restResponse.end(Buffer.from(JSON.stringify({last_price:102,last_time:'2026-10-16T14:00:15Z',source:'cboe_one_delayed',eod_close_price:100})));
             return {on(){}};
         };`);
         await h.run(`fetchSnapshotREST(['AAPL'])`);
         const rest = plain(h.run(`sent.filter(m=>m.type==='prices').at(-1)`));
-        assert.equal(rest.ts, at('2026-10-16T13:46:00Z')); assert.equal(rest.priceSource, 'cboe_one_delayed'); assert.equal(rest.priceBasis, 'trade');
+        assert.equal(rest.ts, at('2026-10-16T14:00:15Z')); assert.equal(rest.priceSource, 'cboe_one_delayed'); assert.equal(rest.priceBasis, 'trade');
+    });
+    await test('subscribe snapshot withholds regular-session cache older than 90s, timeless or EOD; prevClose kept; PRE/POST/early-close replay', async () => {
+        for (const [iso, sends] of [['2026-10-16T14:00:00Z', false], ['2026-10-16T12:00:00Z', true], ['2026-10-16T21:00:00Z', true], ['2026-11-27T18:30:00Z', true]] as const) {
+            now = at(iso);
+            const h = hub();
+            h.run(`globalThis.sent = []; globalThis.socket = new (require('ws'))(); socket.readyState = 1;
+                socket.send = data => sent.push(JSON.parse(data));
+                latestPrices.set('AAPL', {price: 99, ts: Date.now() - 900_000, prevClose: 98, prevCloseDate: getETDateString()});
+                latestPrices.set('MSFT', {price: 50, ts: Date.now() - 10_000, prevClose: 49, prevCloseDate: getETDateString()});
+                latestPrices.set('EODC', {price: 48, ts: 0, priceBasis: 'eod_close', prevClose: 48, prevCloseDate: getETDateString()});
+                latestPrices.set('NOTS', {price: 47, ts: 0, priceBasis: 'trade', prevClose: 46, prevCloseDate: getETDateString()});
+                wss.emit('connection', socket, {});
+                socket.emit('message', Buffer.from(JSON.stringify({type:'subscribe',tickers:['AAPL','MSFT','EODC','NOTS']})));`);
+            const tickers = plain(h.run(`sent.filter(m => m.type === 'prices').map(m => m.ticker)`));
+            assert.deepEqual(tickers, sends ? ['AAPL', 'MSFT', 'EODC', 'NOTS'] : ['MSFT']);
+            assert.equal(h.run(`latestPrices.get('EODC').prevClose`), 48);
+            assert.equal(h.run(`latestPrices.get('AAPL').prevClose`), 98);
+            assert.equal(h.run(`latestPrices.get('AAPL').price`), 99);
+        }
     });
     await test('direct 30-symbol path preserves Edge fair value, default trade and EOD basis without changing prices', async () => {
         now = at('2026-10-16T14:00:00Z');

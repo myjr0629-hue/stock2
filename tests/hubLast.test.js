@@ -108,14 +108,14 @@ const t = async (name, fn) => { try { await fn(); pass++; console.log('  ✓ ' +
     assert.equal(count(/FAKE JOIN /g), 2, '이미 열린 채널은 다시 열지 않는다');
   });
 
-  await t('체결 시각이 10분 넘게 늦어도 원천시각을 보존한다', async () => {
-    const eventMs = Date.now() - 3 * 3600e3;
+  await t('체결 시각이 없으면 기존대로 0을 보존한다', async () => {
+    const eventMs = 0;
     feed({ cmd: 'trade', sym: 'NVDA', price: 224.9, ts: eventMs / 1000 });
     await sleep(100);
     const r = await last('symbols=NVDA');
     assert.equal(r.j.ticks.NVDA.p, 224.9);
     assert.equal(r.j.ticks.NVDA.trade, eventMs);
-    assert.ok(r.j.ticks.NVDA.rx - eventMs >= 3 * 3600e3);
+    assert.ok(r.j.ticks.NVDA.rx > 0);
     assert.equal(r.j.ticks.NVDA.basis, 'fair_value');
   });
 
@@ -150,6 +150,7 @@ const t = async (name, fn) => { try { await fn(); pass++; console.log('  ✓ ' +
     assert.equal(nf.status, 404);
     const h = await get('/health');
     assert.equal(JSON.parse(h.body).status, 'ok');
+    assert.deepEqual(JSON.parse(h.body).staleDropped, {});
     assert.ok(JSON.parse(h.body).channels >= 4 && JSON.parse(h.body).serverInterest >= 4, '채널 수·서버 관심 수가 /health 에 실린다: ' + h.body);
   });
 

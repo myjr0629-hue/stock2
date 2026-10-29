@@ -51,16 +51,29 @@ const path = require("path");
 })();
 
 // Node 16 compatible HTTP GET (no global fetch)
-function httpsGet(url) {
+// timeoutMs 를 주면 응답이 그 안에 끝나지 않을 때 요청을 끊고 거부한다(REST 폴백이 정체 응답에 묶이지 않게).
+function httpsGet(url, timeoutMs) {
     return new Promise((resolve, reject) => {
-        https.get(url, (res) => {
+        let timer = null, settled = false;
+        const done = (fn, v) => { settled = true; if (timer) clearTimeout(timer); timer = null; fn(v); };
+        const req = https.get(url, (res) => {
             let data = '';
             res.setEncoding('utf8').on('data', chunk => data += chunk);
             res.on('end', () => {
-                try { resolve(JSON.parse(data)); }
-                catch (e) { reject(new Error('JSON parse failed')); }
+                try { done(resolve, JSON.parse(data)); }
+                catch (e) { done(reject, new Error('JSON parse failed')); }
             });
-        }).on('error', reject);
+            res.on('error', e => done(reject, e));
+        });
+        req.on('error', e => done(reject, e));
+        if (timeoutMs > 0 && !settled) {
+            timer = setTimeout(() => {
+                timer = null;
+                const err = new Error(`timeout ${timeoutMs}ms`);
+                done(reject, err);
+                req.destroy(err);
+            }, timeoutMs);
+        }
     });
 }
 
@@ -130,6 +143,8 @@ const tickerSubscribers = new Map();
 // Latest prices for immediate delivery to new subscribers
 // Map<ticker, { price, changePct, volume, prevClose, ts }>
 const latestPrices = new Map();
+// 마지막 채택 체결의 원천 시각. 첫 구독에는 90초의 대기 시간을 준다.
+const lastAcceptedTradeMs = new Map();
 
 // Latest quotes (bid/ask) for immediate delivery
 // Map<ticker, { bid, bidSize, ask, askSize, spread, ts }>
@@ -149,6 +164,7 @@ const lastQuoteBroadcastTime = new Map(); // Map<ticker, timestamp> (quotes)
 // serverJoined: 서버 관심으로만 채널을 연 종목 — 클라이언트 구독 상태(tickerSubscribers·subscribedOnPolygon)·latestPrices 는 건드리지 않는다
 //   (건드리면 나중에 클라이언트가 구독할 때 prevClose 없는 changePct 0 캐시가 나가거나 ensurePrevClose 가 건너뛰어진다).
 const liveTicks = new Map();        // Map<ticker, { p, trade, rx }>
+const staleDropped = new Map();     // Map<ticker, count> (process lifetime)
 const serverInterest = new Map();   // Map<ticker, expiresAtMs>
 const serverJoined = new Set();     // tickers whose channel was opened only for the server
 const joinedAtMs = new Map();       // Map<ticker, ms>
@@ -665,7 +681,8 @@ function checkAndRefreshPrevClose(ticker, existing) {
         fetchPreviousClose(ticker).then(prevClose => {
             if (prevClose > 0) {
                 const cur = latestPrices.get(ticker) || {};
-                latestPrices.set(ticker, { ...cur, prevClose, prevCloseDate: todayStr, isFetchingPrevClose: false });
+                latestPrices.set(ticker, { ...withPrevClose(cur, prevClose, todayStr), isFetchingPrevClose: false });
+                rebroadcastIfPrevCloseChanged(ticker, cur.prevClose);
                 console.log(`[Price WS] 📊 Rolled over & updated ${ticker} prevClose to $${prevClose} for ${todayStr}`);
             } else {
                 const cur = latestPrices.get(ticker) || {};
@@ -707,16 +724,85 @@ function handleAggregateUpdate(msg) {
     throttledBroadcast(ticker, price, changePct, volume);
 }
 
+// 수신 시각의 ET 평일 정규장에만 원천 체결 지연을 검사한다.
+const regularSessionFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+// NYSE full-day closures, 2026–2027: https://www.nyse.com/markets/hours-calendars
+// Kept local because this Node 16 standalone hub cannot load the TypeScript marketDaySSOT.
+const MARKET_HOLIDAYS = new Set([
+    '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25',
+    '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
+    '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31',
+    '2027-06-18', '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24',
+]);
+// 조기 폐장(13:00 ET) — src/lib/marketCalendar.ts EARLY_CLOSE_DATES 와 같은 날짜(시험이 두 정의 일치를 단언한다).
+const EARLY_CLOSE_DATES = new Set(['2026-11-27', '2026-12-24', '2027-11-26']);
+function isRegularSession(rx) {
+    const parts = Object.fromEntries(regularSessionFormatter.formatToParts(rx).map(p => [p.type, p.value]));
+    const minutes = Number(parts.hour) * 60 + Number(parts.minute);
+    const date = `${parts.year}-${parts.month}-${parts.day}`;
+    return !['Sat', 'Sun'].includes(parts.weekday) && !MARKET_HOLIDAYS.has(date) &&
+        minutes >= 570 && minutes < (EARLY_CLOSE_DATES.has(date) ? 780 : 960);
+}
+function shouldDropStaleTrade(eventMs, rx) {
+    return eventMs > 0 && rx - eventMs > 90_000 && isRegularSession(rx);
+}
+// prevClose 를 바꿀 때 캐시 가격이 있으면 등락률도 같은 기준으로 다시 계산한다.
+function withPrevClose(cur, prevClose, prevCloseDate) {
+    const price = Number(cur?.price) || 0;
+    const next = { ...(cur || {}), prevClose, prevCloseDate };
+    if (price > 0 && prevClose > 0) next.changePct = Math.round(((price - prevClose) / prevClose) * 10000) / 100;
+    return next;
+}
+
+// prevClose 가 실제로 바뀌고 캐시 가격이 방송 가능하면 기존 구독자에게 1회 다시 알린다(가격·시각은 캐시 값 그대로).
+function rebroadcastIfPrevCloseChanged(ticker, oldPrevClose) {
+    const cur = latestPrices.get(ticker);
+    if (!cur || !(cur.price > 0) || !(cur.prevClose > 0) || cur.prevClose === oldPrevClose) return;
+    if (!isSnapshotSendable(cur, Date.now())) return;
+    broadcastPrice(ticker, cur.price, cur.changePct, cur.volume);
+}
+
+// 구독 즉시 전송할 캐시 가격인가 — 정규장 밖은 기존대로, 정규장엔 시각 있는 90초 안 체결만.
+function isSnapshotSendable(cached, now) {
+    if (!isRegularSession(now)) return true;
+    const ts = Number(cached.ts) || 0;
+    return cached.priceBasis !== 'eod_close' && ts > 0 && now - ts <= 90_000;
+}
+
 function handleTradeUpdate(msg) {
     const ticker = msg.sym;
     if (!ticker) return;
-    markPolygonDataReceived(); // Track that Polygon WS is alive
 
     const price = msg.p || 0;
     const volume = msg.s || 0;
 
     const rx = Date.now();
     const eventMs = normalizeTradeMs(msg.t);
+    if (shouldDropStaleTrade(eventMs, rx)) {
+        staleDropped.set(ticker, (staleDropped.get(ticker) || 0) + 1);
+        const cached = latestPrices.get(ticker);
+        if (cached) {
+            const ts = Number(cached.ts);
+            const current = Object.fromEntries(regularSessionFormatter.formatToParts(rx).map(p => [p.type, p.value]));
+            const prior = ts > 0 && Number.isFinite(ts)
+                ? Object.fromEntries(regularSessionFormatter.formatToParts(ts).map(p => [p.type, p.value])) : null;
+            if (!prior || rx - ts > 90_000 || prior.year !== current.year || prior.month !== current.month ||
+                prior.day !== current.day || Number(prior.hour) * 60 + Number(prior.minute) < 570) {
+                const { price, changePct, volume, ts, receivedAt, priceBasis, priceSource, ...retained } = cached;
+                // 가격은 지워도 마지막 채택 체결 시각은 REST 폴백의 역행 비교용으로 남긴다.
+                const lastTradeTs = Math.max(Number(ts) || 0, Number(retained.lastTradeTs) || 0);
+                if (lastTradeTs > 0) retained.lastTradeTs = lastTradeTs;
+                latestPrices.set(ticker, retained);
+            }
+        }
+        return;
+    }
+    markPolygonDataReceived(); // Track only accepted WS data
+    if (price > 0 && tickerSubscribers.has(ticker)) {
+        lastAcceptedTradeMs.set(ticker, eventMs > 0 ? Math.min(eventMs, rx) : rx);
+    }
     // /last 와 방송 모두 원천시각·수신시각을 분리한다. EquitiesEdge 가격은 공정 시장가다.
     if (msg._intrinio && price > 0) {
         liveTicks.set(ticker, { p: price, trade: eventMs, rx });
@@ -1351,6 +1437,7 @@ const server = http.createServer((req, res) => {
             // [2026-10-14] Intrinio 채널 수(클라이언트 구독 + 서버 /last 관심) — 구독 한도 감시용
             channels: subscribedOnPolygon.size + serverJoined.size,
             serverInterest: serverInterest.size,
+            staleDropped: Object.fromEntries(staleDropped),
         }));
         return;
     }
@@ -1412,6 +1499,7 @@ wss.on("connection", (ws, req) => {
                     // Add to global subscriber list
                     if (!tickerSubscribers.has(t)) {
                         tickerSubscribers.set(t, new Set());
+                        lastAcceptedTradeMs.set(t, Date.now());
                     }
                     tickerSubscribers.get(t).add(ws);
 
@@ -1420,8 +1508,9 @@ wss.on("connection", (ws, req) => {
 
                     // Send latest cached price immediately
                     // [2026-10-14] 가격이 있는 캐시만 — ensurePrevClose 가 방금 만든 빈 항목(price 없음)을 보내면 클라이언트가 price 0 으로 받아 감시기가 «허브 가격 0/null»(COIN·JPM)로 잡았다.
+                    // 정규장엔 90초 안의 체결 가격만 즉시 전송한다 — 체결 시각 없음·종가(eod_close)·90초 넘은 값은 보내지 않는다(캐시·prevClose 는 그대로).
                     const cached = latestPrices.get(t);
-                    if (cached && cached.price > 0) {
+                    if (cached && cached.price > 0 && isSnapshotSendable(cached, Date.now())) {
                         ws.send(JSON.stringify({
                             type: "prices",
                             ticker: t,
@@ -1466,6 +1555,7 @@ wss.on("connection", (ws, req) => {
                         subs.delete(ws);
                         if (subs.size === 0) {
                             tickerSubscribers.delete(t);
+                            lastAcceptedTradeMs.delete(t);
                             unsubscribeTickerOnPolygon(t);
                         }
                     }
@@ -1538,6 +1628,7 @@ function cleanupClient(ws) {
                 subs.delete(ws);
                 if (subs.size === 0) {
                     tickerSubscribers.delete(ticker);
+                    lastAcceptedTradeMs.delete(ticker);
                     unsubscribeTickerOnPolygon(ticker);
                 }
             }
@@ -1591,10 +1682,17 @@ setInterval(() => {
 // REST FALLBACK — Polls Polygon REST API when WS is dead
 // ══════════════════════════════════════════════════════════════
 // If Polygon WS isn't delivering data, this kicks in automatically
-// and polls the snapshot REST API every 3s, pushing individual
+// and polls the snapshot REST API at least 15s apart, pushing individual
 // ticker updates to clients via WebSocket.
 
-const REST_POLL_INTERVAL_MS = 3000;  // 3s between REST polls
+const REST_POLL_INTERVAL_MS = 15_000;
+const REST_MAX_TICKERS_PER_POLL = 20;
+const REST_REQUEST_TIMEOUT_MS = 5_000; // 종목별 REST 요청 상한 — 정체 응답이 폴백 전체를 막지 않게
+const REST_CONCURRENCY = 4; // 묶음 안 동시 요청 수 — 최악 지연 ceil(20/4)×5초 = 25초
+let lastRestPollStarted = -Infinity;
+let restPollInFlight = false;
+const restLastPolled = new Map(); // ticker → 마지막 폴백 조회 시각(오래된 순 순환)
+let restNextPollTimer = null;
 const REST_FALLBACK_CHECK_MS = 10000; // Activate after 10s with no WS data
 let restFallbackActive = false;
 let restFallbackTimer = null;
@@ -1607,7 +1705,6 @@ function markPolygonDataReceived() {
     if (restFallbackActive) {
         console.log("[Price WS] Polygon WS data received — disabling REST fallback");
         restFallbackActive = false;
-        if (restFallbackTimer) { clearInterval(restFallbackTimer); restFallbackTimer = null; }
     }
 }
 
@@ -1616,97 +1713,139 @@ function markPolygonDataReceived() {
 // [2026-08-29] Massive/Polygon → Intrinio 이관.
 //   기존 구현은 `api.polygon.io/v2/snapshot/...` 를 불렀는데 계정 차단으로 403 이다.
 //   즉 **WS 가 끊겼을 때의 안전망이 통째로 죽어 있었다**(로그의 "REST Fallback: ❌").
-//   Intrinio 에는 다중 종목 스냅샷이 없으므로 종목별 realtime 을 병렬 호출한다.
-//   (분당 2,000 호출 한도 — 폴백은 3초 주기이고 구독 종목은 수십 개 수준이라 여유롭다)
+//   Intrinio 에는 다중 종목 스냅샷이 없으므로 종목별 realtime 을 순차 호출한다.
 async function fetchSnapshotREST(tickers) {
     if (!INTRINIO_API_KEY || tickers.length === 0) return;
 
+    // 종목별로 받는 즉시 처리·방송한다 — 뒤 종목 응답을 기다리지 않고, 한 종목 실패·정체(타임아웃)는 그 종목만 건너뛴다.
+    // 동시 REST_CONCURRENCY 개까지 — 최악 지연 = ceil(20/4)×5초 = 25초. 호출 수 상한(회당 20·15초 주기)은 그대로다.
+    const queue = [...tickers];
+    const worker = async () => { while (queue.length > 0) await fetchOneSnapshotREST(queue.shift()); };
+    await Promise.all(Array.from({ length: Math.min(REST_CONCURRENCY, queue.length) }, worker));
+}
+
+async function fetchOneSnapshotREST(t) {
     try {
-        const settled = await Promise.allSettled(
-            tickers.map(async (t) => {
-                const url = `https://api-v2.intrinio.com/securities/${encodeURIComponent(t)}/prices/realtime?api_key=${INTRINIO_API_KEY}`;
-                const rt = await httpsGet(url);
-                if (!rt) return null;
-                return {
-                    ticker: t,
-                    // day.c 는 정규장 종가, lastTrade 는 시간외 포함 — 어댑터와 같은 규칙
-                    last: Number(rt.last_price) || 0,
-                    regular: Number(rt.normal_market_hours_last_price) || 0,
-                    prev: Number(rt.eod_close_price) || 0,
-                    vol: Number(rt.market_volume) || Number(rt.exchange_volume) || 0,
-                    lastTime: normalizeTradeMs(rt.last_time),
-                    regularTime: normalizeTradeMs(rt.normal_market_hours_last_time),
-                    source: rt.source || null,
-                };
-            })
-        );
+        const url = `https://api-v2.intrinio.com/securities/${encodeURIComponent(t)}/prices/realtime?api_key=${INTRINIO_API_KEY}`;
+        const rt = await httpsGet(url, REST_REQUEST_TIMEOUT_MS);
+        if (!rt) return;
+        const snap = {
+            ticker: t,
+            // day.c 는 정규장 종가, lastTrade 는 시간외 포함 — 어댑터와 같은 규칙
+            last: Number(rt.last_price) || 0,
+            regular: Number(rt.normal_market_hours_last_price) || 0,
+            prev: Number(rt.eod_close_price) || 0,
+            vol: Number(rt.market_volume) || Number(rt.exchange_volume) || 0,
+            lastTime: normalizeTradeMs(rt.last_time),
+            regularTime: normalizeTradeMs(rt.normal_market_hours_last_time),
+            source: rt.source || null,
+        };
+        const ticker = snap.ticker;
 
-        const snaps = settled
-            .map((r) => (r.status === "fulfilled" ? r.value : null))
-            .filter(Boolean);
+        const prevClose = snap.prev;
+        const volume = snap.vol;
+        const price = snap.last || snap.regular || prevClose;
 
-        for (const snap of snaps) {
-            const ticker = snap.ticker;
-            if (!ticker) continue;
+        if (price <= 0) return;
 
-            const prevClose = snap.prev;
-            const volume = snap.vol;
-            const price = snap.last || snap.regular || prevClose;
+        const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
 
-            if (price <= 0) continue;
-            
-            const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
-            
-            // Only broadcast if price actually changed
-            const existing = latestPrices.get(ticker);
-            if (existing && Math.abs(existing.price - price) < 0.001) continue;
-            
-            latestPrices.set(ticker, {
-                price,
-                changePct: Math.round(changePct * 100) / 100,
-                volume,
-                prevClose,
-                prevCloseDate: getETDateString(),
-                ts: snap.last > 0 ? snap.lastTime : snap.regular > 0 ? snap.regularTime : 0,
-                receivedAt: Date.now(),
-                priceBasis: snap.last > 0 || snap.regular > 0 ? (snap.source === "equities_edge" ? "fair_value" : "trade") : "eod_close",
-                priceSource: snap.source,
-            });
-            
-            // Push to subscribed clients immediately
-            broadcastPrice(ticker, price, changePct, volume);
+        const existing = latestPrices.get(ticker);
+        // 가격을 버리는 분기에서도 응답의 prevClose 정정은 반영한다(종가만·날짜 넘김 경로와 같은 규칙).
+        const keepPrevCloseOnly = () => {
+            if (!(prevClose > 0) || prevClose === Number(existing?.prevClose)) return;
+            latestPrices.set(ticker, withPrevClose(existing, prevClose, getETDateString()));
+            rebroadcastIfPrevCloseChanged(ticker, existing?.prevClose);
+        };
+        // 정규장에 체결 가격 없이 종가만 오면 전일 종가는 prevClose 갱신에만 쓴다(가격으로 저장·방송하지 않음).
+        if (!(snap.last > 0) && !(snap.regular > 0) && isRegularSession(Date.now())) {
+            latestPrices.set(ticker, withPrevClose(existing, prevClose, getETDateString()));
+            rebroadcastIfPrevCloseChanged(ticker, existing?.prevClose);
+            return;
         }
+        const eventTime = snap.last > 0 ? snap.lastTime : snap.regular > 0 ? snap.regularTime : 0;
+        // WS 와 같은 정규장 신선도 규칙 — 90초 넘게 과거인 체결은 캐시가 없어도 저장·방송하지 않는다.
+        if (shouldDropStaleTrade(eventTime, Date.now())) {
+            staleDropped.set(ticker, (staleDropped.get(ticker) || 0) + 1);
+            keepPrevCloseOnly();
+            return;
+        }
+        if (eventTime > 0) {
+            // 가격을 지운 캐시도 마지막 채택 체결 시각(lastTradeTs)과 비교해 역행을 막는다.
+            const floorTs = Math.max(Number(existing?.ts) || 0, Number(existing?.lastTradeTs) || 0);
+            if (existing && eventTime <= floorTs) { keepPrevCloseOnly(); return; }
+        } else {
+            // 체결 시각 없는 응답(종가만 등)은 이전 동작대로 가격이 바뀌면 채택하되,
+            // 정규장에 90초 안의 채택 체결이 캐시에 있으면 덮지 않는다.
+            if (existing && Math.abs((Number(existing.price) || 0) - price) < 0.001) { keepPrevCloseOnly(); return; }
+            const cachedTs = Number(existing?.ts) || 0;
+            if (existing?.price > 0 && cachedTs > 0 && isRegularSession(Date.now()) &&
+                !shouldDropStaleTrade(cachedTs, Date.now())) { keepPrevCloseOnly(); return; }
+        }
+
+        latestPrices.set(ticker, {
+            price,
+            changePct: Math.round(changePct * 100) / 100,
+            volume,
+            prevClose,
+            prevCloseDate: getETDateString(),
+            ts: eventTime,
+            receivedAt: Date.now(),
+            priceBasis: snap.last > 0 || snap.regular > 0 ? (snap.source === "equities_edge" ? "fair_value" : "trade") : "eod_close",
+            priceSource: snap.source,
+        });
+
+        // Push to subscribed clients immediately
+        broadcastPrice(ticker, price, changePct, volume);
     } catch (e) {
-        console.warn("[REST Fallback] Error:", e.message);
+        console.warn(`[REST Fallback] ${t} error:`, e.message);
     }
 }
 
 // REST fallback polling loop
-function startRestFallback() {
-    if (restFallbackActive) return;
-    restFallbackActive = true;
-    console.log("[Price WS] 🔄 REST fallback ACTIVATED — Intrinio REST 3초 폴링");
-    
-    const poll = () => {
-        const tickers = [...tickerSubscribers.keys()];
-        if (tickers.length === 0) return;
-        
-        // Intrinio 는 종목별 호출이므로 배치를 작게 잡아 동시성을 제한한다
-        const batches = [];
-        for (let i = 0; i < tickers.length; i += 20) {
-            batches.push(tickers.slice(i, i + 20));
+async function pollRestFallback() {
+    const now = Date.now();
+    if (restPollInFlight || now - lastRestPollStarted < REST_POLL_INTERVAL_MS) return;
+    const tickers = getRestFallbackTickers(now);
+    if (tickers.length === 0) return;
+    // 오래 조회 안 한 종목부터(동률은 구독 순서) — 실패 종목이 자리를 독점하지 않게 «마지막 조회 시각» 기준.
+    const selected = tickers.map((t, i) => [t, restLastPolled.get(t) || 0, i])
+        .sort((a, b) => a[1] - b[1] || a[2] - b[2]).slice(0, REST_MAX_TICKERS_PER_POLL).map(e => e[0]);
+    for (const t of selected) restLastPolled.set(t, now);
+    for (const t of restLastPolled.keys()) if (!tickerSubscribers.has(t)) restLastPolled.delete(t);
+    lastRestPollStarted = now; // 간격은 «시작 간 15초» — 회당 20종목이면 분당 80회 이하
+    restPollInFlight = true;
+    try { await fetchSnapshotREST(selected); }
+    finally {
+        restPollInFlight = false;
+        // 묶음이 끝나면 다음 시작(이번 시작 + 15초, 이미 지났으면 즉시)을 바로 예약한다.
+        if (restFallbackTimer) {
+            clearTimeout(restNextPollTimer);
+            restNextPollTimer = setTimeout(() => { if (restFallbackTimer) pollRestFallback(); },
+                Math.max(0, lastRestPollStarted + REST_POLL_INTERVAL_MS - Date.now()));
         }
-        batches.forEach(batch => fetchSnapshotREST(batch));
-    };
-    
+    }
+}
+
+function startRestFallback() {
+    if (restFallbackTimer) return;
     // Immediate first poll
-    poll();
-    restFallbackTimer = setInterval(poll, REST_POLL_INTERVAL_MS);
+    pollRestFallback();
+    restFallbackTimer = setInterval(pollRestFallback, REST_POLL_INTERVAL_MS);
+}
+
+function getRestFallbackTickers(now) {
+    const regular = isRegularSession(now);
+    return [...tickerSubscribers.keys()].filter(ticker => restFallbackActive ||
+        (regular && now - (lastAcceptedTradeMs.get(ticker) || 0) > 90_000));
 }
 
 // Check periodically if we need to activate REST fallback
 setInterval(() => {
-    if (tickerSubscribers.size === 0) return; // No subscribers, no need
+    if (tickerSubscribers.size === 0) {
+        if (restFallbackTimer) { clearInterval(restFallbackTimer); restFallbackTimer = null; }
+        return;
+    }
     
     const now = Date.now();
     const timeSinceLastData = now - lastPolygonDataTs;
@@ -1714,8 +1853,12 @@ setInterval(() => {
     // If no WS data for 10s and fallback not yet active, activate it
     if (timeSinceLastData > REST_FALLBACK_CHECK_MS && !restFallbackActive) {
         console.log(`[Price WS] WS 무데이터 ${Math.round(timeSinceLastData / 1000)}s — REST 폴백 활성화`);
-        startRestFallback();
+        restFallbackActive = true;
+        console.log("[Price WS] 🔄 REST fallback ACTIVATED — Intrinio REST 15초 폴링");
+        if (restFallbackTimer) pollRestFallback();
     }
+    if (getRestFallbackTickers(now).length > 0) startRestFallback();
+    else if (restFallbackTimer) { clearInterval(restFallbackTimer); restFallbackTimer = null; }
 }, 5000); // Check every 5s
 
 // ══════════════════════════════════════════════════════════════
