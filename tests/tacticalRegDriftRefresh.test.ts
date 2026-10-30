@@ -207,7 +207,10 @@ class OfflineRedis {
             assert.equal(next.verdict.realityInsight, TEXT, '복구 글 대신 기존 글 유지'); }
         {   const next = mk(TEXT);   // 이번 예약 뒤 새로 만든 글이 우연히 같은 문구(관문 10310524 ②)
             assert.equal(settleRegTacticalRefresh(next, prev, now + 1, now), true, '새로 만든 같은 문구 → 성공');
-            assert.equal(settleRegTacticalRefresh(mk(TEXT), prev, null, now), false, '메모리 글이 다른 글(동시 요청) → 실패(관문 10310524 ①)'); }
+            const same = mk(TEXT);
+            assert.equal(settleRegTacticalRefresh(same, prev, null, now), false, '메모리 글이 다른 글(동시 요청) → 실패(관문 10310524 ①)');
+            assert.deepEqual(same.verdict.num.basis.realityInsight, { NDX_CHG: -2.5, SPX_CHG: -1.6, RLSI: 33 }, '같은 문구 복구 실패여도 생성 기준은 옛 글 것(관문 10310556)');
+            assert.deepEqual(regTacticalNeedsRefresh({ ...same, rlsi: { score: 30, session: 'REG' }, market: { nqChangePercent: -3.4, factors: { spx: { chgPct: -2.1 } } } }, 'REG', now, isPh), ['nasdaq', 'spx'], '변화 감지 유지'); }
         {   const next = mk(NEWT);
             assert.equal(settleRegTacticalRefresh(next, prev, now + 5_000, now), true, '이번 예약 뒤 새 글 → 성공');
             assert.equal(next.verdict.realityInsight, NEWT);

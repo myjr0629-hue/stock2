@@ -172,7 +172,6 @@ export function keepRegTacticalOnFailure(
 ): boolean {
     const now = next.verdict?.realityInsight, old = previous.verdict?.realityInsight;
     if (!next.verdict || typeof old !== 'string' || !old || IntelligenceNode.isPlaceholderInsight(old)) return false;
-    if (now === old) { next.tacticalGeneratedAt = previous.tacticalGeneratedAt || previous.timestamp; return true; }
     const tpl = { ...next.verdict.num?.tpl }, basis = { ...next.verdict.num?.basis };
     if (previous.verdict?.num?.tpl?.realityInsight !== undefined) tpl.realityInsight = previous.verdict.num.tpl.realityInsight; else delete tpl.realityInsight;
     if (previous.verdict?.num?.basis?.realityInsight !== undefined) basis.realityInsight = previous.verdict.num.basis.realityInsight; else delete basis.realityInsight;
