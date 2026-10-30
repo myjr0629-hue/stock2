@@ -235,8 +235,14 @@ class OfflineRedis {
         try {
             fresh(snap({ at: now - 10 * MIN }), 'ja');
             store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: { spx: { chgPct: -2.1 }, us10y: { level: 4.94 } } }, rlsi: { score: 30, session: 'REG', components: { breadthPct: 26 } }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
+            store.set('guardian:ai_verdict:ja', { title: 'T', sentiment: 'NEUTRAL', description: '다른 요청이 방금 저장한 순환매', gammaInsight: '방금 저장한 감마', realityInsight: '옛 글', num: { tpl: { description: 'dd' }, basis: { description: { RLSI: 31 } } } });
             const adopted = await call('ja');
             assert.deepEqual([adoptCtx.spxChangePct, adoptCtx.us10y, adoptCtx.breadthPct], [-2.1, 4.94, 26], '채택 검사 재료에 장중 숫자 칸(SPX·US10Y·BREADTH) — 관문 10310813 ①');
+            const av = store.get('guardian:ai_verdict:ja');
+            assert.equal(av.realityInsight, NEW, 'ai_verdict 의 Tactical 칸만 새 글');
+            assert.equal(av.description, '다른 요청이 방금 저장한 순환매', '순환매·감마는 저장소의 최신 값 그대로(관문 10310819 ②)');
+            assert.equal(av.gammaInsight, '방금 저장한 감마');
+            assert.deepEqual(av.num.basis.description, { RLSI: 31 });
             assert.equal(adoptCalls, 1);
             assert.equal(coreCalls, 0, '채택은 재계산·모델 0');
             assert.equal(adopted.verdict.realityInsight, NEW);

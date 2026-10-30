@@ -627,7 +627,10 @@ export class GuardianDataHub {
                 if (n) { tpl.realityInsight = n.tpl; numBasis.realityInsight = n.basis; }
                 context = { ...previous, tacticalSeenAt: new Date(Math.max(seenBefore, r.at ?? now)).toISOString(), tacticalGeneratedAt: new Date(r.at ?? now).toISOString(),
                     verdict: { ...previous.verdict, realityInsight: r.text, num: { tpl, basis: numBasis } } };
-                await saveAiVerdict(context.verdict, locale);
+                // 채택한 Tactical 칸만 바꿔 저장 — 그 사이 다른 요청이 저장한 순환매·감마 판정을 옛 값으로 덮지 않게(관문 10310819 ②)
+                const latestVerdict = await loadAiVerdict(locale);
+                await saveAiVerdict(latestVerdict ? { ...latestVerdict, realityInsight: r.text,
+                    num: { tpl: { ...latestVerdict.num?.tpl, ...(n ? { realityInsight: n.tpl } : {}) }, basis: { ...latestVerdict.num?.basis, ...(n ? { realityInsight: n.basis } : {}) } } } : context.verdict, locale);
             } else {
                 // 채택 못 한 저장본(출구 검사 탈락 → 읽기에서 시각 없이 null 포함)은 그 저장 시각을 «본 시각»으로 — 같은 글을 30초마다 다시 읽지 않게(관문 10310504 ②). 생성 시각은 그대로.
                 const seen = Math.max(typeof r.seenAt === 'number' ? r.seenAt : 0, latestAt ?? 0);
@@ -1054,6 +1057,8 @@ export class GuardianDataHub {
                 gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence
                 timestamp: new Date().toISOString(),
                 coreAt: core.timestamp,   // ★2026-10-08 이 컨텍스트의 숫자가 나온 코어의 계산 시각 — 응답 출구가 더 새 코어로 맞출지 판단한다
+                // ★T35-B 장중 글의 실제 생성 시각(캐시 재사용·복구 글이면 그 글의 원래 시각) — 30분 간격이 재계산 시각으로 밀리지 않게(관문 10310819 ①)
+                ...(rlsi.session === 'REG' ? (() => { const at = IntelligenceNode.realityFreshAt(locale, verdict.num?.tpl?.realityInsight ?? verdict.realityInsight); return at ? { tacticalGeneratedAt: new Date(at).toISOString() } : {}; })() : {}),
                 ...(rlsi.session === 'POST' ? { tacticalFutures } : {}),
                 ...(tacticalFutures && tacticalFuturesPct ? { tacticalFuturesPct, tacticalFuturesCheckedAt: new Date(now).toISOString(), tacticalSeenAt: new Date(now).toISOString() } : {}),
             };
