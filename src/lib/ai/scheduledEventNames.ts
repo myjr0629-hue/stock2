@@ -45,15 +45,51 @@ const PERIOD: Record<'MoM' | 'YoY' | 'QoQ', string> = {
  *   ① 문장 부호·괄호 닫힘·끝·영숫자 ② 붙은 조사·서술(«으로»·«이»·«입니다» — 꾸밈 «의»는 제외)
  *   ③ 띄운 낱말은 발표·지표·보고서·공시·자료·데이터·결과·일정·수치·예정(+조사)만 ④ 일본어는 (の)発表·公表·報告…(予定) + 조사, 또는 바로 문장 부호
  */
-const KO_TAIL_ATTACHED = /^(?:으로|로|이|가|은|는|을|를|와|과|도|에|에서|이며|이고|이다|입니다|인데|이나|이라|라는|으로서|로서)(?![가-힣])/;
-const KO_TAIL_WORD = /^\s+(?:발표|공개|공표|지표|보고서?|공시|자료|데이터|결과|일정|수치|예정|이벤트)(?:[가-힣]{0,4})(?![가-힣])/;
-const JA_TAIL = /^(?:(?:の)?(?:発表|公表|報告|統計|データ|指標|結果|資料|公示)?(?:予定)?(?:で|は|が|を|に|と|も|です|であり|となり|では|には)|(?:の)?(?:発表|公表|報告|統計|データ|指標|結果|資料|公示)(?:予定)?(?=[\s、。,.)）!?]|$))/;
+// 명사구를 끝내는 붙은 말(조사·서술) — 이 뒤는 새 절이라 보지 않는다. «의»는 꾸밈이라 다음 낱말까지 본다.
+const KO_END = /^(?:으로|로|이|가|은|는|을|를|와|과|도|에|에서|에는|이며|이고|이다|입니다|인데|이나|이라|라는|으로서|로서|된|인|될|되는|이에요|예요)$/;
+const KO_ALLOWED_NOUN = /^(?:발표|공개|공표|지표|보고서?|공시|자료|데이터|결과|일정|수치|예정|이벤트)/;
+const JA_ALLOWED = /^(?:発表|公表|報告|統計|データ|指標|結果|資料|公示|予定)/;
+const JA_END = /^(?:で|は|が|を|に|と|も|です|であり|となり|では|には)/;
+const BOUNDARY = /^\s*(?:$|[,.!?;:)\]）」』、。·・…\-–—"'“”‘’A-Za-z0-9(（])/;
+/**
+ * 표기 «뒤»는 허용 목록으로만, 명사구가 끝날 때까지 이어 본다(관문 10310640·10310646·10310653):
+ *   문장 부호·끝·영숫자 → 끝 · 붙은 조사·서술(«으로»·«이»·«입니다») → 끝 · «의» → 다음 낱말도 허용 낱말이어야
+ *   띄운 낱말은 발표·지표·보고서·공시·자료·데이터·결과·일정·수치·예정(+조사)만 · 일본어는 (の)発表·公表…(予定)+조사, 공백 뒤 일본어도 같은 규칙
+ */
 function tailReason(after: string): string | null {
-    if (!after || /^[\s]*$/.test(after) || /^[\s]*[,.!?;:)\]）」』、。·・…\-–—"'“”‘’A-Za-z0-9(（]/.test(after)) return null;
-    if (/^[가-힣]/.test(after)) return KO_TAIL_ATTACHED.test(after) ? null : `tail:${after.slice(0, 6)}`;
-    if (/^[ぁ-んァ-ヴー一-龯々]/.test(after)) return JA_TAIL.test(after) ? null : `tail:${after.slice(0, 6)}`;
-    if (/^\s+[가-힣]/.test(after)) return KO_TAIL_WORD.test(after) ? null : `tail:${after.trim().slice(0, 6)}`;
-    return null;
+    let rest = after;
+    for (let i = 0; i < 6; i++) {
+        if (BOUNDARY.test(rest)) return null;
+        const spaced = /^\s+/.test(rest);
+        const t = rest.replace(/^\s+/, '');
+        if (/^[가-힣]/.test(t)) {
+            const word = t.match(/^[가-힣]+/)![0];
+            if (!spaced) {   // 표기에 붙은 말
+                if (KO_END.test(word)) return null;
+                if (word === '의') { rest = t.slice(1); continue; }
+                return `tail:${word}`;
+            }
+            const noun = word.match(KO_ALLOWED_NOUN)?.[0];
+            if (!noun) return `tail:${word}`;
+            const suffix = word.slice(noun.length);
+            if (!suffix) { rest = t.slice(word.length); continue; }
+            if (KO_END.test(suffix)) return null;
+            if (suffix === '의') { rest = t.slice(word.length); continue; }
+            return `tail:${word}`;
+        }
+        if (/^[ぁ-んァ-ヴー一-龯々]/.test(t)) {
+            let u = t;
+            if (u.startsWith('の')) u = u.slice(1);
+            const noun = u.match(JA_ALLOWED)?.[0];
+            if (noun) u = u.slice(noun.length);
+            if (u.startsWith('予定')) u = u.slice(2);
+            if (JA_END.test(u) || BOUNDARY.test(u)) return null;
+            if (u.startsWith('の') && u !== t) { rest = u; continue; }
+            return `tail:${t.slice(0, 6)}`;
+        }
+        return null;
+    }
+    return 'tail:too-long';
 }
 const PERIOD_ANY = new RegExp(`${PERIOD.MoM}|${PERIOD.YoY}|${PERIOD.QoQ}`, 'i');
 /** 수준을 말하는 낱말 — 변화·비율 지표와 다른 값 */
