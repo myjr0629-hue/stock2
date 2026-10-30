@@ -40,8 +40,21 @@ const PERIOD: Record<'MoM' | 'YoY' | 'QoQ', string> = {
     YoY: '(?:전년\\s*(?:동월\\s*|동기\\s*)?(?:대비|비)|YoY|y/y|前年(?:同月|同期)?比)',
     QoQ: '(?:전분기\\s*(?:대비|비)?|전기\\s*(?:대비|비)|분기\\s*(?:대비|비)?|QoQ|q/q|前期比|前四半期比)',
 };
-/** 표기 바로 뒤에 오면 «다른 값»이 되는 말(미결제약정·매수/매도·롱/숏 — 관문 10310640 «CFTC金投機筋ポジション建玉»·«…포지션 미결제약정») */
-const TRAILING_CONFLICT = /^\s*(?:미결제\s*약정|미결제|建玉|未決済|순?매수|순?매도|롱|숏|買い|売り|ロング|ショート|재고량|在庫量)/;
+/**
+ * 표기 «뒤»는 허용 목록으로만(관문 10310640·10310646 — «…순포지션의 미결제약정»·«실업률의 청년 수치»·«PMI의 신규주문»처럼 이어지는 말이 다른 값을 가리키면 실패):
+ *   ① 문장 부호·괄호 닫힘·끝·영숫자 ② 붙은 조사·서술(«으로»·«이»·«입니다» — 꾸밈 «의»는 제외)
+ *   ③ 띄운 낱말은 발표·지표·보고서·공시·자료·데이터·결과·일정·수치·예정(+조사)만 ④ 일본어는 (の)発表·公表·報告…(予定) + 조사, 또는 바로 문장 부호
+ */
+const KO_TAIL_ATTACHED = /^(?:으로|로|이|가|은|는|을|를|와|과|도|에|에서|이며|이고|이다|입니다|인데|이나|이라|라는|으로서|로서)(?![가-힣])/;
+const KO_TAIL_WORD = /^\s+(?:발표|공개|공표|지표|보고서?|공시|자료|데이터|결과|일정|수치|예정|이벤트)(?:[가-힣]{0,4})(?![가-힣])/;
+const JA_TAIL = /^(?:(?:の)?(?:発表|公表|報告|統計|データ|指標|結果|資料|公示)?(?:予定)?(?:で|は|が|を|に|と|も|です|であり|となり|では|には)|(?:の)?(?:発表|公表|報告|統計|データ|指標|結果|資料|公示)(?:予定)?(?=[\s、。,.)）!?]|$))/;
+function tailReason(after: string): string | null {
+    if (!after || /^[\s]*$/.test(after) || /^[\s]*[,.!?;:)\]）」』、。·・…\-–—"'“”‘’A-Za-z0-9(（]/.test(after)) return null;
+    if (/^[가-힣]/.test(after)) return KO_TAIL_ATTACHED.test(after) ? null : `tail:${after.slice(0, 6)}`;
+    if (/^[ぁ-んァ-ヴー一-龯々]/.test(after)) return JA_TAIL.test(after) ? null : `tail:${after.slice(0, 6)}`;
+    if (/^\s+[가-힣]/.test(after)) return KO_TAIL_WORD.test(after) ? null : `tail:${after.trim().slice(0, 6)}`;
+    return null;
+}
 const PERIOD_ANY = new RegExp(`${PERIOD.MoM}|${PERIOD.YoY}|${PERIOD.QoQ}`, 'i');
 /** 수준을 말하는 낱말 — 변화·비율 지표와 다른 값 */
 const LEVEL_WORD = /지수|건수|수준|재고량|總量|총량|指数|件数|水準|在庫量/;
@@ -415,8 +428,8 @@ export function scheduledEventNameHits(text: string): EventNameHit[] {
         const after = text.slice(g.end);
         const parenAfter = after.match(/^\s*[(（]([^()（）]*)[)）]/);
         const trailing = TRAILING_QUALIFIER.test(after) ? `trail:${after.slice(0, 8).trim()}`
-            : TRAILING_CONFLICT.test(after) ? `trail-conflict:${after.slice(0, 8).trim()}`
-            : parenAfter && !parenOk(parenAfter[1], entries) ? `trail-paren:${parenAfter[1]}` : null;   // «실업률(청년)» — 관문 10310457 ② · «포지션(선물 투기 순포지션)» 같은 일반 낱말 풀이는 허용
+            : parenAfter && !parenOk(parenAfter[1], entries) ? `trail-paren:${parenAfter[1]}`   // «실업률(청년)» — 관문 10310457 ② · «포지션(선물 투기 순포지션)» 같은 일반 낱말 풀이는 허용
+                : tailReason(parenAfter ? after.slice(parenAfter[0].length) : after);
         const why = lead || trailing || undefined;
         return { start: g.start, end: g.end, text: text.slice(g.start, g.end), ok: !why, ...(why ? { why } : {}), test: (core: string) => entries.some(e => e.test(core)) };
     });
@@ -433,7 +446,8 @@ export function splitEnglishNameMention(text: string, name: string): boolean {
     for (let k = 1; k < tokens.length; k++) {
         const left = tokens.slice(0, k).map(esc).join('\\s*'), right = tokens.slice(k).map(esc).join('\\s*');
         const m = new RegExp(`(?<![A-Za-z0-9])${left}\\s*([^A-Za-z0-9()（）]{0,20}?)\\s*[(（]\\s*${right}(?![A-Za-z0-9])`, 'i').exec(text);
-        if (m && splitGapOk(m[1], tokens.join(' ').toLowerCase())) return true;
+        // 갈라진 이름 뒤도 같은 허용 목록(«…(Gold speculative net positions)의 매수» 실패)
+        if (m && splitGapOk(m[1], tokens.join(' ').toLowerCase()) && !tailReason(text.slice(m.index + m[0].length).replace(/^\s*[)）]/, ''))) return true;
     }
     return false;
 }
