@@ -16,10 +16,11 @@
  *         && 대안 직전 종가(수집 함수와 같은 식 previousClose ?? chartPreviousClose)가 DNS 직전 종가와 상대 0.1% 이내
  *         && 대안 응답의 심볼·통화·거래소(meta.symbol·currency·exchangeName)가 DNS 와 일치.
  *       마지막 1분봉 시각은 판정에 쓰지 않는다(수집 함수는 이 심볼들의 봉이 아니라 meta 가격을 저장 — 관문 10310610 #1).
- *       DNS 응답이 실패·가격 없음·체결 시각/직전 종가/식별 필드 없음이면 판정 불가 → DNS 결과 그대로(기존 경로와 같은 성공·실패).
+ *       DNS 요청 실패(네트워크·4xx/5xx·본문 오류)·체결 시각/직전 종가/식별 필드 없음이면 판정 불가 → DNS 결과 그대로(기존 경로와 같은 성공·실패).
+ *       (DNS 가 가격만 비고 시각·직전 종가·식별 필드가 있으면 규칙대로 비교 — 수집 함수는 가격 없는 DNS 를 어차피 버린다.)
  *       직전 종가 일치를 요구해 대안의 다른 세션 직전 종가로 등락률이 틀어지지 않게 한다(관문 10310610 #2).
  *     - 일봉(직전 종가 복구)·실제 지수(^IXIC·^DJI·^GSPC — 1분봉·일봉 보정)는 대안을 쓰지 않고 기존 경로 그대로(관문 10310534 #3·10310545 #1·#2).
- *     - DNS 가 실패하면 대안이 멀쩡해도 DNS 결과를 그대로 돌려준다(직전 종가 대조 불가 — 기존 경로와 같은 실패, 수집 함수가 null 처리).
+ *     - DNS 요청이 실패하면 대안이 멀쩡해도 DNS 결과를 그대로 돌려준다(직전 종가 대조 불가 — 기존 경로와 같은 실패, 수집 함수가 null 처리).
  *   · 심볼마다 따로 판정하므로 NQ·유가·SOX 로 고른 접속점이 VIX·지수에 번지지 않는다(관문 #2).
  * 호출량·차단 위험·회차 지연(관문 10310542 #2·#3):
  *   · 수집 함수는 심볼을 «순서대로» 부른다 → 동시 요청은 최대 DNS 1 + 대안 1. 대안 동시 상한 ALT_MAX_INFLIGHT(넘으면 대안 생략 = 기존 경로).
@@ -43,8 +44,6 @@ export const ALT_MAX_INFLIGHT = 2;
 export const ALT_FAILS_TO_PAUSE = 3;
 export const ALT_PAUSE_MS = 5 * 60_000;
 export const ALT_PAUSE_429_MS = 15 * 60_000;
-/** 체결 시각이 «지금»보다 이만큼 넘게 미래면 대안 응답을 믿지 않는다(시계·자료 이상). */
-const FUTURE_SLACK_SEC = 120;
 
 type FetchLike = (url: string, init?: any) => Promise<any>;
 export type PinnedFetch = (ip: string, url: string, init?: any) => Promise<{ ok: boolean; status: number; json(): Promise<any> }>;
@@ -110,7 +109,7 @@ export function minuteInfo(data: any): MinuteInfo {
     const meta = data?.chart?.result?.[0]?.meta;
     const price = pos(meta?.regularMarketPrice) ? meta.regularMarketPrice : null;
     const usable = price != null;
-    const time = usable && pos(meta?.regularMarketTime) ? meta.regularMarketTime : null;
+    const time = pos(meta?.regularMarketTime) ? meta.regularMarketTime : null;
     const prevRaw = meta?.previousClose ?? meta?.chartPreviousClose;
     const prev = pos(prevRaw, 0.01) ? prevRaw : null;
     return {
@@ -154,12 +153,12 @@ export type Pick = 'dns' | 'alt' | 'dns-failed' | 'dns-undecidable' | 'dns-misma
  * 1분봉: DNS·대안 결과에서 쓸 쪽을 고른다(순수 함수 — 시험 대상). 'alt' 일 때만 대안, 나머지는 전부 DNS 결과.
  * 규칙은 파일 머리 설명 그대로 — 하나라도 판정 불가면 DNS.
  */
-export function pickMinute(dns: Got, alt: Got | null, nowSec: number): Pick {
+export function pickMinute(dns: Got, alt: Got | null, _nowSec?: number): Pick {
     if (!alt) return 'dns-alt-skipped';
-    const d = dns.kind === 'ok' ? minuteInfo(dns.data) : null;
-    if (!d || !d.usable) return 'dns-failed';                                   // DNS 실패 → 기존 경로(같은 실패)
+    if (dns.kind !== 'ok') return 'dns-failed';                                 // DNS 요청 실패 → 기존 경로(같은 실패)
+    const d = minuteInfo(dns.data);
     const a = alt.kind === 'ok' ? minuteInfo(alt.data) : null;
-    if (!a || !a.usable || a.time == null || a.time > nowSec + FUTURE_SLACK_SEC) return 'dns-alt-invalid';
+    if (!a || !a.usable || a.time == null) return 'dns-alt-invalid';
     if (d.time == null || d.prev == null || a.prev == null) return 'dns-undecidable';
     if (!d.symbol || !d.currency || !d.exchange || !a.symbol || !a.currency || !a.exchange) return 'dns-undecidable';
     if (a.symbol !== d.symbol || a.currency !== d.currency || a.exchange !== d.exchange) return 'dns-mismatch';

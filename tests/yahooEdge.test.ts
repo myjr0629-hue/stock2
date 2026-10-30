@@ -58,8 +58,8 @@ test('1분봉: 대안이 더 새롭고 가격·체결 시각·직전 종가가 �
     }
     // 대안 직전 종가 없음 → 판정 불가(DNS)
     assert.equal(pickMinute(dns, ok(minuteBody({ price: 28537, time: NOW_SEC - 603, prev: null })), NOW_SEC), 'dns-undecidable');
-    // 미래 시각(시계·자료 이상)은 믿지 않는다
-    assert.equal(pickMinute(dns, ok(minuteBody({ price: 1, time: NOW_SEC + 3600, prev: 1 })), NOW_SEC), 'dns-alt-invalid');
+    // 직전 종가 불일치(29562 vs 1)면 시각이 아무리 새로워도 DNS
+    assert.equal(pickMinute(dns, ok(minuteBody({ price: 1, time: NOW_SEC + 3600, prev: 1 })), NOW_SEC), 'dns-mismatch');
 });
 
 test('1분봉: 동률(장 마감·주말)·대안이 더 늙음이면 DNS(기존 경로)', () => {
@@ -73,11 +73,14 @@ test('관문 #1 — DNS 판정 불가(가격은 있는데 체결 시각 없음)�
     assert.equal(pickMinute(dns, ok(minuteBody({ price: 28380, time: NOW_SEC - 600, prev: 29562 })), NOW_SEC), 'dns-undecidable');
 });
 
-test('DNS 가 못 쓰는 응답(연결 실패·503·가격 없음)이면 대안이 멀쩡해도 DNS 결과(직전 종가 대조 불가 — 기존 경로와 같은 실패)', () => {
+test('DNS 요청 실패(연결 실패·503)면 대안이 멀쩡해도 DNS 결과(직전 종가 대조 불가 — 기존 경로와 같은 실패)', () => {
     const alt = ok(minuteBody({ price: 28537, time: NOW_SEC - 600, prev: 29562 }));
     assert.equal(pickMinute({ kind: 'err', err: new Error('x') }, alt, NOW_SEC), 'dns-failed');
     assert.equal(pickMinute({ kind: 'bad', status: 503, res: res({}, 503) }, alt, NOW_SEC), 'dns-failed');
-    assert.equal(pickMinute(ok(minuteBody({ price: null, time: NOW_SEC, prev: 1 })), alt, NOW_SEC), 'dns-failed');
+    // DNS 가 200 인데 가격만 비면 규칙대로 비교(시각·직전 종가·식별 필드가 있으면) — 비교 불가면 DNS
+    assert.equal(pickMinute(ok(minuteBody({ price: null, time: NOW_SEC - 3000, prev: 29562 })), alt, NOW_SEC), 'alt');
+    assert.equal(pickMinute(ok(minuteBody({ price: null, time: null, prev: 29562 })), alt, NOW_SEC), 'dns-undecidable');
+    assert.equal(pickMinute(ok({ chart: { result: null } }), alt, NOW_SEC), 'dns-undecidable');
     assert.equal(pickMinute({ kind: 'err', err: new Error('x') }, { kind: 'err', err: new Error('y') }, NOW_SEC), 'dns-failed');
     assert.equal(pickMinute({ kind: 'err', err: new Error('x') }, null, NOW_SEC), 'dns-alt-skipped');
 });
@@ -112,8 +115,8 @@ test('조건 ② 대안 가격 유한·양수 — 참이면 대안, 결측·NaN�
     for (const p of [null, undefined, NaN, Infinity, -Infinity, 0, -5, '101' as any]) {
         assert.equal(pick(D0, { ...D0, price: p, time: NOW_SEC - 600 }), 'dns-alt-invalid', String(p));
     }
-    // 미래 체결 시각(시계·자료 이상)도 무효
-    assert.equal(pick(D0, { ...D0, time: NOW_SEC + 3600 }), 'dns-alt-invalid');
+    // 규칙에 없는 조건(미래 시각 제한 등)은 두지 않는다 — 관문 10310624: DNS now−60·대안 now+121 은 규칙대로 대안
+    assert.equal(pick({ ...D0, time: NOW_SEC - 60 }, { ...D0, time: NOW_SEC + 121 }), 'alt');
 });
 
 test('조건 ③ 직전 종가 상대 0.1% 이내 — 경계 정확히 0.1% 대안·초과 DNS·결측 판정 불가', () => {
