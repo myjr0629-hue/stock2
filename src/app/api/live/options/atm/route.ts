@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
     // Separate, versioned last complete chain (survives weekends/holidays and SWR expiry).
     const lastGoodKey = `options-atm:source-v2:last-good:${ticker}`;
-    const previous = await getFromCache<AtmSnapshot>(lastGoodKey).catch(() => null);
+    const previousPromise = getFromCache<AtmSnapshot>(lastGoodKey).catch(() => null);
     const load = () => swrFetch(
         // Exclude old SWR responses (different price/ATM-basis contract).
         `options-atm:source-v4:${ticker}`,
@@ -176,7 +176,7 @@ export async function GET(req: NextRequest) {
             // ATM basis = that session's close for an EOD chain; never today's quote.
             let atmBasisPrice: number | null = null;
             if (sourceSessionDate) {
-                if (historical) atmBasisPrice = await sessionClose(ticker, sourceSessionDate, previous);
+                if (historical) atmBasisPrice = await sessionClose(ticker, sourceSessionDate, await previousPromise);
                 else if (sourceSessionDate === et.dateString && underlyingPrice > 0) atmBasisPrice = underlyingPrice;
             }
             const strikes = [...new Set<number>(validContracts.map((c: any) => c.strike))].sort((a, b) => a - b);
@@ -226,6 +226,7 @@ export async function GET(req: NextRequest) {
     } catch {
         result = { data: { ticker, atmSlice: [], underlyingPrice: null, sourceSessionDate: null }, _cache: 'miss' as const };
     }
+    const previous = await previousPromise;
     const current = result.data as AtmSnapshot & Record<string, any>;
     const selected = selectIVSnapshot(current, previous, ticker, true);
     // Only a complete chain (all original rows + no vendor partial marker) may become last-good.

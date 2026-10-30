@@ -195,8 +195,70 @@ async function computeSector(request: Request) {
     const appMode = searchParams.get('app') === '1';
 
     try {
+        // FINRA and DynamoDB depend only on tickers; overlap their existing reads with sector computation.
+        const fallbackPromise = (async () => {
+            // 다크풀(FINRA 규제 원본) — 인텔 페이로드엔 아예 키가 없어서 화면이 늘 «—» 였다.
+            let dpMap: Record<string, any> = {};
+            try {
+                const { getDarkPoolBatch } = await import('@/services/darkPool');
+                dpMap = await getDarkPoolBatch(tickers);
+            } catch (e: any) {
+                console.warn('[intel/fast] 다크풀(FINRA) 조회 실패:', e?.message);
+            }
+
+            const gexFallback: Record<string, any> = {};
+            // 진단 — 「폴백이 왜 안 걸리나」를 응답에서 바로 볼 수 있게. 추측 대신 실측.
+            let gexDiag: any = { need: 0, filled: 0, sample: [] as string[], err: null as string | null };
+            try {
+                // ★★ [2026-09-04] 처음엔 «종목 단위»로 걸렀다 — 「값이 하나라도 있으면 제외」.
+                //   그런데 실제 결손은 **필드 단위**다. MSFT 는 gex 는 있는데 pcr·예상변동폭이
+                //   비고, 그 종목이 「값이 있다」는 이유로 폴백에서 통째로 빠졌다
+                //   (DynamoDB 엔 4분 전 값이 gex·pcr·im·maxPain 전부 있는데도 화면은 null).
+                //   queryItems 를 고친 뒤 조회가 **20ms 수준**이라 아낄 이유가 없다.
+                //   → 전 종목을 읽고, 아래에서 **비어 있는 필드만** 채운다.
+                const needGex = tickers;
+                if (needGex.length > 0) {
+                    const gexT0 = Date.now();
+                    const db = await import('@/lib/aws/dynamoDataProvider');
+                    gexDiag.importMs = Date.now() - gexT0;
+                    // ⚠️ 처음엔 2.5초로 잡았다가 **전부 null** 이 돌아왔다(need=5 filled=0 err=없음).
+                    //   AWS SDK 콜드 로딩 + 동시 조회가 그 안에 안 끝난다. 넉넉히 준다 —
+                    //   여기서 못 채우면 화면에 «—» 가 남으므로 몇 백 ms 를 아낄 이유가 없다.
+                    // GEX 레코드엔 netPremium 이 없다 — 프리미엄 계열은 flow-history 에 산다.
+                    // 둘을 같이 읽어 합친다(둘 다 같은 하베스터가 채운다).
+                    const { getLatestFlow } = await import('@/lib/aws/dynamoDataProvider');
+                    const got = await Promise.all(
+                        needGex.map(async (t) => {
+                            const [gx, fl] = await Promise.all([
+                                Promise.race([
+                                    latestCollectorGexRow(db, t).catch((e: any) => { gexDiag.err = String(e?.message || e).slice(0, 80); return null; }),
+                                    new Promise<null>((r) => setTimeout(() => r(null), 8000)),
+                                ]),
+                                Promise.race([
+                                    getLatestFlow(t).catch(() => null),
+                                    new Promise<null>((r) => setTimeout(() => r(null), 8000)),
+                                ]),
+                            ]);
+                            if (!gx && !fl) return null;
+                            return { ...(fl || {}), ...(gx || {}) } as any;
+                        })
+                    );
+                    gexDiag.ms = Date.now() - gexT0;
+                    needGex.forEach((t, gi) => { if (got[gi]) gexFallback[t] = got[gi]; });
+                    const filled = Object.keys(gexFallback).length;
+                    if (filled) console.log(`[intel/fast] DynamoDB GEX 폴백 ${filled}/${needGex.length}종목`);
+                    gexDiag = { ...gexDiag, need: needGex.length, filled, sample: needGex.slice(0, 6) };  // ⚠️ 통째로 덮으면 err 가 지워진다
+                }
+            } catch (e: any) {
+                console.warn('[intel/fast] DynamoDB GEX 폴백 실패:', e?.message);
+                gexDiag.err = String(e?.message || e).slice(0, 120);
+            }
+
+            return { dpMap, gexFallback, gexDiag };
+        })();
+
         // ── Phase 1: Parallel fetch — Polygon batch + Redis cache ──
-        const [snapshotData, marketStatus, ...interleaved] = await Promise.all([
+        const [snapshotData, marketStatus, analysisCache, ...interleaved] = await Promise.all([
             // 1. Polygon batch snapshot — single API call for all tickers (~500ms)
             fetchMassive(
                 `/v2/snapshot/locale/us/markets/stocks/tickers`,
@@ -207,6 +269,8 @@ async function computeSector(request: Request) {
             // 2. Market status for session detection
             CentralDataHub.getMarketStatus().catch(() => ({ session: 'closed' })),
 
+            getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>)),
+
             // 3. Redis cached data
             // ★ [2026-09-25] 날짜 없는 flow:extended(24h) 읽기를 뺐다 — «정규장 분봉 PRE»(COST 916.26)와
             //   어제 POST 가 그 통로로 오늘 목록에 앉았다. 시간외 종가는 아래에서 날짜 키로 읽는다.
@@ -214,9 +278,6 @@ async function computeSector(request: Request) {
         ]);
 
         const cachedTickers = tickers.map((_, i) => interleaved[i]);
-
-        // [CACHE WARMER] Also fetch analysis cache as additional data source
-        const analysisCache = await getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>));
 
         // Build snapshot lookup map
         const snapshotMap: Record<string, any> = {};
@@ -408,62 +469,7 @@ async function computeSector(request: Request) {
             console.warn('[intel/fast] 차가운 종목 데우기 실패:', e?.message);
         }
 
-        // 다크풀(FINRA 규제 원본) — 인텔 페이로드엔 아예 키가 없어서 화면이 늘 «—» 였다.
-        let dpMap: Record<string, any> = {};
-        try {
-            const { getDarkPoolBatch } = await import('@/services/darkPool');
-            dpMap = await getDarkPoolBatch(tickers);
-        } catch (e: any) {
-            console.warn('[intel/fast] 다크풀(FINRA) 조회 실패:', e?.message);
-        }
-
-        const gexFallback: Record<string, any> = {};
-        // 진단 — 「폴백이 왜 안 걸리나」를 응답에서 바로 볼 수 있게. 추측 대신 실측.
-        let gexDiag: any = { need: 0, filled: 0, sample: [] as string[], err: null as string | null };
-        try {
-            // ★★ [2026-09-04] 처음엔 «종목 단위»로 걸렀다 — 「값이 하나라도 있으면 제외」.
-            //   그런데 실제 결손은 **필드 단위**다. MSFT 는 gex 는 있는데 pcr·예상변동폭이
-            //   비고, 그 종목이 「값이 있다」는 이유로 폴백에서 통째로 빠졌다
-            //   (DynamoDB 엔 4분 전 값이 gex·pcr·im·maxPain 전부 있는데도 화면은 null).
-            //   queryItems 를 고친 뒤 조회가 **20ms 수준**이라 아낄 이유가 없다.
-            //   → 전 종목을 읽고, 아래에서 **비어 있는 필드만** 채운다.
-            const needGex = tickers;
-            if (needGex.length > 0) {
-                const gexT0 = Date.now();
-                const db = await import('@/lib/aws/dynamoDataProvider');
-                gexDiag.importMs = Date.now() - gexT0;
-                // ⚠️ 처음엔 2.5초로 잡았다가 **전부 null** 이 돌아왔다(need=5 filled=0 err=없음).
-                //   AWS SDK 콜드 로딩 + 동시 조회가 그 안에 안 끝난다. 넉넉히 준다 —
-                //   여기서 못 채우면 화면에 «—» 가 남으므로 몇 백 ms 를 아낄 이유가 없다.
-                // GEX 레코드엔 netPremium 이 없다 — 프리미엄 계열은 flow-history 에 산다.
-                // 둘을 같이 읽어 합친다(둘 다 같은 하베스터가 채운다).
-                const { getLatestFlow } = await import('@/lib/aws/dynamoDataProvider');
-                const got = await Promise.all(
-                    needGex.map(async (t) => {
-                        const [gx, fl] = await Promise.all([
-                            Promise.race([
-                                latestCollectorGexRow(db, t).catch((e: any) => { gexDiag.err = String(e?.message || e).slice(0, 80); return null; }),
-                                new Promise<null>((r) => setTimeout(() => r(null), 8000)),
-                            ]),
-                            Promise.race([
-                                getLatestFlow(t).catch(() => null),
-                                new Promise<null>((r) => setTimeout(() => r(null), 8000)),
-                            ]),
-                        ]);
-                        if (!gx && !fl) return null;
-                        return { ...(fl || {}), ...(gx || {}) } as any;
-                    })
-                );
-                gexDiag.ms = Date.now() - gexT0;
-                needGex.forEach((t, gi) => { if (got[gi]) gexFallback[t] = got[gi]; });
-                const filled = Object.keys(gexFallback).length;
-                if (filled) console.log(`[intel/fast] DynamoDB GEX 폴백 ${filled}/${needGex.length}종목`);
-                gexDiag = { ...gexDiag, need: needGex.length, filled, sample: needGex.slice(0, 6) };  // ⚠️ 통째로 덮으면 err 가 지워진다
-            }
-        } catch (e: any) {
-            console.warn('[intel/fast] DynamoDB GEX 폴백 실패:', e?.message);
-            gexDiag.err = String(e?.message || e).slice(0, 120);
-        }
+        const { dpMap, gexFallback, gexDiag } = await fallbackPromise;
 
         const quotes = tickers.map((ticker, i) => {
             const snap = snapshotMap[ticker];

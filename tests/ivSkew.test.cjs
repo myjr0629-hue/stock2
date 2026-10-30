@@ -43,7 +43,7 @@ function apiHarness() {
             return { data: await fn(), _cache: 'miss' };
         } },
         '@/services/redisClient': {
-            getFromCache: async key => { if (state.failCache) throw new Error('cache offline'); return state.now < (expires.get(key) ?? 0) ? cache.get(key) ?? null : null; },
+            getFromCache: async key => { if (key.includes(':last-good:') && state.previousGate) await state.previousGate; if (state.failCache) throw new Error('cache offline'); return state.now < (expires.get(key) ?? 0) ? cache.get(key) ?? null : null; },
             setInCache: async (key, value, ttl) => { (key.includes(':last-good:') ? writes : closeWrites).push({ key, value, ttl }); cache.set(key, value); expires.set(key, state.now + ttl * 1000); return true; },
         },
         '@/lib/ivSkew': model,
@@ -79,6 +79,18 @@ function apiHarness() {
         cache.set(key, snapshot); expires.set(key, state.now + 30 * 24 * 3600 * 1000);
     }, call: async (ticker = 'TEST') => (await GET({ nextUrl: new URL(`https://fixture.invalid/?t=${ticker}`) })).body };
 }
+
+test('ATM starts spot lookup while last-good cache is pending', async () => {
+    const h = apiHarness();
+    let release;
+    h.state.previousGate = new Promise(resolve => { release = resolve; });
+    const pending = h.call();
+    try {
+        await new Promise(resolve => setImmediate(resolve));
+        assert.ok(h.calls.some(url => url.includes('/stocks/')));
+    } finally { release(); }
+    await pending;
+});
 
 test('total failure, no history: no generated strikes or neutral/zero IV', async () => {
     const h = apiHarness(); h.state.mode = 'total';
