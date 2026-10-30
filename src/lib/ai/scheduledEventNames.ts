@@ -58,6 +58,10 @@ const exact = (...keys: string[]) => {
 function periodic(period: keyof typeof PERIOD, ...bases: string[]): string[] {
     return bases.map(b => `(?:${b})(?: \\(? ${PERIOD[period]} \\)?)?`);
 }
+/** 기간 수식어가 «반드시» 있는 표기 — 같은 이름의 수준(기간 없는) 일정이 따로 있을 때(«주택 착공 건수» ≠ «주택 착공 전월비», 관문 10310550 ①) */
+function periodicStrict(period: keyof typeof PERIOD, ...bases: string[]): string[] {
+    return bases.map(b => `(?:${b}) \\(? ${PERIOD[period]} \\)?`);
+}
 function entry(id: string, test: (core: string) => boolean, ko: string[], ja: string[], gloss: string[]): Entry {
     return { id, test, aliases: [...ko, ...ja].map(rx), gloss };
 }
@@ -176,8 +180,8 @@ const ENTRIES: Entry[] = [
     entry('Challenger Job Cuts', exact('Challenger Job Cuts'), ['챌린저 (?:기업 )?(?:감원|해고|인원 ?감축)(?: (?:건수|규모|발표|보고서))?'], ['チャレンジャー ?(?:人員削減|解雇)(?:数|発表)?'], ['챌린저 감원', 'チャレンジャー人員削減']),
     // ── 물가 ──
     entry('Inflation Rate', exact('Inflation Rate'), ['(?:미 )?(?:소비자 ?)?물가 ?(?:상승률|지수)|(?:미 )?인플레이션(?: ?율)?|(?:미 )?CPI'], ['(?:米 )?(?:インフレ率|消費者物価(?:指数)?|CPI)'], ['소비자물가', '물가상승률', '消費者物価', 'インフレ率']),
-    entry('Inflation Rate MoM', exact('Inflation Rate MoM'), periodic('MoM', '(?:미 )?(?:소비자 ?)?물가 ?(?:상승률|지수)|(?:미 )?인플레이션(?: ?율)?|(?:미 )?CPI'), periodic('MoM', '(?:米 )?(?:インフレ率|消費者物価(?:指数)?|CPI)'), ['소비자물가', '물가상승률', '消費者物価', 'インフレ率']),
-    entry('Inflation Rate YoY', exact('Inflation Rate YoY'), periodic('YoY', '(?:미 )?(?:소비자 ?)?물가 ?(?:상승률|지수)|(?:미 )?인플레이션(?: ?율)?|(?:미 )?CPI'), periodic('YoY', '(?:米 )?(?:インフレ率|消費者物価(?:指数)?|CPI)'), ['소비자물가', '물가상승률', '消費者物価', 'インフレ率']),
+    entry('Inflation Rate MoM', exact('Inflation Rate MoM'), periodicStrict('MoM', '(?:미 )?(?:소비자 ?)?물가 ?(?:상승률|지수)|(?:미 )?인플레이션(?: ?율)?|(?:미 )?CPI'), periodicStrict('MoM', '(?:米 )?(?:インフレ率|消費者物価(?:指数)?|CPI)'), ['소비자물가', '물가상승률', '消費者物価', 'インフレ率']),
+    entry('Inflation Rate YoY', exact('Inflation Rate YoY'), periodicStrict('YoY', '(?:미 )?(?:소비자 ?)?물가 ?(?:상승률|지수)|(?:미 )?인플레이션(?: ?율)?|(?:미 )?CPI'), periodicStrict('YoY', '(?:米 )?(?:インフレ率|消費者物価(?:指数)?|CPI)'), ['소비자물가', '물가상승률', '消費者物価', 'インフレ率']),
     entry('CPI s.a', exact('CPI s.a', 'CPI'), ['(?:계절 ?조정 )?(?:소비자 ?물가 ?지수|CPI)(?: \\(?계절 ?조정\\)?)?'], ['(?:季節調整済み? ?)?(?:消費者物価指数|CPI)'], ['소비자물가지수', '消費者物価指数']),
     entry('Core Inflation Rate MoM', exact('Core Inflation Rate MoM', 'Core CPI MoM'), periodic('MoM', '근원 ?(?:소비자 ?)?(?:물가 ?(?:상승률|지수)?|인플레이션(?: ?율)?|CPI)'), periodic('MoM', 'コア ?(?:インフレ率|消費者物価(?:指数)?|CPI)'), ['근원 소비자물가', 'コア消費者物価']),
     entry('Core Inflation Rate YoY', exact('Core Inflation Rate YoY', 'Core CPI YoY'), periodic('YoY', '근원 ?(?:소비자 ?)?(?:물가 ?(?:상승률|지수)?|인플레이션(?: ?율)?|CPI)'), periodic('YoY', 'コア ?(?:インフレ率|消費者物価(?:指数)?|CPI)'), ['근원 소비자물가', 'コア消費者物価']),
@@ -238,13 +242,13 @@ const ENTRIES: Entry[] = [
     // ── 주택 ──
     entry('NAHB Housing Market Index', exact('NAHB Housing Market Index'), ['NAHB ?(?:주택 ?시장 ?지수|주택 ?건설업(?:체)? ?(?:심리 ?)?지수)'], ['NAHB ?住宅市場指数'], ['NAHB 주택시장지수', 'NAHB住宅市場指数']),
     entry('Building Permits', exact('Building Permits'), ['(?:주택 ?)?(?:건축|건설) ?허가(?: ?(?:건수|실적))?'], ['(?:住宅 ?)?建築許可(?:件数)?'], ['건축허가', '建築許可件数']),
-    entry('Building Permits MoM', exact('Building Permits MoM'), periodic('MoM', '(?:주택 ?)?(?:건축|건설) ?허가(?: ?(?:건수|실적))?'), periodic('MoM', '(?:住宅 ?)?建築許可(?:件数)?'), ['건축허가', '建築許可件数']),
+    entry('Building Permits MoM', exact('Building Permits MoM'), periodicStrict('MoM', '(?:주택 ?)?(?:건축|건설) ?허가(?: ?(?:건수|실적))?'), periodicStrict('MoM', '(?:住宅 ?)?建築許可(?:件数)?'), ['건축허가', '建築許可件数']),
     entry('Housing Starts', exact('Housing Starts'), ['주택 ?착공(?: ?(?:건수|실적))?'], ['住宅着工(?:件数)?'], ['주택착공', '住宅着工件数']),
-    entry('Housing Starts MoM', exact('Housing Starts MoM'), periodic('MoM', '주택 ?착공(?: ?(?:건수|실적))?'), periodic('MoM', '住宅着工(?:件数)?'), ['주택착공', '住宅着工件数']),
+    entry('Housing Starts MoM', exact('Housing Starts MoM'), periodicStrict('MoM', '주택 ?착공(?: ?(?:건수|실적))?'), periodicStrict('MoM', '住宅着工(?:件数)?'), ['주택착공', '住宅着工件数']),
     entry('Existing Home Sales', exact('Existing Home Sales'), ['기존 ?주택 ?(?:판매|매매)(?: ?(?:건수|실적))?'], ['中古住宅販売(?:件数)?'], ['기존주택판매', '中古住宅販売件数']),
-    entry('Existing Home Sales MoM', exact('Existing Home Sales MoM'), periodic('MoM', '기존 ?주택 ?(?:판매|매매)(?: ?(?:건수|실적))?'), periodic('MoM', '中古住宅販売(?:件数)?'), ['기존주택판매', '中古住宅販売件数']),
+    entry('Existing Home Sales MoM', exact('Existing Home Sales MoM'), periodicStrict('MoM', '기존 ?주택 ?(?:판매|매매)(?: ?(?:건수|실적))?'), periodicStrict('MoM', '中古住宅販売(?:件数)?'), ['기존주택판매', '中古住宅販売件数']),
     entry('New Home Sales', exact('New Home Sales'), ['신규 ?주택 ?(?:판매|매매)(?: ?(?:건수|실적))?'], ['新築住宅販売(?:件数)?'], ['신규주택판매', '新築住宅販売件数']),
-    entry('New Home Sales MoM', exact('New Home Sales MoM'), periodic('MoM', '신규 ?주택 ?(?:판매|매매)(?: ?(?:건수|실적))?'), periodic('MoM', '新築住宅販売(?:件数)?'), ['신규주택판매', '新築住宅販売件数']),
+    entry('New Home Sales MoM', exact('New Home Sales MoM'), periodicStrict('MoM', '신규 ?주택 ?(?:판매|매매)(?: ?(?:건수|실적))?'), periodicStrict('MoM', '新築住宅販売(?:件数)?'), ['신규주택판매', '新築住宅販売件数']),
     entry('Pending Home Sales MoM', exact('Pending Home Sales MoM'), periodic('MoM', '(?:잠정|미결) ?주택 ?(?:판매|매매)(?: ?(?:지수|건수))?'), periodic('MoM', '(?:中古 ?)?住宅販売(?:保留|仮契約|成約)(?:指数)?'), ['잠정주택판매', '中古住宅販売成約指数']),
     entry('Pending Home Sales YoY', exact('Pending Home Sales YoY'), periodic('YoY', '(?:잠정|미결) ?주택 ?(?:판매|매매)(?: ?(?:지수|건수))?'), periodic('YoY', '(?:中古 ?)?住宅販売(?:保留|仮契約|成約)(?:指数)?'), ['잠정주택판매', '中古住宅販売成約指数']),
     entry('S&P/Case-Shiller Home Price YoY', exact('S&P/Case-Shiller Home Price YoY'), periodic('YoY', '(?:S&P ?/ ?)?케이스 ?-? ?쉴러 ?(?:20 ?개 ?도시 ?)?(?:주택 ?가격 ?(?:지수)?|주택가격지수)'), periodic('YoY', '(?:S&P ?/ ?)?ケース ?・? ?シラー ?(?:20 ?都市 ?)?住宅価格(?:指数)?'), ['케이스실러 주택가격', 'ケースシラー住宅価格']),

@@ -1059,7 +1059,12 @@ export class GuardianDataHub {
             //   예약 결과: 새 글로 바뀌었을 때만 성공 — 대기 문구(기존 글 유지)·같은 글(복구본)은 실패로 기록해 60분 대기·연속 2회 중지(관문 10310437 P2)
             const regOk = regRefreshAt && placeholderFallback ? settleRegTacticalRefresh(context, placeholderFallback, IntelligenceNode.realityFreshAt(locale, context.verdict?.num?.tpl?.realityInsight ?? context.verdict?.realityInsight), regRefreshAt) : false;
             // 결과는 여기서 바로 기록 — 아래 섹터 결측(조기 반환) 경로에서도 빠지지 않게(관문 10310511 ②). 새 글은 저장소에 들어가 다른 경로가 채택한다
-            if (regRefreshAt) { await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now()); regRefreshAt = 0; }
+            if (regRefreshAt) {
+                await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now());
+                // 기존 글로 되돌렸으면 위에서 먼저 저장한 판정(ai_verdict)도 같은 글로 맞춘다(관문 10310550 ②)
+                if (!regOk && placeholderFallback && context.verdict?.realityInsight === placeholderFallback.verdict?.realityInsight) await saveAiVerdict(context.verdict, locale);
+                regRefreshAt = 0;
+            }
 
             // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon
             // snapshot failure). Caching it poisoned Redis for up to 10min and made the

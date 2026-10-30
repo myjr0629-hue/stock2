@@ -108,7 +108,12 @@ const NOV11 = Date.parse('2026-11-11T15:00:00Z');
 assert.ok(strict('11/12(목) 08:30 ET 근원 물가상승률 전년비 예정', CPI, NOV11).length, '근원은 근원 줄로만');
 assert.deepEqual(strict('11/12(목) 08:30 ET 근원 물가상승률 전년비 예정', [...CPI, line('Core Inflation Rate YoY (Oct)', '2026-11-12', '08:30')], NOV11), []);
 assert.deepEqual(strict('11/12(목) 08:30 ET 소비자물가 상승률 전년비 예정', CPI, NOV11), []);
-assert.deepEqual(strict('11/12(목) 08:30 ET 물가상승률 발표 예정', CPI, NOV11), [], '기간 없는 표기 = 같은 발표 묶음 중 하나');
+assert.ok(strict('11/12(목) 08:30 ET 물가상승률 발표 예정', CPI, NOV11).length, '기간 없는 표기는 기간 없는 줄(Inflation Rate)로만(관문 10310550 ①)');
+assert.deepEqual(strict('11/12(목) 08:30 ET 물가상승률 발표 예정', [...CPI, line('Inflation Rate (Oct)', '2026-11-12', '08:30')], NOV11), []);
+const HS = [line('Housing Starts MoM (Oct)', '2026-11-18', '08:30')], NOV17 = Date.parse('2026-11-17T15:00:00Z');
+assert.ok(strict('11/18(수) 08:30 ET 주택 착공 건수 발표 예정', HS, NOV17).length, '착공 건수 ≠ 착공 전월비');
+assert.deepEqual(strict('11/18(수) 08:30 ET 주택 착공 건수 전월비 발표 예정', HS, NOV17), []);
+assert.deepEqual(strict('11/18(수) 08:30 ET 주택 착공 건수 발표 예정', [line('Housing Starts (Oct)', '2026-11-18', '08:30')], NOV17), []);
 assert.ok(strict('11/12(목) 08:30 ET 물가상승률 전분기 대비 예정', CPI, NOV11).length, '남은 기간 수식어는 다른 지표');
 // API ≠ EIA · 휘발유 ≠ 원유
 const NOV4 = Date.parse('2026-11-04T13:00:00Z');
