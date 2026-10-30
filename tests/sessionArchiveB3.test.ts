@@ -172,7 +172,7 @@ t('스퀴즈 확률: FINRA 로 채운 공매도 비중은 입력으로 쓰지 �
     const s = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
     // [2026-10-31 T37] 공매도 비중·IV Rank 모두 입력이 아니다 — 칸은 ticker 응답의 API 스퀴즈 점수만.
     assert.doesNotMatch(s, /shortForSqueeze/);
-    assert.match(s, /const squeezeReading = useMemo\(\(\) => flowSqueeze\(tickerData\?\.flow\), \[tickerData\]\);/);
+    assert.match(s, /const squeezeReading = useMemo\(\(\) => flowSqueeze\(squeezeCurrent \? tickerData\?\.flow : null\), \[tickerData, squeezeCurrent\]\);/);
 });
 
 (async () => {

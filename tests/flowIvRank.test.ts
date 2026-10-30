@@ -23,7 +23,7 @@ function visit(n: ts.Node) {
     if (ts.isJsxExpression(n) && n.expression) {
         const text = n.expression.getText(ast);
         if (text.startsWith('ivRankVal != null ?')) rankCell = text;
-        if (text.startsWith('squeezeProb == null ?') && text.includes('`${squeezeProb}%`')) squeezeCell = text;
+        if (text.startsWith('squeezeProb == null ?') && text.includes('`${squeezeProb}')) squeezeCell = text;
     }
     ts.forEachChild(n, visit);
 }
@@ -51,6 +51,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
     let resolveIv: (r: any) => void = () => {};
     let failed = false;
     let tickerRequests = 0;
+    let tickerFail = false;
     let ivRequests = 0;
     const timers = new Map<number, { at: number; fn: () => void }>();
     let timerId = 0;
@@ -69,6 +70,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         },
         setInterval: (fn: () => void) => { refresh = fn; return 1; }, clearInterval: () => {},
         fetchWithTtfbLimit: async () => {
+            if (tickerFail) throw new Error('ticker transport failure');
             if (++tickerRequests <= (options.tickerFailures ?? 0)) throw new Error('ticker transport failure');
             return options.blockedTicker ? new Promise(() => {}) : response(data);
         },
@@ -106,6 +108,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         const shortPressureNum = value('shortPressureNum', { tickerData: c.tickerData, pctNumber: (x: any) => typeof x === 'number' ? x : null });
         c.shortPct = value('shortPct', { shortPressureNum });
         // [T37] 스퀴즈 칸은 같은 ticker 응답의 flow.squeezeScore·squeezeRisk 만 — IV Rank·공매도 비중과 무관.
+        c.squeezeCurrent = value('squeezeCurrent', c);
         c.squeezeReading = value('squeezeReading', { ...c, flowSqueeze });
         const squeeze = value('squeezeProb', c);
         const sentence = value('regimeInsightText', { ...c, flowCopy: value('APP_FLOW_COPY', ctx).ko, pcText: '0.62', premiumBiasLabel: '중립' });
@@ -124,6 +127,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         },
         resolveIv: async () => { resolveIv(ivResponse); await settle(); },
         setNow: (iso: string) => { now = Date.parse(iso); },
+        setTickerFail: (v: boolean) => { tickerFail = v; },
     };
 }
 
@@ -257,8 +261,9 @@ test('[T37] squeeze cell shows the ticker API squeeze score/level, never IV Rank
     const h = await harness({ data: nvda, iv: { ...good(98), ticker: 'NVDA' } });
     assert.equal(h.display().rank, 98);
     assert.equal(h.display().squeeze, 36);
-    assert.equal(h.display().squeezeCell, '36%');
+    assert.equal(h.display().squeezeCell, '36', '위험 점수 — «%» 를 붙이지 않는다(확률 아님)');
     assert.equal(h.state.tickerData.flow.squeezeRisk, 'MEDIUM');
+    assert.equal(h.display('AAPL').squeeze, null, '다른 종목 화면에는 이 응답의 점수를 그리지 않는다');
     h.cleanup();
 });
 test('[T37] refresh replaces the squeeze score; a failed refresh keeps the same-ticker value; ticker switch clears it', async () => {
@@ -270,6 +275,21 @@ test('[T37] refresh replaces the squeeze score; a failed refresh keeps the same-
     body.flow = { squeezeScore: null, squeezeRisk: null } as any; await h.refresh();
     assert.equal(h.display().squeeze, null);
     assert.equal(h.display().squeezeCell, '—');
+    h.cleanup();
+});
+test('[T37] ticker transport failure keeps the same-session value; a session change without a new response clears it', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+    let failTicker = false;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, now: '2026-10-16T18:00:00Z' });
+    assert.equal(h.display().squeeze, 36);
+    h.setTickerFail(true); await h.refresh();
+    assert.equal(h.display().squeeze, 36, '같은 세션 갱신 실패 — 마지막 값 유지(다른 칸과 같은 규칙)');
+    h.setNow('2026-10-19T13:30:01Z'); await h.refresh();   // 다음 정규장 개장 — 새 응답 없음
+    assert.equal(h.display().squeeze, null, '지난 세션 점수는 그리지 않는다');
+    assert.equal(h.display().squeezeCell, '—');
+    h.setTickerFail(false); await h.refresh();
+    assert.equal(h.display().squeeze, 36, '새 세션 응답이 오면 다시 그린다');
+    void failTicker;
     h.cleanup();
 });
 test('[T37] flowSqueeze maps API score/risk; missing or invalid is null (cell stays with —)', () => {
