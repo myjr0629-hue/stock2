@@ -145,31 +145,50 @@ const cftc = (core: string, koAsset: string, jaAsset: string, gloss: string[]): 
         [`${CFTC_JA}${jaAsset} (?:の )?${SPEC_JA}`, `CFTC (?:の )?${jaAsset} (?:の )?${CFTC_LOOSE_JA}`], gloss);
 
 // 연준 인사 — «Fed {이름} Speech»(직함 포함 변형도) · 같은 사람만
-const FED_PEOPLE: Array<[string, string, string]> = [
-    ['Powell', '파월', 'パウエル'], ['Jefferson', '제퍼슨', 'ジェファーソン'], ['Waller', '월러', 'ウォラー'], ['Bowman', '보(?:우)?먼', 'ボウマン'],
-    ['Barr', '바(?=\\s*(?:연준|이사|부의장))', 'バー(?=\\s*(?:FRB|理事|副議長))'], ['Cook', '쿡', 'クック'], ['Kugler', '쿠글러', 'クーグラー'], ['Miran', '미란', 'ミラン'],
-    ['Daly', '데일리', 'デイリー'], ['Barkin', '바킨', 'バーキン'], ['Musalem', '무살렘', 'ムサレム'], ['Goolsbee', '굴스비', 'グールズビー'],
-    ['Hammack', '(?:해맥|해먹|하맥)', 'ハマック'], ['Logan', '로건', 'ローガン'], ['Williams', '윌리엄스', 'ウィリアムズ'], ['Kashkari', '카(?:시|슈)카리', 'カシュカリ'],
-    ['Bostic', '보스틱', 'ボスティック'], ['Collins', '콜린스', 'コリンズ'], ['Schmid', '슈미(?:드|트)', 'シュミッド'], ['Harker', '하커', 'ハーカー'],
-    ['Paulson', '폴슨', 'ポールソン'], ['Mester', '메스터', 'メスター'],
+// 연준 인사 — 이름·소속 연은·직함까지 그 사람 것만(관문 10310705 «데일리 뉴욕 연은 총재»·«파월 부의장» 실패)
+type FedPerson = { en: string; ko: string; ja: string; koBank?: string; jaBank?: string; koTitle: string; jaTitle: string };
+const PRES = { koTitle: '총재', jaTitle: '総裁' };
+const FED_PEOPLE: FedPerson[] = [
+    { en: 'Powell', ko: '파월', ja: 'パウエル', koTitle: '의장', jaTitle: '(?:FRB ?)?議長' },
+    { en: 'Jefferson', ko: '제퍼슨', ja: 'ジェファーソン', koTitle: '부의장', jaTitle: '(?:FRB ?)?副議長' },
+    { en: 'Bowman', ko: '보(?:우)?먼', ja: 'ボウマン', koTitle: '(?:부의장|이사)', jaTitle: '(?:FRB ?)?(?:副議長|理事)' },
+    { en: 'Barr', ko: '바(?=\\s*(?:연준|이사|부의장))', ja: 'バー(?=\\s*(?:FRB|理事|副議長))', koTitle: '(?:이사|부의장)', jaTitle: '(?:FRB ?)?(?:理事|副議長)' },
+    ...(['Waller:월러:ウォラー', 'Cook:쿡:クック', 'Kugler:쿠글러:クーグラー', 'Miran:미란:ミラン'].map(x => { const [en, ko, ja] = x.split(':'); return { en, ko, ja, koTitle: '이사', jaTitle: '(?:FRB ?)?理事' }; })),
+    { en: 'Daly', ko: '데일리', ja: 'デイリー', koBank: '샌프란시스코', jaBank: 'サンフランシスコ', ...PRES },
+    { en: 'Williams', ko: '윌리엄스', ja: 'ウィリアムズ', koBank: '뉴욕', jaBank: 'ニューヨーク', ...PRES },
+    { en: 'Barkin', ko: '바킨', ja: 'バーキン', koBank: '리치(?:먼|몬)드', jaBank: 'リッチモンド', ...PRES },
+    { en: 'Musalem', ko: '무살렘', ja: 'ムサレム', koBank: '세인트 ?루이스', jaBank: 'セントルイス', ...PRES },
+    { en: 'Goolsbee', ko: '굴스비', ja: 'グールズビー', koBank: '시카고', jaBank: 'シカゴ', ...PRES },
+    { en: 'Hammack', ko: '(?:해맥|해먹|하맥)', ja: 'ハマック', koBank: '클리블랜드', jaBank: 'クリーブランド', ...PRES },
+    { en: 'Logan', ko: '로건', ja: 'ローガン', koBank: '댈러스', jaBank: 'ダラス', ...PRES },
+    { en: 'Kashkari', ko: '카(?:시|슈)카리', ja: 'カシュカリ', koBank: '미니애폴리스', jaBank: 'ミネアポリス', ...PRES },
+    { en: 'Bostic', ko: '보스틱', ja: 'ボスティック', koBank: '애틀랜타', jaBank: 'アトランタ', ...PRES },
+    { en: 'Collins', ko: '콜린스', ja: 'コリンズ', koBank: '보스턴', jaBank: 'ボストン', ...PRES },
+    { en: 'Schmid', ko: '슈미(?:드|트)', ja: 'シュミッド', koBank: '캔자스 ?시티', jaBank: 'カンザスシティー?', ...PRES },
+    { en: 'Harker', ko: '하커', ja: 'ハーカー', koBank: '필라델피아', jaBank: 'フィラデルフィア', ...PRES },
+    { en: 'Paulson', ko: '폴슨', ja: 'ポールソン', koBank: '필라델피아', jaBank: 'フィラデルフィア', ...PRES },
+    { en: 'Mester', ko: '메스터', ja: 'メスター', koBank: '클리블랜드', jaBank: 'クリーブランド', ...PRES },
 ];
 const FED_SPEECH = /^Fed (?:Chair(?:man)? |Vice Chair(?: for Supervision)? |Governor |President )?([A-Z][a-z]+) (?:Speech|Speaks|Testimony|Remarks)$/;
-const KO_FED_PREFIX = '(?:(?:미 )?(?:연준|연방준비제도|연방준비은행|연은) (?:의 )?)?(?:[가-힣]{1,8} (?:연은|연방준비은행) )?';
-const KO_FED_TITLE = '(?:(?:연준|연은) )?(?:총재|이사|부의장|의장|위원)?';
-const JA_FED_PREFIX = '(?:(?:米 )?(?:FRB|連銀|米連邦準備制度理事会|米連邦準備銀行) (?:の )?)?(?:[ァ-ヴー・]{1,10} 連銀 (?:の )?)?';
-/** 이름 뒤에 붙는 소속 연은(«데일리 샌프란시스코 연은 총재»·«デイリー・サンフランシスコ連銀総裁») */
+const KO_FED_GENERIC = '(?:(?:미 )?(?:연준|연방준비제도) (?:의 )?)?';
+const JA_FED_GENERIC = '(?:(?:米 )?(?:FRB|米連邦準備制度理事会) (?:の )?)?';
+/** «○○ 연은»(그 사람의 연은만) */
+const koBankPre = (p: FedPerson) => p.koBank ? `(?:${p.koBank} (?:연은|연방준비은행) (?:의 )?)?` : '';
+const koBankPost = (p: FedPerson) => p.koBank ? `(?:${p.koBank} (?:연은|연방준비은행) )?` : '';
+const jaBankPre = (p: FedPerson) => p.jaBank ? `(?:${p.jaBank} ?連銀 ?(?:の )?)?` : '';
+const jaBankPost = (p: FedPerson) => p.jaBank ? `(?:・? ?${p.jaBank} ?連銀 ?)?` : '';
+/** 일반 꼴(사전 밖 인물·틀린 소속 검출용) */
 const KO_FED_BANK = '(?:[가-힣]{1,8} (?:연은|연방준비은행) )?';
 const JA_FED_BANK = '(?:・? ?[ァ-ヴー]{1,10} 連銀 )?';
-const JA_FED_TITLE = '(?:(?:米)?(?:FRB|連銀) )?(?:総裁|理事|副議長|議長)?';
 // 연설(Speech·Speaks·Remarks) ≠ 증언(Testimony) — 같은 사람이어도 종류가 맞아야(관문 10310619)
 const FED_KINDS = [
     { id: 'Speech', en: /^(?:Speech|Speaks|Remarks)$/, ko: '(?:연설|발언|강연)', ja: '(?:講演|発言|演説)' },
     { id: 'Testimony', en: /^Testimony$/, ko: '(?:의회 )?증언', ja: '(?:議会 ?)?証言' },
 ];
-const fedPeople = FED_PEOPLE.flatMap(([en, ko, ja]) => FED_KINDS.map(k => entry(`Fed ${en} ${k.id}`,
-    core => { const m = FED_SPEECH.exec(core); return m?.[1] === en && k.en.test(core.split(' ').pop() || ''); },
-    [`${KO_FED_PREFIX}${ko} ${KO_FED_BANK}${KO_FED_TITLE} (?:의 )?${k.ko}`],
-    [`${JA_FED_PREFIX}${ja} ${JA_FED_BANK}${JA_FED_TITLE} (?:の )?${k.ja}`],
+const fedPeople = FED_PEOPLE.flatMap(p => FED_KINDS.map(k => entry(`Fed ${p.en} ${k.id}`,
+    core => { const m = FED_SPEECH.exec(core); return m?.[1] === p.en && k.en.test(core.split(' ').pop() || ''); },
+    [`${KO_FED_GENERIC}${koBankPre(p)}${p.ko} ${koBankPost(p)}(?:${p.koTitle} )?(?:의 )?${k.ko}`],
+    [`${JA_FED_GENERIC}${jaBankPre(p)}${p.ja} ?${jaBankPost(p)}(?:${p.jaTitle} ?)?(?:の )?${k.ja}`],
     ['연준 연설', '連銀講演', 'FRB講演'])));
 /** 사전에 없는 인물의 «○○ 총재 연설»은 어느 줄로도 맞지 않는다(사건군 «연준»만으로 다른 인사의 줄에 기대 통과하지 않게) */
 const fedUnknownPerson = entry('Fed unknown person speech', () => false,
@@ -333,8 +352,8 @@ const ENTRIES: Entry[] = [
     entry('Goods Trade Balance', exact('Goods Trade Balance', 'Goods Trade Balance Adv'), ['상품 ?무역 ?수지'], ['(?:財|モノ)の? ?貿易収支'], ['상품 무역수지', '財貿易収支']),
     entry('Exports', exact('Exports'), ['(?:미 )?수출(?:액|실적)'], ['(?:米 )?輸出額'], ['수출액', '輸出額']),
     entry('Imports', exact('Imports'), ['(?:미 )?수입(?:액|실적)'], ['(?:米 )?輸入額'], ['수입액', '輸入額']),
-    entry('Budget Balance', exact('Budget Balance', 'Monthly Budget Statement'), ['(?:미 )?(?:연방 )?(?:정부 )?(?:재정 ?수지|월간 ?재정 ?보고서|재정 ?적자)'], ['(?:米 )?(?:財政収支|月次財政収支)'], ['재정수지', '財政収支']),
-    entry('Net Long-Term TIC Flows', exact('Net Long-Term TIC Flows'), ['(?:장기 ?)?(?:TIC ?)?(?:순 ?유입|자본 ?유출입|증권 ?순매입)(?: ?\\(?TIC\\)?)?|TIC ?장기 ?(?:순 ?유입|자본 ?흐름)'], ['(?:対米 ?)?長期 ?(?:TIC ?)?(?:ネット ?)?(?:資本)?(?:フロー|流入)|TIC ?長期(?:資本)?(?:収支|フロー)'], ['장기 TIC 순유입', '長期TICフロー']),
+    entry('Budget Balance', exact('Budget Balance', 'Monthly Budget Statement'), ['(?:미 )?(?:연방 )?(?:정부 )?(?:재정 ?수지|월간 ?재정 ?보고서)'], ['(?:米 )?(?:財政収支|月次財政収支)'], ['재정수지', '財政収支']),
+    entry('Net Long-Term TIC Flows', exact('Net Long-Term TIC Flows'), ['장기 ?TIC ?자본 ?(?:흐름|유출입)|TIC ?장기 ?자본 ?(?:흐름|유출입)'], ['(?:対米 ?)?長期 ?TIC ?(?:資本)?(?:フロー|収支)|TIC ?長期(?:資本)?(?:フロー|収支)'], ['장기 TIC 자본 흐름', '長期TICフロー']),
     // ── 연준·성장·정치 ──
     entry('FOMC Minutes', exact('FOMC Minutes'), ['(?:FOMC|연준) ?(?:회의 ?)?의사록'], ['(?:FOMC|連銀) ?(?:議事要旨|議事録)'], ['FOMC 의사록', '연준', 'FOMC議事要旨']),
     entry('Fed Interest Rate Decision', exact('Fed Interest Rate Decision'), ['(?:FOMC|연준) ?(?:의 )?(?:기준 ?)?금리 ?(?:결정|발표)|FOMC ?(?:정책 ?)?결정'], ['(?:FOMC|FRB) ?(?:の )?(?:政策)?金利 ?(?:決定|発表)|FOMC ?決定'], ['연준 금리 결정', 'FOMC金利決定']),
@@ -384,7 +403,8 @@ const KANA_KANJI = /[ぁ-んァ-ヴー一-龯々]/;
 const HIRAGANA_NOT_NO = /[ぁ-ゔ]$/;
 
 /** 괄호 속이 이름을 바꾸지 않는 말인가 — 영숫자(영어 이름·기간)·요일·현지 시각·기간(10월분·Q3) */
-const BENIGN_PAREN = /^\s*(?:[\d ,.:/-]*|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?(?:\s*\/\s*\d{1,2})?|Q[1-4]|[월화수목금토일]|[月火水木金土日]|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\.?|(?:한국|日本時間)\s*(?:\d{1,2}\/\d{1,2}\s*)?\d{1,2}:\d{2}|\d{1,2}\s*월(?:분)?|\d{1,2}\s*月(?:分)?|[1-4]\s*분기|第?[1-4]四半期)\s*$/i;
+// 괄호 속 기간(«(9월)»·«(3분기)»)은 근거 기간과 대조하지 않으므로 허용하지 않는다(관문 10310705) — 요일·현지 시각만
+const BENIGN_PAREN = /^\s*(?:[월화수목금토일]|[月火水木金土日]|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\.?|(?:한국|日本時間)\s*(?:\d{1,2}\/\d{1,2}\s*)?\d{1,2}:\d{2})\s*$/i;
 /** 괄호 속 영어가 그 일정 영어 이름(의 낱말들)일 뿐인가 — «(Unemployment Rate)»·«(speculative net positions)» 허용, «(U-6)»·«(Youth)» 는 다른 지표(관문 10310504 ①) */
 function englishOfEntries(content: string, entries: Entry[]): boolean {
     const words = content.toLowerCase().split(/[\s,]+/).filter(Boolean);

@@ -104,7 +104,7 @@ const UR = [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')];
 const NOV5 = Date.parse('2026-11-05T15:00:00Z');
 for (const t of ['11/6(금) 08:30 ET 예정된 실업률(U-6) 발표', '11/6(금) 08:30 ET 예정된 (U-6) 실업률', '11/6(금) 08:30 ET 예정된 실업률(Youth)', '11/6(금) 08:30 ET 예정된 실업률(청년) 발표', '11/6(금) 08:30 ET 예정된 (청년) 실업률', '11/6(金) 08:30 ET 予定の失業率(若年層)', '11/6(금) 08:30 ET 노인 실업률 예정', '11/6(금) 08:30 ET 여성 실업률 예정', '11/6(금) 08:30 ET 흑인 실업률 예정', '11/6(금) 08:30 ET 청년 실업률 예정', '11/6(금) 08:30 ET 예정된 청년실업률', '11/6(金) 08:30 ET 予定の若年失業率', '11/6(金) 08:30 ET 予定の若年層の失業率', '11/6(금) 08:30 ET 예정된 청년층의 실업률', '11/6(금) 08:30 ET 예정된 실업률 전월비', '11/6 08:30 ET Youth 실업률 예정'])
     assert.ok(strict(t, UR, NOV5).length, `오통과 금지: ${t}`);
-for (const t of ['11/6(금) 08:30 ET 예정된 실업률(10월) 발표', '11/6(금) 08:30 ET 예정된 실업률(Unemployment Rate)', '11/6(금) 08:30 ET 예정된 실업률', '11/6(금) 08:30 ET 미국 실업률 발표 예정', '11/6(金) 08:30 ET 予定の米失業率'])
+for (const t of ['11/6(금) 08:30 ET 예정된 실업률(Unemployment Rate)', '11/6(금) 08:30 ET 예정된 실업률', '11/6(금) 08:30 ET 미국 실업률 발표 예정', '11/6(金) 08:30 ET 予定の米失業率'])
     assert.deepEqual(strict(t, UR, NOV5), [], `정상 통과: ${t}`);
 // U-6 는 U-6 줄로만
 assert.ok(strict('11/6(금) 08:30 ET 예정된 U-6 실업률', UR, NOV5).length);
@@ -192,6 +192,19 @@ assert.ok(strict('10/30(금) 08:30 ET 고용 비용 지수 발표 예정', ECI, 
 assert.deepEqual(strict('10/30(금) 08:30 ET 고용비용지수 전분기 대비 발표 예정', ECI, OCT30), []);
 assert.ok(strict('10/29(목) 10:00 ET 잠정 주택 판매 건수 발표 예정', [line('Pending Home Sales MoM (Sep)', '2026-10-29', '10:00')], Date.parse('2026-10-29T12:00:00Z')).length, '건수 ≠ 전월비');
 assert.ok(strict('10/27(화) 09:00 ET 케이스 쉴러 20개 도시 주택 가격 지수 발표 예정', [line('S&P/Case-Shiller Home Price YoY (Aug)', '2026-10-27', '09:00')], Date.parse('2026-10-27T11:00:00Z')).length, '지수 ≠ 전년비');
+// 관문 10310705 — 괄호 기간·연준 소속/직함·방향어
+for (const t of ['11/6(금) 08:30 ET 실업률(9월) 발표 예정', '11/6(금) 08:30 ET 실업률(3분기) 발표 예정', '11/6(금) 08:30 ET 예정된 실업률(10월) 발표'])
+    assert.ok(strict(t, [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')], Date.parse('2026-11-05T15:00:00Z')).length, `괄호 기간: ${t}`);
+const DALY1 = [line('Fed Daly Speech', '2026-10-30', '12:00')], POW1 = [line('Fed Powell Speech', '2026-10-30', '12:00')];
+assert.ok(strict('10/30(금) 12:00 ET 데일리 뉴욕 연은 총재 연설 예정', DALY1, AT_1530Z).length, '소속 연은 틀림');
+assert.ok(strict('10/30(금) 12:00 ET 뉴욕 연은 데일리 총재 연설 예정', DALY1, AT_1530Z).length, '소속 연은 틀림(앞)');
+assert.ok(strict('10/30(금) 12:00 ET 파월 부의장 연설 예정', POW1, AT_1530Z).length, '직함 틀림');
+assert.ok(strict('10/30(金) 12:00 ET 予定のデイリー・ニューヨーク連銀総裁講演', DALY1, AT_1530Z).length, '所属違い');
+assert.deepEqual(strict('10/30(금) 12:00 ET 파월 의장 연설 예정', POW1, AT_1530Z), []);
+assert.deepEqual(strict('10/30(금) 12:00 ET 샌프란시스코 연은 데일리 총재 연설 예정', DALY1, AT_1530Z), []);
+assert.ok(strict('11/12(목) 14:00 ET 예정된 재정 적자 발표', [line('Budget Balance (Oct)', '2026-11-12', '14:00')], NOV11).length, '적자 = 방향 단정');
+assert.deepEqual(strict('11/12(목) 14:00 ET 예정된 재정수지 발표', [line('Budget Balance (Oct)', '2026-11-12', '14:00')], NOV11), []);
+assert.ok(strict('11/17(화) 16:00 ET 예정된 장기 TIC 순유입 발표', [line('Net Long-Term TIC Flows (Sep)', '2026-11-17', '16:00')], Date.parse('2026-11-17T15:00:00Z')).length, '순유입 = 방향 단정');
 // JOLTS 대문자 약어(근거는 «JOLTs»)는 사전 표기 안에서만 이름으로 인정
 const JOLTS = [line('JOLTs Job Openings (Sep)', '2026-11-03', '10:00')];
 assert.deepEqual(strict('11/3(화) 10:00 ET JOLTS 구인건수 예정', JOLTS, Date.parse('2026-11-03T13:00:00Z')), []);
