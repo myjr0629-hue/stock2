@@ -1025,6 +1025,8 @@ export class GuardianDataHub {
             // ★T35-B 정기 재생성이 새 글을 못 만들어 대기 문구가 됐으면 기존 장중 글(과 그 생성 기준)을 지킨다 — 출구 검사가 그 글을 다시 거른다
             //   예약 결과: 새 글로 바뀌었을 때만 성공 — 대기 문구(기존 글 유지)·같은 글(복구본)은 실패로 기록해 60분 대기·연속 2회 중지(관문 10310437 P2)
             const regOk = regRefreshAt && placeholderFallback ? settleRegTacticalRefresh(context, placeholderFallback) : false;
+            // 결과는 여기서 바로 기록 — 아래 섹터 결측(조기 반환) 경로에서도 빠지지 않게(관문 10310511 ②). 새 글은 저장소에 들어가 다른 경로가 채택한다
+            if (regRefreshAt) { await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now()); regRefreshAt = 0; }
 
             // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon
             // snapshot failure). Caching it poisoned Redis for up to 10min and made the
@@ -1069,7 +1071,6 @@ export class GuardianDataHub {
             }
 
             console.log("[Guardian] Context Refresh Complete.");
-            if (regRefreshAt) await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now());
             return context;
 
         } catch (error) {

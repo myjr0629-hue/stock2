@@ -148,6 +148,13 @@ assert.deepEqual(strict('12/9(수) 14:00 ET 예정된 FOMC 금리 결정', FOMC,
 assert.ok(strict('12/9(수) 14:00 ET 예정된 FOMC 성명', FOMC, DEC9).length, 'FOMC 성명');
 assert.ok(strict('12/9(水) 14:00 ET 予定のFOMC声明', FOMC, DEC9).length, 'FOMC声明');
 
+// 회사명 인식은 기존대로(앞에 글자가 붙어도) — 관문 10310511 ① «미국테슬라»·«自動車メーカーテスラ» 는 TSLA 줄을 요구
+const NVDA = ['[earnings calendar; 2026-10-21; 16:00 ET] NVDA (confirmed; scheduled; not a released result)'];
+const OCT21 = Date.parse('2026-10-21T15:00:00Z');
+assert.deepEqual(strict('10/21(수) 16:00 ET NVDA 실적 발표 예정', NVDA, OCT21), []);
+assert.ok(strict('10/21(수) 16:00 ET NVDA와 미국테슬라 실적 발표 예정', NVDA, OCT21).length, '미국테슬라');
+assert.ok(strict('10/21(水) 16:00 ET NVDAと自動車メーカーテスラの決算発表予定', NVDA, OCT21).length, '自動車メーカーテスラ');
+
 // 사건군 근거 보강은 근거 줄 이름에서만(지시문 속 낱말 아님)
 assert.equal(withEventNameGloss('no calendar lines'), 'no calendar lines');
 assert.ok(withEventNameGloss(JSON.stringify([line('2-Year Note Auction')])).includes('국채 입찰'));

@@ -379,10 +379,9 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
     const knownSpans = nameHits.filter(h => h.ok && evidenceLines.some(l => { const n = lineName(l); return !!n && h.test(eventCoreName(n)); }));
     for (const c of companyNameEntries()) {
         const byTicker = new RegExp(`(?<![A-Za-z0-9])${escRe(c.ticker)}(?![A-Za-z0-9])`).test(text);
-        // 한글 이름은 앞 글자가 한글이면 다른 낱말의 일부(«소비자»의 «비자»=V, «메타버스»는 앞이 아니라 뒤라 그대로) — 가타카나 이름도 가타카나 낱말 안이면 제외(T35-A «미시간대 소비자심리지수»가 V 줄을 요구해 탈락하던 것)
+        // 한·일 회사명은 기존대로 부분 문자열 — 단, 근거 일정을 가리키는 사전 표기 «안»의 글자는 회사명이 아니다(«미시간대 소비자심리지수»의 «비자»=V, T35-A · 관문 10310511 회귀 방지)
         const byName = c.names.some(n => /^[A-Za-z]/.test(n) ? new RegExp(`(?<![A-Za-z])${escRe(n)}(?![A-Za-z])`, 'i').test(text)
-            : /^[가-힣]/.test(n) ? new RegExp(`(?<![가-힣])${escRe(n)}`).test(text)
-                : /^[ァ-ヴー]+$/.test(n) ? new RegExp(`(?<![ァ-ヴー])${escRe(n)}(?![ァ-ヴー])`).test(text) : text.includes(n));
+            : [...text.matchAll(new RegExp(escRe(n), 'g'))].some(m => !knownSpans.some(h => m.index! >= h.start && m.index! + n.length <= h.end)));
         if ((byTicker || byName) && !mentions.some(m => m.key === `name:${c.ticker}`))
             mentions.push({ key: `name:${c.ticker}`, is: line => lineName(line) === c.ticker });
     }
