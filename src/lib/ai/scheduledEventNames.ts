@@ -115,19 +115,27 @@ const AUCTION = /^(\d+)-(Year|Month|Week) (Note|Bond|Bill|TIPS|FRN) Auction$/i;
 const KO_UNIT: Record<string, string> = { year: '년', month: '개월', week: '주' };
 const JA_UNIT: Record<string, string> = { year: '年', month: '(?:か月|カ月|ヶ月|ヵ月)', week: '週' };
 const AUCTION_TERMS = [[2, 'year'], [3, 'year'], [5, 'year'], [7, 'year'], [10, 'year'], [20, 'year'], [30, 'year'], [4, 'week'], [6, 'week'], [8, 'week'], [13, 'week'], [17, 'week'], [26, 'week'], [52, 'week'], [3, 'month'], [6, 'month']] as const;
-const auctions = AUCTION_TERMS.flatMap(([n, unit]) => (['nominal', 'tips'] as const).map(kind => entry(`${n}-${unit} ${kind} auction`,
-    core => { const m = AUCTION.exec(core); return !!m && Number(m[1]) === n && m[2].toLowerCase() === unit && (m[3].toUpperCase() === 'TIPS') === (kind === 'tips'); },
-    [kind === 'tips'
-        ? `${n} ${KO_UNIT[unit]}(?:물|만기)? (?:미 )?(?:물가 ?연동 (?:국채)?|TIPS) (?:의 )?입찰`
-        : `${n} ${KO_UNIT[unit]}(?:물|만기)? (?:미 )?(?:국채|재무부 (?:채권|증권|단기채|중기채|장기채)|(?:단기|중기|장기) 국채|T-?(?:노트|본드|빌)) (?:의 )?입찰`],
-    [kind === 'tips'
-        ? `${n} ${JA_UNIT[unit]}(?:物)? (?:米)?(?:物価連動国債|TIPS) (?:の )?入札`
-        : `${n} ${JA_UNIT[unit]}(?:物)? (?:米)?(?:国債|財務省証券|短期証券) (?:の )?入札`],
+/**
+ * 입찰 종류 — 줄의 종류(Note·Bond·Bill·TIPS·FRN)와 표기의 종류가 맞아야 한다(관문 10310602 «2년물 T-노트» ↔ «2-Year FRN»).
+ *   «국채»·«재무부 채권/증권»처럼 종류를 말하지 않는 표기는 명목 국채(Note·Bond·Bill) 어느 것이든, TIPS·FRN 은 그 이름을 써야만.
+ */
+const AUCTION_KINDS: Array<{ id: string; types: string[]; ko: string; ja: string }> = [
+    { id: 'nominal', types: ['NOTE', 'BOND', 'BILL'], ko: '(?:국채|재무부 (?:채권|증권))', ja: '(?:国債|財務省証券)' },
+    { id: 'note', types: ['NOTE'], ko: '(?:T-?노트|중기채|중기 국채|재무부 중기채)', ja: '(?:中期国債|Tノート)' },
+    { id: 'bond', types: ['BOND'], ko: '(?:T-?본드|장기채|장기 국채|재무부 장기채)', ja: '(?:長期国債|Tボンド)' },
+    { id: 'bill', types: ['BILL'], ko: '(?:T-?빌|단기채|단기 국채|재무부 단기채|재무부 단기 ?증권)', ja: '(?:短期国債|財務省短期証券|短期証券|Tビル)' },
+    { id: 'tips', types: ['TIPS'], ko: '(?:물가 ?연동 (?:국채)?|TIPS)', ja: '(?:物価連動国債|TIPS)' },
+    { id: 'frn', types: ['FRN'], ko: '(?:변동 ?금리 (?:국채|채권)?|FRN)', ja: '(?:変動利付(?:国)?債|FRN)' },
+];
+const auctions = AUCTION_TERMS.flatMap(([n, unit]) => AUCTION_KINDS.map(kind => entry(`${n}-${unit} ${kind.id} auction`,
+    core => { const m = AUCTION.exec(core); return !!m && Number(m[1]) === n && m[2].toLowerCase() === unit && kind.types.includes(m[3].toUpperCase()); },
+    [`${n} ${KO_UNIT[unit]}(?:물|만기)? (?:미 )?${kind.ko} (?:의 )?입찰`],
+    [`${n} ${JA_UNIT[unit]}(?:物)? (?:米)?${kind.ja} (?:の )?入札`],
     ['국채 입찰', '国債入札'])));
 /** 사전에 없는 만기(«12년물»)·종류의 입찰은 어느 줄로도 맞지 않는다(사건군 «국채 입찰»만으로 다른 만기 줄에 기대 통과하지 않게) */
 const auctionUnknownTerm = entry('unknown-term auction', () => false,
-    ['\\d+ (?:년|개월|주)(?:물|만기)? (?:미 )?(?:물가 ?연동 )?(?:국채|재무부 (?:채권|증권|단기채|중기채|장기채)|(?:단기|중기|장기) 국채|T-?(?:노트|본드|빌)|TIPS) (?:의 )?입찰'],
-    ['\\d+ (?:年|か月|カ月|ヶ月|ヵ月|週)(?:物)? (?:米)?(?:物価連動国債|国債|財務省証券|短期証券|TIPS) (?:の )?入札'], []);
+    [`\\d+ (?:년|개월|주)(?:물|만기)? (?:미 )?(?:${AUCTION_KINDS.map(k => k.ko).join('|')}) (?:의 )?입찰`],
+    [`\\d+ (?:年|か月|カ月|ヶ月|ヵ月|週)(?:物)? (?:米)?(?:${AUCTION_KINDS.map(k => k.ja).join('|')}) (?:の )?入札`], []);
 
 const ENTRIES: Entry[] = [
     // ── CFTC 주간 포지션 ──

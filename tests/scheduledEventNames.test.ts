@@ -84,6 +84,12 @@ assert.deepEqual(strict('11/10(火) 13:00 ET 予定の2年国債入札', AUC2, N
 assert.ok(strict('11/10(화) 13:00 ET 10년물 국채 입찰 예정', AUC2, NOV10).length, '다른 만기 입찰은 탈락');
 assert.ok(strict('11/10(화) 13:00 ET 12년물 국채 입찰 예정', AUC2, NOV10).length, '숫자 경계');
 assert.ok(strict('11/10(화) 13:00 ET 2년물 물가연동 국채 입찰 예정', AUC2, NOV10).length, 'TIPS ≠ 명목');
+const FRN2 = [line('2-Year FRN Auction', '2026-11-10', '13:00')];
+assert.ok(strict('11/10(화) 13:00 ET 2년물 T-노트 입찰 예정', FRN2, NOV10).length, 'Note ≠ FRN(관문 10310602)');
+assert.ok(strict('11/10(화) 13:00 ET 2년물 국채 입찰 예정', FRN2, NOV10).length, '종류 없는 «국채» = 명목 국채 — FRN 아님');
+assert.deepEqual(strict('11/10(화) 13:00 ET 2년물 변동금리 국채 입찰 예정', FRN2, NOV10), []);
+assert.deepEqual(strict('11/10(화) 13:00 ET 2년물 T-노트 입찰 예정', AUC2, NOV10), []);
+assert.ok(strict('11/10(화) 13:00 ET 2년물 T-빌 입찰 예정', AUC2, NOV10).length, 'Bill ≠ Note');
 assert.deepEqual(unsupportedEventReasons('2년물 국채 입찰', AUC2.join('\n')), [], '국채 입찰 사건군 근거');
 assert.ok(unsupportedEventReasons('국채 입찰', line('Housing Starts')).length, '근거 없는 사건군은 그대로 탈락');
 // GDP·미시간: 차수를 쓰면 그 차수 줄만(관문 10310437 «속보치 예정» ↔ 확정치 줄)
