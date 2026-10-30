@@ -1,5 +1,25 @@
 import assert from 'node:assert/strict';
-import { buildEconCompareSentence as compare } from '../src/lib/ai/econEventLine';
+import { buildEconCompareSentence as compare, koParticle } from '../src/lib/ai/econEventLine';
+for (const [value, topic, conjunction] of [
+  ['54.7', '은', '과'], ['54.5', '는', '와'], ['-130B', '는', '와'],
+  ['4.3%', '는', '와'], ['3.0', '은', '과'], ['10', '은', '과'],
+  ['100', '은', '과'], ['1000', '은', '과'], ['1M', '은', '과'],
+  ['2K', '는', '와'], ['3포인트', '는', '와'], ['1억', '은', '과'],
+  // 관문 10310214 지적: 끝이 0 이어도 자릿값으로 읽는다
+  ['1000000000000', '는', '와'], ['1,000,000,000,000', '는', '와'], ['10000', '은', '과'], ['100000', '은', '과'],
+  ['1,000,000', '은', '과'], ['100000000', '은', '과'], ['1000000000', '은', '과'], ['10000000000000000', '은', '과'],
+  ['0', '은', '과'], ['0.0', '은', '과'], ['54.70', '은', '과'], ['250', '은', '과'], ['2', '는', '와'], ['5', '는', '와'],
+  ['9', '는', '와'], ['6', '은', '과'], ['-0.2%', '는', '와'], ['0.3% MoM', '은', '과'], ['2.9% YoY', '는', '와'],
+  ['1.5T', '는', '와'], ['4.4M', '은', '과'], ['220K', '는', '와'], ['1.2L', '은', '과'], ['3N', '은', '과'], ['7R', '은', '과'],
+] as const) {
+  assert.equal(koParticle(value, '은/는'), topic, value);
+  assert.equal(koParticle(value, '과/와'), conjunction, value);
+  assert.equal(koParticle(value, '이/가'), topic === '은' ? '이' : '가', value);
+  assert.equal(koParticle(value, '을/를'), topic === '은' ? '을' : '를', value);
+}
+assert.equal(compare('PMI', '54.7', '54.5', 'ko'), '예상 54.7은 이전 54.5와 비슷한 수준입니다.');
+assert.equal(compare('PMI', '54.5', '54.7', 'ko'), '예상 54.5는 이전 54.7과 비슷한 수준입니다.');
+assert.equal(compare('Trade Balance', '-130B', '-132.1B', 'ko'), '예상 -130B는 이전 -132.1B보다 적자가 조금 줄어드는 수준입니다.');
 const input = { event: 'Trade Balance', estimate: '-130B', previous: '-132.1B', et: '08:30', kst: '21:30', calendar: [], earnings: [] };
 assert.match(compare(input.event, input.estimate, input.previous, 'ko'), /적자가 조금 줄어드는/);
 assert.match(compare(input.event, input.estimate, input.previous, 'ja'), /赤字がやや縮小/);
