@@ -21,6 +21,7 @@ import { getMarketBreadth } from "./breadthEngine";
 //    getIndexBreadth   = 구성종목의 20일 이평 상회 비율 — 종가 기반, 주말에도 나온다
 import { getIndexBreadth } from "@/services/indexBreadth";
 import { after } from 'next/server';
+import { Redis } from '@upstash/redis';
 import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
 // ★2026-10-08 언어와 무관한 숫자는 «공유 코어» 하나 — 같은 시각 ko·ja·en 의 RLSI·GEX 가 갈리던 것을 막는다(guardianCore.ts 머리말)
 import {
@@ -141,6 +142,53 @@ const _lastGoodWriteTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 const CACHE_TTL_MS = 25 * 1000; // 25 seconds — matches 30s polling interval
 
 /**
+ * ★2026-10-31 T35 장중 «준비 중» 고정 — 스냅샷의 AI 글 칸이 대기 문구인데 장중(PRE·REG·POST)이면 다시 계산한다.
+ *   10/30 실측: ko Tactical NEXT 가 «10/30(금) 12:00 ET Fed Daly 연설»(11:52 ET 생성). 12:00 ET 가 지나자 출구 검사가
+ *   (지난 일정을 «다음»으로 내보내지 않게) 정상적으로 탈락시켜 «준비 중»으로 바꿨는데, EC2 워커가 30초마다 그 스냅샷에
+ *   _workerTimestamp 만 새로 찍어 «신선»으로 남겨 재계산(=재생성)이 한 번도 일어나지 않았다(ko 15:53Z·en 15:25Z·ja 13:30Z 스냅샷이 17:12Z 까지).
+ *   대기 문구 칸은 출구 검사를 통과(검사 대상 아님)하므로 스스로는 풀리지 않는다.
+ *   재계산 간격은 스냅샷 «계산 시각»(timestamp, 워커 도장 아님) 기준 5분 — 생성이 계속 실패해도 언어당 5분에 한 번만.
+ *   장외(CLOSED)는 모델을 부르지 않는 경로라 대상 아님.
+ */
+export const PLACEHOLDER_RECOMPUTE_MS = 5 * 60 * 1000;
+export function snapshotPlaceholderNeedsRecompute(
+    c: { timestamp?: string; verdict?: { description?: unknown; realityInsight?: unknown; gammaInsight?: unknown } | null } | null | undefined,
+    session: string | undefined, now: number,
+): boolean {
+    if (!c?.verdict || !session || session === 'CLOSED') return false;
+    const v = c.verdict;
+    const pending = [v.realityInsight, v.description, v.gammaInsight].some((t) => typeof t === 'string' && IntelligenceNode.isPlaceholderInsight(t));
+    if (!pending) return false;
+    const at = c.timestamp ? Date.parse(c.timestamp) : NaN;
+    return !Number.isFinite(at) || now - at >= PLACEHOLDER_RECOMPUTE_MS;
+}
+/**
+ * 대기 문구 재계산 시도 간격(관문 10310216·10310219) — 재계산이 실패해 스냅샷 timestamp 가 그대로여도 언어당 5분에 한 번만.
+ *   인스턴스 메모리 + 인스턴스 간 원자적 예약(Upstash SET NX EX — 지터 없는 정확한 300초, 동시에 읽어도 한 곳만 성공).
+ *   예약 저장소에 못 닿으면 인스턴스 메모리 간격만 쓴다(예전 경로보다 호출이 늘지 않게 언어당 5분/인스턴스).
+ */
+const _placeholderRecomputeAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
+const PLACEHOLDER_CLAIM_RETRY_MS = 30 * 1000;
+let _placeholderClaimRedis: Redis | null | undefined;
+/** 'exclusive' = 인스턴스 간 원자 예약 성공(20초 잠금 우회 가능) · 'local' = 예약 저장소 없음·장애(인스턴스 간격만 — 기존 20초 잠금·lastgood 그대로, 관문 10310224) · false = 지금은 아님 */
+async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<'exclusive' | 'local' | false> {
+    if (now - _placeholderRecomputeAt[locale] < PLACEHOLDER_RECOMPUTE_MS) return false;
+    _placeholderRecomputeAt[locale] = now;
+    if (_placeholderClaimRedis === undefined) {
+        const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+        const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+        _placeholderClaimRedis = url && token ? new Redis({ url, token }) : null;
+    }
+    if (!_placeholderClaimRedis) return 'local';
+    try {
+        const ok = await _placeholderClaimRedis.set(`guardian:snapshot:phrecompute:${locale}`, now, { nx: true, ex: Math.ceil(PLACEHOLDER_RECOMPUTE_MS / 1000) });
+        // 다른 인스턴스가 예약 중이면 이 인스턴스는 30초 뒤 다시 묻는다(공유 예약 만료 뒤 최대 5분 늦어지지 않게 — 관문 10310221 ③)
+        if (ok !== 'OK') _placeholderRecomputeAt[locale] = now - PLACEHOLDER_RECOMPUTE_MS + PLACEHOLDER_CLAIM_RETRY_MS;
+        return ok === 'OK' ? 'exclusive' : false;
+    } catch { return 'local'; }
+}
+
+/**
  * ★2026-10-28 T2 장후 스냅샷의 Tactical 글이 «종가 이후 선물 사실 없이» 만들어졌는데 지금은 그 사실이 있다 → 다시 계산.
  *   10/27 실측: 기준 키는 16:10 ET 무렵 EC2·Upstash 둘 다 저장됐지만 글은 16:01 ET 스냅샷 그대로 장후 내내 «종가 이후 변화 미확인».
  *   선물 사실 없는 글은 기존 5분 재시도, 생성 기준 있는 글은 30분 뒤 변동을 비교한다.
@@ -160,7 +208,7 @@ const POST_TACTICAL_ADOPT_CHECK_MS = 30 * 1000;
 const _tacticalAdoptCheckAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 /** 시험 전용 — 인스턴스 메모리(스냅샷 사본·채택 검사 간격)를 비워 «다른 인스턴스»를 흉내 낸다. */
 export function _resetGuardianHubStateForTest(): void {
-    for (const l of ['ko', 'en', 'ja'] as const) { _cachedContext[l] = null; _lastFetchTime[l] = 0; _tacticalAdoptCheckAt[l] = 0; }
+    for (const l of ['ko', 'en', 'ja'] as const) { _cachedContext[l] = null; _lastFetchTime[l] = 0; _tacticalAdoptCheckAt[l] = 0; _placeholderRecomputeAt[l] = 0; }
 }
 const tacticalSeenAtOf = (c: { tacticalSeenAt?: string; timestamp?: string }): number => {
     const at = Date.parse(c.tacticalSeenAt || c.timestamp || '');
@@ -474,6 +522,9 @@ export class GuardianDataHub {
         // [V12.0] Redis-first: Check EC2 Worker's pre-cached snapshot
         // [FIX] Validate that cached session matches current session before returning
         const currentSession = getMarketSession();
+        // ★T35 대기 문구 재계산이 실패하면(예외·성분 결측) 예전처럼 그 스냅샷을 그대로 준다(관문 10310216 — 응답 회귀 금지)
+        let placeholderFallback: GuardianContext | null = null;
+        let placeholderClaim: 'exclusive' | 'local' | false = false;
         if (!force) {
             try {
                 const redisKey = `${GUARDIAN_SNAPSHOT_PREFIX}${locale}`;
@@ -492,6 +543,10 @@ export class GuardianDataHub {
                         if (cached.tacticalFutures === true) return GuardianDataHub.refreshPostTacticalFutures(cached, locale, now);
                         // ★2026-10-28 T2 장후 글이 종가 이후 선물 사실 없이 만들어졌는데 지금은 있다 — 다시 계산한다
                         console.log(`[Guardian] POST tactical lacks after-close futures that are now available (snapshot ${cached.timestamp}) — recomputing for ${locale}`);
+                    } else if (snapshotPlaceholderNeedsRecompute(cached, cachedSession, now) && (placeholderClaim = await claimPlaceholderRecompute(locale, now))) {
+                        // ★T35 대기 문구가 굳은 스냅샷 — 워커 도장과 무관하게 다시 계산(5분 간격)
+                        console.log(`[Guardian] snapshot AI text is a placeholder (snapshot ${cached.timestamp}, ${cachedSession}) — recomputing for ${locale}`);
+                        placeholderFallback = cached;
                     } else {
                         // [FIX] Staleness check: if data is older than FRESH_MS, recompute for real-time freshness
                         // ★2026-09-23 실측: 워커는 약 30초마다 쓰는데(읽힌 나이 25~41초) 기준이 25초라 거의 모든 요청이
@@ -532,7 +587,8 @@ export class GuardianDataHub {
             }
         }
 
-        if (!force && _cachedContext[locale] && (now - _lastFetchTime[locale] < CACHE_TTL_MS)) {
+        // ★T35 대기 문구 재계산을 예약했으면 메모리 사본(같은 대기 문구)으로 돌아가지 않는다(관문 10310219 ①)
+        if (!force && !placeholderFallback && _cachedContext[locale] && (now - _lastFetchTime[locale] < CACHE_TTL_MS)) {
             // [FIX] Also validate in-memory cache session
             const memSession = (_cachedContext[locale] as any)?.rlsi?.session;
             if (memSession && memSession !== currentSession) {
@@ -550,14 +606,17 @@ export class GuardianDataHub {
         // ★2026-09-23 인스턴스 간 재계산 제한: 다른 인스턴스가 20초 안에 재계산을 시작했으면 여기서 또 계산하지 않고
         //   방금 저장된 직전 정상본(lastgood, 72h·Upstash 복제)을 준다. 재계산 한 번이 FMP 뉴스 + 137종목 시세를 부르므로
         //   인스턴스마다 따로 계산하면 벤더 분당 한도를 태운다(9/23 FMP 429). 줄 것이 없으면 그대로 계산한다.
+        //   ★T35 대기 문구 재계산 예약(5분 원자 예약)을 쥔 요청은 이 20초 잠금으로 물러서지 않는다 — 예약만 소비하고 계산을 건너뛰지 않게(관문 10310221 ①)
         if (!force) {
             const lockKey = `${GUARDIAN_SNAPSHOT_PREFIX}recompute:${locale}`;
-            const lockedAt = await getFromCache<number>(lockKey).catch(() => null);
+            const lockedAt = placeholderClaim === 'exclusive' ? null : await getFromCache<number>(lockKey).catch(() => null);
             if (typeof lockedAt === 'number' && now - lockedAt < 20000) {
                 const mem = _cachedContext[locale] as any;
                 if (mem?.sectors?.length) return mem;
                 const lg = await getFromCache<any>(`${GUARDIAN_SNAPSHOT_PREFIX}lastgood:${locale}`).catch(() => null);
                 if (lg?.sectors?.length && lg?.rlsi?.score !== undefined) return lg;
+            } else if (placeholderClaim === 'exclusive') {
+                await setInCache(lockKey, now, 20).catch(() => false);   // 예약 재계산은 잠금 기록을 기다린 뒤 계산(관문 10310231)
             } else {
                 setInCache(lockKey, now, 20).catch(() => { /* non-critical */ });
             }
@@ -895,6 +954,7 @@ export class GuardianDataHub {
                         return lastGood;
                     }
                 } catch { /* fall through to degraded */ }
+                if (placeholderFallback) return placeholderFallback;
                 console.warn(`[Guardian] Degraded context (sectors empty) for ${locale} — no last-good available, serving once only.`);
             }
 
@@ -903,6 +963,7 @@ export class GuardianDataHub {
 
         } catch (error) {
             console.error("[Guardian] Unified Stream Error:", error);
+            if (placeholderFallback) return placeholderFallback;
             throw error;
         }
     }
