@@ -40,6 +40,8 @@ const PERIOD: Record<'MoM' | 'YoY' | 'QoQ', string> = {
     YoY: '(?:전년\\s*(?:동월\\s*|동기\\s*)?(?:대비|비)|YoY|y/y|前年(?:同月|同期)?比)',
     QoQ: '(?:전분기\\s*(?:대비|비)?|전기\\s*(?:대비|비)|분기\\s*(?:대비|비)?|QoQ|q/q|前期比|前四半期比)',
 };
+/** 표기 바로 뒤에 오면 «다른 값»이 되는 말(미결제약정·매수/매도·롱/숏 — 관문 10310640 «CFTC金投機筋ポジション建玉»·«…포지션 미결제약정») */
+const TRAILING_CONFLICT = /^\s*(?:미결제\s*약정|미결제|建玉|未決済|순?매수|순?매도|롱|숏|買い|売り|ロング|ショート|재고량|在庫量)/;
 const PERIOD_ANY = new RegExp(`${PERIOD.MoM}|${PERIOD.YoY}|${PERIOD.QoQ}`, 'i');
 /** 수준을 말하는 낱말 — 변화·비율 지표와 다른 값 */
 const LEVEL_WORD = /지수|건수|수준|재고량|總量|총량|指数|件数|水準|在庫量/;
@@ -413,6 +415,7 @@ export function scheduledEventNameHits(text: string): EventNameHit[] {
         const after = text.slice(g.end);
         const parenAfter = after.match(/^\s*[(（]([^()（）]*)[)）]/);
         const trailing = TRAILING_QUALIFIER.test(after) ? `trail:${after.slice(0, 8).trim()}`
+            : TRAILING_CONFLICT.test(after) ? `trail-conflict:${after.slice(0, 8).trim()}`
             : parenAfter && !parenOk(parenAfter[1], entries) ? `trail-paren:${parenAfter[1]}` : null;   // «실업률(청년)» — 관문 10310457 ② · «포지션(선물 투기 순포지션)» 같은 일반 낱말 풀이는 허용
         const why = lead || trailing || undefined;
         return { start: g.start, end: g.end, text: text.slice(g.start, g.end), ok: !why, ...(why ? { why } : {}), test: (core: string) => entries.some(e => e.test(core)) };

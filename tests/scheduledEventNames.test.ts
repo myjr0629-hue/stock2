@@ -62,6 +62,8 @@ assert.ok(strict('10/30(금) 15:30 ET 예정된 CFTC 원유 미결제약정(Crud
 assert.deepEqual(strict('10/30(금) 15:30 ET 예정된 CFTC 원유 선물 포지션(Crude Oil speculative net positions)', CRUDE), [], '일반 낱말 꼬리표');
 for (const t of ['10/30(금) 15:30 ET 예정된 CFTC 금 매도 포지션(Gold speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 금 미결제약정(Gold speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 금 투기적 순포지션(매도 포지션)'])
     assert.ok(strict(t, [line('CFTC Gold Speculative net positions')]).length, `관문 10310631: ${t}`);
+for (const t of ['10/30(金) 15:30 ET CFTC金投機筋ポジション建玉発表予定', '10/30(金) 15:30 ET CFTC金投機筋ポジション売り発表予定', '10/30(금) 15:30 ET 예정된 CFTC 금 투기적 포지션 미결제약정', '10/30(금) 15:30 ET 예정된 CFTC 금 투기적 순포지션 매도'])
+    assert.ok(strict(t, [line('CFTC Gold Speculative net positions')]).length, `관문 10310640: ${t}`);
 for (const t of ['10/30(금) 15:30 ET 예정된 CFTC 원유(speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 원유 2주(Crude Oil speculative net positions)',
     '10/30(금) 15:30 ET 예정된 CFTC 원유(Crude Oil) 투기(speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 금(Gold speculative net positions)',
     '10/30(금) 15:30 ET 예정된 CFTC 금 미결제약정(Crude Oil speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 구리 미결제약정(Crude Oil speculative net positions)'])
