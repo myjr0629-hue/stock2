@@ -51,9 +51,10 @@ const PERIOD: Record<'MoM' | 'YoY' | 'QoQ', string> = {
  *   일본어: X(括弧)? (の)?[発表·公表·報告·統計·データ·指標·結果·資料·公示]?(予定)?[で·であり·です]? 다음이 곧 문장 부호·닫는 括弧·끝
  *   실모델 24회·운영 저장본의 NEXT 는 전부 «… 예정된 X로, A면 …»·«… 予定のXで、…» 꼴. 그 밖의 꼴(주어·화제·꾸밈·이어지는 서술)은 실패(fail-closed).
  */
-const TAIL_END = '\\s*(?:$|[,.!?;:)\\]）」』、。…—"“”])';
+// 닫는 괄호는 끝이 아니다 — 괄호를 닫은 뒤 이어지는 말도 같은 꼴이어야(«(실업률)의 청년 수치» — 관문 10310741)
+const TAIL_END = '\\s*(?:$|[,.!?;:、。…—"“”])';
 /** 조사·서술 없이 끝나는 표기는 쉼표로 이어 갈 수 없다(«실업률, 상승할 전망» — 관문 10310741): 끝·마침표·닫는 괄호만 */
-const TAIL_END_BARE = '\\s*(?:$|[.!?)\\]）」』。…"”])';
+const TAIL_END_BARE = '\\s*(?:$|[.!?。…"”]|[)\\]）」』])';
 const KO_NOUN = '(?:\\s*(?:발표|공개|공표|보고서?|공시|자료|데이터|지표|결과|수치|일정))?';
 const KO_TAIL_OK = new RegExp(`^${KO_NOUN}(?:(?:으로|로|\\s*예정(?:입니다|이며|이고|이다|으로)?|입니다|이며|이다)${TAIL_END}|${TAIL_END_BARE})`);
 const JA_NOUN = '\\s*(?:の)?(?:発表|公表|報告|統計|データ|指標|結果|資料|公示)?(?:予定)?';
@@ -67,8 +68,15 @@ function tailReason(after: string, parenFine: (content: string) => boolean = () 
         if (!parenFine(paren[1])) return `tail-paren:${paren[1]}`;
         rest = rest.slice(paren[0].length);
     }
-    if (KO_TAIL_OK.test(rest) || JA_TAIL_OK.test(rest)) return null;
-    return `tail:${rest.trim().slice(0, 8)}`;
+    for (let i = 0; i < 4; i++) {
+        if (!(KO_TAIL_OK.test(rest) || JA_TAIL_OK.test(rest))) return `tail:${rest.trim().slice(0, 8)}`;
+        // 꼴이 닫는 괄호에서 끝났으면(괄호 속 번역) 괄호 밖 이어지는 말도 같은 꼴인지 본다
+        const close = rest.match(/^[^)\]）」』]*?[)\]）」』]/);
+        const head = close ? rest.slice(0, close[0].length - 1) : '';
+        if (!close || /[,.!?;:、。…]/.test(head)) return null;
+        rest = rest.slice(close[0].length);
+    }
+    return 'tail:nested';
 }
 const PERIOD_ANY = new RegExp(`${PERIOD.MoM}|${PERIOD.YoY}|${PERIOD.QoQ}`, 'i');
 /** 수준을 말하는 낱말 — 변화·비율 지표와 다른 값 */
@@ -459,7 +467,8 @@ export function scheduledEventNameHits(text: string): EventNameHit[] {
         if (!entries.length) return { start: g.start, end: g.end, text: span, ok: false, why: 'level-vs-change', test: () => false };
         const before = text.slice(0, g.start);
         const parenBefore = before.match(/[(（]([^()（）]*)[)）]\s*$/);
-        const lead = parenBefore ? (parenOk(parenBefore[1], entries) ? null : `lead-paren:${parenBefore[1]}`) : leadReason(before);
+        // 앞 괄호가 괜찮아도 그 앞 낱말까지 본다(«청년 (Unemployment Rate) 실업률» — 관문 10310741)
+        const lead = parenBefore ? (parenOk(parenBefore[1], entries) ? leadReason(before.slice(0, before.length - parenBefore[0].length)) : `lead-paren:${parenBefore[1]}`) : leadReason(before);
         const after = text.slice(g.end);
         const parenAfter = after.match(/^\s*[(（]([^()（）]*)[)）]/);
         const trailing = TRAILING_QUALIFIER.test(after) ? `trail:${after.slice(0, 8).trim()}`
