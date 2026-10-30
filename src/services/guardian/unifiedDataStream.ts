@@ -607,9 +607,9 @@ export class GuardianDataHub {
         //   방금 저장된 직전 정상본(lastgood, 72h·Upstash 복제)을 준다. 재계산 한 번이 FMP 뉴스 + 137종목 시세를 부르므로
         //   인스턴스마다 따로 계산하면 벤더 분당 한도를 태운다(9/23 FMP 429). 줄 것이 없으면 그대로 계산한다.
         //   ★T35 대기 문구 재계산 예약(5분 원자 예약)을 쥔 요청은 이 20초 잠금으로 물러서지 않는다 — 예약만 소비하고 계산을 건너뛰지 않게(관문 10310221 ①)
-        if (!force && placeholderClaim !== 'exclusive') {
+        if (!force) {
             const lockKey = `${GUARDIAN_SNAPSHOT_PREFIX}recompute:${locale}`;
-            const lockedAt = await getFromCache<number>(lockKey).catch(() => null);
+            const lockedAt = placeholderClaim === 'exclusive' ? null : await getFromCache<number>(lockKey).catch(() => null);
             if (typeof lockedAt === 'number' && now - lockedAt < 20000) {
                 const mem = _cachedContext[locale] as any;
                 if (mem?.sectors?.length) return mem;

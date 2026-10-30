@@ -121,6 +121,7 @@ assert.equal(snapshotPlaceholderNeedsRecompute(null, 'REG', now), false);
             store.set('guardian:snapshot:lastgood:ko', snap(PENDING, now - 79 * MIN));
             await call();
             assert.equal(coreCalls, 1, '예약 → 잠금이 있어도 재계산');
+            assert.equal(store.get('guardian:snapshot:recompute:ko'), now, '예약 재계산도 20초 잠금을 기록(다른 인스턴스 stale 경로가 겹치지 않게)');
         }
         // 관문 10310221 ③ 다른 인스턴스 예약에 거절된 인스턴스는 공유 예약이 끝나면 30초 안에 다시 시도한다(5분 묶이지 않음)
         {
