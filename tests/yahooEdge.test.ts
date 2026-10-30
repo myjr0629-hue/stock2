@@ -139,7 +139,13 @@ test('조건 ③ 직전 종가 상대 0.1% 이내 — 경계 정확히 0.1% 대�
     // 결측: 대안 쪽·DNS 쪽 각각 → 판정 불가(DNS)
     assert.equal(pick(d, { ...a, prev: null }), 'dns-undecidable');
     assert.equal(pick({ ...d, prev: null }, { ...a, prev: 1000 }), 'dns-undecidable');
-    assert.equal(pick({ ...d, prev: 0.001 }, { ...a, prev: 0.001 }), 'dns-undecidable');   // 0.01 이하(VIX 1E-09 류)는 결측
+    // 하한 없음(관문 10310632): 양수면 아주 작아도 규칙대로 대조 — 0.005=0.005 대안, 0·음수·NaN·문자열은 결측
+    assert.equal(pick({ ...d, prev: 0.005 }, { ...a, prev: 0.005 }), 'alt');
+    assert.equal(pick({ ...d, prev: 0.005 }, { ...a, prev: 0.006 }), 'dns-mismatch');
+    for (const bad of [0, -1, NaN, Infinity, '1000' as any]) {
+        assert.equal(pick({ ...d, prev: bad }, { ...a, prev: 1000 }), 'dns-undecidable', `DNS ${bad}`);
+        assert.equal(pick(d, { ...a, prev: bad }), 'dns-undecidable', `대안 ${bad}`);
+    }
 });
 
 test('조건 ③ — 수집 함수와 같은 식(previousClose ?? chartPreviousClose)으로 대조', () => {

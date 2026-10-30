@@ -96,7 +96,7 @@ export interface MinuteInfo {
     usable: boolean;
     price: number | null;
     time: number | null;
-    /** 수집 함수와 같은 식: previousClose ?? chartPreviousClose (0.01 이하·비유한은 null) */
+    /** 수집 함수와 같은 식: previousClose ?? chartPreviousClose (0 이하·비유한·비숫자는 null) */
     prev: number | null;
     complete: boolean;
     symbol: string | null;
@@ -111,7 +111,7 @@ export function minuteInfo(data: any): MinuteInfo {
     const usable = price != null;
     const time = pos(meta?.regularMarketTime) ? meta.regularMarketTime : null;
     const prevRaw = meta?.previousClose ?? meta?.chartPreviousClose;
-    const prev = pos(prevRaw, 0.01) ? prevRaw : null;
+    const prev = pos(prevRaw) ? prevRaw : null;   // 유한·양수만(규칙 밖 하한 없음 — 관문 10310632; 0.01 미만은 수집 함수가 DNS 와 똑같이 일봉으로 복구)
     return {
         usable, price, time, prev, complete: usable && time != null && prev != null,
         symbol: str(meta?.symbol), currency: str(meta?.currency), exchange: str(meta?.exchangeName),
