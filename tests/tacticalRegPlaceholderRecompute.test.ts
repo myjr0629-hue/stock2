@@ -25,10 +25,12 @@ const mock = (id: string, exports: unknown) => {
     require.cache[filename] = { id: filename, filename, loaded: true, exports } as Module;
 };
 const expiry = new Map<string, number>();
+let claimFails = false;
 class OfflineRedis {
     async get(k: string) { if ((expiry.get(k) ?? Infinity) <= Date.now()) { store.delete(k); expiry.delete(k); } return store.get(k) ?? null; }
     // SET NX EX 모의(원자 연산 하나로) — 살아 있는 키가 있으면 null
     async set(k: string, v: any, opts?: { nx?: boolean; ex?: number }) {
+        if (opts?.nx && claimFails) throw new Error('offline claim store down');
         if (opts?.nx && (await this.get(k)) !== null) return null;
         store.set(k, typeof v === 'string' ? JSON.parse(v) : v);
         if (opts?.ex) expiry.set(k, Date.now() + opts.ex * 1000); else expiry.delete(k);
@@ -131,6 +133,20 @@ assert.equal(snapshotPlaceholderNeedsRecompute(null, 'REG', now), false);
             store.get('guardian:snapshot:ko')._workerTimestamp = iso(now + 26_000); store.delete('guardian:snapshot:recompute:ko');
             try { await call(); } finally { Date.now = realNow4; }
             assert.equal(coreCalls, 1, '예약 만료 뒤 31초 → 재시도');
+        }
+        // 관문 10310224 예약 저장소 장애 → 인스턴스 간격만, 20초 재계산 잠금은 그대로 지킨다(다른 인스턴스 계산 중이면 lastgood)
+        {
+            store.clear(); expiry.clear(); resetHub(); coreCalls = 0;
+            store.set('guardian:snapshot:ko', snap(PENDING, now - 79 * MIN));
+            store.set('guardian:snapshot:recompute:ko', now - 5_000);
+            const lg = snap(PENDING, now - 79 * MIN);
+            store.set('guardian:snapshot:lastgood:ko', lg);
+            claimFails = true;
+            try { assert.equal(await call(), lg, '예약 장애 + 다른 인스턴스 잠금 → lastgood'); } finally { claimFails = false; }
+            assert.equal(coreCalls, 0, '예약 장애 시 잠금 우회 0');
+            resetHub(); store.delete('guardian:snapshot:recompute:ko'); claimFails = true;
+            try { await call(); } finally { claimFails = false; }
+            assert.equal(coreCalls, 1, '예약 장애여도 잠금이 없으면 재계산(인스턴스 5분 간격)');
         }
         // 정상 글 스냅샷은 기존처럼 그대로 반환(재계산 0 — 공급사 호출 증가 없음)
         const kept = await run(snap(stored, now - 79 * MIN));

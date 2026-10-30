@@ -170,7 +170,8 @@ export function snapshotPlaceholderNeedsRecompute(
 const _placeholderRecomputeAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 const PLACEHOLDER_CLAIM_RETRY_MS = 30 * 1000;
 let _placeholderClaimRedis: Redis | null | undefined;
-async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<boolean> {
+/** 'exclusive' = 인스턴스 간 원자 예약 성공(20초 잠금 우회 가능) · 'local' = 예약 저장소 없음·장애(인스턴스 간격만 — 기존 20초 잠금·lastgood 그대로, 관문 10310224) · false = 지금은 아님 */
+async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<'exclusive' | 'local' | false> {
     if (now - _placeholderRecomputeAt[locale] < PLACEHOLDER_RECOMPUTE_MS) return false;
     _placeholderRecomputeAt[locale] = now;
     if (_placeholderClaimRedis === undefined) {
@@ -178,13 +179,13 @@ async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<b
         const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
         _placeholderClaimRedis = url && token ? new Redis({ url, token }) : null;
     }
-    if (!_placeholderClaimRedis) return true;
+    if (!_placeholderClaimRedis) return 'local';
     try {
         const ok = await _placeholderClaimRedis.set(`guardian:snapshot:phrecompute:${locale}`, now, { nx: true, ex: Math.ceil(PLACEHOLDER_RECOMPUTE_MS / 1000) });
         // 다른 인스턴스가 예약 중이면 이 인스턴스는 30초 뒤 다시 묻는다(공유 예약 만료 뒤 최대 5분 늦어지지 않게 — 관문 10310221 ③)
         if (ok !== 'OK') _placeholderRecomputeAt[locale] = now - PLACEHOLDER_RECOMPUTE_MS + PLACEHOLDER_CLAIM_RETRY_MS;
-        return ok === 'OK';
-    } catch { return true; }
+        return ok === 'OK' ? 'exclusive' : false;
+    } catch { return 'local'; }
 }
 
 /**
@@ -523,6 +524,7 @@ export class GuardianDataHub {
         const currentSession = getMarketSession();
         // ★T35 대기 문구 재계산이 실패하면(예외·성분 결측) 예전처럼 그 스냅샷을 그대로 준다(관문 10310216 — 응답 회귀 금지)
         let placeholderFallback: GuardianContext | null = null;
+        let placeholderClaim: 'exclusive' | 'local' | false = false;
         if (!force) {
             try {
                 const redisKey = `${GUARDIAN_SNAPSHOT_PREFIX}${locale}`;
@@ -541,7 +543,7 @@ export class GuardianDataHub {
                         if (cached.tacticalFutures === true) return GuardianDataHub.refreshPostTacticalFutures(cached, locale, now);
                         // ★2026-10-28 T2 장후 글이 종가 이후 선물 사실 없이 만들어졌는데 지금은 있다 — 다시 계산한다
                         console.log(`[Guardian] POST tactical lacks after-close futures that are now available (snapshot ${cached.timestamp}) — recomputing for ${locale}`);
-                    } else if (snapshotPlaceholderNeedsRecompute(cached, cachedSession, now) && await claimPlaceholderRecompute(locale, now)) {
+                    } else if (snapshotPlaceholderNeedsRecompute(cached, cachedSession, now) && (placeholderClaim = await claimPlaceholderRecompute(locale, now))) {
                         // ★T35 대기 문구가 굳은 스냅샷 — 워커 도장과 무관하게 다시 계산(5분 간격)
                         console.log(`[Guardian] snapshot AI text is a placeholder (snapshot ${cached.timestamp}, ${cachedSession}) — recomputing for ${locale}`);
                         placeholderFallback = cached;
@@ -605,7 +607,7 @@ export class GuardianDataHub {
         //   방금 저장된 직전 정상본(lastgood, 72h·Upstash 복제)을 준다. 재계산 한 번이 FMP 뉴스 + 137종목 시세를 부르므로
         //   인스턴스마다 따로 계산하면 벤더 분당 한도를 태운다(9/23 FMP 429). 줄 것이 없으면 그대로 계산한다.
         //   ★T35 대기 문구 재계산 예약(5분 원자 예약)을 쥔 요청은 이 20초 잠금으로 물러서지 않는다 — 예약만 소비하고 계산을 건너뛰지 않게(관문 10310221 ①)
-        if (!force && !placeholderFallback) {
+        if (!force && placeholderClaim !== 'exclusive') {
             const lockKey = `${GUARDIAN_SNAPSHOT_PREFIX}recompute:${locale}`;
             const lockedAt = await getFromCache<number>(lockKey).catch(() => null);
             if (typeof lockedAt === 'number' && now - lockedAt < 20000) {
