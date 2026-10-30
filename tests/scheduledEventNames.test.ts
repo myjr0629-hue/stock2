@@ -144,6 +144,21 @@ const POW = [line('Fed Powell Speech', '2026-11-10', '13:00')];
 assert.ok(strict('11/10(화) 13:00 ET 파월 의장 증언 예정', POW, NOV10).length, '연설 근거로 증언 주장 금지');
 assert.deepEqual(strict('11/10(화) 13:00 ET 파월 의장 연설 예정', POW, NOV10), []);
 assert.deepEqual(strict('11/10(화) 13:00 ET 파월 의장 의회 증언 예정', [line('Fed Chair Powell Testimony', '2026-11-10', '13:00')], NOV10), []);
+// 관문 10310624 전수 지적 — 수준≠변화·재고량≠재고 변화·난방유≠정제유·매수/매도≠순포지션
+const NOV12 = Date.parse('2026-11-12T12:00:00Z');
+assert.ok(strict('11/12(목) 08:30 ET 소비자물가지수 발표 예정', [line('Inflation Rate (Oct)', '2026-11-12', '08:30')], NOV12).length, '물가지수 ≠ 물가상승률');
+assert.deepEqual(strict('11/12(목) 08:30 ET 소비자물가 상승률 발표 예정', [line('Inflation Rate (Oct)', '2026-11-12', '08:30')], NOV12), []);
+assert.ok(strict('11/4(수) 10:30 ET EIA 원유 재고량 발표 예정', [line('EIA Crude Oil Stocks Change (Oct/30)', '2026-11-04', '10:30')], NOV4).length, '재고량 ≠ 재고 변화');
+assert.deepEqual(strict('11/4(수) 10:30 ET EIA 원유 재고 변화 발표 예정', [line('EIA Crude Oil Stocks Change (Oct/30)', '2026-11-04', '10:30')], NOV4), []);
+assert.ok(strict('11/4(수) 10:30 ET EIA 난방유 재고 발표 예정', [line('EIA Distillate Stocks Change (Oct/30)', '2026-11-04', '10:30')], NOV4).length, '난방유 ≠ 정제유');
+for (const t of ['10/30(금) 15:30 ET 예정된 CFTC 금 투기적 매도 포지션', '10/30(금) 15:30 ET 예정된 CFTC 금 매수 포지션', '10/30(金) 15:30 ET 予定のCFTC金投機筋ネットショート'])
+    assert.ok(strict(t, [line('CFTC Gold Speculative net positions')]).length, `순포지션 ≠ 매수·매도: ${t}`);
+assert.deepEqual(strict('10/30(금) 15:30 ET 예정된 CFTC 금 투기적 순포지션', [line('CFTC Gold Speculative net positions')]), []);
+const ECI = [line('Employment Cost Index QoQ (Q3)', '2026-10-30', '08:30')], OCT30 = Date.parse('2026-10-30T11:00:00Z');
+assert.ok(strict('10/30(금) 08:30 ET 고용 비용 지수 발표 예정', ECI, OCT30).length, '지수 수준 ≠ 전분기 변화');
+assert.deepEqual(strict('10/30(금) 08:30 ET 고용비용지수 전분기 대비 발표 예정', ECI, OCT30), []);
+assert.ok(strict('10/29(목) 10:00 ET 잠정 주택 판매 건수 발표 예정', [line('Pending Home Sales MoM (Sep)', '2026-10-29', '10:00')], Date.parse('2026-10-29T12:00:00Z')).length, '건수 ≠ 전월비');
+assert.ok(strict('10/27(화) 09:00 ET 케이스 쉴러 20개 도시 주택 가격 지수 발표 예정', [line('S&P/Case-Shiller Home Price YoY (Aug)', '2026-10-27', '09:00')], Date.parse('2026-10-27T11:00:00Z')).length, '지수 ≠ 전년비');
 // JOLTS 대문자 약어(근거는 «JOLTs»)는 사전 표기 안에서만 이름으로 인정
 const JOLTS = [line('JOLTs Job Openings (Sep)', '2026-11-03', '10:00')];
 assert.deepEqual(strict('11/3(화) 10:00 ET JOLTS 구인건수 예정', JOLTS, Date.parse('2026-11-03T13:00:00Z')), []);

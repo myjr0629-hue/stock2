@@ -40,6 +40,11 @@ const PERIOD: Record<'MoM' | 'YoY' | 'QoQ', string> = {
     YoY: '(?:전년\\s*(?:동월\\s*|동기\\s*)?(?:대비|비)|YoY|y/y|前年(?:同月|同期)?比)',
     QoQ: '(?:전분기\\s*(?:대비|비)?|전기\\s*(?:대비|비)|분기\\s*(?:대비|비)?|QoQ|q/q|前期比|前四半期比)',
 };
+const PERIOD_ANY = new RegExp(`${PERIOD.MoM}|${PERIOD.YoY}|${PERIOD.QoQ}`, 'i');
+/** 수준을 말하는 낱말 — 변화·비율 지표와 다른 값 */
+const LEVEL_WORD = /지수|건수|수준|재고량|總量|총량|指数|件数|水準|在庫量/;
+/** 변화·비율 지표(사전 항목 id 기준) */
+const CHANGE_LIKE = /\b(?:MoM|YoY|QoQ)\b|Change$|\bRate(?: (?:MoM|YoY))?$/;
 /** 표기 뒤에 남으면 «더 구체적인 다른 지표»로 보는 수식어(기간·잠정/확정·연율 등) */
 const TRAILING_QUALIFIER = new RegExp(`^\\s*\\(?\\s*(?:${PERIOD.MoM}|${PERIOD.YoY}|${PERIOD.QoQ}|연율|연간\\s*환산|확정치?|예비치?|잠정치?|속보치?|수정치?|4\\s*주\\s*평균|速報値?|確報値?|改定値?|年率|4\\s*週(?:間)?\\s*平均)`, 'i');
 
@@ -73,10 +78,11 @@ const GDP_KO = '(?:미 )?(?:국내 ?총생산|GDP) ?(?:성장률)?';
 const GDP_JA = '(?:米 )?(?:国内総生産|GDP) ?(?:成長率)?';
 const CFTC_KO = '(?:CFTC (?:의 )?)?';
 const CFTC_JA = '(?:CFTC (?:の )?)?';
-const SPEC_KO = '(?:투기(?:적| 세력| 거래자)?(?: 순)? (?:매수 |매도 )?포지션|투기(?:적)? 순(?:매수|포지션)|순 ?투기(?:적)? 포지션)';
-const SPEC_JA = '(?:投機(?:筋|的)?(?:の )?(?:ネット|純)?(?:ポジション|持ち高|建玉)|投機筋ネット(?:ロング|ショート)?)';
+// 순포지션만 — 매수·매도(롱·숏) 포지션은 다른 값(관문 10310624)
+const SPEC_KO = '(?:투기(?:적| 세력| 거래자)?(?: 순)? 포지션|투기(?:적)? 순포지션|순 ?투기(?:적)? 포지션)';
+const SPEC_JA = '(?:投機(?:筋|的)?(?:の )?(?:ネット|純)?(?:ポジション|持ち高|建玉))';
 // «CFTC»가 앞에 붙은 자산이면 «(선물) 포지션»만으로도 그 주간 보고를 특정한다(실모델 10/31: «CFTC S&P 500 선물 포지션 공시»·«CFTC S&P500先物ポジション»)
-const CFTC_LOOSE_KO = '(?:주간 )?(?:선물 )?(?:(?:투기(?:적)?|비상업) )?(?:순 ?)?(?:매수 |매도 )?포지션(?: (?:공시|자료|보고서?|데이터|지표|발표))?';
+const CFTC_LOOSE_KO = '(?:주간 )?(?:선물 )?(?:(?:투기(?:적)?|비상업) )?(?:순 ?)?포지션(?: (?:공시|자료|보고서?|데이터|지표|발표))?';
 const CFTC_LOOSE_JA = '(?:週間 ?)?(?:先物 ?)?(?:投機筋 ?(?:の )?)?(?:ネット|純)?ポジション(?:公示|資料|報告|データ|統計)?';
 const cftc = (core: string, koAsset: string, jaAsset: string, gloss: string[]): Entry =>
     entry(core, exact(core),
@@ -154,7 +160,7 @@ const ENTRIES: Entry[] = [
     entry('EIA Gasoline Stocks Change', exact('EIA Gasoline Stocks Change'),
         ['EIA (?:의 )?(?:주간 )?(?:휘발유|가솔린) 재고(?: (?:변화|변동|증감|량))?'], ['EIA (?:の )?(?:週間 )?ガソリン在庫(?: (?:変動|変化|増減|量))?'], ['휘발유 재고', 'ガソリン在庫']),
     entry('EIA Distillate Stocks Change', exact('EIA Distillate Stocks Change'),
-        ['EIA (?:의 )?(?:주간 )?(?:정제유|증류유|난방유) 재고(?: (?:변화|변동|증감|량))?'], ['EIA (?:の )?(?:週間 )?留出油在庫(?: (?:変動|変化|増減|量))?'], ['정제유 재고', '留出油在庫']),
+        ['EIA (?:의 )?(?:주간 )?(?:정제유|증류유) 재고(?: (?:변화|변동|증감|량))?'], ['EIA (?:の )?(?:週間 )?留出油在庫(?: (?:変動|変化|増減|量))?'], ['정제유 재고', '留出油在庫']),
     entry('EIA Natural Gas Stocks Change', exact('EIA Natural Gas Stocks Change'),
         ['EIA (?:의 )?(?:주간 )?천연 ?가스 재고(?: (?:변화|변동|증감|량))?'], ['EIA (?:の )?(?:週間 )?天然ガス在庫(?: (?:変動|変化|増減|量))?'], ['천연가스 재고', '天然ガス在庫']),
     entry('EIA Cushing Crude Oil Stocks Change', exact('EIA Cushing Crude Oil Stocks Change'),
@@ -185,7 +191,7 @@ const ENTRIES: Entry[] = [
         ['실업 ?수당 ?(?:신규 )?(?:청구|신청) ?(?:건수)? ?4 ?주 ?(?:이동 ?)?평균'], ['失業保険申請件数 ?4 ?週(?:間)? ?(?:移動)?平均'], ['실업수당 청구 4주 평균', '失業保険申請件数4週平均']),
     entry('JOLTs Job Openings', exact('JOLTs Job Openings', 'JOLTS Job Openings'),
         ['(?:JOLTS )?(?:구인 ?(?:건수|이직 ?보고서|공고 ?수|규모)|일자리 ?공고 ?(?:수|건수))'], ['(?:JOLTS )?求人(?:件数|数)'], ['구인 건수', '求人件数']),
-    entry('Employment Cost Index QoQ', exact('Employment Cost Index QoQ'), periodic('QoQ', '고용 ?(?:비용|비용 ?지수|비용지수)|고용 ?비용 ?지수'), periodic('QoQ', '雇用(?:コスト|費用)指数'), ['고용비용지수', '雇用コスト指数']),
+    entry('Employment Cost Index QoQ', exact('Employment Cost Index QoQ'), periodic('QoQ', '고용 ?비용 ?지수|고용 ?비용'), periodic('QoQ', '雇用(?:コスト|費用)指数'), ['고용비용지수', '雇用コスト指数']),
     entry('Employment Cost - Wages QoQ', exact('Employment Cost - Wages QoQ'), periodic('QoQ', '고용 ?비용 ?(?:중 )?(?:임금|급여)'), periodic('QoQ', '雇用(?:コスト|費用) ?(?:・ ?)?賃金'), ['고용비용 임금', '雇用コスト賃金']),
     entry('Employment Cost - Benefits QoQ', exact('Employment Cost - Benefits QoQ'), periodic('QoQ', '고용 ?비용 ?(?:중 )?(?:복리 ?후생|수당)'), periodic('QoQ', '雇用(?:コスト|費用) ?(?:・ ?)?福利厚生'), ['고용비용 복리후생', '雇用コスト福利厚生']),
     entry('Nonfarm Productivity QoQ', exact('Nonfarm Productivity QoQ'), periodic('QoQ', '비농업 (?:부문 )?(?:노동 )?생산성'), periodic('QoQ', '非農業部門 ?労働生産性'), ['비농업 생산성', '非農業部門労働生産性']),
@@ -394,7 +400,13 @@ export function scheduledEventNameHits(text: string): EventNameHit[] {
         groups.set(key, g);
     }
     return [...groups.values()].sort((a, b) => a.start - b.start).map(g => {
-        const entries = [...g.entries];
+        // 변화·비율 지표(MoM·YoY·QoQ·…Change·…Rate)는 «지수·건수·재고량» 같은 수준 낱말을 기간 수식어 없이 쓴 표기로 인정하지 않는다(관문 10310624 «고용 비용 지수»·«원유 재고량»)
+        const span = text.slice(g.start, g.end);
+        // 표기 바로 뒤 낱말까지(«고용 비용» + «지수») — 정규식 갈래가 짧은 쪽에서 멈춰도 수준 낱말을 놓치지 않게
+        const nextWord = text.slice(g.end).match(/^\s*([가-힣ぁ-んァ-ヴー一-龯]+)/)?.[1] || '';
+        const levelOnly = LEVEL_WORD.test(span + nextWord) && !PERIOD_ANY.test(span + text.slice(g.end, g.end + 12));
+        const entries = [...g.entries].filter(e => !(levelOnly && CHANGE_LIKE.test(e.id)));
+        if (!entries.length) return { start: g.start, end: g.end, text: span, ok: false, why: 'level-vs-change', test: () => false };
         const before = text.slice(0, g.start);
         const parenBefore = before.match(/[(（]([^()（）]*)[)）]\s*$/);
         const lead = parenBefore ? (parenOk(parenBefore[1], entries) ? null : `lead-paren:${parenBefore[1]}`) : leadReason(before);
