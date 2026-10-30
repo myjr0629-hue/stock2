@@ -105,7 +105,7 @@ async function tick(sec: number): Promise<boolean> {
             console.error(`[cron-${JOB}] 성공 0건(연속 ${consecutiveZero}) — 표식을 남기지 않는다(Vercel 이 이어받는다)`);
         }
         if (tookMs > 20_000) console.warn(`[cron-${JOB}] 회차가 느리다: ${tookMs}ms`);
-        logLine({ t: new Date().toISOString(), sec, tookMs, ok: r.ok, fail: r.fail, failed: r.failed, vix: doVix, vixTriggered: r.vixTriggered, markerOk, edgePicks: yahooEdge.state.picks, edgeAlts: yahooEdge.state.alts, edgeAltCalls: yahooEdge.state.altCalls, edgeAltWins: yahooEdge.state.altWins, results: r.results });
+        logLine({ t: new Date().toISOString(), sec, tookMs, ok: r.ok, fail: r.fail, failed: r.failed, vix: doVix, vixTriggered: r.vixTriggered, markerOk, edgePicks: yahooEdge.state.picks, edgeAlts: yahooEdge.state.alts, edgeAltCalls: yahooEdge.state.altCalls, edgeAltWins: yahooEdge.state.altWins, edgeAltSlow: yahooEdge.state.altSlow, edgeAllPausedUntil: yahooEdge.state.allPausedUntil, results: r.results });
         return markerOk;
     } catch (e: any) {
         consecutiveZero++;
