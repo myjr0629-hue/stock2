@@ -63,9 +63,10 @@ const store = new Map<string, any>();
 const expiry = new Map<string, number>();
 const budgets = new Map<string, { count: number; at: number; failures?: number; retryAt?: number }>();
 let budgetFails = false;
+let getFails = false;
 const evalKeys: string[] = [];
 class OfflineRedis {
-    async get(k: string) { if ((expiry.get(k) ?? Infinity) <= Date.now()) { store.delete(k); expiry.delete(k); } return store.get(k) ?? null; }
+    async get(k: string) { if (getFails) throw new Error('offline read failure'); if ((expiry.get(k) ?? Infinity) <= Date.now()) { store.delete(k); expiry.delete(k); } return store.get(k) ?? null; }
     async set(k: string, v: any, opts?: { nx?: boolean; ex?: number }) {
         if (opts?.nx && (await this.get(k)) !== null) return null;
         store.set(k, typeof v === 'string' ? JSON.parse(v) : v);
@@ -221,6 +222,12 @@ class OfflineRedis {
             assert.equal(next.verdict.realityInsight, NEWT);
             assert.equal(next.tacticalGeneratedAt, iso(now + 5_000), '새 글의 생성 시각'); }
         assert.equal(keepRegTacticalOnFailure({ verdict: { realityInsight: PENDING } }, snap({ text: PENDING })), false, '옛 글도 대기 문구면 손대지 않음');
+        {   // 관문 10310849 ② 재생성 중 예외 → 대체 판정(정적 문구, Tactical 칸 없음)에도 기존 글 복원
+            const fallbackVerdict: any = { verdict: { title: 'STABLE', description: '정적', sentiment: 'NEUTRAL' } };
+            assert.equal(settleRegTacticalRefresh(fallbackVerdict, prev, null, now), false);
+            assert.equal(fallbackVerdict.verdict.realityInsight, TEXT, 'Tactical 칸 복원');
+            assert.deepEqual(fallbackVerdict.verdict.num.basis.realityInsight, { NDX_CHG: -2.5, SPX_CHG: -1.6, RLSI: 33 });
+        }
         {   // 실패 기록이면 60분 대기(공용 Lua)
             budgets.clear();
             const t0 = now;
@@ -288,6 +295,16 @@ class OfflineRedis {
             // 장중이 아니면 채택 확인 없음
             fresh(snap({ at: now - 10 * MIN, session: 'POST' }), 'ja'); adoptCalls = 0;
         } finally { Object.assign(IntelligenceNode, { latestStoredRegTacticalAt: orig.latest, adoptStoredRegReality: orig.adopt, numbersFor: orig.nums }); }
+        {   // 관문 10310849 ① 실제 채택 함수: 원문 읽기 장애 → 본 시각 없음 · 원문은 있는데 세션·날짜가 맞지 않으면 그 시각을 «본 것»으로
+            const ctx = { rlsiScore: 30, nasdaqChange: -3.4, vix: 21, locale: 'ko' as const, indexBasis: undefined };
+            getFails = true;
+            const r1 = await IntelligenceNode.adoptStoredRegReality(ctx as any, 0);
+            getFails = false;
+            assert.deepEqual(r1, { text: null }, '읽기 장애 → seenAt 없음');
+            store.set('guardian:gemini:v3:reality:ko', { text: '옛 글', updatedAt: iso(now - 2 * MIN), session: 'PRE', basis: null });
+            const r2 = await IntelligenceNode.adoptStoredRegReality(ctx as any, 0);
+            assert.deepEqual(r2, { text: null, seenAt: now - 2 * MIN }, '원문 있음·세션 불일치 → 본 시각');
+        }
         console.log('통과 T35-B 장중 정기 재생성: 판정 경계·공용 예약(30분·8회·실패 대기·장애 0)·재계산 진입·실패 시 기존 글 유지·다른 언어 채택');
     } finally { Date.now = realNow; }
 })().catch(e => { console.error(e); process.exitCode = 1; });

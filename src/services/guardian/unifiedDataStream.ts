@@ -1034,15 +1034,23 @@ export class GuardianDataHub {
                     }
                 } catch (e) {
                     console.warn("[Guardian] AI Verdict Failed, using fallback:", e);
+                    // ★T35-B 정기 재생성 도중 예외 — 아래 대체 판정에도 기존 장중 글·생성 기준을 되살린다(관문 10310849 ②). 예약은 실패로 기록된다
+                    const keepRegTactical = (v: GuardianVerdict): GuardianVerdict => {
+                        if (!regRefreshAt || !placeholderFallback) return v;
+                        const holder: { verdict?: any; tacticalGeneratedAt?: string; tacticalSeenAt?: string; timestamp?: string } = { verdict: v };
+                        regOk = settleRegTacticalRefresh(holder, placeholderFallback, null, regRefreshAt);
+                        regGeneratedAt = holder.tacticalGeneratedAt; regSeenAt = holder.tacticalSeenAt;
+                        return holder.verdict;
+                    };
                     // [V13.0] Even on AI failure, use divergence info if available
                     if (divCase.isDivergent && rlsi.session === 'REG') {
-                        verdict = {
+                        verdict = keepRegTactical({
                             title: divCase.verdictTitle,
                             description: divCase.verdictDesc,
                             sentiment: divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH'
-                        };
+                        });
                     } else {
-                        verdict = staticVerdict;
+                        verdict = keepRegTactical(staticVerdict);
                     }
                 }
             }

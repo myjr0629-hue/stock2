@@ -1032,17 +1032,26 @@ export class IntelligenceNode {
         const locale = ctx.locale || 'ko';
         const nums = guardianNumsFromAiContext(current);
         const prompts = (l: Locale) => REALITY_PROMPTS[l](current);
-        // 원문 시각을 먼저 읽는다 — 읽기 장애(null·예외)와 «출구 검사 탈락»을 가른다(관문 10310843 ①: 장애를 «본 것»으로 적으면 복구 뒤에도 그 글을 다시 보지 않는다)
-        const rawAt = await IntelligenceNode.latestStoredRegTacticalAt(locale, now);
-        if (rawAt == null) return { text: null };
-        const stored = await readStoredInsight('reality', locale, nums, prompts);
-        if (!stored) return { text: null, seenAt: rawAt };   // 원문은 있는데 검사 탈락(또는 세션 불일치) — 같은 글을 반복 검사하지 않게 그 시각을 «본 것»으로
-        const valid = stored.at <= now && stored.at > newerThan && etDateOf(stored.at) === etDateOf(now) && stored.session === 'REG'
-            && gateText('reality', stored.text, locale, nums, stored.basis, false, prompts(locale)).ok;
-        if (!valid) return { text: null, seenAt: stored.at };
-        if (!_mem.reality[locale] || stored.at >= _mem.reality[locale]!.at) rememberInsight('reality', locale, stored.text, stored.at, stored.basis, stored.session);
+        // 원문을 «한 번» 읽어 읽기 장애와 검사 탈락을 가른다(관문 10310843·10310849 — 장애를 «본 것»으로 적으면 복구 뒤에도 그 글을 다시 보지 않는다)
+        const redis = getRedis();
+        if (!redis) return { text: null };
+        let data: { text?: string; updatedAt?: string; basis?: GNums | null; session?: TacticalSession } | null;
+        try { data = await redis.get(getRedisKey('reality', locale)) as typeof data; } catch { return { text: null }; }   // 읽기 장애 — 본 시각 없음
+        if (!data?.text) return { text: null };
+        const at = data.updatedAt ? Date.parse(data.updatedAt) : NaN;
+        if (!Number.isFinite(at)) return { text: null };
+        if (at > now || etDateOf(at) !== etDateOf(now) || data.session !== 'REG' || at <= newerThan) return { text: null, seenAt: at };
+        const basis = data.basis && typeof data.basis === 'object' ? data.basis : null;
+        const prompt = prompts(locale);
+        if (!sameTacticalSession('reality', at, prompt, data.session)) return { text: null, seenAt: at };
+        const g = gateText('reality', data.text, locale, nums, basis, false, prompt);
+        if (!g.ok || isPlaceholder(g.text)) {
+            console.warn(`[InsightGate] REJECT stored ${getRedisKey('reality', locale)} (REG adopt: ${g.reasons.join(' | ') || 'placeholder'}) :: ${previewForLog(g.text)}`);
+            return { text: null, seenAt: at };   // 원문은 있는데 검사 탈락 — 같은 글을 반복 검사하지 않게 그 시각을 «본 것»으로
+        }
+        if (!_mem.reality[locale] || at >= _mem.reality[locale]!.at) rememberInsight('reality', locale, g.tpl, at, basis, 'REG');
         // 생성 기준(basis)은 저장 당시 값 그대로 기억된다(numbersFor) — 변화 판정(T35-B)이 그 글의 기준으로 이어지게
-        return { text: shownOut('reality', locale, { tpl: stored.text, basis: stored.basis ?? null, session: 'REG' }, nums), at: stored.at, seenAt: stored.at };
+        return { text: shownOut('reality', locale, { tpl: g.tpl, basis, session: 'REG' }, nums), at, seenAt: at };
     }
 
     /** 이 언어 Tactical 의 메모리 글이 바로 이 자리표 글(tpl)일 때 그 기록 시각(생성·번역은 만든 시각, 저장본 복구는 원래 저장 시각) — 정기 재생성 성공 판정(T35-B)용. 다른 글이면 null(동시 요청이 다른 글을 기록했으면 성공으로 보지 않는다) */
