@@ -1,40 +1,51 @@
 /**
- * 야후 «가장 신선한 접속점(edge)» 고르기 — EC2 시세 수집기(cron-market-feed) 전용.
+ * 야후 «심볼별 더 신선한 응답 고르기» — EC2 시세 수집기(cron-market-feed) 전용.
  *
  * ★ [2026-10-31] 원인 실측(같은 시각 같은 URL, curl --resolve 로 접속점만 바꿔 비교):
  *   · EC2(us-east-1)의 DNS 는 query1.finance.yahoo.com → 미국 접속점(69.147.92.12)을 준다.
  *     그 접속점의 1분봉 차트 응답은 NQ=F 3,219초·CL=F 7,118초·^SOX meta 4,918초 늙었다(10/30 16:2x ET, 장중).
  *   · 같은 요청을 아시아 접속점(180.222.109.252·180.222.119.247)으로 보내면 NQ=F·CL=F 약 600초(야후 기본 10분 지연),
  *     ^SOX meta 1~4초 — 맥에서도 EC2 에서도 똑같다(=클라이언트 IP 가 아니라 «접속점» 문제).
- *   → 앱 /api/market/macro 의 NQ 선물·유가·SOX·VIX 가 15~117분 늙었던 원인(AUDIT 10/31 «중간 3»).
+ *   → 앱 /api/market/macro 의 NQ 선물·유가·SOX 가 15~43분+ 늙었던 원인(AUDIT 10/31 «중간 3»).
  *
- * 하는 일: 5분마다 기준 심볼 3종(NQ=F·CL=F·^SOX)을 «DNS 기본»과 «아시아 접속점들»에 물어 더 신선한 곳을 고른다(어느 심볼도 더 늙지 않을 때만).
- *   이후 query1.finance.yahoo.com 요청만 그 접속점으로 보낸다(TLS 인증서·SNI 는 그대로 query1.finance.yahoo.com — 주소가 바뀌어도
- *   야후가 아니면 TLS 가 실패하고 기본 fetch 로 돌아간다). 시간이 같으면(장 마감·주말) DNS 기본을 유지한다.
- *   고정 접속점이 실패(네트워크·TLS·3초 초과·4xx/5xx·차트 본문 없음)하면 그 요청은 새 5초 제한으로 기본 fetch 에 다시 보내고,
- *   연속 3번 실패하면 다음 점검까지 DNS 기본으로 돌아간다 → 기존 동작보다 나빠지지 않는다. 점검은 수집 요청을 기다리게 하지 않는다(뒤에서).
- * 호출량: 수집 호출 수 불변 + 점검 5분마다 9회(3심볼×3접속점, 분당 1.8회).
+ * 설계(관문 10310534 지적 3건 반영 — «접속점 하나를 전 심볼에 적용»을 버렸다):
+ *   · 차트 요청(/v8/finance/chart/) 하나마다 «DNS 기본»과 «대안 접속점 1곳»에 동시에 묻고, 그 요청(=그 심볼)에만 더 나은 쪽을 쓴다.
+ *     - 1분봉: 대안이 «가격 유효 + 체결 시각 유효 + 직전 종가 유효»이고 체결 시각이 DNS 보다 «새로울» 때만 대안.
+ *       DNS 응답이 아예 못 쓰는 것(네트워크·4xx/5xx·본문 없음·가격 없음)이면 유효한 대안. DNS 가 가격은 있는데 체결 시각이 없으면
+ *       «판정 불가» → DNS 그대로(기존 경로). 실패를 0초로 계산하지 않는다(관문 #1).
+ *     - 일봉: «당일 종가(마지막 봉)와 직전 종가» 둘 다 있어야 유효(관문 #3). 대안이 유효하고 마지막 봉이 DNS 보다 새롭거나
+ *       DNS 가 유효하지 않을 때만 대안. 동률이면 DNS.
+ *     - 둘 다 실패면 DNS 결과를 그대로 돌려준다(기존 경로와 같은 실패 — 수집 함수가 null 처리).
+ *   · 심볼마다 따로 판정하므로 NQ·유가·SOX 로 고른 접속점이 VIX·지수에 번지지 않는다(관문 #2).
+ * 호출량·차단 위험:
+ *   · 수집 함수는 심볼을 «순서대로» 부른다 → 동시 요청은 최대 DNS 1 + 대안 1. 대안 동시 상한 ALT_MAX_INFLIGHT(넘으면 대안 생략 = 기존 경로).
+ *   · 회차당 차트 요청 ≈ 17(1분봉) + 지수 일봉 3 + 가끔 직전 종가 일봉 → 심볼당 최대 2회(DNS·대안 각 1). DNS 접속점이 받는 양은 그대로,
+ *     대안 접속점이 같은 양을 추가로 받는다(EC2 IP 기준 분당 약 40 → 80 요청).
+ *   · 대안은 자체 3초 제한(keep-alive 전용 에이전트), 연속 3회 실패면 그 대안 5분 쉼, 429 면 15분 쉼 → 다음 대안, 전부 쉬면 DNS 만(기존과 동일).
+ *   · TLS 인증서·SNI 는 그대로 query1.finance.yahoo.com — 주소가 야후가 아니면 TLS 가 실패하고 DNS 결과만 쓴다.
  */
 import https from 'node:https';
 
 export const YAHOO_HOST = 'query1.finance.yahoo.com';
-/** 아시아 접속점 — 10/31 실측 신선(야후 기본 지연만). 바뀌면 TLS 실패 → 기본 fetch 로 돌아간다. */
+/** 아시아 접속점 — 10/31 실측 신선(야후 기본 지연만). 바뀌면 TLS 실패 → DNS 결과만 쓴다. */
 export const YAHOO_ALT_EDGES: readonly string[] = ['180.222.109.252', '180.222.119.247'];
-export const EDGE_PROBE_EVERY_MS = 5 * 60_000;
-export const PINNED_TIMEOUT_MS = 3000;
-const FALLBACK_TIMEOUT_MS = 5000;
-export const MAX_CONSECUTIVE_FAILS = 3;
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+export const ALT_TIMEOUT_MS = 3000;
+export const ALT_MAX_INFLIGHT = 2;
+export const ALT_FAILS_TO_PAUSE = 3;
+export const ALT_PAUSE_MS = 5 * 60_000;
+export const ALT_PAUSE_429_MS = 15 * 60_000;
+/** 체결 시각이 «지금»보다 이만큼 넘게 미래면 대안 응답을 믿지 않는다(시계·자료 이상). */
+const FUTURE_SLACK_SEC = 120;
 
 type FetchLike = (url: string, init?: any) => Promise<any>;
-/** 고정 IP 로 보내는 최소 fetch — 접속점 ip 가 null 이면 쓰지 않는다. */
 export type PinnedFetch = (ip: string, url: string, init?: any) => Promise<{ ok: boolean; status: number; json(): Promise<any> }>;
 
-export interface EdgeState {
-    edge: string | null;          // null = DNS 기본
-    checkedAt: number;
-    lastProbe: Record<string, (number | null)[]> | null;   // 접속점 → 기준 심볼별 regularMarketTime(초) (실패 null)
-    pinnedFails: number;
+// 접속점마다 keep-alive 에이전트를 따로 둔다 — 호스트 이름이 같아 공용 에이전트를 쓰면 다른 IP 로 연결된 소켓을 재사용할 수 있다.
+const agents = new Map<string, https.Agent>();
+function agentFor(ip: string): https.Agent {
+    let a = agents.get(ip);
+    if (!a) { a = new https.Agent({ keepAlive: true, maxSockets: ALT_MAX_INFLIGHT, timeout: 30_000 }); agents.set(ip, a); }
+    return a;
 }
 
 /** node:https 로 query1 을 특정 IP 에 붙여 보낸다(SNI·인증서 검증은 호스트 이름 그대로). */
@@ -45,6 +56,7 @@ export const httpsPinnedFetch: PinnedFetch = (ip, url, init = {}) => new Promise
     for (const k of Object.keys(h)) headers[k] = String(h[k]);
     const req = https.request({
         host: u.hostname, servername: u.hostname, port: 443, path: u.pathname + u.search, method: 'GET', headers,
+        agent: agentFor(ip),
         lookup: ((_host: string, opts: any, cb: any) => {
             if (typeof opts === 'function') { cb = opts; opts = {}; }
             if (opts && opts.all) cb(null, [{ address: ip, family: 4 }]);
@@ -68,109 +80,131 @@ export const httpsPinnedFetch: PinnedFetch = (ip, url, init = {}) => new Promise
     req.end();
 });
 
-async function probeTime(get: () => Promise<any>): Promise<number | null> {
-    try {
-        const res = await get();
-        if (!res?.ok) return null;
-        const t = (await res.json())?.chart?.result?.[0]?.meta?.regularMarketTime;
-        return typeof t === 'number' && t > 0 ? t : null;
-    } catch { return null; }
+const pos = (v: any, min = 0): v is number => typeof v === 'number' && Number.isFinite(v) && v > min;
+
+/** 1분봉 응답 판독: 수집 함수가 쓰는 값(가격·체결 시각·직전 종가)이 각각 유효한가. */
+export function minuteInfo(data: any): { usable: boolean; time: number | null; complete: boolean } {
+    const meta = data?.chart?.result?.[0]?.meta;
+    const usable = pos(meta?.regularMarketPrice);                       // 수집 함수가 «가격 없음»으로 버리지 않는 응답
+    const time = usable && pos(meta?.regularMarketTime) ? meta.regularMarketTime : null;
+    const prev = meta?.previousClose ?? meta?.chartPreviousClose;
+    return { usable, time, complete: usable && time != null && pos(prev, 0.01) };
 }
 
-/**
- * 접속점 점검: 기준 심볼 3종(NQ=F·CL=F·^SOX — 10/30 실측에서 미국 접속점이 가장 늙었던 선물·유가·지수)의 regularMarketTime 을
- * 접속점마다 받아, 대안이 «모든 심볼에서 기본보다 60초 넘게 뒤지지 않고» «합계로 60초 넘게 신선»할 때만 고른다(관문 10310524 #2).
- * 동률·장 마감·대안 실패면 DNS 기본(null) — 지금과 같은 동작.
- */
-export const PROBE_SYMBOLS: readonly string[] = ['NQ%3DF', 'CL%3DF', '%5ESOX'];
-const probeUrl = (sym: string) => `https://${YAHOO_HOST}/v8/finance/chart/${sym}?interval=1m&range=1d`;
-export async function probeEdges(baseFetch: FetchLike, pinned: PinnedFetch, alts: readonly string[] = YAHOO_ALT_EDGES): Promise<{ edge: string | null; times: Record<string, (number | null)[]> }> {
-    const init = () => ({ headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(5000) });
-    const edges: (string | null)[] = [null, ...alts];
-    const rows = await Promise.all(edges.map((ip) => Promise.all(PROBE_SYMBOLS.map((sym) => probeTime(() =>
-        ip == null ? baseFetch(probeUrl(sym), { ...init(), cache: 'no-store' }) : pinned(ip, probeUrl(sym), init()))))));
-    const times: Record<string, (number | null)[]> = {};
-    edges.forEach((ip, i) => { times[ip ?? 'dns'] = rows[i]; });
-    const base = rows[0];
-    let edge: string | null = null; let bestGain = 60 * PROBE_SYMBOLS.length;   // 평균 60초 넘게 신선할 때만
-    alts.forEach((ip, k) => {
-        const alt = rows[k + 1];
-        if (alt.some((t) => t == null)) return;                                   // 한 심볼이라도 실패한 대안은 쓰지 않는다
-        let gain = 0; let worse = false;
-        alt.forEach((t, j) => { const b = base[j] ?? 0; gain += (t as number) - b; if ((t as number) < b - 60) worse = true; });
-        if (!worse && gain > bestGain) { bestGain = gain; edge = ip; }
-    });
-    return { edge, times };
-}
-
-/** 차트 응답이 수집 함수가 쓸 수 있는 모양인가 — 1분봉은 meta.regularMarketPrice, 일봉은 timestamp 배열(관문 10310522: meta:{} 200), 일봉은 종가. */
-export function chartBodyUsable(url: string, data: any): boolean {
+/** 일봉 응답 판독: 마지막 봉(당일) 종가와 그 앞 직전 종가가 둘 다 있어야 유효. lastTs = 마지막 봉 시각. */
+export function dailyInfo(data: any): { valid: boolean; lastTs: number | null } {
     const r0 = data?.chart?.result?.[0];
-    if (!r0?.meta) return false;
-    if (/[?&]interval=1d\b/.test(url)) {
-        // 일봉: 쓸 수 있는 종가가 하나라도 있어야 한다(관문 10310524 #1 — timestamp 만 있고 종가 null 이면 직전 종가 복구 실패)
-        const closes = r0?.indicators?.quote?.[0]?.close;
-        return Array.isArray(r0.timestamp) && r0.timestamp.length > 0 && Array.isArray(closes) && closes.some((c: any) => typeof c === 'number' && c > 0.01);
+    const ts: any[] = Array.isArray(r0?.timestamp) ? r0.timestamp : [];
+    const cl: any[] = Array.isArray(r0?.indicators?.quote?.[0]?.close) ? r0.indicators.quote[0].close : [];
+    if (!r0?.meta || ts.length < 2 || cl.length < ts.length) return { valid: false, lastTs: null };
+    const last = ts.length - 1;
+    if (!pos(ts[last]) || !pos(cl[last], 0.01)) return { valid: false, lastTs: null };
+    let hasPrev = false;
+    for (let k = last - 1; k >= 0; k--) if (pos(cl[k], 0.01) && pos(ts[k]) && ts[k] < ts[last]) { hasPrev = true; break; }
+    return { valid: hasPrev, lastTs: ts[last] };
+}
+
+type Got = { kind: 'ok'; status: number; data: any } | { kind: 'bad'; status: number; res: any } | { kind: 'jsonErr'; status: number; err: unknown } | { kind: 'err'; err: unknown };
+
+async function grab(p: () => Promise<any>): Promise<Got> {
+    let res: any;
+    try { res = await p(); } catch (err) { return { kind: 'err', err }; }
+    if (!res?.ok) return { kind: 'bad', status: res?.status ?? 0, res };
+    try { return { kind: 'ok', status: res.status, data: await res.json() }; } catch (err) { return { kind: 'jsonErr', status: res.status, err }; }
+}
+
+/** 고른 결과를 수집 함수가 쓰는 fetch 응답 모양으로 되돌린다(DNS 결과는 기존과 같은 성공·실패 모양). */
+function toResponse(g: Got): any {
+    switch (g.kind) {
+        case 'ok': { const d = g.data; return { ok: true, status: g.status, json: async () => d }; }
+        case 'bad': return g.res;
+        case 'jsonErr': { const e = g.err; return { ok: true, status: g.status, json: async () => { throw e; } }; }
+        default: throw g.err;
     }
-    return typeof r0.meta.regularMarketPrice === 'number' && r0.meta.regularMarketPrice > 0;
+}
+
+export type Pick = 'dns' | 'alt' | 'dns-undecidable' | 'dns-alt-invalid' | 'dns-alt-skipped' | 'alt-dns-failed';
+/** 1분봉: DNS·대안 결과에서 쓸 쪽을 고른다(순수 함수 — 시험 대상). */
+export function pickMinute(dns: Got, alt: Got | null, nowSec: number): Pick {
+    if (!alt) return 'dns-alt-skipped';
+    const a = alt.kind === 'ok' ? minuteInfo(alt.data) : null;
+    if (!a || !a.complete || (a.time as number) > nowSec + FUTURE_SLACK_SEC) return 'dns-alt-invalid';
+    const d = dns.kind === 'ok' ? minuteInfo(dns.data) : null;
+    if (!d || !d.usable) return 'alt-dns-failed';           // DNS 가 못 쓰는 응답 → 유효한 대안
+    if (d.time == null) return 'dns-undecidable';            // DNS 체결 시각 없음 — 비교 불가 → 기존 경로
+    return (a.time as number) > d.time ? 'alt' : 'dns';      // 동률(장 마감·주말)은 DNS
+}
+
+/** 일봉: 당일·직전 종가가 둘 다 있는 쪽, 마지막 봉이 더 새로운 쪽. 동률은 DNS. */
+export function pickDaily(dns: Got, alt: Got | null, nowSec: number): Pick {
+    if (!alt) return 'dns-alt-skipped';
+    const a = alt.kind === 'ok' ? dailyInfo(alt.data) : null;
+    if (!a || !a.valid || (a.lastTs as number) > nowSec + 86_400) return 'dns-alt-invalid';
+    const d = dns.kind === 'ok' ? dailyInfo(dns.data) : null;
+    if (!d || !d.valid) return 'alt-dns-failed';
+    return (a.lastTs as number) > (d.lastTs as number) ? 'alt' : 'dns';
+}
+
+export interface EdgeState {
+    /** 심볼(URL 경로의 심볼 + 봉 간격)별 마지막 판정 — 회차 기록용 */
+    picks: Record<string, { via: Pick; dnsT: number | null; altT: number | null; alt: string | null }>;
+    /** 대안 접속점별 연속 실패·쉼 */
+    alts: Record<string, { fails: number; pausedUntil: number }>;
+    altCalls: number;
+    altWins: number;
 }
 
 /**
- * 기본 fetch 를 감싼다: query1.finance.yahoo.com 요청만 고른 접속점으로. 그 외 주소·접속점 미선택은 기본 fetch 그대로.
- * 고정 접속점이 실패하거나 ok 가 아니면 같은 요청을 기본 fetch 로 다시 보낸다.
+ * 기본 fetch 를 감싼다: query1.finance.yahoo.com 의 차트 요청만 DNS·대안 동시 질의 후 심볼별 판정.
+ * 그 외 주소·차트 아닌 요청·대안 전부 쉼/동시 상한이면 기본 fetch 그대로(기존 경로).
  */
 export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFetch; now?: () => number; alts?: readonly string[]; log?: (m: string) => void } = {}) {
     const pinned = opts.pinned ?? httpsPinnedFetch;
     const now = opts.now ?? Date.now;
-    const alts = opts.alts ?? YAHOO_ALT_EDGES;
-    const state: EdgeState = { edge: null, checkedAt: Number.NEGATIVE_INFINITY, lastProbe: null, pinnedFails: 0 };
-    let probing: Promise<void> | null = null;
+    const altList = opts.alts ?? YAHOO_ALT_EDGES;
+    const state: EdgeState = { picks: {}, alts: {}, altCalls: 0, altWins: 0 };
+    for (const ip of altList) state.alts[ip] = { fails: 0, pausedUntil: 0 };
+    let inflight = 0;
 
-    async function refresh(): Promise<void> {
-        if (now() - state.checkedAt < EDGE_PROBE_EVERY_MS) return;
-        if (!probing) {
-            probing = (async () => {
-                try {
-                    const r = await probeEdges(baseFetch, pinned, alts);
-                    if (r.edge !== state.edge) opts.log?.(`[yahoo-edge] 접속점 ${state.edge ?? 'dns'} → ${r.edge ?? 'dns'} ${JSON.stringify(r.times)}`);
-                    state.edge = r.edge; state.lastProbe = r.times;
-                } catch { /* 점검 실패 — 기존 선택 유지 */ }
-                state.checkedAt = now();
-                probing = null;
-            })();
+    const currentAlt = (): string | null => altList.find((ip) => state.alts[ip].pausedUntil <= now()) ?? null;
+    function noteAlt(ip: string, g: Got, reachable: boolean) {
+        const s = state.alts[ip];
+        if (g.kind === 'bad' && g.status === 429) {
+            s.pausedUntil = now() + ALT_PAUSE_429_MS; s.fails = 0;
+            opts.log?.(`[yahoo-edge] 대안 ${ip} 429 — ${ALT_PAUSE_429_MS / 60_000}분 쉼`);
+            return;
         }
-        await probing;
+        if (reachable) { s.fails = 0; return; }
+        if (++s.fails >= ALT_FAILS_TO_PAUSE) {
+            s.pausedUntil = now() + ALT_PAUSE_MS; s.fails = 0;
+            opts.log?.(`[yahoo-edge] 대안 ${ip} 연속 실패 ${ALT_FAILS_TO_PAUSE} — ${ALT_PAUSE_MS / 60_000}분 쉼`);
+        }
     }
 
-    let consecutiveFails = 0;
     const edgeFetch = async (input: any, init?: any): Promise<any> => {
         const url = typeof input === 'string' ? input : String(input?.url ?? input);
-        let host = '';
-        try { host = new URL(url).hostname; } catch { /* 상대 주소 등 — 그대로 */ }
-        if (host !== YAHOO_HOST) return baseFetch(input, init);
-        void refresh();   // 점검은 뒤에서 — 수집 요청(호출자의 5초 제한)을 기다리게 하지 않는다. 첫 회차는 DNS 기본.
-        const ip = state.edge;
-        if (!ip) return baseFetch(input, init);
-        try {
-            // 고정 접속점엔 호출자 signal 대신 자체 3초 제한 — 만료된 signal 이 아래 재시도까지 죽이지 않게(관문 10310520 #1)
-            const { signal: _callerSignal, ...rest } = init || {};
-            const res = await pinned(ip, url, { ...rest, signal: AbortSignal.timeout(PINNED_TIMEOUT_MS) });
-            if (res.ok) {
-                const data = await res.json();
-                // 200 이어도 차트 본문이 없으면 실패로 보고 기본 경로로(관문 10310520 #2)
-                if (!url.includes('/v8/finance/chart/') || chartBodyUsable(url, data)) {
-                    consecutiveFails = 0;
-                    return { ok: true, status: res.status, json: async () => data };
-                }
-            }
-        } catch { /* 아래 기본 fetch 로 */ }
-        state.pinnedFails++;
-        if (++consecutiveFails >= MAX_CONSECUTIVE_FAILS) {
-            // 연속 실패 — 다음 점검(5분)까지 DNS 기본으로 돌아간다(회차마다 3초씩 잃지 않게)
-            opts.log?.(`[yahoo-edge] 접속점 ${ip} 연속 실패 ${consecutiveFails} — 다음 점검까지 dns`);
-            state.edge = null; consecutiveFails = 0;
+        let u: URL | null = null;
+        try { u = new URL(url); } catch { /* 상대 주소 등 — 그대로 */ }
+        if (!u || u.hostname !== YAHOO_HOST || !u.pathname.startsWith('/v8/finance/chart/')) return baseFetch(input, init);
+        const daily = u.searchParams.get('interval') === '1d';
+        const key = `${decodeURIComponent(u.pathname.slice('/v8/finance/chart/'.length))}@${daily ? '1d' : '1m'}`;
+
+        const ip = inflight < ALT_MAX_INFLIGHT ? currentAlt() : null;
+        // 대안에는 호출자 signal 대신 자체 3초 제한 — 대안이 느려도 DNS 경로(호출자 제한)는 그대로
+        const { signal: _callerSignal, ...rest } = init || {};
+        let altP: Promise<Got> | null = null;
+        if (ip) {
+            inflight++; state.altCalls++;
+            altP = grab(() => pinned(ip, url, { ...rest, signal: AbortSignal.timeout(ALT_TIMEOUT_MS) })).finally(() => { inflight--; });
         }
-        return baseFetch(input, { ...(init || {}), signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS) });
+        const [dns, alt] = await Promise.all([grab(() => baseFetch(input, init)), altP ?? Promise.resolve(null)]);
+        const nowSec = Math.floor(now() / 1000);
+        const via = daily ? pickDaily(dns, alt, nowSec) : pickMinute(dns, alt, nowSec);
+        if (ip && alt) noteAlt(ip, alt, alt.kind === 'ok');   // 연결·상태·본문 실패만 센다(내용 미비는 심볼 사정 — 대안 전체를 쉬게 하지 않는다)
+        const t = (g: Got | null) => (g && g.kind === 'ok' ? (daily ? dailyInfo(g.data).lastTs : minuteInfo(g.data).time) : null);
+        state.picks[key] = { via, dnsT: t(dns), altT: t(alt), alt: ip };
+        if (via === 'alt' || via === 'alt-dns-failed') { state.altWins++; return toResponse(alt as Got); }
+        return toResponse(dns);
     };
-    return { fetch: edgeFetch, state, refresh };
+    return { fetch: edgeFetch, state };
 }

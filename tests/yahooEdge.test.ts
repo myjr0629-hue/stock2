@@ -1,164 +1,238 @@
 /**
- * 야후 접속점 선택(src/lib/cron/yahooEdge.ts) — 무네트워크 시험.
- * 실행: NODE_PATH=<node_modules> node -r ts-node/register -r tsconfig-paths/register --test tests/yahooEdge.test.ts
+ * 야후 «심볼별 더 신선한 응답 고르기»(src/lib/cron/yahooEdge.ts) — 무네트워크 시험.
+ * 실행: TS_NODE_TRANSPILE_ONLY=1 TS_NODE_COMPILER_OPTIONS='{"module":"commonjs","moduleResolution":"node"}' \
+ *       node -r ts-node/register -r tsconfig-paths/register --test tests/yahooEdge.test.ts
+ * 관문 10310534 지적 3건(점검 실패를 0초로 계산·접속점을 17심볼 전체에 적용·일봉 종가 1개 통과)을 각각 재현한다.
+ * 마지막 묶음은 운영 수집 함수(fetchOneQuote)를 감싼 fetch 로 그대로 돌려 저장될 가격·등락률을 확인한다.
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import fs from 'node:fs';
-import path from 'node:path';
-import { createEdgeFetch, probeEdges, YAHOO_ALT_EDGES, EDGE_PROBE_EVERY_MS, PINNED_TIMEOUT_MS, MAX_CONSECUTIVE_FAILS, chartBodyUsable } from '../src/lib/cron/yahooEdge';
+import {
+    createEdgeFetch, pickMinute, pickDaily, minuteInfo, dailyInfo,
+    YAHOO_ALT_EDGES, ALT_FAILS_TO_PAUSE, ALT_PAUSE_MS, ALT_PAUSE_429_MS, ALT_MAX_INFLIGHT,
+} from '../src/lib/cron/yahooEdge';
 
 const NOW_SEC = 1_793_390_000;
-const chart = (t: number | null) => ({ ok: true, status: 200, json: async () => ({ chart: { result: [{ meta: { regularMarketTime: t, regularMarketPrice: 1 } }] } }) });
-const YURL = 'https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1m&range=1d';
+const NOW_MS = NOW_SEC * 1000;
+const A0 = YAHOO_ALT_EDGES[0];
+const A1 = YAHOO_ALT_EDGES[1];
+const url1m = (s: string) => `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?interval=1m&range=1d`;
+const url1d = (s: string) => `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?interval=1d&range=5d`;
 
-function rig(times: Record<string, number | null | 'throw' | 'bad'>) {
+type Meta = { price?: number | null; time?: number | null; prev?: number | null };
+const minuteBody = (m: Meta) => ({ chart: { result: [{ meta: { regularMarketPrice: m.price, regularMarketTime: m.time, previousClose: m.prev }, timestamp: [], indicators: { quote: [{ close: [] }] } }] } });
+const dailyBody = (ts: number[], cl: (number | null)[]) => ({ chart: { result: [{ meta: { regularMarketPrice: cl[cl.length - 1] }, timestamp: ts, indicators: { quote: [{ close: cl }] } }] } });
+const ok = (data: any) => ({ kind: 'ok' as const, status: 200, data });
+const res = (data: any, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => data });
+
+// 접속점·URL 별 응답 표 — 'throw' 는 연결 실패, 숫자는 상태 코드(본문 없음)
+type Reply = any | 'throw' | number;
+function rig(table: Record<string, Record<string, Reply>>) {
     const calls: string[] = [];
-    const base = async (url: any) => { calls.push(`dns ${String(url)}`); const t = times.dns; if (t === 'throw') throw new Error('x'); return t === 'bad' ? { ok: false, status: 503, json: async () => ({}) } : chart(t as any); };
-    const pinned = async (ip: string, url: string) => { calls.push(`${ip} ${url}`); const t = times[ip]; if (t === 'throw' || t === undefined) throw new Error('tls'); return t === 'bad' ? { ok: false, status: 429, json: async () => ({}) } : chart(t as any); };
+    const reply = (who: string, url: string) => {
+        calls.push(`${who} ${url}`);
+        const r = table[who]?.[url];
+        if (r === undefined || r === 'throw') return Promise.reject(new Error(`${who} 실패`));
+        if (typeof r === 'number') return Promise.resolve(res({}, r));
+        return Promise.resolve(res(r));
+    };
+    const base = (url: any) => reply('dns', String(url));
+    const pinned = (ip: string, url: string) => reply(ip, url);
     return { calls, base, pinned };
 }
 
-test('미국 접속점이 늙었으면 아시아 접속점을 고른다(10/30 실측 모양: dns 3219초·아시아 603초)', async () => {
-    const r = rig({ dns: NOW_SEC - 3219, [YAHOO_ALT_EDGES[0]]: NOW_SEC - 603, [YAHOO_ALT_EDGES[1]]: NOW_SEC - 602 });
-    const p = await probeEdges(r.base, r.pinned);
-    assert.equal(p.edge, YAHOO_ALT_EDGES[1]);
-});
+// ── 판정 함수 ──────────────────────────────────────────────
 
-test('동률·60초 이내 차이·장 마감이면 DNS 기본 유지(지금과 같은 동작)', async () => {
-    for (const alt of [NOW_SEC, NOW_SEC + 30]) {
-        const r = rig({ dns: NOW_SEC, [YAHOO_ALT_EDGES[0]]: alt, [YAHOO_ALT_EDGES[1]]: alt });
-        assert.equal((await probeEdges(r.base, r.pinned)).edge, null);
+test('1분봉: 대안이 더 새롭고 가격·체결 시각·직전 종가가 모두 유효할 때만 대안(10/30 실측 모양: dns 3219초·대안 603초)', () => {
+    const dns = ok(minuteBody({ price: 28380.5, time: NOW_SEC - 3219, prev: 29562 }));
+    assert.equal(pickMinute(dns, ok(minuteBody({ price: 28537, time: NOW_SEC - 603, prev: 29562 })), NOW_SEC), 'alt');
+    // 직전 종가 없음·가격 없음·체결 시각 없음 → 대안 무효
+    for (const bad of [{ price: 28537, time: NOW_SEC - 603, prev: null }, { price: null, time: NOW_SEC - 603, prev: 29562 }, { price: 28537, time: null, prev: 29562 }]) {
+        assert.equal(pickMinute(dns, ok(minuteBody(bad)), NOW_SEC), 'dns-alt-invalid');
     }
+    // 미래 시각(시계·자료 이상)은 믿지 않는다
+    assert.equal(pickMinute(dns, ok(minuteBody({ price: 1, time: NOW_SEC + 3600, prev: 1 })), NOW_SEC), 'dns-alt-invalid');
 });
 
-test('대안이 한 심볼이라도 기본보다 늙었거나 실패하면 고르지 않는다(관문 10310524 #2)', async () => {
-    const per: Record<string, Record<string, number | null>> = {
-        dns: { 'NQ%3DF': NOW_SEC - 3000, 'CL%3DF': NOW_SEC - 7000, '%5ESOX': NOW_SEC - 5 },
-        [YAHOO_ALT_EDGES[0]]: { 'NQ%3DF': NOW_SEC - 600, 'CL%3DF': NOW_SEC - 600, '%5ESOX': NOW_SEC - 900 },   // SOX 만 더 늙음
-        [YAHOO_ALT_EDGES[1]]: { 'NQ%3DF': NOW_SEC - 600, 'CL%3DF': null, '%5ESOX': NOW_SEC - 5 },            // CL 실패
+test('1분봉: 동률(장 마감·주말)·대안이 더 늙음이면 DNS(기존 경로)', () => {
+    const dns = ok(minuteBody({ price: 20, time: NOW_SEC - 5, prev: 19 }));
+    assert.equal(pickMinute(dns, ok(minuteBody({ price: 20, time: NOW_SEC - 5, prev: 19 })), NOW_SEC), 'dns');
+    assert.equal(pickMinute(dns, ok(minuteBody({ price: 20, time: NOW_SEC - 900, prev: 19 })), NOW_SEC), 'dns');
+});
+
+test('관문 #1 — DNS 판정 불가(가격은 있는데 체결 시각 없음)는 0초로 치지 않고 DNS 그대로', () => {
+    const dns = ok(minuteBody({ price: 28537, time: null, prev: 29562 }));
+    assert.equal(pickMinute(dns, ok(minuteBody({ price: 28380, time: NOW_SEC - 600, prev: 29562 })), NOW_SEC), 'dns-undecidable');
+});
+
+test('DNS 가 못 쓰는 응답(연결 실패·503·가격 없음)이면 유효한 대안, 둘 다 실패면 DNS 결과(기존과 같은 실패)', () => {
+    const alt = ok(minuteBody({ price: 28537, time: NOW_SEC - 600, prev: 29562 }));
+    assert.equal(pickMinute({ kind: 'err', err: new Error('x') }, alt, NOW_SEC), 'alt-dns-failed');
+    assert.equal(pickMinute({ kind: 'bad', status: 503, res: res({}, 503) }, alt, NOW_SEC), 'alt-dns-failed');
+    assert.equal(pickMinute(ok(minuteBody({ price: null, time: NOW_SEC, prev: 1 })), alt, NOW_SEC), 'alt-dns-failed');
+    assert.equal(pickMinute({ kind: 'err', err: new Error('x') }, { kind: 'err', err: new Error('y') }, NOW_SEC), 'dns-alt-invalid');
+    assert.equal(pickMinute({ kind: 'err', err: new Error('x') }, null, NOW_SEC), 'dns-alt-skipped');
+});
+
+test('관문 #3 — 일봉은 당일(마지막 봉) 종가와 직전 종가가 둘 다 있어야 유효', () => {
+    const D = 86_400; const t0 = NOW_SEC - 3 * D;
+    assert.equal(dailyInfo(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, 102])).valid, true);
+    assert.equal(dailyInfo(dailyBody([t0 + 2 * D], [102])).valid, false, '봉 1개');
+    assert.equal(dailyInfo(dailyBody([t0, t0 + D, t0 + 2 * D], [null, null, 102])).valid, false, '직전 종가 없음');
+    assert.equal(dailyInfo(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, null])).valid, false, '당일 종가 없음');
+    assert.equal(dailyInfo(dailyBody([t0, t0 + D], [100])).valid, false, '종가 배열이 짧음');
+    const dnsGood = ok(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, 102]));
+    // 대안이 «당일 종가 1개만» — 더 새로워 보여도 쓰지 않는다
+    assert.equal(pickDaily(dnsGood, ok(dailyBody([t0 + 3 * D], [103])), NOW_SEC), 'dns-alt-invalid');
+    // 대안이 유효하고 마지막 봉이 더 새로우면 대안, 같으면 DNS
+    assert.equal(pickDaily(dnsGood, ok(dailyBody([t0 + D, t0 + 2 * D, t0 + 3 * D], [101, 102, 103])), NOW_SEC), 'alt');
+    assert.equal(pickDaily(dnsGood, ok(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, 102])), NOW_SEC), 'dns');
+    // DNS 일봉이 무효(직전 종가 없음)고 대안이 유효면 대안
+    assert.equal(pickDaily(ok(dailyBody([t0 + 2 * D], [102])), ok(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, 102])), NOW_SEC), 'alt-dns-failed');
+});
+
+test('minuteInfo: chartPreviousClose 만 있어도 직전 종가 유효(수집 함수와 같은 규칙)', () => {
+    const body = { chart: { result: [{ meta: { regularMarketPrice: 5, regularMarketTime: NOW_SEC, chartPreviousClose: 4.9 } }] } };
+    assert.equal(minuteInfo(body).complete, true);
+});
+
+// ── 감싼 fetch ─────────────────────────────────────────────
+
+test('관문 #2 — 심볼마다 따로 판정: NQ 는 대안, 같은 회차 VIX 는 DNS(대안이 더 늙음)', async () => {
+    const t = {
+        dns: { [url1m('NQ=F')]: minuteBody({ price: 28380.5, time: NOW_SEC - 3219, prev: 29562 }), [url1m('^VIX')]: minuteBody({ price: 18.2, time: NOW_SEC - 5, prev: 17.9 }) },
+        [A0]: { [url1m('NQ=F')]: minuteBody({ price: 28537, time: NOW_SEC - 603, prev: 29562 }), [url1m('^VIX')]: minuteBody({ price: 18.0, time: NOW_SEC - 1200, prev: 17.9 }) },
     };
-    const sym = (url: string) => url.split('/chart/')[1].split('?')[0];
-    const base = async (url: any) => chart(per.dns[sym(String(url))]);
-    const pinned = async (ip: string, url: string) => { const t = per[ip][sym(url)]; if (t == null) throw new Error('x'); return chart(t); };
-    assert.equal((await probeEdges(base, pinned)).edge, null);
-    per[YAHOO_ALT_EDGES[0]]['%5ESOX'] = NOW_SEC - 3;
-    assert.equal((await probeEdges(base, pinned)).edge, YAHOO_ALT_EDGES[0]);
+    const r = rig(t);
+    const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
+    const nq = await (await e.fetch(url1m('NQ=F'), {})).json();
+    const vix = await (await e.fetch(url1m('^VIX'), {})).json();
+    assert.equal(nq.chart.result[0].meta.regularMarketPrice, 28537);
+    assert.equal(vix.chart.result[0].meta.regularMarketPrice, 18.2);
+    assert.equal(e.state.picks['NQ=F@1m'].via, 'alt');
+    assert.equal(e.state.picks['^VIX@1m'].via, 'dns');
+    // 심볼당 최대 2회(DNS 1 + 대안 1)
+    assert.equal(r.calls.filter((c) => c.endsWith(url1m('NQ=F'))).length, 2);
 });
 
-test('아시아 접속점이 전부 실패하면 DNS 기본', async () => {
-    const r = rig({ dns: NOW_SEC - 3000 });
-    assert.equal((await probeEdges(r.base, r.pinned)).edge, null);
+test('관문 #1 — 한 심볼의 DNS 실패가 다른 심볼 판정에 번지지 않는다', async () => {
+    const t = {
+        dns: { [url1m('CL=F')]: minuteBody({ price: 61.2, time: NOW_SEC - 30, prev: 60 }) },   // NQ 는 DNS 실패(표에 없음)
+        [A0]: { [url1m('NQ=F')]: minuteBody({ price: 28537, time: NOW_SEC - 600, prev: 29562 }), [url1m('CL=F')]: minuteBody({ price: 61.0, time: NOW_SEC - 600, prev: 60 }) },
+    };
+    const r = rig(t);
+    const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
+    assert.equal((await (await e.fetch(url1m('NQ=F'), {})).json()).chart.result[0].meta.regularMarketPrice, 28537);
+    assert.equal((await (await e.fetch(url1m('CL=F'), {})).json()).chart.result[0].meta.regularMarketPrice, 61.2);
+    assert.equal(e.state.picks['CL=F@1m'].via, 'dns');
 });
 
-test('DNS 기본 점검이 실패해도 살아 있는 대안을 고른다', async () => {
-    const r = rig({ dns: 'throw', [YAHOO_ALT_EDGES[0]]: NOW_SEC - 600 });
-    assert.equal((await probeEdges(r.base, r.pinned)).edge, YAHOO_ALT_EDGES[0]);
+test('DNS·대안 둘 다 실패면 DNS 실패 그대로(503 응답·예외)', async () => {
+    const r = rig({ dns: { [url1m('NQ=F')]: 503 } });
+    const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
+    const got = await e.fetch(url1m('NQ=F'), {});
+    assert.equal(got.ok, false); assert.equal(got.status, 503);
+    const r2 = rig({});
+    const e2 = createEdgeFetch(r2.base, { pinned: r2.pinned, now: () => NOW_MS });
+    await assert.rejects(() => e2.fetch(url1m('NQ=F'), {}), /dns 실패/);
 });
 
-test('감싼 fetch: 야후 query1 만 고른 접속점으로, 그 외 주소는 기본 fetch 그대로', async () => {
-    const r = rig({ dns: NOW_SEC - 3219, [YAHOO_ALT_EDGES[0]]: NOW_SEC - 603, [YAHOO_ALT_EDGES[1]]: 'throw' });
-    let clock = 1_000_000;
-    const ef = createEdgeFetch(r.base, { pinned: r.pinned, now: () => clock });
-    // 첫 요청은 점검을 기다리지 않고 DNS 기본으로 나간다(점검은 뒤에서)
-    const first = await ef.fetch(YURL, { headers: { 'User-Agent': 'x' } });
-    assert.equal(first.ok, true);
-    await ef.refresh();
-    assert.equal(ef.state.edge, YAHOO_ALT_EDGES[0]);
-    r.calls.length = 0;
-    const res = await ef.fetch(YURL, { headers: { 'User-Agent': 'x' } });
-    assert.equal(res.ok, true);
-    assert.equal((await res.json()).chart.result[0].meta.regularMarketTime, NOW_SEC - 603);
-    assert.deepEqual(r.calls, [`${YAHOO_ALT_EDGES[0]} ${YURL}`]);
-    r.calls.length = 0;
-    await ef.fetch('https://example-redis.upstash.io/get/x');
-    await ef.fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata');
+test('차트 아닌 요청·다른 호스트는 대안을 부르지 않는다', async () => {
+    const r = rig({ dns: { 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata': { fear_and_greed: {} }, 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=X': { q: 1 } } });
+    const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
+    await e.fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', {});
+    await e.fetch('https://query1.finance.yahoo.com/v7/finance/quote?symbols=X', {});
     assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), ['dns', 'dns']);
-    // 5분 안에는 다시 점검하지 않는다(수집 호출 수 불변)
-    r.calls.length = 0; clock += EDGE_PROBE_EVERY_MS - 1;
-    await ef.fetch(YURL); await ef.refresh();
-    assert.equal(r.calls.length, 1);
-    clock += 2;
-    await ef.fetch(YURL); await ef.refresh();
-    assert.equal(r.calls.length, 1 + 1 + 9, '5분 뒤 수집 1회 + 점검 9회(3심볼×dns+아시아 2)');
+    assert.equal(e.state.altCalls, 0);
 });
 
-test('고정 접속점이 실패·4xx·차트 없는 200 이면 같은 요청을 기본 fetch 로 다시 보낸다(기존보다 나빠지지 않음)', async () => {
-    for (const fail of ['throw', 'bad', 'empty200', 'noPrice200'] as const) {
-        const times: Record<string, any> = { dns: NOW_SEC - 3219, [YAHOO_ALT_EDGES[0]]: NOW_SEC - 603, [YAHOO_ALT_EDGES[1]]: 'throw' };
-        const r = rig(times);
-        const pinned = async (ip: string, url: string, init?: any) => {
-            if (fail === 'empty200' && times[ip] === 'empty200') { r.calls.push(`${ip} ${url}`); return { ok: true, status: 200, json: async () => ({ chart: { result: null, error: { code: 'Not Found' } } }) }; }
-            if (fail === 'noPrice200' && times[ip] === 'noPrice200') { r.calls.push(`${ip} ${url}`); return { ok: true, status: 200, json: async () => ({ chart: { result: [{ meta: {} }] } }) }; }
-            return r.pinned(ip, url);
-        };
-        const ef = createEdgeFetch(r.base, { pinned, now: () => 1 });
-        await ef.refresh();
-        assert.equal(ef.state.edge, YAHOO_ALT_EDGES[0]);
-        times[YAHOO_ALT_EDGES[0]] = fail;
-        r.calls.length = 0;
-        const res = await ef.fetch(YURL);
-        assert.equal(res.ok, true, fail);
-        assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), [YAHOO_ALT_EDGES[0], 'dns'], fail);
-        assert.equal(ef.state.pinnedFails, 1);
-    }
+test('대안 연속 연결 실패 → 그 대안 5분 쉼·다음 대안 / 429 → 15분 쉼 / 전부 쉬면 DNS 만', async () => {
+    let nowMs = NOW_MS;
+    const dnsBody = minuteBody({ price: 1, time: NOW_SEC, prev: 1 });
+    const t: any = { dns: { [url1m('NQ=F')]: dnsBody }, [A1]: { [url1m('NQ=F')]: 429 } };
+    const r = rig(t);
+    const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => nowMs });
+    for (let i = 0; i < ALT_FAILS_TO_PAUSE; i++) await e.fetch(url1m('NQ=F'), {});
+    assert.ok(e.state.alts[A0].pausedUntil >= nowMs + ALT_PAUSE_MS - 1);
+    const mark = r.calls.length;
+    await e.fetch(url1m('NQ=F'), {});           // 다음 대안 A1 → 429
+    assert.ok(r.calls.slice(mark).some((c) => c.startsWith(A1)));
+    assert.ok(e.state.alts[A1].pausedUntil >= nowMs + ALT_PAUSE_429_MS - 1);
+    const before = r.calls.length;
+    await e.fetch(url1m('NQ=F'), {});           // 전부 쉼 → DNS 만
+    assert.deepEqual(r.calls.slice(before).map((c) => c.split(' ')[0]), ['dns']);
+    nowMs += ALT_PAUSE_MS + 1;                  // A0 쉼 끝
+    const mark2 = r.calls.length;
+    await e.fetch(url1m('NQ=F'), {});
+    assert.ok(r.calls.slice(mark2).some((c) => c.startsWith(A0)));
 });
 
-test('호출자 signal 이 만료돼도 기본 fetch 재시도는 새 제한으로 나간다(관문 10310520 #1)', async () => {
-    const seen: any[] = [];
-    const base = async (_url: any, init?: any) => { seen.push(init?.signal); if (init?.signal?.aborted) throw new Error('aborted'); return chart(NOW_SEC); };
-    const hang = async (_ip: string, _url: string, init?: any) => new Promise<any>((_, rej) => {
-        init?.signal?.addEventListener('abort', () => rej(new Error('timeout')), { once: true });
+test('대안 내용 미비(직전 종가 없음)는 연결 실패로 세지 않는다 — 한 심볼 사정으로 대안 전체가 쉬지 않게', async () => {
+    const r = rig({ dns: { [url1m('X')]: minuteBody({ price: 1, time: NOW_SEC - 900, prev: 1 }) }, [A0]: { [url1m('X')]: minuteBody({ price: 1, time: NOW_SEC, prev: null }) } });
+    const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
+    for (let i = 0; i < ALT_FAILS_TO_PAUSE + 2; i++) await e.fetch(url1m('X'), {});
+    assert.equal(e.state.alts[A0].pausedUntil, 0);
+});
+
+test('대안 동시 상한 — 상한을 넘는 요청은 대안 없이 DNS 만', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const calls: string[] = [];
+    const body = minuteBody({ price: 1, time: NOW_SEC, prev: 1 });
+    const base = async () => { calls.push('dns'); return res(body); };
+    const pinned = async (ip: string) => { calls.push(ip); await gate; return res(body); };
+    const e = createEdgeFetch(base, { pinned, now: () => NOW_MS });
+    const ps = Array.from({ length: ALT_MAX_INFLIGHT + 2 }, () => e.fetch(url1m('NQ=F'), {}));
+    await new Promise((r) => setImmediate(r));
+    assert.equal(calls.filter((c) => c !== 'dns').length, ALT_MAX_INFLIGHT);
+    release(); await Promise.all(ps);
+});
+
+test('대안 3초 제한 — 호출자 signal 은 대안에 넘기지 않는다(대안이 느려도 DNS 경로는 호출자 제한 그대로)', async () => {
+    let altSignal: AbortSignal | undefined; let dnsSignal: AbortSignal | undefined;
+    const caller = AbortSignal.timeout(5000);
+    const body = minuteBody({ price: 1, time: NOW_SEC, prev: 1 });
+    const e = createEdgeFetch(async (_u: any, init: any) => { dnsSignal = init.signal; return res(body); },
+        { pinned: async (_ip, _u, init) => { altSignal = init.signal; return res(body); }, now: () => NOW_MS });
+    await e.fetch(url1m('NQ=F'), { signal: caller });
+    assert.equal(dnsSignal, caller);
+    assert.ok(altSignal && altSignal !== caller);
+});
+
+// ── 운영 수집 함수(fetchOneQuote) 그대로 ─────────────────────
+
+async function withFetch<T>(f: typeof fetch, run: () => Promise<T>): Promise<T> {
+    const orig = globalThis.fetch;
+    globalThis.fetch = f;
+    try { return await run(); } finally { globalThis.fetch = orig; }
+}
+
+test('fetchOneQuote — NQ 는 대안의 새 가격으로 저장, 같은 회차 VIX 는 DNS 값', async () => {
+    const { fetchOneQuote } = await import('../src/services/jobs/marketFeedJob');
+    const r = rig({
+        dns: { [url1m('NQ=F')]: minuteBody({ price: 28380.5, time: NOW_SEC - 3219, prev: 29562 }), [url1m('^VIX')]: minuteBody({ price: 18.2, time: NOW_SEC - 5, prev: 17.9 }) },
+        [A0]: { [url1m('NQ=F')]: minuteBody({ price: 28537, time: NOW_SEC - 603, prev: 29562 }), [url1m('^VIX')]: minuteBody({ price: 18.0, time: NOW_SEC - 1200, prev: 17.9 }) },
     });
-    const ef = createEdgeFetch(base, { pinned: hang, now: () => 1 });
-    ef.state.edge = YAHOO_ALT_EDGES[0]; ef.state.checkedAt = 1;   // 점검 없이 고정 상태
-    const callerAbort = new AbortController(); callerAbort.abort();
-    const t0 = Date.now();
-    const keepAlive = setInterval(() => {}, 1000);   // AbortSignal.timeout 타이머는 unref — 시험 동안 루프 유지
-    const res = await ef.fetch(YURL, { signal: callerAbort.signal }).finally(() => clearInterval(keepAlive));
-    assert.equal(res.ok, true);
-    assert.ok(Date.now() - t0 >= PINNED_TIMEOUT_MS - 50 && Date.now() - t0 < PINNED_TIMEOUT_MS + 1500, '고정 접속점은 자체 3초 제한');
-    assert.equal(seen.at(-1)?.aborted, false, '재시도 signal 은 살아 있다');
+    const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
+    const [nq, vix] = await withFetch(e.fetch as any, async () => [await fetchOneQuote('NQ=F'), await fetchOneQuote('^VIX')]);
+    assert.equal(nq!.price, 28537);
+    assert.equal(nq!.marketTime, new Date((NOW_SEC - 603) * 1000).toISOString());
+    assert.equal(vix!.price, 18.2);
 });
 
-test('연속 3번 실패하면 다음 점검까지 DNS 기본으로 돌아간다', async () => {
-    const r = rig({ dns: NOW_SEC, [YAHOO_ALT_EDGES[0]]: 'bad' });
-    const ef = createEdgeFetch(r.base, { pinned: r.pinned, now: () => 1 });
-    ef.state.edge = YAHOO_ALT_EDGES[0]; ef.state.checkedAt = 1;
-    for (let i = 0; i < MAX_CONSECUTIVE_FAILS; i++) await ef.fetch(YURL);
-    assert.equal(ef.state.edge, null);
-    r.calls.length = 0;
-    await ef.fetch(YURL);
-    assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), ['dns']);
-});
-
-test('점검이 동률이면 기본 fetch 만 쓴다(접속점 고정 없음)', async () => {
-    const r = rig({ dns: NOW_SEC, [YAHOO_ALT_EDGES[0]]: NOW_SEC, [YAHOO_ALT_EDGES[1]]: NOW_SEC });
-    const ef = createEdgeFetch(r.base, { pinned: r.pinned, now: () => 1 });
-    await ef.refresh();
-    assert.equal(r.calls.length, 9, '점검은 실제로 돌았다(3심볼×3접속점)');
-    r.calls.length = 0;
-    await ef.fetch(YURL);
-    assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), ['dns']);
-});
-
-test('차트 본문 판정: 1분봉은 가격, 일봉은 timestamp 가 있어야 쓴다', () => {
-    const m = 'https://query1.finance.yahoo.com/v8/finance/chart/NQ%3DF?interval=1m&range=1d';
-    const d = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI?interval=1d&range=7d';
-    assert.equal(chartBodyUsable(m, { chart: { result: [{ meta: {} }] } }), false);
-    assert.equal(chartBodyUsable(m, { chart: { result: [{ meta: { regularMarketPrice: 0 } }] } }), false);
-    assert.equal(chartBodyUsable(m, { chart: { result: [{ meta: { regularMarketPrice: 28537 } }] } }), true);
-    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [] }] } }), false);
-    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [1] }] } }), false, '종가 없음');
-    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [1, 2], indicators: { quote: [{ close: [null, null] }] } }] } }), false, '종가 전부 null');
-    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [1, 2], indicators: { quote: [{ close: [null, 99.8] }] } }] } }), true);
-    assert.equal(chartBodyUsable(m, { chart: { result: null } }), false);
-});
-
-test('워커 배선: fetch 를 감싸고 수집 함수 본문(marketFeedJob)은 건드리지 않는다', () => {
-    const worker = fs.readFileSync(path.join(__dirname, '../scripts/ec2-cron/market-feed-worker.ts'), 'utf8');
-    assert.match(worker, /createEdgeFetch\(globalThis\.fetch\.bind\(globalThis\)/);
-    assert.match(worker, /globalThis\.fetch = yahooEdge\.fetch/);
-    const job = fs.readFileSync(path.join(__dirname, '../src/services/jobs/marketFeedJob.ts'), 'utf8');
-    assert.doesNotMatch(job, /yahooEdge/);
+test('관문 #3 재현 — 직전 종가 복구 일봉: 대안이 «당일 종가 1개만»이면 DNS 일봉으로 등락률 계산(0% 로 뭉개지지 않음)', async () => {
+    const { fetchOneQuote } = await import('../src/services/jobs/marketFeedJob');
+    const D = 86_400; const t0 = NOW_SEC - 3 * D;
+    // 1분봉 previousClose 가 현재가로 «굴러간» 응답(직전 종가 복구 경로 진입) — DNS·대안 같은 시각
+    const m = minuteBody({ price: 7443.5, time: NOW_SEC - 30, prev: 7443.5 });
+    const r = rig({
+        dns: { [url1m('ES=F')]: m, [url1d('ES=F')]: dailyBody([t0, t0 + D, t0 + 2 * D], [7400, 7460, 7443.5]) },
+        [A0]: { [url1m('ES=F')]: m, [url1d('ES=F')]: dailyBody([t0 + 2 * D], [7443.5]) },
+    });
+    const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
+    const q = await withFetch(e.fetch as any, () => fetchOneQuote('ES=F'));
+    assert.equal(e.state.picks['ES=F@1d'].via, 'dns-alt-invalid');
+    assert.equal(q!.prevClose, 7460);
+    assert.ok(Math.abs(q!.changePct - ((7443.5 - 7460) / 7460) * 100) < 1e-9);
+    assert.notEqual(q!.changePct, 0);
 });
