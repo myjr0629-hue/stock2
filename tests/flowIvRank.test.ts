@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 import { ivRankIsCollecting, ivRankCollectingText } from '../src/lib/ivRank';
 import { ivHistoryUnavailable, notProvidedText } from '../src/lib/app/flowEmptyStates';
+import { fetchSqueezeFallback, flowSqueeze } from '../src/lib/app/flowSqueeze';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -22,7 +23,7 @@ function visit(n: ts.Node) {
     if (ts.isJsxExpression(n) && n.expression) {
         const text = n.expression.getText(ast);
         if (text.startsWith('ivRankVal != null ?')) rankCell = text;
-        if (text.startsWith('squeezeProb == null ?') && text.includes('`${squeezeProb}%`')) squeezeCell = text;
+        if (text.startsWith('squeezeProb == null ?') && text.includes('`${squeezeProb}')) squeezeCell = text;
     }
     ts.forEachChild(n, visit);
 }
@@ -40,7 +41,7 @@ const response = (body: any, ok = true) => ({ ok, json: async () => body });
 const good = (percentile = 89) => ({ ticker: 'TSLA', percentile, currentIv: 46.95, metric: 'iv30', currentSession: '2026-10-19', sampleSize: 79, _source: 'dynamodb-true-percentile' });
 const tickerData = { ticker: 'TSLA', session: 'REG', flow: { ivRank: null, shortVolPct: 47.1, shortVolSource: 'FINRA' } };
 
-async function harness(options: { data?: any; iv?: any; now?: string; delayed?: boolean; brokenSibling?: boolean; blockedSibling?: boolean; blockedTicker?: boolean; initial?: any; tickerFailures?: number; quickRetries?: number; ivRequest?: (request: number) => Promise<any> } = {}) {
+async function harness(options: { data?: any; iv?: any; now?: string; delayed?: boolean; brokenSibling?: boolean; blockedSibling?: boolean; blockedTicker?: boolean; tickerResponse?: () => Promise<void>; shortSqueeze?: (url: string) => any; initial?: any; tickerFailures?: number; quickRetries?: number; ivRequest?: (request: number) => Promise<any> } = {}) {
     const state: Record<string, any> = { ivRankFeed: null, ivRankOverride: null, ivUnavailable: false, ivCollecting: false, ...options.initial };
     const data = options.data ?? tickerData;
     let now = Date.parse(options.now ?? '2026-10-19T17:08:00Z');
@@ -50,6 +51,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
     let resolveIv: (r: any) => void = () => {};
     let failed = false;
     let tickerRequests = 0;
+    let tickerFail = false;
     let ivRequests = 0;
     const timers = new Map<number, { at: number; fn: () => void }>();
     let timerId = 0;
@@ -61,13 +63,15 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         ticker: data.ticker, initialLoadRef: { current: true }, AbortController, Date: FixedDate,
         FLOW_TICKER_TTFB_MS: 15000, FLOW_QUICK_RETRIES: options.quickRetries ?? 0, FLOW_QUICK_RETRY_MS: 3000,
         shownRegularSessionDate: (ms = now) => shownRegularSessionDate(ms),
-        ivHistoryUnavailable, ivRankIsCollecting,
+        ivHistoryUnavailable, ivRankIsCollecting, fetchSqueezeFallback,
         window: {
             setTimeout: (fn: () => void, ms: number) => { timers.set(++timerId, { at: elapsed + ms, fn }); return timerId; },
             clearTimeout: (id: number) => timers.delete(id),
         },
         setInterval: (fn: () => void) => { refresh = fn; return 1; }, clearInterval: () => {},
         fetchWithTtfbLimit: async () => {
+            if (tickerFail) throw new Error('ticker transport failure');
+            if (options.tickerResponse) await options.tickerResponse();
             if (++tickerRequests <= (options.tickerFailures ?? 0)) throw new Error('ticker transport failure');
             return options.blockedTicker ? new Promise(() => {}) : response(data);
         },
@@ -81,6 +85,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
                 });
                 return ivResponse;
             }
+            if (url.includes('/short-squeeze') && options.shortSqueeze) return options.shortSqueeze(url);
             if (url.includes('/dark-pool') && options.brokenSibling) return { ok: true, json: async () => { throw new Error('invalid sibling JSON'); } };
             if (url.includes('/dark-pool') && options.blockedSibling) return new Promise(() => {});
             return response({ items: [], unavailable: true });
@@ -104,7 +109,10 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         const rank = c.ivRankVal;
         const shortPressureNum = value('shortPressureNum', { tickerData: c.tickerData, pctNumber: (x: any) => typeof x === 'number' ? x : null });
         c.shortPct = value('shortPct', { shortPressureNum });
-        c.shortForSqueeze = value('shortForSqueeze', c);
+        // [T37] 스퀴즈 칸은 같은 ticker 응답의 flow.squeezeScore·squeezeRisk 만 — IV Rank·공매도 비중과 무관.
+        c.squeezeCurrent = value('squeezeCurrent', c);
+        c.squeezeFallbackCurrent = value('squeezeFallbackCurrent', c);
+        c.squeezeReading = value('squeezeReading', { ...c, flowSqueeze });
         const squeeze = value('squeezeProb', c);
         const sentence = value('regimeInsightText', { ...c, flowCopy: value('APP_FLOW_COPY', ctx).ko, pcText: '0.62', premiumBiasLabel: '중립' });
         return { rank, squeeze, sentence, rankCell: run(`(${rankCell})`, c), squeezeCell: run(`(${squeezeCell})`, { ...c, squeezeProb: squeeze }), unavailable: c.ivNotProvided, collecting: c.ivCollectingNow };
@@ -122,15 +130,16 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         },
         resolveIv: async () => { resolveIv(ivResponse); await settle(); },
         setNow: (iso: string) => { now = Date.parse(iso); },
+        setTickerFail: (v: boolean) => { tickerFail = v; },
     };
 }
 
 test('valid API percentile is used without a second sample-size or current-session gate', async () => {
     const h = await harness({ iv: { ...good(), sampleSize: 1, currentSession: '2026-10-16' } });
     assert.equal(h.display().rank, 89);
-    assert.equal(h.display().squeeze, 89);
+    assert.equal(h.display().squeeze, null, 'IV Rank 89 는 스퀴즈 칸 입력이 아니다');
     assert.equal(h.display().rankCell, '89%');
-    assert.equal(h.display().squeezeCell, '89%');
+    assert.equal(h.display().squeezeCell, '—');
     assert.match(h.display().sentence, /IV Rank 89%/);
     h.cleanup();
 });
@@ -174,11 +183,11 @@ test('weekend / premarket retain the shown Friday session; Monday open expires r
 test('explicit missing and collecting responses clear the previous number; 0% remains measured', async () => {
     const h = await harness();
     h.reply({ ticker: 'TSLA', percentile: null, _source: 'dynamodb-stale' }); await h.refresh();
-    assert.equal(h.display().rank, null); assert.equal(h.display().unavailable, true); assert.equal(h.display().squeeze, null);
+    assert.equal(h.display().rank, null); assert.equal(h.display().unavailable, true); assert.equal(h.display().squeeze, null); assert.equal(h.display().squeezeCell, '—');
     h.reply({ ticker: 'TSLA', percentile: null, _source: 'dynamodb-collecting' }); await h.refresh();
     assert.equal(h.display().rank, null); assert.equal(h.display().collecting, true);
     h.reply(good(0)); await h.refresh();
-    assert.equal(h.display().rank, 0); assert.equal(h.display().squeeze, 0);
+    assert.equal(h.display().rank, 0); assert.equal(h.display().squeeze, null);
     assert.match(h.display().sentence, /IV Rank 0%/);
     h.cleanup();
 });
@@ -210,9 +219,9 @@ test('quick retry commits IV 95%; first-round IV 89% at five seconds cannot over
     await h.advance(2000);
     first(response(good(89))); await settle();
     assert.equal(h.display().rank, 95);
-    assert.equal(h.display().squeeze, 95);
+    assert.equal(h.display().squeeze, null);
     assert.equal(h.display().rankCell, '95%');
-    assert.equal(h.display().squeezeCell, '95%');
+    assert.equal(h.display().squeezeCell, '—');
     assert.match(h.display().sentence, /IV Rank 95%/);
     h.cleanup();
 });
@@ -247,12 +256,123 @@ test('retry transport failure does not discard an older valid response with no n
     await h.advance(3000);
     first(response(good(89))); await settle();
     assert.equal(h.display().rank, 89);
-    assert.equal(h.display().squeeze, 89);
+    assert.equal(h.display().squeeze, null);
     h.cleanup();
 });
-test('squeeze uses available vendor/IV inputs only and keeps FINRA excluded', () => {
-    for (const [shortForSqueeze, ivRankVal, expected] of [['—', null, null], ['—', 89, 89], ['42.0%', null, 42], ['42.0%', 90, 66], ['0.0%', 0, 0]] as const) {
-        assert.equal(value('squeezeProb', { shortForSqueeze, ivRankVal }), expected);
+test('[T37] squeeze cell shows the ticker API squeeze score/level, never IV Rank (NVDA 10/31: IV 98 vs API 36 MEDIUM)', async () => {
+    const nvda = { ticker: 'NVDA', session: 'REG', flow: { ivRank: null, shortVolPct: 38.4, shortVolSource: 'FINRA', squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+    const h = await harness({ data: nvda, iv: { ...good(98), ticker: 'NVDA' } });
+    assert.equal(h.display().rank, 98);
+    assert.equal(h.display().squeeze, 36);
+    assert.equal(h.display().squeezeCell, '36%', '칸 표기 형식은 그대로(«N%»)');
+    assert.equal(h.state.tickerData.flow.squeezeRisk, 'MEDIUM');
+    assert.equal(h.display('AAPL').squeeze, null, '다른 종목 화면에는 이 응답의 점수를 그리지 않는다');
+    h.cleanup();
+});
+test('[T37] refresh replaces the squeeze score; a failed refresh keeps the same-ticker value; ticker switch clears it', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' } });
+    assert.equal(h.display().squeeze, 36);
+    body.flow = { squeezeScore: 72, squeezeRisk: 'EXTREME' }; await h.refresh();
+    assert.equal(h.display().squeeze, 72);
+    body.flow = { squeezeScore: null, squeezeRisk: null } as any; await h.refresh();
+    assert.equal(h.display().squeeze, null);
+    assert.equal(h.display().squeezeCell, '—');
+    h.cleanup();
+});
+test('[T37] ticker transport failure keeps the same-session value; a session change without a new response clears it', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+    let failTicker = false;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, now: '2026-10-16T18:00:00Z' });
+    assert.equal(h.display().squeeze, 36);
+    h.setTickerFail(true); await h.refresh();
+    assert.equal(h.display().squeeze, 36, '같은 세션 갱신 실패 — 마지막 값 유지(다른 칸과 같은 규칙)');
+    h.setNow('2026-10-19T13:30:01Z'); await h.refresh();   // 다음 정규장 개장 — 새 응답 없음
+    assert.equal(h.display().squeeze, null, '지난 세션 점수는 그리지 않는다');
+    assert.equal(h.display().squeezeCell, '—');
+    h.setTickerFail(false); await h.refresh();
+    assert.equal(h.display().squeeze, 36, '새 세션 응답이 오면 다시 그린다');
+    void failTicker;
+    h.cleanup();
+});
+test('[T37] a ticker response requested before the regular open but arriving after it is not used for the squeeze cell', async () => {
+    const body = { ticker: 'NVDA', session: 'PRE', flow: { squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+    let release!: () => void;
+    let calls = 0;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, now: '2026-10-19T13:29:50Z', tickerResponse: () => (++calls === 1 ? new Promise<void>((r) => { release = r; }) : Promise.resolve()) });
+    h.setNow('2026-10-19T13:30:05Z'); release(); await new Promise<void>((r) => setImmediate(r)); for (let i = 0; i < 15; i++) await new Promise<void>((r) => setImmediate(r));
+    assert.equal(h.state.tickerData?.ticker, 'NVDA', '응답 자체는 반영(다른 칸은 기존 규칙)');
+    assert.equal(h.display().squeeze, null, '경계를 넘긴 응답의 점수는 그리지 않는다');
+    h.setTickerFail(true); await h.refresh();
+    assert.equal(h.display().squeeze, null, '이후 갱신 실패에도 지난 세션 점수가 현재 값이 되지 않는다');
+    h.setTickerFail(false); await h.refresh();
+    assert.equal(h.display().squeeze, 36, '새 세션 안에서 요청·도착한 응답은 표시');
+    h.cleanup();
+});
+test('[T37] no structure score: the cell uses the command squeeze door (/api/live/short-squeeze riskScore·status), same ticker/session only', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: null, squeezeRisk: null } } as any;
+    let sq: any = { ticker: 'NVDA', riskScore: 100, status: 'CRITICAL' };
+    let calls = 0;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, shortSqueeze: (url) => { calls++; assert.match(url, /t=NVDA/); return sq === 'throw' ? Promise.reject(new Error('down')) : response(sq); } });
+    assert.equal(calls, 1);
+    assert.equal(h.display().squeeze, 100);
+    assert.equal(h.display().squeezeCell, '100%');
+    assert.equal(h.display('AAPL').squeeze, null, '다른 종목 화면에는 그리지 않는다');
+    sq = 'throw'; await h.refresh();
+    assert.equal(h.display().squeeze, 100, '보충 실패 — 같은 세션 이전 보충값 유지');
+    sq = { ticker: 'AAPL', riskScore: 5, status: 'LOW' }; await h.refresh();
+    assert.equal(h.display().squeeze, 100, '다른 종목 응답은 버린다');
+    sq = { ticker: 'NVDA', riskScore: null, status: null, unavailable: true }; await h.refresh();
+    assert.equal(h.display().squeeze, null, '명시적 결측은 «—»');
+    body.flow = { squeezeScore: 36, squeezeRisk: 'MEDIUM' }; sq = { ticker: 'NVDA', riskScore: 99, status: 'CRITICAL' }; await h.refresh();
+    assert.equal(h.display().squeeze, 36, '구조 점수가 오면 그 값(보충 요청 안 함)');
+    const before = calls; await h.refresh(); assert.equal(calls, before);
+    h.cleanup();
+});
+test('[T37] structure score without its risk level is not used — same condition as the command door (both or fallback)', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: 80, squeezeRisk: null } } as any;
+    let calls = 0;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, shortSqueeze: () => { calls++; return response({ ticker: 'NVDA', riskScore: 25, status: 'MEDIUM' }); } });
+    assert.equal(calls, 1);
+    assert.equal(h.display().squeeze, 25);
+    h.cleanup();
+});
+test('[T37] a hanging short-squeeze body does not stop the 30-second refresh', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: null, squeezeRisk: null } } as any;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, shortSqueeze: () => ({ ok: true, json: () => new Promise(() => {}) }) });
+    await h.advance(6000);
+    body.flow = { squeezeScore: 41, squeezeRisk: 'MEDIUM' }; await h.refresh();
+    assert.equal(h.display().squeeze, 41, '다음 갱신이 반영된다');
+    h.cleanup();
+});
+test('[T37] fetchSqueezeFallback: body hang / transport hang are cut at the limit; other ticker and errors are null', async () => {
+    const timers: Array<() => void> = [];
+    const deps = (f: any) => ({ fetch: f, setTimeout: (fn: () => void) => { timers.push(fn); return timers.length; }, clearTimeout: () => {} });
+    const fire = () => { for (const fn of timers.splice(0)) fn(); };
+    // 본문 멈춤
+    let p = fetchSqueezeFallback('nvda', deps(async () => ({ ok: true, json: () => new Promise(() => {}) })));
+    await settle(); fire(); assert.equal(await p, null);
+    // 연결 멈춤(abort 신호 무시)
+    p = fetchSqueezeFallback('NVDA', deps(() => new Promise(() => {})));
+    await settle(); fire(); assert.equal(await p, null);
+    assert.deepEqual(await fetchSqueezeFallback('NVDA', deps(async (u: string) => { assert.equal(u, '/api/live/short-squeeze?t=NVDA'); return response({ ticker: 'NVDA', riskScore: 36, status: 'MEDIUM' }); })), { score: 36, risk: 'MEDIUM' });
+    assert.equal(await fetchSqueezeFallback('NVDA', deps(async () => response({ ticker: 'AAPL', riskScore: 5, status: 'LOW' }))), null);
+    assert.equal(await fetchSqueezeFallback('NVDA', deps(async () => response({}, false))), null);
+    assert.equal(await fetchSqueezeFallback('NVDA', deps(async () => { throw new Error('down'); })), null);
+});
+test('[T37] AI material readiness waits for the squeeze fallback (bounded) before flowPhaseDone', () => {
+    assert.match(effect, /await Promise\.all\(\[ivPromise, squeezeFallbackPromise\]\);\s*if \(cancelled\) return;[\s\S]{0,200}setFlowPhaseDone\(true\)/);
+});
+test('[T37] flowSqueeze maps API score/risk; missing or invalid is null (cell stays with —)', () => {
+    assert.deepEqual(flowSqueeze({ squeezeScore: 36, squeezeRisk: 'MEDIUM' }), { score: 36, level: 'moderate' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 0, squeezeRisk: 'LOW' }), { score: 0, level: 'low' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 55, squeezeRisk: 'HIGH' }), { score: 55, level: 'high' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 81, squeezeRisk: 'EXTREME' }), { score: 81, level: 'high' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 81, squeezeRisk: 'CRITICAL' }), { score: 81, level: 'high' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 80, squeezeRisk: null }), { score: 80, level: null }, '등급이 없으면 지어내지 않는다');
+    assert.deepEqual(flowSqueeze({ squeezeScore: 25, squeezeRisk: 'WEIRD' }), { score: 25, level: null });
+    for (const flow of [null, undefined, {}, { squeezeScore: null }, { squeezeScore: '36' }, { squeezeScore: NaN }, { squeezeScore: -1 }, { squeezeScore: 101 }, { ivRank: 98 }, { shortVolPct: 47.1 }]) {
+        assert.deepEqual(flowSqueeze(flow), { score: null, level: null }, JSON.stringify(flow));
     }
 });
 
@@ -263,15 +383,14 @@ test('saved intraday ivp/ticker replay: TSLA, SPY, NVDA, AAPL, WTFC', { skip: !s
         const iv = read('ivp');
         const h = await harness({ data: read('ticker'), iv, now: '2026-10-19T14:10:00Z' });
         assert.equal(h.display().rank, iv.percentile, ticker);
-        assert.equal(h.display().squeeze, iv.percentile, `${ticker}: FINRA excluded; IV alone`);
+        const tk = read('ticker');
+        assert.equal(h.display().squeeze, typeof tk?.flow?.squeezeScore === 'number' ? Math.round(tk.flow.squeezeScore) : null, `${ticker}: API squeeze score only`);
         if (iv.percentile != null) {
             assert.match(h.display().sentence, new RegExp(`IV Rank ${iv.percentile}%`));
             assert.equal(h.display().rankCell, `${iv.percentile}%`);
-            assert.equal(h.display().squeezeCell, `${iv.percentile}%`);
         } else {
             assert.equal(h.display().unavailable, true);
             assert.equal(h.display().rankCell, '미제공');
-            assert.equal(h.display().squeezeCell, '미제공');
         }
         console.log(`replay ${ticker}: IV=${h.display().rank}, squeeze=${h.display().squeeze}, sourceSession=${iv.currentSession ?? 'missing'}`);
         h.cleanup();

@@ -13,6 +13,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
 import { measuredOiPcr, newerReading, OI_PCR_PREV_BASIS } from '../src/lib/app/flowOpi';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
+import { fetchSqueezeFallback } from '../src/lib/app/flowSqueeze';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -76,6 +77,7 @@ async function fetchHarness(initial: Record<string, any>, data: any, overrides: 
         fetch: async () => ({ ok: true, json: async () => ({ items: [], unavailable: true }) }),
         selectWhaleSession: (data: any, session: string) => selectWhaleSession(data, session, REG_NOW),
         measuredOiPcr, newerReading, OI_PCR_PREV_BASIS,   // NB1(10/20): fetch 효과가 OPI 입력을 이 함수·상수로 읽는다
+        fetchSqueezeFallback,   // T37: 구조 스퀴즈 점수가 없을 때 short-squeeze 보충(상한 있음)
         ...overrides,
     };
     // Capture every React setter used by this effect, including future ones.
@@ -465,10 +467,9 @@ async function test(name: string, fn: () => any) {
         assert.equal(parse(45), 45);
         assert.equal(parse('45.0%'), 45);
         assert.equal(value('shortPct', { shortPressureNum: 0 }), '0.0%');
-        // [2026-10-19] 스퀴즈 입력은 shortForSqueeze(벤더 공매도 비중만 — FINRA 대체값은 «—»)
-        assert.equal(value('squeezeProb', { shortForSqueeze: '0.0%', ivRankVal: null }), 0);
-        assert.equal(value('shortForSqueeze', { tickerData: { flow: { shortVolSource: 'FINRA' } }, shortPct: '39.8%' }), '—');
-        assert.equal(value('shortForSqueeze', { tickerData: { flow: { shortVolSource: 'vendor' } }, shortPct: '42.0%' }), '42.0%');
+        // [2026-10-31 T37] 스퀴즈 칸은 API 점수(flow.squeezeScore)만 — 공매도 비중·IV Rank 는 입력이 아니다. 0 은 측정값.
+        assert.equal(value('squeezeProb', { squeezeReading: { score: 0, level: 'low' } }), 0);
+        assert.equal(value('squeezeProb', { squeezeReading: { score: null, level: null } }), null);
     });
     await test('ID04: all inputs missing leaves score, label, confidence missing', () => {
         const pressureScore = value('pressureScore', { whaleBiasScore: null, dpBiasScore: null, shortPressureNum: null });
@@ -537,6 +538,41 @@ async function test(name: string, fn: () => any) {
             release({ ok: true, json: async () => ({ items: [] }) });
             await settle();
             assert.equal(h.state.flowPhaseDone, true);
+        } finally { h.cleanup(); }
+    });
+    await test('T37: AI material readiness (flowPhaseDone) waits for the squeeze fallback; the value is in state before it', async () => {
+        let release!: (v: any) => void;
+        const sqPending = new Promise(r => { release = r; });
+        const data = { ticker: 'A', session: 'REG', flow: { rawChain: [], squeezeScore: null, squeezeRisk: null } };
+        let phaseAtFallback: any = 'unset';
+        const h = await fetchHarness({}, data, { fetch: (url: string) => url.includes('/short-squeeze') ? sqPending : Promise.resolve({ ok: true, json: async () => ({ items: [], unavailable: true }) }) });
+        try {
+            assert.notEqual(h.state.flowPhaseDone, true, '보충 응답 전에는 AI 재료 준비 완료가 아니다');
+            phaseAtFallback = h.state.flowPhaseDone;
+            release({ ok: true, json: async () => ({ ticker: 'A', riskScore: 36, status: 'MEDIUM' }) });
+            await settle();
+            assert.equal(h.state.flowPhaseDone, true);
+            assert.deepEqual([h.state.squeezeFallback?.ticker, h.state.squeezeFallback?.score, h.state.squeezeFallback?.risk], ['A', 36, 'MEDIUM']);
+            assert.notEqual(phaseAtFallback, true);
+        } finally { h.cleanup(); }
+    });
+    await test('T37: a later-round squeeze fallback in flight holds AI readiness (aiReady) until it settles', async () => {
+        const releases: Array<(v: any) => void> = [];
+        const data: any = { ticker: 'A', session: 'REG', flow: { rawChain: [], squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+        const h = await fetchHarness({}, data, { fetch: (url: string) => url.includes('/short-squeeze') ? new Promise(r => releases.push(r)) : Promise.resolve({ ok: true, json: async () => ({ items: [], unavailable: true }) }) });
+        try {
+            assert.equal(h.state.flowPhaseDone, true);
+            assert.equal(h.state.squeezeFallbackPending ?? null, null);
+            data.flow = { rawChain: [], squeezeScore: null, squeezeRisk: null };
+            await h.refresh();
+            assert.notEqual(h.state.squeezeFallbackPending ?? null, null, '보충 중 표식');
+            const aiReady = (pending: any) => value('aiReady', { price: 10, tkNorm: (x: any) => String(x ?? '').toUpperCase(), tickerData: data, ticker: 'A', flowPhaseDone: true, squeezeFallbackPending: pending });
+            assert.equal(aiReady(h.state.squeezeFallbackPending), false, '보충 중엔 AI 요청을 미룬다(세션·언어가 바뀌어도)');
+            releases[0]({ ok: true, json: async () => ({ ticker: 'A', riskScore: 12, status: 'LOW' }) });
+            await settle();
+            assert.equal(h.state.squeezeFallbackPending, null);
+            assert.equal(aiReady(h.state.squeezeFallbackPending), true);
+            assert.deepEqual([h.state.squeezeFallback?.score, h.state.squeezeFallback?.risk], [12, 'LOW']);
         } finally { h.cleanup(); }
     });
     // ══ 4차 관문(10190151) — 체인 조회 성공 ≠ 체결 관측 / 0건 판정은 «현재 세션 필터 후» ══

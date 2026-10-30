@@ -36,6 +36,7 @@ import wlStyles from '@/components/app/watchlist/watchlist.module.css';
 import { closeLabelOr } from '@/lib/marketSession';
 import { optionFlowBadgeLabel } from '@/lib/app/optionFlowBasis';
 import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSession';
+import { fetchSqueezeFallback, flowSqueeze } from '@/lib/app/flowSqueeze';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
@@ -759,6 +760,12 @@ export default function AppFlowPage() {
 
   // Flow State
   const [tickerData, setTickerData] = useState<any>(null);
+  // [T37] tickerData 를 받은 정규장 세션(표시 기준) — 화면을 켜 둔 채 세션이 바뀌고 갱신이 실패하면 지난 세션 스퀴즈 점수를 그리지 않게.
+  const [tickerDataSession, setTickerDataSession] = useState<string | null>(null);
+  // [T37] 구조 스퀴즈 점수가 없을 때의 보충값 — 커맨드 squeeze 카드와 같은 문(/api/live/short-squeeze · shortSqueezeMetrics)의 riskScore·status.
+  const [squeezeFallback, setSqueezeFallback] = useState<{ ticker: string; session: string; round: number; score: unknown; risk: unknown } | null>(null);
+  // [T37] 보충 요청이 날아가는 회차(없으면 null) — 그동안 AI 요청을 미룬다(첫 회차 뒤 세션·언어가 바뀌어도 보충 전 재료로 글을 만들지 않게, 관문 10310415 ②).
+  const [squeezeFallbackPending, setSqueezeFallbackPending] = useState<number | null>(null);
   // ★ [2026-10-07 앱 강화 T5] AI INTEL 재료 완결 표식 — 종목 첫 응답(1단계) 뒤에 고래·IV·내부자·옵션 체인 집계(2단계)가 다 반영된 뒤에만 true.
   //   예전엔 1단계 직후(P/C·고래 미반영: 종합 점수 −13/−18, P/C 0)의 재료로 AI 를 불러 그 글이 14시간 캐시에 앉았다(화면은 +9~+15).
   const [flowPhaseDone, setFlowPhaseDone] = useState(false);
@@ -1162,6 +1169,8 @@ export default function AppFlowPage() {
       if (initialLoadRef.current) {
         setLoading(true);
         setTickerData(null);
+        setSqueezeFallback(null);
+        setSqueezeFallbackPending(null);
         setFlowPhaseDone(false);
         setIvRankFeed(null);
         setOiAll(null);
@@ -1221,6 +1230,7 @@ export default function AppFlowPage() {
           } catch { /* 칸은 «—» 로 남는다 */ }
         });
         setOiRound(round);
+        const tickerReqSession = shownRegularSessionDate();   // [T37] 요청 시점 세션 — 응답이 세션 경계를 넘겨 도착하면 스퀴즈 칸에 쓰지 않는다
         const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}&chain=full`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
         if (!res.ok) throw new Error();
         const data = await res.json();
@@ -1228,6 +1238,20 @@ export default function AppFlowPage() {
         if (cancelled) return;
 
         setTickerData(data);
+        setTickerDataSession(tickerReqSession === shownRegularSessionDate() ? tickerReqSession : null);
+        // [T37] 구조 점수가 없으면 커맨드와 같은 문으로 보충 — 종목·세션·회차 확인. AI 재료 준비 완료(flowPhaseDone)는 이 응답까지 기다린다(관문 10310411).
+        //   멈춘 본문이 갱신을 막지 않게 요청·본문 전체를 6초 상한(fetchSqueezeFallback: abort + 타이머 경쟁)으로 묶는다 — 상한이 지나면 보충 없이 진행.
+        let squeezeFallbackPromise: Promise<void> = Promise.resolve();
+        // 구조 값은 점수·등급이 «둘 다» 있을 때만 쓴다 — 커맨드(shortSqueezeMetrics)와 같은 조건(관문 10310415 ①). 아니면 보충.
+        if (data?.flow?.squeezeScore == null || data?.flow?.squeezeRisk == null) {
+          const sqTicker = ticker.toUpperCase();
+          const sqSession = tickerReqSession;
+          setSqueezeFallbackPending(round);
+          squeezeFallbackPromise = fetchSqueezeFallback(sqTicker, { fetch: (...a) => fetch(...a), setTimeout: (fn, ms) => window.setTimeout(fn, ms), clearTimeout: (id) => window.clearTimeout(id) }).then((fb) => {
+            if (!fb || cancelled || shownRegularSessionDate() !== sqSession) return;   // 실패·시간 초과 — 같은 세션의 이전 보충값 유지, 없으면 «—»
+            setSqueezeFallback((prev) => prev && prev.ticker === sqTicker && prev.round > round ? prev : { ticker: sqTicker, session: sqSession, round, score: fb.score, risk: fb.risk });
+          }).finally(() => { if (!cancelled) setSqueezeFallbackPending((prev) => (prev === round ? null : prev)); });   // 취소된 효과는 쓰지 않는다 — 새 효과의 첫 회차가 null 로 초기화
+        } else { setSqueezeFallback(null); setSqueezeFallbackPending(null); }
         if (data.display?.price) setPrice(data.display.price);
         if (typeof data.display?.changePctPct === 'number' && Number.isFinite(data.display.changePctPct)) setChange(data.display.changePctPct);
 
@@ -1318,9 +1342,9 @@ export default function AppFlowPage() {
             && !whaleAnswered;
           return keepPrev ? prev : whaleNext;
         });
-        await ivPromise;
+        await Promise.all([ivPromise, squeezeFallbackPromise]);
         if (cancelled) return;
-        // 보조 응답·체인 집계·독립 IV 응답까지 반영한 뒤 AI 재료 준비 완료를 표시한다.
+        // 보조 응답·체인 집계·독립 IV 응답·스퀴즈 보충(6초 상한)까지 반영한 뒤 AI 재료 준비 완료를 표시한다.
         setFlowPhaseDone(true);
       } catch {
         // Transient fetch error: keep the last real values (the gated preview
@@ -1606,16 +1630,18 @@ export default function AppFlowPage() {
   //   실제 계산인 것처럼 떴다. 두 입력이 다 없는데도 늘 같은 답이 나오던 이유다.
   //   → 잴 수 있는 것이 하나도 없으면 **null** 이다. 화면은 «—» 를 그린다.
   // [2026-10-19] FINRA 적재본으로 채운 공매도 비중(장외 체결의 공매도 몫)은 스퀴즈 확률 입력으로 쓰지 않는다 — 확률이 아닌 비중이 확률 칸에 나간다(관문 2차).
-  const shortForSqueeze = tickerData?.flow?.shortVolSource === 'FINRA' ? '—' : shortPct;
-  const squeezeProb = useMemo<number | null>(() => {
-    const sp = parseFloat(shortForSqueeze);
-    const hasShort = Number.isFinite(sp) && sp >= 0;
-    const hasIv = ivRankVal != null && Number.isFinite(Number(ivRankVal));
-    if (!hasShort && !hasIv) return null;
-    if (hasShort && hasIv) return Math.round(sp * 0.5 + Number(ivRankVal) * 0.5);
-    // 한쪽만 있으면 그 값이 곧 추정치다 — 없는 쪽을 지어내 섞지 않는다.
-    return Math.round(hasShort ? sp : Number(ivRankVal));
-  }, [shortForSqueeze, ivRankVal]);
+  // [2026-10-31 T37] IV Rank 도 입력이 아니다 — FINRA 를 빼면 IV Rank 98 이 그대로 «확률 98% 높음»이 됐다(같은 시각 API 스퀴즈 위험 36·MEDIUM).
+  //   칸은 같은 /api/live/ticker 응답의 flow.squeezeScore·squeezeRisk(커맨드 squeeze.riskScore·status 와 같은 structure:v2 판)만 그린다.
+  //   새 요청 없음 — 30초 갱신·종목 전환·실패 시 유지 규칙은 tickerData 와 같다. 없으면 null(칸 유지 «—»).
+  //   값은 API 의 0~100 위험 점수다(보정된 확률 아님) — 칸 표기(«N%»)·라벨은 대표 지시 없이 바꾸지 않는다(라벨 정정은 대표 결정 대기). 다른 종목·지난 세션 응답이면 null.
+  const squeezeCurrent = String(tickerData?.ticker ?? '').toUpperCase() === ticker.toUpperCase() && tickerDataSession === shownRegularSessionDate();
+  const squeezeFallbackCurrent = squeezeFallback?.ticker === ticker.toUpperCase() && squeezeFallback.session === shownRegularSessionDate();
+  const squeezeReading = useMemo(() => flowSqueeze(
+    squeezeCurrent && tickerData?.flow?.squeezeScore != null && tickerData?.flow?.squeezeRisk != null ? tickerData.flow
+      : squeezeFallbackCurrent ? { squeezeScore: squeezeFallback!.score, squeezeRisk: squeezeFallback!.risk } : null,
+  ), [tickerData, squeezeCurrent, squeezeFallback, squeezeFallbackCurrent]);
+  const squeezeProb = squeezeReading.score;
+  const squeezeLevel = squeezeReading.level;
 
   const squeezeScore = useMemo(() => {
     if (squeezeProb == null) return 0;   // 못 잰 것은 종합점수에 기여하지 않는다
@@ -1800,7 +1826,7 @@ export default function AppFlowPage() {
   //   (10/3 운영: AAPL 글에 PLTR 값, MSFT 글에 NVDA 값 등 5종목). tickerData 는 종목 전환 때 null 로 비워지고 새 응답에서 함께 채워진다.
   const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   // ★ [2026-10-07 앱 강화 T5] + flowPhaseDone — 보조 응답까지 반영된 뒤에만(조기 재료로 생성 금지). 이 값이 true 로 바뀌는 렌더에 이펙트가 돈다.
-  const aiReady = price > 0 && tkNorm(tickerData?.ticker) === tkNorm(ticker) && flowPhaseDone;
+  const aiReady = price > 0 && tkNorm(tickerData?.ticker) === tkNorm(ticker) && flowPhaseDone && squeezeFallbackPending == null;   // [T37] 스퀴즈 보충(6초 상한) 중엔 미룬다
   // OPI 가 결측이면 서버는 재료 미완결(422)로 새 글을 만들지 않는다 → OPI 가 나중에 채워지면 한 번 다시 부른다(관문 10200222 ②).
   //   «OPI 있음/없음»을 요청 키에 넣는다 — 결측 회차 요청이 아직 날아가는 중에 OPI 가 복구돼도 키가 달라 새 요청이 나간다(관문 10200328 ③).
   //   응답은 «지금 키»의 것만 반영·정리한다(늦게 온 옛 요청의 422 가 새 요청의 키를 지우거나 옛 글이 새 글을 덮지 않게).
@@ -3243,8 +3269,8 @@ export default function AppFlowPage() {
           {(() => {
             const compStatus = compositeScore >= 20 ? flowCopy.compStrong : compositeScore <= -20 ? flowCopy.compBear : flowCopy.compNeutral;
             const compColor = compositeScore >= 20 ? '#10b981' : compositeScore <= -20 ? '#f43f5e' : '#f59e0b';
-            const sqStatus = squeezeProb == null ? (ivNotProvided ? '\u00a0' : '—') : squeezeProb >= 70 ? flowCopy.squeezeHigh : squeezeProb >= 40 ? flowCopy.squeezeModerate : flowCopy.squeezeLow;  // 못 잰 것은 «낮음»이 아니다
-            const sqColor = squeezeProb == null ? 'rgba(148,163,184,.9)' : squeezeProb >= 70 ? '#f43f5e' : squeezeProb >= 40 ? '#fbbf24' : '#10b981';
+            const sqStatus = squeezeLevel === 'high' ? flowCopy.squeezeHigh : squeezeLevel === 'moderate' ? flowCopy.squeezeModerate : squeezeLevel === 'low' ? flowCopy.squeezeLow : '—';  // 못 잰 것은 «낮음»이 아니다 · 등급은 API 의 squeezeRisk
+            const sqColor = squeezeLevel === 'high' ? '#f43f5e' : squeezeLevel === 'moderate' ? '#fbbf24' : squeezeLevel === 'low' ? '#10b981' : 'rgba(148,163,184,.9)';
             const compositePos = Math.max(0, Math.min(100, (compositeScore + 100) / 2));
 
             return (
@@ -3304,7 +3330,7 @@ export default function AppFlowPage() {
                       {renderInfoBtn("squeeze")}
                     </div>
                     <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: sqColor, lineHeight: 1, marginTop: '7px' }}>
-                      {squeezeProb == null ? (ivNotProvided ? notProvidedText(locale) : '—') : `${squeezeProb}%`}
+                      {squeezeProb == null ? '—' : `${squeezeProb}%`}
                     </div>
                     <div style={{ font: 'var(--f-micro)', color: sqColor, fontWeight: 900, marginTop: '6px' }}>
                       {sqStatus}
