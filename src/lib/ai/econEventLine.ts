@@ -2,6 +2,16 @@
 import { interpretationFamily } from '@/lib/ai/econInterpretations';
 import type { Loc } from '@/lib/todayPicks/types';
 
+/** 조사 선택에 필요한 마지막 발음의 받침을 판정한다. */
+export function koParticle(word: string, pair: '은/는' | '이/가' | '과/와' | '을/를'): string {
+  const last = word.trim().slice(-1);
+  const code = last.charCodeAt(0);
+  const hasFinal = /[013678]/.test(last) && last !== ''
+    || /[Mm]/.test(last) && last !== ''
+    || (code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0);
+  const [withFinal, withoutFinal] = pair.split('/');
+  return hasFinal ? withFinal : withoutFinal;
+}
 
 /** Values retain their original display units; incompatible units cannot be compared. */
 function parseValue(value: string): { value: number; unit: string } | null {
@@ -13,12 +23,12 @@ function parseValue(value: string): { value: number; unit: string } | null {
 }
 export function buildEconCompareSentence(event: string, consensus: string, prior: string, loc: Loc, unit?: string | null): string {
   const a = parseValue(consensus), b = parseValue(prior);
-  const prefix = { ko: `예상 ${consensus}는 이전 ${prior}`, ja: `予想${consensus}は前回${prior}`, en: `Consensus ${consensus}` };
+  const prefix = { ko: `예상 ${consensus}${koParticle(consensus, '은/는')} 이전 ${prior}`, ja: `予想${consensus}は前回${prior}`, en: `Consensus ${consensus}` };
   const fallback = { ko: `예상 ${consensus}, 이전 ${prior}입니다.`, ja: `予想${consensus}、前回${prior}です。`, en: `Consensus ${consensus}, prior ${prior}.` };
   if (!a || !b || a.unit !== b.unit) return fallback[loc];
   const d = a.value - b.value;
   const similar = d === 0 || (b.value !== 0 && Math.abs(d) < Math.abs(b.value) * 0.01);
-  if (similar) return { ko: `${prefix.ko}과 비슷한 수준입니다.`, ja: `${prefix.ja}とほぼ同水準です。`, en: `${prefix.en} is similar to the prior ${prior}.` }[loc];
+  if (similar) return { ko: `${prefix.ko}${koParticle(prior, '과/와')} 비슷한 수준입니다.`, ja: `${prefix.ja}とほぼ同水準です。`, en: `${prefix.en} is similar to the prior ${prior}.` }[loc];
   const trade = /trade balance/i.test(event) && a.value < 0 && b.value < 0;
   const labor = /unemployment rate|jobless claims|unemployment claims/i.test(event);
   const inflation = interpretationFamily(event, unit, consensus) === 'inflation'
