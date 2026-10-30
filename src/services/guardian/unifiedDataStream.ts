@@ -249,7 +249,12 @@ async function regTacticalDriftNow(c: GuardianContext, session: string | undefin
     const current = core?.market || core?.rlsi
         ? { NDX_CHG: core.market?.nqChangePercent ?? undefined, SPX_CHG: core.market?.factors?.spx?.chgPct ?? undefined, RLSI: core.rlsi?.score ?? undefined }
         : undefined;
-    return regTacticalNeedsRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight, current);
+    const drift = regTacticalNeedsRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight, current);
+    if (!drift.length) return drift;
+    // 다른 언어·인스턴스가 이미 새 장중 글을 저장했으면 예약(재생성)하지 않고 채택 경로로 넘긴다 — 새 글을 두고 실패 예산을 쓰지 않게(관문 10310537)
+    const latest = await IntelligenceNode.latestStoredRegTacticalAt(locale, now).catch(() => null);
+    if (latest != null && latest > tacticalSeenAtOf(c)) { _regAdoptCheckAt[locale] = 0; return []; }
+    return drift;
 }
 async function claimRegTacticalRefresh(now: number): Promise<'exclusive' | false> {
     return await reserveRegTacticalRefresh(claimRedis(), now) ? 'exclusive' : false;

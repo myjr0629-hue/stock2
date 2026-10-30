@@ -233,6 +233,17 @@ class OfflineRedis {
             assert.deepEqual(regTacticalNeedsRefresh(adopted, 'REG', now, isPh), [], '채택 뒤 같은 글로 재생성 요청 없음');
             // 30초 안 재확인 없음
             await call('ja'); assert.equal(adoptCalls, 1);
+            // 관문 10310537 — 변화가 있어도 다른 언어·인스턴스의 새 장중 글이 있으면 예약·재계산 없이 채택
+            {
+                fresh(snap(), 'ja'); adoptCalls = 0; budgets.clear();
+                store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: {} }, rlsi: { score: 30, session: 'REG' }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
+                (IntelligenceNode as any).adoptStoredRegReality = async () => { adoptCalls++; return { text: NEW, at: now - 2 * MIN, seenAt: now - 2 * MIN }; };
+                const out = await call('ja');
+                assert.equal(coreCalls, 0, '재계산 0');
+                assert.equal(budgets.size, 0, '예약 0(실패 예산 소비 없음)');
+                assert.equal(adoptCalls, 1, '바로 채택');
+                assert.equal(out.verdict.realityInsight, NEW);
+            }
             // 관문 10310451 ② 저장본이 출구 검사에서 탈락하면 «본 시각»만 갱신 — 생성 시각은 그대로라 정기 재생성이 30분 밀리지 않는다
             (IntelligenceNode as any).adoptStoredRegReality = async () => ({ text: null });   // 출구 검사 탈락 → 읽기에서 시각 없이 null(관문 10310504 ②)
             fresh(snap(), 'ko');
