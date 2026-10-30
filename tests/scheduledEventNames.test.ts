@@ -56,7 +56,8 @@ assert.equal(liveMainFail, 20, 'main 검사 실패 20/24 재현');
 const CRUDE = [line('CFTC Crude Oil speculative net positions')];
 assert.deepEqual(strict('10/30(금) 15:30 ET 예정된 CFTC 원유 미결제약정(Crude Oil speculative net positions)', CRUDE), [], '«이름(번역)»과 같은 계약 — 꼬리표 번역 품질은 검사 대상 아님');
 for (const t of ['10/30(금) 15:30 ET 예정된 CFTC 원유(speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 원유 2주(Crude Oil speculative net positions)',
-    '10/30(금) 15:30 ET 예정된 CFTC 원유(Crude Oil) 투기(speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 금(Gold speculative net positions)'])
+    '10/30(금) 15:30 ET 예정된 CFTC 원유(Crude Oil) 투기(speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 금(Gold speculative net positions)',
+    '10/30(금) 15:30 ET 예정된 CFTC 금 미결제약정(Crude Oil speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 구리 미결제약정(Crude Oil speculative net positions)'])
     assert.ok(strict(t, CRUDE).length, `갈라진 이름 오인 금지: ${t}`);
 // 저장본(claims)·생성(NEXT + 현지 시각) 경로도 같다
 const prompt = `Write ... entirely in 한국어.\nAS_OF: 2026-10-30T17:40:00.000Z\nTODAY_NEWS: []\nSCHEDULED_EVENTS: ${JSON.stringify(CFTC4)}\n`;
@@ -68,9 +69,9 @@ assert.ok(tacticalNextReasons(withLocal, prompt.replace('17:40:00', '20:00:00'),
 // ③ 관문 10310351 — 수식어가 붙은 다른 지표는 통과하지 않는다
 const UR = [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')];
 const NOV5 = Date.parse('2026-11-05T15:00:00Z');
-for (const t of ['11/6(금) 08:30 ET 노인 실업률 예정', '11/6(금) 08:30 ET 여성 실업률 예정', '11/6(금) 08:30 ET 흑인 실업률 예정', '11/6(금) 08:30 ET 청년 실업률 예정', '11/6(금) 08:30 ET 예정된 청년실업률', '11/6(金) 08:30 ET 予定の若年失業率', '11/6(金) 08:30 ET 予定の若年層の失業率', '11/6(금) 08:30 ET 예정된 청년층의 실업률', '11/6(금) 08:30 ET 예정된 실업률 전월비', '11/6 08:30 ET Youth 실업률 예정'])
+for (const t of ['11/6(금) 08:30 ET 예정된 실업률(청년) 발표', '11/6(금) 08:30 ET 예정된 (청년) 실업률', '11/6(金) 08:30 ET 予定の失業率(若年層)', '11/6(금) 08:30 ET 노인 실업률 예정', '11/6(금) 08:30 ET 여성 실업률 예정', '11/6(금) 08:30 ET 흑인 실업률 예정', '11/6(금) 08:30 ET 청년 실업률 예정', '11/6(금) 08:30 ET 예정된 청년실업률', '11/6(金) 08:30 ET 予定の若年失業率', '11/6(金) 08:30 ET 予定の若年層の失業率', '11/6(금) 08:30 ET 예정된 청년층의 실업률', '11/6(금) 08:30 ET 예정된 실업률 전월비', '11/6 08:30 ET Youth 실업률 예정'])
     assert.ok(strict(t, UR, NOV5).length, `오통과 금지: ${t}`);
-for (const t of ['11/6(금) 08:30 ET 예정된 실업률', '11/6(금) 08:30 ET 미국 실업률 발표 예정', '11/6(金) 08:30 ET 予定の米失業率'])
+for (const t of ['11/6(금) 08:30 ET 예정된 실업률(10월) 발표', '11/6(금) 08:30 ET 예정된 실업률(Unemployment Rate)', '11/6(금) 08:30 ET 예정된 실업률', '11/6(금) 08:30 ET 미국 실업률 발표 예정', '11/6(金) 08:30 ET 予定の米失業率'])
     assert.deepEqual(strict(t, UR, NOV5), [], `정상 통과: ${t}`);
 // U-6 는 U-6 줄로만
 assert.ok(strict('11/6(금) 08:30 ET 예정된 U-6 실업률', UR, NOV5).length);

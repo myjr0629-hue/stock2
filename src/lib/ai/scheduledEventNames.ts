@@ -305,8 +305,13 @@ const HANGUL = /[가-힣]/;
 const KANA_KANJI = /[ぁ-んァ-ヴー一-龯々]/;
 const HIRAGANA_NOT_NO = /[ぁ-ゔ]$/;
 
+/** 괄호 속이 이름을 바꾸지 않는 말인가 — 영숫자(영어 이름·기간)·요일·현지 시각·기간(10월분·Q3) */
+const BENIGN_PAREN = /^\s*(?:[A-Za-z0-9 ,.:/&'+-]*|[월화수목금토일]|[月火水木金土日]|(?:한국|日本時間)\s*(?:\d{1,2}\/\d{1,2}\s*)?\d{1,2}:\d{2}|\d{1,2}\s*월(?:분)?|\d{1,2}\s*月(?:分)?|[1-4]\s*분기|第?[1-4]四半期)\s*$/;
 function leadReason(before: string): string | null {
     if (!before) return null;
+    // 바로 앞이 괄호 묶음이면 그 속을 본다(«(청년) 실업률» — 관문 10310457 ②)
+    const paren = before.match(/[(（]([^()（）]*)[)）]\s*$/);
+    if (paren && !BENIGN_PAREN.test(paren[1])) return `lead-paren:${paren[1]}`;
     const spaced = /\s$/.test(before);
     const token = (before.match(/([^\s()（）「」『』\[\]{}.,!?;:、。・·"'“”‘’]+)\s*$/) || [])[1] || '';
     if (!token) return null;   // 앞이 문장 부호·괄호·시작
@@ -365,7 +370,10 @@ export function scheduledEventNameHits(text: string): EventNameHit[] {
     return [...groups.values()].sort((a, b) => a.start - b.start).map(g => {
         const entries = [...g.entries];
         const lead = leadReason(text.slice(0, g.start));
-        const trailing = TRAILING_QUALIFIER.test(text.slice(g.end)) ? `trail:${text.slice(g.end, g.end + 8).trim()}` : null;
+        const after = text.slice(g.end);
+        const parenAfter = after.match(/^\s*[(（]([^()（）]*)[)）]/);
+        const trailing = TRAILING_QUALIFIER.test(after) ? `trail:${after.slice(0, 8).trim()}`
+            : parenAfter && !BENIGN_PAREN.test(parenAfter[1]) && !genericOnly(parenAfter[1]) ? `trail-paren:${parenAfter[1]}` : null;   // «실업률(청년)» — 관문 10310457 ② · «포지션(선물 투기 순포지션)» 같은 일반 낱말 풀이는 허용
         const why = lead || trailing || undefined;
         return { start: g.start, end: g.end, text: text.slice(g.start, g.end), ok: !why, ...(why ? { why } : {}), test: (core: string) => entries.some(e => e.test(core)) };
     });
@@ -381,9 +389,26 @@ export function splitEnglishNameMention(text: string, name: string): boolean {
     const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     for (let k = 1; k < tokens.length; k++) {
         const left = tokens.slice(0, k).map(esc).join('\\s*'), right = tokens.slice(k).map(esc).join('\\s*');
-        if (new RegExp(`(?<![A-Za-z0-9])${left}\\s*[^A-Za-z0-9()（）]{0,20}?\\s*[(（]\\s*${right}(?![A-Za-z0-9])`, 'i').test(text)) return true;
+        const m = new RegExp(`(?<![A-Za-z0-9])${left}\\s*([^A-Za-z0-9()（）]{0,20}?)\\s*[(（]\\s*${right}(?![A-Za-z0-9])`, 'i').exec(text);
+        if (m && splitGapOk(m[1], tokens.join(' ').toLowerCase())) return true;
     }
     return false;
+}
+/**
+ * 갈라진 곳의 꼬리표가 «그 이름의 번역»일 수만 있게(관문 10310457 ① «CFTC 금 미결제약정(Crude Oil …)» = 금 일정으로 읽힘):
+ *   포지션·미결제약정·선물·보고 같은 일반 낱말과, 이름에 실제로 있는 자산(원유=Crude Oil·금=Gold·나스닥=Nasdaq)만 허용. 그 밖의 말이 남으면 실패.
+ */
+const GAP_GENERIC = /미결제\s*약정|선물|투기(?:적|\s*세력)?|순\s*(?:매수|매도)?|포지션|보고서?|공시|자료|데이터|매수|매도|계약|주간|의|未決済建玉|建玉|先物|投機筋?|投機的|ネット|純|ポジション|報告|公示|資料|データ|ミニ|週間|の/g;
+const GAP_ASSETS: Array<[RegExp, string]> = [[/원유|原油/g, 'crude oil'], [/금|金/g, 'gold'], [/나스닥|ナスダック/g, 'nasdaq'], [/천연\s*가스|天然ガス/g, 'natural gas']];
+/** 포지션·선물·투기·보고 같은 일반 낱말만으로 된 풀이인가(자산·지표 이름 없음) */
+function genericOnly(text: string): boolean {
+    return !/[^\s·・,、-]/.test(text.replace(GAP_GENERIC, ' '));
+}
+function splitGapOk(gap: string, nameLower: string): boolean {
+    let rest = gap;
+    for (const [re, en] of GAP_ASSETS) { if (re.test(rest)) { if (!nameLower.includes(en)) return false; rest = rest.replace(re, ' '); } re.lastIndex = 0; }
+    rest = rest.replace(GAP_GENERIC, ' ');
+    return !/[^\s·・,、-]/.test(rest);
 }
 
 /** 시험·관문용 — 사전이 이 일정 이름을 아는가(한·일 표기 둘 다 있는가) */
