@@ -85,7 +85,7 @@ const shield = run(fn('src/services/guardian/gammaShieldEngine.ts', 'loadStruct'
     readShared: async () => null, getStructureData: async () => { throw new Error('합성 폴백'); },
 });
 const intel = run('async function read(tickers) {\n' + segment('src/app/api/intel/fast/route.ts',
-    'const gexFallback: Record<string, any> = {};', 'const quotes = tickers.map') + '\nreturn gexFallback; }\nread;');
+    'const gexFallback: Record<string, any> = {};', 'return { dpMap, gexFallback, gexDiag };') + '\nreturn gexFallback; }\nread;');
 const watchlist = run('async function read(results, context) {\n' + segment('src/services/watchlistBatchService.ts',
     'const awsFill: Record<string, any> = {};', 'const whaleFixups:') + '\nreturn awsFill; }\nread;');
 const live = run('async function read(ticker) { let structureResult = {}; let flowRes = {dataSource:"NONE"};\n' +
