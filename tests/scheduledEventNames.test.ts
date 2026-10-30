@@ -211,6 +211,8 @@ for (const [t, ev, at] of [['11/6(금) 08:30 ET 비농업 고용자 수 발표 �
     ['11/4(수) 08:15 ET ADP 고용자 수 발표 예정', ADP, NOV4], ['11/4(수) 08:15 ET ADP 취업자 수 발표 예정', ADP, NOV4]] as Array<[string, string[], number]>)
     assert.ok(strict(t, ev, at).length, `총수 ≠ 변화: ${t}`);
 assert.deepEqual(strict('11/6(금) 08:30 ET 비농업 고용 발표 예정', NFP, Date.parse('2026-11-05T15:00:00Z')), []);
+for (const t of ['11/6(금) 08:30 ET 비농업 고용 증가 발표 예정', '11/6(금) 08:30 ET 비농업 일자리 증가 발표 예정', '11/6(금) 08:30 ET 민간 비농업 고용 증가 발표 예정'])
+    assert.ok(strict(t, [...NFP, line('Nonfarm Payrolls Private (Oct)', '2026-11-06', '08:30')], Date.parse('2026-11-05T15:00:00Z')).length, `발표 전 방향 단정(관문 10310717): ${t}`);
 assert.deepEqual(strict('11/4(수) 08:15 ET ADP 고용 변화 발표 예정', ADP, NOV4), []);
 // JOLTS 대문자 약어(근거는 «JOLTs»)는 사전 표기 안에서만 이름으로 인정
 const JOLTS = [line('JOLTs Job Openings (Sep)', '2026-11-03', '10:00')];
