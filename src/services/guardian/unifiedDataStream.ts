@@ -168,6 +168,7 @@ export function snapshotPlaceholderNeedsRecompute(
  *   예약 저장소에 못 닿으면 인스턴스 메모리 간격만 쓴다(예전 경로보다 호출이 늘지 않게 언어당 5분/인스턴스).
  */
 const _placeholderRecomputeAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
+const PLACEHOLDER_CLAIM_RETRY_MS = 30 * 1000;
 let _placeholderClaimRedis: Redis | null | undefined;
 async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<boolean> {
     if (now - _placeholderRecomputeAt[locale] < PLACEHOLDER_RECOMPUTE_MS) return false;
@@ -180,6 +181,8 @@ async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<b
     if (!_placeholderClaimRedis) return true;
     try {
         const ok = await _placeholderClaimRedis.set(`guardian:snapshot:phrecompute:${locale}`, now, { nx: true, ex: Math.ceil(PLACEHOLDER_RECOMPUTE_MS / 1000) });
+        // 다른 인스턴스가 예약 중이면 이 인스턴스는 30초 뒤 다시 묻는다(공유 예약 만료 뒤 최대 5분 늦어지지 않게 — 관문 10310221 ③)
+        if (ok !== 'OK') _placeholderRecomputeAt[locale] = now - PLACEHOLDER_RECOMPUTE_MS + PLACEHOLDER_CLAIM_RETRY_MS;
         return ok === 'OK';
     } catch { return true; }
 }
@@ -601,7 +604,8 @@ export class GuardianDataHub {
         // ★2026-09-23 인스턴스 간 재계산 제한: 다른 인스턴스가 20초 안에 재계산을 시작했으면 여기서 또 계산하지 않고
         //   방금 저장된 직전 정상본(lastgood, 72h·Upstash 복제)을 준다. 재계산 한 번이 FMP 뉴스 + 137종목 시세를 부르므로
         //   인스턴스마다 따로 계산하면 벤더 분당 한도를 태운다(9/23 FMP 429). 줄 것이 없으면 그대로 계산한다.
-        if (!force) {
+        //   ★T35 대기 문구 재계산 예약(5분 원자 예약)을 쥔 요청은 이 20초 잠금으로 물러서지 않는다 — 예약만 소비하고 계산을 건너뛰지 않게(관문 10310221 ①)
+        if (!force && !placeholderFallback) {
             const lockKey = `${GUARDIAN_SNAPSHOT_PREFIX}recompute:${locale}`;
             const lockedAt = await getFromCache<number>(lockKey).catch(() => null);
             if (typeof lockedAt === 'number' && now - lockedAt < 20000) {

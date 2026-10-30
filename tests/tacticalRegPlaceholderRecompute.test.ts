@@ -111,6 +111,27 @@ assert.equal(snapshotPlaceholderNeedsRecompute(null, 'REG', now), false);
             try { await call(); } finally { Date.now = realNow3; }
             assert.equal(coreCalls, 1, '예약 뒤 메모리 사본으로 돌아가지 않고 재계산');
         }
+        // 관문 10310221 ① 예약을 쥔 요청은 20초 재계산 잠금(다른 인스턴스)·lastgood 으로 물러서지 않는다
+        {
+            store.clear(); expiry.clear(); resetHub(); coreCalls = 0;
+            store.set('guardian:snapshot:ko', snap(PENDING, now - 79 * MIN));
+            store.set('guardian:snapshot:recompute:ko', now - 5_000);
+            store.set('guardian:snapshot:lastgood:ko', snap(PENDING, now - 79 * MIN));
+            await call();
+            assert.equal(coreCalls, 1, '예약 → 잠금이 있어도 재계산');
+        }
+        // 관문 10310221 ③ 다른 인스턴스 예약에 거절된 인스턴스는 공유 예약이 끝나면 30초 안에 다시 시도한다(5분 묶이지 않음)
+        {
+            store.clear(); expiry.clear(); resetHub(); coreCalls = 0;
+            store.set('guardian:snapshot:ko', snap(PENDING, now - 79 * MIN));
+            store.set('guardian:snapshot:phrecompute:ko', now - 5 * MIN + 1_000); expiry.set('guardian:snapshot:phrecompute:ko', now + 1_000);   // 1초 뒤 만료
+            await call();
+            assert.equal(coreCalls, 0, '공유 예약 중 → 거절');
+            const realNow4 = Date.now; Date.now = () => now + 31_000;
+            store.get('guardian:snapshot:ko')._workerTimestamp = iso(now + 26_000); store.delete('guardian:snapshot:recompute:ko');
+            try { await call(); } finally { Date.now = realNow4; }
+            assert.equal(coreCalls, 1, '예약 만료 뒤 31초 → 재시도');
+        }
         // 정상 글 스냅샷은 기존처럼 그대로 반환(재계산 0 — 공급사 호출 증가 없음)
         const kept = await run(snap(stored, now - 79 * MIN));
         assert.equal(coreCalls, 0, '정상 글 → 재계산 없음');
