@@ -183,8 +183,9 @@ class OfflineRedis {
         {   const next = mk(NEWT);   // 다른 글이지만 이번 예약 전 시각(보관본·옛 저장본 복구)
             assert.equal(settleRegTacticalRefresh(next, prev, now - 50 * MIN, now), false, '복구 글 → 실패');
             assert.equal(next.verdict.realityInsight, TEXT, '복구 글 대신 기존 글 유지'); }
-        {   const next = mk(TEXT);
-            assert.equal(settleRegTacticalRefresh(next, prev, now + 1, now), false, '같은 글 → 실패'); }
+        {   const next = mk(TEXT);   // 이번 예약 뒤 새로 만든 글이 우연히 같은 문구(관문 10310524 ②)
+            assert.equal(settleRegTacticalRefresh(next, prev, now + 1, now), true, '새로 만든 같은 문구 → 성공');
+            assert.equal(settleRegTacticalRefresh(mk(TEXT), prev, null, now), false, '메모리 글이 다른 글(동시 요청) → 실패(관문 10310524 ①)'); }
         {   const next = mk(NEWT);
             assert.equal(settleRegTacticalRefresh(next, prev, now + 5_000, now), true, '이번 예약 뒤 새 글 → 성공');
             assert.equal(next.verdict.realityInsight, NEWT);

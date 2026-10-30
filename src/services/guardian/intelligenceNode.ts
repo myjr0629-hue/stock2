@@ -1042,9 +1042,10 @@ export class IntelligenceNode {
         return { text: shownOut('reality', locale, { tpl: stored.text, basis: stored.basis ?? null, session: 'REG' }, nums), at: stored.at, seenAt: stored.at };
     }
 
-    /** 이 인스턴스가 이 언어 Tactical 을 마지막으로 만든(생성·번역) 또는 받아 둔 글의 시각 — 정기 재생성 성공 판정(T35-B)용. 없으면 null */
-    static realityGeneratedAt(locale: Locale): number | null {
-        return _mem.reality[locale]?.at ?? null;
+    /** 이 언어 Tactical 의 메모리 글이 바로 이 자리표 글(tpl)일 때 그 기록 시각(생성·번역은 만든 시각, 저장본 복구는 원래 저장 시각) — 정기 재생성 성공 판정(T35-B)용. 다른 글이면 null(동시 요청이 다른 글을 기록했으면 성공으로 보지 않는다) */
+    static realityFreshAt(locale: Locale, tpl: string | null | undefined): number | null {
+        const m = _mem.reality[locale];
+        return m && typeof tpl === 'string' && m.text === tpl ? m.at : null;
     }
 
     /** 장중(REG) 저장본(같은 ET 날짜)의 저장 시각 — 검사 없는 값싼 GET 한 번. 다른 언어·인스턴스가 새 3언어 글을 저장했는지 보는 데만. */
