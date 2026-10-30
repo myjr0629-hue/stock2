@@ -162,6 +162,15 @@ class OfflineRedis {
         fresh(snap()); await call(); const asked = evalKeys.length; await call();
         assert.equal(evalKeys.length, asked, '5분 안 재질의 0');
         assert.equal(REG_TACTICAL_RETRY_MS, 5 * MIN);
+        // 관문 10310544 — 워커 도장 46초(신선 아님)면 정기 재생성 예약 없이 main 의 기존 재계산 경로(예약·실패 예산 0)
+        {
+            const old46 = { ...snap(), _workerTimestamp: iso(now - 46_000) };
+            fresh(old46); evalKeys.length = 0;
+            await assert.rejects(call(), /shared core unavailable/, '코어 없음 → main 과 같은 기존 재계산 예외(이 브랜치가 바꾸지 않은 경로)');
+            assert.equal(coreCalls, 1, '기존 45초 재계산');
+            assert.equal(evalKeys.length, 0, '예약 질의 0');
+            assert.equal(budgets.size, 0, '실패 예산 소비 0');
+        }
         // 관문 10310531 — 스냅샷 숫자가 생성 기준과 같아도(덮어쓰기 없음 가정) 공유 코어의 지금 값이 움직였으면 재생성
         {
             const flat = snap({ nq: -2.5, spx: -1.6, rlsi: 33 });

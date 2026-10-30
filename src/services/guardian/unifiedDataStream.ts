@@ -240,8 +240,13 @@ const _regRefreshAskAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
  *   생성 기준과 같은 원천: aiContext.nasdaqChange = core.market.nqChangePercent · spxChangePct = core.market.factors.spx.chgPct · rlsiScore = core.rlsi.score.
  *   값싼 판정(REG·정상 글·생성 30분 경과) 뒤에만, 같은 인스턴스·언어는 5분에 한 번 코어 GET 1회. 코어를 못 읽으면 스냅샷 값.
  */
-async function regTacticalDriftNow(c: GuardianContext, session: string | undefined, locale: Locale, now: number): Promise<string[]> {
+/** 워커가 갱신하는 스냅샷이 «신선»한가(아래 Redis 경로의 FRESH_MS 와 같은 기준) — 오래됐으면 어차피 기존 재계산 경로로 간다 */
+const SNAPSHOT_FRESH_MS = 45000;
+async function regTacticalDriftNow(c: GuardianContext & { _workerTimestamp?: string }, session: string | undefined, locale: Locale, now: number): Promise<string[]> {
     if (!regTacticalMayRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight)) return [];
+    // 45초 넘은 스냅샷은 main 의 기존 재계산(예약 없음)에 맡긴다 — 정기 재생성 예약·실패 예산을 쓰지 않게(관문 10310544)
+    const stamp = Date.parse(c._workerTimestamp || c.timestamp || '');
+    if (!Number.isFinite(stamp) || now - stamp > SNAPSHOT_FRESH_MS) return [];
     const last = _regRefreshAskAt[locale];
     if (now >= last && now - last < REG_TACTICAL_RETRY_MS) return [];
     _regRefreshAskAt[locale] = now;
@@ -679,7 +684,7 @@ export class GuardianDataHub {
                         // [FIX] Staleness check: if data is older than FRESH_MS, recompute for real-time freshness
                         // ★2026-09-23 실측: 워커는 약 30초마다 쓰는데(읽힌 나이 25~41초) 기준이 25초라 거의 모든 요청이
                         //   «오래됨» → 재계산(분당 137회)이었다. 워커 주기 + 여유로 45초.
-                        const FRESH_MS = 45000;
+                        const FRESH_MS = SNAPSHOT_FRESH_MS;
                         // ★2026-09-23 23:2x 운영 로그로 확인: Vercel 이 계산해 쓴 스냅샷(아래 973행)에는 _workerTimestamp 가
                         //   없어서 «나이 = 현재 시각(1,790,172,997초)» → 매 요청 재계산 → 같은 키를 또 덮어씀(워커의 신선한 사본까지)
                         //   → 영원히 반복됐다(6분에 384회, 매회 FMP 뉴스 + 137종목 시세). 오늘 뉴스가 Massive→FMP 로 넘어오며
