@@ -635,11 +635,9 @@ export class GuardianDataHub {
                 context = { ...previous, tacticalSeenAt: new Date(seen).toISOString() };
             }
         } catch { return previous; }
+        // 스냅샷 저장소에는 쓰지 않는다 — 읽고-쓰기 사이 다른 요청의 최신 스냅샷을 덮을 수 있다(관문 10310831 ①). EC2 워커가 이 응답을 스냅샷에 다시 쓴다
         _cachedContext[locale] = context;
         _lastFetchTime[locale] = now;
-        const stored = { ...context, _workerTimestamp: new Date(now).toISOString(), _source: 'vercel' };
-        await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}${locale}`, stored, 120).catch(() => false);
-        await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}lastgood:${locale}`, stored, 72 * 60 * 60).catch(() => false);
         return context;
     }
 
@@ -655,6 +653,8 @@ export class GuardianDataHub {
         // ★T35-B 장중 정기 재생성 예약 시각(예약을 잡았을 때만) — 재계산이 끝나면 결과를 기록하고, 새 글이 대기 문구면 기존 글을 지킨다
         let regRefreshAt = 0;
         let regDrift: string[] = [];
+        let regOk = false;
+        let regGeneratedAt: string | undefined;
         if (!force) {
             try {
                 const redisKey = `${GUARDIAN_SNAPSHOT_PREFIX}${locale}`;
@@ -1004,6 +1004,14 @@ export class GuardianDataHub {
                         }
                         // ★2026-09-29 저장 전 출구 검사 — 생성기가 이미 검사하지만, 이 키(24h)는 장외 내내 그대로 나가고
                         //   마케팅·콘텐츠 생성기도 직접 읽는다. 검사를 통과한 글만 저장한다.
+                        // ★T35-B 정기 재생성 결과 정리를 판정 저장 «전에» — 새 글을 못 만들었으면(대기 문구·복구본) 기존 글·생성 기준·생성 시각으로 되돌린 뒤
+                        //   아래 출구 검사·저장 한 번으로 끝낸다(추가 저장 없음 — 관문 10310831 ② 읽고-쓰기 경합)
+                        if (regRefreshAt && placeholderFallback) {
+                            const holder: { verdict?: any; tacticalGeneratedAt?: string; tacticalSeenAt?: string; timestamp?: string } = { verdict };
+                            regOk = settleRegTacticalRefresh(holder, placeholderFallback, IntelligenceNode.realityFreshAt(locale, verdict.num?.tpl?.realityInsight ?? verdict.realityInsight), regRefreshAt);
+                            verdict = holder.verdict;
+                            regGeneratedAt = holder.tacticalGeneratedAt;
+                        }
                         const checked = await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums, tacticalPrompts);
                         verdict = checked.verdict;
                         if (checked.repaired.includes('realityInsight')) tacticalFutures = false;   // ★T2 복구 글로 바뀌면 표식도 내린다
@@ -1056,28 +1064,19 @@ export class GuardianDataHub {
                 coreAt: core.timestamp,   // ★2026-10-08 이 컨텍스트의 숫자가 나온 코어의 계산 시각 — 응답 출구가 더 새 코어로 맞출지 판단한다
                 // ★T35-B 장중 글의 실제 생성 시각(캐시 재사용·복구 글이면 그 글의 원래 시각) — 30분 간격이 재계산 시각으로 밀리지 않게(관문 10310819 ①)
                 //   생성 시각을 모르면(보관본·저장본 복구 등 메모리에 없는 글) «오래된 글»로 둔다 — 정기 재생성 대상이 되되 공용 예약(30분·8회)이 호출을 막는다(관문 10310825 ②)
-                ...(rlsi.session === 'REG' ? (() => { const at = IntelligenceNode.realityFreshAt(locale, verdict.num?.tpl?.realityInsight ?? verdict.realityInsight); return { tacticalGeneratedAt: new Date(at ?? 0).toISOString() }; })() : {}),
+                ...(rlsi.session === 'REG' ? (() => {
+                    if (regGeneratedAt) return { tacticalGeneratedAt: regGeneratedAt };   // 정기 재생성 정리가 정한 시각(새 글 = 생성 시각, 되돌림 = 옛 글 시각)
+                    const at = IntelligenceNode.realityFreshAt(locale, verdict.num?.tpl?.realityInsight ?? verdict.realityInsight);
+                    return { tacticalGeneratedAt: new Date(at ?? 0).toISOString() };
+                })() : {}),
                 ...(rlsi.session === 'POST' ? { tacticalFutures } : {}),
                 ...(tacticalFutures && tacticalFuturesPct ? { tacticalFuturesPct, tacticalFuturesCheckedAt: new Date(now).toISOString(), tacticalSeenAt: new Date(now).toISOString() } : {}),
             };
 
             // ★T35-B 정기 재생성이 새 글을 못 만들어 대기 문구가 됐으면 기존 장중 글(과 그 생성 기준)을 지킨다 — 출구 검사가 그 글을 다시 거른다
             //   예약 결과: 새 글로 바뀌었을 때만 성공 — 대기 문구(기존 글 유지)·같은 글(복구본)은 실패로 기록해 60분 대기·연속 2회 중지(관문 10310437 P2)
-            const regOk = regRefreshAt && placeholderFallback ? settleRegTacticalRefresh(context, placeholderFallback, IntelligenceNode.realityFreshAt(locale, context.verdict?.num?.tpl?.realityInsight ?? context.verdict?.realityInsight), regRefreshAt) : false;
-            // 결과는 여기서 바로 기록 — 아래 섹터 결측(조기 반환) 경로에서도 빠지지 않게(관문 10310511 ②). 새 글은 저장소에 들어가 다른 경로가 채택한다
-            if (regRefreshAt) {
-                await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now());
-                // 기존 글로 되돌렸으면 위에서 먼저 저장한 판정(ai_verdict)도 같은 글로 맞춘다(관문 10310550 ②)
-                if (!regOk && placeholderFallback && context.verdict?.realityInsight === placeholderFallback.verdict?.realityInsight) {
-                    // 되돌린 옛 글도 저장 전 출구 검사(지난 일정 등) — 이 키는 콘텐츠 생성기도 직접 읽는다(관문 10310813 ②). 대기 문구가 되면 직전 저장본의 정상 글을 살린다(위 저장 규칙과 같다)
-                    const vNums = guardianNumsFromContext(context);
-                    const vPrompts = currentTacticalPrompts(vNums, core, context.gammaShield);
-                    const checked = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'new-verdict', vNums, vPrompts);
-                    const hasPh = [checked.verdict.description, checked.verdict.realityInsight, checked.verdict.gammaInsight].some((t) => IntelligenceNode.isPlaceholderInsight(t));
-                    await saveAiVerdict(hasPh ? IntelligenceNode.keepRealTextOverPlaceholders(checked.verdict, await loadAiVerdict(locale), locale, vNums, vPrompts) : checked.verdict, locale);
-                }
-                regRefreshAt = 0;
-            }
+            // 예약 결과는 여기서 바로 기록 — 아래 섹터 결측(조기 반환) 경로에서도 빠지지 않게(관문 10310511 ②). 되돌림·저장은 위 판정 저장에서 이미 끝났다
+            if (regRefreshAt) { await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now()); regRefreshAt = 0; }
 
             // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon
             // snapshot failure). Caching it poisoned Redis for up to 10min and made the

@@ -214,5 +214,8 @@ export function regTacticalMayRefresh(c: RegTacticalState | null | undefined, se
 /** current 를 주면 그 값(공유 코어의 지금 값)으로, 없으면 스냅샷 자신의 값으로 비교 */
 export function regTacticalNeedsRefresh(c: RegTacticalState | null | undefined, session: string | null | undefined, nowMs: number, isPlaceholder: (t: string) => boolean, current?: RegNums): string[] {
     if (!regTacticalMayRefresh(c, session, nowMs, isPlaceholder)) return [];
-    return regTacticalDrift(c!.verdict?.num?.basis?.realityInsight, current ?? regTacticalCurrent(c));
+    const basis = c!.verdict?.num?.basis?.realityInsight;
+    // 생성 기준이 없는 글(기준 없이 복구된 저장본 등)은 비교할 수 없으니 «오래된 글»로 재생성 대상 — 공용 예약(30분·8회)이 호출을 막는다(관문 10310831 ③)
+    if (!basis || ![basis.NDX_CHG, basis.SPX_CHG, basis.RLSI].some(v => typeof v === 'number' && Number.isFinite(v))) return ['no-basis'];
+    return regTacticalDrift(basis, current ?? regTacticalCurrent(c));
 }

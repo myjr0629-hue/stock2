@@ -44,7 +44,7 @@ assert.deepEqual(regTacticalNeedsRefresh(snap({ nq: -2.5, spx: -1.6, rlsi: 28 })
 assert.deepEqual(regTacticalNeedsRefresh(snap({ nq: -2.5, spx: -1.6, rlsi: 38 }), 'REG', now, isPh), ['rlsi'], 'RLSI 5 상승');
 assert.deepEqual(regTacticalNeedsRefresh(snap({ text: PENDING }), 'REG', now, isPh), [], '대기 문구는 T35 경로가 맡는다');
 for (const s of ['PRE', 'POST', 'CLOSED']) assert.deepEqual(regTacticalNeedsRefresh(snap({ session: s }), s, now, isPh), [], `${s} 는 대상 아님`);
-assert.deepEqual(regTacticalNeedsRefresh(snap({ basis: null }), 'REG', now, isPh), [], '생성 기준 없는 옛 스냅샷 — 비교 불가면 호출 0');
+assert.deepEqual(regTacticalNeedsRefresh(snap({ basis: null }), 'REG', now, isPh), ['no-basis'], '생성 기준 없는 글 — 비교 불가면 오래된 글로 대상(예약이 상한, 관문 10310831 ③)');
 assert.deepEqual(regTacticalNeedsRefresh(snap({ seen: now - 10 * MIN }), 'REG', now, isPh), [], '채택한 글의 생성 시각(tacticalGeneratedAt) 기준 10분 — 대상 아님');
 assert.equal(regTacticalGeneratedAt(snap({ seen: now - 10 * MIN })), now - 10 * MIN);
 assert.deepEqual(regTacticalDrift({ NDX_CHG: 0.1 }, { NDX_CHG: 0.6 }), ['nasdaq'], '부동소수 0.5 경계');
@@ -185,7 +185,7 @@ class OfflineRedis {
             assert.equal(coreCalls, 0, '코어 값도 문턱 아래 → 0');
         }
         // 변화가 문턱 아래·30분 안·대기 문구·기준 없음 → 재계산 0(워커 도장 신선 → 그대로 반환)
-        for (const s of [snap({ nq: -2.8, spx: -1.8, rlsi: 31 }), snap({ at: now - 20 * MIN }), snap({ basis: null })]) {
+        for (const s of [snap({ nq: -2.8, spx: -1.8, rlsi: 31 }), snap({ at: now - 20 * MIN })]) {
             fresh(s); const out = await call();
             assert.equal(coreCalls, 0, '조건 밖 → 재계산 0'); assert.equal(out, s);
         }
@@ -247,7 +247,7 @@ class OfflineRedis {
             assert.deepEqual(adopted.verdict.num.basis.realityInsight, { NDX_CHG: -3.4, SPX_CHG: -2.1, RLSI: 30 }, '새 글의 생성 기준');
             assert.equal(adopted.tacticalSeenAt, iso(now - 2 * MIN));
             assert.equal(adopted.tacticalGeneratedAt, iso(now - 2 * MIN), '채택한 글의 생성 시각');
-            assert.equal(store.get('guardian:snapshot:ja').verdict.realityInsight, NEW, '스냅샷에도 저장(워커가 다시 쓴다)');
+            assert.notEqual(store.get('guardian:snapshot:ja').verdict.realityInsight, NEW, '스냅샷 저장소에는 쓰지 않음(워커가 응답을 다시 쓴다 — 관문 10310831 ①)');
             assert.deepEqual(regTacticalNeedsRefresh(adopted, 'REG', now, isPh), [], '채택 뒤 같은 글로 재생성 요청 없음');
             // 30초 안 재확인 없음
             await call('ja'); assert.equal(adoptCalls, 1);
