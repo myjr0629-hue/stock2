@@ -50,18 +50,22 @@ const KO_END = /^(?:으로|로|이|가|은|는|을|를|와|과|도|에|에서|�
 const KO_ALLOWED_NOUN = /^(?:발표|공개|공표|지표|보고서?|공시|자료|데이터|결과|일정|수치|예정|이벤트)/;
 const JA_ALLOWED = /^(?:発表|公表|報告|統計|データ|指標|結果|資料|公示|予定)/;
 const JA_END = /^(?:で|は|が|を|に|と|も|です|であり|となり|では|には)/;
-const BOUNDARY = /^\s*(?:$|[,.!?;:)\]）」』、。·・…\-–—"'“”‘’A-Za-z0-9(（])/;
+// 명사구가 끝나는 자리 — 문장 부호·닫는 괄호·끝(숫자·영문은 경계가 아니다: «실업률의 20대 수치» — 관문 10310659)
+const BOUNDARY = /^\s*(?:$|[,.!?;:)\]）」』、。…—"“”])/;
 /**
  * 표기 «뒤»는 허용 목록으로만, 명사구가 끝날 때까지 이어 본다(관문 10310640·10310646·10310653):
  *   문장 부호·끝·영숫자 → 끝 · 붙은 조사·서술(«으로»·«이»·«입니다») → 끝 · «의» → 다음 낱말도 허용 낱말이어야
  *   띄운 낱말은 발표·지표·보고서·공시·자료·데이터·결과·일정·수치·예정(+조사)만 · 일본어는 (の)発表·公表…(予定)+조사, 공백 뒤 일본어도 같은 규칙
  */
-function tailReason(after: string): string | null {
+function tailReason(after: string, parenFine: (content: string) => boolean = () => false): string | null {
     let rest = after;
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
         if (BOUNDARY.test(rest)) return null;
         const spaced = /^\s+/.test(rest);
         const t = rest.replace(/^\s+/, '');
+        // 괄호 묶음은 그 속이 기간·영어 이름·일반 풀이일 때만 건너뛰고 계속 본다(«실업률 (10월) (청년)» — 관문 10310659)
+        const paren = t.match(/^[(（]([^()（）]*)[)）]/);
+        if (paren) { if (!parenFine(paren[1])) return `tail-paren:${paren[1]}`; rest = t.slice(paren[0].length); continue; }
         if (/^[가-힣]/.test(t)) {
             const word = t.match(/^[가-힣]+/)![0];
             if (!spaced) {   // 표기에 붙은 말
@@ -87,7 +91,7 @@ function tailReason(after: string): string | null {
             if (u.startsWith('の') && u !== t) { rest = u; continue; }
             return `tail:${t.slice(0, 6)}`;
         }
-        return null;
+        return `tail:${t.slice(0, 6)}`;   // 숫자·영문 등 그 밖의 말이 명사구에 이어지면 다른 값일 수 있다
     }
     return 'tail:too-long';
 }
@@ -465,7 +469,7 @@ export function scheduledEventNameHits(text: string): EventNameHit[] {
         const parenAfter = after.match(/^\s*[(（]([^()（）]*)[)）]/);
         const trailing = TRAILING_QUALIFIER.test(after) ? `trail:${after.slice(0, 8).trim()}`
             : parenAfter && !parenOk(parenAfter[1], entries) ? `trail-paren:${parenAfter[1]}`   // «실업률(청년)» — 관문 10310457 ② · «포지션(선물 투기 순포지션)» 같은 일반 낱말 풀이는 허용
-                : tailReason(parenAfter ? after.slice(parenAfter[0].length) : after);
+                : tailReason(parenAfter ? after.slice(parenAfter[0].length) : after, c => parenOk(c, entries));
         const why = lead || trailing || undefined;
         return { start: g.start, end: g.end, text: text.slice(g.start, g.end), ok: !why, ...(why ? { why } : {}), test: (core: string) => entries.some(e => e.test(core)) };
     });
@@ -483,7 +487,7 @@ export function splitEnglishNameMention(text: string, name: string): boolean {
         const left = tokens.slice(0, k).map(esc).join('\\s*'), right = tokens.slice(k).map(esc).join('\\s*');
         const m = new RegExp(`(?<![A-Za-z0-9])${left}\\s*([^A-Za-z0-9()（）]{0,20}?)\\s*[(（]\\s*${right}(?![A-Za-z0-9])`, 'i').exec(text);
         // 갈라진 이름 뒤도 같은 허용 목록(«…(Gold speculative net positions)의 매수» 실패)
-        if (m && splitGapOk(m[1], tokens.join(' ').toLowerCase()) && !tailReason(text.slice(m.index + m[0].length).replace(/^\s*[)）]/, ''))) return true;
+        if (m && splitGapOk(m[1], tokens.join(' ').toLowerCase()) && !tailReason(text.slice(m.index + m[0].length).replace(/^\s*[)）]/, ''), c => BENIGN_PAREN.test(c) || genericOnly(c))) return true;
     }
     return false;
 }

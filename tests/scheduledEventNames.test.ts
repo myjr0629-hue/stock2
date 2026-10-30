@@ -72,7 +72,11 @@ for (const [t, ev, at] of [
     ['10/30(금) 15:30 ET 예정된 CFTC 금 선물 포지션(Gold speculative net positions) 수치의 매도 포지션', [line('CFTC Gold Speculative net positions')], AT_1740Z],
     ['10/30(金) 15:30 ET 予定のCFTC金投機筋ポジション 建玉', [line('CFTC Gold Speculative net positions')], AT_1740Z],
     ['10/30(金) 15:30 ET 予定のCFTC金投機筋ポジション発表の建玉', [line('CFTC Gold Speculative net positions')], AT_1740Z],
-] as Array<[string, string[], number]>) assert.ok(strict(t, ev, at).length, `관문 10310653: ${t}`);
+    ['10/30(금) 15:30 ET 예정된 실업률의 20대 수치 발표', [line('Unemployment Rate (Oct)', '2026-10-30', '15:30')], AT_1740Z],
+    ['10/30(金) 15:30 ET 予定の失業率の20代の数値の発表', [line('Unemployment Rate (Oct)', '2026-10-30', '15:30')], AT_1740Z],
+    ['10/30(금) 15:30 ET 예정된 실업률 (10월) (청년) 발표', [line('Unemployment Rate (Oct)', '2026-10-30', '15:30')], AT_1740Z],
+    ['10/30(금) 15:30 ET 예정된 실업률 발표(10월)의 청년 수치 발표', [line('Unemployment Rate (Oct)', '2026-10-30', '15:30')], AT_1740Z],
+] as Array<[string, string[], number]>) assert.ok(strict(t, ev, at).length, `관문 10310653·10310659: ${t}`);
 for (const [t, ev, at] of [
     ['11/6(금) 08:30 ET 예정된 실업률 발표 예정입니다', [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')], Date.parse('2026-11-05T15:00:00Z')],
     ['11/6(금) 08:30 ET 예정된 실업률 수치로, 고용 둔화 여부가 갈립니다', [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')], Date.parse('2026-11-05T15:00:00Z')],
