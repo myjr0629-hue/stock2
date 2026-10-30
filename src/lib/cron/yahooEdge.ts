@@ -8,12 +8,12 @@
  *     ^SOX meta 1~4초 — 맥에서도 EC2 에서도 똑같다(=클라이언트 IP 가 아니라 «접속점» 문제).
  *   → 앱 /api/market/macro 의 NQ 선물·유가·SOX·VIX 가 15~117분 늙었던 원인(AUDIT 10/31 «중간 3»).
  *
- * 하는 일: 5분마다 기준 심볼(NQ=F) 하나를 «DNS 기본»과 «아시아 접속점들»에 물어 regularMarketTime 이 가장 최신인 곳을 고른다.
+ * 하는 일: 5분마다 기준 심볼 3종(NQ=F·CL=F·^SOX)을 «DNS 기본»과 «아시아 접속점들»에 물어 더 신선한 곳을 고른다(어느 심볼도 더 늙지 않을 때만).
  *   이후 query1.finance.yahoo.com 요청만 그 접속점으로 보낸다(TLS 인증서·SNI 는 그대로 query1.finance.yahoo.com — 주소가 바뀌어도
  *   야후가 아니면 TLS 가 실패하고 기본 fetch 로 돌아간다). 시간이 같으면(장 마감·주말) DNS 기본을 유지한다.
  *   고정 접속점이 실패(네트워크·TLS·3초 초과·4xx/5xx·차트 본문 없음)하면 그 요청은 새 5초 제한으로 기본 fetch 에 다시 보내고,
  *   연속 3번 실패하면 다음 점검까지 DNS 기본으로 돌아간다 → 기존 동작보다 나빠지지 않는다. 점검은 수집 요청을 기다리게 하지 않는다(뒤에서).
- * 호출량: 수집 호출 수 불변 + 점검 5분마다 3회(분당 0.6회).
+ * 호출량: 수집 호출 수 불변 + 점검 5분마다 9회(3심볼×3접속점, 분당 1.8회).
  */
 import https from 'node:https';
 
@@ -24,7 +24,6 @@ export const EDGE_PROBE_EVERY_MS = 5 * 60_000;
 export const PINNED_TIMEOUT_MS = 3000;
 const FALLBACK_TIMEOUT_MS = 5000;
 export const MAX_CONSECUTIVE_FAILS = 3;
-const PROBE_URL = `https://${YAHOO_HOST}/v8/finance/chart/NQ%3DF?interval=1m&range=1d`;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 
 type FetchLike = (url: string, init?: any) => Promise<any>;
@@ -34,7 +33,7 @@ export type PinnedFetch = (ip: string, url: string, init?: any) => Promise<{ ok:
 export interface EdgeState {
     edge: string | null;          // null = DNS 기본
     checkedAt: number;
-    lastProbe: Record<string, number | null> | null;   // 접속점 → regularMarketTime(초) (실패 null)
+    lastProbe: Record<string, (number | null)[]> | null;   // 접속점 → 기준 심볼별 regularMarketTime(초) (실패 null)
     pinnedFails: number;
 }
 
@@ -79,28 +78,40 @@ async function probeTime(get: () => Promise<any>): Promise<number | null> {
 }
 
 /**
- * 접속점 점검: 가장 최신 regularMarketTime 을 준 곳을 고른다. 동률이면 DNS 기본(null) — 지금과 같은 동작.
- * 대안이 기본보다 «60초 넘게» 신선할 때만 바꾼다(체결 시각 흔들림으로 오가지 않게).
+ * 접속점 점검: 기준 심볼 3종(NQ=F·CL=F·^SOX — 10/30 실측에서 미국 접속점이 가장 늙었던 선물·유가·지수)의 regularMarketTime 을
+ * 접속점마다 받아, 대안이 «모든 심볼에서 기본보다 60초 넘게 뒤지지 않고» «합계로 60초 넘게 신선»할 때만 고른다(관문 10310524 #2).
+ * 동률·장 마감·대안 실패면 DNS 기본(null) — 지금과 같은 동작.
  */
-export async function probeEdges(baseFetch: FetchLike, pinned: PinnedFetch, alts: readonly string[] = YAHOO_ALT_EDGES): Promise<{ edge: string | null; times: Record<string, number | null> }> {
-    const init = { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(5000) };
-    const [base, ...altTimes] = await Promise.all([
-        probeTime(() => baseFetch(PROBE_URL, { ...init, cache: 'no-store' })),
-        ...alts.map((ip) => probeTime(() => pinned(ip, PROBE_URL, init))),
-    ]);
-    const times: Record<string, number | null> = { dns: base };
-    alts.forEach((ip, i) => { times[ip] = altTimes[i]; });
-    let edge: string | null = null; let best = -Infinity;
-    alts.forEach((ip, i) => { const t = altTimes[i]; if (t != null && t > best) { best = t; edge = ip; } });
-    if (edge == null || best <= (base ?? 0) + 60) edge = null;   // 기본보다 60초 넘게 신선할 때만 바꾼다
+export const PROBE_SYMBOLS: readonly string[] = ['NQ%3DF', 'CL%3DF', '%5ESOX'];
+const probeUrl = (sym: string) => `https://${YAHOO_HOST}/v8/finance/chart/${sym}?interval=1m&range=1d`;
+export async function probeEdges(baseFetch: FetchLike, pinned: PinnedFetch, alts: readonly string[] = YAHOO_ALT_EDGES): Promise<{ edge: string | null; times: Record<string, (number | null)[]> }> {
+    const init = () => ({ headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(5000) });
+    const edges: (string | null)[] = [null, ...alts];
+    const rows = await Promise.all(edges.map((ip) => Promise.all(PROBE_SYMBOLS.map((sym) => probeTime(() =>
+        ip == null ? baseFetch(probeUrl(sym), { ...init(), cache: 'no-store' }) : pinned(ip, probeUrl(sym), init()))))));
+    const times: Record<string, (number | null)[]> = {};
+    edges.forEach((ip, i) => { times[ip ?? 'dns'] = rows[i]; });
+    const base = rows[0];
+    let edge: string | null = null; let bestGain = 60 * PROBE_SYMBOLS.length;   // 평균 60초 넘게 신선할 때만
+    alts.forEach((ip, k) => {
+        const alt = rows[k + 1];
+        if (alt.some((t) => t == null)) return;                                   // 한 심볼이라도 실패한 대안은 쓰지 않는다
+        let gain = 0; let worse = false;
+        alt.forEach((t, j) => { const b = base[j] ?? 0; gain += (t as number) - b; if ((t as number) < b - 60) worse = true; });
+        if (!worse && gain > bestGain) { bestGain = gain; edge = ip; }
+    });
     return { edge, times };
 }
 
-/** 차트 응답이 수집 함수가 쓸 수 있는 모양인가 — 1분봉은 meta.regularMarketPrice, 일봉은 timestamp 배열(관문 10310522: meta:{} 200). */
+/** 차트 응답이 수집 함수가 쓸 수 있는 모양인가 — 1분봉은 meta.regularMarketPrice, 일봉은 timestamp 배열(관문 10310522: meta:{} 200), 일봉은 종가. */
 export function chartBodyUsable(url: string, data: any): boolean {
     const r0 = data?.chart?.result?.[0];
     if (!r0?.meta) return false;
-    if (/[?&]interval=1d\b/.test(url)) return Array.isArray(r0.timestamp) && r0.timestamp.length > 0;
+    if (/[?&]interval=1d\b/.test(url)) {
+        // 일봉: 쓸 수 있는 종가가 하나라도 있어야 한다(관문 10310524 #1 — timestamp 만 있고 종가 null 이면 직전 종가 복구 실패)
+        const closes = r0?.indicators?.quote?.[0]?.close;
+        return Array.isArray(r0.timestamp) && r0.timestamp.length > 0 && Array.isArray(closes) && closes.some((c: any) => typeof c === 'number' && c > 0.01);
+    }
     return typeof r0.meta.regularMarketPrice === 'number' && r0.meta.regularMarketPrice > 0;
 }
 

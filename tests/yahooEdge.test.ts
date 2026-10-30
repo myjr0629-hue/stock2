@@ -32,6 +32,20 @@ test('동률·60초 이내 차이·장 마감이면 DNS 기본 유지(지금과 
     }
 });
 
+test('대안이 한 심볼이라도 기본보다 늙었거나 실패하면 고르지 않는다(관문 10310524 #2)', async () => {
+    const per: Record<string, Record<string, number | null>> = {
+        dns: { 'NQ%3DF': NOW_SEC - 3000, 'CL%3DF': NOW_SEC - 7000, '%5ESOX': NOW_SEC - 5 },
+        [YAHOO_ALT_EDGES[0]]: { 'NQ%3DF': NOW_SEC - 600, 'CL%3DF': NOW_SEC - 600, '%5ESOX': NOW_SEC - 900 },   // SOX 만 더 늙음
+        [YAHOO_ALT_EDGES[1]]: { 'NQ%3DF': NOW_SEC - 600, 'CL%3DF': null, '%5ESOX': NOW_SEC - 5 },            // CL 실패
+    };
+    const sym = (url: string) => url.split('/chart/')[1].split('?')[0];
+    const base = async (url: any) => chart(per.dns[sym(String(url))]);
+    const pinned = async (ip: string, url: string) => { const t = per[ip][sym(url)]; if (t == null) throw new Error('x'); return chart(t); };
+    assert.equal((await probeEdges(base, pinned)).edge, null);
+    per[YAHOO_ALT_EDGES[0]]['%5ESOX'] = NOW_SEC - 3;
+    assert.equal((await probeEdges(base, pinned)).edge, YAHOO_ALT_EDGES[0]);
+});
+
 test('아시아 접속점이 전부 실패하면 DNS 기본', async () => {
     const r = rig({ dns: NOW_SEC - 3000 });
     assert.equal((await probeEdges(r.base, r.pinned)).edge, null);
@@ -66,7 +80,7 @@ test('감싼 fetch: 야후 query1 만 고른 접속점으로, 그 외 주소는 
     assert.equal(r.calls.length, 1);
     clock += 2;
     await ef.fetch(YURL); await ef.refresh();
-    assert.equal(r.calls.length, 1 + 1 + 3, '5분 뒤 수집 1회 + 점검 3회(dns+아시아 2)');
+    assert.equal(r.calls.length, 1 + 1 + 9, '5분 뒤 수집 1회 + 점검 9회(3심볼×dns+아시아 2)');
 });
 
 test('고정 접속점이 실패·4xx·차트 없는 200 이면 같은 요청을 기본 fetch 로 다시 보낸다(기존보다 나빠지지 않음)', async () => {
@@ -122,7 +136,7 @@ test('점검이 동률이면 기본 fetch 만 쓴다(접속점 고정 없음)', 
     const r = rig({ dns: NOW_SEC, [YAHOO_ALT_EDGES[0]]: NOW_SEC, [YAHOO_ALT_EDGES[1]]: NOW_SEC });
     const ef = createEdgeFetch(r.base, { pinned: r.pinned, now: () => 1 });
     await ef.refresh();
-    assert.equal(r.calls.length, 3, '점검은 실제로 돌았다');
+    assert.equal(r.calls.length, 9, '점검은 실제로 돌았다(3심볼×3접속점)');
     r.calls.length = 0;
     await ef.fetch(YURL);
     assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), ['dns']);
@@ -135,7 +149,9 @@ test('차트 본문 판정: 1분봉은 가격, 일봉은 timestamp 가 있어야
     assert.equal(chartBodyUsable(m, { chart: { result: [{ meta: { regularMarketPrice: 0 } }] } }), false);
     assert.equal(chartBodyUsable(m, { chart: { result: [{ meta: { regularMarketPrice: 28537 } }] } }), true);
     assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [] }] } }), false);
-    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [1] }] } }), true);
+    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [1] }] } }), false, '종가 없음');
+    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [1, 2], indicators: { quote: [{ close: [null, null] }] } }] } }), false, '종가 전부 null');
+    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [1, 2], indicators: { quote: [{ close: [null, 99.8] }] } }] } }), true);
     assert.equal(chartBodyUsable(m, { chart: { result: null } }), false);
 });
 
