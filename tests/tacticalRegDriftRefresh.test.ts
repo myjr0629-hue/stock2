@@ -162,6 +162,19 @@ class OfflineRedis {
         fresh(snap()); await call(); const asked = evalKeys.length; await call();
         assert.equal(evalKeys.length, asked, '5분 안 재질의 0');
         assert.equal(REG_TACTICAL_RETRY_MS, 5 * MIN);
+        // 관문 10310531 — 스냅샷 숫자가 생성 기준과 같아도(덮어쓰기 없음 가정) 공유 코어의 지금 값이 움직였으면 재생성
+        {
+            const flat = snap({ nq: -2.5, spx: -1.6, rlsi: 33 });
+            fresh(flat);
+            assert.deepEqual(regTacticalNeedsRefresh(flat, 'REG', now, isPh), [], '스냅샷 값만 보면 변화 0');
+            store.set('offline:core', { timestamp: iso(now), market: { nqChangePercent: -3.4, factors: { spx: { chgPct: -2.1 } } }, rlsi: { score: 30, session: 'REG' } });
+            await call();
+            assert.equal(coreCalls, 1, '코어 값(나스닥 −3.4) 기준 → 재계산 진입');
+            fresh(flat);
+            store.set('offline:core', { timestamp: iso(now), market: { nqChangePercent: -2.6, factors: { spx: { chgPct: -1.7 } } }, rlsi: { score: 32 } });
+            await call();
+            assert.equal(coreCalls, 0, '코어 값도 문턱 아래 → 0');
+        }
         // 변화가 문턱 아래·30분 안·대기 문구·기준 없음 → 재계산 0(워커 도장 신선 → 그대로 반환)
         for (const s of [snap({ nq: -2.8, spx: -1.8, rlsi: 31 }), snap({ at: now - 20 * MIN }), snap({ basis: null })]) {
             fresh(s); const out = await call();

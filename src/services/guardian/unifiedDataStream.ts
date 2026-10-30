@@ -1,5 +1,5 @@
 import { fmpFetch } from '@/lib/fmpClient';
-import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, regTacticalNeedsRefresh, REG_TACTICAL_RETRY_MS, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, regTacticalNeedsRefresh, regTacticalMayRefresh, REG_TACTICAL_RETRY_MS, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
 import { reserveRegTacticalRefresh, finishRegTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
 import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
@@ -235,10 +235,23 @@ async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<'
  *   예약 저장소가 없거나 장애면 재생성하지 않는다(상한을 확인하지 못한 호출 금지 — 기존 글 유지). 같은 인스턴스·언어는 5분에 한 번만 묻는다.
  */
 const _regRefreshAskAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
-async function claimRegTacticalRefresh(locale: Locale, now: number): Promise<'exclusive' | false> {
+/**
+ * 변화 판정은 «공유 코어의 지금 값»으로(관문 10310531 — 스냅샷 숫자는 응답 출구 overlayCore 가 갱신해 워커가 다시 쓰지만, 그 덮어쓰기에 기대지 않는다).
+ *   생성 기준과 같은 원천: aiContext.nasdaqChange = core.market.nqChangePercent · spxChangePct = core.market.factors.spx.chgPct · rlsiScore = core.rlsi.score.
+ *   값싼 판정(REG·정상 글·생성 30분 경과) 뒤에만, 같은 인스턴스·언어는 5분에 한 번 코어 GET 1회. 코어를 못 읽으면 스냅샷 값.
+ */
+async function regTacticalDriftNow(c: GuardianContext, session: string | undefined, locale: Locale, now: number): Promise<string[]> {
+    if (!regTacticalMayRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight)) return [];
     const last = _regRefreshAskAt[locale];
-    if (now >= last && now - last < REG_TACTICAL_RETRY_MS) return false;
+    if (now >= last && now - last < REG_TACTICAL_RETRY_MS) return [];
     _regRefreshAskAt[locale] = now;
+    const core = await getFromCache<GuardianCore>(CORE_KEY).catch(() => null);
+    const current = core?.market || core?.rlsi
+        ? { NDX_CHG: core.market?.nqChangePercent ?? undefined, SPX_CHG: core.market?.factors?.spx?.chgPct ?? undefined, RLSI: core.rlsi?.score ?? undefined }
+        : undefined;
+    return regTacticalNeedsRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight, current);
+}
+async function claimRegTacticalRefresh(now: number): Promise<'exclusive' | false> {
     return await reserveRegTacticalRefresh(claimRedis(), now) ? 'exclusive' : false;
 }
 /** 다른 언어·인스턴스의 정기 재생성이 저장한 더 새 장중 글이 있나(GET 한 번, 인스턴스·언어별 30초 간격) */
@@ -651,8 +664,8 @@ export class GuardianDataHub {
                         // ★T35 대기 문구가 굳은 스냅샷 — 워커 도장과 무관하게 다시 계산(5분 간격)
                         console.log(`[Guardian] snapshot AI text is a placeholder (snapshot ${cached.timestamp}, ${cachedSession}) — recomputing for ${locale}`);
                         placeholderFallback = cached;
-                    } else if ((regDrift = regTacticalNeedsRefresh(cached, cachedSession, now, IntelligenceNode.isPlaceholderInsight)).length
-                        && (placeholderClaim = await claimRegTacticalRefresh(locale, now))) {
+                    } else if ((regDrift = await regTacticalDriftNow(cached, cachedSession, locale, now)).length
+                        && (placeholderClaim = await claimRegTacticalRefresh(now))) {
                         // ★T35-B 장중 글이 생성 30분 뒤 지수·RLSI 가 움직였다 — 운영 생성 경로 그대로 다시 계산(예약 1회 = 3언어 1호출, 다른 언어는 저장본 채택)
                         console.log(`[Guardian] REG tactical refresh (${regDrift.join(',')} drift; text since ${cached.tacticalGeneratedAt || cached.timestamp}) — recomputing for ${locale}`);
                         placeholderFallback = cached;

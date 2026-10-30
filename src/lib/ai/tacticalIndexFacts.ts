@@ -204,11 +204,15 @@ export function regTacticalGeneratedAt(c: RegTacticalState | null | undefined): 
  * 값싼 판정(입출력 0): REG · 글이 대기 문구가 아님(T35 경로가 따로 맡는다) · 생성 30분 경과 · 지수/RLSI 변화. 예약 질의 간격(5분)은 호출자가 인스턴스 메모리로.
  * isPlaceholder 는 호출자가 넘긴다(모듈 의존 방지).
  */
-export function regTacticalNeedsRefresh(c: RegTacticalState | null | undefined, session: string | null | undefined, nowMs: number, isPlaceholder: (t: string) => boolean): string[] {
-    if (!c || session !== 'REG') return [];
+export function regTacticalMayRefresh(c: RegTacticalState | null | undefined, session: string | null | undefined, nowMs: number, isPlaceholder: (t: string) => boolean): boolean {
+    if (!c || session !== 'REG') return false;
     const text = c.verdict?.realityInsight;
-    if (typeof text !== 'string' || !text || isPlaceholder(text)) return [];
+    if (typeof text !== 'string' || !text || isPlaceholder(text)) return false;
     const gen = regTacticalGeneratedAt(c);
-    if (!Number.isFinite(gen) || nowMs - gen < REG_TACTICAL_REFRESH_MS) return [];
-    return regTacticalDrift(c.verdict?.num?.basis?.realityInsight, regTacticalCurrent(c));
+    return Number.isFinite(gen) && nowMs - gen >= REG_TACTICAL_REFRESH_MS;
+}
+/** current 를 주면 그 값(공유 코어의 지금 값)으로, 없으면 스냅샷 자신의 값으로 비교 */
+export function regTacticalNeedsRefresh(c: RegTacticalState | null | undefined, session: string | null | undefined, nowMs: number, isPlaceholder: (t: string) => boolean, current?: RegNums): string[] {
+    if (!regTacticalMayRefresh(c, session, nowMs, isPlaceholder)) return [];
+    return regTacticalDrift(c!.verdict?.num?.basis?.realityInsight, current ?? regTacticalCurrent(c));
 }
