@@ -13,7 +13,7 @@ import { companyNameEntries } from '@/lib/app/tickerNames';
 import { adviceHit } from './adviceGuard';
 import { checkAmounts } from './amountGuard';
 import { claimReasons, valueTokens } from './claimChecks';
-import { scheduledEventNameHits, eventCoreName, eventNameGloss, withEventNameGloss, splitEnglishNameMention } from './scheduledEventNames';
+import { scheduledEventNameHits, eventCoreName, eventNameGloss, withEventNameGloss, splitEnglishNameMention, leadModifierReason } from './scheduledEventNames';
 
 type Locale = 'ko' | 'en' | 'ja';
 type CachedEarningsRow = OverlayRow & { etTime?: unknown; time?: unknown; epsActual?: unknown; revenueActual?: unknown };
@@ -370,17 +370,26 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
     const glossOf = (start: number): string | null => {
         const before = text.slice(0, start);
         if (!/[(（]\s*$/.test(before)) return null;
-        const head = before.replace(/[(（]\s*$/, '').trimEnd().toLowerCase();
+        const head = before.replace(/[(（]\s*$/, '');
         for (const l of evidenceLines) {
             const n = lineName(l);
-            if (n && [n, n.replace(/\s*\([^)]*\)\s*$/, '').trim()].some(x => x.length >= 2 && head.endsWith(x.toLowerCase()))) return n;
+            if (!n) continue;
+            // «New Home Sales (Sep)» ↔ 근거 «New Home Sales Sep» — 괄호 유무와 무관하게 같은 영어 이름. 그 영어 이름 앞의 수식어도 본다(«청년 (Unemployment Rate)(실업률)»)
+            for (const x of [n, eventCoreName(n)]) {
+                const words = x.replace(/[()（）]/g, ' ').trim().split(/\s+/).filter(Boolean);
+                if (!words.length) continue;
+                const m = new RegExp(`(?<![A-Za-z0-9])${words.map(escRe).join('[\\s()（）]*')}[\\s()（）]*$`, 'i').exec(head);
+                if (m && /[)）]?\s*$/.test(head) && !leadModifierReason(head.slice(0, m.index))) return n;
+            }
         }
         return null;
     };
     const nameHits = scheduledEventNameHits(text);
     nameHits.forEach(h => {
         const owner = glossOf(h.start);
-        const is = !h.ok ? () => false
+        // 근거 영어 이름 바로 뒤 번역 괄호면 앞 판정은 그 영어 이름이 대신한다 — 뒤 판정·같은 일정 여부는 그대로
+        const ok = owner ? !h.tailWhy : h.ok;
+        const is = !ok ? () => false
             : owner ? (line: string) => lineName(line) === owner && h.test(eventCoreName(owner))
                 : (line: string) => { const n = lineName(line); return !!n && h.test(eventCoreName(n)); };
         mentions.push({ key: `alias:${h.start}:${h.text}`, is });

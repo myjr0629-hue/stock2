@@ -22,6 +22,9 @@ export interface EventNameHit {
     /** false = 표기 앞뒤 수식어 때문에 «다른 지표»일 수 있어 대조하지 않는다(그 언급은 실패로 친다) */
     ok: boolean;
     why?: string;
+    /** 앞 판정 사유(근거 영어 이름 바로 뒤 번역 괄호면 호출자가 무시할 수 있다) · 뒤 판정 사유 */
+    leadWhy?: string;
+    tailWhy?: string;
     /** 근거 줄 이름(괄호 꼬리 뗀 본 이름)이 이 표기가 가리키는 일정인가 */
     test: (coreName: string) => boolean;
 }
@@ -433,6 +436,8 @@ function leadReason(before: string): string | null {
  * 표기 앞 판정 — 앞에 붙은 괄호 묶음(«(Unemployment Rate) »·«(월) »)은 속을 확인해 하나씩 벗기고, 표기가 괄호 «안»이면(«청년 (실업률)») 여는 괄호 앞까지 본다.
  *   여는 괄호 앞이 영어(근거 영어 이름의 번역 괄호)면 그 영어 이름이 기존 대조를 받는다(관문 10310741·10310746).
  */
+/** 호출자용 — 근거 영어 이름 앞의 수식어 판정(«청년 (Unemployment Rate)(실업률)»의 «청년») */
+export function leadModifierReason(before: string): string | null { return leadOf(before, []); }
 function leadOf(before: string, entries: Entry[]): string | null {
     let b = before;
     for (let i = 0; i < 4; i++) {
@@ -440,9 +445,8 @@ function leadOf(before: string, entries: Entry[]): string | null {
         if (paren) { if (!parenOk(paren[1], entries)) return `lead-paren:${paren[1]}`; b = b.slice(0, b.length - paren[0].length); continue; }
         const open = b.match(/[(（]\s*$/);
         if (open) {
-            const outer = b.slice(0, b.length - open[0].length);
-            if (/[A-Za-z0-9&)]\s*$/.test(outer)) return null;   // «New Home Sales (Sep)(신규 주택 판매)» — 영어 이름의 번역 괄호
-            b = outer; continue;
+            // 영어 일정 이름의 번역 괄호(«New Home Sales (Sep)(신규 주택 판매)»)는 근거를 아는 호출자가 그 이름으로 판정한다(leadWhy 무시) — 여기선 똑같이 앞까지 본다
+            b = b.slice(0, b.length - open[0].length); continue;
         }
         break;
     }
@@ -492,7 +496,7 @@ export function scheduledEventNameHits(text: string): EventNameHit[] {
             : parenAfter && !parenOk(parenAfter[1], entries) ? `trail-paren:${parenAfter[1]}`   // «실업률(청년)» — 관문 10310457 ② · «포지션(선물 투기 순포지션)» 같은 일반 낱말 풀이는 허용
                 : tailReason(parenAfter ? after.slice(parenAfter[0].length) : after, c => parenOk(c, entries));
         const why = lead || trailing || undefined;
-        return { start: g.start, end: g.end, text: text.slice(g.start, g.end), ok: !why, ...(why ? { why } : {}), test: (core: string) => entries.some(e => e.test(core)) };
+        return { start: g.start, end: g.end, text: text.slice(g.start, g.end), ok: !why, ...(why ? { why } : {}), ...(lead ? { leadWhy: lead } : {}), ...(trailing ? { tailWhy: trailing } : {}), test: (core: string) => entries.some(e => e.test(core)) };
     });
 }
 
