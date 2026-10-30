@@ -113,6 +113,8 @@ assert.ok(strict('11/12(목) 08:30 ET 물가상승률 전분기 대비 예정', 
 const NOV4 = Date.parse('2026-11-04T13:00:00Z');
 assert.deepEqual(strict('11/4(수) 10:30 ET EIA 원유 재고 예정', [line('EIA Crude Oil Stocks Change (Oct/30)', '2026-11-04', '10:30')], NOV4), []);
 assert.ok(strict('11/4(수) 10:30 ET API 원유 재고 예정', [line('EIA Crude Oil Stocks Change (Oct/30)', '2026-11-04', '10:30')], NOV4).length);
+assert.ok(strict('11/4(수) 10:30 ET EIA 정제유 재고 변화 예정', [line('EIA Distillate Fuel Production Change (Oct/30)', '2026-11-04', '10:30')], NOV4).length, '생산량 ≠ 재고(관문 10310455)');
+assert.deepEqual(strict('11/4(수) 10:30 ET EIA 정제유 재고 변화 예정', [line('EIA Distillate Stocks Change (Oct/30)', '2026-11-04', '10:30')], NOV4), []);
 assert.ok(strict('11/4(수) 10:30 ET EIA 휘발유 재고 예정', [line('EIA Crude Oil Stocks Change (Oct/30)', '2026-11-04', '10:30')], NOV4).length);
 // 연준 인사: 같은 사람·시각만, 지나면 탈락(T35 원인 사례 — 10/30 12:00 ET Fed Daly)
 const DALY = [line('Fed Daly Speech', '2026-10-30', '12:00')];

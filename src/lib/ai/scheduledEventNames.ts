@@ -136,7 +136,7 @@ const ENTRIES: Entry[] = [
         ['EIA (?:의 )?(?:주간 )?원유 재고(?: (?:변화|변동|증감|량|지표|발표))?'], ['EIA (?:の )?(?:週間 )?原油在庫(?: (?:変動|変化|増減|量|統計))?'], ['원유 재고', '原油在庫']),
     entry('EIA Gasoline Stocks Change', exact('EIA Gasoline Stocks Change'),
         ['EIA (?:의 )?(?:주간 )?(?:휘발유|가솔린) 재고(?: (?:변화|변동|증감|량))?'], ['EIA (?:の )?(?:週間 )?ガソリン在庫(?: (?:変動|変化|増減|量))?'], ['휘발유 재고', 'ガソリン在庫']),
-    entry('EIA Distillate Stocks Change', exact('EIA Distillate Stocks Change', 'EIA Distillate Fuel Production Change'),
+    entry('EIA Distillate Stocks Change', exact('EIA Distillate Stocks Change'),
         ['EIA (?:의 )?(?:주간 )?(?:정제유|증류유|난방유) 재고(?: (?:변화|변동|증감|량))?'], ['EIA (?:の )?(?:週間 )?留出油在庫(?: (?:変動|変化|増減|量))?'], ['정제유 재고', '留出油在庫']),
     entry('EIA Natural Gas Stocks Change', exact('EIA Natural Gas Stocks Change'),
         ['EIA (?:의 )?(?:주간 )?천연 ?가스 재고(?: (?:변화|변동|증감|량))?'], ['EIA (?:の )?(?:週間 )?天然ガス在庫(?: (?:変動|変化|増減|量))?'], ['천연가스 재고', '天然ガス在庫']),
@@ -259,7 +259,7 @@ const ENTRIES: Entry[] = [
     entry('Net Long-Term TIC Flows', exact('Net Long-Term TIC Flows'), ['(?:장기 ?)?(?:TIC ?)?(?:순 ?유입|자본 ?유출입|증권 ?순매입)(?: ?\\(?TIC\\)?)?|TIC ?장기 ?(?:순 ?유입|자본 ?흐름)'], ['(?:対米 ?)?長期 ?(?:TIC ?)?(?:ネット ?)?(?:資本)?(?:フロー|流入)|TIC ?長期(?:資本)?(?:収支|フロー)'], ['장기 TIC 순유입', '長期TICフロー']),
     // ── 연준·성장·정치 ──
     entry('FOMC Minutes', exact('FOMC Minutes'), ['(?:FOMC|연준) ?(?:회의 ?)?의사록'], ['(?:FOMC|連銀) ?(?:議事要旨|議事録)'], ['FOMC 의사록', '연준', 'FOMC議事要旨']),
-    entry('Fed Interest Rate Decision', exact('Fed Interest Rate Decision', 'FOMC Statement'), ['(?:FOMC|연준) ?(?:의 )?(?:기준 ?)?금리 ?(?:결정|발표)|FOMC ?(?:정책 ?)?(?:성명|결정)'], ['(?:FOMC|FRB) ?(?:の )?(?:政策)?金利 ?(?:決定|発表)|FOMC ?(?:声明|決定)'], ['연준 금리 결정', 'FOMC金利決定']),
+    entry('Fed Interest Rate Decision', exact('Fed Interest Rate Decision'), ['(?:FOMC|연준) ?(?:의 )?(?:기준 ?)?금리 ?(?:결정|발표)|FOMC ?(?:정책 ?)?(?:성명|결정)'], ['(?:FOMC|FRB) ?(?:の )?(?:政策)?金利 ?(?:決定|発表)|FOMC ?(?:声明|決定)'], ['연준 금리 결정', 'FOMC金利決定']),
     entry('FOMC Press Conference', exact('FOMC Press Conference', 'Fed Press Conference'), ['(?:FOMC|연준|파월) ?(?:의장 ?)?(?:기자 ?회견)'], ['(?:FOMC|パウエル) ?(?:議長 ?)?(?:記者会見)'], ['연준 기자회견', 'FOMC記者会見']),
     // GDP: 차수 없는 표기는 어느 차수든(같은 발표 묶음), 차수를 쓰면 그 차수 줄만(관문 10310437 «속보치 예정» ↔ 확정치 줄 오통과)
     entry('GDP Growth Rate QoQ', core => /^GDP Growth Rate QoQ(?: (?:Adv|Advance|2nd Est|Second Estimate|Final|Third Estimate))?$/i.test(core), periodic('QoQ', GDP_KO), periodic('QoQ', GDP_JA), ['GDP 성장률', '国内総生産']),

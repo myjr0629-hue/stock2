@@ -51,6 +51,12 @@ assert.deepEqual(regTacticalDrift({ NDX_CHG: 0.1 }, { NDX_CHG: 0.6 }), ['nasdaq'
 assert.deepEqual(regTacticalDrift({ NDX_CHG: NaN, RLSI: 40 }, { NDX_CHG: -9, RLSI: undefined }), []);
 assert.deepEqual(regTacticalCurrent(snap()), { NDX_CHG: -3.4, SPX_CHG: -2.1, RLSI: 30 });
 assert.deepEqual(regTacticalNeedsRefresh(null, 'REG', now, isPh), []);
+// 관문 10310455 «워커가 옛 스냅샷에 도장만 찍어 숫자도 옛 값» 반론 — 운영 실측: 응답 출구가 공유 코어로 숫자를 덮어(overlayCore) 워커가 그 응답을 다시 쓴다.
+//   Upstash guardian:snapshot:lastgood:ko (읽기만, 10/31 04:44 KST): 계산 18:03:51Z 그대로인데 coreAt 19:43:54Z·S&P 갱신 19:42:37Z·나스닥 −4.49(생성 기준 −3.86)
+const live = { timestamp: '2026-10-30T18:03:51.409Z', _workerTimestamp: '2026-10-30T19:44:08.384Z', coreAt: '2026-10-30T19:43:54.312Z',
+    rlsi: { score: 32.5, session: 'REG' }, market: { nqChangePercent: -4.490562208240308, factors: { spx: { chgPct: -2.1246413257246024 } } },
+    verdict: { realityInsight: TEXT, num: { basis: { realityInsight: { NDX_CHG: -3.8554563290711044, SPX_CHG: -2.060160557113841, RLSI: 32.9 } } } } };
+assert.deepEqual(regTacticalNeedsRefresh(live, 'REG', Date.parse('2026-10-30T19:44:10Z'), isPh), ['nasdaq'], '운영 스냅샷 그대로 — 나스닥 0.63%p → 재생성 대상');
 
 // ── ② 공용 예약(장후 변동과 같은 Lua, 다른 키) ──
 const store = new Map<string, any>();
