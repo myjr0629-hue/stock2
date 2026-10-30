@@ -139,6 +139,11 @@ for (const t of ['10/30(금) 12:00 ET 예정된 데일리 샌프란시스코 연
     assert.ok(strict(t, DALY, Date.parse('2026-10-30T16:01:00Z')).includes('schedule:claim-not-upcoming'), `지난 연설: ${t}`);
     assert.ok(strict(t, [line('Fed Barkin Speech', '2026-10-30', '12:00')], AT_1530Z).length, `다른 인사: ${t}`);
 }
+// 연설 ≠ 증언(관문 10310619)
+const POW = [line('Fed Powell Speech', '2026-11-10', '13:00')];
+assert.ok(strict('11/10(화) 13:00 ET 파월 의장 증언 예정', POW, NOV10).length, '연설 근거로 증언 주장 금지');
+assert.deepEqual(strict('11/10(화) 13:00 ET 파월 의장 연설 예정', POW, NOV10), []);
+assert.deepEqual(strict('11/10(화) 13:00 ET 파월 의장 의회 증언 예정', [line('Fed Chair Powell Testimony', '2026-11-10', '13:00')], NOV10), []);
 // JOLTS 대문자 약어(근거는 «JOLTs»)는 사전 표기 안에서만 이름으로 인정
 const JOLTS = [line('JOLTs Job Openings (Sep)', '2026-11-03', '10:00')];
 assert.deepEqual(strict('11/3(화) 10:00 ET JOLTS 구인건수 예정', JOLTS, Date.parse('2026-11-03T13:00:00Z')), []);

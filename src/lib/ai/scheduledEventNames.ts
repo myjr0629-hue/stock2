@@ -100,11 +100,16 @@ const JA_FED_PREFIX = '(?:(?:米 )?(?:FRB|連銀|米連邦準備制度理事会|
 const KO_FED_BANK = '(?:[가-힣]{1,8} (?:연은|연방준비은행) )?';
 const JA_FED_BANK = '(?:・? ?[ァ-ヴー]{1,10} 連銀 )?';
 const JA_FED_TITLE = '(?:(?:米)?(?:FRB|連銀) )?(?:総裁|理事|副議長|議長)?';
-const fedPeople = FED_PEOPLE.map(([en, ko, ja]) => entry(`Fed ${en} Speech`,
-    core => FED_SPEECH.exec(core)?.[1] === en,
-    [`${KO_FED_PREFIX}${ko} ${KO_FED_BANK}${KO_FED_TITLE} (?:의 )?(?:연설|발언|강연|증언)`],
-    [`${JA_FED_PREFIX}${ja} ${JA_FED_BANK}${JA_FED_TITLE} (?:の )?(?:講演|発言|演説|証言)`],
-    ['연준 연설', '連銀講演', 'FRB講演']));
+// 연설(Speech·Speaks·Remarks) ≠ 증언(Testimony) — 같은 사람이어도 종류가 맞아야(관문 10310619)
+const FED_KINDS = [
+    { id: 'Speech', en: /^(?:Speech|Speaks|Remarks)$/, ko: '(?:연설|발언|강연)', ja: '(?:講演|発言|演説)' },
+    { id: 'Testimony', en: /^Testimony$/, ko: '(?:의회 )?증언', ja: '(?:議会 ?)?証言' },
+];
+const fedPeople = FED_PEOPLE.flatMap(([en, ko, ja]) => FED_KINDS.map(k => entry(`Fed ${en} ${k.id}`,
+    core => { const m = FED_SPEECH.exec(core); return m?.[1] === en && k.en.test(core.split(' ').pop() || ''); },
+    [`${KO_FED_PREFIX}${ko} ${KO_FED_BANK}${KO_FED_TITLE} (?:의 )?${k.ko}`],
+    [`${JA_FED_PREFIX}${ja} ${JA_FED_BANK}${JA_FED_TITLE} (?:の )?${k.ja}`],
+    ['연준 연설', '連銀講演', 'FRB講演'])));
 /** 사전에 없는 인물의 «○○ 총재 연설»은 어느 줄로도 맞지 않는다(사건군 «연준»만으로 다른 인사의 줄에 기대 통과하지 않게) */
 const fedUnknownPerson = entry('Fed unknown person speech', () => false,
     [`(?<![가-힣])(?!(?:미국|연준|연은|연방|다음|예정)(?![가-힣]))[가-힣]{2,6} ${KO_FED_BANK}(?:(?:연준|연은) )?(?:총재|이사|부의장|의장) (?:의 )?(?:연설|발언|강연|증언)`],
