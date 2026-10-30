@@ -229,12 +229,14 @@ class OfflineRedis {
         const orig = { latest: IntelligenceNode.latestStoredRegTacticalAt, adopt: IntelligenceNode.adoptStoredRegReality, nums: IntelligenceNode.numbersFor };
         let adoptCalls = 0;
         (IntelligenceNode as any).latestStoredRegTacticalAt = async () => now - 2 * MIN;
-        (IntelligenceNode as any).adoptStoredRegReality = async (_ctx: unknown, newerThan: number) => { adoptCalls++; assert.equal(newerThan, Date.parse(snap({ at: now - 10 * MIN }).timestamp)); return { text: NEW, at: now - 2 * MIN, seenAt: now - 2 * MIN }; };
+        let adoptCtx: any = null;
+        (IntelligenceNode as any).adoptStoredRegReality = async (ctx: unknown, newerThan: number) => { adoptCalls++; adoptCtx = ctx; assert.equal(newerThan, Date.parse(snap({ at: now - 10 * MIN }).timestamp)); return { text: NEW, at: now - 2 * MIN, seenAt: now - 2 * MIN }; };
         (IntelligenceNode as any).numbersFor = () => ({ tpl: NEW, basis: { NDX_CHG: -3.4, SPX_CHG: -2.1, RLSI: 30 } });
         try {
             fresh(snap({ at: now - 10 * MIN }), 'ja');
-            store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: {} }, rlsi: { score: 30, session: 'REG' }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
+            store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: { spx: { chgPct: -2.1 }, us10y: { level: 4.94 } } }, rlsi: { score: 30, session: 'REG', components: { breadthPct: 26 } }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
             const adopted = await call('ja');
+            assert.deepEqual([adoptCtx.spxChangePct, adoptCtx.us10y, adoptCtx.breadthPct], [-2.1, 4.94, 26], '채택 검사 재료에 장중 숫자 칸(SPX·US10Y·BREADTH) — 관문 10310813 ①');
             assert.equal(adoptCalls, 1);
             assert.equal(coreCalls, 0, '채택은 재계산·모델 0');
             assert.equal(adopted.verdict.realityInsight, NEW);

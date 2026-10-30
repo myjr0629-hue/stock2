@@ -614,8 +614,12 @@ export class GuardianDataHub {
             const core = await getFromCache<GuardianCore>(CORE_KEY).catch(() => null);
             if (!core) return previous;
             const basis = mergePostIndexBasis(core.market.indexBasis, await loadMarketIndexBasis(now).catch(() => null));
+            // 장중 생성 재료와 같은 숫자 칸(aiContext 와 같은 원천) — 저장본 자리표({BREADTH}·{US10Y}·{SPX_CHG})를 채워 검사할 수 있게(관문 10310813 ①)
             const r = await IntelligenceNode.adoptStoredRegReality({ ...offHoursRotationContext(core, locale), indexBasis: basis ?? undefined,
-                marketNewsHeadlines: filterMarketHeadlines(core.news || []) }, seenBefore);
+                marketNewsHeadlines: filterMarketHeadlines(core.news || []),
+                spxChangePct: core.market?.factors?.spx?.chgPct ?? undefined,
+                us10y: core.market?.factors?.us10y?.level ?? core.market?.yieldCurve?.us10y ?? undefined,
+                breadthPct: core.rlsi?.components?.breadthPct ?? undefined }, seenBefore);
             if (r.text && !IntelligenceNode.isPlaceholderInsight(r.text)) {
                 const n = IntelligenceNode.numbersFor('reality', locale, r.text);
                 const tpl = { ...previous.verdict.num?.tpl }, numBasis = { ...previous.verdict.num?.basis };
@@ -1061,7 +1065,14 @@ export class GuardianDataHub {
             if (regRefreshAt) {
                 await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now());
                 // 기존 글로 되돌렸으면 위에서 먼저 저장한 판정(ai_verdict)도 같은 글로 맞춘다(관문 10310550 ②)
-                if (!regOk && placeholderFallback && context.verdict?.realityInsight === placeholderFallback.verdict?.realityInsight) await saveAiVerdict(context.verdict, locale);
+                if (!regOk && placeholderFallback && context.verdict?.realityInsight === placeholderFallback.verdict?.realityInsight) {
+                    // 되돌린 옛 글도 저장 전 출구 검사(지난 일정 등) — 이 키는 콘텐츠 생성기도 직접 읽는다(관문 10310813 ②). 대기 문구가 되면 직전 저장본의 정상 글을 살린다(위 저장 규칙과 같다)
+                    const vNums = guardianNumsFromContext(context);
+                    const vPrompts = currentTacticalPrompts(vNums, core, context.gammaShield);
+                    const checked = await IntelligenceNode.repairVerdictTexts(context.verdict, locale, 'new-verdict', vNums, vPrompts);
+                    const hasPh = [checked.verdict.description, checked.verdict.realityInsight, checked.verdict.gammaInsight].some((t) => IntelligenceNode.isPlaceholderInsight(t));
+                    await saveAiVerdict(hasPh ? IntelligenceNode.keepRealTextOverPlaceholders(checked.verdict, await loadAiVerdict(locale), locale, vNums, vPrompts) : checked.verdict, locale);
+                }
                 regRefreshAt = 0;
             }
 
