@@ -43,18 +43,25 @@ assert.ok(strict(realKo[0].replace('CFTC 원유 투기적 순포지션', '원유
 // 실모델 10/31 재생(12회 × ko·ja): 영어 이름이 번역 꼬리표로 갈라진 표기(«CFTC S&P 500 미결제약정(speculative net positions)») — main 검사 ko 1/12·ja 2/12 통과
 const live = JSON.parse(readFileSync('tests/fixtures/economic-calendar/live-1031-cftc-next.json', 'utf8')) as { rows: Array<{ i: number; locale: string; next: string; mainReasons: string[] }> };
 const LIVE_AT = Date.parse('2026-10-30T18:56:00Z');
-let liveMainFail = 0;
+let liveMainFail = 0, liveFixPass = 0;
 for (const r of live.rows) {
     const next = r.next.replace(/\((?:한국|日本時間) \d{2}:\d{2}\)/g, '');
     if (r.mainReasons.includes('schedule:claim-not-upcoming')) liveMainFail++;
+    // «미결제약정·建玉»(미결제약정)은 순포지션과 다른 값 — 잘못된 꼬리표는 그대로 탈락(관문 10310631)
+    if (/미결제약정|建玉/.test(next)) { assert.ok(strict(next, CFTC4, LIVE_AT).length, `실모델 ${r.i}/${r.locale} 잘못된 꼬리표 탈락: ${r.next}`); continue; }
+    liveFixPass++;
     assert.deepEqual(strict(next, CFTC4, LIVE_AT), [], `실모델 ${r.i}/${r.locale} 수리 후 통과: ${r.next}`);
     assert.ok(strict(next, CFTC4, AT_2000Z).includes('schedule:claim-not-upcoming'), `실모델 ${r.i}/${r.locale} 지난 일정은 탈락`);
     assert.ok(strict(next, CFTC4.filter(l => !l.includes('S&P 500')), LIVE_AT).length, `실모델 ${r.i}/${r.locale} S&P 500 줄이 없으면 탈락`);
 }
 assert.equal(liveMainFail, 20, 'main 검사 실패 20/24 재현');
+assert.equal(liveFixPass, 11, '수리 후 일정 검사 통과 11/24(나머지 13 은 «미결제약정·建玉» 오역 — 정상 탈락)');
 // 갈라진 영어 이름: 낱말 전부·순서·한 번만 갈라짐·꼬리표에 영숫자 없음
 const CRUDE = [line('CFTC Crude Oil speculative net positions')];
-assert.deepEqual(strict('10/30(금) 15:30 ET 예정된 CFTC 원유 미결제약정(Crude Oil speculative net positions)', CRUDE), [], '«이름(번역)»과 같은 계약 — 꼬리표 번역 품질은 검사 대상 아님');
+assert.ok(strict('10/30(금) 15:30 ET 예정된 CFTC 원유 미결제약정(Crude Oil speculative net positions)', CRUDE).length, '미결제약정 꼬리표 = 다른 값(관문 10310631)');
+assert.deepEqual(strict('10/30(금) 15:30 ET 예정된 CFTC 원유 선물 포지션(Crude Oil speculative net positions)', CRUDE), [], '일반 낱말 꼬리표');
+for (const t of ['10/30(금) 15:30 ET 예정된 CFTC 금 매도 포지션(Gold speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 금 미결제약정(Gold speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 금 투기적 순포지션(매도 포지션)'])
+    assert.ok(strict(t, [line('CFTC Gold Speculative net positions')]).length, `관문 10310631: ${t}`);
 for (const t of ['10/30(금) 15:30 ET 예정된 CFTC 원유(speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 원유 2주(Crude Oil speculative net positions)',
     '10/30(금) 15:30 ET 예정된 CFTC 원유(Crude Oil) 투기(speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 금(Gold speculative net positions)',
     '10/30(금) 15:30 ET 예정된 CFTC 금 미결제약정(Crude Oil speculative net positions)', '10/30(금) 15:30 ET 예정된 CFTC 구리 미결제약정(Crude Oil speculative net positions)'])
