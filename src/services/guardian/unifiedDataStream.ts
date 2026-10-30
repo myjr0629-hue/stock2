@@ -233,13 +233,13 @@ async function claimRegTacticalRefresh(locale: Locale, now: number): Promise<'ex
 }
 /** 다른 언어·인스턴스의 정기 재생성이 저장한 더 새 장중 글이 있나(GET 한 번, 인스턴스·언어별 30초 간격) */
 const _regAdoptCheckAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
-async function regTacticalHasNewerStored(c: { tacticalSeenAt?: string; timestamp?: string } | null | undefined, session: string | undefined, locale: Locale, now: number): Promise<boolean> {
-    if (!c || session !== 'REG') return false;
+async function regTacticalNewerStoredAt(c: { tacticalSeenAt?: string; timestamp?: string } | null | undefined, session: string | undefined, locale: Locale, now: number): Promise<number | null> {
+    if (!c || session !== 'REG') return null;
     const last = _regAdoptCheckAt[locale];
-    if (now >= last && now - last < POST_TACTICAL_ADOPT_CHECK_MS) return false;
+    if (now >= last && now - last < POST_TACTICAL_ADOPT_CHECK_MS) return null;
     _regAdoptCheckAt[locale] = now;
     const latest = await IntelligenceNode.latestStoredRegTacticalAt(locale, now).catch(() => null);
-    return latest != null && latest > tacticalSeenAtOf(c);
+    return latest != null && latest > tacticalSeenAtOf(c) ? latest : null;
 }
 
 /**
@@ -575,7 +575,7 @@ export class GuardianDataHub {
      * ★2026-10-31 T35-B 장중 — 다른 언어·인스턴스의 정기 재생성이 저장한 새 Tactical 을 이 언어 스냅샷에 채택(모델 호출 0).
      *   출구 검사를 통과한 같은 ET 날짜 REG 저장본만. 못 쓰면 «본 시각»만 적어 같은 글을 반복 검사하지 않는다. 실패하면 기존 스냅샷 그대로.
      */
-    private static async adoptRegTactical(previous: GuardianContext, locale: Locale, now: number): Promise<GuardianContext> {
+    private static async adoptRegTactical(previous: GuardianContext, locale: Locale, now: number, latestAt?: number): Promise<GuardianContext> {
         const seenBefore = tacticalSeenAtOf(previous);
         let context: GuardianContext = previous;
         try {
@@ -592,9 +592,12 @@ export class GuardianDataHub {
                 context = { ...previous, tacticalSeenAt: new Date(Math.max(seenBefore, r.at ?? now)).toISOString(), tacticalGeneratedAt: new Date(r.at ?? now).toISOString(),
                     verdict: { ...previous.verdict, realityInsight: r.text, num: { tpl, basis: numBasis } } };
                 await saveAiVerdict(context.verdict, locale);
-            } else if (typeof r.seenAt === 'number' && r.seenAt > seenBefore) {
-                context = { ...previous, tacticalSeenAt: new Date(r.seenAt).toISOString() };
-            } else return previous;
+            } else {
+                // 채택 못 한 저장본(출구 검사 탈락 → 읽기에서 시각 없이 null 포함)은 그 저장 시각을 «본 시각»으로 — 같은 글을 30초마다 다시 읽지 않게(관문 10310504 ②). 생성 시각은 그대로.
+                const seen = Math.max(typeof r.seenAt === 'number' ? r.seenAt : 0, latestAt ?? 0);
+                if (seen <= seenBefore) return previous;
+                context = { ...previous, tacticalSeenAt: new Date(seen).toISOString() };
+            }
         } catch { return previous; }
         _cachedContext[locale] = context;
         _lastFetchTime[locale] = now;
@@ -666,8 +669,9 @@ export class GuardianDataHub {
                                 if (adopted !== cached) return adopted;
                             }
                             // ★T35-B 다른 언어·인스턴스의 장중 정기 재생성이 저장한 새 글 채택(모델 호출 0)
-                            if (await regTacticalHasNewerStored(cached, cachedSession, locale, now)) {
-                                const adopted = await GuardianDataHub.adoptRegTactical(cached, locale, now);
+                            const regNewer = await regTacticalNewerStoredAt(cached, cachedSession, locale, now);
+                            if (regNewer != null) {
+                                const adopted = await GuardianDataHub.adoptRegTactical(cached, locale, now, regNewer);
                                 if (adopted !== cached) return adopted;
                             }
                             // Session matches and data is fresh, safe to return

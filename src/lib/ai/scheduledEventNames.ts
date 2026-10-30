@@ -306,12 +306,21 @@ const KANA_KANJI = /[ぁ-んァ-ヴー一-龯々]/;
 const HIRAGANA_NOT_NO = /[ぁ-ゔ]$/;
 
 /** 괄호 속이 이름을 바꾸지 않는 말인가 — 영숫자(영어 이름·기간)·요일·현지 시각·기간(10월분·Q3) */
-const BENIGN_PAREN = /^\s*(?:[A-Za-z0-9 ,.:/&'+-]*|[월화수목금토일]|[月火水木金土日]|(?:한국|日本時間)\s*(?:\d{1,2}\/\d{1,2}\s*)?\d{1,2}:\d{2}|\d{1,2}\s*월(?:분)?|\d{1,2}\s*月(?:分)?|[1-4]\s*분기|第?[1-4]四半期)\s*$/;
+const BENIGN_PAREN = /^\s*(?:[\d ,.:/-]*|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?(?:\s*\/\s*\d{1,2})?|Q[1-4]|[월화수목금토일]|[月火水木金土日]|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\.?|(?:한국|日本時間)\s*(?:\d{1,2}\/\d{1,2}\s*)?\d{1,2}:\d{2}|\d{1,2}\s*월(?:분)?|\d{1,2}\s*月(?:分)?|[1-4]\s*분기|第?[1-4]四半期)\s*$/i;
+/** 괄호 속 영어가 그 일정 영어 이름(의 낱말들)일 뿐인가 — «(Unemployment Rate)»·«(speculative net positions)» 허용, «(U-6)»·«(Youth)» 는 다른 지표(관문 10310504 ①) */
+function englishOfEntries(content: string, entries: Entry[]): boolean {
+    const words = content.toLowerCase().split(/[\s,]+/).filter(Boolean);
+    if (!words.length || !/^[A-Za-z0-9 ,.&/'+-]+$/.test(content.trim())) return false;
+    return entries.some(e => { const own = e.id.toLowerCase().split(/\s+/); return words.every(w => own.includes(w)); });
+}
+/** 괄호 속이 이름을 바꾸지 않는 말인가(기간·요일·현지 시각·일반 낱말 풀이·그 일정의 영어 이름) */
+function parenOk(content: string, entries: Entry[]): boolean {
+    return BENIGN_PAREN.test(content) || genericOnly(content) || englishOfEntries(content, entries);
+}
 function leadReason(before: string): string | null {
     if (!before) return null;
-    // 바로 앞이 괄호 묶음이면 그 속을 본다(«(청년) 실업률» — 관문 10310457 ②)
-    const paren = before.match(/[(（]([^()（）]*)[)）]\s*$/);
-    if (paren && !BENIGN_PAREN.test(paren[1])) return `lead-paren:${paren[1]}`;
+    // 바로 앞 괄호 묶음은 호출자가 그 일정 기준으로 본다(«(청년) 실업률»·«(U-6) 실업률»)
+    if (/[)）]\s*$/.test(before)) return null;
     const spaced = /\s$/.test(before);
     const token = (before.match(/([^\s()（）「」『』\[\]{}.,!?;:、。・·"'“”‘’]+)\s*$/) || [])[1] || '';
     if (!token) return null;   // 앞이 문장 부호·괄호·시작
@@ -369,11 +378,13 @@ export function scheduledEventNameHits(text: string): EventNameHit[] {
     }
     return [...groups.values()].sort((a, b) => a.start - b.start).map(g => {
         const entries = [...g.entries];
-        const lead = leadReason(text.slice(0, g.start));
+        const before = text.slice(0, g.start);
+        const parenBefore = before.match(/[(（]([^()（）]*)[)）]\s*$/);
+        const lead = parenBefore ? (parenOk(parenBefore[1], entries) ? null : `lead-paren:${parenBefore[1]}`) : leadReason(before);
         const after = text.slice(g.end);
         const parenAfter = after.match(/^\s*[(（]([^()（）]*)[)）]/);
         const trailing = TRAILING_QUALIFIER.test(after) ? `trail:${after.slice(0, 8).trim()}`
-            : parenAfter && !BENIGN_PAREN.test(parenAfter[1]) && !genericOnly(parenAfter[1]) ? `trail-paren:${parenAfter[1]}` : null;   // «실업률(청년)» — 관문 10310457 ② · «포지션(선물 투기 순포지션)» 같은 일반 낱말 풀이는 허용
+            : parenAfter && !parenOk(parenAfter[1], entries) ? `trail-paren:${parenAfter[1]}` : null;   // «실업률(청년)» — 관문 10310457 ② · «포지션(선물 투기 순포지션)» 같은 일반 낱말 풀이는 허용
         const why = lead || trailing || undefined;
         return { start: g.start, end: g.end, text: text.slice(g.start, g.end), ok: !why, ...(why ? { why } : {}), test: (core: string) => entries.some(e => e.test(core)) };
     });
