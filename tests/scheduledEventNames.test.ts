@@ -205,6 +205,13 @@ assert.deepEqual(strict('10/30(금) 12:00 ET 샌프란시스코 연은 데일리
 assert.ok(strict('11/12(목) 14:00 ET 예정된 재정 적자 발표', [line('Budget Balance (Oct)', '2026-11-12', '14:00')], NOV11).length, '적자 = 방향 단정');
 assert.deepEqual(strict('11/12(목) 14:00 ET 예정된 재정수지 발표', [line('Budget Balance (Oct)', '2026-11-12', '14:00')], NOV11), []);
 assert.ok(strict('11/17(화) 16:00 ET 예정된 장기 TIC 순유입 발표', [line('Net Long-Term TIC Flows (Sep)', '2026-11-17', '16:00')], Date.parse('2026-11-17T15:00:00Z')).length, '순유입 = 방향 단정');
+// 관문 10310711 — 고용 «변화» 지표를 «고용자 수»(총수)로 쓰면 실패
+const NFP = [line('Non Farm Payrolls (Oct)', '2026-11-06', '08:30')], ADP = [line('ADP Employment Change (Oct)', '2026-11-04', '08:15')];
+for (const [t, ev, at] of [['11/6(금) 08:30 ET 비농업 고용자 수 발표 예정', NFP, Date.parse('2026-11-05T15:00:00Z')], ['11/6(금) 08:30 ET 비농업 일자리 수 발표 예정', NFP, Date.parse('2026-11-05T15:00:00Z')],
+    ['11/4(수) 08:15 ET ADP 고용자 수 발표 예정', ADP, NOV4], ['11/4(수) 08:15 ET ADP 취업자 수 발표 예정', ADP, NOV4]] as Array<[string, string[], number]>)
+    assert.ok(strict(t, ev, at).length, `총수 ≠ 변화: ${t}`);
+assert.deepEqual(strict('11/6(금) 08:30 ET 비농업 고용 발표 예정', NFP, Date.parse('2026-11-05T15:00:00Z')), []);
+assert.deepEqual(strict('11/4(수) 08:15 ET ADP 고용 변화 발표 예정', ADP, NOV4), []);
 // JOLTS 대문자 약어(근거는 «JOLTs»)는 사전 표기 안에서만 이름으로 인정
 const JOLTS = [line('JOLTs Job Openings (Sep)', '2026-11-03', '10:00')];
 assert.deepEqual(strict('11/3(화) 10:00 ET JOLTS 구인건수 예정', JOLTS, Date.parse('2026-11-03T13:00:00Z')), []);

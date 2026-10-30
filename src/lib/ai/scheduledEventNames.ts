@@ -97,9 +97,9 @@ function tailReason(after: string, parenFine: (content: string) => boolean = () 
 }
 const PERIOD_ANY = new RegExp(`${PERIOD.MoM}|${PERIOD.YoY}|${PERIOD.QoQ}`, 'i');
 /** 수준을 말하는 낱말 — 변화·비율 지표와 다른 값 */
-const LEVEL_WORD = /지수|건수|수준|재고량|總量|총량|指数|件数|水準|在庫量/;
+const LEVEL_WORD = /지수|건수|수준|재고량|총량|자\s*수|일자리\s*수|指数|件数|水準|在庫量/;
 /** 변화·비율 지표(사전 항목 id 기준) */
-const CHANGE_LIKE = /\b(?:MoM|YoY|QoQ)\b|Change$|\bRate(?: (?:MoM|YoY))?$/;
+const CHANGE_LIKE = /\b(?:MoM|YoY|QoQ)\b|Change$|\bRate(?: (?:MoM|YoY))?$|Payrolls(?: Private)?$/;
 /** 표기 뒤에 남으면 «더 구체적인 다른 지표»로 보는 수식어(기간·잠정/확정·연율 등) */
 const TRAILING_QUALIFIER = new RegExp(`^\\s*\\(?\\s*(?:${PERIOD.MoM}|${PERIOD.YoY}|${PERIOD.QoQ}|연율|연간\\s*환산|확정치?|예비치?|잠정치?|속보치?|수정치?|4\\s*주\\s*평균|速報値?|確報値?|改定値?|年率|4\\s*週(?:間)?\\s*平均)`, 'i');
 
@@ -247,16 +247,16 @@ const ENTRIES: Entry[] = [
         ['베이커 ?휴즈 (?:의 )?(?:전체|총) (?:시추 )?(?:리그|굴착 ?장비|채굴 ?장비|시추기)(?: (?:수|가동 ?수|카운트))?'], ['ベーカー・?ヒューズ (?:の )?(?:総|全体の?) ?(?:掘削)?リグ(?:稼働)?数'], ['베이커휴즈 시추 리그', 'ベーカー・ヒューズ リグ数']),
     // ── 고용 ──
     entry('Non Farm Payrolls', exact('Non Farm Payrolls', 'Nonfarm Payrolls'),
-        ['(?:미 )?비농업 (?:부문 )?(?:고용(?:자 ?수| 지표| 보고서)?|일자리 ?(?:수|증가)?|취업자 ?(?:수)?)'], ['(?:米 )?非農業部門雇用者数(?:変化)?'], ['비농업 고용', '고용지표', '非農業部門雇用者数', '雇用統計']),
+        ['(?:미 )?비농업 (?:부문 )?(?:(?:신규 )?고용(?: (?:지표|보고서|증가|변화))?|일자리 ?(?:증가|변화)?)'], ['(?:米 )?非農業部門雇用者数(?:変化)?'], ['비농업 고용', '고용지표', '非農業部門雇用者数', '雇用統計']),
     entry('Nonfarm Payrolls Private', exact('Nonfarm Payrolls Private', 'Non Farm Payrolls Private'),
-        ['민간 (?:부문 )?비농업 (?:부문 )?(?:고용(?:자 ?수)?|일자리 ?(?:수)?)'], ['民間 ?非農業部門雇用者数'], ['민간 비농업 고용', '民間非農業部門雇用者数', '雇用統計']),
+        ['민간 (?:부문 )?비농업 (?:부문 )?(?:(?:신규 )?고용(?: (?:증가|변화))?|일자리 ?(?:증가|변화)?)'], ['民間 ?非農業部門雇用者数'], ['민간 비농업 고용', '民間非農業部門雇用者数', '雇用統計']),
     entry('Unemployment Rate', exact('Unemployment Rate'), ['(?:미 )?실업률'], ['(?:米 )?失業率'], ['실업률', '失業率', '雇用統計']),
     entry('U-6 Unemployment Rate', exact('U-6 Unemployment Rate'), ['U-?6 (?:광의 )?실업률'], ['U-?6 (?:広義の? ?)?失業率'], ['U-6 실업률', 'U-6失業率']),
     entry('Participation Rate', exact('Participation Rate'), ['경제 ?활동 ?참가율|노동 ?참여율'], ['労働参加率'], ['경제활동참가율', '労働参加率']),
     entry('Average Hourly Earnings MoM', exact('Average Hourly Earnings MoM'), periodic('MoM', '평균 ?시간당 ?(?:임금|소득)'), periodic('MoM', '平均時給'), ['평균 시간당 임금', '平均時給']),
     entry('Average Hourly Earnings YoY', exact('Average Hourly Earnings YoY'), periodic('YoY', '평균 ?시간당 ?(?:임금|소득)'), periodic('YoY', '平均時給'), ['평균 시간당 임금', '平均時給']),
     entry('ADP Employment Change', exact('ADP Employment Change'),
-        ['ADP (?:민간 )?(?:고용(?:자 ?수)?(?: (?:변화|증감|변동|보고서|지표))?|취업자 ?수(?: (?:변화|증감))?)'], ['ADP (?:民間 ?)?雇用(?:者数|統計|報告)?(?:変化|変動)?'], ['ADP 고용', 'ADP雇用統計']),
+        ['ADP (?:민간 )?(?:신규 )?고용(?: (?:변화|증감|변동|보고서|지표))?'], ['ADP (?:民間 ?)?雇用(?:者数|統計|報告)?(?:変化|変動)?'], ['ADP 고용', 'ADP雇用統計']),
     entry('Initial Jobless Claims', exact('Initial Jobless Claims'),
         ['(?:주간 )?(?:신규 )?실업 ?수당 ?(?:신규 )?(?:청구 ?(?:건수|자 ?수)?|신청 ?(?:건수|자 ?수)?)'], ['(?:週間 ?)?新規失業保険(?:申請|請求)件数'], ['신규 실업수당 청구', '新規失業保険申請件数']),
     entry('Continuing Jobless Claims', exact('Continuing Jobless Claims'),
