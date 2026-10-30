@@ -10,12 +10,16 @@
  *
  * 설계(관문 10310534 지적 3건 반영 — «접속점 하나를 전 심볼에 적용»을 버렸다):
  *   · 차트 요청(/v8/finance/chart/) 하나마다 «DNS 기본»과 «대안 접속점 1곳»에 동시에 묻고, 그 요청(=그 심볼)에만 더 나은 쪽을 쓴다(1분봉만).
- *     - 1분봉: 대안이 «가격 유효 + 체결 시각 유효 + 직전 종가 유효»이고, meta 체결 시각·마지막 1분봉 둘 다 DNS 보다 뒤지지 않으며
- *       하나라도 새로울 때만 대안(실제 지수는 DNS meta 가 어제여도 DNS 1분봉이 오늘일 수 있다 — 관문 10310542 #1).
- *       DNS 응답이 아예 못 쓰는 것(네트워크·4xx/5xx·본문 없음·가격 없음)이면 유효한 대안. DNS 가 가격은 있는데 체결 시각이 없으면
- *       «판정 불가» → DNS 그대로(기존 경로). 실패를 0초로 계산하지 않는다(관문 #1).
+ *     - 1분봉 채택 규칙(관문 10310610 뒤 단순화 — 하나라도 판정 불가면 DNS = 기존 경로):
+ *         대안 regularMarketTime − DNS regularMarketTime ≥ 60초
+ *         && 대안 가격 유한·양수
+ *         && 대안 직전 종가(수집 함수와 같은 식 previousClose ?? chartPreviousClose)가 DNS 직전 종가와 상대 0.1% 이내
+ *         && 대안 응답의 심볼·통화·거래소(meta.symbol·currency·exchangeName)가 DNS 와 일치.
+ *       마지막 1분봉 시각은 판정에 쓰지 않는다(수집 함수는 이 심볼들의 봉이 아니라 meta 가격을 저장 — 관문 10310610 #1).
+ *       DNS 응답이 실패·가격 없음·체결 시각/직전 종가/식별 필드 없음이면 판정 불가 → DNS 결과 그대로(기존 경로와 같은 성공·실패).
+ *       직전 종가 일치를 요구해 대안의 다른 세션 직전 종가로 등락률이 틀어지지 않게 한다(관문 10310610 #2).
  *     - 일봉(직전 종가 복구)·실제 지수(^IXIC·^DJI·^GSPC — 1분봉·일봉 보정)는 대안을 쓰지 않고 기존 경로 그대로(관문 10310534 #3·10310545 #1·#2).
- *     - 둘 다 실패면 DNS 결과를 그대로 돌려준다(기존 경로와 같은 실패 — 수집 함수가 null 처리).
+ *     - DNS 가 실패하면 대안이 멀쩡해도 DNS 결과를 그대로 돌려준다(직전 종가 대조 불가 — 기존 경로와 같은 실패, 수집 함수가 null 처리).
  *   · 심볼마다 따로 판정하므로 NQ·유가·SOX 로 고른 접속점이 VIX·지수에 번지지 않는다(관문 #2).
  * 호출량·차단 위험·회차 지연(관문 10310542 #2·#3):
  *   · 수집 함수는 심볼을 «순서대로» 부른다 → 동시 요청은 최대 DNS 1 + 대안 1. 대안 동시 상한 ALT_MAX_INFLIGHT(넘으면 대안 생략 = 기존 경로).
@@ -86,20 +90,42 @@ export const httpsPinnedFetch: PinnedFetch = (ip, url, init = {}) => new Promise
 });
 
 const pos = (v: any, min = 0): v is number => typeof v === 'number' && Number.isFinite(v) && v > min;
+const str = (v: any): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
-/** 1분봉 응답 판독: 수집 함수가 쓰는 값(가격·체결 시각·직전 종가)이 각각 유효한가. */
-export function minuteInfo(data: any): { usable: boolean; time: number | null; complete: boolean; lastBar: number | null } {
-    const r0 = data?.chart?.result?.[0];
-    const meta = r0?.meta;
-    const usable = pos(meta?.regularMarketPrice);                       // 수집 함수가 «가격 없음»으로 버리지 않는 응답
+export interface MinuteInfo {
+    /** 수집 함수가 «가격 없음»으로 버리지 않는 응답(가격 유한·양수) */
+    usable: boolean;
+    price: number | null;
+    time: number | null;
+    /** 수집 함수와 같은 식: previousClose ?? chartPreviousClose (0.01 이하·비유한은 null) */
+    prev: number | null;
+    complete: boolean;
+    symbol: string | null;
+    currency: string | null;
+    exchange: string | null;
+}
+
+/** 1분봉 응답 판독: 수집 함수가 쓰는 값(가격·체결 시각·직전 종가)과 식별 필드(심볼·통화·거래소). */
+export function minuteInfo(data: any): MinuteInfo {
+    const meta = data?.chart?.result?.[0]?.meta;
+    const price = pos(meta?.regularMarketPrice) ? meta.regularMarketPrice : null;
+    const usable = price != null;
     const time = usable && pos(meta?.regularMarketTime) ? meta.regularMarketTime : null;
-    const prev = meta?.previousClose ?? meta?.chartPreviousClose;
-    // 마지막 «종가 있는» 1분봉 시각 — 실제 지수는 meta 가 묵어도 1분봉으로 가격을 바로잡는다(marketFeedJob reconcileIndexQuote)
-    const ts: any[] = Array.isArray(r0?.timestamp) ? r0.timestamp : [];
-    const cl: any[] = Array.isArray(r0?.indicators?.quote?.[0]?.close) ? r0.indicators.quote[0].close : [];
-    let lastBar: number | null = null;
-    for (let k = Math.min(ts.length, cl.length) - 1; k >= 0; k--) if (pos(ts[k]) && pos(cl[k], 0.01)) { lastBar = ts[k]; break; }
-    return { usable, time, complete: usable && time != null && pos(prev, 0.01), lastBar };
+    const prevRaw = meta?.previousClose ?? meta?.chartPreviousClose;
+    const prev = pos(prevRaw, 0.01) ? prevRaw : null;
+    return {
+        usable, price, time, prev, complete: usable && time != null && prev != null,
+        symbol: str(meta?.symbol), currency: str(meta?.currency), exchange: str(meta?.exchangeName),
+    };
+}
+
+/** 대안 체결 시각이 DNS 보다 이만큼 이상 새로워야 대안(1분봉 한 칸 이상) */
+export const ALT_MIN_GAIN_SEC = 60;
+/** 직전 종가 상대 차이 허용 — 0.1%(이내면 일치) */
+export const PREV_MATCH_REL = 0.001;
+/** a 가 b 의 상대 0.1% 이내인가(경계 포함·정수 곱으로 비교해 부동소수 경계 오차 없앰) */
+export function prevMatches(a: number, b: number): boolean {
+    return Math.abs(a - b) * (1 / PREV_MATCH_REL) <= Math.abs(b);
 }
 
 type Got = { kind: 'ok'; status: number; data: any } | { kind: 'bad'; status: number; res: any } | { kind: 'jsonErr'; status: number; err: unknown } | { kind: 'err'; err: unknown };
@@ -121,22 +147,22 @@ function toResponse(g: Got): any {
     }
 }
 
-export type Pick = 'dns' | 'alt' | 'dns-undecidable' | 'dns-alt-invalid' | 'dns-alt-skipped' | 'dns-alt-slow' | 'alt-dns-failed';
-/** 1분봉: DNS·대안 결과에서 쓸 쪽을 고른다(순수 함수 — 시험 대상). */
+export type Pick = 'dns' | 'alt' | 'dns-failed' | 'dns-undecidable' | 'dns-mismatch' | 'dns-alt-invalid' | 'dns-alt-skipped' | 'dns-alt-slow';
+/**
+ * 1분봉: DNS·대안 결과에서 쓸 쪽을 고른다(순수 함수 — 시험 대상). 'alt' 일 때만 대안, 나머지는 전부 DNS 결과.
+ * 규칙은 파일 머리 설명 그대로 — 하나라도 판정 불가면 DNS.
+ */
 export function pickMinute(dns: Got, alt: Got | null, nowSec: number): Pick {
     if (!alt) return 'dns-alt-skipped';
-    const a = alt.kind === 'ok' ? minuteInfo(alt.data) : null;
-    if (!a || !a.complete || (a.time as number) > nowSec + FUTURE_SLACK_SEC) return 'dns-alt-invalid';
     const d = dns.kind === 'ok' ? minuteInfo(dns.data) : null;
-    if (!d || !d.usable) return 'alt-dns-failed';           // DNS 가 못 쓰는 응답 → 유효한 대안
-    if (d.time == null) return 'dns-undecidable';            // DNS 체결 시각 없음 — 비교 불가 → 기존 경로
-    // 대안이 «meta 시각·마지막 1분봉» 둘 다에서 DNS 보다 뒤지지 않고 하나라도 새로울 때만(관문 10310542 #1 — 실제 지수는
-    // DNS meta 가 어제여도 DNS 1분봉이 오늘일 수 있다: 대안 meta 만 조금 새롭고 1분봉이 없거나 낡으면 DNS 를 지킨다)
-    const at = a.time as number;
-    if (at < d.time) return 'dns';
-    if (d.lastBar != null && (a.lastBar == null || a.lastBar < d.lastBar)) return 'dns';
-    const barGain = d.lastBar != null && a.lastBar != null && a.lastBar > d.lastBar;
-    return at > d.time || barGain ? 'alt' : 'dns';           // 동률(장 마감·주말)은 DNS
+    if (!d || !d.usable) return 'dns-failed';                                   // DNS 실패 → 기존 경로(같은 실패)
+    const a = alt.kind === 'ok' ? minuteInfo(alt.data) : null;
+    if (!a || !a.usable || a.time == null || a.time > nowSec + FUTURE_SLACK_SEC) return 'dns-alt-invalid';
+    if (d.time == null || d.prev == null || a.prev == null) return 'dns-undecidable';
+    if (!d.symbol || !d.currency || !d.exchange || !a.symbol || !a.currency || !a.exchange) return 'dns-undecidable';
+    if (a.symbol !== d.symbol || a.currency !== d.currency || a.exchange !== d.exchange) return 'dns-mismatch';
+    if (!prevMatches(a.prev, d.prev)) return 'dns-mismatch';
+    return a.time - d.time >= ALT_MIN_GAIN_SEC ? 'alt' : 'dns';
 }
 
 /** DNS 가 끝난 뒤 대안을 더 기다리는 상한 — 대안이 느려도 회차(30초 간격, 순차 ~20요청)를 밀지 않게(관문 10310542 #2) */
@@ -240,11 +266,11 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
         if (ip && slow) noteAlt(ip, { kind: 'err', err: new Error('slow') }, false);
         else if (ip && alt) noteAlt(ip, alt, alt.kind === 'ok');
         // 심볼별 패배는 «대안이 응답했는데 이기지 못한» 경우만 센다(연결 실패·늦음은 위 접속점 쉼이 맡는다)
-        if (via === 'alt' || via === 'alt-dns-failed') sym.losses = 0;
+        if (via === 'alt') sym.losses = 0;
         else if (ip && alt && alt.kind === 'ok') sym.losses++;
         const t = (g: Got | null) => (g && g.kind === 'ok' ? minuteInfo(g.data).time : null);
         state.picks[key] = { via, dnsT: t(dns), altT: t(alt), alt: ip };
-        if (via === 'alt' || via === 'alt-dns-failed') { state.altWins++; return toResponse(alt as Got); }
+        if (via === 'alt') { state.altWins++; return toResponse(alt as Got); }
         return toResponse(dns);
     };
     return { fetch: edgeFetch, state };
