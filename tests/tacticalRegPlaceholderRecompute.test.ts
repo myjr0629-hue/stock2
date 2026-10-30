@@ -24,7 +24,18 @@ const mock = (id: string, exports: unknown) => {
     const filename = require.resolve(id);
     require.cache[filename] = { id: filename, filename, loaded: true, exports } as Module;
 };
-class OfflineRedis { async get(k: string) { return store.get(k) ?? null; } async set(k: string, v: string) { store.set(k, JSON.parse(v)); } }
+const expiry = new Map<string, number>();
+class OfflineRedis {
+    async get(k: string) { if ((expiry.get(k) ?? Infinity) <= Date.now()) { store.delete(k); expiry.delete(k); } return store.get(k) ?? null; }
+    // SET NX EX 모의(원자 연산 하나로) — 살아 있는 키가 있으면 null
+    async set(k: string, v: any, opts?: { nx?: boolean; ex?: number }) {
+        if (opts?.nx && (await this.get(k)) !== null) return null;
+        store.set(k, typeof v === 'string' ? JSON.parse(v) : v);
+        if (opts?.ex) expiry.set(k, Date.now() + opts.ex * 1000); else expiry.delete(k);
+        return 'OK';
+    }
+}
+process.env.UPSTASH_REDIS_REST_URL = 'https://offline.invalid'; process.env.UPSTASH_REDIS_REST_TOKEN = 'offline';
 mock('@upstash/redis', { Redis: OfflineRedis });
 mock('../src/lib/sessionArchive', { readSessionArchive: async () => null, saveSessionArchive: async () => false });
 for (const id of [
@@ -68,7 +79,7 @@ assert.equal(snapshotPlaceholderNeedsRecompute(null, 'REG', now), false);
     try {
         const call = async () => Hub.computeGuardianSnapshot(false, 'ko');   // 예외를 삼키지 않는다 — 던지면 시험 실패
         const run = async (s: any) => {
-            store.clear(); resetHub(); coreCalls = 0;
+            store.clear(); expiry.clear(); resetHub(); coreCalls = 0;
             store.set('guardian:snapshot:ko', s);
             return call();
         };
@@ -91,6 +102,15 @@ assert.equal(snapshotPlaceholderNeedsRecompute(null, 'REG', now), false);
         store.get('guardian:snapshot:ko')._workerTimestamp = iso(now + 5 * MIN - 5_000);   // 워커 도장은 계속 신선
         try { await call(); } finally { Date.now = realNow2; }
         assert.equal(coreCalls, 2, '5분 뒤 재시도 1회');
+        // 관문 10310219 ① 같은 인스턴스가 25초 안에 같은 대기 문구 스냅샷을 내줘 메모리 사본이 있어도, 5분이 지나 예약했으면 재계산한다
+        {
+            await run(snap(PENDING, now - 5 * MIN + 5_000));   // 아직 5분 전 → 그대로 반환(메모리 사본 = 지금)
+            assert.equal(coreCalls, 0, '5분 전 → 재계산 없음');
+            const realNow3 = Date.now; Date.now = () => now + 10_000;   // 10초 뒤: 스냅샷 5분 5초 · 메모리 사본 10초(25초 안)
+            store.get('guardian:snapshot:ko')._workerTimestamp = iso(now + 5_000);
+            try { await call(); } finally { Date.now = realNow3; }
+            assert.equal(coreCalls, 1, '예약 뒤 메모리 사본으로 돌아가지 않고 재계산');
+        }
         // 정상 글 스냅샷은 기존처럼 그대로 반환(재계산 0 — 공급사 호출 증가 없음)
         const kept = await run(snap(stored, now - 79 * MIN));
         assert.equal(coreCalls, 0, '정상 글 → 재계산 없음');

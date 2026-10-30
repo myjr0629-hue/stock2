@@ -21,6 +21,7 @@ import { getMarketBreadth } from "./breadthEngine";
 //    getIndexBreadth   = 구성종목의 20일 이평 상회 비율 — 종가 기반, 주말에도 나온다
 import { getIndexBreadth } from "@/services/indexBreadth";
 import { after } from 'next/server';
+import { Redis } from '@upstash/redis';
 import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
 // ★2026-10-08 언어와 무관한 숫자는 «공유 코어» 하나 — 같은 시각 ko·ja·en 의 RLSI·GEX 가 갈리던 것을 막는다(guardianCore.ts 머리말)
 import {
@@ -161,16 +162,26 @@ export function snapshotPlaceholderNeedsRecompute(
     const at = c.timestamp ? Date.parse(c.timestamp) : NaN;
     return !Number.isFinite(at) || now - at >= PLACEHOLDER_RECOMPUTE_MS;
 }
-/** 대기 문구 재계산 시도 간격(관문 10310216) — 재계산이 실패해 스냅샷 timestamp 가 그대로여도 언어당 5분에 한 번만. 인스턴스 메모리 + 공유 키(인스턴스 간). */
+/**
+ * 대기 문구 재계산 시도 간격(관문 10310216·10310219) — 재계산이 실패해 스냅샷 timestamp 가 그대로여도 언어당 5분에 한 번만.
+ *   인스턴스 메모리 + 인스턴스 간 원자적 예약(Upstash SET NX EX — 지터 없는 정확한 300초, 동시에 읽어도 한 곳만 성공).
+ *   예약 저장소에 못 닿으면 인스턴스 메모리 간격만 쓴다(예전 경로보다 호출이 늘지 않게 언어당 5분/인스턴스).
+ */
 const _placeholderRecomputeAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
+let _placeholderClaimRedis: Redis | null | undefined;
 async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<boolean> {
     if (now - _placeholderRecomputeAt[locale] < PLACEHOLDER_RECOMPUTE_MS) return false;
     _placeholderRecomputeAt[locale] = now;
-    const key = `${GUARDIAN_SNAPSHOT_PREFIX}phrecompute:${locale}`;
-    const last = await getFromCache<number>(key).catch(() => null);
-    if (typeof last === 'number' && now - last < PLACEHOLDER_RECOMPUTE_MS) return false;
-    await setInCache(key, now, Math.ceil(PLACEHOLDER_RECOMPUTE_MS / 1000)).catch(() => false);
-    return true;
+    if (_placeholderClaimRedis === undefined) {
+        const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+        const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+        _placeholderClaimRedis = url && token ? new Redis({ url, token }) : null;
+    }
+    if (!_placeholderClaimRedis) return true;
+    try {
+        const ok = await _placeholderClaimRedis.set(`guardian:snapshot:phrecompute:${locale}`, now, { nx: true, ex: Math.ceil(PLACEHOLDER_RECOMPUTE_MS / 1000) });
+        return ok === 'OK';
+    } catch { return true; }
 }
 
 /**
@@ -571,7 +582,8 @@ export class GuardianDataHub {
             }
         }
 
-        if (!force && _cachedContext[locale] && (now - _lastFetchTime[locale] < CACHE_TTL_MS)) {
+        // ★T35 대기 문구 재계산을 예약했으면 메모리 사본(같은 대기 문구)으로 돌아가지 않는다(관문 10310219 ①)
+        if (!force && !placeholderFallback && _cachedContext[locale] && (now - _lastFetchTime[locale] < CACHE_TTL_MS)) {
             // [FIX] Also validate in-memory cache session
             const memSession = (_cachedContext[locale] as any)?.rlsi?.session;
             if (memSession && memSession !== currentSession) {
