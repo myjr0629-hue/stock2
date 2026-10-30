@@ -170,8 +170,9 @@ t('D16 oi-pcr: 묶음 판이 두 세션 넘게 낡았으면(10/15 판을 10/21 �
 });
 t('스퀴즈 확률: FINRA 로 채운 공매도 비중은 입력으로 쓰지 않는다(비중이 확률 칸에 나가지 않게)', () => {
     const s = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/flow/page.tsx'), 'utf8');
-    assert.match(s, /const shortForSqueeze = tickerData\?\.flow\?\.shortVolSource === 'FINRA' \? '—' : shortPct;/);
-    assert.match(s, /const sp = parseFloat\(shortForSqueeze\);/);
+    // [2026-10-31 T37] 공매도 비중·IV Rank 모두 입력이 아니다 — 칸은 ticker 응답의 API 스퀴즈 점수만.
+    assert.doesNotMatch(s, /shortForSqueeze/);
+    assert.match(s, /const squeezeReading = useMemo\(\(\) => flowSqueeze\(tickerData\?\.flow\), \[tickerData\]\);/);
 });
 
 (async () => {

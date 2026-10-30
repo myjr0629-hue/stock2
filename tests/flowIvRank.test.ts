@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 import { ivRankIsCollecting, ivRankCollectingText } from '../src/lib/ivRank';
 import { ivHistoryUnavailable, notProvidedText } from '../src/lib/app/flowEmptyStates';
+import { flowSqueeze } from '../src/lib/app/flowSqueeze';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -104,7 +105,8 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         const rank = c.ivRankVal;
         const shortPressureNum = value('shortPressureNum', { tickerData: c.tickerData, pctNumber: (x: any) => typeof x === 'number' ? x : null });
         c.shortPct = value('shortPct', { shortPressureNum });
-        c.shortForSqueeze = value('shortForSqueeze', c);
+        // [T37] 스퀴즈 칸은 같은 ticker 응답의 flow.squeezeScore·squeezeRisk 만 — IV Rank·공매도 비중과 무관.
+        c.squeezeReading = value('squeezeReading', { ...c, flowSqueeze });
         const squeeze = value('squeezeProb', c);
         const sentence = value('regimeInsightText', { ...c, flowCopy: value('APP_FLOW_COPY', ctx).ko, pcText: '0.62', premiumBiasLabel: '중립' });
         return { rank, squeeze, sentence, rankCell: run(`(${rankCell})`, c), squeezeCell: run(`(${squeezeCell})`, { ...c, squeezeProb: squeeze }), unavailable: c.ivNotProvided, collecting: c.ivCollectingNow };
@@ -128,9 +130,9 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
 test('valid API percentile is used without a second sample-size or current-session gate', async () => {
     const h = await harness({ iv: { ...good(), sampleSize: 1, currentSession: '2026-10-16' } });
     assert.equal(h.display().rank, 89);
-    assert.equal(h.display().squeeze, 89);
+    assert.equal(h.display().squeeze, null, 'IV Rank 89 는 스퀴즈 칸 입력이 아니다');
     assert.equal(h.display().rankCell, '89%');
-    assert.equal(h.display().squeezeCell, '89%');
+    assert.equal(h.display().squeezeCell, '—');
     assert.match(h.display().sentence, /IV Rank 89%/);
     h.cleanup();
 });
@@ -174,11 +176,11 @@ test('weekend / premarket retain the shown Friday session; Monday open expires r
 test('explicit missing and collecting responses clear the previous number; 0% remains measured', async () => {
     const h = await harness();
     h.reply({ ticker: 'TSLA', percentile: null, _source: 'dynamodb-stale' }); await h.refresh();
-    assert.equal(h.display().rank, null); assert.equal(h.display().unavailable, true); assert.equal(h.display().squeeze, null);
+    assert.equal(h.display().rank, null); assert.equal(h.display().unavailable, true); assert.equal(h.display().squeeze, null); assert.equal(h.display().squeezeCell, '—');
     h.reply({ ticker: 'TSLA', percentile: null, _source: 'dynamodb-collecting' }); await h.refresh();
     assert.equal(h.display().rank, null); assert.equal(h.display().collecting, true);
     h.reply(good(0)); await h.refresh();
-    assert.equal(h.display().rank, 0); assert.equal(h.display().squeeze, 0);
+    assert.equal(h.display().rank, 0); assert.equal(h.display().squeeze, null);
     assert.match(h.display().sentence, /IV Rank 0%/);
     h.cleanup();
 });
@@ -210,9 +212,9 @@ test('quick retry commits IV 95%; first-round IV 89% at five seconds cannot over
     await h.advance(2000);
     first(response(good(89))); await settle();
     assert.equal(h.display().rank, 95);
-    assert.equal(h.display().squeeze, 95);
+    assert.equal(h.display().squeeze, null);
     assert.equal(h.display().rankCell, '95%');
-    assert.equal(h.display().squeezeCell, '95%');
+    assert.equal(h.display().squeezeCell, '—');
     assert.match(h.display().sentence, /IV Rank 95%/);
     h.cleanup();
 });
@@ -247,12 +249,38 @@ test('retry transport failure does not discard an older valid response with no n
     await h.advance(3000);
     first(response(good(89))); await settle();
     assert.equal(h.display().rank, 89);
-    assert.equal(h.display().squeeze, 89);
+    assert.equal(h.display().squeeze, null);
     h.cleanup();
 });
-test('squeeze uses available vendor/IV inputs only and keeps FINRA excluded', () => {
-    for (const [shortForSqueeze, ivRankVal, expected] of [['—', null, null], ['—', 89, 89], ['42.0%', null, 42], ['42.0%', 90, 66], ['0.0%', 0, 0]] as const) {
-        assert.equal(value('squeezeProb', { shortForSqueeze, ivRankVal }), expected);
+test('[T37] squeeze cell shows the ticker API squeeze score/level, never IV Rank (NVDA 10/31: IV 98 vs API 36 MEDIUM)', async () => {
+    const nvda = { ticker: 'NVDA', session: 'REG', flow: { ivRank: null, shortVolPct: 38.4, shortVolSource: 'FINRA', squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+    const h = await harness({ data: nvda, iv: { ...good(98), ticker: 'NVDA' } });
+    assert.equal(h.display().rank, 98);
+    assert.equal(h.display().squeeze, 36);
+    assert.equal(h.display().squeezeCell, '36%');
+    assert.equal(h.state.tickerData.flow.squeezeRisk, 'MEDIUM');
+    h.cleanup();
+});
+test('[T37] refresh replaces the squeeze score; a failed refresh keeps the same-ticker value; ticker switch clears it', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' } });
+    assert.equal(h.display().squeeze, 36);
+    body.flow = { squeezeScore: 72, squeezeRisk: 'EXTREME' }; await h.refresh();
+    assert.equal(h.display().squeeze, 72);
+    body.flow = { squeezeScore: null, squeezeRisk: null } as any; await h.refresh();
+    assert.equal(h.display().squeeze, null);
+    assert.equal(h.display().squeezeCell, '—');
+    h.cleanup();
+});
+test('[T37] flowSqueeze maps API score/risk; missing or invalid is null (cell stays with —)', () => {
+    assert.deepEqual(flowSqueeze({ squeezeScore: 36, squeezeRisk: 'MEDIUM' }), { score: 36, level: 'moderate' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 0, squeezeRisk: 'LOW' }), { score: 0, level: 'low' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 55, squeezeRisk: 'HIGH' }), { score: 55, level: 'high' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 81, squeezeRisk: 'EXTREME' }), { score: 81, level: 'high' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 81, squeezeRisk: 'CRITICAL' }), { score: 81, level: 'high' });
+    assert.deepEqual(flowSqueeze({ squeezeScore: 25 }), { score: 25, level: 'moderate' }, 'risk 없으면 같은 기준(squeezeRiskOf)으로');
+    for (const flow of [null, undefined, {}, { squeezeScore: null }, { squeezeScore: '36' }, { squeezeScore: NaN }, { squeezeScore: -1 }, { squeezeScore: 101 }, { ivRank: 98 }, { shortVolPct: 47.1 }]) {
+        assert.deepEqual(flowSqueeze(flow), { score: null, level: null }, JSON.stringify(flow));
     }
 });
 
@@ -263,15 +291,14 @@ test('saved intraday ivp/ticker replay: TSLA, SPY, NVDA, AAPL, WTFC', { skip: !s
         const iv = read('ivp');
         const h = await harness({ data: read('ticker'), iv, now: '2026-10-19T14:10:00Z' });
         assert.equal(h.display().rank, iv.percentile, ticker);
-        assert.equal(h.display().squeeze, iv.percentile, `${ticker}: FINRA excluded; IV alone`);
+        const tk = read('ticker');
+        assert.equal(h.display().squeeze, typeof tk?.flow?.squeezeScore === 'number' ? Math.round(tk.flow.squeezeScore) : null, `${ticker}: API squeeze score only`);
         if (iv.percentile != null) {
             assert.match(h.display().sentence, new RegExp(`IV Rank ${iv.percentile}%`));
             assert.equal(h.display().rankCell, `${iv.percentile}%`);
-            assert.equal(h.display().squeezeCell, `${iv.percentile}%`);
         } else {
             assert.equal(h.display().unavailable, true);
             assert.equal(h.display().rankCell, '미제공');
-            assert.equal(h.display().squeezeCell, '미제공');
         }
         console.log(`replay ${ticker}: IV=${h.display().rank}, squeeze=${h.display().squeeze}, sourceSession=${iv.currentSession ?? 'missing'}`);
         h.cleanup();

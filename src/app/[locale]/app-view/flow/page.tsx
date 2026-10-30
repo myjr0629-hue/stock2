@@ -36,6 +36,7 @@ import wlStyles from '@/components/app/watchlist/watchlist.module.css';
 import { closeLabelOr } from '@/lib/marketSession';
 import { optionFlowBadgeLabel } from '@/lib/app/optionFlowBasis';
 import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSession';
+import { flowSqueeze } from '@/lib/app/flowSqueeze';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
@@ -1606,16 +1607,12 @@ export default function AppFlowPage() {
   //   실제 계산인 것처럼 떴다. 두 입력이 다 없는데도 늘 같은 답이 나오던 이유다.
   //   → 잴 수 있는 것이 하나도 없으면 **null** 이다. 화면은 «—» 를 그린다.
   // [2026-10-19] FINRA 적재본으로 채운 공매도 비중(장외 체결의 공매도 몫)은 스퀴즈 확률 입력으로 쓰지 않는다 — 확률이 아닌 비중이 확률 칸에 나간다(관문 2차).
-  const shortForSqueeze = tickerData?.flow?.shortVolSource === 'FINRA' ? '—' : shortPct;
-  const squeezeProb = useMemo<number | null>(() => {
-    const sp = parseFloat(shortForSqueeze);
-    const hasShort = Number.isFinite(sp) && sp >= 0;
-    const hasIv = ivRankVal != null && Number.isFinite(Number(ivRankVal));
-    if (!hasShort && !hasIv) return null;
-    if (hasShort && hasIv) return Math.round(sp * 0.5 + Number(ivRankVal) * 0.5);
-    // 한쪽만 있으면 그 값이 곧 추정치다 — 없는 쪽을 지어내 섞지 않는다.
-    return Math.round(hasShort ? sp : Number(ivRankVal));
-  }, [shortForSqueeze, ivRankVal]);
+  // [2026-10-31 T37] IV Rank 도 입력이 아니다 — FINRA 를 빼면 IV Rank 98 이 그대로 «확률 98% 높음»이 됐다(같은 시각 API 스퀴즈 위험 36·MEDIUM).
+  //   칸은 같은 /api/live/ticker 응답의 flow.squeezeScore·squeezeRisk(커맨드 squeeze.riskScore·status 와 같은 structure:v2 판)만 그린다.
+  //   새 요청 없음 — 30초 갱신·종목 전환·실패 시 유지 규칙은 tickerData 와 같다. 없으면 null(칸 유지 «—»).
+  const squeezeReading = useMemo(() => flowSqueeze(tickerData?.flow), [tickerData]);
+  const squeezeProb = squeezeReading.score;
+  const squeezeLevel = squeezeReading.level;
 
   const squeezeScore = useMemo(() => {
     if (squeezeProb == null) return 0;   // 못 잰 것은 종합점수에 기여하지 않는다
@@ -3243,8 +3240,8 @@ export default function AppFlowPage() {
           {(() => {
             const compStatus = compositeScore >= 20 ? flowCopy.compStrong : compositeScore <= -20 ? flowCopy.compBear : flowCopy.compNeutral;
             const compColor = compositeScore >= 20 ? '#10b981' : compositeScore <= -20 ? '#f43f5e' : '#f59e0b';
-            const sqStatus = squeezeProb == null ? (ivNotProvided ? '\u00a0' : '—') : squeezeProb >= 70 ? flowCopy.squeezeHigh : squeezeProb >= 40 ? flowCopy.squeezeModerate : flowCopy.squeezeLow;  // 못 잰 것은 «낮음»이 아니다
-            const sqColor = squeezeProb == null ? 'rgba(148,163,184,.9)' : squeezeProb >= 70 ? '#f43f5e' : squeezeProb >= 40 ? '#fbbf24' : '#10b981';
+            const sqStatus = squeezeLevel === 'high' ? flowCopy.squeezeHigh : squeezeLevel === 'moderate' ? flowCopy.squeezeModerate : squeezeLevel === 'low' ? flowCopy.squeezeLow : '—';  // 못 잰 것은 «낮음»이 아니다 · 등급은 API 의 squeezeRisk
+            const sqColor = squeezeLevel === 'high' ? '#f43f5e' : squeezeLevel === 'moderate' ? '#fbbf24' : squeezeLevel === 'low' ? '#10b981' : 'rgba(148,163,184,.9)';
             const compositePos = Math.max(0, Math.min(100, (compositeScore + 100) / 2));
 
             return (
@@ -3304,7 +3301,7 @@ export default function AppFlowPage() {
                       {renderInfoBtn("squeeze")}
                     </div>
                     <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: sqColor, lineHeight: 1, marginTop: '7px' }}>
-                      {squeezeProb == null ? (ivNotProvided ? notProvidedText(locale) : '—') : `${squeezeProb}%`}
+                      {squeezeProb == null ? '—' : `${squeezeProb}%`}
                     </div>
                     <div style={{ font: 'var(--f-micro)', color: sqColor, fontWeight: 900, marginTop: '6px' }}>
                       {sqStatus}
