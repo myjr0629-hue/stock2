@@ -183,6 +183,11 @@ class OfflineRedis {
             store.set('offline:core', { timestamp: iso(now), market: { nqChangePercent: -2.6, factors: { spx: { chgPct: -1.7 } } }, rlsi: { score: 32 } });
             await call();
             assert.equal(coreCalls, 0, '코어 값도 문턱 아래 → 0');
+            // 관문 10310843 ② 코어에 지수 칸이 비면 그 칸은 스냅샷 값으로
+            fresh(snap({ nq: -3.4, spx: -2.1, rlsi: 33 }));
+            store.set('offline:core', { timestamp: iso(now), market: { factors: {} }, rlsi: { score: 33, session: 'REG' } });
+            await call();
+            assert.equal(coreCalls, 1, '코어 지수 결측 → 스냅샷 −3.4 로 비교 → 재계산');
         }
         // 변화가 문턱 아래·30분 안·대기 문구·기준 없음 → 재계산 0(워커 도장 신선 → 그대로 반환)
         for (const s of [snap({ nq: -2.8, spx: -1.8, rlsi: 31 }), snap({ at: now - 20 * MIN })]) {
@@ -263,7 +268,7 @@ class OfflineRedis {
                 assert.equal(out.verdict.realityInsight, NEW);
             }
             // 관문 10310451 ② 저장본이 출구 검사에서 탈락하면 «본 시각»만 갱신 — 생성 시각은 그대로라 정기 재생성이 30분 밀리지 않는다
-            (IntelligenceNode as any).adoptStoredRegReality = async () => ({ text: null });   // 출구 검사 탈락 → 읽기에서 시각 없이 null(관문 10310504 ②)
+            (IntelligenceNode as any).adoptStoredRegReality = async () => ({ text: null, seenAt: now - 2 * MIN });   // 원문은 있는데 출구 검사 탈락(관문 10310504 ②)
             fresh(snap(), 'ko');
             store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: {} }, rlsi: { score: 30, session: 'REG' }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
             budgetFails = true;   // 이번 요청의 재생성 예약은 막고(채택 경로만 보게) …
@@ -272,6 +277,14 @@ class OfflineRedis {
             assert.equal(rejected.tacticalSeenAt, iso(now - 2 * MIN), '본 시각 = 확인한 저장본 시각(같은 글을 30초마다 다시 읽지 않음)');
             assert.equal(rejected.tacticalGeneratedAt, undefined, '생성 시각은 그대로(스냅샷 계산 시각)');
             assert.deepEqual(regTacticalNeedsRefresh(rejected, 'REG', now, isPh), ['nasdaq', 'spx'], '변화가 있으면 여전히 재생성 대상');
+            // 관문 10310843 ① 읽기 장애(seenAt 없음)는 «본 것»으로 적지 않는다
+            (IntelligenceNode as any).adoptStoredRegReality = async () => ({ text: null });
+            fresh(snap(), 'ko');
+            store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: {} }, rlsi: { score: 30, session: 'REG' }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
+            budgetFails = true;
+            const outage = await call('ko');
+            budgetFails = false;
+            assert.equal(outage.tacticalSeenAt, undefined, '읽기 장애 → 본 시각 그대로');
             // 장중이 아니면 채택 확인 없음
             fresh(snap({ at: now - 10 * MIN, session: 'POST' }), 'ja'); adoptCalls = 0;
         } finally { Object.assign(IntelligenceNode, { latestStoredRegTacticalAt: orig.latest, adoptStoredRegReality: orig.adopt, numbersFor: orig.nums }); }

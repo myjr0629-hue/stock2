@@ -1,5 +1,5 @@
 import { fmpFetch } from '@/lib/fmpClient';
-import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, regTacticalNeedsRefresh, regTacticalMayRefresh, REG_TACTICAL_RETRY_MS, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, regTacticalNeedsRefresh, regTacticalMayRefresh, regTacticalCurrent, REG_TACTICAL_RETRY_MS, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
 import { reserveRegTacticalRefresh, finishRegTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
 import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
@@ -250,9 +250,14 @@ async function regTacticalDriftNow(c: GuardianContext & { _workerTimestamp?: str
     if (now >= last && now - last < REG_TACTICAL_RETRY_MS) return [];
     _regRefreshAskAt[locale] = now;
     const core = await getFromCache<GuardianCore>(CORE_KEY).catch(() => null);
-    const current = core?.market || core?.rlsi
-        ? { NDX_CHG: core.market?.nqChangePercent ?? undefined, SPX_CHG: core.market?.factors?.spx?.chgPct ?? undefined, RLSI: core.rlsi?.score ?? undefined }
-        : undefined;
+    // 칸별로 코어 값, 없으면 스냅샷 값(관문 10310843 ② — 코어에 한 칸만 비어도 그 칸 비교를 놓치지 않게)
+    const snapNow = regTacticalCurrent(c) || {};
+    const fin = (v: unknown): number | undefined => typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+    const current = {
+        NDX_CHG: fin(core?.market?.nqChangePercent) ?? snapNow.NDX_CHG,
+        SPX_CHG: fin(core?.market?.factors?.spx?.chgPct) ?? snapNow.SPX_CHG,
+        RLSI: fin(core?.rlsi?.score) ?? snapNow.RLSI,
+    };
     const drift = regTacticalNeedsRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight, current);
     if (!drift.length) return drift;
     // 다른 언어·인스턴스가 이미 새 장중 글을 저장했으면 예약(재생성)하지 않고 채택 경로로 넘긴다 — 새 글을 두고 실패 예산을 쓰지 않게(관문 10310537)
@@ -630,7 +635,8 @@ export class GuardianDataHub {
                 // 채택은 ai_verdict 를 쓰지 않는다 — 읽고-쓰기 사이 다른 요청의 최신 판정을 덮을 수 있다(관문 10310819 ②·10310825 ①). ai_verdict 는 다음 재계산이 저장한다(기존과 같음)
             } else {
                 // 채택 못 한 저장본(출구 검사 탈락 → 읽기에서 시각 없이 null 포함)은 그 저장 시각을 «본 시각»으로 — 같은 글을 30초마다 다시 읽지 않게(관문 10310504 ②). 생성 시각은 그대로.
-                const seen = Math.max(typeof r.seenAt === 'number' ? r.seenAt : 0, latestAt ?? 0);
+                // 읽기 장애(seenAt 없음)는 «본 것»으로 적지 않는다 — 장애가 풀리면 같은 글을 다시 채택할 수 있게(관문 10310843 ①)
+                const seen = typeof r.seenAt === 'number' ? r.seenAt : 0;
                 if (seen <= seenBefore) return previous;
                 context = { ...previous, tacticalSeenAt: new Date(seen).toISOString() };
             }

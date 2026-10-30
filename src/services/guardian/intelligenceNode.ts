@@ -1032,8 +1032,11 @@ export class IntelligenceNode {
         const locale = ctx.locale || 'ko';
         const nums = guardianNumsFromAiContext(current);
         const prompts = (l: Locale) => REALITY_PROMPTS[l](current);
+        // 원문 시각을 먼저 읽는다 — 읽기 장애(null·예외)와 «출구 검사 탈락»을 가른다(관문 10310843 ①: 장애를 «본 것»으로 적으면 복구 뒤에도 그 글을 다시 보지 않는다)
+        const rawAt = await IntelligenceNode.latestStoredRegTacticalAt(locale, now);
+        if (rawAt == null) return { text: null };
         const stored = await readStoredInsight('reality', locale, nums, prompts);
-        if (!stored) return { text: null };
+        if (!stored) return { text: null, seenAt: rawAt };   // 원문은 있는데 검사 탈락(또는 세션 불일치) — 같은 글을 반복 검사하지 않게 그 시각을 «본 것»으로
         const valid = stored.at <= now && stored.at > newerThan && etDateOf(stored.at) === etDateOf(now) && stored.session === 'REG'
             && gateText('reality', stored.text, locale, nums, stored.basis, false, prompts(locale)).ok;
         if (!valid) return { text: null, seenAt: stored.at };
