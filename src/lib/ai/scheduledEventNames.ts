@@ -57,14 +57,12 @@ const BOUNDARY = /^\s*(?:$|[,.!?;:)\]）」』、。…—"“”])/;
  *   문장 부호·끝·영숫자 → 끝 · 붙은 조사·서술(«으로»·«이»·«입니다») → 끝 · «의» → 다음 낱말도 허용 낱말이어야
  *   띄운 낱말은 발표·지표·보고서·공시·자료·데이터·결과·일정·수치·예정(+조사)만 · 일본어는 (の)発表·公表…(予定)+조사, 공백 뒤 일본어도 같은 규칙
  */
-/** 주어 조사(이·가·은·는 / が·は) 뒤 같은 절에 발표 전 방향을 단정하는 말이 오면 실패(관문 10310723 «실업률이 상승할 예정») */
-const DIRECTION = /상승|하락|오르|내리|올라|내려|증가|감소|늘|줄|개선|악화|확대|축소|높아|낮아|上昇|低下|上が|下が|増加|減少|増え|減|改善|悪化|拡大|縮小|高ま|低ま/;
-/** 조건 해석(«오르면 … 내리면 …»·«上昇すれば»)은 프롬프트가 요구하는 두 갈래 읽기라 허용 */
-const CONDITIONAL = /면|ば|たら|なら|場合/;
-function subjectClaimReason(word: string, restAfter: string): string | null {
-    if (!/^(?:이|가|은|는|が|は)$/.test(word)) return null;
-    const clause = restAfter.split(/[,.!?;:、。]/)[0];
-    return DIRECTION.test(clause) && !CONDITIONAL.test(clause) ? `tail-direction:${clause.trim().slice(0, 12)}` : null;
+/**
+ * 사전 표기를 주어·화제(이·가·은·는 / が·は)로 쓰면 뒤 서술이 발표 전 값의 방향을 단정할 수 있다(«실업률이 급등할 예정» — 관문 10310723·10310729).
+ *   서술 전체를 판정하지 않고 실패로 둔다(fail-closed). NEXT 문장의 일정은 «… 예정된 X로, …» 꼴로 쓰인다(실모델 24회·운영 저장본 전부 이 꼴).
+ */
+function subjectClaimReason(word: string): string | null {
+    return /^(?:이|가|은|는|が|は)$/.test(word) ? `tail-subject:${word}` : null;
 }
 function tailReason(after: string, parenFine: (content: string) => boolean = () => false): string | null {
     let rest = after;
@@ -78,7 +76,7 @@ function tailReason(after: string, parenFine: (content: string) => boolean = () 
         if (/^[가-힣]/.test(t)) {
             const word = t.match(/^[가-힣]+/)![0];
             if (!spaced) {   // 표기에 붙은 말
-                if (KO_END.test(word)) return subjectClaimReason(word, t.slice(word.length));
+                if (KO_END.test(word)) return subjectClaimReason(word);
                 if (word === '의') { rest = t.slice(1); continue; }
                 return `tail:${word}`;
             }
@@ -86,7 +84,7 @@ function tailReason(after: string, parenFine: (content: string) => boolean = () 
             if (!noun) return `tail:${word}`;
             const suffix = word.slice(noun.length);
             if (!suffix) { rest = t.slice(word.length); continue; }
-            if (KO_END.test(suffix)) return subjectClaimReason(suffix, t.slice(word.length));
+            if (KO_END.test(suffix)) return subjectClaimReason(suffix);
             if (suffix === '의') { rest = t.slice(word.length); continue; }
             return `tail:${word}`;
         }
@@ -96,7 +94,7 @@ function tailReason(after: string, parenFine: (content: string) => boolean = () 
             const noun = u.match(JA_ALLOWED)?.[0];
             if (noun) u = u.slice(noun.length);
             if (u.startsWith('予定')) u = u.slice(2);
-            if (JA_END.test(u)) { const p = u.match(JA_END)![0]; return subjectClaimReason(p, u.slice(p.length)); }
+            if (JA_END.test(u)) { const p = u.match(JA_END)![0]; return subjectClaimReason(p); }
             if (BOUNDARY.test(u)) return null;
             if (u.startsWith('の') && u !== t) { rest = u; continue; }
             return `tail:${t.slice(0, 6)}`;

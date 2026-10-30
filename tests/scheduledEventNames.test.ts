@@ -217,8 +217,9 @@ assert.deepEqual(strict('11/4(수) 08:15 ET ADP 고용 변화 발표 예정', AD
 // 관문 10310723 — 사전 표기를 주어로 발표 전 방향 단정
 for (const t of ['11/6(금) 08:30 ET 실업률이 상승할 예정입니다', '11/6(금) 08:30 ET 비농업 고용이 증가할 예정입니다', '11/6(金) 08:30 ET 失業率が上昇する予定です', '11/6(금) 08:30 ET 예정된 실업률은 낮아질 것으로 보입니다'])
     assert.ok(strict(t, [line('Unemployment Rate (Oct)', '2026-11-06', '08:30'), ...NFP], Date.parse('2026-11-05T15:00:00Z')).length, `방향 단정: ${t}`);
-assert.deepEqual(strict('11/6(금) 08:30 ET 예정된 실업률이 오르면 금리 부담이 커지고 내리면 줄어듭니다', [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')], Date.parse('2026-11-05T15:00:00Z')), [], '조건 해석은 그대로');
-assert.deepEqual(strict('11/6(금) 08:30 ET 예정된 실업률이 다음 분기점으로, 높게 나오면 금리 부담이 커지고 낮으면 줄어듭니다', [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')], Date.parse('2026-11-05T15:00:00Z')), [], '조건부 해석(쉼표 뒤)은 그대로');
+for (const t of ['11/6(금) 08:30 ET 실업률이 급등할 예정입니다', '11/6(금) 08:30 ET 실업률이 떨어질 예정입니다', '11/6(금) 08:30 ET 실업률이 상승할 예정이며 금리가 오르면 부담입니다', '11/6(금) 08:30 ET 실업률은, 상승할 예정입니다', '11/6(금) 08:30 ET 예정된 실업률이 오르면 금리 부담이 커지고 내리면 줄어듭니다'])
+    assert.ok(strict(t, [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')], Date.parse('2026-11-05T15:00:00Z')).length, `주어로 쓴 사전 표기는 실패(관문 10310729): ${t}`);
+assert.deepEqual(strict('11/6(금) 08:30 ET 예정된 실업률로, 높게 나오면 금리 부담이 커지고 낮으면 줄어듭니다', [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')], Date.parse('2026-11-05T15:00:00Z')), [], '«X로, 조건 해석» 꼴은 그대로');
 // JOLTS 대문자 약어(근거는 «JOLTs»)는 사전 표기 안에서만 이름으로 인정
 const JOLTS = [line('JOLTs Job Openings (Sep)', '2026-11-03', '10:00')];
 assert.deepEqual(strict('11/3(화) 10:00 ET JOLTS 구인건수 예정', JOLTS, Date.parse('2026-11-03T13:00:00Z')), []);
