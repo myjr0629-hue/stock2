@@ -17,3 +17,34 @@ export function flowSqueeze(flow: any): FlowSqueeze {
         : risk === 'HIGH' || risk === 'EXTREME' || risk === 'CRITICAL' ? 'high' : null;
     return { score, level };
 }
+
+/**
+ * [T37] 구조 점수가 없을 때의 보충 — 커맨드 squeeze 카드와 같은 문(/api/live/short-squeeze · shortSqueezeMetrics).
+ * 요청·본문 전체를 limitMs 상한으로 묶는다(abort + 타이머 경쟁) — 본문이 멈춰도 호출자(갱신 흐름·AI 재료 준비)는 상한 뒤 진행한다.
+ * 돌려주는 값: 그 종목의 응답 { score, risk } · 실패·시간 초과·다른 종목 = null.
+ */
+export async function fetchSqueezeFallback(
+    ticker: string,
+    deps: { fetch: typeof fetch; setTimeout: (fn: () => void, ms: number) => any; clearTimeout: (id: any) => void },
+    limitMs = 6000,
+): Promise<{ score: unknown; risk: unknown } | null> {
+    const t = String(ticker || '').toUpperCase();
+    const ctl = new AbortController();
+    let tm: any = null;
+    const limit = new Promise<null>((resolve) => { tm = deps.setTimeout(() => { ctl.abort(); resolve(null); }, limitMs); });
+    try {
+        const j: any = await Promise.race([
+            (async () => {
+                const r = await deps.fetch(`/api/live/short-squeeze?t=${encodeURIComponent(t)}`, { signal: ctl.signal, cache: 'no-store' });
+                return r && r.ok ? r.json() : null;
+            })(),
+            limit,
+        ]);
+        if (!j || String(j.ticker ?? '').toUpperCase() !== t) return null;
+        return { score: j.riskScore, risk: j.status };
+    } catch {
+        return null;
+    } finally {
+        deps.clearTimeout(tm);
+    }
+}

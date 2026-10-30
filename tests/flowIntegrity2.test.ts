@@ -13,6 +13,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { selectWhaleSession } from '../src/lib/app/flowWhaleSession';
 import { measuredOiPcr, newerReading, OI_PCR_PREV_BASIS } from '../src/lib/app/flowOpi';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
+import { fetchSqueezeFallback } from '../src/lib/app/flowSqueeze';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -76,6 +77,7 @@ async function fetchHarness(initial: Record<string, any>, data: any, overrides: 
         fetch: async () => ({ ok: true, json: async () => ({ items: [], unavailable: true }) }),
         selectWhaleSession: (data: any, session: string) => selectWhaleSession(data, session, REG_NOW),
         measuredOiPcr, newerReading, OI_PCR_PREV_BASIS,   // NB1(10/20): fetch 효과가 OPI 입력을 이 함수·상수로 읽는다
+        fetchSqueezeFallback,   // T37: 구조 스퀴즈 점수가 없을 때 short-squeeze 보충(상한 있음)
         ...overrides,
     };
     // Capture every React setter used by this effect, including future ones.
@@ -536,6 +538,22 @@ async function test(name: string, fn: () => any) {
             release({ ok: true, json: async () => ({ items: [] }) });
             await settle();
             assert.equal(h.state.flowPhaseDone, true);
+        } finally { h.cleanup(); }
+    });
+    await test('T37: AI material readiness (flowPhaseDone) waits for the squeeze fallback; the value is in state before it', async () => {
+        let release!: (v: any) => void;
+        const sqPending = new Promise(r => { release = r; });
+        const data = { ticker: 'A', session: 'REG', flow: { rawChain: [], squeezeScore: null, squeezeRisk: null } };
+        let phaseAtFallback: any = 'unset';
+        const h = await fetchHarness({}, data, { fetch: (url: string) => url.includes('/short-squeeze') ? sqPending : Promise.resolve({ ok: true, json: async () => ({ items: [], unavailable: true }) }) });
+        try {
+            assert.notEqual(h.state.flowPhaseDone, true, '보충 응답 전에는 AI 재료 준비 완료가 아니다');
+            phaseAtFallback = h.state.flowPhaseDone;
+            release({ ok: true, json: async () => ({ ticker: 'A', riskScore: 36, status: 'MEDIUM' }) });
+            await settle();
+            assert.equal(h.state.flowPhaseDone, true);
+            assert.deepEqual([h.state.squeezeFallback?.ticker, h.state.squeezeFallback?.score, h.state.squeezeFallback?.risk], ['A', 36, 'MEDIUM']);
+            assert.notEqual(phaseAtFallback, true);
         } finally { h.cleanup(); }
     });
     // ══ 4차 관문(10190151) — 체인 조회 성공 ≠ 체결 관측 / 0건 판정은 «현재 세션 필터 후» ══

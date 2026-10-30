@@ -36,7 +36,7 @@ import wlStyles from '@/components/app/watchlist/watchlist.module.css';
 import { closeLabelOr } from '@/lib/marketSession';
 import { optionFlowBadgeLabel } from '@/lib/app/optionFlowBasis';
 import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSession';
-import { flowSqueeze } from '@/lib/app/flowSqueeze';
+import { fetchSqueezeFallback, flowSqueeze } from '@/lib/app/flowSqueeze';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
@@ -1236,21 +1236,16 @@ export default function AppFlowPage() {
 
         setTickerData(data);
         setTickerDataSession(tickerReqSession === shownRegularSessionDate() ? tickerReqSession : null);
-        // [T37] 구조 점수가 없으면 커맨드와 같은 문으로 보충 — 기다리지 않는다(갱신 흐름·inFlight 와 무관) · 본문까지 6초 상한 · 종목·세션·회차 확인.
+        // [T37] 구조 점수가 없으면 커맨드와 같은 문으로 보충 — 종목·세션·회차 확인. AI 재료 준비 완료(flowPhaseDone)는 이 응답까지 기다린다(관문 10310411).
+        //   멈춘 본문이 갱신을 막지 않게 요청·본문 전체를 6초 상한(fetchSqueezeFallback: abort + 타이머 경쟁)으로 묶는다 — 상한이 지나면 보충 없이 진행.
+        let squeezeFallbackPromise: Promise<void> = Promise.resolve();
         if (data?.flow?.squeezeScore == null) {
           const sqTicker = ticker.toUpperCase();
           const sqSession = tickerReqSession;
-          void (async () => {
-            const ctl = new AbortController();
-            const tm = window.setTimeout(() => ctl.abort(), 6000);
-            try {
-              const r = await fetch(`/api/live/short-squeeze?t=${sqTicker}`, { signal: ctl.signal, cache: 'no-store' });
-              if (!r.ok) return;
-              const j = await r.json();
-              if (cancelled || shownRegularSessionDate() !== sqSession || String(j?.ticker ?? '').toUpperCase() !== sqTicker) return;
-              setSqueezeFallback((prev) => prev && prev.ticker === sqTicker && prev.round > round ? prev : { ticker: sqTicker, session: sqSession, round, score: j?.riskScore, risk: j?.status });
-            } catch { /* 보충 실패 — 같은 세션의 이전 보충값 유지, 없으면 «—» */ } finally { window.clearTimeout(tm); }
-          })();
+          squeezeFallbackPromise = fetchSqueezeFallback(sqTicker, { fetch: (...a) => fetch(...a), setTimeout: (fn, ms) => window.setTimeout(fn, ms), clearTimeout: (id) => window.clearTimeout(id) }).then((fb) => {
+            if (!fb || cancelled || shownRegularSessionDate() !== sqSession) return;   // 실패·시간 초과 — 같은 세션의 이전 보충값 유지, 없으면 «—»
+            setSqueezeFallback((prev) => prev && prev.ticker === sqTicker && prev.round > round ? prev : { ticker: sqTicker, session: sqSession, round, score: fb.score, risk: fb.risk });
+          });
         } else setSqueezeFallback(null);
         if (data.display?.price) setPrice(data.display.price);
         if (typeof data.display?.changePctPct === 'number' && Number.isFinite(data.display.changePctPct)) setChange(data.display.changePctPct);
@@ -1342,9 +1337,9 @@ export default function AppFlowPage() {
             && !whaleAnswered;
           return keepPrev ? prev : whaleNext;
         });
-        await ivPromise;
+        await Promise.all([ivPromise, squeezeFallbackPromise]);
         if (cancelled) return;
-        // 보조 응답·체인 집계·독립 IV 응답까지 반영한 뒤 AI 재료 준비 완료를 표시한다.
+        // 보조 응답·체인 집계·독립 IV 응답·스퀴즈 보충(6초 상한)까지 반영한 뒤 AI 재료 준비 완료를 표시한다.
         setFlowPhaseDone(true);
       } catch {
         // Transient fetch error: keep the last real values (the gated preview

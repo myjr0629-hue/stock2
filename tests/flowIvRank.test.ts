@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { shownRegularSessionDate } from '../src/lib/marketCalendar';
 import { ivRankIsCollecting, ivRankCollectingText } from '../src/lib/ivRank';
 import { ivHistoryUnavailable, notProvidedText } from '../src/lib/app/flowEmptyStates';
-import { flowSqueeze } from '../src/lib/app/flowSqueeze';
+import { fetchSqueezeFallback, flowSqueeze } from '../src/lib/app/flowSqueeze';
 
 const source = fs.readFileSync('src/app/[locale]/app-view/flow/page.tsx', 'utf8');
 const ast = ts.createSourceFile('page.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -63,7 +63,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         ticker: data.ticker, initialLoadRef: { current: true }, AbortController, Date: FixedDate,
         FLOW_TICKER_TTFB_MS: 15000, FLOW_QUICK_RETRIES: options.quickRetries ?? 0, FLOW_QUICK_RETRY_MS: 3000,
         shownRegularSessionDate: (ms = now) => shownRegularSessionDate(ms),
-        ivHistoryUnavailable, ivRankIsCollecting,
+        ivHistoryUnavailable, ivRankIsCollecting, fetchSqueezeFallback,
         window: {
             setTimeout: (fn: () => void, ms: number) => { timers.set(++timerId, { at: elapsed + ms, fn }); return timerId; },
             clearTimeout: (id: number) => timers.delete(id),
@@ -332,9 +332,28 @@ test('[T37] no structure score: the cell uses the command squeeze door (/api/liv
 test('[T37] a hanging short-squeeze body does not stop the 30-second refresh', async () => {
     const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: null, squeezeRisk: null } } as any;
     const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, shortSqueeze: () => ({ ok: true, json: () => new Promise(() => {}) }) });
+    await h.advance(6000);
     body.flow = { squeezeScore: 41, squeezeRisk: 'MEDIUM' }; await h.refresh();
-    assert.equal(h.display().squeeze, 41, '보충 본문이 멈춰도 다음 갱신이 반영된다');
+    assert.equal(h.display().squeeze, 41, '다음 갱신이 반영된다');
     h.cleanup();
+});
+test('[T37] fetchSqueezeFallback: body hang / transport hang are cut at the limit; other ticker and errors are null', async () => {
+    const timers: Array<() => void> = [];
+    const deps = (f: any) => ({ fetch: f, setTimeout: (fn: () => void) => { timers.push(fn); return timers.length; }, clearTimeout: () => {} });
+    const fire = () => { for (const fn of timers.splice(0)) fn(); };
+    // 본문 멈춤
+    let p = fetchSqueezeFallback('nvda', deps(async () => ({ ok: true, json: () => new Promise(() => {}) })));
+    await settle(); fire(); assert.equal(await p, null);
+    // 연결 멈춤(abort 신호 무시)
+    p = fetchSqueezeFallback('NVDA', deps(() => new Promise(() => {})));
+    await settle(); fire(); assert.equal(await p, null);
+    assert.deepEqual(await fetchSqueezeFallback('NVDA', deps(async (u: string) => { assert.equal(u, '/api/live/short-squeeze?t=NVDA'); return response({ ticker: 'NVDA', riskScore: 36, status: 'MEDIUM' }); })), { score: 36, risk: 'MEDIUM' });
+    assert.equal(await fetchSqueezeFallback('NVDA', deps(async () => response({ ticker: 'AAPL', riskScore: 5, status: 'LOW' }))), null);
+    assert.equal(await fetchSqueezeFallback('NVDA', deps(async () => response({}, false))), null);
+    assert.equal(await fetchSqueezeFallback('NVDA', deps(async () => { throw new Error('down'); })), null);
+});
+test('[T37] AI material readiness waits for the squeeze fallback (bounded) before flowPhaseDone', () => {
+    assert.match(effect, /await Promise\.all\(\[ivPromise, squeezeFallbackPromise\]\);\s*if \(cancelled\) return;[\s\S]{0,200}setFlowPhaseDone\(true\)/);
 });
 test('[T37] flowSqueeze maps API score/risk; missing or invalid is null (cell stays with —)', () => {
     assert.deepEqual(flowSqueeze({ squeezeScore: 36, squeezeRisk: 'MEDIUM' }), { score: 36, level: 'moderate' });
