@@ -15,10 +15,13 @@ const DAY = 86400_000;
 /** Ordinary readers only read this dated observation. Only the background pack refresh may collect. */
 export async function earningsMonthlyMove(
   ticker: string, after: string, sameDay: boolean, structure: any, probe: boolean, deadlineMs?: number,
+  // 실적 영수증 전용(earningsActualsService) — 화면 호출자는 넘기지 않는다(기본값 = 기존 동작 그대로).
+  //   pastDays: 발표일이 지난 뒤에도 그 발표의 관측을 읽는다 · save:false: 조회 결과를 공유 관측 키에 쓰지 않는다(화면이 읽는 키 불변).
+  receipt: { pastDays?: number; save?: boolean } = {},
 ): Promise<EarningsMove | null> {
   const today = etDateOf(Date.now());
   const distance = (Date.parse(`${after}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY;
-  if (distance < 0 || distance > 45) return null;
+  if (distance < -Math.max(0, receipt.pastDays ?? 0) || distance > 45) return null;
   const key = earningsObservationKey(ticker, after, sameDay);
   const cached = await withinImpliedDeadline(() => getFromCache<{ im: EarningsMove | null; checkedAt: number }>(key), deadlineMs)
     .catch(error => { if (error instanceof ImpliedDeadlineError) throw error; return null; });
@@ -44,6 +47,7 @@ export async function earningsMonthlyMove(
   if (!(typeof spot === 'number' && Number.isFinite(spot) && spot > 0)) return previous();
   const save = async (im: EarningsMove | null) => {
     if (closed()) return previous();
+    if (receipt.save === false) return im;
     await withinImpliedDeadline(() => setInCache(key, { im, checkedAt: Date.now() }, 36 * 3600), deadlineMs).catch(() => false);
     return im;
   };

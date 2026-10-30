@@ -12,6 +12,7 @@ let vendorMode: '429' | 'slow' = '429';
   if (u.hostname.includes('intrinio')) {
     vendorCalls.push(u.pathname);
     if (vendorMode === '429') return new Response('limit', { status: 429 });
+    if ((vendorMode as string) === 'noexp') return Response.json({ expirations: [] });
     if ((vendorMode as string) === 'partial') {
       if (u.pathname.includes('/expirations/')) return Response.json({ expirations: ['2026-11-20'] });
       if (u.searchParams.get('next_page')) return new Response('err', { status: 500 });
@@ -98,6 +99,21 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     assert.ok(vendorCalls.length >= 1, '옛 세션 관측은 다시 조회한다');
     assert.equal(old?.pct, 6.2, '조회 실패여도 직전 정상값(5일 이내) 유지');
     console.log(`  ✓ 같은 세션 EOD 관측 → 재조회 0 · 옛 세션 → 재조회 ${vendorCalls.length}회`);
-    console.log('earningsProbeBudget: 4건 통과');
+
+    // 2026-10-30 실적 영수증 전용 옵션 — 기본(화면 호출자)은 지난 발표를 읽지 않는다(기존 그대로) ·
+    //   {pastDays} 면 지난 발표의 저장 관측을 읽고 · {save:false} 면 조회해도 공유 관측 키를 다시 쓰지 않는다
+    seed(); vendorCalls = []; vendorMode = 'noexp' as any;
+    const pastKey = `earnings:event-probe:v3:${tickers[2]}:2026-10-15:next`;
+    const stamp = Date.now() - 2 * 3600_000;
+    store.set(pastKey, { im: { ...obs('2026-10-15'), expiry: '2026-10-23' }, checkedAt: stamp });
+    assert.equal(await MP.earningsMonthlyMove(tickers[2], '2026-10-15', false, null, true, Date.now() + 20_000), null, '기본 = 지난 발표는 null(화면 출력 불변)');
+    assert.equal(vendorCalls.length, 0);
+    const past = await MP.earningsMonthlyMove(tickers[2], '2026-10-15', false, null, false, undefined, { pastDays: 10, save: false });
+    assert.equal(past?.session, '2026-10-15', '영수증은 지난 발표의 저장 관측을 읽는다');
+    const probed = await MP.earningsMonthlyMove(tickers[2], '2026-10-15', false, null, true, Date.now() + 20_000, { pastDays: 10, save: false });
+    assert.ok(vendorCalls.length >= 1, '옛 세션이면 직접 조회'); assert.equal(probed?.session, '2026-10-15');
+    assert.equal((store.get(pastKey) as any).checkedAt, stamp, 'save:false — 공유 관측 키를 쓰지 않는다');
+    console.log('  ✓ 영수증 옵션 — 기본은 지난 발표 null · pastDays 읽기 · save:false 쓰기 0');
+    console.log('earningsProbeBudget: 5건 통과');
   } finally { Date.now = realNow; }
 })().catch((e) => { console.error(e); process.exit(1); });

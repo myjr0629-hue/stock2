@@ -6,7 +6,7 @@
  *   1. 기준 세션 — 장전 = 전일 종가→발표일 종가 · 장후 = 발표일 종가→다음 거래일 종가(주말·휴장 건너뜀) · 시각 미공지는 계산하지 않는다
  *   2. 확정 시각 — 정규장 마감(16:00 · 조기 폐장 13:00) + 30분 전에는 일봉을 쓰지 않는다
  *   3. 숫자 — 10/13 실측 6종목(JPM·JNJ·C·GS·UNH·WFC)의 등락률과 한 자리 반올림, 두 공급사 대조
- *   4. 예상 변동폭 저장 — 발표 전 범위의 세션만 · 발표가 끝나면 덮지 않는다 · 같은 값은 다시 쓰지 않는다 · 뒤로 가지 않는다
+ *   4. 예상 변동폭 저장 — 기준 세션(AMC 발표일·BMO 전 거래일)의 마감 관측만 · 빈 기록에 한 번만 · 장후 실시간 거절 · 지연 관측 허용
  *   5. 실제 반응 저장 — 확정 전 건너뜀 · 공급사 불일치면 저장 안 함 · FMP 가 없으면 단독 표시 · 한 번 저장하면 다시 계산하지 않는다 · 단독 기록은 다음 회차가 FMP 로 대조 보강(불일치면 지움)
  *   6. 페이지 — 발표 완료 행에 «실제 −x% vs 옵션 예상 ±y%» · 마감 전이면 «… 마감 뒤 표시» · 기록 없으면 «—» · 읽기는 쓰기 0
  *   7. 크론 라우트 — 인증 · 문구(금지 표현 없음, 세 언어)
@@ -20,10 +20,12 @@ const store = new Map<string, unknown>();
 let writes = 0;
 const writeLog: Array<{ key: string; value: any; ttl?: number }> = [];
 let failReads = false;
+let failMget = false;
 let fmpRows: unknown = [];
 (globalThis as any).fetch = async (url: string, init?: { method?: string; body?: string }) => {
   const u = new URL(url);
   if (failReads && (u.pathname === '/get' || u.pathname === '/mget')) throw new Error('redis down');
+  if (failMget && u.pathname === '/mget') return Response.json({ results: [] });   // 응답은 왔지만 값이 비었다(묶음 읽기는 이를 «없음»으로 본다)
   if (u.pathname === '/get') return Response.json({ result: store.get(u.searchParams.get('key') || '') ?? null });
   if (u.pathname === '/mget') {
     const keys = (u.searchParams.get('keys') || '').split(',').filter(Boolean).map(decodeURIComponent);
@@ -57,7 +59,7 @@ let n = 0;
 const t = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${name}`); };
 const ta = async (name: string, fn: () => Promise<void>) => { await fn(); n++; console.log(`  ✓ ${name}`); };
 const ms = (iso: string) => Date.parse(iso);
-const reset = () => { store.clear(); writes = 0; writeLog.length = 0; failReads = false; WEEK._resetEarningsWeekMemo(); RC._resetEcBreakerForTest(); };
+const reset = () => { store.clear(); writes = 0; writeLog.length = 0; failReads = false; failMget = false; WEEK._resetEarningsWeekMemo(); RC._resetEcBreakerForTest(); };
 
 // 10/13 실측 종가(Intrinio 일봉 = CNBC = FMP 분할 미조정 — 12/12 센트까지 같았다)
 const CLOSE: Record<string, [number, number, number]> = {   // [10/12 종가, 10/13 종가, 기대 등락률(%)]
@@ -148,28 +150,35 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
   // ═══════════════════════════════════════════════════════════════════════════
   console.log('━━━ 4. 예상 변동폭 저장(크론 ①) ━━━');
   const NOW_EVE = ms('2026-10-13T22:00:00Z');       // 10/13 18:00 ET — 10/13 장전은 발표 완료, 10/14 장전은 발표 전
-  await ta('★ 발표 전 + 세션이 범위 안 → 저장(120일 TTL) · 같은 값은 다시 쓰지 않는다', async () => {
+  // 2026-10-30 정책: expected = 기준 세션(AMC 발표일 · BMO 전 거래일)의 «마감 관측»만 · 빈 기록에 한 번만 · 장후 실시간 합성가 배제
+  const obsOf = (ticker: string, pct: number | null, session: string | null, expiry = '2026-10-16', basis: 'eod' | 'live' = 'eod') =>
+    ({ ...rowOf(ticker, pct, session, expiry, basis), source: pct == null ? null : ('probe' as const) });
+  type Obs = ReturnType<typeof obsOf>;
+  const obsDeps = (stored: Obs | null, probed: Obs | null = stored, log?: { reads: number; probes: number }) => ({
+    runLock: async () => 'ok' as const,
+    readObservation: async (_c: unknown, probe: boolean) => { if (log) { if (probe) log.probes++; else log.reads++; } return probe ? probed : stored; },
+  });
+  await ta('★ 장전 발표 — 전 거래일 마감 관측 저장(120일 TTL) · 한 번 저장되면 다시 읽지도 쓰지도 않는다', async () => {
     reset();
     const list = [entry('BAC', '2026-10-14', 'bmo')];
-    const deps = { readImplied: async () => [rowOf('BAC', 4.2, '2026-10-13')] };
-    const r1 = await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps });
+    const log = { reads: 0, probes: 0 };
+    const r1 = await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: obsDeps(obsOf('BAC', 4.2, '2026-10-13'), undefined, log) });
     assert.deepEqual(r1.expectedSaved, ['BAC|2026-10-14:4.2']);
     assert.equal(writes, 1); assert.equal(writeLog[0].key, key('BAC', '2026-10-14')); assert.equal(writeLog[0].ttl && writeLog[0].ttl > 100 * 86400, true, 'TTL 120일(지터 포함)');
     const rec = store.get(key('BAC', '2026-10-14')) as any;
     assert.equal(rec.expected.pct, 4.2); assert.equal(rec.expected.session, '2026-10-13'); assert.equal(rec.expected.src, 'page'); assert.equal(rec.actual, null);
-    assert.equal(rec.expected.method, 'monthly'); assert.equal(rec.expected.straddlePct, 4.2);
-    const r2 = await SVC.runActualsCycle({ nowMs: NOW_EVE + 600_000, list, deps });
-    assert.deepEqual(r2.expectedSaved, []); assert.equal(writes, 1, '같은 값 — 쓰기 0');
+    assert.equal(rec.expected.method, 'monthly'); assert.equal(rec.expected.straddlePct, 4.2); assert.equal(rec.expected.basis, 'eod');
+    assert.equal(log.probes, 0, '저장본이 기준 세션이면 공급사 조회 없음');
+    const r2 = await SVC.runActualsCycle({ nowMs: NOW_EVE + 600_000, list, deps: obsDeps(obsOf('BAC', 5.5, '2026-10-13'), undefined, log) });
+    assert.deepEqual(r2.expectedSaved, []); assert.equal(writes, 1, '저장된 expected 는 덮지 않는다'); assert.equal(log.reads, 1, '채워진 기록은 관측을 읽지도 않는다');
   });
-  await ta('분리값·ATM 원값을 함께 저장하고, 같은 pct의 method·원값 변경도 보존한다', async () => {
+  await ta('분리값·ATM 원값을 함께 저장한다(영수증은 ATM 원값)', async () => {
     reset();
     const list = [entry('MIX', '2026-10-14', 'bmo')];
-    const base = rowOf('MIX', 7.7, '2026-10-13');
-    await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: { readImplied: async () => [base] } });
-    const split = { ...base, method: 'event-split' as const, straddlePct: 8.6, straddle: 8.6 };
-    await SVC.runActualsCycle({ nowMs: NOW_EVE + 1, list, deps: { readImplied: async () => [split] } });
+    const split = { ...obsOf('MIX', 7.7, '2026-10-13'), method: 'event-split' as const, straddlePct: 8.6, straddle: 8.6 };
+    await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: obsDeps(split) });
     const rec = A.parseRecord(store.get(key('MIX', '2026-10-14')))!;
-    assert.equal(writes, 2);
+    assert.equal(writes, 1);
     assert.equal(rec.expected!.pct, 7.7); assert.equal(rec.expected!.method, 'event-split');
     assert.equal(A.atmReceiptExpectedPct(rec.expected!), 8.6);
     const receiptRecord = { ...rec, actual: { pct: 8, baseDate: '2026-10-13', baseClose: 100,
@@ -177,48 +186,61 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     const receipts = require('../src/lib/earnings/earningsReceipts') as typeof import('../src/lib/earnings/earningsReceipts');
     const receipt = receipts.buildEarningsReceipts('2026-10-12', list, [receiptRecord], ms('2026-10-20T21:00:00Z'));
     assert.equal(receipt.rows[0].expected!.pct, 8.6); assert.equal(receipt.rows[0].beyond, false);
-    const next = { ...split, straddlePct: 8.7, straddle: 8.7 };
-    await SVC.runActualsCycle({ nowMs: NOW_EVE + 2, list, deps: { readImplied: async () => [next] } });
-    assert.equal(writes, 3, '판정 근거만 바뀌어도 저장');
-    assert.equal((store.get(key('MIX', '2026-10-14')) as any).expected.straddlePct, 8.7);
-    await SVC.runActualsCycle({ nowMs: NOW_EVE + 3, list, deps: { readImplied: async () => [next] } });
-    assert.equal(writes, 3, '관측 시각만 바뀌면 쓰기 없음');
   });
-  await ta('값이 바뀌면(같은 발표 전 범위) 마지막 값으로 덮는다 · 더 이른 세션으로는 되돌아가지 않는다', async () => {
+  await ta('★ INTC 10/29 장후 — 장중 저장 안 함 · 16:05 실시간·전일 관측 거절 · 다음 날 아침 발표일 마감 관측 저장 · 그 뒤 값으로 안 덮음', async () => {
     reset();
-    const list = [entry('MS', '2026-10-14', 'bmo')];
-    await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: { readImplied: async () => [rowOf('MS', 4.3, '2026-10-13')] } });
-    const r = await SVC.runActualsCycle({ nowMs: NOW_EVE + 3_600_000, list, deps: { readImplied: async () => [rowOf('MS', 4.5, '2026-10-13')] } });
-    assert.deepEqual(r.expectedSaved, ['MS|2026-10-14:4.5']);
-    const back = await SVC.runActualsCycle({ nowMs: NOW_EVE + 7_200_000, list, deps: { readImplied: async () => [rowOf('MS', 4.0, '2026-10-12')] } });
-    assert.deepEqual(back.expectedSaved, []); assert.ok(back.skipped.some((s) => s.reason === 'expected:older_session'));
-    assert.equal((store.get(key('MS', '2026-10-14')) as any).expected.pct, 4.5);
+    const list = [entry('INTC', '2026-10-29', 'amc')];
+    const log = { reads: 0, probes: 0 };
+    // 10/29 12:00 ET — 기준 세션(10/29) 마감 전: 10/28 관측(9.2)이 있어도 저장하지 않는다
+    const r0 = await SVC.runActualsCycle({ nowMs: ms('2026-10-29T16:00:00Z'), list, deps: obsDeps(obsOf('INTC', 9.2, '2026-10-28', '2026-10-30'), undefined, log) });
+    assert.deepEqual(r0.expectedSaved, []); assert.ok(r0.skipped.some((x) => x.reason === 'expected:base_session_open')); assert.equal(log.reads + log.probes, 0);
+    // 10/29 16:05 ET — 장 마감 뒤 실시간 합성가(basis live)는 세션이 같아도 거절
+    const r1 = await SVC.runActualsCycle({ nowMs: ms('2026-10-29T20:05:00Z'), list, deps: obsDeps(obsOf('INTC', 14.4, '2026-10-29', '2026-10-30', 'live')) });
+    assert.deepEqual(r1.expectedSaved, []); assert.ok(r1.skipped.some((x) => x.reason === 'expected:basis_live'));
+    // 10/29 17:25 ET — 저장본은 아직 10/28, 공급사 EOD 도 아직 → 비워 두고 재시도
+    const r2 = await SVC.runActualsCycle({ nowMs: ms('2026-10-29T21:25:00Z'), list, deps: obsDeps(obsOf('INTC', 9.2, '2026-10-28', '2026-10-30'), null, log) });
+    assert.deepEqual(r2.expectedSaved, []); assert.equal(log.probes, 1, '반응일 마감 전이면 직접 조회');
+    assert.ok(r2.skipped.some((x) => x.reason === 'expected:session_2026-10-28_not_2026-10-29'));
+    assert.equal(writes, 0);
+    // 10/30 07:20 ET — 지연 도착한 10/29 마감 관측(6.9) 저장
+    const r3 = await SVC.runActualsCycle({ nowMs: ms('2026-10-30T11:20:00Z'), list, deps: obsDeps(obsOf('INTC', 9.2, '2026-10-28', '2026-10-30'), obsOf('INTC', 6.9, '2026-10-29', '2026-10-30'), log) });
+    assert.deepEqual(r3.expectedSaved, ['INTC|2026-10-29:6.9']);
+    assert.equal((store.get(key('INTC', '2026-10-29')) as any).expected.session, '2026-10-29');
+    // 10/30 19:00 ET — 발표 뒤 세션 관측은 기록을 건드리지 않는다
+    const r4 = await SVC.runActualsCycle({ nowMs: ms('2026-10-30T23:00:00Z'), list, deps: { ...obsDeps(obsOf('INTC', 8.0, '2026-10-30', '2026-11-06')), bars: barsFrom({}), fmp: barsFrom({}) } });
+    assert.deepEqual(r4.expectedSaved, []); assert.equal((store.get(key('INTC', '2026-10-29')) as any).expected.pct, 6.9);
   });
-  await ta('★ 발표 뒤에 계산된 값은 저장하지 않는다 — 장전 발표일 장중 세션 · 장후의 다음 날 세션', async () => {
+  await ta('★ 장전 발표일 세션 관측·발표 전 만기 관측은 거절 · 반응일 마감 뒤엔 직접 조회 없이 저장된 지연 관측만 읽는다', async () => {
     reset();
     const bmo = [entry('JPM', '2026-10-13', 'bmo')];
-    const r = await SVC.runActualsCycle({ nowMs: ms('2026-10-13T12:00:00Z'), list: bmo, deps: { readImplied: async () => [rowOf('JPM', 3.0, '2026-10-13', '2026-10-16', 'live')] } });   // 08:00 ET 아직 발표 전이지만 세션이 발표일
-    assert.deepEqual(r.expectedSaved, []); assert.ok(r.skipped.some((s) => s.reason.startsWith('expected:session_2026-10-13_out_of_range')));
+    const r = await SVC.runActualsCycle({ nowMs: ms('2026-10-13T11:20:00Z'), list: bmo, deps: obsDeps(obsOf('JPM', 3.0, '2026-10-13'), null) });
+    assert.deepEqual(r.expectedSaved, []); assert.ok(r.skipped.some((x) => x.reason.startsWith('expected:session_2026-10-13_not_2026-10-12')));
+    const r1 = await SVC.runActualsCycle({ nowMs: ms('2026-10-13T11:20:00Z'), list: bmo, deps: obsDeps(obsOf('JPM', 3.0, '2026-10-12', '2026-10-09')) });
+    assert.ok(r1.skipped.some((x) => x.reason === 'expected:expiry_2026-10-09'));
     assert.equal(writes, 0);
     const amc = [entry('NFLX', '2026-10-20', 'amc')];
-    const r2 = await SVC.runActualsCycle({ nowMs: ms('2026-10-20T19:00:00Z'), list: amc, deps: { readImplied: async () => [rowOf('NFLX', 7.0, '2026-10-20', '2026-10-23', 'live')] } });
-    assert.deepEqual(r2.expectedSaved, ['NFLX|2026-10-20:7'], '장후는 발표일 장중 값이 «발표 전 마지막 값»');
+    const log = { reads: 0, probes: 0 };
+    const r2 = await SVC.runActualsCycle({ nowMs: ms('2026-10-23T12:00:00Z'), list: amc, deps: { ...obsDeps(obsOf('NFLX', 7.0, '2026-10-20', '2026-10-23'), null, log), bars: barsFrom({}), fmp: barsFrom({}) } });
+    assert.deepEqual(r2.expectedSaved, ['NFLX|2026-10-20:7'], '발표 사흘 뒤에도 기준 세션 관측이면 저장');
+    assert.equal(log.probes, 0, '반응일(10/21) 마감 뒤 — 첫 만기가 지날 수 있어 직접 조회하지 않는다');
   });
-  await ta('★ 발표가 끝나면(phase done) 읽지도 덮지도 않는다 — 마지막 발표 전 값이 남는다', async () => {
+  await ta('★ 표식 없는 옛 기록(전일 관측 9.2)도 그대로 둔다 — 덮지 않는다', async () => {
     reset();
     const list = [entry('C', '2026-10-13', 'bmo', '08:00')];
-    store.set(key('C', '2026-10-13'), { v: 1, ticker: 'C', date: '2026-10-13', hour: 'bmo', expected: { pct: 4, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 132, straddle: 5.33, spot: 131.92, capturedAt: 1, src: 'page' }, actual: null, at: 1 });
-    let asked = 0;
-    const r = await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: { readImplied: async () => { asked++; return [rowOf('C', 3.0, '2026-10-13')]; }, bars: barsFrom({}), fmp: barsFrom({}) } });
-    assert.equal(asked, 0, '발표 완료 종목은 예상 읽기 자체를 안 한다'); assert.deepEqual(r.expectedSaved, []);
+    store.set(key('C', '2026-10-13'), { v: 1, ticker: 'C', date: '2026-10-13', hour: 'bmo', expected: { pct: 4, expiry: '2026-10-16', session: '2026-10-09', basis: 'eod', strike: 132, straddle: 5.33, spot: 131.92, capturedAt: 1, src: 'page' }, actual: null, at: 1 });
+    const log = { reads: 0, probes: 0 };
+    const r = await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: { ...obsDeps(obsOf('C', 3.0, '2026-10-12'), undefined, log), bars: barsFrom({}), fmp: barsFrom({}) } });
+    assert.equal(log.reads + log.probes, 0); assert.deepEqual(r.expectedSaved, []);
     assert.equal((store.get(key('C', '2026-10-13')) as any).expected.pct, 4);
   });
-  await ta('시각 미공지 종목·저장본 없음은 건너뜀(지어내지 않는다)', async () => {
+  await ta('시각 미공지 종목·관측 없음은 건너뜀(지어내지 않는다)', async () => {
     reset();
     const list = [entry('PLD', '2026-10-15', ''), entry('ZZZ', '2026-10-14', 'bmo')];
-    const r = await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: { readImplied: async () => [rowOf('ZZZ', null, null)] } });
+    const r = await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: obsDeps(obsOf('ZZZ', null, null)) });
     assert.equal(r.considered, 1, '미공지(PLD)는 후보가 아니다'); assert.deepEqual(r.expectedSaved, []); assert.equal(writes, 0);
     assert.ok(r.skipped.some((s) => s.reason === 'expected:no_snapshot'));
+    const r2 = await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: obsDeps(null) });
+    assert.ok(r2.skipped.some((s) => s.reason === 'expected:no_observation'));
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -371,6 +393,72 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: jpmFmp } });
     const rec = store.get(key('JPM', '2026-10-13')) as any;
     assert.equal(rec.expected.pct, 3.2); assert.equal(rec.expected.src, 'eod-chain'); assert.equal(rec.actual.pct, -0.8585, '예상은 그대로, 실제만 채워졌다');
+  });
+
+  await ta('★ 쓰기 안전 — 묶음 읽기가 빈 값을 돌려줘도 저장된 expected 를 지키고, 엄격 읽기까지 실패하면 쓰지 않는다', async () => {
+    reset();
+    const list = [entry('JPM', '2026-10-13', 'bmo')];
+    const exp = { pct: 3.2, method: 'monthly', expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'page' };
+    store.set(key('JPM', '2026-10-13'), { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: exp, actual: null, at: 1 });
+    failReads = true;
+    const r = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { bars: jpmBars, fmp: jpmFmp, readObservation: async () => null } });
+    assert.equal(writes, 0, '엄격 읽기 실패 — 쓰기 0'); assert.ok(r.skipped.some((x) => x.reason === 'read_failed')); assert.deepEqual(r.actualsSaved, []);
+    assert.equal((store.get(key('JPM', '2026-10-13')) as any).expected.pct, 3.2);
+    reset();
+    store.set(key('JPM', '2026-10-13'), { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: exp, actual: null, at: 1 });
+    failMget = true;
+    const r2 = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { bars: jpmBars, fmp: jpmFmp, readObservation: async () => null } });
+    const rec = store.get(key('JPM', '2026-10-13')) as any;
+    assert.equal(rec.expected.pct, 3.2, '빈 묶음 읽기를 믿고 expected 를 지우지 않는다'); assert.equal(rec.actual.pct, -0.8585);
+    assert.deepEqual(r2.actualsSaved, ['JPM|2026-10-13:-0.8585']);
+  });
+  await ta('★ 한 기록이 깨져 있어도 그 건만 건너뛰고 다른 종목의 실제 반응·재검증은 계속한다', async () => {
+    reset();
+    const list = [entry('JPM', '2026-10-13', 'bmo'), entry('C', '2026-10-13', 'bmo')];
+    store.set(key('JPM', '2026-10-13'), { v: 9, garbage: true });
+    const bars = barsFrom({ JPM: [['2026-10-12', 334.3], ['2026-10-13', 331.43]], C: [['2026-10-12', 131.92], ['2026-10-13', 124.53]] });
+    const fmp = barsFrom({ JPM: [['2026-10-12', 334.3], ['2026-10-13', 331.43]], C: [['2026-10-12', 131.92], ['2026-10-13', 124.53]] });
+    const r = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { bars, fmp, readObservation: async () => null } });
+    assert.deepEqual(r.actualsSaved, ['C|2026-10-13:-5.6019']);
+    assert.ok(r.skipped.some((x) => x.key === 'JPM|2026-10-13' && x.reason === 'invalid_record'));
+    assert.deepEqual(store.get(key('JPM', '2026-10-13')), { v: 9, garbage: true }, '깨진 기록은 덮지 않는다(수동 확인 몫)');
+    assert.equal((store.get(key('C', '2026-10-13')) as any).actual.pct, -5.6019);
+  });
+
+  await ta('★ 묶음 읽기가 비어 늦은 expected 를 채울 때도 저장된 actual 은 지운다·바꾸지 않는다(관문 10300928 ①)', async () => {
+    reset();
+    const list = [entry('INTC', '2026-10-29', 'amc')];
+    const actual = { pct: -5.1, baseDate: '2026-10-29', baseClose: 40, reactDate: '2026-10-30', reactClose: 37.96, src: 'intrinio-daily', check: 'fmp', at: ms('2026-10-30T21:00:00Z') };
+    store.set(key('INTC', '2026-10-29'), { v: 1, ticker: 'INTC', date: '2026-10-29', hour: 'amc', expected: null, actual, at: 1 });
+    failMget = true;
+    const r = await SVC.runActualsCycle({ nowMs: ms('2026-10-31T12:00:00Z'), list, deps: { ...obsDeps(obsOf('INTC', 6.9, '2026-10-29', '2026-10-30'), null),
+      bars: async () => { throw new Error('vendor down'); }, fmp: barsFrom({}) } });
+    assert.deepEqual(r.expectedSaved, ['INTC|2026-10-29:6.9']);
+    const rec = store.get(key('INTC', '2026-10-29')) as any;
+    assert.equal(rec.expected.pct, 6.9); assert.deepEqual(rec.actual, actual, '저장된 actual 그대로');
+  });
+  await ta('★ 회차 겹침 — 잠금이 잡혀 있으면 쉰다 · 잠금 저장소 불가면 actual 은 main 그대로, expected 만 쓰지 않는다(관문 10300928 ③)', async () => {
+    reset();
+    const list = [entry('JPM', '2026-10-13', 'bmo')];
+    const busy = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { ...obsDeps(obsOf('JPM', 3.2, '2026-10-12')), runLock: async () => 'busy' as const, bars: jpmBars, fmp: jpmFmp } });
+    assert.equal(writes, 0); assert.ok(busy.skipped.some((x) => x.reason === 'run_locked'));
+    const un = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { ...obsDeps(obsOf('JPM', 3.2, '2026-10-12')), runLock: async () => 'unavailable' as const, bars: jpmBars, fmp: jpmFmp } });
+    assert.deepEqual(un.expectedSaved, []); assert.deepEqual(un.actualsSaved, ['JPM|2026-10-13:-0.8585']);
+    assert.ok(un.skipped.some((x) => x.reason === 'expected:run_lock_unavailable'));
+    const rec = store.get(key('JPM', '2026-10-13')) as any;
+    assert.equal(rec.expected, null); assert.equal(rec.actual.pct, -0.8585);
+  });
+
+  await ta('★ actual 결과를 먼저 저장한 뒤 expected 관측을 읽는다(관문 10300933·10300934 — 조회 지연이 actual 저장을 막지 않게)', async () => {
+    reset();
+    const list = [entry('JPM', '2026-10-13', 'bmo')];
+    let actualAtRead: unknown = 'not-called';
+    const r = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { runLock: async () => 'ok' as const, bars: jpmBars, fmp: jpmFmp,
+      readObservation: async () => { actualAtRead = (store.get(key('JPM', '2026-10-13')) as any)?.actual?.pct; return obsOf('JPM', 3.2, '2026-10-12'); } } });
+    assert.equal(actualAtRead, -0.8585, 'expected 조회 시점에 actual 이 이미 저장돼 있다');
+    assert.deepEqual(r.actualsSaved, ['JPM|2026-10-13:-0.8585']); assert.deepEqual(r.expectedSaved, ['JPM|2026-10-13:3.2']);
+    const rec = store.get(key('JPM', '2026-10-13')) as any;
+    assert.equal(rec.expected.pct, 3.2); assert.equal(rec.actual.pct, -0.8585); assert.equal(writes, 2);
   });
 
   // ═══════════════════════════════════════════════════════════════════════════

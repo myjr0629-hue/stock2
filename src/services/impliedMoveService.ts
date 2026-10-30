@@ -156,6 +156,11 @@ function impliedRowOf(ticker: string, im: ImpliedMove | null, source: ImpliedMov
     };
 }
 
+/** 실적 영수증 전용 — 저장된 «마감 관측»(earningsMonthlyMove)을 실적 행과 같은 모양으로. 화면 경로는 쓰지 않는다. */
+export function earningsObservationRow(ticker: string, im: EarningsMove | null): ImpliedMoveRow {
+    return impliedRowOf(String(ticker || '').toUpperCase(), im, im ? 'probe' : null, im ? null : 'no_observation', true);
+}
+
 type ResolvedImpliedMove = { ticker: string; im: ImpliedMove | null; source: ImpliedMoveRow['source']; reason: string | null };
 const resolvedMoveOf = (ticker: string, im: ImpliedMove | null, source: ImpliedMoveRow['source'], reason: string | null): ResolvedImpliedMove => ({ ticker, im, source, reason });
 
