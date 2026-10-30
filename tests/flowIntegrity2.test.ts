@@ -556,6 +556,25 @@ async function test(name: string, fn: () => any) {
             assert.notEqual(phaseAtFallback, true);
         } finally { h.cleanup(); }
     });
+    await test('T37: a later-round squeeze fallback in flight holds AI readiness (aiReady) until it settles', async () => {
+        const releases: Array<(v: any) => void> = [];
+        const data: any = { ticker: 'A', session: 'REG', flow: { rawChain: [], squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+        const h = await fetchHarness({}, data, { fetch: (url: string) => url.includes('/short-squeeze') ? new Promise(r => releases.push(r)) : Promise.resolve({ ok: true, json: async () => ({ items: [], unavailable: true }) }) });
+        try {
+            assert.equal(h.state.flowPhaseDone, true);
+            assert.equal(h.state.squeezeFallbackPending ?? null, null);
+            data.flow = { rawChain: [], squeezeScore: null, squeezeRisk: null };
+            await h.refresh();
+            assert.notEqual(h.state.squeezeFallbackPending ?? null, null, '보충 중 표식');
+            const aiReady = (pending: any) => value('aiReady', { price: 10, tkNorm: (x: any) => String(x ?? '').toUpperCase(), tickerData: data, ticker: 'A', flowPhaseDone: true, squeezeFallbackPending: pending });
+            assert.equal(aiReady(h.state.squeezeFallbackPending), false, '보충 중엔 AI 요청을 미룬다(세션·언어가 바뀌어도)');
+            releases[0]({ ok: true, json: async () => ({ ticker: 'A', riskScore: 12, status: 'LOW' }) });
+            await settle();
+            assert.equal(h.state.squeezeFallbackPending, null);
+            assert.equal(aiReady(h.state.squeezeFallbackPending), true);
+            assert.deepEqual([h.state.squeezeFallback?.score, h.state.squeezeFallback?.risk], [12, 'LOW']);
+        } finally { h.cleanup(); }
+    });
     // ══ 4차 관문(10190151) — 체인 조회 성공 ≠ 체결 관측 / 0건 판정은 «현재 세션 필터 후» ══
     await test('G4-1 regular session chain without last_trade is source-missing, never $0 or "0 건 / $0"', async () => {
         const noTrade = [contract('call', 2000), contract('put', 1500), contract('call', 900, '2026-10-30')];

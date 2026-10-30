@@ -329,6 +329,14 @@ test('[T37] no structure score: the cell uses the command squeeze door (/api/liv
     const before = calls; await h.refresh(); assert.equal(calls, before);
     h.cleanup();
 });
+test('[T37] structure score without its risk level is not used — same condition as the command door (both or fallback)', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: 80, squeezeRisk: null } } as any;
+    let calls = 0;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, shortSqueeze: () => { calls++; return response({ ticker: 'NVDA', riskScore: 25, status: 'MEDIUM' }); } });
+    assert.equal(calls, 1);
+    assert.equal(h.display().squeeze, 25);
+    h.cleanup();
+});
 test('[T37] a hanging short-squeeze body does not stop the 30-second refresh', async () => {
     const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: null, squeezeRisk: null } } as any;
     const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, shortSqueeze: () => ({ ok: true, json: () => new Promise(() => {}) }) });

@@ -764,6 +764,8 @@ export default function AppFlowPage() {
   const [tickerDataSession, setTickerDataSession] = useState<string | null>(null);
   // [T37] 구조 스퀴즈 점수가 없을 때의 보충값 — 커맨드 squeeze 카드와 같은 문(/api/live/short-squeeze · shortSqueezeMetrics)의 riskScore·status.
   const [squeezeFallback, setSqueezeFallback] = useState<{ ticker: string; session: string; round: number; score: unknown; risk: unknown } | null>(null);
+  // [T37] 보충 요청이 날아가는 회차(없으면 null) — 그동안 AI 요청을 미룬다(첫 회차 뒤 세션·언어가 바뀌어도 보충 전 재료로 글을 만들지 않게, 관문 10310415 ②).
+  const [squeezeFallbackPending, setSqueezeFallbackPending] = useState<number | null>(null);
   // ★ [2026-10-07 앱 강화 T5] AI INTEL 재료 완결 표식 — 종목 첫 응답(1단계) 뒤에 고래·IV·내부자·옵션 체인 집계(2단계)가 다 반영된 뒤에만 true.
   //   예전엔 1단계 직후(P/C·고래 미반영: 종합 점수 −13/−18, P/C 0)의 재료로 AI 를 불러 그 글이 14시간 캐시에 앉았다(화면은 +9~+15).
   const [flowPhaseDone, setFlowPhaseDone] = useState(false);
@@ -1168,6 +1170,7 @@ export default function AppFlowPage() {
         setLoading(true);
         setTickerData(null);
         setSqueezeFallback(null);
+        setSqueezeFallbackPending(null);
         setFlowPhaseDone(false);
         setIvRankFeed(null);
         setOiAll(null);
@@ -1239,14 +1242,16 @@ export default function AppFlowPage() {
         // [T37] 구조 점수가 없으면 커맨드와 같은 문으로 보충 — 종목·세션·회차 확인. AI 재료 준비 완료(flowPhaseDone)는 이 응답까지 기다린다(관문 10310411).
         //   멈춘 본문이 갱신을 막지 않게 요청·본문 전체를 6초 상한(fetchSqueezeFallback: abort + 타이머 경쟁)으로 묶는다 — 상한이 지나면 보충 없이 진행.
         let squeezeFallbackPromise: Promise<void> = Promise.resolve();
-        if (data?.flow?.squeezeScore == null) {
+        // 구조 값은 점수·등급이 «둘 다» 있을 때만 쓴다 — 커맨드(shortSqueezeMetrics)와 같은 조건(관문 10310415 ①). 아니면 보충.
+        if (data?.flow?.squeezeScore == null || data?.flow?.squeezeRisk == null) {
           const sqTicker = ticker.toUpperCase();
           const sqSession = tickerReqSession;
+          setSqueezeFallbackPending(round);
           squeezeFallbackPromise = fetchSqueezeFallback(sqTicker, { fetch: (...a) => fetch(...a), setTimeout: (fn, ms) => window.setTimeout(fn, ms), clearTimeout: (id) => window.clearTimeout(id) }).then((fb) => {
             if (!fb || cancelled || shownRegularSessionDate() !== sqSession) return;   // 실패·시간 초과 — 같은 세션의 이전 보충값 유지, 없으면 «—»
             setSqueezeFallback((prev) => prev && prev.ticker === sqTicker && prev.round > round ? prev : { ticker: sqTicker, session: sqSession, round, score: fb.score, risk: fb.risk });
-          });
-        } else setSqueezeFallback(null);
+          }).finally(() => { if (!cancelled) setSqueezeFallbackPending((prev) => (prev === round ? null : prev)); });   // 취소된 효과는 쓰지 않는다 — 새 효과의 첫 회차가 null 로 초기화
+        } else { setSqueezeFallback(null); setSqueezeFallbackPending(null); }
         if (data.display?.price) setPrice(data.display.price);
         if (typeof data.display?.changePctPct === 'number' && Number.isFinite(data.display.changePctPct)) setChange(data.display.changePctPct);
 
@@ -1632,7 +1637,7 @@ export default function AppFlowPage() {
   const squeezeCurrent = String(tickerData?.ticker ?? '').toUpperCase() === ticker.toUpperCase() && tickerDataSession === shownRegularSessionDate();
   const squeezeFallbackCurrent = squeezeFallback?.ticker === ticker.toUpperCase() && squeezeFallback.session === shownRegularSessionDate();
   const squeezeReading = useMemo(() => flowSqueeze(
-    squeezeCurrent && tickerData?.flow?.squeezeScore != null ? tickerData.flow
+    squeezeCurrent && tickerData?.flow?.squeezeScore != null && tickerData?.flow?.squeezeRisk != null ? tickerData.flow
       : squeezeFallbackCurrent ? { squeezeScore: squeezeFallback!.score, squeezeRisk: squeezeFallback!.risk } : null,
   ), [tickerData, squeezeCurrent, squeezeFallback, squeezeFallbackCurrent]);
   const squeezeProb = squeezeReading.score;
@@ -1821,7 +1826,7 @@ export default function AppFlowPage() {
   //   (10/3 운영: AAPL 글에 PLTR 값, MSFT 글에 NVDA 값 등 5종목). tickerData 는 종목 전환 때 null 로 비워지고 새 응답에서 함께 채워진다.
   const tkNorm = (v: unknown) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   // ★ [2026-10-07 앱 강화 T5] + flowPhaseDone — 보조 응답까지 반영된 뒤에만(조기 재료로 생성 금지). 이 값이 true 로 바뀌는 렌더에 이펙트가 돈다.
-  const aiReady = price > 0 && tkNorm(tickerData?.ticker) === tkNorm(ticker) && flowPhaseDone;
+  const aiReady = price > 0 && tkNorm(tickerData?.ticker) === tkNorm(ticker) && flowPhaseDone && squeezeFallbackPending == null;   // [T37] 스퀴즈 보충(6초 상한) 중엔 미룬다
   // OPI 가 결측이면 서버는 재료 미완결(422)로 새 글을 만들지 않는다 → OPI 가 나중에 채워지면 한 번 다시 부른다(관문 10200222 ②).
   //   «OPI 있음/없음»을 요청 키에 넣는다 — 결측 회차 요청이 아직 날아가는 중에 OPI 가 복구돼도 키가 달라 새 요청이 나간다(관문 10200328 ③).
   //   응답은 «지금 키»의 것만 반영·정리한다(늦게 온 옛 요청의 422 가 새 요청의 키를 지우거나 옛 글이 새 글을 덮지 않게).
