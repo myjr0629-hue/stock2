@@ -655,6 +655,7 @@ export class GuardianDataHub {
         let regDrift: string[] = [];
         let regOk = false;
         let regGeneratedAt: string | undefined;
+        let regSeenAt: string | undefined;
         if (!force) {
             try {
                 const redisKey = `${GUARDIAN_SNAPSHOT_PREFIX}${locale}`;
@@ -1011,6 +1012,7 @@ export class GuardianDataHub {
                             regOk = settleRegTacticalRefresh(holder, placeholderFallback, IntelligenceNode.realityFreshAt(locale, verdict.num?.tpl?.realityInsight ?? verdict.realityInsight), regRefreshAt);
                             verdict = holder.verdict;
                             regGeneratedAt = holder.tacticalGeneratedAt;
+                            regSeenAt = regOk ? undefined : holder.tacticalSeenAt;   // 되돌렸으면 «본 시각»도 옛 것 — 그 사이 다른 인스턴스가 저장한 새 글을 채택할 수 있게(관문 10310838)
                         }
                         const checked = await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums, tacticalPrompts);
                         verdict = checked.verdict;
@@ -1065,7 +1067,7 @@ export class GuardianDataHub {
                 // ★T35-B 장중 글의 실제 생성 시각(캐시 재사용·복구 글이면 그 글의 원래 시각) — 30분 간격이 재계산 시각으로 밀리지 않게(관문 10310819 ①)
                 //   생성 시각을 모르면(보관본·저장본 복구 등 메모리에 없는 글) «오래된 글»로 둔다 — 정기 재생성 대상이 되되 공용 예약(30분·8회)이 호출을 막는다(관문 10310825 ②)
                 ...(rlsi.session === 'REG' ? (() => {
-                    if (regGeneratedAt) return { tacticalGeneratedAt: regGeneratedAt };   // 정기 재생성 정리가 정한 시각(새 글 = 생성 시각, 되돌림 = 옛 글 시각)
+                    if (regGeneratedAt) return { tacticalGeneratedAt: regGeneratedAt, ...(regSeenAt ? { tacticalSeenAt: regSeenAt } : {}) };   // 정기 재생성 정리가 정한 시각(새 글 = 생성 시각, 되돌림 = 옛 글 시각)
                     const at = IntelligenceNode.realityFreshAt(locale, verdict.num?.tpl?.realityInsight ?? verdict.realityInsight);
                     return { tacticalGeneratedAt: new Date(at ?? 0).toISOString() };
                 })() : {}),
