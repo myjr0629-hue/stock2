@@ -161,6 +161,17 @@ export function snapshotPlaceholderNeedsRecompute(
     const at = c.timestamp ? Date.parse(c.timestamp) : NaN;
     return !Number.isFinite(at) || now - at >= PLACEHOLDER_RECOMPUTE_MS;
 }
+/** 대기 문구 재계산 시도 간격(관문 10310216) — 재계산이 실패해 스냅샷 timestamp 가 그대로여도 언어당 5분에 한 번만. 인스턴스 메모리 + 공유 키(인스턴스 간). */
+const _placeholderRecomputeAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
+async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<boolean> {
+    if (now - _placeholderRecomputeAt[locale] < PLACEHOLDER_RECOMPUTE_MS) return false;
+    _placeholderRecomputeAt[locale] = now;
+    const key = `${GUARDIAN_SNAPSHOT_PREFIX}phrecompute:${locale}`;
+    const last = await getFromCache<number>(key).catch(() => null);
+    if (typeof last === 'number' && now - last < PLACEHOLDER_RECOMPUTE_MS) return false;
+    await setInCache(key, now, Math.ceil(PLACEHOLDER_RECOMPUTE_MS / 1000)).catch(() => false);
+    return true;
+}
 
 /**
  * ★2026-10-28 T2 장후 스냅샷의 Tactical 글이 «종가 이후 선물 사실 없이» 만들어졌는데 지금은 그 사실이 있다 → 다시 계산.
@@ -182,7 +193,7 @@ const POST_TACTICAL_ADOPT_CHECK_MS = 30 * 1000;
 const _tacticalAdoptCheckAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 /** 시험 전용 — 인스턴스 메모리(스냅샷 사본·채택 검사 간격)를 비워 «다른 인스턴스»를 흉내 낸다. */
 export function _resetGuardianHubStateForTest(): void {
-    for (const l of ['ko', 'en', 'ja'] as const) { _cachedContext[l] = null; _lastFetchTime[l] = 0; _tacticalAdoptCheckAt[l] = 0; }
+    for (const l of ['ko', 'en', 'ja'] as const) { _cachedContext[l] = null; _lastFetchTime[l] = 0; _tacticalAdoptCheckAt[l] = 0; _placeholderRecomputeAt[l] = 0; }
 }
 const tacticalSeenAtOf = (c: { tacticalSeenAt?: string; timestamp?: string }): number => {
     const at = Date.parse(c.tacticalSeenAt || c.timestamp || '');
@@ -496,6 +507,8 @@ export class GuardianDataHub {
         // [V12.0] Redis-first: Check EC2 Worker's pre-cached snapshot
         // [FIX] Validate that cached session matches current session before returning
         const currentSession = getMarketSession();
+        // ★T35 대기 문구 재계산이 실패하면(예외·성분 결측) 예전처럼 그 스냅샷을 그대로 준다(관문 10310216 — 응답 회귀 금지)
+        let placeholderFallback: GuardianContext | null = null;
         if (!force) {
             try {
                 const redisKey = `${GUARDIAN_SNAPSHOT_PREFIX}${locale}`;
@@ -514,9 +527,10 @@ export class GuardianDataHub {
                         if (cached.tacticalFutures === true) return GuardianDataHub.refreshPostTacticalFutures(cached, locale, now);
                         // ★2026-10-28 T2 장후 글이 종가 이후 선물 사실 없이 만들어졌는데 지금은 있다 — 다시 계산한다
                         console.log(`[Guardian] POST tactical lacks after-close futures that are now available (snapshot ${cached.timestamp}) — recomputing for ${locale}`);
-                    } else if (snapshotPlaceholderNeedsRecompute(cached, cachedSession, now)) {
+                    } else if (snapshotPlaceholderNeedsRecompute(cached, cachedSession, now) && await claimPlaceholderRecompute(locale, now)) {
                         // ★T35 대기 문구가 굳은 스냅샷 — 워커 도장과 무관하게 다시 계산(5분 간격)
                         console.log(`[Guardian] snapshot AI text is a placeholder (snapshot ${cached.timestamp}, ${cachedSession}) — recomputing for ${locale}`);
+                        placeholderFallback = cached;
                     } else {
                         // [FIX] Staleness check: if data is older than FRESH_MS, recompute for real-time freshness
                         // ★2026-09-23 실측: 워커는 약 30초마다 쓰는데(읽힌 나이 25~41초) 기준이 25초라 거의 모든 요청이
@@ -920,6 +934,7 @@ export class GuardianDataHub {
                         return lastGood;
                     }
                 } catch { /* fall through to degraded */ }
+                if (placeholderFallback) return placeholderFallback;
                 console.warn(`[Guardian] Degraded context (sectors empty) for ${locale} — no last-good available, serving once only.`);
             }
 
@@ -928,6 +943,7 @@ export class GuardianDataHub {
 
         } catch (error) {
             console.error("[Guardian] Unified Stream Error:", error);
+            if (placeholderFallback) return placeholderFallback;
             throw error;
         }
     }

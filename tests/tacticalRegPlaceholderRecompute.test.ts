@@ -66,14 +66,31 @@ assert.equal(snapshotPlaceholderNeedsRecompute(null, 'REG', now), false);
     const realNow = Date.now;
     Date.now = () => now;
     try {
+        const call = async () => Hub.computeGuardianSnapshot(false, 'ko');   // 예외를 삼키지 않는다 — 던지면 시험 실패
         const run = async (s: any) => {
             store.clear(); resetHub(); coreCalls = 0;
             store.set('guardian:snapshot:ko', s);
-            try { return await Hub.computeGuardianSnapshot(false, 'ko'); } catch { return null; }
+            return call();
         };
         // 운영 재현: 워커 도장 5초 전(신선) + 79분 묵은 «준비 중» → 다시 계산해야 한다(예전엔 그대로 반환·재계산 0)
-        await run(snap(PENDING, now - 79 * MIN));
+        const stale = snap(PENDING, now - 79 * MIN);
+        const failed = await run(stale);
         assert.equal(coreCalls, 1, '«준비 중» 스냅샷 → 재계산 진입');
+        // 관문 10310216 ① 재계산 실패(코어 없음 → 예외)여도 예전처럼 그 스냅샷을 준다(응답 회귀 0)
+        assert.equal(failed, stale, '재계산 실패 → 기존 스냅샷 반환(던지지 않음)');
+        // 관문 10310216 ② 실패로 timestamp 가 그대로여도 5분 안에는 다시 시도하지 않는다 — 같은 인스턴스
+        store.delete(`guardian:snapshot:recompute:ko`);   // 20초 재계산 잠금과 무관하게
+        assert.equal((await call()).verdict.realityInsight, PENDING);
+        assert.equal(coreCalls, 1, '같은 인스턴스 5분 안 재시도 0');
+        // 다른 인스턴스(메모리 없음)도 공유 키로 5분 안 재시도 0
+        resetHub(); store.delete(`guardian:snapshot:recompute:ko`);
+        assert.equal((await call()).verdict.realityInsight, PENDING);
+        assert.equal(coreCalls, 1, '다른 인스턴스 5분 안 재시도 0');
+        // 5분 뒤에는 다시 시도
+        const realNow2 = Date.now; Date.now = () => now + 5 * MIN; resetHub(); store.delete(`guardian:snapshot:recompute:ko`);
+        store.get('guardian:snapshot:ko')._workerTimestamp = iso(now + 5 * MIN - 5_000);   // 워커 도장은 계속 신선
+        try { await call(); } finally { Date.now = realNow2; }
+        assert.equal(coreCalls, 2, '5분 뒤 재시도 1회');
         // 정상 글 스냅샷은 기존처럼 그대로 반환(재계산 0 — 공급사 호출 증가 없음)
         const kept = await run(snap(stored, now - 79 * MIN));
         assert.equal(coreCalls, 0, '정상 글 → 재계산 없음');
@@ -82,6 +99,6 @@ assert.equal(snapshotPlaceholderNeedsRecompute(null, 'REG', now), false);
         const recent = await run(snap(PENDING, now - 2 * MIN));
         assert.equal(coreCalls, 0, '5분 안 → 재계산 없음');
         assert.equal(recent?.verdict.realityInsight, PENDING);
-        console.log('통과 T35 장중 «준비 중» 고정: 지난 일정 탈락(검사 불변)·대기 문구 스냅샷 5분 재계산·정상 글/장외/5분 안 재계산 0');
+        console.log('통과 T35 장중 «준비 중» 고정: 지난 일정 탈락(검사 불변)·대기 문구 스냅샷 5분 재계산·실패 시 기존 스냅샷 반환·실패 후 5분 간격(인스턴스·공유)·정상 글/장외/5분 안 재계산 0');
     } finally { Date.now = realNow; }
 })().catch((e) => { console.error(e); process.exit(1); });
