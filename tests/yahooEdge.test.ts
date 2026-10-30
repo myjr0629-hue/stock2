@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createEdgeFetch, probeEdges, YAHOO_ALT_EDGES, EDGE_PROBE_EVERY_MS } from '../src/lib/cron/yahooEdge';
+import { createEdgeFetch, probeEdges, YAHOO_ALT_EDGES, EDGE_PROBE_EVERY_MS, PINNED_TIMEOUT_MS, MAX_CONSECUTIVE_FAILS } from '../src/lib/cron/yahooEdge';
 
 const NOW_SEC = 1_793_390_000;
 const chart = (t: number | null) => ({ ok: true, status: 200, json: async () => ({ chart: { result: [{ meta: { regularMarketTime: t, regularMarketPrice: 1 } }] } }) });
@@ -46,37 +46,75 @@ test('감싼 fetch: 야후 query1 만 고른 접속점으로, 그 외 주소는 
     const r = rig({ dns: NOW_SEC - 3219, [YAHOO_ALT_EDGES[0]]: NOW_SEC - 603, [YAHOO_ALT_EDGES[1]]: 'throw' });
     let clock = 1_000_000;
     const ef = createEdgeFetch(r.base, { pinned: r.pinned, now: () => clock });
+    // 첫 요청은 점검을 기다리지 않고 DNS 기본으로 나간다(점검은 뒤에서)
+    const first = await ef.fetch(YURL, { headers: { 'User-Agent': 'x' } });
+    assert.equal(first.ok, true);
+    await ef.refresh();
+    assert.equal(ef.state.edge, YAHOO_ALT_EDGES[0]);
+    r.calls.length = 0;
     const res = await ef.fetch(YURL, { headers: { 'User-Agent': 'x' } });
     assert.equal(res.ok, true);
-    assert.equal(ef.state.edge, YAHOO_ALT_EDGES[0]);
-    assert.equal(r.calls.at(-1), `${YAHOO_ALT_EDGES[0]} ${YURL}`);
+    assert.equal((await res.json()).chart.result[0].meta.regularMarketTime, NOW_SEC - 603);
+    assert.deepEqual(r.calls, [`${YAHOO_ALT_EDGES[0]} ${YURL}`]);
     r.calls.length = 0;
     await ef.fetch('https://example-redis.upstash.io/get/x');
     await ef.fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata');
     assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), ['dns', 'dns']);
     // 5분 안에는 다시 점검하지 않는다(수집 호출 수 불변)
     r.calls.length = 0; clock += EDGE_PROBE_EVERY_MS - 1;
-    await ef.fetch(YURL);
+    await ef.fetch(YURL); await ef.refresh();
     assert.equal(r.calls.length, 1);
     clock += 2;
-    await ef.fetch(YURL);
-    assert.equal(r.calls.length, 1 + 3 + 1, '5분 뒤 점검 3회(dns+아시아 2) + 수집 1회');
+    await ef.fetch(YURL); await ef.refresh();
+    assert.equal(r.calls.length, 1 + 1 + 3, '5분 뒤 수집 1회 + 점검 3회(dns+아시아 2)');
 });
 
-test('고정 접속점이 실패·4xx 면 같은 요청을 기본 fetch 로 다시 보낸다(기존보다 나빠지지 않음)', async () => {
-    for (const fail of ['throw', 'bad'] as const) {
+test('고정 접속점이 실패·4xx·차트 없는 200 이면 같은 요청을 기본 fetch 로 다시 보낸다(기존보다 나빠지지 않음)', async () => {
+    for (const fail of ['throw', 'bad', 'empty200'] as const) {
         const times: Record<string, any> = { dns: NOW_SEC - 3219, [YAHOO_ALT_EDGES[0]]: NOW_SEC - 603, [YAHOO_ALT_EDGES[1]]: 'throw' };
         const r = rig(times);
-        const ef = createEdgeFetch(r.base, { pinned: r.pinned, now: () => 1 });
+        const pinned = async (ip: string, url: string, init?: any) => {
+            if (fail === 'empty200' && times[ip] === 'empty200') { r.calls.push(`${ip} ${url}`); return { ok: true, status: 200, json: async () => ({ chart: { result: null, error: { code: 'Not Found' } } }) }; }
+            return r.pinned(ip, url);
+        };
+        const ef = createEdgeFetch(r.base, { pinned, now: () => 1 });
         await ef.refresh();
         assert.equal(ef.state.edge, YAHOO_ALT_EDGES[0]);
         times[YAHOO_ALT_EDGES[0]] = fail;
         r.calls.length = 0;
         const res = await ef.fetch(YURL);
-        assert.equal(res.ok, true);
-        assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), [YAHOO_ALT_EDGES[0], 'dns']);
+        assert.equal(res.ok, true, fail);
+        assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), [YAHOO_ALT_EDGES[0], 'dns'], fail);
         assert.equal(ef.state.pinnedFails, 1);
     }
+});
+
+test('호출자 signal 이 만료돼도 기본 fetch 재시도는 새 제한으로 나간다(관문 10310520 #1)', async () => {
+    const seen: any[] = [];
+    const base = async (_url: any, init?: any) => { seen.push(init?.signal); if (init?.signal?.aborted) throw new Error('aborted'); return chart(NOW_SEC); };
+    const hang = async (_ip: string, _url: string, init?: any) => new Promise<any>((_, rej) => {
+        init?.signal?.addEventListener('abort', () => rej(new Error('timeout')), { once: true });
+    });
+    const ef = createEdgeFetch(base, { pinned: hang, now: () => 1 });
+    ef.state.edge = YAHOO_ALT_EDGES[0]; ef.state.checkedAt = 1;   // 점검 없이 고정 상태
+    const callerAbort = new AbortController(); callerAbort.abort();
+    const t0 = Date.now();
+    const keepAlive = setInterval(() => {}, 1000);   // AbortSignal.timeout 타이머는 unref — 시험 동안 루프 유지
+    const res = await ef.fetch(YURL, { signal: callerAbort.signal }).finally(() => clearInterval(keepAlive));
+    assert.equal(res.ok, true);
+    assert.ok(Date.now() - t0 >= PINNED_TIMEOUT_MS - 50 && Date.now() - t0 < PINNED_TIMEOUT_MS + 1500, '고정 접속점은 자체 3초 제한');
+    assert.equal(seen.at(-1)?.aborted, false, '재시도 signal 은 살아 있다');
+});
+
+test('연속 3번 실패하면 다음 점검까지 DNS 기본으로 돌아간다', async () => {
+    const r = rig({ dns: NOW_SEC, [YAHOO_ALT_EDGES[0]]: 'bad' });
+    const ef = createEdgeFetch(r.base, { pinned: r.pinned, now: () => 1 });
+    ef.state.edge = YAHOO_ALT_EDGES[0]; ef.state.checkedAt = 1;
+    for (let i = 0; i < MAX_CONSECUTIVE_FAILS; i++) await ef.fetch(YURL);
+    assert.equal(ef.state.edge, null);
+    r.calls.length = 0;
+    await ef.fetch(YURL);
+    assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), ['dns']);
 });
 
 test('점검이 동률이면 기본 fetch 만 쓴다(접속점 고정 없음)', async () => {

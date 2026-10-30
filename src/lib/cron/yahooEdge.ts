@@ -11,7 +11,8 @@
  * 하는 일: 5분마다 기준 심볼(NQ=F) 하나를 «DNS 기본»과 «아시아 접속점들»에 물어 regularMarketTime 이 가장 최신인 곳을 고른다.
  *   이후 query1.finance.yahoo.com 요청만 그 접속점으로 보낸다(TLS 인증서·SNI 는 그대로 query1.finance.yahoo.com — 주소가 바뀌어도
  *   야후가 아니면 TLS 가 실패하고 기본 fetch 로 돌아간다). 시간이 같으면(장 마감·주말) DNS 기본을 유지한다.
- *   고정 접속점이 실패(네트워크·TLS·4xx/5xx)하면 그 요청은 즉시 기본 fetch 로 다시 보낸다 → 기존 동작보다 나빠지지 않는다.
+ *   고정 접속점이 실패(네트워크·TLS·3초 초과·4xx/5xx·차트 본문 없음)하면 그 요청은 새 5초 제한으로 기본 fetch 에 다시 보내고,
+ *   연속 3번 실패하면 다음 점검까지 DNS 기본으로 돌아간다 → 기존 동작보다 나빠지지 않는다. 점검은 수집 요청을 기다리게 하지 않는다(뒤에서).
  * 호출량: 수집 호출 수 불변 + 점검 5분마다 3회(분당 0.6회).
  */
 import https from 'node:https';
@@ -20,6 +21,9 @@ export const YAHOO_HOST = 'query1.finance.yahoo.com';
 /** 아시아 접속점 — 10/31 실측 신선(야후 기본 지연만). 바뀌면 TLS 실패 → 기본 fetch 로 돌아간다. */
 export const YAHOO_ALT_EDGES: readonly string[] = ['180.222.109.252', '180.222.119.247'];
 export const EDGE_PROBE_EVERY_MS = 5 * 60_000;
+export const PINNED_TIMEOUT_MS = 3000;
+const FALLBACK_TIMEOUT_MS = 5000;
+export const MAX_CONSECUTIVE_FAILS = 3;
 const PROBE_URL = `https://${YAHOO_HOST}/v8/finance/chart/NQ%3DF?interval=1m&range=1d`;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 
@@ -119,20 +123,35 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
         await probing;
     }
 
+    let consecutiveFails = 0;
     const edgeFetch = async (input: any, init?: any): Promise<any> => {
         const url = typeof input === 'string' ? input : String(input?.url ?? input);
         let host = '';
         try { host = new URL(url).hostname; } catch { /* 상대 주소 등 — 그대로 */ }
         if (host !== YAHOO_HOST) return baseFetch(input, init);
-        await refresh();
+        void refresh();   // 점검은 뒤에서 — 수집 요청(호출자의 5초 제한)을 기다리게 하지 않는다. 첫 회차는 DNS 기본.
         const ip = state.edge;
         if (!ip) return baseFetch(input, init);
         try {
-            const res = await pinned(ip, url, init);
-            if (res.ok) return res;
+            // 고정 접속점엔 호출자 signal 대신 자체 3초 제한 — 만료된 signal 이 아래 재시도까지 죽이지 않게(관문 10310520 #1)
+            const { signal: _callerSignal, ...rest } = init || {};
+            const res = await pinned(ip, url, { ...rest, signal: AbortSignal.timeout(PINNED_TIMEOUT_MS) });
+            if (res.ok) {
+                const data = await res.json();
+                // 200 이어도 차트 본문이 없으면 실패로 보고 기본 경로로(관문 10310520 #2)
+                if (!url.includes('/v8/finance/chart/') || data?.chart?.result?.[0]?.meta) {
+                    consecutiveFails = 0;
+                    return { ok: true, status: res.status, json: async () => data };
+                }
+            }
         } catch { /* 아래 기본 fetch 로 */ }
         state.pinnedFails++;
-        return baseFetch(input, init);
+        if (++consecutiveFails >= MAX_CONSECUTIVE_FAILS) {
+            // 연속 실패 — 다음 점검(5분)까지 DNS 기본으로 돌아간다(회차마다 3초씩 잃지 않게)
+            opts.log?.(`[yahoo-edge] 접속점 ${ip} 연속 실패 ${consecutiveFails} — 다음 점검까지 dns`);
+            state.edge = null; consecutiveFails = 0;
+        }
+        return baseFetch(input, { ...(init || {}), signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS) });
     };
     return { fetch: edgeFetch, state, refresh };
 }
