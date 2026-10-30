@@ -21,6 +21,12 @@ import path from 'node:path';
 import { runMarketFeed, SYMBOLS } from '@/services/jobs/marketFeedJob';
 import { getAuthoritativeCache, setAuthoritativeCache } from '@/services/redisClient';
 import { ec2MarkerKey, type Ec2SuccessMarker } from '@/lib/cron/ec2Handoff';
+import { createEdgeFetch } from '@/lib/cron/yahooEdge';
+
+// ★ [2026-10-31] EC2 의 DNS 가 주는 야후 미국 접속점은 선물·SOX 를 수십 분 늙은 값으로 준다(src/lib/cron/yahooEdge.ts 실측).
+//   이 프로세스의 fetch 를 감싸 query1.finance.yahoo.com 만 «가장 신선한 접속점»으로 보낸다(실패하면 기본 fetch). 수집 함수 본문은 그대로.
+const yahooEdge = createEdgeFetch(globalThis.fetch.bind(globalThis), { log: (m) => console.warn(m) });
+globalThis.fetch = yahooEdge.fetch as typeof fetch;
 
 const JOB = 'market-feed';
 const VERSION = process.env.CRON_BUILD || 'dev';
@@ -98,7 +104,7 @@ async function tick(sec: number): Promise<boolean> {
             console.error(`[cron-${JOB}] 성공 0건(연속 ${consecutiveZero}) — 표식을 남기지 않는다(Vercel 이 이어받는다)`);
         }
         if (tookMs > 20_000) console.warn(`[cron-${JOB}] 회차가 느리다: ${tookMs}ms`);
-        logLine({ t: new Date().toISOString(), sec, tookMs, ok: r.ok, fail: r.fail, failed: r.failed, vix: doVix, vixTriggered: r.vixTriggered, markerOk, results: r.results });
+        logLine({ t: new Date().toISOString(), sec, tookMs, ok: r.ok, fail: r.fail, failed: r.failed, vix: doVix, vixTriggered: r.vixTriggered, markerOk, edge: yahooEdge.state.edge ?? 'dns', edgeProbe: yahooEdge.state.lastProbe, edgeFails: yahooEdge.state.pinnedFails, results: r.results });
         return markerOk;
     } catch (e: any) {
         consecutiveZero++;
