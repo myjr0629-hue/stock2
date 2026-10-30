@@ -160,7 +160,8 @@ export function postTacticalNeedsDriftRefresh(c: PostTacticalFuturesState | null
  * ★2026-10-31 T35-B 장중(REG) 정기 재생성 — 개장 직후 글이 장중 내내 굳지 않게.
  *   스냅샷은 EC2 워커가 30초마다 도장만 새로 찍어 장중엔 재계산(=재생성)이 없다(T35). 지수가 −3% 로 밀려도 09:3x 글이 남는다.
  *   조건: 마지막 생성 30분 경과 && (나스닥·S&P 500 변화율이 그 글의 생성 기준 대비 0.5%p 이상 또는 RLSI 5 이상 변화).
- *   상한: ET 날짜(장중 세션)당 3언어 1호출 기준 8회(한 호출이 ko·en·ja 를 함께 쓰므로 언어별 상한도 8회) — 장후 변동(POST) 예약·실패 대기 장치를 그대로 쓴다.
+ *   상한: ET 날짜(장중 세션)당 «재생성 시도» 8회 — 시도 1회 = 재계산 1회(Tactical 3언어 1호출 + 탈락 시 교정 1호출, 같은 재계산의 순환매·감마 캐시 만료분).
+ *   공급사 재시도·사다리 전환은 기존 일반 생성 정책(장후 변동 POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS 와 같은 단위). 한 시도가 ko·en·ja 를 함께 쓰므로 언어별 상한도 8회.
  *   비교 값은 생성 기준(verdict.num.basis.realityInsight)과 지금 스냅샷의 같은 원천(market.nqChangePercent·factors.spx·rlsi.score).
  */
 export const REG_TACTICAL_REFRESH_MS = 30 * 60_000;

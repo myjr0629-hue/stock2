@@ -1042,6 +1042,11 @@ export class IntelligenceNode {
         return { text: shownOut('reality', locale, { tpl: stored.text, basis: stored.basis ?? null, session: 'REG' }, nums), at: stored.at, seenAt: stored.at };
     }
 
+    /** 이 인스턴스가 이 언어 Tactical 을 마지막으로 만든(생성·번역) 또는 받아 둔 글의 시각 — 정기 재생성 성공 판정(T35-B)용. 없으면 null */
+    static realityGeneratedAt(locale: Locale): number | null {
+        return _mem.reality[locale]?.at ?? null;
+    }
+
     /** 장중(REG) 저장본(같은 ET 날짜)의 저장 시각 — 검사 없는 값싼 GET 한 번. 다른 언어·인스턴스가 새 3언어 글을 저장했는지 보는 데만. */
     static async latestStoredRegTacticalAt(locale: Locale, now = Date.now()): Promise<number | null> {
         const redis = getRedis();

@@ -170,26 +170,31 @@ class OfflineRedis {
         // 예약 저장소 장애 → 재계산 0(상한 미확인 호출 금지)
         budgetFails = true; fresh(snap()); await call(); assert.equal(coreCalls, 0, '예약 장애 → 0'); budgetFails = false;
 
-        // ── ④ 실패 시 기존 글 유지(재계산 결과가 대기 문구일 때) ──
+        // ── ④ 실패 시 기존 글 유지 · 예약 결과는 «이번 예약 뒤 새로 만든 글»일 때만 성공(관문 10310437 P2 · 10310517 ①) ──
         const prev = snap({ seen: now - 45 * MIN });
-        const next: any = { timestamp: iso(now), verdict: { realityInsight: PENDING, description: '새 순환매', num: { tpl: { description: 'd' }, basis: { description: { RLSI: 30 } } } } };
-        assert.equal(keepRegTacticalOnFailure(next, prev), true);
-        assert.equal(next.verdict.realityInsight, TEXT, '기존 장중 글 유지');
-        assert.deepEqual(next.verdict.num.basis.realityInsight, { NDX_CHG: -2.5, SPX_CHG: -1.6, RLSI: 33 }, '생성 기준도 그대로');
-        assert.equal(next.verdict.description, '새 순환매', '다른 칸은 새 계산 그대로');
-        assert.equal(next.tacticalGeneratedAt, prev.tacticalGeneratedAt, '생성 시각도 옛 글 것');
-        const ok2: any = { verdict: { realityInsight: '새 정상 글' } };
-        assert.equal(keepRegTacticalOnFailure(ok2, prev), false, '새 글이 있으면 그대로');
+        const NEWT = TEXT.replace('2.5%', '3.4%');
+        const mk = (t: string): any => ({ timestamp: iso(now), verdict: { realityInsight: t, description: '새 순환매', num: { tpl: { description: 'd', realityInsight: t }, basis: { description: { RLSI: 30 }, realityInsight: { NDX_CHG: -3.4 } } } } });
+        {   const next = mk(PENDING);
+            assert.equal(settleRegTacticalRefresh(next, prev, now + 1, now), false, '대기 문구 → 실패');
+            assert.equal(next.verdict.realityInsight, TEXT, '기존 장중 글 유지');
+            assert.deepEqual(next.verdict.num.basis.realityInsight, { NDX_CHG: -2.5, SPX_CHG: -1.6, RLSI: 33 }, '생성 기준도 그대로');
+            assert.equal(next.verdict.description, '새 순환매', '다른 칸은 새 계산 그대로');
+            assert.equal(next.tacticalGeneratedAt, prev.tacticalGeneratedAt, '생성 시각도 옛 글 것'); }
+        {   const next = mk(NEWT);   // 다른 글이지만 이번 예약 전 시각(보관본·옛 저장본 복구)
+            assert.equal(settleRegTacticalRefresh(next, prev, now - 50 * MIN, now), false, '복구 글 → 실패');
+            assert.equal(next.verdict.realityInsight, TEXT, '복구 글 대신 기존 글 유지'); }
+        {   const next = mk(TEXT);
+            assert.equal(settleRegTacticalRefresh(next, prev, now + 1, now), false, '같은 글 → 실패'); }
+        {   const next = mk(NEWT);
+            assert.equal(settleRegTacticalRefresh(next, prev, now + 5_000, now), true, '이번 예약 뒤 새 글 → 성공');
+            assert.equal(next.verdict.realityInsight, NEWT);
+            assert.equal(next.tacticalGeneratedAt, iso(now + 5_000), '새 글의 생성 시각'); }
         assert.equal(keepRegTacticalOnFailure({ verdict: { realityInsight: PENDING } }, snap({ text: PENDING })), false, '옛 글도 대기 문구면 손대지 않음');
-        // 관문 10310437 P2 — 예약 결과: 새 정상 글만 성공, 대기 문구(유지)·같은 글(복구본)은 실패로 기록
-        assert.equal(settleRegTacticalRefresh({ verdict: { realityInsight: PENDING } }, snap()), false, '대기 문구 → 유지 + 실패');
-        assert.equal(settleRegTacticalRefresh({ verdict: { realityInsight: TEXT } }, snap()), false, '복구된 같은 글 → 실패');
-        assert.equal(settleRegTacticalRefresh({ verdict: { realityInsight: TEXT.replace('2.5%', '3.4%') } }, snap()), true, '새 글 → 성공');
-        {   // 실패 기록이면 60분 대기·연속 2회면 그날 중지(공용 Lua)
+        {   // 실패 기록이면 60분 대기(공용 Lua)
             budgets.clear();
             const t0 = now;
             assert.equal(await reserveRegTacticalRefresh(r, t0), true);
-            await finishRegTacticalRefresh(r, t0, settleRegTacticalRefresh({ verdict: { realityInsight: PENDING } }, snap()), t0 + 20_000);
+            await finishRegTacticalRefresh(r, t0, settleRegTacticalRefresh(mk(PENDING), snap(), t0 + 1, t0), t0 + 20_000);
             assert.equal(await reserveRegTacticalRefresh(r, t0 + 31 * MIN), false, '대기 문구 결과 = 실패 → 60분 대기');
         }
 

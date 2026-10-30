@@ -51,7 +51,7 @@ export async function finishPostTacticalRefresh(redis: BudgetRedis | null, reser
 
 /**
  * ★2026-10-31 T35-B 장중(REG) 정기 재생성 예약 — 장후 변동(POST)과 같은 Lua(원자 차감·잠정 실패·60분 대기·연속 2회 실패 중지)를 다른 키로 쓴다.
- *   ET 날짜 하나에 모든 언어·인스턴스 공용: 최소 30분 간격 · 8회 상한(한 호출 = 3언어).
+ *   ET 날짜 하나에 모든 언어·인스턴스 공용: 최소 30분 간격 · 재생성 «시도» 8회 상한(시도 = 재계산 1회, 그 안의 모델 호출 수는 기존 생성 정책 — REG_TACTICAL_MAX_REGEN_ATTEMPTS 주석).
  */
 const regBudgetKey = (now: number) => `guardian:tactical:reg-refresh:${etDateOf(now)}`;
 export async function reserveRegTacticalRefresh(redis: BudgetRedis | null, now: number): Promise<boolean> {

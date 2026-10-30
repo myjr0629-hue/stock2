@@ -165,14 +165,14 @@ export function snapshotPlaceholderNeedsRecompute(
     const at = c.timestamp ? Date.parse(c.timestamp) : NaN;
     return !Number.isFinite(at) || now - at >= PLACEHOLDER_RECOMPUTE_MS;
 }
-/** ★T35-B 정기 재생성 결과가 대기 문구면 직전 스냅샷의 장중 글·생성 기준을 그대로 둔다(«실패 시 기존 글 유지»). 출구 검사는 그 뒤에 다시 돈다. */
+/** ★T35-B 정기 재생성이 새 글을 만들지 못했으면 직전 스냅샷의 장중 글·생성 기준·생성 시각을 그대로 둔다(«실패 시 기존 글 유지»). 출구 검사는 그 뒤에 다시 돈다. */
 export function keepRegTacticalOnFailure(
     next: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string },
     previous: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string },
 ): boolean {
     const now = next.verdict?.realityInsight, old = previous.verdict?.realityInsight;
     if (!next.verdict || typeof old !== 'string' || !old || IntelligenceNode.isPlaceholderInsight(old)) return false;
-    if (typeof now === 'string' && now && !IntelligenceNode.isPlaceholderInsight(now)) return false;
+    if (now === old) { next.tacticalGeneratedAt = previous.tacticalGeneratedAt || previous.timestamp; return true; }
     const tpl = { ...next.verdict.num?.tpl }, basis = { ...next.verdict.num?.basis };
     if (previous.verdict?.num?.tpl?.realityInsight !== undefined) tpl.realityInsight = previous.verdict.num.tpl.realityInsight; else delete tpl.realityInsight;
     if (previous.verdict?.num?.basis?.realityInsight !== undefined) basis.realityInsight = previous.verdict.num.basis.realityInsight; else delete basis.realityInsight;
@@ -183,11 +183,20 @@ export function keepRegTacticalOnFailure(
     return true;
 }
 
-/** 정기 재생성 재계산 결과 정리 — 대기 문구면 기존 글 유지(keepRegTacticalOnFailure). 새 정상 글로 바뀐 경우만 true(예약 성공), 유지·같은 글(복구본)은 false(60분 대기·연속 2회 중지). */
-export function settleRegTacticalRefresh(next: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string }, previous: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string }): boolean {
-    if (keepRegTacticalOnFailure(next, previous)) return false;
+/**
+ * 정기 재생성 재계산 결과 정리 — 이 언어 글이 «이번 예약 뒤에 새로 만든 글»(생성 또는 같은 재료 3언어 결과의 번역: 메모리 기록 시각 ≥ 예약 시각)일 때만 성공.
+ *   대기 문구·보관본/옛 저장본 복구(관문 10310517 ①)는 실패 — 기존 글·생성 시각을 그대로 두고 60분 대기·연속 2회 중지.
+ */
+export function settleRegTacticalRefresh(
+    next: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string },
+    previous: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string },
+    freshAt: number | null | undefined, reservedAt: number,
+): boolean {
     const now = next.verdict?.realityInsight;
-    return typeof now === 'string' && !!now && !IntelligenceNode.isPlaceholderInsight(now) && now !== previous.verdict?.realityInsight;
+    const fresh = typeof freshAt === 'number' && freshAt >= reservedAt && typeof now === 'string' && !!now && !IntelligenceNode.isPlaceholderInsight(now) && now !== previous.verdict?.realityInsight;
+    if (fresh) { next.tacticalGeneratedAt = new Date(freshAt).toISOString(); return true; }
+    keepRegTacticalOnFailure(next, previous);
+    return false;
 }
 
 /**
@@ -1024,7 +1033,7 @@ export class GuardianDataHub {
 
             // ★T35-B 정기 재생성이 새 글을 못 만들어 대기 문구가 됐으면 기존 장중 글(과 그 생성 기준)을 지킨다 — 출구 검사가 그 글을 다시 거른다
             //   예약 결과: 새 글로 바뀌었을 때만 성공 — 대기 문구(기존 글 유지)·같은 글(복구본)은 실패로 기록해 60분 대기·연속 2회 중지(관문 10310437 P2)
-            const regOk = regRefreshAt && placeholderFallback ? settleRegTacticalRefresh(context, placeholderFallback) : false;
+            const regOk = regRefreshAt && placeholderFallback ? settleRegTacticalRefresh(context, placeholderFallback, IntelligenceNode.realityGeneratedAt(locale), regRefreshAt) : false;
             // 결과는 여기서 바로 기록 — 아래 섹터 결측(조기 반환) 경로에서도 빠지지 않게(관문 10310511 ②). 새 글은 저장소에 들어가 다른 경로가 채택한다
             if (regRefreshAt) { await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now()); regRefreshAt = 0; }
 
