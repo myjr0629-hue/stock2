@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createEdgeFetch, probeEdges, YAHOO_ALT_EDGES, EDGE_PROBE_EVERY_MS, PINNED_TIMEOUT_MS, MAX_CONSECUTIVE_FAILS } from '../src/lib/cron/yahooEdge';
+import { createEdgeFetch, probeEdges, YAHOO_ALT_EDGES, EDGE_PROBE_EVERY_MS, PINNED_TIMEOUT_MS, MAX_CONSECUTIVE_FAILS, chartBodyUsable } from '../src/lib/cron/yahooEdge';
 
 const NOW_SEC = 1_793_390_000;
 const chart = (t: number | null) => ({ ok: true, status: 200, json: async () => ({ chart: { result: [{ meta: { regularMarketTime: t, regularMarketPrice: 1 } }] } }) });
@@ -70,11 +70,12 @@ test('감싼 fetch: 야후 query1 만 고른 접속점으로, 그 외 주소는 
 });
 
 test('고정 접속점이 실패·4xx·차트 없는 200 이면 같은 요청을 기본 fetch 로 다시 보낸다(기존보다 나빠지지 않음)', async () => {
-    for (const fail of ['throw', 'bad', 'empty200'] as const) {
+    for (const fail of ['throw', 'bad', 'empty200', 'noPrice200'] as const) {
         const times: Record<string, any> = { dns: NOW_SEC - 3219, [YAHOO_ALT_EDGES[0]]: NOW_SEC - 603, [YAHOO_ALT_EDGES[1]]: 'throw' };
         const r = rig(times);
         const pinned = async (ip: string, url: string, init?: any) => {
             if (fail === 'empty200' && times[ip] === 'empty200') { r.calls.push(`${ip} ${url}`); return { ok: true, status: 200, json: async () => ({ chart: { result: null, error: { code: 'Not Found' } } }) }; }
+            if (fail === 'noPrice200' && times[ip] === 'noPrice200') { r.calls.push(`${ip} ${url}`); return { ok: true, status: 200, json: async () => ({ chart: { result: [{ meta: {} }] } }) }; }
             return r.pinned(ip, url);
         };
         const ef = createEdgeFetch(r.base, { pinned, now: () => 1 });
@@ -125,6 +126,17 @@ test('점검이 동률이면 기본 fetch 만 쓴다(접속점 고정 없음)', 
     r.calls.length = 0;
     await ef.fetch(YURL);
     assert.deepEqual(r.calls.map((c) => c.split(' ')[0]), ['dns']);
+});
+
+test('차트 본문 판정: 1분봉은 가격, 일봉은 timestamp 가 있어야 쓴다', () => {
+    const m = 'https://query1.finance.yahoo.com/v8/finance/chart/NQ%3DF?interval=1m&range=1d';
+    const d = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI?interval=1d&range=7d';
+    assert.equal(chartBodyUsable(m, { chart: { result: [{ meta: {} }] } }), false);
+    assert.equal(chartBodyUsable(m, { chart: { result: [{ meta: { regularMarketPrice: 0 } }] } }), false);
+    assert.equal(chartBodyUsable(m, { chart: { result: [{ meta: { regularMarketPrice: 28537 } }] } }), true);
+    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [] }] } }), false);
+    assert.equal(chartBodyUsable(d, { chart: { result: [{ meta: {}, timestamp: [1] }] } }), true);
+    assert.equal(chartBodyUsable(m, { chart: { result: null } }), false);
 });
 
 test('워커 배선: fetch 를 감싸고 수집 함수 본문(marketFeedJob)은 건드리지 않는다', () => {

@@ -96,6 +96,14 @@ export async function probeEdges(baseFetch: FetchLike, pinned: PinnedFetch, alts
     return { edge, times };
 }
 
+/** 차트 응답이 수집 함수가 쓸 수 있는 모양인가 — 1분봉은 meta.regularMarketPrice, 일봉은 timestamp 배열(관문 10310522: meta:{} 200). */
+export function chartBodyUsable(url: string, data: any): boolean {
+    const r0 = data?.chart?.result?.[0];
+    if (!r0?.meta) return false;
+    if (/[?&]interval=1d\b/.test(url)) return Array.isArray(r0.timestamp) && r0.timestamp.length > 0;
+    return typeof r0.meta.regularMarketPrice === 'number' && r0.meta.regularMarketPrice > 0;
+}
+
 /**
  * 기본 fetch 를 감싼다: query1.finance.yahoo.com 요청만 고른 접속점으로. 그 외 주소·접속점 미선택은 기본 fetch 그대로.
  * 고정 접속점이 실패하거나 ok 가 아니면 같은 요청을 기본 fetch 로 다시 보낸다.
@@ -139,7 +147,7 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
             if (res.ok) {
                 const data = await res.json();
                 // 200 이어도 차트 본문이 없으면 실패로 보고 기본 경로로(관문 10310520 #2)
-                if (!url.includes('/v8/finance/chart/') || data?.chart?.result?.[0]?.meta) {
+                if (!url.includes('/v8/finance/chart/') || chartBodyUsable(url, data)) {
                     consecutiveFails = 0;
                     return { ok: true, status: res.status, json: async () => data };
                 }
