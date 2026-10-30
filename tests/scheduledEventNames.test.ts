@@ -85,6 +85,8 @@ assert.ok(strict('11/10(화) 13:00 ET 10년물 국채 입찰 예정', AUC2, NOV1
 assert.ok(strict('11/10(화) 13:00 ET 12년물 국채 입찰 예정', AUC2, NOV10).length, '숫자 경계');
 assert.ok(strict('11/10(화) 13:00 ET 2년물 물가연동 국채 입찰 예정', AUC2, NOV10).length, 'TIPS ≠ 명목');
 const FRN2 = [line('2-Year FRN Auction', '2026-11-10', '13:00')];
+assert.ok(strict('11/10(화) 13:00 ET 예정된 2-Year FRN Auction (10년물 국채 입찰)', FRN2, NOV10).length, '영어 이름 뒤 번역이 다른 일정(관문 10310607)');
+assert.deepEqual(strict('11/10(화) 13:00 ET 예정된 2-Year FRN Auction (2년물 변동금리 국채 입찰)', FRN2, NOV10), []);
 assert.ok(strict('11/10(화) 13:00 ET 2년물 T-노트 입찰 예정', FRN2, NOV10).length, 'Note ≠ FRN(관문 10310602)');
 assert.ok(strict('11/10(화) 13:00 ET 2년물 국채 입찰 예정', FRN2, NOV10).length, '종류 없는 «국채» = 명목 국채 — FRN 아님');
 assert.deepEqual(strict('11/10(화) 13:00 ET 2년물 변동금리 국채 입찰 예정', FRN2, NOV10), []);

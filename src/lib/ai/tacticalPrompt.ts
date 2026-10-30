@@ -366,14 +366,8 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
     EVENT_FAMILIES.forEach((re, i) => { if (re.test(text) && !/earnings|실적|決算/i.test(re.source.slice(0, 20))) mentions.push({ key: `family:${i}`, is: line => re.test(lineName(line) || '') || re.test(eventNameGloss(lineName(line))) }); });
     // ★2026-10-31 T35-A 번역된 일정 이름(«CFTC 원유 투기적 순포지션»·«CFTCの原油投機筋ネットポジション») — 사전으로 «그 일정»을 특정한다.
     //   사전 표기마다 하나의 언급: 그 일정의 예정 줄이 이름·시각·날짜를 모두 만족해야 한다. 앞뒤 수식어로 다른 지표일 수 있는 표기(ok=false)는 맞는 줄 없음으로 친다.
-    // 영어 이름 바로 뒤 괄호 속 번역(«New Home Sales (Sep)(신규 주택 판매)»)은 그 이름의 꼬리표 — 기존 계약대로 영어 이름으로만 대조한다
-    const glossOf = (start: number) => {
-        const before = text.slice(0, start);
-        if (!/[(（]\s*$/.test(before)) return false;
-        const head = before.replace(/[(（]\s*$/, '').trimEnd().toLowerCase();
-        return evidenceLines.some(l => { const n = lineName(l); return !!n && [n, n.replace(/\s*\([^)]*\)\s*$/, '').trim()].some(x => x.length >= 2 && head.endsWith(x.toLowerCase())); });
-    };
-    const nameHits = scheduledEventNameHits(text).filter(h => !glossOf(h.start));
+    // 영어 이름 뒤 괄호 속 번역(«2-Year FRN Auction (10년물 국채 입찰)»)도 그대로 대조한다 — 번역이 다른 일정을 가리키면 실패(관문 10310607)
+    const nameHits = scheduledEventNameHits(text);
     nameHits.forEach(h => mentions.push({ key: `alias:${h.start}:${h.text}`, is: h.ok ? (line => { const n = lineName(line); return !!n && h.test(eventCoreName(n)); }) : () => false }));
     // 근거 일정을 가리키는 사전 표기 안의 약어(«JOLTS 구인건수»의 JOLTS ↔ 근거 «JOLTs»)는 아래 «모르는 대문자 이름»으로 보지 않는다
     const knownSpans = nameHits.filter(h => h.ok && evidenceLines.some(l => { const n = lineName(l); return !!n && h.test(eventCoreName(n)); }));
