@@ -267,6 +267,18 @@ test('관문 10310545 #3 — 대기 상한 뒤 늦게 온 대안 429 도 그 대
     assert.ok(e.state.alts[A0].pausedUntil >= NOW_MS + ALT_PAUSE_429_MS - 1);
 });
 
+test('관문 10310548 — 일봉·실제 지수(대안 대상 밖) 요청의 DNS 429 도 대안 전체 15분 쉼', async () => {
+    for (const u of [url1d('NQ=F'), url1m('^GSPC')]) {
+        const r = rig({ dns: { [u]: 429, [url1m('CL=F')]: minuteBody({ price: 1, time: NOW_SEC, prev: 1 }) }, [A0]: { [url1m('CL=F')]: minuteBody({ price: 2, time: NOW_SEC, prev: 1 }) } });
+        const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
+        const got = await e.fetch(u, {});
+        assert.equal(got.status, 429);
+        assert.ok(e.state.allPausedUntil >= NOW_MS + ALT_PAUSE_429_MS - 1);
+        await e.fetch(url1m('CL=F'), {});
+        assert.equal(r.calls.filter((c) => c.startsWith(A0)).length, 0);
+    }
+});
+
 test('호출량 — 대안이 연속 3번 이기지 못한 심볼은 5분에 한 번만 대안에 묻고, 이기면 다시 매번', async () => {
     let nowMs = NOW_MS;
     const t: any = { dns: { [url1m('ES=F')]: minuteBody({ price: 1, time: NOW_SEC, prev: 1 }) }, [A0]: { [url1m('ES=F')]: minuteBody({ price: 1, time: NOW_SEC, prev: 1 }) } };

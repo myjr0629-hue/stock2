@@ -172,6 +172,11 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
     let inflight = 0;
 
     const currentAlt = (): string | null => (state.allPausedUntil > now() ? null : altList.find((ip) => state.alts[ip].pausedUntil <= now()) ?? null);
+    function dns429() {
+        if (state.allPausedUntil > now()) return;
+        state.allPausedUntil = now() + ALT_PAUSE_429_MS;
+        opts.log?.(`[yahoo-edge] DNS 429 — 대안 전체 ${ALT_PAUSE_429_MS / 60_000}분 쉼`);
+    }
     function pause429(ip: string) {
         const s = state.alts[ip];
         if (s.pausedUntil >= now() + ALT_PAUSE_429_MS - 1000) return;
@@ -196,7 +201,12 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
         if (!u || u.hostname !== YAHOO_HOST || !u.pathname.startsWith('/v8/finance/chart/')) return baseFetch(input, init);
         const symbol = decodeURIComponent(u.pathname.slice('/v8/finance/chart/'.length));
         // 1분봉만 대안 대상. 일봉(직전 종가 복구)·실제 지수(1분봉·일봉 보정)는 기존 경로 그대로(관문 10310545 #1·#2)
-        if (u.searchParams.get('interval') !== '1m' || ALT_EXCLUDED_SYMBOLS.has(symbol)) return baseFetch(input, init);
+        if (u.searchParams.get('interval') !== '1m' || ALT_EXCLUDED_SYMBOLS.has(symbol)) {
+            // 대안 대상이 아닌 요청이라도 DNS 429 는 대안 전체 쉼에 반영한다(관문 10310548)
+            const r = await baseFetch(input, init);
+            if (r?.status === 429) dns429();
+            return r;
+        }
         const key = `${symbol}@1m`;
 
         const sym = (state.sym[key] ??= { losses: 0, lastAltAt: Number.NEGATIVE_INFINITY });
@@ -213,10 +223,7 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
                 .finally(() => { inflight--; });
         }
         const dns = await grab(() => baseFetch(input, init));
-        if (dns.kind === 'bad' && dns.status === 429 && state.allPausedUntil <= now()) {
-            state.allPausedUntil = now() + ALT_PAUSE_429_MS;
-            opts.log?.(`[yahoo-edge] DNS 429 — 대안 전체 ${ALT_PAUSE_429_MS / 60_000}분 쉼`);
-        }
+        if (dns.kind === 'bad' && dns.status === 429) dns429();
         let alt: Got | null = null;
         let slow = false;
         if (altP) {
