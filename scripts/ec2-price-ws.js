@@ -1742,28 +1742,33 @@ async function fetchOneSnapshotREST(t) {
         };
         const ticker = snap.ticker;
 
-        const prevClose = snap.prev;
+        const existing = latestPrices.get(ticker);
+        const todayStr = getETDateString();
+        const regularSession = isRegularSession(Date.now());
+        const cachedPrevCloseValid = existing?.prevCloseDate === todayStr && existing?.prevClose > 0;
+        const prevClose = snap.prev > 0 ? snap.prev : (regularSession && cachedPrevCloseValid ? Number(existing.prevClose) : 0);
         const volume = snap.vol;
-        const price = snap.last || snap.regular || prevClose;
+        const price = snap.last || snap.regular || snap.prev;
 
         if (price <= 0) return;
 
+        if (regularSession && !(prevClose > 0)) return;
         const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
 
-        const existing = latestPrices.get(ticker);
         // 가격을 버리는 분기에서도 응답의 prevClose 정정은 반영한다(종가만·날짜 넘김 경로와 같은 규칙).
         const keepPrevCloseOnly = () => {
-            if (!(prevClose > 0) || prevClose === Number(existing?.prevClose)) return;
-            latestPrices.set(ticker, withPrevClose(existing, prevClose, getETDateString()));
+            if (!(snap.prev > 0) || (snap.prev === Number(existing?.prevClose) && existing?.prevCloseDate === todayStr)) return;
+            latestPrices.set(ticker, withPrevClose(existing, snap.prev, todayStr));
             rebroadcastIfPrevCloseChanged(ticker, existing?.prevClose);
         };
         // 정규장에 체결 가격 없이 종가만 오면 전일 종가는 prevClose 갱신에만 쓴다(가격으로 저장·방송하지 않음).
-        if (!(snap.last > 0) && !(snap.regular > 0) && isRegularSession(Date.now())) {
-            latestPrices.set(ticker, withPrevClose(existing, prevClose, getETDateString()));
+        if (!(snap.last > 0) && !(snap.regular > 0) && regularSession) {
+            latestPrices.set(ticker, withPrevClose(existing, prevClose, todayStr));
             rebroadcastIfPrevCloseChanged(ticker, existing?.prevClose);
             return;
         }
         const eventTime = snap.last > 0 ? snap.lastTime : snap.regular > 0 ? snap.regularTime : 0;
+        if (!eventTime && regularSession) { keepPrevCloseOnly(); return; }
         // WS 와 같은 정규장 신선도 규칙 — 90초 넘게 과거인 체결은 캐시가 없어도 저장·방송하지 않는다.
         if (shouldDropStaleTrade(eventTime, Date.now())) {
             staleDropped.set(ticker, (staleDropped.get(ticker) || 0) + 1);
@@ -1775,12 +1780,8 @@ async function fetchOneSnapshotREST(t) {
             const floorTs = Math.max(Number(existing?.ts) || 0, Number(existing?.lastTradeTs) || 0);
             if (existing && eventTime <= floorTs) { keepPrevCloseOnly(); return; }
         } else {
-            // 체결 시각 없는 응답(종가만 등)은 이전 동작대로 가격이 바뀌면 채택하되,
-            // 정규장에 90초 안의 채택 체결이 캐시에 있으면 덮지 않는다.
+            // 장외 체결 시각 없는 응답은 이전 동작대로 가격이 바뀌면 채택한다.
             if (existing && Math.abs((Number(existing.price) || 0) - price) < 0.001) { keepPrevCloseOnly(); return; }
-            const cachedTs = Number(existing?.ts) || 0;
-            if (existing?.price > 0 && cachedTs > 0 && isRegularSession(Date.now()) &&
-                !shouldDropStaleTrade(cachedTs, Date.now())) { keepPrevCloseOnly(); return; }
         }
 
         latestPrices.set(ticker, {
@@ -1788,7 +1789,7 @@ async function fetchOneSnapshotREST(t) {
             changePct: Math.round(changePct * 100) / 100,
             volume,
             prevClose,
-            prevCloseDate: getETDateString(),
+            prevCloseDate: todayStr,
             ts: eventTime,
             receivedAt: Date.now(),
             priceBasis: snap.last > 0 || snap.regular > 0 ? (snap.source === "equities_edge" ? "fair_value" : "trade") : "eod_close",

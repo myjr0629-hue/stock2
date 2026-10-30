@@ -113,20 +113,20 @@ const response = v => pendingResponses.shift()(v); // 먼저 보낸 요청부터
 const cache = new Map(), restStale = new Map();
 const base = now - 50_000; // 정규장 안의 신선한 체결 시각 기준
 const rest = { INTRINIO_API_KEY: 'test', latestPrices: cache, staleDropped: restStale, Date: FallbackClock, Intl, Object, Number, Math, Set, console,
-  REST_REQUEST_TIMEOUT_MS, REST_CONCURRENCY, normalizeTradeMs: x => x, getETDateString: () => '2026-10-13',
+  REST_REQUEST_TIMEOUT_MS, REST_CONCURRENCY, normalizeTradeMs: x => x || 0, getETDateString: () => '2026-10-13',
   httpsGet: () => { active++; peak = Math.max(peak, active); return new Promise(resolve => { pendingResponses.push(v => { active--; resolve(v); }); }); },
   broadcastPrice: (...args) => broadcasts.push(args) };
 vm.runInNewContext(sessionCode + source.slice(restStart, restEnd), rest);
 const request = rest.fetchSnapshotREST(['A', 'B']);
-cache.set('A', {price: 110, ts: base + 200});
-response({last_price: 100, last_time: base + 100});
+cache.set('A', {price: 110, ts: base + 200, prevClose: 90, prevCloseDate: '2026-10-13'});
+response({last_price: 100, last_time: base + 100, eod_close_price: 90});
 await new Promise(resolve => setImmediate(resolve));
 assert.equal(cache.get('A').price, 110); assert.equal(broadcasts.length, 0);
-response({last_price: 120, last_time: base + 300}); await request;
+response({last_price: 120, last_time: base + 300, eod_close_price: 100}); await request;
 assert.equal(peak, 2); assert.ok(peak <= REST_CONCURRENCY); assert.equal(cache.get('B').price, 120);
-const equal = rest.fetchSnapshotREST(['A']); response({last_price: 90, last_time: base + 200}); await equal;
+const equal = rest.fetchSnapshotREST(['A']); response({last_price: 90, last_time: base + 200, eod_close_price: 90}); await equal;
 assert.equal(cache.get('A').price, 110); assert.equal(broadcasts.length, 1);
-const newer = rest.fetchSnapshotREST(['A']); response({last_price: 110, last_time: base + 201}); await newer;
+const newer = rest.fetchSnapshotREST(['A']); response({last_price: 110, last_time: base + 201, eod_close_price: 90}); await newer;
 assert.equal(cache.get('A').ts, base + 201); assert.equal(broadcasts.length, 2);
 
 // 시나리오 1: 정규장에 REST 가 15분 전 체결을 주면 캐시가 없어도, WS 지연 체결로 가격이 지워진 캐시여도 저장·방송하지 않는다.
@@ -136,9 +136,9 @@ let req = rest.fetchSnapshotREST(['NEW']); response({last_price: 50, last_time: 
 assert.equal('price' in cache.get('NEW'), false); assert.equal(cache.get('NEW').prevClose, 49); // 가격은 버리고 prevClose 만
 assert.equal(broadcasts.length, 0); assert.equal(restStale.get('NEW'), 1);
 // 90초 경계: 정확히 90초 전은 채택, 90초+1ms 는 거부
-req = rest.fetchSnapshotREST(['EDGE']); response({last_price: 50, last_time: now - 90_001}); await req;
-assert.equal(cache.has('EDGE'), false);
-req = rest.fetchSnapshotREST(['EDGE']); response({last_price: 50, last_time: now - 90_000}); await req;
+req = rest.fetchSnapshotREST(['EDGE']); response({last_price: 50, last_time: now - 90_001, eod_close_price: 49}); await req;
+assert.equal('price' in cache.get('EDGE'), false);
+req = rest.fetchSnapshotREST(['EDGE']); response({last_price: 50, last_time: now - 90_000, eod_close_price: 49}); await req;
 assert.equal(cache.get('EDGE').price, 50); broadcasts.length = 0;
 // 실제 WS 처리 함수로 지연 체결을 버려 가격을 지운 캐시를 만든다.
 const ws = run(now, now - 900_000, 'OLD');
@@ -159,28 +159,70 @@ req = rest.fetchSnapshotREST(['PRE']); response({last_price: 62, last_time: prem
 assert.equal(cache.get('PRE').price, 62); assert.equal(broadcasts.length, 1);
 now = savedNow; broadcasts.length = 0;
 
-// 시각 없는 REST 응답(체결 시각 없음·종가만)은 이전 동작대로 채택하되, 정규장 90초 안의 채택 체결은 덮지 않는다.
+// 정규장 시각 없는 가격은 캐시 상태와 관계없이 버리고 종가 정정만 반영한다.
 cache.clear(); broadcasts.length = 0;
 cache.set('NT', { prevClose: 98, prevCloseDate: '2026-10-13' }); // 전일 종가 조회가 만든 빈 항목
 req = rest.fetchSnapshotREST(['NT']); response({last_price: 101, eod_close_price: 98}); await req;
-assert.equal(cache.get('NT').price, 101); assert.equal(broadcasts.length, 1);
+assert.equal('price' in cache.get('NT'), false); assert.equal(broadcasts.length, 0);
+req = rest.fetchSnapshotREST(['NO_TIME']); response({last_price: 101}); await req;
+assert.equal(cache.has('NO_TIME'), false); assert.equal(broadcasts.length, 0);
 // 정규장 «종가만» 응답(체결 가격·시각 없음)은 prevClose 갱신에만 쓰고 가격으로 저장·방송하지 않는다.
 req = rest.fetchSnapshotREST(['EOD']); response({eod_close_price: 97}); await req;
-assert.equal('price' in cache.get('EOD'), false); assert.equal(cache.get('EOD').prevClose, 97); assert.equal(broadcasts.length, 1);
+assert.equal('price' in cache.get('EOD'), false); assert.equal(cache.get('EOD').prevClose, 97); assert.equal(broadcasts.length, 0);
 cache.set('EOD2', { price: 99, ts: now - 200_000, prevClose: 90, volume: 5 });
 req = rest.fetchSnapshotREST(['EOD2']); response({eod_close_price: 97}); await req;
-assert.equal(cache.get('EOD2').prevClose, 97); assert.equal(cache.get('EOD2').price, 99); assert.equal(broadcasts.length, 1);
+assert.equal(cache.get('EOD2').prevClose, 97); assert.equal(cache.get('EOD2').price, 99); assert.equal(broadcasts.length, 0);
 // 장외 «종가만»은 기존 동작(종가를 eod_close 가격으로 저장·방송).
 { const saved = now; now = premarket;
   req = rest.fetchSnapshotREST(['OFF']); response({eod_close_price: 96}); await req;
-  assert.equal(cache.get('OFF').price, 96); assert.equal(cache.get('OFF').priceBasis, 'eod_close'); assert.equal(broadcasts.length, 2);
-  now = saved; broadcasts.length = 1; }
+  assert.equal(cache.get('OFF').price, 96); assert.equal(cache.get('OFF').priceBasis, 'eod_close'); assert.equal(broadcasts.length, 1);
+  req = rest.fetchSnapshotREST(['OFF_TRADE']); response({last_price: 101}); await req;
+  assert.equal(cache.get('OFF_TRADE').price, 101); assert.equal(cache.get('OFF_TRADE').ts, 0);
+  assert.equal(cache.get('OFF_TRADE').changePct, 0); assert.equal(broadcasts.at(-1)[2], 0);
+  cache.set('OFF_CACHED', { prevClose: 80, prevCloseDate: '2026-10-13' });
+  req = rest.fetchSnapshotREST(['OFF_CACHED']); response({last_price: 100}); await req;
+  assert.equal(cache.get('OFF_CACHED').changePct, 0); assert.equal(cache.get('OFF_CACHED').prevClose, 0);
+  now = saved; broadcasts.length = 0; }
 cache.set('FRESH', { price: 100, ts: now - 10_000, prevClose: 98 });
 req = rest.fetchSnapshotREST(['FRESH']); response({last_price: 105}); await req;
-assert.equal(cache.get('FRESH').price, 100); assert.equal(broadcasts.length, 1);
+assert.equal(cache.get('FRESH').price, 100); assert.equal(broadcasts.length, 0);
 cache.set('AGED', { price: 100, ts: now - 200_000, prevClose: 98 });
-req = rest.fetchSnapshotREST(['AGED']); response({last_price: 105}); await req;
-assert.equal(cache.get('AGED').price, 105); assert.equal(broadcasts.length, 2);
+req = rest.fetchSnapshotREST(['AGED']); response({last_price: 105, eod_close_price: 95}); await req;
+assert.equal(cache.get('AGED').price, 100); assert.equal(cache.get('AGED').prevClose, 95); assert.equal(cache.get('AGED').changePct, 5.26); assert.equal(broadcasts.length, 0);
+broadcasts.length = 0;
+
+// 응답 종가가 없거나 0 이하이면 오늘 날짜 캐시만 기준으로 사용한다.
+for (const [i, prev] of [undefined, 0, -1].entries()) {
+  const key = `BASE${i}`;
+  cache.set(key, { prevClose: 80, prevCloseDate: '2026-10-12' });
+  req = rest.fetchSnapshotREST([key]); response({last_price: 100, last_time: now - 1_000, eod_close_price: prev}); await req;
+  assert.equal(cache.get(key).price, undefined); assert.equal(cache.get(key).prevClose, 80);
+  assert.equal(cache.get(key).prevCloseDate, '2026-10-12'); assert.equal(broadcasts.length, 0);
+}
+cache.set('TODAY_BASE', { prevClose: 80, prevCloseDate: '2026-10-13' });
+req = rest.fetchSnapshotREST(['TODAY_BASE']); response({last_price: 100, last_time: now - 1_000}); await req;
+assert.equal(cache.get('TODAY_BASE').price, 100); assert.equal(cache.get('TODAY_BASE').prevClose, 80);
+assert.equal(cache.get('TODAY_BASE').prevCloseDate, '2026-10-13');
+assert.equal(cache.get('TODAY_BASE').changePct, 25); assert.equal(broadcasts.at(-1)[2], 25);
+req = rest.fetchSnapshotREST(['NO_BASE']); response({last_price: 100, last_time: now - 1_000}); await req;
+assert.equal(cache.has('NO_BASE'), false); assert.equal(broadcasts.length, 1);
+// 실제 방송 직렬화는 숫자 형태를 유지한다.
+const sent = []; const subscriber = { readyState: 1, send: message => sent.push(JSON.parse(message)) };
+const broadcastStart = source.indexOf('function broadcastPrice(');
+const broadcastEnd = source.indexOf('\n}', broadcastStart) + 2;
+const wire = { tickerSubscribers: new Map([['NO_BASE', new Set([subscriber])]]), latestPrices: cache, WebSocket: { OPEN: 1 }, JSON, Math };
+vm.runInNewContext(source.slice(broadcastStart, broadcastEnd), wire);
+wire.broadcastPrice('NO_BASE', 100, 25, 0);
+assert.equal(sent[0].changePct, 25);
+broadcasts.length = 0;
+
+// 가격을 버리는 경로에서도 동일 종가의 오래된 날짜를 갱신하고 재방송하지 않는다.
+cache.set('SAME_DATE', { price: 100, ts: now - 1_000, prevClose: 80, prevCloseDate: '2026-10-12', changePct: 25 });
+req = rest.fetchSnapshotREST(['SAME_DATE']); response({last_price: 101, eod_close_price: 80}); await req;
+assert.equal(cache.get('SAME_DATE').prevCloseDate, '2026-10-13');
+assert.equal(cache.get('SAME_DATE').price, 100); assert.equal(broadcasts.length, 0);
+req = rest.fetchSnapshotREST(['SAME_DATE']); response({last_price: 102, last_time: now}); await req;
+assert.equal(cache.get('SAME_DATE').changePct, 27.5); assert.ok(Math.abs(broadcasts.at(-1)[2] - 27.5) < 1e-9);
 broadcasts.length = 0;
 
 // 정규장 종가 단독 응답이 prevClose 를 바꾸면 캐시 가격의 등락률도 새 기준으로 다시 계산한다.
