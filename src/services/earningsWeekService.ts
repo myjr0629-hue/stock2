@@ -17,7 +17,7 @@
 // ============================================================================
 
 import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfirmed';
-import { selectWeekEntries, weekRangeET, type WeekRange } from '@/lib/earningsWeek';
+import { phaseOf, selectWeekEntries, weekRangeET, type WeekRange } from '@/lib/earningsWeek';
 import { etDateString } from '@/lib/impliedMove';
 import { readImpliedMoveRows, type ImpliedMoveRow, type ImpliedTiming } from '@/services/impliedMoveService';
 import { displayLevels, peekStructureLevelsDetailed, structureV2Key, warmMissingStructure } from '@/services/structureService';
@@ -138,7 +138,7 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
     // 만기가 지난 판본은 쓰지 않는다(다른 SEO 문과 같다) · 표시 가격은 넘기지 않는다(재선택 → 갱신 예약을 부르지 않게)
     const dl = sl && sl.levelsExpiration && sl.levelsExpiration >= today ? displayLevels(sl, null, 'web/earnings-week') : null;
     const ar = actuals.get(recordMapKey(e.ticker, e.date));
-    const maxPain = dl?.maxPain ?? postReportMaxPain(rawStructures[i], dl, ar?.expected, today);
+    const maxPain = dl?.maxPain ?? postReportMaxPain(rawStructures[i], dl, ar?.expected, today, { date: e.date, reported: phaseOf(e.date, e.hour, nowMs) === 'done' });
     return {
       ticker: e.ticker, date: e.date, hour: e.hour, etTime: e.etTime ?? null,
       impliedMovePct: im?.impliedMovePct ?? null,

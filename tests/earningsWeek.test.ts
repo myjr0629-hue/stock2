@@ -242,18 +242,21 @@ const WEEK_NOW = ms('2026-10-11T16:00:00Z');   // 일요일 낮(ET 12:00) → �
     // 순수 함수 — 표
     const shown = { maxPain: null, levelsExpiration: '2026-10-16', levelsChainDate: '2026-10-14' };
     const ex = A.parseRecord(record(expected(92.07)))!.expected;
-    assert.equal(PRM.postReportMaxPain(intc(), shown, ex, '2026-10-15'), 94);
-    assert.equal(PRM.postReportMaxPain(intc(), shown, ex, '2026-10-14'), null, '발표 전 기록 세션 당일(발표 전일 수 있다) — 정의 그대로');
-    assert.equal(PRM.postReportMaxPain(intc(), { ...shown, maxPain: 70 }, ex, '2026-10-15'), null, '표시 값이 있으면 건드리지 않는다');
-    assert.equal(PRM.postReportMaxPain(intc({ oob: 52.5 }), shown, ex, '2026-10-15'), null, '발표 전 가격에서도 ±35% 밖 = 왜곡 체인(DD 137 대 52.5 꼴) — 계속 없음');
-    assert.equal(PRM.postReportMaxPain(intc({ oob: null }), shown, ex, '2026-10-15'), null);
-    assert.equal(PRM.postReportMaxPain(intc({ mp: 64 }), shown, ex, '2026-10-15'), null, '판본에 값이 있었는데 문이 지운 경우는 되살리지 않는다');
-    assert.equal(PRM.postReportMaxPain(intc({ exp: '2026-10-23' }), shown, ex, '2026-10-15'), null, '다른 만기 판본');
-    assert.equal(PRM.postReportMaxPain(intc({ chain: '2026-10-13' }), shown, ex, '2026-10-15'), null, '다른 체인 날짜 판본');
-    assert.equal(PRM.postReportMaxPain(intc(), shown, A.parseRecord(record(expected(null)))!.expected, '2026-10-15'), null, '발표 전 현물 기록 없음');
-    assert.equal(PRM.postReportMaxPain(intc(), shown, null, '2026-10-15'), null);
-    assert.equal(PRM.postReportMaxPain(null, shown, ex, '2026-10-15'), null);
-    assert.equal(PRM.postReportMaxPain({ data: { ...intc().data, options_status: 'PARTIAL' } }, shown, ex, '2026-10-15'), null);
+    const REP = { date: '2026-10-14', reported: true };
+    assert.equal(PRM.postReportMaxPain(intc(), shown, ex, '2026-10-15', { date: '2026-10-14', reported: false }), null, '발표 전(장전 발표일 자정~개장 등) — 정의 그대로');
+    assert.equal(PRM.postReportMaxPain(intc(), shown, { ...ex!, session: '2026-10-15' }, '2026-10-16', REP), null, '발표 뒤에 기록된 현물은 «발표 전» 기준이 아니다');
+    assert.equal(PRM.postReportMaxPain(intc(), shown, ex, '2026-10-15', REP), 94);
+    assert.equal(PRM.postReportMaxPain(intc(), shown, ex, '2026-10-14', REP), null, '발표 전 기록 세션 당일(발표 전일 수 있다) — 정의 그대로');
+    assert.equal(PRM.postReportMaxPain(intc(), { ...shown, maxPain: 70 }, ex, '2026-10-15', REP), null, '표시 값이 있으면 건드리지 않는다');
+    assert.equal(PRM.postReportMaxPain(intc({ oob: 52.5 }), shown, ex, '2026-10-15', REP), null, '발표 전 가격에서도 ±35% 밖 = 왜곡 체인(DD 137 대 52.5 꼴) — 계속 없음');
+    assert.equal(PRM.postReportMaxPain(intc({ oob: null }), shown, ex, '2026-10-15', REP), null);
+    assert.equal(PRM.postReportMaxPain(intc({ mp: 64 }), shown, ex, '2026-10-15', REP), null, '판본에 값이 있었는데 문이 지운 경우는 되살리지 않는다');
+    assert.equal(PRM.postReportMaxPain(intc({ exp: '2026-10-23' }), shown, ex, '2026-10-15', REP), null, '다른 만기 판본');
+    assert.equal(PRM.postReportMaxPain(intc({ chain: '2026-10-13' }), shown, ex, '2026-10-15', REP), null, '다른 체인 날짜 판본');
+    assert.equal(PRM.postReportMaxPain(intc(), shown, A.parseRecord(record(expected(null)))!.expected, '2026-10-15', REP), null, '발표 전 현물 기록 없음');
+    assert.equal(PRM.postReportMaxPain(intc(), shown, null, '2026-10-15', REP), null);
+    assert.equal(PRM.postReportMaxPain(null, shown, ex, '2026-10-15', REP), null);
+    assert.equal(PRM.postReportMaxPain({ data: { ...intc().data, options_status: 'PARTIAL' } }, shown, ex, '2026-10-15', REP), null);
 
     // 서비스 — 같은 mget(왕복 수 그대로) · Redis 쓰기 0 · Call Wall·Put Floor 는 그대로
     seed(); put('structure:v2:INTC', intc()); put(A.actualsKey('INTC', '2026-10-14'), record(expected(92.07)));
@@ -271,6 +274,14 @@ const WEEK_NOW = ms('2026-10-11T16:00:00Z');   // 일요일 낮(ET 12:00) → �
     // 발표 전 현물에서도 멀면(왜곡 체인) — 없음
     seed(); put('structure:v2:INTC', intc({ oob: 40 })); put(A.actualsKey('INTC', '2026-10-14'), record(expected(92.07)));
     assert.equal((await row()).maxPain, null);
+    // 장전(bmo) 발표 종목: 발표일 04:00 ET(개장 전) — 전 거래일 기록이 있어도 발표 전이라 복구 안 함 · 09:30 뒤엔 복구
+    seed(); put('structure:v2:INTC', intc()); put(A.actualsKey('INTC', '2026-10-15'), { ...record(expected(92.07)), date: '2026-10-15', hour: 'bmo' });
+    const bmo = [{ ...list[0], date: '2026-10-15', hour: 'bmo' as const }];
+    const pre = await at('2026-10-15T08:00:00Z', () => SVC.buildEarningsWeek(ms('2026-10-15T08:00:00Z'), bmo as any, { readOnly: true }));
+    assert.equal(pre.rows[0].maxPain, null, 'bmo 발표 전');
+    SVC._resetEarningsWeekMemo();
+    const post = await at('2026-10-15T14:00:00Z', () => SVC.buildEarningsWeek(ms('2026-10-15T14:00:00Z'), bmo as any, { readOnly: true }));
+    assert.equal(post.rows[0].maxPain, 94, 'bmo 발표 뒤(10:00 ET)');
     // 화면 뷰 — 기존 형식 그대로 «$94»(문구 변경 0)
     seed(); put('structure:v2:INTC', intc()); put(A.actualsKey('INTC', '2026-10-14'), record(expected(92.07)));
     const d = await at(NOW, () => SVC.buildEarningsWeek(ms(NOW), list as any, { readOnly: true }));

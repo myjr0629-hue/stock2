@@ -11,7 +11,8 @@ const pos = (x: unknown): number | null => typeof x === 'number' && Number.isFin
  * ±35% 는 «체인이 왜곡된» 경우(행사가 간격이 큰 저가주·얇은 체인·DD 137 대 52.5)를 막는 규칙이다 — 그 경우는 발표 전 가격에서도 멀다.
  *
  * 그래서 이 행에 한해서만: 같은 판본(만기·체인 날짜 일치)이 정의 밖으로 뺀 값이 «발표 전 마지막 기록 현물»(expectedAtReport.spot —
- * 크론이 발표 전 마지막 정규장에 저장)에서 같은 ±35% 안이면 그 값을 쓴다. 기록 세션이 오늘(ET)보다 앞일 때(= 발표가 지난 행)만.
+ * 크론이 발표 전 마지막 정규장에 저장)에서 같은 ±35% 안이면 그 값을 쓴다. 발표가 지난 행(phaseOf = done — 화면의 «발표 완료»와 같은 판정)이고
+ * 기록 세션이 발표일 이하·오늘(ET)보다 앞일 때만.
  * 나머지는 전부 null — 지어내지 않는다. 다른 화면의 정의는 바꾸지 않는다.
  */
 export function postReportMaxPain(
@@ -19,9 +20,10 @@ export function postReportMaxPain(
     shown: { maxPain?: number | null; levelsExpiration?: string | null; levelsChainDate?: string | null } | null | undefined,
     expected: ExpectedSnap | null | undefined,
     todayET: string,
+    report: { date: string; reported: boolean },
 ): number | null {
-    if (!shown || shown.maxPain != null || !shown.levelsExpiration) return null;
-    if (!expected || typeof expected.session !== 'string' || !(expected.session < todayET)) return null;
+    if (!report?.reported || !shown || shown.maxPain != null || !shown.levelsExpiration) return null;
+    if (!expected || typeof expected.session !== 'string' || !(expected.session < todayET) || !(expected.session <= report.date)) return null;
     const ref = pos(expected.spot);
     const d = raw?.data;
     if (ref == null || !d || d.options_status !== 'OK') return null;
