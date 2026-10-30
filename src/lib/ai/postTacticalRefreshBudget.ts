@@ -1,5 +1,5 @@
 import { etDateOf } from '@/lib/marketCalendar';
-import { POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS, POST_TACTICAL_REFRESH_MS, tacticalSessionAt } from './tacticalIndexFacts';
+import { POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS, POST_TACTICAL_REFRESH_MS, REG_TACTICAL_MAX_REGEN_ATTEMPTS, REG_TACTICAL_REFRESH_MS, tacticalSessionAt } from './tacticalIndexFacts';
 
 export const POST_TACTICAL_FAILURE_COOLDOWN_MS = 60 * 60_000;
 export const POST_TACTICAL_MAX_CONSECUTIVE_FAILURES = 2;
@@ -47,4 +47,24 @@ export async function finishPostTacticalRefresh(redis: BudgetRedis | null, reser
         await redis?.eval(POST_TACTICAL_REFRESH_RESULT_LUA, [budgetKey(reservedAt)],
             [reservedAt, succeeded ? 1 : 0, finishedAt, POST_TACTICAL_REFRESH_MS, POST_TACTICAL_FAILURE_COOLDOWN_MS]);
     } catch { /* 결과 기록 장애 시 예약의 잠정 실패·60분 대기·2회 중지를 유지한다. */ }
+}
+
+/**
+ * ★2026-10-31 T35-B 장중(REG) 정기 재생성 예약 — 장후 변동(POST)과 같은 Lua(원자 차감·잠정 실패·60분 대기·연속 2회 실패 중지)를 다른 키로 쓴다.
+ *   ET 날짜 하나에 모든 언어·인스턴스 공용: 최소 30분 간격 · 8회 상한(한 호출 = 3언어).
+ */
+const regBudgetKey = (now: number) => `guardian:tactical:reg-refresh:${etDateOf(now)}`;
+export async function reserveRegTacticalRefresh(redis: BudgetRedis | null, now: number): Promise<boolean> {
+    if (!redis || tacticalSessionAt(now) !== 'REG') return false;
+    try {
+        return await redis.eval(POST_TACTICAL_REFRESH_LUA, [regBudgetKey(now)],
+            [now, REG_TACTICAL_REFRESH_MS, REG_TACTICAL_MAX_REGEN_ATTEMPTS,
+                POST_TACTICAL_FAILURE_COOLDOWN_MS, POST_TACTICAL_MAX_CONSECUTIVE_FAILURES]) === 1;
+    } catch { return false; } // 예약 저장소 장애 시 기존 글 유지(상한을 확인하지 못한 추가 호출 금지)
+}
+export async function finishRegTacticalRefresh(redis: BudgetRedis | null, reservedAt: number, succeeded: boolean, finishedAt: number): Promise<void> {
+    try {
+        await redis?.eval(POST_TACTICAL_REFRESH_RESULT_LUA, [regBudgetKey(reservedAt)],
+            [reservedAt, succeeded ? 1 : 0, finishedAt, REG_TACTICAL_REFRESH_MS, POST_TACTICAL_FAILURE_COOLDOWN_MS]);
+    } catch { /* 결과 기록 장애 시 잠정 실패·60분 대기를 유지한다. */ }
 }

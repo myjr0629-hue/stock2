@@ -155,3 +155,58 @@ export function postTacticalMayDriftFutures(c: PostTacticalFuturesState | null |
 export function postTacticalNeedsDriftRefresh(c: PostTacticalFuturesState | null | undefined, session: string | null | undefined, nowMs: number, current: TacticalFuturesPct | undefined): boolean {
     return postTacticalMayDriftFutures(c, session, nowMs) && tacticalFuturesDrifted(c?.tacticalFuturesPct, current);
 }
+
+/**
+ * ★2026-10-31 T35-B 장중(REG) 정기 재생성 — 개장 직후 글이 장중 내내 굳지 않게.
+ *   스냅샷은 EC2 워커가 30초마다 도장만 새로 찍어 장중엔 재계산(=재생성)이 없다(T35). 지수가 −3% 로 밀려도 09:3x 글이 남는다.
+ *   조건: 마지막 생성 30분 경과 && (나스닥·S&P 500 변화율이 그 글의 생성 기준 대비 0.5%p 이상 또는 RLSI 5 이상 변화).
+ *   상한: ET 날짜(장중 세션)당 3언어 1호출 기준 8회(한 호출이 ko·en·ja 를 함께 쓰므로 언어별 상한도 8회) — 장후 변동(POST) 예약·실패 대기 장치를 그대로 쓴다.
+ *   비교 값은 생성 기준(verdict.num.basis.realityInsight)과 지금 스냅샷의 같은 원천(market.nqChangePercent·factors.spx·rlsi.score).
+ */
+export const REG_TACTICAL_REFRESH_MS = 30 * 60_000;
+export const REG_TACTICAL_INDEX_PP = 0.5;
+export const REG_TACTICAL_RLSI_PTS = 5;
+export const REG_TACTICAL_MAX_REGEN_ATTEMPTS = 8;
+/** 예약 거절·실패 뒤 같은 인스턴스가 다시 예약을 묻는 최소 간격(공급사 호출 아님 — 예약 저장소 질의 횟수만 줄인다) */
+export const REG_TACTICAL_RETRY_MS = 5 * 60_000;
+type RegNums = { NDX_CHG?: number; SPX_CHG?: number; RLSI?: number } | null | undefined;
+export interface RegTacticalState {
+    timestamp?: string;
+    tacticalSeenAt?: string;
+    rlsi?: { score?: number } | null;
+    market?: { nqChangePercent?: number | null; factors?: { spx?: { chgPct?: number | null } | null } | null } | null;
+    verdict?: { realityInsight?: unknown; num?: { basis?: { realityInsight?: RegNums } | null } | null } | null;
+}
+const finiteNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+/** 생성 기준 대비 지금 값의 변화 — 한 칸이라도 문턱 이상이면 그 칸 이름들(없으면 빈 배열). 기준이나 지금 값이 없는 칸은 보지 않는다. */
+export function regTacticalDrift(basis: RegNums, current: RegNums): string[] {
+    if (!basis || !current) return [];
+    const out: string[] = [];
+    const over = (a: unknown, b: unknown, limit: number) => finiteNum(a) && finiteNum(b) && Math.abs(b - a) + Number.EPSILON >= limit;
+    if (over(basis.NDX_CHG, current.NDX_CHG, REG_TACTICAL_INDEX_PP)) out.push('nasdaq');
+    if (over(basis.SPX_CHG, current.SPX_CHG, REG_TACTICAL_INDEX_PP)) out.push('spx');
+    if (over(basis.RLSI, current.RLSI, REG_TACTICAL_RLSI_PTS)) out.push('rlsi');
+    return out;
+}
+/** 스냅샷의 «지금» 값(생성 기준 basis 와 같은 원천) */
+export function regTacticalCurrent(c: RegTacticalState | null | undefined): RegNums {
+    if (!c) return null;
+    return { NDX_CHG: c.market?.nqChangePercent ?? undefined, SPX_CHG: c.market?.factors?.spx?.chgPct ?? undefined, RLSI: c.rlsi?.score ?? undefined };
+}
+/** 마지막 생성 시각 — 이 스냅샷이 채택·생성한 글의 시각(tacticalSeenAt), 없으면 스냅샷 계산 시각(그때 글은 새로 만들었거나 10분 안 캐시) */
+export function regTacticalGeneratedAt(c: RegTacticalState | null | undefined): number {
+    const at = Date.parse(c?.tacticalSeenAt || c?.timestamp || '');
+    return Number.isFinite(at) ? at : NaN;
+}
+/**
+ * 값싼 판정(입출력 0): REG · 글이 대기 문구가 아님(T35 경로가 따로 맡는다) · 생성 30분 경과 · 지수/RLSI 변화. 예약 질의 간격(5분)은 호출자가 인스턴스 메모리로.
+ * isPlaceholder 는 호출자가 넘긴다(모듈 의존 방지).
+ */
+export function regTacticalNeedsRefresh(c: RegTacticalState | null | undefined, session: string | null | undefined, nowMs: number, isPlaceholder: (t: string) => boolean): string[] {
+    if (!c || session !== 'REG') return [];
+    const text = c.verdict?.realityInsight;
+    if (typeof text !== 'string' || !text || isPlaceholder(text)) return [];
+    const gen = regTacticalGeneratedAt(c);
+    if (!Number.isFinite(gen) || nowMs - gen < REG_TACTICAL_REFRESH_MS) return [];
+    return regTacticalDrift(c.verdict?.num?.basis?.realityInsight, regTacticalCurrent(c));
+}

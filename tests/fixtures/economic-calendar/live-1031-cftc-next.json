@@ -1,0 +1,192 @@
+{
+ "source": "실모델 global.anthropic.claude-haiku-4-5-20251001-v1:0 3언어 생성 12회 · 입력 = 운영 guardian:snapshot:lastgood:ko(10/30 18:55Z REG) + SCHEDULED_EVENTS CFTC 4종 2026-10-30 15:30 ET · AS_OF 2026-10-30T18:56:00.000Z",
+ "baseline": "a662f39f619c5ce765954544c640511d67a77db6",
+ "rows": [
+  {
+   "i": 1,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 미결제약정(speculative net positions)으로, 포지션이 줄면 매도 압력이 계속되고 늘면 기술적 반발 여지가 생깁니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 1,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P500未決済建玉(speculative net positions)で、ポジションが減れば売り圧力が続き、増えれば技術的な反発余地が生まれます。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 2,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 선물 포지션 공시로, 기관 숏 포지션이 줄면 반등 여력이 커지고 늘면 약세 압력이 지속됩니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 2,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P500先物ポジション公示で、機関投資家のショートが減れば反発余地が広がり、増えば売り圧力が続く構造です。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 3,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 미결제약정(speculative net positions)으로, 포지션이 줄면 매도 압력이 계속되고 늘면 완화될 수 있습니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 3,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P 500未決済建玉(speculative net positions)で、ポジションが減れば売り圧力が続き、増えれば緩和される可能性があります。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 4,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 선물 포지션(CFTC S&P 500 speculative net positions)으로, 기관 순매수가 늘면 지지가 강해지고 줄면 약해집니다.",
+   "mainReasons": []
+  },
+  {
+   "i": 4,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P 500先物ポジション(CFTC S&P 500 speculative net positions)で、機関投資家の買い越しが増えればサポートが強まり、減れば弱まる構造です。",
+   "mainReasons": []
+  },
+  {
+   "i": 5,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 미결제약정(speculative net positions)으로, 포지션이 줄면 매도 압력이 계속되고 늘면 그 압력이 완화될 수 있습니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 5,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30) 予定のCFTC S&P 500 建玉(speculative net positions)で、ポジションが減れば売り圧力が続き、増えればその圧力が和らぐ方向と読めます。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 6,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 미결제약정(speculative net positions)으로, 포지션이 줄면 매도 압력이 계속되고 늘면 그 압력이 완화될 수 있습니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 6,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P 500未決済建玉(speculative net positions)で、ポジションが減れば売り圧力が続き、増えればその圧力が和らぐ方向と読めます。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 7,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 미결제약정(speculative net positions)으로, 포지션이 줄면 매도 압력이 커지고 늘면 줄어듭니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 7,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P 500ポジション(speculative net positions)で、ポジションが減れば売り圧力が続き、増えればその圧力が和らぐ構造です。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 8,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 미결제약정(speculative net positions)으로, 포지션이 줄면 매도 압력이 지속되고 늘면 반등 여력이 커집니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 8,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P 500ミニ先物建玉(speculative net positions)で、ポジションが減れば売り圧力が続き、増えれば反発の余地が広がる構造です。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 9,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 선물 포지션 자료로, 기관 순매도가 줄면 반등 여력이 커지고 늘면 약세 압력이 지속됩니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 9,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P500先物ポジション資料で、機関投資家の売り越しが減れば反発余地が広がり、増えれば弱気圧力が続く構造です。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 10,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 선물 포지션(선물 투기 순포지션)으로, 숏 포지션이 줄면 추가 낙폭 압력이 커지고 늘면 그 압력이 완화됩니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 10,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P500先物ポジション(投機筋の純ポジション)で、ショート減少なら下値圧力が強まり、増加なら緩和する構造です。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 11,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 미결제약정(speculative net positions)으로, 포지션이 줄면 매도 압력이 계속되고 늘면 그 압력이 완화될 수 있습니다.",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 11,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P500ミニ先物建玉(speculative net positions)で、ポジションが減れば売り圧力が続き、増えればその圧力が和らぐ構造です。",
+   "mainReasons": [
+    "schedule:claim-not-upcoming"
+   ]
+  },
+  {
+   "i": 12,
+   "locale": "ko",
+   "next": "다음 분기점은 10/30(금) 15:30 ET(한국 04:30) 예정된 CFTC S&P 500 선물 포지션(CFTC S&P 500 speculative net positions)으로, 매수 포지션이 줄면 약세 압력이 커지고 늘면 완화됩니다.",
+   "mainReasons": [
+    "tactical:advice"
+   ]
+  },
+  {
+   "i": 12,
+   "locale": "ja",
+   "next": "次の分岐点は10/30(金) 15:30 ET(日本時間 04:30)予定のCFTC S&P 500先物ポジション(CFTC S&P 500 speculative net positions)で、買い越しが減れば売り圧力が強まり、増えれば緩和される構造です。",
+   "mainReasons": []
+  }
+ ]
+}

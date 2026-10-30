@@ -1,7 +1,7 @@
 import { reservePostTacticalRefresh, finishPostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
 import { buildIndexFacts, promptHasFuturesFacts, promptFuturesPct, tacticalFuturesDrifted, tacticalSessionAt, type TacticalFuturesPct, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
-import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, tacticalTokenRules, internalSourceReasons, polishTacticalText } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, tacticalTokenRules, internalSourceReasons, polishTacticalText, splitSentences } from '@/lib/ai/tacticalPrompt';
 import { buildRotationPrompt, checkRotationOutput, polishRotationText, rotationNums, rotationTokenRules, isLegacyRotationText, rotationHints, type RotationFacts, type RotationContext } from '@/lib/ai/rotationPrompt';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
@@ -1020,6 +1020,39 @@ export class IntelligenceNode {
         } catch { return null; }
     }
 
+    /**
+     * ★2026-10-31 T35-B 장중(REG) — 다른 언어·인스턴스의 정기 재생성(3언어 1호출)이 저장한 «이 스냅샷이 본 글보다 새» 장중 정상본을 채택한다(모델 호출 0).
+     *   같은 ET 날짜·REG·지금 근거로 출구 검사 통과일 때만. 없거나 탈락이면 text=null(호출자는 기존 글 유지) · seenAt = 살펴본 저장본 시각(같은 글 반복 검사 방지).
+     */
+    static async adoptStoredRegReality(ctx: IntelligenceContext, newerThan: number): Promise<{ text: string | null; at?: number; seenAt?: number }> {
+        const now = Date.now();
+        if (tacticalSessionAt(now) !== 'REG') return { text: null };
+        const current = { ...ctx, asOf: new Date(now).toISOString(), session: 'REG' as const,
+            ...(ctx.indexBasis ? { indexFacts: buildIndexFacts(ctx.indexBasis, 'REG', now) } : {}) };
+        const locale = ctx.locale || 'ko';
+        const nums = guardianNumsFromAiContext(current);
+        const prompts = (l: Locale) => REALITY_PROMPTS[l](current);
+        const stored = await readStoredInsight('reality', locale, nums, prompts);
+        if (!stored) return { text: null };
+        const valid = stored.at <= now && stored.at > newerThan && etDateOf(stored.at) === etDateOf(now) && stored.session === 'REG'
+            && gateText('reality', stored.text, locale, nums, stored.basis, false, prompts(locale)).ok;
+        if (!valid) return { text: null, seenAt: stored.at };
+        if (!_mem.reality[locale] || stored.at >= _mem.reality[locale]!.at) rememberInsight('reality', locale, stored.text, stored.at, stored.basis, stored.session);
+        // 생성 기준(basis)은 저장 당시 값 그대로 기억된다(numbersFor) — 변화 판정(T35-B)이 그 글의 기준으로 이어지게
+        return { text: shownOut('reality', locale, { tpl: stored.text, basis: stored.basis ?? null, session: 'REG' }, nums), at: stored.at, seenAt: stored.at };
+    }
+
+    /** 장중(REG) 저장본(같은 ET 날짜)의 저장 시각 — 검사 없는 값싼 GET 한 번. 다른 언어·인스턴스가 새 3언어 글을 저장했는지 보는 데만. */
+    static async latestStoredRegTacticalAt(locale: Locale, now = Date.now()): Promise<number | null> {
+        const redis = getRedis();
+        if (!redis) return null;
+        try {
+            const data = await redis.get(getRedisKey('reality', locale)) as { updatedAt?: string; session?: string } | null;
+            const at = data?.updatedAt ? Date.parse(data.updatedAt) : NaN;
+            return data?.session === 'REG' && Number.isFinite(at) && at <= now && etDateOf(at) === etDateOf(now) ? at : null;
+        } catch { return null; }
+    }
+
     static async generateGammaInsight(ctx: IntelligenceContext): Promise<string> {
         return IntelligenceNode.produceInsight('gamma', ctx, (locale) => GAMMA_PROMPTS[locale](ctx));
     }
@@ -1104,7 +1137,12 @@ export class IntelligenceNode {
                     if (lenient.ok) g = lenient;
                 }
                 if (g.ok && !isPlaceholder(g.text)) into[l] = { tpl: g.tpl, basis: nums, session: type === 'reality' ? promptSession(buildPrompt(l)) : undefined, ...(type === 'reality' ? { futures: promptHasFuturesFacts(buildPrompt(l)), futuresPct: promptFuturesPct(buildPrompt(l)) } : {}) };
-                else { failed[l] = g.reasons.length ? g.reasons : ['placeholder']; console.warn(`[InsightGate] REJECT generated ${type}/${l} (tri: ${(failed[l] || []).join(' | ')}) :: ${previewForLog(r)}`); }
+                else {
+                    failed[l] = g.reasons.length ? g.reasons : ['placeholder'];
+                    // ★T35-A 탈락 사유의 대부분은 마지막 NEXT 문장(일정) — 앞 90자 미리보기로는 원인을 못 봤다(10/30 ko). Tactical 은 NEXT 도 남긴다(일정 문장, 비밀값 없음)
+                    const tail = type === 'reality' ? ` · NEXT: ${previewForLog(splitSentences(r).slice(-1)[0] || '', 200)}` : '';
+                    console.warn(`[InsightGate] REJECT generated ${type}/${l} (tri: ${(failed[l] || []).join(' | ')}) :: ${previewForLog(r)}${tail}`);
+                }
             }
             return failed;
         };

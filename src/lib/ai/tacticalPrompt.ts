@@ -13,6 +13,7 @@ import { companyNameEntries } from '@/lib/app/tickerNames';
 import { adviceHit } from './adviceGuard';
 import { checkAmounts } from './amountGuard';
 import { claimReasons, valueTokens } from './claimChecks';
+import { scheduledEventNameHits, eventCoreName, eventNameGloss, withEventNameGloss, splitEnglishNameMention } from './scheduledEventNames';
 
 type Locale = 'ko' | 'en' | 'ja';
 type CachedEarningsRow = OverlayRow & { etTime?: unknown; time?: unknown; epsActual?: unknown; revenueActual?: unknown };
@@ -277,7 +278,9 @@ export const EVENT_FAMILIES = [
 ];
 
 export function unsupportedEventReasons(text: string, evidence: string): string[] {
-    return EVENT_FAMILIES.flatMap((re, i) => re.test(text) && !re.test(evidence) ? [`event:unsupported:${i}`] : []);
+    // ★2026-10-31 T35-A 근거의 경제 일정 이름은 사전의 한·일 표기로도 읽는다(«2-Year Note Auction» 줄 = «국채 입찰» 근거). 근거에 없는 사건군은 그대로 탈락.
+    const ev = withEventNameGloss(evidence);
+    return EVENT_FAMILIES.flatMap((re, i) => re.test(text) && !re.test(ev) ? [`event:unsupported:${i}`] : []);
 }
 
 // 관측 없음 정상 표현(«관측 자료가 없습니다»·«観測データはありません» — 관문 10232340 P1)
@@ -357,12 +360,29 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
     const mentions: Array<{ key: string; is: (line: string) => boolean }> = [];
     for (const l of evidenceLines) {
         const n = lineName(l);
-        if (n && mentionsName(text, n) && !mentions.some(m => m.key === `name:${n}`)) mentions.push({ key: `name:${n}`, is: line => lineName(line) === n });
+        // ★T35-A «CFTC S&P 500 미결제약정(speculative net positions)» — 영어 이름이 번역 꼬리표로 한 번 갈라진 표기도 그 이름으로 본다(낱말 전부·순서 그대로)
+        if (n && (mentionsName(text, n) || splitEnglishNameMention(text, n)) && !mentions.some(m => m.key === `name:${n}`)) mentions.push({ key: `name:${n}`, is: line => lineName(line) === n });
     }
-    EVENT_FAMILIES.forEach((re, i) => { if (re.test(text) && !/earnings|실적|決算/i.test(re.source.slice(0, 20))) mentions.push({ key: `family:${i}`, is: line => re.test(lineName(line) || '') }); });
+    EVENT_FAMILIES.forEach((re, i) => { if (re.test(text) && !/earnings|실적|決算/i.test(re.source.slice(0, 20))) mentions.push({ key: `family:${i}`, is: line => re.test(lineName(line) || '') || re.test(eventNameGloss(lineName(line))) }); });
+    // ★2026-10-31 T35-A 번역된 일정 이름(«CFTC 원유 투기적 순포지션»·«CFTCの原油投機筋ネットポジション») — 사전으로 «그 일정»을 특정한다.
+    //   사전 표기마다 하나의 언급: 그 일정의 예정 줄이 이름·시각·날짜를 모두 만족해야 한다. 앞뒤 수식어로 다른 지표일 수 있는 표기(ok=false)는 맞는 줄 없음으로 친다.
+    // 영어 이름 바로 뒤 괄호 속 번역(«New Home Sales (Sep)(신규 주택 판매)»)은 그 이름의 꼬리표 — 기존 계약대로 영어 이름으로만 대조한다
+    const glossOf = (start: number) => {
+        const before = text.slice(0, start);
+        if (!/[(（]\s*$/.test(before)) return false;
+        const head = before.replace(/[(（]\s*$/, '').trimEnd().toLowerCase();
+        return evidenceLines.some(l => { const n = lineName(l); return !!n && [n, n.replace(/\s*\([^)]*\)\s*$/, '').trim()].some(x => x.length >= 2 && head.endsWith(x.toLowerCase())); });
+    };
+    const nameHits = scheduledEventNameHits(text).filter(h => !glossOf(h.start));
+    nameHits.forEach(h => mentions.push({ key: `alias:${h.start}:${h.text}`, is: h.ok ? (line => { const n = lineName(line); return !!n && h.test(eventCoreName(n)); }) : () => false }));
+    // 근거 일정을 가리키는 사전 표기 안의 약어(«JOLTS 구인건수»의 JOLTS ↔ 근거 «JOLTs»)는 아래 «모르는 대문자 이름»으로 보지 않는다
+    const knownSpans = nameHits.filter(h => h.ok && evidenceLines.some(l => { const n = lineName(l); return !!n && h.test(eventCoreName(n)); }));
     for (const c of companyNameEntries()) {
         const byTicker = new RegExp(`(?<![A-Za-z0-9])${escRe(c.ticker)}(?![A-Za-z0-9])`).test(text);
-        const byName = c.names.some(n => /^[A-Za-z]/.test(n) ? new RegExp(`(?<![A-Za-z])${escRe(n)}(?![A-Za-z])`, 'i').test(text) : text.includes(n));
+        // 한글 이름은 앞 글자가 한글이면 다른 낱말의 일부(«소비자»의 «비자»=V, «메타버스»는 앞이 아니라 뒤라 그대로) — 가타카나 이름도 가타카나 낱말 안이면 제외(T35-A «미시간대 소비자심리지수»가 V 줄을 요구해 탈락하던 것)
+        const byName = c.names.some(n => /^[A-Za-z]/.test(n) ? new RegExp(`(?<![A-Za-z])${escRe(n)}(?![A-Za-z])`, 'i').test(text)
+            : /^[가-힣]/.test(n) ? new RegExp(`(?<![가-힣])${escRe(n)}`).test(text)
+                : /^[ァ-ヴー]+$/.test(n) ? new RegExp(`(?<![ァ-ヴー])${escRe(n)}(?![ァ-ヴー])`).test(text) : text.includes(n));
         if ((byTicker || byName) && !mentions.some(m => m.key === `name:${c.ticker}`))
             mentions.push({ key: `name:${c.ticker}`, is: line => lineName(line) === c.ticker });
     }
@@ -374,8 +394,10 @@ export function scheduleClaimReasons(text: string, evidenceLines: readonly strin
     // fail-closed ③ 오늘/내일 밖의 상대 날짜(다음 주·요일 등)는 판정하지 않고 탈락
     if (/next week|this week|later this week|\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|다음\s*주|이번\s*주|[월화수목금토일]요일|来週|今週|[月火水木金土日]曜/i.test(text)) { reasons.push('schedule:relative-date'); return reasons; }
     // fail-closed ② 근거에 없는 대문자 이름(티커·지표 약어)이 있으면 판정하지 않고 탈락 («IBM earnings scheduled tomorrow»)
-    for (const tok of text.match(/(?<![A-Za-z0-9&])[A-Z][A-Z0-9]{1,5}(?![A-Za-z0-9])/g) || []) {
+    for (const tm of text.matchAll(/(?<![A-Za-z0-9&])[A-Z][A-Z0-9]{1,5}(?![A-Za-z0-9])/g)) {
+        const tok = tm[0];
         if (CLAIM_OK_TOKENS.has(tok)) continue;
+        if (knownSpans.some(h => tm.index! >= h.start && tm.index! + tok.length <= h.end)) continue;
         if (!evidenceLines.some(l => new RegExp(`(?<![A-Za-z0-9])${escRe(tok)}(?![A-Za-z0-9])`).test(lineName(l) || ''))) { reasons.push(`schedule:unknown-name:${tok}`); return reasons; }
     }
     // 절대 날짜(생성 검사) — 시각이나 «오늘·내일»을 쓴 예정 주장은 날짜(M/D)를 함께 써야 한다. 한국·일본 독자의 달력은 ET 보다 하루 앞설 수 있다(10/20 «내일 08:30 ET» 예시).
