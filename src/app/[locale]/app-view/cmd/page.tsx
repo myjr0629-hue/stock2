@@ -1404,7 +1404,7 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
 
   // Format date nicely
   const dateStr = raw.nextEarningsDate
-    ? new Date(raw.nextEarningsDate + 'T00:00:00').toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    ? new Date(raw.nextEarningsDate + 'T00:00:00').toLocaleDateString(locale === 'ko' ? 'ko-KR' : locale === 'ja' ? 'ja-JP' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : 'TBD';
 
   // Session label
