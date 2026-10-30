@@ -525,7 +525,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { stage = name
     try {
       Date.now = () => clock;
       stub(1, { readImpliedMoveRows: async () => [] });
-      stub(2, { peekStructureLevelsDetailed: async (tickers: string[]) => ({ levels: new Map(), noSnapshot: tickers }), displayLevels: () => null, warmMissingStructure: async () => { warms++; return []; } });
+      stub(2, { peekStructureLevelsDetailed: async (tickers: string[]) => ({ levels: new Map(), noSnapshot: tickers }), displayLevels: () => null, warmMissingStructure: async () => { warms++; return []; }, structureV2Key: (t: string) => `structure:v2:${t}` });   // T37: 실적 주간이 판본 원본 키를 같은 mget 에 싣는다
       stub(3, { readActualRecords: async () => new Map(), recordMapKey: () => '' });
       stub(4, { readImpliedPack: async () => null });
       delete require.cache[paths[0]];

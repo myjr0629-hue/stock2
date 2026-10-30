@@ -220,6 +220,73 @@ const WEEK_NOW = ms('2026-10-11T16:00:00Z');   // 일요일 낮(ET 12:00) → �
     assert.equal(d.dataSession, '2026-10-09'); assert.equal(d.dataBasis, 'eod');
     assert.deepEqual(writeKeys.filter((k) => !/^structure:/.test(k)), [], `구조 데우기 잠금(structure:*) 외 Redis 쓰기 0: ${writeKeys.join(',')}`);
   });
+  await ta('[T37] 발표 뒤 갭 Max Pain — INTC 10/30 재현: 판본이 ±35% 정의 밖(94 vs 63.6)으로 뺀 값을 발표 전 기록 현물(92.07) 기준 ±35% 안일 때만 표시', async () => {
+    const PRM = require('../src/lib/earnings/postReportMaxPain') as typeof import('../src/lib/earnings/postReportMaxPain');
+    const A = require('../src/lib/earnings/earningsActuals') as typeof import('../src/lib/earnings/earningsActuals');
+    const intc = (o: { mp?: number | null; oob?: number | null; exp?: string; chain?: string } = {}) => ({
+      data: {
+        ticker: 'INTC', options_status: 'OK', expiration: o.exp ?? '2026-10-16', chainDate: o.chain ?? '2026-10-14', availableExpirations: ['2026-10-16', '2026-10-23'],
+        underlyingPrice: 63.632, prevClose: 92.07, maxPain: o.mp ?? null,
+        levels: { callWall: 70, putFloor: 55, pinZone: null },
+        structure: { strikes: [50, 55, 60, 64, 70, 94], callsOI: [1, 2, 3, 4, 5, 6], putsOI: [6, 5, 4, 3, 2, 1], gexCum: [1, 2, 3, 4, 5, 6] },
+        debug: { maxPainOutOfBand: o.oob === undefined ? 94 : o.oob },
+      },
+      timestamp: ms('2026-10-15T18:30:00Z'),
+    });
+    const expected = (spot: number | null, session = '2026-10-14') => ({ pct: 6.9, expiry: '2026-10-16', session, basis: 'eod', method: 'weekly', straddlePct: 6.9, strike: 92, straddle: 6.38, spot, capturedAt: 1, src: 'page' });
+    const record = (exp: any) => ({ v: 1, ticker: 'INTC', date: '2026-10-14', hour: 'amc', expected: exp, actual: null, at: 1 });
+    const list = [{ ...C.CONFIRMED_EARNINGS[0], ticker: 'INTC', date: '2026-10-14', hour: 'amc' as const, etTime: undefined }];
+    const NOW = '2026-10-15T18:57:00Z';   // 목 14:57 ET — 발표(10/14 장후) 다음 정규장
+    const row = async () => (await at(NOW, () => SVC.buildEarningsWeek(ms(NOW), list as any, { readOnly: true }))).rows[0];
+
+    // 순수 함수 — 표
+    const shown = { maxPain: null, levelsExpiration: '2026-10-16', levelsChainDate: '2026-10-14' };
+    const ex = A.parseRecord(record(expected(92.07)))!.expected;
+    const REP = { date: '2026-10-14', reported: true };
+    assert.equal(PRM.postReportMaxPain(intc(), shown, ex, '2026-10-15', { date: '2026-10-14', reported: false }), null, '발표 전(장전 발표일 자정~개장 등) — 정의 그대로');
+    assert.equal(PRM.postReportMaxPain(intc(), shown, { ...ex!, session: '2026-10-15' }, '2026-10-16', REP), null, '발표 뒤에 기록된 현물은 «발표 전» 기준이 아니다');
+    assert.equal(PRM.postReportMaxPain(intc(), shown, ex, '2026-10-15', REP), 94);
+    assert.equal(PRM.postReportMaxPain(intc(), shown, ex, '2026-10-14', REP), null, '발표 전 기록 세션 당일(발표 전일 수 있다) — 정의 그대로');
+    assert.equal(PRM.postReportMaxPain(intc(), { ...shown, maxPain: 70 }, ex, '2026-10-15', REP), null, '표시 값이 있으면 건드리지 않는다');
+    assert.equal(PRM.postReportMaxPain(intc({ oob: 52.5 }), shown, ex, '2026-10-15', REP), null, '발표 전 가격에서도 ±35% 밖 = 왜곡 체인(DD 137 대 52.5 꼴) — 계속 없음');
+    assert.equal(PRM.postReportMaxPain(intc({ oob: null }), shown, ex, '2026-10-15', REP), null);
+    assert.equal(PRM.postReportMaxPain(intc({ mp: 64 }), shown, ex, '2026-10-15', REP), null, '판본에 값이 있었는데 문이 지운 경우는 되살리지 않는다');
+    assert.equal(PRM.postReportMaxPain(intc({ exp: '2026-10-23' }), shown, ex, '2026-10-15', REP), null, '다른 만기 판본');
+    assert.equal(PRM.postReportMaxPain(intc({ chain: '2026-10-13' }), shown, ex, '2026-10-15', REP), null, '다른 체인 날짜 판본');
+    assert.equal(PRM.postReportMaxPain(intc(), shown, A.parseRecord(record(expected(null)))!.expected, '2026-10-15', REP), null, '발표 전 현물 기록 없음');
+    assert.equal(PRM.postReportMaxPain(intc(), shown, null, '2026-10-15', REP), null);
+    assert.equal(PRM.postReportMaxPain(null, shown, ex, '2026-10-15', REP), null);
+    assert.equal(PRM.postReportMaxPain({ data: { ...intc().data, options_status: 'PARTIAL' } }, shown, ex, '2026-10-15', REP), null);
+
+    // 서비스 — 같은 mget(왕복 수 그대로) · Redis 쓰기 0 · Call Wall·Put Floor 는 그대로
+    seed(); put('structure:v2:INTC', intc()); put(A.actualsKey('INTC', '2026-10-14'), record(expected(92.07)));
+    const before = mgets;
+    const r1 = await row();
+    assert.deepEqual([r1.maxPain, r1.callWall, r1.putFloor, r1.levelsExpiry], [94, 70, 55, '2026-10-16']);
+    assert.equal(writes, 0, 'Redis 쓰기 0');
+    const mgetsWithFix = mgets - before;
+    // 발표 전 기록이 없으면 — 예전과 같이 없음(«—»)
+    seed(); put('structure:v2:INTC', intc());
+    const before2 = mgets;
+    const r2 = await row();
+    assert.deepEqual([r2.maxPain, r2.callWall], [null, 70]);
+    assert.equal(mgetsWithFix, mgets - before2, `Redis 왕복 수 같음(${mgetsWithFix})`);
+    // 발표 전 현물에서도 멀면(왜곡 체인) — 없음
+    seed(); put('structure:v2:INTC', intc({ oob: 40 })); put(A.actualsKey('INTC', '2026-10-14'), record(expected(92.07)));
+    assert.equal((await row()).maxPain, null);
+    // 장전(bmo) 발표 종목: 발표일 04:00 ET(개장 전) — 전 거래일 기록이 있어도 발표 전이라 복구 안 함 · 09:30 뒤엔 복구
+    seed(); put('structure:v2:INTC', intc()); put(A.actualsKey('INTC', '2026-10-15'), { ...record(expected(92.07)), date: '2026-10-15', hour: 'bmo' });
+    const bmo = [{ ...list[0], date: '2026-10-15', hour: 'bmo' as const }];
+    const pre = await at('2026-10-15T08:00:00Z', () => SVC.buildEarningsWeek(ms('2026-10-15T08:00:00Z'), bmo as any, { readOnly: true }));
+    assert.equal(pre.rows[0].maxPain, null, 'bmo 발표 전');
+    SVC._resetEarningsWeekMemo();
+    const post = await at('2026-10-15T14:00:00Z', () => SVC.buildEarningsWeek(ms('2026-10-15T14:00:00Z'), bmo as any, { readOnly: true }));
+    assert.equal(post.rows[0].maxPain, 94, 'bmo 발표 뒤(10:00 ET)');
+    // 화면 뷰 — 기존 형식 그대로 «$94»(문구 변경 0)
+    seed(); put('structure:v2:INTC', intc()); put(A.actualsKey('INTC', '2026-10-14'), record(expected(92.07)));
+    const d = await at(NOW, () => SVC.buildEarningsWeek(ms(NOW), list as any, { readOnly: true }));
+    assert.equal(V.viewRow(d.rows[0], 'ko', d, ms(NOW)).maxPain, '$94');
+  });
   await ta('만기가 지난 레벨 판본은 쓰지 않는다 · 읽기 실패에도 던지지 않고 «값 없음»으로 12행을 낸다', async () => {
     seed();
     put('structure:v2:JPM', { ...structure('JPM', 333.45, { mp: 335, cw: 375, pf: 330, pct: 3.6 }), data: { ...structure('JPM', 333.45, { mp: 335, cw: 375, pf: 330, pct: 3.6 }).data, expiration: '2026-10-09' } });
