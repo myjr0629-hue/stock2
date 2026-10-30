@@ -1224,6 +1224,7 @@ export default function AppFlowPage() {
           } catch { /* 칸은 «—» 로 남는다 */ }
         });
         setOiRound(round);
+        const tickerReqSession = shownRegularSessionDate();   // [T37] 요청 시점 세션 — 응답이 세션 경계를 넘겨 도착하면 스퀴즈 칸에 쓰지 않는다
         const res = await fetchWithTtfbLimit(`/api/live/ticker?t=${ticker.toUpperCase()}&chain=full`, FLOW_TICKER_TTFB_MS, { cache: 'no-store' });
         if (!res.ok) throw new Error();
         const data = await res.json();
@@ -1231,7 +1232,7 @@ export default function AppFlowPage() {
         if (cancelled) return;
 
         setTickerData(data);
-        setTickerDataSession(shownRegularSessionDate());
+        setTickerDataSession(tickerReqSession === shownRegularSessionDate() ? tickerReqSession : null);
         if (data.display?.price) setPrice(data.display.price);
         if (typeof data.display?.changePctPct === 'number' && Number.isFinite(data.display.changePctPct)) setChange(data.display.changePctPct);
 
@@ -1613,7 +1614,7 @@ export default function AppFlowPage() {
   // [2026-10-31 T37] IV Rank 도 입력이 아니다 — FINRA 를 빼면 IV Rank 98 이 그대로 «확률 98% 높음»이 됐다(같은 시각 API 스퀴즈 위험 36·MEDIUM).
   //   칸은 같은 /api/live/ticker 응답의 flow.squeezeScore·squeezeRisk(커맨드 squeeze.riskScore·status 와 같은 structure:v2 판)만 그린다.
   //   새 요청 없음 — 30초 갱신·종목 전환·실패 시 유지 규칙은 tickerData 와 같다. 없으면 null(칸 유지 «—»).
-  //   점수는 0~100 위험 점수(확률 아님) — 칸은 숫자만(«%» 없이, 커맨드·레이더와 같은 표기). 다른 종목·지난 세션 응답이면 null.
+  //   값은 API 의 0~100 위험 점수다(보정된 확률 아님) — 칸 표기(«N%»)·라벨은 대표 지시 없이 바꾸지 않는다(라벨 정정은 대표 결정 대기). 다른 종목·지난 세션 응답이면 null.
   const squeezeCurrent = String(tickerData?.ticker ?? '').toUpperCase() === ticker.toUpperCase() && tickerDataSession === shownRegularSessionDate();
   const squeezeReading = useMemo(() => flowSqueeze(squeezeCurrent ? tickerData?.flow : null), [tickerData, squeezeCurrent]);
   const squeezeProb = squeezeReading.score;
@@ -3306,7 +3307,7 @@ export default function AppFlowPage() {
                       {renderInfoBtn("squeeze")}
                     </div>
                     <div className="tnum" style={{ fontSize: '22px', fontWeight: 950, color: sqColor, lineHeight: 1, marginTop: '7px' }}>
-                      {squeezeProb == null ? '—' : `${squeezeProb}`}
+                      {squeezeProb == null ? '—' : `${squeezeProb}%`}
                     </div>
                     <div style={{ font: 'var(--f-micro)', color: sqColor, fontWeight: 900, marginTop: '6px' }}>
                       {sqStatus}

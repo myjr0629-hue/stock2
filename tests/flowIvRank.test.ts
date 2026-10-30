@@ -41,7 +41,7 @@ const response = (body: any, ok = true) => ({ ok, json: async () => body });
 const good = (percentile = 89) => ({ ticker: 'TSLA', percentile, currentIv: 46.95, metric: 'iv30', currentSession: '2026-10-19', sampleSize: 79, _source: 'dynamodb-true-percentile' });
 const tickerData = { ticker: 'TSLA', session: 'REG', flow: { ivRank: null, shortVolPct: 47.1, shortVolSource: 'FINRA' } };
 
-async function harness(options: { data?: any; iv?: any; now?: string; delayed?: boolean; brokenSibling?: boolean; blockedSibling?: boolean; blockedTicker?: boolean; initial?: any; tickerFailures?: number; quickRetries?: number; ivRequest?: (request: number) => Promise<any> } = {}) {
+async function harness(options: { data?: any; iv?: any; now?: string; delayed?: boolean; brokenSibling?: boolean; blockedSibling?: boolean; blockedTicker?: boolean; tickerResponse?: () => Promise<void>; initial?: any; tickerFailures?: number; quickRetries?: number; ivRequest?: (request: number) => Promise<any> } = {}) {
     const state: Record<string, any> = { ivRankFeed: null, ivRankOverride: null, ivUnavailable: false, ivCollecting: false, ...options.initial };
     const data = options.data ?? tickerData;
     let now = Date.parse(options.now ?? '2026-10-19T17:08:00Z');
@@ -71,6 +71,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         setInterval: (fn: () => void) => { refresh = fn; return 1; }, clearInterval: () => {},
         fetchWithTtfbLimit: async () => {
             if (tickerFail) throw new Error('ticker transport failure');
+            if (options.tickerResponse) await options.tickerResponse();
             if (++tickerRequests <= (options.tickerFailures ?? 0)) throw new Error('ticker transport failure');
             return options.blockedTicker ? new Promise(() => {}) : response(data);
         },
@@ -261,7 +262,7 @@ test('[T37] squeeze cell shows the ticker API squeeze score/level, never IV Rank
     const h = await harness({ data: nvda, iv: { ...good(98), ticker: 'NVDA' } });
     assert.equal(h.display().rank, 98);
     assert.equal(h.display().squeeze, 36);
-    assert.equal(h.display().squeezeCell, '36', '위험 점수 — «%» 를 붙이지 않는다(확률 아님)');
+    assert.equal(h.display().squeezeCell, '36%', '칸 표기 형식은 그대로(«N%»)');
     assert.equal(h.state.tickerData.flow.squeezeRisk, 'MEDIUM');
     assert.equal(h.display('AAPL').squeeze, null, '다른 종목 화면에는 이 응답의 점수를 그리지 않는다');
     h.cleanup();
@@ -290,6 +291,20 @@ test('[T37] ticker transport failure keeps the same-session value; a session cha
     h.setTickerFail(false); await h.refresh();
     assert.equal(h.display().squeeze, 36, '새 세션 응답이 오면 다시 그린다');
     void failTicker;
+    h.cleanup();
+});
+test('[T37] a ticker response requested before the regular open but arriving after it is not used for the squeeze cell', async () => {
+    const body = { ticker: 'NVDA', session: 'PRE', flow: { squeezeScore: 36, squeezeRisk: 'MEDIUM' } };
+    let release!: () => void;
+    let calls = 0;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, now: '2026-10-19T13:29:50Z', tickerResponse: () => (++calls === 1 ? new Promise<void>((r) => { release = r; }) : Promise.resolve()) });
+    h.setNow('2026-10-19T13:30:05Z'); release(); await new Promise<void>((r) => setImmediate(r)); for (let i = 0; i < 15; i++) await new Promise<void>((r) => setImmediate(r));
+    assert.equal(h.state.tickerData?.ticker, 'NVDA', '응답 자체는 반영(다른 칸은 기존 규칙)');
+    assert.equal(h.display().squeeze, null, '경계를 넘긴 응답의 점수는 그리지 않는다');
+    h.setTickerFail(true); await h.refresh();
+    assert.equal(h.display().squeeze, null, '이후 갱신 실패에도 지난 세션 점수가 현재 값이 되지 않는다');
+    h.setTickerFail(false); await h.refresh();
+    assert.equal(h.display().squeeze, 36, '새 세션 안에서 요청·도착한 응답은 표시');
     h.cleanup();
 });
 test('[T37] flowSqueeze maps API score/risk; missing or invalid is null (cell stays with —)', () => {
