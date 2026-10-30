@@ -45,63 +45,30 @@ const PERIOD: Record<'MoM' | 'YoY' | 'QoQ', string> = {
  *   ① 문장 부호·괄호 닫힘·끝·영숫자 ② 붙은 조사·서술(«으로»·«이»·«입니다» — 꾸밈 «의»는 제외)
  *   ③ 띄운 낱말은 발표·지표·보고서·공시·자료·데이터·결과·일정·수치·예정(+조사)만 ④ 일본어는 (の)発表·公表·報告…(予定) + 조사, 또는 바로 문장 부호
  */
-// 명사구를 끝내는 붙은 말(조사·서술) — 이 뒤는 새 절이라 보지 않는다. «의»는 꾸밈이라 다음 낱말까지 본다.
-const KO_END = /^(?:으로|로|이|가|은|는|을|를|와|과|도|에|에서|에는|이며|이고|이다|입니다|인데|이나|이라|라는|으로서|로서|된|인|될|되는|이에요|예요)$/;
-const KO_ALLOWED_NOUN = /^(?:발표|공개|공표|지표|보고서?|공시|자료|데이터|결과|일정|수치|예정|이벤트)/;
-const JA_ALLOWED = /^(?:発表|公表|報告|統計|データ|指標|結果|資料|公示|予定)/;
-const JA_END = /^(?:で|は|が|を|に|と|も|です|であり|となり|では|には)/;
-// 명사구가 끝나는 자리 — 문장 부호·닫는 괄호·끝(숫자·영문은 경계가 아니다: «실업률의 20대 수치» — 관문 10310659)
-const BOUNDARY = /^\s*(?:$|[,.!?;:)\]）」』、。…—"“”])/;
 /**
- * 표기 «뒤»는 허용 목록으로만, 명사구가 끝날 때까지 이어 본다(관문 10310640·10310646·10310653):
- *   문장 부호·끝·영숫자 → 끝 · 붙은 조사·서술(«으로»·«이»·«입니다») → 끝 · «의» → 다음 낱말도 허용 낱말이어야
- *   띄운 낱말은 발표·지표·보고서·공시·자료·데이터·결과·일정·수치·예정(+조사)만 · 일본어는 (の)発表·公表…(予定)+조사, 공백 뒤 일본어도 같은 규칙
+ * 표기 «뒤»는 NEXT 문장의 일정 꼴만 허용한다(관문 10310640~10310735 — 뒤 수식어·주어 서술·방향 단정을 낱말 목록으로 쫓지 않고 꼴 자체를 고정):
+ *   한국어: X(괄호)? [발표·공개·보고서·공시·자료·데이터·지표·결과·수치·일정]? [로·으로 | 예정(입니다·이며…) | 입니다·이며·이다]? 다음이 곧 문장 부호·닫는 괄호·끝
+ *   일본어: X(括弧)? (の)?[発表·公表·報告·統計·データ·指標·結果·資料·公示]?(予定)?[で·であり·です]? 다음이 곧 문장 부호·닫는 括弧·끝
+ *   실모델 24회·운영 저장본의 NEXT 는 전부 «… 예정된 X로, A면 …»·«… 予定のXで、…» 꼴. 그 밖의 꼴(주어·화제·꾸밈·이어지는 서술)은 실패(fail-closed).
  */
-/**
- * 사전 표기를 주어·화제(이·가·은·는 / が·は)로 쓰면 뒤 서술이 발표 전 값의 방향을 단정할 수 있다(«실업률이 급등할 예정» — 관문 10310723·10310729).
- *   서술 전체를 판정하지 않고 실패로 둔다(fail-closed). NEXT 문장의 일정은 «… 예정된 X로, …» 꼴로 쓰인다(실모델 24회·운영 저장본 전부 이 꼴).
- */
-function subjectClaimReason(word: string): string | null {
-    return /^(?:이|가|은|는|が|は)$/.test(word) ? `tail-subject:${word}` : null;
-}
+const TAIL_END = '\\s*(?:$|[,.!?;:)\\]）」』、。…—"“”])';
+/** 조사·서술 없이 끝나는 표기는 쉼표로 이어 갈 수 없다(«실업률, 상승할 전망» — 관문 10310741): 끝·마침표·닫는 괄호만 */
+const TAIL_END_BARE = '\\s*(?:$|[.!?)\\]）」』。…"”])';
+const KO_NOUN = '(?:\\s*(?:발표|공개|공표|보고서?|공시|자료|데이터|지표|결과|수치|일정))?';
+const KO_TAIL_OK = new RegExp(`^${KO_NOUN}(?:(?:으로|로|\\s*예정(?:입니다|이며|이고|이다|으로)?|입니다|이며|이다)${TAIL_END}|${TAIL_END_BARE})`);
+const JA_NOUN = '\\s*(?:の)?(?:発表|公表|報告|統計|データ|指標|結果|資料|公示)?(?:予定)?';
+const JA_TAIL_OK = new RegExp(`^${JA_NOUN}(?:(?:で|であり|です)${TAIL_END}|${TAIL_END_BARE})`);
 function tailReason(after: string, parenFine: (content: string) => boolean = () => false): string | null {
     let rest = after;
-    for (let i = 0; i < 8; i++) {
-        if (BOUNDARY.test(rest)) return null;
-        const spaced = /^\s+/.test(rest);
-        const t = rest.replace(/^\s+/, '');
-        // 괄호 묶음은 그 속이 기간·영어 이름·일반 풀이일 때만 건너뛰고 계속 본다(«실업률 (10월) (청년)» — 관문 10310659)
-        const paren = t.match(/^[(（]([^()（）]*)[)）]/);
-        if (paren) { if (!parenFine(paren[1])) return `tail-paren:${paren[1]}`; rest = t.slice(paren[0].length); continue; }
-        if (/^[가-힣]/.test(t)) {
-            const word = t.match(/^[가-힣]+/)![0];
-            if (!spaced) {   // 표기에 붙은 말
-                if (KO_END.test(word)) return subjectClaimReason(word);
-                if (word === '의') { rest = t.slice(1); continue; }
-                return `tail:${word}`;
-            }
-            const noun = word.match(KO_ALLOWED_NOUN)?.[0];
-            if (!noun) return `tail:${word}`;
-            const suffix = word.slice(noun.length);
-            if (!suffix) { rest = t.slice(word.length); continue; }
-            if (KO_END.test(suffix)) return subjectClaimReason(suffix);
-            if (suffix === '의') { rest = t.slice(word.length); continue; }
-            return `tail:${word}`;
-        }
-        if (/^[ぁ-んァ-ヴー一-龯々]/.test(t)) {
-            let u = t;
-            if (u.startsWith('の')) u = u.slice(1);
-            const noun = u.match(JA_ALLOWED)?.[0];
-            if (noun) u = u.slice(noun.length);
-            if (u.startsWith('予定')) u = u.slice(2);
-            if (JA_END.test(u)) { const p = u.match(JA_END)![0]; return subjectClaimReason(p); }
-            if (BOUNDARY.test(u)) return null;
-            if (u.startsWith('の') && u !== t) { rest = u; continue; }
-            return `tail:${t.slice(0, 6)}`;
-        }
-        return `tail:${t.slice(0, 6)}`;   // 숫자·영문 등 그 밖의 말이 명사구에 이어지면 다른 값일 수 있다
+    // 괄호 묶음은 그 속이 영어 이름·일반 풀이·요일·현지 시각일 때만 건너뛴다(«실업률 (10월) (청년)» 실패)
+    for (let i = 0; i < 4; i++) {
+        const paren = rest.match(/^\s*[(（]([^()（）]*)[)）]/);
+        if (!paren) break;
+        if (!parenFine(paren[1])) return `tail-paren:${paren[1]}`;
+        rest = rest.slice(paren[0].length);
     }
-    return 'tail:too-long';
+    if (KO_TAIL_OK.test(rest) || JA_TAIL_OK.test(rest)) return null;
+    return `tail:${rest.trim().slice(0, 8)}`;
 }
 const PERIOD_ANY = new RegExp(`${PERIOD.MoM}|${PERIOD.YoY}|${PERIOD.QoQ}`, 'i');
 /** 수준을 말하는 낱말 — 변화·비율 지표와 다른 값 */
