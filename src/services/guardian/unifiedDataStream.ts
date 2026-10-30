@@ -133,6 +133,8 @@ export interface GuardianContext {
     tacticalFuturesCheckedAt?: string;
     /** 이 스냅샷이 살펴본 가장 새 Tactical 저장본 시각(ISO). 저장소에 이보다 새 글이 있으면 30분 간격과 무관하게 채택한다(관문 10281110). 없으면 timestamp. */
     tacticalSeenAt?: string;
+    /** ★T35-B 장중 글의 생성 시각(정기 재생성 30분 간격의 기준). 채택한 글은 그 저장 시각, 없으면 timestamp. «본 시각»(tacticalSeenAt)과 별개 */
+    tacticalGeneratedAt?: string;
 }
 
 // === CACHE CONFIG (per-locale to prevent AI text cross-contamination) ===
@@ -165,8 +167,8 @@ export function snapshotPlaceholderNeedsRecompute(
 }
 /** ★T35-B 정기 재생성 결과가 대기 문구면 직전 스냅샷의 장중 글·생성 기준을 그대로 둔다(«실패 시 기존 글 유지»). 출구 검사는 그 뒤에 다시 돈다. */
 export function keepRegTacticalOnFailure(
-    next: { verdict?: any; tacticalSeenAt?: string; timestamp?: string },
-    previous: { verdict?: any; tacticalSeenAt?: string; timestamp?: string },
+    next: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string },
+    previous: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string },
 ): boolean {
     const now = next.verdict?.realityInsight, old = previous.verdict?.realityInsight;
     if (!next.verdict || typeof old !== 'string' || !old || IntelligenceNode.isPlaceholderInsight(old)) return false;
@@ -176,12 +178,13 @@ export function keepRegTacticalOnFailure(
     if (previous.verdict?.num?.basis?.realityInsight !== undefined) basis.realityInsight = previous.verdict.num.basis.realityInsight; else delete basis.realityInsight;
     next.verdict = { ...next.verdict, realityInsight: old, num: { ...next.verdict.num, tpl, basis } };
     // 생성 시각도 옛 글의 것 — 30분 간격·변화 판정이 옛 글 기준으로 이어지게(예약 간격이 재시도를 30분 뒤로 민다)
+    next.tacticalGeneratedAt = previous.tacticalGeneratedAt || previous.timestamp;
     next.tacticalSeenAt = previous.tacticalSeenAt || previous.timestamp;
     return true;
 }
 
 /** 정기 재생성 재계산 결과 정리 — 대기 문구면 기존 글 유지(keepRegTacticalOnFailure). 새 정상 글로 바뀐 경우만 true(예약 성공), 유지·같은 글(복구본)은 false(60분 대기·연속 2회 중지). */
-export function settleRegTacticalRefresh(next: { verdict?: any; tacticalSeenAt?: string; timestamp?: string }, previous: { verdict?: any; tacticalSeenAt?: string; timestamp?: string }): boolean {
+export function settleRegTacticalRefresh(next: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string }, previous: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string }): boolean {
     if (keepRegTacticalOnFailure(next, previous)) return false;
     const now = next.verdict?.realityInsight;
     return typeof now === 'string' && !!now && !IntelligenceNode.isPlaceholderInsight(now) && now !== previous.verdict?.realityInsight;
@@ -586,7 +589,7 @@ export class GuardianDataHub {
                 const tpl = { ...previous.verdict.num?.tpl }, numBasis = { ...previous.verdict.num?.basis };
                 delete tpl.realityInsight; delete numBasis.realityInsight;
                 if (n) { tpl.realityInsight = n.tpl; numBasis.realityInsight = n.basis; }
-                context = { ...previous, tacticalSeenAt: new Date(Math.max(seenBefore, r.at ?? now)).toISOString(),
+                context = { ...previous, tacticalSeenAt: new Date(Math.max(seenBefore, r.at ?? now)).toISOString(), tacticalGeneratedAt: new Date(r.at ?? now).toISOString(),
                     verdict: { ...previous.verdict, realityInsight: r.text, num: { tpl, basis: numBasis } } };
                 await saveAiVerdict(context.verdict, locale);
             } else if (typeof r.seenAt === 'number' && r.seenAt > seenBefore) {
@@ -638,7 +641,7 @@ export class GuardianDataHub {
                     } else if ((regDrift = regTacticalNeedsRefresh(cached, cachedSession, now, IntelligenceNode.isPlaceholderInsight)).length
                         && (placeholderClaim = await claimRegTacticalRefresh(locale, now))) {
                         // ★T35-B 장중 글이 생성 30분 뒤 지수·RLSI 가 움직였다 — 운영 생성 경로 그대로 다시 계산(예약 1회 = 3언어 1호출, 다른 언어는 저장본 채택)
-                        console.log(`[Guardian] REG tactical refresh (${regDrift.join(',')} drift; text since ${cached.tacticalSeenAt || cached.timestamp}) — recomputing for ${locale}`);
+                        console.log(`[Guardian] REG tactical refresh (${regDrift.join(',')} drift; text since ${cached.tacticalGeneratedAt || cached.timestamp}) — recomputing for ${locale}`);
                         placeholderFallback = cached;
                         regRefreshAt = now;
                     } else {

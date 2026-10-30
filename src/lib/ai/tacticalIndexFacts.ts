@@ -172,7 +172,8 @@ export const REG_TACTICAL_RETRY_MS = 5 * 60_000;
 type RegNums = { NDX_CHG?: number; SPX_CHG?: number; RLSI?: number } | null | undefined;
 export interface RegTacticalState {
     timestamp?: string;
-    tacticalSeenAt?: string;
+    /** 이 스냅샷 장중 글의 생성 시각(정기 재생성·채택이 기록). 없으면 스냅샷 계산 시각 */
+    tacticalGeneratedAt?: string;
     rlsi?: { score?: number } | null;
     market?: { nqChangePercent?: number | null; factors?: { spx?: { chgPct?: number | null } | null } | null } | null;
     verdict?: { realityInsight?: unknown; num?: { basis?: { realityInsight?: RegNums } | null } | null } | null;
@@ -193,9 +194,9 @@ export function regTacticalCurrent(c: RegTacticalState | null | undefined): RegN
     if (!c) return null;
     return { NDX_CHG: c.market?.nqChangePercent ?? undefined, SPX_CHG: c.market?.factors?.spx?.chgPct ?? undefined, RLSI: c.rlsi?.score ?? undefined };
 }
-/** 마지막 생성 시각 — 이 스냅샷이 채택·생성한 글의 시각(tacticalSeenAt), 없으면 스냅샷 계산 시각(그때 글은 새로 만들었거나 10분 안 캐시) */
+/** 마지막 생성 시각 — 이 스냅샷이 채택한 글의 생성 시각(tacticalGeneratedAt), 없으면 스냅샷 계산 시각(그때 글은 새로 만들었거나 10분 안 캐시). «본 시각»(tacticalSeenAt)과 분리 — 탈락한 저장본을 본 것만으로 재생성이 밀리지 않게(관문 10310451 ②) */
 export function regTacticalGeneratedAt(c: RegTacticalState | null | undefined): number {
-    const at = Date.parse(c?.tacticalSeenAt || c?.timestamp || '');
+    const at = Date.parse(c?.tacticalGeneratedAt || c?.timestamp || '');
     return Number.isFinite(at) ? at : NaN;
 }
 /**

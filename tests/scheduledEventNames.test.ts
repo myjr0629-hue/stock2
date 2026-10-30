@@ -140,6 +140,13 @@ assert.deepEqual(strict('다음 분기점은 10/26(월) 10:00 ET 예정된 신�
 assert.ok(strict('다음 분기점은 10/26(월) 10:00 ET 예정된 기존 주택 판매로', NHS, OCT26).length, '기존≠신규');
 assert.deepEqual(strict('다음 분기점은 10/26(월) 10:00 ET 예정된 New Home Sales Sep(신규 주택 판매)로', NHS, OCT26), [], '괄호 없는 기간 이름 + 꼬리표');
 
+// FOMC 성명 ≠ 금리 결정(관문 10310451 ①)
+const FOMC = [line('Fed Interest Rate Decision', '2026-12-09', '14:00')];
+const DEC9 = Date.parse('2026-12-09T15:00:00Z');
+assert.deepEqual(strict('12/9(수) 14:00 ET 예정된 FOMC 금리 결정', FOMC, DEC9), []);
+assert.ok(strict('12/9(수) 14:00 ET 예정된 FOMC 성명', FOMC, DEC9).length, 'FOMC 성명');
+assert.ok(strict('12/9(水) 14:00 ET 予定のFOMC声明', FOMC, DEC9).length, 'FOMC声明');
+
 // 사건군 근거 보강은 근거 줄 이름에서만(지시문 속 낱말 아님)
 assert.equal(withEventNameGloss('no calendar lines'), 'no calendar lines');
 assert.ok(withEventNameGloss(JSON.stringify([line('2-Year Note Auction')])).includes('국채 입찰'));

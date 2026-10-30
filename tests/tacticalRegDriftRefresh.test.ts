@@ -23,7 +23,7 @@ const TEXT = '지금 정규장에서 나스닥 종합은 전일 종가 대비 2.
 // 운영 10/30 ko 스냅샷 모양: 생성 기준 NDX_CHG −2.5·SPX −1.6·RLSI 33 → 지금 −3.4·−2.1·30
 const snap = (o: { at?: number; text?: string; basis?: any; nq?: number; spx?: number; rlsi?: number; seen?: number; session?: string } = {}) => ({
     timestamp: iso(o.at ?? now - 40 * MIN), _workerTimestamp: iso(now - 5_000), _source: 'ec2-worker',
-    ...(o.seen ? { tacticalSeenAt: iso(o.seen) } : {}),
+    ...(o.seen ? { tacticalGeneratedAt: iso(o.seen) } : {}),
     rlsi: { score: o.rlsi ?? 30, session: o.session ?? 'REG' }, sectors: [{ id: 'XLK' }],
     market: { nqChangePercent: o.nq ?? -3.4, factors: { spx: { chgPct: o.spx ?? -2.1 } } },
     verdict: { title: 'TACTICAL INSIGHT', sentiment: 'NEUTRAL', description: '순환매 정상 글', gammaInsight: '감마 정상 글', realityInsight: o.text ?? TEXT,
@@ -45,7 +45,7 @@ assert.deepEqual(regTacticalNeedsRefresh(snap({ nq: -2.5, spx: -1.6, rlsi: 38 })
 assert.deepEqual(regTacticalNeedsRefresh(snap({ text: PENDING }), 'REG', now, isPh), [], '대기 문구는 T35 경로가 맡는다');
 for (const s of ['PRE', 'POST', 'CLOSED']) assert.deepEqual(regTacticalNeedsRefresh(snap({ session: s }), s, now, isPh), [], `${s} 는 대상 아님`);
 assert.deepEqual(regTacticalNeedsRefresh(snap({ basis: null }), 'REG', now, isPh), [], '생성 기준 없는 옛 스냅샷 — 비교 불가면 호출 0');
-assert.deepEqual(regTacticalNeedsRefresh(snap({ seen: now - 10 * MIN }), 'REG', now, isPh), [], '채택·생성 시각(tacticalSeenAt) 기준 10분 — 대상 아님');
+assert.deepEqual(regTacticalNeedsRefresh(snap({ seen: now - 10 * MIN }), 'REG', now, isPh), [], '채택한 글의 생성 시각(tacticalGeneratedAt) 기준 10분 — 대상 아님');
 assert.equal(regTacticalGeneratedAt(snap({ seen: now - 10 * MIN })), now - 10 * MIN);
 assert.deepEqual(regTacticalDrift({ NDX_CHG: 0.1 }, { NDX_CHG: 0.6 }), ['nasdaq'], '부동소수 0.5 경계');
 assert.deepEqual(regTacticalDrift({ NDX_CHG: NaN, RLSI: 40 }, { NDX_CHG: -9, RLSI: undefined }), []);
@@ -177,7 +177,7 @@ class OfflineRedis {
         assert.equal(next.verdict.realityInsight, TEXT, '기존 장중 글 유지');
         assert.deepEqual(next.verdict.num.basis.realityInsight, { NDX_CHG: -2.5, SPX_CHG: -1.6, RLSI: 33 }, '생성 기준도 그대로');
         assert.equal(next.verdict.description, '새 순환매', '다른 칸은 새 계산 그대로');
-        assert.equal(next.tacticalSeenAt, prev.tacticalSeenAt, '생성 시각도 옛 글 것');
+        assert.equal(next.tacticalGeneratedAt, prev.tacticalGeneratedAt, '생성 시각도 옛 글 것');
         const ok2: any = { verdict: { realityInsight: '새 정상 글' } };
         assert.equal(keepRegTacticalOnFailure(ok2, prev), false, '새 글이 있으면 그대로');
         assert.equal(keepRegTacticalOnFailure({ verdict: { realityInsight: PENDING } }, snap({ text: PENDING })), false, '옛 글도 대기 문구면 손대지 않음');
@@ -209,10 +209,21 @@ class OfflineRedis {
             assert.equal(adopted.verdict.realityInsight, NEW);
             assert.deepEqual(adopted.verdict.num.basis.realityInsight, { NDX_CHG: -3.4, SPX_CHG: -2.1, RLSI: 30 }, '새 글의 생성 기준');
             assert.equal(adopted.tacticalSeenAt, iso(now - 2 * MIN));
+            assert.equal(adopted.tacticalGeneratedAt, iso(now - 2 * MIN), '채택한 글의 생성 시각');
             assert.equal(store.get('guardian:snapshot:ja').verdict.realityInsight, NEW, '스냅샷에도 저장(워커가 다시 쓴다)');
             assert.deepEqual(regTacticalNeedsRefresh(adopted, 'REG', now, isPh), [], '채택 뒤 같은 글로 재생성 요청 없음');
             // 30초 안 재확인 없음
             await call('ja'); assert.equal(adoptCalls, 1);
+            // 관문 10310451 ② 저장본이 출구 검사에서 탈락하면 «본 시각»만 갱신 — 생성 시각은 그대로라 정기 재생성이 30분 밀리지 않는다
+            (IntelligenceNode as any).adoptStoredRegReality = async () => ({ text: null, seenAt: now - 2 * MIN });
+            fresh(snap(), 'ko');
+            store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: {} }, rlsi: { score: 30, session: 'REG' }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
+            budgetFails = true;   // 이번 요청의 재생성 예약은 막고(채택 경로만 보게) …
+            const rejected = await call('ko');
+            budgetFails = false;
+            assert.equal(rejected.tacticalSeenAt, iso(now - 2 * MIN), '본 시각 갱신');
+            assert.equal(rejected.tacticalGeneratedAt, undefined, '생성 시각은 그대로(스냅샷 계산 시각)');
+            assert.deepEqual(regTacticalNeedsRefresh(rejected, 'REG', now, isPh), ['nasdaq', 'spx'], '변화가 있으면 여전히 재생성 대상');
             // 장중이 아니면 채택 확인 없음
             fresh(snap({ at: now - 10 * MIN, session: 'POST' }), 'ja'); adoptCalls = 0;
         } finally { Object.assign(IntelligenceNode, { latestStoredRegTacticalAt: orig.latest, adoptStoredRegReality: orig.adopt, numbersFor: orig.nums }); }
