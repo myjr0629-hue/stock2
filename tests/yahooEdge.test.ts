@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-    createEdgeFetch, pickMinute, pickDaily, minuteInfo, dailyInfo,
+    createEdgeFetch, pickMinute, minuteInfo, ALT_EXCLUDED_SYMBOLS,
     YAHOO_ALT_EDGES, ALT_FAILS_TO_PAUSE, ALT_PAUSE_MS, ALT_PAUSE_429_MS, ALT_MAX_INFLIGHT,
     ALT_GRACE_MS, ALT_LOSSES_TO_BACKOFF, ALT_RECHECK_MS,
 } from '../src/lib/cron/yahooEdge';
@@ -75,21 +75,19 @@ test('DNS 가 못 쓰는 응답(연결 실패·503·가격 없음)이면 유효�
     assert.equal(pickMinute({ kind: 'err', err: new Error('x') }, null, NOW_SEC), 'dns-alt-skipped');
 });
 
-test('관문 #3 — 일봉은 당일(마지막 봉) 종가와 직전 종가가 둘 다 있어야 유효', () => {
+test('관문 10310534 #3·10310545 #1·#2 — 일봉 요청과 실제 지수(^IXIC·^DJI·^GSPC) 1분봉은 대안을 부르지 않는다(기존 경로 그대로)', async () => {
     const D = 86_400; const t0 = NOW_SEC - 3 * D;
-    assert.equal(dailyInfo(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, 102])).valid, true);
-    assert.equal(dailyInfo(dailyBody([t0 + 2 * D], [102])).valid, false, '봉 1개');
-    assert.equal(dailyInfo(dailyBody([t0, t0 + D, t0 + 2 * D], [null, null, 102])).valid, false, '직전 종가 없음');
-    assert.equal(dailyInfo(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, null])).valid, false, '당일 종가 없음');
-    assert.equal(dailyInfo(dailyBody([t0, t0 + D], [100])).valid, false, '종가 배열이 짧음');
-    const dnsGood = ok(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, 102]));
-    // 대안이 «당일 종가 1개만» — 더 새로워 보여도 쓰지 않는다
-    assert.equal(pickDaily(dnsGood, ok(dailyBody([t0 + 3 * D], [103])), NOW_SEC), 'dns-alt-invalid');
-    // 대안이 유효하고 마지막 봉이 더 새로우면 대안, 같으면 DNS
-    assert.equal(pickDaily(dnsGood, ok(dailyBody([t0 + D, t0 + 2 * D, t0 + 3 * D], [101, 102, 103])), NOW_SEC), 'alt');
-    assert.equal(pickDaily(dnsGood, ok(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, 102])), NOW_SEC), 'dns');
-    // DNS 일봉이 무효(직전 종가 없음)고 대안이 유효면 대안
-    assert.equal(pickDaily(ok(dailyBody([t0 + 2 * D], [102])), ok(dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, 102])), NOW_SEC), 'alt-dns-failed');
+    const daily = dailyBody([t0, t0 + D, t0 + 2 * D], [100, 101, 102]);
+    const table: any = { dns: {}, [A0]: {} };
+    for (const sym of ['ES=F', 'NQ=F', '^GSPC']) { table.dns[url1d(sym)] = daily; table[A0][url1d(sym)] = dailyBody([t0 + 3 * D], [103]); }
+    for (const sym of ALT_EXCLUDED_SYMBOLS) { table.dns[url1m(sym)] = minuteBody({ price: 1, time: NOW_SEC - 86_400, prev: 1 }); table[A0][url1m(sym)] = minuteBody({ price: 2, time: NOW_SEC, prev: 1 }); }
+    const r = rig(table);
+    const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
+    for (const sym of ['ES=F', 'NQ=F', '^GSPC']) assert.deepEqual(await (await e.fetch(url1d(sym), {})).json(), daily);
+    for (const sym of ALT_EXCLUDED_SYMBOLS) assert.equal((await (await e.fetch(url1m(sym), {})).json()).chart.result[0].meta.regularMarketPrice, 1);
+    assert.equal(r.calls.filter((c) => !c.startsWith('dns')).length, 0);
+    assert.equal(e.state.altCalls, 0);
+    assert.deepEqual([...ALT_EXCLUDED_SYMBOLS].sort(), ['^DJI', '^GSPC', '^IXIC']);
 });
 
 test('minuteInfo: chartPreviousClose 만 있어도 직전 종가 유효(수집 함수와 같은 규칙)', () => {
@@ -214,11 +212,12 @@ test('관문 10310542 #1 — 실제 지수: DNS meta 는 어제·1분봉은 오�
     // 대안이 meta·1분봉 둘 다 같거나 새로우면 대안
     const altBetter = barsBody({ price: 7472.5, time: NOW_SEC - 60, prev: 7450 }, [NOW_SEC - 120, NOW_SEC - 60], [7470, 7472.5]);
     assert.equal(pickMinute(ok(dnsBody), ok(altBetter), NOW_SEC), 'alt');
-    // 감싼 fetch 로도 DNS 본문(오늘 1분봉)이 그대로 수집 함수에 간다
-    const r = rig({ dns: { [url1m('^GSPC')]: dnsBody }, [A0]: { [url1m('^GSPC')]: altNoBars } });
+    // 감싼 fetch 에선 실제 지수는 아예 대안을 부르지 않는다(관문 10310545 #1) — DNS 본문(오늘 1분봉) 그대로
+    const r = rig({ dns: { [url1m('^GSPC')]: dnsBody }, [A0]: { [url1m('^GSPC')]: altBetter } });
     const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
     const got = await (await e.fetch(url1m('^GSPC'), {})).json();
     assert.deepEqual(got.chart.result[0].timestamp, [NOW_SEC - 120, NOW_SEC - 60]);
+    assert.equal(e.state.altCalls, 0);
 });
 
 test('관문 10310542 #2 — 느리지만 성공하는 대안은 DNS 뒤 ALT_GRACE_MS 까지만 기다리고 DNS 결과, 3번이면 그 대안 쉼', async () => {
@@ -254,6 +253,18 @@ test('관문 10310542 #3 — DNS 429 를 받으면 대안 전체를 15분 쉰다
     const mark2 = r.calls.length;
     await e.fetch(url1m('CL=F'), {});
     assert.ok(r.calls.slice(mark2).some((c) => c.startsWith(A0)));
+});
+
+test('관문 10310545 #3 — 대기 상한 뒤 늦게 온 대안 429 도 그 대안을 15분 쉬게 한다', async () => {
+    const dnsBody = minuteBody({ price: 1, time: NOW_SEC, prev: 1 });
+    const e = createEdgeFetch(async () => res(dnsBody), {
+        pinned: () => new Promise((resolve) => setTimeout(() => resolve(res({}, 429)), ALT_GRACE_MS + 200)),
+        now: () => NOW_MS,
+    });
+    await e.fetch(url1m('NQ=F'), {});
+    assert.equal(e.state.picks['NQ=F@1m'].via, 'dns-alt-slow');
+    await new Promise((r) => setTimeout(r, 400));
+    assert.ok(e.state.alts[A0].pausedUntil >= NOW_MS + ALT_PAUSE_429_MS - 1);
 });
 
 test('호출량 — 대안이 연속 3번 이기지 못한 심볼은 5분에 한 번만 대안에 묻고, 이기면 다시 매번', async () => {
@@ -303,7 +314,8 @@ test('관문 #3 재현 — 직전 종가 복구 일봉: 대안이 «당일 종�
     });
     const e = createEdgeFetch(r.base, { pinned: r.pinned, now: () => NOW_MS });
     const q = await withFetch(e.fetch as any, () => fetchOneQuote('ES=F'));
-    assert.equal(e.state.picks['ES=F@1d'].via, 'dns-alt-invalid');
+    assert.equal(e.state.picks['ES=F@1d'], undefined);
+    assert.ok(!r.calls.some((c) => c.startsWith(A0) && c.includes('interval=1d')), '일봉은 대안에 묻지 않는다');
     assert.equal(q!.prevClose, 7460);
     assert.ok(Math.abs(q!.changePct - ((7443.5 - 7460) / 7460) * 100) < 1e-9);
     assert.notEqual(q!.changePct, 0);

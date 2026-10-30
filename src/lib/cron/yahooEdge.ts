@@ -9,13 +9,12 @@
  *   → 앱 /api/market/macro 의 NQ 선물·유가·SOX 가 15~43분+ 늙었던 원인(AUDIT 10/31 «중간 3»).
  *
  * 설계(관문 10310534 지적 3건 반영 — «접속점 하나를 전 심볼에 적용»을 버렸다):
- *   · 차트 요청(/v8/finance/chart/) 하나마다 «DNS 기본»과 «대안 접속점 1곳»에 동시에 묻고, 그 요청(=그 심볼)에만 더 나은 쪽을 쓴다.
+ *   · 차트 요청(/v8/finance/chart/) 하나마다 «DNS 기본»과 «대안 접속점 1곳»에 동시에 묻고, 그 요청(=그 심볼)에만 더 나은 쪽을 쓴다(1분봉만).
  *     - 1분봉: 대안이 «가격 유효 + 체결 시각 유효 + 직전 종가 유효»이고, meta 체결 시각·마지막 1분봉 둘 다 DNS 보다 뒤지지 않으며
  *       하나라도 새로울 때만 대안(실제 지수는 DNS meta 가 어제여도 DNS 1분봉이 오늘일 수 있다 — 관문 10310542 #1).
  *       DNS 응답이 아예 못 쓰는 것(네트워크·4xx/5xx·본문 없음·가격 없음)이면 유효한 대안. DNS 가 가격은 있는데 체결 시각이 없으면
  *       «판정 불가» → DNS 그대로(기존 경로). 실패를 0초로 계산하지 않는다(관문 #1).
- *     - 일봉: «당일 종가(마지막 봉)와 직전 종가» 둘 다 있어야 유효(관문 #3). 대안이 유효하고 마지막 봉이 DNS 보다 새롭거나
- *       DNS 가 유효하지 않을 때만 대안. 동률이면 DNS.
+ *     - 일봉(직전 종가 복구)·실제 지수(^IXIC·^DJI·^GSPC — 1분봉·일봉 보정)는 대안을 쓰지 않고 기존 경로 그대로(관문 10310534 #3·10310545 #1·#2).
  *     - 둘 다 실패면 DNS 결과를 그대로 돌려준다(기존 경로와 같은 실패 — 수집 함수가 null 처리).
  *   · 심볼마다 따로 판정하므로 NQ·유가·SOX 로 고른 접속점이 VIX·지수에 번지지 않는다(관문 #2).
  * 호출량·차단 위험·회차 지연(관문 10310542 #2·#3):
@@ -34,6 +33,8 @@ export const YAHOO_HOST = 'query1.finance.yahoo.com';
 /** 아시아 접속점 — 10/31 실측 신선(야후 기본 지연만). 바뀌면 TLS 실패 → DNS 결과만 쓴다. */
 export const YAHOO_ALT_EDGES: readonly string[] = ['180.222.119.247', '180.222.109.252'];   // EC2 실측 왕복 146ms·199ms 순
 export const ALT_TIMEOUT_MS = 3000;
+/** 대안을 쓰지 않는 심볼 — 실제 지수는 수집 함수가 1분봉·일봉으로 meta 를 바로잡는다(정규장 봉·직전 거래일 판단을 섞지 않는다) */
+export const ALT_EXCLUDED_SYMBOLS: ReadonlySet<string> = new Set(['^IXIC', '^DJI', '^GSPC']);
 export const ALT_MAX_INFLIGHT = 2;
 export const ALT_FAILS_TO_PAUSE = 3;
 export const ALT_PAUSE_MS = 5 * 60_000;
@@ -101,19 +102,6 @@ export function minuteInfo(data: any): { usable: boolean; time: number | null; c
     return { usable, time, complete: usable && time != null && pos(prev, 0.01), lastBar };
 }
 
-/** 일봉 응답 판독: 마지막 봉(당일) 종가와 그 앞 직전 종가가 둘 다 있어야 유효. lastTs = 마지막 봉 시각. */
-export function dailyInfo(data: any): { valid: boolean; lastTs: number | null } {
-    const r0 = data?.chart?.result?.[0];
-    const ts: any[] = Array.isArray(r0?.timestamp) ? r0.timestamp : [];
-    const cl: any[] = Array.isArray(r0?.indicators?.quote?.[0]?.close) ? r0.indicators.quote[0].close : [];
-    if (!r0?.meta || ts.length < 2 || cl.length < ts.length) return { valid: false, lastTs: null };
-    const last = ts.length - 1;
-    if (!pos(ts[last]) || !pos(cl[last], 0.01)) return { valid: false, lastTs: null };
-    let hasPrev = false;
-    for (let k = last - 1; k >= 0; k--) if (pos(cl[k], 0.01) && pos(ts[k]) && ts[k] < ts[last]) { hasPrev = true; break; }
-    return { valid: hasPrev, lastTs: ts[last] };
-}
-
 type Got = { kind: 'ok'; status: number; data: any } | { kind: 'bad'; status: number; res: any } | { kind: 'jsonErr'; status: number; err: unknown } | { kind: 'err'; err: unknown };
 
 async function grab(p: () => Promise<any>): Promise<Got> {
@@ -151,16 +139,6 @@ export function pickMinute(dns: Got, alt: Got | null, nowSec: number): Pick {
     return at > d.time || barGain ? 'alt' : 'dns';           // 동률(장 마감·주말)은 DNS
 }
 
-/** 일봉: 당일·직전 종가가 둘 다 있는 쪽, 마지막 봉이 더 새로운 쪽. 동률은 DNS. */
-export function pickDaily(dns: Got, alt: Got | null, nowSec: number): Pick {
-    if (!alt) return 'dns-alt-skipped';
-    const a = alt.kind === 'ok' ? dailyInfo(alt.data) : null;
-    if (!a || !a.valid || (a.lastTs as number) > nowSec + 86_400) return 'dns-alt-invalid';
-    const d = dns.kind === 'ok' ? dailyInfo(dns.data) : null;
-    if (!d || !d.valid) return 'alt-dns-failed';
-    return (a.lastTs as number) > (d.lastTs as number) ? 'alt' : 'dns';
-}
-
 /** DNS 가 끝난 뒤 대안을 더 기다리는 상한 — 대안이 느려도 회차(30초 간격, 순차 ~20요청)를 밀지 않게(관문 10310542 #2) */
 export const ALT_GRACE_MS = 1500;
 /** 대안이 연속 이만큼 «이기지 못한» 심볼은 ALT_RECHECK_MS 마다 한 번만 대안에 묻는다(평상시 호출 증가 억제) */
@@ -194,13 +172,16 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
     let inflight = 0;
 
     const currentAlt = (): string | null => (state.allPausedUntil > now() ? null : altList.find((ip) => state.alts[ip].pausedUntil <= now()) ?? null);
+    function pause429(ip: string) {
+        const s = state.alts[ip];
+        if (s.pausedUntil >= now() + ALT_PAUSE_429_MS - 1000) return;
+        s.pausedUntil = now() + ALT_PAUSE_429_MS; s.fails = 0;
+        opts.log?.(`[yahoo-edge] 대안 ${ip} 429 — ${ALT_PAUSE_429_MS / 60_000}분 쉼`);
+    }
     function noteAlt(ip: string, g: Got, reachable: boolean) {
         const s = state.alts[ip];
-        if (g.kind === 'bad' && g.status === 429) {
-            s.pausedUntil = now() + ALT_PAUSE_429_MS; s.fails = 0;
-            opts.log?.(`[yahoo-edge] 대안 ${ip} 429 — ${ALT_PAUSE_429_MS / 60_000}분 쉼`);
-            return;
-        }
+        if (g.kind === 'bad' && g.status === 429) return;   // pause429 가 이미 처리
+        if (s.pausedUntil > now()) return;                  // 이미 쉬는 중(429 등) — 연속 실패로 덮어쓰지 않는다
         if (reachable) { s.fails = 0; return; }
         if (++s.fails >= ALT_FAILS_TO_PAUSE) {
             s.pausedUntil = now() + ALT_PAUSE_MS; s.fails = 0;
@@ -213,8 +194,10 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
         let u: URL | null = null;
         try { u = new URL(url); } catch { /* 상대 주소 등 — 그대로 */ }
         if (!u || u.hostname !== YAHOO_HOST || !u.pathname.startsWith('/v8/finance/chart/')) return baseFetch(input, init);
-        const daily = u.searchParams.get('interval') === '1d';
-        const key = `${decodeURIComponent(u.pathname.slice('/v8/finance/chart/'.length))}@${daily ? '1d' : '1m'}`;
+        const symbol = decodeURIComponent(u.pathname.slice('/v8/finance/chart/'.length));
+        // 1분봉만 대안 대상. 일봉(직전 종가 복구)·실제 지수(1분봉·일봉 보정)는 기존 경로 그대로(관문 10310545 #1·#2)
+        if (u.searchParams.get('interval') !== '1m' || ALT_EXCLUDED_SYMBOLS.has(symbol)) return baseFetch(input, init);
+        const key = `${symbol}@1m`;
 
         const sym = (state.sym[key] ??= { losses: 0, lastAltAt: Number.NEGATIVE_INFINITY });
         const backoff = sym.losses >= ALT_LOSSES_TO_BACKOFF && now() - sym.lastAltAt < ALT_RECHECK_MS;
@@ -224,7 +207,10 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
         let altP: Promise<Got> | null = null;
         if (ip) {
             inflight++; state.altCalls++; sym.lastAltAt = now();
-            altP = grab(() => pinned(ip, url, { ...rest, signal: AbortSignal.timeout(ALT_TIMEOUT_MS) })).finally(() => { inflight--; });
+            altP = grab(() => pinned(ip, url, { ...rest, signal: AbortSignal.timeout(ALT_TIMEOUT_MS) }))
+                // 429 는 대기 상한 뒤 늦게 와도 그 대안을 15분 쉬게 한다(관문 10310545 #3)
+                .then((g) => { if (g.kind === 'bad' && g.status === 429) pause429(ip); return g; })
+                .finally(() => { inflight--; });
         }
         const dns = await grab(() => baseFetch(input, init));
         if (dns.kind === 'bad' && dns.status === 429 && state.allPausedUntil <= now()) {
@@ -242,14 +228,14 @@ export function createEdgeFetch(baseFetch: FetchLike, opts: { pinned?: PinnedFet
             if (got === 'late') { slow = true; state.altSlow++; } else alt = got;
         }
         const nowSec = Math.floor(now() / 1000);
-        const via: Pick = slow ? 'dns-alt-slow' : daily ? pickDaily(dns, alt, nowSec) : pickMinute(dns, alt, nowSec);
+        const via: Pick = slow ? 'dns-alt-slow' : pickMinute(dns, alt, nowSec);
         // 연결·상태·본문 실패·늦음만 센다(내용 미비는 심볼 사정 — 대안 전체를 쉬게 하지 않는다)
         if (ip && slow) noteAlt(ip, { kind: 'err', err: new Error('slow') }, false);
         else if (ip && alt) noteAlt(ip, alt, alt.kind === 'ok');
         // 심볼별 패배는 «대안이 응답했는데 이기지 못한» 경우만 센다(연결 실패·늦음은 위 접속점 쉼이 맡는다)
         if (via === 'alt' || via === 'alt-dns-failed') sym.losses = 0;
         else if (ip && alt && alt.kind === 'ok') sym.losses++;
-        const t = (g: Got | null) => (g && g.kind === 'ok' ? (daily ? dailyInfo(g.data).lastTs : minuteInfo(g.data).time) : null);
+        const t = (g: Got | null) => (g && g.kind === 'ok' ? minuteInfo(g.data).time : null);
         state.picks[key] = { via, dnsT: t(dns), altT: t(alt), alt: ip };
         if (via === 'alt' || via === 'alt-dns-failed') { state.altWins++; return toResponse(alt as Got); }
         return toResponse(dns);
