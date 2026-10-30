@@ -239,10 +239,8 @@ class OfflineRedis {
             const adopted = await call('ja');
             assert.deepEqual([adoptCtx.spxChangePct, adoptCtx.us10y, adoptCtx.breadthPct], [-2.1, 4.94, 26], '채택 검사 재료에 장중 숫자 칸(SPX·US10Y·BREADTH) — 관문 10310813 ①');
             const av = store.get('guardian:ai_verdict:ja');
-            assert.equal(av.realityInsight, NEW, 'ai_verdict 의 Tactical 칸만 새 글');
-            assert.equal(av.description, '다른 요청이 방금 저장한 순환매', '순환매·감마는 저장소의 최신 값 그대로(관문 10310819 ②)');
-            assert.equal(av.gammaInsight, '방금 저장한 감마');
-            assert.deepEqual(av.num.basis.description, { RLSI: 31 });
+            assert.equal(av.realityInsight, '옛 글', '채택은 ai_verdict 를 쓰지 않는다(읽고-쓰기 경합 방지, 관문 10310825 ①)');
+            assert.equal(av.description, '다른 요청이 방금 저장한 순환매');
             assert.equal(adoptCalls, 1);
             assert.equal(coreCalls, 0, '채택은 재계산·모델 0');
             assert.equal(adopted.verdict.realityInsight, NEW);
