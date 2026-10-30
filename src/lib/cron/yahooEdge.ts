@@ -123,9 +123,11 @@ export function minuteInfo(data: any): MinuteInfo {
 export const ALT_MIN_GAIN_SEC = 60;
 /** 직전 종가 상대 차이 허용 — 0.1%(이내면 일치) */
 export const PREV_MATCH_REL = 0.001;
-/** a 가 b 의 상대 0.1% 이내인가(경계 포함·정수 곱으로 비교해 부동소수 경계 오차 없앰) */
+/** 부동소수 경계 오차 여유(상대 1e-9 — 300 vs 300.3 처럼 «정확히 0.1%»가 1e-14 차로 넘치는 것만 흡수, 관문 10310615) */
+const PREV_MATCH_EPS = 1e-9;
+/** a 가 b 의 상대 0.1% 이내인가(경계 포함) */
 export function prevMatches(a: number, b: number): boolean {
-    return Math.abs(a - b) * (1 / PREV_MATCH_REL) <= Math.abs(b);
+    return Math.abs(a - b) <= Math.abs(b) * PREV_MATCH_REL * (1 + PREV_MATCH_EPS);
 }
 
 type Got = { kind: 'ok'; status: number; data: any } | { kind: 'bad'; status: number; res: any } | { kind: 'jsonErr'; status: number; err: unknown } | { kind: 'err'; err: unknown };

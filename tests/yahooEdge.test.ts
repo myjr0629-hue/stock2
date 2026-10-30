@@ -126,6 +126,13 @@ test('조건 ③ 직전 종가 상대 0.1% 이내 — 경계 정확히 0.1% 대�
     assert.equal(pick(d, { ...a, prev: 1001.01 }), 'dns-mismatch');
     assert.equal(pick(d, { ...a, prev: 998.99 }), 'dns-mismatch');
     assert.equal(prevMatches(1001, 1000), true); assert.equal(prevMatches(1001.0001, 1000), false);
+    // 관문 10310615 — 부동소수로 «정확히 0.1%»가 넘치던 값들(300→300.3 등)도 경계 포함, 조금이라도 넘으면 거부
+    for (const b of [300, 29562, 102, 17.2, 1338.99, 157.649, 11518.199, 4.989, 77791.375, 0.02, 7754.25]) {
+        for (const a of [b * 1.001, b * 0.999, b + b / 1000, b - b / 1000]) assert.equal(prevMatches(a, b), true, `${a} vs ${b}`);
+        for (const a of [b * 1.00101, b * 0.99899]) assert.equal(prevMatches(a, b), false, `${a} vs ${b}`);
+    }
+    assert.equal(prevMatches(300.3, 300), true);
+    assert.equal(pick({ price: 300, time: NOW_SEC - 3000, prev: 300 }, { price: 301, time: NOW_SEC - 600, prev: 300.3 }), 'alt');
     // 결측: 대안 쪽·DNS 쪽 각각 → 판정 불가(DNS)
     assert.equal(pick(d, { ...a, prev: null }), 'dns-undecidable');
     assert.equal(pick({ ...d, prev: null }, { ...a, prev: 1000 }), 'dns-undecidable');
