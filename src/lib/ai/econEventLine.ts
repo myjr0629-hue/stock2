@@ -2,15 +2,34 @@
 import { interpretationFamily } from '@/lib/ai/econInterpretations';
 import type { Loc } from '@/lib/todayPicks/types';
 
-/** 조사 선택에 필요한 마지막 발음의 받침을 판정한다. */
-export function koParticle(word: string, pair: '은/는' | '이/가' | '과/와' | '을/를'): string {
-  const last = word.trim().slice(-1);
+/**
+ * 한국어 조사(은/는·이/가·과/와·을/를)를 «읽었을 때 마지막 소리»의 받침으로 고른다.
+ * 숫자: 소수부는 자리마다 읽고(54.70 → «영»), 정수부 끝의 0 은 자릿값으로 읽는다(10 십·100 백·1,000 천·100,000 십만·10^8 억·10^12 조·10^16 경).
+ * 영문 단위: L·M·N·R(엘·엠·엔·알)만 받침, 그 외(B 비·K 케이·T 티 등)·%(퍼센트)는 받침 없음.
+ */
+const KO_DIGIT_FINAL: Record<string, boolean> = { '0': true, '1': true, '2': false, '3': true, '4': false, '5': false, '6': true, '7': true, '8': true, '9': false };
+function koEndsWithFinal(word: string): boolean {
+  const w = word.trim().replace(/[)\]}'"\s]+$/, '');
+  const last = w.slice(-1);
+  if (!last) return false;
   const code = last.charCodeAt(0);
-  const hasFinal = /[013678]/.test(last) && last !== ''
-    || /[Mm]/.test(last) && last !== ''
-    || (code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0);
+  if (code >= 0xac00 && code <= 0xd7a3) return (code - 0xac00) % 28 !== 0;
+  if (/[A-Za-z]/.test(last)) return /[LMNRlmnr]/.test(last);
+  if (/[0-9]/.test(last)) {
+    const num = (w.match(/[0-9][0-9,]*(?:\.[0-9]+)?$/) || [last])[0];
+    if (num.includes('.')) return KO_DIGIT_FINAL[last];
+    const digits = num.replace(/,/g, '').replace(/^0+(?=\d)/, '');
+    if (/^0+$/.test(digits)) return true;                      // 영
+    const zeros = digits.length - digits.replace(/0+$/, '').length;
+    if (zeros === 0) return KO_DIGIT_FINAL[last];
+    if (zeros < 4) return true;                                // 십·백·천
+    return [true, true, false, true][Math.min(Math.floor(zeros / 4), 4) - 1];   // 만(십만·백만…)·억·조·경
+  }
+  return false;                                                // %·기호 — 퍼센트 등
+}
+export function koParticle(word: string, pair: '은/는' | '이/가' | '과/와' | '을/를'): string {
   const [withFinal, withoutFinal] = pair.split('/');
-  return hasFinal ? withFinal : withoutFinal;
+  return koEndsWithFinal(word) ? withFinal : withoutFinal;
 }
 
 /** Values retain their original display units; incompatible units cannot be compared. */
