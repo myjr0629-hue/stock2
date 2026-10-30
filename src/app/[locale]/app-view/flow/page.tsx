@@ -762,6 +762,8 @@ export default function AppFlowPage() {
   const [tickerData, setTickerData] = useState<any>(null);
   // [T37] tickerData 를 받은 정규장 세션(표시 기준) — 화면을 켜 둔 채 세션이 바뀌고 갱신이 실패하면 지난 세션 스퀴즈 점수를 그리지 않게.
   const [tickerDataSession, setTickerDataSession] = useState<string | null>(null);
+  // [T37] 구조 스퀴즈 점수가 없을 때의 보충값 — 커맨드 squeeze 카드와 같은 문(/api/live/short-squeeze · shortSqueezeMetrics)의 riskScore·status.
+  const [squeezeFallback, setSqueezeFallback] = useState<{ ticker: string; session: string; round: number; score: unknown; risk: unknown } | null>(null);
   // ★ [2026-10-07 앱 강화 T5] AI INTEL 재료 완결 표식 — 종목 첫 응답(1단계) 뒤에 고래·IV·내부자·옵션 체인 집계(2단계)가 다 반영된 뒤에만 true.
   //   예전엔 1단계 직후(P/C·고래 미반영: 종합 점수 −13/−18, P/C 0)의 재료로 AI 를 불러 그 글이 14시간 캐시에 앉았다(화면은 +9~+15).
   const [flowPhaseDone, setFlowPhaseDone] = useState(false);
@@ -1165,6 +1167,7 @@ export default function AppFlowPage() {
       if (initialLoadRef.current) {
         setLoading(true);
         setTickerData(null);
+        setSqueezeFallback(null);
         setFlowPhaseDone(false);
         setIvRankFeed(null);
         setOiAll(null);
@@ -1233,6 +1236,22 @@ export default function AppFlowPage() {
 
         setTickerData(data);
         setTickerDataSession(tickerReqSession === shownRegularSessionDate() ? tickerReqSession : null);
+        // [T37] 구조 점수가 없으면 커맨드와 같은 문으로 보충 — 기다리지 않는다(갱신 흐름·inFlight 와 무관) · 본문까지 6초 상한 · 종목·세션·회차 확인.
+        if (data?.flow?.squeezeScore == null) {
+          const sqTicker = ticker.toUpperCase();
+          const sqSession = tickerReqSession;
+          void (async () => {
+            const ctl = new AbortController();
+            const tm = window.setTimeout(() => ctl.abort(), 6000);
+            try {
+              const r = await fetch(`/api/live/short-squeeze?t=${sqTicker}`, { signal: ctl.signal, cache: 'no-store' });
+              if (!r.ok) return;
+              const j = await r.json();
+              if (cancelled || shownRegularSessionDate() !== sqSession || String(j?.ticker ?? '').toUpperCase() !== sqTicker) return;
+              setSqueezeFallback((prev) => prev && prev.ticker === sqTicker && prev.round > round ? prev : { ticker: sqTicker, session: sqSession, round, score: j?.riskScore, risk: j?.status });
+            } catch { /* 보충 실패 — 같은 세션의 이전 보충값 유지, 없으면 «—» */ } finally { window.clearTimeout(tm); }
+          })();
+        } else setSqueezeFallback(null);
         if (data.display?.price) setPrice(data.display.price);
         if (typeof data.display?.changePctPct === 'number' && Number.isFinite(data.display.changePctPct)) setChange(data.display.changePctPct);
 
@@ -1616,7 +1635,11 @@ export default function AppFlowPage() {
   //   새 요청 없음 — 30초 갱신·종목 전환·실패 시 유지 규칙은 tickerData 와 같다. 없으면 null(칸 유지 «—»).
   //   값은 API 의 0~100 위험 점수다(보정된 확률 아님) — 칸 표기(«N%»)·라벨은 대표 지시 없이 바꾸지 않는다(라벨 정정은 대표 결정 대기). 다른 종목·지난 세션 응답이면 null.
   const squeezeCurrent = String(tickerData?.ticker ?? '').toUpperCase() === ticker.toUpperCase() && tickerDataSession === shownRegularSessionDate();
-  const squeezeReading = useMemo(() => flowSqueeze(squeezeCurrent ? tickerData?.flow : null), [tickerData, squeezeCurrent]);
+  const squeezeFallbackCurrent = squeezeFallback?.ticker === ticker.toUpperCase() && squeezeFallback.session === shownRegularSessionDate();
+  const squeezeReading = useMemo(() => flowSqueeze(
+    squeezeCurrent && tickerData?.flow?.squeezeScore != null ? tickerData.flow
+      : squeezeFallbackCurrent ? { squeezeScore: squeezeFallback!.score, squeezeRisk: squeezeFallback!.risk } : null,
+  ), [tickerData, squeezeCurrent, squeezeFallback, squeezeFallbackCurrent]);
   const squeezeProb = squeezeReading.score;
   const squeezeLevel = squeezeReading.level;
 

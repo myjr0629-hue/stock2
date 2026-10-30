@@ -41,7 +41,7 @@ const response = (body: any, ok = true) => ({ ok, json: async () => body });
 const good = (percentile = 89) => ({ ticker: 'TSLA', percentile, currentIv: 46.95, metric: 'iv30', currentSession: '2026-10-19', sampleSize: 79, _source: 'dynamodb-true-percentile' });
 const tickerData = { ticker: 'TSLA', session: 'REG', flow: { ivRank: null, shortVolPct: 47.1, shortVolSource: 'FINRA' } };
 
-async function harness(options: { data?: any; iv?: any; now?: string; delayed?: boolean; brokenSibling?: boolean; blockedSibling?: boolean; blockedTicker?: boolean; tickerResponse?: () => Promise<void>; initial?: any; tickerFailures?: number; quickRetries?: number; ivRequest?: (request: number) => Promise<any> } = {}) {
+async function harness(options: { data?: any; iv?: any; now?: string; delayed?: boolean; brokenSibling?: boolean; blockedSibling?: boolean; blockedTicker?: boolean; tickerResponse?: () => Promise<void>; shortSqueeze?: (url: string) => any; initial?: any; tickerFailures?: number; quickRetries?: number; ivRequest?: (request: number) => Promise<any> } = {}) {
     const state: Record<string, any> = { ivRankFeed: null, ivRankOverride: null, ivUnavailable: false, ivCollecting: false, ...options.initial };
     const data = options.data ?? tickerData;
     let now = Date.parse(options.now ?? '2026-10-19T17:08:00Z');
@@ -85,6 +85,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
                 });
                 return ivResponse;
             }
+            if (url.includes('/short-squeeze') && options.shortSqueeze) return options.shortSqueeze(url);
             if (url.includes('/dark-pool') && options.brokenSibling) return { ok: true, json: async () => { throw new Error('invalid sibling JSON'); } };
             if (url.includes('/dark-pool') && options.blockedSibling) return new Promise(() => {});
             return response({ items: [], unavailable: true });
@@ -110,6 +111,7 @@ async function harness(options: { data?: any; iv?: any; now?: string; delayed?: 
         c.shortPct = value('shortPct', { shortPressureNum });
         // [T37] 스퀴즈 칸은 같은 ticker 응답의 flow.squeezeScore·squeezeRisk 만 — IV Rank·공매도 비중과 무관.
         c.squeezeCurrent = value('squeezeCurrent', c);
+        c.squeezeFallbackCurrent = value('squeezeFallbackCurrent', c);
         c.squeezeReading = value('squeezeReading', { ...c, flowSqueeze });
         const squeeze = value('squeezeProb', c);
         const sentence = value('regimeInsightText', { ...c, flowCopy: value('APP_FLOW_COPY', ctx).ko, pcText: '0.62', premiumBiasLabel: '중립' });
@@ -307,13 +309,41 @@ test('[T37] a ticker response requested before the regular open but arriving aft
     assert.equal(h.display().squeeze, 36, '새 세션 안에서 요청·도착한 응답은 표시');
     h.cleanup();
 });
+test('[T37] no structure score: the cell uses the command squeeze door (/api/live/short-squeeze riskScore·status), same ticker/session only', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: null, squeezeRisk: null } } as any;
+    let sq: any = { ticker: 'NVDA', riskScore: 100, status: 'CRITICAL' };
+    let calls = 0;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, shortSqueeze: (url) => { calls++; assert.match(url, /t=NVDA/); return sq === 'throw' ? Promise.reject(new Error('down')) : response(sq); } });
+    assert.equal(calls, 1);
+    assert.equal(h.display().squeeze, 100);
+    assert.equal(h.display().squeezeCell, '100%');
+    assert.equal(h.display('AAPL').squeeze, null, '다른 종목 화면에는 그리지 않는다');
+    sq = 'throw'; await h.refresh();
+    assert.equal(h.display().squeeze, 100, '보충 실패 — 같은 세션 이전 보충값 유지');
+    sq = { ticker: 'AAPL', riskScore: 5, status: 'LOW' }; await h.refresh();
+    assert.equal(h.display().squeeze, 100, '다른 종목 응답은 버린다');
+    sq = { ticker: 'NVDA', riskScore: null, status: null, unavailable: true }; await h.refresh();
+    assert.equal(h.display().squeeze, null, '명시적 결측은 «—»');
+    body.flow = { squeezeScore: 36, squeezeRisk: 'MEDIUM' }; sq = { ticker: 'NVDA', riskScore: 99, status: 'CRITICAL' }; await h.refresh();
+    assert.equal(h.display().squeeze, 36, '구조 점수가 오면 그 값(보충 요청 안 함)');
+    const before = calls; await h.refresh(); assert.equal(calls, before);
+    h.cleanup();
+});
+test('[T37] a hanging short-squeeze body does not stop the 30-second refresh', async () => {
+    const body = { ticker: 'NVDA', session: 'REG', flow: { squeezeScore: null, squeezeRisk: null } } as any;
+    const h = await harness({ data: body, iv: { ...good(98), ticker: 'NVDA' }, shortSqueeze: () => ({ ok: true, json: () => new Promise(() => {}) }) });
+    body.flow = { squeezeScore: 41, squeezeRisk: 'MEDIUM' }; await h.refresh();
+    assert.equal(h.display().squeeze, 41, '보충 본문이 멈춰도 다음 갱신이 반영된다');
+    h.cleanup();
+});
 test('[T37] flowSqueeze maps API score/risk; missing or invalid is null (cell stays with —)', () => {
     assert.deepEqual(flowSqueeze({ squeezeScore: 36, squeezeRisk: 'MEDIUM' }), { score: 36, level: 'moderate' });
     assert.deepEqual(flowSqueeze({ squeezeScore: 0, squeezeRisk: 'LOW' }), { score: 0, level: 'low' });
     assert.deepEqual(flowSqueeze({ squeezeScore: 55, squeezeRisk: 'HIGH' }), { score: 55, level: 'high' });
     assert.deepEqual(flowSqueeze({ squeezeScore: 81, squeezeRisk: 'EXTREME' }), { score: 81, level: 'high' });
     assert.deepEqual(flowSqueeze({ squeezeScore: 81, squeezeRisk: 'CRITICAL' }), { score: 81, level: 'high' });
-    assert.deepEqual(flowSqueeze({ squeezeScore: 25 }), { score: 25, level: 'moderate' }, 'risk 없으면 같은 기준(squeezeRiskOf)으로');
+    assert.deepEqual(flowSqueeze({ squeezeScore: 80, squeezeRisk: null }), { score: 80, level: null }, '등급이 없으면 지어내지 않는다');
+    assert.deepEqual(flowSqueeze({ squeezeScore: 25, squeezeRisk: 'WEIRD' }), { score: 25, level: null });
     for (const flow of [null, undefined, {}, { squeezeScore: null }, { squeezeScore: '36' }, { squeezeScore: NaN }, { squeezeScore: -1 }, { squeezeScore: 101 }, { ivRank: 98 }, { shortVolPct: 47.1 }]) {
         assert.deepEqual(flowSqueeze(flow), { score: null, level: null }, JSON.stringify(flow));
     }
