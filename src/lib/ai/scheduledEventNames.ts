@@ -430,6 +430,26 @@ function leadReason(before: string): string | null {
 }
 
 /**
+ * 표기 앞 판정 — 앞에 붙은 괄호 묶음(«(Unemployment Rate) »·«(월) »)은 속을 확인해 하나씩 벗기고, 표기가 괄호 «안»이면(«청년 (실업률)») 여는 괄호 앞까지 본다.
+ *   여는 괄호 앞이 영어(근거 영어 이름의 번역 괄호)면 그 영어 이름이 기존 대조를 받는다(관문 10310741·10310746).
+ */
+function leadOf(before: string, entries: Entry[]): string | null {
+    let b = before;
+    for (let i = 0; i < 4; i++) {
+        const paren = b.match(/[(（]([^()（）]*)[)）]\s*$/);
+        if (paren) { if (!parenOk(paren[1], entries)) return `lead-paren:${paren[1]}`; b = b.slice(0, b.length - paren[0].length); continue; }
+        const open = b.match(/[(（]\s*$/);
+        if (open) {
+            const outer = b.slice(0, b.length - open[0].length);
+            if (/[A-Za-z0-9&)]\s*$/.test(outer)) return null;   // «New Home Sales (Sep)(신규 주택 판매)» — 영어 이름의 번역 괄호
+            b = outer; continue;
+        }
+        break;
+    }
+    return leadReason(b);
+}
+
+/**
  * 글 속 «예정 일정 이름»의 한·일 표기(사전) 위치. 가장 긴 표기를 우선하고, 같은 범위를 여러 항목이 설명하면 후보를 합친다.
  * ok=false 는 앞뒤 수식어 때문에 대조하지 않는 표기 — 호출자는 그 언급을 «맞는 예정 줄 없음»으로 처리한다(fail-closed).
  */
@@ -465,10 +485,7 @@ export function scheduledEventNameHits(text: string): EventNameHit[] {
         const levelOnly = LEVEL_WORD.test(span + nextWord) && !PERIOD_ANY.test(span + text.slice(g.end, g.end + 12));
         const entries = [...g.entries].filter(e => !(levelOnly && CHANGE_LIKE.test(e.id)));
         if (!entries.length) return { start: g.start, end: g.end, text: span, ok: false, why: 'level-vs-change', test: () => false };
-        const before = text.slice(0, g.start);
-        const parenBefore = before.match(/[(（]([^()（）]*)[)）]\s*$/);
-        // 앞 괄호가 괜찮아도 그 앞 낱말까지 본다(«청년 (Unemployment Rate) 실업률» — 관문 10310741)
-        const lead = parenBefore ? (parenOk(parenBefore[1], entries) ? leadReason(before.slice(0, before.length - parenBefore[0].length)) : `lead-paren:${parenBefore[1]}`) : leadReason(before);
+        const lead = leadOf(text.slice(0, g.start), entries);
         const after = text.slice(g.end);
         const parenAfter = after.match(/^\s*[(（]([^()（）]*)[)）]/);
         const trailing = TRAILING_QUALIFIER.test(after) ? `trail:${after.slice(0, 8).trim()}`
