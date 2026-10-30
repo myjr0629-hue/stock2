@@ -615,6 +615,8 @@ export class GuardianDataHub {
                 if (mem?.sectors?.length) return mem;
                 const lg = await getFromCache<any>(`${GUARDIAN_SNAPSHOT_PREFIX}lastgood:${locale}`).catch(() => null);
                 if (lg?.sectors?.length && lg?.rlsi?.score !== undefined) return lg;
+            } else if (placeholderClaim === 'exclusive') {
+                await setInCache(lockKey, now, 20).catch(() => false);   // 예약 재계산은 잠금 기록을 기다린 뒤 계산(관문 10310231)
             } else {
                 setInCache(lockKey, now, 20).catch(() => { /* non-critical */ });
             }
