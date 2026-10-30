@@ -155,3 +155,64 @@ export function postTacticalMayDriftFutures(c: PostTacticalFuturesState | null |
 export function postTacticalNeedsDriftRefresh(c: PostTacticalFuturesState | null | undefined, session: string | null | undefined, nowMs: number, current: TacticalFuturesPct | undefined): boolean {
     return postTacticalMayDriftFutures(c, session, nowMs) && tacticalFuturesDrifted(c?.tacticalFuturesPct, current);
 }
+
+/**
+ * ★2026-10-31 T35-B 장중(REG) 정기 재생성 — 개장 직후 글이 장중 내내 굳지 않게.
+ *   스냅샷은 EC2 워커가 30초마다 도장만 새로 찍어 장중엔 재계산(=재생성)이 없다(T35). 지수가 −3% 로 밀려도 09:3x 글이 남는다.
+ *   조건: 마지막 생성 30분 경과 && (나스닥·S&P 500 변화율이 그 글의 생성 기준 대비 0.5%p 이상 또는 RLSI 5 이상 변화).
+ *   상한: ET 날짜(장중 세션)당 «재생성 시도» 8회 — 시도 1회 = 재계산 1회(Tactical 3언어 1호출 + 탈락 시 교정 1호출, 같은 재계산의 순환매·감마 캐시 만료분).
+ *   공급사 재시도·사다리 전환은 기존 일반 생성 정책(장후 변동 POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS 와 같은 단위). 한 시도가 ko·en·ja 를 함께 쓰므로 언어별 상한도 8회.
+ *   비교 값은 생성 기준(verdict.num.basis.realityInsight)과 지금 스냅샷의 같은 원천(market.nqChangePercent·factors.spx·rlsi.score).
+ */
+export const REG_TACTICAL_REFRESH_MS = 30 * 60_000;
+export const REG_TACTICAL_INDEX_PP = 0.5;
+export const REG_TACTICAL_RLSI_PTS = 5;
+export const REG_TACTICAL_MAX_REGEN_ATTEMPTS = 8;
+/** 예약 거절·실패 뒤 같은 인스턴스가 다시 예약을 묻는 최소 간격(공급사 호출 아님 — 예약 저장소 질의 횟수만 줄인다) */
+export const REG_TACTICAL_RETRY_MS = 5 * 60_000;
+type RegNums = { NDX_CHG?: number; SPX_CHG?: number; RLSI?: number } | null | undefined;
+export interface RegTacticalState {
+    timestamp?: string;
+    /** 이 스냅샷 장중 글의 생성 시각(정기 재생성·채택이 기록). 없으면 스냅샷 계산 시각 */
+    tacticalGeneratedAt?: string;
+    rlsi?: { score?: number } | null;
+    market?: { nqChangePercent?: number | null; factors?: { spx?: { chgPct?: number | null } | null } | null } | null;
+    verdict?: { realityInsight?: unknown; num?: { basis?: { realityInsight?: RegNums } | null } | null } | null;
+}
+const finiteNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+/** 생성 기준 대비 지금 값의 변화 — 한 칸이라도 문턱 이상이면 그 칸 이름들(없으면 빈 배열). 기준이나 지금 값이 없는 칸은 보지 않는다. */
+export function regTacticalDrift(basis: RegNums, current: RegNums): string[] {
+    if (!basis || !current) return [];
+    const out: string[] = [];
+    const over = (a: unknown, b: unknown, limit: number) => finiteNum(a) && finiteNum(b) && Math.abs(b - a) + Number.EPSILON >= limit;
+    if (over(basis.NDX_CHG, current.NDX_CHG, REG_TACTICAL_INDEX_PP)) out.push('nasdaq');
+    if (over(basis.SPX_CHG, current.SPX_CHG, REG_TACTICAL_INDEX_PP)) out.push('spx');
+    if (over(basis.RLSI, current.RLSI, REG_TACTICAL_RLSI_PTS)) out.push('rlsi');
+    return out;
+}
+/** 스냅샷의 «지금» 값(생성 기준 basis 와 같은 원천) */
+export function regTacticalCurrent(c: RegTacticalState | null | undefined): RegNums {
+    if (!c) return null;
+    return { NDX_CHG: c.market?.nqChangePercent ?? undefined, SPX_CHG: c.market?.factors?.spx?.chgPct ?? undefined, RLSI: c.rlsi?.score ?? undefined };
+}
+/** 마지막 생성 시각 — 이 스냅샷이 채택한 글의 생성 시각(tacticalGeneratedAt), 없으면 스냅샷 계산 시각(그때 글은 새로 만들었거나 10분 안 캐시). «본 시각»(tacticalSeenAt)과 분리 — 탈락한 저장본을 본 것만으로 재생성이 밀리지 않게(관문 10310451 ②) */
+export function regTacticalGeneratedAt(c: RegTacticalState | null | undefined): number {
+    const at = Date.parse(c?.tacticalGeneratedAt || c?.timestamp || '');
+    return Number.isFinite(at) ? at : NaN;
+}
+/**
+ * 값싼 판정(입출력 0): REG · 글이 대기 문구가 아님(T35 경로가 따로 맡는다) · 생성 30분 경과 · 지수/RLSI 변화. 예약 질의 간격(5분)은 호출자가 인스턴스 메모리로.
+ * isPlaceholder 는 호출자가 넘긴다(모듈 의존 방지).
+ */
+export function regTacticalMayRefresh(c: RegTacticalState | null | undefined, session: string | null | undefined, nowMs: number, isPlaceholder: (t: string) => boolean): boolean {
+    if (!c || session !== 'REG') return false;
+    const text = c.verdict?.realityInsight;
+    if (typeof text !== 'string' || !text || isPlaceholder(text)) return false;
+    const gen = regTacticalGeneratedAt(c);
+    return Number.isFinite(gen) && nowMs - gen >= REG_TACTICAL_REFRESH_MS;
+}
+/** current 를 주면 그 값(공유 코어의 지금 값)으로, 없으면 스냅샷 자신의 값으로 비교 */
+export function regTacticalNeedsRefresh(c: RegTacticalState | null | undefined, session: string | null | undefined, nowMs: number, isPlaceholder: (t: string) => boolean, current?: RegNums): string[] {
+    if (!regTacticalMayRefresh(c, session, nowMs, isPlaceholder)) return [];
+    return regTacticalDrift(c!.verdict?.num?.basis?.realityInsight, current ?? regTacticalCurrent(c));
+}
