@@ -63,6 +63,10 @@ function entry(id: string, test: (core: string) => boolean, ko: string[], ja: st
 }
 
 // ─── 공통 조각 ───
+const MICH_KO = '(?:미시간 ?대(?:학)? ?)?소비자 ?(?:심리|신뢰) ?지수|미시간 ?대(?:학)? ?(?:소비자 ?)?(?:심리|신뢰) ?지수';
+const MICH_JA = '(?:ミシガン大学? ?)?消費者(?:信頼感|態度|心理)指数|ミシガン大学? ?(?:消費者)?(?:信頼感|態度|心理)指数';
+const GDP_KO = '(?:미 )?(?:국내 ?총생산|GDP) ?(?:성장률)?';
+const GDP_JA = '(?:米 )?(?:国内総生産|GDP) ?(?:成長率)?';
 const CFTC_KO = '(?:CFTC (?:의 )?)?';
 const CFTC_JA = '(?:CFTC (?:の )?)?';
 const SPEC_KO = '(?:투기(?:적| 세력| 거래자)?(?: 순)? (?:매수 |매도 )?포지션|투기(?:적)? 순(?:매수|포지션)|순 ?투기(?:적)? 포지션)';
@@ -216,6 +220,8 @@ const ENTRIES: Entry[] = [
     entry('S&P Global Services PMI', exact('S&P Global Services PMI'), ['S&P ?글로벌 (?:미 )?서비스업 ?(?:구매 ?관리자 ?지수|PMI)'], ['S&P ?グローバル (?:米 )?サービス業 ?(?:購買担当者景気指数|PMI)'], ['S&P 글로벌 서비스업 PMI', '구매관리자', 'S&PグローバルサービスPMI', '購買担当者']),
     entry('S&P Global Composite PMI', exact('S&P Global Composite PMI'), ['S&P ?글로벌 (?:미 )?종합 ?(?:구매 ?관리자 ?지수|PMI)'], ['S&P ?グローバル (?:米 )?総合 ?(?:購買担当者景気指数|PMI)'], ['S&P 글로벌 종합 PMI', '구매관리자', 'S&Pグローバル総合PMI', '購買担当者']),
     entry('Chicago PMI', exact('Chicago PMI'), ['시카고 ?(?:구매 ?관리자 ?지수|PMI)'], ['シカゴ ?(?:購買部協会景気指数|購買担当者景気指数|PMI)'], ['시카고 PMI', '구매관리자', 'シカゴPMI', '購買担当者']),
+    entry('Michigan Consumer Sentiment Prel', exact('Michigan Consumer Sentiment Prel'), [`(?:${MICH_KO}) (?:\\(? ?)?(?:예비치?|잠정치?|속보치?)(?: ?\\))?`], [`(?:${MICH_JA}) (?:\\(? ?)?(?:速報値?|予備値?)(?: ?\\))?`], ['소비자심리지수', 'ミシガン大学消費者信頼感指数']),
+    entry('Michigan Consumer Sentiment Final', exact('Michigan Consumer Sentiment Final'), [`(?:${MICH_KO}) (?:\\(? ?)?확정치?(?: ?\\))?`], [`(?:${MICH_JA}) (?:\\(? ?)?(?:確報値?|確定値?)(?: ?\\))?`], ['소비자심리지수', 'ミシガン大学消費者信頼感指数']),
     entry('Michigan Consumer Sentiment', exact('Michigan Consumer Sentiment', 'Michigan Consumer Sentiment Prel', 'Michigan Consumer Sentiment Final'),
         ['(?:미시간 ?대(?:학)? ?)?소비자 ?(?:심리|신뢰) ?지수(?: \\(?미시간 ?대(?:학)?\\)?)?|미시간 ?대(?:학)? ?(?:소비자 ?)?(?:심리|신뢰) ?지수'], ['(?:ミシガン大学? ?)?消費者(?:信頼感|態度|心理)指数(?: \\(?ミシガン大学?\\)?)?|ミシガン大学? ?(?:消費者)?(?:信頼感|態度|心理)指数'], ['소비자심리지수', 'ミシガン大学消費者信頼感指数']),
     entry('Michigan Consumer Expectations', exact('Michigan Consumer Expectations', 'Michigan Consumer Expectations Prel', 'Michigan Consumer Expectations Final'), ['미시간 ?대(?:학)? ?소비자 ?기대 ?지수'], ['ミシガン大学? ?消費者期待指数'], ['소비자기대지수', 'ミシガン大学消費者期待指数']),
@@ -255,7 +261,11 @@ const ENTRIES: Entry[] = [
     entry('FOMC Minutes', exact('FOMC Minutes'), ['(?:FOMC|연준) ?(?:회의 ?)?의사록'], ['(?:FOMC|連銀) ?(?:議事要旨|議事録)'], ['FOMC 의사록', '연준', 'FOMC議事要旨']),
     entry('Fed Interest Rate Decision', exact('Fed Interest Rate Decision', 'FOMC Statement'), ['(?:FOMC|연준) ?(?:의 )?(?:기준 ?)?금리 ?(?:결정|발표)|FOMC ?(?:정책 ?)?(?:성명|결정)'], ['(?:FOMC|FRB) ?(?:の )?(?:政策)?金利 ?(?:決定|発表)|FOMC ?(?:声明|決定)'], ['연준 금리 결정', 'FOMC金利決定']),
     entry('FOMC Press Conference', exact('FOMC Press Conference', 'Fed Press Conference'), ['(?:FOMC|연준|파월) ?(?:의장 ?)?(?:기자 ?회견)'], ['(?:FOMC|パウエル) ?(?:議長 ?)?(?:記者会見)'], ['연준 기자회견', 'FOMC記者会見']),
-    entry('GDP Growth Rate QoQ', core => /^GDP Growth Rate QoQ(?: (?:Adv|2nd Est|Final|Third Estimate|Advance))?$/i.test(core), periodic('QoQ', '(?:미 )?(?:국내 ?총생산|GDP) ?(?:성장률)?(?: ?(?:속보치|잠정치|예비치|확정치))?'), periodic('QoQ', '(?:米 )?(?:国内総生産|GDP) ?(?:成長率)?(?: ?(?:速報値|改定値|確報値))?'), ['GDP 성장률', '国内総生産']),
+    // GDP: 차수 없는 표기는 어느 차수든(같은 발표 묶음), 차수를 쓰면 그 차수 줄만(관문 10310437 «속보치 예정» ↔ 확정치 줄 오통과)
+    entry('GDP Growth Rate QoQ', core => /^GDP Growth Rate QoQ(?: (?:Adv|Advance|2nd Est|Second Estimate|Final|Third Estimate))?$/i.test(core), periodic('QoQ', GDP_KO), periodic('QoQ', GDP_JA), ['GDP 성장률', '国内総生産']),
+    entry('GDP Growth Rate QoQ Adv', core => /^GDP Growth Rate QoQ (?:Adv|Advance)$/i.test(core), periodic('QoQ', `${GDP_KO} (?:\\(? ?)?(?:속보치?|예비치?|1 ?차 ?(?:추정치)?)`).map(a => `${a}(?: ?\\))?`), periodic('QoQ', `${GDP_JA} (?:\\(? ?)?(?:速報値?|1 ?次速報)`).map(a => `${a}(?: ?\\))?`), ['GDP 성장률', '国内総生産']),
+    entry('GDP Growth Rate QoQ 2nd Est', core => /^GDP Growth Rate QoQ (?:2nd Est|Second Estimate)$/i.test(core), periodic('QoQ', `${GDP_KO} (?:\\(? ?)?(?:잠정치?|수정치?|2 ?차 ?(?:추정치)?)`).map(a => `${a}(?: ?\\))?`), periodic('QoQ', `${GDP_JA} (?:\\(? ?)?(?:改定値?|2 ?次速報)`).map(a => `${a}(?: ?\\))?`), ['GDP 성장률', '国内総生産']),
+    entry('GDP Growth Rate QoQ Final', core => /^GDP Growth Rate QoQ (?:Final|Third Estimate)$/i.test(core), periodic('QoQ', `${GDP_KO} (?:\\(? ?)?(?:확정치?|3 ?차 ?(?:추정치)?)`).map(a => `${a}(?: ?\\))?`), periodic('QoQ', `${GDP_JA} (?:\\(? ?)?(?:確報値?|確定値?|3 ?次速報)`).map(a => `${a}(?: ?\\))?`), ['GDP 성장률', '国内総生産']),
     entry('GDP Price Index QoQ', core => /^GDP Price Index QoQ/i.test(core), periodic('QoQ', '(?:GDP|국내 ?총생산) ?(?:물가|가격) ?(?:지수|디플레이터)'), periodic('QoQ', '(?:GDP|国内総生産) ?(?:物価|価格)(?:指数|デフレーター)'), ['GDP 물가지수', 'GDP価格指数']),
     entry('Midterm Elections', exact('Midterm Elections'), ['(?:미 )?중간 ?선거'], ['(?:米 )?中間選挙'], ['중간선거', '中間選挙']),
     entry('Total Vehicle Sales', exact('Total Vehicle Sales'), ['(?:총 )?(?:자동차|차량) ?판매(?: ?(?:대수|량|실적))?'], ['(?:総 ?)?(?:自動車|新車)販売(?:台数)?'], ['자동차 판매', '自動車販売台数']),
@@ -285,8 +295,12 @@ export function withEventNameGloss(evidence: string): string {
 // ─── 표기 앞 수식어 판정 ───
 /** 표기 바로 앞(띄어 쓴 한 낱말까지)에 와도 «다른 지표»가 되지 않는 말 */
 const LEAD_OK = new Set(['et', 'kst', 'jst', 'cftc', 'eia', 'api', 'ism', 'mba', 'nahb', 'adp', '미국', '미국의', '미', '米', '米国', '米国の', '예정', '예정된', '예정인', '예정의', '다음', '다음은', '다음의', '次', '次の', '次は', '次回', '次回の', '予定', '予定の', '発表予定の', '公表予定の']);
-/** 한국어 낱말 끝이 조사·어미면 그 낱말은 표기를 꾸미는 명사가 아니다(«시험대는»·«발표되는»·«예정된»). «의»는 수식(«청년층의 실업률»)이라 제외. */
-const KO_ENDING = /[은는이가을를에로와과도만서된인될할던며고면볼올릴운울갈쓸엔데요죠다]$/;
+/**
+ * 한국어 앞 낱말 허용 모양(목록 밖은 «다른 지표를 꾸미는 명사»로 보고 실패 — 관문 10310437 «노인 실업률»: 끝 글자만 보면 «인»이 어미처럼 보인다).
+ *   ① 일정·자리 명사 + 조사(«예정된»·«분기점은»·«시험대는»·«변수인») ② 분명한 동사 활용(«발표되는»·«나올»·«앞둔»·«지켜볼») ③ 조사로 끝나는 시각 표기(«ET에»).
+ *   «의»로 끝나는 꾸밈(«청년층의»)은 허용 목록 낱말일 때만.
+ */
+const KO_LEAD_WORD = /^(?:예정|발표|공개|공표|확인|주목|관심|초점|변수|재료|분기점|시험대|관문|고비|이벤트|일정|다음|이번|지표|결과|시각)(?:은|는|이|가|인|된|될|으로|로|도|에)?$|(?:되는|된|될|하는|할|있는|있을|앞둔|앞두고|나오는|나올|지켜볼|봐야 할|볼|잡힌|예정된|예정인)$/;
 const HANGUL = /[가-힣]/;
 const KANA_KANJI = /[ぁ-んァ-ヴー一-龯々]/;
 const HIRAGANA_NOT_NO = /[ぁ-ゔ]$/;
@@ -299,10 +313,11 @@ function leadReason(before: string): string | null {
     // 날짜·시각·숫자 표기(10/30·15:30)는 이름의 일부가 아니다
     if (/^[\d/:.\-]+$/.test(token)) return null;
     if (LEAD_OK.has(token.toLowerCase())) return null;
+    if (/^(?:ET|KST|JST|\d{1,2}:\d{2})(?:에|に|の|에는|には)?$/i.test(token)) return null;   // «15:30 ET에 …»·«ETに»
     const last = token.slice(-1);
     if (HANGUL.test(last)) {
         if (!spaced) return `lead-attached:${token}`;           // «청년실업률»
-        return KO_ENDING.test(token) && !/의$/.test(token) ? null : `lead-noun:${token}`;   // «청년 실업률»·«근원 물가»
+        return KO_LEAD_WORD.test(token) ? null : `lead-noun:${token}`;   // «청년 실업률»·«노인 실업률»·«근원 물가»
     }
     if (KANA_KANJI.test(last)) {
         if (HIRAGANA_NOT_NO.test(token) && last !== 'の') return null;       // «予定されている»·«には»

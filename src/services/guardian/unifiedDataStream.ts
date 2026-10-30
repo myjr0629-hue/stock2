@@ -180,6 +180,13 @@ export function keepRegTacticalOnFailure(
     return true;
 }
 
+/** 정기 재생성 재계산 결과 정리 — 대기 문구면 기존 글 유지(keepRegTacticalOnFailure). 새 정상 글로 바뀐 경우만 true(예약 성공), 유지·같은 글(복구본)은 false(60분 대기·연속 2회 중지). */
+export function settleRegTacticalRefresh(next: { verdict?: any; tacticalSeenAt?: string; timestamp?: string }, previous: { verdict?: any; tacticalSeenAt?: string; timestamp?: string }): boolean {
+    if (keepRegTacticalOnFailure(next, previous)) return false;
+    const now = next.verdict?.realityInsight;
+    return typeof now === 'string' && !!now && !IntelligenceNode.isPlaceholderInsight(now) && now !== previous.verdict?.realityInsight;
+}
+
 /**
  * 대기 문구 재계산 시도 간격(관문 10310216·10310219) — 재계산이 실패해 스냅샷 timestamp 가 그대로여도 언어당 5분에 한 번만.
  *   인스턴스 메모리 + 인스턴스 간 원자적 예약(Upstash SET NX EX — 지터 없는 정확한 300초, 동시에 읽어도 한 곳만 성공).
@@ -1009,7 +1016,8 @@ export class GuardianDataHub {
             };
 
             // ★T35-B 정기 재생성이 새 글을 못 만들어 대기 문구가 됐으면 기존 장중 글(과 그 생성 기준)을 지킨다 — 출구 검사가 그 글을 다시 거른다
-            if (regRefreshAt && placeholderFallback) keepRegTacticalOnFailure(context, placeholderFallback);
+            //   예약 결과: 새 글로 바뀌었을 때만 성공 — 대기 문구(기존 글 유지)·같은 글(복구본)은 실패로 기록해 60분 대기·연속 2회 중지(관문 10310437 P2)
+            const regOk = regRefreshAt && placeholderFallback ? settleRegTacticalRefresh(context, placeholderFallback) : false;
 
             // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon
             // snapshot failure). Caching it poisoned Redis for up to 10min and made the
@@ -1054,7 +1062,7 @@ export class GuardianDataHub {
             }
 
             console.log("[Guardian] Context Refresh Complete.");
-            if (regRefreshAt) await finishRegTacticalRefresh(claimRedis(), regRefreshAt, true, Date.now());
+            if (regRefreshAt) await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now());
             return context;
 
         } catch (error) {

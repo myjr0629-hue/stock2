@@ -134,7 +134,7 @@ class OfflineRedis {
         mock('../src/services/guardian/guardianCore', { CORE_KEY: 'offline:core', getSharedCore: async () => { coreCalls++; return null; } });
         const hubMod = require('../src/services/guardian/unifiedDataStream') as typeof import('../src/services/guardian/unifiedDataStream');
         const { IntelligenceNode } = require('../src/services/guardian/intelligenceNode') as typeof import('../src/services/guardian/intelligenceNode');
-        const { GuardianDataHub: Hub, _resetGuardianHubStateForTest: resetHub, keepRegTacticalOnFailure } = hubMod;
+        const { GuardianDataHub: Hub, _resetGuardianHubStateForTest: resetHub, keepRegTacticalOnFailure, settleRegTacticalRefresh } = hubMod;
         const call = (locale: 'ko' | 'en' | 'ja' = 'ko') => (Hub as any).computeGuardianSnapshot(false, locale);
         const fresh = (s: any, locale = 'ko') => { store.clear(); expiry.clear(); budgets.clear(); resetHub(); coreCalls = 0; store.set(`guardian:snapshot:${locale}`, s); };
 
@@ -175,6 +175,17 @@ class OfflineRedis {
         const ok2: any = { verdict: { realityInsight: '새 정상 글' } };
         assert.equal(keepRegTacticalOnFailure(ok2, prev), false, '새 글이 있으면 그대로');
         assert.equal(keepRegTacticalOnFailure({ verdict: { realityInsight: PENDING } }, snap({ text: PENDING })), false, '옛 글도 대기 문구면 손대지 않음');
+        // 관문 10310437 P2 — 예약 결과: 새 정상 글만 성공, 대기 문구(유지)·같은 글(복구본)은 실패로 기록
+        assert.equal(settleRegTacticalRefresh({ verdict: { realityInsight: PENDING } }, snap()), false, '대기 문구 → 유지 + 실패');
+        assert.equal(settleRegTacticalRefresh({ verdict: { realityInsight: TEXT } }, snap()), false, '복구된 같은 글 → 실패');
+        assert.equal(settleRegTacticalRefresh({ verdict: { realityInsight: TEXT.replace('2.5%', '3.4%') } }, snap()), true, '새 글 → 성공');
+        {   // 실패 기록이면 60분 대기·연속 2회면 그날 중지(공용 Lua)
+            budgets.clear();
+            const t0 = now;
+            assert.equal(await reserveRegTacticalRefresh(r, t0), true);
+            await finishRegTacticalRefresh(r, t0, settleRegTacticalRefresh({ verdict: { realityInsight: PENDING } }, snap()), t0 + 20_000);
+            assert.equal(await reserveRegTacticalRefresh(r, t0 + 31 * MIN), false, '대기 문구 결과 = 실패 → 60분 대기');
+        }
 
         // ── ⑤ 다른 언어 채택(모델 0): 저장소에 이 스냅샷이 본 글보다 새 장중 글 → 채택·생성 기준·본 시각 갱신 ──
         const NEW = TEXT.replace('2.5%', '3.4%');

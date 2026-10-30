@@ -68,7 +68,7 @@ assert.ok(tacticalNextReasons(withLocal, prompt.replace('17:40:00', '20:00:00'),
 // ③ 관문 10310351 — 수식어가 붙은 다른 지표는 통과하지 않는다
 const UR = [line('Unemployment Rate (Oct)', '2026-11-06', '08:30')];
 const NOV5 = Date.parse('2026-11-05T15:00:00Z');
-for (const t of ['11/6(금) 08:30 ET 청년 실업률 예정', '11/6(금) 08:30 ET 예정된 청년실업률', '11/6(金) 08:30 ET 予定の若年失業率', '11/6(金) 08:30 ET 予定の若年層の失業率', '11/6(금) 08:30 ET 예정된 청년층의 실업률', '11/6(금) 08:30 ET 예정된 실업률 전월비', '11/6 08:30 ET Youth 실업률 예정'])
+for (const t of ['11/6(금) 08:30 ET 노인 실업률 예정', '11/6(금) 08:30 ET 여성 실업률 예정', '11/6(금) 08:30 ET 흑인 실업률 예정', '11/6(금) 08:30 ET 청년 실업률 예정', '11/6(금) 08:30 ET 예정된 청년실업률', '11/6(金) 08:30 ET 予定の若年失業率', '11/6(金) 08:30 ET 予定の若年層の失業率', '11/6(금) 08:30 ET 예정된 청년층의 실업률', '11/6(금) 08:30 ET 예정된 실업률 전월비', '11/6 08:30 ET Youth 실업률 예정'])
     assert.ok(strict(t, UR, NOV5).length, `오통과 금지: ${t}`);
 for (const t of ['11/6(금) 08:30 ET 예정된 실업률', '11/6(금) 08:30 ET 미국 실업률 발표 예정', '11/6(金) 08:30 ET 予定の米失業率'])
     assert.deepEqual(strict(t, UR, NOV5), [], `정상 통과: ${t}`);
@@ -85,6 +85,16 @@ assert.ok(strict('11/10(화) 13:00 ET 12년물 국채 입찰 예정', AUC2, NOV1
 assert.ok(strict('11/10(화) 13:00 ET 2년물 물가연동 국채 입찰 예정', AUC2, NOV10).length, 'TIPS ≠ 명목');
 assert.deepEqual(unsupportedEventReasons('2년물 국채 입찰', AUC2.join('\n')), [], '국채 입찰 사건군 근거');
 assert.ok(unsupportedEventReasons('국채 입찰', line('Housing Starts')).length, '근거 없는 사건군은 그대로 탈락');
+// GDP·미시간: 차수를 쓰면 그 차수 줄만(관문 10310437 «속보치 예정» ↔ 확정치 줄)
+const GDPF = [line('GDP Growth Rate QoQ Final (Q3)', '2026-12-22', '08:30')], GDPA = [line('GDP Growth Rate QoQ Adv (Q3)', '2026-12-22', '08:30')];
+const DEC21 = Date.parse('2026-12-21T15:00:00Z');
+assert.ok(strict('12/22(화) 08:30 ET GDP 성장률 속보치 예정', GDPF, DEC21).length, '속보치 ≠ 확정치');
+assert.ok(strict('12/22(火) 08:30 ET 予定のGDP速報値', GDPF, DEC21).length);
+assert.deepEqual(strict('12/22(화) 08:30 ET GDP 성장률 속보치 예정', GDPA, DEC21), []);
+assert.deepEqual(strict('12/22(화) 08:30 ET GDP 성장률 확정치 예정', GDPF, DEC21), []);
+assert.deepEqual(strict('12/22(화) 08:30 ET 예정된 GDP 성장률', GDPF, DEC21), [], '차수 없는 표기 = 같은 발표 묶음');
+assert.ok(strict('11/13(금) 10:00 ET 미시간대 소비자심리지수 확정치 예정', [line('Michigan Consumer Sentiment Prel (Nov)', '2026-11-13', '10:00')], Date.parse('2026-11-13T13:00:00Z')).length, '예비≠확정');
+assert.deepEqual(strict('11/13(금) 10:00 ET 미시간대 소비자심리지수 예비치 예정', [line('Michigan Consumer Sentiment Prel (Nov)', '2026-11-13', '10:00')], Date.parse('2026-11-13T13:00:00Z')), []);
 // 미시간대 소비자심리지수
 const MICH = [line('Michigan Consumer Sentiment (Nov)', '2026-11-13', '10:00')];
 const NOV13 = Date.parse('2026-11-13T13:00:00Z');
