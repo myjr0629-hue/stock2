@@ -72,6 +72,7 @@ class OfflineRedis {
         if (opts?.ex) expiry.set(k, Date.now() + opts.ex * 1000);
         return 'OK';
     }
+    async del(k: string) { store.delete(k); expiry.delete(k); return 1; }
     async eval(script: string, keys: string[], args: number[]) {
         evalKeys.push(keys[0]);
         if (budgetFails) throw new Error('offline reservation failure');
@@ -158,6 +159,20 @@ class OfflineRedis {
         resetHub(); coreCalls = 0;
         await call('ko');
         assert.equal(coreCalls, 0, '같은 언어 예약 거절 → 재계산 0');
+        // 관문 10310918 ① 언어 간 동시 생성 잠금 — ko 가 생성 중(90초)이면 en 은 예약도 하지 않고 기다린다(그 3언어 결과를 저장소에서 받는다)
+        {
+            fresh(snap()); store.set('guardian:snapshot:en', snap()); evalKeys.length = 0;
+            store.set('guardian:tactical:reg-gen:2026-10-30', 1); expiry.set('guardian:tactical:reg-gen:2026-10-30', now + 90_000);
+            await call('en');
+            assert.equal(coreCalls, 0, '다른 언어 생성 중 → 재계산 0');
+            assert.equal(evalKeys.length, 0, '예약 질의 0(예산 소비 없음)');
+            // 잠금을 잡았는데 예약이 거절되면 잠금을 푼다
+            store.clear(); expiry.clear(); resetHub(); store.set('guardian:snapshot:ko', snap());
+            budgets.set('guardian:tactical:reg-refresh:ko:2026-10-30', { count: 8, at: now - 31 * MIN });
+            await call('ko');
+            assert.equal(store.get('guardian:tactical:reg-gen:2026-10-30') ?? null, null, '예약 거절 → 생성 잠금 해제');
+            budgets.clear();
+        }
         // 같은 인스턴스는 5분 안에 예약을 다시 묻지 않는다
         evalKeys.length = 0; budgets.clear();
         fresh(snap()); await call(); const asked = evalKeys.length; await call();

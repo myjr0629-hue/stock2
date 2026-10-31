@@ -1,6 +1,7 @@
 import { fmpFetch } from '@/lib/fmpClient';
 import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, regTacticalNeedsRefresh, regTacticalMayRefresh, regTacticalCurrent, regTacticalGeneratedAt, REG_TACTICAL_RETRY_MS, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
 import { reserveRegTacticalRefresh, finishRegTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
+import { etDateOf as regEtDateOf } from '@/lib/marketCalendar';
 import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
 import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
@@ -261,10 +262,22 @@ async function regTacticalDriftNow(c: GuardianContext & { _workerTimestamp?: str
         SPX_CHG: fin(core?.market?.factors?.spx?.chgPct) ?? snapNow.SPX_CHG,
         RLSI: fin(core?.rlsi?.score) ?? snapNow.RLSI,
     };
-    return regTacticalNeedsRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight, current);
+    const drift = regTacticalNeedsRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight, current);
+    if (!drift.length) return drift;
+    // 언어 간 동시 생성 막기(관문 10310918 ①) — 한 번의 3언어 생성이 끝나 저장소에 들어갈 때까지(최대 90초) 다른 언어·인스턴스는 기다렸다가(5분 뒤 다시 확인) 그 저장본을 받는다
+    try {
+        const redis = claimRedis();
+        if (!redis) return [];
+        const ok = await redis.set(regGenLockKey(now), now, { nx: true, ex: 90 });
+        return ok === 'OK' ? drift : [];
+    } catch { return []; }   // 잠금 저장소 장애 — 상한을 확인할 수 없으니 재생성 0
 }
+const regGenLockKey = (now: number) => `guardian:tactical:reg-gen:${regEtDateOf(now)}`;
 async function claimRegTacticalRefresh(locale: Locale, now: number): Promise<'exclusive' | false> {
-    return await reserveRegTacticalRefresh(claimRedis(), now, locale) ? 'exclusive' : false;
+    if (await reserveRegTacticalRefresh(claimRedis(), now, locale)) return 'exclusive';
+    // 이 언어 예약이 거절되면 방금 잡은 언어 간 생성 잠금을 푼다(다른 언어가 90초 기다리지 않게)
+    try { const r = claimRedis(); if (r && String(await r.get(regGenLockKey(now))) === String(now)) await r.del(regGenLockKey(now)); } catch { /* 90초 뒤 저절로 풀린다 */ }
+    return false;
 }
 /**
  * ★2026-10-28 T2 장후 스냅샷의 Tactical 글이 «종가 이후 선물 사실 없이» 만들어졌는데 지금은 그 사실이 있다 → 다시 계산.
@@ -1035,10 +1048,8 @@ export class GuardianDataHub {
                 ...(tacticalFutures && tacticalFuturesPct ? { tacticalFuturesPct, tacticalFuturesCheckedAt: new Date(now).toISOString(), tacticalSeenAt: new Date(now).toISOString() } : {}),
             };
 
-            // ★T35-B 정기 재생성이 새 글을 못 만들어 대기 문구가 됐으면 기존 장중 글(과 그 생성 기준)을 지킨다 — 출구 검사가 그 글을 다시 거른다
-            //   예약 결과: 새 글로 바뀌었을 때만 성공 — 대기 문구(기존 글 유지)·같은 글(복구본)은 실패로 기록해 60분 대기·연속 2회 중지(관문 10310437 P2)
-            // 예약 결과는 여기서 바로 기록 — 아래 섹터 결측(조기 반환) 경로에서도 빠지지 않게(관문 10310511 ②). 되돌림·저장은 위 판정 저장에서 이미 끝났다
-            if (regRefreshAt) { await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now(), locale); regRefreshAt = 0; }
+            // ★T35-B 예약 결과 기록 — 이 컨텍스트가 실제로 나갈 때만 성공(아래 섹터 결측 조기 반환은 실패로 기록 — 관문 10310511 ②·10310918 ②). 되돌림·저장은 위 판정 저장에서 끝났다
+            const finishReg = async (ok: boolean) => { if (regRefreshAt) { await finishRegTacticalRefresh(claimRedis(), regRefreshAt, ok, Date.now(), locale); regRefreshAt = 0; } };
 
             // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon
             // snapshot failure). Caching it poisoned Redis for up to 10min and made the
@@ -1064,6 +1075,7 @@ export class GuardianDataHub {
                     await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}lastgood:${locale}`, { ...context, _source: 'vercel-lastgood' }, 72 * 60 * 60);
                 } catch { /* non-critical */ }
             } else {
+                await finishReg(false);   // 새 글이 이 응답으로 나가지 않는다
                 // [LAST GOOD] Degraded compute (Polygon snapshot outage). Serving an
                 // empty map is worse than serving the last good snapshot — fall back.
                 const mem = _cachedContext[locale] as any;
@@ -1082,6 +1094,7 @@ export class GuardianDataHub {
                 console.warn(`[Guardian] Degraded context (sectors empty) for ${locale} — no last-good available, serving once only.`);
             }
 
+            await finishReg(regOk);
             console.log("[Guardian] Context Refresh Complete.");
             return context;
 
