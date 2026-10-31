@@ -579,6 +579,11 @@ export default function PricingPage() {
                         )}
                     </div>
                 </div>
+                <p className="mt-4 text-center text-sm text-slate-300">
+                    <Link href="/app?from=pricing" className="underline underline-offset-4">
+                        {t("appSubscriptionNote")}
+                    </Link>
+                </p>
             </section>
             {/* ============================================================ */}
             {/* FOUNDING MEMBER FOMO BANNER */}
