@@ -544,7 +544,9 @@ function pickFirstExpiryMove(after: string, timing: ImpliedTiming, today: string
     ].filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today);
     const first = firstExpiryAfterDate(known, after, timing);
     const fromResolved = first && resolved.im && resolved.im.expiry === first ? resolved.im : null;
-    const fromObs = first && obs?.im && obs.im.expiry === first ? obs.im : null;
+    // 첫 만기 표식 없는 옛 월물 저장본(candidate)도, 다른 근거로 정한 첫 만기와 만기가 같으면 그 만기의 값이다(관문 10311252 A — main 처럼 확인값 유지).
+    const obsIm = obs?.im ?? (obs?.first ? null : obs?.candidate ?? null);
+    const fromObs = first && obsIm && obsIm.expiry === first ? obsIm : null;
     if (fromObs && shouldUseEarningsObservation(fromObs, fromResolved)) return { ...resolvedMoveOf(resolved.ticker, fromObs, 'probe', null), firstExpiry: first };
     if (fromResolved) return { ...resolvedMoveOf(resolved.ticker, resolved.im, resolved.source, resolved.reason), firstExpiry: first };
     return { ...resolvedMoveOf(resolved.ticker, null, null, resolved.im || obs?.im ? 'no_straddle' : resolved.reason ?? 'no_straddle'), firstExpiry: first };

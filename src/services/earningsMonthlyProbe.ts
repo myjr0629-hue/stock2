@@ -18,7 +18,8 @@ const DAY = 86400_000;
  *   [10/31 첫 만기 통일] 값(im)은 그 첫 만기의 관측만 — 뒤 월물로 대체하지 않는다. 첫 만기 조회가 실패하면
  *   «이미 확인된 그 첫 만기 값»(저장본)을 그대로 두고(마지막 정상값 유지), 한 번도 못 구했으면 null.
  */
-export interface EarningsObservation { im: EarningsMove | null; first: string | null }
+/** candidate = 첫 만기 표식 없는 옛 월물 저장본(값으로 내지 않음) — 호출자가 «다른 근거(구조 목록 등)로 정한 첫 만기»와 만기가 같을 때만 쓴다(관문 10311252 A) */
+export interface EarningsObservation { im: EarningsMove | null; first: string | null; candidate?: EarningsMove | null }
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -56,7 +57,8 @@ export async function earningsEventObservation(
   // 첫 만기를 알면 그 만기의 저장본만 «이전 값»이다(뒤 만기 저장본은 이어 쓰지 않는다).
   const previous = () => valid(stored) && (!first || stored.expiry === first) ? stored : null;
   // 내보내는 값은 «첫 만기로 확인된 관측»뿐 — 첫 만기를 모르는 옛 월물 저장본은 값으로 내지 않는다(관문 10311136 ①).
-  const out = (im: EarningsMove | null): EarningsObservation => ({ im: im && first && im.expiry === first ? im : null, first });
+  const out = (im: EarningsMove | null): EarningsObservation => ({ im: im && first && im.expiry === first ? im : null, first,
+    ...(!first && valid(stored) ? { candidate: stored as EarningsMove } : {}) });
   // EOD 체인은 세션마다 한 번 바뀐다 — 마지막으로 끝난 정규장 세션의 관측이 이미 있으면 다시 조회하지 않는다
   // (운영 검토 10/20: 모든 행 매시 재조회 = 공급사 호출 약 12배). 값이 없거나 옛 세션이면 기존처럼 1시간 간격.
   //   첫 만기를 모르는 옛 저장본은 «최신»으로 보지 않는다 — 다음 갱신이 만기 목록을 한 번 확인한다.

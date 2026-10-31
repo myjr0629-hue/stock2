@@ -54,7 +54,7 @@ const move = (pct: number, expiry: string, session: string, method?: 'weekly' | 
   def: DEF, pct, straddle: pct, strike: 100, expiry, callPrice: pct / 2, putPrice: pct / 2, spot: 100,
   basis: 'eod' as const, asOf: null, chainDate: session, session, ...(method ? { method } : {}),
 });
-const ALL = ['AAPL', 'KEEP', 'NEWCO', 'SLICE', 'GAP', 'BMO', 'ONLY'];
+const ALL = ['AAPL', 'KEEP', 'NEWCO', 'SLICE', 'GAP', 'BMO', 'ONLY', 'OLDM'];
 const obsKey = (t: string) => EI.earningsObservationKey(t, AFTER, false);
 function seed(tickers: string[]) {
   RC._resetEcBreakerForTest();
@@ -215,6 +215,15 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     r = await row('ONLY');
     assert.equal(r.impliedMovePct, null, '계약 만기만으로는 첫 만기 미확인 — 11/6 값 금지');
     assert.ok(!r.firstExpiry || r.firstExpiry !== E2, '11/6 을 첫 만기로 표식하지 않는다');
+    // ⑥-g 첫 만기 표식 없는 옛 월물 관측(11/4)이라도, 구조 목록이 11/4 를 첫 만기로 확인하면 그 값을 쓴다(main 처럼 유지 — 관문 10311252 A)
+    seed(['OLDM']);
+    store.set('structure:v2:OLDM', { timestamp: NOW - 1000, data: {
+      ticker: 'OLDM', options_status: 'OK', expiration: E1, availableExpirations: [E1, E2, M], chainDate: SESSION, underlyingPrice: 100, impliedMove: null,
+    } });
+    store.set('polygon:snapshot:probe:OLDM', { greeksSource: 'eod', expirationsMissing: [], probeResults: [] });
+    store.set(obsKey('OLDM'), { im: move(4.3, E1, SESSION, 'monthly'), checkedAt: NOW - 600_000 });
+    r = await row('OLDM');
+    assert.equal(r.impliedMovePct, 4.3, '옛 월물 관측의 만기 = 구조 목록이 정한 첫 만기 → 값 유지'); assert.equal(r.firstExpiry, E1);
     // ⑥-e 영수증 경로도 같은 대조 — 관측 first 11/6 이어도 수집기 목록에 11/4 가 있으면 11/6 값을 영수증 예상값으로 쓰지 않는다(관문 10311226 A)
     const gapReceipt = await EAS.readEarningsObservation({ ticker: 'GAP', date: AFTER, hour: 'amc' }, false);
     assert.equal(gapReceipt, null, '영수증: 수집기 목록의 더 이른 11/4 가 첫 만기 — 관측 11/6 값 저장 금지');
