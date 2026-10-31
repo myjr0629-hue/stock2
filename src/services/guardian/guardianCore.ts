@@ -183,6 +183,10 @@ export interface GuardianCore {
     /** AI 재료용 시장 헤드라인 — 응답에는 싣지 않는다 */
     news: string[];
     scheduledEvents?: string[];
+    /** ★2026-10-31 Tactical «왜» 재료 — FedWatch 다음 FOMC 확률(저장본, lib/ai/tacticalDrivers). 없으면 비운다 */
+    fedwatch?: import('@/lib/ai/tacticalDrivers').TacticalFedwatch | null;
+    /** ★2026-10-31 Tactical 원인 기사 — 지금 헤드라인(시장 원인) + 오늘 뉴스 펄스 보관 기사(거시·시장·지정학). 응답에는 싣지 않는다 */
+    causeNews?: string[];
 }
 
 /** 코어로 쓸 수 있는 모양인가. 섹터가 비면 «벤더 장애로 반쯤 계산된» 것이다 — 캐시하지 않는다(MAP FLAP FIX 와 같은 이유) */

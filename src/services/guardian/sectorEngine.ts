@@ -593,6 +593,8 @@ export interface GuardianVerdict {
     num?: {
         tpl?: Partial<Record<'description' | 'realityInsight' | 'gammaInsight', string>>;
         basis?: Partial<Record<'description' | 'realityInsight' | 'gammaInsight', Partial<Record<string, number>> | null>>;
+        /** Tactical 생성 당시 재료 스냅샷(관문 10311057 ② — intelligenceNode.VerdictNumbers.drivers) */
+        drivers?: Partial<Record<'description' | 'realityInsight' | 'gammaInsight', string>>;
     };
 }
 

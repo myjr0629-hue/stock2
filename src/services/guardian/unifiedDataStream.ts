@@ -1,6 +1,9 @@
 import { fmpFetch } from '@/lib/fmpClient';
 import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
-import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
+import { filterTacticalCauseHeadlines } from '@/lib/ai/tacticalNews';
+import { tacticalFedwatchFrom, causeNewsFromArchive, mergeCauseNews, tacticalMacroDrivers, type TacticalFedwatch, type TacticalMacroDrivers } from '@/lib/ai/tacticalDrivers';
+import { ARCHIVE_KEY_PREFIX } from '@/lib/news/pulseArchive';
+import { etDateOf } from '@/lib/marketCalendar';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
 import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
 import { datedHeadline, cachedEvidence, buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
@@ -320,6 +323,58 @@ async function loadAiVerdict(locale: Locale = 'ko'): Promise<GuardianVerdict | n
  *    AI 에 줬고, 모델은 «10년물 108bp 급등»이라고 썼다(2026-09-29 운영 실측, 실제로는 약 +6bp).
  *    chgAbs(퍼센트포인트)가 있으면 그것을, 없으면 수준과 변화율로 역산한다: prev = level/(1+chgPct/100).
  */
+/**
+ * ★2026-10-31 Tactical «왜» 재료 — FedWatch 저장본(/api/guardian/fedwatch 와 같은 키: latest → fallback, 1주 전 기준 캐시).
+ *   읽기만(쓰기 0). 1주 전 기준 캐시가 비었으면 1주 변화 없이 확률만 쓴다(DynamoDB 조회는 하지 않는다).
+ */
+async function loadTacticalFedwatch(): Promise<TacticalFedwatch | null> {
+    try {
+        const [latest, fallback, weekAgo] = await Promise.all([
+            getFromCache<any>('fedwatch:latest').catch(() => null),
+            getFromCache<any>('fedwatch:fallback').catch(() => null),
+            getFromCache<any>('fedwatch:weekago:v1').catch(() => null),
+        ]);
+        const now = Date.now();
+        return tacticalFedwatchFrom(latest, weekAgo, now) ?? tacticalFedwatchFrom(fallback, weekAgo, now);
+    } catch { return null; }
+}
+/** 뉴스 펄스 보관본(EC2 전용 키 · 하루 문서 100~300KB) — 인스턴스당 10분에 한 번만 읽는다(코어는 45초마다 다시 계산된다) */
+let _archiveCause: { at: number; day: string; lines: string[] } | null = null;
+const ARCHIVE_CAUSE_MEMO_MS = 10 * 60_000;
+async function loadArchiveCauseNews(): Promise<string[]> {
+    const now = Date.now();
+    const day = etDateOf(now);
+    if (_archiveCause && _archiveCause.day === day && now - _archiveCause.at < ARCHIVE_CAUSE_MEMO_MS) return _archiveCause.lines;
+    let lines: string[] = [];
+    try {
+        const doc = await getFromCache<{ items?: any[] }>(`${ARCHIVE_KEY_PREFIX}${day}`);
+        lines = causeNewsFromArchive(Array.isArray(doc?.items) ? doc!.items : [], now);
+    } catch { lines = []; }
+    _archiveCause = { at: now, day, lines };
+    return lines;
+}
+/** 코어 → Tactical «왜» 재료(lib/ai/tacticalDrivers). 섹터 등락은 세션·직전 정규장 날짜로 꼬리표를 단다 */
+function tacticalDriversFromCore(core: GuardianCore | null | undefined, session: string, nowMs = Date.now()): TacticalMacroDrivers | undefined {
+    if (!core) return undefined;
+    const macro = core.market;
+    const us10y = macro?.factors?.us10y;
+    return tacticalMacroDrivers({
+        fedwatch: core.fedwatch ?? null,
+        us10yLevel: us10y?.level ?? macro?.yieldCurve?.us10y ?? null,
+        us10yChangeBp: us10yChangeBp(us10y) ?? null,
+        us10yStale: (us10y as any)?.isStale === true,
+        us2yLevel: macro?.yieldCurve?.us2y ?? null,
+        fearGreedScore: core.rlsi?.components?.sentimentScore ?? null,
+        fearGreedSource: core.rlsi?.components?.sentimentSource ?? null,
+        sectors: core.sectors,
+        fiveDay: (core.rotationIntensity as any)?.fiveDayData ?? null,
+        sectorNameEn: sectorLabelForAi,
+        session,
+        cashSessionDate: macro?.indexBasis?.cash?.nasdaq?.sessionDate ?? macro?.indexBasis?.cash?.spx?.sessionDate ?? null,
+        nowMs,
+    });
+}
+
 function us10yChangeBp(f?: { level?: number | null; chgPct?: number | null; chgAbs?: number | null } | null): number | undefined {
     if (!f) return undefined;
     // 하루 100bp 넘는 10년물 변화는 단위가 틀린 값으로 본다(×10 호가 등) → 역산으로 넘어간다
@@ -397,6 +452,8 @@ function offHoursRotationContext(core: GuardianCore, locale: Locale) {
         gexIndex: g?.gexIndex ?? undefined, gexLevel: g?.gexLevel ?? undefined, squeezeRisk: g?.squeezeRisk ?? undefined,
         triggerSupport: g?.supportWall ?? undefined, triggerResistance: g?.resistanceWall ?? undefined,
         marketNewsHeadlines: core.news?.length ? core.news : undefined, scheduledEvents: core.scheduledEvents, asOf: core.timestamp,
+        // ★2026-10-31 Tactical «왜» 재료 — 장후 선물 변동 재생성도 같은 재료(순환매 프롬프트는 이 칸을 읽지 않는다)
+        macroDrivers: tacticalDriversFromCore(core, tacticalSessionAt(Date.now())),
         divergenceCase,
         rotationFacts: rotationFactsFrom(core.rotationIntensity, core.sectors, core.vectors),
     };
@@ -409,7 +466,8 @@ function currentTacticalPrompts(nums: GNums, core: GuardianCore | null, gamma?: 
         indexBasis: core?.market.indexBasis,
         indexFacts: buildIndexFacts(core?.market.indexBasis, tacticalSessionAt(Date.now()), Date.now()),
         session: tacticalSessionAt(Date.now()), vix: nums.VIX!,
-        marketNewsHeadlines: filterMarketHeadlines(core?.news || []), scheduledEvents: core?.scheduledEvents,
+        marketNewsHeadlines: filterTacticalCauseHeadlines(core?.causeNews ?? core?.news ?? []), scheduledEvents: core?.scheduledEvents,
+        macroDrivers: tacticalDriversFromCore(core, tacticalSessionAt(Date.now())),
         asOf: new Date(Date.now()).toISOString(),
         triggerSupport: gamma?.supportWall, triggerResistance: gamma?.resistanceWall,
         triggerCurrent: gamma?.currentPrice, gammaFlipPoint: gamma?.gammaFlipPoint,
@@ -486,19 +544,19 @@ export class GuardianDataHub {
                 vectors: [], vix: previous.market.vix ?? 0,
             };
             const r = await IntelligenceNode.refreshRealityForFuturesDriftDetailed({ ...base, indexBasis: basis ?? undefined,
-                marketNewsHeadlines: filterMarketHeadlines(core?.news || []) }, { regen: !adopt, newerThan: seenBefore });
+                marketNewsHeadlines: filterTacticalCauseHeadlines(core?.causeNews ?? core?.news ?? []) }, { regen: !adopt, newerThan: seenBefore });
             const text = r.text;
             const pct = text ? IntelligenceNode.tacticalFuturesPct(locale, text) : undefined;
             if (text && pct && !IntelligenceNode.isPlaceholderInsight(text)) {
                 const n = IntelligenceNode.numbersFor('reality', locale, text);
-                const tpl = { ...previous.verdict.num?.tpl }, numBasis = { ...previous.verdict.num?.basis };
-                delete tpl.realityInsight; delete numBasis.realityInsight;
-                if (n) { tpl.realityInsight = n.tpl; numBasis.realityInsight = n.basis; }
+                const tpl = { ...previous.verdict.num?.tpl }, numBasis = { ...previous.verdict.num?.basis }, numDrivers = { ...previous.verdict.num?.drivers };
+                delete tpl.realityInsight; delete numBasis.realityInsight; delete numDrivers.realityInsight;
+                if (n) { tpl.realityInsight = n.tpl; numBasis.realityInsight = n.basis; if (n.drivers) numDrivers.realityInsight = n.drivers; }
                 const at = r.at ?? now;
                 context = { ...context, tacticalFuturesPct: pct, tacticalSeenAt: new Date(Math.max(seenBefore, at)).toISOString(),
                     // 채택한 글은 그 생성 시각부터 30분 뒤 변동을 비교한다(채택이 재생성 간격을 앞당기거나 미루지 않게).
                     ...(adopt ? { tacticalFuturesCheckedAt: new Date(at).toISOString() } : {}),
-                    verdict: { ...previous.verdict, realityInsight: text, num: { tpl, basis: numBasis } } };
+                    verdict: { ...previous.verdict, realityInsight: text, num: { tpl, basis: numBasis, ...(Object.keys(numDrivers).length ? { drivers: numDrivers } : {}) } } };
                 changed = true;
                 await saveAiVerdict(context.verdict, locale);
             } else if (typeof r.seenAt === 'number' && r.seenAt > seenBefore) {
@@ -791,7 +849,9 @@ export class GuardianDataHub {
 
                     // ★2026-10-04 생성 재료의 화면 숫자 — 자리표를 채우는 값이자 글의 기준(basis)
                     const aiNums = guardianNumsFromAiContext(aiContext);
-                    const tacticalContext = { ...aiContext, marketNewsHeadlines: filterMarketHeadlines(marketNews) };
+                    // ★2026-10-31 Tactical «왜» 재료 — 원인 기사(지금 헤드라인 + 오늘 뉴스 펄스 보관 기사) · FedWatch·금리·공포탐욕·섹터 등락(lib/ai/tacticalDrivers)
+                    const tacticalContext = { ...aiContext, marketNewsHeadlines: filterTacticalCauseHeadlines(core.causeNews ?? marketNews),
+                        macroDrivers: tacticalDriversFromCore(core, tacticalSessionAt(Date.now())) };
                     const tacticalPrompts = (l: Locale) => buildTacticalPrompt({ ...tacticalContext, asOf: new Date(Date.now()).toISOString() }, l);   // 일정의 미래 여부는 요청 시각으로
                     const [rotationText, realityText, gammaText] = await Promise.all([
                         // ⚠️ 예전엔 실패 시 «Insight generation failed. …» 영어 문장을 돌려줬고, 그게 ko/ja 화면에 그대로 나갔다.
@@ -858,6 +918,8 @@ export class GuardianDataHub {
                                     ...(nRea ? { realityInsight: nRea.basis } : {}),
                                     ...(nGam ? { gammaInsight: nGam.basis } : {}),
                                 },
+                                // Tactical 생성 당시 재료 스냅샷 — 판정 출구(repairVerdictTexts)가 지표 숫자를 그 기준으로 대조(관문 10311057 ②)
+                                ...(nRea?.drivers ? { drivers: { realityInsight: nRea.drivers } } : {}),
                             };
                         }
                         // ★2026-09-29 저장 전 출구 검사 — 생성기가 이미 검사하지만, 이 키(24h)는 장외 내내 그대로 나가고
@@ -977,6 +1039,8 @@ export class GuardianDataHub {
         // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
         // [V5.0] Changed order: Sector first, then RLSI with RIS score
         console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
+        // ★2026-10-31 Tactical «왜» 재료(저장본 읽기만 — 공급사·AI 호출 0): FedWatch 다음 FOMC 확률 + 오늘 뉴스 펄스 보관 원인 기사 · 아래 계산과 겹쳐 읽는다(지연 0)
+        const tacticalExtras = Promise.all([loadTacticalFedwatch(), loadArchiveCauseNews()]).catch(() => [null, [] as string[]] as const);
         const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth, evidence] = await Promise.all([
             SectorEngine.getSectorFlows(),
             getMacroSnapshotSSOT(),
@@ -1017,6 +1081,7 @@ export class GuardianDataHub {
                 getFromCache('market:earnings-calendar:v4'),
             ]).then(([pulse, econ, earnings]) => cachedEvidence(pulse, econ, earnings)).catch(() => ({ news: [], events: [] })),
         ]);
+        const [fedwatch, archiveCause] = await tacticalExtras;
 
         // Merge Polygon + FMP news with deduplication
         const mergedNews: string[] = [...evidence.news, ...polygonNews];
@@ -1085,6 +1150,8 @@ export class GuardianDataHub {
             gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence
             news: marketNews,
             scheduledEvents: evidence.events,
+            fedwatch,
+            causeNews: mergeCauseNews(marketNews, archiveCause),
         };
     }
 

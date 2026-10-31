@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildTacticalPrompt, checkTacticalOutput, tacticalIndexReasons, tacticalTokenRules } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, tacticalIndexReasons, tacticalTokenRules, TACTICAL_GATE_MAX_CHARS } from '@/lib/ai/tacticalPrompt';
 import { buildIndexFacts, type IndexFact } from '@/lib/ai/tacticalIndexFacts';
 import { guardianNumsFromAiContext, guardianNumbersGate, guardianTokenRules } from '@/lib/ai/guardianNumbers';
 import { deriveSessions, fixtureFromSnapshot } from '../scripts/tactical-v3-compare.cjs';
@@ -16,9 +16,9 @@ futureTimestamp.futures.nq.asOf = '2026-10-23T11:00:00Z';
 assert.ok(!buildIndexFacts(futureTimestamp, 'PRE', Date.parse(context.asOf)).some(f => f.id === 'nq'), '미래 시각도 거절');
 assert.match(prompt, /INDEX_FACTS_SPOT: 현물\(직전 정규장/);
 assert.match(prompt, /INDEX_FACTS_FUTURES: 선물\(지금/);
-assert.match(prompt, /300–380/);
+assert.match(prompt, /420–520/);   // ★10/31 스토리형 길이(+30~50%)
 assert.match(prompt, /Never use 매수, 매도, 買い, 売り, buy/);
-assert.match(prompt, /lead with what this means/);
+assert.match(prompt, /lead with the consequence/);
 assert.match(prompt, /breadth = how widely stocks are advancing/);
 
 const first = '어제(10/22) 정규장에서 나스닥 종합은 2.6%, S&P500은 1.2% 내렸고, 지금 개장 전 나스닥100 선물은 보합(+0.03%), S&P500 선물은 0.2% 약세입니다.';
@@ -55,7 +55,7 @@ for (const locale of ['ko', 'ja', 'en'] as const) {
     assert.doesNotMatch(rules, /→ \{(?:NDX_CHG|SPX_CHG)\}/);
     assert.match(rules, /never use \{NDX_CHG\} or \{SPX_CHG\}/);
     assert.match(rules, /→ \{RLSI\}/);
-    const cap = locale === 'en' ? 900 : 460;
+    const cap = TACTICAL_GATE_MAX_CHARS[locale];
     const p = buildTacticalPrompt(context, locale);
     assert.ok(!checkTacticalOutput('x'.repeat(cap), locale, p).includes('tactical:too-long'));
     assert.ok(checkTacticalOutput('x'.repeat(cap + 1), locale, p).includes('tactical:too-long'));
@@ -67,7 +67,7 @@ for (const row of fixture.outputs) {
     const reasons = checkTacticalOutput(row.text, row.locale, p);
     // 실제 소수점·날짜·U.S.·Oct. 문장이 네 문장인데 탈락하던 사례 전부 재생.
     assert.ok(!reasons.includes('tactical:four-sentences'), `${row.session}/${row.repeat}/${row.locale}`);
-    assert.equal(reasons.includes('tactical:too-long'), [...row.text].length > (row.locale === 'en' ? 900 : 460));
+    assert.equal(reasons.includes('tactical:too-long'), [...row.text].length > TACTICAL_GATE_MAX_CHARS[row.locale as 'ko' | 'en' | 'ja']);
     if (row.previousReasons.includes('tactical:advice')) assert.ok(reasons.includes('tactical:advice'), '권유 가드는 완화하지 않음');
     if (/\{(?:NDX_CHG|SPX_CHG)\}/.test(row.text)) {
         assert.ok(!guardianNumbersGate(row.text, nums).ok);
@@ -83,7 +83,7 @@ const noNews = '오늘 시장 전체를 움직인 뚜렷한 재료는 확인되�
 assert.deepEqual(checkTacticalOutput([postFirst, noNews, soWhat, next].join(' '), 'ko', buildTacticalPrompt(post.context, 'ko')), []);
 post.context.indexFacts.push({ ...context.indexFacts.find((f: IndexFact) => f.id === 'nq'), chgPct: 0.3 });
 assert.deepEqual(checkTacticalOutput([postFirst.replace('종가 이후 선물 변화는 미확인', '장후 나스닥100 선물은 종가 시점 대비 0.3% 상승 중'), noNews, soWhat, next].join(' '), 'ko', buildTacticalPrompt(post.context, 'ko')), []);
-console.log('통과 live-1049 실제 27문장 재생·정체 선물 제외·첫 문장·반올림·보합 경계·자리표·460/900자·권유 보존·뉴스 날짜/시각·4문장·POST');
+console.log('통과 live-1049 실제 27문장 재생·정체 선물 제외·첫 문장·반올림·보합 경계·자리표·680/700/1150자·권유 보존·뉴스 날짜/시각·4문장·POST');
 
 // 2차 실제 출력: 재생만 수행하며 새 실모델 통과율로 세지 않는다.
 const r2 = JSON.parse(readFileSync('tests/fixtures/tactical-v3/r2-outputs.json', 'utf8'));
