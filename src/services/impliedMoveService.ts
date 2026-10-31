@@ -478,6 +478,8 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     try {
         resolved = await withinImpliedDeadline(() => resolveImpliedMoves(reqs, structures, today), deadlineMs);
     } catch { return failed(); }
+    // Structure and chain snapshots are slices, so they cannot prove the first expiry.
+    resolved = resolved.map((r, i) => reqs[i].after ? resolvedMoveOf(r.ticker, null, null, 'first_expiry_unavailable') : r);
     // Monthly observations must also check for earlier weekly expiries, even when non-null.
     // Only the background pack may collect; all other callers read the dated observation.
     for (let i = 0; i < resolved.length; i++) {
@@ -494,7 +496,7 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
             if (discovered !== undefined && existing?.expiry !== discovered) resolved[i] = resolvedMoveOf(r.ticker, null, null, 'first_expiry_unavailable');
             const exps = Array.isArray(structures[i]?.availableExpirations) ? structures[i].availableExpirations : [];
             const known = firstExpiryAfterDate(exps.filter((e: unknown): e is string => typeof e === 'string' && e >= today), r.after, r.timing);
-            if (im && (discovered === undefined || im.expiry === discovered) && (!known || !im.expiry || im.expiry <= known) && shouldUseEarningsObservation(im, resolved[i].im)) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
+            if (im && (discovered === undefined || im.expiry === discovered) && (!known || !im.expiry || im.expiry <= known)) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
         } catch (error) {
             if (error instanceof ImpliedDeadlineError) break;
         }

@@ -30,6 +30,10 @@ export interface MoneyMapData {
   leaders: MapSector[]; laggards: MapSector[]; prior: MapSector[];
   sources: MapSources;
 }
+/** Stored app data predates first-expiry verification. Keep its other observations. */
+export function clearStoredMoneyMapImplied(sources: MapSources): MapSources {
+  return { ...sources, earnings: Array.isArray(sources.earnings) ? sources.earnings.map(row => ({ ...row, implied: null })) : [] };
+}
 export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = Date.now()): MapSources {
   const calendar = [next, prev].filter((s): s is MapSources => !!s && validMapCalendar(s, now))
     .sort((a, b) => Date.parse(b.eventsAt!) - Date.parse(a.eventsAt!))[0];
@@ -42,9 +46,7 @@ export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = 
     const old = prev?.sectors.find(p => p.id === s.id);
     return { ...s, fiveDay: s.fiveDay || old?.fiveDay || null, premium: s.premium || old?.premium || null };
   }), earnings: (earnings?.earnings || []).map(r => {
-    const old = prev?.earnings.find(p => p.ticker === r.ticker && p.date === r.date && p.hour === r.hour);
-    const fallback = old?.implied ? validateRowImplied(r, { ...old.implied, basis: null }, now) : null;
-    return { ...r, implied: validateRowImplied(r, r.implied ? { ...r.implied, basis: null } : fallback, now) };
+    return { ...r, implied: validateRowImplied(r, earnings === next && r.implied ? { ...r.implied, basis: null } : null, now) };
   }), earningsAt: earnings?.earningsAt || null, earningsRange: earnings?.earningsRange || null,
   earningsStatus: earnings?.earningsStatus || (earnings ? 'partial' : 'unavailable'),
   events: calendar?.events || [], eventsAt: calendar?.eventsAt || null, eventsRange: calendar?.eventsRange || null };

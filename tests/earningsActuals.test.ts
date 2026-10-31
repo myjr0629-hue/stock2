@@ -224,14 +224,14 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     assert.deepEqual(r2.expectedSaved, ['NFLX|2026-10-20:7'], '발표 사흘 뒤에도 기준 세션 관측이면 저장');
     assert.equal(log.probes, 0, '반응일(10/21) 마감 뒤 — 첫 만기가 지날 수 있어 직접 조회하지 않는다');
   });
-  await ta('★ 표식 없는 옛 기록(전일 관측 9.2)도 그대로 둔다 — 덮지 않는다', async () => {
+  await ta('★ 검증 없는 옛 기록은 확인된 기준 세션 관측으로 교체한다', async () => {
     reset();
     const list = [entry('C', '2026-10-13', 'bmo', '08:00')];
     store.set(key('C', '2026-10-13'), { v: 1, ticker: 'C', date: '2026-10-13', hour: 'bmo', expected: { pct: 4, expiry: '2026-10-16', session: '2026-10-09', basis: 'eod', strike: 132, straddle: 5.33, spot: 131.92, capturedAt: 1, src: 'page' }, actual: null, at: 1 });
     const log = { reads: 0, probes: 0 };
     const r = await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: { ...obsDeps(obsOf('C', 3.0, '2026-10-12'), undefined, log), bars: barsFrom({}), fmp: barsFrom({}) } });
-    assert.equal(log.reads + log.probes, 0); assert.deepEqual(r.expectedSaved, []);
-    assert.equal((store.get(key('C', '2026-10-13')) as any).expected.pct, 4);
+    assert.equal(log.reads, 1); assert.deepEqual(r.expectedSaved, ['C|2026-10-13:3']);
+    assert.equal((store.get(key('C', '2026-10-13')) as any).expected.pct, 3);
   });
   await ta('시각 미공지 종목·관측 없음은 건너뜀(지어내지 않는다)', async () => {
     reset();
@@ -387,7 +387,7 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
   });
   await ta('수동 보강(seedExpected) — 이미 값이 있으면 건드리지 않고, 실제 반응 기록은 그대로 둔다', async () => {
     reset();
-    const snap = { pct: 3.2, method: 'monthly' as const, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod' as const, strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'eod-chain' as const };
+    const snap = { firstExpiryVerified: true as const, pct: 3.2, method: 'monthly' as const, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod' as const, strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'eod-chain' as const };
     assert.equal(await SVC.seedExpected({ ticker: 'JPM', date: '2026-10-13', hour: 'bmo' }, snap), 'saved');
     assert.equal(await SVC.seedExpected({ ticker: 'JPM', date: '2026-10-13', hour: 'bmo' }, { ...snap, pct: 9.9 }), 'kept');
     await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: jpmFmp } });
@@ -398,7 +398,7 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
   await ta('★ 쓰기 안전 — 묶음 읽기가 빈 값을 돌려줘도 저장된 expected 를 지키고, 엄격 읽기까지 실패하면 쓰지 않는다', async () => {
     reset();
     const list = [entry('JPM', '2026-10-13', 'bmo')];
-    const exp = { pct: 3.2, method: 'monthly', expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'page' };
+    const exp = { firstExpiryVerified: true, pct: 3.2, method: 'monthly', expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'page' };
     store.set(key('JPM', '2026-10-13'), { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: exp, actual: null, at: 1 });
     failReads = true;
     const r = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { bars: jpmBars, fmp: jpmFmp, readObservation: async () => null } });
@@ -467,10 +467,10 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     reset();
     const list = [entry('JPM', '2026-10-13', 'bmo'), entry('GS', '2026-10-13', 'bmo', '07:30'), entry('UNH', '2026-10-13', 'bmo')];
     store.set(key('JPM', '2026-10-13'), { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', at: 1,
-      expected: { pct: 3.2, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'eod-chain' },
+      expected: { firstExpiryVerified: true, pct: 3.2, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'eod-chain' },
       actual: { pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check: 'fmp', at: 2 } });
     store.set(key('GS', '2026-10-13'), { v: 1, ticker: 'GS', date: '2026-10-13', hour: 'bmo', at: 1,
-      expected: { pct: 4.2, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 895, straddle: 37.1, spot: 893.95, capturedAt: 1, src: 'eod-chain' },
+      expected: { firstExpiryVerified: true, pct: 4.2, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 895, straddle: 37.1, spot: 893.95, capturedAt: 1, src: 'eod-chain' },
       actual: { pct: -0.2282, baseDate: '2026-10-12', baseClose: 893.95, reactDate: '2026-10-13', reactClose: 891.91, src: 'intrinio-daily', check: null, at: 2 } });
     const w0 = writes;
     const now = ms('2026-10-14T01:00:00Z');

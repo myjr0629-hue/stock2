@@ -113,10 +113,8 @@ export async function refreshImpliedPack(
   const [fresh, prev] = await Promise.all([buildImpliedPack(rows, t0, { probeMonthly: true, deadlineMs: workDeadline }), withinImpliedDeadline(() => readImpliedPack(), workDeadline).catch(() => null)]);
   const pack = mergeImpliedPacks(fresh, prev, Date.now(), rows);
   const vals = Object.values(pack.cells);
-  // 값이 하나도 없으면(레디스 읽기 실패면 모든 칸이 no_snapshot 이 된다) 저장하지 않는다 — 마지막 정상 묶음을 지킨다.
-  //   지난 값은 붙일 때 만기·발표 완료로 다시 거른다(impliedForRow).
+  // Persist even an empty pack so an earlier value cannot survive a failed first-expiry quote.
   const withValue = vals.filter((c) => c.p != null).length;
-  if (!withValue) return { ok: false, ms: Date.now() - t0, withValue: 0, total: vals.length };
   const saved = await withinImpliedDeadline(() => setInCache(EARNINGS_IMPLIED_KEY, pack, TTL_SEC), deadlineMs).catch(() => false);
   return { ok: saved, ms: Date.now() - t0, withValue, total: vals.length, carried: vals.filter((c) => c.k === 1).length };
 }

@@ -2,6 +2,7 @@ import { unstable_cache } from 'next/cache';
 import { mgetFromCache } from '@/services/redisClient';
 import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
 import { etDateOf } from '@/lib/marketCalendar';
+import { EARNINGS_IMPLIED_KEY } from '@/lib/earnings/earningsImplied';
 import { SCENARIO_TICKERS, buildRow, decode, eventFor, firstExpiry, rawChainKey, rawExpirationsKey, recent, selectFive } from '@/lib/earningsScenario/snapshot';
 
 /** 기존 어댑터는 공급사 GET 뒤 Redis에 쓴다. 이 경로는 GET만 수행한다. 인증 URL·오류 원문은 출력하지 않는다. */
@@ -43,7 +44,7 @@ export async function loadScenarioSnapshot() {
   });
   // getOptionChainSnapshotIntrinio 기본 목록 조회와 같은 공개 키(UTC 어제).
   const afterDay = new Date(now - 86400_000).toISOString().slice(0, 10);
-  const keys = ['intrinio:eod:snapshot', 'earnings:implied:v1',
+  const keys = ['intrinio:eod:snapshot', EARNINGS_IMPLIED_KEY,
     ...events.map(e => rawExpirationsKey(e.ticker, afterDay))];
   const values = await mgetFromCache<unknown>(keys).catch(() => []);
   const [eod, implied] = values.slice(0, 2).map(decode);

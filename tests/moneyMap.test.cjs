@@ -18,7 +18,7 @@ for (const extension of ['.ts', '.tsx']) require.extensions[extension] = (mod, f
 };
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
-const { buildMoneyMap, mapQuoteValues, aggregateMapPremium, mergeMoneyMapSources, moneyMapSession, mapWeekRange, nqObservationOf } = require('../src/lib/app/moneyMap.ts');
+const { buildMoneyMap, clearStoredMoneyMapImplied, mapQuoteValues, aggregateMapPremium, mergeMoneyMapSources, moneyMapSession, mapWeekRange, nqObservationOf } = require('../src/lib/app/moneyMap.ts');
 const { MoneyMapCards } = require('../src/components/intel/MoneyMapCards.tsx');
 const copies = Object.fromEntries(['ko', 'en', 'ja'].map(loc => [loc, require(`../src/messages/${loc}.json`).moneyMap.copy]));
 function isolatedModule(filename, deps) {
@@ -191,7 +191,7 @@ test('refresh gaps preserve dated premium/5D/implied values; an expired or compl
   next.sectors[1].premium = null; next.sectors[1].fiveDay = null; next.earnings[0].implied = null;
   const kept = mergeMoneyMapSources(next, old, at('2026-10-19T11:00:00Z'));
   assert.deepEqual(kept.sectors[1].premium, old.sectors[1].premium); assert.deepEqual(kept.sectors[1].fiveDay, old.sectors[1].fiveDay);
-  assert.equal(kept.earnings[0].implied.session, '2026-10-16');
+  assert.equal(kept.earnings[0].implied, null);
   assert.equal(mergeMoneyMapSources(next, old, at('2026-10-24T11:00:00Z')).earnings[0].implied, null);
 });
 test('local REG response replay preserves actual SPY and stock measurements', () => {
@@ -657,4 +657,14 @@ test('gate 4: money-map response distinguishes complete zero, partial data and s
     calendar = { ...normal, ...patch };
     assert.equal((await route.GET()).sources.earningsStatus, 'partial');
   }
+});
+
+test('new missing implied never restores the previous later expiry', () => {
+  const old = sources(), next = sources();
+  old.earnings[0].implied.expiry = '2026-11-20';
+  next.earningsAt = '2026-10-19T10:30:00Z';
+  next.earnings[0].implied = null;
+  assert.equal(mergeMoneyMapSources(next, old, at('2026-10-19T11:00:00Z')).earnings[0].implied, null);
+  assert.equal(clearStoredMoneyMapImplied(old).earnings[0].implied, null);
+  assert.equal(old.earnings[0].implied.expiry, '2026-11-20');
 });
