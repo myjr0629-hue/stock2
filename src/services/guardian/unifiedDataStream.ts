@@ -1037,6 +1037,8 @@ export class GuardianDataHub {
         // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
         // [V5.0] Changed order: Sector first, then RLSI with RIS score
         console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
+        // ★2026-10-31 Tactical «왜» 재료(저장본 읽기만 — 공급사·AI 호출 0): FedWatch 다음 FOMC 확률 + 오늘 뉴스 펄스 보관 원인 기사 · 아래 계산과 겹쳐 읽는다(지연 0)
+        const tacticalExtras = Promise.all([loadTacticalFedwatch(), loadArchiveCauseNews()]).catch(() => [null, [] as string[]] as const);
         const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth, evidence] = await Promise.all([
             SectorEngine.getSectorFlows(),
             getMacroSnapshotSSOT(),
@@ -1077,8 +1079,7 @@ export class GuardianDataHub {
                 getFromCache('market:earnings-calendar:v4'),
             ]).then(([pulse, econ, earnings]) => cachedEvidence(pulse, econ, earnings)).catch(() => ({ news: [], events: [] })),
         ]);
-        // ★2026-10-31 Tactical «왜» 재료(저장본 읽기만 — 공급사·AI 호출 0): FedWatch 다음 FOMC 확률 + 오늘 뉴스 펄스 보관 원인 기사
-        const [fedwatch, archiveCause] = await Promise.all([loadTacticalFedwatch(), loadArchiveCauseNews()]);
+        const [fedwatch, archiveCause] = await tacticalExtras;
 
         // Merge Polygon + FMP news with deduplication
         const mergedNews: string[] = [...evidence.news, ...polygonNews];
