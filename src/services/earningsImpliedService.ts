@@ -119,7 +119,7 @@ export async function refreshImpliedPack(
   const withValue = vals.filter((c) => c.p != null).length;
   // [10/31] 값이 없어도 «첫 만기를 확인한 칸»이 있으면 저장한다 — 더 이른 첫 만기가 확인돼 직전 값(뒤 만기)을 거절한 결과를
   //   버리고 옛 묶음을 남기면 그 뒤 만기 값이 계속 보인다(관문 10311211 ①). 첫 만기 확인도 값도 없으면(읽기 실패) 저장하지 않는다.
-  if (!impliedPackWorthSaving(pack)) return { ok: false, ms: Date.now() - t0, withValue: 0, total: vals.length };
+  if (!impliedPackWorthSaving(pack, !!(prev && prev.v === 1 && prev.cells))) return { ok: false, ms: Date.now() - t0, withValue: 0, total: vals.length };
   const saved = await withinImpliedDeadline(() => setInCache(EARNINGS_IMPLIED_KEY, pack, TTL_SEC), deadlineMs).catch(() => false);
   return { ok: saved, ms: Date.now() - t0, withValue, total: vals.length, carried: vals.filter((c) => c.k === 1).length };
 }

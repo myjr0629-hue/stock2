@@ -148,8 +148,9 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     // 저장 판단 — 더 이른 첫 만기를 확인해 직전 값을 거절한 묶음(값 0, 표식 있음)도 저장해야 옛 뒤 만기 값이 남지 않는다
     const rejected = EI.mergeImpliedPacks(next({ p: null, e: null, b: null, s: null, r: 'no_straddle', f: E1 }), prev({ ...oldFirst, e: E2, f: E2 }), NOW, rows);
     assert.equal(rejected.cells[key].p, null);
-    assert.equal(EI.impliedPackWorthSaving(rejected), true, '첫 만기 확인 칸만 있어도 저장');
-    assert.equal(EI.impliedPackWorthSaving(next({ p: null, e: null, b: null, s: null, r: 'read_failed' })), false, '읽기 실패뿐이면 저장하지 않는다');
+    assert.equal(EI.impliedPackWorthSaving(rejected, true), true, '직전 묶음과 병합했으면 첫 만기 확인 칸만 있어도 저장');
+    assert.equal(EI.impliedPackWorthSaving(rejected, false), false, '직전 묶음을 못 읽었으면 값 없는 묶음으로 덮지 않는다');
+    assert.equal(EI.impliedPackWorthSaving(next({ p: null, e: null, b: null, s: null, r: 'read_failed' }), true), false, '읽기 실패뿐이면 저장하지 않는다');
     console.log('✓ ⑤ 묶음 병합: 같은 첫 만기만 잇고, 시간 초과 칸은 기존대로 유지');
 
     // ⑥ 수집기 체인 경로 — 첫 만기 다리가 불완전하면 다음 만기(11/6)로 넘어가지 않는다
@@ -178,7 +179,16 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
       assert.equal(r.impliedMovePct, null, `11/4 체인 실패(${Object.keys(listing)[0]}) → 11/6 대체 금지`);
       assert.equal(r.firstExpiry, E1);
     }
-    console.log('✓ ⑥-b 수집기 목록·실패 표식의 앞 만기가 첫 만기 — 계약만 남은 뒤 만기로 넘어가지 않음');
+    // ⑥-c 구조 목록·값은 11/6 인데 수집기 목록엔 11/4 — 관측 first 가 없으면 수집기 목록도 보고 11/6 을 내지 않는다(빠른 경로)
+    seed(['GAP']);
+    store.set('structure:v2:GAP', { timestamp: NOW - 1000, data: {
+      ticker: 'GAP', options_status: 'OK', expiration: E2, availableExpirations: [E2, M], chainDate: SESSION, underlyingPrice: 100, impliedMove: move(4.7, E2, SESSION),
+    } });
+    store.set('polygon:snapshot:probe:GAP', { greeksSource: 'eod', expirations: [E1, E2, M], probeResults: [] });
+    store.delete(obsKey('GAP'));
+    r = await row('GAP');
+    assert.equal(r.impliedMovePct, null, '수집기 목록의 11/4 가 첫 만기 — 구조 11/6 값 대체 금지'); assert.equal(r.firstExpiry, E1);
+    console.log('✓ ⑥-b/c 수집기 목록·실패 표식의 앞 만기가 첫 만기 — 계약만 남은 뒤 만기·구조 빠른 경로로 넘어가지 않음');
 
     // ⑦ BMO = 발표일 포함 첫 만기, AMC = 다음 날 이후 첫 만기
     seed(['BMO']);

@@ -122,12 +122,13 @@ export function attachImplied<R extends { ticker: string; date: string; hour?: s
 }
 
 /**
- * 새로 만든(병합한) 묶음을 저장할까 — 값이 있는 칸이 있거나, 값은 없어도 «발표 직후 첫 만기»를 확인한 칸(f)이 있으면 저장.
- *   둘 다 없으면(레디스 읽기 실패 등 — 모든 칸 no_snapshot·read_failed) 저장하지 않아 마지막 정상 묶음을 지킨다.
+ * 새로 만든(병합한) 묶음을 저장할까 — 값이 있는 칸이 있으면 저장(기존 규칙). 값이 없어도 «발표 직후 첫 만기»를 확인한 칸(f)이 있고
+ *   직전 묶음을 읽어 병합했다면(prevMerged) 저장한다 — 더 이른 첫 만기 확인으로 직전 뒤 만기 값을 거절한 결과가 옛 묶음에 밀리지 않게.
+ *   직전 묶음을 못 읽었으면 값 없는 묶음으로 덮지 않는다(다른 행의 확인된 값 보존 — 관문 10311215 ②). 읽기 실패뿐이면 저장하지 않는다.
  */
-export function impliedPackWorthSaving(pack: ImpliedPack): boolean {
+export function impliedPackWorthSaving(pack: ImpliedPack, prevMerged: boolean): boolean {
   const cells = Object.values(pack?.cells || {});
-  return cells.some((c) => c?.p != null) || cells.some((c) => typeof c?.f === 'string');
+  return cells.some((c) => c?.p != null) || (prevMerged && cells.some((c) => typeof c?.f === 'string'));
 }
 
 /** 묶음이 «다시 만들 때가 됐나» — 장중(뉴욕 09:30~16:00 평일)은 5분, 그 밖은 60분, 날짜가 바뀌면 바로. */

@@ -497,6 +497,20 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
             if (error instanceof ImpliedDeadlineError) break;
         }
     }
+    // [10/31] 공급사 첫 만기(관측 first)를 모르는 실적 행은 수집기 만기 목록도 본다 — 구조 값이 구조 목록과 맞아 수집기 체인을 읽지 않은
+    //   행(빠른 경로)에서도, 수집기 목록에 더 이른 발표 뒤 만기가 있으면 그것이 첫 만기다(관문 10311215 ①).
+    //   평상시엔 관측 first 가 있어 추가 읽기 0 — 모를 때만 그 종목들의 수집기 캐시 mget 1회(실패·시간 초과 = 그대로).
+    const listIdx = reqs.map((r, i) => (r.after && !observations[i]?.first && resolved[i].chainFirst === undefined ? i : -1)).filter((i) => i >= 0);
+    if (listIdx.length) {
+        try {
+            const pcs = await withinImpliedDeadline(() => mgetFromCache<any>(listIdx.map((i) => `polygon:snapshot:probe:${reqs[i].ticker}`)), deadlineMs);
+            listIdx.forEach((i, k) => {
+                const listed = probeListedExpirations(pcs[k], today);
+                const chainFirst = listed.length ? firstExpiryAfterDate(listed, reqs[i].after!, reqs[i].timing ?? 'unknown') : null;
+                if (chainFirst) resolved[i] = { ...resolved[i], chainFirst };
+            });
+        } catch { /* 그대로 */ }
+    }
     return resolved.map((row, i) => {
         const r = reqs[i];
         if (!r.after) return impliedRowOf(row.ticker, row.im, row.source, row.reason, false);
@@ -531,6 +545,16 @@ function pickFirstExpiryMove(after: string, timing: ImpliedTiming, today: string
     if (fromObs && shouldUseEarningsObservation(fromObs, fromResolved)) return { ...resolvedMoveOf(resolved.ticker, fromObs, 'probe', null), firstExpiry: first };
     if (fromResolved) return { ...resolvedMoveOf(resolved.ticker, resolved.im, resolved.source, resolved.reason), firstExpiry: first };
     return { ...resolvedMoveOf(resolved.ticker, null, null, resolved.im || obs?.im ? 'no_straddle' : resolved.reason ?? 'no_straddle'), firstExpiry: first };
+}
+
+/** 수집기 체인 캐시가 아는 실제 만기 — 적어 둔 목록(expirations)·조회 실패 만기(expirationsMissing)·받아 온 계약의 만기(오늘 이후, 정렬) */
+function probeListedExpirations(pc: any, today: string): string[] {
+    const chain = [...(Array.isArray(pc?.exactResults) ? pc.exactResults : []), ...(Array.isArray(pc?.probeResults) ? pc.probeResults : [])];
+    return [...new Set<string>([
+        ...(Array.isArray(pc?.expirations) ? pc.expirations : []),
+        ...(Array.isArray(pc?.expirationsMissing) ? pc.expirationsMissing : []),
+        ...chain.map((c: any) => c?.details?.expiration_date),
+    ].filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today))].sort();
 }
 
 /** 전달받은 구조를 읽기 전용으로 보정한다. 단건·묶음 모두 이 경로를 지난다. */
@@ -599,9 +623,7 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             //   첫 만기 근거 = 수집기가 적어 둔 만기 목록(expirations = 공급사 목록 0~35 DTE)·조회 실패 만기(expirationsMissing —
             //   계약이 없어도 실재하는 만기)·받아 온 계약의 만기·구조 목록이 고른 만기 중 가장 이른 것. 앞 만기 체인이 실패해 계약에서
             //   빠져도 목록·실패 표식에 남으므로 뒤 만기가 첫 만기로 올라서지 않는다(관문 10311211 ②).
-            const listedExps = [...(Array.isArray(pc?.expirations) ? pc.expirations : []), ...(Array.isArray(pc?.expirationsMissing) ? pc.expirationsMissing : [])]
-                .filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today);
-            const firstAfter = n.after ? firstExpiryAfterDate([...listedExps, ...actualExps, ...(n.expiry ? [n.expiry] : [])], n.after, n.timing ?? 'unknown') : null;
+            const firstAfter = n.after ? firstExpiryAfterDate([...probeListedExpirations(pc, today), ...(n.expiry ? [n.expiry] : [])], n.after, n.timing ?? 'unknown') : null;
             const eligible = n.after ? (firstAfter ? [firstAfter] : []) : [n.expiry!];
             for (const expiry of eligible) {
                 const rows = chain.filter((c: any) => c?.details?.expiration_date === expiry);
