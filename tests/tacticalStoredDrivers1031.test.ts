@@ -81,6 +81,33 @@ async function main() {
                 assert.ok(!shown.includes('준비') && /10년물 금리 4\.9\d%/.test(shown), shown);
             });
         }
+        // 관문 10311057 ② — 저장 판정문(guardian:ai_verdict·스냅샷·lastgood) 출구도 판정에 같이 둔 재료 스냅샷(num.drivers)으로 대조
+        const prompts = (l: string) => buildTacticalPrompt(ctxNow() as any, l as any);
+        const changedPrompts = (l: string) => buildTacticalPrompt(ctxNow(changed) as any, l as any);
+        const verdict = (t: string, drivers?: string) => ({ realityInsight: t, num: { tpl: { realityInsight: t }, basis: { realityInsight: basis }, ...(drivers ? { drivers: { realityInsight: drivers } } : {}) } });
+        await test('판정문 — 스냅샷 있는 틀린 지표 숫자는 복구로 교체 · 스냅샷 없으면 예전 그대로', async () => {
+            _resetInsightStateForTest(); store.clear(); archives.clear();
+            const bad = await N.repairVerdictTexts(verdict(BAD, genSnap), 'ko', 'test', basis, prompts as any);
+            assert.notEqual(bad.verdict.realityInsight, BAD);
+            assert.deepEqual(bad.repaired, ['realityInsight']);
+            assert.equal(bad.verdict.num?.drivers?.realityInsight, undefined, '교체된 글(대기 문구)에 옛 스냅샷을 남기지 않는다');
+            const old = await N.repairVerdictTexts(verdict(BAD), 'ko', 'test', basis, prompts as any);
+            assert.equal(old.verdict.realityInsight, BAD);
+        });
+        await test('판정문 — 지금 재료가 바뀌어도 생성 당시 정상 글은 보존 · 스냅샷은 판정에 남는다', async () => {
+            _resetInsightStateForTest(); store.clear(); archives.clear();
+            const r = await N.repairVerdictTexts(verdict(GOOD, genSnap), 'ko', 'test', { ...basis, US10Y: 4.99 }, changedPrompts as any);
+            assert.equal(r.verdict.realityInsight, GOOD);
+            assert.equal(r.verdict.num?.drivers?.realityInsight, genSnap);
+        });
+        await test('직전 판정 살리기 — 스냅샷 있는 틀린 글은 살리지 않고, 정상 글은 스냅샷과 함께 옮긴다', async () => {
+            const placeholder = { realityInsight: '[진단] 최신 시장 분석을 준비하고 있습니다\n[결론] 잠시 후 자동으로 갱신됩니다' };
+            const pend = N.keepRealTextOverPlaceholders(placeholder, verdict(BAD, genSnap), 'ko', basis, prompts as any);
+            assert.notEqual(pend.realityInsight, BAD);
+            const kept = N.keepRealTextOverPlaceholders(placeholder, verdict(GOOD, genSnap), 'ko', basis, changedPrompts as any) as any;
+            assert.equal(kept.realityInsight, GOOD);
+            assert.equal(kept.num?.drivers?.realityInsight, genSnap);
+        });
     } finally {
         Date.now = realNow;
     }

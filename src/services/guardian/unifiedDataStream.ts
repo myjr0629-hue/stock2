@@ -549,14 +549,14 @@ export class GuardianDataHub {
             const pct = text ? IntelligenceNode.tacticalFuturesPct(locale, text) : undefined;
             if (text && pct && !IntelligenceNode.isPlaceholderInsight(text)) {
                 const n = IntelligenceNode.numbersFor('reality', locale, text);
-                const tpl = { ...previous.verdict.num?.tpl }, numBasis = { ...previous.verdict.num?.basis };
-                delete tpl.realityInsight; delete numBasis.realityInsight;
-                if (n) { tpl.realityInsight = n.tpl; numBasis.realityInsight = n.basis; }
+                const tpl = { ...previous.verdict.num?.tpl }, numBasis = { ...previous.verdict.num?.basis }, numDrivers = { ...previous.verdict.num?.drivers };
+                delete tpl.realityInsight; delete numBasis.realityInsight; delete numDrivers.realityInsight;
+                if (n) { tpl.realityInsight = n.tpl; numBasis.realityInsight = n.basis; if (n.drivers) numDrivers.realityInsight = n.drivers; }
                 const at = r.at ?? now;
                 context = { ...context, tacticalFuturesPct: pct, tacticalSeenAt: new Date(Math.max(seenBefore, at)).toISOString(),
                     // 채택한 글은 그 생성 시각부터 30분 뒤 변동을 비교한다(채택이 재생성 간격을 앞당기거나 미루지 않게).
                     ...(adopt ? { tacticalFuturesCheckedAt: new Date(at).toISOString() } : {}),
-                    verdict: { ...previous.verdict, realityInsight: text, num: { tpl, basis: numBasis } } };
+                    verdict: { ...previous.verdict, realityInsight: text, num: { tpl, basis: numBasis, ...(Object.keys(numDrivers).length ? { drivers: numDrivers } : {}) } } };
                 changed = true;
                 await saveAiVerdict(context.verdict, locale);
             } else if (typeof r.seenAt === 'number' && r.seenAt > seenBefore) {
@@ -918,6 +918,8 @@ export class GuardianDataHub {
                                     ...(nRea ? { realityInsight: nRea.basis } : {}),
                                     ...(nGam ? { gammaInsight: nGam.basis } : {}),
                                 },
+                                // Tactical 생성 당시 재료 스냅샷 — 판정 출구(repairVerdictTexts)가 지표 숫자를 그 기준으로 대조(관문 10311057 ②)
+                                ...(nRea?.drivers ? { drivers: { realityInsight: nRea.drivers } } : {}),
                             };
                         }
                         // ★2026-09-29 저장 전 출구 검사 — 생성기가 이미 검사하지만, 이 키(24h)는 장외 내내 그대로 나가고

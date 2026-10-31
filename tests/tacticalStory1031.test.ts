@@ -50,7 +50,7 @@ test('③ 재료 묶음 — 섹터 등락은 세션·날짜가 맞을 때만, �
         { id: 'XLE', name: '에너지', change: 1.9 }, { id: 'XLP', name: '필수소비재', change: 1.4 }, { id: 'SMH', name: '반도체', change: -7 },
         { id: 'XLK', name: '기술주', change: -4.9 }, { id: 'AI_PWR', name: 'AI 전력망', change: -3.3 }, { id: 'XLU', name: '유틸리티', change: 0.7 },
     ];
-    const fiveDay = Object.fromEntries(sectors.map(s => [s.id, { todayChange: s.change, asOf: '2026-10-30' }]));
+    const fiveDay = Object.fromEntries(sectors.map(s => [s.id, { todayChange: s.change, asOf: '2026-10-30', changes: [0.2, -0.4, 0.1, s.change] }]));
     const en = (ko: string) => ({ 에너지: 'Energy', 필수소비재: 'Consumer Staples', 반도체: 'Semiconductors', 기술주: 'Technology', 'AI 전력망': 'AI Power Grid', 유틸리티: 'Utilities' } as Record<string, string>)[ko] ?? ko;
     const base = { sectors, fiveDay, sectorNameEn: en, us10yLevel: 4.94, us10yChangeBp: -4, us2yLevel: 4.56, fearGreedScore: 26.2, fearGreedSource: 'CNN F&G: fear' };
     const post = tacticalMacroDrivers({ ...base, session: 'POST', cashSessionDate: '2026-10-30', nowMs: Date.parse('2026-10-30T23:30:00Z') })!;
@@ -327,6 +327,26 @@ test('⑪ 관문 10311033 남은 위험 — 저장본·복구본 지표 대조�
     assert.equal(JSON.parse(oldSnap).drivers, '');
     const t = ko('미국 10년물 금리 30.8%, 공포·탐욕 지수 26(공포 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.');
     assert.ok(storedDriverReasons(t, oldSnap, t).includes('tactical:driver-value:us10y'));
+});
+
+test('⑫ 관문 10311057 ① — 장후·휴장 섹터 등락은 «그 날짜 일봉»의 전일 대비(코어 change 가 스냅샷 대체값 ≈0% 여도) · 일봉 등락 없으면 뺀다', () => {
+    const sectors = [
+        { id: 'XLE', name: '에너지', change: 0.01 }, { id: 'XLP', name: '필수소비재', change: 0 }, { id: 'SMH', name: '반도체', change: -0.02 },
+        { id: 'XLK', name: '기술주', change: 0 }, { id: 'XLU', name: '유틸리티', change: 0.01 },
+    ];   // 마지막 세션 등락 조회 실패 → 스냅샷 계산(장외 ≈0%) 대체값
+    const daily: Record<string, number> = { XLE: 1.9, XLP: 1.4, SMH: -7, XLK: -4.9, XLU: 0.7 };
+    const fiveDay = Object.fromEntries(sectors.map(s => [s.id, { todayChange: s.change, asOf: '2026-10-30', changes: [0.3, -0.2, 0.5, daily[s.id]] }]));
+    const en = (ko: string) => ({ 에너지: 'Energy', 필수소비재: 'Consumer Staples', 반도체: 'Semiconductors', 기술주: 'Technology', 유틸리티: 'Utilities' } as Record<string, string>)[ko] ?? ko;
+    for (const session of ['POST', 'CLOSED']) {
+        const d = tacticalMacroDrivers({ sectors, fiveDay, sectorNameEn: en, session, cashSessionDate: '2026-10-30', nowMs: Date.parse('2026-10-31T02:00:00Z') })!;
+        assert.deepEqual(d.sectors, { sessionDate: '2026-10-30', leaders: [{ en: 'Energy', etf: 'XLE', chgPct: 1.9 }], laggards: [{ en: 'Semiconductors', etf: 'SMH', chgPct: -7 }] }, session);
+    }
+    // 일봉 등락이 없는 섹터는 0 으로 메우지 않고 뺀다(넷 미만이면 섹터 칸 전체 없음)
+    const noDaily = Object.fromEntries(sectors.map(s => [s.id, { todayChange: s.change, asOf: '2026-10-30' }]));
+    assert.equal(tacticalMacroDrivers({ sectors, fiveDay: noDaily, sectorNameEn: en, session: 'POST', cashSessionDate: '2026-10-30', nowMs: 0 }), undefined);
+    // 장중(REG)은 코어 change(지금 값) 그대로
+    const reg = tacticalMacroDrivers({ sectors: sectors.map(s => ({ ...s, change: daily[s.id] / 2 })), fiveDay: noDaily, sectorNameEn: en, session: 'REG', nowMs: Date.parse('2026-10-30T15:00:00Z') })!;
+    assert.deepEqual(reg.sectors?.leaders, [{ en: 'Energy', etf: 'XLE', chgPct: 1 }]);
 });
 
 if (failed) { console.error(`${failed} failed`); process.exit(1); }

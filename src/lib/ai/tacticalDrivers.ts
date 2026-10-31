@@ -76,8 +76,8 @@ export interface DriverInput {
     fearGreedSource?: string | null;
     /** 코어 섹터(id·name(한국어)·change) */
     sectors?: Array<{ id?: string; name?: string; change?: number }> | null;
-    /** 순환매 5일 표 — 섹터별 «그 세션» 등락(todayChange)과 날짜(asOf) */
-    fiveDay?: Record<string, { todayChange?: number; asOf?: string }> | null;
+    /** 순환매 5일 표 — 섹터별 일봉 전일 대비 등락(changes, 마지막 = asOf 일봉)과 날짜(asOf). todayChange 는 코어 change 사본이라 쓰지 않는다 */
+    fiveDay?: Record<string, { todayChange?: number; asOf?: string; changes?: number[] }> | null;
     /** 섹터 이름 한국어 → 영어(sectorLabels.SECTOR_NAME_EN) */
     sectorNameEn?: (ko: string) => string;
     /** 지금 세션 — 섹터 등락의 «어느 세션» 판정에 쓴다 */
@@ -120,11 +120,17 @@ export function tacticalMacroDrivers(input: DriverInput): TacticalMacroDrivers |
     const rows = !sessionDate ? [] : (input.sectors || []).flatMap(s => {
         const id = String(s?.id || '');
         const day = input.fiveDay?.[id];
-        if (!/^[A-Z]{2,5}$/.test(id) || !finite(s?.change)) return [];
+        if (!/^[A-Z]{2,5}$/.test(id)) return [];
         if (session !== 'REG' && (!day || day.asOf !== sessionDate)) return [];
+        // 등락 값의 기준을 날짜와 맞춘다(관문 10311057 ①): REG = 코어 change(지금 장중) · POST/CLOSED = 그 날짜 일봉의 전일 대비(5일 표 changes 의 마지막).
+        //   코어 change 는 장외에 «마지막 세션 등락» 조회가 실패하거나 그 ETF 가 빠지면 스냅샷 계산(장외 ≈0%)으로 대체된다 — 날짜만 맞고 값은 다른 기준이 될 수 있다.
+        //   일봉 등락이 없으면 그 섹터를 뺀다(0 으로 메우지 않는다).
+        const last = Array.isArray(day?.changes) && day!.changes!.length ? day!.changes![day!.changes!.length - 1] : undefined;
+        const chg = session === 'REG' ? s?.change : last;
+        if (!finite(chg)) return [];
         const en = input.sectorNameEn ? input.sectorNameEn(String(s.name || '')) : String(s.name || '');
         if (!en || /[^\x20-\x7E]/.test(en)) return [];
-        return [{ en, etf: id, chgPct: r1(s.change as number) }];
+        return [{ en, etf: id, chgPct: r1(chg) }];
     }).sort((a, b) => b.chgPct - a.chgPct);
     if (sessionDate && rows.length >= 4) {
         // 상위·하위 한 개씩 — 두 개씩 주면 WHY 한 문장에 숫자가 여섯 개까지 늘어 나열이 된다(10/31 실모델 6/6회 «숫자 나열» 탈락)
