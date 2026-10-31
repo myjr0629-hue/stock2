@@ -548,6 +548,18 @@ function pickFirstExpiryMove(after: string, timing: ImpliedTiming, today: string
     return { ...resolvedMoveOf(resolved.ticker, null, null, resolved.im || obs?.im ? 'no_straddle' : resolved.reason ?? 'no_straddle'), firstExpiry: first };
 }
 
+/**
+ * [10/31] 수집기 캐시 만기 목록으로 본 «발표 직후 첫 만기»(없으면 null) — 영수증처럼 readImpliedMoveRows 를 거치지 않는 경로도
+ *   관측 저장본의 first 보다 더 이른 만기가 수집기 목록에 들어왔는지 같은 규칙으로 대조한다(관문 10311226 A). 캐시 읽기 1회·공급사 호출 0, 실패 = null.
+ */
+export async function collectorFirstExpiryAfter(ticker: string, after: string, timing: ImpliedTiming, nowMs: number = Date.now()): Promise<string | null> {
+    try {
+        const [pc] = await mgetFromCache<any>([`polygon:snapshot:probe:${ticker}`]);
+        const listed = probeListedExpirations(pc, etDateOf(nowMs));
+        return listed.length ? firstExpiryAfterDate(listed, after, timing) : null;
+    } catch { return null; }
+}
+
 /** 수집기 체인 캐시가 아는 실제 만기 — 적어 둔 목록(expirations)·조회 실패 만기(expirationsMissing)·받아 온 계약의 만기(오늘 이후, 정렬) */
 function probeListedExpirations(pc: any, today: string): string[] {
     const chain = [...(Array.isArray(pc?.exactResults) ? pc.exactResults : []), ...(Array.isArray(pc?.probeResults) ? pc.probeResults : [])];
