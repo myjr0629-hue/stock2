@@ -190,13 +190,13 @@ test('⑦ WHY 나열·지어낸 변화 · NEXT 경계 계약', () => {
     assert.deepEqual(TACTICAL_GATE_MAX_CHARS, { ko: 680, ja: 700, en: 1150 });
 });
 
-test('⑧ 숫자 주어 — 확률·괄호 속 전일 대비 변화는 주어가 있다(고아 숫자 아님) · 주어 없는 숫자는 그대로 탈락', () => {
-    assert.deepEqual(claimReasons('시장이 반영한 다음 FOMC 금리 인상 확률 72%입니다.', 't'), []);
-    assert.deepEqual(claimReasons('markets now price a 72% chance of a hike at the next FOMC.', 't'), []);
-    assert.deepEqual(claimReasons('次回FOMCの利上げ確率72%です。', 't'), []);
-    assert.deepEqual(claimReasons('미국 10년물 금리 4.94%(전일 대비 4bp 하락)로 금리 부담이 줄었습니다.', 't'), []);
-    assert.deepEqual(claimReasons('米10年債利回り4.94%(前日比4bp低下)です。', 't'), []);
-    assert.ok(claimReasons('미국 10년물 금리 4.94%이고, 이는 -0.74% 하락과 일치합니다.', 't').some(r => r.includes('orphan-number')));
+test('⑧ 숫자 주어(Tactical 옵션) — 확률·괄호 속 전일 대비 변화는 주어가 있다(고아 숫자 아님) · 주어 없는 숫자는 그대로 탈락', () => {
+    assert.deepEqual(claimReasons('시장이 반영한 다음 FOMC 금리 인상 확률 72%입니다.', 't', { tactical: true }), []);
+    assert.deepEqual(claimReasons('markets now price a 72% chance of a hike at the next FOMC.', 't', { tactical: true }), []);
+    assert.deepEqual(claimReasons('次回FOMCの利上げ確率72%です。', 't', { tactical: true }), []);
+    assert.deepEqual(claimReasons('미국 10년물 금리 4.94%(전일 대비 4bp 하락)로 금리 부담이 줄었습니다.', 't', { tactical: true }), []);
+    assert.deepEqual(claimReasons('米10年債利回り4.94%(前日比4bp低下)です。', 't', { tactical: true }), []);
+    assert.ok(claimReasons('미국 10년물 금리 4.94%이고, 이는 -0.74% 하락과 일치합니다.', 't', { tactical: true }).some(r => r.includes('orphan-number')));
 });
 
 test('⑨ 관문 10311015 — 재료 숫자는 «그 지표의 값»·방향은 입력 변화량 부호와 대조(다른 지표 숫자 빌리기 차단)', () => {

@@ -372,7 +372,7 @@ export function driverClaimReasons(text: string, drivers: string, observations =
             const own: DriverSpec = kind === 'hike' ? sp : { ...sp, id: `fedwatch:${kind}`, values: finite(sp[kind]) ? [{ v: sp[kind] as number, unit: 'pct' }] : [], change: null, week: null };
             return { sp: own, at: m.index!, end: m.index! + m[0].length };
         })).sort((a, b) => a.at - b.at);
-    const toks = valueTokens(text, { periodMask: true }).filter(t => !t.exempt || /%|bp/i.test(t.raw));
+    const toks = valueTokens(text, { tactical: true }).filter(t => !t.exempt || /%|bp/i.test(t.raw));
     const out: string[] = [];
     mentions.forEach((m, i) => {
         const stop = Math.min(clauseEnd(text, m.end), mentions.find((n, j) => j > i && n.at >= m.end)?.at ?? text.length);

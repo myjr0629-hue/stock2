@@ -28,12 +28,12 @@ const MASKS: RegExp[] = [
 /** ★2026-10-31 Tactical 전용 — «1주 전·1週間前·a week ago»의 1 은 값이 아니라 기간 표기(«확률이 1주 전 9.4%에서 72%로» — 9.4% 의 주어를 끊지 않게).
  *  공유 호출자(관심종목·순환매·모닝브리핑)에는 적용하지 않는다 — 그쪽은 기간 숫자도 근거 대조 대상(관문 10311133·10311136). */
 const PERIOD_MASKS: RegExp[] = [/(?<![\d.])1\s?(?:주|週間?|weeks?)\s?(?:전|前|ago)/gi, /\ba\s+week\s+ago\b/gi];
-export interface ClaimOpts { /** Tactical 의 «1주 전» 기간 표기를 값에서 뺀다 */ periodMask?: boolean }
+export interface ClaimOpts { /** Tactical 전용 확장(«1주 전» 기간 표기 제외·확률 주어·괄호 «전일 대비» 변화량) — 공유 호출자는 끄고 main 과 동일 */ tactical?: boolean }
 
 function mask(text: string, opts: ClaimOpts = {}): string {
     let t = text;
     for (const re of MASKS) t = t.replace(re, (m) => ' '.repeat(m.length));
-    if (opts.periodMask) for (const re of PERIOD_MASKS) t = t.replace(re, (m) => ' '.repeat(m.length));
+    if (opts.tactical) for (const re of PERIOD_MASKS) t = t.replace(re, (m) => ' '.repeat(m.length));
     return t;
 }
 
@@ -67,23 +67,32 @@ const SUBJECT_EN = ['yields?', 'treasur\\w*', 'bonds?', 'S&P', 'SPX', 'nasdaq', 
     'futures', 'index', 'stocks?', 'shares?', 'sectors?', 'semiconductors?', 'chips?', 'tech', 'prices?', 'rates?', 'inflation', 'payrolls?', 'claims',
     'housing', 'permits', 'starts', 'sales', 'range', 'premium', 'calls?', 'puts?', 'flows?', 'market', 'equities',
     // 경제 지표 수준(«consumer sentiment holds at 48» — 실모델 10/23 23:3x 정상 문장 orphan-number 오탐 4건)
-    'sentiment', 'confidence', 'PMI', 'ISM', 'gold',
-    // ★2026-10-31 Tactical «왜» 재료 — 시장이 반영한 금리 경로 확률(«a 72% chance of a hike at the next FOMC»)
-    'chance', 'odds', 'probabilit(?:y|ies)', 'FedWatch'];
+    'sentiment', 'confidence', 'PMI', 'ISM', 'gold'];
 const SUBJECT_CJK = [
     // ko
     '맥스\\s?페인', '콜\\s?월', '풋\\s?플로어', '감마\\s?플립', '금리', '국채', '년물', '채권', '나스닥', '다우', '러셀', '참여폭', '시장 폭', '상승 종목', '하락 종목', '등락', '감마', '변동성', '달러', '금값', '금 ', '금은', '금이', '금도',
     '유가', '원유', '브렌트', '배럴', '비트코인', '공포', '탐욕', '스퀴즈', '예상 변동', '장외 비중', '장외', '지지', '저항', '레벨', '스프레드',
     '선물', '지수', '주가', '종목', '섹터', '반도체', '기술주', '가격', '물가', '고용', '주택', '착공', '허가', '판매', '범위', '프리미엄', '콜', '풋', '시장', '심리', '신뢰', '구매관리자',
-    '확률',   // ★2026-10-31 «다음 FOMC 금리 인상 확률 72%»
     // ja
     'マックス\\s?ペイン', 'コール\\s?ウォール', 'プット\\s?フロア', 'ガンマ\\s?フリップ', '金利', '利回り', '国債', '年債', '債券', 'ナスダック', 'ダウ', 'ラッセル', 'ブレッドス', '騰落', '値上がり', '値下がり', 'ガンマ', 'ボラティリティ', 'ドル', '金価格', '金相場', '金は', '金が',
     '原油', 'ブレント', 'バレル', 'ビットコイン', '恐怖', '強欲', 'スクイーズ', '想定変動', '場外比率', '場外', 'サポート', 'レジスタンス', '水準', 'スプレッド',
     '先物', '指数', '株価', '銘柄', 'セクター', '半導体', 'ハイテク', '価格', '物価', '雇用', '住宅', '着工', '許可', '販売', 'レンジ', '幅', 'プレミアム', 'コール', 'プット', '市場', '心理', '信頼感', '景況感',
-    '確率',   // ★2026-10-31 «利上げ確率72%»
 ];
 // 영어는 낱말 경계(«moderate»의 rate·«decline»은 주어가 아니다 — 방향어는 주어로 치지 않는다)
-const SUBJECT = new RegExp(`(?<![A-Za-z])(?:${SUBJECT_EN.join('|')})(?![A-Za-z])|${SUBJECT_CJK.join('|')}`, 'i');
+const SUBJECT_BASE = new RegExp(`(?<![A-Za-z])(?:${SUBJECT_EN.join('|')})(?![A-Za-z])|${SUBJECT_CJK.join('|')}`, 'i');
+/** ★2026-10-31 Tactical 전용 주어 — «왜» 재료의 금리 경로 확률(«a 72% chance of a hike»·«인상 확률 72%»·«利上げ確率72%»).
+ *  공유 호출자(관심종목·순환매·모닝브리핑)에는 넣지 않는다 — 그쪽 근거엔 확률 지표가 없어 «상승 확률 72%» 같은 지어낸 확률을 main 처럼 거절(관문 10311138). */
+const SUBJECT_EN_TAC = ['chance', 'odds', 'probabilit(?:y|ies)', 'FedWatch'];
+const SUBJECT_CJK_TAC = ['확률', '確率'];
+const SUBJECT_TAC = new RegExp(`(?<![A-Za-z])(?:${[...SUBJECT_EN, ...SUBJECT_EN_TAC].join('|')})(?![A-Za-z])|${[...SUBJECT_CJK, ...SUBJECT_CJK_TAC].join('|')}`, 'i');
+/** 검사 함수 실행 동안만 바뀌는 주어 사전(동기 실행 — withOpts 가 끝나면 원복) */
+let SUBJECT = SUBJECT_BASE;
+let TACTICAL = false;
+function withOpts<T>(opts: ClaimOpts, fn: () => T): T {
+    const prev = [SUBJECT, TACTICAL] as const;
+    SUBJECT = opts.tactical ? SUBJECT_TAC : SUBJECT_BASE; TACTICAL = !!opts.tactical;
+    try { return fn(); } finally { [SUBJECT, TACTICAL] = prev; }
+}
 const TICKER = /(?<![A-Za-z0-9])[A-Z][A-Z0-9&]{1,5}(?![A-Za-z0-9])/;
 
 const hasSubject = (s: string) => SUBJECT.test(s) || TICKER.test(s);
@@ -120,6 +129,9 @@ const ADJ_PAREN_CMP = /^\s*[(（]\s*(?:전일\s?대비|전일비|전\s?거래일
 
 /** ① 고아 숫자 — 반환: 사유 코드(«orphan-number:−0.74%») */
 export function orphanNumberReasons(text: string, opts: ClaimOpts = {}): string[] {
+    return withOpts(opts, () => orphanNumberReasonsImpl(text, opts));
+}
+function orphanNumberReasonsImpl(text: string, opts: ClaimOpts): string[] {
     if (!text) return [];
     const src = mask(text, opts);
     const toks = valueTokens(text, opts);
@@ -134,7 +146,7 @@ export function orphanNumberReasons(text: string, opts: ClaimOpts = {}): string[
             const fwdTo = Math.min(i + 1 < inClause.length ? inClause[i + 1].index : b, t.end + 16);
             const fwd = text.slice(t.end, fwdTo);
             // 같은 지표의 수준·변화량 연달아(«금리 5.15%로 +6bp 상승») — 직전 숫자와 조사 하나 사이면 그 숫자의 주어를 잇는다(관문 10201522 ②)
-            const adjacent = i > 0 && (ADJ.test(back) || ADJ_PAREN_CMP.test(back)) && !orphanIdx.has(i - 1);   // «와·과·and»는 다른 대상의 나열이라 잇지 않는다
+            const adjacent = i > 0 && (ADJ.test(back) || (TACTICAL && ADJ_PAREN_CMP.test(back))) && !orphanIdx.has(i - 1);   // «와·과·and»는 다른 대상의 나열이라 잇지 않는다
             // 같은 절 직전 숫자의 기준선(«금리 5.00%가 5% 아래로»·«yield 5.00%, slipping below 5%»·«5.00%で5%を割り込み») — 실모델 10/24 00:0x 정상 문장 9/9 오탈락
             const threshold = i > 0 && !orphanIdx.has(i - 1) && /^\s*(?:아래|밑|위|이하|이상|선|대|を割|割れ|割り込|超え|を上回|を下回|台)/.test(fwd)
                 || i > 0 && !orphanIdx.has(i - 1) && /(?:below|above|under|over|beneath|past|through)\s*$/i.test(back);
@@ -186,6 +198,9 @@ function lastDir(s: string): 1 | -1 | null {
 
 /** ② 방향 모순 — 반환: «direction-sign:+0.19%» */
 export function directionSignReasons(text: string, opts: ClaimOpts = {}): string[] {
+    return withOpts(opts, () => directionSignReasonsImpl(text, opts));
+}
+function directionSignReasonsImpl(text: string, opts: ClaimOpts): string[] {
     if (!text) return [];
     const src = mask(text, opts);
     // 부호 붙은 «변화량»(%·bp)만 — «GEX -40»·«RLSI 36» 같은 수준 값은 등락이 아니다(관문 10201522 ①)
