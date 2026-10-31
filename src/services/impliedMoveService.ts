@@ -171,13 +171,13 @@ function freshestStoredStructure(a: any, b: any, today: string): any | null {
     return cands[0]?.data ?? null;
 }
 
-function firstExpiryAfterDate(exps: string[], date: string, timing: ImpliedTiming): string | null {
+export function firstExpiryAfterDate(exps: string[], date: string, timing: ImpliedTiming): string | null {
     const sameDayOk = timing === 'bmo' || timing === 'dmh';
     return exps.filter((e) => ISO_DATE_RE.test(e)).sort().find((e) => (sameDayOk ? e >= date : e > date)) ?? null;
 }
 
 /** 첫 이벤트 만기는 우선하되, 같은 만기의 관측은 옵션 세션·호가 시각이 후퇴하지 않게 한다. */
-function shouldUseEarningsObservation(candidate: EarningsMove, existing: ImpliedMove | null): boolean {
+function shouldUseEarningsObservation(candidate: ImpliedMove, existing: ImpliedMove | null): boolean {
     if (!candidate.expiry) return false;
     if (!existing?.expiry) return true;
     if (candidate.expiry !== existing.expiry) return candidate.expiry < existing.expiry;
@@ -489,8 +489,12 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
         if (opts.probeMonthly && bgStore.getStore()?.tripped) break;
         try {
             const { earningsMonthlyMove } = await import('@/services/earningsMonthlyProbe');
-            const im = await earningsMonthlyMove(r.ticker, r.after, r.timing === 'bmo' || r.timing === 'dmh', structures[i], opts.probeMonthly === true, deadlineMs);
-            if (im && shouldUseEarningsObservation(im, existing)) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
+            let discovered: string | null | undefined;
+            const im = await earningsMonthlyMove(r.ticker, r.after, r.timing === 'bmo' || r.timing === 'dmh', structures[i], opts.probeMonthly === true, deadlineMs, { onFirstExpiry: expiry => { discovered = expiry; } });
+            if (discovered !== undefined && existing?.expiry !== discovered) resolved[i] = resolvedMoveOf(r.ticker, null, null, 'first_expiry_unavailable');
+            const exps = Array.isArray(structures[i]?.availableExpirations) ? structures[i].availableExpirations : [];
+            const known = firstExpiryAfterDate(exps.filter((e: unknown): e is string => typeof e === 'string' && e >= today), r.after, r.timing);
+            if (im && (discovered === undefined || im.expiry === discovered) && (!known || !im.expiry || im.expiry <= known) && shouldUseEarningsObservation(im, resolved[i].im)) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
         } catch (error) {
             if (error instanceof ImpliedDeadlineError) break;
         }
@@ -537,7 +541,7 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
         }
         if (weeklyIm && weeklyIm.expiry === want) {
             // 종가 이동으로 ATM 행사가가 바뀔 수도 있다. 같은 원천 체인이 있으면 두 다리도 다시 고른다.
-            if (regularClose && st.impliedMove.spot !== regularClose) needProbe.push({ idx: i, ticker: r.ticker, expiry: want, spot, session });
+            if (r.after || (regularClose && st.impliedMove.spot !== regularClose)) needProbe.push({ idx: i, ticker: r.ticker, expiry: want, after: r.after, timing: r.timing, spot, session });
             results.push(resolvedMoveOf(r.ticker, weeklyIm, 'structure', null)); return;
         }
         // Intel만 명시적 null도 같은 만기·세션의 수집기 체인으로 재시도한다. 다른 소비처의 기본 동작은 유지.
@@ -560,9 +564,9 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             const chain = [...(Array.isArray(pc?.exactResults) ? pc.exactResults : []), ...(Array.isArray(pc?.probeResults) ? pc.probeResults : [])];
             const actualExps: string[] = [...new Set<string>(chain.map((c: any) => c?.details?.expiration_date)
                 .filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today))].sort();
-            const eligible = n.after ? actualExps.filter((e) => firstExpiryAfterDate([e], n.after!, n.timing ?? 'unknown')) : [n.expiry!];
-            // A weekly expiry may lack a complete ATM pair. Try subsequent actual expiries,
-            // including the next monthly expiry, without inventing a quote or a date.
+            const first = n.after ? firstExpiryAfterDate([...actualExps, ...(n.expiry ? [n.expiry] : [])], n.after, n.timing ?? 'unknown') : n.expiry;
+            const eligible = first ? [first] : [];
+            if (n.after && first && ((results[n.idx].im && results[n.idx].im?.expiry !== first) || (n.expiry && first < n.expiry))) results[n.idx] = resolvedMoveOf(n.ticker, null, null, 'first_expiry_unavailable');
             for (const expiry of eligible) {
                 const rows = chain.filter((c: any) => c?.details?.expiration_date === expiry);
                 const rowDates = [...new Set(rows.map((c: any) => c?._intrinio?.date).filter((d: unknown) => typeof d === 'string' && ISO_DATE_RE.test(d)))];
@@ -602,10 +606,11 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                     if (!im) continue;
                 }
                 if (!im || (!n.after && n.session && im.session !== n.session)) continue;
+                if (n.after && results[n.idx].im && !shouldUseEarningsObservation(im, results[n.idx].im)) continue;
                 results[n.idx] = resolvedMoveOf(n.ticker, im, 'probe', null);
                 break;
             }
-            if (!results[n.idx].im && eligible.length > 0) results[n.idx].reason = chain.length ? 'no_straddle' : 'no_snapshot';
+            if (!results[n.idx].im && eligible.length > 0 && results[n.idx].reason !== 'first_expiry_unavailable') results[n.idx].reason = chain.length ? 'no_straddle' : 'no_snapshot';
         });
     }
     // [T26] 같은 종목·만기의 «마감 관측»이 있으면 실적 경로와 같은 규칙(shouldUseEarningsObservation)으로 고른다.

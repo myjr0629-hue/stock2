@@ -93,11 +93,13 @@ function seed() {
     assert.equal(r.straddlePct, 8.6, '분리 전 ATM 기준값을 별도 보존');
     assert.equal(calls.length - count, 5, 'list + post/pre chain + each greeks, one page each');
     console.log(`✓ no weekly: same-session pre/post EOD IV → event-split ${expected}%, 5 supplier calls`);
-    for (const ticker of ['MISSING', 'MIXED', 'ONESIDE', 'ZERO', 'BADWEEK']) {
+    for (const ticker of ['MISSING', 'MIXED', 'ONESIDE', 'ZERO']) {
       r = await read(ticker);
       assert.equal(r.method, 'monthly', ticker); assert.equal(r.impliedMovePct, 8.6, ticker); assert.equal(r.expiry, post);
     }
-    console.log('✓ missing IV / mixed sessions / one-sided pre / zero variance / listed weekly without quotes → actual monthly 8.6%, never fake zero');
+    r = await read('BADWEEK');
+    assert.equal(r.impliedMovePct, null, 'missing first weekly quote must not use a later monthly expiry');
+    console.log('✓ missing IV / mixed sessions / one-sided pre / zero variance retain monthly; missing first weekly quote stays null');
     // 관문 10201038: 같은 만기의 과거 EOD 관측이 최신 구조 값을 덮어쓰면 안 된다.
     const liveNow = Date.parse('2026-10-20T15:00:00Z');
     Date.now = () => liveNow;
@@ -141,6 +143,13 @@ function seed() {
     assert.equal(r.impliedMovePct, 4.2); assert.equal(r.expiry, expiry, 'earlier event weekly expiry still takes priority');
     r = await compare(latest, { ...oldEod, expiry: post });
     assert.equal(r.impliedMovePct, 7.8, 'later monthly expiry cannot replace the nearest event expiry');
+    store.set('structure:v2:FRESH', { timestamp: liveNow, data: {
+      ticker: 'FRESH', options_status: 'OK', expiration: expiry,
+      availableExpirations: [expiry, post], underlyingPrice: 100, impliedMove: latest,
+    } });
+    store.set('earnings:event-probe:v3:FRESH:2026-10-22:same', { im: { ...oldEod, expiry: post }, checkedAt: liveNow });
+    r = (await IMS.readImpliedMoveRows([freshRequest]))[0];
+    assert.equal(r.expiry, expiry, 'known first expiry must beat a cached later monthly observation');
     r = await compare(null, oldEod);
     assert.equal(r.impliedMovePct, 4.2, 'real cached observation still fills a missing structure value');
     r = await compare(latest, null);
