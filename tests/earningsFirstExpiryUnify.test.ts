@@ -188,7 +188,16 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     store.delete(obsKey('GAP'));
     r = await row('GAP');
     assert.equal(r.impliedMovePct, null, '수집기 목록의 11/4 가 첫 만기 — 구조 11/6 값 대체 금지'); assert.equal(r.firstExpiry, E1);
-    console.log('✓ ⑥-b/c 수집기 목록·실패 표식의 앞 만기가 첫 만기 — 계약만 남은 뒤 만기·구조 빠른 경로로 넘어가지 않음');
+    // ⑥-d 관측 저장본 first=11/6 이 있어도, 그 뒤 수집기 목록에 더 이른 11/4 가 들어오면 11/4 가 첫 만기(관문 10311219 A)
+    seed(['GAP']);
+    store.set('structure:v2:GAP', { timestamp: NOW - 1000, data: {
+      ticker: 'GAP', options_status: 'OK', expiration: E2, availableExpirations: [E2, M], chainDate: SESSION, underlyingPrice: 100, impliedMove: move(4.7, E2, SESSION),
+    } });
+    store.set('polygon:snapshot:probe:GAP', { greeksSource: 'eod', expirations: [E1, E2, M], probeResults: [] });
+    store.set(obsKey('GAP'), { im: move(4.7, E2, SESSION, 'weekly'), checkedAt: NOW - 600_000, first: E2 });
+    r = await row('GAP');
+    assert.equal(r.impliedMovePct, null, '관측 first 11/6 이 있어도 수집기 목록의 11/4 가 첫 만기 — 11/6 값 표시 금지'); assert.equal(r.firstExpiry, E1);
+    console.log('✓ ⑥-b/c/d 수집기 목록·실패 표식의 앞 만기가 첫 만기 — 계약만 남은 뒤 만기·구조 빠른 경로로 넘어가지 않음');
 
     // ⑦ BMO = 발표일 포함 첫 만기, AMC = 다음 날 이후 첫 만기
     seed(['BMO']);

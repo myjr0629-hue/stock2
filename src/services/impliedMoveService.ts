@@ -499,8 +499,9 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     }
     // [10/31] 공급사 첫 만기(관측 first)를 모르는 실적 행은 수집기 만기 목록도 본다 — 구조 값이 구조 목록과 맞아 수집기 체인을 읽지 않은
     //   행(빠른 경로)에서도, 수집기 목록에 더 이른 발표 뒤 만기가 있으면 그것이 첫 만기다(관문 10311215 ①).
-    //   평상시엔 관측 first 가 있어 추가 읽기 0 — 모를 때만 그 종목들의 수집기 캐시 mget 1회(실패·시간 초과 = 그대로).
-    const listIdx = reqs.map((r, i) => (r.after && !observations[i]?.first && resolved[i].chainFirst === undefined ? i : -1)).filter((i) => i >= 0);
+    //   수집기 캐시 mget 1회(실패·시간 초과 = 그대로).
+    //   관측 first 가 있어도 본다 — 관측 뒤 수집기 목록에 더 이른 만기가 들어온 경우(관문 10311219 A). 캐시 mget 1회(공급사 호출 0).
+    const listIdx = reqs.map((r, i) => (r.after && resolved[i].chainFirst === undefined ? i : -1)).filter((i) => i >= 0);
     if (listIdx.length) {
         try {
             const pcs = await withinImpliedDeadline(() => mgetFromCache<any>(listIdx.map((i) => `polygon:snapshot:probe:${reqs[i].ticker}`)), deadlineMs);
