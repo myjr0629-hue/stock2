@@ -227,6 +227,31 @@ test('⑨ 관문 10311015 — 재료 숫자는 «그 지표의 값»·방향은 
         '次の分岐点はS&P500のプット・フロア7500で、その下ではディーラーのヘッジが値動きを増幅します。'].join(''), 'ja', prompt('ja'));
     assert.ok(!ja('米10年債利回り4.94%(前日比4bp低下)の中で恐怖・強欲指数26(恐怖ゾーン)とリスク回避が深まりました。').some(r => r.startsWith('tactical:driver')));
     assert.ok(ja('米10年債利回り4.94%に上昇する中で恐怖・強欲指数26(恐怖ゾーン)とリスク回避が深まりました。').includes('tactical:driver-direction:us10y'));
+    // 관문 10311024 ① 지금 값·1주 전 값 자리 바꿈 «72%에서 9.4%로» · ② 부호 없는 섹터 숫자 + 반대 방향어 «에너지(XLE) 1.9% 하락»
+    const wk = prompt('ko', { macroDrivers: { ...context.macroDrivers, fedwatch: { ...context.macroDrivers.fedwatch, weekAgoHikePct: 9.4 } } });
+    const ww = (why: string) => checkTacticalOutput(ko(why), 'ko', wk);
+    assert.ok(ww('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch)이 72%에서 9.4%로 바뀌었고' + tail).includes('tactical:driver-value:fedwatch'));
+    assert.ok(ww('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch)이 9.4%' + tail).includes('tactical:driver-value:fedwatch'), '표식 없는 숫자 하나는 지금 값');
+    for (const ok of ['시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch)이 9.4%에서 72%로 뛰었고', '시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch)이 1주 전 9.4%에서 72%로 뛰었고',
+        '시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch)이 72%(1주 전 9.4%)에 이르렀고'])
+        assert.ok(!ww(ok + tail).some(r => r.startsWith('tactical:driver')), ok);
+    assert.ok(ww('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch)이 1주 전 9.4%에서 72%로 낮아졌고' + tail).includes('tactical:driver-direction:fedwatch'));
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수 26 속에 에너지(XLE) 1.9% 하락이 나타났습니다.').includes('tactical:driver-direction:sector:XLE'));
+    assert.ok(en('Markets now price a 72% chance of a hike at the next FOMC, while Energy (XLE) fell 1.9%.').includes('tactical:driver-direction:sector:XLE'));
+    assert.ok(!en('Markets now price a 72% chance of a hike at the next FOMC, while Semiconductors (SMH) fell 7%.').some(r => r.startsWith('tactical:driver')));
+    // 공포·탐욕 구간 낱말·섹터 이름 바꿔치기 · FedWatch 만 쓴 확률
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수 26(탐욕 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.').includes('tactical:driver-zone:feargreed'));
+    assert.ok(en('Markets now price a 72% chance of a hike at the next FOMC, with the Fear & Greed index at 26 (greed).').includes('tactical:driver-zone:feargreed'));
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수 26 속에 반도체(XLE) +1.9%만 올랐습니다.').includes('tactical:driver-sector-name:sector:XLE'));
+    assert.ok(w('FedWatch 기준 26%의 인상 가능성 속에, 공포·탐욕 지수 26(공포 구간)으로 위험 회피가 짙어졌습니다.').includes('tactical:driver-value:fedwatch'));
+    assert.ok(!w('스퀴즈 분출 확률 27%와 공포·탐욕 지수 26(공포 구간)이 겹쳤습니다.').some(r => r.startsWith('tactical:driver-value:fedwatch')), '스퀴즈 확률은 금리 경로 확률이 아니다');
+    // 입력에 이전 값이 없는 지표의 변화 서술 · 영어 «up from 9.4% a week ago»(표식이 숫자 뒤)
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수가 26으로 내려앉아 에너지(XLE) +1.9%만 올랐습니다.').includes('tactical:driver-unsupported-change:feargreed'));
+    assert.ok(w('미국 2년물 금리 4.56%로 상승한 가운데 공포·탐욕 지수 26(공포 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.').includes('tactical:driver-unsupported-change:us2y'));
+    const enWk = (why: string) => checkTacticalOutput(['In the 10/30 cash session Nasdaq Composite fell 2.9% and S&P 500 fell 1.8%; futures change since that close is unconfirmed.', why,
+        'Market health (RLSI 30.8) is weak, so rebounds lack support, and options positioning (GEX +8) is neutral.',
+        'The next test is the S&P 500 put floor at 7500: below it dealer hedging amplifies swings, above it the cushion holds.'].join(' '), 'en', prompt('en', { macroDrivers: { ...context.macroDrivers, fedwatch: { ...context.macroDrivers.fedwatch, weekAgoHikePct: 9.4 } } }));
+    assert.ok(!enWk('Markets now price a 72% chance of a hike at the next FOMC up from 9.4% a week ago, with the Fear & Greed index at 26 (fear).').some(r => r.startsWith('tactical:driver')));
     // 재료 줄이 없는 옛 프롬프트도 OBSERVATIONS 의 10년물·공포탐욕으로 대조
     const old = prompt('ko', { macroDrivers: undefined });
     assert.ok(checkTacticalOutput(ko('미국 10년물 금리 30.8%' + tail), 'ko', old).includes('tactical:driver-value:us10y'));
