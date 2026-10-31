@@ -639,7 +639,7 @@ export function checkTacticalTranslated(text: string, locale: Locale, prompt: st
     const numericEvidence = data.replace(/; \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z;/g, ';').replace(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/g, '$1 $2');
     const numericText = Object.values(INDEX_ALIASES).reduce((t, re) => t.replace(new RegExp(re), ' '), text);
     if (checkNumberGrounding(numericText, numericEvidence).ungrounded.length) reasons.push('tactical:number');
-    reasons.push(...claimReasons(text, 'tactical'));
+    reasons.push(...claimReasons(text, 'tactical', { periodMask: true }));
     // ★10/31 재료 지표 숫자·방향은 번역본도 같은 계약(숫자 계약은 새 생성과 같게 — 위 머리말)
     reasons.push(...driverClaimReasons(sentences.slice(1).join(' '), promptEvidence(prompt).drivers, observationsOf(data)));
     if (locale !== 'en' && !checkAmounts(data, text, locale).ok) reasons.push('tactical:amount');
@@ -695,7 +695,7 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
     // ★2026-10-31 WHY = 재료를 지표로 — 재료(보도·MACRO_DRIVERS)가 있으면 «재료 확인 안 됨»은 탈락. 보도 인용은 예전 계약 그대로(한 보도의 날짜+ET 시각),
     //   보도 없이 지표로만 쓰면 시각·날짜 0 + MACRO_DRIVERS 의 숫자를 하나 이상(숫자는 아래 전체 대조가 입력과 맞춘다 — 완화 아님).
     //   셈은 «값» 토큰만(날짜 M/D·시각 HH:MM·1~10 정수는 값이 아니다 — 인용 «10/30 16:08 ET»의 숫자가 재료 숫자로 잡히지 않게)
-    const driverNumbers = drivers ? valueTokens(why).filter(t => !t.exempt && checkNumberGrounding(t.raw, drivers).grounded > 0).length : 0;
+    const driverNumbers = drivers ? valueTokens(why, { periodMask: true }).filter(t => !t.exempt && checkNumberGrounding(t.raw, drivers).grounded > 0).length : 0;
     const driverBased = !!drivers && !cites.length && !dates.length && driverNumbers > 0;
     if (news.length || drivers) {
         if (cites.length || dates.length) { if (!validCitation) reasons.push(news.length ? 'tactical:news-source-time-required' : 'tactical:unconfirmed-cause-required'); }
@@ -712,7 +712,7 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
     if (drivers && !/hikePctOneWeekAgo/.test(drivers) && WHY_PROB_RISE.test(why)) reasons.push('tactical:why-unsupported-change');
     // WHY 숫자 나열 금지(시각·날짜·1~10 정수 제외)
     //   프롬프트는 «넷까지» — 출구는 다섯까지(길이 상한처럼 프롬프트보다 한 칸 넉넉히: 넷과 다섯은 둘 다 «재료 셋 + 보도 수치 하나» 범위, 여섯부터 나열)
-    if (valueTokens(why).filter(t => !t.exempt).length > 5) reasons.push('tactical:why-rollcall');
+    if (valueTokens(why, { periodMask: true }).filter(t => !t.exempt).length > 5) reasons.push('tactical:why-rollcall');
     // 포지셔닝(감마·옵션·기관 수급)은 WHY 문장에 붙어 나와도 인정 — 10/21 실제 모델 ko 가 «… GEX +7 중립»을 첫 문장 끝에 붙여 탈락·대체로 떨어졌다
     if (!/감마|GEX|옵션|기관.*수급|gamma|options|institutional|ガンマ|オプション|機関/i.test(sentences.slice(0, Math.max(2, sentences.length - 1)).join(' '))) reasons.push('tactical:positioning-required');
     // ISO의 20T14를 금액 단위 20T(조)로 읽지 않게 날짜·시각 경계만 분리한다.
@@ -722,10 +722,10 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
     const numericText = Object.values(INDEX_ALIASES).reduce((t, re) => t.replace(new RegExp(re), ' '), text);
     if (checkNumberGrounding(numericText, numericEvidence).ungrounded.length) reasons.push('tactical:number');
     // 숫자마다 주어(지표 이름)·방향어와 부호 일치(claimChecks) · SO WHAT 숫자 나열 금지(시각·날짜 제외 4개까지)
-    reasons.push(...claimReasons(text, 'tactical'));
+    reasons.push(...claimReasons(text, 'tactical', { periodMask: true }));
     //   셈 범위 = 첫 문장·마지막 문장(NEXT)·WHY 문장을 뺀 가운데(SO WHAT) — 예전(WHY = 첫 문장)과 같은 범위를 상태 판정이 앞에 와도 유지한다
     const soWhat = sentences.slice(2, -1);
-    if (valueTokens(soWhat.join(' ')).filter(t => !t.exempt).length > 3) reasons.push('tactical:number-rollcall');
+    if (valueTokens(soWhat.join(' '), { periodMask: true }).filter(t => !t.exempt).length > 3) reasons.push('tactical:number-rollcall');
     // 영어는 같은 내용이 글자 수로 길다 — 1차 이전 운영 영어 Tactical 은 600자대였다(10/19 보관본 638자). 운영 10/20 장전 영어가 350자 상한으로 연달아 탈락해 «준비 중»만 나갔다
     // 프롬프트 상한(en 720)보다 출구 허용폭을 넓게 — 실모델 r7 PRE en 767~832자 3/3 탈락(«준비 중» 위험이 길이 초과보다 나쁘다, 모달 스크롤)
     if ([...text].length > TACTICAL_GATE_MAX_CHARS[locale]) reasons.push('tactical:too-long');

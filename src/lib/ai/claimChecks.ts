@@ -22,15 +22,18 @@ const MASKS: RegExp[] = [
     /\d{1,2}\s*(?:월|月)\s*\d{1,2}\s*(?:일|日)/g, /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b/gi,
     /S&P\s?500/gi, /NASDAQ[\s-]?100/gi, /Russell\s?2000/gi, /Dow\s?30/gi, /Nikkei\s?225/gi,
     /(?<![\d.])\d{1,2}(?:-|\s)?(?:year|yr|Y)\b/gi, /(?<![\d.])\d{1,2}\s?년물/g, /(?<![\d.])\d{1,2}\s?年(?:債|物)/g, /\b2s10s\b/gi,
-    // ★2026-10-31 «1주 전·1週間前·a week ago»의 1 은 값이 아니라 기간 표기(«확률이 1주 전 9.4%에서 72%로» — 9.4% 의 주어를 끊지 않게)
-    // 범위는 «1»만 — «12주 전» 같은 다른 기간 숫자는 계속 값으로 대조한다(관문 10311133: 관심종목 해석에 틀린 기간 통과)
-    /(?<![\d.])1\s?(?:주|週間?|weeks?)\s?(?:전|前|ago)/gi, /\ba\s+week\s+ago\b/gi,
     /\bQ[1-4]\b/g, /\b13[FDG]\b/g, /Form\s?\d+/gi, /\bD-\d{1,2}\b/g, /\b(?:19|20)\d{2}\b/g, /\bHH:MM\b/g,
 ];
 
-function mask(text: string): string {
+/** ★2026-10-31 Tactical 전용 — «1주 전·1週間前·a week ago»의 1 은 값이 아니라 기간 표기(«확률이 1주 전 9.4%에서 72%로» — 9.4% 의 주어를 끊지 않게).
+ *  공유 호출자(관심종목·순환매·모닝브리핑)에는 적용하지 않는다 — 그쪽은 기간 숫자도 근거 대조 대상(관문 10311133·10311136). */
+const PERIOD_MASKS: RegExp[] = [/(?<![\d.])1\s?(?:주|週間?|weeks?)\s?(?:전|前|ago)/gi, /\ba\s+week\s+ago\b/gi];
+export interface ClaimOpts { /** Tactical 의 «1주 전» 기간 표기를 값에서 뺀다 */ periodMask?: boolean }
+
+function mask(text: string, opts: ClaimOpts = {}): string {
     let t = text;
     for (const re of MASKS) t = t.replace(re, (m) => ' '.repeat(m.length));
+    if (opts.periodMask) for (const re of PERIOD_MASKS) t = t.replace(re, (m) => ' '.repeat(m.length));
     return t;
 }
 
@@ -39,8 +42,8 @@ const VALUE_RE = /([+\-−±＋－]?)(\$|US\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+
 
 export interface ValueToken { raw: string; index: number; end: number; sign: 1 | -1 | 0; exempt: boolean; /** 변화량 단위(%·bp·pp·pt) — 방향 검사는 이것만 */ change: boolean }
 
-export function valueTokens(text: string): ValueToken[] {
-    const src = mask(text);
+export function valueTokens(text: string, opts: ClaimOpts = {}): ValueToken[] {
+    const src = mask(text, opts);
     const out: ValueToken[] = [];
     for (const m of src.matchAll(VALUE_RE)) {
         const idx = m.index!;
@@ -116,10 +119,10 @@ const ADJ = /^\s*(?:(?:상승|하락|올라|내려|떨어져|반등|오른|내�
 const ADJ_PAREN_CMP = /^\s*[(（]\s*(?:전일\s?대비|전일비|전\s?거래일\s?대비|前日比|前営業日比|vs\.?\s+(?:the\s+)?previous\s+close,?|(?:up|down)|(?:rose|fell))\s*$/i;
 
 /** ① 고아 숫자 — 반환: 사유 코드(«orphan-number:−0.74%») */
-export function orphanNumberReasons(text: string): string[] {
+export function orphanNumberReasons(text: string, opts: ClaimOpts = {}): string[] {
     if (!text) return [];
-    const src = mask(text);
-    const toks = valueTokens(text);
+    const src = mask(text, opts);
+    const toks = valueTokens(text, opts);
     const out: string[] = [];
     for (const [a, b] of clauseBounds(src)) {
         const inClause = toks.filter((t) => t.index >= a && t.index < b);
@@ -182,18 +185,18 @@ function lastDir(s: string): 1 | -1 | null {
 }
 
 /** ② 방향 모순 — 반환: «direction-sign:+0.19%» */
-export function directionSignReasons(text: string): string[] {
+export function directionSignReasons(text: string, opts: ClaimOpts = {}): string[] {
     if (!text) return [];
-    const src = mask(text);
+    const src = mask(text, opts);
     // 부호 붙은 «변화량»(%·bp)만 — «GEX -40»·«RLSI 36» 같은 수준 값은 등락이 아니다(관문 10201522 ①)
-    const toks = valueTokens(text).filter((t) => t.sign !== 0 && t.change);
+    const toks = valueTokens(text, opts).filter((t) => t.sign !== 0 && t.change);
     const out: string[] = [];
     for (const [a, b] of segmentBounds(src)) {
         const seg = toks.filter((t) => t.index >= a && t.index < b);
         seg.forEach((t, i) => {
             // 뒤쪽: 첫 방향어 — 다음 숫자에서 멈추되, 사이가 등위 접속(«와·과·and·と»)뿐이면 함께 서술되는 것으로 보고 넘어간다
             //   «나스닥 +0.19%와 49% 참여폭은 약세» = 둘 다 약세(판정) · «GEX +7는 중립 수준이고 49% 참여폭은 약세» = +7 은 중립(판정 안 함)
-            const allToks = valueTokens(text);
+            const allToks = valueTokens(text, opts);
             const all = allToks.filter((x) => x.index > t.index && x.index < b);
             let stop = b;
             let prevEnd = t.end;
@@ -230,8 +233,8 @@ export function directionSignReasons(text: string): string[] {
 }
 
 /** 두 검사를 한 번에(사유 접두어 붙여) */
-export function claimReasons(text: string, prefix: string): string[] {
-    return [...orphanNumberReasons(text), ...directionSignReasons(text)].map((r) => `${prefix}:${r}`);
+export function claimReasons(text: string, prefix: string, opts: ClaimOpts = {}): string[] {
+    return [...orphanNumberReasons(text, opts), ...directionSignReasons(text, opts)].map((r) => `${prefix}:${r}`);
 }
 
 export type { Loc as ClaimLocale };
