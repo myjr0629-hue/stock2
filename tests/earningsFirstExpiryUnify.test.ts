@@ -243,6 +243,13 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     const src = (implied: any): any => ({ sectors: [], earnings: [{ ticker: 'AAPL', date: AFTER, hour: 'amc', implied }],
       earningsAt: new Date(NOW).toISOString(), earningsRange: { from: '2026-10-26', to: '2026-11-13' }, earningsStatus: 'ok', events: [], eventsAt: null, eventsRange: null });
     const unknown = src(null); delete unknown.earnings[0].implied;   // 서버가 묶음을 못 읽음
+    // 앱 저장본 즉시 복원: 표식 없는 값·표식이 다른 만기인 값은 버리고, 첫 만기 확인값만 남긴다(관문 10311302 A)
+    {
+      const st = (implied: any) => ({ values: {}, sources: { sectors: [], earnings: [{ ticker: 'AAPL', date: AFTER, hour: 'amc', implied }], earningsAt: null } });
+      assert.ok(!('implied' in (MM.sanitizeStoredMapSources(st({ pct: 5.5, session: SESSION, expiry: M }) as any).sources!.earnings[0])), '표식 없는 옛 월물 값 버림');
+      assert.ok(!('implied' in (MM.sanitizeStoredMapSources(st({ pct: 5.5, session: SESSION, expiry: M, first: E1 }) as any).sources!.earnings[0])), '첫 만기와 다른 만기 값 버림');
+      assert.equal((MM.sanitizeStoredMapSources(st({ pct: 4.3, session: SESSION, expiry: E1, first: E1 }) as any).sources!.earnings[0] as any).implied.pct, 4.3, '첫 만기 확인값 유지');
+    }
     const restored = MM.mergeMoneyMapSources(unknown, src({ pct: 4.3, session: SESSION, expiry: E1, first: E1 }), NOW);
     assert.equal(restored.earnings[0].implied?.pct, 4.3);
     assert.equal(MM.mergeMoneyMapSources(src(null), src({ pct: 4.3, session: SESSION, expiry: E2, first: E2 }), NOW).earnings[0].implied, null,

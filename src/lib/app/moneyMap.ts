@@ -31,6 +31,21 @@ export interface MoneyMapData {
   leaders: MapSector[]; laggards: MapSector[]; prior: MapSector[];
   sources: MapSources;
 }
+/**
+ * [10/31] 앱 저장본을 화면에 바로 복원할 때 — 실적 행 implied 는 «발표 직후 첫 만기»로 확인된 값(first = expiry)만 남긴다.
+ *   배포 전 저장본의 표식 없는 뒤 월물 값이 서버 실패 동안 계속 보이지 않게(관문 10311302 A). 다른 칸은 그대로.
+ */
+export function sanitizeStoredMapSources<T extends { sources?: MapSources }>(saved: T): T {
+  const s = saved?.sources;
+  if (!s || !Array.isArray(s.earnings)) return saved;
+  return { ...saved, sources: { ...s, earnings: s.earnings.map(r => {
+    const im = r?.implied;
+    if (!im) return r;
+    if (im.first && im.first === im.expiry) return r;
+    const { implied: _drop, ...rest } = r as any;
+    return rest;
+  }) } };
+}
 export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = Date.now()): MapSources {
   const calendar = [next, prev].filter((s): s is MapSources => !!s && validMapCalendar(s, now))
     .sort((a, b) => Date.parse(b.eventsAt!) - Date.parse(a.eventsAt!))[0];

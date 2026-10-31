@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { getWatchlistStore, type WatchlistItem } from '@/lib/app/watchlist';
-import { buildMoneyMap, mapQuoteValues, mergeMoneyMapSources, nqObservationOf, type MapSources, type MapValue } from '@/lib/app/moneyMap';
+import { buildMoneyMap, mapQuoteValues, mergeMoneyMapSources, nqObservationOf, sanitizeStoredMapSources, type MapSources, type MapValue } from '@/lib/app/moneyMap';
 import { MoneyMapCards, type MoneyMapCopy } from './MoneyMapCards';
 import { etDateOf } from '@/lib/marketCalendar';
 
@@ -21,7 +21,7 @@ export function TodayMoneyMap() {
   const items = useSyncExternalStore(store.subscribe, store.getSnapshot, () => EMPTY);
   useEffect(() => {
     const controller = new AbortController(); let busy = false, saved: State | null = null;
-    try { const raw = JSON.parse(localStorage.getItem(STORAGE) || 'null'); if (raw?.sources?.sectors && raw?.values) { saved = raw; setState(raw); } } catch { /* private storage or no previous observations */ }
+    try { const raw = JSON.parse(localStorage.getItem(STORAGE) || 'null'); if (raw?.sources?.sectors && raw?.values) { saved = sanitizeStoredMapSources(raw); setState(saved); } } catch { /* private storage or no previous observations */ }
     async function refresh() {
       if (busy || document.visibilityState === 'hidden') return;
       busy = true; setNow(Date.now());
