@@ -596,8 +596,12 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             const actualExps: string[] = [...new Set<string>(chain.map((c: any) => c?.details?.expiration_date)
                 .filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today))].sort();
             // [10/31] 실적 행은 발표 직후 «첫 만기» 하나만 — 그 만기 호가가 모자라도 뒤 만기(월물 포함)로 넘어가지 않는다.
-            //   첫 만기 = 수집기 체인의 실제 만기와 구조 목록이 고른 만기 중 가장 이른 것.
-            const firstAfter = n.after ? firstExpiryAfterDate([...actualExps, ...(n.expiry ? [n.expiry] : [])], n.after, n.timing ?? 'unknown') : null;
+            //   첫 만기 근거 = 수집기가 적어 둔 만기 목록(expirations = 공급사 목록 0~35 DTE)·조회 실패 만기(expirationsMissing —
+            //   계약이 없어도 실재하는 만기)·받아 온 계약의 만기·구조 목록이 고른 만기 중 가장 이른 것. 앞 만기 체인이 실패해 계약에서
+            //   빠져도 목록·실패 표식에 남으므로 뒤 만기가 첫 만기로 올라서지 않는다(관문 10311211 ②).
+            const listedExps = [...(Array.isArray(pc?.expirations) ? pc.expirations : []), ...(Array.isArray(pc?.expirationsMissing) ? pc.expirationsMissing : [])]
+                .filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today);
+            const firstAfter = n.after ? firstExpiryAfterDate([...listedExps, ...actualExps, ...(n.expiry ? [n.expiry] : [])], n.after, n.timing ?? 'unknown') : null;
             const eligible = n.after ? (firstAfter ? [firstAfter] : []) : [n.expiry!];
             for (const expiry of eligible) {
                 const rows = chain.filter((c: any) => c?.details?.expiration_date === expiry);

@@ -121,6 +121,15 @@ export function attachImplied<R extends { ticker: string; date: string; hour?: s
   return { rows: out, count };
 }
 
+/**
+ * 새로 만든(병합한) 묶음을 저장할까 — 값이 있는 칸이 있거나, 값은 없어도 «발표 직후 첫 만기»를 확인한 칸(f)이 있으면 저장.
+ *   둘 다 없으면(레디스 읽기 실패 등 — 모든 칸 no_snapshot·read_failed) 저장하지 않아 마지막 정상 묶음을 지킨다.
+ */
+export function impliedPackWorthSaving(pack: ImpliedPack): boolean {
+  const cells = Object.values(pack?.cells || {});
+  return cells.some((c) => c?.p != null) || cells.some((c) => typeof c?.f === 'string');
+}
+
 /** 묶음이 «다시 만들 때가 됐나» — 장중(뉴욕 09:30~16:00 평일)은 5분, 그 밖은 60분, 날짜가 바뀌면 바로. */
 export function impliedPackStale(pack: ImpliedPack | null | undefined, nowMs: number = Date.now()): boolean {
   if (!pack || pack.v !== 1 || !(pack.at > 0)) return true;

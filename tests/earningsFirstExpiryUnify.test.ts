@@ -54,7 +54,7 @@ const move = (pct: number, expiry: string, session: string, method?: 'weekly' | 
   def: DEF, pct, straddle: pct, strike: 100, expiry, callPrice: pct / 2, putPrice: pct / 2, spot: 100,
   basis: 'eod' as const, asOf: null, chainDate: session, session, ...(method ? { method } : {}),
 });
-const ALL = ['AAPL', 'KEEP', 'NEWCO', 'SLICE', 'BMO'];
+const ALL = ['AAPL', 'KEEP', 'NEWCO', 'SLICE', 'GAP', 'BMO'];
 const obsKey = (t: string) => EI.earningsObservationKey(t, AFTER, false);
 function seed(tickers: string[]) {
   RC._resetEcBreakerForTest();
@@ -145,6 +145,11 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     assert.equal(merged.cells[key].p, 4.3, '이번 읽기가 첫 만기를 확인하면 같은 만기의 옛 칸은 잇는다');
     assert.equal(EI.impliedPackStale(prev(oldUnmarked), NOW), true, '표식 이전 묶음은 바로 다시 만든다');
     assert.equal(EI.impliedPackStale(prev(oldFirst), NOW), false);
+    // 저장 판단 — 더 이른 첫 만기를 확인해 직전 값을 거절한 묶음(값 0, 표식 있음)도 저장해야 옛 뒤 만기 값이 남지 않는다
+    const rejected = EI.mergeImpliedPacks(next({ p: null, e: null, b: null, s: null, r: 'no_straddle', f: E1 }), prev({ ...oldFirst, e: E2, f: E2 }), NOW, rows);
+    assert.equal(rejected.cells[key].p, null);
+    assert.equal(EI.impliedPackWorthSaving(rejected), true, '첫 만기 확인 칸만 있어도 저장');
+    assert.equal(EI.impliedPackWorthSaving(next({ p: null, e: null, b: null, s: null, r: 'read_failed' })), false, '읽기 실패뿐이면 저장하지 않는다');
     console.log('✓ ⑤ 묶음 병합: 같은 첫 만기만 잇고, 시간 초과 칸은 기존대로 유지');
 
     // ⑥ 수집기 체인 경로 — 첫 만기 다리가 불완전하면 다음 만기(11/6)로 넘어가지 않는다
@@ -160,6 +165,20 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     assert.equal(r.impliedMovePct, null, '첫 만기 11/4 (체인에 실재) 다리 불완전 → 11/6 대체 금지');
     assert.equal(r.firstExpiry, E1);
     console.log('✓ ⑥ 수집기 체인: 첫 만기 다리 불완전 → 뒤 만기로 넘어가지 않음');
+
+    // ⑥-b 구조 목록이 비고 수집기 체인에 11/6 계약만 남아도(11/4 체인 조회 실패) 11/4 가 첫 만기 — 11/6 값 표시 금지
+    for (const listing of [{ expirationsMissing: [E1] }, { expirations: [E1, E2, M] }]) {
+      seed(['GAP']);
+      store.set('structure:v2:GAP', { timestamp: NOW - 1000, data: {
+        ticker: 'GAP', options_status: 'OK', expiration: E2, availableExpirations: [], chainDate: SESSION, underlyingPrice: 100, impliedMove: null,
+      } });
+      store.set('polygon:snapshot:probe:GAP', { greeksSource: 'eod', chainDates: { [E2]: SESSION }, ...listing,
+        probeResults: [probeRow(E2, 'call'), probeRow(E2, 'put')] });
+      r = await row('GAP');
+      assert.equal(r.impliedMovePct, null, `11/4 체인 실패(${Object.keys(listing)[0]}) → 11/6 대체 금지`);
+      assert.equal(r.firstExpiry, E1);
+    }
+    console.log('✓ ⑥-b 수집기 목록·실패 표식의 앞 만기가 첫 만기 — 계약만 남은 뒤 만기로 넘어가지 않음');
 
     // ⑦ BMO = 발표일 포함 첫 만기, AMC = 다음 날 이후 첫 만기
     seed(['BMO']);

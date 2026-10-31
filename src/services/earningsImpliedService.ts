@@ -18,7 +18,7 @@ import { readImpliedMoveRows } from '@/services/impliedMoveService';
 import { etDateString } from '@/lib/impliedMove';
 import { etDateOf } from '@/lib/marketCalendar';
 import {
-  EARNINGS_IMPLIED_KEY, impliedRowKey, mergeImpliedPacks, timingOfHour, type ImpliedCell, type ImpliedPack,
+  EARNINGS_IMPLIED_KEY, impliedPackWorthSaving, impliedRowKey, mergeImpliedPacks, timingOfHour, type ImpliedCell, type ImpliedPack,
 } from '@/lib/earnings/earningsImplied';
 
 import { withinImpliedDeadline, IMPLIED_REFRESH_BUDGET_MS, IMPLIED_SAVE_RESERVE_MS } from '@/lib/earnings/impliedDeadline';
@@ -117,7 +117,9 @@ export async function refreshImpliedPack(
   // 값이 하나도 없으면(레디스 읽기 실패면 모든 칸이 no_snapshot 이 된다) 저장하지 않는다 — 마지막 정상 묶음을 지킨다.
   //   지난 값은 붙일 때 만기·발표 완료로 다시 거른다(impliedForRow).
   const withValue = vals.filter((c) => c.p != null).length;
-  if (!withValue) return { ok: false, ms: Date.now() - t0, withValue: 0, total: vals.length };
+  // [10/31] 값이 없어도 «첫 만기를 확인한 칸»이 있으면 저장한다 — 더 이른 첫 만기가 확인돼 직전 값(뒤 만기)을 거절한 결과를
+  //   버리고 옛 묶음을 남기면 그 뒤 만기 값이 계속 보인다(관문 10311211 ①). 첫 만기 확인도 값도 없으면(읽기 실패) 저장하지 않는다.
+  if (!impliedPackWorthSaving(pack)) return { ok: false, ms: Date.now() - t0, withValue: 0, total: vals.length };
   const saved = await withinImpliedDeadline(() => setInCache(EARNINGS_IMPLIED_KEY, pack, TTL_SEC), deadlineMs).catch(() => false);
   return { ok: saved, ms: Date.now() - t0, withValue, total: vals.length, carried: vals.filter((c) => c.k === 1).length };
 }
