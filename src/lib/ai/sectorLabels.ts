@@ -83,3 +83,34 @@ const EN_TO_JA: ReadonlyArray<readonly [string, string]> = Object.entries(SECTOR
 export function restoreJaSectorNames(text: string): { text: string; replaced: number } {
     return restoreWith(text, EN_TO_JA);
 }
+
+/**
+ * ★2026-10-31 관문 10311033 ① — 섹터 ETF 티커 → 한국어 섹터 이름 정본(universePolicy.SECTOR_MAP 의 ETF 티커 칸과 같다 — 시험이 대조).
+ *   AI_PWR·SAFE_HAVEN 같은 내부 묶음 id 는 ETF 가 아니라 뺀다. 영어·일본어 이름은 SECTOR_NAME_EN·SECTOR_NAME_JA 로 잇는다.
+ *   여기 import 로 universePolicy(공급사 클라이언트를 끌어온다)를 직접 들이지 않으려고 표를 둔다.
+ */
+export const SECTOR_ETF_KO: Readonly<Record<string, string>> = {
+    XLK: '기술주', XLC: '커뮤니케이션', XLY: '임의소비재', XLE: '에너지', XLF: '금융', XLV: '헬스케어', XLI: '산업재',
+    XLB: '소재', XLP: '필수소비재', XLRE: '부동산', XLU: '유틸리티', SMH: '반도체', HACK: '사이버보안', ICLN: '클린에너지',
+};
+
+/**
+ * 섹터 이름의 흔한 다른 말(글에서 «섹터 낱말(티커)» 짝을 알아보는 데만 쓴다 — 화면 문구에는 쓰지 않는다).
+ *   키 = 한국어 정본 이름. 너무 넓은 말(«IT»·«기술»·«산업»처럼 다른 섹터 이름 뒤에 붙는 일반 낱말 — «반도체 산업(SMH)» 오탐)은 넣지 않는다.
+ */
+export const SECTOR_NAME_ALIASES: Readonly<Record<string, readonly string[]>> = {
+    '기술주': ['테크', '기술 섹터', 'Tech', 'Information Technology', 'ハイテク', '情報技術', 'テック'],
+    '커뮤니케이션': ['통신', '커뮤니케이션 서비스', 'Communications', 'Communication', '通信', 'コミュニケーション・サービス'],
+    '임의소비재': ['경기소비재', 'Discretionary', '一般消費財・サービス'],
+    '에너지': ['에너지주'],
+    '금융': ['금융주', 'Financial', 'Financial Services', '金融株'],
+    '헬스케어': ['건강관리', 'Healthcare', '医療'],
+    '산업재': ['Industrial', '資本財・サービス'],
+    '소재': ['원자재', 'Material', '素材株'],
+    '필수소비재': ['Staples', '生活必需品株'],
+    '부동산': ['리츠', 'REITs', 'REIT', '不動産株'],
+    '유틸리티': ['Utility', '公益'],
+    '반도체': ['반도체주', 'Semiconductor', 'Chips', 'Chipmakers', 'Chip stocks', '半導体株'],
+    '사이버보안': ['Cyber Security', 'セキュリティ'],
+    '클린에너지': ['청정에너지', 'Clean-Energy', '再生可能エネルギー'],
+};

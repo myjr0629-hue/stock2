@@ -25,9 +25,15 @@ const MASKS: RegExp[] = [
     /\bQ[1-4]\b/g, /\b13[FDG]\b/g, /Form\s?\d+/gi, /\bD-\d{1,2}\b/g, /\b(?:19|20)\d{2}\b/g, /\bHH:MM\b/g,
 ];
 
-function mask(text: string): string {
+/** ★2026-10-31 Tactical 전용 — «1주 전·1週間前·a week ago»의 1 은 값이 아니라 기간 표기(«확률이 1주 전 9.4%에서 72%로» — 9.4% 의 주어를 끊지 않게).
+ *  공유 호출자(관심종목·순환매·모닝브리핑)에는 적용하지 않는다 — 그쪽은 기간 숫자도 근거 대조 대상(관문 10311133·10311136). */
+const PERIOD_MASKS: RegExp[] = [/(?<![\d.])1\s?(?:주|週間?|weeks?)\s?(?:전|前|ago)/gi, /\ba\s+week\s+ago\b/gi];
+export interface ClaimOpts { /** Tactical 전용 확장(«1주 전» 기간 표기 제외·확률 주어·괄호 «전일 대비» 변화량) — 공유 호출자는 끄고 main 과 동일 */ tactical?: boolean }
+
+function mask(text: string, opts: ClaimOpts = {}): string {
     let t = text;
     for (const re of MASKS) t = t.replace(re, (m) => ' '.repeat(m.length));
+    if (opts.tactical) for (const re of PERIOD_MASKS) t = t.replace(re, (m) => ' '.repeat(m.length));
     return t;
 }
 
@@ -36,8 +42,8 @@ const VALUE_RE = /([+\-−±＋－]?)(\$|US\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+
 
 export interface ValueToken { raw: string; index: number; end: number; sign: 1 | -1 | 0; exempt: boolean; /** 변화량 단위(%·bp·pp·pt) — 방향 검사는 이것만 */ change: boolean }
 
-export function valueTokens(text: string): ValueToken[] {
-    const src = mask(text);
+export function valueTokens(text: string, opts: ClaimOpts = {}): ValueToken[] {
+    const src = mask(text, opts);
     const out: ValueToken[] = [];
     for (const m of src.matchAll(VALUE_RE)) {
         const idx = m.index!;
@@ -73,7 +79,20 @@ const SUBJECT_CJK = [
     '先物', '指数', '株価', '銘柄', 'セクター', '半導体', 'ハイテク', '価格', '物価', '雇用', '住宅', '着工', '許可', '販売', 'レンジ', '幅', 'プレミアム', 'コール', 'プット', '市場', '心理', '信頼感', '景況感',
 ];
 // 영어는 낱말 경계(«moderate»의 rate·«decline»은 주어가 아니다 — 방향어는 주어로 치지 않는다)
-const SUBJECT = new RegExp(`(?<![A-Za-z])(?:${SUBJECT_EN.join('|')})(?![A-Za-z])|${SUBJECT_CJK.join('|')}`, 'i');
+const SUBJECT_BASE = new RegExp(`(?<![A-Za-z])(?:${SUBJECT_EN.join('|')})(?![A-Za-z])|${SUBJECT_CJK.join('|')}`, 'i');
+/** ★2026-10-31 Tactical 전용 주어 — «왜» 재료의 금리 경로 확률(«a 72% chance of a hike»·«인상 확률 72%»·«利上げ確率72%»).
+ *  공유 호출자(관심종목·순환매·모닝브리핑)에는 넣지 않는다 — 그쪽 근거엔 확률 지표가 없어 «상승 확률 72%» 같은 지어낸 확률을 main 처럼 거절(관문 10311138). */
+const SUBJECT_EN_TAC = ['chance', 'odds', 'probabilit(?:y|ies)', 'FedWatch'];
+const SUBJECT_CJK_TAC = ['확률', '確率'];
+const SUBJECT_TAC = new RegExp(`(?<![A-Za-z])(?:${[...SUBJECT_EN, ...SUBJECT_EN_TAC].join('|')})(?![A-Za-z])|${[...SUBJECT_CJK, ...SUBJECT_CJK_TAC].join('|')}`, 'i');
+/** 검사 함수 실행 동안만 바뀌는 주어 사전(동기 실행 — withOpts 가 끝나면 원복) */
+let SUBJECT = SUBJECT_BASE;
+let TACTICAL = false;
+function withOpts<T>(opts: ClaimOpts, fn: () => T): T {
+    const prev = [SUBJECT, TACTICAL] as const;
+    SUBJECT = opts.tactical ? SUBJECT_TAC : SUBJECT_BASE; TACTICAL = !!opts.tactical;
+    try { return fn(); } finally { [SUBJECT, TACTICAL] = prev; }
+}
 const TICKER = /(?<![A-Za-z0-9])[A-Z][A-Z0-9&]{1,5}(?![A-Za-z0-9])/;
 
 const hasSubject = (s: string) => SUBJECT.test(s) || TICKER.test(s);
@@ -105,12 +124,17 @@ function clauseBounds(src: string): Array<[number, number]> {
 
 /** 직전 숫자와 같은 지표로 잇는 사이 — 조사·전치사, 또는 방향 동사 한 낱말(«+6bp 상승해 5.15%», «rose to 5.15%») */
 const ADJ = /^\s*(?:(?:상승|하락|올라|내려|떨어져|반등|오른|내린)\S{0,2}\s*|(?:rose|rising|fell|falling|climbed|dropped|jumped|slid|up|down)\s+|(?:上昇|下落|低下|反発)\S{0,2}\s*)?(?:로|으로|에서|から|で|to|from|\(|（)?\s*$/i;
+/** ★2026-10-31 수준 바로 뒤 괄호 속 «전일 대비 변화»(«금리 4.94%(전일 대비 4bp 하락)» · «4.94% (down 4bp» · «4.94%(前日比4bp低下)») — 같은 지표의 변화량이다(실모델 Tactical ko·ja 오탐) */
+const ADJ_PAREN_CMP = /^\s*[(（]\s*(?:전일\s?대비|전일비|전\s?거래일\s?대비|前日比|前営業日比|vs\.?\s+(?:the\s+)?previous\s+close,?|(?:up|down)|(?:rose|fell))\s*$/i;
 
 /** ① 고아 숫자 — 반환: 사유 코드(«orphan-number:−0.74%») */
-export function orphanNumberReasons(text: string): string[] {
+export function orphanNumberReasons(text: string, opts: ClaimOpts = {}): string[] {
+    return withOpts(opts, () => orphanNumberReasonsImpl(text, opts));
+}
+function orphanNumberReasonsImpl(text: string, opts: ClaimOpts): string[] {
     if (!text) return [];
-    const src = mask(text);
-    const toks = valueTokens(text);
+    const src = mask(text, opts);
+    const toks = valueTokens(text, opts);
     const out: string[] = [];
     for (const [a, b] of clauseBounds(src)) {
         const inClause = toks.filter((t) => t.index >= a && t.index < b);
@@ -122,7 +146,7 @@ export function orphanNumberReasons(text: string): string[] {
             const fwdTo = Math.min(i + 1 < inClause.length ? inClause[i + 1].index : b, t.end + 16);
             const fwd = text.slice(t.end, fwdTo);
             // 같은 지표의 수준·변화량 연달아(«금리 5.15%로 +6bp 상승») — 직전 숫자와 조사 하나 사이면 그 숫자의 주어를 잇는다(관문 10201522 ②)
-            const adjacent = i > 0 && ADJ.test(back) && !orphanIdx.has(i - 1);   // «와·과·and»는 다른 대상의 나열이라 잇지 않는다
+            const adjacent = i > 0 && (ADJ.test(back) || (TACTICAL && ADJ_PAREN_CMP.test(back))) && !orphanIdx.has(i - 1);   // «와·과·and»는 다른 대상의 나열이라 잇지 않는다
             // 같은 절 직전 숫자의 기준선(«금리 5.00%가 5% 아래로»·«yield 5.00%, slipping below 5%»·«5.00%で5%を割り込み») — 실모델 10/24 00:0x 정상 문장 9/9 오탈락
             const threshold = i > 0 && !orphanIdx.has(i - 1) && /^\s*(?:아래|밑|위|이하|이상|선|대|を割|割れ|割り込|超え|を上回|を下回|台)/.test(fwd)
                 || i > 0 && !orphanIdx.has(i - 1) && /(?:below|above|under|over|beneath|past|through)\s*$/i.test(back);
@@ -173,18 +197,21 @@ function lastDir(s: string): 1 | -1 | null {
 }
 
 /** ② 방향 모순 — 반환: «direction-sign:+0.19%» */
-export function directionSignReasons(text: string): string[] {
+export function directionSignReasons(text: string, opts: ClaimOpts = {}): string[] {
+    return withOpts(opts, () => directionSignReasonsImpl(text, opts));
+}
+function directionSignReasonsImpl(text: string, opts: ClaimOpts): string[] {
     if (!text) return [];
-    const src = mask(text);
+    const src = mask(text, opts);
     // 부호 붙은 «변화량»(%·bp)만 — «GEX -40»·«RLSI 36» 같은 수준 값은 등락이 아니다(관문 10201522 ①)
-    const toks = valueTokens(text).filter((t) => t.sign !== 0 && t.change);
+    const toks = valueTokens(text, opts).filter((t) => t.sign !== 0 && t.change);
     const out: string[] = [];
     for (const [a, b] of segmentBounds(src)) {
         const seg = toks.filter((t) => t.index >= a && t.index < b);
         seg.forEach((t, i) => {
             // 뒤쪽: 첫 방향어 — 다음 숫자에서 멈추되, 사이가 등위 접속(«와·과·and·と»)뿐이면 함께 서술되는 것으로 보고 넘어간다
             //   «나스닥 +0.19%와 49% 참여폭은 약세» = 둘 다 약세(판정) · «GEX +7는 중립 수준이고 49% 참여폭은 약세» = +7 은 중립(판정 안 함)
-            const allToks = valueTokens(text);
+            const allToks = valueTokens(text, opts);
             const all = allToks.filter((x) => x.index > t.index && x.index < b);
             let stop = b;
             let prevEnd = t.end;
@@ -221,8 +248,8 @@ export function directionSignReasons(text: string): string[] {
 }
 
 /** 두 검사를 한 번에(사유 접두어 붙여) */
-export function claimReasons(text: string, prefix: string): string[] {
-    return [...orphanNumberReasons(text), ...directionSignReasons(text)].map((r) => `${prefix}:${r}`);
+export function claimReasons(text: string, prefix: string, opts: ClaimOpts = {}): string[] {
+    return [...orphanNumberReasons(text, opts), ...directionSignReasons(text, opts)].map((r) => `${prefix}:${r}`);
 }
 
 export type { Loc as ClaimLocale };

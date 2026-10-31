@@ -1,7 +1,7 @@
 import { reservePostTacticalRefresh, finishPostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
 import { buildIndexFacts, promptHasFuturesFacts, promptFuturesPct, tacticalFuturesDrifted, tacticalSessionAt, type TacticalFuturesPct, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
-import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, tacticalTokenRules, internalSourceReasons, polishTacticalText } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, tacticalTokenRules, internalSourceReasons, polishTacticalText, tacticalDriverSnapshot } from '@/lib/ai/tacticalPrompt';
 import { buildRotationPrompt, checkRotationOutput, polishRotationText, rotationNums, rotationTokenRules, isLegacyRotationText, rotationHints, type RotationFacts, type RotationContext } from '@/lib/ai/rotationPrompt';
 
 import { callBedrock, MODELS } from '@/services/bedrockClient';
@@ -86,6 +86,8 @@ interface IntelligenceContext {
     signalConflict?: string;          // e.g. "BULL→NEUTRAL: RLSI 강세 but RISK_OFF HIGH"
     // [V8.0] Market News Headlines for context-aware analysis
     marketNewsHeadlines?: string[];   // e.g. ["CPI rises 3.0% vs 2.9% expected", "Fed signals patience on rate cuts"]
+    /** ★2026-10-31 Tactical «왜» 재료(FedWatch·금리·공포탐욕·섹터 등락 — lib/ai/tacticalDrivers). Tactical 프롬프트만 읽는다 */
+    macroDrivers?: import('@/lib/ai/tacticalDrivers').TacticalMacroDrivers;
     // [V9.0] Macro Intelligence — full asset class context
     fearGreedScore?: number;          // CNN Fear & Greed Index (0-100)
     fearGreedRating?: string;         // e.g. "Greed", "Extreme Fear"
@@ -170,9 +172,9 @@ const RETRY_BUDGET_MS = 25 * 1000;
 const TRANSLATE_BUDGET_MS = 35 * 1000;
 
 /** text = 자리표가 남은 정리본(저장·번역 원본) · basis = 그 글을 만들 때 프롬프트에 들어간 화면 숫자(2026-10-04) */
-interface CachedInsight { text: string; at: number; basis?: GNums | null; session?: TacticalSession; /** Tactical: 생성 재료에 종가 이후 선물 사실이 있었나(T2) */ futures?: boolean; futuresPct?: TacticalFuturesPct }
+interface CachedInsight { text: string; at: number; basis?: GNums | null; session?: TacticalSession; /** Tactical: 생성 재료에 종가 이후 선물 사실이 있었나(T2) */ futures?: boolean; futuresPct?: TacticalFuturesPct; /** Tactical: 생성 당시 재료 스냅샷(tacticalDriverSnapshot) — 저장본 지표 대조 기준(관문 10311033) */ drivers?: string }
 /** 생성기·복구가 돌려주는 단위 — tpl 은 자리표가 남은 글, 화면 글은 출구에서 화면 값으로 채운다 */
-export interface InsightOut { tpl: string; basis: GNums | null; session?: TacticalSession; /** Tactical 새 생성·신선 캐시만: 생성 재료에 선물 사실이 있었나(복구 글은 없음, T2) */ futures?: boolean; futuresPct?: TacticalFuturesPct }
+export interface InsightOut { tpl: string; basis: GNums | null; session?: TacticalSession; /** Tactical 새 생성·신선 캐시만: 생성 재료에 선물 사실이 있었나(복구 글은 없음, T2) */ futures?: boolean; futuresPct?: TacticalFuturesPct; /** Tactical 새 생성: 생성 당시 재료 스냅샷 */ drivers?: string }
 const emptyByLocale = <T,>(v: T): Record<Locale, T> => ({ ko: v, en: v, ja: v });
 /** 메모리 캐시 — «검사를 통과한 글»만 들어간다(그래서 나이가 지나도 «마지막 정상본»으로 쓸 수 있다) */
 const _mem: Record<InsightType, Record<Locale, CachedInsight | null>> = {
@@ -197,11 +199,11 @@ const _lastOut: Record<InsightType, Record<Locale, { shown: string; tpl: string;
  * ★2026-10-21 Tactical 은 «화면 글 → 원본·기준»을 글마다 기억한다(언어당 최근 64개) — 동시 요청이 _lastOut 을 덮어도 그 글의 생성 기준값을 찾는다.
  *   자리표 없는 Tactical 의 «상태 판정» 낡음 비교는 생성 기준값이 있어야 한다(관문 10211015·10211022: 덮인 뒤 «지금 값»을 기준으로 저장하면 낡음이 안 보인다).
  */
-const _outByShown: Record<Locale, Map<string, { tpl: string; basis: GNums | null; futures?: boolean; futuresPct?: TacticalFuturesPct }>> = { ko: new Map(), en: new Map(), ja: new Map() };
-function rememberShown(locale: Locale, shown: string, tpl: string, basis: GNums | null, futures?: boolean, futuresPct?: TacticalFuturesPct): void {
+const _outByShown: Record<Locale, Map<string, { tpl: string; basis: GNums | null; futures?: boolean; futuresPct?: TacticalFuturesPct; drivers?: string }>> = { ko: new Map(), en: new Map(), ja: new Map() };
+function rememberShown(locale: Locale, shown: string, tpl: string, basis: GNums | null, futures?: boolean, futuresPct?: TacticalFuturesPct, drivers?: string): void {
     const m = _outByShown[locale];
     m.delete(shown);
-    m.set(shown, { tpl, basis, futures, futuresPct });
+    m.set(shown, { tpl, basis, futures, futuresPct, ...(drivers ? { drivers } : {}) });
     while (m.size > 64) m.delete(m.keys().next().value as string);   // 언어당 64개(글 하나 ~1KB) — 새 Tactical 은 언어당 10분에 하나라 64개 = 10시간+
 }
 
@@ -341,12 +343,24 @@ function tacticalFillNums(tpl: string, nums: GNums | null | undefined, basis: GN
 }
 
 /**
+ * ★2026-10-31 관문 10311033 — 저장본 지표 대조용 글: 자리표 원본을 «저장 당시 값(basis)»으로 채운다(생성 검사 때와 같은 숫자 — 지금 화면 값으로 채우면
+ *   10년물·공포탐욕이 조금만 움직여도 정상 저장본이 탈락한다). 스냅샷·basis 가 없거나 자리표가 남으면 undefined(숫자 대조 생략).
+ */
+function storedDriverText(cleaned: string, snapshot: string | undefined, basis: GNums | null | undefined): string | undefined {
+    if (!snapshot) return undefined;
+    if (!hasGuardianTokens(cleaned)) return cleaned;
+    if (!basis) return undefined;
+    const t = fillGuardianTokens(cleaned, insightNums('reality', basis)).text;
+    return hasGuardianTokens(t) ? undefined : t;
+}
+
+/**
  * 정리 + 출구 검사. 사용자에게 나가는 모든 AI 글(생성·번역·캐시 읽기·저장된 판정)이 여기를 지난다.
  * ★2026-10-04 숫자 — tpl(자리표가 남은 정리본 = 저장용)을 화면 값(nums)으로 채운 text 를 검사한다:
  *   언어·거절·마크다운·연도(outputGate) + 화면 숫자 대조·낡은 서술(lib/ai/guardianNumbers).
  *   nums 가 없으면 basis(생성 때 값)로 채운다(숫자 대조도 basis 기준).
  */
-function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string, restore = false, generatedIn = strict, translation = false): { ok: boolean; tpl: string; text: string; reasons: string[] } {
+function gateText(type: InsightType, tpl: string | null | undefined, locale: Locale, nums?: GNums | null, basis?: GNums | null, strict = false, tacticalPrompt?: string, restore = false, generatedIn = strict, translation = false, driverSnapshot?: string): { ok: boolean; tpl: string; text: string; reasons: string[] } {
     // 번역 글(translation)은 숫자 대조를 새 생성처럼(지금 값·기존 숫자 검사), Tactical 구조 검사는 checkTacticalTranslated
     const generated = generatedIn || translation;
     let cleaned = cleanInsight(String(tpl ?? ''), { labels: SECTION_LABELS[type][locale] });
@@ -384,7 +398,8 @@ function gateText(type: InsightType, tpl: string | null | undefined, locale: Loc
         // 생성 직후(strict)는 구조·근거 전체, 저장본·복구·번역은 «지난 일정을 다음 예정으로» 내보내는지만 현재 시각으로 본다
         //   (뉴스 순환·날짜 변경만으로 멀쩡한 글을 버려 모델을 다시 부르거나 장외에 «준비 중»으로 바꾸지 않게).
         ...(type === 'reality' && tacticalPrompt && !isPlaceholder(n.text)
-            ? (translation ? checkTacticalTranslated(n.text, locale, tacticalPrompt) : generated ? checkTacticalOutput(n.text, locale, tacticalPrompt) : checkTacticalStored(n.text, tacticalPrompt)) : [])];
+            ? (translation ? checkTacticalTranslated(n.text, locale, tacticalPrompt) : generated ? checkTacticalOutput(n.text, locale, tacticalPrompt)
+                : checkTacticalStored(n.text, tacticalPrompt, { driverSnapshot, driverText: storedDriverText(cleaned, driverSnapshot, basis) })) : [])];
     // ★2026-10-21 Tactical 다듬기 — 내부 지표명 날것(RLSI·GEX 단독)·«게이트»·한국어 연결어미 오타를 읽는 말로(lib/ai/tacticalPrompt.polishTacticalText).
     //   검사는 다듬기 «전» 글로 한다(다듬기가 «RLSI36» 의 숫자를 셈에 드러내거나 글을 늘려 새 탈락을 만들지 않게 — 측정 2/180).
     //   저장·화면 글만 다듬는다(뜻·숫자·시각·사건 이름·자리표 불변, 같은 글을 다시 다듬어도 그대로).
@@ -398,19 +413,20 @@ async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums
     if (!redis) return null;
     const key = opts.previousKey ? `guardian:gemini:v2:reality:${locale}` : getRedisKey(type, locale);
     try {
-        const data = await redis.get(key) as { text?: string; updatedAt?: string; basis?: GNums | null; session?: TacticalSession; futures?: boolean; futuresPct?: TacticalFuturesPct } | null;
+        const data = await redis.get(key) as { text?: string; updatedAt?: string; basis?: GNums | null; session?: TacticalSession; futures?: boolean; futuresPct?: TacticalFuturesPct; drivers?: string } | null;
         if (!data?.text) return null;
         const at = data.updatedAt ? Date.parse(data.updatedAt) : 0;
         // ★2026-10-24 밤 검토 ① — 신선한 캐시로 쓸 때만 세션 일치를 본다(09:29 PRE 글이 09:31 REG 에서 «지금 개장 전» 그대로 나갔다). 복구는 세션 무관(글 보존).
         if (!opts.restore && !opts.previousKey && !opts.anySession && !sameTacticalSession(type, at, tacticalPrompts?.(locale), data.session)) return null;
         const basis = data.basis && typeof data.basis === 'object' ? data.basis : null;
-        const g = gateText(type, data.text, locale, nums, basis, false, tacticalPrompts?.(locale), opts.restore);
+        const drivers = type === 'reality' && typeof data.drivers === 'string' ? data.drivers : undefined;
+        const g = gateText(type, data.text, locale, nums, basis, false, tacticalPrompts?.(locale), opts.restore, false, false, drivers);
         if (!g.ok) {
             console.warn(`[InsightGate] REJECT stored ${key} (${g.reasons.join(' | ')}) :: ${previewForLog(g.text)}`);
             return null;
         }
         if (isPlaceholder(g.text)) return null;
-        return { text: g.tpl, at: Number.isFinite(at) ? at : 0, basis, session: data.session, ...(typeof data.futures === 'boolean' ? { futures: data.futures } : {}), futuresPct: data.futuresPct };
+        return { text: g.tpl, at: Number.isFinite(at) ? at : 0, basis, session: data.session, ...(typeof data.futures === 'boolean' ? { futures: data.futures } : {}), futuresPct: data.futuresPct, ...(drivers ? { drivers } : {}) };
     } catch (e) {
         console.warn("[IntelligenceNode] Redis load error:", e);
         return null;
@@ -418,13 +434,13 @@ async function readStoredInsight(type: InsightType, locale: Locale, nums?: GNums
 }
 
 /** Redis 에 쓰기 — 호출자는 반드시 gateText 를 통과한(그리고 대기 문구가 아닌) 글만 넘긴다. 나쁜 글로 좋은 캐시를 덮지 않는다. */
-async function writeStoredInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null, session?: TacticalSession, ttlSec = REDIS_TTL_SEC, futures?: boolean, futuresPct?: TacticalFuturesPct): Promise<void> {
-    await archiveInsight(type, locale, text, basis, session);   // 완료 세션 보관본(EC2) — Upstash 저장본과 별개로
+async function writeStoredInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null, session?: TacticalSession, ttlSec = REDIS_TTL_SEC, futures?: boolean, futuresPct?: TacticalFuturesPct, drivers?: string): Promise<void> {
+    await archiveInsight(type, locale, text, basis, session, drivers);   // 완료 세션 보관본(EC2) — Upstash 저장본과 별개로
     const redis = getRedis();
     if (!redis) return;
     const key = getRedisKey(type, locale);
     try {
-        await redis.set(key, JSON.stringify({ text, basis: basis ?? null, updatedAt: new Date(Date.now()).toISOString(), ...(type === 'reality' ? { session: session ?? tacticalSessionAt(Date.now()), ...(typeof futures === 'boolean' ? { futures } : {}), ...(futuresPct ? { futuresPct } : {}) } : {}) }), { ex: ttlSec });
+        await redis.set(key, JSON.stringify({ text, basis: basis ?? null, updatedAt: new Date(Date.now()).toISOString(), ...(type === 'reality' ? { session: session ?? tacticalSessionAt(Date.now()), ...(typeof futures === 'boolean' ? { futures } : {}), ...(futuresPct ? { futuresPct } : {}), ...(drivers ? { drivers } : {}) } : {}) }), { ex: ttlSec });
         console.log(`[IntelligenceNode] Saved ${key} to Redis (${text.length} chars)`);
     } catch (e) {
         console.warn("[IntelligenceNode] Redis save error:", e);
@@ -439,25 +455,26 @@ async function writeStoredInsight(type: InsightType, locale: Locale, text: strin
  * 장 전(09:30 ET 전)의 글은 그날 키로 저장하지 않는다(그 세션은 아직 끝나지 않았다 — 모듈이 거부).
  */
 const insightScope = (type: InsightType, locale: Locale) => `${type === 'reality' ? 'reality_v3' : type}_${locale}`;
-async function archiveInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null, session?: TacticalSession): Promise<void> {
+async function archiveInsight(type: InsightType, locale: Locale, text: string, basis?: GNums | null, session?: TacticalSession, drivers?: string): Promise<void> {
     try {
         if (!text || isPlaceholder(text)) return;
         // 장외의 쓰기는 번역·복구뿐이다(생성은 장중에만) — 그 글의 원래 세션을 «지금 날짜»로 보관하지 않는다(관문 2차: 금요일 글이 월요일 확정본이 됐다)
         if (isOffHours()) return;
         const now = Date.now();
-        await saveSessionArchive('insight', insightScope(type, locale), etDateOf(now), { text, basis: basis ?? null, updatedAt: new Date(now).toISOString(), ...(session ? { session } : {}) }, { observedAt: now });
+        await saveSessionArchive('insight', insightScope(type, locale), etDateOf(now), { text, basis: basis ?? null, updatedAt: new Date(now).toISOString(), ...(session ? { session } : {}), ...(type === 'reality' && drivers ? { drivers } : {}) }, { observedAt: now });
     } catch { /* 보관 실패가 응답을 막지 않는다 */ }
 }
 async function archivedInsight(type: InsightType, locale: Locale, nums?: GNums | null, tacticalPrompts?: TacticalPrompts, opts: { previousKey?: boolean; restore?: boolean } = {}): Promise<(InsightOut & { at: number }) | null> {
     try {
         // 마지막 완료 세션 «그 날짜»만(lookback 0) — 금요일 글이 없을 때 목요일 글을 «Last session»으로 내보내지 않는다
-        const a = await readSessionArchive<{ text?: string; basis?: GNums | null }>('insight', opts.previousKey ? `reality_${locale}` : insightScope(type, locale), { lookback: 0 });
+        const a = await readSessionArchive<{ text?: string; basis?: GNums | null; drivers?: string }>('insight', opts.previousKey ? `reality_${locale}` : insightScope(type, locale), { lookback: 0 });
         const text = a?.value?.text;
         if (!text) return null;
         const basis = a!.value.basis && typeof a!.value.basis === 'object' ? a!.value.basis : null;
-        const g = gateText(type, text, locale, nums, basis, false, tacticalPrompts?.(locale), opts.restore);
+        const drivers = type === 'reality' && typeof a!.value.drivers === 'string' ? a!.value.drivers : undefined;
+        const g = gateText(type, text, locale, nums, basis, false, tacticalPrompts?.(locale), opts.restore, false, false, drivers);
         if (!g.ok || isPlaceholder(g.text)) return null;
-        return { tpl: g.tpl, basis, at: a!.stamp.observedAt ?? 0 };
+        return { tpl: g.tpl, basis, at: a!.stamp.observedAt ?? 0, ...(drivers ? { drivers } : {}) };
     } catch { return null; }
 }
 
@@ -484,8 +501,8 @@ function lacksFuturesNow(type: InsightType, savedFutures: boolean | undefined, p
     return type === 'reality' && savedFutures !== true && promptSession(prompt) === 'POST' && promptHasFuturesFacts(prompt);
 }
 
-function rememberInsight(type: InsightType, locale: Locale, text: string, at: number, basis?: GNums | null, session?: TacticalSession, futures?: boolean, futuresPct?: TacticalFuturesPct): void {
-    _mem[type][locale] = { text, at, basis: basis ?? null, session, ...(typeof futures === 'boolean' ? { futures } : {}), ...(futuresPct ? { futuresPct } : {}) };
+function rememberInsight(type: InsightType, locale: Locale, text: string, at: number, basis?: GNums | null, session?: TacticalSession, futures?: boolean, futuresPct?: TacticalFuturesPct, drivers?: string): void {
+    _mem[type][locale] = { text, at, basis: basis ?? null, session, ...(typeof futures === 'boolean' ? { futures } : {}), ...(futuresPct ? { futuresPct } : {}), ...(drivers ? { drivers } : {}) };
 }
 
 /** 자리표 글 → 화면 글. 채울 값이 없어 자리표가 남으면 대기 문구(자리표가 화면에 나가지 않게). 내보낸 원본·기준을 기억한다. */
@@ -493,7 +510,7 @@ function shownOut(type: InsightType, locale: Locale, out: InsightOut, nums?: GNu
     const f = fillGuardianTokens(out.tpl, type === 'reality' ? tacticalFillNums(out.tpl, nums, out.basis) : nums ?? out.basis ?? null);
     const shown = hasGuardianTokens(f.text) ? (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale] : f.text;
     _lastOut[type][locale] = shown === f.text ? { shown, tpl: out.tpl, basis: out.basis } : null;
-    if (type === 'reality' && shown === f.text) rememberShown(locale, shown, out.tpl, out.basis ?? null, out.futures === true, out.futuresPct);
+    if (type === 'reality' && shown === f.text) rememberShown(locale, shown, out.tpl, out.basis ?? null, out.futures === true, out.futuresPct, out.drivers);
     return shown;
 }
 
@@ -579,6 +596,13 @@ function triHints(all: string[]): string {
     if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the SO WHAT sentence (the one about money and options positioning).');
     if (all.some(r => r.includes('internal-label'))) h.push('Never write TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, WHY:, SO WHAT: or NEXT: — cite the report by its time and source.');
     if (all.some(r => r.includes('positioning-required'))) h.push('Name Gamma Shield/GEX (or SPY/QQQ gamma) before the last sentence and say whether it absorbs or amplifies the pressure.');
+    // ★2026-10-31 Tactical 스토리형 WHY
+    if (all.some(r => /why-material-required|why-drivers-required/.test(r))) h.push('In the second (WHY) sentence explain the cause through two or three MACRO_DRIVERS readings (the next-FOMC hike chance from FedWatch and its one-week change, Treasury yields, the Fear & Greed index, sector leaders/laggards with their ETF), each right after its plain name; cite a TODAY_NEWS report only by its M/D HH:MM ET; never write that the driver is unconfirmed when MACRO_DRIVERS or TODAY_NEWS is supplied.');
+    if (all.some(r => r.includes('why-rollcall'))) h.push('Use at most four numbers in the WHY sentence — pick the two or three readings that explain the move.');
+    if (all.some(r => r.includes('why-company-ungrounded'))) h.push('Name only companies that appear in TODAY_NEWS or SCHEDULED_EVENTS, translated correctly (Alphabet = 알파벳 / アルファベット, not Apple).');
+    if (all.some(r => r.includes('why-unsupported-change'))) h.push('MACRO_DRIVERS has no one-week-ago FedWatch value: state the current hike chance only (e.g. "markets price a … chance"), never that it rose, jumped or fell.');
+    if (all.some(r => r.includes('next-boundary-required'))) h.push('The last (NEXT) sentence names ONE upcoming event from SCHEDULED_EVENTS or ONE S&P 500 options boundary (put floor / call wall / gamma flip from OBSERVATIONS) — never a yield, probability or index level.');
+    if (all.some(r => r.includes('news-source-time-required'))) h.push('Cite the report with BOTH its date and time exactly as one REPORT_TIMES entry gives them (M/D plus HH:MM ET), once.');
     h.push(...rotationHints(all));
     return h.length ? ' ' + h.join(' ') : '';
 }
@@ -898,13 +922,13 @@ async function callInsightModel(prompt: string, locale: Locale, label: string, r
  */
 async function lastValidInsight(type: InsightType, locale: Locale, storedChecked = false, nums?: GNums | null, tacticalPrompts?: TacticalPrompts): Promise<InsightOut | null> {
     const m = _mem[type][locale];
-    if (m && gateText(type, m.text, locale, nums, m.basis, false, tacticalPrompts?.(locale), type === 'reality').ok) return { tpl: m.text, basis: m.basis ?? null };
+    if (m && gateText(type, m.text, locale, nums, m.basis, false, tacticalPrompts?.(locale), type === 'reality', false, false, m.drivers).ok) return { tpl: m.text, basis: m.basis ?? null, drivers: m.drivers };
     if (storedChecked && type !== 'reality') return null;
     // 신선도 검사에서 낡음으로 빠졌어도 복구 때는 마지막 글을 보존한다.
     const stored = await readStoredInsight(type, locale, nums, tacticalPrompts, { restore: type === 'reality' });
     if (stored) {
         if (type !== 'reality') rememberInsight(type, locale, stored.text, stored.at, stored.basis, stored.session);
-        return { tpl: stored.text, basis: stored.basis ?? null };
+        return { tpl: stored.text, basis: stored.basis ?? null, drivers: stored.drivers };
     }
     return null;
 }
@@ -915,7 +939,7 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
     for (const src of TRANSLATE_SOURCES[locale]) {
         const m = _mem[type][src];
         // 번역 원본은 세션이 달라도 된다(관문 10241248) — Tactical 번역 글은 아래에서 «지금 세션» 새 생성 계약(INDEX_FACTS·세션 문구 포함)으로 다시 검사한다
-        const source = m && gateText(type, m.text, src, nums, m.basis, false, tacticalPrompts?.(src)).ok ? m : await readStoredInsight(type, src, nums, tacticalPrompts, { anySession: true });
+        const source = m && gateText(type, m.text, src, nums, m.basis, false, tacticalPrompts?.(src), false, false, false, m.drivers).ok ? m : await readStoredInsight(type, src, nums, tacticalPrompts, { anySession: true });
         if (!source) continue;
         const translated = await translateInsight(source.text, src, locale, type);
         if (!translated) continue;
@@ -932,16 +956,18 @@ async function translatedInsight(type: InsightType, locale: Locale, nums?: GNums
             continue;
         }
         const session = promptSession(tacticalPrompts?.(locale));
-        rememberInsight(type, locale, g.tpl, Date.now(), basis, session);
-        await writeStoredInsight(type, locale, g.tpl, basis, session);
-        return { tpl: g.tpl, basis };
+        // 번역 글은 «지금 프롬프트 재료»로 검사했다(checkTacticalTranslated) — 그 재료가 이 글의 스냅샷
+        const drivers = type === 'reality' ? tacticalDriverSnapshot(tacticalPrompts?.(locale)) : undefined;
+        rememberInsight(type, locale, g.tpl, Date.now(), basis, session, undefined, undefined, drivers);
+        await writeStoredInsight(type, locale, g.tpl, basis, session, undefined, undefined, undefined, drivers);
+        return { tpl: g.tpl, basis, drivers };
     }
     return null;
 }
 
 type VerdictField = 'description' | 'realityInsight' | 'gammaInsight';
 /** 판정에 같이 저장하는 숫자 기준 — tpl(자리표 원본)·basis(생성 때 값). 출구에서 화면 값으로 다시 채운다. */
-export interface VerdictNumbers { tpl?: Partial<Record<VerdictField, string>>; basis?: Partial<Record<VerdictField, GNums | null>> }
+export interface VerdictNumbers { tpl?: Partial<Record<VerdictField, string>>; basis?: Partial<Record<VerdictField, GNums | null>>; /** Tactical 생성 당시 재료 스냅샷(tacticalDriverSnapshot) — 판정 저장본 지표 대조 기준(관문 10311057 ②) */ drivers?: Partial<Record<VerdictField, string>> }
 type VerdictLike = { description?: string; realityInsight?: string; gammaInsight?: string; num?: VerdictNumbers };
 
 const VERDICT_FIELDS: ReadonlyArray<readonly [VerdictField, InsightType]> = [
@@ -993,8 +1019,8 @@ export class IntelligenceNode {
         const saved = !mem || (stored && stored.at > mem.at) ? stored : mem;
         const valid = !!saved && saved.futures === true && !!saved.futuresPct && saved.at <= now && etDateOf(saved.at) === etDateOf(now)
             && sameTacticalSession('reality', saved.at, prompts(locale), saved.session)
-            && gateText('reality', saved.text, locale, nums, saved.basis, false, prompts(locale)).ok;
-        const reuse = () => ({ text: shownOut('reality', locale, { tpl: saved!.text, basis: saved!.basis ?? null, futures: true, futuresPct: saved!.futuresPct }, nums), at: saved!.at, seenAt: saved!.at });
+            && gateText('reality', saved.text, locale, nums, saved.basis, false, prompts(locale), false, false, false, saved.drivers).ok;
+        const reuse = () => ({ text: shownOut('reality', locale, { tpl: saved!.text, basis: saved!.basis ?? null, futures: true, futuresPct: saved!.futuresPct, drivers: saved!.drivers }, nums), at: saved!.at, seenAt: saved!.at });
         const newer = valid && typeof opts.newerThan === 'number' && saved!.at > opts.newerThan;
         if (opts.regen === false) return newer ? reuse() : { text: null, ...(saved ? { seenAt: saved.at } : {}) };
         if (valid && !tacticalFuturesDrifted(saved!.futuresPct, pct)) return reuse();
@@ -1103,7 +1129,7 @@ export class IntelligenceNode {
                     const lenient = gateText(type, tokenizeInsight(type, r, nums), l, nums, nums, false, type !== 'gamma' ? buildPrompt(l) : undefined, false, true);
                     if (lenient.ok) g = lenient;
                 }
-                if (g.ok && !isPlaceholder(g.text)) into[l] = { tpl: g.tpl, basis: nums, session: type === 'reality' ? promptSession(buildPrompt(l)) : undefined, ...(type === 'reality' ? { futures: promptHasFuturesFacts(buildPrompt(l)), futuresPct: promptFuturesPct(buildPrompt(l)) } : {}) };
+                if (g.ok && !isPlaceholder(g.text)) into[l] = { tpl: g.tpl, basis: nums, session: type === 'reality' ? promptSession(buildPrompt(l)) : undefined, ...(type === 'reality' ? { futures: promptHasFuturesFacts(buildPrompt(l)), futuresPct: promptFuturesPct(buildPrompt(l)), drivers: tacticalDriverSnapshot(buildPrompt(l)) } : {}) };
                 else { failed[l] = g.reasons.length ? g.reasons : ['placeholder']; console.warn(`[InsightGate] REJECT generated ${type}/${l} (tri: ${(failed[l] || []).join(' | ')}) :: ${previewForLog(r)}`); }
             }
             return failed;
@@ -1131,8 +1157,8 @@ export class IntelligenceNode {
         for (const l of locales) {
             const o = out[l];
             if (!o) continue;
-            rememberInsight(type, l, o.tpl, now, nums, o.session, o.futures, o.futuresPct);
-            await writeStoredInsight(type, l, o.tpl, nums, o.session, opts.ttlSec, o.futures, o.futuresPct);
+            rememberInsight(type, l, o.tpl, now, nums, o.session, o.futures, o.futuresPct, o.drivers);
+            await writeStoredInsight(type, l, o.tpl, nums, o.session, opts.ttlSec, o.futures, o.futuresPct, o.drivers);
         }
         console.log(`[IntelligenceNode] trilingual ${type}: ${Object.keys(out).join(',') || '없음'} 통과 (${Date.now() - started}ms)`);
         return { parsed: true, out };
@@ -1147,15 +1173,15 @@ export class IntelligenceNode {
 
         // ① 메모리 — 검사를 통과한 글만 들어 있다. 화면 값이 움직여 서술이 낡았으면 쓰지 않는다.
         const mem = _mem[type][locale];
-        if (mem && now - mem.at < ttl && sameTacticalSession(type, mem.at, tacticalPrompts?.(locale), mem.session) && !lacksFuturesNow(type, mem.futures, tacticalPrompts?.(locale)) && gateText(type, mem.text, locale, nums, mem.basis, false, tacticalPrompts?.(locale)).ok) return { tpl: mem.text, basis: mem.basis ?? null, futures: mem.futures, futuresPct: mem.futuresPct };
+        if (mem && now - mem.at < ttl && sameTacticalSession(type, mem.at, tacticalPrompts?.(locale), mem.session) && !lacksFuturesNow(type, mem.futures, tacticalPrompts?.(locale)) && gateText(type, mem.text, locale, nums, mem.basis, false, tacticalPrompts?.(locale), false, false, false, mem.drivers).ok) return { tpl: mem.text, basis: mem.basis ?? null, futures: mem.futures, futuresPct: mem.futuresPct, drivers: mem.drivers };
 
         // ② Redis — 콜드 스타트마다 모델을 부르지 않게. 읽을 때도 검사한다.
         const stored = await readStoredInsight(type, locale, nums, tacticalPrompts);
         if (stored) {
-            if (!mem || stored.at >= mem.at) rememberInsight(type, locale, stored.text, stored.at, stored.basis, stored.session, stored.futures, stored.futuresPct);
+            if (!mem || stored.at >= mem.at) rememberInsight(type, locale, stored.text, stored.at, stored.basis, stored.session, stored.futures, stored.futuresPct, stored.drivers);
             if (now - stored.at < ttl && !lacksFuturesNow(type, stored.futures, tacticalPrompts?.(locale))) {
                 console.log(`[IntelligenceNode] Redis cache hit for ${type}/${locale} (age: ${((now - stored.at) / 1000).toFixed(0)}s, TTL: ${ttl / 1000}s)`);
-                return { tpl: stored.text, basis: stored.basis ?? null, futures: stored.futures, futuresPct: stored.futuresPct };
+                return { tpl: stored.text, basis: stored.basis ?? null, futures: stored.futures, futuresPct: stored.futuresPct, drivers: stored.drivers };
             }
         }
 
@@ -1187,7 +1213,7 @@ export class IntelligenceNode {
         const started = Date.now();
         const tri = await IntelligenceNode.generateTrilingual(type, nums, buildPrompt);
         const candidate = tri.out[locale];
-        if (candidate && gateText(type, candidate.tpl, locale, nums, candidate.basis, false, tacticalPrompts?.(locale)).ok) return candidate;
+        if (candidate && gateText(type, candidate.tpl, locale, nums, candidate.basis, false, tacticalPrompts?.(locale), false, false, false, candidate.drivers).ok) return candidate;
         if (tri.parsed) {
             // 모델은 답했지만 이 언어의 글이 검사를 못 넘었다(교정 재생성까지) — 같은 재료로 단일 언어를 또 부르면 같은 이유로 떨어지기 쉽다 → 복구
             _genFailUntil[type][locale] = Date.now() + GEN_FAIL_COOLDOWN_MS;
@@ -1224,9 +1250,10 @@ export class IntelligenceNode {
             const session = promptSession(tacticalPrompts?.(locale));
             const futures = type === 'reality' ? promptHasFuturesFacts(tacticalPrompts?.(locale)) : undefined;
             const futuresPct = type === 'reality' ? promptFuturesPct(tacticalPrompts?.(locale)) : undefined;
-            rememberInsight(type, locale, gated.tpl, Date.now(), nums, session, futures, futuresPct);
-            await writeStoredInsight(type, locale, gated.tpl, nums, session, undefined, futures, futuresPct);
-            return { tpl: gated.tpl, basis: nums, futures, futuresPct };
+            const drivers = type === 'reality' ? tacticalDriverSnapshot(tacticalPrompts?.(locale)) : undefined;
+            rememberInsight(type, locale, gated.tpl, Date.now(), nums, session, futures, futuresPct, drivers);
+            await writeStoredInsight(type, locale, gated.tpl, nums, session, undefined, futures, futuresPct, drivers);
+            return { tpl: gated.tpl, basis: nums, futures, futuresPct, drivers };
         }
 
         // ⑤ 검사를 통과한 새 글이 없다 → 마지막 정상본 / 번역 / 고정 문구
@@ -1241,8 +1268,8 @@ export class IntelligenceNode {
      */
     static async recoverInsightOut(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null; tacticalPrompts?: TacticalPrompts } = {}): Promise<InsightOut> {
         // 복구 글은 «선물 사실 있음» 표식을 싣지 않는다 — 장후 스냅샷이 다음 수확 때 다시 만들게(T2)
-        const { tpl, basis } = await IntelligenceNode.recoverInsightOutAny(type, locale, opts);
-        return { tpl, basis };
+        const { tpl, basis, drivers } = await IntelligenceNode.recoverInsightOutAny(type, locale, opts);
+        return { tpl, basis, ...(drivers ? { drivers } : {}) };   // 재료 스냅샷은 선물 표식과 무관 — 판정 저장본의 지표 대조 기준(관문 10311057 ②)
     }
 
     private static async recoverInsightOutAny(type: InsightType, locale: Locale, opts: { translate?: boolean; storedChecked?: boolean; nums?: GNums | null; tacticalPrompts?: TacticalPrompts } = {}): Promise<InsightOut> {
@@ -1254,7 +1281,7 @@ export class IntelligenceNode {
                 const arch = await archivedInsight(type, locale, opts.nums, opts.tacticalPrompts, { restore: type === 'reality' });
                 // 메모리에 올리지 않는다 — 올리면 다른 언어 요청이 이 글을 번역 원천으로 써 장외 모델 호출이 생긴다(관문 2차: 0회 → 1회).
                 //   보관본 읽기는 EC2 GET 한 번이라 매 요청 읽어도 싸다.
-                if (arch) return { tpl: arch.tpl, basis: arch.basis };
+                if (arch) return { tpl: arch.tpl, basis: arch.basis, drivers: arch.drivers };
             }
             if (type === 'reality') {
                 // 첫 v3 배포: v2 Redis → REALITY 보관본. 복구 전용이며 v3 저장·메모리 TTL 갱신은 하지 않는다.
@@ -1290,7 +1317,7 @@ export class IntelligenceNode {
         //   글마다 기억한 원본에서 찾는다(동시 요청에 덮이지 않게, 관문 10211022).
         if (type === 'reality' && typeof shown === 'string') {
             const r = _outByShown[locale].get(shown);
-            if (r && (r.tpl !== shown || !!r.basis)) return { tpl: r.tpl, basis: r.basis };
+            if (r && (r.tpl !== shown || !!r.basis)) return { tpl: r.tpl, basis: r.basis, ...(r.drivers ? { drivers: r.drivers } : {}) };
         }
         const o = _lastOut[type][locale];
         return o && typeof shown === 'string' && o.shown === shown && o.tpl !== o.shown ? { tpl: o.tpl, basis: o.basis } : null;
@@ -1328,39 +1355,45 @@ export class IntelligenceNode {
         const repaired: string[] = [];
         const tplIn = verdict?.num?.tpl || {};
         const basisIn = verdict?.num?.basis || {};
+        const driversIn = verdict?.num?.drivers || {};
         const tplOut: Partial<Record<VerdictField, string>> = { ...tplIn };
         const basisOut: Partial<Record<VerdictField, GNums | null>> = { ...basisIn };
+        const driversOut: Partial<Record<VerdictField, string>> = { ...driversIn };
         let numChanged = false;
-        const setNum = (field: VerdictField, tpl: string, shown: string, basis: GNums | null, type?: InsightType) => {
+        const setNum = (field: VerdictField, tpl: string, shown: string, basis: GNums | null, type?: InsightType, drivers?: string) => {
             // 자리표가 있는 글만 원본을 남긴다 — Tactical 은 자리표가 없어도 기준값을 남긴다(상태 판정 낡음 비교, 관문 10211005 ①)
             const keep = tpl !== shown || (type === 'reality' && !!basis);
             if (keep ? tplOut[field] !== tpl || basisOut[field] !== basis : field in tplOut || field in basisOut) numChanged = true;
             if (keep) { tplOut[field] = tpl; basisOut[field] = basis; } else { delete tplOut[field]; delete basisOut[field]; }
+            // 재료 스냅샷은 그 글과 함께만 — 글이 바뀌면(복구·대기 문구) 새 글의 스냅샷(없으면 지운다)
+            if (keep && drivers) { if (driversOut[field] !== drivers) numChanged = true; driversOut[field] = drivers; }
+            else if (field in driversOut) { delete driversOut[field]; numChanged = true; }
         };
         for (const [field, type] of VERDICT_FIELDS) {
             const value = verdict?.[field];
             const tpl = typeof tplIn[field] === 'string' && tplIn[field] ? tplIn[field] as string : value;
             if (typeof tpl !== 'string' || !tpl.trim()) continue;
             const basis = basisIn[field] ?? null;
-            const g = gateText(type, tpl, locale, nums, basis, false, tacticalPrompts?.(locale), type === 'reality');
+            const drivers = type === 'reality' && typeof driversIn[field] === 'string' ? driversIn[field] : undefined;
+            const g = gateText(type, tpl, locale, nums, basis, false, tacticalPrompts?.(locale), type === 'reality', false, false, drivers);
             if (g.ok) {
                 if (g.text !== value) { out = { ...out, [field]: g.text }; changed = true; }
-                setNum(field, g.tpl, g.text, basis, type);
+                setNum(field, g.tpl, g.text, basis, type, drivers);
                 continue;
             }
             console.warn(`[InsightGate] REJECT ${where} verdict.${field} (${locale}: ${g.reasons.join(' | ')}) :: ${previewForLog(g.text)}`);
             const rec = await IntelligenceNode.recoverInsightOut(type, locale, { nums, tacticalPrompts });
-            const g2 = gateText(type, rec.tpl, locale, nums, rec.basis, false, tacticalPrompts?.(locale), type === 'reality');
+            const g2 = gateText(type, rec.tpl, locale, nums, rec.basis, false, tacticalPrompts?.(locale), type === 'reality', false, false, rec.drivers);
             const shown = g2.ok ? g2.text : (isOffHours() ? OFF_HOURS_TEXT : PENDING_TEXT)[type][locale];
             out = { ...out, [field]: shown };
-            setNum(field, g2.ok ? g2.tpl : shown, shown, g2.ok ? rec.basis : null, type);
+            setNum(field, g2.ok ? g2.tpl : shown, shown, g2.ok ? rec.basis : null, type, g2.ok ? rec.drivers : undefined);
             changed = true;
             repaired.push(field);
         }
         if (numChanged) {
             const hasAny = Object.keys(tplOut).length > 0;
             const base = { ...out } as V & { num?: VerdictNumbers };
-            if (hasAny) base.num = { tpl: tplOut, basis: basisOut };
+            if (hasAny) base.num = { tpl: tplOut, basis: basisOut, ...(Object.keys(driversOut).length ? { drivers: driversOut } : {}) };
             else delete base.num;
             out = base;
             changed = true;
@@ -1384,12 +1417,15 @@ export class IntelligenceNode {
             if (typeof before !== 'string' || isPlaceholder(before)) continue;
             const prevTpl = prev?.num?.tpl?.[field];
             const prevBasis = prev?.num?.basis?.[field] ?? null;
-            const g = gateText(type, typeof prevTpl === 'string' && prevTpl ? prevTpl : before, locale, nums, prevBasis, false, tacticalPrompts?.(locale), type === 'reality');
+            const prevDrivers = type === 'reality' && typeof prev?.num?.drivers?.[field] === 'string' ? prev.num!.drivers![field] : undefined;
+            const g = gateText(type, typeof prevTpl === 'string' && prevTpl ? prevTpl : before, locale, nums, prevBasis, false, tacticalPrompts?.(locale), type === 'reality', false, false, prevDrivers);
             if (!g.ok) continue;
             out = { ...out, [field]: g.text };
-            // Tactical 은 자리표가 없어도 기준값을 함께 옮긴다 — 상태 판정 낡음 비교(관문 10211010)
+            // Tactical 은 자리표가 없어도 기준값을 함께 옮긴다 — 상태 판정 낡음 비교(관문 10211010) · 재료 스냅샷도 같이(관문 10311057 ②)
             if (g.tpl !== g.text || (type === 'reality' && !!prevBasis)) {
-                const num: VerdictNumbers = { tpl: { ...(out.num?.tpl || {}), [field]: g.tpl }, basis: { ...(out.num?.basis || {}), [field]: prevBasis } };
+                const drivers = { ...(out.num?.drivers || {}) };
+                if (prevDrivers) drivers[field] = prevDrivers; else delete drivers[field];
+                const num: VerdictNumbers = { tpl: { ...(out.num?.tpl || {}), [field]: g.tpl }, basis: { ...(out.num?.basis || {}), [field]: prevBasis }, ...(Object.keys(drivers).length ? { drivers } : {}) };
                 out = { ...out, num };
             }
         }
@@ -1429,7 +1465,7 @@ export class IntelligenceNode {
                 const basis = { ...(verdict.num?.basis || {}) };
                 if (keep) { tpl.description = g.tpl; basis.description = stored.basis ?? null; } else { delete tpl.description; delete basis.description; }
                 const out = { ...verdict, description: g.text } as V & { num?: VerdictNumbers };
-                if (Object.keys(tpl).length) out.num = { tpl, basis }; else delete out.num;
+                if (Object.keys(tpl).length) out.num = { tpl, basis, ...(verdict.num?.drivers ? { drivers: verdict.num.drivers } : {}) }; else delete out.num;
                 return out;
             }
             const redis = getRedis();
