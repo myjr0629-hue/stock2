@@ -1037,9 +1037,10 @@ export class IntelligenceNode {
         if (!redis) return { text: null };
         let data: { text?: string; updatedAt?: string; basis?: GNums | null; session?: TacticalSession } | null;
         try { data = await redis.get(getRedisKey('reality', locale)) as typeof data; } catch { return { text: null }; }   // 읽기 장애 — 본 시각 없음
-        if (!data?.text) return { text: null };
+        if (!data) return { text: null };
         const at = data.updatedAt ? Date.parse(data.updatedAt) : NaN;
         if (!Number.isFinite(at)) return { text: null };
+        if (!data.text) return { text: null, seenAt: at };   // 본문 빈 저장본도 «본 것» — 같은 글로 채택 경로를 반복하며 재생성을 막지 않게(관문 10310855)
         if (at > now || etDateOf(at) !== etDateOf(now) || data.session !== 'REG' || at <= newerThan) return { text: null, seenAt: at };
         const basis = data.basis && typeof data.basis === 'object' ? data.basis : null;
         const prompt = prompts(locale);

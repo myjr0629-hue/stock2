@@ -304,6 +304,8 @@ class OfflineRedis {
             store.set('guardian:gemini:v3:reality:ko', { text: '옛 글', updatedAt: iso(now - 2 * MIN), session: 'PRE', basis: null });
             const r2 = await IntelligenceNode.adoptStoredRegReality(ctx as any, 0);
             assert.deepEqual(r2, { text: null, seenAt: now - 2 * MIN }, '원문 있음·세션 불일치 → 본 시각');
+            store.set('guardian:gemini:v3:reality:ko', { text: '', updatedAt: iso(now - 1 * MIN), session: 'REG', basis: null });
+            assert.deepEqual(await IntelligenceNode.adoptStoredRegReality(ctx as any, 0), { text: null, seenAt: now - 1 * MIN }, '본문 빈 저장본 → 본 시각(관문 10310855)');
         }
         console.log('통과 T35-B 장중 정기 재생성: 판정 경계·공용 예약(30분·8회·실패 대기·장애 0)·재계산 진입·실패 시 기존 글 유지·다른 언어 채택');
     } finally { Date.now = realNow; }
