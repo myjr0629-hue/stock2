@@ -34,8 +34,8 @@ test('① 원인 기사 — 장 마감 시장 기사는 통과, 개별 회사 �
 
 test('② FedWatch — 신선도 96시간·1주 전 기준은 지금 기준 7~12일(화면 카드와 같은 창)', () => {
     const now = Date.parse('2026-10-31T00:39:00Z');
-    const latest = { ease: 0, noChange: 28, hike: 72, scrapedAt: '2026-10-30T22:53:18.960Z' };
-    const week = { ease: 0, noChange: 90.6, hike: 9.4, at: '2026-10-24T00:08:22.941Z' };
+    const latest = { ease: 0, noChange: 28, hike: 72, scrapedAt: '2026-10-30T22:53:18.960Z', nextMeetingDate: 'Dec 10, 2026' };
+    const week = { ease: 0, noChange: 90.6, hike: 9.4, at: '2026-10-24T00:08:22.941Z', meeting: 'Dec 10, 2026' };
     assert.deepEqual(tacticalFedwatchFrom(latest, week, now), { hike: 72, hold: 28, cut: 0, weekAgoHike: 9.4, at: '2026-10-30T22:53:18.960Z' });
     // 지금 기준 7일이 안 된 기준은 1주 전이 아니다(0 으로 메우지 않고 null)
     assert.equal(tacticalFedwatchFrom(latest, week, Date.parse('2026-10-30T23:30:00Z'))!.weekAgoHike, null);
@@ -369,6 +369,23 @@ test('⑬ 관문 10311118 — 부호 붙은 수준·확률 숫자는 입력 값 
     // 저장본 스냅샷 경로도 같은 함수
     const bad = ko('미국 10년물 금리 −4.94%' + tail);
     assert.ok(storedDriverReasons(bad, tacticalDriverSnapshot(p), bad).includes('tactical:driver-direction:us10y'));
+});
+
+test('⑭ 관문 10311121 — 그사이 FOMC 가 열려 «다음 회의»가 바뀌면 1주 전 확률을 쓰지 않는다(다른 회의 확률을 변화로 잇지 않게) · 회의 날짜 모르면 쓰지 않는다', () => {
+    const now = Date.parse('2026-10-31T00:39:00Z');
+    const latest = { ease: 0, noChange: 28, hike: 72, scrapedAt: '2026-10-30T22:53:18.960Z', nextMeetingDate: 'Dec 10, 2026' };
+    const week = { ease: 0, noChange: 90.6, hike: 9.4, at: '2026-10-24T00:08:22.941Z' };
+    assert.equal(tacticalFedwatchFrom(latest, { ...week, meeting: 'Dec 10, 2026' }, now)!.weekAgoHike, 9.4);
+    assert.equal(tacticalFedwatchFrom(latest, { ...week, meeting: '2026-12-10' }, now)!.weekAgoHike, 9.4, '표기가 달라도 같은 날짜면 같은 회의');
+    assert.equal(tacticalFedwatchFrom(latest, { ...week, meeting: 'Oct 29, 2026' }, now)!.weekAgoHike, null, '회의가 바뀌었다(10/29 회의 → 12/10 회의)');
+    assert.equal(tacticalFedwatchFrom(latest, week, now)!.weekAgoHike, null, '1주 전 행의 회의를 모르면 쓰지 않는다');
+    assert.equal(tacticalFedwatchFrom({ ...latest, nextMeetingDate: null }, { ...week, meeting: 'Dec 10, 2026' }, now)!.weekAgoHike, null);
+    // 1주 전 값이 없으면 프롬프트에 hikePctOneWeekAgo 가 없고, «9.4%에서 72%로 뛰었다»는 지어낸 변화로 탈락
+    const d = tacticalMacroDrivers({ fedwatch: tacticalFedwatchFrom(latest, { ...week, meeting: 'Oct 29, 2026' }, now), nowMs: now })!;
+    assert.equal(d.fedwatch!.weekAgoHikePct, undefined);
+    const p = prompt('ko', { macroDrivers: { ...context.macroDrivers, fedwatch: d.fedwatch } });
+    const r = checkTacticalOutput(ko('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch)이 9.4%에서 72%로 뛰었고, 공포·탐욕 지수 26(공포 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.'), 'ko', p);
+    assert.ok(r.some(x => x === 'tactical:why-unsupported-change' || x.startsWith('tactical:driver-')), r.join(','));
 });
 
 if (failed) { console.error(`${failed} failed`); process.exit(1); }

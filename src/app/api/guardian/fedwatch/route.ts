@@ -68,7 +68,7 @@ async function loadWeekAgo(nowMs: number = Date.now()): Promise<WeekAgo | null> 
         const c = await getFromCache<{ none?: boolean } & Partial<WeekAgo>>(WEEK_CACHE_KEY);
         if (c && typeof c === 'object') {
             if (c.none) return null;
-            const w = weekAgoFromRow({ ease: c.ease, noChange: c.noChange, hike: c.hike, timestamp: Date.parse(String(c.at ?? '')) }, nowMs);
+            const w = weekAgoFromRow({ ease: c.ease, noChange: c.noChange, hike: c.hike, timestamp: Date.parse(String(c.at ?? '')), nextMeetingDate: c.meeting }, nowMs);
             if (w) return w;      // 캐시된 기준이 아직 «1주 전»이면 그대로, 아니면(너무 낡음·깨짐) 다시 읽는다
         }
     } catch { /* 캐시 실패는 DB 로 */ }

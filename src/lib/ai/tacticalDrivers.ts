@@ -37,6 +37,22 @@ const WEEK_MAX_AGE_MS = 12 * 24 * 3600_000;
 
 const pct = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100 ? v : null);
 
+/** 두 «다음 FOMC» 날짜 표기가 같은 회의인가 — 둘 다 있어야 한다. 날짜로 읽히면 ET 날짜로, 아니면 공백·대소문자만 맞춰 원문 비교 */
+export function sameFomcMeeting(a: unknown, b: unknown): boolean {
+    if (typeof a !== 'string' || typeof b !== 'string' || !a.trim() || !b.trim()) return false;
+    // 달력 날짜만 비교 — ISO(YYYY-MM-DD…)는 앞 10자, 그 밖(«Dec 10, 2026»)은 Date.parse 가 현지 자정으로 읽으므로 현지 날짜 칸(시간대 차로 하루 밀리지 않게)
+    const ymd = (x: string) => {
+        const iso = x.trim().match(/^(\d{4}-\d{2}-\d{2})/)?.[1];
+        if (iso) return iso;
+        const d = new Date(Date.parse(x));
+        return Number.isFinite(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : null;
+    };
+    const ya = ymd(a), yb = ymd(b);
+    if (ya && yb) return ya === yb;
+    const norm = (x: string) => x.replace(/\s+/g, ' ').trim().toLowerCase();
+    return norm(a) === norm(b);
+}
+
 export function tacticalFedwatchFrom(latest: any, weekAgo: any, nowMs: number): TacticalFedwatch | null {
     if (!latest || typeof latest !== 'object') return null;
     const hike = pct(latest.hike), hold = pct(latest.noChange), cut = pct(latest.ease);
@@ -49,8 +65,9 @@ export function tacticalFedwatchFrom(latest: any, weekAgo: any, nowMs: number): 
         const wHike = pct(weekAgo.hike), wHold = pct(weekAgo.noChange), wCut = pct(weekAgo.ease);
         const wAt = Date.parse(String(weekAgo.at ?? ''));
         // «1주 전»은 지금 기준 7~12일 전 행만 — 화면 FedWatch 카드(/api/guardian/fedwatch 의 weekAgoFromRow)와 같은 창·같은 기준 시각
+        //   + 같은 회의(관문 10311121): 그사이 FOMC 가 열려 «다음 회의»가 바뀌었으면 1주 전 값은 다른 회의의 확률이다 — 회의 날짜를 모르면 쓰지 않는다(fail closed)
         if (wHike !== null && wHold !== null && wCut !== null && wHike + wHold + wCut > 0 && Number.isFinite(wAt)
-            && nowMs - wAt >= WEEK_MS - 60_000 && nowMs - wAt <= WEEK_MAX_AGE_MS && wAt < at) weekAgoHike = wHike;
+            && nowMs - wAt >= WEEK_MS - 60_000 && nowMs - wAt <= WEEK_MAX_AGE_MS && wAt < at && sameFomcMeeting(latest.nextMeetingDate, weekAgo.meeting)) weekAgoHike = wHike;
     }
     return { hike, hold, cut, weekAgoHike, at: new Date(at).toISOString() };
 }

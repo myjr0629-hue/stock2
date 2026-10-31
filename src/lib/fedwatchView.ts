@@ -19,7 +19,8 @@ export const WEEK_MAX_AGE_MS = 12 * 24 * 3600 * 1000;
 /** 기준 시각 표식을 «낡음»(호박색)으로 바꾸는 나이 — 평일 4~7회 스크랩 중 이만큼 비면 이상이다 */
 export const ASOF_STALE_MS = 6 * 3600 * 1000;
 
-export interface WeekAgo { ease: number; noChange: number; hike: number; at: string }
+/** meeting = 그 행의 «다음 FOMC» 날짜(스크래퍼 nextMeetingDate 원문) — 회의가 바뀐 1주 전 값을 «같은 확률의 변화»로 잇지 않게(Tactical 재료, 관문 10311121). 화면 카드는 쓰지 않는다 */
+export interface WeekAgo { ease: number; noChange: number; hike: number; at: string; meeting?: string }
 
 /**
  * DynamoDB FEDWATCH:latest 행 → 1주 전 기준. 쓸 수 없으면 null.
@@ -36,7 +37,8 @@ export function weekAgoFromRow(row: any, nowMs: number): WeekAgo | null {
     if (!Number.isFinite(ts)) return null;
     const age = nowMs - ts;
     if (age < WEEK_MS - 60_000 || age > WEEK_MAX_AGE_MS) return null;
-    return { ease, noChange, hike, at: new Date(ts).toISOString() };
+    const meeting = typeof row.nextMeetingDate === 'string' && row.nextMeetingDate.trim() ? row.nextMeetingDate.trim() : undefined;
+    return { ease, noChange, hike, at: new Date(ts).toISOString(), ...(meeting ? { meeting } : {}) };
 }
 
 /**
