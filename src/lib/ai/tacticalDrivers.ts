@@ -381,8 +381,10 @@ export function driverClaimReasons(text: string, drivers: string, observations =
             const decimals = (t.raw.match(/\.(\d+)/)?.[1].length) ?? 0;
             const unit = /bp/i.test(t.raw) ? 'bp' : /%/.test(t.raw) ? 'pct' : 'none';
             const allowed = roles[k] === 'week' ? (finite(m.sp.week) ? [{ v: m.sp.week as number, unit: 'pct' as const }] : []) : m.sp.values;
-            const ok = allowed.some(v => (v.unit === 'any' || unit === 'none' || v.unit === unit) && fits(num, decimals, v.v));
-            if (!ok) { out.push(`tactical:driver-value:${m.sp.id}`); return; }
+            const hit = allowed.find(v => (v.unit === 'any' || unit === 'none' || v.unit === unit) && fits(num, decimals, v.v));
+            if (!hit) { out.push(`tactical:driver-value:${m.sp.id}`); return; }
+            // 부호를 붙인 숫자는 맞춘 입력 값의 부호와 같아야 한다(관문 10311118 — 크기만 맞는 «10년물 −4.94%»·«-72% chance» 차단). 0 은 부호 판정 없음
+            if (t.sign && hit.v !== 0 && t.sign !== Math.sign(hit.v)) { out.push(`tactical:driver-direction:${m.sp.id}`); return; }
             if (m.sp.sign && t.sign && t.sign !== m.sp.sign) { out.push(`tactical:driver-direction:${m.sp.id}`); return; }
             // 부호를 붙인 변화량(«+4bp»)은 입력 변화량 부호와 같아야 한다(관문 10311028 ① — 크기만 맞고 부호가 반대인 «전일 대비 +4bp»)
             if (unit === 'bp' && t.sign && typeof m.sp.change === 'number' && m.sp.change !== 0 && t.sign !== Math.sign(m.sp.change)) { out.push(`tactical:driver-direction:${m.sp.id}`); return; }

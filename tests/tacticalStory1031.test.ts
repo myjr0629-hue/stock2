@@ -349,5 +349,27 @@ test('⑫ 관문 10311057 ① — 장후·휴장 섹터 등락은 «그 날짜 �
     assert.deepEqual(reg.sectors?.leaders, [{ en: 'Energy', etf: 'XLE', chgPct: 1 }]);
 });
 
+test('⑬ 관문 10311118 — 부호 붙은 수준·확률 숫자는 입력 값 부호와 대조(«10년물 −4.94%»·«-72% chance» 차단) · 정상 부호는 통과', () => {
+    const p = prompt('ko');
+    const w = (why: string) => checkTacticalOutput(ko(why), 'ko', p);
+    const tail = ', 공포·탐욕 지수 26(공포 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.';
+    assert.ok(w('미국 10년물 금리 −4.94%' + tail).includes('tactical:driver-direction:us10y'));
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) -72%' + tail).includes('tactical:driver-direction:fedwatch'));
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수 −26(공포 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.').includes('tactical:driver-direction:feargreed'));
+    const en = (why: string) => checkTacticalOutput(['In the 10/30 cash session Nasdaq Composite fell 2.9% and S&P 500 fell 1.8%; futures change since that close is unconfirmed.', why,
+        'Market health (RLSI 30.8) is weak, so rebounds lack support, and options positioning (GEX +8) is neutral.',
+        'The next test is the S&P 500 put floor at 7500: below it dealer hedging amplifies swings, above it the cushion holds.'].join(' '), 'en', prompt('en'));
+    assert.ok(en('Markets now price a -72% chance of a hike at the next FOMC (FedWatch), with the Fear & Greed index at 26 (fear).').includes('tactical:driver-direction:fedwatch'));
+    const ja = (why: string) => checkTacticalOutput(['本日(10/30)の通常取引でナスダック総合は2.9%、S&P500は1.8%下落し、現在の取引終了後の先物変化は未確認です。', why,
+        '市場の健全度(RLSI 30.8)が弱く反発を支える力が乏しく、オプション・ポジション(GEX +8)は中立です。',
+        '次の分岐点はS&P500のプット・フロア7500で、その下ではディーラーのヘッジが値動きを増幅します。'].join(''), 'ja', prompt('ja'));
+    assert.ok(ja('米10年債利回り−4.94%の中で恐怖・強欲指数26(恐怖ゾーン)とリスク回避が深まりました。').includes('tactical:driver-direction:us10y'));
+    // 정상 — 부호 없는 수준 · 음수 변화량(−4bp) · 음수 섹터(−7%)
+    assert.ok(!w('미국 10년물 금리 4.94%(전일 대비 −4bp 하락)와 공포·탐욕 지수 26(공포 구간) 속에 에너지(XLE) +1.9%만 오르고 반도체(SMH) −7%가 밀렸습니다.').some(r => r.startsWith('tactical:driver')));
+    // 저장본 스냅샷 경로도 같은 함수
+    const bad = ko('미국 10년물 금리 −4.94%' + tail);
+    assert.ok(storedDriverReasons(bad, tacticalDriverSnapshot(p), bad).includes('tactical:driver-direction:us10y'));
+});
+
 if (failed) { console.error(`${failed} failed`); process.exit(1); }
 console.log('통과 tacticalStory1031');
