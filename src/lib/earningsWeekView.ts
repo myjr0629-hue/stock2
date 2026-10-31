@@ -88,7 +88,8 @@ export function viewRow(r: EarningsWeekRow, loc: Loc, data: Pick<EarningsWeekDat
       });
       const implied = e ? c.actual.implied({ day: mdw(e.session, loc), expiry: e.expiry ? md(e.expiry) : null, live: e.basis === 'live' }) : null;
       actual = { value, headline: `${c.actual.word} ${value}`, vs: e ? c.actual.vs(expectedPctText(e.pct)) : null, src: implied ? `${closes} · ${implied}` : closes };
-    } else {
+    } else if (!r.calendarOnly) {
+      // [T40] 캘린더 전용 행은 영수증 크론 대상이 아니라 기록이 생기지 않는다 — «마감 뒤 표시» 안내를 달지 않는다(값 없음 = 기존 빈칸).
       const rs = reactionSessions(r.date, r.hour);
       if (rs && !isReactionFinal(rs.react, nowMs)) actualPending = c.actual.pending({ md: mdw(rs.react, loc) });
     }

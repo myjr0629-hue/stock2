@@ -58,6 +58,8 @@ export interface EarningsWeekRow {
   expectedAtReport?: ExpectedSnap | null;
   /** 발표 다음 정규장 마감 뒤 계산한 실제 반응(종가 대 종가) — 아직이면 null/없음 */
   actual?: ActualMove | null;
+  /** [T40] 캘린더 표시 전용 행(lib/earningsCalendarOnly) — 영수증(실제 반응) 크론 대상이 아니다(«마감 뒤 표시» 안내를 달지 않는다) */
+  calendarOnly?: true;
 }
 
 export interface EarningsWeekData {
@@ -141,6 +143,7 @@ async function calendarOnlyWeekRows(range: WeekRange, today: string, list: reado
         maxPain: null, callWall: null, putFloor: null,
         levelsExpiry: null, levelsChainDate: null, levelsAsOf: null,
         expectedAtReport: null, actual: null,
+        calendarOnly: true,
       };
     });
   } catch { return []; }

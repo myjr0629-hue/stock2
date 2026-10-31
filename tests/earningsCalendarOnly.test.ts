@@ -247,6 +247,18 @@ const EXTRA = LIB.CALENDAR_ONLY_EARNINGS.map((c) => c.ticker);
     const cmp = (a: any, b: any) => a.date.localeCompare(b.date) || rank(a.hour) - rank(b.hour) || a.ticker.localeCompare(b.ticker);
     for (let i = 1; i < wCal.rows.length; i++) assert.ok(cmp(wCal.rows[i - 1], wCal.rows[i]) < 0, `${wCal.rows[i - 1].ticker} ≥ ${wCal.rows[i].ticker}`);
   });
+  await t('발표 완료된 캘린더 전용 행 — «마감 뒤 표시» 안내 없음(일반 행은 기존대로)', () => {
+    const { viewRow } = require('../src/lib/earningsWeekView') as typeof import('../src/lib/earningsWeekView');
+    const shop = wCal.rows.find((r) => r.ticker === 'SHOP')!;
+    assert.equal(shop.calendarOnly, true);
+    const doneAt = Date.parse('2026-11-03T15:00:00Z');   // 11/3 11:00 ET — 장전 발표 완료, 반응일 정규장 진행 중
+    for (const l of ['ko', 'en', 'ja'] as const) {
+      assert.equal(viewRow(shop, l, wCal, doneAt).actualPending, null);
+      const normal = { ...shop, calendarOnly: undefined };
+      assert.ok(viewRow(normal, l, wCal, doneAt).actualPending, '일반 행은 기존 안내가 나와야 한다');
+    }
+    for (const r of wCal.rows.filter((x) => !EXTRA.includes(x.ticker))) assert.equal(r.calendarOnly, undefined);
+  });
   await t('calendarOnly — 신규 종목 실제 반응 키를 읽지 않는다', () => {
     assert.deepEqual(redisKeysRead.filter((k) => k.startsWith('earnings:actuals') && EXTRA.some((x) => k.includes(`:${x}:`))), []);
   });
