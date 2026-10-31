@@ -129,13 +129,20 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     const next = (c: any): any => ({ v: 1, at: NOW, day: '2026-10-31', cells: { [key]: c } });
     const rows = [{ ticker: 'AAPL', date: AFTER, hour: 'amc' }];
     const oldMonthly = { p: 5.5, e: M, b: 'eod', s: '2026-10-29', r: null };
-    const oldFirst = { p: 4.3, e: E1, b: 'eod', s: '2026-10-29', r: null };
+    const oldFirst = { p: 4.3, e: E1, b: 'eod', s: '2026-10-29', r: null, f: E1 };
+    const oldUnmarked = { p: 4.3, e: E1, b: 'eod', s: '2026-10-29', r: null };
     let merged = EI.mergeImpliedPacks(next({ p: null, e: null, b: null, s: null, r: 'no_straddle', f: E1 }), prev(oldMonthly), NOW, rows);
     assert.equal(merged.cells[key].p, null, '직전 월물 값은 첫 만기 값이 아니다');
     merged = EI.mergeImpliedPacks(next({ p: null, e: null, b: null, s: null, r: 'no_straddle', f: E1 }), prev(oldFirst), NOW, rows);
     assert.equal(merged.cells[key].p, 4.3); assert.equal(merged.cells[key].k, 1);
     merged = EI.mergeImpliedPacks(next({ p: null, e: null, b: null, s: null, r: 'read_failed' }), prev(oldFirst), NOW, rows);
     assert.equal(merged.cells[key].p, 4.3, '시간 초과로 못 읽은 칸 — 확인된 값 유지');
+    merged = EI.mergeImpliedPacks(next({ p: null, e: null, b: null, s: null, r: 'read_failed' }), prev(oldUnmarked), NOW, rows);
+    assert.equal(merged.cells[key].p, null, '첫 만기 표식 없는 옛 칸은 시간 초과 때도 잇지 않는다');
+    merged = EI.mergeImpliedPacks(next({ p: null, e: null, b: null, s: null, r: 'no_straddle', f: E1 }), prev(oldUnmarked), NOW, rows);
+    assert.equal(merged.cells[key].p, 4.3, '이번 읽기가 첫 만기를 확인하면 같은 만기의 옛 칸은 잇는다');
+    assert.equal(EI.impliedPackStale(prev(oldUnmarked), NOW), true, '표식 이전 묶음은 바로 다시 만든다');
+    assert.equal(EI.impliedPackStale(prev(oldFirst), NOW), false);
     console.log('✓ ⑤ 묶음 병합: 같은 첫 만기만 잇고, 시간 초과 칸은 기존대로 유지');
 
     // ⑥ 수집기 체인 경로 — 첫 만기 다리가 불완전하면 다음 만기(11/6)로 넘어가지 않는다

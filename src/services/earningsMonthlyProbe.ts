@@ -50,12 +50,13 @@ export async function earningsEventObservation(
       && (!requirePost || (sameDay ? im.expiry >= after : im.expiry > after)) && age >= 0 && age <= 5;
   };
   // 저장 때 확인한 첫 만기. 옛 저장본(first 없음)은 만든 규칙으로 판단한다 — weekly·event-split 은 «첫 만기 조회 성공»으로만
-  //   저장됐다. monthly 는 «첫 만기가 월물»일 수도, «첫 만기 실패 뒤 월물 대체»일 수도 있어 모름(null).
+  //   저장됐다. monthly 는 «첫 만기가 월물»일 수도, «첫 만기 실패 뒤 월물 대체»일 수도 있어 모름(null) — 그 값은 내지 않는다.
   let first: string | null = typeof cached?.first === 'string' && ISO.test(cached.first) ? cached.first
-    : valid(stored) && stored.method && stored.method !== 'monthly' ? stored.expiry : null;
+    : valid(stored) && (stored as EarningsMove).method !== 'monthly' ? stored.expiry : null;
   // 첫 만기를 알면 그 만기의 저장본만 «이전 값»이다(뒤 만기 저장본은 이어 쓰지 않는다).
   const previous = () => valid(stored) && (!first || stored.expiry === first) ? stored : null;
-  const out = (im: EarningsMove | null): EarningsObservation => ({ im, first });
+  // 내보내는 값은 «첫 만기로 확인된 관측»뿐 — 첫 만기를 모르는 옛 월물 저장본은 값으로 내지 않는다(관문 10311136 ①).
+  const out = (im: EarningsMove | null): EarningsObservation => ({ im: im && first && im.expiry === first ? im : null, first });
   // EOD 체인은 세션마다 한 번 바뀐다 — 마지막으로 끝난 정규장 세션의 관측이 이미 있으면 다시 조회하지 않는다
   // (운영 검토 10/20: 모든 행 매시 재조회 = 공급사 호출 약 12배). 값이 없거나 옛 세션이면 기존처럼 1시간 간격.
   //   첫 만기를 모르는 옛 저장본은 «최신»으로 보지 않는다 — 다음 갱신이 만기 목록을 한 번 확인한다.

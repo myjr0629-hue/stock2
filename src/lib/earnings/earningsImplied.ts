@@ -124,6 +124,9 @@ export function attachImplied<R extends { ticker: string; date: string; hour?: s
 /** 묶음이 «다시 만들 때가 됐나» — 장중(뉴욕 09:30~16:00 평일)은 5분, 그 밖은 60분, 날짜가 바뀌면 바로. */
 export function impliedPackStale(pack: ImpliedPack | null | undefined, nowMs: number = Date.now()): boolean {
   if (!pack || pack.v !== 1 || !(pack.at > 0)) return true;
+  // [10/31] 첫 만기 표식(f) 이전 코드가 만든 묶음은 바로 다시 만든다 — 옛 칸이 표시에 오래 남지 않게(배포 직후 한 번).
+  const cells = pack.cells && typeof pack.cells === 'object' ? Object.values(pack.cells) : [];
+  if (cells.some((c) => c?.p != null) && !cells.some((c) => typeof c?.f === 'string')) return true;
   if (pack.day !== etDateOf(nowMs)) return true;
   const age = nowMs - pack.at;
   return age > (isRegularHoursET(nowMs) ? 5 * 60_000 : 60 * 60_000);
@@ -182,9 +185,10 @@ export function mergeImpliedPacks(next: ImpliedPack, prev: ImpliedPack | null | 
     if (c.p != null || !CARRY_REASONS.has(String(c.r))) continue;
     const old = prev.cells[key];
     if (!old || !(typeof old.p === 'number' && old.p > 0) || !old.e || old.e < today) continue;
-    // [10/31] 이번 읽기가 첫 만기를 알면 그 만기의 직전 값만 잇는다(뒤 만기 값은 첫 만기 값이 아니다).
-    //   첫 만기를 모르는 칸(시간 초과로 못 읽은 read_failed 등)은 기존대로 잇는다 — 확인된 값을 갱신 실패로 지우지 않는다.
-    if (c.f && old.e !== c.f) continue;
+    // [10/31] 잇는 값은 «발표 직후 첫 만기»로 확인된 값뿐: 이번 읽기가 첫 만기를 알면 그 만기의 값만,
+    //   모르면(시간 초과로 못 읽은 read_failed 등) 직전 칸이 첫 만기 표식(f = e)을 가진 값만 — 확인된 값은 갱신 실패로 지우지 않고,
+    //   표식 없는 옛 칸(뒤 월물 대체였을 수 있다)은 잇지 않는다(관문 10311136 ②).
+    if (c.f ? old.e !== c.f : old.f !== old.e) continue;
     const eventDate = key.split('|')[1];
     // Unknown timing is conservative; only the current BMO row permits equality.
     const event = events.get(key) ?? { date: eventDate };
