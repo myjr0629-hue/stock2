@@ -236,7 +236,9 @@ export function driversForPrompt(d: TacticalMacroDrivers | undefined, locale: 'k
  * ──────────────────────────────────────────────────────────────────────────── */
 
 interface DriverSpec { id: string; re: RegExp; values: Array<{ v: number; unit: 'pct' | 'bp' | 'any' }>; change?: number | null; sign?: number; prob?: boolean; hold?: number; cut?: number; week?: number | null; zone?: string; names?: string[]; others?: string[] }
-const PROB_RE = /(?:금리\s*)?(?:인상|동결|인하)\s*확률|확률|chance of a (?:rate )?(?:hike|hold|cut)|(?:hike|hold|cut|rate[- ]hike) (?:odds|probability|chance)|(?:利上げ|据え置き|利下げ)(?:の)?確率|確率|FedWatch/gi;
+// 관문 10311124 — «확률» 외에 «가능성·odds/probability/likelihood of a hike·可能性»도 같은 지표 이름(«인상 가능성은 26%»(26 = 공포탐욕) 차단).
+//   «가능성» 단독은 넣지 않는다(«반등 가능성» 등 금리 경로가 아닌 말) — 인상·동결·인하가 붙을 때만
+const PROB_RE = /(?:금리\s*)?(?:인상|동결|인하)\s*(?:확률|가능성)|확률|(?:chance|odds|probability|likelihood) of an? (?:rate )?(?:hike|hold|cut|increase|reduction)|(?:hike|hold|cut|rate[- ]hike) (?:odds|probability|chance|likelihood)|(?:利上げ|据え置き|利下げ)(?:の)?(?:確率|可能性)|確率|FedWatch/gi;
 const DIR_UP = /상승|올라|올랐|오른|오르|높아|뛰었|뛰어|뛰며|급등|늘어|반등|\b(?:rose|risen|rising|rises|up|higher|climb\w*|jump\w*|surg\w*|increas\w*|gain\w*)\b|上昇|上が|高ま|跳ね上が|急上昇/i;
 const DIR_DOWN = /하락|내려|내렸|내린|낮아|떨어|밀려|밀리|급락|줄어|\b(?:fell|fallen|falling|falls|down|lower|declin\w*|drop\w*|slid|slipp\w*|decreas\w*|eased)\b|下落|低下|下が|急低下/i;
 

@@ -388,5 +388,25 @@ test('⑭ 관문 10311121 — 그사이 FOMC 가 열려 «다음 회의»가 바
     assert.ok(r.some(x => x === 'tactical:why-unsupported-change' || x.startsWith('tactical:driver-')), r.join(','));
 });
 
+test('⑮ 관문 10311124 — «인상 가능성·odds of a hike·利上げの可能性»도 확률 지표 이름(다른 지표 숫자 26 빌리기 차단) · 정상 값은 통과', () => {
+    const p = prompt('ko');
+    const w = (why: string) => checkTacticalOutput(ko(why), 'ko', p);
+    const tail = ', 공포·탐욕 지수 26(공포 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.';
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 가능성은 26%' + tail).includes('tactical:driver-value:fedwatch'));
+    assert.ok(!w('시장이 반영한 다음 FOMC 금리 인상 가능성은 72%' + tail).some(r => r.startsWith('tactical:driver')));
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 동결 가능성은 72%' + tail).includes('tactical:driver-value:fedwatch:hold'));
+    assert.ok(!w('반등 가능성이 낮은 가운데 시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%' + tail).some(r => r.startsWith('tactical:driver')), '«반등 가능성»은 금리 경로가 아니다');
+    const en = (why: string) => checkTacticalOutput(['In the 10/30 cash session Nasdaq Composite fell 2.9% and S&P 500 fell 1.8%; futures change since that close is unconfirmed.', why,
+        'Market health (RLSI 30.8) is weak, so rebounds lack support, and options positioning (GEX +8) is neutral.',
+        'The next test is the S&P 500 put floor at 7500: below it dealer hedging amplifies swings, above it the cushion holds.'].join(' '), 'en', prompt('en'));
+    assert.ok(en('Markets now see the odds of a hike at the next FOMC at 26%, with the Fear & Greed index at 26 (fear).').includes('tactical:driver-value:fedwatch'));
+    assert.ok(!en('Markets now see the odds of a hike at the next FOMC at 72%, with the Fear & Greed index at 26 (fear).').some(r => r.startsWith('tactical:driver')));
+    const ja = (why: string) => checkTacticalOutput(['本日(10/30)の通常取引でナスダック総合は2.9%、S&P500は1.8%下落し、現在の取引終了後の先物変化は未確認です。', why,
+        '市場の健全度(RLSI 30.8)が弱く反発を支える力が乏しく、オプション・ポジション(GEX +8)は中立です。',
+        '次の分岐点はS&P500のプット・フロア7500で、その下ではディーラーのヘッジが値動きを増幅します。'].join(''), 'ja', prompt('ja'));
+    assert.ok(ja('市場が織り込む次回FOMCの利上げの可能性は26%で、恐怖・強欲指数26(恐怖ゾーン)とリスク回避が深まりました。').includes('tactical:driver-value:fedwatch'));
+    assert.ok(!ja('市場が織り込む次回FOMCの利上げの可能性は72%で、恐怖・強欲指数26(恐怖ゾーン)とリスク回避が深まりました。').some(r => r.startsWith('tactical:driver')));
+});
+
 if (failed) { console.error(`${failed} failed`); process.exit(1); }
 console.log('통과 tacticalStory1031');
