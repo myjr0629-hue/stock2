@@ -2,7 +2,7 @@ import { tacticalFuturesDirection } from './tacticalFuturesRules';
 import { guardianTokenRules, type GNums } from './guardianNumbers';
 import { buildIndexFacts, sessionIndexFacts, tacticalSessionAt, type IndexFact, type TacticalSession } from './tacticalIndexFacts';
 import { filterTacticalCauseHeadlines } from './tacticalNews';
-import { driversForPrompt, type TacticalMacroDrivers } from './tacticalDrivers';
+import { driversForPrompt, driverClaimReasons, type TacticalMacroDrivers } from './tacticalDrivers';
 import { SECTOR_NAME_EN, SECTOR_NAME_JA } from './sectorLabels';
 import { lastClosedSessionDate } from '@/lib/marketSession';
 import { checkNumberGrounding } from './depthNumbers';
@@ -612,6 +612,8 @@ export function checkTacticalTranslated(text: string, locale: Locale, prompt: st
     const numericText = Object.values(INDEX_ALIASES).reduce((t, re) => t.replace(new RegExp(re), ' '), text);
     if (checkNumberGrounding(numericText, numericEvidence).ungrounded.length) reasons.push('tactical:number');
     reasons.push(...claimReasons(text, 'tactical'));
+    // ★10/31 재료 지표 숫자·방향은 번역본도 같은 계약(숫자 계약은 새 생성과 같게 — 위 머리말)
+    reasons.push(...driverClaimReasons(sentences.slice(1).join(' '), promptEvidence(prompt).drivers, observationsOf(data)));
     if (locale !== 'en' && !checkAmounts(data, text, locale).ok) reasons.push('tactical:amount');
     return [...new Set(reasons)];
 }
@@ -630,6 +632,11 @@ export function whyCompanyReasons(text: string, data: string): string[] {
         if (!grounded) out.push(c.ticker);
     }
     return out;
+}
+
+/** 프롬프트 데이터의 OBSERVATIONS 줄(JSON 문자열) — 재료 줄이 없는 옛 프롬프트의 10년물·공포탐욕 대조용 */
+function observationsOf(data: string): string {
+    return data.split('\n').find(l => l.startsWith('OBSERVATIONS: '))?.slice('OBSERVATIONS: '.length) ?? '';
 }
 
 /** 금리 경로 확률의 «변화» 서술(1주 전 값이 있을 때만 쓸 수 있다) */
@@ -669,6 +676,8 @@ export function checkTacticalOutput(text: string, locale: Locale, prompt: string
         // 인용만 하고 지표가 없어도 통과 — 단 MACRO_DRIVERS 가 있는데 숫자를 하나도 안 썼다면 «소재를 지표로» 풀지 않은 것
         if (validCitation && drivers && driverNumbers === 0) reasons.push('tactical:why-drivers-required');
     } else if (!UNKNOWN.test(why) || cites.length || dates.length) reasons.push('tactical:unconfirmed-cause-required');
+    // 관문 10311015 — 재료 숫자·방향은 «그 지표의 값»과 대조(전체 숫자 대조는 다른 지표의 숫자를 빌려도 통과했다)
+    reasons.push(...driverClaimReasons(sentences.slice(1).join(' '), drivers, observationsOf(data)));
     // 원인 서술 속 회사 이름은 입력(보도·일정·관측)에 있는 회사만 — 10/31 실모델이 «Alphabet, Amazon and Intel» 보도를 «애플·아마존·인텔»로 옮겼다
     if (whyCompanyReasons(sentences.slice(1, Math.max(2, sentences.length - 1)).join(' '), data).length) reasons.push('tactical:why-company-ungrounded');
     // 1주 전 값이 없는데 확률이 «올랐다»고 쓰면 지어낸 변화다(10/31 실모델 «72%로 높아져» — 입력엔 지금 값뿐)

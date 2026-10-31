@@ -16,6 +16,7 @@
 import { isTacticalCauseHeadline, isCompanyLedTitle } from './tacticalNews';
 import { etDateOf } from '@/lib/marketCalendar';
 import { textIntegrityReasons } from './textIntegrity';
+import { valueTokens } from './claimChecks';
 
 export interface TacticalFedwatch {
     /** 다음 FOMC 인상·동결·인하 확률(%) */
@@ -198,4 +199,111 @@ export function driversForPrompt(d: TacticalMacroDrivers | undefined, locale: 'k
         ...(d.fearGreed ? { 'CNN Fear & Greed index': { score: d.fearGreed.score, zone: d.fearGreed.zone } } : {}),
         ...(sec && (sec.leaders.length || sec.laggards.length) ? { [d.sectors?.live ? 'sector moves (current cash session, vs previous close)' : 'sector moves (that completed cash session)']: sec } : {}),
     };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★2026-10-31 관문 10311015 — 재료 숫자는 «그 지표의 값»이어야 한다(지표별 대조).
+ *   전체 숫자 대조(depthNumbers)는 «입력 어딘가에 있는 숫자»만 본다 → «인상 확률 26%»(26 = 공포탐욕) · «공포·탐욕 72»(72 = 확률)
+ *   · «10년물 금리 30.8%»(30.8 = RLSI)가 통과했다. 여기서는 지표 이름이 나온 자리마다 그 바로 뒤(영어는 바로 앞도) 숫자를
+ *   그 지표의 입력 값과 쓴 자릿수로 반올림해 대조하고, 방향어(상승·하락)는 입력 변화량의 부호와 대조한다.
+ *   지표 이름이 없는 숫자·모르는 모양은 판정하지 않는다(기존 검사가 맡는다).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface DriverSpec { id: string; re: RegExp; values: Array<{ v: number; unit: 'pct' | 'bp' | 'any' }>; change?: number | null; sign?: number; prob?: boolean; hold?: number; cut?: number }
+const PROB_RE = /(?:금리\s*)?(?:인상|동결|인하)\s*확률|확률\s*\(FedWatch\)|FedWatch[^.\d%]{0,12}확률|chance of a (?:rate )?(?:hike|hold|cut)|(?:hike|hold|cut|rate[- ]hike) (?:odds|probability|chance)|(?:利上げ|据え置き|利下げ)(?:の)?確率/gi;
+const DIR_UP = /상승|올라|올랐|오른|오르|높아|뛰었|뛰어|뛰며|급등|늘어|반등|\b(?:rose|risen|rising|rises|up|higher|climb\w*|jump\w*|surg\w*|increas\w*|gain\w*)\b|上昇|上が|高ま|跳ね上が|急上昇/i;
+const DIR_DOWN = /하락|내려|내렸|내린|낮아|떨어|밀려|밀리|급락|줄어|\b(?:fell|fallen|falling|falls|down|lower|declin\w*|drop\w*|slid|slipp\w*|decreas\w*|eased)\b|下落|低下|下が|急低下/i;
+
+function specsFrom(drivers: string, observations: string): DriverSpec[] {
+    let d: Record<string, any> = {}, o: Record<string, any> = {};
+    try { d = drivers ? JSON.parse(drivers) || {} : {}; } catch { d = {}; }
+    try { o = observations ? JSON.parse(observations) || {} : {}; } catch { o = {}; }
+    const out: DriverSpec[] = [];
+    const fw = d['next FOMC rate pricing (FedWatch, Fed funds futures)'];
+    if (fw && finite(fw.hikePct)) {
+        const week = finite(fw.hikePctOneWeekAgo) ? fw.hikePctOneWeekAgo : null;
+        // 인상·동결·인하는 이름으로 가른다(«인상 확률 28%»(28 = 동결) 통과 방지) — 1주 전 값은 인상에만 있다
+        out.push({ id: 'fedwatch', re: PROB_RE, prob: true, values: [fw.hikePct, ...(week !== null ? [week] : [])].filter(finite).map(v => ({ v, unit: 'pct' as const })),
+            change: week !== null ? fw.hikePct - week : null, hold: fw.holdPct, cut: fw.cutPct });
+    }
+    const y10 = d['US 10-year Treasury yield'];
+    const lvl10 = finite(y10?.levelPct) ? y10.levelPct : finite(o.us10y) ? o.us10y : null;
+    const chg10 = finite(y10?.changeBpVsPreviousClose) ? y10.changeBpVsPreviousClose : finite(o.us10yChangeBp) ? o.us10yChangeBp : null;
+    if (lvl10 !== null) out.push({ id: 'us10y', re: /10\s?년물|10[- ]?year|10年(?:債|物)/gi, values: [{ v: lvl10, unit: 'pct' }, ...(chg10 !== null ? [{ v: chg10, unit: 'bp' as const }] : [])], change: chg10 });
+    const y2 = d['US 2-year Treasury yield'];
+    if (finite(y2?.levelPct)) out.push({ id: 'us2y', re: /(?<!\d)2\s?년물|(?<!\d)2[- ]?year|(?<!\d)2年(?:債|物)/gi, values: [{ v: y2.levelPct, unit: 'pct' }] });
+    const fg = d['CNN Fear & Greed index'];
+    const fgScore = finite(fg?.score) ? fg.score : finite(o.fearGreedScore) ? o.fearGreedScore : null;
+    if (fgScore !== null) out.push({ id: 'feargreed', re: /공포\s?[·・&]?\s?탐욕|Fear\s?(?:&|and)\s?Greed|恐怖\s?[·・&]?\s?強欲/gi, values: [{ v: fgScore, unit: 'any' }] });
+    const sec = Object.entries(d).find(([k]) => k.startsWith('sector moves'))?.[1] as any;
+    for (const s of [...(sec?.leaders || []), ...(sec?.laggards || [])]) {
+        if (typeof s?.etf === 'string' && /^[A-Z]{2,5}$/.test(s.etf) && finite(s.chgPct))
+            out.push({ id: `sector:${s.etf}`, re: new RegExp(`\\(\\s*${s.etf}\\s*\\)|(?<![A-Za-z])${s.etf}(?![A-Za-z])`, 'g'), values: [{ v: s.chgPct, unit: 'pct' }], sign: Math.sign(s.chgPct) });
+    }
+    return out;
+}
+
+const BOUNDARY = /[;；。、!?！？]|[,，](?!\d)|\.(?!\d)/g;
+function clauseEnd(text: string, from: number): number {
+    BOUNDARY.lastIndex = from;
+    const m = BOUNDARY.exec(text);
+    return m ? m.index : text.length;
+}
+function clauseStart(text: string, to: number): number {
+    let at = 0;
+    for (const m of text.slice(0, to).matchAll(new RegExp(BOUNDARY.source, 'g'))) at = m.index! + 1;
+    return at;
+}
+const fits = (written: number, decimals: number, actual: number) => Math.abs(written - Number(Math.abs(actual).toFixed(decimals))) < 1e-9;
+
+/** 재료 지표 숫자·방향 대조 — 사유: tactical:driver-value:<id> · tactical:driver-direction:<id> · tactical:driver-unsupported-change:<id> */
+export function driverClaimReasons(text: string, drivers: string, observations = ''): string[] {
+    if (!text) return [];
+    const specs = specsFrom(drivers, observations);
+    if (!specs.length) return [];
+    const mentions = specs.flatMap(sp => [...text.matchAll(new RegExp(sp.re.source, sp.re.flags.includes('g') ? sp.re.flags : sp.re.flags + 'g'))]
+        // 스퀴즈 «확률»은 금리 경로 확률이 아니다
+        .filter(m => !(sp.prob && /스퀴즈|squeeze|スクイーズ/i.test(text.slice(Math.max(0, m.index! - 8), m.index!))))
+        .map(m => {
+            // 금리 경로 확률: «동결·hold·据え置き» = 동결 값만, «인하·cut·利下げ» = 인하 값만(변화 서술 불가), 그 밖 = 인상(+1주 전)
+            const kind = sp.prob ? (/동결|hold|据え置き/i.test(m[0]) ? 'hold' : /인하|cut|利下げ/i.test(m[0]) ? 'cut' : 'hike') : 'hike';
+            const own: DriverSpec = kind === 'hike' ? sp : { ...sp, id: `fedwatch:${kind}`, values: finite(sp[kind]) ? [{ v: sp[kind] as number, unit: 'pct' }] : [], change: null };
+            return { sp: own, at: m.index!, end: m.index! + m[0].length };
+        })).sort((a, b) => a.at - b.at);
+    const toks = valueTokens(text).filter(t => !t.exempt || /%|bp/i.test(t.raw));
+    const out: string[] = [];
+    mentions.forEach((m, i) => {
+        const stop = Math.min(clauseEnd(text, m.end), mentions.find((n, j) => j > i && n.at >= m.end)?.at ?? text.length);
+        let mine = toks.filter(t => t.index >= m.end && t.index < stop);
+        if (!mine.length) {
+            // 영어 «a 72% chance of a hike» — 이름 바로 앞 숫자(같은 절·다른 지표 이름 뒤가 아님·20자 안)
+            const from = Math.max(clauseStart(text, m.at), mentions.filter((n, j) => j < i).reduce((a, n) => Math.max(a, n.end), 0), m.at - 20);
+            const prev = toks.filter(t => t.index >= from && t.end <= m.at).slice(-1);
+            mine = prev;
+        }
+        if (!mine.length) return;
+        // 그 지표의 숫자 = 첫 숫자 + 바로 붙은 둘째(«4.94%(전일 대비 4bp» · «9.4%에서 72%로», 15자 안)까지 — 그 뒤 숫자는 다음 주어의 것(«rose to 4.94% as markets price a 72% chance»)
+        mine = mine.length > 1 && mine[1].index - mine[0].end <= 15 ? mine.slice(0, 2) : mine.slice(0, 1);
+        for (const t of mine) {
+            const num = Number((t.raw.match(/\d[\d,]*(?:\.\d+)?/) || ['NaN'])[0].replace(/,/g, ''));
+            const decimals = (t.raw.match(/\.(\d+)/)?.[1].length) ?? 0;
+            const unit = /bp/i.test(t.raw) ? 'bp' : /%/.test(t.raw) ? 'pct' : 'none';
+            const ok = m.sp.values.some(v => (v.unit === 'any' || unit === 'none' || v.unit === unit) && fits(num, decimals, v.v));
+            if (!ok) { out.push(`tactical:driver-value:${m.sp.id}`); return; }
+            if (m.sp.sign && t.sign && t.sign !== m.sp.sign) { out.push(`tactical:driver-direction:${m.sp.id}`); return; }
+        }
+        // 방향어 — 이름과 숫자 사이 + 마지막 숫자 바로 뒤 12자(다른 주어의 동사를 빌리지 않게)
+        if (m.sp.change !== undefined) {
+            const last = mine[mine.length - 1];
+            const span = text.slice(m.end, Math.min(stop, Math.max(last.end, m.end) + 12));
+            const before = m.at > last.index ? text.slice(last.end, m.at) : '';
+            const words = span + ' ' + before;
+            const up = DIR_UP.test(words), down = DIR_DOWN.test(words);
+            if (up || down) {
+                if (m.sp.change === null) out.push(`tactical:driver-unsupported-change:${m.sp.id}`);
+                else if ((up && !down && m.sp.change < 0) || (down && !up && m.sp.change > 0)) out.push(`tactical:driver-direction:${m.sp.id}`);
+            }
+        }
+    });
+    return [...new Set(out)];
 }
