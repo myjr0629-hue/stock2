@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const l = toLoc(locale);
   const c = COPY[l];
   const base = publicBase();
-  const data = await getEarningsWeek().catch(() => null);
+  const data = await getEarningsWeek({ calendarOnly: true }).catch(() => null);
   const range = data ? rangeText(data.range.start, data.range.end, l) : '';
   const top = data ? topLineOf(data, l) : null;
   const title = c.metaTitle(range).replace(/\s{2,}/g, ' ');
@@ -118,7 +118,7 @@ export default async function EarningsWeekPage({ params }: Params) {
   await markPageView('earnings_week', l);
   const c = COPY[l];
   const base = publicBase();
-  const data = await getEarningsWeek({ background: (p) => after(() => p) });
+  const data = await getEarningsWeek({ background: (p) => after(() => p), calendarOnly: true });
   const nowMs = Date.now();
   const range = rangeText(data.range.start, data.range.end, l);
   const rows = data.rows.map((r) => ({ r, v: viewRow(r, l, data, nowMs) }));

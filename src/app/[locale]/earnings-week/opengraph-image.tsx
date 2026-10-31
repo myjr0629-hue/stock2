@@ -55,7 +55,7 @@ async function cjkFont(loc: 'ko' | 'ja', text: string): Promise<ArrayBuffer | nu
 export default async function EarningsWeekOg({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const want: Loc = toLoc(locale);
-  const data = await getEarningsWeek().catch(() => null);
+  const data = await getEarningsWeek({ calendarOnly: true }).catch(() => null);
   const now = Date.now();
 
   // 글꼴 먼저 — 못 받으면 영어로

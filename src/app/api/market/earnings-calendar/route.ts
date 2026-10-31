@@ -12,6 +12,7 @@ import { getMarketEarningsCalendar, type EarningsCalendarResult } from '@/servic
 import { attachBriefs, briefEntryKey, briefNeedsFill, EARNINGS_BRIEF_KEY, type BriefPack } from '@/lib/earnings/earningsBrief';
 import { attachImplied, impliedPackStale } from '@/lib/earnings/earningsImplied';
 import { readImpliedPack, refreshImpliedPack } from '@/services/earningsImpliedService';
+import { attachCalendarOnlyImplied, calendarOnlyAddition } from '@/services/earningsCalendarOnlyService';
 import { publicBase } from '@/lib/net/publicBase';
 
 export type { EarningsRow } from '@/services/earningsCalendarService';
@@ -34,12 +35,13 @@ export const maxDuration = 60;
  *   «이 행»의 값·표와 같은 포맷으로 채운 뒤, 남은 숫자가 표와 다르면 그 언어 문구를 빼고 보낸다.
  *   캐시 적중·미스 모두 이 출구를 지난다 — lib/earnings/earningsBrief.ts attachBriefs.
  */
-async function attachEarningsBrief(rows: any[]): Promise<{ rows: any[]; aiCount: number; aiAt: string | null; aiBlocked: number; needFill: number }> {
+async function attachEarningsBrief(rows: any[], fillRows: any[] = rows): Promise<{ rows: any[]; aiCount: number; aiAt: string | null; aiBlocked: number; needFill: number }> {
     try {
         const pack = await getFromCache<BriefPack>(EARNINGS_BRIEF_KEY);
         // ★ [2026-10-12] 글이 없거나 언어가 빠진 행 — 크론(earnings-brief)과 같은 규칙(briefNeedsFill)으로 센다. 응답 «뒤»에 채우기를 부른다.
         //   [T30] 정식명 표에 있는 종목은 회사가 다른 글도 «채울 행»으로 센다(크론이 버리고 새로 만든다).
-        const needFill = rows.filter((r) => r?.ticker && r?.date && briefNeedsFill(pack?.entries?.[briefEntryKey(r.ticker, r.date)], r.ticker)).length;
+        //   [T40] 캘린더 전용 행은 세지 않는다(fillRows = 공통 행) — 크론은 공통 캘린더만 만들므로 세면 채우지도 못하는 호출만 반복된다.
+        const needFill = fillRows.filter((r) => r?.ticker && r?.date && briefNeedsFill(pack?.entries?.[briefEntryKey(r.ticker, r.date)], r.ticker)).length;
         if (!pack?.entries) return { rows, aiCount: 0, aiAt: null, aiBlocked: 0, needFill };
         const m = attachBriefs(rows, pack);
         if (m.blocked) console.warn(`[earnings-calendar] brief blocked ${m.blocked}: ${m.blockedSample.join(' · ')}`);
@@ -93,6 +95,7 @@ async function attachEarningsImplied(rows: any[]): Promise<{ rows: any[]; count:
 export async function GET(req: Request) {
   const deadlineMs = Date.now() + 50_000;
   const fresh = new URL(req.url).searchParams.get('fresh') === '1';
+  const calendarScope = new URL(req.url).searchParams.get('scope') === 'calendar';
   let r: EarningsCalendarResult;
   try {
     r = await getMarketEarningsCalendar({ fresh });
@@ -104,8 +107,9 @@ export async function GET(req: Request) {
   if (r.ok) {
     // 캘린더 캐시와 브리프는 수명이 다르다 — 응답 직전에 합친다(캐시에는 «브리프 없는» 원본).
     const raw = r.payload.rows || [];
-    const [m, im] = await Promise.all([attachEarningsBrief(raw), attachEarningsImplied(raw)]);
-    const impliedByKey = new Map(im.rows.map((x: any) => [`${x.ticker}|${x.date}`, x.implied ?? null]));
+    const add = calendarScope ? calendarOnlyAddition(raw) : { rows: raw, extra: [] as any[] };
+    const [m, im, ex] = await Promise.all([attachEarningsBrief(add.rows, raw), attachEarningsImplied(raw), attachCalendarOnlyImplied(add.extra)]);
+    const impliedByKey = new Map([...im.rows, ...ex.rows].map((x: any) => [`${x.ticker}|${x.date}`, x.implied ?? null]));
     const rows = m.rows.map((x: any) => ({ ...x, implied: impliedByKey.get(`${x.ticker}|${x.date}`) ?? null }));
     if (im.stale && raw.length) {
       afterSafe(async () => {
@@ -118,7 +122,7 @@ export async function GET(req: Request) {
     if (m.needFill > 0) afterSafe(() => triggerBriefFill(req.url));
     return NextResponse.json({
       ...r.payload, rows, aiCount: m.aiCount, aiAt: m.aiAt, aiBlocked: m.aiBlocked,
-      impliedCount: im.count, impliedAt: im.at,
+      impliedCount: im.count + ex.count, impliedAt: im.at,
       _cache: r.cache === 'miss' ? 'miss' : 'hit',
     });
   }
