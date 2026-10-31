@@ -100,6 +100,14 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     assert.equal(attached.pct, 4.3); assert.equal(attached.expiry, E1);
     const unmarked = { ...pack, cells: { [EI.impliedRowKey('AAPL', AFTER)]: { ...cell, f: undefined } } };
     assert.equal(EI.impliedForRow({ ticker: 'AAPL', date: AFTER, hour: 'amc' }, unmarked as any, NOW), null, '첫 만기 표식 없는 옛 칸은 내지 않는다');
+    // Money Map 칸: 행 칸 없음·표식 없는 옛 칸·묶음 없음 = «모름»(키 생략 — 앱 확인값 유지) · 표식 있는 칸만 값/null(관문 10311229 A)
+    assert.deepEqual(EI.moneyMapImpliedField({ ticker: 'ZZZ', date: AFTER, hour: 'amc' }, pack, NOW), {}, '묶음에 행 칸 없음 → 모름');
+    assert.deepEqual(EI.moneyMapImpliedField({ ticker: 'AAPL', date: AFTER, hour: 'amc' }, unmarked, NOW), {}, '표식 없는 옛 칸 → 모름');
+    assert.deepEqual(EI.moneyMapImpliedField({ ticker: 'AAPL', date: AFTER, hour: 'amc' }, null, NOW), {}, '묶음 못 읽음 → 모름');
+    const mf = EI.moneyMapImpliedField({ ticker: 'AAPL', date: AFTER, hour: 'amc' }, pack, NOW);
+    assert.equal(mf.implied?.pct, 4.3); assert.equal(mf.implied?.first, E1);
+    const nullCell = { ...pack, cells: { [EI.impliedRowKey('AAPL', AFTER)]: { ...cell, p: null } } };
+    assert.ok('implied' in EI.moneyMapImpliedField({ ticker: 'AAPL', date: AFTER, hour: 'amc' }, nullCell as any, NOW), '첫 만기 확인 칸의 값 없음 → null(서버 판단)');
     const receipt = await EAS.readEarningsObservation({ ticker: 'AAPL', date: AFTER, hour: 'amc' }, false);
     assert.equal(receipt?.impliedMovePct, 4.3); assert.equal(receipt?.expiry, E1);
     console.log('✓ ② 첫 만기 11/4 4.3% — 캘린더 묶음·implied-move API(after)·영수증 관측이 한 값');

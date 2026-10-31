@@ -210,3 +210,16 @@ export function mergeImpliedPacks(next: ImpliedPack, prev: ImpliedPack | null | 
   }
   return { ...next, cells };
 }
+
+/**
+ * [10/31] Money Map 행의 implied 칸 — 키 없음 = «모름»(앱이 직전 확인값을 잇는다) · null = 서버가 «첫 만기 값 없음»으로 정함.
+ *   묶음을 못 읽었거나, 묶음에 그 행 칸이 없거나, 첫 만기 표식(f) 없는 옛 칸이면 «모름» — 앱의 확인값을 null 로 지우지 않는다(관문 10311229 A).
+ *   first = 그 값이 «발표 직후 첫 만기»로 정해진 칸의 값이라는 표식(앱 복원 검사용).
+ */
+export function moneyMapImpliedField(r: { ticker: string; date: string; hour?: string | null }, pack: any, now?: number): { implied?: (ReturnType<typeof impliedForRow> & { first: string }) | null } {
+    if (!(pack && pack.v === 1 && pack.cells)) return {};
+    const cell = pack.cells[impliedRowKey(r.ticker, r.date)];
+    if (!cell?.f) return {};
+    const v = impliedForRow(r as any, pack, now);
+    return { implied: v ? { ...v, first: v.expiry } as any : null };
+}
