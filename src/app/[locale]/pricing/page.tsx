@@ -579,6 +579,12 @@ export default function PricingPage() {
                         )}
                     </div>
                 </div>
+                <p className="mt-4 text-center text-sm text-slate-300">
+                    {/* /app 은 언어 접두사 없는 설치 안내 경로 — next-intl Link 를 쓰면 /ko/app 으로 바뀐다(관문 11010710) */}
+                    <a href="/app?from=pricing" className="underline underline-offset-4">
+                        {t("appSubscriptionNote")}
+                    </a>
+                </p>
             </section>
             {/* ============================================================ */}
             {/* FOUNDING MEMBER FOMO BANNER */}
