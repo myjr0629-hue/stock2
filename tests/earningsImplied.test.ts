@@ -139,9 +139,9 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
 
   console.log('━━━ 2. 표시 ━━━');
   const pack = { v: 1 as const, at: ms(SUNDAY), day: '2026-10-11', cells: {
-    'JPM|2026-10-13': { p: 3.6, e: '2026-10-16', b: 'eod' as const, s: '2026-10-09', r: null },
-    'NFLX|2026-10-20': { p: 8.5, e: '2026-10-23', b: 'live' as const, s: '2026-10-20', r: null },
-    'OLD|2026-10-13': { p: 2.0, e: '2026-10-09', b: 'eod' as const, s: '2026-10-08', r: null },
+    'JPM|2026-10-13': { p: 3.6, e: '2026-10-16', b: 'eod' as const, s: '2026-10-09', r: null, f: '2026-10-16' },
+    'NFLX|2026-10-20': { p: 8.5, e: '2026-10-23', b: 'live' as const, s: '2026-10-20', r: null, f: '2026-10-23' },
+    'OLD|2026-10-13': { p: 2.0, e: '2026-10-09', b: 'eod' as const, s: '2026-10-08', r: null, f: '2026-10-09' },
     'CCI|2026-10-21': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
   } };
   t('값 → 화면 · 값 없음/만기 지남/묶음 없음은 null', () => {
@@ -272,7 +272,7 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
       ],
     });
     put(EI.EARNINGS_IMPLIED_KEY, { v: 1, at: ms('2026-10-12T12:58:00Z'), day: '2026-10-12', cells: {
-      'JPM|2026-10-13': { p: 3.6, e: '2026-10-16', b: 'eod', s: '2026-10-09', r: null },
+      'JPM|2026-10-13': { p: 3.6, e: '2026-10-16', b: 'eod', s: '2026-10-09', r: null, f: '2026-10-16' },
       'CCI|2026-10-21': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
     } });
     const { GET } = require('../src/app/api/market/earnings-calendar/route') as typeof import('../src/app/api/market/earnings-calendar/route');

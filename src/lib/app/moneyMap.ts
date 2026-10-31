@@ -13,7 +13,8 @@ export interface MapSectorSource {
 }
 export interface MapSources {
   sectors: MapSectorSource[];
-  earnings: Array<{ ticker: string; date: string; hour?: string | null; dateStatus?: string; implied: { pct: number; session: string | null; expiry: string; first?: string } | null }>;
+  /** implied: 없음(키 없음) = 서버가 묶음을 못 읽어 «모름» · null = 첫 만기 값 없음(서버 판단) */
+  earnings: Array<{ ticker: string; date: string; hour?: string | null; dateStatus?: string; implied?: { pct: number; session: string | null; expiry: string; first?: string } | null }>;
   earningsAt: string | null;
   earningsRange?: { from: string; to: string } | null;
   earningsStatus?: 'ok' | 'partial' | 'unavailable';
@@ -43,8 +44,10 @@ export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = 
     return { ...s, fiveDay: s.fiveDay || old?.fiveDay || null, premium: s.premium || old?.premium || null };
   }), earnings: (earnings?.earnings || []).map(r => {
     const old = prev?.earnings.find(p => p.ticker === r.ticker && p.date === r.date && p.hour === r.hour);
-    // [10/31] 이전 값은 «발표 직후 첫 만기»로 확인된 값(first = expiry)만 잇는다 — 표식 전 값(뒤 월물일 수 있다)은 잇지 않는다.
-    const fallback = old?.implied && old.implied.first && old.implied.first === old.implied.expiry ? validateRowImplied(r, { ...old.implied, basis: null }, now) : null;
+    // [10/31] 직전 값은 «서버가 묶음을 못 읽은» 행(implied 키 없음)에만, 그리고 «발표 직후 첫 만기»로 확인된 값(first = expiry)만 잇는다.
+    //   서버가 null 을 보냈으면(첫 만기 값 없음 — 더 이른 첫 만기가 확인됐을 수 있다) 잇지 않는다(관문 10311145 ③).
+    const fallback = r.implied === undefined && old?.implied && old.implied.first && old.implied.first === old.implied.expiry
+      ? validateRowImplied(r, { ...old.implied, basis: null }, now) : null;
     return { ...r, implied: validateRowImplied(r, r.implied ? { ...r.implied, basis: null } : fallback, now) };
   }), earningsAt: earnings?.earningsAt || null, earningsRange: earnings?.earningsRange || null,
   earningsStatus: earnings?.earningsStatus || (earnings ? 'partial' : 'unavailable'),

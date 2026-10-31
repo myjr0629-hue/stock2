@@ -97,7 +97,9 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     const [publicRow] = await IMS.readImpliedMoveRows([req('AAPL')]);
     assert.equal(publicRow.impliedMovePct, 4.3); assert.ok(!('firstExpiry' in publicRow), '공개 응답(API·실적 주간) 모양 불변');
     const attached = EI.impliedForRow({ ticker: 'AAPL', date: AFTER, hour: 'amc' }, pack, NOW)!;
-    assert.equal(attached.pct, 4.3); assert.equal(attached.first, E1);
+    assert.equal(attached.pct, 4.3); assert.equal(attached.expiry, E1);
+    const unmarked = { ...pack, cells: { [EI.impliedRowKey('AAPL', AFTER)]: { ...cell, f: undefined } } };
+    assert.equal(EI.impliedForRow({ ticker: 'AAPL', date: AFTER, hour: 'amc' }, unmarked as any, NOW), null, '첫 만기 표식 없는 옛 칸은 내지 않는다');
     const receipt = await EAS.readEarningsObservation({ ticker: 'AAPL', date: AFTER, hour: 'amc' }, false);
     assert.equal(receipt?.impliedMovePct, 4.3); assert.equal(receipt?.expiry, E1);
     console.log('✓ ② 첫 만기 11/4 4.3% — 캘린더 묶음·implied-move API(after)·영수증 관측이 한 값');
@@ -172,9 +174,12 @@ const row = async (ticker: string) => (await IMS.readImpliedMoveRows([req(ticker
     // ⑧ 앱 Money Map 복원 — 첫 만기 표식이 있는 값만 잇는다
     const src = (implied: any): any => ({ sectors: [], earnings: [{ ticker: 'AAPL', date: AFTER, hour: 'amc', implied }],
       earningsAt: new Date(NOW).toISOString(), earningsRange: { from: '2026-10-26', to: '2026-11-13' }, earningsStatus: 'ok', events: [], eventsAt: null, eventsRange: null });
-    const restored = MM.mergeMoneyMapSources(src(null), src({ pct: 4.3, session: SESSION, expiry: E1, first: E1 }), NOW);
+    const unknown = src(null); delete unknown.earnings[0].implied;   // 서버가 묶음을 못 읽음
+    const restored = MM.mergeMoneyMapSources(unknown, src({ pct: 4.3, session: SESSION, expiry: E1, first: E1 }), NOW);
     assert.equal(restored.earnings[0].implied?.pct, 4.3);
-    const notRestored = MM.mergeMoneyMapSources(src(null), src({ pct: 5.5, session: '2026-10-29', expiry: M }), NOW);
+    assert.equal(MM.mergeMoneyMapSources(src(null), src({ pct: 4.3, session: SESSION, expiry: E2, first: E2 }), NOW).earnings[0].implied, null,
+      '서버가 null 을 보내면(첫 만기 11/4 값 없음) 직전 11/6 값을 되살리지 않는다');
+    const notRestored = MM.mergeMoneyMapSources(unknown, src({ pct: 5.5, session: '2026-10-29', expiry: M }), NOW);
     assert.equal(notRestored.earnings[0].implied, null, '표식 없는 옛 값(월물 대체일 수 있다)은 잇지 않는다');
     console.log('✓ ⑧ 앱 복원: 첫 만기 확인값만');
     console.log('earningsFirstExpiryUnify: 8 scenarios passed');

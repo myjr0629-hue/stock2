@@ -129,7 +129,7 @@ export interface ImpliedMoveRow {
     eventMovePct?: number | null;
     /** 같은 관측의 ATM 스트래들/현물. 이벤트 분리값과 별도로 보존한다. */
     straddlePct?: number | null;
-    /** 실적 행(after) + opts.withFirstExpiry(묶음 갱신)만 — 값의 기준인 «발표 직후 첫 만기»(모르면 null). 묶음 병합이 같은 첫 만기 값만 이어 쓰게. */
+    /** 실적 행(after) + opts.withFirstExpiry(묶음 갱신)만 — 공급사 만기 목록에서 정한 «발표 직후 첫 만기»(모르면 null). 묶음 칸의 첫 만기 표식(f)이 된다. */
     firstExpiry?: string | null;
 }
 
@@ -509,19 +509,25 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
 
 /**
  * [10/31 첫 만기 통일] 실적 행(after)의 값은 «발표 직후 첫 만기» 하나뿐이다 — 실적 주간·일반 API(after)·캘린더 묶음·영수증이 같은 규칙.
- *   첫 만기 = 지금 알고 있는 실제 만기 중 발표 뒤 가장 이른 것: 공급사 만기 목록으로 확인한 첫 만기(관측 저장본의 first)·
- *   구조 사본의 만기 목록·각 후보 값의 만기를 모두 모아 그중 가장 이른 것(하나라도 더 이른 만기가 보이면 뒤 만기는 첫 만기가 아니다).
+ *   첫 만기 = 공급사 만기 목록에서 온 두 근거 중 발표 뒤 가장 이른 만기:
+ *     · 관측 저장본의 first — earningsMonthlyProbe 가 공급사 만기 «전체» 목록(options/expirations)에서 고른 첫 만기
+ *     · 구조 사본의 availableExpirations — 수집기(scripts/lambda-flow-harvest expirations = 어댑터 expirationsRequested,
+ *       공급사 목록의 0~35 DTE 창 전부)·구조 직접 조회(같은 목록의 앞 10개)에서 온 «오름차순·앞쪽 빠짐 없는» 목록.
+ *       그래서 이 목록에 발표 뒤 만기가 하나라도 있으면 그중 가장 이른 것이 실제 첫 만기다(뒤쪽만 잘린다).
+ *     · 수집기 체인의 실제 만기(chainFirst)도 같은 목록에서 왔으므로 함께 본다.
+ *   후보 «값»의 만기는 근거로 쓰지 않는다(값이 첫 만기를 정하지 않는다 — 관문 10311136 ①).
  *   그 만기가 아닌 값(뒤 주간·월물)은 버린다 — 대체 금지. 같은 첫 만기의 후보끼리는 기존 신선도 규칙(shouldUseEarningsObservation).
- *   첫 만기 값이 없으면 null(«—»). 마지막 정상값 유지는 관측 저장본(첫 만기 값만 이어 씀)·묶음 병합(같은 첫 만기만 이어 씀)이 맡는다.
+ *   첫 만기를 모르거나 그 만기 값이 없으면 null(«—»). 마지막 정상값 유지는 관측 저장본(그 첫 만기 값만 이어 씀)·
+ *   묶음 병합(첫 만기 표식 있는 값만 이어 씀)이 맡는다.
  */
 function pickFirstExpiryMove(after: string, timing: ImpliedTiming, today: string, structure: any, resolved: ResolvedImpliedMove, obs: EarningsObservation | null): ResolvedImpliedMove & { firstExpiry: string | null } {
     const known: string[] = [
         ...(Array.isArray(structure?.availableExpirations) ? structure.availableExpirations : []),
-        obs?.first, resolved.chainFirst, resolved.im?.expiry, obs?.im?.expiry,
+        obs?.first, resolved.chainFirst,
     ].filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today);
     const first = firstExpiryAfterDate(known, after, timing);
-    const fromResolved = resolved.im && resolved.im.expiry === first ? resolved.im : null;
-    const fromObs = obs?.im && obs.im.expiry === first ? obs.im : null;
+    const fromResolved = first && resolved.im && resolved.im.expiry === first ? resolved.im : null;
+    const fromObs = first && obs?.im && obs.im.expiry === first ? obs.im : null;
     if (fromObs && shouldUseEarningsObservation(fromObs, fromResolved)) return { ...resolvedMoveOf(resolved.ticker, fromObs, 'probe', null), firstExpiry: first };
     if (fromResolved) return { ...resolvedMoveOf(resolved.ticker, resolved.im, resolved.source, resolved.reason), firstExpiry: first };
     return { ...resolvedMoveOf(resolved.ticker, null, null, resolved.im || obs?.im ? 'no_straddle' : resolved.reason ?? 'no_straddle'), firstExpiry: first };

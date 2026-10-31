@@ -7,6 +7,7 @@ import { aggregateMapPremium, type MapSources } from '@/lib/app/moneyMap';
 import { etDateOf } from '@/lib/marketCalendar';
 
 export const dynamic = 'force-dynamic';
+const withFirst = <T extends { expiry: string }>(v: T | null) => (v ? { ...v, first: v.expiry } : null);
 // Read stored results only. In particular, do not call GuardianDataHub or an earnings refresh (both can generate AI).
 const HEADLINES: Record<string, string> = { SMH: 'silicon_core', HACK: 'cyber_shield', AI_PWR: 'power_matrix' };
 const SYNTHETIC = new Set(['AI_PWR', 'SAFE_HAVEN']);
@@ -61,7 +62,10 @@ export async function GET() {
       && Array.isArray(confirmed.truncated) && confirmed.truncated.length === 0;
     const economicValid = Array.isArray(economic?.events) && !economic.error && economic.source !== 'ERROR' && economic.source !== 'EMPTY';
     const sources: MapSources = { sectors,
-      earnings: (confirmed?.rows || []).map(r => ({ ticker: r.ticker, date: r.date, hour: r.hour, dateStatus: r.dateStatus, implied: impliedForRow(r, implied) })),
+      // [10/31] 묶음을 못 읽었으면 implied 키를 빼서(«모름») 앱이 직전 확인값을 잇게 한다 — null 은 서버가 «첫 만기 값 없음»으로 정한 것.
+      earnings: (confirmed?.rows || []).map(r => ({ ticker: r.ticker, date: r.date, hour: r.hour, dateStatus: r.dateStatus,
+        // first = 그 값이 «발표 직후 첫 만기»로 정해진 묶음 칸의 값이라는 표식(impliedForRow 는 표식 있는 칸만 낸다) — 앱 복원 검사용
+        ...(implied && implied.v === 1 && implied.cells ? { implied: withFirst(impliedForRow(r, implied)) } : {}) })),
       earningsAt: confirmed?.generatedAt || null,
       earningsRange: confirmed?.from && confirmed.to ? { from: confirmed.from, to: confirmed.to } : null,
       earningsStatus: confirmed ? earningsComplete ? 'ok' : 'partial' : 'unavailable',

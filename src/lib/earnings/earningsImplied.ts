@@ -70,8 +70,6 @@ export interface RowImplied {
   expiry: string;
   basis: 'live' | 'eod' | null;
   session: string | null;
-  /** [10/31] 값이 «발표 직후 첫 만기»로 확인된 만기(= expiry). 이 표식 이전에 만든 값엔 없다 — 앱 정상본 복원은 표식 있는 값만. */
-  first?: string;
 }
 
 /** 서버 묶음·앱 정상본 복원 공용 검사. 현재 ET 만기·발표 상태로 다시 판단한다. */
@@ -98,9 +96,11 @@ export function impliedForRow(
   if (!pack || pack.v !== 1 || !pack.cells) return null;
   const c = pack.cells[impliedRowKey(row.ticker, row.date)];
   if (!c) return null;
+  // [10/31] 첫 만기 표식(f = e)이 있는 칸만 — 표식 이전 코드가 만든 칸(뒤 월물 대체였을 수 있다)은 내지 않는다(관문 10311145 ②).
+  //   그런 묶음은 impliedPackStale 이 바로 다시 만들게 한다.
+  if (!c.f || c.f !== c.e) return null;
   return validateRowImplied(row, {
     pct: c.p!, expiry: c.e!, basis: c.b ?? null, session: c.s ?? null,
-    ...(c.f && c.f === c.e ? { first: c.f } : {}),
     ...(c.method ? { method: c.method } : {}),
     ...(c.eventMovePct != null ? { eventMovePct: c.eventMovePct } : {}),
   }, nowMs);

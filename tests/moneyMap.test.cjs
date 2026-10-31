@@ -188,7 +188,8 @@ test('3 language namespaces have identical keys and preserve finance symbols', (
 });
 test('refresh gaps preserve dated premium/5D/implied values; an expired or completed earnings event never reuses implied move', () => {
   const old = sources(), next = sources();
-  next.sectors[1].premium = null; next.sectors[1].fiveDay = null; next.earnings[0].implied = null;
+  // [10/31] implied 키 없음 = 서버가 묶음을 못 읽음(«모름») → 직전 첫 만기 확인값을 잇는다
+  next.sectors[1].premium = null; next.sectors[1].fiveDay = null; delete next.earnings[0].implied;
   const kept = mergeMoneyMapSources(next, old, at('2026-10-19T11:00:00Z'));
   assert.deepEqual(kept.sectors[1].premium, old.sectors[1].premium); assert.deepEqual(kept.sectors[1].fiveDay, old.sectors[1].fiveDay);
   assert.equal(kept.earnings[0].implied.session, '2026-10-16');
@@ -198,6 +199,9 @@ test('refresh gaps preserve dated premium/5D/implied values; an expired or compl
   assert.equal(mergeMoneyMapSources(next, legacy, at('2026-10-19T11:00:00Z')).earnings[0].implied, null);
   const later = sources(); later.earnings[0].implied = { ...later.earnings[0].implied, expiry: '2026-11-20' };
   assert.equal(mergeMoneyMapSources(next, later, at('2026-10-19T11:00:00Z')).earnings[0].implied, null, '표식과 만기가 다르면 잇지 않는다');
+  // 서버가 null(첫 만기 값 없음 — 더 이른 첫 만기가 확인됐을 수 있다)을 보냈으면 잇지 않는다
+  const decided = sources(); decided.earnings[0].implied = null;
+  assert.equal(mergeMoneyMapSources(decided, old, at('2026-10-19T11:00:00Z')).earnings[0].implied, null);
 });
 test('local REG response replay preserves actual SPY and stock measurements', () => {
   const filename = process.env.MONEY_MAP_QUOTES_REPLAY || path.join(__dirname, 'fixtures/money-map-reg-1019.json');

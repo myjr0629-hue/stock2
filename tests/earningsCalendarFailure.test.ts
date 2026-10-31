@@ -222,7 +222,7 @@ function client(initial?: unknown) {
     assert.deepEqual(seen, [[{ ...cachedRow, implied: null }]]);
     assert.equal(impliedPctText(seen[0][0].implied?.pct), '—');
     const server = attachImplied([row], { v: 1, at: nowMs, day: '2026-10-19', cells: {
-      [`${row.ticker}|${row.date}`]: { p: 4.2, e: implied.expiry, b: implied.basis, s: implied.session, r: null },
+      [`${row.ticker}|${row.date}`]: { p: 4.2, e: implied.expiry, b: implied.basis, s: implied.session, r: null, f: implied.expiry },
     } });
     assert.equal(seen[0][0].implied, server.rows[0].implied);
     assert.deepEqual(JSON.parse(storage.get(cacheKey)!), snapshot, '정상 원본·기준 시각은 보존');
@@ -255,7 +255,7 @@ function client(initial?: unknown) {
         const past = date < etDateOf(nowMs);
         assert.deepEqual(restored, past ? undefined : valid ? cachedRow.implied : null, iso);
         const server = attachImplied([cachedRow], { v: 1, at: nowMs, day: date, cells: {
-          [`${row.ticker}|${date}`]: { p: 4.2, e: expiry, b: implied.basis, s: implied.session, r: null },
+          [`${row.ticker}|${date}`]: { p: 4.2, e: expiry, b: implied.basis, s: implied.session, r: null, f: expiry },
         } });
         if (!past) assert.deepEqual(restored, server.rows[0].implied, `서버 대조 ${iso}`);
         stop();
