@@ -506,7 +506,9 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
         try {
             const pcs = await withinImpliedDeadline(() => mgetFromCache<any>(listIdx.map((i) => `polygon:snapshot:probe:${reqs[i].ticker}`)), deadlineMs);
             listIdx.forEach((i, k) => {
-                const listed = probeListedExpirations(pcs[k], today);
+                // 계약 만기만 있고 목록·실패 표식이 없으면 근거로 쓰지 않는다(관문 10311233 A — 실패한 앞 만기가 계약에서 사라졌을 수 있다)
+                const hasList = Array.isArray(pcs[k]?.expirations) || Array.isArray(pcs[k]?.expirationsMissing);
+                const listed = hasList ? probeListedExpirations(pcs[k], today) : [];
                 const chainFirst = listed.length ? firstExpiryAfterDate(listed, reqs[i].after!, reqs[i].timing ?? 'unknown') : null;
                 if (chainFirst) resolved[i] = { ...resolved[i], chainFirst };
             });
@@ -636,7 +638,10 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             //   첫 만기 근거 = 수집기가 적어 둔 만기 목록(expirations = 공급사 목록 0~35 DTE)·조회 실패 만기(expirationsMissing —
             //   계약이 없어도 실재하는 만기)·받아 온 계약의 만기·구조 목록이 고른 만기 중 가장 이른 것. 앞 만기 체인이 실패해 계약에서
             //   빠져도 목록·실패 표식에 남으므로 뒤 만기가 첫 만기로 올라서지 않는다(관문 10311211 ②).
-            const firstAfter = n.after ? firstExpiryAfterDate([...probeListedExpirations(pc, today), ...(n.expiry ? [n.expiry] : [])], n.after, n.timing ?? 'unknown') : null;
+            //   단 «받아 온 계약의 만기»만 있고 목록(expirations)·실패 표식(expirationsMissing)·구조 목록 만기(n.expiry)가 하나도 없으면
+            //   실패한 앞 만기가 계약에서 사라졌을 수 있어 첫 만기를 정하지 않는다 — 뒤 만기 값을 «첫 만기 확인»으로 내지 않음(관문 10311233 A).
+            const listEvidence = Array.isArray(pc?.expirations) || Array.isArray(pc?.expirationsMissing) || !!n.expiry;
+            const firstAfter = n.after && listEvidence ? firstExpiryAfterDate([...probeListedExpirations(pc, today), ...(n.expiry ? [n.expiry] : [])], n.after, n.timing ?? 'unknown') : null;
             const eligible = n.after ? (firstAfter ? [firstAfter] : []) : [n.expiry!];
             for (const expiry of eligible) {
                 const rows = chain.filter((c: any) => c?.details?.expiration_date === expiry);
