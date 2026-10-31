@@ -250,7 +250,7 @@ test('money-map reader: all 16 canonical sectors, cached analysis fills empty in
     '@/services/redisClient': { mgetFromCache: async keys => { requests.push(keys); return keys.map(k => redis.get(k) || null); } },
     '@/services/universePolicy': { SECTOR_MAP: definitions },
     '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4', withConfirmedDates: p => { corrected++; return p; } },
-    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null, moneyMapImpliedField: () => ({}) },
     '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
   });
   const res = await route.GET();
@@ -369,7 +369,7 @@ test('archived full Guardian response replay: all 16 actual five-day values reac
     '@/services/redisClient': { mgetFromCache: async keys => { reads++; return keys.map(k => k === 'gcore:v1' ? snapshot : null); } },
     '@/services/universePolicy': { SECTOR_MAP: definitions },
     '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4', withConfirmedDates: () => { throw new Error('No calendar in this historical response'); } },
-    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null, moneyMapImpliedField: () => ({}) },
     '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
   });
   const result = await route.GET();
@@ -646,7 +646,7 @@ test('gate 4: money-map response distinguishes complete zero, partial data and s
     '@/services/redisClient': { mgetFromCache: async keys => keys.map(k => k === 'market:earnings-calendar:v4' ? calendar : null) },
     '@/services/universePolicy': { SECTOR_MAP: sectorDefinitions() },
     '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4', withConfirmedDates: p => p },
-    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null, moneyMapImpliedField: () => ({}) },
     '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
   });
   const normal = { ok: true, rows: [], from: '2026-10-19', to: '2026-10-23', generatedAt: '2026-10-20T10:00:00Z',
