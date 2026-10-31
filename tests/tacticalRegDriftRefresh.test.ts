@@ -63,10 +63,9 @@ const store = new Map<string, any>();
 const expiry = new Map<string, number>();
 const budgets = new Map<string, { count: number; at: number; failures?: number; retryAt?: number }>();
 let budgetFails = false;
-let getFails = false;
 const evalKeys: string[] = [];
 class OfflineRedis {
-    async get(k: string) { if (getFails) throw new Error('offline read failure'); if ((expiry.get(k) ?? Infinity) <= Date.now()) { store.delete(k); expiry.delete(k); } return store.get(k) ?? null; }
+    async get(k: string) { if ((expiry.get(k) ?? Infinity) <= Date.now()) { store.delete(k); expiry.delete(k); } return store.get(k) ?? null; }
     async set(k: string, v: any, opts?: { nx?: boolean; ex?: number }) {
         if (opts?.nx && (await this.get(k)) !== null) return null;
         store.set(k, typeof v === 'string' ? JSON.parse(v) : v);
@@ -99,27 +98,28 @@ class OfflineRedis {
     try {
         const r = new OfflineRedis();
         Date.now = () => now;
-        assert.equal(await reserveRegTacticalRefresh(r, now), true);
-        assert.equal(evalKeys[0], 'guardian:tactical:reg-refresh:2026-10-30', 'ET 날짜 공용 키(장후 키와 다름)');
-        assert.equal(await reserveRegTacticalRefresh(r, now + 1_000), false, '진행 중(잠정 실패) — 겹치지 않음');
-        await finishRegTacticalRefresh(r, now, true, now + 20_000);
-        assert.equal(await reserveRegTacticalRefresh(r, now + 30 * MIN - 1), false, '성공 뒤 30분 안');
-        assert.equal(await reserveRegTacticalRefresh(r, now + 30 * MIN), true, '30분 뒤');
-        await finishRegTacticalRefresh(r, now + 30 * MIN, false, now + 31 * MIN);
-        assert.equal(await reserveRegTacticalRefresh(r, now + 60 * MIN), false, '실패 뒤 60분 대기');
-        assert.equal(await reserveRegTacticalRefresh(r, now + 91 * MIN), true);
-        await finishRegTacticalRefresh(r, now + 91 * MIN, false, now + 92 * MIN);
-        assert.equal(await reserveRegTacticalRefresh(r, now + 200 * MIN), false, '연속 2회 실패 → 그날 중지');
+        assert.equal(await reserveRegTacticalRefresh(r, now, 'ko'), true);
+        assert.equal(evalKeys[0], 'guardian:tactical:reg-refresh:ko:2026-10-30', '언어별·ET 날짜 키(장후 키와 다름)');
+        assert.equal(await reserveRegTacticalRefresh(r, now, 'en'), true, '다른 언어는 따로(언어별 8회)');
+        assert.equal(await reserveRegTacticalRefresh(r, now + 1_000, 'ko'), false, '진행 중(잠정 실패) — 겹치지 않음');
+        await finishRegTacticalRefresh(r, now, true, now + 20_000, 'ko');
+        assert.equal(await reserveRegTacticalRefresh(r, now + 30 * MIN - 1, 'ko'), false, '성공 뒤 30분 안');
+        assert.equal(await reserveRegTacticalRefresh(r, now + 30 * MIN, 'ko'), true, '30분 뒤');
+        await finishRegTacticalRefresh(r, now + 30 * MIN, false, now + 31 * MIN, 'ko');
+        assert.equal(await reserveRegTacticalRefresh(r, now + 60 * MIN, 'ko'), false, '실패 뒤 60분 대기');
+        assert.equal(await reserveRegTacticalRefresh(r, now + 91 * MIN, 'ko'), true);
+        await finishRegTacticalRefresh(r, now + 91 * MIN, false, now + 92 * MIN, 'ko');
+        assert.equal(await reserveRegTacticalRefresh(r, now + 200 * MIN, 'ko'), false, '연속 2회 실패 → 그날 중지');
         // 8회 상한(성공만 이어질 때)
         budgets.clear();
         let ok = 0;
-        for (let i = 0; i < 12; i++) { const t = Date.parse('2026-10-30T13:31:00Z') + i * 31 * MIN; if (await reserveRegTacticalRefresh(r, t)) { ok++; await finishRegTacticalRefresh(r, t, true, t + 10_000); } }
+        for (let i = 0; i < 12; i++) { const t = Date.parse('2026-10-30T13:31:00Z') + i * 31 * MIN; if (await reserveRegTacticalRefresh(r, t, 'ko')) { ok++; await finishRegTacticalRefresh(r, t, true, t + 10_000, 'ko'); } }
         assert.equal(ok, 8, 'ET 날짜당 8회(3언어 1호출 = 언어별 8회)');
-        assert.equal(await reserveRegTacticalRefresh(null, now), false, '예약 저장소 없음 → 재생성 0');
+        assert.equal(await reserveRegTacticalRefresh(null, now, 'ko'), false, '예약 저장소 없음 → 재생성 0');
         budgetFails = true;
-        assert.equal(await reserveRegTacticalRefresh(r, now), false, '예약 저장소 장애 → 재생성 0');
+        assert.equal(await reserveRegTacticalRefresh(r, now, 'ko'), false, '예약 저장소 장애 → 재생성 0');
         budgetFails = false;
-        assert.equal(await reserveRegTacticalRefresh(r, Date.parse('2026-10-30T21:00:00Z')), false, '장후(POST)엔 REG 예약 없음');
+        assert.equal(await reserveRegTacticalRefresh(r, Date.parse('2026-10-30T21:00:00Z'), 'ko'), false, '장후(POST)엔 REG 예약 없음');
         budgets.clear();
         assert.equal(await reservePostTacticalRefresh(r, Date.parse('2026-10-30T21:00:00Z')), true, '장후 예약은 기존 그대로(키 분리)');
 
@@ -151,13 +151,13 @@ class OfflineRedis {
         const out0 = await call();
         assert.equal(coreCalls, 1, '정기 재생성 → 운영 생성 경로(재계산) 진입');
         assert.equal(out0, s0, '재계산 실패(코어 없음) → 기존 스냅샷·기존 글 그대로');
-        const st = budgets.get('guardian:tactical:reg-refresh:2026-10-30')!;
+        const st = budgets.get('guardian:tactical:reg-refresh:ko:2026-10-30')!;
         assert.equal(st.count, 1);
         assert.ok(st.retryAt! >= now + 60 * MIN, '실패 기록 → 60분 대기');
-        // 같은 스냅샷을 다른 언어·인스턴스가 바로 봐도 예약이 거절돼 호출 0(공용 30분/실패 대기)
-        resetHub(); store.set('guardian:snapshot:en', snap()); coreCalls = 0;
-        await call('en');
-        assert.equal(coreCalls, 0, '공용 예약 거절 → 재계산 0');
+        // 같은 언어를 다른 인스턴스가 바로 봐도 예약이 거절돼 호출 0(언어별 30분/실패 대기)
+        resetHub(); coreCalls = 0;
+        await call('ko');
+        assert.equal(coreCalls, 0, '같은 언어 예약 거절 → 재계산 0');
         // 같은 인스턴스는 5분 안에 예약을 다시 묻지 않는다
         evalKeys.length = 0; budgets.clear();
         fresh(snap()); await call(); const asked = evalKeys.length; await call();
@@ -208,7 +208,7 @@ class OfflineRedis {
             assert.deepEqual(next.verdict.num.basis.realityInsight, { NDX_CHG: -2.5, SPX_CHG: -1.6, RLSI: 33 }, '생성 기준도 그대로');
             assert.equal(next.verdict.description, '새 순환매', '다른 칸은 새 계산 그대로');
             assert.equal(next.tacticalGeneratedAt, prev.tacticalGeneratedAt, '생성 시각도 옛 글 것'); }
-        {   const next = mk(NEWT);   // 다른 글이지만 이번 예약 전 시각(보관본·옛 저장본 복구)
+        {   const next = mk(NEWT);   // 다른 글이지만 직전 글보다 오래된 시각(보관본·옛 저장본 복구)
             assert.equal(settleRegTacticalRefresh(next, prev, now - 50 * MIN, now), false, '복구 글 → 실패');
             assert.equal(next.verdict.realityInsight, TEXT, '복구 글 대신 기존 글 유지'); }
         {   const next = mk(TEXT);   // 이번 예약 뒤 새로 만든 글이 우연히 같은 문구(관문 10310524 ②)
@@ -231,85 +231,11 @@ class OfflineRedis {
         {   // 실패 기록이면 60분 대기(공용 Lua)
             budgets.clear();
             const t0 = now;
-            assert.equal(await reserveRegTacticalRefresh(r, t0), true);
-            await finishRegTacticalRefresh(r, t0, settleRegTacticalRefresh(mk(PENDING), snap(), t0 + 1, t0), t0 + 20_000);
-            assert.equal(await reserveRegTacticalRefresh(r, t0 + 31 * MIN), false, '대기 문구 결과 = 실패 → 60분 대기');
+            assert.equal(await reserveRegTacticalRefresh(r, t0, 'ko'), true);
+            await finishRegTacticalRefresh(r, t0, settleRegTacticalRefresh(mk(PENDING), snap(), t0 + 1, t0), t0 + 20_000, 'ko');
+            assert.equal(await reserveRegTacticalRefresh(r, t0 + 31 * MIN, 'ko'), false, '대기 문구 결과 = 실패 → 60분 대기');
         }
 
-        // ── ⑤ 다른 언어 채택(모델 0): 저장소에 이 스냅샷이 본 글보다 새 장중 글 → 채택·생성 기준·본 시각 갱신 ──
-        const NEW = TEXT.replace('2.5%', '3.4%');
-        const orig = { latest: IntelligenceNode.latestStoredRegTacticalAt, adopt: IntelligenceNode.adoptStoredRegReality, nums: IntelligenceNode.numbersFor };
-        let adoptCalls = 0;
-        (IntelligenceNode as any).latestStoredRegTacticalAt = async () => now - 2 * MIN;
-        let adoptCtx: any = null;
-        (IntelligenceNode as any).adoptStoredRegReality = async (ctx: unknown, newerThan: number) => { adoptCalls++; adoptCtx = ctx; assert.equal(newerThan, Date.parse(snap({ at: now - 10 * MIN }).timestamp)); return { text: NEW, at: now - 2 * MIN, seenAt: now - 2 * MIN }; };
-        (IntelligenceNode as any).numbersFor = () => ({ tpl: NEW, basis: { NDX_CHG: -3.4, SPX_CHG: -2.1, RLSI: 30 } });
-        try {
-            fresh(snap({ at: now - 10 * MIN }), 'ja');
-            store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: { spx: { chgPct: -2.1 }, us10y: { level: 4.94 } } }, rlsi: { score: 30, session: 'REG', components: { breadthPct: 26 } }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
-            store.set('guardian:ai_verdict:ja', { title: 'T', sentiment: 'NEUTRAL', description: '다른 요청이 방금 저장한 순환매', gammaInsight: '방금 저장한 감마', realityInsight: '옛 글', num: { tpl: { description: 'dd' }, basis: { description: { RLSI: 31 } } } });
-            const adopted = await call('ja');
-            assert.deepEqual([adoptCtx.spxChangePct, adoptCtx.us10y, adoptCtx.breadthPct], [-2.1, 4.94, 26], '채택 검사 재료에 장중 숫자 칸(SPX·US10Y·BREADTH) — 관문 10310813 ①');
-            const av = store.get('guardian:ai_verdict:ja');
-            assert.equal(av.realityInsight, '옛 글', '채택은 ai_verdict 를 쓰지 않는다(읽고-쓰기 경합 방지, 관문 10310825 ①)');
-            assert.equal(av.description, '다른 요청이 방금 저장한 순환매');
-            assert.equal(adoptCalls, 1);
-            assert.equal(coreCalls, 0, '채택은 재계산·모델 0');
-            assert.equal(adopted.verdict.realityInsight, NEW);
-            assert.deepEqual(adopted.verdict.num.basis.realityInsight, { NDX_CHG: -3.4, SPX_CHG: -2.1, RLSI: 30 }, '새 글의 생성 기준');
-            assert.equal(adopted.tacticalSeenAt, iso(now - 2 * MIN));
-            assert.equal(adopted.tacticalGeneratedAt, iso(now - 2 * MIN), '채택한 글의 생성 시각');
-            assert.notEqual(store.get('guardian:snapshot:ja').verdict.realityInsight, NEW, '스냅샷 저장소에는 쓰지 않음(워커가 응답을 다시 쓴다 — 관문 10310831 ①)');
-            assert.deepEqual(regTacticalNeedsRefresh(adopted, 'REG', now, isPh), [], '채택 뒤 같은 글로 재생성 요청 없음');
-            // 30초 안 재확인 없음
-            const again = await call('ja'); assert.equal(adoptCalls, 1);
-            assert.equal(again.verdict.realityInsight, NEW, '워커가 스냅샷을 다시 쓰기 전 같은 인스턴스의 다음 요청도 새 글(관문 10310901 ①)');
-            assert.deepEqual(again.verdict.num.basis.realityInsight, { NDX_CHG: -3.4, SPX_CHG: -2.1, RLSI: 30 });
-            assert.equal(again.verdict.description, '순환매 정상 글', '다른 칸은 스냅샷 그대로');
-            // 관문 10310537 — 변화가 있어도 다른 언어·인스턴스의 새 장중 글이 있으면 예약·재계산 없이 채택
-            {
-                fresh(snap(), 'ja'); adoptCalls = 0; budgets.clear();
-                store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: {} }, rlsi: { score: 30, session: 'REG' }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
-                (IntelligenceNode as any).adoptStoredRegReality = async () => { adoptCalls++; return { text: NEW, at: now - 2 * MIN, seenAt: now - 2 * MIN }; };
-                const out = await call('ja');
-                assert.equal(coreCalls, 0, '재계산 0');
-                assert.equal(budgets.size, 0, '예약 0(실패 예산 소비 없음)');
-                assert.equal(adoptCalls, 1, '바로 채택');
-                assert.equal(out.verdict.realityInsight, NEW);
-            }
-            // 관문 10310451 ② 저장본이 출구 검사에서 탈락하면 «본 시각»만 갱신 — 생성 시각은 그대로라 정기 재생성이 30분 밀리지 않는다
-            (IntelligenceNode as any).adoptStoredRegReality = async () => ({ text: null, seenAt: now - 2 * MIN });   // 원문은 있는데 출구 검사 탈락(관문 10310504 ②)
-            fresh(snap(), 'ko');
-            store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: {} }, rlsi: { score: 30, session: 'REG' }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
-            budgetFails = true;   // 이번 요청의 재생성 예약은 막고(채택 경로만 보게) …
-            const rejected = await call('ko');
-            budgetFails = false;
-            assert.equal(rejected.tacticalSeenAt, iso(now - 2 * MIN), '본 시각 = 확인한 저장본 시각(같은 글을 30초마다 다시 읽지 않음)');
-            assert.equal(rejected.tacticalGeneratedAt, undefined, '생성 시각은 그대로(스냅샷 계산 시각)');
-            assert.deepEqual(regTacticalNeedsRefresh(rejected, 'REG', now, isPh), ['nasdaq', 'spx'], '변화가 있으면 여전히 재생성 대상');
-            // 관문 10310843 ① 읽기 장애(seenAt 없음)는 «본 것»으로 적지 않는다
-            (IntelligenceNode as any).adoptStoredRegReality = async () => ({ text: null });
-            fresh(snap(), 'ko');
-            store.set('offline:core', { timestamp: iso(now), market: { indexBasis: null, factors: {} }, rlsi: { score: 30, session: 'REG' }, gammaShield: null, vectors: [], sectors: [], rotationIntensity: { topInflow: [], topOutflow: [] }, news: [], scheduledEvents: [] });
-            budgetFails = true;
-            const outage = await call('ko');
-            budgetFails = false;
-            assert.equal(outage.tacticalSeenAt, undefined, '읽기 장애 → 본 시각 그대로');
-            // 장중이 아니면 채택 확인 없음
-            fresh(snap({ at: now - 10 * MIN, session: 'POST' }), 'ja'); adoptCalls = 0;
-        } finally { Object.assign(IntelligenceNode, { latestStoredRegTacticalAt: orig.latest, adoptStoredRegReality: orig.adopt, numbersFor: orig.nums }); }
-        {   // 관문 10310849 ① 실제 채택 함수: 원문 읽기 장애 → 본 시각 없음 · 원문은 있는데 세션·날짜가 맞지 않으면 그 시각을 «본 것»으로
-            const ctx = { rlsiScore: 30, nasdaqChange: -3.4, vix: 21, locale: 'ko' as const, indexBasis: undefined };
-            getFails = true;
-            const r1 = await IntelligenceNode.adoptStoredRegReality(ctx as any, 0);
-            getFails = false;
-            assert.deepEqual(r1, { text: null }, '읽기 장애 → seenAt 없음');
-            store.set('guardian:gemini:v3:reality:ko', { text: '옛 글', updatedAt: iso(now - 2 * MIN), session: 'PRE', basis: null });
-            const r2 = await IntelligenceNode.adoptStoredRegReality(ctx as any, 0);
-            assert.deepEqual(r2, { text: null, seenAt: now - 2 * MIN }, '원문 있음·세션 불일치 → 본 시각');
-            store.set('guardian:gemini:v3:reality:ko', { text: '', updatedAt: iso(now - 1 * MIN), session: 'REG', basis: null });
-            assert.deepEqual(await IntelligenceNode.adoptStoredRegReality(ctx as any, 0), { text: null, seenAt: now - 1 * MIN }, '본문 빈 저장본 → 본 시각(관문 10310855)');
-        }
-        console.log('통과 T35-B 장중 정기 재생성: 판정 경계·공용 예약(30분·8회·실패 대기·장애 0)·재계산 진입·실패 시 기존 글 유지·다른 언어 채택');
+        console.log('통과 T35-B 장중 정기 재생성: 판정 경계·언어별 예약(30분·8회·실패 대기·장애 0)·재계산 진입·코어 값 비교·실패/예외 시 기존 글 유지·성공 판정');
     } finally { Date.now = realNow; }
 })().catch(e => { console.error(e); process.exitCode = 1; });

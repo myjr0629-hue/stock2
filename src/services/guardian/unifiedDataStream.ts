@@ -1,5 +1,5 @@
 import { fmpFetch } from '@/lib/fmpClient';
-import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, regTacticalNeedsRefresh, regTacticalMayRefresh, regTacticalCurrent, REG_TACTICAL_RETRY_MS, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, regTacticalNeedsRefresh, regTacticalMayRefresh, regTacticalCurrent, regTacticalGeneratedAt, REG_TACTICAL_RETRY_MS, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
 import { reserveRegTacticalRefresh, finishRegTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
 import { filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
@@ -189,11 +189,13 @@ export function keepRegTacticalOnFailure(
 export function settleRegTacticalRefresh(
     next: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string },
     previous: { verdict?: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string; timestamp?: string },
-    freshAt: number | null | undefined, reservedAt: number,
+    freshAt: number | null | undefined, _reservedAt: number,
 ): boolean {
     const now = next.verdict?.realityInsight;
-    // 같은 문구가 우연히 다시 나와도 이번 예약 뒤 새로 만든 글이면 성공(관문 10310524 ②)
-    const fresh = typeof freshAt === 'number' && freshAt >= reservedAt && typeof now === 'string' && !!now && !IntelligenceNode.isPlaceholderInsight(now);
+    // 성공 = 이 언어의 최종 글이 «직전 글보다 나중에 만든 글»(이번 생성, 또는 다른 언어 예약이 방금 만든 3언어 결과를 저장소에서 받은 것).
+    //   같은 문구가 다시 나와도 새로 만든 글이면 성공(관문 10310524 ②) · 보관본·옛 저장본 복구는 직전 글보다 오래돼 실패(10310517 ①)
+    const prevAt = regTacticalGeneratedAt(previous as any);
+    const fresh = typeof freshAt === 'number' && freshAt > (Number.isFinite(prevAt) ? prevAt : 0) && typeof now === 'string' && !!now && !IntelligenceNode.isPlaceholderInsight(now);
     if (fresh) { next.tacticalGeneratedAt = new Date(freshAt).toISOString(); return true; }
     keepRegTacticalOnFailure(next, previous);
     return false;
@@ -230,7 +232,8 @@ async function claimPlaceholderRecompute(locale: Locale, now: number): Promise<'
 
 /**
  * ★2026-10-31 T35-B 장중(REG) 정기 재생성 예약 — 생성 30분 경과 && 지수 0.5%p·RLSI 5 변화(regTacticalNeedsRefresh)일 때 호출.
- *   예약은 ET 날짜 공용(모든 언어·인스턴스): 30분 간격·8회 상한·공급사 실패 60분 대기·연속 2회 중지(장후 변동 재생성과 같은 Lua).
+ *   예약은 언어별·ET 날짜별(모든 인스턴스 공용): 30분 간격·시도 8회·공급사 실패 60분 대기·연속 2회 중지(장후 변동 재생성과 같은 Lua).
+ *   한 시도의 3언어 생성 결과는 저장소에 들어가, 다른 언어의 시도는 재계산 때 그 글(10분 캐시)을 그대로 받는다 — 모델 호출 없이 따라온다.
  *   예약 저장소가 없거나 장애면 재생성하지 않는다(상한을 확인하지 못한 호출 금지 — 기존 글 유지). 같은 인스턴스·언어는 5분에 한 번만 묻는다.
  */
 const _regRefreshAskAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
@@ -258,41 +261,11 @@ async function regTacticalDriftNow(c: GuardianContext & { _workerTimestamp?: str
         SPX_CHG: fin(core?.market?.factors?.spx?.chgPct) ?? snapNow.SPX_CHG,
         RLSI: fin(core?.rlsi?.score) ?? snapNow.RLSI,
     };
-    const drift = regTacticalNeedsRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight, current);
-    if (!drift.length) return drift;
-    // 다른 언어·인스턴스가 이미 새 장중 글을 저장했으면 예약(재생성)하지 않고 채택 경로로 넘긴다 — 새 글을 두고 실패 예산을 쓰지 않게(관문 10310537)
-    const latest = await IntelligenceNode.latestStoredRegTacticalAt(locale, now).catch(() => null);
-    if (latest != null && latest > tacticalSeenAtOf(c)) { _regAdoptCheckAt[locale] = 0; return []; }
-    return drift;
+    return regTacticalNeedsRefresh(c, session, now, IntelligenceNode.isPlaceholderInsight, current);
 }
-async function claimRegTacticalRefresh(now: number): Promise<'exclusive' | false> {
-    return await reserveRegTacticalRefresh(claimRedis(), now) ? 'exclusive' : false;
+async function claimRegTacticalRefresh(locale: Locale, now: number): Promise<'exclusive' | false> {
+    return await reserveRegTacticalRefresh(claimRedis(), now, locale) ? 'exclusive' : false;
 }
-/** 채택한 장중 Tactical 칸(워커가 스냅샷에 다시 쓰기 전까지 이 인스턴스가 덮어 줄 것) — 5분 또는 스냅샷이 따라잡으면 끝 */
-const REG_ADOPT_MEMO_MS = 5 * 60_000;
-const _regAdopted: Record<Locale, { until: number; seenAt: number; pick: { verdict: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string } } | null> = { ko: null, en: null, ja: null };
-function overlayRegAdopted<T extends { verdict?: any; tacticalSeenAt?: string; timestamp?: string; rlsi?: { session?: string } }>(c: T, locale: Locale, now: number): T {
-    const m = _regAdopted[locale];
-    if (!m || now > m.until || c.rlsi?.session !== 'REG') { _regAdopted[locale] = null; return c; }
-    if (tacticalSeenAtOf(c) >= m.seenAt) { _regAdopted[locale] = null; return c; }   // 스냅샷이 따라잡았다
-    const tpl = { ...c.verdict?.num?.tpl }, basis = { ...c.verdict?.num?.basis };
-    const mt = m.pick.verdict?.num?.tpl?.realityInsight, mb = m.pick.verdict?.num?.basis?.realityInsight;
-    if (mt !== undefined) tpl.realityInsight = mt; else delete tpl.realityInsight;
-    if (mb !== undefined) basis.realityInsight = mb; else delete basis.realityInsight;
-    return { ...c, tacticalSeenAt: m.pick.tacticalSeenAt, tacticalGeneratedAt: m.pick.tacticalGeneratedAt,
-        verdict: { ...c.verdict, realityInsight: m.pick.verdict?.realityInsight, num: { ...c.verdict?.num, tpl, basis } } };
-}
-/** 다른 언어·인스턴스의 정기 재생성이 저장한 더 새 장중 글이 있나(GET 한 번, 인스턴스·언어별 30초 간격) */
-const _regAdoptCheckAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
-async function regTacticalNewerStoredAt(c: { tacticalSeenAt?: string; timestamp?: string } | null | undefined, session: string | undefined, locale: Locale, now: number): Promise<number | null> {
-    if (!c || session !== 'REG') return null;
-    const last = _regAdoptCheckAt[locale];
-    if (now >= last && now - last < POST_TACTICAL_ADOPT_CHECK_MS) return null;
-    _regAdoptCheckAt[locale] = now;
-    const latest = await IntelligenceNode.latestStoredRegTacticalAt(locale, now).catch(() => null);
-    return latest != null && latest > tacticalSeenAtOf(c) ? latest : null;
-}
-
 /**
  * ★2026-10-28 T2 장후 스냅샷의 Tactical 글이 «종가 이후 선물 사실 없이» 만들어졌는데 지금은 그 사실이 있다 → 다시 계산.
  *   10/27 실측: 기준 키는 16:10 ET 무렵 EC2·Upstash 둘 다 저장됐지만 글은 16:01 ET 스냅샷 그대로 장후 내내 «종가 이후 변화 미확인».
@@ -313,7 +286,7 @@ const POST_TACTICAL_ADOPT_CHECK_MS = 30 * 1000;
 const _tacticalAdoptCheckAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 /** 시험 전용 — 인스턴스 메모리(스냅샷 사본·채택 검사 간격)를 비워 «다른 인스턴스»를 흉내 낸다. */
 export function _resetGuardianHubStateForTest(): void {
-    for (const l of ['ko', 'en', 'ja'] as const) { _cachedContext[l] = null; _lastFetchTime[l] = 0; _tacticalAdoptCheckAt[l] = 0; _placeholderRecomputeAt[l] = 0; _regRefreshAskAt[l] = 0; _regAdoptCheckAt[l] = 0; _regAdopted[l] = null; }
+    for (const l of ['ko', 'en', 'ja'] as const) { _cachedContext[l] = null; _lastFetchTime[l] = 0; _tacticalAdoptCheckAt[l] = 0; _placeholderRecomputeAt[l] = 0; _regRefreshAskAt[l] = 0; }
     _placeholderClaimRedis = undefined;
 }
 const tacticalSeenAtOf = (c: { tacticalSeenAt?: string; timestamp?: string }): number => {
@@ -570,7 +543,7 @@ export class GuardianDataHub {
         // ★2026-10-28 T2 출구에서 Tactical 글을 복구 글로 바꿨으면 장후 표식도 내린다(복구 글엔 선물 사실이 없을 수 있다 — 5분 뒤 다시 계산, 관문 10280621 ①)
         if (r.repaired.includes('realityInsight') && context.tacticalFutures === true) context = { ...context, tacticalFutures: false };
         // ★T35-B 출구에서 장중 Tactical 을 복구 글로 바꿨으면 생성 시각을 «모름(오래된 글)»으로 — 재생성 판정이 바뀐 글 기준으로(관문 10310901 ②)
-        if (r.repaired.includes('realityInsight') && context.rlsi?.session === 'REG' && context.tacticalGeneratedAt) context = { ...context, tacticalGeneratedAt: new Date(0).toISOString() };
+        if (r.repaired.some(f => f === 'realityInsight') && context.rlsi?.session === 'REG' && context.tacticalGeneratedAt) context = { ...context, tacticalGeneratedAt: new Date(0).toISOString() };
         const up = core ? await IntelligenceNode.offHoursRotationUpgrade(r.verdict, locale, nums, () => offHoursRotationContext(core, locale), (job) => CORE_DEPS.background?.(job) ?? false) : null;
         if (up) return { ...context, verdict: up };
         return r.changed ? { ...context, verdict: r.verdict } : context;
@@ -624,47 +597,6 @@ export class GuardianDataHub {
         return context;
     }
 
-    /**
-     * ★2026-10-31 T35-B 장중 — 다른 언어·인스턴스의 정기 재생성이 저장한 새 Tactical 을 이 언어 스냅샷에 채택(모델 호출 0).
-     *   출구 검사를 통과한 같은 ET 날짜 REG 저장본만. 못 쓰면 «본 시각»만 적어 같은 글을 반복 검사하지 않는다. 실패하면 기존 스냅샷 그대로.
-     */
-    private static async adoptRegTactical(previous: GuardianContext, locale: Locale, now: number, latestAt?: number): Promise<GuardianContext> {
-        const seenBefore = tacticalSeenAtOf(previous);
-        let context: GuardianContext = previous;
-        try {
-            const core = await getFromCache<GuardianCore>(CORE_KEY).catch(() => null);
-            if (!core) return previous;
-            const basis = mergePostIndexBasis(core.market.indexBasis, await loadMarketIndexBasis(now).catch(() => null));
-            // 장중 생성 재료와 같은 숫자 칸(aiContext 와 같은 원천) — 저장본 자리표({BREADTH}·{US10Y}·{SPX_CHG})를 채워 검사할 수 있게(관문 10310813 ①)
-            const r = await IntelligenceNode.adoptStoredRegReality({ ...offHoursRotationContext(core, locale), indexBasis: basis ?? undefined,
-                marketNewsHeadlines: filterMarketHeadlines(core.news || []),
-                spxChangePct: core.market?.factors?.spx?.chgPct ?? undefined,
-                us10y: core.market?.factors?.us10y?.level ?? core.market?.yieldCurve?.us10y ?? undefined,
-                breadthPct: core.rlsi?.components?.breadthPct ?? undefined }, seenBefore);
-            if (r.text && !IntelligenceNode.isPlaceholderInsight(r.text)) {
-                const n = IntelligenceNode.numbersFor('reality', locale, r.text);
-                const tpl = { ...previous.verdict.num?.tpl }, numBasis = { ...previous.verdict.num?.basis };
-                delete tpl.realityInsight; delete numBasis.realityInsight;
-                if (n) { tpl.realityInsight = n.tpl; numBasis.realityInsight = n.basis; }
-                context = { ...previous, tacticalSeenAt: new Date(Math.max(seenBefore, r.at ?? now)).toISOString(), tacticalGeneratedAt: new Date(r.at ?? now).toISOString(),
-                    verdict: { ...previous.verdict, realityInsight: r.text, num: { tpl, basis: numBasis } } };
-                // 채택은 ai_verdict 를 쓰지 않는다 — 읽고-쓰기 사이 다른 요청의 최신 판정을 덮을 수 있다(관문 10310819 ②·10310825 ①). ai_verdict 는 다음 재계산이 저장한다(기존과 같음)
-            } else {
-                // 채택 못 한 저장본(출구 검사 탈락 → 읽기에서 시각 없이 null 포함)은 그 저장 시각을 «본 시각»으로 — 같은 글을 30초마다 다시 읽지 않게(관문 10310504 ②). 생성 시각은 그대로.
-                // 읽기 장애(seenAt 없음)는 «본 것»으로 적지 않는다 — 장애가 풀리면 같은 글을 다시 채택할 수 있게(관문 10310843 ①)
-                const seen = typeof r.seenAt === 'number' ? r.seenAt : 0;
-                if (seen <= seenBefore) return previous;
-                context = { ...previous, tacticalSeenAt: new Date(seen).toISOString() };
-            }
-        } catch { return previous; }
-        // 스냅샷 저장소에는 쓰지 않는다 — 읽고-쓰기 사이 다른 요청의 최신 스냅샷을 덮을 수 있다(관문 10310831 ①). EC2 워커가 이 응답을 스냅샷에 다시 쓴다
-        //   워커가 다시 쓰기 전 같은 인스턴스의 다음 요청이 옛 스냅샷을 내지 않게, 채택한 Tactical 칸만 메모리에 두고 덮어 준다(관문 10310901 ①)
-        if (context !== previous) _regAdopted[locale] = { until: now + REG_ADOPT_MEMO_MS, seenAt: tacticalSeenAtOf(context), pick: { verdict: context.verdict, tacticalSeenAt: context.tacticalSeenAt, tacticalGeneratedAt: context.tacticalGeneratedAt } };
-        _cachedContext[locale] = context;
-        _lastFetchTime[locale] = now;
-        return context;
-    }
-
     private static async computeGuardianSnapshot(force: boolean, locale: Locale): Promise<GuardianContext> {
         const now = Date.now();
 
@@ -703,8 +635,8 @@ export class GuardianDataHub {
                         console.log(`[Guardian] snapshot AI text is a placeholder (snapshot ${cached.timestamp}, ${cachedSession}) — recomputing for ${locale}`);
                         placeholderFallback = cached;
                     } else if ((regDrift = await regTacticalDriftNow(cached, cachedSession, locale, now)).length
-                        && (placeholderClaim = await claimRegTacticalRefresh(now))) {
-                        // ★T35-B 장중 글이 생성 30분 뒤 지수·RLSI 가 움직였다 — 운영 생성 경로 그대로 다시 계산(예약 1회 = 3언어 1호출, 다른 언어는 저장본 채택)
+                        && (placeholderClaim = await claimRegTacticalRefresh(locale, now))) {
+                        // ★T35-B 장중 글이 생성 30분 뒤 지수·RLSI 가 움직였다 — 운영 생성 경로 그대로 다시 계산(언어별 예약 · 3언어 생성은 저장소로 공유돼 다른 언어 재계산은 모델 0)
                         console.log(`[Guardian] REG tactical refresh (${regDrift.join(',')} drift; text since ${cached.tacticalGeneratedAt || cached.timestamp}) — recomputing for ${locale}`);
                         placeholderFallback = cached;
                         regRefreshAt = now;
@@ -729,14 +661,6 @@ export class GuardianDataHub {
                                 const adopted = await GuardianDataHub.refreshPostTacticalFutures(cached, locale, now, 'adopt');
                                 if (adopted !== cached) return adopted;
                             }
-                            // ★T35-B 다른 언어·인스턴스의 장중 정기 재생성이 저장한 새 글 채택(모델 호출 0)
-                            const regNewer = await regTacticalNewerStoredAt(cached, cachedSession, locale, now);
-                            if (regNewer != null) {
-                                const adopted = await GuardianDataHub.adoptRegTactical(cached, locale, now, regNewer);
-                                if (adopted !== cached) return adopted;
-                            }
-                            // 방금 채택한 글이 아직 스냅샷에 없으면 그 칸을 덮어 준다(메모리만)
-                            if (cachedSession === 'REG') { const o = overlayRegAdopted(cached, locale, now); if (o !== cached) { _cachedContext[locale] = o; _lastFetchTime[locale] = now; return o; } }
                             // Session matches and data is fresh, safe to return
                             _cachedContext[locale] = cached;
                             _lastFetchTime[locale] = now;
@@ -1044,7 +968,7 @@ export class GuardianDataHub {
                         verdict = checked.verdict;
                         if (checked.repaired.includes('realityInsight')) tacticalFutures = false;   // ★T2 복구 글로 바뀌면 표식도 내린다
                         // ★T35-B 저장 전 검사가 Tactical 을 바꿨으면 정기 재생성 결과(새 글)·생성 시각은 무효 — 최종 글 기준으로 다시 정한다(관문 10310901 ②)
-                        if (checked.repaired.includes('realityInsight')) { regOk = false; regGeneratedAt = undefined; regSeenAt = undefined; }
+                        if (checked.repaired.some(f => f === 'realityInsight')) { regOk = false; regGeneratedAt = undefined; regSeenAt = undefined; }
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
                         //   대기 문구(«준비 중»)가 된 칸은 직전 저장본의 정상 글을 살려서 저장한다 — 밤새 «준비 중»으로 굳지 않게.
                         const hasPlaceholder = [verdict.description, verdict.realityInsight, verdict.gammaInsight]
@@ -1114,7 +1038,7 @@ export class GuardianDataHub {
             // ★T35-B 정기 재생성이 새 글을 못 만들어 대기 문구가 됐으면 기존 장중 글(과 그 생성 기준)을 지킨다 — 출구 검사가 그 글을 다시 거른다
             //   예약 결과: 새 글로 바뀌었을 때만 성공 — 대기 문구(기존 글 유지)·같은 글(복구본)은 실패로 기록해 60분 대기·연속 2회 중지(관문 10310437 P2)
             // 예약 결과는 여기서 바로 기록 — 아래 섹터 결측(조기 반환) 경로에서도 빠지지 않게(관문 10310511 ②). 되돌림·저장은 위 판정 저장에서 이미 끝났다
-            if (regRefreshAt) { await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now()); regRefreshAt = 0; }
+            if (regRefreshAt) { await finishRegTacticalRefresh(claimRedis(), regRefreshAt, regOk, Date.now(), locale); regRefreshAt = 0; }
 
             // [MAP FLAP FIX] Never cache a degraded context (empty sectors = Polygon
             // snapshot failure). Caching it poisoned Redis for up to 10min and made the
@@ -1163,7 +1087,7 @@ export class GuardianDataHub {
 
         } catch (error) {
             console.error("[Guardian] Unified Stream Error:", error);
-            if (regRefreshAt) await finishRegTacticalRefresh(claimRedis(), regRefreshAt, false, Date.now());
+            if (regRefreshAt) await finishRegTacticalRefresh(claimRedis(), regRefreshAt, false, Date.now(), locale);
             if (placeholderFallback) return placeholderFallback;
             throw error;
         }
