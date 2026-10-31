@@ -252,6 +252,14 @@ test('⑨ 관문 10311015 — 재료 숫자는 «그 지표의 값»·방향은 
         'Market health (RLSI 30.8) is weak, so rebounds lack support, and options positioning (GEX +8) is neutral.',
         'The next test is the S&P 500 put floor at 7500: below it dealer hedging amplifies swings, above it the cushion holds.'].join(' '), 'en', prompt('en', { macroDrivers: { ...context.macroDrivers, fedwatch: { ...context.macroDrivers.fedwatch, weekAgoHikePct: 9.4 } } }));
     assert.ok(!enWk('Markets now price a 72% chance of a hike at the next FOMC up from 9.4% a week ago, with the Fear & Greed index at 26 (fear).').some(r => r.startsWith('tactical:driver')));
+    // 관문 10311028 — ① 부호 붙은 변화량 «+4bp»(입력 −4bp) ② 티커 없는 섹터 이름 «에너지 섹터가 7% 하락» ③ «26(극단적 공포 구간)»(입력 공포)
+    assert.ok(w('미국 10년물 금리 4.94%(전일 대비 +4bp)' + tail).includes('tactical:driver-direction:us10y'));
+    assert.ok(!w('미국 10년물 금리 4.94%(전일 대비 −4bp)' + tail).some(r => r.startsWith('tactical:driver')));
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수 26 속에 에너지 섹터가 7% 하락했습니다.').some(r => r.startsWith('tactical:driver-value:sector:XLE')));
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수 26 속에 반도체 섹터가 7% 밀렸습니다.').every(r => !r.startsWith('tactical:driver')));
+    assert.ok(en('Markets now price a 72% chance of a hike at the next FOMC, while the Energy sector fell 7%.').some(r => r.startsWith('tactical:driver-value:sector:XLE')));
+    assert.ok(!en('Markets now price a 72% chance of a hike at the next FOMC, while Clean Energy fell 7%.').some(r => r.startsWith('tactical:driver-value:sector:XLE')), '«Clean Energy» 는 에너지 섹터가 아니다');
+    assert.ok(w('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수 26(극단적 공포 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.').includes('tactical:driver-zone:feargreed'));
     // 재료 줄이 없는 옛 프롬프트도 OBSERVATIONS 의 10년물·공포탐욕으로 대조
     const old = prompt('ko', { macroDrivers: undefined });
     assert.ok(checkTacticalOutput(ko('미국 10년물 금리 30.8%' + tail), 'ko', old).includes('tactical:driver-value:us10y'));

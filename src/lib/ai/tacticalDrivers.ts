@@ -244,11 +244,26 @@ function specsFrom(drivers: string, observations: string): DriverSpec[] {
     for (const s of [...(sec?.leaders || []), ...(sec?.laggards || [])]) {
         const names = [s?.sector, SECTOR_EN_OF[s?.sector], ...(Object.entries(SECTOR_EN_OF).filter(([, en]) => en === s?.sector).map(([k]) => k))].filter((x): x is string => typeof x === 'string' && !!x);
         const others = secRows.filter((x: any) => x.etf !== s?.etf).map((x: any) => x.sector as string);
+        if (typeof s?.etf === 'string' && /^[A-Z]{2,5}$/.test(s.etf) && finite(s.chgPct) && names.length)
+            // 티커 없이 이름만 쓴 섹터(«에너지 섹터가 7% 하락» — 관문 10311028 ②)도 같은 대조 — 다른 섹터 이름의 일부(«클린에너지»·«Clean Energy» 속 에너지)는 제외
+            out.push({ id: `sector:${s.etf}:name`, re: sectorNameRe(names), values: [{ v: s.chgPct, unit: 'pct' }], sign: Math.sign(s.chgPct), change: s.chgPct });
         if (typeof s?.etf === 'string' && /^[A-Z]{2,5}$/.test(s.etf) && finite(s.chgPct))
             // 부호 없이 쓴 숫자도 방향어(«1.9% 하락»)를 입력 등락 부호와 대조한다(관문 10311024 ②) — change = 그 세션 등락
             out.push({ id: `sector:${s.etf}`, re: new RegExp(`\\(\\s*${s.etf}\\s*\\)|(?<![A-Za-z])${s.etf}(?![A-Za-z])`, 'g'), values: [{ v: s.chgPct, unit: 'pct' }], sign: Math.sign(s.chgPct), change: s.chgPct, names, others });
     }
     return out;
+}
+
+/** 섹터 이름 정규식 — 한글·가나는 앞 글자 경계, 영어는 낱말 경계 + 다른 섹터 이름의 꼬리(«Clean Energy»의 Energy) 제외 */
+function sectorNameRe(names: string[]): RegExp {
+    const all = [...new Set([...Object.keys(SECTOR_EN_OF), ...Object.values(SECTOR_EN_OF)])];
+    const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = names.map(n => {
+        const tails = all.filter(o => o !== n && o.endsWith(n)).map(o => o.slice(0, o.length - n.length)).filter(Boolean);
+        const guard = tails.map(t => `(?<!${esc(t)})`).join('');
+        return /^[A-Za-z]/.test(n) ? `${guard}(?<![A-Za-z])${esc(n)}(?![A-Za-z])` : `${guard}(?<![가-힣ァ-ヶー])${esc(n)}`;
+    });
+    return new RegExp(parts.join('|'), 'gi');
 }
 
 const BOUNDARY = /[;；。、!?！？]|[,，](?!\d)|\.(?!\d)/g;
@@ -310,14 +325,16 @@ export function driverClaimReasons(text: string, drivers: string, observations =
             const ok = allowed.some(v => (v.unit === 'any' || unit === 'none' || v.unit === unit) && fits(num, decimals, v.v));
             if (!ok) { out.push(`tactical:driver-value:${m.sp.id}`); return; }
             if (m.sp.sign && t.sign && t.sign !== m.sp.sign) { out.push(`tactical:driver-direction:${m.sp.id}`); return; }
+            // 부호를 붙인 변화량(«+4bp»)은 입력 변화량 부호와 같아야 한다(관문 10311028 ① — 크기만 맞고 부호가 반대인 «전일 대비 +4bp»)
+            if (unit === 'bp' && t.sign && typeof m.sp.change === 'number' && m.sp.change !== 0 && t.sign !== Math.sign(m.sp.change)) { out.push(`tactical:driver-direction:${m.sp.id}`); return; }
         }
         // 공포·탐욕 구간 낱말(값 바로 뒤 괄호·조사 14자 안)은 입력 구간과 같아야 한다(«26(탐욕 구간)» 차단)
         if (m.sp.zone) {
             const after = text.slice(mine[mine.length - 1].end, mine[mine.length - 1].end + 14);
             const said = /극단적\s?공포|extreme fear|極度の恐怖/i.test(after) ? 'extreme fear' : /극단적\s?탐욕|extreme greed|極度の強欲/i.test(after) ? 'extreme greed'
                 : /공포|\bfear\b|恐怖/i.test(after) ? 'fear' : /탐욕|\bgreed\b|強欲/i.test(after) ? 'greed' : /중립|neutral|中立/i.test(after) ? 'neutral' : null;
-            const fearish = (z: string) => z.includes('fear'), greedish = (z: string) => z.includes('greed');
-            if (said && !(said === m.sp.zone || (fearish(said) && fearish(m.sp.zone)) || (greedish(said) && greedish(m.sp.zone)))) out.push(`tactical:driver-zone:${m.sp.id}`);
+            // 같은 구간만 — 넓은 말(«공포»)로 «극단적 공포»를 말하는 것은 허용, 더 센 말(«극단적 공포»)로 «공포»를 말하는 것은 탈락(관문 10311028 ③)
+            if (said && !(said === m.sp.zone || `extreme ${said}` === m.sp.zone)) out.push(`tactical:driver-zone:${m.sp.id}`);
         }
         // 섹터 이름 — ETF 바로 앞 이름이 다른 재료 섹터 이름이면 탈락(«에너지(SMH)»)
         if (m.sp.names?.length && m.sp.others?.length) {
