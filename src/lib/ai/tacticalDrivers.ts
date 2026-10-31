@@ -17,7 +17,7 @@ import { isTacticalCauseHeadline, isCompanyLedTitle } from './tacticalNews';
 import { etDateOf } from '@/lib/marketCalendar';
 import { textIntegrityReasons } from './textIntegrity';
 import { valueTokens } from './claimChecks';
-import { SECTOR_NAME_EN, SECTOR_NAME_JA } from './sectorLabels';
+import { SECTOR_NAME_EN, SECTOR_NAME_JA, SECTOR_ETF_KO, SECTOR_NAME_ALIASES } from './sectorLabels';
 /** 섹터 이름(한·일) → 영어 — 재료 줄의 현지어 이름과 영어 이름을 같은 섹터로 본다 */
 const SECTOR_EN_OF: Readonly<Record<string, string>> = { ...SECTOR_NAME_EN, ...Object.fromEntries(Object.entries(SECTOR_NAME_JA).map(([en, ja]) => [ja, en])) };
 
@@ -279,11 +279,64 @@ function clauseStart(text: string, to: number): number {
 }
 const fits = (written: number, decimals: number, actual: number) => Math.abs(written - Number(Math.abs(actual).toFixed(decimals))) < 1e-9;
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★2026-10-31 관문 10311033 ① — «섹터 낱말(티커)»·«티커(섹터 낱말)» 짝은 고정 정본(SECTOR_ETF_KO → 3언어 이름)과 같아야 한다.
+ *   예전 검사는 «입력에 들어온 다른 섹터 이름»과만 비교해, 재료에 XLE·SMH 만 있을 때 «기술주(XLE) +1.9%»가 통과했다(XLE 를 기술주 ETF로 오표시).
+ *   정본 표에 있는 티커는 입력 유무와 관계없이 대조하고, 정본에 없는 티커(내부 묶음·개별 종목)는 기존 규칙(입력 섹터 이름 대조)만 쓴다.
+ *   이름 판정은 «가장 긴 이름»으로(«Clean Energy»의 Energy · «클린에너지»의 에너지를 에너지 섹터로 읽지 않는다), 낱말 경계 필수(«Fintech»의 tech 제외).
+ * ──────────────────────────────────────────────────────────────────────────── */
+const SECTOR_KO_OF_NAME: ReadonlyArray<readonly [string, string]> = (() => {
+    const rows: Array<[string, string]> = [];
+    for (const ko of new Set(Object.values(SECTOR_ETF_KO))) {
+        const en = SECTOR_NAME_EN[ko];
+        for (const n of [ko, en, en ? SECTOR_NAME_JA[en] : undefined, ...(SECTOR_NAME_ALIASES[ko] || [])]) if (n) rows.push([n, ko]);
+    }
+    // 정본 밖 섹터 이름(AI 전력망·안전자산)도 «다른 섹터 이름»으로 알아본다 — 정본 ETF 앞에 붙으면 오표시다
+    for (const [ko, en] of Object.entries(SECTOR_NAME_EN)) if (!rows.some(r => r[1] === ko)) for (const n of [ko, en, SECTOR_NAME_JA[en]]) if (n) rows.push([n, ko]);
+    return rows.sort((a, b) => b[0].length - a[0].length);
+})();
+const LATIN_START = /^[A-Za-z]/;
+/** 글 조각 끝(또는 처음)에 붙은 섹터 이름 → 한국어 정본 이름(가장 긴 이름, 낱말 경계) */
+function sectorNameAt(piece: string, where: 'end' | 'start'): string | null {
+    for (const [n, ko] of SECTOR_KO_OF_NAME) {
+        const latin = LATIN_START.test(n);
+        const a = latin ? piece.toLowerCase() : piece, b = latin ? n.toLowerCase() : n;
+        if (where === 'end' ? !a.endsWith(b) : !a.startsWith(b)) continue;
+        // 경계 — 영어는 앞뒤 모두 낱말 경계 · 한글·가나·한자는 이름 «앞»만(뒤에는 조사가 붙는다)
+        const edge = where === 'end' ? piece.slice(0, piece.length - n.length).slice(-1) : piece.slice(n.length, n.length + 1);
+        if (latin ? /[A-Za-z]/.test(edge) : where === 'end' && /[가-힣ァ-ヶー一-龥]/.test(edge)) continue;
+        return ko;
+    }
+    return null;
+}
+const SECTOR_SUFFIX = /\s*(?:섹터|업종|sector|stocks|shares|ETF|セクター|株)$/i;
+/** 섹터 이름·ETF 짝 대조 — 사유: tactical:driver-sector-name:sector:<ETF> */
+export function sectorPairReasons(text: string): string[] {
+    if (!text) return [];
+    const out: string[] = [];
+    for (const [etf, ko] of Object.entries(SECTOR_ETF_KO)) {
+        for (const m of text.matchAll(new RegExp(`(?<![A-Za-z0-9])${etf}(?![A-Za-z0-9])`, 'g'))) {
+            // 앞: «기술주(XLE)» · «Technology (XLE)» · «テクノロジー(XLE)» · «기술 섹터(XLE)» — 괄호·공백·접미어(섹터·sector·株)를 걷어 내고 끝에 붙은 이름
+            const lead = text.slice(Math.max(0, m.index! - 40), m.index!).replace(/[\s(（「『“"']*$/, '');
+            let said = sectorNameAt(lead, 'end') ?? sectorNameAt(lead.replace(SECTOR_SUFFIX, ''), 'end');
+            if (said === null) {
+                // 뒤: «XLE(기술주)» · «XLE (Technology)» — 괄호 안 이름만(«Energy (XLE) Technology (XLK)» 처럼 다음 짝의 이름을 빌리지 않게)
+                const trail = text.slice(m.index! + etf.length, m.index! + etf.length + 40).match(/^\s?[(（]\s*([^)）]{1,30})[)）]/)?.[1]?.trim() ?? '';
+                said = trail ? (sectorNameAt(trail, 'start') ?? sectorNameAt(trail.replace(SECTOR_SUFFIX, ''), 'start')) : null;
+            }
+            if (said !== null && said !== ko) out.push(`tactical:driver-sector-name:sector:${etf}`);
+        }
+    }
+    return [...new Set(out)];
+}
+
 /** 재료 지표 숫자·방향 대조 — 사유: tactical:driver-value:<id> · tactical:driver-direction:<id> · tactical:driver-unsupported-change:<id> */
 export function driverClaimReasons(text: string, drivers: string, observations = ''): string[] {
     if (!text) return [];
+    // 섹터 이름·ETF 짝은 재료와 무관한 고정 사실 — 재료가 없어도 본다(관문 10311033 ①)
+    const pairs = sectorPairReasons(text);
     const specs = specsFrom(drivers, observations);
-    if (!specs.length) return [];
+    if (!specs.length) return pairs;
     const mentions = specs.flatMap(sp => [...text.matchAll(new RegExp(sp.re.source, sp.re.flags.includes('g') ? sp.re.flags : sp.re.flags + 'g'))]
         // 스퀴즈 «확률»은 금리 경로 확률이 아니다
         .filter(m => !(sp.prob && /스퀴즈|squeeze|スクイーズ/i.test(text.slice(Math.max(0, m.index! - 8), m.index!))))
@@ -354,5 +407,5 @@ export function driverClaimReasons(text: string, drivers: string, observations =
             }
         }
     });
-    return [...new Set(out)];
+    return [...new Set([...pairs, ...out])];
 }

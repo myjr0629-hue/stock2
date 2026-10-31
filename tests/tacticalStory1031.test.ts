@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { isTacticalCauseHeadline, filterMarketHeadlines } from '@/lib/ai/tacticalNews';
 import { tacticalFedwatchFrom, tacticalMacroDrivers, causeNewsFromArchive, mergeCauseNews, driversForPrompt } from '@/lib/ai/tacticalDrivers';
-import { buildTacticalPrompt, checkTacticalOutput, tacticalNextBoundaryReasons, TACTICAL_GATE_MAX_CHARS } from '@/lib/ai/tacticalPrompt';
+import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, storedDriverReasons, tacticalDriverSnapshot, tacticalNextBoundaryReasons, TACTICAL_GATE_MAX_CHARS } from '@/lib/ai/tacticalPrompt';
+import { sectorPairReasons } from '@/lib/ai/tacticalDrivers';
+import { SECTOR_ETF_KO, SECTOR_NAME_EN } from '@/lib/ai/sectorLabels';
+import { SECTOR_MAP } from '@/services/universePolicy';
 import { claimReasons } from '@/lib/ai/claimChecks';
 
 let failed = 0;
@@ -263,6 +266,67 @@ test('⑨ 관문 10311015 — 재료 숫자는 «그 지표의 값»·방향은 
     // 재료 줄이 없는 옛 프롬프트도 OBSERVATIONS 의 10년물·공포탐욕으로 대조
     const old = prompt('ko', { macroDrivers: undefined });
     assert.ok(checkTacticalOutput(ko('미국 10년물 금리 30.8%' + tail), 'ko', old).includes('tactical:driver-value:us10y'));
+});
+
+test('⑩ 관문 10311033 ① — 섹터 이름·ETF 짝은 고정 정본과 대조(입력에 없는 다른 섹터 이름도) · 3언어 · 앞 이름·괄호 속 뒤 이름', () => {
+    // 정본 표 = universePolicy.SECTOR_MAP 의 ETF 티커 칸(SSOT) — 새 섹터가 생기면 이 시험이 알린다
+    const ssot = Object.fromEntries(Object.entries(SECTOR_MAP).filter(([id]) => /^[A-Z]{2,5}$/.test(id)).map(([id, v]) => [id, v.name]));
+    assert.deepEqual(SECTOR_ETF_KO, ssot);
+    for (const ko of Object.values(SECTOR_ETF_KO)) assert.ok(SECTOR_NAME_EN[ko], `영어 이름 없음: ${ko}`);
+    const p = prompt('ko');   // 재료 섹터 = 에너지(XLE)·반도체(SMH)뿐 — «기술주»는 입력에 없다
+    const w = (why: string) => checkTacticalOutput(ko(why), 'ko', p);
+    const head = '시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수 26(공포 구간) 속에 ';
+    // 관문 재현: «기술주(XLE) +1.9%» — 예전엔 빈 목록
+    assert.ok(w(head + '기술주(XLE) +1.9%만 올랐습니다.').includes('tactical:driver-sector-name:sector:XLE'));
+    assert.ok(w(head + 'XLE(기술주) +1.9%만 올랐습니다.').includes('tactical:driver-sector-name:sector:XLE'));
+    assert.ok(w(head + '기술 섹터(XLE) +1.9%만 올랐습니다.').includes('tactical:driver-sector-name:sector:XLE'));
+    assert.ok(w(head + '유틸리티(SMH) −7%가 밀렸습니다.').includes('tactical:driver-sector-name:sector:SMH'));
+    assert.ok(!w(head + '에너지(XLE) +1.9%만 오르고 반도체(SMH) −7%가 밀렸습니다.').some(r => r.startsWith('tactical:driver')));
+    const en = (why: string) => checkTacticalOutput(['In the 10/30 cash session Nasdaq Composite fell 2.9% and S&P 500 fell 1.8%; futures change since that close is unconfirmed.', why,
+        'Market health (RLSI 30.8) is weak, so rebounds lack support, and options positioning (GEX +8) is neutral.',
+        'The next test is the S&P 500 put floor at 7500: below it dealer hedging amplifies swings, above it the cushion holds.'].join(' '), 'en', prompt('en'));
+    assert.ok(en('Markets now price a 72% chance of a hike at the next FOMC, while Technology (XLE) rose 1.9%.').includes('tactical:driver-sector-name:sector:XLE'));
+    assert.ok(en('Markets now price a 72% chance of a hike at the next FOMC, while Clean Energy (XLE) rose 1.9%.').includes('tactical:driver-sector-name:sector:XLE'), '«Clean Energy» 는 에너지가 아니다');
+    assert.ok(!en('Markets now price a 72% chance of a hike at the next FOMC, while the Energy sector (XLE) rose 1.9% and Semiconductors (SMH) fell 7%.').some(r => r.startsWith('tactical:driver')));
+    const ja = (why: string) => checkTacticalOutput(['本日(10/30)の通常取引でナスダック総合は2.9%、S&P500は1.8%下落し、現在の取引終了後の先物変化は未確認です。', why,
+        '市場の健全度(RLSI 30.8)が弱く反発を支える力が乏しく、オプション・ポジション(GEX +8)は中立です。',
+        '次の分岐点はS&P500のプット・フロア7500で、その下ではディーラーのヘッジが値動きを増幅します。'].join(''), 'ja', prompt('ja'));
+    assert.ok(ja('市場が織り込む次回FOMCの利上げ確率(FedWatch)72%の中、テクノロジー(XLE)+1.9%だけが上昇しました。').includes('tactical:driver-sector-name:sector:XLE'));
+    assert.ok(!ja('市場が織り込む次回FOMCの利上げ確率(FedWatch)72%の中、エネルギー(XLE)+1.9%だけが上昇し、半導体(SMH)は−7%と下げました。').some(r => r.startsWith('tactical:driver')));
+    // 함정 — 다른 이름의 꼬리·낱말 일부·일반 낱말 뒤 ETF 는 짝이 아니다
+    assert.deepEqual(sectorPairReasons('Clean Energy (ICLN) fell 3%, Fintech (XLF) names held, 반도체 산업(SMH) −7%.'), []);
+    // 정본 밖 티커(내부 묶음·개별 종목)는 기존 규칙만 — 이름이 붙어도 이 검사는 판정하지 않는다
+    assert.deepEqual(sectorPairReasons('기술주(NVDA) 약세, AI 전력망(AI_PWR) 약세'), []);
+    // 번역본·저장본도 같은 짝 검사(재료 스냅샷이 없어도 — 고정 사실)
+    assert.ok(checkTacticalTranslated(ko(head + '기술주(XLE) +1.9%만 올랐습니다.'), 'ko', p).includes('tactical:driver-sector-name:sector:XLE'));
+    assert.ok(checkTacticalStored(ko(head + '기술주(XLE) +1.9%만 올랐습니다.'), p).includes('tactical:driver-sector-name:sector:XLE'));
+});
+
+test('⑪ 관문 10311033 남은 위험 — 저장본·복구본 지표 대조는 «생성 당시 재료 스냅샷»으로 · 스냅샷 없으면 숫자 대조 생략(예전 동작)', () => {
+    const p = prompt('ko');
+    const snap = tacticalDriverSnapshot(p)!;
+    assert.ok(snap && JSON.parse(snap).v === 1 && JSON.parse(snap).drivers.includes('FedWatch'));
+    const good = ko('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 72%, 공포·탐욕 지수 26(공포 구간) 속에 에너지(XLE) +1.9%만 오르고 반도체(SMH) −7%가 밀렸습니다.');
+    const bad = ko('시장이 반영한 다음 FOMC 금리 인상 확률(FedWatch) 26%, 공포·탐욕 지수 72(공포 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.');
+    // 스냅샷 있음: 생성 검사와 같은 함수로 탈락
+    const r = checkTacticalStored(bad, p, { driverSnapshot: snap, driverText: bad });
+    assert.ok(r.includes('tactical:driver-value:fedwatch') && r.includes('tactical:driver-value:feargreed'), r.join(','));
+    assert.deepEqual(checkTacticalStored(good, p, { driverSnapshot: snap, driverText: good }).filter(x => x.startsWith('tactical:driver')), []);
+    // 스냅샷 없음(이 변경 전 저장분·v2 복구본) = 숫자 대조 생략 — 예전 동작 그대로
+    assert.deepEqual(checkTacticalStored(bad, p).filter(x => x.startsWith('tactical:driver')), []);
+    // 대조 기준은 «지금 프롬프트»가 아니라 스냅샷 — 지금 재료가 바뀌어도(확률 72→80) 생성 당시 정상 글은 통과(«준비 중» 고정 회귀 방지)
+    const now = prompt('ko', { macroDrivers: { ...context.macroDrivers, fedwatch: { ...context.macroDrivers.fedwatch, nextFomcHikePct: 80, nextFomcHoldPct: 20 }, fearGreed: { score: 40, zone: 'fear' } } });
+    assert.ok(checkTacticalOutput(good, 'ko', now).includes('tactical:driver-value:fedwatch'), '전제: 지금 재료로 대조하면 정상 글도 탈락한다');
+    assert.deepEqual(checkTacticalStored(good, now, { driverSnapshot: snap, driverText: good }).filter(x => x.startsWith('tactical:driver')), []);
+    // 채운 글이 없으면(자리표가 남음·basis 없음) 숫자 대조 생략 · 깨진 스냅샷도 생략
+    assert.deepEqual(storedDriverReasons(bad, snap, undefined), []);
+    assert.deepEqual(storedDriverReasons(bad, '{broken', bad), []);
+    // 재료 줄이 없는 옛 프롬프트 = OBSERVATIONS 칸만 스냅샷(10년물 30.8% 는 탈락)
+    const old = prompt('ko', { macroDrivers: undefined });
+    const oldSnap = tacticalDriverSnapshot(old)!;
+    assert.equal(JSON.parse(oldSnap).drivers, '');
+    const t = ko('미국 10년물 금리 30.8%, 공포·탐욕 지수 26(공포 구간) 속에 에너지(XLE) +1.9%만 올랐습니다.');
+    assert.ok(storedDriverReasons(t, oldSnap, t).includes('tactical:driver-value:us10y'));
 });
 
 if (failed) { console.error(`${failed} failed`); process.exit(1); }

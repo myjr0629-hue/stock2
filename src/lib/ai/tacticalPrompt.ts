@@ -2,7 +2,7 @@ import { tacticalFuturesDirection } from './tacticalFuturesRules';
 import { guardianTokenRules, type GNums } from './guardianNumbers';
 import { buildIndexFacts, sessionIndexFacts, tacticalSessionAt, type IndexFact, type TacticalSession } from './tacticalIndexFacts';
 import { filterTacticalCauseHeadlines } from './tacticalNews';
-import { driversForPrompt, driverClaimReasons, type TacticalMacroDrivers } from './tacticalDrivers';
+import { driversForPrompt, driverClaimReasons, sectorPairReasons, type TacticalMacroDrivers } from './tacticalDrivers';
 import { SECTOR_NAME_EN, SECTOR_NAME_JA } from './sectorLabels';
 import { lastClosedSessionDate } from '@/lib/marketSession';
 import { checkNumberGrounding } from './depthNumbers';
@@ -484,14 +484,42 @@ export function tacticalNextBoundaryReasons(next: string): string[] {
 }
 
 /** 저장본·복구·번역 글의 시각 검사 — 마지막 문장(NEXT)만 + 입력 이름표 노출(«TODAY_NEWS에 따르면» — 10/20 17:03 운영 ko·ja 실측). */
-export function checkTacticalStored(text: string, prompt: string): string[] {
+export function checkTacticalStored(text: string, prompt: string, opts: { driverSnapshot?: string; driverText?: string } = {}): string[] {
     const sentences = splitSentences(text);
     const { events, asOf } = promptEvidence(prompt);
     // origin/main 저장본 계약: 입력 이름표 + NEXT의 예정 주장. INDEX_FACTS와 대조하지 않는다.
     // 현지 시각 병기는 새 생성 계약이므로 저장본에서는 ET만 기존 일정 검사로 넘긴다.
     const next = (sentences[sentences.length - 1] || '').replace(/\((?:한국|日本時間) \d{2}:\d{2}\)/g, '');
     return [...internalLabelReasons(text, false), ...internalSourceReasons(text),
-        ...scheduleClaimReasons(next, events, asOf, 'claims')];
+        ...scheduleClaimReasons(next, events, asOf, 'claims'), ...storedDriverReasons(text, opts.driverSnapshot, opts.driverText)];
+}
+
+/**
+ * ★2026-10-31 관문 10311033 남은 위험 — 저장본·복구본도 재료 지표 숫자·방향을 생성 검사와 «같은 함수»(driverClaimReasons)로 대조한다.
+ *   단 대조 기준은 «생성 당시 재료»(저장본에 같이 둔 스냅샷 tacticalDriverSnapshot) — 지금 화면 값으로 대조하면 10년물이 4.94→4.96 으로만 움직여도
+ *   정상 저장본이 전부 탈락해 «준비 중»으로 굳는다(10/21·10/31 사고). 그래서:
+ *   · 스냅샷 없는 저장본(이 변경 전 저장분·v2 복구본) = 숫자 대조 생략(예전 동작 그대로), 섹터 이름·ETF 짝(고정 사실)만 본다
+ *   · 대조할 글 = 저장 자리표 원본을 «저장 당시 값(basis)»으로 채운 글(driverText) — 생성 때 검사한 글과 같은 숫자. 채울 수 없으면 숫자 대조 생략
+ */
+export function storedDriverReasons(text: string, snapshot?: string, driverText?: string): string[] {
+    const pairs = sectorPairReasons(splitSentences(text).slice(1).join(' '));
+    if (!snapshot || driverText === undefined) return pairs;
+    let snap: { v?: number; drivers?: unknown; obs?: unknown } | null = null;
+    try { snap = JSON.parse(snapshot); } catch { snap = null; }
+    if (!snap || snap.v !== 1 || typeof snap.drivers !== 'string') return pairs;
+    const obs = snap.obs && typeof snap.obs === 'object' ? JSON.stringify(snap.obs) : '';
+    return [...new Set([...pairs, ...driverClaimReasons(splitSentences(driverText).slice(1).join(' '), snap.drivers, obs)])];
+}
+
+/** 생성 당시 재료 스냅샷(저장본에 같이 둔다) — MACRO_DRIVERS 줄 + OBSERVATIONS 의 10년물·공포탐욕 칸(driverClaimReasons 가 읽는 칸만). 재료가 없으면 undefined */
+export function tacticalDriverSnapshot(prompt?: string): string | undefined {
+    if (!prompt) return undefined;
+    const { data, drivers } = promptEvidence(prompt);
+    let o: Record<string, unknown> = {};
+    try { o = JSON.parse(observationsOf(data) || '{}') || {}; } catch { o = {}; }
+    const obs = Object.fromEntries(['us10y', 'us10yChangeBp', 'fearGreedScore'].flatMap(k => (finiteNum(o[k]) !== undefined ? [[k, o[k]]] : [])));
+    if (!drivers && !Object.keys(obs).length) return undefined;
+    return JSON.stringify({ v: 1, drivers, obs });
 }
 
 /** 프롬프트 입력 이름표·구조 이름이 글에 새어 나왔나 — 읽기(저장본)는 입력 이름표만, 생성은 «WHY:»·«NEXT:» 같은 구조 이름표까지 */
