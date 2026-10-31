@@ -268,6 +268,20 @@ async function regTacticalDriftNow(c: GuardianContext & { _workerTimestamp?: str
 async function claimRegTacticalRefresh(now: number): Promise<'exclusive' | false> {
     return await reserveRegTacticalRefresh(claimRedis(), now) ? 'exclusive' : false;
 }
+/** 채택한 장중 Tactical 칸(워커가 스냅샷에 다시 쓰기 전까지 이 인스턴스가 덮어 줄 것) — 5분 또는 스냅샷이 따라잡으면 끝 */
+const REG_ADOPT_MEMO_MS = 5 * 60_000;
+const _regAdopted: Record<Locale, { until: number; seenAt: number; pick: { verdict: any; tacticalSeenAt?: string; tacticalGeneratedAt?: string } } | null> = { ko: null, en: null, ja: null };
+function overlayRegAdopted<T extends { verdict?: any; tacticalSeenAt?: string; timestamp?: string; rlsi?: { session?: string } }>(c: T, locale: Locale, now: number): T {
+    const m = _regAdopted[locale];
+    if (!m || now > m.until || c.rlsi?.session !== 'REG') { _regAdopted[locale] = null; return c; }
+    if (tacticalSeenAtOf(c) >= m.seenAt) { _regAdopted[locale] = null; return c; }   // 스냅샷이 따라잡았다
+    const tpl = { ...c.verdict?.num?.tpl }, basis = { ...c.verdict?.num?.basis };
+    const mt = m.pick.verdict?.num?.tpl?.realityInsight, mb = m.pick.verdict?.num?.basis?.realityInsight;
+    if (mt !== undefined) tpl.realityInsight = mt; else delete tpl.realityInsight;
+    if (mb !== undefined) basis.realityInsight = mb; else delete basis.realityInsight;
+    return { ...c, tacticalSeenAt: m.pick.tacticalSeenAt, tacticalGeneratedAt: m.pick.tacticalGeneratedAt,
+        verdict: { ...c.verdict, realityInsight: m.pick.verdict?.realityInsight, num: { ...c.verdict?.num, tpl, basis } } };
+}
 /** 다른 언어·인스턴스의 정기 재생성이 저장한 더 새 장중 글이 있나(GET 한 번, 인스턴스·언어별 30초 간격) */
 const _regAdoptCheckAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 async function regTacticalNewerStoredAt(c: { tacticalSeenAt?: string; timestamp?: string } | null | undefined, session: string | undefined, locale: Locale, now: number): Promise<number | null> {
@@ -299,7 +313,7 @@ const POST_TACTICAL_ADOPT_CHECK_MS = 30 * 1000;
 const _tacticalAdoptCheckAt: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 /** 시험 전용 — 인스턴스 메모리(스냅샷 사본·채택 검사 간격)를 비워 «다른 인스턴스»를 흉내 낸다. */
 export function _resetGuardianHubStateForTest(): void {
-    for (const l of ['ko', 'en', 'ja'] as const) { _cachedContext[l] = null; _lastFetchTime[l] = 0; _tacticalAdoptCheckAt[l] = 0; _placeholderRecomputeAt[l] = 0; _regRefreshAskAt[l] = 0; _regAdoptCheckAt[l] = 0; }
+    for (const l of ['ko', 'en', 'ja'] as const) { _cachedContext[l] = null; _lastFetchTime[l] = 0; _tacticalAdoptCheckAt[l] = 0; _placeholderRecomputeAt[l] = 0; _regRefreshAskAt[l] = 0; _regAdoptCheckAt[l] = 0; _regAdopted[l] = null; }
     _placeholderClaimRedis = undefined;
 }
 const tacticalSeenAtOf = (c: { tacticalSeenAt?: string; timestamp?: string }): number => {
@@ -555,6 +569,8 @@ export class GuardianDataHub {
         //   (v3 저장본이 있으면 교체 · 없으면 잠금 1회 백그라운드 생성 · 실패하면 옛 글 그대로). 승격본은 워커가 스냅샷에 다시 쓴다.
         // ★2026-10-28 T2 출구에서 Tactical 글을 복구 글로 바꿨으면 장후 표식도 내린다(복구 글엔 선물 사실이 없을 수 있다 — 5분 뒤 다시 계산, 관문 10280621 ①)
         if (r.repaired.includes('realityInsight') && context.tacticalFutures === true) context = { ...context, tacticalFutures: false };
+        // ★T35-B 출구에서 장중 Tactical 을 복구 글로 바꿨으면 생성 시각을 «모름(오래된 글)»으로 — 재생성 판정이 바뀐 글 기준으로(관문 10310901 ②)
+        if (r.repaired.includes('realityInsight') && context.rlsi?.session === 'REG' && context.tacticalGeneratedAt) context = { ...context, tacticalGeneratedAt: new Date(0).toISOString() };
         const up = core ? await IntelligenceNode.offHoursRotationUpgrade(r.verdict, locale, nums, () => offHoursRotationContext(core, locale), (job) => CORE_DEPS.background?.(job) ?? false) : null;
         if (up) return { ...context, verdict: up };
         return r.changed ? { ...context, verdict: r.verdict } : context;
@@ -642,6 +658,8 @@ export class GuardianDataHub {
             }
         } catch { return previous; }
         // 스냅샷 저장소에는 쓰지 않는다 — 읽고-쓰기 사이 다른 요청의 최신 스냅샷을 덮을 수 있다(관문 10310831 ①). EC2 워커가 이 응답을 스냅샷에 다시 쓴다
+        //   워커가 다시 쓰기 전 같은 인스턴스의 다음 요청이 옛 스냅샷을 내지 않게, 채택한 Tactical 칸만 메모리에 두고 덮어 준다(관문 10310901 ①)
+        if (context !== previous) _regAdopted[locale] = { until: now + REG_ADOPT_MEMO_MS, seenAt: tacticalSeenAtOf(context), pick: { verdict: context.verdict, tacticalSeenAt: context.tacticalSeenAt, tacticalGeneratedAt: context.tacticalGeneratedAt } };
         _cachedContext[locale] = context;
         _lastFetchTime[locale] = now;
         return context;
@@ -717,6 +735,8 @@ export class GuardianDataHub {
                                 const adopted = await GuardianDataHub.adoptRegTactical(cached, locale, now, regNewer);
                                 if (adopted !== cached) return adopted;
                             }
+                            // 방금 채택한 글이 아직 스냅샷에 없으면 그 칸을 덮어 준다(메모리만)
+                            if (cachedSession === 'REG') { const o = overlayRegAdopted(cached, locale, now); if (o !== cached) { _cachedContext[locale] = o; _lastFetchTime[locale] = now; return o; } }
                             // Session matches and data is fresh, safe to return
                             _cachedContext[locale] = cached;
                             _lastFetchTime[locale] = now;
@@ -1023,6 +1043,8 @@ export class GuardianDataHub {
                         const checked = await IntelligenceNode.repairVerdictTexts(verdict, locale, 'new-verdict', aiNums, tacticalPrompts);
                         verdict = checked.verdict;
                         if (checked.repaired.includes('realityInsight')) tacticalFutures = false;   // ★T2 복구 글로 바뀌면 표식도 내린다
+                        // ★T35-B 저장 전 검사가 Tactical 을 바꿨으면 정기 재생성 결과(새 글)·생성 시각은 무효 — 최종 글 기준으로 다시 정한다(관문 10310901 ②)
+                        if (checked.repaired.includes('realityInsight')) { regOk = false; regGeneratedAt = undefined; regSeenAt = undefined; }
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
                         //   대기 문구(«준비 중»)가 된 칸은 직전 저장본의 정상 글을 살려서 저장한다 — 밤새 «준비 중»으로 굳지 않게.
                         const hasPlaceholder = [verdict.description, verdict.realityInsight, verdict.gammaInsight]

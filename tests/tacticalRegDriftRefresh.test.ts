@@ -262,7 +262,10 @@ class OfflineRedis {
             assert.notEqual(store.get('guardian:snapshot:ja').verdict.realityInsight, NEW, '스냅샷 저장소에는 쓰지 않음(워커가 응답을 다시 쓴다 — 관문 10310831 ①)');
             assert.deepEqual(regTacticalNeedsRefresh(adopted, 'REG', now, isPh), [], '채택 뒤 같은 글로 재생성 요청 없음');
             // 30초 안 재확인 없음
-            await call('ja'); assert.equal(adoptCalls, 1);
+            const again = await call('ja'); assert.equal(adoptCalls, 1);
+            assert.equal(again.verdict.realityInsight, NEW, '워커가 스냅샷을 다시 쓰기 전 같은 인스턴스의 다음 요청도 새 글(관문 10310901 ①)');
+            assert.deepEqual(again.verdict.num.basis.realityInsight, { NDX_CHG: -3.4, SPX_CHG: -2.1, RLSI: 30 });
+            assert.equal(again.verdict.description, '순환매 정상 글', '다른 칸은 스냅샷 그대로');
             // 관문 10310537 — 변화가 있어도 다른 언어·인스턴스의 새 장중 글이 있으면 예약·재계산 없이 채택
             {
                 fresh(snap(), 'ja'); adoptCalls = 0; budgets.clear();
