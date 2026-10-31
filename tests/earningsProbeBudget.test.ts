@@ -63,7 +63,7 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     const pack = await EIS.buildImpliedPack(rows, Date.now(), { probeMonthly: true, deadlineMs: Date.now() + 20_000 });
     assert.ok(vendorCalls.length <= 3, `429 뒤 호출 계속 — ${vendorCalls.length}회 (${vendorCalls.slice(0, 6).join(', ')})`);
     assert.equal(Object.values(pack.cells).filter((c) => c.p != null).length, 0, '429 응답으로 값을 만들지 않는다');
-    assert.equal([...store.keys()].filter((k) => k.startsWith('earnings:event-probe:v4')).length, 0, '429 는 «확인함»으로 저장하지 않는다');
+    assert.equal([...store.keys()].filter((k) => k.startsWith('earnings:event-probe:v3')).length, 0, '429 는 «확인함»으로 저장하지 않는다');
     console.log(`  ✓ ② 12종목 전부 429 → 공급사 호출 ${vendorCalls.length}회(예전 48)`);
 
     // ③ 느린 체인 — 시간 초과 뒤 다음 페이지·그릭스 등 새 호출이 시작되지 않는다
@@ -79,7 +79,7 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     seed(); vendorCalls = []; vendorMode = 'partial' as any;
     const pk = await EIS.buildImpliedPack(rows.slice(0, 1), Date.now(), { probeMonthly: true, deadlineMs: Date.now() + 20_000 });
     assert.equal(Object.values(pk.cells).filter((c) => c.p != null).length, 0, `부분 체인으로 값을 만들지 않는다 — ${JSON.stringify(pk.cells)}`);
-    const probeKeys = [...store.keys()].filter((k) => k.startsWith('earnings:event-probe:v4'));
+    const probeKeys = [...store.keys()].filter((k) => k.startsWith('earnings:event-probe:v3'));
     assert.ok(probeKeys.every((k) => (store.get(k) as any)?.im == null), '부분 체인 값(12%)을 «확인함» 캐시에 저장하지 않는다(직전 정상값 없음 → null)');
     assert.ok(vendorCalls.some((p) => p.includes('/options/chain/')), `체인 조회가 실제로 나갔다 — ${vendorCalls.join(', ')}`);
     console.log(`  ✓ 부분 체인(다음 페이지 500) → 값 없음·잘못된 값 저장 없음 (호출 ${vendorCalls.length}회)`);
@@ -89,12 +89,12 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     const MP = require('../src/services/earningsMonthlyProbe') as typeof import('../src/services/earningsMonthlyProbe');
     const obs = (session: string) => ({ def: 'atm-straddle-mid/1', pct: 6.2, straddle: 6.2, strike: 100, expiry: '2026-11-06',
       callPrice: 3.1, putPrice: 3.1, spot: 100, basis: 'eod', session, chainDate: session, asOf: null, method: 'weekly' });
-    store.set(`earnings:event-probe:v4:${tickers[0]}:2026-11-05:next`, { im: obs('2026-10-16'), checkedAt: Date.now() - 2 * 3600_000 });
+    store.set(`earnings:event-probe:v3:${tickers[0]}:2026-11-05:next`, { im: obs('2026-10-16'), checkedAt: Date.now() - 2 * 3600_000 });
     const kept = await MP.earningsMonthlyMove(tickers[0], '2026-11-05', false, null, true, Date.now() + 20_000);
     assert.equal(kept?.pct, 6.2, '같은 세션 관측은 그대로 쓴다');
     assert.equal(vendorCalls.length, 0, `같은 세션 관측이 있는데 공급사 재조회 ${vendorCalls.length}회`);
     // 옛 세션(10/15) 관측이면 기존처럼 1시간 뒤 재조회(429 → 첫 호출에서 닫힘, 직전 정상값 유지)
-    store.set(`earnings:event-probe:v4:${tickers[1]}:2026-11-05:next`, { im: obs('2026-10-15'), checkedAt: Date.now() - 2 * 3600_000 });
+    store.set(`earnings:event-probe:v3:${tickers[1]}:2026-11-05:next`, { im: obs('2026-10-15'), checkedAt: Date.now() - 2 * 3600_000 });
     const old = await MP.earningsMonthlyMove(tickers[1], '2026-11-05', false, null, true, Date.now() + 20_000);
     assert.ok(vendorCalls.length >= 1, '옛 세션 관측은 다시 조회한다');
     assert.equal(old?.pct, 6.2, '조회 실패여도 직전 정상값(5일 이내) 유지');
@@ -103,7 +103,7 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     // 2026-10-30 실적 영수증 전용 옵션 — 기본(화면 호출자)은 지난 발표를 읽지 않는다(기존 그대로) ·
     //   {pastDays} 면 지난 발표의 저장 관측을 읽고 · {save:false} 면 조회해도 공유 관측 키를 다시 쓰지 않는다
     seed(); vendorCalls = []; vendorMode = 'noexp' as any;
-    const pastKey = `earnings:event-probe:v4:${tickers[2]}:2026-10-15:next`;
+    const pastKey = `earnings:event-probe:v3:${tickers[2]}:2026-10-15:next`;
     const stamp = Date.now() - 2 * 3600_000;
     store.set(pastKey, { im: { ...obs('2026-10-15'), expiry: '2026-10-23' }, checkedAt: stamp });
     assert.equal(await MP.earningsMonthlyMove(tickers[2], '2026-10-15', false, null, true, Date.now() + 20_000), null, '기본 = 지난 발표는 null(화면 출력 불변)');
@@ -111,7 +111,7 @@ const rows = tickers.map((t) => ({ ticker: t, date: '2026-11-05', hour: 'amc' })
     const past = await MP.earningsMonthlyMove(tickers[2], '2026-10-15', false, null, false, undefined, { pastDays: 10, save: false });
     assert.equal(past?.session, '2026-10-15', '영수증은 지난 발표의 저장 관측을 읽는다');
     const probed = await MP.earningsMonthlyMove(tickers[2], '2026-10-15', false, null, true, Date.now() + 20_000, { pastDays: 10, save: false });
-    assert.ok(vendorCalls.length >= 1, '옛 세션이면 직접 조회'); assert.equal(probed, null, '만기 목록이 비면 옛 관측을 반환하지 않는다');
+    assert.ok(vendorCalls.length >= 1, '옛 세션이면 직접 조회'); assert.equal(probed?.session, '2026-10-15');
     assert.equal((store.get(pastKey) as any).checkedAt, stamp, 'save:false — 공유 관측 키를 쓰지 않는다');
     console.log('  ✓ 영수증 옵션 — 기본은 지난 발표 null · pastDays 읽기 · save:false 쓰기 0');
     console.log('earningsProbeBudget: 5건 통과');

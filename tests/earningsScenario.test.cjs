@@ -81,7 +81,7 @@ const render = async l => renderToStaticMarkup(await page.default(props(l)));
 function fillCaches() {
   values.clear(); reads = []; vendorCalls = []; vendorStatus = 200; fail = false; delete mockEnv.INTRINIO_API_KEY;
   values.set('market:earnings-calendar:v4', { rows: snap.SCENARIO_TICKERS.map(ticker => ({ ...event, ticker })) });
-  values.set('intrinio:eod:snapshot', JSON.stringify(eod())); values.set('earnings:implied:v2', implied());
+  values.set('intrinio:eod:snapshot', JSON.stringify(eod())); values.set('earnings:implied:v1', implied());
   for (const t of snap.SCENARIO_TICKERS) {
     values.set(snap.rawExpirationsKey(t, '2026-10-21'), { expirations: ['2026-10-30', '2026-11-06'] });
     values.set(snap.rawChainKey(t, '2026-10-30'), JSON.stringify(chain()));
@@ -287,7 +287,7 @@ test('문구 수정: 운영 반영 기준 대비 600조합 계산 입력·출력
   // 시나리오 기능 전체는 계속 검사하고, 계산·렌더 동등성은 아래 600조합으로 확인한다.
   const modified = execFileSync('git', ['diff', COPY_BASE_COMMIT, '--name-only', '--',
     ':(literal)src/app/[locale]/tools/earnings-scenario', 'src/lib/earningsScenario', serviceFile], { cwd: root, encoding: 'utf8' }).trim().split('\n').sort();
-  assert.deepEqual(modified, [clientFile, copyFile, serviceFile].sort());
+  assert.deepEqual(modified, [clientFile, copyFile].sort());
   const harness = (source, copy, implementation) => {
     let cursor, values, trace;
     const client = load(clientFile, source, {

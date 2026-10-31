@@ -39,7 +39,6 @@ export const actualsKey = (ticker: string, date: string): string => `${ACTUALS_K
 
 /** 발표 «전» 마지막 정규장에 화면이 보여 준 예상 변동폭 */
 export interface ExpectedSnap {
-  firstExpiryVerified?: true;
   /** 기록 당시 impliedMovePct(%, 소수 1자리). 정의는 method로 구분한다. */
   pct: number;
   /** 없는 필드는 과거 기록, null은 정의 미확인이다. 만기·날짜로 정의를 추정하지 않는다. */
@@ -97,9 +96,8 @@ export function parseRecord(raw: unknown): ActualsRecord | null {
   if (r.v !== 1 || typeof r.ticker !== 'string' || !YMD.test(String(r.date)) || (r.hour !== 'amc' && r.hour !== 'bmo')) return null;
   let expected: ExpectedSnap | null = null;
   const e = r.expected;
-  if (e && typeof e === 'object' && e.firstExpiryVerified === true && finite(e.pct) && e.pct > 0 && typeof e.session === 'string' && YMD.test(e.session)) {
+  if (e && typeof e === 'object' && finite(e.pct) && e.pct > 0 && typeof e.session === 'string' && YMD.test(e.session)) {
     expected = {
-      firstExpiryVerified: true,
       pct: e.pct,
       ...(e.method !== undefined ? { method: e.method === 'weekly' || e.method === 'monthly' || e.method === 'event-split' ? e.method : null } : {}),
       ...(e.straddlePct !== undefined ? { straddlePct: finite(e.straddlePct) && e.straddlePct > 0 ? e.straddlePct : null } : {}),

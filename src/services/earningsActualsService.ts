@@ -78,9 +78,10 @@ export const fmpCloses: BarsFn = async (ticker, from, to) => {
 export type ObservationFn = (c: { ticker: string; date: string; hour: ReportHour }, probe: boolean, deadlineMs?: number) => Promise<ImpliedMoveRow | null>;
 
 export const readEarningsObservation: ObservationFn = async (c, probe, deadlineMs) => {
-  const { earningsMonthlyMove } = await import('@/services/earningsMonthlyProbe');
-  const im = await earningsMonthlyMove(c.ticker, c.date, c.hour === 'bmo', null, probe, deadlineMs, { pastDays: LOOKBACK_DAYS, save: false });
-  return im ? earningsObservationRow(c.ticker, im) : null;
+  const { earningsEventObservation } = await import('@/services/earningsMonthlyProbe');
+  const { im, first } = await earningsEventObservation(c.ticker, c.date, c.hour === 'bmo', null, probe, deadlineMs, { pastDays: LOOKBACK_DAYS, save: false });
+  // [10/31] 영수증 예상값도 «발표 직후 첫 만기»로 확인된 관측만 — 첫 만기를 모르는 옛 월물 관측은 쓰지 않는다(null → 직접 조회 경로로).
+  return im && first && im.expiry === first ? earningsObservationRow(c.ticker, im) : null;
 };
 
 export interface CycleDeps {
@@ -143,10 +144,6 @@ async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'
     const stored = parseRecord(read.value);
     if (!stored || stored.ticker !== rec.ticker || stored.date !== rec.date) return 'invalid_record';
     if (stored.expected) { kept = true; out = { ...out, expected: stored.expected }; }
-    else if (!out.expected && (read.value as any).expected) {
-      // Preserve unverified historical data when only the actual is updated.
-      out = { ...out, expected: (read.value as any).expected };
-    }
     if (!actualTouched && stored.actual) out = { ...out, actual: stored.actual };
   }
   const ok = await setAuthoritativeCache(key, out, ACTUALS_TTL_SEC).catch(() => false);
@@ -375,7 +372,6 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
       if (!im.expiry || !(c.hour === 'bmo' ? im.expiry >= c.date : im.expiry > c.date)) { skip(c, `expected:expiry_${im.expiry ?? 'unknown'}`); continue; }
       const cur = recOf(c);
       const snap: ExpectedSnap = {
-        firstExpiryVerified: true,
         pct: im.impliedMovePct!, expiry: im.expiry, session: im.session!, basis: im.basis,
         method: im.method ?? null,
         ...(im.straddlePct !== undefined ? { straddlePct: im.straddlePct } : {}),
@@ -397,7 +393,6 @@ export async function seedExpected(
   snap: ExpectedSnap & { method: NonNullable<ExpectedSnap['method']> },
   opts: { force?: boolean } = {},
 ): Promise<'saved' | 'kept' | 'failed'> {
-  if (snap.firstExpiryVerified !== true) return 'failed';
   const cur = (await readActualRecords([c])).get(recordMapKey(c.ticker, c.date));
   if (cur?.expected && !opts.force) return 'kept';
   const rec: ActualsRecord = cur ? { ...cur, expected: snap, at: Date.now() }

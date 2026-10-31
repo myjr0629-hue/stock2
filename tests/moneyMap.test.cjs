@@ -18,7 +18,7 @@ for (const extension of ['.ts', '.tsx']) require.extensions[extension] = (mod, f
 };
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
-const { buildMoneyMap, clearStoredMoneyMapImplied, mapQuoteValues, aggregateMapPremium, mergeMoneyMapSources, moneyMapSession, mapWeekRange, nqObservationOf } = require('../src/lib/app/moneyMap.ts');
+const { buildMoneyMap, mapQuoteValues, aggregateMapPremium, mergeMoneyMapSources, moneyMapSession, mapWeekRange, nqObservationOf } = require('../src/lib/app/moneyMap.ts');
 const { MoneyMapCards } = require('../src/components/intel/MoneyMapCards.tsx');
 const copies = Object.fromEntries(['ko', 'en', 'ja'].map(loc => [loc, require(`../src/messages/${loc}.json`).moneyMap.copy]));
 function isolatedModule(filename, deps) {
@@ -39,7 +39,7 @@ function sources() {
     id, tickers: i === 1 ? ['NVDA', 'AMD', 'AVGO', 'MU', 'ASML'] : ['TEST'], synthetic: false,
     fiveDay: { value: i === 1 ? -10.07 : i, date: '2026-10-16' }, bounce: i === 1,
     premium: i === 1 ? { value: -69_100_000, date: '2026-10-16', count: 5, source: 'analysis' } : null,
-  })), earnings: [{ ticker: 'NVDA', date: '2026-10-21', hour: 'amc', implied: { pct: 7.3, session: '2026-10-16', expiry: '2026-10-23' } }, { ticker: 'UNRELATED', date: '2026-10-21', implied: null }],
+  })), earnings: [{ ticker: 'NVDA', date: '2026-10-21', hour: 'amc', implied: { pct: 7.3, session: '2026-10-16', expiry: '2026-10-23', first: '2026-10-23' } }, { ticker: 'UNRELATED', date: '2026-10-21', implied: null }],
   earningsAt: '2026-10-19T10:00:00Z', events: [{ date: '2026-10-19', time: '12:30', event: 'Building Permits', impact: 'HIGH' }, { date: '2026-10-19', time: '14:00', event: 'CPI', impact: 'HIGH' }, { date: '2026-10-19', time: '15:00', event: 'GDP', impact: 'HIGH' }, { date: '2026-10-20', time: '12:30', event: 'Future event', impact: 'HIGH' }], eventsAt: '2026-10-19T10:00:00Z' };
 }
 function quoteSet(s, now) {
@@ -191,8 +191,13 @@ test('refresh gaps preserve dated premium/5D/implied values; an expired or compl
   next.sectors[1].premium = null; next.sectors[1].fiveDay = null; next.earnings[0].implied = null;
   const kept = mergeMoneyMapSources(next, old, at('2026-10-19T11:00:00Z'));
   assert.deepEqual(kept.sectors[1].premium, old.sectors[1].premium); assert.deepEqual(kept.sectors[1].fiveDay, old.sectors[1].fiveDay);
-  assert.equal(kept.earnings[0].implied, null);
+  assert.equal(kept.earnings[0].implied.session, '2026-10-16');
   assert.equal(mergeMoneyMapSources(next, old, at('2026-10-24T11:00:00Z')).earnings[0].implied, null);
+  // [10/31 첫 만기 통일] «발표 직후 첫 만기» 표식 없는 앱 저장값(표식 전 서버가 준 값 — 뒤 월물 대체일 수 있다)은 잇지 않는다
+  const legacy = sources(); delete legacy.earnings[0].implied.first;
+  assert.equal(mergeMoneyMapSources(next, legacy, at('2026-10-19T11:00:00Z')).earnings[0].implied, null);
+  const later = sources(); later.earnings[0].implied = { ...later.earnings[0].implied, expiry: '2026-11-20' };
+  assert.equal(mergeMoneyMapSources(next, later, at('2026-10-19T11:00:00Z')).earnings[0].implied, null, '표식과 만기가 다르면 잇지 않는다');
 });
 test('local REG response replay preserves actual SPY and stock measurements', () => {
   const filename = process.env.MONEY_MAP_QUOTES_REPLAY || path.join(__dirname, 'fixtures/money-map-reg-1019.json');
@@ -657,14 +662,4 @@ test('gate 4: money-map response distinguishes complete zero, partial data and s
     calendar = { ...normal, ...patch };
     assert.equal((await route.GET()).sources.earningsStatus, 'partial');
   }
-});
-
-test('new missing implied never restores the previous later expiry', () => {
-  const old = sources(), next = sources();
-  old.earnings[0].implied.expiry = '2026-11-20';
-  next.earningsAt = '2026-10-19T10:30:00Z';
-  next.earnings[0].implied = null;
-  assert.equal(mergeMoneyMapSources(next, old, at('2026-10-19T11:00:00Z')).earnings[0].implied, null);
-  assert.equal(clearStoredMoneyMapImplied(old).earnings[0].implied, null);
-  assert.equal(old.earnings[0].implied.expiry, '2026-11-20');
 });

@@ -17,13 +17,13 @@ import { etDateOf } from '@/lib/marketCalendar';
 import type { ImpliedTiming } from '@/services/impliedMoveService';
 import type { EarningsMoveMethod } from '@/lib/earnings/eventMove';
 
-export const EARNINGS_IMPLIED_KEY = 'earnings:implied:v2';
+export const EARNINGS_IMPLIED_KEY = 'earnings:implied:v1';
 
 /**
  * 발표 뒤 첫 만기의 «마감 관측»(services/earningsMonthlyProbe — 공급사 EOD 마감 호가 mark ÷ 공식 종가) 저장 키.
  * 쓰는 곳(earningsMonthlyProbe)과 읽는 곳(impliedMoveService 의 일반 경로 [T26])이 같은 키를 쓰게 여기 한 곳에 둔다.
  */
-export const EARNINGS_OBSERVATION_PREFIX = 'earnings:event-probe:v4';
+export const EARNINGS_OBSERVATION_PREFIX = 'earnings:event-probe:v3';
 export const earningsObservationKey = (ticker: string, after: string, sameDay: boolean): string =>
   `${EARNINGS_OBSERVATION_PREFIX}:${String(ticker).toUpperCase()}:${after}:${sameDay ? 'same' : 'next'}`;
 
@@ -43,6 +43,8 @@ export interface ImpliedCell {
   r: string | null;
   /** 1 = 이번 읽기에서 저장본이 비어(no_snapshot) 직전 묶음의 값을 그대로 둔 칸 — 값의 세션(s)이 기준 글에 그대로 보인다 */
   k?: 1;
+  /** [10/31] 이 칸을 만들 때 알던 «발표 직후 첫 만기». 값(e)은 늘 이 만기다 — 병합은 같은 첫 만기 값만 이어 쓴다. 옛 칸엔 없다. */
+  f?: string;
 }
 
 export interface ImpliedPack {
@@ -68,6 +70,8 @@ export interface RowImplied {
   expiry: string;
   basis: 'live' | 'eod' | null;
   session: string | null;
+  /** [10/31] 값이 «발표 직후 첫 만기»로 확인된 만기(= expiry). 이 표식 이전에 만든 값엔 없다 — 앱 정상본 복원은 표식 있는 값만. */
+  first?: string;
 }
 
 /** 서버 묶음·앱 정상본 복원 공용 검사. 현재 ET 만기·발표 상태로 다시 판단한다. */
@@ -96,6 +100,7 @@ export function impliedForRow(
   if (!c) return null;
   return validateRowImplied(row, {
     pct: c.p!, expiry: c.e!, basis: c.b ?? null, session: c.s ?? null,
+    ...(c.f && c.f === c.e ? { first: c.f } : {}),
     ...(c.method ? { method: c.method } : {}),
     ...(c.eventMovePct != null ? { eventMovePct: c.eventMovePct } : {}),
   }, nowMs);
@@ -158,7 +163,36 @@ export function impliedBasisText(v: RowImplied | null, locale: string): string |
   return parts.join(' · ');
 }
 
-/** A missing new value cannot establish that an older expiry is still the first. */
+/** A partial cache's missing expiry/straddle does not invalidate an observed, dated value for this event. */
+const CARRY_REASONS = new Set(['no_snapshot', 'read_failed', 'no_expiry_after', 'no_straddle']);
+/** 직전 값을 이어 쓸 수 있는 최대 나이(값의 세션 기준, 달력 일) */
+export const IMPLIED_CARRY_MAX_DAYS = 5;
+
+/**
+ * 새 묶음 + 직전 묶음 → 합친 묶음.
+ * 장중에는 구조 사본이 요청 때만 다시 계산돼(짧은 수명) 조용한 종목의 저장본이 비는 때가 있다 — 그때 «—»로 비우지 않고
+ * 직전 값을 그 세션 꼬리표와 함께 둔다(대표 원칙: 가리지 말고 칸 유지 + 시각 표식). 만기가 지났거나 5일 넘은 값은 잇지 않는다.
+ */
 export function mergeImpliedPacks(next: ImpliedPack, prev: ImpliedPack | null | undefined, nowMs: number = Date.now(), rows: Array<{ ticker: string; date: string; hour?: string | null }> = []): ImpliedPack {
-  return next;
+  if (!prev || prev.v !== 1 || !prev.cells) return next;
+  const today = etDateOf(nowMs);
+  const cells: Record<string, ImpliedCell> = { ...next.cells };
+  const events = new Map(rows.map(row => [impliedRowKey(row.ticker, row.date), row]));
+  for (const [key, c] of Object.entries(next.cells)) {
+    if (c.p != null || !CARRY_REASONS.has(String(c.r))) continue;
+    const old = prev.cells[key];
+    if (!old || !(typeof old.p === 'number' && old.p > 0) || !old.e || old.e < today) continue;
+    // [10/31] 이번 읽기가 첫 만기를 알면 그 만기의 직전 값만 잇는다(뒤 만기 값은 첫 만기 값이 아니다).
+    //   첫 만기를 모르는 칸(시간 초과로 못 읽은 read_failed 등)은 기존대로 잇는다 — 확인된 값을 갱신 실패로 지우지 않는다.
+    if (c.f && old.e !== c.f) continue;
+    const eventDate = key.split('|')[1];
+    // Unknown timing is conservative; only the current BMO row permits equality.
+    const event = events.get(key) ?? { date: eventDate };
+    if (!eventDate || !validateRowImplied(event, { pct: old.p, expiry: old.e, basis: old.b, session: old.s }, nowMs)) continue;
+    const ageDays = old.s && /^\d{4}-\d{2}-\d{2}$/.test(old.s) ? (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${old.s}T00:00:00Z`)) / 86400e3 : Infinity;
+    if (!(ageDays >= 0 && ageDays <= IMPLIED_CARRY_MAX_DAYS)) continue;
+    cells[key] = { p: old.p, e: old.e, b: old.b, s: old.s, r: null, k: 1, ...(old.f ? { f: old.f } : c.f ? { f: c.f } : {}), ...(old.method ? { method: old.method } : {}),
+      ...(old.eventMovePct != null ? { eventMovePct: old.eventMovePct } : {}) };
+  }
+  return { ...next, cells };
 }

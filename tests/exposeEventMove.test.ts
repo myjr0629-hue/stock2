@@ -54,7 +54,8 @@ const rows = (e: string, iv: number | null, s = session) => ['call', 'put'].map(
 }));
 const omitEvent = (value: any): any => Array.isArray(value) ? value.map(omitEvent)
   : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value)
-    .filter(([key]) => key !== 'eventMovePct').map(([key, v]) => [key, omitEvent(v)])) : value;
+    // [10/31] implied.first(«발표 직후 첫 만기» 확인 표식)도 이번 추가 필드 — 기존 응답 비교에서만 뺀다.
+    .filter(([key]) => key !== 'eventMovePct' && key !== 'first').map(([key, v]) => [key, omitEvent(v)])) : value;
 
 (async () => {
   const realNow = Date.now;
