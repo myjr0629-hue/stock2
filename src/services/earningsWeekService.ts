@@ -17,12 +17,13 @@
 // ============================================================================
 
 import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfirmed';
+import { CALENDAR_ONLY_EARNINGS, calendarOnlyEntries, calendarOnlyWeekEntries } from '@/lib/earningsCalendarOnly';
 import { phaseOf, selectWeekEntries, weekRangeET, type WeekRange } from '@/lib/earningsWeek';
 import { etDateString } from '@/lib/impliedMove';
 import { readImpliedMoveRows, type ImpliedMoveRow, type ImpliedTiming } from '@/services/impliedMoveService';
 import { displayLevels, peekStructureLevelsDetailed, structureV2Key, warmMissingStructure } from '@/services/structureService';
 import { postReportMaxPain } from '@/lib/earnings/postReportMaxPain';
-import { EARNINGS_CALENDAR_CACHE_KEY } from '@/services/earningsCalendarService';
+import { EARNINGS_CALENDAR_CACHE_KEY, earningsCalendarUniverse } from '@/services/earningsCalendarService';
 import { getFromCache } from '@/services/redisClient';
 import { readActualRecords, recordMapKey } from '@/services/earningsActualsService';
 import type { ActualMove, ExpectedSnap } from '@/lib/earnings/earningsActuals';
@@ -57,6 +58,8 @@ export interface EarningsWeekRow {
   expectedAtReport?: ExpectedSnap | null;
   /** 발표 다음 정규장 마감 뒤 계산한 실제 반응(종가 대 종가) — 아직이면 null/없음 */
   actual?: ActualMove | null;
+  /** [T40] 캘린더 표시 전용 행(lib/earningsCalendarOnly) — 영수증(실제 반응) 크론 대상이 아니다(«마감 뒤 표시» 안내를 달지 않는다) */
+  calendarOnly?: true;
 }
 
 export interface EarningsWeekData {
@@ -113,8 +116,42 @@ async function pendingFromCalendar(range: WeekRange, confirmedTickers: Set<strin
   } catch { return []; }
 }
 
+/**
+ * [T40] 캘린더 전용 대형주 행(lib/earningsCalendarOnly) — 날짜·장전/장후·예상 변동폭(저장본 읽기, 있으면)만.
+ *   레벨·실제 반응은 읽지 않는다(null → 화면 «—») · 구조 보강 예약 없음 · 실패 = 행 없음(기존 표 그대로).
+ */
+async function calendarOnlyWeekRows(range: WeekRange, today: string, list: readonly ConfirmedEarnings[], extraList: readonly ConfirmedEarnings[]): Promise<{ rows: EarningsWeekRow[]; verifiedAt: string }> {
+  try {
+    const entries = calendarOnlyWeekEntries(calendarOnlyEntries(earningsCalendarUniverse(), list, extraList), range.start, range.end);
+    if (!entries.length) return { rows: [], verifiedAt: '' };
+    const implied = await readImpliedMoveRows(entries.map((e) => ({ ticker: e.ticker, after: e.date, timing: timingOf(e) })), today).catch((): ImpliedMoveRow[] => []);
+    const verifiedAt = entries.reduce((m, c) => (c.verifiedAt > m ? c.verifiedAt : m), '');
+    return { verifiedAt, rows: entries.map((e, i) => {
+      const im = implied[i];
+      return {
+        ticker: e.ticker, date: e.date, hour: e.hour, etTime: e.etTime ?? null,
+        impliedMovePct: im?.impliedMovePct ?? null,
+        method: im?.method ?? null,
+        ...(im?.eventMovePct != null ? { eventMovePct: im.eventMovePct } : {}),
+        impliedExpiry: im?.expiry ?? null,
+        impliedBasis: im?.basis ?? null,
+        impliedSession: im?.session ?? null,
+        impliedAsOf: im?.asOf ?? null,
+        straddle: im?.straddle ?? null,
+        strike: im?.strike ?? null,
+        spot: im?.spot ?? null,
+        impliedReason: im?.reason ?? (im ? null : 'read_failed'),
+        maxPain: null, callWall: null, putFloor: null,
+        levelsExpiry: null, levelsChainDate: null, levelsAsOf: null,
+        expectedAtReport: null, actual: null,
+        calendarOnly: true,
+      };
+    }) };
+  } catch { return { rows: [], verifiedAt: '' }; }
+}
+
 /** 한 주의 자료를 «지금 읽어서» 만든다(캐시 없음) — 시험·getEarningsWeek 가 쓴다. */
-export async function buildEarningsWeek(nowMs: number = Date.now(), list: readonly ConfirmedEarnings[] = CONFIRMED_EARNINGS, opts: { readOnly?: boolean } = {}): Promise<EarningsWeekData> {
+export async function buildEarningsWeek(nowMs: number = Date.now(), list: readonly ConfirmedEarnings[] = CONFIRMED_EARNINGS, opts: { readOnly?: boolean; calendarOnly?: boolean; calendarOnlyList?: readonly ConfirmedEarnings[] } = {}): Promise<EarningsWeekData> {
   const range = weekRangeET(nowMs);
   const entries = selectWeekEntries(list, range.start, range.end);
   const tickers = entries.map((e) => e.ticker);
@@ -122,17 +159,18 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
 
   // [T37] 같은 mget 에 판본 원본도 — 발표 뒤 갭 행의 Max Pain(postReportMaxPain)이 정의 밖으로 뺀 값을 읽는다(Redis 왕복 추가 0).
   const rawStructures: any[] = [];
-  const [implied, lv, pending, actuals] = await Promise.all([
+  const [implied, lv, pending, actuals, extra] = await Promise.all([
     readImpliedMoveRows(entries.map((e) => ({ ticker: e.ticker, after: e.date, timing: timingOf(e) })), today).catch((): ImpliedMoveRow[] => entries.map((e) => ({
       ticker: e.ticker, impliedMovePct: null, expiry: null, asOf: null, basis: null, strike: null, straddle: null, spot: null, source: null, session: null, reason: 'read_failed',
     }))),
     tickers.length ? peekStructureLevelsDetailed(tickers, tickers.map((t) => structureV2Key(t.toUpperCase())), rawStructures, { refresh: false }).catch(() => null) : Promise.resolve(null),
     pendingFromCalendar(range, new Set(list.map((c) => c.ticker))),
     readActualRecords(entries),   // 던지지 않는다(실패 = 빈 Map)
+    opts.calendarOnly ? calendarOnlyWeekRows(range, today, list, opts.calendarOnlyList ?? CALENDAR_ONLY_EARNINGS) : Promise.resolve({ rows: [] as EarningsWeekRow[], verifiedAt: '' }),
   ]);
   if (!opts.readOnly && lv?.noSnapshot?.length) void warmMissingStructure(lv.noSnapshot).catch(() => []);
 
-  const rows: EarningsWeekRow[] = entries.map((e, i) => {
+  const baseRows: EarningsWeekRow[] = entries.map((e, i) => {
     const im = implied[i];
     const sl = lv?.levels.get(e.ticker) ?? null;
     // 만기가 지난 판본은 쓰지 않는다(다른 SEO 문과 같다) · 표시 가격은 넘기지 않는다(재선택 → 갱신 예약을 부르지 않게)
@@ -163,12 +201,25 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
     };
   });
 
+  // [T40] 캘린더 전용 행은 같은 정렬 규칙(selectWeekEntries: 날짜 → 장전·미정·장후 → 티커) 자리에 끼운다 — 기존 행의 순서·값은 그대로.
+  const rows: EarningsWeekRow[] = baseRows.slice();
+  const extraRows = extra.rows;
+  if (extraRows.length) {
+    const rank = (h: string) => (h === 'bmo' ? 0 : h === 'amc' ? 2 : 1);
+    const after = (a: EarningsWeekRow, b: EarningsWeekRow) => a.date.localeCompare(b.date) || rank(a.hour) - rank(b.hour) || a.ticker.localeCompare(b.ticker);
+    for (const x of extraRows) {
+      const i = rows.findIndex((r) => after(r, x) > 0);
+      if (i < 0) rows.push(x); else rows.splice(i, 0, x);
+    }
+  }
+
   const withNumbers = rows.filter((r) => r.impliedMovePct != null);
   const dataSession = mode(withNumbers.map((r) => r.impliedSession)) ?? mode(rows.map((r) => r.levelsChainDate));
   const at = rows.map((r) => r.levelsAsOf).filter((x): x is number => typeof x === 'number' && x > 0);
   return {
     range, rows, pending,
-    listVerifiedAt: list.reduce((m, c) => (c.verifiedAt > m ? c.verifiedAt : m), ''),
+    // [T40] 표에 실린 캘린더 전용 행의 확인 시각도 «최종 확인»에 넣는다(행이 없으면 기존 값 그대로)
+    listVerifiedAt: list.reduce((m, c) => (c.verifiedAt > m ? c.verifiedAt : m), extraRows.length ? extra.verifiedAt : ''),
     dataSession,
     dataBasis: mode(withNumbers.map((r) => r.impliedBasis)),
     dataAt: at.length ? Math.max(...at) : (withNumbers.map((r) => r.impliedAsOf).find((x) => x != null) ?? null),
@@ -181,10 +232,11 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
  *   readOnly: 공유 랜딩은 저장본만 읽으며 누락된 구조의 보강을 예약하지 않는다(기본 호출은 기존대로 보강).
  *   background: 낡은 사본을 주고 «응답 뒤» 갱신을 맡길 때(page 는 next/server after 로 넘긴다). 없으면 낡은 사본이라도 기다리지 않고 주되 갱신은 바로 떠 둔다.
  */
-export async function getEarningsWeek(opts: { background?: (p: Promise<unknown>) => void; readOnly?: boolean } = {}): Promise<EarningsWeekData> {
+export async function getEarningsWeek(opts: { background?: (p: Promise<unknown>) => void; readOnly?: boolean; calendarOnly?: boolean } = {}): Promise<EarningsWeekData> {
   const now = Date.now();
   // 읽기 전용 호출이 보강 예약을 하는 진행 중 요청에 합류하거나 기본 호출을 억제하지 않게 분리한다.
-  const key = `${weekRangeET(now).start}:${opts.readOnly ? 'read' : 'warm'}`;
+  //   [T40] calendarOnly(실적 주간 페이지·메타·OG)도 따로 — 공유 랜딩·SEO 티커(기본 호출)에 캘린더 전용 행이 섞이지 않게.
+  const key = `${weekRangeET(now).start}:${opts.readOnly ? 'read' : 'warm'}${opts.calendarOnly ? ':cal' : ''}`;
   const hit = memo.get(key);
   const refresh = () => {
     let p = inflight.get(key);

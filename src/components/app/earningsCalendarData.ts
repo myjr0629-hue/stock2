@@ -70,7 +70,7 @@ export function watchEarningsCalendar<Row extends CalendarRow>(onRows: (rows: Ro
     controller = new AbortController();
     timeoutTimer = setTimeout(() => controller?.abort(), REQUEST_TIMEOUT_MS);
     try {
-      const response = await fetch('/api/market/earnings-calendar', { signal: controller.signal, cache: 'no-store' });
+      const response = await fetch('/api/market/earnings-calendar?scope=calendar', { signal: controller.signal, cache: 'no-store' });
       if (!response.ok) throw new Error('earnings-unavailable');
       const payload: unknown = await response.json();
       // 구버전 200 + reason, 실패 본문, 손상된 응답도 정상 캐시를 덮어쓰지 못한다.
