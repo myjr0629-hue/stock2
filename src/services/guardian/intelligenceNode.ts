@@ -86,6 +86,8 @@ interface IntelligenceContext {
     signalConflict?: string;          // e.g. "BULL→NEUTRAL: RLSI 강세 but RISK_OFF HIGH"
     // [V8.0] Market News Headlines for context-aware analysis
     marketNewsHeadlines?: string[];   // e.g. ["CPI rises 3.0% vs 2.9% expected", "Fed signals patience on rate cuts"]
+    /** ★2026-10-31 Tactical «왜» 재료(FedWatch·금리·공포탐욕·섹터 등락 — lib/ai/tacticalDrivers). Tactical 프롬프트만 읽는다 */
+    macroDrivers?: import('@/lib/ai/tacticalDrivers').TacticalMacroDrivers;
     // [V9.0] Macro Intelligence — full asset class context
     fearGreedScore?: number;          // CNN Fear & Greed Index (0-100)
     fearGreedRating?: string;         // e.g. "Greed", "Extreme Fear"
@@ -579,6 +581,13 @@ function triHints(all: string[]): string {
     if (all.some(r => r.includes('number-rollcall'))) h.push('Use at most three numbers in the SO WHAT sentence (the one about money and options positioning).');
     if (all.some(r => r.includes('internal-label'))) h.push('Never write TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, WHY:, SO WHAT: or NEXT: — cite the report by its time and source.');
     if (all.some(r => r.includes('positioning-required'))) h.push('Name Gamma Shield/GEX (or SPY/QQQ gamma) before the last sentence and say whether it absorbs or amplifies the pressure.');
+    // ★2026-10-31 Tactical 스토리형 WHY
+    if (all.some(r => /why-material-required|why-drivers-required/.test(r))) h.push('In the second (WHY) sentence explain the cause through two or three MACRO_DRIVERS readings (the next-FOMC hike chance from FedWatch and its one-week change, Treasury yields, the Fear & Greed index, sector leaders/laggards with their ETF), each right after its plain name; cite a TODAY_NEWS report only by its M/D HH:MM ET; never write that the driver is unconfirmed when MACRO_DRIVERS or TODAY_NEWS is supplied.');
+    if (all.some(r => r.includes('why-rollcall'))) h.push('Use at most four numbers in the WHY sentence — pick the two or three readings that explain the move.');
+    if (all.some(r => r.includes('why-company-ungrounded'))) h.push('Name only companies that appear in TODAY_NEWS or SCHEDULED_EVENTS, translated correctly (Alphabet = 알파벳 / アルファベット, not Apple).');
+    if (all.some(r => r.includes('why-unsupported-change'))) h.push('MACRO_DRIVERS has no one-week-ago FedWatch value: state the current hike chance only (e.g. "markets price a … chance"), never that it rose, jumped or fell.');
+    if (all.some(r => r.includes('next-boundary-required'))) h.push('The last (NEXT) sentence names ONE upcoming event from SCHEDULED_EVENTS or ONE S&P 500 options boundary (put floor / call wall / gamma flip from OBSERVATIONS) — never a yield, probability or index level.');
+    if (all.some(r => r.includes('news-source-time-required'))) h.push('Cite the report with BOTH its date and time exactly as one REPORT_TIMES entry gives them (M/D plus HH:MM ET), once.');
     h.push(...rotationHints(all));
     return h.length ? ' ' + h.join(' ') : '';
 }
