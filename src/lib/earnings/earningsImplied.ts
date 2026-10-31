@@ -43,6 +43,8 @@ export interface ImpliedCell {
   r: string | null;
   /** 1 = 이번 읽기에서 저장본이 비어(no_snapshot) 직전 묶음의 값을 그대로 둔 칸 — 값의 세션(s)이 기준 글에 그대로 보인다 */
   k?: 1;
+  /** [10/31] 이 칸을 만들 때 알던 «발표 직후 첫 만기». 값(e)은 늘 이 만기다 — 병합은 같은 첫 만기 값만 이어 쓴다. 옛 칸엔 없다. */
+  f?: string;
 }
 
 export interface ImpliedPack {
@@ -94,6 +96,9 @@ export function impliedForRow(
   if (!pack || pack.v !== 1 || !pack.cells) return null;
   const c = pack.cells[impliedRowKey(row.ticker, row.date)];
   if (!c) return null;
+  // [10/31] 첫 만기 표식(f = e)이 있는 칸만 — 표식 이전 코드가 만든 칸(뒤 월물 대체였을 수 있다)은 내지 않는다(관문 10311145 ②).
+  //   그런 묶음은 impliedPackStale 이 바로 다시 만들게 한다.
+  if (!c.f || c.f !== c.e) return null;
   return validateRowImplied(row, {
     pct: c.p!, expiry: c.e!, basis: c.b ?? null, session: c.s ?? null,
     ...(c.method ? { method: c.method } : {}),
@@ -116,9 +121,22 @@ export function attachImplied<R extends { ticker: string; date: string; hour?: s
   return { rows: out, count };
 }
 
+/**
+ * 새로 만든(병합한) 묶음을 저장할까 — 값이 있는 칸이 있으면 저장(기존 규칙). 값이 없어도 «발표 직후 첫 만기»를 확인한 칸(f)이 있고
+ *   직전 묶음을 읽어 병합했다면(prevMerged) 저장한다 — 더 이른 첫 만기 확인으로 직전 뒤 만기 값을 거절한 결과가 옛 묶음에 밀리지 않게.
+ *   직전 묶음을 못 읽었으면 값 없는 묶음으로 덮지 않는다(다른 행의 확인된 값 보존 — 관문 10311215 ②). 읽기 실패뿐이면 저장하지 않는다.
+ */
+export function impliedPackWorthSaving(pack: ImpliedPack, prevMerged: boolean): boolean {
+  const cells = Object.values(pack?.cells || {});
+  return cells.some((c) => c?.p != null) || (prevMerged && cells.some((c) => typeof c?.f === 'string'));
+}
+
 /** 묶음이 «다시 만들 때가 됐나» — 장중(뉴욕 09:30~16:00 평일)은 5분, 그 밖은 60분, 날짜가 바뀌면 바로. */
 export function impliedPackStale(pack: ImpliedPack | null | undefined, nowMs: number = Date.now()): boolean {
   if (!pack || pack.v !== 1 || !(pack.at > 0)) return true;
+  // [10/31] 첫 만기 표식(f) 이전 코드가 만든 묶음은 바로 다시 만든다 — 옛 칸이 표시에 오래 남지 않게(배포 직후 한 번).
+  const cells = pack.cells && typeof pack.cells === 'object' ? Object.values(pack.cells) : [];
+  if (cells.some((c) => c?.p != null) && !cells.some((c) => typeof c?.f === 'string')) return true;
   if (pack.day !== etDateOf(nowMs)) return true;
   const age = nowMs - pack.at;
   return age > (isRegularHoursET(nowMs) ? 5 * 60_000 : 60 * 60_000);
@@ -177,14 +195,31 @@ export function mergeImpliedPacks(next: ImpliedPack, prev: ImpliedPack | null | 
     if (c.p != null || !CARRY_REASONS.has(String(c.r))) continue;
     const old = prev.cells[key];
     if (!old || !(typeof old.p === 'number' && old.p > 0) || !old.e || old.e < today) continue;
+    // [10/31] 잇는 값은 «발표 직후 첫 만기»로 확인된 값뿐: 이번 읽기가 첫 만기를 알면 그 만기의 값만,
+    //   모르면(시간 초과로 못 읽은 read_failed 등) 직전 칸이 첫 만기 표식(f = e)을 가진 값만 — 확인된 값은 갱신 실패로 지우지 않고,
+    //   표식 없는 옛 칸(뒤 월물 대체였을 수 있다)은 잇지 않는다(관문 10311136 ②).
+    if (c.f ? old.e !== c.f : old.f !== old.e) continue;
     const eventDate = key.split('|')[1];
     // Unknown timing is conservative; only the current BMO row permits equality.
     const event = events.get(key) ?? { date: eventDate };
     if (!eventDate || !validateRowImplied(event, { pct: old.p, expiry: old.e, basis: old.b, session: old.s }, nowMs)) continue;
     const ageDays = old.s && /^\d{4}-\d{2}-\d{2}$/.test(old.s) ? (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${old.s}T00:00:00Z`)) / 86400e3 : Infinity;
     if (!(ageDays >= 0 && ageDays <= IMPLIED_CARRY_MAX_DAYS)) continue;
-    cells[key] = { p: old.p, e: old.e, b: old.b, s: old.s, r: null, k: 1, ...(old.method ? { method: old.method } : {}),
+    cells[key] = { p: old.p, e: old.e, b: old.b, s: old.s, r: null, k: 1, ...(old.f ? { f: old.f } : c.f ? { f: c.f } : {}), ...(old.method ? { method: old.method } : {}),
       ...(old.eventMovePct != null ? { eventMovePct: old.eventMovePct } : {}) };
   }
   return { ...next, cells };
+}
+
+/**
+ * [10/31] Money Map 행의 implied 칸 — 키 없음 = «모름»(앱이 직전 확인값을 잇는다) · null = 서버가 «첫 만기 값 없음»으로 정함.
+ *   묶음을 못 읽었거나, 묶음에 그 행 칸이 없거나, 첫 만기 표식(f) 없는 옛 칸이면 «모름» — 앱의 확인값을 null 로 지우지 않는다(관문 10311229 A).
+ *   first = 그 값이 «발표 직후 첫 만기»로 정해진 칸의 값이라는 표식(앱 복원 검사용).
+ */
+export function moneyMapImpliedField(r: { ticker: string; date: string; hour?: string | null }, pack: any, now?: number): { implied?: (ReturnType<typeof impliedForRow> & { first: string }) | null } {
+    if (!(pack && pack.v === 1 && pack.cells)) return {};
+    const cell = pack.cells[impliedRowKey(r.ticker, r.date)];
+    if (!cell?.f) return {};
+    const v = impliedForRow(r as any, pack, now);
+    return { implied: v ? { ...v, first: v.expiry } as any : null };
 }

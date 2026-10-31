@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { mgetFromCache } from '@/services/redisClient';
 import { SECTOR_MAP } from '@/services/universePolicy';
 import { withConfirmedDates, EARNINGS_CALENDAR_CACHE_KEY, type EarningsCalendarPayload } from '@/services/earningsCalendarService';
-import { impliedForRow, EARNINGS_IMPLIED_KEY } from '@/lib/earnings/earningsImplied';
+import { moneyMapImpliedField, EARNINGS_IMPLIED_KEY } from '@/lib/earnings/earningsImplied';
 import { aggregateMapPremium, type MapSources } from '@/lib/app/moneyMap';
 import { etDateOf } from '@/lib/marketCalendar';
 
@@ -61,7 +61,9 @@ export async function GET() {
       && Array.isArray(confirmed.truncated) && confirmed.truncated.length === 0;
     const economicValid = Array.isArray(economic?.events) && !economic.error && economic.source !== 'ERROR' && economic.source !== 'EMPTY';
     const sources: MapSources = { sectors,
-      earnings: (confirmed?.rows || []).map(r => ({ ticker: r.ticker, date: r.date, hour: r.hour, dateStatus: r.dateStatus, implied: impliedForRow(r, implied) })),
+      // [10/31] 묶음을 못 읽었으면 implied 키를 빼서(«모름») 앱이 직전 확인값을 잇게 한다 — null 은 서버가 «첫 만기 값 없음»으로 정한 것.
+      earnings: (confirmed?.rows || []).map(r => ({ ticker: r.ticker, date: r.date, hour: r.hour, dateStatus: r.dateStatus,
+        ...moneyMapImpliedField(r, implied) })),
       earningsAt: confirmed?.generatedAt || null,
       earningsRange: confirmed?.from && confirmed.to ? { from: confirmed.from, to: confirmed.to } : null,
       earningsStatus: confirmed ? earningsComplete ? 'ok' : 'partial' : 'unavailable',

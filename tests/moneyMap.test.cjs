@@ -39,7 +39,7 @@ function sources() {
     id, tickers: i === 1 ? ['NVDA', 'AMD', 'AVGO', 'MU', 'ASML'] : ['TEST'], synthetic: false,
     fiveDay: { value: i === 1 ? -10.07 : i, date: '2026-10-16' }, bounce: i === 1,
     premium: i === 1 ? { value: -69_100_000, date: '2026-10-16', count: 5, source: 'analysis' } : null,
-  })), earnings: [{ ticker: 'NVDA', date: '2026-10-21', hour: 'amc', implied: { pct: 7.3, session: '2026-10-16', expiry: '2026-10-23' } }, { ticker: 'UNRELATED', date: '2026-10-21', implied: null }],
+  })), earnings: [{ ticker: 'NVDA', date: '2026-10-21', hour: 'amc', implied: { pct: 7.3, session: '2026-10-16', expiry: '2026-10-23', first: '2026-10-23' } }, { ticker: 'UNRELATED', date: '2026-10-21', implied: null }],
   earningsAt: '2026-10-19T10:00:00Z', events: [{ date: '2026-10-19', time: '12:30', event: 'Building Permits', impact: 'HIGH' }, { date: '2026-10-19', time: '14:00', event: 'CPI', impact: 'HIGH' }, { date: '2026-10-19', time: '15:00', event: 'GDP', impact: 'HIGH' }, { date: '2026-10-20', time: '12:30', event: 'Future event', impact: 'HIGH' }], eventsAt: '2026-10-19T10:00:00Z' };
 }
 function quoteSet(s, now) {
@@ -188,11 +188,20 @@ test('3 language namespaces have identical keys and preserve finance symbols', (
 });
 test('refresh gaps preserve dated premium/5D/implied values; an expired or completed earnings event never reuses implied move', () => {
   const old = sources(), next = sources();
-  next.sectors[1].premium = null; next.sectors[1].fiveDay = null; next.earnings[0].implied = null;
+  // [10/31] implied 키 없음 = 서버가 묶음을 못 읽음(«모름») → 직전 첫 만기 확인값을 잇는다
+  next.sectors[1].premium = null; next.sectors[1].fiveDay = null; delete next.earnings[0].implied;
   const kept = mergeMoneyMapSources(next, old, at('2026-10-19T11:00:00Z'));
   assert.deepEqual(kept.sectors[1].premium, old.sectors[1].premium); assert.deepEqual(kept.sectors[1].fiveDay, old.sectors[1].fiveDay);
   assert.equal(kept.earnings[0].implied.session, '2026-10-16');
   assert.equal(mergeMoneyMapSources(next, old, at('2026-10-24T11:00:00Z')).earnings[0].implied, null);
+  // [10/31 첫 만기 통일] «발표 직후 첫 만기» 표식 없는 앱 저장값(표식 전 서버가 준 값 — 뒤 월물 대체일 수 있다)은 잇지 않는다
+  const legacy = sources(); delete legacy.earnings[0].implied.first;
+  assert.equal(mergeMoneyMapSources(next, legacy, at('2026-10-19T11:00:00Z')).earnings[0].implied, null);
+  const later = sources(); later.earnings[0].implied = { ...later.earnings[0].implied, expiry: '2026-11-20' };
+  assert.equal(mergeMoneyMapSources(next, later, at('2026-10-19T11:00:00Z')).earnings[0].implied, null, '표식과 만기가 다르면 잇지 않는다');
+  // 서버가 null(첫 만기 값 없음 — 더 이른 첫 만기가 확인됐을 수 있다)을 보냈으면 잇지 않는다
+  const decided = sources(); decided.earnings[0].implied = null;
+  assert.equal(mergeMoneyMapSources(decided, old, at('2026-10-19T11:00:00Z')).earnings[0].implied, null);
 });
 test('local REG response replay preserves actual SPY and stock measurements', () => {
   const filename = process.env.MONEY_MAP_QUOTES_REPLAY || path.join(__dirname, 'fixtures/money-map-reg-1019.json');
@@ -241,7 +250,7 @@ test('money-map reader: all 16 canonical sectors, cached analysis fills empty in
     '@/services/redisClient': { mgetFromCache: async keys => { requests.push(keys); return keys.map(k => redis.get(k) || null); } },
     '@/services/universePolicy': { SECTOR_MAP: definitions },
     '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4', withConfirmedDates: p => { corrected++; return p; } },
-    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null, moneyMapImpliedField: () => ({}) },
     '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
   });
   const res = await route.GET();
@@ -360,7 +369,7 @@ test('archived full Guardian response replay: all 16 actual five-day values reac
     '@/services/redisClient': { mgetFromCache: async keys => { reads++; return keys.map(k => k === 'gcore:v1' ? snapshot : null); } },
     '@/services/universePolicy': { SECTOR_MAP: definitions },
     '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4', withConfirmedDates: () => { throw new Error('No calendar in this historical response'); } },
-    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null, moneyMapImpliedField: () => ({}) },
     '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
   });
   const result = await route.GET();
@@ -637,7 +646,7 @@ test('gate 4: money-map response distinguishes complete zero, partial data and s
     '@/services/redisClient': { mgetFromCache: async keys => keys.map(k => k === 'market:earnings-calendar:v4' ? calendar : null) },
     '@/services/universePolicy': { SECTOR_MAP: sectorDefinitions() },
     '@/services/earningsCalendarService': { EARNINGS_CALENDAR_CACHE_KEY: 'market:earnings-calendar:v4', withConfirmedDates: p => p },
-    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null },
+    '@/lib/earnings/earningsImplied': { EARNINGS_IMPLIED_KEY: 'earnings:implied:v1', impliedForRow: () => null, moneyMapImpliedField: () => ({}) },
     '@/lib/app/moneyMap': { aggregateMapPremium }, '@/lib/marketCalendar': require('../src/lib/marketCalendar.ts'),
   });
   const normal = { ok: true, rows: [], from: '2026-10-19', to: '2026-10-23', generatedAt: '2026-10-20T10:00:00Z',

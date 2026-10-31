@@ -58,7 +58,7 @@ function seed(chainRows: any[], greeksSource: 'realtime' | 'eod') {
     structure: { strikes: [100], callsOI: [1], putsOI: [1] } }, timestamp: ms('2026-10-10T04:07:00Z') });
   store.set('intrinio:eod:snapshot', { date: '2026-10-09', rows: [['GATE', 0, 0, 0, 100, 0, 0, 0]] });
   store.set('polygon:snapshot:probe:GATE', { greeksSource, _ts: ms('2026-10-10T04:00:00Z'), chainDate: '2026-10-09',
-    chainDates: { '2026-10-23': '2026-10-09' }, weeklyExpiry: '2026-10-16', probeResults: chainRows });
+    chainDates: { '2026-10-23': '2026-10-09' }, weeklyExpiry: '2026-10-16', expirationsMissing: [], probeResults: chainRows });   // 수집기는 expirationsMissing 을 늘 쓴다(lambda-flow-harvest index.js:370)
 }
 const read = () => at(SUNDAY, () => IMS.readImpliedMoveRows([{ ticker: 'GATE', after: '2026-10-20', timing: 'amc' }], '2026-10-11'));
 (async () => {

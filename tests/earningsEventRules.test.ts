@@ -21,7 +21,7 @@ try {
   assert.equal(expiryMethod('2026-06-18'), 'monthly', 'Juneteenth shifts standard monthly expiry');
   assert.equal(expiryMethod('2026-10-30'), 'weekly');
   const prev: ImpliedPack = { v: 1, at: NOW - 1000, day: '2026-10-12', cells: {
-    'X|2026-10-28': { p: 4.2, e: '2026-11-20', b: 'eod', s: '2026-10-09', r: null, method: 'event-split' },
+    'X|2026-10-28': { p: 4.2, e: '2026-11-20', b: 'eod', s: '2026-10-09', r: null, method: 'event-split', f: '2026-11-20' },
   } };
   const fresh: ImpliedPack = { v: 1, at: NOW, day: '2026-10-12', cells: {
     'X|2026-10-28': { p: null, e: null, b: null, s: null, r: 'read_failed' },

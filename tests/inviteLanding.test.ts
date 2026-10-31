@@ -125,10 +125,10 @@ const OVER = [
 const IMPLIED: ImpliedPack = {
   v: 1, at: Date.UTC(2026, 9, 13, 14, 0), day: '2026-10-13',
   cells: {
-    'META|2026-10-22': { p: 5.8, e: '2026-10-23', b: 'eod', s: '2026-10-12', r: null },
-    'AMZN|2026-10-29': { p: 4.9, e: '2026-10-30', b: 'eod', s: '2026-10-12', r: null },
-    'KO|2026-10-21': { p: 2.4, e: '2026-10-23', b: 'eod', s: '2026-10-12', r: null },
-    'OLD|2026-10-09': { p: 3.3, e: '2026-10-09', b: 'eod', s: '2026-10-08', r: null },
+    'META|2026-10-22': { p: 5.8, e: '2026-10-23', b: 'eod', s: '2026-10-12', r: null, f: '2026-10-23' },
+    'AMZN|2026-10-29': { p: 4.9, e: '2026-10-30', b: 'eod', s: '2026-10-12', r: null, f: '2026-10-30' },
+    'KO|2026-10-21': { p: 2.4, e: '2026-10-23', b: 'eod', s: '2026-10-12', r: null, f: '2026-10-23' },
+    'OLD|2026-10-09': { p: 3.3, e: '2026-10-09', b: 'eod', s: '2026-10-08', r: null, f: '2026-10-09' },
   },
 };
 const PACK2 = {
@@ -399,7 +399,7 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     const noCell = appEarn('ko', 'PEP');
     assert.equal(noCell.ok, false); assert.equal(noCell.fallbackReason, 'no-move'); assert.equal(noCell.rows[0].value, '10/21(수) 장전');
     assert.equal(appEarn('ko', 'PEP', OVER, null).fallbackReason, 'no-move', '묶음 자체가 없을 때');
-    const expired: ImpliedPack = { ...IMPLIED, cells: { 'KO|2026-10-21': { p: 2.4, e: '2026-10-12', b: 'eod', s: '2026-10-09', r: null } } };
+    const expired: ImpliedPack = { ...IMPLIED, cells: { 'KO|2026-10-21': { p: 2.4, e: '2026-10-12', b: 'eod', s: '2026-10-09', r: null, f: '2026-10-12' } } };
     assert.equal(appEarn('ko', 'KO', OVER, expired).fallbackReason, 'no-move', '만기가 지난 값은 쓰지 않는다(앱과 같은 규칙)');
     const done = appEarn('ko', 'OLD');
     assert.equal(done.fallbackReason, 'done'); assert.ok(done.fallbackText!.includes('10/9(금)'));
@@ -619,7 +619,7 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     const d1 = ymd(10), ex = ymd(12), sess = ymd(-1);
     store.set(EARNINGS_CALENDAR_CACHE_KEY, { ok: true, rows: [...CAL_ROWS, { ticker: T, date: d1, hour: 'bmo', epsEstimate: 1.25, revenueEstimate: 2.5e9, quarter: 3, year: 2026 }] });
     store.set(EARNINGS_BRIEF_KEY, { entries: { ...PACK.entries, [`${T}|${d1}`]: { ko: { name: '시험회사', watch: 'EPS 추정 {EPS} 대비 발표를 지켜봅니다' } } } });
-    store.set(EARNINGS_IMPLIED_KEY, { v: 1, at: real - 600_000, day: etDateOf(real), cells: { [`${T}|${d1}`]: { p: 7.4, e: ex, b: 'eod', s: sess, r: null } } });
+    store.set(EARNINGS_IMPLIED_KEY, { v: 1, at: real - 600_000, day: etDateOf(real), cells: { [`${T}|${d1}`]: { p: 7.4, e: ex, b: 'eod', s: sess, r: null, f: ex } } });
     const alt = await loadLanding('earn', T, 'ko', deps);
     assert.equal(alt.ok, true, JSON.stringify([alt.fallbackReason, alt.fallbackText]));
     assert.equal(alt.hero!.value, '±7.4%'); assert.equal(alt.name, '시험회사');

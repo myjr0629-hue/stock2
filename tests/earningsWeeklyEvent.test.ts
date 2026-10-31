@@ -93,11 +93,15 @@ function seed() {
     assert.equal(r.straddlePct, 8.6, '분리 전 ATM 기준값을 별도 보존');
     assert.equal(calls.length - count, 5, 'list + post/pre chain + each greeks, one page each');
     console.log(`✓ no weekly: same-session pre/post EOD IV → event-split ${expected}%, 5 supplier calls`);
-    for (const ticker of ['MISSING', 'MIXED', 'ONESIDE', 'ZERO', 'BADWEEK']) {
+    for (const ticker of ['MISSING', 'MIXED', 'ONESIDE', 'ZERO']) {
       r = await read(ticker);
       assert.equal(r.method, 'monthly', ticker); assert.equal(r.impliedMovePct, 8.6, ticker); assert.equal(r.expiry, post);
     }
-    console.log('✓ missing IV / mixed sessions / one-sided pre / zero variance / listed weekly without quotes → actual monthly 8.6%, never fake zero');
+    // [10/31 첫 만기 통일] 상장된 첫 주간 만기(10/30)의 호가가 없으면 뒤 월물(11/20)로 대체하지 않는다 — 한 번도 못 구했으니 «—».
+    r = (await IMS.readImpliedMoveRows([{ ...request, ticker: 'BADWEEK' }], '2026-10-12', { probeMonthly: true, withFirstExpiry: true }))[0];
+    assert.equal(r.impliedMovePct, null, 'BADWEEK: no monthly substitution'); assert.equal(r.expiry, null); assert.equal(r.firstExpiry, '2026-10-30');
+    assert.ok(!calls.some(p => p.includes(`/BADWEEK/${post}/`)), 'the later monthly chain is not even requested');
+    console.log('✓ missing IV / mixed sessions / one-sided pre / zero variance (no weekly listed) → actual monthly 8.6%; listed weekly without quotes → null, never a later monthly');
     // 관문 10201038: 같은 만기의 과거 EOD 관측이 최신 구조 값을 덮어쓰면 안 된다.
     const liveNow = Date.parse('2026-10-20T15:00:00Z');
     Date.now = () => liveNow;

@@ -13,7 +13,8 @@ export interface MapSectorSource {
 }
 export interface MapSources {
   sectors: MapSectorSource[];
-  earnings: Array<{ ticker: string; date: string; hour?: string | null; dateStatus?: string; implied: { pct: number; session: string | null; expiry: string } | null }>;
+  /** implied: 없음(키 없음) = 서버가 묶음을 못 읽어 «모름» · null = 첫 만기 값 없음(서버 판단) */
+  earnings: Array<{ ticker: string; date: string; hour?: string | null; dateStatus?: string; implied?: { pct: number; session: string | null; expiry: string; first?: string } | null }>;
   earningsAt: string | null;
   earningsRange?: { from: string; to: string } | null;
   earningsStatus?: 'ok' | 'partial' | 'unavailable';
@@ -30,6 +31,21 @@ export interface MoneyMapData {
   leaders: MapSector[]; laggards: MapSector[]; prior: MapSector[];
   sources: MapSources;
 }
+/**
+ * [10/31] 앱 저장본을 화면에 바로 복원할 때 — 실적 행 implied 는 «발표 직후 첫 만기»로 확인된 값(first = expiry)만 남긴다.
+ *   배포 전 저장본의 표식 없는 뒤 월물 값이 서버 실패 동안 계속 보이지 않게(관문 10311302 A). 다른 칸은 그대로.
+ */
+export function sanitizeStoredMapSources<T extends { sources?: MapSources }>(saved: T): T {
+  const s = saved?.sources;
+  if (!s || !Array.isArray(s.earnings)) return saved;
+  return { ...saved, sources: { ...s, earnings: s.earnings.map(r => {
+    const im = r?.implied;
+    if (!im) return r;
+    if (im.first && im.first === im.expiry) return r;
+    const { implied: _drop, ...rest } = r as any;
+    return rest;
+  }) } };
+}
 export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = Date.now()): MapSources {
   const calendar = [next, prev].filter((s): s is MapSources => !!s && validMapCalendar(s, now))
     .sort((a, b) => Date.parse(b.eventsAt!) - Date.parse(a.eventsAt!))[0];
@@ -43,7 +59,10 @@ export function mergeMoneyMapSources(next: MapSources, prev?: MapSources, now = 
     return { ...s, fiveDay: s.fiveDay || old?.fiveDay || null, premium: s.premium || old?.premium || null };
   }), earnings: (earnings?.earnings || []).map(r => {
     const old = prev?.earnings.find(p => p.ticker === r.ticker && p.date === r.date && p.hour === r.hour);
-    const fallback = old?.implied ? validateRowImplied(r, { ...old.implied, basis: null }, now) : null;
+    // [10/31] 직전 값은 «서버가 묶음을 못 읽은» 행(implied 키 없음)에만, 그리고 «발표 직후 첫 만기»로 확인된 값(first = expiry)만 잇는다.
+    //   서버가 null 을 보냈으면(첫 만기 값 없음 — 더 이른 첫 만기가 확인됐을 수 있다) 잇지 않는다(관문 10311145 ③).
+    const fallback = r.implied === undefined && old?.implied && old.implied.first && old.implied.first === old.implied.expiry
+      ? validateRowImplied(r, { ...old.implied, basis: null }, now) : null;
     return { ...r, implied: validateRowImplied(r, r.implied ? { ...r.implied, basis: null } : fallback, now) };
   }), earningsAt: earnings?.earningsAt || null, earningsRange: earnings?.earningsRange || null,
   earningsStatus: earnings?.earningsStatus || (earnings ? 'partial' : 'unavailable'),

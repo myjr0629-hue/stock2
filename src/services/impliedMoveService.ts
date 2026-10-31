@@ -20,6 +20,7 @@ import { ImpliedDeadlineError, withinImpliedDeadline, IMPLIED_REFRESH_BUDGET_MS,
 import { bgStore } from '@/lib/intrinioBackground';
 import { expiryMethod, type EarningsMoveMethod, type EarningsMove } from '@/lib/earnings/eventMove';
 import { EARNINGS_IMPLIED_KEY, earningsObservationKey, type ImpliedPack } from '@/lib/earnings/earningsImplied';
+import type { EarningsObservation } from '@/services/earningsMonthlyProbe';
 
 const MEMO_MS = 60_000;
 const memo = new Map<string, { at: number; value: ImpliedMove | null }>();
@@ -128,6 +129,8 @@ export interface ImpliedMoveRow {
     eventMovePct?: number | null;
     /** 같은 관측의 ATM 스트래들/현물. 이벤트 분리값과 별도로 보존한다. */
     straddlePct?: number | null;
+    /** 실적 행(after) + opts.withFirstExpiry(묶음 갱신)만 — 공급사 만기 목록에서 정한 «발표 직후 첫 만기»(모르면 null). 묶음 칸의 첫 만기 표식(f)이 된다. */
+    firstExpiry?: string | null;
 }
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -161,7 +164,7 @@ export function earningsObservationRow(ticker: string, im: EarningsMove | null):
     return impliedRowOf(String(ticker || '').toUpperCase(), im, im ? 'probe' : null, im ? null : 'no_observation', true);
 }
 
-type ResolvedImpliedMove = { ticker: string; im: ImpliedMove | null; source: ImpliedMoveRow['source']; reason: string | null };
+type ResolvedImpliedMove = { ticker: string; im: ImpliedMove | null; source: ImpliedMoveRow['source']; reason: string | null; chainFirst?: string | null };
 const resolvedMoveOf = (ticker: string, im: ImpliedMove | null, source: ImpliedMoveRow['source'], reason: string | null): ResolvedImpliedMove => ({ ticker, im, source, reason });
 
 function freshestStoredStructure(a: any, b: any, today: string): any | null {
@@ -460,7 +463,7 @@ export async function overlayCanonicalImpliedMoveRows(rows: Record<string, any>,
 }
 
 /** 종목별 (after, timing) 으로 예상 변동을 읽는다 — 결과는 요청 순서. 저장본이 없으면 값 없이 이유만(지어내지 않는다). */
-export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today: string = etDateString(), opts: { probeMonthly?: boolean; deadlineMs?: number } = {}): Promise<ImpliedMoveRow[]> {
+export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today: string = etDateString(), opts: { probeMonthly?: boolean; deadlineMs?: number; withFirstExpiry?: boolean } = {}): Promise<ImpliedMoveRow[]> {
     const reqs = requests.map((r) => ({ ticker: String(r.ticker || '').toUpperCase(), after: r.after && ISO_DATE_RE.test(r.after) ? r.after : null, timing: r.timing ?? 'unknown' }));
     if (!reqs.length) return [];
     const deadlineMs = opts.deadlineMs ?? (opts.probeMonthly ? Date.now() + IMPLIED_REFRESH_BUDGET_MS - IMPLIED_SAVE_RESERVE_MS : undefined);
@@ -480,22 +483,95 @@ export async function readImpliedMoveRows(requests: ImpliedMoveRequest[], today:
     } catch { return failed(); }
     // Monthly observations must also check for earlier weekly expiries, even when non-null.
     // Only the background pack may collect; all other callers read the dated observation.
+    const observations: Array<EarningsObservation | null> = reqs.map(() => null);
     for (let i = 0; i < resolved.length; i++) {
         const r = reqs[i];
         if (!r.after) continue;
-        const existing = resolved[i].im;
         if (deadlineMs != null && Date.now() >= deadlineMs) break;
         // 갱신 흐름이 429·시간 초과로 닫혔으면 남은 종목의 월간 조회도 즉시 멈춘다(관문 10200755 ②).
         if (opts.probeMonthly && bgStore.getStore()?.tripped) break;
         try {
-            const { earningsMonthlyMove } = await import('@/services/earningsMonthlyProbe');
-            const im = await earningsMonthlyMove(r.ticker, r.after, r.timing === 'bmo' || r.timing === 'dmh', structures[i], opts.probeMonthly === true, deadlineMs);
-            if (im && shouldUseEarningsObservation(im, existing)) resolved[i] = resolvedMoveOf(r.ticker, im, 'probe', null);
+            const { earningsEventObservation } = await import('@/services/earningsMonthlyProbe');
+            observations[i] = await earningsEventObservation(r.ticker, r.after, r.timing === 'bmo' || r.timing === 'dmh', structures[i], opts.probeMonthly === true, deadlineMs);
         } catch (error) {
             if (error instanceof ImpliedDeadlineError) break;
         }
     }
-    return resolved.map((r, i) => impliedRowOf(r.ticker, r.im, r.source, r.reason, !!reqs[i].after));
+    // [10/31] 공급사 첫 만기(관측 first)를 모르는 실적 행은 수집기 만기 목록도 본다 — 구조 값이 구조 목록과 맞아 수집기 체인을 읽지 않은
+    //   행(빠른 경로)에서도, 수집기 목록에 더 이른 발표 뒤 만기가 있으면 그것이 첫 만기다(관문 10311215 ①).
+    //   수집기 캐시 mget 1회(실패·시간 초과 = 그대로).
+    //   관측 first 가 있어도 본다 — 관측 뒤 수집기 목록에 더 이른 만기가 들어온 경우(관문 10311219 A). 캐시 mget 1회(공급사 호출 0).
+    const listIdx = reqs.map((r, i) => (r.after && resolved[i].chainFirst === undefined ? i : -1)).filter((i) => i >= 0);
+    if (listIdx.length) {
+        try {
+            const pcs = await withinImpliedDeadline(() => mgetFromCache<any>(listIdx.map((i) => `polygon:snapshot:probe:${reqs[i].ticker}`)), deadlineMs);
+            listIdx.forEach((i, k) => {
+                // 계약 만기만 있고 목록·실패 표식이 없으면 근거로 쓰지 않는다(관문 10311233 A — 실패한 앞 만기가 계약에서 사라졌을 수 있다)
+                const hasList = Array.isArray(pcs[k]?.expirations) || Array.isArray(pcs[k]?.expirationsMissing);
+                const listed = hasList ? probeListedExpirations(pcs[k], today) : [];
+                const chainFirst = listed.length ? firstExpiryAfterDate(listed, reqs[i].after!, reqs[i].timing ?? 'unknown') : null;
+                if (chainFirst) resolved[i] = { ...resolved[i], chainFirst };
+            });
+        } catch { /* 그대로 */ }
+    }
+    return resolved.map((row, i) => {
+        const r = reqs[i];
+        if (!r.after) return impliedRowOf(row.ticker, row.im, row.source, row.reason, false);
+        const pick = pickFirstExpiryMove(r.after, r.timing ?? 'unknown', today, structures[i], row, observations[i]);
+        const out = impliedRowOf(pick.ticker, pick.im, pick.source, pick.reason, true);
+        // 묶음 갱신(내부)만 첫 만기를 싣는다 — 공개 응답(API·실적 주간) 모양은 그대로.
+        return opts.withFirstExpiry ? { ...out, firstExpiry: pick.firstExpiry } : out;
+    });
+}
+
+/**
+ * [10/31 첫 만기 통일] 실적 행(after)의 값은 «발표 직후 첫 만기» 하나뿐이다 — 실적 주간·일반 API(after)·캘린더 묶음·영수증이 같은 규칙.
+ *   첫 만기 = 공급사 만기 목록에서 온 두 근거 중 발표 뒤 가장 이른 만기:
+ *     · 관측 저장본의 first — earningsMonthlyProbe 가 공급사 만기 «전체» 목록(options/expirations)에서 고른 첫 만기
+ *     · 구조 사본의 availableExpirations — 수집기(scripts/lambda-flow-harvest expirations = 어댑터 expirationsRequested,
+ *       공급사 목록의 0~35 DTE 창 전부)·구조 직접 조회(같은 목록의 앞 10개)에서 온 «오름차순·앞쪽 빠짐 없는» 목록.
+ *       그래서 이 목록에 발표 뒤 만기가 하나라도 있으면 그중 가장 이른 것이 실제 첫 만기다(뒤쪽만 잘린다).
+ *     · 수집기 체인의 실제 만기(chainFirst)도 같은 목록에서 왔으므로 함께 본다.
+ *   후보 «값»의 만기는 근거로 쓰지 않는다(값이 첫 만기를 정하지 않는다 — 관문 10311136 ①).
+ *   그 만기가 아닌 값(뒤 주간·월물)은 버린다 — 대체 금지. 같은 첫 만기의 후보끼리는 기존 신선도 규칙(shouldUseEarningsObservation).
+ *   첫 만기를 모르거나 그 만기 값이 없으면 null(«—»). 마지막 정상값 유지는 관측 저장본(그 첫 만기 값만 이어 씀)·
+ *   묶음 병합(첫 만기 표식 있는 값만 이어 씀)이 맡는다.
+ */
+function pickFirstExpiryMove(after: string, timing: ImpliedTiming, today: string, structure: any, resolved: ResolvedImpliedMove, obs: EarningsObservation | null): ResolvedImpliedMove & { firstExpiry: string | null } {
+    const known: string[] = [
+        ...(Array.isArray(structure?.availableExpirations) ? structure.availableExpirations : []),
+        obs?.first, resolved.chainFirst,
+    ].filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today);
+    const first = firstExpiryAfterDate(known, after, timing);
+    const fromResolved = first && resolved.im && resolved.im.expiry === first ? resolved.im : null;
+    // 첫 만기 표식 없는 옛 월물 저장본(candidate)도, 다른 근거로 정한 첫 만기와 만기가 같으면 그 만기의 값이다(관문 10311252 A — main 처럼 확인값 유지).
+    const obsIm = obs?.im ?? (obs?.first ? null : obs?.candidate ?? null);
+    const fromObs = first && obsIm && obsIm.expiry === first ? obsIm : null;
+    if (fromObs && shouldUseEarningsObservation(fromObs, fromResolved)) return { ...resolvedMoveOf(resolved.ticker, fromObs, 'probe', null), firstExpiry: first };
+    if (fromResolved) return { ...resolvedMoveOf(resolved.ticker, resolved.im, resolved.source, resolved.reason), firstExpiry: first };
+    return { ...resolvedMoveOf(resolved.ticker, null, null, resolved.im || obs?.im ? 'no_straddle' : resolved.reason ?? 'no_straddle'), firstExpiry: first };
+}
+
+/**
+ * [10/31] 수집기 캐시 만기 목록으로 본 «발표 직후 첫 만기»(없으면 null) — 영수증처럼 readImpliedMoveRows 를 거치지 않는 경로도
+ *   관측 저장본의 first 보다 더 이른 만기가 수집기 목록에 들어왔는지 같은 규칙으로 대조한다(관문 10311226 A). 캐시 읽기 1회·공급사 호출 0, 실패 = null.
+ */
+export async function collectorFirstExpiryAfter(ticker: string, after: string, timing: ImpliedTiming, nowMs: number = Date.now()): Promise<string | null> {
+    try {
+        const [pc] = await mgetFromCache<any>([`polygon:snapshot:probe:${ticker}`]);
+        const listed = probeListedExpirations(pc, etDateOf(nowMs));
+        return listed.length ? firstExpiryAfterDate(listed, after, timing) : null;
+    } catch { return null; }
+}
+
+/** 수집기 체인 캐시가 아는 실제 만기 — 적어 둔 목록(expirations)·조회 실패 만기(expirationsMissing)·받아 온 계약의 만기(오늘 이후, 정렬) */
+function probeListedExpirations(pc: any, today: string): string[] {
+    const chain = [...(Array.isArray(pc?.exactResults) ? pc.exactResults : []), ...(Array.isArray(pc?.probeResults) ? pc.probeResults : [])];
+    return [...new Set<string>([
+        ...(Array.isArray(pc?.expirations) ? pc.expirations : []),
+        ...(Array.isArray(pc?.expirationsMissing) ? pc.expirationsMissing : []),
+        ...chain.map((c: any) => c?.details?.expiration_date),
+    ].filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today))].sort();
 }
 
 /** 전달받은 구조를 읽기 전용으로 보정한다. 단건·묶음 모두 이 경로를 지난다. */
@@ -560,9 +636,15 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             const chain = [...(Array.isArray(pc?.exactResults) ? pc.exactResults : []), ...(Array.isArray(pc?.probeResults) ? pc.probeResults : [])];
             const actualExps: string[] = [...new Set<string>(chain.map((c: any) => c?.details?.expiration_date)
                 .filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today))].sort();
-            const eligible = n.after ? actualExps.filter((e) => firstExpiryAfterDate([e], n.after!, n.timing ?? 'unknown')) : [n.expiry!];
-            // A weekly expiry may lack a complete ATM pair. Try subsequent actual expiries,
-            // including the next monthly expiry, without inventing a quote or a date.
+            // [10/31] 실적 행은 발표 직후 «첫 만기» 하나만 — 그 만기 호가가 모자라도 뒤 만기(월물 포함)로 넘어가지 않는다.
+            //   첫 만기 근거 = 수집기가 적어 둔 만기 목록(expirations = 공급사 목록 0~35 DTE)·조회 실패 만기(expirationsMissing —
+            //   계약이 없어도 실재하는 만기)·받아 온 계약의 만기·구조 목록이 고른 만기 중 가장 이른 것. 앞 만기 체인이 실패해 계약에서
+            //   빠져도 목록·실패 표식에 남으므로 뒤 만기가 첫 만기로 올라서지 않는다(관문 10311211 ②).
+            //   단 «받아 온 계약의 만기»만 있고 목록(expirations)·실패 표식(expirationsMissing)·구조 목록 만기(n.expiry)가 하나도 없으면
+            //   실패한 앞 만기가 계약에서 사라졌을 수 있어 첫 만기를 정하지 않는다 — 뒤 만기 값을 «첫 만기 확인»으로 내지 않음(관문 10311233 A).
+            const listEvidence = Array.isArray(pc?.expirations) || Array.isArray(pc?.expirationsMissing) || !!n.expiry;
+            const firstAfter = n.after && listEvidence ? firstExpiryAfterDate([...probeListedExpirations(pc, today), ...(n.expiry ? [n.expiry] : [])], n.after, n.timing ?? 'unknown') : null;
+            const eligible = n.after ? (firstAfter ? [firstAfter] : []) : [n.expiry!];
             for (const expiry of eligible) {
                 const rows = chain.filter((c: any) => c?.details?.expiration_date === expiry);
                 const rowDates = [...new Set(rows.map((c: any) => c?._intrinio?.date).filter((d: unknown) => typeof d === 'string' && ISO_DATE_RE.test(d)))];
@@ -606,6 +688,8 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                 break;
             }
             if (!results[n.idx].im && eligible.length > 0) results[n.idx].reason = chain.length ? 'no_straddle' : 'no_snapshot';
+            // 실적 행: 수집기 체인으로 본 첫 만기를 남긴다 — 최종 선택(pickFirstExpiryMove)이 같은 첫 만기로 판단하게.
+            if (firstAfter) results[n.idx] = { ...results[n.idx], chainFirst: firstAfter };
         });
     }
     // [T26] 같은 종목·만기의 «마감 관측»이 있으면 실적 경로와 같은 규칙(shouldUseEarningsObservation)으로 고른다.

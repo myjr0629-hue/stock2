@@ -139,9 +139,9 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
 
   console.log('━━━ 2. 표시 ━━━');
   const pack = { v: 1 as const, at: ms(SUNDAY), day: '2026-10-11', cells: {
-    'JPM|2026-10-13': { p: 3.6, e: '2026-10-16', b: 'eod' as const, s: '2026-10-09', r: null },
-    'NFLX|2026-10-20': { p: 8.5, e: '2026-10-23', b: 'live' as const, s: '2026-10-20', r: null },
-    'OLD|2026-10-13': { p: 2.0, e: '2026-10-09', b: 'eod' as const, s: '2026-10-08', r: null },
+    'JPM|2026-10-13': { p: 3.6, e: '2026-10-16', b: 'eod' as const, s: '2026-10-09', r: null, f: '2026-10-16' },
+    'NFLX|2026-10-20': { p: 8.5, e: '2026-10-23', b: 'live' as const, s: '2026-10-20', r: null, f: '2026-10-23' },
+    'OLD|2026-10-13': { p: 2.0, e: '2026-10-09', b: 'eod' as const, s: '2026-10-08', r: null, f: '2026-10-09' },
     'CCI|2026-10-21': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
   } };
   t('값 → 화면 · 값 없음/만기 지남/묶음 없음은 null', () => {
@@ -227,8 +227,10 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
   t('장중 저장본이 빈 칸(no_snapshot)은 직전 값을 세션 꼬리표째 잇는다 · 부분 체인 결측도 잇고 만기 지남·5일 넘은 값은 잇지 않는다', () => {
     const now = ms('2026-10-12T14:00:00Z');   // 월 ET 10:00
     const prev = { v: 1 as const, at: now - 600e3, day: '2026-10-12', cells: {
-      'GE|2026-10-20': { p: 6.9, e: '2026-10-23', b: 'eod' as const, s: '2026-10-09', r: null },
-      'PSA|2026-10-26': { p: 3.0, e: '2026-10-30', b: 'eod' as const, s: '2026-10-09', r: null },
+      // [10/31] 잇는 값 = 첫 만기 표식(f = e) 있는 칸 — 표식 없는 옛 칸은 아래 LEGACY 로 따로 본다
+      'GE|2026-10-20': { p: 6.9, e: '2026-10-23', b: 'eod' as const, s: '2026-10-09', r: null, f: '2026-10-23' },
+      'PSA|2026-10-26': { p: 3.0, e: '2026-10-30', b: 'eod' as const, s: '2026-10-09', r: null, f: '2026-10-30' },
+      'LEGACY|2026-10-20': { p: 5.5, e: '2026-11-20', b: 'eod' as const, s: '2026-10-09', r: null },
       'OLD|2026-10-14': { p: 2.0, e: '2026-10-09', b: 'eod' as const, s: '2026-10-08', r: null },
       'STALE|2026-10-20': { p: 2.0, e: '2026-10-23', b: 'eod' as const, s: '2026-10-02', r: null },
       'C|2026-10-13': { p: 4.0, e: '2026-10-16', b: 'eod' as const, s: '2026-10-09', r: null },
@@ -240,9 +242,11 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
       'STALE|2026-10-20': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
       'C|2026-10-13': { p: 4.2, e: '2026-10-16', b: 'live' as const, s: '2026-10-12', r: null },
       'NEW|2026-10-21': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
+      'LEGACY|2026-10-20': { p: null, e: null, b: null, s: null, r: 'read_failed' },
     } };
     const m = EI.mergeImpliedPacks(next, prev, now);
-    assert.deepEqual(m.cells['GE|2026-10-20'], { p: 6.9, e: '2026-10-23', b: 'eod', s: '2026-10-09', r: null, k: 1 });
+    assert.deepEqual(m.cells['GE|2026-10-20'], { p: 6.9, e: '2026-10-23', b: 'eod', s: '2026-10-09', r: null, k: 1, f: '2026-10-23' });
+    assert.equal(m.cells['LEGACY|2026-10-20'].p, null, '첫 만기 표식 없는 옛 칸(월물 대체였을 수 있다)은 잇지 않는다');
     assert.equal(m.cells['PSA|2026-10-26'].p, 3.0, '부분 만기 목록은 직전 실제 값을 무효화하지 않는다');
     assert.equal(m.cells['PSA|2026-10-26'].s, '2026-10-09');
     assert.equal(m.cells['OLD|2026-10-14'].p, null, '만기 지남');
@@ -268,7 +272,7 @@ const SUNDAY = '2026-10-11T16:00:00Z';     // ET 일요일 12:00
       ],
     });
     put(EI.EARNINGS_IMPLIED_KEY, { v: 1, at: ms('2026-10-12T12:58:00Z'), day: '2026-10-12', cells: {
-      'JPM|2026-10-13': { p: 3.6, e: '2026-10-16', b: 'eod', s: '2026-10-09', r: null },
+      'JPM|2026-10-13': { p: 3.6, e: '2026-10-16', b: 'eod', s: '2026-10-09', r: null, f: '2026-10-16' },
       'CCI|2026-10-21': { p: null, e: null, b: null, s: null, r: 'no_snapshot' },
     } });
     const { GET } = require('../src/app/api/market/earnings-calendar/route') as typeof import('../src/app/api/market/earnings-calendar/route');

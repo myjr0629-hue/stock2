@@ -54,7 +54,8 @@ const rows = (e: string, iv: number | null, s = session) => ['call', 'put'].map(
 }));
 const omitEvent = (value: any): any => Array.isArray(value) ? value.map(omitEvent)
   : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value)
-    .filter(([key]) => key !== 'eventMovePct').map(([key, v]) => [key, omitEvent(v)])) : value;
+    // [10/31] implied.first(«발표 직후 첫 만기» 확인 표식)도 이번 추가 필드 — 기존 응답 비교에서만 뺀다.
+    .filter(([key]) => key !== 'eventMovePct' && key !== 'first').map(([key, v]) => [key, omitEvent(v)])) : value;
 
 (async () => {
   const realNow = Date.now;
@@ -80,7 +81,8 @@ const omitEvent = (value: any): any => Array.isArray(value) ? value.map(omitEven
       store.set(`structure:v2:${ticker}`, { timestamp: NOW, data: {
         options_status: 'OK', expiration: expiry, availableExpirations: [expiry], underlyingPrice: 100, impliedMove: im,
       } });
-      store.set(`earnings:event-probe:v3:${ticker}:${date}:next`, { im, checkedAt: NOW });
+      // [10/31] 저장본은 공급사 목록으로 확인한 첫 만기(first)를 함께 싣는다(새 저장 모양)
+      store.set(`earnings:event-probe:v3:${ticker}:${date}:next`, { im, checkedAt: NOW, first: expiry });
     }
     const api = await (await options.GET(new NextRequest(`https://example.test/api/options/implied-move?t=SPLIT,MONTHLY,EMPTY&after=${date}&timing=amc`))).json();
     const plain = await (await options.GET(new NextRequest('https://example.test/api/options/implied-move?t=SPLIT'))).json();

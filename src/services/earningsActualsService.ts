@@ -23,7 +23,7 @@ import {
 } from '@/lib/earnings/earningsActuals';
 import { daysBetweenYmd, etDateOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
 import { getDailyAggregates } from '@/services/intrinioClient';
-import { earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
+import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
 import { Redis } from '@upstash/redis';
 import { getAuthoritativeCache, mgetFromCache, setAuthoritativeCache, setInCache } from '@/services/redisClient';
 
@@ -78,9 +78,14 @@ export const fmpCloses: BarsFn = async (ticker, from, to) => {
 export type ObservationFn = (c: { ticker: string; date: string; hour: ReportHour }, probe: boolean, deadlineMs?: number) => Promise<ImpliedMoveRow | null>;
 
 export const readEarningsObservation: ObservationFn = async (c, probe, deadlineMs) => {
-  const { earningsMonthlyMove } = await import('@/services/earningsMonthlyProbe');
-  const im = await earningsMonthlyMove(c.ticker, c.date, c.hour === 'bmo', null, probe, deadlineMs, { pastDays: LOOKBACK_DAYS, save: false });
-  return im ? earningsObservationRow(c.ticker, im) : null;
+  const { earningsEventObservation } = await import('@/services/earningsMonthlyProbe');
+  const { im, first } = await earningsEventObservation(c.ticker, c.date, c.hour === 'bmo', null, probe, deadlineMs, { pastDays: LOOKBACK_DAYS, save: false });
+  // [10/31] 영수증 예상값도 «발표 직후 첫 만기»로 확인된 관측만 — 첫 만기를 모르는 옛 월물 관측은 쓰지 않는다(null → 직접 조회 경로로).
+  if (!(im && first && im.expiry === first)) return null;
+  // 관측 뒤 수집기 목록에 더 이른 발표 뒤 만기가 들어왔으면 그것이 첫 만기다 — 관측의 뒤 만기 값을 영수증 예상값으로 쓰지 않는다(관문 10311226 A).
+  const listedFirst = await collectorFirstExpiryAfter(c.ticker, c.date, c.hour);
+  if (listedFirst && listedFirst < first) return null;
+  return earningsObservationRow(c.ticker, im);
 };
 
 export interface CycleDeps {
