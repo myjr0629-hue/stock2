@@ -240,7 +240,11 @@ const EXTRA = LIB.CALENDAR_ONLY_EARNINGS.map((c) => c.ticker);
     const kept = wCal.rows.filter((r) => !EXTRA.includes(r.ticker));
     assert.deepEqual(kept.map((r) => `${r.ticker}|${r.date}`), wPlain.rows.map((r) => `${r.ticker}|${r.date}`));
     kept.forEach((r, i) => assert.deepEqual({ ...r }, { ...wPlain.rows[i] }));
-    assert.equal(wCal.listVerifiedAt, wPlain.listVerifiedAt);
+    const confMax = CONF.CONFIRMED_EARNINGS.reduce((m, c) => (c.verifiedAt > m ? c.verifiedAt : m), '');
+    const extraMax = LIB.CALENDAR_ONLY_EARNINGS.reduce((m, c) => (c.verifiedAt > m ? c.verifiedAt : m), '');
+    assert.equal(wPlain.listVerifiedAt, confMax, '기본 호출의 최종 확인은 그대로');
+    assert.equal(wCal.listVerifiedAt, extraMax > confMax ? extraMax : confMax, '표에 실린 새 행의 확인 시각이 최종 확인에 반영돼야 한다');
+    assert.ok(wCal.listVerifiedAt >= '2026-10-31');
   });
   await t('calendarOnly 정렬 — 날짜 → 장전·미정·장후 → 티커', () => {
     const rank = (h: string) => (h === 'bmo' ? 0 : h === 'amc' ? 2 : 1);

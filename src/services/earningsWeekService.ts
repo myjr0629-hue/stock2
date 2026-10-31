@@ -120,12 +120,13 @@ async function pendingFromCalendar(range: WeekRange, confirmedTickers: Set<strin
  * [T40] 캘린더 전용 대형주 행(lib/earningsCalendarOnly) — 날짜·장전/장후·예상 변동폭(저장본 읽기, 있으면)만.
  *   레벨·실제 반응은 읽지 않는다(null → 화면 «—») · 구조 보강 예약 없음 · 실패 = 행 없음(기존 표 그대로).
  */
-async function calendarOnlyWeekRows(range: WeekRange, today: string, list: readonly ConfirmedEarnings[], extraList: readonly ConfirmedEarnings[]): Promise<EarningsWeekRow[]> {
+async function calendarOnlyWeekRows(range: WeekRange, today: string, list: readonly ConfirmedEarnings[], extraList: readonly ConfirmedEarnings[]): Promise<{ rows: EarningsWeekRow[]; verifiedAt: string }> {
   try {
     const entries = calendarOnlyWeekEntries(calendarOnlyEntries(earningsCalendarUniverse(), list, extraList), range.start, range.end);
-    if (!entries.length) return [];
+    if (!entries.length) return { rows: [], verifiedAt: '' };
     const implied = await readImpliedMoveRows(entries.map((e) => ({ ticker: e.ticker, after: e.date, timing: timingOf(e) })), today).catch((): ImpliedMoveRow[] => []);
-    return entries.map((e, i) => {
+    const verifiedAt = entries.reduce((m, c) => (c.verifiedAt > m ? c.verifiedAt : m), '');
+    return { verifiedAt, rows: entries.map((e, i) => {
       const im = implied[i];
       return {
         ticker: e.ticker, date: e.date, hour: e.hour, etTime: e.etTime ?? null,
@@ -145,8 +146,8 @@ async function calendarOnlyWeekRows(range: WeekRange, today: string, list: reado
         expectedAtReport: null, actual: null,
         calendarOnly: true,
       };
-    });
-  } catch { return []; }
+    }) };
+  } catch { return { rows: [], verifiedAt: '' }; }
 }
 
 /** 한 주의 자료를 «지금 읽어서» 만든다(캐시 없음) — 시험·getEarningsWeek 가 쓴다. */
@@ -158,14 +159,14 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
 
   // [T37] 같은 mget 에 판본 원본도 — 발표 뒤 갭 행의 Max Pain(postReportMaxPain)이 정의 밖으로 뺀 값을 읽는다(Redis 왕복 추가 0).
   const rawStructures: any[] = [];
-  const [implied, lv, pending, actuals, extraRows] = await Promise.all([
+  const [implied, lv, pending, actuals, extra] = await Promise.all([
     readImpliedMoveRows(entries.map((e) => ({ ticker: e.ticker, after: e.date, timing: timingOf(e) })), today).catch((): ImpliedMoveRow[] => entries.map((e) => ({
       ticker: e.ticker, impliedMovePct: null, expiry: null, asOf: null, basis: null, strike: null, straddle: null, spot: null, source: null, session: null, reason: 'read_failed',
     }))),
     tickers.length ? peekStructureLevelsDetailed(tickers, tickers.map((t) => structureV2Key(t.toUpperCase())), rawStructures, { refresh: false }).catch(() => null) : Promise.resolve(null),
     pendingFromCalendar(range, new Set(list.map((c) => c.ticker))),
     readActualRecords(entries),   // 던지지 않는다(실패 = 빈 Map)
-    opts.calendarOnly ? calendarOnlyWeekRows(range, today, list, opts.calendarOnlyList ?? CALENDAR_ONLY_EARNINGS) : Promise.resolve([] as EarningsWeekRow[]),
+    opts.calendarOnly ? calendarOnlyWeekRows(range, today, list, opts.calendarOnlyList ?? CALENDAR_ONLY_EARNINGS) : Promise.resolve({ rows: [] as EarningsWeekRow[], verifiedAt: '' }),
   ]);
   if (!opts.readOnly && lv?.noSnapshot?.length) void warmMissingStructure(lv.noSnapshot).catch(() => []);
 
@@ -202,6 +203,7 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
 
   // [T40] 캘린더 전용 행은 같은 정렬 규칙(selectWeekEntries: 날짜 → 장전·미정·장후 → 티커) 자리에 끼운다 — 기존 행의 순서·값은 그대로.
   const rows: EarningsWeekRow[] = baseRows.slice();
+  const extraRows = extra.rows;
   if (extraRows.length) {
     const rank = (h: string) => (h === 'bmo' ? 0 : h === 'amc' ? 2 : 1);
     const after = (a: EarningsWeekRow, b: EarningsWeekRow) => a.date.localeCompare(b.date) || rank(a.hour) - rank(b.hour) || a.ticker.localeCompare(b.ticker);
@@ -216,7 +218,8 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
   const at = rows.map((r) => r.levelsAsOf).filter((x): x is number => typeof x === 'number' && x > 0);
   return {
     range, rows, pending,
-    listVerifiedAt: list.reduce((m, c) => (c.verifiedAt > m ? c.verifiedAt : m), ''),
+    // [T40] 표에 실린 캘린더 전용 행의 확인 시각도 «최종 확인»에 넣는다(행이 없으면 기존 값 그대로)
+    listVerifiedAt: list.reduce((m, c) => (c.verifiedAt > m ? c.verifiedAt : m), extraRows.length ? extra.verifiedAt : ''),
     dataSession,
     dataBasis: mode(withNumbers.map((r) => r.impliedBasis)),
     dataAt: at.length ? Math.max(...at) : (withNumbers.map((r) => r.impliedAsOf).find((x) => x != null) ?? null),
