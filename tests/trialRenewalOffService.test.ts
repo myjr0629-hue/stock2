@@ -19,7 +19,8 @@ async function scenario(mode: 'success' | 'failure' | 'web' | 'invalidateFailure
   const exports: Record<string, any> = {};
   vm.runInNewContext(compiled, { exports, require: (name: string) => modules[name], setTimeout, clearTimeout, Promise });
   const load = exports.loadFreshTrialRenewalOff as () => Promise<any>;
-  const verify = exports.verifyTrialRenewalOff as () => Promise<any>;
+  const verify = exports.verifyTrialRenewalOff as () => { result: Promise<any>; release: () => void } | null;
+  const resume = exports.refreshTrialRenewalOffOnResume as () => void;
   if (mode === 'failure') {
     await assert.rejects(load(), /offline/);
     await assert.rejects(load(), /offline/);
@@ -29,18 +30,29 @@ async function scenario(mode: 'success' | 'failure' | 'web' | 'invalidateFailure
     assert.deepEqual(calls, []);
   } else if (mode === 'invalidateFailure') {
     await load();
-    await assert.rejects(verify(), /invalidate failed/);
-    assert.equal(await verify(), null);
+    await assert.rejects(verify()!.result, /invalidate failed/);
+    assert.equal(verify(), null);
     assert.deepEqual(calls, ['customer', 'invalidate']);
   } else {
     const [first, concurrent] = await Promise.all([load(), load()]);
     assert.equal(first.platform, 'ios');
     assert.equal(concurrent, first);
     assert.equal(await load(), first);
-    const fresh = await verify();
+    const attempt = verify()!;
+    const fresh = await attempt.result;
     assert.equal(fresh.platform, 'ios');
-    assert.equal(await verify(), null);
+    assert.equal(verify(), null);
     assert.deepEqual(calls, ['customer', 'invalidate', 'customer']);
+    resume();
+    const [afterResume, duplicate] = await Promise.all([load(), load()]);
+    assert.equal(afterResume, duplicate);
+    const next = verify()!;
+    attempt.release(); // An old interrupted attempt must not release the new slot.
+    assert.equal(verify(), null);
+    await next.result;
+    next.release();
+    await verify()!.result;
+    assert.deepEqual(calls, ['customer', 'invalidate', 'customer', 'invalidate', 'customer', 'invalidate', 'customer', 'invalidate', 'customer']);
   }
 }
 async function main() {

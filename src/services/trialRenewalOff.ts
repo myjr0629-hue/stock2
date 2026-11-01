@@ -2,18 +2,27 @@
 
 import { initRevenueCat } from '@/services/revenueCat';
 
-/** One initial SDK read per app session, including failures. */
+/** One initial SDK read per foreground entry, including failures. */
 let sessionRead: Promise<Awaited<ReturnType<typeof readTrialRenewalOff>>> | undefined;
+let freshEntry = false;
+let verification: object | undefined;
+export function refreshTrialRenewalOffOnResume() {
+  sessionRead = undefined;
+  freshEntry = true;
+  verification = undefined;
+}
 export function loadFreshTrialRenewalOff() {
-  return sessionRead ??= readTrialRenewalOff();
+  return sessionRead ??= readTrialRenewalOff(freshEntry);
 }
 
-// A display attempt gets at most one additional read, even after interruption.
-let verificationUsed = false;
+// Only a discarded attempt can release its own verification slot.
 export function verifyTrialRenewalOff() {
-  if (verificationUsed) return Promise.resolve(null);
-  verificationUsed = true;
-  return readTrialRenewalOff(true);
+  if (verification) return null;
+  const token = verification = {};
+  return {
+    result: readTrialRenewalOff(true),
+    release: () => { if (verification === token) verification = undefined; },
+  };
 }
 
 async function readTrialRenewalOff(fresh = false) {
