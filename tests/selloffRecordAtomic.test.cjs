@@ -14,14 +14,12 @@ function store() {
     const values = new Map(), writes = [];
     const slot = n => (n === 'NASDAQ' || n === 'NASDAQ 100' ? 'NQ' : n);
     const newer = (c, p) => typeof c.at !== 'string' ? false : typeof p.at !== 'string' ? true
-        : c.at !== p.at ? c.at > p.at : c.pct === p.pct ? false
-        : typeof c.rv === 'string' && typeof p.rv === 'string' && c.rv !== p.rv ? c.rv > p.rv
-        : typeof c.rx === 'string' && (typeof p.rx !== 'string' || c.rx > p.rx);
+        : c.at !== p.at ? c.at > p.at : typeof c.rx === 'string' && (typeof p.rx !== 'string' || c.rx > p.rx);
     return { values, writes, eval(script, keys, [raw, ttl]) {
         assert.match(script, /local raw = redis.call\('GET', KEYS\[1\]\)/);
         assert.match(script, /return c\.at > p\.at/);
-        assert.match(script, /if c\.pct == p\.pct then return false end/);
-        assert.match(script, /c\.rv ~= p\.rv then return c\.rv > p\.rv end/);
+        assert.match(script, /if c\.at ~= p\.at then return c\.at > p\.at end/);
+        assert.match(script, /return type\(c\.rx\) == 'string' and \(type\(p\.rx\) ~= 'string' or c\.rx > p\.rx\)/);
         assert.match(script, /redis.call\('SET', KEYS\[1\], cjson.encode/);
         assert.equal(keys.length, 1);
         const incoming = JSON.parse(raw), prev = values.get(keys[0]);
@@ -108,36 +106,35 @@ test('script text stays a single GET→compare→SET (no app-side merge)', () =>
     assert.ok(lua.indexOf("redis.call('GET'") < lua.indexOf('newer(c, p)') && lua.indexOf('newer(c, p)') < lua.indexOf("redis.call('SET'"));
 });
 
-test('same-timestamp close correction: later receipt wins, identical value never rewrites (gate 11020332)', async () => {
-    const f = fixture();
+test('same-timestamp corrections follow snapshot generation (rx), identical values advance rx (gates 11020332/11020334/11020336)', async () => {
     const at = '2026-10-30T20:15:01.000Z';
-    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rx: '2026-10-30T20:20:00.000Z' }]), 604800), 1);
-    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rx: '2026-10-30T20:40:00.000Z' }]), 604800), 0); // 같은 값
-    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 3, at, rx: '2026-10-30T20:30:00.000Z' }]), 604800), 1);  // 정정
-    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rx: '2026-10-30T20:25:00.000Z' }]), 604800), 0); // 정정 전에 받은 낡은 사본
+    const put = (f, pct, rx) => f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct, at, rx }]), 604800);
+    // 11020332: 같은 체결 시각의 정정(+12 → +3)은 뒤 세대가 이긴다
+    let f = fixture();
+    assert.equal(await put(f, 12, '2026-10-30T20:20:00.000Z'), 1);
+    assert.equal(await put(f, 3, '2026-10-30T20:30:00.000Z'), 1);
+    assert.equal(await put(f, 12, '2026-10-30T20:25:00.000Z'), 0);             // 정정 전 세대의 늦은 도착
     assert.deepEqual(f.up.values.get(KEY).chips.map(c => c.pct), [3]);
-    // Lua 규칙과 lib 규칙이 같다
+    // 11020334: +12 를 20:10·20:40 세대로 확인한 뒤 늦게 온 20:30 세대 +3 → 거절(같은 값도 rx 를 전진시켜 남긴다)
+    f = fixture();
+    await put(f, 12, '2026-10-30T20:10:00.000Z');
+    assert.equal(await put(f, 12, '2026-10-30T20:40:00.000Z'), 1);
+    assert.equal(await put(f, 3, '2026-10-30T20:30:00.000Z'), 0);
+    assert.deepEqual(f.up.values.get(KEY).chips.map(c => [c.pct, c.rx]), [[12, '2026-10-30T20:40:00.000Z']]);
+    // 11020336 P1: +12 → +3 → +12 재정정, 저장소가 첫 +12 다음 최신 +12 를 먼저 받고 지연 +3 이 나중에 도착 → 최신 +12 유지
+    f = fixture();
+    await put(f, 12, '2026-10-30T20:10:00.000Z');
+    await put(f, 12, '2026-10-30T20:50:00.000Z');
+    assert.equal(await put(f, 3, '2026-10-30T20:30:00.000Z'), 0);
+    assert.deepEqual(f.up.values.get(KEY).chips.map(c => c.pct), [12]);
+    // 11020336 P2: 가격·체결 시각은 그대로, 전일 종가 정정으로 등락률만 바뀐 경우도 세대 순서
+    f = fixture();
+    await put(f, -7.2, '2026-10-30T21:20:00.000Z');
+    assert.equal(await put(f, -6.9, '2026-10-30T21:40:00.000Z'), 1);
+    assert.equal(await put(f, -7.2, '2026-10-30T21:30:00.000Z'), 0);
+    assert.deepEqual(f.up.values.get(KEY).chips.map(c => c.pct), [-6.9]);
+    // 같은 세대·같은 값은 쓰지 않는다
+    assert.equal(await put(f, -6.9, '2026-10-30T21:40:00.000Z'), 0);
     const lib = fs.readFileSync(path.join(root, 'src/lib/selloffBriefing.ts'), 'utf8');
-    assert.match(lib, /if \(a\.rv && b\.rv && a\.rv !== b\.rv\) return a\.rv > b\.rv;/);
-});
-
-test('delayed stale copy cannot win over a newer identical receipt when the feed revision stamp is present (gate 11020334)', async () => {
-    const f = fixture();
-    const at = '2026-10-30T20:15:01.000Z';
-    const v12 = '2026-10-30T20:16:00.000Z';                 // +12 이 원천에서 처음 정해진 시각
-    const v3 = '2026-10-30T20:25:00.000Z';                  // +3 정정 시각(원천)
-    // 정정 뒤 다시 +12 로 재정정된 경우(rv 전진) — 순서 그대로 따른다
-    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T20:10:00.000Z' }]), 604800), 1);
-    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T20:40:00.000Z' }]), 604800), 0); // 같은 값의 사본
-    // 늦게 도착한 20:30 수신본 +3 이라도 원천 rv(20:25)가 +12 의 rv(20:16)보다 늦으면 진짜 정정 → 채택
-    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 3, at, rv: v3, rx: '2026-10-30T20:30:00.000Z' }]), 604800), 1);
-    // 반대로 정정 전 사본(rv 이전)은 수신이 늦어도 못 이긴다
-    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T21:00:00.000Z' }]), 604800), 0);
-    assert.deepEqual(f.up.values.get(KEY).chips.map(c => c.pct), [3]);
-    // gate 11020334 그대로: +12(rv 20:16) 20:10·20:40 수신 뒤 지연 도착한 낡은 +3(rv 20:05 — +12 이전 값) → 거절
-    const g = fixture();
-    await g.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T20:10:00.000Z' }]), 604800);
-    await g.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T20:40:00.000Z' }]), 604800);
-    assert.equal(await g.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 3, at, rv: '2026-10-30T20:05:00.000Z', rx: '2026-10-30T20:30:00.000Z' }]), 604800), 0);
-    assert.deepEqual(g.up.values.get(KEY).chips.map(c => c.pct), [12]);
+    assert.match(lib, /if \(a\.at !== b\.at\) return a\.at > b\.at;\n  return !!a\.rx && \(!b\.rx \|\| a\.rx > b\.rx\);/);
 });

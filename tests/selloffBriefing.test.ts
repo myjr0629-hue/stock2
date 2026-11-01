@@ -314,11 +314,14 @@ test('server and device records merge per slot; the newer observation wins eithe
   assert.equal(mergeSelloffRecords(server, { ...device, date: '2026-10-29' }, D)?.chips.length, 2); // 다른 날짜는 무시
 });
 
-test('same-timestamp correction reaches the record and the card; repeated identical snapshots do not write', () => {
+test('same-timestamp correction reaches the record and the card; same generation does not write', () => {
   const t = at('2026-10-31T15:00:00Z');
   const snap = (pct: number, fetched: string): SelloffMacro => ({ fetchedAtET: fetched, factors: { vix: factor(pct, '2026-10-30T20:15:01Z') } });
   const first = mergeSelloffRecord({ now: t, macro: snap(12, '2026-10-30T20:20:00.000Z'), stored: null, storedKnown: true }).record!;
-  assert.equal(mergeSelloffRecord({ now: t, macro: snap(12, '2026-10-31T14:00:00.000Z'), stored: first, storedKnown: true }).write, false);
+  assert.equal(mergeSelloffRecord({ now: t, macro: snap(12, '2026-10-30T20:20:00.000Z'), stored: first, storedKnown: true }).write, false); // 같은 세대
+  const same = mergeSelloffRecord({ now: t, macro: snap(12, '2026-10-30T20:22:00.000Z'), stored: first, storedKnown: true });
+  assert.equal(same.write, true);                                                 // 새 세대는 값이 같아도 rx 전진
+  assert.equal(same.record?.chips[0].pct, 12);
   const fix = mergeSelloffRecord({ now: t, macro: snap(3, '2026-10-30T20:30:00.000Z'), stored: first, storedKnown: true });
   assert.equal(fix.write, true);
   assert.equal(fix.record?.chips[0].pct, 3);
@@ -329,8 +332,11 @@ test('same-timestamp correction reaches the record and the card; repeated identi
   assert.equal(back.write, false);
 });
 
-test('SOX/VIX carry the feed revision stamp (lastChangeAt) as rv', () => {
+test('chips carry observation time and snapshot generation (rx = fetchedAtET)', () => {
   const t = at('2026-10-31T15:00:00Z');
-  const b = selloffForDisplay({ now: t, macro: { fetchedAtET: '2026-10-31T14:59:00.000Z', factors: { vix: { ...factor(12.9, '2026-10-30T20:15:01Z'), lastChangeAt: '2026-10-30T20:30:37.021Z' } } } });
-  assert.deepEqual(b?.chips[0], { name: 'VIX', pct: 12.9, at: '2026-10-30T20:15:01.000Z', rv: '2026-10-30T20:30:37.021Z', rx: '2026-10-31T14:59:00.000Z' });
+  const b = selloffForDisplay({ now: t, macro: { fetchedAtET: '2026-10-31T14:59:00.000Z', factors: { vix: factor(12.9, '2026-10-30T20:15:01Z') } } });
+  assert.deepEqual(b?.chips[0], { name: 'VIX', pct: 12.9, at: '2026-10-30T20:15:01.000Z', rx: '2026-10-31T14:59:00.000Z' });
+  // 미래 세대 시각은 붙이지 않는다
+  const f = selloffForDisplay({ now: t, macro: { fetchedAtET: '2026-10-31T16:00:00.000Z', factors: { vix: factor(12.9, '2026-10-30T20:15:01Z') } } });
+  assert.equal(f?.chips[0].rx, undefined);
 });

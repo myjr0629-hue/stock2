@@ -9,15 +9,15 @@ export const SELLOFF_COPY = {
 } as const;
 
 type Cash = { changePct?: number | null; sessionDate?: string | null; asOf?: string | null; price?: number | null };
-type Factor = { chgPct?: number | null; marketTime?: string; status?: string; source?: string; lastChangeAt?: string };
+type Factor = { chgPct?: number | null; marketTime?: string; status?: string; source?: string };
 export type SelloffMacro = { fetchedAtET?: string; indexBasis?: { cash?: { spx?: Cash; ndx?: Cash; nasdaq?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
 /**
- * at = 그 값의 관측(체결) 시각 · rv = 원천이 값이 «실제로 바뀐» 시각(SOX·VIX lastChangeAt — 같은 값의 사본은 같고 정정이면 전진)
- * · rx = 그 값을 받은 스냅샷 시각(fetchedAtET). 모두 ISO 정규형.
- * 같은 칸이 겹치면 관측(at)이 늦은 쪽. 관측 시각이 같고 값이 다르면(같은 시각 종가 정정) 둘 다 rv 가 있으면 rv 가 늦은 쪽,
- * 아니면 rx 가 늦은 쪽. 값이 같으면 바꾸지 않는다.
+ * at = 그 값의 관측(체결) 시각 · rx = 그 값을 담은 macro 스냅샷의 생성 시각(fetchedAtET). 모두 ISO 정규형.
+ * 스냅샷은 Redis 공용본 하나가 갱신되며 세대가 바뀌므로 rx 는 세대 순서다(인스턴스 메모리 사본만 ≤60초 늦다).
+ * 같은 칸: 관측(at)이 늦은 쪽 → 관측이 같으면 rx 가 늦은 쪽(값이 같아도 rx 를 전진시켜 «가장 최근에 확인한 세대»를 남긴다).
+ * 그래서 같은 시각 종가 정정(+12→+3→+12 포함)·등락률만 바뀐 정정·늦게 도착한 낡은 사본 모두 세대 순서대로 정리된다.
  */
-export type SelloffChip = { name: string; pct: number; at?: string; rv?: string; rx?: string };
+export type SelloffChip = { name: string; pct: number; at?: string; rx?: string };
 export type SelloffBrief = { date: string; chips: SelloffChip[] };
 
 const NAMES = ['S&P 500', 'NASDAQ 100', 'SOX', 'VIX'] as const;
@@ -46,14 +46,11 @@ export function selloffChipNewer(a: SelloffChip, b: SelloffChip): boolean {
   if (!a.at) return false;
   if (!b.at) return true;
   if (a.at !== b.at) return a.at > b.at;
-  if (a.pct === b.pct) return false;
-  if (a.rv && b.rv && a.rv !== b.rv) return a.rv > b.rv;
   return !!a.rx && (!b.rx || a.rx > b.rx);
 }
 const newer = selloffChipNewer;
-/** 화면·저장 비교용 — 받은 시각(rx)만 다른 기록은 같은 기록이다. */
 const sameRecord = (a: SelloffBrief | null, b: SelloffBrief | null) =>
-  JSON.stringify(a?.date) === JSON.stringify(b?.date) && JSON.stringify(a?.chips.map(c => [c.name, c.pct, c.at ?? null])) === JSON.stringify(b?.chips.map(c => [c.name, c.pct, c.at ?? null]));
+  JSON.stringify(a?.date) === JSON.stringify(b?.date) && JSON.stringify(a?.chips.map(c => [c.name, c.pct, c.at ?? null, c.rx ?? null])) === JSON.stringify(b?.chips.map(c => [c.name, c.pct, c.at ?? null, c.rx ?? null]));
 /** 같은 날짜(date)의 두 기록을 칸마다 합친다. 겹치면 관측 시각이 더 늦은 쪽, 같거나 모르면 a. */
 export function mergeSelloffRecords(a: SelloffBrief | null | undefined, b: SelloffBrief | null | undefined, date: string): SelloffBrief | null {
   const x = sanitizeSelloff(a), y = sanitizeSelloff(b);
@@ -68,7 +65,7 @@ export function sanitizeSelloff(x: unknown): SelloffBrief | null {
   if (!b || typeof b.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.date) || !Array.isArray(b.chips)) return null;
   const okIso = (t: unknown): t is string => typeof t === 'string' && Number.isFinite(Date.parse(t)) && new Date(t).toISOString() === t;
   const chips = b.chips.filter(c => c && slotOf(c.name) >= 0 && finite(c.pct))
-    .map(c => ({ name: c.name, pct: c.pct, ...(okIso(c.at) ? { at: c.at } : {}), ...(okIso(c.rv) ? { rv: c.rv } : {}), ...(okIso(c.rx) ? { rx: c.rx } : {}) }));
+    .map(c => ({ name: c.name, pct: c.pct, ...(okIso(c.at) ? { at: c.at } : {}), ...(okIso(c.rx) ? { rx: c.rx } : {}) }));
   return chips.length ? { date: b.date, chips } : null;
 }
 
@@ -94,7 +91,7 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
   const iso = (t: string) => new Date(Date.parse(t)).toISOString();
   const rx = validIso(macro.fetchedAtET, now) ? { rx: iso(macro.fetchedAtET!) } : {};
   const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now, 1) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!), ...rx } : null;
-  const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now, 0) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!), ...(validIso(v!.lastChangeAt, now) ? { rv: iso(v!.lastChangeAt!) } : {}), ...rx } : null;
+  const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now, 0) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!), ...rx } : null;
   const observed = [cash(NAMES[0], spx), cash(NAMES[1], ndx) ?? cash(NASDAQ_COMPOSITE, ixic), factor(NAMES[2], sox), factor(NAMES[3], vix)];
   const kept = sanitizeSelloff(input.retained);
   const fromKept = (i: number) => kept?.date === date ? kept.chips.find(c => slotOf(c.name) === i) ?? null : null;
