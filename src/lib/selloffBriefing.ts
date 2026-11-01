@@ -10,7 +10,7 @@ export const SELLOFF_COPY = {
 
 type Cash = { changePct?: number | null; sessionDate?: string | null; asOf?: string | null; price?: number | null };
 type Factor = { chgPct?: number | null; marketTime?: string; status?: string; source?: string };
-export type SelloffMacro = { fetchedAtET?: string; indexBasis?: { cash?: { spx?: Cash; ndx?: Cash; nasdaq?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
+export type SelloffMacro = { fetchedAtET?: string; selloffReadAt?: string; indexBasis?: { cash?: { spx?: Cash; ndx?: Cash; nasdaq?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
 /**
  * at = 그 값의 관측(체결) 시각 · rx = 그 값을 담은 macro 스냅샷의 생성 시각(fetchedAtET). 모두 ISO 정규형.
  * 스냅샷은 Redis 공용본 하나가 갱신되며 세대가 바뀌므로 rx 는 세대 순서다(인스턴스 메모리 사본만 ≤60초 늦다).
@@ -89,10 +89,12 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
   const stamps = [spx?.asOf, ndx?.asOf, ixic?.asOf, okFactor(sox) ? sox!.marketTime : null, okFactor(vix) ? vix!.marketTime : null];
   if (!stamps.some(t => validIso(t, now) && (etDateOfIso(t) ?? '') >= date)) return none;
   const iso = (t: string) => new Date(Date.parse(t)).toISOString();
-  // 세대(rx): factors(SOX·VIX)는 macro 본문 스냅샷 시각, 현물 indexBasis 는 macroHubProvider 가 요청마다 캐시에서
-  // 새로 읽어 붙이므로(getMacroSnapshotSSOT) 그 읽은 시각(= 이 판정 시각 now)이 세대다.
+  // 세대(rx): factors(SOX·VIX)는 macro 본문 스냅샷 시각(fetchedAtET). 현물 indexBasis 는 macroHubProvider 가 요청마다
+  // 캐시에서 새로 읽어 붙이므로(getMacroSnapshotSSOT) 서버가 응답에 찍은 읽은 시각(selloffReadAt)이 세대다.
+  // 기기 시계는 쓰지 않는다 — 늦게 도착한 옛 응답은 옛 selloffReadAt 을 그대로 갖고 온다. 없으면 rx 없음(동시각 정정 경합에서 진다).
+  const canon = (t: unknown): t is string => typeof t === 'string' && Number.isFinite(Date.parse(t)) && new Date(t).toISOString() === t;
   const rx = validIso(macro.fetchedAtET, now) ? { rx: iso(macro.fetchedAtET!) } : {};
-  const cashRx = { rx: new Date(now).toISOString() };
+  const cashRx = canon(macro.selloffReadAt) ? { rx: macro.selloffReadAt } : {};
   const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now, 1) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!), ...cashRx } : null;
   const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now, 0) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!), ...rx } : null;
   const observed = [cash(NAMES[0], spx), cash(NAMES[1], ndx) ?? cash(NASDAQ_COMPOSITE, ixic), factor(NAMES[2], sox), factor(NAMES[3], vix)];
