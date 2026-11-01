@@ -259,7 +259,28 @@ test('concurrent instances: an older snapshot cannot revert a newer stored obser
 
 test('macro route re-reads the record strictly right before writing', () => {
   const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
-  const write = route.indexOf('setAuthoritativeCache(key, record');
-  const reread = route.lastIndexOf('getAuthoritativeCache<SelloffBrief>(key)', write);
+  const write = route.indexOf('setAuthoritativeCache(memoKey, next.record');
+  const reread = route.lastIndexOf('getAuthoritativeCache<SelloffBrief>(memoKey)', write);
   assert.ok(write > 0 && reread > route.indexOf('if (write) {') && reread < write);
+});
+
+test('lost write race self-heals on the next response that still carries the newer D observation', () => {
+  const t = at('2026-10-31T15:00:00Z');
+  const corrected: SelloffMacro = { factors: { vix: factor(3, '2026-10-30T21:30:00Z') } };
+  const stale: SelloffMacro = { factors: { vix: factor(12.9, '2026-10-30T20:15:01Z') } };
+  // A(낡은 스냅샷)가 B 의 정정 직후 경합에서 이겨 옛 값을 썼다고 하자.
+  const lost = mergeSelloffRecord({ now: t, macro: stale, stored: null, storedKnown: true }).record!;
+  assert.equal(lost.chips[0].pct, 12.9);
+  const heal = mergeSelloffRecord({ now: t + 60_000, macro: corrected, stored: lost, storedKnown: true });
+  assert.equal(heal.write, true);
+  assert.equal(heal.record?.chips[0].pct, 3);
+  // 정정본이 저장된 뒤엔 낡은 스냅샷이 다시 와도 쓰지 않는다.
+  assert.equal(mergeSelloffRecord({ now: t + 120_000, macro: stale, stored: heal.record, storedKnown: true }).write, false);
+});
+
+test('signum-warm cron requests macro around the clock (record is written between close and next open)', () => {
+  const crons = JSON.parse(readFileSync('vercel.json', 'utf8')).crons as { path: string; schedule: string }[];
+  const warm = crons.filter(c => c.path === '/api/cron/signum-warm').map(c => c.schedule);
+  assert.deepEqual(warm.sort(), ['*/20 * * * 0,6', '*/20 0-8 * * 1-5', '*/5 9-23 * * 1-5'].sort());
+  assert.match(readFileSync('src/app/api/cron/signum-warm/route.ts', 'utf8'), /'\/api\/market\/macro'/);
 });
