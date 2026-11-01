@@ -1,0 +1,103 @@
+// Offline transport + indivisible-command model of SELLOFF_RECORD_LUA. No live Redis or Lua runtime.
+// Run: node --test tests/selloffRecordAtomic.test.cjs
+const assert = require('node:assert/strict');
+const { test } = require('node:test');
+const fs = require('node:fs');
+const ts = require('typescript');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const KEY = 'selloff:record:v1:2026-10-30';
+const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
+
+// JS model of the Lua script — the same rule, executed without an await between GET and SET.
+function store() {
+    const values = new Map(), writes = [];
+    const slot = n => (n === 'NASDAQ' || n === 'NASDAQ 100' ? 'NQ' : n);
+    return { values, writes, eval(script, keys, [raw, ttl]) {
+        assert.match(script, /local raw = redis.call\('GET', KEYS\[1\]\)/);
+        assert.match(script, /c\.at > p\.at/);
+        assert.match(script, /redis.call\('SET', KEYS\[1\], cjson.encode/);
+        assert.equal(keys.length, 1);
+        const incoming = JSON.parse(raw), prev = values.get(keys[0]);
+        const merged = new Map();
+        if (prev && prev.date === incoming.date && Array.isArray(prev.chips)) for (const c of prev.chips) merged.set(slot(c.name), c);
+        let changed = false;
+        for (const c of incoming.chips) {
+            const p = merged.get(slot(c.name));
+            if (!p || (typeof c.at === 'string' && (typeof p.at !== 'string' || c.at > p.at))) { merged.set(slot(c.name), c); changed = true; }
+        }
+        if (!changed) return 0;
+        const chips = ['S&P 500', 'NQ', 'SOX', 'VIX'].flatMap(s => merged.has(s) ? [merged.get(s)] : []);
+        const next = { date: incoming.date, chips };
+        values.set(keys[0], next); writes.push({ ttl, value: next }); return 1;
+    } };
+}
+
+function fixture() {
+    const f = { up: store(), beforeEval: async () => {}, fail: false };
+    let R;
+    class Upstash {
+        async get(key) { if (f.fail) throw new Error('offline failure'); return f.up.values.get(key) ?? null; }
+        async eval(script, keys, args) {
+            assert.equal(script, R.SELLOFF_RECORD_LUA);
+            if (f.fail) throw new Error('offline failure');
+            await f.beforeEval(JSON.parse(args[0]));
+            return f.up.eval(script, keys, args);
+        }
+    }
+    const fetch = async () => { throw new Error('no network in this test'); };
+    const source = fs.readFileSync(path.join(root, 'src/services/redisClient.ts'), 'utf8');
+    const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
+    const mod = { exports: {} };
+    const req = name => name === '@upstash/redis' ? { Redis: Upstash } : require(name);
+    // Synthetic offline configuration only; the real process environment is not read.
+    const env = { UPSTASH_REDIS_REST_URL: 'http://localhost', UPSTASH_REDIS_REST_TOKEN: 'public-offline-fixture' };
+    new Function('require', 'module', 'exports', 'fetch', 'process', js)(req, mod, mod.exports, fetch, { env });
+    R = mod.exports;
+    return Object.assign(f, { R });
+}
+const rec = (chips) => ({ date: '2026-10-30', chips });
+
+test('older observation that finishes last cannot revert a newer one (concurrent instances)', async () => {
+    const f = fixture();
+    const stale = rec([{ name: 'VIX', pct: 12.9, at: '2026-10-30T20:15:01.000Z' }]);
+    const fresh = rec([{ name: 'VIX', pct: 3, at: '2026-10-30T21:30:00.000Z' }]);
+    const hold = deferred();
+    f.beforeEval = async (v) => { if (v.chips[0].pct === 12.9) await hold.promise; };   // 낡은 쪽이 늦게 도착
+    const a = f.R.mergeSelloffRecordAtomic(KEY, stale, 604800);
+    const b = await f.R.mergeSelloffRecordAtomic(KEY, fresh, 604800);
+    hold.resolve();
+    assert.equal(b, 1);
+    assert.equal(await a, 0);
+    assert.deepEqual(f.up.values.get(KEY).chips, fresh.chips);
+});
+
+test('slots merge independently; Nasdaq composite and NDX share a slot; newer wins', async () => {
+    const f = fixture();
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'S&P 500', pct: -1.82, at: '2026-10-30T20:47:43.000Z' }, { name: 'NASDAQ', pct: -2.86, at: '2026-10-30T21:16:01.000Z' }]), 604800), 1);
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'SOX', pct: -7.2, at: '2026-10-30T21:16:01.000Z' }]), 604800), 1);
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'SOX', pct: -7.2, at: '2026-10-30T21:16:01.000Z' }]), 604800), 0); // 같으면 쓰지 않음
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'NASDAQ 100', pct: -2.5, at: '2026-10-30T21:20:00.000Z' }]), 604800), 1);
+    assert.deepEqual(f.up.values.get(KEY).chips.map(c => [c.name, c.pct]), [['S&P 500', -1.82], ['NASDAQ 100', -2.5], ['SOX', -7.2]]);
+});
+
+test('strict read separates failure from miss; invalid writes are refused before the store', async () => {
+    const f = fixture();
+    assert.deepEqual(await f.R.getSelloffRecordStrict(KEY), { ok: true, value: null });
+    f.fail = true;
+    assert.deepEqual(await f.R.getSelloffRecordStrict(KEY), { ok: false, value: null });
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 3, at: '2026-10-30T21:30:00.000Z' }]), 604800), null);
+    f.fail = false;
+    assert.equal(await f.R.mergeSelloffRecordAtomic('other:key', rec([{ name: 'VIX', pct: 3 }]), 604800), null);
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, { date: '2026-10-29', chips: [{ name: 'VIX', pct: 3 }] }, 604800), null); // 키·날짜 불일치
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 3, at: '2026-10-30 21:30' }]), 604800), null); // 비정규 시각
+    assert.equal(f.up.writes.length, 0);
+});
+
+test('script text stays a single GET→compare→SET (no app-side merge)', () => {
+    const source = fs.readFileSync(path.join(root, 'src/services/redisClient.ts'), 'utf8');
+    const lua = source.match(/export const SELLOFF_RECORD_LUA = `([\s\S]*?)`;/)[1];
+    assert.equal((lua.match(/redis\.call\('GET'/g) || []).length, 1);
+    assert.equal((lua.match(/redis\.call\('SET'/g) || []).length, 1);
+    assert.ok(lua.indexOf("redis.call('GET'") < lua.indexOf('c.at > p.at') && lua.indexOf('c.at > p.at') < lua.indexOf("redis.call('SET'"));
+});

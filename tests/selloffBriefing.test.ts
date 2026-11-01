@@ -233,7 +233,7 @@ test('scorecard row refreshes while the card stays up; route uses strict cache r
   assert.match(card, /setInterval\(load, 10 \* 60_000\)/);
   assert.match(card, /clearInterval\(id\)/);
   const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
-  assert.match(route, /getAuthoritativeCache<SelloffBrief>\(key\)\.then\(r => \(\{ known: r\.ok/);
+  assert.match(route, /getSelloffRecordStrict\(key\)\.then\(r => \(\{ known: r\.ok/);
   assert.doesNotMatch(route, /getFromCache|setInCache/);
 });
 
@@ -257,11 +257,17 @@ test('concurrent instances: an older snapshot cannot revert a newer stored obser
   assert.equal(mergeSelloffRecord({ now: at(t), macro: newerA, stored: legacy, storedKnown: true }).record?.chips[0].pct, 11);
 });
 
-test('macro route re-reads the record strictly right before writing', () => {
+test('macro route sends only its own D-close observations to the atomic store merge (no app-side read-modify-write)', () => {
   const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
-  const write = route.indexOf('setAuthoritativeCache(memoKey, next.record');
-  const reread = route.lastIndexOf('getAuthoritativeCache<SelloffBrief>(memoKey)', write);
-  assert.ok(write > 0 && reread > route.indexOf('if (write) {') && reread < write);
+  assert.match(route, /mergeSelloffRecordAtomic\(key, own, 7 \* 86_400\)/);
+  assert.match(route, /getSelloffRecordStrict\(key\)/);
+  assert.doesNotMatch(route, /getFromCache|setInCache|setAuthoritativeCache|getAuthoritativeCache/);
+  const t = at('2026-10-31T15:00:00Z');
+  const stored: SelloffBrief = { date: '2026-10-30', chips: [{ name: 'VIX', pct: 3, at: '2026-10-30T21:30:00.000Z' }] };
+  const m = mergeSelloffRecord({ now: t, macro: fridayClose, stored, storedKnown: true });
+  assert.deepEqual(m.own?.chips.map(c => c.name), ['S&P 500', 'SOX', 'VIX']);   // own = 응답 관측만(저장본 미포함)
+  assert.equal(m.own?.chips[2].pct, 12.9);
+  assert.equal(m.record?.chips[2].pct, 3);                                        // 화면용 합본은 늦은 관측
 });
 
 test('lost write race self-heals on the next response that still carries the newer D observation', () => {

@@ -976,3 +976,67 @@ export async function deleteFromCache(key: string): Promise<boolean> {
 
     return ecOk || upstashOk;
 }
+
+// ── 급락 카드 D 기록(selloff:record:v1:<D>) — 칸별 «관측 시각이 늦은 값이 이긴다»를 한 EVAL 안에서 ──
+// 앱 쪽 읽기-합치기-쓰기를 없앤다: 인스턴스 둘이 동시에 써도 낡은 관측이 새 관측을 되돌리지 못한다.
+// EC2 프록시는 고정 Lua 끝점만 열어 두므로(임의 EVAL 없음) 이 키는 Upstash 단독으로 읽고 쓴다.
+// 나스닥 칸은 «NASDAQ 100»·«NASDAQ»(종합 대체)이 같은 칸이다. at 은 toISOString 정규형이라 문자열 비교 = 시각 비교.
+export const SELLOFF_RECORD_LUA = `
+local incoming = cjson.decode(ARGV[1])
+local function slot(name) if name == 'NASDAQ' or name == 'NASDAQ 100' then return 'NQ' end return name end
+local merged = {}
+local raw = redis.call('GET', KEYS[1])
+if raw then
+    local ok, previous = pcall(cjson.decode, raw)
+    if ok and type(previous) == 'table' and previous.date == incoming.date and type(previous.chips) == 'table' then
+        for _, c in ipairs(previous.chips) do merged[slot(c.name)] = c end
+    end
+end
+local changed = false
+for _, c in ipairs(incoming.chips) do
+    local s = slot(c.name)
+    local p = merged[s]
+    if p == nil or (type(c.at) == 'string' and (type(p.at) ~= 'string' or c.at > p.at)) then
+        merged[s] = c
+        changed = true
+    end
+end
+if not changed then return 0 end
+local chips = {}
+for _, s in ipairs({ 'S&P 500', 'NQ', 'SOX', 'VIX' }) do
+    if merged[s] ~= nil then table.insert(chips, merged[s]) end
+end
+redis.call('SET', KEYS[1], cjson.encode({ date = incoming.date, chips = chips }), 'EX', ARGV[2])
+return 1
+`;
+type SelloffRecordValue = { date: string; chips: { name: string; pct: number; at?: string }[] };
+const SELLOFF_RECORD_KEY_RE = /^selloff:record:v1:\d{4}-\d{2}-\d{2}$/;
+/** 엄격 읽기 — ok:false(미설정·장애)를 «기록 없음»과 구분한다. */
+export async function getSelloffRecordStrict(key: string): Promise<{ ok: boolean; value: SelloffRecordValue | null }> {
+    if (!SELLOFF_RECORD_KEY_RE.test(key)) return { ok: false, value: null };
+    const upstash = getUpstashClient();
+    if (!upstash) return { ok: false, value: null };
+    obsUp('get', 'strict');
+    const tu = performance.now();
+    try {
+        const value = await upstash.get<SelloffRecordValue>(key);
+        obsUpDone(tu);
+        return { ok: true, value: value ?? null };
+    } catch { obsUpDone(tu, true); return { ok: false, value: null }; }
+}
+/** 원자 병합 쓰기. 1 = 바뀜, 0 = 더 늦은 관측이 이미 있음, null = 실패. */
+export async function mergeSelloffRecordAtomic(key: string, record: SelloffRecordValue, ttlSeconds: number): Promise<0 | 1 | null> {
+    if (!SELLOFF_RECORD_KEY_RE.test(key) || key.slice(-10) !== record?.date || !Array.isArray(record.chips) || !record.chips.length
+        || !record.chips.every(c => typeof c.name === 'string' && typeof c.pct === 'number' && Number.isFinite(c.pct)
+            && (c.at === undefined || (typeof c.at === 'string' && new Date(c.at).toISOString() === c.at)))
+        || !Number.isInteger(ttlSeconds) || ttlSeconds < 1) return null;
+    const upstash = getUpstashClient();
+    if (!upstash) return null;
+    obsUp('set', 'cas');
+    const tu = performance.now();
+    try {
+        const result = await upstash.eval(SELLOFF_RECORD_LUA, [key], [JSON.stringify(record), applyJitter(ttlSeconds)]);
+        obsUpDone(tu);
+        return result === 0 || result === 1 ? result : null;
+    } catch { obsUpDone(tu, true); return null; }
+}

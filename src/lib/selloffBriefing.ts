@@ -96,13 +96,14 @@ export function selloffForDisplay(input: { now: number; macro: SelloffMacro | nu
  * 기존 기록과 다를 때만 쓴다 — 정정값은 덮어쓰고, 개장 전 한 지표만 넘어가도 나머지는 기록이 잇는다.
  */
 export const SELLOFF_RECORD_KEY = 'selloff:record:v1:';
-export function mergeSelloffRecord(input: { now: number; macro: SelloffMacro | null | undefined; stored: SelloffBrief | null; storedKnown: boolean }): { record: SelloffBrief | null; write: boolean } {
+export function mergeSelloffRecord(input: { now: number; macro: SelloffMacro | null | undefined; stored: SelloffBrief | null; storedKnown: boolean }): { record: SelloffBrief | null; own: SelloffBrief | null; write: boolean } {
   const date = lastClosedSessionDate(input.now);
   const stored = sanitizeSelloff(input.stored);
   const merged = selloffEvaluate({ now: input.now, macro: input.macro, retained: stored }).record;
+  // own = 이 응답의 D 마감 관측만. 저장소에는 own 만 보내고 합치기는 저장소 안(원자 EVAL)에서 한다.
   const own = selloffEvaluate({ now: input.now, macro: input.macro, retained: null }).record;
   const same = !!stored && stored.date === date && JSON.stringify(stored) === JSON.stringify(merged);
-  return { record: merged, write: input.storedKnown && !!merged && !!own && !same };
+  return { record: merged, own, write: input.storedKnown && !!merged && !!own && !same };
 }
 export function selloffBrief(macro: SelloffMacro | null, now = Date.now(), retained: SelloffBrief | null = null): SelloffBrief | null {
   return selloffForDisplay({ now, macro, retained });
