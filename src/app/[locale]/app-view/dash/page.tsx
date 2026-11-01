@@ -33,6 +33,8 @@ import { isCmeGlobexOpenAt } from '@/lib/marketCalendar';
 import { withSessionDay } from '@/lib/marketSession';
 import { newsArchiveHref } from '@/lib/news/pulseNavigation';
 import s from './dash.module.css';
+import { loadRetainedSelloff, readSelloffMacro, saveRetainedSelloff, selloffPreviewParam, selloffShown, type SelloffBrief } from '@/lib/selloffBriefing';
+import { SelloffCard } from './SelloffCard';
 
 /* ═══════════════════════════════════════════════════════════
    DEMO FALLBACK DATA — Always show content even if APIs fail
@@ -620,6 +622,9 @@ export default function AppDashPage() {
   //   빈칸은 «없다»고 말하지만 가짜 숫자는 «있다»고 거짓말한다.
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
   const [macroReady, setMacroReady] = useState(false);
+  const [selloff, setSelloff] = useState<SelloffBrief | null>(null);
+  const [selloffPreview, setSelloffPreview] = useState<string | null>(null);
+  useEffect(() => { setSelloffPreview(selloffPreviewParam(window.location.search, process.env.NODE_ENV)); }, []);
   /* 9차: 매크로 8칸이 항상 2줄을 차지했다. 4칸만 보이고 나머지는 그 자리에서 펼친다.
      — 「전체 ›」 로 내보내지 않는다. 목적지 페이지가 없고, 10줄짜리는 페이지가 안 된다. */
   const [macroOpen, setMacroOpen] = useState(false);
@@ -1424,18 +1429,16 @@ export default function AppDashPage() {
         const macroRes = await macroP;
         if (cancelled) return;
 
-        let macroSnap: any = null;
+        // 급락 카드: D 마감 관측 + (다음 정규장 장중엔) 이 기기가 받아 둔 같은 D 관측 기록. 실패하면 숨김.
+        const selloffStore = (() => { try { return window.localStorage; } catch { return null; } })();
+        const { macro: macroSnap, brief: macroBrief, record: selloffRecord } = await readSelloffMacro(macroRes, Date.now(), loadRetainedSelloff(selloffStore));
+        if (cancelled) return;
+        saveRetainedSelloff(selloffStore, selloffRecord);
+        setSelloff(macroBrief);
         let f: any = null;
 
         // ── Read Macro Snapshot SSOT ──
-        if (macroRes && macroRes.status === 'fulfilled' && macroRes.value.ok) {
-          try {
-            macroSnap = await macroRes.value.json();
-            f = macroSnap?.factors || null;
-          } catch {
-            // silent fail
-          }
-        }
+        f = macroSnap?.factors || null;
 
         const indexRes = await indexP;
         if (cancelled) return;
@@ -2011,9 +2014,9 @@ export default function AppDashPage() {
   const topNews = newsItems[tickerIndex];
   const verdictKey = riskScore == null ? 'mix' : riskScore >= 58 ? 'off' : riskScore <= 42 ? 'on' : 'mix';
 
+  const shownSelloff = selloffShown(selloffPreview, selloff);
   return (
     <div className={`${n9.e9Wrap} ${n9.e9Root} ${s.page}`} data-v={verdictKey}>
-
       {/* ① 판정 히어로 ─ 시안 e9Hero */}
       <div className={n9.e9Hero}>
         <div className={n9.e9Sky} />
@@ -2046,6 +2049,9 @@ export default function AppDashPage() {
               </button>
             </div>
           </div>
+
+          {/* 급락 브리핑 — 조건(직전 정규장 급락)일 때만 로고 아래에 그린다. 평상시엔 렌더 없음 = 배치 변화 0. */}
+          {shownSelloff && <SelloffCard brief={shownSelloff} locale={locale} />}
 
           {/* TOP SIGNAL — 실제 뉴스 티커. 뉴스가 없으면 줄 자체를 안 그린다. */}
           {topNews && (
