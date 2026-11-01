@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
       scheduleInviteTouch(request, fromTag, humanField, giftOs(request) ?? 'desktop');
     }
     try { return await giftLanding(request); }
-    catch { return NextResponse.redirect(installUrl(giftOs(request)), { status: 302, headers: giftHeaders }); }
+    catch { return NextResponse.redirect(installUrl(giftOs(request), { from: request.nextUrl.searchParams.get('from') }), { status: 302, headers: giftHeaders }); }
   }
   // ★2026-11-01 공개 캠페인 링크(?camp=<닫힌 목록 id>) — 링크 하나로 방문 기기마다 개인 일회용 코드 1장(lib/giftShare/campaign.ts).
   //   목록에 없는 id·선물 토큰이 함께 온 요청·플래그 꺼짐은 아래 기존 /app 그대로. GET 은 재고를 배정하지 않는다.
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
       after(() => recordHit(fromTag, platform));
     }
     try { return await campaignLanding(request, campaign); }
-    catch { return NextResponse.redirect(installUrl(giftOs(request)), { status: 302, headers: giftHeaders }); }
+    catch { return NextResponse.redirect(installUrl(giftOs(request), { from: request.nextUrl.searchParams.get('from'), campaign: campaign.id }), { status: 302, headers: giftHeaders }); }
   }
   const ua = request.headers.get('user-agent') || '';
 
@@ -188,6 +188,7 @@ export async function GET(request: NextRequest) {
 
   // Count the hit AFTER the response is sent (zero added latency to the redirect).
   const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
+  const campaignId = request.nextUrl.searchParams.get('camp');
   // 어디서 왔나(?ref= 또는 Referer 호스트 분류) — 응답 뒤, 실패해도 무해. lib/marketing/clickRef.ts
   //   (기기 판정은 아래 hitPlatform 과 같은 규칙 — 줄 위치는 feat/click-ua-audit 와 겹치지 않게 여기에 둔다)
   const refBucket = refBucketFor(request);
@@ -292,7 +293,7 @@ export async function GET(request: NextRequest) {
           fromTag,
           code,
           appleRedeemUrl: appleRedeemUrl(code),
-          playInstallUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code'),
+          playInstallUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code', campaignId),
           // ★2026-10-05 앱 안 안드로이드면 «Play 스토어에서 적용»·«쿠폰 없이 설치»가 intent(주) + https(보조) — lib/marketing/androidInApp.ts
           androidInApp,
           iosInApp,
@@ -313,7 +314,7 @@ export async function GET(request: NextRequest) {
     // ★2026-10-04 G0 안드로이드: 예전엔 play.google.com/redeem?code=<애플 코드> 로 보냈다 — 애플 코드는 Play 에서 통하지 않는다.
     //   지금은 Play «설치»(기존 referrer 흐름 + utm_content=code). 구글 코드가 생기면(G2 뒤) 그때 코드별로 갈라 redeem 을 붙인다.
     if (hitPlatform === 'android') {
-      const playCodeUrl = playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code');
+      const playCodeUrl = playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', 'code', campaignId);
       // 앱 안 안드로이드는 같은 Play 주소를 intent 단추 화면으로(코드 문구는 넣지 않는다 — 애플 맞춤 코드는 Play 에서 쓰이지 않는다)
       if (androidInApp) { const page = inAppPage(playCodeUrl, 'code'); if (page) return page; }
       return NextResponse.redirect(playCodeUrl, 302);
@@ -341,7 +342,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (/android/i.test(ua)) {
-    const playUrl = playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum');
+    const playUrl = playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', undefined, campaignId);
     if (androidInApp) { const page = inAppPage(playUrl, 'link'); if (page) return page; }   // ★2026-10-05 앱 안 → intent 단추 화면
     return NextResponse.redirect(playUrl, 302);
   }
@@ -361,7 +362,7 @@ export async function GET(request: NextRequest) {
       // 태그로 못 정하면 브라우저 언어 — 중립 태그(home·bluesky 등)의 한국·일본 PC 방문자에게 영어를 주지 않는다(2026-09-30)
       lang: visitorLang(fromTag, request.nextUrl.searchParams.get('l'), request.headers.get('accept-language')),
       // PC 에서 Play 웹 «설치» → 내 폰 선택 = 원격 설치. 획득 보고서에서 따로 보이게 utm_medium=pc_play
-      playStoreUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag || 'desktop', 'signum', 'pc_play'),
+      playStoreUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag || 'desktop', 'signum', 'pc_play', undefined, campaignId),
     });
     return new NextResponse(html, previewResponseInit());
   } catch {

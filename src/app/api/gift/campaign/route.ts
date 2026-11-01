@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   const androidInApp = os === 'android' && isAndroidInAppBrowser({ userAgent: req.headers.get('user-agent') || '',
     requestedWith: req.headers.get('x-requested-with'), nativeCookie: req.cookies.get('sig_native')?.value ?? null });
   const page = (v: CampaignView, extra: { code?: string; resetAt?: number } = {}) => new NextResponse(
-    campaignResultHtml({ platform: os, lang, view: v, campaign: view, installUrl: installUrl(os), androidInApp, ...extra }),
+    campaignResultHtml({ platform: os, lang, view: v, campaign: view, installUrl: installUrl(os, { from: rawFrom, campaign: campaign.id }), androidInApp, ...extra }),
     { headers: { ...giftHeaders, 'content-type': 'text/html; charset=utf-8', vary: 'User-Agent, Cookie' } });
   const identity = giftIdentity(req, { cookieOnly: true });
   const withCookie = (res: NextResponse) => identity ? setGiftCookie(res, identity.cookie) : res;

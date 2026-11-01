@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   };
   const fallback = (reason?: string) => {
     if (reason) metric('claim', reason);
-    return NextResponse.redirect(installUrl(os), { status: 303, headers: giftHeaders });
+    return NextResponse.redirect(installUrl(os, { from: req.nextUrl.searchParams.get('from') }), { status: 303, headers: giftHeaders });
   };
   if (!valid) return fallback();
   // 기존 폼의 제출 = 등록 버튼 탭. 스토어 등록·구독 완료를 의미하지 않는다.
