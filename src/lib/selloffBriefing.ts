@@ -26,9 +26,23 @@ const validIso = (iso: string | null | undefined, now: number): boolean => {
   const ms = iso ? Date.parse(iso) : NaN;
   return Number.isFinite(ms) && ms <= now;
 };
-function closedAt(iso: string | null | undefined, date: string, now: number): boolean {
+/**
+ * 마감 관측인가. 현물(cash)은 저장소 공용 규칙(lib/marketIndexBasis isCashCloseObservation)과 같게 «마지막 1분봉 시작
+ * 15:59(조기 폐장 12:59)»부터 인정한다 — 수집기가 종가 봉을 그 시각으로 보존하기 때문이다(buildMarketIndexBasis 가 이미 검증).
+ * SOX·VIX 는 야후 체결 시각 그대로라 장중 마지막 틱(15:59:xx)을 종가로 오인하지 않게 마감 시각 이후만 인정한다.
+ */
+function closedAt(iso: string | null | undefined, date: string, now: number, graceMinutes: number): boolean {
   if (!validIso(iso, now) || etDateOfIso(iso) !== date) return false;
-  return etClock(Date.parse(iso!)).minutes >= sessionCloseMinutes(date) - 1;
+  return etClock(Date.parse(iso!)).minutes >= sessionCloseMinutes(date) - graceMinutes;
+}
+
+const newer = (a: SelloffChip, b: SelloffChip) => !!a.at && !!b.at && Date.parse(a.at) > Date.parse(b.at);
+/** 같은 날짜(date)의 두 기록을 칸마다 합친다. 겹치면 관측 시각이 더 늦은 쪽, 같거나 모르면 a. */
+export function mergeSelloffRecords(a: SelloffBrief | null | undefined, b: SelloffBrief | null | undefined, date: string): SelloffBrief | null {
+  const x = sanitizeSelloff(a), y = sanitizeSelloff(b);
+  const pick = (r: SelloffBrief | null, i: number) => r?.date === date ? r.chips.find(c => slotOf(c.name) === i) ?? null : null;
+  const chips = [0, 1, 2, 3].flatMap(i => { const p = pick(x, i), q = pick(y, i); const c = p && q ? (newer(q, p) ? q : p) : p ?? q; return c ? [c] : []; });
+  return chips.length ? { date, chips } : null;
 }
 
 /** 저장소 등 바깥에서 온 브리핑은 모양을 검사한 뒤에만 쓴다. */
@@ -60,13 +74,12 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
   const stamps = [spx?.asOf, ndx?.asOf, ixic?.asOf, okFactor(sox) ? sox!.marketTime : null, okFactor(vix) ? vix!.marketTime : null];
   if (!stamps.some(t => validIso(t, now) && (etDateOfIso(t) ?? '') >= date)) return none;
   const iso = (t: string) => new Date(Date.parse(t)).toISOString();
-  const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!) } : null;
-  const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!) } : null;
+  const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now, 1) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!) } : null;
+  const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now, 0) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!) } : null;
   const observed = [cash(NAMES[0], spx), cash(NAMES[1], ndx) ?? cash(NASDAQ_COMPOSITE, ixic), factor(NAMES[2], sox), factor(NAMES[3], vix)];
   const kept = sanitizeSelloff(input.retained);
   const fromKept = (i: number) => kept?.date === date ? kept.chips.find(c => slotOf(c.name) === i) ?? null : null;
   // 같은 칸: 이 응답의 D 마감 관측이 기본, 기록 쪽 관측 시각이 «더 늦을» 때만 기록이 이긴다(앞선 정정을 낡은 사본이 되돌리지 못하게).
-  const newer = (a: SelloffChip, b: SelloffChip) => !!a.at && !!b.at && Date.parse(a.at) > Date.parse(b.at);
   const slots = observed.map((o, i) => { const k = fromKept(i); return o && k ? (newer(k, o) ? k : o) : o ?? k; });
   const values = slots.map(o => o?.pct ?? null);
   const chips = slots.flatMap(o => o ? [o] : []);
@@ -104,8 +117,8 @@ export async function readSelloffMacro(result: PromiseSettledResult<Response>, n
     if (result.status === 'fulfilled' && result.value.ok) {
       const macro = await result.value.json();
       // 서버 기록(같은 D)이 먼저, 없으면 이 기기 보관본.
-      const server = sanitizeSelloff(macro?.selloffRecord);
-      const kept = server?.date === lastClosedSessionDate(now) ? server : retained;
+      // 서버 기록과 이 기기 보관본을 칸마다 합친다 — 관측 시각이 늦은 쪽이 이긴다(어느 쪽도 무조건 우선하지 않음).
+      const kept = mergeSelloffRecords(sanitizeSelloff(macro?.selloffRecord), retained, lastClosedSessionDate(now));
       return { macro, ...selloffEvaluate({ now, macro, retained: kept }) };
     }
   } catch { /* Failed or malformed responses invalidate the card. */ }

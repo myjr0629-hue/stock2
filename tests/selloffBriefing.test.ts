@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { currentSelloff, loadRetainedSelloff, mergeSelloffRecord, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
+import { currentSelloff, loadRetainedSelloff, mergeSelloffRecord, mergeSelloffRecords, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
 const now = Date.parse('2026-11-02T15:00:00Z');
 const cash = (changePct: number, sessionDate = '2026-10-30', asOf = '2026-10-30T20:00:00Z') => ({ changePct, sessionDate, asOf, price: 100 });
 const factor = (chgPct: number, marketTime = '2026-10-30T20:00:00Z') => ({ chgPct, marketTime, status: 'OK', source: 'YAHOO' });
@@ -100,7 +100,7 @@ test('window: disappears once the next session closes without a sell-off, new se
   assert.equal(day(mondayClose, '2026-11-02T21:01:00Z', kept), null);
   assert.equal(currentSelloff(kept, at('2026-11-02T21:00:00Z')), null);      // 상태에 남은 카드도 16:00 EST 렌더에서 사라진다
   assert.equal(currentSelloff(kept, at('2026-11-02T20:59:59Z'))?.date, '2026-10-30');
-  const mondaySelloff = { ...mondayClose, factors: { ...mondayClose.factors, sox: factor(-3.1, '2026-11-02T20:59:00Z') } };
+  const mondaySelloff = { ...mondayClose, factors: { ...mondayClose.factors, sox: factor(-3.1, '2026-11-02T21:00:30Z') } };
   assert.equal(day(mondaySelloff, '2026-11-02T21:01:00Z', kept)?.date, '2026-11-02');
 });
 
@@ -283,4 +283,27 @@ test('signum-warm cron requests macro around the clock (record is written betwee
   const warm = crons.filter(c => c.path === '/api/cron/signum-warm').map(c => c.schedule);
   assert.deepEqual(warm.sort(), ['*/20 * * * 0,6', '*/20 0-8 * * 1-5', '*/5 9-23 * * 1-5'].sort());
   assert.match(readFileSync('src/app/api/cron/signum-warm/route.ts', 'utf8'), /'\/api\/market\/macro'/);
+});
+
+test('SOX/VIX need a stamp at or after the close; cash keeps the shared 15:59 close-bar rule (gate 11020327)', () => {
+  const t = '2026-10-30T20:30:00Z';
+  assert.equal(day({ factors: { sox: factor(-4, '2026-10-30T19:59:01Z') } }, t), null);   // 15:59:01 장중 틱
+  assert.equal(day({ factors: { vix: factor(15, '2026-10-30T19:59:59Z') } }, t), null);
+  assert.ok(day({ factors: { sox: factor(-4, '2026-10-30T20:00:00Z') } }, t));
+  assert.ok(day({ indexBasis: { cash: { spx: cash(-1.6, '2026-10-30', '2026-10-30T19:59:00Z') } } }, t)); // 수집기의 종가 봉(15:59:00)
+});
+
+test('server and device records merge per slot; the newer observation wins either way (gate 11020327)', async () => {
+  const D = '2026-10-30';
+  const server: SelloffBrief = { date: D, chips: [{ name: 'S&P 500', pct: -1.82, at: '2026-10-30T20:47:43.000Z' }, { name: 'VIX', pct: 12.9, at: '2026-10-30T20:15:01.000Z' }] };
+  const device: SelloffBrief = { date: D, chips: [{ name: 'VIX', pct: 3, at: '2026-10-30T21:30:00.000Z' }] };
+  assert.deepEqual(mergeSelloffRecords(server, device, D)?.chips.map(c => c.pct), [-1.82, 3]);
+  assert.deepEqual(mergeSelloffRecords(device, server, D)?.chips.map(c => c.pct), [-1.82, 3]);
+  const now = at('2026-11-02T15:00:00Z');
+  const res = await readSelloffMacro({ status: 'fulfilled', value: new Response(JSON.stringify({ ...mondayIntraday(), selloffRecord: server })) }, now, { ...device, chips: [...device.chips, { name: 'S&P 500', pct: -0.4, at: '2026-10-30T21:30:00.000Z' }] });
+  assert.equal(res.brief, null);                                                      // 기기의 더 늦은 정정이 이긴다
+  assert.deepEqual(res.record?.chips.map(c => c.pct), [-0.4, 3]);
+  const res2 = await readSelloffMacro({ status: 'fulfilled', value: new Response(JSON.stringify({ ...mondayIntraday(), selloffRecord: server })) }, now, { date: D, chips: [{ name: 'VIX', pct: 3, at: '2026-10-30T20:00:00.000Z' }] });
+  assert.deepEqual(res2.brief?.chips.map(c => c.pct), [-1.82, 12.9]);                 // 서버 쪽이 더 늦으면 서버
+  assert.equal(mergeSelloffRecords(server, { ...device, date: '2026-10-29' }, D)?.chips.length, 2); // 다른 날짜는 무시
 });
