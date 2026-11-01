@@ -15,6 +15,7 @@
 // 같은 배관 종목이 나온다. 정보는 자기 기준선에서 얼마나 벗어났나에 있다.
 // ============================================================================
 import type { Metadata } from 'next';
+import { datasetDescription } from '@/lib/seo/datasetDescription';
 import { publicBase } from '@/lib/net/publicBase';
 import { getDarkPoolLeaders, type DarkPoolLeader, type DarkPoolLeaders } from '@/services/darkPool';
 import { markPageView } from '@/lib/marketing/pageViewMark';
@@ -374,12 +375,12 @@ export default async function DarkPoolLeadersPage(
     {
       '@context': 'https://schema.org', '@type': 'Dataset', '@id': `${url}#dataset`,
       name: l.title,
-      description: [
+      description: datasetDescription([
         l.desc,
         `Session ${data.date}. Market-wide off-exchange average ${data.marketAvg}% across ${data.covered} symbols.`,
         ...facts,
         'The median off-exchange short share across all listed symbols is about 49%, because wholesalers sell short to fill retail buy orders and cover later. A high short share is therefore not bearish on its own; only the deviation from a symbol’s own baseline carries information.',
-      ].join(' ').slice(0, 1400),
+      ].join(' '), lc),
       url,
       isAccessibleForFree: true,
       // ⚠️ `@id` 참조만 두면 구글이 객체 타입을 못 읽는다

@@ -4,6 +4,7 @@ import { ShareLanding } from '@/components/share/ShareLanding';
 import { giftEnabled, giftToken, withGift } from '@/lib/giftShare/config';
 import { readShareQuery } from '@/lib/share/shareQuery';
 import { notFound } from 'next/navigation';
+import { datasetDescription } from '@/lib/seo/datasetDescription';
 import { publicBase } from '@/lib/net/publicBase';
 import { RANKINGS, byId, specCopy } from '@/lib/rankings/registry';
 import { loadRankingSnapshot, describeItem, emptyText } from '@/lib/rankings/present';
@@ -89,7 +90,7 @@ export default async function RankingDetail({ params, searchParams }: { params: 
     const phase = u[rankingBadgePhase(block?.phase ?? spec.phase, snap?.session)];
     const ld = {
         '@context': 'https://schema.org', '@type': 'Dataset',
-        name: spec.name[l], description: c.what,
+        name: spec.name[l], description: datasetDescription(c.what, l),
         url: `${base}/${l}/rankings/${id}`,
         license: `${base}/${l}/terms`,
         creator: { '@type': 'Organization', name: 'SIGNUM HQ', url: base },

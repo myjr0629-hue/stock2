@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { datasetDescription } from '@/lib/seo/datasetDescription';
 import { publicBase } from '@/lib/net/publicBase';
 import { byId, specCopy } from '@/lib/rankings/registry';
 import { loadRankingSnapshot, describeItem, emptyText } from '@/lib/rankings/present';
@@ -98,7 +99,7 @@ export default async function RankingsPage({ params }: { params: Promise<{ local
     // 구조화 데이터 — Dataset. creator 에 @type 을 «인라인»으로 넣어야 유효하다.
     const ld = {
         '@context': 'https://schema.org', '@type': 'Dataset',
-        name: c.h1, description: c.desc,
+        name: c.h1, description: datasetDescription(c.desc, l),
         url: `${publicBase()}/${l}/rankings`,
         license: `${publicBase()}/${l}/terms`,
         creator: { '@type': 'Organization', name: 'SIGNUM HQ', url: publicBase() },

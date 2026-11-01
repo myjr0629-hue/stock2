@@ -14,6 +14,7 @@ import { cache } from 'react';
 import { headers, cookies } from 'next/headers';
 import { notFound, unstable_rethrow } from 'next/navigation';
 import type { Metadata } from 'next';
+import { datasetDescription } from '@/lib/seo/datasetDescription';
 import { publicBase } from '@/lib/net/publicBase';
 import { readDarkPool } from '@/lib/darkPoolRead';
 import { getDarkPoolCurrent, type DarkPoolTicker } from '@/services/darkPool';
@@ -685,7 +686,7 @@ export default async function FlowTickerPage(
     {
       '@context': 'https://schema.org', '@type': 'Dataset', '@id': `${url}#dataset`,
       name: `${ticker} options flow, dark pool and max pain`,
-      description: [desc, ...faq.map((f) => `${f.q} ${f.a}`)].join(' ').slice(0, 1200),
+      description: datasetDescription([desc, ...faq.map((f) => `${f.q} ${f.a}`)].join(' '), locale),
       // T28: 이 데이터셋의 주제 회사(이름이 등록된 종목만) — 회사명 질의와 티커 페이지를 잇는 엔티티 신호
       ...(corp ? { about: corp } : {}),
       url,
