@@ -58,6 +58,8 @@ const mondayIntraday = (t = '2026-11-02T14:59:00Z'): SelloffMacro => ({
   factors: { sox: factor(0.5, t), vix: factor(-4, t) },
 });
 const day = (macro: SelloffMacro | null, iso: string, retained: SelloffBrief | null = null) => selloffForDisplay({ now: at(iso), macro, retained });
+/** 칩 비교에서 관측 시각(at)은 따로 본다 */
+const bare = (b: SelloffBrief | null | undefined) => b ? { date: b.date, chips: b.chips.map(({ name, pct }) => ({ name, pct })) } : b;
 
 test('window: hidden before the sell-off session closes, shown from its close', () => {
   const intradayFri = { indexBasis: { cash: { spx: cash(-2.5, '2026-10-30', '2026-10-30T19:58:00Z') } }, factors: { sox: factor(-6, '2026-10-30T19:58:00Z') } };
@@ -70,7 +72,7 @@ test('window: hidden before the sell-off session closes, shown from its close', 
 
 test('window: weekend and next pre-open keep the card from the macro payload alone', () => {
   const sat = day(fridayClose, '2026-10-31T15:00:00Z');
-  assert.deepEqual(sat, { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.82 }, { name: 'SOX', pct: -7.2 }, { name: 'VIX', pct: 12.9 }] });
+  assert.deepEqual(bare(sat), { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.82 }, { name: 'SOX', pct: -7.2 }, { name: 'VIX', pct: 12.9 }] });
   assert.equal(day(fridayClose, '2026-11-02T14:29:00Z')?.date, '2026-10-30'); // 월 09:29 EST 개장 1분 전
   // 개장 전 VIX 만 월요일 시각으로 넘어가도, 같은 D 보관본이 VIX 칸을 잇는다.
   const vixRolled = { ...fridayClose, factors: { ...fridayClose.factors, vix: factor(-1, '2026-11-02T13:00:00Z') } };
@@ -181,7 +183,7 @@ test('first visit during the next session: server D record keeps the card (gate 
     return record ? { ...macro, selloffRecord: record } : macro;
   };
   const first = serve(fridayClose, '2026-10-30T21:20:00Z');
-  assert.deepEqual(stored, { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.82 }, { name: 'SOX', pct: -7.2 }, { name: 'VIX', pct: 12.9 }] });
+  assert.deepEqual(bare(stored), { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.82 }, { name: 'SOX', pct: -7.2 }, { name: 'VIX', pct: 12.9 }] });
   assert.equal(mergeSelloffRecord({ now: at('2026-10-30T21:25:00Z'), macro: fridayClose, stored, storedKnown: true }).write, false); // 같으면 다시 쓰지 않음
   assert.ok(first);
   // 월 10:00 EST — 이 기기는 처음(보관본 없음), 응답은 월요일 장중 값 + 서버 D 기록.
@@ -212,7 +214,7 @@ test('Nasdaq slot: ^NDX feed absent in production → cash composite ^IXIC at th
   const t = '2026-10-31T15:00:00Z';
   const noNdx = (ixic: number, ndx?: number): SelloffMacro => ({ indexBasis: { cash: {
     spx: cash(-0.5), ndx: ndx == null ? { changePct: null, sessionDate: null, asOf: null, price: null } : cash(ndx), nasdaq: cash(ixic) } } });
-  assert.deepEqual(day(noNdx(-2.0), t)?.chips, [{ name: 'S&P 500', pct: -0.5 }, { name: 'NASDAQ', pct: -2.0 }]);
+  assert.deepEqual(bare(day(noNdx(-2.0), t))?.chips, [{ name: 'S&P 500', pct: -0.5 }, { name: 'NASDAQ', pct: -2.0 }]);
   assert.equal(day(noNdx(-1.99), t), null);
   // NDX 가 있으면 NDX 가 우선(종합은 쓰지 않음)
   assert.equal(day(noNdx(-5, -1.0), t), null);
@@ -233,4 +235,31 @@ test('scorecard row refreshes while the card stays up; route uses strict cache r
   const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
   assert.match(route, /getAuthoritativeCache<SelloffBrief>\(key\)\.then\(r => \(\{ known: r\.ok/);
   assert.doesNotMatch(route, /getFromCache|setInCache/);
+});
+
+test('concurrent instances: an older snapshot cannot revert a newer stored observation (gate 11020323)', () => {
+  const t = '2026-10-31T15:00:00Z';
+  // B 가 정정(관측 21:30)으로 VIX 를 +3 으로 썼다. A 의 낡은 스냅샷은 VIX +12.9(관측 20:15)·S&P 만 가진다.
+  const storedB: SelloffBrief = { date: '2026-10-30', chips: [
+    { name: 'S&P 500', pct: -0.4, at: '2026-10-30T21:30:00.000Z' }, { name: 'SOX', pct: -1, at: '2026-10-30T21:30:00.000Z' }, { name: 'VIX', pct: 3, at: '2026-10-30T21:30:00.000Z' }] };
+  const staleA: SelloffMacro = { indexBasis: { cash: { spx: { changePct: -1.82, sessionDate: '2026-10-30', asOf: '2026-10-30T20:47:43Z', price: 7580 } } }, factors: { vix: factor(12.9, '2026-10-30T20:15:01Z') } };
+  const m = mergeSelloffRecord({ now: at(t), macro: staleA, stored: storedB, storedKnown: true });
+  assert.deepEqual(m.record?.chips.map(c => c.pct), [-0.4, -1, 3]);
+  assert.equal(m.write, false);
+  assert.equal(selloffForDisplay({ now: at(t), macro: staleA, retained: storedB }), null);
+  // 더 늦은 관측(새 정정)은 저장본을 이긴다
+  const newerA: SelloffMacro = { factors: { vix: factor(11, '2026-10-30T21:45:00Z') } };
+  const n = mergeSelloffRecord({ now: at(t), macro: newerA, stored: storedB, storedKnown: true });
+  assert.equal(n.write, true);
+  assert.deepEqual(n.record?.chips.map(c => [c.name, c.pct]), [['S&P 500', -0.4], ['SOX', -1], ['VIX', 11]]);
+  // 관측 시각 없는 옛 기록과 겹치면 이 응답이 이긴다
+  const legacy: SelloffBrief = { date: '2026-10-30', chips: [{ name: 'VIX', pct: 30 }] };
+  assert.equal(mergeSelloffRecord({ now: at(t), macro: newerA, stored: legacy, storedKnown: true }).record?.chips[0].pct, 11);
+});
+
+test('macro route re-reads the record strictly right before writing', () => {
+  const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
+  const write = route.indexOf('setAuthoritativeCache(key, record');
+  const reread = route.lastIndexOf('getAuthoritativeCache<SelloffBrief>(key)', write);
+  assert.ok(write > 0 && reread > route.indexOf('if (write) {') && reread < write);
 });

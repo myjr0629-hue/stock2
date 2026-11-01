@@ -22,10 +22,16 @@ async function withSelloffRecord<T extends object>(snapshot: T): Promise<T | (T 
             ]).catch(() => ({ known: false, value: null }));
             selloffMemo = { key, value: read.value, known: read.known, at: now };
         }
-        const { record, write } = mergeSelloffRecord({ now, macro: snapshot as any, stored: selloffMemo.value, storedKnown: selloffMemo.known });
-        if (write && record) {
-            selloffMemo = { key, value: record, known: true, at: now };
-            void setAuthoritativeCache(key, record, 7 * 86_400).catch(() => false);
+        let { record, write } = mergeSelloffRecord({ now, macro: snapshot as any, stored: selloffMemo.value, storedKnown: selloffMemo.known });
+        if (write) {
+            // 쓰기 직전엔 메모(최장 60초 낡음)가 아니라 저장본을 다시 엄격히 읽어 합친다 — 다른 인스턴스의 정정을 덮지 않는다.
+            const fresh = await Promise.race([
+                getAuthoritativeCache<SelloffBrief>(key),
+                new Promise<{ ok: false; value: null }>(r => setTimeout(() => r({ ok: false, value: null }), 800)),
+            ]).catch(() => ({ ok: false, value: null }));
+            ({ record, write } = mergeSelloffRecord({ now, macro: snapshot as any, stored: fresh.ok ? sanitizeSelloff(fresh.value) : null, storedKnown: fresh.ok }));
+            selloffMemo = { key, value: fresh.ok ? (write && record ? record : sanitizeSelloff(fresh.value)) : selloffMemo.value, known: fresh.ok, at: now };
+            if (write && record) void setAuthoritativeCache(key, record, 7 * 86_400).catch(() => false);
         }
         return record ? { ...snapshot, selloffRecord: record } : snapshot;
     } catch {

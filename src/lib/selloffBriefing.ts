@@ -11,7 +11,9 @@ export const SELLOFF_COPY = {
 type Cash = { changePct?: number | null; sessionDate?: string | null; asOf?: string | null; price?: number | null };
 type Factor = { chgPct?: number | null; marketTime?: string; status?: string; source?: string };
 export type SelloffMacro = { indexBasis?: { cash?: { spx?: Cash; ndx?: Cash; nasdaq?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
-export type SelloffBrief = { date: string; chips: { name: string; pct: number }[] };
+/** at = 그 값의 관측 시각(ISO). 같은 칸의 두 기록이 겹치면 더 늦은 관측이 이긴다(인스턴스 간 낡은 사본 방지). */
+export type SelloffChip = { name: string; pct: number; at?: string };
+export type SelloffBrief = { date: string; chips: SelloffChip[] };
 
 const NAMES = ['S&P 500', 'NASDAQ 100', 'SOX', 'VIX'] as const;
 /** 나스닥 칸: ^NDX 현물 피드가 없을 때(현재 운영) 같은 응답의 종합 현물 ^IXIC 로 판정하고 «NASDAQ»으로 표기한다. */
@@ -33,7 +35,8 @@ function closedAt(iso: string | null | undefined, date: string, now: number): bo
 export function sanitizeSelloff(x: unknown): SelloffBrief | null {
   const b = x as SelloffBrief | null;
   if (!b || typeof b.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.date) || !Array.isArray(b.chips)) return null;
-  const chips = b.chips.filter(c => c && slotOf(c.name) >= 0 && finite(c.pct)).map(c => ({ name: c.name, pct: c.pct }));
+  const chips = b.chips.filter(c => c && slotOf(c.name) >= 0 && finite(c.pct))
+    .map(c => typeof c.at === 'string' && Number.isFinite(Date.parse(c.at)) ? { name: c.name, pct: c.pct, at: c.at } : { name: c.name, pct: c.pct });
   return chips.length ? { date: b.date, chips } : null;
 }
 
@@ -56,19 +59,17 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
   // 응답이 D 이후 시세를 담고 있는가 — 멈춘 피드(시각이 D 이전)는 보관본까지 숨긴다.
   const stamps = [spx?.asOf, ndx?.asOf, ixic?.asOf, okFactor(sox) ? sox!.marketTime : null, okFactor(vix) ? vix!.marketTime : null];
   if (!stamps.some(t => validIso(t, now) && (etDateOfIso(t) ?? '') >= date)) return none;
-  const cash = (v?: Cash) => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now) && finite(v.changePct) ? v.changePct : null;
-  const factor = (v?: Factor) => okFactor(v) && closedAt(v!.marketTime, date, now) && finite(v!.chgPct) ? v!.chgPct : null;
-  const ndxPct = cash(ndx), ixicPct = ndxPct == null ? cash(ixic) : null;
-  const observed: { name: string; pct: number | null }[] = [
-    { name: NAMES[0], pct: cash(spx) },
-    { name: ndxPct != null ? NAMES[1] : NASDAQ_COMPOSITE, pct: ndxPct ?? ixicPct },
-    { name: NAMES[2], pct: factor(sox) }, { name: NAMES[3], pct: factor(vix) },
-  ];
+  const iso = (t: string) => new Date(Date.parse(t)).toISOString();
+  const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!) } : null;
+  const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!) } : null;
+  const observed = [cash(NAMES[0], spx), cash(NAMES[1], ndx) ?? cash(NASDAQ_COMPOSITE, ixic), factor(NAMES[2], sox), factor(NAMES[3], vix)];
   const kept = sanitizeSelloff(input.retained);
   const fromKept = (i: number) => kept?.date === date ? kept.chips.find(c => slotOf(c.name) === i) ?? null : null;
-  const slots = observed.map((o, i) => o.pct != null ? o : fromKept(i));
+  // 같은 칸: 이 응답의 D 마감 관측이 기본, 기록 쪽 관측 시각이 «더 늦을» 때만 기록이 이긴다(앞선 정정을 낡은 사본이 되돌리지 못하게).
+  const newer = (a: SelloffChip, b: SelloffChip) => !!a.at && !!b.at && Date.parse(a.at) > Date.parse(b.at);
+  const slots = observed.map((o, i) => { const k = fromKept(i); return o && k ? (newer(k, o) ? k : o) : o ?? k; });
   const values = slots.map(o => o?.pct ?? null);
-  const chips = slots.flatMap(o => o?.pct == null ? [] : [{ name: o.name, pct: o.pct }]);
+  const chips = slots.flatMap(o => o ? [o] : []);
   // 보관본은 «급락일 때만»이 아니라 D 의 최신 관측 전체다 — 정정돼 조건을 벗어나면 그 값으로 덮어써 다음 장중에 되살아나지 않는다.
   const record = chips.length ? { date, chips } : null;
   return { brief: record && values.some((v, i) => hit(i, v)) ? record : null, record };
