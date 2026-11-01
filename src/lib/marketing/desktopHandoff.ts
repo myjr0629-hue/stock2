@@ -221,16 +221,18 @@ export async function desktopRedeemHtml(opts: {
   gift?: string;
   /** 선물 전용: 검증된 초대자 ref — QR 로 폰에서 열어도 첫 실행 추천 보상이 같은 초대자에게 이어지게 QR 주소에 싣는다. */
   giftRef?: string | null;
+  /** ★2026-11-01 공개 캠페인: QR·iPad 이동 주소와 부제를 직접 준다(코드는 폰에서 배정). 없으면 예전 출력 그대로. */
+  campaign?: { scanUrl: string; ipadUrl: string; sub: string };
 }): Promise<string> {
   const { fromTag, code, lang, redeemUrl, coupon = false, androidCoupon = false } = opts;
   const t = RT[lang];
   const giftRefQuery = opts.gift && opts.giftRef ? `&ref=${encodeURIComponent(opts.giftRef)}` : '';
-  const scan = opts.gift ? `${SITE}/app?from=${encodeURIComponent(fromTag || 'gift')}&l=${lang}&gift=${encodeURIComponent(opts.gift)}${giftRefQuery}&via=qr` : redeemScanUrl(fromTag, code);
-  const ipadUrl = opts.gift ? `${redeemUrl}&gift_os=ios` : redeemUrl;
+  const scan = opts.campaign ? opts.campaign.scanUrl : opts.gift ? `${SITE}/app?from=${encodeURIComponent(fromTag || 'gift')}&l=${lang}&gift=${encodeURIComponent(opts.gift)}${giftRefQuery}&via=qr` : redeemScanUrl(fromTag, code);
+  const ipadUrl = opts.campaign ? opts.campaign.ipadUrl : opts.gift ? `${redeemUrl}&gift_os=ios` : redeemUrl;
   const svg = await QRCode.toString(scan, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b1220', light: '#ffffff' } });
   const fallback = APPLE_ONE_TIME_CODE_RE.test(code)
     ? `<p class="help">${esc(t.oneTime)}</p>`
-    : `<p class="help">${esc(t.customOpen)}</p><span class="url">${esc(opts.gift ? scan : `signumhq.com/app?code=${code}`)}</span><p class="help">${esc(t.customNote)}</p>`;
+    : `<p class="help">${esc(t.customOpen)}</p><span class="url">${esc(opts.gift || opts.campaign ? scan : `signumhq.com/app?code=${code}`)}</span><p class="help">${esc(t.customNote)}</p>`;
 
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -262,7 +264,7 @@ html[lang=ko] body{word-break:keep-all;overflow-wrap:anywhere}
 </style></head><body><main>
 <section>${coupon
     ? `<h1>${esc(t.couponH1)}</h1>
-<p class="cpn">${esc(opts.gift ? audienceLine('gift', '', lang) || '' : couponSubline('ios', lang, fromTag, code))}</p>
+<p class="cpn">${esc(opts.campaign ? opts.campaign.sub : opts.gift ? audienceLine('gift', '', lang) || '' : couponSubline('ios', lang, fromTag, code))}</p>
 <p class="free">${esc(t.couponFree)}</p>`
     : `<h1>${esc(t.h1)}<span class="renew">${esc(t.renew)}</span></h1>`}
 <p class="sub">${esc(coupon ? t.couponLead : t.lead)}</p>
