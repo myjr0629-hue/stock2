@@ -75,6 +75,14 @@ async function at<T>(ms: number, fn: () => Promise<T>): Promise<T> {
   try { return await fn(); } finally { Date.now = realNow; }
 }
 
+// 시간 상한 시험은 만기 전 시각을 유지하면서 실제 경과 시간도 반영한다.
+async function atRunning<T>(ms: number, fn: () => Promise<T>): Promise<T> {
+  const realNow = Date.now;
+  const start = realNow();
+  Date.now = () => ms + realNow() - start;
+  try { return await fn(); } finally { Date.now = realNow; }
+}
+
 async function main() {
   // ① 공유 함수 — 주말: AMZN 7.8 → 7.9(관측 그대로), MSFT 같은 값 → 그대로(null), META 관측 없음·AAPL 다른 만기 → 그대로
   seed();
@@ -161,33 +169,39 @@ async function main() {
   seed();
   const slowStore = require('../src/services/redisClient');
   const realMget = slowStore.mgetFromCache;
-  slowStore.mgetFromCache = (keys: string[]) => new Promise((r) => setTimeout(() => r(keys.map(() => null)), 300));
-  const slowRows: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
-  const t0 = Date.now();
-  await IMS.overlayCanonicalImpliedMoveRows(slowRows, 50);
-  assert.ok(Date.now() - t0 < 250, '상한 안에 돌아온다');
-  assert.equal(slowRows.AMZN.impliedMovePct, 7.8, '시간 초과 — 그대로');
-  slowStore.mgetFromCache = realMget;
-  await new Promise((r) => setTimeout(r, 350));
+  await atRunning(WEEKEND, async () => {
+    slowStore.mgetFromCache = (keys: string[]) => new Promise((r) => setTimeout(() => r(keys.map(() => null)), 300));
+    const slowRows: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
+    const t0 = Date.now();
+    await IMS.overlayCanonicalImpliedMoveRows(slowRows, 50);
+    assert.ok(Date.now() - t0 < 250, '상한 안에 돌아온다');
+    assert.equal(slowRows.AMZN.impliedMovePct, 7.8, '시간 초과 — 그대로');
+    slowStore.mgetFromCache = realMget;
+    await new Promise((r) => setTimeout(r, 350));
+  });
 
   // ⑧-b 입구가 상한으로 먼저 돌아온 뒤 출구가 같은 행을 다시 대조하지 않는다 — 요청 전체 대기 ≤ 상한·관측 MGET 1회(관문 10250501 ②)
   seed();
-  let mgets = 0;
-  slowStore.mgetFromCache = (keys: string[]) => { mgets++; return new Promise((r) => setTimeout(() => r(keys.map((k) => structuredClone(store.get(k) ?? null))), 1200)); };
-  const entryRows: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
-  const t1 = Date.now();
-  await IMS.overlayCanonicalImpliedMoveRows(entryRows, 500);       // 분석 캐시 입구
-  const exitRows: Record<string, any> = { AMZN: { ...entryRows.AMZN } };
-  await IMS.overlayCanonicalImpliedMoveRows(exitRows, 500);        // unified 출구(같은 요청)
-  const spent = Date.now() - t1;
-  assert.ok(spent < 700, `요청 전체 보정 대기 ${spent}ms ≤ 상한`);
-  assert.equal(mgets, 1, '같은 조회 공유 — MGET 1회');
-  assert.equal(exitRows.AMZN.impliedMovePct, 7.8, '상한 안에 못 끝냄 → 그대로');
-  await new Promise((r) => setTimeout(r, 1300));                   // 진행 중 조회가 끝나면 다음 요청은 메모로 정본
-  slowStore.mgetFromCache = realMget;
-  const later: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
-  await IMS.overlayCanonicalImpliedMoveRows(later, 500);
-  assert.equal(later.AMZN.impliedMovePct, 7.9, '끝난 조회 결과는 다음 요청에 쓰인다');
+  await atRunning(WEEKEND, async () => {
+    let mgets = 0;
+    const mgetKeys: string[][] = [];
+    slowStore.mgetFromCache = (keys: string[]) => { mgets++; mgetKeys.push([...keys]); return new Promise((r) => setTimeout(() => r(keys.map((k) => structuredClone(store.get(k) ?? null))), 1200)); };
+    const entryRows: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
+    const t1 = Date.now();
+    await IMS.overlayCanonicalImpliedMoveRows(entryRows, 500);       // 분석 캐시 입구
+    const exitRows: Record<string, any> = { AMZN: { ...entryRows.AMZN } };
+    await IMS.overlayCanonicalImpliedMoveRows(exitRows, 500);        // unified 출구(같은 요청)
+    const spent = Date.now() - t1;
+    assert.ok(spent < 700, `요청 전체 보정 대기 ${spent}ms ≤ 상한`);
+    assert.equal(mgets, 1, '같은 조회 공유 — MGET 1회');
+    assert.deepEqual(mgetKeys, [[obsKey('AMZN', '2026-10-29'), obsKey('AMZN', '2026-10-29', true)]], '관측 next·same 을 한 번에 조회');
+    assert.equal(exitRows.AMZN.impliedMovePct, 7.8, '상한 안에 못 끝냄 → 그대로');
+    await new Promise((r) => setTimeout(r, 1300));                   // 진행 중 조회가 끝나면 다음 요청은 메모로 정본
+    slowStore.mgetFromCache = realMget;
+    const later: Record<string, any> = { AMZN: analysisEntry('AMZN', 7.8) };
+    await IMS.overlayCanonicalImpliedMoveRows(later, 500);
+    assert.equal(later.AMZN.impliedMovePct, 7.9, '끝난 조회 결과는 다음 요청에 쓰인다');
+  });
 
   // ⑧-c 다른 종목의 늦은 진행 중 조회가 이 행을 막지 않는다(관문 10250519 ①) — MSFT 메모 적중(5.1→5.3)은 AMZN 이 진행 중이어도 즉시
   seed();
