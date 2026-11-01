@@ -157,13 +157,22 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
     }
     assert.equal(evalCalls, 0);
   });
-  await t('마감 뒤 GET: 폼 없이 «지금은 쿠폰을 발급할 수 없습니다» + 설치', async () => {
+  await t('마감 뒤 GET(관문 11010908 ②): «지금은 쿠폰을 발급할 수 없습니다» + «이미 받은 쿠폰 다시 보기» 폼 → 이미 받은 기기는 같은 코드 복구 · PC 는 안내만', async () => {
     const { campaignLanding } = require('../src/lib/giftShare/landing');
     const c = giftCampaign('weekend-1101');
-    const html = await (await campaignLanding(req('/app?camp=weekend-1101&l=ko', { headers: { ...baseHeaders, ...human } }), c, c.endsAt)).text();
-    assert.ok(html.includes('지금은 쿠폰을 발급할 수 없습니다'));
-    assert.ok(!html.includes('<form'));
-    assert.ok(html.includes('쿠폰 없이 앱만 설치하기'));
+    const recover = { ko: '이미 받은 쿠폰 다시 보기', en: 'Show the coupon I already got', ja: '受け取ったクーポンをもう一度表示' } as const;
+    for (const l of ['ko', 'en', 'ja'] as const) for (const ua of [ios, android]) {
+      const html = await (await campaignLanding(req(`/app?camp=weekend-1101&l=${l}`, { headers: { ...baseHeaders, 'user-agent': ua, ...human } }), c, c.endsAt)).text();
+      assert.ok(html.includes(recover[l]));
+      assert.ok(html.includes('action="/api/gift/campaign') && html.includes('name="camp" value="weekend-1101"'));
+      assert.ok(!html.includes('•••• •••• •••• ••••'));
+      if (l === 'ko') { assert.ok(html.includes('지금은 쿠폰을 발급할 수 없습니다')); assert.ok(html.includes('쿠폰 없이 앱만 설치하기')); }
+    }
+    const pc = await (await campaignLanding(req('/app?camp=weekend-1101&l=ko', { headers: { ...baseHeaders, 'user-agent': desktop, ...human } }), c, c.endsAt)).text();
+    assert.ok(pc.includes('지금은 쿠폰을 발급할 수 없습니다') && !pc.includes('<form'));
+    const code = fakeCode('ios'); answer = ['again', code];
+    const r = await campaignRoute.POST(post());
+    assert.equal(r.status, 303); assert.ok(location(r).endsWith(`code=${code}`));
   });
   await t('등록 iOS new·again → 애플 등록 주소 303(원탭) · 키는 시험 접두·IP/기기 가명 · 인자에 코드 없음', async () => {
     for (const status of ['new', 'again']) {
@@ -203,6 +212,7 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
       [['total'], '쿠폰이 모두 소진되었습니다', 'total'],
       [['off'], '지금은 쿠폰을 발급할 수 없습니다', 'off'],
       [['ip'], '지금은 쿠폰을 발급할 수 없습니다', 'ip'],
+      [['reserve'], '지금은 쿠폰을 발급할 수 없습니다', 'reserve'],
       [new Error('장애'), '잠시 후 다시 시도해 주세요', 'error'],
       [['bogus'], '잠시 후 다시 시도해 주세요', 'invalid'],
     ];
@@ -246,7 +256,7 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
     process.env.GIFT_SHARE_ENABLED = '1';
   });
   await t('계측 닫힌 목록: 서버 지점 open·redeem·claim 만 camp · 클라이언트 비콘 camp 거부 · 기존 선물 판정 그대로', () => {
-    for (const d of ['new', 'again', 'recipient', 'cap', 'empty', 'off', 'total', 'ip', 'error', 'cookie']) assert.ok(validEvent('claim', 'camp', 'ios', d), d);
+    for (const d of ['new', 'again', 'recipient', 'cap', 'empty', 'off', 'total', 'ip', 'reserve', 'error', 'cookie']) assert.ok(validEvent('claim', 'camp', 'ios', d), d);
     assert.ok(validEvent('open', 'camp', 'desktop', 'all')); assert.ok(validEvent('redeem', 'camp', 'android', 'all'));
     assert.ok(!validEvent('issue', 'camp', 'ios', 'new')); assert.ok(!validEvent('claim', 'camp', 'ios', 'clien')); assert.ok(!validEvent('open', 'camp', 'ios', 'x'));
     for (const s of ['visible', 'tap', 'copy', 'gate']) assert.ok(!validClientEvent(s, 'camp', 'ios', s === 'gate' ? 'off' : 'all'));

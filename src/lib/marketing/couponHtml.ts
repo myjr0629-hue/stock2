@@ -45,6 +45,8 @@ type Txt = {
   iosStay: string;
   /** 공개 캠페인(2026-11-01): 이 기기·계정이 이미 무료 쿠폰을 받았을 때(선물·캠페인 합쳐 기기당 1장) */
   recipient: string;
+  /** 공개 캠페인: 마감 뒤 화면 — 마감 전에 받은 사람이 같은 코드를 다시 여는 단추 */
+  recover: string;
 };
 
 const T: Record<PreviewLang, Txt> = {
@@ -81,6 +83,7 @@ const T: Record<PreviewLang, Txt> = {
     installOnly: '쿠폰 없이 앱만 설치하기',
     iosStay: '앱스토어가 안 열리면: 화면의 ⋯ 또는 나침반 아이콘 → «Safari로 열기»를 눌러 다시 시도해 주세요',
     recipient: '이 기기는 이미 PRO 무료 쿠폰을 받았습니다 — 쿠폰은 기기당 1장입니다',
+    recover: '이미 받은 쿠폰 다시 보기',
   },
   en: {
     titleIos: '🎟 SIGNUM HQ PRO 1-month free coupon',
@@ -115,6 +118,7 @@ const T: Record<PreviewLang, Txt> = {
     installOnly: 'Just install the app (no coupon)',
     iosStay: 'App Store not opening? Tap ⋯ or the compass icon → “Open in Safari”, then try again',
     recipient: 'This device already received a free PRO coupon — one per device',
+    recover: 'Show the coupon I already got',
   },
   ja: {
     titleIos: '🎟 SIGNUM HQ PRO 1か月無料クーポン',
@@ -149,6 +153,7 @@ const T: Record<PreviewLang, Txt> = {
     installOnly: 'クーポンなしでアプリだけ入れる',
     iosStay: 'App Storeが開かない場合: 画面の ⋯ またはコンパスのアイコン →「Safariで開く」でもう一度お試しください',
     recipient: 'この端末はすでにPRO無料クーポンを受け取っています — 1台につき1枚です',
+    recover: '受け取ったクーポンをもう一度表示',
   },
 };
 
@@ -367,7 +372,7 @@ function campaignForm(c: { id: string; from: string | null }, lang: PreviewLang,
   return `<form method="post" action="/api/gift/campaign${ios ? '?gift_os=ios' : ''}" style="margin:0"><input type="hidden" name="camp" value="${esc(c.id)}"><input type="hidden" name="from" value="${esc(c.from || '')}"><input type="hidden" name="l" value="${lang}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
 }
 
-export type CampaignView = 'code' | 'again' | 'recipient' | 'cap' | 'empty' | 'off' | 'err';
+export type CampaignView = 'code' | 'again' | 'recipient' | 'cap' | 'empty' | 'off' | 'err' | 'ended';
 
 /** 링크 카드(미리보기 봇) 제목 — 쿠폰 화면 제목에서 🎟 만 뺀 것(«SIGNUM HQ PRO 1개월 무료 쿠폰»). */
 export const campaignCardTitle = (lang: PreviewLang) => T[lang].titleIos.replace(/^🎟\s*/, '');
@@ -376,7 +381,7 @@ export const campaignCardTitle = (lang: PreviewLang) => T[lang].titleIos.replace
  * 캠페인 등록 결과 — 서버 문자열 한 장(no-store). 아이폰 성공은 라우트가 애플 등록 주소로 바로 303 이라 여기에 오지 않는다.
  *  · code/again(안드로이드): 내 쿠폰 번호 + 복사 + «① Play 스토어에서 코드 등록» + ② 구독 안내(기존 문구 그대로)
  *  · recipient: 이미 받은 기기 · cap: 오늘 몫 끝(다음 배정 시각은 방문자 기기 시간대로) · empty: 모두 소진 · off: 지금 발급 불가(마감·꺼짐)
- *  · err: 다시 시도(같은 폼)
+ *  · err: 다시 시도(같은 폼) · ended: 마감 뒤 열람 — 발급 불가 안내 + «이미 받은 쿠폰 다시 보기»(같은 폼, 기존 배정만 복구)
  * 모든 안내 화면은 «쿠폰 없이 앱만 설치하기»를 함께 준다. 남은 수·타이머·가짜 희소성 없음.
  */
 export function campaignResultHtml(opts: {
@@ -420,6 +425,9 @@ export function campaignResultHtml(opts: {
   else if (view === 'empty') body = message(t.empty, t.emptySub);
   else if (view === 'err') body = `${message(t.err)}
 ${campaignForm(opts.campaign, lang, ios, ios ? t.iosCta : t.andCta, 'retry')}`;
+  // ended = 마감 뒤 GET: 새 발급은 없다고 말하되, 마감 전에 받은 기기는 같은 폼으로 기존 코드를 되찾는다(서버가 again 만 돌려준다).
+  else if (view === 'ended') body = `${message(t.off)}
+${campaignForm(opts.campaign, lang, ios, t.recover, 'recover')}`;
   else body = message(t.off);
   const install = `<p class="alt"><a id="inst" href="${esc(!ios && ia ? playIntentUrl(opts.installUrl) : opts.installUrl)}">${esc(t.installOnly)}</a>${!ios && ia ? ` · <a id="instw" href="${esc(opts.installUrl)}">${esc(iaT.alt)}</a>` : ''}</p>`;
   const script = showCode

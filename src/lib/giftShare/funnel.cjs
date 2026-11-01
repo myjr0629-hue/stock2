@@ -5,8 +5,8 @@ const PLATFORMS = ['ios', 'android', 'web', 'desktop'];
 const KINDS = ['attached', 'legacy', 'general', 'content'];
 const GATES = ['config_pending', 'config_error', 'off', 'unavailable', 'clock', 'device', 'random', 'local_cap', 'ledger', 'reserve_rejected', 'reserve_error', 'not_ready', 'platform', 'consumed', 'stale', 'hold', 'reservation', 'device_changed', 'pending', 'storage', 'cfg_missing', 'busy'];
 const CLIENT_STAGES = ['visible', 'tap', 'payload', 'sheet', 'copy', 'cancel', 'failed', 'gate'];
-// off·total·ip 는 캠페인 배정 결과(스위치 꺼짐·마감 / 전체 상한 / IP 하루 상한).
-const CLAIMS = ['new', 'again', 'expired', 'taken', 'recipient', 'cap', 'empty', 'invalid', 'error', 'disabled', 'os', 'origin', 'cookie', 'body', 'store', 'off', 'total', 'ip'];
+// off·total·ip·reserve 는 캠페인 배정 결과(스위치 꺼짐·마감 / 전체 상한 / IP 하루 상한 / 선물 몫만 남음).
+const CLAIMS = ['new', 'again', 'expired', 'taken', 'recipient', 'cap', 'empty', 'invalid', 'error', 'disabled', 'os', 'origin', 'cookie', 'body', 'store', 'off', 'total', 'ip', 'reserve'];
 function validEvent(stage, surface, platform, detail) {
   if (!SURFACES.includes(surface) || !PLATFORMS.includes(platform)) return false;
   if (surface === 'camp') return ['open', 'redeem', 'claim'].includes(stage) && (stage === 'claim' ? CLAIMS.includes(detail) : detail === 'all') && platform !== 'web';

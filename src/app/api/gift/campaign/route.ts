@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
       return withCookie(next >= campaign.endsAt ? page('off') : page('cap', { resetAt: next }));
     }
     if (result.status === 'empty' || result.status === 'total') return withCookie(page('empty'));
-    if (result.status === 'off' || result.status === 'ip') return withCookie(page('off'));
+    // reserve = 선물 몫만 남음(전체 소진 아님) → «지금은 발급할 수 없습니다»가 사실이다.
+    if (result.status === 'off' || result.status === 'ip' || result.status === 'reserve') return withCookie(page('off'));
     return withCookie(page('err'));
   } catch { metric('claim', 'error'); return withCookie(page('err')); }
 }

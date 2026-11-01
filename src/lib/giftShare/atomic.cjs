@@ -106,7 +106,8 @@ return 1
 // KEYS: 1 스위치 · 2 batches:<os> · 3 캠페인 하루 셈 · 4 캠페인 전체 셈 · 5 IP 하루 셈 · 6 선물 장부(ledger) · 7 채널(from) 하루 해시
 //       8 캠페인 기기 배정 · 9 수신 기기 표지 · [10 캠페인 계정 배정 · 11 수신 계정 표지]
 // ARGV: 1 now · 2 os · 3 마감 · 4 하루 상한 · 5 전체 상한 · 6 IP 상한 · 7 선물 몫(reserve) · 8 접두 · 9 from · 10 장부 필드 · 11 캠페인 id
-// 순서: 기존 배정 복구 → 수신 이력 → 스위치·마감 → 전체 상한 → 재고(선물 몫 이하면 중단) → 하루 상한 → IP 상한. 검사가 전부 끝난 뒤에만 쓴다.
+// 순서: 기존 배정 복구 → 수신 이력 → 스위치·마감 → 전체 상한 → 재고(0 = empty · 선물 몫 이하 = reserve) → 하루 상한 → IP 상한.
+// 새 배정 쓰기는 검사가 전부 끝난 뒤에만. 복구·수신 이력 단계는 기기·계정 표지를 서로 묶는 쓰기만 한다(재고·상한 무변경).
 exports.CAMPAIGN_LUA = `
 local now = tonumber(ARGV[1])
 local os = ARGV[2]
@@ -114,11 +115,19 @@ for i=8,#KEYS,2 do
   local raw = redis.call('GET',KEYS[i])
   if raw then
     local c = cjson.decode(raw)
+    -- 기기·계정 중 하나라도 기록이 있으면 나머지 표지도 묶는다(익명으로 받은 뒤 로그인 → 그 계정의 다른 기기 새 배정 차단).
+    for j=9,#KEYS,2 do redis.call('SET',KEYS[j],'1','EX',34560000) end
     if c.os ~= os or c.exp <= now then return {'recipient'} end
+    for j=8,#KEYS,2 do if redis.call('EXISTS',KEYS[j]) == 0 then redis.call('SET',KEYS[j],raw,'EX',34560000) end end
     return {'again',c.code}
   end
 end
-for i=9,#KEYS,2 do if redis.call('EXISTS',KEYS[i]) == 1 then return {'recipient'} end end
+for i=9,#KEYS,2 do
+  if redis.call('EXISTS',KEYS[i]) == 1 then
+    for j=9,#KEYS,2 do redis.call('SET',KEYS[j],'1','EX',34560000) end
+    return {'recipient'}
+  end
+end
 if redis.call('GET',KEYS[1]) ~= '1' or now >= tonumber(ARGV[3]) then return {'off'} end
 local day = tonumber(redis.call('GET',KEYS[3]) or '0')
 local total = tonumber(redis.call('GET',KEYS[4]) or '0')
@@ -147,7 +156,8 @@ for _,batch in ipairs(batches) do
     end
   end
 end
-if not pick or remaining <= tonumber(ARGV[7]) then return {'empty'} end
+if not pick then return {'empty'} end
+if remaining <= tonumber(ARGV[7]) then return {'reserve'} end
 if day >= tonumber(ARGV[4]) then return {'cap'} end
 if ip >= tonumber(ARGV[6]) then return {'ip'} end
 local code = redis.call('LINDEX',pick,0)

@@ -85,13 +85,13 @@ const scenarios = [
     assert.equal((await camp(redis, { c }))[0], 'total');
     assert.equal(await redis.llen(inv.pool), 7);
   }],
-  ['재고 0 → empty · 선물 몫(reserve 2): 5장 중 3장만 캠페인, 남은 2장은 선물이 그대로 받는다', async (redis) => {
+  ['재고 0 → empty · 선물 몫(reserve 2): 5장 중 3장만 캠페인(나머지 reserve — «소진» 아님), 남은 2장은 선물이 그대로 받는다', async (redis) => {
     await on(redis);
     assert.equal((await camp(redis))[0], 'empty');
     const inv = await load(redis, 'ios', 5); const c = { ...C, reserve: { ios: 2, android: 0 } };
     const results = await Promise.all(Array.from({ length: 6 }, () => camp(redis, { c })));
     assert.equal(results.filter(r => r[0] === 'new').length, 3);
-    assert.equal(results.filter(r => r[0] === 'empty').length, 3);
+    assert.equal(results.filter(r => r[0] === 'reserve').length, 3);
     assert.equal(await redis.llen(inv.pool), 2);
     for (let i = 0; i < 2; i++) assert.equal((await gift(redis, await giftToken(redis), random()))[0], 'new');
     assert.equal(await redis.llen(inv.pool), 0);
@@ -148,6 +148,24 @@ const scenarios = [
     assert.deepEqual(await camp(redis, { account }), ['again', first[1]]);
     assert.equal((await camp(redis, { account, os: 'android' }))[0], 'recipient');
     assert.equal((await camp(redis, { account: random() }))[0], 'new');
+  }],
+  ['관문 11010908 ①: 익명으로 받은 기기에서 로그인 → 그 계정이 다른 기기에서 새 코드 못 받음(같은 코드) · 선물 받은 기기 로그인 → 계정도 recipient', async (redis) => {
+    const inv = await load(redis, 'ios', 10); await on(redis);
+    const d1 = random(); const a = random();
+    const first = await camp(redis, { device: d1 });
+    assert.equal(first[0], 'new');
+    assert.deepEqual(await camp(redis, { device: d1, account: a }), ['again', first[1]]);
+    assert.deepEqual(await camp(redis, { account: a }), ['again', first[1]], '같은 계정 다른 기기 = 같은 코드(새 배정 0)');
+    assert.equal((await camp(redis, { account: a, os: 'android' }))[0], 'recipient');
+    const g = random(); const b = random();
+    assert.equal((await gift(redis, await giftToken(redis), g))[0], 'new');
+    assert.equal((await camp(redis, { device: g, account: b }))[0], 'recipient');
+    assert.equal((await camp(redis, { account: b }))[0], 'recipient', '선물 받은 기기에 로그인한 계정도 묶인다');
+    const d2 = random(); const e = random();
+    const viaAccount = await camp(redis, { device: d2, account: e });
+    assert.equal((await camp(redis, { account: e, device: random() }))[1], viaAccount[1]);
+    assert.deepEqual(await camp(redis, { device: d2 }), ['again', viaAccount[1]], '로그아웃해도 그 기기는 같은 코드');
+    assert.equal(await redis.llen(inv.pool), 10 - 3);
   }],
   ['잘못된 재고 형식·장부 형식 → invalid, 무차감', async (redis) => {
     const inv = await load(redis, 'ios', 2); await on(redis);

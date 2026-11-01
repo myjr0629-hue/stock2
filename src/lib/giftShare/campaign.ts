@@ -56,7 +56,7 @@ export const campaignKeys = (id: string, p = giftPrefix()) => ({
   account: (account: string) => `${p}:camp:${id}:account:${account}`,
 });
 
-export const CAMPAIGN_STATUSES = ['new', 'again', 'recipient', 'off', 'total', 'empty', 'cap', 'ip', 'invalid'] as const;
+export const CAMPAIGN_STATUSES = ['new', 'again', 'recipient', 'off', 'total', 'empty', 'reserve', 'cap', 'ip', 'invalid'] as const;
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number] | 'error';
 export type CampaignResult =
   | { status: 'new' | 'again'; os: GiftOs; code: string; url: string }

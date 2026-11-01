@@ -45,7 +45,7 @@ export async function giftLanding(req: NextRequest): Promise<NextResponse> {
 /**
  * 공개 캠페인 링크 /app?camp=<id>&from=<채널>&l=<언어> (2026-11-01). GET·HEAD 는 재고를 배정하지 않는다(Redis 0).
  * 폰: 선물과 같은 쿠폰 화면(번호 가림) + 등록 폼(/api/gift/campaign) · PC: 같은 링크의 QR · 미리보기 봇: 카드만.
- * 마감 뒤에는 폼 없이 «지금은 쿠폰을 발급할 수 없습니다» 안내 + 앱 설치.
+ * 마감 뒤: «지금은 쿠폰을 발급할 수 없습니다» + «이미 받은 쿠폰 다시 보기»(마감 전에 받은 기기만 같은 코드 복구) + 앱 설치. PC 는 안내만.
  */
 export async function campaignLanding(req: NextRequest, campaign: GiftCampaign, now = Date.now()): Promise<NextResponse> {
   const os = giftOs(req);
@@ -65,7 +65,7 @@ export async function campaignLanding(req: NextRequest, campaign: GiftCampaign, 
   const view = { id: campaign.id, from: fromTag, sub };
   const masked = '•••• •••• •••• ••••';
   const html = now >= campaign.endsAt
-    ? campaignResultHtml({ platform: os ?? 'ios', lang, view: 'off', campaign: view, installUrl: installUrl(os) })
+    ? campaignResultHtml({ platform: os ?? 'ios', lang, view: os ? 'ended' : 'off', campaign: view, installUrl: installUrl(os) })
     : os ? couponHtml({ platform: os, lang, fromTag, code: masked, campaign: view,
       appleRedeemUrl: installUrl('ios'), playInstallUrl: installUrl('android') })
       : await desktopRedeemHtml({ fromTag, lang, code: masked, redeemUrl: page, coupon: true, androidCoupon: true,
