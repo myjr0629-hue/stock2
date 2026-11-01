@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { currentSelloff, loadRetainedSelloff, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
+import { currentSelloff, loadRetainedSelloff, mergeSelloffRecord, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
 const now = Date.parse('2026-11-02T15:00:00Z');
 const cash = (changePct: number, sessionDate = '2026-10-30', asOf = '2026-10-30T20:00:00Z') => ({ changePct, sessionDate, asOf, price: 100 });
 const factor = (chgPct: number, marketTime = '2026-10-30T20:00:00Z') => ({ chgPct, marketTime, status: 'OK', source: 'YAHOO' });
@@ -86,7 +86,7 @@ test('window: during the next regular session the D card stays (gate 11020215 re
     assert.deepEqual(shown?.chips, kept!.chips);
     assert.equal(currentSelloff(shown, at(t))?.date, '2026-10-30');
   }
-  // 이 기기가 D 를 받은 적 없으면 장중 응답만으로는 D 를 알 수 없다 → 꾸며 내지 않고 숨긴다.
+  // D 기록(서버 selloffRecord·기기 보관본)이 하나도 없으면 장중 응답만으로는 D 를 알 수 없다 → 꾸며 내지 않고 숨긴다.
   assert.equal(day(mondayIntraday(), '2026-11-02T15:00:00Z'), null);
   // 다른 세션의 보관본은 쓰지 않는다.
   assert.equal(day(mondayIntraday(), '2026-11-02T15:00:00Z', { ...kept!, date: '2026-10-29' }), null);
@@ -170,4 +170,40 @@ test('corrected D close overwrites the retained record so it cannot revive next 
   await load(fridayClose, '2026-10-30T21:00:00Z');
   const spxOnly = { ...fridayClose, indexBasis: { cash: { spx: { ...fridayClose.indexBasis!.cash!.spx!, changePct: -0.4 } } } };
   assert.deepEqual((await load(spxOnly, '2026-10-31T15:00:00Z'))?.chips.map(c => c.pct), [-0.4, -7.2, 12.9]);
+});
+
+test('first visit during the next session: server D record keeps the card (gate 11020319)', async () => {
+  // 서버(macro 라우트)가 D 마감 뒤 응답마다 기록을 합쳐 캐시에 둔다.
+  let stored: SelloffBrief | null = null;
+  const serve = (macro: SelloffMacro, iso: string) => {
+    const { record, write } = mergeSelloffRecord({ now: at(iso), macro, stored, storedKnown: true });
+    if (write && record) stored = record;
+    return record ? { ...macro, selloffRecord: record } : macro;
+  };
+  const first = serve(fridayClose, '2026-10-30T21:20:00Z');
+  assert.deepEqual(stored, { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.82 }, { name: 'SOX', pct: -7.2 }, { name: 'VIX', pct: 12.9 }] });
+  assert.equal(mergeSelloffRecord({ now: at('2026-10-30T21:25:00Z'), macro: fridayClose, stored, storedKnown: true }).write, false); // 같으면 다시 쓰지 않음
+  assert.ok(first);
+  // 월 10:00 EST — 이 기기는 처음(보관본 없음), 응답은 월요일 장중 값 + 서버 D 기록.
+  const monday = serve(mondayIntraday(), '2026-11-02T15:00:00Z');
+  assert.equal(mergeSelloffRecord({ now: at('2026-11-02T15:00:00Z'), macro: mondayIntraday(), stored, storedKnown: true }).write, false); // 장중 값만으로는 쓰지 않음
+  const visit = await readSelloffMacro({ status: 'fulfilled', value: new Response(JSON.stringify(monday)) }, at('2026-11-02T15:00:00Z'), null);
+  assert.equal(visit.brief?.date, '2026-10-30');
+  assert.deepEqual(visit.brief?.chips.map(c => c.pct), [-1.82, -7.2, 12.9]);
+  // 월 마감 뒤(조건 미달) — 서버 키가 바뀌어 D 기록은 더 붙지 않고, 카드도 없다.
+  const after = serve(mondayIntraday('2026-11-02T20:59:00Z'), '2026-11-02T21:01:00Z');
+  const late = await readSelloffMacro({ status: 'fulfilled', value: new Response(JSON.stringify({ ...after, selloffRecord: { date: '2026-10-30', chips: [{ name: 'VIX', pct: 30 }] } })) }, at('2026-11-02T21:01:00Z'), null);
+  assert.equal(late.brief, null);                                             // 다른 날짜의 서버 기록은 무시
+  // 서버 기록이 있어도 요청 실패면 숨김.
+  assert.equal((await readSelloffMacro({ status: 'rejected', reason: new Error('x') }, at('2026-11-02T15:00:00Z'), stored)).brief, null);
+});
+
+test('server record: corrections overwrite, unknown cache state never writes', () => {
+  const kept = selloffForDisplay({ now: at('2026-10-31T15:00:00Z'), macro: fridayClose })!;
+  const corrected: SelloffMacro = { indexBasis: { cash: { spx: { changePct: -0.4, sessionDate: '2026-10-30', asOf: '2026-10-30T20:47:43Z', price: 7580 } } }, factors: { sox: factor(-1, '2026-10-30T21:16:01Z'), vix: factor(3, '2026-10-30T20:15:01Z') } };
+  const fix = mergeSelloffRecord({ now: at('2026-10-31T15:00:00Z'), macro: corrected, stored: kept, storedKnown: true });
+  assert.equal(fix.write, true);
+  assert.deepEqual(fix.record?.chips.map(c => c.pct), [-0.4, -1, 3]);
+  assert.equal(mergeSelloffRecord({ now: at('2026-10-31T15:00:00Z'), macro: fridayClose, stored: null, storedKnown: false }).write, false); // 캐시 읽기 실패·시간 초과
+  assert.equal(mergeSelloffRecord({ now: at('2026-10-31T15:00:00Z'), macro: null, stored: kept, storedKnown: true }).write, false);
 });

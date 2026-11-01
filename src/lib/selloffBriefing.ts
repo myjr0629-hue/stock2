@@ -67,6 +67,20 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
 export function selloffForDisplay(input: { now: number; macro: SelloffMacro | null | undefined; retained?: SelloffBrief | null }): SelloffBrief | null {
   return selloffEvaluate(input).brief;
 }
+/**
+ * 서버 보관(macro 라우트): 다음 정규장 장중 «처음 여는 기기»도 D 카드를 보도록, D 마감 관측 기록을
+ * Redis 한 키에 둔다(캐시 읽기·쓰기만, 공급사·AI 호출 0). 응답에 D 마감 관측이 있을 때만,
+ * 기존 기록과 다를 때만 쓴다 — 정정값은 덮어쓰고, 개장 전 한 지표만 넘어가도 나머지는 기록이 잇는다.
+ */
+export const SELLOFF_RECORD_KEY = 'selloff:record:v1:';
+export function mergeSelloffRecord(input: { now: number; macro: SelloffMacro | null | undefined; stored: SelloffBrief | null; storedKnown: boolean }): { record: SelloffBrief | null; write: boolean } {
+  const date = lastClosedSessionDate(input.now);
+  const stored = sanitizeSelloff(input.stored);
+  const merged = selloffEvaluate({ now: input.now, macro: input.macro, retained: stored }).record;
+  const own = selloffEvaluate({ now: input.now, macro: input.macro, retained: null }).record;
+  const same = !!stored && stored.date === date && JSON.stringify(stored) === JSON.stringify(merged);
+  return { record: merged, write: input.storedKnown && !!merged && !!own && !same };
+}
 export function selloffBrief(macro: SelloffMacro | null, now = Date.now(), retained: SelloffBrief | null = null): SelloffBrief | null {
   return selloffForDisplay({ now, macro, retained });
 }
@@ -79,7 +93,10 @@ export async function readSelloffMacro(result: PromiseSettledResult<Response>, n
   try {
     if (result.status === 'fulfilled' && result.value.ok) {
       const macro = await result.value.json();
-      return { macro, ...selloffEvaluate({ now, macro, retained }) };
+      // 서버 기록(같은 D)이 먼저, 없으면 이 기기 보관본.
+      const server = sanitizeSelloff(macro?.selloffRecord);
+      const kept = server?.date === lastClosedSessionDate(now) ? server : retained;
+      return { macro, ...selloffEvaluate({ now, macro, retained: kept }) };
     }
   } catch { /* Failed or malformed responses invalidate the card. */ }
   return { macro: null, brief: null, record: null };
