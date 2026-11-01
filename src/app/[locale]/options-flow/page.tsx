@@ -12,6 +12,7 @@
 //    배관이 아니라 실제 헤지 활동이고, 오히려 그날의 이야기다. 표시만 한다.
 // ============================================================================
 import type { Metadata } from 'next';
+import { datasetDescription } from '@/lib/seo/datasetDescription';
 import { publicBase } from '@/lib/net/publicBase';
 import {
   getInstitutionalFlowLeaders,
@@ -374,12 +375,12 @@ export default async function OptionsFlowPage(
     {
       '@context': 'https://schema.org', '@type': 'Dataset', '@id': `${url}#dataset`,
       name: l.title,
-      description: [
+      description: datasetDescription([
         l.desc,
         `Session ${data.date}. ${money(data.totalNotional)} of notional opened across ${data.tickers} underlyings, ${data.callPct}% on calls.`,
         ...facts,
         'Everything here is filtered on open interest that increased, so it reflects positions entered rather than volume passed between holders.',
-      ].join(' ').slice(0, 1400),
+      ].join(' '), lc),
       url,
       isAccessibleForFree: true,
       // ⚠️ `@id` 참조만 두면 구글이 객체 타입을 못 읽는다
