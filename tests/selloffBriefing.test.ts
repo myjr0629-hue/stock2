@@ -378,7 +378,7 @@ test('rx-only advances are marked (write) and distinguished from value changes',
   assert.equal(changed.valueChanged, true);
   const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
   // 세대만 전진한 쓰기도 건너뛰지 않는다(gate 11020344) — 세대가 분 단위라 쓰기는 인스턴스당 분당 최대 1회
-  assert.match(route, /if \(write && own\) \{/);
+  assert.match(route, /if \(write && own && !selloffWriteFlight\) \{/);
   assert.doesNotMatch(route, /selloffRxWriteAt/);
   assert.match(route, /selloffReadAt: new Date\(Math\.floor\(readStartedAt \/ 60_000\) \* 60_000\)\.toISOString\(\)/);
   // 세대 시각은 스냅샷(현물 병렬 읽기 포함)을 «시작하기 전»에 잡는다 (gate 11020343)
@@ -400,4 +400,13 @@ test('route never stores its precomputed merge in the memo; writes force a re-re
   const m = { ...fridayClose, selloffReadAt: '2026-10-31T15:00:00.000Z' };
   assert.equal(mergeSelloffRecord({ now: t, macro: m, stored: null, storedKnown: true }).write, true);
   assert.equal(mergeSelloffRecord({ now: t + 1_000, macro: m, stored: null, storedKnown: true }).write, true);
+});
+
+test('route single-flights the memo read and the record write per instance (gate 11020348)', () => {
+  const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
+  assert.match(route, /if \(!selloffReadFlight\) selloffReadFlight = \(async \(\) => \{/);
+  assert.match(route, /await selloffReadFlight;/);
+  assert.match(route, /if \(write && own && !selloffWriteFlight\) \{\n\s+selloffWriteFlight = true;/);
+  assert.match(route, /finally \{ selloffWriteFlight = false; \}/);
+  assert.equal((route.match(/getSelloffRecordStrict\(/g) || []).length, 1);
 });
