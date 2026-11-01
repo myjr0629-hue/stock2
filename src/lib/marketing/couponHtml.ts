@@ -43,7 +43,7 @@ type Txt = {
   installOnly: string;
   /** 아이폰 «앱 안 브라우저»에서 적용을 눌렀는데 App Store 로 안 넘어갔을 때(2.5초 뒤에도 화면이 그대로)만 보이는 안내 — 2026-10-07 */
   iosStay: string;
-  /** 공개 캠페인(2026-11-01): 이 기기·계정이 이미 무료 쿠폰을 받았을 때(선물·캠페인 합쳐 기기당 1장) */
+  /** 공개 캠페인(2026-11-01): 이 기기 또는 계정이 이미 무료 쿠폰을 받았을 때(선물·캠페인 합쳐 1장) — 계정 기준일 수도 있어 «기기 또는 계정»(관문 11010913 ④) */
   recipient: string;
   /** 공개 캠페인: 마감 뒤 화면 — 마감 전에 받은 사람이 같은 코드를 다시 여는 단추 */
   recover: string;
@@ -82,7 +82,7 @@ const T: Record<PreviewLang, Txt> = {
     err: '잠시 후 다시 시도해 주세요',
     installOnly: '쿠폰 없이 앱만 설치하기',
     iosStay: '앱스토어가 안 열리면: 화면의 ⋯ 또는 나침반 아이콘 → «Safari로 열기»를 눌러 다시 시도해 주세요',
-    recipient: '이 기기는 이미 PRO 무료 쿠폰을 받았습니다 — 쿠폰은 기기당 1장입니다',
+    recipient: '이 기기 또는 계정은 이미 PRO 무료 쿠폰을 받았습니다 — 쿠폰은 한 번만 받을 수 있습니다',
     recover: '이미 받은 쿠폰 다시 보기',
   },
   en: {
@@ -117,7 +117,7 @@ const T: Record<PreviewLang, Txt> = {
     err: 'Something went wrong — please try again',
     installOnly: 'Just install the app (no coupon)',
     iosStay: 'App Store not opening? Tap ⋯ or the compass icon → “Open in Safari”, then try again',
-    recipient: 'This device already received a free PRO coupon — one per device',
+    recipient: 'This device or account already received a free PRO coupon — limit one',
     recover: 'Show the coupon I already got',
   },
   ja: {
@@ -152,7 +152,7 @@ const T: Record<PreviewLang, Txt> = {
     err: 'しばらくしてからもう一度お試しください',
     installOnly: 'クーポンなしでアプリだけ入れる',
     iosStay: 'App Storeが開かない場合: 画面の ⋯ またはコンパスのアイコン →「Safariで開く」でもう一度お試しください',
-    recipient: 'この端末はすでにPRO無料クーポンを受け取っています — 1台につき1枚です',
+    recipient: 'この端末またはアカウントはすでにPRO無料クーポンを受け取っています — 受け取りは1回のみです',
     recover: '受け取ったクーポンをもう一度表示',
   },
 };
@@ -394,6 +394,8 @@ export function campaignResultHtml(opts: {
   /** cap 일 때 다음 배정 시각(ms) — 기기 시간대로 보여 준다. 없으면 줄 생략. */
   resetAt?: number;
   androidInApp?: boolean;
+  /** PC 안내 화면에서 맥 UA iPad 를 iOS 화면으로 다시 보낼 주소(터치 감지). 없으면 스크립트 없음. */
+  ipadUrl?: string;
 }): string {
   const { platform, lang, view } = opts;
   const t = T[lang];
@@ -438,7 +440,8 @@ ${campaignForm(opts.campaign, lang, ios, t.recover, 'recover')}`;
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex"><meta name="theme-color" content="#070b14">
-<title>${esc(title)}</title>
+<title>${esc(title)}</title>${opts.ipadUrl ? `
+<script>if(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent))location.replace(${js(opts.ipadUrl)})</script>` : ''}
 <style>${CSS}</style></head><body><main class="wrap">
 <header class="brand"><img src="/app-icons/signum-72.png" width="28" height="28" alt=""><span>SIGNUM HQ</span></header>
 <section class="ticket" aria-labelledby="ct"${ios ? '' : ' data-platform="android"'}>

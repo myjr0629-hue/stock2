@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   const page = (v: CampaignView, extra: { code?: string; resetAt?: number } = {}) => new NextResponse(
     campaignResultHtml({ platform: os, lang, view: v, campaign: view, installUrl: installUrl(os), androidInApp, ...extra }),
     { headers: { ...giftHeaders, 'content-type': 'text/html; charset=utf-8', vary: 'User-Agent, Cookie' } });
-  const identity = giftIdentity(req);
+  const identity = giftIdentity(req, { cookieOnly: true });
   const withCookie = (res: NextResponse) => identity ? setGiftCookie(res, identity.cookie) : res;
   if (!giftEnabled()) { metric('claim', 'disabled'); return page('off'); }
   // 쿠키 없는 POST 는 배정하지 않는다(응답 유실 뒤 같은 수신자 복원). 새 서명 쿠키를 주고 «다시 시도» 폼을 보인다.
@@ -76,9 +76,9 @@ export async function POST(req: NextRequest) {
       // 다음 배정 시각이 마감 뒤면 «내일 다시»는 사실이 아니다 → 발급 불가 안내.
       return withCookie(next >= campaign.endsAt ? page('off') : page('cap', { resetAt: next }));
     }
-    if (result.status === 'empty' || result.status === 'total') return withCookie(page('empty'));
-    // reserve = 선물 몫만 남음(전체 소진 아님) → «지금은 발급할 수 없습니다»가 사실이다.
-    if (result.status === 'off' || result.status === 'ip' || result.status === 'reserve') return withCookie(page('off'));
+    // empty 는 공유 재고가 실제로 0 일 때만. total(캠페인 몫 끝)·reserve(선물 몫만 남음)는 «소진»이 아니다 → «지금은 발급할 수 없습니다»(관문 11010913 ②).
+    if (result.status === 'empty') return withCookie(page('empty'));
+    if (result.status === 'off' || result.status === 'ip' || result.status === 'reserve' || result.status === 'total') return withCookie(page('off'));
     return withCookie(page('err'));
   } catch { metric('claim', 'error'); return withCookie(page('err')); }
 }

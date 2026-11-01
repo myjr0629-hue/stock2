@@ -60,12 +60,14 @@ export async function campaignLanding(req: NextRequest, campaign: GiftCampaign, 
     return new NextResponse(req.method === 'HEAD' ? null : previewHtml('signum', lang, page, installUrl(os), false, false,
       { title: campaignCardTitle(lang), desc: inviteCardCopy(lang, true).desc }), { headers });
   }
-  const identity = giftIdentity(req);
+  const identity = giftIdentity(req, { cookieOnly: true });
   const sub = campaignSubline(lang, fromTag, campaignUntil(campaign, lang, ' '));
   const view = { id: campaign.id, from: fromTag, sub };
   const masked = '•••• •••• •••• ••••';
   const html = now >= campaign.endsAt
-    ? campaignResultHtml({ platform: os ?? 'ios', lang, view: os ? 'ended' : 'off', campaign: view, installUrl: installUrl(os) })
+    // PC 는 안내만 — 단 맥 UA iPad 는 터치 감지로 iOS 복구 화면에 다시 들어온다(관문 11010913 ③).
+    ? campaignResultHtml({ platform: os ?? 'ios', lang, view: os ? 'ended' : 'off', campaign: view, installUrl: installUrl(os),
+      ...(os ? {} : { ipadUrl: `${page}&gift_os=ios` }) })
     : os ? couponHtml({ platform: os, lang, fromTag, code: masked, campaign: view,
       appleRedeemUrl: installUrl('ios'), playInstallUrl: installUrl('android') })
       : await desktopRedeemHtml({ fromTag, lang, code: masked, redeemUrl: page, coupon: true, androidCoupon: true,

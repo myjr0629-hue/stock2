@@ -170,6 +170,10 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
     }
     const pc = await (await campaignLanding(req('/app?camp=weekend-1101&l=ko', { headers: { ...baseHeaders, 'user-agent': desktop, ...human } }), c, c.endsAt)).text();
     assert.ok(pc.includes('지금은 쿠폰을 발급할 수 없습니다') && !pc.includes('<form'));
+    // 관문 11010913 ③: 맥 UA iPad 는 터치 감지로 iOS 복구 화면에 다시 들어온다.
+    assert.ok(pc.includes('location.replace("https://www.signumhq.com/app?camp=weekend-1101&l=ko&gift_os=ios")'));
+    const ipad = await (await campaignLanding(req('/app?camp=weekend-1101&l=ko&gift_os=ios', { headers: { ...baseHeaders, 'user-agent': desktop, ...human } }), c, c.endsAt)).text();
+    assert.ok(ipad.includes('이미 받은 쿠폰 다시 보기') && ipad.includes('action="/api/gift/campaign?gift_os=ios"'));
     const code = fakeCode('ios'); answer = ['again', code];
     const r = await campaignRoute.POST(post());
     assert.equal(r.status, 303); assert.ok(location(r).endsWith(`code=${code}`));
@@ -206,10 +210,10 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
   });
   await t('결과 안내: recipient·cap(다음 배정 시각)·empty·total·off·ip·저장소 장애 → 사실대로 문구 + 설치 · 코드 없음', async () => {
     const cases: Array<[unknown, string, string]> = [
-      [['recipient'], '이 기기는 이미 PRO 무료 쿠폰을 받았습니다', 'recipient'],
+      [['recipient'], '이 기기 또는 계정은 이미 PRO 무료 쿠폰을 받았습니다', 'recipient'],
       [['cap'], '오늘 몫 쿠폰이 모두 나갔습니다 — 내일 다시 와 주세요', 'cap'],
       [['empty'], '쿠폰이 모두 소진되었습니다', 'empty'],
-      [['total'], '쿠폰이 모두 소진되었습니다', 'total'],
+      [['total'], '지금은 쿠폰을 발급할 수 없습니다', 'total'],
       [['off'], '지금은 쿠폰을 발급할 수 없습니다', 'off'],
       [['ip'], '지금은 쿠폰을 발급할 수 없습니다', 'ip'],
       [['reserve'], '지금은 쿠폰을 발급할 수 없습니다', 'reserve'],
@@ -230,7 +234,7 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
     for (const l of ['en', 'ja']) {
       answer = ['recipient'];
       const html = await (await campaignRoute.POST(post(ios, { camp: 'weekend-1101', from: 'clien', l }))).text();
-      assert.ok(html.includes(l === 'en' ? 'This device already received a free PRO coupon' : 'この端末はすでにPRO無料クーポンを受け取っています'));
+      assert.ok(html.includes(l === 'en' ? 'This device or account already received a free PRO coupon' : 'この端末またはアカウントはすでにPRO無料クーポンを受け取っています'));
     }
   });
   await t('등록 방어: 출처·UA·봇·PC·본문·목록 밖 id → 재고 무호출 설치 303 · 쿠키 없음 → 새 쿠키 + 다시 시도 · 꺼짐 → 발급 불가', async () => {
@@ -254,6 +258,19 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
     assert.ok((await off.text()).includes('지금은 쿠폰을 발급할 수 없습니다'));
     assert.equal(evalCalls, before);
     process.env.GIFT_SHARE_ENABLED = '1';
+  });
+  await t('관문 11010913 ①: 같은 쿠키로 x-gift-device 헤더만 바꿔도 같은 기기(헤더 무시) · 다른 경로의 앱 기기 열쇠 판정은 그대로', async () => {
+    answer = ['new', fakeCode('ios')];
+    const c1 = cookie();
+    const devices = new Set<string>();
+    for (const h of ['', 'A'.repeat(40), 'B'.repeat(40), 'C'.repeat(64)]) {
+      await campaignRoute.POST(post(ios, undefined, { cookie: c1, ...(h ? { 'x-gift-device': h } : {}) }));
+      devices.add(lastEval!.keys.find(k => k.includes(':camp:weekend-1101:device:'))!);
+    }
+    assert.equal(devices.size, 1);
+    const appReq = req('/api/gift/issue', { headers: { ...baseHeaders, cookie: c1, 'x-gift-device': 'A'.repeat(40) } });
+    assert.equal(giftIdentity(appReq).app, true);
+    assert.notEqual(giftIdentity(appReq).device, giftIdentity(appReq, { cookieOnly: true }).device);
   });
   await t('계측 닫힌 목록: 서버 지점 open·redeem·claim 만 camp · 클라이언트 비콘 camp 거부 · 기존 선물 판정 그대로', () => {
     for (const d of ['new', 'again', 'recipient', 'cap', 'empty', 'off', 'total', 'ip', 'reserve', 'error', 'cookie']) assert.ok(validEvent('claim', 'camp', 'ios', d), d);

@@ -20,14 +20,15 @@ export function validGiftPost(req: NextRequest): boolean {
   const site = req.headers.get('sec-fetch-site');
   return !site || site === 'same-origin';
 }
-export function giftIdentity(req: NextRequest) {
+/** cookieOnly: 공개 캠페인(웹 전용)은 앱 기기 열쇠 헤더(x-gift-device)를 받지 않는다 — 같은 쿠키로 헤더만 바꿔 여러 장 받는 경로 차단(관문 11010913 ①). 기본은 예전 그대로. */
+export function giftIdentity(req: NextRequest, opts: { cookieOnly?: boolean } = {}) {
   const secret = giftSecret();
   if (!secret) return null;
   const raw = req.cookies.get(COOKIE)?.value || '';
   const [id, sig] = raw.split('.');
   const valid = /^[A-Za-z0-9_-]{43}$/.test(id || '') && sig === pseudonym('cookie', id, secret);
   const value = valid ? id : newToken();
-  const deviceKey = req.headers.get('x-gift-device') || '';
+  const deviceKey = opts.cookieOnly ? '' : req.headers.get('x-gift-device') || '';
   const app = /^[A-Za-z0-9_-]{32,128}$/.test(deviceKey);
   return { device: pseudonym('device', app ? deviceKey : value, secret), app, validCookie: valid,
     cookie: `${value}.${pseudonym('cookie', value, secret)}` };
