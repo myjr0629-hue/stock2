@@ -14,7 +14,8 @@ import { recordGiftRef } from '@/lib/gift/giftClick';
 import { isInviteFrom } from '@/lib/invite/kinds';
 import { touchFromRequest } from '@/lib/invite/touch';
 import { giftEnabled, installUrl } from '@/lib/giftShare/config';
-import { giftLanding } from '@/lib/giftShare/landing';
+import { campaignLanding, giftLanding } from '@/lib/giftShare/landing';
+import { giftCampaign } from '@/lib/giftShare/campaign';
 import { giftHeaders, giftOs } from '@/lib/giftShare/http';
 
 // /app — device-aware store smart link (single URL for bios, QR codes, and post CTAs).
@@ -145,6 +146,22 @@ export async function GET(request: NextRequest) {
       scheduleInviteTouch(request, fromTag, humanField, giftOs(request) ?? 'desktop');
     }
     try { return await giftLanding(request); }
+    catch { return NextResponse.redirect(installUrl(giftOs(request)), { status: 302, headers: giftHeaders }); }
+  }
+  // ★2026-11-01 공개 캠페인 링크(?camp=<닫힌 목록 id>) — 링크 하나로 방문 기기마다 개인 일회용 코드 1장(lib/giftShare/campaign.ts).
+  //   목록에 없는 id·선물 토큰이 함께 온 요청·플래그 꺼짐은 아래 기존 /app 그대로. GET 은 재고를 배정하지 않는다.
+  const campaign = giftEnabled() ? giftCampaign(request.nextUrl.searchParams.get('camp')) : null;
+  if (campaign) {
+    const ua = request.headers.get('user-agent') || '';
+    if (!isPreviewBot(ua)) {
+      // 채널별 클릭은 기존 집계(clk:sg 사람 판정·mkt:attr:hit)에 그대로 센다 — 캠페인 링크도 같은 채널 표에 잡히게.
+      const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
+      const fields = clickFields(request.headers, request.method, refBucketFor(request));
+      after(() => recordClick('sg', fromTag, fields));
+      const platform: HitPlatform = giftOs(request) ?? 'desktop';
+      after(() => recordHit(fromTag, platform));
+    }
+    try { return await campaignLanding(request, campaign); }
     catch { return NextResponse.redirect(installUrl(giftOs(request)), { status: 302, headers: giftHeaders }); }
   }
   const ua = request.headers.get('user-agent') || '';

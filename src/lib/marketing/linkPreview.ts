@@ -204,8 +204,10 @@ export function previewHtml(
   promo = false,
   /** ★2026-10-14 친구 초대·선물 링크면 {android: 안드로이드 쿠폰이 켜져 있나} — 전용 카드(inviteCardCopy·/api/og/invite). false = 예전 카드 그대로 */
   invite: false | { android: boolean } = false,
+  /** ★2026-11-01 공개 캠페인 링크 카드 — 제목·설명을 직접 준다(이미지는 기본 앱 카드). 없으면 예전 카드 그대로. */
+  copy?: Copy,
 ): string {
-  const usePromo = promo && app === 'signum';
+  const usePromo = !copy && promo && app === 'signum';
   const useInvite = usePromo && invite !== false;
   let code: string | null = null;
   if (usePromo && !useInvite) {
@@ -215,7 +217,7 @@ export function previewHtml(
       // 상대·비정상 canonical은 기존 코드 없는 프로모션 카드로 처리한다.
     }
   }
-  const c = useInvite ? inviteCardCopy(lang, (invite as { android: boolean }).android)
+  const c = copy ? copy : useInvite ? inviteCardCopy(lang, (invite as { android: boolean }).android)
     : usePromo ? promoCopy(lang, code) : COPY[app][lang];
   const img = IMAGE[app];
   const wide = useInvite ? INVITE_IMAGE(lang, (invite as { android: boolean }).android) : usePromo ? promoImageUrl(lang, code) : img.wide?.(lang);

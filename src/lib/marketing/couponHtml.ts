@@ -43,6 +43,8 @@ type Txt = {
   installOnly: string;
   /** 아이폰 «앱 안 브라우저»에서 적용을 눌렀는데 App Store 로 안 넘어갔을 때(2.5초 뒤에도 화면이 그대로)만 보이는 안내 — 2026-10-07 */
   iosStay: string;
+  /** 공개 캠페인(2026-11-01): 이 기기·계정이 이미 무료 쿠폰을 받았을 때(선물·캠페인 합쳐 기기당 1장) */
+  recipient: string;
 };
 
 const T: Record<PreviewLang, Txt> = {
@@ -78,6 +80,7 @@ const T: Record<PreviewLang, Txt> = {
     err: '잠시 후 다시 시도해 주세요',
     installOnly: '쿠폰 없이 앱만 설치하기',
     iosStay: '앱스토어가 안 열리면: 화면의 ⋯ 또는 나침반 아이콘 → «Safari로 열기»를 눌러 다시 시도해 주세요',
+    recipient: '이 기기는 이미 PRO 무료 쿠폰을 받았습니다 — 쿠폰은 기기당 1장입니다',
   },
   en: {
     titleIos: '🎟 SIGNUM HQ PRO 1-month free coupon',
@@ -111,6 +114,7 @@ const T: Record<PreviewLang, Txt> = {
     err: 'Something went wrong — please try again',
     installOnly: 'Just install the app (no coupon)',
     iosStay: 'App Store not opening? Tap ⋯ or the compass icon → “Open in Safari”, then try again',
+    recipient: 'This device already received a free PRO coupon — one per device',
   },
   ja: {
     titleIos: '🎟 SIGNUM HQ PRO 1か月無料クーポン',
@@ -144,6 +148,7 @@ const T: Record<PreviewLang, Txt> = {
     err: 'しばらくしてからもう一度お試しください',
     installOnly: 'クーポンなしでアプリだけ入れる',
     iosStay: 'App Storeが開かない場合: 画面の ⋯ またはコンパスのアイコン →「Safariで開く」でもう一度お試しください',
+    recipient: 'この端末はすでにPRO無料クーポンを受け取っています — 1台につき1枚です',
   },
 };
 
@@ -238,6 +243,8 @@ export function couponHtml(opts: {
   ref?: string | null;
   /** 선물 전용: 기존 단추 모양·문구를 유지하고 서버 폼으로 등록한다. */
   gift?: string;
+  /** 공개 캠페인 전용(2026-11-01): 선물과 같은 서버 폼이되 /api/gift/campaign 으로 캠페인 id·채널·언어를 보낸다. sub = 부제 한 줄. 없으면 출력 그대로. */
+  campaign?: { id: string; from: string | null; sub: string };
 }): string {
   const { platform, lang, fromTag, code } = opts;
   const ref = opts.ref || null;
@@ -247,13 +254,15 @@ export function couponHtml(opts: {
   const iosIa = ios && opts.iosInApp === true;
   const iosHint = iosIa && opts.iosStayHint === true;
   const title = ios ? t.titleIos : t.titleAnd;
-  const sub = opts.gift ? audienceLine(fromTag, code, lang) || '' : couponSubline(platform, lang, fromTag, code);
+  const sub = opts.campaign ? opts.campaign.sub : opts.gift ? audienceLine(fromTag, code, lang) || '' : couponSubline(platform, lang, fromTag, code);
   // 375px 영어 화면: 늘어난 숫자만 자간을 맞춰 기존 부제 한 줄을 유지한다.
   const subHtml = ios && lang === 'en' && promoCodeLimit(code) !== APPLE_CODE_LIMIT
     ? esc(sub).replace(/(First )([\d,]+)/, '$1<span style="letter-spacing:-1.5px;white-space:nowrap">$2</span>')
     : esc(sub);
   const image = ios ? promoImageUrl(lang, code) : `https://www.signumhq.com/promo/redeem-card-${lang}.png`;
-  const giftForm = (label: string, id: string) => `<form method="post" action="/api/gift/claim${ios ? '?gift_os=ios' : ''}" style="margin:0"><input type="hidden" name="gift" value="${esc(opts.gift || '')}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
+  const giftForm = (label: string, id: string) => opts.campaign ? campaignForm(opts.campaign, lang, ios, label, id)
+    : `<form method="post" action="/api/gift/claim${ios ? '?gift_os=ios' : ''}" style="margin:0"><input type="hidden" name="gift" value="${esc(opts.gift || '')}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
+  const serverForm = !!(opts.gift || opts.campaign);
   const free = ios ? t.freeIos : t.freeAnd;
   const head = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -272,7 +281,7 @@ export function couponHtml(opts: {
     return `${head}
 <p class="t-label">${esc(t.codeLabel)}</p>
 <div class="row"><p class="t-code" id="code">${esc(code)}</p></div>
-${opts.gift ? giftForm(t.iosCta, 'go') : `<a class="cta" id="go" href="${esc(opts.appleRedeemUrl)}">${esc(t.iosCta)}</a>`}
+${serverForm ? giftForm(t.iosCta, 'go') : `<a class="cta" id="go" href="${esc(opts.appleRedeemUrl)}">${esc(t.iosCta)}</a>`}
 <p class="help">${phrases(lang, t.iosHelp)}</p>${iosHint ? `
 <p class="help" id="stay" style="font-weight:800;color:#1c1405" hidden>${phrases(lang, t.iosStay)}</p>` : ''}
 <p class="free">${phrases(lang, free)}</p>
@@ -304,14 +313,14 @@ ${iosIa
 <div class="row"><p class="t-code mask" aria-hidden="true">•••• •••• •••• ••••</p></div>
 <p class="help">${phrases(lang, t.andPre)}</p>
 <button class="cta" id="claim" type="button">${esc(t.andCta)}</button>
-</div>${opts.gift ? `\n${step2}` : ''}
+</div>${serverForm ? `\n${step2}` : ''}
 <div id="got" hidden>
 <p class="t-label">${esc(t.myCode)}</p>
 <p class="t-code long" id="code"></p>
 <div class="tools"><button class="copy" id="copy" type="button">${esc(t.copy)}</button></div>
 <a class="cta" id="play" href="https://play.google.com/redeem">${esc(t.andApply)}</a>${ia ? `
 <a class="cta2" id="playw" href="https://play.google.com/redeem">${esc(iaT.alt)}</a>` : ''}
-${opts.gift ? '' : step2}
+${serverForm ? '' : step2}
 <p class="help">${phrases(lang, t.andManual)}</p>${ia ? `
 <p class="help">${inAppHintHtml(lang)}</p>` : ''}
 <p class="note" id="again" hidden>${esc(t.again)}</p>
@@ -349,5 +358,95 @@ $('inst').addEventListener('click',function(){sgBeacon('install')});
 if($('playw'))$('playw').addEventListener('click',function(){sgBeacon('play_web')});
 if($('instw'))$('instw').addEventListener('click',function(){sgBeacon('install_web')});
 })();</script></body></html>`;
-  return opts.gift ? html.replace(`<button class="cta" id="claim" type="button">${esc(t.andCta)}</button>`, giftForm(t.andCta, 'claim')).replace(/<script>[\s\S]*?<\/script>/g, '') : html;
+  return serverForm ? html.replace(`<button class="cta" id="claim" type="button">${esc(t.andCta)}</button>`, giftForm(t.andCta, 'claim')).replace(/<script>[\s\S]*?<\/script>/g, '') : html;
+}
+
+// ── 공개 캠페인(2026-11-01) — /app?camp=<id> · 결과 화면 ──────────────────────
+/** 캠페인 등록 폼 — 선물 폼과 같은 모양(단추 문구·CSS 그대로), 보내는 곳과 숨은 값만 다르다. */
+function campaignForm(c: { id: string; from: string | null }, lang: PreviewLang, ios: boolean, label: string, id: string): string {
+  return `<form method="post" action="/api/gift/campaign${ios ? '?gift_os=ios' : ''}" style="margin:0"><input type="hidden" name="camp" value="${esc(c.id)}"><input type="hidden" name="from" value="${esc(c.from || '')}"><input type="hidden" name="l" value="${lang}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
+}
+
+export type CampaignView = 'code' | 'again' | 'recipient' | 'cap' | 'empty' | 'off' | 'err';
+
+/** 링크 카드(미리보기 봇) 제목 — 쿠폰 화면 제목에서 🎟 만 뺀 것(«SIGNUM HQ PRO 1개월 무료 쿠폰»). */
+export const campaignCardTitle = (lang: PreviewLang) => T[lang].titleIos.replace(/^🎟\s*/, '');
+
+/**
+ * 캠페인 등록 결과 — 서버 문자열 한 장(no-store). 아이폰 성공은 라우트가 애플 등록 주소로 바로 303 이라 여기에 오지 않는다.
+ *  · code/again(안드로이드): 내 쿠폰 번호 + 복사 + «① Play 스토어에서 코드 등록» + ② 구독 안내(기존 문구 그대로)
+ *  · recipient: 이미 받은 기기 · cap: 오늘 몫 끝(다음 배정 시각은 방문자 기기 시간대로) · empty: 모두 소진 · off: 지금 발급 불가(마감·꺼짐)
+ *  · err: 다시 시도(같은 폼)
+ * 모든 안내 화면은 «쿠폰 없이 앱만 설치하기»를 함께 준다. 남은 수·타이머·가짜 희소성 없음.
+ */
+export function campaignResultHtml(opts: {
+  platform: 'ios' | 'android';
+  lang: PreviewLang;
+  view: CampaignView;
+  campaign: { id: string; from: string | null; sub: string };
+  installUrl: string;
+  code?: string;
+  /** cap 일 때 다음 배정 시각(ms) — 기기 시간대로 보여 준다. 없으면 줄 생략. */
+  resetAt?: number;
+  androidInApp?: boolean;
+}): string {
+  const { platform, lang, view } = opts;
+  const t = T[lang];
+  const ios = platform === 'ios';
+  const title = ios ? t.titleIos : t.titleAnd;
+  const free = ios ? t.freeIos : t.freeAnd;
+  const showCode = !ios && (view === 'code' || view === 'again') && !!opts.code && /^[A-Z0-9]{23}$/.test(opts.code);
+  const ia = opts.androidInApp === true;
+  const iaT = IN_APP_TEXT[lang];
+  const message = (main: string, small?: string, extraSmall = '') =>
+    `<div class="msg" id="msg" role="status">${esc(main)}${small ? `<small>${esc(small)}</small>` : ''}${extraSmall}</div>`;
+  let body: string;
+  if (showCode) {
+    const code = opts.code!;
+    const web = `https://play.google.com/redeem?code=${encodeURIComponent(code)}`;
+    body = `<p class="t-label">${esc(t.myCode)}</p>
+<p class="t-code long" id="code">${esc(code)}</p>
+<div class="tools"><button class="copy" id="copy" type="button">${esc(t.copy)}</button></div>
+<a class="cta" id="play" href="${esc(ia ? playRedeemIntentUrl(code) : web)}">${esc(t.andApply)}</a>${ia ? `
+<a class="cta2" id="playw" href="${esc(web)}">${esc(iaT.alt)}</a>` : ''}
+<p class="step2" id="coupon-warning">${phrases(lang, COUPON_SAFETY[lang])}</p>
+<p class="step2" id="step2">${phrases(lang, t.andStep2)}</p>
+<p class="help">${phrases(lang, t.andStep2Help)}</p>
+<p class="help">${phrases(lang, t.andManual)}</p>${ia ? `
+<p class="help">${inAppHintHtml(lang)}</p>` : ''}${view === 'again' ? `
+<p class="note" id="again">${esc(t.again)}</p>` : ''}`;
+  } else if (view === 'recipient') body = message(t.recipient);
+  else if (view === 'cap') body = message(t.cap, undefined, opts.resetAt ? `<small id="next" data-at="${Math.floor(opts.resetAt)}" hidden></small>` : '');
+  else if (view === 'empty') body = message(t.empty, t.emptySub);
+  else if (view === 'err') body = `${message(t.err)}
+${campaignForm(opts.campaign, lang, ios, ios ? t.iosCta : t.andCta, 'retry')}`;
+  else body = message(t.off);
+  const install = `<p class="alt"><a id="inst" href="${esc(!ios && ia ? playIntentUrl(opts.installUrl) : opts.installUrl)}">${esc(t.installOnly)}</a>${!ios && ia ? ` · <a id="instw" href="${esc(opts.installUrl)}">${esc(iaT.alt)}</a>` : ''}</p>`;
+  const script = showCode
+    ? `<script>(function(){var b=document.getElementById('copy'),v=document.getElementById('code').textContent;b.addEventListener('click',function(){var done=function(){b.textContent=${js(t.copied)};setTimeout(function(){b.textContent=${js(t.copy)}},1600)};try{if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(v).then(done,fb);return}}catch(e){}fb();function fb(){try{var a=document.createElement('textarea');a.value=v;a.setAttribute('readonly','');a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();a.setSelectionRange(0,99);document.execCommand('copy');document.body.removeChild(a);done()}catch(e){}}})})();</script>`
+    : view === 'cap' && opts.resetAt
+      ? `<script>(function(){var n=document.getElementById('next');if(!n)return;try{n.textContent=${js(t.next)}+' · '+new Date(Number(n.getAttribute('data-at'))).toLocaleString(${js(lang === 'ko' ? 'ko-KR' : lang === 'ja' ? 'ja-JP' : 'en-US')},{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});n.hidden=false}catch(e){}})();</script>`
+      : '';
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex"><meta name="theme-color" content="#070b14">
+<title>${esc(title)}</title>
+<style>${CSS}</style></head><body><main class="wrap">
+<header class="brand"><img src="/app-icons/signum-72.png" width="28" height="28" alt=""><span>SIGNUM HQ</span></header>
+<section class="ticket" aria-labelledby="ct"${ios ? '' : ' data-platform="android"'}>
+<h1 class="t-title" id="ct">${titleHtml(title)}</h1>
+<p class="t-sub">${esc(opts.campaign.sub)}</p>
+<div class="perf" aria-hidden="true"></div>
+${body}
+<p class="free">${phrases(lang, free)}</p>
+</section>
+<p class="what">${phrases(lang, t.what)}</p>
+<p class="fine">${phrases(lang, ios ? t.eligIos : t.eligAnd)}</p>
+${install}
+</main>${script}</body></html>`;
+}
+
+/** 캠페인 부제 — «{채널} 독자 전용 · {마감}까지»(채널을 모르면 마감만). 선착순·남은 수 없음. */
+export function campaignSubline(lang: PreviewLang, fromTag: string | null, until: string): string {
+  return [audienceLine(fromTag, '', lang), T[lang].until(until)].filter(Boolean).join(' · ');
 }

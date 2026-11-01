@@ -1,12 +1,15 @@
 // 공유 가능한 닫힌 목록. 일별 KST 정수 카운터만 저장하며 식별자는 받지 않는다.
-const SURFACES = ['gift_set', 'gift_dash', 'gift_pop', 'sh_pick', 'sh_line', 'sh_earn', 'ticker', 'rank', 'all'];
+// camp = 공개 캠페인 링크(서버 지점 open·redeem·claim 전용 — 클라이언트 비콘은 받지 않는다, 2026-11-01).
+const SURFACES = ['gift_set', 'gift_dash', 'gift_pop', 'sh_pick', 'sh_line', 'sh_earn', 'ticker', 'rank', 'all', 'camp'];
 const PLATFORMS = ['ios', 'android', 'web', 'desktop'];
 const KINDS = ['attached', 'legacy', 'general', 'content'];
 const GATES = ['config_pending', 'config_error', 'off', 'unavailable', 'clock', 'device', 'random', 'local_cap', 'ledger', 'reserve_rejected', 'reserve_error', 'not_ready', 'platform', 'consumed', 'stale', 'hold', 'reservation', 'device_changed', 'pending', 'storage', 'cfg_missing', 'busy'];
 const CLIENT_STAGES = ['visible', 'tap', 'payload', 'sheet', 'copy', 'cancel', 'failed', 'gate'];
-const CLAIMS = ['new', 'again', 'expired', 'taken', 'recipient', 'cap', 'empty', 'invalid', 'error', 'disabled', 'os', 'origin', 'cookie', 'body', 'store'];
+// off·total·ip 는 캠페인 배정 결과(스위치 꺼짐·마감 / 전체 상한 / IP 하루 상한).
+const CLAIMS = ['new', 'again', 'expired', 'taken', 'recipient', 'cap', 'empty', 'invalid', 'error', 'disabled', 'os', 'origin', 'cookie', 'body', 'store', 'off', 'total', 'ip'];
 function validEvent(stage, surface, platform, detail) {
   if (!SURFACES.includes(surface) || !PLATFORMS.includes(platform)) return false;
+  if (surface === 'camp') return ['open', 'redeem', 'claim'].includes(stage) && (stage === 'claim' ? CLAIMS.includes(detail) : detail === 'all') && platform !== 'web';
   if (stage === 'issue') return surface === 'all' && ['ios', 'android', 'web'].includes(platform) && detail === 'new';
   if (stage === 'visible' || stage === 'tap' || stage === 'open' || stage === 'redeem') return detail === 'all';
   if (['payload', 'sheet', 'copy', 'cancel', 'failed'].includes(stage)) return KINDS.includes(detail);
@@ -17,7 +20,7 @@ const kstDay = (ms = Date.now()) => new Date(ms + 9 * 3600000).toISOString().sli
 const funnelKey = (day, production) => `${production ? 'promo:gift:v1' : 'promo:pv:gift:v1'}:funnel:${day}`;
 const field = (stage, surface, platform, detail) => `${stage}|${surface}|${platform}|${detail}`;
 function validClientEvent(stage, surface, platform, detail) {
-  return CLIENT_STAGES.includes(stage) && surface !== 'all' && platform !== 'desktop' &&
+  return CLIENT_STAGES.includes(stage) && surface !== 'all' && surface !== 'camp' && platform !== 'desktop' &&
     (stage !== 'visible' || surface.startsWith('gift_')) && validEvent(stage, surface, platform, detail);
 }
 // 인스턴스 메모리에 모은 «묶음» 하나를 EVAL 1회로 반영한다(요청마다 호출하지 않는다).

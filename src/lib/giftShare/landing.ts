@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse, after } from 'next/server';
-import { couponHtml } from '@/lib/marketing/couponHtml';
+import { campaignCardTitle, campaignResultHtml, campaignSubline, couponHtml } from '@/lib/marketing/couponHtml';
 import { desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
 import { classifyClick, isPreviewBot, UA_BOT_RE } from '@/lib/marketing/clickHuman';
-import { previewHtml, previewResponseInit, visitorLang } from '@/lib/marketing/linkPreview';
+import { inviteCardCopy, previewHtml, previewResponseInit, visitorLang } from '@/lib/marketing/linkPreview';
 import { normalizeFrom } from '@/lib/marketing/storeRedirect';
 import { normalizeGiftRef } from '@/lib/gift/gift';
+import { isInviteFrom } from '@/lib/invite/kinds';
+import { campaignUntil, type GiftCampaign } from './campaign';
 import { giftFunnelTask } from './funnelServer';
 import { giftToken, installUrl } from './config';
 import { giftHeaders, giftIdentity, giftOs, setGiftCookie } from './http';
@@ -34,6 +36,42 @@ export async function giftLanding(req: NextRequest): Promise<NextResponse> {
       coupon: true, androidCoupon: true });
   if (classifyClick(req.headers, req.method) === 'human') {
     const task = giftFunnelTask(req, 'open', 'all', os ?? 'desktop');
+    if (task) after(task);
+  }
+  const res = new NextResponse(req.method === 'HEAD' ? null : html, { headers });
+  return identity ? setGiftCookie(res, identity.cookie) : res;
+}
+
+/**
+ * 공개 캠페인 링크 /app?camp=<id>&from=<채널>&l=<언어> (2026-11-01). GET·HEAD 는 재고를 배정하지 않는다(Redis 0).
+ * 폰: 선물과 같은 쿠폰 화면(번호 가림) + 등록 폼(/api/gift/campaign) · PC: 같은 링크의 QR · 미리보기 봇: 카드만.
+ * 마감 뒤에는 폼 없이 «지금은 쿠폰을 발급할 수 없습니다» 안내 + 앱 설치.
+ */
+export async function campaignLanding(req: NextRequest, campaign: GiftCampaign, now = Date.now()): Promise<NextResponse> {
+  const os = giftOs(req);
+  const headers = { ...previewResponseInit().headers, ...giftHeaders, vary: 'User-Agent, Cookie' };
+  const rawFrom = normalizeFrom(req.nextUrl.searchParams.get('from'));
+  // 초대·선물 태그(gift·share_*)를 붙여도 «친구가 보낸 선물»로 보이지 않게 한다 — 캠페인은 채널 이름만.
+  const fromTag = rawFrom && !isInviteFrom(rawFrom) ? rawFrom : null;
+  const lang = visitorLang(fromTag, req.nextUrl.searchParams.get('l'), req.headers.get('accept-language'));
+  const ua = req.headers.get('user-agent') || '';
+  const page = `https://www.signumhq.com/app?camp=${encodeURIComponent(campaign.id)}${fromTag ? `&from=${encodeURIComponent(fromTag)}` : ''}&l=${lang}`;
+  if (isPreviewBot(ua) || UA_BOT_RE.test(ua)) {
+    return new NextResponse(req.method === 'HEAD' ? null : previewHtml('signum', lang, page, installUrl(os), false, false,
+      { title: campaignCardTitle(lang), desc: inviteCardCopy(lang, true).desc }), { headers });
+  }
+  const identity = giftIdentity(req);
+  const sub = campaignSubline(lang, fromTag, campaignUntil(campaign, lang, ' '));
+  const view = { id: campaign.id, from: fromTag, sub };
+  const masked = '•••• •••• •••• ••••';
+  const html = now >= campaign.endsAt
+    ? campaignResultHtml({ platform: os ?? 'ios', lang, view: 'off', campaign: view, installUrl: installUrl(os) })
+    : os ? couponHtml({ platform: os, lang, fromTag, code: masked, campaign: view,
+      appleRedeemUrl: installUrl('ios'), playInstallUrl: installUrl('android') })
+      : await desktopRedeemHtml({ fromTag, lang, code: masked, redeemUrl: page, coupon: true, androidCoupon: true,
+        campaign: { scanUrl: `${page}&via=qr`, ipadUrl: `${page}&gift_os=ios`, sub } });
+  if (classifyClick(req.headers, req.method) === 'human') {
+    const task = giftFunnelTask(req, 'open', 'camp', os ?? 'desktop');
     if (task) after(task);
   }
   const res = new NextResponse(req.method === 'HEAD' ? null : html, { headers });

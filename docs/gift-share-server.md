@@ -76,3 +76,24 @@ node scripts/gift-load-codes.mjs --os ios --file /비공개/코드목록.txt --m
 - 적재 도구의 OS별 정상 드라이런·대상 누락 적용 거부·중복 거부·만료 거부 총 8개도 통과했다. 비공개 임시 디렉터리의 합성 자료만 사용하고 삭제했으며, 외부 네트워크를 차단했다. 적재 스크립트·Lua 시험 파일 구문 검사와 `git diff --check`도 통과했다.
 - 실제 Redis 실행 파일이 없는 환경에서는 실제 Redis 묶음이 skip 되고, 원자성·상한·멱등은 Lua 원문 해석 모의(직렬 EVAL)와 비원자 대조군으로 검증한다. 운영 반영 전 redis-server 가 있는 환경에서 한 번 더 돌리면 실제 Lua 런타임까지 확인된다.
 - 브라우저·스토어 콘솔·운영 Redis·모델 호출·배포·push·커밋은 수행하지 않았다. `.env*` 파일은 읽지 않았다. 실기 스토어 이동·상품 자격·재고 분리·호스팅 로그 마스킹은 미확인이다.
+
+## 공개 캠페인 링크(2026-11-01, `feat/gift-campaign`)
+
+«링크 하나로 누구나 PRO 1개월 무료 코드를 1장씩». 게시물에 코드 번호를 나열하지 않고 링크만 뿌린다. 선물 수신 흐름(쿠폰 화면·서명 쿠키·같은 출처 폼·재고)을 그대로 쓴다.
+
+- 링크: `https://www.signumhq.com/app?camp=<id>&from=<채널 태그>&l=<ko|en|ja>` — 예 `…/app?camp=weekend-1101&from=clien&l=ko`. `GIFT_SHARE_ENABLED=1` 이고 id 가 닫힌 목록(`src/lib/giftShare/campaigns.cjs`)에 있을 때만 동작. 목록 밖 id·플래그 꺼짐·`gift=` 동반은 기존 `/app` 그대로(origin/main 대비 동일 시험).
+- GET/HEAD: 재고 호출 0. 폰은 쿠폰 화면(번호 가림, 부제 «{채널} 독자/회원 전용 · {마감}까지») + 등록 폼 `POST /api/gift/campaign`(camp·from·l). PC 는 같은 링크 QR(`via=qr`)·맥 UA iPad 는 `gift_os=ios` 이동. 미리보기 봇은 카드만(«SIGNUM HQ PRO 1개월 무료 쿠폰» + 양 OS 사실 문장). 초대·선물 태그(`gift`·`share_*`)는 채널 이름으로 쓰지 않는다. 마감 뒤는 폼 없는 «지금은 쿠폰을 발급할 수 없습니다».
+- 등록(POST): 방어는 선물 등록과 같다(사람 브라우저 UA·같은 출처 Origin·Fetch Metadata·서버 서명 쿠키 필수·폼 본문 2KB). 한 Lua(`CAMPAIGN_LUA`) 안에서 순서대로: 같은 기기·계정·OS 의 기존 배정 복구(again) → 선물·캠페인 수신 표지(기기·계정 400일 1장, 합쳐 1장) → 스위치·마감 → 캠페인 전체 상한 → 유효 재고(선물 몫 `reserve` 이하이면 중단) → 하루(KST) 상한 → IP 하루 상한 → 배정. 검사가 끝난 뒤에만 쓴다.
+- 결과: iOS new/again = 애플 등록 주소 303(원탭) · 안드 new/again = «내 쿠폰 번호» 화면(복사·① Play 등록·② 구독 안내, 앱 안 브라우저는 intent) · recipient = «이 기기는 이미 PRO 무료 쿠폰을 받았습니다 — 쿠폰은 기기당 1장» · cap = «오늘 몫 쿠폰이 모두 나갔습니다 — 내일 다시»(+ 다음 배정 시각, 마감 직전이면 발급 불가) · empty/total = «쿠폰이 모두 소진되었습니다» · off/ip = «지금은 쿠폰을 발급할 수 없습니다» · 오류 = «잠시 후 다시» + 같은 폼. 모두 «쿠폰 없이 앱만 설치하기» 동반. 남은 수·타이머·선착순 표기 없음. 새 라벨은 recipient 1줄(3언어)뿐, 나머지는 기존 쿠폰 화면 문구.
+- 이미 PRO: 웹에서는 구독 여부를 알 수 없다(익명). 기존 자격 고지(«신규·구독 만료 회원 대상»)와 스토어의 자격 검사에 맡긴다.
+- 재고: 선물과 같은 `promo:gift:v1:pool:<os>:<묶음>` 을 같은 LPOP 으로 꺼낸다. EVAL 직렬이라 선물·캠페인 이중 배정 0(시험: 선물 15 + 캠페인 25 동시, 재고 30 → 30장 모두 다름). 캠페인은 `reserve` 장을 선물 몫으로 남긴다. 장부 `promo:gift:v1:ledger` 필드 `camp:<id>:<기기 가명>` = `{at, os, campaign, last4}`.
+- 키(`<접두>:camp:<id>:…`): `on`(스위치) · `day:<KST날짜>:<os>`(2일) · `total:<os>`(400일) · `ip:<KST날짜>:<IP 가명>`(2일) · `from:<KST날짜>`(해시 `<채널>|<os>` → 새 배정 수, 40일 — 필드 수는 새 배정 수 이하) · `device:<가명>`·`account:<가명>`(배정 기록, 400일).
+- 계측: 퍼널 `promo:gift:v1:funnel:<날짜>` 의 서버 지점만 `open|camp|<기기>|all`·`redeem|camp|…|all`·`claim|camp|…|<결과>`(닫힌 목록, 클라이언트 비콘은 camp 거부). 채널별 클릭은 기존 `clk:sg:<from>`·`mkt:attr:hit:<from>` 에 그대로, 채널별 배정은 위 `from:<날짜>` 해시.
+
+### weekend-1101 켜기 절차(코디네이터, 장외 반영·배포 뒤)
+
+1. 정의 확인(외부 접근 0): `node scripts/gift-campaign.mjs --id weekend-1101` → 하루 iOS 40·안드 20 · 전체 iOS 600·안드 300 · 선물 몫 iOS 20·안드 10 · IP 하루 5 · 마감 2026-11-30T15:00Z(11/30 KST 끝).
+2. 재고 확인(읽기 전용): `node scripts/gift-campaign.mjs --id weekend-1101 --status --target production` — 유효 재고(선물과 공유)가 선물 몫보다 넉넉한지. 모자라면 `scripts/gift-load-codes.mjs` 로 전용 묶음을 먼저 적재(원장 `alloc-onetime.py` 에 gift_* 로 표기 — 게시 배포와 이중 배정 금지).
+3. 켜기: `node scripts/gift-campaign.mjs --id weekend-1101 --on --apply --target production`(스위치 키 = "1", 마감 하루 뒤 자동 만료). 끄기는 `--off --apply`(새 배정 0, 이미 받은 코드 복구는 계속).
+4. 실측: 아이폰 UA 로 `https://www.signumhq.com/app?camp=weekend-1101&from=test&l=ko` → 쿠폰 화면 → 등록 → 303 apps.apple.com/redeem(18자) · 재탭 같은 코드 · 다른 기기 새 코드 · 안드 UA → 번호 화면(23자). 시험 배정은 원장에 gift_test_claimed 로 표기. `--status` 로 오늘 배정·채널별 배정 확인.
+5. 게시물에는 링크만(코드 번호 나열 금지). 채널마다 `from=` 을 바꿔 붙이면 `--status` 의 채널별 배정으로 효과를 잰다.

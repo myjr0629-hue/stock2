@@ -101,3 +101,66 @@ for i=1,2 do
 end
 return 1
 `;
+
+// 공개 캠페인 배정(src/lib/giftShare/campaign.ts). 선물 CLAIM_LUA 와 같은 재고 풀을 같은 LPOP 으로 꺼낸다 — EVAL 단위 직렬이라 이중 배정 없음.
+// KEYS: 1 스위치 · 2 batches:<os> · 3 캠페인 하루 셈 · 4 캠페인 전체 셈 · 5 IP 하루 셈 · 6 선물 장부(ledger) · 7 채널(from) 하루 해시
+//       8 캠페인 기기 배정 · 9 수신 기기 표지 · [10 캠페인 계정 배정 · 11 수신 계정 표지]
+// ARGV: 1 now · 2 os · 3 마감 · 4 하루 상한 · 5 전체 상한 · 6 IP 상한 · 7 선물 몫(reserve) · 8 접두 · 9 from · 10 장부 필드 · 11 캠페인 id
+// 순서: 기존 배정 복구 → 수신 이력 → 스위치·마감 → 전체 상한 → 재고(선물 몫 이하면 중단) → 하루 상한 → IP 상한. 검사가 전부 끝난 뒤에만 쓴다.
+exports.CAMPAIGN_LUA = `
+local now = tonumber(ARGV[1])
+local os = ARGV[2]
+for i=8,#KEYS,2 do
+  local raw = redis.call('GET',KEYS[i])
+  if raw then
+    local c = cjson.decode(raw)
+    if c.os ~= os or c.exp <= now then return {'recipient'} end
+    return {'again',c.code}
+  end
+end
+for i=9,#KEYS,2 do if redis.call('EXISTS',KEYS[i]) == 1 then return {'recipient'} end end
+if redis.call('GET',KEYS[1]) ~= '1' or now >= tonumber(ARGV[3]) then return {'off'} end
+local day = tonumber(redis.call('GET',KEYS[3]) or '0')
+local total = tonumber(redis.call('GET',KEYS[4]) or '0')
+local ip = tonumber(redis.call('GET',KEYS[5]) or '0')
+if not day or not total or not ip or day < 0 or total < 0 or ip < 0 or day ~= math.floor(day) or total ~= math.floor(total) or ip ~= math.floor(ip) then return {'invalid'} end
+if total >= tonumber(ARGV[5]) then return {'total'} end
+local ledgerType = redis.call('TYPE',KEYS[6]).ok
+if ledgerType ~= 'none' and ledgerType ~= 'hash' then return {'invalid'} end
+local fromType = redis.call('TYPE',KEYS[7]).ok
+if fromType ~= 'none' and fromType ~= 'hash' then return {'invalid'} end
+local remaining = 0
+local pick = false
+local pickExp = 0
+local batches = redis.call('ZRANGEBYSCORE',KEYS[2],now+1,'+inf')
+for _,batch in ipairs(batches) do
+  local metaRaw = redis.call('GET',ARGV[8]..':batch:'..batch)
+  if metaRaw then
+    local m = cjson.decode(metaRaw)
+    if m.os == os and m.expiresAt > now then
+      local pool = ARGV[8]..':pool:'..os..':'..batch
+      local n = redis.call('LLEN',pool)
+      if n > 0 then
+        remaining = remaining + n
+        if not pick then pick = pool; pickExp = m.expiresAt end
+      end
+    end
+  end
+end
+if not pick or remaining <= tonumber(ARGV[7]) then return {'empty'} end
+if day >= tonumber(ARGV[4]) then return {'cap'} end
+if ip >= tonumber(ARGV[6]) then return {'ip'} end
+local code = redis.call('LINDEX',pick,0)
+local valid = (os=='ios' and #code==18) or (os=='android' and #code==23)
+if not valid or string.find(code,'[^A-Z0-9]') then return {'invalid'} end
+redis.call('LPOP',pick)
+local rec = cjson.encode({code=code,os=os,exp=pickExp,at=now})
+for i=8,#KEYS,2 do redis.call('SET',KEYS[i],rec,'EX',34560000) end
+for i=9,#KEYS,2 do redis.call('SET',KEYS[i],'1','EX',34560000) end
+redis.call('INCR',KEYS[3]); redis.call('EXPIRE',KEYS[3],172800)
+redis.call('INCR',KEYS[4]); redis.call('EXPIRE',KEYS[4],34560000)
+redis.call('INCR',KEYS[5]); redis.call('EXPIRE',KEYS[5],172800)
+redis.call('HINCRBY',KEYS[7],ARGV[9]..'|'..os,1); redis.call('EXPIRE',KEYS[7],3456000)
+redis.call('HSET',KEYS[6],ARGV[10],cjson.encode({at=now,os=os,campaign=ARGV[11],last4=string.sub(code,-4)}))
+return {'new',code}
+`;

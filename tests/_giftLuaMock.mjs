@@ -413,6 +413,8 @@ export function mockRedis({ atomic = true } = {}) {
       case 'HGET': { const e = ofType(key, 'hash'); return e ? e.value.get(String(args[1])) ?? null : null; }
       case 'HEXISTS': { const e = ofType(key, 'hash'); return e && e.value.has(String(args[1])) ? 1 : 0; }
       case 'HLEN': { const e = ofType(key, 'hash'); return e ? e.value.size : 0; }
+      case 'HINCRBY': { const e = ofType(key, 'hash', true); const n = Number(e.value.get(String(args[1])) ?? 0) + Number(args[2]); if (!Number.isInteger(n)) throw new Error('ERR not integer'); e.value.set(String(args[1]), String(n)); return n; }
+      case 'HGETALL': { const e = ofType(key, 'hash'); return e ? [...e.value].flat() : []; }
       case 'FLUSHDB': db.clear(); return { ok: 'OK' };
     }
     throw new Error(`모의에 없는 명령 ${cmd}`);
@@ -451,7 +453,7 @@ export function mockRedis({ atomic = true } = {}) {
   return {
     eval: evalScript,
     get: plain('GET'), set: plain('SET'), flushdb: plain('FLUSHDB'), llen: plain('LLEN'), hlen: plain('HLEN'), hget: plain('HGET'),
-    lset: plain('LSET'), exists: plain('EXISTS'), sadd: plain('SADD'),
+    lset: plain('LSET'), exists: plain('EXISTS'), sadd: plain('SADD'), hgetall: plain('HGETALL'),
     disconnect() {},
   };
 }
