@@ -9,6 +9,9 @@ import { earningsObservationKey } from '@/lib/earnings/earningsImplied';
 export { monthlyExpiryAfter } from '@/lib/earnings/eventMove';
 
 const DAY = 86400_000;
+// [11/1] 관측 키 수명 = valid() 의 세션 5일 창 + 여유. 예전 36시간은 주말에 끊겼다 — 금요일 마감 관측은 «최신»이라 토·일엔
+//   다시 조회·저장하지 않으므로(아래 current) 일요일에 키가 사라져 실적 주간·API(after)가 «—»(11/1 19:4x KST AAPL 11/4 4.3%).
+const OBS_TTL_SEC = 6 * 86400;
 // v3: actual expiry list + event-date/timing key; v2 monthly-only values cannot suppress weekly collection.
 //   키 모양은 lib/earnings/earningsImplied.earningsObservationKey 한 곳(일반 경로도 같은 관측을 읽는다 — T26).
 
@@ -64,20 +67,23 @@ export async function earningsEventObservation(
   //   첫 만기를 모르는 옛 저장본은 «최신»으로 보지 않는다 — 다음 갱신이 만기 목록을 한 번 확인한다.
   const storedSession = previous() && first ? impliedMoveFields(stored).impliedMoveSession : null;
   const current = !!storedSession && storedSession >= etLastClosedSessionDate();
-  if (!probe || current || (cached && Date.now() - cached.checkedAt < 3600_000)) return out(previous());
+  // [11/1] «최신» 관측도 배경 갱신이 하루에 한 번은 같은 값으로 다시 쓴다(키 수명 연장 · 공급사 호출 0) — 옛 36시간 키가 주말·연휴에 끊기지 않게.
+  const restamp = probe && current && receipt.save !== false && !!cached && !(Date.now() - cached.checkedAt < DAY);
+  if (!probe || (current && !restamp) || (cached && Date.now() - cached.checkedAt < 3600_000)) return out(previous());
   const bg = bgStore.getStore();
   const closed = () => !!bg?.tripped || (deadlineMs != null && Date.now() >= deadlineMs);
   if (closed()) return out(previous());
+  const save = async (im: EarningsMove | null): Promise<EarningsObservation> => {
+    if (closed()) return out(previous());
+    if (receipt.save === false) return out(im);
+    await withinImpliedDeadline(() => setInCache(key, { im, checkedAt: Date.now(), first }, OBS_TTL_SEC), deadlineMs).catch(() => false);
+    return out(im);
+  };
+  if (restamp) return save(previous());
   const closes = await withinImpliedDeadline(() => readEodCloses(), deadlineMs)
     .catch(error => { if (error instanceof ImpliedDeadlineError) throw error; return null; });
   const spot = Number(structure?.underlyingPrice) > 0 ? Number(structure.underlyingPrice) : closes?.rows.get(ticker)?.c;
   if (!(typeof spot === 'number' && Number.isFinite(spot) && spot > 0)) return out(previous());
-  const save = async (im: EarningsMove | null): Promise<EarningsObservation> => {
-    if (closed()) return out(previous());
-    if (receipt.save === false) return out(im);
-    await withinImpliedDeadline(() => setInCache(key, { im, checkedAt: Date.now(), first }, 36 * 3600), deadlineMs).catch(() => false);
-    return out(im);
-  };
   try {
     const { getOptionChainSnapshotIntrinio, getOptionExpirationsEodIntrinio } = await import('@/services/intrinioClient');
     if (closed()) return out(previous());
