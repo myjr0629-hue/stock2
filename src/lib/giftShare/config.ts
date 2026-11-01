@@ -1,3 +1,5 @@
+import { normalizeFrom } from '@/lib/marketing/storeRedirect';
+
 /** 클라이언트에도 전달 가능한 형식 검사. 플래그 판단은 서버에서만 한다. */
 export type GiftOs = 'ios' | 'android';
 export const giftToken = (v: unknown): string | null => typeof v === 'string' && /^[A-Za-z0-9_-]{43}$/.test(v) ? v : null;
@@ -18,6 +20,12 @@ export function withGift(href: string, token: unknown): string {
   const t = giftToken(token);
   return t ? `${href}${href.includes('?') ? '&' : '?'}gift=${encodeURIComponent(t)}` : href;
 }
-export const installUrl = (os: GiftOs | null) => os === 'android'
-  ? 'https://play.google.com/store/apps/details?id=com.signumhq.app'
-  : 'https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444';
+export const installUrl = (os: GiftOs | null, attribution?: { from?: string | null; campaign?: string | null }) => {
+  if (os !== 'android') return 'https://apps.apple.com/app/signum-hq-stock-market-intel/id6783130444';
+  const base = 'https://play.google.com/store/apps/details?id=com.signumhq.app';
+  if (!attribution) return base;
+  const from = normalizeFrom(attribution.from) || 'gift';
+  const campaign = attribution.campaign && /^[a-z0-9-]{1,32}$/.test(attribution.campaign) ? attribution.campaign : null;
+  const referrer = `utm_source=${from}&utm_medium=${campaign ? 'campaign' : 'gift'}&utm_campaign=${campaign || 'gift'}`;
+  return `${base}&referrer=${encodeURIComponent(referrer)}`;
+};

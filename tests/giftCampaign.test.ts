@@ -82,13 +82,15 @@ const same = async (path: string, ua: string, method = 'GET') => {
   const a = await route.GET(req(path, opts));
   const b = await baseline('src/app/app/route.ts').GET(req(path, opts));
   assert.equal(a.status, b.status, path);
-  assert.deepEqual([...a.headers].filter(([k]) => k !== 'set-cookie'), [...b.headers].filter(([k]) => k !== 'set-cookie'), path);
-  assert.equal(couponSafetyNormalized(await a.text()), couponSafetyNormalized(await b.text()), path);
+  const camp = new URL(`https://www.signumhq.com${path}`).searchParams.get('camp');
+  const expected = (v: string) => camp && /^[a-z0-9-]{1,32}$/.test(camp) ? v.replaceAll('signumhq_web', camp) : v;
+  assert.deepEqual([...a.headers].filter(([k]) => k !== 'set-cookie'), [...b.headers].filter(([k]) => k !== 'set-cookie').map(([k, v]) => [k, expected(v)]), path);
+  assert.equal(couponSafetyNormalized(await a.text()), expected(couponSafetyNormalized(await b.text())), path);
 };
 const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
 
 (async () => {
-  await t('플래그 꺼짐: ?camp= 가 붙어도 origin/main /app 과 상태·헤더·본문 동일(4 UA × 3언어 × GET/HEAD)', async () => {
+  await t('플래그 꺼짐: ?camp= 가 붙어도 origin/main /app 과 캠페인 referrer 외 동일(4 UA × 3언어 × GET/HEAD)', async () => {
     delete process.env.GIFT_SHARE_ENABLED;
     for (const ua of [ios, android, desktop, 'facebookexternalhit/1.1']) for (const l of ['ko', 'en', 'ja']) for (const m of ['GET', 'HEAD']) {
       await same(`/app?camp=weekend-1101&from=clien&l=${l}`, ua, m);
@@ -96,7 +98,7 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
     assert.equal(evalCalls, 0);
   });
   process.env.GIFT_SHARE_ENABLED = '1';
-  await t('켜짐 + 목록 밖 id·형식 오류: origin/main /app 과 동일', async () => {
+  await t('켜짐 + 목록 밖 id·형식 오류: 캠페인 referrer 외 origin/main /app 과 동일', async () => {
     for (const camp of ['weekend-9999', 'WEEKEND-1101', '../x', '']) for (const ua of [ios, android, desktop]) {
       await same(`/app?camp=${encodeURIComponent(camp)}&from=clien&l=ko`, ua);
     }
@@ -134,7 +136,7 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
     for (const from of ['gift', 'share_pick']) {
       const html = await (await route.GET(req(`/app?camp=weekend-1101&from=${from}&l=ko`, { headers: { ...baseHeaders, ...human } }))).text();
       assert.ok(!html.includes('친구가 보낸 선물') && !html.includes('친구 초대 혜택'));
-      assert.ok(html.includes('name="from" value=""'));
+      assert.ok(html.includes(`name="from" value="${from}"`));
     }
   });
   await t('PC: 같은 캠페인 링크 QR(via=qr)·iPad 이동(gift_os=ios) · 맥 UA iPad 힌트 → iOS 폼', async () => {

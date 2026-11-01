@@ -14,14 +14,15 @@ import { giftHeaders, giftIdentity, giftOs, setGiftCookie } from './http';
 /** GET·HEAD는 배정 없이 기존 템플릿을 렌더한다. 사람 GET 열람만 응답 뒤 집계한다. */
 export async function giftLanding(req: NextRequest): Promise<NextResponse> {
   const os = giftOs(req);
+  const attribution = { from: req.nextUrl.searchParams.get('from') };
   const token = giftToken(req.nextUrl.searchParams.get('gift'));
   const headers = { ...previewResponseInit().headers, ...giftHeaders, vary: 'User-Agent, Cookie' };
-  if (!token) return NextResponse.redirect(installUrl(os), { status: 302, headers });
+  if (!token) return NextResponse.redirect(installUrl(os, attribution), { status: 302, headers });
   const lang = visitorLang('gift', req.nextUrl.searchParams.get('l'), req.headers.get('accept-language'));
   const ua = req.headers.get('user-agent') || '';
   if (isPreviewBot(ua) || UA_BOT_RE.test(ua)) {
     // OG 주소에도 토큰을 복제하지 않는다.
-    return new NextResponse(req.method === 'HEAD' ? null : previewHtml('signum', lang, 'https://www.signumhq.com/app', installUrl(os), false), { headers });
+    return new NextResponse(req.method === 'HEAD' ? null : previewHtml('signum', lang, 'https://www.signumhq.com/app', installUrl(os, attribution), false), { headers });
   }
   const identity = giftIdentity(req);
   const fromTag = normalizeFrom(req.nextUrl.searchParams.get('from')) || 'gift';
@@ -29,8 +30,8 @@ export async function giftLanding(req: NextRequest): Promise<NextResponse> {
   const ref = normalizeGiftRef(req.nextUrl.searchParams.get('ref'));
   const refQuery = ref ? `&ref=${encodeURIComponent(ref)}` : '';
   const masked = '•••• •••• •••• ••••';
-  const html = os ? couponHtml({ platform: os, lang, fromTag: 'gift', code: masked, gift: token,
-    appleRedeemUrl: installUrl('ios'), playInstallUrl: installUrl('android') })
+  const html = os ? couponHtml({ platform: os, lang, fromTag: 'gift', giftFrom: fromTag, code: masked, gift: token,
+    appleRedeemUrl: installUrl('ios'), playInstallUrl: installUrl('android', attribution) })
     : await desktopRedeemHtml({ fromTag, lang, code: masked, gift: token, giftRef: ref,
       redeemUrl: `https://www.signumhq.com/app?from=${encodeURIComponent(fromTag)}&gift=${encodeURIComponent(token)}&l=${lang}${refQuery}`,
       coupon: true, androidCoupon: true });
@@ -53,23 +54,24 @@ export async function campaignLanding(req: NextRequest, campaign: GiftCampaign, 
   const rawFrom = normalizeFrom(req.nextUrl.searchParams.get('from'));
   // 초대·선물 태그(gift·share_*)를 붙여도 «친구가 보낸 선물»로 보이지 않게 한다 — 캠페인은 채널 이름만.
   const fromTag = rawFrom && !isInviteFrom(rawFrom) ? rawFrom : null;
+  const attribution = { from: rawFrom, campaign: campaign.id };
   const lang = visitorLang(fromTag, req.nextUrl.searchParams.get('l'), req.headers.get('accept-language'));
   const ua = req.headers.get('user-agent') || '';
-  const page = `https://www.signumhq.com/app?camp=${encodeURIComponent(campaign.id)}${fromTag ? `&from=${encodeURIComponent(fromTag)}` : ''}&l=${lang}`;
+  const page = `https://www.signumhq.com/app?camp=${encodeURIComponent(campaign.id)}${rawFrom ? `&from=${encodeURIComponent(rawFrom)}` : ''}&l=${lang}`;
   if (isPreviewBot(ua) || UA_BOT_RE.test(ua)) {
-    return new NextResponse(req.method === 'HEAD' ? null : previewHtml('signum', lang, page, installUrl(os), false, false,
+    return new NextResponse(req.method === 'HEAD' ? null : previewHtml('signum', lang, page, installUrl(os, attribution), false, false,
       { title: campaignCardTitle(lang), desc: inviteCardCopy(lang, true).desc }), { headers });
   }
   const identity = giftIdentity(req, { cookieOnly: true });
   const sub = campaignSubline(lang, fromTag, campaignUntil(campaign, lang, ' '));
-  const view = { id: campaign.id, from: fromTag, sub };
+  const view = { id: campaign.id, from: rawFrom, sub };
   const masked = '•••• •••• •••• ••••';
   const html = now >= campaign.endsAt
     // PC 는 안내만 — 단 맥 UA iPad 는 터치 감지로 iOS 복구 화면에 다시 들어온다(관문 11010913 ③).
-    ? campaignResultHtml({ platform: os ?? 'ios', lang, view: os ? 'ended' : 'off', campaign: view, installUrl: installUrl(os),
+    ? campaignResultHtml({ platform: os ?? 'ios', lang, view: os ? 'ended' : 'off', campaign: view, installUrl: installUrl(os, attribution),
       ...(os ? {} : { ipadUrl: `${page}&gift_os=ios` }) })
     : os ? couponHtml({ platform: os, lang, fromTag, code: masked, campaign: view,
-      appleRedeemUrl: installUrl('ios'), playInstallUrl: installUrl('android') })
+      appleRedeemUrl: installUrl('ios'), playInstallUrl: installUrl('android', attribution) })
       : await desktopRedeemHtml({ fromTag, lang, code: masked, redeemUrl: page, coupon: true, androidCoupon: true,
         campaign: { scanUrl: `${page}&via=qr`, ipadUrl: `${page}&gift_os=ios`, sub } });
   if (classifyClick(req.headers, req.method) === 'human') {

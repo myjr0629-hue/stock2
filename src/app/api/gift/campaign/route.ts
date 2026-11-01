@@ -45,11 +45,11 @@ export async function POST(req: NextRequest) {
   const fromTag = rawFrom && !isInviteFrom(rawFrom) ? rawFrom : null;
   const l = form.get('l');
   const lang = visitorLang(fromTag, typeof l === 'string' ? l : null, req.headers.get('accept-language'));
-  const view = { id: campaign.id, from: fromTag, sub: campaignSubline(lang, fromTag, campaignUntil(campaign, lang, ' ')) };
+  const view = { id: campaign.id, from: rawFrom, sub: campaignSubline(lang, fromTag, campaignUntil(campaign, lang, ' ')) };
   const androidInApp = os === 'android' && isAndroidInAppBrowser({ userAgent: req.headers.get('user-agent') || '',
     requestedWith: req.headers.get('x-requested-with'), nativeCookie: req.cookies.get('sig_native')?.value ?? null });
   const page = (v: CampaignView, extra: { code?: string; resetAt?: number } = {}) => new NextResponse(
-    campaignResultHtml({ platform: os, lang, view: v, campaign: view, installUrl: installUrl(os), androidInApp, ...extra }),
+    campaignResultHtml({ platform: os, lang, view: v, campaign: view, installUrl: installUrl(os, { from: rawFrom, campaign: campaign.id }), androidInApp, ...extra }),
     { headers: { ...giftHeaders, 'content-type': 'text/html; charset=utf-8', vary: 'User-Agent, Cookie' } });
   const identity = giftIdentity(req, { cookieOnly: true });
   const withCookie = (res: NextResponse) => identity ? setGiftCookie(res, identity.cookie) : res;

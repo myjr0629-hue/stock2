@@ -102,7 +102,7 @@ function visibleHtml(html: string): string {
 
 async function submitLanding(response: Response, pageUrl: string, ua: string): Promise<Response> {
   const html = await response.text();
-  const action = html.match(/<form method="post" action="([^"]+)"/)![1];
+  const action = html.match(/<form method="post" action="([^"]+)"/)![1].replace(/&amp;/g, '&');
   const value = html.match(/name="gift" value="([^"]+)"/)![1];
   const destination = new URL(action, pageUrl);
   // Fetch의 비 CORS POST 규칙: no-referrer면 Origin이 null이 된다. 같은 출처 정책은 출처를 보존한다.
