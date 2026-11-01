@@ -13,9 +13,12 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 function store() {
     const values = new Map(), writes = [];
     const slot = n => (n === 'NASDAQ' || n === 'NASDAQ 100' ? 'NQ' : n);
+    const newer = (c, p) => typeof c.at !== 'string' ? false : typeof p.at !== 'string' ? true
+        : c.at !== p.at ? c.at > p.at : c.pct !== p.pct && typeof c.rx === 'string' && (typeof p.rx !== 'string' || c.rx > p.rx);
     return { values, writes, eval(script, keys, [raw, ttl]) {
         assert.match(script, /local raw = redis.call\('GET', KEYS\[1\]\)/);
-        assert.match(script, /c\.at > p\.at/);
+        assert.match(script, /return c\.at > p\.at/);
+        assert.match(script, /c\.pct ~= p\.pct and type\(c\.rx\) == 'string'/);
         assert.match(script, /redis.call\('SET', KEYS\[1\], cjson.encode/);
         assert.equal(keys.length, 1);
         const incoming = JSON.parse(raw), prev = values.get(keys[0]);
@@ -24,7 +27,7 @@ function store() {
         let changed = false;
         for (const c of incoming.chips) {
             const p = merged.get(slot(c.name));
-            if (!p || (typeof c.at === 'string' && (typeof p.at !== 'string' || c.at > p.at))) { merged.set(slot(c.name), c); changed = true; }
+            if (!p || newer(c, p)) { merged.set(slot(c.name), c); changed = true; }
         }
         if (!changed) return 0;
         const chips = ['S&P 500', 'NQ', 'SOX', 'VIX'].flatMap(s => merged.has(s) ? [merged.get(s)] : []);
@@ -99,5 +102,18 @@ test('script text stays a single GET→compare→SET (no app-side merge)', () =>
     const lua = source.match(/export const SELLOFF_RECORD_LUA = `([\s\S]*?)`;/)[1];
     assert.equal((lua.match(/redis\.call\('GET'/g) || []).length, 1);
     assert.equal((lua.match(/redis\.call\('SET'/g) || []).length, 1);
-    assert.ok(lua.indexOf("redis.call('GET'") < lua.indexOf('c.at > p.at') && lua.indexOf('c.at > p.at') < lua.indexOf("redis.call('SET'"));
+    assert.ok(lua.indexOf("redis.call('GET'") < lua.indexOf('newer(c, p)') && lua.indexOf('newer(c, p)') < lua.indexOf("redis.call('SET'"));
+});
+
+test('same-timestamp close correction: later receipt wins, identical value never rewrites (gate 11020332)', async () => {
+    const f = fixture();
+    const at = '2026-10-30T20:15:01.000Z';
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rx: '2026-10-30T20:20:00.000Z' }]), 604800), 1);
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rx: '2026-10-30T20:40:00.000Z' }]), 604800), 0); // 같은 값
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 3, at, rx: '2026-10-30T20:30:00.000Z' }]), 604800), 1);  // 정정
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rx: '2026-10-30T20:25:00.000Z' }]), 604800), 0); // 정정 전에 받은 낡은 사본
+    assert.deepEqual(f.up.values.get(KEY).chips.map(c => c.pct), [3]);
+    // Lua 규칙과 lib 규칙이 같다
+    const lib = fs.readFileSync(path.join(root, 'src/lib/selloffBriefing.ts'), 'utf8');
+    assert.match(lib, /return a\.pct !== b\.pct && !!a\.rx && \(!b\.rx \|\| a\.rx > b\.rx\);/);
 });

@@ -10,9 +10,12 @@ export const SELLOFF_COPY = {
 
 type Cash = { changePct?: number | null; sessionDate?: string | null; asOf?: string | null; price?: number | null };
 type Factor = { chgPct?: number | null; marketTime?: string; status?: string; source?: string };
-export type SelloffMacro = { indexBasis?: { cash?: { spx?: Cash; ndx?: Cash; nasdaq?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
-/** at = 그 값의 관측 시각(ISO). 같은 칸의 두 기록이 겹치면 더 늦은 관측이 이긴다(인스턴스 간 낡은 사본 방지). */
-export type SelloffChip = { name: string; pct: number; at?: string };
+export type SelloffMacro = { fetchedAtET?: string; indexBasis?: { cash?: { spx?: Cash; ndx?: Cash; nasdaq?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
+/**
+ * at = 그 값의 관측(체결) 시각, rx = 그 값을 받은 스냅샷 시각(fetchedAtET) — 둘 다 ISO 정규형.
+ * 같은 칸이 겹치면 관측이 늦은 쪽, 관측 시각이 같고 값이 다르면(같은 시각 종가 정정) 늦게 받은 쪽이 이긴다.
+ */
+export type SelloffChip = { name: string; pct: number; at?: string; rx?: string };
 export type SelloffBrief = { date: string; chips: SelloffChip[] };
 
 const NAMES = ['S&P 500', 'NASDAQ 100', 'SOX', 'VIX'] as const;
@@ -36,7 +39,17 @@ function closedAt(iso: string | null | undefined, date: string, now: number, gra
   return etClock(Date.parse(iso!)).minutes >= sessionCloseMinutes(date) - graceMinutes;
 }
 
-const newer = (a: SelloffChip, b: SelloffChip) => !!a.at && !!b.at && Date.parse(a.at) > Date.parse(b.at);
+/** a 가 b 보다 «새» 관측인가 — redisClient SELLOFF_RECORD_LUA 의 newer 와 같은 규칙. */
+export function selloffChipNewer(a: SelloffChip, b: SelloffChip): boolean {
+  if (!a.at) return false;
+  if (!b.at) return true;
+  if (a.at !== b.at) return a.at > b.at;
+  return a.pct !== b.pct && !!a.rx && (!b.rx || a.rx > b.rx);
+}
+const newer = selloffChipNewer;
+/** 화면·저장 비교용 — 받은 시각(rx)만 다른 기록은 같은 기록이다. */
+const sameRecord = (a: SelloffBrief | null, b: SelloffBrief | null) =>
+  JSON.stringify(a?.date) === JSON.stringify(b?.date) && JSON.stringify(a?.chips.map(c => [c.name, c.pct, c.at ?? null])) === JSON.stringify(b?.chips.map(c => [c.name, c.pct, c.at ?? null]));
 /** 같은 날짜(date)의 두 기록을 칸마다 합친다. 겹치면 관측 시각이 더 늦은 쪽, 같거나 모르면 a. */
 export function mergeSelloffRecords(a: SelloffBrief | null | undefined, b: SelloffBrief | null | undefined, date: string): SelloffBrief | null {
   const x = sanitizeSelloff(a), y = sanitizeSelloff(b);
@@ -49,8 +62,9 @@ export function mergeSelloffRecords(a: SelloffBrief | null | undefined, b: Sello
 export function sanitizeSelloff(x: unknown): SelloffBrief | null {
   const b = x as SelloffBrief | null;
   if (!b || typeof b.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.date) || !Array.isArray(b.chips)) return null;
+  const okIso = (t: unknown): t is string => typeof t === 'string' && Number.isFinite(Date.parse(t)) && new Date(t).toISOString() === t;
   const chips = b.chips.filter(c => c && slotOf(c.name) >= 0 && finite(c.pct))
-    .map(c => typeof c.at === 'string' && Number.isFinite(Date.parse(c.at)) ? { name: c.name, pct: c.pct, at: c.at } : { name: c.name, pct: c.pct });
+    .map(c => ({ name: c.name, pct: c.pct, ...(okIso(c.at) ? { at: c.at } : {}), ...(okIso(c.rx) ? { rx: c.rx } : {}) }));
   return chips.length ? { date: b.date, chips } : null;
 }
 
@@ -74,8 +88,9 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
   const stamps = [spx?.asOf, ndx?.asOf, ixic?.asOf, okFactor(sox) ? sox!.marketTime : null, okFactor(vix) ? vix!.marketTime : null];
   if (!stamps.some(t => validIso(t, now) && (etDateOfIso(t) ?? '') >= date)) return none;
   const iso = (t: string) => new Date(Date.parse(t)).toISOString();
-  const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now, 1) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!) } : null;
-  const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now, 0) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!) } : null;
+  const rx = validIso(macro.fetchedAtET, now) ? { rx: iso(macro.fetchedAtET!) } : {};
+  const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now, 1) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!), ...rx } : null;
+  const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now, 0) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!), ...rx } : null;
   const observed = [cash(NAMES[0], spx), cash(NAMES[1], ndx) ?? cash(NASDAQ_COMPOSITE, ixic), factor(NAMES[2], sox), factor(NAMES[3], vix)];
   const kept = sanitizeSelloff(input.retained);
   const fromKept = (i: number) => kept?.date === date ? kept.chips.find(c => slotOf(c.name) === i) ?? null : null;
@@ -102,7 +117,7 @@ export function mergeSelloffRecord(input: { now: number; macro: SelloffMacro | n
   const merged = selloffEvaluate({ now: input.now, macro: input.macro, retained: stored }).record;
   // own = 이 응답의 D 마감 관측만. 저장소에는 own 만 보내고 합치기는 저장소 안(원자 EVAL)에서 한다.
   const own = selloffEvaluate({ now: input.now, macro: input.macro, retained: null }).record;
-  const same = !!stored && stored.date === date && JSON.stringify(stored) === JSON.stringify(merged);
+  const same = !!stored && stored.date === date && sameRecord(stored, merged);
   return { record: merged, own, write: input.storedKnown && !!merged && !!own && !same };
 }
 export function selloffBrief(macro: SelloffMacro | null, now = Date.now(), retained: SelloffBrief | null = null): SelloffBrief | null {

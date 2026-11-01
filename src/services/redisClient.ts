@@ -992,11 +992,18 @@ if raw then
         for _, c in ipairs(previous.chips) do merged[slot(c.name)] = c end
     end
 end
+-- 관측(at)이 늦은 쪽, 같은 관측 시각에 값이 다르면(정정) 늦게 받은(rx) 쪽. lib/selloffBriefing selloffChipNewer 와 같다.
+local function newer(c, p)
+    if type(c.at) ~= 'string' then return false end
+    if type(p.at) ~= 'string' then return true end
+    if c.at ~= p.at then return c.at > p.at end
+    return c.pct ~= p.pct and type(c.rx) == 'string' and (type(p.rx) ~= 'string' or c.rx > p.rx)
+end
 local changed = false
 for _, c in ipairs(incoming.chips) do
     local s = slot(c.name)
     local p = merged[s]
-    if p == nil or (type(c.at) == 'string' and (type(p.at) ~= 'string' or c.at > p.at)) then
+    if p == nil or newer(c, p) then
         merged[s] = c
         changed = true
     end
@@ -1009,7 +1016,7 @@ end
 redis.call('SET', KEYS[1], cjson.encode({ date = incoming.date, chips = chips }), 'EX', ARGV[2])
 return 1
 `;
-type SelloffRecordValue = { date: string; chips: { name: string; pct: number; at?: string }[] };
+type SelloffRecordValue = { date: string; chips: { name: string; pct: number; at?: string; rx?: string }[] };
 const SELLOFF_RECORD_KEY_RE = /^selloff:record:v1:\d{4}-\d{2}-\d{2}$/;
 /** 엄격 읽기 — ok:false(미설정·장애)를 «기록 없음»과 구분한다. */
 export async function getSelloffRecordStrict(key: string): Promise<{ ok: boolean; value: SelloffRecordValue | null }> {
@@ -1028,7 +1035,7 @@ export async function getSelloffRecordStrict(key: string): Promise<{ ok: boolean
 export async function mergeSelloffRecordAtomic(key: string, record: SelloffRecordValue, ttlSeconds: number): Promise<0 | 1 | null> {
     if (!SELLOFF_RECORD_KEY_RE.test(key) || key.slice(-10) !== record?.date || !Array.isArray(record.chips) || !record.chips.length
         || !record.chips.every(c => typeof c.name === 'string' && typeof c.pct === 'number' && Number.isFinite(c.pct)
-            && (c.at === undefined || (typeof c.at === 'string' && new Date(c.at).toISOString() === c.at)))
+            && [c.at, c.rx].every(t => t === undefined || (typeof t === 'string' && Number.isFinite(Date.parse(t)) && new Date(t).toISOString() === t)))
         || !Number.isInteger(ttlSeconds) || ttlSeconds < 1) return null;
     const upstash = getUpstashClient();
     if (!upstash) return null;

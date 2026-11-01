@@ -313,3 +313,18 @@ test('server and device records merge per slot; the newer observation wins eithe
   assert.deepEqual(res2.brief?.chips.map(c => c.pct), [-1.82, 12.9]);                 // 서버 쪽이 더 늦으면 서버
   assert.equal(mergeSelloffRecords(server, { ...device, date: '2026-10-29' }, D)?.chips.length, 2); // 다른 날짜는 무시
 });
+
+test('same-timestamp correction reaches the record and the card; repeated identical snapshots do not write', () => {
+  const t = at('2026-10-31T15:00:00Z');
+  const snap = (pct: number, fetched: string): SelloffMacro => ({ fetchedAtET: fetched, factors: { vix: factor(pct, '2026-10-30T20:15:01Z') } });
+  const first = mergeSelloffRecord({ now: t, macro: snap(12, '2026-10-30T20:20:00.000Z'), stored: null, storedKnown: true }).record!;
+  assert.equal(mergeSelloffRecord({ now: t, macro: snap(12, '2026-10-31T14:00:00.000Z'), stored: first, storedKnown: true }).write, false);
+  const fix = mergeSelloffRecord({ now: t, macro: snap(3, '2026-10-30T20:30:00.000Z'), stored: first, storedKnown: true });
+  assert.equal(fix.write, true);
+  assert.equal(fix.record?.chips[0].pct, 3);
+  assert.equal(selloffForDisplay({ now: t, macro: snap(3, '2026-10-30T20:30:00.000Z'), retained: first }), null);
+  // 정정 전에 받은 낡은 스냅샷은 정정을 되돌리지 못한다
+  const back = mergeSelloffRecord({ now: t, macro: snap(12, '2026-10-30T20:25:00.000Z'), stored: fix.record, storedKnown: true });
+  assert.equal(back.record?.chips[0].pct, 3);
+  assert.equal(back.write, false);
+});
