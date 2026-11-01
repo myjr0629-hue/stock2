@@ -55,7 +55,9 @@ async function main() {
     }
     console.log(`  ${os}: 오늘 배정 ${Number(today) || 0}/${c.day[os]} · 전체 ${Number(total) || 0}/${c.total[os]} · 유효 재고(선물과 공유) ${valid}장 (캠페인은 ${c.reserve[os]}장 이하에서 멈춤)`);
   }
-  const from = await r.hgetall(`${k}:from:${day}`);
+  // automaticDeserialization:false 이면 hgetall 이 [필드, 값, …] 평평한 배열로 온다(11/1 실측) — 객체로 바꿔 센다.
+  const raw = await r.hgetall(`${k}:from:${day}`);
+  const from = Array.isArray(raw) ? Object.fromEntries(raw.flatMap((v, i) => i % 2 ? [] : [[v, raw[i + 1]]])) : raw;
   const rows = Object.entries(from || {}).filter(([f]) => /^[a-z0-9_]{1,24}\|(ios|android)$/.test(f)).sort((a, b) => Number(b[1]) - Number(a[1]));
   console.log(`  오늘 채널별 배정: ${rows.length ? rows.map(([f, n]) => `${f} ${n}`).join(' · ') : '없음'}`);
 }
