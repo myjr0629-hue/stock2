@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { mockRedis } from './_giftLuaMock.mjs';
+import { summarize } from '../scripts/rc-cohort.mjs';
+import { authorized, insert, normalize, TTL_SECONDS } from '../src/lib/rcCohort/core';
+import { POST } from '../src/app/api/webhooks/revenuecat/route';
+
+async function main() {
+  const start = Date.parse('2026-10-01T00:00:00Z'), end = start + 7 * 86400000;
+  const raw = { id: 'private-event', app_user_id: 'private-user', original_transaction_id: 'private-transaction', type: 'INITIAL_PURCHASE', period_type: 'TRIAL', event_timestamp_ms: start, purchased_at_ms: start, expiration_at_ms: end, environment: 'PRODUCTION' };
+  const item = normalize({event: raw}, 'test-secret');
+  assert(item && item !== 'ignore');
+  assert(!JSON.stringify(item).includes('private-'));
+  assert.equal(TTL_SECONDS, 120 * 86400);
+  assert.equal(authorized('Bearer test', 'Bearer test'), true);
+  assert.equal(authorized('Bearer bad', 'Bearer test'), false);
+  process.env.REVENUECAT_WEBHOOK_AUTH = 'test-auth'; process.env.RC_COHORT_HMAC_SECRET = 'test-secret';
+  assert.equal((await POST(new Request('http://local', { method:'POST', headers:{authorization:'wrong'}, body:'{}' }))).status, 401);
+  const redis = mockRedis();
+  const store = {eval: (s: string, keys: string[], args: (string | number)[]) => redis.eval(s, keys.length, ...keys, ...args)};
+  const all = await Promise.all(Array.from({length: 30}, () => insert(store, item, start)));
+  assert.equal(all.filter(x => x === 'inserted').length, 1);
+  assert.equal(all.filter(x => x === 'duplicate').length, 29);
+  assert.equal(await redis.hget('rc:cohort:v1:received:2026-10-01', 'INITIAL_PURCHASE'), '1');
+  await assert.rejects(insert({eval: async () => {throw new Error('failure');}}, item, start));
+  let ttl: unknown;
+  await insert({eval: async (_s, _k, args) => { ttl = args[1]; return 1; }}, item, start);
+  assert.equal(ttl, TTL_SECONDS);
+  const trial = item.event;
+  const cancellation = {...trial, type:'CANCELLATION', at:end - 1000, reason:'UNSUBSCRIBE'};
+  const expiration = {...trial, type:'EXPIRATION', at:end + 100, reason:null};
+  const renewal = {...trial, type:'RENEWAL', period:'NORMAL', purchased:end, at:end + 200};
+  const measure = (events: unknown[], now = end + 500) => summarize(events, '2026-10-01', '2026-10-02', now);
+  assert.equal(measure([expiration, cancellation, trial]).ended_off, 1);
+  assert.equal(measure([renewal, trial, cancellation]).ended_on, 1);
+  assert.equal(measure([renewal, trial]).first_paid_renewal, 1);
+  assert.equal(measure([trial, expiration]).unresolved, 1);
+  assert.equal(measure([trial], end - 1).not_ended, 1);
+  assert.equal(measure([trial], end).unresolved, 1);
+  assert.equal(summarize([trial], '2026-09-30', '2026-10-01', end).denominator, 0);
+  assert.equal(measure([trial, {...trial, type:'CANCELLATION', reason:'CUSTOMER_SUPPORT'}]).refund_signal, 1);
+  assert.equal(measure([{...trial, transaction:null}]).unlinked, 1);
+  assert.equal(measure([trial, {...trial, purchased:start - 1000}]).retrial, 1);
+  assert.throws(() => summarize([], '2026-02-30', '2026-03-03'));
+  console.log('rc cohort: all offline tests passed');
+}
+main().catch(() => { console.error('rc cohort: test failed'); process.exitCode = 1; });
