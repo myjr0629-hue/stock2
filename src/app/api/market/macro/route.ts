@@ -10,13 +10,13 @@ export const dynamic = 'force-dynamic';
 // D 마감 관측 기록을 캐시 한 키에 두고 응답에 덧붙인다(추가 필드 · 공급사·AI 호출 0).
 // 어떤 실패도 기존 응답을 바꾸지 않는다.
 let selloffMemo: { key: string; value: SelloffBrief | null; known: boolean; at: number } | null = null;
-let selloffRxWriteAt = 0; // 세대(rx)만 전진한 쓰기는 인스턴스당 분당 1회
 async function withSelloffRecord<T extends object>(base: T, readStartedAt: number): Promise<T | (T & { selloffReadAt: string; selloffRecord?: SelloffBrief })> {
     try {
         const now = Date.now();
-        // 현물 indexBasis 세대 = 그 읽기를 «시작한» 시각(스냅샷과 병렬로 읽으므로 끝난 시각이 아니다).
-        // 먼저 시작한 요청이 늦게 끝나도 더 이른 세대로 남는다 — 기기·서버 모두 이 값으로 같은 칸의 정정 순서를 가른다.
-        const snapshot = { ...base, selloffReadAt: new Date(readStartedAt).toISOString() };
+        // 현물 indexBasis 세대 = 그 읽기를 «시작한» 시각(스냅샷과 병렬로 읽으므로 끝난 시각이 아니다)을 분 단위로 내림.
+        // 먼저 시작한 요청이 늦게 끝나도 더 이른(또는 같은) 세대로 남는다. 같은 분 안의 엇갈림은 동률 → 기존 값 유지,
+        // 다음 분 읽기가 새 세대로 바로잡는다. 기기·서버 모두 이 값으로 같은 칸의 정정 순서를 가른다.
+        const snapshot = { ...base, selloffReadAt: new Date(Math.floor(readStartedAt / 60_000) * 60_000).toISOString() };
         const key = SELLOFF_RECORD_KEY + lastClosedSessionDate(now);
         if (!selloffMemo || selloffMemo.key !== key || now - selloffMemo.at > 60_000) {
             const read = await Promise.race([
@@ -26,12 +26,11 @@ async function withSelloffRecord<T extends object>(base: T, readStartedAt: numbe
             ]).catch(() => ({ known: false, value: null }));
             selloffMemo = { key, value: read.value, known: read.known, at: now };
         }
-        const { record, own, write, valueChanged } = mergeSelloffRecord({ now, macro: snapshot as any, stored: selloffMemo.value, storedKnown: selloffMemo.known });
-        if (write && own && (valueChanged || now - selloffRxWriteAt >= 60_000)) {
-            if (!valueChanged) selloffRxWriteAt = now;
+        const { record, own, write } = mergeSelloffRecord({ now, macro: snapshot as any, stored: selloffMemo.value, storedKnown: selloffMemo.known });
+        if (write && own) {
             // 응답은 기다리지 않는다(after). 이 응답의 D 마감 관측(own)만 보내고, 칸별 «늦은 관측이 이긴다» 합치기는
             // 저장소 안 EVAL 한 번으로 한다 — 인스턴스 간 읽기·쓰기 경합으로 낡은 값이 새 값을 되돌릴 수 없다.
-            // 값이 바뀌면 바로, 세대(rx)만 전진하면 인스턴스당 분당 최대 1회 — D 마감 관측이 응답에 있는 동안(마감~다음 개장)만.
+            // 세대(rx)는 분 단위라 쓰기는 인스턴스당 분당 최대 1회 — D 마감 관측이 응답에 있는 동안(마감~다음 개장)만. 건너뛰는 창 없음.
             selloffMemo = { key, value: record, known: true, at: selloffMemo.at };
             after(async () => { try {
                 await mergeSelloffRecordAtomic(key, own, 7 * 86_400);

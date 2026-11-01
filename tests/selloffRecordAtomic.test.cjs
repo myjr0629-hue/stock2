@@ -138,3 +138,15 @@ test('same-timestamp corrections follow snapshot generation (rx), identical valu
     const lib = fs.readFileSync(path.join(root, 'src/lib/selloffBriefing.ts'), 'utf8');
     assert.match(lib, /if \(a\.at !== b\.at\) return a\.at > b\.at;\n  return !!a\.rx && \(!b\.rx \|\| a\.rx > b\.rx\);/);
 });
+
+test('flip-back +12 -> +3 -> +12 across instances: every new generation is written, delayed +3 is refused (gate 11020344)', async () => {
+    const f = fixture();
+    const at = '2026-10-30T20:15:01.000Z';
+    const put = (pct, rx) => f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct, at, rx }]), 604800);
+    assert.equal(await put(12, '2026-10-30T20:10:00.000Z'), 1);   // 인스턴스 A
+    // 인스턴스 B 가 +3(20:20 세대)을 들고 지연 중, A 는 다음 세대들의 +12 를 계속 쓴다(같은 값이어도 세대 전진 → 씀)
+    assert.equal(await put(12, '2026-10-30T20:21:00.000Z'), 1);
+    assert.equal(await put(12, '2026-10-30T20:22:00.000Z'), 1);
+    assert.equal(await put(3, '2026-10-30T20:20:00.000Z'), 0);    // 지연된 +3 도착 → 거절
+    assert.deepEqual(f.up.values.get(KEY).chips.map(c => [c.pct, c.rx]), [[12, '2026-10-30T20:22:00.000Z']]);
+});

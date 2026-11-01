@@ -366,7 +366,7 @@ test('cash generation = server read time (selloffReadAt), never the device clock
   assert.equal(noStamp.record?.chips[0].rx, '2026-10-30T21:10:00.000Z');
 });
 
-test('rx-only advances are marked so the route can throttle them; value changes are not', () => {
+test('rx-only advances are marked (write) and distinguished from value changes', () => {
   const t = at('2026-10-31T15:00:00Z');
   const withRead = (m: SelloffMacro, readAt: string): SelloffMacro => ({ ...m, selloffReadAt: readAt });
   const first = mergeSelloffRecord({ now: t, macro: withRead(fridayClose, '2026-10-31T15:00:00.000Z'), stored: null, storedKnown: true }).record!;
@@ -377,8 +377,10 @@ test('rx-only advances are marked so the route can throttle them; value changes 
   const changed = mergeSelloffRecord({ now: t + 30_000, macro: withRead({ ...fridayClose, indexBasis: { cash: { spx: { ...fridayClose.indexBasis!.cash!.spx!, changePct: -0.4 } } } }, '2026-10-31T15:00:30.000Z'), stored: first, storedKnown: true });
   assert.equal(changed.valueChanged, true);
   const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
-  assert.match(route, /if \(write && own && \(valueChanged \|\| now - selloffRxWriteAt >= 60_000\)\)/);
-  assert.match(route, /selloffReadAt: new Date\(readStartedAt\)\.toISOString\(\)/);
+  // 세대만 전진한 쓰기도 건너뛰지 않는다(gate 11020344) — 세대가 분 단위라 쓰기는 인스턴스당 분당 최대 1회
+  assert.match(route, /if \(write && own\) \{/);
+  assert.doesNotMatch(route, /selloffRxWriteAt/);
+  assert.match(route, /selloffReadAt: new Date\(Math\.floor\(readStartedAt \/ 60_000\) \* 60_000\)\.toISOString\(\)/);
   // 세대 시각은 스냅샷(현물 병렬 읽기 포함)을 «시작하기 전»에 잡는다 (gate 11020343)
   const get = route.slice(route.indexOf('export async function GET'));
   assert.ok(get.indexOf('const readStartedAt = Date.now();') >= 0 && get.indexOf('const readStartedAt = Date.now();') < get.indexOf('await getMacroSnapshotSSOT()'));
