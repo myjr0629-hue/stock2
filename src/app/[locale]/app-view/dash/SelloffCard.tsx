@@ -25,7 +25,7 @@ export function SelloffCard({ brief, locale }: { brief: SelloffBrief; locale: st
     return () => { clearInterval(id); controller.abort(); };
   }, [brief.date]);
   const open = () => { const path = reportPushPath('closing', loc, brief.date); if (path) { router.push(path); window.dispatchEvent(new Event(REPORT_OPEN_EVENT)); } };
-  return <section className={`${n9.e9Sect} ${s.wrap}`}><button type="button" className={s.card} onClick={open}>
+  return <section className={s.wrap}><button type="button" className={s.card} onClick={open}>
     <span className={s.title}>{t.title} · {brief.date} <span aria-hidden="true">›</span></span>
     <span className={s.chips}>{brief.chips.map(c => <span className={n9.e9Badge} key={c.name}>{c.name} {signedPct(c.pct)}</span>)}</span>
     {rows.length > 0 && <span className={s.line}><strong>{t.earnings}</strong>{rows.map(r => <span className={s.row} key={`${r.ticker}|${r.date}`}>{r.ticker} {t.expected} ±{r.expectedPct.toFixed(1)}% → {signedPct(r.actualPct)}</span>)}</span>}

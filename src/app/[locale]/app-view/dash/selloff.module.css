@@ -1,4 +1,4 @@
-.wrap{padding:0 16px}
+.wrap{margin:0 0 12px}
 .card{display:flex;flex-direction:column;gap:8px;width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer;border-radius:13px;padding:12px;background:var(--card-bg,rgba(23,34,54,.96));border:1px solid var(--card-border,rgba(255,255,255,.075))}
 .title{font-size:14px;font-weight:800;display:flex;justify-content:space-between;gap:8px;width:100%}
 .chips{display:flex;flex-wrap:wrap;gap:5px}
