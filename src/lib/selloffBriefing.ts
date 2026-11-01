@@ -10,11 +10,14 @@ export const SELLOFF_COPY = {
 
 type Cash = { changePct?: number | null; sessionDate?: string | null; asOf?: string | null; price?: number | null };
 type Factor = { chgPct?: number | null; marketTime?: string; status?: string; source?: string };
-export type SelloffMacro = { indexBasis?: { cash?: { spx?: Cash; ndx?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
+export type SelloffMacro = { indexBasis?: { cash?: { spx?: Cash; ndx?: Cash; nasdaq?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
 export type SelloffBrief = { date: string; chips: { name: string; pct: number }[] };
 
 const NAMES = ['S&P 500', 'NASDAQ 100', 'SOX', 'VIX'] as const;
-/** S&P ≤ −1.5% · NDX ≤ −2.0% · SOX ≤ −3.0% · VIX ≥ +10% */
+/** 나스닥 칸: ^NDX 현물 피드가 없을 때(현재 운영) 같은 응답의 종합 현물 ^IXIC 로 판정하고 «NASDAQ»으로 표기한다. */
+const NASDAQ_COMPOSITE = 'NASDAQ';
+const slotOf = (name: string): number => name === NASDAQ_COMPOSITE ? 1 : (NAMES as readonly string[]).indexOf(name);
+/** S&P ≤ −1.5% · 나스닥(NDX, 없으면 종합) ≤ −2.0% · SOX ≤ −3.0% · VIX ≥ +10% */
 const hit = (i: number, v: number | null) => v != null && (i === 3 ? v >= 10 : v <= [-1.5, -2, -3][i]);
 const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 const validIso = (iso: string | null | undefined, now: number): boolean => {
@@ -30,7 +33,7 @@ function closedAt(iso: string | null | undefined, date: string, now: number): bo
 export function sanitizeSelloff(x: unknown): SelloffBrief | null {
   const b = x as SelloffBrief | null;
   if (!b || typeof b.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.date) || !Array.isArray(b.chips)) return null;
-  const chips = b.chips.filter(c => c && (NAMES as readonly string[]).includes(c.name) && finite(c.pct)).map(c => ({ name: c.name, pct: c.pct }));
+  const chips = b.chips.filter(c => c && slotOf(c.name) >= 0 && finite(c.pct)).map(c => ({ name: c.name, pct: c.pct }));
   return chips.length ? { date: b.date, chips } : null;
 }
 
@@ -48,18 +51,24 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
   const { now, macro } = input;
   if (!macro || typeof macro !== 'object') return none;
   const date = lastClosedSessionDate(now);
-  const spx = macro.indexBasis?.cash?.spx, ndx = macro.indexBasis?.cash?.ndx, sox = macro.factors?.sox, vix = macro.factors?.vix;
+  const spx = macro.indexBasis?.cash?.spx, ndx = macro.indexBasis?.cash?.ndx, ixic = macro.indexBasis?.cash?.nasdaq, sox = macro.factors?.sox, vix = macro.factors?.vix;
   const okFactor = (v?: Factor) => !!v && v.status === 'OK' && v.source !== 'FAIL';
   // 응답이 D 이후 시세를 담고 있는가 — 멈춘 피드(시각이 D 이전)는 보관본까지 숨긴다.
-  const stamps = [spx?.asOf, ndx?.asOf, okFactor(sox) ? sox!.marketTime : null, okFactor(vix) ? vix!.marketTime : null];
+  const stamps = [spx?.asOf, ndx?.asOf, ixic?.asOf, okFactor(sox) ? sox!.marketTime : null, okFactor(vix) ? vix!.marketTime : null];
   if (!stamps.some(t => validIso(t, now) && (etDateOfIso(t) ?? '') >= date)) return none;
   const cash = (v?: Cash) => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now) && finite(v.changePct) ? v.changePct : null;
   const factor = (v?: Factor) => okFactor(v) && closedAt(v!.marketTime, date, now) && finite(v!.chgPct) ? v!.chgPct : null;
-  const observed = [cash(spx), cash(ndx), factor(sox), factor(vix)];
+  const ndxPct = cash(ndx), ixicPct = ndxPct == null ? cash(ixic) : null;
+  const observed: { name: string; pct: number | null }[] = [
+    { name: NAMES[0], pct: cash(spx) },
+    { name: ndxPct != null ? NAMES[1] : NASDAQ_COMPOSITE, pct: ndxPct ?? ixicPct },
+    { name: NAMES[2], pct: factor(sox) }, { name: NAMES[3], pct: factor(vix) },
+  ];
   const kept = sanitizeSelloff(input.retained);
-  const fromKept = (i: number) => kept?.date === date ? kept.chips.find(c => c.name === NAMES[i])?.pct ?? null : null;
-  const values = observed.map((v, i) => v ?? fromKept(i));
-  const chips = values.flatMap((pct, i) => pct == null ? [] : [{ name: NAMES[i], pct }]);
+  const fromKept = (i: number) => kept?.date === date ? kept.chips.find(c => slotOf(c.name) === i) ?? null : null;
+  const slots = observed.map((o, i) => o.pct != null ? o : fromKept(i));
+  const values = slots.map(o => o?.pct ?? null);
+  const chips = slots.flatMap(o => o?.pct == null ? [] : [{ name: o.name, pct: o.pct }]);
   // 보관본은 «급락일 때만»이 아니라 D 의 최신 관측 전체다 — 정정돼 조건을 벗어나면 그 값으로 덮어써 다음 장중에 되살아나지 않는다.
   const record = chips.length ? { date, chips } : null;
   return { brief: record && values.some((v, i) => hit(i, v)) ? record : null, record };
@@ -116,7 +125,7 @@ export function saveRetainedSelloff(store: Store, record: SelloffBrief | null): 
 export function selloffPreviewParam(search: string, environment: string | undefined): string | null {
   return environment === 'development' ? new URLSearchParams(search).get('selloffPreview') : null;
 }
-const PREVIEW_BRIEF: SelloffBrief = { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.8 }, { name: 'SOX', pct: -7.2 }, { name: 'VIX', pct: 12.9 }] };
+const PREVIEW_BRIEF: SelloffBrief = { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.82 }, { name: 'NASDAQ', pct: -2.86 }, { name: 'SOX', pct: -7.2 }, { name: 'VIX', pct: 12.9 }] };
 /** 개발용 미리보기(on/off)를 반영한 최종 표시 값. preview 는 selloffPreviewParam 을 거친 값(운영에선 늘 null). */
 export function selloffShown(preview: string | null, brief: SelloffBrief | null, now = Date.now()): SelloffBrief | null {
   if (preview === 'off') return null;

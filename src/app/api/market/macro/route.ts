@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
-import { getFromCache, setInCache } from '@/services/redisClient';
+import { getAuthoritativeCache, setAuthoritativeCache } from '@/services/redisClient';
 import { lastClosedSessionDate } from '@/lib/marketSession';
 import { mergeSelloffRecord, sanitizeSelloff, SELLOFF_RECORD_KEY, type SelloffBrief } from '@/lib/selloffBriefing';
 
@@ -16,7 +16,8 @@ async function withSelloffRecord<T extends object>(snapshot: T): Promise<T | (T 
         const key = SELLOFF_RECORD_KEY + lastClosedSessionDate(now);
         if (!selloffMemo || selloffMemo.key !== key || now - selloffMemo.at > 60_000) {
             const read = await Promise.race([
-                getFromCache<SelloffBrief>(key).then(v => ({ known: true, value: sanitizeSelloff(v) })),
+                // 엄격 읽기: 장애·시간 초과(ok:false)를 «기록 없음»으로 오인해 일부 관측으로 덮어쓰지 않는다.
+                getAuthoritativeCache<SelloffBrief>(key).then(r => ({ known: r.ok, value: r.ok ? sanitizeSelloff(r.value) : null })),
                 new Promise<{ known: false; value: null }>(r => setTimeout(() => r({ known: false, value: null }), 800)),
             ]).catch(() => ({ known: false, value: null }));
             selloffMemo = { key, value: read.value, known: read.known, at: now };
@@ -24,7 +25,7 @@ async function withSelloffRecord<T extends object>(snapshot: T): Promise<T | (T 
         const { record, write } = mergeSelloffRecord({ now, macro: snapshot as any, stored: selloffMemo.value, storedKnown: selloffMemo.known });
         if (write && record) {
             selloffMemo = { key, value: record, known: true, at: now };
-            void setInCache(key, record, 7 * 86_400).catch(() => {});
+            void setAuthoritativeCache(key, record, 7 * 86_400).catch(() => false);
         }
         return record ? { ...snapshot, selloffRecord: record } : snapshot;
     } catch {

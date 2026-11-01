@@ -207,3 +207,30 @@ test('server record: corrections overwrite, unknown cache state never writes', (
   assert.equal(mergeSelloffRecord({ now: at('2026-10-31T15:00:00Z'), macro: fridayClose, stored: null, storedKnown: false }).write, false); // 캐시 읽기 실패·시간 초과
   assert.equal(mergeSelloffRecord({ now: at('2026-10-31T15:00:00Z'), macro: null, stored: kept, storedKnown: true }).write, false);
 });
+
+test('Nasdaq slot: ^NDX feed absent in production → cash composite ^IXIC at the same −2.0% line (gate 11020322)', () => {
+  const t = '2026-10-31T15:00:00Z';
+  const noNdx = (ixic: number, ndx?: number): SelloffMacro => ({ indexBasis: { cash: {
+    spx: cash(-0.5), ndx: ndx == null ? { changePct: null, sessionDate: null, asOf: null, price: null } : cash(ndx), nasdaq: cash(ixic) } } });
+  assert.deepEqual(day(noNdx(-2.0), t)?.chips, [{ name: 'S&P 500', pct: -0.5 }, { name: 'NASDAQ', pct: -2.0 }]);
+  assert.equal(day(noNdx(-1.99), t), null);
+  // NDX 가 있으면 NDX 가 우선(종합은 쓰지 않음)
+  assert.equal(day(noNdx(-5, -1.0), t), null);
+  assert.deepEqual(day(noNdx(-1, -2.1), t)?.chips.map(c => c.name), ['S&P 500', 'NASDAQ 100']);
+  // 다음 장중엔 보관 기록의 «NASDAQ» 칸이 이어진다
+  const kept = day(noNdx(-2.86), t)!;
+  const mon = { ...mondayIntraday(), indexBasis: { cash: { ...mondayIntraday().indexBasis!.cash, nasdaq: cash(0.4, '2026-11-02', '2026-11-02T14:59:00Z') } } };
+  assert.deepEqual(day(mon, '2026-11-02T15:00:00Z', kept)?.chips, kept.chips);
+  // 10/30 실제 운영 응답 모양(nasdaq −2.86%)도 칩 4개로
+  const real = { ...fridayClose, indexBasis: { cash: { ...fridayClose.indexBasis!.cash, nasdaq: { changePct: -2.86, sessionDate: '2026-10-30', asOf: '2026-10-30T21:16:01Z', price: 25437 } } } };
+  assert.deepEqual(day(real, '2026-10-31T15:00:00Z')?.chips.map(c => c.name), ['S&P 500', 'NASDAQ', 'SOX', 'VIX']);
+});
+
+test('scorecard row refreshes while the card stays up; route uses strict cache read/write', () => {
+  const card = readFileSync('src/app/[locale]/app-view/dash/SelloffCard.tsx', 'utf8');
+  assert.match(card, /setInterval\(load, 10 \* 60_000\)/);
+  assert.match(card, /clearInterval\(id\)/);
+  const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
+  assert.match(route, /getAuthoritativeCache<SelloffBrief>\(key\)\.then\(r => \(\{ known: r\.ok/);
+  assert.doesNotMatch(route, /getFromCache|setInCache/);
+});
