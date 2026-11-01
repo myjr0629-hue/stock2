@@ -2017,8 +2017,6 @@ export default function AppDashPage() {
   const shownSelloff = selloffShown(selloffPreview, selloff);
   return (
     <div className={`${n9.e9Wrap} ${n9.e9Root} ${s.page}`} data-v={verdictKey}>
-      {shownSelloff && <SelloffCard brief={shownSelloff} locale={locale} />}
-
       {/* ① 판정 히어로 ─ 시안 e9Hero */}
       <div className={n9.e9Hero}>
         <div className={n9.e9Sky} />
@@ -2051,6 +2049,9 @@ export default function AppDashPage() {
               </button>
             </div>
           </div>
+
+          {/* 급락 브리핑 — 조건(직전 정규장 급락)일 때만 로고 아래에 그린다. 평상시엔 렌더 없음 = 배치 변화 0. */}
+          {shownSelloff && <SelloffCard brief={shownSelloff} locale={locale} />}
 
           {/* TOP SIGNAL — 실제 뉴스 티커. 뉴스가 없으면 줄 자체를 안 그린다. */}
           {topNews && (
