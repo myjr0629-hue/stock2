@@ -386,14 +386,15 @@ test('rx-only advances are marked (write) and distinguished from value changes',
   assert.ok(get.indexOf('const readStartedAt = Date.now();') >= 0 && get.indexOf('const readStartedAt = Date.now();') < get.indexOf('await getMacroSnapshotSSOT()'));
 });
 
-test('route updates its memo only after the store accepts; failures retry on the next request (gate 11020345)', () => {
+test('route never stores its precomputed merge in the memo; writes force a re-read, failures retry (gates 11020345/11020347)', () => {
   const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
   const write = route.indexOf('await mergeSelloffRecordAtomic(key, own');
   assert.ok(write > 0);
   // 쓰기 앞에서 메모를 record 로 바꾸지 않는다
   assert.doesNotMatch(route.slice(route.indexOf('if (write && own) {'), write), /selloffMemo = \{ key, value: record/);
-  assert.match(route.slice(write), /if \(result === 1\) selloffMemo = \{ key, value: record, known: true, at: memoAt \};/);
-  assert.match(route.slice(write), /else if \(result === 0\) selloffMemo = \{ \.\.\.selloffMemo, at: 0 \};/);
+  // 쓰기 뒤에도 미리 계산한 합본을 메모에 넣지 않고(gate 11020347) 저장본 재조회를 강제한다
+  assert.doesNotMatch(route, /value: record/);
+  assert.match(route.slice(write), /if \(selloffMemo\?\.key === key && result !== null\) selloffMemo = \{ \.\.\.selloffMemo, at: 0 \};/);
   // 실패 뒤 다음 요청: 메모(이전 저장본) 기준으로 여전히 write=true → 다시 쓴다
   const t = at('2026-10-31T15:00:00Z');
   const m = { ...fridayClose, selloffReadAt: '2026-10-31T15:00:00.000Z' };

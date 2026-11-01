@@ -31,14 +31,12 @@ async function withSelloffRecord<T extends object>(base: T, readStartedAt: numbe
             // 응답은 기다리지 않는다(after). 이 응답의 D 마감 관측(own)만 보내고, 칸별 «늦은 관측이 이긴다» 합치기는
             // 저장소 안 EVAL 한 번으로 한다 — 인스턴스 간 읽기·쓰기 경합으로 낡은 값이 새 값을 되돌릴 수 없다.
             // 세대(rx)는 분 단위라 쓰기는 인스턴스당 분당 최대 1회 — D 마감 관측이 응답에 있는 동안(마감~다음 개장)만. 건너뛰는 창 없음.
-            // 메모는 저장소가 받아들인 «뒤»에만 바꾼다. 실패(null)면 그대로 두어 다음 요청이 다시 쓴다(분마다 재시도).
-            // 거절(0 = 저장소에 더 새 관측)이면 메모를 낡은 것으로 표시해 다음 요청이 저장본을 다시 읽는다.
-            const memoAt = selloffMemo.at;
+            // 메모에는 이 요청이 미리 계산한 합본을 넣지 않는다 — 저장소 안 병합 결과는 동시 요청에 따라 다를 수 있다.
+            // 받아들임(1)·거절(0) 모두 메모를 낡은 것으로 표시해 다음 요청이 저장본을 다시 읽는다(인스턴스당 분당 ≤1회).
+            // 실패(null)면 메모를 그대로 두어 다음 요청이 다시 쓴다.
             after(async () => { try {
                 const result = await mergeSelloffRecordAtomic(key, own, 7 * 86_400);
-                if (selloffMemo?.key !== key) return;
-                if (result === 1) selloffMemo = { key, value: record, known: true, at: memoAt };
-                else if (result === 0) selloffMemo = { ...selloffMemo, at: 0 };
+                if (selloffMemo?.key === key && result !== null) selloffMemo = { ...selloffMemo, at: 0 };
             } catch { /* 기록 실패는 응답·화면에 영향 없음 — 메모 미갱신으로 다음 요청이 재시도 */ } });
         }
         return record ? { ...snapshot, selloffRecord: record } : snapshot;
