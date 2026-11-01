@@ -12,6 +12,23 @@ type Cash = { changePct?: number | null; sessionDate?: string | null; asOf?: str
 type Factor = { chgPct?: number | null; marketTime?: string; status?: string; source?: string };
 export type SelloffMacro = { indexBasis?: { cash?: { spx?: Cash; ndx?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
 export type SelloffBrief = { date: string; chips: { name: string; pct: number }[] };
+export function currentSelloff(brief: SelloffBrief | null, now = Date.now()): SelloffBrief | null {
+  return brief?.date === lastClosedSessionDate(now) ? brief : null;
+}
+
+export async function readSelloffMacro(result: PromiseSettledResult<Response>, now = Date.now()): Promise<{ macro: any; brief: SelloffBrief | null }> {
+  try {
+    if (result.status === 'fulfilled' && result.value.ok) {
+      const macro = await result.value.json();
+      return { macro, brief: selloffBrief(macro, now) };
+    }
+  } catch { /* Failed or malformed responses invalidate the card. */ }
+  return { macro: null, brief: null };
+}
+
+export function selloffPreviewParam(search: string, environment: string | undefined): string | null {
+  return environment === 'development' ? new URLSearchParams(search).get('selloffPreview') : null;
+}
 const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 function closedAt(iso: string | null | undefined, date: string, now: number): boolean {
   if (!iso || etDateOfIso(iso) !== date) return false;

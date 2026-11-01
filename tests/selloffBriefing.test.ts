@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { selloffBrief, SELLOFF_COPY, scorecardWeek, type SelloffMacro } from '../src/lib/selloffBriefing';
+import { readFileSync } from 'node:fs';
+import { currentSelloff, readSelloffMacro, selloffPreviewParam, selloffBrief, SELLOFF_COPY, scorecardWeek, type SelloffMacro } from '../src/lib/selloffBriefing';
 const now = Date.parse('2026-11-02T15:00:00Z');
 const cash = (changePct: number, sessionDate = '2026-10-30', asOf = '2026-10-30T20:00:00Z') => ({ changePct, sessionDate, asOf, price: 100 });
 const factor = (chgPct: number, marketTime = '2026-10-30T20:00:00Z') => ({ chgPct, marketTime, status: 'OK', source: 'YAHOO' });
@@ -18,4 +19,28 @@ test('missing, mismatched, intraday, future, and unavailable values do not trigg
 test('three locales provide all card labels and week starts Monday', () => {
   for (const loc of ['ko', 'en', 'ja'] as const) for (const text of Object.values(SELLOFF_COPY[loc])) assert.ok(text.length > 0);
   assert.equal(scorecardWeek('2026-10-30'), '2026-10-26');
+});
+test('card only requests the scorecard and does not subscribe to earnings calendar', () => {
+  const source = readFileSync('src/app/[locale]/app-view/dash/SelloffCard.tsx', 'utf8');
+  assert.doesNotMatch(source, /watchEarningsCalendar|earningsCalendarData|crossBriefUrl|t\.mine/);
+  assert.deepEqual([...source.matchAll(/fetch\(`([^`]+)`/g)].map(m => m[1].split('?')[0]), ['/api/earnings/scorecard']);
+});
+test('failed macro response clears card and prior session expires at next close', async () => {
+  const macro = { indexBasis: { cash: { spx: cash(-5) } } };
+  const success = await readSelloffMacro({ status: 'fulfilled', value: new Response(JSON.stringify(macro)) }, now);
+  assert.ok(success.brief);
+  for (const result of [
+    { status: 'rejected', reason: new Error('network') } as const,
+    { status: 'fulfilled', value: new Response('', { status: 503 }) } as const,
+    { status: 'fulfilled', value: new Response('invalid json') } as const,
+  ]) assert.equal((await readSelloffMacro(result, now)).brief, null);
+  assert.equal(currentSelloff(success.brief, now)?.date, '2026-10-30');
+  assert.equal(currentSelloff(success.brief, Date.parse('2026-11-02T21:00:00Z')), null);
+  assert.equal(selloffBrief(macro, Date.parse('2026-11-02T21:00:00Z')), null);
+});
+test('preview query is ignored in production for on and off', () => {
+  for (const value of ['on', 'off']) {
+    assert.equal(selloffPreviewParam(`?selloffPreview=${value}`, 'production'), null);
+    assert.equal(selloffPreviewParam(`?selloffPreview=${value}`, 'development'), value);
+  }
 });
