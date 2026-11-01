@@ -26,6 +26,7 @@ import { DashWatchlistSection, DashWatchlistStar } from '@/components/app/watchl
 import { TodayPicksCard } from '@/components/app/TodayPicksCard';
 import { EarningsCalendarCard } from '@/components/app/EarningsCalendarCard';
 import { TrialConsentNotice } from '@/components/app/TrialConsentNotice';
+import { TrialRenewalOffNotice } from '@/components/app/TrialRenewalOffNotice';
 import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
 import { useStarLongPress, lpRowClass } from '@/components/app/watchlist/useLongPress';
 import { useAppWatchlist } from '@/lib/app/watchlist';
@@ -2113,6 +2114,7 @@ export default function AppDashPage() {
       </div>
 
       <TrialConsentNotice locale={locale} classes={{ sect: n9.e9Sect, surf: n9.e9Surf }} />
+      <TrialRenewalOffNotice locale={locale} />
 
       {/* ②-a ✦ AI 오늘 볼 것 (2026-10-13) — 마켓 스테이터스 바로 아래, 「내 종목」 위. 값이 없으면 카드 자체가 없다. 아래 카드·순서·문구는 그대로 */}
       <TodayPicksCard
