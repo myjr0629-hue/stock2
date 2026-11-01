@@ -328,3 +328,9 @@ test('same-timestamp correction reaches the record and the card; repeated identi
   assert.equal(back.record?.chips[0].pct, 3);
   assert.equal(back.write, false);
 });
+
+test('SOX/VIX carry the feed revision stamp (lastChangeAt) as rv', () => {
+  const t = at('2026-10-31T15:00:00Z');
+  const b = selloffForDisplay({ now: t, macro: { fetchedAtET: '2026-10-31T14:59:00.000Z', factors: { vix: { ...factor(12.9, '2026-10-30T20:15:01Z'), lastChangeAt: '2026-10-30T20:30:37.021Z' } } } });
+  assert.deepEqual(b?.chips[0], { name: 'VIX', pct: 12.9, at: '2026-10-30T20:15:01.000Z', rv: '2026-10-30T20:30:37.021Z', rx: '2026-10-31T14:59:00.000Z' });
+});

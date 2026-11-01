@@ -9,13 +9,15 @@ export const SELLOFF_COPY = {
 } as const;
 
 type Cash = { changePct?: number | null; sessionDate?: string | null; asOf?: string | null; price?: number | null };
-type Factor = { chgPct?: number | null; marketTime?: string; status?: string; source?: string };
+type Factor = { chgPct?: number | null; marketTime?: string; status?: string; source?: string; lastChangeAt?: string };
 export type SelloffMacro = { fetchedAtET?: string; indexBasis?: { cash?: { spx?: Cash; ndx?: Cash; nasdaq?: Cash } }; factors?: { sox?: Factor; vix?: Factor } };
 /**
- * at = 그 값의 관측(체결) 시각, rx = 그 값을 받은 스냅샷 시각(fetchedAtET) — 둘 다 ISO 정규형.
- * 같은 칸이 겹치면 관측이 늦은 쪽, 관측 시각이 같고 값이 다르면(같은 시각 종가 정정) 늦게 받은 쪽이 이긴다.
+ * at = 그 값의 관측(체결) 시각 · rv = 원천이 값이 «실제로 바뀐» 시각(SOX·VIX lastChangeAt — 같은 값의 사본은 같고 정정이면 전진)
+ * · rx = 그 값을 받은 스냅샷 시각(fetchedAtET). 모두 ISO 정규형.
+ * 같은 칸이 겹치면 관측(at)이 늦은 쪽. 관측 시각이 같고 값이 다르면(같은 시각 종가 정정) 둘 다 rv 가 있으면 rv 가 늦은 쪽,
+ * 아니면 rx 가 늦은 쪽. 값이 같으면 바꾸지 않는다.
  */
-export type SelloffChip = { name: string; pct: number; at?: string; rx?: string };
+export type SelloffChip = { name: string; pct: number; at?: string; rv?: string; rx?: string };
 export type SelloffBrief = { date: string; chips: SelloffChip[] };
 
 const NAMES = ['S&P 500', 'NASDAQ 100', 'SOX', 'VIX'] as const;
@@ -44,7 +46,9 @@ export function selloffChipNewer(a: SelloffChip, b: SelloffChip): boolean {
   if (!a.at) return false;
   if (!b.at) return true;
   if (a.at !== b.at) return a.at > b.at;
-  return a.pct !== b.pct && !!a.rx && (!b.rx || a.rx > b.rx);
+  if (a.pct === b.pct) return false;
+  if (a.rv && b.rv && a.rv !== b.rv) return a.rv > b.rv;
+  return !!a.rx && (!b.rx || a.rx > b.rx);
 }
 const newer = selloffChipNewer;
 /** 화면·저장 비교용 — 받은 시각(rx)만 다른 기록은 같은 기록이다. */
@@ -64,7 +68,7 @@ export function sanitizeSelloff(x: unknown): SelloffBrief | null {
   if (!b || typeof b.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.date) || !Array.isArray(b.chips)) return null;
   const okIso = (t: unknown): t is string => typeof t === 'string' && Number.isFinite(Date.parse(t)) && new Date(t).toISOString() === t;
   const chips = b.chips.filter(c => c && slotOf(c.name) >= 0 && finite(c.pct))
-    .map(c => ({ name: c.name, pct: c.pct, ...(okIso(c.at) ? { at: c.at } : {}), ...(okIso(c.rx) ? { rx: c.rx } : {}) }));
+    .map(c => ({ name: c.name, pct: c.pct, ...(okIso(c.at) ? { at: c.at } : {}), ...(okIso(c.rv) ? { rv: c.rv } : {}), ...(okIso(c.rx) ? { rx: c.rx } : {}) }));
   return chips.length ? { date: b.date, chips } : null;
 }
 
@@ -90,7 +94,7 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
   const iso = (t: string) => new Date(Date.parse(t)).toISOString();
   const rx = validIso(macro.fetchedAtET, now) ? { rx: iso(macro.fetchedAtET!) } : {};
   const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now, 1) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!), ...rx } : null;
-  const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now, 0) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!), ...rx } : null;
+  const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now, 0) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!), ...(validIso(v!.lastChangeAt, now) ? { rv: iso(v!.lastChangeAt!) } : {}), ...rx } : null;
   const observed = [cash(NAMES[0], spx), cash(NAMES[1], ndx) ?? cash(NASDAQ_COMPOSITE, ixic), factor(NAMES[2], sox), factor(NAMES[3], vix)];
   const kept = sanitizeSelloff(input.retained);
   const fromKept = (i: number) => kept?.date === date ? kept.chips.find(c => slotOf(c.name) === i) ?? null : null;

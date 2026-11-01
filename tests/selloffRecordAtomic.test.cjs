@@ -14,11 +14,14 @@ function store() {
     const values = new Map(), writes = [];
     const slot = n => (n === 'NASDAQ' || n === 'NASDAQ 100' ? 'NQ' : n);
     const newer = (c, p) => typeof c.at !== 'string' ? false : typeof p.at !== 'string' ? true
-        : c.at !== p.at ? c.at > p.at : c.pct !== p.pct && typeof c.rx === 'string' && (typeof p.rx !== 'string' || c.rx > p.rx);
+        : c.at !== p.at ? c.at > p.at : c.pct === p.pct ? false
+        : typeof c.rv === 'string' && typeof p.rv === 'string' && c.rv !== p.rv ? c.rv > p.rv
+        : typeof c.rx === 'string' && (typeof p.rx !== 'string' || c.rx > p.rx);
     return { values, writes, eval(script, keys, [raw, ttl]) {
         assert.match(script, /local raw = redis.call\('GET', KEYS\[1\]\)/);
         assert.match(script, /return c\.at > p\.at/);
-        assert.match(script, /c\.pct ~= p\.pct and type\(c\.rx\) == 'string'/);
+        assert.match(script, /if c\.pct == p\.pct then return false end/);
+        assert.match(script, /c\.rv ~= p\.rv then return c\.rv > p\.rv end/);
         assert.match(script, /redis.call\('SET', KEYS\[1\], cjson.encode/);
         assert.equal(keys.length, 1);
         const incoming = JSON.parse(raw), prev = values.get(keys[0]);
@@ -115,5 +118,26 @@ test('same-timestamp close correction: later receipt wins, identical value never
     assert.deepEqual(f.up.values.get(KEY).chips.map(c => c.pct), [3]);
     // Lua 규칙과 lib 규칙이 같다
     const lib = fs.readFileSync(path.join(root, 'src/lib/selloffBriefing.ts'), 'utf8');
-    assert.match(lib, /return a\.pct !== b\.pct && !!a\.rx && \(!b\.rx \|\| a\.rx > b\.rx\);/);
+    assert.match(lib, /if \(a\.rv && b\.rv && a\.rv !== b\.rv\) return a\.rv > b\.rv;/);
+});
+
+test('delayed stale copy cannot win over a newer identical receipt when the feed revision stamp is present (gate 11020334)', async () => {
+    const f = fixture();
+    const at = '2026-10-30T20:15:01.000Z';
+    const v12 = '2026-10-30T20:16:00.000Z';                 // +12 이 원천에서 처음 정해진 시각
+    const v3 = '2026-10-30T20:25:00.000Z';                  // +3 정정 시각(원천)
+    // 정정 뒤 다시 +12 로 재정정된 경우(rv 전진) — 순서 그대로 따른다
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T20:10:00.000Z' }]), 604800), 1);
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T20:40:00.000Z' }]), 604800), 0); // 같은 값의 사본
+    // 늦게 도착한 20:30 수신본 +3 이라도 원천 rv(20:25)가 +12 의 rv(20:16)보다 늦으면 진짜 정정 → 채택
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 3, at, rv: v3, rx: '2026-10-30T20:30:00.000Z' }]), 604800), 1);
+    // 반대로 정정 전 사본(rv 이전)은 수신이 늦어도 못 이긴다
+    assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T21:00:00.000Z' }]), 604800), 0);
+    assert.deepEqual(f.up.values.get(KEY).chips.map(c => c.pct), [3]);
+    // gate 11020334 그대로: +12(rv 20:16) 20:10·20:40 수신 뒤 지연 도착한 낡은 +3(rv 20:05 — +12 이전 값) → 거절
+    const g = fixture();
+    await g.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T20:10:00.000Z' }]), 604800);
+    await g.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 12, at, rv: v12, rx: '2026-10-30T20:40:00.000Z' }]), 604800);
+    assert.equal(await g.R.mergeSelloffRecordAtomic(KEY, rec([{ name: 'VIX', pct: 3, at, rv: '2026-10-30T20:05:00.000Z', rx: '2026-10-30T20:30:00.000Z' }]), 604800), 0);
+    assert.deepEqual(g.up.values.get(KEY).chips.map(c => c.pct), [12]);
 });
