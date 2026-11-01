@@ -33,6 +33,8 @@ import { isCmeGlobexOpenAt } from '@/lib/marketCalendar';
 import { withSessionDay } from '@/lib/marketSession';
 import { newsArchiveHref } from '@/lib/news/pulseNavigation';
 import s from './dash.module.css';
+import { selloffBrief, type SelloffBrief } from '@/lib/selloffBriefing';
+import { SelloffCard } from './SelloffCard';
 
 /* ═══════════════════════════════════════════════════════════
    DEMO FALLBACK DATA — Always show content even if APIs fail
@@ -620,6 +622,9 @@ export default function AppDashPage() {
   //   빈칸은 «없다»고 말하지만 가짜 숫자는 «있다»고 거짓말한다.
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
   const [macroReady, setMacroReady] = useState(false);
+  const [selloff, setSelloff] = useState<SelloffBrief | null>(null);
+  const [selloffPreview, setSelloffPreview] = useState<string | null>(null);
+  useEffect(() => { if (process.env.NODE_ENV === 'development') setSelloffPreview(new URLSearchParams(window.location.search).get('selloffPreview')); }, []);
   /* 9차: 매크로 8칸이 항상 2줄을 차지했다. 4칸만 보이고 나머지는 그 자리에서 펼친다.
      — 「전체 ›」 로 내보내지 않는다. 목적지 페이지가 없고, 10줄짜리는 페이지가 안 된다. */
   const [macroOpen, setMacroOpen] = useState(false);
@@ -1432,6 +1437,7 @@ export default function AppDashPage() {
           try {
             macroSnap = await macroRes.value.json();
             f = macroSnap?.factors || null;
+            setSelloff(selloffBrief(macroSnap));
           } catch {
             // silent fail
           }
@@ -2011,8 +2017,10 @@ export default function AppDashPage() {
   const topNews = newsItems[tickerIndex];
   const verdictKey = riskScore == null ? 'mix' : riskScore >= 58 ? 'off' : riskScore <= 42 ? 'on' : 'mix';
 
+  const shownSelloff = selloffPreview === 'off' ? null : selloffPreview === 'on' ? { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.5 }, { name: 'NASDAQ 100', pct: -2 }, { name: 'SOX', pct: -3 }, { name: 'VIX', pct: 10 }] } : selloff;
   return (
     <div className={`${n9.e9Wrap} ${n9.e9Root} ${s.page}`} data-v={verdictKey}>
+      {shownSelloff && <SelloffCard brief={shownSelloff} locale={locale} tickers={myList.items.map(item => item.t)} />}
 
       {/* ① 판정 히어로 ─ 시안 e9Hero */}
       <div className={n9.e9Hero}>
