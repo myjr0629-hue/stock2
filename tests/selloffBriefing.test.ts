@@ -144,3 +144,30 @@ test('preview flag is ignored in production end-to-end; dev on/off forces the ca
   assert.ok(selloffShown(selloffPreviewParam('?selloffPreview=on', 'development'), null, now));
   assert.equal(selloffShown(selloffPreviewParam('?selloffPreview=off', 'development'), kept, at('2026-11-02T15:00:00Z')), null);
 });
+
+test('corrected D close overwrites the retained record so it cannot revive next session (gate 11020317)', async () => {
+  const mem = new Map<string, string>();
+  const store = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v); } };
+  const load = async (macro: SelloffMacro, iso: string) => {
+    const r = await readSelloffMacro({ status: 'fulfilled', value: new Response(JSON.stringify(macro)) }, at(iso), loadRetainedSelloff(store));
+    saveRetainedSelloff(store, r.record);
+    return r.brief;
+  };
+  assert.equal((await load(fridayClose, '2026-10-30T21:00:00Z'))?.date, '2026-10-30');      // 금 장후: 급락 저장
+  const corrected: SelloffMacro = {
+    indexBasis: { cash: { spx: { changePct: -0.4, sessionDate: '2026-10-30', asOf: '2026-10-30T20:47:43Z', price: 7580 } } },
+    factors: { sox: factor(-1, '2026-10-30T21:16:01Z'), vix: factor(3, '2026-10-30T20:15:01Z') },
+  };
+  assert.equal(await load(corrected, '2026-10-31T15:00:00Z'), null);                         // 토: 종가 정정 → 숨김
+  assert.deepEqual(loadRetainedSelloff(store)?.chips.map(c => c.pct), [-0.4, -1, 3]);       // 보관본도 정정값
+  assert.equal(await load(mondayIntraday(), '2026-11-02T15:00:00Z'), null);                  // 월 장중: 되살아나지 않음
+  // 정정 없이 금→월 장중이면 그대로 이어진다(같은 경로).
+  mem.clear();
+  await load(fridayClose, '2026-10-30T21:00:00Z');
+  assert.equal((await load(mondayIntraday(), '2026-11-02T15:00:00Z'))?.date, '2026-10-30');
+  // 일부 지표만 정정(S&P 만 −0.4)이면 정정 안 된 SOX·VIX 기록으로 조건 유지.
+  mem.clear();
+  await load(fridayClose, '2026-10-30T21:00:00Z');
+  const spxOnly = { ...fridayClose, indexBasis: { cash: { spx: { ...fridayClose.indexBasis!.cash!.spx!, changePct: -0.4 } } } };
+  assert.deepEqual((await load(spxOnly, '2026-10-31T15:00:00Z'))?.chips.map(c => c.pct), [-0.4, -7.2, 12.9]);
+});

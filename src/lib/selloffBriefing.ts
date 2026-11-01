@@ -43,23 +43,29 @@ export function sanitizeSelloff(x: unknown): SelloffBrief | null {
  *   같은 D 브리핑(retained)으로만 채운다. D 마감 관측이 응답에 있으면 그 값이 언제나 우선이다.
  * - macro 가 없거나(요청 실패) 응답의 모든 관측 시각이 D 보다 오래됐거나 미래면 숨긴다.
  */
-export function selloffForDisplay(input: { now: number; macro: SelloffMacro | null | undefined; retained?: SelloffBrief | null }): SelloffBrief | null {
+export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null | undefined; retained?: SelloffBrief | null }): { brief: SelloffBrief | null; record: SelloffBrief | null } {
+  const none = { brief: null, record: null };
   const { now, macro } = input;
-  if (!macro || typeof macro !== 'object') return null;
+  if (!macro || typeof macro !== 'object') return none;
   const date = lastClosedSessionDate(now);
   const spx = macro.indexBasis?.cash?.spx, ndx = macro.indexBasis?.cash?.ndx, sox = macro.factors?.sox, vix = macro.factors?.vix;
   const okFactor = (v?: Factor) => !!v && v.status === 'OK' && v.source !== 'FAIL';
   // 응답이 D 이후 시세를 담고 있는가 — 멈춘 피드(시각이 D 이전)는 보관본까지 숨긴다.
   const stamps = [spx?.asOf, ndx?.asOf, okFactor(sox) ? sox!.marketTime : null, okFactor(vix) ? vix!.marketTime : null];
-  if (!stamps.some(t => validIso(t, now) && (etDateOfIso(t) ?? '') >= date)) return null;
+  if (!stamps.some(t => validIso(t, now) && (etDateOfIso(t) ?? '') >= date)) return none;
   const cash = (v?: Cash) => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now) && finite(v.changePct) ? v.changePct : null;
   const factor = (v?: Factor) => okFactor(v) && closedAt(v!.marketTime, date, now) && finite(v!.chgPct) ? v!.chgPct : null;
   const observed = [cash(spx), cash(ndx), factor(sox), factor(vix)];
   const kept = sanitizeSelloff(input.retained);
   const fromKept = (i: number) => kept?.date === date ? kept.chips.find(c => c.name === NAMES[i])?.pct ?? null : null;
   const values = observed.map((v, i) => v ?? fromKept(i));
-  if (!values.some((v, i) => hit(i, v))) return null;
-  return { date, chips: values.flatMap((pct, i) => pct == null ? [] : [{ name: NAMES[i], pct }]) };
+  const chips = values.flatMap((pct, i) => pct == null ? [] : [{ name: NAMES[i], pct }]);
+  // 보관본은 «급락일 때만»이 아니라 D 의 최신 관측 전체다 — 정정돼 조건을 벗어나면 그 값으로 덮어써 다음 장중에 되살아나지 않는다.
+  const record = chips.length ? { date, chips } : null;
+  return { brief: record && values.some((v, i) => hit(i, v)) ? record : null, record };
+}
+export function selloffForDisplay(input: { now: number; macro: SelloffMacro | null | undefined; retained?: SelloffBrief | null }): SelloffBrief | null {
+  return selloffEvaluate(input).brief;
 }
 export function selloffBrief(macro: SelloffMacro | null, now = Date.now(), retained: SelloffBrief | null = null): SelloffBrief | null {
   return selloffForDisplay({ now, macro, retained });
@@ -69,25 +75,25 @@ export function currentSelloff(brief: SelloffBrief | null, now = Date.now()): Se
   return brief?.date === lastClosedSessionDate(now) ? brief : null;
 }
 
-export async function readSelloffMacro(result: PromiseSettledResult<Response>, now = Date.now(), retained: SelloffBrief | null = null): Promise<{ macro: any; brief: SelloffBrief | null }> {
+export async function readSelloffMacro(result: PromiseSettledResult<Response>, now = Date.now(), retained: SelloffBrief | null = null): Promise<{ macro: any; brief: SelloffBrief | null; record: SelloffBrief | null }> {
   try {
     if (result.status === 'fulfilled' && result.value.ok) {
       const macro = await result.value.json();
-      return { macro, brief: selloffForDisplay({ now, macro, retained }) };
+      return { macro, ...selloffEvaluate({ now, macro, retained }) };
     }
   } catch { /* Failed or malformed responses invalidate the card. */ }
-  return { macro: null, brief: null };
+  return { macro: null, brief: null, record: null };
 }
 
-/** 기기 보관 — 다음 정규장 장중에도 D 카드를 잇기 위한 것뿐. 실패해도 화면은 macro 판정대로. */
+/** 기기 보관(D 의 최신 관측 기록, 급락 여부와 무관) — 다음 정규장 장중에도 D 판정을 잇기 위한 것뿐. 실패해도 화면은 macro 판정대로. */
 export const SELLOFF_STORE_KEY = 'signum:selloff:v1';
 type Store = Pick<Storage, 'getItem' | 'setItem'> | null | undefined;
 export function loadRetainedSelloff(store: Store): SelloffBrief | null {
   try { const raw = store?.getItem(SELLOFF_STORE_KEY); return raw ? sanitizeSelloff(JSON.parse(raw)) : null; } catch { return null; }
 }
-export function saveRetainedSelloff(store: Store, brief: SelloffBrief | null): void {
-  if (!brief) return;
-  try { store?.setItem(SELLOFF_STORE_KEY, JSON.stringify(brief)); } catch { /* storage unavailable */ }
+export function saveRetainedSelloff(store: Store, record: SelloffBrief | null): void {
+  if (!record) return;
+  try { store?.setItem(SELLOFF_STORE_KEY, JSON.stringify(record)); } catch { /* storage unavailable */ }
 }
 
 export function selloffPreviewParam(search: string, environment: string | undefined): string | null {

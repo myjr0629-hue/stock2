@@ -1429,11 +1429,11 @@ export default function AppDashPage() {
         const macroRes = await macroP;
         if (cancelled) return;
 
-        // 급락 카드: D 마감 관측 + (다음 정규장 장중엔) 이 기기가 받아 둔 같은 D 브리핑. 실패하면 숨김.
+        // 급락 카드: D 마감 관측 + (다음 정규장 장중엔) 이 기기가 받아 둔 같은 D 관측 기록. 실패하면 숨김.
         const selloffStore = (() => { try { return window.localStorage; } catch { return null; } })();
-        const { macro: macroSnap, brief: macroBrief } = await readSelloffMacro(macroRes, Date.now(), loadRetainedSelloff(selloffStore));
+        const { macro: macroSnap, brief: macroBrief, record: selloffRecord } = await readSelloffMacro(macroRes, Date.now(), loadRetainedSelloff(selloffStore));
         if (cancelled) return;
-        saveRetainedSelloff(selloffStore, macroBrief);
+        saveRetainedSelloff(selloffStore, selloffRecord);
         setSelloff(macroBrief);
         let f: any = null;
 
