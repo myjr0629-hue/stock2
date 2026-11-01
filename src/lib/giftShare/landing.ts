@@ -30,7 +30,7 @@ export async function giftLanding(req: NextRequest): Promise<NextResponse> {
   const ref = normalizeGiftRef(req.nextUrl.searchParams.get('ref'));
   const refQuery = ref ? `&ref=${encodeURIComponent(ref)}` : '';
   const masked = '•••• •••• •••• ••••';
-  const html = os ? couponHtml({ platform: os, lang, fromTag: 'gift', code: masked, gift: token,
+  const html = os ? couponHtml({ platform: os, lang, fromTag: 'gift', giftFrom: fromTag, code: masked, gift: token,
     appleRedeemUrl: installUrl('ios'), playInstallUrl: installUrl('android', attribution) })
     : await desktopRedeemHtml({ fromTag, lang, code: masked, gift: token, giftRef: ref,
       redeemUrl: `https://www.signumhq.com/app?from=${encodeURIComponent(fromTag)}&gift=${encodeURIComponent(token)}&l=${lang}${refQuery}`,
@@ -57,14 +57,14 @@ export async function campaignLanding(req: NextRequest, campaign: GiftCampaign, 
   const attribution = { from: rawFrom, campaign: campaign.id };
   const lang = visitorLang(fromTag, req.nextUrl.searchParams.get('l'), req.headers.get('accept-language'));
   const ua = req.headers.get('user-agent') || '';
-  const page = `https://www.signumhq.com/app?camp=${encodeURIComponent(campaign.id)}${fromTag ? `&from=${encodeURIComponent(fromTag)}` : ''}&l=${lang}`;
+  const page = `https://www.signumhq.com/app?camp=${encodeURIComponent(campaign.id)}${rawFrom ? `&from=${encodeURIComponent(rawFrom)}` : ''}&l=${lang}`;
   if (isPreviewBot(ua) || UA_BOT_RE.test(ua)) {
     return new NextResponse(req.method === 'HEAD' ? null : previewHtml('signum', lang, page, installUrl(os, attribution), false, false,
       { title: campaignCardTitle(lang), desc: inviteCardCopy(lang, true).desc }), { headers });
   }
   const identity = giftIdentity(req, { cookieOnly: true });
   const sub = campaignSubline(lang, fromTag, campaignUntil(campaign, lang, ' '));
-  const view = { id: campaign.id, from: fromTag, sub };
+  const view = { id: campaign.id, from: rawFrom, sub };
   const masked = '•••• •••• •••• ••••';
   const html = now >= campaign.endsAt
     // PC 는 안내만 — 단 맥 UA iPad 는 터치 감지로 iOS 복구 화면에 다시 들어온다(관문 11010913 ③).

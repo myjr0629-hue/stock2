@@ -248,6 +248,8 @@ export function couponHtml(opts: {
   ref?: string | null;
   /** 선물 전용: 기존 단추 모양·문구를 유지하고 서버 폼으로 등록한다. */
   gift?: string;
+  /** 선물 설치 폴백에 전달할 정규화된 유입 채널. */
+  giftFrom?: string | null;
   /** 공개 캠페인 전용(2026-11-01): 선물과 같은 서버 폼이되 /api/gift/campaign 으로 캠페인 id·채널·언어를 보낸다. sub = 부제 한 줄. 없으면 출력 그대로. */
   campaign?: { id: string; from: string | null; sub: string };
 }): string {
@@ -266,7 +268,7 @@ export function couponHtml(opts: {
     : esc(sub);
   const image = ios ? promoImageUrl(lang, code) : `https://www.signumhq.com/promo/redeem-card-${lang}.png`;
   const giftForm = (label: string, id: string) => opts.campaign ? campaignForm(opts.campaign, lang, ios, label, id)
-    : `<form method="post" action="/api/gift/claim${ios ? '?gift_os=ios' : ''}" style="margin:0"><input type="hidden" name="gift" value="${esc(opts.gift || '')}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
+    : `<form method="post" action="/api/gift/claim${ios ? '?gift_os=ios' : ''}${opts.giftFrom ? `${ios ? '&amp;' : '?'}from=${encodeURIComponent(opts.giftFrom)}` : ''}" style="margin:0"><input type="hidden" name="gift" value="${esc(opts.gift || '')}"><button class="cta" id="${id}" type="submit">${esc(label)}</button></form>`;
   const serverForm = !!(opts.gift || opts.campaign);
   const free = ios ? t.freeIos : t.freeAnd;
   const head = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">

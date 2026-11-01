@@ -136,7 +136,7 @@ const human = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
     for (const from of ['gift', 'share_pick']) {
       const html = await (await route.GET(req(`/app?camp=weekend-1101&from=${from}&l=ko`, { headers: { ...baseHeaders, ...human } }))).text();
       assert.ok(!html.includes('친구가 보낸 선물') && !html.includes('친구 초대 혜택'));
-      assert.ok(html.includes('name="from" value=""'));
+      assert.ok(html.includes(`name="from" value="${from}"`));
     }
   });
   await t('PC: 같은 캠페인 링크 QR(via=qr)·iPad 이동(gift_os=ios) · 맥 UA iPad 힌트 → iOS 폼', async () => {

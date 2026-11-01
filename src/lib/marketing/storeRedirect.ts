@@ -91,8 +91,10 @@ export function playUrlWithReferrer(
   campaign?: string | null,
 ): string {
   from = normalizeFrom(from);
+  const validCampaign = campaign && /^[a-z0-9-]{1,32}$/.test(campaign) ? campaign : null;
+  if (!from && validCampaign) from = 'direct';
   if (!from) return baseUrl;
-  const campaignId = campaign && /^[a-z0-9-]{1,32}$/.test(campaign) ? campaign : 'signumhq_web';
+  const campaignId = validCampaign || 'signumhq_web';
   const referrer = `utm_source=${from}&utm_medium=${medium}&utm_campaign=${campaignId}${content ? `&utm_content=${content}` : ''}`;
   let out = join(baseUrl, `referrer=${encodeURIComponent(referrer)}`);
   if (PLAY_CUSTOM_LISTINGS[app].has(from)) out = join(out, `listing=${from}`);
