@@ -378,5 +378,8 @@ test('rx-only advances are marked so the route can throttle them; value changes 
   assert.equal(changed.valueChanged, true);
   const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
   assert.match(route, /if \(write && own && \(valueChanged \|\| now - selloffRxWriteAt >= 60_000\)\)/);
-  assert.match(route, /selloffReadAt: new Date\(now\)\.toISOString\(\)/);
+  assert.match(route, /selloffReadAt: new Date\(readStartedAt\)\.toISOString\(\)/);
+  // 세대 시각은 스냅샷(현물 병렬 읽기 포함)을 «시작하기 전»에 잡는다 (gate 11020343)
+  const get = route.slice(route.indexOf('export async function GET'));
+  assert.ok(get.indexOf('const readStartedAt = Date.now();') >= 0 && get.indexOf('const readStartedAt = Date.now();') < get.indexOf('await getMacroSnapshotSSOT()'));
 });

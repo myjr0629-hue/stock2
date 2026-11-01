@@ -11,11 +11,12 @@ export const dynamic = 'force-dynamic';
 // 어떤 실패도 기존 응답을 바꾸지 않는다.
 let selloffMemo: { key: string; value: SelloffBrief | null; known: boolean; at: number } | null = null;
 let selloffRxWriteAt = 0; // 세대(rx)만 전진한 쓰기는 인스턴스당 분당 1회
-async function withSelloffRecord<T extends object>(base: T): Promise<T | (T & { selloffReadAt: string; selloffRecord?: SelloffBrief })> {
+async function withSelloffRecord<T extends object>(base: T, readStartedAt: number): Promise<T | (T & { selloffReadAt: string; selloffRecord?: SelloffBrief })> {
     try {
         const now = Date.now();
-        // 현물 indexBasis 를 읽은 시각(세대) — 기기·서버 모두 이 값으로 같은 칸의 정정 순서를 가른다.
-        const snapshot = { ...base, selloffReadAt: new Date(now).toISOString() };
+        // 현물 indexBasis 세대 = 그 읽기를 «시작한» 시각(스냅샷과 병렬로 읽으므로 끝난 시각이 아니다).
+        // 먼저 시작한 요청이 늦게 끝나도 더 이른 세대로 남는다 — 기기·서버 모두 이 값으로 같은 칸의 정정 순서를 가른다.
+        const snapshot = { ...base, selloffReadAt: new Date(readStartedAt).toISOString() };
         const key = SELLOFF_RECORD_KEY + lastClosedSessionDate(now);
         if (!selloffMemo || selloffMemo.key !== key || now - selloffMemo.at > 60_000) {
             const read = await Promise.race([
@@ -44,8 +45,9 @@ async function withSelloffRecord<T extends object>(base: T): Promise<T | (T & { 
 
 export async function GET() {
     try {
+        const readStartedAt = Date.now();
         const snapshot = await getMacroSnapshotSSOT();
-        return NextResponse.json(await withSelloffRecord(snapshot));
+        return NextResponse.json(await withSelloffRecord(snapshot, readStartedAt));
     } catch (error) {
         return NextResponse.json({ error: 'Failed to fetch macro snapshot' }, { status: 500 });
     }
