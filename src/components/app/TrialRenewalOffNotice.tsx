@@ -5,9 +5,9 @@ import { useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
-import { TRIAL_OFF_STORAGE_KEY, trialOffCopy, trialRenewalOffNotice, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
+import { TRIAL_OFF_STORAGE_KEY, trialOffCopy, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
-import { loadFreshTrialRenewalOff } from '@/services/trialRenewalOff';
+import { loadFreshTrialRenewalOff, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
 import p from './ProPaywall.module.css';
 import s from './GiftAnnounceSheet.module.css';
 
@@ -39,13 +39,20 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
       try {
         const snapshot = preview ? null : await loadFreshTrialRenewalOff();
         if (disposed || run !== generation || document.visibilityState !== 'visible') return;
-        const notice = preview ? { store: 'APP_STORE' as const, expiresAt: Date.now() + 3600000, period: 'preview' }
+        let notice = preview ? { store: 'APP_STORE' as const, expiresAt: Date.now() + 3600000, period: 'preview' }
           : snapshot && trialRenewalOffNotice(snapshot.customerInfo, snapshot.platform, Date.now(), readSeen());
         if (!notice) return;
         // A sheet may have opened while the SDK read was in flight.
         if (document.querySelector('[aria-modal="true"]')) {
           stopWaiting = waitForOtherModal(document, () => { stopWaiting = undefined; void enter(); });
           return;
+        }
+        if (!preview && snapshot) {
+          const fresh = await verifyTrialRenewalOff();
+          if (disposed || run !== generation || document.visibilityState !== 'visible' || document.querySelector('[aria-modal="true"]')) return;
+          notice = fresh && fresh.platform === snapshot.platform
+            ? verifiedTrialRenewalOffNotice(snapshot.customerInfo, fresh.customerInfo, fresh.platform, Date.now(), readSeen()) : null;
+          if (!notice) return;
         }
         const next = { ...notice, preview };
         current.current = next;
