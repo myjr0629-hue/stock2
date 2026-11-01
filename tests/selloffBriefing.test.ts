@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { currentSelloff, readSelloffMacro, selloffPreviewParam, selloffBrief, SELLOFF_COPY, scorecardWeek, type SelloffMacro } from '../src/lib/selloffBriefing';
+import { currentSelloff, loadRetainedSelloff, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
 const now = Date.parse('2026-11-02T15:00:00Z');
 const cash = (changePct: number, sessionDate = '2026-10-30', asOf = '2026-10-30T20:00:00Z') => ({ changePct, sessionDate, asOf, price: 100 });
 const factor = (chgPct: number, marketTime = '2026-10-30T20:00:00Z') => ({ chgPct, marketTime, status: 'OK', source: 'YAHOO' });
@@ -43,4 +43,104 @@ test('preview query is ignored in production for on and off', () => {
     assert.equal(selloffPreviewParam(`?selloffPreview=${value}`, 'production'), null);
     assert.equal(selloffPreviewParam(`?selloffPreview=${value}`, 'development'), value);
   }
+});
+
+// ── 표시 창(코디네이터 11/2): 급락 세션 D(금 10/30) 마감 ~ 다음 정규장(월 11/2) 마감 ──
+const at = Date.parse;
+// 10/30 실제 운영 응답과 같은 모양(현물 S&P −1.82%·NDX 피드 없음·SOX −7.2%·VIX +12.9%, 16:47/16:15 ET 마감 관측)
+const fridayClose: SelloffMacro = {
+  indexBasis: { cash: { spx: { changePct: -1.82, sessionDate: '2026-10-30', asOf: '2026-10-30T20:47:43Z', price: 7580 }, ndx: { changePct: null, sessionDate: null, asOf: null, price: null } } },
+  factors: { sox: factor(-7.2, '2026-10-30T21:16:01Z'), vix: factor(12.9, '2026-10-30T20:15:01Z') },
+};
+// 월요일 장중(10:00 EST)엔 같은 응답 칸이 월요일 장중 값으로 바뀐다(평온한 장).
+const mondayIntraday = (t = '2026-11-02T14:59:00Z'): SelloffMacro => ({
+  indexBasis: { cash: { spx: { changePct: 0.3, sessionDate: '2026-11-02', asOf: t, price: 7600 } } },
+  factors: { sox: factor(0.5, t), vix: factor(-4, t) },
+});
+const day = (macro: SelloffMacro | null, iso: string, retained: SelloffBrief | null = null) => selloffForDisplay({ now: at(iso), macro, retained });
+
+test('window: hidden before the sell-off session closes, shown from its close', () => {
+  const intradayFri = { indexBasis: { cash: { spx: cash(-2.5, '2026-10-30', '2026-10-30T19:58:00Z') } }, factors: { sox: factor(-6, '2026-10-30T19:58:00Z') } };
+  assert.equal(day(intradayFri, '2026-10-30T19:58:30Z'), null);              // 금 15:58 ET 장중 — D 는 아직 목요일
+  assert.equal(day(fridayClose, '2026-10-30T20:59:00Z')?.date, '2026-10-30'); // 금 장후
+  const atClose = { indexBasis: { cash: { spx: cash(-1.5, '2026-10-30', '2026-10-30T19:59:00Z') } } };
+  assert.equal(day(atClose, '2026-10-30T20:00:00Z')?.date, '2026-10-30');      // 16:00 정각, 15:59 마지막 봉
+  assert.equal(day({ indexBasis: { cash: { spx: cash(-1.5, '2026-10-30', '2026-10-30T19:58:00Z') } } }, '2026-10-30T20:00:00Z'), null); // 15:58 장중 봉은 종가 아님
+});
+
+test('window: weekend and next pre-open keep the card from the macro payload alone', () => {
+  const sat = day(fridayClose, '2026-10-31T15:00:00Z');
+  assert.deepEqual(sat, { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.82 }, { name: 'SOX', pct: -7.2 }, { name: 'VIX', pct: 12.9 }] });
+  assert.equal(day(fridayClose, '2026-11-02T14:29:00Z')?.date, '2026-10-30'); // 월 09:29 EST 개장 1분 전
+  // 개장 전 VIX 만 월요일 시각으로 넘어가도, 같은 D 보관본이 VIX 칸을 잇는다.
+  const vixRolled = { ...fridayClose, factors: { ...fridayClose.factors, vix: factor(-1, '2026-11-02T13:00:00Z') } };
+  assert.deepEqual(day(vixRolled, '2026-11-02T13:05:00Z', sat)?.chips.map(c => c.pct), [-1.82, -7.2, 12.9]);
+});
+
+test('window: during the next regular session the D card stays (gate 11020215 regression)', () => {
+  const kept = day(fridayClose, '2026-10-31T15:00:00Z');
+  assert.ok(kept);
+  for (const t of ['2026-11-02T14:30:00Z', '2026-11-02T15:00:00Z', '2026-11-02T20:59:00Z']) {
+    const shown = day(mondayIntraday(new Date(at(t) - 60_000).toISOString()), t, kept);
+    assert.equal(shown?.date, '2026-10-30', t);
+    assert.deepEqual(shown?.chips, kept!.chips);
+    assert.equal(currentSelloff(shown, at(t))?.date, '2026-10-30');
+  }
+  // 이 기기가 D 를 받은 적 없으면 장중 응답만으로는 D 를 알 수 없다 → 꾸며 내지 않고 숨긴다.
+  assert.equal(day(mondayIntraday(), '2026-11-02T15:00:00Z'), null);
+  // 다른 세션의 보관본은 쓰지 않는다.
+  assert.equal(day(mondayIntraday(), '2026-11-02T15:00:00Z', { ...kept!, date: '2026-10-29' }), null);
+});
+
+test('window: disappears once the next session closes without a sell-off, new sell-off replaces it', () => {
+  const kept = day(fridayClose, '2026-10-31T15:00:00Z')!;
+  const mondayClose = mondayIntraday('2026-11-02T20:59:00Z');
+  assert.equal(day(mondayClose, '2026-11-02T21:01:00Z', kept), null);
+  assert.equal(currentSelloff(kept, at('2026-11-02T21:00:00Z')), null);      // 상태에 남은 카드도 16:00 EST 렌더에서 사라진다
+  assert.equal(currentSelloff(kept, at('2026-11-02T20:59:59Z'))?.date, '2026-10-30');
+  const mondaySelloff = { ...mondayClose, factors: { ...mondayClose.factors, sox: factor(-3.1, '2026-11-02T20:59:00Z') } };
+  assert.equal(day(mondaySelloff, '2026-11-02T21:01:00Z', kept)?.date, '2026-11-02');
+});
+
+test('data missing or stale hides the card even inside the window', () => {
+  const kept = day(fridayClose, '2026-10-31T15:00:00Z')!;
+  assert.equal(day(null, '2026-11-02T15:00:00Z', kept), null);                // 요청 실패
+  assert.equal(day({}, '2026-11-02T15:00:00Z', kept), null);                  // 빈 응답
+  const stale: SelloffMacro = { indexBasis: { cash: { spx: cash(0.2, '2026-10-29', '2026-10-29T20:30:00Z') } }, factors: { sox: factor(0.1, '2026-10-29T21:00:00Z'), vix: factor(1, '2026-10-29T20:15:00Z') } };
+  assert.equal(day(stale, '2026-11-02T15:00:00Z', kept), null);               // 멈춘 피드(D 이전 시각)
+  assert.equal(day(stale, '2026-10-31T15:00:00Z'), null);
+  const future = mondayIntraday('2026-11-02T16:00:00Z');
+  assert.equal(day(future, '2026-11-02T15:00:00Z', kept), null);              // 미래 시각만 있는 응답
+  const failed = { factors: { sox: { ...factor(0, '2026-11-02T14:59:00Z'), status: 'UNAVAILABLE' }, vix: { ...factor(0, '2026-11-02T14:59:00Z'), source: 'FAIL' } } };
+  assert.equal(day(failed, '2026-11-02T15:00:00Z', kept), null);              // 실패 표시 관측은 «현재» 근거가 아니다
+  // D 마감 관측이 응답에 있으면 보관본보다 우선한다(정정된 값으로 조건 미달이면 숨김).
+  const corrected = { ...fridayClose, indexBasis: { cash: { spx: { ...fridayClose.indexBasis!.cash!.spx!, changePct: -0.4 } } }, factors: { sox: factor(-1, '2026-10-30T21:16:01Z'), vix: factor(3, '2026-10-30T20:15:01Z') } };
+  assert.equal(day(corrected, '2026-10-31T15:00:00Z', kept), null);
+});
+
+test('retained storage is shape-checked and never throws', () => {
+  const mem = new Map<string, string>();
+  const store = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v); } };
+  const kept = day(fridayClose, '2026-10-31T15:00:00Z');
+  saveRetainedSelloff(store, kept);
+  assert.deepEqual(loadRetainedSelloff(store), kept);
+  saveRetainedSelloff(store, null);                                          // 조건 미달은 덮어쓰지 않는다(날짜로 만료)
+  assert.deepEqual(loadRetainedSelloff(store), kept);
+  mem.set(SELLOFF_STORE_KEY, '{bad json');
+  assert.equal(loadRetainedSelloff(store), null);
+  mem.set(SELLOFF_STORE_KEY, JSON.stringify({ date: '2026-10-30', chips: [{ name: 'DOW', pct: -9 }, { name: 'VIX', pct: 'x' }] }));
+  assert.equal(loadRetainedSelloff(store), null);
+  const throwing = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('quota'); } };
+  assert.equal(loadRetainedSelloff(throwing), null);
+  assert.doesNotThrow(() => saveRetainedSelloff(throwing, kept));
+  assert.equal(loadRetainedSelloff(null), null);
+});
+
+test('preview flag is ignored in production end-to-end; dev on/off forces the card', () => {
+  const kept = day(fridayClose, '2026-10-31T15:00:00Z');
+  const now = at('2026-11-02T21:01:00Z');                                    // 창 밖
+  for (const v of ['on', 'off']) assert.equal(selloffShown(selloffPreviewParam(`?selloffPreview=${v}`, 'production'), kept, now), null);
+  assert.deepEqual(selloffShown(selloffPreviewParam('?selloffPreview=off', 'production'), kept, at('2026-11-02T15:00:00Z')), kept);
+  assert.ok(selloffShown(selloffPreviewParam('?selloffPreview=on', 'development'), null, now));
+  assert.equal(selloffShown(selloffPreviewParam('?selloffPreview=off', 'development'), kept, at('2026-11-02T15:00:00Z')), null);
 });

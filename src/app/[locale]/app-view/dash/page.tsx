@@ -33,7 +33,7 @@ import { isCmeGlobexOpenAt } from '@/lib/marketCalendar';
 import { withSessionDay } from '@/lib/marketSession';
 import { newsArchiveHref } from '@/lib/news/pulseNavigation';
 import s from './dash.module.css';
-import { currentSelloff, readSelloffMacro, selloffPreviewParam, type SelloffBrief } from '@/lib/selloffBriefing';
+import { loadRetainedSelloff, readSelloffMacro, saveRetainedSelloff, selloffPreviewParam, selloffShown, type SelloffBrief } from '@/lib/selloffBriefing';
 import { SelloffCard } from './SelloffCard';
 
 /* ═══════════════════════════════════════════════════════════
@@ -1429,8 +1429,11 @@ export default function AppDashPage() {
         const macroRes = await macroP;
         if (cancelled) return;
 
-        const { macro: macroSnap, brief: macroBrief } = await readSelloffMacro(macroRes);
+        // 급락 카드: D 마감 관측 + (다음 정규장 장중엔) 이 기기가 받아 둔 같은 D 브리핑. 실패하면 숨김.
+        const selloffStore = (() => { try { return window.localStorage; } catch { return null; } })();
+        const { macro: macroSnap, brief: macroBrief } = await readSelloffMacro(macroRes, Date.now(), loadRetainedSelloff(selloffStore));
         if (cancelled) return;
+        saveRetainedSelloff(selloffStore, macroBrief);
         setSelloff(macroBrief);
         let f: any = null;
 
@@ -2011,7 +2014,7 @@ export default function AppDashPage() {
   const topNews = newsItems[tickerIndex];
   const verdictKey = riskScore == null ? 'mix' : riskScore >= 58 ? 'off' : riskScore <= 42 ? 'on' : 'mix';
 
-  const shownSelloff = selloffPreview === 'off' ? null : selloffPreview === 'on' ? { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.5 }, { name: 'NASDAQ 100', pct: -2 }, { name: 'SOX', pct: -3 }, { name: 'VIX', pct: 10 }] } : currentSelloff(selloff);
+  const shownSelloff = selloffShown(selloffPreview, selloff);
   return (
     <div className={`${n9.e9Wrap} ${n9.e9Root} ${s.page}`} data-v={verdictKey}>
       {shownSelloff && <SelloffCard brief={shownSelloff} locale={locale} />}
