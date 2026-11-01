@@ -2,8 +2,13 @@
 
 import { initRevenueCat } from '@/services/revenueCat';
 
-/** Every attempt invalidates the SDK cache; failures never fall back to stale data. */
-export async function loadFreshTrialRenewalOff() {
+/** One SDK read per app session, including failures; the SDK may reuse its cache. */
+let sessionRead: Promise<Awaited<ReturnType<typeof readTrialRenewalOff>>> | undefined;
+export function loadFreshTrialRenewalOff() {
+  return sessionRead ??= readTrialRenewalOff();
+}
+
+async function readTrialRenewalOff() {
   const { Capacitor } = await import('@capacitor/core');
   if (!Capacitor.isNativePlatform()) return null;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -12,7 +17,6 @@ export async function loadFreshTrialRenewalOff() {
       (async () => {
         if (!(await initRevenueCat())) return null;
         const { Purchases } = await import('@revenuecat/purchases-capacitor');
-        await Purchases.invalidateCustomerInfoCache();
         const { customerInfo } = await Purchases.getCustomerInfo();
         return { customerInfo, platform: Capacitor.getPlatform() };
       })(),

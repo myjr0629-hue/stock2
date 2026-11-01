@@ -6,6 +6,7 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { TRIAL_OFF_STORAGE_KEY, trialOffCopy, trialRenewalOffNotice, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
+import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
 import { loadFreshTrialRenewalOff } from '@/services/trialRenewalOff';
 import p from './ProPaywall.module.css';
 import s from './GiftAnnounceSheet.module.css';
@@ -24,26 +25,34 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
   const [view, setView] = useState<View | null>(null);
   const current = useRef<View | null>(null);
   useEffect(() => {
-    let disposed = false, generation = 0, retry: number | undefined;
+    let disposed = false, generation = 0;
+    let stopWaiting: (() => void) | undefined;
     const preview = process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('trialOffPreview') === '1';
     const enter = async () => {
       const run = ++generation;
-      window.clearTimeout(retry);
+      stopWaiting?.(); stopWaiting = undefined;
       if (document.visibilityState !== 'visible' || current.current) return;
+      if (document.querySelector('[aria-modal="true"]')) {
+        stopWaiting = waitForOtherModal(document, () => { stopWaiting = undefined; void enter(); });
+        return;
+      }
       try {
         const snapshot = preview ? null : await loadFreshTrialRenewalOff();
         if (disposed || run !== generation || document.visibilityState !== 'visible') return;
         const notice = preview ? { store: 'APP_STORE' as const, expiresAt: Date.now() + 3600000, period: 'preview' }
           : snapshot && trialRenewalOffNotice(snapshot.customerInfo, snapshot.platform, Date.now(), readSeen());
         if (!notice) return;
-        // Other sheets get priority. Revalidate fresh data before showing after they close.
-        if (document.querySelector('[aria-modal="true"]')) { retry = window.setTimeout(enter, 2000); return; }
+        // A sheet may have opened while the SDK read was in flight.
+        if (document.querySelector('[aria-modal="true"]')) {
+          stopWaiting = waitForOtherModal(document, () => { stopWaiting = undefined; void enter(); });
+          return;
+        }
         const next = { ...notice, preview };
         current.current = next;
         setView(next);
       } catch { /* failed fresh reads are ineligible */ }
     };
-    const suspend = () => { ++generation; window.clearTimeout(retry); current.current = null; setView(null); };
+    const suspend = () => { ++generation; stopWaiting?.(); stopWaiting = undefined; current.current = null; setView(null); };
     const visibility = () => { if (document.visibilityState === 'visible') void enter(); else suspend(); };
     void enter();
     document.addEventListener('visibilitychange', visibility);
@@ -53,9 +62,9 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
     void import('@capacitor/app').then(({ App }) => App.addListener('appStateChange', ({ isActive }) => {
       if (isActive) resume(); else suspend();
     })).then((listener) => { if (disposed) void listener.remove(); else removeNative = () => { void listener.remove(); }; }).catch(() => {});
-    return () => { disposed = true; ++generation; window.clearTimeout(retry); removeNative?.(); document.removeEventListener('visibilitychange', visibility); document.removeEventListener('app:resume', resume); };
+    return () => { disposed = true; ++generation; stopWaiting?.(); removeNative?.(); document.removeEventListener('visibilitychange', visibility); document.removeEventListener('app:resume', resume); };
   }, []);
-  const close = useCallback((stage: 'trial_off_close' | 'trial_off_manage') => {
+  const close = useCallback((stage: 'trial_off_close' | 'trial_off_manage' | 'trial_off_expired') => {
     const active = current.current;
     if (!active) return;
     current.current = null;
@@ -63,10 +72,10 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
     if (!active.preview) trackFunnel(stage, { src: 'trial_off' });
     if (stage === 'trial_off_manage' && !active.preview && active.expiresAt > Date.now()) void openSubscriptionManagement(active.store).catch(() => {});
   }, []);
-  return view ? <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onManage={() => close('trial_off_manage')} /> : null;
+  return view ? <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onManage={() => close('trial_off_manage')} onExpired={() => close('trial_off_expired')} /> : null;
 }
 
-function TrialOffSheet({ view, locale, onClose, onManage }: { view: View; locale: string; onClose: () => void; onManage: () => void }) {
+function TrialOffSheet({ view, locale, onClose, onManage, onExpired }: { view: View; locale: string; onClose: () => void; onManage: () => void; onExpired: () => void }) {
   const copy = trialOffCopy(locale);
   const titleId = useId();
   const sheet = useRef<HTMLDivElement>(null);
@@ -81,9 +90,9 @@ function TrialOffSheet({ view, locale, onClose, onManage }: { view: View; locale
       if (!view.preview) { saveSeen(view.period); trackFunnel('trial_off_show', { src: 'trial_off' }); }
     }
     const focus = window.setTimeout(() => later.current?.focus({ preventScroll: true }), 40);
-    const expiry = window.setTimeout(onClose, Math.max(0, view.expiresAt - Date.now()));
-    return () => { window.clearTimeout(focus); window.clearTimeout(expiry); };
-  }, [view, onClose]);
+    const cancelExpiry = scheduleTrialOffExpiry(view.expiresAt, onExpired);
+    return () => { window.clearTimeout(focus); cancelExpiry(); };
+  }, [view, onExpired]);
   const trapTab = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Tab' || !isTop()) return;
     const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));

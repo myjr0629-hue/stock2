@@ -1,28 +1,41 @@
 /** SDK-only offline checks, no network. */
 import assert from 'node:assert/strict';
-import Module from 'node:module';
-function mock(name: string, exports: unknown) {
-  const id = require.resolve(name);
-  require.cache[id] = { id, filename: id, loaded: true, exports } as Module;
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+
+async function scenario(mode: 'success' | 'failure' | 'web') {
+  const calls: string[] = [];
+  const modules: Record<string, unknown> = {
+    '@/services/revenueCat': { initRevenueCat: async () => true },
+    '@capacitor/core': { Capacitor: { isNativePlatform: () => mode !== 'web', getPlatform: () => 'ios' } },
+    '@revenuecat/purchases-capacitor': { Purchases: {
+      invalidateCustomerInfoCache: async () => { calls.push('invalidate'); },
+      getCustomerInfo: async () => { calls.push('customer'); if (mode === 'failure') throw new Error('offline'); return { customerInfo: { entitlements: { active: {} } } }; },
+    } },
+  };
+  const source = readFileSync('src/services/trialRenewalOff.ts', 'utf8');
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const exports: Record<string, any> = {};
+  vm.runInNewContext(compiled, { exports, require: (name: string) => modules[name], setTimeout, clearTimeout, Promise });
+  const load = exports.loadFreshTrialRenewalOff as () => Promise<any>;
+  if (mode === 'failure') {
+    await assert.rejects(load(), /offline/);
+    await assert.rejects(load(), /offline/);
+    assert.deepEqual(calls, ['customer']);
+  } else if (mode === 'web') {
+    assert.equal(await load(), null);
+    assert.deepEqual(calls, []);
+  } else {
+    const [first, concurrent] = await Promise.all([load(), load()]);
+    assert.equal(first.platform, 'ios');
+    assert.equal(concurrent, first);
+    assert.equal(await load(), first);
+    assert.deepEqual(calls, ['customer']);
+  }
 }
-let native = true, fail = false;
-const calls: string[] = [];
-mock('@capacitor/core', { Capacitor: { isNativePlatform: () => native, getPlatform: () => 'ios' } });
-mock('../src/services/revenueCat', { initRevenueCat: async () => true });
-mock('@revenuecat/purchases-capacitor', { Purchases: {
-  invalidateCustomerInfoCache: async () => { calls.push('invalidate'); if (fail) throw new Error('offline'); },
-  getCustomerInfo: async () => { calls.push('customer'); return { customerInfo: { entitlements: { active: {} } } }; },
-} });
-import { loadFreshTrialRenewalOff } from '../src/services/trialRenewalOff';
 async function main() {
-  assert.equal((await loadFreshTrialRenewalOff())?.platform, 'ios');
-  assert.deepEqual(calls, ['invalidate', 'customer']);
-  calls.length = 0; fail = true;
-  await assert.rejects(loadFreshTrialRenewalOff());
-  assert.deepEqual(calls, ['invalidate']);
-  calls.length = 0; native = false;
-  assert.equal(await loadFreshTrialRenewalOff(), null);
-  assert.deepEqual(calls, []);
-  console.log('trialRenewalOffService: fresh read and failure passed');
+  await scenario('success'); await scenario('failure'); await scenario('web');
+  console.log('trialRenewalOffService: one SDK read, failure and web passed');
 }
 void main().catch((error) => { console.error(error); process.exitCode = 1; });

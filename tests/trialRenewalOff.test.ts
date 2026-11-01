@@ -1,4 +1,4 @@
-/** Offline: ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node"}' tests/trialRenewalOff.test.ts */
+/** Offline: npx tsx tests/trialRenewalOff.test.ts */
 import assert from 'node:assert/strict';
 import { trialRenewalOffNotice, trialOffCopy, TRIAL_OFF_WINDOW_MS } from '../src/lib/app/trialRenewalOff';
 import { isFunnelSrc, isFunnelStage } from '../src/lib/app/funnelSchema';
@@ -25,6 +25,6 @@ for (const lang of ['ko', 'en', 'ja']) {
   assert.match(copy.watchlist, /100/); assert.match(copy.watchlist, /5/);
 }
 assert.equal(trialOffCopy('fr'), trialOffCopy('en'));
-for (const stage of ['trial_off_show', 'trial_off_manage', 'trial_off_close']) assert.ok(isFunnelStage(stage));
+for (const stage of ['trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired']) assert.ok(isFunnelStage(stage));
 assert.ok(isFunnelSrc('trial_off'));
 console.log('trialRenewalOff: boundaries, copy and funnel passed');
