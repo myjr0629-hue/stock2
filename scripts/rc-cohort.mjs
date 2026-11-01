@@ -8,14 +8,14 @@ export function summarize(events, from, to, now = Date.now()) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || new Date(start).toISOString().slice(0, 10) !== from || new Date(end).toISOString().slice(0, 10) !== to || start >= end) throw new Error('Invalid UTC date range (FROM inclusive, TO exclusive)');
   const data = events.filter(e => e && e.environment === 'PRODUCTION');
   const starts = data.filter(e => e.type === 'INITIAL_PURCHASE' && e.period === 'TRIAL' && e.purchased != null && e.purchased >= start && e.purchased < end);
-  const result = { denominator: starts.length, ended_on: 0, ended_off: 0, unresolved: 0, not_ended: 0, first_paid_renewal: 0, refund_signal: 0, retrial: 0, unlinked: 0 };
+  const result = { denominator: starts.length, ended_on: 0, ended_off: 0, unresolved: 0, not_ended: 0, first_paid_renewal: 0, resubscription: 0, refund_signal: 0, retrial: 0, unlinked: 0 };
   for (const trial of starts) {
     const earlier = data.some(e => e !== trial && e.user === trial.user && e.type === 'INITIAL_PURCHASE' && e.period === 'TRIAL' && e.purchased != null && e.purchased < trial.purchased);
     if (earlier) result.retrial++;
     if (!trial.transaction || !trial.expires || trial.expires <= trial.purchased) { result.unlinked++; result.unresolved++; continue; }
     const nextTrial = data.filter(e => e.user === trial.user && e.transaction === trial.transaction && e.type === 'INITIAL_PURCHASE' && e.period === 'TRIAL' && e.purchased != null && e.purchased > trial.purchased).reduce((n, e) => Math.min(n, e.purchased), Infinity);
-    const related = data.filter(e => e.user === trial.user && e.transaction === trial.transaction && (e.purchased == null || e.purchased < nextTrial));
-    const paid = related.some(e => e.type === 'RENEWAL' && e.period === 'NORMAL' && e.purchased != null && e.purchased >= trial.expires && e.purchased < nextTrial);
+    const related = data.filter(e => e.user === trial.user && e.transaction === trial.transaction && e.at >= trial.purchased && e.at < nextTrial && (e.purchased == null || (e.purchased >= trial.purchased && e.purchased < nextTrial)));
+    const paid = related.some(e => e.type === 'RENEWAL' && e.period === 'NORMAL' && e.purchased === trial.expires);
     if (paid) result.first_paid_renewal++;
     if (related.some(e => e.reason === 'CUSTOMER_SUPPORT' && (e.type === 'CANCELLATION' || e.type === 'EXPIRATION'))) result.refund_signal++;
     if (trial.expires > now) { result.not_ended++; continue; }
@@ -24,7 +24,10 @@ export function summarize(events, from, to, now = Date.now()) {
     if (!terminal) { result.unresolved++; continue; }
     const terminalOff = related.some(e => e.type === 'EXPIRATION' && e.expires === trial.expires && e.reason === 'UNSUBSCRIBE');
     const changes = related.filter(e => (e.type === 'CANCELLATION' || e.type === 'UNCANCELLATION') && e.at <= trial.expires && e.expires === trial.expires).sort((a, b) => b.at - a.at);
-    if (terminalOff || (changes.length && changes[0].type === 'CANCELLATION' && changes[0].reason === 'UNSUBSCRIBE' && (!changes[1] || changes[0].at !== changes[1].at))) result.ended_off++;
+    if (terminalOff || (changes.length && changes[0].type === 'CANCELLATION' && changes[0].reason === 'UNSUBSCRIBE' && (!changes[1] || changes[0].at !== changes[1].at))) {
+      result.ended_off++;
+      if (related.some(e => e.type === 'RENEWAL' && e.period === 'NORMAL' && e.purchased != null && e.purchased > trial.expires)) result.resubscription++;
+    }
     else result.unresolved++;
   }
   return result;
