@@ -184,7 +184,7 @@ test('first visit during the next session: server D record keeps the card (gate 
   };
   const first = serve(fridayClose, '2026-10-30T21:20:00Z');
   assert.deepEqual(bare(stored), { date: '2026-10-30', chips: [{ name: 'S&P 500', pct: -1.82 }, { name: 'SOX', pct: -7.2 }, { name: 'VIX', pct: 12.9 }] });
-  assert.equal(mergeSelloffRecord({ now: at('2026-10-30T21:25:00Z'), macro: fridayClose, stored, storedKnown: true }).write, false); // 같으면 다시 쓰지 않음
+  assert.equal(mergeSelloffRecord({ now: at('2026-10-30T21:20:00Z'), macro: fridayClose, stored, storedKnown: true }).write, false); // 같은 세대면 다시 쓰지 않음
   assert.ok(first);
   // 월 10:00 EST — 이 기기는 처음(보관본 없음), 응답은 월요일 장중 값 + 서버 D 기록.
   const monday = serve(mondayIntraday(), '2026-11-02T15:00:00Z');
@@ -339,4 +339,35 @@ test('chips carry observation time and snapshot generation (rx = fetchedAtET)', 
   // 미래 세대 시각은 붙이지 않는다
   const f = selloffForDisplay({ now: t, macro: { fetchedAtET: '2026-10-31T16:00:00.000Z', factors: { vix: factor(12.9, '2026-10-30T20:15:01Z') } } });
   assert.equal(f?.chips[0].rx, undefined);
+});
+
+test('cash chips use the read time as generation; a newer macro body cannot carry an older cash value over a newer read (gate 11020339)', () => {
+  const D = '2026-10-30';
+  const spx = (pct: number) => ({ changePct: pct, sessionDate: D, asOf: '2026-10-30T20:47:43Z', price: 7580 });
+  // 21:10 에 정정된 −0.4 를 읽어 기록
+  const t1 = at('2026-10-30T21:10:00Z');
+  const fixed = mergeSelloffRecord({ now: t1, macro: { fetchedAtET: '2026-10-30T21:09:00.000Z', indexBasis: { cash: { spx: spx(-0.4) } } }, stored: null, storedKnown: true }).record!;
+  assert.equal(fixed.chips[0].rx, '2026-10-30T21:10:00.000Z');
+  // 같은 매크로 세대에서 현물만 정정돼도 바로 반영(읽은 시각이 늦다)
+  const t0 = at('2026-10-30T21:05:00Z');
+  const before = mergeSelloffRecord({ now: t0, macro: { fetchedAtET: '2026-10-30T21:04:00.000Z', indexBasis: { cash: { spx: spx(-1.8) } } }, stored: null, storedKnown: true }).record!;
+  const sameGen = mergeSelloffRecord({ now: at('2026-10-30T21:06:00Z'), macro: { fetchedAtET: '2026-10-30T21:04:00.000Z', indexBasis: { cash: { spx: spx(-0.4) } } }, stored: before, storedKnown: true });
+  assert.equal(sameGen.write, true);
+  assert.equal(sameGen.record?.chips[0].pct, -0.4);
+  // 정정 «전»에 읽어 둔 −1.8 판정(읽은 시각 21:05)은 더 새 매크로 본문과 함께 와도 21:10 의 −0.4 를 못 이긴다
+  const staleRead = mergeSelloffRecord({ now: t0, macro: { fetchedAtET: '2026-10-30T21:09:30.000Z', indexBasis: { cash: { spx: spx(-1.8) } } }, stored: fixed, storedKnown: true });
+  assert.equal(staleRead.record?.chips[0].pct, -0.4);
+  assert.equal(staleRead.write, false);
+});
+
+test('rx-only advances are marked so the route can throttle them; value changes are not', () => {
+  const t = at('2026-10-31T15:00:00Z');
+  const first = mergeSelloffRecord({ now: t, macro: fridayClose, stored: null, storedKnown: true }).record!;
+  const later = mergeSelloffRecord({ now: t + 30_000, macro: fridayClose, stored: first, storedKnown: true });
+  assert.equal(later.write, true);
+  assert.equal(later.valueChanged, false);
+  const changed = mergeSelloffRecord({ now: t + 30_000, macro: { ...fridayClose, indexBasis: { cash: { spx: { ...fridayClose.indexBasis!.cash!.spx!, changePct: -0.4 } } } }, stored: first, storedKnown: true });
+  assert.equal(changed.valueChanged, true);
+  const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
+  assert.match(route, /if \(write && own && \(valueChanged \|\| now - selloffRxWriteAt >= 60_000\)\)/);
 });

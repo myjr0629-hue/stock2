@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 // D 마감 관측 기록을 캐시 한 키에 두고 응답에 덧붙인다(추가 필드 · 공급사·AI 호출 0).
 // 어떤 실패도 기존 응답을 바꾸지 않는다.
 let selloffMemo: { key: string; value: SelloffBrief | null; known: boolean; at: number } | null = null;
+let selloffRxWriteAt = 0; // 세대(rx)만 전진한 쓰기는 인스턴스당 분당 1회
 async function withSelloffRecord<T extends object>(snapshot: T): Promise<T | (T & { selloffRecord: SelloffBrief })> {
     try {
         const now = Date.now();
@@ -22,11 +23,12 @@ async function withSelloffRecord<T extends object>(snapshot: T): Promise<T | (T 
             ]).catch(() => ({ known: false, value: null }));
             selloffMemo = { key, value: read.value, known: read.known, at: now };
         }
-        const { record, own, write } = mergeSelloffRecord({ now, macro: snapshot as any, stored: selloffMemo.value, storedKnown: selloffMemo.known });
-        if (write && own) {
+        const { record, own, write, valueChanged } = mergeSelloffRecord({ now, macro: snapshot as any, stored: selloffMemo.value, storedKnown: selloffMemo.known });
+        if (write && own && (valueChanged || now - selloffRxWriteAt >= 60_000)) {
+            if (!valueChanged) selloffRxWriteAt = now;
             // 응답은 기다리지 않는다(after). 이 응답의 D 마감 관측(own)만 보내고, 칸별 «늦은 관측이 이긴다» 합치기는
             // 저장소 안 EVAL 한 번으로 한다 — 인스턴스 간 읽기·쓰기 경합으로 낡은 값이 새 값을 되돌릴 수 없다.
-            // 쓰기는 D 마감 관측이 응답에 있는 동안(마감~다음 개장) 새 스냅샷 세대마다 인스턴스당 최대 1회(≈분당 1회).
+            // 값이 바뀌면 바로, 세대(rx)만 전진하면 인스턴스당 분당 최대 1회 — D 마감 관측이 응답에 있는 동안(마감~다음 개장)만.
             selloffMemo = { key, value: record, known: true, at: selloffMemo.at };
             after(async () => { try {
                 await mergeSelloffRecordAtomic(key, own, 7 * 86_400);

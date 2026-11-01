@@ -89,8 +89,11 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
   const stamps = [spx?.asOf, ndx?.asOf, ixic?.asOf, okFactor(sox) ? sox!.marketTime : null, okFactor(vix) ? vix!.marketTime : null];
   if (!stamps.some(t => validIso(t, now) && (etDateOfIso(t) ?? '') >= date)) return none;
   const iso = (t: string) => new Date(Date.parse(t)).toISOString();
+  // 세대(rx): factors(SOX·VIX)는 macro 본문 스냅샷 시각, 현물 indexBasis 는 macroHubProvider 가 요청마다 캐시에서
+  // 새로 읽어 붙이므로(getMacroSnapshotSSOT) 그 읽은 시각(= 이 판정 시각 now)이 세대다.
   const rx = validIso(macro.fetchedAtET, now) ? { rx: iso(macro.fetchedAtET!) } : {};
-  const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now, 1) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!), ...rx } : null;
+  const cashRx = { rx: new Date(now).toISOString() };
+  const cash = (name: string, v?: Cash): SelloffChip | null => v && v.sessionDate === date && finite(v.price) && v.price > 0 && closedAt(v.asOf, date, now, 1) && finite(v.changePct) ? { name, pct: v.changePct, at: iso(v.asOf!), ...cashRx } : null;
   const factor = (name: string, v?: Factor): SelloffChip | null => okFactor(v) && closedAt(v!.marketTime, date, now, 0) && finite(v!.chgPct) ? { name, pct: v!.chgPct, at: iso(v!.marketTime!), ...rx } : null;
   const observed = [cash(NAMES[0], spx), cash(NAMES[1], ndx) ?? cash(NASDAQ_COMPOSITE, ixic), factor(NAMES[2], sox), factor(NAMES[3], vix)];
   const kept = sanitizeSelloff(input.retained);
@@ -112,14 +115,17 @@ export function selloffForDisplay(input: { now: number; macro: SelloffMacro | nu
  * 기존 기록과 다를 때만 쓴다 — 정정값은 덮어쓰고, 개장 전 한 지표만 넘어가도 나머지는 기록이 잇는다.
  */
 export const SELLOFF_RECORD_KEY = 'selloff:record:v1:';
-export function mergeSelloffRecord(input: { now: number; macro: SelloffMacro | null | undefined; stored: SelloffBrief | null; storedKnown: boolean }): { record: SelloffBrief | null; own: SelloffBrief | null; write: boolean } {
+export function mergeSelloffRecord(input: { now: number; macro: SelloffMacro | null | undefined; stored: SelloffBrief | null; storedKnown: boolean }): { record: SelloffBrief | null; own: SelloffBrief | null; write: boolean; valueChanged: boolean } {
   const date = lastClosedSessionDate(input.now);
   const stored = sanitizeSelloff(input.stored);
   const merged = selloffEvaluate({ now: input.now, macro: input.macro, retained: stored }).record;
   // own = 이 응답의 D 마감 관측만. 저장소에는 own 만 보내고 합치기는 저장소 안(원자 EVAL)에서 한다.
   const own = selloffEvaluate({ now: input.now, macro: input.macro, retained: null }).record;
   const same = !!stored && stored.date === date && sameRecord(stored, merged);
-  return { record: merged, own, write: input.storedKnown && !!merged && !!own && !same };
+  // 값(이름·등락률·관측 시각)이 바뀐 쓰기와 세대(rx)만 전진한 쓰기를 가른다 — 후자는 호출자가 빈도를 묶는다.
+  const strip = (r: SelloffBrief | null) => r && { date: r.date, chips: r.chips.map(({ rx: _rx, ...c }) => c) };
+  const valueChanged = !(stored && stored.date === date && sameRecord(strip(stored), strip(merged)));
+  return { record: merged, own, write: input.storedKnown && !!merged && !!own && !same, valueChanged };
 }
 export function selloffBrief(macro: SelloffMacro | null, now = Date.now(), retained: SelloffBrief | null = null): SelloffBrief | null {
   return selloffForDisplay({ now, macro, retained });
