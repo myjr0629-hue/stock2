@@ -1,13 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet';
+import { afterSheetHistory, useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { TRIAL_OFF_STORAGE_KEY, trialOffCopy, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
 import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
+import { claimCancelReason } from '@/lib/app/cancelReason';
+import { CancelReasonSheet } from './CancelReasonSheet';
 import p from './ProPaywall.module.css';
 import s from './GiftAnnounceSheet.module.css';
 
@@ -23,6 +25,7 @@ function saveSeen(period: string) {
 type View = TrialOffNotice & { preview: boolean };
 export function TrialRenewalOffNotice({ locale }: { locale: string }) {
   const [view, setView] = useState<View | null>(null);
+  const [reason, setReason] = useState(false);
   const current = useRef<View | null>(null);
   useEffect(() => {
     let disposed = false, generation = 0;
@@ -30,6 +33,7 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
     let stopWaiting: (() => void) | undefined;
     const preview = process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('trialOffPreview') === '1';
     const enter = async () => {
+      if (process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('cancelReasonPreview') === '1') return;
       const run = ++generation;
       stopWaiting?.(); stopWaiting = undefined;
       if (document.visibilityState !== 'visible' || current.current) return;
@@ -94,10 +98,16 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
     if (!active.preview) trackFunnel(stage, { src: 'trial_off' });
     if (stage === 'trial_off_manage' && !active.preview && active.expiresAt > Date.now()) void openSubscriptionManagement(active.store).catch(() => {});
   }, []);
-  return view ? <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onManage={() => close('trial_off_manage')} onExpired={() => close('trial_off_expired')} /> : null;
+  return <>{view && <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onLater={() => { const active = current.current; close('trial_off_close'); if (active && !active.preview && claimCancelReason()) void afterSheetHistory().then(() => setReason(true)); }} onManage={() => close('trial_off_manage')} onExpired={() => close('trial_off_expired')} />}<CancelReasonPreview locale={locale} />{reason && <CancelReasonSheet locale={locale} preview={false} onDone={() => setReason(false)} />}</>;
 }
 
-function TrialOffSheet({ view, locale, onClose, onManage, onExpired }: { view: View; locale: string; onClose: () => void; onManage: () => void; onExpired: () => void }) {
+function CancelReasonPreview({ locale }: { locale: string }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => { if (process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('cancelReasonPreview') === '1') setOpen(true); }, []);
+  return open ? <CancelReasonSheet locale={locale} preview onDone={() => setOpen(false)} /> : null;
+}
+
+function TrialOffSheet({ view, locale, onClose, onLater, onManage, onExpired }: { view: View; locale: string; onClose: () => void; onLater: () => void; onManage: () => void; onExpired: () => void }) {
   const copy = trialOffCopy(locale);
   const titleId = useId();
   const sheet = useRef<HTMLDivElement>(null);
@@ -126,7 +136,7 @@ function TrialOffSheet({ view, locale, onClose, onManage, onExpired }: { view: V
       <div className={p.head}><h1 className={p.title} id={titleId}>{copy.title}</h1><p className={p.lede}>{copy.intro}</p></div>
       <ul className={p.benefits}><li className={p.benefit}>{copy.watchlist}</li><li className={p.benefit}>{copy.ads}</li></ul>
       <button type="button" className={`${p.cta} ${s.cta}`} onClick={onManage}>{copy.manage}</button>
-      <button ref={later} type="button" className={p.close} style={{ position: 'static', width: '100%' }} onClick={onClose}>{copy.later}</button>
+      <button ref={later} type="button" className={p.close} style={{ position: 'static', width: '100%' }} onClick={onLater}>{copy.later}</button>
     </div>
   </div>;
 }

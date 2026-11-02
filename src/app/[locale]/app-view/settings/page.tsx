@@ -7,6 +7,8 @@ import { ProPaywall } from '@/components/app/ProPaywall';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useProStatus } from '@/hooks/useProStatus';
 import { openRedeem, redeemCopy, redeemIsAndroid, showRedeemEntry } from '@/lib/app/redeem';
+import { claimCancelReason } from '@/lib/app/cancelReason';
+import { CancelReasonSheet, openAfterCancelReason } from '@/components/app/CancelReasonSheet';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { couponGuideCopy } from '@/lib/app/couponGuide';
 import { GIFT_COPY, toGiftLang } from '@/lib/gift/gift';
@@ -360,8 +362,13 @@ export default function SettingsPage() {
     return () => { timers.forEach(clearTimeout); clearInterval(iv); };
   }, []);
 
+  const [reasonMode, setReasonMode] = useState<'manage' | 'preview' | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('cancelReasonPreview') === '1') setReasonMode('preview');
+  }, []);
   const handleManageSub = useCallback(() => {
-    void openSubscriptionManagement();
+    if (claimCancelReason()) setReasonMode('manage');
+    else void openSubscriptionManagement();
   }, []);
 
   // Cross-promo → 형제 앱 스토어 (device-aware smart link, ?from tagged for attribution).
@@ -879,6 +886,12 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      {reasonMode && <CancelReasonSheet locale={locale} preview={reasonMode === 'preview'} onDone={() => {
+        const manage = reasonMode === 'manage';
+        setReasonMode(null);
+        if (manage) openAfterCancelReason(() => { void openSubscriptionManagement(); });
+      }} />}
 
       {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지)
           ★2026-10-06 페이월은 이 바깥막(onClick={handleClose}) «안»에 그려져, 페이월 안 어디를 눌러도 클릭이 바깥막까지 올라가
