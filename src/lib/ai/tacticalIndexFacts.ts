@@ -146,6 +146,16 @@ export function mergePostIndexBasis(core: MarketIndexBasis | null | undefined, f
         futures: { nq: pickFut(fresh.futures.nq, core.futures.nq), es: pickFut(fresh.futures.es, core.futures.es) } };
 }
 
+/**
+ * ★2026-11-02 장외(CLOSED) 재생성 재료 합치기 — 현물은 장후와 같이 칸별, 선물은 지금 다시 읽은 관측(가격 있으면) 먼저.
+ *   장후 규칙(«종가 기준이 붙은 쪽 먼저»)을 장외에 쓰면 코어에 남은 20분 넘은 기준 관측이 새 관측을 밀어내 선물 사실 0 → 재생성 중단(관문 11021811).
+ */
+export function mergeClosedIndexBasis(core: MarketIndexBasis | null | undefined, fresh: MarketIndexBasis | null | undefined): MarketIndexBasis | null {
+    const merged = mergePostIndexBasis(core, fresh);
+    if (!merged || !core || !fresh) return merged;
+    const fut = <T extends MarketIndexBasis['futures']['nq']>(f: T, c: T): T => (f?.price != null ? f : c);
+    return { ...merged, futures: { nq: fut(fresh.futures.nq, core.futures.nq), es: fut(fresh.futures.es, core.futures.es) } };
+}
 /** POST 추가 재생성: pp 차이·최소 간격·ET 세션당 모든 언어 합산 생성 시도 상한. */
 export const POST_TACTICAL_DRIFT_PP = 0.3;
 export const POST_TACTICAL_REFRESH_MS = 30 * 60_000;

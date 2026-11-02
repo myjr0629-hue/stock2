@@ -2,7 +2,7 @@
 //   ③ ja «本日(10/30)» 월요일 노출. 운영 값: 11/2 08:10Z /api/market/macro ES +0.38%·NQ +0.75%(직전 정산 대비, 종가 기준 키 만료) · 채점표 10/26 주 INTC −28.6%(반응일 10/30).
 import assert from 'node:assert/strict';
 import { buildMarketIndexBasis } from '@/lib/marketIndexBasis';
-import { buildIndexFacts, hasFuturesSinceCloseFact, isFuturesRefreshSession, postTacticalMayLackFutures, postTacticalMayDriftFutures, tacticalSessionAt, POST_TACTICAL_RETRY_MS } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, isFuturesRefreshSession, mergeClosedIndexBasis, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, tacticalSessionAt, POST_TACTICAL_RETRY_MS } from '@/lib/ai/tacticalIndexFacts';
 import { tacticalMacroDrivers, driversForPrompt, driverClaimReasons, causeNewsFromArchive, EARNINGS_DRIVER_KEY } from '@/lib/ai/tacticalDrivers';
 import { absoluteDayWords, polishTacticalText, stateRelativeDayReasons, buildTacticalPrompt, tacticalNextReasons, splitSentences, checkTacticalStored } from '@/lib/ai/tacticalPrompt';
 import { reservePostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
@@ -41,6 +41,13 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         assert.equal(buildIndexFacts(holBasis, 'CLOSED', hol).filter(f => f.kind === 'futures').length, 0, '휴장일 뒤 세션 — 정산 기준이 금요일이 아니다');
         const sun = Date.parse('2026-09-06T23:00:00Z');   // 9/6(일) 19:00 ET — 금요일 정산 기준
         assert.equal(buildIndexFacts(buildMarketIndexBasis({ nasdaq: { ...cash('^IXIC', 100, -1), marketTime: '2026-09-04T20:15:00Z', lastChangeAt: '2026-09-04T20:15:00Z' }, es: fut('ES=F', 7000, 0.5, sun - 5 * MIN) }, sun, {}), 'CLOSED', sun).filter(f => f.kind === 'futures').length, 1);
+        // 관문 11021811 — 장외 재생성 재료: 코어에 남은 20분 넘은 «종가 기준» 관측보다 지금 다시 읽은 관측을 먼저
+        const staleRef = buildMarketIndexBasis({ es: fut('ES=F', 7600, -0.2, Date.parse('2026-10-30T21:00:00Z')) }, Date.parse('2026-10-30T21:01:00Z'),
+            { es: { symbol: 'ES=F' as const, sessionDate: '2026-10-30', price: 7610, asOf: '2026-10-30T20:00:00.000Z' } });
+        assert.ok(staleRef.futures.es.cashCloseReferenceAt, '코어 = 금요일 종가 기준 붙은 옛 관측');
+        assert.equal(mergeClosedIndexBasis(staleRef, monBasis)!.futures.es.price, 7642.75);
+        assert.equal(buildIndexFacts(mergeClosedIndexBasis(staleRef, monBasis)!, 'CLOSED', MON).filter(f => f.kind === 'futures').length, 2);
+        assert.equal(mergePostIndexBasis(staleRef, monBasis)!.futures.es.price, 7600, '장후 규칙은 그대로(기준 붙은 쪽 먼저)');
         // 장외라도 관측이 그 정규장 18:00 ET 이전이면(새 세션 전) 쓰지 않는다
         const sat = Date.parse('2026-10-31T01:30:00Z');   // 금 21:30 ET — 선물 휴장(주말)
         assert.equal(buildIndexFacts(buildMarketIndexBasis({ es: fut('ES=F', 7600, -1.5, sat - 5 * MIN) }, sat, {}), 'CLOSED', sat).filter(f => f.kind === 'futures').length, 0);

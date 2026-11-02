@@ -1,5 +1,5 @@
 import { fmpFetch } from '@/lib/fmpClient';
-import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, isFuturesRefreshSession, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, mergeClosedIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, isFuturesRefreshSession, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
 import { filterTacticalCauseHeadlines } from '@/lib/ai/tacticalNews';
 import { tacticalFedwatchFrom, causeNewsFromArchive, mergeCauseNews, tacticalMacroDrivers, type TacticalFedwatch, type TacticalMacroDrivers, type EarningsReactionInput } from '@/lib/ai/tacticalDrivers';
 import { tickerName } from '@/lib/app/tickerNames';
@@ -574,7 +574,9 @@ export class GuardianDataHub {
         let changed = !adopt;
         try {
             const core = await getFromCache<GuardianCore>(CORE_KEY).catch(() => null);
-            const basis = mergePostIndexBasis(core?.market.indexBasis ?? previous.market.indexBasis, await loadMarketIndexBasis(now).catch(() => null));
+            const fresh = await loadMarketIndexBasis(now).catch(() => null);
+            const coreBasis = core?.market.indexBasis ?? previous.market.indexBasis;
+            const basis = tacticalSessionAt(now) === 'CLOSED' ? mergeClosedIndexBasis(coreBasis, fresh) : mergePostIndexBasis(coreBasis, fresh);
             const base = core ? offHoursRotationContext(core, locale) : {
                 locale, rlsiScore: previous.rlsi.score, nasdaqChange: previous.market.nqChangePercent ?? null,
                 vectors: [], vix: previous.market.vix ?? 0,
