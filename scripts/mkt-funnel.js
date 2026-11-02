@@ -212,13 +212,18 @@ async function main() {
   }
 
   console.log('\n── 해지 사유 (횟수 · 무응답 포함, 고유 사용자 아님) ──');
+  // 플랫폼×단계×날짜를 한 번의 mget 으로(요청 1회)
+  const reasonKeys = [];
+  for (const platform of PLATS) for (const stage of CANCEL_REASON_STAGES) for (const day of dates) reasonKeys.push([`${ns}:${stage}:other:${platform}:${day}`, platform, stage]);
+  const reasonVals = await mget(reasonKeys.map((k) => k[0]), KEY, miss);
+  const reasonCounts = {};
+  reasonKeys.forEach(([, platform, stage], i) => {
+    const row = (reasonCounts[platform] ||= {});
+    row[stage] = (row[stage] || 0) + (Number(reasonVals[i]) || 0);
+  });
   for (const platform of PLATS) {
-    const counts = {};
-    for (const stage of CANCEL_REASON_STAGES) {
-      const values = await mget(dates.map((day) => `${ns}:${stage}:other:${platform}:${day}`), KEY, miss);
-      counts[stage] = values.reduce((sum, value) => sum + (Number(value) || 0), 0);
-    }
-    console.log(`${platform}  ${CANCEL_REASON_STAGES.map((stage) => `${stage.slice(14)} ${counts[stage]}`).join(' · ')}`);
+    const counts = reasonCounts[platform] || {};
+    console.log(`${platform}  ${CANCEL_REASON_STAGES.map((stage) => `${stage.slice(14)} ${counts[stage] || 0}`).join(' · ')}`);
   }
 
   // ③ 스마트링크 «어디서 왔나»
