@@ -462,9 +462,13 @@ const TODAY_WORDS = /\btoday\b|\btonight\b|오늘|금일|今日|本日|今夜/i;
 const TOMORROW_WORDS = /\btomorrow\b|내일|명일|明日/i;
 
 /** Tactical NEXT 문장 — 프롬프트의 AS_OF·SCHEDULED_EVENTS 로. */
+/** «(日本時間09:00)»·«（한국 09:00）» → «(日本時間 09:00)» — 생성·저장본 검사가 같은 표기로 본다(저장본 검사만 엄격하면 통과·저장한 글이 다시 읽을 때 떨어진다) */
+export function normalizeLocalTime(text: string): string {
+    return text.replace(/[(（](한국|日本時間)\s*(\d{2}:\d{2})[)）]/g, '($1 $2)');
+}
 export function tacticalNextReasons(next0: string, prompt: string, mode: 'generate' | 'read'): string[] {
     // ★2026-11-02 «(日本時間09:00)»·«(한국09:00)»처럼 띄어쓰기만 빠진 현지 시각 병기를 같은 표기로 본다(11/2 실모델 ja 첫 생성 탈락 time-format·local-time-required)
-    const next = next0.replace(/[(（](한국|日本時間)\s*(\d{2}:\d{2})[)）]/g, '($1 $2)');
+    const next = normalizeLocalTime(next0);
     const { events, asOf } = promptEvidence(prompt);
     const locale: Locale = prompt.includes('entirely in 한국어') ? 'ko' : prompt.includes('entirely in 日本語') ? 'ja' : 'en';
     const localReasons: string[] = [];
@@ -501,7 +505,7 @@ export function checkTacticalStored(text: string, prompt: string, opts: { driver
     const { events, asOf } = promptEvidence(prompt);
     // origin/main 저장본 계약: 입력 이름표 + NEXT의 예정 주장. INDEX_FACTS와 대조하지 않는다.
     // 현지 시각 병기는 새 생성 계약이므로 저장본에서는 ET만 기존 일정 검사로 넘긴다.
-    const next = (sentences[sentences.length - 1] || '').replace(/\((?:한국|日本時間) \d{2}:\d{2}\)/g, '');
+    const next = normalizeLocalTime(sentences[sentences.length - 1] || '').replace(/\((?:한국|日本時間) \d{2}:\d{2}\)/g, '');
     return [...internalLabelReasons(text, false), ...internalSourceReasons(text),
         ...scheduleClaimReasons(next, events, asOf, 'claims'), ...storedDriverReasons(text, opts.driverSnapshot, opts.driverText)];
 }

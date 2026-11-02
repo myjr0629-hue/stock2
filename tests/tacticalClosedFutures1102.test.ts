@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildMarketIndexBasis } from '@/lib/marketIndexBasis';
 import { buildIndexFacts, hasFuturesSinceCloseFact, isFuturesRefreshSession, postTacticalMayLackFutures, postTacticalMayDriftFutures, tacticalSessionAt, POST_TACTICAL_RETRY_MS } from '@/lib/ai/tacticalIndexFacts';
 import { tacticalMacroDrivers, driversForPrompt, driverClaimReasons, causeNewsFromArchive, EARNINGS_DRIVER_KEY } from '@/lib/ai/tacticalDrivers';
-import { absoluteDayWords, polishTacticalText, stateRelativeDayReasons, buildTacticalPrompt, tacticalNextReasons, splitSentences } from '@/lib/ai/tacticalPrompt';
+import { absoluteDayWords, polishTacticalText, stateRelativeDayReasons, buildTacticalPrompt, tacticalNextReasons, splitSentences, checkTacticalStored } from '@/lib/ai/tacticalPrompt';
 import { reservePostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
 import { tickerName } from '@/lib/app/tickerNames';
 import { orphanNumberReasons } from '@/lib/ai/claimChecks';
@@ -163,6 +163,7 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         assert.ok(tacticalNextReasons('다음 분기점은 11/2(월) 16:00 ET(한국 06:00) 예정된 AAPL 실적 발표로, 강하면 반등, 약하면 약세입니다.', p, 'generate').includes('schedule:claim-not-upcoming'), '경계 시각 주장은 계속 탈락');
         const pj = buildTacticalPrompt({ ...ctx, locale: 'ja' }, 'ja');
         assert.deepEqual(tacticalNextReasons('次の分岐点は11/2(月)10:00 ET(日本時間00:00)予定のISM製造業景況指数(ISM Manufacturing PMI)で、上振れなら金利上昇圧力、下振れなら緩和期待が強まる構造です。', pj, 'generate'), [], '日本時間 띄어쓰기 없는 병기');
+        assert.deepEqual(checkTacticalStored('10/30(金)の通常取引でナスダック総合は2.9%下落しました。次の分岐点は11/2(月)10:00 ET(日本時間00:00)予定のISM製造業景況指数(ISM Manufacturing PMI)で、上振れなら金利上昇圧力、下振れなら緩和期待が強まる構造です。', pj), [], '저장본 검사도 같은 표기(통과·저장한 글이 다시 읽을 때 떨어지지 않게)');
         assert.equal(absoluteDayWords('10/30(수) 정규장에서', 'ko', MON), '10/30(금) 정규장에서');
         assert.equal(absoluteDayWords('10/30(水)の通常取引', 'ja', MON), '10/30(金)の通常取引');
         assert.equal(absoluteDayWords('a 10/30 (Wed) 12:32 ET report', 'en', MON), 'a 10/30 (Fri) 12:32 ET report');
