@@ -121,8 +121,10 @@ function highlightData(text: string, parentKey: number): React.ReactNode[] {
         const key = `${parentKey}-${match.index}`;
 
         if (match[1]) {
-            // Only an explicit sign determines direction.
-            const direction = matched[0] === '+' ? 1 : /[-−–]/.test(matched[0]) ? -1 : 0;
+            // A sign immediately following a number, percent or decimal point is a separator.
+            const isSign = /[+\-−–]/.test(matched[0]) &&
+                (match.index === 0 || !/[\d%.]/.test(text[match.index - 1]));
+            const direction = isSign ? (matched[0] === '+' ? 1 : -1) : 0;
             if (direction > 0) {
                 result.push(
                     <span key={key} className="text-emerald-400/90 font-semibold">{matched}</span>
