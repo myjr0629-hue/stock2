@@ -191,6 +191,33 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
     passed++; console.log('  ✓ WS 체결: 왜곡 ns 복구 · 지연 체결 버림 때 2083 lastTradeTs 미보존');
   })();
 
+  await (async () => {
+    // 관문 11021945 보류 재현: 장외 101(t1) → 복구 불가 미래 시각 102(시각 0) → t1 보다 1분 옛 99 — 역행 기준이 사라지면 안 된다.
+    now = PRE; const h = makeHub();
+    const t1 = PRE - 300_000;
+    h.responses.push({ last_price: 101, last_time: iso(t1), eod_close_price: 99 });
+    await h.fetchSnapshotREST(['R']);
+    h.responses.push({ last_price: 102, last_time: '2099-01-01T00:00:00Z', eod_close_price: 99 });
+    await h.fetchSnapshotREST(['R']);
+    assert.equal(h.latestPrices.get('R').price, 102); assert.equal(h.latestPrices.get('R').ts, 0);
+    assert.equal(h.latestPrices.get('R').lastTradeTs, t1);
+    h.responses.push({ last_price: 99, last_time: iso(t1 - 60_000), eod_close_price: 99 });
+    await h.fetchSnapshotREST(['R']);
+    assert.equal(h.latestPrices.get('R').price, 102);
+    h.responses.push({ last_price: 103, last_time: iso(t1 + 1_000), eod_close_price: 99 });          // 더 새 체결은 채택
+    await h.fetchSnapshotREST(['R']);
+    assert.equal(h.latestPrices.get('R').price, 103); assert.equal(h.latestPrices.get('R').lastTradeTs, undefined);
+    // WS 쪽도 시각 없는 체결이 역행 기준을 지우지 않는다.
+    h.tickerSubscribers.set('W', new Set());
+    h.latestPrices.set('W', { price: 10, ts: t1, prevClose: 9 });
+    h.handleTradeUpdate({ sym: 'W', p: 11, s: 1, t: '2099-01-01T00:00:00Z', _intrinio: true });
+    assert.equal(h.latestPrices.get('W').ts, 0); assert.equal(h.latestPrices.get('W').lastTradeTs, t1);
+    h.responses.push({ last_price: 8, last_time: iso(t1 - 1), eod_close_price: 9 });
+    await h.fetchSnapshotREST(['W']);
+    assert.equal(h.latestPrices.get('W').price, 11);
+    passed++; console.log('  ✓ 복구 불가(시각 0) 값 뒤에도 역행 기준 유지(REST·WS) — 관문 11021945 지적');
+  })();
+
   (() => {
     // 옵션 가격 방송: 왜곡 시각 복구, 정상 시각 불변.
     now = REG; const sent = [];

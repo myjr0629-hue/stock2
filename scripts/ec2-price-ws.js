@@ -880,6 +880,8 @@ function handleTradeUpdate(msg) {
     checkAndRefreshPrevClose(ticker, existing);
 
     const prevClose = existing?.prevClose || 0;
+    // 시각 없는(또는 복구 불가로 비운) 체결이면 마지막 채택 체결 시각을 넘겨 둔다(REST 폴백 역행 방지).
+    const carriedTradeTs = eventMs > 0 || !existing ? 0 : Math.max(trustedTs(existing.ts, rx), trustedTs(existing.lastTradeTs, rx));
     const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
 
     latestPrices.set(ticker, {
@@ -889,6 +891,7 @@ function handleTradeUpdate(msg) {
         prevClose,
         prevCloseDate: existing?.prevCloseDate || getETDateString(),
         ts: eventMs,
+        ...(carriedTradeTs > 0 ? { lastTradeTs: carriedTradeTs } : {}),
         receivedAt: rx,
         priceBasis: msg._intrinio ? "fair_value" : "trade",
         priceSource: msg._intrinio ? "equities_edge" : null,
@@ -1845,11 +1848,11 @@ async function fetchOneSnapshotREST(t) {
             keepPrevCloseOnly();
             return;
         }
+        // 가격을 지운 캐시도 마지막 채택 체결 시각(lastTradeTs)과 비교해 역행을 막는다.
+        // 미래 시각(옛 왜곡값)은 하한으로 쓰지 않는다 — 2083년 하한이 정상 시각을 영구히 막지 않게.
+        const nowMs = Date.now();
+        const floorTs = existing ? Math.max(trustedTs(existing.ts, nowMs), trustedTs(existing.lastTradeTs, nowMs)) : 0;
         if (eventTime > 0) {
-            // 가격을 지운 캐시도 마지막 채택 체결 시각(lastTradeTs)과 비교해 역행을 막는다.
-            // 미래 시각(옛 왜곡값)은 하한으로 쓰지 않는다 — 2083년 하한이 정상 시각을 영구히 막지 않게.
-            const nowMs = Date.now();
-            const floorTs = Math.max(trustedTs(existing?.ts, nowMs), trustedTs(existing?.lastTradeTs, nowMs));
             if (existing && eventTime <= floorTs) { keepPrevCloseOnly(); return; }
         } else {
             // 장외 체결 시각 없는 응답은 이전 동작대로 가격이 바뀌면 채택한다.
@@ -1863,6 +1866,8 @@ async function fetchOneSnapshotREST(t) {
             prevClose,
             prevCloseDate: todayStr,
             ts: eventTime,
+            // 시각 없는(또는 복구 불가로 비운) 값을 채택해도 마지막 채택 체결 시각은 넘겨 둔다 — 뒤이어 오는 더 옛 체결의 역행을 막는다.
+            ...(eventTime > 0 || !(floorTs > 0) ? {} : { lastTradeTs: floorTs }),
             receivedAt: Date.now(),
             priceBasis: snap.last > 0 || snap.regular > 0 ? (snap.source === "equities_edge" ? "fair_value" : "trade") : "eod_close",
             priceSource: snap.source,
