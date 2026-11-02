@@ -182,6 +182,10 @@
       "path": "/api/cron/app-warm"
     },
     {
+      "schedule": "5,10,15,25,30,35,45,50,55 0 * * 2-6",
+      "path": "/api/cron/app-warm?ext=1"
+    },
+    {
       "schedule": "*/20 * * * 0,6",
       "path": "/api/cron/app-warm"
     },
@@ -214,11 +218,11 @@
       "path": "/api/cron/earnings-implied"
     },
     {
-      "schedule": "5,20,35,50 0-4 * * 2-6",
+      "schedule": "5,20,35,50 0-5 * * 2-6",
       "path": "/api/cron/structure-warm"
     },
     {
-      "schedule": "5 5-11 * * 2-6",
+      "schedule": "5 6-11 * * 2-6",
       "path": "/api/cron/structure-warm"
     },
     {

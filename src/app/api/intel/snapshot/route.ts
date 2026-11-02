@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { reportDate } from '@/lib/app/reportLink';
+import { getETOffset } from '@/services/timezoneUtils';
 import { saveSnapshot, getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem, BriefingData } from '@/types/sector';
 
@@ -431,7 +432,11 @@ export async function POST(request: Request) {
         // Skip weekends
         if (nextClose.getDay() === 0) nextClose.setDate(nextClose.getDate() + 1);
         if (nextClose.getDay() === 6) nextClose.setDate(nextClose.getDate() + 2);
-        nextClose.setUTCHours(21, 0, 0, 0); // ET 16:00 = UTC 21:00
+        // ET 16:00 — 그 날짜의 EDT/EST 오프셋으로(2026-11-02: 예전 UTC 21:00 고정은 서머타임 기간에 17:00 ET 였다)
+        {
+            const ymd = nextClose.toISOString().slice(0, 10);
+            nextClose.setTime(Date.parse(`${ymd}T16:00:00${getETOffset(ymd)}`));
+        }
 
         const tickerSnapshots: TickerSnapshot[] = liveData.data.map((q: any) => {
             // Merge watchlist/batch data (alpha, RSI, RVOL, options) over fast data

@@ -583,14 +583,14 @@ atNow(IN_WINDOW, async () => {
     const sched = svc.slice(svc.indexOf('function scheduleRefresh('), svc.indexOf('/**\n * 계산 경로 옵션'));
     assert.ok(!/expectChainDate|noPartialStore/.test(sched));
   });
-  await t('크론 등록 — 밤 창만(00:05~04:50Z 15분마다 + 05:05~11:05Z 매시, 화~토 = 월~금 저녁) · 정규장·시간외 시각(13:00~00:00Z)에는 없다', () => {
+  await t('크론 등록 — 밤 창만(00:05~05:50Z 15분마다 + 06:05~11:05Z 매시, 화~토 = 월~금 저녁 · 11/2 EST 조밀 구간 1시간 연장) · 정규장·시간외 시각(13:00~00:00Z)에는 없다', () => {
     const v = JSON.parse(read('vercel.json'));
     const mine = (v.crons as Array<{ path: string; schedule: string }>).filter((c) => c.path === '/api/cron/structure-warm').map((c) => c.schedule).sort();
-    assert.deepEqual(mine, ['5 5-11 * * 2-6', '5,20,35,50 0-4 * * 2-6']);
+    assert.deepEqual(mine, ['5 6-11 * * 2-6', '5,20,35,50 0-5 * * 2-6']);
     // 어느 슬롯도 UTC 12~23시에 걸리지 않는다
     for (const sch of mine) {
       const hours = sch.split(' ')[1];
-      assert.ok(!/(^|[,-])(1[2-9]|2[0-3])($|[,-])/.test(hours.replace('5-11', '5,6,7,8,9,10,11')), `${sch} — 낮 시각이 섞였다`);
+      assert.ok(!/(^|[,-])(1[2-9]|2[0-3])($|[,-])/.test(hours.replace('6-11', '6,7,8,9,10,11')), `${sch} — 낮 시각이 섞였다`);
     }
   });
   await t('조각 키가 structure-build 와 같다(인기 순위 입력)', () => {

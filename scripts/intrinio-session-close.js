@@ -34,7 +34,8 @@
  *   { date, rows: { SYM: [close, volume] }, _ts }
  *
  * 사용: node scripts/intrinio-session-close.js [--dry]
- * 크론: 57 19 * * 1-5   (15:57 ET · EDT 기준. EST 기간에는 20:57 UTC)
+ * 크론: CRON_TZ=America/New_York 아래 «57 15 * * 1-5» (= 15:57 ET, EDT/EST 자동 · 2026-11-02 서머타임 종료 감사)
+ *   예전 «57 19 * * 1-5»(UTC 고정)는 EST 에 14:57 ET 라 위 15:00~16:05 ET 창 밖 → 매일 «종료»로 끝나 세션 종가를 못 찍었다.
  */
 
 const fs = require("fs");
