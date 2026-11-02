@@ -430,6 +430,8 @@ export function driverClaimReasons(text: string, drivers: string, observations =
     mentions.forEach((m, i) => {
         const stop = Math.min(clauseEnd(text, m.end), mentions.find((n, j) => j > i && n.at >= m.end)?.at ?? text.length);
         let mine = toks.filter(t => t.index >= m.end && t.index < stop);
+        // 실적 반응은 회사 이름 «바로 뒤»(24자 안)의 % 값만 그 종목 숫자로 본다 — «인텔의 부진한 실적이 나스닥을 600포인트» 의 600 은 나스닥의 것(10/30 장후 실모델 6/6 오탐)
+        if (m.sp.id.startsWith('earnings:')) mine = mine.filter(t => /%/.test(t.raw) && t.index - m.end <= 24);
         if (!mine.length && /chance|odds|probabilit|index|yield/i.test(text.slice(m.at, m.end + 12))) {
             // 영어 «a 72% chance of a hike» — 이름 바로 앞 숫자(같은 절·다른 지표 이름 뒤가 아님·20자 안). 한국어·일본어는 숫자가 이름 뒤에 온다(앞 숫자는 다른 주어의 것)
             const from = Math.max(clauseStart(text, m.at), mentions.filter((n, j) => j < i).reduce((a, n) => Math.max(a, n.end), 0), m.at - 20);
