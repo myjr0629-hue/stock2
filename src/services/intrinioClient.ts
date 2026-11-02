@@ -12,6 +12,7 @@
  * 정본 문서: .agent/INTRINIO_MIGRATION.md / INTRINIO_MIGRATION_WORKLOG.md
  */
 
+import { repairIntrinioRealtimeTimes, repairVendorEpochMs } from "@/lib/vendorTime";
 import { getFromCache, setInCache } from "./redisClient";
 import { observationMonthsAgo } from "@/lib/economicSeries";
 // 휴장 달력은 «단 하나의» 정본을 본다. 예전엔 이 파일 안에만 있어서
@@ -404,10 +405,10 @@ function snapshotTimeMs(value: string | undefined): number {
         if (v > 1e17) v /= 1e6;
         else if (v > 1e14) v /= 1e3;
         else if (v <= 1e11) v *= 1000;
-        return Math.round(v);
+        return repairVendorEpochMs(Math.round(v));   // ★ 11/2 «2083년» 시각 복구(lib/vendorTime.ts)
     }
     const ms = value && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? toMs(value) : 0;
-    return ms > 0 ? ms : 0;
+    return ms > 0 ? repairVendorEpochMs(ms) : 0;
 }
 
 /** YYYY-MM-DD → epoch ms (UTC 자정) */
@@ -770,12 +771,14 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
     //   (야후 1분봉 기준 09:42 ET 값) — Flow 큰 가격은 가격 허브(실시간)라 맞았고 REST 문이 전부 15분 늦었다.
     //   기본 호출은 그대로 두고(모양·EOD 필드·정규장 마지막 체결은 그대로 쓴다) 정규장에만 실시간 한 번을 «덧입힌다»(마지막 체결가·시각·크기·호가·고저). 실패하면 기본 값 그대로(추가 재시도 없음).
     const regNow = etSessionNow() === "REG";
-    const [rtDefault, hist] = await Promise.all([
+    const [rtDefaultRaw, hist] = await Promise.all([
         callIntrinio(`securities/${sym}/prices/realtime`).catch(() => null),
         callIntrinio(`securities/${sym}/prices`, { page_size: "3" }).catch(() => null),
     ]);
+    // ★ [2026-11-02] 서머타임 종료 뒤 벤더 realtime 시각이 «2083년»으로 온다(lib/vendorTime.ts) — 판정 전에 복구한다.
+    const rtDefault = repairIntrinioRealtimeTimes(rtDefaultRaw);
     // 기본 호출이 성공했을 때만 실시간을 덧입힌다 — 기본이 429 로 막혔으면(벤더가 한도에 닿은 때) 호출을 늘리지 않는다(마지막 정상값 경로 그대로).
-    const rtEdge = regNow && rtDefault ? await callIntrinio(`securities/${sym}/prices/realtime`, { source: "equities_edge" }).catch(() => null) : null;
+    const rtEdge = regNow && rtDefault ? repairIntrinioRealtimeTimes(await callIntrinio(`securities/${sym}/prices/realtime`, { source: "equities_edge" }).catch(() => null)) : null;
     const rtEdgeApplied = overlayRealtimeEdge(rtDefault, rtEdge);
     // 프리·애프터에 마지막 체결이 낡은 종목은 통합 테이프(SIP) 마지막 체결로 잇는다(위 설명). 정규장엔 아무 일도 하지 않는다.
     const rtRaw = rtDefault ? await extendedSipOverlay(sym, rtEdgeApplied) : rtEdgeApplied;
@@ -806,7 +809,7 @@ export async function getTickerSnapshot(ticker: string): Promise<any> {
         try {
             const lg = await getFromCache<any>(`${SNAP_LAST_GOOD_PREFIX}${sym}`);
             if (lg?.rt) {
-                rt = lg.rt;
+                rt = repairIntrinioRealtimeTimes(lg.rt);   // 11/2 이전에 저장된 «2083년» 값도 복구
                 rtStaleMs = Date.now() - Number(lg.at || 0);
             }
         } catch { /* 없으면 아래 NOT_FOUND 판정으로 간다 */ }
