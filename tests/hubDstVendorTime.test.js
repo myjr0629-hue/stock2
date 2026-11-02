@@ -1,0 +1,207 @@
+// [2026-11-02] 서머타임 종료 뒤 Intrinio realtime 시각이 «2083-09-02…»(실제 + 2026-11-01T04:00Z epoch)로 오는 왜곡 —
+// 허브(scripts/ec2-price-ws.js)의 실제 함수를 네트워크 없이 잘라 실행해 복구 규칙·REST 폴백·신선도 비교를 검증한다.
+// 실행: node tests/hubDstVendorTime.test.js
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const ts = require('typescript');
+
+const source = fs.readFileSync(path.join(__dirname, '../scripts/ec2-price-ws.js'), 'utf8');
+const slice = (from, to) => {
+  const a = source.indexOf(from); const b = source.indexOf(to, a);
+  assert.ok(a >= 0 && b > a, `slice ${from}`); return source.slice(a, b);
+};
+const sessionCode = slice('const regularSessionFormatter =', '\nfunction handleTradeUpdate');
+const tradeCode = slice('const regularSessionFormatter =', '\nfunction throttledBroadcast(');
+const normalizeCode = slice('function normalizeTradeMs(', '\n/** 서버 관심 종목 등록');
+const restCode = slice('async function fetchSnapshotREST(', '// REST fallback polling loop');
+const optionCode = slice('function broadcastOptionPrice(', '\n/** Intrinio 계약코드');
+
+// 웹 정의(src/lib/vendorTime.ts)를 그대로 불러 허브 정의와 결과가 같은지 대조한다.
+const web = { exports: {} };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/lib/vendorTime.ts'), 'utf8'),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText,
+{ exports: web.exports, Date, Intl, Object, Number });
+
+let passed = 0;
+const check = (name, fn) => { fn(); passed++; console.log('  ✓ ' + name); };
+
+let now = 0;
+class Clock extends Date { static now() { return now; } }
+function makeHub(extra = {}) {
+  const ctx = { Date: Clock, Intl, Object, Number, Math, Set, Array, console, isFinite, JSON,
+    INTRINIO_API_KEY: 'test', REST_REQUEST_TIMEOUT_MS: 5000, REST_CONCURRENCY: 4,
+    latestPrices: new Map(), staleDropped: new Map(), liveTicks: new Map(), lastAcceptedTradeMs: new Map(),
+    tickerSubscribers: new Map(), subscribedOnPolygon: new Set(), serverJoined: new Set(),
+    getETDateString: () => '2026-11-02', markPolygonDataReceived() {}, checkAndRefreshPrevClose() {},
+    broadcasts: [], responses: [], ...extra };
+  ctx.broadcastPrice = (...a) => ctx.broadcasts.push(a);
+  ctx.throttledBroadcast = (...a) => ctx.broadcasts.push(a);
+  ctx.httpsGet = () => Promise.resolve(ctx.responses.shift());
+  vm.runInNewContext(normalizeCode + '\n' + tradeCode + '\n' + restCode + '\nthis.vendorTimeRepairStats = vendorTimeRepairStats;', ctx);
+  return ctx;
+}
+
+const SKEW = Date.parse('2026-11-01T04:00:00Z');           // 실측 왜곡값 = 1,793,505,600,000
+assert.equal(SKEW, 1_793_505_600_000);
+const PRE = Date.parse('2026-11-02T10:21:00Z');            // 05:21 ET 월요일 프리마켓(실측 시각)
+const REG = Date.parse('2026-11-02T15:00:00Z');            // 10:00 EST 정규장
+const realNvda = Date.parse('2026-11-02T10:05:08.905Z');
+const iso = ms => new Date(ms).toISOString();
+
+console.log('hubDstVendorTime');
+
+check('왜곡 시각: 실측 2083 값(ISO·ns·ms)을 테이프와 같은 실제 시각으로 복구', () => {
+  now = PRE; const h = makeHub();
+  assert.equal(h.normalizeTradeMs('2083-09-02T14:05:08.905Z'), realNvda);
+  assert.equal(h.normalizeTradeMs((realNvda + SKEW) * 1e6), realNvda);           // WS SDK ns
+  assert.equal(h.normalizeTradeMs(realNvda + SKEW), realNvda);                   // ms
+  assert.equal(h.vendorTimeRepairStats.repaired, 3); assert.equal(h.vendorTimeRepairStats.cleared, 0);
+});
+
+check('정상 시각: 그대로(15분 지연·금요일 종가 시각·+10분 안 미래 모두 불변) · 결측 0', () => {
+  now = PRE; const h = makeHub();
+  for (const ms of [PRE - 900_000, Date.parse('2026-10-30T20:00:00Z'), PRE, PRE + 600_000, Date.parse('2026-10-01T13:30:00Z')]) {
+    assert.equal(h.normalizeTradeMs(iso(ms)), ms); assert.equal(h.normalizeTradeMs(ms), ms);
+  }
+  assert.equal(h.normalizeTradeMs(null), 0); assert.equal(h.normalizeTradeMs('2026-11-02T10:00:00'), 0);
+  assert.equal(h.vendorTimeRepairStats.repaired + h.vendorTimeRepairStats.cleared, 0);
+});
+
+check('복구 불가 미래 시각은 0(모름) — 미래 시각을 남기지 않는다', () => {
+  now = PRE; const h = makeHub();
+  assert.equal(h.normalizeTradeMs(iso(PRE + 600_001)), 0);                   // +10분+1ms, 알려진 왜곡 아님
+  assert.equal(h.normalizeTradeMs('2099-01-01T00:00:00Z'), 0);
+  assert.equal(h.normalizeTradeMs(iso(PRE - 15 * 86_400_000 + SKEW)), 0);   // 빼도 14일보다 옛날
+  assert.equal(h.vendorTimeRepairStats.cleared, 3);
+});
+
+check('웹 정의(vendorTime.ts)와 같은 결과 — 2026·2027 전환일 앞뒤 시각 격자', () => {
+  const nows = [];
+  for (const d of ['2026-03-06', '2026-03-09', '2026-10-30', '2026-11-02', '2027-01-04', '2027-03-12', '2027-03-15', '2027-11-05', '2027-11-08'])
+    for (const hm of ['08:59', '09:00', '13:29', '13:30', '14:30', '20:59', '21:00', '00:59', '01:00']) nows.push(Date.parse(`${d}T${hm}:00Z`));
+  const skews = ['2026-03-08T05:00:00Z', '2026-11-01T04:00:00Z', '2027-03-14T05:00:00Z', '2027-11-07T04:00:00Z', '2025-11-02T04:00:00Z'].map(Date.parse);
+  let n = 0;
+  for (const t of nows) {
+    now = t; const h = makeHub();
+    for (const lag of [0, 60_000, 900_000, 3 * 86_400_000, 15 * 86_400_000]) {
+      for (const add of [0, ...skews, 600_001]) {
+        const v = t - lag + add;
+        assert.equal(h.repairVendorEpochMs(v, t), web.exports.repairVendorEpochMs(v, t), `${iso(t)} lag ${lag} add ${add}`); n++;
+      }
+    }
+  }
+  assert.ok(n > 2000);
+});
+
+check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04:00Z·EST 05:00Z)', () => {
+  now = PRE; const h = makeHub();
+  assert.equal(h.etWallToMs(2026, 11, 1, 0, 0), Date.parse('2026-11-01T04:00:00Z'));
+  assert.equal(h.etWallToMs(2026, 3, 8, 0, 0), Date.parse('2026-03-08T05:00:00Z'));
+  assert.equal(h.etWallToMs(2027, 11, 7, 0, 0), Date.parse('2027-11-07T04:00:00Z'));
+  assert.equal(h.etWallToMs(2027, 3, 14, 0, 0), Date.parse('2027-03-14T05:00:00Z'));
+  assert.equal(h.etWallToMs(2026, 11, 2, 9, 30), Date.parse('2026-11-02T14:30:00Z'));   // EST 개장
+  assert.equal(h.etWallToMs(2026, 10, 30, 9, 30), Date.parse('2026-10-30T13:30:00Z'));  // EDT 개장
+  // 2027년에도 2026-11 왜곡(작년 종료일)은 복구된다.
+  now = Date.parse('2027-01-04T15:00:00Z');
+  assert.equal(h.repairVendorEpochMs(now - 900_000 + SKEW, now), now - 900_000);
+  // 정규장 판정이 EST 로 바뀐 경계(09:29/09:30/15:59/16:00 EST)
+  assert.equal(h.isRegularSession(Date.parse('2026-11-02T14:29:59Z')), false);
+  assert.equal(h.isRegularSession(Date.parse('2026-11-02T14:30:00Z')), true);
+  assert.equal(h.isRegularSession(Date.parse('2026-11-02T20:59:59Z')), true);
+  assert.equal(h.isRegularSession(Date.parse('2026-11-02T21:00:00Z')), false);
+  assert.equal(h.isRegularSession(Date.parse('2026-10-30T13:30:00Z')), true);   // EDT 금요일 개장
+  assert.equal(h.isRegularSession(Date.parse('2026-10-30T20:00:00Z')), false);  // EDT 금요일 마감
+});
+
+(async () => {
+  await (async () => {
+    // 프리마켓: 왜곡 응답은 복구된 실제 시각으로 저장·방송(ts 2083 0건)
+    now = PRE; const h = makeHub();
+    h.responses.push({ last_price: 207.55, last_time: '2083-09-02T14:05:08.905Z', normal_market_hours_last_price: 202.49,
+      normal_market_hours_last_time: '2026-10-30T20:00:00.000Z', eod_close_price: 202.49, source: 'cboe_one_delayed' });
+    await h.fetchSnapshotREST(['NVDA']);
+    assert.equal(h.latestPrices.get('NVDA').ts, realNvda); assert.equal(h.broadcasts.length, 1);
+    passed++; console.log('  ✓ REST 폴백(프리마켓): 왜곡 응답 → 복구 시각으로 저장·방송');
+  })();
+
+  await (async () => {
+    // 정규장: 15분 지연 REST 값이 왜곡 시각 때문에 «신선»으로 방송되던 결함 → 복구 시각으로 90초 규칙이 다시 걸러 낸다.
+    now = REG; const h = makeHub();
+    h.responses.push({ last_price: 210, last_time: iso(REG - 900_000 + SKEW), eod_close_price: 202.49, source: 'cboe_one_delayed' });
+    await h.fetchSnapshotREST(['NVDA']);
+    assert.equal(h.broadcasts.length, 0); assert.equal('price' in (h.latestPrices.get('NVDA') || {}), false);
+    assert.equal(h.staleDropped.get('NVDA'), 1);
+    // 같은 응답을 «수리 전»처럼 미래 시각 그대로 받으면 방송됐다(회귀 증명).
+    const old = makeHub(); old.normalizeTradeMs = x => Date.parse(x) || 0;
+    vm.runInNewContext(restCode, old);
+    old.responses.push({ last_price: 210, last_time: iso(REG - 900_000 + SKEW), eod_close_price: 202.49 });
+    await old.fetchSnapshotREST(['NVDA']);
+    assert.equal(old.broadcasts.length, 1);
+    passed++; console.log('  ✓ REST 폴백(정규장): 15분 지연 왜곡 값 미방송(수리 전 동작은 방송 — 대조)');
+  })();
+
+  await (async () => {
+    // 왜곡 → 정상 전환: 공급사가 고친 뒤 정상 시각 응답이 계속 채택되고 역행은 여전히 막힌다.
+    now = PRE; const h = makeHub();
+    h.responses.push({ last_price: 207.55, last_time: iso(PRE - 900_000 + SKEW), eod_close_price: 202.49 });
+    await h.fetchSnapshotREST(['NVDA']);
+    const t1 = PRE - 900_000; assert.equal(h.latestPrices.get('NVDA').ts, t1);
+    now = PRE + 15_000;
+    h.responses.push({ last_price: 207.60, last_time: iso(t1 + 10_000), eod_close_price: 202.49 });   // 정상 시각, 더 새 체결
+    await h.fetchSnapshotREST(['NVDA']);
+    assert.equal(h.latestPrices.get('NVDA').price, 207.60); assert.equal(h.latestPrices.get('NVDA').ts, t1 + 10_000);
+    h.responses.push({ last_price: 207.10, last_time: iso(t1 + 5_000), eod_close_price: 202.49 });    // 역행(옛 체결)
+    await h.fetchSnapshotREST(['NVDA']);
+    assert.equal(h.latestPrices.get('NVDA').price, 207.60);
+    h.responses.push({ last_price: 207.70, last_time: iso(t1 + 20_000 + SKEW), eod_close_price: 202.49 }); // 다시 왜곡 와도 이어짐
+    await h.fetchSnapshotREST(['NVDA']);
+    assert.equal(h.latestPrices.get('NVDA').price, 207.70); assert.equal(h.broadcasts.length, 3);
+    passed++; console.log('  ✓ 왜곡 → 정상 → 왜곡 전환: 새 체결 채택·역행 차단 유지');
+  })();
+
+  await (async () => {
+    // 이미 저장된 2083 값(수리 전 프로세스 상태)이 «최신»으로 남아 새 값을 막지 않는다 — ts·lastTradeTs 모두.
+    now = PRE; const h = makeHub();
+    h.latestPrices.set('A', { price: 100, ts: PRE - 900_000 + SKEW, prevClose: 99, prevCloseDate: '2026-11-02' });
+    h.latestPrices.set('B', { prevClose: 99, prevCloseDate: '2026-11-02', lastTradeTs: PRE + SKEW });
+    h.responses.push({ last_price: 101, last_time: iso(PRE - 800_000), eod_close_price: 99 },
+      { last_price: 102, last_time: iso(PRE - 800_000), eod_close_price: 99 });
+    await h.fetchSnapshotREST(['A', 'B']);
+    assert.equal(h.latestPrices.get('A').price, 101); assert.equal(h.latestPrices.get('B').price, 102);
+    // 정규장 즉시 전송 판정: 미래 ts 캐시는 신선하다고 보지 않는다.
+    now = REG;
+    assert.equal(h.isSnapshotSendable({ price: 1, ts: REG + SKEW }, REG), false);
+    assert.equal(h.isSnapshotSendable({ price: 1, ts: REG - 30_000 }, REG), true);
+    assert.equal(h.isSnapshotSendable({ price: 1, ts: REG + 600_001 }, REG), false);
+    passed++; console.log('  ✓ 저장된 2083 ts·lastTradeTs 가 하한으로 남지 않음 · 미래 ts 캐시 즉시 전송 안 함(정규장)');
+  })();
+
+  await (async () => {
+    // WS 체결: 왜곡 ns 시각 → 복구. 정규장 지연 체결 버림 때 남기는 lastTradeTs 에 2083 을 옮기지 않는다.
+    now = REG; const h = makeHub();
+    h.tickerSubscribers.set('X', new Set());
+    h.handleTradeUpdate({ sym: 'X', p: 50, s: 1, t: (REG - 2_000 + SKEW) * 1e6, _intrinio: true });
+    assert.equal(h.latestPrices.get('X').ts, REG - 2_000); assert.equal(h.liveTicks.get('X').trade, REG - 2_000);
+    h.latestPrices.set('X', { price: 50, ts: REG + SKEW, prevClose: 49, lastTradeTs: REG + SKEW });
+    h.handleTradeUpdate({ sym: 'X', p: 51, s: 1, t: (REG - 900_000) * 1e6, _intrinio: true });          // 지연 체결 → 버림
+    const kept = h.latestPrices.get('X');
+    assert.equal('price' in kept, false); assert.equal(kept.lastTradeTs, undefined); assert.equal(kept.prevClose, 49);
+    passed++; console.log('  ✓ WS 체결: 왜곡 ns 복구 · 지연 체결 버림 때 2083 lastTradeTs 미보존');
+  })();
+
+  (() => {
+    // 옵션 가격 방송: 왜곡 시각 복구, 정상 시각 불변.
+    now = REG; const sent = [];
+    const ctx = { Date: Clock, Intl, Object, Number, Math, JSON, WebSocket: { OPEN: 1 },
+      optionsTickerSubscribers: new Map([['O:X', new Set([{ readyState: 1, send: m => sent.push(JSON.parse(m)) }])]]) };
+    vm.runInNewContext(sessionCode + '\n' + optionCode, ctx);
+    ctx.broadcastOptionPrice('O:X', 1.5, REG - 1_000 + SKEW);
+    ctx.broadcastOptionPrice('O:X', 1.6, REG - 1_000);
+    assert.deepEqual(sent.map(m => m.ts), [REG - 1_000, REG - 1_000]);
+    passed++; console.log('  ✓ 옵션 가격 방송 시각 복구');
+  })();
+
+  console.log(`hubDstVendorTime: ${passed} passed`);
+})().catch(e => { console.error(e); process.exit(1); });

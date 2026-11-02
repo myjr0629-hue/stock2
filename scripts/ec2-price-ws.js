@@ -336,11 +336,12 @@ function intrinioLeave(tickers) {
 // ══════════════════════════════════════════════════════════════
 // [2026-10-14] /last — 서버(Vercel)가 «지금 구독 중인 채널의 마지막 체결»을 읽어 가는 문. 벤더 REST 호출 0.
 // ══════════════════════════════════════════════════════════════
-/** 원천시각은 단위만 정규화한다. 결측·timezone 없는 문자열은 0(미확인), 지연은 그대로 보존. */
+/** 원천시각은 단위만 정규화한다. 결측·timezone 없는 문자열은 0(미확인), 지연은 그대로 보존.
+ *  [2026-11-02] «지금+10분»보다 미래인 시각은 repairVendorEpochMs 로 복구하거나 0(미확인)으로 비운다(서머타임 종료 뒤 2083년 시각). */
 function normalizeTradeMs(x) {
     if (typeof x === "string" && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(x)) {
         const ms = Date.parse(x);
-        return Number.isFinite(ms) && ms > 0 ? ms : 0;
+        return Number.isFinite(ms) && ms > 0 ? repairVendorEpochMs(ms, Date.now()) : 0;
     }
     let v = Number(x);
     if (!isFinite(v) || v <= 0) return 0;
@@ -348,7 +349,7 @@ function normalizeTradeMs(x) {
     else if (v > 1e14) v = v / 1e3;   // µs
     else if (v > 1e11) v = v;         // ms
     else v = v * 1000;                // s
-    return Math.round(v);
+    return repairVendorEpochMs(Math.round(v), Date.now());
 }
 
 /** 서버 관심 종목 등록 + 채널 열기. 새로 연 종목 목록을 돌려준다. */
@@ -728,6 +729,70 @@ function handleAggregateUpdate(msg) {
 const regularSessionFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
 });
+
+// ════════════════════════════════════════════════════════════════════════
+// ★★ [2026-11-02] 벤더 시각 복구 — 서머타임 종료(11/1) 뒤 Intrinio realtime 시각이 «2083-09-02…»로 온다.
+//   실측: 왜곡값 − 실제 = 정확히 2026-11-01T04:00:00Z(서머타임 종료일 ET 자정) epoch. REST 폴백 last_time 이
+//   그대로 ts 가 되어 ① 15분 지연 REST 값이 «90초 안 신선»으로 정규장에도 방송되고 ② 역행 방지 하한(floorTs)이
+//   2083년에 묶여 공급사가 고치는 순간 그 종목 REST 폴백이 재시작 전까지 멈춘다.
+//   규칙은 src/lib/vendorTime.ts 와 같다(허브는 Node 16 단독 실행이라 옮겨 둔다 — 시험이 두 정의 결과 일치를 단언):
+//   «지금+10분»보다 미래면 서머타임 전환일 ET 자정 epoch(올해·작년 시작·종료, Intl 계산)를 빼서
+//   «지금 이전 14일 ~ 지금+10분»에 들면 복구, 아니면 0(모름). 정상 시각은 손대지 않는다.
+// ════════════════════════════════════════════════════════════════════════
+const VENDOR_FUTURE_TOLERANCE_MS = 10 * 60_000;
+const VENDOR_REPAIR_MAX_AGE_MS = 14 * 86_400_000;
+const vendorEtFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+});
+const vendorTimeRepairStats = { repaired: 0, cleared: 0, lastRaw: 0, lastFixed: 0, lastAt: 0 };
+let vendorSkewCache = { year: -1, skews: [] };
+/** ET 벽시계 → epoch ms(고정 오프셋 없이 Intl 로 그 순간의 오프셋을 구한다). */
+function etWallToMs(y, m, d, hh, mm) {
+    const guess = Date.UTC(y, m - 1, d, hh || 0, mm || 0);
+    let t = guess;
+    for (let i = 0; i < 2; i++) {
+        const p = Object.fromEntries(vendorEtFormatter.formatToParts(new Date(t)).map(x => [x.type, x.value]));
+        t += guess - Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+    }
+    return t;
+}
+/** 그 해 미국 서머타임 시작(3월 둘째 일요일)·종료(11월 첫 일요일) 날짜 */
+function usDstTransitionDates(year) {
+    const nthSunday = (month, n) => 1 + ((7 - new Date(Date.UTC(year, month - 1, 1)).getUTCDay()) % 7) + (n - 1) * 7;
+    return { start: [year, 3, nthSunday(3, 2)], end: [year, 11, nthSunday(11, 1)] };
+}
+/** 관측된 왜곡값 후보 — 서머타임 전환일 ET 자정 epoch(올해·작년). 해마다 한 번만 계산한다. */
+function knownVendorSkews(nowMs) {
+    const y = new Date(nowMs).getUTCFullYear();
+    if (vendorSkewCache.year !== y) {
+        const skews = [];
+        for (const yr of [y, y - 1]) {
+            const { start, end } = usDstTransitionDates(yr);
+            skews.push(etWallToMs(end[0], end[1], end[2], 0, 0), etWallToMs(start[0], start[1], start[2], 0, 0));
+        }
+        vendorSkewCache = { year: y, skews };
+    }
+    return vendorSkewCache.skews;
+}
+/** 벤더 epoch(ms) 하나를 검사·복구한다. 0·음수 → 0 · 미래가 아니면 그대로 · 미래면 복구값 또는 0. */
+function repairVendorEpochMs(ms, nowMs) {
+    if (!Number.isFinite(ms) || ms <= 0) return 0;
+    if (ms <= nowMs + VENDOR_FUTURE_TOLERANCE_MS) return ms;
+    let fixed = 0;
+    for (const skew of knownVendorSkews(nowMs)) {
+        const r = ms - skew;
+        if (r <= nowMs + VENDOR_FUTURE_TOLERANCE_MS && r >= nowMs - VENDOR_REPAIR_MAX_AGE_MS) { fixed = r; break; }
+    }
+    if (fixed > 0) vendorTimeRepairStats.repaired++; else vendorTimeRepairStats.cleared++;
+    vendorTimeRepairStats.lastRaw = ms; vendorTimeRepairStats.lastFixed = fixed; vendorTimeRepairStats.lastAt = nowMs;
+    return fixed;
+}
+/** 캐시에 든 시각을 신선도·역행 비교에 써도 되는가 — 미래 시각(옛 왜곡값)은 0(모름)으로 본다. */
+function trustedTs(ts, nowMs) {
+    const v = Number(ts) || 0;
+    return v > 0 && v <= nowMs + VENDOR_FUTURE_TOLERANCE_MS ? v : 0;
+}
 // NYSE full-day closures, 2026–2027: https://www.nyse.com/markets/hours-calendars
 // Kept local because this Node 16 standalone hub cannot load the TypeScript marketDaySSOT.
 const MARKET_HOLIDAYS = new Set([
@@ -767,7 +832,7 @@ function rebroadcastIfPrevCloseChanged(ticker, oldPrevClose) {
 // 구독 즉시 전송할 캐시 가격인가 — 정규장 밖은 기존대로, 정규장엔 시각 있는 90초 안 체결만.
 function isSnapshotSendable(cached, now) {
     if (!isRegularSession(now)) return true;
-    const ts = Number(cached.ts) || 0;
+    const ts = trustedTs(cached.ts, now);
     return cached.priceBasis !== 'eod_close' && ts > 0 && now - ts <= 90_000;
 }
 
@@ -792,8 +857,9 @@ function handleTradeUpdate(msg) {
                 prior.day !== current.day || Number(prior.hour) * 60 + Number(prior.minute) < 570) {
                 const { price, changePct, volume, ts, receivedAt, priceBasis, priceSource, ...retained } = cached;
                 // 가격은 지워도 마지막 채택 체결 시각은 REST 폴백의 역행 비교용으로 남긴다.
-                const lastTradeTs = Math.max(Number(ts) || 0, Number(retained.lastTradeTs) || 0);
+                const lastTradeTs = Math.max(trustedTs(ts, rx), trustedTs(retained.lastTradeTs, rx));
                 if (lastTradeTs > 0) retained.lastTradeTs = lastTradeTs;
+                else delete retained.lastTradeTs; // 미래 시각(옛 왜곡값)은 옮기지 않는다
                 latestPrices.set(ticker, retained);
             }
         }
@@ -984,7 +1050,8 @@ function broadcastOptionPrice(optionsTicker, price, ts) {
     const subs = optionsTickerSubscribers.get(optionsTicker);
     if (!subs || subs.size === 0) return;
     const msg = JSON.stringify({
-        type: 'optionPrice', sym: optionsTicker, price, ts,
+        // [2026-11-02] 미래 벤더 시각(서머타임 종료 왜곡)은 복구, 복구 불가면 수신 시각.
+        type: 'optionPrice', sym: optionsTicker, price, ts: Number(ts) > 0 ? (repairVendorEpochMs(Number(ts), Date.now()) || Date.now()) : ts,
         source: 'intrinio-options-edge', priceOnly: true,
     });
     for (const ws of subs) {
@@ -1179,7 +1246,8 @@ function handleOptionsTradeUpdate(msg) {
     const size = msg.s || 0;      // number of contracts
     const exchange = msg.x || 0;  // exchange ID
     const conditions = msg.c || [];
-    const timestamp = msg.t || Date.now();
+    // [2026-11-02] 미래 벤더 시각(서머타임 종료 왜곡)은 복구, 복구 불가·결측이면 수신 시각.
+    const timestamp = repairVendorEpochMs(Number(msg.t) || 0, Date.now()) || Date.now();
 
     // Calculate premium: price × contracts × 100 (shares per contract)
     const premium = price * size * 100;
@@ -1438,6 +1506,8 @@ const server = http.createServer((req, res) => {
             channels: subscribedOnPolygon.size + serverJoined.size,
             serverInterest: serverInterest.size,
             staleDropped: Object.fromEntries(staleDropped),
+            // [2026-11-02] 벤더 미래 시각 복구·비움 횟수(서머타임 종료 왜곡 감시)
+            vendorTimeRepair: vendorTimeRepairStats,
         }));
         return;
     }
@@ -1777,7 +1847,9 @@ async function fetchOneSnapshotREST(t) {
         }
         if (eventTime > 0) {
             // 가격을 지운 캐시도 마지막 채택 체결 시각(lastTradeTs)과 비교해 역행을 막는다.
-            const floorTs = Math.max(Number(existing?.ts) || 0, Number(existing?.lastTradeTs) || 0);
+            // 미래 시각(옛 왜곡값)은 하한으로 쓰지 않는다 — 2083년 하한이 정상 시각을 영구히 막지 않게.
+            const nowMs = Date.now();
+            const floorTs = Math.max(trustedTs(existing?.ts, nowMs), trustedTs(existing?.lastTradeTs, nowMs));
             if (existing && eventTime <= floorTs) { keepPrevCloseOnly(); return; }
         } else {
             // 장외 체결 시각 없는 응답은 이전 동작대로 가격이 바뀌면 채택한다.
