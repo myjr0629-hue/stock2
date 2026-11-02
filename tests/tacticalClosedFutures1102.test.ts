@@ -99,6 +99,13 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         assert.ok(driverClaimReasons('인텔이 26.8% 급락했습니다.', drivers).includes('tactical:driver-value:earnings:INTC'));
         assert.ok(driverClaimReasons('인텔이 28.6% 급등했습니다.', drivers).includes('tactical:driver-direction:earnings:INTC'));
         assert.ok(driverClaimReasons('INTC +28.6% surged.', drivers).includes('tactical:driver-direction:earnings:INTC'));
+        // 관문 11021732 ② — 숫자가 회사 이름 앞에 붙는 꾸밈 모양
+        assert.ok(driverClaimReasons('A 50% plunge in Intel shares dragged chips.', drivers).includes('tactical:driver-value:earnings:INTC'));
+        assert.ok(driverClaimReasons('A 7% plunge in Intel shares dragged chips.', drivers).includes('tactical:driver-value:earnings:INTC'), '다른 재료 숫자(SMH −7)를 빌려도 탈락');
+        assert.deepEqual(driverClaimReasons('A 28.6% plunge in Intel shares dragged chips.', drivers), []);
+        assert.deepEqual(driverClaimReasons('28.6% 폭락한 인텔이 반도체를 끌어내렸습니다.', drivers), []);
+        assert.ok(driverClaimReasons('28.6% 급등한 인텔이 반도체를 끌어올렸습니다.', drivers).includes('tactical:driver-direction:earnings:INTC'));
+        assert.deepEqual(driverClaimReasons('28.6%急落したインテルが半導体を押し下げました。', drivers), []);
     });
 
     await test('② 원인 기사 — 직전 정규장 날짜 보관 기사도(날짜 창 지정 시), 기본은 오늘만', () => {

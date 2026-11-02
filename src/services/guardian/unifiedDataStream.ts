@@ -579,7 +579,7 @@ export class GuardianDataHub {
                 vectors: [], vix: previous.market.vix ?? 0,
             };
             const r = await IntelligenceNode.refreshRealityForFuturesDriftDetailed({ ...base, indexBasis: basis ?? undefined,
-                marketNewsHeadlines: filterTacticalCauseHeadlines(core?.causeNews ?? core?.news ?? []) }, { regen: !adopt, newerThan: seenBefore });
+                marketNewsHeadlines: filterTacticalCauseHeadlines(core?.causeNews ?? core?.news ?? []) }, { regen: !adopt, newerThan: seenBefore, requireNewer: previous.tacticalFutures === true });
             const text = r.text;
             const pct = text ? IntelligenceNode.tacticalFuturesPct(locale, text) : undefined;
             if (text && pct && !IntelligenceNode.isPlaceholderInsight(text)) {
