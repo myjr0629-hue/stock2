@@ -737,7 +737,7 @@ const vendorEtFormatter = new Intl.DateTimeFormat('en-US', {
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
 });
 const vendorTimeRepairStats = { repaired: 0, cleared: 0, lastRaw: 0, lastFixed: 0, lastAt: 0 };
-const wsDistortedRawMs = new Map(); // Map<ticker, 직전 Intrinio WS 왜곡 원본 ms> — 고정값 판별용(종목 수만큼)
+const wsDistortedRawMs = new Map(); // Map<ticker, 직전 Intrinio WS 왜곡 원본(ns 그대로)> — 고정값 판별용(종목 수만큼)
 let vendorSkewCache = { year: -1, skews: [] };
 /** ET 벽시계 → epoch ms(고정 오프셋 없이 Intl 로 그 순간의 오프셋을 구한다). */
 function etWallToMs(y, m, d, hh, mm) {
@@ -867,12 +867,14 @@ function handleTradeUpdate(msg) {
     let eventMs;
     if (msg._intrinio && vendorRawMs > rx + VENDOR_FUTURE_TOLERANCE_MS) {
         const repaired = normalizeTradeMs(msg.t);
+        const rawKey = typeof msg.t === "string" ? msg.t : Number(msg.t);   // 원본 그대로(ns) 비교 — ms 반올림으로 전진을 반복으로 오판하지 않게
         const prevRaw = wsDistortedRawMs.get(ticker);
-        wsDistortedRawMs.set(ticker, vendorRawMs);
+        wsDistortedRawMs.set(ticker, rawKey);
         if (repaired > 0 && rx - repaired <= 90_000) eventMs = repaired;
-        else if (prevRaw === vendorRawMs) { eventMs = rx; vendorTimeRepairStats.wsRxTime = (vendorTimeRepairStats.wsRxTime || 0) + 1; }
+        else if (prevRaw !== undefined && prevRaw === rawKey) { eventMs = rx; vendorTimeRepairStats.wsRxTime = (vendorTimeRepairStats.wsRxTime || 0) + 1; }
         else eventMs = repaired;
     } else {
+        if (msg._intrinio) wsDistortedRawMs.delete(ticker);   // 정상 시각이 오면 고정 판별을 처음부터
         eventMs = normalizeTradeMs(msg.t);
     }
     // 원천 시각이 있었는데 복구 불가로 비웠으면(미래 시각) 정규장엔 신선도를 확인할 수 없다 — 지연 체결처럼 버린다(REST 경로와 같은 규칙).

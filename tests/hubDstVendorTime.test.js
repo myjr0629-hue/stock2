@@ -238,6 +238,16 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
     h.handleTradeUpdate({ sym: 'Z', p: 10, s: 0, t: (RX - 1_000_000 + SKEW) * 1e6, _intrinio: true });
     h.handleTradeUpdate({ sym: 'Z', p: 11, s: 0, t: (RX - 900_000 + SKEW) * 1e6, _intrinio: true });
     assert.equal(h.staleDropped.get('Z'), 2); assert.equal(h.liveTicks.has('Z'), false);
+    // 관문 11022348 지적: 같은 ms 안에서 전진(ns 차이)해도 반복으로 보지 않는다.
+    h.tickerSubscribers.set('N', new Set());
+    const base = (RX - 900_000 + SKEW) * 1e6;
+    h.handleTradeUpdate({ sym: 'N', p: 10, s: 0, t: base, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'N', p: 11, s: 0, t: base + 200_000, _intrinio: true });   // +0.2ms
+    assert.equal(h.staleDropped.get('N'), 2); assert.equal(h.liveTicks.has('N'), false);
+    // 정상 시각이 사이에 오면 고정 판별을 처음부터(직전 왜곡값을 잊는다).
+    h.handleTradeUpdate({ sym: 'N', p: 12, s: 0, t: (RX + 500 - 300) * 1e6, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'N', p: 13, s: 0, t: base + 200_000, _intrinio: true });
+    assert.equal(h.latestPrices.get('N').price, 12); assert.equal(h.staleDropped.get('N'), 3);
     // 복구해서 신선(90초 안)하면 복구값 그대로.
     h.handleTradeUpdate({ sym: 'Z', p: 12, s: 0, t: (RX + 500 - 2_000 + SKEW) * 1e6, _intrinio: true });
     assert.equal(h.latestPrices.get('Z').ts, RX + 500 - 2_000);
