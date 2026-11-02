@@ -994,6 +994,7 @@ if raw then
 end
 -- 관측(at)이 늦은 쪽, 관측이 같으면 스냅샷 세대(rx)가 늦은 쪽(값이 같아도 rx 전진). lib/selloffBriefing selloffChipNewer 와 같다.
 local function newer(c, p)
+    if (c.name == 'SOX' or c.name == 'VIX') and c.name == p.name and c.pct == 0 and (c.chgAbs == nil or c.chgAbs == cjson.null or c.chgAbs == 0) and p.pct ~= 0 then return false end
     if type(c.at) ~= 'string' then return false end
     if type(p.at) ~= 'string' then return true end
     if c.at ~= p.at then return c.at > p.at end
@@ -1016,7 +1017,7 @@ end
 redis.call('SET', KEYS[1], cjson.encode({ date = incoming.date, chips = chips }), 'EX', ARGV[2])
 return 1
 `;
-type SelloffRecordValue = { date: string; chips: { name: string; pct: number; at?: string; rx?: string }[] };
+type SelloffRecordValue = { date: string; chips: { name: string; pct: number; at?: string; rx?: string; level?: number; chgAbs?: number }[] };
 const SELLOFF_RECORD_KEY_RE = /^selloff:record:v1:\d{4}-\d{2}-\d{2}$/;
 /** 엄격 읽기 — ok:false(미설정·장애)를 «기록 없음»과 구분한다. */
 export async function getSelloffRecordStrict(key: string): Promise<{ ok: boolean; value: SelloffRecordValue | null }> {
@@ -1035,6 +1036,7 @@ export async function getSelloffRecordStrict(key: string): Promise<{ ok: boolean
 export async function mergeSelloffRecordAtomic(key: string, record: SelloffRecordValue, ttlSeconds: number): Promise<0 | 1 | null> {
     if (!SELLOFF_RECORD_KEY_RE.test(key) || key.slice(-10) !== record?.date || !Array.isArray(record.chips) || !record.chips.length
         || !record.chips.every(c => typeof c.name === 'string' && typeof c.pct === 'number' && Number.isFinite(c.pct)
+            && [c.level, c.chgAbs].every(n => n === undefined || (typeof n === 'number' && Number.isFinite(n)))
             && [c.at, c.rx].every(t => t === undefined || (typeof t === 'string' && Number.isFinite(Date.parse(t)) && new Date(t).toISOString() === t)))
         || !Number.isInteger(ttlSeconds) || ttlSeconds < 1) return null;
     const upstash = getUpstashClient();
