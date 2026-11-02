@@ -3,10 +3,15 @@ export type CancelReasonCode = (typeof CANCEL_REASON_CODES)[number];
 export const CANCEL_REASON_STORAGE_KEY = 'signumhq.cancelReason.v1';
 let seenInSession = false;
 
-/** Claim before opening so both entry points share the same one-time gate. */
-export function claimCancelReason(): boolean {
+/** Check without consuming the opportunity before the sheet is displayed. */
+export function canShowCancelReason(): boolean {
   if (seenInSession) return false;
   try { if (localStorage.getItem(CANCEL_REASON_STORAGE_KEY)) { seenInSession = true; return false; } } catch { /* session fallback */ }
+  return true;
+}
+
+export function claimCancelReason(): boolean {
+  if (!canShowCancelReason()) return false;
   seenInSession = true;
   try { localStorage.setItem(CANCEL_REASON_STORAGE_KEY, '1'); } catch { /* session fallback */ }
   return true;

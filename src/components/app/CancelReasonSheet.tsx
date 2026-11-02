@@ -3,13 +3,22 @@
 import { useEffect, useRef } from 'react';
 import { BottomSheet, afterSheetHistory } from '@/components/app/watchlist/BottomSheet';
 import { trackFunnel } from '@/lib/app/funnel';
-import { CANCEL_REASON_CODES, cancelReasonCopy, type CancelReasonCode } from '@/lib/app/cancelReason';
+import { CANCEL_REASON_CODES, cancelReasonCopy, claimCancelReason, type CancelReasonCode } from '@/lib/app/cancelReason';
 import p from './ProPaywall.module.css';
 
 export function CancelReasonSheet({ locale, preview, onDone }: { locale: string; preview: boolean; onDone: () => void }) {
   const copy = cancelReasonCopy(locale);
   const finished = useRef(false);
   const shown = useRef(false);
+  useEffect(() => {
+    if (preview) return;
+    const markVisible = () => {
+      if (document.visibilityState === 'visible') claimCancelReason();
+    };
+    markVisible();
+    document.addEventListener('visibilitychange', markVisible);
+    return () => document.removeEventListener('visibilitychange', markVisible);
+  }, [preview]);
   useEffect(() => { if (!preview && !shown.current) { shown.current = true; trackFunnel('cancel_reason:show', { src: 'other' }); } }, [preview]);
   const finish = (code: CancelReasonCode | 'skip') => {
     if (finished.current) return;

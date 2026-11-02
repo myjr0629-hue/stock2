@@ -7,7 +7,7 @@ import { ProPaywall } from '@/components/app/ProPaywall';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useProStatus } from '@/hooks/useProStatus';
 import { openRedeem, redeemCopy, redeemIsAndroid, showRedeemEntry } from '@/lib/app/redeem';
-import { claimCancelReason } from '@/lib/app/cancelReason';
+import { canShowCancelReason } from '@/lib/app/cancelReason';
 import { CancelReasonSheet, openAfterCancelReason } from '@/components/app/CancelReasonSheet';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { couponGuideCopy } from '@/lib/app/couponGuide';
@@ -21,7 +21,7 @@ import { useInviteConfig } from '@/lib/invite/useInvite';
 import { fetchInbox, markSeen, readBoxCache, type BoxState } from '@/lib/invite/inboxClient';
 import { isPreviewHost } from '@/lib/app/proEntitlement';
 import { WATCHLIST_PERSIST_KEYS } from '@/lib/app/watchlist';
-import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, platform as nativePlatform } from '@/lib/native/capacitorBridge';
+import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, isNativeApp, platform as nativePlatform } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
 
 // ── Translations ──
@@ -367,7 +367,7 @@ export default function SettingsPage() {
     if (process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('cancelReasonPreview') === '1') setReasonMode('preview');
   }, []);
   const handleManageSub = useCallback(() => {
-    if (claimCancelReason()) setReasonMode('manage');
+    if (canShowCancelReason()) setReasonMode('manage');
     else void openSubscriptionManagement();
   }, []);
 
@@ -890,7 +890,10 @@ export default function SettingsPage() {
       {reasonMode && <CancelReasonSheet locale={locale} preview={reasonMode === 'preview'} onDone={() => {
         const manage = reasonMode === 'manage';
         setReasonMode(null);
-        if (manage) openAfterCancelReason(() => { void openSubscriptionManagement(); });
+        if (manage) {
+          if (isNativeApp) openAfterCancelReason(() => { void openSubscriptionManagement(); });
+          else void openSubscriptionManagement();
+        }
       }} />}
 
       {/* 구독 페이월 — 결제 «전에» 가격·기간·약관을 보여준다(애플 3.1.2 / Play 고지)

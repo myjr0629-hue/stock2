@@ -8,7 +8,7 @@ import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { TRIAL_OFF_STORAGE_KEY, trialOffCopy, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
 import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
-import { claimCancelReason } from '@/lib/app/cancelReason';
+import { canShowCancelReason } from '@/lib/app/cancelReason';
 import { CancelReasonSheet } from './CancelReasonSheet';
 import p from './ProPaywall.module.css';
 import s from './GiftAnnounceSheet.module.css';
@@ -98,7 +98,7 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
     if (!active.preview) trackFunnel(stage, { src: 'trial_off' });
     if (stage === 'trial_off_manage' && !active.preview && active.expiresAt > Date.now()) void openSubscriptionManagement(active.store).catch(() => {});
   }, []);
-  return <>{view && <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onLater={() => { const active = current.current; close('trial_off_close'); if (active && !active.preview && claimCancelReason()) void afterSheetHistory().then(() => setReason(true)); }} onManage={() => close('trial_off_manage')} onExpired={() => close('trial_off_expired')} />}<CancelReasonPreview locale={locale} />{reason && <CancelReasonSheet locale={locale} preview={false} onDone={() => setReason(false)} />}</>;
+  return <>{view && <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onLater={() => { const active = current.current; close('trial_off_close'); if (active && !active.preview && canShowCancelReason()) void afterSheetHistory().then(() => { if (canShowCancelReason()) setReason(true); }); }} onManage={() => close('trial_off_manage')} onExpired={() => close('trial_off_expired')} />}<CancelReasonPreview locale={locale} />{reason && <CancelReasonSheet locale={locale} preview={false} onDone={() => setReason(false)} />}</>;
 }
 
 function CancelReasonPreview({ locale }: { locale: string }) {

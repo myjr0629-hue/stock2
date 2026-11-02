@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
-import { CANCEL_REASON_CODES, CANCEL_REASON_STORAGE_KEY, cancelReasonCopy, claimCancelReason } from '../src/lib/app/cancelReason';
+import { CANCEL_REASON_CODES, CANCEL_REASON_STORAGE_KEY, cancelReasonCopy, canShowCancelReason, claimCancelReason } from '../src/lib/app/cancelReason';
 import { isFunnelStage } from '../src/lib/app/funnelSchema';
 
 const storage = new Map<string, string>();
 Object.assign(globalThis, { localStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) } });
+assert.equal(canShowCancelReason(), true);
+assert.equal(storage.size, 0);
 assert.equal(claimCancelReason(), true);
 assert.equal(storage.get(CANCEL_REASON_STORAGE_KEY), '1');
 assert.equal(claimCancelReason(), false);
