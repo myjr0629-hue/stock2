@@ -1615,6 +1615,8 @@ export async function GET(req: NextRequest) {
         finalPayload._goodAt = Date.now();
     }
     // ★ [2026-11-02] 11/2 이전 마지막 정상본에 남은 «2083년» 호가 시각(벤더 서머타임 왜곡)이 병합으로 되살아나지 않게 다시 검사한다(lib/vendorTime.ts).
+    //   호가는 한 덩어리다 — 이번 응답에 호가가 있으면 가격·시각을 통째로 이번 것으로(시각이 비었다고 옛 시각을 새 가격에 붙이지 않는다).
+    if (response.quote && finalPayload.quote !== response.quote) finalPayload = { ...finalPayload, quote: response.quote };
     if (finalPayload.quote && Number(finalPayload.quote.asOfMs) > 0) {
         const qMs = repairVendorEpochMs(Number(finalPayload.quote.asOfMs));
         if (qMs !== Number(finalPayload.quote.asOfMs)) finalPayload = { ...finalPayload, quote: { ...finalPayload.quote, asOfMs: qMs > 0 ? qMs : null } };
