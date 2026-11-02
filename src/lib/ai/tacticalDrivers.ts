@@ -257,8 +257,9 @@ export function driversForPrompt(d: TacticalMacroDrivers | undefined, locale: 'k
         ...(sec && (sec.leaders.length || sec.laggards.length) ? { [d.sectors?.live ? 'sector moves (current cash session, vs previous close)' : 'sector moves (that completed cash session)']: sec } : {}),
         ...(d.earnings?.moves.length ? { [EARNINGS_DRIVER_KEY]: {
             cashSessionDate: d.earnings.sessionDate,
+            // 발표 날짜는 주지 않는다 — WHY 는 보도 인용 날짜 하나만 허용(news-source-time-required: 날짜 2개면 탈락, 11/2 실모델 «10/29 장후 실적» 탈락)
             moves: d.earnings.moves.map(m => ({ company: m.company, ticker: m.ticker,
-                reported: `${Number(m.reportDate.slice(5, 7))}/${Number(m.reportDate.slice(8, 10))} ${m.hour === 'amc' ? 'after the close' : 'before the open'}`,
+                results: m.hour === 'amc' ? 'released after the previous session close' : 'released before that session opened',
                 stockMovePct: m.movePct })),
         } } : {}),
     };

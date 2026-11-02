@@ -87,7 +87,7 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         assert.equal(tacticalMacroDrivers({ earnings: card, companyNameEn: en, session: 'CLOSED', cashSessionDate: '2026-10-29', nowMs: MON })!.earnings!.moves[0].ticker, 'GOOGL', '반응일이 그 정규장인 것만');
         assert.equal(tacticalMacroDrivers({ earnings: card, companyNameEn: () => null, session: 'PRE', cashSessionDate: '2026-10-30', nowMs: MON }), undefined, '회사 이름 모르는 티커는 빼고, 남는 재료 없으면 undefined');
         const line = driversForPrompt(d, 'ko', () => undefined)!;
-        assert.deepEqual(line[EARNINGS_DRIVER_KEY], { cashSessionDate: '2026-10-30', moves: [{ company: 'Intel', ticker: 'INTC', reported: '10/29 after the close', stockMovePct: -28.6 }] });
+        assert.deepEqual(line[EARNINGS_DRIVER_KEY], { cashSessionDate: '2026-10-30', moves: [{ company: 'Intel', ticker: 'INTC', results: 'released after the previous session close', stockMovePct: -28.6 }] });
     });
 
     await test('② 실적 반응 숫자·방향 대조 — 회사 이름(한·영·일)·티커 뒤 숫자는 그 종목 값, 방향어는 부호', () => {
