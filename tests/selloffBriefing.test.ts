@@ -5,6 +5,23 @@ import { currentSelloff, loadRetainedSelloff, mergeSelloffRecord, mergeSelloffRe
 const now = Date.parse('2026-11-02T15:00:00Z');
 const cash = (changePct: number, sessionDate = '2026-10-30', asOf = '2026-10-30T20:00:00Z') => ({ changePct, sessionDate, asOf, price: 100 });
 const factor = (chgPct: number, marketTime = '2026-10-30T20:00:00Z') => ({ chgPct, marketTime, status: 'OK', source: 'YAHOO' });
+test('SOX and VIX retain nonzero same-level observations against a later zero roll', () => {
+  for (const [name, key] of [['VIX', 'vix'], ['SOX', 'sox']] as const) {
+    const initial: SelloffMacro = { factors: { [key]: { ...factor(12.9), level: 19.42, chgAbs: 2.22 } } };
+    const later: SelloffMacro = { factors: { [key]: { ...factor(0, '2026-10-30T20:15:01Z'), level: 19.42, chgAbs: 0 } } };
+    const first = mergeSelloffRecord({ now, macro: initial, stored: null, storedKnown: true }).record!;
+    const result = mergeSelloffRecord({ now, macro: later, stored: first, storedKnown: true });
+    assert.equal(result.record?.chips[0].pct, 12.9, name);
+    assert.equal(result.write, false);
+    const zero = mergeSelloffRecord({ now, macro: later, stored: null, storedKnown: true }).record!;
+    assert.equal(mergeSelloffRecords(first, zero, first.date)?.chips[0].pct, 12.9);
+    assert.equal(mergeSelloffRecords(zero, first, first.date)?.chips[0].pct, 12.9);
+    const correction: SelloffMacro = { factors: { [key]: { ...factor(0, '2026-10-30T20:15:01Z'), level: 19.43, chgAbs: 0 } } };
+    const fixed = mergeSelloffRecord({ now, macro: correction, stored: first, storedKnown: true });
+    assert.equal(fixed.record?.chips[0].pct, 0);
+    assert.equal(fixed.write, true);
+  }
+});
 test('four exact thresholds and just inside each boundary', () => {
   const make = (i: number, value: number): SelloffMacro => i === 0 ? { indexBasis: { cash: { spx: cash(value) } } } : i === 1 ? { indexBasis: { cash: { ndx: cash(value) } } } : { factors: { [i === 2 ? 'sox' : 'vix']: factor(value) } };
   [-1.5, -2, -3, 10].forEach((v, i) => { assert.ok(selloffBrief(make(i, v), now)); assert.equal(selloffBrief(make(i, v + (i === 3 ? -0.01 : 0.01)), now), null); });

@@ -13,10 +13,11 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 function store() {
     const values = new Map(), writes = [];
     const slot = n => (n === 'NASDAQ' || n === 'NASDAQ 100' ? 'NQ' : n);
-    const newer = (c, p) => typeof c.at !== 'string' ? false : typeof p.at !== 'string' ? true
+    const newer = (c, p) => ((c.name === 'SOX' || c.name === 'VIX') && c.name === p.name && c.pct === 0 && c.chgAbs === 0 && p.pct !== 0 && typeof c.level === 'number' && typeof p.level === 'number' && c.level === p.level) ? false : typeof c.at !== 'string' ? false : typeof p.at !== 'string' ? true
         : c.at !== p.at ? c.at > p.at : typeof c.rx === 'string' && (typeof p.rx !== 'string' || c.rx > p.rx);
     return { values, writes, eval(script, keys, [raw, ttl]) {
         assert.match(script, /local raw = redis.call\('GET', KEYS\[1\]\)/);
+        assert.match(script, /c\.pct == 0 and c\.chgAbs == 0 and p\.pct ~= 0 and type\(c\.level\) == 'number' and type\(p\.level\) == 'number' and c\.level == p\.level/);
         assert.match(script, /return c\.at > p\.at/);
         assert.match(script, /if c\.at ~= p\.at then return c\.at > p\.at end/);
         assert.match(script, /return type\(c\.rx\) == 'string' and \(type\(p\.rx\) ~= 'string' or c\.rx > p\.rx\)/);
@@ -61,6 +62,18 @@ function fixture() {
     return Object.assign(f, { R });
 }
 const rec = (chips) => ({ date: '2026-10-30', chips });
+
+test('same-level zero roll is rejected; a different-level zero correction is accepted', async () => {
+    for (const name of ['VIX', 'SOX']) {
+        const f = fixture();
+        const first = { name, pct: 12.9, level: 19.42, chgAbs: 2.22, at: '2026-10-30T20:00:00.000Z' };
+        const zero = { name, pct: 0, level: 19.42, chgAbs: 0, at: '2026-10-30T20:15:01.000Z' };
+        assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([first]), 600), 1);
+        assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([zero]), 600), 0);
+        assert.deepEqual(f.up.values.get(KEY).chips, [first]);
+        assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ ...zero, level: 19.43 }]), 600), 1);
+    }
+});
 
 test('older observation that finishes last cannot revert a newer one (concurrent instances)', async () => {
     const f = fixture();
