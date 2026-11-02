@@ -1,3 +1,4 @@
+import { companyNameEntries } from '@/lib/app/tickerNames';
 /**
  * AI 문장의 «숫자 주어»·«방향 부호» 검사 — 가디언 Tactical·내 종목 해석이 같이 쓴다(순수 함수, tests/aiDepthMacro.test.ts).
  *
@@ -84,7 +85,12 @@ const SUBJECT_BASE = new RegExp(`(?<![A-Za-z])(?:${SUBJECT_EN.join('|')})(?![A-Z
  *  공유 호출자(관심종목·순환매·모닝브리핑)에는 넣지 않는다 — 그쪽 근거엔 확률 지표가 없어 «상승 확률 72%» 같은 지어낸 확률을 main 처럼 거절(관문 10311138). */
 const SUBJECT_EN_TAC = ['chance', 'odds', 'probabilit(?:y|ies)', 'FedWatch'];
 const SUBJECT_CJK_TAC = ['확률', '確率'];
-const SUBJECT_TAC = new RegExp(`(?<![A-Za-z])(?:${[...SUBJECT_EN, ...SUBJECT_EN_TAC].join('|')})(?![A-Za-z])|${[...SUBJECT_CJK, ...SUBJECT_CJK_TAC].join('|')}`, 'i');
+/** ★2026-11-02 Tactical 전용 주어 — 회사 이름(한·영·일, lib/app/tickerNames — 티커는 원래 주어로 인정). «왜» 재료의 실적 반응(«인텔이 28.6% 폭락»·«Intel's 28.6% plunge»)이
+ *  orphan-number 로 떨어졌다(11/2 실모델 3언어). 숫자는 tacticalDrivers.driverClaimReasons 가 그 회사의 반응 값과 따로 대조한다. 공유 호출자 사전은 그대로. */
+const escCo = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const COMPANY_EN_TAC = [...new Set(companyNameEntries().flatMap(c => c.names).filter(n => /^[A-Za-z][A-Za-z .&'-]{1,30}$/.test(n)))].map(escCo);
+const COMPANY_CJK_TAC = [...new Set(companyNameEntries().flatMap(c => c.names).filter(n => /^[가-힣ァ-ヶー一-龥]{2,12}$/.test(n)))].map(escCo);
+const SUBJECT_TAC = new RegExp(`(?<![A-Za-z])(?:${[...SUBJECT_EN, ...SUBJECT_EN_TAC, ...COMPANY_EN_TAC].join('|')})(?![A-Za-z])|${[...SUBJECT_CJK, ...SUBJECT_CJK_TAC, ...COMPANY_CJK_TAC].join('|')}`, 'i');
 /** 검사 함수 실행 동안만 바뀌는 주어 사전(동기 실행 — withOpts 가 끝나면 원복) */
 let SUBJECT = SUBJECT_BASE;
 let TACTICAL = false;

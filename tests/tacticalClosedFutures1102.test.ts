@@ -7,6 +7,7 @@ import { tacticalMacroDrivers, driversForPrompt, driverClaimReasons, causeNewsFr
 import { absoluteDayWords, polishTacticalText, stateRelativeDayReasons, buildTacticalPrompt, tacticalNextReasons, splitSentences } from '@/lib/ai/tacticalPrompt';
 import { reservePostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
 import { tickerName } from '@/lib/app/tickerNames';
+import { orphanNumberReasons } from '@/lib/ai/claimChecks';
 
 let failed = 0;
 const test = async (name: string, fn: () => void | Promise<void>) => { try { await fn(); console.log('ok -', name); } catch (e) { failed++; console.error('FAIL -', name, e); } };
@@ -87,7 +88,7 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         assert.equal(tacticalMacroDrivers({ earnings: card, companyNameEn: en, session: 'CLOSED', cashSessionDate: '2026-10-29', nowMs: MON })!.earnings!.moves[0].ticker, 'GOOGL', '반응일이 그 정규장인 것만');
         assert.equal(tacticalMacroDrivers({ earnings: card, companyNameEn: () => null, session: 'PRE', cashSessionDate: '2026-10-30', nowMs: MON }), undefined, '회사 이름 모르는 티커는 빼고, 남는 재료 없으면 undefined');
         const line = driversForPrompt(d, 'ko', () => undefined)!;
-        assert.deepEqual(line[EARNINGS_DRIVER_KEY], { cashSessionDate: '2026-10-30', moves: [{ company: 'Intel', ticker: 'INTC', results: 'released after the previous session close', stockMovePct: -28.6 }] });
+        assert.deepEqual(line[EARNINGS_DRIVER_KEY], { cashSessionDate: '2026-10-30', moves: [{ company: 'Intel', ticker: 'INTC', results: 'released after the previous session close', stockMove: 'during that cash session, vs its previous close (not after hours)', stockMovePct: -28.6 }] });
     });
 
     await test('② 실적 반응 숫자·방향 대조 — 회사 이름(한·영·일)·티커 뒤 숫자는 그 종목 값, 방향어는 부호', () => {
@@ -106,6 +107,10 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         assert.deepEqual(driverClaimReasons('28.6% 폭락한 인텔이 반도체를 끌어내렸습니다.', drivers), []);
         assert.ok(driverClaimReasons('28.6% 급등한 인텔이 반도체를 끌어올렸습니다.', drivers).includes('tactical:driver-direction:earnings:INTC'));
         assert.deepEqual(driverClaimReasons('28.6%急落したインテルが半導体を押し下げました。', drivers), []);
+        // 회사 이름 = Tactical 숫자 주어(orphan-number 오탐 — 11/2 실모델 3언어) · 공유 호출자 사전은 그대로
+        for (const t of ['인텔이 장후 28.6% 폭락했습니다', "Against a report on Intel's 28.6% plunge", 'インテルが28.6%急落しました'])
+            assert.deepEqual(orphanNumberReasons(t, { tactical: true }), [], t);
+        assert.deepEqual(orphanNumberReasons('인텔이 장후 28.6% 폭락했습니다'), ['orphan-number:28.6%'], '공유 호출자 무영향');
     });
 
     await test('② 원인 기사 — 직전 정규장 날짜 보관 기사도(날짜 창 지정 시), 기본은 오늘만', () => {
