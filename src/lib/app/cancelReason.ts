@@ -3,6 +3,12 @@ export type CancelReasonCode = (typeof CANCEL_REASON_CODES)[number];
 export const CANCEL_REASON_STORAGE_KEY = 'signumhq.cancelReason.v1';
 let seenInSession = false;
 
+/** Do not put the survey beneath an existing dialog. */
+export function canPresentCancelReason(): boolean {
+  return typeof document !== 'undefined' && document.visibilityState === 'visible'
+    && !document.querySelector('[aria-modal="true"], [data-pro-paywall]');
+}
+
 /** Check without consuming the opportunity before the sheet is displayed. */
 export function canShowCancelReason(): boolean {
   if (seenInSession) return false;

@@ -7,7 +7,7 @@ import { ProPaywall } from '@/components/app/ProPaywall';
 import { AdFreeIcon } from '@/components/app/AdFreeIcon';
 import { useProStatus } from '@/hooks/useProStatus';
 import { openRedeem, redeemCopy, redeemIsAndroid, showRedeemEntry } from '@/lib/app/redeem';
-import { canShowCancelReason } from '@/lib/app/cancelReason';
+import { canPresentCancelReason, canShowCancelReason } from '@/lib/app/cancelReason';
 import { CancelReasonSheet, openAfterCancelReason } from '@/components/app/CancelReasonSheet';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { couponGuideCopy } from '@/lib/app/couponGuide';
@@ -367,7 +367,7 @@ export default function SettingsPage() {
     if (process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('cancelReasonPreview') === '1') setReasonMode('preview');
   }, []);
   const handleManageSub = useCallback(() => {
-    if (canShowCancelReason()) setReasonMode('manage');
+    if (canShowCancelReason() && canPresentCancelReason()) setReasonMode('manage');
     else void openSubscriptionManagement();
   }, []);
 
@@ -887,12 +887,12 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {reasonMode && <CancelReasonSheet locale={locale} preview={reasonMode === 'preview'} onDone={() => {
+      {reasonMode && <CancelReasonSheet locale={locale} preview={reasonMode === 'preview'} onDone={(button) => {
         const manage = reasonMode === 'manage';
         setReasonMode(null);
         if (manage) {
           if (isNativeApp) openAfterCancelReason(() => { void openSubscriptionManagement(); });
-          else void openSubscriptionManagement();
+          else if (button) void openSubscriptionManagement();
         }
       }} />}
 

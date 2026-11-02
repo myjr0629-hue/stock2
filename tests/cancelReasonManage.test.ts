@@ -16,20 +16,23 @@ function visit(node: ts.Node) {
 visit(tree);
 assert.ok(handler);
 const js = ts.transpileModule(`result = ${handler}`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
-for (const native of [false, true]) for (const mode of ['manage', 'preview']) for (const response of ['choice', 'skip']) {
+for (const native of [false, true]) for (const mode of ['manage', 'preview']) for (const response of ['choice', 'skip', 'popstate']) {
   const calls: string[] = [];
+  let windowOpens = 0;
+  const window = { open: () => { windowOpens++; } };
   let queued: (() => void) | undefined;
-  const context = { result: undefined as unknown as () => void, reasonMode: mode, isNativeApp: native,
+  const context = { result: undefined as unknown as (button: boolean) => void, reasonMode: mode, isNativeApp: native,
     setReasonMode: () => calls.push('close'),
-    openSubscriptionManagement: () => { calls.push('open'); return Promise.resolve(); },
+    openSubscriptionManagement: () => { calls.push('open'); if (!native) window.open(); return Promise.resolve(); },
     openAfterCancelReason: (action: () => void) => { calls.push('wait'); queued = action; },
   };
   vm.runInNewContext(js, context);
-  context.result(); // Called directly from either survey button's onClick.
+  context.result(response !== 'popstate');
+  assert.equal(windowOpens, !native && mode === 'manage' && response !== 'popstate' ? 1 : 0, response);
   if (mode === 'preview') assert.deepEqual(calls, ['close'], response);
   else if (native) {
     assert.deepEqual(calls, ['close', 'wait'], response);
     queued!(); assert.deepEqual(calls, ['close', 'wait', 'open'], response);
-  } else assert.deepEqual(calls, ['close', 'open'], response);
+  } else assert.deepEqual(calls, response === 'popstate' ? ['close'] : ['close', 'open'], response);
 }
 console.log('cancelReasonManage: web immediate, native delayed, preview and both responses passed');
