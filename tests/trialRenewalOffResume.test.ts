@@ -11,6 +11,7 @@ function mock(name: string, exports: unknown) {
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
 const effects: Array<() => (() => void) | undefined> = [];
 let view: any = null;
+mock('react/jsx-runtime', { jsx: (type: unknown, props: unknown) => ({ type, props }), jsxs: (type: unknown, props: unknown) => ({ type, props }), Fragment: 'fragment' });
 mock('react', {
   useEffect: (fn: typeof effects[number]) => effects.push(fn),
   useRef: (value: unknown) => ({ current: value }),

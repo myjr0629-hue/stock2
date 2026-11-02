@@ -16,14 +16,15 @@ const fs = require('fs');
 const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
-const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', 'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired'];   // onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
+const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', 'cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other', 'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired'];   // onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
 const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'trial_notice', 'trial_off'];
 // 푸시 탭·앱 활성(2026-10-12)은 구독 퍼널이 아니다 — 이 표에서 빼고 scripts/mkt-push.js 가 따로 보여 준다
 const ONB_STAGES = ['onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card'];
 const ONB_SRCS = ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn'];
 const TRIAL_STAGES = ['trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze'];
 const TRIAL_OFF_STAGES = ['trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired'];
-const NON_FUNNEL_STAGES = new Set([...TRIAL_STAGES, ...TRIAL_OFF_STAGES, 'push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES]);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
+const CANCEL_REASON_STAGES = ['cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other'];
+const NON_FUNNEL_STAGES = new Set([...TRIAL_STAGES, ...TRIAL_OFF_STAGES, ...CANCEL_REASON_STAGES, 'push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES]);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
 const NON_FUNNEL_SRCS = new Set(['trial_notice', 'trial_off', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', ...ONB_SRCS]);
 const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
 const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
@@ -208,6 +209,21 @@ async function main() {
       counts[stage] = values.reduce((sum, value) => sum + (Number(value) || 0), 0);
     }
     console.log(`${platform}  표시 ${counts.trial_off_show} · 관리 탭 ${counts.trial_off_manage} · 닫기 ${counts.trial_off_close} · 만료 ${counts.trial_off_expired}`);
+  }
+
+  console.log('\n── 해지 사유 (횟수 · 무응답 포함, 고유 사용자 아님) ──');
+  // 플랫폼×단계×날짜를 한 번의 mget 으로(요청 1회)
+  const reasonKeys = [];
+  for (const platform of PLATS) for (const stage of CANCEL_REASON_STAGES) for (const day of dates) reasonKeys.push([`${ns}:${stage}:other:${platform}:${day}`, platform, stage]);
+  const reasonVals = await mget(reasonKeys.map((k) => k[0]), KEY, miss);
+  const reasonCounts = {};
+  reasonKeys.forEach(([, platform, stage], i) => {
+    const row = (reasonCounts[platform] ||= {});
+    row[stage] = (row[stage] || 0) + (Number(reasonVals[i]) || 0);
+  });
+  for (const platform of PLATS) {
+    const counts = reasonCounts[platform] || {};
+    console.log(`${platform}  ${CANCEL_REASON_STAGES.map((stage) => `${stage.slice(14)} ${counts[stage] || 0}`).join(' · ')}`);
   }
 
   // ③ 스마트링크 «어디서 왔나»

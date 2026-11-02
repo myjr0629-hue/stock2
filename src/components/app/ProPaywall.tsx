@@ -346,7 +346,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
       : { title: t.title, lede: t.lede, cta: t.cta };
 
   return (
-    <div className={s.overlay} role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
+    <div className={s.overlay} data-pro-paywall role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
       <div className={s.sheet}>
         {/* 닫기 — 첫 페인트에 보이고 44×44 이상 (Play 요건) */}
         <button ref={closeBtnRef} type="button" className={s.close} onClick={onClose} aria-label={t.close}>
