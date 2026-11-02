@@ -1026,12 +1026,11 @@ export class IntelligenceNode {
         const reuse = () => ({ text: shownOut('reality', locale, { tpl: saved!.text, basis: saved!.basis ?? null, futures: true, futuresPct: saved!.futuresPct, drivers: saved!.drivers }, nums), at: saved!.at, seenAt: saved!.at });
         const newer = valid && typeof opts.newerThan === 'number' && saved!.at > opts.newerThan;
         if (opts.regen === false) return newer ? reuse() : { text: null, ...(saved ? { seenAt: saved.at } : {}) };
-        if (valid && !tacticalFuturesDrifted(saved!.futuresPct, pct)) {
-            // ★2026-11-02 관문 11021732 ① — 지금 글이 이미 선물 사실로 만든 글(requireNewer)이면 그보다 오래된 저장본으로 되돌리지 않는다(변동 없음 = 지금 글 유지).
-            //   선물 사실 없는 글(장외 저장 판정·옛 장후 글)을 고칠 때는 같은 세션·같은 ET 날짜·검사 통과 저장본이 더 맞는 글이라 그대로 쓴다.
-            if (opts.requireNewer && typeof opts.newerThan === 'number' && saved!.at <= opts.newerThan) return { text: null, seenAt: saved!.at };
-            return reuse();
-        }
+        // ★2026-11-02 관문 11021732 ① — 지금 글이 이미 선물 사실로 만든 글(requireNewer)이면 그보다 오래된 저장본으로 되돌리지 않는다.
+        //   그 경우 저장본은 «없는 것»으로 보고 아래 재생성으로 간다(호출자는 지금 글의 변동을 확인하고 불렀다 — 관문 11021805: 거절만 하고 재생성을 건너뛰면 옛 «보합» 글이 남는다).
+        //   선물 사실 없는 글(장외 저장 판정·옛 장후 글)을 고칠 때는 같은 세션·같은 ET 날짜·검사 통과 저장본이 더 맞는 글이라 그대로 쓴다.
+        const olderThanShown = opts.requireNewer === true && typeof opts.newerThan === 'number' && !!saved && saved.at <= opts.newerThan;
+        if (valid && !olderThanShown && !tacticalFuturesDrifted(saved!.futuresPct, pct)) return reuse();
         const tri = await IntelligenceNode.generateTrilingual('reality', nums, prompts, { postFuturesDrift: true });
         const out = tri.out[locale];
         if (out?.futures === true && out.futuresPct) {
