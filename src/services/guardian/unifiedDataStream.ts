@@ -363,7 +363,7 @@ async function loadArchiveCauseNews(): Promise<string[]> {
 /**
  * ★2026-11-02 직전 정규장의 실적 반응(실적 채점표 저장본 — MGET 1~2회, 공급사·AI 호출 0) — 인스턴스당 10분에 한 번.
  *   11/2 실측: 10/30 반도체 급락의 실제 재료(INTC 실적 뒤 −28.6% · 채점표 /api/earnings/scorecard)가 Tactical 입력에 없어 «재료 확인 안 됨».
- *   장중(REG)은 반응 값이 장 마감 뒤 계산되므로 읽지 않는다. 채점표 주(월요일 ET)는 그 정규장 날짜의 주 — 월요일이면 지난주(금요일 장후 발표)도.
+ *   장중(REG)은 반응 값이 장 마감 뒤 계산되므로 읽지 않는다. 채점표 주(월요일 ET)는 그 정규장 날짜의 주 + 지난주(금요일 장후 발표 → 다음 주 반응).
  */
 let _earningsReactions: { at: number; day: string; rows: EarningsReactionInput[] } | null = null;
 async function loadEarningsReactions(): Promise<EarningsReactionInput[]> {
@@ -375,7 +375,8 @@ async function loadEarningsReactions(): Promise<EarningsReactionInput[]> {
     try {
         const d = new Date(`${day}T12:00:00Z`);
         const monday = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
-        const weeks = [monday, ...(monday === day ? [new Date(Date.parse(`${monday}T12:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10)] : [])];
+        // 지난주도 늘 읽는다 — 월요일 휴장 주의 화요일 반응(금요일 장후 발표)처럼 반응일이 발표 주 다음 주일 수 있다(관문 11021742). 반응일로 거른다
+        const weeks = [monday, new Date(Date.parse(`${monday}T12:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10)];
         const { readEarningsScorecard } = await import('@/services/earningsScorecardService');
         const cards = await Promise.all(weeks.map(w => readEarningsScorecard(w, now).catch(() => null)));
         rows = cards.flatMap(c => (Array.isArray(c?.rows) ? c!.rows : [])).flatMap((r: any) => (
