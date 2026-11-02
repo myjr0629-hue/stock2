@@ -122,20 +122,35 @@ function highlightData(text: string, parentKey: number): React.ReactNode[] {
 
         if (match[1]) {
             // Percentage number
-            // Decimal points are not sentence boundaries. Ambiguous mixed directions
-            // inherit the surrounding body color rather than guessing.
-            const boundaries = /[。！？!?\n]|\.(?!\d)/g;
+            // Only direction words in the same clause can describe this value.
+            // Decimal points are not boundaries; signs always take precedence.
+            const boundaries = /[。！？!?、，,;；\n]|\.(?!\d)|\b(?:and|but|or|while|however|yet)\b|그리고|그러나|하지만|또는|및|(?<=내렸|올랐|하락했|상승했)(?:고|지만)|そして|しかし|または|及び/gi;
             let start = 0;
             let end = text.length;
             let boundary: RegExpExecArray | null;
             while ((boundary = boundaries.exec(text)) !== null) {
-                if (boundary.index < match.index) start = boundary.index + 1;
-                else { end = boundary.index; break; }
+                if (boundary.index + boundary[0].length <= match.index) start = boundary.index + boundary[0].length;
+                else if (boundary.index >= match.index + matched.length) { end = boundary.index; break; }
             }
-            const sentence = text.slice(start, end);
-            const down = /내렸|하락|\b(?:fell|down)\b|下落|下げ/i.test(sentence);
-            const up = /올랐|상승|\b(?:rose|up)\b|上昇/i.test(sentence);
-            const direction = matched[0] === '+' ? 1 : /[-−]/.test(matched[0]) ? -1 : down === up ? 0 : down ? -1 : 1;
+            const clause = text.slice(start, end);
+            const words = /내렸|하락|올랐|상승|\b(?:fell|fall|down|rose|rise|up)\b|下落|下げ|上昇/gi;
+            let up = false;
+            let down = false;
+            let negated = false;
+            let word: RegExpExecArray | null;
+            while ((word = words.exec(clause)) !== null) {
+                const before = clause.slice(0, word.index);
+                const after = clause.slice(word.index + word[0].length);
+                if (/(?:^|\s)(?:안|못)\s*$|\b(?:not|never|no|didn't|doesn't|don't|isn't|wasn't|cannot|can't)\s*$/i.test(before) ||
+                    /^\s*(?:하지\s*않|하지\s*못|하지\s*말|않|못|ない|せず|しない|しなかった|せぬ)/i.test(after)) {
+                    negated = true;
+                } else if (/^(?:내렸|하락|fell|fall|down|下落|下げ)$/i.test(word[0])) {
+                    down = true;
+                } else {
+                    up = true;
+                }
+            }
+            const direction = matched[0] === '+' ? 1 : /[-−]/.test(matched[0]) ? -1 : negated || down === up ? 0 : down ? -1 : 1;
             if (direction > 0) {
                 result.push(
                     <span key={key} className="text-emerald-400/90 font-semibold">{matched}</span>
