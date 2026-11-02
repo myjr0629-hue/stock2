@@ -7,7 +7,7 @@ import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { TRIAL_OFF_STORAGE_KEY, trialOffCopy, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
-import { loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
+import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
 import p from './ProPaywall.module.css';
 import s from './GiftAnnounceSheet.module.css';
 
@@ -76,6 +76,7 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
       void enter();
     };
     const visibility = () => { if (document.visibilityState === 'visible') resume(); else suspend(); };
+    beginTrialRenewalOffEntry();
     void enter();
     document.addEventListener('visibilitychange', visibility);
     document.addEventListener('app:resume', resume);

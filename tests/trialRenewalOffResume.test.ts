@@ -36,13 +36,16 @@ let snapshot = { customerInfo: info(true), platform: 'ios' };
 let loads = 0, resumes = 0, verifies = 0, used = false;
 let pending: ((value: typeof snapshot) => void) | undefined;
 let defer = false;
+let serviceGeneration = 0;
 mock('../src/services/trialRenewalOff', {
+  beginTrialRenewalOffEntry: () => { serviceGeneration++; used = false; },
   loadFreshTrialRenewalOff: async () => { loads++; return snapshot; },
-  refreshTrialRenewalOffOnResume: () => { resumes++; used = false; },
+  refreshTrialRenewalOffOnResume: () => { resumes++; serviceGeneration++; used = false; },
   verifyTrialRenewalOff: () => {
     if (used) return null;
     used = true; verifies++;
-    return { result: defer ? new Promise((resolve) => { pending = resolve; }) : Promise.resolve(snapshot), release: () => { used = false; } };
+    const generation = serviceGeneration;
+    return { result: defer ? new Promise((resolve) => { pending = resolve; }) : Promise.resolve(snapshot), release: () => { if (generation === serviceGeneration) used = false; } };
   },
 });
 const events = new Map<string, () => void>();
@@ -93,6 +96,31 @@ async function main() {
   native!({ isActive: true }); events.get('app:resume')?.(); await tick();
   assert.ok(view); assert.equal(resumes, 2); assert.equal(verifies, 5);
   cleanup3?.();
+  view = null; defer = true;
+  TrialRenewalOffNotice({ locale: 'ko' });
+  const cleanup4 = effects[3](); await tick();
+  const oldResult = pending!;
+  cleanup4?.();
+  TrialRenewalOffNotice({ locale: 'ko' });
+  const cleanup5 = effects[4](); await tick();
+  const newResult = pending!;
+  assert.notEqual(newResult, oldResult);
+  oldResult(snapshot); await tick();
+  assert.equal(view, null); assert.equal(used, true);
+  newResult(snapshot); await tick();
+  assert.ok(view); cleanup5?.();
+  view = null; defer = true;
+  TrialRenewalOffNotice({ locale: 'ko' });
+  const cleanup6 = effects[5](); await tick();
+  const beforeResume = pending!;
+  doc.visibilityState = 'hidden'; events.get('visibilitychange')?.();
+  doc.visibilityState = 'visible'; events.get('visibilitychange')?.(); await tick();
+  const afterResume = pending!;
+  assert.notEqual(afterResume, beforeResume);
+  beforeResume(snapshot); await tick();
+  assert.equal(view, null); assert.equal(used, true);
+  afterResume(snapshot); await tick();
+  assert.ok(view); cleanup6?.();
   console.log('trialRenewalOffResume: resume refresh, modal and background interruptions passed');
 }
 void main().catch((error) => { console.error(error); process.exitCode = 1; });

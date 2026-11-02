@@ -5,11 +5,17 @@ import { initRevenueCat } from '@/services/revenueCat';
 /** One initial SDK read per foreground entry, including failures. */
 let sessionRead: Promise<Awaited<ReturnType<typeof readTrialRenewalOff>>> | undefined;
 let freshEntry = false;
-let verification: object | undefined;
-export function refreshTrialRenewalOffOnResume() {
+let generation = 0;
+let verification: { generation: number } | undefined;
+export function beginTrialRenewalOffEntry() {
+  if (generation > 0) freshEntry = true;
+  ++generation;
   sessionRead = undefined;
-  freshEntry = true;
   verification = undefined;
+}
+export function refreshTrialRenewalOffOnResume() {
+  beginTrialRenewalOffEntry();
+  freshEntry = true;
 }
 export function loadFreshTrialRenewalOff() {
   return sessionRead ??= readTrialRenewalOff(freshEntry);
@@ -18,10 +24,10 @@ export function loadFreshTrialRenewalOff() {
 // Only a discarded attempt can release its own verification slot.
 export function verifyTrialRenewalOff() {
   if (verification) return null;
-  const token = verification = {};
+  const token = verification = { generation };
   return {
     result: readTrialRenewalOff(true),
-    release: () => { if (verification === token) verification = undefined; },
+    release: () => { if (generation === token.generation && verification === token) verification = undefined; },
   };
 }
 

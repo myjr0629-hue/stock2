@@ -21,6 +21,7 @@ async function scenario(mode: 'success' | 'failure' | 'web' | 'invalidateFailure
   const load = exports.loadFreshTrialRenewalOff as () => Promise<any>;
   const verify = exports.verifyTrialRenewalOff as () => { result: Promise<any>; release: () => void } | null;
   const resume = exports.refreshTrialRenewalOffOnResume as () => void;
+  const enter = exports.beginTrialRenewalOffEntry as () => void;
   if (mode === 'failure') {
     await assert.rejects(load(), /offline/);
     await assert.rejects(load(), /offline/);
@@ -50,9 +51,14 @@ async function scenario(mode: 'success' | 'failure' | 'web' | 'invalidateFailure
     attempt.release(); // An old interrupted attempt must not release the new slot.
     assert.equal(verify(), null);
     await next.result;
-    next.release();
+    enter();
+    const reentered = verify()!;
+    next.release(); // A previous screen cannot free the new screen's slot.
+    assert.equal(verify(), null);
+    await reentered.result;
+    reentered.release();
     await verify()!.result;
-    assert.deepEqual(calls, ['customer', 'invalidate', 'customer', 'invalidate', 'customer', 'invalidate', 'customer', 'invalidate', 'customer']);
+    assert.deepEqual(calls, ['customer', 'invalidate', 'customer', 'invalidate', 'customer', 'invalidate', 'customer', 'invalidate', 'customer', 'invalidate', 'customer']);
   }
 }
 async function main() {
