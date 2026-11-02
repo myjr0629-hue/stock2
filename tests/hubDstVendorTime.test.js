@@ -218,6 +218,24 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
     passed++; console.log('  ✓ 복구 불가(시각 0) 값 뒤에도 역행 기준 유지(REST·WS) — 관문 11021945 지적');
   })();
 
+  await (async () => {
+    // 관문 11021947 보류 재현: 정규장 WS 체결의 원천 시각이 복구 불가 미래면 신선도를 모르므로 방송·저장·lastAccepted 기록 0.
+    now = REG; const h = makeHub();
+    h.tickerSubscribers.set('U', new Set());
+    h.latestPrices.set('U', { price: 10, ts: REG - 200_000, prevClose: 9 });
+    h.handleTradeUpdate({ sym: 'U', p: 12, s: 1, t: (REG + 3_600_000) * 1e6, _intrinio: true });
+    assert.equal(h.broadcasts.length, 0); assert.equal(h.lastAcceptedTradeMs.has('U'), false); assert.equal(h.liveTicks.has('U'), false);
+    assert.equal('price' in h.latestPrices.get('U'), false); assert.equal(h.staleDropped.get('U'), 1);
+    assert.equal(h.latestPrices.get('U').lastTradeTs, REG - 200_000);
+    // 시각 결측(원천에 시각 자체가 없음)은 기존 동작 그대로 채택.
+    h.handleTradeUpdate({ sym: 'U', p: 12, s: 1, t: 0, _intrinio: true });
+    assert.equal(h.latestPrices.get('U').price, 12); assert.equal(h.broadcasts.length, 1);
+    // 왜곡(복구 가능) 시각은 정규장에도 신선하면 채택.
+    h.handleTradeUpdate({ sym: 'U', p: 13, s: 1, t: (REG - 1_000 + SKEW) * 1e6, _intrinio: true });
+    assert.equal(h.latestPrices.get('U').price, 13); assert.equal(h.latestPrices.get('U').ts, REG - 1_000);
+    passed++; console.log('  ✓ 정규장 WS: 복구 불가 미래 시각 체결은 버림 · 결측은 기존 · 복구 가능은 채택 — 관문 11021947 지적');
+  })();
+
   (() => {
     // 옵션 가격 방송: 왜곡 시각 복구, 정상 시각 불변.
     now = REG; const sent = [];
@@ -226,8 +244,14 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
     vm.runInNewContext(sessionCode + '\n' + optionCode, ctx);
     ctx.broadcastOptionPrice('O:X', 1.5, REG - 1_000 + SKEW);
     ctx.broadcastOptionPrice('O:X', 1.6, REG - 1_000);
-    assert.deepEqual(sent.map(m => m.ts), [REG - 1_000, REG - 1_000]);
-    passed++; console.log('  ✓ 옵션 가격 방송 시각 복구');
+    ctx.broadcastOptionPrice('O:X', 1.7, REG + 3_600_000);                 // 복구 불가 미래 → 0(수신 시각으로 꾸미지 않음)
+    assert.deepEqual(sent.map(m => m.ts), [REG - 1_000, REG - 1_000, 0]);
+    // 옵션 체결 방송 시각: 왜곡 복구 · 복구 불가 0 · 결측은 기존대로 수신 시각
+    assert.equal(ctx.optionEventTs(REG - 5_000 + SKEW), REG - 5_000);
+    assert.equal(ctx.optionEventTs(REG + 3_600_000), 0);
+    assert.equal(ctx.optionEventTs(undefined), REG);
+    assert.equal(ctx.optionEventTs(REG - 5_000), REG - 5_000);
+    passed++; console.log('  ✓ 옵션 가격·체결 방송 시각 복구(복구 불가 0 · 결측 수신 시각)');
   })();
 
   console.log(`hubDstVendorTime: ${passed} passed`);

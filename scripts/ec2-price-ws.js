@@ -339,17 +339,8 @@ function intrinioLeave(tickers) {
 /** 원천시각은 단위만 정규화한다. 결측·timezone 없는 문자열은 0(미확인), 지연은 그대로 보존.
  *  [2026-11-02] «지금+10분»보다 미래인 시각은 repairVendorEpochMs 로 복구하거나 0(미확인)으로 비운다(서머타임 종료 뒤 2083년 시각). */
 function normalizeTradeMs(x) {
-    if (typeof x === "string" && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(x)) {
-        const ms = Date.parse(x);
-        return Number.isFinite(ms) && ms > 0 ? repairVendorEpochMs(ms, Date.now()) : 0;
-    }
-    let v = Number(x);
-    if (!isFinite(v) || v <= 0) return 0;
-    if (v > 1e17) v = v / 1e6;        // ns
-    else if (v > 1e14) v = v / 1e3;   // µs
-    else if (v > 1e11) v = v;         // ms
-    else v = v * 1000;                // s
-    return repairVendorEpochMs(Math.round(v), Date.now());
+    const ms = normalizeRawTradeMs(x);
+    return ms > 0 ? repairVendorEpochMs(ms, Date.now()) : 0;
 }
 
 /** 서버 관심 종목 등록 + 채널 열기. 새로 연 종목 목록을 돌려준다. */
@@ -788,6 +779,26 @@ function repairVendorEpochMs(ms, nowMs) {
     vendorTimeRepairStats.lastRaw = ms; vendorTimeRepairStats.lastFixed = fixed; vendorTimeRepairStats.lastAt = nowMs;
     return fixed;
 }
+/** 원천시각 단위만 정규화(복구 전). 결측·timezone 없는 문자열은 0. */
+function normalizeRawTradeMs(x) {
+    if (typeof x === "string" && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(x)) {
+        const ms = Date.parse(x);
+        return Number.isFinite(ms) && ms > 0 ? ms : 0;
+    }
+    let v = Number(x);
+    if (!isFinite(v) || v <= 0) return 0;
+    if (v > 1e17) v = v / 1e6;        // ns
+    else if (v > 1e14) v = v / 1e3;   // µs
+    else if (v > 1e11) v = v;         // ms
+    else v = v * 1000;                // s
+    return Math.round(v);
+}
+/** 옵션 방송 시각: 결측이면 기존대로 수신 시각, 복구 불가 미래 시각이면 0(모름 — 수신 시각을 체결 시각으로 꾸미지 않는다). */
+function optionEventTs(x) {
+    const raw = normalizeRawTradeMs(x);
+    if (!(raw > 0)) return Date.now();
+    return repairVendorEpochMs(raw, Date.now());
+}
 /** 캐시에 든 시각을 신선도·역행 비교에 써도 되는가 — 미래 시각(옛 왜곡값)은 0(모름)으로 본다. */
 function trustedTs(ts, nowMs) {
     const v = Number(ts) || 0;
@@ -845,7 +856,9 @@ function handleTradeUpdate(msg) {
 
     const rx = Date.now();
     const eventMs = normalizeTradeMs(msg.t);
-    if (shouldDropStaleTrade(eventMs, rx)) {
+    // 원천 시각이 있었는데 복구 불가로 비웠으면(미래 시각) 정규장엔 신선도를 확인할 수 없다 — 지연 체결처럼 버린다(REST 경로와 같은 규칙).
+    const unverifiableTime = !(eventMs > 0) && normalizeRawTradeMs(msg.t) > 0;
+    if (shouldDropStaleTrade(eventMs, rx) || (unverifiableTime && isRegularSession(rx))) {
         staleDropped.set(ticker, (staleDropped.get(ticker) || 0) + 1);
         const cached = latestPrices.get(ticker);
         if (cached) {
@@ -1053,8 +1066,8 @@ function broadcastOptionPrice(optionsTicker, price, ts) {
     const subs = optionsTickerSubscribers.get(optionsTicker);
     if (!subs || subs.size === 0) return;
     const msg = JSON.stringify({
-        // [2026-11-02] 미래 벤더 시각(서머타임 종료 왜곡)은 복구, 복구 불가면 수신 시각.
-        type: 'optionPrice', sym: optionsTicker, price, ts: Number(ts) > 0 ? (repairVendorEpochMs(Number(ts), Date.now()) || Date.now()) : ts,
+        // [2026-11-02] 미래 벤더 시각(서머타임 종료 왜곡)은 복구, 복구 불가면 0(모름).
+        type: 'optionPrice', sym: optionsTicker, price, ts: Number(ts) > 0 ? repairVendorEpochMs(Number(ts), Date.now()) : ts,
         source: 'intrinio-options-edge', priceOnly: true,
     });
     for (const ws of subs) {
@@ -1249,8 +1262,8 @@ function handleOptionsTradeUpdate(msg) {
     const size = msg.s || 0;      // number of contracts
     const exchange = msg.x || 0;  // exchange ID
     const conditions = msg.c || [];
-    // [2026-11-02] 미래 벤더 시각(서머타임 종료 왜곡)은 복구, 복구 불가·결측이면 수신 시각.
-    const timestamp = repairVendorEpochMs(Number(msg.t) || 0, Date.now()) || Date.now();
+    // [2026-11-02] 미래 벤더 시각(서머타임 종료 왜곡)은 복구, 복구 불가면 0(모름), 결측이면 기존대로 수신 시각.
+    const timestamp = optionEventTs(msg.t);
 
     // Calculate premium: price × contracts × 100 (shares per contract)
     const premium = price * size * 100;

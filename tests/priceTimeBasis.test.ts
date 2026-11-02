@@ -675,8 +675,9 @@ function moversText(tick: any) {
         }
         const h = hub(); h.feed({Symbol:'AAPL',Price:101,Timestamp:(now+900000)/1000});
         const tick = h.tick().ticks.AAPL;
-        // 11/2(T50 허브): 알려진 왜곡(서머타임 전환일 epoch)이 아닌 «지금+10분» 넘는 미래 시각은 허브가 0(모름)으로 비운다 — 소비자는 여전히 거른다.
-        assert.equal(tick.trade, 0);
+        // 11/2(T50 허브): 알려진 왜곡(서머타임 전환일 epoch)이 아닌 «지금+10분» 넘는 미래 시각은 허브가 신선도를 모르는 값으로 보고
+        // 정규장엔 /last·방송에서 버린다(관문 11021947) — 소비자도 여전히 거른다.
+        assert.equal(tick, undefined);
         assert.equal(acceptHubTick(tick,{hubNowMs:now,openMs:regularOpenMs('2026-10-16')!,refPrice:100,prevClose:100}),null);
     });
     await test('confirmed PRE/POST tape closes still win over CSV/hub and retain labels and times', async () => {
