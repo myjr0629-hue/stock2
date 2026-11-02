@@ -102,7 +102,7 @@ export function renderColoredText(text: string): React.ReactNode[] {
  */
 function highlightData(text: string, parentKey: number): React.ReactNode[] {
     // Pattern matches: +0.12%, -4.28%, +1.11%, 0.04%, percentages, and key numbers with %
-    const DATA_PATTERN = /([+-]?\d+\.?\d*%)|(\b(?:S&P\s*500|NASDAQ|DOW|VIX|DXY|GEX|RLSI|Fear\s*&\s*Greed|US10Y|BTC|Gold|Oil|WTI)\b)/gi;
+    const DATA_PATTERN = /([+\-−–]?\d+\.?\d*%)|(\b(?:S&P\s*500|NASDAQ|DOW|VIX|DXY|GEX|RLSI|Fear\s*&\s*Greed|US10Y|BTC|Gold|Oil|WTI)\b)/gi;
 
     const result: React.ReactNode[] = [];
     let lastIndex = 0;
@@ -121,19 +121,23 @@ function highlightData(text: string, parentKey: number): React.ReactNode[] {
         const key = `${parentKey}-${match.index}`;
 
         if (match[1]) {
-            // Percentage number
-            const val = parseFloat(matched);
-            if (val > 0) {
+            // A sign right after a number, percent or decimal point (spaces allowed, e.g. «3% –5%») is a range separator.
+            const isSign = /[+\-−–]/.test(matched[0]) &&
+                (match.index === 0 || !/[\d%.]\s*$/.test(text.slice(Math.max(0, match.index - 3), match.index)));
+            // 0 (예: +0.0%, −0.00%) 은 보합 — 부호가 있어도 중립색.
+            const isZero = Number(matched.replace(/[^\d.]/g, '')) === 0;
+            const direction = isSign && !isZero ? (matched[0] === '+' ? 1 : -1) : 0;
+            if (direction > 0) {
                 result.push(
                     <span key={key} className="text-emerald-400/90 font-semibold">{matched}</span>
                 );
-            } else if (val < 0) {
+            } else if (direction < 0) {
                 result.push(
                     <span key={key} className="text-rose-400/90 font-semibold">{matched}</span>
                 );
             } else {
                 result.push(
-                    <span key={key} className="text-white/90 font-semibold">{matched}</span>
+                    <span key={key} className="text-white font-semibold">{matched}</span>
                 );
             }
         } else if (match[2]) {
