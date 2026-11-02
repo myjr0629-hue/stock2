@@ -58,9 +58,10 @@ test('③ 재료 묶음 — 섹터 등락은 세션·날짜가 맞을 때만, �
     assert.deepEqual(post.us10y, { levelPct: 4.94, changeBp: -4 });
     assert.deepEqual(post.fearGreed, { score: 26, zone: 'fear' });
     assert.ok(!JSON.stringify(post).includes('AI_PWR'), '내부 묶음 id 는 글에 새지 않는다');
-    // 장후 표 날짜가 그 정규장이 아니면(어제 일봉) 쓰지 않는다 · 장전은 쓰지 않는다
+    // 장후 표 날짜가 그 정규장이 아니면(어제 일봉) 쓰지 않는다 · ★11/2 장전도 직전 정규장 완결 일봉이면 쓴다(같은 값·같은 날짜 — 월요일 장전 «왜» 재료)
     assert.equal(tacticalMacroDrivers({ ...base, session: 'POST', cashSessionDate: '2026-10-31', nowMs: 0 })!.sectors, undefined);
-    assert.equal(tacticalMacroDrivers({ ...base, session: 'PRE', cashSessionDate: '2026-10-30', nowMs: 0 })!.sectors, undefined);
+    assert.deepEqual(tacticalMacroDrivers({ ...base, session: 'PRE', cashSessionDate: '2026-10-30', nowMs: 0 })!.sectors, post.sectors);
+    assert.equal(tacticalMacroDrivers({ ...base, session: 'PRE', cashSessionDate: '2026-10-29', nowMs: 0 })!.sectors, undefined, '장전도 일봉 날짜가 직전 정규장이 아니면 쓰지 않는다');
     const reg = tacticalMacroDrivers({ ...base, fiveDay: {}, session: 'REG', nowMs: Date.parse('2026-10-30T18:56:00Z') })!;
     assert.equal(reg.sectors!.sessionDate, '2026-10-30');
     assert.equal(reg.sectors!.live, true);

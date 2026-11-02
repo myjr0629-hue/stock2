@@ -335,7 +335,8 @@ async function main() {
             assert.deepEqual(after.tacticalFuturesPct, previous.tacticalFuturesPct, '실패 시 생성 기준 유지');
             assert.equal(after.tacticalFutures, true, '실패가 5분 T2 재시도로 바뀌지 않음');
             assert.equal(after.tacticalFuturesCheckedAt, iso(clock));
-            assert.equal(modelCalls, ['budget', 'reservation'].includes(failure) ? 0 : 1, '실패 후 즉시 교정·단일언어·번역 호출 없음');
+            // ★2026-11-02 검사 탈락(invalid)은 같은 시도 안에서 교정 1회(예약 없이 — 예산은 시도 단위) · 공급사 예외는 교정 없음 · 단일언어·번역 호출은 계속 없음
+            assert.equal(modelCalls, ['budget', 'reservation'].includes(failure) ? 0 : failure === 'invalid' ? 2 : 1, '실패 후 교정은 시도당 1회뿐·단일언어·번역 호출 없음');
             failModel = invalidModel = budgetFails = false;
             clock += 29 * MIN; store.get('guardian:snapshot:ko')._workerTimestamp = iso(clock);
             if (failure === 'throw') _resetInsightStateForTest();

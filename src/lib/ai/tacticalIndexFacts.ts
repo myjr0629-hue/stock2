@@ -2,7 +2,7 @@ import { tacticalFuturesDirection } from './tacticalFuturesRules';
 import type { MarketIndexBasis, IndexObservation } from '@/lib/marketIndexBasis';
 import { cashSessionPhaseAt } from '@/lib/marketCalendar';
 import { isCashCloseReferenceAt } from '@/lib/futuresCashClose';
-import { etClock, lastClosedSessionDate, isEquityFuturesOpen } from '@/lib/marketSession';
+import { etClock, lastClosedSessionDate, isEquityFuturesOpen, etWallTimeToMs, shiftDate } from '@/lib/marketSession';
 
 export type TacticalLocale = 'ko' | 'en' | 'ja';
 export type TacticalSession = 'PRE' | 'REG' | 'POST' | 'CLOSED';
@@ -31,6 +31,21 @@ export function tacticalSessionAt(nowMs: number): TacticalSession {
 /** REG는 현물 우선. 직접 전달된 indexFacts에도 같은 선택 규칙을 적용한다. */
 export function sessionIndexFacts(facts: IndexFact[], session: TacticalSession): IndexFact[] {
     return session === 'REG' && facts.some(f => f.kind === 'spot') ? facts.filter(f => f.kind === 'spot') : facts;
+}
+/**
+ * 장외(CLOSED) 선물의 정산 대비 등락을 «그 정규장 이후의 움직임»으로 쓸 수 있나 — 관측이 그 정규장 날짜 18:00 ET(선물 새 세션 개장) 이후이고
+ *   공통 수집기의 기준이 «직전 정산»일 때만. 그 전(16~17 ET)의 정산 대비 값은 전날 정산 기준이라 쓰지 않는다. POST 는 기존 계약 그대로(종가 기준만).
+ */
+function closedSessionSettlementFact(p: { asOf?: string | null; changePct?: number | null; basis?: string | null }, session: TacticalSession, cashDate: string): boolean {
+    if (session !== 'CLOSED' || p.basis !== 'prior-settlement' || typeof p.changePct !== 'number' || !Number.isFinite(p.changePct)) return false;
+    const at = p.asOf ? Date.parse(p.asOf) : NaN;
+    if (!Number.isFinite(at) || at < etWallTimeToMs(cashDate, 18 * 60)) return false;
+    // 관문 11021753 — 그 정규장 «바로 다음» 선물 세션(거래일 = 그 정규장 뒤 첫 평일)만. 그 사이 휴장일 세션이 정산되면(노동절 등) 직전 정산은 휴장일 값이라 «그 정규장 이후»가 아니다
+    const c = etClock(at);
+    const tradeDate = c.minutes >= 18 * 60 ? shiftDate(c.date, 1) : c.date;
+    let first = shiftDate(cashDate, 1);
+    while ([0, 6].includes(new Date(`${first}T12:00:00Z`).getUTCDay())) first = shiftDate(first, 1);
+    return tradeDate === first;
 }
 /** Tactical 전용 어댑터. 화면·공통 숫자·수집기를 바꾸지 않는다. */
 export function buildIndexFacts(b: MarketIndexBasis | undefined, session: TacticalSession, nowMs: number): IndexFact[] {
@@ -64,9 +79,15 @@ export function buildIndexFacts(b: MarketIndexBasis | undefined, session: Tactic
             if (session === 'POST' || session === 'CLOSED') {
                 const ref = p.cashCloseReferenceAt ? Date.parse(p.cashCloseReferenceAt) : NaN;
                 // 실제 마감 부근 관측만 사용. 날짜·3분 허용 오차를 공통 계산기와 동일하게 검사한다.
-                if (!isCashCloseReferenceAt(p.cashCloseReferenceAt, expectedCashDate)
-                    || ref > Date.parse(p.asOf || '') || ref > nowMs) continue;
-                add(id, p, p.sinceCashClosePct, { ko: `${expectedCashDate} 정규장 마감 시점의 같은 선물 가격 대비`, en: `vs same futures at ${expectedCashDate} cash close`, ja: `${expectedCashDate}通常取引終了時の同じ先物価格比` });
+                if (isCashCloseReferenceAt(p.cashCloseReferenceAt, expectedCashDate)
+                    && !(ref > Date.parse(p.asOf || '')) && !(ref > nowMs)) {
+                    add(id, p, p.sinceCashClosePct, { ko: `${expectedCashDate} 정규장 마감 시점의 같은 선물 가격 대비`, en: `vs same futures at ${expectedCashDate} cash close`, ja: `${expectedCashDate}通常取引終了時の同じ先物価格比` });
+                } else if (closedSessionSettlementFact(p, session, expectedCashDate)) {
+                    // ★2026-11-02 장외(CLOSED) 선물 — 종가 기준 키(24시간 수명)가 없으면(주말을 넘긴 월요일 새벽 등) 그 정규장 «뒤에 새로 열린» 선물 세션의
+                    //   직전 정산 대비 등락을 쓴다(PRE 와 같은 기준·같은 이름표). 11/2 운영 실측: 일 18:00 ET 재개 뒤 ES +0.37%·NQ +0.74% 인데
+                    //   Tactical 은 금요일 장후 글의 «S&P500 선물 보합»을 그대로 냈다(종가 기준이 없어 선물 사실 0 → 다시 만들 계기도 없었다).
+                    add(id, p, p.changePct, { ko: '직전 정규장 마감 무렵(정산) 대비', en: 'vs prior settlement near previous cash close', ja: '前回通常取引終了頃の清算値比' });
+                }
             } else {
                 add(id, p, p.changePct, { ko: '직전 정규장 마감 무렵(정산) 대비', en: 'vs prior settlement near previous cash close', ja: '前回通常取引終了頃の清算値比' });
             }
@@ -83,7 +104,16 @@ export function buildIndexFacts(b: MarketIndexBasis | undefined, session: Tactic
  *   야후 선물은 약 10분 지연이라 장후 첫 계산 때는 기준이 있을 수 없다 → «글을 만들 때 선물 사실이 없었는데 지금은 있다»면 다시 만든다.
  */
 export function hasFuturesSinceCloseFact(b: MarketIndexBasis | null | undefined, nowMs: number): boolean {
-    return !!b && tacticalSessionAt(nowMs) === 'POST' && buildIndexFacts(b, 'POST', nowMs).some(f => f.kind === 'futures');
+    const session = tacticalSessionAt(nowMs);
+    return !!b && isFuturesRefreshSession(session, nowMs) && buildIndexFacts(b, session, nowMs).some(f => f.kind === 'futures');
+}
+/**
+ * ★2026-11-02 선물 변동 재생성 대상 세션 — POST(기존) + 선물이 열린 장외(CLOSED: 평일 20:00~04:00 ET·일 18:00 ET 이후).
+ *   장외 스냅샷은 세션 전환 때 한 번 계산된 뒤(저장 판정 그대로) 워커 도장만 갱신돼, 금요일 장후 글이 월요일 새벽 선물 재개 뒤까지
+ *   «선물 보합»으로 굳었다(11/2 운영 실측). 장외 모델 호출은 이 경로(Tactical 한 칸·전용 예산)만 연다 — 다른 글·일반 생성은 장외 무호출 그대로.
+ */
+export function isFuturesRefreshSession(session: string | null | undefined, nowMs: number): boolean {
+    return session === 'POST' || (session === 'CLOSED' && tacticalSessionAt(nowMs) === 'CLOSED' && isEquityFuturesOpen(nowMs));
 }
 /** Tactical 프롬프트의 INDEX_FACTS 에 선물 사실이 있었나(생성 재료 기록용). */
 export function promptHasFuturesFacts(prompt: string | null | undefined): boolean {
@@ -94,10 +124,13 @@ export function promptHasFuturesFacts(prompt: string | null | undefined): boolea
 /** 장후 스냅샷 재계산 최소 간격 — 선물 사실이 없는 글을 다시 만들 때(재생성 실패·선물 휴식 중 포함) 모델 호출을 5분에 한 번 이하로. */
 export const POST_TACTICAL_RETRY_MS = 5 * 60_000;
 /** 지금 선물 사실을 읽어 볼 가치가 있나(입출력 전 값싼 판정): POST 이고, 글이 선물 사실 없이 만들어졌고, 스냅샷 계산 뒤 5분이 지났다. 글 정보가 없는 옛 스냅샷도 대상. */
-export function postTacticalMayLackFutures(c: { tacticalFutures?: boolean; timestamp?: string } | null | undefined, session: string | null | undefined, nowMs: number): boolean {
-    if (!c || session !== 'POST' || c.tacticalFutures === true) return false;
-    const at = c.timestamp ? Date.parse(c.timestamp) : NaN;
-    return !Number.isFinite(at) || nowMs - at >= POST_TACTICAL_RETRY_MS;
+export function postTacticalMayLackFutures(c: { tacticalFutures?: boolean; timestamp?: string; tacticalFuturesCheckedAt?: string } | null | undefined, session: string | null | undefined, nowMs: number): boolean {
+    if (!c || !isFuturesRefreshSession(session, nowMs) || c.tacticalFutures === true) return false;
+    // 장외(CLOSED)는 재계산이 아니라 Tactical 한 칸 재생성으로 푼다 — 스냅샷 timestamp 가 그대로라 마지막 시도 시각(tacticalFuturesCheckedAt)부터 잰다
+    const ts = c.timestamp ? Date.parse(c.timestamp) : NaN;
+    if (session !== 'CLOSED') return !Number.isFinite(ts) || nowMs - ts >= POST_TACTICAL_RETRY_MS;
+    const checked = c.tacticalFuturesCheckedAt ? Date.parse(c.tacticalFuturesCheckedAt) : NaN;
+    return nowMs - Math.max(Number.isFinite(ts) ? ts : 0, Number.isFinite(checked) ? checked : 0) >= POST_TACTICAL_RETRY_MS;
 }
 /**
  * 장후 생성 재료용 지수 기준 합치기 — 지금 다시 읽은 값(fresh)을 칸별로 쓰되, 그 칸이 결측(price 없음)이면 코어 값을 지킨다.
@@ -113,6 +146,16 @@ export function mergePostIndexBasis(core: MarketIndexBasis | null | undefined, f
         futures: { nq: pickFut(fresh.futures.nq, core.futures.nq), es: pickFut(fresh.futures.es, core.futures.es) } };
 }
 
+/**
+ * ★2026-11-02 장외(CLOSED) 재생성 재료 합치기 — 현물은 장후와 같이 칸별, 선물은 지금 다시 읽은 관측(가격 있으면) 먼저.
+ *   장후 규칙(«종가 기준이 붙은 쪽 먼저»)을 장외에 쓰면 코어에 남은 20분 넘은 기준 관측이 새 관측을 밀어내 선물 사실 0 → 재생성 중단(관문 11021811).
+ */
+export function mergeClosedIndexBasis(core: MarketIndexBasis | null | undefined, fresh: MarketIndexBasis | null | undefined): MarketIndexBasis | null {
+    const merged = mergePostIndexBasis(core, fresh);
+    if (!merged || !core || !fresh) return merged;
+    const fut = <T extends MarketIndexBasis['futures']['nq']>(f: T, c: T): T => (f?.price != null ? f : c);
+    return { ...merged, futures: { nq: fut(fresh.futures.nq, core.futures.nq), es: fut(fresh.futures.es, core.futures.es) } };
+}
 /** POST 추가 재생성: pp 차이·최소 간격·ET 세션당 모든 언어 합산 생성 시도 상한. */
 export const POST_TACTICAL_DRIFT_PP = 0.3;
 export const POST_TACTICAL_REFRESH_MS = 30 * 60_000;
@@ -148,7 +191,7 @@ export function tacticalFuturesDrifted(generated: TacticalFuturesPct | undefined
 }
 /** 값을 읽기 전 값싼 판정. 옛 스냅샷과 POST 외 세션은 기존 동작 유지. */
 export function postTacticalMayDriftFutures(c: PostTacticalFuturesState | null | undefined, session: string | null | undefined, nowMs: number): boolean {
-    if (!c || session !== 'POST' || c.tacticalFutures !== true || !c.tacticalFuturesPct) return false;
+    if (!c || !isFuturesRefreshSession(session, nowMs) || c.tacticalFutures !== true || !c.tacticalFuturesPct) return false;
     const at = Date.parse(c.tacticalFuturesCheckedAt || c.timestamp || '');
     return Number.isFinite(at) && nowMs - at >= POST_TACTICAL_REFRESH_MS;
 }

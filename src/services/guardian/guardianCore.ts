@@ -187,6 +187,8 @@ export interface GuardianCore {
     fedwatch?: import('@/lib/ai/tacticalDrivers').TacticalFedwatch | null;
     /** ★2026-10-31 Tactical 원인 기사 — 지금 헤드라인(시장 원인) + 오늘 뉴스 펄스 보관 기사(거시·시장·지정학). 응답에는 싣지 않는다 */
     causeNews?: string[];
+    /** ★2026-11-02 Tactical «왜» 재료 — 직전 정규장의 큰 실적 반응(실적 채점표 저장본, lib/ai/tacticalDrivers.EarningsReactionInput). 응답에는 싣지 않는다 */
+    earningsReactions?: import('@/lib/ai/tacticalDrivers').EarningsReactionInput[];
 }
 
 /** 코어로 쓸 수 있는 모양인가. 섹터가 비면 «벤더 장애로 반쯤 계산된» 것이다 — 캐시하지 않는다(MAP FLAP FIX 와 같은 이유) */

@@ -1,9 +1,11 @@
 import { fmpFetch } from '@/lib/fmpClient';
-import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, hasFuturesSinceCloseFact, mergePostIndexBasis, mergeClosedIndexBasis, postTacticalMayLackFutures, postTacticalMayDriftFutures, postTacticalNeedsDriftRefresh, tacticalSessionAt, isFuturesRefreshSession, type TacticalFuturesPct, type PostTacticalFuturesState } from '@/lib/ai/tacticalIndexFacts';
 import { filterTacticalCauseHeadlines } from '@/lib/ai/tacticalNews';
-import { tacticalFedwatchFrom, causeNewsFromArchive, mergeCauseNews, tacticalMacroDrivers, type TacticalFedwatch, type TacticalMacroDrivers } from '@/lib/ai/tacticalDrivers';
+import { tacticalFedwatchFrom, causeNewsFromArchive, mergeCauseNews, tacticalMacroDrivers, type TacticalFedwatch, type TacticalMacroDrivers, type EarningsReactionInput } from '@/lib/ai/tacticalDrivers';
+import { tickerName } from '@/lib/app/tickerNames';
 import { ARCHIVE_KEY_PREFIX } from '@/lib/news/pulseArchive';
 import { etDateOf } from '@/lib/marketCalendar';
+import { lastClosedSessionDate } from '@/lib/marketSession';
 import { guardianCashChange } from '@/lib/marketIndexBasis';
 import { loadMarketIndexBasis } from '@/services/marketIndexBasis';
 import { datedHeadline, cachedEvidence, buildTacticalPrompt } from '@/lib/ai/tacticalPrompt';
@@ -202,7 +204,7 @@ async function postTacticalNeedsFutures(c: PostTacticalFuturesState | null | und
     if (!lacks && !postTacticalMayDriftFutures(c, session, now)) return false;
     const basis = await loadMarketIndexBasis(now).catch(() => null);
     if (lacks) return hasFuturesSinceCloseFact(basis, now);
-    const pct = Object.fromEntries(buildIndexFacts(basis ?? undefined, 'POST', now).filter(f => f.kind === 'futures').map(f => [f.id, f.chgPct]));
+    const pct = Object.fromEntries(buildIndexFacts(basis ?? undefined, session === 'CLOSED' ? 'CLOSED' : 'POST', now).filter(f => f.kind === 'futures').map(f => [f.id, f.chgPct]));
     return postTacticalNeedsDriftRefresh(c, session, now, pct);
 }
 
@@ -222,7 +224,7 @@ const tacticalSeenAtOf = (c: { tacticalSeenAt?: string; timestamp?: string }): n
  *   예약 거절 쪽 스냅샷이 30분 간격에 묶여 새 정상본을 두고 옛 «보합» 글을 계속 내보내던 경로. 생성 기준이 있는 POST 스냅샷만(옛 스냅샷·다른 세션 기존 동작).
  */
 async function postTacticalHasNewerStored(c: (PostTacticalFuturesState & { tacticalSeenAt?: string }) | null | undefined, session: string | undefined, locale: Locale, now: number): Promise<boolean> {
-    if (!c || session !== 'POST' || c.tacticalFutures !== true || !c.tacticalFuturesPct) return false;
+    if (!c || !isFuturesRefreshSession(session, now) || c.tacticalFutures !== true || !c.tacticalFuturesPct) return false;
     const last = _tacticalAdoptCheckAt[locale];
     if (now >= last && now - last < POST_TACTICAL_ADOPT_CHECK_MS) return false;
     _tacticalAdoptCheckAt[locale] = now;
@@ -343,15 +345,47 @@ let _archiveCause: { at: number; day: string; lines: string[] } | null = null;
 const ARCHIVE_CAUSE_MEMO_MS = 10 * 60_000;
 async function loadArchiveCauseNews(): Promise<string[]> {
     const now = Date.now();
-    const day = etDateOf(now);
+    // ★2026-11-02 장전·장후·장외는 직전 정규장 날짜 문서도 — STATE 가 그 정규장을 말하는데 원인 기사는 «오늘(ET)» 문서만 읽어,
+    //   월요일 장전엔 금요일(10/30) 반도체 급락·실적 반응 기사가 재료에 없었다(11/2 실측 «재료 확인 안 됨»). 프롬프트의 기사 날짜 창(오늘+직전 정규장)과 같다.
+    const today = etDateOf(now);
+    const cashDay = tacticalSessionAt(now) === 'REG' ? today : lastClosedSessionDate(now);
+    const days = [...new Set([today, cashDay])];
+    const day = days.join('+');
     if (_archiveCause && _archiveCause.day === day && now - _archiveCause.at < ARCHIVE_CAUSE_MEMO_MS) return _archiveCause.lines;
     let lines: string[] = [];
     try {
-        const doc = await getFromCache<{ items?: any[] }>(`${ARCHIVE_KEY_PREFIX}${day}`);
-        lines = causeNewsFromArchive(Array.isArray(doc?.items) ? doc!.items : [], now);
+        const docs = await Promise.all(days.map(d => getFromCache<{ items?: any[] }>(`${ARCHIVE_KEY_PREFIX}${d}`).catch(() => null)));
+        lines = causeNewsFromArchive(docs.flatMap(doc => (Array.isArray(doc?.items) ? doc!.items : [])), now, 6, days);
     } catch { lines = []; }
     _archiveCause = { at: now, day, lines };
     return lines;
+}
+/**
+ * ★2026-11-02 직전 정규장의 실적 반응(실적 채점표 저장본 — MGET 1~2회, 공급사·AI 호출 0) — 인스턴스당 10분에 한 번.
+ *   11/2 실측: 10/30 반도체 급락의 실제 재료(INTC 실적 뒤 −28.6% · 채점표 /api/earnings/scorecard)가 Tactical 입력에 없어 «재료 확인 안 됨».
+ *   장중(REG)은 반응 값이 장 마감 뒤 계산되므로 읽지 않는다. 채점표 주(월요일 ET)는 그 정규장 날짜의 주 + 지난주(금요일 장후 발표 → 다음 주 반응).
+ */
+let _earningsReactions: { at: number; day: string; rows: EarningsReactionInput[] } | null = null;
+async function loadEarningsReactions(): Promise<EarningsReactionInput[]> {
+    const now = Date.now();
+    if (tacticalSessionAt(now) === 'REG') return [];
+    const day = lastClosedSessionDate(now);
+    if (_earningsReactions && _earningsReactions.day === day && now - _earningsReactions.at < ARCHIVE_CAUSE_MEMO_MS) return _earningsReactions.rows;
+    let rows: EarningsReactionInput[] = [];
+    try {
+        const d = new Date(`${day}T12:00:00Z`);
+        const monday = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
+        // 지난주도 늘 읽는다 — 월요일 휴장 주의 화요일 반응(금요일 장후 발표)처럼 반응일이 발표 주 다음 주일 수 있다(관문 11021742). 반응일로 거른다
+        const weeks = [monday, new Date(Date.parse(`${monday}T12:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10)];
+        const { readEarningsScorecard } = await import('@/services/earningsScorecardService');
+        const cards = await Promise.all(weeks.map(w => readEarningsScorecard(w, now).catch(() => null)));
+        rows = cards.flatMap(c => (Array.isArray(c?.rows) ? c!.rows : [])).flatMap((r: any) => (
+            typeof r?.ticker === 'string' && typeof r?.date === 'string' && (r?.hour === 'amc' || r?.hour === 'bmo')
+            && typeof r?.actualPct === 'number' && Number.isFinite(r.actualPct) && typeof r?.basis?.reactDate === 'string'
+                ? [{ ticker: r.ticker, date: r.date, hour: r.hour, reactDate: r.basis.reactDate, movePct: r.actualPct }] : []));
+    } catch { rows = []; }
+    _earningsReactions = { at: now, day, rows };
+    return rows;
 }
 /** 코어 → Tactical «왜» 재료(lib/ai/tacticalDrivers). 섹터 등락은 세션·직전 정규장 날짜로 꼬리표를 단다 */
 function tacticalDriversFromCore(core: GuardianCore | null | undefined, session: string, nowMs = Date.now()): TacticalMacroDrivers | undefined {
@@ -371,6 +405,8 @@ function tacticalDriversFromCore(core: GuardianCore | null | undefined, session:
         sectorNameEn: sectorLabelForAi,
         session,
         cashSessionDate: macro?.indexBasis?.cash?.nasdaq?.sessionDate ?? macro?.indexBasis?.cash?.spx?.sessionDate ?? null,
+        earnings: core.earningsReactions ?? null,
+        companyNameEn: (t: string) => tickerName(t, 'en', null) || null,
         nowMs,
     });
 }
@@ -538,13 +574,15 @@ export class GuardianDataHub {
         let changed = !adopt;
         try {
             const core = await getFromCache<GuardianCore>(CORE_KEY).catch(() => null);
-            const basis = mergePostIndexBasis(core?.market.indexBasis ?? previous.market.indexBasis, await loadMarketIndexBasis(now).catch(() => null));
+            const fresh = await loadMarketIndexBasis(now).catch(() => null);
+            const coreBasis = core?.market.indexBasis ?? previous.market.indexBasis;
+            const basis = tacticalSessionAt(now) === 'CLOSED' ? mergeClosedIndexBasis(coreBasis, fresh) : mergePostIndexBasis(coreBasis, fresh);
             const base = core ? offHoursRotationContext(core, locale) : {
                 locale, rlsiScore: previous.rlsi.score, nasdaqChange: previous.market.nqChangePercent ?? null,
                 vectors: [], vix: previous.market.vix ?? 0,
             };
             const r = await IntelligenceNode.refreshRealityForFuturesDriftDetailed({ ...base, indexBasis: basis ?? undefined,
-                marketNewsHeadlines: filterTacticalCauseHeadlines(core?.causeNews ?? core?.news ?? []) }, { regen: !adopt, newerThan: seenBefore });
+                marketNewsHeadlines: filterTacticalCauseHeadlines(core?.causeNews ?? core?.news ?? []) }, { regen: !adopt, newerThan: seenBefore, requireNewer: previous.tacticalFutures === true });
             const text = r.text;
             const pct = text ? IntelligenceNode.tacticalFuturesPct(locale, text) : undefined;
             if (text && pct && !IntelligenceNode.isPlaceholderInsight(text)) {
@@ -553,7 +591,7 @@ export class GuardianDataHub {
                 delete tpl.realityInsight; delete numBasis.realityInsight; delete numDrivers.realityInsight;
                 if (n) { tpl.realityInsight = n.tpl; numBasis.realityInsight = n.basis; if (n.drivers) numDrivers.realityInsight = n.drivers; }
                 const at = r.at ?? now;
-                context = { ...context, tacticalFuturesPct: pct, tacticalSeenAt: new Date(Math.max(seenBefore, at)).toISOString(),
+                context = { ...context, tacticalFutures: true, tacticalFuturesPct: pct, tacticalSeenAt: new Date(Math.max(seenBefore, at)).toISOString(),
                     // 채택한 글은 그 생성 시각부터 30분 뒤 변동을 비교한다(채택이 재생성 간격을 앞당기거나 미루지 않게).
                     ...(adopt ? { tacticalFuturesCheckedAt: new Date(at).toISOString() } : {}),
                     verdict: { ...previous.verdict, realityInsight: text, num: { tpl, basis: numBasis, ...(Object.keys(numDrivers).length ? { drivers: numDrivers } : {}) } } };
@@ -598,7 +636,8 @@ export class GuardianDataHub {
                         console.log(`[Guardian FIX] Session mismatch: cached=${cachedSession}, current=${currentSession} — recomputing for ${locale}`);
                         // Don't return stale cache, fall through to recompute
                     } else if (await postTacticalNeedsFutures(cached, cachedSession, now)) {
-                        if (cached.tacticalFutures === true) return GuardianDataHub.refreshPostTacticalFutures(cached, locale, now);
+                        // ★2026-11-02 장외(CLOSED)는 다시 계산해도 저장 판정(옛 글)이 그대로 나온다 — Tactical 한 칸만 재생성(전용 예산)
+                        if (cached.tacticalFutures === true || cachedSession === 'CLOSED') return GuardianDataHub.refreshPostTacticalFutures(cached, locale, now);
                         // ★2026-10-28 T2 장후 글이 종가 이후 선물 사실 없이 만들어졌는데 지금은 있다 — 다시 계산한다
                         console.log(`[Guardian] POST tactical lacks after-close futures that are now available (snapshot ${cached.timestamp}) — recomputing for ${locale}`);
                     } else if (snapshotPlaceholderNeedsRecompute(cached, cachedSession, now) && (placeholderClaim = await claimPlaceholderRecompute(locale, now))) {
@@ -652,7 +691,7 @@ export class GuardianDataHub {
             if (memSession && memSession !== currentSession) {
                 console.log(`[Guardian FIX] In-memory session mismatch: cached=${memSession}, current=${currentSession} — recomputing for ${locale}`);
             } else if (await postTacticalNeedsFutures(_cachedContext[locale], memSession, now)) {
-                if (_cachedContext[locale]!.tacticalFutures === true) return GuardianDataHub.refreshPostTacticalFutures(_cachedContext[locale]!, locale, now);
+                if (_cachedContext[locale]!.tacticalFutures === true || memSession === 'CLOSED') return GuardianDataHub.refreshPostTacticalFutures(_cachedContext[locale]!, locale, now);
                 // 위 Redis 경로와 같은 이유(T2) — 메모리 사본도 다시 계산한다
             } else {
                 const mem = _cachedContext[locale]!;
@@ -1040,7 +1079,7 @@ export class GuardianDataHub {
         // [V5.0] Changed order: Sector first, then RLSI with RIS score
         console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
         // ★2026-10-31 Tactical «왜» 재료(저장본 읽기만 — 공급사·AI 호출 0): FedWatch 다음 FOMC 확률 + 오늘 뉴스 펄스 보관 원인 기사 · 아래 계산과 겹쳐 읽는다(지연 0)
-        const tacticalExtras = Promise.all([loadTacticalFedwatch(), loadArchiveCauseNews()]).catch(() => [null, [] as string[]] as const);
+        const tacticalExtras = Promise.all([loadTacticalFedwatch(), loadArchiveCauseNews(), loadEarningsReactions()]).catch(() => [null, [] as string[], [] as EarningsReactionInput[]] as const);
         const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData, ma20Breadth, evidence] = await Promise.all([
             SectorEngine.getSectorFlows(),
             getMacroSnapshotSSOT(),
@@ -1081,7 +1120,7 @@ export class GuardianDataHub {
                 getFromCache('market:earnings-calendar:v4'),
             ]).then(([pulse, econ, earnings]) => cachedEvidence(pulse, econ, earnings)).catch(() => ({ news: [], events: [] })),
         ]);
-        const [fedwatch, archiveCause] = await tacticalExtras;
+        const [fedwatch, archiveCause, earningsReactions] = await tacticalExtras;
 
         // Merge Polygon + FMP news with deduplication
         const mergedNews: string[] = [...evidence.news, ...polygonNews];
@@ -1152,6 +1191,7 @@ export class GuardianDataHub {
             scheduledEvents: evidence.events,
             fedwatch,
             causeNews: mergeCauseNews(marketNews, archiveCause),
+            earningsReactions,
         };
     }
 
