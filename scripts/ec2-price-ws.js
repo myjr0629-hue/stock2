@@ -822,6 +822,11 @@ function isRegularSession(rx) {
     return !['Sat', 'Sun'].includes(parts.weekday) && !MARKET_HOLIDAYS.has(date) &&
         minutes >= 570 && minutes < (EARLY_CLOSE_DATES.has(date) ? 780 : 960);
 }
+/** rx 가 속한 ET 날짜의 정규장 개장(09:30 ET) epoch ms. */
+function regularOpenMsOf(rx) {
+    const p = Object.fromEntries(regularSessionFormatter.formatToParts(rx).map(x => [x.type, x.value]));
+    return etWallToMs(+p.year, +p.month, +p.day, 9, 30);
+}
 function shouldDropStaleTrade(eventMs, rx) {
     return eventMs > 0 && rx - eventMs > 90_000 && isRegularSession(rx);
 }
@@ -860,7 +865,8 @@ function handleTradeUpdate(msg) {
     //   종목마다 개장 전 값에 «고정»돼(같은 원본 ns 가 가격이 바뀌는 메시지마다 반복) 복구해도 수 시간 전이 되어
     //   정규장 지연 체결 규칙에 전부 버려졌다(staleDropped 폭증 → /last·방송 0 → 앱 15분 지연 REST).
     //   같은 순간 정상 시각 종목(XLY·XLC 등) 지연은 0.6~0.7초 = 스트림 자체는 실시간.
-    //   → 왜곡 원본이 «직전 메시지와 같은 값(고정)»일 때만 수신 시각을 쓴다. 복구해서 90초 안이면 복구값,
+    //   → 정규장에 왜곡 원본이 «직전 메시지와 같은 값(고정)»이고 그 값이 오늘 개장 전(또는 복구 불가)일 때만 수신 시각을 쓴다
+    //     (개장 뒤 시각으로 복구되는 반복 = 재전송일 수 있어 기존 규칙). 장외는 배포본 동작 그대로. 복구해서 90초 안이면 복구값,
     //     처음 보거나 전진한 왜곡 원본이 복구해도 오래됐으면 진짜 지연·재전송일 수 있어 기존 규칙(정규장 버림).
     //   (REST 폴백은 이 함수를 안 거친다 — 15분 지연 REST 시각 복구 규칙은 그대로.)
     const vendorRawMs = normalizeRawTradeMs(msg.t);
@@ -871,7 +877,7 @@ function handleTradeUpdate(msg) {
         const prevRaw = wsDistortedRawMs.get(ticker);
         wsDistortedRawMs.set(ticker, rawKey);
         if (repaired > 0 && rx - repaired <= 90_000) eventMs = repaired;
-        else if (prevRaw !== undefined && prevRaw === rawKey) { eventMs = rx; vendorTimeRepairStats.wsRxTime = (vendorTimeRepairStats.wsRxTime || 0) + 1; }
+        else if (prevRaw !== undefined && prevRaw === rawKey && isRegularSession(rx) && (repaired === 0 || repaired < regularOpenMsOf(rx))) { eventMs = rx; vendorTimeRepairStats.wsRxTime = (vendorTimeRepairStats.wsRxTime || 0) + 1; }
         else eventMs = repaired;
     } else {
         if (msg._intrinio) wsDistortedRawMs.delete(ticker);   // 정상 시각이 오면 고정 판별을 처음부터

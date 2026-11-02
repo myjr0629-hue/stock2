@@ -248,6 +248,20 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
     h.handleTradeUpdate({ sym: 'N', p: 12, s: 0, t: (RX + 500 - 300) * 1e6, _intrinio: true });
     h.handleTradeUpdate({ sym: 'N', p: 13, s: 0, t: base + 200_000, _intrinio: true });
     assert.equal(h.latestPrices.get('N').price, 12); assert.equal(h.staleDropped.get('N'), 3);
+    // 관문 11022350 지적: 개장 뒤 시각(5분 전 = 14:38Z)으로 복구되는 같은 왜곡값 반복(재전송) → 수신 시각으로 꾸미지 않고 버린다.
+    h.tickerSubscribers.set('R2', new Set());
+    const afterOpen = (RX - 300_000 + SKEW) * 1e6;
+    h.handleTradeUpdate({ sym: 'R2', p: 10, s: 0, t: afterOpen, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'R2', p: 10, s: 0, t: afterOpen, _intrinio: true });
+    assert.equal(h.staleDropped.get('R2'), 2); assert.equal(h.liveTicks.has('R2'), false);
+    // 장외(프리마켓)는 배포본 동작 그대로 — 반복이어도 복구값.
+    now = Date.parse('2026-11-02T14:00:00Z');
+    h.tickerSubscribers.set('P', new Set());
+    const preRaw = (Date.parse('2026-11-02T09:29:00Z') + SKEW) * 1e6;
+    h.handleTradeUpdate({ sym: 'P', p: 1, s: 0, t: preRaw, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'P', p: 2, s: 0, t: preRaw, _intrinio: true });
+    assert.equal(h.latestPrices.get('P').ts, Date.parse('2026-11-02T09:29:00Z'));
+    now = RX + 500;
     // 복구해서 신선(90초 안)하면 복구값 그대로.
     h.handleTradeUpdate({ sym: 'Z', p: 12, s: 0, t: (RX + 500 - 2_000 + SKEW) * 1e6, _intrinio: true });
     assert.equal(h.latestPrices.get('Z').ts, RX + 500 - 2_000);
