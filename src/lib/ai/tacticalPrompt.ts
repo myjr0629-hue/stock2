@@ -329,9 +329,10 @@ export const UNKNOWN = /unconfirmed|no confirmed|not confirmed|not established|u
 export function splitSentences(text: string): string[] {
     // ★2026-11-02 «St. Louis Fed»의 St. 에서 문장을 끊어 WHY 를 «… in which the St.»로 잘랐다(11/2 실모델 en 탈락 why-drivers-required) — 직함·지명 약어 보호
     return text.replace(/\b(?:U\.S|e\.g|i\.e)\./g, m => m.replace(/\./g, '·'))
-        .replace(/\b(?:St|Mr|Ms|Mrs|Dr|Gov|Sen|Rep|vs)\.(?=\s)/g, m => m.replace('.', '·'))   // 직함·«vs.»만 — «Apple Inc.»처럼 문장 끝에 올 수 있는 회사 약어는 경계로 둔다(관문 11021742)
+        // 직함·«vs.»만 — «Apple Inc.»처럼 문장 끝에 올 수 있는 회사 약어는 경계로 둔다(관문 11021742). 표시용 호출자(모닝브리핑)가 다시 합치므로 마침표는 되돌린다(관문 11021815)
+        .replace(/\b(?:St|Mr|Ms|Mrs|Dr|Gov|Sen|Rep|vs)\.(?=\s)/g, m => m.replace('.', '\u0002'))
         .replace(/\b(?:Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.(?=\s+\d)/gi, m => m.replace('.', '·'))
-        .split(/(?<=[。！？])|(?<=[.!?])\s+/u).map(s => s.trim()).filter(Boolean);
+        .split(/(?<=[。！？])|(?<=[.!?])\s+/u).map(s => s.replace(/\u0002/g, '.').trim()).filter(Boolean);
 }
 
 /** 글 속 시각 표기(08:30 · 8:30 · 8시 30분 · 8時30分)를 HH:MM 으로. */

@@ -188,6 +188,7 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         assert.equal(absoluteDayWords('a 10/30 (Wed) 12:32 ET report', 'en', MON), 'a 10/30 (Fri) 12:32 ET report');
         assert.equal(splitSentences('A. Against a 10/30 12:32 ET report in which the St. Louis Fed chief said hikes loom, yields rose. C.').length, 3);
         assert.equal(splitSentences('Gains came from Apple Inc. The next test is the put floor. Rates eased. Stocks held.').length, 4, '관문 11021742 — 회사 약어로 끝난 문장은 경계');
+        assert.ok(splitSentences('A. The St. Louis Fed chief spoke. C.').includes('The St. Louis Fed chief spoke.'), '관문 11021815 — 표시 문장의 마침표 보존');
     });
 
     console.log(failed ? `${failed} failed` : 'all passed');
