@@ -183,12 +183,13 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
     now = REG; const h = makeHub();
     h.tickerSubscribers.set('X', new Set());
     h.handleTradeUpdate({ sym: 'X', p: 50, s: 1, t: (REG - 2_000 + SKEW) * 1e6, _intrinio: true });
-    assert.equal(h.latestPrices.get('X').ts, REG - 2_000); assert.equal(h.liveTicks.get('X').trade, REG - 2_000);
+    // [11/2 정규장 실측] Intrinio WS 왜곡 시각은 체결 시각이 아니라 고정값 → 수신 시각(REG)을 쓴다.
+    assert.equal(h.latestPrices.get('X').ts, REG); assert.equal(h.liveTicks.get('X').trade, REG);
     h.latestPrices.set('X', { price: 50, ts: REG + SKEW, prevClose: 49, lastTradeTs: REG + SKEW });
     h.handleTradeUpdate({ sym: 'X', p: 51, s: 1, t: (REG - 900_000) * 1e6, _intrinio: true });          // 지연 체결 → 버림
     const kept = h.latestPrices.get('X');
     assert.equal('price' in kept, false); assert.equal(kept.lastTradeTs, undefined); assert.equal(kept.prevClose, 49);
-    passed++; console.log('  ✓ WS 체결: 왜곡 ns 복구 · 지연 체결 버림 때 2083 lastTradeTs 미보존');
+    passed++; console.log('  ✓ WS 체결: Intrinio 왜곡 ns → 수신 시각 · 지연 체결 버림 때 2083 lastTradeTs 미보존');
   })();
 
   await (async () => {
@@ -210,7 +211,7 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
     // WS 쪽도 시각 없는 체결이 역행 기준을 지우지 않는다.
     h.tickerSubscribers.set('W', new Set());
     h.latestPrices.set('W', { price: 10, ts: t1, prevClose: 9 });
-    h.handleTradeUpdate({ sym: 'W', p: 11, s: 1, t: '2099-01-01T00:00:00Z', _intrinio: true });
+    h.handleTradeUpdate({ sym: 'W', p: 11, s: 1, t: '2099-01-01T00:00:00Z' });   // Intrinio 아닌 원천(Intrinio 는 수신 시각 — 별도 시험)
     assert.equal(h.latestPrices.get('W').ts, 0); assert.equal(h.latestPrices.get('W').lastTradeTs, t1);
     h.responses.push({ last_price: 8, last_time: iso(t1 - 1), eod_close_price: 9 });
     await h.fetchSnapshotREST(['W']);
@@ -219,11 +220,37 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
   })();
 
   await (async () => {
+    // 11/2 23:4x KST 정규장 실측(CDP 진단): Intrinio WS 원본 ns 가 개장 전 값에 고정 — QQQ 3587117382982xxxxxx 가
+    // 가격 697.1066→697.1116 메시지마다 반복, 복구하면 09:29:42Z(5시간 전) → 수리 전 코드는 전부 staleDropped.
+    const RX = Date.parse('2026-11-02T14:43:22.349Z');
+    now = RX; const h = makeHub();
+    h.tickerSubscribers.set('QQQ', new Set());
+    h.handleTradeUpdate({ sym: 'QQQ', p: 697.1066, s: 0, t: 3587117382982000000, _intrinio: true });
+    now = RX + 500;
+    h.handleTradeUpdate({ sym: 'QQQ', p: 697.1116, s: 0, t: 3587117382982000000, _intrinio: true });
+    assert.equal(h.staleDropped.has('QQQ'), false);
+    assert.equal(h.latestPrices.get('QQQ').price, 697.1116); assert.equal(h.latestPrices.get('QQQ').ts, RX + 500);
+    const tick = h.liveTicks.get('QQQ');
+    assert.equal(tick.trade, RX + 500); assert.equal(tick.rx, RX + 500);           // 웹 /last 오버레이: rx − trade ≤ 90초 통과
+    assert.equal(h.vendorTimeRepairStats.wsRxTime, 2);
+    assert.equal(h.isSnapshotSendable(h.latestPrices.get('QQQ'), RX + 1_000), true);
+    // 정상 시각(XLY 실측 지연 0.7초)은 원천 시각 그대로.
+    h.tickerSubscribers.set('XLY', new Set());
+    h.handleTradeUpdate({ sym: 'XLY', p: 117.97, s: 0, t: (RX - 700) * 1e6, _intrinio: true });
+    assert.equal(h.latestPrices.get('XLY').ts, RX - 700);
+    // 정상 시각의 지연 체결은 여전히 버린다(T31f).
+    h.handleTradeUpdate({ sym: 'XLY', p: 117.5, s: 0, t: (RX - 900_000) * 1e6, _intrinio: true });
+    assert.equal(h.staleDropped.get('XLY'), 1);
+    passed++; console.log('  ✓ 정규장 Intrinio WS 고정 왜곡 시각 → 수신 시각 채택(staleDropped 0) · 정상 시각 불변 · 지연 체결 버림 유지');
+  })();
+
+  await (async () => {
     // 관문 11021947 보류 재현: 정규장 WS 체결의 원천 시각이 복구 불가 미래면 신선도를 모르므로 방송·저장·lastAccepted 기록 0.
     now = REG; const h = makeHub();
     h.tickerSubscribers.set('U', new Set());
     h.latestPrices.set('U', { price: 10, ts: REG - 200_000, prevClose: 9 });
-    h.handleTradeUpdate({ sym: 'U', p: 12, s: 1, t: (REG + 3_600_000) * 1e6, _intrinio: true });
+    // (11/2 정규장 실측 뒤) 이 규칙은 Intrinio 가 아닌 WS 원천에 남는다 — Intrinio 왜곡 시각은 아래 별도 시험(수신 시각 사용).
+    h.handleTradeUpdate({ sym: 'U', p: 12, s: 1, t: (REG + 3_600_000) * 1e6 });
     assert.equal(h.broadcasts.length, 0); assert.equal(h.lastAcceptedTradeMs.has('U'), false); assert.equal(h.liveTicks.has('U'), false);
     assert.equal('price' in h.latestPrices.get('U'), false); assert.equal(h.staleDropped.get('U'), 1);
     assert.equal(h.latestPrices.get('U').lastTradeTs, REG - 200_000);
@@ -231,7 +258,7 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
     h.handleTradeUpdate({ sym: 'U', p: 12, s: 1, t: 0, _intrinio: true });
     assert.equal(h.latestPrices.get('U').price, 12); assert.equal(h.broadcasts.length, 1);
     // 왜곡(복구 가능) 시각은 정규장에도 신선하면 채택.
-    h.handleTradeUpdate({ sym: 'U', p: 13, s: 1, t: (REG - 1_000 + SKEW) * 1e6, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'U', p: 13, s: 1, t: (REG - 1_000 + SKEW) * 1e6 });
     assert.equal(h.latestPrices.get('U').price, 13); assert.equal(h.latestPrices.get('U').ts, REG - 1_000);
     passed++; console.log('  ✓ 정규장 WS: 복구 불가 미래 시각 체결은 버림 · 결측은 기존 · 복구 가능은 채택 — 관문 11021947 지적');
   })();
