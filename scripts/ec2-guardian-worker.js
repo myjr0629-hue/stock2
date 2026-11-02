@@ -547,6 +547,17 @@ function fmpEventMs(evt) {
     const ms = Date.parse(`${d}T${t.padStart(5, "0")}:00Z`);
     return Number.isFinite(ms) ? ms : null;
 }
+/**
+ * 지표 반응(GEX)을 잴 수 있는 발표인가 — 정규장 안(09:35~15:50 ET)에 나오는 것만.
+ *   GEX 는 옵션 체결로 움직이는데 미국 주식 옵션은 09:30 ET 에 열린다 → 08:30 ET 지표(CPI·고용 등)는 발표 전후 GEX 가 같은 값이라
+ *   «반응»을 잴 수 없다(이 엔진은 정규장 루프에서만 돈다 — 발표 5분 전 기록·2~10분 뒤 비교가 모두 정규장 안이어야 한다).
+ */
+function eventInRegularWindow(eventMs) {
+    const p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(eventMs));
+    const g = (t) => Number((p.find((x) => x.type === t) || {}).value);
+    const m = g("hour") * 60 + g("minute");
+    return m >= 9 * 60 + 35 && m <= 15 * 60 + 50;
+}
 let pendingEvent = null;   // Event we're watching
 
 async function checkEventImpact(snapshot) {
@@ -575,7 +586,7 @@ async function checkEventImpact(snapshot) {
                 //   예전엔 그 시각을 ET 분으로 읽어 지표 발표 4시간(EDT)·5시간(EST) 뒤의 GEX 변화를 «지표 반응»으로 알렸다.
                 //   → 발표 시점을 UTC ms 로 만들어 지금과 비교한다(날짜 비교도 같은 ms 로 — ET/UTC 날짜 어긋남 없음).
                 const eventMs = fmpEventMs(evt);
-                if (eventMs == null) continue;
+                if (eventMs == null || !eventInRegularWindow(eventMs)) continue;
                 const diff = (eventMs - now) / 60000;
 
                 // 5 minutes before event: capture pre-event GEX

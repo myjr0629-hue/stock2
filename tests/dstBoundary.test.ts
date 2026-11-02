@@ -170,6 +170,20 @@ t('fmpEventMs — FMP UTC 시각을 발표 시점 ms 로 · 모양이 틀리면 
     assert.equal(fmpEventMs(null), null);
     assert.ok(!/currentMinutes|eventMinutes/.test(src), 'ET 분 비교가 남아 있다');
 });
+t('eventInRegularWindow — 정규장 안 발표만(옵션 09:30 개장 전 08:30 지표는 GEX 반응 측정 불가) · 두 계절 같은 ET', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'scripts/ec2-guardian-worker.js'), 'utf8');
+    const m = /function eventInRegularWindow\(eventMs\) \{[\s\S]*?\n\}/.exec(src);
+    assert.ok(m, 'eventInRegularWindow 없음');
+    // eslint-disable-next-line no-new-func
+    const inReg = new Function(`${m![0]}; return eventInRegularWindow;`)() as (ms: number) => boolean;
+    assert.equal(inReg(U('2026-11-12T13:30:00Z')), false);   // CPI 08:30 EST
+    assert.equal(inReg(U('2026-11-02T15:00:00Z')), true);    // ISM 10:00 EST
+    assert.equal(inReg(U('2026-11-04T19:00:00Z')), true);    // FOMC 14:00 EST
+    assert.equal(inReg(U('2026-10-28T18:00:00Z')), true);    // FOMC 14:00 EDT
+    assert.equal(inReg(U('2026-10-28T14:00:00Z')), true);    // 10:00 EDT
+    assert.equal(inReg(U('2026-11-04T14:00:00Z')), false);   // 09:00 EST — 개장 전
+    assert.ok(/fmpEventMs\(evt\);\s*\n\s*if \(eventMs == null \|\| !eventInRegularWindow\(eventMs\)\) continue;/.test(src), '발표 전 기록 경로가 정규장 창을 거르지 않는다');
+});
 
 console.log(`\n${pass} 통과 · ${fail} 실패`);
 if (fail) process.exit(1);
