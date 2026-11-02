@@ -1,10 +1,13 @@
 import { etDateOf } from '@/lib/marketCalendar';
-import { POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS, POST_TACTICAL_REFRESH_MS, tacticalSessionAt } from './tacticalIndexFacts';
+import { POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS, POST_TACTICAL_REFRESH_MS, tacticalSessionAt, isFuturesRefreshSession } from './tacticalIndexFacts';
 
 export const POST_TACTICAL_FAILURE_COOLDOWN_MS = 60 * 60_000;
 export const POST_TACTICAL_MAX_CONSECUTIVE_FAILURES = 2;
 type BudgetRedis = { eval: (script: string, keys: string[], args: number[]) => Promise<unknown> };
-const budgetKey = (now: number) => `guardian:tactical:futures-refresh:${etDateOf(now)}`;
+// ★2026-11-02 장외(CLOSED) 선물 재생성은 따로 센다 — 장후 예산(8회)을 밤사이 쓰지 않게. 키 = 세션·ET 날짜(장외 밤은 자정을 넘어 두 날짜 = 최대 16회/밤)
+const budgetKey = (now: number) => tacticalSessionAt(now) === 'CLOSED'
+    ? `guardian:tactical:futures-refresh:closed:${etDateOf(now)}`
+    : `guardian:tactical:futures-refresh:${etDateOf(now)}`;
 
 /** 모든 언어·인스턴스가 한 ET 날짜 키를 공유한다. 생성 시도 전에 차감한다.
  * 결과 기록이 유실돼도 폭주하지 않도록 예약은 잠정 실패로 잡고, 공급사 응답 성공 시 해제한다.
@@ -35,7 +38,7 @@ redis.call('SET', KEYS[1], cjson.encode(state), 'EX', 86400)
 return 1
 `;
 export async function reservePostTacticalRefresh(redis: BudgetRedis | null, now: number): Promise<boolean> {
-    if (!redis || tacticalSessionAt(now) !== 'POST') return false;
+    if (!redis || !isFuturesRefreshSession(tacticalSessionAt(now), now)) return false;
     try {
         return await redis.eval(POST_TACTICAL_REFRESH_LUA, [budgetKey(now)],
             [now, POST_TACTICAL_REFRESH_MS, POST_TACTICAL_DRIFT_MAX_REGEN_ATTEMPTS,

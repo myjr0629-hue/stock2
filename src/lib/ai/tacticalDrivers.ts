@@ -18,6 +18,7 @@ import { etDateOf } from '@/lib/marketCalendar';
 import { textIntegrityReasons } from './textIntegrity';
 import { valueTokens } from './claimChecks';
 import { SECTOR_NAME_EN, SECTOR_NAME_JA, SECTOR_ETF_KO, SECTOR_NAME_ALIASES } from './sectorLabels';
+import { companyNameEntries } from '@/lib/app/tickerNames';
 /** 섹터 이름(한·일) → 영어 — 재료 줄의 현지어 이름과 영어 이름을 같은 섹터로 본다 */
 const SECTOR_EN_OF: Readonly<Record<string, string>> = { ...SECTOR_NAME_EN, ...Object.fromEntries(Object.entries(SECTOR_NAME_JA).map(([en, ja]) => [ja, en])) };
 
@@ -73,12 +74,19 @@ export function tacticalFedwatchFrom(latest: any, weekAgo: any, nowMs: number): 
 }
 
 export interface TacticalSectorMove { en: string; etf: string; chgPct: number }
+/** 실적 채점표 한 줄(필요한 칸만) — 발표일·장전/장후·반응일·반응(전일 종가 대비 %) */
+export interface EarningsReactionInput { ticker: string; date: string; hour: 'amc' | 'bmo'; reactDate: string; movePct: number }
+/** ★2026-11-02 재료로 쓰는 실적 반응 문턱 — 주가 ±3% 이상, 크기 순 상위 2개(WHY 숫자 나열 방지) */
+export const EARNINGS_REACTION_MIN_PCT = 3;
+export interface TacticalEarningsMove { ticker: string; company: string; reportDate: string; hour: 'amc' | 'bmo'; movePct: number }
 export interface TacticalMacroDrivers {
     fedwatch?: { nextFomcHikePct: number; nextFomcHoldPct: number; nextFomcCutPct: number; weekAgoHikePct?: number };
     us10y?: { levelPct: number; changeBp?: number };
     us2y?: { levelPct: number };
     fearGreed?: { score: number; zone: 'extreme fear' | 'fear' | 'neutral' | 'greed' | 'extreme greed' };
     sectors?: { sessionDate: string; live?: boolean; leaders: TacticalSectorMove[]; laggards: TacticalSectorMove[] };
+    /** ★2026-11-02 그 정규장의 큰 실적 반응(장중 REG 제외 — 반응 값은 장 마감 뒤 계산) */
+    earnings?: { sessionDate: string; moves: TacticalEarningsMove[] };
 }
 
 export interface DriverInput {
@@ -101,6 +109,10 @@ export interface DriverInput {
     session?: string;
     /** 직전(또는 지금) 정규장 날짜 — INDEX_FACTS 현물의 sessionDate */
     cashSessionDate?: string | null;
+    /** 실적 채점표 반응(코어 earningsReactions) — 반응일이 그 정규장 날짜인 것만 쓴다 */
+    earnings?: readonly EarningsReactionInput[] | null;
+    /** 티커 → 영어 회사 이름(lib/app/tickerNames) — 이름 없는 티커는 쓰지 않는다(글 속 회사 이름 대조가 이름표를 쓴다) */
+    companyNameEn?: (ticker: string) => string | null;
     nowMs?: number;
 }
 
@@ -129,11 +141,12 @@ export function tacticalMacroDrivers(input: DriverInput): TacticalMacroDrivers |
     }
     // 섹터: ETF 티커가 있는 섹터만(AI_PWR·SAFE_HAVEN 같은 내부 묶음 id 는 글에 새지 않게).
     //   섹터 change 는 «지금 값»이고 5일 표의 asOf 는 «마지막 일봉 날짜»라, 세션마다 날짜를 다르게 단다:
-    //   REG = 오늘(장중 진행 중) · POST/CLOSED = 5일 표 날짜가 직전 정규장 날짜와 같을 때만 그 날짜 · PRE = 쓰지 않는다(장전 값의 기준이 섞인다).
+    //   REG = 오늘(장중 진행 중) · PRE/POST/CLOSED = 5일 표 날짜가 직전 정규장 날짜와 같을 때만 그 날짜(값 = 그 날짜 일봉의 전일 대비 — 장전 시세는 쓰지 않는다).
+    //   ★2026-11-02 PRE 도 — 월요일 장전 STATE 는 금요일 정규장(반도체 −7%)을 말하는데 그 섹터 쏠림이 재료에서 빠져 «왜»가 비었다. 값의 기준은 POST/CLOSED 와 같은 완결 일봉이라 섞이지 않는다.
     const session = input.session;
     const nowMs = input.nowMs ?? Date.now();
     const sessionDate = session === 'REG' ? etDateOf(nowMs)
-        : (session === 'POST' || session === 'CLOSED') && input.cashSessionDate ? input.cashSessionDate : null;
+        : (session === 'PRE' || session === 'POST' || session === 'CLOSED') && input.cashSessionDate ? input.cashSessionDate : null;
     const rows = !sessionDate ? [] : (input.sectors || []).flatMap(s => {
         const id = String(s?.id || '');
         const day = input.fiveDay?.[id];
@@ -155,6 +168,21 @@ export function tacticalMacroDrivers(input: DriverInput): TacticalMacroDrivers |
         const laggards = rows.slice(-1).filter(r => r.chgPct < 0);
         if (leaders.length || laggards.length) out.sectors = { sessionDate, ...(session === 'REG' ? { live: true } : {}), leaders, laggards };
     }
+    // ★2026-11-02 실적 반응 — 반응일 = 그 정규장 날짜(장전·장후·장외만), ±3% 이상, 크기 순 2개. 회사 이름(영어)을 아는 티커만.
+    //   11/2 실측: 10/30 반도체 급락의 재료(INTC 10/29 장후 실적 → 10/30 −28.6%)가 입력에 없어 «재료 확인 안 됨»이 나갔다.
+    if (sessionDate && session !== 'REG' && input.earnings?.length) {
+        const seen = new Set<string>();
+        const moves = input.earnings.flatMap(e => {
+            const t = String(e?.ticker || '').toUpperCase();
+            if (!/^[A-Z]{1,5}$/.test(t) || seen.has(t) || e.reactDate !== sessionDate || !finite(e.movePct) || Math.abs(e.movePct) < EARNINGS_REACTION_MIN_PCT
+                || (e.hour !== 'amc' && e.hour !== 'bmo') || !/^\d{4}-\d{2}-\d{2}$/.test(String(e.date || ''))) return [];
+            const company = input.companyNameEn?.(t) || '';
+            if (!company || /[^\x20-\x7E]/.test(company)) return [];
+            seen.add(t);
+            return [{ ticker: t, company, reportDate: e.date, hour: e.hour, movePct: r1(e.movePct) }];
+        }).sort((a, b) => Math.abs(b.movePct) - Math.abs(a.movePct)).slice(0, 2);
+        if (moves.length) out.earnings = { sessionDate, moves };
+    }
     return Object.keys(out).length ? out : undefined;
 }
 
@@ -168,14 +196,15 @@ const fmtEt = (ms: number) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Amer
  *   코어 뉴스는 «최신 12건»이라 저녁이면 그날 낮의 원인 기사(실적·연준 발언·유가)가 장 마감 기사에 밀려 사라진다(10/30 실측).
  *   줄 모양은 datedHeadline 과 같다: «[NEWS PULSE; ISO; HH:MM ET] 요약» — 생성 검사의 보도 인용 대조가 그대로 읽는다.
  */
-export function causeNewsFromArchive(items: readonly CauseArchiveItem[] | null | undefined, nowMs: number, cap = 6): string[] {
-    const today = etDateOf(nowMs);
+export function causeNewsFromArchive(items: readonly CauseArchiveItem[] | null | undefined, nowMs: number, cap = 6, days?: readonly string[]): string[] {
+    // 날짜 창 — 기본은 오늘(ET). 장전·장후·장외 호출자는 직전 정규장 날짜를 더 준다(프롬프트 TODAY_NEWS 날짜 창과 같다)
+    const allowed = new Set(days?.length ? days : [etDateOf(nowMs)]);
     const picked: string[] = [];
     for (const [cat, quota] of Object.entries(CAUSE_QUOTA)) {
         const rows = (items || []).flatMap(it => {
             const ms = Date.parse(String(it?.publishedAt || ''));
             const text = String(it?.summaryEN || '').replace(/\s+/g, ' ').trim();
-            if (it?.category !== cat || !finite(it.urgency) || it.urgency < 7 || !Number.isFinite(ms) || ms > nowMs || etDateOf(ms) !== today) return [];
+            if (it?.category !== cat || !finite(it.urgency) || it.urgency < 7 || !Number.isFinite(ms) || ms > nowMs || !allowed.has(etDateOf(ms))) return [];
             if (!text || text.length < 20 || isCompanyLedTitle(text) || !isTacticalCauseHeadline(text) || /[^\x20-\x7E‘’“”–—€£¥…]/.test(text)) return [];
             const line = `[NEWS PULSE; ${new Date(ms).toISOString()}; ${fmtEt(ms)} ET] ${text.slice(0, 200)}`;
             return textIntegrityReasons(line).length ? [] : [{ ms, u: it.urgency, line }];
@@ -207,6 +236,8 @@ export function mergeCauseNews(current: readonly string[], archive: readonly str
     return out;
 }
 
+/** 실적 반응 재료의 프롬프트 이름(검사 specsFrom 이 같은 이름으로 읽는다) */
+export const EARNINGS_DRIVER_KEY = 'earnings reactions (that completed cash session: company results, then the stock move vs its previous close)';
 /** 프롬프트 줄(언어별) — 섹터 이름은 그 언어 이름만(한 호출 3언어에서 다른 언어 글자가 새지 않게, sectorLabels 머리말) */
 export function driversForPrompt(d: TacticalMacroDrivers | undefined, locale: 'ko' | 'en' | 'ja', localName: (en: string, l: 'ko' | 'ja') => string | undefined): Record<string, unknown> | null {
     if (!d) return null;
@@ -224,6 +255,12 @@ export function driversForPrompt(d: TacticalMacroDrivers | undefined, locale: 'k
         ...(d.us2y ? { 'US 2-year Treasury yield': { levelPct: d.us2y.levelPct } } : {}),
         ...(d.fearGreed ? { 'CNN Fear & Greed index': { score: d.fearGreed.score, zone: d.fearGreed.zone } } : {}),
         ...(sec && (sec.leaders.length || sec.laggards.length) ? { [d.sectors?.live ? 'sector moves (current cash session, vs previous close)' : 'sector moves (that completed cash session)']: sec } : {}),
+        ...(d.earnings?.moves.length ? { [EARNINGS_DRIVER_KEY]: {
+            cashSessionDate: d.earnings.sessionDate,
+            moves: d.earnings.moves.map(m => ({ company: m.company, ticker: m.ticker,
+                reported: `${Number(m.reportDate.slice(5, 7))}/${Number(m.reportDate.slice(8, 10))} ${m.hour === 'amc' ? 'after the close' : 'before the open'}`,
+                stockMovePct: m.movePct })),
+        } } : {}),
     };
 }
 
@@ -276,7 +313,22 @@ function specsFrom(drivers: string, observations: string): DriverSpec[] {
             // 부호 없이 쓴 숫자도 방향어(«1.9% 하락»)를 입력 등락 부호와 대조한다(관문 10311024 ②) — change = 그 세션 등락
             out.push({ id: `sector:${s.etf}`, re: new RegExp(`\\(\\s*${s.etf}\\s*\\)|(?<![A-Za-z])${s.etf}(?![A-Za-z])`, 'g'), values: [{ v: s.chgPct, unit: 'pct' }], sign: Math.sign(s.chgPct), change: s.chgPct, names, others });
     }
+    // ★2026-11-02 실적 반응 — 회사 이름(한·영·일)·티커 뒤 숫자는 그 종목의 반응 값과 같아야 하고 방향어도 부호와 같아야 한다
+    const er = d[EARNINGS_DRIVER_KEY];
+    for (const mv of Array.isArray(er?.moves) ? er.moves : []) {
+        if (typeof mv?.ticker !== 'string' || !/^[A-Z]{1,5}$/.test(mv.ticker) || !finite(mv.stockMovePct)) continue;
+        const names = companyNamesOf(mv.ticker, mv.company);
+        const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const parts = [`(?<![A-Za-z0-9])${mv.ticker}(?![A-Za-z0-9])`, ...names.map(n => (/^[A-Za-z]/.test(n) ? `(?<![A-Za-z])${esc(n)}(?![A-Za-z])` : `(?<![가-힣ァ-ヶー])${esc(n)}`))];
+        out.push({ id: `earnings:${mv.ticker}`, re: new RegExp(parts.join('|'), 'gi'), values: [{ v: mv.stockMovePct, unit: 'pct' }], sign: Math.sign(mv.stockMovePct), change: mv.stockMovePct });
+    }
     return out;
+}
+
+/** 티커의 회사 이름(한·영·일, lib/app/tickerNames) + 재료 줄의 영어 이름 */
+function companyNamesOf(ticker: string, en: unknown): string[] {
+    const row = companyNameEntries().find(c => c.ticker === ticker);
+    return [...new Set([...(row?.names ?? []), ...(typeof en === 'string' && en.length >= 2 ? [en] : [])])].sort((a, b) => b.length - a.length);
 }
 
 /** 섹터 이름 정규식 — 한글·가나는 앞 글자 경계, 영어는 낱말 경계 + 다른 섹터 이름의 꼬리(«Clean Energy»의 Energy) 제외 */

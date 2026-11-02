@@ -1,5 +1,5 @@
 import { reservePostTacticalRefresh, finishPostTacticalRefresh } from '@/lib/ai/postTacticalRefreshBudget';
-import { buildIndexFacts, promptHasFuturesFacts, promptFuturesPct, tacticalFuturesDrifted, tacticalSessionAt, type TacticalFuturesPct, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
+import { buildIndexFacts, promptHasFuturesFacts, promptFuturesPct, tacticalFuturesDrifted, tacticalSessionAt, isFuturesRefreshSession, type TacticalFuturesPct, type TacticalSession } from '@/lib/ai/tacticalIndexFacts';
 import { textIntegrityReasons } from '@/lib/ai/textIntegrity';
 import { buildTacticalPrompt, checkTacticalOutput, checkTacticalStored, checkTacticalTranslated, tacticalTokenRules, internalSourceReasons, polishTacticalText, tacticalDriverSnapshot } from '@/lib/ai/tacticalPrompt';
 import { buildRotationPrompt, checkRotationOutput, polishRotationText, rotationNums, rotationTokenRules, isLegacyRotationText, rotationHints, type RotationFacts, type RotationContext } from '@/lib/ai/rotationPrompt';
@@ -597,11 +597,12 @@ function triHints(all: string[]): string {
     if (all.some(r => r.includes('internal-label'))) h.push('Never write TODAY_NEWS, SCHEDULED_EVENTS, DATE_LABELS, WHY:, SO WHAT: or NEXT: — cite the report by its time and source.');
     if (all.some(r => r.includes('positioning-required'))) h.push('Name Gamma Shield/GEX (or SPY/QQQ gamma) before the last sentence and say whether it absorbs or amplifies the pressure.');
     // ★2026-10-31 Tactical 스토리형 WHY
-    if (all.some(r => /why-material-required|why-drivers-required/.test(r))) h.push('In the second (WHY) sentence explain the cause through two or three MACRO_DRIVERS readings (the next-FOMC hike chance from FedWatch and its one-week change, Treasury yields, the Fear & Greed index, sector leaders/laggards with their ETF), each right after its plain name; cite a TODAY_NEWS report only by its M/D HH:MM ET; never write that the driver is unconfirmed when MACRO_DRIVERS or TODAY_NEWS is supplied.');
+    if (all.some(r => /why-material-required|why-drivers-required/.test(r))) h.push('In the second (WHY) sentence explain the cause through two or three MACRO_DRIVERS readings (the next-FOMC hike chance from FedWatch and its one-week change, Treasury yields, the Fear & Greed index, sector leaders/laggards with their ETF, a supplied earnings reaction with its company and stock move), each right after its plain name; cite a TODAY_NEWS report only by its M/D HH:MM ET; never write that the driver is unconfirmed when MACRO_DRIVERS or TODAY_NEWS is supplied.');
     if (all.some(r => r.includes('why-rollcall'))) h.push('Use at most four numbers in the WHY sentence — pick the two or three readings that explain the move.');
     if (all.some(r => r.includes('why-company-ungrounded'))) h.push('Name only companies that appear in TODAY_NEWS or SCHEDULED_EVENTS, translated correctly (Alphabet = 알파벳 / アルファベット, not Apple).');
     if (all.some(r => r.includes('why-unsupported-change'))) h.push('MACRO_DRIVERS has no one-week-ago FedWatch value: state the current hike chance only (e.g. "markets price a … chance"), never that it rose, jumped or fell.');
     if (all.some(r => r.includes('next-boundary-required'))) h.push('The last (NEXT) sentence names ONE upcoming event from SCHEDULED_EVENTS or ONE S&P 500 options boundary (put floor / call wall / gamma flip from OBSERVATIONS) — never a yield, probability or index level.');
+    if (all.some(r => r.includes('tactical:relative-day'))) h.push('In the first (STATE) sentence write the cash session as its M/D date with weekday (e.g. 10/30(금) / 10/30 (Fri) / 10/30(金)); never 오늘/어제/today/yesterday/本日/昨日/今日.');
     if (all.some(r => r.includes('news-source-time-required'))) h.push('Cite the report with BOTH its date and time exactly as one REPORT_TIMES entry gives them (M/D plus HH:MM ET), once.');
     h.push(...rotationHints(all));
     return h.length ? ' ' + h.join(' ') : '';
@@ -1004,9 +1005,11 @@ export class IntelligenceNode {
      */
     static async refreshRealityForFuturesDriftDetailed(ctx: IntelligenceContext, opts: { regen?: boolean; newerThan?: number } = {}): Promise<{ text: string | null; at?: number; seenAt?: number }> {
         const now = Date.now();
-        if (tacticalSessionAt(now) !== 'POST' || !process.env.AWS_ACCESS_KEY_ID) return { text: null };
-        const current = { ...ctx, asOf: new Date(now).toISOString(), session: 'POST' as const,
-            ...(ctx.indexBasis ? { indexFacts: buildIndexFacts(ctx.indexBasis, 'POST', now) } : {}) };
+        // ★2026-11-02 장외(CLOSED)도 선물이 열려 있으면 같은 경로(Tactical 한 칸·전용 예산) — tacticalIndexFacts.isFuturesRefreshSession
+        const session = tacticalSessionAt(now);
+        if (!isFuturesRefreshSession(session, now) || !process.env.AWS_ACCESS_KEY_ID) return { text: null };
+        const current = { ...ctx, asOf: new Date(now).toISOString(), session,
+            ...(ctx.indexBasis ? { indexFacts: buildIndexFacts(ctx.indexBasis, session, now) } : {}) };
         const locale = ctx.locale || 'ko';
         const nums = guardianNumsFromAiContext(current);
         if (guardianMaterialIssues(nums).length) return { text: null };
@@ -1042,7 +1045,8 @@ export class IntelligenceNode {
         try {
             const data = await redis.get(getRedisKey('reality', locale)) as { updatedAt?: string; session?: string; futures?: boolean } | null;
             const at = data?.updatedAt ? Date.parse(data.updatedAt) : NaN;
-            return data?.session === 'POST' && data.futures === true && Number.isFinite(at) && at <= now && etDateOf(at) === etDateOf(now) ? at : null;
+            const session = tacticalSessionAt(now);
+            return isFuturesRefreshSession(session, now) && data?.session === session && data.futures === true && Number.isFinite(at) && at <= now && etDateOf(at) === etDateOf(now) ? at : null;
         } catch { return null; }
     }
 
@@ -1089,8 +1093,11 @@ export class IntelligenceNode {
         const user = `Write the analysis once, in three languages, following each language's own instruction block below. All three must carry the same facts and the same placeholders. Return the JSON object only.\n\n${blocks}`;
         const call = async (extra: string, retry: boolean): Promise<Partial<Record<Locale, string>> | null> => {
             const reservedAt = Date.now();
-            const driftRedis = opts.postFuturesDrift ? getRedis() : null;
-            if (opts.postFuturesDrift && !await reservePostTacticalRefresh(driftRedis, reservedAt)) return null;
+            // ★2026-11-02 선물 변동 재생성의 예산은 «생성 시도» 단위 — 첫 호출만 예약하고, 같은 시도의 교정 재생성(1회)은 예약 없이 부른다.
+            //   예전엔 교정 호출도 예약을 요구해 30분 간격에 걸려 늘 거절됐다(장후·장외 재생성은 교정 없이 첫 생성만 — 11/2 실모델 첫 생성 통과 3언어 중 1~2).
+            //   상한: 시도 8회/일 × 호출 2 = 16회/일(키별). 교정은 TRI_RETRY_BUDGET_MS 안에서만(기존 규칙).
+            const driftRedis = opts.postFuturesDrift && !retry ? getRedis() : null;
+            if (opts.postFuturesDrift && !retry && !await reservePostTacticalRefresh(driftRedis, reservedAt)) return null;
             let succeeded = false;
             try {
                 const result = await _modelCaller({
@@ -1114,7 +1121,7 @@ export class IntelligenceNode {
                 console.error(`[IntelligenceNode] trilingual call failed (${type}):`, e?.message);
                 return null;
             } finally {
-                if (opts.postFuturesDrift) await finishPostTacticalRefresh(driftRedis, reservedAt, succeeded, Date.now());
+                if (opts.postFuturesDrift && !retry) await finishPostTacticalRefresh(driftRedis, reservedAt, succeeded, Date.now());
             }
         };
         let out: Partial<Record<Locale, InsightOut>> = {};
