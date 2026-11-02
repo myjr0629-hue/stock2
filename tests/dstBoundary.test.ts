@@ -127,11 +127,17 @@ for (const S of SEASONS) {
         assert.ok(inWin.length >= 24, `창 안 ${inWin.length}회: ${inWin.map(hm).join(',')}`);
         assert.ok(f.every((ms) => !warmWindowOpen(ms) ? true : (etMinutesOf(ms) >= 20 * 60 + 5 || etMinutesOf(ms) < 7 * 60)));
     });
-    t(`${S.name} 앱 예열 — 프리~애프터(04:00~19:59 ET) 5분 칸마다 발화`, () => {
-        const f = new Set(firesBetween('/api/cron/app-warm', etAt(S.day, S.off, '04:00'), etAt(S.day, S.off, '20:00')));
+    t(`${S.name} 앱 예열 — 프리~애프터(04:00~19:59 ET) 5분 칸마다 «실제로 일하는» 발화 · 같은 분 중복 0 · ext 크론은 창 밖이면 건너뜀`, () => {
+        const from = etAt(S.day, S.off, '00:00'), to = etAt(S.next, S.off, '04:00');
+        const base = firesBetween('/api/cron/app-warm', from, to);
+        const ext = firesBetween('/api/cron/app-warm?ext=1', from, to);
+        const extWorking = ext.filter((ms) => isUsExtendedWindowAt(ms));   // 라우트 가드와 같은 함수
+        assert.deepEqual(base.filter((ms) => ext.includes(ms)).map(hm), [], '같은 분에 두 크론');
+        const f = new Set([...base, ...extWorking]);
         const missing: string[] = [];
         for (let ms = etAt(S.day, S.off, '04:00'); ms < etAt(S.day, S.off, '20:00'); ms += 5 * 60000) if (!f.has(ms)) missing.push(hm(ms));
         assert.deepEqual(missing, []);
+        if (S.off === '-04:00') assert.equal(extWorking.length, 0, 'EDT 에 ext 크론이 일했다');
     });
     t(`${S.name} 정규장 09:30~16:00 ET — 대시 캐시 «움직이는 시간» · 19:30 ET 도 포함 · 20:00 ET 부터 장외`, () => {
         assert.ok(isUsExtendedWindowAt(etAt(S.day, S.off, '04:00')));

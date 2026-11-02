@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
 import { runPool } from '@/lib/asyncPool';
 import { governorOff } from '@/lib/intelFastGovernor';
+import { isUsExtendedWindowAt } from '@/lib/usExtendedWindow';
 
 /**
  * /api/cron/app-warm — 앱 화면의 «첫 숫자»를 늦추던 무거운 응답 3종을 미리 굽는다.
@@ -15,7 +16,8 @@ import { governorOff } from '@/lib/intelFastGovernor';
  *   사용자 요청은 그 저장본을 즉시 받고(식었으면 «정상본 즉시 + 응답 뒤 갱신»), 이 크론은 그 저장본이 낡지 않게 한다.
  *
  * 주기(vercel.json, UTC): 평일 08~23시 5분마다(ET 04:00~19:59 = 프리~애프터) · 평일 00~07시와 주말 20분마다.
- *   (2026-11-02 서머타임 종료) EST 에는 시간외 마지막 1시간(19:00~19:59 ET)이 다음 날 00시 UTC 다 → 화~토 00시 UTC 5분마다를 더했다(EDT 에는 20시대 ET — 45초 잠금·응답 버림이라 무해).
+ *   (2026-11-02 서머타임 종료) EST 에는 시간외 마지막 1시간(19:00~19:59 ET)이 다음 날 00시 UTC 다 → 화~토 00시 UTC 의 «20분 칸이 아닌» 5분 칸
+ *   (:05·:10·:15·:25·…·:55)에 ?ext=1 크론을 더했다 — 기존 20분 주기 크론과 같은 분에 겹치지 않고, ET 04:00~19:59 밖(EDT 의 20시대 ET)이면 바로 건너뛴다.
  *   라우트의 정상본 허용 나이(장중 10~30분 · 장외 12시간)가 이 주기보다 길어 «사용자가 계산을 기다리는 일»이 거의 없다.
  *
  * ⚠️ 목적은 «굽기»뿐이다. 실패해도 조용히 넘어간다(다음 주기·사용자 요청이 같은 일을 한다). 앱 동작에 영향을 주면 안 된다.
@@ -65,8 +67,13 @@ async function bake(path: string): Promise<{ path: string; ok: boolean; ms: numb
     }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
     const t0 = Date.now();
+    // ?ext=1 = EST 시간외 마지막 1시간(19:00~19:59 ET = 화~토 00시 UTC)용 추가 크론(2026-11-02). 그 시각이 ET 평일 04:00~19:59 가
+    //   아니면(EDT 의 20시대 ET 등) 아무것도 하지 않는다 — 기존 20분 주기 밖 공급사 호출을 늘리지 않는다.
+    if (new URL(request.url).searchParams.get('ext') === '1' && !isUsExtendedWindowAt(t0)) {
+        return NextResponse.json({ success: true, skipped: 'outside-extended-window' });
+    }
     const LOCK = 'perf:lock:app-warm';
     if (!(await tryBackgroundLock(LOCK, 45))) {
         return NextResponse.json({ success: true, skipped: 'locked' });

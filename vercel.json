@@ -182,8 +182,8 @@
       "path": "/api/cron/app-warm"
     },
     {
-      "schedule": "*/5 0 * * 2-6",
-      "path": "/api/cron/app-warm"
+      "schedule": "5,10,15,25,30,35,45,50,55 0 * * 2-6",
+      "path": "/api/cron/app-warm?ext=1"
     },
     {
       "schedule": "*/20 * * * 0,6",
