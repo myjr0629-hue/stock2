@@ -124,7 +124,9 @@ function highlightData(text: string, parentKey: number): React.ReactNode[] {
             // A sign immediately following a number, percent or decimal point is a separator.
             const isSign = /[+\-−–]/.test(matched[0]) &&
                 (match.index === 0 || !/[\d%.]/.test(text[match.index - 1]));
-            const direction = isSign ? (matched[0] === '+' ? 1 : -1) : 0;
+            // 0 (예: +0.0%, −0.00%) 은 보합 — 부호가 있어도 중립색.
+            const isZero = Number(matched.replace(/[^\d.]/g, '')) === 0;
+            const direction = isSign && !isZero ? (matched[0] === '+' ? 1 : -1) : 0;
             if (direction > 0) {
                 result.push(
                     <span key={key} className="text-emerald-400/90 font-semibold">{matched}</span>

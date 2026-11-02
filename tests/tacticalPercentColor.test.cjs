@@ -63,3 +63,7 @@ try {
     }
 } finally { React.useState = originalUseState; }
 console.log('tactical percentage color: passed');
+// 보합(0)은 부호가 있어도 중립색
+for (const v of ['+0.0%', '−0.00%', '-0%', '+0%']) {
+    assert.ok(markup(v).includes(span(v, 'text-white')), markup(v));
+}
