@@ -2,7 +2,7 @@ import { tacticalFuturesDirection } from './tacticalFuturesRules';
 import type { MarketIndexBasis, IndexObservation } from '@/lib/marketIndexBasis';
 import { cashSessionPhaseAt } from '@/lib/marketCalendar';
 import { isCashCloseReferenceAt } from '@/lib/futuresCashClose';
-import { etClock, lastClosedSessionDate, isEquityFuturesOpen, etWallTimeToMs } from '@/lib/marketSession';
+import { etClock, lastClosedSessionDate, isEquityFuturesOpen, etWallTimeToMs, shiftDate } from '@/lib/marketSession';
 
 export type TacticalLocale = 'ko' | 'en' | 'ja';
 export type TacticalSession = 'PRE' | 'REG' | 'POST' | 'CLOSED';
@@ -39,7 +39,13 @@ export function sessionIndexFacts(facts: IndexFact[], session: TacticalSession):
 function closedSessionSettlementFact(p: { asOf?: string | null; changePct?: number | null; basis?: string | null }, session: TacticalSession, cashDate: string): boolean {
     if (session !== 'CLOSED' || p.basis !== 'prior-settlement' || typeof p.changePct !== 'number' || !Number.isFinite(p.changePct)) return false;
     const at = p.asOf ? Date.parse(p.asOf) : NaN;
-    return Number.isFinite(at) && at >= etWallTimeToMs(cashDate, 18 * 60);
+    if (!Number.isFinite(at) || at < etWallTimeToMs(cashDate, 18 * 60)) return false;
+    // 관문 11021753 — 그 정규장 «바로 다음» 선물 세션(거래일 = 그 정규장 뒤 첫 평일)만. 그 사이 휴장일 세션이 정산되면(노동절 등) 직전 정산은 휴장일 값이라 «그 정규장 이후»가 아니다
+    const c = etClock(at);
+    const tradeDate = c.minutes >= 18 * 60 ? shiftDate(c.date, 1) : c.date;
+    let first = shiftDate(cashDate, 1);
+    while ([0, 6].includes(new Date(`${first}T12:00:00Z`).getUTCDay())) first = shiftDate(first, 1);
+    return tradeDate === first;
 }
 /** Tactical 전용 어댑터. 화면·공통 숫자·수집기를 바꾸지 않는다. */
 export function buildIndexFacts(b: MarketIndexBasis | undefined, session: TacticalSession, nowMs: number): IndexFact[] {

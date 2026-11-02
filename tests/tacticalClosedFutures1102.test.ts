@@ -34,6 +34,13 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         const fri = Date.parse('2026-10-30T20:30:00Z');
         const friBasis = buildMarketIndexBasis({ nq: fut('NQ=F', 28500, -2.1, fri - 2 * MIN), es: fut('ES=F', 7600, -1.5, fri - 2 * MIN) }, fri, {});
         assert.equal(buildIndexFacts(friBasis, 'POST', fri).filter(f => f.kind === 'futures').length, 0);
+        // 관문 11021753 — 휴장일(9/7 노동절) 18:00 ET 뒤 세션의 직전 정산은 휴장일 정산이다 → 쓰지 않는다. 휴장일 낮(13:00 ET 전) 세션은 금요일 정산 기준이라 쓴다
+        const hol = Date.parse('2026-09-07T23:00:00Z');   // 9/7(월) 19:00 ET
+        const holBasis = buildMarketIndexBasis({ nasdaq: { ...cash('^IXIC', 100, -1), marketTime: '2026-09-04T20:15:00Z', lastChangeAt: '2026-09-04T20:15:00Z' }, es: fut('ES=F', 7000, 0.5, hol - 5 * MIN) }, hol, {});
+        assert.equal(tacticalSessionAt(hol), 'CLOSED');
+        assert.equal(buildIndexFacts(holBasis, 'CLOSED', hol).filter(f => f.kind === 'futures').length, 0, '휴장일 뒤 세션 — 정산 기준이 금요일이 아니다');
+        const sun = Date.parse('2026-09-06T23:00:00Z');   // 9/6(일) 19:00 ET — 금요일 정산 기준
+        assert.equal(buildIndexFacts(buildMarketIndexBasis({ nasdaq: { ...cash('^IXIC', 100, -1), marketTime: '2026-09-04T20:15:00Z', lastChangeAt: '2026-09-04T20:15:00Z' }, es: fut('ES=F', 7000, 0.5, sun - 5 * MIN) }, sun, {}), 'CLOSED', sun).filter(f => f.kind === 'futures').length, 1);
         // 장외라도 관측이 그 정규장 18:00 ET 이전이면(새 세션 전) 쓰지 않는다
         const sat = Date.parse('2026-10-31T01:30:00Z');   // 금 21:30 ET — 선물 휴장(주말)
         assert.equal(buildIndexFacts(buildMarketIndexBasis({ es: fut('ES=F', 7600, -1.5, sat - 5 * MIN) }, sat, {}), 'CLOSED', sat).filter(f => f.kind === 'futures').length, 0);
