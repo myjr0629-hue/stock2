@@ -462,7 +462,9 @@ const TODAY_WORDS = /\btoday\b|\btonight\b|오늘|금일|今日|本日|今夜/i;
 const TOMORROW_WORDS = /\btomorrow\b|내일|명일|明日/i;
 
 /** Tactical NEXT 문장 — 프롬프트의 AS_OF·SCHEDULED_EVENTS 로. */
-export function tacticalNextReasons(next: string, prompt: string, mode: 'generate' | 'read'): string[] {
+export function tacticalNextReasons(next0: string, prompt: string, mode: 'generate' | 'read'): string[] {
+    // ★2026-11-02 «(日本時間09:00)»·«(한국09:00)»처럼 띄어쓰기만 빠진 현지 시각 병기를 같은 표기로 본다(11/2 실모델 ja 첫 생성 탈락 time-format·local-time-required)
+    const next = next0.replace(/[(（](한국|日本時間)\s*(\d{2}:\d{2})[)）]/g, '($1 $2)');
     const { events, asOf } = promptEvidence(prompt);
     const locale: Locale = prompt.includes('entirely in 한국어') ? 'ko' : prompt.includes('entirely in 日本語') ? 'ja' : 'en';
     const localReasons: string[] = [];

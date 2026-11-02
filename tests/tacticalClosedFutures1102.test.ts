@@ -161,6 +161,8 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         const next = '다음 분기점은 11/2(월) 장 마감 후 예정된 AAPL 실적 발표로, 강하면 기술주 반등을, 약하면 약세 연장을 뜻합니다.';
         assert.ok(!tacticalNextReasons(next, p, 'generate').some(r => r.startsWith('schedule:')), JSON.stringify(tacticalNextReasons(next, p, 'generate')));
         assert.ok(tacticalNextReasons('다음 분기점은 11/2(월) 16:00 ET(한국 06:00) 예정된 AAPL 실적 발표로, 강하면 반등, 약하면 약세입니다.', p, 'generate').includes('schedule:claim-not-upcoming'), '경계 시각 주장은 계속 탈락');
+        const pj = buildTacticalPrompt({ ...ctx, locale: 'ja' }, 'ja');
+        assert.deepEqual(tacticalNextReasons('次の分岐点は11/2(月)10:00 ET(日本時間00:00)予定のISM製造業景況指数(ISM Manufacturing PMI)で、上振れなら金利上昇圧力、下振れなら緩和期待が強まる構造です。', pj, 'generate'), [], '日本時間 띄어쓰기 없는 병기');
         assert.equal(absoluteDayWords('10/30(수) 정규장에서', 'ko', MON), '10/30(금) 정규장에서');
         assert.equal(absoluteDayWords('10/30(水)の通常取引', 'ja', MON), '10/30(金)の通常取引');
         assert.equal(absoluteDayWords('a 10/30 (Wed) 12:32 ET report', 'en', MON), 'a 10/30 (Fri) 12:32 ET report');
