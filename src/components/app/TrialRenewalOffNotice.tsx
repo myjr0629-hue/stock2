@@ -7,7 +7,7 @@ import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { TRIAL_OFF_STORAGE_KEY, trialOffCopy, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
-import { loadFreshTrialRenewalOff, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
+import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
 import p from './ProPaywall.module.css';
 import s from './GiftAnnounceSheet.module.css';
 
@@ -26,6 +26,7 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
   const current = useRef<View | null>(null);
   useEffect(() => {
     let disposed = false, generation = 0;
+    let suspended = document.visibilityState !== 'visible';
     let stopWaiting: (() => void) | undefined;
     const preview = process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('trialOffPreview') === '1';
     const enter = async () => {
@@ -48,8 +49,16 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
           return;
         }
         if (!preview && snapshot) {
-          const fresh = await verifyTrialRenewalOff();
-          if (disposed || run !== generation || document.visibilityState !== 'visible' || document.querySelector('[aria-modal="true"]')) return;
+          const attempt = verifyTrialRenewalOff();
+          if (!attempt) return;
+          const fresh = await attempt.result.catch(() => null);
+          if (disposed || run !== generation || document.visibilityState !== 'visible' || document.querySelector('[aria-modal="true"]')) {
+            attempt.release();
+            if (!disposed && run === generation && document.visibilityState === 'visible' && document.querySelector('[aria-modal="true"]')) {
+              stopWaiting = waitForOtherModal(document, () => { stopWaiting = undefined; void enter(); });
+            }
+            return;
+          }
           notice = fresh && fresh.platform === snapshot.platform
             ? verifiedTrialRenewalOffNotice(snapshot.customerInfo, fresh.customerInfo, fresh.platform, Date.now(), readSeen()) : null;
           if (!notice) return;
@@ -59,11 +68,17 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
         setView(next);
       } catch { /* failed fresh reads are ineligible */ }
     };
-    const suspend = () => { ++generation; stopWaiting?.(); stopWaiting = undefined; current.current = null; setView(null); };
-    const visibility = () => { if (document.visibilityState === 'visible') void enter(); else suspend(); };
+    const suspend = () => { suspended = true; ++generation; stopWaiting?.(); stopWaiting = undefined; current.current = null; setView(null); };
+    const resume = () => {
+      if (document.visibilityState !== 'visible' || !suspended) return;
+      suspended = false;
+      refreshTrialRenewalOffOnResume();
+      void enter();
+    };
+    const visibility = () => { if (document.visibilityState === 'visible') resume(); else suspend(); };
+    beginTrialRenewalOffEntry();
     void enter();
     document.addEventListener('visibilitychange', visibility);
-    const resume = () => { if (document.visibilityState === 'visible') void enter(); };
     document.addEventListener('app:resume', resume);
     let removeNative: (() => void) | undefined;
     void import('@capacitor/app').then(({ App }) => App.addListener('appStateChange', ({ isActive }) => {
