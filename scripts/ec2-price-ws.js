@@ -737,6 +737,7 @@ const vendorEtFormatter = new Intl.DateTimeFormat('en-US', {
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
 });
 const vendorTimeRepairStats = { repaired: 0, cleared: 0, lastRaw: 0, lastFixed: 0, lastAt: 0 };
+const wsDistortedRawMs = new Map(); // Map<ticker, 직전 Intrinio WS 왜곡 원본 ms> — 고정값 판별용(종목 수만큼)
 let vendorSkewCache = { year: -1, skews: [] };
 /** ET 벽시계 → epoch ms(고정 오프셋 없이 Intl 로 그 순간의 오프셋을 구한다). */
 function etWallToMs(y, m, d, hh, mm) {
@@ -858,12 +859,22 @@ function handleTradeUpdate(msg) {
     // [2026-11-02 23:4x KST 정규장 실측] Intrinio WS(EQUITIES_EDGE)의 왜곡(미래) 시각은 체결 시각이 아니다 —
     //   종목마다 개장 전 값에 «고정»돼(같은 원본 ns 가 가격이 바뀌는 메시지마다 반복) 복구해도 수 시간 전이 되어
     //   정규장 지연 체결 규칙에 전부 버려졌다(staleDropped 폭증 → /last·방송 0 → 앱 15분 지연 REST).
-    //   같은 순간 정상 시각 종목(XLY·XLC 등) 지연은 0.6~0.7초 = 스트림 자체는 실시간 → 왜곡 시각이면 수신 시각을 쓴다.
+    //   같은 순간 정상 시각 종목(XLY·XLC 등) 지연은 0.6~0.7초 = 스트림 자체는 실시간.
+    //   → 왜곡 원본이 «직전 메시지와 같은 값(고정)»일 때만 수신 시각을 쓴다. 복구해서 90초 안이면 복구값,
+    //     처음 보거나 전진한 왜곡 원본이 복구해도 오래됐으면 진짜 지연·재전송일 수 있어 기존 규칙(정규장 버림).
     //   (REST 폴백은 이 함수를 안 거친다 — 15분 지연 REST 시각 복구 규칙은 그대로.)
     const vendorRawMs = normalizeRawTradeMs(msg.t);
-    const wsFrozenVendorTime = !!msg._intrinio && vendorRawMs > rx + VENDOR_FUTURE_TOLERANCE_MS;
-    if (wsFrozenVendorTime) vendorTimeRepairStats.wsRxTime = (vendorTimeRepairStats.wsRxTime || 0) + 1;
-    const eventMs = wsFrozenVendorTime ? rx : normalizeTradeMs(msg.t);
+    let eventMs;
+    if (msg._intrinio && vendorRawMs > rx + VENDOR_FUTURE_TOLERANCE_MS) {
+        const repaired = normalizeTradeMs(msg.t);
+        const prevRaw = wsDistortedRawMs.get(ticker);
+        wsDistortedRawMs.set(ticker, vendorRawMs);
+        if (repaired > 0 && rx - repaired <= 90_000) eventMs = repaired;
+        else if (prevRaw === vendorRawMs) { eventMs = rx; vendorTimeRepairStats.wsRxTime = (vendorTimeRepairStats.wsRxTime || 0) + 1; }
+        else eventMs = repaired;
+    } else {
+        eventMs = normalizeTradeMs(msg.t);
+    }
     // 원천 시각이 있었는데 복구 불가로 비웠으면(미래 시각) 정규장엔 신선도를 확인할 수 없다 — 지연 체결처럼 버린다(REST 경로와 같은 규칙).
     const unverifiableTime = !(eventMs > 0) && normalizeRawTradeMs(msg.t) > 0;
     if (shouldDropStaleTrade(eventMs, rx) || (unverifiableTime && isRegularSession(rx))) {
