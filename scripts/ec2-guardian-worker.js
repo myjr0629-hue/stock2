@@ -539,6 +539,14 @@ async function runCrossIntelligence(snapshot) {
 // ══════════════════════════════════════════════════════════════
 
 let lastEventImpactCheck = 0;
+/** fmp:econ-calendar 한 줄(date 'YYYY-MM-DD' · time 'HH:MM', 둘 다 UTC) → 발표 시점 UTC ms. 모양이 틀리면 null */
+function fmpEventMs(evt) {
+    const d = String((evt && evt.date) || "").trim();
+    const t = String((evt && evt.time) || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !/^\d{1,2}:\d{2}$/.test(t)) return null;
+    const ms = Date.parse(`${d}T${t.padStart(5, "0")}:00Z`);
+    return Number.isFinite(ms) ? ms : null;
+}
 let pendingEvent = null;   // Event we're watching
 
 async function checkEventImpact(snapshot) {
@@ -549,8 +557,6 @@ async function checkEventImpact(snapshot) {
     if (now - lastEventImpactCheck < 25 * 1000) return;
     lastEventImpactCheck = now;
 
-    const { hour, minute } = getETNow();
-    const currentMinutes = hour * 60 + minute;
     const currentGex = snapshot.gammaShield.gexIndex;
 
     // ── Phase 1: Check if any HIGH impact event is about to happen ──
@@ -565,20 +571,18 @@ async function checkEventImpact(snapshot) {
             for (const evt of events) {
                 if (evt.impact !== "HIGH") continue;
 
-                // Parse event time (format: "HH:mm")
-                const [h, m] = (evt.time || "00:00").split(":").map(Number);
-                const eventMinutes = h * 60 + m;
-                const diff = eventMinutes - currentMinutes;
-
-                // Check today's date
-                const todayET = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-                if (evt.date !== todayET) continue;
+                // [2026-11-02 서머타임 종료 감사] fmp:econ-calendar 의 date·time 은 «UTC» 다(src/lib/fmpCalendarTime.ts 10/07 실측).
+                //   예전엔 그 시각을 ET 분으로 읽어 지표 발표 4시간(EDT)·5시간(EST) 뒤의 GEX 변화를 «지표 반응»으로 알렸다.
+                //   → 발표 시점을 UTC ms 로 만들어 지금과 비교한다(날짜 비교도 같은 ms 로 — ET/UTC 날짜 어긋남 없음).
+                const eventMs = fmpEventMs(evt);
+                if (eventMs == null) continue;
+                const diff = (eventMs - now) / 60000;
 
                 // 5 minutes before event: capture pre-event GEX
                 if (diff > 0 && diff <= 5) {
                     pendingEvent = {
                         name: evt.event,
-                        eventMinutes,
+                        eventMs,
                         estimate: evt.estimate,
                         preGex: currentGex,
                         capturedAt: now,
@@ -595,7 +599,7 @@ async function checkEventImpact(snapshot) {
     }
 
     // ── Phase 2: After event time, measure GEX reaction ──
-    const timeSinceEvent = currentMinutes - pendingEvent.eventMinutes;
+    const timeSinceEvent = (now - pendingEvent.eventMs) / 60000;
 
     // Wait 2-10 minutes after event for GEX to react
     if (timeSinceEvent >= 2 && timeSinceEvent <= 10) {
@@ -612,7 +616,7 @@ async function checkEventImpact(snapshot) {
                 const calRaw = await redis.get("fmp:econ-calendar");
                 if (calRaw) {
                     const cal = JSON.parse(calRaw);
-                    const evt = (cal.events || []).find(e => e.event === pendingEvent.name && e.date === new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }));
+                    const evt = (cal.events || []).find(e => e.event === pendingEvent.name && fmpEventMs(e) === pendingEvent.eventMs);
                     if (evt?.actual != null && evt.actual !== "" && evt.actual !== "--") {
                         actualValue = String(evt.actual);
                     }

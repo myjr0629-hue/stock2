@@ -5,6 +5,7 @@ import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/s
 import { getStructureData, levelsForExit, displayLevels, rowSpot } from '@/services/structureService';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { isUsExtendedWindowAt } from '@/lib/usExtendedWindow';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route'; // [FIX] Direct import (no HTTP loopback)
@@ -198,15 +199,10 @@ const REDIS_PREFIX = 'dashboard:unified:'; // Redis key prefix
 
 // Smart TTL: short during active sessions (pre+regular+after), long during true off-hours
 function getDashboardSmartTTL(): { memoryMs: number; redisSeconds: number } {
-    const now = new Date();
-    const utcHour = now.getUTCHours();
-    const utcMin = utcHour * 60 + now.getUTCMinutes();
-    const day = now.getUTCDay();
-    // [FIX] Include PRE-market (04:00 ET = 08:00 UTC) through AFTER-hours close (20:00 ET = 00:00+1 UTC)
-    // Active window: 08:00 UTC onwards on weekdays (covers pre+regular+after)
-    // After midnight UTC (Mon-Fri 00:00-01:00) = still after-hours in ET (20:00-21:00)
-    const isWeekday = day >= 1 && day <= 5;
-    const isMarketActive = isWeekday && utcMin >= 8 * 60; // 08:00+ UTC = 04:00+ ET
+    // [FIX] Include PRE-market (04:00 ET) through AFTER-hours close (20:00 ET) on ET weekdays.
+    // [2026-11-02 서머타임 종료] 예전엔 «08:00 UTC~자정 UTC»(EDT 고정)였다 — EST 에는 시간외 마지막 1시간(19:00~20:00 ET = 00~01 UTC)이
+    //   «장외 12시간»으로 잡혀 대시가 19시 ET 값에 1시간 멈췄다. 뉴욕 시계(ET 요일·분)로 판정한다(EDT/EST 자동).
+    const isMarketActive = isUsExtendedWindowAt(Date.now());
     return isMarketActive
         ? { memoryMs: 120_000, redisSeconds: 180 } // 2min/3min during active sessions
         : { memoryMs: 3600_000, redisSeconds: 43200 }; // 1h/12h during true off-hours (21:00-04:00 ET)
