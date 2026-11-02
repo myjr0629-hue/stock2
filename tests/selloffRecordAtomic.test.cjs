@@ -13,11 +13,11 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 function store() {
     const values = new Map(), writes = [];
     const slot = n => (n === 'NASDAQ' || n === 'NASDAQ 100' ? 'NQ' : n);
-    const newer = (c, p) => ((c.name === 'SOX' || c.name === 'VIX') && c.name === p.name && c.pct === 0 && c.chgAbs === 0 && p.pct !== 0 && typeof c.level === 'number' && typeof p.level === 'number' && c.level === p.level) ? false : typeof c.at !== 'string' ? false : typeof p.at !== 'string' ? true
+    const newer = (c, p) => ((c.name === 'SOX' || c.name === 'VIX') && c.name === p.name && c.pct === 0 && (c.chgAbs == null || c.chgAbs === 0) && p.pct !== 0) ? false : typeof c.at !== 'string' ? false : typeof p.at !== 'string' ? true
         : c.at !== p.at ? c.at > p.at : typeof c.rx === 'string' && (typeof p.rx !== 'string' || c.rx > p.rx);
     return { values, writes, eval(script, keys, [raw, ttl]) {
         assert.match(script, /local raw = redis.call\('GET', KEYS\[1\]\)/);
-        assert.match(script, /c\.pct == 0 and c\.chgAbs == 0 and p\.pct ~= 0 and type\(c\.level\) == 'number' and type\(p\.level\) == 'number' and c\.level == p\.level/);
+        assert.match(script, /c\.pct == 0 and \(c\.chgAbs == nil or c\.chgAbs == cjson\.null or c\.chgAbs == 0\) and p\.pct ~= 0/);
         assert.match(script, /return c\.at > p\.at/);
         assert.match(script, /if c\.at ~= p\.at then return c\.at > p\.at end/);
         assert.match(script, /return type\(c\.rx\) == 'string' and \(type\(p\.rx\) ~= 'string' or c\.rx > p\.rx\)/);
@@ -63,7 +63,35 @@ function fixture() {
 }
 const rec = (chips) => ({ date: '2026-10-30', chips });
 
-test('same-level zero roll is rejected; a different-level zero correction is accepted', async () => {
+test('TS comparison and merge agree with the offline Lua model (gate 11021907)', async () => {
+    require('ts-node').register({ transpileOnly: true, compilerOptions: { module: 'commonjs', moduleResolution: 'node' } });
+    const { selloffChipNewer, mergeSelloffRecords } = require('../src/lib/selloffBriefing.ts');
+    const oldAt = '2026-10-30T20:00:00.000Z', newAt = '2026-10-30T20:15:00.000Z';
+    const cases = [
+        ['older nonzero after newer zero', { name: 'VIX', pct: 0, chgAbs: 0, level: 19, at: newAt }, { name: 'VIX', pct: 12.9, level: 19, at: oldAt }, false],
+        ...['VIX', 'SOX'].flatMap(name => [
+            ['legacy missing level and change', { name, pct: 12.9, at: oldAt }, { name, pct: 0, at: newAt }, false],
+            ['legacy missing observation time', { name, pct: 12.9 }, { name, pct: 0, chgAbs: 0, at: newAt }, false],
+            ['different levels', { name, pct: 12.9, level: 19, at: oldAt }, { name, pct: 0, level: 20, chgAbs: 0, at: newAt }, false],
+            ['nonzero absolute change', { name, pct: 12.9, at: oldAt }, { name, pct: 0, chgAbs: 1, at: newAt }, true],
+            ['other correction', { name, pct: 12.9, at: oldAt }, { name, pct: 3, at: newAt }, true],
+            ['same observation newer generation', { name, pct: 12.9, at: oldAt, rx: oldAt }, { name, pct: 3, at: oldAt, rx: newAt }, true],
+            ['same observation no generation', { name, pct: 12.9, at: oldAt }, { name, pct: 3, at: oldAt }, false],
+            ['existing zero', { name, pct: 0, at: oldAt }, { name, pct: 0, at: newAt }, true],
+        ]),
+        ...['S&P 500', 'NASDAQ', 'NASDAQ 100'].map(name => ['cash zero', { name, pct: -2, at: oldAt }, { name, pct: 0, at: newAt }, true]),
+    ];
+    for (const [label, previous, incoming, expected] of cases) {
+        const f = fixture();
+        await f.R.mergeSelloffRecordAtomic(KEY, rec([previous]), 600);
+        const lua = await f.R.mergeSelloffRecordAtomic(KEY, rec([incoming]), 600);
+        assert.equal(selloffChipNewer(incoming, previous), !!lua, `${label}: newer vs Lua`);
+        assert.deepEqual(mergeSelloffRecords(rec([previous]), rec([incoming]), '2026-10-30')?.chips, f.up.values.get(KEY).chips, `${label}: merge vs Lua`);
+        assert.equal(!!lua, expected, label);
+    }
+});
+
+test('zero roll is rejected regardless of level; other corrections are accepted', async () => {
     for (const name of ['VIX', 'SOX']) {
         const f = fixture();
         const first = { name, pct: 12.9, level: 19.42, chgAbs: 2.22, at: '2026-10-30T20:00:00.000Z' };
@@ -71,7 +99,8 @@ test('same-level zero roll is rejected; a different-level zero correction is acc
         assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([first]), 600), 1);
         assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([zero]), 600), 0);
         assert.deepEqual(f.up.values.get(KEY).chips, [first]);
-        assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ ...zero, level: 19.43 }]), 600), 1);
+        assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ ...zero, level: 19.43 }]), 600), 0);
+        assert.equal(await f.R.mergeSelloffRecordAtomic(KEY, rec([{ ...zero, pct: 3 }]), 600), 1);
     }
 });
 

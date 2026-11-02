@@ -5,7 +5,7 @@ import { currentSelloff, loadRetainedSelloff, mergeSelloffRecord, mergeSelloffRe
 const now = Date.parse('2026-11-02T15:00:00Z');
 const cash = (changePct: number, sessionDate = '2026-10-30', asOf = '2026-10-30T20:00:00Z') => ({ changePct, sessionDate, asOf, price: 100 });
 const factor = (chgPct: number, marketTime = '2026-10-30T20:00:00Z') => ({ chgPct, marketTime, status: 'OK', source: 'YAHOO' });
-test('SOX and VIX retain nonzero same-level observations against a later zero roll', () => {
+test('SOX and VIX retain nonzero observations against a later zero roll regardless of level', () => {
   for (const [name, key] of [['VIX', 'vix'], ['SOX', 'sox']] as const) {
     const initial: SelloffMacro = { factors: { [key]: { ...factor(12.9), level: 19.42, chgAbs: 2.22 } } };
     const later: SelloffMacro = { factors: { [key]: { ...factor(0, '2026-10-30T20:15:01Z'), level: 19.42, chgAbs: 0 } } };
@@ -15,10 +15,10 @@ test('SOX and VIX retain nonzero same-level observations against a later zero ro
     assert.equal(result.write, false);
     const zero = mergeSelloffRecord({ now, macro: later, stored: null, storedKnown: true }).record!;
     assert.equal(mergeSelloffRecords(first, zero, first.date)?.chips[0].pct, 12.9);
-    assert.equal(mergeSelloffRecords(zero, first, first.date)?.chips[0].pct, 12.9);
-    const correction: SelloffMacro = { factors: { [key]: { ...factor(0, '2026-10-30T20:15:01Z'), level: 19.43, chgAbs: 0 } } };
+    assert.equal(mergeSelloffRecords(zero, first, first.date)?.chips[0].pct, 0);
+    const correction: SelloffMacro = { factors: { [key]: { ...factor(3, '2026-10-30T20:15:01Z'), level: 19.43, chgAbs: 0 } } };
     const fixed = mergeSelloffRecord({ now, macro: correction, stored: first, storedKnown: true });
-    assert.equal(fixed.record?.chips[0].pct, 0);
+    assert.equal(fixed.record?.chips[0].pct, 3);
     assert.equal(fixed.write, true);
   }
 });
@@ -132,8 +132,8 @@ test('data missing or stale hides the card even inside the window', () => {
   assert.equal(day(future, '2026-11-02T15:00:00Z', kept), null);              // 미래 시각만 있는 응답
   const failed = { factors: { sox: { ...factor(0, '2026-11-02T14:59:00Z'), status: 'UNAVAILABLE' }, vix: { ...factor(0, '2026-11-02T14:59:00Z'), source: 'FAIL' } } };
   assert.equal(day(failed, '2026-11-02T15:00:00Z', kept), null);              // 실패 표시 관측은 «현재» 근거가 아니다
-  // D 마감 관측이 응답에 있으면 보관본보다 우선한다(정정된 값으로 조건 미달이면 숨김).
-  const corrected = { ...fridayClose, indexBasis: { cash: { spx: { ...fridayClose.indexBasis!.cash!.spx!, changePct: -0.4 } } }, factors: { sox: factor(-1, '2026-10-30T21:16:01Z'), vix: factor(3, '2026-10-30T20:15:01Z') } };
+  // 같은 관측 시각이라도 더 늦은 세대의 정정이면 반영한다.
+  const corrected = { ...fridayClose, fetchedAtET: '2026-10-31T14:00:00.000Z', selloffReadAt: '2026-10-31T14:00:00.000Z', indexBasis: { cash: { spx: { ...fridayClose.indexBasis!.cash!.spx!, changePct: -0.4 } } }, factors: { sox: factor(-1, '2026-10-30T21:16:01Z'), vix: factor(3, '2026-10-30T20:15:01Z') } };
   assert.equal(day(corrected, '2026-10-31T15:00:00Z', kept), null);
 });
 
@@ -174,6 +174,7 @@ test('corrected D close overwrites the retained record so it cannot revive next 
   };
   assert.equal((await load(fridayClose, '2026-10-30T21:00:00Z'))?.date, '2026-10-30');      // 금 장후: 급락 저장
   const corrected: SelloffMacro = {
+    fetchedAtET: '2026-10-31T14:00:00.000Z', selloffReadAt: '2026-10-31T14:00:00.000Z',
     indexBasis: { cash: { spx: { changePct: -0.4, sessionDate: '2026-10-30', asOf: '2026-10-30T20:47:43Z', price: 7580 } } },
     factors: { sox: factor(-1, '2026-10-30T21:16:01Z'), vix: factor(3, '2026-10-30T20:15:01Z') },
   };
@@ -187,7 +188,7 @@ test('corrected D close overwrites the retained record so it cannot revive next 
   // 일부 지표만 정정(S&P 만 −0.4)이면 정정 안 된 SOX·VIX 기록으로 조건 유지.
   mem.clear();
   await load(fridayClose, '2026-10-30T21:00:00Z');
-  const spxOnly = { ...fridayClose, indexBasis: { cash: { spx: { ...fridayClose.indexBasis!.cash!.spx!, changePct: -0.4 } } } };
+  const spxOnly = { ...fridayClose, selloffReadAt: '2026-10-31T14:00:00.000Z', indexBasis: { cash: { spx: { ...fridayClose.indexBasis!.cash!.spx!, changePct: -0.4 } } } };
   assert.deepEqual((await load(spxOnly, '2026-10-31T15:00:00Z'))?.chips.map(c => c.pct), [-0.4, -7.2, 12.9]);
 });
 
@@ -219,7 +220,7 @@ test('first visit during the next session: server D record keeps the card (gate 
 
 test('server record: corrections overwrite, unknown cache state never writes', () => {
   const kept = selloffForDisplay({ now: at('2026-10-31T15:00:00Z'), macro: fridayClose })!;
-  const corrected: SelloffMacro = { indexBasis: { cash: { spx: { changePct: -0.4, sessionDate: '2026-10-30', asOf: '2026-10-30T20:47:43Z', price: 7580 } } }, factors: { sox: factor(-1, '2026-10-30T21:16:01Z'), vix: factor(3, '2026-10-30T20:15:01Z') } };
+  const corrected: SelloffMacro = { fetchedAtET: '2026-10-31T14:00:00.000Z', selloffReadAt: '2026-10-31T14:00:00.000Z', indexBasis: { cash: { spx: { changePct: -0.4, sessionDate: '2026-10-30', asOf: '2026-10-30T20:47:43Z', price: 7580 } } }, factors: { sox: factor(-1, '2026-10-30T21:16:01Z'), vix: factor(3, '2026-10-30T20:15:01Z') } };
   const fix = mergeSelloffRecord({ now: at('2026-10-31T15:00:00Z'), macro: corrected, stored: kept, storedKnown: true });
   assert.equal(fix.write, true);
   assert.deepEqual(fix.record?.chips.map(c => c.pct), [-0.4, -1, 3]);

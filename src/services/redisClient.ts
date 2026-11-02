@@ -994,7 +994,7 @@ if raw then
 end
 -- 관측(at)이 늦은 쪽, 관측이 같으면 스냅샷 세대(rx)가 늦은 쪽(값이 같아도 rx 전진). lib/selloffBriefing selloffChipNewer 와 같다.
 local function newer(c, p)
-    if (c.name == 'SOX' or c.name == 'VIX') and c.name == p.name and c.pct == 0 and c.chgAbs == 0 and p.pct ~= 0 and type(c.level) == 'number' and type(p.level) == 'number' and c.level == p.level then return false end
+    if (c.name == 'SOX' or c.name == 'VIX') and c.name == p.name and c.pct == 0 and (c.chgAbs == nil or c.chgAbs == cjson.null or c.chgAbs == 0) and p.pct ~= 0 then return false end
     if type(c.at) ~= 'string' then return false end
     if type(p.at) ~= 'string' then return true end
     if c.at ~= p.at then return c.at > p.at end
