@@ -121,9 +121,9 @@ function highlightData(text: string, parentKey: number): React.ReactNode[] {
         const key = `${parentKey}-${match.index}`;
 
         if (match[1]) {
-            // A sign immediately following a number, percent or decimal point is a separator.
+            // A sign right after a number, percent or decimal point (spaces allowed, e.g. «3% –5%») is a range separator.
             const isSign = /[+\-−–]/.test(matched[0]) &&
-                (match.index === 0 || !/[\d%.]/.test(text[match.index - 1]));
+                (match.index === 0 || !/[\d%.]\s*$/.test(text.slice(Math.max(0, match.index - 3), match.index)));
             // 0 (예: +0.0%, −0.00%) 은 보합 — 부호가 있어도 중립색.
             const isZero = Number(matched.replace(/[^\d.]/g, '')) === 0;
             const direction = isSign && !isZero ? (matched[0] === '+' ? 1 : -1) : 0;

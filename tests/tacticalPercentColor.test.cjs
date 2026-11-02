@@ -67,3 +67,11 @@ console.log('tactical percentage color: passed');
 for (const v of ['+0.0%', '−0.00%', '-0%', '+0%']) {
     assert.ok(markup(v).includes(span(v, 'text-white')), markup(v));
 }
+// 공백이 낀 범위 구분자도 중립(«3% –5%», «3 – 5%»)
+for (const t of ['3% –5%', '3 – 5%']) {
+    const r = markup(t);
+    assert.doesNotMatch(r, /text-rose|text-emerald/, r);
+}
+// 문장 속 음수는 그대로 빨강
+assert.ok(markup('반도체(SMH) −7%가').includes(span('−7%', 'text-rose-400/90')));
+assert.ok(markup('그리고 −7%').includes(span('−7%', 'text-rose-400/90')));
