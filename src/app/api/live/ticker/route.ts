@@ -28,6 +28,7 @@ import { getExtendedSessionCloseWithin, isTradeInExtSession, keepSessionScopedFr
 import { shownRegularSessionDate, etLastClosedSessionDate, etMinutesOf, cashSessionPhaseAt } from '@/lib/marketCalendar';
 import { volumePutCallFromChain } from '@/lib/putCall'; // ★ P/C 정의 한 곳(2026-10-07) — 풋÷콜, 기준(거래량/미결제약정)은 필드 이름에
 import { priceAsOfET } from '@/lib/quoteBasis';
+import { repairVendorEpochMs } from '@/lib/vendorTime'; // ★ 11/2 벤더 «2083년» 시각 복구
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 빈 응답 진단(2026-09-04)
 
@@ -1612,6 +1613,11 @@ export async function GET(req: NextRequest) {
         if (!freshVerdict.ok) finalPayload._staleReason = freshVerdict.why;
     } else if (freshVerdict.ok) {
         finalPayload._goodAt = Date.now();
+    }
+    // ★ [2026-11-02] 11/2 이전 마지막 정상본에 남은 «2083년» 호가 시각(벤더 서머타임 왜곡)이 병합으로 되살아나지 않게 다시 검사한다(lib/vendorTime.ts).
+    if (finalPayload.quote && Number(finalPayload.quote.asOfMs) > 0) {
+        const qMs = repairVendorEpochMs(Number(finalPayload.quote.asOfMs));
+        if (qMs !== Number(finalPayload.quote.asOfMs)) finalPayload = { ...finalPayload, quote: { ...finalPayload.quote, asOfMs: qMs > 0 ? qMs : null } };
     }
     // 마지막 정상본 병합 뒤에도 모든 세션의 목표일을 재검사한다.
     finalPayload = dropStaleLiveVwap(finalPayload);
