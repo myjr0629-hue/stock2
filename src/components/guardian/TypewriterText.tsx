@@ -102,7 +102,7 @@ export function renderColoredText(text: string): React.ReactNode[] {
  */
 function highlightData(text: string, parentKey: number): React.ReactNode[] {
     // Pattern matches: +0.12%, -4.28%, +1.11%, 0.04%, percentages, and key numbers with %
-    const DATA_PATTERN = /([+-]?\d+\.?\d*%)|(\b(?:S&P\s*500|NASDAQ|DOW|VIX|DXY|GEX|RLSI|Fear\s*&\s*Greed|US10Y|BTC|Gold|Oil|WTI)\b)/gi;
+    const DATA_PATTERN = /([+\-−]?\d+\.?\d*%)|(\b(?:S&P\s*500|NASDAQ|DOW|VIX|DXY|GEX|RLSI|Fear\s*&\s*Greed|US10Y|BTC|Gold|Oil|WTI)\b)/gi;
 
     const result: React.ReactNode[] = [];
     let lastIndex = 0;
@@ -122,18 +122,31 @@ function highlightData(text: string, parentKey: number): React.ReactNode[] {
 
         if (match[1]) {
             // Percentage number
-            const val = parseFloat(matched);
-            if (val > 0) {
+            // Decimal points are not sentence boundaries. Ambiguous mixed directions
+            // inherit the surrounding body color rather than guessing.
+            const boundaries = /[。！？!?\n]|\.(?!\d)/g;
+            let start = 0;
+            let end = text.length;
+            let boundary: RegExpExecArray | null;
+            while ((boundary = boundaries.exec(text)) !== null) {
+                if (boundary.index < match.index) start = boundary.index + 1;
+                else { end = boundary.index; break; }
+            }
+            const sentence = text.slice(start, end);
+            const down = /내렸|하락|\b(?:fell|down)\b|下落|下げ/i.test(sentence);
+            const up = /올랐|상승|\b(?:rose|up)\b|上昇/i.test(sentence);
+            const direction = matched[0] === '+' ? 1 : /[-−]/.test(matched[0]) ? -1 : down === up ? 0 : down ? -1 : 1;
+            if (direction > 0) {
                 result.push(
                     <span key={key} className="text-emerald-400/90 font-semibold">{matched}</span>
                 );
-            } else if (val < 0) {
+            } else if (direction < 0) {
                 result.push(
                     <span key={key} className="text-rose-400/90 font-semibold">{matched}</span>
                 );
             } else {
                 result.push(
-                    <span key={key} className="text-white/90 font-semibold">{matched}</span>
+                    <span key={key} className="font-semibold">{matched}</span>
                 );
             }
         } else if (match[2]) {

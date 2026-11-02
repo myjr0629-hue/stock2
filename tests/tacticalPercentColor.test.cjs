@@ -1,0 +1,32 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const Module = require('node:module');
+const ts = require('typescript');
+const React = require('react');
+const { renderToStaticMarkup } = require('react-dom/server');
+
+const filename = require('node:path').resolve('src/components/guardian/TypewriterText.tsx');
+const source = fs.readFileSync(filename, 'utf8');
+const compiled = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
+const component = new Module(filename, module);
+component.filename = filename;
+component.paths = Module._nodeModulePaths(require('node:path').dirname(filename));
+component._compile(compiled, filename);
+const { renderColoredText, TypewriterText } = component.exports;
+const markup = text => renderToStaticMarkup(React.createElement('div', null, renderColoredText(text)));
+const check = (text, value, color) => assert.ok(markup(text).includes(`<span class="${color ? `text-${color}-400/90 ` : ''}font-semibold">${value}</span>`), markup(text));
+
+const ko = '나스닥 종합은 2.9%, S&P500은 1.8% 내렸고 반도체(SMH) −7%';
+check(ko, '2.9%', 'rose'); check(ko, '1.8%', 'rose'); check(ko, '−7%', 'rose');
+check('지수 3% 올랐다.', '3%', 'emerald'); check('지수 3% 하락.', '3%', 'rose');
+check('NASDAQ fell 2.9% and S&P 500 was down 1.8%.', '2.9%', 'rose');
+check('Stocks rose 2% and were up 3%.', '3%', 'emerald');
+check('指数は2.9%下落、1.8%下げた。', '1.8%', 'rose'); check('指数は2%上昇。', '2%', 'emerald');
+for (const text of ['-7% 상승', '−7% rose', '+7% 下落']) check(text, text.slice(0, 3), text[0] === '+' ? 'emerald' : 'rose');
+check('비중은 2.9%. 다음 지수는 상승.', '2.9%', '');
+check('Index rose 2% but fell 3%.', '2%', '');
+check('The setup is 2%.', '2%', '');
+assert.match(markup('[현황] NASDAQ −7%'), /text-cyan-400 font-bold/);
+assert.match(markup('[현황] NASDAQ −7%'), /text-white font-semibold/);
+assert.match(renderToStaticMarkup(React.createElement(TypewriterText, { text: 'message' })), /animate-pulse/);
+console.log('tactical percentage color: passed');
