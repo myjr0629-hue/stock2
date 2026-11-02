@@ -219,11 +219,75 @@ check('서머타임 경계: 전환일 ET 자정 epoch 를 Intl 로 계산(EDT 04
   })();
 
   await (async () => {
+    // 11/2 23:4x KST 정규장 실측(CDP 진단): Intrinio WS 원본 ns 가 개장 전 값에 고정 — QQQ 3587117382982xxxxxx 가
+    // 가격 697.1066→697.1116 메시지마다 반복, 복구하면 09:29:42Z(5시간 전) → 수리 전 코드는 전부 staleDropped.
+    const RX = Date.parse('2026-11-02T14:43:22.349Z');
+    now = RX; const h = makeHub();
+    h.tickerSubscribers.set('QQQ', new Set());
+    h.handleTradeUpdate({ sym: 'QQQ', p: 697.1066, s: 0, t: 3587117382982000000, _intrinio: true });
+    assert.equal(h.staleDropped.get('QQQ'), 1);                                     // 처음 보는 왜곡값 — 고정인지 모름 → 기존 규칙(버림)
+    now = RX + 500;
+    h.handleTradeUpdate({ sym: 'QQQ', p: 697.1116, s: 0, t: 3587117382982000000, _intrinio: true });
+    assert.equal(h.staleDropped.get('QQQ'), 1);                                     // 같은 원본 반복 = 고정값 → 채택
+    assert.equal(h.latestPrices.get('QQQ').price, 697.1116); assert.equal(h.latestPrices.get('QQQ').ts, RX + 500);
+    const tick = h.liveTicks.get('QQQ');
+    assert.equal(tick.trade, RX + 500); assert.equal(tick.rx, RX + 500);           // 웹 /last 오버레이: rx − trade ≤ 90초 통과
+    assert.equal(h.vendorTimeRepairStats.wsRxTime, 1);
+    // 관문 11022346 지적: 전진하는 왜곡 원본이 복구해도 15분 전(진짜 지연·재전송)이면 수신 시각으로 꾸미지 않고 버린다.
+    h.tickerSubscribers.set('Z', new Set());
+    h.handleTradeUpdate({ sym: 'Z', p: 10, s: 0, t: (RX - 1_000_000 + SKEW) * 1e6, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'Z', p: 11, s: 0, t: (RX - 900_000 + SKEW) * 1e6, _intrinio: true });
+    assert.equal(h.staleDropped.get('Z'), 2); assert.equal(h.liveTicks.has('Z'), false);
+    // 관문 11022348 지적: 같은 ms 안에서 전진(ns 차이)해도 반복으로 보지 않는다.
+    h.tickerSubscribers.set('N', new Set());
+    const base = (RX - 900_000 + SKEW) * 1e6;
+    h.handleTradeUpdate({ sym: 'N', p: 10, s: 0, t: base, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'N', p: 11, s: 0, t: base + 200_000, _intrinio: true });   // +0.2ms
+    assert.equal(h.staleDropped.get('N'), 2); assert.equal(h.liveTicks.has('N'), false);
+    // 정상 시각이 사이에 오면 고정 판별을 처음부터(직전 왜곡값을 잊는다).
+    h.handleTradeUpdate({ sym: 'N', p: 12, s: 0, t: (RX + 500 - 300) * 1e6, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'N', p: 13, s: 0, t: base + 200_000, _intrinio: true });
+    assert.equal(h.latestPrices.get('N').price, 12); assert.equal(h.staleDropped.get('N'), 3);
+    // 관문 11022350 지적: 개장 뒤 시각(5분 전 = 14:38Z)으로 복구되는 같은 왜곡값 반복(재전송) → 수신 시각으로 꾸미지 않고 버린다.
+    h.tickerSubscribers.set('R2', new Set());
+    const afterOpen = (RX - 300_000 + SKEW) * 1e6;
+    h.handleTradeUpdate({ sym: 'R2', p: 10, s: 0, t: afterOpen, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'R2', p: 10, s: 0, t: afterOpen, _intrinio: true });
+    assert.equal(h.staleDropped.get('R2'), 2); assert.equal(h.liveTicks.has('R2'), false);
+    // 장외(프리마켓)는 배포본 동작 그대로 — 반복이어도 복구값.
+    now = Date.parse('2026-11-02T14:00:00Z');
+    h.tickerSubscribers.set('P', new Set());
+    const preRaw = (Date.parse('2026-11-02T09:29:00Z') + SKEW) * 1e6;
+    h.handleTradeUpdate({ sym: 'P', p: 1, s: 0, t: preRaw, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'P', p: 2, s: 0, t: preRaw, _intrinio: true });
+    assert.equal(h.latestPrices.get('P').ts, Date.parse('2026-11-02T09:29:00Z'));
+    now = RX + 500;
+    // 복구해서 신선(90초 안)하면 복구값 그대로.
+    h.handleTradeUpdate({ sym: 'Z', p: 12, s: 0, t: (RX + 500 - 2_000 + SKEW) * 1e6, _intrinio: true });
+    assert.equal(h.latestPrices.get('Z').ts, RX + 500 - 2_000);
+    // 복구 불가 미래 왜곡값도 처음이면 버림, 같은 값 반복이면 수신 시각.
+    h.tickerSubscribers.set('Y', new Set());
+    h.handleTradeUpdate({ sym: 'Y', p: 5, s: 0, t: '2099-01-01T00:00:00Z', _intrinio: true });
+    assert.equal(h.staleDropped.get('Y'), 1);
+    h.handleTradeUpdate({ sym: 'Y', p: 5.1, s: 0, t: '2099-01-01T00:00:00Z', _intrinio: true });
+    assert.equal(h.latestPrices.get('Y').ts, RX + 500);
+    assert.equal(h.isSnapshotSendable(h.latestPrices.get('QQQ'), RX + 1_000), true);
+    // 정상 시각(XLY 실측 지연 0.7초)은 원천 시각 그대로.
+    h.tickerSubscribers.set('XLY', new Set());
+    h.handleTradeUpdate({ sym: 'XLY', p: 117.97, s: 0, t: (RX - 700) * 1e6, _intrinio: true });
+    assert.equal(h.latestPrices.get('XLY').ts, RX - 700);
+    // 정상 시각의 지연 체결은 여전히 버린다(T31f).
+    h.handleTradeUpdate({ sym: 'XLY', p: 117.5, s: 0, t: (RX - 900_000) * 1e6, _intrinio: true });
+    assert.equal(h.staleDropped.get('XLY'), 1);
+    passed++; console.log('  ✓ 정규장 Intrinio WS 고정(반복) 왜곡 시각 → 수신 시각 채택 · 전진 왜곡 지연은 버림(관문 11022346) · 정상 시각 불변 · 지연 체결 버림 유지');
+  })();
+
+  await (async () => {
     // 관문 11021947 보류 재현: 정규장 WS 체결의 원천 시각이 복구 불가 미래면 신선도를 모르므로 방송·저장·lastAccepted 기록 0.
     now = REG; const h = makeHub();
     h.tickerSubscribers.set('U', new Set());
     h.latestPrices.set('U', { price: 10, ts: REG - 200_000, prevClose: 9 });
-    h.handleTradeUpdate({ sym: 'U', p: 12, s: 1, t: (REG + 3_600_000) * 1e6, _intrinio: true });
+    h.handleTradeUpdate({ sym: 'U', p: 12, s: 1, t: (REG + 3_600_000) * 1e6, _intrinio: true });   // 처음 보는 왜곡값
     assert.equal(h.broadcasts.length, 0); assert.equal(h.lastAcceptedTradeMs.has('U'), false); assert.equal(h.liveTicks.has('U'), false);
     assert.equal('price' in h.latestPrices.get('U'), false); assert.equal(h.staleDropped.get('U'), 1);
     assert.equal(h.latestPrices.get('U').lastTradeTs, REG - 200_000);
