@@ -1,3 +1,5 @@
+import { isUsExtendedWindowAt } from '@/lib/usExtendedWindow';
+import { etMinutesOf, etWeekdayOf } from '@/lib/marketCalendar';
 import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { readOptionEditions } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
@@ -287,22 +289,16 @@ function memorySet(key: string, data: any): void {
 // Previously only covered regular session (9:30-4:00 ET), causing pre/post market to use
 // 72-hour stale cache TTL → EC2 institutional data never refreshed during extended hours.
 function isMarketHoursNow(): boolean {
-    const now = new Date();
-    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
-    const day = now.getUTCDay();
-    // Weekday + 4:00 AM - 8:00 PM ET (8:00 - 24:00 UTC / 0:00 UTC)
-    // Pre-market: 08:00-13:30 UTC (4:00-9:30 AM ET)
-    // Regular:    13:30-20:00 UTC (9:30 AM-4:00 PM ET)
-    // Post-market: 20:00-00:00 UTC (4:00-8:00 PM ET)
-    return day >= 1 && day <= 5 && utcMin >= 8 * 60 && utcMin <= 24 * 60;
+    // 프리·정규·애프터(ET 평일 04:00~19:59) — 뉴욕 시계로 판정(서머타임/표준시 무관). (2026-11-02) 예전 UTC 08~24시 고정은 EST 에 19~20시 ET 를 놓쳤다.
+    return isUsExtendedWindowAt(Date.now());
 }
 
 // Regular session only — used for aggressive refresh thresholds
 function isRegularSessionNow(): boolean {
-    const now = new Date();
-    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
-    const day = now.getUTCDay();
-    return day >= 1 && day <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 20 * 60;
+    // 정규장(ET 평일 09:30~16:00) — 뉴욕 시계. (2026-11-02) 예전 UTC 13:30~20:00 고정은 EST 에 08:30~15:00 ET 로 1시간 어긋났다.
+    const now = Date.now();
+    const wd = etWeekdayOf(now), m = etMinutesOf(now);
+    return wd >= 1 && wd <= 5 && m >= 9 * 60 + 30 && m <= 16 * 60;
 }
 
 // Smart TTL: short during market (incl. extended), long during off-hours
