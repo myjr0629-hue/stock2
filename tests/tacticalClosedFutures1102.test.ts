@@ -107,6 +107,8 @@ const monBasis = buildMarketIndexBasis({ nasdaq: cash('^IXIC', 25436.998, -2.855
         assert.deepEqual(driverClaimReasons('28.6% 폭락한 인텔이 반도체를 끌어내렸습니다.', drivers), []);
         assert.ok(driverClaimReasons('28.6% 급등한 인텔이 반도체를 끌어올렸습니다.', drivers).includes('tactical:driver-direction:earnings:INTC'));
         assert.deepEqual(driverClaimReasons('28.6%急落したインテルが半導体を押し下げました。', drivers), []);
+        assert.ok(driverClaimReasons('7% 폭락한 인텔이 28.6% 하락하며 반도체를 눌렀습니다.', drivers).includes('tactical:driver-value:earnings:INTC'), '관문 11021736 — 앞뒤 숫자 둘 다 대조');
+        assert.deepEqual(driverClaimReasons('28.6% 폭락한 인텔이 28.6% 하락하며 반도체를 눌렀습니다.', drivers), []);
         // 회사 이름 = Tactical 숫자 주어(orphan-number 오탐 — 11/2 실모델 3언어) · 공유 호출자 사전은 그대로
         for (const t of ['인텔이 장후 28.6% 폭락했습니다', "Against a report on Intel's 28.6% plunge", 'インテルが28.6%急落しました'])
             assert.deepEqual(orphanNumberReasons(t, { tactical: true }), [], t);

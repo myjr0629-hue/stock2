@@ -437,7 +437,8 @@ export function driverClaimReasons(text: string, drivers: string, observations =
             mine = prev;
         }
         // ★2026-11-02 관문 11021732 ② — 실적 반응은 숫자가 회사 이름 «앞»에 붙는 꾸밈 모양도 대조(«A 50% plunge in Intel» · «28.6% 폭락한 인텔» · «28.6%急落したインテル»)
-        if (!mine.length && m.sp.id.startsWith('earnings:')) {
+        // 관문 11021736 — 앞 꾸밈 숫자는 뒤 숫자가 있어도 따로 대조한다(«7% 폭락한 인텔이 28.6% 하락» 의 7%)
+        if (m.sp.id.startsWith('earnings:')) {
             const lead = text.slice(Math.max(0, m.at - 48), m.at);
             const pre = lead.match(/([+−-]?)(\d+(?:\.\d+)?)\s?%\s*(?:(?:plunge|plummet|drop|fall|slide|slump|decline|tumble|sell-?off|loss|jump|surge|gain|rise|rally|rebound|climb)s?\s+(?:in|for|at|of)\s+(?:shares of\s+|the\s+)?|(?:폭락|급락|하락|추락|급등|폭등|상승|반등)한\s*|(?:떨어진|내린|밀린|오른|뛴)\s*|(?:急落|暴落|下落|急騰|暴騰|上昇|反発)した\s*)$/i);
             if (pre) {
@@ -447,9 +448,9 @@ export function driverClaimReasons(text: string, drivers: string, observations =
                 const sign = pre[1] === '+' ? 1 : pre[1] ? -1 : 0;
                 const verb = pre[0].slice(pre[1].length + pre[2].length);
                 const dir = DIR_DOWN.test(verb) || /plunge|plummet|slump|sell-?off|loss|tumble|폭락|급락|추락|밀린|暴落/i.test(verb) ? -1 : DIR_UP.test(verb) || /rally|폭등|뛴|暴騰|反発/i.test(verb) ? 1 : 0;
-                if ((sign && sign !== Math.sign(v)) || (dir && dir !== Math.sign(v))) out.push(`tactical:driver-direction:${m.sp.id}`);
+                if ((sign && sign !== Math.sign(v)) || (dir && dir !== Math.sign(v))) { out.push(`tactical:driver-direction:${m.sp.id}`); return; }
             }
-            return;
+            if (!mine.length) return;
         }
         if (!mine.length) return;
         // 그 지표의 숫자 = 첫 숫자 + 바로 붙은 둘째(«4.94%(전일 대비 4bp» · «9.4%에서 72%로», 15자 안)까지 — 그 뒤 숫자는 다음 주어의 것(«rose to 4.94% as markets price a 72% chance»)
