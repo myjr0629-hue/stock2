@@ -13,6 +13,7 @@ import { attachBriefs, briefEntryKey, briefNeedsFill, EARNINGS_BRIEF_KEY, type B
 import { attachImplied, impliedPackStale } from '@/lib/earnings/earningsImplied';
 import { readImpliedPack, refreshImpliedPack } from '@/services/earningsImpliedService';
 import { attachCalendarOnlyImplied, calendarOnlyAddition } from '@/services/earningsCalendarOnlyService';
+import { attachCalendarReportedImplied } from '@/services/calendarReportedImpliedService';
 import { publicBase } from '@/lib/net/publicBase';
 
 export type { EarningsRow } from '@/services/earningsCalendarService';
@@ -110,7 +111,8 @@ export async function GET(req: Request) {
     const add = calendarScope ? calendarOnlyAddition(raw) : { rows: raw, extra: [] as any[] };
     const [m, im, ex] = await Promise.all([attachEarningsBrief(add.rows, raw), attachEarningsImplied(raw), attachCalendarOnlyImplied(add.extra)]);
     const impliedByKey = new Map([...im.rows, ...ex.rows].map((x: any) => [`${x.ticker}|${x.date}`, x.implied ?? null]));
-    const rows = m.rows.map((x: any) => ({ ...x, implied: impliedByKey.get(`${x.ticker}|${x.date}`) ?? null }));
+    const baseRows = m.rows.map((x: any) => ({ ...x, implied: impliedByKey.get(`${x.ticker}|${x.date}`) ?? null }));
+    const rows = calendarScope ? await attachCalendarReportedImplied(baseRows) : baseRows;
     if (im.stale && raw.length) {
       afterSafe(async () => {
         try {
@@ -122,7 +124,7 @@ export async function GET(req: Request) {
     if (m.needFill > 0) afterSafe(() => triggerBriefFill(req.url));
     return NextResponse.json({
       ...r.payload, rows, aiCount: m.aiCount, aiAt: m.aiAt, aiBlocked: m.aiBlocked,
-      impliedCount: im.count + ex.count, impliedAt: im.at,
+      impliedCount: rows.filter((x: any) => x.implied != null).length, impliedAt: im.at,
       _cache: r.cache === 'miss' ? 'miss' : 'hit',
     });
   }
