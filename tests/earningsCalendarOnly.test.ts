@@ -139,7 +139,7 @@ const EXTRA = LIB.CALENDAR_ONLY_EARNINGS.map((c) => c.ticker);
   });
   // 11/3 T55: 공통 목록에 10/26~11/12 회사 공지(유니버스 안 83종목)를 더해 해시를 갱신했다 — 캘린더 전용 종목은 여전히 0
   await t('CONFIRMED_EARNINGS(영수증 크론·SEO·오늘 볼 것·알림) 해시 = 고정값 · 캘린더 전용 종목 0', () => {
-    assert.equal(sha(CONF.CONFIRMED_EARNINGS.map((x) => `${x.ticker}|${x.date}|${x.hour}`)), '058fbef54aeef0061816c069a5b3211f9559736c135fd6ca21505646ef6663a4');
+    assert.equal(sha(CONF.CONFIRMED_EARNINGS.map((x) => `${x.ticker}|${x.date}|${x.hour}`)), '54e9c85808a26d422a3517ff07e6a14c6b95db0b4766d090a0f8985da4821f20');
     for (const x of EXTRA) assert.ok(!CONF.CONFIRMED_EARNINGS.some((c) => c.ticker === x), `${x} 가 공통 공지 목록에 있다`);
   });
 

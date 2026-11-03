@@ -110,10 +110,10 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'Business Wire 사본. 통화 2:00pm PT(=5:00pm ET).',
   },
   {
-    ticker: 'AMAT', date: '2026-11-12', hour: 'amc', callEtTime: '16:30', sourceKind: 'company-pr', announcedOn: '2026-10-22', verifiedAt: '2026-11-03T19:15:00Z',
+    ticker: 'AMAT', date: '2026-11-12', hour: '', callEtTime: '16:30', sourceKind: 'company-pr', announcedOn: '2026-10-22', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://finviz.com/news/406307/applied-materials-to-report-fourth-quarter-and-fiscal-2026-results-on-nov-12-2026',
     quote: 'earnings conference call on Thursday, Nov. 12, 2026, at 4:30 p.m. ET / 1:30 p.m. PT',
-    note: 'GlobeNewswire 사본(IR 원문은 봇 차단). 결과 공개 시각 미공지 — 통화 4:30pm ET 로 장 마감 후 판정.',
+    note: 'GlobeNewswire 사본(IR 원문은 봇 차단). 결과 공개 시각 미공지 — 통화 4:30pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
   },
   {
     ticker: 'AMD', date: '2026-11-03', hour: 'amc', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-10-07T16:55:00Z',
@@ -158,10 +158,10 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'ASML 2025 연차보고서(SEC 6-K 첨부) 재무 일정표 «Announcement of third-quarter results for 2026». ASML IR 는 07:00 CET(=01:00 ET) 배포 — 미국 장 시작 전. 미국 ADR 옵션 기준.',
   },
   {
-    ticker: 'ASTS', date: '2026-11-09', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-26', verifiedAt: '2026-11-03T19:15:00Z',
+    ticker: 'ASTS', date: '2026-11-09', hour: '', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-26', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://finviz.com/news/408301/ast-spacemobile-to-host-third-quarter-2026-business-update-call-on-november-9-2026',
     quote: 'on Monday, November 9 at 5:00 p.m. (Eastern Time)',
-    note: 'Business Wire 사본. «business update call» — 결과 공개 시각 미공지, 통화 5:00pm ET 로 장 마감 후 판정.',
+    note: 'Business Wire 사본. «business update call» — 결과 공개 시각 미공지 — 통화 5:00pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
   },
   {
     ticker: 'AXON', date: '2026-11-05', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-22', verifiedAt: '2026-11-03T19:15:00Z',
@@ -536,11 +536,11 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:06 EST → 장 마감 후. 인용문엔 날짜가 없다 — 발표일 근거는 EDGAR 접수 시각(같은 날 제출).',
   },
   {
-    ticker: 'PLUG', date: '2026-11-09', hour: 'amc', callEtTime: '16:30', sourceKind: 'sec-8k', announcedOn: '2026-10-15', verifiedAt: '2026-11-03T19:15:00Z',
+    ticker: 'PLUG', date: '2026-11-09', hour: '', callEtTime: '16:30', sourceKind: 'sec-8k', announcedOn: '2026-10-15', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/0001093691/000110465926115964/tm2627628d1_ex99-1.htm',
     checkUrl: 'https://finviz.com/news/402855/plug-power-reports-continued-business-progress-sets-dates-for-third-quarter-2026-earnings-call-and-global-plug-symposium',
     quote: 'Plug will announce its third quarter 2026 financial results on November 9, 2026, followed by a conference call and webcast',
-    note: '10/15 보도자료(8-K 첨부 99.1). 결과 공개 시각 미공지 — 통화 4:30pm ET 로 장 마감 후 판정.',
+    note: '10/15 보도자료(8-K 첨부 99.1). 결과 공개 시각 미공지 — 통화 4:30pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
   },
   {
     ticker: 'PSA', date: '2026-10-26', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-26', verifiedAt: '2026-11-03T19:15:00Z',
@@ -610,16 +610,16 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 07:04 EDT → 장 시작 전.',
   },
   {
-    ticker: 'SMCI', date: '2026-11-03', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-20', verifiedAt: '2026-11-03T19:15:00Z',
+    ticker: 'SMCI', date: '2026-11-03', hour: '', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-20', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://finviz.com/news/404916/supermicro-provides-first-quarter-of-fiscal-year-2027-preliminary-business-update',
     quote: 'first quarter fiscal 2027 financial results on Tuesday, November 3, 2026, at 5:00 p.m. ET',
-    note: '10/20 잠정 실적 보도자료 사본(IR 원문은 봇 차단). 결과 공개 시각 미공지 — 통화 5:00pm ET 로 장 마감 후 판정.',
+    note: '10/20 잠정 실적 보도자료 사본(IR 원문은 봇 차단). 결과 공개 시각 미공지 — 통화 5:00pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
   },
   {
-    ticker: 'SMR', date: '2026-11-05', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-11-03T19:15:00Z',
+    ticker: 'SMR', date: '2026-11-05', hour: '', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://finviz.com/news/399046/nuscale-power-to-hold-third-quarter-2026-earnings-conference-call',
     quote: 'review third quarter 2026 results on Thursday, November 5, 2026, at 5:00 p.m. ET',
-    note: 'Business Wire 사본. 결과 공개 시각 미공지 — 통화 5:00pm ET 로 장 마감 후 판정.',
+    note: 'Business Wire 사본. 결과 공개 시각 미공지 — 통화 5:00pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
   },
   {
     ticker: 'SO', date: '2026-11-05', hour: 'bmo', callEtTime: '13:00', sourceKind: 'company-pr', announcedOn: '2026-09-25', verifiedAt: '2026-11-03T19:15:00Z',
