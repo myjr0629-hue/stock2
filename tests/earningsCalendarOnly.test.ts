@@ -137,8 +137,9 @@ const EXTRA = LIB.CALENDAR_ONLY_EARNINGS.map((c) => c.ticker);
     assert.equal(sha([...u]), '40af0bacb394a99e9a9f54584a7657a1ff3153c7435a25eb616170fd2763a090');
     for (const x of EXTRA) assert.ok(!u.has(x), `${x} 가 공통 유니버스에 들어갔다`);
   });
-  await t('CONFIRMED_EARNINGS(영수증 크론·SEO·오늘 볼 것·알림) 해시 = origin/main · 캘린더 전용 종목 0', () => {
-    assert.equal(sha(CONF.CONFIRMED_EARNINGS.map((x) => `${x.ticker}|${x.date}|${x.hour}`)), '4091f00c6b7c1cd82d0ac8a5fada0e954da748dcff768b00bf7ff0163b189b0f');
+  // 11/3 T55: 공통 목록에 10/26~11/12 회사 공지(유니버스 안 83종목)를 더해 해시를 갱신했다 — 캘린더 전용 종목은 여전히 0
+  await t('CONFIRMED_EARNINGS(영수증 크론·SEO·오늘 볼 것·알림) 해시 = 고정값 · 캘린더 전용 종목 0', () => {
+    assert.equal(sha(CONF.CONFIRMED_EARNINGS.map((x) => `${x.ticker}|${x.date}|${x.hour}`)), '058fbef54aeef0061816c069a5b3211f9559736c135fd6ca21505646ef6663a4');
     for (const x of EXTRA) assert.ok(!CONF.CONFIRMED_EARNINGS.some((c) => c.ticker === x), `${x} 가 공통 공지 목록에 있다`);
   });
 
@@ -226,7 +227,8 @@ const EXTRA = LIB.CALENDAR_ONLY_EARNINGS.map((c) => c.ticker);
   const wCal = await week(true);
   await t('기본 호출(공유 랜딩·SEO) — 캘린더 전용 행 0 · 그 종목 읽기 0', () => {
     for (const x of EXTRA) assert.ok(!wPlain.rows.some((r) => r.ticker === x));
-    for (const x of EXTRA) assert.ok(!plainKeys.some((k) => k.includes(`:${x}`)), `${x} 키를 읽었다`);
+    // 키 조각 단위로 비교 — «:ET» 부분 문자열은 공통 목록의 ETN 키(earnings:actuals:v1:ETN:…)에도 걸린다(11/3 T55)
+    for (const x of EXTRA) assert.ok(!plainKeys.some((k) => k.split(':').includes(x)), `${x} 키를 읽었다`);
   });
   await t('calendarOnly — 이번 주(11/2~11/6) SHOP·APO·ET·TRI·MET 행, 레벨·실제 반응 null, 기존 행 그대로', () => {
     assert.equal(wCal.range.start, '2026-11-02');

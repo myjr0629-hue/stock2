@@ -225,7 +225,7 @@ const freeze = <T,>(o: T): T => { const f = (x: any): any => { if (x && typeof x
     { symbol: 'DD', date: '2026-11-05', epsEstimated: 0.9 },                                    // 회사 11/3
     { symbol: 'NFLX', date: '2026-10-20', epsEstimated: 0.82 },                                 // 이미 맞음
     { symbol: 'MSFT', date: '2026-10-28', epsEstimated: 4.71 },                                 // 회사 FAQ 장후 확정
-    { symbol: 'KO', date: '2026-10-20', epsEstimated: 0.88 },                                   // 목록에 없음 — 그대로
+    { symbol: 'PG', date: '2026-10-20', epsEstimated: 0.88 },                                   // 목록에 없음 — 그대로
   ];
   const useRows = () => { resetAll(); fmpCalRows = FMP_ROWS; finnhubRows = []; };
   const calAt = async (iso = AT) => at(iso, async () => {
@@ -244,7 +244,7 @@ const freeze = <T,>(o: T): T => { const f = (x: any): any => { if (x && typeof x
     assert.deepEqual(get('DD'), ['2026-11-03 bmo confirmed']);
     assert.deepEqual(get('NFLX'), ['2026-10-20 amc confirmed'], '이미 맞는 날짜는 그대로 + 확정 표식 + 시각');
     assert.deepEqual(get('MSFT'), ['2026-10-28 amc confirmed'], '회사 공식 FAQ: 장 마감 후 확정 일정');
-    assert.deepEqual(get('KO'), ['2026-10-20'], '목록에 없는 종목은 건드리지 않는다');
+    assert.deepEqual(get('PG'), ['2026-10-20'], '목록에 없는 종목은 건드리지 않는다');
     assert.deepEqual(r.payload.confirmedOverlay!.repaired.map((x) => `${x.ticker} ${x.from}→${x.to}`).sort(),
       ['AAPL 2026-10-29→2026-11-02', 'DD 2026-11-05→2026-11-03', 'INTC 2026-10-22→2026-10-29', 'NEE 2026-10-27→2026-10-21', 'TSLA 2026-10-28→2026-10-21']);
     // 정렬 유지
@@ -301,7 +301,7 @@ const freeze = <T,>(o: T): T => { const f = (x: any): any => { if (x && typeof x
     const tsla = j.rows.find((x: any) => x.ticker === 'TSLA');
     assert.deepEqual([tsla.date, tsla.hour, tsla.dateStatus, tsla.dateFrom], ['2026-10-21', 'amc', 'confirmed', '2026-10-28']);
     assert.equal(j.rows.find((x: any) => x.ticker === 'MSFT').dateStatus, 'confirmed');
-    assert.equal(j.rows.find((x: any) => x.ticker === 'KO').dateStatus, undefined);
+    assert.equal(j.rows.find((x: any) => x.ticker === 'PG').dateStatus, undefined);
     assert.ok(j.confirmedOverlay.repaired.length === 5);
     for (const k of ['ok', 'rows', 'universe', 'source', 'from', 'to', 'generatedAt', 'probe', 'truncated', 'windows', 'aiCount']) assert.ok(k in j, k);
   });
@@ -326,19 +326,19 @@ const freeze = <T,>(o: T): T => { const f = (x: any): any => { if (x && typeof x
   });
   await ta('★ FMP 가 이미 날짜를 고친 행(TSLA 10/21 · dateFrom 없음)도 가까운 옛 글을 잇는다 — 가장 가까운 글 우선 · ±30일 밖(지난 분기 91일·다음 분기 104일)은 안 붙는다(10/4 사고 방지)', async () => {
     resetAll();
-    fmpCalRows = [{ symbol: 'TSLA', date: '2026-10-21', epsEstimated: 0.4525 }, { symbol: 'TSLA', date: '2027-02-03', epsEstimated: 0.4729 }, { symbol: 'KO', date: '2026-10-20', epsEstimated: 0.88 }];
+    fmpCalRows = [{ symbol: 'TSLA', date: '2026-10-21', epsEstimated: 0.4525 }, { symbol: 'TSLA', date: '2027-02-03', epsEstimated: 0.4729 }, { symbol: 'PG', date: '2026-10-20', epsEstimated: 0.88 }];
     finnhubRows = [];
     store.set(B.EARNINGS_BRIEF_KEY, { value: { entries: {
       'TSLA|2026-10-28': { en: { name: 'Tesla' }, ko: { name: '테슬라', watch: '7일 뒤 글' } },
       'TSLA|2026-10-18': { en: { name: 'Tesla' }, ko: { name: '테슬라', watch: '3일 전 글' } },
-      'KO|2026-07-21': { ko: { name: '코카콜라', watch: '지난 분기 글(91일 전)' } },
+      'PG|2026-07-21': { ko: { name: '프록터앤드갬블', watch: '지난 분기 글(91일 전)' } },
     } } });
     const j = await callRoute();
     const tsla = j.rows.find((x: any) => x.ticker === 'TSLA' && x.date === '2026-10-21');
     assert.equal(tsla.dateFrom, undefined, 'FMP 가 이미 맞춘 행 — 출구가 바꾼 게 아니다');
     assert.equal(tsla.brief.ko.watch, '3일 전 글', '가장 가까운 글');
     assert.equal(j.rows.find((x: any) => x.ticker === 'TSLA' && x.date === '2027-02-03').brief, undefined, '다음 분기 행에는 안 붙는다');
-    assert.equal(j.rows.find((x: any) => x.ticker === 'KO').brief, undefined, '지난 분기 글(91일 전)은 안 붙는다');
+    assert.equal(j.rows.find((x: any) => x.ticker === 'PG').brief, undefined, '지난 분기 글(91일 전)은 안 붙는다');
   });
   await ta('★ Command(/api/live/earnings) — TSLA 10/21 amc confirmed · MSFT confirmed · 목록 밖은 표식 없음(키 자체가 없다)', async () => {
     useRows();
@@ -347,21 +347,21 @@ const freeze = <T,>(o: T): T => { const f = (x: any): any => { if (x && typeof x
     assert.deepEqual([a.nextEarningsDate, a.hourLabel, a.dateStatus, a.dateSource], ['2026-10-21', 'amc', 'confirmed', 'fmp']);
     assert.equal(a.daysLabel, 'D-14');
     const m = await live('MSFT'); assert.deepEqual([m.nextEarningsDate, m.dateStatus], ['2026-10-28', 'confirmed']);
-    const k = await live('KO'); assert.equal(k.nextEarningsDate, '2026-10-20'); assert.equal('dateStatus' in k, false, '예전 모양 그대로');
+    const k = await live('PG'); assert.equal(k.nextEarningsDate, '2026-10-20'); assert.equal('dateStatus' in k, false, '예전 모양 그대로');
   });
   await ta('unified 출구(resolveEarningsCard) — 수확본 카드의 옛 날짜·옛 표식을 캘린더(회사 공지)로 덮는다', async () => {
     useRows();
     const card = { ticker: 'AAPL', nextEarningsDate: '2026-10-29', hourLabel: '', daysUntilEarnings: 22, daysLabel: 'D-22', dateStatus: 'est', hasData: true };
     const out: any = await at(AT, () => CAL.resolveEarningsCard('AAPL', card, { waitMs: 1500 }));
     assert.deepEqual([out.nextEarningsDate, out.hourLabel, out.dateStatus], ['2026-11-02', 'amc', 'confirmed']);
-    const ko: any = await at(AT, () => CAL.resolveEarningsCard('KO', { ticker: 'KO', nextEarningsDate: '2026-10-20', dateStatus: 'est', hasData: true }, { waitMs: 1500 }));
+    const ko: any = await at(AT, () => CAL.resolveEarningsCard('PG', { ticker: 'PG', nextEarningsDate: '2026-10-20', dateStatus: 'est', hasData: true }, { waitMs: 1500 }));
     assert.equal('dateStatus' in ko, false, '캘린더 행에 표식이 없으면 카드의 옛 표식도 버린다');
   });
   await ta('Intel 섹터 목록(unifyEarningsList) — 같은 날짜·표식', async () => {
     useRows();
-    const rows = await at(AT, () => CAL.unifyEarningsList(['TSLA', 'MSFT', 'KO'], [], { waitMs: 1500, nowMs: Date.parse(AT) }));
+    const rows = await at(AT, () => CAL.unifyEarningsList(['TSLA', 'MSFT', 'PG'], [], { waitMs: 1500, nowMs: Date.parse(AT) }));
     assert.deepEqual(rows.map((x: any) => `${x.symbol} ${x.date} ${x.hour} ${x.dateStatus ?? '-'}`), [
-      'KO 2026-10-20  -', 'TSLA 2026-10-21 amc confirmed', 'MSFT 2026-10-28 amc confirmed', 'TSLA 2027-02-03  -']);
+      'PG 2026-10-20  -', 'TSLA 2026-10-21 amc confirmed', 'MSFT 2026-10-28 amc confirmed', 'TSLA 2027-02-03  -']);
   });
   t('pickNextEarnings — 캘린더 행의 표식을 싣는다(값이 없으면 키 자체가 없다) · Finnhub 대체는 표식 없음', () => {
     const p = ED.pickNextEarnings({ fmp: [{ date: '2026-10-21', hour: 'amc', dateStatus: 'confirmed' }], finnhub: [] }, TODAY)!;
