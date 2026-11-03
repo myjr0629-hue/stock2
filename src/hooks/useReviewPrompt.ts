@@ -49,14 +49,38 @@ export function reviewMomentBlocked(now = Date.now()): boolean {
   } catch { return true; }
 }
 
-export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true): void {
-  if (guardSignum && reviewMomentBlocked()) return;
-  lastReviewRequestAt = Date.now() + delayMs;
+export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true, onBlocked: () => void = () => {}): void {
+  if (guardSignum && reviewMomentBlocked()) { onBlocked(); return; }
+  const previousRequestAt = lastReviewRequestAt;
+  const reservedAt = Date.now() + delayMs;
+  lastReviewRequestAt = reservedAt;
   window.setTimeout(() => {
-    if (guardSignum && reviewMomentBlocked()) return;
+    if (guardSignum && reviewMomentBlocked()) { if (lastReviewRequestAt === reservedAt) lastReviewRequestAt = previousRequestAt; onBlocked(); return; }
     lastReviewRequestAt = Date.now();
     request();
   }, delayMs);
+}
+
+// 각 마일스톤은 최초 시도와 다음 적격 순간의 재시도 한 번만 허용한다.
+const inFlight = new Set<string>();
+export function reviewAttempts(key: string, milestone: number): number {
+  return Number(localStorage.getItem(`${key}.attempt.${milestone}`)) || 0;
+}
+export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void): void {
+  const id = `${key}:${milestone}`;
+  if (inFlight.has(id) || reviewAttempts(key, milestone) >= 2) return;
+  localStorage.setItem(`${key}.attempt.${milestone}`, String(reviewAttempts(key, milestone) + 1));
+  inFlight.add(id);
+  const release = () => { inFlight.delete(id); };
+  scheduleReviewRequest(delay, () => {
+    try {
+      const plugin = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
+      if (typeof plugin?.requestReview !== 'function') return;
+      const result = plugin.requestReview();
+      Promise.resolve(result).catch(() => {});
+      requested();
+    } catch { /* 요청 실패는 앱을 막지 않는다 */ } finally { release(); }
+  }, guard, release);
 }
 
 type Options = {
@@ -90,14 +114,15 @@ export function useReviewPrompt({
 
       const n = (parseInt(localStorage.getItem(storageKey) || '0', 10) || 0) + 1;
       localStorage.setItem(storageKey, String(n));
-      if (!milestones.includes(n)) return;
-      scheduleReviewRequest(delayMs, () => {
-        try {
-          const p = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
-          // 결과를 읽지 않는다 — 표시 여부는 OS 소관이고, 우리가 알 필요도 없다.
-          p?.requestReview?.().catch(() => {});
-        } catch { /* 플러그인 없음 — 조용히 넘어간다 */ }
-      }, storageKey.startsWith('signum.'));
+      const doneKey = `${storageKey}.requested`;
+      const done: number[] = JSON.parse(localStorage.getItem(doneKey) || '[]');
+      const hit = milestones.find(m => m === n && !done.includes(m))
+        ?? milestones.find(m => m < n && !done.includes(m) && reviewAttempts(storageKey, m) === 1 && !inFlight.has(`${storageKey}:${m}`));
+      if (hit == null) return;
+      attemptReview(storageKey, hit, delayMs, storageKey.startsWith('signum.'), () => {
+        const current: number[] = JSON.parse(localStorage.getItem(doneKey) || '[]');
+        if (!current.includes(hit)) localStorage.setItem(doneKey, JSON.stringify([...current, hit]));
+      });
     } catch { /* localStorage 차단 등 — 평점 요청이 앱을 막으면 안 된다 */ }
   }, [storageKey, milestones, delayMs]);
 }

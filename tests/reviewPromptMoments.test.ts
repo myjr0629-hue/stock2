@@ -471,6 +471,80 @@ async function main() {
       uninstall();
     }
   });
+  t('차단된 순간은 다음 순간에 한 번만 재시도하고 실제 호출 후에만 완료한다', () => {
+    const env = new Env(); const w = makeWindow(env); install(env, w);
+    const ask = grab({ storageKey: 'signum.retryTest', milestones: [2], delayMs: 1400 });
+    ask();
+    (globalThis as any).document = { visibilityState: 'visible', querySelector: () => ({}) };
+    ask();
+    assert.equal(env.local.getItem('signum.retryTest.requested'), null);
+    delete (globalThis as any).document;
+    ask();
+    assert.equal(env.local.getItem('signum.retryTest.requested'), null);
+    flush(env);
+    assert.equal(env.reviews, 1);
+    assert.equal(env.local.getItem('signum.retryTest.requested'), '[2]');
+    ask(); flush(env); assert.equal(env.reviews, 1);
+    uninstall();
+  });
+  t('예약 뒤 차단과 재시도도 차단되면 더 이상 재시도하지 않는다', () => {
+    const env = new Env(); install(env, makeWindow(env));
+    const ask = grab({ storageKey: 'signum.retryLimit', milestones: [1], delayMs: 1400 });
+    ask(); env.local.setItem('signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() }));
+    flush(env); ask(); ask(); flush(env);
+    assert.equal(env.reviews, 0);
+    assert.equal(env.local.getItem('signum.retryLimit.requested'), null);
+    assert.equal(env.local.getItem('signum.retryLimit.attempt.1'), '2');
+    uninstall();
+  });
+  t('실적 발표 완료 행 열기 경로와 2·7회 설정 · 웹에서는 기록하지 않는다', () => {
+    const page = read('src/app/[locale]/app-view/earnings/page.tsx');
+    assert.match(page, /storageKey: 'signum\.earningsOpens', milestones: \[2, 7\]/);
+    assert.match(page, /if \(e\.implied\?\.reported === true\) markReportedOpened\(\)/);
+    assert.match(page, /onClick=\{\(\) => openRow\(e\)\}/);
+    assert.match(page, /ev\.preventDefault\(\); openRow\(e\)/);
+    const cfg = { storageKey: 'signum.earningsOpens', milestones: [2, 7], delayMs: 1400 };
+    for (const native of [true, false]) {
+      const env = new Env(); install(env, makeWindow(env, { native }));
+      const ask = grab(cfg); const hits: number[] = [];
+      for (let i = 1; i <= 8; i++) { ask(); const before = env.reviews; flush(env); if (env.reviews > before) hits.push(i); }
+      assert.deepEqual(hits, native ? [2, 7] : []);
+      if (!native) assert.equal(env.local.getItem(cfg.storageKey), null);
+      uninstall();
+    }
+  });
+  t('대시보드도 차단 후 다음 세션에 재시도하고 요청 뒤에만 완료한다', () => {
+    const env = new Env(); let w = makeWindow(env); install(env, w);
+    (globalThis as any).sessionStorage = w.sessionStorage;
+    const Module = require('node:module'); const originalLoad = Module._load;
+    Module._load = function (name: string, ...args: unknown[]) {
+      if (name === '@capacitor/core') return { Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios' } };
+      return originalLoad.call(this, name, ...args);
+    };
+    let bridge: typeof import('../src/lib/native/capacitorBridge');
+    const bridgePath = require.resolve('../src/lib/native/capacitorBridge');
+    const previousBridge = require.cache[bridgePath]; delete require.cache[bridgePath];
+    try { bridge = require('../src/lib/native/capacitorBridge'); } finally {
+      Module._load = originalLoad;
+      if (previousBridge) require.cache[bridgePath] = previousBridge;
+      else delete require.cache[bridgePath];
+    }
+    env.local.setItem('signumhq.review.days', '["2000-01-01"]');
+    (globalThis as any).document = { visibilityState: 'visible', querySelector: () => ({}) };
+    bridge.maybePromptReview();
+    assert.equal(env.local.getItem('signumhq.review.prompted'), null);
+    bridge.maybePromptReview();
+    assert.equal(env.local.getItem('signumhq.review.prompted.attempt.2'), '1');
+    delete (globalThis as any).document;
+    w = makeWindow(env); install(env, w); (globalThis as any).sessionStorage = w.sessionStorage;
+    bridge.maybePromptReview();
+    assert.equal(env.local.getItem('signumhq.review.prompted'), null);
+    flush(env);
+    assert.equal(env.reviews, 1);
+    assert.equal(env.local.getItem('signumhq.review.prompted'), '[2]');
+    assert.ok(env.local.getItem('signumhq.review.lastAsked'));
+    delete (globalThis as any).sessionStorage; uninstall();
+  });
   console.log(`\n${n}/${n} 통과`);
 }
 

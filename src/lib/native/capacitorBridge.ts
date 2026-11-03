@@ -5,7 +5,7 @@
 
 'use client';
 
-import { scheduleReviewRequest } from '@/hooks/useReviewPrompt';
+import { attemptReview, reviewAttempts } from '@/hooks/useReviewPrompt';
 
 // ---------------------------------------------------------------------------
 // Platform Detection
@@ -309,16 +309,20 @@ export function maybePromptReview(delayMs = 2500): void {
     const lastAsked = localStorage.getItem(REVIEW_LAST_KEY);
     if (lastAsked === today) return;
 
-    let hit = REVIEW_MILESTONES.find(m => days.length >= m && !prompted.includes(m));
+    let hit = REVIEW_MILESTONES.find(m => days.length >= m && !prompted.includes(m) && reviewAttempts(REVIEW_DONE_KEY, m) < 2);
     // 세션 경로(0 으로 표시): 앱을 4번째 여는 사람이면 «사용일»이 하루여도 충분히 관여한 것이다.
     // 첫 세션·둘째 세션에는 절대 뜨지 않는다 — 온보딩 중 요청은 낮은 별점을 부른다.
-    if (hit == null && sessions >= REVIEW_SESSION_MILESTONE && !prompted.includes(0)) hit = 0;
+    if (hit == null && sessions >= REVIEW_SESSION_MILESTONE && !prompted.includes(0) && reviewAttempts(REVIEW_DONE_KEY, 0) < 2) hit = 0;
     if (hit == null) return;
-    prompted.push(hit);
-    localStorage.setItem(REVIEW_DONE_KEY, JSON.stringify(prompted));
-    localStorage.setItem(REVIEW_LAST_KEY, today);
+    const sessionAttemptKey = `${REVIEW_DONE_KEY}.attempt.${hit}`;
+    if (sessionStorage.getItem(sessionAttemptKey)) return;
+    sessionStorage.setItem(sessionAttemptKey, '1');
     // Delay so the prompt lands after the user is settled on the dashboard, not mid-transition.
-    scheduleReviewRequest(delayMs, () => { void requestAppReview(); }, /\/app-view(?:\/|$)/.test(window.location.pathname));
+    attemptReview(REVIEW_DONE_KEY, hit, delayMs, /\/app-view(?:\/|$)/.test(window.location.pathname), () => {
+      const current: number[] = JSON.parse(localStorage.getItem(REVIEW_DONE_KEY) || '[]');
+      if (!current.includes(hit!)) localStorage.setItem(REVIEW_DONE_KEY, JSON.stringify([...current, hit]));
+      localStorage.setItem(REVIEW_LAST_KEY, today);
+    });
   } catch { /* storage unavailable → skip */ }
 }
 
