@@ -315,8 +315,11 @@ export function maybePromptReview(delayMs = 2500): void {
     if (hit == null && sessions >= REVIEW_SESSION_MILESTONE && !prompted.includes(0) && reviewAttempts(REVIEW_DONE_KEY, 0) < 2) hit = 0;
     if (hit == null) return;
     const sessionAttemptKey = `${REVIEW_DONE_KEY}.attempt.${hit}`;
-    if (sessionStorage.getItem(sessionAttemptKey)) return;
-    sessionStorage.setItem(sessionAttemptKey, '1');
+    // 같은 실행에서 두 번 시도하지 않게 하는 표식 — sessionStorage 가 막힌 기기에서도 사용일 경로는 계속 간다(관문 11040412)
+    try {
+      if (sessionStorage.getItem(sessionAttemptKey)) return;
+      sessionStorage.setItem(sessionAttemptKey, '1');
+    } catch { /* sessionStorage 불가 → 표식 없이 진행(attemptReview 의 진행 중 집합이 중복을 막는다) */ }
     // Delay so the prompt lands after the user is settled on the dashboard, not mid-transition.
     attemptReview(REVIEW_DONE_KEY, hit, delayMs, /\/app-view(?:\/|$)/.test(window.location.pathname), () => {
       const current: number[] = JSON.parse(localStorage.getItem(REVIEW_DONE_KEY) || '[]');
