@@ -503,6 +503,18 @@ async function main() {
     ask(); flush(env); assert.equal(env.reviews, 1);
     uninstall();
   });
+  t('옛 버전 사용자(누적 횟수만 있고 완료 표식 없음)는 지난 마일스톤이 다시 뜨지 않는다(관문 11040409 ①)', () => {
+    const env = new Env(); install(env, makeWindow(env));
+    env.local.setItem('signum.legacyUser', '9');
+    const ask = grab({ storageKey: 'signum.legacyUser', milestones: [2, 7, 12], delayMs: 1400 });
+    ask(); flush(env);
+    assert.equal(env.reviews, 0);
+    assert.equal(env.local.getItem('signum.legacyUser.requested'), '[2,7]');
+    ask(); ask(); flush(env);
+    assert.equal(env.reviews, 1);
+    assert.equal(env.local.getItem('signum.legacyUser.requested'), '[2,7,12]');
+    uninstall();
+  });
   t('보상형 광고가 막 끝났으면 요청하지 않는다(관문 11040358 ②)', () => {
     const env = new Env(); install(env, makeWindow(env));
     const { fullScreenAds } = require('../src/services/fullScreenAdSession');

@@ -116,9 +116,19 @@ export function useReviewPrompt({
       const cap = (window as { Capacitor?: any }).Capacitor;
       if (!cap?.isNativePlatform?.()) return;
 
-      const n = (parseInt(localStorage.getItem(storageKey) || '0', 10) || 0) + 1;
+      const prev = parseInt(localStorage.getItem(storageKey) || '0', 10) || 0;
+      const n = prev + 1;
       localStorage.setItem(storageKey, String(n));
       const doneKey = `${storageKey}.requested`;
+      // 옛 버전은 누적 횟수만 남기고 완료 표식이 없었다 — 표식이 아직 없으면 «이미 지난 마일스톤»은 옛 버전이 처리한 것으로 보고
+      // 완료로 옮겨 적는다(업데이트 직후 기존 사용자에게 지난 평점 요청이 다시 뜨지 않게, 관문 11040409 ①)
+      // «이 버전이 이미 센 적이 있다» 표식(.v2) 이 없을 때만 옮긴다 — 새 버전에서 막혀 미완료로 남은 마일스톤을 옛 것으로 오인하지 않게
+      const v2Key = `${storageKey}.v2`;
+      if (localStorage.getItem(v2Key) === null) {
+        const legacyDone = localStorage.getItem(doneKey) === null ? milestones.filter(m => m <= prev) : [];
+        if (legacyDone.length) localStorage.setItem(doneKey, JSON.stringify(legacyDone));
+        localStorage.setItem(v2Key, '1');
+      }
       const done: number[] = JSON.parse(localStorage.getItem(doneKey) || '[]');
       const hit = milestones.find(m => m === n && !done.includes(m))
         ?? milestones.find(m => m < n && !done.includes(m) && reviewAttempts(storageKey, m) === 0 && !inFlight.has(`${storageKey}:${m}`));
