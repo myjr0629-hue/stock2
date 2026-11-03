@@ -25,6 +25,8 @@
 // ============================================================================
 
 import { useCallback } from 'react';
+import { fullScreenAds } from '@/services/fullScreenAdSession';
+import { GIFT_REVIEW_QUIET_MS, readAnnounceState } from '@/lib/gift/giftAnnounce';
 
 /**
  * ★2026-10-27 마지막으로 OS 평점 시트를 «요청»한 시각(ms, 요청 지연 포함) — 같은 웹뷰 실행 안에서만 의미가 있다.
@@ -33,6 +35,29 @@ import { useCallback } from 'react';
  */
 let lastReviewRequestAt = 0;
 export const reviewRequestedAt = (): number => lastReviewRequestAt;
+
+/** 광고 진행 중·직후 및 선물 안내 직후에는 요청을 건너뛴다. 예약 시와 실행 시 모두 확인한다. */
+export function reviewMomentBlocked(now = Date.now()): boolean {
+  try {
+    if (fullScreenAds.isBusy()) return true;
+    const ad = JSON.parse(localStorage.getItem('signum_interstitial_frequency') || '{}');
+    if (typeof ad.lastShownAt === 'number' && ad.lastShownAt > 0 && now - ad.lastShownAt < GIFT_REVIEW_QUIET_MS) return true;
+    const gift = readAnnounceState(localStorage);
+    if (gift && gift.last > 0 && now - gift.last < GIFT_REVIEW_QUIET_MS) return true;
+    if (typeof document !== 'undefined' && (document.visibilityState === 'hidden' || document.querySelector('[aria-modal="true"]'))) return true;
+    return false;
+  } catch { return true; }
+}
+
+export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true): void {
+  if (guardSignum && reviewMomentBlocked()) return;
+  lastReviewRequestAt = Date.now() + delayMs;
+  window.setTimeout(() => {
+    if (guardSignum && reviewMomentBlocked()) return;
+    lastReviewRequestAt = Date.now();
+    request();
+  }, delayMs);
+}
 
 type Options = {
   /** 누적 성공 횟수를 담는 localStorage 키 */
@@ -66,15 +91,13 @@ export function useReviewPrompt({
       const n = (parseInt(localStorage.getItem(storageKey) || '0', 10) || 0) + 1;
       localStorage.setItem(storageKey, String(n));
       if (!milestones.includes(n)) return;
-      lastReviewRequestAt = Date.now() + delayMs;
-
-      window.setTimeout(() => {
+      scheduleReviewRequest(delayMs, () => {
         try {
           const p = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
           // 결과를 읽지 않는다 — 표시 여부는 OS 소관이고, 우리가 알 필요도 없다.
           p?.requestReview?.().catch(() => {});
         } catch { /* 플러그인 없음 — 조용히 넘어간다 */ }
-      }, delayMs);
+      }, storageKey.startsWith('signum.'));
     } catch { /* localStorage 차단 등 — 평점 요청이 앱을 막으면 안 된다 */ }
   }, [storageKey, milestones, delayMs]);
 }

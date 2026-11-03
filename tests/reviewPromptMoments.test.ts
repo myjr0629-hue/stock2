@@ -448,6 +448,29 @@ async function main() {
     assert.deepEqual(hits, [path.join('lib', 'app', 'reviewMoments.ts')]);
   });
 
+  t('인텔 2·7회에만 요청하고 광고 직후에는 요청하지 않는다', () => {
+    const env = new Env(); install(env, makeWindow(env));
+    const ask = grab({ storageKey: 'signum.reportOpens', milestones: [2, 7], delayMs: 1400 });
+    for (let i = 0; i < 7; i++) { ask(); flush(env); }
+    assert.equal(env.reviews, 2);
+    env.local.setItem('signum.reportOpens', '1');
+    env.local.setItem('signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() }));
+    ask(); flush(env);
+    assert.equal(env.reviews, 2);
+    uninstall();
+  });
+  t('예약 이후 표시된 광고 또는 선물 안내도 실행 시 차단한다', () => {
+    for (const [key, value] of [
+      ['signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() })],
+      ['signumhq.gift.announce.v1', JSON.stringify({ n: 1, last: Date.now() })],
+    ]) {
+      const env = new Env(); install(env, makeWindow(env));
+      const ask = grab({ storageKey: 'signum.test', milestones: [1], delayMs: 1400 });
+      ask(); env.local.setItem(key, value); flush(env);
+      assert.equal(env.reviews, 0);
+      uninstall();
+    }
+  });
   console.log(`\n${n}/${n} 통과`);
 }
 

@@ -5,6 +5,8 @@
 
 'use client';
 
+import { scheduleReviewRequest } from '@/hooks/useReviewPrompt';
+
 // ---------------------------------------------------------------------------
 // Platform Detection
 // ---------------------------------------------------------------------------
@@ -316,7 +318,7 @@ export function maybePromptReview(delayMs = 2500): void {
     localStorage.setItem(REVIEW_DONE_KEY, JSON.stringify(prompted));
     localStorage.setItem(REVIEW_LAST_KEY, today);
     // Delay so the prompt lands after the user is settled on the dashboard, not mid-transition.
-    setTimeout(() => { requestAppReview(); }, delayMs);
+    scheduleReviewRequest(delayMs, () => { void requestAppReview(); }, /\/app-view(?:\/|$)/.test(window.location.pathname));
   } catch { /* storage unavailable → skip */ }
 }
 
