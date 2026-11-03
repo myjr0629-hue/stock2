@@ -77,7 +77,11 @@ export interface PendingEarnings {
 
 /**
  * 회사가 공지한 일정 — 2026-10-07 확인(운영 세션 요청: 대형주 30 + 실측에서 FMP 가 틀린 종목).
- * 티커 알파벳순으로 둔다(찾기 쉽게).
+ * 2026-11-03 갱신(TRACKER T55 — 10/18 이후 목록이 안 늘어 채점표·영수증·실적 반응 크론이 10/26 주·11/2 주에 대상 0):
+ *   · 지난 발표(10/26~11/3): 실제 실적 보도자료(SEC 8-K/6-K 첨부 99) 원문 — 시각(bmo/amc)은 EDGAR 접수 시각(ET)으로 판정.
+ *   · 다가올 발표(11/3 장후~11/12): 회사 일정 공지 보도자료(원문 또는 Business Wire·PR Newswire·GlobeNewswire 사본).
+ *   · 공통 캘린더 유니버스 안의 종목만(유니버스 밖 SHOP·APO 등은 earningsCalendarOnly.ts).
+ * 티커 알파벳순으로 둔다(찾기 쉽게). 한 종목 한 항목(다음 분기 공지가 나오면 그 줄을 바꾼다).
  */
 export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
   {
@@ -94,15 +98,57 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'PR Newswire 2026-10-01.',
   },
   {
+    ticker: 'AEP', date: '2026-10-28', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/4904/000000490426000069/a3q20268kpressreleaseex991.htm',
+    quote: 'October 28, 2026 - American Electric Power',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 06:59 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'AFRM', date: '2026-11-05', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-05', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/398879/affirm-to-announce-first-quarter-fiscal-year-2027-results-on-november-5-2026',
+    quote: 'on Thursday, November 5, 2026, after market close',
+    note: 'Business Wire 사본. 통화 2:00pm PT(=5:00pm ET).',
+  },
+  {
+    ticker: 'AMAT', date: '2026-11-12', hour: '', callEtTime: '16:30', sourceKind: 'company-pr', announcedOn: '2026-10-22', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/406307/applied-materials-to-report-fourth-quarter-and-fiscal-2026-results-on-nov-12-2026',
+    quote: 'earnings conference call on Thursday, Nov. 12, 2026, at 4:30 p.m. ET / 1:30 p.m. PT',
+    note: 'GlobeNewswire 사본(IR 원문은 봇 차단). 결과 공개 시각 미공지 — 통화 4:30pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
+  },
+  {
     ticker: 'AMD', date: '2026-11-03', hour: 'amc', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://ir.amd.com/news-events/press-releases/detail/1300/amd-to-report-fiscal-third-quarter-2026-financial-results',
     quote: 'will report fiscal third quarter 2026 financial results on Tuesday, Nov. 3, 2026, after the market close',
+  },
+  {
+    ticker: 'AMGN', date: '2026-11-03', hour: 'amc', callEtTime: '16:30', sourceKind: 'company-pr', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/410680/amgen-announces-webcast-of-2026-third-quarter-financial-results',
+    quote: 'will report its third quarter 2026 financial results on Tuesday, November 3, 2026, after the close of the U.S. financial markets',
+    note: '보도자료 사본(IR 원문은 봇 차단). 통화 4:30pm ET.',
+  },
+  {
+    ticker: 'AMT', date: '2026-10-27', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1053507/000105350726000154/pressreleaseq32026.htm',
+    quote: 'Boston, Massachusetts - October 27, 2026',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 07:03 EDT → 장 시작 전.',
   },
   {
     ticker: 'AMZN', date: '2026-10-29', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-15', verifiedAt: '2026-10-18T00:23:40Z',
     sourceUrl: 'https://press.aboutamazon.com/2026/10/amazon-com-to-webcast-third-quarter-2026-financial-results-conference-call',
     quote: 'Thursday, October 29, 2026, at 2:00 p.m. PT/5:00 p.m. ET.',
     note: '회사 공식 발표는 실적 통화 시각(callEtTime)만 밝힘 — 결과 공개 분 단위 시각은 미공지라 etTime 은 비운다(화면은 장후 표기).',
+  },
+  {
+    ticker: 'APD', date: '2026-11-05', hour: '', callEtTime: '08:00', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/399245/air-products-to-broadcast-fiscal-2026-fourth-quarter-earnings-teleconference-on-november-5-2026',
+    quote: 'will hold a conference call to discuss its fiscal 2026 fourth quarter financial results on Thursday, November 5, 2026 at 8:00 a.m. ET',
+    note: 'PR Newswire 사본. 공지는 통화 시각만 — 결과 공개 시각 구분이 없어 hour 는 비운다.',
+  },
+  {
+    ticker: 'ARM', date: '2026-11-04', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-05', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://newsroom.arm.com/news/arm-announces-earnings-release-date-for-second-quarter-fiscal-year-ending-2027',
+    quote: 'will report financial results for the second quarter of fiscal year 2027 on Wednesday, Nov. 4, 2026, after market close',
+    note: 'Arm 뉴스룸 원문. 통화 14:00 PT(17:00 ET).',
   },
   {
     ticker: 'ASML', date: '2026-10-14', hour: 'bmo', etTime: '01:00', sourceKind: 'ir-site', announcedOn: '', verifiedAt: '2026-10-11T00:30:00Z',
@@ -112,9 +158,35 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'ASML 2025 연차보고서(SEC 6-K 첨부) 재무 일정표 «Announcement of third-quarter results for 2026». ASML IR 는 07:00 CET(=01:00 ET) 배포 — 미국 장 시작 전. 미국 ADR 옵션 기준.',
   },
   {
+    ticker: 'ASTS', date: '2026-11-09', hour: '', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-26', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/408301/ast-spacemobile-to-host-third-quarter-2026-business-update-call-on-november-9-2026',
+    quote: 'on Monday, November 9 at 5:00 p.m. (Eastern Time)',
+    note: 'Business Wire 사본. «business update call» — 결과 공개 시각 미공지 — 통화 5:00pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
+  },
+  {
+    ticker: 'AXON', date: '2026-11-05', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-22', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/406748/axon-to-release-third-quarter-2026-earnings-on-november-5-2026',
+    quote: 'will report third quarter 2026 financial results after the market closes on November 5, 2026',
+    note: 'PR Newswire 사본. 웨비나 5:00pm ET.',
+  },
+  {
+    ticker: 'BA', date: '2026-10-27', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/12927/000162828026067411/a202609sep308kprex991.htm',
+    quote: 'October 27, 2026 - The Boeing Company',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 07:30 EDT → 장 시작 전.',
+  },
+  {
     ticker: 'BAC', date: '2026-10-14', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-09-30', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://newsroom.bankofamerica.com/content/newsroom/press-releases/2026/09/bank-of-america-to-report-third-quarter-2026-financial-results-a.html',
+    checkUrl: 'https://www.webull.com/news/15667447222240256',
     quote: 'will report its third quarter 2026 financial results on Wednesday, October 14',
+    note: '뉴스룸이 11/3 기준 스크립트 렌더로 바뀌어 기계 판독 불가 — 같은 보도자료 사본(webull)으로 확인. 결과 약 6:45am ET·통화 8:30am ET.',
+  },
+  {
+    ticker: 'BKNG', date: '2026-11-03', hour: 'amc', etTime: '16:00', callEtTime: '16:30', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/399343/booking-holdings-to-webcast-third-quarter-2026-financial-results-on-november-3',
+    quote: 'at approximately 4:00 p.m. ET on Tuesday, November 3',
+    note: 'PR Newswire 사본. 결과 약 4:00pm ET 게시, 통화 4:30pm ET.',
   },
   {
     ticker: 'BLK', date: '2026-10-14', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-09-30', verifiedAt: '2026-10-11T00:30:00Z',
@@ -129,6 +201,42 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'Citigroup 보도자료 2026-10-02. 웹캐스트·통화 11am ET.',
   },
   {
+    ticker: 'CAT', date: '2026-10-29', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/18230/000001823026000052/ex991toformcat3q2026earnin.htm',
+    quote: 'Oct. 29, 2026 - Caterpillar Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 06:33 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'CCJ', date: '2026-10-30', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-30', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1009001/000119312526439858/d106072dex991.htm',
+    quote: 'October 30, 2026 Cameco (TSX: CCO; NYSE: CCJ) today reported its consolidated financial',
+    note: '실적 보도자료(6-K 첨부 99.1) 원문 — EDGAR 접수 2026-10-30 06:57 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'CHTR', date: '2026-11-06', hour: 'bmo', etTime: '07:00', callEtTime: '08:30', sourceKind: 'company-pr', announcedOn: '2026-10-07', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/399994/charter-to-hold-webcast-to-discuss-third-quarter-2026-financial-and-operating-results',
+    quote: 'A press release reporting such results will be issued at 7:00 a.m. ET on November 6',
+    note: 'PR Newswire 사본. 웹캐스트 8:30am ET.',
+  },
+  {
+    ticker: 'CL', date: '2026-10-30', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-30', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/21665/000002166526000047/q32026pressreleasetables.htm',
+    quote: 'New York, New York, October 30, 2026',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-30 07:56 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'COIN', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1679788/000167978826000121/q326earningsdeck_vsec.htm',
+    quote: 'Form 10-Q for the quarter ended September 30, 2026 filed with the SEC on October 29, 2026',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:09 EDT → 장 마감 후. 첨부는 실적 자료(deck) — 인용문은 같은 날 10-Q 제출 문장. 보도자료에 통화 시각이 없다 — 장후 판정은 접수 시각(정규장 마감 직후)과 머리 날짜 일치만이 근거.',
+  },
+  {
+    ticker: 'COP', date: '2026-11-05', hour: 'bmo', callEtTime: '12:00', sourceKind: 'company-pr', announcedOn: '2026-09-24', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/395338/conocophillips-to-hold-third-quarter-earnings-conference-call-on-thursday-nov-5',
+    quote: 'financial and operating results will be released before the market opens on Nov. 5',
+    note: 'Business Wire 사본. 통화 12:00pm ET.',
+  },
+  {
     ticker: 'COST', date: '2026-12-10', hour: 'amc', sourceKind: 'ir-feed', announcedOn: '', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://investor.costco.com/events-and-presentations',
     checkUrl: 'https://investor.costco.com/feed/Event.svc/GetEventList?LanguageId=1&bodyType=0&eventDateFilter=1&pageSize=15&pageNumber=0&tagList=&includeTags=true&year=-1&excludeSelection=1',
@@ -136,11 +244,16 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'Costco IR 이벤트 피드의 예정 이벤트: «Q1 2027 Earnings Results» 12/10/2026 13:15 PT · «Q1 2027 Earnings Call» 14:00 PT. 13:15 PT = 4:15pm ET.',
   },
   {
-    ticker: 'CVX', date: '2026-10-30', hour: '', sourceKind: 'company-pr', announcedOn: '2026-10-01', verifiedAt: '2026-10-07T16:55:00Z',
-    sourceUrl: 'https://www.businesswire.com/news/home/20261001514491/en/',
-    checkUrl: 'https://finance.yahoo.com/energy/articles/advisory-chevron-corporation-3q-2026-113000941.html',
-    quote: 'will hold its quarterly earnings conference call on Friday, October 30, 2026 at 11:00 a.m. ET',
-    note: 'Business Wire 2026-10-01. 공지에 결과 발표 시각 구분이 없어 hour 는 비워 둔다.',
+    ticker: 'CVX', date: '2026-10-30', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-30', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/93410/000009341026000196/a09302026ex9918-k.htm',
+    quote: 'October 30, 2026 - Chevron Corporation',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-30 06:16 EDT → 장 시작 전. 10/1 Business Wire 공지(통화 11:00am ET)는 결과 공개 시각을 밝히지 않아 hour 를 비웠었다 — 11/3 실제 보도자료 접수 시각으로 장전 확인.',
+  },
+  {
+    ticker: 'D', date: '2026-10-30', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-30', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/715957/000119312526439883/d-ex99.htm',
+    quote: 'NEWS RELEASE October 30, 2026 Dominion Energy Announces Third-Quarter 2026 Results',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-30 07:31 EDT → 장 시작 전.',
   },
   {
     ticker: 'DD', date: '2026-11-03', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-10-07T16:55:00Z',
@@ -148,6 +261,72 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     checkUrl: 'https://finance.yahoo.com/markets/stocks/articles/dupont-schedules-third-quarter-2026-110000725.html',
     quote: 'will release its third quarter 2026 financial results at 6:00 a.m. ET on Tuesday, November 3, 2026',
     note: 'PR Newswire 2026-10-06. FMP 는 11/05 (틀림).',
+  },
+  {
+    ticker: 'DDOG', date: '2026-11-04', hour: 'bmo', callEtTime: '08:00', sourceKind: 'company-pr', announcedOn: '', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/402639/datadog-announces-date-of-third-quarter-fiscal-year-2026-earnings-call',
+    quote: 'will report its third quarter fiscal year 2026 financial results before the U.S. financial markets open on Wednesday, November 4, 2026',
+    note: 'Business Wire 사본. 통화 8:00am ET. 공지일 미확인.',
+  },
+  {
+    ticker: 'DUK', date: '2026-11-05', hour: 'bmo', etTime: '07:00', callEtTime: '10:00', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/399404/duke-energy-to-announce-third-quarter-2026-financial-results-on-nov-5',
+    quote: 'will post its third-quarter 2026 financial results at 7 a.m. ET on Thursday, Nov. 5',
+    note: 'PR Newswire 사본. 결과 7:00am ET, 통화 10:00am ET.',
+  },
+  {
+    ticker: 'ECL', date: '2026-10-27', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/31462/000162828026067418/ecl_ex99x1.htm',
+    quote: 'ST. PAUL, Minn., October 27, 2026 CEO Comment',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 08:02 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'ENPH', date: '2026-10-27', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1463101/000146310126000101/a2026q3exx991pressrelease.htm',
+    quote: 'FREMONT, Calif., Oct 27, 2026 - Enphase Energy, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 16:07 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'EQIX', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1101239/000110123926000178/a991eqix-q326xpr.htm',
+    quote: 'October 28, 2026 - Equinix, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:12 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 5:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'ETN', date: '2026-11-03', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-11-03', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1551182/000155118226000037/etn09302026exhibit99.htm',
+    quote: 'November 3, 2026 - Intelligent power management company Eaton Corporation plc',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-03 08:08 EST → 장 시작 전.',
+  },
+  {
+    ticker: 'FCX', date: '2026-10-27', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/831259/000083125926000045/a3q2026exhibit991.htm',
+    quote: 'for $305 million ($62.69 average cost per share). 1 PHOENIX, AZ, October 27, 2026 - Freeport',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 08:08 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'FSLR', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1274494/000127449426000211/ex991pressreleaseq3-2026.htm',
+    quote: 'October 29, 2026 - First Solar, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:03 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'FTNT', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1262039/000126203926000024/ftntq3-2026ex991.htm',
+    quote: 'SUNNYVALE, Calif. - October 28, 2026',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:09 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'GEV', date: '2026-10-28', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1996810/000199681026000162/gevpressrelease3q26.htm',
+    quote: 'October 28, 2026) - GE Vernova Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 06:16 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'GILD', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/882095/000088209526000037/exhibit991earningspressrel.htm',
+    quote: 'October 29, 2026 - Gilead Sciences, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:03 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 1:30pm PT로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'GOOGL', date: '2026-10-28', hour: 'amc', sourceKind: 'ir-feed', announcedOn: '2026-10-06', verifiedAt: '2026-10-07T16:55:00Z',
@@ -163,6 +342,19 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'Goldman Sachs 보도자료 2025-08-18 «Conference Call Dates to Announce 4Q25 and 2026 Earnings Results» — 결과 약 7:30am ET, 통화 9:30am ET. 홈페이지에도 10/13 공지 노출(10/11 확인).',
   },
   {
+    ticker: 'HOOD', date: '2026-10-27', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1783879/000178387926000164/q32026robinhoodexhibit991.htm',
+    quote: 'October 27, 2026 - Robinhood Markets, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 16:06 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 5pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'HUBS', date: '2026-11-04', hour: 'amc', callEtTime: '16:30', sourceKind: 'company-pr', announcedOn: '2026-10-21', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://natlawreview.com/press-releases/hubspot-announce-third-quarter-2026-financial-results-november-4-2026',
+    checkUrl: 'https://www.stocktitan.net/news/HUBS/hub-spot-to-announce-third-quarter-2026-financial-results-on-rmkz818xqrnw.html',
+    quote: 'will report its third quarter 2026 financial results after the U.S. financial markets close on Wednesday, November 4, 2026',
+    note: 'Business Wire 사본(ir.hubspot.com 은 봇 차단). 통화 4:30pm ET.',
+  },
+  {
     ticker: 'IBM', date: '2026-10-21', hour: 'amc', sourceKind: 'company-pr', announcedOn: '2026-10-07', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://www.prnewswire.com/news-releases/ibm-to-announce-third-quarter-2026-financial-results-302901258.html',
     checkUrl: 'https://www.stocktitan.net/news/IBM/ibm-to-announce-third-quarter-2026-financial-k0gd0wetptx6.html',
@@ -174,6 +366,12 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     sourceUrl: 'https://www.intc.com/news-events/press-releases/detail/1782/intel-to-report-third-quarter-2026-financial-results',
     quote: 'will report third-quarter financial results on Thursday, October 29, 2026, promptly after close of market',
     note: 'Business Wire 2026-10-06 (Intel IR). FMP·Finnhub 는 추정 10/22 (틀림).',
+  },
+  {
+    ticker: 'IONQ', date: '2026-11-05', hour: 'amc', callEtTime: '16:30', sourceKind: 'company-pr', announcedOn: '2026-10-22', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/406984/ionq-to-report-third-quarter-2026-financial-results-on-november-5-2026',
+    quote: 'on Thursday, Nov. 5, 2026, after the financial markets close',
+    note: 'Business Wire 사본(IR 원문은 봇 차단). 통화 4:30pm ET.',
   },
   {
     ticker: 'JNJ', date: '2026-10-13', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-08-31', verifiedAt: '2026-10-07T16:55:00Z',
@@ -190,11 +388,78 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'Business Wire 2026-09-17. 결과는 약 7:00am ET.',
   },
   {
+    ticker: 'KLAC', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/319201/000031920126000032/exhibit991earningsrelease0.htm',
+    quote: 'October 28, 2026 - KLA Corporation',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:07 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 2:00pm PT로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'KMB', date: '2026-11-05', hour: 'bmo', callEtTime: '08:00', sourceKind: 'sec-8k', announcedOn: '2026-10-15', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/0000055785/000110465926115960/tm2627599d1_ex99-1.htm',
+    checkUrl: 'https://finviz.com/news/402842/kimberly-clark-announces-preliminary-third-quarter-2026-results-and-provides-full-year-2026-outlook-consistent-with-previous-expectations',
+    quote: 'will issue its final third quarter 2026 results on Thursday, November 5',
+    note: '10/15 잠정 실적 보도자료(8-K 첨부 99.1)에 «최종 결과 11/5» 명시 — 공개 약 6:30am ET·Q&A 8:00am ET(사본 기준, 원문에 &nbsp; 섞임).',
+  },
+  {
+    ticker: 'KO', date: '2026-10-27', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/21344/000162828026067403/a2026q3earningsreleaseex-9.htm',
+    quote: 'Oct. 27, 2026 - The Coca-Cola Company today reported third quarter 2026 results.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 06:58 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'LDOS', date: '2026-11-03', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-11-03', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1336920/000133692026000290/ldos100226q3pressreleaseex.htm',
+    quote: 'RESTON, Va., November 3, 2026 - Leidos Holdings, Inc.',
+    note: '실적 보도자료(8-K 첨부 99.1) 머리 날짜 November 3, 2026 — EDGAR 접수 11/2 17:38 EST(17:30 이후 접수라 제출일 11/3·다음 날 아침 공개) → 11/3 장 시작 전.',
+  },
+  {
+    ticker: 'LIN', date: '2026-10-29', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1707925/000165495426009199/lin_ex991.htm',
+    quote: 'October 29, 2026 - Linde plc (Nasdaq: LIN) today reported third-quarter 2026 net income',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 07:10 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'LLY', date: '2026-10-29', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/59478/000005947826000104/q326lillysalesandearningsp.htm',
+    quote: 'October 29, 2026 - Eli Lilly and Company',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 07:03 EDT → 장 시작 전.',
+  },
+  {
     ticker: 'LRCX', date: '2026-10-21', hour: 'amc', sourceKind: 'company-pr', announcedOn: '2026-09-30', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://www.prnewswire.com/news-releases/lam-research-corporation-announces-september-quarter-financial-conference-call-302894849.html',
     checkUrl: 'https://finance.yahoo.com/markets/stocks/articles/lam-research-corporation-announces-september-200500804.html',
     quote: 'on Wednesday, October 21, 2026, beginning at 2:00 p.m. Pacific Daylight Time (5:00 p.m. Eastern Daylight Time)',
     note: 'PR Newswire 2026-09-30.',
+  },
+  {
+    ticker: 'LUNR', date: '2026-11-12', hour: 'bmo', callEtTime: '08:30', sourceKind: 'company-pr', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/412209/intuitive-machines-announces-date-for-third-quarter-2026-financial-results-conference-call',
+    quote: 'on Thursday, November 12, 2026, before the market opens',
+    note: 'GlobeNewswire 사본(IR 원문은 봇 차단). 통화 8:30am ET.',
+  },
+  {
+    ticker: 'MA', date: '2026-10-29', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1141391/000114139126000122/ma09302026-exx991xearnings.htm',
+    quote: 'October 29, 2026 - Mastercard Incorporated',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 08:04 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'MO', date: '2026-10-29', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/764180/000076418026000112/exhibit991erq32026.htm',
+    quote: 'October 29, 2026 - Altria Group, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 07:04 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'MPC', date: '2026-11-03', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-11-03', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1510295/000151029526000069/mpcq32026earningsrelease.htm',
+    quote: 'Nov. 3, 2026 - Marathon Petroleum Corp.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-03 08:07 EST → 장 시작 전.',
+  },
+  {
+    ticker: 'MRK', date: '2026-10-29', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/310158/000110465926119825/tm2628203d1_ex99-1.htm',
+    quote: 'Oct. 29, 2026 - Merck & Co., Inc., Rahway, N.J., USA (NYSE: MRK), known as MSD outside',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 06:43 EDT → 장 시작 전.',
   },
   {
     ticker: 'MS', date: '2026-10-14', hour: 'bmo', etTime: '07:30', sourceKind: 'ir-site', announcedOn: '2025-09-11', verifiedAt: '2026-10-11T00:30:00Z',
@@ -216,10 +481,46 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'PR Newswire 2026-10-07. FMP 는 10/27 (틀림).',
   },
   {
+    ticker: 'NET', date: '2026-11-05', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-13', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finance.yahoo.com/markets/stocks/articles/cloudflare-announces-date-third-quarter-201500479.html',
+    quote: 'after the U.S. market closes on Thursday, November 5, 2026',
+    note: 'Business Wire 사본(Yahoo, IR 원문은 봇 차단). 통화 2:00pm PT(5:00pm ET).',
+  },
+  {
     ticker: 'NFLX', date: '2026-10-20', hour: 'amc', sourceKind: 'company-pr', announcedOn: '2026-09-14', verifiedAt: '2026-10-07T16:55:00Z',
     sourceUrl: 'https://www.prnewswire.com/news-releases/netflix-to-announce-third-quarter-2026-financial-results-302873060.html',
     quote: 'on Tuesday October 20th, 2026, at approximately 1:01 p.m. Pacific Time',
     note: 'PR Newswire 2026-09-14(Netflix IR PDF 와 동일). 1:01pm PT(=4:01pm ET) 게시.',
+  },
+  {
+    ticker: 'NOW', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1373715/000137371526000092/erq3fy26.htm',
+    quote: 'billion, up 70% from the beginning of the year SANTA CLARA, Calif. - October 28, 2026 - ServiceNow',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:14 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 2pm PDT로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'NVO', date: '2026-11-04', hour: '', sourceKind: 'sec-8k', announcedOn: '2026-08-04', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/0000353278/000035327826000023/caq22026.htm',
+    quote: '4 November 2026 Financial results for the first nine months of 2026',
+    note: '2026년 2분기 보고서(SEC 6-K) 말미 재무 일정표. 결과 공개 시각 미공지라 hour 는 비운다(덴마크 회사 — 통상 미국 장 시작 전).',
+  },
+  {
+    ticker: 'O', date: '2026-11-02', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-11-02', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/726728/000072672826000056/o-991q32026.htm',
+    quote: 'SAN DIEGO, CALIFORNIA, November 2, 2026...Realty Income Corporation',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:07 EST → 장 마감 후. 같은 보도자료가 실적 통화를 당일 2:00pm PST로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'PEG', date: '2026-11-02', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-11-02', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/81033/000119312526442778/d175962dex99.htm',
+    quote: 'November 2, 2026) Public Service Enterprise Group (NYSE: PEG) reported the following',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 09:00 EST → 장 시작 전.',
+  },
+  {
+    ticker: 'PFE', date: '2026-11-03', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-11-03', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/78003/000007800326000125/pfe-9272026xex99.htm',
+    quote: 'November 3, 2026 - Pfizer Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-03 08:07 EST → 장 시작 전.',
   },
   {
     ticker: 'PLD', date: '2026-10-15', hour: '', sourceKind: 'company-pr', announcedOn: '2026-09-03', verifiedAt: '2026-10-11T00:30:00Z',
@@ -227,6 +528,134 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     checkUrl: 'https://finviz.com/news/388950/prologis-to-announce-third-quarter-2026-results-october-15-2026',
     quote: 'on Thursday, October 15, 2026, at 9:00 a.m. PT/12:00 p.m. ET',
     note: 'PR Newswire 2026-09-03. 공지는 웹캐스트·통화 시각(12:00pm ET)만 밝히고 결과 배포 시각 구분이 없어 hour 는 비워 둔다.',
+  },
+  {
+    ticker: 'PLTR', date: '2026-11-02', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-11-02', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1321655/000132165526000045/a2026q3ex991pressrelease.htm',
+    quote: 'today announced financial results for the third quarter ended September 30, 2026',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:06 EST → 장 마감 후. 인용문엔 날짜가 없다 — 발표일 근거는 EDGAR 접수 시각(같은 날 제출). 같은 보도자료가 실적 통화를 당일 5:00pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'PLUG', date: '2026-11-09', hour: '', callEtTime: '16:30', sourceKind: 'sec-8k', announcedOn: '2026-10-15', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/0001093691/000110465926115964/tm2627628d1_ex99-1.htm',
+    checkUrl: 'https://finviz.com/news/402855/plug-power-reports-continued-business-progress-sets-dates-for-third-quarter-2026-earnings-call-and-global-plug-symposium',
+    quote: 'Plug will announce its third quarter 2026 financial results on November 9, 2026, followed by a conference call and webcast',
+    note: '10/15 보도자료(8-K 첨부 99.1). 결과 공개 시각 미공지 — 통화 4:30pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
+  },
+  {
+    ticker: 'PSA', date: '2026-10-26', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-26', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1393311/000162828026067283/psa-102626xex99_1.htm',
+    quote: 'FRISCO, Texas, October 26, 2026 - Public Storage',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-26 16:11 EDT → 장 마감 후. 보도자료에 통화 시각이 없다 — 장후 판정은 접수 시각(정규장 마감 직후)과 머리 날짜 일치만이 근거.',
+  },
+  {
+    ticker: 'PSX', date: '2026-10-28', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1534701/000153470126000035/psx-2026930_ex991.htm',
+    quote: 'October 28, 2026 - Phillips 66',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 06:47 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'PWR', date: '2026-10-29', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1050915/000119312526436949/d77812dex991.htm',
+    quote: 'October 29, 2026 - Quanta Services, Inc. (NYSE: PWR) today announced results for the',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 06:58 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'PYPL', date: '2026-10-27', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1633917/000163391726000086/pypl3q-26earningsrelease.htm',
+    quote: 'October 27, 2026) - PayPal Holdings, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 07:02 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'QCOM', date: '2026-11-04', hour: 'amc', callEtTime: '16:45', sourceKind: 'company-pr', announcedOn: '2026-10-22', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.qualcomm.com/news/releases/2026/10/qualcomm-schedules-fourth-quarter-and-fiscal-2026-earnings-relea',
+    checkUrl: 'https://investingnews.com/qualcomm-schedules-fourth-quarter-and-fiscal-2026-earnings-release-and-conference-call/',
+    quote: 'financial results for its fourth quarter and fiscal 2026 on Wednesday, November 4, 2026, after the close of the market',
+    note: 'Qualcomm 보도자료(원문은 스크립트 렌더 — 사본 investingnews 로 확인). 통화 1:45pm PT(4:45pm ET).',
+  },
+  {
+    ticker: 'REGN', date: '2026-10-30', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-30', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/872589/000087258926000032/exhibit991q32026.htm',
+    quote: 'October 30, 2026) -- Regeneron Pharmaceuticals, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-30 06:50 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'RKLB', date: '2026-11-09', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-20', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/404901/rocket-lab-announces-date-of-third-quarter-2026-financial-results',
+    quote: 'following the close of the U.S. markets on Monday November 9',
+    note: 'Business Wire 사본(IR 원문은 봇 차단). 통화 2:00pm PT(5:00pm ET).',
+  },
+  {
+    ticker: 'SBUX', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/829224/000082922426000154/sbux-09272026xearningsrele.htm',
+    quote: 'October 29, 2026 - Starbucks Corporation',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:07 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 1:15pm PT로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'SEDG', date: '2026-11-04', hour: 'bmo', callEtTime: '08:00', sourceKind: 'company-pr', announcedOn: '2026-10-15', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/402903/solaredge-to-announce-financial-results-for-the-third-quarter-ended-september-30-2026-on-wednesday-november-4-2026',
+    quote: 'will report financial results for the third quarter ended September 30, 2026, before market open on Wednesday, November 4, 2026',
+    note: 'Business Wire 사본. 통화 8:00am ET.',
+  },
+  {
+    ticker: 'SERV', date: '2026-11-05', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-22', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.manilatimes.net/2026/10/22/tmt-newswire/globenewswire/serve-robotics-to-report-third-quarter-2026-financial-results-host-conference-call-and-webcast-on-november-5/2451661',
+    quote: 'third quarter financial results Thursday, November 5, 2026 after market close',
+    note: 'GlobeNewswire 사본(IR 원문은 봇 차단). 통화 2pm PT(5pm ET).',
+  },
+  {
+    ticker: 'SHW', date: '2026-10-27', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/89800/000008980026000054/shwearningsrelease3q2026.htm',
+    quote: 'October 27, 2026 - The Sherwin-Williams Company',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 07:04 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'SMCI', date: '2026-11-03', hour: '', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-20', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/404916/supermicro-provides-first-quarter-of-fiscal-year-2027-preliminary-business-update',
+    quote: 'first quarter fiscal 2027 financial results on Tuesday, November 3, 2026, at 5:00 p.m. ET',
+    note: '10/20 잠정 실적 보도자료 사본(IR 원문은 봇 차단). 결과 공개 시각 미공지 — 통화 5:00pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
+  },
+  {
+    ticker: 'SMR', date: '2026-11-05', hour: '', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/399046/nuscale-power-to-hold-third-quarter-2026-earnings-conference-call',
+    quote: 'review third quarter 2026 results on Thursday, November 5, 2026, at 5:00 p.m. ET',
+    note: 'Business Wire 사본. 결과 공개 시각 미공지 — 통화 5:00pm ET 뿐이라 hour 는 비운다(통화 시각으로 장후를 단정하지 않는다 · 관문 11040422).',
+  },
+  {
+    ticker: 'SO', date: '2026-11-05', hour: 'bmo', callEtTime: '13:00', sourceKind: 'company-pr', announcedOn: '2026-09-25', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/395620/southern-company-third-quarter-2026-earnings-to-be-released-november-5',
+    quote: '1 p.m. ET on Thursday, November 5. Investors, media and the public',
+    note: 'PR Newswire 사본. 같은 글: 결과는 11/5 7:30am ET «까지» 공개(분 단위 시각이 아니라 etTime 은 비운다), 통화 1:00pm ET.',
+  },
+  {
+    ticker: 'SOFI', date: '2026-10-27', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1818874/000181887426000065/a2026q3earningsrelease.htm',
+    quote: 'October 27, 2026 - SoFi Technologies, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 07:02 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'SRE', date: '2026-11-05', hour: 'bmo', callEtTime: '12:00', sourceKind: 'company-pr', announcedOn: '2026-10-19', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/404197/sempra-to-report-third-quarter-2026-earnings-on-november-5',
+    quote: 'ET on Thursday, November 5. Senior leaders',
+    note: 'PR Newswire 사본. 본문: 결과 11/5 8am ET «까지» 공개(etTime 비움), 통화 12:00pm ET.',
+  },
+  {
+    ticker: 'TEAM', date: '2026-11-05', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/398890/atlassian-announces-date-for-first-quarter-of-fiscal-year-2027-financial-results',
+    quote: 'after market close on Thursday, November 5, 2026',
+    note: 'Business Wire 사본. 통화 2:00pm PT(5:00pm ET). 공지일 미확인.',
+  },
+  {
+    ticker: 'TER', date: '2026-10-28', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/97210/000119312526434981/ter-ex99_1.htm',
+    quote: 'will follow at 8:30 a.m. ET, October 28, 2026',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 06:00 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'TMUS', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1283699/000128369926000128/tmus09302026ex991.htm',
+    quote: 'October 28, 2026 - T-Mobile US, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:02 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm EDT로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'TSLA', date: '2026-10-21', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-02', verifiedAt: '2026-10-07T16:55:00Z',
@@ -241,11 +670,77 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: 'TSMC IR «Third Quarter 2026 Earnings Conference»: 10/15 02:00–03:30 ET (대만 14:00). Wall Street Horizon CONFIRMED 10/15 Before Market.',
   },
   {
+    ticker: 'TWLO', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1447669/000144766926000106/twloq326ex991.htm',
+    quote: 'October 29, 2026--Twilio',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:07 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 5:00pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
     ticker: 'UNH', date: '2026-10-13', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-09-15', verifiedAt: '2026-10-11T00:30:00Z',
     sourceUrl: 'https://secure.businesswire.com/news/home/20260915310982/en/UnitedHealth-Group-Announces-Earnings-Release-Date',
     checkUrl: 'https://finviz.com/news/392380/unitedhealth-group-announces-earnings-release-date',
     quote: 'will release its third quarter 2026 financial results on Tuesday, October 13, 2026, before the market opens',
     note: 'Business Wire 2026-09-15. 통화 8:00am ET.',
+  },
+  {
+    ticker: 'UPS', date: '2026-10-27', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1090727/000162828026067381/exhibit991-earningspressre.htm',
+    quote: 'ATLANTA - October 27, 2026 - UPS',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 06:05 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'UPST', date: '2026-11-03', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-11-03', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1647639/000164763926000083/upst991prq32026.htm',
+    quote: 'November 3, 2026 - Upstart Holdings, Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-03 08:10 EST → 장 시작 전.',
+  },
+  {
+    ticker: 'V', date: '2026-10-27', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1403161/000140316126000126/q42026earningsrelease.htm',
+    quote: 'Fiscal Fourth Quarter and Full-Year 2026 Results San Francisco, October 27, 2026 - Visa',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 16:05 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 5:00pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'VICI', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1705696/000170569626000119/viciq32026earningsrelease.htm',
+    quote: 'October 28, 2026 - VICI Properties Inc.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:16 EDT → 장 마감 후. 보도자료에 통화 시각이 없다 — 장후 판정은 접수 시각(정규장 마감 직후)과 머리 날짜 일치만이 근거.',
+  },
+  {
+    ticker: 'VKTX', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1607678/000119312526436145/vktx-ex99_1.htm',
+    quote: 'October 28, 2026 -- Viking Therapeutics, Inc. (Viking) (Nasdaq: VKTX), a clinical-stage',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:10 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'VRT', date: '2026-10-28', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1674101/000162828026067707/q32026exhibit991vrt10282026.htm',
+    quote: 'Oct. 28, 2026 - Vertiv Holdings Co',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 06:02 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'VRTX', date: '2026-11-02', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-11-02', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/875320/000087532026000287/ex-991_q32026.htm',
+    quote: 'today reported consolidated financial results for the third quarter ended September 30, 2026',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:05 EST → 장 마감 후. 인용문엔 날짜가 없다 — 발표일 근거는 EDGAR 접수 시각(같은 날 제출). 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'VST', date: '2026-11-06', hour: '', callEtTime: '10:00', sourceKind: 'company-pr', announcedOn: '2026-09-29', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://finviz.com/news/396792/vistra-to-report-third-quarter-results-on-nov-6-2026',
+    quote: 'on Friday, Nov. 6, 2026, during a live conference call and webcast beginning at 10 a.m. ET',
+    note: 'PR Newswire 사본. 날짜·통화 시각만 공지 — 결과 공개 시각 구분이 없어 hour 는 비운다.',
+  },
+  {
+    ticker: 'VZ', date: '2026-10-26', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-26', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/732712/000073271226000049/a2026q3exhibit99.htm',
+    quote: 'today announced third-quarter 2026 results that set new company benchmarks',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-26 07:00 EDT → 장 시작 전. 인용문엔 날짜가 없다 — 발표일 근거는 EDGAR 접수 시각(같은 날 제출).',
+  },
+  {
+    ticker: 'WELL', date: '2026-10-26', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-26', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/766704/000076670426000043/a3q26pressreleaseprnnewswi.htm',
+    quote: 'Welltower Reports Third Quarter 2026 Results Toledo, Ohio, October 26, 2026.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-26 16:33 EDT → 장 마감 후. 보도자료에 통화 시각이 없다 — 장후 판정은 접수 시각(정규장 마감 직후)과 머리 날짜 일치만이 근거.',
   },
   {
     ticker: 'WFC', date: '2026-10-13', hour: 'bmo', etTime: '07:00', sourceKind: 'company-pr', announcedOn: '2026-10-05', verifiedAt: '2026-10-11T00:30:00Z',
@@ -259,6 +754,18 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     sourceUrl: 'https://corporate.walmart.com/news/events/fy2027-q3-earnings-release',
     quote: 'FY2027 Q3 Earnings Release Nov. 19, 2026 | 7:00 a.m. US/Central',
   },
+  {
+    ticker: 'XOM', date: '2026-10-30', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-30', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/2115436/000211543626000018/livef8k3q26991.htm',
+    quote: 'October 30, 2026 - ExxonMobil Holdings Corporation today announced third -quarter 2026',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-30 06:32 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'XYZ', date: '2026-11-03', hour: 'amc', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-02', verifiedAt: '2026-11-03T19:15:00Z',
+    sourceUrl: 'https://www.financialcontent.com/article/bizwire-2026-10-2-block-to-announce-third-quarter-2026-results',
+    quote: 'will release financial results for the third quarter of 2026 on Tuesday, November 3, 2026, after market close',
+    note: 'Business Wire 사본. 통화 2:00pm PT(5:00pm ET).',
+  },
 ];
 
 /**
@@ -269,14 +776,8 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
 export const PENDING_EARNINGS: PendingEarnings[] = [
   { ticker: 'AVGO', checkedAt: '2026-10-07T16:40:00Z', until: '2026-10-22', note: '4분기 일정 공지 없음(통상 한 달 전)' },
   { ticker: 'DELL', checkedAt: '2026-10-07T16:40:00Z', until: '2026-10-22', note: '3분기 일정 공지 없음' },
-  { ticker: 'MA', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드 최신 9/30 — 3분기 통화 공지 없음(7/8→7/30 패턴)' },
-  { ticker: 'META', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드 최신 9/10 — «Meta to Announce Third Quarter 2026 Results» 없음(2주 전 패턴: 7/14→7/29)' },
   { ticker: 'MU', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드 최신 9/30 — 회계 1분기 일정 공지 없음' },
-  { ticker: 'NVDA', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 이벤트 피드에 3분기 FY27 일정 없음 · 벤더 불일치(FMP 11/18 · Finnhub·WSH 11/17)' },
   { ticker: 'ORCL', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드 최신 9/12 — 회계 2분기 일정 공지 없음' },
-  { ticker: 'PLTR', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드에 3분기 일정 공지 없음' },
-  { ticker: 'V', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 피드 최신 10/5 — 회계 4분기 일정 공지 없음(작년 10/28 발표)' },
-  { ticker: 'XOM', checkedAt: '2026-10-07T16:45:00Z', until: '2026-10-22', note: 'IR 캘린더에 3Q 2026 Earnings Call 없음(2분기는 발표 10일 전 공지)' },
 ];
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
