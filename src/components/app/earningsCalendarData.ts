@@ -1,6 +1,7 @@
 // 앱 실적 화면 전용. 실패를 0건으로 저장하지 않고 마지막 정상본을 보존한다.
 // 서버의 90초 실패 캐시가 지난 뒤부터 지수 백오프 3회(90·180·360초).
 import { validateRowImplied, type RowImplied } from '@/lib/earnings/earningsImplied';
+import { phaseOf } from '@/lib/earningsWeek';
 import { etDateOf } from '@/lib/marketCalendar';
 
 const CACHE_KEY = 'signum:earnings-calendar:v1';
@@ -62,7 +63,8 @@ export function watchEarningsCalendar<Row extends CalendarRow>(onRows: (rows: Ro
     if (upcoming.length) {
       // 원본 행·생성 시각은 보존하고, 복원하는 값만 현재 날짜·만기 기준으로 검증한다.
       onRows(upcoming.map((row) => row.implied == null ? row
-        : { ...row, implied: validateRowImplied(row, row.implied, nowMs) }) as Row[], cached.generatedAt);
+        : { ...row, implied: (row.implied as RowImplied & { reported?: boolean }).reported === true
+          && phaseOf(row.date, row.hour || '', nowMs) === 'done' ? row.implied : validateRowImplied(row, row.implied, nowMs) }) as Row[], cached.generatedAt);
     }
   }
 

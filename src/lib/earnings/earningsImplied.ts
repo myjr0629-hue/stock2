@@ -171,7 +171,7 @@ const md = (ymd: string) => `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10
 export function impliedBasisText(v: RowImplied | null, locale: string): string | null {
   if (!v) return null;
   const c = COPY[toLoc(locale)];
-  const parts = [c.expiryTag(md(v.expiry))];
+  const parts = v.expiry ? [c.expiryTag(md(v.expiry))] : [];
   if (v.session && /^\d{4}-\d{2}-\d{2}$/.test(v.session)) parts.push(c.sessionTag(md(v.session)));
   return parts.join(' · ');
 }
