@@ -487,14 +487,33 @@ async function main() {
     ask(); flush(env); assert.equal(env.reviews, 1);
     uninstall();
   });
-  t('예약 뒤 차단과 재시도도 차단되면 더 이상 재시도하지 않는다', () => {
+  t('막힌 회차는 시도로 세지 않고, 광고 간격이 지난 다음 적격 순간에 요청한다(관문 11040358 ①)', () => {
     const env = new Env(); install(env, makeWindow(env));
     const ask = grab({ storageKey: 'signum.retryLimit', milestones: [1], delayMs: 1400 });
     ask(); env.local.setItem('signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() }));
     flush(env); ask(); ask(); flush(env);
     assert.equal(env.reviews, 0);
     assert.equal(env.local.getItem('signum.retryLimit.requested'), null);
-    assert.equal(env.local.getItem('signum.retryLimit.attempt.1'), '2');
+    assert.equal(env.local.getItem('signum.retryLimit.attempt.1'), null);
+    env.local.setItem('signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() - 10 * 60_000 }));
+    ask(); flush(env);
+    assert.equal(env.reviews, 1);
+    assert.equal(env.local.getItem('signum.retryLimit.attempt.1'), '1');
+    assert.equal(env.local.getItem('signum.retryLimit.requested'), '[1]');
+    ask(); flush(env); assert.equal(env.reviews, 1);
+    uninstall();
+  });
+  t('보상형 광고가 막 끝났으면 요청하지 않는다(관문 11040358 ②)', () => {
+    const env = new Env(); install(env, makeWindow(env));
+    const { fullScreenAds } = require('../src/services/fullScreenAdSession');
+    (fullScreenAds as any).lastEnded = Date.now();
+    const ask = grab({ storageKey: 'signum.rewardedGap', milestones: [1], delayMs: 1400 });
+    ask(); flush(env);
+    assert.equal(env.reviews, 0);
+    (fullScreenAds as any).lastEnded = Date.now() - 10 * 60_000;
+    ask(); flush(env);
+    assert.equal(env.reviews, 1);
+    (fullScreenAds as any).lastEnded = 0;
     uninstall();
   });
   t('실적 발표 완료 행 열기 경로와 2·7회 설정 · 웹에서는 기록하지 않는다', () => {
@@ -534,7 +553,7 @@ async function main() {
     bridge.maybePromptReview();
     assert.equal(env.local.getItem('signumhq.review.prompted'), null);
     bridge.maybePromptReview();
-    assert.equal(env.local.getItem('signumhq.review.prompted.attempt.2'), '1');
+    assert.equal(env.local.getItem('signumhq.review.prompted.attempt.2'), null);
     delete (globalThis as any).document;
     w = makeWindow(env); install(env, w); (globalThis as any).sessionStorage = w.sessionStorage;
     bridge.maybePromptReview();

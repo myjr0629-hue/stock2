@@ -40,6 +40,9 @@ export const reviewRequestedAt = (): number => lastReviewRequestAt;
 export function reviewMomentBlocked(now = Date.now()): boolean {
   try {
     if (fullScreenAds.isBusy()) return true;
+    // 보상형은 전면 광고 빈도 기록(lastShownAt)을 남기지 않는다 — 세션이 기록한 «광고가 끝난 시각»으로 함께 막는다
+    const ended = fullScreenAds.endedAt();
+    if (ended > 0 && now - ended < GIFT_REVIEW_QUIET_MS) return true;
     const ad = JSON.parse(localStorage.getItem('signum_interstitial_frequency') || '{}');
     if (typeof ad.lastShownAt === 'number' && ad.lastShownAt > 0 && now - ad.lastShownAt < GIFT_REVIEW_QUIET_MS) return true;
     const gift = readAnnounceState(localStorage);
@@ -61,7 +64,7 @@ export function scheduleReviewRequest(delayMs: number, request: () => void, guar
   }, delayMs);
 }
 
-// 각 마일스톤은 최초 시도와 다음 적격 순간의 재시도 한 번만 허용한다.
+// 마일스톤은 OS 시트를 실제로 요청할 때까지(막힌 회차는 세지 않고) 다음 적격 순간에 다시 시도한다 — 요청 뒤엔 완료 표식.
 const inFlight = new Set<string>();
 export function reviewAttempts(key: string, milestone: number): number {
   return Number(localStorage.getItem(`${key}.attempt.${milestone}`)) || 0;
@@ -69,13 +72,14 @@ export function reviewAttempts(key: string, milestone: number): number {
 export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void): void {
   const id = `${key}:${milestone}`;
   if (inFlight.has(id) || reviewAttempts(key, milestone) >= 2) return;
-  localStorage.setItem(`${key}.attempt.${milestone}`, String(reviewAttempts(key, milestone) + 1));
   inFlight.add(id);
   const release = () => { inFlight.delete(id); };
   scheduleReviewRequest(delay, () => {
     try {
       const plugin = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
       if (typeof plugin?.requestReview !== 'function') return;
+      // 시도 횟수는 OS 시트를 «실제로 요청한» 경우에만 센다 — 광고·안내에 막힌 회차는 기회를 소비하지 않는다
+      localStorage.setItem(`${key}.attempt.${milestone}`, String(reviewAttempts(key, milestone) + 1));
       const result = plugin.requestReview();
       Promise.resolve(result).catch(() => {});
       requested();
@@ -117,7 +121,7 @@ export function useReviewPrompt({
       const doneKey = `${storageKey}.requested`;
       const done: number[] = JSON.parse(localStorage.getItem(doneKey) || '[]');
       const hit = milestones.find(m => m === n && !done.includes(m))
-        ?? milestones.find(m => m < n && !done.includes(m) && reviewAttempts(storageKey, m) === 1 && !inFlight.has(`${storageKey}:${m}`));
+        ?? milestones.find(m => m < n && !done.includes(m) && reviewAttempts(storageKey, m) === 0 && !inFlight.has(`${storageKey}:${m}`));
       if (hit == null) return;
       attemptReview(storageKey, hit, delayMs, storageKey.startsWith('signum.'), () => {
         const current: number[] = JSON.parse(localStorage.getItem(doneKey) || '[]');
