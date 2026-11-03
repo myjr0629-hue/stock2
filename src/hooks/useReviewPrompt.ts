@@ -25,6 +25,8 @@
 // ============================================================================
 
 import { useCallback } from 'react';
+import { fullScreenAds } from '@/services/fullScreenAdSession';
+import { GIFT_REVIEW_QUIET_MS, readAnnounceState } from '@/lib/gift/giftAnnounce';
 
 /**
  * ★2026-10-27 마지막으로 OS 평점 시트를 «요청»한 시각(ms, 요청 지연 포함) — 같은 웹뷰 실행 안에서만 의미가 있다.
@@ -33,6 +35,57 @@ import { useCallback } from 'react';
  */
 let lastReviewRequestAt = 0;
 export const reviewRequestedAt = (): number => lastReviewRequestAt;
+
+/** 광고 진행 중·직후 및 선물 안내 직후에는 요청을 건너뛴다. 예약 시와 실행 시 모두 확인한다. */
+export function reviewMomentBlocked(now = Date.now()): boolean {
+  try {
+    if (fullScreenAds.isBusy()) return true;
+    // 보상형은 전면 광고 빈도 기록(lastShownAt)을 남기지 않는다 — 세션이 기록한 «광고가 끝난 시각»으로 함께 막는다
+    const ended = fullScreenAds.endedAt();
+    if (ended > 0 && now - ended < GIFT_REVIEW_QUIET_MS) return true;
+    const ad = JSON.parse(localStorage.getItem('signum_interstitial_frequency') || '{}');
+    if (typeof ad.lastShownAt === 'number' && ad.lastShownAt > 0 && now - ad.lastShownAt < GIFT_REVIEW_QUIET_MS) return true;
+    const gift = readAnnounceState(localStorage);
+    if (gift && gift.last > 0 && now - gift.last < GIFT_REVIEW_QUIET_MS) return true;
+    if (typeof document !== 'undefined' && (document.visibilityState === 'hidden' || document.querySelector('[aria-modal="true"]'))) return true;
+    return false;
+  } catch { return true; }
+}
+
+export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true, onBlocked: () => void = () => {}): void {
+  if (guardSignum && reviewMomentBlocked()) { onBlocked(); return; }
+  const previousRequestAt = lastReviewRequestAt;
+  const reservedAt = Date.now() + delayMs;
+  lastReviewRequestAt = reservedAt;
+  window.setTimeout(() => {
+    if (guardSignum && reviewMomentBlocked()) { if (lastReviewRequestAt === reservedAt) lastReviewRequestAt = previousRequestAt; onBlocked(); return; }
+    lastReviewRequestAt = Date.now();
+    request();
+  }, delayMs);
+}
+
+// 마일스톤은 OS 시트를 실제로 요청할 때까지(막힌 회차는 세지 않고) 다음 적격 순간에 다시 시도한다 — 요청 뒤엔 완료 표식.
+const inFlight = new Set<string>();
+export function reviewAttempts(key: string, milestone: number): number {
+  return Number(localStorage.getItem(`${key}.attempt.${milestone}`)) || 0;
+}
+export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void): void {
+  const id = `${key}:${milestone}`;
+  if (inFlight.has(id) || reviewAttempts(key, milestone) >= 2) return;
+  inFlight.add(id);
+  const release = () => { inFlight.delete(id); };
+  scheduleReviewRequest(delay, () => {
+    try {
+      const plugin = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
+      if (typeof plugin?.requestReview !== 'function') return;
+      // 시도 횟수는 OS 시트를 «실제로 요청한» 경우에만 센다 — 광고·안내에 막힌 회차는 기회를 소비하지 않는다
+      localStorage.setItem(`${key}.attempt.${milestone}`, String(reviewAttempts(key, milestone) + 1));
+      const result = plugin.requestReview();
+      Promise.resolve(result).catch(() => {});
+      requested();
+    } catch { /* 요청 실패는 앱을 막지 않는다 */ } finally { release(); }
+  }, guard, release);
+}
 
 type Options = {
   /** 누적 성공 횟수를 담는 localStorage 키 */
@@ -63,18 +116,27 @@ export function useReviewPrompt({
       const cap = (window as { Capacitor?: any }).Capacitor;
       if (!cap?.isNativePlatform?.()) return;
 
-      const n = (parseInt(localStorage.getItem(storageKey) || '0', 10) || 0) + 1;
+      const prev = parseInt(localStorage.getItem(storageKey) || '0', 10) || 0;
+      const n = prev + 1;
       localStorage.setItem(storageKey, String(n));
-      if (!milestones.includes(n)) return;
-      lastReviewRequestAt = Date.now() + delayMs;
-
-      window.setTimeout(() => {
-        try {
-          const p = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
-          // 결과를 읽지 않는다 — 표시 여부는 OS 소관이고, 우리가 알 필요도 없다.
-          p?.requestReview?.().catch(() => {});
-        } catch { /* 플러그인 없음 — 조용히 넘어간다 */ }
-      }, delayMs);
+      const doneKey = `${storageKey}.requested`;
+      // 옛 버전은 누적 횟수만 남기고 완료 표식이 없었다 — 표식이 아직 없으면 «이미 지난 마일스톤»은 옛 버전이 처리한 것으로 보고
+      // 완료로 옮겨 적는다(업데이트 직후 기존 사용자에게 지난 평점 요청이 다시 뜨지 않게, 관문 11040409 ①)
+      // «이 버전이 이미 센 적이 있다» 표식(.v2) 이 없을 때만 옮긴다 — 새 버전에서 막혀 미완료로 남은 마일스톤을 옛 것으로 오인하지 않게
+      const v2Key = `${storageKey}.v2`;
+      if (localStorage.getItem(v2Key) === null) {
+        const legacyDone = localStorage.getItem(doneKey) === null ? milestones.filter(m => m <= prev) : [];
+        if (legacyDone.length) localStorage.setItem(doneKey, JSON.stringify(legacyDone));
+        localStorage.setItem(v2Key, '1');
+      }
+      const done: number[] = JSON.parse(localStorage.getItem(doneKey) || '[]');
+      const hit = milestones.find(m => m === n && !done.includes(m))
+        ?? milestones.find(m => m < n && !done.includes(m) && reviewAttempts(storageKey, m) === 0 && !inFlight.has(`${storageKey}:${m}`));
+      if (hit == null) return;
+      attemptReview(storageKey, hit, delayMs, storageKey.startsWith('signum.'), () => {
+        const current: number[] = JSON.parse(localStorage.getItem(doneKey) || '[]');
+        if (!current.includes(hit)) localStorage.setItem(doneKey, JSON.stringify([...current, hit]));
+      });
     } catch { /* localStorage 차단 등 — 평점 요청이 앱을 막으면 안 된다 */ }
   }, [storageKey, milestones, delayMs]);
 }

@@ -51,8 +51,11 @@ const EVENTS = {
 export class FullScreenAdSession {
   private busy = false;
   private generation = 0;
+  private lastEnded = 0;
 
   isBusy(): boolean { return this.busy; }
+  /** 마지막으로 전면·보상형 광고가 실제로 화면에 떴다가 끝난 시각(ms, 이 웹뷰 실행 안). 평점 요청 간격 판정용 — 0 = 없음. */
+  endedAt(): number { return this.lastEnded; }
 
   run<T extends FullScreenAdPlugin>(options: {
     format: FullScreenAdFormat;
@@ -91,6 +94,7 @@ export class FullScreenAdSession {
         clearTimeout(timer);
         handles.splice(0).forEach(remove);
         this.busy = false;
+        if (shown) this.lastEnded = Date.now();
         resolve({ reward, shown });
       };
       timer = setTimeout(settle, FULL_SCREEN_AD_TIMEOUT_MS);

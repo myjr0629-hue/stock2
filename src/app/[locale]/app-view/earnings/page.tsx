@@ -24,6 +24,7 @@ import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import { fmtEpsUsd, fmtRevUsd } from '@/lib/earnings/earningsBrief';
 // 옵션 반영 변동폭 — 웹 /earnings-week 와 같은 원천·같은 정의(lib/impliedMove.ts)를 서버가 묶어 행에 붙인다(2026-10-12)
 import { IMPLIED_LABEL, impliedBasisText, impliedPctText, type RowImplied } from '@/lib/earnings/earningsImplied';
+import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import s from './earnings.module.css';
 
 interface Row {
@@ -35,8 +36,10 @@ interface Row {
   /** ★ [2026-09-10] AI 가 붙인 회사명·관전 포인트. 없으면 기존 화면 그대로다. */
   brief?: Partial<Record<'ko' | 'en' | 'ja', { name?: string; watch?: string }>>;
   /** ★ [2026-10-12] 옵션 반영 변동폭(ATM 스트래들 ÷ 현물, 발표 뒤 첫 만기). 없으면 null — 화면은 «—» */
-  implied?: RowImplied | null;
+  implied?: (RowImplied & { reported?: boolean }) | null;
 }
+
+const EARNINGS_REVIEW = { storageKey: 'signum.earningsOpens', milestones: [2, 7], delayMs: 1400 };
 
 const T = {
   ko: { title: '실적 캘린더', back: '빠른 진입', amc: '장 마감 후', bmo: '장 시작 전', tbd: '시간 미정',
@@ -67,6 +70,11 @@ const AI_ARIA = { ko: 'AI 생성 문구', en: 'AI-generated', ja: 'AI生成' } a
 
 export default function EarningsPage() {
   const router = useRouter();
+  const markReportedOpened = useReviewPrompt(EARNINGS_REVIEW);
+  const openRow = (e: Row) => {
+    if (e.implied?.reported === true) markReportedOpened();
+    router.push(`/app-view/cmd?t=${e.ticker}`);
+  };
   // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 하트 배지(행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
   const starLp = useStarLongPress();
   const myList = useAppWatchlist();
@@ -172,8 +180,8 @@ export default function EarningsPage() {
                     // ★2026-10-14 공유 카드 단추 — 행(<a role=button>)은 그대로 두고 «형제»로 둔다(버튼 안에 버튼 없음). 옵션 반영 변동폭 값이 있는 행에만.
                     <div key={e.ticker} className={s.ecRW} data-share={shareOn && e.implied ? '1' : undefined}>
                     <a className={`${s.ecR} ${lpRowClass}`} role="button" tabIndex={0}
-                       onClick={() => router.push(`/app-view/cmd?t=${e.ticker}`)}
-                       onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); router.push(`/app-view/cmd?t=${e.ticker}`); } }}
+                       onClick={() => openRow(e)}
+                       onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openRow(e); } }}
                        {...starLp(e.ticker, { name: e.brief?.[locale as 'ko' | 'en' | 'ja']?.name ?? null })}>
                       {/* 한 줄 — 왼쪽에 신원(로고·티커·시간·분기), 오른쪽에 수치.
                           두 줄로 쌓으면 오른쪽이 통째로 빈다(대표 지적 2026-09-06). */}

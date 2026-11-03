@@ -448,6 +448,134 @@ async function main() {
     assert.deepEqual(hits, [path.join('lib', 'app', 'reviewMoments.ts')]);
   });
 
+  t('인텔 2·7회에만 요청하고 광고 직후에는 요청하지 않는다', () => {
+    const env = new Env(); install(env, makeWindow(env));
+    const ask = grab({ storageKey: 'signum.reportOpens', milestones: [2, 7], delayMs: 1400 });
+    for (let i = 0; i < 7; i++) { ask(); flush(env); }
+    assert.equal(env.reviews, 2);
+    env.local.setItem('signum.reportOpens', '1');
+    env.local.setItem('signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() }));
+    ask(); flush(env);
+    assert.equal(env.reviews, 2);
+    uninstall();
+  });
+  t('예약 이후 표시된 광고 또는 선물 안내도 실행 시 차단한다', () => {
+    for (const [key, value] of [
+      ['signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() })],
+      ['signumhq.gift.announce.v1', JSON.stringify({ n: 1, last: Date.now() })],
+    ]) {
+      const env = new Env(); install(env, makeWindow(env));
+      const ask = grab({ storageKey: 'signum.test', milestones: [1], delayMs: 1400 });
+      ask(); env.local.setItem(key, value); flush(env);
+      assert.equal(env.reviews, 0);
+      uninstall();
+    }
+  });
+  t('차단된 순간은 다음 순간에 한 번만 재시도하고 실제 호출 후에만 완료한다', () => {
+    const env = new Env(); const w = makeWindow(env); install(env, w);
+    const ask = grab({ storageKey: 'signum.retryTest', milestones: [2], delayMs: 1400 });
+    ask();
+    (globalThis as any).document = { visibilityState: 'visible', querySelector: () => ({}) };
+    ask();
+    assert.equal(env.local.getItem('signum.retryTest.requested'), null);
+    delete (globalThis as any).document;
+    ask();
+    assert.equal(env.local.getItem('signum.retryTest.requested'), null);
+    flush(env);
+    assert.equal(env.reviews, 1);
+    assert.equal(env.local.getItem('signum.retryTest.requested'), '[2]');
+    ask(); flush(env); assert.equal(env.reviews, 1);
+    uninstall();
+  });
+  t('막힌 회차는 시도로 세지 않고, 광고 간격이 지난 다음 적격 순간에 요청한다(관문 11040358 ①)', () => {
+    const env = new Env(); install(env, makeWindow(env));
+    const ask = grab({ storageKey: 'signum.retryLimit', milestones: [1], delayMs: 1400 });
+    ask(); env.local.setItem('signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() }));
+    flush(env); ask(); ask(); flush(env);
+    assert.equal(env.reviews, 0);
+    assert.equal(env.local.getItem('signum.retryLimit.requested'), null);
+    assert.equal(env.local.getItem('signum.retryLimit.attempt.1'), null);
+    env.local.setItem('signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() - 10 * 60_000 }));
+    ask(); flush(env);
+    assert.equal(env.reviews, 1);
+    assert.equal(env.local.getItem('signum.retryLimit.attempt.1'), '1');
+    assert.equal(env.local.getItem('signum.retryLimit.requested'), '[1]');
+    ask(); flush(env); assert.equal(env.reviews, 1);
+    uninstall();
+  });
+  t('옛 버전 사용자(누적 횟수만 있고 완료 표식 없음)는 지난 마일스톤이 다시 뜨지 않는다(관문 11040409 ①)', () => {
+    const env = new Env(); install(env, makeWindow(env));
+    env.local.setItem('signum.legacyUser', '9');
+    const ask = grab({ storageKey: 'signum.legacyUser', milestones: [2, 7, 12], delayMs: 1400 });
+    ask(); flush(env);
+    assert.equal(env.reviews, 0);
+    assert.equal(env.local.getItem('signum.legacyUser.requested'), '[2,7]');
+    ask(); ask(); flush(env);
+    assert.equal(env.reviews, 1);
+    assert.equal(env.local.getItem('signum.legacyUser.requested'), '[2,7,12]');
+    uninstall();
+  });
+  t('보상형 광고가 막 끝났으면 요청하지 않는다(관문 11040358 ②)', () => {
+    const env = new Env(); install(env, makeWindow(env));
+    const { fullScreenAds } = require('../src/services/fullScreenAdSession');
+    (fullScreenAds as any).lastEnded = Date.now();
+    const ask = grab({ storageKey: 'signum.rewardedGap', milestones: [1], delayMs: 1400 });
+    ask(); flush(env);
+    assert.equal(env.reviews, 0);
+    (fullScreenAds as any).lastEnded = Date.now() - 10 * 60_000;
+    ask(); flush(env);
+    assert.equal(env.reviews, 1);
+    (fullScreenAds as any).lastEnded = 0;
+    uninstall();
+  });
+  t('실적 발표 완료 행 열기 경로와 2·7회 설정 · 웹에서는 기록하지 않는다', () => {
+    const page = read('src/app/[locale]/app-view/earnings/page.tsx');
+    assert.match(page, /storageKey: 'signum\.earningsOpens', milestones: \[2, 7\]/);
+    assert.match(page, /if \(e\.implied\?\.reported === true\) markReportedOpened\(\)/);
+    assert.match(page, /onClick=\{\(\) => openRow\(e\)\}/);
+    assert.match(page, /ev\.preventDefault\(\); openRow\(e\)/);
+    const cfg = { storageKey: 'signum.earningsOpens', milestones: [2, 7], delayMs: 1400 };
+    for (const native of [true, false]) {
+      const env = new Env(); install(env, makeWindow(env, { native }));
+      const ask = grab(cfg); const hits: number[] = [];
+      for (let i = 1; i <= 8; i++) { ask(); const before = env.reviews; flush(env); if (env.reviews > before) hits.push(i); }
+      assert.deepEqual(hits, native ? [2, 7] : []);
+      if (!native) assert.equal(env.local.getItem(cfg.storageKey), null);
+      uninstall();
+    }
+  });
+  t('대시보드도 차단 후 다음 세션에 재시도하고 요청 뒤에만 완료한다', () => {
+    const env = new Env(); let w = makeWindow(env); install(env, w);
+    (globalThis as any).sessionStorage = w.sessionStorage;
+    const Module = require('node:module'); const originalLoad = Module._load;
+    Module._load = function (name: string, ...args: unknown[]) {
+      if (name === '@capacitor/core') return { Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios' } };
+      return originalLoad.call(this, name, ...args);
+    };
+    let bridge: typeof import('../src/lib/native/capacitorBridge');
+    const bridgePath = require.resolve('../src/lib/native/capacitorBridge');
+    const previousBridge = require.cache[bridgePath]; delete require.cache[bridgePath];
+    try { bridge = require('../src/lib/native/capacitorBridge'); } finally {
+      Module._load = originalLoad;
+      if (previousBridge) require.cache[bridgePath] = previousBridge;
+      else delete require.cache[bridgePath];
+    }
+    env.local.setItem('signumhq.review.days', '["2000-01-01"]');
+    (globalThis as any).document = { visibilityState: 'visible', querySelector: () => ({}) };
+    bridge.maybePromptReview();
+    assert.equal(env.local.getItem('signumhq.review.prompted'), null);
+    bridge.maybePromptReview();
+    assert.equal(env.local.getItem('signumhq.review.prompted.attempt.2'), null);
+    delete (globalThis as any).document;
+    w = makeWindow(env); install(env, w); (globalThis as any).sessionStorage = w.sessionStorage;
+    bridge.maybePromptReview();
+    assert.equal(env.local.getItem('signumhq.review.prompted'), null);
+    flush(env);
+    assert.equal(env.reviews, 1);
+    assert.equal(env.local.getItem('signumhq.review.prompted'), '[2]');
+    assert.ok(env.local.getItem('signumhq.review.lastAsked'));
+    delete (globalThis as any).sessionStorage; uninstall();
+  });
   console.log(`\n${n}/${n} 통과`);
 }
 
