@@ -1,22 +1,20 @@
 import { phaseOf } from '@/lib/earningsWeek';
-import { atmReceiptExpectedPct, expectedEligible, parseRecord } from '@/lib/earnings/earningsActuals';
+import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
 import type { RowImplied } from '@/lib/earnings/earningsImplied';
 
 export type CalendarImplied = RowImplied & { reported?: true };
 type Row = { ticker: string; date: string; hour?: string | null; implied?: RowImplied | null };
 
-/** 채점표와 같은 기록·ATM 정의·발표 전 세션만 사용한다. */
-export function reportedImplied(row: Row, raw: unknown, nowMs: number): CalendarImplied | null {
-  if (phaseOf(row.date, row.hour || '', nowMs) !== 'done') return null;
-  const r = parseRecord(raw);
-  if (!r || r.ticker !== row.ticker.toUpperCase() || r.date !== row.date || r.hour !== row.hour || !r.expected) return null;
-  const e = r.expected;
-  const pct = atmReceiptExpectedPct(e);
-  if (pct == null || !expectedEligible(r, e.session) || !(e.capturedAt > 0 && e.capturedAt <= nowMs)) return null;
-  return { pct, expiry: e.expiry ?? '', basis: e.basis, session: e.session, reported: true };
+/** 채점표에 포함된 같은 이벤트의 예상값만 사용한다. */
+export function reportedImplied(row: Row, score: ScorecardRow | undefined, nowMs: number): CalendarImplied | null {
+  if (phaseOf(row.date, row.hour || '', nowMs) !== 'done' || !score
+    || score.ticker !== row.ticker.toUpperCase() || score.date !== row.date || score.hour !== row.hour) return null;
+  return { pct: score.expectedPct, expiry: score.basis.expectedExpiry ?? '', basis: null,
+    session: score.basis.expectedSession, reported: true };
 }
 
-export function attachReportedImplied<R extends Row>(rows: R[], values: readonly unknown[], nowMs: number): Array<R & { implied: CalendarImplied | null }> {
-  return rows.map((row, i) => ({ ...row, implied: phaseOf(row.date, row.hour || '', nowMs) === 'done'
-    ? reportedImplied(row, values[i], nowMs) : row.implied ?? null }));
+export function attachReportedImplied<R extends Row>(rows: R[], scores: readonly ScorecardRow[], nowMs: number): Array<R & { implied: CalendarImplied | null }> {
+  const byEvent = new Map(scores.map((score) => [`${score.ticker}|${score.date}|${score.hour}`, score]));
+  return rows.map((row) => ({ ...row, implied: phaseOf(row.date, row.hour || '', nowMs) === 'done'
+    ? reportedImplied(row, byEvent.get(`${row.ticker.toUpperCase()}|${row.date}|${row.hour}`), nowMs) : row.implied ?? null }));
 }
