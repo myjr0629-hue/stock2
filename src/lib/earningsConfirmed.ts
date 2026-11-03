@@ -228,7 +228,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'COIN', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1679788/000167978826000121/q326earningsdeck_vsec.htm',
     quote: 'Form 10-Q for the quarter ended September 30, 2026 filed with the SEC on October 29, 2026',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:09 EDT → 장 마감 후. 첨부는 실적 자료(deck) — 인용문은 같은 날 10-Q 제출 문장.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:09 EDT → 장 마감 후. 첨부는 실적 자료(deck) — 인용문은 같은 날 10-Q 제출 문장. 보도자료에 통화 시각이 없다 — 장후 판정은 접수 시각(정규장 마감 직후)과 머리 날짜 일치만이 근거.',
   },
   {
     ticker: 'COP', date: '2026-11-05', hour: 'bmo', callEtTime: '12:00', sourceKind: 'company-pr', announcedOn: '2026-09-24', verifiedAt: '2026-11-03T19:15:00Z',
@@ -284,13 +284,13 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'ENPH', date: '2026-10-27', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1463101/000146310126000101/a2026q3exx991pressrelease.htm',
     quote: 'FREMONT, Calif., Oct 27, 2026 - Enphase Energy, Inc.',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 16:07 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 16:07 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'EQIX', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1101239/000110123926000178/a991eqix-q326xpr.htm',
     quote: 'October 28, 2026 - Equinix, Inc.',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:12 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:12 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 5:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'ETN', date: '2026-11-03', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-11-03', verifiedAt: '2026-11-03T19:15:00Z',
@@ -308,13 +308,13 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'FSLR', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1274494/000127449426000211/ex991pressreleaseq3-2026.htm',
     quote: 'October 29, 2026 - First Solar, Inc.',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:03 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:03 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'FTNT', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1262039/000126203926000024/ftntq3-2026ex991.htm',
     quote: 'SUNNYVALE, Calif. - October 28, 2026',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:09 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:09 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'GEV', date: '2026-10-28', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
@@ -326,7 +326,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'GILD', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/882095/000088209526000037/exhibit991earningspressrel.htm',
     quote: 'October 29, 2026 - Gilead Sciences, Inc.',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:03 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:03 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 1:30pm PT로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'GOOGL', date: '2026-10-28', hour: 'amc', sourceKind: 'ir-feed', announcedOn: '2026-10-06', verifiedAt: '2026-10-07T16:55:00Z',
@@ -345,7 +345,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'HOOD', date: '2026-10-27', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1783879/000178387926000164/q32026robinhoodexhibit991.htm',
     quote: 'October 27, 2026 - Robinhood Markets, Inc.',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 16:06 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 16:06 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 5pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'HUBS', date: '2026-11-04', hour: 'amc', callEtTime: '16:30', sourceKind: 'company-pr', announcedOn: '2026-10-21', verifiedAt: '2026-11-03T19:15:00Z',
@@ -391,7 +391,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'KLAC', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/319201/000031920126000032/exhibit991earningsrelease0.htm',
     quote: 'October 28, 2026 - KLA Corporation',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:07 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:07 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 2:00pm PT로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'KMB', date: '2026-11-05', hour: 'bmo', callEtTime: '08:00', sourceKind: 'sec-8k', announcedOn: '2026-10-15', verifiedAt: '2026-11-03T19:15:00Z',
@@ -496,7 +496,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'NOW', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1373715/000137371526000092/erq3fy26.htm',
     quote: 'billion, up 70% from the beginning of the year SANTA CLARA, Calif. - October 28, 2026 - ServiceNow',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:14 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:14 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 2pm PDT로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'NVO', date: '2026-11-04', hour: '', sourceKind: 'sec-8k', announcedOn: '2026-08-04', verifiedAt: '2026-11-03T19:15:00Z',
@@ -508,7 +508,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'O', date: '2026-11-02', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-11-02', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/726728/000072672826000056/o-991q32026.htm',
     quote: 'SAN DIEGO, CALIFORNIA, November 2, 2026...Realty Income Corporation',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:07 EST → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:07 EST → 장 마감 후. 같은 보도자료가 실적 통화를 당일 2:00pm PST로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'PEG', date: '2026-11-02', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-11-02', verifiedAt: '2026-11-03T19:15:00Z',
@@ -533,7 +533,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'PLTR', date: '2026-11-02', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-11-02', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1321655/000132165526000045/a2026q3ex991pressrelease.htm',
     quote: 'today announced financial results for the third quarter ended September 30, 2026',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:06 EST → 장 마감 후. 인용문엔 날짜가 없다 — 발표일 근거는 EDGAR 접수 시각(같은 날 제출).',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:06 EST → 장 마감 후. 인용문엔 날짜가 없다 — 발표일 근거는 EDGAR 접수 시각(같은 날 제출). 같은 보도자료가 실적 통화를 당일 5:00pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'PLUG', date: '2026-11-09', hour: '', callEtTime: '16:30', sourceKind: 'sec-8k', announcedOn: '2026-10-15', verifiedAt: '2026-11-03T19:15:00Z',
@@ -546,7 +546,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'PSA', date: '2026-10-26', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-26', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1393311/000162828026067283/psa-102626xex99_1.htm',
     quote: 'FRISCO, Texas, October 26, 2026 - Public Storage',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-26 16:11 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-26 16:11 EDT → 장 마감 후. 보도자료에 통화 시각이 없다 — 장후 판정은 접수 시각(정규장 마감 직후)과 머리 날짜 일치만이 근거.',
   },
   {
     ticker: 'PSX', date: '2026-10-28', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
@@ -589,7 +589,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'SBUX', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/829224/000082922426000154/sbux-09272026xearningsrele.htm',
     quote: 'October 29, 2026 - Starbucks Corporation',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:07 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:07 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 1:15pm PT로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'SEDG', date: '2026-11-04', hour: 'bmo', callEtTime: '08:00', sourceKind: 'company-pr', announcedOn: '2026-10-15', verifiedAt: '2026-11-03T19:15:00Z',
@@ -655,7 +655,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'TMUS', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1283699/000128369926000128/tmus09302026ex991.htm',
     quote: 'October 28, 2026 - T-Mobile US, Inc.',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:02 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:02 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm EDT로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'TSLA', date: '2026-10-21', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-02', verifiedAt: '2026-10-07T16:55:00Z',
@@ -673,7 +673,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'TWLO', date: '2026-10-29', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-29', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1447669/000144766926000106/twloq326ex991.htm',
     quote: 'October 29, 2026--Twilio',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:07 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-29 16:07 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 5:00pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'UNH', date: '2026-10-13', hour: 'bmo', sourceKind: 'company-pr', announcedOn: '2026-09-15', verifiedAt: '2026-10-11T00:30:00Z',
@@ -698,19 +698,19 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'V', date: '2026-10-27', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1403161/000140316126000126/q42026earningsrelease.htm',
     quote: 'Fiscal Fourth Quarter and Full-Year 2026 Results San Francisco, October 27, 2026 - Visa',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 16:05 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-27 16:05 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 5:00pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'VICI', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1705696/000170569626000119/viciq32026earningsrelease.htm',
     quote: 'October 28, 2026 - VICI Properties Inc.',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:16 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:16 EDT → 장 마감 후. 보도자료에 통화 시각이 없다 — 장후 판정은 접수 시각(정규장 마감 직후)과 머리 날짜 일치만이 근거.',
   },
   {
     ticker: 'VKTX', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1607678/000119312526436145/vktx-ex99_1.htm',
     quote: 'October 28, 2026 -- Viking Therapeutics, Inc. (Viking) (Nasdaq: VKTX), a clinical-stage',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:10 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:10 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'VRT', date: '2026-10-28', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
@@ -722,7 +722,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'VRTX', date: '2026-11-02', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-11-02', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/875320/000087532026000287/ex-991_q32026.htm',
     quote: 'today reported consolidated financial results for the third quarter ended September 30, 2026',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:05 EST → 장 마감 후. 인용문엔 날짜가 없다 — 발표일 근거는 EDGAR 접수 시각(같은 날 제출).',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:05 EST → 장 마감 후. 인용문엔 날짜가 없다 — 발표일 근거는 EDGAR 접수 시각(같은 날 제출). 같은 보도자료가 실적 통화를 당일 4:30pm ET로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
     ticker: 'VST', date: '2026-11-06', hour: '', callEtTime: '10:00', sourceKind: 'company-pr', announcedOn: '2026-09-29', verifiedAt: '2026-11-03T19:15:00Z',
@@ -740,7 +740,7 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     ticker: 'WELL', date: '2026-10-26', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-26', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/766704/000076670426000043/a3q26pressreleaseprnnewswi.htm',
     quote: 'Welltower Reports Third Quarter 2026 Results Toledo, Ohio, October 26, 2026.',
-    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-26 16:33 EDT → 장 마감 후.',
+    note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-26 16:33 EDT → 장 마감 후. 보도자료에 통화 시각이 없다 — 장후 판정은 접수 시각(정규장 마감 직후)과 머리 날짜 일치만이 근거.',
   },
   {
     ticker: 'WFC', date: '2026-10-13', hour: 'bmo', etTime: '07:00', sourceKind: 'company-pr', announcedOn: '2026-10-05', verifiedAt: '2026-10-11T00:30:00Z',
