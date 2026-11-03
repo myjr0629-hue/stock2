@@ -1,7 +1,7 @@
 // Finnhub Earnings Calendar API Test
 // Usage: node scripts/test_finnhub_earnings.js
 
-const FINNHUB_API_KEY = 'd6238q1r01qgcobreau0d6238q1r01qgcobreaug';
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || ''; // 공개 저장소 — 키는 환경변수로만
 
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA'];
 
