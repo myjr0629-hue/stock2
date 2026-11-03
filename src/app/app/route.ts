@@ -141,7 +141,10 @@ export async function GET(request: NextRequest) {
     const ua = request.headers.get('user-agent') || '';
     if (!isPreviewBot(ua)) {
       const fromTag = normalizeFrom(request.nextUrl.searchParams.get('from'));
-      const humanField = clickFields(request.headers, request.method, refBucketFor(request))[0];
+      const fields = clickFields(request.headers, request.method, refBucketFor(request));
+      const humanField = fields[0];
+      after(() => recordClick('sg', fromTag, fields));
+      after(() => recordHit(fromTag, giftOs(request) ?? 'desktop'));
       // 맥 UA iPad 는 QR 화면의 터치 감지가 붙인 gift_os=ios 로만 iOS 로 판정된다(giftOs) — 추천 터치도 같은 판정을 쓴다.
       scheduleInviteTouch(request, fromTag, humanField, giftOs(request) ?? 'desktop');
     }
