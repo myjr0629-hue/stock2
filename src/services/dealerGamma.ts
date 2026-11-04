@@ -29,7 +29,6 @@
 import { percentile, flipDistance } from '../lib/metrics/percentile';
 import type { Metric } from '../lib/metrics/contract';
 import { optionExpirationFloor } from '../lib/marketCalendar';
-import { getFromCache, setInCache } from '@/services/redisClient';
 
 const PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
 const PROXY_KEY = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || '';
@@ -108,11 +107,7 @@ export async function getDealerGamma(
         || typeof edition.expiration !== 'string' || edition.expiration < optionExpirationFloor()) return null;
     const gex = edition?.netGex;
     const date = edition?.chainDate;
-    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        const saved = await getFromCache<{ signal: DealerGammaSignal; expiration: string }>(`dealer-gamma:lastgood:${symbol}`).catch(() => null);
-        return saved?.expiration && saved.expiration >= optionExpirationFloor() && saved.signal?.date ? saved.signal : null;
-    }
-    if (typeof gex !== 'number' || !Number.isFinite(gex)) return null;
+    if (typeof gex !== 'number' || !Number.isFinite(gex) || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
     const points = Array.isArray(hist?.points) ? hist!.points : [];
 
     // ⚠️ 배열 순서를 «가정»하지 않는다 — 날짜로 최신을 고른다.
@@ -131,7 +126,7 @@ export async function getDealerGamma(
 
     const polarity: 'long' | 'short' = gex >= 0 ? 'long' : 'short';
 
-    const signal: DealerGammaSignal = {
+    return {
         gex,
         polarity,
         percentile: rankMetric.value,
@@ -142,6 +137,4 @@ export async function getDealerGamma(
         // 숏감마 + 플립 ±3% = 작은 충격이 증폭되는 자리
         unstable: polarity === 'short' && flipDistancePct != null && Math.abs(flipDistancePct) <= 3,
     };
-    await setInCache(`dealer-gamma:lastgood:${symbol}`, { signal, expiration: edition.expiration }, 72 * 3600).catch(() => {});
-    return signal;
 }

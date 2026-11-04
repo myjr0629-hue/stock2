@@ -211,7 +211,7 @@ const SECTOR_ID_ALIASES: Record<string, string> = {
  *   다음 거래일 장중 내내 «어제»를 설명했다(실측 4.6시간 전 · 날짜는 어제).
  *
  *   /api/cron/sector-headlines 가 10섹터를 **1콜**로 만들어 Redis 에 둔다.
- *   여기서는 «오늘 것이고 충분히 신선할 때만» 덮는다. 없거나 낡으면
+ *   여기서는 생성 후 72시간 이내의 저장본으로 덮는다. 없거나 낡으면
  *   기존 템플릿이 그대로 나가므로 화면이 비지 않는다.
  */
 async function overlayAiHeadline(snapshotData: any, sector: string): Promise<any> {
@@ -220,11 +220,8 @@ async function overlayAiHeadline(snapshotData: any, sector: string): Promise<any
         const pack = await getFromCache<any>('intel:ai_headlines:v1');
         if (!pack?.sectors) return snapshotData;
 
-        const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-        if (pack.date !== todayET) return snapshotData;
-
         const ageMin = (Date.now() - new Date(pack.generatedAt).getTime()) / 60000;
-        if (!Number.isFinite(ageMin) || ageMin > 120) return snapshotData;
+        if (!Number.isFinite(ageMin) || ageMin < 0 || ageMin > 72 * 60) return snapshotData;
 
         // 크론과 이 라우트의 섹터 표기가 다를 수 있다(언더바 문제) — 둘 다 시도한다.
         const hit = pack.sectors[sector] || pack.sectors[sector.replace(/_/g, '')];

@@ -20,13 +20,12 @@ function harness(iso, patch = {}) {
         static now() { return now; }
     }
     const mocks = {
-        '@/services/redisClient': { getFromCache: async key => cache.get(key) ?? null, setInCache: async (key, value) => { cache.set(key, value); }, mgetFromCache: async keys => {
+        '@/services/redisClient': { mgetFromCache: async keys => {
             assert.deepEqual(Array.from(keys), ['structure:v2:SPY']);
             return [{ data: edition }];
         } },
         '@/lib/aws/dynamoDataProvider': { getLatestGex: async () => null, getGexHistory: async () => [] },
     };
-    const cache = new Map();
     const modules = new Map();
     function load(relative) {
         const file = path.resolve(root, relative.endsWith('.ts') ? relative : relative + '.ts');
@@ -117,18 +116,4 @@ test('unexpired observed zero survives; missing history keeps GEX and null perce
     assert.equal(result.gex, 0);
     assert.equal(result.percentile, null);
     assert.equal(result.samples, 0);
-});
-
-test('missing chain date returns the last valid signal only while its expiry remains valid', async () => {
-    const h = harness('2026-10-23T15:59:00-04:00');
-    const get = h.load('src/services/dealerGamma').getDealerGamma;
-    const first = await get('SPY');
-    h.edition.chainDate = null;
-    h.edition.netGex = -999;
-    assert.equal(JSON.stringify(await get('SPY')), JSON.stringify(first));
-    h.advanceOnRead('2026-10-23T16:00:00-04:00');
-    h.edition.expiration = '2026-10-30';
-    assert.equal(await get('SPY'), null);
-    const empty = harness('2026-10-23T15:59:00-04:00', { chainDate: null });
-    assert.equal(await empty.load('src/services/dealerGamma').getDealerGamma('SPY'), null);
 });

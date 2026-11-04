@@ -302,6 +302,17 @@ test('both actual stored consumers still display legacy text without the new gen
     const out = await overlay(snapshot, 'm7');
     assert.equal(out.sector_summary.briefing.headline, legacy);
     assert.equal(out.sector_summary.briefing.headlineEN, 'Existing English');
+    pack.date = '2026-10-22';
+    pack.generatedAt = new Date(now - 121 * 60000).toISOString();
+    assert.equal((await overlay(snapshot, 'm7')).sector_summary.briefing.headlineAgeMin, 121);
+    pack.generatedAt = new Date(now - 71 * 3600000).toISOString();
+    assert.equal((await overlay(snapshot, 'm7')).sector_summary.briefing.headline, legacy);
+    pack.generatedAt = new Date(now - 72 * 3600000 - 1).toISOString();
+    assert.equal(await overlay(snapshot, 'm7'), snapshot);
+    pack.generatedAt = new Date(now + 60000).toISOString();
+    assert.equal(await overlay(snapshot, 'm7'), snapshot);
+    pack.generatedAt = 'invalid';
+    assert.equal(await overlay(snapshot, 'm7'), snapshot);
     pack = null;
     assert.equal(await overlay(snapshot, 'm7'), snapshot);
   } finally { Date.now = oldNow; }
