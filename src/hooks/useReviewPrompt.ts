@@ -92,8 +92,15 @@ export function scheduleReviewRequest(delayMs: number, request: () => void, guar
 export const REVIEW_ANY_DAY_KEY = 'signum.review.lastAnyDay';
 export const localReviewDay = (d = new Date()): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-function markReviewAskedToday(): void {
-  try { localStorage.setItem(REVIEW_ANY_DAY_KEY, localReviewDay()); } catch { /* ignore */ }
+function markReviewAskedToday(by?: string): void {
+  try {
+    localStorage.setItem(REVIEW_ANY_DAY_KEY, localReviewDay());
+    if (by) localStorage.setItem(`${REVIEW_ANY_DAY_KEY}.by`, by); else localStorage.removeItem(`${REVIEW_ANY_DAY_KEY}.by`);
+  } catch { /* ignore */ }
+}
+/** 오늘 «다른» 경로가 이미 OS 시트를 요청했는가 — 같은 경로의 다음 마일스톤은 막지 않는다 */
+function reviewAskedTodayByOther(key: string): boolean {
+  try { return reviewAskedToday() && localStorage.getItem(`${REVIEW_ANY_DAY_KEY}.by`) !== key; } catch { return true; }
 }
 export function reviewAskedToday(): boolean {
   try { return localStorage.getItem(REVIEW_ANY_DAY_KEY) === localReviewDay(); } catch { return true; }
@@ -113,11 +120,13 @@ export function attemptReview(key: string, milestone: number, delay: number, gua
     try {
       const plugin = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
       if (typeof plugin?.requestReview !== 'function') return;
+      // 같은 날 다른 경로(새 평점 순간 등)가 이미 물었으면 이번 회차는 묻지도 기록하지도 않는다 — 다음 날 다시 기회가 온다(관문 11050239)
+      if (reviewAskedTodayByOther(key)) return;
       // 시도 횟수는 OS 시트를 «실제로 요청한» 경우에만 센다 — 광고·안내에 막힌 회차는 기회를 소비하지 않는다
       localStorage.setItem(`${key}.attempt.${milestone}`, String(reviewAttempts(key, milestone) + 1));
       const result = plugin.requestReview();
       Promise.resolve(result).catch(() => {});
-      markReviewAskedToday();
+      markReviewAskedToday(key);
       requested();
     } catch { /* 요청 실패는 앱을 막지 않는다 */ } finally { release(); }
   }, guard, release, eligible);
