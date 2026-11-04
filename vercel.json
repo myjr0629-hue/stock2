@@ -247,19 +247,19 @@
     },
     {
       "path": "/api/cron/signal-alerts",
-      "schedule": "40 13 * * 1-5"
+      "schedule": "40 14 * * 1-5"
     },
     {
       "path": "/api/cron/signal-alerts",
-      "schedule": "25 15,17,19 * * 1-5"
+      "schedule": "25 16,18,20 * * 1-5"
     },
     {
       "path": "/api/cron/signal-alerts",
-      "schedule": "10 23 * * 1-5"
+      "schedule": "10 0 * * 2-6"
     },
     {
       "path": "/api/cron/signal-alerts",
-      "schedule": "40 0 * * 2-6"
+      "schedule": "40 1 * * 2-6"
     },
     {
       "path": "/api/cron/earnings-actuals",

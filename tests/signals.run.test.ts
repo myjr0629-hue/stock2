@@ -283,7 +283,8 @@ const setMode = (s: FakeStore, m: string) => s.m.set(SIG_KEYS.mode, m);
   await t('크론 4개 등록(아침 자료 도착 뒤 · 장중 구조 굽기 직후 · 마감 뒤 · 재시도) · 인증은 CRON_SECRET · 기본 dry', async () => {
     const vj = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
     const sig = vj.crons.filter((c: any) => c.path === '/api/cron/signal-alerts').map((c: any) => c.schedule);
-    assert.deepEqual(sig, ['40 13 * * 1-5', '25 15,17,19 * * 1-5', '10 23 * * 1-5', '40 0 * * 2-6']);
+    // 미국 동부 표준시(EST, UTC−5) 기준 — 09:40·11:25·13:25·15:25·19:10·20:40 ET. 서머타임(2027-03-14~)엔 UTC 를 1시간 당긴다
+    assert.deepEqual(sig, ['40 14 * * 1-5', '25 16,18,20 * * 1-5', '10 0 * * 2-6', '40 1 * * 2-6']);
     const route = fs.readFileSync(path.join(ROOT, 'src/app/api/cron/signal-alerts/route.ts'), 'utf8');
     assert.match(route, /CRON_SECRET/); assert.match(route, /if \(!cronSecret\) return false/, '운영에서 비밀값이 없으면 닫는다');
     assert.ok(route.indexOf("searchParams.get('dry') === '1'") < route.indexOf("kind: 'cron'"), '드라이런 분기가 예약 실행보다 먼저');
