@@ -16,7 +16,7 @@ function mock(name: string, exports: any) {
 mock('../src/services/redisClient', {
     getFromCache: async (k: string) => store.get(k) ?? null,
     mgetFromCache: async (ks: string[]) => ks.map(k => store.get(k) ?? null),
-    setInCache: async (k: string, v: any, ttl: number) => { if (k === 'intel:ai_headlines:v1') assert.equal(ttl, 72 * 3600); store.set(k, v); writes++; return true; },
+    setInCache: async (k: string, v: any, ttl: number) => { if (k === 'intel:ai_headlines:v1') assert.equal(ttl, 2 * 3600); store.set(k, v); writes++; return true; },
     deleteFromCache: async (k: string) => { store.delete(k); return true; },
 });
 mock('../src/services/todayPicksService', {

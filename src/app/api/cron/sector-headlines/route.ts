@@ -177,8 +177,8 @@ async function generateHeadlines(request: Request, now: number, todayET: string,
         model,
         sectors: out,
     };
-    // 주말의 금요일 20:50 → 월요일 08:40 UTC 간격과 TTL 지터(최대 -10%)를 포함한다.
-    await setInCache(HEADLINE_KEY, payload, 72 * 3600);
+    // 2시간 보관 — 갱신이 멈춰도 «두 시간 지난 해석»까지만 나간다.
+    await setInCache(HEADLINE_KEY, payload, 2 * 3600);
 
     return NextResponse.json({
         success: true, kept, asked: facts.length, rejected, missing, session, model,
