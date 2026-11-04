@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { currentSelloff, loadRetainedSelloff, mergeSelloffRecord, mergeSelloffRecords, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
+import { selloffTitleKey, currentSelloff, loadRetainedSelloff, mergeSelloffRecord, mergeSelloffRecords, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
 const now = Date.parse('2026-11-02T15:00:00Z');
 const cash = (changePct: number, sessionDate = '2026-10-30', asOf = '2026-10-30T20:00:00Z') => ({ changePct, sessionDate, asOf, price: 100 });
 const factor = (chgPct: number, marketTime = '2026-10-30T20:00:00Z') => ({ chgPct, marketTime, status: 'OK', source: 'YAHOO' });
@@ -428,3 +428,13 @@ test('route single-flights the memo read and the record write per instance (gate
   assert.match(route, /finally \{ selloffWriteFlight = false; \}/);
   assert.equal((route.match(/getSelloffRecordStrict\(/g) || []).length, 1);
 });
+
+// 11/5 대표: 지수가 오른 날 SOX 하나로 «시장 급락»이 뜨면 안 된다
+{
+  const up = { date: '2026-11-04', chips: [{ name: 'S&P 500', pct: 1.6 }, { name: 'NASDAQ', pct: 1.4 }, { name: 'SOX', pct: -3.1 }, { name: 'VIX', pct: -20.3 }] };
+  assert.equal(selloffTitleKey(up), 'chipsTitle');
+  assert.equal(selloffTitleKey({ ...up, chips: [{ name: 'S&P 500', pct: -1.8 }, { name: 'SOX', pct: -3.1 }] }), 'title');
+  assert.equal(selloffTitleKey({ ...up, chips: [{ name: 'VIX', pct: 12 }] }), 'title');
+  assert.equal(selloffTitleKey({ ...up, chips: [{ name: 'NASDAQ', pct: -2.1 }] }), 'title');
+  console.log('  ✓ selloffTitleKey: SOX 단독 → 반도체 급락, 지수·VIX → 시장 급락');
+}

@@ -3,9 +3,9 @@ import { sessionCloseMinutes } from './marketCalendar';
 
 export type SelloffLocale = 'ko' | 'en' | 'ja';
 export const SELLOFF_COPY = {
-  ko: { title: '시장 급락 브리핑', why: '왜', earnings: '옵션 예상 범위를 벗어난 실적', expected: '예상', mine: '내 종목 다음 실적 예상폭' },
-  en: { title: 'Market Selloff Briefing', why: 'Why', earnings: 'Earnings beyond the options-implied range', expected: 'Implied', mine: 'My stocks: next earnings implied move' },
-  ja: { title: '市場急落ブリーフィング', why: '理由', earnings: 'オプションの想定範囲を超えた決算', expected: '想定', mine: 'マイ銘柄の次回決算の想定変動幅' },
+  ko: { title: '시장 급락 브리핑', chipsTitle: '반도체 급락 브리핑', why: '왜', earnings: '옵션 예상 범위를 벗어난 실적', expected: '예상', mine: '내 종목 다음 실적 예상폭' },
+  en: { title: 'Market Selloff Briefing', chipsTitle: 'Chip Selloff Briefing', why: 'Why', earnings: 'Earnings beyond the options-implied range', expected: 'Implied', mine: 'My stocks: next earnings implied move' },
+  ja: { title: '市場急落ブリーフィング', chipsTitle: '半導体急落ブリーフィング', why: '理由', earnings: 'オプションの想定範囲を超えた決算', expected: '想定', mine: 'マイ銘柄の次回決算の想定変動幅' },
 } as const;
 
 type Cash = { changePct?: number | null; sessionDate?: string | null; asOf?: string | null; price?: number | null };
@@ -112,6 +112,14 @@ export function selloffEvaluate(input: { now: number; macro: SelloffMacro | null
   // 보관본은 «급락일 때만»이 아니라 D 의 최신 관측 전체다 — 정정돼 조건을 벗어나면 그 값으로 덮어써 다음 장중에 되살아나지 않는다.
   const record = chips.length ? { date, chips } : null;
   return { brief: record && values.some((v, i) => hit(i, v)) ? record : null, record };
+}
+/**
+ * 카드 제목 — 지수(S&P·나스닥) 급락이나 VIX 급등이 걸렸을 때만 «시장 급락», SOX 하나만 걸린 날은 «반도체 급락».
+ * (11/4: S&P +1.6%·나스닥 +1.4%·VIX −20% 인데 SOX −3.1% 하나로 «시장 급락»이 떴다 — 대표 11/5 지적)
+ */
+export function selloffTitleKey(brief: SelloffBrief): 'title' | 'chipsTitle' {
+  const v = (i: number) => brief.chips.find(c => slotOf(c.name) === i)?.pct ?? null;
+  return [0, 1, 3].some(i => hit(i, v(i))) ? 'title' : 'chipsTitle';
 }
 export function selloffForDisplay(input: { now: number; macro: SelloffMacro | null | undefined; retained?: SelloffBrief | null }): SelloffBrief | null {
   return selloffEvaluate(input).brief;
