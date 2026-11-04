@@ -26,11 +26,6 @@ export const ACTUALS_KEY_PREFIX = 'earnings:actuals:v1';
 export const ACTUALS_TTL_SEC = 120 * 24 * 3600;
 /** 정규장 마감 뒤 이만큼(분)이 지나야 일봉을 «확정»으로 본다 — 마감 직후의 임시 봉을 쓰지 않는다. */
 export const BAR_FINAL_GRACE_MIN = 30;
-/**
- * «마감 직후 임시 종가» 재확인 대기(ms) — 일봉 확정 시각(마감+30분) 뒤 이만큼 지나 한 번 더 읽는다(크론 ③-0).
- * 그 재확인을 마친 actual 은 at ≥ 확정 시각 + 이 값이 된다(실적 결과 알림의 «정착» 판정도 같은 값을 쓴다).
- */
-export const ACTUAL_SETTLE_MS = 120 * 60_000;
 /** 두 공급사 종가가 이만큼(비율) 이내로 같아야 «대조 일치» — 평소엔 센트까지 같다(10/13 실측 12/12). */
 export const VENDOR_TOLERANCE = 0.001;
 /** 한 번의 발표 반응으로 이보다 큰 등락(%)은 액면분할 등 오염으로 보고 저장하지 않는다. */

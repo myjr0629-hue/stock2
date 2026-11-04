@@ -4,14 +4,9 @@
  */
 import { isFunnelSrc, type FunnelSrc } from '@/lib/app/funnelSchema';
 
-/**
- * 서버가 싣는 탭 목적지 — 닫힌 목록 두 가지뿐:
- *   · lib/signals/copy.tapPathOf 의 /app-view/flow?t=NVDA&from=sig (그 종목의 Flow 화면)
- *   · lib/signals/earningsResult.resultPath 의 /app-view/earnings (실적 결과 알림 → 앱 실적 화면, 2026-11-04)
- */
+/** 서버(lib/signals/copy.tapPathOf)가 싣는 /app-view/flow?t=NVDA&from=sig — 그 종목의 Flow 화면 하나뿐 */
 export function signalTapPath(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
-  if (raw === '/app-view/earnings') return raw;
   return /^\/app-view\/flow\?t=[A-Z][A-Z0-9.\-]{0,9}&from=sig$/.test(raw) ? raw : null;
 }
 
