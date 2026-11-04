@@ -12,20 +12,20 @@ import { fmpFetch } from '@/lib/fmpClient';
 //   ② 실제 반응 계산 — 반응일 정규장 마감 + 30분 뒤에 Intrinio 일봉으로 (기준일 종가 → 반응일 종가) 등락률.
 //      독립 공급사(FMP, 분할 미조정 종가)와 두 날짜 모두 같을 때만 «대조 일치(check: fmp)»로 표시한다.
 //      두 공급사가 다르면 저장하지 않는다(다음 회차가 다시 본다). FMP 가 없으면 Intrinio 단독으로 저장하고 그렇게 표시한다.
-// 키: earnings:actuals:v1:{TICKER}:{발표일} (TTL 120일, EC2 레디스 전용 — 복제 접두사 밖) · 한 발표당 0.5KB.
+// 키: earnings:actuals:v1:{TICKER}:{발표일} (TTL 없음, EC2 레디스 중심) · 한 발표당 0.5KB.
 // ============================================================================
 
 import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfirmed';
 import { addDaysYmd } from '@/lib/earningsWeek';
 import {
-  ACTUAL_SETTLE_MS, ACTUALS_KEY_PREFIX, ACTUALS_TTL_SEC, MAX_PLAUSIBLE_MOVE_PCT, actualsKey, closesAgree, isReactionFinal, parseRecord, pctChange,
+  ACTUAL_SETTLE_MS, ACTUALS_KEY_PREFIX, MAX_PLAUSIBLE_MOVE_PCT, actualsKey, closesAgree, isReactionFinal, parseRecord, pctChange,
   reactionFinalAt, reactionSessions, type ActualMove, type ActualsRecord, type ExpectedSnap, type ReportHour,
 } from '@/lib/earnings/earningsActuals';
 import { daysBetweenYmd, etDateOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
 import { getDailyAggregates } from '@/services/intrinioClient';
 import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
 import { Redis } from '@upstash/redis';
-import { getAuthoritativeCache, mgetFromCache, setAuthoritativeCache, setInCache } from '@/services/redisClient';
+import { getAuthoritativeCache, mgetFromCache, setAuthoritativeCache, setActualsWithoutTtl } from '@/services/redisClient';
 
 export const recordMapKey = (ticker: string, date: string): string => `${String(ticker).toUpperCase()}|${date}`;
 
@@ -130,7 +130,7 @@ const EXPECTED_PROBE_BUDGET_MS = 15_000;
 const EXPECTED_PROBE_RUN_CAP_MS = 40_000;
 
 async function saveRecord(rec: ActualsRecord): Promise<boolean> {
-  return setInCache(actualsKey(rec.ticker, rec.date), rec, ACTUALS_TTL_SEC).catch(() => false);
+  return setActualsWithoutTtl(actualsKey(rec.ticker, rec.date), rec).catch(() => false);
 }
 
 /**
@@ -152,7 +152,7 @@ async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'
     if (stored.expected) { kept = true; out = { ...out, expected: stored.expected }; }
     if (!actualTouched && stored.actual) out = { ...out, actual: stored.actual };
   }
-  const ok = await setAuthoritativeCache(key, out, ACTUALS_TTL_SEC).catch(() => false);
+  const ok = await setAuthoritativeCache(key, out).catch(() => false);
   if (!ok) return 'save_failed';
   return kept ? 'kept_expected' : 'ok';
 }

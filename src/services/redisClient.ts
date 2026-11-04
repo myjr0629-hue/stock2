@@ -928,6 +928,29 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
     return ecOk || upstashOk;
 }
 
+/** Actuals 수동 보강 전용: TTL 없이 저장하되 기존처럼 EC2 실패 시에만 Upstash 폴백한다. */
+export async function setActualsWithoutTtl<T>(key: string, value: T): Promise<boolean> {
+    if (!key.startsWith('earnings:actuals:v1:') || value === null || value === undefined) return false;
+    if (typeof value === 'object') {
+        const v = value as Record<string, unknown>;
+        if (v.error && Object.keys(v).length <= 2) return false;
+    }
+    const gate = ecAcquire();
+    if (gate !== 'skip' && await ecProxySet(key, value, undefined, gate)) return true;
+    const upstash = getUpstashClient();
+    if (!upstash) return false;
+    obsUp('set', gate === 'skip' ? 'cooldown' : 'ecFail');
+    const start = performance.now();
+    try {
+        await upstash.set(key, value);
+        obsUpDone(start);
+        return true;
+    } catch {
+        obsUpDone(start, true);
+        return false;
+    }
+}
+
 /**
  * [GLOBAL POLICY] Short-lived negative cache for soft errors.
  * Prevents thundering herd when a data source is temporarily down.

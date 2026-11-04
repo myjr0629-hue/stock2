@@ -158,13 +158,13 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     runLock: async () => 'ok' as const,
     readObservation: async (_c: unknown, probe: boolean) => { if (log) { if (probe) log.probes++; else log.reads++; } return probe ? probed : stored; },
   });
-  await ta('★ 장전 발표 — 전 거래일 마감 관측 저장(120일 TTL) · 한 번 저장되면 다시 읽지도 쓰지도 않는다', async () => {
+  await ta('★ 장전 발표 — 전 거래일 마감 관측 저장(TTL 없음) · 한 번 저장되면 다시 읽지도 쓰지도 않는다', async () => {
     reset();
     const list = [entry('BAC', '2026-10-14', 'bmo')];
     const log = { reads: 0, probes: 0 };
     const r1 = await SVC.runActualsCycle({ nowMs: NOW_EVE, list, deps: obsDeps(obsOf('BAC', 4.2, '2026-10-13'), undefined, log) });
     assert.deepEqual(r1.expectedSaved, ['BAC|2026-10-14:4.2']);
-    assert.equal(writes, 1); assert.equal(writeLog[0].key, key('BAC', '2026-10-14')); assert.equal(writeLog[0].ttl && writeLog[0].ttl > 100 * 86400, true, 'TTL 120일(지터 포함)');
+    assert.equal(writes, 1); assert.equal(writeLog[0].key, key('BAC', '2026-10-14')); assert.equal(writeLog[0].ttl, undefined, 'TTL 없이 저장');
     const rec = store.get(key('BAC', '2026-10-14')) as any;
     assert.equal(rec.expected.pct, 4.2); assert.equal(rec.expected.session, '2026-10-13'); assert.equal(rec.expected.src, 'page'); assert.equal(rec.actual, null);
     assert.equal(rec.expected.method, 'monthly'); assert.equal(rec.expected.straddlePct, 4.2); assert.equal(rec.expected.basis, 'eod');
@@ -389,6 +389,7 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     reset();
     const snap = { pct: 3.2, method: 'monthly' as const, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod' as const, strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'eod-chain' as const };
     assert.equal(await SVC.seedExpected({ ticker: 'JPM', date: '2026-10-13', hour: 'bmo' }, snap), 'saved');
+    assert.equal(writeLog.at(-1)?.ttl, undefined, '수동 보강도 TTL 없이 저장');
     assert.equal(await SVC.seedExpected({ ticker: 'JPM', date: '2026-10-13', hour: 'bmo' }, { ...snap, pct: 9.9 }), 'kept');
     await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: jpmFmp } });
     const rec = store.get(key('JPM', '2026-10-13')) as any;
@@ -410,6 +411,7 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     const r2 = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { bars: jpmBars, fmp: jpmFmp, readObservation: async () => null } });
     const rec = store.get(key('JPM', '2026-10-13')) as any;
     assert.equal(rec.expected.pct, 3.2, '빈 묶음 읽기를 믿고 expected 를 지우지 않는다'); assert.equal(rec.actual.pct, -0.8585);
+    assert.equal(writeLog.at(-1)?.ttl, undefined, '기존 기록 덮어쓰기에도 TTL 없음');
     assert.deepEqual(r2.actualsSaved, ['JPM|2026-10-13:-0.8585']);
   });
   await ta('★ 한 기록이 깨져 있어도 그 건만 건너뛰고 다른 종목의 실제 반응·재검증은 계속한다', async () => {

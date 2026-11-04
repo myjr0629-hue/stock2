@@ -22,8 +22,6 @@ import { addDaysYmd, etWallToMs } from '../earningsWeek';
 import type { EarningsMoveMethod } from './eventMove';
 
 export const ACTUALS_KEY_PREFIX = 'earnings:actuals:v1';
-/** 기록 보관(초) — 120일. 한 종목·한 발표당 약 0.5KB. */
-export const ACTUALS_TTL_SEC = 120 * 24 * 3600;
 /** 정규장 마감 뒤 이만큼(분)이 지나야 일봉을 «확정»으로 본다 — 마감 직후의 임시 봉을 쓰지 않는다. */
 export const BAR_FINAL_GRACE_MIN = 30;
 /**
