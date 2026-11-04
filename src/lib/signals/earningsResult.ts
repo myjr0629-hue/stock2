@@ -1,0 +1,313 @@
+// ============================================================================
+// «실적 결과 알림» — 내 종목의 발표 반응(옵션 예상 vs 실제)이 확정되면 그 종목을 가진 기기에 한 번만 보낸다.
+//
+// 설계(관문 11010757·11011001·11011010 보류 사유를 «경합을 하나씩 막기» 대신 구조로 없앤다):
+//   ① 발송은 이 단계 하나에서만 — 실적 크론(runActualsCycle)이 쓰기 잠금을 «실제로 얻은» 회차의 끝에서, 그 잠금 안에서만 돈다.
+//      잠금을 못 얻었거나(busy) 잠금 저장소가 불가·시간 초과(unavailable)면 아무것도 하지 않는다(읽기·쓰기·발송 0).
+//   ② 고르는 기준은 채점표 하나 — lib/earnings/earningsScorecard.scorecardPairOf(채점표·앱 실적 화면이 받아들이는 «완전한 쌍»)를
+//      그대로 쓴다(별도 필드·별도 출처 규칙을 만들지 않는다). 숫자·범위 판정도 그 행(expectedPct·actualPct·beyond) 그대로.
+//   ③ 보내는 «때»만 더 본다 — 실적 서비스가 더 이상 고치지 않는 상태(기존 필드):
+//      · 채점표 행의 check === 'fmp'(독립 공급사 대조 일치 — 서비스 ③ 대조 보강·불일치 삭제의 대상이 아니다)
+//      · actual 계산 시각 ≥ 일봉 확정 + ACTUAL_SETTLE_MS(서비스 ③-0 «확정 뒤 재확인»을 마쳤다)
+//      · 기록의 마지막 쓰기 뒤 6시간 이상(RESULT_STABLE_MS) · 일봉 확정 뒤 4일 이내
+//      · 발송 직전 엄격 읽기(EC2, 폴백 없음)로 다시 읽어 저장본이 첫 읽기와 «글자 하나까지» 같을 때만
+//   ④ 중복·정정 — 기기×종목×발표일 키로 한 번만. 한 발표의 값(예상·실제)을 처음 본 지문을 남기고, 그 뒤 값이 바뀌거나 지워지면
+//      «정정됨»으로 영구 표시하고 로그만 남긴다 — 그 발표는 다시는 보내지 않는다(정정 푸시 없음).
+//   기기·설정·하루 상한·조용한 시간·발송 금지 시간대는 «내 종목 이상 신호»의 기존 규칙을 그대로 쓴다.
+// ============================================================================
+import { parseRecord, reactionFinalAt, ACTUAL_SETTLE_MS, actualsKey } from '@/lib/earnings/earningsActuals';
+import { scorecardPairOf } from '@/lib/earnings/earningsScorecard';
+import type { CalendarImplied } from '@/lib/earnings/calendarReportedImplied';
+import { calendarReaction } from '@/lib/earnings/calendarScorecardDisplay';
+import { impliedPctText } from '@/lib/earnings/earningsImplied';
+import { RECEIPT_COPY } from '@/lib/earnings/earningsReceiptsCopy';
+import { addDaysYmd } from '@/lib/earningsWeek';
+import type { ConfirmedEarnings } from '@/lib/earningsConfirmed';
+import { etDateOf } from '@/lib/marketCalendar';
+import { deviceFromRecord, inPushBlackout, inQuietHours, SIG_KEYS } from './plan';
+import { SIG_ICON } from './copy';
+import { SIG_CFG, type Loc } from './types';
+import type { SendItem, SigSender, SigStore, SigMode } from './run';
+
+/** 마지막 쓰기 뒤 이만큼 지나야 «안정»으로 본다 */
+export const RESULT_STABLE_MS = 6 * 3600_000;
+/** 일봉 확정 뒤 이만큼 넘게 지난 결과는 보내지 않는다(주말·휴장 하루를 넘겨도 닿게, 낡은 결과를 한꺼번에 쏟지 않게) */
+export const RESULT_MAX_AGE_MS = 4 * 24 * 3600_000;
+/** 크론이 보는 발표일 창(오늘 −10일 ~ 오늘) */
+const WINDOW_DAYS = 10;
+const LEDGER_TTL_SEC = 120 * 86400;
+/** 잠금·장부 저장소 호출의 시간 상한(넘으면 «불가»로 보고 그 단계를 접는다) */
+const STORE_TIMEOUT_MS = 2500;
+
+export const RESULT_KEYS = {
+  /** 기기×종목×발표일 — 한 번만 */
+  sent: (dev: string, ticker: string, date: string) => `push:sig:result:${dev}:${ticker}:${date}`,
+  /** 그 발표의 값을 처음 본 지문 */
+  fp: (ticker: string, date: string) => `push:sig:result:fp:${ticker}:${date}`,
+  /** 정정됨 — 있으면 영구히 보내지 않는다 */
+  corrected: (ticker: string, date: string) => `push:sig:result:corr:${ticker}:${date}`,
+  /** 이 단계 전용 발송 잠금 — «내 종목 이상 신호» 회차(push:sig:lock)를 막지 않게 따로 둔다(기기 하루 상한은 incr 로 원자적) */
+  lock: 'push:sig:result:lock',
+} as const;
+
+export interface ResultAlert { ticker: string; date: string; expected: number; actual: number; beyond: boolean }
+export type ResultEligibility = { ok: true; alert: ResultAlert } | { ok: false; reason: string };
+
+const obj = (x: unknown): Record<string, unknown> | null => (x && typeof x === 'object' ? x as Record<string, unknown> : null);
+
+/** 키 순서와 무관한 직렬화 — «재읽기 값이 같은가» 비교용 */
+export function stableStringify(x: unknown): string {
+  if (Array.isArray(x)) return `[${x.map(stableStringify).join(',')}]`;
+  const o = obj(x);
+  if (o) return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(o[k])}`).join(',')}}`;
+  return JSON.stringify(x) ?? 'null';
+}
+
+/**
+ * 그 발표의 «값» 지문 — 실제 반응이 없으면 null. 쓰기 시각(at)·대조 표식(check)은 넣지 않는다:
+ * 같은 값의 재확인(③-0 settled-same)·대조 보강(③ null→fmp)은 정정이 아니다. 값·관측이 바뀌면 지문이 바뀐다.
+ */
+export function resultValueFingerprint(raw: unknown): string | null {
+  const r = parseRecord(raw);
+  if (!r?.actual) return null;
+  const re = obj(obj(raw)?.expected);
+  const e = r.expected;
+  return stableStringify({
+    hour: r.hour,
+    e: e ? { pct: e.pct, method: e.method ?? null, straddlePct: e.straddlePct ?? null, expiry: e.expiry, session: e.session, basis: e.basis,
+      strike: e.strike, straddle: e.straddle, spot: e.spot, capturedAt: e.capturedAt, src: re?.src ?? null } : null,
+    a: { pct: r.actual.pct, baseDate: r.actual.baseDate, baseClose: r.actual.baseClose, reactDate: r.actual.reactDate, reactClose: r.actual.reactClose },
+  });
+}
+
+/**
+ * 저장본 하나가 지금 «보내도 되는 끝난 결과»인가 — 이유와 함께.
+ * 고르는 기준은 채점표의 scorecardPairOf 하나(같은 기록 = 같은 판정). 그 위에 «보내는 때»(대조 일치·정착·안정·4일)만 본다.
+ */
+export function resultEligibility(c: ConfirmedEarnings, raw: unknown, now: number): ResultEligibility {
+  const no = (reason: string): ResultEligibility => ({ ok: false, reason });
+  if (c.hour !== 'bmo' && c.hour !== 'amc') return no('no_hour');
+  const pair = scorecardPairOf(raw, now);
+  if (!pair) return no(parseRecord(raw) ? 'not_scorecard_pair' : 'no_record');
+  const row = pair.row;
+  if (row.ticker !== c.ticker.toUpperCase() || row.date !== c.date || row.hour !== c.hour) return no('record_mismatch');
+  const finalAt = reactionFinalAt(row.basis.reactDate);
+  if (finalAt == null) return no('no_sessions');
+  // ③ 끝난 actual — 대조 일치 · 확정 뒤 재확인을 마쳤다
+  if (row.check !== 'fmp') return no('actual_unconfirmed');
+  const actualAt = Date.parse(row.basis.actualCalculatedAt);
+  if (!(actualAt >= finalAt + ACTUAL_SETTLE_MS)) return no('actual_unsettled');
+  // ③ 안정 — 마지막 쓰기 뒤 6시간(scorecardPairOf 는 미래 시각을 받아들이지 않는다 · 기록 at 은 미래면 0 으로 본다 → 원본 at 을 직접 본다)
+  const recAt = parseRecord(raw)!.at;
+  if (recAt > now) return no('unstable');
+  if (!(pair.dataAt > 0) || now - pair.dataAt < RESULT_STABLE_MS) return no('unstable');
+  if (now - finalAt > RESULT_MAX_AGE_MS) return no('too_old');
+  return { ok: true, alert: { ticker: row.ticker, date: row.date, expected: row.expectedPct, actual: row.actualPct, beyond: row.beyond } };
+}
+
+/**
+ * 숫자 표기 — 앱 실적 화면과 같은 함수(예상 impliedPctText · 실제 calendarReaction, 소수 1자리).
+ * 소수 1자리에서 두 숫자가 같아 보이는데 «범위 밖»이면(예: ±3.6% → +3.6% 밖) 서로 달라질 때까지 자릿수를 늘린다(최대 4 — 저장 정밀도).
+ */
+export function resultNumbers(r: ResultAlert): { expected: string; actual: string } {
+  // 앱 실적 화면이 쓰는 모양(CalendarImplied — reportedImplied 가 채점표 행에서 만드는 것과 같은 필드)
+  const implied: CalendarImplied = { pct: r.expected, expiry: '', basis: null, session: null, reported: true, actualPct: r.actual, within: !r.beyond };
+  const expected = impliedPctText(implied.pct), actual = calendarReaction(implied) ?? '';
+  if (!r.beyond || expected.slice(1) !== actual.slice(1)) return { expected, actual };
+  const half = (n: number, d: number) => (Math.round(Math.abs(n) * 10 ** d + 1e-9) / 10 ** d).toFixed(d);
+  for (let d = 2; d <= 4; d++) {
+    const e = half(r.expected, d), a = half(r.actual, d);
+    if (e !== a || d === 4) return { expected: `±${e}%`, actual: `${r.actual >= 0 ? '+' : '−'}${a}%` };
+  }
+  return { expected, actual };
+}
+
+/** 문구 — «⚡ TICKER 실적» · «옵션 예상 ±X% → 실제 +Y% (범위 안/밖)». 범위 안/밖은 영수증·앱 실적 화면 문구(RECEIPT_COPY) 그대로 */
+export function resultCopy(r: ResultAlert, loc: Loc) {
+  const { expected, actual } = resultNumbers(r);
+  const range = r.beyond ? RECEIPT_COPY[loc].outside : RECEIPT_COPY[loc].within;
+  if (loc === 'ko') return { title: `${SIG_ICON} ${r.ticker} 실적`, body: `옵션 예상 ${expected} → 실제 ${actual} (${range})` };
+  if (loc === 'ja') return { title: `${SIG_ICON} ${r.ticker} 決算`, body: `想定変動幅 ${expected} → 実際 ${actual}（${range}）` };
+  return { title: `${SIG_ICON} ${r.ticker} earnings`, body: `Implied move ${expected} → actual ${actual} (${range})` };
+}
+/** 탭 목적지 — 앱 실적 화면(기존 푸시 탭 리스너가 /{loc} 를 붙여 연다 · lib/app/signalTap 닫힌 목록) */
+export function resultPath(): string {
+  return '/app-view/earnings';
+}
+
+// ── 발송 단계 ────────────────────────────────────────────────────────────────
+
+export type StrictRead = { ok: boolean; value: unknown };
+export interface ResultStepDeps {
+  /** Upstash — 기기·모드·잠금·장부 */
+  store: SigStore;
+  sender: SigSender;
+  /** 실적 기록의 엄격 읽기(EC2, 폴백 없음) — 키 순서대로. ok=false 는 «확인 못 함»(값 없음과 다르다) */
+  readStrict: (keys: string[]) => Promise<StrictRead[]>;
+  log?: (msg: string) => void;
+  clock?: () => number;
+  /** 저장소 호출 시간 상한(시험용) */
+  storeTimeoutMs?: number;
+}
+export interface ResultStepOpts {
+  list: readonly ConfirmedEarnings[];
+  /** 실적 크론이 이번 회차 쓰기 잠금을 실제로 얻었는가(CycleReport.lockAcquired) */
+  runLockAcquired: boolean;
+  /** 실적 크론 잠금이 끝나기 전 여유를 둔 마감 시각(ms) — 이 뒤로는 발송을 시작하지 않는다 */
+  lockDeadline: number;
+  envMode: SigMode | null;
+}
+export interface ResultStepReport {
+  status: 'no_run_lock' | 'lock_expiring' | 'off' | 'send_lock_unavailable' | 'store_unavailable' | 'observed' | 'ok';
+  sent: number;
+  candidates: string[];
+  corrected: string[];
+  skipped: Array<{ key: string; reason: string }>;
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([p, new Promise<T>((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), ms); })]).finally(() => clearTimeout(timer));
+}
+
+interface Candidate { c: ConfirmedEarnings; key: string; snapshot: string; fp: string; alert: ResultAlert }
+
+/**
+ * 실적 결과 알림 — 크론 라우트가 runActualsCycle 뒤에 «같은 요청·같은 잠금 안에서» 부른다. 이 단계 밖에서는 보내지 않는다.
+ */
+export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultStepOpts): Promise<ResultStepReport> {
+  const clock = deps.clock ?? Date.now;
+  const log = deps.log ?? ((m: string) => console.log(m));
+  const tmo = deps.storeTimeoutMs ?? STORE_TIMEOUT_MS;
+  const st = <T,>(p: Promise<T>) => withTimeout(p, tmo);
+  const report: ResultStepReport = { status: 'no_run_lock', sent: 0, candidates: [], corrected: [], skipped: [] };
+  // ① 실적 크론 잠금을 실제로 얻은 회차만(busy·unavailable·시간 초과 → 아무것도 하지 않는다)
+  if (opts.runLockAcquired !== true) return report;
+  const now = clock();
+  if (now >= opts.lockDeadline) { report.status = 'lock_expiring'; return report; }
+
+  let mode: unknown = null;
+  try { mode = await st(deps.store.get(SIG_KEYS.mode)); } catch { report.status = 'store_unavailable'; return report; }
+  if (opts.envMode === 'off' || mode === 'off') { report.status = 'off'; return report; }
+  const live = opts.envMode === 'live' || mode === 'live';
+
+  // 이 단계의 발송 잠금 — 못 얻거나 저장소 불가·시간 초과면 아무것도 하지 않는다
+  let locked = false;
+  try { locked = await st(deps.store.setNx(RESULT_KEYS.lock, String(now), 150)); } catch { locked = false; }
+  if (!locked) { report.status = 'send_lock_unavailable'; return report; }
+  try {
+    const today = etDateOf(now);
+    const entries = opts.list.filter((c) => (c.hour === 'bmo' || c.hour === 'amc') && c.date >= addDaysYmd(today, -WINDOW_DAYS) && c.date <= today);
+    if (!entries.length) { report.status = 'observed'; return report; }
+    const tk = (c: ConfirmedEarnings) => c.ticker.toUpperCase();
+    const recKeys = entries.map((c) => actualsKey(c.ticker, c.date));
+    let ledger: unknown[];
+    let reads: StrictRead[];
+    try {
+      [ledger, reads] = await Promise.all([
+        st(deps.store.mget([...entries.map((c) => RESULT_KEYS.fp(tk(c), c.date)), ...entries.map((c) => RESULT_KEYS.corrected(tk(c), c.date))])),
+        deps.readStrict(recKeys),
+      ]);
+    } catch { report.status = 'store_unavailable'; return report; }
+    const n = entries.length;
+    const cands: Candidate[] = [];
+    try {
+      for (let i = 0; i < n; i++) {
+        const c = entries[i], id = `${tk(c)}|${c.date}`;
+        const r = reads[i];
+        if (!r?.ok) { report.skipped.push({ key: id, reason: 'read_failed' }); continue; }
+        if (r.value == null) continue;                       // 기록 없음 — 지문·정정 판정도 하지 않는다
+        const fpNow = resultValueFingerprint(r.value);
+        const seen = typeof ledger[i] === 'string' ? ledger[i] as string : null;
+        let corrected = ledger[n + i] != null;
+        // ④ 처음 본 값에서 바뀌었거나(값·관측 변경) 지워졌으면(actual 삭제) 정정 — 영구 표시, 로그만
+        if (!corrected && seen != null && fpNow !== seen) {
+          if (await st(deps.store.setNx(RESULT_KEYS.corrected(tk(c), c.date), String(now), LEDGER_TTL_SEC))) {
+            log(`[Cron/EarningsResult] 정정됨 ${tk(c)} ${c.date} — 이 발표는 보내지 않는다(정정 푸시 없음)`);
+          }
+          corrected = true;
+        }
+        if (corrected) { report.corrected.push(id); continue; }
+        if (fpNow == null) continue;
+        if (seen == null && !(await st(deps.store.setNx(RESULT_KEYS.fp(tk(c), c.date), fpNow, LEDGER_TTL_SEC)))) {
+          report.skipped.push({ key: id, reason: 'fp_race' }); continue;   // 다른 회차가 먼저 적었다 — 다음 회차가 대조한다
+        }
+        const el = resultEligibility(c, r.value, now);
+        if (!el.ok) { report.skipped.push({ key: id, reason: el.reason }); continue; }
+        cands.push({ c, key: recKeys[i], snapshot: stableStringify(r.value), fp: fpNow, alert: el.alert });
+      }
+    } catch { report.status = 'store_unavailable'; return report; }
+    report.candidates = cands.map((x) => `${x.alert.ticker}|${x.alert.date}`);
+    if (!live || inPushBlackout(now) || !cands.length) { report.status = 'observed'; return report; }
+
+    /** 발송 직전 재확인 — 엄격 재읽기 값이 첫 읽기와 같고 · 여전히 끝난 결과이고 · 지문·정정 장부가 그대로인 발표만 */
+    const verify = async (picked: Candidate[]): Promise<Set<Candidate>> => {
+      const ok = new Set<Candidate>();
+      if (!picked.length) return ok;
+      try {
+        const [again, led] = await Promise.all([
+          deps.readStrict(picked.map((x) => x.key)),
+          st(deps.store.mget([...picked.map((x) => RESULT_KEYS.fp(x.alert.ticker, x.alert.date)), ...picked.map((x) => RESULT_KEYS.corrected(x.alert.ticker, x.alert.date))])),
+        ]);
+        const t = clock();
+        picked.forEach((x, i) => {
+          const r = again[i];
+          if (!r?.ok || r.value == null || stableStringify(r.value) !== x.snapshot) return;
+          if (led[i] !== x.fp || led[picked.length + i] != null) return;
+          const el = resultEligibility(x.c, r.value, t);
+          if (!el.ok || stableStringify(el.alert) !== stableStringify(x.alert)) return;
+          ok.add(x);
+        });
+      } catch { /* 확인 못 함 — 하나도 보내지 않는다 */ }
+      return ok;
+    };
+
+    const tokens = await st(deps.store.smembers('push:token_list'));
+    for (let i = 0; i < tokens.length; i += 100) {
+      if (clock() >= opts.lockDeadline) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
+      const chunk = tokens.slice(i, i + 100);
+      const records = await st(deps.store.mget(chunk.map((t) => `push:tokens:${t}`)));
+      const claimed: Array<{ item: SendItem; key: string; cap: string; cand: Candidate }> = [];
+      for (let j = 0; j < chunk.length; j++) {
+        const d = deviceFromRecord(chunk[j], records[j]);
+        if (!d) continue;
+        let chosen = 0;
+        for (const x of cands) {
+          const a = x.alert;
+          if (!d.tickers.includes(a.ticker) || chosen >= SIG_CFG.perRunPerDevice) continue;
+          const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date), cap = SIG_KEYS.cap(etDateOf(now), d.dev);
+          if (!await st(deps.store.setNx(key, `sent:${now}`, LEDGER_TTL_SEC)).catch(() => false)) continue;
+          const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => 999);
+          if (cnt > SIG_CFG.deviceDailyCap) { if (cnt !== 999) await deps.store.decr(cap).catch(() => 0); await deps.store.del([key]).catch(() => {}); continue; }
+          chosen++;
+          const copy = resultCopy(a, d.locale);
+          claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
+        }
+      }
+      const allowed = claimed.length && clock() < opts.lockDeadline ? await verify([...new Set(claimed.map((c) => c.cand))]) : new Set<Candidate>();
+      const toSend = claimed.filter((c) => allowed.has(c.cand));
+      const outcomes = toSend.length ? await deps.sender.send(toSend.map((c) => c.item)).catch(() => new Map()) : new Map();
+      const dead = new Set<string>();
+      for (const c of claimed) {
+        const outcome = allowed.has(c.cand) ? outcomes.get(c.item.id) : undefined;
+        if (outcome === 'ok') { report.sent++; continue; }
+        // 보내지 않았거나 실패 — 자리를 돌려준다(다음 회차가 같은 규칙으로 다시 본다)
+        await deps.store.del([c.key]).catch(() => {});
+        await deps.store.decr(c.cap).catch(() => 0);
+        if (outcome === 'dead') dead.add(c.item.token);
+      }
+      if (dead.size) {
+        const ts = [...dead];
+        await deps.store.srem('push:token_list', ts).catch(() => {});
+        await deps.store.del(ts.map((t) => `push:tokens:${t}`)).catch(() => {});
+      }
+    }
+    report.status = 'ok';
+    return report;
+  } catch {
+    if (report.status === 'no_run_lock') report.status = 'store_unavailable';
+    return report;
+  } finally {
+    await deps.store.del([RESULT_KEYS.lock]).catch(() => {});
+  }
+}

@@ -18,7 +18,7 @@ import { fmpFetch } from '@/lib/fmpClient';
 import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfirmed';
 import { addDaysYmd } from '@/lib/earningsWeek';
 import {
-  ACTUALS_KEY_PREFIX, ACTUALS_TTL_SEC, MAX_PLAUSIBLE_MOVE_PCT, actualsKey, closesAgree, isReactionFinal, parseRecord, pctChange,
+  ACTUAL_SETTLE_MS, ACTUALS_KEY_PREFIX, ACTUALS_TTL_SEC, MAX_PLAUSIBLE_MOVE_PCT, actualsKey, closesAgree, isReactionFinal, parseRecord, pctChange,
   reactionFinalAt, reactionSessions, type ActualMove, type ActualsRecord, type ExpectedSnap, type ReportHour,
 } from '@/lib/earnings/earningsActuals';
 import { daysBetweenYmd, etDateOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
@@ -95,6 +95,8 @@ export interface CycleDeps {
   fmp?: BarsFn;
 }
 export interface CycleReport {
+  /** 이번 회차가 쓰기 잠금을 실제로 얻었는가('ok'만 true — busy·unavailable·dryRun 은 false). 실적 결과 알림 단계는 이것이 true 일 때만 돈다. */
+  lockAcquired: boolean;
   now: number;
   today: string;
   considered: number;
@@ -119,7 +121,7 @@ const RECHECK_WINDOW_MS = 4 * 24 * 3600_000;
  * «마감 직후 임시 종가» 방어 — 일봉 확정 시각(마감+30분) «뒤 2시간 안에» 저장한 기록은 그 2시간이 지난 뒤 한 번 더 읽어 같은지 본다.
  * 근거(10/13 실측, 운영 세션 가격 무결성 수리): 마감 교차(closing cross)의 늦은 체결이 반영되며 일봉이 한동안 임시값이었다(AZZ 137.16 → 최종 136.71 — 0.3%p).
  */
-const SETTLE_MS = 120 * 60_000;
+const SETTLE_MS = ACTUAL_SETTLE_MS;
 
 /** 한 회차에서 공급사 EOD 를 직접 조회하는 expected 최대 종목 수 · 그 시간 상한 */
 const MAX_EXPECTED_PROBES_PER_RUN = 6;
@@ -160,7 +162,8 @@ async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'
  *   'busy' = 다른 회차가 도는 중 → 이번 회차는 쉰다 · 'unavailable' = 잠금 저장소 불가 → actual 흐름은 main 그대로, expected 만 쓰지 않는다.
  */
 export type RunLock = () => Promise<'ok' | 'busy' | 'unavailable'>;
-const RUN_LOCK_SEC = 90;
+export const ACTUALS_RUN_LOCK_SEC = 90;
+const RUN_LOCK_SEC = ACTUALS_RUN_LOCK_SEC;
 let lockClient: Redis | undefined;
 export const acquireActualsRunLock: RunLock = async () => {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
@@ -185,7 +188,7 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
   const list = opts.list ?? CONFIRMED_EARNINGS;
   const bars = opts.deps?.bars ?? intrinioCloses;
   const fmp = opts.deps?.fmp ?? fmpCloses;
-  const report: CycleReport = { now, today, considered: 0, expectedSaved: [], actualsSaved: [], rechecked: [], skipped: [] };
+  const report: CycleReport = { now, today, considered: 0, expectedSaved: [], actualsSaved: [], rechecked: [], skipped: [], lockAcquired: false };
   const lo = addDaysYmd(today, -LOOKBACK_DAYS);
   const hi = addDaysYmd(today, LOOKAHEAD_DAYS);
 
@@ -194,6 +197,7 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
   if (!cands.length) return report;
   // 쓰는 회차만 잠근다(dryRun 은 쓰지 않으므로 실제 회차를 막지 않게 잠그지 않는다)
   const lock = opts.dryRun ? 'ok' : await (opts.deps?.runLock ?? acquireActualsRunLock)().catch(() => 'unavailable' as const);
+  report.lockAcquired = !opts.dryRun && lock === 'ok';
   if (lock === 'busy') { report.skipped.push({ key: '*', reason: 'run_locked' }); return report; }
   const recs = await readActualRecords(cands);
   const dirty = new Map<string, ActualsRecord>();

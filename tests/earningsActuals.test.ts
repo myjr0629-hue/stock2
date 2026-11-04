@@ -447,6 +447,34 @@ const key = (tk: string, d: string) => A.actualsKey(tk, d);
     assert.ok(un.skipped.some((x) => x.reason === 'expected:run_lock_unavailable'));
     const rec = store.get(key('JPM', '2026-10-13')) as any;
     assert.equal(rec.expected, null); assert.equal(rec.actual.pct, -0.8585);
+    // 실적 결과 알림 단계는 «잠금을 실제로 얻은 회차»만 돈다 — busy·unavailable 은 false(관문 11011010 #2)
+    assert.equal(busy.lockAcquired, false); assert.equal(un.lockAcquired, false);
+  });
+
+  await ta('★ lockAcquired — 잠금 ok 인 실제 회차만 true · dryRun·잠금 함수가 던지면 false', async () => {
+    reset();
+    const list = [entry('JPM', '2026-10-13', 'bmo')];
+    const base = { bars: jpmBars, fmp: jpmFmp, readObservation: async () => null };
+    assert.equal((await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { ...base, runLock: async () => 'ok' as const } })).lockAcquired, true);
+    assert.equal((await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { ...base, runLock: async () => 'ok' as const }, dryRun: true })).lockAcquired, false);
+    assert.equal((await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { ...base, runLock: async () => { throw new Error('timeout'); } } })).lockAcquired, false);
+    assert.equal((await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [], deps: { ...base, runLock: async () => 'ok' as const } })).lockAcquired, false, '할 일 없는 회차는 잠그지 않는다');
+  });
+
+  await ta('★ 끝난 기록(FMP 대조 + 확정 뒤 재확인 완료)은 이후 어떤 회차도 고치지 않는다 — 실적 결과 알림이 기대는 불변식', async () => {
+    reset();
+    const list = [entry('JPM', '2026-10-13', 'bmo')];
+    const settled = ms('2026-10-13T23:00:00Z');       // 일봉 확정 20:30Z + 재확인 2시간 = 22:30Z 뒤
+    const done = { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', at: settled,
+      expected: { pct: 3.2, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 335, straddle: 10.7, spot: 334.3, capturedAt: ms('2026-10-12T21:00:00Z'), src: 'page', method: 'weekly' },
+      actual: { pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check: 'fmp', at: settled } };
+    store.set(key('JPM', '2026-10-13'), JSON.parse(JSON.stringify(done)));
+    const moved = barsFrom({ JPM: [['2026-10-12', 330], ['2026-10-13', 300]] });
+    for (const at of [settled + 1_800_000, ms('2026-10-14T11:20:00Z'), ms('2026-10-15T22:00:00Z')]) {
+      await SVC.runActualsCycle({ nowMs: at, list, deps: { runLock: async () => 'ok' as const, bars: moved, fmp: moved, readObservation: async () => obsOf('JPM', 9.9, '2026-10-12') } });
+      await SVC.runActualsCycle({ nowMs: at, list, deps: { runLock: async () => 'unavailable' as const, bars: moved, fmp: async () => { throw new Error('down'); }, readObservation: async () => null } });
+    }
+    assert.deepEqual(store.get(key('JPM', '2026-10-13')), done); assert.equal(writes, 0);
   });
 
   await ta('★ actual 결과를 먼저 저장한 뒤 expected 관측을 읽는다(관문 10300933·10300934 — 조회 지연이 actual 저장을 막지 않게)', async () => {
