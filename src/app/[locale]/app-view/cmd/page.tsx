@@ -238,7 +238,7 @@ function sma(candles: { c: number }[], window: number): (number | null)[] {
 /* ═══════════════════════════════════════════
    SVG CANDLESTICK CHART (PREMIUM INTEGRATED)
    ═══════════════════════════════════════════ */
-function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; vwap?: number | null; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
+function CandleChart({ ticker, price, priceIsExt = false, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; priceIsExt?: boolean; vwap?: number | null; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
   const [range, setRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D');
   const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [candles, setCandles] = useState<{ o: number; h: number; l: number; c: number; dateET: string; session: string }[]>([]);
@@ -302,6 +302,12 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
     const copy = [...candles];
     const lastIdx = copy.length - 1;
     const last = copy[lastIdx];
+    // ★ [2026-11-04] 현재가는 «같은 세션»의 마지막 봉에만 잇는다.
+    //   시간외 봉이 비어(ElastiCache 축출로 intrinio:extbars 소실) 1D 가 본장 15:59 봉으로 끝났는데,
+    //   애프터 종가(AMD $508.20·MSFT $516.39)를 그 봉의 종가로 덮어써 오른쪽 끝이 수직선이 됐다(대표 11/4 캡처).
+    //   세션이 다르면 봉은 그대로 두고 현재가는 오른쪽 가격 칩·점선에만 그린다.
+    const lastIsExt = last.session === 'PRE' || last.session === 'POST';
+    if (lastIsExt !== priceIsExt) return copy;
     copy[lastIdx] = {
       ...last,
       c: price,
@@ -309,7 +315,7 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
       l: Math.min(last.l, price),
     };
     return copy;
-  }, [candles, price, loadedKey, ticker, range]);
+  }, [candles, price, priceIsExt, loadedKey, ticker, range]);
 
   // Trend detection to color the line/gradient/current-price label green or red.
   // 1D = "today's move": color by change vs previous close so it matches the hero
@@ -327,7 +333,11 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
   const sma7 = useMemo(() => sma(displayCandles, 7), [displayCandles]);
   const sma20 = useMemo(() => sma(displayCandles, 20), [displayCandles]);
 
-  const allVals = useMemo(() => displayCandles.flatMap(c => [c.h, c.l]), [displayCandles]);
+  // 현재가 칩·점선이 축 밖으로 나가지 않게 — 세션이 같아 마지막 봉에 이어진 경우엔 이미 h·l 에 들어 있어 축이 그대로다
+  const allVals = useMemo(() => {
+    const v = displayCandles.flatMap(c => [c.h, c.l]);
+    return v.length > 0 && price > 0 ? [...v, price] : v;
+  }, [displayCandles, price]);
   const minY = useMemo(() => allVals.length > 0 ? Math.min(...allVals) : price * 0.9, [allVals, price]);
   const maxY = useMemo(() => allVals.length > 0 ? Math.max(...allVals) : price * 1.1, [allVals, price]);
   const padY = (maxY - minY) * 0.08 || 1;
@@ -3814,6 +3824,7 @@ function CmdPageContent() {
                   ? activeExtPrice
                   : displayPrice
               }
+              priceIsExt={(effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry}
               changePct={
                 (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry
                   ? activeExtPct
