@@ -120,8 +120,6 @@ export function attemptReview(key: string, milestone: number, delay: number, gua
     try {
       const plugin = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
       if (typeof plugin?.requestReview !== 'function') return;
-      // 같은 날 다른 경로(새 평점 순간 등)가 이미 물었으면 이번 회차는 묻지도 기록하지도 않는다 — 다음 날 다시 기회가 온다(관문 11050239)
-      if (reviewAskedTodayByOther(key)) return;
       // 시도 횟수는 OS 시트를 «실제로 요청한» 경우에만 센다 — 광고·안내에 막힌 회차는 기회를 소비하지 않는다
       localStorage.setItem(`${key}.attempt.${milestone}`, String(reviewAttempts(key, milestone) + 1));
       const result = plugin.requestReview();
@@ -129,7 +127,9 @@ export function attemptReview(key: string, milestone: number, delay: number, gua
       markReviewAskedToday(key);
       requested();
     } catch { /* 요청 실패는 앱을 막지 않는다 */ } finally { release(); }
-  }, guard, release, eligible);
+  // 같은 날 다른 경로(새 평점 순간 등)가 이미 물었으면 이번 회차는 «적격 아님»으로 버린다 — 묻지도 기록하지도 않고,
+  // 요청 시각(confirmedRequestAt)도 남기지 않아 선물 안내를 막지 않는다(관문 11050239·11050242). 다음 날 다시 기회가 온다
+  }, guard, release, () => !reviewAskedTodayByOther(key) && eligible());
 }
 
 type Options = {
