@@ -7,8 +7,8 @@ import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
 import { AppAnchorAd } from '@/components/app/AppAnchorAd';
 import { WatchlistHost } from '@/components/app/watchlist/WatchlistHost';
-import { countRatingPush, ratingSessionEligible } from '@/lib/app/ratingMoments';
-import { maybePromptReview } from '@/lib/native/capacitorBridge';
+import { countRatingPush, ratingSessionEligible, RATING_MOMENT_PUSH } from '@/lib/app/ratingMoments';
+import { promptRatingMoment } from '@/lib/native/capacitorBridge';
 import { ReviewPromptMoments } from '@/components/app/ReviewPromptMoments';
 import { CouponGuideHost } from '@/components/app/CouponGuideHost';
 import { GiftAnnounceHost } from '@/components/app/GiftAnnounceHost';
@@ -121,8 +121,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
             if (!target) return;
             try {
               if (countRatingPush(type, localStorage, sessionStorage) >= 3) {
-                const eligible = () => ratingSessionEligible(localStorage, sessionStorage);
-                maybePromptReview(3000, eligible);
+                // 평점 «좋은 순간» (b) — 실적·이상신호 알림 탭으로 연 3번째 이후 세션. 기존 마일스톤과 따로 판정(관문 11050112 ①)
+                promptRatingMoment(RATING_MOMENT_PUSH, 3000, () => ratingSessionEligible(localStorage, sessionStorage));
               }
             } catch { /* storage unavailable */ }
             // Re-tapping the same report URL must also close an open sector sheet.

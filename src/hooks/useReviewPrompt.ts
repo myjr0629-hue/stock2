@@ -52,16 +52,37 @@ export function reviewMomentBlocked(now = Date.now()): boolean {
   } catch { return true; }
 }
 
-export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true, onBlocked: () => void = () => {}): void {
-  if (guardSignum && reviewMomentBlocked()) { onBlocked(); return; }
+/**
+ * 예약 뒤 «취소 함수»를 돌려준다. 예약 시 선물 안내용 요청 시각을 미리 적고(지연 동안 안내가 끼어들지 않게),
+ * 실행 시 막혔거나 순간이 더는 유효하지 않거나(eligible false — 다른 화면으로 이동 등) 취소되면 그 시각을 «원래 값»으로 되돌린다
+ * (관문 11050112 ③ — 취소된 요청이 선물 안내를 60초 막지 않게).
+ */
+export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true, onBlocked: () => void = () => {}, eligible: () => boolean = () => true): () => void {
+  if (guardSignum && reviewMomentBlocked()) { onBlocked(); return () => {}; }
   const previousRequestAt = lastReviewRequestAt;
   const reservedAt = Date.now() + delayMs;
   lastReviewRequestAt = reservedAt;
-  window.setTimeout(() => {
-    if (guardSignum && reviewMomentBlocked()) { if (lastReviewRequestAt === reservedAt) lastReviewRequestAt = previousRequestAt; onBlocked(); return; }
+  let settled = false;
+  const abandon = () => {
+    if (settled) return;
+    settled = true;
+    if (lastReviewRequestAt === reservedAt) lastReviewRequestAt = previousRequestAt;
+    onBlocked();
+  };
+  const timer = window.setTimeout(() => {
+    if (settled) return;
+    let ok = false;
+    try { ok = !(guardSignum && reviewMomentBlocked()) && eligible(); } catch { ok = false; }
+    if (!ok) { abandon(); return; }
+    settled = true;
     lastReviewRequestAt = Date.now();
     request();
   }, delayMs);
+  return () => {
+    if (settled) return;
+    try { window.clearTimeout?.(timer); } catch { /* ignore */ }
+    abandon();
+  };
 }
 
 // 마일스톤은 OS 시트를 실제로 요청할 때까지(막힌 회차는 세지 않고) 다음 적격 순간에 다시 시도한다 — 요청 뒤엔 완료 표식.
@@ -69,14 +90,13 @@ const inFlight = new Set<string>();
 export function reviewAttempts(key: string, milestone: number): number {
   return Number(localStorage.getItem(`${key}.attempt.${milestone}`)) || 0;
 }
-export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void, eligible: () => boolean = () => true): void {
+export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void, eligible: () => boolean = () => true): () => void {
   const id = `${key}:${milestone}`;
-  if (inFlight.has(id) || reviewAttempts(key, milestone) >= 2) return;
+  if (inFlight.has(id) || reviewAttempts(key, milestone) >= 2) return () => {};
   inFlight.add(id);
   const release = () => { inFlight.delete(id); };
-  scheduleReviewRequest(delay, () => {
+  return scheduleReviewRequest(delay, () => {
     try {
-      if (!eligible()) return;
       const plugin = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
       if (typeof plugin?.requestReview !== 'function') return;
       // 시도 횟수는 OS 시트를 «실제로 요청한» 경우에만 센다 — 광고·안내에 막힌 회차는 기회를 소비하지 않는다
@@ -85,7 +105,7 @@ export function attemptReview(key: string, milestone: number, delay: number, gua
       Promise.resolve(result).catch(() => {});
       requested();
     } catch { /* 요청 실패는 앱을 막지 않는다 */ } finally { release(); }
-  }, guard, release);
+  }, guard, release, eligible);
 }
 
 type Options = {

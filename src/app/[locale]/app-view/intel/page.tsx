@@ -37,6 +37,7 @@ import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature } fro
 import { sessionChangeOrNull, coverageTitle } from '@/lib/app/intelSessionChange';
 import { snapshotChangeOrNull } from '@/lib/app/intelSnapshotChange';
 import { snapshotScoreOrNull } from '@/lib/app/intelSnapshotScore';
+import { markSessionError } from '@/lib/app/ratingMoments';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -1540,6 +1541,8 @@ function AppIntelContent() {
   const [closingReports, setClosingReports] = useState<{ date: string; locale: string; reports: Record<string, SectorReportData> } | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
   const [crossBriefError, setCrossBriefError] = useState(false);
+  // 처리된 오류 화면(장마감 리포트 불러오기 실패 문구)을 그린 세션은 새 평점 순간을 건너뛴다(관문 11050112 ②)
+  useEffect(() => { if (crossBriefError) markSessionError(); }, [crossBriefError]);
   const [crossBriefLoading, setCrossBriefLoading] = useState(true);
   const [crossBriefGeneratedAt, setCrossBriefGeneratedAt] = useState<string>('');
   const [crossMacro, setCrossMacro] = useState<{ key: string; value: number; changePct: number; category: string }[]>([]);

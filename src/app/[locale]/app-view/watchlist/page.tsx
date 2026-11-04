@@ -42,6 +42,7 @@ import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 import { useWatchlistAiLines, firstSeen } from '@/components/app/watchlist/useWatchlistAiLines';
 import { InviteShareButton } from '@/components/app/InviteShareButton';
 import { aiLineState, fillAiLine, liveInsight, type AiLineEntry } from '@/lib/app/watchlistAiLine';
+import { markSessionError } from '@/lib/app/ratingMoments';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
 const TickerSearchOverlay = dynamic(
@@ -291,6 +292,9 @@ function WatchlistInner() {
   // 가격은 공용 실시간 가격(가격 허브 + 시세 요청 — 대시보드 «지수 LIVE»와 같은 원천) · 레벨·부가 사실은 목록 화면에서만
   const data = useWatchlistData(wl.tickers, { extras: true, locale: loc });
   const empty = wl.count === 0;
+  // 처리된 오류 화면(«불러오지 못함 · 다시 시도»)을 그린 세션은 새 평점 순간을 건너뛴다(관문 11050112 ②)
+  const showsLoadError = !empty && !!data.error;
+  useEffect(() => { if (showsLoadError) markSessionError(); }, [showsLoadError]);
   const preview = useWatchlistData(empty ? PREVIEW_CANDIDATES : [], { extras: true, locale: loc });
   // AI 한 줄(종목 단위 공유 글) — 목록 화면에서만 · 빈 상태 미리보기도 담은 뒤의 모습 그대로
   const ai = useWatchlistAiLines(wl.tickers, loc, !empty);
