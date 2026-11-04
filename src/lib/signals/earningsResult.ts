@@ -361,6 +361,17 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       //   굳힌 뒤 그 플랫폼 발송 호출 전에 함수가 강제 중단되면(창 ≤ SEAL_TIMEOUT_MS 300ms) 그 기기들은 이 발표 알림을 받지 못한다(장부가 남아 재시도 없음).
       const attempted = new Set<typeof claimed[number]>();
       const outcomes = new Map<string, SendOutcome>();
+      /** 시도하지 않은 자리 반환(한 번만) — 자리·상한. 다음 회차가 같은 규칙으로 다시 본다 */
+      const released = new Set<typeof claimed[number]>();
+      const release = async (list: typeof claimed) => {
+        await Promise.all(list.filter((c) => !released.has(c) && !attempted.has(c)).map(async (c) => {
+          released.add(c);
+          await deps.store.del([c.key]).catch(() => {});
+          await deps.store.decr(c.cap).catch(() => 0);
+        }));
+      };
+      // 재확인에서 탈락한 자리는 발송 전에 먼저 돌려준다
+      await release(claimed.filter((c) => !ready.includes(c)));
       let sendInTime = true;
       for (const platform of ['ios', 'android'] as const) {
         const batch = ready.filter((c) => c.item.platform === platform);
@@ -373,6 +384,9 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           (await withTimeout(deps.store.setXx(c.key, `sent:${now}`, LEDGER_TTL_SEC), Math.min(tmo, SEAL_TIMEOUT_MS)).catch(() => false)) ? c : null)));
         if (clock() >= opts.lockDeadline) { sendInTime = false; break; }
         const toSend = batch.filter((c) => sealed.has(c));
+        // 300ms 안에 굳지 못해 빠진 기기는 발송 호출 «전»에 자리를 지운다 — 그 굳히기가 늦게 성공해도 SET XX 라 지운 자리에 쓰지 못한다.
+        // (반환을 발송 뒤로 미루면, 발송을 기다리는 동안 늦은 쓰기가 성공하고 그 뒤 함수가 끊겨 시도 없는 120일 장부가 남는다 — 관문 11041454)
+        await release(batch.filter((c) => !sealed.has(c)));
         if (!toSend.length) continue;
         for (const c of toSend) attempted.add(c);
         const got = await deps.sender.send(toSend.map((c) => c.item)).catch(() => new Map<string, SendOutcome>());
@@ -387,12 +401,10 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           if (outcome === 'ok') report.sent++;
           else report.skipped.push({ key: c.item.id, reason: `send_${outcome ?? 'unknown'}_kept` });
           if (outcome === 'dead') dead.add(c.item.token);
-          continue;
         }
-        // 시도하지 않은 자리(재확인 탈락·굳히기 실패·마감) — 돌려준다(다음 회차가 같은 규칙으로 다시 본다)
-        await deps.store.del([c.key]).catch(() => {});
-        await deps.store.decr(c.cap).catch(() => 0);
       }
+      // 아직 남은 «시도하지 않은 자리»(마감으로 멈춘 플랫폼 등) — 돌려준다(이미 돌려준 것은 건너뛴다)
+      await release(claimed);
       if (dead.size) {
         const ts = [...dead];
         await deps.store.srem('push:token_list', ts).catch(() => {});

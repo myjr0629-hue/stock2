@@ -452,6 +452,45 @@ t('4 · 공유 일일 상한 증가가 시간 초과·오류여도 항상 되돌
   }
 });
 
+t('4 · 300ms 를 넘겨 빠진 기기의 자리는 발송 호출 «전»에 반환 — 발송 중 늦게 성공한 굳히기는 무효, 그 순간 함수가 끊겨도 빠진 기기 장부 0(관문 11041454)', async () => {
+  const s = setup([raw()], [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }], [IOS_TOKEN2, { watchlist: { t: ['JPM'] } }]]);
+  const slowKey = `push:sig:result:${devKey(IOS_TOKEN2)}:JPM:${D}`, slowCap = `push:sig:cap:2026-10-14:${devKey(IOS_TOKEN2)}`;
+  const orig = s.store.setXx.bind(s.store);
+  let late: Promise<boolean> | null = null;
+  s.store.setXx = (k: string, v: string, ex: number) => {
+    if (k !== slowKey) return orig(k, v, ex);
+    late = new Promise<boolean>((res) => setTimeout(() => res(orig(k, v, ex)), 450));   // 300ms 상한 뒤, 발송 도중에 도착
+    return late;
+  };
+  const atSendStart: Array<[boolean, number]> = [];
+  let killSnapshot: { slowKey: boolean; lateResult: boolean } | null = null;
+  const origSend = s.sender.send.bind(s.sender);
+  s.sender.send = async (items: any) => {
+    atSendStart.push([s.store.m.has(slowKey), Number(s.store.m.get(slowCap) ?? 0)]);
+    const lateResult = await late!;                                      // 발송을 기다리는 동안 늦은 굳히기가 도착
+    killSnapshot = { slowKey: s.store.m.has(slowKey), lateResult };     // ← 이 순간 함수가 강제 종료된다고 가정했을 때 남는 상태
+    return origSend(items);
+  };
+  const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r1.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN]);
+  assert.deepEqual(atSendStart, [[false, 0]], '발송 호출 시점에 빠진 기기의 자리·상한은 이미 반환');
+  assert.deepEqual(killSnapshot, { slowKey: false, lateResult: false }, '늦게 성공하려던 굳히기는 XX 라 무효 — 중단 시에도 빠진 기기 장부 0');
+  s.store.setXx = orig; s.sender.send = origSend;
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
+  assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN, IOS_TOKEN2], '다음 회차가 빠진 기기만, 중복 없음');
+});
+t('4 · 재확인 탈락 자리도 발송 전에 반환된다', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], [[IOS_TOKEN, { watchlist: { t: ['JPM', 'C'] }, tz: 'Asia/Seoul' }]]);
+  s.recs.swap = { fromCall: 2, key: actualsKey('C', D), value: raw('C', 3, 4.5) };   // 재확인에서 C 만 값이 바뀐다
+  const cKey = `push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`;
+  let cAtSend: boolean | null = null;
+  const origSend = s.sender.send.bind(s.sender);
+  s.sender.send = async (items: any) => { cAtSend = s.store.m.has(cKey); return origSend(items); };
+  const r = await s.run(SEND);
+  assert.equal(r.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.data.t), ['JPM']);
+  assert.equal(cAtSend, false, '탈락한 C 자리는 발송 호출 전에 이미 반환');
+});
+
 // ── 요구 5 — 이 알림 전용 스위치(EARNINGS_RESULT_ALERT_MODE · Redis push:sig:result:mode), 없으면 dry ──────────────────
 t('5 · 전용 스위치가 없으면(dry 기본) 대상은 세지만 보내지 않는다 — 신호 스위치가 live 여도(병합 즉시 발송 없음)', async () => {
   const s = setup();
