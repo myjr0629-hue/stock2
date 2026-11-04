@@ -42,9 +42,10 @@ const CSV_URL =
 
 const PROXY = process.env.EC2_REDIS_PROXY_URL || "http://127.0.0.1:8081";
 const { requireRedisProxyKey } = require("./lib/redis-proxy-key");
-const PROXY_KEY = requireRedisProxyKey();
-const OUT_KEY = "treasury:curve";
 const DRY = process.argv.includes("--dry");
+// --dry 는 저장하지 않으므로 키가 없어도 돈다
+const PROXY_KEY = DRY ? (process.env.REDIS_PROXY_KEY || "") : requireRedisProxyKey();
+const OUT_KEY = "treasury:curve";
 
 const log = (m) => console.log(`[TCURVE ${new Date().toISOString()}] ${m}`);
 

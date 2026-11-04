@@ -2336,13 +2336,11 @@ execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\*' -Desti
 console.log('Zip:', Math.round(fs.statSync(zipPath).size / 1024 / 1024 * 10) / 10 + 'MB');
 
 async function deploy() {
+  // 새 코드는 시작 때 REDIS_PROXY_KEY 를 요구한다 — 키 없이 코드부터 올리면 그 사이 콜드 스타트가 실패한다
+  if (!process.env.REDIS_PROXY_KEY) throw new Error('REDIS_PROXY_KEY missing — 배포 중단(환경변수 먼저)');
   const lambda = new LambdaClient({ region: 'us-east-1' });
   const zipBuffer = fs.readFileSync(zipPath);
   
-  await lambda.send(new UpdateFunctionCodeCommand({ FunctionName: 'signum-harvest', ZipFile: zipBuffer }));
-  console.log('Lambda code updated: signum-harvest v9.0');
-
-  await new Promise(r => setTimeout(r, 5000));
 
   await lambda.send(new UpdateFunctionConfigurationCommand({
     FunctionName: 'signum-harvest',
@@ -2358,6 +2356,11 @@ async function deploy() {
     } },
   }));
   console.log('Lambda config updated (900s/15min, 2048MB)');
+
+  // 환경변수(키 포함)를 먼저 바꾼 뒤 코드를 올린다
+  await new Promise(r => setTimeout(r, 5000));
+  await lambda.send(new UpdateFunctionCodeCommand({ FunctionName: 'signum-harvest', ZipFile: zipBuffer }));
+  console.log('Lambda code updated: signum-harvest v9.0');
 
   // Enable Function URL for on-demand cold-start
   try {
