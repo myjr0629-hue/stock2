@@ -414,23 +414,24 @@ export async function syncActualsLatestPointers(opts: {
   const today = etDateOf(now);
   const mget = opts.deps?.mget ?? ((keys: string[]) => mgetFromCache<unknown>(keys));
   const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setAuthoritativeCache(key, value));
-  // 종목당 가장 최근 지난 발표 하나만(목록에 같은 종목이 여럿이어도 키 하나)
-  const latest = new Map<string, ConfirmedEarnings>();
-  for (const c of opts.list ?? CONFIRMED_EARNINGS) {
-    if (!hourOf(c) || !(c.date < today)) continue;
-    const t = c.ticker.toUpperCase();
-    const cur = latest.get(t);
-    if (!cur || c.date > cur.date) latest.set(t, c);
-  }
-  const entries = [...latest.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, LATEST_SYNC_MAX_ENTRIES);
+  // 지난 발표 전부(최근 순) — 종목마다 «가장 최근의 완성 기록»을 고른다(최근 발표가 미완성이어도 그 이전 완성 기록을 놓치지 않게, 관문 11050231 ①)
+  const entries = (opts.list ?? CONFIRMED_EARNINGS)
+    .filter((c) => hourOf(c) && c.date < today)
+    .map((c) => ({ ...c, ticker: c.ticker.toUpperCase() }))
+    .filter((c, i, all) => all.findIndex((x) => x.ticker === c.ticker && x.date === c.date) === i)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, LATEST_SYNC_MAX_ENTRIES);
   const out = { checked: entries.length, written: [] as string[] };
   if (!entries.length) return out;
   try {
     const recs = await mget(entries.map((c) => actualsKey(c.ticker, c.date)));
-    const done = entries.filter((c, i) => {
+    const best = new Map<string, ConfirmedEarnings>();
+    entries.forEach((c, i) => {
+      if (best.has(c.ticker)) return;   // 최근 순이라 처음 고른 완성 기록이 가장 최근
       const row = scorecardPairOf(recs[i], now)?.row;
-      return !!row && row.ticker === c.ticker.toUpperCase() && row.date === c.date;
+      if (row && row.ticker === c.ticker && row.date === c.date) best.set(c.ticker, c);
     });
+    const done = [...best.values()];
     if (!done.length) return out;
     const ptrs = await mget(done.map((c) => actualsLatestKey(c.ticker)));
     for (let i = 0; i < done.length && out.written.length < LATEST_SYNC_MAX_WRITES; i++) {

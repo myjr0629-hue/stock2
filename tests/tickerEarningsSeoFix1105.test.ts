@@ -90,6 +90,9 @@ test('② 포인터 쓰기 — 크론 동기화는 완성 기록만, 앞으로�
     { ...ev, ticker: 'BBB', date: '2026-10-14', hour: 'bmo' as const },
     { ...ev, ticker: 'CCC', date: '2026-10-15', hour: 'amc' as const },
     { ...ev, ticker: 'DDD', date: '2026-12-01', hour: 'amc' as const },
+    // 같은 종목 지난 발표 두 건: 최근(10/29)은 미완성, 그 이전(10/13)은 완성 → 포인터는 10/13
+    { ...ev, ticker: 'EEE', date: '2026-10-29', hour: 'amc' as const },
+    { ...ev, ticker: 'EEE', date: '2026-10-13', hour: 'amc' as const },
   ];
   const now = Date.parse('2026-11-05T12:00:00-05:00');
   const mem = new Map<string, unknown>([
@@ -97,6 +100,8 @@ test('② 포인터 쓰기 — 크론 동기화는 완성 기록만, 앞으로�
     [actualsKey('BBB', '2026-10-14'), { ...record('BBB', 4, 2, 'fmp', '2026-10-14', 'bmo'), actual: null }], // 미완성
     [actualsKey('CCC', '2026-10-15'), record('CCC', 4, 2, 'fmp', '2026-10-15', 'amc')],
     [actualsLatestKey('CCC'), { date: '2026-10-15' }],   // 이미 같은 날짜
+    [actualsKey('EEE', '2026-10-29'), { ...record('EEE', 4, 2, 'fmp', '2026-10-29', 'amc'), actual: null }],
+    [actualsKey('EEE', '2026-10-13'), record('EEE', 4, 2, 'fmp', '2026-10-13', 'amc')],
   ]);
   const sets: Array<[string, unknown]> = [];
   const keysRead: string[][] = [];
@@ -104,8 +109,8 @@ test('② 포인터 쓰기 — 크론 동기화는 완성 기록만, 앞으로�
     mget: async (keys) => { keysRead.push(keys); return keys.map((k) => mem.get(k) ?? null); },
     set: async (k, v) => { sets.push([k, v]); mem.set(k, v); return true; },
   } });
-  assert.deepEqual(sets, [[actualsLatestKey('AAA'), { date: '2026-10-13' }]], '완성 + 포인터 없음만 쓴다');
-  assert.equal(r.checked, 3, '미래 발표(DDD)는 보지 않는다');
+  assert.deepEqual(sets, [[actualsLatestKey('AAA'), { date: '2026-10-13' }], [actualsLatestKey('EEE'), { date: '2026-10-13' }]], '완성 + 포인터 없음만 · 최근 미완성이면 이전 완성 기록');
+  assert.equal(r.checked, 5, '미래 발표(DDD)는 보지 않는다');
   assert.equal(keysRead.length, 2, 'mget 2번');
   // 더 옛 기록이 와도 포인터를 뒤로 돌리지 않는다
   mem.set(actualsLatestKey('AAA'), { date: '2026-12-31' });
@@ -124,13 +129,20 @@ test('③ 문구 = 보이는 값의 정의 — 스트래들/이벤트 분리 3�
   pack = cell({ method: 'event-split', eventMovePct: 3.1, p: 3.1 });
   const split = (await readIntent(T, NOW))!;
   assert.equal(split.pct, 3.1, '보이는 값 = 이벤트 분리값'); assert.equal(split.basis, 'event-split');
+  assert.equal(split.expiry, expiry); assert.equal(split.session, '2000-01-01'); assert.equal(split.quote, 'eod');
   const STRADDLE = { en: /divide by the stock price/, ko: /주가로 나눕니다/, ja: /株価で割ります/ };
-  const SPLIT = { en: /ordinary-day variance/, ko: /평상시 변동분을 빼/, ja: /平常時の変動分を差し引き/ };
+  const SPLIT = { en: /variance \(implied volatility squared × time\)[\s\S]*square root/, ko: /분산\(내재변동성²×기간\)[\s\S]*제곱근/, ja: /分散\(インプライド・ボラティリティ²×期間\)[\s\S]*平方根/ };
   for (const loc of ['en', 'ko', 'ja'] as const) {
     const a = intentCopy(straddle, loc), b = intentCopy(split, loc);
     assert.match(a.a2, STRADDLE[loc]); assert.doesNotMatch(a.a2, SPLIT[loc]);
     assert.match(b.a2, SPLIT[loc]); assert.doesNotMatch(b.a2, STRADDLE[loc]);
     assert.ok(b.title.includes('±3.1%') && b.a1.includes('±3.1%') && b.upcoming.includes('±3.1%'));
+    // 값의 만기·관측 세션·호가 종류를 본문(upcoming)·메타·JSON-LD(a1) 모두에 밝힌다(이어 쓴 이전 세션 값 포함)
+    const asOf = { en: /\(\w{3} \d+ expiry, Jan 1 closing quotes\)/, ko: /\(\d+\/\d+ 만기 · 1\/1 마감 호가 기준\)/, ja: /\(\d+\/\d+満期・1\/1引け気配基準\)/ }[loc];
+    assert.match(b.upcoming, asOf); assert.match(b.a1, asOf);
+    const live = intentCopy({ ...split, quote: 'live' }, loc);
+    assert.match(live.upcoming, { en: /live quotes/, ko: /장중 호가 기준/, ja: /ザラ場気配基準/ }[loc]);
+    assert.doesNotMatch(intentCopy({ ...split, pct: null }, loc).upcoming, /expiry|만기|満期/, '값이 없으면 기준도 없다');
     // 값이 없으면 정의 문구는 기본(스트래들)
     assert.match(intentCopy({ ...split, pct: null }, loc).a2, STRADDLE[loc]);
     // 직전 기록은 성적표 기준(ATM 스트래들)임을 밝힌다
