@@ -53,6 +53,7 @@ t('EC2 비권위(죽음)면 무조건 폴백', R.shouldFallbackToUpstash('intrin
 t('EC2 권위 미스 + 래퍼 키 → 폴백 안 함', R.shouldFallbackToUpstash('intrinio:resp:v1:x', true) === false);
 t('EC2 권위 미스 + cache:13f → 폴백', R.shouldFallbackToUpstash('cache:13f:cusip:1', true) === true);
 t('EC2 권위 미스 + push: → 폴백', R.shouldFallbackToUpstash('push:tokens:abc', true) === true);
+t('EC2 권위 미스 + postmarket: → 폴백', R.shouldFallbackToUpstash('postmarket:cross-brief-v3:2026-11-04', true) === true);
 t('EC2 권위 미스 + 복제 접두사(guardian:) → 폴백', R.shouldFallbackToUpstash('guardian:snapshot:ko', true) === true);
 // 공유 루프(feat/share-loop): 퍼널 키 share:* 는 EC2 전용이어야 한다(«Upstash 트래픽 무증가» 조건)
 t('공유 퍼널 키(share:, TTL)는 복제 생략', R.decideReplicate('share:tap:ticker:ios:2026-09-29', 3888000, true) === 'skip');
@@ -80,6 +81,9 @@ reset(); ecMode = 'ok-null'; await R.getFromCache('intrinio:resp:v1:x');
 t('EC2 정상 null + 래퍼 키 → Upstash GET 0회', calls.upGet === 0 && calls.ecGet === 1);
 reset(); upstore.set('cache:13f:cusip:1', JSON.stringify({ a: 1 })); const v13 = await R.getFromCache<any>('cache:13f:cusip:1');
 t('EC2 정상 null + cache:13f → Upstash GET 1회·값 반환', calls.upGet === 1 && v13?.a === 1, JSON.stringify(v13));
+reset(); upstore.set('postmarket:cross-brief-v3:2026-11-04', JSON.stringify({ structured: { headline: 'sample' }, version: 'v3' }));
+const v3 = await R.getFromCache<any>('postmarket:cross-brief-v3:2026-11-04');
+t('EC2 정상 null + v3 → Upstash GET·값 반환', calls.upGet === 1 && v3?.version === 'v3' && v3?.structured?.headline === 'sample');
 reset(); ecMode = 'ok-value'; const vv = await R.getFromCache<any>('intrinio:resp:v1:x');
 t('EC2 값 있음 → Upstash 0회', calls.upGet === 0 && vv?.v === 1);
 reset(); ecMode = 'mojibake'; upstore.set('guardian:snapshot:ja', JSON.stringify({ clean: true })); const mj = await R.getFromCache<any>('guardian:snapshot:ja');

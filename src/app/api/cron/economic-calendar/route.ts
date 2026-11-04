@@ -48,7 +48,11 @@ function formatDate(dateStr: string): { date: string; time: string } {
     return { date, time };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const cronSecret = process.env.CRON_SECRET;
+    if (process.env.NODE_ENV === 'production' && (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     if (!FMP_API_KEY) {
         return NextResponse.json({ error: 'FMP_API_KEY not set' }, { status: 500 });
     }
