@@ -117,7 +117,7 @@ function PickCard({ card, loc, name, priceReady, levelsReady, earn, onRemove }: 
             <div className={st.earnMove}>
               <s>{IMPLIED_LABEL[loc]}</s>
               <b>{impliedPctLabel(earn.implied.pct)}</b>
-              <em>{impliedBasisLine(earn.implied, loc)}</em>
+              <em>{impliedBasisLine(earn.implied, loc)} · {{ ko: '발표 뒤 실제와 비교', en: 'Compare with actual after earnings', ja: '発表後に実際と比較' }[loc]}</em>
             </div>
           )}
         </div>

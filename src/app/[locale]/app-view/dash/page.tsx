@@ -25,6 +25,7 @@ import { maybePromptReview } from '@/lib/native/capacitorBridge';
 import { DashWatchlistSection, DashWatchlistStar } from '@/components/app/watchlist/DashWatchlistSection';
 import { TodayPicksCard } from '@/components/app/TodayPicksCard';
 import { EarningsCalendarCard } from '@/components/app/EarningsCalendarCard';
+import { HomeScorecardLine } from '@/components/app/HomeScorecardLine';
 import { TrialConsentNotice } from '@/components/app/TrialConsentNotice';
 import { TrialRenewalOffNotice } from '@/components/app/TrialRenewalOffNotice';
 import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
@@ -2556,6 +2557,7 @@ export default function AppDashPage() {
             </a>
           ))}
           <EarningsCalendarCard locale={locale} />
+          <HomeScorecardLine locale={locale} />
         </div>
       </div>
 
