@@ -511,6 +511,22 @@ async function appendMissingSessions(acc) {
     if (rows.length < 3000) {
         throw new Error(`종목 수 비정상 (${rows.length} < 3000) — 적재 중단`);
     }
+    // 기존 저장본을 확인할 수 없으면 안전하게 중단한다. 정상 미스만 최초 적재로 취급.
+    const previousRes = await httpRequest(`${PROXY}/get?key=${encodeURIComponent(SNAPSHOT_KEY)}`, {
+        headers: { Authorization: `Bearer ${PROXY_KEY}` },
+    });
+    if (!previousRes.ok) throw new Error(`기존 스냅샷 조회 실패 HTTP ${previousRes.status} — 적재 중단`);
+    const previousResponse = previousRes.json();
+    if (!previousResponse || !Object.prototype.hasOwnProperty.call(previousResponse, "result")) {
+        throw new Error("기존 스냅샷 응답 오류 — 적재 중단");
+    }
+    const previous = typeof previousResponse.result === "string" ? JSON.parse(previousResponse.result) : previousResponse.result;
+    if (previous != null) {
+        if (!Array.isArray(previous.rows) || previous.rows.length === 0) throw new Error("기존 스냅샷 종목 수 확인 실패 — 적재 중단");
+        if (rows.length < previous.rows.length * 0.9) {
+            throw new Error(`종목 수 급감 (${rows.length}/${previous.rows.length}, 90% 미만) — 기존 스냅샷 유지`);
+        }
+    }
     const up = rows.filter((r) => r[7] > 0.01).length;
     const down = rows.filter((r) => r[7] < -0.01).length;
     const withVol = rows.filter((r) => r[5] > 0).length;
