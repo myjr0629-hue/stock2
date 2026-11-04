@@ -62,8 +62,10 @@ t('1 · 기준 기록은 보낼 수 있다(영수증 판정·값 그대로)', ()
   const r = resultEligibility(entry('JPM'), raw(), SEND);
   assert.ok(r.ok); assert.deepEqual(r.alert, { ticker: 'JPM', date: D, expected: 4.3, actual: 2.1, beyond: false });
 });
-t('1 · FMP 대조 없는(check null) 실제값은 보내지 않는다 — 관문 11011001 #1', () => {
-  assert.equal(reason(resultEligibility(entry('JPM'), raw('JPM', 4.3, 2.1, { a: { check: null } }), SEND)), 'actual_unconfirmed');
+t('1 · FMP 대조 없는(Intrinio 단독) 실제값도 채점표가 싣는 행이면 대상 — 채점표와 같은 기준(관문 11041428 #1)', () => {
+  const single = raw('JPM', 4.3, 2.1, { a: { check: null } });
+  assert.equal(aggregateScorecard('2026-10-12', [single], SEND).rows[0]?.check, 'intrinio_only');
+  assert.equal(reason(resultEligibility(entry('JPM'), single, SEND)), 'ok');
 });
 t('1 · 확정 뒤 재확인(정착) 전 actual 은 보내지 않는다 — 관문 11010757 #1', () => {
   const early = Date.parse('2026-10-13T21:00:00Z');   // 일봉 확정(20:30Z) 뒤 · 정착(22:30Z) 전 — 서비스 ③-0 이 아직 다시 읽는다
@@ -200,17 +202,28 @@ t('4 · 같은 발표는 기기마다 한 번만(두 번째 회차 0) · 종목�
   assert.equal(ko.data.path, '/app-view/earnings'); assert.equal(ko.data.type, 'wl_signal'); assert.equal(ko.data.src, 'push_sig_earn');
   assert.equal(s.sender.items.find((x) => x.token === AND_TOKEN && x.data.t === 'C')!.body, 'Implied move ±3.0% → actual +4.0% (Outside range)');
 });
-t('4 · 안정 전 처음 본 값이 뒤에 바뀌면(정정) 그 발표는 영원히 보내지 않는다', async () => {
-  const fresh = raw('JPM', 4.3, 2.1, { at: SEND - 3_600_000 });
-  const s = setup([fresh]);
+t('4 · 보낼 수 있게 되기 전의 값 갱신(임시 종가 → 확정 뒤 재확인)은 정정이 아니다 — 안정되면 새 값으로 한 번 보낸다(관문 11041428 #2)', async () => {
+  const early = Date.parse('2026-10-13T21:00:00Z');                    // 일봉 확정 뒤 · 재확인 전 임시 종가
+  const s = setup([raw('JPM', 4.3, 2.1, { a: { at: early }, at: early })]);
   const r1 = await s.run(SEND);
-  assert.equal(r1.sent, 0); assert.ok(r1.skipped.some((x) => x.reason === 'unstable'));
-  assert.ok(s.store.m.has(RESULT_KEYS.fp('JPM', D)), '처음 본 값의 지문');
-  s.recs.put(raw('JPM', 4.3, 1.9, { a: { reactClose: 101.9 } }));        // 종가 재확인으로 값이 바뀌었다
+  assert.equal(r1.sent, 0); assert.ok(r1.skipped.some((x) => x.reason === 'actual_unsettled'));
+  assert.equal(s.store.m.has(RESULT_KEYS.fp('JPM', D)), false, '보낼 수 없는 값에는 지문을 남기지 않는다');
+  s.recs.put(raw('JPM', 4.3, 1.9, { a: { reactClose: 101.9 } }));      // 서비스 ③-0 이 확정 종가로 고쳐 썼다(WRITTEN 시각)
+  const r2 = await s.run(SEND + 600_000);
+  assert.deepEqual(r2.corrected, []); assert.equal(r2.sent, 1);
+  assert.equal(s.sender.items[0].body, '옵션 예상 ±4.3% → 실제 +1.9% (범위 안)', '바뀐 뒤의 확정값으로');
+  assert.equal(s.logs.filter((m) => m.includes('정정됨')).length, 0);
+});
+t('4 · 보낼 수 있는 상태에서 지문을 남긴 뒤 값이 바뀌면 정정 — 그 발표는 영원히 보내지 않는다(로그 한 번)', async () => {
+  const s = setup();
+  s.store.m.set('push:sig:mode', 'dry');                                // dry 회차가 지문만 남긴다
+  const r1 = await s.run(SEND);
+  assert.equal(r1.sent, 0); assert.ok(s.store.m.has(RESULT_KEYS.fp('JPM', D)));
+  s.store.m.set('push:sig:mode', 'live');
+  s.recs.put(raw('JPM', 4.3, 1.9, { a: { reactClose: 101.9 } }));
   const r2 = await s.run(SEND + 3_600_000);
   assert.deepEqual(r2.corrected, ['JPM|2026-10-13']); assert.equal(r2.sent, 0);
-  assert.equal(s.logs.filter((m) => m.includes('정정됨')).length, 1);
-  const r3 = await s.run(SEND + 2 * 86400_000);                           // 바뀐 값이 아무리 안정돼도
+  const r3 = await s.run(SEND + 2 * 86400_000);
   assert.equal(r3.sent, 0); assert.equal(s.sender.calls, 0);
   assert.equal(s.logs.filter((m) => m.includes('정정됨')).length, 1, '정정 로그는 한 번');
 });

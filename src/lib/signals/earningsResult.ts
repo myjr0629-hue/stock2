@@ -6,10 +6,11 @@
 //      잠금을 못 얻었거나(busy) 잠금 저장소가 불가·시간 초과(unavailable)면 아무것도 하지 않는다(읽기·쓰기·발송 0).
 //   ② 고르는 기준은 채점표 하나 — lib/earnings/earningsScorecard.scorecardPairOf(채점표·앱 실적 화면이 받아들이는 «완전한 쌍»)를
 //      그대로 쓴다(별도 필드·별도 출처 규칙을 만들지 않는다). 숫자·범위 판정도 그 행(expectedPct·actualPct·beyond) 그대로.
-//   ③ 보내는 «때»만 더 본다 — 실적 서비스가 더 이상 고치지 않는 상태(기존 필드):
-//      · 채점표 행의 check === 'fmp'(독립 공급사 대조 일치 — 서비스 ③ 대조 보강·불일치 삭제의 대상이 아니다)
-//      · actual 계산 시각 ≥ 일봉 확정 + ACTUAL_SETTLE_MS(서비스 ③-0 «확정 뒤 재확인»을 마쳤다)
-//      · 기록의 마지막 쓰기 뒤 6시간 이상(RESULT_STABLE_MS) · 일봉 확정 뒤 4일 이내
+//   ③ 대상 기준은 더하지 않고, 보내는 «때»만 본다(채점표에 이미 있는 행을 언제 알릴지 — 기존 필드):
+//      · actual 계산 시각 ≥ 일봉 확정 + ACTUAL_SETTLE_MS(서비스 ③-0 «확정 뒤 재확인»을 마쳤다 — 그 전엔 임시 종가)
+//      · 기록의 마지막 쓰기 뒤 6시간 이상(RESULT_STABLE_MS — 그 사이 크론 회차들이 서비스 ③ FMP 대조 보강을 시도한다)
+//      · 일봉 확정 뒤 4일 이내(RESULT_MAX_AGE_MS — 배포 첫 회차·장애 복구 뒤 지난 결과를 한꺼번에 «새 알림»처럼 쏟지 않게)
+//      FMP 대조(check)는 채점표처럼 요구하지 않는다(채점표가 Intrinio 단독 행도 싣는다 — 같은 기준, 관문 11041428 #1).
 //      · 발송 직전 엄격 읽기(EC2, 폴백 없음)로 다시 읽어 저장본이 첫 읽기와 «글자 하나까지» 같을 때만
 //   ④ 중복·정정 — 기기×종목×발표일 키로 한 번만. 한 발표의 값(예상·실제)을 처음 본 지문을 남기고, 그 뒤 값이 바뀌거나 지워지면
 //      «정정됨»으로 영구 표시하고 로그만 남긴다 — 그 발표는 다시는 보내지 않는다(정정 푸시 없음).
@@ -82,7 +83,7 @@ export function resultValueFingerprint(raw: unknown): string | null {
 
 /**
  * 저장본 하나가 지금 «보내도 되는 끝난 결과»인가 — 이유와 함께.
- * 고르는 기준은 채점표의 scorecardPairOf 하나(같은 기록 = 같은 판정). 그 위에 «보내는 때»(대조 일치·정착·안정·4일)만 본다.
+ * 고르는 기준은 채점표의 scorecardPairOf 하나(같은 기록 = 같은 판정). 그 위에 «보내는 때»(정착·안정·4일)만 본다.
  */
 export function resultEligibility(c: ConfirmedEarnings, raw: unknown, now: number): ResultEligibility {
   const no = (reason: string): ResultEligibility => ({ ok: false, reason });
@@ -93,8 +94,7 @@ export function resultEligibility(c: ConfirmedEarnings, raw: unknown, now: numbe
   if (row.ticker !== c.ticker.toUpperCase() || row.date !== c.date || row.hour !== c.hour) return no('record_mismatch');
   const finalAt = reactionFinalAt(row.basis.reactDate);
   if (finalAt == null) return no('no_sessions');
-  // ③ 끝난 actual — 대조 일치 · 확정 뒤 재확인을 마쳤다
-  if (row.check !== 'fmp') return no('actual_unconfirmed');
+  // ③ 확정 뒤 재확인(서비스 ③-0)을 마친 actual 만 — 그 전엔 서비스가 임시 종가를 고쳐 쓴다(값은 채점표 행 그대로, 대상 기준이 아니라 «때»)
   const actualAt = Date.parse(row.basis.actualCalculatedAt);
   if (!(actualAt >= finalAt + ACTUAL_SETTLE_MS)) return no('actual_unsettled');
   // ③ 안정 — 마지막 쓰기 뒤 6시간(scorecardPairOf 는 미래 시각을 받아들이지 않는다 · 기록 at 은 미래면 0 으로 본다 → 원본 at 을 직접 본다)
@@ -229,11 +229,13 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         }
         if (corrected) { report.corrected.push(id); continue; }
         if (fpNow == null) continue;
+        // 지문은 «보낼 수 있는 상태(채점표 쌍 + 정착·안정)가 된 값»에만 남긴다 — 그 전의 정상 처리(임시 종가 → 확정 뒤 재확인 갱신 ·
+        // 대조 보강)는 정정이 아니다(관문 11041428 #2). 지문을 남긴 뒤에 값이 바뀌거나 지워지면 그때부터가 정정이다.
+        const el = resultEligibility(c, r.value, now);
+        if (!el.ok) { report.skipped.push({ key: id, reason: el.reason }); continue; }
         if (seen == null && !(await st(deps.store.setNx(RESULT_KEYS.fp(tk(c), c.date), fpNow, LEDGER_TTL_SEC)))) {
           report.skipped.push({ key: id, reason: 'fp_race' }); continue;   // 다른 회차가 먼저 적었다 — 다음 회차가 대조한다
         }
-        const el = resultEligibility(c, r.value, now);
-        if (!el.ok) { report.skipped.push({ key: id, reason: el.reason }); continue; }
         cands.push({ c, key: recKeys[i], snapshot: stableStringify(r.value), fp: fpNow, alert: el.alert });
       }
     } catch { report.status = 'store_unavailable'; return report; }
