@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     // 종목별 «가장 최근 완성 기록» 포인터(공개 종목 페이지가 키 2개만 읽게) — 쓰기 잠금을 얻은 회차만, 함수 상한 15초 전까지만.
     if (!dryRun && r.lockAcquired && Date.now() - t0 < maxDuration * 1000 - 15_000) {
         try {
-            const p = await syncActualsLatestPointers();
+            const p = await syncActualsLatestPointers({ deadlineMs: t0 + maxDuration * 1000 - 8_000 });
             if (p.written.length) console.log(`[Cron/EarningsActuals] latest pointers ${JSON.stringify(p.written.slice(0, 12))}`);
         } catch (e) { console.error('[Cron/EarningsActuals] latest pointers failed', e instanceof Error ? e.message : 'unknown'); }
     }

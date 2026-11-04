@@ -138,8 +138,14 @@ test('② 포인터 쓰기 — 크론 동기화는 완성 기록만, 앞으로�
   sets.length = 0;
   await syncActualsLatestPointers({ nowMs: now, list, deps: { mget: async (keys) => keys.map((k) => mem.get(k) ?? null), getStrict, set: async (k, v) => { sets.push([k, v]); return true; } } });
   assert.deepEqual(sets, []);
+  // 마감 시각이 지났으면 새 읽기·쓰기를 시작하지 않는다
+  mem.delete(actualsLatestKey('AAA')); mem.delete(actualsLatestKey('EEE'));
+  sets.length = 0; strictReads.length = 0;
+  await syncActualsLatestPointers({ nowMs: now, list, deadlineMs: Date.now() - 1, deps: { mget: async (keys) => keys.map((k) => mem.get(k) ?? null), getStrict, set: async (k, v) => { sets.push([k, v]); return true; } } });
+  assert.deepEqual(sets, []); assert.equal(strictReads.length, 0);
   const route = fs.readFileSync('src/app/api/cron/earnings-actuals/route.ts', 'utf8');
   assert.match(route, /if \(!dryRun && r\.lockAcquired && Date\.now\(\) - t0 < maxDuration \* 1000 - 15_000\)/, '쓰기 잠금 회차만');
+  assert.match(route, /syncActualsLatestPointers\(\{ deadlineMs: t0 \+ maxDuration \* 1000 - 8_000 \}\)/, '함수 상한 전 마감');
 });
 
 test('③ 문구 = 보이는 값의 정의 — 스트래들/이벤트 분리 3언어·메타·JSON-LD', async () => {

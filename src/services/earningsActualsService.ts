@@ -410,6 +410,8 @@ const LATEST_SYNC_MAX_WRITES = 60;
  */
 export async function syncActualsLatestPointers(opts: {
   nowMs?: number; list?: readonly ConfirmedEarnings[];
+  /** 이 시각(ms, Date.now 기준)이 지나면 새 읽기·쓰기를 시작하지 않는다(크론 함수 상한 보호 — 남은 건은 다음 회차) */
+  deadlineMs?: number;
   deps?: {
     mget?: (keys: string[]) => Promise<unknown[]>;
     /** 쓰기 전 확인 읽기 — ok=false(저장소 장애)면 쓰지 않는다(빈 값으로 오인해 최신 포인터를 옛 날짜로 덮지 않게, 관문 11050234 ②) */
@@ -422,6 +424,7 @@ export async function syncActualsLatestPointers(opts: {
   const mget = opts.deps?.mget ?? ((keys: string[]) => mgetFromCache<unknown>(keys));
   const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setAuthoritativeCache(key, value));
   const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
+  const timeUp = () => opts.deadlineMs != null && Date.now() >= opts.deadlineMs;
   // 지난 발표 전부(최근 순) — 종목마다 «가장 최근의 완성 기록»을 고른다(최근 발표가 미완성이어도 그 이전 완성 기록을 놓치지 않게, 관문 11050231 ①)
   const entries = (opts.list ?? CONFIRMED_EARNINGS)
     .filter((c) => hourOf(c) && c.date < today)
@@ -440,10 +443,10 @@ export async function syncActualsLatestPointers(opts: {
       if (row && row.ticker === c.ticker && row.date === c.date) best.set(c.ticker, c);
     });
     const done = [...best.values()];
-    if (!done.length) return out;
+    if (!done.length || timeUp()) return out;
     const ptrs = await mget(done.map((c) => actualsLatestKey(c.ticker)));
     let confirms = 0;
-    for (let i = 0; i < done.length && confirms < LATEST_SYNC_MAX_WRITES; i++) {
+    for (let i = 0; i < done.length && confirms < LATEST_SYNC_MAX_WRITES && !timeUp(); i++) {
       const c = done[i];
       const cur = parseLatestPointer(ptrs[i]);
       if (cur && cur >= c.date) continue;   // 묶음 읽기에서 이미 같거나 최신 — 평상시엔 여기서 끝(추가 읽기 0)
@@ -453,6 +456,7 @@ export async function syncActualsLatestPointers(opts: {
       if (!strict.ok) continue;
       const stored = parseLatestPointer(strict.value);
       if (stored && stored >= c.date) continue;
+      if (timeUp()) break;
       if (await set(actualsLatestKey(c.ticker), { date: c.date }).catch(() => false)) out.written.push(`${c.ticker.toUpperCase()}|${c.date}`);
     }
   } catch { /* 다음 회차가 다시 본다 */ }
