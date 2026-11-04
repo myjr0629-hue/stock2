@@ -28,7 +28,7 @@ import { etDateOf } from '@/lib/marketCalendar';
 import { deviceFromRecord, inPushBlackout, inQuietHours, SIG_KEYS } from './plan';
 import { SIG_ICON } from './copy';
 import { SIG_CFG, type Loc } from './types';
-import type { SendItem, SigSender, SigStore, SigMode } from './run';
+import type { SendItem, SendOutcome, SigSender, SigStore, SigMode } from './run';
 
 /** 마지막 쓰기 뒤 이만큼 지나야 «안정»으로 본다 */
 export const RESULT_STABLE_MS = 6 * 3600_000;
@@ -38,12 +38,18 @@ export const RESULT_MAX_AGE_MS = 4 * 24 * 3600_000;
 const WINDOW_DAYS = 10;
 const LEDGER_TTL_SEC = 120 * 86400;
 /**
- * 기기 발송 자리의 «선점» 수명 — 보내기 전엔 이 짧은 수명으로만 잡고, 발송 성공 뒤에 LEDGER_TTL_SEC 로 굳힌다.
- * 함수 시간 상한(60초)에 걸려 정리 코드가 못 돌아도 자리가 이 시간 뒤 풀려 다음 회차(25분+ 뒤)가 다시 본다(관문 11041431 #2).
+ * 기기 발송 자리의 «선점» 수명 — 선점·재확인 동안엔 이 짧은 수명으로만 잡고, 보내기 직전에 LEDGER_TTL_SEC 로 굳힌다.
+ * 보내기 전에 함수 시간 상한(60초)에 걸려 정리 코드가 못 돌아도 자리가 이 시간 뒤 풀려 다음 회차(25분+ 뒤)가 다시 본다(관문 11041431 #2).
+ * 굳힌 뒤(발송 중·후)에 끊기면 그 기기는 다시 보내지 않는다 — 중복 발송 0 이 우선(관문 11041441 #2).
  */
 export const CLAIM_TTL_SEC = 10 * 60;
 /** 한 묶음(100기기)에서 동시에 선점하는 기기 수 */
 const CLAIM_CONCURRENCY = 20;
+/**
+ * 선점을 멈추는 여유 — 마감(lockDeadline) 이만큼 전에 새 선점을 멈추고, 이미 잡은 기기는 재확인·발송한다(부분 묶음 발송).
+ * 마감에 걸린 묶음을 통째로 버리면 매 회차 같은 묶음이 반복돼 결과가 영영 안 나갈 수 있다(관문 11041441 #1).
+ */
+export const CLAIM_STOP_MS = 8_000;
 /**
  * 지문 저장값의 머리 — Upstash 기본 클라이언트는 읽을 때 JSON 으로 해석되는 문자열을 객체로 바꾼다(automaticDeserialization).
  * 머리를 붙여 JSON 이 아니게 해 «쓴 문자열 = 읽은 문자열»을 지킨다(관문 11041431 #1).
@@ -295,7 +301,10 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       return ok;
     };
 
-    const tokens = await st(deps.store.smembers('push:token_list'));
+    const listed = await st(deps.store.smembers('push:token_list'));
+    // 시작 위치를 회차(분)마다 돌린다 — 시간이 모자란 회차가 이어져도 늘 같은 앞쪽 기기만 처리되지 않게(이미 보낸 기기는 선점 1회로 건너뛴다)
+    const off = listed.length ? Math.floor(now / 60_000) % listed.length : 0;
+    const tokens = [...listed.slice(off), ...listed.slice(0, off)];
     for (let i = 0; i < tokens.length; i += 100) {
       if (clock() >= opts.lockDeadline) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
       const chunk = tokens.slice(i, i + 100);
@@ -310,7 +319,7 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         for (const x of cands) {
           const a = x.alert;
           if (!d.tickers.includes(a.ticker) || chosen >= SIG_CFG.perRunPerDevice) continue;
-          if (clock() >= opts.lockDeadline) { expiring = true; return; }      // 기기마다·발표마다 마감 검사 — 넘으면 더 잡지 않는다
+          if (clock() >= opts.lockDeadline - CLAIM_STOP_MS) { expiring = true; return; }   // 기기마다·발표마다 검사 — 선점 창이 닫히면 더 잡지 않는다(잡은 것은 아래에서 보낸다)
           const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date), cap = SIG_KEYS.cap(etDateOf(now), d.dev);
           // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
           if (!await st(deps.store.setNx(key, `claim:${now}`, CLAIM_TTL_SEC)).catch(() => false)) continue;
@@ -327,30 +336,36 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         while (next < chunk.length && !expiring) await claimDevice(next++);
       }));
       const allowed = claimed.length && clock() < opts.lockDeadline ? await verify([...new Set(claimed.map((c) => c.cand))]) : new Set<Candidate>();
-      const toSend = claimed.filter((c) => allowed.has(c.cand));
-      const outcomes = toSend.length ? await deps.sender.send(toSend.map((c) => c.item)).catch(() => new Map()) : new Map();
+      // 재확인이 늦어 마감을 넘겼으면 보내지 않는다(관문 11041441 #2) — 아래에서 자리를 모두 돌려준다
+      const inTime = clock() < opts.lockDeadline;
+      const ready = inTime ? claimed.filter((c) => allowed.has(c.cand)) : [];
+      // 보내기 «직전»에 120일 장부로 굳힌다 — 발송 도중·직후 함수가 끊겨도 같은 기기에 다시 보내지 않는다(중복 0 우선).
+      // 굳히기에 실패한 항목은 보내지 않는다(그 자리는 돌려준다 → 다음 회차가 다시 본다).
+      const sealed = new Set(await Promise.all(ready.map(async (c) =>
+        (await st(deps.store.set(c.key, `sent:${now}`, LEDGER_TTL_SEC)).then(() => true, () => false)) ? c : null)));
+      const toSend = ready.filter((c) => sealed.has(c));
+      let threw = false;
+      const outcomes: Map<string, SendOutcome> = toSend.length ? await deps.sender.send(toSend.map((c) => c.item)).catch(() => { threw = true; return new Map<string, SendOutcome>(); }) : new Map();
       const dead = new Set<string>();
       for (const c of claimed) {
-        const outcome = allowed.has(c.cand) ? outcomes.get(c.item.id) : undefined;
-        if (outcome === 'ok') {
-          report.sent++;
-          // 굳히기 — 실패하면 한 번 더. 그래도 실패하면 선점 수명이 끝난 뒤 중복 발송될 수 있어 로그를 남긴다.
-          const seal = () => st(deps.store.set(c.key, `sent:${now}`, LEDGER_TTL_SEC)).then(() => true, () => false);
-          if (!(await seal()) && !(await seal())) log(`[Cron/EarningsResult] 발송 장부 굳히기 실패 ${c.item.id}`);
-          continue;
+        if (sealed.has(c)) {
+          const outcome = outcomes.get(c.item.id);
+          if (outcome === 'ok') { report.sent++; continue; }
+          // 결과를 모르면(발송 함수가 던졌거나 결과에 없음) 일부가 이미 닿았을 수 있다 — 장부를 그대로 두고(재발송 없음) 로그만
+          if (outcome !== 'fail' && outcome !== 'dead') { report.skipped.push({ key: c.item.id, reason: threw ? 'send_threw_kept' : 'send_unknown_kept' }); continue; }
         }
-        // 보내지 않았거나 실패 — 자리를 돌려준다(다음 회차가 같은 규칙으로 다시 본다)
+        // 보내지 않았거나 확실히 실패 — 자리를 돌려준다(다음 회차가 같은 규칙으로 다시 본다)
         await deps.store.del([c.key]).catch(() => {});
         await deps.store.decr(c.cap).catch(() => 0);
-        if (outcome === 'dead') dead.add(c.item.token);
+        if (sealed.has(c) && outcomes.get(c.item.id) === 'dead') dead.add(c.item.token);
       }
       if (dead.size) {
         const ts = [...dead];
         await deps.store.srem('push:token_list', ts).catch(() => {});
         await deps.store.del(ts.map((t) => `push:tokens:${t}`)).catch(() => {});
       }
-      // 마감에 걸린 묶음 — 잡은 자리는 위에서 모두 돌려줬다(마감 뒤엔 verify 를 하지 않아 발송 0). 다음 묶음으로 가지 않는다
-      if (expiring) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
+      // 선점 창이 닫혔거나 마감을 넘겼으면 다음 묶음으로 가지 않는다(잡은 것은 위에서 보냈거나 돌려줬다)
+      if (expiring || !inTime) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
     }
     report.status = 'ok';
     return report;
