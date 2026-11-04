@@ -44,6 +44,7 @@ class Mem {
   assert.match(rankings, /if \(err\) markSessionError\(\)/);
   const wl = fs.readFileSync('src/app/[locale]/app-view/watchlist/page.tsx', 'utf8');
   assert.match(wl, /if \(showsLoadError\) markSessionError\(\)/);
+  assert.match(wl, /const showsLoadError = !empty && !!\(data\.error \|\| \(data\.failed && \(data\.stale \|\| rows\.some\(\(r\) => !r\.rt\)\)\)\);/, '부분 실패 문구와 같은 조건');
   const moments = fs.readFileSync('src/components/app/ReviewPromptMoments.tsx', 'utf8');
   assert.match(moments, /addEventListener\('error'/);
   assert.match(moments, /addEventListener\('unhandledrejection'/);
@@ -144,6 +145,45 @@ try {
   bridge.promptRatingMoment(RATING_MOMENT_REACTION, 3000, eligible);
   assert.equal(timers.length, 1); fire();
   assert.equal(requests, 3);
+
+  // 관문 11050217 ③ — 겹친 예약 A·B 를 모두 취소해도 취소된 시각이 되살아나지 않는다
+  local.setItem('signumhq.review.prompted', '[]');
+  local.setItem('signumhq.review.lastAsked', yesterday);
+  local.setItem(`signumhq.review.prompted.attempt.${RATING_MOMENT_REACTION}`, '0');
+  const base3 = hook.reviewRequestedAt();
+  const cancelA = bridge.promptRatingMoment(RATING_MOMENT_REACTION, 3000, eligible);
+  const atA = hook.reviewRequestedAt();
+  let bOk = true;
+  bridge.promptRatingMoment(RATING_MOMENT_PUSH, 3000, () => eligible() && bOk);
+  assert.ok(hook.reviewRequestedAt() >= atA);
+  cancelA();
+  bOk = false;
+  fire();
+  assert.equal(timers.length, 0);
+  assert.equal(hook.reviewRequestedAt(), base3, '겹친 예약이 모두 무효면 선물 안내 기준 시각은 처음 그대로');
+  // 직접 예약 함수로도: A 취소 → B 무효(순서 반대) 역시 복원
+  const cA = hook.scheduleReviewRequest(3000, () => {}, false);
+  const cB = hook.scheduleReviewRequest(3000, () => {}, false);
+  cB(); cA();
+  assert.equal(hook.reviewRequestedAt(), base3);
+  assert.equal(timers.length, 0);
+
+  // 관문 11050217 ② — 새 순간 예약 뒤 같은 3초 안에 기존 마일스톤도 예약돼도, 새 순간이 먼저 물었으면 마일스톤은 실행 시 건너뛴다
+  local.setItem('signumhq.review.prompted', '[]');
+  local.setItem('signumhq.review.lastAsked', yesterday);
+  local.setItem('signumhq.review.days', JSON.stringify(['2000-01-02', '2000-01-03']));
+  local.setItem('signumhq.review.prompted.attempt.2', '0');
+  local.setItem(`signumhq.review.prompted.attempt.${RATING_MOMENT_PUSH}`, '0');
+  session.removeItem('signumhq.review.prompted.attempt.2');
+  const reqBefore = requests;
+  bridge.promptRatingMoment(RATING_MOMENT_PUSH, 3000, eligible);
+  bridge.maybePromptReview(3000);
+  assert.equal(timers.length, 2, '두 경로 모두 예약됨');
+  fire();
+  assert.equal(requests, reqBefore + 1, '새 순간이 물음');
+  fire();
+  assert.equal(requests, reqBefore + 1, '같은 날 마일스톤은 OS API 를 다시 부르지 않는다');
+  assert.equal(local.getItem('signumhq.review.prompted.attempt.2'), '0', '건너뛴 마일스톤은 기회를 소비하지 않는다');
 
   // 광고 직후에는 예약하지 않는다(기존 겹침 검사 재사용)
   local.setItem('signumhq.review.lastAsked', yesterday);

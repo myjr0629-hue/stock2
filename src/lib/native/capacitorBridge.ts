@@ -325,6 +325,9 @@ export function maybePromptReview(delayMs = 2500): void {
       const current: number[] = JSON.parse(localStorage.getItem(REVIEW_DONE_KEY) || '[]');
       if (!current.includes(hit!)) localStorage.setItem(REVIEW_DONE_KEY, JSON.stringify([...current, hit]));
       localStorage.setItem(REVIEW_LAST_KEY, today);
+    }, () => {
+      // 실행 시점: 예약 뒤 같은 날 다른 경로(새 평점 순간)가 이미 물었으면 건너뛴다(관문 11050217 ②)
+      try { return localStorage.getItem(REVIEW_LAST_KEY) !== today; } catch { return false; }
     });
   } catch { /* storage unavailable → skip */ }
 }

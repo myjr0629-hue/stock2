@@ -33,8 +33,11 @@ import { GIFT_REVIEW_QUIET_MS, readAnnounceState } from '@/lib/gift/giftAnnounce
  * 선물 안내(lib/gift/useGiftMoment·GiftAnnounceHost)가 이 시각 뒤 일정 시간은 띄우지 않는다(OS 시트와 겹치지 않게).
  * 결과(표시 여부)는 여전히 읽지 않는다 — «요청했다»만 적는다.
  */
-let lastReviewRequestAt = 0;
-export const reviewRequestedAt = (): number => lastReviewRequestAt;
+let confirmedRequestAt = 0;
+/** 아직 실행 전인 예약들(예약 id → 예약 시각). 취소·무효가 된 예약은 빠지고, 겹친 예약도 서로의 시각을 되살리지 않는다(관문 11050217 ③). */
+const pendingRequests = new Map<number, number>();
+let nextReservation = 1;
+export const reviewRequestedAt = (): number => Math.max(confirmedRequestAt, ...pendingRequests.values());
 
 /** 광고 진행 중·직후 및 선물 안내 직후에는 요청을 건너뛴다. 예약 시와 실행 시 모두 확인한다. */
 export function reviewMomentBlocked(now = Date.now()): boolean {
@@ -54,19 +57,18 @@ export function reviewMomentBlocked(now = Date.now()): boolean {
 
 /**
  * 예약 뒤 «취소 함수»를 돌려준다. 예약 시 선물 안내용 요청 시각을 미리 적고(지연 동안 안내가 끼어들지 않게),
- * 실행 시 막혔거나 순간이 더는 유효하지 않거나(eligible false — 다른 화면으로 이동 등) 취소되면 그 시각을 «원래 값»으로 되돌린다
+ * 실행 시 막혔거나 순간이 더는 유효하지 않거나(eligible false — 다른 화면으로 이동 등) 취소되면 그 예약을 목록에서 뺀다(겹친 예약도 서로의 시각을 되살리지 않는다)
  * (관문 11050112 ③ — 취소된 요청이 선물 안내를 60초 막지 않게).
  */
 export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true, onBlocked: () => void = () => {}, eligible: () => boolean = () => true): () => void {
   if (guardSignum && reviewMomentBlocked()) { onBlocked(); return () => {}; }
-  const previousRequestAt = lastReviewRequestAt;
-  const reservedAt = Date.now() + delayMs;
-  lastReviewRequestAt = reservedAt;
+  const id = nextReservation++;
+  pendingRequests.set(id, Date.now() + delayMs);
   let settled = false;
   const abandon = () => {
     if (settled) return;
     settled = true;
-    if (lastReviewRequestAt === reservedAt) lastReviewRequestAt = previousRequestAt;
+    pendingRequests.delete(id);
     onBlocked();
   };
   const timer = window.setTimeout(() => {
@@ -75,7 +77,8 @@ export function scheduleReviewRequest(delayMs: number, request: () => void, guar
     try { ok = !(guardSignum && reviewMomentBlocked()) && eligible(); } catch { ok = false; }
     if (!ok) { abandon(); return; }
     settled = true;
-    lastReviewRequestAt = Date.now();
+    pendingRequests.delete(id);
+    confirmedRequestAt = Date.now();
     request();
   }, delayMs);
   return () => {
