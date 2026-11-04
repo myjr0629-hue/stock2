@@ -274,8 +274,8 @@ const REVIEW_LAST_KEY = 'signumhq.review.lastAsked';
 const REVIEW_MILESTONES = [2, 7];
 const REVIEW_SESSION_MILESTONE = 4;
 
-export function maybePromptReview(delayMs = 2500): void {
-  if (!canRequestReview()) return;
+export function maybePromptReview(delayMs = 2500, eligible: () => boolean = () => true): void {
+  if (!canRequestReview() || !eligible()) return;
   try {
     // Local calendar date (NOT toISOString, which is UTC — that would split one
     // KST/JST day into two across the UTC-midnight boundary and over-count "days").
@@ -325,7 +325,7 @@ export function maybePromptReview(delayMs = 2500): void {
       const current: number[] = JSON.parse(localStorage.getItem(REVIEW_DONE_KEY) || '[]');
       if (!current.includes(hit!)) localStorage.setItem(REVIEW_DONE_KEY, JSON.stringify([...current, hit]));
       localStorage.setItem(REVIEW_LAST_KEY, today);
-    });
+    }, eligible);
   } catch { /* storage unavailable → skip */ }
 }
 

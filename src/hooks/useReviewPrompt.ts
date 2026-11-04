@@ -69,13 +69,14 @@ const inFlight = new Set<string>();
 export function reviewAttempts(key: string, milestone: number): number {
   return Number(localStorage.getItem(`${key}.attempt.${milestone}`)) || 0;
 }
-export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void): void {
+export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void, eligible: () => boolean = () => true): void {
   const id = `${key}:${milestone}`;
   if (inFlight.has(id) || reviewAttempts(key, milestone) >= 2) return;
   inFlight.add(id);
   const release = () => { inFlight.delete(id); };
   scheduleReviewRequest(delay, () => {
     try {
+      if (!eligible()) return;
       const plugin = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
       if (typeof plugin?.requestReview !== 'function') return;
       // 시도 횟수는 OS 시트를 «실제로 요청한» 경우에만 센다 — 광고·안내에 막힌 회차는 기회를 소비하지 않는다

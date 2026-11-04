@@ -29,6 +29,8 @@ import { calendarReaction } from '@/lib/earnings/calendarScorecardDisplay';
 import { watchCalendarScorecard } from '@/lib/earnings/calendarScorecardRefresh';
 import type { CalendarImplied } from '@/lib/earnings/calendarReportedImplied';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
+import { markReactionSeen, ratingSessionEligible } from '@/lib/app/ratingMoments';
+import { isNativeApp, maybePromptReview } from '@/lib/native/capacitorBridge';
 import s from './earnings.module.css';
 
 interface Row {
@@ -99,6 +101,22 @@ export default function EarningsPage() {
     setRows(nextRows);
     setGeneratedAt(at);
   }), []);
+
+  useEffect(() => {
+    if (!isNativeApp || !rows || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      try {
+        if (!markReactionSeen(sessionStorage)) return;
+        const eligible = () => ratingSessionEligible(localStorage, sessionStorage)
+          && /\/app-view\/earnings(?:\/|$)/.test(location.pathname);
+        if (eligible()) maybePromptReview(3000, eligible);
+      } catch { /* storage unavailable */ }
+      observer.disconnect();
+    });
+    document.querySelectorAll('[data-rating-reaction="1"]').forEach(node => observer.observe(node));
+    return () => observer.disconnect();
+  }, [rows, myList]);
 
   const byDate = useMemo(() => {
     if (!rows) return [];
@@ -232,7 +250,7 @@ export default function EarningsPage() {
                         {e.implied && <em className="num">{impliedBasisText(e.implied, locale)}</em>}
                       </span>
                       {calendarReaction(e.implied) && (
-                        <span className={`${s.ecReaction} ${e.implied?.within ? s.ecWithin : s.ecOutside}`}>
+                        <span data-rating-reaction={myList.has(e.ticker) && e.implied?.within === true ? "1" : undefined} className={`${s.ecReaction} ${e.implied?.within ? s.ecWithin : s.ecOutside}`}>
                           {receipt.columns[2]} {calendarReaction(e.implied)} · {e.implied?.within ? receipt.within : receipt.outside}
                         </span>
                       )}

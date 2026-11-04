@@ -741,24 +741,6 @@ export default function SettingsPage() {
               </div>
               <span className={s.rowChevron}>›</span>
             </div>
-            {/* Rate app — 항상 렌더(조건부 삽입이 마운트 후 레이아웃을 밀어 iOS 터치
-                어긋남 보고의 유력 원인이었다). 탭 = openStoreReview: iOS 는 스토어
-                리뷰 딥링크(항상 시트가 뜸 — 조용한 SKStoreReviewController 는 애플이
-                억제해 «안 눌리는» 것처럼 보였음), Android 는 인앱 시트→Play 폴백. */}
-            <div className={s.row} onClick={() => { hapticImpact('light'); openStoreReview(); }}>
-              <div className={s.rowLeft}>
-                <div className={s.rowIcon} style={{ color: '#04140f', background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className={s.rowLabel}>{t.rate}</div>
-                  <div className={s.rowSub}>{nativePlatform === 'android' ? t.rateSub.replace('App Store', 'Google Play') : t.rateSub}</div>
-                </div>
-              </div>
-              <span className={s.rowChevron}>›</span>
-            </div>
             <div className={s.row} onClick={() => { hapticImpact('light'); router.push(`/${locale}/app-view/terms`); }}>
               <div className={s.rowLeft}>
                 <div className={`${s.rowIcon} ${s.rowIconLegal}`}>
@@ -803,6 +785,20 @@ export default function SettingsPage() {
                 <span className={s.rowChevron}>›</span>
               </div>
             )}
+            <div className={s.row} onClick={() => { hapticImpact('light'); openStoreReview(); }}>
+              <div className={s.rowLeft}>
+                <div className={s.rowIcon} style={{ color: '#04140f', background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.7L12 17.3 5.8 20.6l1.6-6.7L2.2 8.9l6.9-.6L12 2Z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className={s.rowLabel}>{t.rate}</div>
+                  <div className={s.rowSub}>{nativePlatform === 'android' ? t.rateSub.replace('App Store', 'Google Play') : t.rateSub}</div>
+                </div>
+              </div>
+              <span className={s.rowChevron}>›</span>
+            </div>
           </div>
 
           {/* ── Companion apps (cross-promo) — UC·WIM 모두 iOS/Android 라이브. ── */}

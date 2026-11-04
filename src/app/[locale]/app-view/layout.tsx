@@ -7,6 +7,8 @@ import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
 import { AppAnchorAd } from '@/components/app/AppAnchorAd';
 import { WatchlistHost } from '@/components/app/watchlist/WatchlistHost';
+import { countRatingPush, ratingSessionEligible } from '@/lib/app/ratingMoments';
+import { maybePromptReview } from '@/lib/native/capacitorBridge';
 import { ReviewPromptMoments } from '@/components/app/ReviewPromptMoments';
 import { CouponGuideHost } from '@/components/app/CouponGuideHost';
 import { GiftAnnounceHost } from '@/components/app/GiftAnnounceHost';
@@ -117,6 +119,12 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
             const target = reportPushPath(type, loc, action?.notification?.data?.date)
               || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : null);
             if (!target) return;
+            try {
+              if (countRatingPush(type, localStorage, sessionStorage) >= 3) {
+                const eligible = () => ratingSessionEligible(localStorage, sessionStorage);
+                maybePromptReview(3000, eligible);
+              }
+            } catch { /* storage unavailable */ }
             // Re-tapping the same report URL must also close an open sector sheet.
             if (type === 'closing') window.dispatchEvent(new Event(REPORT_OPEN_EVENT));
             // Persist the target so a COLD-start tap survives the root→/dash launch
