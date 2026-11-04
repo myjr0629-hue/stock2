@@ -2,7 +2,7 @@
 // (관문 11010757·11011001·11011010·11041319 회귀 시험)
 import assert from 'node:assert/strict';
 import {
-  resultEligibility, resultCopy, resultPath, resultValueFingerprint, runEarningsResultStep, RESULT_KEYS, RESULT_STABLE_MS, CLAIM_TTL_SEC,
+  resultEligibility, resultCopy, resultPath, resultValueFingerprint, runEarningsResultStep, resultEnvMode, RESULT_KEYS, RESULT_STABLE_MS, CLAIM_TTL_SEC,
   type ResultStepDeps, type ResultStepOpts, type StrictRead,
 } from '../src/lib/signals/earningsResult';
 import { actualsKey } from '../src/lib/earnings/earningsActuals';
@@ -60,7 +60,7 @@ class UpstashLikeStore extends FakeStore {
 }
 function setup(records: any[] = [raw()], devices: Array<[string, Record<string, unknown>]> = [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }]]) {
   const store = new UpstashLikeStore(), sender = new FakeSender(), recs = new FakeRecords(), logs: string[] = [];
-  store.m.set('push:sig:mode', 'live');
+  store.m.set(RESULT_KEYS.mode, 'live');                    // 이 알림 전용 스위치(신호 스위치와 따로)
   for (const [tok, rec] of devices) store.addDevice(tok, rec);
   for (const r of records) recs.put(r);
   const deps: ResultStepDeps = { store, sender, readStrict: recs.read, log: (m) => logs.push(m), storeTimeoutMs: 50 };
@@ -74,10 +74,10 @@ t('1 · 기준 기록은 보낼 수 있다(영수증 판정·값 그대로)', ()
   const r = resultEligibility(entry('JPM'), raw(), SEND);
   assert.ok(r.ok); assert.deepEqual(r.alert, { ticker: 'JPM', date: D, expected: 4.3, actual: 2.1, beyond: false });
 });
-t('1 · FMP 대조 없는(Intrinio 단독) 실제값도 채점표가 싣는 행이면 대상 — 채점표와 같은 기준(관문 11041428 #1)', () => {
+t('1 · FMP 대조 없는(Intrinio 단독) 행은 채점표엔 있어도 알리지 않는다 — 채점표 check 필드 그대로(관문 11041435 #1 · 코디네이터 11/4)', () => {
   const single = raw('JPM', 4.3, 2.1, { a: { check: null } });
-  assert.equal(aggregateScorecard('2026-10-12', [single], SEND).rows[0]?.check, 'intrinio_only');
-  assert.equal(reason(resultEligibility(entry('JPM'), single, SEND)), 'ok');
+  assert.equal(aggregateScorecard('2026-10-12', [single], SEND).rows[0]?.check, 'intrinio_only', '채점표 표시는 그대로');
+  assert.equal(reason(resultEligibility(entry('JPM'), single, SEND)), 'actual_unconfirmed');
 });
 t('1 · 확정 뒤 재확인(정착) 전 actual 은 보내지 않는다 — 관문 11010757 #1', () => {
   const early = Date.parse('2026-10-13T21:00:00Z');   // 일봉 확정(20:30Z) 뒤 · 정착(22:30Z) 전 — 서비스 ③-0 이 아직 다시 읽는다
@@ -228,10 +228,10 @@ t('4 · 보낼 수 있게 되기 전의 값 갱신(임시 종가 → 확정 뒤 
 });
 t('4 · 보낼 수 있는 상태에서 지문을 남긴 뒤 값이 바뀌면 정정 — 그 발표는 영원히 보내지 않는다(로그 한 번)', async () => {
   const s = setup();
-  s.store.m.set('push:sig:mode', 'dry');                                // dry 회차가 지문만 남긴다
+  s.store.m.set(RESULT_KEYS.mode, 'dry');                               // dry 회차가 지문만 남긴다
   const r1 = await s.run(SEND);
   assert.equal(r1.sent, 0); assert.ok(s.store.m.has(RESULT_KEYS.fp('JPM', D)));
-  s.store.m.set('push:sig:mode', 'live');
+  s.store.m.set(RESULT_KEYS.mode, 'live');
   s.recs.put(raw('JPM', 4.3, 1.9, { a: { reactClose: 101.9 } }));
   const r2 = await s.run(SEND + 3_600_000);
   assert.deepEqual(r2.corrected, ['JPM|2026-10-13']); assert.equal(r2.sent, 0);
@@ -305,23 +305,82 @@ t('4 · 굳히기가 저장소 오류로 두 번 실패하면 로그를 남긴�
   assert.ok(s.logs.some((m) => m.includes('굳히기 실패')));
 });
 
-// ── 요구 5 — 발송 모드 기본 dry(«내 종목 이상 신호» 스위치 공유) ───────────────────────────────────────
-t('5 · 모드 키가 없고 환경값도 없으면(dry 기본) 대상은 세지만 보내지 않는다', async () => {
+// ── 요구 5 — 이 알림 전용 스위치(EARNINGS_RESULT_ALERT_MODE · Redis push:sig:result:mode), 없으면 dry ──────────────────
+t('5 · 전용 스위치가 없으면(dry 기본) 대상은 세지만 보내지 않는다 — 신호 스위치가 live 여도(병합 즉시 발송 없음)', async () => {
   const s = setup();
-  s.store.m.delete('push:sig:mode');
-  const r = await s.run(SEND);
-  assert.equal(r.status, 'observed'); assert.deepEqual(r.candidates, ['JPM|2026-10-13']);
-  assert.equal(r.sent, 0); assert.equal(s.sender.calls, 0); assert.equal(s.sender.items.length, 0);
+  s.store.m.delete(RESULT_KEYS.mode);
+  s.store.m.set('push:sig:mode', 'live');                                // «내 종목 이상 신호»는 live
+  for (const signalEnvMode of [null, 'live'] as const) {
+    const r = await s.run(SEND, { envMode: null, signalEnvMode });
+    assert.equal(r.status, 'observed'); assert.deepEqual(r.candidates, ['JPM|2026-10-13']);
+    assert.equal(r.sent, 0);
+  }
+  assert.equal(s.sender.calls, 0); assert.equal(s.sender.items.length, 0);
   assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false, 'dry 는 기기 장부를 쓰지 않는다');
   assert.equal(s.store.m.has(`push:sig:cap:2026-10-14:${devKey(IOS_TOKEN)}`), false, 'dry 는 하루 상한을 쓰지 않는다');
 });
-t('5 · 환경값 dry · 레디스 dry 도 무발송 · 신호 스위치가 live 가 되면 같은 회차 규칙으로 보낸다', async () => {
+t('5 · 전용 환경값·Redis 의 dry 는 무발송 · 전용 live 만 켠다 · 신호 스위치 off(비상 끄기)는 따른다', async () => {
   const s = setup();
-  s.store.m.set('push:sig:mode', 'dry');
+  s.store.m.set(RESULT_KEYS.mode, 'dry');
   assert.equal((await s.run(SEND, { envMode: 'dry' })).sent, 0); assert.equal(s.sender.calls, 0);
+  assert.equal((await s.run(SEND, { envMode: null })).sent, 0);
+  s.store.m.set('push:sig:mode', 'off');
+  assert.equal((await s.run(SEND, { envMode: 'live' })).status, 'off', '신호 Redis off');
   s.store.m.delete('push:sig:mode');
-  assert.equal((await s.run(SEND + 60_000, { envMode: 'live' })).sent, 1);
+  assert.equal((await s.run(SEND, { envMode: 'live', signalEnvMode: 'off' })).status, 'off', '신호 환경 off');
+  assert.equal((await s.run(SEND, { envMode: 'off' })).status, 'off');
+  s.store.m.set(RESULT_KEYS.mode, 'off');
+  assert.equal((await s.run(SEND, { envMode: 'live' })).status, 'off', '전용 Redis off 가 이긴다');
+  s.store.m.delete(RESULT_KEYS.mode);
+  assert.equal((await s.run(SEND + 60_000, { envMode: 'live' })).sent, 1, '전용 환경 live');
+  const r = setup(); r.store.m.set(RESULT_KEYS.mode, 'live');
+  assert.equal((await r.run(SEND, { envMode: null })).sent, 1, '전용 Redis live');
 });
+t('5 · resultEnvMode — EARNINGS_RESULT_ALERT_MODE 만 읽는다(WL_SIGNALS_MODE 무시)', () => {
+  assert.equal(resultEnvMode({}), null);
+  assert.equal(resultEnvMode({ WL_SIGNALS_MODE: 'live' }), null);
+  assert.equal(resultEnvMode({ EARNINGS_RESULT_ALERT_MODE: ' LIVE ' }), 'live');
+  assert.equal(resultEnvMode({ EARNINGS_RESULT_ALERT_MODE: 'dry' }), 'dry');
+  assert.equal(resultEnvMode({ EARNINGS_RESULT_ALERT_MODE: 'yes' }), null);
+});
+
+// ── 요구 6 — 기기가 많을 때: 선점 병렬 · 기기마다 마감 검사(관문 11041435 #2) ────────────────────────────────
+const manyDevices = (n: number): Array<[string, Record<string, unknown>]> =>
+  Array.from({ length: n }, (_, i) => [i.toString(16).padStart(64, '0'), { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }]);
+t('6 · 기기 사이 선점은 병렬 — 느린 저장소에서도 묶음 준비가 기기 수 × 왕복이 아니다', async () => {
+  const s = setup([raw()], manyDevices(60));
+  let inFlight = 0, peak = 0;
+  const orig = s.store.setNx.bind(s.store);
+  s.store.setNx = async (k: string, v: string, ex: number) => {
+    if (!k.startsWith('push:sig:result:') || k.includes(':fp:') || k === RESULT_KEYS.lock) return orig(k, v, ex);
+    inFlight++; peak = Math.max(peak, inFlight);
+    await new Promise((res) => setTimeout(res, 20));
+    inFlight--; return orig(k, v, ex);
+  };
+  const t0 = Date.now();
+  const r = await s.run(SEND);
+  assert.equal(r.sent, 60);
+  assert.ok(peak > 1 && peak <= 20, `동시 선점 ${peak}`);
+  assert.ok(Date.now() - t0 < 60 * 20, `${Date.now() - t0}ms — 순차(≥1200ms)보다 짧다`);
+});
+t('6 · 선점 중 마감이 오면 더 잡지 않고, 잡은 자리·하루 상한을 모두 돌려주며 발송 0 · 다음 회차가 다시 본다', async () => {
+  const s = setup([raw()], manyDevices(40));
+  let t = SEND, claims = 0;
+  const orig = s.store.setNx.bind(s.store);
+  s.store.setNx = async (k: string, v: string, ex: number) => {
+    if (k.startsWith('push:sig:result:') && v.startsWith('claim:') && ++claims === 5) t = SEND + 30_000;   // 다섯 번째 선점 순간 마감
+    return orig(k, v, ex);
+  };
+  const r = await runEarningsResultStep({ ...s.deps, clock: () => t }, s.opts(SEND, { lockDeadline: SEND + 30_000 }));
+  assert.equal(r.sent, 0); assert.equal(s.sender.calls, 0);
+  assert.ok(r.skipped.some((x) => x.reason === 'lock_expiring'));
+  assert.ok(claims < 40, `마감 뒤 더 잡지 않는다(${claims})`);
+  assert.deepEqual(s.store.ledgerKeys().filter((k) => /^push:sig:result:[^:]+:JPM:/.test(k) && !k.includes(':fp:')), [], '선점 자리 0');
+  assert.ok(s.store.ledgerKeys().filter((k) => k.startsWith('push:sig:cap:')).every((k) => Number(s.store.m.get(k)) === 0), '하루 상한 원상');
+  s.store.setNx = orig;
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 40);
+});
+
 t('5 · 발송 금지 시간대(inPushBlackout)엔 live 여도 보내지 않는다 — 기존 규칙', async () => {
   const s = setup();
   const blackout = T('2026-10-14', 9, 31);                          // 정규장 개장 직후(기존 신호 규칙의 금지 창)

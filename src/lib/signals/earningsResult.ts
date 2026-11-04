@@ -10,7 +10,7 @@
 //      · actual 계산 시각 ≥ 일봉 확정 + ACTUAL_SETTLE_MS(서비스 ③-0 «확정 뒤 재확인»을 마쳤다 — 그 전엔 임시 종가)
 //      · 기록의 마지막 쓰기 뒤 6시간 이상(RESULT_STABLE_MS — 그 사이 크론 회차들이 서비스 ③ FMP 대조 보강을 시도한다)
 //      · 일봉 확정 뒤 4일 이내(RESULT_MAX_AGE_MS — 배포 첫 회차·장애 복구 뒤 지난 결과를 한꺼번에 «새 알림»처럼 쏟지 않게)
-//      FMP 대조(check)는 채점표처럼 요구하지 않는다(채점표가 Intrinio 단독 행도 싣는다 — 같은 기준, 관문 11041428 #1).
+//      · 채점표 행의 check === 'fmp'(FMP 종가 대조 일치 — 서비스가 더 고치지 않는다 · Intrinio 단독 행은 채점표에만, 코디네이터 11/4)
 //      · 발송 직전 엄격 읽기(EC2, 폴백 없음)로 다시 읽어 저장본이 첫 읽기와 «글자 하나까지» 같을 때만
 //   ④ 중복·정정 — 기기×종목×발표일 키로 한 번만. 한 발표의 값(예상·실제)을 처음 본 지문을 남기고, 그 뒤 값이 바뀌거나 지워지면
 //      «정정됨»으로 영구 표시하고 로그만 남긴다 — 그 발표는 다시는 보내지 않는다(정정 푸시 없음).
@@ -42,6 +42,8 @@ const LEDGER_TTL_SEC = 120 * 86400;
  * 함수 시간 상한(60초)에 걸려 정리 코드가 못 돌아도 자리가 이 시간 뒤 풀려 다음 회차(25분+ 뒤)가 다시 본다(관문 11041431 #2).
  */
 export const CLAIM_TTL_SEC = 10 * 60;
+/** 한 묶음(100기기)에서 동시에 선점하는 기기 수 */
+const CLAIM_CONCURRENCY = 20;
 /**
  * 지문 저장값의 머리 — Upstash 기본 클라이언트는 읽을 때 JSON 으로 해석되는 문자열을 객체로 바꾼다(automaticDeserialization).
  * 머리를 붙여 JSON 이 아니게 해 «쓴 문자열 = 읽은 문자열»을 지킨다(관문 11041431 #1).
@@ -59,6 +61,8 @@ export const RESULT_KEYS = {
   fp: (ticker: string, date: string) => `push:sig:result:fp:${ticker}:${date}`,
   /** 정정됨 — 있으면 영구히 보내지 않는다 */
   corrected: (ticker: string, date: string) => `push:sig:result:corr:${ticker}:${date}`,
+  /** 이 알림 전용 모드(off | dry | live) — «내 종목 이상 신호»(push:sig:mode)와 따로. 없으면 dry */
+  mode: 'push:sig:result:mode',
   /** 이 단계 전용 발송 잠금 — «내 종목 이상 신호» 회차(push:sig:lock)를 막지 않게 따로 둔다(기기 하루 상한은 incr 로 원자적) */
   lock: 'push:sig:result:lock',
 } as const;
@@ -95,7 +99,7 @@ export function resultValueFingerprint(raw: unknown): string | null {
 
 /**
  * 저장본 하나가 지금 «보내도 되는 끝난 결과»인가 — 이유와 함께.
- * 고르는 기준은 채점표의 scorecardPairOf 하나(같은 기록 = 같은 판정). 그 위에 «보내는 때»(정착·안정·4일)만 본다.
+ * 고르는 기준은 채점표의 scorecardPairOf 하나(같은 기록 = 같은 판정). 그 위에 행의 check=fmp 와 «보내는 때»(정착·안정·4일)를 본다.
  */
 export function resultEligibility(c: ConfirmedEarnings, raw: unknown, now: number): ResultEligibility {
   const no = (reason: string): ResultEligibility => ({ ok: false, reason });
@@ -106,7 +110,10 @@ export function resultEligibility(c: ConfirmedEarnings, raw: unknown, now: numbe
   if (row.ticker !== c.ticker.toUpperCase() || row.date !== c.date || row.hour !== c.hour) return no('record_mismatch');
   const finalAt = reactionFinalAt(row.basis.reactDate);
   if (finalAt == null) return no('no_sessions');
-  // ③ 확정 뒤 재확인(서비스 ③-0)을 마친 actual 만 — 그 전엔 서비스가 임시 종가를 고쳐 쓴다(값은 채점표 행 그대로, 대상 기준이 아니라 «때»)
+  // ③ 채점표 행의 check 그대로 — FMP 대조 일치(fmp)만. Intrinio 단독 행은 서비스 ③ 재대조에서 고쳐 쓰이거나 지워질 수 있어
+  //    (잠금 불가 회차의 동시 쓰기 포함, 관문 11041435 #1) 알리지 않는다 — 채점표 표시는 그대로(코디네이터 11/4 결정: FMP 는 종가 검증용).
+  if (row.check !== 'fmp') return no('actual_unconfirmed');
+  // ③ 확정 뒤 재확인(서비스 ③-0)을 마친 actual 만 — 그 전엔 서비스가 임시 종가를 고쳐 쓴다
   const actualAt = Date.parse(row.basis.actualCalculatedAt);
   if (!(actualAt >= finalAt + ACTUAL_SETTLE_MS)) return no('actual_unsettled');
   // ③ 안정 — 마지막 쓰기 뒤 6시간(scorecardPairOf 는 미래 시각을 받아들이지 않는다 · 기록 at 은 미래면 0 으로 본다 → 원본 at 을 직접 본다)
@@ -167,7 +174,10 @@ export interface ResultStepOpts {
   runLockAcquired: boolean;
   /** 실적 크론 잠금이 끝나기 전 여유를 둔 마감 시각(ms) — 이 뒤로는 발송을 시작하지 않는다 */
   lockDeadline: number;
+  /** 이 알림 전용 환경 모드(EARNINGS_RESULT_ALERT_MODE — resultEnvMode()) */
   envMode: SigMode | null;
+  /** «내 종목 이상 신호» 환경 모드(WL_SIGNALS_MODE) — off 만 따른다(전체 신호 비상 끄기). live 는 이 알림을 켜지 않는다 */
+  signalEnvMode?: SigMode | null;
 }
 export interface ResultStepReport {
   status: 'no_run_lock' | 'lock_expiring' | 'off' | 'send_lock_unavailable' | 'store_unavailable' | 'observed' | 'ok';
@@ -175,6 +185,12 @@ export interface ResultStepReport {
   candidates: string[];
   corrected: string[];
   skipped: Array<{ key: string; reason: string }>;
+}
+
+/** 이 알림 전용 환경 모드 — EARNINGS_RESULT_ALERT_MODE(off | dry | live). 없거나 다른 값이면 null(→ Redis 키 · 그것도 없으면 dry) */
+export function resultEnvMode(env: Record<string, string | undefined> = process.env): SigMode | null {
+  const v = (env.EARNINGS_RESULT_ALERT_MODE || '').trim().toLowerCase();
+  return v === 'off' || v === 'dry' || v === 'live' ? v : null;
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
@@ -198,10 +214,13 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
   const now = clock();
   if (now >= opts.lockDeadline) { report.status = 'lock_expiring'; return report; }
 
-  let mode: unknown = null;
-  try { mode = await st(deps.store.get(SIG_KEYS.mode)); } catch { report.status = 'store_unavailable'; return report; }
-  if (opts.envMode === 'off' || mode === 'off') { report.status = 'off'; return report; }
-  const live = opts.envMode === 'live' || mode === 'live';
+  // 모드 — 이 알림 전용 스위치(환경 EARNINGS_RESULT_ALERT_MODE · Redis push:sig:result:mode)만 live 를 켠다. 둘 다 없으면 dry.
+  //   «내 종목 이상 신호» 스위치는 off(비상 끄기)만 따른다 — 그 스위치가 live 여도 이 알림은 켜지지 않는다(병합 즉시 발송 방지).
+  let own: unknown = null, sig: unknown = null;
+  try { [own, sig] = await st(Promise.all([deps.store.get(RESULT_KEYS.mode), deps.store.get(SIG_KEYS.mode)])); }
+  catch { report.status = 'store_unavailable'; return report; }
+  if (opts.envMode === 'off' || own === 'off' || opts.signalEnvMode === 'off' || sig === 'off') { report.status = 'off'; return report; }
+  const live = opts.envMode === 'live' || own === 'live';
 
   // 이 단계의 발송 잠금 — 못 얻거나 저장소 불가·시간 초과면 아무것도 하지 않는다
   let locked = false;
@@ -282,13 +301,16 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       const chunk = tokens.slice(i, i + 100);
       const records = await st(deps.store.mget(chunk.map((t) => `push:tokens:${t}`)));
       const claimed: Array<{ item: SendItem; key: string; cap: string; cand: Candidate }> = [];
-      for (let j = 0; j < chunk.length; j++) {
+      let expiring = false;
+      /** 기기 하나 — 마감 검사 뒤 그 기기의 발표들을 차례로 선점(기기 안은 순서대로: 하루 상한·회차당 상한을 지키려고) */
+      const claimDevice = async (j: number) => {
         const d = deviceFromRecord(chunk[j], records[j]);
-        if (!d) continue;
+        if (!d) return;
         let chosen = 0;
         for (const x of cands) {
           const a = x.alert;
           if (!d.tickers.includes(a.ticker) || chosen >= SIG_CFG.perRunPerDevice) continue;
+          if (clock() >= opts.lockDeadline) { expiring = true; return; }      // 기기마다·발표마다 마감 검사 — 넘으면 더 잡지 않는다
           const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date), cap = SIG_KEYS.cap(etDateOf(now), d.dev);
           // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
           if (!await st(deps.store.setNx(key, `claim:${now}`, CLAIM_TTL_SEC)).catch(() => false)) continue;
@@ -298,7 +320,12 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           const copy = resultCopy(a, d.locale);
           claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
         }
-      }
+      };
+      // 기기 사이는 병렬(동시 CLAIM_CONCURRENCY) — 저장소가 느려도 묶음 준비가 «기기 수 × 왕복»으로 늘지 않게(관문 11041435 #2)
+      let next = 0;
+      await Promise.all(Array.from({ length: Math.min(CLAIM_CONCURRENCY, chunk.length) }, async () => {
+        while (next < chunk.length && !expiring) await claimDevice(next++);
+      }));
       const allowed = claimed.length && clock() < opts.lockDeadline ? await verify([...new Set(claimed.map((c) => c.cand))]) : new Set<Candidate>();
       const toSend = claimed.filter((c) => allowed.has(c.cand));
       const outcomes = toSend.length ? await deps.sender.send(toSend.map((c) => c.item)).catch(() => new Map()) : new Map();
@@ -322,6 +349,8 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         await deps.store.srem('push:token_list', ts).catch(() => {});
         await deps.store.del(ts.map((t) => `push:tokens:${t}`)).catch(() => {});
       }
+      // 마감에 걸린 묶음 — 잡은 자리는 위에서 모두 돌려줬다(마감 뒤엔 verify 를 하지 않아 발송 0). 다음 묶음으로 가지 않는다
+      if (expiring) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
     }
     report.status = 'ok';
     return report;

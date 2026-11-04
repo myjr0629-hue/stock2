@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runActualsCycle, ACTUALS_RUN_LOCK_SEC } from '@/services/earningsActualsService';
 import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
-import { runEarningsResultStep } from '@/lib/signals/earningsResult';
+import { resultEnvMode, runEarningsResultStep } from '@/lib/signals/earningsResult';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -40,7 +40,9 @@ export async function GET(req: NextRequest) {
                 runLockAcquired: r.lockAcquired,
                 // 잠금(90초)과 함수 상한(60초) 중 짧은 쪽에서 15초 여유 — 그 뒤로는 발송을 시작하지 않는다
                 lockDeadline: t0 + Math.min(ACTUALS_RUN_LOCK_SEC, maxDuration) * 1000 - 15_000,
-                envMode: envMode(),
+                // 이 알림 전용 스위치(EARNINGS_RESULT_ALERT_MODE · Redis push:sig:result:mode, 없으면 dry) — 신호 스위치는 off 만 따른다
+                envMode: resultEnvMode(),
+                signalEnvMode: envMode(),
             });
             console.log(`[Cron/EarningsResult] ${JSON.stringify({ status: result.status, sent: result.sent, candidates: result.candidates, corrected: result.corrected, skipped: result.skipped.slice(0, 8) })}`);
         } catch (e) { console.error('[Cron/EarningsResult] failed', e instanceof Error ? e.message : 'unknown'); }
