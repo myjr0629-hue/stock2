@@ -25,7 +25,8 @@ import { fmtEpsUsd, fmtRevUsd } from '@/lib/earnings/earningsBrief';
 // 옵션 반영 변동폭 — 웹 /earnings-week 와 같은 원천·같은 정의(lib/impliedMove.ts)를 서버가 묶어 행에 붙인다(2026-10-12)
 import { IMPLIED_LABEL, impliedBasisText, impliedPctText } from '@/lib/earnings/earningsImplied';
 import { RECEIPT_COPY } from '@/lib/earnings/earningsReceiptsCopy';
-import { calendarScorecardSummary, calendarReaction, calendarScorecardWeek } from '@/lib/earnings/calendarScorecardDisplay';
+import { calendarReaction } from '@/lib/earnings/calendarScorecardDisplay';
+import { watchCalendarScorecard } from '@/lib/earnings/calendarScorecardRefresh';
 import type { CalendarImplied } from '@/lib/earnings/calendarReportedImplied';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import s from './earnings.module.css';
@@ -92,15 +93,7 @@ export default function EarningsPage() {
   const shareOn = useInviteShareEnabled();
   const [summary, setSummary] = useState<{ n: number; withinCount: number } | null>(null);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const week = calendarScorecardWeek(etDateOf(Date.now()));
-    fetch(`/api/earnings/scorecard?week=${week}`, { signal: controller.signal })
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => { if (!controller.signal.aborted) setSummary(calendarScorecardSummary(data, week)); })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
+  useEffect(() => watchCalendarScorecard(setSummary), []);
 
   useEffect(() => watchEarningsCalendar<Row>((nextRows, at) => {
     setRows(nextRows);

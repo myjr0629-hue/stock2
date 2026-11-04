@@ -9,7 +9,7 @@ export function calendarScorecardSummary(data: unknown, week: string): { n: numb
   if (!data || typeof data !== 'object') return null;
   const value = data as { week?: unknown; summary?: { n?: unknown; withinCount?: unknown } };
   const n = value.summary?.n, within = value.summary?.withinCount;
-  if (value.week !== week || typeof n !== 'number' || !Number.isInteger(n) || n < 0
+  if (value.week !== week || typeof n !== 'number' || !Number.isInteger(n) || n <= 0
     || typeof within !== 'number' || !Number.isInteger(within) || within < 0 || within > n) return null;
   return { n, withinCount: within };
 }

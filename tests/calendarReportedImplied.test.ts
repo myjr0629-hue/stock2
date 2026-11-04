@@ -14,7 +14,7 @@ async function test() {
   let stored: unknown = record;
   let fail = false;
   require.cache[path] = { id: path, filename: path, loaded: true, exports: {
-    mgetFromCache: async (keys: string[]) => {
+    mgetFromCacheStrict: async (keys: string[]) => {
       if (fail) throw new Error('unavailable');
       return keys.map((key) => key === 'earnings:actuals:v1:AAPL:2026-11-02' ? stored : null);
     },

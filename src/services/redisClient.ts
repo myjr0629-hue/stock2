@@ -793,6 +793,15 @@ export async function getFromCache<T>(key: string): Promise<T | null> {
  * [PERF] Reduces N Redis round-trips to 1 for batch reads.
  */
 export async function mgetFromCache<T>(keys: string[]): Promise<(T | null)[]> {
+    return mgetFromCacheInternal<T>(keys, false);
+}
+
+/** 실패와 정상적인 전체 미스를 구별해야 하는 호출자 전용. */
+export async function mgetFromCacheStrict<T>(keys: string[]): Promise<(T | null)[]> {
+    return mgetFromCacheInternal<T>(keys, true);
+}
+
+async function mgetFromCacheInternal<T>(keys: string[], strict: boolean): Promise<(T | null)[]> {
     if (keys.length === 0) return [];
 
     // Try EC2 Proxy /mget first (ElastiCache, ~15ms single round-trip)
@@ -818,7 +827,7 @@ export async function mgetFromCache<T>(keys: string[]): Promise<(T | null)[]> {
             ecSettle(gate, true);
             // If the EC2 proxy corrupted any multi-byte value, fall through to
             // Upstash's clean copy rather than returning mojibake.
-            if (!results.some(isMojibake)) {
+            if ((!strict || (Array.isArray(r.body?.results) && results.length === keys.length)) && !results.some(isMojibake)) {
                 obsRecord('mget', results.some((x) => x != null) ? 'hit' : 'miss', t0);
                 // Upstash 에만 있을 수 있는 키(cache:13f 등)의 미스만 골라 채운다.
                 const need = keys.map((k, i) => (results[i] === null && shouldFallbackToUpstash(k, true) ? i : -1)).filter((i) => i >= 0);
@@ -849,7 +858,7 @@ export async function mgetFromCache<T>(keys: string[]): Promise<(T | null)[]> {
         try {
             const results = await upstash.mget(...keys);
             obsUpDone(tu);
-            return results as (T | null)[];
+            if (!strict || (Array.isArray(results) && results.length === keys.length)) return results as (T | null)[];
         } catch (e: any) {
             obsUpDone(tu, true);
             console.warn(`[Redis/Upstash] mget failed:`, e.message);
@@ -857,6 +866,7 @@ export async function mgetFromCache<T>(keys: string[]): Promise<(T | null)[]> {
     }
 
     // Total failure: return null array
+    if (strict) throw new Error('cache_mget_unavailable');
     return keys.map(() => null);
 }
 

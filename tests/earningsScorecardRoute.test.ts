@@ -11,7 +11,7 @@ const store = new Map<string, unknown>();
 let reads = 0, writes = 0, vendors = 0, fail = false;
 let keysRead: string[] = [];
 require.cache[require.resolve('../src/services/redisClient')] = { exports: {
-  mgetFromCache: async (keys: string[]) => {
+  mgetFromCacheStrict: async (keys: string[]) => {
     reads++; keysRead = keys;
     if (fail) throw new Error('simulated read failure');
     return keys.map((k) => store.get(k) ?? null);

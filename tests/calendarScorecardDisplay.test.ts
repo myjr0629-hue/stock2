@@ -12,6 +12,7 @@ assert.equal(calendarScorecardWeek('2026-11-08'), '2026-11-02');
 assert.deepEqual(calendarScorecardSummary({ week: '2026-11-02', summary: { n: 4, withinCount: 3 } }, '2026-11-02'), { n: 4, withinCount: 3 });
 assert.equal(calendarScorecardSummary({ week: '2026-11-02', summary: { n: 1, withinCount: 2 } }, '2026-11-02'), null);
 assert.equal(calendarScorecardSummary({ week: '2026-10-26', summary: { n: 4, withinCount: 3 } }, '2026-11-02'), null);
+assert.equal(calendarScorecardSummary({ week: '2026-11-02', summary: { n: 0, withinCount: 0 } }, '2026-11-02'), null);
 for (const locale of ['ko', 'en', 'ja'] as const) {
   const copy = RECEIPT_COPY[locale];
   assert.ok(copy.scorecardSummary(4, 3).includes('4'));
