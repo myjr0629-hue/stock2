@@ -455,3 +455,5 @@
 @media (prefers-reduced-motion: reduce) {
   .flashUp, .flashDown { animation-duration: .01ms; text-shadow: none }
 }
+
+.e9Scorecard{display:block;width:100%;padding:0 12px 10px 47px;border:0;background:none;color:#a9bcd6;text-align:left;font:inherit;font-size:11px;line-height:1.5;cursor:pointer}

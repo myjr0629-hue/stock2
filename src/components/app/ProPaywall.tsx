@@ -77,7 +77,7 @@ const COPY: Record<PaywallLocale, {
   ko: {
     close: '닫기',
     eyebrow: 'SIGNUM PRO',
-    title: '광고 없이 봅니다',
+    title: '실적마다 옵션 예상 vs 실제',
     lede: '데이터는 그대로입니다.',
     benefits: [
       '배너·전면 광고 전부 제거',
@@ -113,7 +113,7 @@ const COPY: Record<PaywallLocale, {
   en: {
     close: 'Close',
     eyebrow: 'SIGNUM PRO',
-    title: 'Read without ads',
+    title: 'Options-implied vs actual earnings moves',
     lede: 'Same data.',
     benefits: [
       'Removes every banner and interstitial ad',
@@ -149,7 +149,7 @@ const COPY: Record<PaywallLocale, {
   ja: {
     close: '閉じる',
     eyebrow: 'SIGNUM PRO',
-    title: '広告なしで読む',
+    title: '決算ごとのオプション予想 vs 実際',
     lede: 'データはそのままです。',
     benefits: [
       'バナー広告と全画面広告をすべて非表示',
@@ -346,7 +346,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
       : { title: t.title, lede: t.lede, cta: t.cta };
 
   return (
-    <div className={s.overlay} data-pro-paywall role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
+    <div className={s.overlay} data-pro-paywall role="dialog" aria-modal="true" aria-label={t.title} onKeyDown={trapTab}>
       <div className={s.sheet}>
         {/* 닫기 — 첫 페인트에 보이고 44×44 이상 (Play 요건) */}
         <button ref={closeBtnRef} type="button" className={s.close} onClick={onClose} aria-label={t.close}>
@@ -357,7 +357,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
 
         <div className={s.head}>
           <span className={s.eyebrow}>{t.eyebrow}</span>
-          <h1 className={s.title}>{head.title}</h1>
+          <h1 className={s.title}>{t.title}</h1>
           <p className={s.lede}>{head.lede}</p>
         </div>
 
@@ -369,7 +369,8 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
             const list = alertsLead ? [t.alerts, t.watchlist, t.noAds]
               : watchlistLead ? [t.watchlist, ...(alerts ? [t.alerts] : []), t.noAds]
               : [...t.benefits, t.watchlist, ...(alerts ? [t.alerts] : [])];
-            return list.map((b, i) => (
+            const earningsBenefit = { ko: '실적 예상 변동폭 · 채점', en: 'Earnings implied moves · scorecard', ja: '決算の予想変動幅 · 採点' }[loc];
+            return [earningsBenefit, ...list].map((b, i) => (
               <li key={b} className={i === 0 ? `${s.benefit} ${s.benefitLead}` : s.benefit}>{b}</li>
             ));
           })()}
