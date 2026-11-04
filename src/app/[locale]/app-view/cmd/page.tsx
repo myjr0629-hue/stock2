@@ -238,7 +238,7 @@ function sma(candles: { c: number }[], window: number): (number | null)[] {
 /* ═══════════════════════════════════════════
    SVG CANDLESTICK CHART (PREMIUM INTEGRATED)
    ═══════════════════════════════════════════ */
-function CandleChart({ ticker, price, priceIsExt = false, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; priceIsExt?: boolean; vwap?: number | null; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
+function CandleChart({ ticker, price, priceSession, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; priceSession?: 'PRE' | 'REG' | 'POST'; vwap?: number | null; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
   const [range, setRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D');
   const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [candles, setCandles] = useState<{ o: number; h: number; l: number; c: number; dateET: string; session: string }[]>([]);
@@ -305,9 +305,9 @@ function CandleChart({ ticker, price, priceIsExt = false, vwap, locale = 'en', c
     // ★ [2026-11-04] 현재가는 «같은 세션»의 마지막 봉에만 잇는다.
     //   시간외 봉이 비어(ElastiCache 축출로 intrinio:extbars 소실) 1D 가 본장 15:59 봉으로 끝났는데,
     //   애프터 종가(AMD $508.20·MSFT $516.39)를 그 봉의 종가로 덮어써 오른쪽 끝이 수직선이 됐다(대표 11/4 캡처).
-    //   세션이 다르면 봉은 그대로 두고 현재가는 오른쪽 가격 칩·점선에만 그린다.
-    const lastIsExt = last.session === 'PRE' || last.session === 'POST';
-    if (lastIsExt !== priceIsExt) return copy;
+    //   세션이 다르면(PRE≠POST 도 다름) 봉은 그대로 두고 현재가는 오른쪽 가격 칩·점선에만 그린다.
+    //   1D 만 — 1W 이상은 봉에 세션 표식이 없어(전부 REG) 기존대로 마지막 봉에 잇는다.
+    if (range === '1D' && priceSession && (last.session ?? 'REG') !== priceSession) return copy;
     copy[lastIdx] = {
       ...last,
       c: price,
@@ -315,7 +315,7 @@ function CandleChart({ ticker, price, priceIsExt = false, vwap, locale = 'en', c
       l: Math.min(last.l, price),
     };
     return copy;
-  }, [candles, price, priceIsExt, loadedKey, ticker, range]);
+  }, [candles, price, priceSession, loadedKey, ticker, range]);
 
   // Trend detection to color the line/gradient/current-price label green or red.
   // 1D = "today's move": color by change vs previous close so it matches the hero
@@ -3824,7 +3824,12 @@ function CmdPageContent() {
                   ? activeExtPrice
                   : displayPrice
               }
-              priceIsExt={(effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry}
+              // 차트 마지막 봉과 같은 세션일 때만 그 봉에 잇는다 — 장외(CLOSED)의 시간외 가격은 직전 POST 값
+              priceSession={
+                (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry
+                  ? (effectiveSession === 'PRE' ? 'PRE' : 'POST')
+                  : 'REG'
+              }
               changePct={
                 (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry
                   ? activeExtPct
