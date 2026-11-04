@@ -2743,7 +2743,7 @@ function CmdPageContent() {
     ? 'CLOSED'
     : (t?.session || data?.session || 'CLOSED').toUpperCase();
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
@@ -3824,10 +3824,11 @@ function CmdPageContent() {
                   ? activeExtPrice
                   : displayPrice
               }
-              // 차트 마지막 봉과 같은 세션일 때만 그 봉에 잇는다 — 장외(CLOSED)의 시간외 가격은 직전 POST 값
+              // 차트 마지막 봉과 같은 세션일 때만 그 봉에 잇는다 — 시간외 가격의 출처는 calcPriceDisplay 의 activeExtType
+              //   (장외에 POST 값이 없으면 PRE 값을 줄 수 있다 → 그때는 PRE)
               priceSession={
                 (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry
-                  ? (effectiveSession === 'PRE' ? 'PRE' : 'POST')
+                  ? (String(activeExtType).startsWith('PRE') ? 'PRE' : String(activeExtType) === 'POST' ? 'POST' : undefined)
                   : 'REG'
               }
               changePct={
