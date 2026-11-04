@@ -39,6 +39,9 @@ export const HEADLINE_KEY = 'intel:ai_headlines:v1';
 
 // UTC 고정 08:40·10:40 = 17:40·19:40 KST(평일).
 // EDT 04:40·06:40, 11/1 종료 뒤 EST 03:40·05:40. 첫 회는 개장 전이므로 CLOSED가 맞다.
+// 장중 매시 :05(14~20 UTC) + 마감 뒤 1회 21:50 UTC(EST 16:50 · EDT 17:50 ET — 'AFTER HOURS' 판).
+//   [2026-11-05 서머타임 감사] 마감 뒤 회차가 20:50 UTC 였다 — EDT 16:50 ET 였지만 EST 엔 15:50 ET(장중)라
+//   11/2~ 마감 뒤 판이 없어 장중 판(15:50 ET)이 다음 날 03:40 ET 까지 인텔 화면에 남았다. 21:50 UTC 는 두 계절 모두 마감 뒤.
 // 추가 생성은 withFreshTier로 기존 Haiku 5.5 크레딧 상한을 지킨다(AWS 비용 증가 없음).
 const PRE_LOCK = 'perf:lock:sector-headlines-pre';
 

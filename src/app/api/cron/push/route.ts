@@ -14,7 +14,7 @@
 import { NextResponse } from 'next/server';
 import { sendPushByType, planPush, PUSH_CONTENT, type PushSendStats } from '@/lib/push/send';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { fetchMassive } from '@/services/massiveClient';
+import { closingPushHolidayReason } from '@/lib/push/closingHoliday';
 import { morningAiLines, closingAiLines, etToday, PUSH_LOCALES, type AiLineResult, type MorningBriefRecord, type PushLocale } from '@/lib/push/aiLine';
 import { selectServedBrief } from '@/lib/ai/crossBriefServe';
 import { reportPushPath } from '@/lib/app/reportLink';
@@ -131,17 +131,17 @@ async function checkReady(type: 'morning' | 'closing', todayET: string): Promise
     }
     return { ready: true, reason: 'ready' };
   }
-  // [HOLIDAY GUARD] The snapshot/brief crons run on weekday holidays too (they have
-  // no market-calendar awareness) and can stamp today's markers from stale data —
-  // which would push a "closing report" on a day with NO session (e.g. 7/3 observed
-  // Independence Day). Data-driven check: a real session leaves a SPY daily bar.
-  try {
-    const aggs = await fetchMassive(`/v2/aggs/ticker/SPY/range/1/day/${todayET}/${todayET}`, { adjusted: 'true', limit: '2' });
-    if (!aggs?.results?.length) {
-      console.warn(`[Cron/Push] no SPY session bar for ${todayET} (market holiday) — skipping closing push`);
-      return { ready: false, reason: 'market-holiday' };
-    }
-  } catch { /* vendor check failed — fall through; the report gates below still protect */ }
+  // [HOLIDAY GUARD] The snapshot/brief crons run on weekday holidays too and can stamp
+  // today's markers from stale data — which would push a "closing report" on a day with
+  // NO session (e.g. 7/3 observed Independence Day). The market calendar is canonical
+  // (lib/push/closingHoliday). [2026-11-05] The old vendor check («a SPY daily bar exists»)
+  // failed every EST day at the 22:00 UTC run (17:00 ET — bar not yet published), so the
+  // push slipped to 22:20 UTC; see closingHoliday.ts.
+  const holiday = closingPushHolidayReason(todayET);
+  if (holiday) {
+    console.warn(`[Cron/Push] ${todayET} is not a trading day (market calendar) — skipping closing push`);
+    return { ready: false, reason: holiday };
+  }
 
   // Closing push requires BOTH signals to be TODAY's, so it only fires once the full
   // report set is genuinely published:

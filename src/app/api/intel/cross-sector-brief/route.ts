@@ -74,13 +74,13 @@ function narrativeShapeOk(n: any): boolean {
         && CLOSING.FIELDS.every((f: string) => ['ko', 'en', 'ja'].every((l) => typeof n[f]?.[l] === 'string' && n[f][l].trim().length > 0));
 }
 
-/** Dry replay clock: the production cron's 17:50 ET for that session, never later than the real clock. */
+/**
+ * Dry replay clock: the production cron time for that session (vercel.json 50 21 * * 1-5 = 21:50 UTC — 17:50 EDT / 16:50 EST),
+ * never later than the real clock. [2026-11-05] It used to look for 17:50 ET, which in EST is 22:50 UTC — an hour after the real run.
+ */
 function dryClock(date: string, real: Date): Date {
-    for (const utc of ['21:50', '22:50']) {
-        const d = new Date(`${date}T${utc}:00Z`);
-        if (d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) === '17:50') return d < real ? d : real;
-    }
-    return real;
+    const d = new Date(`${date}T21:50:00Z`);
+    return Number.isFinite(d.getTime()) && d < real ? d : real;
 }
 
 function getCacheKey(date: string) {
@@ -235,7 +235,7 @@ export async function POST(req: Request) {
 
     try {
         // Dry (?dry=1) never writes. Only a dry run may replay a past session (?date=YYYY-MM-DD) — inputs are limited to
-        // that ET session as of its 17:50 ET cron time; the scheduled path (no params) is unchanged.
+        // that ET session as of its cron time (21:50 UTC); the scheduled path (no params) is unchanged.
         const params = new URL(req.url).searchParams;
         const dryRun = params.get('dry') === '1';
         const dryDate = dryRun && params.has('date') ? reportDate(params.get('date')) : null;

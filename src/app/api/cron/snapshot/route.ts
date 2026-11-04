@@ -1,6 +1,10 @@
 // ============================================================================
 // /api/cron/snapshot — 장마감 후 자동 스냅샷 저장 크론
-// Vercel Cron: 0 21 * * 1-5  (UTC 21:00 = ET 16:00 장마감)
+// Vercel Cron: 15,18,…,42 21 * * 1-5 — 섹터당 하나, 3분 간격(m7 21:15 → cloud_fortress 21:42 UTC).
+//   [2026-11-05 서머타임 감사] 예전 21:00~21:45 UTC 는 EDT 에 17:00~17:45 ET 였지만 EST(11/1~)에는 16:00~16:45 ET 다.
+//   가격 원천이 약 15분 늦어 16:00~16:10 ET 에 찍은 m7·physical_ai·silicon_core 가 마감 전 값이었다(11/3 실측: AMD +4.58% vs 공식 +3.65% ·
+//   AAPL −2.22% vs −1.90% · PL +4.78% vs +4.24%, 16:15 ET 부터는 공식 종가와 일치) — 그 값이 그대로 장마감 리포트(21:50 UTC) 입력이 됐다.
+//   21:15 UTC 시작 = EST 16:15 ET · EDT 17:15 ET — 두 계절 모두 마감 15분 뒤라 경계(2027-03-14)에 다시 옮길 필요가 없다.
 // ============================================================================
 
 import { NextResponse } from 'next/server';
@@ -77,7 +81,7 @@ export async function GET(request: Request) {
 
     // Record that today's closing sector reports are FULLY swept, so the closing push
     // can verify real reports exist before notifying. The crons run one sector every
-    // 5min (21:00→21:45 UTC); cloud_fortress is last, so its success means the whole
+    // 3min (21:15→21:42 UTC); cloud_fortress is last, so its success means the whole
     // sweep is done. Only stamp the marker then (or on a full no-param sweep) — a
     // mid-sweep or failed run leaves the marker stale and the push is skipped rather
     // than firing on a partial report set.

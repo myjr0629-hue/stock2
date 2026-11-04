@@ -67,13 +67,19 @@ const OPTIONS_SNAPSHOT_TTL = 600; // 10 min (options snapshot raw cache)
 const OFF_HOURS_TTL = 86400;   // 24 hours (weekday after-close)
 const WEEKEND_TTL = 259200;    // 72 hours (Friday close → Monday open)
 
+// [2026-11-05 서머타임 감사] 예전엔 «3~11월 = EDT(UTC−4)» 월 단위 근사였다 — 11/1~11/30 은 실제 EST(UTC−5)라
+//   장외 판정이 1시간 일렀다(마지막 실행이 시간외 끝 20:00 ET 전 19시대에 끝나고, 07시대 ET 에 미리 돌았다). 3/1~3/13 은 반대.
+//   뉴욕 시계(Intl America/New_York)로 시각·요일을 읽는다 — EDT/EST 경계 자동.
+function etClock(now) {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(now);
+  const etHour = Number(p.find((x) => x.type === 'hour').value) % 24;
+  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.find((x) => x.type === 'weekday').value);
+  return { etHour, day };
+}
+
 function getEffectiveTTL(baseTTL) {
   const now = new Date();
-  const month = now.getUTCMonth() + 1;
-  const isDST = month >= 3 && month <= 11;
-  const etOffset = isDST ? 4 : 5;
-  const etHour = (now.getUTCHours() - etOffset + 24) % 24;
-  const day = now.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
+  const { etHour, day } = etClock(now); // day: 0=Sun, 5=Fri, 6=Sat (ET)
 
   // Weekend: use 72h TTL (Fri close → Mon open)
   if (day === 0 || day === 6 || (day === 5 && etHour >= 20)) {
@@ -967,12 +973,7 @@ exports.handler = async (event) => {
   //   - 이후 장외 실행: 스킵 (데이터 이미 보존됨)
   //   - forceRun: 항상 실행
   if (!forceRun) {
-    const now = new Date();
-    const month = now.getUTCMonth() + 1;
-    const isDST = month >= 3 && month <= 11;
-    const etOffset = isDST ? 4 : 5;
-    const etHour = (now.getUTCHours() - etOffset + 24) % 24;
-    const day = now.getUTCDay();
+    const { etHour, day } = etClock(new Date());
 
     const isWeekend = day === 0 || day === 6;
     const isAfterHours = etHour < 8 || etHour >= 21; // 21:00 이후만 스킵 (20:00 실행은 허용)

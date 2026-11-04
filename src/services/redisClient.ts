@@ -484,6 +484,10 @@ const REPLICATE_PREFIXES: readonly RegExp[] = [
     /^trade:/, /^mkt:/, /^push:/, /^guardian:/, /^yahoo:/, /^vix:/, /^cnn:/,
     /^market:movers:last_good/, /^structure:lastgood:/, /^intrinio:options:eod/,
     /^intrinio:snap:lastgood:/, /^flow:ticker:lastgood:/,
+    // [2026-11-05] 장마감 리포트 v4(postmarket:cross-brief-v4:{ET날짜}, 하루 1회 쓰기·TTL 72h) — EC2 에만 쓰여 volatile-lru 축출(T56)로
+    //   11/3 리포트가 다음 날 낮에 사라졌다(GET ?date=2026-11-03 → 404, 마감 푸시 탭 = 빈 리포트). 11/4 읽기 폴백(UPSTASH_ONLY)은
+    //   Upstash 에 사본이 있어야 효과가 있다 → 쓰기도 복제한다(하루 1회·수십 KB).
+    /^postmarket:/,
 ];
 /** Upstash 에만 존재하는 키(래퍼 밖 작성자) — EC2 미스여도 Upstash 를 읽는다.
  *  promo: [2026-10-05] 안드로이드 쿠폰 번호 풀·배정 기록(lib/marketing/couponClaim.ts) — SPOP·INCR·SET NX 원자 연산이 필요해 Upstash 직접. */
