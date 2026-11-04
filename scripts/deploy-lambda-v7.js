@@ -23,6 +23,7 @@ if (process.env.I_KNOW_THIS_IS_OLD_LINEAGE !== '1') {
  * Usage: node scripts/deploy-lambda-v7.js
  */
 require('dotenv').config({ path: '.env.local' });
+if (!process.env.REDIS_PROXY_KEY) throw new Error('REDIS_PROXY_KEY missing');
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -81,8 +82,8 @@ const REDIS_TTL = 259200; // 3 days (same as analysisCache.ts)
 // [v9 FIX] EC2 ElastiCache Proxy — SSOT for dark pool (100% WebSocket data)
 // Same endpoint Vercel realtimeMetricsService.ts uses as PRIMARY (L35-36)
 const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-const { requireRedisProxyKey } = require("./lib/redis-proxy-key");
-const EC2_PROXY_KEY = requireRedisProxyKey();
+const PROXY_KEY = process.env.REDIS_PROXY_KEY;
+if (!PROXY_KEY) throw new Error('REDIS_PROXY_KEY missing');
 const http = require('http');
 
 // HTTP GET helper for EC2 proxy (HTTP, not HTTPS)
@@ -95,7 +96,7 @@ function ec2ProxyGet(key, timeoutMs) {
       port: parsed.port || 8081,
       path: parsed.pathname + parsed.search,
       method: 'GET',
-      headers: { 'Authorization': 'Bearer ' + EC2_PROXY_KEY },
+      headers: { 'Authorization': 'Bearer ' + PROXY_KEY },
     };
     const to = setTimeout(() => resolve(null), timeoutMs || 3000);
     const req = http.request(options, (res) => {
@@ -124,7 +125,7 @@ function ec2ProxyPost(path, body, timeoutMs) {
       path: parsed.pathname,
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + EC2_PROXY_KEY,
+        'Authorization': 'Bearer ' + PROXY_KEY,
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(body),
       },
@@ -2351,6 +2352,7 @@ async function deploy() {
       NODE_ENV: 'production',
       FINNHUB_API_KEY: FINNHUB_KEY,
       FMP_API_KEY: FMP_API_KEY,
+      REDIS_PROXY_KEY: process.env.REDIS_PROXY_KEY,
       UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || '',
       UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || '',
     } },
