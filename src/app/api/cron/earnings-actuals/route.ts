@@ -9,7 +9,7 @@
 // 점검(인증된 호출만): ?dry=1 — 저장하지 않고 보고만.
 // ============================================================================
 import { NextRequest, NextResponse } from 'next/server';
-import { runActualsCycle, ACTUALS_RUN_LOCK_SEC } from '@/services/earningsActualsService';
+import { runActualsCycle, syncActualsLatestPointers, ACTUALS_RUN_LOCK_SEC } from '@/services/earningsActualsService';
 import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
 import { resultEnvMode, runEarningsResultStep } from '@/lib/signals/earningsResult';
 
@@ -48,6 +48,13 @@ export async function GET(req: NextRequest) {
             });
             console.log(`[Cron/EarningsResult] ${JSON.stringify({ status: result.status, sent: result.sent, candidates: result.candidates, corrected: result.corrected, skipped: result.skipped.slice(0, 8) })}`);
         } catch (e) { console.error('[Cron/EarningsResult] failed', e instanceof Error ? e.message : 'unknown'); }
+    }
+    // 종목별 «가장 최근 완성 기록» 포인터(공개 종목 페이지가 키 2개만 읽게) — 쓰기 잠금을 얻은 회차만, 함수 상한 15초 전까지만.
+    if (!dryRun && r.lockAcquired && Date.now() - t0 < maxDuration * 1000 - 15_000) {
+        try {
+            const p = await syncActualsLatestPointers();
+            if (p.written.length) console.log(`[Cron/EarningsActuals] latest pointers ${JSON.stringify(p.written.slice(0, 12))}`);
+        } catch (e) { console.error('[Cron/EarningsActuals] latest pointers failed', e instanceof Error ? e.message : 'unknown'); }
     }
     console.log(`[Cron/EarningsActuals] ${JSON.stringify({ today: r.today, considered: r.considered, expected: r.expectedSaved, actuals: r.actualsSaved, rechecked: r.rechecked, skipped: r.skipped.length, why: r.skipped.filter((x) => /^(fmp|recheck|actual:(error|vendor|bar|impl))/.test(x.reason)).slice(0, 6), dryRun })}`);
     return NextResponse.json({ success: true, dryRun, ...r });

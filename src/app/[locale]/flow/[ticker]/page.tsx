@@ -579,6 +579,7 @@ export async function generateMetadata(
     twitter: { card: 'summary_large_image', title, description: social, images: [ogUrl] },
     // 스마트앱배너(Undercurrent — 본문 1순위 CTA 도 UC, 2026-08-22)는 루트 layout 의 <head> 가 경로로 고른다
     // (smartBannerAppId — metadata 로 두면 사람에게는 본문으로 스트리밍돼 head 에 없다, 2026-09-30).
+    // ★11/5 7일 안 회사 확정 실적 종목(실적 의도 페이지)만 SIGNUM 배너(같은 upcoming 판정) — 그 밖은 Undercurrent 그대로.
   };
 }
 

@@ -4,7 +4,8 @@ import { GuardianProvider } from "@/components/guardian/GuardianProvider";
 import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import { headers } from 'next/headers';
-import { smartBannerAppId } from '@/lib/seo/smartBanner';
+import { flowTickerOf, smartBannerAppId } from '@/lib/seo/smartBanner';
+import { upcoming as upcomingEarnings } from '@/lib/seo/tickerEarningsIntent';
 import { readShareQuery } from '@/lib/share/shareQuery';
 
 // [PERF] next/font: 빌드 시 다운로드 → 셀프호스팅 (외부 CDN 렌더 블로킹 제거)
@@ -126,12 +127,15 @@ export default async function RootLayout({
   // 로케일 접두어가 없는 경로(루트 리다이렉트 전 등)는 기존 동작을 유지한다.
   const lang = (LOCALES as readonly string[]).includes(seg || '') ? (seg as string) : 'en';
   const share = await readShareQuery();
+  // 실적 의도 종목 페이지(/flow/{T}, 7일 안 회사 확정 실적 — 정적 확인 목록만 본다, 저장소·벤더 읽기 0)만 SIGNUM 배너. 나머지는 기존 규칙 그대로.
+  const flowTicker = flowTickerOf(path);
+  const earningsIntent = !!flowTicker && upcomingEarnings(flowTicker) != null;
 
   return (
     <html lang={lang} suppressHydrationWarning className={`${inter.variable} ${plusJakarta.variable} ${jetbrainsMono.variable}`}>
       <head>
         {/* 스트리밍과 무관하게 head 에 — lib/seo/smartBanner 주석 참조. 앱 웹뷰(WKWebView)는 무시한다 */}
-        <meta name="apple-itunes-app" content={`app-id=${smartBannerAppId(path, share.fromShare)}`} />
+        <meta name="apple-itunes-app" content={`app-id=${smartBannerAppId(path, share.fromShare, earningsIntent)}`} />
         <link rel="manifest" href="/manifest.json" />
         {/* [PERF] Pretendard: preload for early download + afterInteractive to avoid render blocking */}
         <link

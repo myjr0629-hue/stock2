@@ -39,6 +39,17 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/;
 export type ReportHour = 'amc' | 'bmo';
 
 export const actualsKey = (ticker: string, date: string): string => `${ACTUALS_KEY_PREFIX}:${String(ticker).toUpperCase()}:${date}`;
+/**
+ * ★11/5 종목별 «가장 최근 완성 기록» 발표일 포인터 — 값 { date: 'YYYY-MM-DD' } · TTL 없음.
+ *   공개 종목 페이지(lib/seo/tickerEarningsIntent)가 날짜 창을 훑지 않고 키 2개(포인터 + 그 기록)만 읽게 한다.
+ *   크론(services/earningsActualsService.syncActualsLatestPointers)만 쓴다 — 더 최근 완성 기록이 생길 때만 앞으로 옮긴다.
+ *   접두사 뒤 «latest»는 소문자라 대문자 티커 기록 키(…:{TICKER}:{date})와 겹치지 않는다.
+ */
+export const actualsLatestKey = (ticker: string): string => `${ACTUALS_KEY_PREFIX}:latest:${String(ticker).toUpperCase()}`;
+export function parseLatestPointer(raw: unknown): string | null {
+  const d = raw && typeof raw === 'object' ? (raw as { date?: unknown }).date : null;
+  return typeof d === 'string' && YMD.test(d) ? d : null;
+}
 
 /** 발표 «전» 마지막 정규장에 화면이 보여 준 예상 변동폭 */
 export interface ExpectedSnap {

@@ -18,12 +18,13 @@ import { fmpFetch } from '@/lib/fmpClient';
 import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfirmed';
 import { addDaysYmd } from '@/lib/earningsWeek';
 import {
-  ACTUAL_SETTLE_MS, ACTUALS_KEY_PREFIX, MAX_PLAUSIBLE_MOVE_PCT, actualsKey, closesAgree, isReactionFinal, parseRecord, pctChange,
+  ACTUAL_SETTLE_MS, ACTUALS_KEY_PREFIX, MAX_PLAUSIBLE_MOVE_PCT, actualsKey, actualsLatestKey, parseLatestPointer, closesAgree, isReactionFinal, parseRecord, pctChange,
   reactionFinalAt, reactionSessions, type ActualMove, type ActualsRecord, type ExpectedSnap, type ReportHour,
 } from '@/lib/earnings/earningsActuals';
 import { daysBetweenYmd, etDateOf, etLastClosedSessionDate } from '@/lib/marketCalendar';
 import { getDailyAggregates } from '@/services/intrinioClient';
 import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
+import { scorecardPairOf } from '@/lib/earnings/earningsScorecard';
 import { Redis } from '@upstash/redis';
 import { getAuthoritativeCache, mgetFromCache, setAuthoritativeCache, setActualsWithoutTtl } from '@/services/redisClient';
 
@@ -393,6 +394,53 @@ export async function runActualsCycle(opts: { nowMs?: number; list?: readonly Co
   // expected 만 더한 기록 — 방금 저장한 actual 은 저장본 그대로 둔다(touched 없음)
   await flush([...expectedDirty.values()], new Set());
   return report;
+}
+
+/** 포인터 동기화가 한 번에 보는 지난 발표 수 · 한 회차 최대 쓰기 수 */
+const LATEST_SYNC_MAX_ENTRIES = 300;
+const LATEST_SYNC_MAX_WRITES = 60;
+
+/**
+ * ★11/5 종목별 «가장 최근 완성 기록» 포인터(actualsLatestKey) 맞추기 — 크론 전용(쓰기 잠금을 얻은 회차만, route 가 부른다).
+ *   확인 목록의 지난 발표(오늘 ET 이전) 기록을 mget 한 번으로 읽고, 성적표가 받아 주는 완성 기록(scorecardPairOf)이면
+ *   포인터를 그 날짜로 앞으로만 옮긴다(이미 같거나 더 최근이면 쓰지 않는다). 이미 저장된 기록(10/14~)도 첫 회차에 채워진다.
+ *   읽기 2번(mget 기록·mget 포인터) · 벤더 호출 0 · 실패는 조용히(다음 회차가 다시 본다).
+ */
+export async function syncActualsLatestPointers(opts: {
+  nowMs?: number; list?: readonly ConfirmedEarnings[];
+  deps?: { mget?: (keys: string[]) => Promise<unknown[]>; set?: (key: string, value: { date: string }) => Promise<boolean> };
+} = {}): Promise<{ checked: number; written: string[] }> {
+  const now = opts.nowMs ?? Date.now();
+  const today = etDateOf(now);
+  const mget = opts.deps?.mget ?? ((keys: string[]) => mgetFromCache<unknown>(keys));
+  const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setAuthoritativeCache(key, value));
+  // 종목당 가장 최근 지난 발표 하나만(목록에 같은 종목이 여럿이어도 키 하나)
+  const latest = new Map<string, ConfirmedEarnings>();
+  for (const c of opts.list ?? CONFIRMED_EARNINGS) {
+    if (!hourOf(c) || !(c.date < today)) continue;
+    const t = c.ticker.toUpperCase();
+    const cur = latest.get(t);
+    if (!cur || c.date > cur.date) latest.set(t, c);
+  }
+  const entries = [...latest.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, LATEST_SYNC_MAX_ENTRIES);
+  const out = { checked: entries.length, written: [] as string[] };
+  if (!entries.length) return out;
+  try {
+    const recs = await mget(entries.map((c) => actualsKey(c.ticker, c.date)));
+    const done = entries.filter((c, i) => {
+      const row = scorecardPairOf(recs[i], now)?.row;
+      return !!row && row.ticker === c.ticker.toUpperCase() && row.date === c.date;
+    });
+    if (!done.length) return out;
+    const ptrs = await mget(done.map((c) => actualsLatestKey(c.ticker)));
+    for (let i = 0; i < done.length && out.written.length < LATEST_SYNC_MAX_WRITES; i++) {
+      const c = done[i];
+      const cur = parseLatestPointer(ptrs[i]);
+      if (cur && cur >= c.date) continue;
+      if (await set(actualsLatestKey(c.ticker), { date: c.date }).catch(() => false)) out.written.push(`${c.ticker.toUpperCase()}|${c.date}`);
+    }
+  } catch { /* 다음 회차가 다시 본다 */ }
+  return out;
 }
 
 /** 수동 보강(스크립트 전용) — 예상 변동폭을 직접 넣는다. 이미 값이 있으면 건드리지 않는다(force 가 아니면). */
