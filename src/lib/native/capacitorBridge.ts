@@ -5,7 +5,7 @@
 
 'use client';
 
-import { attemptReview, reviewAttempts } from '@/hooks/useReviewPrompt';
+import { attemptReview, reviewAskedToday, reviewAttempts } from '@/hooks/useReviewPrompt';
 
 // ---------------------------------------------------------------------------
 // Platform Detection
@@ -338,7 +338,7 @@ const localDay = (d = new Date()): string =>
 /**
  * ★11/5 새 «좋은 순간»(실적 화면 범위 안 반응 행 · 알림 탭 3번째+ 세션) — 기존 마일스톤(사용일 2·7, 실행 0)과 «따로» 판정한다.
  *   관문 11050112 ①: maybePromptReview 를 그대로 부르면 마일스톤을 다 쓴 사용자는 hit 가 없어 영영 요청이 안 갔다.
- *   공유하는 제한(새 한도는 만들지 않는다): 하루 1회 표식(REVIEW_LAST_KEY — 마일스톤과 같은 날 두 번 묻지 않음) ·
+ *   공유하는 제한(새 한도는 만들지 않는다): 하루 1회 표식(REVIEW_LAST_KEY + 모든 경로의 실제 요청일 REVIEW_ANY_DAY_KEY — 같은 날 두 번 묻지 않음) ·
  *   순간별 «실제 요청» 2회 상한·진행 중 집합(attemptReview) · 광고/선물 안내 겹침 검사 · OS 자체 한도(iOS 365일 3회, Play 할당량).
  *   순간당 실제 요청이 한 번 가면 완료(REVIEW_DONE_KEY 목록에 순간 번호). eligible 은 예약 시·실행 시 모두 확인한다.
  * @returns 예약 취소 함수(화면을 떠날 때 부르면 예약 시각을 되돌려 선물 안내를 막지 않는다)
@@ -349,7 +349,7 @@ export function promptRatingMoment(moment: number, delayMs: number, eligible: ()
   try {
     if (!eligible()) return noop;
     const today = localDay();
-    if (localStorage.getItem(REVIEW_LAST_KEY) === today) return noop;
+    if (localStorage.getItem(REVIEW_LAST_KEY) === today || reviewAskedToday()) return noop;
     const prompted: number[] = JSON.parse(localStorage.getItem(REVIEW_DONE_KEY) || '[]');
     if (prompted.includes(moment) || reviewAttempts(REVIEW_DONE_KEY, moment) >= 2) return noop;
     return attemptReview(REVIEW_DONE_KEY, moment, delayMs, /\/app-view(?:\/|$)/.test(window.location.pathname), () => {
@@ -358,7 +358,7 @@ export function promptRatingMoment(moment: number, delayMs: number, eligible: ()
       localStorage.setItem(REVIEW_LAST_KEY, localDay());
     }, () => {
       // 실행 시점: 같은 날 다른 경로가 이미 물었으면 건너뛴다
-      try { if (localStorage.getItem(REVIEW_LAST_KEY) === localDay()) return false; } catch { return false; }
+      try { if (localStorage.getItem(REVIEW_LAST_KEY) === localDay() || reviewAskedToday()) return false; } catch { return false; }
       return eligible();
     });
   } catch { return noop; }

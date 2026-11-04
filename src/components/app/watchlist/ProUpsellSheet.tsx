@@ -124,6 +124,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
     setNote(legal.restoring);
     const r = await restore();
     setBusy(false);
+    if (!r.ok) markSessionError();
     setNote(r.ok && r.isPro ? legal.restored : r.ok ? legal.nothingToRestore : legal.failed);
   }, [busy, restore, sheetName, legal]);
 

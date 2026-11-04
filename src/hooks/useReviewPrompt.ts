@@ -88,6 +88,17 @@ export function scheduleReviewRequest(delayMs: number, request: () => void, guar
   };
 }
 
+/** 어느 경로든 OS 평점 시트를 «실제로 요청한» 날(로컬 날짜). 새 평점 순간(capacitorBridge.promptRatingMoment)이 같은 날 겹치지 않게 읽는다(관문 11050224 ②). */
+export const REVIEW_ANY_DAY_KEY = 'signum.review.lastAnyDay';
+export const localReviewDay = (d = new Date()): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function markReviewAskedToday(): void {
+  try { localStorage.setItem(REVIEW_ANY_DAY_KEY, localReviewDay()); } catch { /* ignore */ }
+}
+export function reviewAskedToday(): boolean {
+  try { return localStorage.getItem(REVIEW_ANY_DAY_KEY) === localReviewDay(); } catch { return true; }
+}
+
 // 마일스톤은 OS 시트를 실제로 요청할 때까지(막힌 회차는 세지 않고) 다음 적격 순간에 다시 시도한다 — 요청 뒤엔 완료 표식.
 const inFlight = new Set<string>();
 export function reviewAttempts(key: string, milestone: number): number {
@@ -106,6 +117,7 @@ export function attemptReview(key: string, milestone: number, delay: number, gua
       localStorage.setItem(`${key}.attempt.${milestone}`, String(reviewAttempts(key, milestone) + 1));
       const result = plugin.requestReview();
       Promise.resolve(result).catch(() => {});
+      markReviewAskedToday();
       requested();
     } catch { /* 요청 실패는 앱을 막지 않는다 */ } finally { release(); }
   }, guard, release, eligible);

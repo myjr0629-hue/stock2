@@ -58,6 +58,7 @@ class Mem {
     ['src/components/app/ProPaywall.tsx', /\{ markSessionError\(\); setNote\(t\.failed\); \}/],
     ['src/components/app/watchlist/ProUpsellSheet.tsx', /\{ markSessionError\(\); setNote\(c\.purchaseFailed\); \}/],
     ['src/components/app/CouponGuideSheet.tsx', /\{ markSessionError\(\); setNote\(t\.failed\); \}/],
+    ['src/components/app/watchlist/ProUpsellSheet.tsx', /if \(!r\.ok\) markSessionError\(\);\n\s*setNote\(r\.ok && r\.isPro \? legal\.restored/],
   ];
   for (const [f, re] of marks) assert.match(src(f), re, `${f} 오류 화면 표식`);
   // 화면에 보이는 실패 문구는 모두 표식이 붙어 있다(빠진 화면이 없게 — 관문 11050220)
@@ -100,7 +101,7 @@ try {
 
   // ① 기존 마일스톤(사용일 2·7, 실행 0)을 모두 쓴 사용자도 새 순간은 따로 판정한다
   local.setItem('signumhq.review.prompted', JSON.stringify([2, 7, 0]));
-  local.setItem('signumhq.review.lastAsked', yesterday);
+  local.setItem('signumhq.review.lastAsked', yesterday); local.setItem('signum.review.lastAnyDay', yesterday);
   local.setItem('signum.appSessions', '6');
   const eligible = () => ratingSessionEligible(local, session);
   bridge.maybePromptReview(0);
@@ -116,7 +117,7 @@ try {
   bridge.promptRatingMoment(RATING_MOMENT_PUSH, 3000, eligible);
   assert.equal(timers.length, 0, '같은 날 두 번 묻지 않는다');
   // 다음 날 — 알림 순간은 따로 1회
-  local.setItem('signumhq.review.lastAsked', yesterday);
+  local.setItem('signumhq.review.lastAsked', yesterday); local.setItem('signum.review.lastAnyDay', yesterday);
   bridge.promptRatingMoment(RATING_MOMENT_REACTION, 3000, eligible);
   assert.equal(timers.length, 0, '이미 요청한 순간은 다시 묻지 않는다');
   bridge.promptRatingMoment(RATING_MOMENT_PUSH, 3000, eligible);
@@ -125,7 +126,7 @@ try {
 
   // 세션 조건(3회 미만)·오류 세션이면 예약조차 안 한다
   local.setItem('signumhq.review.prompted', '[]');
-  local.setItem('signumhq.review.lastAsked', yesterday);
+  local.setItem('signumhq.review.lastAsked', yesterday); local.setItem('signum.review.lastAnyDay', yesterday);
   local.setItem('signum.appSessions', '2');
   bridge.promptRatingMoment(RATING_MOMENT_REACTION, 3000, eligible);
   assert.equal(timers.length, 0, '세션 2회는 요청 없음');
@@ -167,7 +168,7 @@ try {
 
   // 관문 11050217 ③ — 겹친 예약 A·B 를 모두 취소해도 취소된 시각이 되살아나지 않는다
   local.setItem('signumhq.review.prompted', '[]');
-  local.setItem('signumhq.review.lastAsked', yesterday);
+  local.setItem('signumhq.review.lastAsked', yesterday); local.setItem('signum.review.lastAnyDay', yesterday);
   local.setItem(`signumhq.review.prompted.attempt.${RATING_MOMENT_REACTION}`, '0');
   const base3 = hook.reviewRequestedAt();
   const cancelA = bridge.promptRatingMoment(RATING_MOMENT_REACTION, 3000, eligible);
@@ -189,7 +190,7 @@ try {
 
   // 관문 11050217 ② — 새 순간 예약 뒤 같은 3초 안에 기존 마일스톤도 예약돼도, 새 순간이 먼저 물었으면 마일스톤은 실행 시 건너뛴다
   local.setItem('signumhq.review.prompted', '[]');
-  local.setItem('signumhq.review.lastAsked', yesterday);
+  local.setItem('signumhq.review.lastAsked', yesterday); local.setItem('signum.review.lastAnyDay', yesterday);
   local.setItem('signumhq.review.days', JSON.stringify(['2000-01-02', '2000-01-03']));
   local.setItem('signumhq.review.prompted.attempt.2', '0');
   local.setItem(`signumhq.review.prompted.attempt.${RATING_MOMENT_PUSH}`, '0');
@@ -204,8 +205,26 @@ try {
   assert.equal(requests, reqBefore + 1, '같은 날 마일스톤은 OS API 를 다시 부르지 않는다');
   assert.equal(local.getItem('signumhq.review.prompted.attempt.2'), '0', '건너뛴 마일스톤은 기회를 소비하지 않는다');
 
+  // 관문 11050224 ② — 기존 훅 순간(세션·담기·AI 한 줄)이 오늘 실제로 물었으면 새 순간은 예약도 실행도 하지 않는다
+  local.setItem('signumhq.review.prompted', '[]');
+  local.setItem('signumhq.review.lastAsked', yesterday); local.setItem('signum.review.lastAnyDay', yesterday);
+  local.setItem(`signumhq.review.prompted.attempt.${RATING_MOMENT_PUSH}`, '0');
+  local.setItem('signum.review.lastAnyDay', yesterday);
+  const r0 = requests;
+  hook.attemptReview('signum.appSessions', 3, 2500, true, () => {});
+  bridge.promptRatingMoment(RATING_MOMENT_PUSH, 3000, eligible);
+  assert.equal(timers.length, 2, '둘 다 예약(아직 아무도 묻지 않음)');
+  fire();
+  assert.equal(requests, r0 + 1, '기존 세션 순간이 물음');
+  assert.equal(local.getItem('signum.review.lastAnyDay'), today, '실제 요청일 기록');
+  fire();
+  assert.equal(requests, r0 + 1, '같은 날 새 순간은 실행 시 건너뛴다');
+  bridge.promptRatingMoment(RATING_MOMENT_PUSH, 3000, eligible);
+  assert.equal(timers.length, 0, '같은 날 새 순간은 예약하지 않는다');
+  local.setItem('signum.review.lastAnyDay', yesterday);
+
   // 광고 직후에는 예약하지 않는다(기존 겹침 검사 재사용)
-  local.setItem('signumhq.review.lastAsked', yesterday);
+  local.setItem('signumhq.review.lastAsked', yesterday); local.setItem('signum.review.lastAnyDay', yesterday);
   local.setItem('signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() }));
   bridge.promptRatingMoment(RATING_MOMENT_PUSH, 0, eligible);
   assert.equal(timers.length, 0, '광고 직후 금지');
