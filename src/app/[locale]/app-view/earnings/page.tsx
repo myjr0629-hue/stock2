@@ -23,7 +23,11 @@ import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 // 표 칸과 «관전 포인트» 문구의 숫자는 같은 포맷 함수로 만든다(문구는 서버가 같은 함수로 채운다 — 2026-10-04)
 import { fmtEpsUsd, fmtRevUsd } from '@/lib/earnings/earningsBrief';
 // 옵션 반영 변동폭 — 웹 /earnings-week 와 같은 원천·같은 정의(lib/impliedMove.ts)를 서버가 묶어 행에 붙인다(2026-10-12)
-import { IMPLIED_LABEL, impliedBasisText, impliedPctText, type RowImplied } from '@/lib/earnings/earningsImplied';
+import { IMPLIED_LABEL, impliedBasisText, impliedPctText } from '@/lib/earnings/earningsImplied';
+import { RECEIPT_COPY } from '@/lib/earnings/earningsReceiptsCopy';
+import { calendarReaction } from '@/lib/earnings/calendarScorecardDisplay';
+import { watchCalendarScorecard } from '@/lib/earnings/calendarScorecardRefresh';
+import type { CalendarImplied } from '@/lib/earnings/calendarReportedImplied';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import s from './earnings.module.css';
 
@@ -36,7 +40,7 @@ interface Row {
   /** ★ [2026-09-10] AI 가 붙인 회사명·관전 포인트. 없으면 기존 화면 그대로다. */
   brief?: Partial<Record<'ko' | 'en' | 'ja', { name?: string; watch?: string }>>;
   /** ★ [2026-10-12] 옵션 반영 변동폭(ATM 스트래들 ÷ 현물, 발표 뒤 첫 만기). 없으면 null — 화면은 «—» */
-  implied?: (RowImplied & { reported?: boolean }) | null;
+  implied?: CalendarImplied | null;
 }
 
 const EARNINGS_REVIEW = { storageKey: 'signum.earningsOpens', milestones: [2, 7], delayMs: 1400 };
@@ -80,11 +84,16 @@ export default function EarningsPage() {
   const myList = useAppWatchlist();
   const params = useParams();
   const locale = (params?.locale as string) || 'ko';
-  const t = T[(locale as 'ko' | 'en' | 'ja')] ?? T.en;
+  const lang = locale === 'ko' || locale === 'ja' ? locale : 'en';
+  const t = T[lang];
+  const receipt = RECEIPT_COPY[lang];
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const shareOn = useInviteShareEnabled();
+  const [summary, setSummary] = useState<{ n: number; withinCount: number } | null>(null);
+
+  useEffect(() => watchCalendarScorecard(setSummary), []);
 
   useEffect(() => watchEarningsCalendar<Row>((nextRows, at) => {
     setRows(nextRows);
@@ -134,6 +143,9 @@ export default function EarningsPage() {
             : t.count(rows.length, byDate.length)}
         </div>
       </div>
+
+      {summary && <div className={s.ecScoreSummary}>{receipt.scorecardSummary(summary.n, summary.withinCount)}</div>}
+      {summary && <div className={s.ecScoreNote}>{receipt.methods[5]}</div>}
 
       {rows == null && [0, 1, 2].map((i) => <div key={i} className={`${s.ecSkel} ${s.ecSkelCard}`} />)}
 
@@ -219,6 +231,11 @@ export default function EarningsPage() {
                         <b className="num">{impliedPctText(e.implied?.pct)}</b>
                         {e.implied && <em className="num">{impliedBasisText(e.implied, locale)}</em>}
                       </span>
+                      {calendarReaction(e.implied) && (
+                        <span className={`${s.ecReaction} ${e.implied?.within ? s.ecWithin : s.ecOutside}`}>
+                          {receipt.columns[2]} {calendarReaction(e.implied)} · {e.implied?.within ? receipt.within : receipt.outside}
+                        </span>
+                      )}
                       {/* 아랫줄 — «회사명 — 관전 포인트».
                           ★ 회사명을 윗줄(티커 옆)에 뒀더니 분기 칩과 공간을 다퉈
                             「오…」「코스…」로 잘렸다. 아랫줄은 폭을 다 쓸 수 있다.

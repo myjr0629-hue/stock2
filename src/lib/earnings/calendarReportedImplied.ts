@@ -2,7 +2,7 @@ import { phaseOf } from '@/lib/earningsWeek';
 import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
 import type { RowImplied } from '@/lib/earnings/earningsImplied';
 
-export type CalendarImplied = RowImplied & { reported?: true };
+export type CalendarImplied = RowImplied & { reported?: true; actualPct?: number; within?: boolean };
 type Row = { ticker: string; date: string; hour?: string | null; implied?: RowImplied | null };
 
 /** 채점표에 포함된 같은 이벤트의 예상값만 사용한다. */
@@ -10,7 +10,7 @@ export function reportedImplied(row: Row, score: ScorecardRow | undefined, nowMs
   if (phaseOf(row.date, row.hour || '', nowMs) !== 'done' || !score
     || score.ticker !== row.ticker.toUpperCase() || score.date !== row.date || score.hour !== row.hour) return null;
   return { pct: score.expectedPct, expiry: score.basis.expectedExpiry ?? '', basis: null,
-    session: score.basis.expectedSession, reported: true };
+    session: score.basis.expectedSession, reported: true, actualPct: score.actualPct, within: !score.beyond };
 }
 
 export function attachReportedImplied<R extends Row>(rows: R[], scores: readonly ScorecardRow[], nowMs: number): Array<R & { implied: CalendarImplied | null }> {

@@ -14,7 +14,7 @@ async function test() {
   let stored: unknown = record;
   let fail = false;
   require.cache[path] = { id: path, filename: path, loaded: true, exports: {
-    mgetFromCache: async (keys: string[]) => {
+    mgetFromCacheStrict: async (keys: string[]) => {
       if (fail) throw new Error('unavailable');
       return keys.map((key) => key === 'earnings:actuals:v1:AAPL:2026-11-02' ? stored : null);
     },
@@ -26,6 +26,9 @@ async function test() {
   assert.equal(score.expectedPct, 8.6);
   const result = await attachCalendarReportedImplied([row, upcoming], now);
   assert.equal(result[0].implied?.pct, score.expectedPct);
+  assert.equal(result[0].implied?.actualPct, 2);
+  assert.equal(result[0].implied?.within, true);
+  assert.equal(reportedImplied(row, { ...score, actualPct: -12, beyond: true }, now)?.within, false);
   assert.equal(impliedBasisText(result[0].implied, 'ko'), '11/6 만기 · 11/2 세션');
   assert.deepEqual(result[1], upcoming);
   assert.equal(reportedImplied({ ...row, hour: 'bmo' }, score, now), null);

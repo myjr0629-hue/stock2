@@ -234,3 +234,10 @@
   box-shadow: 0 0 8px rgba(139, 92, 246, .35), inset 0 0 0 1px rgba(255, 255, 255, .14);
 }
 .ecRAi i { font-style: normal; font-size: 8px; line-height: 1; color: #e0f2fe; }
+
+/* 채점표는 기존 행 아래에 독립적으로 쌓아 좁은 화면에서도 기준과 겹치지 않는다. */
+.ecScoreSummary{margin:0 16px 4px;font-size:11px;font-weight:700;color:#c2d2e8;overflow-wrap:anywhere}
+.ecScoreNote{margin:0 16px 8px;font-size:9px;line-height:1.5;color:#a9bcd6;overflow-wrap:anywhere}
+.ecReaction{display:block;margin-top:4px;font-size:10px;line-height:1.5;font-weight:700;white-space:normal;overflow-wrap:anywhere}
+.ecWithin{color:#6ee7b7}
+.ecOutside{color:#fbbf24}
