@@ -2,7 +2,7 @@
 // (관문 11010757·11011001·11011010·11041319 회귀 시험)
 import assert from 'node:assert/strict';
 import {
-  resultEligibility, resultCopy, resultPath, resultValueFingerprint, runEarningsResultStep, RESULT_KEYS, RESULT_STABLE_MS,
+  resultEligibility, resultCopy, resultPath, resultValueFingerprint, runEarningsResultStep, RESULT_KEYS, RESULT_STABLE_MS, CLAIM_TTL_SEC,
   type ResultStepDeps, type ResultStepOpts, type StrictRead,
 } from '../src/lib/signals/earningsResult';
 import { actualsKey } from '../src/lib/earnings/earningsActuals';
@@ -46,8 +46,20 @@ class FakeRecords {
   };
   put(r: any) { this.m.set(actualsKey(r.ticker, r.date), r); }
 }
+/**
+ * 운영 Upstash 클라이언트처럼 읽는 가짜 저장소 — @upstash/redis 의 automaticDeserialization(parseRecursive)과 같은 규칙:
+ * 문자열을 JSON.parse 해 보고, 되면 그 값(객체·숫자 등, 숫자는 문자열과 표기가 같을 때만), 안 되면 문자열 그대로(관문 11041431 #1).
+ */
+const upstashParse = (v: unknown): unknown => {
+  if (typeof v !== 'string') return v;
+  try { const p = JSON.parse(v); return typeof p === 'number' && p.toString() !== v ? v : p; } catch { return v; }
+};
+class UpstashLikeStore extends FakeStore {
+  async mget(keys: string[]) { return (await super.mget(keys)).map(upstashParse); }
+  async get(k: string) { return upstashParse(await super.get(k)); }
+}
 function setup(records: any[] = [raw()], devices: Array<[string, Record<string, unknown>]> = [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }]]) {
-  const store = new FakeStore(), sender = new FakeSender(), recs = new FakeRecords(), logs: string[] = [];
+  const store = new UpstashLikeStore(), sender = new FakeSender(), recs = new FakeRecords(), logs: string[] = [];
   store.m.set('push:sig:mode', 'live');
   for (const [tok, rec] of devices) store.addDevice(tok, rec);
   for (const r of records) recs.put(r);
@@ -257,6 +269,40 @@ t('4 · 기기 하루 상한·발송 실패 반환은 기존 규칙 그대로', 
   assert.equal(f.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false);
   f.sender.failIds = null;
   assert.equal((await f.run(SEND + 600_000)).sent, 1);
+});
+
+t('4 · 운영 Upstash 읽기(JSON 자동 해석)에서도 지문이 «쓴 그대로» 돌아온다 — 안정 결과가 실제로 발송된다(관문 11041431 #1)', async () => {
+  const s = setup();
+  assert.equal((await s.run(SEND)).sent, 1);
+  const fp = await s.store.get(RESULT_KEYS.fp('JPM', D));
+  assert.equal(typeof fp, 'string'); assert.ok(String(fp).startsWith('fp1:'));
+  assert.equal(fp, resultValueFingerprint(raw()));
+  const again = await s.run(SEND + 1_800_000);
+  assert.equal(again.sent, 0); assert.deepEqual(again.corrected, [], '같은 값은 정정이 아니다'); assert.deepEqual(again.skipped, []);
+});
+t('4 · 기기 자리는 보내기 전엔 짧게(선점) 잡고, 발송 성공 뒤에만 120일로 굳힌다 — 함수 중단 시 자리가 풀린다(관문 11041431 #2)', async () => {
+  const s = setup();
+  const key = `push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`;
+  const seen: Array<[unknown, number | undefined]> = [];
+  const orig = s.sender.send.bind(s.sender);
+  s.sender.send = async (items: any) => { seen.push([s.store.m.get(key), s.store.ttl.get(key)]); return orig(items); };
+  assert.equal((await s.run(SEND)).sent, 1);
+  assert.equal(seen.length, 1);
+  assert.match(String(seen[0][0]), /^claim:/); assert.equal(seen[0][1], CLAIM_TTL_SEC, '발송 순간 자리는 선점 수명');
+  assert.match(String(s.store.m.get(key)), /^sent:/); assert.equal(s.store.ttl.get(key), 120 * 86400, '성공 뒤 120일');
+  // 중단 흉내 — 선점만 남고 정리 코드가 못 돈 자리: 수명(CLAIM_TTL_SEC)이 끝나 지워지면 다음 회차가 다시 보낸다
+  const k = setup();
+  k.store.m.set(key, `claim:${SEND}`); k.store.ttl.set(key, CLAIM_TTL_SEC);
+  assert.equal((await k.run(SEND + 60_000)).sent, 0, '선점이 살아 있으면 건드리지 않는다');
+  k.store.m.delete(key);                                               // 10분 뒤 만료
+  assert.equal((await k.run(SEND + 30 * 60_000)).sent, 1);
+});
+t('4 · 굳히기가 저장소 오류로 두 번 실패하면 로그를 남긴다(발송 수는 그대로)', async () => {
+  const s = setup();
+  const origSet = s.store.set.bind(s.store);
+  s.store.set = async (k: string, v: string, ex?: number) => { if (k.startsWith('push:sig:result:') && v.startsWith('sent:')) throw new Error('down'); return origSet(k, v, ex); };
+  assert.equal((await s.run(SEND)).sent, 1);
+  assert.ok(s.logs.some((m) => m.includes('굳히기 실패')));
 });
 
 // ── 요구 5 — 발송 모드 기본 dry(«내 종목 이상 신호» 스위치 공유) ───────────────────────────────────────

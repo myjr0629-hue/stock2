@@ -37,6 +37,18 @@ export const RESULT_MAX_AGE_MS = 4 * 24 * 3600_000;
 /** 크론이 보는 발표일 창(오늘 −10일 ~ 오늘) */
 const WINDOW_DAYS = 10;
 const LEDGER_TTL_SEC = 120 * 86400;
+/**
+ * 기기 발송 자리의 «선점» 수명 — 보내기 전엔 이 짧은 수명으로만 잡고, 발송 성공 뒤에 LEDGER_TTL_SEC 로 굳힌다.
+ * 함수 시간 상한(60초)에 걸려 정리 코드가 못 돌아도 자리가 이 시간 뒤 풀려 다음 회차(25분+ 뒤)가 다시 본다(관문 11041431 #2).
+ */
+export const CLAIM_TTL_SEC = 10 * 60;
+/**
+ * 지문 저장값의 머리 — Upstash 기본 클라이언트는 읽을 때 JSON 으로 해석되는 문자열을 객체로 바꾼다(automaticDeserialization).
+ * 머리를 붙여 JSON 이 아니게 해 «쓴 문자열 = 읽은 문자열»을 지킨다(관문 11041431 #1).
+ */
+const FP_PREFIX = 'fp1:';
+/** 장부에서 읽은 지문 — 문자열이 아니면(해석된 객체 등) 같은 직렬화로 되돌려 비교한다(머리가 없으니 지금 지문과는 다르다 → 보내지 않는 쪽) */
+const ledgerFp = (v: unknown): string | null => (typeof v === 'string' ? v : v == null ? null : stableStringify(v));
 /** 잠금·장부 저장소 호출의 시간 상한(넘으면 «불가»로 보고 그 단계를 접는다) */
 const STORE_TIMEOUT_MS = 2500;
 
@@ -73,7 +85,7 @@ export function resultValueFingerprint(raw: unknown): string | null {
   if (!r?.actual) return null;
   const re = obj(obj(raw)?.expected);
   const e = r.expected;
-  return stableStringify({
+  return FP_PREFIX + stableStringify({
     hour: r.hour,
     e: e ? { pct: e.pct, method: e.method ?? null, straddlePct: e.straddlePct ?? null, expiry: e.expiry, session: e.session, basis: e.basis,
       strike: e.strike, straddle: e.straddle, spot: e.spot, capturedAt: e.capturedAt, src: re?.src ?? null } : null,
@@ -218,7 +230,7 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         if (!r?.ok) { report.skipped.push({ key: id, reason: 'read_failed' }); continue; }
         if (r.value == null) continue;                       // 기록 없음 — 지문·정정 판정도 하지 않는다
         const fpNow = resultValueFingerprint(r.value);
-        const seen = typeof ledger[i] === 'string' ? ledger[i] as string : null;
+        const seen = ledgerFp(ledger[i]);
         let corrected = ledger[n + i] != null;
         // ④ 처음 본 값에서 바뀌었거나(값·관측 변경) 지워졌으면(actual 삭제) 정정 — 영구 표시, 로그만
         if (!corrected && seen != null && fpNow !== seen) {
@@ -255,7 +267,7 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         picked.forEach((x, i) => {
           const r = again[i];
           if (!r?.ok || r.value == null || stableStringify(r.value) !== x.snapshot) return;
-          if (led[i] !== x.fp || led[picked.length + i] != null) return;
+          if (ledgerFp(led[i]) !== x.fp || led[picked.length + i] != null) return;
           const el = resultEligibility(x.c, r.value, t);
           if (!el.ok || stableStringify(el.alert) !== stableStringify(x.alert)) return;
           ok.add(x);
@@ -278,7 +290,8 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           const a = x.alert;
           if (!d.tickers.includes(a.ticker) || chosen >= SIG_CFG.perRunPerDevice) continue;
           const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date), cap = SIG_KEYS.cap(etDateOf(now), d.dev);
-          if (!await st(deps.store.setNx(key, `sent:${now}`, LEDGER_TTL_SEC)).catch(() => false)) continue;
+          // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
+          if (!await st(deps.store.setNx(key, `claim:${now}`, CLAIM_TTL_SEC)).catch(() => false)) continue;
           const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => 999);
           if (cnt > SIG_CFG.deviceDailyCap) { if (cnt !== 999) await deps.store.decr(cap).catch(() => 0); await deps.store.del([key]).catch(() => {}); continue; }
           chosen++;
@@ -292,7 +305,13 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       const dead = new Set<string>();
       for (const c of claimed) {
         const outcome = allowed.has(c.cand) ? outcomes.get(c.item.id) : undefined;
-        if (outcome === 'ok') { report.sent++; continue; }
+        if (outcome === 'ok') {
+          report.sent++;
+          // 굳히기 — 실패하면 한 번 더. 그래도 실패하면 선점 수명이 끝난 뒤 중복 발송될 수 있어 로그를 남긴다.
+          const seal = () => st(deps.store.set(c.key, `sent:${now}`, LEDGER_TTL_SEC)).then(() => true, () => false);
+          if (!(await seal()) && !(await seal())) log(`[Cron/EarningsResult] 발송 장부 굳히기 실패 ${c.item.id}`);
+          continue;
+        }
         // 보내지 않았거나 실패 — 자리를 돌려준다(다음 회차가 같은 규칙으로 다시 본다)
         await deps.store.del([c.key]).catch(() => {});
         await deps.store.decr(c.cap).catch(() => 0);
