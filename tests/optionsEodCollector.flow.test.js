@@ -138,7 +138,7 @@ async function runOffline(nowIso, args) {
     const fixtureProcess = { argv: [process.execPath, SCRIPT, ...args],
         env: { ENV_PATH: ENVF, OPT_NOW_MS: String(Date.parse(nowIso)), INTRINIO_BASE: "http://fixture.invalid", REDIS_PROXY_URL: "http://fixture.invalid" },
         memoryUsage: () => process.memoryUsage(), exitCode: 0 };
-    const context = { module: fixtureModule, exports: fixtureModule.exports, require,
+    const context = { module: fixtureModule, exports: fixtureModule.exports, require: require("node:module").createRequire(SCRIPT),
         process: fixtureProcess, Buffer, URL, URLSearchParams, setTimeout: fn => setImmediate(fn), clearTimeout: clearImmediate,
         console: { log: (...xs) => logs.push(xs.join(" ")), error: (...xs) => logs.push(xs.join(" ")) }, transport: offlineRequest };
     const source = fs.readFileSync(SCRIPT, "utf8") + `

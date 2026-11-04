@@ -41,9 +41,11 @@ const CSV_URL =
     `&field_tdr_date_value=${YEAR}&page&_format=csv`;
 
 const PROXY = process.env.EC2_REDIS_PROXY_URL || "http://127.0.0.1:8081";
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
-const OUT_KEY = "treasury:curve";
+const { requireRedisProxyKey } = require("./lib/redis-proxy-key");
 const DRY = process.argv.includes("--dry");
+// --dry 는 저장하지 않으므로 키가 없어도 돈다
+const PROXY_KEY = DRY ? (process.env.REDIS_PROXY_KEY || "") : requireRedisProxyKey();
+const OUT_KEY = "treasury:curve";
 
 const log = (m) => console.log(`[TCURVE ${new Date().toISOString()}] ${m}`);
 

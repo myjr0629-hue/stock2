@@ -74,7 +74,8 @@ const { URL } = require("url");
 const ENV_PATH = process.env.ENV_PATH || "/opt/signum-ws/.env";
 const PROXY = process.env.REDIS_PROXY_URL || "http://127.0.0.1:8081";
 // 크론은 root crontab 상단 env 로 키를 준다. 수동 실행(SSM)은 .env 에서 — loadEnv 뒤에 읽는다(main).
-let PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
+const { requireRedisProxyKey } = require("./lib/redis-proxy-key");
+let PROXY_KEY;
 let KEY = "";
 // 시험(tests/optionsEodCollector.flow.test.js)만 가짜 벤더 주소를 준다 — 운영은 늘 기본값
 const BASE = process.env.INTRINIO_BASE || "https://api-v2.intrinio.com";
@@ -966,7 +967,7 @@ async function runApi() {
 
 async function main() {
     loadEnv(ENV_PATH);
-    PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
+    PROXY_KEY = requireRedisProxyKey(process.env);
     KEY = process.env.INTRINIO_API_KEY || "";
     if (!KEY) { console.error("[OPT] INTRINIO_API_KEY 없음"); process.exit(1); }
 

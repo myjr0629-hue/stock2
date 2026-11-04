@@ -50,7 +50,8 @@ if (fs.existsSync(ENV_PATH)) {
 
 const PROXY_HOST = process.env.REDIS_PROXY_HOST || "127.0.0.1";
 const PROXY_PORT = +(process.env.REDIS_PROXY_PORT || 8081);
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
+const { requireRedisProxyKey } = require("./lib/redis-proxy-key");
+const PROXY_KEY = requireRedisProxyKey();
 
 const EOD_KEY = "intrinio:eod:snapshot";
 const OUT_KEY = "finra:offexchange";        // 오늘 + 파생지표 (앱이 읽는 것)
