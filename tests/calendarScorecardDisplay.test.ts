@@ -20,3 +20,13 @@ for (const locale of ['ko', 'en', 'ja'] as const) {
   assert.ok(copy.columns[2] && copy.within && copy.outside && copy.methods[5]);
 }
 console.log('calendar scorecard display: ok');
+
+// 관문 11041001 — 반올림(0.05 올림)
+{
+  const { calendarReaction } = require('../src/lib/earnings/calendarScorecardDisplay');
+  const a = require('node:assert/strict');
+  a.equal(calendarReaction({ reported: true, actualPct: 1.15, within: true } as any), '+1.2%');
+  a.equal(calendarReaction({ reported: true, actualPct: -2.55, within: true } as any), '−2.6%');
+  a.equal(calendarReaction({ reported: true, actualPct: -1.8976, within: true } as any), '−1.9%');
+  console.log('반올림 시험 통과');
+}

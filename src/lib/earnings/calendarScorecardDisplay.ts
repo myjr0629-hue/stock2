@@ -17,5 +17,7 @@ export function calendarScorecardSummary(data: unknown, week: string): { n: numb
 export function calendarReaction(implied: CalendarImplied | null | undefined): string | null {
   if (implied?.reported !== true || typeof implied.actualPct !== 'number' || !Number.isFinite(implied.actualPct)
     || typeof implied.within !== 'boolean') return null;
-  return `${implied.actualPct >= 0 ? '+' : '−'}${Math.abs(implied.actualPct).toFixed(1)}%`;
+  // toFixed 는 이진 부동소수점 때문에 1.15→1.1·2.55→2.5 로 내린다 — 앱의 다른 % 표시와 같은 반올림(0.05 올림)으로 맞춘다(관문 11041001)
+  const abs = Math.round(Math.abs(implied.actualPct) * 10 + 1e-9) / 10;
+  return `${implied.actualPct >= 0 ? '+' : '−'}${abs.toFixed(1)}%`;
 }
