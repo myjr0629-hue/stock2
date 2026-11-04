@@ -30,7 +30,7 @@ const META: Record<Loc, { title: string; desc: string }> = {
   },
   en: {
     title: 'SIGNUM HQ — Options-Implied Earnings Moves vs Actual | US Stocks',
-    desc: 'Before every US earnings report, see the move options are pricing in — and after it, what actually happened. Weekly scorecard, free. Information, not investment advice.',
+    desc: 'Before major US earnings reports, see the move options are pricing in — and after them, what actually happened. Weekly scorecard, free. Information, not investment advice.',
   },
   ja: {
     title: 'SIGNUM HQ — 米国株決算のオプション想定変動幅と実際',

@@ -60,7 +60,7 @@
   "home": {
     "badge": "실시간 미국 마켓 데이터",
     "earningsHeadline": "실적 발표 전 옵션 예상 변동폭과 실제",
-    "earningsSummary": "이번 주 발표 종목 {n}건 중 {within}건이 옵션 예상 변동폭 안에서 움직였습니다.",
+    "earningsSummary": "이번 주 채점된 {n}종목 중 {within}종목이 옵션 예상 변동폭 안에서 움직였습니다.",
     "earningsFallback": "이번 주 실적 발표 후 실제 움직임과 옵션 예상 변동폭을 비교합니다.",
     "earningsCta": "이번 주 실적 예상 변동폭 보기",
     "headline1": "MARKET INTELLIGENCE,",

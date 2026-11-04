@@ -60,7 +60,7 @@
   "home": {
     "badge": "リアルタイム米国マーケットデータ",
     "earningsHeadline": "決算前のオプション想定変動幅と実際",
-    "earningsSummary": "今週の決算発表後の値動きは{n}件中{within}件がオプションの想定変動幅内でした。",
+    "earningsSummary": "今週採点した{n}銘柄のうち{within}銘柄がオプションの想定変動幅内で動きました。",
     "earningsFallback": "今週の決算発表後の実際の値動きとオプションの想定変動幅を比較します。",
     "earningsCta": "今週の決算想定変動幅を見る",
     "headline1": "MARKET INTELLIGENCE,",
