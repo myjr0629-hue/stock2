@@ -71,8 +71,9 @@ export function intentCopy(v: Intent, locale: string) {
     const parts: string[] = [];
     if (ymdOk(v.expiry)) parts.push(loc === 'ko' ? `${md(v.expiry)} 만기` : loc === 'ja' ? `${md(v.expiry)}満期` : `${md(v.expiry)} expiry`);
     if (ymdOk(v.session)) {
-      const live = v.quote === 'live';
-      parts.push(loc === 'ko' ? `${md(v.session)} ${live ? '장중' : '마감'} 호가 기준` : loc === 'ja' ? `${md(v.session)}${live ? 'ザラ場' : '引け'}気配基準` : `${md(v.session)} ${live ? 'live' : 'closing'} quotes`);
+      // 호가 종류를 모르면(null) 단정하지 않는다 — «마감»은 eod 일 때만(관문 11050234 ③)
+      const kind = v.quote === 'live' ? { ko: '장중 ', ja: 'ザラ場', en: 'live ' } : v.quote === 'eod' ? { ko: '마감 ', ja: '引け', en: 'closing ' } : { ko: '', ja: '', en: '' };
+      parts.push(loc === 'ko' ? `${md(v.session)} ${kind.ko}호가 기준` : loc === 'ja' ? `${md(v.session)}${kind.ja}気配基準` : `${md(v.session)} ${kind.en}quotes`);
     }
     if (!parts.length) return '';
     return loc === 'ja' ? `(${parts.join('・')})` : loc === 'ko' ? `(${parts.join(' · ')})` : ` (${parts.join(', ')})`;

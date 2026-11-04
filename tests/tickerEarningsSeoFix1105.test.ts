@@ -105,17 +105,38 @@ test('② 포인터 쓰기 — 크론 동기화는 완성 기록만, 앞으로�
   ]);
   const sets: Array<[string, unknown]> = [];
   const keysRead: string[][] = [];
+  const strictReads: string[] = [];
+  const getStrict = async (k: string) => { strictReads.push(k); return { ok: true, value: mem.get(k) ?? null }; };
   const r = await syncActualsLatestPointers({ nowMs: now, list, deps: {
     mget: async (keys) => { keysRead.push(keys); return keys.map((k) => mem.get(k) ?? null); },
+    getStrict,
     set: async (k, v) => { sets.push([k, v]); mem.set(k, v); return true; },
   } });
   assert.deepEqual(sets, [[actualsLatestKey('AAA'), { date: '2026-10-13' }], [actualsLatestKey('EEE'), { date: '2026-10-13' }]], '완성 + 포인터 없음만 · 최근 미완성이면 이전 완성 기록');
   assert.equal(r.checked, 5, '미래 발표(DDD)는 보지 않는다');
   assert.equal(keysRead.length, 2, 'mget 2번');
+  assert.deepEqual([...strictReads].sort(), [actualsLatestKey('AAA'), actualsLatestKey('EEE')].sort(), '쓸 후보만 엄격 확인');
+  // 평상시(포인터가 모두 최신): 엄격 읽기 0 · 쓰기 0
+  strictReads.length = 0; sets.length = 0;
+  await syncActualsLatestPointers({ nowMs: now, list, deps: { mget: async (keys) => keys.map((k) => mem.get(k) ?? null), getStrict, set: async (k, v) => { sets.push([k, v]); return true; } } });
+  assert.equal(strictReads.length, 0); assert.deepEqual(sets, []);
+  // 포인터 묶음 읽기가 장애로 빈 값 + 엄격 읽기도 실패 → 쓰지 않는다(최신 포인터를 옛 날짜로 덮지 않는다)
+  mem.set(actualsLatestKey('AAA'), { date: '2027-01-20' });
+  await syncActualsLatestPointers({ nowMs: now, list, deps: {
+    mget: async (keys) => keys.map((k) => (k.includes(':latest:') ? null : mem.get(k) ?? null)),
+    getStrict: async () => ({ ok: false, value: null }), set: async (k, v) => { sets.push([k, v]); return true; } } });
+  assert.deepEqual(sets, [], '엄격 읽기 실패 — 쓰기 0');
+  // 묶음 읽기만 빈 값, 엄격 읽기는 최신 값 → 쓰지 않는다
+  await syncActualsLatestPointers({ nowMs: now, list, deps: {
+    mget: async (keys) => keys.map((k) => (k.includes(':latest:') ? null : mem.get(k) ?? null)),
+    getStrict, set: async (k, v) => { sets.push([k, v]); return true; } } });
+  assert.ok(!sets.some(([k]) => k === actualsLatestKey('AAA')), '더 최신 포인터는 그대로');
+  // (확인 목록의 줄이 다음 분기 날짜로 바뀐 뒤에도 페이지는 남은 포인터로 직전 기록을 읽는다 — 위 ② 200일 전 기록 시험)
   // 더 옛 기록이 와도 포인터를 뒤로 돌리지 않는다
   mem.set(actualsLatestKey('AAA'), { date: '2026-12-31' });
   sets.length = 0;
-  await syncActualsLatestPointers({ nowMs: now, list, deps: { mget: async (keys) => keys.map((k) => mem.get(k) ?? null), set: async (k, v) => { sets.push([k, v]); return true; } } });
+  sets.length = 0;
+  await syncActualsLatestPointers({ nowMs: now, list, deps: { mget: async (keys) => keys.map((k) => mem.get(k) ?? null), getStrict, set: async (k, v) => { sets.push([k, v]); return true; } } });
   assert.deepEqual(sets, []);
   const route = fs.readFileSync('src/app/api/cron/earnings-actuals/route.ts', 'utf8');
   assert.match(route, /if \(!dryRun && r\.lockAcquired && Date\.now\(\) - t0 < maxDuration \* 1000 - 15_000\)/, '쓰기 잠금 회차만');
@@ -143,6 +164,10 @@ test('③ 문구 = 보이는 값의 정의 — 스트래들/이벤트 분리 3�
     const live = intentCopy({ ...split, quote: 'live' }, loc);
     assert.match(live.upcoming, { en: /live quotes/, ko: /장중 호가 기준/, ja: /ザラ場気配基準/ }[loc]);
     assert.doesNotMatch(intentCopy({ ...split, pct: null }, loc).upcoming, /expiry|만기|満期/, '값이 없으면 기준도 없다');
+    // 호가 종류 미확인(null)은 «마감»으로 단정하지 않는다
+    const unknown = intentCopy({ ...split, quote: null }, loc).upcoming;
+    assert.doesNotMatch(unknown, /closing|live|마감|장중|引け|ザラ場/);
+    assert.match(unknown, { en: /Jan 1 quotes/, ko: /1\/1 호가 기준/, ja: /1\/1気配基準/ }[loc]);
     // 값이 없으면 정의 문구는 기본(스트래들)
     assert.match(intentCopy({ ...split, pct: null }, loc).a2, STRADDLE[loc]);
     // 직전 기록은 성적표 기준(ATM 스트래들)임을 밝힌다
