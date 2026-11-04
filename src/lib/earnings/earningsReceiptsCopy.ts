@@ -12,6 +12,7 @@ interface ReceiptCopy {
   fmp: string; single: string; provisional: string; method: string; methods: string[];
   summary: (s: EarningsReceipts['summary']) => string;
   summaryLabels: Record<keyof EarningsReceipts['summary'], string>;
+  scorecardSummary: (n: number, within: number) => string;
   details: string;
 }
 
@@ -46,6 +47,7 @@ export const RECEIPT_COPY: Record<Loc, ReceiptCopy> = {
     ],
     summary: (s) => `확정 일정 ${s.total}건 · 사전 비교 ${s.pre}건 (안 ${s.within} · 밖 ${s.outside}) · 사후 보강 ${s.backfilled}건 · 시점 확인 불가 ${s.unverified}건 · 비교 자료 누락 ${s.missing}건`,
     summaryLabels: { total: '확정 일정', pre: '사전 비교', within: '사전 비교 · 범위 안', outside: '사전 비교 · 범위 밖', backfilled: '사후 보강', unverified: '시점 확인 불가', missing: '비교 자료 누락' },
+    scorecardSummary: (n, within) => `이번 주 채점: ${n}종목 중 ${within}개 범위 안`,
     details: '상세 기록',
   },
   en: {
@@ -78,6 +80,7 @@ export const RECEIPT_COPY: Record<Loc, ReceiptCopy> = {
     ],
     summary: (s) => `${s.total} scheduled · ${s.pre} pre-announcement pairs (${s.within} within · ${s.outside} outside) · ${s.backfilled} later reconstructions · ${s.unverified} unverified timing · ${s.missing} missing comparisons`,
     summaryLabels: { total: 'Scheduled', pre: 'Pre-announcement pairs', within: 'Pre-announcement · within range', outside: 'Pre-announcement · outside range', backfilled: 'Later reconstructions', unverified: 'Unverified timing', missing: 'Missing comparisons' },
+    scorecardSummary: (n, within) => `This week: ${within} of ${n} within range`,
     details: 'Record details',
   },
   ja: {
@@ -110,6 +113,7 @@ export const RECEIPT_COPY: Record<Loc, ReceiptCopy> = {
     ],
     summary: (s) => `確定日程${s.total}件・事前比較${s.pre}件（内${s.within}・外${s.outside}）・事後補完${s.backfilled}件・時点確認不可${s.unverified}件・比較資料欠損${s.missing}件`,
     summaryLabels: { total: '確定日程', pre: '事前比較', within: '事前比較・範囲内', outside: '事前比較・範囲外', backfilled: '事後補完', unverified: '時点確認不可', missing: '比較資料欠損' },
+    scorecardSummary: (n, within) => `今週の検証：${n}銘柄中${within}件が範囲内`,
     details: '記録の詳細',
   },
 };
