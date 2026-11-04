@@ -7,6 +7,8 @@ import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
 import { AppAnchorAd } from '@/components/app/AppAnchorAd';
 import { WatchlistHost } from '@/components/app/watchlist/WatchlistHost';
+import { countRatingPush, ratingSessionEligible, RATING_MOMENT_PUSH } from '@/lib/app/ratingMoments';
+import { promptRatingMoment } from '@/lib/native/capacitorBridge';
 import { ReviewPromptMoments } from '@/components/app/ReviewPromptMoments';
 import { CouponGuideHost } from '@/components/app/CouponGuideHost';
 import { GiftAnnounceHost } from '@/components/app/GiftAnnounceHost';
@@ -117,6 +119,12 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
             const target = reportPushPath(type, loc, action?.notification?.data?.date)
               || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : null);
             if (!target) return;
+            try {
+              if (countRatingPush(type, localStorage, sessionStorage) >= 3) {
+                // 평점 «좋은 순간» (b) — 실적·이상신호 알림 탭으로 연 3번째 이후 세션. 기존 마일스톤과 따로 판정(관문 11050112 ①)
+                promptRatingMoment(RATING_MOMENT_PUSH, 3000, () => ratingSessionEligible(localStorage, sessionStorage));
+              }
+            } catch { /* storage unavailable */ }
             // Re-tapping the same report URL must also close an open sector sheet.
             if (type === 'closing') window.dispatchEvent(new Event(REPORT_OPEN_EVENT));
             // Persist the target so a COLD-start tap survives the root→/dash launch

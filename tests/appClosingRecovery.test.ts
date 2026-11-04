@@ -44,6 +44,8 @@ function harness(locale: string, fetch: (url: string, options: any) => Promise<a
             appCopy: { reportLoading: 'LOADING_MARKER' }, appLocale: locale,
             SECTOR_CONFIGS: [{ id: 'quantum_edge' }, { id: 'm7' }], datedReports: {}, globalReportLoading: state.GlobalReportLoading,
             SECTOR_APP_COPY: { [locale]: { quantum_edge: { name: 'QUANTUM_MARKER' }, m7: { name: 'M7_MARKER' } } },
+            // 오류 화면 표식(화면에 아무것도 그리지 않는다 — components/app/SessionErrorMark)
+            SessionErrorMark: () => null,
         })),
     };
 }

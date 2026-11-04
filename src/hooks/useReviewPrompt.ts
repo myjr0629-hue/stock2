@@ -33,8 +33,11 @@ import { GIFT_REVIEW_QUIET_MS, readAnnounceState } from '@/lib/gift/giftAnnounce
  * 선물 안내(lib/gift/useGiftMoment·GiftAnnounceHost)가 이 시각 뒤 일정 시간은 띄우지 않는다(OS 시트와 겹치지 않게).
  * 결과(표시 여부)는 여전히 읽지 않는다 — «요청했다»만 적는다.
  */
-let lastReviewRequestAt = 0;
-export const reviewRequestedAt = (): number => lastReviewRequestAt;
+let confirmedRequestAt = 0;
+/** 아직 실행 전인 예약들(예약 id → 예약 시각). 취소·무효가 된 예약은 빠지고, 겹친 예약도 서로의 시각을 되살리지 않는다(관문 11050217 ③). */
+const pendingRequests = new Map<number, number>();
+let nextReservation = 1;
+export const reviewRequestedAt = (): number => Math.max(confirmedRequestAt, ...pendingRequests.values());
 
 /** 광고 진행 중·직후 및 선물 안내 직후에는 요청을 건너뛴다. 예약 시와 실행 시 모두 확인한다. */
 export function reviewMomentBlocked(now = Date.now()): boolean {
@@ -52,16 +55,55 @@ export function reviewMomentBlocked(now = Date.now()): boolean {
   } catch { return true; }
 }
 
-export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true, onBlocked: () => void = () => {}): void {
-  if (guardSignum && reviewMomentBlocked()) { onBlocked(); return; }
-  const previousRequestAt = lastReviewRequestAt;
-  const reservedAt = Date.now() + delayMs;
-  lastReviewRequestAt = reservedAt;
-  window.setTimeout(() => {
-    if (guardSignum && reviewMomentBlocked()) { if (lastReviewRequestAt === reservedAt) lastReviewRequestAt = previousRequestAt; onBlocked(); return; }
-    lastReviewRequestAt = Date.now();
+/**
+ * 예약 뒤 «취소 함수»를 돌려준다. 예약 시 선물 안내용 요청 시각을 미리 적고(지연 동안 안내가 끼어들지 않게),
+ * 실행 시 막혔거나 순간이 더는 유효하지 않거나(eligible false — 다른 화면으로 이동 등) 취소되면 그 예약을 목록에서 뺀다(겹친 예약도 서로의 시각을 되살리지 않는다)
+ * (관문 11050112 ③ — 취소된 요청이 선물 안내를 60초 막지 않게).
+ */
+export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true, onBlocked: () => void = () => {}, eligible: () => boolean = () => true): () => void {
+  if (guardSignum && reviewMomentBlocked()) { onBlocked(); return () => {}; }
+  const id = nextReservation++;
+  pendingRequests.set(id, Date.now() + delayMs);
+  let settled = false;
+  const abandon = () => {
+    if (settled) return;
+    settled = true;
+    pendingRequests.delete(id);
+    onBlocked();
+  };
+  const timer = window.setTimeout(() => {
+    if (settled) return;
+    let ok = false;
+    try { ok = !(guardSignum && reviewMomentBlocked()) && eligible(); } catch { ok = false; }
+    if (!ok) { abandon(); return; }
+    settled = true;
+    pendingRequests.delete(id);
+    confirmedRequestAt = Date.now();
     request();
   }, delayMs);
+  return () => {
+    if (settled) return;
+    try { window.clearTimeout?.(timer); } catch { /* ignore */ }
+    abandon();
+  };
+}
+
+/** 어느 경로든 OS 평점 시트를 «실제로 요청한» 날(로컬 날짜). 새 평점 순간(capacitorBridge.promptRatingMoment)이 같은 날 겹치지 않게 읽는다(관문 11050224 ②). */
+export const REVIEW_ANY_DAY_KEY = 'signum.review.lastAnyDay';
+export const localReviewDay = (d = new Date()): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function markReviewAskedToday(by?: string): void {
+  try {
+    localStorage.setItem(REVIEW_ANY_DAY_KEY, localReviewDay());
+    if (by) localStorage.setItem(`${REVIEW_ANY_DAY_KEY}.by`, by); else localStorage.removeItem(`${REVIEW_ANY_DAY_KEY}.by`);
+  } catch { /* ignore */ }
+}
+/** 오늘 «다른» 경로가 이미 OS 시트를 요청했는가 — 같은 경로의 다음 마일스톤은 막지 않는다 */
+function reviewAskedTodayByOther(key: string): boolean {
+  try { return reviewAskedToday() && localStorage.getItem(`${REVIEW_ANY_DAY_KEY}.by`) !== key; } catch { return true; }
+}
+export function reviewAskedToday(): boolean {
+  try { return localStorage.getItem(REVIEW_ANY_DAY_KEY) === localReviewDay(); } catch { return true; }
 }
 
 // 마일스톤은 OS 시트를 실제로 요청할 때까지(막힌 회차는 세지 않고) 다음 적격 순간에 다시 시도한다 — 요청 뒤엔 완료 표식.
@@ -69,12 +111,12 @@ const inFlight = new Set<string>();
 export function reviewAttempts(key: string, milestone: number): number {
   return Number(localStorage.getItem(`${key}.attempt.${milestone}`)) || 0;
 }
-export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void): void {
+export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void, eligible: () => boolean = () => true): () => void {
   const id = `${key}:${milestone}`;
-  if (inFlight.has(id) || reviewAttempts(key, milestone) >= 2) return;
+  if (inFlight.has(id) || reviewAttempts(key, milestone) >= 2) return () => {};
   inFlight.add(id);
   const release = () => { inFlight.delete(id); };
-  scheduleReviewRequest(delay, () => {
+  return scheduleReviewRequest(delay, () => {
     try {
       const plugin = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
       if (typeof plugin?.requestReview !== 'function') return;
@@ -82,9 +124,12 @@ export function attemptReview(key: string, milestone: number, delay: number, gua
       localStorage.setItem(`${key}.attempt.${milestone}`, String(reviewAttempts(key, milestone) + 1));
       const result = plugin.requestReview();
       Promise.resolve(result).catch(() => {});
+      markReviewAskedToday(key);
       requested();
     } catch { /* 요청 실패는 앱을 막지 않는다 */ } finally { release(); }
-  }, guard, release);
+  // 같은 날 다른 경로(새 평점 순간 등)가 이미 물었으면 이번 회차는 «적격 아님»으로 버린다 — 묻지도 기록하지도 않고,
+  // 요청 시각(confirmedRequestAt)도 남기지 않아 선물 안내를 막지 않는다(관문 11050239·11050242). 다음 날 다시 기회가 온다
+  }, guard, release, () => !reviewAskedTodayByOther(key) && eligible());
 }
 
 type Options = {

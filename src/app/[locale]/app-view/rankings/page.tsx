@@ -26,6 +26,7 @@ import { fetchResponseWithDeadline } from '@/lib/app/requestDeadline';
 import { fmtRankPair, fmtMoney } from '@/lib/app/rankingFormat';
 import { rankingBadgePhase } from '@/lib/rankings/badge';
 import { sessionPhase } from '@/lib/rankings/engine';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 type Phase = 'intraday' | 'postclose' | 'anytime';
 type Tab = 'all' | Phase;
@@ -348,6 +349,7 @@ export default function RankingsPage() {
       </div>
 
       {/* 못 받았으면 빈 껍데기 대신 «왜 비었는지» 를 적는다 */}
+      {err && <SessionErrorMark />}
       {err && <div className={s.rkC}><div className={s.rkSoon}><span><b>{t.down}</b></span></div></div>}
       {!res && !err && [0, 1, 2].map((i) => <div key={i} className={`${s.rkSkel} ${s.rkSkelCard}`} />)}
 

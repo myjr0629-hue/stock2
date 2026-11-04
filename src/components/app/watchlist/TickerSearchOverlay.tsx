@@ -21,6 +21,7 @@ import { addStar, toggleStar } from './starActions';
 import { wlCopy } from './copy';
 import { WlIcon } from './icons';
 import s from './watchlist.module.css';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 const POPULAR = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY', 'QQQ', 'MU', 'AMD', 'PLTR'];
 
@@ -207,6 +208,7 @@ export function TickerSearchOverlay({ loc, onClose }: { loc: WlLocale; onClose: 
               <div className={s.srEmpty} role="status">
                 {!cur ? t.busy : cur.failed ? (
                   <>
+                    <SessionErrorMark />
                     {c.searchFail} · <button type="button" className={s.srCancel} onClick={retry}>{c.retry}</button>
                   </>
                 ) : t.none}

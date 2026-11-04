@@ -9,7 +9,7 @@
 //   발표 시각(amc/bmo)이 비면 «시간 미정» 으로 두고 추정하지 않는다.
 // ============================================================================
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { LogoWithBadge } from '@/components/app/watchlist/StarButton';
@@ -29,6 +29,8 @@ import { calendarReaction } from '@/lib/earnings/calendarScorecardDisplay';
 import { watchCalendarScorecard } from '@/lib/earnings/calendarScorecardRefresh';
 import type { CalendarImplied } from '@/lib/earnings/calendarReportedImplied';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
+import { markReactionSeen, ratingSessionEligible, RATING_MOMENT_REACTION } from '@/lib/app/ratingMoments';
+import { isNativeApp, promptRatingMoment } from '@/lib/native/capacitorBridge';
 import s from './earnings.module.css';
 
 interface Row {
@@ -99,6 +101,25 @@ export default function EarningsPage() {
     setRows(nextRows);
     setGeneratedAt(at);
   }), []);
+
+  // 평점 «좋은 순간» (a) — 내 종목의 «범위 안» 반응 행이 처음 보인 3초 뒤(세션 1회). 화면을 떠나면 예약을 취소한다(관문 11050112 ③).
+  const cancelRatingRef = useRef<() => void>(() => {});
+  useEffect(() => () => cancelRatingRef.current(), []);
+  useEffect(() => {
+    if (!isNativeApp || !rows || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      observer.disconnect();
+      try {
+        if (!markReactionSeen(sessionStorage)) return;
+        const eligible = () => ratingSessionEligible(localStorage, sessionStorage)
+          && /\/app-view\/earnings(?:\/|$)/.test(location.pathname);
+        cancelRatingRef.current = promptRatingMoment(RATING_MOMENT_REACTION, 3000, eligible);
+      } catch { /* storage unavailable */ }
+    });
+    document.querySelectorAll('[data-rating-reaction="1"]').forEach(node => observer.observe(node));
+    return () => observer.disconnect();
+  }, [rows, myList]);
 
   const byDate = useMemo(() => {
     if (!rows) return [];
@@ -232,7 +253,7 @@ export default function EarningsPage() {
                         {e.implied && <em className="num">{impliedBasisText(e.implied, locale)}</em>}
                       </span>
                       {calendarReaction(e.implied) && (
-                        <span className={`${s.ecReaction} ${e.implied?.within ? s.ecWithin : s.ecOutside}`}>
+                        <span data-rating-reaction={myList.has(e.ticker) && e.implied?.within === true ? "1" : undefined} className={`${s.ecReaction} ${e.implied?.within ? s.ecWithin : s.ecOutside}`}>
                           {receipt.columns[2]} {calendarReaction(e.implied)} · {e.implied?.within ? receipt.within : receipt.outside}
                         </span>
                       )}

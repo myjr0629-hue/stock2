@@ -37,6 +37,7 @@ import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature } fro
 import { sessionChangeOrNull, coverageTitle } from '@/lib/app/intelSessionChange';
 import { snapshotChangeOrNull } from '@/lib/app/intelSnapshotChange';
 import { snapshotScoreOrNull } from '@/lib/app/intelSnapshotScore';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -3123,6 +3124,7 @@ function AppIntelContent() {
       {/* CLOSING REPORT VIEW */}
       {!selectedSector && intelTab === 'report' && (
         <div style={{ padding: '12px 16px 0', animation: 'fadeSlideIn 0.25s ease' }}>
+          {crossBriefError && <SessionErrorMark />}
           {crossBriefError && <p role="status">{requestedDate || ''} {locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.'}</p>}
           {!crossBriefError && (crossBriefLoading || !crossBrief || (requestedDate && closingDate !== requestedDate)) ? (
             <div style={{
@@ -3635,6 +3637,7 @@ function AppIntelContent() {
                 if (!cached) return (
                   <div key={sec.id}>
                     <strong>{SECTOR_APP_COPY[appLocale][sec.id]?.name || sec.id}</strong>
+                    {!(globalReportLoading && !crossBriefError) && <SessionErrorMark />}
                     <p role="status">{closingDate} {globalReportLoading && !crossBriefError ? appCopy.reportLoading : (locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.')}</p>
                   </div>
                 );

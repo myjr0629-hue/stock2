@@ -50,6 +50,7 @@ import { formatObservationTime, resolveCommandVolatilityObservation, type Comman
 import { buildDeepSnapshot, computeGexStats } from '@/lib/ai/deepSnapshot';
 import { closeLabelOr } from '@/lib/marketSession';
 import { normalizeVwap, vwapDistancePct } from '@/lib/vwap';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 /* ═══════════════════════════════════════════
    DEMO DATA — used when API is unreachable
@@ -3159,6 +3160,7 @@ function CmdPageContent() {
         : { title: 'Could not load this ticker', body: `We could not get price and options data for ${ticker}. Check your connection and try again.`, retry: 'Try again' };
     return (
       <>
+        <SessionErrorMark />
         <div className={s.header}>
           <button className={s.headerBtn} onClick={() => router.back()} aria-label={locale === 'ko' ? '뒤로 가기' : locale === 'ja' ? '戻る' : 'Back'}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -3327,6 +3329,7 @@ function CmdPageContent() {
       {/* ★ [2026-10-07 앱 강화] 새 시세를 못 받아 «조금 전 정상값»을 보여 주는 중 — 값은 그대로, 기준 시각을 밝힌다 */}
       {staleSince != null && (
         <div role="status" style={{ margin: '6px 16px 0', padding: '7px 10px', borderRadius: '10px', background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', fontSize: '11.5px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <SessionErrorMark />
           <span>{(() => {
             const hm = new Date(staleSince).toLocaleTimeString(locale === 'ko' ? 'ko-KR' : locale === 'ja' ? 'ja-JP' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
             return locale === 'ko' ? `새 시세를 못 받았습니다 · 마지막 정상값 ${hm} 기준` : locale === 'ja' ? `最新の価格を取得できません · 最後の正常値 ${hm} 時点` : `Could not refresh · last good values as of ${hm}`;

@@ -42,6 +42,7 @@ import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 import { useWatchlistAiLines, firstSeen } from '@/components/app/watchlist/useWatchlistAiLines';
 import { InviteShareButton } from '@/components/app/InviteShareButton';
 import { aiLineState, fillAiLine, liveInsight, type AiLineEntry } from '@/lib/app/watchlistAiLine';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
 const TickerSearchOverlay = dynamic(
@@ -686,6 +687,7 @@ function WatchlistInner() {
             {/* 다시 시도 — 값이 하나도 없거나, 실패했는데 목록이 오래됐거나 값이 빠진 행이 있을 때(E5 — 부분 실패에도 뜬다) */}
             {(data.error || (data.failed && (data.stale || rows.some((r) => !r.rt)))) && (
               <p className={p.disc}>
+                <SessionErrorMark />
                 {t.fail} · <button type="button" className={`${p.tbtn} ${p.tbtnSm}`} onClick={data.refresh}>{t.retry}</button>
               </p>
             )}
