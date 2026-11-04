@@ -7,15 +7,15 @@ const COPY: Record<Loc, { title: string; subscribe: string; ios: string; android
   ja: { title: '毎週月曜、今週の決算想定変動幅をメールで', subscribe: 'Substackを購読', ios: 'App Storeでアプリを入手', android: 'Google Playでアプリを入手' },
 };
 
-export function EarningsWeekSubscribe({ locale, appHref }: { locale: Loc; appHref: string }) {
+export function EarningsWeekSubscribe({ locale }: { locale: Loc }) {
   const c = COPY[locale];
   return (
     <section className="ew-subscribe" aria-labelledby="ew-subscribe-title">
       <h2 id="ew-subscribe-title">{c.title}</h2>
       <div className="ew-subscribe-actions">
         <a className="ew-subscribe-link" href="https://signumhq.substack.com/">{c.subscribe}</a>
-        <a href={appHref} aria-label={c.ios}><StoreBadge kind="ios" compact /></a>
-        <a href={appHref} aria-label={c.android}><StoreBadge kind="android" compact /></a>
+        <a href="https://apps.apple.com/app/id6783130444" aria-label={c.ios}><StoreBadge kind="ios" compact /></a>
+        <a href="https://play.google.com/store/apps/details?id=com.signumhq.app" aria-label={c.android}><StoreBadge kind="android" compact /></a>
       </div>
     </section>
   );

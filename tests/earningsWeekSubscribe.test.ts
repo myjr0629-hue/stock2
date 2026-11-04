@@ -14,12 +14,11 @@ const titles: Record<Loc, string> = {
   ja: '毎週月曜、今週の決算想定変動幅をメールで',
 };
 for (const locale of ['ko', 'en', 'ja'] as const) {
-  const html = renderToStaticMarkup(createElement(EarningsWeekSubscribe, { locale, appHref: '/app?from=test' }));
+  const html = renderToStaticMarkup(createElement(EarningsWeekSubscribe, { locale }));
   assert.ok(html.includes(titles[locale].replace("'", '&#x27;')), locale);
   assert.equal((html.match(/href="https:\/\/signumhq\.substack\.com\/"/g) || []).length, 1);
-  assert.equal((html.match(/href="\/app\?from=test"/g) || []).length, 2);
-  assert.match(html, /App Store/);
-  assert.match(html, /Google Play/);
+  assert.match(html, /<a href="https:\/\/apps\.apple\.com\/app\/id6783130444" aria-label="[^"]*App Store[^"]*"/);
+  assert.match(html, /<a href="https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.signumhq\.app" aria-label="[^"]*Google Play[^"]*"/);
   assert.doesNotMatch(html, /<input|<form/);
 }
 const before = execFileSync('git', ['show', 'origin/main:src/remotion/kit/AppPlate.tsx'], { encoding: 'utf8' });

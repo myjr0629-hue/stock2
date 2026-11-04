@@ -288,7 +288,7 @@ export default async function EarningsWeekPage({ params }: Params) {
         <p>{c.disc}</p>
       </footer>
 
-      <EarningsWeekSubscribe locale={l} appHref={href} />
+      <EarningsWeekSubscribe locale={l} />
     </main>
   );
 }
