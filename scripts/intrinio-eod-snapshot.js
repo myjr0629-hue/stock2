@@ -80,7 +80,7 @@ function httpRequest(url, { method = "GET", headers = {}, body = null } = {}) {
 // ── 설정 ────────────────────────────────────────────────────────────
 const ENV_PATH = process.env.ENV_PATH || "/opt/signum-ws/.env";
 const PROXY = process.env.REDIS_PROXY_URL || "http://127.0.0.1:8081";
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
+const { requireRedisProxyKey } = require("./lib/redis-proxy-key");
 const SNAPSHOT_KEY = "intrinio:eod:snapshot";
 /**
  * 다일치 종가 행렬 — `signum-xs` Lambda 가 17거래일 grouped daily 를 요구한다.
@@ -119,6 +119,7 @@ function loadEnv(p) {
     } catch { /* 파일 없으면 환경변수만 사용 */ }
 }
 loadEnv(ENV_PATH);
+const PROXY_KEY = requireRedisProxyKey();
 
 const API_KEY = process.env.INTRINIO_API_KEY;
 if (!API_KEY) {

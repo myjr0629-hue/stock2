@@ -29,7 +29,7 @@ const { URL } = require("url");
 
 const ENV_PATH = process.env.ENV_PATH || "/opt/signum-ws/.env";
 const PROXY = process.env.REDIS_PROXY_URL || "http://127.0.0.1:8081";
-const PROXY_KEY = process.env.REDIS_PROXY_KEY || "";
+const { requireRedisProxyKey } = require("./lib/redis-proxy-key");
 const EOD_KEY = "intrinio:eod:snapshot";
 const LIQ_KEY = "intrinio:liquidity:lastreg";
 const TTL_SEC = 5 * 24 * 3600;      // 5일 — 연휴에도 값이 남게
@@ -47,6 +47,7 @@ function loadEnv(p) {
     } catch { }
 }
 loadEnv(ENV_PATH);
+const PROXY_KEY = requireRedisProxyKey();
 const KEY = process.env.INTRINIO_API_KEY;
 if (!KEY) { console.error("[LIQ] INTRINIO_API_KEY 없음"); process.exit(1); }
 

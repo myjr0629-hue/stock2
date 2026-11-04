@@ -4,7 +4,8 @@ require('dotenv').config({ path: '.env.local' });
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const EC2_PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
-const EC2_KEY = process.env.REDIS_PROXY_KEY || "";
+const { requireRedisProxyKey } = require("./lib/redis-proxy-key");
+const EC2_KEY = requireRedisProxyKey();
 
 async function upstashGet(key) {
     const res = await fetch(`${UPSTASH_URL}/get/${encodeURIComponent(key)}`, {
