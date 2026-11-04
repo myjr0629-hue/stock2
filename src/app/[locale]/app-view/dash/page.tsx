@@ -36,6 +36,7 @@ import { newsArchiveHref } from '@/lib/news/pulseNavigation';
 import s from './dash.module.css';
 import { loadRetainedSelloff, readSelloffMacro, saveRetainedSelloff, selloffPreviewParam, selloffShown, type SelloffBrief } from '@/lib/selloffBriefing';
 import { SelloffCard } from './SelloffCard';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 /* ═══════════════════════════════════════════════════════════
    DEMO FALLBACK DATA — Always show content even if APIs fail
@@ -2412,6 +2413,7 @@ export default function AppDashPage() {
                     <b>{adGate.purchasing ? adGate.copy.modalWaitPrefix : adGate.copy.proCta}</b>
                     <em>{c9.proNote}</em>
                   </button>
+                  {adGate.proError && <SessionErrorMark />}
                   {adGate.proError && (
                     <div className={n9.e9ProErr} role="alert">{adGate.copy.proErrorLabel}</div>
                   )}

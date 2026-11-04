@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 const LABELS = {
   ko: { offline: '오프라인', reconnecting: '재연결 중...' },
@@ -52,6 +53,7 @@ export function NetworkStatus() {
       animation: 'fadeInUp 0.3s ease',
       maxWidth: 'calc(100vw - 32px)',
     }}>
+      <SessionErrorMark />
       <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', animation: 'pulse 1.5s infinite' }} />
       <span>{t.offline}</span>
       <span style={{ opacity: 0.7 }}>·</span>

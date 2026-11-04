@@ -19,6 +19,7 @@ import { AdFreeIcon } from './AdFreeIcon';
 import { RedeemCodeLink } from './RedeemCodeLink';
 import vw from './ValueWall.module.css';
 import s from './GuruLens.module.css';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 /** 종목 역조회(배지 없이 규칙 판정만). 티커가 바뀌면 이전 종목 값을 즉시 버린다. */
 export function useTickerLens(ticker: string | null | undefined): TickerLens | null {
@@ -108,6 +109,7 @@ export function GuruLensProOnly({ locale, rows, children, locked = false }: { lo
                             <AdFreeIcon size={13} />
                             <span>{g.purchasing ? g.copy.modalWaitPrefix : g.copy.proCta}</span>
                         </button>
+                        {g.proError && <SessionErrorMark />}
                         {g.proError && <div className={vw.proError} role="alert">{g.copy.proErrorLabel}</div>}
                         {g.proNothing && <div className={vw.proError} style={{ color: 'var(--text-muted)' }} role="status">{g.copy.proNothingLabel}</div>}
                         <button type="button" className={vw.proRestore} onClick={g.handleRestore} disabled={g.purchasing}>

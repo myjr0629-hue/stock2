@@ -33,6 +33,7 @@ import { WlIcon, SignumMark } from './icons';
 import { StarBadge } from './StarButton';
 import { canRedeemHere, openRedeem } from '@/lib/app/redeem';
 import s from './watchlist.module.css';
+import { markSessionError } from '@/lib/app/ratingMoments';
 
 export type UpsellMode = 'limit' | 'alerts' | 'generic' | 'chips';
 
@@ -113,7 +114,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
     setBusy(false);
     trackWatchlist('wl_purchase', { sheet: sheetName, ok: !!(r.ok && r.isPro), cancelled: !!r.cancelled });
     if (r.ok && r.isPro) return;                  // 위 effect 가 이어서 처리한다
-    if (!r.ok && !r.cancelled) setNote(c.purchaseFailed);
+    if (!r.ok && !r.cancelled) { markSessionError(); setNote(c.purchaseFailed); }
   }, [busy, purchasePending, monthly, purchase, mode, sheetName, c.purchaseFailed]);
 
   const onRestore = useCallback(async () => {

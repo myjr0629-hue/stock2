@@ -31,6 +31,7 @@ const funnel = () => import('@/lib/app/funnel');
 import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 import { RedeemCodeLink } from './RedeemCodeLink';
+import { markSessionError } from '@/lib/app/ratingMoments';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
 
@@ -286,7 +287,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
     setBusy(false);
     if (res.ok && res.isPro) return; // 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
-    if (!res.ok && !res.cancelled) setNote(t.failed);
+    if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
   }, [busy, purchasePending, monthly, purchase, t, funnelSrc]);
 
   const handleRestore = useCallback(async () => {
@@ -297,7 +298,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
     setBusy(false);
     if (res.ok && res.isPro) setNote(t.restored);
     else if (res.ok) setNote(t.nothingToRestore);
-    else setNote(t.failed);
+    else { markSessionError(); setNote(t.failed); }
   }, [busy, restore, t, funnelSrc]);
 
   const go = useCallback((path: 'terms' | 'privacy') => {

@@ -42,7 +42,7 @@ import { levelOutOfRangeText } from '@/lib/optionLevelGate';
 import { useWatchlistAiLines, firstSeen } from '@/components/app/watchlist/useWatchlistAiLines';
 import { InviteShareButton } from '@/components/app/InviteShareButton';
 import { aiLineState, fillAiLine, liveInsight, type AiLineEntry } from '@/lib/app/watchlistAiLine';
-import { markSessionError } from '@/lib/app/ratingMoments';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
 const TickerSearchOverlay = dynamic(
@@ -348,9 +348,6 @@ function WatchlistInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [wl.tickers, loc, now, isPro, proKnown, data, aiGet, insightTick],
   );
-  // 처리된 오류 화면(«불러오지 못함 · 다시 시도» — 아래 목록 렌더와 같은 조건, 부분 실패 포함)을 그린 세션은 새 평점 순간을 건너뛴다(관문 11050112 ② · 11050217 ①)
-  const showsLoadError = !empty && !!(data.error || (data.failed && (data.stale || rows.some((r) => !r.rt))));
-  useEffect(() => { if (showsLoadError) markSessionError(); }, [showsLoadError]);
 
   // AI 한 줄 — 지형이 바뀐 글은 서버에 다시 써 달라고(종목당 10분에 한 번) · 처음 보인 줄은 한 번 센다(하루 합계만, 종목은 싣지 않는다)
   const aiStaleKey = rows.filter((r) => r.aiStale).map((r) => r.t).join(',');
@@ -690,6 +687,7 @@ function WatchlistInner() {
             {/* 다시 시도 — 값이 하나도 없거나, 실패했는데 목록이 오래됐거나 값이 빠진 행이 있을 때(E5 — 부분 실패에도 뜬다) */}
             {(data.error || (data.failed && (data.stale || rows.some((r) => !r.rt)))) && (
               <p className={p.disc}>
+                <SessionErrorMark />
                 {t.fail} · <button type="button" className={`${p.tbtn} ${p.tbtnSm}`} onClick={data.refresh}>{t.retry}</button>
               </p>
             )}

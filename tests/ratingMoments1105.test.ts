@@ -38,13 +38,32 @@ class Mem {
   assert.equal(session.getItem(RATING_ERROR_KEY), '1', 'markSessionError 가 세션 오류 표식을 남긴다');
   const local = new Mem(); local.setItem('signum.appSessions', '5');
   assert.equal(ratingSessionEligible(local, session), false);
-  const intel = fs.readFileSync('src/app/[locale]/app-view/intel/page.tsx', 'utf8');
-  assert.match(intel, /useEffect\(\(\) => \{ if \(crossBriefError\) markSessionError\(\); \}, \[crossBriefError\]\);/, '장마감 리포트 불러오기 실패 화면이 표식을 남긴다');
-  const rankings = fs.readFileSync('src/app/[locale]/app-view/rankings/page.tsx', 'utf8');
-  assert.match(rankings, /if \(err\) markSessionError\(\)/);
-  const wl = fs.readFileSync('src/app/[locale]/app-view/watchlist/page.tsx', 'utf8');
-  assert.match(wl, /if \(showsLoadError\) markSessionError\(\)/);
-  assert.match(wl, /const showsLoadError = !empty && !!\(data\.error \|\| \(data\.failed && \(data\.stale \|\| rows\.some\(\(r\) => !r\.rt\)\)\)\);/, '부분 실패 문구와 같은 조건');
+  // 처리된 오류 화면마다 표식(문구 옆에 아무것도 그리지 않는 SessionErrorMark, 또는 실패 처리부의 markSessionError)
+  const mark = fs.readFileSync('src/components/app/SessionErrorMark.tsx', 'utf8');
+  assert.match(mark, /useEffect\(\(\) => \{ markSessionError\(\); \}, \[\]\);/);
+  assert.match(mark, /return null;/, '화면에는 아무것도 그리지 않는다');
+  const src = (f: string) => fs.readFileSync(f, 'utf8');
+  const marks: Array<[string, RegExp]> = [
+    ['src/app/[locale]/app-view/intel/page.tsx', /\{crossBriefError && <SessionErrorMark \/>\}\n\s*\{crossBriefError && <p role="status">/],
+    ['src/app/[locale]/app-view/intel/page.tsx', /\{!\(globalReportLoading && !crossBriefError\) && <SessionErrorMark \/>\}\n\s*<p role="status">\{closingDate\} \{globalReportLoading && !crossBriefError \?/],
+    ['src/app/[locale]/app-view/rankings/page.tsx', /\{err && <SessionErrorMark \/>\}/],
+    ['src/app/[locale]/app-view/watchlist/page.tsx', /<SessionErrorMark \/>\n\s*\{t\.fail\} · <button/],
+    ['src/app/[locale]/app-view/cmd/page.tsx', /<>\n\s*<SessionErrorMark \/>\n\s*<div className=\{s\.header\}>/],
+    ['src/app/[locale]/app-view/cmd/page.tsx', /<SessionErrorMark \/>\n\s*<span>\{\(\(\) => \{\n\s*const hm = new Date\(staleSince\)/],
+    ['src/app/[locale]/app-view/flow/page.tsx', /\{!loading && !tickerData && \(\n\s*<div[^\n]*>\n\s*<SessionErrorMark \/>/],
+    ['src/app/[locale]/app-view/dash/page.tsx', /\{adGate\.proError && <SessionErrorMark \/>\}/],
+    ['src/components/app/GuruLens.tsx', /\{g\.proError && <SessionErrorMark \/>\}/],
+    ['src/components/app/NetworkStatus.tsx', /<SessionErrorMark \/>/],
+    ['src/components/app/watchlist/TickerSearchOverlay.tsx', /<SessionErrorMark \/>\n\s*\{c\.searchFail\}/],
+    ['src/components/app/ProPaywall.tsx', /\{ markSessionError\(\); setNote\(t\.failed\); \}/],
+    ['src/components/app/watchlist/ProUpsellSheet.tsx', /\{ markSessionError\(\); setNote\(c\.purchaseFailed\); \}/],
+    ['src/components/app/CouponGuideSheet.tsx', /\{ markSessionError\(\); setNote\(t\.failed\); \}/],
+  ];
+  for (const [f, re] of marks) assert.match(src(f), re, `${f} 오류 화면 표식`);
+  // 화면에 보이는 실패 문구는 모두 표식이 붙어 있다(빠진 화면이 없게 — 관문 11050220)
+  for (const f of ['src/app/[locale]/app-view/cmd/page.tsx', 'src/app/[locale]/app-view/intel/page.tsx', 'src/app/[locale]/app-view/watchlist/page.tsx', 'src/app/[locale]/app-view/flow/page.tsx']) {
+    assert.ok(src(f).includes('SessionErrorMark'), f);
+  }
   const moments = fs.readFileSync('src/components/app/ReviewPromptMoments.tsx', 'utf8');
   assert.match(moments, /addEventListener\('error'/);
   assert.match(moments, /addEventListener\('unhandledrejection'/);

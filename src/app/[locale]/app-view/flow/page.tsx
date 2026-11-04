@@ -37,6 +37,7 @@ import { closeLabelOr } from '@/lib/marketSession';
 import { optionFlowBadgeLabel } from '@/lib/app/optionFlowBasis';
 import { selectWhaleSession, WHALE_PREMIUM_FLOOR } from '@/lib/app/flowWhaleSession';
 import { fetchSqueezeFallback, flowSqueeze } from '@/lib/app/flowSqueeze';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 // Single unified logo source — /api/logo picks the best provider per ticker
 // (Parqet app-icons, FMP for overrides like SPCX) so logos match on every page.
@@ -2519,6 +2520,7 @@ export default function AppFlowPage() {
       {/* ── MAIN CONTENT (hidden during loading) ── */}
       {!loading && !tickerData && (
         <div style={{ padding: '0 16px', marginTop: '16px' }}>
+          <SessionErrorMark />
           <div
             className="premium-card"
             style={{

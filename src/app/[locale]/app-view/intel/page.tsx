@@ -37,7 +37,7 @@ import { averageMeasured, isFieldMissing, measuredOrNull, missingSignature } fro
 import { sessionChangeOrNull, coverageTitle } from '@/lib/app/intelSessionChange';
 import { snapshotChangeOrNull } from '@/lib/app/intelSnapshotChange';
 import { snapshotScoreOrNull } from '@/lib/app/intelSnapshotScore';
-import { markSessionError } from '@/lib/app/ratingMoments';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -1541,8 +1541,6 @@ function AppIntelContent() {
   const [closingReports, setClosingReports] = useState<{ date: string; locale: string; reports: Record<string, SectorReportData> } | null>(null);
   const [crossBrief, setCrossBrief] = useState<CrossSectorBrief | null>(null);
   const [crossBriefError, setCrossBriefError] = useState(false);
-  // 처리된 오류 화면(장마감 리포트 불러오기 실패 문구)을 그린 세션은 새 평점 순간을 건너뛴다(관문 11050112 ②)
-  useEffect(() => { if (crossBriefError) markSessionError(); }, [crossBriefError]);
   const [crossBriefLoading, setCrossBriefLoading] = useState(true);
   const [crossBriefGeneratedAt, setCrossBriefGeneratedAt] = useState<string>('');
   const [crossMacro, setCrossMacro] = useState<{ key: string; value: number; changePct: number; category: string }[]>([]);
@@ -3126,6 +3124,7 @@ function AppIntelContent() {
       {/* CLOSING REPORT VIEW */}
       {!selectedSector && intelTab === 'report' && (
         <div style={{ padding: '12px 16px 0', animation: 'fadeSlideIn 0.25s ease' }}>
+          {crossBriefError && <SessionErrorMark />}
           {crossBriefError && <p role="status">{requestedDate || ''} {locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.'}</p>}
           {!crossBriefError && (crossBriefLoading || !crossBrief || (requestedDate && closingDate !== requestedDate)) ? (
             <div style={{
@@ -3638,6 +3637,7 @@ function AppIntelContent() {
                 if (!cached) return (
                   <div key={sec.id}>
                     <strong>{SECTOR_APP_COPY[appLocale][sec.id]?.name || sec.id}</strong>
+                    {!(globalReportLoading && !crossBriefError) && <SessionErrorMark />}
                     <p role="status">{closingDate} {globalReportLoading && !crossBriefError ? appCopy.reportLoading : (locale === 'ko' ? '장마감 리포트를 불러오지 못했습니다.' : locale === 'ja' ? 'クロージングレポートを読み込めませんでした。' : 'Closing report could not be loaded.')}</p>
                   </div>
                 );

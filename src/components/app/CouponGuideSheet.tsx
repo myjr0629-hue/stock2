@@ -23,6 +23,7 @@ import { couponGuideCopy, runCouponPurchase, type CouponGuideRequest } from '@/l
 import { PLAY_REDEEM_URL, refreshProAfterRedeem } from '@/lib/app/redeem';
 import { openExternalUrl } from '@/lib/native/capacitorBridge';
 import { isPreviewHost, notifyProPurchased } from '@/lib/app/proEntitlement';
+import { markSessionError } from '@/lib/app/ratingMoments';
 
 // 퍼널 측정 — 동적 import(실패해도 구매 흐름과 무관). 안드로이드 앱은 funnel.ts 가 아직 보내지 않는다(FUNNEL_SEND_ANDROID).
 const funnel = () => import('@/lib/app/funnel');
@@ -134,7 +135,7 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
     if (r === 'pro') { onClose(); return; }
     setCodeAppliedConfirmed(false);
     if (r === 'pending') setNote(t.pending);
-    else if (r === 'error') setNote(t.failed);
+    else if (r === 'error') { markSessionError(); setNote(t.failed); }
     // 'cancelled' — 사용자가 구글 결제 창을 직접 닫았다. 실패가 아니다(페이월과 같이 조용히 둔다)
   }, [purchase, req.src, onClose, t.pending, t.failed, redeemOpened, codeAppliedConfirmed, monthly, preview]);
 

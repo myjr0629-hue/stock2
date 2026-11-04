@@ -26,7 +26,7 @@ import { fetchResponseWithDeadline } from '@/lib/app/requestDeadline';
 import { fmtRankPair, fmtMoney } from '@/lib/app/rankingFormat';
 import { rankingBadgePhase } from '@/lib/rankings/badge';
 import { sessionPhase } from '@/lib/rankings/engine';
-import { markSessionError } from '@/lib/app/ratingMoments';
+import { SessionErrorMark } from '@/components/app/SessionErrorMark';
 
 type Phase = 'intraday' | 'postclose' | 'anytime';
 type Tab = 'all' | Phase;
@@ -244,8 +244,6 @@ export default function RankingsPage() {
     { universe: null, dp: null, asOf: null, ageSec: null },
   );
   const [err, setErr] = useState(false);
-  // 처리된 오류 화면(«불러오지 못함»)을 그린 세션은 새 평점 순간을 건너뛴다(관문 11050112 ②)
-  useEffect(() => { if (err) markSessionError(); }, [err]);
   const [sessionClock, setSessionClock] = useState<number | null>(null);
   // API session은 조회 시각의 값이다. 탭 재렌더도 현재 달력으로 판정한다.
   const currentSession = sessionClock === null ? null : sessionPhase();
@@ -351,6 +349,7 @@ export default function RankingsPage() {
       </div>
 
       {/* 못 받았으면 빈 껍데기 대신 «왜 비었는지» 를 적는다 */}
+      {err && <SessionErrorMark />}
       {err && <div className={s.rkC}><div className={s.rkSoon}><span><b>{t.down}</b></span></div></div>}
       {!res && !err && [0, 1, 2].map((i) => <div key={i} className={`${s.rkSkel} ${s.rkSkelCard}`} />)}
 
