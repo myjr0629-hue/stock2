@@ -42,27 +42,24 @@ function median(values: number[]): number | null {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-/** 순수 집계. 결측·미확정·시점/세션 불일치는 제외, 진짜 실제 0%는 포함. */
-export function aggregateScorecard(week: string, records: readonly unknown[], nowMs = Date.now()) {
-  const end = scorecardWeekEnd(week);
-  const rows: ScorecardRow[] = [];
-  const seen = new Set<string>();
-  let dataAt: number | null = null;
-  for (const raw of records) {
-    const r = parseRecord(raw);
-    if (!r || r.date < week || r.date > end || !r.expected || !r.actual) continue;
-    const e = r.expected, a = r.actual;
-    const expectedPct = atmReceiptExpectedPct(e);
-    if (expectedPct == null) continue;
-    const sessions = reactionSessions(r.date, r.hour);
-    if (!expectedEligible(r, e.session) || !sessions || a.baseDate !== sessions.base || a.reactDate !== sessions.react
-      || !isReactionFinal(a.reactDate, nowMs) || Math.abs(a.pct) > MAX_PLAUSIBLE_MOVE_PCT
-      || !(e.capturedAt > 0 && e.capturedAt <= nowMs && a.at > 0 && a.at <= nowMs)) continue;
-    const key = `${r.ticker}|${r.date}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    dataAt = Math.max(dataAt ?? 0, e.capturedAt, a.at, r.at > 0 && r.at <= nowMs ? r.at : 0);
-    rows.push({
+/**
+ * 기록 하나가 채점표의 «완전한 쌍»인가 — 맞으면 그 행(과 기록의 마지막 쓰기 시각), 아니면 null.
+ * 채점표(aggregateScorecard)와 실적 결과 알림(lib/signals/earningsResult)이 같은 기준으로 고르도록 이 함수 하나만 쓴다.
+ * 결측·미확정·시점/세션 불일치는 null, 진짜 실제 0%는 포함. 주(week) 범위·중복 제거는 호출자 몫.
+ */
+export function scorecardPairOf(raw: unknown, nowMs = Date.now()): { row: ScorecardRow; dataAt: number } | null {
+  const r = parseRecord(raw);
+  if (!r || !r.expected || !r.actual) return null;
+  const e = r.expected, a = r.actual;
+  const expectedPct = atmReceiptExpectedPct(e);
+  if (expectedPct == null) return null;
+  const sessions = reactionSessions(r.date, r.hour);
+  if (!expectedEligible(r, e.session) || !sessions || a.baseDate !== sessions.base || a.reactDate !== sessions.react
+    || !isReactionFinal(a.reactDate, nowMs) || Math.abs(a.pct) > MAX_PLAUSIBLE_MOVE_PCT
+    || !(e.capturedAt > 0 && e.capturedAt <= nowMs && a.at > 0 && a.at <= nowMs)) return null;
+  return {
+    dataAt: Math.max(e.capturedAt, a.at, r.at > 0 && r.at <= nowMs ? r.at : 0),
+    row: {
       ticker: r.ticker, date: r.date, hour: r.hour, expectedPct, actualPct: a.pct,
       beyond: movedBeyondExpected(a.pct, expectedPct), check: a.check === 'fmp' ? 'fmp' : 'intrinio_only',
       basis: {
@@ -70,7 +67,24 @@ export function aggregateScorecard(week: string, records: readonly unknown[], no
         expectedCapturedAt: new Date(e.capturedAt).toISOString(), baseDate: a.baseDate, reactDate: a.reactDate,
         actualCalculatedAt: new Date(a.at).toISOString(),
       },
-    });
+    },
+  };
+}
+
+/** 순수 집계. 결측·미확정·시점/세션 불일치는 제외, 진짜 실제 0%는 포함(행 기준은 scorecardPairOf 하나). */
+export function aggregateScorecard(week: string, records: readonly unknown[], nowMs = Date.now()) {
+  const end = scorecardWeekEnd(week);
+  const rows: ScorecardRow[] = [];
+  const seen = new Set<string>();
+  let dataAt: number | null = null;
+  for (const raw of records) {
+    const pair = scorecardPairOf(raw, nowMs);
+    if (!pair || pair.row.date < week || pair.row.date > end) continue;
+    const key = `${pair.row.ticker}|${pair.row.date}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    dataAt = Math.max(dataAt ?? 0, pair.dataAt);
+    rows.push(pair.row);
   }
   rows.sort((a, b) => a.date.localeCompare(b.date)
     || (a.hour === 'bmo' ? 0 : 1) - (b.hour === 'bmo' ? 0 : 1) || a.ticker.localeCompare(b.ticker));
