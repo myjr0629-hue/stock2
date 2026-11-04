@@ -133,6 +133,7 @@ export default async function EarningsWeekPage({ params }: Params) {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: c.metaTitle(range),
+    description: c.metaDesc({ n: data.rows.length, top, range }),
     url,
     inLanguage: l,
     isPartOf: { '@type': 'WebSite', name: 'SIGNUM HQ', url: base },
