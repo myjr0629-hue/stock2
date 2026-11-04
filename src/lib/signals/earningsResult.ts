@@ -40,7 +40,7 @@ const LEDGER_TTL_SEC = 120 * 86400;
 /**
  * 기기 발송 자리의 «선점» 수명 — 선점·재확인 동안엔 이 짧은 수명으로만 잡고, 보내기 직전에 LEDGER_TTL_SEC 로 굳힌다.
  * 보내기 전에 함수 시간 상한(60초)에 걸려 정리 코드가 못 돌아도 자리가 이 시간 뒤 풀려 다음 회차(25분+ 뒤)가 다시 본다(관문 11041431 #2).
- * 굳힌 뒤(발송 중·후)에 끊기면 그 기기는 다시 보내지 않는다 — 중복 발송 0 이 우선(관문 11041441 #2).
+ * 발송을 한 번 시도한 기기는(결과가 fail·불명이어도) 다시 보내지 않는다 — 중복 발송 0 이 우선(관문 11041441 #2 · 11041444 #1).
  */
 export const CLAIM_TTL_SEC = 10 * 60;
 /** 한 묶음(100기기)에서 동시에 선점하는 기기 수 */
@@ -163,9 +163,17 @@ export function resultPath(): string {
 // ── 발송 단계 ────────────────────────────────────────────────────────────────
 
 export type StrictRead = { ok: boolean; value: unknown };
+/**
+ * 이 단계의 저장소 — 기존 SigStore + «있을 때만 덮어쓰기(SET XX EX)».
+ * 굳히기를 XX 로 해야, 시간 초과로 포기하고 자리를 지운 뒤에 늦게 도착한 쓰기가 120일 장부를 되살리지 못한다(관문 11041444 #2).
+ */
+export interface ResultStore extends SigStore {
+  /** 키가 있을 때만 쓴다 — 쓰면 true */
+  setXx(key: string, value: string, exSec: number): Promise<boolean>;
+}
 export interface ResultStepDeps {
   /** Upstash — 기기·모드·잠금·장부 */
-  store: SigStore;
+  store: ResultStore;
   sender: SigSender;
   /** 실적 기록의 엄격 읽기(EC2, 폴백 없음) — 키 순서대로. ok=false 는 «확인 못 함»(값 없음과 다르다) */
   readStrict: (keys: string[]) => Promise<StrictRead[]>;
@@ -339,25 +347,29 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       // 재확인이 늦어 마감을 넘겼으면 보내지 않는다(관문 11041441 #2) — 아래에서 자리를 모두 돌려준다
       const inTime = clock() < opts.lockDeadline;
       const ready = inTime ? claimed.filter((c) => allowed.has(c.cand)) : [];
-      // 보내기 «직전»에 120일 장부로 굳힌다 — 발송 도중·직후 함수가 끊겨도 같은 기기에 다시 보내지 않는다(중복 0 우선).
-      // 굳히기에 실패한 항목은 보내지 않는다(그 자리는 돌려준다 → 다음 회차가 다시 본다).
+      // 보내기 «직전»에 선점 자리를 120일 장부로 굳힌다(SET XX — 자리가 그대로 있을 때만) — 발송 도중·직후 함수가 끊겨도 다시 보내지 않는다(중복 0 우선).
+      // 굳히기를 확인 못 한 항목은 보내지 않고 자리를 지운다(XX 라서 늦게 도착한 쓰기도 지운 자리를 되살리지 못한다 → 다음 회차가 다시 본다).
       const sealed = new Set(await Promise.all(ready.map(async (c) =>
-        (await st(deps.store.set(c.key, `sent:${now}`, LEDGER_TTL_SEC)).then(() => true, () => false)) ? c : null)));
-      const toSend = ready.filter((c) => sealed.has(c));
-      let threw = false;
-      const outcomes: Map<string, SendOutcome> = toSend.length ? await deps.sender.send(toSend.map((c) => c.item)).catch(() => { threw = true; return new Map<string, SendOutcome>(); }) : new Map();
+        (await st(deps.store.setXx(c.key, `sent:${now}`, LEDGER_TTL_SEC)).catch(() => false)) ? c : null)));
+      // 굳히기가 늦어 마감을 넘겼으면 보내지 않는다(관문 11041444 #3) — 굳힌 자리도 시도 전이므로 돌려준다
+      const sendInTime = clock() < opts.lockDeadline;
+      const toSend = sendInTime ? ready.filter((c) => sealed.has(c)) : [];
+      const attempted = new Set(toSend);
+      const outcomes: Map<string, SendOutcome> = toSend.length ? await deps.sender.send(toSend.map((c) => c.item)).catch(() => new Map<string, SendOutcome>()) : new Map();
       const dead = new Set<string>();
       for (const c of claimed) {
-        if (sealed.has(c)) {
+        if (attempted.has(c)) {
+          // 한 번 시도한 발송은 결과와 무관하게 장부를 그대로 둔다 — 공급사 'fail' 에는 «요청은 닿았으나 응답을 못 받음»도 섞여 있어
+          // 다시 보내면 중복이 될 수 있다(관문 11041444 #1). 확실히 닿은 것만 센다.
           const outcome = outcomes.get(c.item.id);
-          if (outcome === 'ok') { report.sent++; continue; }
-          // 결과를 모르면(발송 함수가 던졌거나 결과에 없음) 일부가 이미 닿았을 수 있다 — 장부를 그대로 두고(재발송 없음) 로그만
-          if (outcome !== 'fail' && outcome !== 'dead') { report.skipped.push({ key: c.item.id, reason: threw ? 'send_threw_kept' : 'send_unknown_kept' }); continue; }
+          if (outcome === 'ok') report.sent++;
+          else report.skipped.push({ key: c.item.id, reason: `send_${outcome ?? 'unknown'}_kept` });
+          if (outcome === 'dead') dead.add(c.item.token);
+          continue;
         }
-        // 보내지 않았거나 확실히 실패 — 자리를 돌려준다(다음 회차가 같은 규칙으로 다시 본다)
+        // 시도하지 않은 자리(재확인 탈락·굳히기 실패·마감) — 돌려준다(다음 회차가 같은 규칙으로 다시 본다)
         await deps.store.del([c.key]).catch(() => {});
         await deps.store.decr(c.cap).catch(() => 0);
-        if (sealed.has(c) && outcomes.get(c.item.id) === 'dead') dead.add(c.item.token);
       }
       if (dead.size) {
         const ts = [...dead];
@@ -365,7 +377,7 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         await deps.store.del(ts.map((t) => `push:tokens:${t}`)).catch(() => {});
       }
       // 선점 창이 닫혔거나 마감을 넘겼으면 다음 묶음으로 가지 않는다(잡은 것은 위에서 보냈거나 돌려줬다)
-      if (expiring || !inTime) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
+      if (expiring || !inTime || !sendInTime) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
     }
     report.status = 'ok';
     return report;

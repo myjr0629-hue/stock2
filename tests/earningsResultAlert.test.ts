@@ -57,6 +57,8 @@ const upstashParse = (v: unknown): unknown => {
 class UpstashLikeStore extends FakeStore {
   async mget(keys: string[]) { return (await super.mget(keys)).map(upstashParse); }
   async get(k: string) { return upstashParse(await super.get(k)); }
+  /** SET key value XX EX — 키가 있을 때만 */
+  async setXx(k: string, v: string, ex: number) { if (!this.m.has(k)) return false; this.m.set(k, v); this.ttl.set(k, ex); this.writes.push(`setxx:${k}`); return true; }
 }
 function setup(records: any[] = [raw()], devices: Array<[string, Record<string, unknown>]> = [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }]]) {
   const store = new UpstashLikeStore(), sender = new FakeSender(), recs = new FakeRecords(), logs: string[] = [];
@@ -259,16 +261,12 @@ t('4 · 정정이 아닌 것 — 같은 값의 재확인(at 갱신)·대조 보�
   const r = await s.run(SEND);
   assert.equal(r.corrected.length, 0); assert.equal(r.sent, 1);
 });
-t('4 · 기기 하루 상한·발송 실패 반환은 기존 규칙 그대로', async () => {
+t('4 · 기기 하루 상한은 기존 규칙 그대로 — 넘으면 자리·상한을 돌려주고 보내지 않는다', async () => {
   const s = setup();
   s.store.m.set(`push:sig:cap:2026-10-14:${devKey(IOS_TOKEN)}`, 3);
   assert.equal((await s.run(SEND)).sent, 0);
-  const f = setup();
-  f.sender.failIds = () => 'fail';
-  assert.equal((await f.run(SEND)).sent, 0);
-  assert.equal(f.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false);
-  f.sender.failIds = null;
-  assert.equal((await f.run(SEND + 600_000)).sent, 1);
+  assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false);
+  assert.equal(Number(s.store.m.get(`push:sig:cap:2026-10-14:${devKey(IOS_TOKEN)}`)), 3);
 });
 
 t('4 · 운영 Upstash 읽기(JSON 자동 해석)에서도 지문이 «쓴 그대로» 돌아온다 — 안정 결과가 실제로 발송된다(관문 11041431 #1)', async () => {
@@ -302,17 +300,17 @@ t('4 · 발송 결과를 모르면(발송 함수가 던짐) 장부를 그대로 
   const s = setup();
   s.sender.send = async () => { throw new Error('function killed mid-send'); };
   const r1 = await s.run(SEND);
-  assert.equal(r1.sent, 0); assert.ok(r1.skipped.some((x) => x.reason === 'send_threw_kept'));
+  assert.equal(r1.sent, 0); assert.ok(r1.skipped.some((x) => x.reason === 'send_unknown_kept'));
   assert.match(String(s.store.m.get(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`)), /^sent:/);
   const s2 = new FakeSender(); s.deps.sender = s2;
   assert.equal((await runEarningsResultStep({ ...s.deps, sender: s2, clock: () => SEND + 1_800_000 }, s.opts(SEND + 1_800_000))).sent, 0);
   assert.equal(s2.calls, 0, '같은 기기에 다시 보내지 않는다');
 });
-t('4 · 보내기 직전 굳히기가 저장소 오류로 실패하면 그 기기는 보내지 않고 자리를 돌려준다 → 다음 회차가 보낸다', async () => {
+t('4 · 보내기 직전 굳히기(SET XX)가 실패하면 그 기기는 보내지 않고 자리·상한을 돌려준다 → 다음 회차가 보낸다', async () => {
   const s = setup();
-  const origSet = s.store.set.bind(s.store);
+  const orig = s.store.setXx.bind(s.store);
   let down = true;
-  s.store.set = async (k: string, v: string, ex?: number) => { if (down && k.startsWith('push:sig:result:') && v.startsWith('sent:')) throw new Error('down'); return origSet(k, v, ex); };
+  s.store.setXx = async (k: string, v: string, ex: number) => { if (down) throw new Error('down'); return orig(k, v, ex); };
   const r1 = await s.run(SEND);
   assert.equal(r1.sent, 0); assert.equal(s.sender.calls, 0);
   assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false, '자리 반환');
@@ -320,12 +318,45 @@ t('4 · 보내기 직전 굳히기가 저장소 오류로 실패하면 그 기�
   down = false;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
 });
-t('4 · 확실한 실패(fail)만 자리를 돌려준다 — 다음 회차가 다시 보낸다', async () => {
+t('4 · 굳히기가 시간 초과 뒤 «늦게» 도착해도 지운 자리를 되살리지 못한다(XX) — 다음 회차가 보낸다(관문 11041444 #2)', async () => {
+  const s = setup();
+  const key = `push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`;
+  const orig = s.store.setXx.bind(s.store);
+  let late: (() => Promise<boolean>) | null = null;
+  s.store.setXx = (k: string, v: string, ex: number) => { late = () => orig(k, v, ex); return new Promise<boolean>(() => {}); };   // 응답 없음
+  const r1 = await s.run(SEND);
+  assert.equal(r1.sent, 0); assert.equal(s.sender.calls, 0);
+  assert.equal(s.store.m.has(key), false, '시간 초과 → 자리 지움');
+  assert.equal(await late!(), false, '늦은 쓰기는 XX 라 아무것도 쓰지 않는다');
+  assert.equal(s.store.m.has(key), false);
+  s.store.setXx = orig;
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
+});
+t('4 · 한 번 시도한 발송은 공급사 결과가 fail 이어도 다시 보내지 않는다(응답 유실 = 이미 닿았을 수 있음, 관문 11041444 #1)', async () => {
   const s = setup();
   s.sender.failIds = () => 'fail';
-  assert.equal((await s.run(SEND)).sent, 0);
-  assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false);
+  const r1 = await s.run(SEND);
+  assert.equal(r1.sent, 0); assert.ok(r1.skipped.some((x) => x.reason === 'send_fail_kept'));
+  assert.match(String(s.store.m.get(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`)), /^sent:/);
   s.sender.failIds = null;
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 0); assert.equal(s.sender.calls, 1, '재발송 없음');
+});
+t('4 · dead 토큰은 기존처럼 목록에서 지운다(재발송 없음)', async () => {
+  const s = setup();
+  s.sender.failIds = () => 'dead';
+  await s.run(SEND);
+  assert.equal(s.store.sets.get('push:token_list')?.has(IOS_TOKEN), false);
+});
+t('4 · 굳히기가 늦어 마감을 넘기면 보내지 않고 자리·상한을 돌려준다(관문 11041444 #3)', async () => {
+  const s = setup();
+  let t = SEND;
+  const orig = s.store.setXx.bind(s.store);
+  s.store.setXx = async (k: string, v: string, ex: number) => { t = SEND + 30_000; return orig(k, v, ex); };   // 굳히는 사이 마감
+  const r = await runEarningsResultStep({ ...s.deps, clock: () => t }, s.opts(SEND, { lockDeadline: SEND + 30_000 }));
+  assert.equal(r.sent, 0); assert.equal(s.sender.calls, 0); assert.ok(r.skipped.some((x) => x.reason === 'lock_expiring'));
+  assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false);
+  assert.equal(Number(s.store.m.get(`push:sig:cap:2026-10-14:${devKey(IOS_TOKEN)}`)), 0);
+  s.store.setXx = orig;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
 });
 

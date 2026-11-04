@@ -28,11 +28,13 @@ export async function GET(req: NextRequest) {
     // 실적 결과 알림 — 이 회차가 쓰기 잠금을 실제로 얻었을 때만, 그 잠금이 살아 있는 동안만(lib/signals/earningsResult 머리말).
     if (!dryRun && r.lockAcquired) {
         try {
-            const [{ envMode, upstashStore }, { sendSignalPushes }, { getAuthoritativeCache }] = await Promise.all([
-                import('@/services/signalAlertsService'), import('@/lib/push/sendSignal'), import('@/services/redisClient'),
+            const [{ envMode, upstashStore }, { sendSignalPushes }, { getAuthoritativeCache }, { Redis }] = await Promise.all([
+                import('@/services/signalAlertsService'), import('@/lib/push/sendSignal'), import('@/services/redisClient'), import('@upstash/redis'),
             ]);
+            const redis = Redis.fromEnv();
             const result = await runEarningsResultStep({
-                store: upstashStore(),
+                // 기존 신호 저장소 + SET XX(굳히기 — lib/signals/earningsResult ResultStore)
+                store: { ...upstashStore(redis), setXx: async (k, v, ex) => (await redis.set(k, v, { xx: true, ex })) === 'OK' },
                 sender: { send: sendSignalPushes },
                 readStrict: (keys) => Promise.all(keys.map((k) => getAuthoritativeCache<unknown>(k).catch(() => ({ ok: false, value: null })))),
             }, {
