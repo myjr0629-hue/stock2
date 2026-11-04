@@ -8,7 +8,7 @@ const SIGNUM = '6783130444', UC = '6788779895', WIM = '6794356135';
 const cases: [string, string][] = [
   ['/ko', SIGNUM], ['/en', SIGNUM], ['/ja/', SIGNUM], ['', SIGNUM], ['/', SIGNUM],
   ['/en/pricing', SIGNUM], ['/ko/how-it-works', SIGNUM], ['/en/app', SIGNUM], ['/ko/rankings', SIGNUM],
-  ['/ko/undercurrent', UC], ['/en/undercurrent/briefing', UC], ['/en/flow/NVDA', UC], ['/ja/tickers', UC], ['/ko/learn', UC], ['/en/learn/max-pain', UC],
+  ['/ko/undercurrent', UC], ['/en/undercurrent/briefing', UC], ['/en/flow/NVDA', SIGNUM], ['/ja/tickers', UC], ['/ko/learn', UC], ['/en/learn/max-pain', UC],
   ['/en/wim', WIM], ['/ja/wim/NVDA', WIM],
   ['/en/flowchart', SIGNUM], ['/en/wimbledon', SIGNUM], ['/en/learning', SIGNUM],
 ];

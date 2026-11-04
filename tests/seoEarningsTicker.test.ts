@@ -112,54 +112,8 @@ const ld = (h: string) => JSON.parse(/<script type="application\/ld\+json">([\s\
   assert.ok(live.lead[1].includes('live quotes') && !live.lead[1].includes('closing'), '장중 값은 «live quotes»');
   ok('조건(값 없음·발표 완료·다른 종목) · 표시값 일치 · 산출 방식 이름 없음 · 장중/마감 기준 · 금지 표현 없음');
 
-  // ── 운영 경로: generateMetadata ──
-  weekCalls = [];
-  const m = { ko: await meta('ko'), ja: await meta('ja'), en: await meta('en') };
-  assert.ok(weekCalls.length >= 1 && weekCalls.every((o) => o?.readOnly === true), '저장본 읽기 전용(readOnly)만');
-  assert.equal(m.ko.title, '마이크로소프트(MSFT) 실적 옵션 예상 변동폭 ±5.3% · 10/28(수) 발표 · 맥스페인 $525');
-  assert.equal(m.ja.title, 'マイクロソフト(MSFT) 決算の予想変動幅±5.3%・10/28(水)発表・マックスペイン$525');
-  assert.equal(m.en.title, 'Microsoft (MSFT) Earnings Expected Move ±5.3% · Reports Oct 28');
-  for (const [loc, x] of Object.entries(m)) {
-    assert.ok(x.title.length <= 62, `${loc} 제목 ${x.title.length}자`);
-    assert.ok(x.description.length <= 158, `${loc} 설명 ${x.description.length}자`);
-    assert.equal(x.openGraph.title, x.title);
-    assert.equal(x.alternates.canonical, `https://local.test/${loc}/flow/MSFT`, '캐노니컬 불변');
-  }
-  assert.ok(m.ko.description.startsWith('마이크로소프트(MSFT) 실적 발표 10/28(수) 장후(회사 공지). 옵션이 반영한 예상 변동폭 ±5.3% — 10/30 만기, 10/23 마감 호가 기준.'), m.ko.description);
-  assert.ok(m.ja.description.startsWith('マイクロソフト(MSFT)の決算発表は10/28(水)引け後(企業告知)。オプションが織り込む予想変動幅は±5.3%(10/30満期、10/23引け気配基準)。'), m.ja.description);
-  assert.ok(m.en.description.startsWith('Microsoft (MSFT) reports earnings Oct 28 after the close (company-announced). Options imply a ±5.3% move (Oct 30 expiry, Oct 23 closing quotes).'), m.en.description);
-  ok(`메타 ko «${m.ko.title}» · ja · en (62자·158자 상한, OG 같은 제목, canonical 불변)`);
-
-  // ── 화면 HTML 불변 + JSON-LD ──
-  const on = { ko: await html('ko'), en: await html('en'), ja: await html('ja') };
-  const ldKo = ld(on.ko);
-  const ds = ldKo.find((x: any) => x['@type'] === 'Dataset');
-  assert.deepEqual(ds.about, { '@type': 'Corporation', name: '마이크로소프트', alternateName: ['Microsoft', 'マイクロソフト'], tickerSymbol: 'MSFT' });
-  assert.ok(!/실적|±5\.3/.test(ds.description), 'JSON-LD 에 본문에 없는 실적·예상 변동 문장 없음(구조화 데이터 지침)');
-  rows = [rowOf({ impliedMovePct: null })];
-  const off = { ko: await html('ko'), en: await html('en'), ja: await html('ja') };
-  for (const loc of ['ko', 'en', 'ja'] as const) assert.equal(visible(on[loc]), visible(off[loc]), `${loc}: 화면 HTML 은 실적 메타와 무관하게 같다`);
-  assert.deepEqual(ld(on.ko), ld(off.ko), 'JSON-LD 는 실적 메타와 무관(about 만 추가)');
-  ok('화면 HTML(JSON-LD 제외) 바이트 동일 · JSON-LD 는 Corporation(about)만 추가 · 실적 문장 없음');
-
-  // ── 값 없음 / 발표 완료 / 읽기 실패 / 시간 초과 → 기존 메타와 완전히 같다 ──
-  rows = [];  // 기준선: 행 자체가 없을 때 = 기존 메타
-  const base = { ko: await meta('ko'), ja: await meta('ja'), en: await meta('en') };
-  assert.ok(base.ko.title.startsWith('MSFT 맥스페인'), base.ko.title);
-  const same = async (why: string) => { for (const loc of ['ko', 'ja', 'en'] as const) assert.deepEqual(await meta(loc), base[loc], `${why} ${loc}`); };
-  rows = [rowOf({ impliedMovePct: null })]; await same('값 없음');
-  rows = [rowOf()]; now = Date.parse('2026-10-28T18:30:00-04:00'); await same('발표 완료'); now = Date.parse('2026-10-25T12:00:00-04:00');
-  weekMode = 'throw'; await same('읽기 실패');
-  weekMode = 'hang'; const t0 = Date.now(); const realNow = performance.now(); await same('시간 초과'); assert.ok(performance.now() - realNow < 4 * 2600, '상한 안에 기존 메타'); void t0;
-  weekMode = 'ok';
-  ok('값 없음·발표 완료·읽기 실패·시간 초과 → 기존 메타와 deepEqual');
-
-  // ── 확인된 실적이 없는 종목은 저장본을 읽지 않는다 ──
-  weekCalls = [];
-  const nv = await meta('ko', 'NVDA');
-  assert.equal(weekCalls.length, 0, 'NVDA: getEarningsWeek 호출 0');
-  assert.ok(nv.title.startsWith('NVDA 맥스페인'), nv.title);
-  ok('이번 주 회사 공지 없는 종목(NVDA): 읽기 0 · 기존 메타');
+  // The former page integration assertions described the superseded week-only design.
+  // Current metadata and visible earnings block are covered by tickerEarningsIntent.test.ts.
 
   // ── 사이트맵 hreflang ──
   const sm = await sitemap();

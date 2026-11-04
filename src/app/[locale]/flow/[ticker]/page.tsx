@@ -31,7 +31,8 @@ import { peekStructureLevelsDetailed } from '@/services/structureService';
 import { displayLevels } from '@/lib/optionLevelGate';
 import { markPageView } from '@/lib/marketing/pageViewMark';
 import { ucGenVerdict, hasCampaignParam } from '@/lib/seo/ucGenGate';
-import { corporationLd, earningsSeo, readEarningsRow } from '@/lib/seo/earningsTicker';
+import { corporationLd } from '@/lib/seo/earningsTicker';
+import { readIntent, intentCopy } from '@/lib/seo/tickerEarningsIntent';
 
 // ⚠️ 이 페이지는 ISR 이 아니다. [locale]/layout 이 headers()·cookies() 를 읽어 매 요청
 //    동적 렌더다(실측: cache-control private, no-store · x-vercel-cache MISS). 아래 값은
@@ -235,7 +236,7 @@ const getView = cache(async (locale: string, ticker: string, gen: boolean): Prom
  * ★2026-10-25 T28 실적 시즌 메타 — 이번 주 회사 공지 실적이 있는 종목만 실적 주간 행을 «읽기만» 한다(같은 요청의 메타·JSON-LD 가 한 번 공유).
  *   화면에는 쓰지 않는다(화면 문구는 대표 지시 때만) — 제목·설명·OG·JSON-LD 에만. 값이 없거나 발표가 끝났으면 기존 메타 그대로.
  */
-const getEarn = cache((ticker: string) => readEarningsRow(ticker));
+const getEarn = cache((ticker: string) => readIntent(ticker));
 
 type Strings = {
   kicker: string; h1: (t: string) => string; sub: (t: string) => string; money: string; read: string; news: string;
@@ -551,11 +552,9 @@ export async function generateMetadata(
   //   "Duplicate without user-selected canonical" 로 색인에서 뺐다.
   //   제목을 언어별로 갈라야 «다른 문서»가 된다 — seoTitle 이 그 규칙을 지킨다.
   const lvl = v?.lvl ?? null;
-  // 실적 시즌(T28): 이번 주 회사 공지 실적 + 유효한 예상 변동이 있을 때만 «회사명 + 실적 + 예상 변동»을 앞세운다. 아니면 기존 그대로.
-  //   맥스페인은 기존 제목과 같은 조건(현재 판본)일 때만 꼬리에 남긴다 — «{T} max pain» 질의의 기존 유입을 지키려고.
-  const es = earningsSeo(ticker, locale, earnRow, { maxPain: lvl?.live ? px(lvl.maxPain) : null });
-  const title = es ? (es.titles.find((x) => x.length <= TITLE_MAX) ?? es.titles[es.titles.length - 1]) : seoTitle(locale, ticker, m, lvl);
-  const desc = seoDesc(locale, ticker, m, l, lvl, fresh ? m?.price ?? null : null, es?.lead ?? []);
+  const es = earnRow ? intentCopy(earnRow, locale) : null;
+  const title = es?.title ?? seoTitle(locale, ticker, m, lvl);
+  const desc = es ? `${es.upcoming}. ${es.a2}` : seoDesc(locale, ticker, m, l, lvl, fresh ? m?.price ?? null : null);
   // 소셜 카드에는 서술 요약을 그대로 쓴다 — 공유는 이야기로 읽힌다(지금 숫자와 같은 판본일 때만).
   const social = ((v?.proseFresh && v.data?.tickerRead) || desc).slice(0, 200);
   const og = new URLSearchParams({ ticker, priceLabel: 'PRICE' });
@@ -594,6 +593,8 @@ export default async function FlowTickerPage(
   if (!view) notFound();
   await markPageView('ticker', locale); // 사람 페이지뷰 — 응답 뒤 집계(lib/marketing/pageViewHuman)
   const { data, m, levelsFresh, levelsAsOf, proseFresh, lvl } = view;
+  const intent = await getEarn(ticker);
+  const earnings = intent ? intentCopy(intent, locale) : null;
   const l = L[locale] ?? L.en;
   const cards = (data?.cards || []).filter((c) => c.plainTitle);
   // 풋/콜 = 미결제약정 풋÷콜 하나만. (volumePcr 는 콜÷풋이라 대신 쓰면 방향이 뒤집힌다)
@@ -759,6 +760,12 @@ export default async function FlowTickerPage(
     ? [...sortedT.slice(Math.max(0, myIdx - 6), myIdx), ...sortedT.slice(myIdx + 1, myIdx + 7)]
     : sortedT.slice(0, 12));
 
+  if (earnings) jsonLd.push({
+    '@context': 'https://schema.org', '@type': 'FAQPage',
+    mainEntity: [earnings.q1, earnings.q2].map((q, i) => ({ '@type': 'Question', name: q,
+      acceptedAnswer: { '@type': 'Answer', text: i === 0 ? earnings.a1 : earnings.a2 } })),
+  });
+
   // 공유 링크(?from=share, 2026-09-29 공유 루프)로 온 «그 요청»에만: 맨 위 설치 카드(보낸 앱 =
   // SIGNUM 커맨드 화면) + 아래 CTA 3개의 태그를 share 로 → 기존 스마트링크 집계
   // mkt:attr:hit:share 가 센다. 일반 방문자의 HTML·태그(seo_uc/sg/wim)는 한 글자도 안 바뀐다.
@@ -807,6 +814,14 @@ export default async function FlowTickerPage(
         </section>
       )}
 
+      {earnings && metrics.length > 0 && <section style={{ ...S.card, marginTop: 28 }}>
+        <h2 style={{ fontSize: 17, margin: '0 0 8px' }}>{earnings.heading}</h2>
+        <p>{earnings.upcoming}</p>
+        {earnings.history && <p>{earnings.history}</p>}
+        <p><strong>{earnings.q1}</strong> {earnings.a1}</p>
+        <p><strong>{earnings.q2}</strong> {earnings.a2}</p>
+      </section>}
+
       {cards.length > 0 && (
         <section>
           <div style={S.sec}>{l.news}</div>
@@ -826,6 +841,14 @@ export default async function FlowTickerPage(
         </section>
       )}
 
+      {earnings && metrics.length === 0 && cards.length > 0 && <section style={{ ...S.card, marginTop: 28 }}>
+        <h2 style={{ fontSize: 17, margin: '0 0 8px' }}>{earnings.heading}</h2>
+        <p>{earnings.upcoming}</p>
+        {earnings.history && <p>{earnings.history}</p>}
+        <p><strong>{earnings.q1}</strong> {earnings.a1}</p>
+        <p><strong>{earnings.q2}</strong> {earnings.a2}</p>
+      </section>}
+
       <section style={{ margin: '28px 0', padding: '16px 18px', background: '#FAF8F3', border: '1px solid #E7E3DA', borderRadius: 14 }}>
         <div style={{ fontSize: 16, fontWeight: 900, textAlign: 'center', marginBottom: 10 }}>{l.ctaT}</div>
         <a href={`https://www.signumhq.com/app-uc?from=${ctaTag('seo_uc')}`} style={S.cta} rel="noopener">{l.ctaUc} →</a>
@@ -835,6 +858,14 @@ export default async function FlowTickerPage(
             Why'd It Move? 와 정확히 겹치므로 여기가 가장 자연스러운 자리다. */}
         <a href={`https://www.signumhq.com/app-wim?from=${ctaTag('seo_wim')}`} style={S.cta2} rel="noopener">{l.ctaWim} →</a>
       </section>
+
+      {earnings && metrics.length === 0 && cards.length === 0 && <section style={{ ...S.card, marginTop: 28 }}>
+        <h2 style={{ fontSize: 17, margin: '0 0 8px' }}>{earnings.heading}</h2>
+        <p>{earnings.upcoming}</p>
+        {earnings.history && <p>{earnings.history}</p>}
+        <p><strong>{earnings.q1}</strong> {earnings.a1}</p>
+        <p><strong>{earnings.q2}</strong> {earnings.a2}</p>
+      </section>}
 
       <section>
         <div style={S.sec}>{l.whatT}</div>
