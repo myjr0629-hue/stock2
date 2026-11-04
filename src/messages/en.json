@@ -59,6 +59,10 @@
   },
   "home": {
     "badge": "Real-time US Market Data",
+    "earningsHeadline": "Options-implied earnings moves vs actual",
+    "earningsSummary": "This week: {within} of {n} reported moves stayed within the options-implied range.",
+    "earningsFallback": "See how this week’s reported moves compare with the options-implied range.",
+    "earningsCta": "See this week’s earnings implied moves",
     "headline1": "MARKET INTELLIGENCE,",
     "headline2": "ORGANIZED.",
     "tagline1": "Track institutional ",

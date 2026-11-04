@@ -25,16 +25,16 @@ const loc = (l: string): Loc => (LOCALES as readonly string[]).includes(l) ? (l 
 
 const META: Record<Loc, { title: string; desc: string }> = {
   ko: {
-    title: 'SIGNUM HQ — 미국주식 다크풀·맥스페인·옵션 플로우',
-    desc: '기관이 실제로 움직인 자리를 봅니다. 다크풀 비중, 맥스페인, 감마 노출, 옵션 플로우를 매일 무료로. 투자 자문이 아닌 정보 제공입니다.',
+    title: 'SIGNUM HQ — 미국 실적 발표 전 옵션 예상 변동폭과 실제',
+    desc: '미국 기업의 실적 발표 전 옵션이 예상한 변동폭과 발표 후 실제 움직임을 확인하세요. 주간 성적표 무료 제공. 투자 자문이 아닌 정보 제공입니다.',
   },
   en: {
-    title: 'SIGNUM HQ — Dark Pool, Max Pain & Options Flow for US Stocks',
-    desc: 'See where institutional money actually moved. Dark pool share, max pain, gamma exposure and options flow — free, refreshed every US session. Information, not investment advice.',
+    title: 'SIGNUM HQ — Options-Implied Earnings Moves vs Actual | US Stocks',
+    desc: 'Before every US earnings report, see the move options are pricing in — and after it, what actually happened. Weekly scorecard, free. Information, not investment advice.',
   },
   ja: {
-    title: 'SIGNUM HQ — 米国株のダークプール・マックスペイン・オプションフロー',
-    desc: '機関投資家が実際に動いた場所を見る。ダークプール比率、マックスペイン、ガンマ、オプションフローを毎日無料で。投資助言ではなく情報提供です。',
+    title: 'SIGNUM HQ — 米国株決算のオプション想定変動幅と実際',
+    desc: '米国企業の決算発表前にオプションが織り込む想定変動幅と、発表後の実際の値動きを確認。週間スコアカードを無料で提供。投資助言ではなく情報提供です。',
   },
 };
 
@@ -75,7 +75,7 @@ export default async function HomeLayout({
     '@graph': [
       orgJsonLd(base),
       { '@type': 'WebSite', '@id': `${base}/#website`, url: base, name: 'SIGNUM HQ', publisher: { '@id': `${base}/#org` }, inLanguage: ['en', 'ko', 'ja'] },
-      { ...app, publisher: { '@id': `${base}/#org` } },
+      { ...app, description: META[lc].desc, publisher: { '@id': `${base}/#org` } },
     ],
   };
   return (
