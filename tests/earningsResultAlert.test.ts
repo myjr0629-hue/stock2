@@ -360,6 +360,49 @@ t('4 · 굳히기가 늦어 마감을 넘기면 보내지 않고 자리·상한�
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
 });
 
+t('4 · 지문을 남긴 발표의 기록이 통째로 지워지면 정정 — 같은 값으로 복구돼도 다시 보내지 않는다(관문 11041448 #2)', async () => {
+  const s = setup([raw()], [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }], [AND_TOKEN, { locale: 'en', watchlist: { t: ['C'] } }]]);
+  assert.equal((await s.run(SEND)).sent, 1);
+  s.recs.m.delete(actualsKey('JPM', D));                                 // 기록 통째 삭제
+  const r2 = await s.run(SEND + 1_800_000);
+  assert.deepEqual(r2.corrected, ['JPM|2026-10-13']);
+  assert.ok(s.logs.some((m) => m.includes('정정됨 JPM')));
+  s.recs.put(raw());                                                     // 같은 값으로 복구
+  s.store.addDevice(IOS_TOKEN2, { watchlist: { t: ['JPM'] } });          // 아직 받지 않은 기기
+  const r3 = await s.run(SEND + 3_600_000);
+  assert.equal(r3.sent, 0); assert.deepEqual(r3.corrected, ['JPM|2026-10-13']); assert.equal(s.sender.items.length, 1);
+});
+t('4 · 지문이 없는 발표의 «기록 없음»은 정정이 아니다(아직 안 생긴 기록)', async () => {
+  const s = setup([]);
+  const r = await s.run(SEND);
+  assert.deepEqual(r.corrected, []); assert.equal(s.store.m.has(RESULT_KEYS.corrected('JPM', D)), false);
+  s.recs.put(raw());
+  assert.equal((await s.run(SEND + 600_000)).sent, 1);
+});
+t('4 · 허용된 손실 창 최소화 — 플랫폼마다 굳히고 곧바로 그 플랫폼을 보낸다(iOS 발송 순간 안드 자리는 아직 선점 상태, 코디네이터 11/4)', async () => {
+  const s = setup([raw()], [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }], [AND_TOKEN, { locale: 'en', watchlist: { t: ['JPM'] } }]]);
+  const iosKey = `push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`, andKey = `push:sig:result:${devKey(AND_TOKEN)}:JPM:${D}`;
+  const seen: Array<{ platforms: string[]; ios: string; and: string }> = [];
+  const orig = s.sender.send.bind(s.sender);
+  s.sender.send = async (items: any[]) => { seen.push({ platforms: items.map((x) => x.platform), ios: String(s.store.m.get(iosKey)), and: String(s.store.m.get(andKey)) }); return orig(items); };
+  assert.equal((await s.run(SEND)).sent, 2);
+  assert.equal(seen.length, 2, '플랫폼마다 따로 발송');
+  assert.deepEqual(seen[0].platforms, ['ios']); assert.match(seen[0].ios, /^sent:/); assert.match(seen[0].and, /^claim:/, 'iOS 발송 순간 안드는 아직 굳히지 않았다');
+  assert.deepEqual(seen[1].platforms, ['android']); assert.match(seen[1].and, /^sent:/);
+});
+t('4 · 허용된 손실 밖 — iOS 발송 뒤 마감이 오면 안드는 시도 전이므로 자리를 돌려주고 다음 회차가 안드만 보낸다(iOS 중복 없음)', async () => {
+  const s = setup([raw()], [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }], [AND_TOKEN, { locale: 'en', watchlist: { t: ['JPM'] } }]]);
+  let t = SEND;
+  const orig = s.sender.send.bind(s.sender);
+  s.sender.send = async (items: any[]) => { const r = await orig(items); t = SEND + 30_000; return r; };   // iOS 발송 직후 마감
+  const r1 = await runEarningsResultStep({ ...s.deps, clock: () => t }, s.opts(SEND, { lockDeadline: SEND + 30_000 }));
+  assert.equal(r1.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.platform), ['ios']);
+  assert.equal(s.store.m.has(`push:sig:result:${devKey(AND_TOKEN)}:JPM:${D}`), false, '안드 자리 반환');
+  s.sender.send = orig;
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
+  assert.deepEqual(s.sender.items.map((x) => x.platform), ['ios', 'android'], 'iOS 중복 없음');
+});
+
 // ── 요구 5 — 이 알림 전용 스위치(EARNINGS_RESULT_ALERT_MODE · Redis push:sig:result:mode), 없으면 dry ──────────────────
 t('5 · 전용 스위치가 없으면(dry 기본) 대상은 세지만 보내지 않는다 — 신호 스위치가 live 여도(병합 즉시 발송 없음)', async () => {
   const s = setup();

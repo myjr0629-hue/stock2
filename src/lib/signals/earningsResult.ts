@@ -261,11 +261,11 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         const c = entries[i], id = `${tk(c)}|${c.date}`;
         const r = reads[i];
         if (!r?.ok) { report.skipped.push({ key: id, reason: 'read_failed' }); continue; }
-        if (r.value == null) continue;                       // 기록 없음 — 지문·정정 판정도 하지 않는다
-        const fpNow = resultValueFingerprint(r.value);
+        const fpNow = r.value == null ? null : resultValueFingerprint(r.value);
         const seen = ledgerFp(ledger[i]);
         let corrected = ledger[n + i] != null;
-        // ④ 처음 본 값에서 바뀌었거나(값·관측 변경) 지워졌으면(actual 삭제) 정정 — 영구 표시, 로그만
+        // ④ 처음 본 값에서 바뀌었거나(값·관측 변경) 지워졌으면(actual 삭제 · 기록 통째 삭제 — 관문 11041448 #2) 정정 — 영구 표시, 로그만.
+        //    지문이 없는 발표의 «기록 없음»은 아직 안 생긴 것일 뿐 — 아래 fpNow == null 에서 건너뛴다.
         if (!corrected && seen != null && fpNow !== seen) {
           if (await st(deps.store.setNx(RESULT_KEYS.corrected(tk(c), c.date), String(now), LEDGER_TTL_SEC))) {
             log(`[Cron/EarningsResult] 정정됨 ${tk(c)} ${c.date} — 이 발표는 보내지 않는다(정정 푸시 없음)`);
@@ -349,13 +349,26 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       const ready = inTime ? claimed.filter((c) => allowed.has(c.cand)) : [];
       // 보내기 «직전»에 선점 자리를 120일 장부로 굳힌다(SET XX — 자리가 그대로 있을 때만) — 발송 도중·직후 함수가 끊겨도 다시 보내지 않는다(중복 0 우선).
       // 굳히기를 확인 못 한 항목은 보내지 않고 자리를 지운다(XX 라서 늦게 도착한 쓰기도 지운 자리를 되살리지 못한다 → 다음 회차가 다시 본다).
-      const sealed = new Set(await Promise.all(ready.map(async (c) =>
-        (await st(deps.store.setXx(c.key, `sent:${now}`, LEDGER_TTL_SEC)).catch(() => false)) ? c : null)));
-      // 굳히기가 늦어 마감을 넘겼으면 보내지 않는다(관문 11041444 #3) — 굳힌 자리도 시도 전이므로 돌려준다
-      const sendInTime = clock() < opts.lockDeadline;
-      const toSend = sendInTime ? ready.filter((c) => sealed.has(c)) : [];
-      const attempted = new Set(toSend);
-      const outcomes: Map<string, SendOutcome> = toSend.length ? await deps.sender.send(toSend.map((c) => c.item)).catch(() => new Map<string, SendOutcome>()) : new Map();
+      // 플랫폼마다 «굳히기 → 곧바로 그 플랫폼 발송»을 따로 한다 — 굳힌 뒤 발송 호출 전까지의 창을 플랫폼 하나의 굳히기 시간으로 줄인다.
+      // ★ 허용된 손실(코디네이터 11/4 결정 · 관문 11041448 #1): 발송 확인 응답 없이 «누락 0·중복 0»은 동시에 불가 — 중복 0 을 택한다.
+      //   굳힌 직후 그 플랫폼 발송 호출 전에 함수가 강제 중단되면(밀리초 창) 그 기기들은 이 발표 알림을 받지 못한다(장부가 남아 재시도 없음).
+      const attempted = new Set<typeof claimed[number]>();
+      const outcomes = new Map<string, SendOutcome>();
+      let sendInTime = true;
+      for (const platform of ['ios', 'android'] as const) {
+        const batch = ready.filter((c) => c.item.platform === platform);
+        if (!batch.length) continue;
+        // 굳히기 전·후 모두 마감 검사 — 넘었으면 이 플랫폼은 시도 전이므로 아래에서 자리·상한을 돌려준다(관문 11041444 #3)
+        if (clock() >= opts.lockDeadline) { sendInTime = false; break; }
+        const sealed = new Set(await Promise.all(batch.map(async (c) =>
+          (await st(deps.store.setXx(c.key, `sent:${now}`, LEDGER_TTL_SEC)).catch(() => false)) ? c : null)));
+        if (clock() >= opts.lockDeadline) { sendInTime = false; break; }
+        const toSend = batch.filter((c) => sealed.has(c));
+        if (!toSend.length) continue;
+        for (const c of toSend) attempted.add(c);
+        const got = await deps.sender.send(toSend.map((c) => c.item)).catch(() => new Map<string, SendOutcome>());
+        for (const [id, o] of got) outcomes.set(id, o);
+      }
       const dead = new Set<string>();
       for (const c of claimed) {
         if (attempted.has(c)) {
