@@ -286,7 +286,31 @@ async function restoreBars(date) {
 }
 
 // ── Redis 기록 ──────────────────────────────────────────────────────
+// ★ [2026-11-04] 축출 자가 복구 — 11/4 05:24Z ElastiCache 축출로 intrinio:extbars:2026-11-03 이 통째로 사라졌는데,
+//   기록기는 «바뀐 게 없으면(dirty=false) 안 쓴다»라 메모리에 하루치 봉을 들고도 다음 PRE 까지 다시 쓰지 않았다
+//   → 장후·장외 1D 차트가 시간외 봉 없이 본장 15:59 로 끝나 현재가가 수직선으로 붙었다(대표 11/4 캡처).
+//   dirty 가 아니어도 10분마다 키가 살아 있는지 보고, 없으면 메모리 봉으로 다시 쓴다.
+const VERIFY_MS = 10 * 60_000;
+let lastVerifyAt = 0;
+async function keyMissing(date) {
+    try {
+        const r = await httpRequest(`${PROXY}/get?key=${encodeURIComponent(BARS_KEY(date))}`, {
+            headers: { Authorization: `Bearer ${PROXY_KEY}` },
+        });
+        if (!r.ok) return false;                  // 판정 불가는 «있음»으로 — 헛쓰기 금지
+        const raw = r.json();
+        return raw?.result == null;
+    } catch { return false; }
+}
+
 async function flush() {
+    if (!dirty && bars.size && barsDate && Date.now() - lastVerifyAt >= VERIFY_MS) {
+        lastVerifyAt = Date.now();
+        if (await keyMissing(barsDate)) {
+            log(`키 없음(축출?) → 메모리 봉으로 다시 기록: ${BARS_KEY(barsDate)}`);
+            dirty = true;
+        }
+    }
     if (!dirty || !bars.size) return;
     const payload = { date: barsDate, universe: bars.size, bars: {}, _ts: Date.now() };
     for (const [sym, series] of bars) {

@@ -238,7 +238,7 @@ function sma(candles: { c: number }[], window: number): (number | null)[] {
 /* ═══════════════════════════════════════════
    SVG CANDLESTICK CHART (PREMIUM INTEGRATED)
    ═══════════════════════════════════════════ */
-function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; vwap?: number | null; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
+function CandleChart({ ticker, price, priceSession, vwap, locale = 'en', changePct, quote }: { ticker: string; price: number; priceSession?: 'PRE' | 'REG' | 'POST'; vwap?: number | null; locale?: string; changePct?: number; quote?: { bid?: number; ask?: number; spreadPct?: number | null } | null }) {
   const [range, setRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D');
   const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [candles, setCandles] = useState<{ o: number; h: number; l: number; c: number; dateET: string; session: string }[]>([]);
@@ -302,6 +302,12 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
     const copy = [...candles];
     const lastIdx = copy.length - 1;
     const last = copy[lastIdx];
+    // ★ [2026-11-04] 현재가는 «같은 세션»의 마지막 봉에만 잇는다.
+    //   시간외 봉이 비어(ElastiCache 축출로 intrinio:extbars 소실) 1D 가 본장 15:59 봉으로 끝났는데,
+    //   애프터 종가(AMD $508.20·MSFT $516.39)를 그 봉의 종가로 덮어써 오른쪽 끝이 수직선이 됐다(대표 11/4 캡처).
+    //   세션이 다르면(PRE≠POST 도 다름) 봉은 그대로 두고 현재가는 오른쪽 가격 칩·점선에만 그린다.
+    //   1D 만 — 1W 이상은 봉에 세션 표식이 없어(전부 REG) 기존대로 마지막 봉에 잇는다.
+    if (range === '1D' && priceSession && (last.session ?? 'REG') !== priceSession) return copy;
     copy[lastIdx] = {
       ...last,
       c: price,
@@ -309,7 +315,7 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
       l: Math.min(last.l, price),
     };
     return copy;
-  }, [candles, price, loadedKey, ticker, range]);
+  }, [candles, price, priceSession, loadedKey, ticker, range]);
 
   // Trend detection to color the line/gradient/current-price label green or red.
   // 1D = "today's move": color by change vs previous close so it matches the hero
@@ -327,7 +333,11 @@ function CandleChart({ ticker, price, vwap, locale = 'en', changePct, quote }: {
   const sma7 = useMemo(() => sma(displayCandles, 7), [displayCandles]);
   const sma20 = useMemo(() => sma(displayCandles, 20), [displayCandles]);
 
-  const allVals = useMemo(() => displayCandles.flatMap(c => [c.h, c.l]), [displayCandles]);
+  // 현재가 칩·점선이 축 밖으로 나가지 않게 — 세션이 같아 마지막 봉에 이어진 경우엔 이미 h·l 에 들어 있어 축이 그대로다
+  const allVals = useMemo(() => {
+    const v = displayCandles.flatMap(c => [c.h, c.l]);
+    return v.length > 0 && price > 0 ? [...v, price] : v;
+  }, [displayCandles, price]);
   const minY = useMemo(() => allVals.length > 0 ? Math.min(...allVals) : price * 0.9, [allVals, price]);
   const maxY = useMemo(() => allVals.length > 0 ? Math.max(...allVals) : price * 1.1, [allVals, price]);
   const padY = (maxY - minY) * 0.08 || 1;
@@ -2733,7 +2743,7 @@ function CmdPageContent() {
     ? 'CLOSED'
     : (t?.session || data?.session || 'CLOSED').toUpperCase();
 
-  const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
+  const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct, activeExtPctKnown, activeExtAsOf, activeExtCarry } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
     liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
     liveExtPrice: livePrice?.extendedPrice,
@@ -3813,6 +3823,13 @@ function CmdPageContent() {
                 (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry
                   ? activeExtPrice
                   : displayPrice
+              }
+              // 차트 마지막 봉과 같은 세션일 때만 그 봉에 잇는다 — 시간외 가격의 출처는 calcPriceDisplay 의 activeExtType
+              //   (장외에 POST 값이 없으면 PRE 값을 줄 수 있다 → 그때는 PRE)
+              priceSession={
+                (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry
+                  ? (String(activeExtType).startsWith('PRE') ? 'PRE' : String(activeExtType) === 'POST' ? 'POST' : undefined)
+                  : 'REG'
               }
               changePct={
                 (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0 && !activeExtCarry
