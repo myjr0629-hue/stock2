@@ -2,7 +2,7 @@
 // (관문 11010757·11011001·11011010·11041319 회귀 시험)
 import assert from 'node:assert/strict';
 import {
-  resultEligibility, resultCopy, resultPath, resultValueFingerprint, runEarningsResultStep, resultEnvMode, RESULT_KEYS, RESULT_STABLE_MS, CLAIM_TTL_SEC,
+  resultEligibility, resultCopy, resultPath, resultValueFingerprint, runEarningsResultStep, resultEnvMode, RESULT_KEYS, RESULT_STABLE_MS, CLAIM_TTL_SEC, SEAL_TIMEOUT_MS,
   type ResultStepDeps, type ResultStepOpts, type StrictRead,
 } from '../src/lib/signals/earningsResult';
 import { actualsKey } from '../src/lib/earnings/earningsActuals';
@@ -379,7 +379,7 @@ t('4 · 지문이 없는 발표의 «기록 없음»은 정정이 아니다(아�
   s.recs.put(raw());
   assert.equal((await s.run(SEND + 600_000)).sent, 1);
 });
-t('4 · 허용된 손실 창 최소화 — 플랫폼마다 굳히고 곧바로 그 플랫폼을 보낸다(iOS 발송 순간 안드 자리는 아직 선점 상태, 코디네이터 11/4)', async () => {
+t('4 · 허용된 손실 창(≤300ms) 최소화 — 플랫폼마다 굳히고 곧바로 그 플랫폼을 보낸다(iOS 발송 순간 안드 자리는 아직 선점 상태, 코디네이터 11/4)', async () => {
   const s = setup([raw()], [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }], [AND_TOKEN, { locale: 'en', watchlist: { t: ['JPM'] } }]]);
   const iosKey = `push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`, andKey = `push:sig:result:${devKey(AND_TOKEN)}:JPM:${D}`;
   const seen: Array<{ platforms: string[]; ios: string; and: string }> = [];
@@ -401,6 +401,55 @@ t('4 · 허용된 손실 밖 — iOS 발송 뒤 마감이 오면 안드는 시�
   s.sender.send = orig;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
   assert.deepEqual(s.sender.items.map((x) => x.platform), ['ios', 'android'], 'iOS 중복 없음');
+});
+
+t('4 · 허용된 손실 창 ≤ 300ms — 굳히기는 300ms 안에 확인된 기기만 보내고, 늦은 기기는 자리·상한을 돌려준다(늦은 쓰기는 XX 로 무효, 관문 11041451 #1)', async () => {
+  const s = setup([raw()], [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }], [IOS_TOKEN2, { watchlist: { t: ['JPM'] } }]]);
+  const slowKey = `push:sig:result:${devKey(IOS_TOKEN2)}:JPM:${D}`;
+  const orig = s.store.setXx.bind(s.store);
+  let late: Promise<boolean> | null = null;
+  s.store.setXx = (k: string, v: string, ex: number) => {
+    if (k !== slowKey) return orig(k, v, ex);
+    late = new Promise<boolean>((res) => setTimeout(() => res(orig(k, v, ex)), 600));   // 600ms 뒤 도착
+    return late;
+  };
+  let sealedAt = 0, sentAt = 0;
+  const origSend = s.sender.send.bind(s.sender);
+  s.sender.send = async (items: any) => { sentAt = Date.now(); return origSend(items); };
+  const fast = s.store.setXx;
+  s.store.setXx = async (k: string, v: string, ex: number) => { const r = await fast(k, v, ex); if (k !== slowKey) sealedAt = Date.now(); return r; };
+  // 저장소 일반 상한은 운영값(2.5초) — 굳히기만 SEAL_TIMEOUT_MS(300ms)로 끊는지 본다
+  const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
+  const waited = sentAt - sealedAt;
+  assert.equal(r1.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN], '300ms 안에 굳은 기기만');
+  assert.ok(waited >= SEAL_TIMEOUT_MS - 20 && waited < SEAL_TIMEOUT_MS + 200, `굳힌 기기가 발송 호출까지 기다린 시간 ${waited}ms ≈ 300ms 상한(느린 600ms 를 기다리지 않는다)`);
+  s.store.setXx = fast; s.sender.send = origSend;
+  assert.equal(s.store.m.has(slowKey), false, '늦은 기기 자리 반환');
+  assert.equal(Number(s.store.m.get(`push:sig:cap:2026-10-14:${devKey(IOS_TOKEN2)}`)), 0, '늦은 기기 상한 반환');
+  assert.equal(await late!, false, '늦게 도착한 굳히기는 XX 라 쓰지 않는다'); assert.equal(s.store.m.has(slowKey), false);
+  s.store.setXx = orig;
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
+  assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN, IOS_TOKEN2], '다음 회차가 늦은 기기만, 중복 없음');
+});
+t('4 · 공유 일일 상한 증가가 시간 초과·오류여도 항상 되돌린다 — 기존 신호 상한을 소모하지 않는다(lib/signals/run.ts 규칙, 관문 11041451 #2)', async () => {
+  for (const mode of ['slow', 'throw'] as const) {
+    const s = setup();
+    const capKey = `push:sig:cap:2026-10-14:${devKey(IOS_TOKEN)}`;
+    const orig = s.store.incr.bind(s.store);
+    s.store.incr = async (k: string, ex: number) => {
+      if (mode === 'throw') throw new Error('down');
+      const n = await orig(k, ex);                                        // 서버엔 반영됐는데
+      await new Promise((res) => setTimeout(res, 120));                   // 응답이 상한(storeTimeoutMs 50ms)보다 늦다
+      return n;
+    };
+    const r = await s.run(SEND);
+    assert.equal(r.sent, 0, mode); assert.equal(s.sender.calls, 0, mode);
+    await new Promise((res) => setTimeout(res, 150));                     // 늦은 응답까지 끝난 뒤
+    assert.ok(Number(s.store.m.get(capKey) ?? 0) <= 0, `${mode}: 상한이 소모되지 않았다(${s.store.m.get(capKey)})`);
+    assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false, `${mode}: 자리 반환`);
+    s.store.incr = orig;
+    assert.equal((await s.run(SEND + 1_800_000)).sent, 1, `${mode}: 다음 회차 발송`);
+  }
 });
 
 // ── 요구 5 — 이 알림 전용 스위치(EARNINGS_RESULT_ALERT_MODE · Redis push:sig:result:mode), 없으면 dry ──────────────────

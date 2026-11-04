@@ -43,6 +43,11 @@ const LEDGER_TTL_SEC = 120 * 86400;
  * 발송을 한 번 시도한 기기는(결과가 fail·불명이어도) 다시 보내지 않는다 — 중복 발송 0 이 우선(관문 11041441 #2 · 11041444 #1).
  */
 export const CLAIM_TTL_SEC = 10 * 60;
+/**
+ * 굳히기(SET XX) 한 번의 시간 상한 — 이 안에 확인된 기기만 보내고, 늦은 기기는 자리를 돌려준다(SET XX 라 늦게 도착해도 되살아나지 않는다).
+ * 먼저 굳은 기기가 발송 호출을 기다리는 시간 = «허용된 손실» 창의 상한(≤ 300ms, 코디네이터 11/4 · 관문 11041451 #1).
+ */
+export const SEAL_TIMEOUT_MS = 300;
 /** 한 묶음(100기기)에서 동시에 선점하는 기기 수 */
 const CLAIM_CONCURRENCY = 20;
 /**
@@ -332,7 +337,9 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
           if (!await st(deps.store.setNx(key, `claim:${now}`, CLAIM_TTL_SEC)).catch(() => false)) continue;
           const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => 999);
-          if (cnt > SIG_CFG.deviceDailyCap) { if (cnt !== 999) await deps.store.decr(cap).catch(() => 0); await deps.store.del([key]).catch(() => {}); continue; }
+          // 상한 초과·오류·시간 초과(999) 모두 상한을 되돌린다 — 응답만 늦고 서버엔 반영된 증가가 공유 일일 상한(«내 종목 이상 신호»와 같은 키)을
+          // 소모하지 않게. lib/signals/run.ts 의 기존 규칙과 같다(관문 11041451 #2).
+          if (cnt > SIG_CFG.deviceDailyCap) { await deps.store.decr(cap).catch(() => 0); await deps.store.del([key]).catch(() => {}); continue; }
           chosen++;
           const copy = resultCopy(a, d.locale);
           claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
@@ -351,7 +358,7 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       // 굳히기를 확인 못 한 항목은 보내지 않고 자리를 지운다(XX 라서 늦게 도착한 쓰기도 지운 자리를 되살리지 못한다 → 다음 회차가 다시 본다).
       // 플랫폼마다 «굳히기 → 곧바로 그 플랫폼 발송»을 따로 한다 — 굳힌 뒤 발송 호출 전까지의 창을 플랫폼 하나의 굳히기 시간으로 줄인다.
       // ★ 허용된 손실(코디네이터 11/4 결정 · 관문 11041448 #1): 발송 확인 응답 없이 «누락 0·중복 0»은 동시에 불가 — 중복 0 을 택한다.
-      //   굳힌 직후 그 플랫폼 발송 호출 전에 함수가 강제 중단되면(밀리초 창) 그 기기들은 이 발표 알림을 받지 못한다(장부가 남아 재시도 없음).
+      //   굳힌 뒤 그 플랫폼 발송 호출 전에 함수가 강제 중단되면(창 ≤ SEAL_TIMEOUT_MS 300ms) 그 기기들은 이 발표 알림을 받지 못한다(장부가 남아 재시도 없음).
       const attempted = new Set<typeof claimed[number]>();
       const outcomes = new Map<string, SendOutcome>();
       let sendInTime = true;
@@ -360,8 +367,10 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         if (!batch.length) continue;
         // 굳히기 전·후 모두 마감 검사 — 넘었으면 이 플랫폼은 시도 전이므로 아래에서 자리·상한을 돌려준다(관문 11041444 #3)
         if (clock() >= opts.lockDeadline) { sendInTime = false; break; }
+        // ★ 허용된 손실 창 ≤ SEAL_TIMEOUT_MS(300ms): 굳히기는 300ms 안에 확인된 것만 — 먼저 굳은 기기는 최대 300ms 뒤 발송 호출된다.
+        //   그 사이 함수가 강제 중단되면 그 기기들은 이 발표 알림을 못 받는다(중복 0 우선, 코디네이터 11/4).
         const sealed = new Set(await Promise.all(batch.map(async (c) =>
-          (await st(deps.store.setXx(c.key, `sent:${now}`, LEDGER_TTL_SEC)).catch(() => false)) ? c : null)));
+          (await withTimeout(deps.store.setXx(c.key, `sent:${now}`, LEDGER_TTL_SEC), Math.min(tmo, SEAL_TIMEOUT_MS)).catch(() => false)) ? c : null)));
         if (clock() >= opts.lockDeadline) { sendInTime = false; break; }
         const toSend = batch.filter((c) => sealed.has(c));
         if (!toSend.length) continue;
