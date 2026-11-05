@@ -118,7 +118,8 @@ t('멈춤 — 선물 링크를 누르면(어느 입구든) 더 안내하지 않�
   assert.deepEqual(readAnnounceState(s2), { n: 1, last: NOW - 99 * H, stop: 1 });
   markGiftAnnounceStop(broken); markGiftAnnounceStop(null);   // 던지지 않는다
   const share = read('src/lib/gift/useGift.ts');
-  assert.match(share, /giftFunnel\('tap', surface, shareVia\(\)\);\n\s*try \{ markGiftAnnounceStop\(window\.localStorage\); \}/);
+  assert.match(share, /giftFunnel\('tap', surface, shareVia\(\)\);\n\s*try \{ if \(!keepAnnounce\) markGiftAnnounceStop\(window\.localStorage\); \}/);   // 11/5 재안내 시트만 keepAnnounce
+  assert.match(share, /export function useGiftShare\(locale: string, surface: GiftSurface, keepAnnounce = false\)/);
 });
 t('좋은 순간 입구 — 실적 캘린더·장마감 리포트 탭에서만, 리포트 전체 화면·광고 창이 닫혀 있을 때', () => {
   const intel = read('src/app/[locale]/app-view/intel/page.tsx');
@@ -160,7 +161,7 @@ t('문구 — 3개 언어 다 있고, 부제는 설정 카드 문장 그대로(�
   }
   const sheet = read('src/components/app/GiftAnnounceSheet.tsx');
   assert.match(sheet, /c\.subIosOnly : c\.sub/);
-  assert.match(sheet, /useGiftShare\(locale, 'gift_pop'\)/);
+  assert.match(sheet, /useGiftShare\(locale, 'gift_pop', reannounce\)/);
 });
 t('집계 — gift_pop 이 비콘·서버·리포트에 등록돼 있다', () => {
   assert.match(read('src/lib/share/share.ts'), /\| 'gift_pop';/);

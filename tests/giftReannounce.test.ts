@@ -84,10 +84,14 @@ assert.match(host, /\}, \[cfg, pathname, locale, input, countBlock, show\]\);/);
 assert.match(host, /\}, \[cfg, locale, input, countBlock, show\]\);/);
 assert.match(host, /path: window\.location\.pathname, dialogOpen: dialogOpen\(\), now: Date\.now\(\), moment, reviewAt: reviewRequestedAt\(\),\n  \}\), \[\]\);/);
 assert.match(host, /if \(!markGiftAnnounced\(localStore\(\)\)\) return;/);
-assert.match(host, /if \(!markGiftReannounced\(localStore\(\)\)\) return;/);
+assert.match(host, /if \(!markGiftReannounced\(localStore\(\)\)\) \{ re\.on = false; setReOn\(false\); return; \}/);
 const existing = host.slice(host.indexOf('// ① 대시보드 입구'), host.indexOf('// ③ 재안내 설정'));
 assert.ok(existing.length > 0 && !/re\.|reOn|reannounce/i.test(existing), '기존 ①·② 에 재안내 참조 없음');
 assert.match(host, /loadReannounceConfig\(/);
+// 재안내 시트에서 누른 것은 기존 중단 표식을 쓰지 않는다 · 재안내 표식 실패는 이번 실행 1회 몫을 쓰지 않는다
+assert.match(fs.readFileSync(path.join(root, 'src/components/app/GiftAnnounceSheet.tsx'), 'utf8'), /useGiftShare\(locale, 'gift_pop', reannounce\)/);
+const showRe = host.slice(host.indexOf('const showRe = useCallback'), host.indexOf('// ① 대시보드 입구'));
+assert.ok(showRe.indexOf('markGiftReannounced') > 0 && showRe.indexOf('markGiftReannounced') < showRe.indexOf('run.shown = true'), 'run.shown 은 재안내 표식 성공 뒤에');
 const route = fs.readFileSync(path.join(root, 'src/app/api/share-hit/route.ts'), 'utf8');
 assert.match(route, /'re:dash', 're:earn', 're:report'/);
 

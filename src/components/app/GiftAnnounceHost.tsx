@@ -90,9 +90,10 @@ export function GiftAnnounceHost() {
   /** 재안내를 띄운다 — 재안내 표식만 남긴다(기존 횟수·시각·중단 표식은 그대로). 같은 실행 1회는 기존과 함께 run.shown 으로. */
   const showRe = useCallback((at: GiftShowAt) => {
     if (run.shown) return;
-    run.shown = true;
     re.dashDone = true;
-    if (!markGiftReannounced(localStore())) return;
+    // 표식을 못 남기면 띄우지 않고, 이번 실행의 1회 몫(run.shown)도 쓰지 않는다 — 기존 안내는 그대로 기회가 있다. 재안내는 이번 실행 끝.
+    if (!markGiftReannounced(localStore())) { re.on = false; setReOn(false); return; }
+    run.shown = true;
     setReSheet(true);
     setLocale(localeFromPath(window.location.pathname));
     shareBeacon('open', 'gift_pop', shareVia());
