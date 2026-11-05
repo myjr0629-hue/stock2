@@ -375,6 +375,8 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
        *   · 루프 도중엔 decr 를 하나도 보내지 않으므로, 다음 발표의 incr 값은 «이 기기의 앞선 증가가 모두 들어 있는 값»이다
        *     → 실제 사용량 = cnt − owed (반환이 느리든 끝내 안 오든 판정이 같다 — 반환 응답 순서에 기대지 않는다).
        *     예: 2/3 · 첫 종목 incr 시간 초과(서버 3) → owed 1 · 두 번째 종목 incr 4 − 1 = 3 ≤ 3 → 보낸다 · 끝나고 decr 1회 → 3.
+       *   · 상한 초과가 확인되면(값 있음) 그 기기는 거기서 멈추고 곧바로 되돌린다 — 부풀린 공유 상한이 남는 창은 기존과 같다(관문 11060414 #1).
+       *     되돌리기가 뒤 종목 판정 뒤로 밀리는 것은 시간 초과(값 없음)뿐이고, 그 창은 뒤 종목의 선점·증가 왕복 2회(각 시간 상한 안)다.
        *   · 기기 키(devKey)는 토큰마다 하나라 같은 상한 키를 이 회차의 다른 루프가 건드리지 않는다.
        *   · 남는 오차(기존 «시간 초과 = 반영됨» 규칙에서 오는 것, 관문 11041451 #2) — 시간 초과된 incr 가 끝내 안 들어갔거나 다음 incr 보다
        *     늦게 서버에 닿으면(시간 상한 2.5초를 넘긴 요청이 뒤 요청을 앞지르는 드문 경우) 그날 상한이 1 느슨해진다. 누락(같은 기기 후속 종목 탈락)보다 이쪽을 택한다.
@@ -396,7 +398,13 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
             const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => null);
             // 상한 초과·오류·시간 초과(null) 모두 이 증가를 되돌린다 — 응답만 늦고 서버엔 반영된 증가가 공유 일일 상한(«내 종목 이상 신호»와 같은 키)을
             // 소모하지 않게. lib/signals/run.ts 의 기존 규칙과 같다(관문 11041451 #2). 판정은 이 기기가 되돌릴 증가(owed)를 뺀 값으로.
-            if (cnt == null || cnt - owed > SIG_CFG.deviceDailyCap) { owed++; laterOp(deps.store.delIfEq(key, [CLAIM_V])); continue; }
+            if (cnt == null || cnt - owed > SIG_CFG.deviceDailyCap) {
+              owed++; laterOp(deps.store.delIfEq(key, [CLAIM_V]));
+              // 상한이 찬 것이 «확인»되면 이 기기는 여기서 멈춘다 — 이 회차에서 뒤 종목도 어차피 초과이고, 되돌리기(finally)를 곧바로 보내
+              // 부풀린 공유 상한을 다른 신호 크론(run.ts)이 읽는 창을 늘리지 않는다(관문 11060414 #1). 시간 초과(null)만 다음 종목으로 넘어간다.
+              if (cnt != null) break;
+              continue;
+            }
             chosen++;
             const copy = resultCopy(a, d.locale);
             claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
@@ -537,8 +545,8 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       later(release(claimed));
       if (dead.size) {
         const ts = [...dead];
-        laterOp(deps.store.srem('push:token_list', ts));
-        laterOp(deps.store.del(ts.map((t) => `push:tokens:${t}`)));
+        // 목록 제거 «뒤에» 기록 삭제 — 순서는 기존 그대로(관문 11060414 #2: 동시에 보내면 재등록과 겹쳐 목록에서만 빠질 수 있다)
+        later(withTimeout(deps.store.srem('push:token_list', ts), tmo).catch(() => {}).then(() => withTimeout(deps.store.del(ts.map((t) => `push:tokens:${t}`)), tmo)));
       }
       // 선점 창이 닫혔거나 마감을 넘겼으면 다음 묶음으로 가지 않는다(잡은 것은 위에서 보냈거나 돌려줬다)
       if (expiring || !inTime || !sendInTime) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }

@@ -715,6 +715,19 @@ t('4 · 장부 보정은 상한을 넘기지 않는다 — 3/3 이면 두 종목
     assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`), false, '거절한 자리는 돌려준다');
   }
 });
+t('4 · 관문 11060414 #1 — 상한 초과가 확인되면 그 기기는 멈추고 곧바로 되돌린다(뒤 종목 왕복 동안 공유 상한을 부풀려 두지 않는다)', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  const cap = capOf(IOS_TOKEN);
+  s.store.m.set(cap, 3);
+  const order: string[] = [];
+  const incr = s.store.incr.bind(s.store), decr = s.store.decr.bind(s.store), setNx = s.store.setNx.bind(s.store);
+  s.store.incr = async (k, ex) => { if (k === cap) order.push('incr'); return incr(k, ex); };
+  s.store.decr = async (k) => { if (k === cap) order.push('decr'); return decr(k); };
+  s.store.setNx = async (k, v, ex) => { if (k.startsWith('push:sig:result:') && k.includes(devKey(IOS_TOKEN))) order.push('claim'); return setNx(k, v, ex); };
+  assert.equal((await s.run(SEND)).sent, 0);
+  assert.deepEqual(order, ['claim', 'incr', 'decr'], '두 번째 종목 선점·증가 없이 곧바로 되돌림');
+  assert.equal(Number(s.store.m.get(cap)), 3);
+});
 t('4 · 굳힌 직후 마감이 지나면 발송하지 않고 장부를 되돌려 다음 회차에 보낸다(발송 직전 마감 재확인)', async () => {
   const s = setup();
   let now = SEND;
