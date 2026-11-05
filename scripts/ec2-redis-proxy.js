@@ -204,6 +204,7 @@ const server = http.createServer(async (req, res) => {
 
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     const path_ = url.pathname;
+    const gone = () => !!(req.socket && req.socket.destroyed);   // 호출자가 시간 초과로 끊었는가(대기열 읽기 건너뛰기)
 
     try {
         // GET /get?key=xxx
@@ -211,7 +212,7 @@ const server = http.createServer(async (req, res) => {
             const key = url.searchParams.get("key");
             if (!key) { res.writeHead(400); res.end(JSON.stringify({ error: "key required" })); return; }
             const read = async () => { const val = await redis.get(key); return JSON.stringify({ result: val ? JSON.parse(val) : null }); };
-            const body = coalescer ? await coalescer.get(key, read) : await read();
+            const body = coalescer ? await coalescer.get(key, read, gone) : await read();
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(body);
             return;
@@ -274,7 +275,7 @@ const server = http.createServer(async (req, res) => {
             if (!keysParam) { res.writeHead(400); res.end(JSON.stringify({ error: "keys required" })); return; }
             const keys = keysParam.split(",");
             const read = async () => { const vals = await redis.mget(...keys); return JSON.stringify({ results: vals.map(v => v ? JSON.parse(v) : null) }); };
-            const body = coalescer ? await coalescer.mget(keys, read) : await read();
+            const body = coalescer ? await coalescer.mget(keys, read, gone) : await read();
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(body);
             return;

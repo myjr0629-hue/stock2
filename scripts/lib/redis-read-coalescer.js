@@ -30,18 +30,23 @@ function createReadCoalescer(opts) {
     const memoMaxBytes = o.memoMaxBytes != null ? o.memoMaxBytes : 64 * 1024 * 1024;
     const now = o.now || Date.now;
     const maxConcurrent = o.maxConcurrent != null ? o.maxConcurrent : 64;
+    const maxQueue = o.maxQueue != null ? o.maxQueue : 4000;
 
     /** id ('g:'+key | 'm:'+keys) → { promise, stale, keys } */
     const inflight = new Map();
     /** key → { body, at, bytes } (insertion order = age) */
     const memo = new Map();
     let memoBytes = 0;
-    const stats = { reads: 0, joined: 0, memoHits: 0, memoStored: 0, invalidations: 0, queuedPeak: 0 };
+    const stats = { reads: 0, joined: 0, memoHits: 0, memoStored: 0, invalidations: 0, queuedPeak: 0, skippedGone: 0, rejectedBusy: 0 };
 
     let active = 0;
     const waiters = [];
     function acquire() {
         if (active < maxConcurrent) { active++; return Promise.resolve(); }
+        if (waiters.length >= maxQueue) {
+            stats.rejectedBusy++;
+            return Promise.reject(new Error("proxy busy (read queue full)"));
+        }
         return new Promise((resolve) => {
             waiters.push(resolve);
             if (waiters.length > stats.queuedPeak) stats.queuedPeak = waiters.length;
@@ -52,9 +57,16 @@ function createReadCoalescer(opts) {
         if (next) next();          // 자리를 그대로 넘긴다(active 유지)
         else active--;
     }
-    async function limited(fn) {
+    /** 자리를 얻은 순간 기다리던 호출자가 «모두» 끊겼으면(Vercel 4~5초 시간 초과 등) Redis 를 부르지 않는다. */
+    async function limited(fn, entry) {
         await acquire();
-        try { return await fn(); } finally { release(); }
+        try {
+            if (entry.gone.length && entry.gone.every((g) => typeof g === "function" && g())) {
+                stats.skippedGone++;
+                throw new Error("all callers gone");
+            }
+            return await fn();
+        } finally { release(); }
     }
 
     function dropMemo(key) {
@@ -83,13 +95,13 @@ function createReadCoalescer(opts) {
         stats.memoStored++;
     }
 
-    function run(id, keys, fetchBody, memoKey) {
+    function run(id, keys, fetchBody, memoKey, isGone) {
         const f = inflight.get(id);
-        if (f) { stats.joined++; return f.promise; }
+        if (f) { stats.joined++; f.gone.push(isGone); return f.promise; }
         stats.reads++;
-        const entry = { stale: false, keys, promise: null };
+        const entry = { stale: false, keys, promise: null, gone: [isGone] };
         entry.promise = Promise.resolve()
-            .then(() => limited(fetchBody))
+            .then(() => limited(fetchBody, entry))
             .then((body) => {
                 if (memoKey != null && !entry.stale && typeof body === "string" && body.length >= memoMinBytes && memoMs > 0) {
                     store(memoKey, body);
@@ -101,19 +113,19 @@ function createReadCoalescer(opts) {
         return entry.promise;
     }
 
-    /** GET 한 키 — fetchBody() 는 HTTP 응답 본문 문자열을 돌려준다. */
-    function get(key, fetchBody) {
+    /** GET 한 키 — fetchBody() 는 HTTP 응답 본문 문자열을 돌려준다. isGone() = 호출자 연결이 끊겼는가(선택). */
+    function get(key, fetchBody, isGone) {
         const m = memo.get(key);
         if (m) {
             if (now() - m.at < memoMs) { stats.memoHits++; return Promise.resolve(m.body); }
             dropMemo(key);
         }
-        return run("g:" + key, [key], fetchBody, key);
+        return run("g:" + key, [key], fetchBody, key, isGone);
     }
 
     /** MGET — 같은 키 목록의 동시 요청만 합친다(메모 없음). */
-    function mget(keys, fetchBody) {
-        return run("m:" + JSON.stringify(keys), keys.slice(), fetchBody, null);   // 구분자 충돌 없는 식별자
+    function mget(keys, fetchBody, isGone) {
+        return run("m:" + JSON.stringify(keys), keys.slice(), fetchBody, null, isGone);   // 구분자 충돌 없는 식별자
     }
 
     /** 쓰기 전·후에 부른다 — 그 키의 진행 중 읽기는 더 이상 새 요청과 합치지 않고, 메모도 버린다. */
