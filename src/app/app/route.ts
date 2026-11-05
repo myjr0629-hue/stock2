@@ -6,6 +6,7 @@ import { UA_BOT_RE, isPreviewBot, clickFields, recordClick } from '@/lib/marketi
 import { desktopHandoffHtml, desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 import { couponHtml } from '@/lib/marketing/couponHtml';
+import { playCouponAvailable } from '@/lib/marketing/couponClaim';
 import { androidCouponLive, iosStayHintFlag } from '@/lib/marketing/coupon';
 import { isAndroidInAppBrowser, inAppFamily, inAppViewFields, androidInAppHtml } from '@/lib/marketing/androidInApp';
 import { isIosInAppBrowser } from '@/lib/marketing/iosInApp';
@@ -258,7 +259,7 @@ export async function GET(request: NextRequest) {
   //
   //   그래서 «한 줄 링크»를 여기서 만든다: signumhq.com/app?from=<채널>&code=<코드>.
   //   기기 분기와 채널 집계는 이미 있는 것을 그대로 타고, 코드가 있을 때만 목적지가 바뀐다.
-  //   코드가 없으면 동작이 «완전히 이전과 같다» — 기존 링크는 아무 영향이 없다.
+  //   안드로이드는 코드 유무와 관계없이 Play 쿠폰 재고를 확인한다.
   const rawCode = (request.nextUrl.searchParams.get('code') || '').trim().toUpperCase();
   const code = /^[A-Z0-9]{4,24}$/.test(rawCode) ? rawCode : '';   // 형식이 아니면 «없는 것»으로 본다
 
@@ -269,21 +270,46 @@ export async function GET(request: NextRequest) {
     after(() => recordQrHit(fromTag, via));
   }
 
+  // 안드로이드 Play 쿠폰은 애플 코드의 유무·만료와 별개다. 재고 조회는 배정하지 않는다.
+  if (hitPlatform === 'android' && androidCouponLive()) {
+    const available = await playCouponAvailable();
+    if (available) {
+      try {
+        const html = couponHtml({
+          platform: 'android', lang: pageLang(), fromTag, code,
+          appleRedeemUrl: appleRedeemUrl(code),
+          playInstallUrl: playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', code ? 'code' : undefined, campaignId),
+          androidInApp, ref: giftRef,
+        });
+        const viewField = (clickFieldsNow[0] || 'android|human').replace('|', '|view:');
+        after(() => recordClick('coupon', fromTag, [viewField]));
+        if (code) {
+          after(() => recordCodeHit(fromTag));
+          after(() => recordClick('code', fromTag, clickFieldsNow));
+        }
+        if (androidInApp) {
+          const fields = inAppViewFields(clickFieldsNow[0], inAppFamily(ua, xrw), 'coupon');
+          after(() => recordClick('inapp', fromTag, fields));
+        }
+        return new NextResponse(html, previewResponseInit());
+      } catch { /* 설치로 계속 진행한다. */ }
+    } else {
+      if (code) {
+        after(() => recordCodeHit(fromTag));
+        after(() => recordClick('code', fromTag, clickFieldsNow));
+      }
+      return NextResponse.redirect(playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', code ? 'code' : undefined, campaignId), 302);
+    }
+  }
+
   if (code) {
     // 코드 링크 클릭은 따로 센다 — 일반 클릭과 섞으면 «코드가 먹혔는지»를 영영 못 잰다.
     after(() => recordCodeHit(fromTag));   // 합계(mkt:attr:code:<from>:<날짜>) — 대시보드가 읽는 키, 그대로
     // ★2026-10-04 G0 기기별 + 사람 판정(clk:code:<from>:<날짜>, 필드 «<기기>|human» 등) — clk:sg 와 같은 규칙·같은 필드, EC2 전용 키
     after(() => recordClick('code', fromTag, clickFieldsNow));
 
-    // ★2026-10-05 «쿠폰 화면»(대표 «쿠폰 받는 느낌» — 바로 스토어로 넘기면 그냥 무료 체험과 다를 게 없다).
-    //   폰 + 우리 애플 맞춤 코드(채널 8종 + 크리에이터 형식 규칙 — linkPreview.isLivePromoCode, 만료 전)이면 302 대신 가벼운 서버 HTML(lib/marketing/couponHtml.ts):
-    //   · 아이폰: 쿠폰 번호(이 코드)를 크게 + «쿠폰 적용하고 무료로 시작» = 애플 적용 주소(예전 302 목적지와 같은 주소)
-    //   · 안드로이드: COUPON_ANDROID=1(기본 꺼짐)이고 Play 프로모션 종료 전일 때만 — «내 쿠폰 받기» → /api/coupon/claim 개인 번호.
-    //     꺼져 있으면 아래 예전 동작(Play 설치 302) 그대로.
-    //   남의 코드·만료 뒤·PC 는 이 분기를 타지 않는다(예전 그대로). 위 집계(코드 합계·clk:code)도 그대로 두고,
-    //   화면 노출만 clk:coupon:<from>:<날짜> «<기기>|view:<사람 판정>» 한 칸을 더한다(단추는 /api/coupon/event 비콘).
-    //   ⚠ 반드시 no-store + Vary: User-Agent(previewResponseInit) — CDN 이 이 HTML 을 PC·다른 기기에게 주면 안 된다.
-    if (hitPlatform !== 'desktop' && isLivePromoCode(code) && (hitPlatform === 'ios' || androidCouponLive())) {
+    // 아이폰 쿠폰 화면은 유효한 애플 코드에만 기존처럼 노출한다.
+    if (hitPlatform === 'ios' && isLivePromoCode(code)) {
       const viewField = (clickFieldsNow[0] || `${hitPlatform}|human`).replace('|', '|view:');
       // ★2026-10-07 아이폰 «앱 안 브라우저»(Threads·Instagram 등 WKWebView)면 어느 앱인지도 같은 키에 한 칸(ios|app:<가족>) — 적용 단추가 App Store 로 안 넘어가는지(apply_stay)를 앱별로 본다. 사파리·PC·안드는 예전 그대로.
       const iosInApp = hitPlatform === 'ios' && isIosInAppBrowser(ua);

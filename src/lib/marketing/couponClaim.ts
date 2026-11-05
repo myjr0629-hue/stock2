@@ -182,3 +182,15 @@ export function upstashCouponStore(timeoutMs = 3000): CouponStore | null {
     },
   };
 }
+
+/** 쿠폰 화면 노출 전 재고만 확인한다. 설정 누락·조회 실패는 호출자가 설치로 보낸다. */
+export async function playCouponAvailable(): Promise<boolean> {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !token) return false;
+  try {
+    const redis = new Redis({ url, token, enableTelemetry: false, retry: false, signal: () => AbortSignal.timeout(3000) });
+    const count = await redis.scard(couponKeys().pool);
+    return Number.isSafeInteger(count) && count > 0;
+  } catch { return false; }
+}
