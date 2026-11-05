@@ -480,6 +480,8 @@ function isMojibake(value: unknown): boolean {
 //   reports:*·split:recent·cache:xs·flow-harvest:lock 뿐(2026-09-18 프로브). 그 외 전부 EC2 3/3.
 // ═══════════════════════════════════════════════════════════════════════════
 /** 장애 때 없으면 화면이 비거나 상태를 잃는 키 — Upstash 복제를 유지한다. */
+/** 실적 채점 기록 키(발표일까지) — earnings:actuals:v1:{TICKER}:{YYYY-MM-DD} */
+const ACTUALS_RECORD_KEY = /^earnings:actuals:v1:[A-Z0-9.\-]+:\d{4}-\d{2}-\d{2}$/;
 const REPLICATE_PREFIXES: readonly RegExp[] = [
     /^trade:/, /^mkt:/, /^push:/, /^guardian:/, /^yahoo:/, /^vix:/, /^cnn:/,
     /^market:movers:last_good/, /^structure:lastgood:/, /^intrinio:options:eod/,
@@ -488,6 +490,10 @@ const REPLICATE_PREFIXES: readonly RegExp[] = [
     //   11/3 리포트가 다음 날 낮에 사라졌다(GET ?date=2026-11-03 → 404, 마감 푸시 탭 = 빈 리포트). 11/4 읽기 폴백(UPSTASH_ONLY)은
     //   Upstash 에 사본이 있어야 효과가 있다 → 쓰기도 복제한다(하루 1회·수십 KB).
     /^postmarket:/,
+    // [2026-11-05 T56b] 실적 채점 기록(earnings:actuals:v1:{TICKER}:{발표일})만 — 포인터(:latest:)·잠금은 제외.
+    //   EC2 에 사본이 없을 때(축출·노드 교체) Upstash 사본(setActualsDurable 이 쓰기마다 복제)을 읽는다.
+    //   발표일 키만이라 크롤러가 훑는 종목 페이지(포인터 먼저 읽고 없으면 끝)는 Upstash 를 부르지 않는다.
+    ACTUALS_RECORD_KEY,
 ];
 /** Upstash 에만 존재하는 키(래퍼 밖 작성자) — EC2 미스여도 Upstash 를 읽는다.
  *  promo: [2026-10-05] 안드로이드 쿠폰 번호 풀·배정 기록(lib/marketing/couponClaim.ts) — SPOP·INCR·SET NX 원자 연산이 필요해 Upstash 직접. */
@@ -532,6 +538,8 @@ export function shouldFallbackToUpstash(key: string, ecAuthoritative: boolean): 
 }
 /** 테스트 전용 — 스로틀 상태 초기화 */
 export function _resetReplicateThrottle(): void { _lastReplicated.clear(); }
+/** 테스트 전용 — 실적 사본 쿨다운 초기화 */
+export function _resetActualsMirrorForTest(): void { actualsMirrorDownUntil = 0; }
 
 /** Request-scoped authoritative read for controls: no stale fallback or health inference. */
 export async function getAuthoritativeCache<T>(key: string): Promise<{ ok: boolean; value: T | null }> {
@@ -932,7 +940,71 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
     return ecOk || upstashOk;
 }
 
-/** Actuals 수동 보강 전용: TTL 없이 저장하되 기존처럼 EC2 실패 시에만 Upstash 폴백한다. */
+/**
+ * [2026-11-05 T56b] 실적 기록·포인터의 Upstash 사본 — TTL 없음, 실패해도 호출자 결과를 바꾸지 않는다(로그만).
+ *   11/3·11/4·11/5 ElastiCache 축출(volatile-lru)이 TTL 붙은 채점 기록을 세 번 지웠다. TTL 없는 키는 축출되지 않지만
+ *   단일 노드(t3.small, 백업 없음)라 노드 교체·재부팅·정책 변경이면 전부 사라진다 → 쓰기마다 Upstash 에 같은 값을 둔다.
+ */
+let actualsMirrorClient: UpstashRedis | null | undefined;
+/** 사본 실패 뒤 이 시각까지는 사본을 건너뛴다 — Upstash 장애가 크론(60초 상한)을 재시도로 붙잡지 않게 */
+let actualsMirrorDownUntil = 0;
+const ACTUALS_MIRROR_COOLDOWN_MS = 60_000;
+/** 사본 전용 클라이언트 — 재시도 0(기본 클라이언트는 재시도로 실패 한 번에 수 초를 쓴다) */
+function actualsMirror(): UpstashRedis | null {
+    if (Date.now() < actualsMirrorDownUntil) return null;
+    if (actualsMirrorClient !== undefined) return actualsMirrorClient;
+    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+    try { actualsMirrorClient = url && token ? new UpstashRedis({ url, token, retry: { retries: 0 } }) : null; } catch { actualsMirrorClient = null; }
+    return actualsMirrorClient;
+}
+async function mirrorActualsToUpstash<T>(key: string, value: T): Promise<boolean> {
+    const upstash = actualsMirror();
+    if (!upstash) return false;
+    obsUp('set', 'mirror');
+    const start = performance.now();
+    try {
+        await upstash.set(key, value);
+        obsUpDone(start);
+        return true;
+    } catch (e: any) {
+        obsUpDone(start, true);
+        actualsMirrorDownUntil = Date.now() + ACTUALS_MIRROR_COOLDOWN_MS;
+        console.warn(`[Redis/Upstash] actuals mirror set(${key}) failed:`, e?.message);
+        return false;
+    }
+}
+
+/**
+ * [2026-11-05 T56b] 크론 쓰기 — EC2 엄격 쓰기(TTL 없음)가 결과다(setAuthoritativeCache 와 같은 판정), 성공하면 Upstash 에 사본.
+ *   EC2 쓰기가 실패하면 Upstash 에도 쓰지 않는다(크론은 다음 회차가 EC2 를 다시 읽고 병합한다 — 기존 규칙 그대로).
+ */
+export async function setActualsDurable<T>(key: string, value: T): Promise<boolean> {
+    if (!key.startsWith('earnings:actuals:v1:')) return false;
+    const ok = await setAuthoritativeCache(key, value);
+    if (ok) await mirrorActualsToUpstash(key, value);
+    return ok;
+}
+
+/** [2026-11-05 T56b] Upstash 사본 엄격 읽기 — ok=false 는 확인 못 함(값 없음과 구분). 실적 기록 키 전용. */
+export async function getActualsMirror<T>(key: string): Promise<{ ok: boolean; value: T | null }> {
+    if (!key.startsWith('earnings:actuals:v1:')) return { ok: false, value: null };
+    const upstash = actualsMirror();
+    if (!upstash) return { ok: false, value: null };
+    obsUp('get', 'mirror');
+    const start = performance.now();
+    try {
+        const value = await upstash.get<T>(key);
+        obsUpDone(start);
+        return { ok: true, value: value ?? null };
+    } catch {
+        obsUpDone(start, true);
+        actualsMirrorDownUntil = Date.now() + ACTUALS_MIRROR_COOLDOWN_MS;
+        return { ok: false, value: null };
+    }
+}
+
+/** Actuals 수동 보강 전용: TTL 없이 저장하고 Upstash 에 사본(T56b) · EC2 실패 시에는 기존처럼 Upstash 폴백만. */
 export async function setActualsWithoutTtl<T>(key: string, value: T): Promise<boolean> {
     if (!key.startsWith('earnings:actuals:v1:') || value === null || value === undefined) return false;
     if (typeof value === 'object') {
@@ -940,7 +1012,7 @@ export async function setActualsWithoutTtl<T>(key: string, value: T): Promise<bo
         if (v.error && Object.keys(v).length <= 2) return false;
     }
     const gate = ecAcquire();
-    if (gate !== 'skip' && await ecProxySet(key, value, undefined, gate)) return true;
+    if (gate !== 'skip' && await ecProxySet(key, value, undefined, gate)) { await mirrorActualsToUpstash(key, value); return true; }
     const upstash = getUpstashClient();
     if (!upstash) return false;
     obsUp('set', gate === 'skip' ? 'cooldown' : 'ecFail');

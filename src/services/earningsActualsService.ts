@@ -12,7 +12,7 @@ import { fmpFetch } from '@/lib/fmpClient';
 //   ② 실제 반응 계산 — 반응일 정규장 마감 + 30분 뒤에 Intrinio 일봉으로 (기준일 종가 → 반응일 종가) 등락률.
 //      독립 공급사(FMP, 분할 미조정 종가)와 두 날짜 모두 같을 때만 «대조 일치(check: fmp)»로 표시한다.
 //      두 공급사가 다르면 저장하지 않는다(다음 회차가 다시 본다). FMP 가 없으면 Intrinio 단독으로 저장하고 그렇게 표시한다.
-// 키: earnings:actuals:v1:{TICKER}:{발표일} (TTL 없음, EC2 레디스 중심) · 한 발표당 0.5KB.
+// 키: earnings:actuals:v1:{TICKER}:{발표일} (TTL 없음, EC2 레디스 중심 + 쓰기마다 Upstash 사본 · EC2 미스면 사본을 읽는다 — T56b 11/5) · 한 발표당 0.5KB.
 // ============================================================================
 
 import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfirmed';
@@ -26,7 +26,7 @@ import { getDailyAggregates } from '@/services/intrinioClient';
 import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
 import { scorecardPairOf } from '@/lib/earnings/earningsScorecard';
 import { Redis } from '@upstash/redis';
-import { getAuthoritativeCache, mgetFromCache, setAuthoritativeCache, setActualsWithoutTtl } from '@/services/redisClient';
+import { getActualsMirror, getAuthoritativeCache, mgetFromCache, setActualsDurable, setActualsWithoutTtl } from '@/services/redisClient';
 
 export const recordMapKey = (ticker: string, date: string): string => `${String(ticker).toUpperCase()}|${date}`;
 
@@ -144,8 +144,14 @@ async function saveRecord(rec: ActualsRecord): Promise<boolean> {
  */
 async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'ok' | 'kept_expected' | 'read_failed' | 'invalid_record' | 'save_failed'> {
   const key = actualsKey(rec.ticker, rec.date);
-  const read = await getAuthoritativeCache<unknown>(key).catch(() => ({ ok: false, value: null }));
+  let read = await getAuthoritativeCache<unknown>(key).catch(() => ({ ok: false, value: null }));
   if (!read.ok) return 'read_failed';
+  // [T56b] EC2 에 없으면(축출·노드 교체) Upstash 사본을 «저장본»으로 본다 — 발표 전에만 잡을 수 있는 expected 를 빈 값으로 덮지 않게.
+  //   사본 읽기가 실패하면 예전처럼 EC2 기준으로 쓴다(Upstash 장애가 새 기록 쓰기를 막지 않게 — 새 의존 0).
+  if (read.value == null) {
+    const mirror = await getActualsMirror<unknown>(key).catch(() => ({ ok: false, value: null }));
+    if (mirror.ok && mirror.value != null) read = mirror;
+  }
   let out = rec, kept = false;
   if (read.value != null) {
     const stored = parseRecord(read.value);
@@ -153,7 +159,7 @@ async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'
     if (stored.expected) { kept = true; out = { ...out, expected: stored.expected }; }
     if (!actualTouched && stored.actual) out = { ...out, actual: stored.actual };
   }
-  const ok = await setAuthoritativeCache(key, out).catch(() => false);
+  const ok = await setActualsDurable(key, out).catch(() => false);
   if (!ok) return 'save_failed';
   return kept ? 'kept_expected' : 'ok';
 }
@@ -422,7 +428,7 @@ export async function syncActualsLatestPointers(opts: {
   const now = opts.nowMs ?? Date.now();
   const today = etDateOf(now);
   const mget = opts.deps?.mget ?? ((keys: string[]) => mgetFromCache<unknown>(keys));
-  const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setAuthoritativeCache(key, value));
+  const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setActualsDurable(key, value));
   const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
   const timeUp = () => opts.deadlineMs != null && Date.now() >= opts.deadlineMs;
   // 지난 발표 전부(최근 순) — 종목마다 «가장 최근의 완성 기록»을 고른다(최근 발표가 미완성이어도 그 이전 완성 기록을 놓치지 않게, 관문 11050231 ①)
