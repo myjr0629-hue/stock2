@@ -379,7 +379,9 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
        *     예: 2/3 · 첫 종목 incr 시간 초과(서버 3) → 두 번째 종목 선점 → GET 3 ≤ 3 → 보낸다 · decr 0회 · 끝 3.
        *     되돌리기(decr)가 아예 없으니 반환이 느리든 끝내 응답이 없든 판정이 같고, 공유 상한은 실제 사용량(3)을 넘겨 부풀지 않는다.
        *     늦게 도착하는 첫 incr 도 그 자리를 채울 뿐이다(GET 이 그 증가 전이든 뒤든 같은 결과).
-       *     넘겨받을 종목이 없으면(루프 끝) · GET 값이 상한 초과·확인 불가면 그때 곧바로 되돌리고(그 종목은 돌려준다) 다음 종목을 계속 본다.
+       *     넘겨받을 종목이 없으면(루프 끝·다음 종목 선점 실패) · GET 값이 상한 초과·확인 불가면 그때 곧바로 되돌리고 다음 종목을 계속 본다.
+       *     들고 있는 동안 다른 크론(run.ts)이 읽는 값은 «넘겨받으면 맞는 값»(그 종목이 그 자리를 쓴다)이거나, GET 초과면 어차피 상한이 찬 값이다 —
+       *     origin/main 보다 점유가 길어지는 것은 다음 종목 선점이 실패하는 경우의 선점 왕복 1회뿐이다(관문 11060422).
        *   · 남는 오차는 기존 규칙과 같은 쪽 — 시간 초과된 incr 가 끝내 서버에 안 닿았으면 그날 상한이 1 덜 찬다.
        *   · 기기 키(devKey)는 토큰마다 하나라 같은 상한 키를 이 회차의 다른 루프가 건드리지 않는다.
        * 거절한 자리 지우기·되돌리기는 뒤에서(laterOp) — 정상 기기의 선점·발송은 이것을 기다리지 않는다.
@@ -398,7 +400,10 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
             if (clock() >= opts.lockDeadline - CLAIM_STOP_MS) { expiring = true; return; }   // 기기마다·발표마다 검사 — 선점 창이 닫히면 더 잡지 않는다(잡은 것은 아래에서 보낸다)
             const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date);
             // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
-            if (!await st(deps.store.setNx(key, CLAIM_V, CLAIM_TTL_SEC)).catch(() => false)) continue;
+            if (!await st(deps.store.setNx(key, CLAIM_V, CLAIM_TTL_SEC)).catch(() => false)) {
+              if (held) { held = false; refund(); }   // 넘겨받을 종목이 아니다 — 들고 있던 증가분을 곧바로 되돌린다(점유를 다음 종목까지 끌지 않는다)
+              continue;
+            }
             if (held) {
               // 들고 있던 (시간 초과) 증가분을 이 종목이 넘겨받는다 — 새 incr 없이 지금 값이 상한 안인지만 본다
               const v = await st(deps.store.get(cap)).then((r) => Number(r ?? 0)).catch(() => NaN);

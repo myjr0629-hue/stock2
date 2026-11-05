@@ -727,6 +727,21 @@ t('4 · 시간 초과 증가분을 넘겨받을 때 GET 값이 상한 초과면(
   assert.equal(Number(s.store.m.get(cap)), 3);
   assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`), false); assert.equal(s.store.m.has(slowKeyOf(IOS_TOKEN)), false, '두 자리 모두 돌려준다 → 다음 회차 재시도');
 });
+t('4 · 관문 11060422 — 들고 있던 시간 초과 증가분은 다음 종목 선점이 실패하면(이미 보낸 종목) 그 즉시 되돌린다', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  const cap = capOf(IOS_TOKEN);
+  s.store.m.set(cap, 2);
+  s.store.m.set(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`, 'sent:old');   // C 는 지난 회차에 이미 보냈다
+  const order: string[] = [];
+  const incr = s.store.incr.bind(s.store), decr = s.store.decr.bind(s.store), setNx = s.store.setNx.bind(s.store);
+  s.store.incr = async (k, ex) => { const n = await incr(k, ex); if (k === cap) { order.push('incr'); return new Promise<number>(() => {}); } return n; };
+  s.store.decr = async (k) => { if (k === cap) order.push('decr'); return decr(k); };
+  s.store.setNx = async (k, v, ex) => { const ok = await setNx(k, v, ex); if (k.includes(`${devKey(IOS_TOKEN)}:C:`)) order.push(`claimC:${ok}`); return ok; };
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 100, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 0);
+  assert.deepEqual(order, ['incr', 'claimC:false', 'decr']);
+  assert.equal(Number(s.store.m.get(cap)), 2, '원상');
+});
 t('4 · 관문 11060414 #1·11060420 — 상한 초과가 확인되면 곧바로 되돌리고(다음 종목 선점 «전»에 시작) 다음 종목도 계속 본다', async () => {
   const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
   const cap = capOf(IOS_TOKEN);
