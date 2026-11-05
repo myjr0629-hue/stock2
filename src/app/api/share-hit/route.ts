@@ -27,7 +27,8 @@ const SURFACES = new Set(['ticker', 'rank', 'uc', 'wim', 'sh_pick', 'sh_line', '
 const VIAS = new Set(['ios', 'android', 'web', 'na']);
 // ★2026-10-27 선물 안내(gift_pop) 전용 — 어디서 띄웠나(at:*) · 막힌 이유(block:*, 실행당 사유마다 1회). 닫힌 목록, 다른 표면엔 받지 않는다.
 //   키 = share:<at:dash|at:earn|at:report|block:<사유>>:gift_pop:<via>:<ET날짜> — 하루 합계 숫자만(식별자 없음). 읽기: scripts/mkt-gift.js
-const POP_EVENTS = new Set(['at:dash', 'at:earn', 'at:report', ...GIFT_BLOCK_METRICS.map((b) => `block:${b}`)]);
+//   ★2026-11-05 재안내 회차(gift:announce:1105)는 re:<곳> 으로 따로 센다(기존 at:* 숫자는 그대로).
+const POP_EVENTS = new Set(['at:dash', 'at:earn', 'at:report', 're:dash', 're:earn', 're:report', ...GIFT_BLOCK_METRICS.map((b) => `block:${b}`)]);
 
 // ET 날짜 — /app 의 etDate()·mkt.ts 와 같은 형식(YYYY-MM-DD, America/New_York).
 function etDate(): string {

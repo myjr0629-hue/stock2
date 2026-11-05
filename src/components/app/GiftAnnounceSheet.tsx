@@ -18,18 +18,18 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet';
 import { GIFT_COPY, toGiftLang } from '@/lib/gift/gift';
 import { useGiftShare } from '@/lib/gift/useGift';
-import { GIFT_ANNOUNCE_COPY, keepTogether } from '@/lib/gift/giftAnnounce';
+import { GIFT_ANNOUNCE_COPY, GIFT_REANNOUNCE_TITLE, keepTogether } from '@/lib/gift/giftAnnounce';
 
 /** 묶음은 한 줄에 — 나머지는 평소처럼 줄을 바꾼다 */
 function Kept({ text, keep }: { text: string; keep: string[] }) {
   return <>{keepTogether(text, keep).map((p2, i) => (p2.nb ? <span key={i} className={s.nb}>{p2.t}</span> : p2.t))}</>;
 }
 
-export function GiftAnnounceSheet({ locale, onClose }: { locale: string; onClose: () => void }) {
+export function GiftAnnounceSheet({ locale, onClose, reannounce = false }: { locale: string; onClose: () => void; reannounce?: boolean }) {
   const lang = toGiftLang(locale);
   const c = GIFT_COPY[lang];
   const a = GIFT_ANNOUNCE_COPY[lang];
-  const { cfg, share, visibleRef } = useGiftShare(locale, 'gift_pop');
+  const { cfg, share, visibleRef } = useGiftShare(locale, 'gift_pop', reannounce);
   const titleId = useId();
   const [copied, setCopied] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -81,7 +81,7 @@ export function GiftAnnounceSheet({ locale, onClose }: { locale: string; onClose
 
         <div className={p.head}>
           <span className={`${p.eyebrow} ${s.eyebrow}`}><GiftIcon size={13} />{a.eyebrow}</span>
-          <h1 className={p.title} id={titleId}><Kept text={c.title} keep={a.keep} /></h1>
+          <h1 className={p.title} id={titleId}><Kept text={reannounce ? GIFT_REANNOUNCE_TITLE[lang] : c.title} keep={a.keep} /></h1>
           <p className={`${p.lede} ${s.lede}`}><Kept text={cfg && !cfg.android ? c.subIosOnly : c.sub} keep={a.keep} /></p>
         </div>
 

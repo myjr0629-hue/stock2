@@ -139,6 +139,63 @@ export function markGiftAnnounced(store: StoreLike | null, now = Date.now()): bo
   }
 }
 
+// ─── ★2026-11-05 재안내 회차 «이번 주 실적 채점 + 친구에게 PRO 1개월 선물» (기본 꺼짐 · EC2 Redis gift:announce:1105 = '1') ───
+//   기존 안내(위 ①~⑧·표식 GIFT_ANNOUNCE_KEY)와 «완전히 따로» 판정한다 — 기존 횟수·간격·중단 표식을 읽지도 쓰지도 않는다.
+//   스위치가 꺼졌거나 설정 조회가 늦거나(3초) 실패하면 이 경로는 아예 돌지 않는다 = 기존 안내 동작 그대로.
+//   둘이 겹치는 곳은 «한 실행 최대 1회»(GiftAnnounceHost 의 run.shown)뿐 — 같은 실행에 기존 안내가 떴으면 재안내는 다음 실행에.
+//   회차 표식 = 이 기기 localStorage GIFT_REANNOUNCE_KEY(띄운 시각) — 기기당 1회. 기존 표식의 중단·3회 한도는 이 회차에 적용하지 않는다.
+export const GIFT_REANNOUNCE_KEY = 'signumhq.gift.announce.1105';
+export const GIFT_REANNOUNCE_SWITCH = 'gift:announce:1105';
+/** 재안내 설정 조회 상한 — 넘기면 «재안내 없음» */
+export const GIFT_REANNOUNCE_TIMEOUT_MS = 3000;
+/** 재안내 제목(3개 언어, «미국 주식 앱» 관점) — 부제·단추·고지는 기존 안내 그대로 */
+export const GIFT_REANNOUNCE_TITLE: Record<GiftLang, string> = {
+  ko: '이번 주 미국 주식 실적 채점을 확인하고, 친구에게 PRO 1개월을 선물하세요',
+  en: 'Check this week’s US stock earnings scorecard and gift a friend 1 month of PRO',
+  ja: '今週の米国株の決算採点をチェックして、友だちにPRO 1か月をプレゼント',
+};
+
+/** 이번 웹뷰 실행에서 재안내를 띄운 시각(ms, 없으면 0) — 평점 요청이 그 뒤 60초 쉬게(hooks/useReviewPrompt). 저장하지 않는다:
+ *  다음 실행(스위치 꺼짐·조회 실패 포함)의 평점·기존 안내 흐름에는 아무 영향이 없다. */
+let reannounceShownAtMs = 0;
+export const reannounceShownAt = (): number => reannounceShownAtMs;
+export function noteReannounceShown(now = Date.now()): void { reannounceShownAtMs = now; }
+
+/** 이 기기가 재안내를 이미 봤나(저장소가 막히면 null) */
+export function readReannounced(store: StoreLike | null): boolean | null {
+  if (!store) return null;
+  try { return store.getItem(GIFT_REANNOUNCE_KEY) !== null; } catch { return null; }
+}
+
+/** 재안내를 띄우면 안 되는 이유(없으면 null). 기존 표식은 보지 않는다 — 기기당 1회(cap) 뒤로는 ⑤~⑧ 기존 조건 그대로. */
+export function giftReannounceBlock(i: AnnounceInput): AnnounceBlock | null {
+  if (!i.live) return 'off';
+  const seen = readReannounced(i.store);
+  if (seen === null) return 'nostore';
+  if (seen) return 'cap';
+  if (!i.onboardedAtMount) return 'new';
+  if (!i.moment && !isDashPath(i.path)) return 'route';
+  try {
+    const n = parseInt(i.store!.getItem(APP_SESSION_REVIEW.storageKey) || '0', 10) || 0;
+    if ((APP_SESSION_REVIEW.milestones ?? []).includes(n)) return 'review';
+  } catch { /* 회차를 못 읽으면 겹침 검사만 건너뛴다 */ }
+  if (i.reviewAt && i.now - i.reviewAt < GIFT_REVIEW_QUIET_MS) return 'review';
+  if (i.dialogOpen) return 'busy';
+  return null;
+}
+
+/** 재안내 표식(띄운 시각) — 기존 표식은 건드리지 않는다. 이미 있거나 쓰고 다시 읽히지 않으면 false(띄우지 않는다). */
+export function markGiftReannounced(store: StoreLike | null, now = Date.now()): boolean {
+  if (readReannounced(store) !== false) return false;
+  const v = String(now);
+  try {
+    store!.setItem(GIFT_REANNOUNCE_KEY, v);
+    return store!.getItem(GIFT_REANNOUNCE_KEY) === v;
+  } catch {
+    return false;
+  }
+}
+
 /** 선물 링크를 눌렀다(어느 입구든) — 이 기기에는 더 안내하지 않는다. 실패는 삼킨다(최악이면 최대 3회 안에서 한 번 더 뜬다). */
 export function markGiftAnnounceStop(store: StoreLike | null): void {
   const st = readAnnounceState(store);

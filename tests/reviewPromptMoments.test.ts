@@ -471,6 +471,21 @@ async function main() {
       uninstall();
     }
   });
+  t('11/5 재안내 — 이번 실행에서 띄운 뒤 60초만 평점 요청을 미루고, 저장된 재안내 표식은 평점에 영향이 없다', () => {
+    const gift = require('../src/lib/gift/giftAnnounce');
+    let env = new Env(); install(env, makeWindow(env));
+    let ask = grab({ storageKey: 'signum.reTest', milestones: [1], delayMs: 1400 });
+    env.local.setItem(gift.GIFT_REANNOUNCE_KEY, String(Date.now()));   // 지난 실행에 본 표식(스위치 꺼짐·조회 실패 실행) — 예전처럼 요청
+    ask(); flush(env);
+    assert.equal(env.reviews, 1);
+    uninstall();
+    env = new Env(); install(env, makeWindow(env));
+    ask = grab({ storageKey: 'signum.reTest2', milestones: [1], delayMs: 1400 });
+    ask(); gift.noteReannounceShown(Date.now()); flush(env);
+    assert.equal(env.reviews, 0);
+    gift.noteReannounceShown(0);
+    uninstall();
+  });
   t('차단된 순간은 다음 순간에 한 번만 재시도하고 실제 호출 후에만 완료한다', () => {
     const env = new Env(); const w = makeWindow(env); install(env, w);
     const ask = grab({ storageKey: 'signum.retryTest', milestones: [2], delayMs: 1400 });

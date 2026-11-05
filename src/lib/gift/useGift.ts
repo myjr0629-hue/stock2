@@ -90,14 +90,15 @@ export function useGiftConfig(): GiftConfig | null {
  * 공유 실행 — 입구(카드·단추) 클릭 핸들러에서 `void share()` 로 «곧바로» 부른다.
  * 돌려주는 값: 'shared'(시스템 시트 완료) · 'copied'(링크 복사 — 호출자가 «복사했어요» 토스트) · 'cancelled' · 'failed' · null(입구가 꺼져 있거나 이미 실행 중).
  */
-export function useGiftShare(locale: string, surface: GiftSurface) {
+/** keepAnnounce — ★11/5 재안내 시트(gift:announce:1105)에서 누른 것은 기존 안내의 중단 표식을 쓰지 않는다(기존 안내 횟수·중단을 재안내가 소비하지 않게). 기본 false = 예전 그대로. */
+export function useGiftShare(locale: string, surface: GiftSurface, keepAnnounce = false) {
   const cfg = useGiftConfig();
   const visibleRef = useGiftVisibility(surface);
   const preparedGift = usePreparedGift();
   const busy = useRef(false);
   const share = useCallback(async (): Promise<ShareOutcome | null> => {
     giftFunnel('tap', surface, shareVia());
-    try { markGiftAnnounceStop(window.localStorage); } catch { /* 저장소 막힘 — 안내는 최대 3회 안에서 끝난다 */ }
+    try { if (!keepAnnounce) markGiftAnnounceStop(window.localStorage); } catch { /* 저장소 막힘 — 안내는 최대 3회 안에서 끝난다 */ }
     if (!cfg || busy.current) { giftFunnel('gate', surface, shareVia(), !cfg ? 'cfg_missing' : 'busy'); return null; }
     busy.current = true;
     const lang = toGiftLang(locale);
@@ -132,6 +133,6 @@ export function useGiftShare(locale: string, surface: GiftSurface) {
     }
     if (out === 'shared' || out === 'copied') { shareBeacon('sent', surface, via, ref); markInviteShared(); }
     return out;
-  }, [cfg, locale, surface, preparedGift]);
+  }, [cfg, locale, surface, preparedGift, keepAnnounce]);
   return { cfg, share, visibleRef };
 }

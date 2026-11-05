@@ -33,8 +33,9 @@ const SURF = ['gift_set', 'gift_dash', 'gift_pop'];   // gift_pop = 앱 내 1회
 const VIAS = ['ios', 'android', 'web', 'na'];
 // ★2026-10-27 선물 안내(gift_pop) — 어디서 띄웠나 · 막힌 이유(실행당 사유마다 1회) — lib/gift/giftAnnounce GIFT_BLOCK_METRICS 와 같은 목록
 const POP_AT = ['at:dash', 'at:earn', 'at:report'];
+const POP_RE = ['re:dash', 're:earn', 're:report'];   // 11/5 재안내 회차
 const POP_BLOCK = ['nostore', 'stop', 'cap', 'gap', 'new', 'review', 'busy'].map((b) => `block:${b}`);
-const POP_EXTRA = [...POP_AT, ...POP_BLOCK];
+const POP_EXTRA = [...POP_AT, ...POP_RE, ...POP_BLOCK];
 
 async function mget(keys) {
   const out = [];
@@ -87,9 +88,10 @@ const sum = (o, re) => Object.entries(o).reduce((a, [f, n]) => a + (re.test(f) ?
   // 1b) 선물 안내(gift_pop) — 어디서 띄웠나 · 막힌 이유(실행당 사유마다 1회 — 10/27 계측 시작, 그 전은 0)
   const popLine = (list) => list.map((e) => {
     const n = dates.reduce((a, d) => a + VIAS.reduce((b, v) => b + num(at(`${SHARE}:${e}:gift_pop:${v}:${d}`)), 0), 0);
-    return `${e.replace(/^(at|block):/, '')} ${n}`;
+    return `${e.replace(/^(at|re|block):/, '')} ${n}`;
   }).join(' · ');
   console.log(`\n   선물 안내 띄운 곳: ${popLine(POP_AT)}`);
+  console.log(`   재안내(11/5 회차) 띄운 곳: ${popLine(POP_RE)}`);
   console.log(`   선물 안내 막힌 이유(실행당 1회): ${popLine(POP_BLOCK)}`);
   console.log('     stop=선물 링크를 이미 누름 · cap=3회 다 씀 · gap=48시간 안 · new=설치 첫 실행 · review=평점 회차 · busy=다른 시트 · nostore=저장소 막힘');
 
