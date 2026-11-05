@@ -357,6 +357,8 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       const chunk = tokens.slice(i, i + 100);
       const records = await st(deps.store.mget(chunk.map((t) => `push:tokens:${t}`)));
       const claimed: Claimed[] = [];
+      const cleanup: Promise<unknown>[] = [];
+      const cleanupTimeout = Math.min(tmo, SEAL_TIMEOUT_MS);
       let expiring = false;
       /** 기기 하나 — 마감 검사 뒤 그 기기의 발표들을 차례로 선점(기기 안은 순서대로: 하루 상한·회차당 상한을 지키려고) */
       const claimDevice = async (j: number) => {
@@ -373,7 +375,13 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => 999);
           // 상한 초과·오류·시간 초과(999) 모두 상한을 되돌린다 — 응답만 늦고 서버엔 반영된 증가가 공유 일일 상한(«내 종목 이상 신호»와 같은 키)을
           // 소모하지 않게. lib/signals/run.ts 의 기존 규칙과 같다(관문 11041451 #2).
-          if (cnt > SIG_CFG.deviceDailyCap) { await deps.store.decr(cap).catch(() => 0); await deps.store.delIfEq(key, [CLAIM_V]).catch(() => {}); continue; }
+          if (cnt > SIG_CFG.deviceDailyCap) {
+            cleanup.push(Promise.all([
+              withTimeout(deps.store.decr(cap), cleanupTimeout).catch(() => 0),
+              withTimeout(deps.store.delIfEq(key, [CLAIM_V]), cleanupTimeout).catch(() => {}),
+            ]));
+            continue;
+          }
           chosen++;
           const copy = resultCopy(a, d.locale);
           claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
@@ -439,8 +447,8 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           await withTimeout(deps.store.decr(c.cap), sealTmo).catch(() => 0);
         }));
       };
-      // 재확인에서 탈락한 자리는 발송 전에 먼저 돌려준다
-      await release(claimed.filter((c) => !ready.includes(c)));
+      // 탈락 자리 반환은 발송과 병행한다. 지연된 반환이 정상 기기를 막지 않는다.
+      cleanup.push(release(claimed.filter((c) => !ready.includes(c))));
       let sendInTime = true;
       /** 굳은 묶음 하나를 보낸다 — 보내기 «직전» 마감 재확인. 넘었으면 보내지 않고 굳은 자리를 되돌린다(되돌림 확인 실패는 보고) */
       const sendSealed = async (group: Claimed[]) => {
@@ -507,6 +515,7 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       }
       // 아직 남은 «시도하지 않은 자리»(마감으로 멈춘 플랫폼 등) — 돌려준다(이미 돌려준 것은 건너뛴다)
       await release(claimed);
+      await Promise.all(cleanup);
       if (dead.size) {
         const ts = [...dead];
         await deps.store.srem('push:token_list', ts).catch(() => {});

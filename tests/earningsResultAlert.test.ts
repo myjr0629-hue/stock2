@@ -629,6 +629,36 @@ t('4 · 관문 11051012 #2 재현 — 이전 회차의 지연된 굳히기·무�
   s.store.setNx = setNx;
   assert.equal((await s.run(SEND + 3_600_000)).sent, 0); assert.equal(s.sender.items.length, 2);
 });
+t('4 · 상한 처리 실패 기기의 반환이 2초 지연돼도 정상 기기는 300ms 안에 발송을 시작한다', async () => {
+  const s = setup([raw()], TWO_IOS);
+  const badKey = slowKeyOf(IOS_TOKEN2), badCap = `push:sig:cap:2026-10-14:${devKey(IOS_TOKEN2)}`;
+  const incr = s.store.incr.bind(s.store), decr = s.store.decr.bind(s.store), del = s.store.delIfEq.bind(s.store);
+  s.store.incr = async (k, ex) => { if (k === badCap) return new Promise<number>(() => {}); return incr(k, ex); };
+  let cleanupAt = 0;
+  s.store.decr = async (k) => { if (k === badCap) { cleanupAt = Date.now(); await ms(2000); } return decr(k); };
+  s.store.delIfEq = async (k, ex) => { if (k === badKey) await ms(2000); return del(k, ex); };
+  let sendAt = 0;
+  const send = s.sender.send.bind(s.sender);
+  s.sender.send = async (items) => { sendAt = Date.now(); return send(items); };
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 300, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN]);
+  assert.ok(cleanupAt > 0 && sendAt - cleanupAt < 300, `반환 시작 뒤 발송 ${sendAt - cleanupAt}ms`);
+});
+t('4 · 굳힌 직후 마감이 지나면 발송하지 않고 장부를 되돌려 다음 회차에 보낸다', async () => {
+  const s = setup();
+  let now = SEND;
+  const set = s.store.setIfEq.bind(s.store);
+  s.store.setIfEq = async (k, expect, value, ttl) => {
+    const ok = await set(k, expect, value, ttl);
+    if (ok && value.startsWith('sent:')) now = SEND + 30_000;
+    return ok;
+  };
+  const r = await runEarningsResultStep({ ...s.deps, clock: () => now }, s.opts(SEND));
+  assert.equal(r.sent, 0); assert.equal(s.sender.calls, 0);
+  assert.equal(s.store.live(slowKeyOf(IOS_TOKEN)), false);
+  s.store.setIfEq = set;
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
+});
 t('4 · 재확인 탈락 자리도 발송 전에 반환된다', async () => {
   const s = setup([raw(), raw('C', 3, 4)], [[IOS_TOKEN, { watchlist: { t: ['JPM', 'C'] }, tz: 'Asia/Seoul' }]]);
   s.recs.swap = { fromCall: 2, key: actualsKey('C', D), value: raw('C', 3, 4.5) };   // 재확인에서 C 만 값이 바뀐다
