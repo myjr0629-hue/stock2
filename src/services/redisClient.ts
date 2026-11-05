@@ -992,22 +992,22 @@ const ACTUALS_MIRROR_RESERVE_MS = ACTUALS_MIRROR_TIMEOUT_MS + 1200;
 export function actualsMirrorConfigured(): boolean {
     return !!((process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) && (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN));
 }
-async function mirrorActualsToUpstash<T>(key: string, value: T): Promise<boolean> {
+async function mirrorActualsToUpstash<T>(key: string, value: T): Promise<'ok' | 'refused' | 'failed'> {
     const upstash = actualsMirror();
-    if (!upstash) return false;
+    if (!upstash) return 'failed';
     obsUp('set', 'mirror');
     const start = performance.now();
     try {
         // 조건부 쓰기 — 사본이 더 새 값(기록 at 이 더 큼 · 포인터 date 가 더 늦음)이면 덮지 않는다.
         //   시간 상한으로 기다림만 끝낸 늦은 SET 이 나중에 도착해 새 사본을 옛 값으로 되돌리지 않게(관문 11052003 ③).
-        await withMirrorTimeout(upstash.eval(ACTUALS_MIRROR_SET_LUA, [key], [JSON.stringify(value)]));
+        const r = await withMirrorTimeout(upstash.eval(ACTUALS_MIRROR_SET_LUA, [key], [JSON.stringify(value)]));
         obsUpDone(start);
-        return true;
+        return Number(r) === 1 ? 'ok' : 'refused';
     } catch (e: any) {
         obsUpDone(start, true);
         actualsMirrorDownUntil = Date.now() + ACTUALS_MIRROR_COOLDOWN_MS;
         console.warn(`[Redis/Upstash] actuals mirror set(${key}) failed:`, e?.message);
-        return false;
+        return 'failed';
     }
 }
 
@@ -1052,8 +1052,9 @@ export async function repairActualsMirror(entries: ReadonlyArray<{ key: string; 
     out.checked = rows.length;
     for (let i = 0; i < rows.length && out.repaired.length < maxWrites && !timeUp(); i++) {
         if (copies[i] != null && JSON.stringify(copies[i]) === JSON.stringify(rows[i].value)) continue;
-        if (!(await mirrorActualsToUpstash(rows[i].key, rows[i].value))) break;   // 실패하면 쿨다운 — 다음 회차
-        out.repaired.push(rows[i].key);
+        const r = await mirrorActualsToUpstash(rows[i].key, rows[i].value);
+        if (r === 'failed') break;   // 실패하면 쿨다운 — 다음 회차
+        if (r === 'ok') out.repaired.push(rows[i].key);   // 거절(사본이 더 새 값)은 한도를 쓰지 않는다 — 뒤의 새 기록·포인터가 밀리지 않게(관문 11052033 ①)
     }
     return out;
 }

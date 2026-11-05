@@ -274,10 +274,21 @@ test('★ 복구는 크론이 나중에 지울 수 있는 actual(Intrinio 단독
   const settled = Date.parse('2026-10-13T20:30:00Z') + A.ACTUAL_SETTLE_MS;   // 10/13 16:00 ET 마감 + 30분 + 2시간
   const act = (check: 'fmp' | null, at: number) => ({ pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check, at });
   assert.deepEqual((SVC.restorableValue(KEY, { ...base, actual: act('fmp', settled + 1) }, now) as any).actual.pct, -0.8585, '대조·정착 끝 — 그대로');
-  assert.equal((SVC.restorableValue(KEY, { ...base, actual: act(null, settled + 1) }, now) as any).actual, null, 'Intrinio 단독 — 비움');
+  const stripped = SVC.restorableValue(KEY, { ...base, actual: act(null, settled + 1) }, now) as any;
+  assert.equal(stripped.actual, null, 'Intrinio 단독 — 비움'); assert.equal(stripped.at, now, '비운 값은 at = 복구 시각(사본 맞추기가 반영)');
   assert.equal((SVC.restorableValue(KEY, { ...base, actual: act('fmp', settled - 1) }, now) as any).actual, null, '정착 전 저장 — 비움');
   assert.equal((SVC.restorableValue(KEY, { ...base, actual: act(null, 1) }, now) as any).expected.pct, 3.2, 'expected 는 그대로');
   assert.equal(SVC.restorableValue(KEY, { v: 9 }, now), null, '모양 오류 — 건너뜀');
   assert.equal(SVC.restorableValue(A.actualsKey('C', '2026-10-13'), { ...base, actual: null }, now), null, '키와 기록이 다르면 건너뜀');
   assert.deepEqual(SVC.restorableValue(A.actualsLatestKey('JPM'), { date: '2026-10-13' }, now), { date: '2026-10-13' });
+});
+
+test('사본 맞추기 — 거절(사본이 더 새 값)은 한도를 쓰지 않아 뒤의 기록이 밀리지 않는다', async () => {
+  reset();
+  const rows: Array<{ key: string; value: unknown }> = [];
+  for (let i = 0; i < 3; i++) { const k = A.actualsKey(`OLD${i}`, '2026-10-13'); up.set(k, JSON.stringify({ v: 1, at: 999 })); rows.push({ key: k, value: { v: 1, at: 1 } }); }
+  rows.push({ key: KEY, value: { v: 1, at: 5 } });
+  const rep = await RC.repairActualsMirror(rows, 1);
+  assert.deepEqual(rep.repaired, [KEY]);
+  assert.deepEqual(JSON.parse(up.get(KEY)!), { v: 1, at: 5 });
 });

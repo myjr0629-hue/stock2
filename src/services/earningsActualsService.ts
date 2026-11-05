@@ -437,6 +437,13 @@ export async function syncActualsLatestPointers(opts: {
     .filter((c, i, all) => all.findIndex((x) => x.ticker === c.ticker && x.date === c.date) === i)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, LATEST_SYNC_MAX_ENTRIES);
+  // [T56b] 사본 맞추기 대상 — 포인터용 최근 300개 밖의 지난 발표도(확인 목록 전체 · 지금 117줄) 넣는다(관문 11052033 ③)
+  const olderPast = (opts.list ?? CONFIRMED_EARNINGS)
+    .filter((c) => hourOf(c) && c.date < today)
+    .map((c) => ({ ...c, ticker: c.ticker.toUpperCase() }))
+    .filter((c, i, all) => all.findIndex((x) => x.ticker === c.ticker && x.date === c.date) === i)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(LATEST_SYNC_MAX_ENTRIES, LATEST_SYNC_MAX_ENTRIES + 500);
   // [T56b] 사본 맞추기 대상에 크론 창의 발표 전 기록(오늘~+5일)도 넣는다 — 발표 전에만 잡을 수 있는 expected 의 사본 누락도 메우게(관문 11052003 ④)
   const upcoming = (opts.list ?? CONFIRMED_EARNINGS)
     .filter((c) => hourOf(c) && c.date >= today && c.date <= addDaysYmd(today, LOOKAHEAD_DAYS))
@@ -481,10 +488,11 @@ export async function syncActualsLatestPointers(opts: {
   //   같은 크론 회차가 앞에서 쓴 기록도 이 회차의 기록 읽기(mget)가 담고 있어 곧바로 사본이 된다.
   if (mirrorOn && !timeUp()) {
     // 발표 전 기록 읽기는 포인터 처리 «뒤»에만 — 포인터 경로는 main 과 같은 읽기만 한다(관문 11052020)
-    if (upcoming.length) upRecs = await mget(upcoming.map((c) => actualsKey(c.ticker, c.date))).catch(() => [] as unknown[]);
+    const extra = [...upcoming, ...olderPast];
+    if (extra.length) upRecs = await mget(extra.map((c) => actualsKey(c.ticker, c.date))).catch(() => [] as unknown[]);
     const rows = [
       ...entries.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: recs[i] })),
-      ...upcoming.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: upRecs[i] })),
+      ...extra.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: upRecs[i] })),
       // 이 회차가 EC2 에 쓴 포인터는 쓴 값으로, 쓰려다 실패한 포인터는 건너뛴다(쓰기 전 값으로 사본을 되돌리지 않게)
       ...done.map((c, i) => ({ key: actualsLatestKey(c.ticker), value: writtenPtr.has(c.ticker) ? { date: writtenPtr.get(c.ticker)! } : touchedPtr.has(c.ticker) ? null : ptrs[i] })),
     ].filter((r) => r.value != null);
@@ -508,7 +516,8 @@ export function restorableValue(key: string, value: unknown, nowMs: number): unk
   const settledAt = a ? (reactionFinalAt(a.reactDate) ?? Infinity) + ACTUAL_SETTLE_MS : Infinity;
   const finalActual = !!a && a.check === 'fmp' && a.at >= settledAt && nowMs >= settledAt;
   if (!a || finalActual) return value;
-  return { ...(value as Record<string, unknown>), actual: null };
+  // at 을 복구 시각으로 — 사본 맞추기가 «actual 을 비운» 이 값을 사본에도 반영하게(같은 at 이면 칸을 비우는 쓰기는 거절된다)
+  return { ...(value as Record<string, unknown>), actual: null, at: nowMs };
 }
 
 /**
