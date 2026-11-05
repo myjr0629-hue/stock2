@@ -52,14 +52,23 @@ export function GiftAnnounceHost() {
   const cfg = useGiftConfig();
   const pathname = usePathname();
   const [locale, setLocale] = useState<string | null>(null);
+  const [reannounce, setReannounce] = useState<boolean | null>(null);
+  useEffect(() => {
+    let dead = false;
+    void fetch('/api/gift/reannounce-config', { cache: 'no-store' })
+      .then((r) => r.ok ? r.json() : null)
+      .then((v) => { if (!dead) setReannounce(v?.enabled === true); })
+      .catch(() => { if (!dead) setReannounce(false); });
+    return () => { dead = true; };
+  }, []);
 
   // ④ 실행 시작 때 값을 마운트 직후 한 번 고정한다(첫 안내 오버레이가 «마침»을 쓰기 전에)
   useEffect(() => { onboardedAtStart(); }, []);
 
   const input = useCallback((moment = false) => ({
     live: true, store: localStore(), onboardedAtMount: onboardedAtStart(),
-    path: window.location.pathname, dialogOpen: dialogOpen(), now: Date.now(), moment, reviewAt: reviewRequestedAt(),
-  }), []);
+    path: window.location.pathname, dialogOpen: dialogOpen(), now: Date.now(), moment, reannounce: reannounce === true, reviewAt: reviewRequestedAt(),
+  }), [reannounce]);
 
   const countBlock = useCallback((why: AnnounceBlock) => {
     if (!COUNTED.has(why) || run.counted.has(why)) return;
@@ -72,15 +81,15 @@ export function GiftAnnounceHost() {
     if (run.shown) return;
     run.shown = true;
     run.dashDone = true;
-    if (!markGiftAnnounced(localStore())) return;
+    if (!markGiftAnnounced(localStore(), Date.now(), reannounce === true)) return;
     setLocale(localeFromPath(window.location.pathname));
     shareBeacon('open', 'gift_pop', shareVia());
     popBeacon(`at:${at}`);
-  }, []);
+  }, [reannounce]);
 
   // ① 대시보드 입구
   useEffect(() => {
-    if (!cfg || run.dashDone || run.shown || locale) return;
+    if (!cfg || reannounce === null || run.dashDone || run.shown || locale) return;
     // 지금 막힌 이유가 «다른 화면»·«시트»가 아니면 이번 실행의 대시보드 입구는 끝(다음 실행·좋은 순간에 다시 본다)
     const pre = giftAnnounceBlock({ ...input(), dialogOpen: false });
     if (pre === 'route') return;              // 대시보드로 오면 다시 잰다
@@ -95,13 +104,13 @@ export function GiftAnnounceHost() {
     };
     t = window.setTimeout(fire, GIFT_ANNOUNCE_DELAY_MS);
     return () => window.clearTimeout(t);
-  }, [cfg, pathname, locale, input, countBlock, show]);
+  }, [cfg, reannounce, pathname, locale, input, countBlock, show]);
 
   // ② «좋은 순간» 입구 — 그 화면에서 머문 뒤 useGiftMoment 가 쏜다
   //   실적 캘린더는 경로로 여기서 잰다(화면 파일은 바이트 고정 — tests/earningsReceiptsPage) · 장마감 리포트 탭은 인텔 화면이 잰다(탭 상태는 그 화면만 안다)
   useGiftMoment(!!cfg && isEarningsPath(pathname || ''), 'earn');
   useEffect(() => {
-    if (!cfg) return;
+    if (!cfg || reannounce === null) return;
     const onMoment = (ev: Event) => {
       if (run.shown || locale) return;
       const where = (ev as CustomEvent<{ where?: unknown }>).detail?.where;
@@ -112,7 +121,7 @@ export function GiftAnnounceHost() {
     };
     window.addEventListener(GIFT_MOMENT_EVENT, onMoment);
     return () => window.removeEventListener(GIFT_MOMENT_EVENT, onMoment);
-  }, [cfg, locale, input, countBlock, show]);
+  }, [cfg, reannounce, locale, input, countBlock, show]);
 
   // 화면을 옮기면(탭 이동·알림 딥링크) 떠 있던 안내는 닫는다 — 이번 실행에선 다시 띄우지 않는다
   const lastPath = useRef(pathname);
@@ -124,5 +133,5 @@ export function GiftAnnounceHost() {
 
   const close = useCallback(() => setLocale(null), []);
   if (!locale) return null;
-  return <GiftAnnounceSheet locale={locale} onClose={close} />;
+  return <GiftAnnounceSheet locale={locale} onClose={close} reannounce={reannounce === true} />;
 }

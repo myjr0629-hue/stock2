@@ -29,6 +29,9 @@ import { APP_SESSION_REVIEW } from '@/lib/app/reviewMoments';
 import type { GiftLang } from './gift';
 
 export const GIFT_ANNOUNCE_KEY = 'signumhq.gift.announce.v1';
+export const GIFT_REANNOUNCE_KEY = 'signumhq.gift.announce.1105';
+export const GIFT_REANNOUNCE_SWITCH = 'gift:announce:1105';
+export const GIFT_REANNOUNCE_GAP_MS = 24 * 3600_000;
 /** AppFirstRunOnboarding 의 STORAGE_KEY 와 같은 값('accepted' = 첫 안내를 마쳤다) */
 export const ONBOARDING_DONE_KEY = 'signumhq.app.onboarding.v1';
 export const GIFT_ANNOUNCE_DELAY_MS = 3500;
@@ -101,6 +104,7 @@ export interface AnnounceInput {
   moment?: boolean;
   /** 이번 실행에서 마지막으로 OS 평점 시트를 요청한 시각(ms, 없으면 0) */
   reviewAt?: number;
+  reannounce?: boolean;
 }
 
 export const isDashPath = (path: string): boolean => /\/app-view\/dash\/?$/.test(path);
@@ -112,9 +116,17 @@ export function giftAnnounceBlock(i: AnnounceInput): AnnounceBlock | null {
   if (!i.live) return 'off';
   const st = readAnnounceState(i.store);
   if (!st) return 'nostore';
-  if (st.stop) return 'stop';
-  if (st.n >= GIFT_ANNOUNCE_MAX) return 'cap';
-  if (st.n > 0 && i.now - st.last < GIFT_ANNOUNCE_GAP_MS) return 'gap';
+  let campaign: string | null;
+  try { campaign = i.store!.getItem(GIFT_REANNOUNCE_KEY); } catch { return 'nostore'; }
+  if (i.reannounce) {
+    if (campaign !== null) return 'cap';
+    if (st.last > 0 && i.now - st.last < GIFT_REANNOUNCE_GAP_MS) return 'gap';
+  } else {
+    if (st.stop) return 'stop';
+    if (st.n >= GIFT_ANNOUNCE_MAX) return 'cap';
+    if (st.n > 0 && i.now - st.last < GIFT_ANNOUNCE_GAP_MS) return 'gap';
+    if (campaign !== null && (!/^\d+$/.test(campaign) || i.now - Number(campaign) < GIFT_REANNOUNCE_GAP_MS)) return 'gap';
+  }
   if (!i.onboardedAtMount) return 'new';
   if (!i.moment && !isDashPath(i.path)) return 'route';
   try {
@@ -127,7 +139,16 @@ export function giftAnnounceBlock(i: AnnounceInput): AnnounceBlock | null {
 }
 
 /** 띄운 순간 표식(횟수 +1 · 시각) — 쓰기에 실패하면 false(호출자는 띄우지 않는다: 매번 뜨는 것보다 안 뜨는 게 낫다). */
-export function markGiftAnnounced(store: StoreLike | null, now = Date.now()): boolean {
+export function markGiftAnnounced(store: StoreLike | null, now = Date.now(), reannounce = false): boolean {
+  if (reannounce) {
+    if (!store) return false;
+    try {
+      if (store.getItem(GIFT_REANNOUNCE_KEY) !== null) return false;
+      const value = String(now);
+      store.setItem(GIFT_REANNOUNCE_KEY, value);
+      return store.getItem(GIFT_REANNOUNCE_KEY) === value;
+    } catch { return false; }
+  }
   const st = readAnnounceState(store);
   if (!store || !st) return false;
   const next = JSON.stringify(st.stop ? { n: st.n + 1, last: now, stop: 1 } : { n: st.n + 1, last: now });

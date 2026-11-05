@@ -463,6 +463,7 @@ async function main() {
     for (const [key, value] of [
       ['signum_interstitial_frequency', JSON.stringify({ lastShownAt: Date.now() })],
       ['signumhq.gift.announce.v1', JSON.stringify({ n: 1, last: Date.now() })],
+      ['signumhq.gift.announce.1105', String(Date.now())],
     ]) {
       const env = new Env(); install(env, makeWindow(env));
       const ask = grab({ storageKey: 'signum.test', milestones: [1], delayMs: 1400 });
