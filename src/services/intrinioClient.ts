@@ -1564,6 +1564,8 @@ export async function getOptionChainSnapshotIntrinio(
                 },
                 // 이 계약의 그릭스가 실시간으로 덮였는지 — 하류가 라벨을 정확히 붙일 근거
                 _rtGreeks: !!rt,
+                // [11/6 T43] midpoint 의 출처 — 실시간 FMV(synthetic_price)가 있었나. 가격 일치로 짐작하지 않게 만든 곳에서 적는다.
+                _quoteSource: (num(rt?.synthetic_price) ?? 0) > 0 ? 'live' : 'eod',
             });
         }
     }

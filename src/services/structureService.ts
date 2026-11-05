@@ -294,7 +294,7 @@ export type ComputeOpts = {
     expectChainDate?: string | null;
     /** 사전 갱신 전용 — 체인이 덜 왔거나(만기 누락·잘림·벤더 실패) 옵션 상태가 OK 가 아니면 저장하지 않는다(관문이 닫히며 일부 호출이 실패해도 정상 판본을 덮지 않게). OI 일부 null(oi_missing)은 막지 않는다. */
     noPartialStore?: boolean;
-    /** [11/6 T43] 지금 판본의 impliedMove(호출자가 이미 읽었을 때만 — 없으면 필요할 때 판본을 읽는다). 세션 단조 판정용. */
+    /** [11/6 T43] 갱신 경로 표식 — 있으면(갱신 시작 때의 판본 값) 저장 직전 판본을 다시 읽어 같은 세션 실시간의 관측 시각 순서까지 맞춘다. */
     prevImpliedMove?: any;
 };
 
@@ -1507,13 +1507,13 @@ async function getStructureDataImpl(
         }
         // [11/6 T43] 예상폭 세션 단조 — 새 계산이 지금 판본의 실시간 값보다 이른 세션(마감 직후 실시간 다리가 빠져 전일 EOD 쌍)이거나
         //   값이 없으면 지금 판본의 그 세션 실시간 값을 그대로 둔다(lib/impliedMove.holdSessionLiveMove). 같은 세션 EOD 가 나오면 EOD 로 넘어간다.
-        //   판본 읽기는 «되돌아갈 수 있는» 계산(값 없음·세션 모름·지금 보여 줄 정규장보다 이른 세션)일 때만 GET 1회 — 갱신 경로는 이미 읽은
-        //   판본(prevImpliedMove)을 넘겨 같은 세션 실시간의 관측 시각 순서까지 맞춘다. 새 키·쓰기 증가 0.
+        //   판본은 저장 «직전»에 다시 읽는다(갱신 시작 때 읽은 값은 그 사이 다른 갱신이 더 새 값을 저장했을 수 있다 — 관문 11060808 ③).
+        //   읽기는 «되돌아갈 수 있는» 계산(값 없음·세션 모름·지금 보여 줄 정규장보다 이른 세션)과 갱신 경로(같은 세션 실시간의 관측 시각 순서)만
+        //   — 판본 키 GET 1회, 새 키·쓰기 증가 0.
         const nextSession = (impliedMove as any)?.session ?? null;
         const mayRegress = !impliedMove || !nextSession || nextSession < shownRegularSessionDate(now);
         if (mayRegress || computeOpts.prevImpliedMove !== undefined) {
-            const cur = computeOpts.prevImpliedMove !== undefined ? { data: { impliedMove: computeOpts.prevImpliedMove } }
-                : await getFromCache<StoredVersion>(structureV2Key(String(ticker).toUpperCase())).catch(() => null);
+            const cur = await getFromCache<StoredVersion>(structureV2Key(String(ticker).toUpperCase())).catch(() => null);
             const held = holdSessionLiveMove(cur?.data?.impliedMove ?? null, impliedMove, targetExpiry || null, now);
             if (held !== impliedMove) {
                 console.log(`[structure] ${ticker}: 예상폭 ${impliedMove ? `${impliedMove.pct}(${impliedMove.basis} ${nextSession})` : '없음'} 대신 같은 만기 실시간 ${held!.pct}(${held!.session}) 유지`);

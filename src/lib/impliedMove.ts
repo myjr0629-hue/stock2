@@ -116,35 +116,34 @@ function typeOf(c: any): 'call' | 'put' | null {
 }
 
 /**
- * [11/6 T43] 한 계약 midpoint 의 «출처» — 'live' 실시간 FMV · 'eod' 공급사 EOD(mark·마감 호가 중간) · null 모름(체인 수준 표식에 맡김).
+ * [11/6 T43] 한 계약 midpoint 의 «출처» — 'live' 실시간 FMV · 'eod' 공급사 EOD(mark·마감 호가 중간) · 'unknown' 판정 불가(쓰지 않음)
+ *   · null 계약별 증거 없음(호출자의 체인 수준 표식 quotesLive 로 판정 — 예전 그대로).
  *
  * [사고] 11/5 마감 직후 AXON 11/6 만기 예상폭이 14.0 → 12.5 → 13.9(basis live·세션 11/5)로 흔들렸다. 12.5 는 11/4 EOD 스트래들이었다.
- *   공급사 실시간 그릭스가 일부 계약에만 실릴 때(마감 직후·페이지 상한), 실시간이 빠진 계약의 midpoint 는 전일 EOD mark(또는 마감 호가
- *   중간)로 채워진다. 그런데 ① 수집기 슬림 체인은 계약별 표식이 없어 체인 수준 «realtime» 표식이 그 다리까지 실시간으로 만들었고
- *   ② 직접 경로(_rtGreeks)는 mark 가 비면 vwap=전일 종가 · midpoint=마감 호가 중간이라 «midpoint ≠ mark» 검사를 통과했다.
- * [규칙] 실시간은 «그 계약이 실시간이라는 증거»가 있을 때만:
- *   · _quoteSource('live'|'eod') — 수집기 어댑터가 synthetic_price 유무로 직접 적는다(있으면 그것이 정답)
- *   · _rtGreeks true — midpoint 가 EOD mark 와도, 마감 호가 중간과도 다를 때만 실시간(같으면 실시간 FMV 가 빠져 EOD 로 떨어진 값)
- *   · _rtGreeks false — EOD
- *   · 계약별 표식 없는 수집기 체인 — ivSourceDate(실시간 IV 가 없어 EOD IV 를 쓴 날짜)가 있으면 그 계약엔 실시간 덮어쓰기가 없었다 → EOD
- *   · 그 밖(옛 체인) — null(호출자의 체인 수준 표식 quotesLive 로 판정 — 예전 그대로)
+ *   공급사 실시간 그릭스가 일부 계약에만 실릴 때(마감 직후·페이지 상한) 실시간이 빠진 계약의 midpoint 는 전일 EOD mark(또는 마감 호가
+ *   중간)로 채워진다. 수집기 슬림 체인은 계약별 표식이 없어 체인 수준 «realtime» 표식이 그 다리까지 실시간으로 만들었다.
+ * [규칙] 가격이 우연히 같은지로 출처를 짐작하지 않는다 — 공급사 행을 만든 곳이 적은 표식만 믿는다:
+ *   · _quoteSource 'live'|'eod' — 체인 생성기(Vercel 직접 경로·수집기 어댑터)가 synthetic_price 유무로 직접 적는다
+ *   · _quoteSource 'unknown' — 출처를 모르는 다리(아래 슬림 체인 규칙을 /api/live/ticker 가 실어 보낸 것)
+ *   · _rtGreeks true/false — 옛 직접 경로 행(예전 규칙: midpoint ≠ EOD mark 일 때만 실시간)
+ *   · 체인이 «실시간»이라는데 그 계약은 실시간 IV 가 없었다(ivSourceDate) — 실시간 덮어쓰기가 있었는지 모른다(FMV 와 IV 는 따로 온다).
+ *     전일 값을 실시간으로도, 실시간 값을 전일 종가로도 부르지 않게 'unknown'.
  */
-export function contractQuoteSource(c: any): ImpliedMoveBasis | null {
-    if (c?._quoteSource === 'live' || c?._quoteSource === 'eod') return c._quoteSource;
+export type QuoteSource = ImpliedMoveBasis | 'unknown';
+export function contractQuoteSource(c: any, chainQuotesLive?: boolean | null): QuoteSource | null {
+    if (c?._quoteSource === 'live' || c?._quoteSource === 'eod' || c?._quoteSource === 'unknown') return c._quoteSource;
     if (c?._rtGreeks === true) {
         const mid = pos(c?.last_quote?.midpoint);
         const mark = pos(c?.day?.vwap);
-        const bid = pos(c?.last_quote?.bid), ask = pos(c?.last_quote?.ask);
-        const closeQuoteMid = bid != null && ask != null && ask >= bid ? (bid + ask) / 2 : null;
-        return mid != null && (mark == null || mid !== mark) && (closeQuoteMid == null || mid !== closeQuoteMid) ? 'live' : 'eod';
+        return mid != null && (mark == null || mid !== mark) ? 'live' : 'eod';
     }
     if (c?._rtGreeks === false) return 'eod';
-    if (typeof c?.ivSourceDate === 'string' && ISO_DATE.test(c.ivSourceDate)) return 'eod';
+    if (chainQuotesLive === true && typeof c?.ivSourceDate === 'string' && ISO_DATE.test(c.ivSourceDate)) return 'unknown';
     return null;
 }
 
 /** 한 다리의 가격 후보 — 기준(live/eod)이 섞이지 않게 따로 든다 */
-function legPrices(c: any, quotesLive: boolean | null | undefined, tradeBasis: ImpliedMoveBasis | undefined, chainDate: string | null) {
+function legPrices(c: any, quotesLive: boolean | null | undefined, tradeBasis: ImpliedMoveBasis | undefined) {
     const mid = pos(c?.last_quote?.midpoint);
     // Intrinio 체인: day.vwap = EOD mark, last_quote.bid/ask = 전일 종가 호가(close_bid/close_ask)
     const mark = pos(c?.day?.vwap);
@@ -152,14 +151,14 @@ function legPrices(c: any, quotesLive: boolean | null | undefined, tradeBasis: I
     const closeQuoteMid = bid != null && ask != null && ask >= bid ? (bid + ask) / 2 : null;
     let live: number | null = null;
     let eod: number | null = null;
-    const src = contractQuoteSource(c);
+    const src = contractQuoteSource(c, quotesLive);
+    if (src === 'unknown') return { live, eod };
     if (src === 'live') {
         live = mid;
         eod = mark ?? closeQuoteMid;
     } else if (src === 'eod') {
-        eod = mid ?? mark ?? closeQuoteMid;
-        // 계약별 표식 없는 수집기 체인: 그 다리의 EOD 날짜(ivSourceDate)가 체인 날짜와 다르면 어느 세션 값인지 확정할 수 없다 — 쓰지 않는다
-        if (c?._quoteSource == null && c?._rtGreeks == null && chainDate && c.ivSourceDate !== chainDate) eod = null;
+        // _rtGreeks 행: midpoint 가 실시간 FMV 가 아니면 EOD mark ?? 마감 호가 중간(예전 그대로)
+        eod = c?._rtGreeks === true ? mark ?? closeQuoteMid : mid ?? mark ?? closeQuoteMid;
     } else if (quotesLive === true) {
         live = mid;
     } else {
@@ -184,7 +183,8 @@ export function eodQuoteRows(rows: any[], _chainQuotesLive: boolean | null | und
         const twoSided = bid != null && ask != null && ask >= bid;
         const explicitMark = pos(c?._intrinio?.eod?.mark);
         const price = twoSided ? (explicitMark ?? (bid! + ask!) / 2) : null;
-        return { ...c, _rtGreeks: false, day: { ...(c?.day || {}), vwap: null }, last_trade: undefined, last_quote: { midpoint: price } };
+        // _quoteSource 도 덮는다 — 원본 행의 'live' 표식이 마감 호가 가격에 붙지 않게(11/6 T43)
+        return { ...c, _rtGreeks: false, _quoteSource: 'eod', day: { ...(c?.day || {}), vwap: null }, last_trade: undefined, last_quote: { midpoint: price } };
     });
 }
 
@@ -225,11 +225,10 @@ export function atmStraddleImpliedMove(chain: any[], spot: number, opts: Straddl
         .sort((a, b) => Math.abs(a - S) - Math.abs(b - S) || a - b);
 
     // 3) 가까운 행사가부터 — 두 다리가 «같은 기준»으로 값이 있는 첫 행사가(실시간 → EOD)
-    const optChainDate = typeof opts.chainDate === 'string' && ISO_DATE.test(opts.chainDate) ? opts.chainDate : null;
     for (const k of strikes.slice(0, MAX_STRIKES_TRIED)) {
         const slot = byStrike.get(k)!;
-        const c = legPrices(slot.call, opts.quotesLive, opts.tradePriceBasis, optChainDate);
-        const p = legPrices(slot.put, opts.quotesLive, opts.tradePriceBasis, optChainDate);
+        const c = legPrices(slot.call, opts.quotesLive, opts.tradePriceBasis);
+        const p = legPrices(slot.put, opts.quotesLive, opts.tradePriceBasis);
         let pair: { call: number; put: number; basis: ImpliedMoveBasis } | null = null;
         if (c.live != null && p.live != null) pair = { call: c.live, put: p.live, basis: 'live' };
         else if (!opts.liveOnly && c.eod != null && p.eod != null) pair = { call: c.eod, put: p.eod, basis: 'eod' };

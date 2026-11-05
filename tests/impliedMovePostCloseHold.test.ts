@@ -59,12 +59,13 @@ const contract = (strike: number, type: 'call' | 'put', leg: Leg, eodDate: strin
   last_quote: { midpoint: leg.mid },
 });
 /** ATM(382.5) 와 이웃 행사가 — legs[strike] = [콜, 풋] */
-const harvest = (legs: Record<number, [Leg, Leg]>, chainDate: string) => {
+const harvest = (legs: Record<number, [Leg, Leg]>, chainDate: string, ts = now) => {
   const rows = Object.entries(legs).flatMap(([k, [c, p]]) => [contract(Number(k), 'call', c, chainDate), contract(Number(k), 'put', p, chainDate)]);
   mem.set(`polygon:snapshot:probe:${T}`, {
     exactResults: rows, probeResults: rows, expirations: [EXP, '2026-11-13'], weeklyExpiry: EXP,
-    greeksSource: 'realtime', greeksRealtimeCount: rows.filter((r) => r.ivObservedAt).length,
-    chainDate, chainDates: { [EXP]: chainDate }, _ts: now, _ticker: T, _source: 'lambda-flow-harvest',
+    // 어댑터 규칙: 실시간 그릭스가 한 계약이라도 실리면 'realtime'
+    greeksSource: rows.some((r) => r.ivObservedAt) ? 'realtime' : 'eod', greeksRealtimeCount: rows.filter((r) => r.ivObservedAt).length,
+    chainDate, chainDates: { [EXP]: chainDate }, _ts: ts, _ticker: T, _source: 'lambda-flow-harvest',
   });
 };
 const live = (mid: number): Leg => ({ mid, rt: true });
@@ -101,7 +102,9 @@ const at = (iso: string) => { now = RealDate.parse(iso); };
 
   await test('16:10 ET 재수집: ATM 두 다리 실시간 빠짐(11/4 EOD mark 25.5+22.3=12.5) → live 12.5 를 내지 않고 판본은 14.0 유지', async () => {
     at('2026-11-05T16:10:00-05:00');
-    harvest({ 380: [eod(27.1), eod(20.9)], 382.5: [eod(25.5), eod(22.3)], 385: [eod(24.1), eod(23.6)] }, '2026-11-04');
+    // 먼 행사가(400)엔 실시간이 실려 체인은 'realtime' — ATM 근처 다리만 실시간이 빠졌다(마감 직후 실측 모양)
+    harvest({ 380: [eod(27.1), eod(20.9)], 382.5: [eod(25.5), eod(22.3)], 385: [eod(24.1), eod(23.6)], 400: [live(20.0), live(33.0)] }, '2026-11-04');
+    assert.equal(mem.get(`polygon:snapshot:probe:${T}`).greeksSource, 'realtime');
     const data: any = await compute();
     // 응답(구조 문)도 판본과 같은 값 — 12.5 가 «live·11/5»로 나가지 않는다
     assert.equal(data.impliedMove.pct, 14.0);
@@ -127,6 +130,14 @@ const at = (iso: string) => { now = RealDate.parse(iso); };
     await compute();
     const r = await api();
     assert.deepEqual([r.impliedMovePct, r.basis, r.session, r.asOf], [13.9, 'live', '2026-11-05', RealDate.parse('2026-11-05T16:12:00-05:00')]);
+  });
+
+  await test('동시 갱신: 시작 때 옛 판본(14.0@16:05)을 읽은 갱신이 늦게 옛 체인(16:08 수집)으로 저장해도 더 새 관측(13.9@16:12)을 덮지 않는다', async () => {
+    at('2026-11-05T16:13:00-05:00');
+    harvest({ 380: [live(30.6), live(23.6)], 382.5: [live(29.2), live(25.1)], 385: [live(27.8), live(26.1)] }, '2026-11-04', RealDate.parse('2026-11-05T16:08:00-05:00'));
+    const stalePrev = { ...stored(), pct: 14.0, asOf: T1605 };
+    await quiet(() => SS.getStructureData(T, null, { price: SPOT, prevClose: 424.18 }, true, { prevImpliedMove: stalePrev }));
+    assert.deepEqual([stored().pct, stored().asOf], [13.9, RealDate.parse('2026-11-05T16:12:00-05:00')]);
   });
 
   await test('캐시 만료(수집기 체인 없음) 뒤 재계산·문 — 값이 전 세션으로 되돌아가지 않는다', async () => {

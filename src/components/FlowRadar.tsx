@@ -1046,7 +1046,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             ? rawChain.map((opt: any) => {
                 const ws = opt?.details?.ticker ? wsOptionsQuotes.get(opt.details.ticker) : null;
                 return ws && ws.mid > 0
-                    ? { ...opt, last_quote: { ...(opt.last_quote || {}), midpoint: ws.mid }, day: { ...(opt.day || {}), vwap: undefined }, _rtGreeks: true }
+                    ? { ...opt, last_quote: { ...(opt.last_quote || {}), midpoint: ws.mid }, day: { ...(opt.day || {}), vwap: undefined }, _rtGreeks: true, _quoteSource: 'live' }
                     : opt;
             })
             : rawChain;

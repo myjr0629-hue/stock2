@@ -149,8 +149,10 @@ function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true, quot
             if (quote && quote.atmRef > 0 && Math.abs(k - quote.atmRef) <= quote.atmRef * 0.1) {
                 // [11/6 T43] 계약별 출처(lib/impliedMove.contractQuoteSource) — 체인 수준 표식은 계약별 증거가 없을 때만.
                 //   실시간이 빠져 전일 EOD 로 채워진 다리를 «실시간»으로 넘기지 않는다(11/5 AXON 12.5).
-                const src = contractQuoteSource(opt);
-                slim._rtGreeks = src === 'live' ? true : src === 'eod' ? false : quote.live;
+                const src = contractQuoteSource(opt, quote.live);
+                slim._rtGreeks = src === 'live' ? true : src === 'eod' ? false : src === 'unknown' ? false : quote.live;
+                // 모르는 다리는 «모름» 그대로 — 화면 계산이 EOD 로도 실시간으로도 쓰지 않는다
+                if (src === 'unknown') slim._quoteSource = 'unknown';
             }
         } else {
             // allExpiryChain: delta + gamma for OI mode metrics (OPI, DEX) + GEX
