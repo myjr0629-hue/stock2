@@ -112,7 +112,12 @@ const NOW = Date.parse('2026-10-14T12:00:00Z');
 const resetAll = () => { ec2.clear(); afterCalls.length = 0; };
 let n = 0;
 let stage = '준비';
-const t = async (name: string, fn: () => void | Promise<void>) => { stage = name; await fn(); n++; console.log(`  ✓ ${name}`); };
+const t = async (name: string, fn: () => void | Promise<void>) => {
+  stage = name;
+  const realNow = Date.now;
+  if (name.startsWith('/api/invite/config:') || name.startsWith('/app 링크 카드:')) Date.now = () => NOW;
+  try { await fn(); n++; console.log(`  ✓ ${name}`); } finally { Date.now = realNow; }
+};
 
 (async () => {
   // ─────────────────────────── SHA-256 ───────────────────────────

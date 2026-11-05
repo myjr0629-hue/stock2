@@ -90,7 +90,11 @@ async function reservedPayload(lang: GiftLang = 'en', ref: string | null = REF) 
 }
 
 let n = 0;
-const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); n++; console.log(`  ✓ ${name}`); };
+const t = async (name: string, fn: () => void | Promise<void>) => {
+  const realNow = Date.now;
+  if (name.startsWith('/api/gift/config:') || name.startsWith('/app')) Date.now = () => NOW;
+  try { await fn(); n++; console.log(`  ✓ ${name}`); } finally { Date.now = realNow; }
+};
 
 (async () => {
   // ─────────────────────────── 익명 초대자 id ───────────────────────────

@@ -50,9 +50,16 @@ async function t(name: string, fn: () => void | Promise<void>) {
 }
 const textOf = (h: string) => h.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 const flush = async () => { const fns = afterCalls.splice(0); await Promise.all(fns.map((f) => f())); };
-const get = (qs: string, ua: string) => appRoute.GET(new NextRequest(`https://www.signumhq.com/app?${qs}`, {
-  headers: { 'user-agent': ua, 'accept-language': 'ko-KR,ko;q=0.9', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document', 'sec-fetch-site': 'cross-site' },
-}));
+// THREADSPRO는 10/31 만료된다. 앱 안 화면은 유효 기간 안에서 시험하고 만료 뒤 이동도 별도로 확인한다.
+const get = async (qs: string, ua: string, now = Date.parse('2026-10-07T12:00:00Z')) => {
+  const realNow = Date.now;
+  Date.now = () => now;
+  try {
+    return await appRoute.GET(new NextRequest(`https://www.signumhq.com/app?${qs}`, {
+      headers: { 'user-agent': ua, 'accept-language': 'ko-KR,ko;q=0.9', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document', 'sec-fetch-site': 'cross-site' },
+    }));
+  } finally { Date.now = realNow; }
+};
 
 (async () => {
   console.log('━━━ 1. 판정(실제 UA 예) ━━━');
@@ -142,6 +149,14 @@ const get = (qs: string, ua: string) => appRoute.GET(new NextRequest(`https://ww
     await get('from=zz_t4&code=THREADSPRO', UA.androidChrome); await flush();
     const v = (store.get(keyOf('zz_t4')) || {}) as Record<string, number>;
     assert.ok(!Object.keys(v).some((k) => k.startsWith('ios|app:')));
+  });
+  await t('만료된 아이폰 코드는 쿠폰 화면 대신 애플 적용 주소로 이동', async () => {
+    store.clear(); afterCalls.length = 0;
+    const r = await get('from=zz_expired&code=THREADSPRO', UA.threads, Date.parse('2026-10-31T07:00:00Z'));
+    await flush();
+    assert.equal(r.status, 302);
+    assert.equal(r.headers.get('location'), REDEEM);
+    assert.equal(store.get(keyOf('zz_expired')), undefined);
   });
   await t('비콘 API: ev=apply_stay 는 «ios|tap:apply_stay» 로 센다(봇·남의 오리진은 안 센다)', async () => {
     store.clear(); afterCalls.length = 0;

@@ -40,7 +40,11 @@ const H = (o: Record<string, string>) => new Headers(o);
 const req = (path: string, ua: string, extra: Record<string, string> = NAV) => new NextRequest(`https://www.signumhq.com${path}`, { headers: { 'user-agent': ua, ...extra } });
 
 let n = 0;
-const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); n++; console.log(`  ✓ ${name}`); };
+const t = async (name: string, fn: () => void | Promise<void>) => {
+  const realNow = Date.now;
+  Date.now = () => Date.parse('2026-10-07T12:00:00Z'); // 유효한 채널·크리에이터 쿠폰 화면을 검증하는 시점
+  try { await fn(); n++; console.log(`  ✓ ${name}`); } finally { Date.now = realNow; }
+};
 (async () => {
   await t('사람 판정: 아이폰 Safari·안드 Chrome·카톡/인스타 인앱의 «문서 이동»은 human', () => {
     for (const ua of [UA.iphone, UA.android, UA.kakaoAnd, UA.kakaoIos, UA.instaIos, UA.mac]) assert.equal(classifyClick(H({ 'user-agent': ua, ...NAV })), 'human', ua.slice(0, 40));
@@ -129,7 +133,6 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.equal(r.headers.get('location'), 'https://apps.apple.com/app/whyd-it-move-stock-quiz/id6794356135?pt=129074309&ct=bluesky&mt=8');
   });
   // ── 리딤 코드 링크 G0 (2026-10-04) — 아이폰 = 애플 적용 · 안드 = Play 설치(애플 코드로 Play 리딤 안 감) · PC = QR 화면 ──
-  // THREADSPRO expired on 10/30; the following live-coupon screen expectation fails after expiration (existing baseline B).
   const REDEEM = 'https://apps.apple.com/redeem?ctx=offercodes&id=6783130444&code=THREADSPRO';
   const PLAY_CODE = 'https://play.google.com/store/apps/details?id=com.signumhq.app&referrer=utm_source%3Dthreads%26utm_medium%3Dsmartlink%26utm_campaign%3Dsignumhq_web%26utm_content%3Dcode';
   // ★2026-10-05 쿠폰 화면 — 아이폰은 302 대신 «쿠폰 화면»(쿠폰 번호 + 단추 = 같은 애플 적용 주소). 남의 코드는 예전 302 그대로.
