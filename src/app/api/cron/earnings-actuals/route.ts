@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runActualsCycle, syncActualsLatestPointers, ACTUALS_RUN_LOCK_SEC } from '@/services/earningsActualsService';
 import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
-import { resultEnvMode, runEarningsResultStep } from '@/lib/signals/earningsResult';
+import { resultEnvMode, runEarningsResultStep, SET_IF_EQ_LUA, DEL_IF_EQ_LUA } from '@/lib/signals/earningsResult';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -33,11 +33,11 @@ export async function GET(req: NextRequest) {
             ]);
             const redis = Redis.fromEnv();
             const result = await runEarningsResultStep({
-                // 기존 신호 저장소 + SET XX EX(굳히기) · SET XX PX(무장) — lib/signals/earningsResult ResultStore
+                // 기존 신호 저장소 + 이 회차 값일 때만 쓰기·지우기(Lua — 무장 PX · 굳히기 EX) — lib/signals/earningsResult ResultStore
                 store: {
                     ...upstashStore(redis),
-                    setXx: async (k, v, ex) => (await redis.set(k, v, { xx: true, ex })) === 'OK',
-                    armXx: async (k, v, ms) => (await redis.set(k, v, { xx: true, px: ms })) === 'OK',
+                    setIfEq: async (k, expect, v, ttl) => Number(await redis.eval(SET_IF_EQ_LUA, [k], [expect, v, 'ex' in ttl ? 'EX' : 'PX', String('ex' in ttl ? ttl.ex : ttl.px)])) === 1,
+                    delIfEq: async (k, expects) => { await redis.eval(DEL_IF_EQ_LUA, [k], expects); },
                 },
                 sender: { send: sendSignalPushes },
                 readStrict: (keys) => Promise.all(keys.map((k) => getAuthoritativeCache<unknown>(k).catch(() => ({ ok: false, value: null })))),
