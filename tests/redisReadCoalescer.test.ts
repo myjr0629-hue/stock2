@@ -208,3 +208,24 @@ test('대기열 상한을 넘으면 즉시 거절(무한 대기열 없음)', asy
   assert.deepEqual(await Promise.all([first, q1, q2]), ['h', '1', '2']);
   assert.equal(c.snapshot().rejectedBusy, 1);
 });
+
+test('대기열이 찼을 때 끊긴 대기 항목은 즉시 빠지고 새 정상 요청을 받는다', async () => {
+  const c = createReadCoalescer({ maxConcurrent: 1, maxQueue: 2 });
+  const hold = deferred<string>();
+  const first = c.get('h', () => hold.promise);
+  let gone = false;
+  const g1 = c.get('g1', async () => 'never', () => gone);
+  const g2 = c.get('g2', async () => 'never', () => gone);
+  await Promise.resolve(); await Promise.resolve();
+  gone = true;
+  const fresh = c.get('fresh', async () => '{"result":"ok"}', () => false);
+  await assert.rejects(g1, /all callers gone/);
+  await assert.rejects(g2, /all callers gone/);
+  hold.resolve('h');
+  assert.equal(await first, 'h');
+  assert.equal(await fresh, '{"result":"ok"}');
+  const s = c.snapshot();
+  assert.equal(s.rejectedBusy, 0);
+  assert.equal(s.active, 0);
+  assert.equal(s.queued, 0);
+});

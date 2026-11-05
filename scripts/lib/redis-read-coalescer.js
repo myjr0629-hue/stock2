@@ -40,33 +40,44 @@ function createReadCoalescer(opts) {
     const stats = { reads: 0, joined: 0, memoHits: 0, memoStored: 0, invalidations: 0, queuedPeak: 0, skippedGone: 0, rejectedBusy: 0 };
 
     let active = 0;
-    const waiters = [];
-    function acquire() {
+    /** { resolve, reject, entry } — FIFO */
+    let waiters = [];
+    const allGone = (entry) => entry.gone.length > 0 && entry.gone.every((g) => typeof g === "function" && g());
+    function goneError() { stats.skippedGone++; return new Error("all callers gone"); }
+    /** 호출자가 모두 끊긴 대기 항목을 즉시 빼고 거절한다(자리·대기열을 차지하지 않게). */
+    function pruneGone() {
+        const keep = [];
+        for (const w of waiters) {
+            if (allGone(w.entry)) w.reject(goneError());
+            else keep.push(w);
+        }
+        waiters = keep;
+    }
+    function acquire(entry) {
         if (active < maxConcurrent) { active++; return Promise.resolve(); }
+        if (waiters.length >= maxQueue) pruneGone();
         if (waiters.length >= maxQueue) {
             stats.rejectedBusy++;
             return Promise.reject(new Error("proxy busy (read queue full)"));
         }
-        return new Promise((resolve) => {
-            waiters.push(resolve);
+        return new Promise((resolve, reject) => {
+            waiters.push({ resolve, reject, entry });
             if (waiters.length > stats.queuedPeak) stats.queuedPeak = waiters.length;
         });
     }
     function release() {
-        const next = waiters.shift();
-        if (next) next();          // 자리를 그대로 넘긴다(active 유지)
-        else active--;
+        // 자리를 다음 «살아 있는» 대기 항목에 그대로 넘긴다(active 유지). 끊긴 항목은 Redis 를 부르지 않고 거절.
+        while (waiters.length) {
+            const next = waiters.shift();
+            if (allGone(next.entry)) { next.reject(goneError()); continue; }
+            next.resolve();
+            return;
+        }
+        active--;
     }
-    /** 자리를 얻은 순간 기다리던 호출자가 «모두» 끊겼으면(Vercel 4~5초 시간 초과 등) Redis 를 부르지 않는다. */
     async function limited(fn, entry) {
-        await acquire();
-        try {
-            if (entry.gone.length && entry.gone.every((g) => typeof g === "function" && g())) {
-                stats.skippedGone++;
-                throw new Error("all callers gone");
-            }
-            return await fn();
-        } finally { release(); }
+        await acquire(entry);
+        try { return await fn(); } finally { release(); }
     }
 
     function dropMemo(key) {
