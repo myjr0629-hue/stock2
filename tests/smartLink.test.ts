@@ -157,7 +157,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
         assert.equal(r.status, 200, ua.slice(0, 40)); assert.equal(r.headers.get('vary'), 'User-Agent');
         const html = await r.text();
         assert.ok(html.includes('id="claim"') && html.includes("fetch('/api/coupon/claim'") && html.includes(PLAY_CODE.replace(/&/g, '&amp;')));
-        assert.ok(html.includes('🎟 SIGNUM HQ PRO <span class="nw">30일 무료 쿠폰</span>') && html.includes('선착순 200명'));
+        assert.ok(html.includes('🎟 SIGNUM HQ PRO <span class="nw">30일 무료 쿠폰</span>') && html.includes('선착순 80명'));
       }
       const other = await sg.GET(req('/app?from=threads&code=ABCD1234', UA.android));
       assert.equal(other.status, 302); assert.equal(other.headers.get('location'), PLAY_CODE);
@@ -185,7 +185,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
         r = await sg.GET(req('/app?from=cr_test&code=ABCDPRO', ua)); html = await r.text();
         assert.equal(r.status, 200, ua.slice(0, 40)); assert.equal(r.headers.get('vary'), 'User-Agent');
         assert.ok(html.includes('<button class="cta" id="claim" type="button">내 쿠폰 받기</button>') && html.includes("fetch('/api/coupon/claim'") && html.includes(PLAY_C.replace(/&/g, '&amp;')));
-        assert.ok(html.includes('구독자 전용 · 선착순 200명 · 10/30까지') && !html.includes('<p class="t-code" id="code">ABCDPRO</p>'), '안드 화면은 애플 코드를 «쿠폰 번호»로 보여 주지 않는다(배정 API 에 ac 로만 넘긴다 — 예전과 같음)');
+        assert.ok(html.includes('구독자 전용 · 선착순 80명 · 12/30까지') && !html.includes('<p class="t-code" id="code">ABCDPRO</p>'), '안드 화면은 애플 코드를 «쿠폰 번호»로 보여 주지 않는다(배정 API 에 ac 로만 넘긴다 — 예전과 같음)');
       }
       r = await sg.GET(req('/app?from=cr_test&code=ABCDPRO', UA.mac)); html = await r.text();   // PC = 쿠폰 결 QR 화면(안드 안내도 쿠폰)
       assert.equal(r.status, 200);

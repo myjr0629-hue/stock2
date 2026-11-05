@@ -11,8 +11,8 @@
  *
  * 숫자는 «진짜»만 쓴다(가짜 희소성 금지 — 대표 9/27·10/4):
  *   · 아이폰 «선착순 N명» = 애플이 맞춤 코드마다 강제하는 사용 한도(promoLimit의 코드별 정의).
- *   · 안드로이드 «선착순 200명» = 서버 풀에 넣은 Play 일회용 번호 수(300장 중 대표 시험 1 · 게시용 99 제외).
- *   · 날짜 «10/30까지» = 애플 만료 2026-10-31 07:00Z(= 10/30 PT 자정) · Play 프로모션 종료 2026-10-31 00:00 GMT.
+ *   · 안드로이드 «선착순 N명» = 서버 풀에 넣은 Play 일회용 번호 수(ANDROID_POOL_SIZE — 2026-11-05 «일회용 1231» 묶음에서 80장).
+ *   · 날짜 = 아이폰은 코드별 애플 만료(promoExpiry) · 안드로이드는 Play 일회용 1231 묶음 종료 2026-12-31 00:00 GMT 의 전날(«12/30까지», playPromoUntil).
  * 번호 값(애플·Play 일회용, Play 맞춤 코드)은 이 공개 저장소 어디에도 쓰지 않는다 — 풀 적재는 저장소 밖 일회성 스크립트로.
  */
 import { isCreatorPromoCode, type PreviewLang } from './linkPreview';
@@ -31,8 +31,17 @@ export function iosStayHintFlag(v: string | undefined = process.env.COUPON_IOS_S
   return (v || '').trim() === '1';
 }
 
-/** Play 프로모션(일회용 300장) 종료 — Play 콘솔 시각은 GMT. 애플 코드보다 7시간 빠르다. */
-export const PLAY_PROMO_END = Date.parse('2026-10-31T00:00:00Z');
+/** Play 프로모션 종료 — 서버 풀·선물·초대 보상이 나눠 주는 «일회용 1231»(프로모션 131508902, 500장) 묶음의 종료 시각(Play 콘솔 GMT).
+ *  ★2026-11-05 옛 «일회용 300»(131339255)은 2026-10-31 00:00 GMT 에 끝났다 — 운영 풀(promo:play:pool)을 1231 묶음 80장으로 바꿔 넣은 뒤 이 값을 올렸다.
+ *  맞춤 코드 SIGNUMFREE·SIGNUM 은 12/31 23:59 GMT 까지지만 풀은 일회용이라 더 이른 일회용 종료에 맞춘다. 묶음을 바꾸면 풀·이 값·ANDROID_POOL_SIZE 를 같이. */
+export const PLAY_PROMO_END = Date.parse('2026-12-31T00:00:00Z');
+
+/** 안드로이드 쿠폰 «…까지» 날짜 — PLAY_PROMO_END 의 전날(GMT 달력). ko·ja «12/30» · en «Dec 30»(space 로 NBSP 지정). 순수 함수. */
+export function playPromoUntil(lang: PreviewLang, space = ' '): string {
+  const d = new Date(PLAY_PROMO_END - 1);
+  if (lang !== 'en') return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  return `${new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short' }).format(d)}${space}${d.getUTCDate()}`;
+}
 
 /** 지금 안드로이드 쿠폰 화면을 보여 줄까 — 플래그 켜짐 + Play 프로모션 종료 전(순수 함수). */
 export function androidCouponLive(now = Date.now(), flag = androidCouponFlag()): boolean {
@@ -43,8 +52,8 @@ export function androidCouponLive(now = Date.now(), flag = androidCouponFlag()):
 
 /** 기본 한도는 기존 호출자에 유지하고, 코드별 표시는 promoCodeLimit을 사용한다. */
 export { APPLE_CODE_LIMIT } from './promoLimit';
-/** 서버 풀에 넣은 Play 일회용 번호 수 — 풀 적재 개수와 같게 유지한다(바꾸면 여기도). */
-export const ANDROID_POOL_SIZE = 200;
+/** 서버 풀에 넣은 Play 일회용 번호 수 — 풀 적재 개수와 같게 유지한다(바꾸면 여기도). 2026-11-05 1231 묶음 80장(redeem/coupon-pool-load.cjs --swap-1231). */
+export const ANDROID_POOL_SIZE = 80;
 /** 하루 배정 상한 기본값(KST 하루). 미리보기 시험용으로만 COUPON_ANDROID_DAILY_CAP 로 낮춘다. */
 export const ANDROID_DAILY_CAP_DEFAULT = 60;
 export function androidDailyCap(v: string | undefined = process.env.COUPON_ANDROID_DAILY_CAP): number {

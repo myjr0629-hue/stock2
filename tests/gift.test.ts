@@ -178,11 +178,11 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.deepEqual(giftConfig({ GIFT_PROMO_CODE: ` ${CODE.toLowerCase()} `, COUPON_ANDROID: '1' }, NOW), { live: true, code: CODE, android: true });
     assert.deepEqual(giftConfig({ GIFT_PROMO_CODE: CODE, COUPON_ANDROID: '0' }, NOW), { live: true, code: CODE, android: false });
   });
-  await t('서버 설정: 애플 코드 만료(2026-10-31 07:00Z) 뒤엔 꺼진다 · 안드 쿠폰은 Play 종료(10/31 00:00Z) 뒤 false', () => {
+  await t('서버 설정: 애플 코드 만료(2026-10-31 07:00Z) 뒤엔 꺼진다 · 안드 쿠폰은 Play 일회용 1231 종료(12/31 00:00Z) 전이면 true', () => {
     assert.equal(giftConfig({ GIFT_PROMO_CODE: CODE }, Date.parse('2026-10-31T06:59:59Z')).live, true);
     assert.equal(giftConfig({ GIFT_PROMO_CODE: CODE }, Date.parse('2026-10-31T07:00:00Z')).live, false);
     const c = giftConfig({ GIFT_PROMO_CODE: CODE, COUPON_ANDROID: '1' }, Date.parse('2026-10-31T03:00:00Z'));
-    assert.deepEqual(c, { live: true, code: CODE, android: false });
+    assert.deepEqual(c, { live: true, code: CODE, android: true }, '★2026-11-05 옛 300장 묶음(10/31 00:00Z) 대신 1231 묶음 — 10/31 03:00Z 도 안드 쿠폰 켜짐');
   });
   await t('/api/gift/config: 환경변수 있을 때 {live,code,android} · 없을 때 {live:false} · CDN 60초(s-maxage) · 코드 외 다른 값은 안 샌다', async () => {
     const prev = process.env.GIFT_PROMO_CODE; const prevAnd = process.env.COUPON_ANDROID;

@@ -56,7 +56,7 @@ const resetStore = () => { S.clear(); SETS.clear(); H.clear(); TTL.clear(); cmdL
 import { NextRequest } from 'next/server';
 import {
   androidCouponFlag, androidCouponLive, androidDailyCap, kstDay, nextKstMidnight, audienceLine, couponKeys,
-  PLAY_ONE_TIME_RE, playRedeemUrl, isCouponTap, PLAY_PROMO_END, ANDROID_POOL_SIZE, APPLE_CODE_LIMIT,
+  PLAY_ONE_TIME_RE, playRedeemUrl, isCouponTap, PLAY_PROMO_END, playPromoUntil, ANDROID_POOL_SIZE, APPLE_CODE_LIMIT,
 } from '../src/lib/marketing/coupon';
 import { couponHtml, couponSubline } from '../src/lib/marketing/couponHtml';
 import { claimPlayCoupon, claimDenyReason, clientIp, ipHash, type CouponStore } from '../src/lib/marketing/couponClaim';
@@ -106,12 +106,15 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
 
 (async () => {
   console.log('━━━ 1. 공용 정의 ━━━');
-  await t('켜기: COUPON_ANDROID 가 정확히 "1" 일 때만 · Play 종료(10/31 00:00 GMT) 뒤 꺼짐', () => {
+  await t('켜기: COUPON_ANDROID 가 정확히 "1" 일 때만 · Play 일회용 1231 종료(12/31 00:00 GMT) 뒤 꺼짐', () => {
     assert.equal(androidCouponFlag(undefined), false); assert.equal(androidCouponFlag(''), false); assert.equal(androidCouponFlag('0'), false);
     assert.equal(androidCouponFlag('true'), false); assert.equal(androidCouponFlag('1'), true); assert.equal(androidCouponFlag(' 1 '), true);
     assert.equal(androidCouponLive(Date.parse('2026-10-05T00:00:00Z'), true), true);
     assert.equal(androidCouponLive(PLAY_PROMO_END - 1, true), true);
     assert.equal(androidCouponLive(PLAY_PROMO_END, true), false);
+    assert.equal(PLAY_PROMO_END, Date.parse('2026-12-31T00:00:00Z'), '일회용 1231 묶음(131508902) 종료와 같다');
+    assert.equal(androidCouponLive(Date.parse('2026-11-06T00:00:00Z'), true), true, '옛 300장 묶음 종료(10/31) 뒤에도 1231 묶음으로 켜짐');
+    assert.equal(playPromoUntil('ko'), '12/30'); assert.equal(playPromoUntil('ja'), '12/30'); assert.equal(playPromoUntil('en'), 'Dec 30');
     assert.equal(androidCouponLive(Date.parse('2026-10-05T00:00:00Z'), false), false);
   });
   await t('하루 상한: 기본 60 · 1~1000 정수만 덮어쓴다', () => {
@@ -145,12 +148,12 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.equal(audienceLine('threads', 'ABCDPRO', 'ko'), 'Threads 독자 전용', '태그가 채널을 말하면 그것');
     assert.equal(audienceLine('cr_test', 'ABCD1PRO', 'ko'), null); assert.equal(audienceLine('cr_test', 'ABCPRO', 'ko'), null);
     assert.equal(couponSubline('ios', 'ko', 'cr_test', 'ABCDPRO'), '구독자 전용 · 선착순 500명 · 10/30까지');
-    assert.equal(couponSubline('android', 'en', 'cr_test', 'ABCDPRO'), 'For subscribers only · First 200 · Until Oct 30');
+    assert.equal(couponSubline('android', 'en', 'cr_test', 'ABCDPRO'), 'For subscribers only · First 80 · Until Dec 30');
   });
-  await t('부제: «채널 · 실제 한도 · 10/30» — 아이폰 500(애플 코드 한도) · 안드 200(서버 풀)', () => {
-    assert.equal(APPLE_CODE_LIMIT, 500); assert.equal(ANDROID_POOL_SIZE, 200);
+  await t('부제: «채널 · 실제 한도 · 날짜» — 아이폰 500(애플 코드 한도)·10/30 · 안드 80(서버 풀)·12/30(Play 일회용 1231)', () => {
+    assert.equal(APPLE_CODE_LIMIT, 500); assert.equal(ANDROID_POOL_SIZE, 80);
     assert.equal(couponSubline('ios', 'ko', 'threads', 'THREADSPRO'), 'Threads 독자 전용 · 선착순 500명 · 10/30까지');
-    assert.equal(couponSubline('android', 'ko', 'threads', 'THREADSPRO'), 'Threads 독자 전용 · 선착순 200명 · 10/30까지');
+    assert.equal(couponSubline('android', 'ko', 'threads', 'THREADSPRO'), 'Threads 독자 전용 · 선착순 80명 · 12/30까지');
     assert.equal(couponSubline('ios', 'en', 'x_us', 'XPRO'), 'For X readers only · First 500 · Until Oct 30');
     assert.equal(couponSubline('ios', 'ja', 'zz', 'ABCD1234'), '先着500名 · 10/30まで', '채널을 모르면 앞 조각만 뺀다');
   });
@@ -196,7 +199,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   });
   await t('안드로이드: «내 쿠폰 받기» → 배정 API · 번호 칸은 가림 · 복사·Play 적용·손입력 경로 · 30일 무료 고지 · 쿠폰 없이 설치(리퍼러)', () => {
     const h = couponHtml({ platform: 'android', lang: 'ko', fromTag: 'threads', code: 'THREADSPRO', appleRedeemUrl: REDEEM, playInstallUrl: PLAYI });
-    assert.ok(textOf(h).includes('🎟 SIGNUM HQ PRO 30일 무료 쿠폰') && h.includes('Threads 독자 전용 · 선착순 200명 · 10/30까지'));
+    assert.ok(textOf(h).includes('🎟 SIGNUM HQ PRO 30일 무료 쿠폰') && h.includes('Threads 독자 전용 · 선착순 80명 · 12/30까지'));
     assert.ok(h.includes('<button class="cta" id="claim" type="button">내 쿠폰 받기</button>'));
     assert.ok(h.includes("fetch('/api/coupon/claim'") && h.includes("'x-coupon':'1'"));
     assert.ok(h.includes('Play 스토어에서 코드 등록') && h.includes('Play 스토어 → 결제 및 정기 결제 → 코드 사용에 직접 입력해도 됩니다'));
