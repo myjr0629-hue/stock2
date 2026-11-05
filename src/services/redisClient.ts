@@ -958,13 +958,24 @@ function actualsMirror(): UpstashRedis | null {
     try { actualsMirrorClient = url && token ? new UpstashRedis({ url, token, retry: { retries: 0 } }) : null; } catch { actualsMirrorClient = null; }
     return actualsMirrorClient;
 }
+/** 사본 요청 시간 상한 — 응답이 멈춘 Upstash 가 크론을 붙잡지 않게(신호 객체 대신 경주: 신호 중단은 «Aborted»를 정상 값으로 돌려준다) */
+const ACTUALS_MIRROR_TIMEOUT_MS = 1500;
+function withMirrorTimeout<T>(p: Promise<T>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const t = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error('mirror_timeout')), ACTUALS_MIRROR_TIMEOUT_MS); });
+    return Promise.race([p, t]).finally(() => clearTimeout(timer));
+}
+/** 사본이 «설정돼 있는가»(쿨다운과 무관) — 설정이 없으면(개발·시험) 사본 없이 예전대로 동작한다. */
+export function actualsMirrorConfigured(): boolean {
+    return !!((process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) && (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN));
+}
 async function mirrorActualsToUpstash<T>(key: string, value: T): Promise<boolean> {
     const upstash = actualsMirror();
     if (!upstash) return false;
     obsUp('set', 'mirror');
     const start = performance.now();
     try {
-        await upstash.set(key, value);
+        await withMirrorTimeout(upstash.set(key, value));
         obsUpDone(start);
         return true;
     } catch (e: any) {
@@ -994,7 +1005,7 @@ export async function getActualsMirror<T>(key: string): Promise<{ ok: boolean; v
     obsUp('get', 'mirror');
     const start = performance.now();
     try {
-        const value = await upstash.get<T>(key);
+        const value = await withMirrorTimeout(upstash.get<T>(key));
         obsUpDone(start);
         return { ok: true, value: value ?? null };
     } catch {
@@ -1002,6 +1013,29 @@ export async function getActualsMirror<T>(key: string): Promise<{ ok: boolean; v
         actualsMirrorDownUntil = Date.now() + ACTUALS_MIRROR_COOLDOWN_MS;
         return { ok: false, value: null };
     }
+}
+
+/**
+ * [2026-11-05 T56b] 사본 맞추기 — 크론이 이미 읽은 EC2 값(entries)과 Upstash 사본을 MGET 1회로 비교해, 다르거나 없는 것만 다시 쓴다(상한 maxWrites).
+ *   사본 쓰기가 한 번 실패·생략돼도 다음 회차가 채운다. EC2 값이 null 인 키는 건드리지 않는다(사본을 지우지 않는다).
+ */
+export async function repairActualsMirror(entries: ReadonlyArray<{ key: string; value: unknown }>, maxWrites = 40): Promise<{ checked: number; repaired: string[] }> {
+    const out = { checked: 0, repaired: [] as string[] };
+    const rows = entries.filter((e) => e.key.startsWith('earnings:actuals:v1:') && e.value != null);
+    const upstash = actualsMirror();
+    if (!rows.length || !upstash) return out;
+    let copies: unknown[];
+    obsUp('mget', 'mirror');
+    const start = performance.now();
+    try { copies = await withMirrorTimeout(upstash.mget<unknown[]>(...rows.map((r) => r.key))); obsUpDone(start); }
+    catch { obsUpDone(start, true); actualsMirrorDownUntil = Date.now() + ACTUALS_MIRROR_COOLDOWN_MS; return out; }
+    out.checked = rows.length;
+    for (let i = 0; i < rows.length && out.repaired.length < maxWrites; i++) {
+        if (copies[i] != null && JSON.stringify(copies[i]) === JSON.stringify(rows[i].value)) continue;
+        if (!(await mirrorActualsToUpstash(rows[i].key, rows[i].value))) break;   // 실패하면 쿨다운 — 다음 회차
+        out.repaired.push(rows[i].key);
+    }
+    return out;
 }
 
 /** Actuals 수동 보강 전용: TTL 없이 저장하고 Upstash 에 사본(T56b) · EC2 실패 시에는 기존처럼 Upstash 폴백만. */

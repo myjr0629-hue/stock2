@@ -19,6 +19,7 @@ const up = new Map<string, string>();
 const ec2Writes: Array<{ key: string; ttl?: number }> = [];
 const upCmds: string[] = [];
 let upDown = false;
+let upHang = false;
 const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
 function upRun(c: (string | number)[]): unknown {
   const op = String(c[0]).toUpperCase();
@@ -33,6 +34,7 @@ function upRun(c: (string | number)[]): unknown {
   const json = (b: unknown) => new Response(JSON.stringify(b), { status: 200, headers: { 'content-type': 'application/json' } });
   if (url.startsWith('https://upstash.test')) {
     if (upDown) throw new TypeError('fetch failed');
+    if (upHang) return new Promise<Response>(() => {});
     const body = JSON.parse(init?.body || '[]');
     if (url.endsWith('/pipeline')) return json((body as (string | number)[][]).map((c) => ({ result: upRun(c) })));
     return json({ result: upRun(body) });
@@ -60,7 +62,7 @@ const SVC = require('../src/services/earningsActualsService') as typeof import('
 const RC = require('../src/services/redisClient') as typeof import('../src/services/redisClient');
 const SC = require('../src/services/earningsScorecardService') as typeof import('../src/services/earningsScorecardService');
 
-const reset = () => { ec2.clear(); up.clear(); ec2Writes.length = 0; upCmds.length = 0; upDown = false; RC._resetEcBreakerForTest(); RC._resetActualsMirrorForTest(); };
+const reset = () => { ec2.clear(); up.clear(); ec2Writes.length = 0; upCmds.length = 0; upDown = false; upHang = false; RC._resetEcBreakerForTest(); RC._resetActualsMirrorForTest(); };
 const entry = (ticker: string, date: string, hour: 'amc' | 'bmo') => ({
   ticker, date, hour, sourceKind: 'company-pr' as const, sourceUrl: 'https://example.com', announcedOn: '', verifiedAt: '2026-10-11T00:00:00Z', quote: 'x',
 }) as any;
@@ -100,7 +102,7 @@ test('★ 축출 뒤 — EC2 에 기록이 없어도 크론은 Upstash 사본의
   assert.equal(JSON.parse(up.get(KEY)!).actual.pct, -0.8585, '사본도 갱신');
 });
 
-test('Upstash 장애 — 크론 쓰기는 예전처럼 EC2 에 된다(새 의존 0)', async () => {
+test('EC2 에 기록이 있으면 Upstash 장애여도 크론 쓰기는 예전처럼 EC2 에 된다', async () => {
   reset();
   upDown = true;
   const t0 = Date.now();
@@ -133,4 +135,65 @@ test('포인터 쓰기도 Upstash 사본을 둔다', async () => {
   assert.deepEqual(out.written, ['JPM|2026-10-13']);
   assert.deepEqual(JSON.parse(up.get(A.actualsLatestKey('JPM')) || 'null'), { date: '2026-10-13' });
   assert.equal(ec2Writes.find((w) => w.key === A.actualsLatestKey('JPM'))?.ttl, undefined);
+});
+
+test('★ 축출 + Upstash 장애가 겹치면 쓰지 않는다 — 사본의 expected 를 모른 채 덮지 않는다(다음 회차)', async () => {
+  reset();
+  up.set(KEY, JSON.stringify({ v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 1 }));
+  upDown = true;
+  const r = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: jpmBars, readObservation: async () => null, runLock: async () => 'ok' } });
+  assert.equal(ec2.get(KEY), undefined, 'EC2 쓰기 0');
+  assert.ok(r.skipped.some((x) => x.reason === 'read_failed'));
+  assert.deepEqual(r.actualsSaved, []);
+  upDown = false; RC._resetActualsMirrorForTest();
+  await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: jpmBars, readObservation: async () => null, runLock: async () => 'ok' } });
+  assert.equal((ec2.get(KEY) as any)?.expected?.pct, 3.2, '다음 회차 — 사본 expected 와 함께 복구');
+});
+
+test('Upstash 응답 멈춤 — 사본 요청은 1.5초 상한, 이후 쿨다운으로 바로 건너뛴다', async () => {
+  reset();
+  ec2.set(KEY, { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 1 });
+  upHang = true;
+  const t0 = Date.now();
+  const ok = await RC.setActualsDurable(KEY, { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 2 });
+  const dt = Date.now() - t0;
+  assert.equal(ok, true, 'EC2 결과가 답');
+  assert.ok(dt >= 1400 && dt < 2500, `상한 ${dt}ms`);
+  const t1 = Date.now();
+  await RC.setActualsDurable(KEY, { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 3 });
+  assert.ok(Date.now() - t1 < 300, '쿨다운 중엔 사본을 기다리지 않는다');
+});
+
+test('사본 맞추기 — 없는·다른 사본만 다시 쓰고, 같은 것은 건드리지 않는다', async () => {
+  reset();
+  const k2 = A.actualsKey('C', '2026-10-13'), k3 = A.actualsKey('GS', '2026-10-13');
+  up.set(k2, JSON.stringify({ same: 1 }));
+  up.set(k3, JSON.stringify({ old: 1 }));
+  const rep = await RC.repairActualsMirror([{ key: KEY, value: { a: 1 } }, { key: k2, value: { same: 1 } }, { key: k3, value: { new: 1 } }, { key: A.actualsKey('X', '2026-10-13'), value: null }]);
+  assert.deepEqual(rep.repaired.sort(), [KEY, k3].sort());
+  assert.deepEqual(JSON.parse(up.get(k3)!), { new: 1 });
+  assert.equal(up.has(A.actualsKey('X', '2026-10-13')), false, 'EC2 값이 없는 키는 사본을 만들지도 지우지도 않는다');
+});
+
+test('★ 포인터 — EC2 에서 사라져도 더 최신 사본이 있으면 옛 날짜로 덮지 않고 그 값으로 되살린다', async () => {
+  reset();
+  const rec = { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP,
+    actual: { pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check: 'fmp', at: Date.parse('2026-10-14T00:00:00Z') }, at: 1 };
+  ec2.set(KEY, rec);
+  up.set(A.actualsLatestKey('JPM'), JSON.stringify({ date: '2027-01-14' }));
+  const out = await SVC.syncActualsLatestPointers({ nowMs: Date.parse('2026-11-05T12:00:00Z'), list: [entry('JPM', '2026-10-13', 'bmo')] });
+  assert.deepEqual(out.written, []);
+  assert.deepEqual(ec2.get(A.actualsLatestKey('JPM')), { date: '2027-01-14' }, 'EC2 를 사본 값으로');
+  assert.deepEqual(JSON.parse(up.get(A.actualsLatestKey('JPM'))!), { date: '2027-01-14' }, '사본은 그대로');
+});
+
+test('포인터 동기화 회차가 기록 사본 누락을 메운다', async () => {
+  reset();
+  const rec = { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP,
+    actual: { pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check: 'fmp', at: Date.parse('2026-10-14T00:00:00Z') }, at: 1 };
+  ec2.set(KEY, rec);
+  ec2.set(A.actualsLatestKey('JPM'), { date: '2026-10-13' });
+  const out = await SVC.syncActualsLatestPointers({ nowMs: Date.parse('2026-11-05T12:00:00Z'), list: [entry('JPM', '2026-10-13', 'bmo')] });
+  assert.equal(out.mirrorRepaired, 2, '기록 + 포인터');
+  assert.deepEqual(JSON.parse(up.get(KEY)!), rec);
 });

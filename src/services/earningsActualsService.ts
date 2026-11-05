@@ -26,7 +26,7 @@ import { getDailyAggregates } from '@/services/intrinioClient';
 import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
 import { scorecardPairOf } from '@/lib/earnings/earningsScorecard';
 import { Redis } from '@upstash/redis';
-import { getActualsMirror, getAuthoritativeCache, mgetFromCache, setActualsDurable, setActualsWithoutTtl } from '@/services/redisClient';
+import { actualsMirrorConfigured, getActualsMirror, getAuthoritativeCache, mgetFromCache, repairActualsMirror, setActualsDurable, setActualsWithoutTtl } from '@/services/redisClient';
 
 export const recordMapKey = (ticker: string, date: string): string => `${String(ticker).toUpperCase()}|${date}`;
 
@@ -147,10 +147,12 @@ async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'
   let read = await getAuthoritativeCache<unknown>(key).catch(() => ({ ok: false, value: null }));
   if (!read.ok) return 'read_failed';
   // [T56b] EC2 에 없으면(축출·노드 교체) Upstash 사본을 «저장본»으로 본다 — 발표 전에만 잡을 수 있는 expected 를 빈 값으로 덮지 않게.
-  //   사본 읽기가 실패하면 예전처럼 EC2 기준으로 쓴다(Upstash 장애가 새 기록 쓰기를 막지 않게 — 새 의존 0).
-  if (read.value == null) {
+  //   사본이 설정돼 있는데 읽지 못하면(장애·쿨다운·시간 초과) 쓰지 않는다 — 사본에 expected 가 있는지 모른 채 쓰면 그 expected 를 잃는다(관문 11051955 ①).
+  //   다음 회차(30분)가 다시 본다. 사본이 설정되지 않은 환경(개발·시험)은 예전처럼 EC2 기준.
+  if (read.value == null && actualsMirrorConfigured()) {
     const mirror = await getActualsMirror<unknown>(key).catch(() => ({ ok: false, value: null }));
-    if (mirror.ok && mirror.value != null) read = mirror;
+    if (!mirror.ok) return 'read_failed';
+    if (mirror.value != null) read = mirror;
   }
   let out = rec, kept = false;
   if (read.value != null) {
@@ -423,13 +425,20 @@ export async function syncActualsLatestPointers(opts: {
     /** 쓰기 전 확인 읽기 — ok=false(저장소 장애)면 쓰지 않는다(빈 값으로 오인해 최신 포인터를 옛 날짜로 덮지 않게, 관문 11050234 ②) */
     getStrict?: (key: string) => Promise<{ ok: boolean; value: unknown }>;
     set?: (key: string, value: { date: string }) => Promise<boolean>;
+    /** [T56b] Upstash 사본 — 시험 주입용(기본: 설정돼 있을 때만 실제 사본) */
+    mirror?: boolean;
+    getMirror?: (key: string) => Promise<{ ok: boolean; value: unknown }>;
+    repair?: (rows: Array<{ key: string; value: unknown }>) => Promise<{ checked: number; repaired: string[] }>;
   };
-} = {}): Promise<{ checked: number; written: string[] }> {
+} = {}): Promise<{ checked: number; written: string[]; mirrorRepaired?: number }> {
   const now = opts.nowMs ?? Date.now();
   const today = etDateOf(now);
   const mget = opts.deps?.mget ?? ((keys: string[]) => mgetFromCache<unknown>(keys));
   const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setActualsDurable(key, value));
   const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
+  const mirrorOn = opts.deps?.mirror ?? actualsMirrorConfigured();
+  const getMirror = opts.deps?.getMirror ?? ((key: string) => getActualsMirror<unknown>(key));
+  const repair = opts.deps?.repair ?? ((rows: Array<{ key: string; value: unknown }>) => repairActualsMirror(rows));
   const timeUp = () => opts.deadlineMs != null && Date.now() >= opts.deadlineMs;
   // 지난 발표 전부(최근 순) — 종목마다 «가장 최근의 완성 기록»을 고른다(최근 발표가 미완성이어도 그 이전 완성 기록을 놓치지 않게, 관문 11050231 ①)
   const entries = (opts.list ?? CONFIRMED_EARNINGS)
@@ -438,7 +447,7 @@ export async function syncActualsLatestPointers(opts: {
     .filter((c, i, all) => all.findIndex((x) => x.ticker === c.ticker && x.date === c.date) === i)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, LATEST_SYNC_MAX_ENTRIES);
-  const out = { checked: entries.length, written: [] as string[] };
+  const out: { checked: number; written: string[]; mirrorRepaired?: number } = { checked: entries.length, written: [] as string[] };
   if (!entries.length) return out;
   try {
     const recs = await mget(entries.map((c) => actualsKey(c.ticker, c.date)));
@@ -462,8 +471,25 @@ export async function syncActualsLatestPointers(opts: {
       if (!strict.ok) continue;
       const stored = parseLatestPointer(strict.value);
       if (stored && stored >= c.date) continue;
+      // [T56b] EC2 에 포인터가 없으면(축출·노드 교체) 사본을 본다 — 사본이 같거나 더 최신이면 그 값으로 EC2 만 되살리고 옛 날짜로 덮지 않는다(관문 11051955 ③).
+      //   사본이 설정돼 있는데 읽지 못하면 쓰지 않는다(다음 회차).
+      if (!stored && mirrorOn) {
+        const m = await getMirror(actualsLatestKey(c.ticker)).catch(() => ({ ok: false, value: null }));
+        if (!m.ok) continue;
+        const md = parseLatestPointer(m.value);
+        if (md && md >= c.date) { if (!timeUp()) await set(actualsLatestKey(c.ticker), { date: md }).catch(() => false); continue; }
+      }
       if (timeUp()) break;
       if (await set(actualsLatestKey(c.ticker), { date: c.date }).catch(() => false)) out.written.push(`${c.ticker.toUpperCase()}|${c.date}`);
+    }
+    // [T56b] 사본 맞추기 — 이번 회차가 읽은 기록·포인터와 Upstash 사본을 MGET 1회로 비교해 빠진·다른 것만 다시 쓴다(사본 쓰기가 한 번 실패해도 영구 누락이 되지 않게, 관문 11051955 ②).
+    if (mirrorOn && !timeUp()) {
+      const rows = [
+        ...entries.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: recs[i] })),
+        ...done.map((c, i) => ({ key: actualsLatestKey(c.ticker), value: ptrs[i] })),
+      ].filter((r) => r.value != null);
+      const rep = await repair(rows).catch(() => ({ checked: 0, repaired: [] as string[] }));
+      out.mirrorRepaired = rep.repaired.length;
     }
   } catch { /* 다음 회차가 다시 본다 */ }
   return out;
