@@ -666,7 +666,7 @@ t('4 · 재확인 탈락 기기의 자리 반환이 2초 걸려도 다른 기기
   assert.equal(r.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN]);
   assert.ok(delStart > 0 && sendAt - delStart < 100, `탈락 기기 반환 시작 → 다른 기기 발송 ${sendAt - delStart}ms`);
 });
-t('4 · 관문 11060111 재현 — 2/3 · 두 종목 · 첫 incr 시간 초과(서버엔 반영)·반환 2초 지연이어도 같은 기기 두 번째 종목은 보낸다 · 상한은 3 으로 끝난다', async () => {
+t('4 · 관문 11060111 재현 — 2/3 · 두 종목 · 첫 incr 시간 초과(서버엔 반영)·반환 2초 지연이어도 같은 기기 두 번째 종목은 보낸다 · 상한은 3 그대로', async () => {
   const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
   const cap = capOf(IOS_TOKEN);
   s.store.m.set(cap, 2);
@@ -683,10 +683,10 @@ t('4 · 관문 11060111 재현 — 2/3 · 두 종목 · 첫 incr 시간 초과(�
   const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 100, clock: () => SEND }, s.opts(SEND));
   assert.equal(r.sent, 1, JSON.stringify(r.skipped));
   assert.deepEqual(s.sender.items.map((x) => x.data.t), ['C'], '두 번째 종목은 보낸다(카운터 4 − 되돌릴 1 = 3 ≤ 3)');
-  assert.deepEqual(order, ['incr', 'incr', 'decr'], '되돌리기는 그 기기의 선점이 끝난 뒤에만(루프 도중 decr 0)');
-  assert.equal(Number(s.store.m.get(cap)), 4, '반환은 아직 도착 전(단계는 2초 반환을 기다리지 않았다)');
-  await ms(2100);
-  assert.equal(Number(s.store.m.get(cap)), 3, '늦은 반환이 들어오면 2 + 보낸 1 = 3');
+  assert.deepEqual(order, ['incr'], '두 번째 종목은 시간 초과된 증가분을 넘겨받는다 — 새 incr·decr 0(반환을 기다릴 일 자체가 없다)');
+  assert.equal(Number(s.store.m.get(cap)), 3, '공유 상한은 실제 사용량 2 + 보낸 1 = 3 — 4 로 부풀지 않는다(관문 11060417 #1)');
+  await ms(50);
+  assert.equal(Number(s.store.m.get(cap)), 3);
   assert.equal((await s.run(SEND + 1_800_000)).sent, 0, '다음 회차 중복 0');
 });
 t('4 · 관문 11060355 재현 — 반환이 300ms 를 넘어 끝내 응답이 없어도 같은 기기 후속 종목은 빠지지 않는다', async () => {
@@ -703,7 +703,8 @@ t('4 · 관문 11060355 재현 — 반환이 300ms 를 넘어 끝내 응답이 �
   s.store.decr = (k) => { if (k === cap) decrCalls++; return new Promise<number>(() => {}); };   // 반환 응답 없음
   const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 300, clock: () => SEND }, s.opts(SEND));
   assert.equal(r.sent, 1, JSON.stringify(r.skipped)); assert.deepEqual(s.sender.items.map((x) => x.data.t), ['C']);
-  assert.equal(decrCalls, 1, '되돌리기는 1회(시간 초과된 첫 증가분)');
+  assert.equal(decrCalls, 0, '넘겨받았으니 되돌리기 0 — 반환 응답에 기대지 않는다');
+  assert.equal(Number(s.store.m.get(cap)), 3);
 });
 t('4 · 장부 보정은 상한을 넘기지 않는다 — 3/3 이면 두 종목 모두 건너뛰고 · 2/3 이면 하나만 보낸 뒤 상한은 3 으로 돌아온다', async () => {
   for (const [start, want] of [[3, []], [2, ['JPM']]] as const) {
@@ -714,6 +715,17 @@ t('4 · 장부 보정은 상한을 넘기지 않는다 — 3/3 이면 두 종목
     assert.equal(Number(s.store.m.get(capOf(IOS_TOKEN))), 3, `시작 ${start}/3 → 끝 3`);
     assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`), false, '거절한 자리는 돌려준다');
   }
+});
+t('4 · 시간 초과 증가분을 넘겨받을 때 GET 값이 상한 초과면(3/3 에서 첫 incr 시간 초과) 두 번째 종목도 건너뛰고 곧바로 되돌린다 · 끝 3', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  const cap = capOf(IOS_TOKEN);
+  s.store.m.set(cap, 3);
+  const incr = s.store.incr.bind(s.store);
+  s.store.incr = async (k, ex) => { const n = await incr(k, ex); return k === cap ? new Promise<number>(() => {}) : n; };
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 100, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 0); assert.equal(s.sender.calls, 0);
+  assert.equal(Number(s.store.m.get(cap)), 3);
+  assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`), false); assert.equal(s.store.m.has(slowKeyOf(IOS_TOKEN)), false, '두 자리 모두 돌려준다 → 다음 회차 재시도');
 });
 t('4 · 관문 11060414 #1 — 상한 초과가 확인되면 그 기기는 멈추고 곧바로 되돌린다(뒤 종목 왕복 동안 공유 상한을 부풀려 두지 않는다)', async () => {
   const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
