@@ -26,7 +26,7 @@ import { getDailyAggregates } from '@/services/intrinioClient';
 import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
 import { scorecardPairOf } from '@/lib/earnings/earningsScorecard';
 import { Redis } from '@upstash/redis';
-import { actualsMirrorConfigured, getActualsMirror, getAuthoritativeCache, mgetFromCache, repairActualsMirror, setActualsDurable, setActualsWithoutTtl } from '@/services/redisClient';
+import { ACTUALS_MIRROR_RESERVE_MS, actualsMirrorConfigured, getActualsMirror, getAuthoritativeCache, mgetFromCache, repairActualsMirror, setActualsDurable, setActualsWithoutTtl } from '@/services/redisClient';
 
 export const recordMapKey = (ticker: string, date: string): string => `${String(ticker).toUpperCase()}|${date}`;
 
@@ -481,7 +481,7 @@ export async function syncActualsLatestPointers(opts: {
       if (stored && stored >= c.date) continue;
       // [T56b] EC2 에 포인터가 없으면(축출·노드 교체) 사본을 본다 — 사본이 같거나 더 최신이면 그 값으로 EC2 만 되살리고 옛 날짜로 덮지 않는다(관문 11051955 ③).
       //   사본을 읽지 못하면 main 과 똑같이 쓴다(사본 쓰기는 조건부라 사본의 더 최신 날짜는 덮이지 않는다).
-      if (!stored && mirrorOn) {
+      if (!stored && mirrorOn && !(opts.deadlineMs != null && Date.now() >= opts.deadlineMs - ACTUALS_MIRROR_RESERVE_MS)) {
         const m = await getMirror(actualsLatestKey(c.ticker)).catch(() => ({ ok: false, value: null }));
         const md = m.ok ? parseLatestPointer(m.value) : null;
         if (md && md >= c.date) { touchedPtr.add(c.ticker); if (!timeUp()) await set(actualsLatestKey(c.ticker), { date: md }).catch(() => false); continue; }

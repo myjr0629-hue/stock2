@@ -51,6 +51,7 @@ function upRun(c: (string | number)[]): unknown {
   if (url.startsWith('https://upstash.test')) {
     if (upDown) throw new TypeError('fetch failed');
     if (upHang) return new Promise<Response>(() => {});
+    if (upDelayMs) await new Promise((res) => setTimeout(res, upDelayMs));
     const body = JSON.parse(init?.body || '[]');
     if (url.endsWith('/pipeline')) return json((body as (string | number)[][]).map((c) => ({ result: upRun(c) })));
     return json({ result: upRun(body) });
@@ -162,7 +163,7 @@ test('축출 + Upstash 장애가 겹치면 main 과 똑같이 EC2 에 쓴다(사
   assert.equal((ec2.get(KEY) as any).actual.pct, -0.8585);
 });
 
-test('Upstash 응답 멈춤 — 사본 요청은 1.5초 상한, 이후 쿨다운으로 바로 건너뛴다', async () => {
+test('Upstash 응답 멈춤 — 사본 요청은 0.8초 상한, 이후 쿨다운으로 바로 건너뛴다', async () => {
   reset();
   ec2.set(KEY, { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 1 });
   upHang = true;
@@ -170,7 +171,7 @@ test('Upstash 응답 멈춤 — 사본 요청은 1.5초 상한, 이후 쿨다운
   const ok = await RC.setActualsDurable(KEY, { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 2 });
   const dt = Date.now() - t0;
   assert.equal(ok, true, 'EC2 결과가 답');
-  assert.ok(dt >= 1400 && dt < 2500, `상한 ${dt}ms`);
+  assert.ok(dt >= 700 && dt < 1500, `상한 ${dt}ms`);
   const t1 = Date.now();
   await RC.setActualsDurable(KEY, { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 3 });
   assert.ok(Date.now() - t1 < 300, '쿨다운 중엔 사본을 기다리지 않는다');
@@ -246,7 +247,7 @@ test('발표 전 기록(크론 창)의 사본 누락도 맞춘다 · 완성 기�
   assert.deepEqual(JSON.parse(up.get(k)!), rec);
 });
 
-test('채점표 읽기 — Upstash 가 멈춰도 사본 채우기는 1.5초 안에 포기하고 EC2 값으로 답한다', async () => {
+test('채점표 읽기 — Upstash 가 멈춰도 사본 채우기는 0.8초 안에 포기하고 EC2 값으로 답한다', async () => {
   reset();
   upHang = true;
   const t0 = Date.now();
@@ -294,4 +295,19 @@ test('★ actual 폐기(재대조 불일치) — Upstash 장애여도 EC2 폐기
   up.set(KEY, JSON.stringify(rec));
   await cycle();
   assert.equal((ec2.get(KEY) as any).actual, null, '사본에서 읽은 단독 값도 같은 재대조로 다시 폐기');
+});
+
+let upDelayMs = 0;
+test('★ 느린 Upstash(성공이지만 0.3초 초과) — 첫 느린 응답 뒤 쿨다운, 12건 크론 쓰기에 더해지는 지연 < 1.5초', async () => {
+  reset();
+  const list = Array.from({ length: 12 }, (_, i) => entry(`T${i}`, '2026-10-13', 'bmo'));
+  const bars: any = async (tk: string) => [{ date: '2026-10-12', close: 100 }, { date: '2026-10-13', close: 101 }];
+  for (const c of list) ec2.set(A.actualsKey(c.ticker, c.date), { v: 1, ticker: c.ticker, date: c.date, hour: 'bmo', expected: EXP, actual: null, at: 1 });
+  upDelayMs = 600;
+  const t0 = Date.now();
+  const r = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list, deps: { bars, fmp: bars, readObservation: async () => null, runLock: async () => 'ok' } });
+  const dt = Date.now() - t0;
+  upDelayMs = 0;
+  assert.equal(r.actualsSaved.length, 12);
+  assert.ok(dt < 1500, `${dt}ms`);
 });
