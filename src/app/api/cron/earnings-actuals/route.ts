@@ -33,8 +33,12 @@ export async function GET(req: NextRequest) {
             ]);
             const redis = Redis.fromEnv();
             const result = await runEarningsResultStep({
-                // 기존 신호 저장소 + SET XX(굳히기 — lib/signals/earningsResult ResultStore)
-                store: { ...upstashStore(redis), setXx: async (k, v, ex) => (await redis.set(k, v, { xx: true, ex })) === 'OK' },
+                // 기존 신호 저장소 + SET XX EX(굳히기) · SET XX PX(무장) — lib/signals/earningsResult ResultStore
+                store: {
+                    ...upstashStore(redis),
+                    setXx: async (k, v, ex) => (await redis.set(k, v, { xx: true, ex })) === 'OK',
+                    armXx: async (k, v, ms) => (await redis.set(k, v, { xx: true, px: ms })) === 'OK',
+                },
                 sender: { send: sendSignalPushes },
                 readStrict: (keys) => Promise.all(keys.map((k) => getAuthoritativeCache<unknown>(k).catch(() => ({ ok: false, value: null })))),
             }, {
