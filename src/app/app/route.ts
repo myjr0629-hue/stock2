@@ -6,6 +6,7 @@ import { UA_BOT_RE, isPreviewBot, clickFields, recordClick } from '@/lib/marketi
 import { desktopHandoffHtml, desktopRedeemHtml } from '@/lib/marketing/desktopHandoff';
 import { recordRef, refBucketFor, refDevice } from '@/lib/marketing/clickRef';
 import { couponHtml } from '@/lib/marketing/couponHtml';
+import { COUPON_CLAIMED_COOKIE, clientIp, playCouponScreenEligible } from '@/lib/marketing/couponClaim';
 import { androidCouponLive, iosStayHintFlag } from '@/lib/marketing/coupon';
 import { isAndroidInAppBrowser, inAppFamily, inAppViewFields, androidInAppHtml } from '@/lib/marketing/androidInApp';
 import { isIosInAppBrowser } from '@/lib/marketing/iosInApp';
@@ -258,9 +259,19 @@ export async function GET(request: NextRequest) {
   //
   //   그래서 «한 줄 링크»를 여기서 만든다: signumhq.com/app?from=<채널>&code=<코드>.
   //   기기 분기와 채널 집계는 이미 있는 것을 그대로 타고, 코드가 있을 때만 목적지가 바뀐다.
-  //   코드가 없으면 동작이 «완전히 이전과 같다» — 기존 링크는 아무 영향이 없다.
+  //   코드가 없으면 동작이 «완전히 이전과 같다» — 기존 링크는 아무 영향이 없다(★11/5 예외: 아래 안드로이드 쿠폰 화면).
   const rawCode = (request.nextUrl.searchParams.get('code') || '').trim().toUpperCase();
   const code = /^[A-Z0-9]{4,24}$/.test(rawCode) ? rawCode : '';   // 형식이 아니면 «없는 것»으로 본다
+
+  // ★2026-11-05 안드로이드 쿠폰 화면을 «링크의 애플 코드 생존»과 분리(대표 «설치를 극적으로 — 리딤코드를 뿌려서라도»).
+  //   예전: 살아 있는 애플 맞춤 코드 링크에서만 → 10/31 끝난 THREADSPRO 등 옛 채널 링크·코드 없는 링크의 안드로이드는 그냥 Play 302.
+  //   지금: 안드로이드 쿠폰이 켜져 있으면(androidCouponLive) 그 링크들에서도 쿠폰 화면 — 단 풀에 남은 번호가 있거나,
+  //         이 브라우저가 이미 받았거나(배정 API 의 sg_cpn 쿠키) 이 IP 가 24시간 안에 받았을 때만(이미 받은 사람의 재열람).
+  //   그 밖(소진·조회 실패·설정 없음·봇)은 아래 예전 동작 그대로(Play 302 · 앱 안 브라우저 안내 화면). 배정·하루 상한·IP 상한은 배정 API 그대로.
+  //   살아 있는 애플 코드 링크(아이폰·안드)와 PC 는 조회하지 않고 예전 그대로.
+  const androidCouponPage = hitPlatform === 'android' && !(code && isLivePromoCode(code)) && androidCouponLive()
+    && !UA_BOT_RE.test(ua) && !isPreviewBot(ua)
+    && await playCouponScreenEligible({ claimed: request.cookies.get(COUPON_CLAIMED_COOKIE)?.value === '1', ip: clientIp(request.headers) });
 
   // PC 넘겨주기 QR 로 폰에서 들어온 것은 따로도 센다(원래 채널 집계는 위 recordHit 이 이미 했다).
   //   ★2026-10-04 G0: 코드 링크 PC 화면의 QR(…&code=…&via=qr)도 여기서 센다 — 그래서 코드 분기 «앞»으로 옮겼다(코드 없는 링크는 순서만 같고 동작 동일).
@@ -283,7 +294,7 @@ export async function GET(request: NextRequest) {
     //   남의 코드·만료 뒤·PC 는 이 분기를 타지 않는다(예전 그대로). 위 집계(코드 합계·clk:code)도 그대로 두고,
     //   화면 노출만 clk:coupon:<from>:<날짜> «<기기>|view:<사람 판정>» 한 칸을 더한다(단추는 /api/coupon/event 비콘).
     //   ⚠ 반드시 no-store + Vary: User-Agent(previewResponseInit) — CDN 이 이 HTML 을 PC·다른 기기에게 주면 안 된다.
-    if (hitPlatform !== 'desktop' && isLivePromoCode(code) && (hitPlatform === 'ios' || androidCouponLive())) {
+    if (hitPlatform !== 'desktop' && ((isLivePromoCode(code) && (hitPlatform === 'ios' || androidCouponLive())) || androidCouponPage)) {
       const viewField = (clickFieldsNow[0] || `${hitPlatform}|human`).replace('|', '|view:');
       // ★2026-10-07 아이폰 «앱 안 브라우저»(Threads·Instagram 등 WKWebView)면 어느 앱인지도 같은 키에 한 칸(ios|app:<가족>) — 적용 단추가 App Store 로 안 넘어가는지(apply_stay)를 앱별로 본다. 사파리·PC·안드는 예전 그대로.
       const iosInApp = hitPlatform === 'ios' && isIosInAppBrowser(ua);
@@ -346,6 +357,18 @@ export async function GET(request: NextRequest) {
 
   if (/android/i.test(ua)) {
     const playUrl = playUrlWithReferrer(PLAY_STORE_URL, fromTag, 'signum', 'smartlink', undefined, campaignId);
+    // ★2026-11-05 코드 없는 링크의 안드로이드 쿠폰 화면(위 androidCouponPage) — «쿠폰 없이 설치»는 위 playUrl(utm_content 없음, 예전 302 와 같은 주소)
+    if (androidCouponPage) {
+      try {
+        const html = couponHtml({ platform: 'android', lang: pageLang(), fromTag, code: '', appleRedeemUrl: '', playInstallUrl: playUrl, androidInApp, ref: giftRef });
+        after(() => recordClick('coupon', fromTag, [(clickFieldsNow[0] || 'android|human').replace('|', '|view:')]));
+        if (androidInApp) {
+          const fields = inAppViewFields(clickFieldsNow[0], inAppFamily(ua, xrw), 'coupon');
+          after(() => recordClick('inapp', fromTag, fields));
+        }
+        return new NextResponse(html, previewResponseInit());
+      } catch { /* 화면을 못 만들면 아래 예전 동작 */ }
+    }
     if (androidInApp) { const page = inAppPage(playUrl, 'link'); if (page) return page; }   // ★2026-10-05 앱 안 → intent 단추 화면
     return NextResponse.redirect(playUrl, 302);
   }
