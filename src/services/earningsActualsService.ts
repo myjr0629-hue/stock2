@@ -438,7 +438,7 @@ export async function syncActualsLatestPointers(opts: {
   const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
   const mirrorOn = opts.deps?.mirror ?? actualsMirrorConfigured();
   const getMirror = opts.deps?.getMirror ?? ((key: string) => getActualsMirror<unknown>(key));
-  const repair = opts.deps?.repair ?? ((rows: Array<{ key: string; value: unknown }>) => repairActualsMirror(rows));
+  const repair = opts.deps?.repair ?? ((rows: Array<{ key: string; value: unknown }>) => repairActualsMirror(rows, 40, opts.deadlineMs));
   const timeUp = () => opts.deadlineMs != null && Date.now() >= opts.deadlineMs;
   // 지난 발표 전부(최근 순) — 종목마다 «가장 최근의 완성 기록»을 고른다(최근 발표가 미완성이어도 그 이전 완성 기록을 놓치지 않게, 관문 11050231 ①)
   const entries = (opts.list ?? CONFIRMED_EARNINGS)

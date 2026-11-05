@@ -984,7 +984,14 @@ if cur then
     local ok1, c = pcall(cjson.decode, cur)
     local ok2, n = pcall(cjson.decode, ARGV[1])
     if ok1 and ok2 and type(c) == 'table' and type(n) == 'table' then
-        if type(c.at) == 'number' and type(n.at) == 'number' and c.at > n.at then return 0 end
+        if type(c.at) == 'number' and type(n.at) == 'number' then
+            if c.at > n.at then return 0 end
+            -- 같은 at(같은 크론 회차의 actual 저장 → expected 저장): 사본에 있는 칸을 비우는 값이면 늦게 온 앞선 쓰기다 — 덮지 않는다
+            if c.at == n.at then
+                local function has(t, k) return t[k] ~= nil and t[k] ~= cjson.null end
+                if (has(c, 'expected') and not has(n, 'expected')) or (has(c, 'actual') and not has(n, 'actual')) then return 0 end
+            end
+        end
         if c.v == nil and n.v == nil and type(c.date) == 'string' and type(n.date) == 'string' and c.date > n.date then return 0 end
     end
 end
@@ -1054,18 +1061,20 @@ export async function getActualsMirror<T>(key: string): Promise<{ ok: boolean; v
  * [2026-11-05 T56b] 사본 맞추기 — 크론이 이미 읽은 EC2 값(entries)과 Upstash 사본을 MGET 1회로 비교해, 다르거나 없는 것만 다시 쓴다(상한 maxWrites).
  *   사본 쓰기가 한 번 실패·생략돼도 다음 회차가 채운다. EC2 값이 null 인 키는 건드리지 않는다(사본을 지우지 않는다).
  */
-export async function repairActualsMirror(entries: ReadonlyArray<{ key: string; value: unknown }>, maxWrites = 40): Promise<{ checked: number; repaired: string[] }> {
+export async function repairActualsMirror(entries: ReadonlyArray<{ key: string; value: unknown }>, maxWrites = 40, deadlineMs?: number): Promise<{ checked: number; repaired: string[] }> {
+    /** 마감 시각 전 이만큼 남으면 새 요청을 시작하지 않는다(요청 하나의 상한 1.5초 + 여유) */
+    const timeUp = () => deadlineMs != null && Date.now() >= deadlineMs - ACTUALS_MIRROR_TIMEOUT_MS - 500;
     const out = { checked: 0, repaired: [] as string[] };
     const rows = entries.filter((e) => e.key.startsWith('earnings:actuals:v1:') && e.value != null);
     const upstash = actualsMirror();
-    if (!rows.length || !upstash) return out;
+    if (!rows.length || !upstash || timeUp()) return out;
     let copies: unknown[];
     obsUp('mget', 'mirror');
     const start = performance.now();
     try { copies = await withMirrorTimeout(upstash.mget<unknown[]>(...rows.map((r) => r.key))); obsUpDone(start); }
     catch { obsUpDone(start, true); actualsMirrorDownUntil = Date.now() + ACTUALS_MIRROR_COOLDOWN_MS; return out; }
     out.checked = rows.length;
-    for (let i = 0; i < rows.length && out.repaired.length < maxWrites; i++) {
+    for (let i = 0; i < rows.length && out.repaired.length < maxWrites && !timeUp(); i++) {
         if (copies[i] != null && JSON.stringify(copies[i]) === JSON.stringify(rows[i].value)) continue;
         if (!(await mirrorActualsToUpstash(rows[i].key, rows[i].value))) break;   // 실패하면 쿨다운 — 다음 회차
         out.repaired.push(rows[i].key);

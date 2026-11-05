@@ -34,7 +34,11 @@ function upRun(c: (string | number)[]): unknown {
     upCmds[upCmds.length - 1] = `EVAL ${key}`;
     const cur = up.has(key) ? JSON.parse(up.get(key)!) : null;
     if (cur && typeof cur === 'object' && typeof next === 'object') {
-      if (typeof cur.at === 'number' && typeof next.at === 'number' && cur.at > next.at) return 0;
+      if (typeof cur.at === 'number' && typeof next.at === 'number') {
+        if (cur.at > next.at) return 0;
+        const has = (t: any, k: string) => t[k] != null;
+        if (cur.at === next.at && ((has(cur, 'expected') && !has(next, 'expected')) || (has(cur, 'actual') && !has(next, 'actual')))) return 0;
+      }
       if (cur.v == null && next.v == null && typeof cur.date === 'string' && typeof next.date === 'string' && cur.date > next.date) return 0;
     }
     up.set(key, String(c[4])); return 1;
@@ -254,4 +258,21 @@ test('채점표 읽기 — Upstash 가 멈춰도 사본 채우기는 1.5초 안�
   const dt = Date.now() - t0;
   assert.equal(recs.size, 0);
   assert.ok(dt < 2500, `${dt}ms`);
+});
+
+test('★ 같은 at(같은 회차 actual → expected) — 늦게 온 앞선 쓰기(expected 없음)는 expected 있는 사본을 덮지 않는다', async () => {
+  reset();
+  ec2.set(KEY, { x: 1 });
+  up.set(KEY, JSON.stringify({ v: 1, at: 500, expected: EXP, actual: { pct: 1 } }));
+  await RC.setActualsDurable(KEY, { v: 1, at: 500, expected: null, actual: { pct: 1 } });
+  assert.deepEqual(JSON.parse(up.get(KEY)!).expected, EXP);
+  await RC.setActualsDurable(KEY, { v: 1, at: 500, expected: EXP, actual: { pct: 1 }, extra: 1 });
+  assert.equal(JSON.parse(up.get(KEY)!).extra, 1, '같은 at 이라도 칸을 비우지 않는 값은 쓴다');
+});
+
+test('사본 맞추기는 마감 시각이 가까우면 새 요청을 시작하지 않는다', async () => {
+  reset();
+  const rep = await RC.repairActualsMirror([{ key: KEY, value: { a: 1 } }], 40, Date.now() + 1000);
+  assert.deepEqual(rep, { checked: 0, repaired: [] });
+  assert.equal(upCmds.length, 0);
 });
