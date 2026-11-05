@@ -14,4 +14,4 @@
 
 선물 링크의 익명 초대 참조와 설치 전 터치가 신규 설치 후 첫 실행의 IP/기기와 매칭되고 부정 방지 조건을 통과하면 초대자에게 크레딧 1건이 쌓인다. 정확한 IP가 없을 때 제한된 대역 매칭도 있다. 72시간 터치, 동일 IP 30일 1회, 자기 초대 차단, 초대자 최대 3건, 전체 하루 25건 상한이 있다. `INVITE_REWARD=1`일 때 선물함 조회가 초대자의 OS에 맞는 기존 일회용 코드 풀에서 크레딧을 코드로 바꾼다. 풀이 비었거나 Android 예비 60개 이하, Play 만료 등에는 대기한다. 기존 오퍼의 사용 자격과 실제 재고는 별도 확인이 필요하다. 모든 설치에 대한 지급 보장은 없다.
 
-공유 함수 영향: `giftAnnounceBlock`·`markGiftAnnounced`·`readAnnounceState`는 원본 그대로다(재안내는 별도 `giftReannounceBlock`·`markGiftReannounced`). `reviewMomentBlocked`는 재안내 표시 뒤에도 60초 평점 요청을 미룬다(재안내 표식이 없으면 기존과 같다).
+공유 함수 영향: `giftAnnounceBlock`·`markGiftAnnounced`·`readAnnounceState`는 원본 그대로다(재안내는 별도 `giftReannounceBlock`·`markGiftReannounced`). `reviewMomentBlocked`는 «이번 실행에서» 재안내를 띄운 뒤 60초만 평점 요청을 미룬다(메모리 값 — 다음 실행·스위치 꺼짐에는 영향 없음). 재안내 시트의 «선물 링크 보내기»는 기존 안내의 중단 표식을 쓰지 않는다(`useGiftShare(…, keepAnnounce)`).

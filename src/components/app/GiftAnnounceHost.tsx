@@ -21,7 +21,7 @@ import { shareBeacon, shareVia } from '@/lib/share/share';
 import {
   GIFT_ANNOUNCE_DELAY_MS, GIFT_ANNOUNCE_RETRY_MS, GIFT_BLOCK_METRICS, GIFT_MOMENT_EVENT, giftAnnounceBlock, localeFromPath,
   isEarningsPath, markGiftAnnounced, readOnboarded, type AnnounceBlock, type GiftShowAt, type StoreLike,
-  giftReannounceBlock, markGiftReannounced, readReannounced,
+  giftReannounceBlock, markGiftReannounced, noteReannounceShown, readReannounced,
 } from '@/lib/gift/giftAnnounce';
 
 const GiftAnnounceSheet = dynamic(() => import('./GiftAnnounceSheet').then((m) => m.GiftAnnounceSheet), { ssr: false });
@@ -94,6 +94,7 @@ export function GiftAnnounceHost() {
     // 표식을 못 남기면 띄우지 않고, 이번 실행의 1회 몫(run.shown)도 쓰지 않는다 — 기존 안내는 그대로 기회가 있다. 재안내는 이번 실행 끝.
     if (!markGiftReannounced(localStore())) { re.on = false; setReOn(false); return; }
     run.shown = true;
+    noteReannounceShown();
     setReSheet(true);
     setLocale(localeFromPath(window.location.pathname));
     shareBeacon('open', 'gift_pop', shareVia());

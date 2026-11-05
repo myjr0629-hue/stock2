@@ -155,6 +155,12 @@ export const GIFT_REANNOUNCE_TITLE: Record<GiftLang, string> = {
   ja: '今週の米国株の決算採点をチェックして、友だちにPRO 1か月をプレゼント',
 };
 
+/** 이번 웹뷰 실행에서 재안내를 띄운 시각(ms, 없으면 0) — 평점 요청이 그 뒤 60초 쉬게(hooks/useReviewPrompt). 저장하지 않는다:
+ *  다음 실행(스위치 꺼짐·조회 실패 포함)의 평점·기존 안내 흐름에는 아무 영향이 없다. */
+let reannounceShownAtMs = 0;
+export const reannounceShownAt = (): number => reannounceShownAtMs;
+export function noteReannounceShown(now = Date.now()): void { reannounceShownAtMs = now; }
+
 /** 이 기기가 재안내를 이미 봤나(저장소가 막히면 null) */
 export function readReannounced(store: StoreLike | null): boolean | null {
   if (!store) return null;

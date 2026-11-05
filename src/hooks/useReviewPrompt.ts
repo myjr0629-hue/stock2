@@ -26,7 +26,7 @@
 
 import { useCallback } from 'react';
 import { fullScreenAds } from '@/services/fullScreenAdSession';
-import { GIFT_REVIEW_QUIET_MS, GIFT_REANNOUNCE_KEY, readAnnounceState } from '@/lib/gift/giftAnnounce';
+import { GIFT_REVIEW_QUIET_MS, readAnnounceState, reannounceShownAt } from '@/lib/gift/giftAnnounce';
 
 /**
  * ★2026-10-27 마지막으로 OS 평점 시트를 «요청»한 시각(ms, 요청 지연 포함) — 같은 웹뷰 실행 안에서만 의미가 있다.
@@ -48,8 +48,8 @@ export function reviewMomentBlocked(now = Date.now()): boolean {
     if (ended > 0 && now - ended < GIFT_REVIEW_QUIET_MS) return true;
     const ad = JSON.parse(localStorage.getItem('signum_interstitial_frequency') || '{}');
     if (typeof ad.lastShownAt === 'number' && ad.lastShownAt > 0 && now - ad.lastShownAt < GIFT_REVIEW_QUIET_MS) return true;
-    const campaign = Number(localStorage.getItem(GIFT_REANNOUNCE_KEY));
-    if (campaign > 0 && now - campaign < GIFT_REVIEW_QUIET_MS) return true;
+    const re = reannounceShownAt();   // 11/5 재안내 — 이번 실행에서 띄웠을 때만(없으면 0 = 예전 그대로)
+    if (re > 0 && now - re < GIFT_REVIEW_QUIET_MS) return true;
     const gift = readAnnounceState(localStorage);
     if (gift && gift.last > 0 && now - gift.last < GIFT_REVIEW_QUIET_MS) return true;
     if (typeof document !== 'undefined' && (document.visibilityState === 'hidden' || document.querySelector('[aria-modal="true"]'))) return true;
