@@ -769,6 +769,9 @@ async function getOptionChain(ticker, opts = {}) {
         //   없으면 null — 0 으로 채우면 구조 서비스의 «OI 누락» 검사가 발동하지 않는다(2026-09-27). 소비처는 `|| 0` 로 읽는다.
         open_interest: num(p.open_interest),
         eodDate: p.date ?? null,
+        // [11/6 T43] 이 계약 midpoint 의 출처 — 실시간 FMV(synthetic_price)면 'live', 아니면 EOD mark·마감 호가 'eod'.
+        //   체인 수준 greeksSource 만으로는 실시간이 빠진 다리(전일 EOD mark)가 «live»로 읽혔다(11/5 AXON 12.5).
+        _quoteSource: num(rt && rt.synthetic_price) > 0 ? 'live' : 'eod',
         break_even_price: type === 'put'
           ? (num(o.strike) || 0) - (num(p.close) || 0)
           : (num(o.strike) || 0) + (num(p.close) || 0),

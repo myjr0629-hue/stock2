@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import {
     IMPLIED_MOVE_DEF, atmStraddleImpliedMove, wallRangePct, impliedMoveFields, readImpliedMoveFields, impliedMoveSessionNote, formatImpliedMovePct,
     taggedImpliedMovePct, etDateString, NO_IMPLIED_MOVE, stampOptionMoveFields, copyImpliedMoveGroup,
+    contractQuoteSource, holdSessionLiveMove, eodQuoteRows, type ImpliedMove,
 } from '../src/lib/impliedMove';
 import { computeImpliedMovePct } from '../src/services/alphaEngine';
 import { structureLacksImpliedMove } from '../src/services/impliedMoveService';
@@ -155,6 +156,61 @@ const vendor = (type: 'call' | 'put', k: number, opt: { mid?: number; mark?: num
     _rtGreeks: opt.rt,
 });
 
+t('계약별 호가 출처가 체인 그릭스 표식보다 우선한다', () => {
+    const rows = [
+        { ...vendor('call', 1000, { mid: 70, mark: 60, rt: true }), _quoteSource: 'live', _quoteObservedAt: new Date(AT_LIVE).toISOString() },
+        { ...vendor('put', 1000, { mid: 65, mark: 65, rt: true }), _quoteSource: 'eod' },
+    ];
+    const im = atmStraddleImpliedMove(rows, 1000, { quotesLive: true, quotesAt: AT_LIVE, chainDate: '2026-09-25', todayEt: TODAY })!;
+    assert.equal(im.pct, 12.5);
+    assert.equal(im.basis, 'eod');
+    assert.equal(im.session, '2026-09-25');
+    assert.equal(im.asOf, null);
+});
+
+// [11/6 T43] 11/5 마감 직후 AXON 재현 — 실시간 그릭스가 일부 계약에만 실린 체인에서 ATM 한 다리가 전일(11/4) EOD 값.
+//   예전: 수집기 슬림 체인은 체인 수준 «realtime» 표식으로 전일 값 다리까지 실시간 → 12.5 가 «live·11/5 세션»으로 나갔다.
+t('[T43] 수집기 슬림 체인: 실시간 IV 없는 다리(ivSourceDate)는 출처 «모름» — 전일 12.5 를 live 로도, FMV 를 전일 종가로도 내지 않는다', () => {
+    const ax = (type: 'call' | 'put', k: number, mid: number, ivSourceDate: string | null) => ({
+        details: { strike_price: k, contract_type: type, expiration_date: EXP }, open_interest: 100,
+        last_quote: { midpoint: mid }, ivSourceDate, ivObservedAt: ivSourceDate ? null : new Date(AT_LIVE).toISOString(),
+    });
+    const opt = { quotesLive: true, quotesAt: AT_LIVE, chainDate: '2026-09-25', todayEt: TODAY };
+    // 1000 행사가: 콜은 실시간(70) · 풋은 실시간 IV 빠짐(전일 EOD mark 55 일 수도, IV 만 빠진 FMV 일 수도)
+    assert.equal(atmStraddleImpliedMove([ax('call', 1000, 70, null), ax('put', 1000, 55, '2026-09-25')], 1000, opt), null);
+    // 두 다리 모두 실시간 IV 빠짐(전일 mark 60+65=12.5) → 값 없음(예전: live 12.5 · 세션 오늘)
+    assert.equal(atmStraddleImpliedMove([ax('call', 1000, 60, '2026-09-25'), ax('put', 1000, 65, '2026-09-25')], 1000, opt), null);
+    // 다음 행사가가 두 다리 모두 실시간이면 그 행사가로
+    const near = atmStraddleImpliedMove([ax('call', 1000, 60, '2026-09-25'), ax('put', 1000, 65, '2026-09-25'), ax('call', 1005, 67, null), ax('put', 1005, 71, null)], 1000, opt)!;
+    assert.deepEqual([near.strike, near.basis, near.pct, near.asOf], [1005, 'live', 13.8, AT_LIVE]);
+    // 체인이 실시간이 아니면(EOD 체인) ivSourceDate 다리는 예전처럼 EOD 값
+    const eodChain = atmStraddleImpliedMove([ax('call', 1000, 60, '2026-09-25'), ax('put', 1000, 65, '2026-09-25')], 1000, { ...opt, quotesLive: false })!;
+    assert.deepEqual([eodChain.pct, eodChain.basis, eodChain.session], [12.5, 'eod', '2026-09-25']);
+    // 두 다리 모두 실시간 IV 가 있으면 예전처럼 실시간(체인 수준 표식)
+    const c = atmStraddleImpliedMove([ax('call', 1000, 70, null), ax('put', 1000, 69, null)], 1000, opt)!;
+    assert.deepEqual([c.basis, c.pct, c.asOf], ['live', 13.9, AT_LIVE]);
+});
+
+t('[T43] 출처 표식: 만든 곳이 적은 _quoteSource 가 우선 · 가격 일치로 짐작하지 않는다', () => {
+    // 직접 경로: 실시간 FMV 가 빠져 midpoint 가 마감 호가 중간(전일)으로 떨어진 행 — 생성기가 'eod' 를 적는다
+    const callNoFmv = { ...vendor('call', 1000, { mid: 61, mark: 60.5, bid: 60, ask: 62, rt: true }), _quoteSource: 'eod' };
+    const put = { ...vendor('put', 1000, { mid: 64, mark: 63, bid: 63.5, ask: 64.5, rt: true }), _quoteSource: 'eod' };
+    const im = atmStraddleImpliedMove([callNoFmv, put], 1000, { todayEt: TODAY, quotesAt: AT_LIVE, chainDate: '2026-09-25' })!;
+    assert.deepEqual([im.basis, im.session], ['eod', '2026-09-25']);
+    // 실시간 FMV 가 우연히 마감 호가 중간과 같아도 'live' 표식이면 실시간
+    const fmvEqual = [{ ...vendor('call', 1000, { mid: 61, mark: 60.5, bid: 60, ask: 62, rt: true }), _quoteSource: 'live' },
+        { ...vendor('put', 1000, { mid: 64, mark: 63, bid: 63.5, ask: 64.5, rt: true }), _quoteSource: 'live' }];
+    assert.equal(atmStraddleImpliedMove(fmvEqual, 1000, { todayEt: TODAY, quotesAt: AT_LIVE })!.basis, 'live');
+    assert.equal(contractQuoteSource({ _quoteSource: 'eod', _rtGreeks: true, last_quote: { midpoint: 70 } }), 'eod');
+    assert.equal(contractQuoteSource({ _quoteSource: 'unknown', last_quote: { midpoint: 70 } }), 'unknown');
+    assert.equal(contractQuoteSource({ ivSourceDate: '2026-09-25', last_quote: { midpoint: 70 } }, true), 'unknown');
+    assert.equal(contractQuoteSource({ ivSourceDate: '2026-09-25', last_quote: { midpoint: 70 } }, false), null);
+    assert.equal(contractQuoteSource({ ivSourceDate: null, ivObservedAt: '2026-09-28T17:37:00Z', last_quote: { midpoint: 70 } }, true), null);
+    // EOD 전용 행(eodQuoteRows)은 원본의 'live' 표식을 덮는다
+    const [row] = eodQuoteRows([{ ...vendor('call', 1000, { mid: 70, mark: 60, bid: 59, ask: 61, rt: true }), _quoteSource: 'live' }]);
+    assert.equal(contractQuoteSource(row), 'eod');
+});
+
 t('Intrinio 직접: _rtGreeks + FMV(≠ mark) = 실시간 · FMV 가 비어 mark 로 떨어진 다리는 실시간이 아니다', () => {
     const live = [vendor('call', 1000, { mid: 40, mark: 38, rt: true }), vendor('put', 1000, { mid: 39, mark: 37, rt: true })];
     const a = atmStraddleImpliedMove(live, 1000, { todayEt: TODAY, quotesAt: AT_LIVE })!;
@@ -295,5 +351,47 @@ t('ET 날짜 — 01:12 ET(05:12Z)는 그날, 23:30 ET(03:30Z 다음날)도 ET �
     assert.equal(etDateString(Date.parse('2026-09-29T05:12:00Z')), '2026-09-29');
     assert.equal(etDateString(Date.parse('2026-09-30T03:30:00Z')), '2026-09-29');
 });
+
+console.log('\nimpliedMove — [T43] 세션 단조(판본 저장 때 실시간 값 유지)');
+{
+    // 11/5(목) 마감 직후 AXON 11/6 만기 — 16:05 ET 실시간 14.0 → 16:10 ET 재계산이 실시간 다리를 잃고 전일(11/4) EOD 쌍 12.5
+    const X = '2026-11-06';
+    const T1605 = Date.parse('2026-11-05T21:05:00Z'), T1610 = Date.parse('2026-11-05T21:10:00Z'), T1612 = Date.parse('2026-11-05T21:12:00Z');
+    const mv = (o: Partial<ImpliedMove> & { pct: number; basis: 'live' | 'eod'; session: string | null }): ImpliedMove => ({
+        def: IMPLIED_MOVE_DEF, straddle: o.pct * 3.8256, strike: 382.5, expiry: X, callPrice: 28, putPrice: 25.5, spot: 382.56,
+        asOf: null, chainDate: o.basis === 'eod' ? o.session : null, ...o,
+    });
+    const live140 = mv({ pct: 14.0, basis: 'live', session: '2026-11-05', asOf: T1605 });
+    const prior125 = mv({ pct: 12.5, basis: 'eod', session: '2026-11-04' });
+    t('[T43] 마감 직후 재계산이 전일 EOD(12.5)·값 없음이면 같은 만기의 당일 실시간(14.0, 관측 시각 그대로)을 유지', () => {
+        assert.equal(holdSessionLiveMove(live140, prior125, X, T1610), live140);
+        assert.equal(holdSessionLiveMove(live140, null, X, T1610), live140);
+        assert.equal(holdSessionLiveMove(live140, mv({ pct: 12.5, basis: 'eod', session: null }), X, T1610), live140, '세션 모르는 값도 이기지 못한다');
+        const f = impliedMoveFields(holdSessionLiveMove(live140, prior125, X, T1610));
+        assert.equal(f.impliedMovePct, 14.0);
+        assert.equal(f.impliedMoveBasis, 'live');
+        assert.equal(f.impliedMoveAsOf, T1605);
+        assert.equal(f.impliedMoveSession, '2026-11-05');
+    });
+    t('[T43] 같은 세션의 더 새 실시간·같은 세션 EOD·더 새 세션은 그대로 새 값(EOD 가 나오면 그 세션 EOD)', () => {
+        const live139 = mv({ pct: 13.9, basis: 'live', session: '2026-11-05', asOf: T1612 });
+        assert.equal(holdSessionLiveMove(live140, live139, X, T1612), live139);
+        const eod1105 = mv({ pct: 14.1, basis: 'eod', session: '2026-11-05' });
+        assert.equal(holdSessionLiveMove(live140, eod1105, X, T1612), eod1105);
+        const next1106 = mv({ pct: 9.0, basis: 'live', session: '2026-11-06', asOf: Date.parse('2026-11-06T14:40:00Z') });
+        assert.equal(holdSessionLiveMove(live140, next1106, X, Date.parse('2026-11-06T14:41:00Z')), next1106);
+        // 같은 세션 실시간이라도 관측 시각이 더 이르면(늦게 끝난 옛 캐시 계산) 지금 값 유지
+        const older = mv({ pct: 13.0, basis: 'live', session: '2026-11-05', asOf: T1605 - 60_000 });
+        assert.equal(holdSessionLiveMove(live140, older, X, T1610), live140);
+    });
+    t('[T43] 붙들지 않는 경우 — 만기 다름·만기 지남·지금 값이 EOD·4일 넘음', () => {
+        const other = mv({ pct: 8.0, basis: 'eod', session: '2026-11-04', expiry: '2026-11-13' });
+        assert.equal(holdSessionLiveMove(live140, other, '2026-11-13', T1610), other);
+        assert.equal(holdSessionLiveMove(live140, null, X, Date.parse('2026-11-06T21:30:00Z')), null, '11/6 만기 마감 뒤');
+        assert.equal(holdSessionLiveMove(mv({ pct: 14.0, basis: 'eod', session: '2026-11-05' }), prior125, X, T1610), prior125);
+        assert.equal(holdSessionLiveMove({ ...live140, expiry: '2026-11-20' }, null, '2026-11-20', T1605 + 5 * 86_400_000), null);
+        assert.equal(holdSessionLiveMove(null, prior125, X, T1610), prior125);
+    });
+}
 
 console.log(`\n${n} passed`);

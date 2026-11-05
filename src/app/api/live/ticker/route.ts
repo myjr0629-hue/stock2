@@ -31,6 +31,7 @@ import { priceAsOfET } from '@/lib/quoteBasis';
 import { repairVendorEpochMs } from '@/lib/vendorTime'; // ★ 11/2 벤더 «2083년» 시각 복구
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 import { lastIntrinioFailure } from '@/services/intrinioClient'; // ★ 벤더 빈 응답 진단(2026-09-04)
+import { contractQuoteSource } from '@/lib/impliedMove'; // [11/6 T43] 계약별 호가 출처
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "";
@@ -146,10 +147,12 @@ function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true, quot
             }
             const k = Number(opt.details?.strike_price);
             if (quote && quote.atmRef > 0 && Math.abs(k - quote.atmRef) <= quote.atmRef * 0.1) {
-                const mid = Number(opt.last_quote?.midpoint);
-                slim._rtGreeks = opt._rtGreeks === true
-                    ? (mid > 0 && mid !== Number(opt.day?.vwap))
-                    : opt._rtGreeks === false ? false : quote.live;
+                // [11/6 T43] 계약별 출처(lib/impliedMove.contractQuoteSource) — 체인 수준 표식은 계약별 증거가 없을 때만.
+                //   실시간이 빠져 전일 EOD 로 채워진 다리를 «실시간»으로 넘기지 않는다(11/5 AXON 12.5).
+                const src = contractQuoteSource(opt, quote.live);
+                slim._rtGreeks = src === 'live' ? true : src === 'eod' ? false : src === 'unknown' ? false : quote.live;
+                // 모르는 다리는 «모름» 그대로 — 화면 계산이 EOD 로도 실시간으로도 쓰지 않는다
+                if (src === 'unknown') slim._quoteSource = 'unknown';
             }
         } else {
             // allExpiryChain: delta + gamma for OI mode metrics (OPI, DEX) + GEX
