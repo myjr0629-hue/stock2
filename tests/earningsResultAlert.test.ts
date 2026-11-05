@@ -64,10 +64,16 @@ class UpstashLikeStore extends FakeStore {
   async get(k: string) { this.sweep(k); return upstashParse(await super.get(k)); }
   async setNx(k: string, v: string, ex: number) { this.sweep(k); const ok = await super.setNx(k, v, ex); if (ok) this.exp.delete(k); return ok; }
   async del(keys: string[]) { keys.forEach((k) => this.exp.delete(k)); return super.del(keys); }
-  /** SET key value XX EX — 키가 있을 때만 */
-  async setXx(k: string, v: string, ex: number) { this.sweep(k); if (!this.m.has(k)) return false; this.m.set(k, v); this.ttl.set(k, ex); this.exp.delete(k); this.writes.push(`setxx:${k}`); return true; }
-  /** SET key value XX PX — 키가 있을 때만, ms 수명 */
-  async armXx(k: string, v: string, ms: number) { this.sweep(k); if (!this.m.has(k)) return false; this.m.set(k, v); this.exp.set(k, Date.now() + ms); this.writes.push(`armxx:${k}`); return true; }
+  /** 운영 SET_IF_EQ_LUA 와 같은 규칙 — 값이 글자 그대로 expect 일 때만 바꾸고 수명(EX 초 · PX ms) */
+  async setIfEq(k: string, expect: string, v: string, ttl: { ex: number } | { px: number }) {
+    this.sweep(k);
+    if (!this.m.has(k) || this.m.get(k) !== expect) return false;
+    this.m.set(k, v);
+    if ('ex' in ttl) { this.ttl.set(k, ttl.ex); this.exp.delete(k); } else this.exp.set(k, Date.now() + ttl.px);
+    this.writes.push(`setifeq:${k}`); return true;
+  }
+  /** 운영 DEL_IF_EQ_LUA 와 같은 규칙 — 값이 expects 중 하나일 때만 지운다 */
+  async delIfEq(k: string, expects: string[]) { this.sweep(k); if (this.m.has(k) && expects.includes(String(this.m.get(k)))) await this.del([k]); }
 }
 function setup(records: any[] = [raw()], devices: Array<[string, Record<string, unknown>]> = [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }]]) {
   const store = new UpstashLikeStore(), sender = new FakeSender(), recs = new FakeRecords(), logs: string[] = [];
@@ -317,28 +323,28 @@ t('4 · 발송 결과를 모르면(발송 함수가 던짐) 장부를 그대로 
 });
 t('4 · 보내기 직전 굳히기(SET XX)가 실패하면 그 기기는 보내지 않고 자리·상한을 돌려준다 → 다음 회차가 보낸다', async () => {
   const s = setup();
-  const orig = s.store.setXx.bind(s.store);
+  const orig = s.store.setIfEq.bind(s.store);
   let down = true;
-  s.store.setXx = async (k: string, v: string, ex: number) => { if (down) throw new Error('down'); return orig(k, v, ex); };
+  s.store.setIfEq = async (k, e, v, ttl) => { if (down && v.startsWith('sent:')) throw new Error('down'); return orig(k, e, v, ttl); };
   const r1 = await s.run(SEND);
   assert.equal(r1.sent, 0); assert.equal(s.sender.calls, 0);
   assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false, '자리 반환');
   assert.equal(Number(s.store.m.get(`push:sig:cap:2026-10-14:${devKey(IOS_TOKEN)}`)), 0, '하루 상한 반환');
-  down = false;
+  s.store.setIfEq = orig; down = false;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
 });
 t('4 · 굳히기가 시간 초과 뒤 «늦게» 도착해도 지운 자리를 되살리지 못한다(XX) — 다음 회차가 보낸다(관문 11041444 #2)', async () => {
   const s = setup();
   const key = `push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`;
-  const orig = s.store.setXx.bind(s.store);
+  const orig = s.store.setIfEq.bind(s.store);
   let late: (() => Promise<boolean>) | null = null;
-  s.store.setXx = (k: string, v: string, ex: number) => { late = () => orig(k, v, ex); return new Promise<boolean>(() => {}); };   // 응답 없음
+  s.store.setIfEq = (k, e, v, ttl) => { if (!v.startsWith('sent:')) return orig(k, e, v, ttl); late = () => orig(k, e, v, ttl); return new Promise<boolean>(() => {}); };   // 굳히기 응답 없음
   const r1 = await s.run(SEND);
   assert.equal(r1.sent, 0); assert.equal(s.sender.calls, 0);
   assert.equal(s.store.m.has(key), false, '시간 초과 → 자리 지움');
-  assert.equal(await late!(), false, '늦은 쓰기는 XX 라 아무것도 쓰지 않는다');
+  assert.equal(await late!(), false, '늦은 쓰기는 이 회차 무장 값일 때만 쓰므로 아무것도 쓰지 않는다');
   assert.equal(s.store.m.has(key), false);
-  s.store.setXx = orig;
+  s.store.setIfEq = orig;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
 });
 t('4 · 한 번 시도한 발송은 공급사 결과가 fail 이어도 다시 보내지 않는다(응답 유실 = 이미 닿았을 수 있음, 관문 11041444 #1)', async () => {
@@ -359,13 +365,13 @@ t('4 · dead 토큰은 기존처럼 목록에서 지운다(재발송 없음)', a
 t('4 · 굳히기가 늦어 마감을 넘기면 보내지 않고 자리·상한을 돌려준다(관문 11041444 #3)', async () => {
   const s = setup();
   let t = SEND;
-  const orig = s.store.setXx.bind(s.store);
-  s.store.setXx = async (k: string, v: string, ex: number) => { t = SEND + 30_000; return orig(k, v, ex); };   // 굳히는 사이 마감
+  const orig = s.store.setIfEq.bind(s.store);
+  s.store.setIfEq = async (k, e, v, ttl) => { if (v.startsWith('sent:')) t = SEND + 30_000; return orig(k, e, v, ttl); };   // 굳히는 사이 마감
   const r = await runEarningsResultStep({ ...s.deps, clock: () => t }, s.opts(SEND, { lockDeadline: SEND + 30_000 }));
   assert.equal(r.sent, 0); assert.equal(s.sender.calls, 0); assert.ok(r.skipped.some((x) => x.reason === 'lock_expiring'));
   assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:JPM:${D}`), false);
   assert.equal(Number(s.store.m.get(`push:sig:cap:2026-10-14:${devKey(IOS_TOKEN)}`)), 0);
-  s.store.setXx = orig;
+  s.store.setIfEq = orig;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
 });
 
@@ -417,24 +423,24 @@ const slowKeyOf = (tok: string) => `push:sig:result:${devKey(tok)}:JPM:${D}`;
 const ms = (n: number) => new Promise((res) => setTimeout(res, n));
 /** 그 키의 굳히기만 늦게 — 도착(서버 적용) 시각과 응답 방식을 고른다. hang 이면 응답이 오지 않는다 */
 function slowSeal(s: ReturnType<typeof setup>, key: string, arriveMs: number, reply: 'ok' | 'throw' | 'hang' = 'ok') {
-  const orig = s.store.setXx.bind(s.store);
+  const orig = s.store.setIfEq.bind(s.store);
   const st = { applied: null as boolean | null };
-  s.store.setXx = (k: string, v: string, ex: number) => {
-    if (k !== key) return orig(k, v, ex);
+  s.store.setIfEq = (k, expect, v, ttl) => {
+    if (k !== key || !v.startsWith('sent:')) return orig(k, expect, v, ttl);   // 굳히기만 늦게(무장은 그대로)
     return new Promise<boolean>((res, rej) => setTimeout(async () => {
-      st.applied = await orig(k, v, ex);                                  // 서버엔 이 시각에 적용(또는 자리가 없어 무효)
+      st.applied = await orig(k, expect, v, ttl);                         // 서버엔 이 시각에 적용(또는 무장 자리가 없어 무효)
       if (reply === 'ok') res(st.applied); else if (reply === 'throw') rej(new Error('response lost'));
     }, arriveMs));
   };
-  return { st, restore: () => { s.store.setXx = orig; } };
+  return { st, restore: () => { s.store.setIfEq = orig; } };
 }
 t('4 · 허용된 손실 창 ≤ 300ms — 300ms 안에 굳은 기기는 곧바로 보내고, 지평(무장 600ms) 뒤에 도착한 굳히기는 자리가 사라져 무효(관문 11041451 #1)', async () => {
   const s = setup([raw()], TWO_IOS);
   const slowKey = slowKeyOf(IOS_TOKEN2);
   const slow = slowSeal(s, slowKey, 900);                                // 900ms 뒤 도착 — 무장 지평(600ms) 밖
   let sealedAt = 0; const sendAt: number[] = [];
-  const fast = s.store.setXx;
-  s.store.setXx = async (k: string, v: string, ex: number) => { const r = await fast(k, v, ex); if (k !== slowKey) sealedAt = Date.now(); return r; };
+  const fast = s.store.setIfEq;
+  s.store.setIfEq = async (k, e, v, ttl) => { const r = await fast(k, e, v, ttl); if (k !== slowKey && v.startsWith('sent:')) sealedAt = Date.now(); return r; };
   const origSend = s.sender.send.bind(s.sender);
   s.sender.send = async (items: any) => { sendAt.push(Date.now()); return origSend(items); };
   const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
@@ -445,7 +451,7 @@ t('4 · 허용된 손실 창 ≤ 300ms — 300ms 안에 굳은 기기는 곧바�
   assert.equal(Number(s.store.m.get(`push:sig:cap:2026-10-14:${devKey(IOS_TOKEN2)}`)), 0, '늦은 기기 상한 반환');
   await ms(700);
   assert.equal(slow.st.applied, false, '지평 뒤 도착한 굳히기는 무장 자리가 사라져 쓰지 못한다'); assert.equal(s.store.live(slowKey), false);
-  s.store.setXx = fast; slow.restore(); s.sender.send = origSend;
+  s.store.setIfEq = fast; slow.restore(); s.sender.send = origSend;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
   assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN, IOS_TOKEN2], '다음 회차가 늦은 기기만, 중복 없음');
 });
@@ -474,11 +480,11 @@ t('4 · 관문 11042212 #1 재현 — 빠진 기기의 반환(del)이 멈춰도 
   const s = setup([raw()], TWO_IOS);
   const slowKey = slowKeyOf(IOS_TOKEN2);
   const slow = slowSeal(s, slowKey, 5_000, 'hang');                      // 빠진 기기의 굳히기는 응답이 오지 않는다
-  const del = s.store.del.bind(s.store);
-  s.store.del = (keys: string[]) => (keys.includes(slowKey) ? new Promise<void>(() => {}) : del(keys));   // 그 기기의 반환은 영영 끝나지 않는다
+  const del = s.store.delIfEq.bind(s.store);
+  s.store.delIfEq = (k, ex) => (k === slowKey ? new Promise<void>(() => {}) : del(k, ex));   // 그 기기의 반환은 영영 끝나지 않는다
   let sealedAt = 0, sentAt = 0;
-  const fast = s.store.setXx;
-  s.store.setXx = async (k: string, v: string, ex: number) => { const r = await fast(k, v, ex); if (k !== slowKey) sealedAt = Date.now(); return r; };
+  const fast = s.store.setIfEq;
+  s.store.setIfEq = async (k, e, v, ttl) => { const r = await fast(k, e, v, ttl); if (k !== slowKey && v.startsWith('sent:')) sealedAt = Date.now(); return r; };
   const origSend = s.sender.send.bind(s.sender);
   s.sender.send = async (items: any) => { if (!sentAt) sentAt = Date.now(); return origSend(items); };
   const t0 = Date.now();
@@ -487,60 +493,60 @@ t('4 · 관문 11042212 #1 재현 — 빠진 기기의 반환(del)이 멈춰도 
   assert.ok(sentAt - sealedAt < SEAL_TIMEOUT_MS + 150, `굳힌 기기 → 발송 호출 ${sentAt - sealedAt}ms(반환을 기다리지 않는다)`);
   assert.ok(Date.now() - t0 < 4_000, `단계 전체도 시간 상한 안에 끝난다(${Date.now() - t0}ms)`);
   assert.equal(s.store.live(slowKey), false, '빠진 기기는 무장 자리라 저절로 사라진다(장부 0)');
-  s.store.setXx = fast; slow.restore(); s.store.del = del;
+  s.store.setIfEq = fast; slow.restore(); s.store.delIfEq = del;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
   assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN, IOS_TOKEN2], '다음 회차가 빠진 기기만, 중복 없음');
 });
 t('4 · 관문 11042212 #1 — 굳힌 뒤 보내기 직전에 마감을 다시 본다: 넘었으면 보내지 않고 굳은 자리를 되돌려 다음 회차가 한 번만 보낸다', async () => {
   const s = setup([raw()]);
   let now = SEND;
-  const setXx = s.store.setXx.bind(s.store);
-  s.store.setXx = async (k: string, v: string, ex: number) => { const r = await setXx(k, v, ex); now = SEND + 30_000; return r; };   // 굳히는 사이 마감(멈춘 이벤트 루프 흉내)
+  const setIfEq = s.store.setIfEq.bind(s.store);
+  s.store.setIfEq = async (k, e, v, ttl) => { const r = await setIfEq(k, e, v, ttl); if (v.startsWith('sent:')) now = SEND + 30_000; return r; };   // 굳히는 사이 마감(멈춘 이벤트 루프 흉내)
   const r1 = await runEarningsResultStep({ ...s.deps, clock: () => now }, s.opts(SEND, { lockDeadline: SEND + 30_000 }));
   assert.equal(r1.sent, 0); assert.equal(s.sender.calls, 0, '마감 뒤엔 발송 호출 0');
   assert.equal(s.store.live(slowKeyOf(IOS_TOKEN)), false, '굳은 120일 장부를 되돌렸다(시도 없는 장부 0)');
   assert.ok(r1.skipped.some((x) => x.reason === 'lock_expiring'));
-  s.store.setXx = setXx;
+  s.store.setIfEq = setIfEq;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1); assert.equal(s.sender.items.length, 1);
 });
 t('4 · 관문 11042212 #2 재현 — 300ms 를 넘겨 굳은 기기의 삭제가 실패해도, 늦은 굳힘이 지평 안이면 같은 회차에 보낸다(시도 없는 120일 장부 0 · 중복 0)', async () => {
   const s = setup([raw()], TWO_IOS);
   const slowKey = slowKeyOf(IOS_TOKEN2);
   const slow = slowSeal(s, slowKey, 450);                                // 300ms 상한 뒤 · 지평(600ms) 안에 도착해 성공
-  const del = s.store.del.bind(s.store);
-  s.store.del = async (keys: string[]) => { if (keys.includes(slowKey)) throw new Error('delete failed'); return del(keys); };
+  const del = s.store.delIfEq.bind(s.store);
+  s.store.delIfEq = async (k, ex) => { if (k === slowKey) throw new Error('delete failed'); return del(k, ex); };
   const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
   assert.equal(slow.st.applied, true, '늦은 굳히기는 서버에 적용됐다');
   assert.equal(r1.sent, 2); assert.deepEqual(s.sender.items.map((x) => x.token).sort(), [IOS_TOKEN, IOS_TOKEN2].sort(), '늦게 굳은 기기도 보냈다');
   assert.equal(s.sender.calls, 2, '먼저 굳은 기기와 따로 — 기다리지 않았다');
   assert.match(String(s.store.m.get(slowKey)), /^sent:/);
-  slow.restore(); s.store.del = del;
+  slow.restore(); s.store.delIfEq = del;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 0, '다음 회차 중복 0'); assert.equal(s.sender.items.length, 2);
 });
 t('4 · 관문 11042212 #2 — 굳히기 응답이 오류로 끝나고(서버엔 적용) 삭제도 실패하면, 지평 뒤 읽어서 굳힘을 확인하고 보낸다', async () => {
   const s = setup([raw()], TWO_IOS);
   const slowKey = slowKeyOf(IOS_TOKEN2);
   const slow = slowSeal(s, slowKey, 350, 'throw');                       // 적용됐지만 응답은 오류
-  const del = s.store.del.bind(s.store);
-  s.store.del = async (keys: string[]) => { if (keys.includes(slowKey)) throw new Error('delete failed'); return del(keys); };
+  const del = s.store.delIfEq.bind(s.store);
+  s.store.delIfEq = async (k, ex) => { if (k === slowKey) throw new Error('delete failed'); return del(k, ex); };
   const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
   assert.equal(slow.st.applied, true);
   assert.equal(r1.sent, 2, '읽어서 확인한 굳힘도 보낸다');
-  slow.restore(); s.store.del = del;
+  slow.restore(); s.store.delIfEq = del;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 0, '중복 0');
 });
 t('4 · 관문 11042212 #2 — 삭제가 실패해도 지평 뒤 도착한 굳히기는 무장 자리가 사라져 쓰지 못한다 → 장부 0, 다음 회차가 보낸다', async () => {
   const s = setup([raw()], TWO_IOS);
   const slowKey = slowKeyOf(IOS_TOKEN2);
   const slow = slowSeal(s, slowKey, 900);
-  const del = s.store.del.bind(s.store);
-  s.store.del = async (keys: string[]) => { if (keys.includes(slowKey)) throw new Error('delete failed'); return del(keys); };
+  const del = s.store.delIfEq.bind(s.store);
+  s.store.delIfEq = async (k, ex) => { if (k === slowKey) throw new Error('delete failed'); return del(k, ex); };
   const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
   assert.equal(r1.sent, 1);
   assert.ok(!r1.skipped.some((x) => x.reason === 'seal_unknown'), '지평 뒤 읽기로 «안 굳음» 확정');
   await ms(700);
   assert.equal(slow.st.applied, false, '늦은 굳히기 무효'); assert.equal(s.store.live(slowKey), false, '시도 없는 120일 장부 0');
-  slow.restore(); s.store.del = del;
+  slow.restore(); s.store.delIfEq = del;
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
   assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN, IOS_TOKEN2], '빠진 기기만, 중복 없음');
 });
@@ -548,13 +554,57 @@ t('4 · 저장소가 끝까지 답하지 않으면(굳히기 오류·읽기 실�
   const s = setup([raw()], TWO_IOS);
   const slowKey = slowKeyOf(IOS_TOKEN2);
   const slow = slowSeal(s, slowKey, 350, 'throw');
-  const del = s.store.del.bind(s.store), get = s.store.get.bind(s.store);
-  s.store.del = async (keys: string[]) => { if (keys.includes(slowKey)) throw new Error('delete failed'); return del(keys); };
+  const del = s.store.delIfEq.bind(s.store), get = s.store.get.bind(s.store);
+  s.store.delIfEq = async (k, ex) => { if (k === slowKey) throw new Error('delete failed'); return del(k, ex); };
   s.store.get = async (k: string) => { if (k === slowKey) throw new Error('read failed'); return get(k); };
   const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
   assert.equal(r1.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN]);
   assert.ok(r1.skipped.some((x) => x.reason === 'seal_unknown' && x.key.startsWith(devKey(IOS_TOKEN2))), JSON.stringify(r1.skipped));
-  slow.restore(); s.store.del = del; s.store.get = get;
+  slow.restore(); s.store.delIfEq = del; s.store.get = get;
+});
+t('4 · 관문 11051012 #1 재현 — 한 기기의 무장이 응답 없고 그 기기 삭제가 두 번 시간 초과돼도, 무장한 정상 기기는 수명(600ms) 안에 굳혀 보낸다', async () => {
+  const s = setup([raw()], TWO_IOS);
+  const slowKey = slowKeyOf(IOS_TOKEN2);
+  const setIfEq = s.store.setIfEq.bind(s.store), del = s.store.delIfEq.bind(s.store);
+  s.store.setIfEq = (k, e, v, ttl) => (k === slowKey && v.startsWith('arm:') ? new Promise<boolean>(() => {}) : setIfEq(k, e, v, ttl));   // 무장 응답 없음
+  s.store.delIfEq = (k, ex) => (k === slowKey ? new Promise<void>(() => {}) : del(k, ex));                                              // 삭제도 매번 시간 초과
+  const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r1.sent, 1, JSON.stringify(r1.skipped)); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN], '정상 기기는 굳혀 보냈다');
+  assert.match(String(s.store.m.get(slowKeyOf(IOS_TOKEN))), /^sent:/);
+  s.store.setIfEq = setIfEq; s.store.delIfEq = del;
+  s.store.m.delete(slowKey);                                             // 선점 수명(10분) 경과 흉내
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
+  assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN, IOS_TOKEN2], '다음 회차가 빠진 기기만, 중복 없음');
+});
+t('4 · 관문 11051012 #2 재현 — 이전 회차의 지연된 굳히기·무장·지우기는 다음 회차가 다시 잡은 자리·장부를 덮거나 지우지 못한다(회차 표식 비교)', async () => {
+  const s = setup([raw()], TWO_IOS);
+  const slowKey = slowKeyOf(IOS_TOKEN2);
+  const setIfEq = s.store.setIfEq.bind(s.store), del = s.store.delIfEq.bind(s.store);
+  const stale: Array<() => Promise<unknown>> = [];
+  // 1회차: 빠진 기기의 굳히기·무장 재시도·지우기가 모두 «나중에 도착»하도록 붙잡아 둔다(응답 없음)
+  s.store.setIfEq = (k, e, v, ttl) => {
+    if (k === slowKey && v.startsWith('sent:')) { stale.push(() => setIfEq(k, e, v, ttl), () => setIfEq(k, e.replace(/^arm:/, 'claim:'), e, { px: 600_000 })); return new Promise<boolean>(() => {}); }
+    return setIfEq(k, e, v, ttl);
+  };
+  s.store.delIfEq = (k, ex) => { if (k === slowKey) { stale.push(() => del(k, ex)); return new Promise<void>(() => {}); } return del(k, ex); };
+  const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r1.sent, 1);
+  s.store.setIfEq = setIfEq; s.store.delIfEq = del;
+  assert.equal(s.store.live(slowKey), false, '1회차 무장 자리는 저절로 사라졌다');
+  // 2회차: 빠진 기기를 다시 잡은 «직후» 1회차의 지연 요청이 모두 도착
+  const setNx = s.store.setNx.bind(s.store);
+  let landed: unknown[] = [];
+  s.store.setNx = async (k, v, ex) => { const ok = await setNx(k, v, ex); if (ok && k === slowKey) landed = await Promise.all(stale.map((f) => f())); return ok; };
+  const r2 = await s.run(SEND + 1_800_000);
+  assert.deepEqual(landed.slice(0, 2), [false, false], '지연된 굳히기·무장은 값이 달라 쓰지 못한다');
+  assert.equal(r2.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN, IOS_TOKEN2]);
+  const v2 = String(s.store.m.get(slowKey));
+  assert.match(v2, /^sent:/);
+  // 2회차가 보낸 뒤 1회차의 지연된 지우기가 또 도착해도 2회차 장부는 그대로 → 3회차 중복 0
+  await Promise.all(stale.filter((_, i) => i >= 2).map((f) => f()));
+  assert.equal(String(s.store.m.get(slowKey)), v2, '지연된 지우기는 다른 회차 장부를 지우지 못한다');
+  s.store.setNx = setNx;
+  assert.equal((await s.run(SEND + 3_600_000)).sent, 0); assert.equal(s.sender.items.length, 2);
 });
 t('4 · 재확인 탈락 자리도 발송 전에 반환된다', async () => {
   const s = setup([raw(), raw('C', 3, 4)], [[IOS_TOKEN, { watchlist: { t: ['JPM', 'C'] }, tz: 'Asia/Seoul' }]]);

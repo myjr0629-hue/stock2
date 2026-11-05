@@ -50,7 +50,7 @@ export const CLAIM_TTL_SEC = 10 * 60;
  */
 export const SEAL_TIMEOUT_MS = 300;
 /**
- * 굳히기 직전 «무장» 수명(ms) — 선점 자리의 수명을 이만큼으로 줄인 뒤 굳힌다(SET XX PX). 이 시간이 지나면 자리가 서버에서 사라져
+ * 굳히기 직전 «무장» 수명(ms) — 선점 자리의 수명을 이만큼으로 줄인 뒤 굳힌다(비교 후 쓰기 PX). 이 시간이 지나면 자리가 서버에서 사라져
  * 포기한 굳히기가 늦게 도착해도 120일 장부를 만들 수 없다 — 빠진 기기의 «삭제 성공»에 기대지 않는다(관문 11042212 #2).
  * 굳히기 상한(300ms)의 두 배 — 정상 굳히기는 넉넉히 들어오고, 지평(굳히기 시작 + ARM_MS) 뒤 읽은 값은 최종이다.
  */
@@ -178,14 +178,17 @@ export function resultPath(): string {
 
 export type StrictRead = { ok: boolean; value: unknown };
 /**
- * 이 단계의 저장소 — 기존 SigStore + «있을 때만 덮어쓰기(SET XX EX)».
- * 굳히기를 XX 로 해야, 시간 초과로 포기하고 자리를 지운 뒤에 늦게 도착한 쓰기가 120일 장부를 되살리지 못한다(관문 11041444 #2).
+ * 이 단계의 저장소 — 기존 SigStore + «이 회차 값일 때만 덮어쓰기·지우기»(Lua 비교 후 쓰기).
+ * 굳히기를 비교 후 쓰기로 해야, 포기한 뒤 늦게 도착한 쓰기가 120일 장부를 되살리거나 다른 회차 자리를 덮지 못한다(관문 11041444 #2 · 11051012 #2).
  */
 export interface ResultStore extends SigStore {
-  /** 키가 있을 때만 쓴다 — 쓰면 true */
-  setXx(key: string, value: string, exSec: number): Promise<boolean>;
-  /** 키가 있을 때만 쓰고 수명을 ms 로(SET XX PX) — 무장(ARM_MS) · 쓰면 true */
-  armXx(key: string, value: string, ms: number): Promise<boolean>;
+  /**
+   * 값이 expect 와 «글자 그대로» 같을 때만 value 로 바꾸고 수명을 정한다(원자적 비교 후 쓰기 — Lua) · 쓰면 true.
+   * 존재만 보는 SET XX 와 달리, 오래 지연된 이전 회차의 쓰기가 다음 회차가 새로 잡은 자리(다른 회차 표식)를 덮지 못한다(관문 11051012 #2).
+   */
+  setIfEq(key: string, expect: string, value: string, ttl: { ex: number } | { px: number }): Promise<boolean>;
+  /** 값이 expects 중 하나일 때만 지운다(원자적 — Lua). 끝나면 그 키는 더 이상 이 값이 아니다 · 지연된 지우기가 다른 회차 장부를 지우지 못한다 */
+  delIfEq(key: string, expects: string[]): Promise<void>;
 }
 export interface ResultStepDeps {
   /** Upstash — 기기·모드·잠금·장부 */
@@ -218,6 +221,10 @@ export interface ResultStepReport {
 }
 
 /** 이 알림 전용 환경 모드 — EARNINGS_RESULT_ALERT_MODE(off | dry | live). 없거나 다른 값이면 null(→ Redis 키 · 그것도 없으면 dry) */
+/** 운영 저장소(Upstash)용 비교 후 쓰기·지우기 Lua — 크론 라우트가 ResultStore 로 감싼다 */
+export const SET_IF_EQ_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('SET', KEYS[1], ARGV[2], ARGV[3], ARGV[4]) return 1 end return 0";
+export const DEL_IF_EQ_LUA = "local v = redis.call('GET', KEYS[1]) for i = 1, #ARGV do if v == ARGV[i] then redis.call('DEL', KEYS[1]) return 1 end end return 0";
+
 export function resultEnvMode(env: Record<string, string | undefined> = process.env): SigMode | null {
   const v = (env.EARNINGS_RESULT_ALERT_MODE || '').trim().toLowerCase();
   return v === 'off' || v === 'dry' || v === 'live' ? v : null;
@@ -256,6 +263,9 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
   if (opts.runLockAcquired !== true) return report;
   const now = clock();
   if (now >= opts.lockDeadline) { report.status = 'lock_expiring'; return report; }
+  // 이 회차의 자리 표식 — 선점·무장·굳힘 값에 붙여, 비교 후 쓰기·지우기가 «이 회차가 쓴 값»에만 닿게 한다(다른 회차 자리를 건드리지 않는다)
+  const runTag = `${now}.${Math.random().toString(36).slice(2, 10)}`;
+  const CLAIM_V = `claim:${runTag}`, ARM_V = `arm:${runTag}`, SENT_V = `sent:${runTag}`;
 
   // 모드 — 이 알림 전용 스위치(환경 EARNINGS_RESULT_ALERT_MODE · Redis push:sig:result:mode)만 live 를 켠다. 둘 다 없으면 dry.
   //   «내 종목 이상 신호» 스위치는 off(비상 끄기)만 따른다 — 그 스위치가 live 여도 이 알림은 켜지지 않는다(병합 즉시 발송 방지).
@@ -359,11 +369,11 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           if (clock() >= opts.lockDeadline - CLAIM_STOP_MS) { expiring = true; return; }   // 기기마다·발표마다 검사 — 선점 창이 닫히면 더 잡지 않는다(잡은 것은 아래에서 보낸다)
           const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date), cap = SIG_KEYS.cap(etDateOf(now), d.dev);
           // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
-          if (!await st(deps.store.setNx(key, `claim:${now}`, CLAIM_TTL_SEC)).catch(() => false)) continue;
+          if (!await st(deps.store.setNx(key, CLAIM_V, CLAIM_TTL_SEC)).catch(() => false)) continue;
           const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => 999);
           // 상한 초과·오류·시간 초과(999) 모두 상한을 되돌린다 — 응답만 늦고 서버엔 반영된 증가가 공유 일일 상한(«내 종목 이상 신호»와 같은 키)을
           // 소모하지 않게. lib/signals/run.ts 의 기존 규칙과 같다(관문 11041451 #2).
-          if (cnt > SIG_CFG.deviceDailyCap) { await deps.store.decr(cap).catch(() => 0); await deps.store.del([key]).catch(() => {}); continue; }
+          if (cnt > SIG_CFG.deviceDailyCap) { await deps.store.decr(cap).catch(() => 0); await deps.store.delIfEq(key, [CLAIM_V]).catch(() => {}); continue; }
           chosen++;
           const copy = resultCopy(a, d.locale);
           claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
@@ -383,8 +393,9 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       //   굳힘을 확인한 뒤 발송 호출까지 ≤ SEAL_TIMEOUT_MS(300ms) — 그 사이 함수가 강제 중단될 때만 그 기기는 이 알림을 못 받는다.
       // 관문 11042212·11041457: 먼저 굳은 기기가 빠진 기기의 «반환(del)»을 기다리지 않는다(반환 대기 0) · 120일 장부는
       //   «보냈거나 · 되돌렸거나 · 저장소가 끝까지 답하지 않았다고 보고한» 셋 중 하나로만 끝난다(삭제 성공에 기대지 않는다).
-      //   ① 무장 — 굳히기 직전에 자리 수명을 ARM_MS 로 줄인다(SET XX PX). 이 시간이 지나면 자리가 서버에서 사라져,
-      //      포기한 굳히기가 아무리 늦게 도착해도(재시도 포함) SET XX 라 120일 장부를 만들 수 없다.
+      //   ① 무장 — 굳히기 직전에 자리 수명을 ARM_MS 로 줄인다(비교 후 쓰기 PX). 이 시간이 지나면 자리가 서버에서 사라져,
+      //      포기한 굳히기가 아무리 늦게 도착해도(재시도 포함) «이 회차 무장 값일 때만» 쓰므로 120일 장부를 만들 수 없다.
+      //      모든 자리 쓰기·지우기는 이 회차 표식(runTag) 값과 비교한 뒤에만 — 지연된 요청이 다른 회차 자리를 덮거나 지우지 못한다.
       //   ② 굳히기 — 300ms 안에 확인된 기기는 마감을 다시 확인하고 곧바로 보낸다.
       //   ③ 늦은 기기 — 지평(굳히기 시작 + ARM_MS) 안에 성공이 확인되면 그 기기도 보낸다 · 실패·불명이면 지평 뒤 한 번 읽어 확정한다
       //      (지평 뒤엔 어떤 굳히기도 적용될 수 없으니 읽은 값이 최종). 읽기도 실패하면 자리를 지우고, 지우기마저 실패하면 «seal_unknown»으로 보고한다.
@@ -394,14 +405,17 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       /** 지평 뒤 굳힘 확정 읽기 — 이 회차의 굳힘 값이면 sealed · 그 밖(없음·다른 값)이면 not · 두 번 다 못 읽으면 unknown */
       const readSeal = async (key: string): Promise<'sealed' | 'not' | 'unknown'> => {
         for (let k = 0; k < 2; k++) {
-          try { return String(await withTimeout(deps.store.get(key), sealTmo)) === `sent:${now}` ? 'sealed' : 'not'; } catch { /* 다시 한 번 */ }
+          try { return String(await withTimeout(deps.store.get(key), sealTmo)) === SENT_V ? 'sealed' : 'not'; } catch { /* 다시 한 번 */ }
         }
         return 'unknown';
       };
-      /** 자리 지우기 — 확인된 성공만 true(실패·시간 초과는 «반환 안 됨», 관문 11042212 #2) · 시간 상한 SEAL_TIMEOUT_MS × 2회 */
+      /**
+       * 자리 지우기 — 이 회차가 쓴 값(선점·무장·굳힘)일 때만 지운다. 확인된 성공만 true(실패·시간 초과는 «반환 안 됨», 관문 11042212 #2) ·
+       * 시간 상한 SEAL_TIMEOUT_MS × 2회. 늦게 도착한 지우기도 다른 회차의 자리·장부는 지우지 못한다(관문 11051012 #2).
+       */
       const delConfirmed = async (key: string): Promise<boolean> => {
         for (let k = 0; k < 2; k++) {
-          try { await withTimeout(deps.store.del([key]), sealTmo); return true; } catch { /* 다시 한 번 */ }
+          try { await withTimeout(deps.store.delIfEq(key, [CLAIM_V, ARM_V, SENT_V]), sealTmo); return true; } catch { /* 다시 한 번 */ }
         }
         return false;
       };
@@ -434,14 +448,14 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         if (!batch.length) continue;
         // 무장·굳히기·지평·확정 읽기가 모두 마감 전에 끝날 때만 시작 — 넘으면 이 플랫폼은 시도 전이므로 아래에서 자리·상한을 돌려준다(관문 11041444 #3)
         if (clock() + SEAL_PHASE_MS >= opts.lockDeadline) { sendInTime = false; break; }
-        // ① 무장 — 확인 못 한 기기는 굳히지 않는다(늦게 도착한 무장은 짧은 자리를 더 짧게 할 뿐)
+        // ① 무장 — 이 회차 선점 값일 때만 무장 값·ARM_MS 수명으로(확인 못 한 기기는 굳히지 않는다 · 늦게 도착한 무장은 짧은 자리를 더 짧게 할 뿐,
+        //    다른 회차가 다시 잡은 자리는 값이 달라 건드리지 못한다)
         const armed = (await Promise.all(batch.map(async (c) =>
-          (await settle(deps.store.armXx(c.key, `arm:${now}`, ARM_MS), sealTmo)) === 'ok' ? c : null))).filter((c): c is Claimed => c != null);
-        await release(batch.filter((c) => !armed.includes(c)));
-        if (!armed.length) continue;
-        // ② 굳히기 — 모두 같은 순간에 보낸다. 지평 타이머는 무장이 모두 확인된 «뒤»에 시작하므로, 지평이 지나면 모든 무장 자리가 서버에서 사라졌다.
-        const sealValue = `sent:${now}`;
-        const sealP = new Map(armed.map((c) => [c, deps.store.setXx(c.key, sealValue, LEDGER_TTL_SEC)] as const));
+          (await settle(deps.store.setIfEq(c.key, CLAIM_V, ARM_V, { px: ARM_MS }), sealTmo)) === 'ok' ? c : null))).filter((c): c is Claimed => c != null);
+        // 무장 못 한 기기의 반환은 굳히기 «뒤»에(아래 release(batch)) — 반환을 기다리는 사이 무장 수명이 지나 정상 기기까지 못 굳는 일이 없게(관문 11051012 #1)
+        if (!armed.length) { await release(batch); continue; }
+        // ② 굳히기 — 무장 직후 모두 같은 순간에, 이 회차 무장 값일 때만. 지평 타이머는 무장이 모두 확인된 «뒤»에 시작하므로, 지평이 지나면 모든 무장 자리가 서버에서 사라졌다.
+        const sealP = new Map(armed.map((c) => [c, deps.store.setIfEq(c.key, ARM_V, SENT_V, { ex: LEDGER_TTL_SEC })] as const));
         const horizon = timer(ARM_MS);
         const unknown = new Set<Claimed>();
         try {
@@ -469,7 +483,7 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         } finally { horizon.cancel(); }
         // 굳지 않은 자리 반환 — 불명은 지우기 확인까지 요구하고 실패면 보고(되돌림 실패와 같은 등급)
         await release(armed.filter((c) => unknown.has(c)), 'seal_unknown');
-        await release(armed);
+        await release(batch);
       }
       const dead = new Set<string>();
       for (const c of claimed) {
