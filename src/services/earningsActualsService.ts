@@ -26,7 +26,7 @@ import { getDailyAggregates } from '@/services/intrinioClient';
 import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
 import { scorecardPairOf } from '@/lib/earnings/earningsScorecard';
 import { Redis } from '@upstash/redis';
-import { actualsMirrorConfigured, getActualsMirror, getAuthoritativeCache, mgetFromCache, repairActualsMirror, setActualsDurable, setActualsMirrorFirst, setActualsWithoutTtl } from '@/services/redisClient';
+import { actualsMirrorConfigured, getActualsMirror, getAuthoritativeCache, mgetFromCache, repairActualsMirror, setActualsDurable, setActualsWithoutTtl } from '@/services/redisClient';
 
 export const recordMapKey = (ticker: string, date: string): string => `${String(ticker).toUpperCase()}|${date}`;
 
@@ -147,12 +147,10 @@ async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'
   let read = await getAuthoritativeCache<unknown>(key).catch(() => ({ ok: false, value: null }));
   if (!read.ok) return 'read_failed';
   // [T56b] EC2 에 없으면(축출·노드 교체) Upstash 사본을 «저장본»으로 본다 — 발표 전에만 잡을 수 있는 expected 를 빈 값으로 덮지 않게.
-  //   사본이 설정돼 있는데 읽지 못하면(장애·쿨다운·시간 초과) 쓰지 않는다 — 사본에 expected 가 있는지 모른 채 쓰면 그 expected 를 잃는다(관문 11051955 ①).
-  //   다음 회차(30분)가 다시 본다. 사본이 설정되지 않은 환경(개발·시험)은 예전처럼 EC2 기준.
+  //   사본을 읽지 못하면(장애·쿨다운·시간 초과·미설정) main 과 똑같이 EC2 기준으로 쓴다 — 사본은 EC2 쓰기를 막지 않는 보조 저장소다.
   if (read.value == null && actualsMirrorConfigured()) {
     const mirror = await getActualsMirror<unknown>(key).catch(() => ({ ok: false, value: null }));
-    if (!mirror.ok) return 'read_failed';
-    if (mirror.value != null) read = mirror;
+    if (mirror.ok && mirror.value != null) read = mirror;
   }
   let out = rec, kept = false;
   if (read.value != null) {
@@ -161,10 +159,7 @@ async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'
     if (stored.expected) { kept = true; out = { ...out, expected: stored.expected }; }
     if (!actualTouched && stored.actual) out = { ...out, actual: stored.actual };
   }
-  // [T56b] 저장된 칸을 비우는 쓰기(actual 폐기)는 사본을 먼저·조건 없이 맞추고 EC2 (결과는 EC2 — main 과 같다)
-  const prev = read.value != null ? parseRecord(read.value) : null;
-  const drops = !!prev && ((!!prev.actual && !out.actual) || (!!prev.expected && !out.expected));
-  const ok = await (drops ? setActualsMirrorFirst(key, out) : setActualsDurable(key, out)).catch(() => false);
+  const ok = await setActualsDurable(key, out).catch(() => false);
   if (!ok) return 'save_failed';
   return kept ? 'kept_expected' : 'ok';
 }
@@ -485,11 +480,10 @@ export async function syncActualsLatestPointers(opts: {
       const stored = parseLatestPointer(strict.value);
       if (stored && stored >= c.date) continue;
       // [T56b] EC2 에 포인터가 없으면(축출·노드 교체) 사본을 본다 — 사본이 같거나 더 최신이면 그 값으로 EC2 만 되살리고 옛 날짜로 덮지 않는다(관문 11051955 ③).
-      //   사본이 설정돼 있는데 읽지 못하면 쓰지 않는다(다음 회차).
+      //   사본을 읽지 못하면 main 과 똑같이 쓴다(사본 쓰기는 조건부라 사본의 더 최신 날짜는 덮이지 않는다).
       if (!stored && mirrorOn) {
         const m = await getMirror(actualsLatestKey(c.ticker)).catch(() => ({ ok: false, value: null }));
-        if (!m.ok) continue;
-        const md = parseLatestPointer(m.value);
+        const md = m.ok ? parseLatestPointer(m.value) : null;
         if (md && md >= c.date) { touchedPtr.add(c.ticker); if (!timeUp()) await set(actualsLatestKey(c.ticker), { date: md }).catch(() => false); continue; }
       }
       if (timeUp()) break;

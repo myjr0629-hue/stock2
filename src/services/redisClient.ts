@@ -1009,14 +1009,12 @@ function withMirrorTimeout<T>(p: Promise<T>): Promise<T> {
 export function actualsMirrorConfigured(): boolean {
     return !!((process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) && (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN));
 }
-async function mirrorActualsToUpstash<T>(key: string, value: T, force = false): Promise<boolean> {
+async function mirrorActualsToUpstash<T>(key: string, value: T): Promise<boolean> {
     const upstash = actualsMirror();
     if (!upstash) return false;
     obsUp('set', 'mirror');
     const start = performance.now();
     try {
-        // force: 칸을 비우는 쓰기(at = 이번 회차 시각) — 사본 값과 무관하게 같은 값으로 맞춘다(관문 11052012 ①)
-        if (force) { await withMirrorTimeout(upstash.set(key, value)); obsUpDone(start); return true; }
         // 조건부 쓰기 — 사본이 더 새 값(기록 at 이 더 큼 · 포인터 date 가 더 늦음)이면 덮지 않는다.
         //   시간 상한으로 기다림만 끝낸 늦은 SET 이 나중에 도착해 새 사본을 옛 값으로 되돌리지 않게(관문 11052003 ③).
         await withMirrorTimeout(upstash.eval(ACTUALS_MIRROR_SET_LUA, [key], [JSON.stringify(value)]));
@@ -1039,18 +1037,6 @@ export async function setActualsDurable<T>(key: string, value: T): Promise<boole
     const ok = await setAuthoritativeCache(key, value);
     if (ok) await mirrorActualsToUpstash(key, value);
     return ok;
-}
-
-/**
- * [T56b] 저장된 칸을 비우는 쓰기(공급사 재대조 불일치로 actual 폐기) 전용 — 사본을 «먼저, 조건 없이» 맞춘 뒤 EC2.
- *   결과는 EC2 쓰기다(main 과 같다 — Upstash 장애가 폐기를 막지 않는다, 관문 11052012 ②).
- *   사본이 실패하면 사본엔 폐기 전 값이 남지만: 다음 포인터 동기화의 사본 맞추기가 EC2 값(at 이 더 큼)으로 덮고,
- *   그 전에 EC2 노드가 사라져 사본을 읽게 되더라도 크론이 같은 재대조(Intrinio 단독 4일·정착 재확인)를 다시 돌려 다시 폐기한다.
- */
-export async function setActualsMirrorFirst<T>(key: string, value: T): Promise<boolean> {
-    if (!key.startsWith('earnings:actuals:v1:')) return false;
-    await mirrorActualsToUpstash(key, value, true);
-    return setAuthoritativeCache(key, value);
 }
 
 /** [2026-11-05 T56b] Upstash 사본 엄격 읽기 — ok=false 는 확인 못 함(값 없음과 구분). 실적 기록 키 전용. */
