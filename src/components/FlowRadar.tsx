@@ -1040,7 +1040,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     //   MU 1055 콜 전일 종가 62.5 vs 중간값 41.5). 계약별 실시간 표식(_rtGreeks)은 /api/live/ticker 가 싣는다.
     //   웹소켓 중간값이 있으면 그 계약을 실시간 값으로 덮는다. 실시간이 아닌 값은 «전일» 라벨을 붙인다(basis).
     // [11/6 T43] 이 화면의 마지막 정상 예상폭(같은 종목) — 체인 다리 출처를 모르는 순간(마감 직후 실시간 다리 누락)에 빈 값·전 세션 값으로 되돌아가지 않게
-    const lastImpliedRef = useRef<{ ticker: string; im: ImpliedMove } | null>(null);
+    const lastImpliedRef = useRef<{ ticker: string; im: ImpliedMove; at: number } | null>(null);
     const impliedMove = useMemo(() => {
         const empty = { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '', expiry: null as string | null, basis: null as 'live' | 'eod' | null, note: null as string | null, session: null as string | null };
         if (!rawChain || rawChain.length === 0 || !currentPrice) return empty;
@@ -1056,13 +1056,15 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         // [10/4] EOD 값(장외·주말)은 그 체인 날짜를 세션 꼬리표로 — «전일 호가»는 주말엔 틀린 말이었다(금요일은 «전일»이 아니다)
         const chainDate = levelsChainDate ?? (initialFlowData as any)?.dataFreshness?.chainDate ?? null;
         const computed = atmStraddleImpliedMove(chain, currentPrice, { chainDate });
-        const last = lastImpliedRef.current?.ticker === ticker ? lastImpliedRef.current.im : null;
-        // 새 계산이 없거나 같은 만기의 더 이른 세션 값이면 직전 값 유지(만기 지난 값은 버림) — 서버 판본 규칙(holdSessionLiveMove)과 같은 방향
-        const lastUsable = !!last && !isOptionExpiredAt(last.expiry);
+        const lastEntry = lastImpliedRef.current?.ticker === ticker ? lastImpliedRef.current : null;
+        const last = lastEntry?.im ?? null;
+        // 새 계산이 없거나 같은 만기의 더 이른 세션 값이면 직전 값 유지 — 서버 판본 규칙(holdSessionLiveMove)과 같은 방향.
+        //   만기 지난 값·마지막 정상 계산에서 15분 넘은 값은 붙들지 않는다(출처 모름이 길어지면 옛 값을 «지금»처럼 두지 않게 — 관문 11060819 ③).
+        const lastUsable = !!last && !isOptionExpiredAt(last.expiry) && Date.now() - (lastEntry?.at ?? 0) <= 15 * 60_000;
         const regress = !!computed && lastUsable && computed.expiry === last!.expiry && !!computed.session && !!last!.session && computed.session < last!.session;
         const im = (!computed || regress) && lastUsable ? last : computed;
         if (!im || !im.expiry) return empty;
-        lastImpliedRef.current = { ticker, im };
+        if (im === computed) lastImpliedRef.current = { ticker, im, at: Date.now() };
         const imF = impliedMoveFields(im);
         const note = impliedMoveSessionNote(imF, locale);
 
