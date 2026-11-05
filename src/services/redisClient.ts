@@ -1011,16 +1011,6 @@ async function mirrorActualsToUpstash<T>(key: string, value: T): Promise<boolean
     }
 }
 
-/**
- * [2026-11-05 T56b] 크론 쓰기 — EC2 엄격 쓰기(TTL 없음)가 결과다(setAuthoritativeCache 와 같은 판정), 성공하면 Upstash 에 사본.
- *   EC2 쓰기가 실패하면 Upstash 에도 쓰지 않는다(크론은 다음 회차가 EC2 를 다시 읽고 병합한다 — 기존 규칙 그대로).
- */
-export async function setActualsDurable<T>(key: string, value: T): Promise<boolean> {
-    if (!key.startsWith('earnings:actuals:v1:')) return false;
-    const ok = await setAuthoritativeCache(key, value);
-    if (ok) await mirrorActualsToUpstash(key, value);
-    return ok;
-}
 
 /** [2026-11-05 T56b] 사고 대응 전용 — Upstash 사본의 earnings:actuals:v1:* 전부(SCAN + MGET). 페이지·크론 경로는 부르지 않는다. */
 export async function listActualsMirror(): Promise<Array<{ key: string; value: unknown }>> {

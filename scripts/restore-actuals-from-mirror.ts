@@ -10,7 +10,8 @@ import { restoreActualsFromMirror } from '../src/services/earningsActualsService
 (async () => {
   const write = process.argv.includes('--write');
   const r = await restoreActualsFromMirror({ dryRun: !write });
-  console.log(`${write ? 'WRITE' : 'DRY'} mirror=${r.mirror} present=${r.present} restored=${r.restored.length} readFailed=${r.readFailed.length} writeFailed=${r.writeFailed.length}`);
+  if (r.locked) { console.log("LOCKED — 크론이 쓰는 중(쓰기 잠금 90초). 잠시 뒤 다시 실행"); process.exit(2); }
+  console.log(`${write ? "WRITE" : "DRY"} mirror=${r.mirror} present=${r.present} restored=${r.restored.length} readFailed=${r.readFailed.length} writeFailed=${r.writeFailed.length}`);
   for (const k of r.restored) console.log(`  ${write ? 'restored' : 'would restore'} ${k}`);
   for (const k of r.readFailed) console.log(`  read_failed ${k}`);
   for (const k of r.writeFailed) console.log(`  write_failed ${k}`);

@@ -26,7 +26,7 @@ import { getDailyAggregates } from '@/services/intrinioClient';
 import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
 import { scorecardPairOf } from '@/lib/earnings/earningsScorecard';
 import { Redis } from '@upstash/redis';
-import { actualsMirrorConfigured, getAuthoritativeCache, listActualsMirror, mgetFromCache, repairActualsMirror, setActualsDurable, setActualsWithoutTtl, setAuthoritativeCache } from '@/services/redisClient';
+import { actualsMirrorConfigured, getAuthoritativeCache, listActualsMirror, mgetFromCache, repairActualsMirror, setActualsWithoutTtl, setAuthoritativeCache } from '@/services/redisClient';
 
 export const recordMapKey = (ticker: string, date: string): string => `${String(ticker).toUpperCase()}|${date}`;
 
@@ -153,7 +153,7 @@ async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'
     if (stored.expected) { kept = true; out = { ...out, expected: stored.expected }; }
     if (!actualTouched && stored.actual) out = { ...out, actual: stored.actual };
   }
-  const ok = await setActualsDurable(key, out).catch(() => false);
+  const ok = await setAuthoritativeCache(key, out).catch(() => false);
   if (!ok) return 'save_failed';
   return kept ? 'kept_expected' : 'ok';
 }
@@ -425,7 +425,7 @@ export async function syncActualsLatestPointers(opts: {
   const now = opts.nowMs ?? Date.now();
   const today = etDateOf(now);
   const mget = opts.deps?.mget ?? ((keys: string[]) => mgetFromCache<unknown>(keys));
-  const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setActualsDurable(key, value));
+  const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setAuthoritativeCache(key, value));
   const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
   const mirrorOn = opts.deps?.mirror ?? actualsMirrorConfigured();
   const repair = opts.deps?.repair ?? ((rows: Array<{ key: string; value: unknown }>) => repairActualsMirror(rows, 40, opts.deadlineMs));
@@ -445,6 +445,7 @@ export async function syncActualsLatestPointers(opts: {
   const out: { checked: number; written: string[]; mirrorRepaired?: number } = { checked: entries.length, written: [] as string[] };
   if (!entries.length && !(mirrorOn && upcoming.length)) return out;
   const touchedPtr = new Set<string>();
+  const writtenPtr = new Map<string, string>();
   let recs: unknown[] = [];
   let upRecs: unknown[] = [];
   let done: ConfirmedEarnings[] = [];
@@ -472,18 +473,20 @@ export async function syncActualsLatestPointers(opts: {
       if (stored && stored >= c.date) continue;
       if (timeUp()) break;
       touchedPtr.add(c.ticker);   // 이 회차가 쓰려 한 포인터 — 아래 사본 맞추기가 쓰기 전 값(ptrs)으로 사본을 되돌리지 않게(관문 11052003 ①)
-      if (await set(actualsLatestKey(c.ticker), { date: c.date }).catch(() => false)) out.written.push(`${c.ticker.toUpperCase()}|${c.date}`);
+      if (await set(actualsLatestKey(c.ticker), { date: c.date }).catch(() => false)) { out.written.push(`${c.ticker.toUpperCase()}|${c.date}`); writtenPtr.set(c.ticker, c.date); }
     }
   } catch { /* 다음 회차가 다시 본다 */ }
-  // [T56b] 사본 맞추기 — 이번 회차가 읽은 기록·포인터와 Upstash 사본을 MGET 1회로 비교해 빠진·다른 것만 다시 쓴다(사본 쓰기가 한 번 실패해도 영구 누락이 되지 않게, 관문 11051955 ②).
-  //   사본 쓰기는 조건부(더 새 사본은 덮지 않는다)라 늦게 도착한 옛 값이 사본을 되돌리지 않는다.
+  // [T56b] 사본(Upstash 백업) — 크론의 EC2 쓰기(채우기·포인터)는 main 그대로이고, 사본 일은 «여기서만» 한다(포인터 처리가 끝난 뒤·마감 2초 전까지).
+  //   이번 회차가 읽은 기록·포인터와 사본을 MGET 1회로 비교해 빠진·다른 것만 조건부로 쓴다(더 새 사본은 덮지 않는다).
+  //   같은 크론 회차가 앞에서 쓴 기록도 이 회차의 기록 읽기(mget)가 담고 있어 곧바로 사본이 된다.
   if (mirrorOn && !timeUp()) {
     // 발표 전 기록 읽기는 포인터 처리 «뒤»에만 — 포인터 경로는 main 과 같은 읽기만 한다(관문 11052020)
     if (upcoming.length) upRecs = await mget(upcoming.map((c) => actualsKey(c.ticker, c.date))).catch(() => [] as unknown[]);
     const rows = [
       ...entries.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: recs[i] })),
       ...upcoming.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: upRecs[i] })),
-      ...done.map((c, i) => ({ key: actualsLatestKey(c.ticker), value: touchedPtr.has(c.ticker) ? null : ptrs[i] })),
+      // 이 회차가 EC2 에 쓴 포인터는 쓴 값으로, 쓰려다 실패한 포인터는 건너뛴다(쓰기 전 값으로 사본을 되돌리지 않게)
+      ...done.map((c, i) => ({ key: actualsLatestKey(c.ticker), value: writtenPtr.has(c.ticker) ? { date: writtenPtr.get(c.ticker)! } : touchedPtr.has(c.ticker) ? null : ptrs[i] })),
     ].filter((r) => r.value != null);
     const rep = await repair(rows).catch(() => ({ checked: 0, repaired: [] as string[] }));
     out.mirrorRepaired = rep.repaired.length;
@@ -503,18 +506,27 @@ export async function restoreActualsFromMirror(opts: {
     list?: () => Promise<Array<{ key: string; value: unknown }>>;
     getStrict?: (key: string) => Promise<{ ok: boolean; value: unknown }>;
     set?: (key: string, value: unknown) => Promise<boolean>;
+    runLock?: RunLock;
   };
-} = {}): Promise<{ mirror: number; present: number; restored: string[]; readFailed: string[]; writeFailed: string[] }> {
+} = {}): Promise<{ locked: boolean; mirror: number; present: number; restored: string[]; readFailed: string[]; writeFailed: string[] }> {
   const list = opts.deps?.list ?? (() => listActualsMirror());
   const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
   const set = opts.deps?.set ?? ((key: string, value: unknown) => setAuthoritativeCache(key, value));
   const rows = (await list()).filter((r) => r.key.startsWith(`${ACTUALS_KEY_PREFIX}:`) && r.key !== `${ACTUALS_KEY_PREFIX}:run-lock` && r.value != null);
-  const out = { mirror: rows.length, present: 0, restored: [] as string[], readFailed: [] as string[], writeFailed: [] as string[] };
+  const out = { locked: false, mirror: rows.length, present: 0, restored: [] as string[], readFailed: [] as string[], writeFailed: [] as string[] };
+  // 쓰기는 크론과 같은 쓰기 잠금(90초) 안에서만 — 잠금을 쥔 동안 크론 회차는 «run_locked»로 쉬므로, «없음 확인 → 쓰기» 사이에
+  //   크론이 같은 키에 새 값을 써 그 값을 사본이 덮는 일이 없다(관문 11052026 ②). 잠금을 못 얻으면 아무것도 쓰지 않는다.
+  if (!opts.dryRun) {
+    const lock = await (opts.deps?.runLock ?? acquireActualsRunLock)().catch(() => 'unavailable' as const);
+    if (lock !== 'ok') { out.locked = true; return out; }
+  }
+  const lockUntil = Date.now() + (ACTUALS_RUN_LOCK_SEC - 15) * 1000;
   for (const r of rows) {
     const cur = await getStrict(r.key).catch(() => ({ ok: false, value: null }));
     if (!cur.ok) { out.readFailed.push(r.key); continue; }
     if (cur.value != null) { out.present++; continue; }
     if (opts.dryRun) { out.restored.push(r.key); continue; }
+    if (Date.now() >= lockUntil) { out.writeFailed.push(r.key); continue; }   // 잠금 시간 밖 — 다시 실행
     if (await set(r.key, r.value).catch(() => false)) out.restored.push(r.key); else out.writeFailed.push(r.key);
   }
   return out;
