@@ -468,14 +468,18 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
             const second = await Promise.all(late.map(async (c) => [c, await Promise.race([
               sealP.get(c)!.then((v): Settle => (v ? 'ok' : 'no'), (): Settle => 'err'), horizon.done.then((): Settle => 'pending'),
             ])] as const));
+            // 지평 안에 성공이 확인된 기기 — 300ms 상한 뒤에 확인됐으므로 지평(600ms)까지 모아 보내도 확인 → 발송 대기 ≤ 300ms
             const sealedLate = second.filter(([, s]) => s === 'ok').map(([c]) => c);
             const toRead = second.filter(([, s]) => s === 'err' || s === 'pending').map(([c]) => c);
             await Promise.all([sendSealed(sealedLate), (async () => {
               if (!toRead.length) return;
               await horizon.done;
-              const read = await Promise.all(toRead.map(async (c) => [c, await readSeal(c.key)] as const));
-              for (const [c, v] of read) if (v === 'unknown') unknown.add(c);
-              await sendSealed(read.filter(([, v]) => v === 'sealed').map(([c]) => c));
+              // 기기마다 읽기가 굳힘을 확인하는 «즉시» 그 기기를 보낸다 — 다른 기기의 느린 읽기를 기다리지 않는다(확정 → 발송 대기 0, 관문 11051018)
+              await Promise.all(toRead.map(async (c) => {
+                const v = await readSeal(c.key);
+                if (v === 'sealed') await sendSealed([c]);
+                else if (v === 'unknown') unknown.add(c);
+              }));
             })()]);
           };
           // 먼저 굳은 기기는 늦은 기기를 기다리지 않고 곧바로 보낸다(같은 시각에 늦은 기기 확정을 함께 진행)
