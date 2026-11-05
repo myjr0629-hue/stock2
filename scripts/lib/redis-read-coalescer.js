@@ -17,6 +17,9 @@
 //       → 쓰기가 끝난 뒤 시작한 읽기는 반드시 새 값을 본다.
 //     · EC2 워커가 ElastiCache 에 직접 쓴 큰 키는 최대 memoMs(2초) 늦게 보일 수 있다 — 큰 키는 전부
 //       분~시간 단위 일괄 스냅샷이라 의미 없는 차이다. 작은 키(실시간 가격 등)는 메모하지 않는다.
+//   또 서로 다른 키(종목별 체인 50~80KB·probe 최대 3.4MB)가 한꺼번에 몰려도 Redis 에 «동시에 걸어 둔» 읽기를
+//   maxConcurrent(기본 64)개로 묶는다 — 연결 1개라 원래 FIFO 이고, 밀린 요청은 Redis 메모리(출력 버퍼)가 아니라
+//   프록시의 대기열에서 기다린다. 쓰기는 묶지 않는다.
 // ============================================================================
 "use strict";
 
@@ -26,13 +29,33 @@ function createReadCoalescer(opts) {
     const memoMs = o.memoMs != null ? o.memoMs : 2000;
     const memoMaxBytes = o.memoMaxBytes != null ? o.memoMaxBytes : 64 * 1024 * 1024;
     const now = o.now || Date.now;
+    const maxConcurrent = o.maxConcurrent != null ? o.maxConcurrent : 64;
 
     /** id ('g:'+key | 'm:'+keys) → { promise, stale, keys } */
     const inflight = new Map();
     /** key → { body, at, bytes } (insertion order = age) */
     const memo = new Map();
     let memoBytes = 0;
-    const stats = { reads: 0, joined: 0, memoHits: 0, memoStored: 0, invalidations: 0 };
+    const stats = { reads: 0, joined: 0, memoHits: 0, memoStored: 0, invalidations: 0, queuedPeak: 0 };
+
+    let active = 0;
+    const waiters = [];
+    function acquire() {
+        if (active < maxConcurrent) { active++; return Promise.resolve(); }
+        return new Promise((resolve) => {
+            waiters.push(resolve);
+            if (waiters.length > stats.queuedPeak) stats.queuedPeak = waiters.length;
+        });
+    }
+    function release() {
+        const next = waiters.shift();
+        if (next) next();          // 자리를 그대로 넘긴다(active 유지)
+        else active--;
+    }
+    async function limited(fn) {
+        await acquire();
+        try { return await fn(); } finally { release(); }
+    }
 
     function dropMemo(key) {
         const m = memo.get(key);
@@ -47,7 +70,7 @@ function createReadCoalescer(opts) {
         }
     }
     function store(key, body) {
-        const bytes = body.length;
+        const bytes = body.length * 2;   // UTF-16 코드 단위 = 최대 2바이트(한글 값 과소 계산 방지)
         if (bytes > memoMaxBytes) return;
         sweep();
         dropMemo(key);
@@ -66,7 +89,7 @@ function createReadCoalescer(opts) {
         stats.reads++;
         const entry = { stale: false, keys, promise: null };
         entry.promise = Promise.resolve()
-            .then(fetchBody)
+            .then(() => limited(fetchBody))
             .then((body) => {
                 if (memoKey != null && !entry.stale && typeof body === "string" && body.length >= memoMinBytes && memoMs > 0) {
                     store(memoKey, body);
@@ -90,7 +113,7 @@ function createReadCoalescer(opts) {
 
     /** MGET — 같은 키 목록의 동시 요청만 합친다(메모 없음). */
     function mget(keys, fetchBody) {
-        return run("m:" + keys.join("\u0000"), keys.slice(), fetchBody, null);
+        return run("m:" + JSON.stringify(keys), keys.slice(), fetchBody, null);   // 구분자 충돌 없는 식별자
     }
 
     /** 쓰기 전·후에 부른다 — 그 키의 진행 중 읽기는 더 이상 새 요청과 합치지 않고, 메모도 버린다. */
@@ -106,7 +129,7 @@ function createReadCoalescer(opts) {
     }
 
     function snapshot() {
-        return Object.assign({}, stats, { inflight: inflight.size, memoKeys: memo.size, memoBytes });
+        return Object.assign({}, stats, { inflight: inflight.size, memoKeys: memo.size, memoBytes, active, queued: waiters.length });
     }
 
     return { get, mget, invalidate, sweep, snapshot };

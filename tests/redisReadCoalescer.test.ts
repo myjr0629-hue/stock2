@@ -99,13 +99,13 @@ test('MGET 은 같은 키 목록끼리만 합치고, 포함된 키가 쓰이면 
 });
 
 test('메모 총량 상한 — 오래된 것부터 버린다', async () => {
-  const c = createReadCoalescer({ memoMaxBytes: 700 * 1024 });
+  const c = createReadCoalescer({ memoMaxBytes: 1400 * 1024 });
   await c.get('a', async () => big('a'));
   await c.get('b', async () => big('b'));
   await c.get('c', async () => big('c'));
   const s = c.snapshot();
   assert.equal(s.memoKeys, 2);
-  assert.ok(s.memoBytes <= 700 * 1024);
+  assert.ok(s.memoBytes <= 1400 * 1024);
   let calls = 0;
   await c.get('a', async () => { calls++; return big('a2'); });
   assert.equal(calls, 1);
@@ -120,4 +120,44 @@ test('프록시가 모듈을 불러 /get·/mget·쓰기 경로에 연결했다',
   assert.equal((src.match(/coalescer\.invalidate\(/g) || []).length, 10);
   // 모듈이 없어도 뜬다(직접 읽기)
   assert.match(src, /read coalescer unavailable/);
+});
+
+test('서로 다른 키 읽기는 동시에 maxConcurrent 개까지만 Redis 에 건다(나머지는 프록시 대기열)', async () => {
+  const c = createReadCoalescer({ maxConcurrent: 3 });
+  let active = 0, peak = 0;
+  const read = async () => { active++; peak = Math.max(peak, active); await new Promise((r) => setTimeout(r, 5)); active--; return '{"result":1}'; };
+  const out = await Promise.all(Array.from({ length: 40 }, (_, i) => c.get('intrinio:chain:T' + i, read)));
+  assert.equal(out.length, 40);
+  assert.equal(peak, 3);
+  const s = c.snapshot();
+  assert.equal(s.active, 0);
+  assert.equal(s.queued, 0);
+  assert.ok(s.queuedPeak >= 30);
+});
+
+test('대기열에서 실패해도 자리가 반납된다', async () => {
+  const c = createReadCoalescer({ maxConcurrent: 1 });
+  await assert.rejects(c.get('a', async () => { throw new Error('boom'); }), /boom/);
+  assert.equal(await c.get('b', async () => '{"result":2}'), '{"result":2}');
+  assert.equal(c.snapshot().active, 0);
+});
+
+test('MGET 식별자는 키 경계를 보존한다(구분자 충돌로 다른 목록이 합쳐지지 않는다)', async () => {
+  const c = createReadCoalescer();
+  const d = deferred<string>();
+  const p1 = c.mget(['a\u0000b', 'c'], () => d.promise);
+  const p2 = c.mget(['a', 'b\u0000c'], async () => '{"results":["second"]}');
+  const p3 = c.mget(['a,b', 'c'], async () => '{"results":["third"]}');
+  d.resolve('{"results":["first"]}');
+  assert.deepEqual(await Promise.all([p1, p2, p3]), ['{"results":["first"]}', '{"results":["second"]}', '{"results":["third"]}']);
+});
+
+test('메모 용량은 UTF-16 기준(한글 값 과소 계산 없음)', async () => {
+  const c = createReadCoalescer({ memoMinBytes: 10, memoMaxBytes: 1000 });
+  await c.get('ko', async () => '가'.repeat(400));   // 800바이트로 계산 → 들어간다
+  assert.equal(c.snapshot().memoBytes, 800);
+  await c.get('ko2', async () => '나'.repeat(400));  // 합 1600 > 1000 → 오래된 것 버림
+  assert.equal(c.snapshot().memoKeys, 1);
+  await c.get('ko3', async () => '다'.repeat(600));  // 1200 > 상한 → 메모 안 함
+  assert.ok(c.snapshot().memoBytes <= 1000);
 });
