@@ -223,8 +223,8 @@ export interface Copy {
 
 const KO: Copy = {
   kicker: 'SIGNUM HQ · 실적 주간',
-  h1: (r) => `이번 주 미국 실적 발표 ${r} — 옵션이 반영한 예상 변동폭`,
-  lead: '회사가 직접 공지한 실적 발표 일정만 모았습니다. 종목마다 옵션 시장이 반영한 예상 변동폭(ATM 스트래들)과 Max Pain · Call Wall · Put Floor를 한 장으로. 무료, 가입 없이.',
+  h1: (r) => `이번 주 미국 주식 실적 발표 ${r} — 예상 변동폭과 실제`,
+  lead: '회사가 직접 공지한 미국 주식 실적 발표 일정과 발표 전 예상 변동폭, 발표 뒤 실제 움직임을 한 장으로. Max Pain · Call Wall · Put Floor도 함께 확인하세요. 예상 변동폭은 옵션 가격으로 계산합니다. 무료, 가입 없이.',
   metaTitle: (r) => `이번 주 미국 실적 발표 ${r} · 예상 변동폭과 실제 | SIGNUM HQ`,
   metaDesc: ({ n, top, range }) => `${range} 미국 실적 발표 ${n}종목(회사 공지 기준)의 발표일·시간, 발표 전 예상 변동폭과 발표 뒤 실제 움직임, Max Pain·Call Wall·Put Floor.${top ? ` ${top}.` : ''} 예상 변동폭은 옵션 가격으로 계산. 무료.`,
   topLine: ({ ticker, pct, when }) => `이번 주 가장 큰 예상 변동: ${ticker} ${pct} (${when})`,
@@ -258,7 +258,7 @@ const KO: Copy = {
   ctaNote: '코드가 자동으로 채워집니다.',
   share: '이 표 공유하기', shareCopied: '링크를 복사했어요',
   shareTitle: (r) => `이번 주 미국 실적 발표 ${r}`,
-  shareText: ({ n, top }) => `이번 주 미국 실적 ${n}종목(회사 공시 기준) · 옵션이 반영한 예상 변동폭 + Max Pain 한 장${top ? ` — ${top}` : ''}`,
+  shareText: ({ n, top }) => `이번 주 미국 주식 실적 ${n}종목(회사 공시 기준) · 발표 전 예상 변동폭과 발표 뒤 실제${top ? ` — ${top}` : ''} · 예상 변동폭은 옵션 가격으로 계산`,
   moreT: '함께 보기', moreDp: '오늘의 다크풀 상위 종목', moreOf: '오늘의 옵션 특이거래', moreAll: '전체 티커',
   disc: '정보 제공·교육 목적입니다. 투자 자문이나 매수·매도 권유가 아니며, 정확성이나 결과를 보장하지 않습니다.',
   verified: ({ at }) => `발표 일정은 회사 공지 원문으로 확인했습니다(최종 확인 ${at}).`,
@@ -273,8 +273,8 @@ const KO: Copy = {
 
 const JA: Copy = {
   kicker: 'SIGNUM HQ · 決算ウィーク',
-  h1: (r) => `今週の米国決算 ${r} — オプションが織り込む予想変動幅`,
-  lead: '企業が自ら告知した決算発表の日程だけを集めました。銘柄ごとに、オプション市場が織り込む予想変動幅(ATMストラドル)とMax Pain・Call Wall・Put Floorを1枚に。無料、登録不要。',
+  h1: (r) => `今週の米国株決算 ${r} — 想定変動幅と実際`,
+  lead: '企業が自ら告知した米国株の決算日程と、発表前の想定変動幅、発表後の実際の値動きを1枚に。Max Pain・Call Wall・Put Floorも確認できます。想定変動幅はオプション価格から算出します。無料、登録不要。',
   metaTitle: (r) => `今週の米国決算 ${r} · 想定変動幅と実際 | SIGNUM HQ`,
   metaDesc: ({ n, top, range }) => `${range}の米国決算${n}銘柄(企業の告知ベース)の発表日・時間、発表前の想定変動幅と発表後の実際の値動き、Max Pain・Call Wall・Put Floor。${top ? `${top}。` : ''}想定変動幅はオプション価格から算出。無料。`,
   topLine: ({ ticker, pct, when }) => `今週最大の予想変動: ${ticker} ${pct}(${when})`,
@@ -308,7 +308,7 @@ const JA: Copy = {
   ctaNote: 'コードは自動で入力されます。',
   share: 'この表を共有', shareCopied: 'リンクをコピーしました',
   shareTitle: (r) => `今週の米国決算 ${r}`,
-  shareText: ({ n, top }) => `今週の米国決算${n}銘柄(企業の告知ベース) · オプションが織り込む予想変動幅 + Max Pain を1枚に${top ? ` — ${top}` : ''}`,
+  shareText: ({ n, top }) => `今週の米国株決算${n}銘柄(企業の告知ベース) · 発表前の想定変動幅と発表後の実際${top ? ` — ${top}` : ''} · 想定変動幅はオプション価格から算出`,
   moreT: 'あわせて見る', moreDp: '本日のダークプール上位銘柄', moreOf: '本日のオプション特異取引', moreAll: '全ティッカー',
   disc: '情報提供・教育目的です。投資助言や売買の推奨ではなく、正確性や結果を保証するものではありません。',
   verified: ({ at }) => `発表日程は企業の告知原文で確認しました(最終確認 ${at})。`,
@@ -323,11 +323,11 @@ const JA: Copy = {
 
 const EN: Copy = {
   kicker: 'SIGNUM HQ · Earnings week',
-  h1: (r) => `US earnings this week ${r} — the move options are pricing in`,
-  lead: 'Only report dates the companies themselves announced. For each name: the options-implied move (ATM straddle) plus Max Pain, Call Wall and Put Floor, on one page. Free, no account.',
+  h1: (r) => `US stock earnings this week ${r} — expected move vs actual`,
+  lead: 'Company-announced US stock earnings dates, the expected move before the report and the actual move after, on one page. See Max Pain, Call Wall and Put Floor too. The expected move is derived from options prices. Free, no account.',
   metaTitle: (r) => `US Earnings This Week ${r} · Expected Move vs Actual | SIGNUM HQ`,
   metaDesc: ({ n, top, range }) => `${n} US reports for ${range} (company-announced dates): report day and time, the expected move before the report and the actual move after, Max Pain, Call Wall and Put Floor.${top ? ` ${top}.` : ''} Expected move is derived from options prices. Free.`,
-  topLine: ({ ticker, pct, when }) => `Biggest implied move this week: ${ticker} ${pct} (${when})`,
+  topLine: ({ ticker, pct, when }) => `Biggest expected move this week: ${ticker} ${pct} (${when})`,
   topNone: 'Loading the implied-move data.',
   countLine: ({ n, done, left }) => `${n} companies with an announced date · ${done} reported · ${left} to go`,
   rolled: 'It is the weekend, so this shows next week.',
@@ -358,7 +358,7 @@ const EN: Copy = {
   ctaNote: 'The code is filled in for you.',
   share: 'Share this table', shareCopied: 'Link copied',
   shareTitle: (r) => `US earnings this week ${r}`,
-  shareText: ({ n, top }) => `US earnings this week: ${n} companies (company-announced dates), the options-implied move and Max Pain on one page${top ? ` — ${top}` : ''}`,
+  shareText: ({ n, top }) => `US stock earnings this week: ${n} companies (company-announced dates), the expected move before and actual move after${top ? ` — ${top}` : ''}. Expected move is derived from options prices.`,
   moreT: 'Also see', moreDp: 'Today’s dark pool leaders', moreOf: 'Unusual options activity today', moreAll: 'All tickers',
   disc: 'Information and education only. Not investment advice or a recommendation to buy or sell, and no guarantee of accuracy or results.',
   verified: ({ at }) => `Report dates were checked against the companies’ own announcements (last checked ${at}).`,

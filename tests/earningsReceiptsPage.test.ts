@@ -183,14 +183,16 @@ const test = async (name: string, fn: () => unknown) => {
     }
   });
   await test('실적·영수증 화면·문구·OG와 읽기 서비스·API·robots 소스는 기준 커밋과 바이트 동일', () => {
-    // 주간 서비스의 추가 API 필드는 exposeEventMove.test.ts가 변경 전 응답 스냅샷으로 검사한다.
+    // 작업 시작 커밋을 기준으로 비교한다. 주간 서비스 API 필드는 별도 시험에서 검사한다.
+    const weeklyPage = 'src/app/[locale]/earnings-week/page.tsx';
+    assert.equal(readFileSync(weeklyPage, 'utf8'), execFileSync('git', ['show', `0b736fd67:${weeklyPage}`], { encoding: 'utf8' }), weeklyPage);
     for (const p of [
-      'src/app/[locale]/earnings-week/page.tsx', 'src/app/[locale]/app-view/earnings/page.tsx',
+      'src/app/[locale]/app-view/earnings/page.tsx',
       'src/app/[locale]/receipts/earnings/page.tsx', 'src/lib/earnings/earningsReceiptsCopy.ts',
       'src/app/[locale]/receipts/earnings/og/route.tsx',
       'src/services/earningsScorecardService.ts',
       'src/app/api/earnings/scorecard/route.ts', 'src/app/robots.ts',
-    ]) assert.equal(readFileSync(p, 'utf8'), execFileSync('git', ['show', `df149853d0574ee5209ea8e02cd23eb0710f1bd5:${p}`], { encoding: 'utf8' }), p);
+    ]) assert.equal(readFileSync(p, 'utf8'), execFileSync('git', ['show', `0b736fd67:${p}`], { encoding: 'utf8' }), p);
   });
   await test('사이트맵은 3언어 영수증 추가, 기존 robots 규칙에서 모두 허용', async () => {
     const { buildSitemap } = require('../src/lib/seo/sitemap');

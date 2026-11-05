@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { homeScorecard } from '../src/lib/earnings/homeScorecard';
 
 const week = '2026-11-02';
@@ -21,5 +22,11 @@ const scored = (w: string) => ({ week: w, summary: { n: 2, withinCount: 1 }, row
   assert.equal(await homeScorecard(async w => w === week ? empty : Promise.reject(new Error('offline')), week, 'ko'), null);
   assert.equal(await homeScorecard(async () => ({ ...scored(week), rows: [] }), week, 'ja'), null);
   assert.match((await homeScorecard(async w => scored(w), week, 'ja'))!, /範囲内/);
-  console.log('home scorecard: ok');
+  const home = readFileSync('src/app/[locale]/(home)/page.tsx', 'utf8');
+  assert.equal((home.match(/locale === 'ko' \? 'break-keep' : ''/g) ?? []).length, 2);
+  for (const [locale, tagline] of Object.entries({ ko: '미국 주식 실적·시장 흐름을 한눈에', en: 'US stock earnings and market moves at a glance', ja: '米国株の決算と市場の動きをひと目で' })) {
+    const messages = JSON.parse(readFileSync(`src/messages/${locale}.json`, 'utf8'));
+    assert.equal(messages.home.signumTagline, tagline);
+  }
+  console.log('home scorecard and copy: ok');
 })().catch(e => { console.error(e); process.exit(1); });

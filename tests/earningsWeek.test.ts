@@ -346,7 +346,7 @@ const WEEK_NOW = ms('2026-10-11T16:00:00Z');   // 일요일 낮(ET 12:00) → �
     const d = await at('2026-10-11T16:00:00Z', () => SVC.buildEarningsWeek(WEEK_NOW));
     const l0 = V.topLineOf(d, 'ko', WEEK_NOW)!;
     assert.match(l0, /^이번 주 가장 큰 예상 변동: TSM ±4\.3% \(10\/15 02:00 ET\)$/);
-    assert.equal(V.topLineOf(d, 'en', WEEK_NOW), 'Biggest implied move this week: TSM ±4.3% (10/15 02:00 ET)');
+    assert.equal(V.topLineOf(d, 'en', WEEK_NOW), 'Biggest expected move this week: TSM ±4.3% (10/15 02:00 ET)');
     assert.match(V.topLineOf(d, 'ja', WEEK_NOW)!, /^今週最大の予想変動: TSM ±4\.3%/);
     // 10/15 03:00 ET 이후 TSM 은 완료 → BAC(4.1)가 이미 완료라 JNJ/JPM 도 완료 → 남은 값이 없으면 null
     assert.equal(V.topLineOf(d, 'ko', ms('2026-10-16T12:00:00Z')), null);
@@ -393,6 +393,23 @@ const WEEK_NOW = ms('2026-10-11T16:00:00Z');   // 일요일 낮(ET 12:00) → �
       // 투자 권유 어휘: «추천»·«recommend» 는 고지 문장(…추천이 아닙니다 / not a recommendation)에서만
       const adv = text.split('\n').filter((s) => /추천|recommend|おすすめ|推奨/i.test(s));
       for (const s of adv) assert.match(s, /아닙니다|not |ではなく|ではありません/i, `${loc}: 권유처럼 읽히는 문장 «${s.slice(0, 60)}»`);
+    }
+  });
+  t('주식 실적 중심 제목·설명·공유 문구와 옵션 가격 계산 설명 3언어', () => {
+    const expected = {
+      ko: ['미국 주식', '예상 변동폭과 실제', '옵션 가격으로 계산'],
+      en: ['US stock', 'expected move', 'options prices'],
+      ja: ['米国株', '想定変動幅と実際', 'オプション価格から算出'],
+    } as const;
+    for (const loc of EW.EW_LOCALES) {
+      const c = EW.COPY[loc], [stock, move, method] = expected[loc];
+      assert.ok(c.h1('10/12').includes(stock));
+      assert.ok(c.h1('10/12').includes(move));
+      assert.ok(c.lead.includes(stock));
+      assert.ok(c.lead.includes(method));
+      const share = c.shareText({ n: 12, top: null });
+      assert.ok(share.includes(stock));
+      assert.ok(share.includes(method));
     }
   });
   t('금융 공통어 Max Pain · Call Wall · Put Floor 는 세 언어에서 번역하지 않는다', () => {

@@ -17,7 +17,7 @@ import {
   Clock
 } from "lucide-react";
 
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { LiveFeedTicker } from '@/components/landing/LiveFeedTicker';
 import { PromoCodeChip } from '@/components/landing/PromoCodeChip';
@@ -400,6 +400,7 @@ function StructureAwarenessSection() {
 
 export default function Page() {
   const t = useTranslations();
+  const locale = useLocale();
   const pathname = usePathname();
   const [scorecard, setScorecard] = useState<{ n: number; withinCount: number } | null>(null);
   useEffect(() => watchCalendarScorecard(setScorecard), []);
@@ -478,11 +479,11 @@ export default function Page() {
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight mb-6 drop-shadow-2xl font-jakarta">
+          <h1 className={`text-4xl md:text-6xl font-black tracking-tight leading-tight mb-6 drop-shadow-2xl font-jakarta ${locale === 'ko' ? 'break-keep' : ''}`}>
             {t('home.earningsHeadline')}
           </h1>
 
-          <p className="text-base md:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed mb-10 font-medium">
+          <p className={`text-base md:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed mb-10 font-medium ${locale === 'ko' ? 'break-keep' : ''}`}>
             {scorecard ? t('home.earningsSummary', { n: scorecard.n, within: scorecard.withinCount }) : t('home.earningsFallback')}
           </p>
 
