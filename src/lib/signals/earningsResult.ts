@@ -356,173 +356,187 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       if (clock() >= opts.lockDeadline) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
       const chunk = tokens.slice(i, i + 100);
       const records = await st(deps.store.mget(chunk.map((t) => `push:tokens:${t}`)));
-      const claimed: Claimed[] = [];
-      const cleanup: Promise<unknown>[] = [];
-      const cleanupTimeout = Math.min(tmo, SEAL_TIMEOUT_MS);
       let expiring = false;
-      /** 기기 하나 — 마감 검사 뒤 그 기기의 발표들을 차례로 선점(기기 안은 순서대로: 하루 상한·회차당 상한을 지키려고) */
-      const claimDevice = async (j: number) => {
-        const d = deviceFromRecord(chunk[j], records[j]);
-        if (!d) return;
-        let chosen = 0;
-        for (const x of cands) {
-          const a = x.alert;
-          if (!d.tickers.includes(a.ticker) || chosen >= SIG_CFG.perRunPerDevice) continue;
-          if (clock() >= opts.lockDeadline - CLAIM_STOP_MS) { expiring = true; return; }   // 기기마다·발표마다 검사 — 선점 창이 닫히면 더 잡지 않는다(잡은 것은 아래에서 보낸다)
-          const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date), cap = SIG_KEYS.cap(etDateOf(now), d.dev);
-          // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
-          if (!await st(deps.store.setNx(key, CLAIM_V, CLAIM_TTL_SEC)).catch(() => false)) continue;
-          const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => 999);
-          // 상한 초과·오류·시간 초과(999) 모두 상한을 되돌린다 — 응답만 늦고 서버엔 반영된 증가가 공유 일일 상한(«내 종목 이상 신호»와 같은 키)을
-          // 소모하지 않게. lib/signals/run.ts 의 기존 규칙과 같다(관문 11041451 #2).
-          if (cnt > SIG_CFG.deviceDailyCap) {
-            cleanup.push(Promise.all([
-              withTimeout(deps.store.decr(cap), cleanupTimeout).catch(() => 0),
-              withTimeout(deps.store.delIfEq(key, [CLAIM_V]), cleanupTimeout).catch(() => {}),
-            ]));
-            continue;
+      const chosenByDevice = new Map<number, number>();
+      let pending = chunk.map((_, j) => ({ j, start: 0, wait: Promise.resolve() }));
+      while (pending.length) {
+        const current = pending;
+        pending = [];
+        const claimed: Claimed[] = [];
+        const cleanup: Promise<unknown>[] = [];
+        const cleanupTimeout = Math.min(tmo, SEAL_TIMEOUT_MS);
+        /** 기기 하나 — 마감 검사 뒤 그 기기의 발표들을 차례로 선점(기기 안은 순서대로: 하루 상한·회차당 상한을 지키려고) */
+        const claimDevice = async ({ j, start, wait }: { j: number; start: number; wait: Promise<void> }) => {
+          await wait;
+          const d = deviceFromRecord(chunk[j], records[j]);
+          if (!d) return;
+          let chosen = chosenByDevice.get(j) ?? 0;
+          for (let ci = start; ci < cands.length; ci++) {
+            const x = cands[ci], a = x.alert;
+            if (!d.tickers.includes(a.ticker) || chosen >= SIG_CFG.perRunPerDevice) continue;
+            if (clock() >= opts.lockDeadline - CLAIM_STOP_MS) { expiring = true; return; }   // 기기마다·발표마다 검사 — 선점 창이 닫히면 더 잡지 않는다(잡은 것은 아래에서 보낸다)
+            const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date), cap = SIG_KEYS.cap(etDateOf(now), d.dev);
+            // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
+            if (!await st(deps.store.setNx(key, CLAIM_V, CLAIM_TTL_SEC)).catch(() => false)) continue;
+            const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => 999);
+            // 상한 초과·오류·시간 초과(999) 모두 상한을 되돌린다 — 응답만 늦고 서버엔 반영된 증가가 공유 일일 상한(«내 종목 이상 신호»와 같은 키)을
+            // 소모하지 않게. lib/signals/run.ts 의 기존 규칙과 같다(관문 11041451 #2).
+            if (cnt > SIG_CFG.deviceDailyCap) {
+              const returned = Promise.all([
+                withTimeout(deps.store.decr(cap), cleanupTimeout).catch(() => 0),
+                withTimeout(deps.store.delIfEq(key, [CLAIM_V]), cleanupTimeout).catch(() => {}),
+              ]).then(() => {});
+              cleanup.push(returned);
+              // 같은 기기의 다음 발표는 반환 뒤에 처리하되, 준비된 다른 기기는 먼저 발송한다.
+              if (cands.slice(ci + 1).some((next) => d.tickers.includes(next.alert.ticker))) {
+                pending.push({ j, start: ci + 1, wait: returned });
+              }
+              return;
+            }
+            chosen++;
+            chosenByDevice.set(j, chosen);
+            const copy = resultCopy(a, d.locale);
+            claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
           }
-          chosen++;
-          const copy = resultCopy(a, d.locale);
-          claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
-        }
-      };
-      // 기기 사이는 병렬(동시 CLAIM_CONCURRENCY) — 저장소가 느려도 묶음 준비가 «기기 수 × 왕복»으로 늘지 않게(관문 11041435 #2)
-      let next = 0;
-      await Promise.all(Array.from({ length: Math.min(CLAIM_CONCURRENCY, chunk.length) }, async () => {
-        while (next < chunk.length && !expiring) await claimDevice(next++);
-      }));
-      const allowed = claimed.length && clock() < opts.lockDeadline ? await verify([...new Set(claimed.map((c) => c.cand))]) : new Set<Candidate>();
-      // 재확인이 늦어 마감을 넘겼으면 보내지 않는다(관문 11041441 #2) — 아래에서 자리를 모두 돌려준다
-      const inTime = clock() < opts.lockDeadline;
-      const ready = inTime ? claimed.filter((c) => allowed.has(c.cand)) : [];
-      // 보내기 «직전»에 선점 자리를 120일 장부로 굳힌다(SET XX) — 발송 도중·직후 함수가 끊겨도 다시 보내지 않는다(중복 0 우선).
-      // ★ 허용된 손실(코디네이터 11/4 결정 · 관문 11041448 #1): 발송 확인 응답 없이 «누락 0·중복 0»은 동시에 불가 — 중복 0 을 택한다.
-      //   굳힘을 확인한 뒤 발송 호출까지 ≤ SEAL_TIMEOUT_MS(300ms) — 그 사이 함수가 강제 중단될 때만 그 기기는 이 알림을 못 받는다.
-      // 관문 11042212·11041457: 먼저 굳은 기기가 빠진 기기의 «반환(del)»을 기다리지 않는다(반환 대기 0) · 120일 장부는
-      //   «보냈거나 · 되돌렸거나 · 저장소가 끝까지 답하지 않았다고 보고한» 셋 중 하나로만 끝난다(삭제 성공에 기대지 않는다).
-      //   ① 무장 — 굳히기 직전에 자리 수명을 ARM_MS 로 줄인다(비교 후 쓰기 PX). 이 시간이 지나면 자리가 서버에서 사라져,
-      //      포기한 굳히기가 아무리 늦게 도착해도(재시도 포함) «이 회차 무장 값일 때만» 쓰므로 120일 장부를 만들 수 없다.
-      //      모든 자리 쓰기·지우기는 이 회차 표식(runTag) 값과 비교한 뒤에만 — 지연된 요청이 다른 회차 자리를 덮거나 지우지 못한다.
-      //   ② 굳히기 — 300ms 안에 확인된 기기는 마감을 다시 확인하고 곧바로 보낸다.
-      //   ③ 늦은 기기 — 지평(굳히기 시작 + ARM_MS) 안에 성공이 확인되면 그 기기도 보낸다 · 실패·불명이면 지평 뒤 한 번 읽어 확정한다
-      //      (지평 뒤엔 어떤 굳히기도 적용될 수 없으니 읽은 값이 최종). 읽기도 실패하면 자리를 지우고, 지우기마저 실패하면 «seal_unknown»으로 보고한다.
-      const attempted = new Set<Claimed>();
-      const outcomes = new Map<string, SendOutcome>();
-      const sealTmo = Math.min(tmo, SEAL_TIMEOUT_MS);
-      /**
-       * 지평 뒤 굳힘 확정 읽기 — 한 번의 MGET 으로 묶음 전체를 같은 순간에 확정한다(기기마다 따로 읽으면 느린 기기가 다른 기기 발송을 붙잡거나 —
-       * 관문 11051018 — 기기마다 발송을 따로 불러 공급사 연결이 기기 수만큼 늘어난다 — 관문 11051020).
-       * 이 회차의 굳힘 값이면 sealed · 그 밖(없음·다른 값)이면 not · 두 번 다 못 읽으면 모두 unknown.
-       */
-      const readSeals = async (keys: string[]): Promise<Array<'sealed' | 'not' | 'unknown'>> => {
-        for (let k = 0; k < 2; k++) {
-          try {
-            const vals = await withTimeout(deps.store.mget(keys), sealTmo);
-            return keys.map((_, i) => (String(vals[i]) === SENT_V ? 'sealed' : 'not'));
-          } catch { /* 다시 한 번 */ }
-        }
-        return keys.map(() => 'unknown');
-      };
-      /**
-       * 자리 지우기 — 이 회차가 쓴 값(선점·무장·굳힘)일 때만 지운다. 확인된 성공만 true(실패·시간 초과는 «반환 안 됨», 관문 11042212 #2) ·
-       * 시간 상한 SEAL_TIMEOUT_MS × 2회. 늦게 도착한 지우기도 다른 회차의 자리·장부는 지우지 못한다(관문 11051012 #2).
-       */
-      const delConfirmed = async (key: string): Promise<boolean> => {
-        for (let k = 0; k < 2; k++) {
-          try { await withTimeout(deps.store.delIfEq(key, [CLAIM_V, ARM_V, SENT_V]), sealTmo); return true; } catch { /* 다시 한 번 */ }
-        }
-        return false;
-      };
-      /**
-       * 시도하지 않은 자리 반환(한 번만) — 자리·상한, 모두 시간 상한 안에서. 다음 회차가 같은 규칙으로 다시 본다.
-       * failReason 이 있으면 «지우기 확인 실패»를 반환 완료로 치지 않고 보고한다(굳었을 수 있는 자리 — 되돌림·불명).
-       * 짧은 선점·무장 자리는 지우기가 실패해도 수명(CLAIM_TTL_SEC · ARM_MS)이 지나면 저절로 풀린다.
-       */
-      const released = new Set<Claimed>();
-      const release = async (list: Claimed[], failReason?: string) => {
-        await Promise.all(list.filter((c) => !released.has(c) && !attempted.has(c)).map(async (c) => {
-          released.add(c);
-          if (!(await delConfirmed(c.key)) && failReason) report.skipped.push({ key: c.item.id, reason: failReason });
-          await withTimeout(deps.store.decr(c.cap), sealTmo).catch(() => 0);
+        };
+        // 기기 사이는 병렬(동시 CLAIM_CONCURRENCY) — 저장소가 느려도 묶음 준비가 «기기 수 × 왕복»으로 늘지 않게(관문 11041435 #2)
+        let next = 0;
+        await Promise.all(Array.from({ length: Math.min(CLAIM_CONCURRENCY, current.length) }, async () => {
+          while (next < current.length && !expiring) await claimDevice(current[next++]);
         }));
-      };
-      // 탈락 자리 반환은 발송과 병행한다. 지연된 반환이 정상 기기를 막지 않는다.
-      cleanup.push(release(claimed.filter((c) => !ready.includes(c))));
-      let sendInTime = true;
-      /** 굳은 묶음 하나를 보낸다 — 보내기 «직전» 마감 재확인. 넘었으면 보내지 않고 굳은 자리를 되돌린다(되돌림 확인 실패는 보고) */
-      const sendSealed = async (group: Claimed[]) => {
-        if (!group.length) return;
-        if (clock() >= opts.lockDeadline) { sendInTime = false; await release(group, 'rollback_failed'); return; }
-        for (const c of group) attempted.add(c);
-        const got = await deps.sender.send(group.map((c) => c.item)).catch(() => new Map<string, SendOutcome>());
-        for (const [id, o] of got) outcomes.set(id, o);
-      };
-      for (const platform of ['ios', 'android'] as const) {
-        const batch = ready.filter((c) => c.item.platform === platform);
-        if (!batch.length) continue;
-        // 무장·굳히기·지평·확정 읽기가 모두 마감 전에 끝날 때만 시작 — 넘으면 이 플랫폼은 시도 전이므로 아래에서 자리·상한을 돌려준다(관문 11041444 #3)
-        if (clock() + SEAL_PHASE_MS >= opts.lockDeadline) { sendInTime = false; break; }
-        // ① 무장 — 이 회차 선점 값일 때만 무장 값·ARM_MS 수명으로(확인 못 한 기기는 굳히지 않는다 · 늦게 도착한 무장은 짧은 자리를 더 짧게 할 뿐,
-        //    다른 회차가 다시 잡은 자리는 값이 달라 건드리지 못한다)
-        const armed = (await Promise.all(batch.map(async (c) =>
-          (await settle(deps.store.setIfEq(c.key, CLAIM_V, ARM_V, { px: ARM_MS }), sealTmo)) === 'ok' ? c : null))).filter((c): c is Claimed => c != null);
-        // 무장 못 한 기기의 반환은 굳히기 «뒤»에(아래 release(batch)) — 반환을 기다리는 사이 무장 수명이 지나 정상 기기까지 못 굳는 일이 없게(관문 11051012 #1)
-        if (!armed.length) { await release(batch); continue; }
-        // ② 굳히기 — 무장 직후 모두 같은 순간에, 이 회차 무장 값일 때만. 지평 타이머는 무장이 모두 확인된 «뒤»에 시작하므로, 지평이 지나면 모든 무장 자리가 서버에서 사라졌다.
-        const sealP = new Map(armed.map((c) => [c, deps.store.setIfEq(c.key, ARM_V, SENT_V, { ex: LEDGER_TTL_SEC })] as const));
-        const horizon = timer(ARM_MS);
-        const unknown = new Set<Claimed>();
-        try {
-          const first = await Promise.all(armed.map(async (c) => [c, await settle(sealP.get(c)!, sealTmo)] as const));
-          const sealed = first.filter(([, s]) => s === 'ok').map(([c]) => c);
-          const late = first.filter(([, s]) => s === 'err' || s === 'pending').map(([c]) => c);   // 'no' = 자리가 없어 쓰지 않았다(굳지 않음)
-          /** ③ 늦은 기기 — 지평 안 성공은 보내고, 나머지는 지평 뒤 읽어서 확정 */
-          const resolveLate = async () => {
-            if (!late.length) return;
-            const second = await Promise.all(late.map(async (c) => [c, await Promise.race([
-              sealP.get(c)!.then((v): Settle => (v ? 'ok' : 'no'), (): Settle => 'err'), horizon.done.then((): Settle => 'pending'),
-            ])] as const));
-            // 지평 안에 성공이 확인된 기기 — 300ms 상한 뒤에 확인됐으므로 지평(600ms)까지 모아 보내도 확인 → 발송 대기 ≤ 300ms
-            const sealedLate = second.filter(([, s]) => s === 'ok').map(([c]) => c);
-            const toRead = second.filter(([, s]) => s === 'err' || s === 'pending').map(([c]) => c);
-            await Promise.all([sendSealed(sealedLate), (async () => {
-              if (!toRead.length) return;
-              await horizon.done;
-              // 묶음 전체를 한 번에 확정하고 확인된 기기를 곧바로 한 번에 보낸다(확정 → 발송 대기 0 · 발송 호출 1회)
-              const read = await readSeals(toRead.map((c) => c.key));
-              toRead.forEach((c, i) => { if (read[i] === 'unknown') unknown.add(c); });
-              await sendSealed(toRead.filter((_, i) => read[i] === 'sealed'));
-            })()]);
-          };
-          // 먼저 굳은 기기는 늦은 기기를 기다리지 않고 곧바로 보낸다(같은 시각에 늦은 기기 확정을 함께 진행)
-          await Promise.all([sendSealed(sealed), resolveLate()]);
-        } finally { horizon.cancel(); }
-        // 굳지 않은 자리 반환 — 불명은 지우기 확인까지 요구하고 실패면 보고(되돌림 실패와 같은 등급)
-        await release(armed.filter((c) => unknown.has(c)), 'seal_unknown');
-        await release(batch);
-      }
-      const dead = new Set<string>();
-      for (const c of claimed) {
-        if (attempted.has(c)) {
-          // 한 번 시도한 발송은 결과와 무관하게 장부를 그대로 둔다 — 공급사 'fail' 에는 «요청은 닿았으나 응답을 못 받음»도 섞여 있어
-          // 다시 보내면 중복이 될 수 있다(관문 11041444 #1). 확실히 닿은 것만 센다.
-          const outcome = outcomes.get(c.item.id);
-          if (outcome === 'ok') report.sent++;
-          else report.skipped.push({ key: c.item.id, reason: `send_${outcome ?? 'unknown'}_kept` });
-          if (outcome === 'dead') dead.add(c.item.token);
+        const allowed = claimed.length && clock() < opts.lockDeadline ? await verify([...new Set(claimed.map((c) => c.cand))]) : new Set<Candidate>();
+        // 재확인이 늦어 마감을 넘겼으면 보내지 않는다(관문 11041441 #2) — 아래에서 자리를 모두 돌려준다
+        const inTime = clock() < opts.lockDeadline;
+        const ready = inTime ? claimed.filter((c) => allowed.has(c.cand)) : [];
+        // 보내기 «직전»에 선점 자리를 120일 장부로 굳힌다(SET XX) — 발송 도중·직후 함수가 끊겨도 다시 보내지 않는다(중복 0 우선).
+        // ★ 허용된 손실(코디네이터 11/4 결정 · 관문 11041448 #1): 발송 확인 응답 없이 «누락 0·중복 0»은 동시에 불가 — 중복 0 을 택한다.
+        //   굳힘을 확인한 뒤 발송 호출까지 ≤ SEAL_TIMEOUT_MS(300ms) — 그 사이 함수가 강제 중단될 때만 그 기기는 이 알림을 못 받는다.
+        // 관문 11042212·11041457: 먼저 굳은 기기가 빠진 기기의 «반환(del)»을 기다리지 않는다(반환 대기 0) · 120일 장부는
+        //   «보냈거나 · 되돌렸거나 · 저장소가 끝까지 답하지 않았다고 보고한» 셋 중 하나로만 끝난다(삭제 성공에 기대지 않는다).
+        //   ① 무장 — 굳히기 직전에 자리 수명을 ARM_MS 로 줄인다(비교 후 쓰기 PX). 이 시간이 지나면 자리가 서버에서 사라져,
+        //      포기한 굳히기가 아무리 늦게 도착해도(재시도 포함) «이 회차 무장 값일 때만» 쓰므로 120일 장부를 만들 수 없다.
+        //      모든 자리 쓰기·지우기는 이 회차 표식(runTag) 값과 비교한 뒤에만 — 지연된 요청이 다른 회차 자리를 덮거나 지우지 못한다.
+        //   ② 굳히기 — 300ms 안에 확인된 기기는 마감을 다시 확인하고 곧바로 보낸다.
+        //   ③ 늦은 기기 — 지평(굳히기 시작 + ARM_MS) 안에 성공이 확인되면 그 기기도 보낸다 · 실패·불명이면 지평 뒤 한 번 읽어 확정한다
+        //      (지평 뒤엔 어떤 굳히기도 적용될 수 없으니 읽은 값이 최종). 읽기도 실패하면 자리를 지우고, 지우기마저 실패하면 «seal_unknown»으로 보고한다.
+        const attempted = new Set<Claimed>();
+        const outcomes = new Map<string, SendOutcome>();
+        const sealTmo = Math.min(tmo, SEAL_TIMEOUT_MS);
+        /**
+         * 지평 뒤 굳힘 확정 읽기 — 한 번의 MGET 으로 묶음 전체를 같은 순간에 확정한다(기기마다 따로 읽으면 느린 기기가 다른 기기 발송을 붙잡거나 —
+         * 관문 11051018 — 기기마다 발송을 따로 불러 공급사 연결이 기기 수만큼 늘어난다 — 관문 11051020).
+         * 이 회차의 굳힘 값이면 sealed · 그 밖(없음·다른 값)이면 not · 두 번 다 못 읽으면 모두 unknown.
+         */
+        const readSeals = async (keys: string[]): Promise<Array<'sealed' | 'not' | 'unknown'>> => {
+          for (let k = 0; k < 2; k++) {
+            try {
+              const vals = await withTimeout(deps.store.mget(keys), sealTmo);
+              return keys.map((_, i) => (String(vals[i]) === SENT_V ? 'sealed' : 'not'));
+            } catch { /* 다시 한 번 */ }
+          }
+          return keys.map(() => 'unknown');
+        };
+        /**
+         * 자리 지우기 — 이 회차가 쓴 값(선점·무장·굳힘)일 때만 지운다. 확인된 성공만 true(실패·시간 초과는 «반환 안 됨», 관문 11042212 #2) ·
+         * 시간 상한 SEAL_TIMEOUT_MS × 2회. 늦게 도착한 지우기도 다른 회차의 자리·장부는 지우지 못한다(관문 11051012 #2).
+         */
+        const delConfirmed = async (key: string): Promise<boolean> => {
+          for (let k = 0; k < 2; k++) {
+            try { await withTimeout(deps.store.delIfEq(key, [CLAIM_V, ARM_V, SENT_V]), sealTmo); return true; } catch { /* 다시 한 번 */ }
+          }
+          return false;
+        };
+        /**
+         * 시도하지 않은 자리 반환(한 번만) — 자리·상한, 모두 시간 상한 안에서. 다음 회차가 같은 규칙으로 다시 본다.
+         * failReason 이 있으면 «지우기 확인 실패»를 반환 완료로 치지 않고 보고한다(굳었을 수 있는 자리 — 되돌림·불명).
+         * 짧은 선점·무장 자리는 지우기가 실패해도 수명(CLAIM_TTL_SEC · ARM_MS)이 지나면 저절로 풀린다.
+         */
+        const released = new Set<Claimed>();
+        const release = async (list: Claimed[], failReason?: string) => {
+          await Promise.all(list.filter((c) => !released.has(c) && !attempted.has(c)).map(async (c) => {
+            released.add(c);
+            if (!(await delConfirmed(c.key)) && failReason) report.skipped.push({ key: c.item.id, reason: failReason });
+            await withTimeout(deps.store.decr(c.cap), sealTmo).catch(() => 0);
+          }));
+        };
+        // 탈락 자리 반환은 발송과 병행한다. 지연된 반환이 정상 기기를 막지 않는다.
+        cleanup.push(release(claimed.filter((c) => !ready.includes(c))));
+        let sendInTime = true;
+        /** 굳은 묶음 하나를 보낸다 — 보내기 «직전» 마감 재확인. 넘었으면 보내지 않고 굳은 자리를 되돌린다(되돌림 확인 실패는 보고) */
+        const sendSealed = async (group: Claimed[]) => {
+          if (!group.length) return;
+          if (clock() >= opts.lockDeadline) { sendInTime = false; await release(group, 'rollback_failed'); return; }
+          for (const c of group) attempted.add(c);
+          const got = await deps.sender.send(group.map((c) => c.item)).catch(() => new Map<string, SendOutcome>());
+          for (const [id, o] of got) outcomes.set(id, o);
+        };
+        for (const platform of ['ios', 'android'] as const) {
+          const batch = ready.filter((c) => c.item.platform === platform);
+          if (!batch.length) continue;
+          // 무장·굳히기·지평·확정 읽기가 모두 마감 전에 끝날 때만 시작 — 넘으면 이 플랫폼은 시도 전이므로 아래에서 자리·상한을 돌려준다(관문 11041444 #3)
+          if (clock() + SEAL_PHASE_MS >= opts.lockDeadline) { sendInTime = false; break; }
+          // ① 무장 — 이 회차 선점 값일 때만 무장 값·ARM_MS 수명으로(확인 못 한 기기는 굳히지 않는다 · 늦게 도착한 무장은 짧은 자리를 더 짧게 할 뿐,
+          //    다른 회차가 다시 잡은 자리는 값이 달라 건드리지 못한다)
+          const armed = (await Promise.all(batch.map(async (c) =>
+            (await settle(deps.store.setIfEq(c.key, CLAIM_V, ARM_V, { px: ARM_MS }), sealTmo)) === 'ok' ? c : null))).filter((c): c is Claimed => c != null);
+          // 무장 못 한 기기의 반환은 굳히기 «뒤»에(아래 release(batch)) — 반환을 기다리는 사이 무장 수명이 지나 정상 기기까지 못 굳는 일이 없게(관문 11051012 #1)
+          if (!armed.length) { await release(batch); continue; }
+          // ② 굳히기 — 무장 직후 모두 같은 순간에, 이 회차 무장 값일 때만. 지평 타이머는 무장이 모두 확인된 «뒤»에 시작하므로, 지평이 지나면 모든 무장 자리가 서버에서 사라졌다.
+          const sealP = new Map(armed.map((c) => [c, deps.store.setIfEq(c.key, ARM_V, SENT_V, { ex: LEDGER_TTL_SEC })] as const));
+          const horizon = timer(ARM_MS);
+          const unknown = new Set<Claimed>();
+          try {
+            const first = await Promise.all(armed.map(async (c) => [c, await settle(sealP.get(c)!, sealTmo)] as const));
+            const sealed = first.filter(([, s]) => s === 'ok').map(([c]) => c);
+            const late = first.filter(([, s]) => s === 'err' || s === 'pending').map(([c]) => c);   // 'no' = 자리가 없어 쓰지 않았다(굳지 않음)
+            /** ③ 늦은 기기 — 지평 안 성공은 보내고, 나머지는 지평 뒤 읽어서 확정 */
+            const resolveLate = async () => {
+              if (!late.length) return;
+              const second = await Promise.all(late.map(async (c) => [c, await Promise.race([
+                sealP.get(c)!.then((v): Settle => (v ? 'ok' : 'no'), (): Settle => 'err'), horizon.done.then((): Settle => 'pending'),
+              ])] as const));
+              // 지평 안에 성공이 확인된 기기 — 300ms 상한 뒤에 확인됐으므로 지평(600ms)까지 모아 보내도 확인 → 발송 대기 ≤ 300ms
+              const sealedLate = second.filter(([, s]) => s === 'ok').map(([c]) => c);
+              const toRead = second.filter(([, s]) => s === 'err' || s === 'pending').map(([c]) => c);
+              await Promise.all([sendSealed(sealedLate), (async () => {
+                if (!toRead.length) return;
+                await horizon.done;
+                // 묶음 전체를 한 번에 확정하고 확인된 기기를 곧바로 한 번에 보낸다(확정 → 발송 대기 0 · 발송 호출 1회)
+                const read = await readSeals(toRead.map((c) => c.key));
+                toRead.forEach((c, i) => { if (read[i] === 'unknown') unknown.add(c); });
+                await sendSealed(toRead.filter((_, i) => read[i] === 'sealed'));
+              })()]);
+            };
+            // 먼저 굳은 기기는 늦은 기기를 기다리지 않고 곧바로 보낸다(같은 시각에 늦은 기기 확정을 함께 진행)
+            await Promise.all([sendSealed(sealed), resolveLate()]);
+          } finally { horizon.cancel(); }
+          // 굳지 않은 자리 반환 — 불명은 지우기 확인까지 요구하고 실패면 보고(되돌림 실패와 같은 등급)
+          await release(armed.filter((c) => unknown.has(c)), 'seal_unknown');
+          await release(batch);
         }
+        const dead = new Set<string>();
+        for (const c of claimed) {
+          if (attempted.has(c)) {
+            // 한 번 시도한 발송은 결과와 무관하게 장부를 그대로 둔다 — 공급사 'fail' 에는 «요청은 닿았으나 응답을 못 받음»도 섞여 있어
+            // 다시 보내면 중복이 될 수 있다(관문 11041444 #1). 확실히 닿은 것만 센다.
+            const outcome = outcomes.get(c.item.id);
+            if (outcome === 'ok') report.sent++;
+            else report.skipped.push({ key: c.item.id, reason: `send_${outcome ?? 'unknown'}_kept` });
+            if (outcome === 'dead') dead.add(c.item.token);
+          }
+        }
+        // 아직 남은 «시도하지 않은 자리»(마감으로 멈춘 플랫폼 등) — 돌려준다(이미 돌려준 것은 건너뛴다)
+        await release(claimed);
+        await Promise.all(cleanup);
+        if (dead.size) {
+          const ts = [...dead];
+          await deps.store.srem('push:token_list', ts).catch(() => {});
+          await deps.store.del(ts.map((t) => `push:tokens:${t}`)).catch(() => {});
+        }
+        // 선점 창이 닫혔거나 마감을 넘겼으면 다음 묶음으로 가지 않는다(잡은 것은 위에서 보냈거나 돌려줬다)
+        if (expiring || !inTime || !sendInTime) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); pending = []; expiring = true; break; }
       }
-      // 아직 남은 «시도하지 않은 자리»(마감으로 멈춘 플랫폼 등) — 돌려준다(이미 돌려준 것은 건너뛴다)
-      await release(claimed);
-      await Promise.all(cleanup);
-      if (dead.size) {
-        const ts = [...dead];
-        await deps.store.srem('push:token_list', ts).catch(() => {});
-        await deps.store.del(ts.map((t) => `push:tokens:${t}`)).catch(() => {});
-      }
-      // 선점 창이 닫혔거나 마감을 넘겼으면 다음 묶음으로 가지 않는다(잡은 것은 위에서 보냈거나 돌려줬다)
-      if (expiring || !inTime || !sendInTime) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
+      if (expiring) break;
     }
     report.status = 'ok';
     return report;

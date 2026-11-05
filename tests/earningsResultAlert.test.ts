@@ -644,6 +644,32 @@ t('4 · 상한 처리 실패 기기의 반환이 2초 지연돼도 정상 기기
   assert.equal(r.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN]);
   assert.ok(cleanupAt > 0 && sendAt - cleanupAt < 300, `반환 시작 뒤 발송 ${sendAt - cleanupAt}ms`);
 });
+t('4 · 2/3에서 첫 증가 시간 초과와 반환 지연 뒤 같은 기기 두 번째 종목을 보낸다', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], [
+    [IOS_TOKEN, { watchlist: { t: ['JPM', 'C'] }, tz: 'Asia/Seoul' }],
+    [IOS_TOKEN2, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }],
+  ]);
+  const cap = `push:sig:cap:2026-10-14:${devKey(IOS_TOKEN)}`;
+  s.store.m.set(cap, 2);
+  const incr = s.store.incr.bind(s.store), decr = s.store.decr.bind(s.store);
+  let first = true, returned = false, otherSentBeforeReturn = false;
+  s.store.incr = async (k, ex) => {
+    const n = await incr(k, ex);
+    if (k === cap && first) { first = false; return new Promise<number>(() => {}); }
+    return n;
+  };
+  s.store.decr = async (k) => { if (k === cap) { await ms(40); returned = true; } return decr(k); };
+  const send = s.sender.send.bind(s.sender);
+  s.sender.send = async (items) => {
+    if (items.some((item) => item.token === IOS_TOKEN2)) otherSentBeforeReturn = !returned;
+    return send(items);
+  };
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 100, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 2);
+  assert.equal(otherSentBeforeReturn, true, '다른 기기는 반환 전에 발송');
+  assert.deepEqual(s.sender.items.filter((item) => item.token === IOS_TOKEN).map((item) => item.data.t), ['C']);
+  assert.equal(s.store.m.get(cap), 3);
+});
 t('4 · 굳힌 직후 마감이 지나면 발송하지 않고 장부를 되돌려 다음 회차에 보낸다', async () => {
   const s = setup();
   let now = SEND;
