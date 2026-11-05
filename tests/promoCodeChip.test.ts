@@ -35,12 +35,14 @@ assert.equal(previewOverride('stock2-git-feat-web-promo-chip-x.vercel.app', ''),
 assert.equal(chipVisible({ flag: false, override: true, ua: AND, now: NOW }), false, '미리보기 켜기여도 안드로이드는 숨김');
 
 // ★2026-10-05 안드로이드 쿠폰(COUPON_ANDROID=1 → 빌드 때 NEXT_PUBLIC_COUPON_ANDROID) — 켜졌을 때만 안드로이드에 보인다 · Play 종료(10/31 00:00 GMT) 뒤 숨김
-const PLAY_END = Date.parse('2026-10-31T00:00:00Z');
+// ★2026-11-05 PLAY_PROMO_END 는 12/31(일회용 1231 묶음)로 올랐지만 칩 링크 코드 WEBPRO·문구는 10/31 07:00Z 에 끝났다 — 안드 칩 마감 = 둘 중 이른 쪽
+const PLAY_END = Date.parse('2026-10-31T07:00:00Z');
 assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: NOW, androidOn: true }), true, '안드 쿠폰 켜짐 + 안드로이드');
 assert.equal(chipVisible({ flag: true, override: false, ua: AND_KAKAO, now: NOW, androidOn: true }), true, '안드 쿠폰 켜짐 + 카톡 인앱');
 assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: NOW, androidOn: false }), false, '안드 쿠폰 꺼짐(기본) = 숨김');
 assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: PLAY_END, androidOn: true }), false, 'Play 종료 뒤 숨김');
 assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: PLAY_END - 1, androidOn: true }), true);
+assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: Date.parse('2026-11-06T00:00:00Z'), androidOn: true }), false, 'Play 연장(12/31)이어도 끝난 칩 코드로 다시 켜지지 않는다');
 assert.equal(chipVisible({ flag: false, override: false, ua: AND, now: NOW, androidOn: true }), false, '칩 플래그 OFF 면 안드도 숨김');
 assert.equal(chipVisible({ flag: true, override: false, ua: AND, now: NOW, androidOn: true, native: true }), false, '우리 앱 안 숨김');
 assert.equal(chipVisible({ flag: true, override: false, ua: IPH, now: NOW, androidOn: true }), true, '아이폰은 그대로');
@@ -49,4 +51,4 @@ assert.equal(chipVisible({ flag: true, override: false, ua: IPH, now: NOW, andro
 assert.equal(isIphoneUa(IPH), true);
 assert.equal(isIphoneUa(IPH_KAKAO), true);
 assert.equal(isIphoneUa(MAC), false);
-console.log('✅ promoCodeChip: 29건 통과');
+console.log('✅ promoCodeChip: 30건 통과');

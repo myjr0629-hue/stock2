@@ -1,6 +1,6 @@
 import { promoImageUrl, type PreviewLang } from './linkPreview';
 import { promoExpiryDate } from './promoExpiry';
-import { audienceLine, ANDROID_POOL_SIZE } from './coupon';
+import { audienceLine, ANDROID_POOL_SIZE, playPromoUntil } from './coupon';
 import { APPLE_CODE_LIMIT, promoCodeLimit } from './promoLimit';
 import { IN_APP_TEXT, inAppHintHtml, playIntentUrl, playRedeemIntentUrl } from './androidInApp';
 import { IOS_STAY_CHECK_MS } from './iosInApp';
@@ -178,10 +178,10 @@ function titleHtml(title: string): string {
 /** 스크립트 안 JSON — </script> 로 끊기지 않게 < 를 이스케이프 */
 const js = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
 
-/** 위 부제 한 줄 — «{채널} 독자 전용 · 선착순 N명 · {코드별 만료일 전날}까지»(채널을 모르면 앞 조각만 뺀다). 순수 함수. */
+/** 위 부제 한 줄 — «{채널} 독자 전용 · 선착순 N명 · {만료일 전날}까지»(아이폰 = 코드별 애플 만료 · 안드 = Play 일회용 묶음 종료)(채널을 모르면 앞 조각만 뺀다). 순수 함수. */
 export function couponSubline(platform: 'ios' | 'android', lang: PreviewLang, fromTag: string | null, code: string): string {
   const t = T[lang];
-  const parts = [audienceLine(fromTag, code, lang), t.limit(platform === 'ios' ? promoCodeLimit(code) : ANDROID_POOL_SIZE), t.until(promoExpiryDate(platform === 'ios' ? code : null, lang, '\u00a0'))];
+  const parts = [audienceLine(fromTag, code, lang), t.limit(platform === 'ios' ? promoCodeLimit(code) : ANDROID_POOL_SIZE), t.until(platform === 'ios' ? promoExpiryDate(code, lang, '\u00a0') : playPromoUntil(lang, '\u00a0'))];
   return parts.filter(Boolean).join(' · ');
 }
 

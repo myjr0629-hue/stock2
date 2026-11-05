@@ -86,7 +86,8 @@ async function main() {
       for (const fromTag of [null, 'gift', 'cr_test', 'threads']) {
         const opts = { platform, lang, fromTag, code, appleRedeemUrl: '#', playInstallUrl: '#' };
         const expected = oldCoupon.couponHtml(opts);
-        let next = platform === 'ios' ? adjust(expected) : expected;
+        // ★2026-11-05 안드 날짜는 애플 코드가 아니라 Play 일회용 1231 묶음 종료(PLAY_PROMO_END 12/31 00:00 GMT → «12/30까지») — 모든 코드에서 같다
+        let next = platform === 'ios' ? adjust(expected) : expected.split(d.old).join(d.next);
         if (extended && platform === 'ios') {
           next = next.replace(`https://www.signumhq.com/promo/redeem-card-${lang}.png`, `https://www.signumhq.com/api/og/promo?l=${lang}&code=SIGNUMPRO`);
           if (lang === 'en') next = next.replace(/(<p class="t-sub">[^<]*First )5,000/, '$1<span style="letter-spacing:-1.5px;white-space:nowrap">5,000</span>');
@@ -164,12 +165,17 @@ async function main() {
           check(r.status === (surface === 'coupon' ? 302 : 200), '만료 뒤 기존 응답 분기 유지');
         }
       }
-      // Android에는 연장된 애플 날짜를 적용하지 않는다. 기존 Play 종료 뒤에는 설치로 간다.
+      // ★2026-11-05 Android 는 Play 일회용 1231 묶음 종료(12/31 00:00 GMT)까지 쿠폰 화면(«12/30까지») · 그 뒤에는 설치로 간다.
       if (now >= Date.parse('2026-10-31T00:00:00Z')) {
-        const r = await GET(new ns.NextRequest('https://www.signumhq.com/app?code=SIGNUMPRO', {
-          headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/129.0.0.0 Mobile Safari/537.36' },
+        const r = await GET(new ns.NextRequest('https://www.signumhq.com/app?code=SIGNUMPRO&l=ko', {
+          headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/129.0.0.0 Mobile Safari/537.36', 'accept-language': 'ko' },
         }));
-        check(r.status === 302 && (r.headers.get('location') || '').startsWith('https://play.google.com/'), '기존 Play 만료 유지');
+        if (now < Date.parse('2026-12-31T00:00:00Z')) {
+          const html = await r.text();
+          check(r.status === 200 && html.includes('id="claim"') && html.includes('12/30') && !html.includes('10/30'), 'Play 1231 묶음 기간: 안드 쿠폰 화면 · 12/30');
+        } else {
+          check(r.status === 302 && (r.headers.get('location') || '').startsWith('https://play.google.com/'), 'Play 1231 묶음 종료 뒤 설치');
+        }
       }
     }
   } finally {

@@ -35,8 +35,9 @@ const FLAG_ON = flagFromEnv(process.env.NEXT_PUBLIC_WEB_PROMO_CHIP);
 const EXPIRES_AT = Date.parse("2026-10-31T07:00:00Z");
 /** 안드로이드 칩 — 서버 COUPON_ANDROID=1 과 같은 값(next.config.mjs env). 끄면(기본) 안드로이드에는 예전처럼 칩이 없다. */
 const ANDROID_ON = process.env.NEXT_PUBLIC_COUPON_ANDROID === "1";
-/** Play 프로모션 종료(2026-10-31 00:00 GMT) — 애플보다 7시간 빠르다. */
-const ANDROID_EXPIRES_AT = PLAY_PROMO_END;
+/** 안드로이드 칩 마감 — Play 종료와 칩 링크 코드(WEBPRO) 만료 중 이른 쪽. ★2026-11-05 PLAY_PROMO_END 를 12/31 로 올렸지만
+ *  칩 링크 코드 WEBPRO 와 문구(«10/30까지»·선착순)는 10/31 에 끝났다 — 칩만 다시 켜져 끝난 코드를 약속하지 않게 애플 만료로도 막는다. */
+const ANDROID_EXPIRES_AT = Math.min(PLAY_PROMO_END, EXPIRES_AT);
 const PROD_HOST_RE = /(^|\.)signumhq\.com$/i;
 const n = (v: number) => v.toLocaleString("en-US");
 

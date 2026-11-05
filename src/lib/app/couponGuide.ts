@@ -26,7 +26,7 @@ import type { FunnelSrc } from '@/lib/app/funnelSchema';
 export type CgLocale = 'ko' | 'en' | 'ja';
 export const toCgLocale = (l: string | null | undefined): CgLocale => (l === 'ko' || l === 'ja' ? l : 'en');
 
-/** Play 프로모션(맞춤 코드 · 일회용 300장)이 주는 무료 체험 일수 — Play 콘솔 설정(30일). 종료(PLAY_PROMO_END) 뒤엔 일수를 말하지 않는다. */
+/** Play 프로모션(맞춤 코드 · 일회용 1231 묶음)이 주는 무료 체험 일수 — Play 콘솔 설정(30일). 종료(PLAY_PROMO_END) 뒤엔 일수를 말하지 않는다. */
 export const PLAY_FREE_DAYS = 30;
 export function freeDaysNow(now = Date.now()): number | null {
   return now < PLAY_PROMO_END ? PLAY_FREE_DAYS : null;
