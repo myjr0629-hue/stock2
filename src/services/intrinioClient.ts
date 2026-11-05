@@ -1852,7 +1852,19 @@ export const EOD_HISTORY_KEY = "intrinio:eod:history";
  *
  * 비어 있으면 빈 Map 을 반환한다. 호출부는 유니버스 폴백으로 동작해야 한다.
  */
+// ★ 2026-11-06 T56c — 콜드 인스턴스에 요청이 몰리면(11/5 05:47Z 스크레이퍼 /en/flow 2,143종 4초) 메모가 비어 있는 동안
+//   동시 요청마다 654KB 스냅샷·1.68MB 이력을 따로 읽었다 → 프록시 단일 연결 출력 버퍼 → ElastiCache 축출.
+//   인스턴스 안에서는 한 번만 읽고 나머지는 그 결과를 기다린다(값·캐시 수명 동일).
+let _eodLoading: Promise<{ date: string; prevDate: string; rows: Map<string, EodRow> }> | null = null;
 async function loadBulkEod(): Promise<{ date: string; prevDate: string; rows: Map<string, EodRow> }> {
+    if (_eodCache && Date.now() - _eodCache.at < EOD_TTL_MS) {
+        return { date: _eodCache.date, prevDate: _eodCache.prevDate, rows: _eodCache.rows };
+    }
+    if (!_eodLoading) _eodLoading = loadBulkEodUncached().finally(() => { _eodLoading = null; });
+    return _eodLoading;
+}
+
+async function loadBulkEodUncached(): Promise<{ date: string; prevDate: string; rows: Map<string, EodRow> }> {
     if (_eodCache && Date.now() - _eodCache.at < EOD_TTL_MS) {
         return { date: _eodCache.date, prevDate: _eodCache.prevDate, rows: _eodCache.rows };
     }
@@ -1991,7 +2003,15 @@ interface EodHistory { dates: string[]; closes: Record<string, number[]> }
 let _histCache: { at: number; data: EodHistory | null } | null = null;
 
 /** 20거래일 종가 행렬을 ElastiCache 에서 읽는다 (30분 메모리 캐시) */
+let _histLoading: Promise<EodHistory | null> | null = null;
+/** 단일 비행(T56c) — 동시 요청은 진행 중인 한 번의 읽기를 기다린다 */
 async function loadEodHistory(): Promise<EodHistory | null> {
+    if (_histCache && Date.now() - _histCache.at < EOD_TTL_MS) return _histCache.data;
+    if (!_histLoading) _histLoading = loadEodHistoryUncached().finally(() => { _histLoading = null; });
+    return _histLoading;
+}
+
+async function loadEodHistoryUncached(): Promise<EodHistory | null> {
     if (_histCache && Date.now() - _histCache.at < EOD_TTL_MS) return _histCache.data;
     const proxy = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
     const key = process.env.REDIS_PROXY_KEY || process.env.EC2_REDIS_PROXY_KEY || "";

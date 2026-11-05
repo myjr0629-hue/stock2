@@ -1,0 +1,231 @@
+// T56c — EC2 Redis 프록시 읽기 합치기(scripts/lib/redis-read-coalescer.js)
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { createReadCoalescer } = require('../scripts/lib/redis-read-coalescer');
+
+const big = (tag: string) => JSON.stringify({ result: tag + 'x'.repeat(300 * 1024) });
+const deferred = <T,>() => { let resolve!: (v: T) => void; let reject!: (e: unknown) => void; const promise = new Promise<T>((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
+
+test('같은 키 동시 GET 은 Redis 읽기 1회로 합친다', async () => {
+  const c = createReadCoalescer();
+  let calls = 0;
+  const d = deferred<string>();
+  const read = () => { calls++; return d.promise; };
+  const ps = Array.from({ length: 500 }, () => c.get('intrinio:eod:snapshot', read));
+  await Promise.resolve(); await Promise.resolve();
+  d.resolve('{"result":1}');
+  const out = await Promise.all(ps);
+  assert.equal(calls, 1);
+  assert.ok(out.every((b) => b === '{"result":1}'));
+  assert.equal(c.snapshot().joined, 499);
+  assert.equal(c.snapshot().inflight, 0);
+});
+
+test('작은 값은 메모하지 않는다 — 끝난 뒤의 읽기는 다시 Redis 로', async () => {
+  const c = createReadCoalescer();
+  let calls = 0;
+  const read = async () => { calls++; return '{"result":' + calls + '}'; };
+  assert.equal(await c.get('price:NVDA', read), '{"result":1}');
+  assert.equal(await c.get('price:NVDA', read), '{"result":2}');
+  assert.equal(calls, 2);
+});
+
+test('큰 값(≥256KB)은 2초 메모 — 지나면 다시 읽는다', async () => {
+  let t = 1000;
+  const c = createReadCoalescer({ now: () => t });
+  let calls = 0;
+  const read = async () => { calls++; return big('v' + calls); };
+  const a = await c.get('finra:offexchange', read);
+  t += 1999;
+  assert.equal(await c.get('finra:offexchange', read), a);
+  assert.equal(calls, 1);
+  t += 1;
+  const b = await c.get('finra:offexchange', read);
+  assert.equal(calls, 2);
+  assert.notEqual(a, b);
+});
+
+test('쓰기 무효화 — 쓰기 뒤 읽기는 진행 중이던 옛 읽기와 합치지 않고, 옛 읽기는 메모되지 않는다', async () => {
+  const c = createReadCoalescer();
+  const old = deferred<string>();
+  let calls = 0;
+  const p1 = c.get('k', () => { calls++; return old.promise; });
+  await Promise.resolve();
+  c.invalidate(['k']);                      // /set 이 들어왔다
+  const p2 = c.get('k', async () => { calls++; return big('new'); });
+  old.resolve(big('old'));
+  assert.ok((await p1).includes('old'));
+  assert.ok((await p2).includes('new'));
+  assert.equal(calls, 2);
+  // 메모에는 새 값만 남는다
+  assert.ok((await c.get('k', async () => { calls++; return big('third'); })).includes('new'));
+  assert.equal(calls, 2);
+});
+
+test('쓰기는 그 키의 메모를 지운다', async () => {
+  const c = createReadCoalescer();
+  let n = 0;
+  const read = async () => big('v' + ++n);
+  await c.get('k', read);
+  c.invalidate(['k']);
+  assert.ok((await c.get('k', read)).includes('v2'));
+});
+
+test('읽기 실패는 합쳐진 요청 모두에 전달되고 다음 요청은 새로 읽는다', async () => {
+  const c = createReadCoalescer();
+  const d = deferred<string>();
+  const ps = [c.get('k', () => d.promise), c.get('k', () => d.promise)];
+  d.reject(new Error('ECONNRESET'));
+  for (const p of ps) await assert.rejects(p, /ECONNRESET/);
+  assert.equal(await c.get('k', async () => '{"result":null}'), '{"result":null}');
+});
+
+test('MGET 은 같은 키 목록끼리만 합치고, 포함된 키가 쓰이면 풀린다', async () => {
+  const c = createReadCoalescer();
+  const d = deferred<string>();
+  let calls = 0;
+  const r = () => { calls++; return d.promise; };
+  const p1 = c.mget(['a', 'b'], r);
+  const p2 = c.mget(['a', 'b'], r);
+  const p3 = c.mget(['a', 'c'], async () => { calls++; return '{"results":[]}'; });
+  await Promise.resolve();
+  c.invalidate(['b']);
+  const p4 = c.mget(['a', 'b'], async () => { calls++; return '{"results":[2]}'; });
+  d.resolve('{"results":[1]}');
+  assert.deepEqual(await Promise.all([p1, p2, p3, p4]), ['{"results":[1]}', '{"results":[1]}', '{"results":[]}', '{"results":[2]}']);
+  assert.equal(calls, 3);
+});
+
+test('메모 총량 상한 — 오래된 것부터 버린다', async () => {
+  const c = createReadCoalescer({ memoMaxBytes: 1400 * 1024 });
+  await c.get('a', async () => big('a'));
+  await c.get('b', async () => big('b'));
+  await c.get('c', async () => big('c'));
+  const s = c.snapshot();
+  assert.equal(s.memoKeys, 2);
+  assert.ok(s.memoBytes <= 1400 * 1024);
+  let calls = 0;
+  await c.get('a', async () => { calls++; return big('a2'); });
+  assert.equal(calls, 1);
+});
+
+test('프록시가 모듈을 불러 /get·/mget·쓰기 경로에 연결했다', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const src: string = require('node:fs').readFileSync(require('node:path').join(__dirname, '../scripts/ec2-redis-proxy.js'), 'utf8');
+  assert.match(src, /coalescer\.get\(key, read, gone\)/);
+  assert.match(src, /coalescer\.mget\(keys, read, gone\)/);
+  // 쓰기 경로 5곳(/set-if-newer·cash-close·/set·/mset·/del) 모두 쓰기 전·후 무효화
+  assert.equal((src.match(/coalescer\.invalidate\(/g) || []).length, 10);
+  // 모듈이 없어도 뜬다(직접 읽기)
+  assert.match(src, /read coalescer unavailable/);
+});
+
+test('서로 다른 키 읽기는 동시에 maxConcurrent 개까지만 Redis 에 건다(나머지는 프록시 대기열)', async () => {
+  const c = createReadCoalescer({ maxConcurrent: 3 });
+  let active = 0, peak = 0;
+  const read = async () => { active++; peak = Math.max(peak, active); await new Promise((r) => setTimeout(r, 5)); active--; return '{"result":1}'; };
+  const out = await Promise.all(Array.from({ length: 40 }, (_, i) => c.get('intrinio:chain:T' + i, read)));
+  assert.equal(out.length, 40);
+  assert.equal(peak, 3);
+  const s = c.snapshot();
+  assert.equal(s.active, 0);
+  assert.equal(s.queued, 0);
+  assert.ok(s.queuedPeak >= 30);
+});
+
+test('대기열에서 실패해도 자리가 반납된다', async () => {
+  const c = createReadCoalescer({ maxConcurrent: 1 });
+  await assert.rejects(c.get('a', async () => { throw new Error('boom'); }), /boom/);
+  assert.equal(await c.get('b', async () => '{"result":2}'), '{"result":2}');
+  assert.equal(c.snapshot().active, 0);
+});
+
+test('MGET 식별자는 키 경계를 보존한다(구분자 충돌로 다른 목록이 합쳐지지 않는다)', async () => {
+  const c = createReadCoalescer();
+  const d = deferred<string>();
+  const p1 = c.mget(['a\u0000b', 'c'], () => d.promise);
+  const p2 = c.mget(['a', 'b\u0000c'], async () => '{"results":["second"]}');
+  const p3 = c.mget(['a,b', 'c'], async () => '{"results":["third"]}');
+  d.resolve('{"results":["first"]}');
+  assert.deepEqual(await Promise.all([p1, p2, p3]), ['{"results":["first"]}', '{"results":["second"]}', '{"results":["third"]}']);
+});
+
+test('메모 용량은 UTF-16 기준(한글 값 과소 계산 없음)', async () => {
+  const c = createReadCoalescer({ memoMinBytes: 10, memoMaxBytes: 1000 });
+  await c.get('ko', async () => '가'.repeat(400));   // 800바이트로 계산 → 들어간다
+  assert.equal(c.snapshot().memoBytes, 800);
+  await c.get('ko2', async () => '나'.repeat(400));  // 합 1600 > 1000 → 오래된 것 버림
+  assert.equal(c.snapshot().memoKeys, 1);
+  await c.get('ko3', async () => '다'.repeat(600));  // 1200 > 상한 → 메모 안 함
+  assert.ok(c.snapshot().memoBytes <= 1000);
+});
+
+test('대기 중 호출자가 모두 끊긴 읽기는 Redis 를 부르지 않고 자리를 넘긴다', async () => {
+  const c = createReadCoalescer({ maxConcurrent: 1 });
+  const hold = deferred<string>();
+  const first = c.get('busy', () => hold.promise);
+  let calls = 0;
+  let goneA = false;
+  const a = c.get('a', async () => { calls++; return '{"result":"a"}'; }, () => goneA);
+  const b = c.get('b', async () => { calls++; return '{"result":"b"}'; }, () => false);
+  // 'a' 를 두 호출자가 기다린다 — 하나만 끊기면 읽는다
+  let goneA2 = false;
+  const a2 = c.get('a', async () => { calls++; return 'never'; }, () => goneA2);
+  goneA = true; goneA2 = true;                       // 둘 다 끊김
+  hold.resolve('{"result":"busy"}');
+  await first;
+  await assert.rejects(a, /all callers gone/);
+  await assert.rejects(a2, /all callers gone/);
+  assert.equal(await b, '{"result":"b"}');
+  assert.equal(calls, 1);
+  assert.equal(c.snapshot().skippedGone, 1);
+  assert.equal(c.snapshot().active, 0);
+});
+
+test('호출자 중 하나라도 남아 있으면 읽는다', async () => {
+  const c = createReadCoalescer({ maxConcurrent: 1 });
+  const hold = deferred<string>();
+  const first = c.get('busy', () => hold.promise);
+  const a = c.get('a', async () => '{"result":"a"}', () => true);
+  const a2 = c.get('a', async () => 'never', () => false);
+  hold.resolve('{"result":"busy"}');
+  await first;
+  assert.equal(await a, '{"result":"a"}');
+  assert.equal(await a2, '{"result":"a"}');
+});
+
+test('대기열 상한을 넘으면 즉시 거절(무한 대기열 없음)', async () => {
+  const c = createReadCoalescer({ maxConcurrent: 1, maxQueue: 2 });
+  const hold = deferred<string>();
+  const first = c.get('h', () => hold.promise);
+  const q1 = c.get('q1', async () => '1');
+  const q2 = c.get('q2', async () => '2');
+  await Promise.resolve(); await Promise.resolve();
+  await assert.rejects(c.get('q3', async () => '3'), /proxy busy/);
+  hold.resolve('h');
+  assert.deepEqual(await Promise.all([first, q1, q2]), ['h', '1', '2']);
+  assert.equal(c.snapshot().rejectedBusy, 1);
+});
+
+test('대기열이 찼을 때 끊긴 대기 항목은 즉시 빠지고 새 정상 요청을 받는다', async () => {
+  const c = createReadCoalescer({ maxConcurrent: 1, maxQueue: 2 });
+  const hold = deferred<string>();
+  const first = c.get('h', () => hold.promise);
+  let gone = false;
+  const g1 = c.get('g1', async () => 'never', () => gone);
+  const g2 = c.get('g2', async () => 'never', () => gone);
+  await Promise.resolve(); await Promise.resolve();
+  gone = true;
+  const fresh = c.get('fresh', async () => '{"result":"ok"}', () => false);
+  await assert.rejects(g1, /all callers gone/);
+  await assert.rejects(g2, /all callers gone/);
+  hold.resolve('h');
+  assert.equal(await first, 'h');
+  assert.equal(await fresh, '{"result":"ok"}');
+  const s = c.snapshot();
+  assert.equal(s.rejectedBusy, 0);
+  assert.equal(s.active, 0);
+  assert.equal(s.queued, 0);
+});
