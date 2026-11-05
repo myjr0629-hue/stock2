@@ -17,6 +17,7 @@ import { getEarningsWeek } from '@/services/earningsWeekService';
 import { COPY, EW_LOCALES, appLink, rangeText, toLoc, type Loc } from '@/lib/earningsWeek';
 import { asOfLineOf, countsOf, topLineOf, viewRow } from '@/lib/earningsWeekView';
 import { EarningsWeekShare } from '@/components/share/EarningsWeekShare';
+import { EarningsWeekSubscribe } from '@/components/earnings/EarningsWeekSubscribe';
 
 // (layout 이 headers() 를 읽어 매 요청 동적 렌더다 — 신선도는 서비스의 60초 메모 + 마지막 정상본이 정한다)
 export const dynamic = 'force-dynamic';
@@ -94,6 +95,11 @@ const CSS = `
 .ew-more a{font-size:13.5px;font-weight:700;color:#17191E;text-decoration:none;border:1px solid #E7E3DA;border-radius:999px;padding:5px 12px;background:#fff}
 .ew-foot{font-size:12px;color:#9AA3AD;margin-top:26px;border-top:1px solid #EEE9E0;padding-top:14px}
 .ew-foot p{margin:0 0 4px}
+.ew-subscribe{margin-top:26px;padding:18px;background:#FAF8F3;border:1px solid #E7E3DA;border-radius:14px}
+.ew-subscribe h2{font-size:16px;line-height:1.4;margin:0 0 12px;font-weight:900}
+.ew-subscribe-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ew-subscribe-actions a{text-decoration:none}
+.ew-subscribe-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 16px;border-radius:10px;background:#C2410C;color:#fff;font-size:14px;font-weight:800}
 @media (min-width:760px){
   .ew{padding-top:36px}
   .ew-h1{font-size:34px}
@@ -282,6 +288,8 @@ export default async function EarningsWeekPage({ params }: Params) {
         {verifiedAt && <p>{c.verified({ at: verifiedAt })}</p>}
         <p>{c.disc}</p>
       </footer>
+
+      <EarningsWeekSubscribe locale={l} />
     </main>
   );
 }
