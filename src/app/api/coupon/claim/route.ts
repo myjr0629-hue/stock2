@@ -4,7 +4,7 @@ import { recordClick, clickDevice } from '@/lib/marketing/clickHuman';
 import { androidCouponLive, androidDailyCap, playRedeemUrl } from '@/lib/marketing/coupon';
 import { GIFT_FROM, normalizeGiftRef } from '@/lib/gift/gift';
 import { recordGiftRef } from '@/lib/gift/giftClick';
-import { claimPlayCoupon, claimDenyReason, clientIp, ipHash, upstashCouponStore, type ClaimOutcome } from '@/lib/marketing/couponClaim';
+import { COUPON_CLAIMED_COOKIE, COUPON_CLAIMED_MAX_AGE, claimPlayCoupon, claimDenyReason, clientIp, couponIpSecret, ipHash, upstashCouponStore, type ClaimOutcome } from '@/lib/marketing/couponClaim';
 
 // ============================================================================
 // POST /api/coupon/claim — 안드로이드 쿠폰 화면의 «내 쿠폰 받기» (2026-10-05, 브랜치 feat/coupon-ux)
@@ -55,14 +55,19 @@ export async function POST(req: NextRequest) {
 
   let r: ClaimOutcome;
   try {
-    const secret = process.env.COUPON_IP_SALT || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
+    const secret = couponIpSecret();
     r = await claimPlayCoupon(store, { ipHash: ipHash(ip, secret), from, appleCode, cap: androidDailyCap() });
   } catch {
     note('err');
     return out(503, { ok: false, reason: 'unavailable' });
   }
   note(r.kind);
-  if (r.kind === 'new' || r.kind === 'again') return out(200, { ok: true, code: r.code, url: playRedeemUrl(r.code), again: r.kind === 'again' });
+  if (r.kind === 'new' || r.kind === 'again') {
+    const res = out(200, { ok: true, code: r.code, url: playRedeemUrl(r.code), again: r.kind === 'again' });
+    // ★2026-11-05 «받았다» 표식(값 1, 식별자 없음) — 풀이 비어도 /app 의 쿠폰 화면을 다시 열어 저장된 번호를 본다(app/route.ts)
+    res.cookies.set(COUPON_CLAIMED_COOKIE, '1', { path: '/app', maxAge: COUPON_CLAIMED_MAX_AGE, httpOnly: true, secure: true, sameSite: 'lax' });
+    return res;
+  }
   if (r.kind === 'cap') return out(429, { ok: false, reason: 'cap', resetAt: r.resetAt });
   return out(410, { ok: false, reason: 'empty' });
 }

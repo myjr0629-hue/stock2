@@ -183,14 +183,33 @@ export function upstashCouponStore(timeoutMs = 3000): CouponStore | null {
   };
 }
 
-/** 쿠폰 화면 노출 전 재고만 확인한다. 설정 누락·조회 실패는 호출자가 설치로 보낸다. */
-export async function playCouponAvailable(): Promise<boolean> {
+// ── ★2026-11-05 /app 쿠폰 화면 «애플 코드와 분리»(feat/android-coupon-decouple-1105) ─────────────
+/** 쿠폰을 받은 브라우저 표식(배정 API 가 남긴다) — 풀이 비어도 이미 받은 사람은 쿠폰 화면(기기 저장 번호·24시간 재표시)을 다시 본다. 값 없음·식별자 없음. */
+export const COUPON_CLAIMED_COOKIE = 'sg_cpn';
+export const COUPON_CLAIMED_MAX_AGE = 40 * 24 * 3600;   // 쿠폰 화면의 기기 저장 번호 보존(40일)과 같다
+/** IP 해시 열쇠 — 배정 API 와 /app 이 같은 값을 쓴다 */
+export const couponIpSecret = (): string => process.env.COUPON_IP_SALT || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
+
+/**
+ * 애플 코드가 «살아 있지 않은» /app 링크(코드 없음·끝난 코드)에서 안드로이드 쿠폰 화면을 보여 줄까 — 배정은 하지 않는다(읽기만).
+ *   · 받은 표식 쿠키가 있으면 true(저장소 조회 없음) — 풀이 비어도 이미 받은 사람의 재열람은 그대로
+ *   · 아니면 Upstash 한 번(파이프라인): 풀 잔량 > 0 이거나 이 IP 가 24시간 안에 받은 번호가 있으면 true
+ *   · 설정 없음·시간 초과·오류 = false(호출자는 예전 동작 — Play 302·앱 안 브라우저 안내 화면)
+ */
+export async function playCouponScreenEligible(opts: { claimed: boolean; ip: string | null; timeoutMs?: number; vercelEnv?: string }): Promise<boolean> {
+  if (opts.claimed) return true;
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
   if (!url || !token) return false;
   try {
-    const redis = new Redis({ url, token, enableTelemetry: false, retry: false, signal: () => AbortSignal.timeout(3000) });
-    const count = await redis.scard(couponKeys().pool);
-    return Number.isSafeInteger(count) && count > 0;
+    const timeoutMs = opts.timeoutMs ?? 1000;
+    const r = new Redis({ url, token, automaticDeserialization: false, enableTelemetry: false, retry: false, signal: () => AbortSignal.timeout(timeoutMs) });
+    const k = couponKeys(opts.vercelEnv);
+    const p = r.pipeline().scard(k.pool);
+    if (opts.ip) p.exists(k.ip(ipHash(opts.ip, couponIpSecret())));
+    const [count, mine] = await p.exec<[number, number?]>();
+    const n = Number(count), m = Number(mine ?? 0);
+    if (!Number.isSafeInteger(n) || !Number.isSafeInteger(m)) return false;
+    return n > 0 || m > 0;
   } catch { return false; }
 }
