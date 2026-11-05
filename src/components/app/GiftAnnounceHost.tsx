@@ -14,6 +14,7 @@ import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { useGiftConfig } from '@/lib/gift/useGift';
 import { useGiftMoment } from '@/lib/gift/useGiftMoment';
+import { loadReannounceConfig } from '@/lib/gift/reannounceConfig';
 import { reviewRequestedAt } from '@/hooks/useReviewPrompt';
 import { shareBeacon, shareVia } from '@/lib/share/share';
 import {
@@ -53,14 +54,7 @@ export function GiftAnnounceHost() {
   const pathname = usePathname();
   const [locale, setLocale] = useState<string | null>(null);
   const [reannounce, setReannounce] = useState<boolean | null>(null);
-  useEffect(() => {
-    let dead = false;
-    void fetch('/api/gift/reannounce-config', { cache: 'no-store' })
-      .then((r) => r.ok ? r.json() : null)
-      .then((v) => { if (!dead) setReannounce(v?.enabled === true); })
-      .catch(() => { if (!dead) setReannounce(false); });
-    return () => { dead = true; };
-  }, []);
+  useEffect(() => loadReannounceConfig(setReannounce), []);
 
   // ④ 실행 시작 때 값을 마운트 직후 한 번 고정한다(첫 안내 오버레이가 «마침»을 쓰기 전에)
   useEffect(() => { onboardedAtStart(); }, []);
