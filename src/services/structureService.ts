@@ -25,7 +25,7 @@ export {
 } from "@/lib/optionLevelGate";
 export type { OptionLevels, DisplayLevels, LevelField, LevelProfile } from "@/lib/optionLevelGate";
 
-import { atmStraddleImpliedMove, wallRangePct } from "@/lib/impliedMove";
+import { atmStraddleImpliedMove, holdSessionLiveMove, wallRangePct } from "@/lib/impliedMove";
 import { isTradingDay, readSessionArchiveMany, saveSessionArchive } from "@/lib/sessionArchive";
 
 // 레벨은 만기일 정규장 마감에 굴린다. 계약 흐름과 같은 달력을 쓴다.
@@ -271,6 +271,7 @@ function scheduleRefresh(ticker: string, opts: { reason: string; prevChainDate?:
             prevOiSum: Number.isFinite(Number(cur?.data?.debug?.todayOI)) ? Number(cur!.data.debug.todayOI) : null,
             prevStatus: cur?.data?.options_status ?? opts.prevStatus ?? null,
             prevHasGamma: Array.isArray(cur?.data?.structure?.gexCum) && cur!.data.structure.gexCum.some((x: any) => x != null),
+            prevImpliedMove: cur?.data?.impliedMove ?? null,
         };
         try {
             await getStructureData(t, null, null, true, run);
@@ -293,6 +294,8 @@ export type ComputeOpts = {
     expectChainDate?: string | null;
     /** 사전 갱신 전용 — 체인이 덜 왔거나(만기 누락·잘림·벤더 실패) 옵션 상태가 OK 가 아니면 저장하지 않는다(관문이 닫히며 일부 호출이 실패해도 정상 판본을 덮지 않게). OI 일부 null(oi_missing)은 막지 않는다. */
     noPartialStore?: boolean;
+    /** [11/6 T43] 지금 판본의 impliedMove(호출자가 이미 읽었을 때만 — 없으면 필요할 때 판본을 읽는다). 세션 단조 판정용. */
+    prevImpliedMove?: any;
 };
 
 /** 판본 읽기 한 종목분 — vendorEod = 같은 mget 으로 읽은 «공급사 최신 체인 날짜»(levels:vendor-eod — 공급사 지연 판정의 기준) */
@@ -1502,6 +1505,21 @@ async function getStructureDataImpl(
             computeOpts.stored = false;
             return { ...successResponse, levelsAsOf: now };
         }
+        // [11/6 T43] 예상폭 세션 단조 — 새 계산이 지금 판본의 실시간 값보다 이른 세션(마감 직후 실시간 다리가 빠져 전일 EOD 쌍)이거나
+        //   값이 없으면 지금 판본의 그 세션 실시간 값을 그대로 둔다(lib/impliedMove.holdSessionLiveMove). 같은 세션 EOD 가 나오면 EOD 로 넘어간다.
+        //   판본 읽기는 «되돌아갈 수 있는» 계산(값 없음·세션 모름·지금 보여 줄 정규장보다 이른 세션)일 때만 GET 1회 — 갱신 경로는 이미 읽은
+        //   판본(prevImpliedMove)을 넘겨 같은 세션 실시간의 관측 시각 순서까지 맞춘다. 새 키·쓰기 증가 0.
+        const nextSession = (impliedMove as any)?.session ?? null;
+        const mayRegress = !impliedMove || !nextSession || nextSession < shownRegularSessionDate(now);
+        if (mayRegress || computeOpts.prevImpliedMove !== undefined) {
+            const cur = computeOpts.prevImpliedMove !== undefined ? { data: { impliedMove: computeOpts.prevImpliedMove } }
+                : await getFromCache<StoredVersion>(structureV2Key(String(ticker).toUpperCase())).catch(() => null);
+            const held = holdSessionLiveMove(cur?.data?.impliedMove ?? null, impliedMove, targetExpiry || null, now);
+            if (held !== impliedMove) {
+                console.log(`[structure] ${ticker}: 예상폭 ${impliedMove ? `${impliedMove.pct}(${impliedMove.basis} ${nextSession})` : '없음'} 대신 같은 만기 실시간 ${held!.pct}(${held!.session}) 유지`);
+                (successResponse as any).impliedMove = held;
+            }
+        }
         computeOpts.stored = await storeVersion(ticker, successResponse, now, computeOpts.prevChainDate);
         // 수집 경로의 감지 — 공급사 최신 체인 날짜를 앞으로 밀고, 이 종목만 공급사 체인이 늦었으면 기록·로그 한 줄(EC2 전용 키)
         if (computeOpts.stored) await noteStoredChain(ticker, successResponse, now);
@@ -1823,6 +1841,7 @@ export async function refreshStructureForWarm(ticker: string, opts: { expectChai
             prevHasGamma: Array.isArray(cur?.data?.structure?.gexCum) && cur!.data.structure.gexCum.some((x: any) => x != null),
             expectChainDate: opts.expectChainDate,
             noPartialStore: true,
+            prevImpliedMove: cur?.data?.impliedMove ?? null,
         };
         const d: any = await getStructureData(t, null, null, true, run);
         return {

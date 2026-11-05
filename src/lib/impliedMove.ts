@@ -115,8 +115,36 @@ function typeOf(c: any): 'call' | 'put' | null {
     return t === 'call' || t === 'put' ? t : null;
 }
 
+/**
+ * [11/6 T43] 한 계약 midpoint 의 «출처» — 'live' 실시간 FMV · 'eod' 공급사 EOD(mark·마감 호가 중간) · null 모름(체인 수준 표식에 맡김).
+ *
+ * [사고] 11/5 마감 직후 AXON 11/6 만기 예상폭이 14.0 → 12.5 → 13.9(basis live·세션 11/5)로 흔들렸다. 12.5 는 11/4 EOD 스트래들이었다.
+ *   공급사 실시간 그릭스가 일부 계약에만 실릴 때(마감 직후·페이지 상한), 실시간이 빠진 계약의 midpoint 는 전일 EOD mark(또는 마감 호가
+ *   중간)로 채워진다. 그런데 ① 수집기 슬림 체인은 계약별 표식이 없어 체인 수준 «realtime» 표식이 그 다리까지 실시간으로 만들었고
+ *   ② 직접 경로(_rtGreeks)는 mark 가 비면 vwap=전일 종가 · midpoint=마감 호가 중간이라 «midpoint ≠ mark» 검사를 통과했다.
+ * [규칙] 실시간은 «그 계약이 실시간이라는 증거»가 있을 때만:
+ *   · _quoteSource('live'|'eod') — 수집기 어댑터가 synthetic_price 유무로 직접 적는다(있으면 그것이 정답)
+ *   · _rtGreeks true — midpoint 가 EOD mark 와도, 마감 호가 중간과도 다를 때만 실시간(같으면 실시간 FMV 가 빠져 EOD 로 떨어진 값)
+ *   · _rtGreeks false — EOD
+ *   · 계약별 표식 없는 수집기 체인 — ivSourceDate(실시간 IV 가 없어 EOD IV 를 쓴 날짜)가 있으면 그 계약엔 실시간 덮어쓰기가 없었다 → EOD
+ *   · 그 밖(옛 체인) — null(호출자의 체인 수준 표식 quotesLive 로 판정 — 예전 그대로)
+ */
+export function contractQuoteSource(c: any): ImpliedMoveBasis | null {
+    if (c?._quoteSource === 'live' || c?._quoteSource === 'eod') return c._quoteSource;
+    if (c?._rtGreeks === true) {
+        const mid = pos(c?.last_quote?.midpoint);
+        const mark = pos(c?.day?.vwap);
+        const bid = pos(c?.last_quote?.bid), ask = pos(c?.last_quote?.ask);
+        const closeQuoteMid = bid != null && ask != null && ask >= bid ? (bid + ask) / 2 : null;
+        return mid != null && (mark == null || mid !== mark) && (closeQuoteMid == null || mid !== closeQuoteMid) ? 'live' : 'eod';
+    }
+    if (c?._rtGreeks === false) return 'eod';
+    if (typeof c?.ivSourceDate === 'string' && ISO_DATE.test(c.ivSourceDate)) return 'eod';
+    return null;
+}
+
 /** 한 다리의 가격 후보 — 기준(live/eod)이 섞이지 않게 따로 든다 */
-function legPrices(c: any, quotesLive: boolean | null | undefined, tradeBasis: ImpliedMoveBasis | undefined) {
+function legPrices(c: any, quotesLive: boolean | null | undefined, tradeBasis: ImpliedMoveBasis | undefined, chainDate: string | null) {
     const mid = pos(c?.last_quote?.midpoint);
     // Intrinio 체인: day.vwap = EOD mark, last_quote.bid/ask = 전일 종가 호가(close_bid/close_ask)
     const mark = pos(c?.day?.vwap);
@@ -124,12 +152,14 @@ function legPrices(c: any, quotesLive: boolean | null | undefined, tradeBasis: I
     const closeQuoteMid = bid != null && ask != null && ask >= bid ? (bid + ask) / 2 : null;
     let live: number | null = null;
     let eod: number | null = null;
-    if (c?._rtGreeks === true) {
-        // 실시간 FMV 가 비면 midpoint 가 EOD mark 로 떨어진다 — mark 와 같으면 실시간이 아니다
-        if (mid != null && (mark == null || mid !== mark)) live = mid;
+    const src = contractQuoteSource(c);
+    if (src === 'live') {
+        live = mid;
         eod = mark ?? closeQuoteMid;
-    } else if (c?._rtGreeks === false) {
+    } else if (src === 'eod') {
         eod = mid ?? mark ?? closeQuoteMid;
+        // 계약별 표식 없는 수집기 체인: 그 다리의 EOD 날짜(ivSourceDate)가 체인 날짜와 다르면 어느 세션 값인지 확정할 수 없다 — 쓰지 않는다
+        if (c?._quoteSource == null && c?._rtGreeks == null && chainDate && c.ivSourceDate !== chainDate) eod = null;
     } else if (quotesLive === true) {
         live = mid;
     } else {
@@ -195,10 +225,11 @@ export function atmStraddleImpliedMove(chain: any[], spot: number, opts: Straddl
         .sort((a, b) => Math.abs(a - S) - Math.abs(b - S) || a - b);
 
     // 3) 가까운 행사가부터 — 두 다리가 «같은 기준»으로 값이 있는 첫 행사가(실시간 → EOD)
+    const optChainDate = typeof opts.chainDate === 'string' && ISO_DATE.test(opts.chainDate) ? opts.chainDate : null;
     for (const k of strikes.slice(0, MAX_STRIKES_TRIED)) {
         const slot = byStrike.get(k)!;
-        const c = legPrices(slot.call, opts.quotesLive, opts.tradePriceBasis);
-        const p = legPrices(slot.put, opts.quotesLive, opts.tradePriceBasis);
+        const c = legPrices(slot.call, opts.quotesLive, opts.tradePriceBasis, optChainDate);
+        const p = legPrices(slot.put, opts.quotesLive, opts.tradePriceBasis, optChainDate);
         let pair: { call: number; put: number; basis: ImpliedMoveBasis } | null = null;
         if (c.live != null && p.live != null) pair = { call: c.live, put: p.live, basis: 'live' };
         else if (!opts.liveOnly && c.eod != null && p.eod != null) pair = { call: c.eod, put: p.eod, basis: 'eod' };
@@ -283,6 +314,36 @@ export function impliedMoveFields(im: ImpliedMove | null | undefined, opts: { li
         impliedMoveDef: IMPLIED_MOVE_DEF,
         impliedMoveSession: session,
     };
+}
+
+/** 붙들어 둘 수 있는 실시간 값의 최대 나이(관측 시각 기준) — 판본 TTL(72시간)과 주말을 넘지 않게 */
+const HOLD_MAX_AGE_MS = 4 * 86_400_000;
+
+/**
+ * [11/6 T43] 세션 단조 — 같은 만기의 판본을 새로 저장할 때, 새 계산이 «지금 저장된 실시간 값의 세션»보다 이른 세션 값(또는 값 없음)이면
+ *   그 실시간 값을 그대로 둔다(관측 시각 asOf·basis live 그대로 — 화면은 장이 끝나면 «11/5 장중» 꼬리표).
+ *   · 새 계산이 더 새 세션 → 새 값
+ *   · 같은 세션의 EOD(장 마감 뒤 마감 호가·정규장 밖 실시간 → eod) → 새 값(그 세션의 최종값)
+ *   · 같은 세션의 실시간 → 관측 시각이 같거나 더 늦을 때만 새 값
+ *   · 값 없음·세션 모름·더 이른 세션(마감 직후 실시간 다리가 빠져 전일 EOD 쌍으로 떨어진 계산) → 지금 값 유지
+ *   만기가 다르거나 지났거나, 지금 값이 실시간이 아니거나 4일 넘었으면 새 값 그대로. 순수 함수(시험: tests/impliedMove.test.ts).
+ */
+export function holdSessionLiveMove(prev: ImpliedMove | null | undefined, next: ImpliedMove | null, expiry: string | null, nowMs: number = Date.now()): ImpliedMove | null {
+    if (!prev || prev.def !== IMPLIED_MOVE_DEF || prev.basis !== 'live' || !(pos(prev.pct) != null)) return next;
+    const prevAt = pos(prev.asOf);
+    const prevSession = typeof prev.session === 'string' && ISO_DATE.test(prev.session) ? prev.session : null;
+    if (prevAt == null || !prevSession || !expiry || prev.expiry !== expiry) return next;
+    if (isOptionExpiredAt(prev.expiry, nowMs) || nowMs - prevAt > HOLD_MAX_AGE_MS || prevAt > nowMs + 60_000) return next;
+    const nextSession = next && typeof next.session === 'string' && ISO_DATE.test(next.session) ? next.session : null;
+    if (next && next.def === IMPLIED_MOVE_DEF && pos(next.pct) != null && nextSession && next.expiry === expiry) {
+        if (nextSession > prevSession) return next;
+        if (nextSession === prevSession) {
+            if (next.basis === 'eod') return next;
+            const nextAt = pos(next.asOf);
+            return nextAt != null && nextAt >= prevAt ? next : prev;
+        }
+    }
+    return prev;
 }
 
 /** 옵션 정규장(거래일 09:30~16:15 ET — 지수·ETF 옵션 일부가 16:15 까지) 안인가 */

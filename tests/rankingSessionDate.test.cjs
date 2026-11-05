@@ -374,7 +374,7 @@ function structureService(input, probe = null) {
         },
         '@/lib/app/watchlistInsights': { isTooStaleLevels: () => false },
         '@/lib/levelsSupplierDelay': { staleFields: () => ({}), chainFetchedAt: () => now },
-        '@/lib/impliedMove': { atmStraddleImpliedMove: () => null, wallRangePct: () => null },
+        '@/lib/impliedMove': { atmStraddleImpliedMove: () => null, holdSessionLiveMove: (_prev, next) => next, wallRangePct: () => null },
         '@/lib/sessionArchive': { isTradingDay: () => false },
     });
     const service = compile(source, imports, { console: { log() {}, warn() {}, error() {} } });
