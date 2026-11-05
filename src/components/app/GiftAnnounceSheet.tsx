@@ -18,7 +18,7 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet';
 import { GIFT_COPY, toGiftLang } from '@/lib/gift/gift';
 import { useGiftShare } from '@/lib/gift/useGift';
-import { GIFT_ANNOUNCE_COPY, keepTogether } from '@/lib/gift/giftAnnounce';
+import { GIFT_ANNOUNCE_COPY, GIFT_REANNOUNCE_TITLE, keepTogether } from '@/lib/gift/giftAnnounce';
 
 /** 묶음은 한 줄에 — 나머지는 평소처럼 줄을 바꾼다 */
 function Kept({ text, keep }: { text: string; keep: string[] }) {
@@ -29,7 +29,6 @@ export function GiftAnnounceSheet({ locale, onClose, reannounce = false }: { loc
   const lang = toGiftLang(locale);
   const c = GIFT_COPY[lang];
   const a = GIFT_ANNOUNCE_COPY[lang];
-  const weekly = { ko: '이번 주 주식 실적 채점을 확인하고, 친구에게 PRO 1개월을 선물하세요', en: 'Check this week’s stock earnings scorecard and gift a friend 1 month of PRO', ja: '今週の株式決算の採点を確認して、友だちにPRO 1か月をプレゼント' };
   const { cfg, share, visibleRef } = useGiftShare(locale, 'gift_pop');
   const titleId = useId();
   const [copied, setCopied] = useState(false);
@@ -82,7 +81,7 @@ export function GiftAnnounceSheet({ locale, onClose, reannounce = false }: { loc
 
         <div className={p.head}>
           <span className={`${p.eyebrow} ${s.eyebrow}`}><GiftIcon size={13} />{a.eyebrow}</span>
-          <h1 className={p.title} id={titleId}><Kept text={reannounce ? weekly[lang] : c.title} keep={a.keep} /></h1>
+          <h1 className={p.title} id={titleId}><Kept text={reannounce ? GIFT_REANNOUNCE_TITLE[lang] : c.title} keep={a.keep} /></h1>
           <p className={`${p.lede} ${s.lede}`}><Kept text={cfg && !cfg.android ? c.subIosOnly : c.sub} keep={a.keep} /></p>
         </div>
 

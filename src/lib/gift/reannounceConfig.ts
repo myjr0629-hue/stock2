@@ -1,5 +1,7 @@
-/** 재안내 설정이 응답하지 않아도 기존 안내가 계속 진행되게 한다. */
-export function loadReannounceConfig(onResult: (enabled: boolean) => void, timeoutMs = 3000): () => void {
+import { GIFT_REANNOUNCE_TIMEOUT_MS } from './giftAnnounce';
+
+/** 재안내 설정 조회(3초 상한) — 늦거나 실패하면 false 로 한 번만 확정, 늦게 온 응답은 버린다. 기존 안내는 이 결과를 기다리지 않는다. */
+export function loadReannounceConfig(onResult: (enabled: boolean) => void, timeoutMs = GIFT_REANNOUNCE_TIMEOUT_MS): () => void {
   const controller = new AbortController();
   let done = false;
   const finish = (enabled: boolean) => {

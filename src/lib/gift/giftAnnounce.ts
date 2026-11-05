@@ -29,9 +29,6 @@ import { APP_SESSION_REVIEW } from '@/lib/app/reviewMoments';
 import type { GiftLang } from './gift';
 
 export const GIFT_ANNOUNCE_KEY = 'signumhq.gift.announce.v1';
-export const GIFT_REANNOUNCE_KEY = 'signumhq.gift.announce.1105';
-export const GIFT_REANNOUNCE_SWITCH = 'gift:announce:1105';
-export const GIFT_REANNOUNCE_GAP_MS = 24 * 3600_000;
 /** AppFirstRunOnboarding 의 STORAGE_KEY 와 같은 값('accepted' = 첫 안내를 마쳤다) */
 export const ONBOARDING_DONE_KEY = 'signumhq.app.onboarding.v1';
 export const GIFT_ANNOUNCE_DELAY_MS = 3500;
@@ -104,7 +101,6 @@ export interface AnnounceInput {
   moment?: boolean;
   /** 이번 실행에서 마지막으로 OS 평점 시트를 요청한 시각(ms, 없으면 0) */
   reviewAt?: number;
-  reannounce?: boolean;
 }
 
 export const isDashPath = (path: string): boolean => /\/app-view\/dash\/?$/.test(path);
@@ -116,17 +112,9 @@ export function giftAnnounceBlock(i: AnnounceInput): AnnounceBlock | null {
   if (!i.live) return 'off';
   const st = readAnnounceState(i.store);
   if (!st) return 'nostore';
-  let campaign: string | null;
-  try { campaign = i.store!.getItem(GIFT_REANNOUNCE_KEY); } catch { return 'nostore'; }
-  if (i.reannounce) {
-    if (campaign !== null) return 'cap';
-    if (st.last > 0 && i.now - st.last < GIFT_REANNOUNCE_GAP_MS) return 'gap';
-  } else {
-    if (st.stop) return 'stop';
-    if (st.n >= GIFT_ANNOUNCE_MAX) return 'cap';
-    if (st.n > 0 && i.now - st.last < GIFT_ANNOUNCE_GAP_MS) return 'gap';
-    if (campaign !== null && (!/^\d+$/.test(campaign) || i.now - Number(campaign) < GIFT_REANNOUNCE_GAP_MS)) return 'gap';
-  }
+  if (st.stop) return 'stop';
+  if (st.n >= GIFT_ANNOUNCE_MAX) return 'cap';
+  if (st.n > 0 && i.now - st.last < GIFT_ANNOUNCE_GAP_MS) return 'gap';
   if (!i.onboardedAtMount) return 'new';
   if (!i.moment && !isDashPath(i.path)) return 'route';
   try {
@@ -139,22 +127,64 @@ export function giftAnnounceBlock(i: AnnounceInput): AnnounceBlock | null {
 }
 
 /** 띄운 순간 표식(횟수 +1 · 시각) — 쓰기에 실패하면 false(호출자는 띄우지 않는다: 매번 뜨는 것보다 안 뜨는 게 낫다). */
-export function markGiftAnnounced(store: StoreLike | null, now = Date.now(), reannounce = false): boolean {
-  if (reannounce) {
-    if (!store) return false;
-    try {
-      if (store.getItem(GIFT_REANNOUNCE_KEY) !== null) return false;
-      const value = String(now);
-      store.setItem(GIFT_REANNOUNCE_KEY, value);
-      return store.getItem(GIFT_REANNOUNCE_KEY) === value;
-    } catch { return false; }
-  }
+export function markGiftAnnounced(store: StoreLike | null, now = Date.now()): boolean {
   const st = readAnnounceState(store);
   if (!store || !st) return false;
   const next = JSON.stringify(st.stop ? { n: st.n + 1, last: now, stop: 1 } : { n: st.n + 1, last: now });
   try {
     store.setItem(GIFT_ANNOUNCE_KEY, next);
     return store.getItem(GIFT_ANNOUNCE_KEY) === next;
+  } catch {
+    return false;
+  }
+}
+
+// ─── ★2026-11-05 재안내 회차 «이번 주 실적 채점 + 친구에게 PRO 1개월 선물» (기본 꺼짐 · EC2 Redis gift:announce:1105 = '1') ───
+//   기존 안내(위 ①~⑧·표식 GIFT_ANNOUNCE_KEY)와 «완전히 따로» 판정한다 — 기존 횟수·간격·중단 표식을 읽지도 쓰지도 않는다.
+//   스위치가 꺼졌거나 설정 조회가 늦거나(3초) 실패하면 이 경로는 아예 돌지 않는다 = 기존 안내 동작 그대로.
+//   둘이 겹치는 곳은 «한 실행 최대 1회»(GiftAnnounceHost 의 run.shown)뿐 — 같은 실행에 기존 안내가 떴으면 재안내는 다음 실행에.
+//   회차 표식 = 이 기기 localStorage GIFT_REANNOUNCE_KEY(띄운 시각) — 기기당 1회. 기존 표식의 중단·3회 한도는 이 회차에 적용하지 않는다.
+export const GIFT_REANNOUNCE_KEY = 'signumhq.gift.announce.1105';
+export const GIFT_REANNOUNCE_SWITCH = 'gift:announce:1105';
+/** 재안내 설정 조회 상한 — 넘기면 «재안내 없음» */
+export const GIFT_REANNOUNCE_TIMEOUT_MS = 3000;
+/** 재안내 제목(3개 언어, «미국 주식 앱» 관점) — 부제·단추·고지는 기존 안내 그대로 */
+export const GIFT_REANNOUNCE_TITLE: Record<GiftLang, string> = {
+  ko: '이번 주 미국 주식 실적 채점을 확인하고, 친구에게 PRO 1개월을 선물하세요',
+  en: 'Check this week’s US stock earnings scorecard and gift a friend 1 month of PRO',
+  ja: '今週の米国株の決算採点をチェックして、友だちにPRO 1か月をプレゼント',
+};
+
+/** 이 기기가 재안내를 이미 봤나(저장소가 막히면 null) */
+export function readReannounced(store: StoreLike | null): boolean | null {
+  if (!store) return null;
+  try { return store.getItem(GIFT_REANNOUNCE_KEY) !== null; } catch { return null; }
+}
+
+/** 재안내를 띄우면 안 되는 이유(없으면 null). 기존 표식은 보지 않는다 — 기기당 1회(cap) 뒤로는 ⑤~⑧ 기존 조건 그대로. */
+export function giftReannounceBlock(i: AnnounceInput): AnnounceBlock | null {
+  if (!i.live) return 'off';
+  const seen = readReannounced(i.store);
+  if (seen === null) return 'nostore';
+  if (seen) return 'cap';
+  if (!i.onboardedAtMount) return 'new';
+  if (!i.moment && !isDashPath(i.path)) return 'route';
+  try {
+    const n = parseInt(i.store!.getItem(APP_SESSION_REVIEW.storageKey) || '0', 10) || 0;
+    if ((APP_SESSION_REVIEW.milestones ?? []).includes(n)) return 'review';
+  } catch { /* 회차를 못 읽으면 겹침 검사만 건너뛴다 */ }
+  if (i.reviewAt && i.now - i.reviewAt < GIFT_REVIEW_QUIET_MS) return 'review';
+  if (i.dialogOpen) return 'busy';
+  return null;
+}
+
+/** 재안내 표식(띄운 시각) — 기존 표식은 건드리지 않는다. 이미 있거나 쓰고 다시 읽히지 않으면 false(띄우지 않는다). */
+export function markGiftReannounced(store: StoreLike | null, now = Date.now()): boolean {
+  if (readReannounced(store) !== false) return false;
+  const v = String(now);
+  try {
+    store!.setItem(GIFT_REANNOUNCE_KEY, v);
+    return store!.getItem(GIFT_REANNOUNCE_KEY) === v;
   } catch {
     return false;
   }

@@ -88,7 +88,9 @@ t('OS 평점 시트를 요청한 뒤 60초는 띄우지 않는다(인텔 열람 
   assert.equal(giftAnnounceBlock(base({ moment: true, path: '/ko/app-view/intel', reviewAt: NOW - 61_000 })), null);
   assert.equal(giftAnnounceBlock(base({ reviewAt: 0 })), null);
   const hook = read('src/hooks/useReviewPrompt.ts');
-  assert.match(hook, /if \(!milestones\.includes\(n\)\) return;\n\s*lastReviewRequestAt = Date\.now\(\) \+ delayMs;/);
+  // 11/5 평점 예약 재설계(관문 11050217·11050239) 뒤: 실제로 요청할 때 시각을 적고, 예약 중 시각도 읽힌다
+  assert.match(hook, /confirmedRequestAt = Date\.now\(\);\n\s*request\(\);/);
+  assert.match(hook, /reviewRequestedAt = \(\): number => Math\.max\(confirmedRequestAt, \.\.\.pendingRequests\.values\(\)\)/);
 });
 t('다른 시트·결제 창이 떠 있으면 미룬다', () => assert.equal(giftAnnounceBlock(base({ dialogOpen: true })), 'busy'));
 t('표식 — 띄울 때마다 횟수 +1·시각, 쓰고 다시 읽혀야 true(못 쓰면 띄우지 않는다)', () => {
