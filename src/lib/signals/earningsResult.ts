@@ -402,12 +402,19 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       const attempted = new Set<Claimed>();
       const outcomes = new Map<string, SendOutcome>();
       const sealTmo = Math.min(tmo, SEAL_TIMEOUT_MS);
-      /** 지평 뒤 굳힘 확정 읽기 — 이 회차의 굳힘 값이면 sealed · 그 밖(없음·다른 값)이면 not · 두 번 다 못 읽으면 unknown */
-      const readSeal = async (key: string): Promise<'sealed' | 'not' | 'unknown'> => {
+      /**
+       * 지평 뒤 굳힘 확정 읽기 — 한 번의 MGET 으로 묶음 전체를 같은 순간에 확정한다(기기마다 따로 읽으면 느린 기기가 다른 기기 발송을 붙잡거나 —
+       * 관문 11051018 — 기기마다 발송을 따로 불러 공급사 연결이 기기 수만큼 늘어난다 — 관문 11051020).
+       * 이 회차의 굳힘 값이면 sealed · 그 밖(없음·다른 값)이면 not · 두 번 다 못 읽으면 모두 unknown.
+       */
+      const readSeals = async (keys: string[]): Promise<Array<'sealed' | 'not' | 'unknown'>> => {
         for (let k = 0; k < 2; k++) {
-          try { return String(await withTimeout(deps.store.get(key), sealTmo)) === SENT_V ? 'sealed' : 'not'; } catch { /* 다시 한 번 */ }
+          try {
+            const vals = await withTimeout(deps.store.mget(keys), sealTmo);
+            return keys.map((_, i) => (String(vals[i]) === SENT_V ? 'sealed' : 'not'));
+          } catch { /* 다시 한 번 */ }
         }
-        return 'unknown';
+        return keys.map(() => 'unknown');
       };
       /**
        * 자리 지우기 — 이 회차가 쓴 값(선점·무장·굳힘)일 때만 지운다. 확인된 성공만 true(실패·시간 초과는 «반환 안 됨», 관문 11042212 #2) ·
@@ -474,12 +481,10 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
             await Promise.all([sendSealed(sealedLate), (async () => {
               if (!toRead.length) return;
               await horizon.done;
-              // 기기마다 읽기가 굳힘을 확인하는 «즉시» 그 기기를 보낸다 — 다른 기기의 느린 읽기를 기다리지 않는다(확정 → 발송 대기 0, 관문 11051018)
-              await Promise.all(toRead.map(async (c) => {
-                const v = await readSeal(c.key);
-                if (v === 'sealed') await sendSealed([c]);
-                else if (v === 'unknown') unknown.add(c);
-              }));
+              // 묶음 전체를 한 번에 확정하고 확인된 기기를 곧바로 한 번에 보낸다(확정 → 발송 대기 0 · 발송 호출 1회)
+              const read = await readSeals(toRead.map((c) => c.key));
+              toRead.forEach((c, i) => { if (read[i] === 'unknown') unknown.add(c); });
+              await sendSealed(toRead.filter((_, i) => read[i] === 'sealed'));
             })()]);
           };
           // 먼저 굳은 기기는 늦은 기기를 기다리지 않고 곧바로 보낸다(같은 시각에 늦은 기기 확정을 함께 진행)
