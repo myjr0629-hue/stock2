@@ -20,6 +20,7 @@ const ec2Writes: Array<{ key: string; ttl?: number }> = [];
 const upCmds: string[] = [];
 let upDown = false;
 let upHang = false;
+let upDelayMs = 0;
 const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
 function upRun(c: (string | number)[]): unknown {
   const op = String(c[0]).toUpperCase();
@@ -89,14 +90,34 @@ const NOW_AFTER = Date.parse('2026-10-13T21:30:00Z');
 const EXP = { pct: 3.2, method: 'monthly', straddlePct: 3.2, expiry: '2026-10-16', session: '2026-10-12', basis: 'eod', strike: 335, straddle: 10.58, spot: 334.3, capturedAt: 1, src: 'eod-chain' };
 const KEY = A.actualsKey('JPM', '2026-10-13');
 
-test('정책 — 발표일 기록 키만 EC2 미스 때 Upstash 사본을 읽는다(포인터·잠금·다른 접두사는 아님)', () => {
-  assert.equal(RC.shouldFallbackToUpstash(KEY, true), true);
-  assert.equal(RC.shouldFallbackToUpstash('earnings:actuals:v1:BRK.B:2026-11-01', true), true);
-  assert.equal(RC.shouldFallbackToUpstash(A.actualsLatestKey('JPM'), true), false, '포인터 미스는 Upstash 를 부르지 않는다(크롤러가 훑는 종목 페이지)');
-  assert.equal(RC.shouldFallbackToUpstash('earnings:actuals:v1:run-lock', true), false);
-  assert.equal(RC.shouldFallbackToUpstash('earnings:implied:v1:JPM', true), false);
+test('정책 — 사본은 읽지 않는 백업: EC2 미스여도 earnings:actuals 는 Upstash 를 읽지 않는다(읽기 경로 = main)', () => {
+  assert.equal(RC.shouldFallbackToUpstash(KEY, true), false);
+  assert.equal(RC.shouldFallbackToUpstash(A.actualsLatestKey('JPM'), true), false);
 });
 
+test('읽기 — EC2 미스인 기록은 사본이 있어도 비어 있다(main 과 같다) · Upstash 호출 0', async () => {
+  reset();
+  up.set(KEY, JSON.stringify({ v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 1 }));
+  const recs = await SVC.readActualRecords([{ ticker: 'JPM', date: '2026-10-13' }]);
+  assert.equal(recs.size, 0);
+  assert.equal(upCmds.length, 0);
+});
+
+test('★ 사고 대응 — restoreActualsFromMirror 는 EC2 에 «없는» 키만 사본 값으로 되살린다(있는 키·읽기 실패 키는 그대로)', async () => {
+  reset();
+  const k2 = A.actualsKey('C', '2026-10-13'), k3 = A.actualsKey('GS', '2026-10-13');
+  const rows = [{ key: KEY, value: { v: 1, tag: 'mirror-jpm' } }, { key: k2, value: { v: 1, tag: 'mirror-c' } }, { key: k3, value: { v: 1, tag: 'mirror-gs' } }, { key: 'earnings:actuals:v1:run-lock', value: '1' }];
+  ec2.set(k2, { v: 1, tag: 'ec2-c' });
+  const getStrict = async (k: string) => (k === k3 ? { ok: false, value: null } : { ok: true, value: ec2.get(k) ?? null });
+  const dry = await SVC.restoreActualsFromMirror({ dryRun: true, deps: { list: async () => rows, getStrict } });
+  assert.deepEqual(dry.restored, [KEY]); assert.equal(ec2.has(KEY), false, 'dry 는 쓰기 0');
+  const r = await SVC.restoreActualsFromMirror({ deps: { list: async () => rows, getStrict } });
+  assert.deepEqual(r.restored, [KEY]); assert.equal(r.present, 1); assert.deepEqual(r.readFailed, [k3]);
+  assert.deepEqual(ec2.get(KEY), { v: 1, tag: 'mirror-jpm' });
+  assert.deepEqual(ec2.get(k2), { v: 1, tag: 'ec2-c' }, 'EC2 값은 건드리지 않는다');
+  assert.equal(ec2Writes.find((w) => w.key === KEY)?.ttl, undefined, 'TTL 없음');
+  assert.equal(ec2.has('earnings:actuals:v1:run-lock'), false);
+});
 test('크론 쓰기 — EC2 에 TTL 없이 쓰고 같은 값을 Upstash 에도 둔다', async () => {
   reset();
   ec2.set(KEY, { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 1 });
@@ -106,17 +127,6 @@ test('크론 쓰기 — EC2 에 TTL 없이 쓰고 같은 값을 Upstash 에도 �
   const copy = JSON.parse(up.get(KEY) || 'null');
   assert.deepEqual(copy, ec2.get(KEY), 'Upstash 사본 = EC2 값');
   assert.equal(copy.expected.pct, 3.2); assert.equal(copy.actual.pct, -0.8585);
-});
-
-test('★ 축출 뒤 — EC2 에 기록이 없어도 크론은 Upstash 사본의 expected 를 지키고 EC2 를 다시 채운다', async () => {
-  reset();
-  up.set(KEY, JSON.stringify({ v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 1 }));
-  await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: jpmBars, readObservation: async () => null, runLock: async () => 'ok' } });
-  const rec = ec2.get(KEY) as any;
-  assert.ok(rec, 'EC2 다시 채움');
-  assert.equal(rec.expected?.pct, 3.2, '사본의 expected 를 빈 값으로 덮지 않는다');
-  assert.equal(rec.actual?.pct, -0.8585);
-  assert.equal(JSON.parse(up.get(KEY)!).actual.pct, -0.8585, '사본도 갱신');
 });
 
 test('EC2 에 기록이 있으면 Upstash 장애여도 크론 쓰기는 예전처럼 EC2 에 된다', async () => {
@@ -130,19 +140,6 @@ test('EC2 에 기록이 있으면 Upstash 장애여도 크론 쓰기는 예전�
   assert.ok(Date.now() - t0 < 2000, `Upstash 장애가 크론을 붙잡지 않는다(재시도 0·쿨다운) — ${Date.now() - t0}ms`);
 });
 
-test('★ 채점표 읽기 — EC2 미스인 기록은 Upstash 사본으로 채운다(축출돼도 주간 행이 사라지지 않는다)', async () => {
-  reset();
-  const rec = { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP,
-    actual: { pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check: 'fmp', at: Date.parse('2026-10-14T00:00:00Z') }, at: 1 };
-  up.set(KEY, JSON.stringify(rec));
-  const before = upCmds.length;
-  const recs = await SVC.readActualRecords([{ ticker: 'JPM', date: '2026-10-13' }]);
-  assert.equal(recs.get('JPM|2026-10-13')?.actual?.pct, -0.8585);
-  assert.ok(upCmds.slice(before).some((c) => c.startsWith('MGET')), 'EC2 미스분만 Upstash MGET');
-  const card = await SC.readEarningsScorecard('2026-10-12', Date.parse('2026-11-05T12:00:00Z'));
-  assert.ok((card as any).rows.some((r: any) => r.ticker === 'JPM' && r.date === '2026-10-13'), '채점표에 JPM 행');
-});
-
 test('포인터 쓰기도 Upstash 사본을 둔다', async () => {
   reset();
   const rec = { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP,
@@ -152,15 +149,6 @@ test('포인터 쓰기도 Upstash 사본을 둔다', async () => {
   assert.deepEqual(out.written, ['JPM|2026-10-13']);
   assert.deepEqual(JSON.parse(up.get(A.actualsLatestKey('JPM')) || 'null'), { date: '2026-10-13' });
   assert.equal(ec2Writes.find((w) => w.key === A.actualsLatestKey('JPM'))?.ttl, undefined);
-});
-
-test('축출 + Upstash 장애가 겹치면 main 과 똑같이 EC2 에 쓴다(사본은 EC2 쓰기를 막지 않는다)', async () => {
-  reset();
-  up.set(KEY, JSON.stringify({ v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 1 }));
-  upDown = true;
-  const r = await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: jpmBars, readObservation: async () => null, runLock: async () => 'ok' } });
-  assert.deepEqual(r.actualsSaved, ['JPM|2026-10-13:-0.8585']);
-  assert.equal((ec2.get(KEY) as any).actual.pct, -0.8585);
 });
 
 test('Upstash 응답 멈춤 — 사본 요청은 0.8초 상한, 이후 쿨다운으로 바로 건너뛴다', async () => {
@@ -186,18 +174,6 @@ test('사본 맞추기 — 없는·다른 사본만 다시 쓰고, 같은 것은
   assert.deepEqual(rep.repaired.sort(), [KEY, k3].sort());
   assert.deepEqual(JSON.parse(up.get(k3)!), { new: 1 });
   assert.equal(up.has(A.actualsKey('X', '2026-10-13')), false, 'EC2 값이 없는 키는 사본을 만들지도 지우지도 않는다');
-});
-
-test('★ 포인터 — EC2 에서 사라져도 더 최신 사본이 있으면 옛 날짜로 덮지 않고 그 값으로 되살린다', async () => {
-  reset();
-  const rec = { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP,
-    actual: { pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check: 'fmp', at: Date.parse('2026-10-14T00:00:00Z') }, at: 1 };
-  ec2.set(KEY, rec);
-  up.set(A.actualsLatestKey('JPM'), JSON.stringify({ date: '2027-01-14' }));
-  const out = await SVC.syncActualsLatestPointers({ nowMs: Date.parse('2026-11-05T12:00:00Z'), list: [entry('JPM', '2026-10-13', 'bmo')] });
-  assert.deepEqual(out.written, []);
-  assert.deepEqual(ec2.get(A.actualsLatestKey('JPM')), { date: '2027-01-14' }, 'EC2 를 사본 값으로');
-  assert.deepEqual(JSON.parse(up.get(A.actualsLatestKey('JPM'))!), { date: '2027-01-14' }, '사본은 그대로');
 });
 
 test('포인터 동기화 회차가 기록 사본 누락을 메운다', async () => {
@@ -247,16 +223,6 @@ test('발표 전 기록(크론 창)의 사본 누락도 맞춘다 · 완성 기�
   assert.deepEqual(JSON.parse(up.get(k)!), rec);
 });
 
-test('채점표 읽기 — Upstash 가 멈춰도 사본 채우기는 0.8초 안에 포기하고 EC2 값으로 답한다', async () => {
-  reset();
-  upHang = true;
-  const t0 = Date.now();
-  const recs = await SVC.readActualRecords([{ ticker: 'JPM', date: '2026-10-13' }]);
-  const dt = Date.now() - t0;
-  assert.equal(recs.size, 0);
-  assert.ok(dt < 2500, `${dt}ms`);
-});
-
 test('★ 같은 at(같은 회차 actual → expected) — 늦게 온 앞선 쓰기(expected 없음)는 expected 있는 사본을 덮지 않는다', async () => {
   reset();
   ec2.set(KEY, { x: 1 });
@@ -274,30 +240,6 @@ test('사본 맞추기는 마감 시각이 가까우면 새 요청을 시작하�
   assert.equal(upCmds.length, 0);
 });
 
-test('★ actual 폐기(재대조 불일치) — Upstash 장애여도 EC2 폐기는 main 처럼 · 사본은 다음 동기화가 맞추고, 그 전에 EC2 가 사라져도 재대조가 다시 폐기', async () => {
-  reset();
-  const a = { pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check: null, at: NOW_AFTER - 3600_000 };
-  const rec = { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: a, at: NOW_AFTER - 3600_000 };
-  const badFmp = barsFrom({ JPM: [['2026-10-12', 300], ['2026-10-13', 290]] });
-  const cycle = () => SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: badFmp, readObservation: async () => null, runLock: async () => 'ok' } });
-  ec2.set(KEY, rec); up.set(KEY, JSON.stringify(rec));
-  await cycle();
-  assert.equal((ec2.get(KEY) as any).actual, null); assert.equal(JSON.parse(up.get(KEY)!).actual, null, '정상 — 사본도 폐기');
-  reset();
-  ec2.set(KEY, rec); up.set(KEY, JSON.stringify(rec));
-  upDown = true;
-  await cycle();
-  assert.equal((ec2.get(KEY) as any).actual, null, 'Upstash 장애가 폐기를 막지 않는다');
-  upDown = false; RC._resetActualsMirrorForTest();
-  await SVC.syncActualsLatestPointers({ nowMs: Date.parse('2026-11-05T12:00:00Z'), list: [entry('JPM', '2026-10-13', 'bmo')] });
-  assert.equal(JSON.parse(up.get(KEY)!).actual, null, '다음 동기화 — 사본도 폐기(EC2 at 이 더 크다)');
-  reset();
-  up.set(KEY, JSON.stringify(rec));
-  await cycle();
-  assert.equal((ec2.get(KEY) as any).actual, null, '사본에서 읽은 단독 값도 같은 재대조로 다시 폐기');
-});
-
-let upDelayMs = 0;
 test('★ 느린 Upstash(성공이지만 0.3초 초과) — 첫 느린 응답 뒤 쿨다운, 12건 크론 쓰기에 더해지는 지연 < 1.5초', async () => {
   reset();
   const list = Array.from({ length: 12 }, (_, i) => entry(`T${i}`, '2026-10-13', 'bmo'));

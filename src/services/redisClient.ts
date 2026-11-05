@@ -480,8 +480,6 @@ function isMojibake(value: unknown): boolean {
 //   reports:*·split:recent·cache:xs·flow-harvest:lock 뿐(2026-09-18 프로브). 그 외 전부 EC2 3/3.
 // ═══════════════════════════════════════════════════════════════════════════
 /** 장애 때 없으면 화면이 비거나 상태를 잃는 키 — Upstash 복제를 유지한다. */
-/** 실적 채점 기록 키(발표일까지) — earnings:actuals:v1:{TICKER}:{YYYY-MM-DD} */
-const ACTUALS_RECORD_KEY = /^earnings:actuals:v1:[A-Z0-9.\-]+:\d{4}-\d{2}-\d{2}$/;
 const REPLICATE_PREFIXES: readonly RegExp[] = [
     /^trade:/, /^mkt:/, /^push:/, /^guardian:/, /^yahoo:/, /^vix:/, /^cnn:/,
     /^market:movers:last_good/, /^structure:lastgood:/, /^intrinio:options:eod/,
@@ -490,10 +488,6 @@ const REPLICATE_PREFIXES: readonly RegExp[] = [
     //   11/3 리포트가 다음 날 낮에 사라졌다(GET ?date=2026-11-03 → 404, 마감 푸시 탭 = 빈 리포트). 11/4 읽기 폴백(UPSTASH_ONLY)은
     //   Upstash 에 사본이 있어야 효과가 있다 → 쓰기도 복제한다(하루 1회·수십 KB).
     /^postmarket:/,
-    // [2026-11-05 T56b] 실적 채점 기록(earnings:actuals:v1:{TICKER}:{발표일})만 — 포인터(:latest:)·잠금은 제외.
-    //   EC2 에 사본이 없을 때(축출·노드 교체) Upstash 사본(setActualsDurable 이 쓰기마다 복제)을 읽는다.
-    //   발표일 키만이라 크롤러가 훑는 종목 페이지(포인터 먼저 읽고 없으면 끝)는 Upstash 를 부르지 않는다.
-    ACTUALS_RECORD_KEY,
 ];
 /** Upstash 에만 존재하는 키(래퍼 밖 작성자) — EC2 미스여도 Upstash 를 읽는다.
  *  promo: [2026-10-05] 안드로이드 쿠폰 번호 풀·배정 기록(lib/marketing/couponClaim.ts) — SPOP·INCR·SET NX 원자 연산이 필요해 Upstash 직접. */
@@ -842,26 +836,7 @@ async function mgetFromCacheInternal<T>(keys: string[], strict: boolean): Promis
             if ((!strict || (Array.isArray(r.body?.results) && results.length === keys.length)) && !results.some(isMojibake)) {
                 obsRecord('mget', results.some((x) => x != null) ? 'hit' : 'miss', t0);
                 // Upstash 에만 있을 수 있는 키(cache:13f 등)의 미스만 골라 채운다.
-                const needAll = keys.map((k, i) => (results[i] === null && shouldFallbackToUpstash(k, true) ? i : -1)).filter((i) => i >= 0);
-                // [T56b] 실적 기록 사본은 전용 클라이언트(재시도 0·0.8초 상한·느린 응답도 쿨다운)로 — 느린 Upstash 가 크론·페이지를 붙잡지 않게(관문 11052003 ②)
-                const needActuals = needAll.filter((i) => ACTUALS_RECORD_KEY.test(keys[i]));
-                const need = needAll.filter((i) => !ACTUALS_RECORD_KEY.test(keys[i]));
-                if (needActuals.length) {
-                    const m = actualsMirror();
-                    if (m) {
-                        obsUp('mget', 'mirror');
-                        const tu = performance.now();
-                        try {
-                            const extra = await withMirrorTimeout(m.mget<unknown[]>(...needActuals.map((i) => keys[i])));
-                            needActuals.forEach((i, j) => { if (extra[j] != null) results[i] = extra[j] as T; });
-                            obsUpDone(tu);
-                        } catch (e: any) {
-                            obsUpDone(tu, true);
-                            actualsMirrorDownUntil = Date.now() + ACTUALS_MIRROR_COOLDOWN_MS;
-                            console.warn(`[Redis/Upstash] actuals mirror mget failed:`, e?.message);
-                        }
-                    }
-                }
+                const need = keys.map((k, i) => (results[i] === null && shouldFallbackToUpstash(k, true) ? i : -1)).filter((i) => i >= 0);
                 if (need.length) {
                     const upstash = getUpstashClient();
                     if (upstash) {
@@ -1012,7 +987,7 @@ function withMirrorTimeout<T>(p: Promise<T>): Promise<T> {
     });
 }
 /** 남은 시간이 이보다 적으면 사본 요청을 시작하지 않는다(요청 하나의 상한 + 여유) */
-export const ACTUALS_MIRROR_RESERVE_MS = ACTUALS_MIRROR_TIMEOUT_MS + 1200;
+const ACTUALS_MIRROR_RESERVE_MS = ACTUALS_MIRROR_TIMEOUT_MS + 1200;
 /** 사본이 «설정돼 있는가»(쿨다운과 무관) — 설정이 없으면(개발·시험) 사본 없이 예전대로 동작한다. */
 export function actualsMirrorConfigured(): boolean {
     return !!((process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) && (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN));
@@ -1047,22 +1022,25 @@ export async function setActualsDurable<T>(key: string, value: T): Promise<boole
     return ok;
 }
 
-/** [2026-11-05 T56b] Upstash 사본 엄격 읽기 — ok=false 는 확인 못 함(값 없음과 구분). 실적 기록 키 전용. */
-export async function getActualsMirror<T>(key: string): Promise<{ ok: boolean; value: T | null }> {
-    if (!key.startsWith('earnings:actuals:v1:')) return { ok: false, value: null };
-    const upstash = actualsMirror();
-    if (!upstash) return { ok: false, value: null };
-    obsUp('get', 'mirror');
-    const start = performance.now();
-    try {
-        const value = await withMirrorTimeout(upstash.get<T>(key));
-        obsUpDone(start);
-        return { ok: true, value: value ?? null };
-    } catch {
-        obsUpDone(start, true);
-        actualsMirrorDownUntil = Date.now() + ACTUALS_MIRROR_COOLDOWN_MS;
-        return { ok: false, value: null };
+/** [2026-11-05 T56b] 사고 대응 전용 — Upstash 사본의 earnings:actuals:v1:* 전부(SCAN + MGET). 페이지·크론 경로는 부르지 않는다. */
+export async function listActualsMirror(): Promise<Array<{ key: string; value: unknown }>> {
+    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+    if (!url || !token) throw new Error('upstash_not_configured');
+    const up = new UpstashRedis({ url, token });
+    const keys: string[] = [];
+    let cursor: string | number = 0;
+    do {
+        const page: [string | number, string[]] = await up.scan(cursor, { match: 'earnings:actuals:v1:*', count: 1000 });
+        cursor = page[0]; keys.push(...page[1]);
+    } while (String(cursor) !== '0');
+    const out: Array<{ key: string; value: unknown }> = [];
+    for (let i = 0; i < keys.length; i += 200) {
+        const part = keys.slice(i, i + 200);
+        const vals = await up.mget<unknown[]>(...part);
+        part.forEach((key, j) => out.push({ key, value: vals[j] }));
     }
+    return out;
 }
 
 /**

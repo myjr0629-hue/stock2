@@ -12,7 +12,7 @@ import { fmpFetch } from '@/lib/fmpClient';
 //   ② 실제 반응 계산 — 반응일 정규장 마감 + 30분 뒤에 Intrinio 일봉으로 (기준일 종가 → 반응일 종가) 등락률.
 //      독립 공급사(FMP, 분할 미조정 종가)와 두 날짜 모두 같을 때만 «대조 일치(check: fmp)»로 표시한다.
 //      두 공급사가 다르면 저장하지 않는다(다음 회차가 다시 본다). FMP 가 없으면 Intrinio 단독으로 저장하고 그렇게 표시한다.
-// 키: earnings:actuals:v1:{TICKER}:{발표일} (TTL 없음, EC2 레디스 중심 + 쓰기마다 Upstash 사본 · EC2 미스면 사본을 읽는다 — T56b 11/5) · 한 발표당 0.5KB.
+// 키: earnings:actuals:v1:{TICKER}:{발표일} (TTL 없음, EC2 레디스 중심 · 쓰기마다 Upstash 사본(읽지 않는 백업 — 복구는 restoreActualsFromMirror) — T56b 11/5) · 한 발표당 0.5KB.
 // ============================================================================
 
 import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfirmed';
@@ -26,7 +26,7 @@ import { getDailyAggregates } from '@/services/intrinioClient';
 import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
 import { scorecardPairOf } from '@/lib/earnings/earningsScorecard';
 import { Redis } from '@upstash/redis';
-import { ACTUALS_MIRROR_RESERVE_MS, actualsMirrorConfigured, getActualsMirror, getAuthoritativeCache, mgetFromCache, repairActualsMirror, setActualsDurable, setActualsWithoutTtl } from '@/services/redisClient';
+import { actualsMirrorConfigured, getAuthoritativeCache, listActualsMirror, mgetFromCache, repairActualsMirror, setActualsDurable, setActualsWithoutTtl, setAuthoritativeCache } from '@/services/redisClient';
 
 export const recordMapKey = (ticker: string, date: string): string => `${String(ticker).toUpperCase()}|${date}`;
 
@@ -144,14 +144,8 @@ async function saveRecord(rec: ActualsRecord): Promise<boolean> {
  */
 async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'ok' | 'kept_expected' | 'read_failed' | 'invalid_record' | 'save_failed'> {
   const key = actualsKey(rec.ticker, rec.date);
-  let read = await getAuthoritativeCache<unknown>(key).catch(() => ({ ok: false, value: null }));
+  const read = await getAuthoritativeCache<unknown>(key).catch(() => ({ ok: false, value: null }));
   if (!read.ok) return 'read_failed';
-  // [T56b] EC2 에 없으면(축출·노드 교체) Upstash 사본을 «저장본»으로 본다 — 발표 전에만 잡을 수 있는 expected 를 빈 값으로 덮지 않게.
-  //   사본을 읽지 못하면(장애·쿨다운·시간 초과·미설정) main 과 똑같이 EC2 기준으로 쓴다 — 사본은 EC2 쓰기를 막지 않는 보조 저장소다.
-  if (read.value == null && actualsMirrorConfigured()) {
-    const mirror = await getActualsMirror<unknown>(key).catch(() => ({ ok: false, value: null }));
-    if (mirror.ok && mirror.value != null) read = mirror;
-  }
   let out = rec, kept = false;
   if (read.value != null) {
     const stored = parseRecord(read.value);
@@ -425,7 +419,6 @@ export async function syncActualsLatestPointers(opts: {
     set?: (key: string, value: { date: string }) => Promise<boolean>;
     /** [T56b] Upstash 사본 — 시험 주입용(기본: 설정돼 있을 때만 실제 사본) */
     mirror?: boolean;
-    getMirror?: (key: string) => Promise<{ ok: boolean; value: unknown }>;
     repair?: (rows: Array<{ key: string; value: unknown }>) => Promise<{ checked: number; repaired: string[] }>;
   };
 } = {}): Promise<{ checked: number; written: string[]; mirrorRepaired?: number }> {
@@ -435,7 +428,6 @@ export async function syncActualsLatestPointers(opts: {
   const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setActualsDurable(key, value));
   const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
   const mirrorOn = opts.deps?.mirror ?? actualsMirrorConfigured();
-  const getMirror = opts.deps?.getMirror ?? ((key: string) => getActualsMirror<unknown>(key));
   const repair = opts.deps?.repair ?? ((rows: Array<{ key: string; value: unknown }>) => repairActualsMirror(rows, 40, opts.deadlineMs));
   const timeUp = () => opts.deadlineMs != null && Date.now() >= opts.deadlineMs;
   // 지난 발표 전부(최근 순) — 종목마다 «가장 최근의 완성 기록»을 고른다(최근 발표가 미완성이어도 그 이전 완성 기록을 놓치지 않게, 관문 11050231 ①)
@@ -478,13 +470,6 @@ export async function syncActualsLatestPointers(opts: {
       if (!strict.ok) continue;
       const stored = parseLatestPointer(strict.value);
       if (stored && stored >= c.date) continue;
-      // [T56b] EC2 에 포인터가 없으면(축출·노드 교체) 사본을 본다 — 사본이 같거나 더 최신이면 그 값으로 EC2 만 되살리고 옛 날짜로 덮지 않는다(관문 11051955 ③).
-      //   사본을 읽지 못하면 main 과 똑같이 쓴다(사본 쓰기는 조건부라 사본의 더 최신 날짜는 덮이지 않는다).
-      if (!stored && mirrorOn && !(opts.deadlineMs != null && Date.now() >= opts.deadlineMs - ACTUALS_MIRROR_RESERVE_MS)) {
-        const m = await getMirror(actualsLatestKey(c.ticker)).catch(() => ({ ok: false, value: null }));
-        const md = m.ok ? parseLatestPointer(m.value) : null;
-        if (md && md >= c.date) { touchedPtr.add(c.ticker); if (!timeUp()) await set(actualsLatestKey(c.ticker), { date: md }).catch(() => false); continue; }
-      }
       if (timeUp()) break;
       touchedPtr.add(c.ticker);   // 이 회차가 쓰려 한 포인터 — 아래 사본 맞추기가 쓰기 전 값(ptrs)으로 사본을 되돌리지 않게(관문 11052003 ①)
       if (await set(actualsLatestKey(c.ticker), { date: c.date }).catch(() => false)) out.written.push(`${c.ticker.toUpperCase()}|${c.date}`);
@@ -502,6 +487,35 @@ export async function syncActualsLatestPointers(opts: {
     ].filter((r) => r.value != null);
     const rep = await repair(rows).catch(() => ({ checked: 0, repaired: [] as string[] }));
     out.mirrorRepaired = rep.repaired.length;
+  }
+  return out;
+}
+
+/**
+ * [T56b] 사본에서 EC2 되살리기 — 사고 대응 전용(스크립트 scripts/restore-actuals-from-mirror.ts, 페이지·크론은 부르지 않는다).
+ *   Upstash 사본의 earnings:actuals:v1:* 중 «EC2 엄격 읽기가 성공했고 값이 없는» 키만 같은 값으로 EC2 에 쓴다(TTL 없음).
+ *   EC2 에 값이 있는 키는 절대 건드리지 않는다 · EC2 를 읽지 못한 키는 쓰지 않는다 · dryRun 이면 쓰기 0.
+ *   11/3·11/4·11/5 처럼 기록이 사라졌을 때 공급사 재계산(수 시간) 대신 한 번에 되돌린다. 되돌린 뒤 크론의 재대조가 평소대로 돈다.
+ */
+export async function restoreActualsFromMirror(opts: {
+  dryRun?: boolean;
+  deps?: {
+    list?: () => Promise<Array<{ key: string; value: unknown }>>;
+    getStrict?: (key: string) => Promise<{ ok: boolean; value: unknown }>;
+    set?: (key: string, value: unknown) => Promise<boolean>;
+  };
+} = {}): Promise<{ mirror: number; present: number; restored: string[]; readFailed: string[]; writeFailed: string[] }> {
+  const list = opts.deps?.list ?? (() => listActualsMirror());
+  const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
+  const set = opts.deps?.set ?? ((key: string, value: unknown) => setAuthoritativeCache(key, value));
+  const rows = (await list()).filter((r) => r.key.startsWith(`${ACTUALS_KEY_PREFIX}:`) && r.key !== `${ACTUALS_KEY_PREFIX}:run-lock` && r.value != null);
+  const out = { mirror: rows.length, present: 0, restored: [] as string[], readFailed: [] as string[], writeFailed: [] as string[] };
+  for (const r of rows) {
+    const cur = await getStrict(r.key).catch(() => ({ ok: false, value: null }));
+    if (!cur.ok) { out.readFailed.push(r.key); continue; }
+    if (cur.value != null) { out.present++; continue; }
+    if (opts.dryRun) { out.restored.push(r.key); continue; }
+    if (await set(r.key, r.value).catch(() => false)) out.restored.push(r.key); else out.writeFailed.push(r.key);
   }
   return out;
 }
