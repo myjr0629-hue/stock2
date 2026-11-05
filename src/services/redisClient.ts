@@ -1039,6 +1039,17 @@ export async function setActualsDurable<T>(key: string, value: T): Promise<boole
     return ok;
 }
 
+/**
+ * [T56b] 사본을 «먼저» 쓰는 문 — 저장된 칸을 비우는 쓰기(공급사 재대조 불일치로 actual 폐기) 전용.
+ *   사본 쓰기가 실패하면 EC2 도 쓰지 않는다(false) — EC2 만 비워지고 사본엔 폐기된 값이 남아, 뒤에 EC2 가 사라졌을 때
+ *   폐기된 값이 사본에서 되살아나는 일을 막는다(관문 11052010). 사본이 설정되지 않은 환경은 EC2 만.
+ */
+export async function setActualsMirrorFirst<T>(key: string, value: T): Promise<boolean> {
+    if (!key.startsWith('earnings:actuals:v1:')) return false;
+    if (actualsMirrorConfigured() && !(await mirrorActualsToUpstash(key, value))) return false;
+    return setAuthoritativeCache(key, value);
+}
+
 /** [2026-11-05 T56b] Upstash 사본 엄격 읽기 — ok=false 는 확인 못 함(값 없음과 구분). 실적 기록 키 전용. */
 export async function getActualsMirror<T>(key: string): Promise<{ ok: boolean; value: T | null }> {
     if (!key.startsWith('earnings:actuals:v1:')) return { ok: false, value: null };

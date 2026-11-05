@@ -276,3 +276,20 @@ test('사본 맞추기는 마감 시각이 가까우면 새 요청을 시작하�
   assert.deepEqual(rep, { checked: 0, repaired: [] });
   assert.equal(upCmds.length, 0);
 });
+
+test('★ actual 폐기(재대조 불일치)는 사본 먼저 — 사본 쓰기가 실패하면 EC2 도 그대로 두고 다음 회차', async () => {
+  reset();
+  // 4일 안에 Intrinio 단독(check null)으로 저장된 기록 → FMP 가 다르다 → actual 을 지운다
+  const a = { pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check: null, at: NOW_AFTER - 3600_000 };
+  const rec = { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: a, at: NOW_AFTER - 3600_000 };
+  ec2.set(KEY, rec); up.set(KEY, JSON.stringify(rec));
+  const badFmp = barsFrom({ JPM: [['2026-10-12', 300], ['2026-10-13', 290]] });
+  upDown = true;
+  await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: badFmp, readObservation: async () => null, runLock: async () => 'ok' } });
+  assert.equal((ec2.get(KEY) as any).actual?.pct, -0.8585, '사본 실패 — EC2 도 그대로(사본과 어긋나지 않게)');
+  upDown = false; RC._resetActualsMirrorForTest();
+  await SVC.runActualsCycle({ nowMs: NOW_AFTER, list: [entry('JPM', '2026-10-13', 'bmo')], deps: { bars: jpmBars, fmp: badFmp, readObservation: async () => null, runLock: async () => 'ok' } });
+  assert.equal((ec2.get(KEY) as any).actual, null, '다음 회차 — EC2 폐기');
+  assert.equal(JSON.parse(up.get(KEY)!).actual, null, '사본도 폐기');
+  assert.equal((ec2.get(KEY) as any).expected.pct, 3.2);
+});
