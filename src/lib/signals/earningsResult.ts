@@ -279,6 +279,16 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
   let locked = false;
   try { locked = await st(deps.store.setNx(RESULT_KEYS.lock, String(now), 150)); } catch { locked = false; }
   if (!locked) { report.status = 'send_lock_unavailable'; return report; }
+  /**
+   * 뒤에서 도는 반환(자리 지우기·상한 되돌리기) — 발송은 이것을 기다리지 않는다(다른 기기의 느린 반환이 정상 기기 발송을 붙잡지 않게,
+   * 야간 검토 20261105 #2). 단계 끝(잠금 해제 직전)에 모두 끝나기를 기다린다 — 보고(seal_unknown 등)도 그때 다 모인다.
+   * 자리·상한 반환은 하나하나 시간 상한이 있다(끊긴 토큰 정리만 origin/main 처럼 끝까지 기다린다 — 순서 역전 방지).
+   */
+  const bg: Promise<unknown>[] = [];
+  /** 스스로 시간 상한이 있는 일(release) */
+  const later = (p: Promise<unknown>) => { bg.push(p.catch(() => {})); };
+  /** 저장소 호출 하나 — 시간 상한(tmo)을 씌워서 */
+  const laterOp = (p: Promise<unknown>) => later(withTimeout(p, tmo));
   try {
     const today = etDateOf(now);
     const entries = opts.list.filter((c) => (c.hour === 'bmo' || c.hour === 'amc') && c.date >= addDaysYmd(today, -WINDOW_DAYS) && c.date <= today);
@@ -358,25 +368,60 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       const records = await st(deps.store.mget(chunk.map((t) => `push:tokens:${t}`)));
       const claimed: Claimed[] = [];
       let expiring = false;
-      /** 기기 하나 — 마감 검사 뒤 그 기기의 발표들을 차례로 선점(기기 안은 순서대로: 하루 상한·회차당 상한을 지키려고) */
+      /**
+       * 기기 하나 — 마감 검사 뒤 그 기기의 발표들을 차례로 선점(기기 안은 순서대로: 하루 상한·회차당 상한을 지키려고).
+       * 하루 상한(공유 키 — «내 종목 이상 신호» run.ts 와 같다)은 기다림 없이 정확하게(야간 검토 20261105 #2 · 관문 11060111·11060355·11060414):
+       *   · incr 값이 상한 초과로 «확인»되면 — 곧바로(뒤에서) 되돌리고 다음 종목을 계속 본다(origin/main 과 같은 순서 · 부풀린 상한을 들고 있지 않는다,
+       *     관문 11060414 #1·11060420). 다음 종목 incr 가 그 되돌리기보다 먼저 서버에 닿으면 1 높게 보여 이번 회차엔 건너뛸 수 있다 — 다른 크론이
+       *     같은 순간 상한을 돌려준 경우에만 생기는 보수 쪽 오차이고, 다음 회차(25분+ 뒤)가 다시 본다(넘치는 쪽 오차는 만들지 않는다).
+       *   · incr 가 오류·시간 초과면 — «서버엔 반영됨»으로 본다(기존 규칙, 관문 11041451 #2). 이 자리(held)는 되돌리지 않고 들고 있다가
+       *     같은 기기의 다음 종목이 선점되면 그 종목이 «넘겨받는다»: 새로 incr 하지 않고 GET 한 값이 상한 안이면 그대로 쓴다.
+       *     예: 2/3 · 첫 종목 incr 시간 초과(서버 3) → 두 번째 종목 선점 → GET 3 ≤ 3 → 보낸다 · decr 0회 · 끝 3.
+       *     되돌리기(decr)가 아예 없으니 반환이 느리든 끝내 응답이 없든 판정이 같고, 공유 상한은 실제 사용량(3)을 넘겨 부풀지 않는다.
+       *     늦게 도착하는 첫 incr 도 그 자리를 채울 뿐이다(GET 이 그 증가 전이든 뒤든 같은 결과).
+       *     넘겨받을 종목이 없으면(루프 끝·다음 종목 선점 실패) · GET 값이 상한 초과·확인 불가면 그때 곧바로 되돌리고 다음 종목을 계속 본다.
+       *     들고 있는 동안 다른 크론(run.ts)이 읽는 값은 «넘겨받으면 맞는 값»(그 종목이 그 자리를 쓴다)이거나, GET 초과면 어차피 상한이 찬 값이다 —
+       *     origin/main 보다 점유가 길어지는 것은 다음 종목 선점이 실패하는 경우의 선점 왕복 1회뿐이다(관문 11060422).
+       *   · 남는 오차는 기존 규칙과 같은 쪽 — 시간 초과된 incr 가 끝내 서버에 안 닿았으면 그날 상한이 1 덜 찬다.
+       *   · 기기 키(devKey)는 토큰마다 하나라 같은 상한 키를 이 회차의 다른 루프가 건드리지 않는다.
+       * 거절한 자리 지우기·되돌리기는 뒤에서(laterOp) — 정상 기기의 선점·발송은 이것을 기다리지 않는다.
+       */
       const claimDevice = async (j: number) => {
         const d = deviceFromRecord(chunk[j], records[j]);
         if (!d) return;
-        let chosen = 0;
-        for (const x of cands) {
-          const a = x.alert;
-          if (!d.tickers.includes(a.ticker) || chosen >= SIG_CFG.perRunPerDevice) continue;
-          if (clock() >= opts.lockDeadline - CLAIM_STOP_MS) { expiring = true; return; }   // 기기마다·발표마다 검사 — 선점 창이 닫히면 더 잡지 않는다(잡은 것은 아래에서 보낸다)
-          const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date), cap = SIG_KEYS.cap(etDateOf(now), d.dev);
-          // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
-          if (!await st(deps.store.setNx(key, CLAIM_V, CLAIM_TTL_SEC)).catch(() => false)) continue;
-          const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => 999);
-          // 상한 초과·오류·시간 초과(999) 모두 상한을 되돌린다 — 응답만 늦고 서버엔 반영된 증가가 공유 일일 상한(«내 종목 이상 신호»와 같은 키)을
-          // 소모하지 않게. lib/signals/run.ts 의 기존 규칙과 같다(관문 11041451 #2).
-          if (cnt > SIG_CFG.deviceDailyCap) { await deps.store.decr(cap).catch(() => 0); await deps.store.delIfEq(key, [CLAIM_V]).catch(() => {}); continue; }
-          chosen++;
-          const copy = resultCopy(a, d.locale);
-          claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
+        const cap = SIG_KEYS.cap(etDateOf(now), d.dev);
+        let chosen = 0, held = false;
+        const drop = (key: string) => laterOp(deps.store.delIfEq(key, [CLAIM_V]));
+        const refund = () => laterOp(deps.store.decr(cap));
+        try {
+          for (const x of cands) {
+            const a = x.alert;
+            if (!d.tickers.includes(a.ticker) || chosen >= SIG_CFG.perRunPerDevice) continue;
+            if (clock() >= opts.lockDeadline - CLAIM_STOP_MS) { expiring = true; return; }   // 기기마다·발표마다 검사 — 선점 창이 닫히면 더 잡지 않는다(잡은 것은 아래에서 보낸다)
+            const key = RESULT_KEYS.sent(d.dev, a.ticker, a.date);
+            // 선점은 짧게(CLAIM_TTL_SEC) — 발송 성공을 확인한 뒤에만 120일 장부로 굳힌다
+            if (!await st(deps.store.setNx(key, CLAIM_V, CLAIM_TTL_SEC)).catch(() => false)) {
+              if (held) { held = false; refund(); }   // 넘겨받을 종목이 아니다 — 들고 있던 증가분을 곧바로 되돌린다(점유를 다음 종목까지 끌지 않는다)
+              continue;
+            }
+            if (held) {
+              // 들고 있던 (시간 초과) 증가분을 이 종목이 넘겨받는다 — 새 incr 없이 지금 값이 상한 안인지만 본다
+              const v = await st(deps.store.get(cap)).then((r) => Number(r ?? 0)).catch(() => NaN);
+              held = false;
+              if (!(v <= SIG_CFG.deviceDailyCap)) { refund(); drop(key); continue; }   // 초과·확인 불가 → 들고 있던 증가분을 곧바로 되돌린다
+            } else {
+              const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => null);
+              if (cnt == null) { held = true; drop(key); continue; }   // 오류·시간 초과 → 반영됐다고 보고 들고 있는다(다음 종목이 넘겨받거나 끝에서 되돌림)
+              // 상한 초과 — 이 증가를 곧바로(뒤에서) 되돌린다(부풀린 공유 상한을 들고 있지 않는다, 관문 11060414 #1) · 다음 종목은 계속 본다(관문 11060420)
+              if (cnt > SIG_CFG.deviceDailyCap) { refund(); drop(key); continue; }
+            }
+            chosen++;
+            const copy = resultCopy(a, d.locale);
+            claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
+          }
+        } finally {
+          // 넘겨받지 못한 (시간 초과) 증가분 되돌리기 — 루프가 끝나는 즉시(뒤에서)
+          if (held) refund();
         }
       };
       // 기기 사이는 병렬(동시 CLAIM_CONCURRENCY) — 저장소가 느려도 묶음 준비가 «기기 수 × 왕복»으로 늘지 않게(관문 11041435 #2)
@@ -439,8 +484,8 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           await withTimeout(deps.store.decr(c.cap), sealTmo).catch(() => 0);
         }));
       };
-      // 재확인에서 탈락한 자리는 발송 전에 먼저 돌려준다
-      await release(claimed.filter((c) => !ready.includes(c)));
+      // 재확인에서 탈락한 자리는 발송 전에 먼저 돌려주기 «시작»한다 — 끝나기를 기다리지 않는다(정상 기기 발송을 붙잡지 않게)
+      later(release(claimed.filter((c) => !ready.includes(c))));
       let sendInTime = true;
       /** 굳은 묶음 하나를 보낸다 — 보내기 «직전» 마감 재확인. 넘었으면 보내지 않고 굳은 자리를 되돌린다(되돌림 확인 실패는 보고) */
       const sendSealed = async (group: Claimed[]) => {
@@ -460,7 +505,7 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         const armed = (await Promise.all(batch.map(async (c) =>
           (await settle(deps.store.setIfEq(c.key, CLAIM_V, ARM_V, { px: ARM_MS }), sealTmo)) === 'ok' ? c : null))).filter((c): c is Claimed => c != null);
         // 무장 못 한 기기의 반환은 굳히기 «뒤»에(아래 release(batch)) — 반환을 기다리는 사이 무장 수명이 지나 정상 기기까지 못 굳는 일이 없게(관문 11051012 #1)
-        if (!armed.length) { await release(batch); continue; }
+        if (!armed.length) { later(release(batch)); continue; }
         // ② 굳히기 — 무장 직후 모두 같은 순간에, 이 회차 무장 값일 때만. 지평 타이머는 무장이 모두 확인된 «뒤»에 시작하므로, 지평이 지나면 모든 무장 자리가 서버에서 사라졌다.
         const sealP = new Map(armed.map((c) => [c, deps.store.setIfEq(c.key, ARM_V, SENT_V, { ex: LEDGER_TTL_SEC })] as const));
         const horizon = timer(ARM_MS);
@@ -490,9 +535,10 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           // 먼저 굳은 기기는 늦은 기기를 기다리지 않고 곧바로 보낸다(같은 시각에 늦은 기기 확정을 함께 진행)
           await Promise.all([sendSealed(sealed), resolveLate()]);
         } finally { horizon.cancel(); }
-        // 굳지 않은 자리 반환 — 불명은 지우기 확인까지 요구하고 실패면 보고(되돌림 실패와 같은 등급)
-        await release(armed.filter((c) => unknown.has(c)), 'seal_unknown');
-        await release(batch);
+        // 굳지 않은 자리 반환 — 불명은 지우기 확인까지 요구하고 실패면 보고(되돌림 실패와 같은 등급).
+        // 뒤에서 — 다음 플랫폼의 발송이 이 플랫폼 기기들의 반환을 기다리지 않는다(release 는 호출 즉시 «반환함»을 표시해 겹치지 않는다)
+        later(release(armed.filter((c) => unknown.has(c)), 'seal_unknown'));
+        later(release(batch));
       }
       const dead = new Set<string>();
       for (const c of claimed) {
@@ -505,12 +551,13 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
           if (outcome === 'dead') dead.add(c.item.token);
         }
       }
-      // 아직 남은 «시도하지 않은 자리»(마감으로 멈춘 플랫폼 등) — 돌려준다(이미 돌려준 것은 건너뛴다)
-      await release(claimed);
+      // 아직 남은 «시도하지 않은 자리»(마감으로 멈춘 플랫폼 등) — 돌려준다(이미 돌려준 것은 건너뛴다 · 뒤에서)
+      later(release(claimed));
       if (dead.size) {
         const ts = [...dead];
-        await deps.store.srem('push:token_list', ts).catch(() => {});
-        await deps.store.del(ts.map((t) => `push:tokens:${t}`)).catch(() => {});
+        // 목록 제거 «뒤에» 기록 삭제 — 순서는 기존 그대로(관문 11060414 #2: 동시에 보내면 재등록과 겹쳐 목록에서만 빠질 수 있다)
+        // (시간 상한을 씌우지 않는다 — 늦은 목록 제거가 기록 삭제·재등록 뒤에 닿는 역전을 만들지 않게, origin/main 과 같은 기다림)
+        later(deps.store.srem('push:token_list', ts).catch(() => {}).then(() => deps.store.del(ts.map((t) => `push:tokens:${t}`))));
       }
       // 선점 창이 닫혔거나 마감을 넘겼으면 다음 묶음으로 가지 않는다(잡은 것은 위에서 보냈거나 돌려줬다)
       if (expiring || !inTime || !sendInTime) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
@@ -521,6 +568,8 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
     if (report.status === 'no_run_lock') report.status = 'store_unavailable';
     return report;
   } finally {
+    // 뒤에서 돌던 반환이 모두 끝난 뒤 잠금을 푼다 — 다음 회차가 반환 중인 자리·상한을 보지 않게
+    await Promise.allSettled(bg);
     await deps.store.del([RESULT_KEYS.lock]).catch(() => {});
   }
 }

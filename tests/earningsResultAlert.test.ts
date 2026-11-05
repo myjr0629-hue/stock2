@@ -629,6 +629,157 @@ t('4 · 관문 11051012 #2 재현 — 이전 회차의 지연된 굳히기·무�
   s.store.setNx = setNx;
   assert.equal((await s.run(SEND + 3_600_000)).sent, 0); assert.equal(s.sender.items.length, 2);
 });
+// ── 야간 검토 20261105 #2 · 관문 11060111·11060355 — 반환(decr·자리 지우기)은 뒤에서, 같은 기기의 상한 판정은 장부(owed)로 ──────────
+const capOf = (tok: string) => `push:sig:cap:2026-10-14:${devKey(tok)}`;
+const TWO_TICKERS: Array<[string, Record<string, unknown>]> = [[IOS_TOKEN, { watchlist: { t: ['JPM', 'C'] }, tz: 'Asia/Seoul' }]];
+t('4 · 야간 검토 #2 — 상한 처리 실패 기기의 반환이 2초 걸려도 정상 기기 발송은 그 반환을 기다리지 않는다', async () => {
+  const s = setup([raw()], TWO_IOS);
+  const badKey = slowKeyOf(IOS_TOKEN2), badCap = capOf(IOS_TOKEN2);
+  const incr = s.store.incr.bind(s.store), decr = s.store.decr.bind(s.store), del = s.store.delIfEq.bind(s.store);
+  s.store.incr = async (k, ex) => (k === badCap ? new Promise<number>(() => {}) : incr(k, ex));   // 빠진 기기의 증가는 응답 없음(시간 초과)
+  let refundAt = 0, refundDone = 0;
+  s.store.decr = async (k) => { if (k === badCap) { refundAt = Date.now(); await ms(2000); refundDone = Date.now(); } return decr(k); };
+  s.store.delIfEq = async (k, ex) => { if (k === badKey) await ms(2000); return del(k, ex); };
+  let sendAt = 0;
+  const send = s.sender.send.bind(s.sender);
+  s.sender.send = async (items) => { sendAt = Date.now(); return send(items); };
+  const t0 = Date.now();
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 300, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN]);
+  assert.ok(refundAt > 0 && sendAt - refundAt < 300, `반환 시작 → 발송 ${sendAt - refundAt}ms`);
+  assert.ok(sendAt - t0 < 1000, `발송까지 ${sendAt - t0}ms`);
+  assert.equal(refundDone, 0, '발송·단계는 2초 반환을 기다리지 않았다(반환 하나는 시간 상한 안에서만 기다림)');
+  await ms(2100);
+  assert.equal(s.store.live(badKey), false, '빠진 기기 자리는 늦게라도 돌려준다 → 다음 회차 재시도');
+});
+t('4 · 재확인 탈락 기기의 자리 반환이 2초 걸려도 다른 기기 발송은 기다리지 않는다', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], [[IOS_TOKEN, { watchlist: { t: ['JPM'] }, tz: 'Asia/Seoul' }], [IOS_TOKEN2, { watchlist: { t: ['C'] } }]]);
+  s.recs.swap = { fromCall: 2, key: actualsKey('C', D), value: raw('C', 3, 4.5) };   // 재확인에서 C 만 탈락
+  const cKey = `push:sig:result:${devKey(IOS_TOKEN2)}:C:${D}`;
+  const del = s.store.delIfEq.bind(s.store);
+  let delStart = 0;
+  s.store.delIfEq = async (k, ex) => { if (k === cKey) { delStart = delStart || Date.now(); await ms(2000); } return del(k, ex); };
+  let sendAt = 0;
+  const send = s.sender.send.bind(s.sender);
+  s.sender.send = async (items) => { sendAt = Date.now(); return send(items); };
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 300, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 1); assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN]);
+  assert.ok(delStart > 0 && sendAt - delStart < 100, `탈락 기기 반환 시작 → 다른 기기 발송 ${sendAt - delStart}ms`);
+});
+t('4 · 관문 11060111 재현 — 2/3 · 두 종목 · 첫 incr 시간 초과(서버엔 반영)·반환 2초 지연이어도 같은 기기 두 번째 종목은 보낸다 · 상한은 3 그대로', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  const cap = capOf(IOS_TOKEN);
+  s.store.m.set(cap, 2);
+  const incr = s.store.incr.bind(s.store), decr = s.store.decr.bind(s.store);
+  let first = true;
+  const order: string[] = [];
+  s.store.incr = async (k, ex) => {
+    if (k === cap) order.push('incr');
+    const n = await incr(k, ex);                                                  // 서버엔 반영
+    if (k === cap && first) { first = false; return new Promise<number>(() => {}); }   // 응답만 시간 초과
+    return n;
+  };
+  s.store.decr = async (k) => { if (k === cap) { order.push('decr'); await ms(2000); } return decr(k); };
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 100, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 1, JSON.stringify(r.skipped));
+  assert.deepEqual(s.sender.items.map((x) => x.data.t), ['C'], '두 번째 종목은 보낸다(카운터 4 − 되돌릴 1 = 3 ≤ 3)');
+  assert.deepEqual(order, ['incr'], '두 번째 종목은 시간 초과된 증가분을 넘겨받는다 — 새 incr·decr 0(반환을 기다릴 일 자체가 없다)');
+  assert.equal(Number(s.store.m.get(cap)), 3, '공유 상한은 실제 사용량 2 + 보낸 1 = 3 — 4 로 부풀지 않는다(관문 11060417 #1)');
+  await ms(50);
+  assert.equal(Number(s.store.m.get(cap)), 3);
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 0, '다음 회차 중복 0');
+});
+t('4 · 관문 11060355 재현 — 반환이 300ms 를 넘어 끝내 응답이 없어도 같은 기기 후속 종목은 빠지지 않는다', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  const cap = capOf(IOS_TOKEN);
+  s.store.m.set(cap, 2);
+  const incr = s.store.incr.bind(s.store);
+  let first = true, decrCalls = 0;
+  s.store.incr = async (k, ex) => {
+    const n = await incr(k, ex);
+    if (k === cap && first) { first = false; return new Promise<number>(() => {}); }
+    return n;
+  };
+  s.store.decr = (k) => { if (k === cap) decrCalls++; return new Promise<number>(() => {}); };   // 반환 응답 없음
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 300, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 1, JSON.stringify(r.skipped)); assert.deepEqual(s.sender.items.map((x) => x.data.t), ['C']);
+  assert.equal(decrCalls, 0, '넘겨받았으니 되돌리기 0 — 반환 응답에 기대지 않는다');
+  assert.equal(Number(s.store.m.get(cap)), 3);
+});
+t('4 · 장부 보정은 상한을 넘기지 않는다 — 3/3 이면 두 종목 모두 건너뛰고 · 2/3 이면 하나만 보낸 뒤 상한은 3 으로 돌아온다', async () => {
+  for (const [start, want] of [[3, []], [2, ['JPM']]] as const) {
+    const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+    s.store.m.set(capOf(IOS_TOKEN), start);
+    const r = await s.run(SEND);
+    assert.deepEqual(s.sender.items.map((x) => x.data.t), want, `시작 ${start}/3`); assert.equal(r.sent, want.length);
+    assert.equal(Number(s.store.m.get(capOf(IOS_TOKEN))), 3, `시작 ${start}/3 → 끝 3`);
+    assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`), false, '거절한 자리는 돌려준다');
+  }
+});
+t('4 · 시간 초과 증가분을 넘겨받을 때 GET 값이 상한 초과면(3/3 에서 첫 incr 시간 초과) 두 번째 종목은 건너뛰고 곧바로 되돌린다 · 끝 3', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  const cap = capOf(IOS_TOKEN);
+  s.store.m.set(cap, 3);
+  const incr = s.store.incr.bind(s.store);
+  s.store.incr = async (k, ex) => { const n = await incr(k, ex); return k === cap ? new Promise<number>(() => {}) : n; };
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 100, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 0); assert.equal(s.sender.calls, 0);
+  assert.equal(Number(s.store.m.get(cap)), 3);
+  assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`), false); assert.equal(s.store.m.has(slowKeyOf(IOS_TOKEN)), false, '두 자리 모두 돌려준다 → 다음 회차 재시도');
+});
+t('4 · 관문 11060422 — 들고 있던 시간 초과 증가분은 다음 종목 선점이 실패하면(이미 보낸 종목) 그 즉시 되돌린다', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  const cap = capOf(IOS_TOKEN);
+  s.store.m.set(cap, 2);
+  s.store.m.set(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`, 'sent:old');   // C 는 지난 회차에 이미 보냈다
+  const order: string[] = [];
+  const incr = s.store.incr.bind(s.store), decr = s.store.decr.bind(s.store), setNx = s.store.setNx.bind(s.store);
+  s.store.incr = async (k, ex) => { const n = await incr(k, ex); if (k === cap) { order.push('incr'); return new Promise<number>(() => {}); } return n; };
+  s.store.decr = async (k) => { if (k === cap) order.push('decr'); return decr(k); };
+  s.store.setNx = async (k, v, ex) => { const ok = await setNx(k, v, ex); if (k.includes(`${devKey(IOS_TOKEN)}:C:`)) order.push(`claimC:${ok}`); return ok; };
+  const r = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 100, clock: () => SEND }, s.opts(SEND));
+  assert.equal(r.sent, 0);
+  assert.deepEqual(order, ['incr', 'claimC:false', 'decr']);
+  assert.equal(Number(s.store.m.get(cap)), 2, '원상');
+});
+t('4 · 관문 11060414 #1·11060420 — 상한 초과가 확인되면 곧바로 되돌리고(다음 종목 선점 «전»에 시작) 다음 종목도 계속 본다', async () => {
+  const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  const cap = capOf(IOS_TOKEN);
+  s.store.m.set(cap, 3);
+  const order: string[] = [];
+  const incr = s.store.incr.bind(s.store), decr = s.store.decr.bind(s.store), setNx = s.store.setNx.bind(s.store);
+  s.store.incr = async (k, ex) => { if (k === cap) order.push('incr'); return incr(k, ex); };
+  s.store.decr = async (k) => { if (k === cap) order.push('decr'); return decr(k); };
+  s.store.setNx = async (k, v, ex) => { if (k.startsWith('push:sig:result:') && k.includes(devKey(IOS_TOKEN))) order.push('claim'); return setNx(k, v, ex); };
+  assert.equal((await s.run(SEND)).sent, 0);
+  assert.deepEqual(order.slice(0, 3), ['claim', 'incr', 'decr'], '되돌리기는 다음 종목 선점 전에 시작');
+  assert.deepEqual(order.filter((x) => x === 'claim').length, 2, '다음 종목도 본다(origin/main 과 같은 순서)');
+  assert.equal(Number(s.store.m.get(cap)), 3);
+  // 다른 크론이 그 사이 상한을 돌려주면(3 → 2) 두 번째 종목은 보낸다
+  const s2 = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  s2.store.m.set(cap, 3);
+  const incr2 = s2.store.incr.bind(s2.store);
+  let n2 = 0;
+  s2.store.incr = async (k, ex) => { const v = await incr2(k, ex); if (k === cap && ++n2 === 1) s2.store.m.set(cap, Number(s2.store.m.get(cap)) - 1); return v; };
+  assert.equal((await s2.run(SEND)).sent, 1); assert.deepEqual(s2.sender.items.map((x) => x.data.t), ['C']);
+  assert.equal(Number(s2.store.m.get(cap)), 3);
+});
+t('4 · 굳힌 직후 마감이 지나면 발송하지 않고 장부를 되돌려 다음 회차에 보낸다(발송 직전 마감 재확인)', async () => {
+  const s = setup();
+  let now = SEND;
+  const set = s.store.setIfEq.bind(s.store);
+  s.store.setIfEq = async (k, expect, value, ttl) => {
+    const ok = await set(k, expect, value, ttl);
+    if (ok && value.startsWith('sent:')) now = SEND + 30_000;                   // 굳힘이 확인된 순간 마감이 지났다
+    return ok;
+  };
+  const r = await runEarningsResultStep({ ...s.deps, clock: () => now }, s.opts(SEND));
+  assert.equal(r.sent, 0); assert.equal(s.sender.calls, 0, '마감 뒤엔 발송 호출 0');
+  assert.equal(s.store.live(slowKeyOf(IOS_TOKEN)), false, '굳힌 120일 장부는 되돌렸다');
+  assert.equal(Number(s.store.m.get(capOf(IOS_TOKEN))), 0, '하루 상한도 되돌렸다');
+  s.store.setIfEq = set;
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 1, '다음 회차가 보낸다');
+});
 t('4 · 재확인 탈락 자리도 발송 전에 반환된다', async () => {
   const s = setup([raw(), raw('C', 3, 4)], [[IOS_TOKEN, { watchlist: { t: ['JPM', 'C'] }, tz: 'Asia/Seoul' }]]);
   s.recs.swap = { fromCall: 2, key: actualsKey('C', D), value: raw('C', 3, 4.5) };   // 재확인에서 C 만 값이 바뀐다
