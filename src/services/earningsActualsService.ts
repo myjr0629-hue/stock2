@@ -495,6 +495,23 @@ export async function syncActualsLatestPointers(opts: {
 }
 
 /**
+ * [T56b] 사본 값 중 «되살려도 되는» 모양 — 사본은 EC2 보다 한 쓰기 뒤처질 수 있다(사본 맞추기 전 EC2 유실).
+ *   크론이 나중에 «지울 수 있는» actual 은 되살리지 않는다(관문 11052030): ① Intrinio 단독(check null — 4일 재대조 대상)
+ *   ② 정착 전 저장(at < 반응일 확정 + 2시간 — 정착 재확인 대상). 두 공급사 대조·정착을 마친 actual 은 크론이 다시 바꾸지 않는다.
+ *   그런 actual 은 비우고(expected 는 그대로) 되살린다 — 창 안이면 크론이 다시 계산한다. 포인터는 그대로. 모양이 틀리면 null.
+ */
+export function restorableValue(key: string, value: unknown, nowMs: number): unknown {
+  if (key.startsWith(`${ACTUALS_KEY_PREFIX}:latest:`)) return parseLatestPointer(value) ? value : null;
+  const rec = parseRecord(value);
+  if (!rec || actualsKey(rec.ticker, rec.date) !== key) return null;
+  const a = rec.actual;
+  const settledAt = a ? (reactionFinalAt(a.reactDate) ?? Infinity) + ACTUAL_SETTLE_MS : Infinity;
+  const finalActual = !!a && a.check === 'fmp' && a.at >= settledAt && nowMs >= settledAt;
+  if (!a || finalActual) return value;
+  return { ...(value as Record<string, unknown>), actual: null };
+}
+
+/**
  * [T56b] 사본에서 EC2 되살리기 — 사고 대응 전용(스크립트 scripts/restore-actuals-from-mirror.ts, 페이지·크론은 부르지 않는다).
  *   Upstash 사본의 earnings:actuals:v1:* 중 «EC2 엄격 읽기가 성공했고 값이 없는» 키만 같은 값으로 EC2 에 쓴다(TTL 없음).
  *   EC2 에 값이 있는 키는 절대 건드리지 않는다 · EC2 를 읽지 못한 키는 쓰지 않는다 · dryRun 이면 쓰기 0.
@@ -508,12 +525,12 @@ export async function restoreActualsFromMirror(opts: {
     set?: (key: string, value: unknown) => Promise<boolean>;
     runLock?: RunLock;
   };
-} = {}): Promise<{ locked: boolean; mirror: number; present: number; restored: string[]; readFailed: string[]; writeFailed: string[] }> {
+} = {}): Promise<{ locked: boolean; mirror: number; present: number; restored: string[]; skipped: string[]; readFailed: string[]; writeFailed: string[] }> {
   const list = opts.deps?.list ?? (() => listActualsMirror());
   const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
   const set = opts.deps?.set ?? ((key: string, value: unknown) => setAuthoritativeCache(key, value));
   const rows = (await list()).filter((r) => r.key.startsWith(`${ACTUALS_KEY_PREFIX}:`) && r.key !== `${ACTUALS_KEY_PREFIX}:run-lock` && r.value != null);
-  const out = { locked: false, mirror: rows.length, present: 0, restored: [] as string[], readFailed: [] as string[], writeFailed: [] as string[] };
+  const out = { locked: false, mirror: rows.length, present: 0, restored: [] as string[], skipped: [] as string[], readFailed: [] as string[], writeFailed: [] as string[] };
   // 쓰기는 크론과 같은 쓰기 잠금(90초) 안에서만 — 잠금을 쥔 동안 크론 회차는 «run_locked»로 쉬므로, «없음 확인 → 쓰기» 사이에
   //   크론이 같은 키에 새 값을 써 그 값을 사본이 덮는 일이 없다(관문 11052026 ②). 잠금을 못 얻으면 아무것도 쓰지 않는다.
   if (!opts.dryRun) {
@@ -525,9 +542,11 @@ export async function restoreActualsFromMirror(opts: {
     const cur = await getStrict(r.key).catch(() => ({ ok: false, value: null }));
     if (!cur.ok) { out.readFailed.push(r.key); continue; }
     if (cur.value != null) { out.present++; continue; }
+    const value = restorableValue(r.key, r.value, Date.now());
+    if (value == null) { out.skipped.push(r.key); continue; }
     if (opts.dryRun) { out.restored.push(r.key); continue; }
     if (Date.now() >= lockUntil) { out.writeFailed.push(r.key); continue; }   // 잠금 시간 밖 — 다시 실행
-    if (await set(r.key, r.value).catch(() => false)) out.restored.push(r.key); else out.writeFailed.push(r.key);
+    if (await set(r.key, value).catch(() => false)) out.restored.push(r.key); else out.writeFailed.push(r.key);
   }
   return out;
 }

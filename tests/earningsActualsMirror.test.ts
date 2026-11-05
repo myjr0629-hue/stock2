@@ -108,14 +108,15 @@ test('읽기 — EC2 미스인 기록은 사본이 있어도 비어 있다(main 
 test('★ 사고 대응 — restoreActualsFromMirror 는 EC2 에 «없는» 키만 사본 값으로 되살린다(있는 키·읽기 실패 키는 그대로)', async () => {
   reset();
   const k2 = A.actualsKey('C', '2026-10-13'), k3 = A.actualsKey('GS', '2026-10-13');
-  const rows = [{ key: KEY, value: { v: 1, tag: 'mirror-jpm' } }, { key: k2, value: { v: 1, tag: 'mirror-c' } }, { key: k3, value: { v: 1, tag: 'mirror-gs' } }, { key: 'earnings:actuals:v1:run-lock', value: '1' }];
+  const recv = (tk: string) => ({ v: 1, ticker: tk, date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 7 });
+  const rows = [{ key: KEY, value: recv('JPM') }, { key: k2, value: recv('C') }, { key: k3, value: recv('GS') }, { key: 'earnings:actuals:v1:run-lock', value: '1' }];
   ec2.set(k2, { v: 1, tag: 'ec2-c' });
   const getStrict = async (k: string) => (k === k3 ? { ok: false, value: null } : { ok: true, value: ec2.get(k) ?? null });
   const dry = await SVC.restoreActualsFromMirror({ dryRun: true, deps: { list: async () => rows, getStrict } });
   assert.deepEqual(dry.restored, [KEY]); assert.equal(ec2.has(KEY), false, 'dry 는 쓰기 0');
   const r = await SVC.restoreActualsFromMirror({ deps: { list: async () => rows, getStrict, runLock: async () => 'ok' } });
   assert.deepEqual(r.restored, [KEY]); assert.equal(r.present, 1); assert.deepEqual(r.readFailed, [k3]);
-  assert.deepEqual(ec2.get(KEY), { v: 1, tag: 'mirror-jpm' });
+  assert.deepEqual(ec2.get(KEY), recv('JPM'));
   assert.deepEqual(ec2.get(k2), { v: 1, tag: 'ec2-c' }, 'EC2 값은 건드리지 않는다');
   assert.equal(ec2Writes.find((w) => w.key === KEY)?.ttl, undefined, 'TTL 없음');
   assert.equal(ec2.has('earnings:actuals:v1:run-lock'), false);
@@ -259,10 +260,24 @@ test('★ 느린 Upstash(성공이지만 0.3초 초과) — 동기화의 사본 
 
 test('★ 사고 대응 복구는 크론 쓰기 잠금을 얻어야만 쓴다(없음 확인 → 쓰기 사이에 크론이 끼어들지 않게)', async () => {
   reset();
-  const rows = [{ key: KEY, value: { v: 1, tag: 'mirror-jpm' } }];
+  const rows = [{ key: KEY, value: { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, actual: null, at: 7 } }];
   const getStrict = async (k: string) => ({ ok: true, value: ec2.get(k) ?? null });
   const busy = await SVC.restoreActualsFromMirror({ deps: { list: async () => rows, getStrict, runLock: async () => 'busy' } });
   assert.equal(busy.locked, true); assert.equal(ec2.has(KEY), false, '잠금 실패 — 쓰기 0');
   const ok = await SVC.restoreActualsFromMirror({ deps: { list: async () => rows, getStrict, runLock: async () => 'ok' } });
   assert.deepEqual(ok.restored, [KEY]);
+});
+
+test('★ 복구는 크론이 나중에 지울 수 있는 actual(Intrinio 단독·정착 전)을 비우고 되살린다 — 대조·정착 끝난 actual 만 그대로', () => {
+  const now = Date.parse('2026-11-05T12:00:00Z');
+  const base = { v: 1, ticker: 'JPM', date: '2026-10-13', hour: 'bmo', expected: EXP, at: 9 };
+  const settled = Date.parse('2026-10-13T20:30:00Z') + A.ACTUAL_SETTLE_MS;   // 10/13 16:00 ET 마감 + 30분 + 2시간
+  const act = (check: 'fmp' | null, at: number) => ({ pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: '2026-10-13', reactClose: 331.43, src: 'intrinio-daily', check, at });
+  assert.deepEqual((SVC.restorableValue(KEY, { ...base, actual: act('fmp', settled + 1) }, now) as any).actual.pct, -0.8585, '대조·정착 끝 — 그대로');
+  assert.equal((SVC.restorableValue(KEY, { ...base, actual: act(null, settled + 1) }, now) as any).actual, null, 'Intrinio 단독 — 비움');
+  assert.equal((SVC.restorableValue(KEY, { ...base, actual: act('fmp', settled - 1) }, now) as any).actual, null, '정착 전 저장 — 비움');
+  assert.equal((SVC.restorableValue(KEY, { ...base, actual: act(null, 1) }, now) as any).expected.pct, 3.2, 'expected 는 그대로');
+  assert.equal(SVC.restorableValue(KEY, { v: 9 }, now), null, '모양 오류 — 건너뜀');
+  assert.equal(SVC.restorableValue(A.actualsKey('C', '2026-10-13'), { ...base, actual: null }, now), null, '키와 기록이 다르면 건너뜀');
+  assert.deepEqual(SVC.restorableValue(A.actualsLatestKey('JPM'), { date: '2026-10-13' }, now), { date: '2026-10-13' });
 });
