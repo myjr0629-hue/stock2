@@ -716,7 +716,7 @@ t('4 · 장부 보정은 상한을 넘기지 않는다 — 3/3 이면 두 종목
     assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`), false, '거절한 자리는 돌려준다');
   }
 });
-t('4 · 시간 초과 증가분을 넘겨받을 때 GET 값이 상한 초과면(3/3 에서 첫 incr 시간 초과) 두 번째 종목도 건너뛰고 곧바로 되돌린다 · 끝 3', async () => {
+t('4 · 시간 초과 증가분을 넘겨받을 때 GET 값이 상한 초과면(3/3 에서 첫 incr 시간 초과) 두 번째 종목은 건너뛰고 곧바로 되돌린다 · 끝 3', async () => {
   const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
   const cap = capOf(IOS_TOKEN);
   s.store.m.set(cap, 3);
@@ -727,7 +727,7 @@ t('4 · 시간 초과 증가분을 넘겨받을 때 GET 값이 상한 초과면(
   assert.equal(Number(s.store.m.get(cap)), 3);
   assert.equal(s.store.m.has(`push:sig:result:${devKey(IOS_TOKEN)}:C:${D}`), false); assert.equal(s.store.m.has(slowKeyOf(IOS_TOKEN)), false, '두 자리 모두 돌려준다 → 다음 회차 재시도');
 });
-t('4 · 관문 11060414 #1 — 상한 초과가 확인되면 그 기기는 멈추고 곧바로 되돌린다(뒤 종목 왕복 동안 공유 상한을 부풀려 두지 않는다)', async () => {
+t('4 · 관문 11060414 #1·11060420 — 상한 초과가 확인되면 곧바로 되돌리고(다음 종목 선점 «전»에 시작) 다음 종목도 계속 본다', async () => {
   const s = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
   const cap = capOf(IOS_TOKEN);
   s.store.m.set(cap, 3);
@@ -737,8 +737,17 @@ t('4 · 관문 11060414 #1 — 상한 초과가 확인되면 그 기기는 멈�
   s.store.decr = async (k) => { if (k === cap) order.push('decr'); return decr(k); };
   s.store.setNx = async (k, v, ex) => { if (k.startsWith('push:sig:result:') && k.includes(devKey(IOS_TOKEN))) order.push('claim'); return setNx(k, v, ex); };
   assert.equal((await s.run(SEND)).sent, 0);
-  assert.deepEqual(order, ['claim', 'incr', 'decr'], '두 번째 종목 선점·증가 없이 곧바로 되돌림');
+  assert.deepEqual(order.slice(0, 3), ['claim', 'incr', 'decr'], '되돌리기는 다음 종목 선점 전에 시작');
+  assert.deepEqual(order.filter((x) => x === 'claim').length, 2, '다음 종목도 본다(origin/main 과 같은 순서)');
   assert.equal(Number(s.store.m.get(cap)), 3);
+  // 다른 크론이 그 사이 상한을 돌려주면(3 → 2) 두 번째 종목은 보낸다
+  const s2 = setup([raw(), raw('C', 3, 4)], TWO_TICKERS);
+  s2.store.m.set(cap, 3);
+  const incr2 = s2.store.incr.bind(s2.store);
+  let n2 = 0;
+  s2.store.incr = async (k, ex) => { const v = await incr2(k, ex); if (k === cap && ++n2 === 1) s2.store.m.set(cap, Number(s2.store.m.get(cap)) - 1); return v; };
+  assert.equal((await s2.run(SEND)).sent, 1); assert.deepEqual(s2.sender.items.map((x) => x.data.t), ['C']);
+  assert.equal(Number(s2.store.m.get(cap)), 3);
 });
 t('4 · 굳힌 직후 마감이 지나면 발송하지 않고 장부를 되돌려 다음 회차에 보낸다(발송 직전 마감 재확인)', async () => {
   const s = setup();

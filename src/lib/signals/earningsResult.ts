@@ -371,13 +371,15 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       /**
        * 기기 하나 — 마감 검사 뒤 그 기기의 발표들을 차례로 선점(기기 안은 순서대로: 하루 상한·회차당 상한을 지키려고).
        * 하루 상한(공유 키 — «내 종목 이상 신호» run.ts 와 같다)은 기다림 없이 정확하게(야간 검토 20261105 #2 · 관문 11060111·11060355·11060414):
-       *   · incr 값이 상한 초과로 «확인»되면 — 그 기기는 거기서 멈추고 곧바로(뒤에서) 되돌린다. 이 회차의 뒤 종목도 어차피 초과다.
+       *   · incr 값이 상한 초과로 «확인»되면 — 곧바로(뒤에서) 되돌리고 다음 종목을 계속 본다(origin/main 과 같은 순서 · 부풀린 상한을 들고 있지 않는다,
+       *     관문 11060414 #1·11060420). 다음 종목 incr 가 그 되돌리기보다 먼저 서버에 닿으면 1 높게 보여 이번 회차엔 건너뛸 수 있다 — 다른 크론이
+       *     같은 순간 상한을 돌려준 경우에만 생기는 보수 쪽 오차이고, 다음 회차(25분+ 뒤)가 다시 본다(넘치는 쪽 오차는 만들지 않는다).
        *   · incr 가 오류·시간 초과면 — «서버엔 반영됨»으로 본다(기존 규칙, 관문 11041451 #2). 이 자리(held)는 되돌리지 않고 들고 있다가
        *     같은 기기의 다음 종목이 선점되면 그 종목이 «넘겨받는다»: 새로 incr 하지 않고 GET 한 값이 상한 안이면 그대로 쓴다.
        *     예: 2/3 · 첫 종목 incr 시간 초과(서버 3) → 두 번째 종목 선점 → GET 3 ≤ 3 → 보낸다 · decr 0회 · 끝 3.
        *     되돌리기(decr)가 아예 없으니 반환이 느리든 끝내 응답이 없든 판정이 같고, 공유 상한은 실제 사용량(3)을 넘겨 부풀지 않는다.
        *     늦게 도착하는 첫 incr 도 그 자리를 채울 뿐이다(GET 이 그 증가 전이든 뒤든 같은 결과).
-       *     넘겨받을 종목이 없거나(선점 실패 포함 — 루프 끝) GET 값이 상한 초과·확인 불가면 그때 곧바로 되돌린다.
+       *     넘겨받을 종목이 없으면(루프 끝) · GET 값이 상한 초과·확인 불가면 그때 곧바로 되돌리고(그 종목은 돌려준다) 다음 종목을 계속 본다.
        *   · 남는 오차는 기존 규칙과 같은 쪽 — 시간 초과된 incr 가 끝내 서버에 안 닿았으면 그날 상한이 1 덜 찬다.
        *   · 기기 키(devKey)는 토큰마다 하나라 같은 상한 키를 이 회차의 다른 루프가 건드리지 않는다.
        * 거절한 자리 지우기·되돌리기는 뒤에서(laterOp) — 정상 기기의 선점·발송은 이것을 기다리지 않는다.
@@ -386,8 +388,9 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
         const d = deviceFromRecord(chunk[j], records[j]);
         if (!d) return;
         const cap = SIG_KEYS.cap(etDateOf(now), d.dev);
-        let chosen = 0, held = false, refund = 0;
+        let chosen = 0, held = false;
         const drop = (key: string) => laterOp(deps.store.delIfEq(key, [CLAIM_V]));
+        const refund = () => laterOp(deps.store.decr(cap));
         try {
           for (const x of cands) {
             const a = x.alert;
@@ -399,21 +402,21 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
             if (held) {
               // 들고 있던 (시간 초과) 증가분을 이 종목이 넘겨받는다 — 새 incr 없이 지금 값이 상한 안인지만 본다
               const v = await st(deps.store.get(cap)).then((r) => Number(r ?? 0)).catch(() => NaN);
-              if (!(v <= SIG_CFG.deviceDailyCap)) { drop(key); break; }   // 초과·확인 불가 → 멈추고 들고 있던 증가분을 되돌린다(finally)
               held = false;
+              if (!(v <= SIG_CFG.deviceDailyCap)) { refund(); drop(key); continue; }   // 초과·확인 불가 → 들고 있던 증가분을 곧바로 되돌린다
             } else {
               const cnt = await st(deps.store.incr(cap, 36 * 3600)).catch(() => null);
               if (cnt == null) { held = true; drop(key); continue; }   // 오류·시간 초과 → 반영됐다고 보고 들고 있는다(다음 종목이 넘겨받거나 끝에서 되돌림)
-              // 상한 초과 — 이 증가를 곧바로 되돌리고 이 기기는 멈춘다(부풀린 공유 상한을 남겨 두지 않는다, 관문 11060414 #1)
-              if (cnt > SIG_CFG.deviceDailyCap) { refund++; drop(key); break; }
+              // 상한 초과 — 이 증가를 곧바로(뒤에서) 되돌린다(부풀린 공유 상한을 들고 있지 않는다, 관문 11060414 #1) · 다음 종목은 계속 본다(관문 11060420)
+              if (cnt > SIG_CFG.deviceDailyCap) { refund(); drop(key); continue; }
             }
             chosen++;
             const copy = resultCopy(a, d.locale);
             claimed.push({ key, cap, cand: x, item: { id: `${d.dev}|${a.ticker}|${a.date}`, token: d.token, platform: d.platform, ...copy, quiet: inQuietHours(d.tz, now), thread: `sig-${a.ticker}`, data: { type: 'wl_signal', path: resultPath(), ev: 'earnings_result', t: a.ticker, src: 'push_sig_earn', locale: d.locale } } });
           }
         } finally {
-          // 넘겨받지 못한 증가분·초과분 되돌리기 — 루프가 끝나는 즉시(뒤에서). 이 회차에서 이 상한 키를 다시 incr 하는 일은 없다
-          for (let k = 0; k < refund + (held ? 1 : 0); k++) laterOp(deps.store.decr(cap));
+          // 넘겨받지 못한 (시간 초과) 증가분 되돌리기 — 루프가 끝나는 즉시(뒤에서)
+          if (held) refund();
         }
       };
       // 기기 사이는 병렬(동시 CLAIM_CONCURRENCY) — 저장소가 느려도 묶음 준비가 «기기 수 × 왕복»으로 늘지 않게(관문 11041435 #2)
