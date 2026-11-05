@@ -1,5 +1,5 @@
 /**
- * Deploy the XS paper-trade engine (scripts/xs-paper-engine.js) as `signum-xs-paper`.
+ * Deploy the XS paper-trade engine (scripts/lambda-xs-paper/index.js) as `signum-xs-paper`.
  *
  *   1. Creates DynamoDB `signum-trade-journal` (PK pk / SK sk, on-demand) if missing.
  *   2. Packages the zero-dependency engine as a single-file Lambda.
@@ -62,8 +62,6 @@ async function deploy() {
   await ensureTable();
 
   const lambdaDir = path.join(__dirname, 'lambda-xs-paper');
-  fs.mkdirSync(lambdaDir, { recursive: true });
-  fs.copyFileSync(path.join(__dirname, 'xs-paper-engine.js'), path.join(lambdaDir, 'index.js'));
   const zipPath = path.join(__dirname, 'lambda-xs-paper.zip');
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   const { execSync } = require('child_process');

@@ -126,20 +126,31 @@ async function fetchSessions(tickers, sessionDate) {
     return out;
 }
 
-async function run() {
+async function run(date) {
     const t0 = Date.now();
-    const today = new Date().toISOString().slice(0, 10);
+    const utcToday = new Date().toISOString().slice(0, 10);
+    if (date !== undefined && (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date || date > utcToday)) throw new Error('Invalid or future event.date');
+    const today = date ?? utcToday;
+    const historical = today < utcToday;
     console.log(`[PAPER] ${VERSION} run ${today} ${DRY ? '(DRY)' : ''}`);
 
     // ── state ────────────────────────────────────────────────────────────────
-    const stRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'STATE', sk: '_CURRENT_' } })).catch(() => ({}));
+    const stRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'STATE', sk: '_CURRENT_' } }));
     const state = stRes.Item || { pk: 'STATE', sk: '_CURRENT_', cash: CAPITAL0, halted: false, haltReason: null, weekId: null, weekStartNav: CAPITAL0, lastRun: null };
-    const posRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'POS', sk: '_OPEN_' } })).catch(() => ({}));
+    if (historical) {
+        if (!state.lastRun || state.lastRun >= today) throw new Error(`Historical date ${today} must be after STATE.lastRun ${state.lastRun || 'missing'}`);
+        const navRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'NAV', sk: today }, ConsistentRead: true }));
+        if (navRes.Item) throw new Error(`NAV already exists for ${today}`);
+    }
+    if (state.lastRun === today) {
+        console.log('[PAPER] re-run same day — already processed, skip');
+        return { date: today, nav: null, halted: state.halted, spyClose: null, tradingDay: true, skipped: true };
+    }
+    const posRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'POS', sk: '_OPEN_' } }));
     let positions = posRes.Item?.list || []; // [{t, qty, entryPx, entryDate, tradingDaysHeld}]
     const ordKey = state.lastRun || 'none';
-    const ordRes = state.lastRun ? await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'ORDERS', sk: state.lastRun } })).catch(() => ({})) : {};
+    const ordRes = state.lastRun ? await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'ORDERS', sk: state.lastRun } })) : {};
     const pendingOrders = (ordRes.Item?.orders || []).filter(o => !o.filled);
-    if (state.lastRun === today) console.log('[PAPER] re-run same day — idempotent path');
 
     // manual kill switch (separate from marketing killswitch)
     const tradeKill = (await redisGet('trade:killswitch')) === '1' || (await redisGet('trade:killswitch')) === '"1"';
@@ -153,8 +164,10 @@ async function run() {
     let xsDoc = null;
     try { const raw = await redisGet('cache:xs:scores'); xsDoc = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { xsDoc = null; }
     const xsDate = xsDoc?.date && xsDoc?.scores ? String(xsDoc.date) : null;
+    if (historical && xsDate !== today) throw new Error(`Historical XS cache date ${xsDate || 'none'} does not match ${today}`);
     const xsUniverse = xsDate ? Object.keys(xsDoc.scores) : [];
     const xsRowsAll = xsUniverse.length ? await batchGet(XS_TABLE, xsUniverse.map(t => ({ ticker: t, date: xsDate }))) : new Map();
+    if (historical && !xsRowsAll.size) throw new Error(`No XS history rows for ${today}`);
     for (const [t, r] of xsRowsAll) {
         const price = num(r.close), mcap = num(r.mcap);
         if (!(price > 0)) continue;
@@ -170,8 +183,8 @@ async function run() {
     const actTickers = [...new Set([...pendingOrders.map(o => o.t), ...positions.map(p => p.t)])];
     // sample for the legacy trading-day guard: 60 liquid names from snaps
     const sample = [...snaps.entries()].filter(([, s]) => s.mcap >= 1e10).slice(0, 60).map(([t]) => t);
-    const sessionDate = etDate(Date.now());
-    const live = await fetchSessions([...new Set([...actTickers, 'SPY'])], sessionDate);
+    const sessionDate = today;
+    const live = today === etDate(Date.now()) ? await fetchSessions([...new Set([...actTickers, 'SPY'])], sessionDate) : new Map();
     const legacyKeys = [...new Set([...actTickers, ...sample, 'SPY'])].map(t => ({ ticker: t, date: today }));
     const ohlc = legacyKeys.length ? await batchGet(ALPHA_TABLE, legacyKeys) : new Map();   // fallback rows
     for (const [t, r] of live) ohlc.set(t, { ...(ohlc.get(t) || {}), ...r });
@@ -209,14 +222,14 @@ async function run() {
         }
         const stay = [], out = [];
         for (const p of positions) (p.tradingDaysHeld >= HOLD_DAYS ? out : stay).push(p);
-        for (const p of out) {
+        for (const [idx, p] of out.entries()) {
             const row = ohlc.get(p.t);
             const closePx = num(row?.close) ?? snaps.get(p.t)?.price;
             if (!closePx || closePx <= 0) { stay.push(p); continue; } // no price → hold one more day
             const proceeds = p.qty * closePx;
             state.cash += proceeds;
             const pnl = (closePx - p.entryPx) * p.qty;
-            trades.push({ pk: 'TRADE', sk: `${today}#${p.t}#${Math.random().toString(36).slice(2, 6)}`, t: p.t, entryDate: p.entryDate, entryPx: p.entryPx, exitDate: today, exitPx: closePx, qty: p.qty, pnl: round(pnl, 4), pnlPct: round((closePx / p.entryPx - 1) * 100, 3), ver: VERSION });
+            trades.push({ pk: 'TRADE', sk: `${today}#${p.t}#${p.entryDate}#${idx}`, t: p.t, entryDate: p.entryDate, entryPx: p.entryPx, exitDate: today, exitPx: closePx, qty: p.qty, pnl: round(pnl, 4), pnlPct: round((closePx / p.entryPx - 1) * 100, 3), ver: VERSION });
             exited++;
         }
         positions = stay;
@@ -237,10 +250,10 @@ async function run() {
     if (state.weekId !== wk) { state.weekId = wk; state.weekStartNav = nav; }
     if (!state.halted && isTradingDay && nav < state.weekStartNav * (1 - WEEK_KILL)) {
         // liquidate everything at today's close and halt (manual resume only)
-        for (const p of positions) {
+        for (const [idx, p] of positions.entries()) {
             const px = num(ohlc.get(p.t)?.close) ?? snaps.get(p.t)?.price ?? p.entryPx;
             state.cash += p.qty * px;
-            trades.push({ pk: 'TRADE', sk: `${today}#${p.t}#KILL`, t: p.t, entryDate: p.entryDate, entryPx: p.entryPx, exitDate: today, exitPx: px, qty: p.qty, pnl: round((px - p.entryPx) * p.qty, 4), pnlPct: round((px / p.entryPx - 1) * 100, 3), kill: true, ver: VERSION });
+            trades.push({ pk: 'TRADE', sk: `${today}#${p.t}#KILL#${p.entryDate}#${idx}`, t: p.t, entryDate: p.entryDate, entryPx: p.entryPx, exitDate: today, exitPx: px, qty: p.qty, pnl: round((px - p.entryPx) * p.qty, 4), pnlPct: round((px / p.entryPx - 1) * 100, 3), kill: true, ver: VERSION });
         }
         positions = [];
         state.halted = true;
@@ -286,8 +299,15 @@ async function run() {
         ...(newOrders.length ? [{ pk: 'ORDERS', sk: today, orders: newOrders, createdAt: new Date().toISOString() }] : []),
         ...trades,
     ];
-    for (let i = 0; i < writes.length; i += 25) {
-        let req = { RequestItems: { [JOURNAL]: writes.slice(i, i + 25).map(Item => ({ PutRequest: { Item } })) } };
+    const uniqueWrites = new Map();
+    for (const item of writes) {
+        const key = JSON.stringify([item.pk, item.sk]);
+        if (uniqueWrites.has(key)) console.error(`[PAPER] duplicate write key ${key}; keeping last`);
+        uniqueWrites.set(key, item);
+    }
+    const dedupedWrites = [...uniqueWrites.values()];
+    for (let i = 0; i < dedupedWrites.length; i += 25) {
+        let req = { RequestItems: { [JOURNAL]: dedupedWrites.slice(i, i + 25).map(Item => ({ PutRequest: { Item } })) } };
         for (let a = 0; a < 5; a++) {
             const res = await ddb.send(new BatchWriteCommand(req));
             const un = res.UnprocessedItems?.[JOURNAL];
@@ -303,11 +323,11 @@ async function run() {
 
 exports.handler = async (event) => {
     DRY = process.env.DRY === '1' || !!(event && event.dry === true);   // manual verification: {"dry": true}
-    const r = await run();
-    return { statusCode: 200, body: JSON.stringify({ date: r.date, nav: r.nav, halted: r.halted, spyClose: r.spyClose, tradingDay: r.tradingDay, dry: DRY }) };
+    const r = await run(event?.date);
+    return { statusCode: 200, body: JSON.stringify({ date: r.date, nav: r.nav, halted: r.halted, spyClose: r.spyClose, tradingDay: r.tradingDay, skipped: !!r.skipped, dry: DRY }) };
 };
 
 if (require.main === module) {
-    run().then(r => console.log('[PAPER] exit', r.date)).catch(e => { console.error(e); process.exit(1); });
+    Promise.resolve().then(() => exports.handler(process.argv[2] ? JSON.parse(process.argv[2]) : {})).then(r => console.log('[PAPER] exit', r.body)).catch(e => { console.error(e); process.exit(1); });
 }
 module.exports.__test = { fetchSessions, etDate };   // unit checks only (scripts/verify)
