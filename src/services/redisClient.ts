@@ -842,7 +842,26 @@ async function mgetFromCacheInternal<T>(keys: string[], strict: boolean): Promis
             if ((!strict || (Array.isArray(r.body?.results) && results.length === keys.length)) && !results.some(isMojibake)) {
                 obsRecord('mget', results.some((x) => x != null) ? 'hit' : 'miss', t0);
                 // Upstash 에만 있을 수 있는 키(cache:13f 등)의 미스만 골라 채운다.
-                const need = keys.map((k, i) => (results[i] === null && shouldFallbackToUpstash(k, true) ? i : -1)).filter((i) => i >= 0);
+                const needAll = keys.map((k, i) => (results[i] === null && shouldFallbackToUpstash(k, true) ? i : -1)).filter((i) => i >= 0);
+                // [T56b] 실적 기록 사본은 전용 클라이언트(재시도 0·1.5초 상한·쿨다운)로 — 느린 Upstash 가 크론·페이지를 붙잡지 않게(관문 11052003 ②)
+                const needActuals = needAll.filter((i) => ACTUALS_RECORD_KEY.test(keys[i]));
+                const need = needAll.filter((i) => !ACTUALS_RECORD_KEY.test(keys[i]));
+                if (needActuals.length) {
+                    const m = actualsMirror();
+                    if (m) {
+                        obsUp('mget', 'mirror');
+                        const tu = performance.now();
+                        try {
+                            const extra = await withMirrorTimeout(m.mget<unknown[]>(...needActuals.map((i) => keys[i])));
+                            needActuals.forEach((i, j) => { if (extra[j] != null) results[i] = extra[j] as T; });
+                            obsUpDone(tu);
+                        } catch (e: any) {
+                            obsUpDone(tu, true);
+                            actualsMirrorDownUntil = Date.now() + ACTUALS_MIRROR_COOLDOWN_MS;
+                            console.warn(`[Redis/Upstash] actuals mirror mget failed:`, e?.message);
+                        }
+                    }
+                }
                 if (need.length) {
                     const upstash = getUpstashClient();
                     if (upstash) {
@@ -958,6 +977,20 @@ function actualsMirror(): UpstashRedis | null {
     try { actualsMirrorClient = url && token ? new UpstashRedis({ url, token, retry: { retries: 0 } }) : null; } catch { actualsMirrorClient = null; }
     return actualsMirrorClient;
 }
+/** 사본 조건부 SET — 기록은 at(마지막 변경 ms), 포인터는 date(YYYY-MM-DD) 가 «작지 않을 때만» 쓴다. 저장 형식은 SDK set 과 같은 JSON 문자열. */
+export const ACTUALS_MIRROR_SET_LUA = `
+local cur = redis.call('GET', KEYS[1])
+if cur then
+    local ok1, c = pcall(cjson.decode, cur)
+    local ok2, n = pcall(cjson.decode, ARGV[1])
+    if ok1 and ok2 and type(c) == 'table' and type(n) == 'table' then
+        if type(c.at) == 'number' and type(n.at) == 'number' and c.at > n.at then return 0 end
+        if c.v == nil and n.v == nil and type(c.date) == 'string' and type(n.date) == 'string' and c.date > n.date then return 0 end
+    end
+end
+redis.call('SET', KEYS[1], ARGV[1])
+return 1
+`;
 /** 사본 요청 시간 상한 — 응답이 멈춘 Upstash 가 크론을 붙잡지 않게(신호 객체 대신 경주: 신호 중단은 «Aborted»를 정상 값으로 돌려준다) */
 const ACTUALS_MIRROR_TIMEOUT_MS = 1500;
 function withMirrorTimeout<T>(p: Promise<T>): Promise<T> {
@@ -975,7 +1008,9 @@ async function mirrorActualsToUpstash<T>(key: string, value: T): Promise<boolean
     obsUp('set', 'mirror');
     const start = performance.now();
     try {
-        await withMirrorTimeout(upstash.set(key, value));
+        // 조건부 쓰기 — 사본이 더 새 값(기록 at 이 더 큼 · 포인터 date 가 더 늦음)이면 덮지 않는다.
+        //   시간 상한으로 기다림만 끝낸 늦은 SET 이 나중에 도착해 새 사본을 옛 값으로 되돌리지 않게(관문 11052003 ③).
+        await withMirrorTimeout(upstash.eval(ACTUALS_MIRROR_SET_LUA, [key], [JSON.stringify(value)]));
         obsUpDone(start);
         return true;
     } catch (e: any) {

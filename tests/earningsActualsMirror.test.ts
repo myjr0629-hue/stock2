@@ -27,6 +27,18 @@ function upRun(c: (string | number)[]): unknown {
   if (op === 'GET') return up.has(String(c[1])) ? b64(up.get(String(c[1]))!) : null;
   if (op === 'MGET') return c.slice(1).map((k) => (up.has(String(k)) ? b64(up.get(String(k))!) : null));
   if (op === 'SET') { up.set(String(c[1]), String(c[2])); return 'OK'; }
+  if (op === 'EVAL') {
+    // ACTUALS_MIRROR_SET_LUA 와 같은 규칙: [EVAL, script, 1, key, json]
+    assert.equal(String(c[1]), RC.ACTUALS_MIRROR_SET_LUA);
+    const key = String(c[3]); const next = JSON.parse(String(c[4]));
+    upCmds[upCmds.length - 1] = `EVAL ${key}`;
+    const cur = up.has(key) ? JSON.parse(up.get(key)!) : null;
+    if (cur && typeof cur === 'object' && typeof next === 'object') {
+      if (typeof cur.at === 'number' && typeof next.at === 'number' && cur.at > next.at) return 0;
+      if (cur.v == null && next.v == null && typeof cur.date === 'string' && typeof next.date === 'string' && cur.date > next.date) return 0;
+    }
+    up.set(key, String(c[4])); return 1;
+  }
   throw new Error('unexpected upstash op ' + op);
 }
 (globalThis as any).fetch = async (input: any, init?: { method?: string; body?: string }) => {
@@ -196,4 +208,50 @@ test('포인터 동기화 회차가 기록 사본 누락을 메운다', async ()
   const out = await SVC.syncActualsLatestPointers({ nowMs: Date.parse('2026-11-05T12:00:00Z'), list: [entry('JPM', '2026-10-13', 'bmo')] });
   assert.equal(out.mirrorRepaired, 2, '기록 + 포인터');
   assert.deepEqual(JSON.parse(up.get(KEY)!), rec);
+});
+
+test('★ 사본 조건부 쓰기 — 늦게 도착한 옛 값(at 이 작음·포인터 날짜가 이름)은 새 사본을 덮지 않는다', async () => {
+  reset();
+  ec2.set(KEY, { x: 1 });
+  up.set(KEY, JSON.stringify({ v: 1, at: 200, tag: 'new' }));
+  await RC.setActualsDurable(KEY, { v: 1, at: 100, tag: 'old' });
+  assert.equal(JSON.parse(up.get(KEY)!).tag, 'new');
+  await RC.setActualsDurable(KEY, { v: 1, at: 300, tag: 'newer' });
+  assert.equal(JSON.parse(up.get(KEY)!).tag, 'newer');
+  const P = A.actualsLatestKey('JPM');
+  up.set(P, JSON.stringify({ date: '2026-11-03' }));
+  await RC.setActualsDurable(P, { date: '2026-10-13' });
+  assert.deepEqual(JSON.parse(up.get(P)!), { date: '2026-11-03' });
+});
+
+test('★ 포인터를 앞으로 옮긴 회차의 사본 맞추기가 옛 포인터로 사본을 되돌리지 않는다', async () => {
+  reset();
+  const recOf = (d: string, react: string) => ({ v: 1, ticker: 'JPM', date: d, hour: 'bmo', expected: { ...EXP, session: d === '2026-10-13' ? '2026-10-12' : '2027-01-13' },
+    actual: { pct: -0.8585, baseDate: '2026-10-12', baseClose: 334.3, reactDate: react, reactClose: 331.43, src: 'intrinio-daily', check: 'fmp', at: Date.parse('2026-10-14T00:00:00Z') }, at: 1 });
+  ec2.set(KEY, recOf('2026-10-13', '2026-10-13'));
+  ec2.set(A.actualsLatestKey('JPM'), { date: '2026-07-14' });
+  up.set(A.actualsLatestKey('JPM'), JSON.stringify({ date: '2026-07-14' }));
+  const out = await SVC.syncActualsLatestPointers({ nowMs: Date.parse('2026-11-05T12:00:00Z'), list: [entry('JPM', '2026-10-13', 'bmo')] });
+  assert.deepEqual(out.written, ['JPM|2026-10-13']);
+  assert.deepEqual(JSON.parse(up.get(A.actualsLatestKey('JPM'))!), { date: '2026-10-13' }, '사본도 새 날짜');
+});
+
+test('발표 전 기록(크론 창)의 사본 누락도 맞춘다 · 완성 기록이 하나도 없어도 돈다', async () => {
+  reset();
+  const k = A.actualsKey('NVDA', '2026-11-07');
+  const rec = { v: 1, ticker: 'NVDA', date: '2026-11-07', hour: 'amc', expected: { ...EXP, session: '2026-11-07' }, actual: null, at: 5 };
+  ec2.set(k, rec);
+  const out = await SVC.syncActualsLatestPointers({ nowMs: Date.parse('2026-11-05T12:00:00Z'), list: [entry('NVDA', '2026-11-07', 'amc')] });
+  assert.equal(out.mirrorRepaired, 1);
+  assert.deepEqual(JSON.parse(up.get(k)!), rec);
+});
+
+test('채점표 읽기 — Upstash 가 멈춰도 사본 채우기는 1.5초 안에 포기하고 EC2 값으로 답한다', async () => {
+  reset();
+  upHang = true;
+  const t0 = Date.now();
+  const recs = await SVC.readActualRecords([{ ticker: 'JPM', date: '2026-10-13' }]);
+  const dt = Date.now() - t0;
+  assert.equal(recs.size, 0);
+  assert.ok(dt < 2500, `${dt}ms`);
 });

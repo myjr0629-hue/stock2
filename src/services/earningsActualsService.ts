@@ -447,21 +447,31 @@ export async function syncActualsLatestPointers(opts: {
     .filter((c, i, all) => all.findIndex((x) => x.ticker === c.ticker && x.date === c.date) === i)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, LATEST_SYNC_MAX_ENTRIES);
+  // [T56b] 사본 맞추기 대상에 크론 창의 발표 전 기록(오늘~+5일)도 넣는다 — 발표 전에만 잡을 수 있는 expected 의 사본 누락도 메우게(관문 11052003 ④)
+  const upcoming = (opts.list ?? CONFIRMED_EARNINGS)
+    .filter((c) => hourOf(c) && c.date >= today && c.date <= addDaysYmd(today, LOOKAHEAD_DAYS))
+    .map((c) => ({ ...c, ticker: c.ticker.toUpperCase() }))
+    .filter((c, i, all) => all.findIndex((x) => x.ticker === c.ticker && x.date === c.date) === i);
   const out: { checked: number; written: string[]; mirrorRepaired?: number } = { checked: entries.length, written: [] as string[] };
-  if (!entries.length) return out;
+  if (!entries.length && !(mirrorOn && upcoming.length)) return out;
+  const touchedPtr = new Set<string>();
+  let recs: unknown[] = [];
+  let upRecs: unknown[] = [];
+  let done: ConfirmedEarnings[] = [];
+  let ptrs: unknown[] = [];
   try {
-    const recs = await mget(entries.map((c) => actualsKey(c.ticker, c.date)));
+    if (entries.length) recs = await mget(entries.map((c) => actualsKey(c.ticker, c.date)));
+    if (mirrorOn && upcoming.length && !timeUp()) upRecs = await mget(upcoming.map((c) => actualsKey(c.ticker, c.date)));
     const best = new Map<string, ConfirmedEarnings>();
     entries.forEach((c, i) => {
       if (best.has(c.ticker)) return;   // 최근 순이라 처음 고른 완성 기록이 가장 최근
       const row = scorecardPairOf(recs[i], now)?.row;
       if (row && row.ticker === c.ticker && row.date === c.date) best.set(c.ticker, c);
     });
-    const done = [...best.values()];
-    if (!done.length || timeUp()) return out;
-    const ptrs = await mget(done.map((c) => actualsLatestKey(c.ticker)));
+    done = [...best.values()];
+    if (done.length && !timeUp()) ptrs = await mget(done.map((c) => actualsLatestKey(c.ticker)));
     let confirms = 0;
-    for (let i = 0; i < done.length && confirms < LATEST_SYNC_MAX_WRITES && !timeUp(); i++) {
+    for (let i = 0; i < ptrs.length && confirms < LATEST_SYNC_MAX_WRITES && !timeUp(); i++) {
       const c = done[i];
       const cur = parseLatestPointer(ptrs[i]);
       if (cur && cur >= c.date) continue;   // 묶음 읽기에서 이미 같거나 최신 — 평상시엔 여기서 끝(추가 읽기 0)
@@ -477,21 +487,24 @@ export async function syncActualsLatestPointers(opts: {
         const m = await getMirror(actualsLatestKey(c.ticker)).catch(() => ({ ok: false, value: null }));
         if (!m.ok) continue;
         const md = parseLatestPointer(m.value);
-        if (md && md >= c.date) { if (!timeUp()) await set(actualsLatestKey(c.ticker), { date: md }).catch(() => false); continue; }
+        if (md && md >= c.date) { touchedPtr.add(c.ticker); if (!timeUp()) await set(actualsLatestKey(c.ticker), { date: md }).catch(() => false); continue; }
       }
       if (timeUp()) break;
+      touchedPtr.add(c.ticker);   // 이 회차가 쓰려 한 포인터 — 아래 사본 맞추기가 쓰기 전 값(ptrs)으로 사본을 되돌리지 않게(관문 11052003 ①)
       if (await set(actualsLatestKey(c.ticker), { date: c.date }).catch(() => false)) out.written.push(`${c.ticker.toUpperCase()}|${c.date}`);
     }
-    // [T56b] 사본 맞추기 — 이번 회차가 읽은 기록·포인터와 Upstash 사본을 MGET 1회로 비교해 빠진·다른 것만 다시 쓴다(사본 쓰기가 한 번 실패해도 영구 누락이 되지 않게, 관문 11051955 ②).
-    if (mirrorOn && !timeUp()) {
-      const rows = [
-        ...entries.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: recs[i] })),
-        ...done.map((c, i) => ({ key: actualsLatestKey(c.ticker), value: ptrs[i] })),
-      ].filter((r) => r.value != null);
-      const rep = await repair(rows).catch(() => ({ checked: 0, repaired: [] as string[] }));
-      out.mirrorRepaired = rep.repaired.length;
-    }
   } catch { /* 다음 회차가 다시 본다 */ }
+  // [T56b] 사본 맞추기 — 이번 회차가 읽은 기록·포인터와 Upstash 사본을 MGET 1회로 비교해 빠진·다른 것만 다시 쓴다(사본 쓰기가 한 번 실패해도 영구 누락이 되지 않게, 관문 11051955 ②).
+  //   사본 쓰기는 조건부(더 새 사본은 덮지 않는다)라 늦게 도착한 옛 값이 사본을 되돌리지 않는다.
+  if (mirrorOn && !timeUp()) {
+    const rows = [
+      ...entries.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: recs[i] })),
+      ...upcoming.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: upRecs[i] })),
+      ...done.map((c, i) => ({ key: actualsLatestKey(c.ticker), value: touchedPtr.has(c.ticker) ? null : ptrs[i] })),
+    ].filter((r) => r.value != null);
+    const rep = await repair(rows).catch(() => ({ checked: 0, repaired: [] as string[] }));
+    out.mirrorRepaired = rep.repaired.length;
+  }
   return out;
 }
 
