@@ -12,7 +12,7 @@ import { fmpFetch } from '@/lib/fmpClient';
 //   ② 실제 반응 계산 — 반응일 정규장 마감 + 30분 뒤에 Intrinio 일봉으로 (기준일 종가 → 반응일 종가) 등락률.
 //      독립 공급사(FMP, 분할 미조정 종가)와 두 날짜 모두 같을 때만 «대조 일치(check: fmp)»로 표시한다.
 //      두 공급사가 다르면 저장하지 않는다(다음 회차가 다시 본다). FMP 가 없으면 Intrinio 단독으로 저장하고 그렇게 표시한다.
-// 키: earnings:actuals:v1:{TICKER}:{발표일} (TTL 없음, EC2 레디스 중심) · 한 발표당 0.5KB.
+// 키: earnings:actuals:v1:{TICKER}:{발표일} (TTL 없음, EC2 레디스 중심 · 쓰기마다 Upstash 사본(읽지 않는 백업 — 복구는 restoreActualsFromMirror) — T56b 11/5) · 한 발표당 0.5KB.
 // ============================================================================
 
 import { CONFIRMED_EARNINGS, type ConfirmedEarnings } from '@/lib/earningsConfirmed';
@@ -26,7 +26,7 @@ import { getDailyAggregates } from '@/services/intrinioClient';
 import { collectorFirstExpiryAfter, earningsObservationRow, type ImpliedMoveRow } from '@/services/impliedMoveService';
 import { scorecardPairOf } from '@/lib/earnings/earningsScorecard';
 import { Redis } from '@upstash/redis';
-import { getAuthoritativeCache, mgetFromCache, setAuthoritativeCache, setActualsWithoutTtl } from '@/services/redisClient';
+import { actualsMirrorConfigured, getAuthoritativeCache, listActualsMirror, mgetFromCache, repairActualsMirror, setActualsWithoutTtl, setAuthoritativeCache } from '@/services/redisClient';
 
 export const recordMapKey = (ticker: string, date: string): string => `${String(ticker).toUpperCase()}|${date}`;
 
@@ -417,13 +417,18 @@ export async function syncActualsLatestPointers(opts: {
     /** 쓰기 전 확인 읽기 — ok=false(저장소 장애)면 쓰지 않는다(빈 값으로 오인해 최신 포인터를 옛 날짜로 덮지 않게, 관문 11050234 ②) */
     getStrict?: (key: string) => Promise<{ ok: boolean; value: unknown }>;
     set?: (key: string, value: { date: string }) => Promise<boolean>;
+    /** [T56b] Upstash 사본 — 시험 주입용(기본: 설정돼 있을 때만 실제 사본) */
+    mirror?: boolean;
+    repair?: (rows: Array<{ key: string; value: unknown }>) => Promise<{ checked: number; repaired: string[] }>;
   };
-} = {}): Promise<{ checked: number; written: string[] }> {
+} = {}): Promise<{ checked: number; written: string[]; mirrorRepaired?: number }> {
   const now = opts.nowMs ?? Date.now();
   const today = etDateOf(now);
   const mget = opts.deps?.mget ?? ((keys: string[]) => mgetFromCache<unknown>(keys));
   const set = opts.deps?.set ?? ((key: string, value: { date: string }) => setAuthoritativeCache(key, value));
   const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
+  const mirrorOn = opts.deps?.mirror ?? actualsMirrorConfigured();
+  const repair = opts.deps?.repair ?? ((rows: Array<{ key: string; value: unknown }>) => repairActualsMirror(rows, 40, opts.deadlineMs));
   const timeUp = () => opts.deadlineMs != null && Date.now() >= opts.deadlineMs;
   // 지난 발표 전부(최근 순) — 종목마다 «가장 최근의 완성 기록»을 고른다(최근 발표가 미완성이어도 그 이전 완성 기록을 놓치지 않게, 관문 11050231 ①)
   const entries = (opts.list ?? CONFIRMED_EARNINGS)
@@ -432,21 +437,38 @@ export async function syncActualsLatestPointers(opts: {
     .filter((c, i, all) => all.findIndex((x) => x.ticker === c.ticker && x.date === c.date) === i)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, LATEST_SYNC_MAX_ENTRIES);
-  const out = { checked: entries.length, written: [] as string[] };
-  if (!entries.length) return out;
+  // [T56b] 사본 맞추기 대상 — 포인터용 최근 300개 밖의 지난 발표도(확인 목록 전체 · 지금 117줄) 넣는다(관문 11052033 ③)
+  const olderPast = (opts.list ?? CONFIRMED_EARNINGS)
+    .filter((c) => hourOf(c) && c.date < today)
+    .map((c) => ({ ...c, ticker: c.ticker.toUpperCase() }))
+    .filter((c, i, all) => all.findIndex((x) => x.ticker === c.ticker && x.date === c.date) === i)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(LATEST_SYNC_MAX_ENTRIES, LATEST_SYNC_MAX_ENTRIES + 500);
+  // [T56b] 사본 맞추기 대상에 크론 창의 발표 전 기록(오늘~+5일)도 넣는다 — 발표 전에만 잡을 수 있는 expected 의 사본 누락도 메우게(관문 11052003 ④)
+  const upcoming = (opts.list ?? CONFIRMED_EARNINGS)
+    .filter((c) => hourOf(c) && c.date >= today && c.date <= addDaysYmd(today, LOOKAHEAD_DAYS))
+    .map((c) => ({ ...c, ticker: c.ticker.toUpperCase() }))
+    .filter((c, i, all) => all.findIndex((x) => x.ticker === c.ticker && x.date === c.date) === i);
+  const out: { checked: number; written: string[]; mirrorRepaired?: number } = { checked: entries.length, written: [] as string[] };
+  if (!entries.length && !(mirrorOn && upcoming.length)) return out;
+  const touchedPtr = new Set<string>();
+  const writtenPtr = new Map<string, string>();
+  let recs: unknown[] = [];
+  let upRecs: unknown[] = [];
+  let done: ConfirmedEarnings[] = [];
+  let ptrs: unknown[] = [];
   try {
-    const recs = await mget(entries.map((c) => actualsKey(c.ticker, c.date)));
+    if (entries.length) recs = await mget(entries.map((c) => actualsKey(c.ticker, c.date)));
     const best = new Map<string, ConfirmedEarnings>();
     entries.forEach((c, i) => {
       if (best.has(c.ticker)) return;   // 최근 순이라 처음 고른 완성 기록이 가장 최근
       const row = scorecardPairOf(recs[i], now)?.row;
       if (row && row.ticker === c.ticker && row.date === c.date) best.set(c.ticker, c);
     });
-    const done = [...best.values()];
-    if (!done.length || timeUp()) return out;
-    const ptrs = await mget(done.map((c) => actualsLatestKey(c.ticker)));
+    done = [...best.values()];
+    if (done.length && !timeUp()) ptrs = await mget(done.map((c) => actualsLatestKey(c.ticker)));
     let confirms = 0;
-    for (let i = 0; i < done.length && confirms < LATEST_SYNC_MAX_WRITES && !timeUp(); i++) {
+    for (let i = 0; i < ptrs.length && confirms < LATEST_SYNC_MAX_WRITES && !timeUp(); i++) {
       const c = done[i];
       const cur = parseLatestPointer(ptrs[i]);
       if (cur && cur >= c.date) continue;   // 묶음 읽기에서 이미 같거나 최신 — 평상시엔 여기서 끝(추가 읽기 0)
@@ -457,9 +479,84 @@ export async function syncActualsLatestPointers(opts: {
       const stored = parseLatestPointer(strict.value);
       if (stored && stored >= c.date) continue;
       if (timeUp()) break;
-      if (await set(actualsLatestKey(c.ticker), { date: c.date }).catch(() => false)) out.written.push(`${c.ticker.toUpperCase()}|${c.date}`);
+      touchedPtr.add(c.ticker);   // 이 회차가 쓰려 한 포인터 — 아래 사본 맞추기가 쓰기 전 값(ptrs)으로 사본을 되돌리지 않게(관문 11052003 ①)
+      if (await set(actualsLatestKey(c.ticker), { date: c.date }).catch(() => false)) { out.written.push(`${c.ticker.toUpperCase()}|${c.date}`); writtenPtr.set(c.ticker, c.date); }
     }
   } catch { /* 다음 회차가 다시 본다 */ }
+  // [T56b] 사본(Upstash 백업) — 크론의 EC2 쓰기(채우기·포인터)는 main 그대로이고, 사본 일은 «여기서만» 한다(포인터 처리가 끝난 뒤·마감 2초 전까지).
+  //   이번 회차가 읽은 기록·포인터와 사본을 MGET 1회로 비교해 빠진·다른 것만 조건부로 쓴다(더 새 사본은 덮지 않는다).
+  //   같은 크론 회차가 앞에서 쓴 기록도 이 회차의 기록 읽기(mget)가 담고 있어 곧바로 사본이 된다.
+  if (mirrorOn && !timeUp()) {
+    // 발표 전 기록 읽기는 포인터 처리 «뒤»에만 — 포인터 경로는 main 과 같은 읽기만 한다(관문 11052020)
+    const extra = [...upcoming, ...olderPast];
+    if (extra.length) upRecs = await mget(extra.map((c) => actualsKey(c.ticker, c.date))).catch(() => [] as unknown[]);
+    const rows = [
+      ...entries.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: recs[i] })),
+      ...extra.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: upRecs[i] })),
+      // 이 회차가 EC2 에 쓴 포인터는 쓴 값으로, 쓰려다 실패한 포인터는 건너뛴다(쓰기 전 값으로 사본을 되돌리지 않게)
+      ...done.map((c, i) => ({ key: actualsLatestKey(c.ticker), value: writtenPtr.has(c.ticker) ? { date: writtenPtr.get(c.ticker)! } : touchedPtr.has(c.ticker) ? null : ptrs[i] })),
+    ].filter((r) => r.value != null);
+    const rep = await repair(rows).catch(() => ({ checked: 0, repaired: [] as string[] }));
+    out.mirrorRepaired = rep.repaired.length;
+  }
+  return out;
+}
+
+/**
+ * [T56b] 사본 값 중 «되살려도 되는» 모양 — 사본은 EC2 보다 한 쓰기 뒤처질 수 있다(사본 맞추기 전 EC2 유실).
+ *   크론이 나중에 «지울 수 있는» actual 은 되살리지 않는다(관문 11052030): ① Intrinio 단독(check null — 4일 재대조 대상)
+ *   ② 정착 전 저장(at < 반응일 확정 + 2시간 — 정착 재확인 대상). 두 공급사 대조·정착을 마친 actual 은 크론이 다시 바꾸지 않는다.
+ *   그런 actual 은 비우고(expected 는 그대로) 되살린다 — 창 안이면 크론이 다시 계산한다. 포인터는 그대로. 모양이 틀리면 null.
+ */
+export function restorableValue(key: string, value: unknown, nowMs: number): unknown {
+  if (key.startsWith(`${ACTUALS_KEY_PREFIX}:latest:`)) return parseLatestPointer(value) ? value : null;
+  const rec = parseRecord(value);
+  if (!rec || actualsKey(rec.ticker, rec.date) !== key) return null;
+  const a = rec.actual;
+  const settledAt = a ? (reactionFinalAt(a.reactDate) ?? Infinity) + ACTUAL_SETTLE_MS : Infinity;
+  const finalActual = !!a && a.check === 'fmp' && a.at >= settledAt && nowMs >= settledAt;
+  if (!a || finalActual) return value;
+  // at 을 복구 시각으로 — 사본 맞추기가 «actual 을 비운» 이 값을 사본에도 반영하게(같은 at 이면 칸을 비우는 쓰기는 거절된다)
+  return { ...(value as Record<string, unknown>), actual: null, at: nowMs };
+}
+
+/**
+ * [T56b] 사본에서 EC2 되살리기 — 사고 대응 전용(스크립트 scripts/restore-actuals-from-mirror.ts, 페이지·크론은 부르지 않는다).
+ *   Upstash 사본의 earnings:actuals:v1:* 중 «EC2 엄격 읽기가 성공했고 값이 없는» 키만 같은 값으로 EC2 에 쓴다(TTL 없음).
+ *   EC2 에 값이 있는 키는 절대 건드리지 않는다 · EC2 를 읽지 못한 키는 쓰지 않는다 · dryRun 이면 쓰기 0.
+ *   11/3·11/4·11/5 처럼 기록이 사라졌을 때 공급사 재계산(수 시간) 대신 한 번에 되돌린다. 되돌린 뒤 크론의 재대조가 평소대로 돈다.
+ */
+export async function restoreActualsFromMirror(opts: {
+  dryRun?: boolean;
+  deps?: {
+    list?: () => Promise<Array<{ key: string; value: unknown }>>;
+    getStrict?: (key: string) => Promise<{ ok: boolean; value: unknown }>;
+    set?: (key: string, value: unknown) => Promise<boolean>;
+    runLock?: RunLock;
+  };
+} = {}): Promise<{ locked: boolean; mirror: number; present: number; restored: string[]; skipped: string[]; readFailed: string[]; writeFailed: string[] }> {
+  const list = opts.deps?.list ?? (() => listActualsMirror());
+  const getStrict = opts.deps?.getStrict ?? ((key: string) => getAuthoritativeCache<unknown>(key));
+  const set = opts.deps?.set ?? ((key: string, value: unknown) => setAuthoritativeCache(key, value));
+  const rows = (await list()).filter((r) => r.key.startsWith(`${ACTUALS_KEY_PREFIX}:`) && r.key !== `${ACTUALS_KEY_PREFIX}:run-lock` && r.value != null);
+  const out = { locked: false, mirror: rows.length, present: 0, restored: [] as string[], skipped: [] as string[], readFailed: [] as string[], writeFailed: [] as string[] };
+  // 쓰기는 크론과 같은 쓰기 잠금(90초) 안에서만 — 잠금을 쥔 동안 크론 회차는 «run_locked»로 쉬므로, «없음 확인 → 쓰기» 사이에
+  //   크론이 같은 키에 새 값을 써 그 값을 사본이 덮는 일이 없다(관문 11052026 ②). 잠금을 못 얻으면 아무것도 쓰지 않는다.
+  if (!opts.dryRun) {
+    const lock = await (opts.deps?.runLock ?? acquireActualsRunLock)().catch(() => 'unavailable' as const);
+    if (lock !== 'ok') { out.locked = true; return out; }
+  }
+  const lockUntil = Date.now() + (ACTUALS_RUN_LOCK_SEC - 15) * 1000;
+  for (const r of rows) {
+    const cur = await getStrict(r.key).catch(() => ({ ok: false, value: null }));
+    if (!cur.ok) { out.readFailed.push(r.key); continue; }
+    if (cur.value != null) { out.present++; continue; }
+    const value = restorableValue(r.key, r.value, Date.now());
+    if (value == null) { out.skipped.push(r.key); continue; }
+    if (opts.dryRun) { out.restored.push(r.key); continue; }
+    if (Date.now() >= lockUntil) { out.writeFailed.push(r.key); continue; }   // 잠금 시간 밖 — 다시 실행
+    if (await set(r.key, value).catch(() => false)) out.restored.push(r.key); else out.writeFailed.push(r.key);
+  }
   return out;
 }
 

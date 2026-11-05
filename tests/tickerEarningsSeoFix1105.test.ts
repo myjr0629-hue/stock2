@@ -16,6 +16,8 @@ const reads: string[][] = [];
 let pack: any = null;
 stub('../src/services/redisClient', {
   mgetFromCacheStrict: async (keys: string[]) => { reads.push(keys); return keys.map((k) => store.get(k) ?? null); },
+  // T56b: 포인터 동기화가 Upstash 사본 설정 여부를 묻는다 — 이 시험은 사본 없는 환경(사본 동작은 earningsActualsMirror.test.ts)
+  actualsMirrorConfigured: () => false,
 });
 stub('../src/services/earningsImpliedService', { readImpliedPack: async () => pack });
 const { readIntent, intentCopy, upcoming } = require('../src/lib/seo/tickerEarningsIntent') as typeof import('../src/lib/seo/tickerEarningsIntent');
