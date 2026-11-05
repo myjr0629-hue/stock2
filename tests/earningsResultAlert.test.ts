@@ -550,6 +550,29 @@ t('4 · 관문 11042212 #2 — 삭제가 실패해도 지평 뒤 도착한 굳�
   assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
   assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN, IOS_TOKEN2], '빠진 기기만, 중복 없음');
 });
+t('4 · 관문 11051018 재현 — 지평 뒤 읽기로 굳힘을 확인한 기기는 다른 기기의 느린 읽기를 기다리지 않고 곧바로 보낸다', async () => {
+  const s = setup([raw()], TWO_IOS);
+  const k1 = slowKeyOf(IOS_TOKEN), k2 = slowKeyOf(IOS_TOKEN2);
+  const setIfEq = s.store.setIfEq.bind(s.store), get = s.store.get.bind(s.store);
+  // 두 기기 모두 굳히기는 적용됐지만 응답은 오류
+  s.store.setIfEq = async (k, e, v, ttl) => { const r = await setIfEq(k, e, v, ttl); if (v.startsWith('sent:')) throw new Error('response lost'); return r; };
+  const readOk: Record<string, number> = {};
+  s.store.get = async (k: string) => {
+    if (k === k2) return new Promise(() => {});                        // B 의 읽기는 두 번 다 시간 초과
+    const v = await get(k); if (k === k1) readOk[k1] = Date.now(); return v;
+  };
+  const sendAt: Record<string, number> = {};
+  const origSend = s.sender.send.bind(s.sender);
+  s.sender.send = async (items: any) => { for (const it of items) sendAt[it.token] = Date.now(); return origSend(items); };
+  const r1 = await runEarningsResultStep({ ...s.deps, storeTimeoutMs: 2500, clock: () => SEND }, s.opts(SEND));
+  assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN], 'A 는 읽어서 확인 → 발송 · B 는 불명이라 보내지 않는다(중복 0)');
+  assert.ok(sendAt[IOS_TOKEN] - readOk[k1] < 50, `A 확인 → 발송 ${sendAt[IOS_TOKEN] - readOk[k1]}ms(B 의 느린 읽기를 기다리지 않는다)`);
+  assert.equal(r1.sent, 1);
+  assert.equal(s.store.live(k2), false, 'B 는 읽기는 실패했지만 이 회차 값 비교 지우기가 확인돼 장부 0(반환)');
+  s.store.setIfEq = setIfEq; s.store.get = get; s.sender.send = origSend;
+  assert.equal((await s.run(SEND + 1_800_000)).sent, 1);
+  assert.deepEqual(s.sender.items.map((x) => x.token), [IOS_TOKEN, IOS_TOKEN2], '다음 회차가 B 만, 중복 없음');
+});
 t('4 · 저장소가 끝까지 답하지 않으면(굳히기 오류·읽기 실패·삭제 실패) 반환 완료로 치지 않고 seal_unknown 으로 보고한다 · 보내지 않는다(중복 0)', async () => {
   const s = setup([raw()], TWO_IOS);
   const slowKey = slowKeyOf(IOS_TOKEN2);
