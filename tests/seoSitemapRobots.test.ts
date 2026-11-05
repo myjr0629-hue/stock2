@@ -109,7 +109,8 @@ const flow = require('../src/app/[locale]/flow/[ticker]/page');
     assert.ok(!blocked('/sitemap-ko.xml'));
   });
   await test('사이트맵 전체: 중복·robots·검증식 불일치 0, 한국어 XML은 한국어 부분집합', async () => {
-    const all = await sitemap(); audit(all); assert.equal(all.length, 6783);
+    const all = await sitemap(); audit(all); assert.equal(all.length, 6786);
+    for (const locale of LOCALES) assert.ok(all.some((e: any) => e.url === `${BASE}/${locale}/learn/earnings-expected-move`));
     assert.equal(all.filter((e: any) => e.url.endsWith('/receipts/earnings')).length, 3);
     assert.equal(all.filter((e: any) => e.url.endsWith('/tools/read-check')).length, 3);
     assert.equal(all.filter((e: any) => e.url.endsWith('/tools/earnings-scenario')).length, 3);
@@ -120,7 +121,7 @@ const flow = require('../src/app/[locale]/flow/[ticker]/page');
     assert.ok(xml.includes('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'));
     const urls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
     assert.deepEqual(urls, all.filter((e: any) => new URL(e.url).pathname.startsWith('/ko')).map((e: any) => e.url));
-    assert.equal(urls.length, 2261);
+    assert.equal(urls.length, 2262);
     for (const p of ['/ko', '/ko/earnings-week', ...CLASSES.map((t) => `/ko/flow/${t}`)]) assert.ok(urls.includes(BASE + p));
     console.log(`  전체 ${all.length} / 한국어 ${urls.length}, 중복·차단·형식 불일치 0`);
   });

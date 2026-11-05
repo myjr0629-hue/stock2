@@ -33,7 +33,7 @@ export const CONCEPT_SLUGS = [
   // [2026-09-10] 추가. GSC 실측상 «개념 설명형»이 유일하게 노출이 오르는 형태였고
   //   (/learn/put-call-ratio 157노출), 미결제약정은 우리 화면의 「신규 포지션 감지」가
   //   바로 그 계산인데 설명 페이지가 없었다. 경쟁 도구도 이 구분을 잘 안 쓴다.
-  'open-interest',
+  'open-interest', 'earnings-expected-move',
 ] as const;
 export type ConceptSlug = (typeof CONCEPT_SLUGS)[number];
 
@@ -137,6 +137,20 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
       ],
       related: ['options-flow', 'put-call-ratio', 'max-pain'],
     },
+    'earnings-expected-move': {
+      slug: 'earnings-expected-move',
+      title: 'Earnings expected move: how much a US stock may move after its report',
+      desc: 'See how an expected move frames a US stock’s earnings reaction, and why the option expiry and one-day reaction are different horizons.',
+      h1: 'Earnings expected move: how much a US stock may move after its report',
+      lead: 'A US stock can move sharply after earnings. The expected move uses option prices before the report to describe the size of the move the market is pricing, without predicting whether the stock will rise or fall.',
+      sections: [
+        { h: 'How it is calculated', p: 'Add the prices of an at-the-money (ATM) call and put with the same strike and expiration (an ATM straddle), then divide by the stock price. The result is an approximate percentage range in either direction, not a forecast or a guaranteed boundary.' },
+        { h: 'Read the time horizon', p: 'The option price reflects movement through expiration, while the reaction here is one regular session from close to close. These horizons differ. Implied volatility often falls after earnings as uncertainty resolves, which can reduce option prices even when the stock moves.' },
+        { h: 'Two real reactions', p: 'For Block (XYZ), the November 3, 2026 after-close report had a ±8.8% expected move, and the November 3 to November 4 close-to-close reaction was +15.3%, outside the range. For Datadog (DDOG), the November 4 before-open report had ±14.5% expected and a November 3 to November 4 reaction of −14.4%, inside. Both estimates used the November 3 session and November 6 expiry.' },
+        { h: 'Season context and limits', p: 'Among 29 stored complete company records for announcements from October 13 through November 4, 2026, 22 one-session reactions were within their expected ranges. Missing records are excluded, so this is not the entire earnings universe or a promise about future results. This is information and education, not investment advice or a recommendation.' },
+      ],
+      related: ['options-flow', 'open-interest'],
+    },
   },
 
   ko: {
@@ -238,6 +252,20 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
       ],
       related: ['options-flow', 'put-call-ratio', 'max-pain'],
     },
+    'earnings-expected-move': {
+      slug: 'earnings-expected-move',
+      title: '실적 발표 전 예상 변동폭: 미국 주식이 발표 뒤 얼마나 움직일지 미리 보는 법',
+      desc: '미국 주식의 실적 발표 전 예상 변동폭을 계산하고, 옵션 만기와 하루 주가 반응의 차이를 읽는 법을 알아봅니다.',
+      h1: '실적 발표 전 예상 변동폭: 미국 주식이 발표 뒤 얼마나 움직일지 미리 보는 법',
+      lead: '미국 주식은 실적 발표 뒤 크게 움직일 수 있습니다. 예상 변동폭은 발표 전 옵션 가격에 반영된 움직임의 크기를 보여주며, 주가가 오를지 내릴지는 알려주지 않습니다.',
+      sections: [
+        { h: '계산 방법', p: '같은 행사가와 만기의 등가격(ATM) 콜과 풋 가격을 더한 ATM 스트래들 가격을 주가로 나눕니다. 결과는 양쪽 방향의 대략적인 퍼센트 범위이며, 예측이나 보장된 경계가 아닙니다.' },
+        { h: '기간을 구분해 읽기', p: '옵션 가격은 만기까지의 움직임을 반영하지만, 여기서 실제 반응은 정규장 종가에서 다음 종가까지 하루입니다. 두 기간은 다릅니다. 실적 발표 후 불확실성이 줄면서 내재변동성(IV)이 하락하는 경우가 많아 주가가 움직여도 옵션 가격은 떨어질 수 있습니다.' },
+        { h: '실제 사례 두 가지', p: '블록(XYZ)은 2026년 11월 3일 장 마감 후 발표 전 예상 ±8.8%에 비해 11월 3일 종가부터 4일 종가까지 +15.3%로 범위 밖이었습니다. 데이터독(DDOG)은 11월 4일 장 시작 전 발표에 대해 예상 ±14.5%, 같은 종가 간 반응 −14.4%로 범위 안이었습니다. 두 예상치는 모두 11월 3일 세션과 11월 6일 만기 기준입니다.' },
+        { h: '시즌 누적과 한계', p: '2026년 10월 13일~11월 4일 발표 중 저장된 완전한 29종목의 하루 반응은 22종목이 예상 범위 안이었습니다. 누락된 기록은 제외되므로 전체 실적 발표 종목의 결과도, 미래 결과의 보장도 아닙니다. 정보 제공·교육 목적이며 투자 자문이나 매수·매도 추천이 아닙니다.' },
+      ],
+      related: ['options-flow', 'open-interest'],
+    },
   },
 
   ja: {
@@ -338,6 +366,20 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: '一日のずれは実在する', p: '建玉は取引終了後の清算を経て公表されます。したがって見えている増減は「以前のセッション」で積まれたものです。ザラ場中のリアルタイム建玉を示すものは推定値です。当社はその数値が「どのセッションのものか」を明示し、リアルタイムであるかのようには見せません。' },
       ],
       related: ['options-flow', 'put-call-ratio', 'max-pain'],
+    },
+    'earnings-expected-move': {
+      slug: 'earnings-expected-move',
+      title: '決算前の想定変動幅：米国株が発表後どれだけ動くかの目安',
+      desc: '米国株の決算前の想定変動幅の計算方法と、オプション満期までの期間と一日の株価反応の違いを解説します。',
+      h1: '決算前の想定変動幅：米国株が発表後どれだけ動くかの目安',
+      lead: '米国株は決算発表後に大きく動くことがあります。想定変動幅は発表前のオプション価格に織り込まれた動きの大きさを示し、上昇か下落かは示しません。',
+      sections: [
+        { h: '計算方法', p: '同じ権利行使価格と満期のアット・ザ・マネー（ATM）のコールとプットの価格を足したATMストラドルを株価で割ります。結果は上下方向の大まかな割合であり、予測や保証された境界ではありません。' },
+        { h: '期間の違いを読む', p: 'オプション価格は満期までの動きを反映しますが、ここでの実際の反応は通常取引の終値から翌終値までの一日です。期間は異なります。決算後は不確実性が減ってインプライド・ボラティリティ（IV）が低下することが多く、株価が動いてもオプション価格が下がる場合があります。' },
+        { h: '二つの実例', p: 'ブロック（XYZ）の2026年11月3日引け後の発表では、想定±8.8%に対し11月3日から4日の終値間の反応は+15.3%で範囲外でした。データドッグ（DDOG）の11月4日寄り前の発表では、想定±14.5%に対し同じ終値間の反応は−14.4%で範囲内でした。両方とも11月3日のセッションと11月6日満期が想定値の基準です。' },
+        { h: 'シーズン累計と限界', p: '2026年10月13日から11月4日の発表について、保存された完全な29銘柄の記録では22銘柄の一日反応が想定範囲内でした。欠落した記録は含まず、全決算銘柄の結果でも将来の保証でもありません。情報提供・教育目的であり、投資助言や売買推奨ではありません。' },
+      ],
+      related: ['options-flow', 'open-interest'],
     },
   },
 };

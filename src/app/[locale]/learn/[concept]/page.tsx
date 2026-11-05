@@ -166,6 +166,9 @@ export default async function ConceptPage(
         {concept === 'options-flow' && (
           <a href={`/${lc}/options-flow`} style={S.cta2}>{t.flowLeaders} →</a>
         )}
+        {concept === 'earnings-expected-move' && (
+          <a href={`/${lc}/earnings-week`} style={S.cta2}>{{ en: 'Earnings this week', ko: '이번 주 실적', ja: '今週の決算' }[lc]} →</a>
+        )}
         <a href={`/${lc}/tickers`} style={S.cta2}>{t.tickers} →</a>
       </div>
 
