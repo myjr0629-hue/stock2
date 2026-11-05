@@ -459,7 +459,6 @@ export async function syncActualsLatestPointers(opts: {
   let ptrs: unknown[] = [];
   try {
     if (entries.length) recs = await mget(entries.map((c) => actualsKey(c.ticker, c.date)));
-    if (mirrorOn && upcoming.length && !timeUp()) upRecs = await mget(upcoming.map((c) => actualsKey(c.ticker, c.date)));
     const best = new Map<string, ConfirmedEarnings>();
     entries.forEach((c, i) => {
       if (best.has(c.ticker)) return;   // 최근 순이라 처음 고른 완성 기록이 가장 최근
@@ -494,6 +493,8 @@ export async function syncActualsLatestPointers(opts: {
   // [T56b] 사본 맞추기 — 이번 회차가 읽은 기록·포인터와 Upstash 사본을 MGET 1회로 비교해 빠진·다른 것만 다시 쓴다(사본 쓰기가 한 번 실패해도 영구 누락이 되지 않게, 관문 11051955 ②).
   //   사본 쓰기는 조건부(더 새 사본은 덮지 않는다)라 늦게 도착한 옛 값이 사본을 되돌리지 않는다.
   if (mirrorOn && !timeUp()) {
+    // 발표 전 기록 읽기는 포인터 처리 «뒤»에만 — 포인터 경로는 main 과 같은 읽기만 한다(관문 11052020)
+    if (upcoming.length) upRecs = await mget(upcoming.map((c) => actualsKey(c.ticker, c.date))).catch(() => [] as unknown[]);
     const rows = [
       ...entries.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: recs[i] })),
       ...upcoming.map((c, i) => ({ key: actualsKey(c.ticker, c.date), value: upRecs[i] })),
