@@ -161,7 +161,7 @@ async function saveMerged(rec: ActualsRecord, actualTouched: boolean): Promise<'
     if (stored.expected) { kept = true; out = { ...out, expected: stored.expected }; }
     if (!actualTouched && stored.actual) out = { ...out, actual: stored.actual };
   }
-  // [T56b] 저장된 칸을 비우는 쓰기(actual 폐기)는 사본을 먼저 — 사본 실패면 EC2 도 쓰지 않는다(폐기된 값이 사본에서 되살아나지 않게)
+  // [T56b] 저장된 칸을 비우는 쓰기(actual 폐기)는 사본을 먼저·조건 없이 맞추고 EC2 (결과는 EC2 — main 과 같다)
   const prev = read.value != null ? parseRecord(read.value) : null;
   const drops = !!prev && ((!!prev.actual && !out.actual) || (!!prev.expected && !out.expected));
   const ok = await (drops ? setActualsMirrorFirst(key, out) : setActualsDurable(key, out)).catch(() => false);
