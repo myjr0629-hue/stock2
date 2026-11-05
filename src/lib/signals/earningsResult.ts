@@ -44,10 +44,19 @@ const LEDGER_TTL_SEC = 120 * 86400;
  */
 export const CLAIM_TTL_SEC = 10 * 60;
 /**
- * 굳히기(SET XX) 한 번의 시간 상한 — 이 안에 확인된 기기만 보내고, 늦은 기기는 자리를 돌려준다(SET XX 라 늦게 도착해도 되살아나지 않는다).
+ * 굳히기(SET XX) 한 번의 시간 상한 — 이 안에 확인된 기기는 곧바로 보낸다(늦은 기기의 확정·반환을 기다리지 않는다, 관문 11042212 #1).
  * 먼저 굳은 기기가 발송 호출을 기다리는 시간 = «허용된 손실» 창의 상한(≤ 300ms, 코디네이터 11/4 · 관문 11041451 #1).
+ * 늦은 기기는 무장 지평(ARM_MS) 안에서 확정한다 — 굳었으면 보내고, 아니면 자리를 돌려준다.
  */
 export const SEAL_TIMEOUT_MS = 300;
+/**
+ * 굳히기 직전 «무장» 수명(ms) — 선점 자리의 수명을 이만큼으로 줄인 뒤 굳힌다(SET XX PX). 이 시간이 지나면 자리가 서버에서 사라져
+ * 포기한 굳히기가 늦게 도착해도 120일 장부를 만들 수 없다 — 빠진 기기의 «삭제 성공»에 기대지 않는다(관문 11042212 #2).
+ * 굳히기 상한(300ms)의 두 배 — 정상 굳히기는 넉넉히 들어오고, 지평(굳히기 시작 + ARM_MS) 뒤 읽은 값은 최종이다.
+ */
+export const ARM_MS = 2 * SEAL_TIMEOUT_MS;
+/** 한 플랫폼의 굳히기 단계(무장 300 + 지평 600 + 확정 읽기 2×300) 전체가 마감 전에 끝날 때만 시작한다 */
+export const SEAL_PHASE_MS = SEAL_TIMEOUT_MS + ARM_MS + 2 * SEAL_TIMEOUT_MS;
 /** 한 묶음(100기기)에서 동시에 선점하는 기기 수 */
 const CLAIM_CONCURRENCY = 20;
 /**
@@ -175,6 +184,8 @@ export type StrictRead = { ok: boolean; value: unknown };
 export interface ResultStore extends SigStore {
   /** 키가 있을 때만 쓴다 — 쓰면 true */
   setXx(key: string, value: string, exSec: number): Promise<boolean>;
+  /** 키가 있을 때만 쓰고 수명을 ms 로(SET XX PX) — 무장(ARM_MS) · 쓰면 true */
+  armXx(key: string, value: string, ms: number): Promise<boolean>;
 }
 export interface ResultStepDeps {
   /** Upstash — 기기·모드·잠금·장부 */
@@ -218,6 +229,19 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 interface Candidate { c: ConfirmedEarnings; key: string; snapshot: string; fp: string; alert: ResultAlert }
+interface Claimed { item: SendItem; key: string; cap: string; cand: Candidate }
+
+type Settle = 'ok' | 'no' | 'err' | 'pending';
+/** 쓰기 하나의 결과를 ms 안에서 — ok(썼다) · no(자리가 없어 안 썼다) · err(오류 — 썼는지 모른다) · pending(아직 응답 없음) */
+function settle(p: Promise<boolean>, ms: number): Promise<Settle> {
+  return withTimeout(p.then((v): Settle => (v ? 'ok' : 'no'), (): Settle => 'err'), ms).catch((): Settle => 'pending');
+}
+/** 취소할 수 있는 타이머 */
+function timer(ms: number): { done: Promise<void>; cancel: () => void } {
+  let h: ReturnType<typeof setTimeout> | undefined;
+  const done = new Promise<void>((res) => { h = setTimeout(res, ms); });
+  return { done, cancel: () => clearTimeout(h) };
+}
 
 /**
  * 실적 결과 알림 — 크론 라우트가 runActualsCycle 뒤에 «같은 요청·같은 잠금 안에서» 부른다. 이 단계 밖에서는 보내지 않는다.
@@ -322,7 +346,7 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       if (clock() >= opts.lockDeadline) { report.skipped.push({ key: '*', reason: 'lock_expiring' }); break; }
       const chunk = tokens.slice(i, i + 100);
       const records = await st(deps.store.mget(chunk.map((t) => `push:tokens:${t}`)));
-      const claimed: Array<{ item: SendItem; key: string; cap: string; cand: Candidate }> = [];
+      const claimed: Claimed[] = [];
       let expiring = false;
       /** 기기 하나 — 마감 검사 뒤 그 기기의 발표들을 차례로 선점(기기 안은 순서대로: 하루 상한·회차당 상한을 지키려고) */
       const claimDevice = async (j: number) => {
@@ -354,43 +378,98 @@ export async function runEarningsResultStep(deps: ResultStepDeps, opts: ResultSt
       // 재확인이 늦어 마감을 넘겼으면 보내지 않는다(관문 11041441 #2) — 아래에서 자리를 모두 돌려준다
       const inTime = clock() < opts.lockDeadline;
       const ready = inTime ? claimed.filter((c) => allowed.has(c.cand)) : [];
-      // 보내기 «직전»에 선점 자리를 120일 장부로 굳힌다(SET XX — 자리가 그대로 있을 때만) — 발송 도중·직후 함수가 끊겨도 다시 보내지 않는다(중복 0 우선).
-      // 굳히기를 확인 못 한 항목은 보내지 않고 자리를 지운다(XX 라서 늦게 도착한 쓰기도 지운 자리를 되살리지 못한다 → 다음 회차가 다시 본다).
-      // 플랫폼마다 «굳히기 → 곧바로 그 플랫폼 발송»을 따로 한다 — 굳힌 뒤 발송 호출 전까지의 창을 플랫폼 하나의 굳히기 시간으로 줄인다.
+      // 보내기 «직전»에 선점 자리를 120일 장부로 굳힌다(SET XX) — 발송 도중·직후 함수가 끊겨도 다시 보내지 않는다(중복 0 우선).
       // ★ 허용된 손실(코디네이터 11/4 결정 · 관문 11041448 #1): 발송 확인 응답 없이 «누락 0·중복 0»은 동시에 불가 — 중복 0 을 택한다.
-      //   굳힌 뒤 그 플랫폼 발송 호출 전에 함수가 강제 중단되면(창 ≤ SEAL_TIMEOUT_MS 300ms) 그 기기들은 이 발표 알림을 받지 못한다(장부가 남아 재시도 없음).
-      const attempted = new Set<typeof claimed[number]>();
+      //   굳힘을 확인한 뒤 발송 호출까지 ≤ SEAL_TIMEOUT_MS(300ms) — 그 사이 함수가 강제 중단될 때만 그 기기는 이 알림을 못 받는다.
+      // 관문 11042212·11041457: 먼저 굳은 기기가 빠진 기기의 «반환(del)»을 기다리지 않는다(반환 대기 0) · 120일 장부는
+      //   «보냈거나 · 되돌렸거나 · 저장소가 끝까지 답하지 않았다고 보고한» 셋 중 하나로만 끝난다(삭제 성공에 기대지 않는다).
+      //   ① 무장 — 굳히기 직전에 자리 수명을 ARM_MS 로 줄인다(SET XX PX). 이 시간이 지나면 자리가 서버에서 사라져,
+      //      포기한 굳히기가 아무리 늦게 도착해도(재시도 포함) SET XX 라 120일 장부를 만들 수 없다.
+      //   ② 굳히기 — 300ms 안에 확인된 기기는 마감을 다시 확인하고 곧바로 보낸다.
+      //   ③ 늦은 기기 — 지평(굳히기 시작 + ARM_MS) 안에 성공이 확인되면 그 기기도 보낸다 · 실패·불명이면 지평 뒤 한 번 읽어 확정한다
+      //      (지평 뒤엔 어떤 굳히기도 적용될 수 없으니 읽은 값이 최종). 읽기도 실패하면 자리를 지우고, 지우기마저 실패하면 «seal_unknown»으로 보고한다.
+      const attempted = new Set<Claimed>();
       const outcomes = new Map<string, SendOutcome>();
-      /** 시도하지 않은 자리 반환(한 번만) — 자리·상한. 다음 회차가 같은 규칙으로 다시 본다 */
-      const released = new Set<typeof claimed[number]>();
-      const release = async (list: typeof claimed) => {
+      const sealTmo = Math.min(tmo, SEAL_TIMEOUT_MS);
+      /** 지평 뒤 굳힘 확정 읽기 — 이 회차의 굳힘 값이면 sealed · 그 밖(없음·다른 값)이면 not · 두 번 다 못 읽으면 unknown */
+      const readSeal = async (key: string): Promise<'sealed' | 'not' | 'unknown'> => {
+        for (let k = 0; k < 2; k++) {
+          try { return String(await withTimeout(deps.store.get(key), sealTmo)) === `sent:${now}` ? 'sealed' : 'not'; } catch { /* 다시 한 번 */ }
+        }
+        return 'unknown';
+      };
+      /** 자리 지우기 — 확인된 성공만 true(실패·시간 초과는 «반환 안 됨», 관문 11042212 #2) · 시간 상한 SEAL_TIMEOUT_MS × 2회 */
+      const delConfirmed = async (key: string): Promise<boolean> => {
+        for (let k = 0; k < 2; k++) {
+          try { await withTimeout(deps.store.del([key]), sealTmo); return true; } catch { /* 다시 한 번 */ }
+        }
+        return false;
+      };
+      /**
+       * 시도하지 않은 자리 반환(한 번만) — 자리·상한, 모두 시간 상한 안에서. 다음 회차가 같은 규칙으로 다시 본다.
+       * failReason 이 있으면 «지우기 확인 실패»를 반환 완료로 치지 않고 보고한다(굳었을 수 있는 자리 — 되돌림·불명).
+       * 짧은 선점·무장 자리는 지우기가 실패해도 수명(CLAIM_TTL_SEC · ARM_MS)이 지나면 저절로 풀린다.
+       */
+      const released = new Set<Claimed>();
+      const release = async (list: Claimed[], failReason?: string) => {
         await Promise.all(list.filter((c) => !released.has(c) && !attempted.has(c)).map(async (c) => {
           released.add(c);
-          await deps.store.del([c.key]).catch(() => {});
-          await deps.store.decr(c.cap).catch(() => 0);
+          if (!(await delConfirmed(c.key)) && failReason) report.skipped.push({ key: c.item.id, reason: failReason });
+          await withTimeout(deps.store.decr(c.cap), sealTmo).catch(() => 0);
         }));
       };
       // 재확인에서 탈락한 자리는 발송 전에 먼저 돌려준다
       await release(claimed.filter((c) => !ready.includes(c)));
       let sendInTime = true;
+      /** 굳은 묶음 하나를 보낸다 — 보내기 «직전» 마감 재확인. 넘었으면 보내지 않고 굳은 자리를 되돌린다(되돌림 확인 실패는 보고) */
+      const sendSealed = async (group: Claimed[]) => {
+        if (!group.length) return;
+        if (clock() >= opts.lockDeadline) { sendInTime = false; await release(group, 'rollback_failed'); return; }
+        for (const c of group) attempted.add(c);
+        const got = await deps.sender.send(group.map((c) => c.item)).catch(() => new Map<string, SendOutcome>());
+        for (const [id, o] of got) outcomes.set(id, o);
+      };
       for (const platform of ['ios', 'android'] as const) {
         const batch = ready.filter((c) => c.item.platform === platform);
         if (!batch.length) continue;
-        // 굳히기 전·후 모두 마감 검사 — 넘었으면 이 플랫폼은 시도 전이므로 아래에서 자리·상한을 돌려준다(관문 11041444 #3)
-        if (clock() >= opts.lockDeadline) { sendInTime = false; break; }
-        // ★ 허용된 손실 창 ≤ SEAL_TIMEOUT_MS(300ms): 굳히기는 300ms 안에 확인된 것만 — 먼저 굳은 기기는 최대 300ms 뒤 발송 호출된다.
-        //   그 사이 함수가 강제 중단되면 그 기기들은 이 발표 알림을 못 받는다(중복 0 우선, 코디네이터 11/4).
-        const sealed = new Set(await Promise.all(batch.map(async (c) =>
-          (await withTimeout(deps.store.setXx(c.key, `sent:${now}`, LEDGER_TTL_SEC), Math.min(tmo, SEAL_TIMEOUT_MS)).catch(() => false)) ? c : null)));
-        if (clock() >= opts.lockDeadline) { sendInTime = false; break; }
-        const toSend = batch.filter((c) => sealed.has(c));
-        // 300ms 안에 굳지 못해 빠진 기기는 발송 호출 «전»에 자리를 지운다 — 그 굳히기가 늦게 성공해도 SET XX 라 지운 자리에 쓰지 못한다.
-        // (반환을 발송 뒤로 미루면, 발송을 기다리는 동안 늦은 쓰기가 성공하고 그 뒤 함수가 끊겨 시도 없는 120일 장부가 남는다 — 관문 11041454)
-        await release(batch.filter((c) => !sealed.has(c)));
-        if (!toSend.length) continue;
-        for (const c of toSend) attempted.add(c);
-        const got = await deps.sender.send(toSend.map((c) => c.item)).catch(() => new Map<string, SendOutcome>());
-        for (const [id, o] of got) outcomes.set(id, o);
+        // 무장·굳히기·지평·확정 읽기가 모두 마감 전에 끝날 때만 시작 — 넘으면 이 플랫폼은 시도 전이므로 아래에서 자리·상한을 돌려준다(관문 11041444 #3)
+        if (clock() + SEAL_PHASE_MS >= opts.lockDeadline) { sendInTime = false; break; }
+        // ① 무장 — 확인 못 한 기기는 굳히지 않는다(늦게 도착한 무장은 짧은 자리를 더 짧게 할 뿐)
+        const armed = (await Promise.all(batch.map(async (c) =>
+          (await settle(deps.store.armXx(c.key, `arm:${now}`, ARM_MS), sealTmo)) === 'ok' ? c : null))).filter((c): c is Claimed => c != null);
+        await release(batch.filter((c) => !armed.includes(c)));
+        if (!armed.length) continue;
+        // ② 굳히기 — 모두 같은 순간에 보낸다. 지평 타이머는 무장이 모두 확인된 «뒤»에 시작하므로, 지평이 지나면 모든 무장 자리가 서버에서 사라졌다.
+        const sealValue = `sent:${now}`;
+        const sealP = new Map(armed.map((c) => [c, deps.store.setXx(c.key, sealValue, LEDGER_TTL_SEC)] as const));
+        const horizon = timer(ARM_MS);
+        const unknown = new Set<Claimed>();
+        try {
+          const first = await Promise.all(armed.map(async (c) => [c, await settle(sealP.get(c)!, sealTmo)] as const));
+          const sealed = first.filter(([, s]) => s === 'ok').map(([c]) => c);
+          const late = first.filter(([, s]) => s === 'err' || s === 'pending').map(([c]) => c);   // 'no' = 자리가 없어 쓰지 않았다(굳지 않음)
+          /** ③ 늦은 기기 — 지평 안 성공은 보내고, 나머지는 지평 뒤 읽어서 확정 */
+          const resolveLate = async () => {
+            if (!late.length) return;
+            const second = await Promise.all(late.map(async (c) => [c, await Promise.race([
+              sealP.get(c)!.then((v): Settle => (v ? 'ok' : 'no'), (): Settle => 'err'), horizon.done.then((): Settle => 'pending'),
+            ])] as const));
+            const sealedLate = second.filter(([, s]) => s === 'ok').map(([c]) => c);
+            const toRead = second.filter(([, s]) => s === 'err' || s === 'pending').map(([c]) => c);
+            await Promise.all([sendSealed(sealedLate), (async () => {
+              if (!toRead.length) return;
+              await horizon.done;
+              const read = await Promise.all(toRead.map(async (c) => [c, await readSeal(c.key)] as const));
+              for (const [c, v] of read) if (v === 'unknown') unknown.add(c);
+              await sendSealed(read.filter(([, v]) => v === 'sealed').map(([c]) => c));
+            })()]);
+          };
+          // 먼저 굳은 기기는 늦은 기기를 기다리지 않고 곧바로 보낸다(같은 시각에 늦은 기기 확정을 함께 진행)
+          await Promise.all([sendSealed(sealed), resolveLate()]);
+        } finally { horizon.cancel(); }
+        // 굳지 않은 자리 반환 — 불명은 지우기 확인까지 요구하고 실패면 보고(되돌림 실패와 같은 등급)
+        await release(armed.filter((c) => unknown.has(c)), 'seal_unknown');
+        await release(armed);
       }
       const dead = new Set<string>();
       for (const c of claimed) {
