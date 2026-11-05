@@ -68,6 +68,17 @@ const redis = new Redis({ host: ELASTICACHE_HOST, port: ELASTICACHE_PORT, maxRet
 redis.on("connect", () => console.log(`[Redis Proxy] Connected to ElastiCache ${ELASTICACHE_HOST}:${ELASTICACHE_PORT}`));
 redis.on("error", (e) => console.error("[Redis Proxy] Redis error:", e.message));
 
+// ★ 2026-11-06 T56c — 같은 키 동시 GET 합치기 + 큰 값(≥256KB) 2초 메모 (근거: scripts/lib/redis-read-coalescer.js 머리말).
+//   모듈이 없으면(배포 누락) 예전처럼 매 요청 직접 읽는다 — 프록시가 못 뜨는 일은 없게.
+const coalescer = (() => {
+    for (const p of ["./redis-read-coalescer", "./lib/redis-read-coalescer"]) {
+        try { return require(p).createReadCoalescer(); } catch (e) { if (e && e.code !== "MODULE_NOT_FOUND") console.error("[Redis Proxy] coalescer load failed:", e.message); }
+    }
+    console.warn("[Redis Proxy] read coalescer unavailable — direct reads");
+    return null;
+})();
+if (coalescer) setInterval(() => coalescer.sweep(), 10_000).unref();
+
 // ── helpers ──
 function safeEqual(a, b) {
     const x = Buffer.from(String(a));
@@ -199,9 +210,10 @@ const server = http.createServer(async (req, res) => {
         if (path_ === "/get" && req.method === "GET") {
             const key = url.searchParams.get("key");
             if (!key) { res.writeHead(400); res.end(JSON.stringify({ error: "key required" })); return; }
-            const val = await redis.get(key);
+            const read = async () => { const val = await redis.get(key); return JSON.stringify({ result: val ? JSON.parse(val) : null }); };
+            const body = coalescer ? await coalescer.get(key, read) : await read();
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ result: val ? JSON.parse(val) : null }));
+            res.end(body);
             return;
         }
 
@@ -218,7 +230,9 @@ const server = http.createServer(async (req, res) => {
                 || !Number.isInteger(ttl) || ttl < 1 || ttl > 2_147_483_647) {
                 res.writeHead(400); res.end(JSON.stringify({ error: "invalid macro CAS record" })); return;
             }
+            if (coalescer) coalescer.invalidate([key]);
             const result = await redis.eval(ASOF_CAS_LUA, 1, key, JSON.stringify(value), ttl);
+            if (coalescer) coalescer.invalidate([key]);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ result }));
             return;
@@ -230,7 +244,9 @@ const server = http.createServer(async (req, res) => {
             if (!validCashCloseWrite(key, value, closeAt, ttl)) {
                 res.writeHead(400); res.end(JSON.stringify({ error: "invalid futures cash-close record" })); return;
             }
+            if (coalescer) coalescer.invalidate([key]);
             const result = await redis.eval(FUTURES_CASH_CLOSE_LUA, 1, key, JSON.stringify(value), ttl, Date.parse(closeAt) % 86400000);
+            if (coalescer) coalescer.invalidate([key]);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ result }));
             return;
@@ -243,8 +259,10 @@ const server = http.createServer(async (req, res) => {
             if (!key) { res.writeHead(400); res.end(JSON.stringify({ error: "key required" })); return; }
             if (!writeAllowed(req, body, [key])) { deny(req, res, 403, "trade:* writes require a signed request"); return; }
             const serialized = JSON.stringify(value);
+            if (coalescer) coalescer.invalidate([key]);
             if (ttl) await redis.setex(key, ttl, serialized);
             else await redis.set(key, serialized);
+            if (coalescer) coalescer.invalidate([key]);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ ok: true }));
             return;
@@ -255,10 +273,10 @@ const server = http.createServer(async (req, res) => {
             const keysParam = url.searchParams.get("keys");
             if (!keysParam) { res.writeHead(400); res.end(JSON.stringify({ error: "keys required" })); return; }
             const keys = keysParam.split(",");
-            const vals = await redis.mget(...keys);
-            const results = vals.map(v => v ? JSON.parse(v) : null);
+            const read = async () => { const vals = await redis.mget(...keys); return JSON.stringify({ results: vals.map(v => v ? JSON.parse(v) : null) }); };
+            const body = coalescer ? await coalescer.mget(keys, read) : await read();
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ results }));
+            res.end(body);
             return;
         }
 
@@ -275,7 +293,10 @@ const server = http.createServer(async (req, res) => {
                 if (ttl) pipeline.setex(key, ttl, serialized);
                 else pipeline.set(key, serialized);
             }
+            const written = items.map((i) => i && i.key);
+            if (coalescer) coalescer.invalidate(written);
             await pipeline.exec();
+            if (coalescer) coalescer.invalidate(written);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ ok: true, count: items.length }));
             return;
@@ -286,7 +307,9 @@ const server = http.createServer(async (req, res) => {
             const key = url.searchParams.get("key");
             if (!key) { res.writeHead(400); res.end(JSON.stringify({ error: "key required" })); return; }
             if (!writeAllowed(req, key, [key])) { deny(req, res, 403, "trade:* writes require a signed request"); return; }
+            if (coalescer) coalescer.invalidate([key]);
             await redis.del(key);
+            if (coalescer) coalescer.invalidate([key]);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ ok: true }));
             return;
@@ -315,6 +338,7 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({
                 status: "ok", redis: ping, uptime: process.uptime(),
                 keysAccepted: ACCEPTED_KEYS.length, tradeWriteSigning: Boolean(WRITE_SECRET), trustLoopback: TRUST_LOOPBACK,
+                coalescer: coalescer ? coalescer.snapshot() : null,
             }));
             return;
         }
