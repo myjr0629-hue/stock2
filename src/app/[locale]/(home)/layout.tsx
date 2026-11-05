@@ -25,16 +25,16 @@ const loc = (l: string): Loc => (LOCALES as readonly string[]).includes(l) ? (l 
 
 const META: Record<Loc, { title: string; desc: string }> = {
   ko: {
-    title: 'SIGNUM HQ — 미국 실적 발표 전 옵션 예상 변동폭과 실제',
-    desc: '미국 기업의 실적 발표 전 옵션이 예상한 변동폭과 발표 후 실제 움직임을 확인하세요. 주간 성적표 무료 제공. 투자 자문이 아닌 정보 제공입니다.',
+    title: 'SIGNUM HQ — 미국 주식 실적, 예상 변동폭과 실제',
+    desc: '미국 주식 실적, 발표 전 예상 변동폭과 발표 뒤 실제를 한눈에. 예상 변동폭은 옵션 가격으로 계산합니다. 주간 성적표 무료 제공. 투자 자문이 아닌 정보 제공입니다.',
   },
   en: {
-    title: 'SIGNUM HQ — Options-Implied Earnings Moves vs Actual | US Stocks',
-    desc: 'Before major US earnings reports, see the move options are pricing in — and after them, what actually happened. Weekly scorecard, free. Information, not investment advice.',
+    title: 'SIGNUM HQ — US Stock Earnings: Expected Move vs Actual',
+    desc: 'US stocks: the expected earnings move before the report, and what actually happened after. The expected move is derived from options prices. Weekly scorecard, free. Information, not investment advice.',
   },
   ja: {
-    title: 'SIGNUM HQ — 米国株決算のオプション想定変動幅と実際',
-    desc: '米国企業の決算発表前にオプションが織り込む想定変動幅と、発表後の実際の値動きを確認。週間スコアカードを無料で提供。投資助言ではなく情報提供です。',
+    title: 'SIGNUM HQ — 米国株の決算、想定変動幅と実際',
+    desc: '米国株の決算、発表前の想定変動幅と発表後の実際を一目で。想定変動幅はオプション価格から算出。週間スコアカードを無料で提供。投資助言ではなく情報提供です。',
   },
 };
 

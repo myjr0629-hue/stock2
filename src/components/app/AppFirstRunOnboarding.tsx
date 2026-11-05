@@ -439,10 +439,10 @@ export function AppFirstRunOnboarding() {
           <header className={styles.hero}>
             <span className={styles.kicker}>{copy.kicker}</span>
             <h1 id="app-onboarding-title" className={styles.title}>
-              {legal ? ({ ko: '실적 발표 전 옵션 예상 변동폭 vs 실제', en: 'Options-implied earnings move vs the actual move', ja: '決算前にオプションが織り込む変動幅 vs 実際' }[locale as 'ko' | 'en' | 'ja'] || 'Options-implied earnings move vs the actual move') : copy.alertTitle}
+              {legal ? ({ ko: '미국 주식 실적, 발표 전 예상 변동폭과 발표 뒤 실제를 한눈에', en: 'US stocks: the expected earnings move before the report, and what actually happened after', ja: '米国株の決算、発表前の想定変動幅と発表後の実際を一目で' }[locale as 'ko' | 'en' | 'ja'] || 'US stocks: the expected earnings move before the report, and what actually happened after') : copy.alertTitle}
             </h1>
             <p className={styles.subtitle}>
-              {legal ? ({ ko: '실적 발표 뒤 예상과 실제를 비교합니다.', en: 'Compare the implied move with the actual move after earnings.', ja: '決算発表後に予想と実際を比べます。' }[locale as 'ko' | 'en' | 'ja'] || 'Compare the implied move with the actual move after earnings.') : copy.alertSubtitle}
+              {legal ? ({ ko: '예상 변동폭은 옵션 가격으로 계산합니다.', en: 'The expected move is derived from options prices.', ja: '想定変動幅はオプション価格から算出します。' }[locale as 'ko' | 'en' | 'ja'] || 'The expected move is derived from options prices.') : copy.alertSubtitle}
             </p>
           </header>
 

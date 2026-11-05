@@ -79,28 +79,28 @@ export function intentCopy(v: Intent, locale: string) {
     return loc === 'ja' ? `(${parts.join('・')})` : loc === 'ko' ? `(${parts.join(' · ')})` : ` (${parts.join(', ')})`;
   })();
   if (loc === 'ko') return {
-    title: `${v.ticker} 실적 ${date}: 옵션 예상 변동폭${pct ? ` ${pct}` : ''} — 예상 vs 실제 | SIGNUM HQ`,
-    heading: '실적 예상 vs 실제', upcoming: `${v.ticker} 실적 발표 ${date} · 옵션 예상 변동폭 ${pct ? `${pct}${asOf}` : '미확인'}`,
+    title: `${v.ticker} 실적 ${date}: 예상 변동폭${pct ? ` ${pct}` : ''} vs 실제 | SIGNUM HQ`,
+    heading: '실적 예상 vs 실제', upcoming: `${v.ticker} 실적 발표 ${date} · 예상 변동폭 ${pct ? `${pct}${asOf}` : '미확인'}`,
     history: v.history && `${v.history.date} 예상 ±${v.history.expectedPct.toFixed(1)}%(ATM 스트래들) → 실제 ${v.history.actualPct > 0 ? '+' : ''}${v.history.actualPct.toFixed(1)}% · ${v.history.beyond ? '범위 밖' : '범위 안'}`,
-    q1: `${v.ticker} 실적 예상 변동폭은?`, a1: `${v.ticker} 실적 발표 ${date}의 옵션 예상 변동폭은 ${pct ? `${pct}${asOf}` : '아직 확인되지 않았습니다'}.`,
-    q2: '예상 변동폭은 어떻게 계산하나?', a2: split
+    q1: `${v.ticker} 실적 발표 전 예상 변동폭은 얼마인가요?`, a1: `${v.ticker}의 ${date} 실적 발표 전 예상 변동폭은 ${pct ? `${pct}${asOf}입니다. 예상 변동폭은 옵션 가격으로 계산합니다` : '아직 확인되지 않았습니다'}.`,
+    q2: '예상 변동폭은 어떻게 계산하나요?', a2: split
       ? '발표 후 첫 만기 ATM 옵션의 분산(내재변동성²×기간)에서 직전 만기의 내재변동성으로 잡은 평상시 날짜분의 분산을 빼고 제곱근을 취해, 실적 발표 자체에 반영된 변동폭만 분리합니다. 실제 변동은 발표 후 첫 거래일 하루입니다.'
       : '발표 후 첫 만기의 ATM 콜과 풋 가격을 더한 스트래들을 주가로 나눕니다. 옵션 만기까지의 범위이며 실적 후 하루 실제 변동과 기간이 다릅니다.',
   };
   if (loc === 'ja') return {
-    title: `${v.ticker} 決算 ${date}：オプション想定変動幅${pct ? ` ${pct}` : ''} — 想定と実際 | SIGNUM HQ`,
-    heading: '決算の想定と実際', upcoming: `${v.ticker} 決算発表 ${date} · オプション想定変動幅 ${pct ? `${pct}${asOf}` : '未確認'}`,
+    title: `${v.ticker} 決算 ${date}：想定変動幅${pct ? ` ${pct} ` : ''}と実際 | SIGNUM HQ`,
+    heading: '決算の想定と実際', upcoming: `${v.ticker} 決算発表 ${date} · 想定変動幅 ${pct ? `${pct}${asOf}` : '未確認'}`,
     history: v.history && `${v.history.date} 想定 ±${v.history.expectedPct.toFixed(1)}%(ATMストラドル) → 実際 ${v.history.actualPct > 0 ? '+' : ''}${v.history.actualPct.toFixed(1)}% · ${v.history.beyond ? '範囲外' : '範囲内'}`,
-    q1: `${v.ticker}の決算想定変動幅は？`, a1: `${v.ticker}の${date}決算のオプション想定変動幅は${pct ? `${pct}${asOf}` : '未確認'}です。`,
+    q1: `${v.ticker}の決算発表前の想定変動幅は？`, a1: `${v.ticker}の${date}決算発表前の想定変動幅は${pct ? `${pct}${asOf}です。想定変動幅はオプション価格から算出します` : '未確認です'}。`,
     q2: '想定変動幅はどう計算する？', a2: split
       ? '発表後最初の満期のATMオプションの分散(インプライド・ボラティリティ²×期間)から、直前の満期のボラティリティで見積もった平常日分の分散を差し引いて平方根を取り、決算発表そのものに織り込まれた変動幅だけを分離します。実際の変動は発表後最初の取引日1日です。'
       : '発表後最初の満期のATMコールとプットの価格を合計したストラドルを株価で割ります。満期までの範囲であり、決算後1日の実際の変動とは期間が異なります。',
   };
   return {
-    title: `${v.ticker} Earnings ${date}: Options Price ${pct ? `a ${pct} Move` : 'an Expected Move'} — Expected vs Actual | SIGNUM HQ`,
-    heading: 'Earnings expected vs actual', upcoming: `${v.ticker} earnings ${date} · Options expected move ${pct ? `${pct}${asOf}` : 'unavailable'}`,
+    title: `${v.ticker} Earnings ${date}: Expected Move${pct ? ` ${pct}` : ''} vs Actual | SIGNUM HQ`,
+    heading: 'Earnings expected vs actual', upcoming: `${v.ticker} earnings ${date} · Expected move ${pct ? `${pct}${asOf}` : 'unavailable'}`,
     history: v.history && `${v.history.date} Expected ±${v.history.expectedPct.toFixed(1)}% (ATM straddle) → Actual ${v.history.actualPct > 0 ? '+' : ''}${v.history.actualPct.toFixed(1)}% · ${v.history.beyond ? 'outside range' : 'within range'}`,
-    q1: `What is ${v.ticker}'s earnings expected move?`, a1: `${v.ticker} reports ${date}; the options expected move is ${pct ? `${pct}${asOf}` : 'not yet available'}.`,
+    q1: `What is ${v.ticker}'s expected move before earnings?`, a1: `${v.ticker} reports ${date}; the expected move is ${pct ? `${pct}${asOf}, derived from options prices` : 'not yet available'}.`,
     q2: 'How is the expected move calculated?', a2: split
       ? 'Take the variance (implied volatility squared × time) of the at-the-money options in the first expiry after the announcement, subtract the ordinary-day variance implied by the prior expiry for the non-event days, and take the square root, isolating the move priced for the earnings event itself. The actual reaction covers the first session after the report.'
       : 'Add the ATM call and put prices for the first expiry after the announcement and divide by the stock price. This range extends to expiry; the actual reaction covers one session.',

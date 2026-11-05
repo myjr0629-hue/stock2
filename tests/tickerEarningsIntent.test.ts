@@ -10,9 +10,9 @@ test('confirmed 7-day window, announcement phase, and missing move in three lang
   assert.equal(upcoming('AAPL', now, [{ ...event, date: '2026-11-13' }]), null);
   assert.equal(upcoming('MSFT', now, [event]), null);
   assert.equal(upcoming('AAPL', Date.parse('2026-11-05T23:30:00Z'), [{ ...event, date: '2026-11-05' }]), null);
-  assert.equal(intentCopy(data, 'en').title, 'AAPL Earnings Nov 6: Options Price a ±4.6% Move — Expected vs Actual | SIGNUM HQ');
-  assert.equal(intentCopy(data, 'ko').title, 'AAPL 실적 11/6: 옵션 예상 변동폭 ±4.6% — 예상 vs 실제 | SIGNUM HQ');
-  assert.equal(intentCopy(data, 'ja').title, 'AAPL 決算 11/6：オプション想定変動幅 ±4.6% — 想定と実際 | SIGNUM HQ');
+  assert.equal(intentCopy(data, 'en').title, 'AAPL Earnings Nov 6: Expected Move ±4.6% vs Actual | SIGNUM HQ');
+  assert.equal(intentCopy(data, 'ko').title, 'AAPL 실적 11/6: 예상 변동폭 ±4.6% vs 실제 | SIGNUM HQ');
+  assert.equal(intentCopy(data, 'ja').title, 'AAPL 決算 11/6：想定変動幅 ±4.6% と実際 | SIGNUM HQ');
   for (const loc of ['en', 'ko', 'ja']) {
     const c = intentCopy({ ...data, pct: null }, loc);
     assert.ok(!c.title.includes('±')); assert.ok(c.title.includes('AAPL')); assert.equal(c.history, null);
