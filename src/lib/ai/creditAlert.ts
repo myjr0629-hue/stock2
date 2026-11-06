@@ -43,19 +43,37 @@ export const snsOpsAlert: AlertSender = async (subject, message) => {
 
 export const creditAlertKey = (cycleId: string, tag: string): string => `llm:credit:alert:${cycleId}:${tag}`;
 
-const _sent = new Set<string>();
+/** key → 이 시각 전에는 이 인스턴스에서 다시 시도하지 않는다(보냈거나 다른 인스턴스가 보냈으면 무한대, 실패면 10분 뒤) */
+const _sent = new Map<string, number>();
+const RETRY_AFTER_MS = 10 * 60_000;
 export function _resetCreditAlertForTest(): void { _sent.clear(); }
 
 /** 주기마다 한 번만 보낸다. 보냈으면 true */
-export async function alertOnce(store: LlmStore, key: string, send: AlertSender, subject: string, message: string, log?: (m: string) => void): Promise<boolean> {
-    if (_sent.has(key)) return false;
-    _sent.add(key);
+export async function alertOnce(store: LlmStore, key: string, send: AlertSender, subject: string, message: string, log?: (m: string) => void, now = Date.now()): Promise<boolean> {
+    if ((_sent.get(key) ?? 0) > now) return false;
+    _sent.set(key, Number.POSITIVE_INFINITY);
     try {
         const n = await store.incrByFloat(key, 1, 40 * 24 * 3600);
         if (n != null && n !== 1) return false;   // 다른 인스턴스가 이미 보냈다(저장소를 못 읽으면 이 인스턴스에서 한 번은 보낸다)
         log?.(`[CreditAlert] ${subject}`);
         const ok = await send(subject, message);
-        if (!ok && n === 1) await store.del(key);   // 못 보냈으면 다른 인스턴스가 다시 시도할 수 있게
+        if (!ok) {
+            _sent.set(key, now + RETRY_AFTER_MS);   // 못 보냈으면 10분 뒤 이 인스턴스도 다시 시도 · 다른 인스턴스는 바로
+            if (n === 1) await store.del(key);
+        }
         return ok;
-    } catch { return false; }
+    } catch { _sent.set(key, now + RETRY_AFTER_MS); return false; }
 }
+
+/**
+ * 경보를 AI 응답 경로 밖에서 — 호출을 기다리게 하지 않는다. 요청 문맥이 있으면 next/server after() 로 함수 수명 안에 끝내고,
+ * 없으면(스크립트·시험) 그냥 흘려보낸다. 예외는 삼킨다.
+ */
+const _pending = new Set<Promise<unknown>>();
+export function inBackground(task: () => Promise<unknown>): void {
+    const p: Promise<unknown> = Promise.resolve().then(task).catch(() => undefined).finally(() => { _pending.delete(p); });
+    _pending.add(p);
+    import('next/server').then((m) => { try { (m as any).after?.(() => p); } catch { /* 요청 문맥 밖 */ } }).catch(() => undefined);
+}
+/** 시험용 — 흘려보낸 경보가 끝날 때까지 */
+export async function _flushCreditAlertsForTest(): Promise<void> { while (_pending.size) await Promise.all([..._pending]); }

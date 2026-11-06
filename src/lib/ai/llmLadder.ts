@@ -21,8 +21,8 @@ import {
     type Effort, type FailKind, type ParsedMessage,
 } from '@/lib/ai/llmRequest';
 import { costOf, type PriceModel, type TokenUsage } from '@/lib/ai/llmPricing';
-import { ALERT_FRACTIONS, currentCycle, describeCycle, spendTier, tierStopUsd, _resetCreditCycleForTest, type CreditCycle, type SpendTier } from '@/lib/ai/creditCycle';
-import { alertOnce, creditAlertKey, snsOpsAlert, _resetCreditAlertForTest, type AlertSender } from '@/lib/ai/creditAlert';
+import { ALERT_FRACTIONS, currentCycle, cycleSpentUsd, describeCycle, spendTier, tierStopUsd, _resetCreditCycleForTest, type CreditCycle, type SpendTier } from '@/lib/ai/creditCycle';
+import { alertOnce, creditAlertKey, inBackground, snsOpsAlert, _resetCreditAlertForTest, type AlertSender } from '@/lib/ai/creditAlert';
 import { upstashStore, type LlmStore } from '@/lib/ai/llmStore';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { FreshTierSkipped, freshTierAllowsSonnet, inFreshTier } from '@/lib/ai/freshTier';
@@ -416,16 +416,17 @@ async function openBreaker(id: string, sec: number, reason: string, d: LadderDep
     d.log('warn', `[Ladder] ${id} 문을 ${sec}초 닫는다 — ${reason.slice(0, 160)}`);
 }
 
-/** 지금 크레딧 주기(실제 잔액 기준점 — lib/ai/creditCycle)와 그 주기 원장 누적 */
-async function cycleSpend(d: LadderDeps): Promise<{ cycle: CreditCycle; spent: number }> {
+/**
+ * 지금 크레딧 주기(실제 잔액 기준점 — lib/ai/creditCycle)와 그 주기 지출 합(원장 + 원장 밖 opening + 옛 키 carry).
+ * 30초 캐시 — fresh 면 캐시를 거치지 않는다(정지선 $1 안쪽에서는 다른 인스턴스 지출을 바로 본다).
+ */
+async function cycleSpend(d: LadderDeps, fresh = false): Promise<{ cycle: CreditCycle; spent: number; base: number }> {
     const now = d.now();
     const cycle = await currentCycle(d.store, now);
-    const spent = await cached(`cost:${cycle.id}`, now, async () => {
-        const v = await d.store.get(K.cost(cycle.id));
-        const n = Number(v);
-        return Number.isFinite(n) ? n : 0;
-    });
-    return { cycle, spent };
+    const ck = `cost:${cycle.id}`;
+    if (fresh) _cache.delete(ck);
+    const v = await cached(ck, now, () => cycleSpentUsd(d.store, cycle));
+    return { cycle, spent: v.total, base: v.base };
 }
 
 const usd = (x: number) => `$${x.toFixed(2)}`;
@@ -445,25 +446,25 @@ function cycleLines(cycle: CreditCycle, spent: number): string {
 const TIER_KO: Record<SpendTier, string> = { extra: '증가분·예열·재생성', standard: '일반(사용자 요청 생성 — AWS 로 넘어감)', essential: '필수(장마감 리포트·모닝 브리핑·Tactical·알림·내 종목 줄)' };
 
 /** 등급이 처음 정지선에 닿았다 — 주기마다 등급별 한 번 */
-async function alertShed(tier: SpendTier, purpose: string, cycle: CreditCycle, spent: number, d: LadderDeps): Promise<void> {
+function alertShed(tier: SpendTier, purpose: string, cycle: CreditCycle, spent: number, d: LadderDeps): void {
     if (!d.alert) return;
-    await alertOnce(d.store, creditAlertKey(cycle.id, `shed-${tier}`), d.alert,
+    const send = d.alert;
+    inBackground(() => alertOnce(d.store, creditAlertKey(cycle.id, `shed-${tier}`), send,
         `[SIGNUM] AI 크레딧 정지선 — ${tier} 정지 (${pct(spent, cycle.amountUsd)})`,
         `${TIER_KO[tier]} 용도의 Anthropic 크레딧 호출을 멈췄다(첫 용도: ${purpose}).\n${cycleLines(cycle, spent)}`,
-        (m) => d.log('warn', m));
+        (m) => d.log('warn', m), d.now()));
 }
 
-/** 원장이 경보 비율을 넘는 순간 — 주기마다 비율별 한 번 */
-async function alertCrossings(before: number, after: number, cycle: CreditCycle, d: LadderDeps): Promise<void> {
+/** 지출이 경보 비율 이상이면 — 주기마다 비율별 한 번(못 보냈으면 다음 호출이 다시 시도). 인스턴스 안 기억이 있어 저장소는 키마다 한 번만 건드린다 */
+function alertThresholds(after: number, cycle: CreditCycle, d: LadderDeps): void {
     if (!d.alert) return;
+    const send = d.alert;
     for (const f of ALERT_FRACTIONS) {
-        const th = f * cycle.amountUsd;
-        if (after >= th && before < th) {
-            await alertOnce(d.store, creditAlertKey(cycle.id, `p${Math.round(f * 100)}`), d.alert,
-                `[SIGNUM] AI 크레딧 추정 ${Math.round(f * 100)}% — ${usd(after)} / ${usd(cycle.amountUsd)}`,
-                `조용히 끊기기 전에 알린다. 아직 끊긴 용도는 없다(정지선 아래).\n${cycleLines(cycle, after)}`,
-                (m) => d.log('warn', m));
-        }
+        if (after < f * cycle.amountUsd) continue;
+        inBackground(() => alertOnce(d.store, creditAlertKey(cycle.id, `p${Math.round(f * 100)}`), send,
+            `[SIGNUM] AI 크레딧 추정 ${Math.round(f * 100)}% — ${usd(after)} / ${usd(cycle.amountUsd)}`,
+            `조용히 끊기기 전에 알린다. 끊기는 순서: 증가분 → 일반 → 필수(마지막).\n${cycleLines(cycle, after)}`,
+            (m) => d.log('warn', m), d.now()));
     }
 }
 
@@ -627,10 +628,12 @@ async function tryRung(
     if (id === 'a55' || id === 'a55s') {
         if (id === 'a55s' && !sonnet) return { ok: false, why: 'nosonnet', skip: true };
         if (!d.anthropicKey()) return { ok: false, why: 'nokey', skip: true };
-        const { cycle, spent } = await cycleSpend(d);
         const tier = tierOfCall(req.purpose);
+        let { cycle, spent } = await cycleSpend(d);
+        const stop = tierStopUsd(tier, cycle.amountUsd);
+        if (spent >= stop - 1) ({ cycle, spent } = await cycleSpend(d, true));   // 정지선 $1 안쪽 — 캐시 말고 지금 값으로(다른 인스턴스 지출 반영)
         if (spent >= tierStopUsd(tier, cycle.amountUsd)) {
-            await alertShed(tier, req.purpose, cycle, spent, d);
+            alertShed(tier, req.purpose, cycle, spent, d);
             return { ok: false, why: 'cap', skip: true };
         }
         if (sonnet) {
@@ -668,10 +671,11 @@ async function tryRung(
         if (re.kind === 'credit' && (id === 'a55' || id === 'a55s') && d.alert) {
             // 실제 크레딧(콘솔)이 거절했다 — 추정 원장과 실제가 어긋났다는 뜻. 주기마다 한 번 알린다(사다리는 AWS 로 넘어간다)
             const { cycle, spent } = await cycleSpend(d);
-            await alertOnce(d.store, creditAlertKey(cycle.id, 'real-credit'), d.alert,
+            const send = d.alert;
+            inBackground(() => alertOnce(d.store, creditAlertKey(cycle.id, 'real-credit'), send,
                 `[SIGNUM] Anthropic 실제 크레딧 거절 — 추정 ${usd(spent)} / ${usd(cycle.amountUsd)}`,
                 `Anthropic API 가 크레딧 부족·지출 한도로 거절했다(${re.detail.slice(0, 160)}). ${id} 단을 ${re.closeSec}초 닫고 AWS 로 넘긴다.\n콘솔 잔액·지출 한도를 확인하고, 새로 찼으면 기준점을 넣는다.\n${cycleLines(cycle, spent)}`,
-                (m) => d.log('warn', m));
+                (m) => d.log('warn', m), d.now()));
         }
         return { ok: false, why: re.kind };
     }
@@ -682,9 +686,19 @@ async function tryRung(
         // 원장 — 응답이 왔으면(거절·가드 실패 포함) 과금된 것으로 센다. 주기 = 실제 잔액 기준점(lib/ai/creditCycle)
         const cycle = await currentCycle(d.store, d.now());
         const ck = `cost:${cycle.id}`;
-        const total = await d.store.incrByFloat(K.cost(cycle.id), cost, 45 * 24 * 3600);
-        _cache.set(ck, { v: total ?? ((_cache.get(ck)?.v as number | undefined) ?? 0) + cost, at: d.now() });
-        if (total != null) await alertCrossings(total - cost, total, cycle, d);
+        const prevV = _cache.get(ck)?.v as { total: number; ledger: number; base: number } | undefined;
+        const ledger = await d.store.incrByFloat(K.cost(cycle.id), cost, 45 * 24 * 3600);
+        if (ledger != null && prevV) {
+            const v = { total: ledger + prevV.base, ledger, base: prevV.base };
+            _cache.set(ck, { v, at: d.now() });
+            alertThresholds(v.total, cycle, d);
+        } else if (ledger == null && prevV) {
+            _cache.set(ck, { v: { ...prevV, total: prevV.total + cost, ledger: prevV.ledger + cost }, at: d.now() });
+        } else if (ledger != null) {
+            _cache.delete(ck);
+            const v = await cached(ck, d.now(), () => cycleSpentUsd(d.store, cycle));
+            alertThresholds(v.total, cycle, d);
+        }
         if (sonnet) {
             const day = await d.store.incrByFloat(K.sonnetDay(dayId(d.now())), cost, 3 * 24 * 3600);
             _cache.set('sonnetDay', { v: day ?? ((_cache.get('sonnetDay')?.v as number | undefined) ?? 0) + cost, at: d.now() });
@@ -874,7 +888,7 @@ export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderSt
     const now = d.now();
     const cycle = await currentCycle(d.store, now);
     const period = cycle.id;
-    const spent = Number(await d.store.get(K.cost(period))) || 0;
+    const spent = (await cycleSpentUsd(d.store, cycle)).total;
     const cap = tierStopUsd('standard', cycle.amountUsd);
     const breakers: Record<string, string | null> = {};
     for (const id of ['a55', 'a55s', 'b55i', 'b55m']) {

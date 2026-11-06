@@ -25,7 +25,7 @@ import { newsItemVerdicts, titlesFromNewsPrompt } from '@/lib/ai/tickerNewsGuard
 import { LLM_KEYS, defaultCallAnthropic, LadderRungError, TRACKED_PURPOSES } from '@/lib/ai/llmLadder';
 import { shapeH55Body, type Effort } from '@/lib/ai/llmRequest';
 import { costOf, type PriceModel } from '@/lib/ai/llmPricing';
-import { currentCycle, tierStopUsd } from '@/lib/ai/creditCycle';
+import { currentCycle, cycleSpentUsd, tierStopUsd } from '@/lib/ai/creditCycle';
 import { upstashStore } from '@/lib/ai/llmStore';
 import { recordTestSpend } from '@/lib/ai/llmTestSpend';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     // 시험 호출은 «증가분(extra)» 등급 — 크레딧이 빠듯하면 사용자 글보다 먼저 멈춘다(2026-11-06, lib/ai/creditCycle). list 는 호출이 없어 통과
     if (!body.list) {
         const cyc = await currentCycle(upstashStore, Date.now());
-        const spentNow = Number(await upstashStore.get(LLM_KEYS.cost(cyc.id))) || 0;
+        const spentNow = (await cycleSpentUsd(upstashStore, cyc)).total;
         if (spentNow >= tierStopUsd('extra', cyc.amountUsd)) return NextResponse.json({ ok: false, error: 'credit-shed', cycle: cyc.id, spentUsd: spentNow, stopUsd: tierStopUsd('extra', cyc.amountUsd) }, { status: 429 });
     }
     // 리허설용 원본 통과: 로컬에서 «진짜 runLadder» 를 돌릴 때 ① 호출만 서버(크레딧 키가 있는 곳)로 보낸다 — 사다리가 만든 요청 본문 그대로.

@@ -50,6 +50,19 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, monthlyUsd: -1 }), null);
         assert.deepEqual(parseCheckpoint(JSON.stringify({ at: '2026-11-05T00:00:00Z', balanceUsd: 10 })), { at: '2026-11-05T00:00:00.000Z', balanceUsd: 10 });
     });
+    await t('원장 밖 지출: openingUsd·carryKeys 는 기준점 주기에만 · 잘못된 키·잔액 이상 opening 은 거부', async () => {
+        const c = cycleAt(U(2026, 11, 6, 1));
+        assert.equal(c.openingUsd, 4.27); assert.deepEqual(c.carryKeys, ['llm:cost:2026-11']);
+        const m = cycleAt(U(2026, 12, 6));
+        assert.equal(m.openingUsd, 0); assert.deepEqual(m.carryKeys, []);
+        assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, carryKeys: ['promo:x'] }), null);
+        assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, openingUsd: 11 }), null);
+        const s = memoryStore();
+        s.data.set('llm:cost:c20261105T1318', '1.5'); s.data.set('llm:cost:2026-11', '0.5');
+        const { cycleSpentUsd } = await import('@/lib/ai/creditCycle');
+        const v = await cycleSpentUsd(s, c);
+        assert.ok(Math.abs(v.total - (1.5 + 0.5 + 4.27)) < 1e-9); assert.equal(v.ledger, 1.5);
+    });
     await t('정지선: 필수 잔액−0.2 > 일반 −1.0 > 증가분 −1.5 > 페이싱 목표 −2.0 ($200 이면 199.8/199/198.5/198)', () => {
         assert.equal(tierStopUsd('essential', 200), 199.8); assert.equal(tierStopUsd('standard', 200), 199);
         assert.equal(tierStopUsd('extra', 200), 198.5); assert.equal(pacingTargetUsd(200), 198);

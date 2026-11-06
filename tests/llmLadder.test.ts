@@ -17,6 +17,7 @@ import { signV4 } from '@/lib/ai/awsSigV4';
 import { memoryStore, type LlmStore } from '@/lib/ai/llmStore';
 import { adminAuthorized } from '@/lib/ai/adminAuth';
 import { withFreshTier } from '@/lib/ai/freshTier';
+import { _flushCreditAlertsForTest } from '@/lib/ai/creditAlert';
 import { depthSuffixFor, A55S_MODEL } from '@/lib/ai/llmLadder';
 import { DEPTH_CORE } from '@/lib/ai/depthDirective';
 import { repairDroppedClosers } from '@/lib/ai/llmRequest';
@@ -354,7 +355,7 @@ const records = (s: Spy): CallRecord[] => {
         assert.ok(s.store.data.has(LLM_KEYS.cost('c20261105T1318')));
         _resetLadderStateForTest();
         const s2 = mk({ now: at1600, allow: { FlowAI: {}, CrossSector: LADDER_PURPOSES.CrossSector } });
-        s2.store.data.set(LLM_KEYS.cost('c20261105T1318'), '205.0');
+        s2.store.data.set(LLM_KEYS.cost('c20261105T1318'), '200.73');   // + opening $4.27 = $205.00
         assert.equal((await runLadder(req(), legacyOk(), s2.deps)).trail[0], 'a55:cap');
         assert.equal((await runLadder(req({ purpose: 'CrossSector' }), legacyOk(), s2.deps)).provider, 'a55');
         _resetLadderStateForTest();
@@ -368,27 +369,49 @@ const records = (s: Spy): CallRecord[] => {
         assert.equal(st.period, 'c20261119T0000'); assert.equal(st.capUsd, 149); assert.equal(st.cycle.amountUsd, 150); assert.equal(st.cycle.stopsUsd.essential, 149.8);
         _resetLadderStateForTest();
     });
-    await t('경보: 80%·95% 를 넘는 순간 한 번씩 · 등급이 처음 끊길 때 한 번 · 실제 크레딧 거절(credit) 때 한 번 — 보낸 뒤 같은 주기엔 다시 안 보낸다', async () => {
+    await t('경보(응답을 기다리게 하지 않음): 80%·95% 이상이면 한 번씩 · 등급이 처음 끊길 때 한 번 · 실제 크레딧 거절(credit) 때 한 번 — 보낸 뒤 같은 주기엔 다시 안 보낸다', async () => {
         _resetLadderStateForTest();
         const sent: string[] = [];
         const alert = async (subject: string) => { sent.push(subject); return true; };
         const s = mk({ allow: { FlowAI: {} } }); (s.deps as any).alert = alert;
         s.store.data.set(LLM_KEYS.cost('2026-10'), String(160 - 0.0001));   // $200 의 80% = $160 바로 아래
-        await runLadder(req(), legacyOk(), s.deps);
+        await runLadder(req(), legacyOk(), s.deps); await _flushCreditAlertsForTest();
         assert.equal(sent.length, 1); assert.match(sent[0], /80%/);
         _resetLadderStateForTest();   // 인스턴스 안 기억을 지워 «다른 인스턴스»처럼 — 다시 80% 를 넘겨도
         s.store.data.set(LLM_KEYS.cost('2026-10'), String(160 - 0.0001));
-        await runLadder(req(), legacyOk(), s.deps);
+        await runLadder(req(), legacyOk(), s.deps); await _flushCreditAlertsForTest();
         assert.equal(sent.length, 1, '저장소 카운터가 이미 1 — 다른 인스턴스도 다시 안 보낸다');
         s.store.data.set(LLM_KEYS.cost('2026-10'), '199.2');
         _resetLadderStateForTest();
-        await runLadder(req(), legacyOk(), s.deps); await runLadder(req(), legacyOk(), s.deps);
+        await runLadder(req(), legacyOk(), s.deps); await runLadder(req(), legacyOk(), s.deps); await _flushCreditAlertsForTest(); await _flushCreditAlertsForTest();
         assert.equal(sent.filter((x) => /standard 정지/.test(x)).length, 1, '일반 등급 정지 경보는 한 번');
         _resetLadderStateForTest();
         const s2 = mk({ allow: { FlowAI: {} }, a: () => { throw new LadderRungError('credit', 3600, '400 credit balance is too low'); } }); (s2.deps as any).alert = alert;
-        await runLadder(req(), legacyOk(), s2.deps);
+        await runLadder(req(), legacyOk(), s2.deps); await _flushCreditAlertsForTest();
         assert.equal(sent.filter((x) => /실제 크레딧 거절/.test(x)).length, 1);
         assert.ok(s2.store.data.has('llm:credit:alert:2026-10:real-credit'));
+        _resetLadderStateForTest();
+        // 느린 SNS 는 응답을 늦추지 않는다 · 실패하면 저장소 표시를 지워 다시 시도할 수 있게
+        let calls = 0;
+        const slow = () => new Promise<boolean>((r) => { calls++; setTimeout(() => r(false), 400); });
+        const s3 = mk({ allow: { FlowAI: {} } }); (s3.deps as any).alert = slow;
+        s3.store.data.set(LLM_KEYS.cost('2026-10'), '199.5');
+        const t0 = Date.now();
+        await runLadder(req(), legacyOk(), s3.deps);
+        assert.ok(Date.now() - t0 < 300, `경보를 기다리지 않는다(${Date.now() - t0}ms)`);
+        await _flushCreditAlertsForTest();
+        assert.equal(calls, 1); assert.equal(s3.store.data.has('llm:credit:alert:2026-10:shed-standard'), false, '실패하면 다른 인스턴스가 다시 시도');
+        _resetLadderStateForTest();
+    });
+    await t('기준점 뒤 배포 전 지출: openingUsd + 옛 원장 키(carryKeys)를 이 주기 지출에 더한다', async () => {
+        _resetLadderStateForTest();
+        const s = mk({ now: () => Date.UTC(2026, 10, 6, 2, 0, 0), allow: { FlowAI: {}, CrossSector: LADDER_PURPOSES.CrossSector } });
+        s.store.data.set(LLM_KEYS.cost('2026-11'), '200.6');   // 옛 코드가 11/6 00Z 뒤 쌓은 키(가정 값) + opening 4.27 → $204.87
+        assert.equal((await runLadder(req(), legacyOk(), s.deps)).trail[0], 'a55:cap', '일반 정지선 $204.83 위');
+        assert.equal((await runLadder(req({ purpose: 'CrossSector' }), legacyOk(), s.deps)).provider, 'a55', '필수는 $205.63 까지');
+        const st = await ladderStatus(s.deps);
+        assert.ok(Math.abs(st.spentUsd - (200.6 + 4.27 + Number(s.store.data.get(LLM_KEYS.cost('c20261105T1318'))))) < 1e-4);
+        assert.equal(Number(s.store.data.get(LLM_KEYS.cost('2026-11'))), 200.6, '옛 키에는 더 쓰지 않는다');
         _resetLadderStateForTest();
     });
     await t('월 상한: 실제 갱신(기준점 11/5 13:18Z) 이후에는 새 주기 키라 원장이 0 에서 다시 시작한다', async () => {

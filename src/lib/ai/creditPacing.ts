@@ -25,7 +25,7 @@
  */
 import { nextRenewal, periodId } from '@/lib/ai/llmPricing';
 import { upstashStore, type LlmStore } from '@/lib/ai/llmStore';
-import { currentCycle, pacingTargetUsd, tierStopUsd, DEFAULT_MONTHLY_USD, type CreditCycle } from '@/lib/ai/creditCycle';
+import { currentCycle, cycleSpentUsd, pacingTargetUsd, tierStopUsd, DEFAULT_MONTHLY_USD, type CreditCycle } from '@/lib/ai/creditCycle';
 
 /**
  * 목표 = 실제 잔액 − $2(lib/ai/creditCycle.pacingTargetUsd) — 증가분(extra) 정지선(잔액 − $1.5)보다 아래.
@@ -330,7 +330,6 @@ export function effectiveLevel(state: PacingState | null, now: number, cycleId?:
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const PACE_STATE_KEY = 'llm:pace:state';
-const COST_KEY = (period: string) => `llm:cost:${period}`;       // llmLadder.LLM_KEYS.cost 와 같다(시험이 대조)
 const BREAKER_A55_KEY = 'llm:cb:a55';
 const KILL_KEY = 'llm:ladder:off';
 export const PACE_TICK_MIN_GAP_MS = 9 * 60_000;
@@ -423,7 +422,7 @@ export async function tickPacing(deps?: Partial<PacingDeps>, opts: { force?: boo
         const period = cycle.id;
         const cyc = { id: cycle.id, endsMs: cycle.endsMs, targetUsd: pacingTargetUsd(cycle.amountUsd) };
         const prev = await loadState(d.store);
-        const spent = Number(await d.store.get(COST_KEY(period))) || 0;
+        const spent = (await cycleSpentUsd(d.store, cycle)).total;   // 주기 원장 + 기준점 뒤 원장 밖 지출(opening·옛 키)
         if (prev && prev.period === period && !opts.force && now - prev.tickAt < PACE_TICK_MIN_GAP_MS) {
             const { decision } = stepPacing({ now, spent, creditOk: true, state: prev, cycle: cyc });   // 보여 주기만 — 저장하지 않는다
             return describe(prev, decision, spent, now, cycle);
@@ -446,7 +445,7 @@ export async function peekPacing(deps?: Partial<PacingDeps>): Promise<PacingStat
     try {
         cycle = await currentCycle(d.store, now);
         const state = await loadState(d.store);
-        const spent = Number(await d.store.get(COST_KEY(cycle.id))) || 0;
+        const spent = (await cycleSpentUsd(d.store, cycle)).total;
         const ok = await creditOk(d, spent, cycle);
         const decision = stepPacing({ now, spent, creditOk: ok, state, cycle: { id: cycle.id, endsMs: cycle.endsMs, targetUsd: pacingTargetUsd(cycle.amountUsd) } }).decision;
         return describe(state, decision, spent, now, cycle);

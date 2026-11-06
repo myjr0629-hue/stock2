@@ -32,6 +32,10 @@ export interface CreditCheckpoint {
     nextResetAt?: string;
     /** 그 뒤 매월 새로 들어오는 크레딧(USD). 없으면 DEFAULT_MONTHLY_USD */
     monthlyUsd?: number;
+    /** at 이후 이미 썼지만 이 주기 원장 키 밖에 기록된 금액(USD) — 기준점을 늦게 넣었을 때 그사이 지출 */
+    openingUsd?: number;
+    /** at 이후 지출을 옛 코드가 쌓던 원장 키(예: 배포 전 llm:cost:2026-11) — 이 주기 지출에 더한다(최대 3개) */
+    carryKeys?: string[];
     note?: string;
     setAt?: string;
 }
@@ -47,6 +51,10 @@ export const DEFAULT_MONTHLY_USD = 200;
  */
 export const CODE_CHECKPOINT: CreditCheckpoint = {
     at: '2026-11-05T13:18:00.000Z', balanceUsd: 205.83, nextResetAt: '2026-12-05T00:00:00.000Z', monthlyUsd: DEFAULT_MONTHLY_USD,
+    // 기준점 뒤 배포 전 지출 — 옛 코드는 11/5 13:18~24:00Z 를 llm:cost:2026-10 에, 11/6 00:00Z~배포를 llm:cost:2026-11 에 쌓았다.
+    //   앞 구간(이미 닫힘)은 호출 기록 합 $4.2153(1,395건) × 원장/기록 비 1.0113(11/4 15:06Z~11/5 16:00Z 원장 $10.7407 ÷ 기록 $10.6206) ≈ $4.263 → $4.27.
+    //   뒤 구간은 옛 키를 그대로 더한다(배포 뒤엔 새 코드가 그 키를 쓰지 않아 더 늘지 않는다).
+    openingUsd: 4.27, carryKeys: ['llm:cost:2026-11'],
     note: '대표 11/5 22:18 KST «클로드 api 205.83달러» — 크레딧 초기화 확인',
 };
 
@@ -58,6 +66,9 @@ export interface CreditCycle {
     /** 이 주기에 쓸 수 있는 실제 크레딧(USD) */
     amountUsd: number;
     source: 'checkpoint' | 'monthly' | 'legacy';
+    /** 원장 키 밖 지출(기준점 주기만) */
+    openingUsd: number;
+    carryKeys: string[];
 }
 
 export type SpendTier = 'essential' | 'standard' | 'extra';
@@ -117,6 +128,15 @@ export function parseCheckpoint(raw: unknown): CreditCheckpoint | null {
         if (!(mu > 0 && mu < 100_000)) return null;
         out.monthlyUsd = mu;
     }
+    if (x.openingUsd != null) {
+        const o = Number(x.openingUsd);
+        if (!(o >= 0 && o < bal)) return null;
+        out.openingUsd = o;
+    }
+    if (x.carryKeys != null) {
+        if (!Array.isArray(x.carryKeys) || x.carryKeys.length > 3 || !x.carryKeys.every((k: unknown) => typeof k === 'string' && /^llm:cost:[\w-]{4,24}$/.test(k))) return null;
+        out.carryKeys = x.carryKeys.slice();
+    }
     if (typeof x.note === 'string') out.note = x.note.slice(0, 200);
     if (typeof x.setAt === 'string') out.setAt = x.setAt.slice(0, 40);
     return out;
@@ -131,14 +151,25 @@ export function cycleAt(nowMs: number, cp: CreditCheckpoint | null = CODE_CHECKP
         const now = new Date(nowMs);
         const ends = nextRenewal(now).getTime();
         const prevStart = addMonthsUTC(ends, -1);
-        return { id: periodId(now), startMs: prevStart, endsMs: c && atMs > nowMs ? Math.min(ends, atMs) : ends, amountUsd: DEFAULT_MONTHLY_USD, source: 'legacy' };
+        return { id: periodId(now), startMs: prevStart, endsMs: c && atMs > nowMs ? Math.min(ends, atMs) : ends, amountUsd: DEFAULT_MONTHLY_USD, source: 'legacy', openingUsd: 0, carryKeys: [] };
     }
     const nextMs = c.nextResetAt ? Date.parse(c.nextResetAt) : addMonthsUTC(atMs, 1);
-    if (nowMs < nextMs) return { id: `c${compact(atMs)}`, startMs: atMs, endsMs: nextMs, amountUsd: c.balanceUsd, source: 'checkpoint' };
+    if (nowMs < nextMs) {
+        const id = `c${compact(atMs)}`;
+        return { id, startMs: atMs, endsMs: nextMs, amountUsd: c.balanceUsd, source: 'checkpoint', openingUsd: c.openingUsd ?? 0, carryKeys: (c.carryKeys ?? []).filter((k) => k !== `llm:cost:${id}`) };
+    }
     let k = 0;
     while (addMonthsUTC(nextMs, k + 1) <= nowMs && k < 1200) k++;
     const start = addMonthsUTC(nextMs, k);
-    return { id: `c${compact(start)}`, startMs: start, endsMs: addMonthsUTC(nextMs, k + 1), amountUsd: c.monthlyUsd ?? DEFAULT_MONTHLY_USD, source: 'monthly' };
+    return { id: `c${compact(start)}`, startMs: start, endsMs: addMonthsUTC(nextMs, k + 1), amountUsd: c.monthlyUsd ?? DEFAULT_MONTHLY_USD, source: 'monthly', openingUsd: 0, carryKeys: [] };
+}
+
+/** 이 주기 지출 합 = 주기 원장 + 원장 밖 지출(openingUsd) + 옛 원장 키(carryKeys). 저장소가 죽으면 읽힌 만큼만(0 으로 본다) */
+export async function cycleSpentUsd(store: LlmStore, c: CreditCycle): Promise<{ total: number; ledger: number; base: number }> {
+    const num = async (k: string) => { try { const n = Number(await store.get(k)); return Number.isFinite(n) && n > 0 ? n : 0; } catch { return 0; } };
+    const [ledger, ...carry] = await Promise.all([num(`llm:cost:${c.id}`), ...c.carryKeys.map(num)]);
+    const base = c.openingUsd + carry.reduce((a, b) => a + b, 0);
+    return { total: ledger + base, ledger, base };
 }
 
 // ── 저장소에서 읽기 — 30초 캐시(사다리 상태 캐시와 같은 간격). 저장소가 죽으면 코드 기본 기준점 ──
@@ -161,6 +192,7 @@ export async function currentCycle(store: LlmStore, nowMs: number): Promise<Cred
 export function describeCycle(c: CreditCycle) {
     return {
         id: c.id, source: c.source, startAt: new Date(c.startMs).toISOString(), endsAt: new Date(c.endsMs).toISOString(), amountUsd: c.amountUsd,
+        openingUsd: c.openingUsd, carryKeys: c.carryKeys,
         stopsUsd: { essential: tierStopUsd('essential', c.amountUsd), standard: tierStopUsd('standard', c.amountUsd), extra: tierStopUsd('extra', c.amountUsd) },
         pacingTargetUsd: pacingTargetUsd(c.amountUsd),
         alertsAtUsd: ALERT_FRACTIONS.map((f) => Math.round(f * c.amountUsd * 100) / 100),
