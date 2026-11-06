@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
     if (action === 'credit-reset') {
         // 저장한 뒤 다시 읽어 같은 값일 때만 성공 — Upstash 쓰기는 실패해도 예외를 내지 않는다(llmStore)
         const writeVerified = async (value: string) => {
-            await upstashStore.setEx(CREDIT_CHECKPOINT_KEY, value, 400 * 24 * 3600);
+            await upstashStore.setEx(CREDIT_CHECKPOINT_KEY, value, 10 * 365 * 24 * 3600);   // 사실상 만료 없음(10년) — 기준점이 사라지면 코드 기본값으로 돌아간다
             return (await upstashStore.get(CREDIT_CHECKPOINT_KEY)) === value;
         };
         // 지우기(코드 기본값으로 되돌리기)는 두지 않는다 — 옛 주기 원장 carry 를 잃는다. 잘못 넣었으면 15분 뒤 «지금 잔액»으로 다시 교체한다.
