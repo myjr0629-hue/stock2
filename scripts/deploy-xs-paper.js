@@ -1,12 +1,14 @@
 /**
- * Deploy the XS paper-trade engine (scripts/xs-paper-engine.js) as `signum-xs-paper`.
+ * Deploy the XS paper-trade engine (scripts/lambda-xs-paper/index.js) as `signum-xs-paper`.
  *
  *   1. Creates DynamoDB `signum-trade-journal` (PK pk / SK sk, on-demand) if missing.
  *   2. Packages the zero-dependency engine as a single-file Lambda.
  *   3. EventBridge `signum-xs-paper-daily`: weekdays 22:40 UTC (30 min after signum-xs).
  *
  * Stage A of .agent/XS_AUTOTRADE_PREREG.md — paper fills only, no broker, no creds.
- * Run: node scripts/deploy-xs-paper.js
+ * Run: node scripts/deploy-xs-paper.js   (first-time setup / schedule)
+ * Code-only updates of the live function: node scripts/deploy-xs-code-only.js paper --publish
+ * (never touches Environment/schedule; verifies the uploaded CodeSha256 and VERSION).
  */
 require('dotenv').config({ path: '.env.local' });
 const fs = require('fs');
@@ -27,6 +29,9 @@ const env = {
   UPSTASH_REDIS_REST_URL: (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim(),
   UPSTASH_REDIS_REST_TOKEN: (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim(),
 };
+for (const name of ['INTRINIO_API_KEY', 'INTRINIO_BASE_URL']) {
+  if (process.env[name]?.trim()) env[name] = process.env[name].trim();
+}
 
 async function ensureTable() {
   const db = new DynamoDBClient({ region: REGION });
@@ -62,30 +67,31 @@ async function deploy() {
   await ensureTable();
 
   const lambdaDir = path.join(__dirname, 'lambda-xs-paper');
-  fs.mkdirSync(lambdaDir, { recursive: true });
-  fs.copyFileSync(path.join(__dirname, 'xs-paper-engine.js'), path.join(lambdaDir, 'index.js'));
   const zipPath = path.join(__dirname, 'lambda-xs-paper.zip');
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   const { execSync } = require('child_process');
-  execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\index.js' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+  if (process.platform === 'win32') execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\index.js' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+  else execSync(`/usr/bin/zip -q -j "${zipPath}" "${path.join(lambdaDir, 'index.js')}"`, { stdio: 'pipe' });
   console.log('Zip:', Math.round(fs.statSync(zipPath).size / 1024) + 'KB');
 
   const lambda = new LambdaClient({ region: REGION });
   const zipBuffer = fs.readFileSync(zipPath);
 
-  let exists = false;
-  try { await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME })); exists = true; } catch {}
+  let existing;
+  try { existing = await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME })); } catch (e) {
+    if (e.name !== 'ResourceNotFoundException') throw e;
+  }
 
   const harvest = await lambda.send(new GetFunctionCommand({ FunctionName: 'signum-harvest' }));
   const roleArn = harvest.Configuration.Role;
   console.log('Role:', roleArn);
 
-  if (exists) {
+  if (existing) {
     await lambda.send(new UpdateFunctionCodeCommand({ FunctionName: FUNCTION_NAME, ZipFile: zipBuffer }));
     await new Promise(r => setTimeout(r, 5000));
     await lambda.send(new UpdateFunctionConfigurationCommand({
       FunctionName: FUNCTION_NAME, Timeout: 300, MemorySize: 768,
-      Handler: 'index.handler', Runtime: 'nodejs20.x', Environment: { Variables: env },
+      Handler: 'index.handler', Runtime: 'nodejs20.x', Environment: { Variables: { ...existing.Configuration.Environment?.Variables, ...Object.fromEntries(Object.entries(env).filter(([, value]) => value)) } },
     }));
     console.log('Lambda updated');
   } else {
