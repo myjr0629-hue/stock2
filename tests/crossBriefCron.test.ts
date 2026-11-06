@@ -56,9 +56,8 @@ t('vercel.json: 정시 21:50Z + 22:20Z retry + 22:35Z check (평일)', () => {
 t('관문 11060907: retry 는 엄격 읽기로 판정하고, 생성 본체는 retry=1 이면 가드 탈락본을 저장하지 않는다(기존 정상본 보존)', () => {
     const cron = fs.readFileSync(path.join(process.cwd(), 'src/app/api/cron/cross-sector-brief/route.ts'), 'utf8');
     const gen = fs.readFileSync(path.join(process.cwd(), 'src/app/api/intel/cross-sector-brief/route.ts'), 'utf8');
-    assert.match(cron, /selectServedBrief\(readStrict,/);
-    assert.match(cron, /if \(ec\.ok\) return ec\.values\[0\] \?\? up;/);
-    assert.match(cron, /if \(up != null\) return up;\s*throw new Error/);
+    assert.match(cron, /if \(!ec\.ok \|\| !upstash\.ok\) throw new Error/);
+    assert.match(cron, /const picked = \(await pick\(ec\.values\)\) \|\| \(await pick\(upstash\.values\)\);/);
     assert.match(cron, /판정 불가\(저장소 읽기 실패\) — 건너뜀/);
     assert.match(cron, /mode === 'retry' \? '\?retry=1' : ''/);
     assert.match(gen, /const keepExisting = retryOnly && !briefData\.guard\.ok;/);

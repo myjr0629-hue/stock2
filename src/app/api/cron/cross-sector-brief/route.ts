@@ -13,16 +13,17 @@ import { crossBriefCronMode, decideCrossBriefCron, crossBriefMissingAlert } from
 import { etDateOf } from '@/lib/marketCalendar';
 
 /**
- * 엄격 읽기 — 두 저장소 모두 응답을 확인하지 못하면 «없음»이 아니라 예외(관문 11060907 ①: 읽기 장애를 누락으로 오판해
- * 재생성·덮어쓰기·거짓 경보로 이어지지 않게). 값은 EC2 사본 우선, 없으면 Upstash 사본.
+ * 그 거래일의 서빙 가능 판본을 «두 저장소 각각» 엄격하게 확인한다(관문 11060907·11060909·11060911).
+ * 화면은 EC2 → Upstash 폴백으로 읽으므로 어느 사본이든 서빙 가드를 넘으면 «있음». 한쪽이라도 응답을 확인하지 못하면
+ * «없음»이라고 단정하지 않고 예외(판정 불가) — 재생성·경보를 하지 않는다. 사본이 서로 다를 수 있어(쓰기는 저장소마다 실패 가능) 섞지 않는다.
  */
-async function readStrict(key: string): Promise<any> {
-    const { ec, upstash } = await readEachStoreStrict<any>([key]);
-    const up = upstash.ok ? upstash.values[0] ?? null : null;
-    if (ec.ok) return ec.values[0] ?? up;
-    // EC2(정본)를 확인하지 못했다 — Upstash 사본이 있으면 그것을 쓰고, 없으면 «없음»이라고 단정하지 않는다(정상본이 EC2 에만 있을 수 있다)
-    if (up != null) return up;
-    throw new Error(`cache read failed: ${key}`);
+async function servedStrict(sessionDate: string): Promise<{ picked: Awaited<ReturnType<typeof selectServedBrief>>; v4: any }> {
+    const keys = (['v4', 'v3', 'v2'] as const).map(v => crossBriefKey(v, sessionDate));
+    const { ec, upstash } = await readEachStoreStrict<any>(keys);
+    if (!ec.ok || !upstash.ok) throw new Error(`cache read unconfirmed (ec=${ec.ok} upstash=${upstash.ok})`);
+    const pick = (values: any[]) => selectServedBrief(async (key) => values[keys.indexOf(key)] ?? null, [sessionDate], (msg) => console.warn(`[Cron:CrossSectorBrief] ${msg}`));
+    const picked = (await pick(ec.values)) || (await pick(upstash.values));
+    return { picked, v4: ec.values[0] ?? upstash.values[0] ?? null };
 }
 
 /** 운영 경보 — 기존 SNS 주제 signum-lambda-alerts(contact@ 구독 확인, scripts/setup-xs-alarms.js 와 같은 길). 날짜당 한 번. */
@@ -71,13 +72,12 @@ export async function GET(request: Request) {
     if (mode !== 'run') {
         try {
             const sessionDate = etDateOf(Date.now());
-            const picked = await selectServedBrief(readStrict, [sessionDate], (msg) => console.warn(`[Cron:CrossSectorBrief] ${msg}`));
+            const { picked, v4: stored } = await servedStrict(sessionDate);
             const decision = decideCrossBriefCron(mode, sessionDate, !!picked);
             if (decision.action === 'skip') {
                 return NextResponse.json({ success: true, mode, sessionDate, skipped: decision.why, ...(picked ? { source: picked.source } : {}) });
             }
             if (decision.action === 'alert') {
-                const stored = await readStrict(crossBriefKey('v4', sessionDate)).catch(() => null);
                 const { subject, message } = crossBriefMissingAlert(sessionDate, stored);
                 console.error(`[Cron:CrossSectorBrief] ❌ ${subject}\n${message}`);
                 const alert = await publishOpsAlert(`cross-brief:alerted:${sessionDate}`, subject, message);
