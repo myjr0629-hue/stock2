@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { crossBriefUrl, reportPushPath, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
-import { SELLOFF_COPY, scorecardWeek, selloffTitleKey, selloffWhyLine, signedPct, type SelloffBrief, type SelloffLocale, type SelloffReport } from '@/lib/selloffBriefing';
+import { SELLOFF_COPY, scorecardWeek, selloffTitleKey, nextSelloffReport, selloffWhyLine, signedPct, type SelloffBrief, type SelloffLocale, type SelloffReport, type SelloffReportOutcome } from '@/lib/selloffBriefing';
 import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
 import s from './selloff.module.css';
 
@@ -22,13 +22,18 @@ export function SelloffCard({ brief, locale }: { brief: SelloffBrief; locale: st
     }).catch(() => {});
     // «왜» 줄(대표 11/6 승인): 같은 세션 장마감 리포트 저장본만 읽는다(날짜 지정 GET 은 없으면 404 — 생성 0).
     // 리포트는 마감 뒤 늦게 생기거나 재생성되므로 실적 줄과 같은 10분 주기로 다시 읽는다.
-    const loadReport = () => fetch(crossBriefUrl(brief.date), { signal: controller.signal }).then(async r => {
-      // 404 = 서버가 지금 그 날짜 리포트를 서빙하지 않음(삭제·가드 탈락 포함) → 받아 둔 서사도 내린다(관문 11061039). 일시 장애(5xx·네트워크)만 유지.
-      if (r.status === 404) return setReport({ status: 'missing' });
-      if (!r.ok) return setReport(p => p ?? { status: 'error' });
-      const json = await r.json();
-      setReport({ status: 'ok', json });
-    }).catch(() => { if (!controller.signal.aborted) setReport(p => p ?? { status: 'error' }); });
+    // 상태 전이는 nextSelloffReport(404·4xx·깨진 JSON = 서사 내림, 5xx·네트워크만 유지), 응답 순서는 요청 번호로 — 늦게 온 옛 응답은 버린다(관문 11061042).
+    let issued = 0, applied = 0;
+    const loadReport = () => {
+      const seq = ++issued;
+      const apply = (o: SelloffReportOutcome) => { if (controller.signal.aborted || seq < applied) return; applied = seq; setReport(p => nextSelloffReport(p, o)); };
+      fetch(crossBriefUrl(brief.date), { signal: controller.signal }).then(async r => {
+        if (!r.ok) return apply({ kind: 'http', status: r.status });
+        let json: unknown;
+        try { json = await r.json(); } catch { return apply({ kind: 'bad-json' }); }
+        apply({ kind: 'ok', json });
+      }, () => apply({ kind: 'network' }));
+    };
     load(); loadReport();
     const id = setInterval(() => { load(); loadReport(); }, 10 * 60_000);
     return () => { clearInterval(id); controller.abort(); };

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { contradictsChips, firstSentence, selloffWhyFallback, selloffWhyFromReport, selloffWhyLine, selloffTitleKey, currentSelloff, loadRetainedSelloff, mergeSelloffRecord, mergeSelloffRecords, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
+import { nextSelloffReport, contradictsChips, firstSentence, selloffWhyFallback, selloffWhyFromReport, selloffWhyLine, selloffTitleKey, currentSelloff, loadRetainedSelloff, mergeSelloffRecord, mergeSelloffRecords, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
 const now = Date.parse('2026-11-02T15:00:00Z');
 const cash = (changePct: number, sessionDate = '2026-10-30', asOf = '2026-10-30T20:00:00Z') => ({ changePct, sessionDate, asOf, price: 100 });
 const factor = (chgPct: number, marketTime = '2026-10-30T20:00:00Z') => ({ chgPct, marketTime, status: 'OK', source: 'YAHOO' });
@@ -506,6 +506,25 @@ test('why line source: dated report GET is read-only (404 before any self-healin
   assert.match(card, /selloffWhyLine\(brief, loc, report\)/);
   assert.match(card, /setReport\(null\)/);
   assert.doesNotMatch(card, /pending|준비 중/); // 상태 문구 없음
-  assert.match(card, /if \(r\.status === 404\) return setReport\(\{ status: 'missing' \}\);/); // 서빙이 끊긴 서사는 내린다
-  assert.match(card, /if \(!r\.ok\) return setReport\(p => p \?\? \{ status: 'error' \}\);/); // 일시 장애만 유지
+  assert.match(card, /seq < applied\) return; applied = seq; setReport\(p => nextSelloffReport\(p, o\)\)/); // 늦게 온 옛 응답 버림
+});
+
+test('why line report state: 404·4xx·bad JSON drop a held narrative; only 5xx/network keep it; stale responses ignored (gate 11061039·11061042)', () => {
+  const held = { status: 'ok', json: served() } as const;
+  assert.deepEqual(nextSelloffReport(held, { kind: 'http', status: 404 }), { status: 'missing' });
+  assert.deepEqual(nextSelloffReport(held, { kind: 'http', status: 403 }), { status: 'missing' });
+  assert.deepEqual(nextSelloffReport(held, { kind: 'bad-json' }), { status: 'missing' });
+  assert.equal(nextSelloffReport(held, { kind: 'http', status: 503 }), held);
+  assert.equal(nextSelloffReport(held, { kind: 'network' }), held);
+  assert.deepEqual(nextSelloffReport(null, { kind: 'network' }), { status: 'error' });
+  assert.deepEqual(nextSelloffReport({ status: 'missing' }, { kind: 'ok', json: 1 }), { status: 'ok', json: 1 });
+  // 순서 역전: 요청 1(느림, 200) · 요청 2(빠름, 404) — 카드와 같은 번호 규칙으로 옛 응답을 버린다.
+  let issued = 0, applied = 0, state: ReturnType<typeof nextSelloffReport> = held;
+  const issue = () => ++issued;
+  const apply = (seq: number, o: Parameters<typeof nextSelloffReport>[1]) => { if (seq < applied) return; applied = seq; state = nextSelloffReport(state, o); };
+  const r1 = issue(), r2 = issue();
+  apply(r2, { kind: 'http', status: 404 });
+  apply(r1, { kind: 'ok', json: served() });
+  assert.deepEqual(state, { status: 'missing' });
+  assert.equal(selloffWhyLine(nov5, 'ko', state)?.source, 'fallback');
 });

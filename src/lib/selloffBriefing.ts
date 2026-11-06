@@ -190,6 +190,16 @@ export function selloffShown(preview: string | null, brief: SelloffBrief | null,
  * 원칙: 같은 세션(D) 서사만 · 문장은 리포트 그대로(새 원인 생성 0) · 카드 칩과 숫자가 어긋나면 서사를 버린다 · 없으면 칩 숫자만으로 사실 한 줄.
  */
 export type SelloffReport = { status: 'ok'; json: unknown } | { status: 'missing' } | { status: 'error' } | null;
+export type SelloffReportOutcome = { kind: 'ok'; json: unknown } | { kind: 'http'; status: number } | { kind: 'network' } | { kind: 'bad-json' };
+/**
+ * 리포트 요청 결과 → 카드 상태. 서버가 «지금 서빙하지 않음»을 말한 응답(404·그 밖의 4xx·깨진 본문)은 받아 둔 서사도 내린다.
+ * 일시 장애(5xx·네트워크)만 직전 상태를 유지한다(관문 11061039·11061042). 순서 역전은 호출부가 요청 번호로 막는다.
+ */
+export function nextSelloffReport(prev: SelloffReport, o: SelloffReportOutcome): SelloffReport {
+  if (o.kind === 'ok') return { status: 'ok', json: o.json };
+  if (o.kind === 'network' || (o.kind === 'http' && o.status >= 500)) return prev ?? { status: 'error' };
+  return { status: 'missing' };
+}
 const SCRIPT_OK: Record<SelloffLocale, (s: string) => boolean> = {
   ko: s => /[가-힣]/.test(s),
   ja: s => /[぀-ヿ一-鿿]/.test(s) && !/[가-힣]/.test(s),
