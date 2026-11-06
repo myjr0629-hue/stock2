@@ -177,18 +177,21 @@ export async function POST(req: NextRequest) {
         if (!cp) return fail(400, 'invalid checkpoint (at ISO · balanceUsd > 0 · nextResetAt > at · openingUsd < balance)');
         if (Date.parse(cp.at) > nowMs + 60_000) return fail(400, 'at is in the future');
         // 이미 쓰인 적 있는 주기 id(지금 주기·예전 주기) 재사용 금지 — 그 원장의 옛 지출이 새 잔액에서 다시 빠진다
-        const newId = cycleAt(nowMs, cp).id;
+        const newCycle = cycleAt(nowMs, cp);
+        if (newCycle.source !== 'checkpoint') return fail(400, 'checkpoint already past its nextResetAt (지난 at·지난 nextResetAt) — 지금 잔액으로');
+        const newId = newCycle.id;
         if (newId === prevCycle.id || (await upstashStore.get(LLM_KEYS.cost(newId))) != null) return fail(409, `cycle ${newId} already has a ledger — 잔액 정정은 새 at(지금)으로`);
         const cycle = describeCycle(cycleAt(nowMs, cp));
         if (body.dryRun === true) return NextResponse.json({ ok: true, dryRun: true, checkpoint: cp, cycle });
         if (!(await writeVerified(JSON.stringify(cp)))) return fail(503, 'store write not confirmed — 다시 시도');
         // 실제 크레딧이 새로 찼다 — Anthropic 단 차단기(크레딧 부족 1시간 등)도 푼다(인스턴스 안 기억까지, lib/ai/llmLadder breakerOpenUntil)
+        // 삭제 대신 «0»(닫힘 해제 시각 0 = 열려 있음)으로 덮어쓰고 다시 읽어 확인 — 읽기 실패(null)를 «삭제됨»으로 오인하지 않게
         const clearedAt = String(Date.now());
-        for (const id of ['a55', 'a55s']) await upstashStore.del(LLM_KEYS.breaker(id));
+        for (const id of ['a55', 'a55s']) await upstashStore.setEx(LLM_KEYS.breaker(id), '0', 7 * 24 * 3600);
         await upstashStore.setEx(LLM_KEYS.breakerClearedAt, clearedAt, 7 * 24 * 3600);
         _resetCreditCycleForTest();
         const breakersCleared = (await upstashStore.get(LLM_KEYS.breakerClearedAt)) === clearedAt
-            && (await upstashStore.get(LLM_KEYS.breaker('a55'))) == null && (await upstashStore.get(LLM_KEYS.breaker('a55s'))) == null;
+            && (await upstashStore.get(LLM_KEYS.breaker('a55'))) === '0' && (await upstashStore.get(LLM_KEYS.breaker('a55s'))) === '0';
         if (!breakersCleared) return NextResponse.json({ ok: false, checkpointSaved: true, checkpoint: cp, cycle, error: '기준점은 저장됐지만 차단기 해제 확인 실패 — {action:"breaker-reset"} 을 다시 부른다' }, { status: 503 });
         return NextResponse.json({ ok: true, checkpoint: cp, cycle, note: '다른 인스턴스는 30초 안에 새 기준점을 읽는다 · a55/a55s 차단기 해제 확인' });
     }
