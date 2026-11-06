@@ -10,6 +10,9 @@
  *                            {action:'warm-sep', on:boolean}           딥 분석 예열 몫 분리(수요 상위 10종목 · 개장 직후 1회 · 예열 자신의 몫) 켜기(on:true)/끄기(on:false → 옛 규칙) — 키 llm:warmsep:off, 30초 안에
  *                            {action:'breaker-reset'}                  서킷 브레이커 해제
  *                            {action:'pace-tick'}                      페이싱 조절기 판단을 지금 한 번(저장) · {action:'pace-reset'} 조절기 상태 삭제
+ *                            {action:'credit-reset', at:ISO, balanceUsd:n, nextResetAt?:ISO, monthlyUsd?:n, openingUsd?:n, prevFromUsd?:n, note?}
+ *                                — at 생략 = 지금(«지금 콘솔 잔액이 n»). 15분보다 오래된 at 은 openingUsd 필수 · 직전 주기 원장은 «저장 순간 값부터» 자동 carry · 교체는 15분 간격  실제 크레딧 기준점(2026-11-06, lib/ai/creditCycle)
+ *                                — «이 시각 콘솔 잔액이 n 달러» → 그 시각부터 새 원장(llm:cost:b<시각>)·한도 n. dryRun:true 면 저장 없이 계산만(지우기는 없음 — 15분 뒤 다시 교체)
  * 인증: Authorization: Bearer <CRON_SECRET> (lib/ai/adminAuth). 응답에 키 값은 없다(설정 여부만).
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -21,6 +24,7 @@ import { peekPacing, tickPacing, PACE_STATE_KEY, type PacingStatus } from '@/lib
 import { AIQ_OFF_KEY } from '@/services/aiqContextService';
 import { sumTestSpend, testCallsKey } from '@/lib/ai/llmTestSpend';
 import { UC_SRC_KINDS, ucSrcKey, hourOf } from '@/lib/ai/ucSource';
+import { CREDIT_CHECKPOINT_KEY, CREDIT_RESET_LOCK_KEY, currentCycle, cycleAt, describeCycle, parseCheckpoint, _resetCreditCycleForTest } from '@/lib/ai/creditCycle';
 
 /** 용도별로 풀어 쓴 현재 주기(사람이 읽는 표) */
 function byPurpose(p: PacingStatus) {
@@ -140,8 +144,60 @@ export async function POST(req: NextRequest) {
         if (body.on === false) await upstashStore.setEx(LLM_KEYS.warmSepOff, '1', 30 * 24 * 3600); else await upstashStore.del(LLM_KEYS.warmSepOff);
         return NextResponse.json({ ok: true, warmSeparation: body.on !== false });
     }
+    if (action === 'credit-reset') {
+        // 저장한 뒤 다시 읽어 같은 값일 때만 성공 — Upstash 쓰기는 실패해도 예외를 내지 않는다(llmStore)
+        const writeVerified = async (value: string) => {
+            await upstashStore.setEx(CREDIT_CHECKPOINT_KEY, value, 10 * 365 * 24 * 3600);   // 사실상 만료 없음(10년) — 기준점이 사라지면 코드 기본값으로 돌아간다
+            return (await upstashStore.get(CREDIT_CHECKPOINT_KEY)) === value;
+        };
+        // 지우기(코드 기본값으로 되돌리기)는 두지 않는다 — 옛 주기 원장 carry 를 잃는다. 잘못 넣었으면 15분 뒤 «지금 잔액»으로 다시 교체한다.
+        if (body.clear === true) return NextResponse.json({ error: 'clear is not supported — 15분 뒤 지금 콘솔 잔액으로 다시 credit-reset' }, { status: 400 });
+        // 쓰는 법은 하나로 좁힌다: «지금 콘솔 잔액이 n 달러» — at 은 생략하면 지금. 15분보다 오래된 at 은 그사이 지출(openingUsd)을 사람이 직접 넣어야 한다.
+        //   (at~저장 사이 몇 분의 지출은 새 원장에 안 들어간다 — 원장이 실제보다 약 0.3~1% 크게 세는 여유 안이고, 실제 잔액을 넘으면 Anthropic 이 거절 → AWS + 경보)
+        const nowMs = Date.now();
+        const atIso = body.at == null ? new Date(nowMs).toISOString() : String(body.at);
+        const atMs = Date.parse(atIso);
+        if (!Number.isFinite(atMs)) return NextResponse.json({ error: 'invalid at' }, { status: 400 });
+        if (nowMs - atMs > 15 * 60_000 && body.openingUsd == null) return NextResponse.json({ error: 'at older than 15 min — 그사이 지출 openingUsd 를 직접 넣는다' }, { status: 400 });
+        // 저장 뒤에도 새 기준점을 아직 못 읽은 인스턴스(최대 30초)가 지금 주기 원장에 쓸 수 있다 — 그 원장을 «저장 순간 값부터» 새 주기에 더한다(carry).
+        // 교체는 15분에 한 번(원자 잠금 llm:credit:reset:lock — 동시·연속 교체로 carry 체인이 생기지 않게). 이 인스턴스의 기준점 캐시는 비우고 지금 값으로 본다.
+        // 잠금이 이미 있으면 증가시키지 않는다(INCRBYFLOAT 가 만료를 다시 15분으로 늘리지 않게)
+        if (body.dryRun !== true && (await upstashStore.get(CREDIT_RESET_LOCK_KEY)) != null) return NextResponse.json({ error: 'another credit-reset within 15 min — 15분 뒤 다시' }, { status: 409 });
+        const lockN = body.dryRun === true ? 1 : await upstashStore.incrByFloat(CREDIT_RESET_LOCK_KEY, 1, 15 * 60);
+        if (lockN !== 1) return NextResponse.json({ error: lockN == null ? 'store unavailable — 다시 시도' : 'another credit-reset within 15 min — 15분 뒤 다시' }, { status: lockN == null ? 503 : 409 });
+        const fail = async (status: number, error: string) => { if (body.dryRun !== true) await upstashStore.del(CREDIT_RESET_LOCK_KEY); return NextResponse.json({ ok: false, error }, { status }); };
+        _resetCreditCycleForTest();
+        const prevCycle = await currentCycle(upstashStore, nowMs);
+        if (prevCycle.carry.length && nowMs < prevCycle.carryLiveUntilMs) return fail(409, `previous reset/deploy still settling until ${new Date(prevCycle.carryLiveUntilMs).toISOString()} — 그 뒤 다시`);
+        const prevKey = LLM_KEYS.cost(prevCycle.id);
+        const prevRaw = body.prevFromUsd != null ? String(body.prevFromUsd) : await upstashStore.get(prevKey);
+        const prevNow = Number(prevRaw);
+        if (prevRaw == null || !Number.isFinite(prevNow) || prevNow < 0) return fail(503, `previous ledger ${prevKey} unreadable — 다시 시도하거나 prevFromUsd 를 넣는다`);
+        const cp = parseCheckpoint({ at: atIso, balanceUsd: body.balanceUsd, nextResetAt: body.nextResetAt, monthlyUsd: body.monthlyUsd, openingUsd: body.openingUsd, carry: [{ key: prevKey, fromUsd: prevNow }], carryLiveUntil: new Date(nowMs + 15 * 60_000).toISOString(), note: body.note, setAt: new Date(nowMs).toISOString() });
+        if (!cp) return fail(400, 'invalid checkpoint (at ISO · balanceUsd > 0 · nextResetAt > at · openingUsd < balance)');
+        if (Date.parse(cp.at) > nowMs + 60_000) return fail(400, 'at is in the future');
+        // 이미 쓰인 적 있는 주기 id(지금 주기·예전 주기) 재사용 금지 — 그 원장의 옛 지출이 새 잔액에서 다시 빠진다
+        const newCycle = cycleAt(nowMs, cp);
+        if (newCycle.source !== 'checkpoint') return fail(400, 'checkpoint already past its nextResetAt (지난 at·지난 nextResetAt) — 지금 잔액으로');
+        const newId = newCycle.id;
+        if (newId === prevCycle.id || (await upstashStore.get(LLM_KEYS.cost(newId))) != null) return fail(409, `cycle ${newId} already has a ledger — 잔액 정정은 새 at(지금)으로`);
+        const cycle = describeCycle(cycleAt(nowMs, cp));
+        if (body.dryRun === true) return NextResponse.json({ ok: true, dryRun: true, checkpoint: cp, cycle });
+        if (!(await writeVerified(JSON.stringify(cp)))) return fail(503, 'store write not confirmed — 다시 시도');
+        // 실제 크레딧이 새로 찼다 — Anthropic 단 차단기(크레딧 부족 1시간 등)도 푼다(인스턴스 안 기억까지, lib/ai/llmLadder breakerOpenUntil)
+        // 삭제 대신 «0»(닫힘 해제 시각 0 = 열려 있음)으로 덮어쓰고 다시 읽어 확인 — 읽기 실패(null)를 «삭제됨»으로 오인하지 않게
+        const clearedAt = String(Date.now());
+        for (const id of ['a55', 'a55s']) await upstashStore.setEx(LLM_KEYS.breaker(id), '0', 7 * 24 * 3600);
+        await upstashStore.setEx(LLM_KEYS.breakerClearedAt, clearedAt, 7 * 24 * 3600);
+        _resetCreditCycleForTest();
+        const breakersCleared = (await upstashStore.get(LLM_KEYS.breakerClearedAt)) === clearedAt
+            && (await upstashStore.get(LLM_KEYS.breaker('a55'))) === '0' && (await upstashStore.get(LLM_KEYS.breaker('a55s'))) === '0';
+        if (!breakersCleared) return NextResponse.json({ ok: false, checkpointSaved: true, checkpoint: cp, cycle, error: '기준점은 저장됐지만 차단기 해제 확인 실패 — {action:"breaker-reset"} 을 다시 부른다' }, { status: 503 });
+        return NextResponse.json({ ok: true, checkpoint: cp, cycle, note: '다른 인스턴스는 30초 안에 새 기준점을 읽는다 · a55/a55s 차단기 해제 확인' });
+    }
     if (action === 'breaker-reset') {
         for (const id of ['a55', 'a55s', 'b55i', 'b55m']) await upstashStore.del(LLM_KEYS.breaker(id));
+        await upstashStore.setEx(LLM_KEYS.breakerClearedAt, String(Date.now()), 7 * 24 * 3600);
         return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: 'unknown action' }, { status: 400 });

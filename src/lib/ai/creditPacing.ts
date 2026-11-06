@@ -16,17 +16,22 @@
  *
  * 안전 규칙:
  *   · 원천보다 잦은 갱신 금지 — 위 최소값 아래로 내려가지 않는다(KNOB_BOUNDS).
- *   · 월말 3일(endgame)은 남은 예산을 소진하도록 더 공격적으로 올린다. 목표 $198 · 내부 상한 $199(llmPricing) · 콘솔 한도 $200.
+ *   · 월말 3일(endgame)은 남은 예산을 소진하도록 더 공격적으로 올린다. 목표 = 실제 잔액 − $2 · 증가분 정지 = 잔액 − $1.5 (lib/ai/creditCycle, 2026-11-06 — 주기·잔액은 실제 기준점).
  *   · 목표 도달(done)·착륙(landing: 남은 $0.8 이하)·크레딧 불가(credit-off)에서는 증가분을 끈다(level ≤ 0).
  *   · 증가분 호출은 freshTier 로 불러 크레딧이 안 되면 AWS 로 넘기지 않고 건너뛴다(기본 용도만 AWS 로 넘어간다).
  *   · 조절기가 죽어도 안전: 상태가 12시간 넘게 갱신되지 않으면 읽는 쪽이 level ≤ 0 으로 본다.
  *
  * 순수 함수(stepPacing·knobsForLevel·weightedHours)는 tests/creditPacing.test.ts 가 고정한다.
  */
-import { LEDGER_CAP_USD, nextRenewal, periodId } from '@/lib/ai/llmPricing';
+import { nextRenewal, periodId } from '@/lib/ai/llmPricing';
 import { upstashStore, type LlmStore } from '@/lib/ai/llmStore';
+import { currentCycle, cycleSpentUsd, pacingTargetUsd, tierStopUsd, DEFAULT_MONTHLY_USD, type CreditCycle } from '@/lib/ai/creditCycle';
 
-export const PACING_TARGET_USD = 198;
+/**
+ * 목표 = 실제 잔액 − $2(lib/ai/creditCycle.pacingTargetUsd) — 증가분(extra) 정지선(잔액 − $1.5)보다 아래.
+ * 이 상수는 예전 달력 주기($200)의 값이다(시험·기본값). 운영은 주기마다 기준점 잔액으로 계산한다(2026-11-06).
+ */
+export const PACING_TARGET_USD = pacingTargetUsd(DEFAULT_MONTHLY_USD);
 export const LEVEL_MIN = 0;
 export const LEVEL_MAX = 8;
 /** 처음 켤 때의 시작 단계 — 주기만 조이고(예열 0) 실측을 본 뒤 올린다 */
@@ -194,6 +199,8 @@ export interface PacingInput {
     /** 크레딧 키 있음 · a55 서킷 닫힘 · 킬 스위치 꺼짐 */
     creditOk: boolean;
     state: PacingState | null;
+    /** 실제 잔액 기준점 주기(lib/ai/creditCycle) — 없으면 예전 달력 주기($200, 매월 6일) */
+    cycle?: { id: string; endsMs: number; targetUsd: number };
 }
 
 export interface PacingDecision {
@@ -221,10 +228,11 @@ const SNAP_KEEP_MS = 5 * DAY_MS;
 export function stepPacing(inp: PacingInput): { state: PacingState; decision: PacingDecision } {
     const { now } = inp;
     const spent = Number.isFinite(inp.spent) && inp.spent > 0 ? inp.spent : 0;
-    const period = periodId(new Date(now));
-    const endsAt = nextRenewal(new Date(now)).getTime();
+    const period = inp.cycle?.id ?? periodId(new Date(now));
+    const endsAt = inp.cycle?.endsMs ?? nextRenewal(new Date(now)).getTime();
+    const target = inp.cycle?.targetUsd ?? PACING_TARGET_USD;
     const daysLeft = Math.max(0, (endsAt - now) / DAY_MS);
-    const remaining = Math.max(0, PACING_TARGET_USD - spent);
+    const remaining = Math.max(0, target - spent);
     const wRem = weightedHours(now, endsAt);
     const needW = wRem > 0 ? remaining / wRem : Infinity;
     const endgame = daysLeft <= ENDGAME_DAYS;
@@ -262,9 +270,9 @@ export function stepPacing(inp: PacingInput): { state: PacingState; decision: Pa
     if (!inp.creditOk) {
         mode = 'credit-off';
         setLevel(Math.min(level, 0), '크레딧 불가(키 없음·서킷·킬 스위치) — 증가분 정지, 기본 주기');
-    } else if (spent >= PACING_TARGET_USD) {
+    } else if (spent >= target) {
         mode = 'done';
-        setLevel(LEVEL_MIN, `목표 $${PACING_TARGET_USD} 도달 — 증가분 정지, 기본 주기(상한 뒤 기본 용도는 AWS)`);
+        setLevel(LEVEL_MIN, `목표 $${target} 도달 — 증가분 정지, 기본 주기(필수 용도는 실제 잔액 바로 아래까지 크레딧)`);
     } else if (remaining <= LANDING_USD) {
         mode = 'landing';
         setLevel(Math.min(level, 0), `남은 예산 $${remaining.toFixed(2)} — 착륙(증가분 정지)`);
@@ -304,15 +312,15 @@ export function stepPacing(inp: PacingInput): { state: PacingState; decision: Pa
             neededPerWeightedHour: Number.isFinite(needW) ? Math.round(needW * 10000) / 10000 : 0,
             ratio: state.ratio,
             projectedEndUsd: projectedEndUsd == null ? null : Math.round(projectedEndUsd * 100) / 100,
-            projectedUsedPct: projectedEndUsd == null ? null : Math.round((projectedEndUsd / PACING_TARGET_USD) * 1000) / 10,
+            projectedUsedPct: projectedEndUsd == null ? null : Math.round((projectedEndUsd / (target || 1)) * 1000) / 10,
             endgame,
         },
     };
 }
 
-/** 읽는 쪽이 쓰는 안전 변환 — 상태 없음/다른 주기/12시간 넘게 갱신 안 됨 → 증가분 없는 기본 */
-export function effectiveLevel(state: PacingState | null, now: number): number {
-    if (!state || state.v !== 1 || state.period !== periodId(new Date(now))) return 0;
+/** 읽는 쪽이 쓰는 안전 변환 — 상태 없음/다른 주기/12시간 넘게 갱신 안 됨 → 증가분 없는 기본. cycleId 가 없으면 예전 달력 주기로 견준다 */
+export function effectiveLevel(state: PacingState | null, now: number, cycleId?: string): number {
+    if (!state || state.v !== 1 || state.period !== (cycleId ?? periodId(new Date(now)))) return 0;
     const lvl = clampLevel(state.level);
     return now - state.tickAt > STATE_STALE_MS ? Math.min(lvl, 0) : lvl;
 }
@@ -322,7 +330,6 @@ export function effectiveLevel(state: PacingState | null, now: number): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const PACE_STATE_KEY = 'llm:pace:state';
-const COST_KEY = (period: string) => `llm:cost:${period}`;       // llmLadder.LLM_KEYS.cost 와 같다(시험이 대조)
 const BREAKER_A55_KEY = 'llm:cb:a55';
 const KILL_KEY = 'llm:ladder:off';
 export const PACE_TICK_MIN_GAP_MS = 9 * 60_000;
@@ -347,10 +354,10 @@ async function loadState(store: LlmStore): Promise<PacingState | null> {
     } catch { return null; }
 }
 
-async function creditOk(d: PacingDeps, spent: number): Promise<boolean> {
+async function creditOk(d: PacingDeps, spent: number, cycle: CreditCycle): Promise<boolean> {
     if (!d.hasKey()) return false;
     if (process.env.AI_LADDER_OFF === '1') return false;
-    if (spent >= LEDGER_CAP_USD) return false;
+    if (spent >= tierStopUsd('extra', cycle.amountUsd)) return false;   // 증가분(extra) 정지선 — 사다리와 같은 선
     const now = d.now();
     const until = Number(await d.store.get(BREAKER_A55_KEY));
     if (Number.isFinite(until) && until > now) return false;
@@ -382,14 +389,14 @@ export interface PacingStatus {
     stale: boolean;
 }
 
-function describe(state: PacingState | null, decision: PacingDecision | null, spent: number, now: number): PacingStatus {
-    const lvl = effectiveLevel(state, now);
+function describe(state: PacingState | null, decision: PacingDecision | null, spent: number, now: number, cycle: CreditCycle | null): PacingStatus {
+    const lvl = effectiveLevel(state, now, cycle?.id);
     const knobs = knobsForLevel(lvl);
     const stale = !!state && now - state.tickAt > STATE_STALE_MS;
     return {
-        period: periodId(new Date(now)),
-        renewsAt: nextRenewal(new Date(now)).toISOString(),
-        targetUsd: PACING_TARGET_USD, capUsd: LEDGER_CAP_USD,
+        period: cycle?.id ?? periodId(new Date(now)),
+        renewsAt: new Date(cycle?.endsMs ?? nextRenewal(new Date(now)).getTime()).toISOString(),
+        targetUsd: cycle ? pacingTargetUsd(cycle.amountUsd) : PACING_TARGET_USD, capUsd: tierStopUsd('extra', cycle?.amountUsd ?? DEFAULT_MONTHLY_USD),
         spentUsd: Math.round(spent * 10000) / 10000,
         level: lvl, mode: state?.mode ?? 'bootstrap', reason: stale ? '조절기 상태가 12시간 넘게 갱신되지 않아 증가분을 끈 기본 값' : state?.reason ?? '상태 없음 — 기본 값',
         knobs, baseline: BASELINE_KNOBS,
@@ -409,21 +416,24 @@ function describe(state: PacingState | null, decision: PacingDecision | null, sp
 export async function tickPacing(deps?: Partial<PacingDeps>, opts: { force?: boolean } = {}): Promise<PacingStatus> {
     const d: PacingDeps = { ...defaultPacingDeps(), ...(deps || {}) };
     const now = d.now();
-    const period = periodId(new Date(now));
+    let cycle: CreditCycle | null = null;
     try {
+        cycle = await currentCycle(d.store, now);
+        const period = cycle.id;
+        const cyc = { id: cycle.id, endsMs: cycle.endsMs, targetUsd: pacingTargetUsd(cycle.amountUsd) };
         const prev = await loadState(d.store);
-        const spent = Number(await d.store.get(COST_KEY(period))) || 0;
+        const spent = (await cycleSpentUsd(d.store, cycle)).total;   // 주기 원장 + 기준점 뒤 원장 밖 지출(opening·옛 키)
         if (prev && prev.period === period && !opts.force && now - prev.tickAt < PACE_TICK_MIN_GAP_MS) {
-            const { decision } = stepPacing({ now, spent, creditOk: true, state: prev });   // 보여 주기만 — 저장하지 않는다
-            return describe(prev, decision, spent, now);
+            const { decision } = stepPacing({ now, spent, creditOk: true, state: prev, cycle: cyc });   // 보여 주기만 — 저장하지 않는다
+            return describe(prev, decision, spent, now, cycle);
         }
-        const ok = await creditOk(d, spent);
-        const { state, decision } = stepPacing({ now, spent, creditOk: ok, state: prev });
+        const ok = await creditOk(d, spent, cycle);
+        const { state, decision } = stepPacing({ now, spent, creditOk: ok, state: prev, cycle: cyc });
         await d.store.setEx(PACE_STATE_KEY, JSON.stringify(state), 45 * 24 * 3600);
         _readCache = null;
-        return describe(state, decision, spent, now);
+        return describe(state, decision, spent, now, cycle);
     } catch {
-        return describe(null, null, 0, now);
+        return describe(null, null, 0, now, cycle);
     }
 }
 
@@ -431,14 +441,16 @@ export async function tickPacing(deps?: Partial<PacingDeps>, opts: { force?: boo
 export async function peekPacing(deps?: Partial<PacingDeps>): Promise<PacingStatus> {
     const d: PacingDeps = { ...defaultPacingDeps(), ...(deps || {}) };
     const now = d.now();
+    let cycle: CreditCycle | null = null;
     try {
+        cycle = await currentCycle(d.store, now);
         const state = await loadState(d.store);
-        const spent = Number(await d.store.get(COST_KEY(periodId(new Date(now))))) || 0;
-        const ok = await creditOk(d, spent);
-        const decision = stepPacing({ now, spent, creditOk: ok, state }).decision;
-        return describe(state, decision, spent, now);
+        const spent = (await cycleSpentUsd(d.store, cycle)).total;
+        const ok = await creditOk(d, spent, cycle);
+        const decision = stepPacing({ now, spent, creditOk: ok, state, cycle: { id: cycle.id, endsMs: cycle.endsMs, targetUsd: pacingTargetUsd(cycle.amountUsd) } }).decision;
+        return describe(state, decision, spent, now, cycle);
     } catch {
-        return describe(null, null, 0, now);
+        return describe(null, null, 0, now, cycle);
     }
 }
 
@@ -451,11 +463,11 @@ export async function pacingKnobs(deps?: Partial<PacingDeps>, budgetMs = 400): P
     const now = d.now();
     if (_readCache && now - _readCache.at < 60_000) return _readCache.knobs;
     try {
-        const state = await Promise.race([
-            loadState(d.store),
+        const got = await Promise.race([
+            Promise.all([loadState(d.store), currentCycle(d.store, now)]),
             new Promise<null>((resolve) => setTimeout(() => resolve(null), budgetMs)),
         ]);
-        const knobs = knobsForLevel(effectiveLevel(state, now));
+        const knobs = got ? knobsForLevel(effectiveLevel(got[0], now, got[1].id)) : BASELINE_KNOBS;
         _readCache = { at: now, knobs };
         return knobs;
     } catch { return BASELINE_KNOBS; }
