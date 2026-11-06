@@ -20,13 +20,12 @@ export function SelloffCard({ brief, locale }: { brief: SelloffBrief; locale: st
     const load = () => fetch(`/api/earnings/scorecard?week=${scorecardWeek(brief.date)}`, { signal: controller.signal }).then(r => r.ok ? r.json() : null).then(j => {
       if (j?.week === scorecardWeek(brief.date) && Array.isArray(j.rows)) setRows(j.rows.filter((r: ScorecardRow) => r.beyond === true && r.basis?.reactDate <= brief.date && Number.isFinite(r.expectedPct) && Number.isFinite(r.actualPct)).slice(-3).reverse());
     }).catch(() => {});
-    // «왜» 줄(대표 11/6 승인): 같은 세션 장마감 리포트 저장본만 읽는다(날짜 지정 GET 은 없으면 404 — 생성 0). 받을 때까지 같은 10분 주기로 다시 읽는다.
-    let gotReport = false;
-    const loadReport = () => gotReport ? undefined : fetch(crossBriefUrl(brief.date), { signal: controller.signal }).then(async r => {
+    // «왜» 줄(대표 11/6 승인): 같은 세션 장마감 리포트 저장본만 읽는다(날짜 지정 GET 은 없으면 404 — 생성 0).
+    // 리포트는 마감 뒤 늦게 생기거나 재생성되므로 실적 줄과 같은 10분 주기로 다시 읽는다. 실패·404 는 이미 받은 리포트를 지우지 않는다.
+    const loadReport = () => fetch(crossBriefUrl(brief.date), { signal: controller.signal }).then(async r => {
       if (r.status === 404) return setReport(p => p?.status === 'ok' ? p : { status: 'missing' });
       if (!r.ok) return setReport(p => p ?? { status: 'error' });
       const json = await r.json();
-      gotReport = true;
       setReport({ status: 'ok', json });
     }).catch(() => { if (!controller.signal.aborted) setReport(p => p ?? { status: 'error' }); });
     load(); loadReport();
