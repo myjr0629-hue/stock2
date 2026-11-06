@@ -692,16 +692,17 @@ async function tryRung(
         // 원장 — 응답이 왔으면(거절·가드 실패 포함) 과금된 것으로 센다. 주기 = 실제 잔액 기준점(lib/ai/creditCycle)
         const cycle = await currentCycle(d.store, d.now());
         const ck = `cost:${cycle.id}:${cycle.sig}`;
-        const prevV = _cache.get(ck)?.v as { total: number; ledger: number; base: number } | undefined;
+        const prevC = _cache.get(ck);
+        const prevV = prevC?.v as { total: number; ledger: number; base: number } | undefined;
         const ledger = await d.store.incrByFloat(K.cost(cycle.id), cost, 45 * 24 * 3600);
         // carry 키가 아직 늘 수 있는 동안(기준점 교체·배포 직후)은 캐시된 base 를 이어 쓰지 않고 다시 읽는다
         const live = d.now() < cycle.carryLiveUntilMs;
         if (ledger != null && prevV && !live) {
             const v = { total: ledger + prevV.base, ledger, base: prevV.base };
-            _cache.set(ck, { v, at: d.now() });
+            _cache.set(ck, { v, at: prevC!.at });   // 캐시 시각은 «base 를 마지막으로 읽은 때» 그대로 — 호출이 이어져도 30초마다 원장 밖 지출(carry)을 다시 읽는다
             alertThresholds(v.total, cycle, d);
         } else if (ledger == null && prevV && !live) {
-            _cache.set(ck, { v: { ...prevV, total: prevV.total + cost, ledger: prevV.ledger + cost }, at: d.now() });
+            _cache.set(ck, { v: { ...prevV, total: prevV.total + cost, ledger: prevV.ledger + cost }, at: prevC!.at });
         } else if (ledger == null) {
             _cache.delete(ck);
         } else {
