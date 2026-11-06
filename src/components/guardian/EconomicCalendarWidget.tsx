@@ -1,6 +1,7 @@
 "use client";
 
 import { fmpCalendarToET } from '@/lib/fmpCalendarTime';
+import { pickNextEconEvent } from '@/lib/econCalendarNext';
 import { fmtVal, formatEventName } from '@/lib/econCalendarNames';
 export { fmtVal, formatEventName };
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -237,7 +238,8 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 10, localize
     const totalVisibleRows = allGroupedEvents.reduce((acc, g) => acc + g.events.length, 0);
     const hasMore = totalVisibleRows > COLLAPSED_MAX_ROWS;
 
-    const nextEvent = upcomingEvents[0];
+    // 칩은 «아직 안 나온(또는 막 나온 5분 이내)» 첫 이벤트 — 목록의 최근 1시간 발표분(실제치 표시용)은 «다음»이 아니다(11/6 대표 캡처).
+    const nextEvent = pickNextEconEvent(upcomingEvents, now.getTime());
     const countdown = nextEvent ? getCountdown(nextEvent.dateObj, now) : '--';
     const labels = localizeLabels
         ? UI_LABELS[(locale === 'ko' || locale === 'ja') ? locale : 'en']

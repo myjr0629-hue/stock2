@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
+import { normalizeEconCalendarTimes } from '@/lib/econCalendarOfficialTime';
 
 /**
  * [V8.3] Guardian Economic Calendar — Redis Reader
@@ -23,8 +24,11 @@ export async function GET() {
             });
         }
 
+        // 크론(4시간)이 다시 쓰기 전 캐시도 공식 ET 시각으로 읽는다 — 이미 맞는 행은 그대로(멱등).
+        const events = Array.isArray((cached as any).events) ? normalizeEconCalendarTimes((cached as any).events) : (cached as any).events;
         return NextResponse.json({
             ...cached,
+            events,
             source: 'REDIS',
         });
     } catch (err: any) {

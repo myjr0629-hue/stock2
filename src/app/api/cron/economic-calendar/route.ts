@@ -1,6 +1,7 @@
 import { fmpFetch } from '@/lib/fmpClient';
 import { NextResponse } from 'next/server';
 import { setInCache } from '@/services/redisClient';
+import { normalizeEconCalendarTimes } from '@/lib/econCalendarOfficialTime';
 
 /**
  * [V8.3] FMP Economic Calendar → Redis Writer (Cron Only)
@@ -75,7 +76,8 @@ export async function GET(request: Request) {
         const rawEvents: any[] = await res.json();
 
         // Filter: US only, HIGH + MEDIUM impact
-        const filtered = rawEvents
+        // ★11/6: 공급자가 서머타임 종료 뒤 일부 정기 발표(CFTC·WASDE)를 EDT 기준 UTC 로 남긴다 → 공식 ET 시각으로(정확히 ±1시간일 때만).
+        const filtered = normalizeEconCalendarTimes(rawEvents
             .filter((e: any) => e.country === 'US')
             .filter((e: any) => {
                 const impact = normalizeImpact(e.impact);
@@ -101,7 +103,7 @@ export async function GET(request: Request) {
                 const dateA = `${a.date} ${a.time}`;
                 const dateB = `${b.date} ${b.time}`;
                 return dateA.localeCompare(dateB);
-            });
+            }));
 
         // Write to Redis
         await setInCache(REDIS_KEY, {
