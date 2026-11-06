@@ -7,10 +7,20 @@
 
 import { NextResponse } from 'next/server';
 import { publicBase } from '@/lib/net/publicBase';
-import { getFromCache, setInCache } from '@/services/redisClient';
+import { getFromCache, setInCache, readEachStoreStrict } from '@/services/redisClient';
 import { selectServedBrief, crossBriefKey } from '@/lib/ai/crossBriefServe';
 import { crossBriefCronMode, decideCrossBriefCron, crossBriefMissingAlert } from '@/lib/ai/crossBriefCron';
 import { etDateOf } from '@/lib/marketCalendar';
+
+/**
+ * 엄격 읽기 — 두 저장소 모두 응답을 확인하지 못하면 «없음»이 아니라 예외(관문 11060907 ①: 읽기 장애를 누락으로 오판해
+ * 재생성·덮어쓰기·거짓 경보로 이어지지 않게). 값은 EC2 사본 우선, 없으면 Upstash 사본.
+ */
+async function readStrict(key: string): Promise<any> {
+    const { ec, upstash } = await readEachStoreStrict<any>([key]);
+    if (!ec.ok && !upstash.ok) throw new Error(`cache read failed: ${key}`);
+    return (ec.ok ? ec.values[0] : null) ?? (upstash.ok ? upstash.values[0] : null) ?? null;
+}
 
 /** 운영 경보 — 기존 SNS 주제 signum-lambda-alerts(contact@ 구독 확인, scripts/setup-xs-alarms.js 와 같은 길). 날짜당 한 번. */
 async function publishOpsAlert(dedupeKey: string, subject: string, message: string): Promise<'sent' | 'dup' | 'failed'> {
@@ -19,9 +29,12 @@ async function publishOpsAlert(dedupeKey: string, subject: string, message: stri
         const { SNSClient, ListTopicsCommand, PublishCommand } = await import('@aws-sdk/client-sns');
         const sns = new SNSClient({ region: process.env.AWS_REGION || 'us-east-1' });
         let topicArn = process.env.OPS_ALERT_TOPIC_ARN || '';
-        if (!topicArn) {
-            const topics = await sns.send(new ListTopicsCommand({}));
+        let next: string | undefined;
+        for (let page = 0; !topicArn && page < 10; page++) {   // ListTopics 는 100개씩 — 다음 쪽까지(관문 11060907 ②)
+            const topics = await sns.send(new ListTopicsCommand(next ? { NextToken: next } : {}));
             topicArn = (topics.Topics || []).map(t => t.TopicArn || '').find(a => a.endsWith(':signum-lambda-alerts')) || '';
+            next = topics.NextToken;
+            if (!next) break;
         }
         if (!topicArn) throw new Error('alert topic not found');
         await sns.send(new PublishCommand({ TopicArn: topicArn, Subject: subject.slice(0, 99), Message: message }));
@@ -55,13 +68,13 @@ export async function GET(request: Request) {
     if (mode !== 'run') {
         try {
             const sessionDate = etDateOf(Date.now());
-            const picked = await selectServedBrief((key) => getFromCache<any>(key), [sessionDate], (msg) => console.warn(`[Cron:CrossSectorBrief] ${msg}`));
+            const picked = await selectServedBrief(readStrict, [sessionDate], (msg) => console.warn(`[Cron:CrossSectorBrief] ${msg}`));
             const decision = decideCrossBriefCron(mode, sessionDate, !!picked);
             if (decision.action === 'skip') {
                 return NextResponse.json({ success: true, mode, sessionDate, skipped: decision.why, ...(picked ? { source: picked.source } : {}) });
             }
             if (decision.action === 'alert') {
-                const stored = await getFromCache<any>(crossBriefKey('v4', sessionDate));
+                const stored = await readStrict(crossBriefKey('v4', sessionDate)).catch(() => null);
                 const { subject, message } = crossBriefMissingAlert(sessionDate, stored);
                 console.error(`[Cron:CrossSectorBrief] ❌ ${subject}\n${message}`);
                 const alert = await publishOpsAlert(`cross-brief:alerted:${sessionDate}`, subject, message);
@@ -71,7 +84,7 @@ export async function GET(request: Request) {
         } catch (e: any) {
             console.error('[Cron:CrossSectorBrief] mode 판정 실패:', e?.message || e);
             if (mode === 'check') return NextResponse.json({ error: e?.message || 'check failed' }, { status: 500 });
-            // retry 는 판정이 실패해도 생성으로 간다(최악 = 정시 생성과 같은 일 한 번 더)
+            // retry 는 판정이 실패해도 생성으로 간다 — 생성 본체가 retry=1 이면 서빙 가드를 넘는 판본만 저장하므로 기존 정상본을 덮지 않는다
         }
     }
 
@@ -88,7 +101,8 @@ export async function GET(request: Request) {
 
         console.log('[Cron:CrossSectorBrief] Triggering POST /api/intel/cross-sector-brief...');
 
-        const res = await fetch(`${baseUrl}/api/intel/cross-sector-brief`, {
+        // retry=1: 생성 본체는 서빙 가드를 넘는 판본만 저장한다(기존 정상본을 실패본으로 덮지 않게)
+        const res = await fetch(`${baseUrl}/api/intel/cross-sector-brief${mode === 'retry' ? '?retry=1' : ''}`, {
             method: 'POST',
             headers: bypassHeaders,
             cache: 'no-store',
