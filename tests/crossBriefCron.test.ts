@@ -57,7 +57,9 @@ t('관문 11060907: retry 는 엄격 읽기로 판정하고, 생성 본체는 re
     const cron = fs.readFileSync(path.join(process.cwd(), 'src/app/api/cron/cross-sector-brief/route.ts'), 'utf8');
     const gen = fs.readFileSync(path.join(process.cwd(), 'src/app/api/intel/cross-sector-brief/route.ts'), 'utf8');
     assert.match(cron, /selectServedBrief\(readStrict,/);
-    assert.match(cron, /if \(!ec\.ok && !upstash\.ok\) throw/);
+    assert.match(cron, /if \(ec\.ok\) return ec\.values\[0\] \?\? up;/);
+    assert.match(cron, /if \(up != null\) return up;\s*throw new Error/);
+    assert.match(cron, /판정 불가\(저장소 읽기 실패\) — 건너뜀/);
     assert.match(cron, /mode === 'retry' \? '\?retry=1' : ''/);
     assert.match(gen, /const keepExisting = retryOnly && !briefData\.guard\.ok;/);
     assert.match(gen, /if \(!dryRun && !keepExisting\) await setInCache\(getCacheKey\(today\)/);

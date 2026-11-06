@@ -18,8 +18,11 @@ import { etDateOf } from '@/lib/marketCalendar';
  */
 async function readStrict(key: string): Promise<any> {
     const { ec, upstash } = await readEachStoreStrict<any>([key]);
-    if (!ec.ok && !upstash.ok) throw new Error(`cache read failed: ${key}`);
-    return (ec.ok ? ec.values[0] : null) ?? (upstash.ok ? upstash.values[0] : null) ?? null;
+    const up = upstash.ok ? upstash.values[0] ?? null : null;
+    if (ec.ok) return ec.values[0] ?? up;
+    // EC2(정본)를 확인하지 못했다 — Upstash 사본이 있으면 그것을 쓰고, 없으면 «없음»이라고 단정하지 않는다(정상본이 EC2 에만 있을 수 있다)
+    if (up != null) return up;
+    throw new Error(`cache read failed: ${key}`);
 }
 
 /** 운영 경보 — 기존 SNS 주제 signum-lambda-alerts(contact@ 구독 확인, scripts/setup-xs-alarms.js 와 같은 길). 날짜당 한 번. */
@@ -82,9 +85,9 @@ export async function GET(request: Request) {
             }
             console.warn(`[Cron:CrossSectorBrief] ${sessionDate} 서빙 가능한 리포트 없음 — 재생성(mode=retry)`);
         } catch (e: any) {
-            console.error('[Cron:CrossSectorBrief] mode 판정 실패:', e?.message || e);
-            if (mode === 'check') return NextResponse.json({ error: e?.message || 'check failed' }, { status: 500 });
-            // retry 는 판정이 실패해도 생성으로 간다 — 생성 본체가 retry=1 이면 서빙 가드를 넘는 판본만 저장하므로 기존 정상본을 덮지 않는다
+            // 판정 불가(저장소 읽기 장애) — 재생성도 경보도 하지 않는다(관문 11060907·11060909 ①: 정상본 덮어쓰기·거짓 경보 방지). 로그와 5xx 로 남긴다.
+            console.error(`[Cron:CrossSectorBrief] mode=${mode} 판정 불가(저장소 읽기 실패) — 건너뜀:`, e?.message || e);
+            return NextResponse.json({ success: false, mode, error: e?.message || 'state read failed' }, { status: 503 });
         }
     }
 
