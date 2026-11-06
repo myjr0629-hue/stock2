@@ -400,7 +400,7 @@ const records = (s: Spy): CallRecord[] => {
         await runLadder(req(), legacyOk(), s3.deps);
         assert.ok(Date.now() - t0 < 300, `경보를 기다리지 않는다(${Date.now() - t0}ms)`);
         await _flushCreditAlertsForTest();
-        assert.equal(calls, 1); assert.equal(s3.store.data.has('llm:credit:alert:2026-10:shed-standard:sent'), false); assert.equal(s3.store.data.has('llm:credit:alert:2026-10:shed-standard:lease'), false, '실패하면 임대를 풀어 다른 인스턴스가 다시 시도');
+        assert.equal(calls, 1); assert.equal(s3.store.data.has('llm:credit:alert:2026-10:shed-standard:sent'), false); assert.equal([...s3.store.data.keys()].some((k) => k.startsWith('llm:credit:alert:2026-10:shed-standard:lock')), false, '실패하면 잠금을 풀어 다른 인스턴스가 다시 시도');
         _resetLadderStateForTest();
     });
     await t('기준점 뒤 배포 전 지출: openingUsd + 옛 원장 키(carryKeys)를 이 주기 지출에 더한다', async () => {

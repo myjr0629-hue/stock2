@@ -144,13 +144,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, warmSeparation: body.on !== false });
     }
     if (action === 'credit-reset') {
-        if (body.clear === true) { await upstashStore.setEx(CREDIT_CHECKPOINT_KEY, CHECKPOINT_CLEARED, 400 * 24 * 3600); _resetCreditCycleForTest(); return NextResponse.json({ ok: true, checkpoint: null }); }
+        // 저장한 뒤 다시 읽어 같은 값일 때만 성공 — Upstash 쓰기는 실패해도 예외를 내지 않는다(llmStore)
+        const writeVerified = async (value: string) => {
+            await upstashStore.setEx(CREDIT_CHECKPOINT_KEY, value, 400 * 24 * 3600);
+            return (await upstashStore.get(CREDIT_CHECKPOINT_KEY)) === value;
+        };
+        if (body.clear === true) {
+            if (body.dryRun === true) return NextResponse.json({ ok: true, dryRun: true, clear: true, note: '저장하면 코드 기본 기준점으로 돌아간다' });
+            if (!(await writeVerified(CHECKPOINT_CLEARED))) return NextResponse.json({ ok: false, error: 'store write not confirmed — 다시 시도' }, { status: 503 });
+            _resetCreditCycleForTest();
+            return NextResponse.json({ ok: true, checkpoint: null });
+        }
         const cp = parseCheckpoint({ at: body.at, balanceUsd: body.balanceUsd, nextResetAt: body.nextResetAt, monthlyUsd: body.monthlyUsd, openingUsd: body.openingUsd, carryKeys: body.carryKeys, note: body.note, setAt: new Date().toISOString() });
         if (!cp) return NextResponse.json({ error: 'invalid checkpoint (at ISO · balanceUsd > 0 · nextResetAt > at)' }, { status: 400 });
         if (Date.parse(cp.at) > Date.now() + 60_000) return NextResponse.json({ error: 'at is in the future' }, { status: 400 });
         const cycle = describeCycle(cycleAt(Date.now(), cp));
         if (body.dryRun === true) return NextResponse.json({ ok: true, dryRun: true, checkpoint: cp, cycle });
-        await upstashStore.setEx(CREDIT_CHECKPOINT_KEY, JSON.stringify(cp), 400 * 24 * 3600);
+        if (!(await writeVerified(JSON.stringify(cp)))) return NextResponse.json({ ok: false, error: 'store write not confirmed — 다시 시도', checkpoint: cp }, { status: 503 });
         _resetCreditCycleForTest();
         return NextResponse.json({ ok: true, checkpoint: cp, cycle, note: '다른 인스턴스는 30초 안에 새 기준점을 읽는다' });
     }

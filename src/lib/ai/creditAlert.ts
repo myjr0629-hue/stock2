@@ -46,35 +46,35 @@ export const creditAlertKey = (cycleId: string, tag: string): string => `llm:cre
 /** key → 이 시각 전에는 이 인스턴스에서 다시 시도하지 않는다(보냈으면 무한대, 그 밖 10분 뒤) */
 const _sent = new Map<string, number>();
 const RETRY_AFTER_MS = 10 * 60_000;
-/** 보내는 중 표시(임대)의 수명 — 보내던 인스턴스가 죽거나 응답이 사라져도 이 시간 뒤엔 다른 인스턴스가 보낸다 */
-const LEASE_MS = 5 * 60_000;
+/** 보내는 중 표시(잠금)의 시간 칸 — 칸마다 원자 증가(INCRBYFLOAT)가 1 인 인스턴스 하나만 보낸다 */
+const LOCK_SLOT_MS = 5 * 60_000;
 export function _resetCreditAlertForTest(): void { _sent.clear(); }
 
 /**
  * 주기마다 한 번만 보낸다(보냈으면 true).
  *   «보냄» 표시(<key>:sent)는 발송이 성공한 뒤에만 쓴다 — 표시가 있으면 끝.
- *   보내는 중 임대(<key>:lease = 시각·토큰)를 쓰고 다시 읽어 내 토큰일 때만 보낸다. 임대는 5분 뒤 스스로 풀린다.
- *   저장소가 응답하지 않으면(읽기 null) 이 인스턴스에서 보낸다 — 중복 메일 한 통이 누락보다 낫다(인스턴스 안 10분 간격).
+ *   잠금 = 5분 칸 키(<key>:lock:<칸>) 원자 증가가 1 인 인스턴스만 보낸다(동시에 둘이 보내지 않는다).
+ *   바로 앞 칸 잠금이 남아 있으면(누가 보내는 중이거나 보내다 죽음) 기다린다 — 죽은 잠금은 길어야 10분 뒤 풀린다.
+ *   보내다 실패하면 잠금을 지워 다른 인스턴스가 곧바로 다시 시도한다.
+ *   저장소가 응답하지 않으면(증가 결과 null) 이 인스턴스에서 보낸다 — 누락보다 중복 한 통이 낫다(인스턴스 안 10분 간격).
  */
 export async function alertOnce(store: LlmStore, key: string, send: AlertSender, subject: string, message: string, log?: (m: string) => void, now = Date.now()): Promise<boolean> {
     if ((_sent.get(key) ?? 0) > now) return false;
     _sent.set(key, now + RETRY_AFTER_MS);
     try {
         if (await store.get(`${key}:sent`)) { _sent.set(key, Number.POSITIVE_INFINITY); return false; }
-        const leaseRaw = await store.get(`${key}:lease`);
-        const leaseAt = Number(String(leaseRaw ?? '').split(':')[0]);
-        if (leaseRaw && Number.isFinite(leaseAt) && now - leaseAt < LEASE_MS) return false;   // 다른 인스턴스가 보내는 중 — 10분 뒤 다시 본다
-        const token = `${now}:${Math.random().toString(36).slice(2, 10)}`;
-        await store.setEx(`${key}:lease`, token, Math.ceil(LEASE_MS / 1000));
-        const back = await store.get(`${key}:lease`);
-        if (back != null && back !== token) return false;   // 같은 순간 다른 인스턴스가 이겼다
+        const slot = Math.floor(now / LOCK_SLOT_MS);
+        if (await store.get(`${key}:lock:${slot - 1}`)) return false;
+        const lockKey = `${key}:lock:${slot}`;
+        const n = await store.incrByFloat(lockKey, 1, Math.ceil((2 * LOCK_SLOT_MS) / 1000));
+        if (n != null && n !== 1) return false;
         log?.(`[CreditAlert] ${subject}`);
         const ok = await send(subject, message);
         if (ok) {
             _sent.set(key, Number.POSITIVE_INFINITY);
             await store.setEx(`${key}:sent`, String(now), 40 * 24 * 3600);
-        } else {
-            await store.del(`${key}:lease`);   // 못 보냈다 — 다른 인스턴스가 바로 다시 시도할 수 있게
+        } else if (n === 1) {
+            await store.del(lockKey);
         }
         return ok;
     } catch { return false; }

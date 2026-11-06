@@ -114,7 +114,9 @@ export function parseCheckpoint(raw: unknown): CreditCheckpoint | null {
     let x: any = raw;
     if (typeof raw === 'string') { try { x = JSON.parse(raw); } catch { return null; } }
     if (!x || typeof x !== 'object') return null;
-    const at = Date.parse(String(x.at ?? ''));
+    // 초 단위로 내린다 — 주기 id 가 초까지라, 같은 초의 기준점은 «같은 시작의 잔액 정정»(같은 원장)으로 다룬다
+    const at0 = Date.parse(String(x.at ?? ''));
+    const at = Number.isFinite(at0) ? Math.floor(at0 / 1000) * 1000 : NaN;
     const bal = Number(x.balanceUsd);
     if (!Number.isFinite(at) || !(bal > 0 && bal < 100_000)) return null;
     const out: CreditCheckpoint = { at: new Date(at).toISOString(), balanceUsd: bal };

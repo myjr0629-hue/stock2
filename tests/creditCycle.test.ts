@@ -95,15 +95,15 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         _resetCreditCycleForTest();
     });
 
-    await t('경보 alertOnce: 보낸 뒤에만 «보냄» 표시 · 다른 인스턴스 임대 중이면 10분 뒤 재확인 · 임대가 풀리거나 5분 지나면 보낸다', async () => {
+    await t('경보 alertOnce: 보낸 뒤에만 «보냄» 표시 · 5분 칸 원자 잠금으로 한 인스턴스만 · 실패하면 잠금 해제 · 죽은 잠금은 다음다음 칸에 풀림', async () => {
         const { alertOnce, _resetCreditAlertForTest } = await import('@/lib/ai/creditAlert');
         _resetCreditAlertForTest();
+        const SLOT = 5 * 60_000, T = 3 * SLOT;                   // 칸 3 의 시작
         const s = memoryStore(); const key = 'llm:credit:alert:x:p80';
-        const T = 1_000_000;
-        s.data.set(`${key}:lease`, `${T}:other`);               // A 가 보내는 중
+        s.data.set(`${key}:lock:3`, '1');                        // A 가 칸 3 잠금을 잡고 보내는 중
         const sent: string[] = []; const ok = async (sub: string) => { sent.push(sub); return true; };
-        assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T), false);
-        s.data.delete(`${key}:lease`);                           // A 발송 실패 → 임대 해제
+        assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T), false, '동시에 둘이 보내지 않는다');
+        s.data.delete(`${key}:lock:3`);                          // A 발송 실패 → 잠금 해제
         assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 60_000), false, '10분 전에는 다시 안 본다');
         assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 10 * 60_000 + 1), true);
         assert.ok(s.data.has(`${key}:sent`));
@@ -111,15 +111,24 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         _resetCreditAlertForTest();
         assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 100 * 60_000), false, '다른 인스턴스도 «보냄» 표시를 보고 안 보낸다');
         assert.equal(sent.length, 1);
-        // 임대한 인스턴스가 죽었다(임대가 남음) — 5분 지나면 다른 인스턴스가 보낸다
+        // A 가 잠금을 잡은 채 죽었다 — 바로 다음 칸은 기다리고, 그다음 칸에 다른 인스턴스가 보낸다
         _resetCreditAlertForTest();
-        const s2 = memoryStore(); s2.data.set(`${key}:lease`, `${T}:dead`);
-        assert.equal(await alertOnce(s2, key, ok, 'S', 'M', undefined, T + 6 * 60_000), true);
+        const s2 = memoryStore(); s2.data.set(`${key}:lock:3`, '1');
+        assert.equal(await alertOnce(s2, key, ok, 'S', 'M', undefined, T + 6 * 60_000), false);
+        assert.equal(await alertOnce(s2, key, ok, 'S', 'M', undefined, T + 16 * 60_000), true);
+        // 둘이 같은 칸에서 경쟁 — 하나만
+        _resetCreditAlertForTest();
+        const s3 = memoryStore(); let n3 = 0; const c3 = async () => { n3++; return true; };
+        const r = await Promise.all([alertOnce(s3, key, c3, 'S', 'M', undefined, T), (async () => { _resetCreditAlertForTest(); return alertOnce(s3, key, c3, 'S', 'M', undefined, T + 1); })()]);
+        assert.equal(r.filter(Boolean).length, 1); assert.equal(n3, 1);
         // 저장소 응답 없음 — 이 인스턴스에서 보낸다(누락보다 중복 한 통)
         _resetCreditAlertForTest();
         const dead: any = { get: async () => null, setEx: async () => undefined, del: async () => undefined, incrByFloat: async () => null };
         assert.equal(await alertOnce(dead, key, ok, 'S', 'M', undefined, T), true);
         _resetCreditAlertForTest();
+    });
+    await t('기준점 at 은 초 단위로 내린다(주기 id 와 같은 정밀도)', () => {
+        assert.equal(parseCheckpoint({ at: '2026-11-05T13:18:00.999Z', balanceUsd: 10 })!.at, '2026-11-05T13:18:00.000Z');
     });
     await t('기준점 읽기 null(키 없음·시간 초과 구분 불가) — 마지막으로 읽은 저장 기준점을 5초만 쓰고 다시 읽는다 · 지운 표시는 코드 기본값', async () => {
         const { CHECKPOINT_CLEARED } = await import('@/lib/ai/creditCycle');
