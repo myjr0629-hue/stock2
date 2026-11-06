@@ -6,7 +6,9 @@
  *   3. EventBridge `signum-xs-paper-daily`: weekdays 22:40 UTC (30 min after signum-xs).
  *
  * Stage A of .agent/XS_AUTOTRADE_PREREG.md — paper fills only, no broker, no creds.
- * Run: node scripts/deploy-xs-paper.js
+ * Run: node scripts/deploy-xs-paper.js   (first-time setup / schedule)
+ * Code-only updates of the live function: node scripts/deploy-xs-code-only.js paper --publish
+ * (never touches Environment/schedule; verifies the uploaded CodeSha256 and VERSION).
  */
 require('dotenv').config({ path: '.env.local' });
 const fs = require('fs');
@@ -68,7 +70,8 @@ async function deploy() {
   const zipPath = path.join(__dirname, 'lambda-xs-paper.zip');
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   const { execSync } = require('child_process');
-  execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\index.js' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+  if (process.platform === 'win32') execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\index.js' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+  else execSync(`/usr/bin/zip -q -j "${zipPath}" "${path.join(lambdaDir, 'index.js')}"`, { stdio: 'pipe' });
   console.log('Zip:', Math.round(fs.statSync(zipPath).size / 1024) + 'KB');
 
   const lambda = new LambdaClient({ region: REGION });

@@ -14,13 +14,18 @@
 //   node scripts/deploy-xs-code-only.js paper         # scripts/lambda-xs-paper → signum-xs-paper
 //   node scripts/deploy-xs-code-only.js all
 //   node scripts/deploy-xs-code-only.js xs --timeout 900   # also raise Timeout (partial update: Timeout only)
+//   node scripts/deploy-xs-code-only.js paper --publish    # also PublishVersion (numbered, immutable record)
+// Every deploy proves the live code IS the local files: the uploaded zip's
+// sha256 must equal the function's CodeSha256, and the engine's VERSION string
+// is printed from the zipped source.
 // ============================================================================
 const fs = require('fs'), path = require('path'), { execSync } = require('child_process');
 for (const l of fs.readFileSync('.env.local', 'utf8').split('\n')) {
   const m = l.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
   if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
 }
-const { LambdaClient, UpdateFunctionCodeCommand, UpdateFunctionConfigurationCommand, GetFunctionConfigurationCommand } = require('@aws-sdk/client-lambda');
+const crypto = require('crypto');
+const { LambdaClient, UpdateFunctionCodeCommand, UpdateFunctionConfigurationCommand, GetFunctionConfigurationCommand, PublishVersionCommand } = require('@aws-sdk/client-lambda');
 
 const region = process.env.AWS_REGION || 'us-east-1';
 const lambda = new LambdaClient({ region, credentials: { accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY } });
@@ -33,6 +38,7 @@ const args = process.argv.slice(2);
 const which = args[0] === 'all' ? ['xs', 'paper'] : [args[0] || 'xs'];
 const toIdx = args.indexOf('--timeout');
 const timeout = toIdx >= 0 ? Number(args[toIdx + 1]) : null;
+const publish = args.includes('--publish');
 for (const w of which) if (!TARGETS[w]) { console.error(`unknown target "${w}" — use xs | paper | all`); process.exit(2); }
 
 const ready = async (fn) => {
@@ -59,7 +65,9 @@ const envCount = (c) => Object.keys((c.Environment && c.Environment.Variables) |
     // zero-dependency Lambdas (@aws-sdk v3 ships in nodejs20.x) — only the .js files go up
     execSync(`cd "${src}" && /usr/bin/zip -q "${zip}" *.js`, { stdio: 'pipe' });
     const buf = fs.readFileSync(zip);
-    console.log(`[${fn}] zip ${Math.round(buf.length / 1024)}KB (${fs.readdirSync(src).filter((f) => f.endsWith('.js')).join(', ')})`);
+    const localSha = crypto.createHash('sha256').update(buf).digest('base64');
+    const verMatch = fs.readFileSync(path.join(src, 'index.js'), 'utf8').match(/const VERSION = '([^']+)'/);
+    console.log(`[${fn}] zip ${Math.round(buf.length / 1024)}KB (${fs.readdirSync(src).filter((f) => f.endsWith('.js')).join(', ')}) · VERSION ${verMatch ? verMatch[1] : 'n/a'} · sha256 ${localSha}`);
 
     await lambda.send(new UpdateFunctionCodeCommand({ FunctionName: fn, ZipFile: buf }));
     let after = await ready(fn);
@@ -68,6 +76,13 @@ const envCount = (c) => Object.keys((c.Environment && c.Environment.Variables) |
       await lambda.send(new UpdateFunctionConfigurationCommand({ FunctionName: fn, Timeout: timeout }));
       after = await ready(fn);
       console.log(`[${fn}] Timeout ${before.Timeout}s → ${after.Timeout}s`);
+    }
+    if (after.CodeSha256 !== localSha) { console.error(`[${fn}] ❌ CodeSha256 ${after.CodeSha256} ≠ local ${localSha}`); process.exit(1); }
+    console.log(`[${fn}] ✅ CodeSha256 = local zip`);
+    if (publish) {
+      const v = await lambda.send(new PublishVersionCommand({ FunctionName: fn, CodeSha256: localSha, Description: `${verMatch ? verMatch[1] : ''} ${execSync('git rev-parse --short HEAD').toString().trim()}`.trim() }));
+      console.log(`[${fn}] 게시 버전 ${v.Version} · ${v.Description} · CodeSha256 ${v.CodeSha256 === localSha ? '일치' : '불일치'}`);
+      if (v.CodeSha256 !== localSha) process.exit(1);
     }
     const envAfter = envCount(after);
     console.log(`[${fn}] 배포 후: ${after.LastUpdateStatus} · CodeSize ${Math.round(after.CodeSize / 1024)}KB · 환경변수 ${envAfter}개 · 수정 ${after.LastModified}`);
