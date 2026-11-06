@@ -40,6 +40,7 @@
 //     nothing behind, a retry recomputes from the same STATE, a committed day is
 //     never re-applied. cache:xs:paper is re-published on a same-day re-run, and
 //     a failed cache write throws so the async retry repairs it.
+//   · Journal day = ET session date (undated retries past UTC midnight → same day).
 //   · Backfill: {"date":"YYYY-MM-DD"} for the session the vendor still serves
 //     (ET date of now, i.e. the evening/night after a failed 22:40Z run), only
 //     when it is the next session after STATE.lastRun. Prices come from the same
@@ -190,11 +191,13 @@ function weekdaysBetween(a, b) {   // weekdays strictly between ISO dates a < b
 
 async function run(date) {
     const t0 = Date.now();
-    const utcToday = new Date().toISOString().slice(0, 10);
-    if (date !== undefined && (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date || date > utcToday)) throw new Error('Invalid or future event.date');
-    const today = date ?? utcToday;
-    const historical = today < utcToday;
+    // The journal day is the US/Eastern session date. At the 22:40Z schedule it
+    // equals the UTC date; an undated retry that lands after UTC midnight (ET
+    // evening) still resolves to the SAME session → already-committed skip.
     const etToday = etDate(Date.now());
+    if (date !== undefined && (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date || date > etToday)) throw new Error('Invalid or future event.date');
+    const today = date ?? etToday;
+    const historical = date !== undefined;   // explicit date = backfill: strict checks below
     console.log(`[PAPER] ${VERSION} run ${today}${historical ? ' (BACKFILL)' : ''} ${DRY ? '(DRY)' : ''}`);
 
     // ── state ────────────────────────────────────────────────────────────────

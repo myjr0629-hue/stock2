@@ -219,7 +219,12 @@ const snapshot = () => JSON.stringify([...db.entries()].sort());
   const live = trades(); assert.equal(new Set(live.map(key)).size, live.length); assert.ok(live.every(t => !t.kill && /^2026-11-06#[A-Z]+#\d{4}-\d{2}-\d{2}#\d+$/.test(t.sk)));
   assert.ok(db.get(key({ pk: 'ORDERS', sk: '2026-11-06' })).orders.some(o => o.t === 'NEWA'));
   await run({}); assert.equal(redis.get('cache:xs:paper').date, '2026-11-06'); assert.equal(txns.length, 1);
-  console.log('PASS scheduled run: atomic commit, deterministic keys, cache failure → retry re-publishes without re-applying');
+  // undated async retry after UTC midnight (ET still 11/06 evening) → same session, skip, no 11/07 row
+  NOW = RealDate.parse('2026-11-07T00:30:00Z'); redis.delete('cache:xs:paper');
+  const late = JSON.parse((await run({})).body);
+  assert.equal(late.date, '2026-11-06'); assert.equal(late.skipped, true); assert.equal(txns.length, 1);
+  assert.equal(db.has(key({ pk: 'NAV', sk: '2026-11-07' })), false); assert.equal(redis.get('cache:xs:paper').date, '2026-11-06');
+  console.log('PASS scheduled run: atomic commit, deterministic keys, cache failure → retry (incl. past UTC midnight) re-publishes without re-applying');
 
   // day larger than one transaction → explicit error, nothing written
   fixture({ posOverride: Array.from({ length: 120 }, (_, n) => ({ t: 'PRMB', qty: 1, entryPx: 10, entryDate: '2026-11-04', tradingDaysHeld: 0, n })) });
