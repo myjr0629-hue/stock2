@@ -133,15 +133,43 @@ export function clickKey(app: ClickApp, from: string, day: string, vercelEnv = p
   return `${vercelEnv === 'production' ? 'clk' : 'clkp'}:${app}:${from}:${day}`;
 }
 
+/**
+ * ★2026-11-06 «그날 클릭이 쌓인 태그» 색인 — clk:idx:<ET날짜> = {"<app>:<from>": 1, …}
+ * 왜: 집계 키(clk:<app>:<from>:<날짜>)는 정상으로 쌓였는데(11/6 실측: ppomppu_1106 사람 12·x_kr_1106 2 등),
+ *   읽는 쪽(scripts/mkt-clicks-human.js)은 프록시에 키 목록(SCAN) 기능이 없어 «미리 아는 태그»(고정 목록·10/25 채널표·10/6 캐시)만 읽었다.
+ *   그래서 그날그날 새로 만든 태그(naver_blog_1106·ppomppu_1106·probe_…)는 쌓여 있어도 표에 한 줄도 안 나왔다.
+ *   쓰는 쪽이 «오늘 이 태그에 클릭이 있었다»를 한 칸에 남기면, 읽는 쪽이 목록 없이도 전부 찾는다.
+ * 비용: 클릭마다 GET 1 · 처음 보는 태그일 때만 SET 1(EC2 전용 접두사 clk:/clkp: — Upstash 명령 0).
+ *   동시 클릭 경합으로 한 줄이 빠져도 그 태그의 다음 클릭이 다시 넣는다(읽는 쪽은 고정 목록과 합친다).
+ * gift 는 «from» 자리가 초대자 버킷이라 색인에 넣지 않는다.
+ */
+export function clickIndexKey(day: string, vercelEnv = process.env.VERCEL_ENV): string {
+  return `${vercelEnv === 'production' ? 'clk' : 'clkp'}:idx:${day}`;
+}
+
+async function indexTag(app: ClickApp, from: string, day: string): Promise<void> {
+  if (app === 'gift') return;
+  try {
+    const key = clickIndexKey(day);
+    const entry = `${app}:${from}`;
+    const cur = await getFromCache<Record<string, number>>(key);
+    const base: Record<string, number> = cur && typeof cur === 'object' && !Array.isArray(cur) ? cur : {};
+    if (base[entry]) return;
+    await setInCache(key, { ...base, [entry]: 1 }, 60 * 60 * 24 * 45);
+  } catch { /* 색인 실패가 집계·이동을 막지 않는다 */ }
+}
+
 /** 분류 집계 — 응답 뒤 after() 안에서만 부른다. 태그 없는 클릭은 기존 카운터와 똑같이 세지 않는다. */
 export async function recordClick(app: ClickApp, fromRaw: string | null, fields: string[]): Promise<void> {
   const from = (fromRaw || '').toLowerCase();
   if (!/^[a-z0-9_]{1,24}$/.test(from) || fields.length === 0) return;
+  const day = etDate();
   try {
-    const key = clickKey(app, from, etDate());
+    const key = clickKey(app, from, day);
     const cur = await getFromCache<Record<string, number>>(key);
     const next: Record<string, number> = cur && typeof cur === 'object' && !Array.isArray(cur) ? { ...cur } : {};
     for (const f of fields) next[f] = (Number(next[f]) || 0) + 1;
     await setInCache(key, next, 60 * 60 * 24 * 45);
   } catch { /* 집계 실패가 이동을 막지 않는다 */ }
+  await indexTag(app, from, day);   // 집계 «뒤» — 집계 쓰기 순서·값은 그대로
 }

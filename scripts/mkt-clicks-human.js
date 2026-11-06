@@ -9,7 +9,7 @@
  *
  * 분류: human(사람의 문서 이동) · bot(수집기 UA) · nolang(Accept-Language 없음) · prefetch · nonnav(fetch·img·HEAD 등)
  *       · nometa(Sec-Fetch 헤더 없음 — 옛 브라우저이거나 흉내 낸 클라이언트)
- * 사용: node scripts/mkt-clicks-human.js [일수=3] [--app=sg|uc|wim|code|coupon|inapp] [--tag=home]
+ * 사용: node scripts/mkt-clicks-human.js [일수=3] [--app=sg|uc|wim|code|coupon|inapp] [--tag=home] [--tags=a,b]  (★11/6: 서버 색인 clk:idx·게시 기록 from= 태그도 자동으로 읽는다)
  *   coupon = 폰 «쿠폰 화면»(2026-10-05) — 화면 노출(view)·단추(tap)·안드 개인 번호 배정(claim)을 표 끝에 따로 보여 준다.
  *   inapp = 안드로이드 «앱 안 브라우저» 화면(2026-10-05, lib/marketing/androidInApp.ts) — 노출(view)·앱별(app)·Play 앱 단추(market)·https 단추(web).
  * 주의: 배포(2026-10-04) 전 날짜는 비어 있는 게 «정상»이다. 미리보기 배포의 시험 값은 clkp: 로 따로 쌓인다(여기엔 안 나온다).
@@ -46,6 +46,13 @@ const tags = (() => {
         const txt = fs.readFileSync(path.join(ROOT, '.agent/marketing/clicks-cache.json'), 'utf8');
         for (const m of txt.matchAll(/"([a-z0-9_]{2,24})"/g)) if (!/^\d/.test(m[1])) out.add(m[1]);
     } catch { /* 캐시가 없으면 채널표만 */ }
+    // ★2026-11-06 그날 새로 만든 태그(naver_blog_1106·ppomppu_1106·probe_… 등)는 위 목록에 없어 «쌓여 있어도» 한 줄도 안 나왔다.
+    //   ① 게시 기록에 적힌 from= 태그(게시 원장 메모·참여 기록)를 더하고 ② 아래 main 에서 서버 색인(clk:idx:<ET날짜>)을 더한다.
+    for (const f of [path.join(ROOT, '.agent/marketing/PUBLISH-LEDGER.json'), path.join(require('os').homedir(), 'Documents/signum-work/growth/PARTICIPATION-LOG.md')]) {
+        try { for (const m of fs.readFileSync(f, 'utf8').matchAll(/\bfrom=([a-z0-9_]{1,24})(?![a-z0-9_])/gi)) out.add(m[1].toLowerCase()); } catch { /* 없으면 건너뛴다 */ }
+    }
+    const extra = (args.find((a) => a.startsWith('--tags=')) || '').slice(7);
+    for (const t of extra.split(',')) if (/^[a-z0-9_]{1,24}$/.test(t)) out.add(t);
     return [...out];
 })();
 
@@ -65,6 +72,19 @@ async function get(key) {
 
 (async () => {
     const dates = [...Array(DAYS)].map((_, i) => etDay(new Date(Date.now() - i * 864e5)));
+    // ★2026-11-06 서버 색인 clk:idx:<ET날짜> = {"<app>:<태그>":1} (lib/marketing/clickHuman.ts) — 프록시에 SCAN 이 없어
+    //   «미리 아는 태그»만 읽던 구멍을 막는다. 색인은 2026-11-06 배포 뒤부터 쌓인다(그 전 날짜는 위 목록·게시 기록 태그로 읽는다).
+    if (!ONLY_TAG) {
+        let idxTags = 0;
+        for (const d of dates) {
+            const idx = await get(`clk:idx:${d}`);
+            for (const k of Object.keys(idx || {})) {
+                const t = k.slice(k.indexOf(':') + 1);
+                if (/^[a-z0-9_]{1,24}$/.test(t) && !tags.includes(t)) { tags.push(t); idxTags++; }
+            }
+        }
+        if (idxTags) console.log(`(서버 색인에서 새 태그 ${idxTags}개를 더 읽음)`);
+    }
     const jobs = [];
     for (const a of APPS) for (const t of tags) for (const d of dates) jobs.push([a, t, d]);
     const sum = {}; // `${app}:${tag}` → { field: n }
