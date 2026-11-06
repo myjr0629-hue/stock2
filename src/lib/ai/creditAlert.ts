@@ -43,30 +43,41 @@ export const snsOpsAlert: AlertSender = async (subject, message) => {
 
 export const creditAlertKey = (cycleId: string, tag: string): string => `llm:credit:alert:${cycleId}:${tag}`;
 
-/** key → 이 시각 전에는 이 인스턴스에서 다시 시도하지 않는다(보냈거나 다른 인스턴스가 보냈으면 무한대, 실패면 10분 뒤) */
+/** key → 이 시각 전에는 이 인스턴스에서 다시 시도하지 않는다(보냈으면 무한대, 그 밖 10분 뒤) */
 const _sent = new Map<string, number>();
 const RETRY_AFTER_MS = 10 * 60_000;
+/** 보내는 중 표시(임대)의 수명 — 보내던 인스턴스가 죽거나 응답이 사라져도 이 시간 뒤엔 다른 인스턴스가 보낸다 */
+const LEASE_MS = 5 * 60_000;
 export function _resetCreditAlertForTest(): void { _sent.clear(); }
 
-/** 주기마다 한 번만 보낸다. 보냈으면 true */
+/**
+ * 주기마다 한 번만 보낸다(보냈으면 true).
+ *   «보냄» 표시(<key>:sent)는 발송이 성공한 뒤에만 쓴다 — 표시가 있으면 끝.
+ *   보내는 중 임대(<key>:lease = 시각·토큰)를 쓰고 다시 읽어 내 토큰일 때만 보낸다. 임대는 5분 뒤 스스로 풀린다.
+ *   저장소가 응답하지 않으면(읽기 null) 이 인스턴스에서 보낸다 — 중복 메일 한 통이 누락보다 낫다(인스턴스 안 10분 간격).
+ */
 export async function alertOnce(store: LlmStore, key: string, send: AlertSender, subject: string, message: string, log?: (m: string) => void, now = Date.now()): Promise<boolean> {
     if ((_sent.get(key) ?? 0) > now) return false;
-    _sent.set(key, Number.POSITIVE_INFINITY);
+    _sent.set(key, now + RETRY_AFTER_MS);
     try {
-        const n = await store.incrByFloat(key, 1, 40 * 24 * 3600);
-        if (n != null && n !== 1) {
-            // 다른 인스턴스가 보냈거나 보내는 중 — 그쪽이 실패해 표시를 지울 수도 있으니 10분 뒤 다시 확인한다(보냈으면 카운터만 오른다)
-            _sent.set(key, now + RETRY_AFTER_MS);
-            return false;
-        }
+        if (await store.get(`${key}:sent`)) { _sent.set(key, Number.POSITIVE_INFINITY); return false; }
+        const leaseRaw = await store.get(`${key}:lease`);
+        const leaseAt = Number(String(leaseRaw ?? '').split(':')[0]);
+        if (leaseRaw && Number.isFinite(leaseAt) && now - leaseAt < LEASE_MS) return false;   // 다른 인스턴스가 보내는 중 — 10분 뒤 다시 본다
+        const token = `${now}:${Math.random().toString(36).slice(2, 10)}`;
+        await store.setEx(`${key}:lease`, token, Math.ceil(LEASE_MS / 1000));
+        const back = await store.get(`${key}:lease`);
+        if (back != null && back !== token) return false;   // 같은 순간 다른 인스턴스가 이겼다
         log?.(`[CreditAlert] ${subject}`);
         const ok = await send(subject, message);
-        if (!ok) {
-            _sent.set(key, now + RETRY_AFTER_MS);   // 못 보냈으면 10분 뒤 이 인스턴스도 다시 시도 · 다른 인스턴스는 바로
-            if (n === 1) await store.del(key);
+        if (ok) {
+            _sent.set(key, Number.POSITIVE_INFINITY);
+            await store.setEx(`${key}:sent`, String(now), 40 * 24 * 3600);
+        } else {
+            await store.del(`${key}:lease`);   // 못 보냈다 — 다른 인스턴스가 바로 다시 시도할 수 있게
         }
         return ok;
-    } catch { _sent.set(key, now + RETRY_AFTER_MS); return false; }
+    } catch { return false; }
 }
 
 /**

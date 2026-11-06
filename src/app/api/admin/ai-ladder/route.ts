@@ -23,7 +23,7 @@ import { peekPacing, tickPacing, PACE_STATE_KEY, type PacingStatus } from '@/lib
 import { AIQ_OFF_KEY } from '@/services/aiqContextService';
 import { sumTestSpend, testCallsKey } from '@/lib/ai/llmTestSpend';
 import { UC_SRC_KINDS, ucSrcKey, hourOf } from '@/lib/ai/ucSource';
-import { CREDIT_CHECKPOINT_KEY, cycleAt, describeCycle, parseCheckpoint, _resetCreditCycleForTest } from '@/lib/ai/creditCycle';
+import { CHECKPOINT_CLEARED, CREDIT_CHECKPOINT_KEY, cycleAt, describeCycle, parseCheckpoint, _resetCreditCycleForTest } from '@/lib/ai/creditCycle';
 
 /** 용도별로 풀어 쓴 현재 주기(사람이 읽는 표) */
 function byPurpose(p: PacingStatus) {
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, warmSeparation: body.on !== false });
     }
     if (action === 'credit-reset') {
-        if (body.clear === true) { await upstashStore.del(CREDIT_CHECKPOINT_KEY); _resetCreditCycleForTest(); return NextResponse.json({ ok: true, checkpoint: null }); }
+        if (body.clear === true) { await upstashStore.setEx(CREDIT_CHECKPOINT_KEY, CHECKPOINT_CLEARED, 400 * 24 * 3600); _resetCreditCycleForTest(); return NextResponse.json({ ok: true, checkpoint: null }); }
         const cp = parseCheckpoint({ at: body.at, balanceUsd: body.balanceUsd, nextResetAt: body.nextResetAt, monthlyUsd: body.monthlyUsd, openingUsd: body.openingUsd, carryKeys: body.carryKeys, note: body.note, setAt: new Date().toISOString() });
         if (!cp) return NextResponse.json({ error: 'invalid checkpoint (at ISO · balanceUsd > 0 · nextResetAt > at)' }, { status: 400 });
         if (Date.parse(cp.at) > Date.now() + 60_000) return NextResponse.json({ error: 'at is in the future' }, { status: 400 });

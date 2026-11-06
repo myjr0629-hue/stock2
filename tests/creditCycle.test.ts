@@ -20,7 +20,7 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         assert.equal(CODE_CHECKPOINT.at, '2026-11-05T13:18:00.000Z');
         assert.equal(CODE_CHECKPOINT.balanceUsd, 205.83);
         const c = cycleAt(U(2026, 11, 6, 1));
-        assert.equal(c.id, 'c20261105T1318'); assert.equal(c.source, 'checkpoint'); assert.equal(c.amountUsd, 205.83);
+        assert.equal(c.id, 'b20261105T131800'); assert.equal(c.source, 'checkpoint'); assert.equal(c.amountUsd, 205.83);
         assert.equal(new Date(c.endsMs).toISOString(), '2026-12-05T00:00:00.000Z');
     });
     await t('기준점 이전은 예전 달력 주기(id YYYY-MM · $200) — 끝은 기준점 시각', () => {
@@ -32,10 +32,10 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
     });
     await t('다음 갱신 뒤에는 매월 같은 시각 · monthlyUsd(기본 $200)', () => {
         const c = cycleAt(U(2026, 12, 5, 0, 0));
-        assert.equal(c.id, 'c20261205T0000'); assert.equal(c.source, 'monthly'); assert.equal(c.amountUsd, 200);
+        assert.equal(c.id, 'm20261205T000000'); assert.equal(c.source, 'monthly'); assert.equal(c.amountUsd, 200);
         assert.equal(new Date(c.endsMs).toISOString(), '2027-01-05T00:00:00.000Z');
-        assert.equal(cycleAt(U(2027, 2, 10)).id, 'c20270205T0000');
-        assert.equal(cycleAt(U(2026, 12, 4, 23, 59)).id, 'c20261105T1318');
+        assert.equal(cycleAt(U(2027, 2, 10)).id, 'm20270205T000000');
+        assert.equal(cycleAt(U(2026, 12, 4, 23, 59)).id, 'b20261105T131800');
     });
     await t('nextResetAt 이 없으면 at + 1개월 · 31일은 그달 마지막 날', () => {
         const cp = { at: '2027-01-31T10:00:00Z', balanceUsd: 50 };
@@ -58,7 +58,7 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, carryKeys: ['promo:x'] }), null);
         assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, openingUsd: 11 }), null);
         const s = memoryStore();
-        s.data.set('llm:cost:c20261105T1318', '1.5'); s.data.set('llm:cost:2026-11', '0.5');
+        s.data.set('llm:cost:b20261105T131800', '1.5'); s.data.set('llm:cost:2026-11', '0.5');
         const { cycleSpentUsd } = await import('@/lib/ai/creditCycle');
         const v = await cycleSpentUsd(s, c);
         assert.ok(Math.abs(v.total - (1.5 + 0.5 + 4.27)) < 1e-9); assert.equal(v.ledger, 1.5);
@@ -84,33 +84,56 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         const s = memoryStore();
         s.data.set(CREDIT_CHECKPOINT_KEY, JSON.stringify({ at: '2026-11-10T00:00:00Z', balanceUsd: 120 }));
         const now = U(2026, 11, 11);
-        assert.equal((await currentCycle(s, now)).id, 'c20261110T0000');
+        assert.equal((await currentCycle(s, now)).id, 'b20261110T000000');
         s.data.set(CREDIT_CHECKPOINT_KEY, 'broken');
-        assert.equal((await currentCycle(s, now + 1000)).id, 'c20261110T0000', '30초 캐시');
+        assert.equal((await currentCycle(s, now + 1000)).id, 'b20261110T000000', '30초 캐시');
         _resetCreditCycleForTest();
-        assert.equal((await currentCycle(s, now)).id, 'c20261105T1318');
+        assert.equal((await currentCycle(s, now)).id, 'b20261105T131800');
         _resetCreditCycleForTest();
         const dead: any = { ...memoryStore(), get: () => Promise.reject(new Error('down')) };
-        assert.equal((await currentCycle(dead, now)).id, 'c20261105T1318');
+        assert.equal((await currentCycle(dead, now)).id, 'b20261105T131800');
         _resetCreditCycleForTest();
     });
 
-    await t('경보 alertOnce: 다른 인스턴스가 보내다 실패해 표시를 지우면 10분 뒤 이 인스턴스가 다시 보낸다', async () => {
+    await t('경보 alertOnce: 보낸 뒤에만 «보냄» 표시 · 다른 인스턴스 임대 중이면 10분 뒤 재확인 · 임대가 풀리거나 5분 지나면 보낸다', async () => {
         const { alertOnce, _resetCreditAlertForTest } = await import('@/lib/ai/creditAlert');
         _resetCreditAlertForTest();
         const s = memoryStore(); const key = 'llm:credit:alert:x:p80';
-        s.data.set(key, '1');                                    // A 가 선점(보내는 중)
-        const sent: string[] = []; const ok = async (sub: string) => { sent.push(sub); return true; };
         const T = 1_000_000;
+        s.data.set(`${key}:lease`, `${T}:other`);               // A 가 보내는 중
+        const sent: string[] = []; const ok = async (sub: string) => { sent.push(sub); return true; };
         assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T), false);
-        s.data.delete(key);                                      // A 발송 실패 → 표시 삭제
+        s.data.delete(`${key}:lease`);                           // A 발송 실패 → 임대 해제
         assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 60_000), false, '10분 전에는 다시 안 본다');
         assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 10 * 60_000 + 1), true);
+        assert.ok(s.data.has(`${key}:sent`));
         assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 99 * 60_000), false, '보낸 뒤엔 다시 안 보낸다');
+        _resetCreditAlertForTest();
+        assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 100 * 60_000), false, '다른 인스턴스도 «보냄» 표시를 보고 안 보낸다');
         assert.equal(sent.length, 1);
+        // 임대한 인스턴스가 죽었다(임대가 남음) — 5분 지나면 다른 인스턴스가 보낸다
+        _resetCreditAlertForTest();
+        const s2 = memoryStore(); s2.data.set(`${key}:lease`, `${T}:dead`);
+        assert.equal(await alertOnce(s2, key, ok, 'S', 'M', undefined, T + 6 * 60_000), true);
+        // 저장소 응답 없음 — 이 인스턴스에서 보낸다(누락보다 중복 한 통)
+        _resetCreditAlertForTest();
+        const dead: any = { get: async () => null, setEx: async () => undefined, del: async () => undefined, incrByFloat: async () => null };
+        assert.equal(await alertOnce(dead, key, ok, 'S', 'M', undefined, T), true);
         _resetCreditAlertForTest();
     });
-
+    await t('기준점 읽기 null(키 없음·시간 초과 구분 불가) — 마지막으로 읽은 저장 기준점을 5초만 쓰고 다시 읽는다 · 지운 표시는 코드 기본값', async () => {
+        const { CHECKPOINT_CLEARED } = await import('@/lib/ai/creditCycle');
+        _resetCreditCycleForTest();
+        const s = memoryStore(); const now = U(2026, 11, 11);
+        s.data.set(CREDIT_CHECKPOINT_KEY, JSON.stringify({ at: '2026-11-10T00:00:00Z', balanceUsd: 120 }));
+        assert.equal((await currentCycle(s, now)).id, 'b20261110T000000');
+        s.data.delete(CREDIT_CHECKPOINT_KEY);                    // 시간 초과처럼 null
+        assert.equal((await currentCycle(s, now + 31_000)).id, 'b20261110T000000', '잠깐의 null 에 기본 주기로 넘어가지 않는다');
+        s.data.set(CREDIT_CHECKPOINT_KEY, CHECKPOINT_CLEARED);
+        assert.equal((await currentCycle(s, now + 33_000)).id, 'b20261110T000000', '5초 캐시');
+        assert.equal((await currentCycle(s, now + 37_000)).id, 'b20261105T131800', '지운 표시 → 코드 기본값');
+        _resetCreditCycleForTest();
+    });
     console.log(`\ncreditCycle: ${pass} passed, ${fail} failed`);
     if (fail) process.exit(1);
 })();

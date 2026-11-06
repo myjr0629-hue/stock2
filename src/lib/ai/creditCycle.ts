@@ -59,7 +59,7 @@ export const CODE_CHECKPOINT: CreditCheckpoint = {
 };
 
 export interface CreditCycle {
-    /** 원장 키 접미사 — 기준점·월 주기 'cYYYYMMDDTHHmm' · 기준점 이전(예전 달력 주기) 'YYYY-MM' */
+    /** 원장 키 접미사 — 기준점 주기 'bYYYYMMDDTHHmmss' · 그 뒤 월 주기 'mYYYYMMDDTHHmmss' · 기준점 이전(예전 달력 주기) 'YYYY-MM' (접두·초까지 넣어 서로 겹치지 않게) */
     id: string;
     startMs: number;
     endsMs: number;
@@ -99,7 +99,7 @@ export function spendTier(purpose: string, fresh: boolean): SpendTier {
     return ESSENTIAL_PURPOSES.includes(purpose) ? 'essential' : 'standard';
 }
 
-const compact = (ms: number): string => new Date(ms).toISOString().slice(0, 16).replace(/[-:]/g, '');   // 20261105T1318
+const compact = (ms: number): string => new Date(ms).toISOString().slice(0, 19).replace(/[-:]/g, '');   // 20261105T131800
 
 /** ms 에 k 개월을 더한다(UTC, 시각 유지). 31일 같은 날이 없는 달은 그달 마지막 날 */
 export function addMonthsUTC(ms: number, k: number): number {
@@ -155,13 +155,13 @@ export function cycleAt(nowMs: number, cp: CreditCheckpoint | null = CODE_CHECKP
     }
     const nextMs = c.nextResetAt ? Date.parse(c.nextResetAt) : addMonthsUTC(atMs, 1);
     if (nowMs < nextMs) {
-        const id = `c${compact(atMs)}`;
+        const id = `b${compact(atMs)}`;
         return { id, startMs: atMs, endsMs: nextMs, amountUsd: c.balanceUsd, source: 'checkpoint', openingUsd: c.openingUsd ?? 0, carryKeys: (c.carryKeys ?? []).filter((k) => k !== `llm:cost:${id}`) };
     }
     let k = 0;
     while (addMonthsUTC(nextMs, k + 1) <= nowMs && k < 1200) k++;
     const start = addMonthsUTC(nextMs, k);
-    return { id: `c${compact(start)}`, startMs: start, endsMs: addMonthsUTC(nextMs, k + 1), amountUsd: c.monthlyUsd ?? DEFAULT_MONTHLY_USD, source: 'monthly', openingUsd: 0, carryKeys: [] };
+    return { id: `m${compact(start)}`, startMs: start, endsMs: addMonthsUTC(nextMs, k + 1), amountUsd: c.monthlyUsd ?? DEFAULT_MONTHLY_USD, source: 'monthly', openingUsd: 0, carryKeys: [] };
 }
 
 /** 이 주기 지출 합 = 주기 원장 + 원장 밖 지출(openingUsd) + 옛 원장 키(carryKeys). 저장소가 죽으면 읽힌 만큼만(0 으로 본다) */
@@ -172,16 +172,31 @@ export async function cycleSpentUsd(store: LlmStore, c: CreditCycle): Promise<{ 
     return { total: ledger + base, ledger, base };
 }
 
-// ── 저장소에서 읽기 — 30초 캐시(사다리 상태 캐시와 같은 간격). 저장소가 죽으면 코드 기본 기준점 ──
-let _cp: { at: number; cp: CreditCheckpoint } | null = null;
+/** 관리자가 기준점을 지울 때 남기는 표시 — «없음»을 저장소 장애(null)와 구분한다 */
+export const CHECKPOINT_CLEARED = '{"cleared":true}';
+
+// ── 저장소에서 읽기 — 30초 캐시(사다리 상태 캐시와 같은 간격) ──
+//   null(키 없음 또는 저장소 시간 초과 — llmStore 는 둘을 구분하지 않는다)이면 이 인스턴스가 마지막으로 읽은 저장 기준점(없으면 코드 기본값)을
+//   5초만 쓰고 다시 읽는다 — 잠깐의 장애로 다른 주기 원장에 지출을 쌓지 않게. 지운 표시·깨진 값은 코드 기본값(30초).
+let _cp: { at: number; ttl: number; cp: CreditCheckpoint } | null = null;
+let _lastStored: CreditCheckpoint | null = null;
 const CP_TTL_MS = 30_000;
-export function _resetCreditCycleForTest(): void { _cp = null; }
+const CP_TTL_AMBIGUOUS_MS = 5_000;
+export function _resetCreditCycleForTest(): void { _cp = null; _lastStored = null; }
 
 export async function loadCheckpoint(store: LlmStore, nowMs: number): Promise<CreditCheckpoint> {
-    if (_cp && nowMs - _cp.at < CP_TTL_MS && nowMs >= _cp.at) return _cp.cp;
-    let cp = CODE_CHECKPOINT;
-    try { cp = parseCheckpoint(await store.get(CREDIT_CHECKPOINT_KEY)) ?? CODE_CHECKPOINT; } catch { /* 코드 기본값 */ }
-    _cp = { at: nowMs, cp };
+    if (_cp && nowMs >= _cp.at && nowMs - _cp.at < _cp.ttl) return _cp.cp;
+    let raw: string | null = null;
+    let failed = false;
+    try { raw = await store.get(CREDIT_CHECKPOINT_KEY); } catch { failed = true; }
+    let cp: CreditCheckpoint, ttl = CP_TTL_MS;
+    if (failed || raw == null) { cp = _lastStored ?? CODE_CHECKPOINT; ttl = CP_TTL_AMBIGUOUS_MS; }
+    else {
+        const parsed = parseCheckpoint(raw);
+        cp = parsed ?? CODE_CHECKPOINT;
+        _lastStored = parsed;
+    }
+    _cp = { at: nowMs, ttl, cp };
     return cp;
 }
 
