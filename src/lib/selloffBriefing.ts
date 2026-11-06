@@ -205,25 +205,32 @@ const SCRIPT_OK: Record<SelloffLocale, (s: string) => boolean> = {
   ja: s => /[぀-ヿ一-鿿]/.test(s) && !/[가-힣]/.test(s),
   en: s => !/[가-힣぀-ヿ一-鿿]/.test(s),
 };
-/** 첫 문장(너무 짧은 «U.S.» 같은 조각은 다음 문장과 잇는다). 문장 끝이 없으면 전체 — 카드 CSS 가 2줄로 자른다. */
+/** 마침표가 문장 끝이 아닌 약어(«U.S.»·«e.g.»·«Inc.» 등) — 관문 11061045. */
+const ABBREV = /(?:^|\s)(?:(?:[A-Za-z]\.)*[A-Za-z]|Inc|Corp|Co|Ltd|vs|etc|Mr|Mrs|Ms|Dr|St|Jr|Sr|No|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)$/;
+/** 첫 문장. 약어의 마침표·너무 짧은 조각(25자 미만)에서는 끊지 않는다. 문장 끝이 없으면 전체 — 카드 CSS 가 2줄로 자른다. */
 export function firstSentence(text: string): string {
   const s = text.replace(/\s+/g, ' ').trim();
   const re = /[.!?](?=\s)|[。！？]/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(s))) if (m.index + 1 >= 25) return s.slice(0, m.index + 1);
+  while ((m = re.exec(s))) {
+    if (s[m.index] === '.' && ABBREV.test(s.slice(0, m.index))) continue;
+    if (m.index + 1 >= 25) return s.slice(0, m.index + 1);
+  }
   return s;
 }
 /** 지수 이름 — 지수의 크기·방향은 칩이 말한다. «왜» 줄은 원인 문장만 싣는다. */
 const INDEX_NAME = /S&P|NASDAQ|Nasdaq|nasdaq|나스닥|ナスダック|SOX|필라델피아 반도체|フィラデルフィア半導体|Philadelphia Semiconductor|VIX|Dow|다우|ダウ|Russell|러셀|ラッセル|코스피|KOSPI|日経|Nikkei/;
-/** 오름 낱말(어간) — 급락 카드 위 원인 문장에 오름 서술이 있으면 칩과 어긋날 수 있다. */
-const UP = /\b(?:surg|soar|jump|rall(?:y|ied|ies)|rose|rise[sn]?\b|rising|gain|climb|rebound|advanc|higher|spik)|상승|급등|반등|올랐|오른|오름|강세|치솟|上昇|急騰|反発|上げ|高騰|続伸/i;
+/** 매도·하락 신호 — 급락 카드의 원인 문장이면 반드시 하나는 있다(11/5 실문장: 매도세·selling·売り). */
+const SELL = /\bsell|\bsold\b|\bdeclin|\bdrop|\bfell\b|\bfall|\bslid|\bslump|\bplung|\btumbl|\bsank|\bweak|\blosses\b|\bdown(?:turn|grade)?\b|risk[- ]off|risk aversion|매도|하락|약세|급락|밀렸|밀린|떨어|손실|위험 회피|売り|下落|急落|下げ|軟調|リスク回避|安/i;
+/** 오름·매수 낱말 — 하나라도 있으면 칩과 어긋날 수 있다. */
+const UP = /\b(?:up\b|surg|soar|jump|rall(?:y|ied|ies)|rose|rise[sn]?\b|rising|gain|climb|rebound|advanc|higher|spik|bought|buy|bull|strong(?:er)?\b|record high)|상승|급등|반등|올랐|오른|오름|강세|치솟|매수|사상 최고|上昇|急騰|反発|上げ|高騰|続伸|買い|強気|最高値/i;
 /**
  * 서사 첫 문장이 카드 칩과 어긋날 수 있으면 true → 서사를 쓰지 않고 칩 숫자 사실 한 줄로 간다(틀린 문장보다 덜 말하는 쪽).
- * 낱말 목록을 늘리는 방식은 새는 표현이 끝없어서(관문 11061022·11061030) 구조로 막는다:
- * ① % 기호가 있으면 거부(숫자 유무 무관 — 관문 11061033) ② 지수 이름이 나오면 거부(지수 방향·크기 주장 자체를 싣지 않는다) ③ 오름 낱말이 있으면 거부.
+ * 거부 목록만으로는 새는 표현이 끝없어서(관문 11061022·11061030·11061045) 허용 조건을 건다:
+ * ① % 기호 없음 ② 지수 이름 없음(지수 방향·크기 주장 자체를 싣지 않는다) ③ 매도·하락 신호가 있어야 함 ④ 오름·매수 낱말 없음.
  */
 export function contradictsChips(sentence: string, _brief?: SelloffBrief): boolean {
-  return /[%％]/.test(sentence) || INDEX_NAME.test(sentence) || UP.test(sentence);
+  return /[%％]/.test(sentence) || INDEX_NAME.test(sentence) || !SELL.test(sentence) || UP.test(sentence);
 }
 /**
  * 원인 표식: 리포트 규칙상 «왜»는 같은 세션에 일치한 후보이지 확정 원인이 아니다. 유보 문장이 어떤 표현으로 오든(관문 11061030)

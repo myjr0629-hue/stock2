@@ -455,9 +455,11 @@ test('why line: same-session narrative shows its first sentence in ko/en/ja', ()
   for (const loc of ['ko', 'en', 'ja'] as const) assert.equal(selloffWhyLine(nov5, loc, { status: 'ok', json: served() })?.source, 'narrative');
   // 유보 문장이 어떤 표현이든(관문 11061030 «아직 알 수 없습니다») 첫 문장 앞에 늘 «후보» 표식.
   assert.equal(selloffWhyFromReport(served(), nov5, 'ja'), '要因候補 · 最も強い根拠は、取引時間中に報じられたAIハードウェア株の売り関連ニュースです。');
-  assert.equal(selloffWhyFromReport(served({}, { ...why1105, ko: '반도체 수출 규제 보도가 같은 세션에 나왔습니다. 직접 원인은 아직 알 수 없습니다.' }), nov5, 'ko'), '원인 후보 · 반도체 수출 규제 보도가 같은 세션에 나왔습니다.');
+  assert.equal(selloffWhyFromReport(served({}, { ...why1105, ko: '반도체 수출 규제 보도와 함께 매도세가 같은 세션에 나왔습니다. 직접 원인은 아직 알 수 없습니다.' }), nov5, 'ko'), '원인 후보 · 반도체 수출 규제 보도와 함께 매도세가 같은 세션에 나왔습니다.');
   // 숫자 안의 마침표·«U.S.» 같은 짧은 조각에서 끊지 않는다.
   assert.equal(firstSentence('U.S. stocks fell 4.36% as chip shares slid. Second sentence.'), 'U.S. stocks fell 4.36% as chip shares slid.');
+  assert.equal(firstSentence('Selling accelerated after U.S. officials announced restrictions. More.'), 'Selling accelerated after U.S. officials announced restrictions.'); // 관문 11061045
+  assert.equal(firstSentence('Chip selling followed reports on Nvidia Corp. and Super Micro Inc. late in the day. Next.'), 'Chip selling followed reports on Nvidia Corp. and Super Micro Inc. late in the day.');
 });
 test('why line: stale or foreign narrative is rejected (other date, pre-close generation, failed/unsourced payload, wrong script)', () => {
   assert.equal(selloffWhyFromReport(served({ date: '2026-11-04' }), nov5, 'ko'), null);
@@ -474,12 +476,12 @@ test('why line: stale or foreign narrative is rejected (other date, pre-close ge
   assert.equal(selloffWhyLine(nov5, 'ko', { status: 'ok', json: served({ date: '2026-11-04' }) })?.source, 'fallback');
 });
 test('why line: a first sentence that could disagree with the chips is not shown (%, index names, rising words)', () => {
-  for (const ok of ['가장 강한 근거는 세션 중 보도된 반도체·AI 하드웨어 관련 매도세 소식입니다.', why1105.en.split(' Silicon')[0], '最も強い根拠は、取引時間中に報じられたAIハードウェア株の売り関連ニュースです。', 'Enterprise software selling was reported overall against the session.'])
+  for (const ok of ['가장 강한 근거는 세션 중 보도된 반도체·AI 하드웨어 관련 매도세 소식입니다.', why1105.en.split(' Silicon')[0], '最も強い根拠は、取引時間中に報じられたAIハードウェア株の売り関連ニュースです。', 'Enterprise software selling was reported overall against the session.', 'Selling accelerated after U.S. officials announced restrictions.'])
     assert.equal(contradictsChips(ok), false, ok);
   for (const bad of [
     'The S&P 500 rose 4.4% after the report.', 'Nasdaq fell 3.1% as chips slid.', 'Nasdaq surged as investors bought technology stocks.', // 관문 11061022·11061030 재현
     'S&P 500은 -4.36%로 마감했습니다.', 'Tech shares soared after the jobs report.', 'Investors bought the dip and stocks rallied.',
-    '반도체 주가가 급등한 배경은 실적 기대입니다.', '나스닥 약세는 반도체 매도와 같은 세션에 나타났습니다.', '金利低下で株価が上昇しました。', 'VIX는 하락했습니다.', 'Selling hit 3% of names.', 'The % change in semiconductor shares reflects selling pressure.',
+    '반도체 주가가 급등한 배경은 실적 기대입니다.', '나스닥 약세는 반도체 매도와 같은 세션에 나타났습니다.', '金利低下で株価が上昇しました。', 'VIX는 하락했습니다.', 'Selling hit 3% of names.', 'The % change in semiconductor shares reflects selling pressure.', 'The stock market was up as investors bought technology shares.', 'Reports of new export rules on AI chips appeared during the session.', '수출 규제 보도가 세션 중 나왔습니다.',
   ]) assert.equal(contradictsChips(bad), true, bad);
   assert.equal(selloffWhyFromReport(served({}, { ...why1105, ko: 'S&P 500이 -2.10% 하락한 배경은 반도체 매도세와 같은 세션에 일치합니다.' }), nov5, 'ko'), null);
   assert.equal(selloffWhyLine(nov5, 'en', { status: 'ok', json: served({}, { ...why1105, en: 'Nasdaq surged as investors bought technology stocks.' }) })?.source, 'fallback');
