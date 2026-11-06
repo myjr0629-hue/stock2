@@ -68,6 +68,8 @@ export async function alertOnce(store: LlmStore, key: string, send: AlertSender,
         const lockKey = `${key}:lock:${slot}`;
         const n = await store.incrByFloat(lockKey, 1, Math.ceil((2 * LOCK_SLOT_MS) / 1000));
         if (n != null && n !== 1) return false;
+        // 칸 경계 경쟁 — 앞 칸 확인과 내 잠금 사이에 앞 칸 잠금이 생겼으면 앞 칸이 이긴다(뒤 칸은 물러나 잠금을 푼다)
+        if (n === 1 && (await store.get(`${key}:lock:${slot - 1}`))) { await store.del(lockKey); return false; }
         log?.(`[CreditAlert] ${subject}`);
         const ok = await send(subject, message);
         if (ok) {

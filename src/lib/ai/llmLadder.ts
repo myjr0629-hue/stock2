@@ -417,13 +417,13 @@ async function openBreaker(id: string, sec: number, reason: string, d: LadderDep
 }
 
 /**
- * 지금 크레딧 주기(실제 잔액 기준점 — lib/ai/creditCycle)와 그 주기 지출 합(원장 + 원장 밖 opening + 옛 키 carry).
+ * 지금 크레딧 주기(실제 잔액 기준점 — lib/ai/creditCycle)와 그 주기 지출 합(원장 + 원장 밖 opening + 다른 키 증가분 carry).
  * 30초 캐시 — fresh 면 캐시를 거치지 않는다(정지선 $1 안쪽에서는 다른 인스턴스 지출을 바로 본다).
  */
 async function cycleSpend(d: LadderDeps, fresh = false): Promise<{ cycle: CreditCycle; spent: number; base: number }> {
     const now = d.now();
     const cycle = await currentCycle(d.store, now);
-    const ck = `cost:${cycle.id}`;
+    const ck = `cost:${cycle.id}:${cycle.sig}`;
     if (fresh) _cache.delete(ck);
     const v = await cached(ck, now, () => cycleSpentUsd(d.store, cycle));
     return { cycle, spent: v.total, base: v.base };
@@ -685,7 +685,7 @@ async function tryRung(
     if ((id === 'a55' || id === 'a55s') && cost > 0) {
         // 원장 — 응답이 왔으면(거절·가드 실패 포함) 과금된 것으로 센다. 주기 = 실제 잔액 기준점(lib/ai/creditCycle)
         const cycle = await currentCycle(d.store, d.now());
-        const ck = `cost:${cycle.id}`;
+        const ck = `cost:${cycle.id}:${cycle.sig}`;
         const prevV = _cache.get(ck)?.v as { total: number; ledger: number; base: number } | undefined;
         const ledger = await d.store.incrByFloat(K.cost(cycle.id), cost, 45 * 24 * 3600);
         if (ledger != null && prevV) {

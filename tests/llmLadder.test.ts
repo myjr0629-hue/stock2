@@ -403,7 +403,7 @@ const records = (s: Spy): CallRecord[] => {
         assert.equal(calls, 1); assert.equal(s3.store.data.has('llm:credit:alert:2026-10:shed-standard:sent'), false); assert.equal([...s3.store.data.keys()].some((k) => k.startsWith('llm:credit:alert:2026-10:shed-standard:lock')), false, '실패하면 잠금을 풀어 다른 인스턴스가 다시 시도');
         _resetLadderStateForTest();
     });
-    await t('기준점 뒤 배포 전 지출: openingUsd + 옛 원장 키(carryKeys)를 이 주기 지출에 더한다', async () => {
+    await t('기준점 뒤 배포 전 지출: openingUsd + 옛 원장 키(carry)를 이 주기 지출에 더한다', async () => {
         _resetLadderStateForTest();
         const s = mk({ now: () => Date.UTC(2026, 10, 6, 2, 0, 0), allow: { FlowAI: {}, CrossSector: LADDER_PURPOSES.CrossSector } });
         s.store.data.set(LLM_KEYS.cost('2026-11'), '200.6');   // 옛 코드가 11/6 00Z 뒤 쌓은 키(가정 값) + opening 4.27 → $204.87

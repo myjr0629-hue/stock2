@@ -50,18 +50,25 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, monthlyUsd: -1 }), null);
         assert.deepEqual(parseCheckpoint(JSON.stringify({ at: '2026-11-05T00:00:00Z', balanceUsd: 10 })), { at: '2026-11-05T00:00:00.000Z', balanceUsd: 10 });
     });
-    await t('원장 밖 지출: openingUsd·carryKeys 는 기준점 주기에만 · 잘못된 키·잔액 이상 opening 은 거부', async () => {
+    await t('원장 밖 지출: openingUsd·carry(키 값 − fromUsd)는 기준점 주기에만 · 잘못된 키·잔액 이상 opening 은 거부', async () => {
         const c = cycleAt(U(2026, 11, 6, 1));
-        assert.equal(c.openingUsd, 4.27); assert.deepEqual(c.carryKeys, ['llm:cost:2026-11']);
+        assert.equal(c.openingUsd, 4.27); assert.deepEqual(c.carry, [{ key: 'llm:cost:2026-11', fromUsd: 0 }]);
         const m = cycleAt(U(2026, 12, 6));
-        assert.equal(m.openingUsd, 0); assert.deepEqual(m.carryKeys, []);
-        assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, carryKeys: ['promo:x'] }), null);
+        assert.equal(m.openingUsd, 0); assert.deepEqual(m.carry, []);
+        assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, carry: [{ key: 'promo:x', fromUsd: 0 }] }), null);
         assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, openingUsd: 11 }), null);
         const s = memoryStore();
         s.data.set('llm:cost:b20261105T131800', '1.5'); s.data.set('llm:cost:2026-11', '0.5');
         const { cycleSpentUsd } = await import('@/lib/ai/creditCycle');
         const v = await cycleSpentUsd(s, c);
         assert.ok(Math.abs(v.total - (1.5 + 0.5 + 4.27)) < 1e-9); assert.equal(v.ledger, 1.5);
+        // 관리자 기준점 교체: 직전 주기 원장은 «그 순간 값부터»만 더한다 · 같은 id 라도 opening 을 고치면 서명이 바뀐다
+        const cp2 = { at: '2026-11-20T00:00:00Z', balanceUsd: 100, carry: [{ key: 'llm:cost:b20261105T131800', fromUsd: 150 }] };
+        const c2 = cycleAt(U(2026, 11, 20, 0, 1), cp2);
+        s.data.set('llm:cost:b20261105T131800', '150.4'); s.data.set('llm:cost:b20261120T000000', '0.1');
+        assert.ok(Math.abs((await cycleSpentUsd(s, c2)).total - 0.5) < 1e-9);
+        assert.notEqual(c2.sig, cycleAt(U(2026, 11, 20, 0, 1), { ...cp2, openingUsd: 1 }).sig);
+        assert.deepEqual(cycleAt(U(2026, 11, 20, 0, 1), { ...cp2, carry: [{ key: 'llm:cost:b20261120T000000', fromUsd: 0 }] }).carry, [], '자기 원장은 carry 에서 뺀다');
     });
     await t('정지선: 필수 잔액−0.2 > 일반 −1.0 > 증가분 −1.5 > 페이싱 목표 −2.0 ($200 이면 199.8/199/198.5/198)', () => {
         assert.equal(tierStopUsd('essential', 200), 199.8); assert.equal(tierStopUsd('standard', 200), 199);
@@ -121,6 +128,13 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         const s3 = memoryStore(); let n3 = 0; const c3 = async () => { n3++; return true; };
         const r = await Promise.all([alertOnce(s3, key, c3, 'S', 'M', undefined, T), (async () => { _resetCreditAlertForTest(); return alertOnce(s3, key, c3, 'S', 'M', undefined, T + 1); })()]);
         assert.equal(r.filter(Boolean).length, 1); assert.equal(n3, 1);
+        // 칸 경계 경쟁 — 뒤 칸(B)이 잠근 뒤 앞 칸(A) 잠금이 보이면 B 는 물러난다
+        _resetCreditAlertForTest();
+        const s4 = memoryStore(); s4.data.set(`${key}:lock:3`, '1');   // A 가 칸 3 을 방금 잡음(B 의 앞 칸 확인 뒤라고 가정 → B 는 확인 뒤 다시 본다)
+        const realGet = s4.get.bind(s4); let first = true;
+        (s4 as any).get = async (k: string) => { if (k === `${key}:lock:3` && first) { first = false; return null; } return realGet(k); };
+        assert.equal(await alertOnce(s4, key, ok, 'S', 'M', undefined, 4 * SLOT + 1), false);
+        assert.equal(s4.data.has(`${key}:lock:4`), false, 'B 는 잠금을 풀고 물러난다');
         // 저장소 응답 없음 — 이 인스턴스에서 보낸다(누락보다 중복 한 통)
         _resetCreditAlertForTest();
         const dead: any = { get: async () => null, setEx: async () => undefined, del: async () => undefined, incrByFloat: async () => null };
