@@ -10,6 +10,8 @@
  *                            {action:'warm-sep', on:boolean}           딥 분석 예열 몫 분리(수요 상위 10종목 · 개장 직후 1회 · 예열 자신의 몫) 켜기(on:true)/끄기(on:false → 옛 규칙) — 키 llm:warmsep:off, 30초 안에
  *                            {action:'breaker-reset'}                  서킷 브레이커 해제
  *                            {action:'pace-tick'}                      페이싱 조절기 판단을 지금 한 번(저장) · {action:'pace-reset'} 조절기 상태 삭제
+ *                            {action:'credit-reset', at:ISO, balanceUsd:n, nextResetAt?:ISO, monthlyUsd?:n, note?}  실제 크레딧 기준점(2026-11-06, lib/ai/creditCycle)
+ *                                — «이 시각 콘솔 잔액이 n 달러» → 그 시각부터 새 원장(llm:cost:c<시각>)·한도 n. dryRun:true 면 저장 없이 계산만. {action:'credit-reset', clear:true} → 코드 기본 기준점으로
  * 인증: Authorization: Bearer <CRON_SECRET> (lib/ai/adminAuth). 응답에 키 값은 없다(설정 여부만).
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -21,6 +23,7 @@ import { peekPacing, tickPacing, PACE_STATE_KEY, type PacingStatus } from '@/lib
 import { AIQ_OFF_KEY } from '@/services/aiqContextService';
 import { sumTestSpend, testCallsKey } from '@/lib/ai/llmTestSpend';
 import { UC_SRC_KINDS, ucSrcKey, hourOf } from '@/lib/ai/ucSource';
+import { CREDIT_CHECKPOINT_KEY, cycleAt, describeCycle, parseCheckpoint, _resetCreditCycleForTest } from '@/lib/ai/creditCycle';
 
 /** 용도별로 풀어 쓴 현재 주기(사람이 읽는 표) */
 function byPurpose(p: PacingStatus) {
@@ -139,6 +142,17 @@ export async function POST(req: NextRequest) {
     if (action === 'warm-sep') {           // 2026-10-12 — on:false 면 끄기 스위치를 세운다(옛 규칙: 고정 20종목 · 상한 50% · 2라운드)
         if (body.on === false) await upstashStore.setEx(LLM_KEYS.warmSepOff, '1', 30 * 24 * 3600); else await upstashStore.del(LLM_KEYS.warmSepOff);
         return NextResponse.json({ ok: true, warmSeparation: body.on !== false });
+    }
+    if (action === 'credit-reset') {
+        if (body.clear === true) { await upstashStore.del(CREDIT_CHECKPOINT_KEY); _resetCreditCycleForTest(); return NextResponse.json({ ok: true, checkpoint: null }); }
+        const cp = parseCheckpoint({ at: body.at, balanceUsd: body.balanceUsd, nextResetAt: body.nextResetAt, monthlyUsd: body.monthlyUsd, note: body.note, setAt: new Date().toISOString() });
+        if (!cp) return NextResponse.json({ error: 'invalid checkpoint (at ISO · balanceUsd > 0 · nextResetAt > at)' }, { status: 400 });
+        if (Date.parse(cp.at) > Date.now() + 60_000) return NextResponse.json({ error: 'at is in the future' }, { status: 400 });
+        const cycle = describeCycle(cycleAt(Date.now(), cp));
+        if (body.dryRun === true) return NextResponse.json({ ok: true, dryRun: true, checkpoint: cp, cycle });
+        await upstashStore.setEx(CREDIT_CHECKPOINT_KEY, JSON.stringify(cp), 400 * 24 * 3600);
+        _resetCreditCycleForTest();
+        return NextResponse.json({ ok: true, checkpoint: cp, cycle, note: '다른 인스턴스는 30초 안에 새 기준점을 읽는다' });
     }
     if (action === 'breaker-reset') {
         for (const id of ['a55', 'a55s', 'b55i', 'b55m']) await upstashStore.del(LLM_KEYS.breaker(id));

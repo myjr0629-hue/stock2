@@ -24,7 +24,8 @@ import { evaluateOutput } from '@/lib/ai/ladderGates';
 import { newsItemVerdicts, titlesFromNewsPrompt } from '@/lib/ai/tickerNewsGuard';
 import { LLM_KEYS, defaultCallAnthropic, LadderRungError, TRACKED_PURPOSES } from '@/lib/ai/llmLadder';
 import { shapeH55Body, type Effort } from '@/lib/ai/llmRequest';
-import { costOf, periodId, type PriceModel } from '@/lib/ai/llmPricing';
+import { costOf, type PriceModel } from '@/lib/ai/llmPricing';
+import { currentCycle, tierStopUsd } from '@/lib/ai/creditCycle';
 import { upstashStore } from '@/lib/ai/llmStore';
 import { recordTestSpend } from '@/lib/ai/llmTestSpend';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
@@ -125,7 +126,7 @@ async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array'
         const p = r.parsed;
         // 시험 호출도 크레딧을 쓴다 — 월 원장에 넣어 페이싱 조절기가 실제 지출을 보게 한다(2026-10-11: 이전엔 비교 호출이 원장 밖이었다)
         const spent = costOf(p.usage, ADHOC_MODELS[model]);
-        if (spent > 0) { try { await upstashStore.incrByFloat(LLM_KEYS.cost(periodId(new Date())), spent, 45 * 24 * 3600); } catch { /* 원장 기록 실패는 비교에 영향 없음 */ } }
+        if (spent > 0) { try { await upstashStore.incrByFloat(LLM_KEYS.cost((await currentCycle(upstashStore, Date.now())).id), spent, 45 * 24 * 3600); } catch { /* 원장 기록 실패는 비교에 영향 없음 */ } }
         await recordTestSpend(opt.tag, spent, model);   // 시험 호출 표식(lib/ai/llmTestSpend) — 호출 기록 밖 지출을 귀속시킨다
         return {
             ok: true as const, ms: Date.now() - t0, text: p.text, usage: p.usage, costUsd: costOf(p.usage, ADHOC_MODELS[model]), model,
@@ -140,6 +141,12 @@ async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array'
 export async function POST(req: NextRequest) {
     if (!adminAuthorized(req.headers)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
+    // 시험 호출은 «증가분(extra)» 등급 — 크레딧이 빠듯하면 사용자 글보다 먼저 멈춘다(2026-11-06, lib/ai/creditCycle). list 는 호출이 없어 통과
+    if (!body.list) {
+        const cyc = await currentCycle(upstashStore, Date.now());
+        const spentNow = Number(await upstashStore.get(LLM_KEYS.cost(cyc.id))) || 0;
+        if (spentNow >= tierStopUsd('extra', cyc.amountUsd)) return NextResponse.json({ ok: false, error: 'credit-shed', cycle: cyc.id, spentUsd: spentNow, stopUsd: tierStopUsd('extra', cyc.amountUsd) }, { status: 429 });
+    }
     // 리허설용 원본 통과: 로컬에서 «진짜 runLadder» 를 돌릴 때 ① 호출만 서버(크레딧 키가 있는 곳)로 보낸다 — 사다리가 만든 요청 본문 그대로.
     //   모델은 허용 목록(haiku-5-5 · sonnet-5-5)만 — 그 밖은 haiku-5-5 로 바꾼다. 오류는 사다리가 쓰는 분류(kind·closeSec)로 돌려준다. 시험 호출도 월 원장에 센다.
     if (body.raw && typeof body.raw === 'object' && body.raw.body && typeof body.raw.body === 'object') {
@@ -153,7 +160,7 @@ export async function POST(req: NextRequest) {
             const rb = { ...(body.raw.body as Record<string, unknown>), model };
             const r = await defaultCallAnthropic({ body: rb, timeoutMs: Math.min(58_000, Math.max(5_000, Number(body.raw.timeoutMs) || 30_000)) }, key);
             const spent = costOf(r.parsed.usage, ADHOC_MODELS[model]);
-            if (spent > 0) { try { await upstashStore.incrByFloat(LLM_KEYS.cost(periodId(new Date())), spent, 45 * 24 * 3600); } catch { /* 원장 기록 실패는 호출에 영향 없음 */ } }
+            if (spent > 0) { try { await upstashStore.incrByFloat(LLM_KEYS.cost((await currentCycle(upstashStore, Date.now())).id), spent, 45 * 24 * 3600); } catch { /* 원장 기록 실패는 호출에 영향 없음 */ } }
             await recordTestSpend(body.tag, spent, model);   // 시험 호출 표식 — body.tag(없으면 untagged)
             return NextResponse.json({ ok: true, raw: true, ms: Date.now() - t0, parsed: r.parsed });
         } catch (e: any) {

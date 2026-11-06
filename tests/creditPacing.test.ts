@@ -257,7 +257,7 @@ function state(over: Partial<PacingState> & { now: number }): PacingState {
         await tickPacing({ ...deps, now: () => NOW + 31 * 60_000 });
         assert.notEqual(store.data.get(PACE_STATE_KEY), saved1);
         const p = await peekPacing(deps);
-        assert.equal(p.targetUsd, 198); assert.equal(p.capUsd, 199); assert.equal(p.spentUsd, 20); assert.ok(p.knobs.digestIntervalMin <= 15);
+        assert.equal(p.targetUsd, 198); assert.equal(p.capUsd, 198.5); assert.equal(p.spentUsd, 20); assert.ok(p.knobs.digestIntervalMin <= 15);
     });
     await t('tickPacing: 키 없음·a55 서킷 열림·킬 스위치·상한 도달이면 credit-off (증가분 정지)', async () => {
         const base = async (setup: (s: ReturnType<typeof memoryStore>) => void, hasKey = true) => {

@@ -5,7 +5,7 @@
  *   ② Bedrock        Haiku 5.5                   (AWS — 모델 접근이 열려 있을 때만)
  *   ③ 현행(legacy)                               (Bedrock Haiku 4.5 …, 호출 지점이 넘겨준 함수 — 마지막 안전망)
  *
- * 다음 단으로 넘어가는 조건: 키 없음 · 월 상한($199) · 서킷 열림 · 401/403/404 · 429 · 5xx · 시간 초과 · 네트워크 ·
+ * 다음 단으로 넘어가는 조건: 키 없음 · 크레딧 정지선(용도 등급별, lib/ai/creditCycle) · 서킷 열림 · 401/403/404 · 429 · 5xx · 시간 초과 · 네트워크 ·
  *   stop_reason:'refusal' · 잘림(max_tokens) · 빈 응답 · JSON 불가 · 출구 품질 가드(validate) 실패.
  *
  * 안전 원칙 («최악이 현재 상태»):
@@ -20,7 +20,9 @@ import {
     classifyHttpFailure, normalizeJsonText, parseMessageResponse, shapeH55Body,
     type Effort, type FailKind, type ParsedMessage,
 } from '@/lib/ai/llmRequest';
-import { costOf, LEDGER_CAP_USD, nextRenewal, overCap, periodId, type PriceModel, type TokenUsage } from '@/lib/ai/llmPricing';
+import { costOf, type PriceModel, type TokenUsage } from '@/lib/ai/llmPricing';
+import { ALERT_FRACTIONS, currentCycle, describeCycle, spendTier, tierStopUsd, _resetCreditCycleForTest, type CreditCycle, type SpendTier } from '@/lib/ai/creditCycle';
+import { alertOnce, creditAlertKey, snsOpsAlert, _resetCreditAlertForTest, type AlertSender } from '@/lib/ai/creditAlert';
 import { upstashStore, type LlmStore } from '@/lib/ai/llmStore';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { FreshTierSkipped, freshTierAllowsSonnet, inFreshTier } from '@/lib/ai/freshTier';
@@ -77,13 +79,6 @@ export interface LadderConfig {
      * 현행으로 넘기는 것보다 크레딧으로 한 번 더 부르는 편이 낫다.
      */
     retries?: number;
-    /**
-     * 월 상한(LEDGER_CAP_USD) 뒤 예비분(USD) — 이 용도만 원장이 «상한 + 예비분» 미만이면 ①(Haiku 5.5)을 계속 쓴다(Sonnet 단은 예외 없음).
-     * 콘솔 지출 한도 $200 이 최종 차단선이라 «상한 + 예비분»은 RESERVE_CEILING_USD 를 넘지 못한다.
-     * 왜: 2026-11-05(주기 마지막 날) 16:00Z 에 원장이 $199 에 닿아 21:50Z 장마감 리포트가 현행(Haiku 4.5)으로 만들어졌고,
-     *   서빙 가드(provider:legacy)에 걸려 대폭락 날 앱이 전날(11/4 «상승 마감») 서사를 보였다. 하루 한 번인 리포트 몫(호출당 $0.005~0.03)을 남겨 둔다.
-     */
-    reserveUsd?: number;
     /**
      * 해석의 깊이 지시문(lib/ai/depthDirective)을 ①②의 system 끝에 덧붙인다 — ③ 현행은 예전 프롬프트 그대로(최악이 현재 상태).
      * 'sonnet-only' = Sonnet 단에만 붙이고 Haiku 5.5 단(이어받기)은 예전 프롬프트 — Haiku 단독 깊이 변형은 통계적으로 유의하지 않아(딥 분석 +7.6, CI [-0.3, 15.4]) 근거가 있는 곳에만 쓴다.
@@ -143,8 +138,8 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   ★2026-10-24 장마감 리포트 v2(5단 서사×3언어, 출력 약 8천 토큰): ① 90초 — 라우트 한도 300초·모델 예산 240초 안에서 재시도 1회 + 현행 이어받기
     //   ★2026-10-24 3차 운영 실측: ① 첫 시도 탈락 사유는 매번 달랐다(ko 거절 패턴 오탐·영어 헤드라인 미번역) → 재시도 2회. 다음 시도는 «지금까지 쓴 시간 + 직전 시도×1.2 ≤ 240초»일 때만
     //   (사다리의 예산 검사) — 정상 시도는 20~50초라 세 번째도 예산 안. 현행(4.5)은 서빙 대상이 아니라 남은 시간이 모자라 실패해도 화면은 Lambda v3 로 간다.
-    //   ★2026-11-06 월 상한 예비분 $0.8 — 11/5 대폭락 날 원장 상한(16:00Z)으로 리포트가 현행 생성·서빙 탈락(위 reserveUsd 주석)
-    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 90_000, retries: 2, reserveUsd: 0.8 },
+    //   ★2026-11-06 등급 essential(lib/ai/creditCycle) — 11/5 대폭락 날 원장 상한(16:00Z)으로 리포트가 현행 생성·서빙 탈락. 이제 실제 잔액 − $0.2 까지 ① 을 쓴다.
+    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 90_000, retries: 2 },
     //   플로우 AI(전 종목 3개 언어 JSON): 신뢰 경로는 진짜 출구 게이트(gateFlowAnalysis, 자리표 값을 프롬프트에서 복원)로, 음차 복원 적용 후 2회 합산 23/28 vs 현행 19/28
     //   (현행 실패 = 4096 토큰 상한 잘림·JSON 깨짐·일본어 한글 혼입·종합점수 숫자 / 5.5 실패 = 종합점수 숫자 — ① 가 못 넘으면 현행이 이어받는다). 사고 끔이 낫다(적응형 18/28). p50 8.7s vs 16.3s · 호출당 $0.0015 vs $0.0164
     FlowAI: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
@@ -246,6 +241,8 @@ export interface LadderDeps {
     callBedrock55: (variant: B55Variant, c: RungCall) => Promise<RungResult>;
     allowlist: () => Record<string, LadderConfig>;
     log: (level: 'info' | 'warn' | 'error', msg: string) => void;
+    /** 크레딧 경보 발송(기본 SNS — 운영에서만 실제 발송, lib/ai/creditAlert) */
+    alert?: AlertSender;
 }
 
 export type B55Variant = 'invoke' | 'mantle';
@@ -358,6 +355,7 @@ export function defaultDeps(): LadderDeps {
         callBedrock55: defaultCallBedrock55,
         allowlist: () => LADDER_PURPOSES,
         log: (level, msg) => { (level === 'error' ? console.error : level === 'warn' ? console.warn : console.log)(msg); },
+        alert: snsOpsAlert,
     };
 }
 
@@ -376,7 +374,7 @@ async function cached<T>(key: string, now: number, load: () => Promise<T>): Prom
     _cache.set(key, { v, at: now });
     return v;
 }
-export function _resetLadderStateForTest(): void { _cache.clear(); _localBreaker.clear(); _captureAt.clear(); }
+export function _resetLadderStateForTest(): void { _cache.clear(); _localBreaker.clear(); _captureAt.clear(); _resetCreditCycleForTest(); _resetCreditAlertForTest(); }
 
 const K = {
     cost: (period: string) => `llm:cost:${period}`,
@@ -418,13 +416,55 @@ async function openBreaker(id: string, sec: number, reason: string, d: LadderDep
     d.log('warn', `[Ladder] ${id} 문을 ${sec}초 닫는다 — ${reason.slice(0, 160)}`);
 }
 
-async function monthSpent(d: LadderDeps): Promise<number> {
+/** 지금 크레딧 주기(실제 잔액 기준점 — lib/ai/creditCycle)와 그 주기 원장 누적 */
+async function cycleSpend(d: LadderDeps): Promise<{ cycle: CreditCycle; spent: number }> {
     const now = d.now();
-    return cached(`cost`, now, async () => {
-        const v = await d.store.get(K.cost(periodId(new Date(now))));
+    const cycle = await currentCycle(d.store, now);
+    const spent = await cached(`cost:${cycle.id}`, now, async () => {
+        const v = await d.store.get(K.cost(cycle.id));
         const n = Number(v);
         return Number.isFinite(n) ? n : 0;
     });
+    return { cycle, spent };
+}
+
+const usd = (x: number) => `$${x.toFixed(2)}`;
+const pct = (spent: number, amount: number) => `${amount > 0 ? Math.round((spent / amount) * 1000) / 10 : 0}%`;
+const RESET_HOWTO = '실제 잔액이 새로 찼으면: POST /api/admin/ai-ladder {"action":"credit-reset","at":"<ISO>","balanceUsd":<콘솔 잔액>} (Bearer CRON_SECRET) — 그 시각부터 새 원장.';
+
+function cycleLines(cycle: CreditCycle, spent: number): string {
+    const c = describeCycle(cycle);
+    return [
+        `주기 ${c.id} (${c.source}) ${c.startAt} ~ ${c.endsAt}`,
+        `추정 지출 ${usd(spent)} / 실제 크레딧 ${usd(cycle.amountUsd)} (${pct(spent, cycle.amountUsd)})`,
+        `정지선: 증가분·예열 ${usd(c.stopsUsd.extra)} · 일반 ${usd(c.stopsUsd.standard)} · 필수(장마감·모닝·Tactical·알림·내 종목 줄) ${usd(c.stopsUsd.essential)}`,
+        RESET_HOWTO,
+    ].join('\n');
+}
+
+const TIER_KO: Record<SpendTier, string> = { extra: '증가분·예열·재생성', standard: '일반(사용자 요청 생성 — AWS 로 넘어감)', essential: '필수(장마감 리포트·모닝 브리핑·Tactical·알림·내 종목 줄)' };
+
+/** 등급이 처음 정지선에 닿았다 — 주기마다 등급별 한 번 */
+async function alertShed(tier: SpendTier, purpose: string, cycle: CreditCycle, spent: number, d: LadderDeps): Promise<void> {
+    if (!d.alert) return;
+    await alertOnce(d.store, creditAlertKey(cycle.id, `shed-${tier}`), d.alert,
+        `[SIGNUM] AI 크레딧 정지선 — ${tier} 정지 (${pct(spent, cycle.amountUsd)})`,
+        `${TIER_KO[tier]} 용도의 Anthropic 크레딧 호출을 멈췄다(첫 용도: ${purpose}).\n${cycleLines(cycle, spent)}`,
+        (m) => d.log('warn', m));
+}
+
+/** 원장이 경보 비율을 넘는 순간 — 주기마다 비율별 한 번 */
+async function alertCrossings(before: number, after: number, cycle: CreditCycle, d: LadderDeps): Promise<void> {
+    if (!d.alert) return;
+    for (const f of ALERT_FRACTIONS) {
+        const th = f * cycle.amountUsd;
+        if (after >= th && before < th) {
+            await alertOnce(d.store, creditAlertKey(cycle.id, `p${Math.round(f * 100)}`), d.alert,
+                `[SIGNUM] AI 크레딧 추정 ${Math.round(f * 100)}% — ${usd(after)} / ${usd(cycle.amountUsd)}`,
+                `조용히 끊기기 전에 알린다. 아직 끊긴 용도는 없다(정지선 아래).\n${cycleLines(cycle, after)}`,
+                (m) => d.log('warn', m));
+        }
+    }
 }
 
 async function killSwitch(purpose: string, d: LadderDeps): Promise<boolean> {
@@ -573,13 +613,11 @@ interface RungFail { ok: false; why: string; skip?: boolean; /** 응답이 왔�
 
 type RungId = 'a55' | 'a55s' | 'b55i' | 'b55m';
 
-/** 콘솔 지출 한도($200) 바로 아래 — 예비분을 더해도 이 값을 넘지 않는다 */
-export const RESERVE_CEILING_USD = 199.9;
-/** 이 단의 월 상한 — Haiku 5.5(a55) 단만 용도별 예비분(reserveUsd)을 더한다 */
-export function capFor(id: RungId, cfg: LadderConfig): number {
-    const extra = id === 'a55' ? Math.max(0, cfg.reserveUsd ?? 0) : 0;
-    return extra ? Math.min(RESERVE_CEILING_USD, LEDGER_CAP_USD + extra) : LEDGER_CAP_USD;
-}
+/**
+ * 이 호출의 크레딧 등급 — 증가분(freshTier) 문맥이면 extra(크레딧 전용 필수 용도 제외), 필수 용도면 essential, 그 밖 standard.
+ * 정지선 = 실제 잔액 − 등급 여유(lib/ai/creditCycle.TIER_HEADROOM_USD). 한 주기 원장 하나를 모든 등급이 함께 센다.
+ */
+export function tierOfCall(purpose: string): SpendTier { return spendTier(purpose, inFreshTier()); }
 
 async function tryRung(
     id: RungId, req: LadderRequest, cfg: LadderConfig, d: LadderDeps, started: number,
@@ -589,7 +627,12 @@ async function tryRung(
     if (id === 'a55' || id === 'a55s') {
         if (id === 'a55s' && !sonnet) return { ok: false, why: 'nosonnet', skip: true };
         if (!d.anthropicKey()) return { ok: false, why: 'nokey', skip: true };
-        if (overCap(await monthSpent(d), capFor(id, cfg))) return { ok: false, why: 'cap', skip: true };
+        const { cycle, spent } = await cycleSpend(d);
+        const tier = tierOfCall(req.purpose);
+        if (spent >= tierStopUsd(tier, cycle.amountUsd)) {
+            await alertShed(tier, req.purpose, cycle, spent, d);
+            return { ok: false, why: 'cap', skip: true };
+        }
         if (sonnet) {
             if (await sonnetOffNow(d)) return { ok: false, why: 'sonnet-off', skip: true };
             // ★2026-10-12 예열 몫 분리 — 예열은 자기 몫(warmDailyCapUsd)으로, 사용자는 «예열을 뺀» 지출로 일일 상한을 센다(개장 전에 사용자 지출이 80% 를 넘어 예열이 0건으로 멈춘 10/12 실측)
@@ -622,15 +665,26 @@ async function tryRung(
         if (re.kind === 'bad-request') d.log('error', `[Ladder] ${req.purpose} ${id} 400 — 요청 모양 점검 필요: ${re.detail.slice(0, 200)}`);
         else if (re.kind === 'auth' || re.kind === 'access' || re.kind === 'credit') d.log('error', `[Ladder] ${req.purpose} ${id} ${re.kind}: ${re.detail.slice(0, 200)}`);
         await openBreaker(id, re.closeSec, `${re.kind} ${re.detail}`, d);
+        if (re.kind === 'credit' && (id === 'a55' || id === 'a55s') && d.alert) {
+            // 실제 크레딧(콘솔)이 거절했다 — 추정 원장과 실제가 어긋났다는 뜻. 주기마다 한 번 알린다(사다리는 AWS 로 넘어간다)
+            const { cycle, spent } = await cycleSpend(d);
+            await alertOnce(d.store, creditAlertKey(cycle.id, 'real-credit'), d.alert,
+                `[SIGNUM] Anthropic 실제 크레딧 거절 — 추정 ${usd(spent)} / ${usd(cycle.amountUsd)}`,
+                `Anthropic API 가 크레딧 부족·지출 한도로 거절했다(${re.detail.slice(0, 160)}). ${id} 단을 ${re.closeSec}초 닫고 AWS 로 넘긴다.\n콘솔 잔액·지출 한도를 확인하고, 새로 찼으면 기준점을 넣는다.\n${cycleLines(cycle, spent)}`,
+                (m) => d.log('warn', m));
+        }
         return { ok: false, why: re.kind };
     }
 
     const p = r.parsed;
     const cost = costOf(p.usage, sonnet ? 'sonnet-5.5' : 'haiku-5.5');
     if ((id === 'a55' || id === 'a55s') && cost > 0) {
-        // 원장 — 응답이 왔으면(거절·가드 실패 포함) 과금된 것으로 센다
-        const total = await d.store.incrByFloat(K.cost(periodId(new Date(d.now()))), cost, 45 * 24 * 3600);
-        _cache.set('cost', { v: total ?? ((_cache.get('cost')?.v as number | undefined) ?? 0) + cost, at: d.now() });
+        // 원장 — 응답이 왔으면(거절·가드 실패 포함) 과금된 것으로 센다. 주기 = 실제 잔액 기준점(lib/ai/creditCycle)
+        const cycle = await currentCycle(d.store, d.now());
+        const ck = `cost:${cycle.id}`;
+        const total = await d.store.incrByFloat(K.cost(cycle.id), cost, 45 * 24 * 3600);
+        _cache.set(ck, { v: total ?? ((_cache.get(ck)?.v as number | undefined) ?? 0) + cost, at: d.now() });
+        if (total != null) await alertCrossings(total - cost, total, cycle, d);
         if (sonnet) {
             const day = await d.store.incrByFloat(K.sonnetDay(dayId(d.now())), cost, 3 * 24 * 3600);
             _cache.set('sonnetDay', { v: day ?? ((_cache.get('sonnetDay')?.v as number | undefined) ?? 0) + cost, at: d.now() });
@@ -774,6 +828,8 @@ export interface LadderStatus {
     capUsd: number;
     remainingUsd: number;
     overCap: boolean;
+    /** 실제 잔액 기준점 주기·등급별 정지선·경보 금액(lib/ai/creditCycle) — capUsd 는 일반(standard) 정지선 */
+    cycle: ReturnType<typeof describeCycle>;
     allowlist: string[];
     killSwitch: string | null;
     /** 깊이 지시문 끄기 스위치(용도 배열 JSON 또는 '*') · Sonnet 단 끄기 · 오늘(UTC) Sonnet 크레딧 지출 */
@@ -816,17 +872,19 @@ export async function warmSeparationOn(deps?: Partial<LadderDeps>): Promise<{ on
 export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderStatus> {
     const d: LadderDeps = { ...defaultDeps(), ...(deps || {}) };
     const now = d.now();
-    const period = periodId(new Date(now));
+    const cycle = await currentCycle(d.store, now);
+    const period = cycle.id;
     const spent = Number(await d.store.get(K.cost(period))) || 0;
+    const cap = tierStopUsd('standard', cycle.amountUsd);
     const breakers: Record<string, string | null> = {};
     for (const id of ['a55', 'a55s', 'b55i', 'b55m']) {
         const until = Number(await d.store.get(K.breaker(id)));
         breakers[id] = Number.isFinite(until) && until > now ? new Date(until).toISOString() : null;
     }
     return {
-        period, renewsAt: nextRenewal(new Date(now)).toISOString(),
-        spentUsd: Math.round(spent * 10000) / 10000, capUsd: LEDGER_CAP_USD, remainingUsd: Math.round((LEDGER_CAP_USD - spent) * 10000) / 10000,
-        overCap: overCap(spent), allowlist: Object.keys(d.allowlist()), killSwitch: await d.store.get(K.off),
+        period, renewsAt: new Date(cycle.endsMs).toISOString(),
+        spentUsd: Math.round(spent * 10000) / 10000, capUsd: cap, remainingUsd: Math.round((cap - spent) * 10000) / 10000,
+        overCap: spent >= cap, cycle: describeCycle(cycle), allowlist: Object.keys(d.allowlist()), killSwitch: await d.store.get(K.off),
         depthOff: await d.store.get(K.depthOff), sonnetOff: await d.store.get(K.sonnetOff),
         sonnetTodayUsd: Math.round((Number(await d.store.get(K.sonnetDay(dayId(now)))) || 0) * 10000) / 10000,
         sonnetWarmTodayUsd: Math.round((await sonnetWarmSpentToday(d)) * 10000) / 10000,
