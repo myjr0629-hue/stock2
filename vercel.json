@@ -70,6 +70,14 @@
       "schedule": "50 21 * * 1-5"
     },
     {
+      "path": "/api/cron/cross-sector-brief?mode=retry",
+      "schedule": "20 22 * * 1-5"
+    },
+    {
+      "path": "/api/cron/cross-sector-brief?mode=check",
+      "schedule": "35 22 * * 1-5"
+    },
+    {
       "path": "/api/cron/market-feed",
       "schedule": "* * * * *"
     },

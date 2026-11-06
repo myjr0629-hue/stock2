@@ -238,6 +238,8 @@ export async function POST(req: Request) {
         // that ET session as of its cron time (21:50 UTC); the scheduled path (no params) is unchanged.
         const params = new URL(req.url).searchParams;
         const dryRun = params.get('dry') === '1';
+        // 크론 재시도(22:20Z ?mode=retry → ?retry=1): 서빙 가드를 넘는 판본만 저장한다 — 읽기 장애로 재시도가 돌아도 기존 정상본을 실패본으로 덮지 않는다
+        const retryOnly = params.get('retry') === '1';
         const dryDate = dryRun && params.has('date') ? reportDate(params.get('date')) : null;
         if (dryRun && params.has('date') && !dryDate) return NextResponse.json({ error: 'Invalid report date' }, { status: 400 });
         const now = dryDate ? dryClock(dryDate, new Date()) : new Date();
@@ -553,7 +555,9 @@ export async function POST(req: Request) {
         });
         if (!briefData.guard.ok) console.warn(`[CrossSectorBrief V4] 서빙 가드 탈락(저장은 함, GET 은 v3 로): ${briefData.guard.reasons.join(', ')}`);
 
-        if (!dryRun) await setInCache(getCacheKey(today), briefData, 259200); // 72h TTL — covers weekends (Fri→Mon)
+        const keepExisting = retryOnly && !briefData.guard.ok;
+        if (keepExisting) console.warn(`[CrossSectorBrief V4] 재시도 결과가 서빙 가드 탈락 — 저장하지 않음(기존 판본 유지): ${briefData.guard.reasons.join(', ')}`);
+        if (!dryRun && !keepExisting) await setInCache(getCacheKey(today), briefData, 259200); // 72h TTL — covers weekends (Fri→Mon)
         const elapsed = Date.now() - startTime;
 
         console.log(`[CrossSectorBrief V3] ✅ Generated Bloomberg-grade brief in ${elapsed}ms (${macroIndicators.length} macro indicators)`);
@@ -561,6 +565,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
             success: true,
             dryRun,
+            ...(retryOnly ? { retryStored: !dryRun && !keepExisting } : {}),
             ...briefData,
             elapsedMs: elapsed,
             ...(dryRun ? { ai: { provider: servedProvider, providers, model: bedrockResult.model, elapsedMs: aiMs, truncated: !!bedrockResult.truncated, repairs, firstNarrativeReasons, narrativeReasons }, replayClock: now.toISOString() } : {}),
