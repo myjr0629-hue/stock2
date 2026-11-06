@@ -102,4 +102,18 @@ t('배열 보정 뒤 시각 순 재정렬 · 다른 필드 유지 · 멱등', ()
   assert.equal(rows[0].time, '19:30'); // 입력은 바꾸지 않는다
 });
 
+t('11/7 운영: 공급자가 옛 시각(19:30Z)·공식 시각(20:30Z, 실제치) 두 벌을 주면 공식 행만 남는다 · 겹치지 않는 옛 행은 보정해 남긴다', () => {
+  const rows = [
+    { date: '2026-11-06', time: '19:30', event: 'CFTC S&P 500 speculative net positions', actual: null as number | null },
+    { date: '2026-11-06', time: '19:30', event: 'CFTC Gold Speculative net positions', actual: null as number | null },
+    { date: '2026-11-06', time: '20:30', event: 'CFTC S&P 500 speculative net positions', actual: -129.4 as number | null },
+  ];
+  const out = normalizeEconCalendarTimes(rows);
+  assert.deepEqual(out.map((r) => `${r.time} ${r.event} ${r.actual}`), [
+    '20:30 CFTC Gold Speculative net positions null',
+    '20:30 CFTC S&P 500 speculative net positions -129.4',
+  ]);
+  assert.deepEqual(normalizeEconCalendarTimes(out), out);
+});
+
 console.log(`\n${n} passed`);

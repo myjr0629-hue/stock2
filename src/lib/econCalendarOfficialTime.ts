@@ -53,13 +53,22 @@ export function officialUtcTime(event: unknown, date: unknown, time: unknown): {
     return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
 }
 
-/** 캐시 행 배열에 적용(형식 유지) + 시각 순 재정렬. */
+/**
+ * 캐시 행 배열에 적용(형식 유지) + 시각 순 재정렬.
+ * ★11/7 06:0x 운영: 공급자가 같은 CFTC 행을 «옛 EDT 시각(19:30Z, 실제치 없음)»과 «공식 시각(20:30Z, 실제치 있음)» 두 벌로 준다 →
+ *   보정한 행이 공급자의 공식 시각 행과 겹치면(같은 이름·날짜·시각) 공급자 행을 남기고 보정 행은 뺀다.
+ */
 export function normalizeEconCalendarTimes<T extends { event?: unknown; date?: unknown; time?: unknown }>(events: T[]): T[] {
-    return events
-        .map((e) => {
-            if (!e) return e;
-            const fixed = officialUtcTime(e.event, e.date, e.time);
-            return fixed.date === e.date && fixed.time === e.time ? e : { ...e, ...fixed };
-        })
-        .sort((a, b) => `${a?.date} ${a?.time}`.localeCompare(`${b?.date} ${b?.time}`));
+    const key = (e: T) => `${String(e.event ?? '').trim()}|${e.date}|${e.time}`;
+    const original = new Set(events.filter(Boolean).map(key));
+    const out: T[] = [];
+    for (const e of events) {
+        if (!e) { out.push(e); continue; }
+        const fixed = officialUtcTime(e.event, e.date, e.time);
+        if (fixed.date === e.date && fixed.time === e.time) { out.push(e); continue; }
+        const moved = { ...e, ...fixed };
+        if (original.has(key(moved))) continue;
+        out.push(moved);
+    }
+    return out.sort((a, b) => `${a?.date} ${a?.time}`.localeCompare(`${b?.date} ${b?.time}`));
 }
