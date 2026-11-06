@@ -1,43 +1,64 @@
 /**
- * 스마트링크 클릭 «태그 색인» clk:idx:<ET날짜> (2026-11-06)
- * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true}' tests/clickTagIndex.test.ts
+ * 스마트링크 클릭 «태그 색인» clk:idx:<ET날짜>:<칸> (2026-11-06)
+ * 실행: node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true}' tests/clickTagIndex.test.ts
  *
  * 증상: 집계 키(clk:sg:<태그>:<날짜>)는 정상으로 쌓였는데 읽는 스크립트가 «미리 아는 태그»만 읽어 그날 새 태그(ppomppu_1106 등)가 표에 0 줄.
- * 고정: recordClick 이 ① 집계 값은 예전과 똑같이 쓰고 ② 그날 색인에 «<app>:<태그>» 를 남기며 ③ 이미 있으면 다시 쓰지 않고
- *       ④ gift(초대자 버킷)·잘못된 태그는 색인하지 않고 ⑤ 색인 실패가 집계를 막지 않는다. Redis 는 메모리 가짜로 바꾼다.
+ * 고정: recordClick 이 ① 집계 값은 예전과 똑같이 쓰고 ② 그날 색인 칸에 «<app>:<태그>» 를 남기며 ③ 이미 있으면 다시 쓰지 않고
+ *   ④ gift·잘못된 태그는 색인하지 않고 ⑤ 색인 실패가 집계를 막지 않고 ⑥ 확인 읽기 전에 덮이면 합쳐 다시 쓰고
+ *   ⑦ 집계 SET 실패(EC2 장애)면 색인을 건너뛰고 ⑧ 엄격 읽기가 실패하면 «빈 색인»으로 알고 덮어쓰지 않는다. Redis 는 메모리 가짜.
  */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
 
 const store = new Map<string, unknown>();
 const sets: string[] = [];
-let failIndex = false;
-let ecDown = false;
-let raceOnce: Record<string, number> | null = null;   // 색인 SET 직후 «다른 클릭의 SET» 이 덮어쓴 상황
+let failIndex = false;         // 색인 읽기·쓰기가 던진다
+let strictFail = false;        // 엄격 읽기가 {ok:false} (EC2 일시 실패)
+let ecDown = false;            // 집계 SET 이 false
+let raceOnce: Record<string, number> | null = null;   // 색인 SET 직후 다른 클릭의 SET 이 (내 줄 없이) 덮어쓴다
+const isIdx = (k: string) => k.includes(':idx:');
+const clone = (v: unknown) => (v === undefined ? null : JSON.parse(JSON.stringify(v)));
 const rcPath = require.resolve('../src/services/redisClient');
 require.cache[rcPath] = {
   id: rcPath, filename: rcPath, loaded: true,
   exports: {
-    getFromCache: async (k: string) => { if (failIndex && k.includes(':idx:')) throw new Error('down'); return store.has(k) ? JSON.parse(JSON.stringify(store.get(k))) : null; },
-    setInCache: async (k: string, v: unknown) => { if (failIndex && k.includes(':idx:')) throw new Error('down'); if (ecDown) return false; sets.push(k); store.set(k, v); if (raceOnce && k.includes(':idx:')) { const r = raceOnce; raceOnce = null; store.set(k, r); } return true; },
+    getFromCache: async (k: string) => clone(store.get(k)),
+    getAuthoritativeCache: async (k: string) => {
+      if (failIndex && isIdx(k)) throw new Error('down');
+      if (strictFail) return { ok: false, value: null };
+      return { ok: true, value: clone(store.get(k)) };
+    },
+    setInCache: async (k: string, v: unknown) => {
+      if (failIndex && isIdx(k)) throw new Error('down');
+      if (ecDown) return false;
+      sets.push(k); store.set(k, v);
+      if (raceOnce && isIdx(k)) { const r = raceOnce; raceOnce = null; store.set(k, r); }
+      return true;
+    },
   },
 } as unknown as Module;
 
 process.env.VERCEL_ENV = 'production';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { recordClick, clickIndexKey, clickKey } = require('../src/lib/marketing/clickHuman');
+const { recordClick, clickIndexKey, clickIndexSlot, clickKey, CLICK_INDEX_SLOTS } = require('../src/lib/marketing/clickHuman');
 
 const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const idxOf = (entry: string) => clickIndexKey(day, clickIndexSlot(entry));
+const allIndexed = () => [...store.entries()].filter(([k]) => k.startsWith(`clk:idx:${day}:`)).flatMap(([, v]) => Object.keys(v as object)).sort();
 
 (async () => {
-  assert.equal(clickIndexKey('2026-11-06', 'production'), 'clk:idx:2026-11-06');
-  assert.equal(clickIndexKey('2026-11-06', 'preview'), 'clkp:idx:2026-11-06');   // 미리보기는 운영 색인을 오염시키지 않는다
-  const idx = clickIndexKey(day);
+  assert.equal(clickIndexKey('2026-11-06', 5, 'production'), 'clk:idx:2026-11-06:5');
+  assert.equal(clickIndexKey('2026-11-06', 5, 'preview'), 'clkp:idx:2026-11-06:5');   // 미리보기는 운영 색인을 오염시키지 않는다
+  assert.equal(CLICK_INDEX_SLOTS, 64);   // scripts/mkt-clicks-human.js 가 0~63 을 읽는다
+  for (const e of ['sg:ppomppu_1106', 'code:probe_ih', 'x', '']) { const n = clickIndexSlot(e); assert.ok(Number.isInteger(n) && n >= 0 && n < 64); assert.equal(clickIndexSlot(e), n); }
+  // 오늘 실제 태그들이 여러 칸으로 흩어진다(한 키 경합을 피하는 이유)
+  const real = ['naver_blog_1106', 'ppomppu_1106', 'x_kr_1106', 'x_jp_1106b', 'sidedock_1106', 'note_1106', 'probe_0627', 'probe_ih'].map((t) => clickIndexSlot(`sg:${t}`));
+  assert.ok(new Set(real).size >= 6, `slots ${real}`);
 
   // ① 집계 값은 예전과 같다 ② 색인에 남는다
   await recordClick('sg', 'ppomppu_1106', ['android|human', 'android|site:cross-site']);
   assert.deepEqual(store.get(clickKey('sg', 'ppomppu_1106', day)), { 'android|human': 1, 'android|site:cross-site': 1 });
-  assert.deepEqual(store.get(idx), { 'sg:ppomppu_1106': 1 });
+  assert.deepEqual(store.get(idxOf('sg:ppomppu_1106')), { 'sg:ppomppu_1106': 1 });
 
   // ③ 같은 태그 두 번째 클릭 — 집계는 +1, 색인은 다시 쓰지 않는다
   sets.length = 0;
@@ -45,40 +66,47 @@ const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', yea
   assert.equal((store.get(clickKey('sg', 'ppomppu_1106', day)) as Record<string, number>)['android|human'], 2);
   assert.deepEqual(sets, [clickKey('sg', 'ppomppu_1106', day)]);
 
-  // 다른 앱·태그는 같은 하루 색인에 더해진다(기존 줄 보존)
   await recordClick('code', 'probe_ih', ['ios|nolang']);
   await recordClick('coupon', 'ppomppu_1106', ['android|view:human']);
-  assert.deepEqual(store.get(idx), { 'sg:ppomppu_1106': 1, 'code:probe_ih': 1, 'coupon:ppomppu_1106': 1 });
-
-  // ④ gift(초대자 버킷)·잘못된 태그는 색인하지 않는다(잘못된 태그는 집계도 안 한다 — 예전과 같다)
+  // ④ gift·잘못된 태그는 색인하지 않는다(잘못된 태그는 집계도 안 한다 — 예전과 같다)
   await recordClick('gift', 'a', ['abc|ios|human']);
   await recordClick('sg', 'bad-tag', ['ios|human']);
   await recordClick('sg', '', ['ios|human']);
-  assert.deepEqual(Object.keys(store.get(idx) as object).sort(), ['code:probe_ih', 'coupon:ppomppu_1106', 'sg:ppomppu_1106']);
-  assert.ok(store.has(clickKey('gift', 'a', day)));   // gift 집계 자체는 그대로
+  assert.deepEqual(allIndexed(), ['code:probe_ih', 'coupon:ppomppu_1106', 'sg:ppomppu_1106']);
+  assert.ok(store.has(clickKey('gift', 'a', day)));
   assert.ok(!store.has(clickKey('sg', 'bad-tag', day)));
 
-  // ⑤ 색인 실패가 집계를 막지 않는다(던지지도 않는다)
+  // ⑤ 색인이 던져도 집계는 남고 recordClick 은 던지지 않는다 · 빠진 줄은 다음 클릭이 다시 넣는다
   failIndex = true;
   await recordClick('sg', 'naver_blog_1106', ['desktop|human']);
   assert.deepEqual(store.get(clickKey('sg', 'naver_blog_1106', day)), { 'desktop|human': 1 });
   failIndex = false;
-  // 경합으로 빠진 줄도 다음 클릭이 다시 넣는다
   await recordClick('sg', 'naver_blog_1106', ['desktop|human']);
-  assert.equal((store.get(idx) as Record<string, number>)['sg:naver_blog_1106'], 1);
+  assert.ok(allIndexed().includes('sg:naver_blog_1106'));
 
-  // ⑥ 경합: 내 SET 직후 다른 새 태그의 SET 이 (내 줄 없이) 덮어쓴다 → 다시 읽고 합쳐 다시 쓴다(두 줄 모두 남는다)
-  const before = { ...(store.get(idx) as Record<string, number>) };
-  raceOnce = { ...before, 'sg:x_kr_1106': 1 };
-  await recordClick('sg', 'ppomppu_1105', ['ios|human']);
-  assert.equal((store.get(idx) as Record<string, number>)['sg:ppomppu_1105'], 1);
-  assert.equal((store.get(idx) as Record<string, number>)['sg:x_kr_1106'], 1);
+  // ⑥ 내 SET 직후·확인 읽기 전에 같은 칸이 (내 줄 없이) 덮이면 → 다시 읽고 합쳐 다시 쓴다(두 줄 모두 남는다)
+  const mine = 'sg:x_kr_1106'; const k6 = idxOf(mine);
+  raceOnce = { ...((store.get(k6) as Record<string, number>) || {}), 'sg:other_same_slot': 1 };
+  await recordClick('sg', 'x_kr_1106', ['desktop|human']);
+  assert.equal((store.get(k6) as Record<string, number>)[mine], 1);
+  assert.equal((store.get(k6) as Record<string, number>)['sg:other_same_slot'], 1);
 
-  // ⑦ EC2 장애(집계 SET 실패=false) — 색인은 시도하지 않는다(장애 때 Upstash 로 새는 읽기를 늘리지 않음)
-  ecDown = true; sets.length = 0;
+  // ⑦ EC2 장애(집계 SET=false) — 색인은 시도하지 않는다
+  ecDown = true;
   await recordClick('sg', 'down_tag', ['ios|human']);
-  assert.ok(!(store.get(idx) as Record<string, number>)['sg:down_tag']);
   ecDown = false;
+  assert.ok(!allIndexed().includes('sg:down_tag'));
+
+  // ⑧ 엄격 읽기 실패({ok:false}) — 기존 색인을 «빈 값»으로 알고 덮어쓰지 않는다
+  const victim = idxOf('sg:ppomppu_1106');
+  const snapshot = JSON.stringify(store.get(victim));
+  strictFail = true; sets.length = 0;
+  // 같은 칸에 떨어지는 새 태그를 찾는다
+  let t = 0; while (clickIndexSlot(`sg:same_${t}`) !== clickIndexSlot('sg:ppomppu_1106')) t++;
+  await recordClick('sg', `same_${t}`, ['ios|human']);
+  strictFail = false;
+  assert.equal(JSON.stringify(store.get(victim)), snapshot);
+  assert.ok(!sets.some(isIdx));
 
   console.log('clickTagIndex: ok');
 })().catch((e) => { console.error(e); process.exit(1); });

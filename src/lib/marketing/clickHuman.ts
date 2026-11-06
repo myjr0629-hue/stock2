@@ -32,7 +32,7 @@
 // 개인정보: UA·IP·주소 원문은 남기지 않는다. 분류 이름만.
 // ============================================================================
 
-import { getFromCache, setInCache } from '@/services/redisClient';
+import { getFromCache, getAuthoritativeCache, setInCache } from '@/services/redisClient';
 import { PREVIEW_BOT_RE } from './linkPreview';
 import type { RefBucket } from './referrer';
 
@@ -134,34 +134,41 @@ export function clickKey(app: ClickApp, from: string, day: string, vercelEnv = p
 }
 
 /**
- * ★2026-11-06 «그날 클릭이 쌓인 태그» 색인 — clk:idx:<ET날짜> = {"<app>:<from>": 1, …}
+ * ★2026-11-06 «그날 클릭이 쌓인 태그» 색인 — clk:idx:<ET날짜>:<칸 0~63> = {"<app>:<from>": 1, …}
  * 왜: 집계 키(clk:<app>:<from>:<날짜>)는 정상으로 쌓였는데(11/6 실측: ppomppu_1106 사람 12·x_kr_1106 2 등),
  *   읽는 쪽(scripts/mkt-clicks-human.js)은 프록시에 키 목록(SCAN) 기능이 없어 «미리 아는 태그»(고정 목록·10/25 채널표·10/6 캐시)만 읽었다.
  *   그래서 그날그날 새로 만든 태그(naver_blog_1106·ppomppu_1106·probe_…)는 쌓여 있어도 표에 한 줄도 안 나왔다.
- *   쓰는 쪽이 «오늘 이 태그에 클릭이 있었다»를 한 칸에 남기면, 읽는 쪽이 목록 없이도 전부 찾는다.
- * 비용: 집계 SET 이 EC2 에 성공했을 때만 — 클릭마다 GET 1 · 처음 보는 태그일 때만 SET 1 + 확인 GET 1.
- *   (EC2 전용 접두사 clk:/clkp: — 쓰기는 Upstash 로 안 간다. 집계 SET 이 실패하면(=EC2 장애) 색인은 건너뛰어
- *    장애 때 Upstash 로 새는 읽기를 늘리지 않는다.)
- * 경합: 프록시에 원자적 집합 명령이 없어 GET→SET 이다. 서로 다른 새 태그 두 클릭이 겹치면 한쪽이 덮일 수 있으므로
- *   SET 뒤 다시 읽어 «내 줄이 남았나»를 확인하고, 빠졌으면 그 시점 값에 합쳐 다시 쓴다(최대 3회).
- *   그래도 빠진 줄은 그 태그의 다음 클릭이 다시 넣고, 읽는 쪽은 고정 목록·게시 기록 태그와 합친다.
+ *   쓰는 쪽이 «오늘 이 태그에 클릭이 있었다»를 남기면, 읽는 쪽이 하루 64칸을 MGET 한 번으로 읽어 목록 없이도 전부 찾는다.
+ * 칸을 64개로 나눈 이유: 프록시에 원자적 집합 명령이 없어 GET→SET 이다. 한 키에 모으면 «서로 다른 새 태그» 두 클릭이
+ *   겹칠 때 한쪽이 덮인다. 태그마다 해시로 칸을 갈라 두면 덮이려면 «같은 칸의 새 태그 두 개가 같은 순간»이어야 한다.
+ *   그래도 SET 뒤 다시 읽어 내 줄이 빠졌으면 그 값에 합쳐 다시 쓴다(최대 3회). 남은 극단은 그 태그의 다음 클릭이 다시 넣는다.
+ * 안전: 읽기는 엄격 읽기(getAuthoritativeCache — EC2 만, 실패와 «없음»을 구분, Upstash 폴백 없음). 읽기 실패면 쓰지 않는다
+ *   (실패를 «빈 색인»으로 알고 덮어쓰는 일이 없다). 집계 SET 이 EC2 에 실패했으면(장애) 색인은 아예 건너뛴다.
+ * 비용: 정상 때 클릭마다 EC2 GET 1 · 그 칸에 처음 보는 태그일 때만 SET 1 + 확인 GET 1. Upstash 명령 0.
  * gift 는 «from» 자리가 초대자 버킷이라 색인에 넣지 않는다.
  */
-export function clickIndexKey(day: string, vercelEnv = process.env.VERCEL_ENV): string {
-  return `${vercelEnv === 'production' ? 'clk' : 'clkp'}:idx:${day}`;
+export const CLICK_INDEX_SLOTS = 64;
+export function clickIndexSlot(entry: string): number {
+  let h = 0x811c9dc5;   // FNV-1a 32bit — scripts/mkt-clicks-human.js 는 칸 전부를 읽으므로 같은 함수가 필요 없다
+  for (let i = 0; i < entry.length; i++) { h ^= entry.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h % CLICK_INDEX_SLOTS;
+}
+export function clickIndexKey(day: string, slot: number, vercelEnv = process.env.VERCEL_ENV): string {
+  return `${vercelEnv === 'production' ? 'clk' : 'clkp'}:idx:${day}:${slot}`;
 }
 
 async function indexTag(app: ClickApp, from: string, day: string): Promise<void> {
   if (app === 'gift') return;
   try {
-    const key = clickIndexKey(day);
     const entry = `${app}:${from}`;
-    const read = async (): Promise<Record<string, number>> => {
-      const cur = await getFromCache<Record<string, number>>(key);
-      return cur && typeof cur === 'object' && !Array.isArray(cur) ? cur : {};
+    const key = clickIndexKey(day, clickIndexSlot(entry));
+    const read = async (): Promise<Record<string, number> | null> => {
+      const r = await getAuthoritativeCache<Record<string, number>>(key);
+      if (!r.ok) return null;   // 못 읽었다 — 빈 값으로 알고 덮어쓰지 않는다
+      return r.value && typeof r.value === 'object' && !Array.isArray(r.value) ? r.value : {};
     };
     let base = await read();
-    for (let i = 0; i < 3 && !base[entry]; i++) {
+    for (let i = 0; i < 3 && base && !base[entry]; i++) {
       if (!(await setInCache(key, { ...base, [entry]: 1 }, 60 * 60 * 24 * 45))) return;
       base = await read();   // 겹친 쓰기에 덮였으면 그 값에 합쳐 다시 쓴다
     }

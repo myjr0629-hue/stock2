@@ -72,14 +72,25 @@ async function get(key) {
 
 (async () => {
     const dates = [...Array(DAYS)].map((_, i) => etDay(new Date(Date.now() - i * 864e5)));
-    // ★2026-11-06 서버 색인 clk:idx:<ET날짜> = {"<app>:<태그>":1} (lib/marketing/clickHuman.ts) — 프록시에 SCAN 이 없어
+    // ★2026-11-06 서버 색인 clk:idx:<ET날짜>:<칸 0~63> = {"<app>:<태그>":1} (lib/marketing/clickHuman.ts) — 프록시에 SCAN 이 없어
     //   «미리 아는 태그»만 읽던 구멍을 막는다. 색인은 2026-11-06 배포 뒤부터 쌓인다(그 전 날짜는 위 목록·게시 기록 태그로 읽는다).
+    let failed = 0;
     if (!ONLY_TAG) {
         let idxTags = 0;
         for (const d of dates) {
-            const idx = await get(`clk:idx:${d}`);
-            if (idx === null) { failed++; console.log(`⚠ 태그 색인 clk:idx:${d} 조회 실패 — 이 날의 «새 태그»는 빠졌을 수 있다(고정 목록·게시 기록 태그만 읽음).`); }
-            for (const k of Object.keys(idx || {})) {
+            const keys = [...Array(64)].map((_, i) => `clk:idx:${d}:${i}`);
+            let vals = null;
+            for (let i = 0; i < 3 && !vals; i++) {
+                try {
+                    const r = await fetch(`${BASE}/mget?keys=${keys.map(encodeURIComponent).join(',')}`, { headers: { Authorization: 'Bearer ' + KEY } });
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    const j = await r.json();
+                    if (!Array.isArray(j?.results) || j.results.length !== keys.length) throw new Error('bad mget');
+                    vals = j.results;
+                } catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+            }
+            if (!vals) { failed++; console.log(`⚠ 태그 색인 clk:idx:${d}:* 조회 실패 — 이 날의 «새 태그»는 빠졌을 수 있다(고정 목록·게시 기록 태그만 읽음).`); continue; }
+            for (const v of vals) for (const k of Object.keys(v && typeof v === 'object' ? v : {})) {
                 const t = k.slice(k.indexOf(':') + 1);
                 if (/^[a-z0-9_]{1,24}$/.test(t) && !tags.includes(t)) { tags.push(t); idxTags++; }
             }
@@ -89,7 +100,7 @@ async function get(key) {
     const jobs = [];
     for (const a of APPS) for (const t of tags) for (const d of dates) jobs.push([a, t, d]);
     const sum = {}; // `${app}:${tag}` → { field: n }
-    let failed = 0, idx = 0;
+    let idx = 0;
     await Promise.all([...Array(12)].map(async () => {
         while (idx < jobs.length) {
             const [a, t, d] = jobs[idx++];
