@@ -72,6 +72,7 @@ const DECILE_MIN = 90;        // top decile = xsScore ≥ 90
 const WEEK_KILL = 0.03;       // weekly loss ≥3% → liquidate + halt
 const TRADING_DAY_MEDIAN = 0.0005; // median |1d chg| must exceed 0.05%
 const SCHEDULE_UTC = '22:40';   // EventBridge signum-xs-paper-daily (cron 40 22 ? * MON-FRI *)
+const SLOT_EARLY_MS = 5 * 60000; // tolerance for an early scheduler fire
 const TXN_MAX = 100;          // DynamoDB TransactWriteItems action limit (one day = one transaction)
 
 const REDIS_URL = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim();
@@ -189,6 +190,12 @@ async function run(date) {
     const today = date ?? etToday;
     const historical = date !== undefined;   // explicit date = backfill: strict checks below
     console.log(`[PAPER] ${VERSION} run ${today}${historical ? ' (BACKFILL)' : ''} ${DRY ? '(DRY)' : ''}`);
+    // A committed day is final (re-runs skip), so nothing may commit before that
+    // day's scheduled slot (22:40Z: past the close and the signum-xs 22:10Z
+    // refresh) — an intraday invocation, dated or not, would journal intraday
+    // prices and make the real scheduled run skip. DRY may run any time.
+    const slotMs = Date.parse(`${today}T${SCHEDULE_UTC}:00Z`) - SLOT_EARLY_MS;
+    if (!DRY && Date.now() < slotMs) throw new Error(`run ${today}: before the ${SCHEDULE_UTC}Z scheduled slot — nothing written (use {"dry":true} to preview)`);
 
     // ── state ────────────────────────────────────────────────────────────────
     const stRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'STATE', sk: '_CURRENT_' }, ConsistentRead: true }));
@@ -210,10 +217,6 @@ async function run(date) {
         // serves (ET date of now): alpha-history carries no OHLC since 08-28.
         if (!state.lastRun) throw new Error('Backfill needs an existing STATE.lastRun');
         if (today !== etToday) throw new Error(`Backfill ${today}: no price source (vendor session is ${etToday}) — nothing written`);
-        // only after that day's scheduled slot (22:40Z, past the close and the
-        // signum-xs 22:10Z refresh) — earlier it would journal intraday prices
-        // and make the real scheduled run skip
-        if (Date.now() < Date.parse(`${today}T${SCHEDULE_UTC}:00Z`)) throw new Error(`Backfill ${today}: before the ${SCHEDULE_UTC}Z scheduled run — nothing written`);
         // a weekday in between is fine only if it was journaled as a non-trading
         // day (holiday NAV row, tradingDay:false); anything else is a lost session
         const gap = [];
