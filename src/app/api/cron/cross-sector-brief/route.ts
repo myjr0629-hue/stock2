@@ -1,10 +1,37 @@
 // ==========================================================================
 // /api/cron/cross-sector-brief — Cron handler
 // Runs at 21:50 UTC (after all 10 sector snapshots are done)
+// ★2026-11-06 22:20Z ?mode=retry — 그 거래일 서빙 가능한 리포트가 없을 때만 재생성 · 22:35Z ?mode=check — 그래도 없으면 SNS 경보
+//   (11/5 대폭락 날 크레딧 원장 상한으로 현행 생성·서빙 탈락 → 화면이 전날 서사, 아무도 몰랐다 — lib/ai/crossBriefCron)
 // ==========================================================================
 
 import { NextResponse } from 'next/server';
 import { publicBase } from '@/lib/net/publicBase';
+import { getFromCache, setInCache } from '@/services/redisClient';
+import { selectServedBrief, crossBriefKey } from '@/lib/ai/crossBriefServe';
+import { crossBriefCronMode, decideCrossBriefCron, crossBriefMissingAlert } from '@/lib/ai/crossBriefCron';
+import { etDateOf } from '@/lib/marketCalendar';
+
+/** 운영 경보 — 기존 SNS 주제 signum-lambda-alerts(contact@ 구독 확인, scripts/setup-xs-alarms.js 와 같은 길). 날짜당 한 번. */
+async function publishOpsAlert(dedupeKey: string, subject: string, message: string): Promise<'sent' | 'dup' | 'failed'> {
+    try {
+        if (await getFromCache<number>(dedupeKey)) return 'dup';
+        const { SNSClient, ListTopicsCommand, PublishCommand } = await import('@aws-sdk/client-sns');
+        const sns = new SNSClient({ region: process.env.AWS_REGION || 'us-east-1' });
+        let topicArn = process.env.OPS_ALERT_TOPIC_ARN || '';
+        if (!topicArn) {
+            const topics = await sns.send(new ListTopicsCommand({}));
+            topicArn = (topics.Topics || []).map(t => t.TopicArn || '').find(a => a.endsWith(':signum-lambda-alerts')) || '';
+        }
+        if (!topicArn) throw new Error('alert topic not found');
+        await sns.send(new PublishCommand({ TopicArn: topicArn, Subject: subject.slice(0, 99), Message: message }));
+        await setInCache(dedupeKey, Date.now(), 2 * 24 * 3600);
+        return 'sent';
+    } catch (e: any) {
+        console.error('[Cron:CrossSectorBrief] 경보 발송 실패:', e?.name || '', e?.message || e);
+        return 'failed';
+    }
+}
 
 // 생성 본체(POST)를 기다린다 — 본체 한도 300초(2026-10-24 장마감 리포트 v2)와 같게
 export const maxDuration = 300;
@@ -22,6 +49,31 @@ export async function GET(request: Request) {
         }
     }
     const startTime = Date.now();
+
+    const mode = crossBriefCronMode(new URL(request.url).searchParams.get('mode'));
+    if (!mode) return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
+    if (mode !== 'run') {
+        try {
+            const sessionDate = etDateOf(Date.now());
+            const picked = await selectServedBrief((key) => getFromCache<any>(key), [sessionDate], (msg) => console.warn(`[Cron:CrossSectorBrief] ${msg}`));
+            const decision = decideCrossBriefCron(mode, sessionDate, !!picked);
+            if (decision.action === 'skip') {
+                return NextResponse.json({ success: true, mode, sessionDate, skipped: decision.why, ...(picked ? { source: picked.source } : {}) });
+            }
+            if (decision.action === 'alert') {
+                const stored = await getFromCache<any>(crossBriefKey('v4', sessionDate));
+                const { subject, message } = crossBriefMissingAlert(sessionDate, stored);
+                console.error(`[Cron:CrossSectorBrief] ❌ ${subject}\n${message}`);
+                const alert = await publishOpsAlert(`cross-brief:alerted:${sessionDate}`, subject, message);
+                return NextResponse.json({ success: false, mode, sessionDate, missing: true, alert }, { status: 503 });
+            }
+            console.warn(`[Cron:CrossSectorBrief] ${sessionDate} 서빙 가능한 리포트 없음 — 재생성(mode=retry)`);
+        } catch (e: any) {
+            console.error('[Cron:CrossSectorBrief] mode 판정 실패:', e?.message || e);
+            if (mode === 'check') return NextResponse.json({ error: e?.message || 'check failed' }, { status: 500 });
+            // retry 는 판정이 실패해도 생성으로 간다(최악 = 정시 생성과 같은 일 한 번 더)
+        }
+    }
 
     try {
         const baseUrl = publicBase(request.url.split('/api/')[0]);

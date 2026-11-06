@@ -25,7 +25,7 @@ import { evaluateOutput, waivedBySource, newsDigestGate, jsonKeysGate, triLangGa
 import { tickerNewsGate } from '@/lib/ai/tickerNewsGuard';
 import {
     runLadder, LADDER_PURPOSES, TRACKED_PURPOSES, LLM_KEYS, LadderRungError, hourId, interpretGate, ladderStatus, purposeOfLabel,
-    _resetLadderStateForTest, type LadderDeps, type RungResult, type LegacyResult, type CallRecord,
+    _resetLadderStateForTest, capFor, RESERVE_CEILING_USD, type LadderDeps, type RungResult, type LegacyResult, type CallRecord,
 } from '@/lib/ai/llmLadder';
 
 const root = path.join(__dirname, '..');
@@ -313,6 +313,25 @@ const records = (s: Spy): CallRecord[] => {
         _resetLadderStateForTest();   // 인스턴스 안 30초 캐시를 비운다
         const s2 = mk({}); s2.store.data.set(LLM_KEYS.cost('2026-10'), '198.99');
         assert.equal((await runLadder(req(), legacyOk(), s2.deps)).provider, 'a55');
+    });
+    await t('월 상한 예비분(2026-11-06): CrossSector 는 $199 넘어도 «$199 + 0.8» 미만이면 ① 사용 · 다른 용도·Sonnet 단은 예외 없음 · 콘솔 한도 아래로 고정', async () => {
+        const cross = LADDER_PURPOSES.CrossSector;
+        assert.equal(cross.reserveUsd, 0.8);
+        _resetLadderStateForTest();
+        const s = mk({ allow: { CrossSector: cross, FlowAI: {} } });
+        s.store.data.set(LLM_KEYS.cost('2026-10'), '199.0007');   // 11/5 16:00Z 실측 원장
+        const o = await runLadder(req({ purpose: 'CrossSector' }), legacyOk(), s.deps);
+        assert.equal(o.provider, 'a55'); assert.deepEqual(o.trail, ['a55:ok']);
+        const f = await runLadder(req(), legacyOk(), s.deps);   // FlowAI(예비분 없음)는 예전처럼 건너뛴다
+        assert.equal(f.trail[0], 'a55:cap');
+        _resetLadderStateForTest();
+        const s2 = mk({ allow: { CrossSector: cross } }); s2.store.data.set(LLM_KEYS.cost('2026-10'), '199.8');
+        assert.equal((await runLadder(req({ purpose: 'CrossSector' }), legacyOk(), s2.deps)).trail[0], 'a55:cap');
+        assert.equal(capFor('a55', { reserveUsd: 5 }), RESERVE_CEILING_USD);
+        assert.equal(capFor('a55s', { reserveUsd: 0.8 }), LEDGER_CAP_USD);
+        assert.equal(capFor('a55', {}), LEDGER_CAP_USD);
+        assert.ok(RESERVE_CEILING_USD < 200);
+        _resetLadderStateForTest();
     });
     await t('월 상한: 갱신일(11/6) 이후에는 새 주기 키라 원장이 0 에서 다시 시작한다', async () => {
         const s = mk({ now: () => Date.UTC(2026, 10, 6, 1, 0, 0) });

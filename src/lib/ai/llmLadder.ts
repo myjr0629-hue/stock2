@@ -78,6 +78,13 @@ export interface LadderConfig {
      */
     retries?: number;
     /**
+     * 월 상한(LEDGER_CAP_USD) 뒤 예비분(USD) — 이 용도만 원장이 «상한 + 예비분» 미만이면 ①(Haiku 5.5)을 계속 쓴다(Sonnet 단은 예외 없음).
+     * 콘솔 지출 한도 $200 이 최종 차단선이라 «상한 + 예비분»은 RESERVE_CEILING_USD 를 넘지 못한다.
+     * 왜: 2026-11-05(주기 마지막 날) 16:00Z 에 원장이 $199 에 닿아 21:50Z 장마감 리포트가 현행(Haiku 4.5)으로 만들어졌고,
+     *   서빙 가드(provider:legacy)에 걸려 대폭락 날 앱이 전날(11/4 «상승 마감») 서사를 보였다. 하루 한 번인 리포트 몫(호출당 $0.005~0.03)을 남겨 둔다.
+     */
+    reserveUsd?: number;
+    /**
      * 해석의 깊이 지시문(lib/ai/depthDirective)을 ①②의 system 끝에 덧붙인다 — ③ 현행은 예전 프롬프트 그대로(최악이 현재 상태).
      * 'sonnet-only' = Sonnet 단에만 붙이고 Haiku 5.5 단(이어받기)은 예전 프롬프트 — Haiku 단독 깊이 변형은 통계적으로 유의하지 않아(딥 분석 +7.6, CI [-0.3, 15.4]) 근거가 있는 곳에만 쓴다.
      * 재배포 없이 끄기: `POST /api/admin/ai-ladder {"action":"depth-off","purposes":["UC"]|["*"]}`. 근거: HAIKU55-AB-2026-10-10.md «14절».
@@ -136,7 +143,8 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   ★2026-10-24 장마감 리포트 v2(5단 서사×3언어, 출력 약 8천 토큰): ① 90초 — 라우트 한도 300초·모델 예산 240초 안에서 재시도 1회 + 현행 이어받기
     //   ★2026-10-24 3차 운영 실측: ① 첫 시도 탈락 사유는 매번 달랐다(ko 거절 패턴 오탐·영어 헤드라인 미번역) → 재시도 2회. 다음 시도는 «지금까지 쓴 시간 + 직전 시도×1.2 ≤ 240초»일 때만
     //   (사다리의 예산 검사) — 정상 시도는 20~50초라 세 번째도 예산 안. 현행(4.5)은 서빙 대상이 아니라 남은 시간이 모자라 실패해도 화면은 Lambda v3 로 간다.
-    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 90_000, retries: 2 },
+    //   ★2026-11-06 월 상한 예비분 $0.8 — 11/5 대폭락 날 원장 상한(16:00Z)으로 리포트가 현행 생성·서빙 탈락(위 reserveUsd 주석)
+    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 90_000, retries: 2, reserveUsd: 0.8 },
     //   플로우 AI(전 종목 3개 언어 JSON): 신뢰 경로는 진짜 출구 게이트(gateFlowAnalysis, 자리표 값을 프롬프트에서 복원)로, 음차 복원 적용 후 2회 합산 23/28 vs 현행 19/28
     //   (현행 실패 = 4096 토큰 상한 잘림·JSON 깨짐·일본어 한글 혼입·종합점수 숫자 / 5.5 실패 = 종합점수 숫자 — ① 가 못 넘으면 현행이 이어받는다). 사고 끔이 낫다(적응형 18/28). p50 8.7s vs 16.3s · 호출당 $0.0015 vs $0.0164
     FlowAI: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
@@ -565,6 +573,14 @@ interface RungFail { ok: false; why: string; skip?: boolean; /** 응답이 왔�
 
 type RungId = 'a55' | 'a55s' | 'b55i' | 'b55m';
 
+/** 콘솔 지출 한도($200) 바로 아래 — 예비분을 더해도 이 값을 넘지 않는다 */
+export const RESERVE_CEILING_USD = 199.9;
+/** 이 단의 월 상한 — Haiku 5.5(a55) 단만 용도별 예비분(reserveUsd)을 더한다 */
+export function capFor(id: RungId, cfg: LadderConfig): number {
+    const extra = id === 'a55' ? Math.max(0, cfg.reserveUsd ?? 0) : 0;
+    return extra ? Math.min(RESERVE_CEILING_USD, LEDGER_CAP_USD + extra) : LEDGER_CAP_USD;
+}
+
 async function tryRung(
     id: RungId, req: LadderRequest, cfg: LadderConfig, d: LadderDeps, started: number,
 ): Promise<RungTry | RungFail> {
@@ -573,7 +589,7 @@ async function tryRung(
     if (id === 'a55' || id === 'a55s') {
         if (id === 'a55s' && !sonnet) return { ok: false, why: 'nosonnet', skip: true };
         if (!d.anthropicKey()) return { ok: false, why: 'nokey', skip: true };
-        if (overCap(await monthSpent(d))) return { ok: false, why: 'cap', skip: true };
+        if (overCap(await monthSpent(d), capFor(id, cfg))) return { ok: false, why: 'cap', skip: true };
         if (sonnet) {
             if (await sonnetOffNow(d)) return { ok: false, why: 'sonnet-off', skip: true };
             // ★2026-10-12 예열 몫 분리 — 예열은 자기 몫(warmDailyCapUsd)으로, 사용자는 «예열을 뺀» 지출로 일일 상한을 센다(개장 전에 사용자 지출이 80% 를 넘어 예열이 0건으로 멈춘 10/12 실측)
