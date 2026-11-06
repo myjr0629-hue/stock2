@@ -204,31 +204,41 @@ export function firstSentence(text: string): string {
   return s;
 }
 const ALIASES: Record<string, RegExp> = {
-  'S&P 500': /S&P\s?500/g,
-  'NASDAQ 100': /(?:NASDAQ|Nasdaq|나스닥|ナスダック)\s?100/g,
-  NASDAQ: /(?:NASDAQ|Nasdaq|나스닥|ナスダック)\s?(?:Composite|종합|総合)/g,
+  'S&P 500': /S&P\s?500|S&P/g,
+  'NASDAQ 100': /NASDAQ|Nasdaq|나스닥|ナスダック/g,
+  NASDAQ: /NASDAQ|Nasdaq|나스닥|ナスダック/g,
   SOX: /SOX|필라델피아 반도체|フィラデルフィア半導体|Philadelphia Semiconductor/g,
   VIX: /VIX/g,
 };
-/** 문장 속 «지수명 … ±x.x%» 가 카드 칩과 다르면 true(그 서사는 쓰지 않는다). 부호가 없으면 크기만 비교. */
+const UP = /rose|rallied|gained|climbed|rebounded|advanced|higher|상승|반등|올랐|오른|上昇|反発|上げ/i;
+const DOWN = /fell|dropped|declined|slid|sank|tumbled|lower|하락|내렸|내린|떨어|急落|下落|低下|下げ/i;
+/**
+ * 서사 문장이 카드 칩과 어긋날 수 있으면 true(그 서사는 쓰지 않고 사실 한 줄로 간다 — 틀린 문장보다 덜 말하는 쪽).
+ * ① 등락률(%)이 하나라도 있으면 거부 — 숫자는 칩이 말한다(관문 11061022: 부호 없는 «rose 4.4%»·«Nasdaq 3.1%» 통과 문제).
+ * ② 지수명 뒤 30자 안의 방향 낱말이 칩 부호와 반대면 거부(S&P −4.4% 인데 «S&P 500 rose»).
+ */
 export function contradictsChips(sentence: string, brief: SelloffBrief): boolean {
+  if (/\d\s?[%％]/.test(sentence)) return true;
   return brief.chips.some(c => {
     const re = ALIASES[c.name];
-    if (!re) return false;
+    if (!re || c.pct === 0) return false;
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(sentence))) {
-      const tail = sentence.slice(m.index + m[0].length, m.index + m[0].length + 24);
-      const n = /^[^\d+\-−%]{0,14}([+\-−]?)(\d+(?:\.(\d+))?)\s?%/.exec(tail);
-      if (!n) continue;
-      const v = Number(n[2]) * (n[1] === '-' || n[1] === '−' ? -1 : 1);
-      const tol = 0.5 * 10 ** -(n[3]?.length ?? 0) + 0.01;
-      if (Math.abs((n[1] ? v : Math.abs(v)) - (n[1] ? c.pct : Math.abs(c.pct))) > tol) return true;
+      const near = sentence.slice(m.index + m[0].length, m.index + m[0].length + 30);
+      if (c.pct < 0 ? UP.test(near) : DOWN.test(near)) return true;
     }
     return false;
   });
 }
-/** 장마감 리포트 응답에서 같은 세션 «왜» 첫 문장. 날짜·성공·출처·생성 시각(마감 뒤)·문자 체계·칩 숫자가 모두 맞을 때만. */
+/** 리포트가 원인 판단을 유보했는데(«직접 원인은 확인되지 않음») 첫 문장에 그 유보가 없으면 줄 맨 앞에 짧은 표식을 붙인다 — 2줄 말줄임에도 잘리지 않게. */
+const HEDGE: Record<SelloffLocale, RegExp> = {
+  ko: /확정된 것은 아닙|확정되지 않|확정할 수 없|확인되지 않|확인된 것은 아닙|단정할 수 없|단정하기 어렵/,
+  en: /not (?:been )?(?:confirmed|established)|unconfirmed|cannot be (?:confirmed|established)/i,
+  ja: /確認されていません|確認されていない|確定していません|確定されていません|断定できません|未確認|未確定/,
+};
+export const SELLOFF_HEDGE_TAG: Record<SelloffLocale, string> = { ko: '원인 미확정 · ', en: 'Unconfirmed · ', ja: '原因未確定 · ' };
+/** 장마감 리포트 응답에서 같은 세션 «왜» 첫 문장. 날짜·성공·출처·생성 시각(마감 뒤)·문자 체계·칩 일치가 모두 맞을 때만. */
 export function selloffWhyFromReport(json: unknown, brief: SelloffBrief, loc: SelloffLocale): string | null {
   const j = json as { success?: unknown; date?: unknown; source?: unknown; generatedAt?: unknown; structured?: { closingNarrative?: { why?: Record<string, unknown> } } } | null;
   if (!j || j.success !== true || j.date !== brief.date || typeof j.source !== 'string' || !j.source) return null;
@@ -243,14 +253,14 @@ export function selloffWhyFromReport(json: unknown, brief: SelloffBrief, loc: Se
   if (typeof raw !== 'string' || !raw.trim()) return null;
   const sentence = firstSentence(raw);
   if (!SCRIPT_OK[loc](sentence) || contradictsChips(sentence, brief)) return null;
-  return sentence;
+  return HEDGE[loc].test(raw) && !HEDGE[loc].test(sentence) ? `${SELLOFF_HEDGE_TAG[loc]}${sentence}` : sentence;
 }
 const FALLBACK = {
   ko: { sox: '반도체(SOX)', most: '로 낙폭이 가장 컸습니다', one: ' 하락', vix: ' 급등', pending: ' · 원인 분석은 장마감 리포트 준비 중' },
   en: { sox: 'Chips (SOX)', most: ', the steepest drop', one: ' down', vix: ' spike', pending: ' · cause analysis pending in the closing report' },
   ja: { sox: '半導体(SOX)', most: 'で下げ幅が最大でした', one: ' 下落', vix: ' 急騰', pending: ' · 要因分析は引け後レポート準備中' },
 } as const;
-/** 서사가 없을 때: 카드 칩 숫자만으로 사실 한 줄(원인 추정 0). pending = 서버가 «그 날짜 리포트 없음(404)»이라 답했을 때만. */
+/** 서사가 없을 때: 카드 칩 숫자만으로 사실 한 줄(원인 추정 0). pending 은 selloffWhyLine 이 정한다. */
 export function selloffWhyFallback(brief: SelloffBrief, loc: SelloffLocale, pending: boolean): string | null {
   const f = FALLBACK[loc];
   const label = (name: string) => name === 'SOX' ? f.sox : name;
@@ -261,11 +271,17 @@ export function selloffWhyFallback(brief: SelloffBrief, loc: SelloffLocale, pend
     : vix ? `VIX ${signedPct(vix.pct)}${f.vix}` : null;
   return fact && `${fact}${pending ? f.pending : ''}`;
 }
-/** 카드에 그릴 «왜» 줄 — 같은 세션 서사 → 없으면 사실 한 줄. report=null(읽는 중)이면 사실 한 줄로 자리를 지킨다(높이 출렁임 방지). */
-export function selloffWhyLine(brief: SelloffBrief, loc: SelloffLocale, report: SelloffReport): { text: string; source: 'narrative' | 'fallback' } | null {
+/**
+ * 카드에 그릴 «왜» 줄 — 같은 세션 서사 → 없으면 사실 한 줄. report=null(읽는 중)이면 사실 한 줄로 자리를 지킨다(높이 출렁임 방지).
+ * «준비 중»은 404 이면서 아직 생성 창(D 21:50Z 생성·22:20Z 재시도) 안일 때만 — 날짜 GET 은 저장소 장애도 404 로 답할 수 있어서
+ * 창이 지난 404 는 «준비 중»이라 단정하지 않는다(관문 11061022).
+ */
+export const SELLOFF_REPORT_PENDING_UNTIL_UTC = 'T23:00:00Z';
+export function selloffWhyLine(brief: SelloffBrief, loc: SelloffLocale, report: SelloffReport, now = Date.now()): { text: string; source: 'narrative' | 'fallback' } | null {
   const narrative = report?.status === 'ok' ? selloffWhyFromReport(report.json, brief, loc) : null;
   if (narrative) return { text: narrative, source: 'narrative' };
-  const fb = selloffWhyFallback(brief, loc, report?.status === 'missing');
+  const pending = report?.status === 'missing' && now < Date.parse(`${brief.date}${SELLOFF_REPORT_PENDING_UNTIL_UTC}`);
+  const fb = selloffWhyFallback(brief, loc, pending);
   return fb ? { text: fb, source: 'fallback' } : null;
 }
 export function scorecardWeek(date: string): string {

@@ -450,10 +450,14 @@ const why1105 = {
 };
 const served = (over: Record<string, unknown> = {}, why: Record<string, string> = why1105) => ({ success: true, date: '2026-11-05', source: 'v4', generatedAt: '2026-11-06T00:02:17.282Z', structured: { closingNarrative: { why } }, ...over });
 test('why line: same-session narrative shows its first sentence in ko/en/ja', () => {
-  assert.equal(selloffWhyFromReport(served(), nov5, 'ko'), '가장 강한 근거는 세션 중 보도된 반도체·AI 하드웨어 관련 매도세 소식입니다.');
-  assert.equal(selloffWhyFromReport(served(), nov5, 'en'), 'The strongest candidate is session-time reporting of selling in AI hardware: 24/7 Wall Street reported Dell, HPE and Super Micro declines at 2026-11-05 13:02 ET.');
+  assert.equal(selloffWhyFromReport(served(), nov5, 'ko'), '원인 미확정 · 가장 강한 근거는 세션 중 보도된 반도체·AI 하드웨어 관련 매도세 소식입니다.');
+  assert.equal(selloffWhyFromReport(served(), nov5, 'en'), 'Unconfirmed · The strongest candidate is session-time reporting of selling in AI hardware: 24/7 Wall Street reported Dell, HPE and Super Micro declines at 2026-11-05 13:02 ET.');
   assert.equal(selloffWhyFromReport(served(), nov5, 'ja'), '最も強い根拠は、取引時間中に報じられたAIハードウェア株の売り関連ニュースです。');
   for (const loc of ['ko', 'en', 'ja'] as const) assert.equal(selloffWhyLine(nov5, loc, { status: 'ok', json: served() })?.source, 'narrative');
+  // 리포트가 유보를 안 했으면 표식 없이, 첫 문장에 유보가 있으면 중복 표식 없이(관문 11061022: 유보가 잘리면 안 됨).
+  assert.equal(selloffWhyFromReport(served(), nov5, 'ja'), '最も強い根拠は、取引時間中に報じられたAIハードウェア株の売り関連ニュースです。');
+  assert.equal(selloffWhyFromReport(served({}, { ...why1105, ja: why1105.ja + '直接の原因は確認されていません。' }), nov5, 'ja'), '原因未確定 · 最も強い根拠は、取引時間中に報じられたAIハードウェア株の売り関連ニュースです。');
+  assert.equal(selloffWhyFromReport(served({}, { ...why1105, en: 'A report of AI hardware selling coincided with the drop, but a direct cause is not confirmed. More text.' }), nov5, 'en'), 'A report of AI hardware selling coincided with the drop, but a direct cause is not confirmed.');
   // 숫자 안의 마침표·«U.S.» 같은 짧은 조각에서 끊지 않는다.
   assert.equal(firstSentence('U.S. stocks fell 4.36% as chip shares slid. Second sentence.'), 'U.S. stocks fell 4.36% as chip shares slid.');
 });
@@ -471,22 +475,30 @@ test('why line: stale or foreign narrative is rejected (other date, pre-close ge
   // 다른 날 서사면 카드에는 사실 한 줄만(옛 문장 0).
   assert.equal(selloffWhyLine(nov5, 'ko', { status: 'ok', json: served({ date: '2026-11-04' }) })?.source, 'fallback');
 });
-test('why line: a narrative whose index numbers disagree with the chips is not shown', () => {
-  assert.equal(contradictsChips('S&P 500은 -4.36%, VIX는 +69.66%로 급등했습니다.', nov5), false);
-  assert.equal(contradictsChips('S&P 500 fell 4.4% and the NASDAQ Composite 5.5%.', nov5), false);
-  assert.equal(contradictsChips('S&P 500은 -2.10% 하락했습니다.', nov5), true);
-  assert.equal(contradictsChips('VIX +12.9% 급등', nov5), true);
-  assert.equal(contradictsChips('NASDAQ Composite −3.1%', nov5), true);
+test('why line: a narrative that could disagree with the chips is not shown (any %, opposite direction)', () => {
+  assert.equal(contradictsChips('가장 강한 근거는 세션 중 보도된 반도체·AI 하드웨어 관련 매도세 소식입니다.', nov5), false);
+  assert.equal(contradictsChips('Selling in AI hardware was reported at 13:02 ET; the S&P 500 fell with chips.', nov5), false);
+  // 관문 11061022 재현: 부호 없는 상승·나스닥 단독 표기 숫자
+  assert.equal(contradictsChips('The S&P 500 rose 4.4% after the report.', nov5), true);
+  assert.equal(contradictsChips('Nasdaq fell 3.1% as chips slid.', nov5), true);
+  assert.equal(contradictsChips('S&P 500은 -4.36%로 마감했습니다.', nov5), true); // 맞는 숫자라도 % 는 칩 몫
+  assert.equal(contradictsChips('The S&P 500 rallied on the news.', nov5), true);
+  assert.equal(contradictsChips('나스닥이 반등했지만 반도체는 밀렸습니다.', nov5), true);
+  assert.equal(contradictsChips('VIX는 하락했습니다.', nov5), true);
+  assert.equal(contradictsChips('S&P500は上昇しました。', nov5), true);
   assert.equal(selloffWhyFromReport(served({}, { ...why1105, ko: 'S&P 500이 -2.10% 하락한 배경은 반도체 매도세와 같은 세션에 일치합니다.' }), nov5, 'ko'), null);
+  assert.equal(selloffWhyLine(nov5, 'en', { status: 'ok', json: served({}, { ...why1105, en: 'The S&P 500 rose 4.4% after a strong jobs report released that morning.' }) })?.source, 'fallback');
 });
-test('why line: missing narrative falls back to a fact from the card numbers only (no cause), pending only on 404', () => {
-  assert.equal(selloffWhyLine(nov5, 'ko', { status: 'missing' })?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다 · 원인 분석은 장마감 리포트 준비 중');
-  assert.equal(selloffWhyLine(nov5, 'en', { status: 'missing' })?.text, 'Chips (SOX) −12.2%, the steepest drop · cause analysis pending in the closing report');
-  assert.equal(selloffWhyLine(nov5, 'ja', { status: 'missing' })?.text, '半導体(SOX) −12.2%で下げ幅が最大でした · 要因分析は引け後レポート準備中');
-  // 읽는 중·네트워크 실패: «준비 중»이라 단정하지 않는다.
-  for (const r of [null, { status: 'error' } as const]) assert.equal(selloffWhyLine(nov5, 'ko', r)?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다');
+test('why line: missing narrative falls back to a fact from the card numbers only (no cause); «pending» only for 404 inside the generation window', () => {
+  const inWindow = Date.parse('2026-11-05T21:30:00Z'), late = Date.parse('2026-11-06T01:00:00Z');
+  assert.equal(selloffWhyLine(nov5, 'ko', { status: 'missing' }, inWindow)?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다 · 원인 분석은 장마감 리포트 준비 중');
+  assert.equal(selloffWhyLine(nov5, 'en', { status: 'missing' }, inWindow)?.text, 'Chips (SOX) −12.2%, the steepest drop · cause analysis pending in the closing report');
+  assert.equal(selloffWhyLine(nov5, 'ja', { status: 'missing' }, inWindow)?.text, '半導体(SOX) −12.2%で下げ幅が最大でした · 要因分析は引け後レポート準備中');
+  // 창이 지난 404(저장소 장애일 수도)·읽는 중·네트워크 실패: «준비 중»이라 단정하지 않는다.
+  assert.equal(selloffWhyLine(nov5, 'ko', { status: 'missing' }, late)?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다');
+  for (const r of [null, { status: 'error' } as const]) assert.equal(selloffWhyLine(nov5, 'ko', r, inWindow)?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다');
   // 리포트는 있는데 서사 칸이 없으면(v3 등) 사실 한 줄, «준비 중» 없음.
-  assert.equal(selloffWhyLine(nov5, 'en', { status: 'ok', json: { success: true, date: '2026-11-05', source: 'v3', structured: {} } })?.text, 'Chips (SOX) −12.2%, the steepest drop');
+  assert.equal(selloffWhyLine(nov5, 'en', { status: 'ok', json: { success: true, date: '2026-11-05', source: 'v3', structured: {} } }, inWindow)?.text, 'Chips (SOX) −12.2%, the steepest drop');
   const soxOnly: SelloffBrief = { date: '2026-11-04', chips: [{ name: 'S&P 500', pct: 1.6 }, { name: 'NASDAQ', pct: 1.4 }, { name: 'SOX', pct: -3.1 }, { name: 'VIX', pct: -20 }] };
   assert.equal(selloffWhyFallback(soxOnly, 'ko', false), '반도체(SOX) −3.1% 하락');
   const vixOnly: SelloffBrief = { date: '2026-11-04', chips: [{ name: 'S&P 500', pct: 0.2 }, { name: 'VIX', pct: 11 }] };
