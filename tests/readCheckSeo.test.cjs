@@ -52,9 +52,15 @@ const load = (filename, source, overrides = {}) => {
   return exports;
 };
 const SITEMAP = 'src/lib/seo/sitemap.ts';
+const BASELINE = '11fe007621043457c4613299ad2e7488f2b1fc61'; // 이 브랜치의 origin/main 기준
+const baselineConcepts = load('src/lib/seo/concepts.ts', execFileSync('git',
+  ['show', `${BASELINE}:src/lib/seo/concepts.ts`], { cwd: root, encoding: 'utf8' }));
+const baselineOverrides = { '@/lib/seo/concepts': baselineConcepts };
 // 운영 반영 시점과 비교해 기존 URL의 순서·날짜·빈도·우선순위·언어 링크 보존을 검사한다.
 const previousSource = execFileSync('git', ['show', `5d77ec668:${SITEMAP}`], { cwd: root, encoding: 'utf8' });
-const previous = load(SITEMAP, previousSource);
+const previous = load(SITEMAP, previousSource, baselineOverrides);
+const baseline = load(SITEMAP, execFileSync('git', ['show', `${BASELINE}:${SITEMAP}`],
+  { cwd: root, encoding: 'utf8' }), baselineOverrides);
 const current = load(SITEMAP, fs.readFileSync(path.join(root, SITEMAP), 'utf8'));
 const route = (filename, builder) => load(filename, fs.readFileSync(path.join(root, filename), 'utf8'), {
   '@/lib/seo/sitemap': builder,
@@ -62,11 +68,13 @@ const route = (filename, builder) => load(filename, fs.readFileSync(path.join(ro
 const allRoute = route('src/app/sitemap.ts', current);
 const koRoute = route('src/app/sitemap-ko.xml/route.ts', current);
 const oldKoRoute = route('src/app/sitemap-ko.xml/route.ts', previous);
+const baselineKoRoute = route('src/app/sitemap-ko.xml/route.ts', baseline);
 // 후속 공개 도구도 제거한 뒤 read-check 도입 전 기준과 비교한다. 신규 시나리오는 전용 시험에서 검증한다.
 // T28(2026-10-25): flow·실적 주간 URL 에 의도적으로 더한 hreflang 대체 링크도 걷어 낸다(대체 링크 자체는 seoEarningsTicker 시험이 검사).
 const stripT28 = xml => xml.replace(/<url>\s*<loc>[^<]*\/(?:flow\/[^<\/]+|earnings-week)<\/loc>[\s\S]*?<\/url>/g,
   block => block.replace(/\s*<xhtml:link rel="alternate" hreflang="[^"]+" href="[^"]+" \/>/g, ''));
 const stripNewUrls = xml => stripT28(xml).replace(/<url>\s*<loc>[^<]*\/tools\/(?:read-check|earnings-scenario)<\/loc>[\s\S]*?<\/url>\n?/g, '');
+const stripSelloff = xml => xml.replace(/<url>\s*<loc>https:\/\/www\.signumhq\.com\/(?:en|ko|ja)\/learn\/market-selloff<\/loc>[\s\S]*?<\/url>\n?/g, '');
 const text = { en: 'test', ko: '시험', ja: '試験' };
 const fullDoc = { v: 1, at: NOW, etDate: '2026-10-21', slot: 'pm', items: [{
   id: 'test', ticker: 'NVDA', kind: 'darkpool', asOf: '2026-10-21',
@@ -81,6 +89,10 @@ test('전체 사이트맵 XML: 3 URL·상호 hreflang·x-default, 기존 URL 바
     const before = resolveSitemap(await previous.buildSitemap());
     const entries = await allRoute.default();
     const xml = resolveSitemap(entries);
+    const baselineXml = resolveSitemap(await baseline.buildSitemap());
+    const selloff = entries.filter(e => e.url.endsWith('/learn/market-selloff'));
+    assert.deepEqual(Array.from(selloff, e => e.url), LOCALES.map(l => `${BASE}/${l}/learn/market-selloff`));
+    assert.equal(stripSelloff(xml), baselineXml, '새 개념을 제외한 origin/main XML 바이트와 순서');
     const added = entries.filter(e => e.url.endsWith(PAGE));
     assert.deepEqual(Array.from(added, e => e.url), LOCALES.map(l => `${BASE}/${l}${PAGE}`));
     assert.equal(new Set(entries.map(e => e.url)).size, entries.length);
@@ -91,20 +103,24 @@ test('전체 사이트맵 XML: 3 URL·상호 hreflang·x-default, 기존 URL 바
       for (const [l, url] of Object.entries(expectedLanguages))
         assert.ok(block.includes(`<xhtml:link rel="alternate" hreflang="${l}" href="${url}" />`));
     }
-    assert.deepEqual(Buffer.from(stripNewUrls(xml)), Buffer.from(before));
+    assert.equal(stripNewUrls(stripSelloff(xml)), before);
   }
 });
 
 test('한국어 사이트맵 응답: 한국어 진단만 추가, 기존 응답 바이트 동일', async () => {
   picks = { doc: fullDoc, off: false };
   const before = await (await oldKoRoute.GET()).text();
+  const baselineXml = await (await baselineKoRoute.GET()).text();
   const response = await koRoute.GET();
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type'), /application\/xml/);
   const xml = await response.text();
   assert.equal((xml.match(/\/tools\/read-check<\/loc>/g) ?? []).length, 1);
   assert.ok(xml.includes(`<loc>${BASE}/ko${PAGE}</loc>`));
-  assert.deepEqual(Buffer.from(stripNewUrls(xml)), Buffer.from(before));
+  assert.equal((xml.match(/\/learn\/market-selloff<\/loc>/g) ?? []).length, 1);
+  assert.ok(xml.includes(`<loc>${BASE}/ko/learn/market-selloff</loc>`));
+  assert.equal(stripSelloff(xml), baselineXml, '새 개념을 제외한 origin/main 한국어 XML 바이트와 순서');
+  assert.equal(stripNewUrls(stripSelloff(xml)), before);
 });
 
 test('3언어 메타데이터: title·description·canonical·OG·hreflang 모두 존재', async () => {

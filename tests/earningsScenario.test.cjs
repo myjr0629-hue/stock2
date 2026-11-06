@@ -360,11 +360,16 @@ test('3언어 결측 SSR: 모든 결과칸·입력 유지, 계산 비활성화',
 test('사이트맵: 신규3개·ko전용1개·hreflang, 기존 XML 바이트 동일', async () => {
   stub('../src/services/todayPicksService', { readPicks: async () => ({ doc: null, off: false }) });
   const file = 'src/lib/seo/sitemap.ts';
-  const before = load(file, execFileSync('git', ['show', `${BASE_COMMIT}:${file}`], { cwd: root, encoding: 'utf8' }));
+  // 후속 개념은 과거 빌더에 주입하지 않는다. origin/main 시점 목록을 기준으로 고정한다.
+  const conceptsFile = 'src/lib/seo/concepts.ts';
+  const concepts = load(conceptsFile, execFileSync('git', ['show', `11fe007621043457c4613299ad2e7488f2b1fc61:${conceptsFile}`], { cwd: root, encoding: 'utf8' }));
+  const before = load(file, execFileSync('git', ['show', `${BASE_COMMIT}:${file}`], { cwd: root, encoding: 'utf8' }), { '@/lib/seo/concepts': concepts });
   const after = require('../src/lib/seo/sitemap');
   const { resolveSitemap } = require('next/dist/build/webpack/loaders/metadata/resolve-route-data');
   for (const locales of [undefined, ['ko']]) {
     const old = await before.buildSitemap(locales), current = await after.buildSitemap(locales);
+    assert.deepEqual(current.filter(r => r.url.endsWith('/learn/market-selloff')).map(r => r.url),
+      (locales ?? ['en', 'ko', 'ja']).map(l => `https://www.signumhq.com/${l}/learn/market-selloff`));
     const added = current.filter(r => r.url.endsWith('/tools/earnings-scenario'));
     assert.equal(added.length, locales ? 1 : 3);
     assert.ok(added.every(r => Object.keys(r.alternates.languages).length === 4 && !r.lastModified));
@@ -372,7 +377,7 @@ test('사이트맵: 신규3개·ko전용1개·hreflang, 기존 XML 바이트 동
     const t28 = r => /\/flow\/[^/]+$|\/earnings-week$/.test(r.url);
     assert.ok(current.filter(t28).every(r => Object.keys(r.alternates?.languages ?? {}).length === 4));
     const withoutT28 = current.map(r => (t28(r) ? (({ alternates, ...rest }) => rest)(r) : r));
-    assert.equal(resolveSitemap(withoutT28.filter(r => !r.url.endsWith('/tools/earnings-scenario'))), resolveSitemap(old));
+    assert.equal(resolveSitemap(withoutT28.filter(r => !r.url.endsWith('/tools/earnings-scenario') && !r.url.endsWith('/learn/market-selloff'))), resolveSitemap(old));
   }
 });
 test('보호 대상 영수증·read-check 소스 바이트 동일, 기존 페이지3언어 HTML 동일', async () => {
