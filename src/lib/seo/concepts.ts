@@ -33,7 +33,7 @@ export const CONCEPT_SLUGS = [
   // [2026-09-10] 추가. GSC 실측상 «개념 설명형»이 유일하게 노출이 오르는 형태였고
   //   (/learn/put-call-ratio 157노출), 미결제약정은 우리 화면의 「신규 포지션 감지」가
   //   바로 그 계산인데 설명 페이지가 없었다. 경쟁 도구도 이 구분을 잘 안 쓴다.
-  'open-interest', 'earnings-expected-move',
+  'open-interest', 'earnings-expected-move', 'market-selloff',
 ] as const;
 export type ConceptSlug = (typeof CONCEPT_SLUGS)[number];
 
@@ -136,6 +136,20 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: 'The one-day lag is real', p: 'Open interest is published after the session settles, so the change you see was built in an earlier session. Anyone showing you live intraday open interest is showing you an estimate. We label the session the number belongs to rather than implying it is live.' },
       ],
       related: ['options-flow', 'put-call-ratio', 'max-pain'],
+    },
+    'market-selloff': {
+      slug: 'market-selloff',
+      title: 'When US stocks sell off: what to check — VIX, the chip index, and expected earnings moves',
+      desc: 'Understand VIX, the semiconductor index, and options-implied earnings moves when US stocks sell off.',
+      h1: 'When US stocks sell off: what to check — VIX, the chip index, and expected earnings moves',
+      lead: 'A broad selloff can make US stock moves hard to put in context. Volatility, semiconductor stocks, and earnings expectations offer different views of the same session, without predicting what comes next.',
+      sections: [
+        { h: 'VIX and the volatility curve', p: 'VIX measures near-term expected volatility derived from S&P 500 option prices; VIX3M measures expected volatility over a longer horizon. When VIX is above VIX3M, the volatility curve is inverted: options price more near-term volatility than longer-term volatility. Neither reading predicts the market’s direction.' },
+        { h: 'Why the chip index can move more', p: 'The Philadelphia Semiconductor Index (SOX) concentrates on chipmakers and semiconductor equipment companies, while the Nasdaq includes a broader mix of businesses. Shared industry demand and concentrated exposures can make SOX move more than the broader Nasdaq, though that will not happen every session.' },
+        { h: 'Earnings expectations and the actual reaction', p: 'During a selloff week, uncertainty about the market as well as a company’s report can raise option prices and the pre-report expected move; it does not always rise. In SIGNUM HQ, check the earnings expected move before the report, then compare it with the actual post-report close-to-close reaction in the earnings comparison or selloff briefing when available. The option range runs to expiry, while the actual reaction covers one regular session, so their horizons differ. The range is not a guarantee.' },
+        { h: 'An example', p: 'On 2026-11-05, the S&P fell 4.36%, the Nasdaq fell 5.52%, and SOX fell 12.25%; VIX closed at 28.18. This was a semiconductor-led decline. These observations do not establish a cause or predict the next move.' },
+      ],
+      related: ['earnings-expected-move', 'options-flow'],
     },
     'earnings-expected-move': {
       slug: 'earnings-expected-move',
@@ -252,6 +266,20 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
       ],
       related: ['options-flow', 'put-call-ratio', 'max-pain'],
     },
+    'market-selloff': {
+      slug: 'market-selloff',
+      title: '미국 주식 급락한 날 무엇을 봐야 하나: VIX·반도체지수·실적 예상 변동폭',
+      desc: '미국 주식 급락 때 VIX와 반도체지수, 옵션 가격에 반영된 실적 예상 변동폭을 읽는 법을 살펴봅니다.',
+      h1: '미국 주식 급락한 날 무엇을 봐야 하나: VIX·반도체지수·실적 예상 변동폭',
+      lead: '미국 주식이 폭넓게 하락하면 개별 종목의 움직임을 맥락에 놓기 어렵습니다. 변동성, 반도체 종목, 실적 예상치는 같은 장을 서로 다른 각도에서 보여주지만 다음 방향을 예측하지는 않습니다.',
+      sections: [
+        { h: 'VIX와 변동성 곡선', p: 'VIX는 S&P 500 옵션 가격에서 산출한 단기 예상 변동성이고 VIX3M은 더 긴 기간의 예상 변동성입니다. VIX가 VIX3M보다 높은 역전은 옵션 가격에 반영된 단기 변동성이 장기보다 크다는 뜻입니다. 어느 쪽도 시장 방향을 알려주지는 않습니다.' },
+        { h: '반도체지수가 더 크게 움직일 수 있는 이유', p: '필라델피아 반도체지수(SOX)는 반도체 제조사와 장비 기업에 집중되어 있고 나스닥은 더 다양한 업종을 포함합니다. 공통된 업황과 집중된 구성 때문에 SOX가 나스닥보다 크게 움직일 수 있지만 매번 그런 것은 아닙니다.' },
+        { h: '실적 예상과 실제 반응', p: '급락 주간에는 회사 실적뿐 아니라 시장 전반의 불확실성이 옵션 가격을 높여 발표 전 예상 변동폭이 커질 수 있지만, 항상 커지는 것은 아닙니다. SIGNUM HQ에서 발표 전 예상 변동폭을 확인하고 발표 뒤에는 제공되는 실적 예상 대 실제 비교나 급락 브리핑에서 종가 대비 실제 반응을 비교합니다. 옵션 예상 범위는 만기까지, 실제 반응은 정규장 한 세션의 종가 대비 변화를 다루므로 기간이 다릅니다. 예상 범위는 보장선이 아닙니다.' },
+        { h: '사례', p: '2026-11-05에 S&P는 4.36%, 나스닥은 5.52%, SOX는 12.25% 하락했고 VIX는 28.18로 마감했습니다. 반도체 주도 하락이었습니다. 이 관측만으로 원인이나 다음 움직임을 단정할 수 없습니다.' },
+      ],
+      related: ['earnings-expected-move', 'options-flow'],
+    },
     'earnings-expected-move': {
       slug: 'earnings-expected-move',
       title: '실적 발표 전 예상 변동폭: 미국 주식이 발표 뒤 얼마나 움직일지 미리 보는 법',
@@ -366,6 +394,20 @@ export const CONCEPTS: Record<Loc, Record<ConceptSlug, Concept>> = {
         { h: '一日のずれは実在する', p: '建玉は取引終了後の清算を経て公表されます。したがって見えている増減は「以前のセッション」で積まれたものです。ザラ場中のリアルタイム建玉を示すものは推定値です。当社はその数値が「どのセッションのものか」を明示し、リアルタイムであるかのようには見せません。' },
       ],
       related: ['options-flow', 'put-call-ratio', 'max-pain'],
+    },
+    'market-selloff': {
+      slug: 'market-selloff',
+      title: '米国株が急落した日に見るべきもの：VIX・半導体指数・決算の想定変動幅',
+      desc: '米国株の急落時に、VIX、半導体指数、オプション価格に織り込まれた決算の想定変動幅を読み解きます。',
+      h1: '米国株が急落した日に見るべきもの：VIX・半導体指数・決算の想定変動幅',
+      lead: '米国株が幅広く下落すると、個別銘柄の動きを文脈に置くのは難しくなります。変動性、半導体銘柄、決算の想定値は同じ相場を異なる角度から示しますが、次の方向を予測するものではありません。',
+      sections: [
+        { h: 'VIXと変動性の曲線', p: 'VIXはS&P 500のオプション価格から算出する短期の予想変動率で、VIX3Mはより長い期間の予想変動率です。VIXがVIX3Mを上回る逆転は、オプション価格に織り込まれた短期の変動率が長期を上回ることを意味します。どちらも相場の方向を示すものではありません。' },
+        { h: '半導体指数が大きく動きうる理由', p: 'フィラデルフィア半導体指数（SOX）は半導体メーカーと製造装置企業に集中し、ナスダックはより幅広い業種を含みます。共通する業界需要や構成の集中によってSOXがナスダックより大きく動くことがありますが、毎回そうなるわけではありません。' },
+        { h: '決算の想定と実際の反応', p: '急落週には企業決算だけでなく市場全体の不確実性もオプション価格を押し上げ、発表前の想定変動幅が広がることがありますが、常に広がるわけではありません。SIGNUM HQで発表前の想定変動幅を確認し、発表後は提供される決算の想定と実際の比較や急落ブリーフィングで終値ベースの実際の反応と比べます。オプションの想定範囲は満期まで、実際の反応は通常取引の一セッションの終値間の変化なので、期間が異なります。想定範囲は保証ではありません。' },
+        { h: '事例', p: '2026-11-05はS&Pが4.36%、ナスダックが5.52%、SOXが12.25%下落し、VIXは28.18で引けました。半導体主導の下落でした。この観測だけで原因や次の動きを断定することはできません。' },
+      ],
+      related: ['earnings-expected-move', 'options-flow'],
     },
     'earnings-expected-move': {
       slug: 'earnings-expected-move',

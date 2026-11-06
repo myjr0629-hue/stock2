@@ -105,7 +105,7 @@ export async function buildSitemap(locales: readonly (typeof LOCALES[number])[] 
       });
     }
     for (const p of LEARN_PATHS) {
-      entries.push({ url: `${base}/${loc}${p}`, lastModified: STATIC_LASTMOD, changeFrequency: 'monthly', priority: 0.5 });
+      entries.push({ url: `${base}/${loc}${p}`, lastModified: p === '/learn/market-selloff' ? new Date('2026-11-06T00:00:00Z') : STATIC_LASTMOD, changeFrequency: 'monthly', priority: 0.5 });
     }
     // 영수증 허브. 변경 시각을 알 수 없어 lastModified는 주장하지 않는다.
     entries.push({
