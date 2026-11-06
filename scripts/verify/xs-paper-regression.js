@@ -204,9 +204,16 @@ const snapshot = () => JSON.stringify([...db.entries()].sort());
   for (const date of ['2026-02-30', 'bad', '9999-01-01']) await assert.rejects(run({ date }), /Invalid or future/);
   console.log('PASS backfill refusals: missing vendor session (SPY/position/order), weekday gap, past session, existing NAV, rewind, invalid dates');
 
-  // older cache date → historical XS rows come from a scan of that date
-  fixture(); xsCacheDate = '2026-11-04'; await assert.rejects(run({ date: D }), /No XS history rows/); assert.equal(scans, 1);
-  console.log('PASS backfill with a cache of another date reads that date (no refusal by cache date)');
+  // backfill reads the XS universe exactly like the scheduled run (cache date), never refuses on it, never scans
+  fixture({ weekStartNav: 1 }); xsCacheDate = '2026-11-04';
+  await run({ date: D }); assert.equal(scans, 0); assert.equal(redis.get('cache:xs:paper').xsDate, '2026-11-04'); assert.equal(st().lastRun, D);
+  assert.ok(db.get(key({ pk: 'ORDERS', sk: D })).orders.some(o => o.t === 'NEWA'));
+  console.log('PASS backfill uses the scheduled XS source (cache date) — no refusal, no scan');
+
+  // holiday in between (journaled tradingDay:false) is not a gap; a missing weekday is
+  fixture({ lastRun: '2026-11-03' }); db.set(key({ pk: 'NAV', sk: '2026-11-04' }), { pk: 'NAV', sk: '2026-11-04', tradingDay: false });
+  await run({ date: D }); assert.equal(st().lastRun, D);
+  console.log('PASS holiday NAV row (tradingDay:false) between lastRun and backfill date is accepted');
 
   // scheduled run (no event.date) 11/06 22:40Z: normal exits, new orders, cache failure → retry repairs
   fixture({ weekStartNav: 1 });

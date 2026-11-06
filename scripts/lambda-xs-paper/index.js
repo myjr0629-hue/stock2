@@ -51,7 +51,7 @@
 // ============================================================================
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, BatchGetCommand, GetCommand, ScanCommand, TransactWriteCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, BatchGetCommand, GetCommand, TransactWriteCommand } = require('@aws-sdk/lib-dynamodb');
 
 const VERSION = 'PAPER-1.0.2';   // 1.0.1 = 2026-09-16 input plumbing · 1.0.2 = 2026-11-06 atomic journal/unique TRADE keys (see header); §2 strategy constants unchanged
 const JOURNAL = 'signum-trade-journal';
@@ -115,17 +115,6 @@ async function batchGet(table, keys) {
         }
     }
     return out;
-}
-
-async function historicalXsRows(date) {
-    const rows = new Map();
-    let lastKey;
-    do {
-        const res = await ddb.send(new ScanCommand({ TableName: XS_TABLE, FilterExpression: '#d = :date', ExpressionAttributeNames: { '#d': 'date' }, ExpressionAttributeValues: { ':date': date }, ExclusiveStartKey: lastKey }));
-        for (const row of res.Items || []) if (row.ticker && !row.ticker.startsWith('_')) rows.set(row.ticker, row);
-        lastKey = res.LastEvaluatedKey;
-    } while (lastKey);
-    return rows;
 }
 
 // ── Intrinio session quote → {open, close, high, low, volume, session} ──────
@@ -220,7 +209,13 @@ async function run(date) {
         // serves (ET date of now): alpha-history carries no OHLC since 08-28.
         if (!state.lastRun) throw new Error('Backfill needs an existing STATE.lastRun');
         if (today !== etToday) throw new Error(`Backfill ${today}: no price source (vendor session is ${etToday}) — nothing written`);
-        const gap = weekdaysBetween(state.lastRun, today);
+        // a weekday in between is fine only if it was journaled as a non-trading
+        // day (holiday NAV row, tradingDay:false); anything else is a lost session
+        const gap = [];
+        for (const d of weekdaysBetween(state.lastRun, today)) {
+            const row = (await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'NAV', sk: d }, ConsistentRead: true }))).Item;
+            if (!row || row.tradingDay !== false) gap.push(d);
+        }
         if (gap.length) throw new Error(`Backfill ${today}: unprocessed weekday(s) ${gap.join(',')} after STATE.lastRun ${state.lastRun} — nothing written`);
         const navRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'NAV', sk: today }, ConsistentRead: true }));
         if (navRes.Item?.tradingDay) throw new Error(`NAV already exists for ${today}`);
@@ -242,17 +237,15 @@ async function run(date) {
     // `cache:xs:scores` names the universe and its date; the rows carry close +
     // market cap as the engine saw them. If the key is missing (engine down for
     // 7+ days) there is no universe → no new orders, and the metric line below
-    // trips the `signum-xs-scores-missing` alarm. A backfill reads the rows of
-    // ITS date (cache universe when the cache is that date, else a table scan).
+    // trips the `signum-xs-scores-missing` alarm. A backfill (same ET session,
+    // see above) reads exactly what the scheduled run reads: the cache's date.
     const snaps = new Map();
     let xsDoc = null;
     try { const raw = await redisGet('cache:xs:scores'); xsDoc = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { xsDoc = null; }
     const cacheDate = xsDoc?.date && xsDoc?.scores ? String(xsDoc.date) : null;
-    const xsDate = historical ? today : cacheDate;
+    const xsDate = cacheDate;
     const xsUniverse = cacheDate ? Object.keys(xsDoc.scores) : [];
-    const xsRowsAll = historical && cacheDate !== today ? await historicalXsRows(today)
-        : xsUniverse.length ? await batchGet(XS_TABLE, xsUniverse.map(t => ({ ticker: t, date: xsDate }))) : new Map();
-    if (historical && !xsRowsAll.size) throw new Error(`No XS history rows for ${today}`);
+    const xsRowsAll = xsUniverse.length ? await batchGet(XS_TABLE, xsUniverse.map(t => ({ ticker: t, date: xsDate }))) : new Map();
     for (const [t, r] of xsRowsAll) {
         const price = num(r.close), mcap = num(r.mcap);
         if (!(price > 0)) continue;
