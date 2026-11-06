@@ -184,6 +184,90 @@ export function selloffShown(preview: string | null, brief: SelloffBrief | null,
   if (preview === 'on') return PREVIEW_BRIEF;
   return currentSelloff(brief, now);
 }
+/**
+ * 카드의 «왜» 한 줄(대표 11/6 승인 — 급락 카드가 뜬 날만). 7d2b2a110 의 줄은 c51dade35 에서 «카드 안 새 요청은 읽기 전용 캐시만»
+ * 규칙 때문에 빠졌다. 지금 /api/intel/cross-sector-brief?date=D 는 저장본만 읽고 없으면 404 — 생성·공급사 호출이 없다(그 시험 아래).
+ * 원칙: 같은 세션(D) 서사만 · 문장은 리포트 그대로(새 원인 생성 0) · 카드 칩과 숫자가 어긋나면 서사를 버린다 · 없으면 칩 숫자만으로 사실 한 줄.
+ */
+export type SelloffReport = { status: 'ok'; json: unknown } | { status: 'missing' } | { status: 'error' } | null;
+const SCRIPT_OK: Record<SelloffLocale, (s: string) => boolean> = {
+  ko: s => /[가-힣]/.test(s),
+  ja: s => /[぀-ヿ一-鿿]/.test(s) && !/[가-힣]/.test(s),
+  en: s => !/[가-힣぀-ヿ一-鿿]/.test(s),
+};
+/** 첫 문장(너무 짧은 «U.S.» 같은 조각은 다음 문장과 잇는다). 문장 끝이 없으면 전체 — 카드 CSS 가 2줄로 자른다. */
+export function firstSentence(text: string): string {
+  const s = text.replace(/\s+/g, ' ').trim();
+  const re = /[.!?](?=\s)|[。！？]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s))) if (m.index + 1 >= 25) return s.slice(0, m.index + 1);
+  return s;
+}
+const ALIASES: Record<string, RegExp> = {
+  'S&P 500': /S&P\s?500/g,
+  'NASDAQ 100': /(?:NASDAQ|Nasdaq|나스닥|ナスダック)\s?100/g,
+  NASDAQ: /(?:NASDAQ|Nasdaq|나스닥|ナスダック)\s?(?:Composite|종합|総合)/g,
+  SOX: /SOX|필라델피아 반도체|フィラデルフィア半導体|Philadelphia Semiconductor/g,
+  VIX: /VIX/g,
+};
+/** 문장 속 «지수명 … ±x.x%» 가 카드 칩과 다르면 true(그 서사는 쓰지 않는다). 부호가 없으면 크기만 비교. */
+export function contradictsChips(sentence: string, brief: SelloffBrief): boolean {
+  return brief.chips.some(c => {
+    const re = ALIASES[c.name];
+    if (!re) return false;
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sentence))) {
+      const tail = sentence.slice(m.index + m[0].length, m.index + m[0].length + 24);
+      const n = /^[^\d+\-−%]{0,14}([+\-−]?)(\d+(?:\.(\d+))?)\s?%/.exec(tail);
+      if (!n) continue;
+      const v = Number(n[2]) * (n[1] === '-' || n[1] === '−' ? -1 : 1);
+      const tol = 0.5 * 10 ** -(n[3]?.length ?? 0) + 0.01;
+      if (Math.abs((n[1] ? v : Math.abs(v)) - (n[1] ? c.pct : Math.abs(c.pct))) > tol) return true;
+    }
+    return false;
+  });
+}
+/** 장마감 리포트 응답에서 같은 세션 «왜» 첫 문장. 날짜·성공·출처·생성 시각(마감 뒤)·문자 체계·칩 숫자가 모두 맞을 때만. */
+export function selloffWhyFromReport(json: unknown, brief: SelloffBrief, loc: SelloffLocale): string | null {
+  const j = json as { success?: unknown; date?: unknown; source?: unknown; generatedAt?: unknown; structured?: { closingNarrative?: { why?: Record<string, unknown> } } } | null;
+  if (!j || j.success !== true || j.date !== brief.date || typeof j.source !== 'string' || !j.source) return null;
+  if (typeof j.generatedAt === 'string') {
+    const ms = Date.parse(j.generatedAt);
+    // D 마감 전에 만든 글은 그 세션을 담지 못한다.
+    if (!Number.isFinite(ms)) return null;
+    const day = etDateOfIso(j.generatedAt) ?? '';
+    if (day < brief.date || (day === brief.date && etClock(ms).minutes < sessionCloseMinutes(brief.date))) return null;
+  }
+  const raw = j.structured?.closingNarrative?.why?.[loc];
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const sentence = firstSentence(raw);
+  if (!SCRIPT_OK[loc](sentence) || contradictsChips(sentence, brief)) return null;
+  return sentence;
+}
+const FALLBACK = {
+  ko: { sox: '반도체(SOX)', most: '로 낙폭이 가장 컸습니다', one: ' 하락', vix: ' 급등', pending: ' · 원인 분석은 장마감 리포트 준비 중' },
+  en: { sox: 'Chips (SOX)', most: ', the steepest drop', one: ' down', vix: ' spike', pending: ' · cause analysis pending in the closing report' },
+  ja: { sox: '半導体(SOX)', most: 'で下げ幅が最大でした', one: ' 下落', vix: ' 急騰', pending: ' · 要因分析は引け後レポート準備中' },
+} as const;
+/** 서사가 없을 때: 카드 칩 숫자만으로 사실 한 줄(원인 추정 0). pending = 서버가 «그 날짜 리포트 없음(404)»이라 답했을 때만. */
+export function selloffWhyFallback(brief: SelloffBrief, loc: SelloffLocale, pending: boolean): string | null {
+  const f = FALLBACK[loc];
+  const label = (name: string) => name === 'SOX' ? f.sox : name;
+  const drops = brief.chips.filter(c => c.name !== 'VIX' && c.pct < 0).sort((a, b) => a.pct - b.pct);
+  const vix = brief.chips.find(c => c.name === 'VIX' && c.pct > 0);
+  const fact = drops.length >= 2 ? `${label(drops[0].name)} ${signedPct(drops[0].pct)}${f.most}`
+    : drops.length === 1 ? `${label(drops[0].name)} ${signedPct(drops[0].pct)}${f.one}`
+    : vix ? `VIX ${signedPct(vix.pct)}${f.vix}` : null;
+  return fact && `${fact}${pending ? f.pending : ''}`;
+}
+/** 카드에 그릴 «왜» 줄 — 같은 세션 서사 → 없으면 사실 한 줄. report=null(읽는 중)이면 사실 한 줄로 자리를 지킨다(높이 출렁임 방지). */
+export function selloffWhyLine(brief: SelloffBrief, loc: SelloffLocale, report: SelloffReport): { text: string; source: 'narrative' | 'fallback' } | null {
+  const narrative = report?.status === 'ok' ? selloffWhyFromReport(report.json, brief, loc) : null;
+  if (narrative) return { text: narrative, source: 'narrative' };
+  const fb = selloffWhyFallback(brief, loc, report?.status === 'missing');
+  return fb ? { text: fb, source: 'fallback' } : null;
+}
 export function scorecardWeek(date: string): string {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));

@@ -9,6 +9,8 @@
 .bad{color:#f87171;font-weight:800}
 .ok{color:#34d399;font-weight:800}
 .line{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;font-size:11px;line-height:1.4;color:#cbd5e1}
+.why{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;font-size:11px;line-height:1.4;color:#cbd5e1}
 .lineLabel{color:#fbbf24;font-weight:800}
 .row{white-space:nowrap}
 .row b:first-child{color:#e2e8f0}
+.why:lang(ko){word-break:keep-all}

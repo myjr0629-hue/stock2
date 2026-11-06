@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { selloffTitleKey, currentSelloff, loadRetainedSelloff, mergeSelloffRecord, mergeSelloffRecords, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
+import { contradictsChips, firstSentence, selloffWhyFallback, selloffWhyFromReport, selloffWhyLine, selloffTitleKey, currentSelloff, loadRetainedSelloff, mergeSelloffRecord, mergeSelloffRecords, readSelloffMacro, saveRetainedSelloff, SELLOFF_STORE_KEY, selloffForDisplay, selloffPreviewParam, selloffBrief, selloffShown, SELLOFF_COPY, scorecardWeek, type SelloffBrief, type SelloffMacro } from '../src/lib/selloffBriefing';
 const now = Date.parse('2026-11-02T15:00:00Z');
 const cash = (changePct: number, sessionDate = '2026-10-30', asOf = '2026-10-30T20:00:00Z') => ({ changePct, sessionDate, asOf, price: 100 });
 const factor = (chgPct: number, marketTime = '2026-10-30T20:00:00Z') => ({ chgPct, marketTime, status: 'OK', source: 'YAHOO' });
@@ -39,7 +39,9 @@ test('three locales provide all card labels and week starts Monday', () => {
 });
 test('card only requests the scorecard and does not subscribe to earnings calendar', () => {
   const source = readFileSync('src/app/[locale]/app-view/dash/SelloffCard.tsx', 'utf8');
-  assert.doesNotMatch(source, /watchEarningsCalendar|earningsCalendarData|crossBriefUrl|t\.mine/);
+  assert.doesNotMatch(source, /watchEarningsCalendar|earningsCalendarData|t\.mine/);
+  // «왜» 줄(대표 11/6 승인)은 날짜 지정 리포트 저장본만 읽는다 — 날짜 없는 GET(자가 치유 생성 경로)은 금지.
+  assert.deepEqual([...source.matchAll(/crossBriefUrl\(([^)]*)\)/g)].map(m => m[1]), ['brief.date']);
   assert.deepEqual([...source.matchAll(/fetch\(`([^`]+)`/g)].map(m => m[1].split('?')[0]), ['/api/earnings/scorecard']);
 });
 test('failed macro response clears card and prior session expires at next close', async () => {
@@ -248,7 +250,7 @@ test('Nasdaq slot: ^NDX feed absent in production → cash composite ^IXIC at th
 
 test('scorecard row refreshes while the card stays up; route uses strict cache read/write', () => {
   const card = readFileSync('src/app/[locale]/app-view/dash/SelloffCard.tsx', 'utf8');
-  assert.match(card, /setInterval\(load, 10 \* 60_000\)/);
+  assert.match(card, /setInterval\(\(\) => \{ load\(\); loadReport\(\); \}, 10 \* 60_000\)/);
   assert.match(card, /clearInterval\(id\)/);
   const route = readFileSync('src/app/api/market/macro/route.ts', 'utf8');
   assert.match(route, /getSelloffRecordStrict\(key\)\.then\(r => \(\{ known: r\.ok/);
@@ -438,3 +440,65 @@ test('route single-flights the memo read and the record write per instance (gate
   assert.equal(selloffTitleKey({ ...up, chips: [{ name: 'NASDAQ', pct: -2.1 }] }), 'title');
   console.log('  ✓ selloffTitleKey: SOX 단독 → 반도체 급락, 지수·VIX → 시장 급락');
 }
+
+// ── «왜» 한 줄(대표 11/6 «특정한 날에 그러는것은 찬성» — 급락 카드가 뜬 날만) ──
+const nov5: SelloffBrief = { date: '2026-11-05', chips: [{ name: 'S&P 500', pct: -4.355659560274951 }, { name: 'NASDAQ', pct: -5.52332767174065 }, { name: 'SOX', pct: -12.246161960467258 }, { name: 'VIX', pct: 69.65683323299217 }] };
+const why1105 = {
+  ko: '가장 강한 근거는 세션 중 보도된 반도체·AI 하드웨어 관련 매도세 소식입니다. 24/7 Wall Street는 2026-11-05 13:02 ET에 Dell·HPE·Super Micro 급락을 보도했습니다. 이는 직접 원인이 확정된 것은 아닙니다.',
+  en: 'The strongest candidate is session-time reporting of selling in AI hardware: 24/7 Wall Street reported Dell, HPE and Super Micro declines at 2026-11-05 13:02 ET. Silicon Core fell sharply, but a direct cause is not confirmed.',
+  ja: '最も強い根拠は、取引時間中に報じられたAIハードウェア株の売り関連ニュースです。24/7 Wall Streetは2026-11-05 13:02 ETにDell・HPE・Super Microの急落を報じました。',
+};
+const served = (over: Record<string, unknown> = {}, why: Record<string, string> = why1105) => ({ success: true, date: '2026-11-05', source: 'v4', generatedAt: '2026-11-06T00:02:17.282Z', structured: { closingNarrative: { why } }, ...over });
+test('why line: same-session narrative shows its first sentence in ko/en/ja', () => {
+  assert.equal(selloffWhyFromReport(served(), nov5, 'ko'), '가장 강한 근거는 세션 중 보도된 반도체·AI 하드웨어 관련 매도세 소식입니다.');
+  assert.equal(selloffWhyFromReport(served(), nov5, 'en'), 'The strongest candidate is session-time reporting of selling in AI hardware: 24/7 Wall Street reported Dell, HPE and Super Micro declines at 2026-11-05 13:02 ET.');
+  assert.equal(selloffWhyFromReport(served(), nov5, 'ja'), '最も強い根拠は、取引時間中に報じられたAIハードウェア株の売り関連ニュースです。');
+  for (const loc of ['ko', 'en', 'ja'] as const) assert.equal(selloffWhyLine(nov5, loc, { status: 'ok', json: served() })?.source, 'narrative');
+  // 숫자 안의 마침표·«U.S.» 같은 짧은 조각에서 끊지 않는다.
+  assert.equal(firstSentence('U.S. stocks fell 4.36% as chip shares slid. Second sentence.'), 'U.S. stocks fell 4.36% as chip shares slid.');
+});
+test('why line: stale or foreign narrative is rejected (other date, pre-close generation, failed/unsourced payload, wrong script)', () => {
+  assert.equal(selloffWhyFromReport(served({ date: '2026-11-04' }), nov5, 'ko'), null);
+  assert.equal(selloffWhyFromReport(served({ generatedAt: '2026-11-05T19:30:00.000Z' }), nov5, 'ko'), null); // 15:30 ET — 마감 전
+  assert.equal(selloffWhyFromReport(served({ generatedAt: '2026-11-04T23:00:00.000Z' }), nov5, 'ko'), null);
+  assert.equal(selloffWhyFromReport(served({ generatedAt: 'nope' }), nov5, 'ko'), null);
+  assert.equal(selloffWhyFromReport(served({ success: false }), nov5, 'ko'), null);
+  assert.equal(selloffWhyFromReport(served({ source: undefined }), nov5, 'ko'), null);
+  assert.equal(selloffWhyFromReport(served({}, { ...why1105, en: why1105.ko }), nov5, 'en'), null);
+  assert.equal(selloffWhyFromReport(served({}, { ...why1105, ja: why1105.ko }), nov5, 'ja'), null);
+  assert.equal(selloffWhyFromReport(served({}, { ...why1105, ko: 'Fallback English text that slipped into the Korean slot.' }), nov5, 'ko'), null);
+  assert.equal(selloffWhyFromReport(served({}, { ...why1105, ko: '   ' }), nov5, 'ko'), null);
+  // 다른 날 서사면 카드에는 사실 한 줄만(옛 문장 0).
+  assert.equal(selloffWhyLine(nov5, 'ko', { status: 'ok', json: served({ date: '2026-11-04' }) })?.source, 'fallback');
+});
+test('why line: a narrative whose index numbers disagree with the chips is not shown', () => {
+  assert.equal(contradictsChips('S&P 500은 -4.36%, VIX는 +69.66%로 급등했습니다.', nov5), false);
+  assert.equal(contradictsChips('S&P 500 fell 4.4% and the NASDAQ Composite 5.5%.', nov5), false);
+  assert.equal(contradictsChips('S&P 500은 -2.10% 하락했습니다.', nov5), true);
+  assert.equal(contradictsChips('VIX +12.9% 급등', nov5), true);
+  assert.equal(contradictsChips('NASDAQ Composite −3.1%', nov5), true);
+  assert.equal(selloffWhyFromReport(served({}, { ...why1105, ko: 'S&P 500이 -2.10% 하락한 배경은 반도체 매도세와 같은 세션에 일치합니다.' }), nov5, 'ko'), null);
+});
+test('why line: missing narrative falls back to a fact from the card numbers only (no cause), pending only on 404', () => {
+  assert.equal(selloffWhyLine(nov5, 'ko', { status: 'missing' })?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다 · 원인 분석은 장마감 리포트 준비 중');
+  assert.equal(selloffWhyLine(nov5, 'en', { status: 'missing' })?.text, 'Chips (SOX) −12.2%, the steepest drop · cause analysis pending in the closing report');
+  assert.equal(selloffWhyLine(nov5, 'ja', { status: 'missing' })?.text, '半導体(SOX) −12.2%で下げ幅が最大でした · 要因分析は引け後レポート準備中');
+  // 읽는 중·네트워크 실패: «준비 중»이라 단정하지 않는다.
+  for (const r of [null, { status: 'error' } as const]) assert.equal(selloffWhyLine(nov5, 'ko', r)?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다');
+  // 리포트는 있는데 서사 칸이 없으면(v3 등) 사실 한 줄, «준비 중» 없음.
+  assert.equal(selloffWhyLine(nov5, 'en', { status: 'ok', json: { success: true, date: '2026-11-05', source: 'v3', structured: {} } })?.text, 'Chips (SOX) −12.2%, the steepest drop');
+  const soxOnly: SelloffBrief = { date: '2026-11-04', chips: [{ name: 'S&P 500', pct: 1.6 }, { name: 'NASDAQ', pct: 1.4 }, { name: 'SOX', pct: -3.1 }, { name: 'VIX', pct: -20 }] };
+  assert.equal(selloffWhyFallback(soxOnly, 'ko', false), '반도체(SOX) −3.1% 하락');
+  const vixOnly: SelloffBrief = { date: '2026-11-04', chips: [{ name: 'S&P 500', pct: 0.2 }, { name: 'VIX', pct: 11 }] };
+  assert.equal(selloffWhyFallback(vixOnly, 'ja', true), 'VIX +11.0% 急騰 · 要因分析は引け後レポート準備中');
+  for (const loc of ['ko', 'en', 'ja'] as const) assert.doesNotMatch(selloffWhyFallback(nov5, loc, true)!, /because|때문|ため|due to/i);
+});
+test('why line source: dated report GET is read-only (404 before any self-healing generation)', () => {
+  const route = readFileSync('src/app/api/intel/cross-sector-brief/route.ts', 'utf8');
+  const get = route.slice(route.indexOf('export async function GET'), route.indexOf('export async function POST'));
+  const dated404 = get.indexOf("if (requested) return NextResponse.json({ success: false, date: requested");
+  assert.ok(dated404 > 0 && dated404 < get.indexOf('healingKey'));
+  const card = readFileSync('src/app/[locale]/app-view/dash/SelloffCard.tsx', 'utf8');
+  assert.match(card, /selloffWhyLine\(brief, loc, report\)/);
+  assert.match(card, /setReport\(null\)/); // 날짜가 바뀌면 이전 날 리포트를 버린다
+});
