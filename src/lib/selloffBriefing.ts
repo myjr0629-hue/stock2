@@ -203,41 +203,23 @@ export function firstSentence(text: string): string {
   while ((m = re.exec(s))) if (m.index + 1 >= 25) return s.slice(0, m.index + 1);
   return s;
 }
-const ALIASES: Record<string, RegExp> = {
-  'S&P 500': /S&P\s?500|S&P/g,
-  'NASDAQ 100': /NASDAQ|Nasdaq|나스닥|ナスダック/g,
-  NASDAQ: /NASDAQ|Nasdaq|나스닥|ナスダック/g,
-  SOX: /SOX|필라델피아 반도체|フィラデルフィア半導体|Philadelphia Semiconductor/g,
-  VIX: /VIX/g,
-};
-const UP = /rose|rallied|gained|climbed|rebounded|advanced|higher|상승|반등|올랐|오른|上昇|反発|上げ/i;
-const DOWN = /fell|dropped|declined|slid|sank|tumbled|lower|하락|내렸|내린|떨어|急落|下落|低下|下げ/i;
+/** 지수 이름 — 지수의 크기·방향은 칩이 말한다. «왜» 줄은 원인 문장만 싣는다. */
+const INDEX_NAME = /S&P|NASDAQ|Nasdaq|nasdaq|나스닥|ナスダック|SOX|필라델피아 반도체|フィラデルフィア半導体|Philadelphia Semiconductor|VIX|Dow|다우|ダウ|Russell|러셀|ラッセル|코스피|KOSPI|日経|Nikkei/;
+/** 오름 낱말(어간) — 급락 카드 위 원인 문장에 오름 서술이 있으면 칩과 어긋날 수 있다. */
+const UP = /\b(?:surg|soar|jump|rall(?:y|ied|ies)|rose|rise[sn]?\b|rising|gain|climb|rebound|advanc|higher|spik)|상승|급등|반등|올랐|오른|오름|강세|치솟|上昇|急騰|反発|上げ|高騰|続伸/i;
 /**
- * 서사 문장이 카드 칩과 어긋날 수 있으면 true(그 서사는 쓰지 않고 사실 한 줄로 간다 — 틀린 문장보다 덜 말하는 쪽).
- * ① 등락률(%)이 하나라도 있으면 거부 — 숫자는 칩이 말한다(관문 11061022: 부호 없는 «rose 4.4%»·«Nasdaq 3.1%» 통과 문제).
- * ② 지수명 뒤 30자 안의 방향 낱말이 칩 부호와 반대면 거부(S&P −4.4% 인데 «S&P 500 rose»).
+ * 서사 첫 문장이 카드 칩과 어긋날 수 있으면 true → 서사를 쓰지 않고 칩 숫자 사실 한 줄로 간다(틀린 문장보다 덜 말하는 쪽).
+ * 낱말 목록을 늘리는 방식은 새는 표현이 끝없어서(관문 11061022·11061030) 구조로 막는다:
+ * ① 등락률(%)이 있으면 거부 ② 지수 이름이 나오면 거부(지수 방향·크기 주장 자체를 싣지 않는다) ③ 오름 낱말이 있으면 거부.
  */
-export function contradictsChips(sentence: string, brief: SelloffBrief): boolean {
-  if (/\d\s?[%％]/.test(sentence)) return true;
-  return brief.chips.some(c => {
-    const re = ALIASES[c.name];
-    if (!re || c.pct === 0) return false;
-    re.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(sentence))) {
-      const near = sentence.slice(m.index + m[0].length, m.index + m[0].length + 30);
-      if (c.pct < 0 ? UP.test(near) : DOWN.test(near)) return true;
-    }
-    return false;
-  });
+export function contradictsChips(sentence: string, _brief?: SelloffBrief): boolean {
+  return /\d\s?[%％]/.test(sentence) || INDEX_NAME.test(sentence) || UP.test(sentence);
 }
-/** 리포트가 원인 판단을 유보했는데(«직접 원인은 확인되지 않음») 첫 문장에 그 유보가 없으면 줄 맨 앞에 짧은 표식을 붙인다 — 2줄 말줄임에도 잘리지 않게. */
-const HEDGE: Record<SelloffLocale, RegExp> = {
-  ko: /확정된 것은 아닙|확정되지 않|확정할 수 없|확인되지 않|확인된 것은 아닙|단정할 수 없|단정하기 어렵/,
-  en: /not (?:been )?(?:confirmed|established)|unconfirmed|cannot be (?:confirmed|established)/i,
-  ja: /確認されていません|確認されていない|確定していません|確定されていません|断定できません|未確認|未確定/,
-};
-export const SELLOFF_HEDGE_TAG: Record<SelloffLocale, string> = { ko: '원인 미확정 · ', en: 'Unconfirmed · ', ja: '原因未確定 · ' };
+/**
+ * 원인 표식: 리포트 규칙상 «왜»는 같은 세션에 일치한 후보이지 확정 원인이 아니다. 유보 문장이 어떤 표현으로 오든(관문 11061030)
+ * 첫 문장만 잘라 보이면 단정처럼 읽히므로 늘 «원인 후보 ·»를 앞에 붙인다 — 2줄 말줄임에도 잘리지 않는 자리.
+ */
+export const SELLOFF_HEDGE_TAG: Record<SelloffLocale, string> = { ko: '원인 후보 · ', en: 'Possible cause · ', ja: '要因候補 · ' };
 /** 장마감 리포트 응답에서 같은 세션 «왜» 첫 문장. 날짜·성공·출처·생성 시각(마감 뒤)·문자 체계·칩 일치가 모두 맞을 때만. */
 export function selloffWhyFromReport(json: unknown, brief: SelloffBrief, loc: SelloffLocale): string | null {
   const j = json as { success?: unknown; date?: unknown; source?: unknown; generatedAt?: unknown; structured?: { closingNarrative?: { why?: Record<string, unknown> } } } | null;
@@ -253,7 +235,7 @@ export function selloffWhyFromReport(json: unknown, brief: SelloffBrief, loc: Se
   if (typeof raw !== 'string' || !raw.trim()) return null;
   const sentence = firstSentence(raw);
   if (!SCRIPT_OK[loc](sentence) || contradictsChips(sentence, brief)) return null;
-  return HEDGE[loc].test(raw) && !HEDGE[loc].test(sentence) ? `${SELLOFF_HEDGE_TAG[loc]}${sentence}` : sentence;
+  return `${SELLOFF_HEDGE_TAG[loc]}${sentence}`;
 }
 const FALLBACK = {
   ko: { sox: '반도체(SOX)', most: '로 낙폭이 가장 컸습니다', one: ' 하락', vix: ' 급등', pending: ' · 원인 분석은 장마감 리포트 준비 중' },
@@ -273,10 +255,10 @@ export function selloffWhyFallback(brief: SelloffBrief, loc: SelloffLocale, pend
 }
 /**
  * 카드에 그릴 «왜» 줄 — 같은 세션 서사 → 없으면 사실 한 줄. report=null(읽는 중)이면 사실 한 줄로 자리를 지킨다(높이 출렁임 방지).
- * «준비 중»은 404 이면서 아직 생성 창(D 21:50Z 생성·22:20Z 재시도) 안일 때만 — 날짜 GET 은 저장소 장애도 404 로 답할 수 있어서
+ * «준비 중»은 404 이면서 아직 생성 창(D 21:50Z 생성·22:20Z 재시도 → 22:30Z 까지) 안일 때만 — 날짜 GET 은 저장소 장애도 404 로 답할 수 있어서
  * 창이 지난 404 는 «준비 중»이라 단정하지 않는다(관문 11061022).
  */
-export const SELLOFF_REPORT_PENDING_UNTIL_UTC = 'T23:00:00Z';
+export const SELLOFF_REPORT_PENDING_UNTIL_UTC = 'T22:30:00Z';
 export function selloffWhyLine(brief: SelloffBrief, loc: SelloffLocale, report: SelloffReport, now = Date.now()): { text: string; source: 'narrative' | 'fallback' } | null {
   const narrative = report?.status === 'ok' ? selloffWhyFromReport(report.json, brief, loc) : null;
   if (narrative) return { text: narrative, source: 'narrative' };
