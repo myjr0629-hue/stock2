@@ -201,8 +201,9 @@ const snapshot = () => JSON.stringify([...db.entries()].sort());
   fixture({ lastRun: '2026-11-03' }); p0 = snapshot(); await assert.rejects(run({ date: '2026-11-04' }), /no price source/); assert.equal(snapshot(), p0);
   fixture(); db.set(key({ pk: 'NAV', sk: D }), { pk: 'NAV', sk: D, tradingDay: true }); await assert.rejects(run({ date: D }), /NAV already exists/);
   fixture(); await assert.rejects(run({ date: '2026-11-03' }), /before STATE.lastRun/);
+  fixture(); NOW = RealDate.parse('2026-11-05T18:00:00Z'); p0 = snapshot(); await assert.rejects(run({ date: D }), /before the 22:40Z scheduled run/); assert.equal(snapshot(), p0);
   for (const date of ['2026-02-30', 'bad', '9999-01-01']) await assert.rejects(run({ date }), /Invalid or future/);
-  console.log('PASS backfill refusals: missing vendor session (SPY/position/order), weekday gap, past session, existing NAV, rewind, invalid dates');
+  console.log('PASS backfill refusals: missing vendor session (SPY/position/order), weekday gap, past session, existing NAV, rewind, intraday, invalid dates');
 
   // backfill reads the XS universe exactly like the scheduled run (cache date), never refuses on it, never scans
   fixture({ weekStartNav: 1 }); xsCacheDate = '2026-11-04';
