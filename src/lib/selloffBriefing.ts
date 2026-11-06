@@ -219,18 +219,20 @@ export function firstSentence(text: string): string {
   return s;
 }
 /** 지수 이름 — 지수의 크기·방향은 칩이 말한다. «왜» 줄은 원인 문장만 싣는다. */
-const INDEX_NAME = /S&P|NASDAQ|Nasdaq|nasdaq|나스닥|ナスダック|SOX|필라델피아 반도체|フィラデルフィア半導体|Philadelphia Semiconductor|VIX|Dow|다우|ダウ|Russell|러셀|ラッセル|코스피|KOSPI|日経|Nikkei/;
+const INDEX_NAME = /s&p|nasdaq|나스닥|ナスダック|\bsox\b|필라델피아 반도체|フィラデルフィア半導体|philadelphia semiconductor|\bvix\b|\bdow\b|다우|ダウ|russell|러셀|ラッセル|코스피|kospi|日経|nikkei|\bindex|\bindices|지수|指数/i;
 /** 매도·하락 신호 — 급락 카드의 원인 문장이면 반드시 하나는 있다(11/5 실문장: 매도세·selling·売り). */
 const SELL = /\bsell|\bsold\b|\bdeclin|\bdrop|\bfell\b|\bfall|\bslid|\bslump|\bplung|\btumbl|\bsank|\bweak|\blosses\b|\bdown(?:turn|grade)?\b|risk[- ]off|risk aversion|매도|하락|약세|급락|밀렸|밀린|떨어|손실|위험 회피|売り|下落|急落|下げ|軟調|リスク回避|安/i;
 /** 오름·매수 낱말 — 하나라도 있으면 칩과 어긋날 수 있다. */
-const UP = /\b(?:up\b|surg|soar|jump|rall(?:y|ied|ies)|rose|rise[sn]?\b|rising|gain|climb|rebound|advanc|higher|spik|bought|buy|bull|strong(?:er)?\b|record high)|상승|급등|반등|올랐|오른|오름|강세|치솟|매수|사상 최고|上昇|急騰|反発|上げ|高騰|続伸|買い|強気|最高値/i;
+const UP = /\b(?:up\b|surg|soar|jump|rall(?:y|ied|ies)|rose|rise[sn]?\b|rising|gain|climb|rebound|recover|advanc|higher|spik|increas|eas(?:e|ed|es|ing)\b|uptick|bounc|bought|buy|bull|strong(?:er)?\b|record high|positive)|상승|급등|반등|올랐|오른|오름|오르|강세|치솟|매수|사상 최고|회복|완화|늘었|증가|上昇|急騰|反発|上げ|高騰|続伸|買い|強気|最高値|回復|和らい|一服|増加|持ち直/i;
 /**
  * 서사 첫 문장이 카드 칩과 어긋날 수 있으면 true → 서사를 쓰지 않고 칩 숫자 사실 한 줄로 간다(틀린 문장보다 덜 말하는 쪽).
  * 거부 목록만으로는 새는 표현이 끝없어서(관문 11061022·11061030·11061045) 허용 조건을 건다:
- * ① % 기호 없음 ② 지수 이름 없음(지수 방향·크기 주장 자체를 싣지 않는다) ③ 매도·하락 신호가 있어야 함 ④ 오름·매수 낱말 없음.
+ * ① % 기호·수치 주장 없음(날짜·시각만 허용) ② 지수 이름 없음(대소문자 무관 — 지수 방향·크기 주장 자체를 싣지 않는다) ③ 매도·하락 신호가 있어야 함 ④ 오름·매수·완화 낱말 없음.
  */
+/** 수치 주장 — 날짜(2026-11-05)·시각(13:02)·«24/7» 외의 숫자, 비율·포인트 낱말. 크기는 칩이 말한다. */
+const NUMBER_CLAIM = (t: string) => /\d/.test(t.replace(/\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}\b|\b24\/7\b/g, '')) || /percent|per cent|\bbps?\b|basis point|\bpoints?\b|퍼센트|포인트|프로|パーセント|ポイント|割/i.test(t);
 export function contradictsChips(sentence: string, _brief?: SelloffBrief): boolean {
-  return /[%％]/.test(sentence) || INDEX_NAME.test(sentence) || !SELL.test(sentence) || UP.test(sentence);
+  return /[%％]/.test(sentence) || NUMBER_CLAIM(sentence) || INDEX_NAME.test(sentence) || !SELL.test(sentence) || UP.test(sentence);
 }
 /**
  * 원인 표식: 리포트 규칙상 «왜»는 같은 세션에 일치한 후보이지 확정 원인이 아니다. 유보 문장이 어떤 표현으로 오든(관문 11061030)
