@@ -184,6 +184,104 @@ export function selloffShown(preview: string | null, brief: SelloffBrief | null,
   if (preview === 'on') return PREVIEW_BRIEF;
   return currentSelloff(brief, now);
 }
+/**
+ * 카드의 «왜» 한 줄(대표 11/6 승인 — 급락 카드가 뜬 날만). 7d2b2a110 의 줄은 c51dade35 에서 «카드 안 새 요청은 읽기 전용 캐시만»
+ * 규칙 때문에 빠졌다. 지금 /api/intel/cross-sector-brief?date=D 는 저장본만 읽고 없으면 404 — 생성·공급사 호출이 없다(그 시험 아래).
+ * 원칙: 같은 세션(D) 서사만 · 문장은 리포트 그대로(새 원인 생성 0) · 카드 칩과 숫자가 어긋나면 서사를 버린다 · 없으면 칩 숫자만으로 사실 한 줄.
+ */
+export type SelloffReport = { status: 'ok'; json: unknown } | { status: 'missing' } | { status: 'error' } | null;
+export type SelloffReportOutcome = { kind: 'ok'; json: unknown } | { kind: 'http'; status: number } | { kind: 'network' } | { kind: 'bad-json' };
+/**
+ * 리포트 요청 결과 → 카드 상태. 서버가 «지금 서빙하지 않음»을 말한 응답(404·그 밖의 4xx·깨진 본문)은 받아 둔 서사도 내린다.
+ * 일시 장애(5xx·네트워크)만 직전 상태를 유지한다(관문 11061039·11061042). 순서 역전은 호출부가 요청 번호로 막는다.
+ */
+export function nextSelloffReport(prev: SelloffReport, o: SelloffReportOutcome): SelloffReport {
+  if (o.kind === 'ok') return { status: 'ok', json: o.json };
+  if (o.kind === 'network' || (o.kind === 'http' && o.status >= 500)) return prev ?? { status: 'error' };
+  return { status: 'missing' };
+}
+const SCRIPT_OK: Record<SelloffLocale, (s: string) => boolean> = {
+  ko: s => /[가-힣]/.test(s),
+  ja: s => /[぀-ヿ一-鿿]/.test(s) && !/[가-힣]/.test(s),
+  en: s => !/[가-힣぀-ヿ一-鿿]/.test(s),
+};
+/** 마침표가 문장 끝이 아닌 약어(«U.S.»·«e.g.»·«Inc.» 등) — 관문 11061045. */
+const ABBREV = /(?:^|\s)(?:(?:[A-Za-z]\.)*[A-Za-z]|Inc|Corp|Co|Ltd|vs|etc|Mr|Mrs|Ms|Dr|St|Jr|Sr|No|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)$/;
+/** 첫 문장. 약어의 마침표·너무 짧은 조각(25자 미만)에서는 끊지 않는다. 문장 끝이 없으면 전체 — 카드 CSS 가 2줄로 자른다. */
+export function firstSentence(text: string): string {
+  const s = text.replace(/\s+/g, ' ').trim();
+  const re = /[.!?](?=\s)|[。！？]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s))) {
+    if (s[m.index] === '.' && ABBREV.test(s.slice(0, m.index))) continue;
+    if (m.index + 1 >= 25) return s.slice(0, m.index + 1);
+  }
+  return s;
+}
+/** 지수 이름 — 지수의 크기·방향은 칩이 말한다. «왜» 줄은 원인 문장만 싣는다. */
+const INDEX_NAME = /s&p|nasdaq|나스닥|ナスダック|\bsox\b|필라델피아 반도체|フィラデルフィア半導体|philadelphia semiconductor|\bvix\b|\bdow\b|다우|ダウ|russell|러셀|ラッセル|코스피|kospi|日経|nikkei|\bindex|\bindices|지수|指数/i;
+/** 매도·하락 신호 — 급락 카드의 원인 문장이면 반드시 하나는 있다(11/5 실문장: 매도세·selling·売り). */
+const SELL = /\bsell|\bsold\b|\bdeclin|\bdrop|\bfell\b|\bfall|\bslid|\bslump|\bplung|\btumbl|\bsank|\bweak|\blosses\b|\bdown(?:turn|grade)?\b|risk[- ]off|risk aversion|매도|하락|약세|급락|밀렸|밀린|떨어|손실|위험 회피|売り|下落|急落|下げ|軟調|リスク回避|安/i;
+/** 오름·매수 낱말 — 하나라도 있으면 칩과 어긋날 수 있다. */
+const UP = /\b(?:up\b|surg|soar|jump|rall(?:y|ied|ies)|rose|rise[sn]?\b|rising|gain|climb|rebound|recover|advanc|higher|spik|increas|eas(?:e|ed|es|ing)\b|uptick|bounc|bought|buy|bull|strong(?:er)?\b|record high|positive)|상승|급등|반등|올랐|오른|오름|오르|강세|치솟|매수|사상 최고|회복|완화|늘었|증가|上昇|急騰|反発|上げ|高騰|続伸|買い|強気|最高値|回復|和らい|一服|増加|持ち直/i;
+/**
+ * 서사 첫 문장이 카드 칩과 어긋날 수 있으면 true → 서사를 쓰지 않고 칩 숫자 사실 한 줄로 간다(틀린 문장보다 덜 말하는 쪽).
+ * 거부 목록만으로는 새는 표현이 끝없어서(관문 11061022·11061030·11061045) 허용 조건을 건다:
+ * ① % 기호·수치 주장 없음(날짜·시각만 허용) ② 지수 이름 없음(대소문자 무관 — 지수 방향·크기 주장 자체를 싣지 않는다) ③ 매도·하락 신호가 있어야 함 ④ 오름·매수·완화 낱말 없음.
+ */
+/** 수치 주장 — 날짜(2026-11-05)·시각(13:02)·«24/7» 외의 숫자, 비율·포인트 낱말. 크기는 칩이 말한다. */
+const NUMBER_CLAIM = (t: string) => /\d/.test(t.replace(/\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}\b|\b24\/7\b/g, '')) || /percent|per cent|\bbps?\b|basis point|\bpoints?\b|퍼센트|포인트|프로|パーセント|ポイント|割/i.test(t);
+export function contradictsChips(sentence: string, _brief?: SelloffBrief): boolean {
+  return /[%％]/.test(sentence) || NUMBER_CLAIM(sentence) || INDEX_NAME.test(sentence) || !SELL.test(sentence) || UP.test(sentence);
+}
+/**
+ * 원인 표식: 리포트 규칙상 «왜»는 같은 세션에 일치한 후보이지 확정 원인이 아니다. 유보 문장이 어떤 표현으로 오든(관문 11061030)
+ * 첫 문장만 잘라 보이면 단정처럼 읽히므로 늘 «원인 후보 ·»를 앞에 붙인다 — 2줄 말줄임에도 잘리지 않는 자리.
+ */
+export const SELLOFF_HEDGE_TAG: Record<SelloffLocale, string> = { ko: '원인 후보 · ', en: 'Possible cause · ', ja: '要因候補 · ' };
+/** 장마감 리포트 응답에서 같은 세션 «왜» 첫 문장. 날짜·성공·출처·생성 시각(마감 뒤)·문자 체계·칩 일치가 모두 맞을 때만. */
+export function selloffWhyFromReport(json: unknown, brief: SelloffBrief, loc: SelloffLocale): string | null {
+  const j = json as { success?: unknown; date?: unknown; source?: unknown; generatedAt?: unknown; structured?: { closingNarrative?: { why?: Record<string, unknown> } } } | null;
+  if (!j || j.success !== true || j.date !== brief.date || typeof j.source !== 'string' || !j.source) return null;
+  if (typeof j.generatedAt === 'string') {
+    const ms = Date.parse(j.generatedAt);
+    // D 마감 전에 만든 글은 그 세션을 담지 못한다.
+    if (!Number.isFinite(ms)) return null;
+    const day = etDateOfIso(j.generatedAt) ?? '';
+    if (day < brief.date || (day === brief.date && etClock(ms).minutes < sessionCloseMinutes(brief.date))) return null;
+  }
+  const raw = j.structured?.closingNarrative?.why?.[loc];
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const sentence = firstSentence(raw);
+  if (!SCRIPT_OK[loc](sentence) || contradictsChips(sentence, brief)) return null;
+  return `${SELLOFF_HEDGE_TAG[loc]}${sentence}`;
+}
+const FALLBACK = {
+  ko: { sox: '반도체(SOX)', most: '로 낙폭이 가장 컸습니다', one: ' 하락', vix: ' 급등' },
+  en: { sox: 'Chips (SOX)', most: ', the steepest drop', one: ' down', vix: ' spike' },
+  ja: { sox: '半導体(SOX)', most: 'で下げ幅が最大でした', one: ' 下落', vix: ' 急騰' },
+} as const;
+/**
+ * 서사가 없을 때: 카드 칩 숫자만으로 사실 한 줄(원인 추정 0).
+ * «리포트 준비 중» 같은 상태 문구는 붙이지 않는다 — 날짜 GET 의 404 는 미생성·서빙 가드 탈락·저장소 장애를 구별하지 못한다(관문 11061022·11061037).
+ */
+export function selloffWhyFallback(brief: SelloffBrief, loc: SelloffLocale): string | null {
+  const f = FALLBACK[loc];
+  const label = (name: string) => name === 'SOX' ? f.sox : name;
+  const drops = brief.chips.filter(c => c.name !== 'VIX' && c.pct < 0).sort((a, b) => a.pct - b.pct);
+  const vix = brief.chips.find(c => c.name === 'VIX' && c.pct > 0);
+  const fact = drops.length >= 2 ? `${label(drops[0].name)} ${signedPct(drops[0].pct)}${f.most}`
+    : drops.length === 1 ? `${label(drops[0].name)} ${signedPct(drops[0].pct)}${f.one}`
+    : vix ? `VIX ${signedPct(vix.pct)}${f.vix}` : null;
+  return fact;
+}
+/** 카드에 그릴 «왜» 줄 — 같은 세션 서사 → 없으면(읽는 중·404·실패·검사 탈락) 사실 한 줄. 읽는 중에도 사실 줄로 자리를 지켜 높이 출렁임을 줄인다. */
+export function selloffWhyLine(brief: SelloffBrief, loc: SelloffLocale, report: SelloffReport): { text: string; source: 'narrative' | 'fallback' } | null {
+  const narrative = report?.status === 'ok' ? selloffWhyFromReport(report.json, brief, loc) : null;
+  if (narrative) return { text: narrative, source: 'narrative' };
+  const fb = selloffWhyFallback(brief, loc);
+  return fb ? { text: fb, source: 'fallback' } : null;
+}
 export function scorecardWeek(date: string): string {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
