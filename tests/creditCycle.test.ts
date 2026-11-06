@@ -95,6 +95,22 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         _resetCreditCycleForTest();
     });
 
+    await t('경보 alertOnce: 다른 인스턴스가 보내다 실패해 표시를 지우면 10분 뒤 이 인스턴스가 다시 보낸다', async () => {
+        const { alertOnce, _resetCreditAlertForTest } = await import('@/lib/ai/creditAlert');
+        _resetCreditAlertForTest();
+        const s = memoryStore(); const key = 'llm:credit:alert:x:p80';
+        s.data.set(key, '1');                                    // A 가 선점(보내는 중)
+        const sent: string[] = []; const ok = async (sub: string) => { sent.push(sub); return true; };
+        const T = 1_000_000;
+        assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T), false);
+        s.data.delete(key);                                      // A 발송 실패 → 표시 삭제
+        assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 60_000), false, '10분 전에는 다시 안 본다');
+        assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 10 * 60_000 + 1), true);
+        assert.equal(await alertOnce(s, key, ok, 'S', 'M', undefined, T + 99 * 60_000), false, '보낸 뒤엔 다시 안 보낸다');
+        assert.equal(sent.length, 1);
+        _resetCreditAlertForTest();
+    });
+
     console.log(`\ncreditCycle: ${pass} passed, ${fail} failed`);
     if (fail) process.exit(1);
 })();

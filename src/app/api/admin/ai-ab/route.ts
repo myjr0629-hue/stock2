@@ -107,6 +107,17 @@ async function runNova(c: Captured) {
     }
 }
 
+/**
+ * 시험 호출은 «증가분(extra)» 등급 — 크레딧이 빠듯하면 사용자 글보다 먼저 멈춘다(2026-11-06, lib/ai/creditCycle).
+ * Anthropic 을 부르기 «직전마다» 확인한다(여러 건 요청의 중간에 정지선에 닿아도 나머지는 부르지 않는다). 지금 값(캐시 없음).
+ */
+async function experimentShed(): Promise<string | null> {
+    const cyc = await currentCycle(upstashStore, Date.now());
+    const spentNow = (await cycleSpentUsd(upstashStore, cyc)).total;
+    const stop = tierStopUsd('extra', cyc.amountUsd);
+    return spentNow >= stop ? `credit-shed: ${cyc.id} $${spentNow.toFixed(2)} >= $${stop.toFixed(2)}` : null;
+}
+
 /** 비교 전용 모델 허용 목록 — adhoc 비교에서만 Sonnet 5.5 를 허용한다(2026-10-11 «해석의 깊이» 시험: 딥 분석 후보와 판정자). raw 통과는 여전히 haiku-5-5 고정. */
 const ADHOC_MODELS: Record<string, PriceModel> = { 'claude-haiku-5-5': 'haiku-5.5', 'claude-sonnet-5-5': 'sonnet-5.5' };
 
@@ -115,6 +126,8 @@ async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array'
     const model = opt.model && ADHOC_MODELS[opt.model] ? opt.model : 'claude-haiku-5-5';
     const key = (process.env.ANTHROPIC_API_KEY_CREDITS || '').trim();
     if (!key) return { ok: false as const, ms: 0, error: 'no-key' };
+    const shed = await experimentShed();
+    if (shed) return { ok: false as const, ms: 0, error: shed };
     try {
         const body = shapeH55Body(model, {
             system: c.system, userPrompt: c.userPrompt, maxTokens: c.maxTokens,
@@ -141,17 +154,13 @@ async function runH55(c: Captured, effort: Effort, expectJson: boolean | 'array'
 export async function POST(req: NextRequest) {
     if (!adminAuthorized(req.headers)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
-    // 시험 호출은 «증가분(extra)» 등급 — 크레딧이 빠듯하면 사용자 글보다 먼저 멈춘다(2026-11-06, lib/ai/creditCycle). list 는 호출이 없어 통과
-    if (!body.list) {
-        const cyc = await currentCycle(upstashStore, Date.now());
-        const spentNow = (await cycleSpentUsd(upstashStore, cyc)).total;
-        if (spentNow >= tierStopUsd('extra', cyc.amountUsd)) return NextResponse.json({ ok: false, error: 'credit-shed', cycle: cyc.id, spentUsd: spentNow, stopUsd: tierStopUsd('extra', cyc.amountUsd) }, { status: 429 });
-    }
     // 리허설용 원본 통과: 로컬에서 «진짜 runLadder» 를 돌릴 때 ① 호출만 서버(크레딧 키가 있는 곳)로 보낸다 — 사다리가 만든 요청 본문 그대로.
     //   모델은 허용 목록(haiku-5-5 · sonnet-5-5)만 — 그 밖은 haiku-5-5 로 바꾼다. 오류는 사다리가 쓰는 분류(kind·closeSec)로 돌려준다. 시험 호출도 월 원장에 센다.
     if (body.raw && typeof body.raw === 'object' && body.raw.body && typeof body.raw.body === 'object') {
         const key = (process.env.ANTHROPIC_API_KEY_CREDITS || '').trim();
         if (!key) return NextResponse.json({ ok: false, kind: 'no-key', closeSec: 0, detail: 'no key' });
+        const shed = await experimentShed();
+        if (shed) return NextResponse.json({ ok: false, kind: 'credit', closeSec: 0, detail: shed }, { status: 429 });
         const t0 = Date.now();
         try {
             // 모델: 요청 본문이 고른 모델이 허용 목록(Haiku 5.5·Sonnet 5.5)에 있으면 그대로, 아니면 Haiku 5.5 — 리허설이 사다리의 Sonnet 단까지 같은 본문으로 돌 수 있게(2026-10-11)

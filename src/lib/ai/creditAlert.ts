@@ -54,7 +54,11 @@ export async function alertOnce(store: LlmStore, key: string, send: AlertSender,
     _sent.set(key, Number.POSITIVE_INFINITY);
     try {
         const n = await store.incrByFloat(key, 1, 40 * 24 * 3600);
-        if (n != null && n !== 1) return false;   // 다른 인스턴스가 이미 보냈다(저장소를 못 읽으면 이 인스턴스에서 한 번은 보낸다)
+        if (n != null && n !== 1) {
+            // 다른 인스턴스가 보냈거나 보내는 중 — 그쪽이 실패해 표시를 지울 수도 있으니 10분 뒤 다시 확인한다(보냈으면 카운터만 오른다)
+            _sent.set(key, now + RETRY_AFTER_MS);
+            return false;
+        }
         log?.(`[CreditAlert] ${subject}`);
         const ok = await send(subject, message);
         if (!ok) {
