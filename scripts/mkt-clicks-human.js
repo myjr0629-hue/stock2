@@ -75,8 +75,13 @@ async function get(key) {
     // ★2026-11-06 서버 색인 clk:idx:<ET날짜>:<칸 0~63> = {"<app>:<태그>":1} (lib/marketing/clickHuman.ts) — 프록시에 SCAN 이 없어
     //   «미리 아는 태그»만 읽던 구멍을 막는다. 색인은 2026-11-06 배포 뒤부터 쌓인다(그 전 날짜는 위 목록·게시 기록 태그로 읽는다).
     let failed = 0;
+    // 색인으로 찾은 것은 «색인에 적힌 (앱, 태그, 날짜)» 만 읽는다 — 고정 목록처럼 앱×날짜로 곱하지 않는다(조회 수 = 색인 줄 수).
+    //   상한 IDX_CAP 줄(넘으면 경고 후 자른다) — 임의 태그가 쏟아져도 보고 조회가 무한히 늘지 않는다.
+    const IDX_CAP = 1500;
+    const idxJobs = { sg: [], uc: [], wim: [], code: [], coupon: [], inapp: [] };   // app → [[tag, date]]
     if (!ONLY_TAG) {
-        let idxTags = 0;
+        let idxRows = 0, capped = false;
+        const known = new Set(tags);
         for (const d of dates) {
             const keys = [...Array(64)].map((_, i) => `clk:idx:${d}:${i}`);
             let vals = null;
@@ -91,14 +96,18 @@ async function get(key) {
             }
             if (!vals) { failed++; console.log(`⚠ 태그 색인 clk:idx:${d}:* 조회 실패 — 이 날의 «새 태그»는 빠졌을 수 있다(고정 목록·게시 기록 태그만 읽음).`); continue; }
             for (const v of vals) for (const k of Object.keys(v && typeof v === 'object' ? v : {})) {
-                const t = k.slice(k.indexOf(':') + 1);
-                if (/^[a-z0-9_]{1,24}$/.test(t) && !tags.includes(t)) { tags.push(t); idxTags++; }
+                const a = k.slice(0, k.indexOf(':')); const t = k.slice(k.indexOf(':') + 1);
+                if (!idxJobs[a] || !/^[a-z0-9_]{1,24}$/.test(t) || known.has(t)) continue;   // 고정 목록 태그는 아래 곱셈 조회가 이미 읽는다
+                if (idxRows >= IDX_CAP) { capped = true; continue; }
+                idxJobs[a].push([t, d]); idxRows++;
             }
         }
-        if (idxTags) console.log(`(서버 색인에서 새 태그 ${idxTags}개를 더 읽음)`);
+        if (idxRows) console.log(`(서버 색인에서 고정 목록 밖 태그 ${idxRows}줄을 더 읽음)`);
+        if (capped) console.log(`⚠ 색인 줄이 ${IDX_CAP} 를 넘어 잘랐다 — 빠진 태그는 --tag= / --tags= 로 읽는다.`);
     }
     const jobs = [];
     for (const a of APPS) for (const t of tags) for (const d of dates) jobs.push([a, t, d]);
+    for (const a of APPS) for (const [t, d] of idxJobs[a]) jobs.push([a, t, d]);
     const sum = {}; // `${app}:${tag}` → { field: n }
     let idx = 0;
     await Promise.all([...Array(12)].map(async () => {
@@ -141,6 +150,7 @@ async function get(key) {
     if (SHOW_COUPON) {
         const cs = csAll; let cIdx = 0; const cJobs = [];
         for (const t of tags) for (const d of dates) cJobs.push([t, d]);
+        cJobs.push(...idxJobs.coupon);
         await Promise.all([...Array(12)].map(async () => {
             while (cIdx < cJobs.length) {
                 const [t, d] = cJobs[cIdx++];
@@ -174,6 +184,7 @@ async function get(key) {
     if (SHOW_INAPP) {
         const is = {}; let iIdx = 0; const iJobs = [];
         for (const t of tags) for (const d of dates) iJobs.push([t, d]);
+        iJobs.push(...idxJobs.inapp);
         await Promise.all([...Array(12)].map(async () => {
             while (iIdx < iJobs.length) {
                 const [t, d] = iJobs[iIdx++];
