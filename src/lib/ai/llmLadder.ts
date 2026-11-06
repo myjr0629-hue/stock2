@@ -379,6 +379,8 @@ export function _resetLadderStateForTest(): void { _cache.clear(); _localBreaker
 const K = {
     cost: (period: string) => `llm:cost:${period}`,
     breaker: (id: string) => `llm:cb:${id}`,
+    /** 관리자가 차단기를 푼 시각 — 인스턴스 안 기억(최대 10분)도 이 시각 이전 것은 버린다 */
+    breakerClearedAt: 'llm:cb:clearedAt',
     off: 'llm:ladder:off',
     capOn: 'llm:cap:on',
     depthOff: 'llm:depth:off',
@@ -393,12 +395,16 @@ export const LLM_KEYS = K;
 
 export const hourId = (ms: number): string => new Date(ms).toISOString().slice(0, 13).replace(/[-T]/g, '');
 
-const _localBreaker = new Map<string, number>();   // id → 닫힘 해제 시각(ms)
+const _localBreaker = new Map<string, { until: number; setAt: number }>();   // id → 닫힘 해제 시각·닫은 시각(ms)
 
 async function breakerOpenUntil(id: string, d: LadderDeps): Promise<number> {
     const now = d.now();
-    const local = _localBreaker.get(id) || 0;
-    if (local > now) return local;
+    const loc = _localBreaker.get(id);
+    if (loc && loc.until > now) {
+        // 관리자 해제(breaker-reset·credit-reset)가 이 인스턴스가 닫은 뒤에 있었으면 인스턴스 안 기억도 버린다(30초 안 반영)
+        const clearedAt = await cached('cbClearedAt', now, async () => Number(await d.store.get(K.breakerClearedAt)) || 0);
+        if (clearedAt > loc.setAt) _localBreaker.delete(id); else return loc.until;
+    }
     const remote = await cached(`cb:${id}`, now, async () => {
         const v = await d.store.get(K.breaker(id));
         const until = Number(v);
@@ -410,7 +416,7 @@ async function breakerOpenUntil(id: string, d: LadderDeps): Promise<number> {
 async function openBreaker(id: string, sec: number, reason: string, d: LadderDeps): Promise<void> {
     if (sec <= 0) return;
     const until = d.now() + sec * 1000;
-    _localBreaker.set(id, Math.min(until, d.now() + 600_000));   // 인스턴스 안 기억은 최대 10분 — 그 뒤엔 저장소의 «진짜 해제 시각»을 다시 읽는다(관리자 해제 반영)
+    _localBreaker.set(id, { until: Math.min(until, d.now() + 600_000), setAt: d.now() });   // 인스턴스 안 기억은 최대 10분 — 그 뒤엔 저장소의 «진짜 해제 시각»을 다시 읽는다(관리자 해제 반영)
     _cache.delete(`cb:${id}`);
     await d.store.setEx(K.breaker(id), String(until), sec);
     d.log('warn', `[Ladder] ${id} 문을 ${sec}초 닫는다 — ${reason.slice(0, 160)}`);

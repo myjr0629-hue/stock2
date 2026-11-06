@@ -403,6 +403,18 @@ const records = (s: Spy): CallRecord[] => {
         assert.equal(calls, 1); assert.equal(s3.store.data.has('llm:credit:alert:2026-10:shed-standard:sent'), false); assert.equal([...s3.store.data.keys()].some((k) => k.startsWith('llm:credit:alert:2026-10:shed-standard:lock')), false, '실패하면 잠금을 풀어 다른 인스턴스가 다시 시도');
         _resetLadderStateForTest();
     });
+    await t('관리자 차단기 해제(llm:cb:clearedAt)는 인스턴스 안 기억(최대 10분)도 30초 안에 버리게 한다 — 크레딧 충전 뒤 바로 ①', async () => {
+        _resetLadderStateForTest();
+        let now = Date.UTC(2026, 10, 10, 12, 0, 0); let fail = true;
+        const s = mk({ now: () => now, a: () => { if (fail) throw new LadderRungError('credit', 3600, '400 credit balance is too low'); return ok('A55'); } });
+        assert.equal((await runLadder(req(), legacyOk(), s.deps)).trail[0], 'a55:credit');
+        now += 60_000;
+        assert.equal((await runLadder(req(), legacyOk(), s.deps)).trail[0], 'a55:breaker');
+        fail = false; s.store.data.delete('llm:cb:a55'); s.store.data.set('llm:cb:clearedAt', String(now));
+        now += 31_000;
+        assert.equal((await runLadder(req(), legacyOk(), s.deps)).provider, 'a55');
+        _resetLadderStateForTest();
+    });
     await t('기준점 뒤 배포 전 지출: openingUsd + 옛 원장 키(carry)를 이 주기 지출에 더한다', async () => {
         _resetLadderStateForTest();
         const s = mk({ now: () => Date.UTC(2026, 10, 6, 2, 0, 0), allow: { FlowAI: {}, CrossSector: LADDER_PURPOSES.CrossSector } });

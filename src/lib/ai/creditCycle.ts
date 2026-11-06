@@ -48,6 +48,8 @@ export interface CreditCheckpoint {
 
 export interface CarryRef { key: string; fromUsd: number }
 export const CREDIT_CHECKPOINT_KEY = 'llm:credit:checkpoint';
+/** 관리자 기준점 교체 원자 잠금(15분) — 동시·연속 교체를 막는다 */
+export const CREDIT_RESET_LOCK_KEY = 'llm:credit:reset:lock';
 export const DEFAULT_MONTHLY_USD = 200;
 
 /**
