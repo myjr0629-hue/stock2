@@ -12,12 +12,14 @@ import Module from 'node:module';
 const store = new Map<string, unknown>();
 const sets: string[] = [];
 let failIndex = false;
+let ecDown = false;
+let raceOnce: Record<string, number> | null = null;   // 색인 SET 직후 «다른 클릭의 SET» 이 덮어쓴 상황
 const rcPath = require.resolve('../src/services/redisClient');
 require.cache[rcPath] = {
   id: rcPath, filename: rcPath, loaded: true,
   exports: {
     getFromCache: async (k: string) => { if (failIndex && k.includes(':idx:')) throw new Error('down'); return store.has(k) ? JSON.parse(JSON.stringify(store.get(k))) : null; },
-    setInCache: async (k: string, v: unknown) => { if (failIndex && k.includes(':idx:')) throw new Error('down'); sets.push(k); store.set(k, v); },
+    setInCache: async (k: string, v: unknown) => { if (failIndex && k.includes(':idx:')) throw new Error('down'); if (ecDown) return false; sets.push(k); store.set(k, v); if (raceOnce && k.includes(':idx:')) { const r = raceOnce; raceOnce = null; store.set(k, r); } return true; },
   },
 } as unknown as Module;
 
@@ -64,6 +66,19 @@ const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', yea
   // 경합으로 빠진 줄도 다음 클릭이 다시 넣는다
   await recordClick('sg', 'naver_blog_1106', ['desktop|human']);
   assert.equal((store.get(idx) as Record<string, number>)['sg:naver_blog_1106'], 1);
+
+  // ⑥ 경합: 내 SET 직후 다른 새 태그의 SET 이 (내 줄 없이) 덮어쓴다 → 다시 읽고 합쳐 다시 쓴다(두 줄 모두 남는다)
+  const before = { ...(store.get(idx) as Record<string, number>) };
+  raceOnce = { ...before, 'sg:x_kr_1106': 1 };
+  await recordClick('sg', 'ppomppu_1105', ['ios|human']);
+  assert.equal((store.get(idx) as Record<string, number>)['sg:ppomppu_1105'], 1);
+  assert.equal((store.get(idx) as Record<string, number>)['sg:x_kr_1106'], 1);
+
+  // ⑦ EC2 장애(집계 SET 실패=false) — 색인은 시도하지 않는다(장애 때 Upstash 로 새는 읽기를 늘리지 않음)
+  ecDown = true; sets.length = 0;
+  await recordClick('sg', 'down_tag', ['ios|human']);
+  assert.ok(!(store.get(idx) as Record<string, number>)['sg:down_tag']);
+  ecDown = false;
 
   console.log('clickTagIndex: ok');
 })().catch((e) => { console.error(e); process.exit(1); });

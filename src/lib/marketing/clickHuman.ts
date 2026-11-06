@@ -139,8 +139,12 @@ export function clickKey(app: ClickApp, from: string, day: string, vercelEnv = p
  *   읽는 쪽(scripts/mkt-clicks-human.js)은 프록시에 키 목록(SCAN) 기능이 없어 «미리 아는 태그»(고정 목록·10/25 채널표·10/6 캐시)만 읽었다.
  *   그래서 그날그날 새로 만든 태그(naver_blog_1106·ppomppu_1106·probe_…)는 쌓여 있어도 표에 한 줄도 안 나왔다.
  *   쓰는 쪽이 «오늘 이 태그에 클릭이 있었다»를 한 칸에 남기면, 읽는 쪽이 목록 없이도 전부 찾는다.
- * 비용: 클릭마다 GET 1 · 처음 보는 태그일 때만 SET 1(EC2 전용 접두사 clk:/clkp: — Upstash 명령 0).
- *   동시 클릭 경합으로 한 줄이 빠져도 그 태그의 다음 클릭이 다시 넣는다(읽는 쪽은 고정 목록과 합친다).
+ * 비용: 집계 SET 이 EC2 에 성공했을 때만 — 클릭마다 GET 1 · 처음 보는 태그일 때만 SET 1 + 확인 GET 1.
+ *   (EC2 전용 접두사 clk:/clkp: — 쓰기는 Upstash 로 안 간다. 집계 SET 이 실패하면(=EC2 장애) 색인은 건너뛰어
+ *    장애 때 Upstash 로 새는 읽기를 늘리지 않는다.)
+ * 경합: 프록시에 원자적 집합 명령이 없어 GET→SET 이다. 서로 다른 새 태그 두 클릭이 겹치면 한쪽이 덮일 수 있으므로
+ *   SET 뒤 다시 읽어 «내 줄이 남았나»를 확인하고, 빠졌으면 그 시점 값에 합쳐 다시 쓴다(최대 3회).
+ *   그래도 빠진 줄은 그 태그의 다음 클릭이 다시 넣고, 읽는 쪽은 고정 목록·게시 기록 태그와 합친다.
  * gift 는 «from» 자리가 초대자 버킷이라 색인에 넣지 않는다.
  */
 export function clickIndexKey(day: string, vercelEnv = process.env.VERCEL_ENV): string {
@@ -152,10 +156,15 @@ async function indexTag(app: ClickApp, from: string, day: string): Promise<void>
   try {
     const key = clickIndexKey(day);
     const entry = `${app}:${from}`;
-    const cur = await getFromCache<Record<string, number>>(key);
-    const base: Record<string, number> = cur && typeof cur === 'object' && !Array.isArray(cur) ? cur : {};
-    if (base[entry]) return;
-    await setInCache(key, { ...base, [entry]: 1 }, 60 * 60 * 24 * 45);
+    const read = async (): Promise<Record<string, number>> => {
+      const cur = await getFromCache<Record<string, number>>(key);
+      return cur && typeof cur === 'object' && !Array.isArray(cur) ? cur : {};
+    };
+    let base = await read();
+    for (let i = 0; i < 3 && !base[entry]; i++) {
+      if (!(await setInCache(key, { ...base, [entry]: 1 }, 60 * 60 * 24 * 45))) return;
+      base = await read();   // 겹친 쓰기에 덮였으면 그 값에 합쳐 다시 쓴다
+    }
   } catch { /* 색인 실패가 집계·이동을 막지 않는다 */ }
 }
 
@@ -164,12 +173,13 @@ export async function recordClick(app: ClickApp, fromRaw: string | null, fields:
   const from = (fromRaw || '').toLowerCase();
   if (!/^[a-z0-9_]{1,24}$/.test(from) || fields.length === 0) return;
   const day = etDate();
+  let counted = false;
   try {
     const key = clickKey(app, from, day);
     const cur = await getFromCache<Record<string, number>>(key);
     const next: Record<string, number> = cur && typeof cur === 'object' && !Array.isArray(cur) ? { ...cur } : {};
     for (const f of fields) next[f] = (Number(next[f]) || 0) + 1;
-    await setInCache(key, next, 60 * 60 * 24 * 45);
+    counted = await setInCache(key, next, 60 * 60 * 24 * 45);
   } catch { /* 집계 실패가 이동을 막지 않는다 */ }
-  await indexTag(app, from, day);   // 집계 «뒤» — 집계 쓰기 순서·값은 그대로
+  if (counted) await indexTag(app, from, day);   // 집계 «뒤», EC2 에 쓴 경우만 — 집계 쓰기 순서·값은 그대로
 }

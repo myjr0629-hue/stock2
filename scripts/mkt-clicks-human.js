@@ -78,6 +78,7 @@ async function get(key) {
         let idxTags = 0;
         for (const d of dates) {
             const idx = await get(`clk:idx:${d}`);
+            if (idx === null) { failed++; console.log(`⚠ 태그 색인 clk:idx:${d} 조회 실패 — 이 날의 «새 태그»는 빠졌을 수 있다(고정 목록·게시 기록 태그만 읽음).`); }
             for (const k of Object.keys(idx || {})) {
                 const t = k.slice(k.indexOf(':') + 1);
                 if (/^[a-z0-9_]{1,24}$/.test(t) && !tags.includes(t)) { tags.push(t); idxTags++; }
