@@ -412,6 +412,12 @@ const records = (s: Spy): CallRecord[] => {
         const st = await ladderStatus(s.deps);
         assert.ok(Math.abs(st.spentUsd - (200.6 + 4.27 + Number(s.store.data.get(LLM_KEYS.cost('b20261105T131800'))))) < 1e-4);
         assert.equal(Number(s.store.data.get(LLM_KEYS.cost('2026-11'))), 200.6, '옛 키에는 더 쓰지 않는다');
+        // carry 가 아직 늘 수 있는 동안(배포 직후 ~ 13:30Z)은 다른 인스턴스가 옛 키에 쓴 지출을 캐시 없이 바로 본다
+        _resetLadderStateForTest();
+        const s2 = mk({ now: () => Date.UTC(2026, 10, 6, 2, 0, 0) });
+        assert.equal((await runLadder(req(), legacyOk(), s2.deps)).provider, 'a55');
+        s2.store.data.set(LLM_KEYS.cost('2026-11'), '201.0');   // 옛 배포 인스턴스가 방금 씀 → 합 $205.27+ ≥ 일반 정지선 $204.83
+        assert.equal((await runLadder(req(), legacyOk(), s2.deps)).trail[0], 'a55:cap', '30초 캐시를 기다리지 않는다');
         _resetLadderStateForTest();
     });
     await t('월 상한: 실제 갱신(기준점 11/5 13:18Z) 이후에는 새 주기 키라 원장이 0 에서 다시 시작한다', async () => {

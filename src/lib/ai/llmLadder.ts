@@ -424,7 +424,7 @@ async function cycleSpend(d: LadderDeps, fresh = false): Promise<{ cycle: Credit
     const now = d.now();
     const cycle = await currentCycle(d.store, now);
     const ck = `cost:${cycle.id}:${cycle.sig}`;
-    if (fresh) _cache.delete(ck);
+    if (fresh || now < cycle.carryLiveUntilMs) _cache.delete(ck);   // carry 키가 아직 늘 수 있는 동안은 늘 지금 값
     const v = await cached(ck, now, () => cycleSpentUsd(d.store, cycle));
     return { cycle, spent: v.total, base: v.base };
 }
@@ -688,13 +688,17 @@ async function tryRung(
         const ck = `cost:${cycle.id}:${cycle.sig}`;
         const prevV = _cache.get(ck)?.v as { total: number; ledger: number; base: number } | undefined;
         const ledger = await d.store.incrByFloat(K.cost(cycle.id), cost, 45 * 24 * 3600);
-        if (ledger != null && prevV) {
+        // carry 키가 아직 늘 수 있는 동안(기준점 교체·배포 직후)은 캐시된 base 를 이어 쓰지 않고 다시 읽는다
+        const live = d.now() < cycle.carryLiveUntilMs;
+        if (ledger != null && prevV && !live) {
             const v = { total: ledger + prevV.base, ledger, base: prevV.base };
             _cache.set(ck, { v, at: d.now() });
             alertThresholds(v.total, cycle, d);
-        } else if (ledger == null && prevV) {
+        } else if (ledger == null && prevV && !live) {
             _cache.set(ck, { v: { ...prevV, total: prevV.total + cost, ledger: prevV.ledger + cost }, at: d.now() });
-        } else if (ledger != null) {
+        } else if (ledger == null) {
+            _cache.delete(ck);
+        } else {
             _cache.delete(ck);
             const v = await cached(ck, d.now(), () => cycleSpentUsd(d.store, cycle));
             alertThresholds(v.total, cycle, d);

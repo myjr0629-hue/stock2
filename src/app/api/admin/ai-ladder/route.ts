@@ -158,9 +158,12 @@ export async function POST(req: NextRequest) {
         // 지금 쓰이는 주기의 원장을 «이 순간 값부터» 새 주기에 더한다 — 새 기준점을 아직 못 읽은 인스턴스(최대 30초)가 옛 원장에 쓴 지출도 빠지지 않게
         const prevCycle = await currentCycle(upstashStore, Date.now());
         const prevKey = LLM_KEYS.cost(prevCycle.id);
-        const prevNow = Number(await upstashStore.get(prevKey)) || 0;
+        // 읽기 실패(null)를 0 으로 두면 옛 원장 전체가 새 지출로 잡혀 바로 끊긴다 — 못 읽으면 저장하지 않는다(값을 아는 경우 prevFromUsd 로 직접)
+        const prevRaw = body.prevFromUsd != null ? String(body.prevFromUsd) : await upstashStore.get(prevKey);
+        const prevNow = Number(prevRaw);
+        if (prevRaw == null || !Number.isFinite(prevNow) || prevNow < 0) return NextResponse.json({ ok: false, error: `previous ledger ${prevKey} unreadable — 다시 시도하거나 prevFromUsd 를 넣는다` }, { status: 503 });
         const userCarry = Array.isArray(body.carry) ? body.carry : [];
-        const cp = parseCheckpoint({ at: body.at, balanceUsd: body.balanceUsd, nextResetAt: body.nextResetAt, monthlyUsd: body.monthlyUsd, openingUsd: body.openingUsd, carry: [...userCarry, { key: prevKey, fromUsd: prevNow }].slice(-3), note: body.note, setAt: new Date().toISOString() });
+        const cp = parseCheckpoint({ at: body.at, balanceUsd: body.balanceUsd, nextResetAt: body.nextResetAt, monthlyUsd: body.monthlyUsd, openingUsd: body.openingUsd, carry: [...userCarry, { key: prevKey, fromUsd: prevNow }].slice(-3), carryLiveUntil: new Date(Date.now() + 15 * 60_000).toISOString(), note: body.note, setAt: new Date().toISOString() });
         if (!cp) return NextResponse.json({ error: 'invalid checkpoint (at ISO · balanceUsd > 0 · nextResetAt > at)' }, { status: 400 });
         if (Date.parse(cp.at) > Date.now() + 60_000) return NextResponse.json({ error: 'at is in the future' }, { status: 400 });
         const cycle = describeCycle(cycleAt(Date.now(), cp));

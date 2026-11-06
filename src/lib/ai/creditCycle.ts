@@ -40,6 +40,8 @@ export interface CreditCheckpoint {
      * 새 기준점을 아직 못 읽은 인스턴스(최대 30초)가 옛 원장에 쓴 지출도 새 주기에 들어온다.
      */
     carry?: CarryRef[];
+    /** 이 시각까지는 carry 키가 아직 늘 수 있다(옛 기준점·옛 배포 인스턴스) — 그동안 사다리는 지출을 캐시 없이 읽는다 */
+    carryLiveUntil?: string;
     note?: string;
     setAt?: string;
 }
@@ -59,7 +61,7 @@ export const CODE_CHECKPOINT: CreditCheckpoint = {
     // 기준점 뒤 배포 전 지출 — 옛 코드는 11/5 13:18~24:00Z 를 llm:cost:2026-10 에, 11/6 00:00Z~배포를 llm:cost:2026-11 에 쌓았다.
     //   앞 구간(이미 닫힘)은 호출 기록 합 $4.2153(1,395건) × 원장/기록 비 1.0113(11/4 15:06Z~11/5 16:00Z 원장 $10.7407 ÷ 기록 $10.6206) ≈ $4.263 → $4.27.
     //   뒤 구간은 옛 키를 그대로 더한다(배포 뒤엔 새 코드가 그 키를 쓰지 않아 더 늘지 않는다).
-    openingUsd: 4.27, carry: [{ key: 'llm:cost:2026-11', fromUsd: 0 }],
+    openingUsd: 4.27, carry: [{ key: 'llm:cost:2026-11', fromUsd: 0 }], carryLiveUntil: '2026-11-06T13:30:00.000Z',   // 장외 배포(22:30 KST 전) 뒤 옛 인스턴스가 사라질 때까지
     note: '대표 11/5 22:18 KST «클로드 api 205.83달러» — 크레딧 초기화 확인',
 };
 
@@ -74,6 +76,8 @@ export interface CreditCycle {
     /** 원장 키 밖 지출(기준점 주기만) */
     openingUsd: number;
     carry: CarryRef[];
+    /** 이 시각 전에는 carry 키가 늘 수 있어 지출을 캐시 없이 읽는다 */
+    carryLiveUntilMs: number;
     /** 기준점 내용 서명 — 같은 id 라도 opening·carry 를 고치면 캐시가 바뀐다 */
     sig: string;
 }
@@ -152,6 +156,11 @@ export function parseCheckpoint(raw: unknown): CreditCheckpoint | null {
         }
         out.carry = refs;
     }
+    if (x.carryLiveUntil != null) {
+        const u = Date.parse(String(x.carryLiveUntil));
+        if (!Number.isFinite(u)) return null;
+        out.carryLiveUntil = new Date(u).toISOString();
+    }
     if (typeof x.note === 'string') out.note = x.note.slice(0, 200);
     if (typeof x.setAt === 'string') out.setAt = x.setAt.slice(0, 40);
     return out;
@@ -166,19 +175,20 @@ export function cycleAt(nowMs: number, cp: CreditCheckpoint | null = CODE_CHECKP
         const now = new Date(nowMs);
         const ends = nextRenewal(now).getTime();
         const prevStart = addMonthsUTC(ends, -1);
-        return { id: periodId(now), startMs: prevStart, endsMs: c && atMs > nowMs ? Math.min(ends, atMs) : ends, amountUsd: DEFAULT_MONTHLY_USD, source: 'legacy', openingUsd: 0, carry: [], sig: 'legacy' };
+        return { id: periodId(now), startMs: prevStart, endsMs: c && atMs > nowMs ? Math.min(ends, atMs) : ends, amountUsd: DEFAULT_MONTHLY_USD, source: 'legacy', openingUsd: 0, carry: [], carryLiveUntilMs: 0, sig: 'legacy' };
     }
     const nextMs = c.nextResetAt ? Date.parse(c.nextResetAt) : addMonthsUTC(atMs, 1);
     if (nowMs < nextMs) {
         const id = `b${compact(atMs)}`;
         const carry = (c.carry ?? []).filter((r) => r.key !== `llm:cost:${id}`);
         const openingUsd = c.openingUsd ?? 0;
-        return { id, startMs: atMs, endsMs: nextMs, amountUsd: c.balanceUsd, source: 'checkpoint', openingUsd, carry, sig: JSON.stringify([c.balanceUsd, openingUsd, carry]) };
+        const carryLiveUntilMs = carry.length && c.carryLiveUntil ? Date.parse(c.carryLiveUntil) : 0;
+        return { id, startMs: atMs, endsMs: nextMs, amountUsd: c.balanceUsd, source: 'checkpoint', openingUsd, carry, carryLiveUntilMs, sig: JSON.stringify([c.balanceUsd, openingUsd, carry]) };
     }
     let k = 0;
     while (addMonthsUTC(nextMs, k + 1) <= nowMs && k < 1200) k++;
     const start = addMonthsUTC(nextMs, k);
-    return { id: `m${compact(start)}`, startMs: start, endsMs: addMonthsUTC(nextMs, k + 1), amountUsd: c.monthlyUsd ?? DEFAULT_MONTHLY_USD, source: 'monthly', openingUsd: 0, carry: [], sig: `monthly:${c.monthlyUsd ?? DEFAULT_MONTHLY_USD}` };
+    return { id: `m${compact(start)}`, startMs: start, endsMs: addMonthsUTC(nextMs, k + 1), amountUsd: c.monthlyUsd ?? DEFAULT_MONTHLY_USD, source: 'monthly', openingUsd: 0, carry: [], carryLiveUntilMs: 0, sig: `monthly:${c.monthlyUsd ?? DEFAULT_MONTHLY_USD}` };
 }
 
 /** 이 주기 지출 합 = 주기 원장 + 원장 밖 지출(openingUsd) + 다른 원장 키의 증가분(carry: 값 − fromUsd). 저장소가 죽으면 읽힌 만큼만(0 으로 본다) */
