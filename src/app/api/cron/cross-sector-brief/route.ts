@@ -7,23 +7,23 @@
 
 import { NextResponse } from 'next/server';
 import { publicBase } from '@/lib/net/publicBase';
-import { getFromCache, setInCache, readEachStoreStrict } from '@/services/redisClient';
+import { getFromCache, setInCache, readEachStoreStrict, shouldFallbackToUpstash } from '@/services/redisClient';
 import { selectServedBrief, crossBriefKey } from '@/lib/ai/crossBriefServe';
 import { crossBriefCronMode, decideCrossBriefCron, crossBriefMissingAlert } from '@/lib/ai/crossBriefCron';
 import { etDateOf } from '@/lib/marketCalendar';
 
 /**
  * 그 거래일의 서빙 가능 판본을 «두 저장소 각각» 엄격하게 확인한다(관문 11060907·11060909·11060911).
- * 화면은 EC2 → Upstash 폴백으로 읽으므로 어느 사본이든 서빙 가드를 넘으면 «있음». 한쪽이라도 응답을 확인하지 못하면
- * «없음»이라고 단정하지 않고 예외(판정 불가) — 재생성·경보를 하지 않는다. 사본이 서로 다를 수 있어(쓰기는 저장소마다 실패 가능) 섞지 않는다.
+ * 화면(getFromCache)과 같은 규칙으로 키마다 고른다 — EC2 값이 있으면 그것, EC2 가 «없음»이면 폴백 대상 키일 때만 Upstash 사본(관문 11060913).
+ * 한쪽이라도 응답을 확인하지 못하면 «없음»이라고 단정하지 않고 예외(판정 불가) — 재생성·경보를 하지 않는다.
  */
 async function servedStrict(sessionDate: string): Promise<{ picked: Awaited<ReturnType<typeof selectServedBrief>>; v4: any }> {
     const keys = (['v4', 'v3', 'v2'] as const).map(v => crossBriefKey(v, sessionDate));
     const { ec, upstash } = await readEachStoreStrict<any>(keys);
     if (!ec.ok || !upstash.ok) throw new Error(`cache read unconfirmed (ec=${ec.ok} upstash=${upstash.ok})`);
-    const pick = (values: any[]) => selectServedBrief(async (key) => values[keys.indexOf(key)] ?? null, [sessionDate], (msg) => console.warn(`[Cron:CrossSectorBrief] ${msg}`));
-    const picked = (await pick(ec.values)) || (await pick(upstash.values));
-    return { picked, v4: ec.values[0] ?? upstash.values[0] ?? null };
+    const seen = keys.map((k, i) => ec.values[i] ?? (shouldFallbackToUpstash(k, true) ? upstash.values[i] ?? null : null));
+    const picked = await selectServedBrief(async (key) => seen[keys.indexOf(key)] ?? null, [sessionDate], (msg) => console.warn(`[Cron:CrossSectorBrief] ${msg}`));
+    return { picked, v4: seen[0] };
 }
 
 /** 운영 경보 — 기존 SNS 주제 signum-lambda-alerts(contact@ 구독 확인, scripts/setup-xs-alarms.js 와 같은 길). 날짜당 한 번. */

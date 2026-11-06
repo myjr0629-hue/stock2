@@ -57,11 +57,15 @@ t('관문 11060907: retry 는 엄격 읽기로 판정하고, 생성 본체는 re
     const cron = fs.readFileSync(path.join(process.cwd(), 'src/app/api/cron/cross-sector-brief/route.ts'), 'utf8');
     const gen = fs.readFileSync(path.join(process.cwd(), 'src/app/api/intel/cross-sector-brief/route.ts'), 'utf8');
     assert.match(cron, /if \(!ec\.ok \|\| !upstash\.ok\) throw new Error/);
-    assert.match(cron, /const picked = \(await pick\(ec\.values\)\) \|\| \(await pick\(upstash\.values\)\);/);
+    assert.match(cron, /ec\.values\[i\] \?\? \(shouldFallbackToUpstash\(k, true\) \? upstash\.values\[i\] \?\? null : null\)/);
     assert.match(cron, /판정 불가\(저장소 읽기 실패\) — 건너뜀/);
     assert.match(cron, /mode === 'retry' \? '\?retry=1' : ''/);
     assert.match(gen, /const keepExisting = retryOnly && !briefData\.guard\.ok;/);
     assert.match(gen, /if \(!dryRun && !keepExisting\) await setInCache\(getCacheKey\(today\)/);
     assert.match(cron, /NextToken/);
+});
+t('판정 키는 화면과 같은 폴백 규칙(postmarket:cross-brief-* 는 EC2 없음 → Upstash 사본)', () => {
+    const { shouldFallbackToUpstash } = require('@/services/redisClient');
+    for (const v of ['v4', 'v3', 'v2']) assert.equal(shouldFallbackToUpstash(`postmarket:cross-brief-${v}:2026-11-05`, true), true);
 });
 console.log(`\n${n} passed`);
