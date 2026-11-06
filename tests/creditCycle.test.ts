@@ -48,6 +48,7 @@ const U = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1,
         assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 0 }), null);
         assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, nextResetAt: '2026-11-04T00:00:00Z' }), null);
         assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, monthlyUsd: -1 }), null);
+        assert.equal(parseCheckpoint({ at: '2026-11-05T00:00:00Z', balanceUsd: 10, nextResetAt: '2026-12-20T00:00:00Z' }), null, '주기 35일 넘으면 원장 보존(45일)을 넘길 수 있다');
         assert.deepEqual(parseCheckpoint(JSON.stringify({ at: '2026-11-05T00:00:00Z', balanceUsd: 10 })), { at: '2026-11-05T00:00:00.000Z', balanceUsd: 10 });
     });
     await t('원장 밖 지출: openingUsd·carry(키 값 − fromUsd)는 기준점 주기에만 · 잘못된 키·잔액 이상 opening 은 거부', async () => {

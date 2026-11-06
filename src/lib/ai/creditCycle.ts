@@ -135,7 +135,7 @@ export function parseCheckpoint(raw: unknown): CreditCheckpoint | null {
     const out: CreditCheckpoint = { at: new Date(at).toISOString(), balanceUsd: bal };
     if (x.nextResetAt != null) {
         const n = Date.parse(String(x.nextResetAt));
-        if (!Number.isFinite(n) || n <= at) return null;
+        if (!Number.isFinite(n) || n <= at || n - at > 35 * 86_400_000) return null;   // 원장 키 보존(45일) 안 — 주기는 길어야 35일
         out.nextResetAt = new Date(n).toISOString();
     }
     if (x.monthlyUsd != null) {
