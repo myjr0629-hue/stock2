@@ -506,4 +506,6 @@ test('why line source: dated report GET is read-only (404 before any self-healin
   assert.match(card, /selloffWhyLine\(brief, loc, report\)/);
   assert.match(card, /setReport\(null\)/);
   assert.doesNotMatch(card, /pending|준비 중/); // 상태 문구 없음
+  assert.match(card, /if \(r\.status === 404\) return setReport\(\{ status: 'missing' \}\);/); // 서빙이 끊긴 서사는 내린다
+  assert.match(card, /if \(!r\.ok\) return setReport\(p => p \?\? \{ status: 'error' \}\);/); // 일시 장애만 유지
 });

@@ -21,9 +21,10 @@ export function SelloffCard({ brief, locale }: { brief: SelloffBrief; locale: st
       if (j?.week === scorecardWeek(brief.date) && Array.isArray(j.rows)) setRows(j.rows.filter((r: ScorecardRow) => r.beyond === true && r.basis?.reactDate <= brief.date && Number.isFinite(r.expectedPct) && Number.isFinite(r.actualPct)).slice(-3).reverse());
     }).catch(() => {});
     // «왜» 줄(대표 11/6 승인): 같은 세션 장마감 리포트 저장본만 읽는다(날짜 지정 GET 은 없으면 404 — 생성 0).
-    // 리포트는 마감 뒤 늦게 생기거나 재생성되므로 실적 줄과 같은 10분 주기로 다시 읽는다. 실패·404 는 이미 받은 리포트를 지우지 않는다.
+    // 리포트는 마감 뒤 늦게 생기거나 재생성되므로 실적 줄과 같은 10분 주기로 다시 읽는다.
     const loadReport = () => fetch(crossBriefUrl(brief.date), { signal: controller.signal }).then(async r => {
-      if (r.status === 404) return setReport(p => p?.status === 'ok' ? p : { status: 'missing' });
+      // 404 = 서버가 지금 그 날짜 리포트를 서빙하지 않음(삭제·가드 탈락 포함) → 받아 둔 서사도 내린다(관문 11061039). 일시 장애(5xx·네트워크)만 유지.
+      if (r.status === 404) return setReport({ status: 'missing' });
       if (!r.ok) return setReport(p => p ?? { status: 'error' });
       const json = await r.json();
       setReport({ status: 'ok', json });
