@@ -11,7 +11,7 @@
  *                            {action:'breaker-reset'}                  서킷 브레이커 해제
  *                            {action:'pace-tick'}                      페이싱 조절기 판단을 지금 한 번(저장) · {action:'pace-reset'} 조절기 상태 삭제
  *                            {action:'credit-reset', at:ISO, balanceUsd:n, nextResetAt?:ISO, monthlyUsd?:n, openingUsd?:n, prevFromUsd?:n, note?}
- *                                — at~저장 사이 지출은 호출 기록으로 자동 합산(openingUsd 로 덮어쓰기) · 직전 주기 원장(과 살아 있는 carry)은 «저장 순간 값부터» 자동 carry  실제 크레딧 기준점(2026-11-06, lib/ai/creditCycle)
+ *                                — at 생략 = 지금(«지금 콘솔 잔액이 n»). 15분보다 오래된 at 은 openingUsd 필수 · 직전 주기 원장은 «저장 순간 값부터» 자동 carry · 교체는 15분 간격  실제 크레딧 기준점(2026-11-06, lib/ai/creditCycle)
  *                                — «이 시각 콘솔 잔액이 n 달러» → 그 시각부터 새 원장(llm:cost:c<시각>)·한도 n. dryRun:true 면 저장 없이 계산만. {action:'credit-reset', clear:true} → 코드 기본 기준점으로
  * 인증: Authorization: Bearer <CRON_SECRET> (lib/ai/adminAuth). 응답에 키 값은 없다(설정 여부만).
  */
@@ -156,34 +156,23 @@ export async function POST(req: NextRequest) {
             _resetCreditCycleForTest();
             return NextResponse.json({ ok: true, checkpoint: null });
         }
+        // 쓰는 법은 하나로 좁힌다: «지금 콘솔 잔액이 n 달러» — at 은 생략하면 지금. 15분보다 오래된 at 은 그사이 지출(openingUsd)을 사람이 직접 넣어야 한다.
+        //   (at~저장 사이 몇 분의 지출은 새 원장에 안 들어간다 — 원장이 실제보다 약 0.3~1% 크게 세는 여유 안이고, 실제 잔액을 넘으면 Anthropic 이 거절 → AWS + 경보)
         const nowMs = Date.now();
-        const atMs = Math.floor(Date.parse(String(body.at ?? '')) / 1000) * 1000;
+        const atIso = body.at == null ? new Date(nowMs).toISOString() : String(body.at);
+        const atMs = Date.parse(atIso);
         if (!Number.isFinite(atMs)) return NextResponse.json({ error: 'invalid at' }, { status: 400 });
-        // ① at ~ 지금 사이 지출(콘솔을 본 뒤 저장 전까지 — 어느 원장에 쓰였든) = 호출 기록 크레딧 + 시험 호출, × 1.02(원장이 기록보다 약 1% 크다: 11/4~11/5 실측 1.0113)
-        //    openingUsd 를 직접 넣으면 그 값. 72시간보다 오래된 at 은 기록이 모자랄 수 있어 직접 넣어야 한다.
-        let opening = body.openingUsd != null ? Number(body.openingUsd) : NaN;
-        if (body.openingUsd == null) {
-            if (nowMs - atMs > 72 * 3600_000) return NextResponse.json({ error: 'at older than 72h — openingUsd 를 직접 넣는다' }, { status: 400 });
-            let sum = 0;
-            for (let h = Math.floor(atMs / 3600_000) * 3600_000; h <= nowMs; h += 3600_000) {
-                const [calls, tests] = await Promise.all([upstashStore.lrange(LLM_KEYS.calls(hourId(h)), 0, -1), upstashStore.lrange(testCallsKey(hourOf(h)), 0, -1)]);
-                for (const l of calls) { try { const r = JSON.parse(l) as CallRecord; if (r.t >= atMs && r.t <= nowMs) sum += Number(r.ca) || 0; } catch { /* skip */ } }
-                sum += sumTestSpend(tests, atMs, nowMs + 1).usd;
-            }
-            opening = Math.round(sum * 1.02 * 10000) / 10000;
-        }
-        // ② 저장 뒤에도 새 기준점을 아직 못 읽은 인스턴스(최대 30초)가 옛 원장에 쓸 수 있다 — 지금 쓰이는 주기 원장과, 그 주기의 아직 살아 있는 carry 키를
-        //    «이 순간 값부터» 새 주기에 더한다(연속 교체 A→B→C 에서도 A 의 뒤늦은 증가분이 빠지지 않게). 읽기 실패는 0 으로 두지 않고 거절(503).
+        if (nowMs - atMs > 15 * 60_000 && body.openingUsd == null) return NextResponse.json({ error: 'at older than 15 min — 그사이 지출 openingUsd 를 직접 넣는다' }, { status: 400 });
+        // 저장 뒤에도 새 기준점을 아직 못 읽은 인스턴스(최대 30초)가 지금 주기 원장에 쓸 수 있다 — 그 원장을 «저장 순간 값부터» 새 주기에 더한다(carry).
+        // 연속 교체는 15분 간격으로만(앞 교체의 carry 가 살아 있는 동안 또 바꾸면 체인이 길어진다) · 같은 주기(같은 at 초)로 다시 저장은 거절
         const prevCycle = await currentCycle(upstashStore, nowMs);
-        const watchKeys = [LLM_KEYS.cost(prevCycle.id), ...(nowMs < prevCycle.carryLiveUntilMs ? prevCycle.carry.map((r) => r.key) : [])];
-        const carry: { key: string; fromUsd: number }[] = [];
-        for (const key of [...new Set(watchKeys)].slice(0, 3)) {
-            const raw = await upstashStore.get(key);
-            const v = Number(raw);
-            if (raw == null && key === LLM_KEYS.cost(prevCycle.id) && body.prevFromUsd == null) return NextResponse.json({ ok: false, error: `previous ledger ${key} unreadable — 다시 시도하거나 prevFromUsd 를 넣는다` }, { status: 503 });
-            carry.push({ key, fromUsd: raw == null ? Number(body.prevFromUsd) || 0 : (Number.isFinite(v) && v > 0 ? v : 0) });
-        }
-        const cp = parseCheckpoint({ at: body.at, balanceUsd: body.balanceUsd, nextResetAt: body.nextResetAt, monthlyUsd: body.monthlyUsd, openingUsd: opening, carry, carryLiveUntil: new Date(nowMs + 15 * 60_000).toISOString(), note: body.note, setAt: new Date(nowMs).toISOString() });
+        if (prevCycle.source === 'checkpoint' && prevCycle.carry.length && nowMs < prevCycle.carryLiveUntilMs) return NextResponse.json({ error: `previous reset still settling until ${new Date(prevCycle.carryLiveUntilMs).toISOString()} — 그 뒤 다시` }, { status: 409 });
+        const prevKey = LLM_KEYS.cost(prevCycle.id);
+        const prevRaw = body.prevFromUsd != null ? String(body.prevFromUsd) : await upstashStore.get(prevKey);
+        const prevNow = Number(prevRaw);
+        if (prevRaw == null || !Number.isFinite(prevNow) || prevNow < 0) return NextResponse.json({ ok: false, error: `previous ledger ${prevKey} unreadable — 다시 시도하거나 prevFromUsd 를 넣는다` }, { status: 503 });
+        const cp = parseCheckpoint({ at: atIso, balanceUsd: body.balanceUsd, nextResetAt: body.nextResetAt, monthlyUsd: body.monthlyUsd, openingUsd: body.openingUsd, carry: [{ key: prevKey, fromUsd: prevNow }], carryLiveUntil: new Date(nowMs + 15 * 60_000).toISOString(), note: body.note, setAt: new Date(nowMs).toISOString() });
+        if (cp && cycleAt(nowMs, cp).id === prevCycle.id) return NextResponse.json({ error: 'same cycle id as the current one (같은 at 초) — 잔액 정정은 새 at(지금)으로' }, { status: 409 });
         if (!cp) return NextResponse.json({ error: 'invalid checkpoint (at ISO · balanceUsd > 0 · nextResetAt > at)' }, { status: 400 });
         if (Date.parse(cp.at) > Date.now() + 60_000) return NextResponse.json({ error: 'at is in the future' }, { status: 400 });
         const cycle = describeCycle(cycleAt(Date.now(), cp));
