@@ -79,6 +79,15 @@ async function main() {
   const { promoCodeLimit, APPLE_CODE_LIMIT } = require('../src/lib/marketing/promoLimit');
   const oldCoupon = load('src/lib/marketing/couponHtml.ts', true);
   const coupon = load('src/lib/marketing/couponHtml.ts', false);
+  const { playPromoUntil, ANDROID_POOL_SIZE } = require('../src/lib/marketing/coupon');
+  const { promoExpiryDate } = require('../src/lib/marketing/promoExpiry');
+  const adjustAndroid = (html: string, lang: string, fromTag: string | null, code: string) => {
+    const oldSub = oldCoupon.couponSubline('android', lang, fromTag, code);
+    const newSub = oldSub.replace('200', String(ANDROID_POOL_SIZE))
+      .replace(promoExpiryDate(null, lang, '\u00a0'), playPromoUntil(lang, '\u00a0'));
+    assert.notEqual(newSub, oldSub);
+    return html.split(oldSub).join(newSub);
+  };
   const oldDesktop = load('src/lib/marketing/desktopHandoff.ts', true);
   const desktop = load('src/lib/marketing/desktopHandoff.ts', false);
   const oldPreview = load('src/lib/marketing/linkPreview.ts', true);
@@ -112,7 +121,9 @@ async function main() {
       check(promoCodeLimit(code) === (extended ? 5000 : 500), '코드별 한도');
       for (const platform of ['ios', 'android'] as const) for (const fromTag of [null, 'gift', 'cr_test', 'threads']) {
         const opts = { platform, lang, fromTag, code, appleRedeemUrl: '#', playInstallUrl: '#' };
-        check(couponSafetyNormalized(coupon.couponHtml(opts)) === couponSafetyNormalized(adjustCoupon(oldCoupon.couponHtml(opts), extended && platform === 'ios', lang)), '쿠폰: 한도 숫자·숫자 자간·해당 이미지 주소 이외 HTML 바이트 동일');
+        const before = oldCoupon.couponHtml(opts);
+        const expected = platform === 'android' ? adjustAndroid(before, lang, fromTag, code) : adjustCoupon(before, extended, lang);
+        check(couponSafetyNormalized(coupon.couponHtml(opts)) === couponSafetyNormalized(expected), '쿠폰: 한도·Play 수량과 날짜·숫자 자간·해당 이미지 주소 이외 HTML 바이트 동일');
       }
       for (const gift of [undefined, 'SIGNUMPRO']) for (const androidCoupon of [false, true]) {
         const opts = { lang, fromTag: null, code, coupon: true, redeemUrl: '#', gift, androidCoupon };
@@ -130,7 +141,8 @@ async function main() {
         const before = renderToStaticMarkup(React.createElement(oldChip.PromoCodeChip, props));
         stateIndex = 0;
         const after = renderToStaticMarkup(React.createElement(chip.PromoCodeChip, props));
-        check(after === adjust(before, extended && !android), '칩: 기기별 한도 숫자 이외 마크업 바이트 동일');
+        const expected = android ? before.replace('200', String(ANDROID_POOL_SIZE)) : adjust(before, extended);
+        check(after === expected, '칩: 기기별 한도·Play 수량 이외 마크업 바이트 동일');
       }
       for (const [surface, ua] of Object.entries(uas)) {
         const req = () => new ns.NextRequest(`${canonical}&l=${lang}`, { headers: { 'user-agent': ua, 'accept-language': lang } });
@@ -139,7 +151,8 @@ async function main() {
         const beforeHtml = await before.text();
         const afterHtml = await after.text();
         check(after.status === before.status, '실제 GET 응답 상태 유지');
-        const expected = surface === 'coupon' ? adjustCoupon(beforeHtml, extended, lang) : adjust(beforeHtml, extended && surface !== 'android');
+        const expected = surface === 'coupon' ? adjustCoupon(beforeHtml, extended, lang)
+          : surface === 'android' ? adjustAndroid(beforeHtml, lang, null, code) : adjust(beforeHtml, extended);
         check(couponSafetyNormalized(afterHtml) === couponSafetyNormalized(expected), '실제 GET: 3언어·4기기 허용된 숫자 변경 이외 바이트 동일');
         check(JSON.stringify([...after.headers]) === JSON.stringify([...before.headers]), '실제 GET 응답 헤더 유지');
         if (extended && surface !== 'android') {

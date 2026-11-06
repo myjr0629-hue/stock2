@@ -53,7 +53,8 @@ for (const code of [...channelCodes, ...new Set(creatorCodes)]) {
 }
 check(isLivePromoCode(null, legacyExpiry - 1), false, '코드 없음');
 check(isLivePromoCode('', legacyExpiry - 1), false, '빈 코드');
-for (const now of [legacyExpiry, signumExpiry - 1]) {
-  check(androidCouponLive(now, true), false, 'SIGNUMPRO 연장이 기존 Play 쿠폰 만료를 연장하지 않음');
+const playExpiry = Date.parse('2026-12-31T00:00:00Z');
+for (const now of [legacyExpiry, playExpiry - 1, playExpiry, playExpiry + 1, signumExpiry - 1]) {
+  check(androidCouponLive(now, true), now < playExpiry, 'Play 쿠폰은 별도 종료 시각을 따름');
 }
 console.log(`SIGNUMPRO 만료 회귀 시험: ${checks}건 통과`);
