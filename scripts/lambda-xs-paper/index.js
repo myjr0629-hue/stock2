@@ -33,7 +33,7 @@
 // ============================================================================
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, BatchGetCommand, BatchWriteCommand, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, BatchGetCommand, BatchWriteCommand, GetCommand, ScanCommand, TransactWriteCommand } = require('@aws-sdk/lib-dynamodb');
 
 const VERSION = 'PAPER-1.0.1';   // 1.0.1 = 2026-09-16 input plumbing (see header); §2 strategy constants unchanged
 const JOURNAL = 'signum-trade-journal';
@@ -85,11 +85,23 @@ async function batchGet(table, keys) {
             for (const it of (res.Responses?.[table] || [])) out.set(it.ticker, it);
             const un = res.UnprocessedKeys?.[table];
             if (!un || !un.Keys?.length) break;
+            if (a === 3) throw new Error(`Unprocessed reads from ${table}`);
             req = { RequestItems: { [table]: un } };
             await sleep(200 * (a + 1));
         }
     }
     return out;
+}
+
+async function historicalXsRows(date) {
+    const rows = new Map();
+    let lastKey;
+    do {
+        const res = await ddb.send(new ScanCommand({ TableName: XS_TABLE, FilterExpression: '#d = :date', ExpressionAttributeNames: { '#d': 'date' }, ExpressionAttributeValues: { ':date': date }, ExclusiveStartKey: lastKey }));
+        for (const row of res.Items || []) if (row.ticker && !row.ticker.startsWith('_')) rows.set(row.ticker, row);
+        lastKey = res.LastEvaluatedKey;
+    } while (lastKey);
+    return rows;
 }
 
 // ── Intrinio session quote → {open, close, high, low, volume, session} ──────
@@ -135,8 +147,9 @@ async function run(date) {
     console.log(`[PAPER] ${VERSION} run ${today} ${DRY ? '(DRY)' : ''}`);
 
     // ── state ────────────────────────────────────────────────────────────────
-    const stRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'STATE', sk: '_CURRENT_' } }));
+    const stRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'STATE', sk: '_CURRENT_' }, ConsistentRead: true }));
     const state = stRes.Item || { pk: 'STATE', sk: '_CURRENT_', cash: CAPITAL0, halted: false, haltReason: null, weekId: null, weekStartNav: CAPITAL0, lastRun: null };
+    const previousLastRun = state.lastRun;
     if (historical) {
         if (!state.lastRun || state.lastRun >= today) throw new Error(`Historical date ${today} must be after STATE.lastRun ${state.lastRun || 'missing'}`);
         const navRes = await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'NAV', sk: today }, ConsistentRead: true }));
@@ -163,10 +176,10 @@ async function run(date) {
     const snaps = new Map();
     let xsDoc = null;
     try { const raw = await redisGet('cache:xs:scores'); xsDoc = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { xsDoc = null; }
-    const xsDate = xsDoc?.date && xsDoc?.scores ? String(xsDoc.date) : null;
-    if (historical && xsDate !== today) throw new Error(`Historical XS cache date ${xsDate || 'none'} does not match ${today}`);
-    const xsUniverse = xsDate ? Object.keys(xsDoc.scores) : [];
-    const xsRowsAll = xsUniverse.length ? await batchGet(XS_TABLE, xsUniverse.map(t => ({ ticker: t, date: xsDate }))) : new Map();
+    const cacheDate = xsDoc?.date && xsDoc?.scores ? String(xsDoc.date) : null;
+    const xsDate = historical ? today : cacheDate;
+    const xsUniverse = cacheDate ? Object.keys(xsDoc.scores) : [];
+    const xsRowsAll = historical ? await historicalXsRows(today) : xsUniverse.length ? await batchGet(XS_TABLE, xsUniverse.map(t => ({ ticker: t, date: xsDate }))) : new Map();
     if (historical && !xsRowsAll.size) throw new Error(`No XS history rows for ${today}`);
     for (const [t, r] of xsRowsAll) {
         const price = num(r.close), mcap = num(r.mcap);
@@ -188,6 +201,14 @@ async function run(date) {
     const legacyKeys = [...new Set([...actTickers, ...sample, 'SPY'])].map(t => ({ ticker: t, date: today }));
     const ohlc = legacyKeys.length ? await batchGet(ALPHA_TABLE, legacyKeys) : new Map();   // fallback rows
     for (const [t, r] of live) ohlc.set(t, { ...(ohlc.get(t) || {}), ...r });
+    if (historical) {
+        const missing = [];
+        if (!(num(ohlc.get('SPY')?.close) > 0)) missing.push('SPY close');
+        if (!sample.some(t => ohlc.get(t)?.changePct != null && num(ohlc.get(t).changePct) != null)) missing.push('sample changePct');
+        for (const t of new Set(positions.map(p => p.t))) if (!(num(ohlc.get(t)?.close) > 0)) missing.push(`${t} close`);
+        for (const t of new Set(pendingOrders.map(o => o.t))) if (!(num(ohlc.get(t)?.open) > 0) || !(num(ohlc.get(t)?.close) > 0)) missing.push(`${t} open/close`);
+        if (missing.length) throw new Error(`Historical alpha-history incomplete for ${today}: ${missing.join(', ')}`);
+    }
     console.log(`[PAPER] sessions: intrinio ${live.size}/${new Set([...actTickers, 'SPY']).size} for ${sessionDate} · SPY ${live.has('SPY') ? `open ${live.get('SPY').open} close ${live.get('SPY').close}` : 'no session today (' + (ohlc.get('SPY')?.close ? 'alpha-history close ' + ohlc.get('SPY').close : 'none') + ')'}`);
 
     // ── trading-day guard ────────────────────────────────────────────────────
@@ -292,12 +313,10 @@ async function run(date) {
 
     // ── persist ──────────────────────────────────────────────────────────────
     const writes = [
-        { ...state },
         { pk: 'POS', sk: '_OPEN_', list: positions, updatedAt: new Date().toISOString() },
         { pk: 'NAV', sk: today, nav: round(nav, 2), cash: round(state.cash, 2), posValue: round(posValue, 2), spyClose, spySource, tradingDay: isTradingDay, ver: VERSION },
         ...(isTradingDay && pendingOrders.length ? [{ pk: 'ORDERS', sk: ordKey, orders: pendingOrders, settledAt: new Date().toISOString() }] : []),
         ...(newOrders.length ? [{ pk: 'ORDERS', sk: today, orders: newOrders, createdAt: new Date().toISOString() }] : []),
-        ...trades,
     ];
     const uniqueWrites = new Map();
     for (const item of writes) {
@@ -305,17 +324,24 @@ async function run(date) {
         if (uniqueWrites.has(key)) console.error(`[PAPER] duplicate write key ${key}; keeping last`);
         uniqueWrites.set(key, item);
     }
-    const dedupedWrites = [...uniqueWrites.values()];
-    for (let i = 0; i < dedupedWrites.length; i += 25) {
-        let req = { RequestItems: { [JOURNAL]: dedupedWrites.slice(i, i + 25).map(Item => ({ PutRequest: { Item } })) } };
+    for (let i = 0; i < trades.length; i += 25) {
+        let req = { RequestItems: { [JOURNAL]: trades.slice(i, i + 25).map(Item => ({ PutRequest: { Item } })) } };
         for (let a = 0; a < 5; a++) {
             const res = await ddb.send(new BatchWriteCommand(req));
             const un = res.UnprocessedItems?.[JOURNAL];
             if (!un || !un.length) break;
+            if (a === 4) throw new Error('Unprocessed TRADE writes');
             req = { RequestItems: { [JOURNAL]: un } };
             await sleep(300 * (a + 1));
         }
     }
+    const stateCondition = stRes.Item
+        ? { ConditionExpression: '#last = :last', ExpressionAttributeNames: { '#last': 'lastRun' }, ExpressionAttributeValues: { ':last': previousLastRun } }
+        : { ConditionExpression: 'attribute_not_exists(pk)' };
+    await ddb.send(new TransactWriteCommand({ TransactItems: [
+        ...[...uniqueWrites.values()].map(Item => ({ Put: { TableName: JOURNAL, Item } })),
+        { Put: { TableName: JOURNAL, Item: { ...state }, ...stateCondition } },
+    ] }));
     await redisSet('cache:xs:paper', summary, 90 * 86400);
     console.log(`[PAPER] done — NAV $${summary.nav} (cash $${summary.cash} + pos $${summary.posValue}), trades ${trades.length}, orders ${newOrders.length}`);
     return summary;

@@ -27,6 +27,9 @@ const env = {
   UPSTASH_REDIS_REST_URL: (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim(),
   UPSTASH_REDIS_REST_TOKEN: (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim(),
 };
+for (const name of ['INTRINIO_API_KEY', 'INTRINIO_BASE_URL']) {
+  if (process.env[name]?.trim()) env[name] = process.env[name].trim();
+}
 
 async function ensureTable() {
   const db = new DynamoDBClient({ region: REGION });
@@ -71,19 +74,21 @@ async function deploy() {
   const lambda = new LambdaClient({ region: REGION });
   const zipBuffer = fs.readFileSync(zipPath);
 
-  let exists = false;
-  try { await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME })); exists = true; } catch {}
+  let existing;
+  try { existing = await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME })); } catch (e) {
+    if (e.name !== 'ResourceNotFoundException') throw e;
+  }
 
   const harvest = await lambda.send(new GetFunctionCommand({ FunctionName: 'signum-harvest' }));
   const roleArn = harvest.Configuration.Role;
   console.log('Role:', roleArn);
 
-  if (exists) {
+  if (existing) {
     await lambda.send(new UpdateFunctionCodeCommand({ FunctionName: FUNCTION_NAME, ZipFile: zipBuffer }));
     await new Promise(r => setTimeout(r, 5000));
     await lambda.send(new UpdateFunctionConfigurationCommand({
       FunctionName: FUNCTION_NAME, Timeout: 300, MemorySize: 768,
-      Handler: 'index.handler', Runtime: 'nodejs20.x', Environment: { Variables: env },
+      Handler: 'index.handler', Runtime: 'nodejs20.x', Environment: { Variables: { ...existing.Configuration.Environment?.Variables, ...Object.fromEntries(Object.entries(env).filter(([, value]) => value)) } },
     }));
     console.log('Lambda updated');
   } else {
