@@ -80,8 +80,9 @@ async function get(key) {
     const IDX_CAP = 1500;
     const idxJobs = { sg: [], uc: [], wim: [], code: [], coupon: [], inapp: [] };   // app → [[tag, date]]
     if (!ONLY_TAG) {
-        let idxRows = 0, capped = false;
+        let idxRows = 0, dropped = 0;
         const known = new Set(tags);
+        const wanted = new Set([...APPS, ...(SHOW_COUPON ? ['coupon'] : []), ...(SHOW_INAPP ? ['inapp'] : [])]);   // --app= 필터를 상한보다 먼저
         for (const d of dates) {
             const keys = [...Array(64)].map((_, i) => `clk:idx:${d}:${i}`);
             let vals = null;
@@ -97,13 +98,14 @@ async function get(key) {
             if (!vals) { failed++; console.log(`⚠ 태그 색인 clk:idx:${d}:* 조회 실패 — 이 날의 «새 태그»는 빠졌을 수 있다(고정 목록·게시 기록 태그만 읽음).`); continue; }
             for (const v of vals) for (const k of Object.keys(v && typeof v === 'object' ? v : {})) {
                 const a = k.slice(0, k.indexOf(':')); const t = k.slice(k.indexOf(':') + 1);
-                if (!idxJobs[a] || !/^[a-z0-9_]{1,24}$/.test(t) || known.has(t)) continue;   // 고정 목록 태그는 아래 곱셈 조회가 이미 읽는다
-                if (idxRows >= IDX_CAP) { capped = true; continue; }
+                if (!idxJobs[a] || !wanted.has(a) || !/^[a-z0-9_]{1,24}$/.test(t) || known.has(t)) continue;   // 고정 목록 태그는 아래 곱셈 조회가 이미 읽는다
+                if (idxRows >= IDX_CAP) { dropped++; continue; }
                 idxJobs[a].push([t, d]); idxRows++;
             }
         }
         if (idxRows) console.log(`(서버 색인에서 고정 목록 밖 태그 ${idxRows}줄을 더 읽음)`);
-        if (capped) console.log(`⚠ 색인 줄이 ${IDX_CAP} 를 넘어 잘랐다 — 빠진 태그는 --tag= / --tags= 로 읽는다.`);
+        // 잘린 줄은 «못 잰 것»으로 실패 건수에 더한다 — 관제(scripts/hud/sources.js)는 «조회 실패 N건» 줄로 이것을 본다.
+        if (dropped) { failed += dropped; console.log(`⚠ 색인 줄이 ${IDX_CAP} 를 넘어 ${dropped}줄을 잘랐다 — 빠진 태그는 --tag= / --tags= 로 읽는다.`); }
     }
     const jobs = [];
     for (const a of APPS) for (const t of tags) for (const d of dates) jobs.push([a, t, d]);
