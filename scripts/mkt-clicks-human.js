@@ -75,13 +75,15 @@ async function get(key) {
     // ★2026-11-06 서버 색인 clk:idx:<ET날짜>:<칸 0~255> = {"<app>:<태그>":1} (lib/marketing/clickHuman.ts) — 프록시에 SCAN 이 없어
     //   «미리 아는 태그»만 읽던 구멍을 막는다. 색인은 2026-11-06 배포 뒤부터 쌓인다(그 전 날짜는 위 목록·게시 기록 태그로 읽는다).
     let failed = 0;
-    // 색인으로 찾은 것은 «색인에 적힌 (앱, 태그, 날짜)» 만 읽는다 — 고정 목록처럼 앱×날짜로 곱하지 않는다(조회 수 = 색인 줄 수).
-    //   상한 IDX_CAP 줄(넘으면 경고 후 자른다) — 임의 태그가 쏟아져도 보고 조회가 무한히 늘지 않는다.
+    // 색인으로 찾은 것은 «색인에 적힌 (앱, 태그)» 만 — 다른 앱으로 곱하지 않는다. 날짜는 «기간 전체»를 읽는다
+    //   (색인이 없던 날·색인 쓰기가 빠진 날의 집계도 합계에 들어가게 — 한 날만 색인돼 있어도 기간 합계가 줄지 않는다).
+    //   조회 수 = 발견한 (앱, 태그) 수 × 일수, 상한 IDX_CAP 줄(넘으면 경고 후 자르고 «조회 실패»로 센다).
     const IDX_CAP = 1500;
     const idxJobs = { sg: [], uc: [], wim: [], code: [], coupon: [], inapp: [] };   // app → [[tag, date]]
     if (!ONLY_TAG) {
         let idxRows = 0, dropped = 0;
         const known = new Set(tags);
+        const pairs = new Set();   // "<app>:<태그>" — 기간 중 어느 날이든 색인에 있으면
         const wanted = new Set([...APPS, ...(SHOW_COUPON ? ['coupon'] : []), ...(SHOW_INAPP ? ['inapp'] : [])]);   // --app= 필터를 상한보다 먼저
         for (const d of dates) {
             // 256칸(lib/marketing/clickHuman.ts CLICK_INDEX_SLOTS) — 64칸씩 MGET 4번. 한 번이라도 못 읽으면 그날 색인 전체를 «실패»로 본다.
@@ -104,6 +106,12 @@ async function get(key) {
             for (const v of vals) for (const k of Object.keys(v && typeof v === 'object' ? v : {})) {
                 const a = k.slice(0, k.indexOf(':')); const t = k.slice(k.indexOf(':') + 1);
                 if (!idxJobs[a] || !wanted.has(a) || !/^[a-z0-9_]{1,24}$/.test(t) || known.has(t)) continue;   // 고정 목록 태그는 아래 곱셈 조회가 이미 읽는다
+                pairs.add(`${a}:${t}`);
+            }
+        }
+        for (const p of pairs) {
+            const a = p.slice(0, p.indexOf(':')); const t = p.slice(p.indexOf(':') + 1);
+            for (const d of dates) {
                 if (idxRows >= IDX_CAP) { dropped++; continue; }
                 idxJobs[a].push([t, d]); idxRows++;
             }
