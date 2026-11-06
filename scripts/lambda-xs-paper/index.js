@@ -205,11 +205,17 @@ async function run(date) {
         // committed already (the day is one transaction) → never re-apply; only
         // re-publish the cache in case the first attempt died after the commit
         console.log('[PAPER] re-run same day — already committed, skip');
-        if (!DRY) {
-            const navRow = (await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'NAV', sk: today }, ConsistentRead: true }))).Item;
-            if (navRow?.summary && !(await redisSet('cache:xs:paper', navRow.summary, 90 * 86400))) throw new Error('cache:xs:paper re-publish failed');
+        const navRow = (await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'NAV', sk: today }, ConsistentRead: true }))).Item;
+        if (!DRY && navRow?.summary) {
+            // never let a late retry of day D overwrite a newer day's cache: re-check
+            // that D is still the latest committed day and the cache is not newer
+            const latest = (await ddb.send(new GetCommand({ TableName: JOURNAL, Key: { pk: 'STATE', sk: '_CURRENT_' }, ConsistentRead: true }))).Item;
+            let cur = null; try { const raw = await redisGet('cache:xs:paper'); cur = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { cur = null; }
+            if (latest?.lastRun === today && !(cur?.date && String(cur.date) > today)) {
+                if (!(await redisSet('cache:xs:paper', navRow.summary, 90 * 86400))) throw new Error('cache:xs:paper re-publish failed');
+            } else console.log(`[PAPER] cache re-publish skipped (lastRun ${latest?.lastRun}, cache ${cur?.date || 'none'})`);
         }
-        return { date: today, nav: null, halted: state.halted, spyClose: null, tradingDay: true, skipped: true };
+        return { date: today, nav: navRow?.nav ?? null, halted: state.halted, spyClose: navRow?.spyClose ?? null, tradingDay: true, skipped: true };
     }
     if (state.lastRun && state.lastRun > today) throw new Error(`date ${today} is before STATE.lastRun ${state.lastRun} — refusing to rewrite history`);
     if (historical) {

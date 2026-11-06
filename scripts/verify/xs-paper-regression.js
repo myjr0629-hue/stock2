@@ -170,7 +170,14 @@ const snapshot = () => JSON.stringify([...db.entries()].sort());
   const again = JSON.parse((await run({ date: D })).body);
   assert.equal(again.skipped, true); assert.equal(txns.length, 1); assert.equal(snapshot(), committed);
   assert.equal(redis.get('cache:xs:paper').date, D);
-  console.log('PASS retry after commit: skipped, journal untouched, cache re-published');
+  { const d2 = JSON.parse((await run({ date: D, dry: true })).body); assert.equal(d2.skipped, true); assert.equal(d2.nav, db.get(key({ pk: 'NAV', sk: D })).nav); assert.equal(d2.spyClose, 733); }
+  redis.set('cache:xs:paper', { date: '2026-11-06' }); await run({ date: D }); assert.equal(redis.get('cache:xs:paper').date, '2026-11-06');   // newer cache never overwritten
+  { const s1 = st(); s1.lastRun = '2026-11-06'; db.set(key(s1), s1); redis.delete('cache:xs:paper');
+    const orig = client.send; let n = 0;   // STATE moves on between the skip decision and the re-publish
+    client.send = async function (cmd) { if (cmd instanceof GetCommand && cmd.input.Key.pk === 'STATE' && n++ === 0) { const r0 = await orig.call(this, cmd); r0.Item.lastRun = D; return r0; } return orig.call(this, cmd); };
+    await run({ date: D }); client.send = orig; assert.equal(redis.has('cache:xs:paper'), false);
+    s1.lastRun = D; db.set(key(s1), s1); }
+  console.log('PASS retry after commit: skipped, journal untouched, cache re-published only while D is latest; DRY returns committed NAV');
 
   // transaction failure → nothing written; retry (with moved prices) commits once, same keys
   fixture(); const pre = snapshot(); failTxn = true;
