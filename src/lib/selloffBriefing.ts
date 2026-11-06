@@ -210,10 +210,10 @@ const UP = /\b(?:surg|soar|jump|rall(?:y|ied|ies)|rose|rise[sn]?\b|rising|gain|c
 /**
  * 서사 첫 문장이 카드 칩과 어긋날 수 있으면 true → 서사를 쓰지 않고 칩 숫자 사실 한 줄로 간다(틀린 문장보다 덜 말하는 쪽).
  * 낱말 목록을 늘리는 방식은 새는 표현이 끝없어서(관문 11061022·11061030) 구조로 막는다:
- * ① 등락률(%)이 있으면 거부 ② 지수 이름이 나오면 거부(지수 방향·크기 주장 자체를 싣지 않는다) ③ 오름 낱말이 있으면 거부.
+ * ① % 기호가 있으면 거부(숫자 유무 무관 — 관문 11061033) ② 지수 이름이 나오면 거부(지수 방향·크기 주장 자체를 싣지 않는다) ③ 오름 낱말이 있으면 거부.
  */
 export function contradictsChips(sentence: string, _brief?: SelloffBrief): boolean {
-  return /\d\s?[%％]/.test(sentence) || INDEX_NAME.test(sentence) || UP.test(sentence);
+  return /[%％]/.test(sentence) || INDEX_NAME.test(sentence) || UP.test(sentence);
 }
 /**
  * 원인 표식: 리포트 규칙상 «왜»는 같은 세션에 일치한 후보이지 확정 원인이 아니다. 유보 문장이 어떤 표현으로 오든(관문 11061030)
