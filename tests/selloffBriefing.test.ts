@@ -484,21 +484,18 @@ test('why line: a first sentence that could disagree with the chips is not shown
   assert.equal(selloffWhyFromReport(served({}, { ...why1105, ko: 'S&P 500이 -2.10% 하락한 배경은 반도체 매도세와 같은 세션에 일치합니다.' }), nov5, 'ko'), null);
   assert.equal(selloffWhyLine(nov5, 'en', { status: 'ok', json: served({}, { ...why1105, en: 'Nasdaq surged as investors bought technology stocks.' }) })?.source, 'fallback');
 });
-test('why line: missing narrative falls back to a fact from the card numbers only (no cause); «pending» only for 404 inside the generation window', () => {
-  const inWindow = Date.parse('2026-11-05T21:30:00Z'), late = Date.parse('2026-11-05T22:31:00Z');
-  assert.equal(selloffWhyLine(nov5, 'ko', { status: 'missing' }, inWindow)?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다 · 원인 분석은 장마감 리포트 준비 중');
-  assert.equal(selloffWhyLine(nov5, 'en', { status: 'missing' }, inWindow)?.text, 'Chips (SOX) −12.2%, the steepest drop · cause analysis pending in the closing report');
-  assert.equal(selloffWhyLine(nov5, 'ja', { status: 'missing' }, inWindow)?.text, '半導体(SOX) −12.2%で下げ幅が最大でした · 要因分析は引け後レポート準備中');
-  // 창이 지난 404(저장소 장애일 수도)·읽는 중·네트워크 실패: «준비 중»이라 단정하지 않는다.
-  assert.equal(selloffWhyLine(nov5, 'ko', { status: 'missing' }, late)?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다');
-  for (const r of [null, { status: 'error' } as const]) assert.equal(selloffWhyLine(nov5, 'ko', r, inWindow)?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다');
-  // 리포트는 있는데 서사 칸이 없으면(v3 등) 사실 한 줄, «준비 중» 없음.
-  assert.equal(selloffWhyLine(nov5, 'en', { status: 'ok', json: { success: true, date: '2026-11-05', source: 'v3', structured: {} } }, inWindow)?.text, 'Chips (SOX) −12.2%, the steepest drop');
+test('why line: missing narrative falls back to a fact from the card numbers only (no cause, no «pending» claim)', () => {
+  assert.equal(selloffWhyLine(nov5, 'ko', { status: 'missing' })?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다');
+  assert.equal(selloffWhyLine(nov5, 'en', { status: 'missing' })?.text, 'Chips (SOX) −12.2%, the steepest drop');
+  assert.equal(selloffWhyLine(nov5, 'ja', { status: 'missing' })?.text, '半導体(SOX) −12.2%で下げ幅が最大でした');
+  // 404 는 미생성·가드 탈락·저장소 장애를 구별 못 한다 → 읽는 중·실패·404 모두 같은 사실 줄(관문 11061037).
+  for (const r of [null, { status: 'error' } as const, { status: 'missing' } as const]) assert.equal(selloffWhyLine(nov5, 'ko', r)?.text, '반도체(SOX) −12.2%로 낙폭이 가장 컸습니다');
+  assert.equal(selloffWhyLine(nov5, 'en', { status: 'ok', json: { success: true, date: '2026-11-05', source: 'v3', structured: {} } })?.text, 'Chips (SOX) −12.2%, the steepest drop');
   const soxOnly: SelloffBrief = { date: '2026-11-04', chips: [{ name: 'S&P 500', pct: 1.6 }, { name: 'NASDAQ', pct: 1.4 }, { name: 'SOX', pct: -3.1 }, { name: 'VIX', pct: -20 }] };
-  assert.equal(selloffWhyFallback(soxOnly, 'ko', false), '반도체(SOX) −3.1% 하락');
+  assert.equal(selloffWhyFallback(soxOnly, 'ko'), '반도체(SOX) −3.1% 하락');
   const vixOnly: SelloffBrief = { date: '2026-11-04', chips: [{ name: 'S&P 500', pct: 0.2 }, { name: 'VIX', pct: 11 }] };
-  assert.equal(selloffWhyFallback(vixOnly, 'ja', true), 'VIX +11.0% 急騰 · 要因分析は引け後レポート準備中');
-  for (const loc of ['ko', 'en', 'ja'] as const) assert.doesNotMatch(selloffWhyFallback(nov5, loc, true)!, /because|때문|ため|due to/i);
+  assert.equal(selloffWhyFallback(vixOnly, 'ja'), 'VIX +11.0% 急騰');
+  for (const loc of ['ko', 'en', 'ja'] as const) assert.doesNotMatch(selloffWhyFallback(nov5, loc)!, /because|때문|ため|due to/i);
 });
 test('why line source: dated report GET is read-only (404 before any self-healing generation)', () => {
   const route = readFileSync('src/app/api/intel/cross-sector-brief/route.ts', 'utf8');
@@ -508,5 +505,5 @@ test('why line source: dated report GET is read-only (404 before any self-healin
   const card = readFileSync('src/app/[locale]/app-view/dash/SelloffCard.tsx', 'utf8');
   assert.match(card, /selloffWhyLine\(brief, loc, report\)/);
   assert.match(card, /setReport\(null\)/);
-  assert.match(card, /setTimeout\(\(\) => setTick\(t => t \+ 1\), ms \+ 1000\)/); // 생성 창 끝에 «준비 중» 내림 // 날짜가 바뀌면 이전 날 리포트를 버린다
+  assert.doesNotMatch(card, /pending|준비 중/); // 상태 문구 없음
 });

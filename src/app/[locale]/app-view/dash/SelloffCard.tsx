@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { crossBriefUrl, reportPushPath, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
-import { SELLOFF_COPY, SELLOFF_REPORT_PENDING_UNTIL_UTC, scorecardWeek, selloffTitleKey, selloffWhyLine, signedPct, type SelloffBrief, type SelloffLocale, type SelloffReport } from '@/lib/selloffBriefing';
+import { SELLOFF_COPY, scorecardWeek, selloffTitleKey, selloffWhyLine, signedPct, type SelloffBrief, type SelloffLocale, type SelloffReport } from '@/lib/selloffBriefing';
 import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
 import s from './selloff.module.css';
 
@@ -32,15 +32,6 @@ export function SelloffCard({ brief, locale }: { brief: SelloffBrief; locale: st
     const id = setInterval(() => { load(); loadReport(); }, 10 * 60_000);
     return () => { clearInterval(id); controller.abort(); };
   }, [brief.date]);
-  // «준비 중»은 생성 창(D 22:30Z) 안에서만 — 창이 끝나는 순간 다시 그려 문구를 내린다(관문 11061033).
-  const [, setTick] = useState(0);
-  const pendingUntil = Date.parse(`${brief.date}${SELLOFF_REPORT_PENDING_UNTIL_UTC}`);
-  useEffect(() => {
-    const ms = pendingUntil - Date.now();
-    if (report?.status !== 'missing' || !(ms > 0)) return;
-    const id = setTimeout(() => setTick(t => t + 1), ms + 1000);
-    return () => clearTimeout(id);
-  }, [report, pendingUntil]);
   const why = selloffWhyLine(brief, loc, report);
   const open = () => { const path = reportPushPath('closing', loc, brief.date); if (path) { router.push(path); window.dispatchEvent(new Event(REPORT_OPEN_EVENT)); } };
   return <section className={s.wrap}><button type="button" className={s.card} onClick={open}>

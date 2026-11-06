@@ -238,12 +238,15 @@ export function selloffWhyFromReport(json: unknown, brief: SelloffBrief, loc: Se
   return `${SELLOFF_HEDGE_TAG[loc]}${sentence}`;
 }
 const FALLBACK = {
-  ko: { sox: '반도체(SOX)', most: '로 낙폭이 가장 컸습니다', one: ' 하락', vix: ' 급등', pending: ' · 원인 분석은 장마감 리포트 준비 중' },
-  en: { sox: 'Chips (SOX)', most: ', the steepest drop', one: ' down', vix: ' spike', pending: ' · cause analysis pending in the closing report' },
-  ja: { sox: '半導体(SOX)', most: 'で下げ幅が最大でした', one: ' 下落', vix: ' 急騰', pending: ' · 要因分析は引け後レポート準備中' },
+  ko: { sox: '반도체(SOX)', most: '로 낙폭이 가장 컸습니다', one: ' 하락', vix: ' 급등' },
+  en: { sox: 'Chips (SOX)', most: ', the steepest drop', one: ' down', vix: ' spike' },
+  ja: { sox: '半導体(SOX)', most: 'で下げ幅が最大でした', one: ' 下落', vix: ' 急騰' },
 } as const;
-/** 서사가 없을 때: 카드 칩 숫자만으로 사실 한 줄(원인 추정 0). pending 은 selloffWhyLine 이 정한다. */
-export function selloffWhyFallback(brief: SelloffBrief, loc: SelloffLocale, pending: boolean): string | null {
+/**
+ * 서사가 없을 때: 카드 칩 숫자만으로 사실 한 줄(원인 추정 0).
+ * «리포트 준비 중» 같은 상태 문구는 붙이지 않는다 — 날짜 GET 의 404 는 미생성·서빙 가드 탈락·저장소 장애를 구별하지 못한다(관문 11061022·11061037).
+ */
+export function selloffWhyFallback(brief: SelloffBrief, loc: SelloffLocale): string | null {
   const f = FALLBACK[loc];
   const label = (name: string) => name === 'SOX' ? f.sox : name;
   const drops = brief.chips.filter(c => c.name !== 'VIX' && c.pct < 0).sort((a, b) => a.pct - b.pct);
@@ -251,19 +254,13 @@ export function selloffWhyFallback(brief: SelloffBrief, loc: SelloffLocale, pend
   const fact = drops.length >= 2 ? `${label(drops[0].name)} ${signedPct(drops[0].pct)}${f.most}`
     : drops.length === 1 ? `${label(drops[0].name)} ${signedPct(drops[0].pct)}${f.one}`
     : vix ? `VIX ${signedPct(vix.pct)}${f.vix}` : null;
-  return fact && `${fact}${pending ? f.pending : ''}`;
+  return fact;
 }
-/**
- * 카드에 그릴 «왜» 줄 — 같은 세션 서사 → 없으면 사실 한 줄. report=null(읽는 중)이면 사실 한 줄로 자리를 지킨다(높이 출렁임 방지).
- * «준비 중»은 404 이면서 아직 생성 창(D 21:50Z 생성·22:20Z 재시도 → 22:30Z 까지) 안일 때만 — 날짜 GET 은 저장소 장애도 404 로 답할 수 있어서
- * 창이 지난 404 는 «준비 중»이라 단정하지 않는다(관문 11061022).
- */
-export const SELLOFF_REPORT_PENDING_UNTIL_UTC = 'T22:30:00Z';
-export function selloffWhyLine(brief: SelloffBrief, loc: SelloffLocale, report: SelloffReport, now = Date.now()): { text: string; source: 'narrative' | 'fallback' } | null {
+/** 카드에 그릴 «왜» 줄 — 같은 세션 서사 → 없으면(읽는 중·404·실패·검사 탈락) 사실 한 줄. 읽는 중에도 사실 줄로 자리를 지켜 높이 출렁임을 줄인다. */
+export function selloffWhyLine(brief: SelloffBrief, loc: SelloffLocale, report: SelloffReport): { text: string; source: 'narrative' | 'fallback' } | null {
   const narrative = report?.status === 'ok' ? selloffWhyFromReport(report.json, brief, loc) : null;
   if (narrative) return { text: narrative, source: 'narrative' };
-  const pending = report?.status === 'missing' && now < Date.parse(`${brief.date}${SELLOFF_REPORT_PENDING_UNTIL_UTC}`);
-  const fb = selloffWhyFallback(brief, loc, pending);
+  const fb = selloffWhyFallback(brief, loc);
   return fb ? { text: fb, source: 'fallback' } : null;
 }
 export function scorecardWeek(date: string): string {
