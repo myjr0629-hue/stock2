@@ -72,7 +72,7 @@ async function get(key) {
 
 (async () => {
     const dates = [...Array(DAYS)].map((_, i) => etDay(new Date(Date.now() - i * 864e5)));
-    // ★2026-11-06 서버 색인 clk:idx:<ET날짜>:<칸 0~63> = {"<app>:<태그>":1} (lib/marketing/clickHuman.ts) — 프록시에 SCAN 이 없어
+    // ★2026-11-06 서버 색인 clk:idx:<ET날짜>:<칸 0~255> = {"<app>:<태그>":1} (lib/marketing/clickHuman.ts) — 프록시에 SCAN 이 없어
     //   «미리 아는 태그»만 읽던 구멍을 막는다. 색인은 2026-11-06 배포 뒤부터 쌓인다(그 전 날짜는 위 목록·게시 기록 태그로 읽는다).
     let failed = 0;
     // 색인으로 찾은 것은 «색인에 적힌 (앱, 태그, 날짜)» 만 읽는다 — 고정 목록처럼 앱×날짜로 곱하지 않는다(조회 수 = 색인 줄 수).
@@ -84,16 +84,21 @@ async function get(key) {
         const known = new Set(tags);
         const wanted = new Set([...APPS, ...(SHOW_COUPON ? ['coupon'] : []), ...(SHOW_INAPP ? ['inapp'] : [])]);   // --app= 필터를 상한보다 먼저
         for (const d of dates) {
-            const keys = [...Array(64)].map((_, i) => `clk:idx:${d}:${i}`);
-            let vals = null;
-            for (let i = 0; i < 3 && !vals; i++) {
-                try {
-                    const r = await fetch(`${BASE}/mget?keys=${keys.map(encodeURIComponent).join(',')}`, { headers: { Authorization: 'Bearer ' + KEY } });
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    const j = await r.json();
-                    if (!Array.isArray(j?.results) || j.results.length !== keys.length) throw new Error('bad mget');
-                    vals = j.results;
-                } catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+            // 256칸(lib/marketing/clickHuman.ts CLICK_INDEX_SLOTS) — 64칸씩 MGET 4번. 한 번이라도 못 읽으면 그날 색인 전체를 «실패»로 본다.
+            let vals = [];
+            for (let part = 0; part < 4 && vals; part++) {
+                const keys = [...Array(64)].map((_, i) => `clk:idx:${d}:${part * 64 + i}`);
+                let got = null;
+                for (let i = 0; i < 3 && !got; i++) {
+                    try {
+                        const r = await fetch(`${BASE}/mget?keys=${keys.map(encodeURIComponent).join(',')}`, { headers: { Authorization: 'Bearer ' + KEY } });
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        const j = await r.json();
+                        if (!Array.isArray(j?.results) || j.results.length !== keys.length) throw new Error('bad mget');
+                        got = j.results;
+                    } catch { await new Promise((z) => setTimeout(z, 250 * (i + 1))); }
+                }
+                vals = got ? vals.concat(got) : null;
             }
             if (!vals) { failed++; console.log(`⚠ 태그 색인 clk:idx:${d}:* 조회 실패 — 이 날의 «새 태그»는 빠졌을 수 있다(고정 목록·게시 기록 태그만 읽음).`); continue; }
             for (const v of vals) for (const k of Object.keys(v && typeof v === 'object' ? v : {})) {

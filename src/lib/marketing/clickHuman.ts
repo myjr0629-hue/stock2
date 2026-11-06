@@ -134,20 +134,27 @@ export function clickKey(app: ClickApp, from: string, day: string, vercelEnv = p
 }
 
 /**
- * ★2026-11-06 «그날 클릭이 쌓인 태그» 색인 — clk:idx:<ET날짜>:<칸 0~63> = {"<app>:<from>": 1, …}
+ * ★2026-11-06 «그날 클릭이 쌓인 태그» 색인 — clk:idx:<ET날짜>:<칸 0~255> = {"<app>:<from>": 1, …}
  * 왜: 집계 키(clk:<app>:<from>:<날짜>)는 정상으로 쌓였는데(11/6 실측: ppomppu_1106 사람 12·x_kr_1106 2 등),
  *   읽는 쪽(scripts/mkt-clicks-human.js)은 프록시에 키 목록(SCAN) 기능이 없어 «미리 아는 태그»(고정 목록·10/25 채널표·10/6 캐시)만 읽었다.
  *   그래서 그날그날 새로 만든 태그(naver_blog_1106·ppomppu_1106·probe_…)는 쌓여 있어도 표에 한 줄도 안 나왔다.
- *   쓰는 쪽이 «오늘 이 태그에 클릭이 있었다»를 남기면, 읽는 쪽이 하루 64칸을 MGET 한 번으로 읽어 목록 없이도 전부 찾는다.
- * 칸을 64개로 나눈 이유: 프록시에 원자적 집합 명령이 없어 GET→SET 이다. 한 키에 모으면 «서로 다른 새 태그» 두 클릭이
+ *   쓰는 쪽이 «오늘 이 태그에 클릭이 있었다»를 남기면, 읽는 쪽이 하루 256칸을 MGET 4번으로 읽어 목록 없이도 전부 찾는다.
+ * 칸을 256개로 나눈 이유: 프록시에 원자적 집합 명령이 없어 GET→SET 이다. 한 키에 모으면 «서로 다른 새 태그» 두 클릭이
  *   겹칠 때 한쪽이 덮인다. 태그마다 해시로 칸을 갈라 두면 덮이려면 «같은 칸의 새 태그 두 개가 같은 순간»이어야 한다.
- *   그래도 SET 뒤 다시 읽어 내 줄이 빠졌으면 그 값에 합쳐 다시 쓴다(최대 3회). 남은 극단은 그 태그의 다음 클릭이 다시 넣는다.
+ *   그래도 SET 뒤 다시 읽어 내 줄이 빠졌으면 그 값에 합쳐 다시 쓰고(최대 3회), 1.2초 뒤 한 번 더 확인한다(내 확인 뒤에 늦게 온 덮어쓰기).
+ *   남은 극단은 그 태그의 다음 클릭이 다시 넣고, 읽는 쪽은 게시 기록 태그·--tags= 와 합친다.
  * 안전: 읽기는 엄격 읽기(getAuthoritativeCache — EC2 만, 실패와 «없음»을 구분, Upstash 폴백 없음). 읽기 실패면 쓰지 않는다
  *   (실패를 «빈 색인»으로 알고 덮어쓰는 일이 없다). 집계 SET 이 EC2 에 실패했으면(장애) 색인은 아예 건너뛴다.
- * 비용: 정상 때 클릭마다 EC2 GET 1 · 그 칸에 처음 보는 태그일 때만 SET 1 + 확인 GET 1. Upstash 명령 0.
+ * 비용: 정상 때 클릭마다 EC2 GET 1 · 그 칸에 처음 보는 태그일 때만 SET 1 + 확인 GET 2(1.2초 뒤, after() 안). Upstash 명령 0.
+ * 보존: 60일 — 집계 키(45일±지터)보다 길게(색인이 먼저 사라져 남은 집계가 표에서 빠지는 일이 없게).
  * gift 는 «from» 자리가 초대자 버킷이라 색인에 넣지 않는다.
  */
-export const CLICK_INDEX_SLOTS = 64;
+export const CLICK_INDEX_SLOTS = 256;
+// 집계 키는 45일 TTL(±지터)이다 — 색인이 먼저 사라지면 남은 집계가 표에서 빠지므로 색인은 더 길게(지터 +10% 를 넘게) 둔다.
+const INDEX_TTL_S = 60 * 60 * 24 * 60;
+let INDEX_RECHECK_MS = 1200;
+/** 시험 전용 — 늦은 재확인 대기 시간 */
+export function _setIndexRecheckMsForTest(ms: number): void { INDEX_RECHECK_MS = ms; }
 export function clickIndexSlot(entry: string): number {
   let h = 0x811c9dc5;   // FNV-1a 32bit — scripts/mkt-clicks-human.js 는 칸 전부를 읽으므로 같은 함수가 필요 없다
   for (let i = 0; i < entry.length; i++) { h ^= entry.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
@@ -168,9 +175,17 @@ async function indexTag(app: ClickApp, from: string, day: string): Promise<void>
       return r.value && typeof r.value === 'object' && !Array.isArray(r.value) ? r.value : {};
     };
     let base = await read();
+    let wrote = false;
     for (let i = 0; i < 3 && base && !base[entry]; i++) {
-      if (!(await setInCache(key, { ...base, [entry]: 1 }, 60 * 60 * 24 * 45))) return;
+      if (!(await setInCache(key, { ...base, [entry]: 1 }, INDEX_TTL_S))) return;
+      wrote = true;
       base = await read();   // 겹친 쓰기에 덮였으면 그 값에 합쳐 다시 쓴다
+    }
+    // 내 확인 «뒤»에 늦게 도착한 다른 클릭의 SET(그쪽은 내 줄 없는 옛 값을 읽었다)도 잡는다 — 새 줄을 쓴 경우에만(태그당 하루 한 번꼴)
+    if (wrote && base && base[entry]) {
+      await new Promise((z) => setTimeout(z, INDEX_RECHECK_MS));
+      const late = await read();
+      if (late && !late[entry]) await setInCache(key, { ...late, [entry]: 1 }, INDEX_TTL_S);
     }
   } catch { /* 색인 실패가 집계·이동을 막지 않는다 */ }
 }

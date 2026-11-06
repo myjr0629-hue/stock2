@@ -12,6 +12,7 @@ import Module from 'node:module';
 
 const store = new Map<string, unknown>();
 const sets: string[] = [];
+const ttls = new Map<string, number | undefined>();
 let failIndex = false;         // 색인 읽기·쓰기가 던진다
 let strictFail = false;        // 엄격 읽기가 {ok:false} (EC2 일시 실패)
 let ecDown = false;            // 집계 SET 이 false
@@ -28,7 +29,8 @@ require.cache[rcPath] = {
       if (strictFail) return { ok: false, value: null };
       return { ok: true, value: clone(store.get(k)) };
     },
-    setInCache: async (k: string, v: unknown) => {
+    setInCache: async (k: string, v: unknown, ttl?: number) => {
+      ttls.set(k, ttl);
       if (failIndex && isIdx(k)) throw new Error('down');
       if (ecDown) return false;
       sets.push(k); store.set(k, v);
@@ -40,7 +42,8 @@ require.cache[rcPath] = {
 
 process.env.VERCEL_ENV = 'production';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { recordClick, clickIndexKey, clickIndexSlot, clickKey, CLICK_INDEX_SLOTS } = require('../src/lib/marketing/clickHuman');
+const { recordClick, clickIndexKey, clickIndexSlot, clickKey, CLICK_INDEX_SLOTS, _setIndexRecheckMsForTest } = require('../src/lib/marketing/clickHuman');
+_setIndexRecheckMsForTest(20);
 
 const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const idxOf = (entry: string) => clickIndexKey(day, clickIndexSlot(entry));
@@ -49,16 +52,19 @@ const allIndexed = () => [...store.entries()].filter(([k]) => k.startsWith(`clk:
 (async () => {
   assert.equal(clickIndexKey('2026-11-06', 5, 'production'), 'clk:idx:2026-11-06:5');
   assert.equal(clickIndexKey('2026-11-06', 5, 'preview'), 'clkp:idx:2026-11-06:5');   // 미리보기는 운영 색인을 오염시키지 않는다
-  assert.equal(CLICK_INDEX_SLOTS, 64);   // scripts/mkt-clicks-human.js 가 0~63 을 읽는다
-  for (const e of ['sg:ppomppu_1106', 'code:probe_ih', 'x', '']) { const n = clickIndexSlot(e); assert.ok(Number.isInteger(n) && n >= 0 && n < 64); assert.equal(clickIndexSlot(e), n); }
+  assert.equal(CLICK_INDEX_SLOTS, 256);   // scripts/mkt-clicks-human.js 가 0~255 를 읽는다(64칸씩 MGET 4번)
+  for (const e of ['sg:ppomppu_1106', 'code:probe_ih', 'x', '']) { const n = clickIndexSlot(e); assert.ok(Number.isInteger(n) && n >= 0 && n < 256); assert.equal(clickIndexSlot(e), n); }
   // 오늘 실제 태그들이 여러 칸으로 흩어진다(한 키 경합을 피하는 이유)
   const real = ['naver_blog_1106', 'ppomppu_1106', 'x_kr_1106', 'x_jp_1106b', 'sidedock_1106', 'note_1106', 'probe_0627', 'probe_ih'].map((t) => clickIndexSlot(`sg:${t}`));
-  assert.ok(new Set(real).size >= 6, `slots ${real}`);
+  assert.ok(new Set(real).size >= 7, `slots ${real}`);
 
   // ① 집계 값은 예전과 같다 ② 색인에 남는다
   await recordClick('sg', 'ppomppu_1106', ['android|human', 'android|site:cross-site']);
   assert.deepEqual(store.get(clickKey('sg', 'ppomppu_1106', day)), { 'android|human': 1, 'android|site:cross-site': 1 });
   assert.deepEqual(store.get(idxOf('sg:ppomppu_1106')), { 'sg:ppomppu_1106': 1 });
+  // 색인 보존(60일)은 집계(45일 ±10% 지터)보다 길다 — 색인이 먼저 사라져 남은 집계가 표에서 빠지지 않게
+  assert.equal(ttls.get(clickKey('sg', 'ppomppu_1106', day)), 60 * 60 * 24 * 45);
+  assert.ok((ttls.get(idxOf('sg:ppomppu_1106')) as number) > 60 * 60 * 24 * 45 * 1.1);
 
   // ③ 같은 태그 두 번째 클릭 — 집계는 +1, 색인은 다시 쓰지 않는다
   sets.length = 0;
@@ -90,6 +96,19 @@ const allIndexed = () => [...store.entries()].filter(([k]) => k.startsWith(`clk:
   await recordClick('sg', 'x_kr_1106', ['desktop|human']);
   assert.equal((store.get(k6) as Record<string, number>)[mine], 1);
   assert.equal((store.get(k6) as Record<string, number>)['sg:other_same_slot'], 1);
+
+  // ⑥-b 내 확인 «뒤»에 늦게 온 덮어쓰기(다른 클릭이 내 줄 없는 옛 값을 읽고 늦게 SET) → 1.2초(시험 20ms) 뒤 재확인이 다시 넣는다
+  {
+    const e = 'sg:late_tag'; const k = idxOf(e);
+    const old = clone(store.get(k)) || {};
+    const p = recordClick('sg', 'late_tag', ['ios|human']);
+    await new Promise((z) => setTimeout(z, 5));   // 내 SET·확인이 끝난 뒤, 재확인 전
+    assert.equal((store.get(k) as Record<string, number>)[e], 1);
+    store.set(k, { ...old, 'sg:late_other': 1 });   // 늦게 도착한 다른 클릭의 SET
+    await p;
+    assert.equal((store.get(k) as Record<string, number>)[e], 1);
+    assert.equal((store.get(k) as Record<string, number>)['sg:late_other'], 1);
+  }
 
   // ⑦ EC2 장애(집계 SET=false) — 색인은 시도하지 않는다
   ecDown = true;
