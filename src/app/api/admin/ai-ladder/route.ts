@@ -200,9 +200,17 @@ export async function POST(req: NextRequest) {
     }
     if (action === 'oa-off') {
         const p = body.purposes;
-        if (p == null) { await upstashStore.del(OA_KEYS.off); return NextResponse.json({ ok: true, oaOff: null }); }
+        if (p == null) {
+            await upstashStore.del(OA_KEYS.off);
+            const back = await upstashStore.get(OA_KEYS.off);
+            if (back != null) return NextResponse.json({ ok: false, error: 'oa-off not cleared — retry', oaOff: back }, { status: 503 });
+            return NextResponse.json({ ok: true, oaOff: null });
+        }
         const val = p === '*' || (Array.isArray(p) && p.includes('*')) ? '*' : JSON.stringify((Array.isArray(p) ? p : [p]).map(String));
         await upstashStore.setEx(OA_KEYS.off, val, 30 * 24 * 3600);
+        // 저장소 함수는 오류를 삼킨다 — 다시 읽어 실제로 저장됐는지 확인한다(끄기를 «됐다»고 잘못 알리지 않게)
+        const back = await upstashStore.get(OA_KEYS.off);
+        if (back !== val) return NextResponse.json({ ok: false, error: 'oa-off not persisted — retry', oaOff: back }, { status: 503 });
         return NextResponse.json({ ok: true, oaOff: val });
     }
     if (action === 'oa-probe') {

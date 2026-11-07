@@ -60,6 +60,7 @@ const cfg: Record<string, Cfg> = {
     } },
 };
 
+const ledgerMissed: string[] = [];   // 원장 기록이 빠진 호출 — 이번 회차의 병렬 호출을 다 받은 뒤 멈춘다(보정 범위를 빠짐없이 남긴다)
 async function callModel(c: Captured, model: string, system: string): Promise<any> {
     const secret = process.env.CRON_SECRET || '';
     const wantsJson = !!(c.jsonPrefill || c.expectJson);
@@ -79,7 +80,7 @@ async function callModel(c: Captured, model: string, system: string): Promise<an
         // 옛 서버는 모르는 모델을 Haiku 로 바꿔 부른다 — 요청한 모델이 아니면 버린다
         if (j.h55?.ok && isOa && j.h55.model !== model) return { ok: false, ms: j.h55.ms, error: `server-ran-${j.h55.model}` };
         // 원장 기록이 빠졌으면 그 뒤 유료 호출을 멈춘다(상한 판단이 실제보다 낮아진다) — 사람이 원장을 맞춘 뒤 다시 돌린다
-        if (j.h55?.ledgerMissed) { console.error(`FATAL ledgerMissed ${model} $${j.h55.costUsd} — 원장 보정 필요, 평가 중단`); process.exit(2); }
+        if (j.h55?.ledgerMissed) { ledgerMissed.push(`${model} $${j.h55.costUsd}`); }
         return j.h55;
     } catch (e: any) { return { ok: false, ms: Date.now() - t0, error: String(e?.message || e).slice(0, 160) }; }
 }
@@ -118,6 +119,7 @@ async function callModel(c: Captured, model: string, system: string): Promise<an
                 all.push(row);
                 console.error(`  ${purpose}#${idx}.${round} [${c.locale}] ` + sides.map((s: any) => `${s.model.replace('claude-', '')} ${s.ok ? (s.pass ? 'PASS' : 'FAIL') : 'ERR'} ${(s.ms / 1000).toFixed(1)}s`).join(' | '));
                 fs.writeFileSync(path.join(outDir, `rows-${purpose}.json`), JSON.stringify(all.filter((r) => r.purpose === purpose)));
+                if (ledgerMissed.length) { console.error(`FATAL 원장 누락 ${ledgerMissed.length}건 — ${ledgerMissed.join(', ')} · 원장 보정 후 다시 돌린다`); process.exit(2); }
             }
         }
         state.allowLLM = false;
