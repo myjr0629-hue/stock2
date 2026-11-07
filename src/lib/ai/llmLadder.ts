@@ -787,6 +787,8 @@ function oaAlert(tag: string, subject: string, body: string, d: LadderDeps): voi
     inBackground(() => alertOnce(d.store, OA_KEYS.alert(oaMonthId(d.now()), tag), send, subject, body, (m) => d.log('warn', m), d.now()));
 }
 
+const OA_MIN_LEFT_MS = 3_000;
+
 async function tryOaRung(req: LadderRequest, cfg: LadderConfig, d: LadderDeps, started: number): Promise<RungTry | RungFail> {
     const oc = cfg.openai;
     if (!oc) return { ok: false, why: 'nooa', skip: true };
@@ -802,8 +804,10 @@ async function tryOaRung(req: LadderRequest, cfg: LadderConfig, d: LadderDeps, s
     }
     const now = d.now();
     if (await breakerOpenUntil('oa', d) > now) return { ok: false, why: 'breaker', skip: true };
-    const remaining = Math.max(5_000, (req.timeoutMs ?? 55_000) - (now - started));
-    const timeoutMs = Math.min(oc.timeoutMs, remaining);
+    // 호출 지점의 시간 예산을 넘기지 않는다(①② 의 «최소 5초» 규칙을 쓰지 않는다) — 3초도 안 남았으면 건너뛴다(예전처럼 다음 단·건너뜀)
+    const left = (req.timeoutMs ?? 55_000) - (now - started);
+    if (left < OA_MIN_LEFT_MS) return { ok: false, why: 'notime', skip: true };
+    const timeoutMs = Math.min(oc.timeoutMs, left);
     const json = req.expectJson === 'array' ? 'array' as const : !!(req.jsonPrefill || req.expectJson);
     let p: OaParsed;
     try {

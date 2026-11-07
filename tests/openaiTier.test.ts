@@ -214,6 +214,21 @@ const req = (over: Record<string, unknown> = {}) => ({ purpose: 'CrossSector', s
         assert.ok(!JSON.stringify(s).includes('sk-oa'));
     });
 
+    await t('시간 예산: ① 이 예산을 거의 다 쓰면 OpenAI 를 부르지 않는다(3초 미만) · 부를 때는 남은 시간만큼만', async () => {
+        let clock = NOW;
+        const m = mk({ a: () => { clock += 13_000; throw new LadderRungError('timeout', 0, 't'); }, b: () => a55ok('B') });
+        m.deps.now = () => clock;
+        const o = await withFreshTier(() => runLadder(req({ purpose: 'CrossSector', timeoutMs: 15_000 }), legacy(m.calls), m.deps)).catch((e) => e);
+        assert.ok(!m.calls.includes('oa'));
+        assert.match(String(o?.message ?? o?.trail), /oa:notime/);
+        _resetLadderStateForTest();
+        let clock2 = NOW;
+        const m2 = mk({ a: () => { clock2 += 9_000; throw new LadderRungError('server', 0, 's'); } });
+        m2.deps.now = () => clock2;
+        await runLadder(req({ timeoutMs: 15_000 }), legacy(m2.calls), m2.deps);
+        assert.equal(m2.oaBodies[0].timeoutMs, 6_000);
+    });
+
     // ───────────── 운영 설정(2026-11-07 품질 측정으로 켠 것만) ─────────────
     await t('운영 설정: 측정을 통과한 용도만 OpenAI — UC 만 primary · 모델은 단가표에 있다 · sol 은 effort none 금지', () => {
         const on = Object.fromEntries(Object.entries(LADDER_PURPOSES).filter(([, c]) => c.openai).map(([k, c]) => [k, `${c.openai!.model}${c.openai!.primary ? '!' : ''}`]));
