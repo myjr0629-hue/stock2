@@ -10,11 +10,13 @@ import assert from 'node:assert/strict';
 import { memoryStore } from '@/lib/ai/llmStore';
 import { withFreshTier } from '@/lib/ai/freshTier';
 import { _flushCreditAlertsForTest, _resetCreditAlertForTest } from '@/lib/ai/creditAlert';
-import { runLadder, LadderRungError, LLM_KEYS, ladderStatus, _resetLadderStateForTest, type LadderDeps, type RungResult } from '@/lib/ai/llmLadder';
+import { runLadder, LadderRungError, LLM_KEYS, ladderStatus, LADDER_PURPOSES, _resetLadderStateForTest, type LadderDeps, type RungResult } from '@/lib/ai/llmLadder';
 import {
     classifyOaFailure, oaCost, oaMonthId, OA_KEYS, OA_DEFAULT_MONTHLY_CAP_USD, OaCallError, parseOaResponse, shapeOaBody, type OaParsed,
 } from '@/lib/ai/openaiTier';
 import { JSON_ONLY_INSTRUCTION } from '@/lib/ai/llmRequest';
+import { OA_PRICES } from '@/lib/ai/openaiTier';
+import { V4_SERVE_PROVIDERS } from '@/lib/ai/crossBriefServe';
 
 let n = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => { _resetLadderStateForTest(); _resetCreditAlertForTest(); await fn(); n++; console.log('ok -', name); };
@@ -210,6 +212,30 @@ const req = (over: Record<string, unknown> = {}) => ({ purpose: 'CrossSector', s
         assert.equal(s.openai.purposes.CrossSector, 'gpt-6.1-terra'); assert.ok(s.openai.spentUsd > 0);
         assert.equal(s.openai.capUsd, OA_DEFAULT_MONTHLY_CAP_USD); assert.equal(s.openai.keyConfigured, true);
         assert.ok(!JSON.stringify(s).includes('sk-oa'));
+    });
+
+    // ───────────── 운영 설정(2026-11-07 품질 측정으로 켠 것만) ─────────────
+    await t('운영 설정: 측정을 통과한 용도만 OpenAI — UC 만 primary · 모델은 단가표에 있다 · sol 은 effort none 금지', () => {
+        const on = Object.fromEntries(Object.entries(LADDER_PURPOSES).filter(([, c]) => c.openai).map(([k, c]) => [k, `${c.openai!.model}${c.openai!.primary ? '!' : ''}`]));
+        assert.deepEqual(on, {
+            UC: 'gpt-6-luna!', MorningBriefing: 'gpt-5.4-mini', Guardian: 'gpt-6-luna', CrossSector: 'gpt-6.1-sol',
+            WatchlistLine: 'gpt-6.1-terra', TodayPicks: 'gpt-6.1-terra',
+        });
+        for (const [k, c] of Object.entries(LADDER_PURPOSES)) {
+            if (!c.openai) continue;
+            assert.ok(OA_PRICES[c.openai.model], k);
+            if (/sol/.test(c.openai.model)) assert.notEqual(c.openai.effort ?? 'none', 'none', `${k}: sol 은 none 을 받지 않는다(400)`);
+        }
+        assert.ok((V4_SERVE_PROVIDERS as readonly string[]).includes('oa'), '장마감 리포트: OpenAI 결과도 서빙');
+    });
+    await t('운영 설정: UC 는 OpenAI 먼저, 실패하면 Haiku 5.5 · 장마감 리포트는 Haiku 다음 OpenAI', async () => {
+        const m1 = mk({ allow: LADDER_PURPOSES, a: () => a55ok('{"a":1}'), oa: () => oaOk('{"o":1}') });
+        const o1 = await runLadder(req({ purpose: 'UC', jsonPrefill: true }), legacy(m1.calls), m1.deps);
+        assert.equal(o1.provider, 'oa'); assert.equal(m1.oaBodies[0].model, 'gpt-6-luna');
+        _resetLadderStateForTest();
+        const m2 = mk({ allow: LADDER_PURPOSES, a: () => { throw new LadderRungError('credit', 3600, 'cap'); } });
+        const o2 = await runLadder(req({ purpose: 'CrossSector' }), legacy(m2.calls), m2.deps);
+        assert.deepEqual(m2.calls, ['a55', 'oa']); assert.equal(o2.model, 'gpt-6.1-sol'); assert.equal(m2.oaBodies[0].effort, 'low');
     });
 
     console.log(`\n${n} passed`);

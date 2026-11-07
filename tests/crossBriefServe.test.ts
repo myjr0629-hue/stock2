@@ -112,7 +112,7 @@ const reader = (store: Record<string, any>) => async (key: string) => (key in st
         assert.equal(legacy.guard.ok, false);
         assert.ok(legacy.guard.reasons.includes('provider:legacy'));
         assert.equal(evaluateServedV4(legacy, DAY).ok, false);
-        for (const p of ['a55', 'a55s', 'b55']) assert.equal(evaluateServedV4(v4Stored({}, p), DAY).ok, true, p);
+        for (const p of ['a55', 'a55s', 'oa', 'b55']) assert.equal(evaluateServedV4(v4Stored({}, p), DAY).ok, true, p);
     });
 
     await t('언어 혼입: 한글 칸에 가나, 일본어 칸에 한글 → 생성 가드·서빙 가드 둘 다 탈락 → v3', async () => {

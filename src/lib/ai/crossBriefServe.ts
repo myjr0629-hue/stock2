@@ -21,8 +21,11 @@ import { closingReportProblems, narrativeLengthCeiling } from '@/lib/ai/closingR
 
 export type BriefSource = 'v4' | 'v3' | 'v2';
 
-/** 서빙을 허용하는 제공자 — 품질을 잰 5.5 계열(Anthropic 크레딧 Haiku/Sonnet 5.5 · Bedrock 5.5). 현행 Bedrock Haiku 4.5(legacy)는 비교한 적 없어 v3 에 양보한다. */
-export const V4_SERVE_PROVIDERS = ['a55', 'a55s', 'b55'] as const;
+/**
+ * 서빙을 허용하는 제공자 — 품질을 잰 5.5 계열(Anthropic 크레딧 Haiku/Sonnet 5.5 · Bedrock 5.5)과 OpenAI 단(oa = gpt-6.1-sol, 2026-11-07 실입력 3/3 — QUALITY.md).
+ * 현행 Bedrock Haiku 4.5(legacy)는 비교한 적 없어 v3 에 양보한다.
+ */
+export const V4_SERVE_PROVIDERS = ['a55', 'a55s', 'oa', 'b55'] as const;
 
 /** guard 기록 형식 버전 — 가드 규칙이 바뀌면 올려 옛 기록을 무효로 한다 */
 export const GUARD_VERSION = 1;

@@ -116,7 +116,9 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   (적응형 사고 low 는 37/40 vs 33/40 으로 통과했지만 느리고 출력 토큰이 1.7배 — 사고를 끄면 숫자 밀도도 현행에 가깝다)
     //   ★10/11 «해석의 깊이»: 지시문 덧붙임(depth) — 피드·종목 카드의 «뉴스 대 돈» 한 줄 읽기에만(depthWhen: buildSystem 의 돈 신호 해설) · UC 매크로·교정 호출엔 안 붙는다.
     //   36호출(종목 10 × 3언어 + 피드) 짝 비교: 깊이 종합 24.7 → 30.1 (+5.0, 95% CI [1.7, 8.3], 25/36 표본에서 우세) · 가드 23/36 동률 · 칸 초과 5/666 · 길이 ×1.12 · 호출당 $0.0011 → $0.0012
-    UC: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000, depth: true, depthWhen: 'HOW TO READ THE MONEY SIGNALS' },
+    //   ★2026-11-07 OpenAI gpt-6-luna 를 «먼저»(primary — Anthropic 크레딧 아끼기, 매달 갱신되는 OpenAI 크레딧 사용). 운영 실입력 9건(3종목×ko·en·ja):
+    //   가드 9/9 vs Haiku 9/9 · p50 1.9s vs 1.4s · 호출당 $0.00022 vs $0.00059. 못 넘으면 예전 순서(Haiku 5.5 → …). 근거 QUALITY.md(signum-work/2026-11-07/openai)
+    UC: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000, depth: true, depthWhen: 'HOW TO READ THE MONEY SIGNALS', openai: { model: 'gpt-6-luna', effort: 'none', timeoutMs: 12_000, primary: true } },
     //   UC 번역 보정(enforceLanguage): 8/8 vs 8/8 · p50 1.5s vs 5.9s
     UCTranslate: { effort: 'low', timeoutMs: 12_000 },
     //   뉴스 다이제스트(5건×3개 언어): 운영 가드(newsDigestGate) 8/8 vs 8/8 · 사고 끔 p50 13s vs 26s.
@@ -133,13 +135,15 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   모닝 브리핑: 10/10 vs 10/10(음차는 출구 복원) · p50 6.9s vs 10.7s · 호출당 $0.0014 vs $0.0098
     //   ★10/11 «해석의 깊이»: 지시문은 라우트가 직접 붙인다(EC2 워커도 같은 프롬프트) — 짝 비교 Haiku 5.5 +28.9 · Sonnet 4.6(EC2 경로) +8.8
     //   ★2026-10-25 v2(사실 계약 검사, TRACKER T7): 크레딧 1회 재시도 — 실모델 1회 통과율이 100% 가 아니라(3언어 숫자 일치·지표 주어) Bedrock 로 내려가기 전 한 번 더(생성 p50 5초)
-    MorningBriefing: { effort: 'low', thinking: 'disabled', timeoutMs: 25_000, depth: true, retries: 1 },
+    //   ★2026-11-07 OpenAI 단(① 실패 뒤): gpt-5.4-mini — 실입력 5회 가드 5/5 vs Haiku 3/5 · sol 2/5 · terra 2/5 · luna 3/5 · p50 3.0s · $0.0035. 근거 QUALITY.md(signum-work/2026-11-07/openai)
+    MorningBriefing: { effort: 'low', thinking: 'disabled', timeoutMs: 25_000, depth: true, retries: 1, openai: { model: 'gpt-5.4-mini', effort: 'none', timeoutMs: 20_000 } },
     //   실적 브리핑(8종목×3언어 배치): 10/10 vs 10/10 · p50 13s 동률 · 호출당 $0.0015 vs $0.0108. 라우트 40초 중 ① 22초 + 현행 이어받기 18초
     EarningsBrief: { effort: 'low', thinking: 'disabled', timeoutMs: 22_000 },
     //   인텔 섹터 스냅샷(뉴스 인사이트): 규칙(회사명은 라틴 철자·한국어 칸에 가나 금지)을 넣고 30/30 vs 현행 10/10 · p50 7.5s vs 10.8s. 라우트 30초 중 ① 14초
     IntelSnapshot: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000 },
     //   가디언 인사이트(한 호출이 ko·en·ja): 입력의 한국어 섹터명을 영어로(+출력에서 한국어/일본어 이름 복원) 12/12 vs 현행 11/12 · p50 7.2s vs 11.7s · 호출당 $0.0018 vs $0.014
-    Guardian: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000 },
+    //   ★2026-11-07 OpenAI 단(① 실패 뒤): gpt-6-luna — Tactical 3개 언어·ko 단독 실입력 6회 가드 6/6 vs Haiku 4/6 · sol 5/6 · terra 4/6 · p50 2.2s · $0.0006. 근거 QUALITY.md(signum-work/2026-11-07/openai)
+    Guardian: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000, openai: { model: 'gpt-6-luna', effort: 'none', timeoutMs: 12_000 } },
     //   가디언 번역 대체(다른 언어의 정상 문구 → 이 언어, 18건: 3종 × 3대상언어 × 2방향): 18/18 vs 18/18 · p50 2.3s vs 3.5s · 호출당 $0.0003 vs $0.0027. ① 8초(p95 3.5초)
     GuardianTranslate: { effort: 'low', thinking: 'disabled', timeoutMs: 8_000 },
     //   크로스섹터 브리핑(8천 토큰 3개 언어 JSON): 5.5 9/10(언어 규칙 문장 포함) · p50 20s — 현행 Haiku 4.5 는 호출 하나가 54초(라우트 한도 60초 바로 아래)이고 두 번째 호출은 55초 시간 초과 3회로 실패했다.
@@ -149,7 +153,9 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   ★2026-10-24 3차 운영 실측: ① 첫 시도 탈락 사유는 매번 달랐다(ko 거절 패턴 오탐·영어 헤드라인 미번역) → 재시도 2회. 다음 시도는 «지금까지 쓴 시간 + 직전 시도×1.2 ≤ 240초»일 때만
     //   (사다리의 예산 검사) — 정상 시도는 20~50초라 세 번째도 예산 안. 현행(4.5)은 서빙 대상이 아니라 남은 시간이 모자라 실패해도 화면은 Lambda v3 로 간다.
     //   ★2026-11-06 등급 essential(lib/ai/creditCycle) — 11/5 대폭락 날 원장 상한(16:00Z)으로 리포트가 현행 생성·서빙 탈락. 이제 실제 잔액 − $0.2 까지 ① 을 쓴다.
-    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 90_000, retries: 2 },
+    //   ★2026-11-07 OpenAI 단(① 재시도까지 실패·정지선 뒤 — 11/5 같은 날): gpt-6.1-sol(effort low — sol 은 none 불가) — 실입력 3회 가드 3/3 vs Haiku 3/3 ·
+    //   terra 2/3 · luna 1/3(JSON) · mini 2/3(JSON) · p50 44s · $0.059. 서빙 허용 목록(crossBriefServe.V4_SERVE_PROVIDERS)에 oa 추가. 근거 QUALITY.md(signum-work/2026-11-07/openai)
+    CrossSector: { effort: 'low', thinking: 'disabled', timeoutMs: 90_000, retries: 2, openai: { model: 'gpt-6.1-sol', effort: 'low', timeoutMs: 150_000 } },
     //   플로우 AI(전 종목 3개 언어 JSON): 신뢰 경로는 진짜 출구 게이트(gateFlowAnalysis, 자리표 값을 프롬프트에서 복원)로, 음차 복원 적용 후 2회 합산 23/28 vs 현행 19/28
     //   (현행 실패 = 4096 토큰 상한 잘림·JSON 깨짐·일본어 한글 혼입·종합점수 숫자 / 5.5 실패 = 종합점수 숫자 — ① 가 못 넘으면 현행이 이어받는다). 사고 끔이 낫다(적응형 18/28). p50 8.7s vs 16.3s · 호출당 $0.0015 vs $0.0164
     FlowAI: { effort: 'low', thinking: 'disabled', timeoutMs: 20_000 },
@@ -161,10 +167,12 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     DeepAnalysis: { effort: 'low', thinking: 'disabled', timeoutMs: 24_000, depth: 'sonnet-only', sonnet: { timeoutMs: 32_000, effort: 'low', thinking: 'adaptive', dailyCapUsd: 3.5, warmDailyCapUsd: 0.7 } },
     //   «내 종목» AI 한 줄(2026-10-12 신설 — 예전 경로가 없는 새 용도): 종목당 3개 언어 한 호출(입력 ~1k·출력 ~0.2k 토큰). 늘 withFreshTier 로 불러
     //   ① 만 시도한다(AWS 로 넘기지 않음). 출구 가드(lib/ai/watchlistLine.checkLineOutput — 숫자 대조·금지어·자리표·언어·길이)를 못 넘으면 크레딧으로 한 번 더(retries 1).
-    WatchlistLine: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 },
+    //   ★2026-11-07 OpenAI 단(① 재시도까지 실패 뒤 — 지금은 «건너뜀=옛 줄 유지», 7일 66%): gpt-6.1-terra — 실입력 6회 가드 6/6 vs Haiku 4/6 · luna 5/6 · mini 3/6 · p50 2.8s · $0.001. 근거 QUALITY.md(signum-work/2026-11-07/openai)
+    WatchlistLine: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1, openai: { model: 'gpt-6.1-terra', effort: 'none', timeoutMs: 8_000 } },
     //   «✦ AI 오늘 볼 것» 해설 한 줄(2026-10-13 신설): 항목 하나당 3개 언어 한 호출(입력 ~2.2k·출력 ~0.15k 토큰, 실측 p50 1.2초·$0.0003). 늘 withFreshTier 로 불러 ① 만 시도한다(AWS 로 넘기지 않음).
     //   출구 가드(lib/ai/todayPicksLine.checkPickWhy — 숫자 대조·금지어·방향·배수·길이)를 못 넘으면 크레딧으로 한 번 더(retries 1) — 그래도 못 넘으면 규칙 해설(저장 시 대체).
-    TodayPicks: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 },
+    //   ★2026-11-07 OpenAI 단(① 재시도까지 실패 뒤 — 오늘 볼 것·이상신호 푸시 글): gpt-6.1-terra — 실입력 6회 가드 6/6 vs Haiku 6/6 · luna 5/6 · p50 2.0s · $0.0005. 근거 QUALITY.md(signum-work/2026-11-07/openai)
+    TodayPicks: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1, openai: { model: 'gpt-6.1-terra', effort: 'none', timeoutMs: 8_000 } },
     //   «오늘 요약» 다음 주요 지표 설명 한 줄(2026-10-18): 지표당 한 번(48h 캐시), 비교 해석은 허용 ID만 선택(lib/ai/econInterpretations).
     TodaySummaryEcon: { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 },
     //   인텔 종목 분석(종목 ≤3개 × 한·일·영 JSON 한 호출): 2026-10-12 aiq55 — 전환 전 24h 실측 legacy p50 25.1s(p95 56.3s)·가드 82%·호출당 $0.0189. 근거 표: IMPL-5-ai-quality.md.

@@ -27,7 +27,7 @@ bootHarness({ envFile });
 }
 fs.mkdirSync(outDir, { recursive: true });
 const BASE = 'https://www.signumhq.com';
-const MODELS = (modelsArg || 'claude-haiku-5-5,gpt-6.1-sol,gpt-6.1-terra,gpt-6-luna,gpt-5.4-mini').split(',');
+const MODELS = (modelsArg || 'claude-haiku-5-5,gpt-6.1-sol@low,gpt-6.1-terra,gpt-6-luna,gpt-5.4-mini').split(',');
 const FRI_CLOSE = '2026-11-06T22:30:00Z';   // 금 17:30 ET(서머타임 끝 — ET=UTC−5)
 const FRI_PRE = '2026-11-06T13:30:00Z';     // 금 08:30 ET
 const FRI_MID = '2026-11-06T16:00:00Z';     // 금 11:00 ET
@@ -66,11 +66,13 @@ async function callModel(c: Captured, model: string, system: string): Promise<an
     const wantsJson = !!(c.jsonPrefill || c.expectJson);
     const t0 = Date.now();
     const isOa = model.startsWith('gpt-');
+    // «모델@effort» — 예: gpt-6.1-sol@low (sol 은 none 을 받지 않는다: 400 «Supported values are low…max»)
+    const [mName, mEffort] = model.split('@');
     try {
         const res = await fetch(`${BASE}/api/admin/ai-ab`, {
             method: 'POST', headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' },
             body: JSON.stringify({
-                adhoc: { system, userPrompt: c.userPrompt, maxTokens: c.maxTokens, expectJson: c.expectJson === 'array' ? 'array' : wantsJson, timeoutMs: isOa ? 240_000 : 58_000, ...(isOa ? { model, oaEffort: 'none' } : {}) },
+                adhoc: { system, userPrompt: c.userPrompt, maxTokens: c.maxTokens, expectJson: c.expectJson === 'array' ? 'array' : wantsJson, timeoutMs: isOa ? 240_000 : 58_000, ...(isOa ? { model: mName, oaEffort: mEffort || 'none' } : {}) },
                 effort: 'low', thinking: 'disabled', tag: 'oa-eval-1107',
             }),
             signal: AbortSignal.timeout(isOa ? 290_000 : 75_000),
@@ -78,7 +80,7 @@ async function callModel(c: Captured, model: string, system: string): Promise<an
         if (!res.ok) return { ok: false, ms: Date.now() - t0, error: `HTTP ${res.status} ${(await res.text()).slice(0, 160)}` };
         const j: any = await res.json();
         // 옛 서버는 모르는 모델을 Haiku 로 바꿔 부른다 — 요청한 모델이 아니면 버린다
-        if (j.h55?.ok && isOa && j.h55.model !== model) return { ok: false, ms: j.h55.ms, error: `server-ran-${j.h55.model}` };
+        if (j.h55?.ok && isOa && j.h55.model !== mName) return { ok: false, ms: j.h55.ms, error: `server-ran-${j.h55.model}` };
         // 원장 기록이 빠졌으면 그 뒤 유료 호출을 멈춘다(상한 판단이 실제보다 낮아진다) — 사람이 원장을 맞춘 뒤 다시 돌린다
         if (j.h55?.ledgerMissed) { ledgerMissed.push(`${model} $${j.h55.costUsd}`); }
         return j.h55;
@@ -108,7 +110,7 @@ async function callModel(c: Captured, model: string, system: string): Promise<an
             let system = c.system;
             const ft = financeTermsRule(); if (system.includes(ft)) system = system.replace(ft, '');
             if (c0.depth && lc?.depth && (!lc.depthWhen || system.includes(lc.depthWhen)) && !system.includes('<depth_standard>')) system += depthDirectiveFor(purpose);
-            for (let round = 0; round < c0.rounds; round++) {
+            for (let round = 0; round < (Number(process.env.OA_ROUNDS) || c0.rounds); round++) {
                 const sides = await Promise.all(MODELS.map(async (m) => {
                     const h = await callModel(c, m, system);
                     if (!h?.ok) return { model: m, ok: false, ms: h?.ms ?? 0, error: h?.error };
