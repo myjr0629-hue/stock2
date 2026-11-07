@@ -198,18 +198,19 @@ export async function POST(req: NextRequest) {
             if (spentNow >= oaMonthlyCapUsd()) return NextResponse.json({ ok: true, adhoc: true, h55: { ok: false, ms: 0, error: `oa-cap ${spentNow.toFixed(2)}` } });
             const oaEffort = a.oaEffort === 'low' || a.oaEffort === 'medium' ? a.oaEffort : 'none';
             const t0 = Date.now();
+            // json: 배열 요청은 배열 지시 그대로(c.expectJson 은 예전 Haiku 경로를 위해 boolean 으로 접혀 있다)
             try {
                 const p = await defaultCallOpenAI({
                     model: a.model, system: c.system, userPrompt: c.userPrompt, maxTokens: c.maxTokens,
-                    json: c.expectJson === 'array' ? 'array' : !!(c.expectJson ?? true), effort: oaEffort, timeoutMs: Math.min(280_000, Math.max(5_000, Number(a.timeoutMs) || 45_000)),
+                    json: a.expectJson === 'array' ? 'array' : a.expectJson !== false, effort: oaEffort, timeoutMs: Math.min(280_000, Math.max(5_000, Number(a.timeoutMs) || 45_000)),
                 }, oaKey);
                 const spent = oaCost(p.usage, a.model);
-                // 달은 응답 시점 기준(사다리와 같다). 기록 실패는 응답에 표시하고 크게 남긴다
+                // 달은 응답 시점 기준(사다리와 같다). 기록 실패(또는 늦은 성공)는 응답에 표시하고 크게 남긴다
                 let ledgerMissed = false;
                 if (spent > 0) {
                     const k = OA_KEYS.cost(oaMonthId(Date.now()));
-                    let v = await upstashStore.incrByFloat(k, spent, 70 * 24 * 3600).catch(() => null);
-                    if (v == null) v = await upstashStore.incrByFloat(k, spent, 70 * 24 * 3600).catch(() => null);
+                    // 다시 시도하지 않는다 — 시간 초과된 첫 요청이 늦게 성공하면 두 번 센다
+                    const v = await upstashStore.incrByFloat(k, spent, 70 * 24 * 3600).catch(() => null);
                     if (v == null) { ledgerMissed = true; console.error(`[ai-ab] OpenAI 원장 기록 실패 — ${k} +$${spent.toFixed(5)} 누락`); }
                 }
                 return NextResponse.json({ ok: true, adhoc: true, h55: { ...(ledgerMissed ? { ledgerMissed: true } : {}),
