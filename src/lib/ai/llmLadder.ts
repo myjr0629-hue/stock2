@@ -27,6 +27,10 @@ import { upstashStore, type LlmStore } from '@/lib/ai/llmStore';
 import { financeTermsRule } from '@/lib/ai/commonTerms';
 import { FreshTierSkipped, freshTierAllowsSonnet, inFreshTier } from '@/lib/ai/freshTier';
 import { depthDirectiveFor } from '@/lib/ai/depthDirective';
+import {
+    defaultCallOpenAI, oaCost, oaMonthId, oaMonthlyCapUsd, openaiKeyFromEnv, OaCallError, OA_KEYS,
+    type OaCall, type OaEffort, type OaParsed,
+} from '@/lib/ai/openaiTier';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1) 용도(label) 목록 · 허용 목록
@@ -93,6 +97,12 @@ export interface LadderConfig {
      * 단가 입력 $2 · 출력 $10 /백만(Haiku 5.5 의 20배) — 그래서 일일 크레딧 상한(dailyCapUsd, UTC 날짜 기준)을 둔다.
      */
     sonnet?: { timeoutMs: number; effort?: Effort; thinking?: 'disabled' | 'adaptive'; dailyCapUsd: number; /** 예열 몫(UTC 날짜별 $) — 있으면 예열(withFreshTier sonnet)은 이 몫으로, 사용자 상한(dailyCapUsd)은 예열 지출을 빼고 센다. 스위치 llm:warmsep:off */ warmDailyCapUsd?: number };
+    /**
+     * [2026-11-07] OpenAI 단(lib/ai/openaiTier) — ① Haiku 5.5 가 실패·정지선·서킷·가드 불통과로 끝나면 Bedrock 으로 내려가기 전에 이 모델로.
+     * 같은 프롬프트·같은 출구 가드. 증가분(withFreshTier) 문맥에서도 시도한다(AWS 가 아니라 선불 크레딧). 끄기: Redis llm:oa:off.
+     * primary:true = ① 보다 먼저(크레딧 늘리기용 비필수 대량 생성) — 실패하면 ① 부터 예전 순서로.
+     */
+    openai?: { model: string; effort?: OaEffort; timeoutMs: number; primary?: boolean };
 }
 
 /**
@@ -202,7 +212,7 @@ export interface LegacyResult {
     truncated?: boolean;
 }
 
-export type ProviderId = 'a55' | 'a55s' | 'b55' | 'legacy';
+export type ProviderId = 'a55' | 'a55s' | 'oa' | 'b55' | 'legacy';
 
 export interface LadderOutcome {
     text: string;
@@ -243,6 +253,9 @@ export interface LadderDeps {
     log: (level: 'info' | 'warn' | 'error', msg: string) => void;
     /** 크레딧 경보 발송(기본 SNS — 운영에서만 실제 발송, lib/ai/creditAlert) */
     alert?: AlertSender;
+    /** OpenAI 키(없으면 OpenAI 단을 건너뛴다)·호출 — 시험에서 갈아 끼운다 */
+    openaiKey?: () => string | undefined;
+    callOpenAI?: (c: OaCall, key: string) => Promise<OaParsed>;
 }
 
 export type B55Variant = 'invoke' | 'mantle';
@@ -356,6 +369,8 @@ export function defaultDeps(): LadderDeps {
         allowlist: () => LADDER_PURPOSES,
         log: (level, msg) => { (level === 'error' ? console.error : level === 'warn' ? console.warn : console.log)(msg); },
         alert: snsOpsAlert,
+        openaiKey: openaiKeyFromEnv,
+        callOpenAI: defaultCallOpenAI,
     };
 }
 
@@ -618,7 +633,7 @@ const B55_DEFAULT_TIMEOUT = 25_000;
 interface RungTry { ok: true; text: string; model: string; usage: TokenUsage; cost: number; /** 빠진 구조 괄호를 채워 JSON 으로 읽은 응답(llmRequest.repairDroppedClosers) */ repaired?: boolean }
 interface RungFail { ok: false; why: string; skip?: boolean; /** 응답이 왔다면 그 비용(거절·가드 실패도 과금된다) */ cost?: number }
 
-type RungId = 'a55' | 'a55s' | 'b55i' | 'b55m';
+type RungId = 'a55' | 'a55s' | 'oa' | 'b55i' | 'b55m';
 
 /**
  * 이 호출의 크레딧 등급 — 증가분(freshTier) 문맥이면 extra(크레딧 전용 필수 용도 제외), 필수 용도면 essential, 그 밖 standard.
@@ -733,6 +748,85 @@ async function tryRung(
     return { ok: true, text, model, usage, cost, ...(repaired ? { repaired: true } : {}) };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 7-b) OpenAI 단 (2026-11-07) — 자기 원장(llm:oa:cost:{달})·연성 상한·서킷(oa)·끄기 스위치(llm:oa:off)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function oaOffFor(purpose: string, d: LadderDeps): Promise<boolean> {
+    if (process.env.AI_OPENAI_OFF === '1') return true;
+    const raw = await cached('oaOff', d.now(), () => d.store.get(OA_KEYS.off));
+    if (!raw || raw === '0') return false;
+    if (raw === '1' || raw === '*') return true;
+    try { const arr = JSON.parse(raw); return Array.isArray(arr) && (arr.includes('*') || arr.includes(purpose)); } catch { return false; }
+}
+
+async function oaMonthSpent(d: LadderDeps): Promise<number> {
+    const month = oaMonthId(d.now());
+    return cached(`oaCost:${month}`, d.now(), async () => {
+        const n = Number(await d.store.get(OA_KEYS.cost(month)));
+        return Number.isFinite(n) ? n : 0;
+    });
+}
+
+function oaAlert(tag: string, subject: string, body: string, d: LadderDeps): void {
+    if (!d.alert) return;
+    const send = d.alert;
+    inBackground(() => alertOnce(d.store, OA_KEYS.alert(oaMonthId(d.now()), tag), send, subject, body, (m) => d.log('warn', m), d.now()));
+}
+
+async function tryOaRung(req: LadderRequest, cfg: LadderConfig, d: LadderDeps, started: number): Promise<RungTry | RungFail> {
+    const oc = cfg.openai;
+    if (!oc) return { ok: false, why: 'nooa', skip: true };
+    const key = d.openaiKey?.();
+    if (!key || !d.callOpenAI) return { ok: false, why: 'nokey', skip: true };
+    if (await oaOffFor(req.purpose, d)) return { ok: false, why: 'oa-off', skip: true };
+    const cap = oaMonthlyCapUsd();
+    const spentNow = await oaMonthSpent(d);
+    if (spentNow >= cap) {
+        oaAlert('cap', `[SIGNUM] OpenAI 단 월 상한 도달 — ${usd(spentNow)} / ${usd(cap)}`,
+            `OpenAI 원장(${OA_KEYS.cost(oaMonthId(d.now()))})이 연성 상한에 닿았다. 이번 달 남은 기간 OpenAI 단을 건너뛴다(① 뒤 바로 Bedrock).\n상한 조정: Vercel OPENAI_MONTHLY_CAP_USD.`, d);
+        return { ok: false, why: 'cap', skip: true };
+    }
+    const now = d.now();
+    if (await breakerOpenUntil('oa', d) > now) return { ok: false, why: 'breaker', skip: true };
+    const remaining = Math.max(5_000, (req.timeoutMs ?? 55_000) - (now - started));
+    const timeoutMs = Math.min(oc.timeoutMs, remaining);
+    const json = req.expectJson === 'array' ? 'array' as const : !!(req.jsonPrefill || req.expectJson);
+    let p: OaParsed;
+    try {
+        p = await d.callOpenAI({ model: oc.model, system: req.system, userPrompt: req.userPrompt, maxTokens: req.maxTokens, json, effort: oc.effort ?? 'none', timeoutMs }, key);
+    } catch (e: any) {
+        const re = e instanceof OaCallError || e instanceof LadderRungError ? e : new OaCallError('network', 60, String(e?.message || e).slice(0, 160));
+        if (re.kind === 'bad-request') d.log('error', `[Ladder] ${req.purpose} oa 400 — 요청 모양 점검 필요: ${re.detail.slice(0, 200)}`);
+        else if (re.kind === 'auth' || re.kind === 'access' || re.kind === 'credit') d.log('error', `[Ladder] ${req.purpose} oa ${re.kind}: ${re.detail.slice(0, 200)}`);
+        await openBreaker('oa', re.closeSec, `${re.kind} ${re.detail}`, d);
+        if (re.kind === 'credit' || re.kind === 'auth' || re.kind === 'access') {
+            oaAlert(re.kind, `[SIGNUM] OpenAI 단 ${re.kind === 'credit' ? '크레딧 소진·만료' : re.kind === 'auth' ? '키 거절' : '모델 접근 거절'} — ${re.closeSec / 3600}시간 닫음`,
+                `OpenAI API 가 거절했다(${re.detail.slice(0, 200)}). OpenAI 단을 ${re.closeSec}초 닫고 Bedrock 으로 넘긴다.\n이번 달 원장 ${usd(spentNow)} / 연성 상한 ${usd(cap)}. 크레딧·키를 확인한다.`, d);
+        }
+        return { ok: false, why: re.kind };
+    }
+    const cost = oaCost(p.usage, oc.model);
+    if (cost > 0) {
+        const month = oaMonthId(d.now());
+        const v = await d.store.incrByFloat(OA_KEYS.cost(month), cost, 70 * 24 * 3600);
+        _cache.set(`oaCost:${month}`, { v: v ?? spentNow + cost, at: _cache.get(`oaCost:${month}`)?.at ?? d.now() });
+    }
+    if (p.stop === 'refusal' || p.stop === 'filtered') return { ok: false, why: `refusal:${p.stop}`, cost };
+    if (p.stop === 'max_tokens') return { ok: false, why: 'truncated', cost };
+    if (!p.text) return { ok: false, why: 'empty', cost };
+    let text = p.text;
+    let repaired = false;
+    if (json) {
+        const j = normalizeJsonText(text, json === 'array' ? 'array' : 'object');
+        if (!j.ok) return { ok: false, why: 'json', cost };
+        text = j.text; repaired = !!j.repaired;
+    }
+    const gate = runGate(req, text, d);
+    if (!gate.ok) return { ok: false, why: `guard:${gate.reason}`, cost };
+    return { ok: true, text, model: oc.model, usage: p.usage, cost, ...(repaired ? { repaired: true } : {}) };
+}
+
 /**
  * 사다리 실행. legacy 는 «예전 코드 그대로» — 허용 목록 밖이면 이것만 실행한다.
  */
@@ -768,14 +862,19 @@ export async function runLadder(
         const depthHere = (id: RungId) => cfg!.depth !== 'sonnet-only' || id === 'a55s';
         // 증가분(fresh)은 Sonnet 을 쓰지 않는다 — 단, 딥 분석 예열은 withFreshTier(fn, { sonnet: true }) 로 크레딧 안의 Sonnet 을 허락받는다(2026-10-12)
         const useSonnet = !!cfg!.sonnet && (!fresh || freshTierAllowsSonnet());
-        const rungs: RungId[] = fresh ? [...(useSonnet ? ['a55s' as const] : []), 'a55'] : [...(useSonnet ? ['a55s' as const] : []), 'a55', 'b55i', 'b55m'];
+        // OpenAI 단(2026-11-07): 설정이 있으면 ① 다음(primary 면 맨 앞). 증가분에서도 시도한다 — AWS 가 아니라 선불 크레딧이다.
+        const oa: RungId[] = cfg!.openai ? ['oa'] : [];
+        const head: RungId[] = cfg!.openai?.primary ? oa : [];
+        const mid: RungId[] = cfg!.openai?.primary ? [] : oa;
+        const rungs: RungId[] = [...head, ...(useSonnet ? ['a55s' as const] : []), 'a55', ...mid, ...(fresh ? [] : ['b55i' as const, 'b55m' as const])];
         for (const id of rungs) {
-            if (id !== 'a55' && id !== 'a55s' && skipB55) continue;
+            if ((id === 'b55i' || id === 'b55m') && skipB55) continue;
             const rungStart = d.now();
             let attemptStart = rungStart;
             const reqHere = depthHere(id) ? reqDepth : req;
             const depthMark = depthHere(id) && (suffix || req.system.includes('<depth_standard>')) ? { dp: 1 as const } : {};
-            let r = await tryRung(id, reqHere, cfg!, d, started);
+            // OpenAI 단은 깊이 지시문 없이 호출 지점 프롬프트 그대로(품질 비교도 그 모양으로 했다 — QUALITY.md 2026-11-07)
+            let r = id === 'oa' ? await tryOaRung(req, cfg!, d, started) : await tryRung(id, reqHere, cfg!, d, started);
             if (id === 'a55') {
                 let again = Math.max(0, cfg!.retries ?? 0);
                 while (!r.ok && !r.skip && again > 0 && /^(json|truncated|guard)/.test(r.why)) {
@@ -793,13 +892,13 @@ export async function runLadder(
                 spent += r.cost; if (id === 'a55' || id === 'a55s') spentCredit += r.cost;
                 const g = req.validate ? 1 : -1;
                 const out: LadderOutcome = {
-                    text: r.text, model: r.model, provider: id === 'a55' ? 'a55' : id === 'a55s' ? 'a55s' : 'b55', usedFallback: false,
+                    text: r.text, model: r.model, provider: id === 'a55' ? 'a55' : id === 'a55s' ? 'a55s' : id === 'oa' ? 'oa' : 'b55', usedFallback: false,
                     elapsedMs: d.now() - started, usage: r.usage, costUsd: r.cost, trail,
                 };
                 await recordCall({
                     t: d.now(), p: req.purpose, v: out.provider, m: r.model, ms: out.elapsedMs, tr: trail.join(','),
                     i: r.usage.input + r.usage.cacheRead + r.usage.cacheWrite, o: r.usage.output, c: spent, ca: spentCredit,
-                    ch: r.text.length, g, ok: 1, ...(fresh ? { fr: 1 as const } : {}), ...depthMark, ...(r.repaired ? { rj: 1 as const } : {}),
+                    ch: r.text.length, g, ok: 1, ...(fresh ? { fr: 1 as const } : {}), ...(id === 'oa' ? {} : depthMark), ...(r.repaired ? { rj: 1 as const } : {}),
                 }, d);
                 return out;
             }
@@ -869,6 +968,8 @@ export interface LadderStatus {
     captureOn: boolean;
     keyConfigured: boolean;
     breakers: Record<string, string | null>;
+    /** [2026-11-07] OpenAI 단 — 용도별 모델·이번 달(UTC) 원장·연성 상한·끄기 스위치·키 유무 */
+    openai: { purposes: Record<string, string>; month: string; spentUsd: number; capUsd: number; off: string | null; keyConfigured: boolean };
 }
 
 /**
@@ -902,7 +1003,7 @@ export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderSt
     const spent = (await cycleSpentUsd(d.store, cycle)).total;
     const cap = tierStopUsd('standard', cycle.amountUsd);
     const breakers: Record<string, string | null> = {};
-    for (const id of ['a55', 'a55s', 'b55i', 'b55m']) {
+    for (const id of ['a55', 'a55s', 'oa', 'b55i', 'b55m']) {
         const until = Number(await d.store.get(K.breaker(id)));
         breakers[id] = Number.isFinite(until) && until > now ? new Date(until).toISOString() : null;
     }
@@ -917,5 +1018,10 @@ export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderSt
         depth: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.depth).map(([k]) => [k, true])),
         sonnet: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.sonnet).map(([k, c]) => [k, { dailyCapUsd: c.sonnet!.dailyCapUsd, ...(c.sonnet!.warmDailyCapUsd ? { warmDailyCapUsd: c.sonnet!.warmDailyCapUsd } : {}) }])),
         captureOn: !!(await d.store.get(K.capOn)), keyConfigured: !!d.anthropicKey(), breakers,
+        openai: {
+            purposes: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.openai).map(([k, c]) => [k, `${c.openai!.model}${c.openai!.primary ? ' (primary)' : ''}`])),
+            month: oaMonthId(now), spentUsd: Math.round((Number(await d.store.get(OA_KEYS.cost(oaMonthId(now)))) || 0) * 10000) / 10000,
+            capUsd: oaMonthlyCapUsd(), off: await d.store.get(OA_KEYS.off), keyConfigured: !!d.openaiKey?.(),
+        },
     };
 }

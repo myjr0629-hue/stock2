@@ -27,6 +27,7 @@ import { shapeH55Body, type Effort } from '@/lib/ai/llmRequest';
 import { costOf, type PriceModel } from '@/lib/ai/llmPricing';
 import { currentCycle, cycleSpentUsd, tierStopUsd } from '@/lib/ai/creditCycle';
 import { upstashStore } from '@/lib/ai/llmStore';
+import { defaultCallOpenAI, isOaModel, oaCost, oaMonthId, oaMonthlyCapUsd, openaiKeyFromEnv, OaCallError, OA_KEYS } from '@/lib/ai/openaiTier';
 import { recordTestSpend } from '@/lib/ai/llmTestSpend';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 
@@ -185,6 +186,32 @@ export async function POST(req: NextRequest) {
             t: Date.now(), purpose: 'adhoc', system: String(a.system).includes('<finance_terms>') ? a.system : financeTermsRule() + a.system, userPrompt: a.userPrompt, maxTokens: Math.min(12_000, Number(a.maxTokens) || 2000),
             temperature: null, jsonPrefill: false, locale: 'multi', expectJson: a.expectJson !== false,
         };
+        // [2026-11-07] OpenAI 후보 비교(QUALITY.md): adhoc.model 이 OpenAI 단가표(lib/ai/openaiTier.OA_PRICES)에 있으면 같은 system·user 를 Responses API 로.
+        //   비용은 OpenAI 원장(llm:oa:cost:{달})에 센다 — Anthropic 원장·시험 표식과 섞지 않는다. 월 연성 상한을 넘으면 부르지 않는다.
+        if (isOaModel(a.model)) {
+            const oaKey = openaiKeyFromEnv();
+            if (!oaKey) return NextResponse.json({ ok: true, adhoc: true, h55: { ok: false, ms: 0, error: 'no-openai-key' } });
+            const month = oaMonthId(Date.now());
+            const spentNow = Number(await upstashStore.get(OA_KEYS.cost(month))) || 0;
+            if (spentNow >= oaMonthlyCapUsd()) return NextResponse.json({ ok: true, adhoc: true, h55: { ok: false, ms: 0, error: `oa-cap ${spentNow.toFixed(2)}` } });
+            const oaEffort = a.oaEffort === 'low' || a.oaEffort === 'medium' ? a.oaEffort : 'none';
+            const t0 = Date.now();
+            try {
+                const p = await defaultCallOpenAI({
+                    model: a.model, system: c.system, userPrompt: c.userPrompt, maxTokens: c.maxTokens,
+                    json: c.expectJson === 'array' ? 'array' : !!(c.expectJson ?? true), effort: oaEffort, timeoutMs: Math.min(58_000, Math.max(5_000, Number(a.timeoutMs) || 45_000)),
+                }, oaKey);
+                const spent = oaCost(p.usage, a.model);
+                if (spent > 0) { try { await upstashStore.incrByFloat(OA_KEYS.cost(month), spent, 70 * 24 * 3600); } catch { /* 원장 기록 실패는 비교에 영향 없음 */ } }
+                return NextResponse.json({ ok: true, adhoc: true, h55: {
+                    ok: true, ms: Date.now() - t0, text: p.text, usage: p.usage, costUsd: spent, model: a.model, effort: oaEffort, reasoningTokens: p.reasoningTokens,
+                    stop: p.stop === 'end' ? 'end_turn' : p.stop, refusal: p.stop === 'refusal' || p.stop === 'filtered' ? p.stop : null,
+                } });
+            } catch (e: any) {
+                const re = e instanceof OaCallError ? e : null;
+                return NextResponse.json({ ok: true, adhoc: true, h55: { ok: false, ms: Date.now() - t0, error: re ? `${re.kind}: ${re.detail.slice(0, 200)}` : String(e?.message || e).slice(0, 200) } });
+            }
+        }
         const effort: Effort = body.effort === 'medium' || body.effort === 'high' ? body.effort : 'low';
         const think = body.thinking === 'disabled' ? 'disabled' as const : undefined;
         // adhoc.legacy:true → 같은 입력을 현행 Bedrock Haiku 4.5(운영과 같은 global→us 프로필)로도 돌려 나란히 돌려준다(maxTokens 는 adhoc.maxTokens)

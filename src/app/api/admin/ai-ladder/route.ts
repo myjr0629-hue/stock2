@@ -13,11 +13,14 @@
  *                            {action:'credit-reset', at:ISO, balanceUsd:n, nextResetAt?:ISO, monthlyUsd?:n, openingUsd?:n, prevFromUsd?:n, note?}
  *                                — at 생략 = 지금(«지금 콘솔 잔액이 n»). 15분보다 오래된 at 은 openingUsd 필수 · 직전 주기 원장은 «저장 순간 값부터» 자동 carry · 교체는 15분 간격  실제 크레딧 기준점(2026-11-06, lib/ai/creditCycle)
  *                                — «이 시각 콘솔 잔액이 n 달러» → 그 시각부터 새 원장(llm:cost:b<시각>)·한도 n. dryRun:true 면 저장 없이 계산만(지우기는 없음 — 15분 뒤 다시 교체)
+ *                            {action:'oa-off', purposes:['*']|string[]|null}   OpenAI 단만 끄기(null 이면 켬) — 키 llm:oa:off, 30초 안에 전 인스턴스(2026-11-07)
+ *                            {action:'oa-probe', purpose}              OpenAI 단 실작동 확인 — 그 용도의 최근 캡처 입력(없으면 짧은 시험 문장)을 «① 키 없음·AWS 없음»으로 사다리에 태운다(사용자 캐시에 쓰지 않음)
  * 인증: Authorization: Bearer <CRON_SECRET> (lib/ai/adminAuth). 응답에 키 값은 없다(설정 여부만).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuthorized } from '@/lib/ai/adminAuth';
-import { ladderStatus, LLM_KEYS, TRACKED_PURPOSES, hourId, type CallRecord } from '@/lib/ai/llmLadder';
+import { ladderStatus, runLadder, LADDER_PURPOSES, LLM_KEYS, TRACKED_PURPOSES, hourId, type CallRecord } from '@/lib/ai/llmLadder';
+import { OA_KEYS } from '@/lib/ai/openaiTier';
 import { upstashStore } from '@/lib/ai/llmStore';
 import { summarizeCalls } from '@/lib/ai/llmStats';
 import { peekPacing, tickPacing, PACE_STATE_KEY, type PacingStatus } from '@/lib/ai/creditPacing';
@@ -195,8 +198,35 @@ export async function POST(req: NextRequest) {
         if (!breakersCleared) return NextResponse.json({ ok: false, checkpointSaved: true, checkpoint: cp, cycle, error: '기준점은 저장됐지만 차단기 해제 확인 실패 — {action:"breaker-reset"} 을 다시 부른다' }, { status: 503 });
         return NextResponse.json({ ok: true, checkpoint: cp, cycle, note: '다른 인스턴스는 30초 안에 새 기준점을 읽는다 · a55/a55s 차단기 해제 확인' });
     }
+    if (action === 'oa-off') {
+        const p = body.purposes;
+        if (p == null) { await upstashStore.del(OA_KEYS.off); return NextResponse.json({ ok: true, oaOff: null }); }
+        const val = p === '*' || (Array.isArray(p) && p.includes('*')) ? '*' : JSON.stringify((Array.isArray(p) ? p : [p]).map(String));
+        await upstashStore.setEx(OA_KEYS.off, val, 30 * 24 * 3600);
+        return NextResponse.json({ ok: true, oaOff: val });
+    }
+    if (action === 'oa-probe') {
+        const purpose = String(body.purpose || '');
+        const cfg = LADDER_PURPOSES[purpose];
+        if (!cfg?.openai) return NextResponse.json({ ok: false, error: `no openai config for ${purpose}` }, { status: 400 });
+        let cap: { system: string; userPrompt: string; maxTokens: number; jsonPrefill?: boolean; expectJson?: boolean | 'array' | null; locale?: any } | null = null;
+        try { const raw = await upstashStore.lrange(LLM_KEYS.capList(purpose), 0, 0); if (raw[0]) cap = JSON.parse(raw[0]); } catch { /* 캡처 없음 */ }
+        const r0 = Date.now();
+        try {
+            const out = await runLadder({
+                purpose,
+                system: cap?.system || 'You are a terse assistant.',
+                userPrompt: cap?.userPrompt || 'Reply with the JSON object {"ok":true} and nothing else.',
+                maxTokens: cap?.maxTokens || 200, jsonPrefill: cap ? !!cap.jsonPrefill : true, expectJson: cap?.expectJson ?? undefined, locale: cap?.locale ?? undefined,
+                timeoutMs: 55_000,
+            }, async () => { throw new Error('probe: legacy not called'); }, { anthropicKey: () => undefined, hasAws: () => false });
+            return NextResponse.json({ ok: true, purpose, input: cap ? 'captured' : 'synthetic', provider: out.provider, model: out.model, trail: out.trail, ms: out.elapsedMs, costUsd: out.costUsd, chars: out.text.length, head: out.text.slice(0, 240) });
+        } catch (e: any) {
+            return NextResponse.json({ ok: false, purpose, ms: Date.now() - r0, error: String(e?.message || e).slice(0, 240) });
+        }
+    }
     if (action === 'breaker-reset') {
-        for (const id of ['a55', 'a55s', 'b55i', 'b55m']) await upstashStore.del(LLM_KEYS.breaker(id));
+        for (const id of ['a55', 'a55s', 'oa', 'b55i', 'b55m']) await upstashStore.del(LLM_KEYS.breaker(id));
         await upstashStore.setEx(LLM_KEYS.breakerClearedAt, String(Date.now()), 7 * 24 * 3600);
         return NextResponse.json({ ok: true });
     }
