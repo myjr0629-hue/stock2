@@ -873,8 +873,8 @@ export async function runLadder(
             let attemptStart = rungStart;
             const reqHere = depthHere(id) ? reqDepth : req;
             const depthMark = depthHere(id) && (suffix || req.system.includes('<depth_standard>')) ? { dp: 1 as const } : {};
-            // OpenAI 단은 깊이 지시문 없이 호출 지점 프롬프트 그대로(품질 비교도 그 모양으로 했다 — QUALITY.md 2026-11-07)
-            let r = id === 'oa' ? await tryOaRung(req, cfg!, d, started) : await tryRung(id, reqHere, cfg!, d, started);
+            // OpenAI 단도 ① 과 같은 프롬프트(깊이 지시문 규칙 포함 — depth:'sonnet-only' 면 붙지 않는다). 품질 비교도 그 모양으로 했다(QUALITY.md 2026-11-07)
+            let r = id === 'oa' ? await tryOaRung(reqHere, cfg!, d, started) : await tryRung(id, reqHere, cfg!, d, started);
             if (id === 'a55') {
                 let again = Math.max(0, cfg!.retries ?? 0);
                 while (!r.ok && !r.skip && again > 0 && /^(json|truncated|guard)/.test(r.why)) {
@@ -898,7 +898,7 @@ export async function runLadder(
                 await recordCall({
                     t: d.now(), p: req.purpose, v: out.provider, m: r.model, ms: out.elapsedMs, tr: trail.join(','),
                     i: r.usage.input + r.usage.cacheRead + r.usage.cacheWrite, o: r.usage.output, c: spent, ca: spentCredit,
-                    ch: r.text.length, g, ok: 1, ...(fresh ? { fr: 1 as const } : {}), ...(id === 'oa' ? {} : depthMark), ...(r.repaired ? { rj: 1 as const } : {}),
+                    ch: r.text.length, g, ok: 1, ...(fresh ? { fr: 1 as const } : {}), ...depthMark, ...(r.repaired ? { rj: 1 as const } : {}),
                 }, d);
                 return out;
             }

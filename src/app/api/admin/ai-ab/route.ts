@@ -191,8 +191,10 @@ export async function POST(req: NextRequest) {
         if (isOaModel(a.model)) {
             const oaKey = openaiKeyFromEnv();
             if (!oaKey) return NextResponse.json({ ok: true, adhoc: true, h55: { ok: false, ms: 0, error: 'no-openai-key' } });
-            const month = oaMonthId(Date.now());
-            const spentNow = Number(await upstashStore.get(OA_KEYS.cost(month))) || 0;
+            // 원장을 못 읽거나 못 쓰면(저장소 장애) 시험 호출을 하지 않는다 — INCRBYFLOAT 0 이 «읽기 + 쓰기 가능» 확인을 한 번에 한다
+            const spentRaw = await upstashStore.incrByFloat(OA_KEYS.cost(oaMonthId(Date.now())), 0, 70 * 24 * 3600);
+            if (spentRaw == null) return NextResponse.json({ ok: true, adhoc: true, h55: { ok: false, ms: 0, error: 'oa-ledger-unavailable' } });
+            const spentNow = spentRaw;
             if (spentNow >= oaMonthlyCapUsd()) return NextResponse.json({ ok: true, adhoc: true, h55: { ok: false, ms: 0, error: `oa-cap ${spentNow.toFixed(2)}` } });
             const oaEffort = a.oaEffort === 'low' || a.oaEffort === 'medium' ? a.oaEffort : 'none';
             const t0 = Date.now();
@@ -202,8 +204,15 @@ export async function POST(req: NextRequest) {
                     json: c.expectJson === 'array' ? 'array' : !!(c.expectJson ?? true), effort: oaEffort, timeoutMs: Math.min(280_000, Math.max(5_000, Number(a.timeoutMs) || 45_000)),
                 }, oaKey);
                 const spent = oaCost(p.usage, a.model);
-                if (spent > 0) { try { await upstashStore.incrByFloat(OA_KEYS.cost(month), spent, 70 * 24 * 3600); } catch { /* 원장 기록 실패는 비교에 영향 없음 */ } }
-                return NextResponse.json({ ok: true, adhoc: true, h55: {
+                // 달은 응답 시점 기준(사다리와 같다). 기록 실패는 응답에 표시하고 크게 남긴다
+                let ledgerMissed = false;
+                if (spent > 0) {
+                    const k = OA_KEYS.cost(oaMonthId(Date.now()));
+                    let v = await upstashStore.incrByFloat(k, spent, 70 * 24 * 3600).catch(() => null);
+                    if (v == null) v = await upstashStore.incrByFloat(k, spent, 70 * 24 * 3600).catch(() => null);
+                    if (v == null) { ledgerMissed = true; console.error(`[ai-ab] OpenAI 원장 기록 실패 — ${k} +$${spent.toFixed(5)} 누락`); }
+                }
+                return NextResponse.json({ ok: true, adhoc: true, h55: { ...(ledgerMissed ? { ledgerMissed: true } : {}),
                     ok: true, ms: Date.now() - t0, text: p.text, usage: p.usage, costUsd: spent, model: a.model, effort: oaEffort, reasoningTokens: p.reasoningTokens,
                     stop: p.stop === 'end' ? 'end_turn' : p.stop, refusal: p.stop === 'refusal' || p.stop === 'filtered' ? p.stop : null,
                 } });
