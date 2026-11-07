@@ -4,7 +4,7 @@
  * 왜(2026-11-06): 11/5 대폭락 날(S&P −4.36%·NASDAQ −5.52%·VIX +69.7%) 21:50Z 생성은 돌았지만 크레딧 원장 월 상한($199)에
  *   닿아 현행(Haiku 4.5)으로 만들어졌고 서빙 가드(provider:legacy)에 걸렸다. Lambda v3 도 가드 탈락 → 화면은 전날(11/4 «상승 마감») 서사.
  *   재시도도 경보도 없어 아무도 몰랐다. 그래서:
- *     21:50Z  mode 없음  — 예전 그대로 생성
+ *     22:04Z  mode 없음  — 예전 그대로 생성(2026-11-07 T51c: 21:50Z → 22:04Z — 섹터 스냅샷이 공식 종가 전환 뒤 21:42~22:00Z 로 옮겨짐)
  *     22:20Z  mode=retry — 그 거래일 서빙 가능한 리포트(v4 가드 통과·v3·v2)가 없을 때만 다시 생성
  *     22:35Z  mode=check — 그래도 없으면 운영 경보(SNS signum-lambda-alerts → contact@)
  *   휴장·주말에는 재시도·경보를 하지 않는다(정시 생성도 그날 스냅샷이 없어 404 로 끝난다 — 예전 그대로).
@@ -25,7 +25,7 @@ export type CrossBriefCronAction =
     | { action: 'alert' };
 
 /**
- * @param sessionDate 크론 시각의 ET 날짜(21:50~22:35Z 는 늘 그 거래일 16:50~17:35 ET)
+ * @param sessionDate 크론 시각의 ET 날짜(22:04~22:35Z 는 늘 그 거래일 EST 17:04~17:35 · EDT 18:04~18:35 ET)
  * @param served 그 날짜로 서빙 가능한 리포트가 있는가(selectServedBrief 결과가 있는가)
  */
 export function decideCrossBriefCron(mode: CrossBriefCronMode, sessionDate: string, served: boolean): CrossBriefCronAction {

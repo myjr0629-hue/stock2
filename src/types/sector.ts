@@ -110,6 +110,9 @@ export interface SnapshotData {
         snapshot_timestamp: string;   // ISO datetime (ET market close)
         sector: string;
         locked_until: string;         // ISO datetime (next market close)
+        /** [T51] 저장 종가 출처 종목 수 — rt_close_price(실시간 close_price) · current(기존 경로 값) */
+        close_source?: { rt_close_price: number; current: number; held_prev_close?: number };
+        fast_cache_age_sec?: number;
     };
     tickers: TickerSnapshot[];
     sector_summary: SectorSummary;

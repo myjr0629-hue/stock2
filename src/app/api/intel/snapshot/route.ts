@@ -28,6 +28,7 @@ import { publicBase } from '@/lib/net/publicBase';
 import { readOptionAlpha } from '@/services/optionAlphaService';
 import { ensureXsScores, xsSnapshotOverride, gradeForScore } from '@/services/xsScores';
 import { readLastKnownAlpha } from '@/services/lastKnownAlpha';
+import { pickSnapshotClose, snapshotCloseWindowOpen, snapshotPostAuthorized, type RealtimeCloseFields } from '@/lib/snapshotClosePrice';
 
 /**
  * ★ [2026-10-24 감사 H2] 최신 스냅샷의 알파 점수·등급은 «지금 게시된 값»으로 읽는다.
@@ -340,6 +341,12 @@ export async function GET(request: Request) {
  * Triggered after market close to capture and save snapshot
  */
 export async function POST(request: Request) {
+    // [T51c · 2026-11-07 관문 11070756] 저장(POST)은 크론만 — 운영에선 CRON_SECRET(Authorization: Bearer) 없으면 401.
+    //   이 경로는 그날 스냅샷을 덮어쓰고, 마감 뒤엔 종목별 Intrinio 실시간 조회(서버 전용 키)를 한다 — 외부 반복 호출로 공급사 요청·오값 덮어쓰기가 나지 않게.
+    //   호출부: /api/cron/snapshot(같은 헤더를 붙인다). 로컬 시험·스크립트(NODE_ENV≠production)는 그대로.
+    if (!snapshotPostAuthorized(request.headers.get('authorization'), process.env.CRON_SECRET, process.env.NODE_ENV)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     try {
         // Support both body JSON and query params
         let sector: string;
@@ -437,6 +444,44 @@ export async function POST(request: Request) {
             const ymd = nextClose.toISOString().slice(0, 10);
             nextClose.setTime(Date.parse(`${ymd}T16:00:00${getETOffset(ymd)}`));
         }
+
+        // [T51c] 마감 + 40분 이후에만 전일 종가·날짜·가격 이상 여부를 확인해 실시간 종가를 쓴다.
+        // 11/6 전환은 21:28~21:31Z에 관측됐으며 실패 시 기존 값을 유지한다.
+        const rtCloseMap: Record<string, RealtimeCloseFields | null> = {};
+        // 창(마감 + 40분 ~ 그날 ET 자정) 밖이면 공급사를 부르지 않는다 — pickSnapshotClose 도 같은 창으로 거부하므로 헛호출이다.
+        if (snapshotCloseWindowOpen(now.getTime())) {
+            try {
+                const { getRealtimeCloseFields } = await import('@/services/intrinioClient');
+                const allowed = new Set(tickers.map((t) => t.toUpperCase()));
+                const syms: string[] = liveData.data.map((q: any) => String(q?.ticker || '').toUpperCase()).filter((t: string) => t && allowed.has(t));
+                // 마감(deadline) 뒤엔 재시도도 벤더에 보내지 않는다(각 시도 5초 상한) — 늦은 응답을 기다리느라 저장이 막히지 않게 8초에 끊고, 남은 호출도 거기서 멈춘다.
+                const deadline = Date.now() + 8000;
+                const got = await Promise.all(syms.map((s) => Promise.race([
+                    getRealtimeCloseFields(s, deadline).catch(() => null),
+                    new Promise<null>((r) => setTimeout(() => r(null), 8000)),
+                ])));
+                syms.forEach((s, k) => { rtCloseMap[s] = got[k]; });
+            } catch { /* 없으면 기존 값 */ }
+        }
+        const closeBasisCount = { rt_close_price: 0, current: 0, held_prev_close: 0 };
+        liveData = {
+            ...liveData,
+            data: liveData.data.map((q0: any) => {
+                const baseChange = Array.isArray(q0?.missingFields) && q0.missingFields.includes('changePct') ? null : nz(q0?.changePct);
+                const picked = pickSnapshotClose({
+                    rt: rtCloseMap[String(q0?.ticker || '').toUpperCase()] ?? null,
+                    nowMs: now.getTime(),
+                    price: nz(q0?.price),
+                    changePct: baseChange,
+                });
+                closeBasisCount[picked.basis]++;
+                if (picked.heldPrevClose) closeBasisCount.held_prev_close++;
+                if (picked.basis !== 'rt_close_price') return q0;
+                // 판정·분석 문장도 아래에서 이 가격·등락으로 만든다(저장 값과 같은 입력)
+                const missingFields = Array.isArray(q0.missingFields) ? q0.missingFields.filter((f: string) => f !== 'changePct') : q0.missingFields;
+                return { ...q0, price: picked.price, changePct: picked.changePct, missingFields };
+            }),
+        };
 
         const tickerSnapshots: TickerSnapshot[] = liveData.data.map((q: any) => {
             // Merge watchlist/batch data (alpha, RSI, RVOL, options) over fast data
@@ -687,6 +732,10 @@ Output MUST be valid JSON (no markdown):
                 snapshot_timestamp: now.toISOString(),
                 sector,
                 locked_until: nextClose.toISOString(),
+                close_source: closeBasisCount,
+                ...(typeof liveData.meta?.cacheAgeSec === 'number' && Number.isFinite(liveData.meta.cacheAgeSec)
+                    && ['hit', 'stale', 'miss'].includes(liveData.meta.cache)
+                    ? { fast_cache_age_sec: liveData.meta.cacheAgeSec } : {}),
             },
             tickers: tickerSnapshots,
             sector_summary: sectorSummary,

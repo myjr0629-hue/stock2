@@ -3,7 +3,7 @@
  * 실행: node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx"}' tests/crossBriefCron.test.ts
  * 고정하는 것(2026-11-06, 11/5 대폭락 날 리포트 누락): ① 정시(mode 없음)는 예전 그대로 생성 ② retry 는 서빙 가능한 판본이 없을 때만 생성
  *   ③ check 는 없을 때 경보 ④ 휴장·주말엔 재시도·경보 없음 ⑤ 모르는 mode 거부 ⑥ 경보 본문에 저장본의 제공자·탈락 사유
- *   ⑦ vercel.json 에 21:50Z·22:20Z retry·22:35Z check 세 줄(평일)
+ *   ⑦ vercel.json 에 22:04Z(11/7 T51c 이동, 예전 21:50Z)·22:20Z retry·22:35Z check 세 줄(평일)
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -44,11 +44,11 @@ t('경보 본문: 날짜·제공자·탈락 사유(11/5 실측 저장본 모양)
     assert.match(crossBriefMissingAlert('2026-11-05', null).message, /저장된 v4: 없음/);
     assert.ok(a.subject.length < 100);
 });
-t('vercel.json: 정시 21:50Z + 22:20Z retry + 22:35Z check (평일)', () => {
+t('vercel.json: 정시 22:04Z(T51c 11/7, 예전 21:50Z) + 22:20Z retry + 22:35Z check (평일)', () => {
     const v = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'vercel.json'), 'utf8'));
     const rows = v.crons.filter((c: any) => c.path.startsWith('/api/cron/cross-sector-brief')).map((c: any) => `${c.path} ${c.schedule}`);
     assert.deepEqual(rows, [
-        '/api/cron/cross-sector-brief 50 21 * * 1-5',
+        '/api/cron/cross-sector-brief 4 22 * * 1-5',
         '/api/cron/cross-sector-brief?mode=retry 20 22 * * 1-5',
         '/api/cron/cross-sector-brief?mode=check 35 22 * * 1-5',
     ]);

@@ -6,6 +6,7 @@
 //       Response carries `source: v4|v3|v2` (lib/ai/crossBriefServe).
 // ==========================================================================
 
+import { dryClock, replaySnapshotAllowed } from '@/lib/ai/crossBriefDryClock';
 import { NextResponse } from 'next/server';
 import { getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
@@ -74,14 +75,6 @@ function narrativeShapeOk(n: any): boolean {
         && CLOSING.FIELDS.every((f: string) => ['ko', 'en', 'ja'].every((l) => typeof n[f]?.[l] === 'string' && n[f][l].trim().length > 0));
 }
 
-/**
- * Dry replay clock: the production cron time for that session (vercel.json 50 21 * * 1-5 = 21:50 UTC — 17:50 EDT / 16:50 EST),
- * never later than the real clock. [2026-11-05] It used to look for 17:50 ET, which in EST is 22:50 UTC — an hour after the real run.
- */
-function dryClock(date: string, real: Date): Date {
-    const d = new Date(`${date}T21:50:00Z`);
-    return Number.isFinite(d.getTime()) && d < real ? d : real;
-}
 
 function getCacheKey(date: string) {
     return `postmarket:cross-brief-v4:${date}`;
@@ -235,7 +228,7 @@ export async function POST(req: Request) {
 
     try {
         // Dry (?dry=1) never writes. Only a dry run may replay a past session (?date=YYYY-MM-DD) — inputs are limited to
-        // that ET session as of its cron time (21:50 UTC); the scheduled path (no params) is unchanged.
+        // that ET session as of its cron time (22:04 UTC); the scheduled path (no params) is unchanged.
         const params = new URL(req.url).searchParams;
         const dryRun = params.get('dry') === '1';
         // 크론 재시도(22:20Z ?mode=retry → ?retry=1): 서빙 가드를 넘는 판본만 저장한다 — 읽기 장애로 재시도가 돌아도 기존 정상본을 실패본으로 덮지 않는다
@@ -253,7 +246,7 @@ export async function POST(req: Request) {
                     // snapshot_date is a label; the capture time must also fall on that ET session, before the replay clock.
                     const snap = await getSnapshotByDate(id, dryDate);
                     const at = new Date(String((snap?.data_json as any)?.meta?.snapshot_timestamp || ''));
-                    const ok = Number.isFinite(at.getTime()) && at <= now && at.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === dryDate;
+                    const ok = replaySnapshotAllowed(at, now, dryDate);
                     return { id, sessionDate: snap?.snapshot_date, data: ok ? snap!.data_json : null };
                 }
                 const snap = await getLatestSnapshot(id);

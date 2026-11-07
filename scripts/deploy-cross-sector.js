@@ -3,7 +3,7 @@
  * 
  * Creates or updates:
  *   - Lambda function: signum-cross-sector-intel
- *   - EventBridge rule: signum-cross-sector-cron (Mon-Fri 21:50 UTC)
+ *   - EventBridge rule: signum-cross-sector-cron (Mon-Fri 22:04 UTC — 2026-11-07 T51c: 섹터 스냅샷 21:42~22:00Z 뒤, Vercel 크론과 같은 시각)
  *   - IAM permissions for EventBridge → Lambda
  * 
  * Usage: node scripts/deploy-cross-sector.js
@@ -116,16 +116,16 @@ async function deploy() {
   console.log('Setting up EventBridge schedule...');
   const eb = new EventBridgeClient({ region: REGION });
 
-  // Cron schedule: 21:50 UTC, Mon-Fri
+  // Cron schedule: 22:04 UTC, Mon-Fri (vercel.json /api/cron/cross-sector-brief 와 같은 시각 — tests/sectorCloseSchedule.test.ts)
   // EventBridge cron expression syntax: cron(Minutes Hours Day-of-month Month Day-of-week Year)
-  // UTC 21:50 Mon-Fri -> cron(50 21 ? * MON-FRI *)
+  // UTC 22:04 Mon-Fri -> cron(4 22 ? * MON-FRI *)
   await eb.send(new PutRuleCommand({
     Name: RULE_NAME,
-    ScheduleExpression: 'cron(50 21 ? * MON-FRI *)',
+    ScheduleExpression: 'cron(4 22 ? * MON-FRI *)',
     State: 'ENABLED',
-    Description: 'Trigger signum-cross-sector-intel at 21:50 UTC (17:50 EST) on weekdays',
+    Description: 'Trigger signum-cross-sector-intel at 22:04 UTC (17:04 EST / 18:04 EDT) on weekdays, after sector snapshots 21:42-22:00 UTC',
   }));
-  console.log('EventBridge rule created/updated: ' + RULE_NAME + ' (cron(50 21 ? * MON-FRI *))');
+  console.log('EventBridge rule created/updated: ' + RULE_NAME + ' (cron(4 22 ? * MON-FRI *))');
 
   const fnInfo = await lambda.send(new GetFunctionCommand({ FunctionName: FUNCTION_NAME }));
   const lambdaArn = fnInfo.Configuration.FunctionArn;
@@ -155,7 +155,7 @@ async function deploy() {
 
   console.log('\\n✅ Deploy complete!');
   console.log('  Function: ' + FUNCTION_NAME);
-  console.log('  Schedule: ' + RULE_NAME + ' (Mon-Fri 21:50 UTC)');
+  console.log('  Schedule: ' + RULE_NAME + ' (Mon-Fri 22:04 UTC)');
   console.log('  Timeout: 900s, Memory: 512MB');
   console.log('\\nTo test manually:');
   console.log('  aws lambda invoke --function-name ' + FUNCTION_NAME + ' --region ' + REGION + ' --no-cli-pager out.json && type out.json');

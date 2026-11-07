@@ -1740,6 +1740,37 @@ export async function peekOfficialSessionClose(ticker: string, date: string, pre
     return Number.isFinite(close) && close > 0 && Number.isFinite(prevClose) && prevClose > 0 ? { close, prevClose } : null;
 }
 
+/**
+ * [T51 · 2026-11-06] 섹터 스냅샷 «저장» 전용 — 실시간 응답(기본 source)의 종가 관련 필드만 돌려준다(종목당 벤더 최대 1~2콜).
+ *   getTickerSnapshot·resolveSessionPrices(전 화면 가격 판정)는 건드리지 않는다. 판정은 lib/snapshotClosePrice.ts.
+ *   deadlineMs 가 지나면 (재시도 포함) 벤더에 더 보내지 않는다 — 각 시도는 5초 상한. 실패·없음이면 null(호출부는 기존 값).
+ */
+export async function getRealtimeCloseFields(ticker: string, deadlineMs: number = Date.now() + 8000): Promise<{
+    close_price: number | null;
+    normal_market_hours_last_price: number | null;
+    normal_market_hours_last_time: string | null;
+    eod_close_price: number | null;
+    eod_close_date: string | null;
+    updated_on: string | null;
+    source: string | null;
+} | null> {
+    const raw = await callIntrinio(
+        `securities/${ticker.toUpperCase()}/prices/realtime`, {}, undefined, 5000,
+        async () => Date.now() < deadlineMs,
+    ).catch(() => null);
+    const rt = repairIntrinioRealtimeTimes(raw);
+    if (!rt || typeof rt !== "object") return null;
+    return {
+        close_price: num(rt.close_price),
+        normal_market_hours_last_price: num(rt.normal_market_hours_last_price),
+        normal_market_hours_last_time: typeof rt.normal_market_hours_last_time === "string" ? rt.normal_market_hours_last_time : null,
+        eod_close_price: num(rt.eod_close_price),
+        eod_close_date: typeof rt.eod_close_date === "string" ? rt.eod_close_date.slice(0, 10) : null,
+        updated_on: typeof rt.updated_on === "string" ? rt.updated_on : null,
+        source: typeof rt.source === "string" ? rt.source : null,
+    };
+}
+
 /** 20거래일 종가 시계열 — 이미 Redis 에 적재된 것을 읽는다 (API 콜 0) */
 export async function getCloseHistory(
     ticker: string

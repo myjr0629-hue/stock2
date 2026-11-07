@@ -1,6 +1,6 @@
 // ==========================================================================
 // /api/cron/cross-sector-brief — Cron handler
-// Runs at 21:50 UTC (after all 10 sector snapshots are done)
+// Runs at 22:04 UTC (after all 10 sector snapshots are done)
 // ★2026-11-06 22:20Z ?mode=retry — 그 거래일 서빙 가능한 리포트가 없을 때만 재생성 · 22:35Z ?mode=check — 그래도 없으면 SNS 경보
 //   (11/5 대폭락 날 크레딧 원장 상한으로 현행 생성·서빙 탈락 → 화면이 전날 서사, 아무도 몰랐다 — lib/ai/crossBriefCron)
 // ==========================================================================

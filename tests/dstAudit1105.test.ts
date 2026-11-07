@@ -3,7 +3,7 @@
  * 실행: node -r ./scripts/offline-test-typescript.cjs --test tests/dstAudit1105.test.ts
  *
  * 고정하는 것(두 계절 — EDT 10/28 · EST 11/4 · 다음 경계 직전 EST 2027-03-10 · 직후 EDT 2027-03-15):
- *   ① 장마감 섹터 스냅샷 10개 = 전부 마감 15분 뒤(≥16:15 ET) · 마지막 스냅샷 < 장마감 리포트(cross-sector-brief) < 첫 마감 푸시.
+ *   ① 장마감 섹터 스냅샷 10개 = 전부 마감 15분 뒤(≥16:15 ET; 11/7 T51c 부터는 ≥16:40 ET — tests/sectorCloseSchedule) · 마지막 스냅샷 < 장마감 리포트(cross-sector-brief) < 첫 마감 푸시.
  *      (11/2·11/3 실측: 가격 원천이 약 15분 늦어 16:00~16:10 ET 스냅샷이 마감 전 값 → 리포트 입력 오염)
  *   ② 마감 푸시 휴장 관문 = 시장 달력(공급사 일봉 «있나» 추측 아님 — EST 17:00 ET 엔 아직 없어 22:00 UTC 회차가 매일 건너뛰었다).
  *   ③ 장마감 리포트 v4(postmarket:) 쓰기는 Upstash 에도 복제(EC2 축출 뒤 읽기 폴백이 사본을 찾게).
@@ -63,14 +63,18 @@ for (const D of DAYS) {
             assert.ok(etMinutesOf(f[0]) >= 16 * 60 + 15, `${s} ${hm(f[0])} ET — 마감 15분 전 값이 찍힌다`);
         }
     });
-    test(`${D.name} — 마지막 스냅샷(cloud_fortress) +5분 ≤ 장마감 리포트 < 첫 마감 푸시`, () => {
+    // [T51c 2026-11-07] 스냅샷 21:42~22:00Z(2분 간격)·리포트 22:04Z·첫 푸시 22:10Z 로 옮겼다. 간격 근거:
+    //   스냅샷 POST maxDuration 60초 → 22:01Z 이전 종료 보장 + 3분 여유 = 리포트까지 4분 · 리포트 생성 실측 48초~2분57초(11/4~11/6) → 푸시까지 6분.
+    test(`${D.name} — 마지막 스냅샷(cloud_fortress) +4분 ≤ 장마감 리포트 · 리포트 +6분 ≤ 첫 마감 푸시 ≤ 리포트 +10분`, () => {
         const last = Math.max(...SECTORS.map((s) => fires(`/api/cron/snapshot?sector=${s}`, a, b)[0]));
         assert.equal(last, fires('/api/cron/snapshot?sector=cloud_fortress', a, b)[0], '마감 푸시 표식은 cloud_fortress 성공 때 찍힌다 — 마지막이어야 한다');
         const brief = fires('/api/cron/cross-sector-brief', a, b);
         const push = fires('/api/cron/push?type=closing', a, b);
         assert.equal(brief.length, 1);
-        assert.ok(brief[0] - last >= 5 * 60000, `리포트 ${hm(brief[0])} · 마지막 스냅샷 ${hm(last)}`);
-        assert.ok(push.length >= 1 && push[0] > brief[0], `푸시 ${push.map(hm).join(',')} · 리포트 ${hm(brief[0])}`);
+        assert.ok(brief[0] - last >= 4 * 60000, `리포트 ${hm(brief[0])} · 마지막 스냅샷 ${hm(last)}`);
+        // 리포트보다 먼저 도는 마감 푸시 회차가 있으면 매일 «brief-not-ready» 로 건너뛰고 다음 회차까지 밀린다(관문 11070756)
+        assert.ok(push.length >= 1 && push.every((p) => p > brief[0]), `푸시 ${push.map(hm).join(',')} · 리포트 ${hm(brief[0])}`);
+        assert.ok(push[0] - brief[0] >= 6 * 60000 && push[0] - brief[0] <= 10 * 60000, `첫 푸시 ${hm(push[0])} · 리포트 ${hm(brief[0])}`);
     });
 }
 
