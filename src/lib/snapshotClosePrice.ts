@@ -53,11 +53,13 @@ export function snapshotCloseWindowOpen(nowMs: number): boolean {
 }
 
 /**
- * 스냅샷 저장(POST) 허용 — 운영(production)에서 CRON_SECRET 이 있으면 «Authorization: Bearer <CRON_SECRET>» 만.
- * 크론 라우트들(/api/cron/*)과 같은 규칙. 비밀값이 없거나 운영이 아니면(로컬 시험) 허용.
+ * 스냅샷 저장(POST) 허용 — 운영(production)에서는 «Authorization: Bearer <CRON_SECRET>» 만.
+ * 운영에서 CRON_SECRET 이 비어 있으면 닫힌 쪽으로 실패(거부) — 설정 누락이 무인증 덮어쓰기·공급사 호출로 이어지지 않게(관문 11071008).
+ *   (11/7 확인: Vercel Production 에 CRON_SECRET 설정됨.) 운영이 아니면(로컬 시험·스크립트) 허용.
  */
 export function snapshotPostAuthorized(authHeader: string | null, cronSecret: string | undefined, nodeEnv: string | undefined): boolean {
-    if (nodeEnv !== 'production' || !cronSecret) return true;
+    if (nodeEnv !== 'production') return true;
+    if (!cronSecret) return false;
     return authHeader === `Bearer ${cronSecret}`;
 }
 
@@ -78,6 +80,8 @@ export function pickSnapshotClose(i: SnapshotPriceInput): SnapshotPriceResult {
     const prev = pos(rt.eod_close_price);
     const prevDate = typeof rt.eod_close_date === 'string' ? rt.eod_close_date.slice(0, 10) : '';
     if (prev == null || prevDate !== prevTradingDate(today)) return current;
+    // 전일 종가와 «소수점까지» 같으면 ①(마감 직후 전일 값) 상태와 구별할 표식이 응답에 없다 → 쓰지 않는다(지시·11/6 실측 21:09·21:12Z 21/21).
+    //   대가: 실제로 전일과 똑같이 끝난 드문 종목은 기존 값(정규장 마지막 체결 기반)으로 남는다 — 오차는 종가 경매 차이(11/6 최대 0.20%)뿐, meta.close_source.held_prev_close 로 보인다.
     if (close === prev) return { ...current, heldPrevClose: true };
     if (Math.abs(close / regLast - 1) > CLOSE_PRICE_SANITY) return current;
 

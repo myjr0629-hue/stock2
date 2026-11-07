@@ -191,7 +191,9 @@ test('T51c 관문 11070756 — 저장 POST 는 운영에서 CRON_SECRET 만, 공
     assert.equal(snapshotPostAuthorized('Bearer wrong', 's3cret', 'production'), false);
     assert.equal(snapshotPostAuthorized('s3cret', 's3cret', 'production'), false);
     assert.equal(snapshotPostAuthorized('Bearer s3cret', 's3cret', 'production'), true);
-    assert.equal(snapshotPostAuthorized(null, undefined, 'production'), true); // 비밀값 미설정(다른 크론 라우트와 같은 규칙)
+    assert.equal(snapshotPostAuthorized(null, undefined, 'production'), false); // 운영에서 비밀값 누락 = 닫힌 쪽(관문 11071008)
+    assert.equal(snapshotPostAuthorized('Bearer ', '', 'production'), false);
+    assert.equal(snapshotPostAuthorized('Bearer undefined', undefined, 'production'), false);
     assert.equal(snapshotPostAuthorized(null, 's3cret', 'development'), true);
     const route = fs.readFileSync(path.join(ROOT, 'src/app/api/intel/snapshot/route.ts'), 'utf8');
     const post = route.slice(route.indexOf('export async function POST('));
