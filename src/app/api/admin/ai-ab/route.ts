@@ -32,7 +32,7 @@ import { recordTestSpend } from '@/lib/ai/llmTestSpend';
 import { reserveBedrockSlot, BEDROCK_CLIENT_RETRY } from '@/services/bedrockRateLimit';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;   // 2026-11-07: OpenAI 후보 비교(장마감 리포트 8천 토큰 출력)가 60초를 넘을 수 있다 — Anthropic 경로는 여전히 호출당 58초 상한
 
 const LEGACY_MODEL = 'global.anthropic.claude-haiku-4-5-20251001-v1:0';
 
@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
             try {
                 const p = await defaultCallOpenAI({
                     model: a.model, system: c.system, userPrompt: c.userPrompt, maxTokens: c.maxTokens,
-                    json: c.expectJson === 'array' ? 'array' : !!(c.expectJson ?? true), effort: oaEffort, timeoutMs: Math.min(58_000, Math.max(5_000, Number(a.timeoutMs) || 45_000)),
+                    json: c.expectJson === 'array' ? 'array' : !!(c.expectJson ?? true), effort: oaEffort, timeoutMs: Math.min(280_000, Math.max(5_000, Number(a.timeoutMs) || 45_000)),
                 }, oaKey);
                 const spent = oaCost(p.usage, a.model);
                 if (spent > 0) { try { await upstashStore.incrByFloat(OA_KEYS.cost(month), spent, 70 * 24 * 3600); } catch { /* 원장 기록 실패는 비교에 영향 없음 */ } }
