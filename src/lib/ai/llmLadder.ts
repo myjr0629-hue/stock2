@@ -760,6 +760,11 @@ async function oaOffFor(purpose: string, d: LadderDeps): Promise<boolean> {
     try { const arr = JSON.parse(raw); return Array.isArray(arr) && (arr.includes('*') || arr.includes(purpose)); } catch { return false; }
 }
 
+/**
+ * 이번 달 OpenAI 원장. 저장소 장애면 0(사다리의 다른 원장과 같은 «호출은 그대로» 원칙) — 그래도 돈이 새지 않는다:
+ * 이 키는 결제 수단 없는 선불 크레딧이라 실제 상한은 OpenAI 쪽에 있고, 넘으면 429 insufficient_quota → 6시간 닫힘·경보 → Bedrock.
+ * 연성 상한은 «크레딧을 한 달에 고르게» 쓰는 장치이지 과금 차단선이 아니다.
+ */
 async function oaMonthSpent(d: LadderDeps): Promise<number> {
     const month = oaMonthId(d.now());
     return cached(`oaCost:${month}`, d.now(), async () => {
