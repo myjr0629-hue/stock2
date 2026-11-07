@@ -78,6 +78,8 @@ async function callModel(c: Captured, model: string, system: string): Promise<an
         const j: any = await res.json();
         // 옛 서버는 모르는 모델을 Haiku 로 바꿔 부른다 — 요청한 모델이 아니면 버린다
         if (j.h55?.ok && isOa && j.h55.model !== model) return { ok: false, ms: j.h55.ms, error: `server-ran-${j.h55.model}` };
+        // 원장 기록이 빠졌으면 그 뒤 유료 호출을 멈춘다(상한 판단이 실제보다 낮아진다) — 사람이 원장을 맞춘 뒤 다시 돌린다
+        if (j.h55?.ledgerMissed) { console.error(`FATAL ledgerMissed ${model} $${j.h55.costUsd} — 원장 보정 필요, 평가 중단`); process.exit(2); }
         return j.h55;
     } catch (e: any) { return { ok: false, ms: Date.now() - t0, error: String(e?.message || e).slice(0, 160) }; }
 }
