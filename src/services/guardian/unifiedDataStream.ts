@@ -161,11 +161,15 @@ export function snapshotPlaceholderNeedsRecompute(
     session: string | undefined, now: number,
 ): boolean {
     if (!c?.verdict || !session || session === 'CLOSED') return false;
+    const at = c.timestamp ? Date.parse(c.timestamp) : NaN;
+    if (Number.isFinite(at) && now - at < PLACEHOLDER_RECOMPUTE_MS) return false;
     const v = c.verdict;
     const pending = [v.realityInsight, v.description, v.gammaInsight].some((t) => typeof t === 'string' && IntelligenceNode.isPlaceholderInsight(t));
-    if (!pending) return false;
-    const at = c.timestamp ? Date.parse(c.timestamp) : NaN;
-    return !Number.isFinite(at) || now - at >= PLACEHOLDER_RECOMPUTE_MS;
+    if (pending) return true;
+    // ★2026-11-10 정상 글도 같은 이유로 굳었다(대표 캡처 02:15 KST) — 11/9 정규장 ko 스냅샷 계산 14:30Z(개장 순간)가 17:18Z 까지
+    //   워커 도장으로 «신선»이라 나스닥 +2.6% 급등을 다룬 글이 한 번도 안 나왔다(숫자만 새 코어로 맞춰짐). PRE·REG 는 계산 시각 5분이면 다시 계산.
+    //   POST 는 T2 선물 변동 재생성(30분)이 따로 맡는다.
+    return session === 'REG' || session === 'PRE';
 }
 /**
  * 대기 문구 재계산 시도 간격(관문 10310216·10310219) — 재계산이 실패해 스냅샷 timestamp 가 그대로여도 언어당 5분에 한 번만.

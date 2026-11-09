@@ -67,7 +67,11 @@ assert.equal(PLACEHOLDER_RECOMPUTE_MS, 5 * MIN);
 assert.equal(snapshotPlaceholderNeedsRecompute(snap(PENDING, now - 79 * MIN), 'REG', now), true, '운영 ko: 15:53Z 스냅샷이 17:12Z 에도 «준비 중»');
 assert.equal(snapshotPlaceholderNeedsRecompute(snap(PENDING, now - 5 * MIN), 'REG', now), true, '정확히 5분');
 assert.equal(snapshotPlaceholderNeedsRecompute(snap(PENDING, now - 5 * MIN + 1), 'REG', now), false, '5분 안 — 생성 실패가 이어져도 언어당 5분에 한 번');
-assert.equal(snapshotPlaceholderNeedsRecompute(snap(stored, now - 79 * MIN), 'REG', now), false, '정상 글은 기존 그대로(워커 도장 기준 신선)');
+assert.equal(snapshotPlaceholderNeedsRecompute(snap(stored, now - 79 * MIN), 'REG', now), true, '★11/10 정상 글도 계산 시각 5분 넘으면 다시 계산(워커 도장과 무관 — 11/9 14:30Z 글이 17:18Z 까지 굳음)');
+assert.equal(snapshotPlaceholderNeedsRecompute(snap(stored, now - 5 * MIN + 1), 'REG', now), false, '정상 글 5분 안 — 워커 도장 기준 신선(기존 그대로)');
+assert.equal(snapshotPlaceholderNeedsRecompute(snap(stored, now - 79 * MIN, 'PRE'), 'PRE', now), true, '프리마켓 정상 글도');
+assert.equal(snapshotPlaceholderNeedsRecompute(snap(stored, now - 79 * MIN, 'POST'), 'POST', now), false, '장후 정상 글은 T2 선물 변동 재생성이 맡는다');
+assert.equal(snapshotPlaceholderNeedsRecompute(snap(stored, now - 79 * MIN, 'CLOSED'), 'CLOSED', now), false, '장외 정상 글');
 for (const s of ['PRE', 'POST']) assert.equal(snapshotPlaceholderNeedsRecompute(snap(PENDING, now - 79 * MIN, s), s, now), true, `${s}`);
 assert.equal(snapshotPlaceholderNeedsRecompute(snap(PENDING, now - 79 * MIN, 'CLOSED'), 'CLOSED', now), false, '장외는 모델을 부르지 않는 경로');
 const gammaPending = { ...snap(stored, now - 79 * MIN), verdict: { ...snap(stored, 0).verdict, gammaInsight: '[변동성] 최신 옵션 구조 분석을 준비하고 있습니다\n[범위] 잠시 후 자동으로 갱신됩니다' } };
@@ -149,14 +153,23 @@ assert.equal(snapshotPlaceholderNeedsRecompute(null, 'REG', now), false);
             try { await call(); } finally { claimFails = false; }
             assert.equal(coreCalls, 1, '예약 장애여도 잠금이 없으면 재계산(인스턴스 5분 간격)');
         }
-        // 정상 글 스냅샷은 기존처럼 그대로 반환(재계산 0 — 공급사 호출 증가 없음)
-        const kept = await run(snap(stored, now - 79 * MIN));
-        assert.equal(coreCalls, 0, '정상 글 → 재계산 없음');
-        assert.equal(kept?.verdict.realityInsight, stored);
+        // ★11/10 정상 글도 계산 시각 79분이면 재계산 진입(워커 도장 신선과 무관) — 실패하면 기존 스냅샷 그대로(응답 회귀 0)
+        const oldNormal = snap(stored, now - 79 * MIN);
+        const kept = await run(oldNormal);
+        assert.equal(coreCalls, 1, '굳은 정상 글 → 재계산 진입');
+        assert.equal(kept, oldNormal, '재계산 실패 → 기존 스냅샷 반환');
+        // 정상 글 5분 안은 기존처럼 그대로 반환(재계산 0 — 공급사 호출 증가 없음)
+        const fresh = await run(snap(stored, now - 2 * MIN));
+        assert.equal(coreCalls, 0, '5분 안 정상 글 → 재계산 없음');
+        assert.equal(fresh?.verdict.realityInsight, stored);
+        // 장후 정상 글은 이 경로로 재계산하지 않는다(T2 선물 변동 재생성 담당)
+        session = 'POST';
+        try { await run(snap(stored, now - 79 * MIN, 'POST')); } finally { session = 'REG'; }
+        assert.equal(coreCalls, 0, '장후 정상 글 → 이 경로 재계산 없음');
         // 방금(5분 안) 다시 계산했는데도 «준비 중»이면 그대로(5분 간격)
         const recent = await run(snap(PENDING, now - 2 * MIN));
         assert.equal(coreCalls, 0, '5분 안 → 재계산 없음');
         assert.equal(recent?.verdict.realityInsight, PENDING);
-        console.log('통과 T35 장중 «준비 중» 고정: 지난 일정 탈락(검사 불변)·대기 문구 스냅샷 5분 재계산·실패 시 기존 스냅샷 반환·실패 후 5분 간격(인스턴스·공유)·정상 글/장외/5분 안 재계산 0');
+        console.log('통과 T35 장중 «준비 중» 고정: 지난 일정 탈락(검사 불변)·대기 문구 스냅샷 5분 재계산·실패 시 기존 스냅샷 반환·실패 후 5분 간격(인스턴스·공유)·정상 글 5분 넘으면 재계산(PRE·REG)·정상 글 5분 안/장후/장외 재계산 0');
     } finally { Date.now = realNow; }
 })().catch((e) => { console.error(e); process.exit(1); });
