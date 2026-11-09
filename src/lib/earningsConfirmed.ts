@@ -214,10 +214,10 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: '실적 보도자료(6-K 첨부 99.1) 원문 — EDGAR 접수 2026-10-30 06:57 EDT → 장 시작 전.',
   },
   {
-    ticker: 'CEG', date: '2026-11-09', hour: '', callEtTime: '09:00', sourceKind: 'ir-site', announcedOn: '2026-10-09', verifiedAt: '2026-11-09T00:40:00Z',
-    sourceUrl: 'https://investors.constellationenergy.com/events/event-details/q3-2026-constellation-energy-corporation-earnings-conference-call',
-    quote: 'Constellation Energy will discuss third quarter 2026 earnings in a conference call scheduled for Monday, November 9, 2026, at 9:00 AM ET',
-    note: 'Constellation IR 이벤트 페이지 원문(봇 차단 — 11/9 브라우저로 열어 확인, 확인 스크립트는 UNREACHABLE). 같은 페이지 첨부 «CEG Q3 2026 Earnings Call Information»(10/9 «THIRD QUARTER EARNINGS RELEASE AND CONFERENCE CALL / WEBCAST SCHEDULE»)도 같은 날짜·시각. 공지는 통화 시각만 — 결과 공개 시각 구분이 없어 hour 는 비운다(APD 와 같은 처리 · 발표 뒤 8-K 접수 시각으로 채운다).',
+    ticker: 'CEG', date: '2026-11-09', hour: 'bmo', callEtTime: '09:00', sourceKind: 'sec-8k', announcedOn: '2026-11-09', verifiedAt: '2026-11-09T12:30:00Z',
+    sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1868275/000186827526000116/ceg-20261109991.htm',
+    quote: 'CONSTELLATION REPORTS THIRD QUARTER 2026 RESULTS',
+    note: '실적 보도자료(8-K Item 2.02 첨부 99.1) 원문 — EDGAR 접수 2026-11-09 06:53 EST → 장 시작 전. 일정 공지(10/9 IR 이벤트 페이지 «Monday, November 9, 2026, at 9:00 AM ET» 통화)는 통화 시각만이라 hour 를 비워 두었다가 8-K 접수 시각으로 채움.',
   },
   {
     ticker: 'CHTR', date: '2026-11-06', hour: 'bmo', etTime: '07:00', callEtTime: '08:30', sourceKind: 'company-pr', announcedOn: '2026-10-07', verifiedAt: '2026-11-03T19:15:00Z',
