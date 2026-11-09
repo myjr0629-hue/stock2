@@ -101,8 +101,9 @@ export interface LadderConfig {
      * [2026-11-07] OpenAI 단(lib/ai/openaiTier) — ① Haiku 5.5 가 실패·정지선·서킷·가드 불통과로 끝나면 Bedrock 으로 내려가기 전에 이 모델로.
      * 같은 프롬프트·같은 출구 가드. 증가분(withFreshTier) 문맥에서도 시도한다(AWS 가 아니라 선불 크레딧). 끄기: Redis llm:oa:off.
      * primary:true = ① 보다 먼저(크레딧 늘리기용 비필수 대량 생성) — 실패하면 ① 부터 예전 순서로.
+     * primaryWhen(2026-11-10) = 이 문자열이 userPrompt 에 있을 때만 primary(같은 용도 안의 한 출력만 먼저 — 예: Guardian 중 Tactical). 없으면 primary 대로.
      */
-    openai?: { model: string; effort?: OaEffort; timeoutMs: number; primary?: boolean };
+    openai?: { model: string; effort?: OaEffort; timeoutMs: number; primary?: boolean; primaryWhen?: string };
 }
 
 /**
@@ -143,7 +144,10 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     IntelSnapshot: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000 },
     //   가디언 인사이트(한 호출이 ko·en·ja): 입력의 한국어 섹터명을 영어로(+출력에서 한국어/일본어 이름 복원) 12/12 vs 현행 11/12 · p50 7.2s vs 11.7s · 호출당 $0.0018 vs $0.014
     //   ★2026-11-07 OpenAI 단(① 실패 뒤): gpt-6-luna — Tactical 3개 언어·ko 단독 실입력 6회 가드 6/6 vs Haiku 4/6 · sol 5/6 · terra 4/6 · p50 2.2s · $0.0006. 근거 QUALITY.md(signum-work/2026-11-07/openai)
-    Guardian: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000, openai: { model: 'gpt-6-luna', effort: 'none', timeoutMs: 12_000 } },
+    //   ★2026-11-10 Tactical(3개 언어 한 호출)만 gpt-6.1-terra 먼저(primaryWhen) — 대표 «지표 설명은 있는데 왜? 스토리가 부족». 평일 장중 실입력(11/9 나스닥 +2.6%)·운영 생성 검사(gateText strict):
+    //   현행 프롬프트 Haiku 9/9 · terra 9/9 · sol 9/9(p50 14s — 시간 초과 위험) · luna 5/9 / «왜» 스토리 프롬프트 terra 14/15 vs Haiku 6/15 · terra p50 8.4s · $0.004(캐시)~$0.018.
+    //   급등일 «위험 회피 속 쏠림» 모순 Haiku 2/3 vs terra 0/3. 실패(시간 초과·정책 거절 400·가드)면 ① Haiku 5.5 → Bedrock 순서 그대로. 순환매·감마 글은 예전 순서(① 다음 OpenAI). 근거 RESULT.md(signum-work/2026-11-10/tactical-gpt)
+    Guardian: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000, openai: { model: 'gpt-6.1-terra', effort: 'none', timeoutMs: 16_000, primary: true, primaryWhen: 'Write a SIGNUM Tactical Insight' } },
     //   가디언 번역 대체(다른 언어의 정상 문구 → 이 언어, 18건: 3종 × 3대상언어 × 2방향): 18/18 vs 18/18 · p50 2.3s vs 3.5s · 호출당 $0.0003 vs $0.0027. ① 8초(p95 3.5초)
     GuardianTranslate: { effort: 'low', thinking: 'disabled', timeoutMs: 8_000 },
     //   크로스섹터 브리핑(8천 토큰 3개 언어 JSON): 5.5 9/10(언어 규칙 문장 포함) · p50 20s — 현행 Haiku 4.5 는 호출 하나가 54초(라우트 한도 60초 바로 아래)이고 두 번째 호출은 55초 시간 초과 3회로 실패했다.
@@ -814,7 +818,7 @@ async function tryOaRung(req: LadderRequest, cfg: LadderConfig, d: LadderDeps, s
         p = await d.callOpenAI({ model: oc.model, system: req.system, userPrompt: req.userPrompt, maxTokens: req.maxTokens, json, effort: oc.effort ?? 'none', timeoutMs }, key);
     } catch (e: any) {
         const re = e instanceof OaCallError || e instanceof LadderRungError ? e : new OaCallError('network', 60, String(e?.message || e).slice(0, 160));
-        if (re.kind === 'bad-request') d.log('error', `[Ladder] ${req.purpose} oa 400 — 요청 모양 점검 필요: ${re.detail.slice(0, 200)}`);
+        if (re.kind === 'bad-request') d.log('error', `[Ladder] ${req.purpose} oa 400 — ${/flagged|usage policy|invalid prompt/i.test(re.detail) ? '정책 거절(다음 단으로)' : '요청 모양 점검 필요'}: ${re.detail.slice(0, 200)}`);
         else if (re.kind === 'auth' || re.kind === 'access' || re.kind === 'credit') d.log('error', `[Ladder] ${req.purpose} oa ${re.kind}: ${re.detail.slice(0, 200)}`);
         await openBreaker('oa', re.closeSec, `${re.kind} ${re.detail}`, d);
         if (re.kind === 'credit' || re.kind === 'auth' || re.kind === 'access') {
@@ -881,8 +885,9 @@ export async function runLadder(
         const useSonnet = !!cfg!.sonnet && (!fresh || freshTierAllowsSonnet());
         // OpenAI 단(2026-11-07): 설정이 있으면 ① 다음(primary 면 맨 앞). 증가분에서도 시도한다 — AWS 가 아니라 선불 크레딧이다.
         const oa: RungId[] = cfg!.openai ? ['oa'] : [];
-        const head: RungId[] = cfg!.openai?.primary ? oa : [];
-        const mid: RungId[] = cfg!.openai?.primary ? [] : oa;
+        const oaFirst = !!cfg!.openai?.primary && (!cfg!.openai.primaryWhen || req.userPrompt.includes(cfg!.openai.primaryWhen));
+        const head: RungId[] = oaFirst ? oa : [];
+        const mid: RungId[] = oaFirst ? [] : oa;
         const rungs: RungId[] = [...head, ...(useSonnet ? ['a55s' as const] : []), 'a55', ...mid, ...(fresh ? [] : ['b55i' as const, 'b55m' as const])];
         for (const id of rungs) {
             if ((id === 'b55i' || id === 'b55m') && skipB55) continue;

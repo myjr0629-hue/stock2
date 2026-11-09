@@ -107,6 +107,29 @@ const req = (over: Record<string, unknown> = {}) => ({ purpose: 'CrossSector', s
         const o2 = await runLadder(req({ purpose: 'UC' }), legacy(m2.calls), m2.deps);
         assert.deepEqual(m2.calls, ['oa', 'a55']); assert.equal(o2.provider, 'a55'); assert.deepEqual(o2.trail, ['oa:truncated', 'a55:ok']);
     });
+    await t('순서: primaryWhen — 그 문자열이 있는 요청만 OpenAI 먼저, 나머지는 ① 다음(2026-11-10 Tactical)', async () => {
+        const allow = { Guardian: { openai: { model: 'gpt-6.1-terra', timeoutMs: 16_000, primary: true, primaryWhen: 'Write a SIGNUM Tactical Insight' } } };
+        const m1 = mk({ allow, a: () => a55ok('A') });
+        const o1 = await runLadder(req({ purpose: 'Guardian', userPrompt: 'blocks… Write a SIGNUM Tactical Insight entirely in 한국어 …' }), legacy(m1.calls), m1.deps);
+        assert.deepEqual(m1.calls, ['oa']); assert.equal(o1.provider, 'oa');
+        const m2 = mk({ allow, a: () => a55ok('A') });
+        const o2 = await runLadder(req({ purpose: 'Guardian', userPrompt: 'Write the SIGNUM sector-rotation read …' }), legacy(m2.calls), m2.deps);
+        assert.deepEqual(m2.calls, ['a55']); assert.equal(o2.provider, 'a55');
+    });
+    await t('Tactical: OpenAI 정책 거절(400 flagged)이면 서킷을 닫지 않고 곧바로 Haiku 5.5 · 다음 요청도 OpenAI 먼저', async () => {
+        const logs: string[] = [];
+        const m1 = mk({ allow: LADDER_PURPOSES, a: () => a55ok('{"ko":"A"}'), oa: () => { throw new OaCallError('bad-request', 0, "400 Invalid prompt: we've limited access to this content for safety reasons. This type of information may be used to benefit or to harm people… flagged as potentially violating our usage policy"); } });
+        m1.deps.log = (_l: any, msg: string) => { logs.push(msg); };
+        const tac = req({ purpose: 'Guardian', userPrompt: 'Write a SIGNUM Tactical Insight entirely in English.', expectJson: true, timeoutMs: 32_000 });
+        const o1 = await runLadder(tac, legacy(m1.calls), m1.deps);
+        assert.deepEqual(m1.calls, ['oa', 'a55']); assert.equal(o1.provider, 'a55'); assert.deepEqual(o1.trail, ['oa:bad-request', 'a55:ok']);
+        assert.equal(m1.oaBodies[0].model, 'gpt-6.1-terra');
+        assert.ok(logs.some((x) => x.includes('정책 거절')), logs.join('|'));
+        const m2 = mk({ allow: LADDER_PURPOSES, a: () => a55ok('{"ko":"A"}'), oa: () => oaOk('{"ko":"O"}') });
+        m2.deps.store = m1.deps.store;
+        const o2 = await runLadder(tac, legacy(m2.calls), m2.deps);
+        assert.deepEqual(m2.calls, ['oa']); assert.equal(o2.provider, 'oa');
+    });
     await t('설정 없는 용도는 예전과 같다(OpenAI 안 부름)', async () => {
         const m = mk({ allow: { FlowAI: {} } });
         await runLadder(req({ purpose: 'FlowAI' }), legacy(m.calls), m.deps);
@@ -230,10 +253,10 @@ const req = (over: Record<string, unknown> = {}) => ({ purpose: 'CrossSector', s
     });
 
     // ───────────── 운영 설정(2026-11-07 품질 측정으로 켠 것만) ─────────────
-    await t('운영 설정: 측정을 통과한 용도만 OpenAI — UC 만 primary · 모델은 단가표에 있다 · sol 은 effort none 금지', () => {
+    await t('운영 설정: 측정을 통과한 용도만 OpenAI — UC·Tactical(primaryWhen)만 primary · 모델은 단가표에 있다 · sol 은 effort none 금지', () => {
         const on = Object.fromEntries(Object.entries(LADDER_PURPOSES).filter(([, c]) => c.openai).map(([k, c]) => [k, `${c.openai!.model}${c.openai!.primary ? '!' : ''}`]));
         assert.deepEqual(on, {
-            UC: 'gpt-6-luna!', MorningBriefing: 'gpt-5.4-mini', Guardian: 'gpt-6-luna', CrossSector: 'gpt-6.1-sol',
+            UC: 'gpt-6-luna!', MorningBriefing: 'gpt-5.4-mini', Guardian: 'gpt-6.1-terra!', CrossSector: 'gpt-6.1-sol',
             WatchlistLine: 'gpt-6.1-terra', TodayPicks: 'gpt-6.1-terra',
         });
         for (const [k, c] of Object.entries(LADDER_PURPOSES)) {
