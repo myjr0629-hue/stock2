@@ -130,6 +130,15 @@ const req = (over: Record<string, unknown> = {}) => ({ purpose: 'CrossSector', s
         const o2 = await runLadder(tac, legacy(m2.calls), m2.deps);
         assert.deepEqual(m2.calls, ['oa']); assert.equal(o2.provider, 'oa');
     });
+    await t('관문 11100248 ② Guardian 순환매·감마는 대체 단 모델·상한이 예전 그대로(luna·12s) · Tactical 만 terra·13s', async () => {
+        const m1 = mk({ allow: LADDER_PURPOSES, a: () => { throw new LadderRungError('server', 60, '500'); }, oa: () => oaOk('{"ko":"O"}') });
+        await runLadder(req({ purpose: 'Guardian', userPrompt: 'Write the SIGNUM sector-rotation read …', timeoutMs: 32_000 }), legacy(m1.calls), m1.deps);
+        assert.deepEqual(m1.calls, ['a55', 'oa']);
+        assert.equal(m1.oaBodies[0].model, 'gpt-6-luna'); assert.equal(m1.oaBodies[0].timeoutMs, 12_000);
+        const m2 = mk({ allow: LADDER_PURPOSES, a: () => a55ok('{"ko":"A"}'), oa: () => oaOk('{"ko":"O"}') });
+        await runLadder(req({ purpose: 'Guardian', userPrompt: 'Write a SIGNUM Tactical Insight entirely in English.', expectJson: true, timeoutMs: 32_000 }), legacy(m2.calls), m2.deps);
+        assert.equal(m2.oaBodies[0].model, 'gpt-6.1-terra'); assert.equal(m2.oaBodies[0].timeoutMs, 13_000);
+    });
     await t('설정 없는 용도는 예전과 같다(OpenAI 안 부름)', async () => {
         const m = mk({ allow: { FlowAI: {} } });
         await runLadder(req({ purpose: 'FlowAI' }), legacy(m.calls), m.deps);
@@ -256,12 +265,13 @@ const req = (over: Record<string, unknown> = {}) => ({ purpose: 'CrossSector', s
     await t('운영 설정: 측정을 통과한 용도만 OpenAI — UC·Tactical(primaryWhen)만 primary · 모델은 단가표에 있다 · sol 은 effort none 금지', () => {
         const on = Object.fromEntries(Object.entries(LADDER_PURPOSES).filter(([, c]) => c.openai).map(([k, c]) => [k, `${c.openai!.model}${c.openai!.primary ? '!' : ''}`]));
         assert.deepEqual(on, {
-            UC: 'gpt-6-luna!', MorningBriefing: 'gpt-5.4-mini', Guardian: 'gpt-6.1-terra!', CrossSector: 'gpt-6.1-sol',
+            UC: 'gpt-6-luna!', MorningBriefing: 'gpt-5.4-mini', Guardian: 'gpt-6-luna!', CrossSector: 'gpt-6.1-sol',
             WatchlistLine: 'gpt-6.1-terra', TodayPicks: 'gpt-6.1-terra',
         });
         for (const [k, c] of Object.entries(LADDER_PURPOSES)) {
             if (!c.openai) continue;
             assert.ok(OA_PRICES[c.openai.model], k);
+            if (c.openai.primaryModel) assert.ok(OA_PRICES[c.openai.primaryModel], `${k} primaryModel`);
             if (/sol/.test(c.openai.model)) assert.notEqual(c.openai.effort ?? 'none', 'none', `${k}: sol 은 none 을 받지 않는다(400)`);
         }
         assert.ok((V4_SERVE_PROVIDERS as readonly string[]).includes('oa'), '장마감 리포트: OpenAI 결과도 서빙');

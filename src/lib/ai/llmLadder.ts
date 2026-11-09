@@ -102,8 +102,9 @@ export interface LadderConfig {
      * 같은 프롬프트·같은 출구 가드. 증가분(withFreshTier) 문맥에서도 시도한다(AWS 가 아니라 선불 크레딧). 끄기: Redis llm:oa:off.
      * primary:true = ① 보다 먼저(크레딧 늘리기용 비필수 대량 생성) — 실패하면 ① 부터 예전 순서로.
      * primaryWhen(2026-11-10) = 이 문자열이 userPrompt 에 있을 때만 primary(같은 용도 안의 한 출력만 먼저 — 예: Guardian 중 Tactical). 없으면 primary 대로.
+     *   primaryModel·primaryTimeoutMs = 그 출력(primaryWhen 일치)에만 쓰는 모델·시간 상한 — 같은 용도의 다른 출력은 model·timeoutMs 그대로(관문 11100248 ②).
      */
-    openai?: { model: string; effort?: OaEffort; timeoutMs: number; primary?: boolean; primaryWhen?: string };
+    openai?: { model: string; effort?: OaEffort; timeoutMs: number; primary?: boolean; primaryWhen?: string; primaryModel?: string; primaryTimeoutMs?: number };
 }
 
 /**
@@ -147,7 +148,8 @@ export const LADDER_PURPOSES: Record<string, LadderConfig> = {
     //   ★2026-11-10 Tactical(3개 언어 한 호출)만 gpt-6.1-terra 먼저(primaryWhen) — 대표 «지표 설명은 있는데 왜? 스토리가 부족». 평일 장중 실입력(11/9 나스닥 +2.6%)·운영 생성 검사(gateText strict):
     //   현행 프롬프트 Haiku 9/9 · terra 9/9 · sol 9/9(p50 14s — 시간 초과 위험) · luna 5/9 / «왜» 스토리 프롬프트 terra 14/15 vs Haiku 6/15 · terra p50 8.4s · $0.004(캐시)~$0.018.
     //   급등일 «위험 회피 속 쏠림» 모순 Haiku 2/3 vs terra 0/3. 실패(시간 초과·정책 거절 400·가드)면 ① Haiku 5.5 → Bedrock 순서 그대로. 순환매·감마 글은 예전 순서(① 다음 OpenAI). 근거 RESULT.md(signum-work/2026-11-10/tactical-gpt)
-    Guardian: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000, openai: { model: 'gpt-6.1-terra', effort: 'none', timeoutMs: 16_000, primary: true, primaryWhen: 'Write a SIGNUM Tactical Insight' } },
+    //   ★관문 11100248: 순환매·감마의 대체 단은 예전 luna·12s 그대로. Tactical terra 상한 13s(실측 p50 8.2s·최대 10.9s) — 시간 초과 뒤 Haiku(~5s)까지 TRI_RETRY_BUDGET 20s 안이라 교정 재생성 기회가 남는다.
+    Guardian: { effort: 'low', thinking: 'disabled', timeoutMs: 14_000, openai: { model: 'gpt-6-luna', effort: 'none', timeoutMs: 12_000, primary: true, primaryWhen: 'Write a SIGNUM Tactical Insight', primaryModel: 'gpt-6.1-terra', primaryTimeoutMs: 13_000 } },
     //   가디언 번역 대체(다른 언어의 정상 문구 → 이 언어, 18건: 3종 × 3대상언어 × 2방향): 18/18 vs 18/18 · p50 2.3s vs 3.5s · 호출당 $0.0003 vs $0.0027. ① 8초(p95 3.5초)
     GuardianTranslate: { effort: 'low', thinking: 'disabled', timeoutMs: 8_000 },
     //   크로스섹터 브리핑(8천 토큰 3개 언어 JSON): 5.5 9/10(언어 규칙 문장 포함) · p50 20s — 현행 Haiku 4.5 는 호출 하나가 54초(라우트 한도 60초 바로 아래)이고 두 번째 호출은 55초 시간 초과 3회로 실패했다.
@@ -811,11 +813,13 @@ async function tryOaRung(req: LadderRequest, cfg: LadderConfig, d: LadderDeps, s
     // 호출 지점의 시간 예산을 넘기지 않는다(①② 의 «최소 5초» 규칙을 쓰지 않는다) — 3초도 안 남았으면 건너뛴다(예전처럼 다음 단·건너뜀)
     const left = (req.timeoutMs ?? 55_000) - (now - started);
     if (left < OA_MIN_LEFT_MS) return { ok: false, why: 'notime', skip: true };
-    const timeoutMs = Math.min(oc.timeoutMs, left);
+    const prim = !!oc.primaryWhen && req.userPrompt.includes(oc.primaryWhen);
+    const model = prim && oc.primaryModel ? oc.primaryModel : oc.model;
+    const timeoutMs = Math.min(prim && oc.primaryTimeoutMs ? oc.primaryTimeoutMs : oc.timeoutMs, left);
     const json = req.expectJson === 'array' ? 'array' as const : !!(req.jsonPrefill || req.expectJson);
     let p: OaParsed;
     try {
-        p = await d.callOpenAI({ model: oc.model, system: req.system, userPrompt: req.userPrompt, maxTokens: req.maxTokens, json, effort: oc.effort ?? 'none', timeoutMs }, key);
+        p = await d.callOpenAI({ model, system: req.system, userPrompt: req.userPrompt, maxTokens: req.maxTokens, json, effort: oc.effort ?? 'none', timeoutMs }, key);
     } catch (e: any) {
         const re = e instanceof OaCallError || e instanceof LadderRungError ? e : new OaCallError('network', 60, String(e?.message || e).slice(0, 160));
         if (re.kind === 'bad-request') d.log('error', `[Ladder] ${req.purpose} oa 400 — ${/flagged|usage policy|invalid prompt/i.test(re.detail) ? '정책 거절(다음 단으로)' : '요청 모양 점검 필요'}: ${re.detail.slice(0, 200)}`);
@@ -827,7 +831,7 @@ async function tryOaRung(req: LadderRequest, cfg: LadderConfig, d: LadderDeps, s
         }
         return { ok: false, why: re.kind };
     }
-    const cost = oaCost(p.usage, oc.model);
+    const cost = oaCost(p.usage, model);
     if (cost > 0) {
         const month = oaMonthId(d.now());
         const v = await d.store.incrByFloat(OA_KEYS.cost(month), cost, 70 * 24 * 3600);
@@ -845,7 +849,7 @@ async function tryOaRung(req: LadderRequest, cfg: LadderConfig, d: LadderDeps, s
     }
     const gate = runGate(req, text, d);
     if (!gate.ok) return { ok: false, why: `guard:${gate.reason}`, cost };
-    return { ok: true, text, model: oc.model, usage: p.usage, cost, ...(repaired ? { repaired: true } : {}) };
+    return { ok: true, text, model, usage: p.usage, cost, ...(repaired ? { repaired: true } : {}) };
 }
 
 /**
@@ -1041,7 +1045,7 @@ export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderSt
         sonnet: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.sonnet).map(([k, c]) => [k, { dailyCapUsd: c.sonnet!.dailyCapUsd, ...(c.sonnet!.warmDailyCapUsd ? { warmDailyCapUsd: c.sonnet!.warmDailyCapUsd } : {}) }])),
         captureOn: !!(await d.store.get(K.capOn)), keyConfigured: !!d.anthropicKey(), breakers,
         openai: {
-            purposes: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.openai).map(([k, c]) => [k, `${c.openai!.model}${c.openai!.primary ? ' (primary)' : ''}`])),
+            purposes: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.openai).map(([k, c]) => [k, `${c.openai!.model}${c.openai!.primary ? ' (primary)' : ''}${c.openai!.primaryModel ? ` · ${c.openai!.primaryModel} (primary: ${c.openai!.primaryWhen ?? 'all'})` : ''}`])),
             month: oaMonthId(now), spentUsd: Math.round((Number(await d.store.get(OA_KEYS.cost(oaMonthId(now)))) || 0) * 10000) / 10000,
             capUsd: oaMonthlyCapUsd(), off: await d.store.get(OA_KEYS.off), keyConfigured: !!d.openaiKey?.(),
         },
