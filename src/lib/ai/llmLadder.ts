@@ -1045,7 +1045,7 @@ export async function ladderStatus(deps?: Partial<LadderDeps>): Promise<LadderSt
         sonnet: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.sonnet).map(([k, c]) => [k, { dailyCapUsd: c.sonnet!.dailyCapUsd, ...(c.sonnet!.warmDailyCapUsd ? { warmDailyCapUsd: c.sonnet!.warmDailyCapUsd } : {}) }])),
         captureOn: !!(await d.store.get(K.capOn)), keyConfigured: !!d.anthropicKey(), breakers,
         openai: {
-            purposes: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.openai).map(([k, c]) => [k, `${c.openai!.model}${c.openai!.primary ? ' (primary)' : ''}${c.openai!.primaryModel ? ` · ${c.openai!.primaryModel} (primary: ${c.openai!.primaryWhen ?? 'all'})` : ''}`])),
+            purposes: Object.fromEntries(Object.entries(d.allowlist()).filter(([, c]) => c.openai).map(([k, c]) => [k, c.openai!.primaryWhen ? `${c.openai!.model} (after a55) · ${c.openai!.primaryModel ?? c.openai!.model} (primary when prompt has «${c.openai!.primaryWhen}»)` : `${c.openai!.model}${c.openai!.primary ? ' (primary)' : ''}`])),
             month: oaMonthId(now), spentUsd: Math.round((Number(await d.store.get(OA_KEYS.cost(oaMonthId(now)))) || 0) * 10000) / 10000,
             capUsd: oaMonthlyCapUsd(), off: await d.store.get(OA_KEYS.off), keyConfigured: !!d.openaiKey?.(),
         },
