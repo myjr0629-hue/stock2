@@ -231,3 +231,59 @@
   .overlay, .sheet { animation: none; }
   .cta { transition: none; }
 }
+
+/* ★2026-11-09 여러 플랜 카드(월간·연간·평생) — 스토어가 연간·평생을 내려줄 때만 그린다(월간만이면 위 .priceCard 그대로).
+   강조는 «고른 카드»의 초록 테두리 한 번뿐 — 배지(할인율)는 작게. 높이 52px(누르기 ≥44px). */
+.plans {
+  margin: 14px 0 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 12px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.planOn {
+  border-color: rgba(16, 185, 129, 0.75);
+  background: rgba(16, 185, 129, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.3);
+}
+.planMain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.planName {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+.planBadge {
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.16);
+}
+.planSub { font-size: 11px; line-height: 1.35; color: rgba(148, 163, 184, 0.82); }
+.planPrice { display: flex; align-items: baseline; gap: 3px; white-space: nowrap; }
+.planAmt { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: #ffffff; font-variant-numeric: tabular-nums; }
+.planPer { font-size: 11.5px; color: rgba(148, 163, 184, 0.75); }
+.plan.plan { min-height: 52px !important; }

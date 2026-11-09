@@ -18,9 +18,12 @@ import {
   PRO_ENTITLEMENT_ID,
   PRO_MONTHLY_PRODUCT_ID,
   PRO_ANNUAL_PRODUCT_ID,
+  PRO_LIFETIME_PRODUCT_ID,
   LAUNCH_PLANS,
+  MULTI_PLANS,
   type PlanId,
 } from '@/config/iap';
+import { previewFlag } from '@/lib/app/proEntitlement';
 
 export type PurchaseOutcome = {
   ok: boolean;
@@ -112,7 +115,52 @@ export type PlanOffer = {
   pkg: PurchasesPackage;
   /** 예: "₩13,000" / "$9.99" — 스토어 현지 통화. 우리가 만들지 않는다 */
   priceString: string;
+  /** 스토어가 준 숫자 가격(할인율 계산용 — 화면에 직접 찍지 않는다) */
+  price?: number;
+  /** 스토어 통화 코드 — 할인율은 월간과 «같은 통화»일 때만 계산한다 */
+  currencyCode?: string;
+  /** 스토어가 준 «월 환산» 현지 문자열(연간 카드) — 없으면 그리지 않는다 */
+  pricePerMonthString?: string | null;
 };
+
+/**
+ * 페이월이 그릴 플랜 목록. 기본은 LAUNCH_PLANS(환경변수 스위치 — config/iap.ts).
+ * 프리뷰 호스트(*.vercel.app·localhost)에서만 `?sgplans=1` 로 연간·평생을 켜 볼 수 있다 — 운영 도메인에선 항상 false.
+ */
+export function activePlans(): readonly PlanId[] {
+  if (LAUNCH_PLANS.length > 1) return LAUNCH_PLANS;
+  let preview = false;
+  try { preview = previewFlag('sgplans'); } catch { /* window.location 없음(시험·SSR) = 끔 */ }
+  return preview ? MULTI_PLANS : LAUNCH_PLANS;
+}
+
+/** 패키지 → 플랜 판정. packageType(RevenueCat 표준) 먼저, 없으면 상품 식별자 접두로. */
+export function matchPlanPackage(pkgs: readonly PurchasesPackage[], plan: PlanId): PurchasesPackage | undefined {
+  const wantType = plan === 'annual' ? 'ANNUAL' : plan === 'lifetime' ? 'LIFETIME' : 'MONTHLY';
+  const wantId = plan === 'annual' ? PRO_ANNUAL_PRODUCT_ID : plan === 'lifetime' ? PRO_LIFETIME_PRODUCT_ID : PRO_MONTHLY_PRODUCT_ID;
+  return (
+    pkgs.find((p) => String(p.packageType).toUpperCase() === wantType) ??
+    // Play 는 상품ID 뒤에 base-plan 접미사가 붙을 수 있어 startsWith 로 본다
+    pkgs.find((p) => p.product?.identifier?.startsWith(wantId))
+  );
+}
+
+/** 오퍼링 패키지 → 페이월 플랜 목록(순서 = plans 순서). 스토어가 안 내려준 플랜은 «없다»(지어내지 않는다). */
+export function plansFromPackages(pkgs: readonly PurchasesPackage[], plans: readonly PlanId[]): PlanOffer[] {
+  const out: PlanOffer[] = [];
+  for (const plan of plans) {
+    const pkg = matchPlanPackage(pkgs, plan);
+    if (!pkg) continue;
+    const p = pkg.product;
+    out.push({
+      plan, pkg, priceString: p?.priceString ?? '',
+      price: typeof p?.price === 'number' ? p.price : undefined,
+      currencyCode: p?.currencyCode,
+      pricePerMonthString: p?.pricePerMonthString ?? null,
+    });
+  }
+  return out;
+}
 
 /**
  * 현재 오퍼링에서 월간·연간 패키지를 «식별해서» 돌려준다.
@@ -127,23 +175,9 @@ export async function getProOffers(): Promise<PlanOffer[]> {
   const offerings = await Purchases.getOfferings();
   const pkgs = offerings.current?.availablePackages ?? [];
 
-  const match = (plan: PlanId): PurchasesPackage | undefined => {
-    const wantType = plan === 'annual' ? 'ANNUAL' : 'MONTHLY';
-    const wantId = plan === 'annual' ? PRO_ANNUAL_PRODUCT_ID : PRO_MONTHLY_PRODUCT_ID;
-    return (
-      pkgs.find((p) => String(p.packageType).toUpperCase() === wantType) ??
-      // Play 는 상품ID 뒤에 base-plan 접미사가 붙을 수 있어 startsWith 로 본다
-      pkgs.find((p) => p.product?.identifier?.startsWith(wantId))
-    );
-  };
-
-  // ★ LAUNCH_PLANS 에 있는 것만 그린다. 출시 시점엔 월간 하나다(config/iap.ts 참조).
-  //   스토어에 연간 상품이 살아 있어도 여기서 걸러지면 페이월엔 안 뜬다.
-  const out: PlanOffer[] = [];
-  for (const plan of LAUNCH_PLANS) {
-    const pkg = match(plan);
-    if (pkg) out.push({ plan, pkg, priceString: pkg.product?.priceString ?? '' });
-  }
+  // ★ activePlans() 에 있는 것만 그린다. 기본은 월간 하나(config/iap.ts «노출 스위치»).
+  //   스토어에 연간·평생 상품이 살아 있어도 여기서 걸러지면 페이월엔 안 뜬다.
+  const out = plansFromPackages(pkgs, activePlans());
   return out;
 }
 

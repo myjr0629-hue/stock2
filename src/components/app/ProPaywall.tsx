@@ -25,6 +25,10 @@ import { useRouter } from 'next/navigation';
 import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
+import type { PlanId } from '@/config/iap';
+import { annualSavePct, planFineLine, type PaywallPlan } from '@/lib/app/proPlans';
+
+export type { PaywallPlan };
 
 // 퍼널 측정 — 첫 화면 번들에 싣지 않는다(동적 import). 실패해도 페이월 동작과 무관.
 const funnel = () => import('@/lib/app/funnel');
@@ -74,6 +78,20 @@ const COPY: Record<PaywallLocale, {
   terms: string;
   privacy: string;
   and: string;
+  /** ★11/9 연간·평생 카드(스토어가 그 패키지를 내려줄 때만 보인다) */
+  plansLabel: string;
+  planMonthly: string;
+  planAnnual: string;
+  planLifetime: string;
+  perYear: string;
+  /** 연간 할인율 배지 — 월간·연간 «스토어 숫자 가격»으로 계산(같은 통화일 때만) */
+  save: (pct: number) => string;
+  /** 연간 «월 환산» — 스토어가 준 현지 문자열(pricePerMonthString)을 끼워 넣는다 */
+  monthlyEq: (price: string) => string;
+  lifetimeSub: string;
+  renewAnnual: string;
+  lifetimeNote: string;
+  lifetimeManage: string;
 }> = {
   ko: {
     close: '닫기',
@@ -110,6 +128,17 @@ const COPY: Record<PaywallLocale, {
     terms: '이용약관',
     privacy: '개인정보처리방침',
     and: '·',
+    plansLabel: '요금제 선택',
+    planMonthly: '월간',
+    planAnnual: '연간',
+    planLifetime: '평생',
+    perYear: '년',
+    save: (pct) => `${pct}% 할인`,
+    monthlyEq: (price) => `월 ${price}`,
+    lifetimeSub: '한 번 결제, 계속 사용',
+    renewAnnual: '1년 뒤 자동 갱신됩니다. 언제든 해지할 수 있고, 해지하면 남은 기간까지 이용됩니다.',
+    lifetimeNote: '한 번 결제로 계속 사용합니다. 자동 갱신·추가 결제가 없습니다.',
+    lifetimeManage: '다른 기기에서는 «구매 복원»으로 되살립니다.',
   },
   en: {
     close: 'Close',
@@ -146,6 +175,17 @@ const COPY: Record<PaywallLocale, {
     terms: 'Terms of Use',
     privacy: 'Privacy Policy',
     and: '·',
+    plansLabel: 'Choose a plan',
+    planMonthly: 'Monthly',
+    planAnnual: 'Annual',
+    planLifetime: 'Lifetime',
+    perYear: 'year',
+    save: (pct) => `Save ${pct}%`,
+    monthlyEq: (price) => `${price}/mo`,
+    lifetimeSub: 'Pay once, keep it',
+    renewAnnual: 'Renews automatically after 1 year. Cancel anytime; access continues until the period ends.',
+    lifetimeNote: 'One payment. No renewal and no further charges.',
+    lifetimeManage: 'On another device, use Restore purchase.',
   },
   ja: {
     close: '閉じる',
@@ -182,6 +222,17 @@ const COPY: Record<PaywallLocale, {
     terms: '利用規約',
     privacy: 'プライバシーポリシー',
     and: '・',
+    plansLabel: 'プランを選択',
+    planMonthly: '月額',
+    planAnnual: '年額',
+    planLifetime: '買い切り',
+    perYear: '年',
+    save: (pct) => `${pct}%お得`,
+    monthlyEq: (price) => `月あたり${price}`,
+    lifetimeSub: '一度の購入でずっと使える',
+    renewAnnual: '1年後に自動更新されます。いつでも解約でき、期間終了までご利用いただけます。',
+    lifetimeNote: '一度の購入でずっと使えます。自動更新・追加料金はありません。',
+    lifetimeManage: '別の端末では「購入を復元」で戻せます。',
   },
 };
 
@@ -193,6 +244,7 @@ const SHOWN: typeof COPY = WATCHLIST_CHIP_TIERING
 
 /** 자동 갱신·해지 안내 한 단락 — 일본어는 문장 사이에 띄어쓰기를 두지 않는다(«…いただけます。 解約は…»가 되지 않게) */
 const fineLine = (loc: PaywallLocale, t: { renewNote: string; manageNote: string }) => `${t.renewNote}${loc === 'ja' ? '' : ' '}${t.manageNote}`;
+
 
 /** 결제 전 화면에 반드시 같이 보여야 하는 문구(자동 갱신·해지·복원·약관) — «내 종목» 시트도 같은 문구를 쓴다 */
 export function paywallLegalCopy(locale: string) {
@@ -231,7 +283,7 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
-export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src }: {
+export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
@@ -245,6 +297,8 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
   /** 디자인 확인용에만 쓴다. 실제 화면에서는 절대 넘기지 않는다 —
       가격은 스토어가 준 값이어야 한다. */
   previewPrice?: string;
+  /** 디자인 확인·심사 스크린샷 전용(paywall-preview) — 여러 플랜 카드 모양. 실제 화면에서는 절대 넘기지 않는다 */
+  previewPlans?: PaywallPlan[];
   /** 어디서 열렸나 — 첫 줄(굵게)에 올릴 혜택. 기본은 광고 제거(설정·가치 벽) */
   lead?: 'ads' | 'watchlist' | 'alerts';
   /** «내 종목» 알림 혜택 줄을 보일지(NEXT_PUBLIC_WATCHLIST_ALERTS) — 없는 기능을 팔지 않는다 */
@@ -268,6 +322,18 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
   // 스토어가 준 월간 오퍼. 없으면 «가격을 지어내지 않고» 버튼을 잠근다.
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
 
+  // ★11/9 여러 플랜(월간·연간·평생) — 스토어가 연간·평생 패키지를 «실제로» 내려줬을 때만(그리고 노출 스위치가 켜졌을 때만 —
+  //   config/iap.ts). 월간만 있으면 multi=false → 화면은 예전과 바이트 단위로 같다(가격 한 줄 + 버튼).
+  const plans: PaywallPlan[] = previewPlans ?? offers;
+  const multi = plans.length > 1 && plans.some((p) => p.plan === 'monthly');
+  const [picked, setPicked] = useState<PlanId | null>(null);
+  // 기본 선택 = 연간(있으면) — 없으면 월간
+  const selected: PlanId = multi
+    ? (picked && plans.some((p) => p.plan === picked) ? picked : plans.some((p) => p.plan === 'annual') ? 'annual' : 'monthly')
+    : 'monthly';
+  const selectedOffer = multi ? (offers.find((o) => o.plan === selected) ?? null) : monthly;
+  const savePct = multi ? annualSavePct(plans.find((p) => p.plan === 'monthly'), plans.find((p) => p.plan === 'annual')) : null;
+
   // 열었는데 가격이 없다 = 마운트 때 오퍼링을 못 받았다는 뜻. 여기서 한 번 더 받는다.
   useEffect(() => {
     if (!monthly && !previewPrice) void refreshOffers();
@@ -279,16 +345,16 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
   useEffect(() => { if (isPro) onClose(); }, [isPro, onClose]);
 
   const handleSubscribe = useCallback(async () => {
-    if (busy || purchasePending || !monthly) return;
+    if (busy || purchasePending || !selectedOffer) return;
     void funnel().then((m) => m.trackFunnel('cta', { src: funnelSrc })).catch(() => {});
     setBusy(true);
     setNote(null);
-    const res = await purchase('monthly', funnelSrc);
+    const res = await purchase(selectedOffer.plan, funnelSrc);
     setBusy(false);
     if (res.ok && res.isPro) return; // 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
-  }, [busy, purchasePending, monthly, purchase, t, funnelSrc]);
+  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
@@ -376,7 +442,43 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
           })()}
         </ul>
 
-        {/* 가격 — 스토어가 준 현지화 문자열만 쓴다 */}
+        {/* 가격 — 스토어가 준 현지화 문자열만 쓴다.
+            ★11/9 연간·평생이 «스토어에 있을 때만» 플랜 카드 3장(기본 선택 연간). 없으면 아래 예전 가격 한 줄 그대로. */}
+        {multi ? (
+          <div className={s.plans} role="radiogroup" aria-label={t.plansLabel}>
+            {plans.map((p) => {
+              const on = p.plan === selected;
+              const name = p.plan === 'annual' ? t.planAnnual : p.plan === 'lifetime' ? t.planLifetime : t.planMonthly;
+              const per = p.plan === 'annual' ? t.perYear : p.plan === 'monthly' ? t.perMonth : null;
+              const sub = p.plan === 'annual'
+                ? (p.pricePerMonthString ? t.monthlyEq(p.pricePerMonthString) : null)
+                : p.plan === 'lifetime' ? t.lifetimeSub : null;
+              return (
+                <button
+                  key={p.plan}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  data-plan={p.plan}
+                  className={on ? `${s.plan} ${s.planOn}` : s.plan}
+                  onClick={() => setPicked(p.plan)}
+                >
+                  <span className={s.planMain}>
+                    <span className={s.planName}>
+                      {name}
+                      {p.plan === 'annual' && savePct != null && <span className={s.planBadge}>{t.save(savePct)}</span>}
+                    </span>
+                    {sub && <span className={s.planSub}>{sub}</span>}
+                  </span>
+                  <span className={s.planPrice}>
+                    <span className={s.planAmt}>{p.priceString}</span>
+                    {per && <span className={s.planPer}>/ {per}</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
         <div className={s.priceCard}>
           {shownPrice ? (
             <>
@@ -387,12 +489,13 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
             <span className={s.priceMuted}>{ready ? t.unavailable : '···'}</span>
           )}
         </div>
+        )}
 
         <button
           type="button"
           className={s.cta}
           onClick={handleSubscribe}
-          disabled={busy || purchasePending || (!monthly && !previewPrice)}
+          disabled={busy || purchasePending || (multi ? (!selectedOffer && !previewPlans) : (!monthly && !previewPrice))}
         >
           {busy || purchasePending ? t.ctaBusy : head.cta}
         </button>
@@ -402,7 +505,7 @@ export function ProPaywall({ locale, onClose, previewPrice, lead = 'ads', alerts
         {/* ★2026-10-05 «코드가 있으신가요? 🎟 쿠폰 코드 입력» — 결제 단추보다 조용하게(네이티브·프리뷰에서만). components/app/RedeemCodeLink */}
         <RedeemCodeLink locale={loc} src={funnelSrc} />
 
-        <p className={s.fine}>{fineLine(loc, t)}</p>
+        <p className={s.fine}>{multi ? planFineLine(loc, t, selected) : fineLine(loc, t)}</p>
 
         <div ref={linksRef} className={s.links}>
           <button type="button" className={s.link} onClick={handleRestore} disabled={busy}>

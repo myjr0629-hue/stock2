@@ -42,12 +42,14 @@ export const PRO_ENTITLEMENT_ID = 'pro';
 //                 근거 정본: .agent/GROWTH_EXECUTION_PLAN_2026-08-18.md §5
 export const PRO_MONTHLY_PRODUCT_ID = 'com.signumhq.app.pro.monthly';
 export const PRO_ANNUAL_PRODUCT_ID = 'com.signumhq.app.pro.annual';
+/** ★ 2026-11-09 신설 — 평생(비소모성 1회 결제). 같은 RevenueCat 권한 'pro' 를 준다(갱신 없음). */
+export const PRO_LIFETIME_PRODUCT_ID = 'com.signumhq.app.pro.lifetime';
 
-/** 구독 플랜 식별자 */
-export type PlanId = 'monthly' | 'annual';
+/** 플랜 식별자 — 월간·연간은 자동 갱신 구독(같은 구독 그룹), 평생은 1회 결제 */
+export type PlanId = 'monthly' | 'annual' | 'lifetime';
 
 /**
- * ★ 출시 시점에 페이월이 «실제로 그리는» 플랜. 2026-08-18 대표 결정: **월간만**.
+ * ★ 출시 시점에 페이월이 «실제로 그리는» 플랜. 2026-08-18 대표 결정: **월간만**. (→ 2026-11-09 연간·평생 추가, 아래 «노출 스위치»)
  *
  * 왜 연간을 뺐나 — 두 가지가 아직 사실이 아니기 때문이다:
  *   1. 연간의 판매 논리는 «광고 제거»인데 **광고가 아직 안 나간다**(애드몹 개인 계정
@@ -64,4 +66,17 @@ export type PlanId = 'monthly' | 'annual';
  * ⚠️ 배열만 고치면 된다. 연간 배선(상품ID·패키지 매칭·구매 경로)은 이미 다 있고,
  *    여기 없으면 getProOffers 가 걸러내므로 페이월에 안 뜬다.
  */
-export const LAUNCH_PLANS: readonly PlanId[] = ['monthly'];
+// ★ 2026-11-09 대표 결정(«이젠 수익이나야 이 프로젝트를 이어갈수있다» → 연간 ₩89,000 · 평생 ₩149,000 «그래 그렇게해»).
+//   스토어 상품(11/9 생성): ASC 연간 6832451434(구독 그룹 22205273, 월간과 같은 그룹) · ASC 평생 6832451861(NON_CONSUMABLE)
+//   · Play com.signumhq.app.pro.annual(기본 요금제 annual, 연간) · Play 1회 상품 com.signumhq.app.pro.lifetime(구매 옵션 lifetime)
+//   · RevenueCat 오퍼링 default 에 $rc_annual · $rc_lifetime 추가, 둘 다 권한 'pro'.
+//   가격(KR/US): 연간 ₩89,000 / $74.99 · 평생 ₩149,000 / $124.99 — 화면은 스토어가 준 현지 문자열만 쓴다(여기 값은 기록일 뿐).
+//
+// 노출 스위치 — NEXT_PUBLIC_PRO_PLANS === '1' 일 때만 연간·평생 카드를 그린다(값 없으면 예전 그대로 월간 하나).
+//   웹 레이어가 앱에 원격으로 실리므로(capacitor server.url) main 병합 = 사용자 반영이다. 스토어 쪽 상태와 무관하게
+//   «꺼진 채» 병합할 수 있게 둔 스위치다. 켜기 = Vercel Production 환경변수 추가 + 재배포(NEXT_PUBLIC 은 빌드 시 박힌다).
+//   켜져 있어도 스토어가 그 패키지를 안 내려주면(애플 미승인 등) 그 카드만 안 뜬다 — getProOffers 가 걸러낸다.
+//   프리뷰(*.vercel.app·localhost)에서는 `?sgplans=1` 로 켜 볼 수 있다(proEntitlement.previewFlag — 운영 도메인 불가).
+export const PRO_MULTI_PLAN_ENV = process.env.NEXT_PUBLIC_PRO_PLANS === '1';
+export const MULTI_PLANS: readonly PlanId[] = ['monthly', 'annual', 'lifetime'];
+export const LAUNCH_PLANS: readonly PlanId[] = PRO_MULTI_PLAN_ENV ? MULTI_PLANS : ['monthly'];
