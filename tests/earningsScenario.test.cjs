@@ -33,7 +33,8 @@ const model = require('../src/lib/earningsScenario/model');
 const snap = require('../src/lib/earningsScenario/snapshot');
 const { CONFIRMED_EARNINGS } = require('../src/lib/earningsConfirmed');
 const eligibleEvents = CONFIRMED_EARNINGS.filter(e => snap.SCENARIO_TICKERS.includes(e.ticker) && e.date > '2026-10-21');
-const expiryFor = e => e.date < '2026-10-30' ? '2026-10-30' : '2026-11-06';
+// 합성 만기 목록은 11/06 뒤 발표(예: NVDA 11/17 — 11/9 확정 목록 추가)도 덮는다 — 목록 데이터가 늘어도 원본 요청 수 시험이 흔들리지 않게
+const expiryFor = e => e.date < '2026-10-30' ? '2026-10-30' : e.date < '2026-11-06' ? '2026-11-06' : '2026-11-20';
 const chainFor = expiry => { const raw = chain(); raw.chain.forEach(r => r.option.expiration = expiry); return raw; };
 const { SCENARIO_COPY } = require('../src/lib/earningsScenario/copy');
 const { blackScholes: bs, scenario, closeAt } = model;
@@ -65,7 +66,7 @@ let mockEnv = {};
 const vendorFetch = async (input, init) => {
   vendorCalls.push({ path: new URL(input).pathname, method: init.method, date: new URL(input).searchParams.get('date') });
   assert.equal(init.method, 'GET'); assert.equal(init.cache, 'no-store');
-  return Response.json(new URL(input).pathname.includes('/expirations/') ? { expirations: ['2026-10-30', '2026-11-06'] }
+  return Response.json(new URL(input).pathname.includes('/expirations/') ? { expirations: ['2026-10-30', '2026-11-06', '2026-11-20'] }
     : chainFor(new URL(input).pathname.split('/')[4]), { status: vendorStatus });
 };
 const serviceExports = {};
@@ -83,7 +84,7 @@ function fillCaches() {
   values.set('market:earnings-calendar:v4', { rows: snap.SCENARIO_TICKERS.map(ticker => ({ ...event, ticker })) });
   values.set('intrinio:eod:snapshot', JSON.stringify(eod())); values.set('earnings:implied:v1', implied());
   for (const t of snap.SCENARIO_TICKERS) {
-    values.set(snap.rawExpirationsKey(t, '2026-10-21'), { expirations: ['2026-10-30', '2026-11-06'] });
+    values.set(snap.rawExpirationsKey(t, '2026-10-21'), { expirations: ['2026-10-30', '2026-11-06', '2026-11-20'] });
     values.set(snap.rawChainKey(t, '2026-10-30'), JSON.stringify(chain()));
   }
   for (const e of eligibleEvents) values.set(snap.rawChainKey(e.ticker, expiryFor(e)), JSON.stringify(chainFor(expiryFor(e))));

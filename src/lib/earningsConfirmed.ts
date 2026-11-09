@@ -81,6 +81,7 @@ export interface PendingEarnings {
  *   · 지난 발표(10/26~11/3): 실제 실적 보도자료(SEC 8-K/6-K 첨부 99) 원문 — 시각(bmo/amc)은 EDGAR 접수 시각(ET)으로 판정.
  *   · 다가올 발표(11/3 장후~11/12): 회사 일정 공지 보도자료(원문 또는 Business Wire·PR Newswire·GlobeNewswire 사본).
  *   · 공통 캘린더 유니버스 안의 종목만(유니버스 밖 SHOP·APO 등은 earningsCalendarOnly.ts).
+ * 2026-11-09 추가(TRACKER T55 재점검 — 앞으로 10일 안 발표인데 표식 없던 종목): CEG·OXY·DIS·HD·NVDA·PANW·TJX 회사 일정 공지 원문. LOW 는 IR 일정에 «tentative» 뿐이라 넣지 않았다.
  * 티커 알파벳순으로 둔다(찾기 쉽게). 한 종목 한 항목(다음 분기 공지가 나오면 그 줄을 바꾼다).
  */
 export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
@@ -213,6 +214,12 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: '실적 보도자료(6-K 첨부 99.1) 원문 — EDGAR 접수 2026-10-30 06:57 EDT → 장 시작 전.',
   },
   {
+    ticker: 'CEG', date: '2026-11-09', hour: '', callEtTime: '09:00', sourceKind: 'ir-site', announcedOn: '2026-10-09', verifiedAt: '2026-11-09T00:40:00Z',
+    sourceUrl: 'https://investors.constellationenergy.com/events/event-details/q3-2026-constellation-energy-corporation-earnings-conference-call',
+    quote: 'Constellation Energy will discuss third quarter 2026 earnings in a conference call scheduled for Monday, November 9, 2026, at 9:00 AM ET',
+    note: 'Constellation IR 이벤트 페이지 원문(봇 차단 — 11/9 브라우저로 열어 확인, 확인 스크립트는 UNREACHABLE). 같은 페이지 첨부 «CEG Q3 2026 Earnings Call Information»(10/9 «THIRD QUARTER EARNINGS RELEASE AND CONFERENCE CALL / WEBCAST SCHEDULE»)도 같은 날짜·시각. 공지는 통화 시각만 — 결과 공개 시각 구분이 없어 hour 는 비운다(APD 와 같은 처리 · 발표 뒤 8-K 접수 시각으로 채운다).',
+  },
+  {
     ticker: 'CHTR', date: '2026-11-06', hour: 'bmo', etTime: '07:00', callEtTime: '08:30', sourceKind: 'company-pr', announcedOn: '2026-10-07', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://finviz.com/news/399994/charter-to-hold-webcast-to-discuss-third-quarter-2026-financial-and-operating-results',
     quote: 'A press release reporting such results will be issued at 7:00 a.m. ET on November 6',
@@ -267,6 +274,12 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     sourceUrl: 'https://finviz.com/news/402639/datadog-announces-date-of-third-quarter-fiscal-year-2026-earnings-call',
     quote: 'will report its third quarter fiscal year 2026 financial results before the U.S. financial markets open on Wednesday, November 4, 2026',
     note: 'Business Wire 사본. 통화 8:00am ET. 공지일 미확인.',
+  },
+  {
+    ticker: 'DIS', date: '2026-11-17', hour: 'bmo', callEtTime: '08:30', sourceKind: 'company-pr', announcedOn: '2026-10-12', verifiedAt: '2026-11-09T00:40:00Z',
+    sourceUrl: 'https://finviz.com/news/401354/the-walt-disney-company-executives-to-discuss-fiscal-full-year-and-fourth-quarter-2026-financial-results-via-webcast',
+    quote: 'Disney will release results before the opening of regular trading on November 17, 2026',
+    note: 'Business Wire 2026-10-12 사본. 웹캐스트 8:30am ET.',
   },
   {
     ticker: 'DUK', date: '2026-11-05', hour: 'bmo', etTime: '07:00', callEtTime: '10:00', sourceKind: 'company-pr', announcedOn: '2026-10-06', verifiedAt: '2026-11-03T19:15:00Z',
@@ -340,6 +353,12 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     sourceUrl: 'https://www.goldmansachs.com/pressroom/press-releases/2025/conference-call-dates-to-announce-4q25-and-2026-earnings-results',
     quote: 'Third quarter 2026 - Tuesday, October 13, 2026',
     note: 'Goldman Sachs 보도자료 2025-08-18 «Conference Call Dates to Announce 4Q25 and 2026 Earnings Results» — 결과 약 7:30am ET, 통화 9:30am ET. 홈페이지에도 10/13 공지 노출(10/11 확인).',
+  },
+  {
+    ticker: 'HD', date: '2026-11-17', hour: '', callEtTime: '09:00', sourceKind: 'company-pr', announcedOn: '2026-11-03', verifiedAt: '2026-11-09T00:40:00Z',
+    sourceUrl: 'https://ir.homedepot.com/news-releases/2026/11-03-2026-130236805',
+    quote: 'will hold its Third Quarter Earnings Conference Call on Tuesday, November 17, at 9 a.m. ET',
+    note: 'PR Newswire 2026-11-03(Home Depot IR 원문). 공지는 통화 시각만 — 결과 공개 시각 구분이 없어 hour 는 비운다(APD 와 같은 처리 · 발표 뒤 8-K 접수 시각으로 채운다).',
   },
   {
     ticker: 'HOOD', date: '2026-10-27', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-27', verifiedAt: '2026-11-03T19:15:00Z',
@@ -499,6 +518,12 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 16:14 EDT → 장 마감 후. 같은 보도자료가 실적 통화를 당일 2pm PDT로 밝혀 장후 발표를 뒷받침한다.',
   },
   {
+    ticker: 'NVDA', date: '2026-11-17', hour: 'amc', etTime: '16:20', callEtTime: '17:00', sourceKind: 'company-pr', announcedOn: '2026-10-28', verifiedAt: '2026-11-09T00:40:00Z',
+    sourceUrl: 'https://nvidianews.nvidia.com/news/nvidia-sets-conference-call-for-third-quarter-financial-results-6928873',
+    quote: 'NVIDIA will host a conference call on Tuesday, November 17, at 2 p.m. PT (5 p.m. ET)',
+    note: 'NVIDIA 뉴스룸 2026-10-28. 같은 공지가 «results are publicly announced at approximately 1:20 p.m. PT»(=4:20pm ET, 장 마감 후)라고 밝힌다. 10/7 PENDING 메모의 «수요일(11/18)» 예상은 틀렸다 — 회사 공지는 화요일 11/17.',
+  },
+  {
     ticker: 'NVO', date: '2026-11-04', hour: '', sourceKind: 'sec-8k', announcedOn: '2026-08-04', verifiedAt: '2026-11-03T19:15:00Z',
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/0000353278/000035327826000023/caq22026.htm',
     quote: '4 November 2026 Financial results for the first nine months of 2026',
@@ -509,6 +534,18 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/726728/000072672826000056/o-991q32026.htm',
     quote: 'SAN DIEGO, CALIFORNIA, November 2, 2026...Realty Income Corporation',
     note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-11-02 16:07 EST → 장 마감 후. 같은 보도자료가 실적 통화를 당일 2:00pm PST로 밝혀 장후 발표를 뒷받침한다.',
+  },
+  {
+    ticker: 'OXY', date: '2026-11-09', hour: 'amc', sourceKind: 'company-pr', announcedOn: '2026-10-01', verifiedAt: '2026-11-09T00:40:00Z',
+    sourceUrl: 'https://finviz.com/news/398041/occidental-to-announce-third-quarter-results-monday-november-9-2026-hold-conference-call-tuesday-november-10-2026',
+    quote: 'will announce its third quarter 2026 financial results after close of market on Monday, November 9, 2026',
+    note: 'GlobeNewswire 2026-10-01 사본. 실적 통화는 다음 날(11/10) 1:00pm ET — 발표일과 날이 달라 callEtTime 은 넣지 않는다.',
+  },
+  {
+    ticker: 'PANW', date: '2026-11-18', hour: 'amc', callEtTime: '16:30', sourceKind: 'company-pr', announcedOn: '2026-11-03', verifiedAt: '2026-11-09T00:40:00Z',
+    sourceUrl: 'https://www.prnewswire.com/news-releases/palo-alto-networks-to-announce-fiscal-first-quarter-2027-financial-results-on-wednesday-november-18-2026-302927448.html',
+    quote: 'after U.S. markets close on Wednesday, November 18, 2026',
+    note: 'PR Newswire 2026-11-03. 회계 2027년 1분기(10/31 마감). 웹캐스트 1:30pm PT(4:30pm ET).',
   },
   {
     ticker: 'PEG', date: '2026-11-02', hour: 'bmo', sourceKind: 'sec-8k', announcedOn: '2026-11-02', verifiedAt: '2026-11-03T19:15:00Z',
@@ -650,6 +687,13 @@ export const CONFIRMED_EARNINGS: ConfirmedEarnings[] = [
     sourceUrl: 'https://www.sec.gov/Archives/edgar/data/97210/000119312526434981/ter-ex99_1.htm',
     quote: 'will follow at 8:30 a.m. ET, October 28, 2026',
     note: '실적 보도자료(8-K 첨부 99) 원문 — EDGAR 접수 2026-10-28 06:00 EDT → 장 시작 전.',
+  },
+  {
+    ticker: 'TJX', date: '2026-11-18', hour: 'bmo', callEtTime: '11:00', sourceKind: 'company-pr', announcedOn: '2026-11-04', verifiedAt: '2026-11-09T00:40:00Z',
+    sourceUrl: 'https://www.businesswire.com/news/home/20261104548924/en/The-TJX-Companies-Inc.-to-Report-Q3-FY27-Results-November-18-2026',
+    checkUrl: 'https://uk.finance.yahoo.com/news/tjx-companies-inc-report-q3-161500330.html',
+    quote: 'plans to release its third quarter Fiscal 2027 sales and earnings results on Wednesday, November 18, 2026, before 9:30 a.m. ET',
+    note: 'Business Wire 2026-11-04(원문은 봇 차단 — 확인은 Yahoo 사본). 통화 11:00am ET.',
   },
   {
     ticker: 'TMUS', date: '2026-10-28', hour: 'amc', sourceKind: 'sec-8k', announcedOn: '2026-10-28', verifiedAt: '2026-11-03T19:15:00Z',
