@@ -36,6 +36,8 @@ import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 import { RedeemCodeLink } from './RedeemCodeLink';
 import { markSessionError } from '@/lib/app/ratingMoments';
+import { claimTrialWatchlist, newTrialPeriod, readTrialCustomerInfo } from '@/lib/app/trialStartWatchlist';
+import { afterSheetHistory } from '@/components/app/watchlist/BottomSheet';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
 
@@ -381,12 +383,28 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     void funnel().then((m) => m.trackFunnel('cta', { src: funnelSrc })).catch(() => {});
     setBusy(true);
     setNote(null);
+    const origin = window.location?.pathname ?? '';
+    const before = origin && !/\/app-view\/watchlist\/?$/.test(origin) && (selectedOffer.plan === 'monthly' || selectedOffer.plan === 'annual') ? await readTrialCustomerInfo() : null;
+    const started = Date.now();
     const res = await purchase(selectedOffer.plan, funnelSrc);
+    if (res.ok && res.isPro && before) {
+      const after = await readTrialCustomerInfo();
+      const period = newTrialPeriod(before.info, after?.info ?? null, after?.platform ?? '', selectedOffer.pkg.product.identifier, started, Date.now());
+      let claimed = false;
+      try { claimed = window.location.pathname === origin && claimTrialWatchlist(period, origin, window.localStorage); } catch { /* storage unavailable */ }
+      if (claimed) {
+        onClose();
+        await afterSheetHistory();
+        if (window.location.pathname === origin) router.push(`/${loc}/app-view/watchlist`);
+        setBusy(false);
+        return;
+      }
+    }
     setBusy(false);
     if (res.ok && res.isPro) { if (onProConfirmed) onProConfirmed(); else if (keepOpenWhilePro) onClose(); return; } // 평소엔 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
-  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed]);
+  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed, router, loc]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;

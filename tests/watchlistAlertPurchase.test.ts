@@ -72,12 +72,16 @@ mock('../src/hooks/useProStatus', { useProStatus: () => ({
   purchase: async (plan: string) => { bought.push(plan); if (purchaseOutcome.ok && purchaseOutcome.isPro) isPro = true; return purchaseOutcome; },
   restore: async () => { if (restoreOutcome.ok && restoreOutcome.isPro) isPro = true; return restoreOutcome; },
 }) });
-mock('next/navigation', { useRouter: () => ({ push: () => {} }) });
+mock('next/navigation', { useRouter: () => ({ push: (path: string) => routes.push(path) }) });
 mock('../src/lib/app/funnel', { noteFunnelSrc: () => {}, trackFunnel: () => {}, trackFunnelOutcome: () => {} });
 mock('../src/lib/app/ratingMoments', { markSessionError: () => {} });
 mock('../src/components/app/RedeemCodeLink', { RedeemCodeLink: () => null });
 mock('../src/lib/app/watchlist', { FREE_LIMIT: 5, MAX_ITEMS: 100 });
 mock('../src/lib/app/watchlistFlags', { WATCHLIST_CHIP_TIERING: false });
+const trialStart = require('../src/lib/app/trialStartWatchlist') as typeof import('../src/lib/app/trialStartWatchlist');
+let trialReads: any[] = [];
+mock('../src/lib/app/trialStartWatchlist', { ...trialStart, readTrialCustomerInfo: async () => trialReads.shift() ?? null });
+mock('../src/components/app/watchlist/BottomSheet', { afterSheetHistory: async () => {} });
 
 const { ProPaywall } = require('../src/components/app/ProPaywall') as typeof import('../src/components/app/ProPaywall');
 const { wlUI } = require('../src/lib/app/watchlistUI') as typeof import('../src/lib/app/watchlistUI');
@@ -122,6 +126,7 @@ function setupHost() {
 }
 
 let closedByX = 0;
+let routes: string[] = [];
 function render(props: Record<string, unknown>) {
   cursor = 0;
   const tree = ProPaywall({ locale: 'ko', onClose: () => { closedByX++; wlUI.closePaywall(); }, lead: 'alerts', alerts: true, ...props } as any);
@@ -134,6 +139,8 @@ function reset() {
   slots = []; pendingEffects = []; isPro = false; bought.length = 0; closedByX = 0;
   purchaseOutcome = { ok: false, isPro: false, cancelled: true };
   restoreOutcome = { ok: true, isPro: false };
+  trialReads = []; routes = [];
+  (globalThis as any).window.location = undefined;
 }
 
 let count = 0;
@@ -197,6 +204,26 @@ async function test(name: string, fn: () => Promise<void> | void) {
       assert.equal(wlUI.getSnapshot().sheet?.kind, 'alertUpsell');
       assert.equal(notified, 0); assert.equal(settingsOpened.length, 0);
     }
+  });
+
+  await test('실제 페이월 구매 콜백: 신규 체험만 내 종목으로 1회 이동', async () => {
+    const now = Date.now();
+    const product = 'com.signumhq.app.pro.annual';
+    const ent = { isActive: true, periodType: 'TRIAL', ownershipType: 'PURCHASED', willRenew: true, store: 'APP_STORE', productIdentifier: product, latestPurchaseDate: new Date(now).toISOString(), expirationDate: new Date(now + 86400_000).toISOString() };
+    const before = { entitlements: { active: {}, all: {} }, activeSubscriptions: [] };
+    const after = { entitlements: { active: { pro: ent }, all: { pro: ent } }, activeSubscriptions: [product] };
+    const map = new Map<string, string>();
+    (globalThis as any).window.location = { pathname: '/ko/app-view/settings' };
+    (globalThis as any).window.localStorage = { getItem: (k: string) => map.get(k) ?? null, setItem: (k: string, v: string) => map.set(k, v) };
+    (offers[1].pkg as any).product = { identifier: product };
+    trialReads = [{ info: before, platform: 'ios' }, { info: after, platform: 'ios' }];
+    purchaseOutcome = { ok: true, isPro: true };
+    await button(render({}), /PRO 시작하기/).props.onClick();
+    assert.deepEqual(routes, ['/ko/app-view/watchlist']);
+    isPro = false;
+    trialReads = [{ info: before, platform: 'ios' }, { info: after, platform: 'ios' }];
+    await button(render({}), /PRO 시작하기/).props.onClick();
+    assert.equal(routes.length, 1);
   });
 
   await test('복원 성공 → 설정 열림 · 복원할 것 없음/실패 → 안 열림', async () => {
