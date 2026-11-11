@@ -94,6 +94,12 @@ const COPY = {
 
 export function trialSaveCopy(locale: string) { return COPY[toTrialSaveLocale(locale)]; }
 
+/** 시트 첫 문단 — 조기 안내(갱신 끈 직후 1회)면 earlyNote 한 줄을 붙인다(일본어는 문장 사이 띄어쓰기 없음) */
+export function trialOffLede(locale: string, early: boolean): string {
+  const loc = toTrialSaveLocale(locale), c = COPY[loc];
+  return early ? `${c.lede}${loc === 'ja' ? '' : ' '}${c.earlyNote}` : c.lede;
+}
+
 /** 내 종목 줄 — 기기 목록 개수 그대로(0이면 일반 안내) */
 export function trialWatchlistLine(count: number, locale: string): string {
   const c = trialSaveCopy(locale);

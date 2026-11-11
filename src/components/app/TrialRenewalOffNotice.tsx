@@ -11,7 +11,7 @@ import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLif
 import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
 import { canPresentCancelReason, canShowCancelReason } from '@/lib/app/cancelReason';
 import { CancelReasonSheet } from './CancelReasonSheet';
-import { TRIAL_SAVE_PUSH_FLAG, trialEndDateText, trialSaveCopy, trialScorecard, trialWatchlistLine, type TrialScorecard } from '@/lib/app/trialSave';
+import { TRIAL_SAVE_PUSH_FLAG, trialEndDateText, trialOffLede, trialSaveCopy, trialScorecard, trialWatchlistLine, type TrialScorecard } from '@/lib/app/trialSave';
 import { WATCHLIST_STORAGE_KEY, parseWatchlist } from '@/lib/app/watchlist';
 import { calendarScorecardWeek } from '@/lib/earnings/calendarScorecardDisplay';
 import { etDateOf } from '@/lib/marketCalendar';
@@ -204,7 +204,7 @@ function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onEx
       <div className={p.head}>
         <span className={p.eyebrow}>SIGNUM PRO</span>
         <h1 className={p.title} id={titleId}>{copy.title(trialEndDateText(view.expiresAt, locale).replace(/ /g, '\u00a0'))}</h1>
-        <p className={`${p.lede} ${s.lede}`}>{view.kind === 'early' ? `${copy.lede} ${copy.earlyNote}` : copy.lede}</p>
+        <p className={`${p.lede} ${s.lede}`}>{trialOffLede(locale, view.kind === 'early')}</p>
       </div>
       {score && <>
         <p className={p.fine} style={{ textAlign: 'left', marginTop: 4 }}>{copy.seen}</p>
