@@ -7,7 +7,7 @@
 // 문구: 사실만(종료일 · 앱에서 요금제를 볼 수 있음). 갱신 상태는 단정하지 않는다. 가격·긴급함·투자 권유 없음.
 // 식별자: 키는 이미 서버에 있는 푸시 토큰. 계정·RC 고객 ID 를 받지 않는다.
 // ============================================================================
-import { trialEndDateText, toTrialSaveLocale } from '@/lib/app/trialSave';
+import { trialEndDateText, toTrialSaveLocale } from '@/lib/app/trialSaveDate';
 
 export const TRIAL_PUSH_KEY = (token: string) => `push:trial:${token}`;
 /** «보냄» 표식 = 발송 «전에» SET NX 로 잡는 자리(동시 실행·저장 실패·함수 종료에도 두 번 가지 않는다). 기기(토큰)당 25일에 한 통 —

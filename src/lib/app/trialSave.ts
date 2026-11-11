@@ -14,24 +14,14 @@ import { calendarScorecardSummary } from '@/lib/earnings/calendarScorecardDispla
 import { addDaysYmd } from '@/lib/earningsWeek';
 import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 
-export type TrialSaveLocale = 'ko' | 'en' | 'ja';
-export const toTrialSaveLocale = (l: string): TrialSaveLocale => (l === 'ko' || l === 'ja' ? l : 'en');
+// 날짜·언어는 서버(푸시 크론)도 쓰므로 React 훅이 없는 모듈에 둔다(watchlist 는 클라이언트 훅을 가져 서버 라우트가 가져오면 빌드가 깨진다)
+import { toTrialSaveLocale, trialEndDateText, type TrialSaveLocale } from '@/lib/app/trialSaveDate';
+export { toTrialSaveLocale, trialEndDateText, type TrialSaveLocale };
 
 /** 푸시를 눌러 들어왔을 때 «오늘 이미 봤음»을 한 번 건너뛰는 세션 표식 */
 export const TRIAL_SAVE_PUSH_FLAG = 'signumhq.trialSave.push';
 /** 푸시 보고 중복 방지(같은 내용·같은 토큰·같은 날이면 다시 보내지 않는다) */
 export const TRIAL_PUSH_REPORT_KEY = 'signumhq.trialSave.report.v1';
-
-/** 종료 날짜 — 기기 현지 시간대. ko «11월 13일 (금)» · en «Fri, Nov 13» · ja «11月13日(金)» */
-export function trialEndDateText(expiresAt: number, locale: string, timeZone?: string): string {
-  const loc = toTrialSaveLocale(locale);
-  const tag = loc === 'ko' ? 'ko-KR' : loc === 'ja' ? 'ja-JP' : 'en-US';
-  try {
-    return new Intl.DateTimeFormat(tag, { month: loc === 'en' ? 'short' : 'long', day: 'numeric', weekday: 'short', ...(timeZone ? { timeZone } : {}) }).format(new Date(expiresAt));
-  } catch {
-    return new Intl.DateTimeFormat(tag, { month: loc === 'en' ? 'short' : 'long', day: 'numeric', weekday: 'short' }).format(new Date(expiresAt));
-  }
-}
 
 export type TrialScorecard = { n: number; within: number; previous: boolean };
 /** 이번 주 채점이 이 종목 수보다 적으면 지난주와 견준다 */
