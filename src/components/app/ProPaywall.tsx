@@ -460,7 +460,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
         {context ? context.sections.map((sec, si) => (
           <div key={sec.label} data-paywall-section={si}>
             <p className={s.fine} style={{ textAlign: 'left', marginTop: 4 }}>{sec.label}</p>
-            <ul className={s.benefits}>
+            <ul className={s.benefits} style={{ wordBreak: 'keep-all' }}>
               {sec.items.map((b, i) => (
                 <li key={b} className={si === 0 && i === 0 ? `${s.benefit} ${s.benefitLead}` : s.benefit}>{b}</li>
               ))}
