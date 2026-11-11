@@ -16,7 +16,7 @@ const accents = {
 export function detectLang(text) {
   // 링크와 소셜 식별자는 본문 언어의 근거에서 제외한다.
   const clean = text.toLowerCase()
-    .replace(/(?:https?:\/\/|www\.)[^\s]+/gu, ' ')
+    .replace(/(?:https?:\/\/|www\.)[!-~]+/gu, ' ')
     .replace(/[@#][\p{L}\p{M}\p{N}_.-]+/gu, ' ')
     .replace(/[^\p{L}\p{M}\s]/gu, ' ');
   // 기존 일본어 우선순위를 유지한다(일본어에는 한자가 함께 쓰인다).
@@ -24,7 +24,8 @@ export function detectLang(text) {
   if (/\p{Script=Hangul}/u.test(clean)) return 'ko';
   const hanCount = (clean.match(/\p{Script=Han}/gu) || []).length;
   const letterCount = (clean.match(/\p{L}/gu) || []).length;
-  if (hanCount >= 3 && hanCount / letterCount >= 0.5) return 'zh';
+  // 한자만 있는 문장은 일본어일 수도 있다 — 일본어에 안 쓰는 간체·번체 전용 글자가 있을 때만 zh(없으면 예전처럼 en).
+  if (hanCount >= 3 && hanCount / letterCount >= 0.5 && /[们們这這个为与與将將对對从從关经济场发东车门问时说开过还进动业产实应长头见现让认识乐书买卖钱银价涨跌报财务亿际级线网络术环变权仅总统选证历岁营类优华专众闻获针图强极较确钟汇则损跃资]/u.test(clean)) return 'zh';
   const tokens = clean.match(/\p{Script=Latin}+/gu) || [];
   const scores = Object.fromEntries(Object.keys(words).map((lang) => [lang, 0]));
   for (const token of tokens) {

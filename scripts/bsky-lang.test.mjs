@@ -46,7 +46,7 @@ test('한자는 최소 개수와 본문 글자 비율을 충족해야 중국어�
   assert.equal(detectLang('日本'), 'en');
   assert.equal(detectLang('The market is rising 日本市場'), 'en');
   assert.equal(detectLang('市场上涨'), 'zh');
-  assert.equal(detectLang('市场上涨 1234567890 !!!'), 'zh');
+  assert.equal(detectLang('市场今天在上涨 1234567890 !!!'), 'zh');
 });
 
 test('JSON 입력의 명시 언어를 게시 요청에 전달하고 기존 langs는 보존', () => {
@@ -65,4 +65,12 @@ test('잘못된 JSON 입력을 거부', () => {
   for (const json of ['null', '[]', '{}', '{"text":" "}', '{"text":"hi","lang":null}', '{']) {
     assert.throws(() => parsePostInput(json));
   }
+});
+
+test('URL 바로 뒤 본문·한자만 있는 일본어(관문 11120549)', () => {
+  assert.equal(detectLang('https://example.com/news。市場が上昇'), 'ja');
+  assert.equal(detectLang('東京株式市場'), 'en');
+  assert.equal(detectLang('米国株式投資為替経済'), 'en');
+  assert.equal(detectLang('Read more https://example.com/东京市场 now and then'), 'en');
+  assert.equal(detectLang('這是我們的美股財報數據'), 'zh');
 });
