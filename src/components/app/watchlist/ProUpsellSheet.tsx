@@ -24,7 +24,8 @@ import { paywallLegalCopy, useLineEdgeDots } from '@/components/app/ProPaywall';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { FREE_LIMIT, MAX_ITEMS, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, notifyProPurchased } from '@/lib/app/proEntitlement';
-import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
+import { useWatchlistUI, wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
+import { upsellDefersToPaywall } from '@/lib/app/watchlistAlertFlow';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 import { fmtLevel, fmtPrice, type WlLocale } from '@/lib/app/watchlistInsights';
@@ -98,12 +99,13 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   useEffect(() => { if (iapAvailable && !monthly) void refreshOffers(); }, [iapAvailable, monthly, refreshOffers]);
 
   // 구매·복원(또는 다른 경로)으로 PRO 가 되면 이 시트는 할 일을 다 했다
+  //   ★11/11 알림 페이월이 위에 떠 있는 동안은 페이월이 맡는다(lib/app/watchlistAlertFlow). 페이월이 닫히면 다시 본다
+  const deferToPaywall = upsellDefersToPaywall(useWatchlistUI());
   useEffect(() => {
-    const ui = wlUI.getSnapshot();
-    if (!isPro || (ui.paywall && ui.sheet?.kind === 'alertUpsell')) return;
+    if (!isPro || deferToPaywall) return;
     notifyProPurchased(true);
     onBecamePro();
-  }, [isPro, onBecamePro]);
+  }, [isPro, onBecamePro, deferToPaywall]);
 
   const onStart = useCallback(async () => {
     trackWatchlist('wl_cta', { sheet: sheetName, cta: 'pro_start' });

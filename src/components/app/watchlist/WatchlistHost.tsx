@@ -15,7 +15,8 @@ import { useRouter } from 'next/navigation';
 import { usePathname } from '@/i18n/routing';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useWatchlistUI, wlUI } from '@/lib/app/watchlistUI';
-import { finishAlertPaywall } from '@/lib/app/watchlistAlertFlow';
+import { alertSheetIdFor, finishAlertPaywall } from '@/lib/app/watchlistAlertFlow';
+import { notifyProPurchased, useWatchlistPro } from '@/lib/app/proEntitlement';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { getWatchlistStore } from '@/lib/app/watchlist';
@@ -242,13 +243,14 @@ export function WatchlistHost() {
  */
 function HostPaywall({ id, loc, lead, alerts, onBecamePro }: { id: number; loc: 'ko' | 'en' | 'ja'; lead: 'watchlist' | 'alerts' | 'ads'; alerts: boolean; onBecamePro: () => void }) {
   const router = useRouter();
-  const [alertSheetId] = useState(() => {
-    const sheet = wlUI.getSnapshot().sheet;
-    return lead === 'alerts' && sheet?.kind === 'alertUpsell' ? sheet.id : null;
-  });
-  const onSuccess = useCallback(() => {
-    finishAlertPaywall(wlUI.getSnapshot(), id, alertSheetId, wlUI.closePaywall, onBecamePro);
+  // ★11/11 알림 벨 경로 — 열릴 때 아래 시트가 그 종목의 알림 안내면, PRO 확인 시 페이월을 닫고 그 종목 설정으로 넘긴다(lib/app/watchlistAlertFlow)
+  const [alertSheetId] = useState(() => alertSheetIdFor(lead, wlUI.getSnapshot()));
+  const onProConfirmed = useCallback(() => {
+    finishAlertPaywall(wlUI.getSnapshot(), id, alertSheetId, { close: wlUI.closePaywall, notifyPro: () => notifyProPurchased(true), becamePro: onBecamePro });
   }, [id, alertSheetId, onBecamePro]);
+  // 쿠폰(코드 화면 → 앱 복귀)은 공용 PRO 상태로 온다 — 페이월의 RevenueCat 리스너가 늦어도 같은 길로 마무리
+  const sharedPro = useWatchlistPro().isPro;
+  useEffect(() => { if (alertSheetId != null && sharedPro) onProConfirmed(); }, [alertSheetId, sharedPro, onProConfirmed]);
   // 닫힌 뒤 초점이 돌아갈 곳(보통 시트의 «PRO 시작하기») — 첫 렌더에서 잡는다. 아래 useLayer 가 시트를 inert 로 만들며
   //   그 안의 초점을 놓기(blur) 전에. 페이월 본문은 동적 로드라 늦게 마운트돼 그땐 이미 body 였다(E6)
   const [returnFocus] = useState<HTMLElement | null>(() => {
@@ -265,7 +267,7 @@ function HostPaywall({ id, loc, lead, alerts, onBecamePro }: { id: number; loc: 
     wlUI.closeSheet();
     void afterSheetHistory().then(() => router.push(`/${loc}/app-view/${path}`));
   }, [router, loc]);
-  return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} onNavigate={onNavigate} returnFocus={returnFocus} {...(alertSheetId != null ? { subscriptionOnly: true, keepOpenWhilePro: true, onPurchaseOrRestoreSuccess: onSuccess } : {})} />;
+  return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} onNavigate={onNavigate} returnFocus={returnFocus} {...(alertSheetId != null ? { subscriptionOnly: true, onProConfirmed } : {})} />;
 }
 
 function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string }) {

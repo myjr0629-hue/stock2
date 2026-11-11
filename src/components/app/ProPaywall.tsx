@@ -27,7 +27,6 @@ import { useProStatus } from '@/hooks/useProStatus';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import type { PlanId } from '@/config/iap';
 import { annualSavePct, paywallSelection, planFineLine, type PaywallPlan } from '@/lib/app/proPlans';
-import { completeSuccessfulPro } from '@/lib/app/watchlistAlertFlow';
 
 export type { PaywallPlan };
 
@@ -303,7 +302,7 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
 /** ★11/11 체험 만료 뒤 1회 페이월 — 머리·버튼 문구와 «체험 동안 / 무료에서 달라지는 것» 묶음(lib/app/trialExpired). 가격·고지·복원은 그대로 */
 export type PaywallContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
 
-export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onPurchaseOrRestoreSuccess }: {
+export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
@@ -327,8 +326,11 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   keepOpenWhilePro?: boolean;
   /** ★11/11 체험 만료 뒤 1회 페이월(TrialSavePaywall 만 넘긴다) — 혜택 목록 자리에 실제 값 묶음, 머리·버튼 문구만 바뀐다. 다른 호출부는 넘기지 않는다 */
   context?: PaywallContext;
+  /** ★11/11 «내 종목» 알림 벨 경로 전용 — 구독(월·연)만 카드로 그린다(평생 빼기). 다른 호출부는 넘기지 않는다 */
   subscriptionOnly?: boolean;
-  onPurchaseOrRestoreSuccess?: () => void;
+  /** ★11/11 «내 종목» 알림 벨 경로 전용 — PRO 가 확인되면(구매·복원·쿠폰·다른 경로) «닫기 대신» 부른다. 닫기와 다음 화면은 호출부 몫.
+      머리 문구는 바꾸지 않는다(keepOpenWhilePro 와 무관 — 그건 체험 종료 안내 전용). 다른 호출부는 넘기지 않는다(예전처럼 PRO 면 닫힘) */
+  onProConfirmed?: () => void;
 }) {
   const router = useRouter();
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
@@ -368,7 +370,11 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   const shownPrice = monthly?.priceString ?? previewPrice ?? null;
 
   // 이미 구독자면 페이월을 띄울 이유가 없다(복원 직후 포함).
-  useEffect(() => { if (isPro && !keepOpenWhilePro) onClose(); }, [isPro, onClose, keepOpenWhilePro]);
+  //   ★11/11 알림 벨 경로(onProConfirmed)는 닫기 대신 그 콜백 — 호출부가 닫고 그 종목 설정으로 넘긴다(쿠폰·다른 경로 포함)
+  useEffect(() => {
+    if (isPro && !keepOpenWhilePro && onProConfirmed) onProConfirmed();
+    else if (isPro && !keepOpenWhilePro) onClose();
+  }, [isPro, onClose, keepOpenWhilePro, onProConfirmed]);
 
   const handleSubscribe = useCallback(async () => {
     if (busy || purchasePending || !selectedOffer) return;
@@ -377,10 +383,10 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     setNote(null);
     const res = await purchase(selectedOffer.plan, funnelSrc);
     setBusy(false);
-    if (res.ok && res.isPro) { if (onPurchaseOrRestoreSuccess) completeSuccessfulPro(res, onPurchaseOrRestoreSuccess); else if (keepOpenWhilePro) onClose(); return; }
+    if (res.ok && res.isPro) { if (onProConfirmed) onProConfirmed(); else if (keepOpenWhilePro) onClose(); return; } // 평소엔 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
-  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onPurchaseOrRestoreSuccess]);
+  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
@@ -388,10 +394,10 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     setNote(t.restoring);
     const res = await restore(funnelSrc);
     setBusy(false);
-    if (res.ok && res.isPro) { setNote(t.restored); completeSuccessfulPro(res, onPurchaseOrRestoreSuccess); }
+    if (res.ok && res.isPro) { setNote(t.restored); onProConfirmed?.(); }
     else if (res.ok) setNote(t.nothingToRestore);
     else { markSessionError(); setNote(t.failed); }
-  }, [busy, restore, t, funnelSrc, onPurchaseOrRestoreSuccess]);
+  }, [busy, restore, t, funnelSrc, onProConfirmed]);
 
   const go = useCallback((path: 'terms' | 'privacy') => {
     if (onNavigate) { onNavigate(path); return; }
