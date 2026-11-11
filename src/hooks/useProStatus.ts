@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { IAP_LIVE, type PlanId } from '@/config/iap';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
+import { announceProActivated } from '@/lib/app/ratingMoments';
 
 // 퍼널 측정 모듈은 첫 화면 번들에 싣지 않는다(동적 import — 첫 호출 뒤엔 캐시). 실패해도 결제 흐름과 무관.
 const funnel = () => import('@/lib/app/funnel');
@@ -113,7 +114,8 @@ export function useProStatus() {
       const { refreshProAfterRedeem } = await import('@/lib/app/redeem');
       return refreshProAfterRedeem('sheet');
     });
-    if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); }
+    // 결제·체험 시작 성공 = 평점 «좋은 순간»(11/11) — 표식만 남기고, 요청은 페이월이 닫힌 뒤 앱 레이아웃이 한다(복원은 제외)
+    if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); announceProActivated(); }
     void funnel().then((m) => m.trackFunnelOutcome('buy', result, src)).catch(() => {});
     return result;
   }, []);

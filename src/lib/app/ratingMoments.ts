@@ -25,6 +25,11 @@ export function ratingSessionEligible(local: Store, session: Store): boolean {
   catch { return false; }
 }
 
+/** 창 오류 중 사용자가 본 오류가 아닌 것 — 크롬/웹뷰의 «ResizeObserver loop …» 알림(레이아웃 한 프레임 미뤄짐, 동작 영향 없음) */
+export function isBenignWindowError(message: unknown): boolean {
+  return typeof message === 'string' && /^ResizeObserver loop (?:limit exceeded|completed with undelivered notifications)/.test(message);
+}
+
 export function markRatingError(session: Store): void {
   try { session.setItem(RATING_ERROR_KEY, '1'); } catch { /* ignore */ }
 }
@@ -51,4 +56,67 @@ export function countRatingPush(type: string | undefined, local: Store, session:
     local.setItem(RATING_PUSH_COUNT, String(n));
     return n;
   } catch { return 0; }
+}
+
+// ============================================================================
+// ★11/11 세 번째 새 순간 — PRO 결제·체험 시작 «성공» (평점 미국 2·한국 5·일본 0, 대표 11/4 «별점 최우선»)
+//   언제 성공으로 보나(복원은 제외 — 새로 얻은 가치가 아니다):
+//     · useProStatus.purchase 가 ok && isPro (페이월·가치 벽·«내 종목» 시트·쿠폰 안내 시트 — 모든 앱 안 결제 경로가 모인다)
+//     · iOS 코드 입력 시트/URL 에서 돌아와 PRO 확인(redeem.ts onAppActive)
+//     · 안드로이드 Play 스토어 코드 사용 뒤 복귀 동기화로 PRO 확인(foregroundProSync 'synced_pro')
+//   언제 묻나: 성공 표식(localStorage 시각)을 남기고, 페이월·시트가 닫힌 뒤 promptRatingMoment 로 «요청»만 한다.
+//     · 첫 실행(누적 앱 세션 1)에는 묻지 않는다 — 코드로 첫 실행에 체험을 시작한 사람은 «다음 실행» 시작 4초 뒤로 미뤄진다.
+//     · 이번 세션에 오류가 있었으면 묻지 않는다(다음 실행으로 넘어간다).
+//     · 페이월이 떠 있으면(aria-modal — reviewMomentBlocked) 묻지 않는다. 결과 화면이 닫히지 않았으면 다음 실행에서 다시.
+//     · 표식은 14일 동안만 유효하다(오래전 결제를 뒤늦게 묻지 않는다).
+//   공유 제한은 기존 그대로: 하루 1회 · 순간당 실제 요청 2회 상한 · 광고/선물 안내 겹침 검사 · OS 자체 한도(iOS 365일 3회).
+//   OS 평점 API 만(Apple 5.6.1) — 자체 별점 팝업·보상·사전 만족도 분기 없음. 화면에는 아무것도 그리지 않는다.
+// ============================================================================
+export const RATING_MOMENT_PRO = 103;
+export const RATING_PRO_PENDING_KEY = 'signum.rating.proPendingAt';
+export const PRO_ACTIVATED_EVENT = 'sg:pro-activated';
+export const PRO_PENDING_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+/** 결제·체험 직후 결과 화면(페이월 닫힘·스토어 시트 퇴장)이 정리될 시간 */
+export const PRO_MOMENT_DELAY_MS = 4000;
+
+type RemovableStore = Store & Partial<Pick<Storage, 'removeItem'>>;
+
+/** PRO 성공 표식을 남긴다(이미 있으면 처음 시각 유지 — 14일 창이 계속 밀리지 않게). 저장소가 막히면 아무것도 하지 않는다. */
+export function noteProActivated(local: Store, now = Date.now()): boolean {
+  try {
+    const prev = Number(local.getItem(RATING_PRO_PENDING_KEY)) || 0;
+    if (prev > 0 && now - prev < PRO_PENDING_TTL_MS) return false;
+    local.setItem(RATING_PRO_PENDING_KEY, String(now));
+    return true;
+  } catch { return false; }
+}
+
+/**
+ * 지금 PRO 순간으로 요청해도 되는가(예약 시·실행 시 모두 부른다).
+ *   표식 있음(14일 안) · 첫 실행 아님(누적 세션 2+) · 이번 세션 오류 없음 · 페이월 경로 아님.
+ *   (하루 1회·순간 완료·시도 상한·광고/모달 겹침은 promptRatingMoment/attemptReview 가 따로 본다.)
+ */
+export function proMomentEligible(local: RemovableStore, session: Store, now = Date.now(), path = ''): boolean {
+  try {
+    const at = Number(local.getItem(RATING_PRO_PENDING_KEY)) || 0;
+    if (!(at > 0)) return false;
+    if (now - at >= PRO_PENDING_TTL_MS || at > now + 60_000) {
+      try { local.removeItem?.(RATING_PRO_PENDING_KEY); } catch { /* ignore */ }
+      return false;
+    }
+    if (/paywall|\/pro(?:\/|$|\?)/i.test(path)) return false;
+    return Number(local.getItem(APP_SESSION_REVIEW.storageKey)) >= 2 && session.getItem(RATING_ERROR_KEY) !== '1';
+  } catch { return false; }
+}
+
+/**
+ * 결제·체험 성공 지점이 부른다 — 표식을 남기고 앱 레이아웃(ReviewPromptMoments)에 알린다.
+ * 던지지 않는다 — 평점 쪽 사정이 결제 흐름을 깨뜨리면 안 된다. 웹에서도 표식만 남고 요청은 네이티브에서만 간다.
+ */
+export function announceProActivated(): void {
+  try {
+    if (typeof window === 'undefined') return;
+    try { noteProActivated(window.localStorage); } catch { /* storage unavailable */ }
+    window.dispatchEvent(new Event(PRO_ACTIVATED_EVENT));
+  } catch { /* 오래된 웹뷰 */ }
 }

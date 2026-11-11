@@ -182,13 +182,15 @@ if(!baseline) {
   test('4: 구매 훅은 기존 상품·출처 전달 유지, SDK 리스너 PRO도 잠금 해제',async()=>{
     const root=ast('src/hooks/useProStatus.ts');
     const decl=find(root,n=>ts.isVariableDeclaration(n)&&n.name.getText(root)==='purchase');
-    let plan,src,checked=0,pro=false,confirmed=0;
+    let plan,src,checked=0,pro=false,confirmed=0,announced=0;
     const purchase=run(`(${decl.initializer.arguments[0].getText(root)})`,{
       purchasePro:async p=>{plan=p;return {ok:true,isPro:false};},require:id=>{assert.equal(id,'@/lib/app/redeem');return {refreshProAfterRedeem:async path=>{assert.equal(path,'sheet');checked++;return true;}};},
       proPurchaseState:{run:async(buy,check)=>{await buy();return {ok:true,isPro:await check()};},confirm(){confirmed++;}},
       setIsPro:v=>{pro=v;},funnel:async()=>({trackFunnelOutcome:(kind,result,s)=>{src=s;}}),
+      announceProActivated:()=>{announced++;},
     });
     await purchase('monthly','wl_paywall');await flush();assert.equal(plan,'monthly');assert.equal(src,'wl_paywall');assert.equal(checked,1);assert.equal(pro,true);
+    assert.equal(announced,1,'결제 성공은 평점 순간 표식을 남긴다(11/11)');
     const apply=find(root,n=>ts.isVariableDeclaration(n)&&n.name.getText(root)==='apply');
     const listener=run(`(${apply.initializer.getText(root)})`,{cancelled:false,isProFromCustomerInfo:i=>i.pro,
       proPurchaseState:{confirm(){confirmed++;}},setIsPro:v=>{pro=v;}});

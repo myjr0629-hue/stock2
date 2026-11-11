@@ -32,6 +32,7 @@
 import { initRevenueCat, isProFromCustomerInfo } from '@/services/revenueCat';
 import { openExternalUrl } from '@/lib/native/capacitorBridge';
 import { notifyProPurchased, isPreviewHost, previewFlag } from '@/lib/app/proEntitlement';
+import { announceProActivated } from '@/lib/app/ratingMoments';
 import { couponGuide } from '@/lib/app/couponGuide';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
@@ -126,6 +127,7 @@ function onAppActive() {
     .then((pro) => {
       if (!pro) return;
       notifyProPurchased(true);
+      announceProActivated();   // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments)
       void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {});
     })
     .catch(() => {})

@@ -12,7 +12,10 @@
 
 import { useEffect } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
-import { markRatingError } from '@/lib/app/ratingMoments';
+import { promptRatingMoment } from '@/lib/native/capacitorBridge';
+import {
+  isBenignWindowError, markRatingError, proMomentEligible, PRO_ACTIVATED_EVENT, PRO_MOMENT_DELAY_MS, RATING_MOMENT_PRO,
+} from '@/lib/app/ratingMoments';
 import {
   AI_LINE_REVIEW, APP_SESSION_REVIEW, WATCH_ADD_REVIEW, runSessionMoment, subscribeAiLineMoment, subscribeWatchAddMoment,
 } from '@/lib/app/reviewMoments';
@@ -23,7 +26,13 @@ export function ReviewPromptMoments() {
   const askOnAiLine = useReviewPrompt(AI_LINE_REVIEW);
 
   useEffect(() => {
-    const mark = () => { try { markRatingError(sessionStorage); } catch { /* storage unavailable */ } };
+    const mark = (e?: Event) => {
+      try {
+        // 브라우저가 스스로 내는 무해한 «ResizeObserver loop» 경고는 사용자가 본 오류가 아니다 — 세지 않는다(11/11)
+        if (isBenignWindowError((e as ErrorEvent | undefined)?.message)) return;
+        markRatingError(sessionStorage);
+      } catch { /* storage unavailable */ }
+    };
     window.addEventListener('error', mark);
     window.addEventListener('unhandledrejection', mark);
     return () => { window.removeEventListener('error', mark); window.removeEventListener('unhandledrejection', mark); };
@@ -33,6 +42,20 @@ export function ReviewPromptMoments() {
   useEffect(() => {
     runSessionMoment(window, askOnSession);
   }, [askOnSession]);
+
+  // ④ PRO 결제·체험 성공 — 표식이 남아 있으면 «세션 시작»에도(첫 실행에 성공한 사람의 다음 실행) 한 번 시도한다.
+  //   ①의 세션 카운트가 먼저 돌아야 «첫 실행 아님»을 바르게 읽는다 → 이 effect 는 ① 뒤에 둔다(effect 는 선언 순서대로 돈다).
+  //   promptRatingMoment 가 네이티브 판정·하루 1회·순간 완료·시도 상한·광고/모달 겹침을 그대로 본다.
+  useEffect(() => {
+    let cancel: () => void = () => {};
+    const eligible = () => {
+      try { return proMomentEligible(localStorage, sessionStorage, Date.now(), window.location.pathname); } catch { return false; }
+    };
+    const tryAsk = () => { cancel(); cancel = promptRatingMoment(RATING_MOMENT_PRO, PRO_MOMENT_DELAY_MS, eligible); };
+    tryAsk();
+    window.addEventListener(PRO_ACTIVATED_EVENT, tryAsk);
+    return () => { window.removeEventListener(PRO_ACTIVATED_EVENT, tryAsk); cancel(); };
+  }, []);
 
   // ② 담기 성공 이벤트 구독 — 네이티브가 아니면 걸지 않는다
   useEffect(() => subscribeWatchAddMoment(window, askOnWatchAdd), [askOnWatchAdd]);
