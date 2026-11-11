@@ -31,6 +31,23 @@ test('기존 일본어 우선 및 혼합 한자 처리', () => {
   assert.equal(detectLang('한국어 日本語 かな'), 'ja');
   assert.equal(detectLang('한국어 漢字'), 'ko');
 });
+test('언어 판별에서 링크와 소셜 식별자 및 숫자와 기호를 제외', () => {
+  for (const text of [
+    'The market is rising https://example.com/日本',
+    'The market is rising www.example.com/日本',
+    'The market is rising @日本 #株式市場',
+    'The market is rising @かな #한국어',
+    'https://example.com/日本 @한국어 #かな 123 !!!',
+  ]) assert.equal(detectLang(text), 'en');
+  assert.equal(detectLang('今日の市場は上昇しています。 https://example.com/news'), 'ja');
+  assert.equal(detectLang('今天市场上涨，投资者关注股票。 #markets 2026'), 'zh');
+});
+test('한자는 최소 개수와 본문 글자 비율을 충족해야 중국어로 판별', () => {
+  assert.equal(detectLang('日本'), 'en');
+  assert.equal(detectLang('The market is rising 日本市場'), 'en');
+  assert.equal(detectLang('市场上涨'), 'zh');
+  assert.equal(detectLang('市场上涨 1234567890 !!!'), 'zh');
+});
 
 test('JSON 입력의 명시 언어를 게시 요청에 전달하고 기존 langs는 보존', () => {
   const input = parsePostInput('{"text":"The market and the stocks are up", "lang":"de"}');

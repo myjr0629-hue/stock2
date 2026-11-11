@@ -14,12 +14,17 @@ const accents = {
 };
 
 export function detectLang(text) {
+  // 링크와 소셜 식별자는 본문 언어의 근거에서 제외한다.
+  const clean = text.toLowerCase()
+    .replace(/(?:https?:\/\/|www\.)[^\s]+/gu, ' ')
+    .replace(/[@#][\p{L}\p{M}\p{N}_.-]+/gu, ' ')
+    .replace(/[^\p{L}\p{M}\s]/gu, ' ');
   // 기존 일본어 우선순위를 유지한다(일본어에는 한자가 함께 쓰인다).
-  if (/[\u3040-\u30ff\u31f0-\u31ff\uff66-\uff9f]/u.test(text)) return 'ja';
-  if (/\p{Script=Hangul}/u.test(text)) return 'ko';
-  if (/\p{Script=Han}/u.test(text)) return 'zh';
-  // URL은 기능어와 악센트 점수에 포함하지 않는다.
-  const clean = text.toLowerCase().replace(/https?:\/\/\S+/gu, ' ');
+  if (/[\u3040-\u30ff\u31f0-\u31ff\uff66-\uff9f]/u.test(clean)) return 'ja';
+  if (/\p{Script=Hangul}/u.test(clean)) return 'ko';
+  const hanCount = (clean.match(/\p{Script=Han}/gu) || []).length;
+  const letterCount = (clean.match(/\p{L}/gu) || []).length;
+  if (hanCount >= 3 && hanCount / letterCount >= 0.5) return 'zh';
   const tokens = clean.match(/\p{Script=Latin}+/gu) || [];
   const scores = Object.fromEntries(Object.keys(words).map((lang) => [lang, 0]));
   for (const token of tokens) {
