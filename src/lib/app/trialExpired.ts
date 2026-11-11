@@ -85,18 +85,22 @@ export const TRIAL_USAGE_MIN_DAYS = 2;
 
 // ── 체험 «동안»의 실적 채점(관문 11111805 ③) ──────────────────────────────
 //   앱을 연 날의 «이번 주·지난주»는 체험이 끝난 뒤일 수 있다 → 만료일이 든 주의 «바로 앞 주»(월~금 전부 만료 전)만 쓴다.
-//   그 주 월요일이 체험 시작(ET 날짜)과 같거나 앞이면(짧은 체험) 줄을 그리지 않는다(관문 11111813 ① — 시작 전 채점 금지).
+//   기준 종가(월요일 장 전 발표 = 직전 금요일 종가)와 반응 종가(금요일 장후 = 다음 거래일)까지 전부 체험 안일 때만(관문 11111813 ①·11111816).
 //   표본이 작으면(10종목 미만) 줄을 그리지 않는다. 날짜는 그 주 월~금을 그대로 적는다(«이번 주» 같은 상대 말 없음).
 export type TrialExpiredScore = { n: number; within: number; week: string };
 export const TRIAL_EXPIRED_SCORE_MIN_N = 10;
-/** 만료 시각(ET 날짜)이 든 주의 바로 앞 주 월요일(YYYY-MM-DD) */
+/** 체험 동안 «다 끝난» 채점 주의 월요일(YYYY-MM-DD) — 만료일이 든 주의 앞 주. 단 그 주 금요일 장후 발표의 반응 종가는 다음 거래일
+ *  (휴일이면 더 뒤)에 확정되므로, 만료 ET 날짜가 «그 주 월요일 + 9일»(다음 주 수요일)보다 앞이면 한 주 더 앞으로 간다(관문 11111816) */
 export function trialExpiredScoreWeek(expiresAt: number): string {
-  return addDaysYmd(calendarScorecardWeek(etDateOf(expiresAt)), -7);
+  const exp = etDateOf(expiresAt);
+  const week = addDaysYmd(calendarScorecardWeek(exp), -7);
+  return exp < addDaysYmd(week, 9) ? addDaysYmd(week, -7) : week;
 }
 export async function trialExpiredScorecard(read: (week: string) => Promise<unknown>, startedAt: number, expiresAt: number): Promise<TrialExpiredScore | null> {
   try {
     const week = trialExpiredScoreWeek(expiresAt);
-    if (!Number.isFinite(startedAt) || week <= etDateOf(startedAt)) return null;   // 그 주 월요일 당일 시작도 제외(그날 장 전 발표는 체험 전일 수 있다)
+    // 그 주 월요일 장 전 발표의 기준 종가는 직전 거래일(금요일, 휴일이면 더 앞) — 체험이 그 주 앞 «목요일»까지 시작했어야 전부 체험 안(관문 11111816)
+    if (!Number.isFinite(startedAt) || etDateOf(startedAt) > addDaysYmd(week, -4)) return null;
     const s = calendarScorecardSummary(await read(week), week);
     return s && s.n >= TRIAL_EXPIRED_SCORE_MIN_N ? { n: s.n, within: s.withinCount, week } : null;
   } catch { return null; }

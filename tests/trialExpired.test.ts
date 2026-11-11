@@ -150,15 +150,18 @@ test('페이월 내용: 실제 값만 — 없으면 줄·묶음을 뺀다 · 내
 });
 
 test('실적 채점은 «체험 동안»만 — 만료일이 든 주의 바로 앞 주(월~금 전부 만료 전) · 10종목 미만·실패 = 없음(관문 ③)', async () => {
-  // 만료 11/12(목) ET → 그 주 월요일 11/9 → 앞 주 11/2
+  // 만료 11/12(목) ET → 그 주 월요일 11/9 → 앞 주 11/2(그 주 금요일 장후 반응 = 11/9 종가 < 만료)
   assert.equal(trialExpiredScoreWeek(expiresAt), '2026-11-02');
-  // 만료가 월요일 새벽(ET 일요일 밤)이어도 ET 날짜 기준
-  assert.equal(trialExpiredScoreWeek(Date.parse('2026-11-16T03:00:00Z')), '2026-11-02', 'ET 11/15(일) 22시 → 그 주 11/9 → 앞 주 11/2');
-  assert.equal(trialExpiredScoreWeek(Date.parse('2026-11-16T15:00:00Z')), '2026-11-09', 'ET 11/16(월) → 앞 주 11/9');
-  // 앞 주 금요일은 늘 만료보다 앞이다
+  // 만료가 앞 주 반응 종가 확정 전후(월·화)면 한 주 더 앞 — ET 날짜 기준
+  assert.equal(trialExpiredScoreWeek(Date.parse('2026-11-16T03:00:00Z')), '2026-11-02', 'ET 11/15(일) → 11/2');
+  assert.equal(trialExpiredScoreWeek(Date.parse('2026-11-16T15:00:00Z')), '2026-11-02', 'ET 11/16(월) → 11/9 주 금요일 장후 반응(11/16 종가) 전 → 11/2');
+  assert.equal(trialExpiredScoreWeek(Date.parse('2026-11-17T15:00:00Z')), '2026-11-02', 'ET 11/17(화) — 월요일 휴일 대비 여유 → 11/2');
+  assert.equal(trialExpiredScoreWeek(Date.parse('2026-11-18T15:00:00Z')), '2026-11-09', 'ET 11/18(수) → 11/9');
+  // 어떤 만료 시각이든: 고른 주 월요일 + 9일 ≤ 만료 ET 날짜(반응 종가까지 만료 전)
   for (let t = Date.parse('2026-11-01T00:00:00Z'); t < Date.parse('2026-12-01T00:00:00Z'); t += 7 * H) {
     const w = trialExpiredScoreWeek(t);
-    assert.ok(Date.parse(`${w}T00:00:00-05:00`) + 5 * D <= t, `${new Date(t).toISOString()} → ${w}`);
+    const exp = new Date(t - 5 * H).toISOString().slice(0, 10);
+    assert.ok(new Date(`${w}T00:00:00Z`).getTime() + 9 * D <= new Date(`${exp}T00:00:00Z`).getTime(), `${new Date(t).toISOString()} → ${w}`);
   }
   const asked: string[] = [];
   const ok = await trialExpiredScorecard(async (w) => { asked.push(w); return { week: w, summary: { n: 27, withinCount: 18 } }; }, start, expiresAt);
@@ -167,12 +170,11 @@ test('실적 채점은 «체험 동안»만 — 만료일이 든 주의 바로 �
   assert.equal(await trialExpiredScorecard(async (w) => ({ week: w, summary: { n: 9, withinCount: 5 } }), start, expiresAt), null, '작은 표본');
   assert.equal(await trialExpiredScorecard(async () => ({ week: '2026-11-09', summary: { n: 30, withinCount: 20 } }), start, expiresAt), null, '다른 주 응답');
   assert.equal(await trialExpiredScorecard(async () => { throw new Error('x'); }, start, expiresAt), null);
-  // 짧은 체험(11/5 시작 → 11/12 만료): 앞 주 11/2 는 시작 전 → 줄 없음(관문 ①)
+  // 짧은 체험(11/12 만료 → 채점 주 11/2): 기준 종가(11/2 장 전 발표 = 10/30 금요일 종가)까지 체험 안이려면 10/29(목)까지 시작
   const read = async (w: string) => ({ week: w, summary: { n: 27, withinCount: 18 } });
-  assert.equal(await trialExpiredScorecard(read, Date.parse('2026-11-05T15:00:00Z'), expiresAt), null);
-  assert.equal(await trialExpiredScorecard(read, Date.parse('2026-11-02T15:00:00Z'), expiresAt), null, '그 주 월요일 당일 시작 → 그날 장 전 발표는 체험 전일 수 있어 제외');
-  assert.ok(await trialExpiredScorecard(read, Date.parse('2026-11-01T15:00:00Z'), expiresAt), '전 주 일요일 시작 → 앞 주 전부 체험 안');
-  assert.equal(await trialExpiredScorecard(read, Date.parse('2026-11-03T15:00:00Z'), expiresAt), null, '화요일 시작 → 그 주 월요일은 체험 전');
+  for (const [iso, ok] of [['2026-11-05T15:00:00Z', false], ['2026-11-02T15:00:00Z', false], ['2026-11-01T15:00:00Z', false], ['2026-10-30T15:00:00Z', false], ['2026-10-29T15:00:00Z', true], ['2026-10-13T01:00:00Z', true]] as const) {
+    assert.equal(!!(await trialExpiredScorecard(read, Date.parse(iso), expiresAt)), ok, iso);
+  }
 });
 
 test('문구: 3개 언어 모두 가격·긴급함·과장·투자 권유 낱말 없음(가격·자동 갱신 고지는 페이월이 스토어 문자열로)', () => {
