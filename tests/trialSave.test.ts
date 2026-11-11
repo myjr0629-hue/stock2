@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { trialRenewalOffNotice, verifiedTrialRenewalOffNotice, localDayKey, TRIAL_OFF_WINDOW_MS } from '../src/lib/app/trialRenewalOff';
 import { trialScorecard, trialWatchlistLine, trialSaveCopy, trialEndDateText, trialPushState, trialPushFingerprint, TRIAL_SCORECARD_MIN_N } from '../src/lib/app/trialSave';
 import {
-  sanitizeTrialReport, trialPushWanted, trialPushDecision, trialPushContent, localHourIn, TRIAL_PUSH_MAX_MS, TRIAL_PUSH_MIN_MS,
-  TRIAL_PUSH_RECENT_OPEN_MS, TRIAL_PUSH_DATA, type TrialPushRecord,
+  sanitizeTrialReport, trialPushWanted, trialPushDecision, trialPushContent, localHourIn, validPushToken, TRIAL_PUSH_MAX_MS, TRIAL_PUSH_MIN_MS,
+  TRIAL_PUSH_RECENT_OPEN_MS, TRIAL_PUSH_DATA, TRIAL_PUSH_SENT_KEY, TRIAL_PUSH_SENT_TTL_S, type TrialPushRecord,
 } from '../src/lib/push/trialPush';
 import { isFunnelSrc, isFunnelStage } from '../src/lib/app/funnelSchema';
 
@@ -95,20 +95,21 @@ assert.notEqual(trialPushFingerprint(st, 'tok', '2026-11-11'), trialPushFingerpr
 // ── 4. 서버: 보고 검사 · 대상 · 발송 판정 ──
 const tok = 'f'.repeat(64);
 const body = { token: tok, platform: 'ios', locale: 'ko', expiresAt: now + 40 * H, willRenew: false, periodType: 'TRIAL', store: 'APP_STORE' };
-const rec = sanitizeTrialReport(body, null, now)!;
+const rec = sanitizeTrialReport(body, now)!;
 assert.ok(rec && trialPushWanted(rec));
 assert.equal(rec.at, now);
 for (const bad of [{ token: '' }, { token: 'a b' }, { token: 'x'.repeat(600) }, { platform: 'web' }, { expiresAt: now - 1 }, { expiresAt: now + 41 * D },
   { expiresAt: '1' }, { willRenew: 'no' }, { periodType: 'WHATEVER' }]) {
-  assert.equal(sanitizeTrialReport({ ...body, ...bad }, null, now), null, JSON.stringify(bad));
+  assert.equal(sanitizeTrialReport({ ...body, ...bad }, now), null, JSON.stringify(bad));
 }
-assert.equal(sanitizeTrialReport(null, null, now), null);
-assert.equal(sanitizeTrialReport({ ...body, locale: 'fr' }, null, now)!.locale, 'en');
-assert.equal(sanitizeTrialReport(body, { sentFor: body.expiresAt }, now)!.sentFor, body.expiresAt, '같은 체험의 «보냄» 표식은 지킨다');
-assert.equal(sanitizeTrialReport(body, { sentFor: body.expiresAt - D }, now)!.sentFor, undefined, '새 체험이면 표식 없음');
-assert.equal(trialPushWanted(sanitizeTrialReport({ ...body, willRenew: true }, null, now)!), false, '갱신 켬 → 대상 아님');
-assert.equal(trialPushWanted(sanitizeTrialReport({ ...body, periodType: 'NORMAL' }, null, now)!), false, '유료 → 대상 아님');
-assert.equal(trialPushWanted({ ...rec, sentFor: rec.expiresAt }), false, '이미 보냄 → 대상 아님');
+assert.equal(sanitizeTrialReport(null, now), null);
+assert.equal(sanitizeTrialReport({ ...body, locale: 'fr' }, now)!.locale, 'en');
+assert.ok(validPushToken(tok)); assert.ok(validPushToken('dAbc:APA91b_x-y.z')); assert.equal(validPushToken('a b'), false); assert.equal(validPushToken(''), false);
+// «보냄» 표식은 토큰당 25일(만료일을 바꿔 보고해도 다시 안 간다 — 남용 차단 · 1개월 체험은 25일 안에 두 번 없다)
+assert.equal(TRIAL_PUSH_SENT_KEY(tok), `push:trial:sent:${tok}`);
+assert.ok(TRIAL_PUSH_SENT_TTL_S >= 20 * 86400 && TRIAL_PUSH_SENT_TTL_S < 30 * 86400);
+assert.equal(trialPushWanted(sanitizeTrialReport({ ...body, willRenew: true }, now)!), false, '갱신 켬 → 대상 아님');
+assert.equal(trialPushWanted(sanitizeTrialReport({ ...body, periodType: 'NORMAL' }, now)!), false, '유료 → 대상 아님');
 
 // 발송 판정 — 서울 오후 3시(06:00Z) 기준
 const t = Date.parse('2026-11-11T06:00:00Z');
@@ -120,7 +121,7 @@ assert.equal(trialPushDecision(R({ expiresAt: t + TRIAL_PUSH_MAX_MS + 1 }), tr, 
 assert.equal(trialPushDecision(R({ expiresAt: t + TRIAL_PUSH_MIN_MS }), tr, t), 'window', '12시간 이하 → 안 보낸다');
 assert.equal(trialPushDecision(R({ willRenew: true }), tr, t), 'renewing');
 assert.equal(trialPushDecision(R({ periodType: 'NORMAL' }), tr, t), 'renewing', '유료 → 안 보낸다');
-assert.equal(trialPushDecision(R({ sentFor: t + 40 * H }), tr, t), 'sent', '체험당 한 번');
+assert.equal(trialPushDecision(R(), tr, t, true), 'sent', '토큰당 한 번(보냄 표식이 있으면)');
 assert.equal(trialPushDecision(R(), null, t), 'unregistered');
 assert.equal(trialPushDecision(R(), { ...tr, app: 'wim' }, t), 'unregistered');
 assert.equal(trialPushDecision(R(), { ...tr, preferences: { enabled: false } }, t), 'muted', '알림 전체 끔 → 안 보낸다');
@@ -152,5 +153,20 @@ assert.deepEqual(users.sort(), ['src/components/app/ProPaywall.tsx', 'src/compon
 const paywall = readFileSync('src/components/app/ProPaywall.tsx', 'utf8');
 assert.match(paywall, /if \(isPro && !keepOpenWhilePro\) onClose\(\)/);
 assert.match(paywall, /keepOpenWhilePro = false/);
+
+// 관문 11110911 대응 — 소스 수준 확인
+const cron = readFileSync('src/app/api/cron/trial-push/route.ts', 'utf8');
+assert.match(cron, /TRIAL_PUSH_SENT_KEY\(token\), String\(rec\.expiresAt\), \{ nx: true, ex: TRIAL_PUSH_SENT_TTL_S \}/, '보내기 전에 자리(SET NX)를 잡는다');
+assert.doesNotMatch(cron, /redis\.set\(TRIAL_PUSH_KEY/, '크론은 체험 기록을 덮어쓰지 않는다(앱의 갱신 켬 보고를 지우지 않게)');
+assert.match(cron, /const fresh = parseRecord<TrialPushRecord>\(await redis\.get\(TRIAL_PUSH_KEY\(token\)\)\)/, '보내기 직전 재확인');
+assert.match(cron, /TRIAL_PUSH_MAX_PER_RUN/);
+const reportRoute = readFileSync('src/app/api/push/trial/route.ts', 'utf8');
+assert.match(reportRoute, /body\.clear === true/, '유료·평생 전환 → 해제');
+assert.match(reportRoute, /stored: false, skipped: 'unknown-token' \}, 202/, '토큰 등록 전 보고는 stored:false');
+assert.match(reportRoute, /nx: true, ex: 5/, '토큰당 호출 제한');
+const reporter = readFileSync('src/lib/app/trialPushReport.ts', 'utf8');
+assert.match(reporter, /j\?\.stored === true/, '서버가 저장했을 때만 «보냈음» 기록');
+assert.match(reporter, /clear: true/);
+assert.match(readFileSync('src/lib/app/proEntitlement.ts', 'utf8'), /addCustomerInfoUpdateListener\(\(info\) => \{ applyReal\(isProFromCustomerInfo\(info\)\); reportTrial\(info\); \}\)/, '구매·복원 직후 보고');
 
 values().then(() => console.log('trialSave: visibility, value lines, push report/decision and scope passed'));

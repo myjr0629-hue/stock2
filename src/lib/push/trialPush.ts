@@ -10,6 +10,14 @@
 import { trialEndDateText, toTrialSaveLocale } from '@/lib/app/trialSave';
 
 export const TRIAL_PUSH_KEY = (token: string) => `push:trial:${token}`;
+/** «보냄» 표식 = 발송 «전에» SET NX 로 잡는 자리(동시 실행·저장 실패·함수 종료에도 두 번 가지 않는다). 기기(토큰)당 25일에 한 통 —
+ *  1개월 체험은 한 기기에 25일 안에 두 번 생기지 않는다. 보고 API 로 만료일을 바꿔도 다시 보내지 않는다(남용 차단). */
+export const TRIAL_PUSH_SENT_KEY = (token: string) => `push:trial:sent:${token}`;
+export const TRIAL_PUSH_SENT_TTL_S = 25 * 86400;
+/** 보고 API 호출 제한 — 토큰당 5초에 한 번 */
+export const TRIAL_PUSH_RL_KEY = (token: string) => `push:trial:rl:${token}`;
+/** 한 회차 최대 발송 수(공급사 호출 상한) */
+export const TRIAL_PUSH_MAX_PER_RUN = 500;
 export const TRIAL_PUSH_DUE_ZSET = 'push:trial:due';
 export const TRIAL_PUSH_MAX_MS = 48 * 3600_000;
 export const TRIAL_PUSH_MIN_MS = 12 * 3600_000;
@@ -29,16 +37,14 @@ export interface TrialPushRecord {
   store: string;
   /** 마지막 보고(=앱을 연) 시각 */
   at: number;
-  /** 이 만료 시각(체험)에 대해 이미 보냈다 */
-  sentFor?: number;
 }
 
-/** 등록 요청 본문 → 저장할 레코드(이전 레코드의 «보냄» 표식은 같은 체험이면 지킨다). 잘못된 값이면 null */
-export function sanitizeTrialReport(body: unknown, prev: Partial<TrialPushRecord> | null, now: number): TrialPushRecord | null {
+/** 등록 요청 본문 → 저장할 레코드. 잘못된 값이면 null. («체험 끝남·유료 전환» 해제 요청 {clear:true} 은 라우트가 따로 처리) */
+export function sanitizeTrialReport(body: unknown, now: number): TrialPushRecord | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
   const token = typeof b.token === 'string' ? b.token.trim() : '';
-  if (!token || token.length > 512 || !/^[A-Za-z0-9:_\-.]+$/.test(token)) return null;
+  if (!validPushToken(token)) return null;
   if (b.platform !== 'ios' && b.platform !== 'android') return null;
   const expiresAt = typeof b.expiresAt === 'number' ? b.expiresAt : NaN;
   if (!Number.isFinite(expiresAt) || expiresAt <= now || expiresAt > now + TRIAL_PUSH_REPORT_HORIZON_MS) return null;
@@ -50,13 +56,17 @@ export function sanitizeTrialReport(body: unknown, prev: Partial<TrialPushRecord
     token, platform: b.platform, locale: toTrialSaveLocale(typeof b.locale === 'string' ? b.locale : 'en'),
     expiresAt, willRenew: b.willRenew, periodType, store, at: now,
   };
-  if (prev && typeof prev.sentFor === 'number' && prev.sentFor === expiresAt) rec.sentFor = prev.sentFor;
   return rec;
 }
 
 /** 이 레코드가 «보낼 대상 목록»(만료 시각 정렬)에 있어야 하나 */
 export function trialPushWanted(rec: TrialPushRecord): boolean {
-  return rec.periodType === 'TRIAL' && rec.willRenew === false && rec.sentFor !== rec.expiresAt;
+  return rec.periodType === 'TRIAL' && rec.willRenew === false;
+}
+
+/** 토큰 문자열 검사(보고·해제 공통) */
+export function validPushToken(x: unknown): x is string {
+  return typeof x === 'string' && x.length > 0 && x.length <= 512 && /^[A-Za-z0-9:_\-.]+$/.test(x);
 }
 
 /** 시간대의 현지 시(0~23). 잘못된 시간대면 null */
@@ -80,10 +90,11 @@ export function trialPushDecision(
   rec: TrialPushRecord | null,
   tokenRec: { app?: string; preferences?: { enabled?: boolean } | null; notifPerm?: boolean; tz?: string } | null,
   now: number,
+  alreadySent = false,
 ): 'send' | TrialPushSkip {
   if (!rec || typeof rec.expiresAt !== 'number') return 'invalid';
   if (rec.periodType !== 'TRIAL' || rec.willRenew !== false) return 'renewing';
-  if (rec.sentFor === rec.expiresAt) return 'sent';
+  if (alreadySent) return 'sent';
   const left = rec.expiresAt - now;
   if (!(left > TRIAL_PUSH_MIN_MS && left <= TRIAL_PUSH_MAX_MS)) return 'window';
   if (!tokenRec || (tokenRec.app && tokenRec.app !== 'signum')) return 'unregistered';

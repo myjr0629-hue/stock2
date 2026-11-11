@@ -65,6 +65,14 @@ function applyReal(isPro: boolean) {
   set({ isPro: realPro || preview, ready: true, preview });
 }
 
+/** ★11/11 체험 종료 D-2 푸시용 상태 보고 — 리스너(구매·복원·SDK 갱신 = 새 값)에서만. 첫 읽기는 캐시일 수 있어 체험 종료 안내의
+ *  «새로 읽기»(invalidate 뒤)가 보고한다. «체험 → 유료·평생» 변화를 바로 서버에 알린다. PRO 판정에는 영향 없음 */
+function reportTrial(info: unknown) {
+  void import('@capacitor/core')
+    .then(({ Capacitor }) => import('@/lib/app/trialPushReport').then((m) => m.reportTrialPush({ customerInfo: info as never, platform: Capacitor.getPlatform() })))
+    .catch(() => {});
+}
+
 function start() {
   if (started || typeof window === 'undefined') return;
   started = true;
@@ -82,7 +90,7 @@ function start() {
       applyReal(false);
     }
     try {
-      await Purchases.addCustomerInfoUpdateListener((info) => applyReal(isProFromCustomerInfo(info)));
+      await Purchases.addCustomerInfoUpdateListener((info) => { applyReal(isProFromCustomerInfo(info)); reportTrial(info); });
     } catch { /* 리스너를 못 걸어도 현재 값은 유지된다 */ }
   })().catch(() => applyReal(false));
 }
