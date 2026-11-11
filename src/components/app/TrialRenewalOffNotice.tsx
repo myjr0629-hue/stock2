@@ -7,7 +7,7 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { TRIAL_OFF_EARLY_KEY, TRIAL_OFF_STORAGE_KEY, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffKind, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
-import { TRIAL_EXPIRED_STORAGE_KEY, trialExpiredContext, trialExpiredNotice, trialUsageDays, verifiedTrialExpiredNotice, type TrialExpiredNotice } from '@/lib/app/trialExpired';
+import { TRIAL_EXPIRED_STORAGE_KEY, trialExpiredContext, trialExpiredNotice, trialExpiredScorecard, trialUsageDays, verifiedTrialExpiredNotice, type TrialExpiredNotice, type TrialExpiredScore } from '@/lib/app/trialExpired';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
 import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
 import { canPresentCancelReason, canShowCancelReason } from '@/lib/app/cancelReason';
@@ -204,33 +204,46 @@ function useTrialScorecard(preview: boolean) {
   return score;
 }
 
-/** ★11/11 체험 만료 뒤 1회 페이월 — 실제 값(사용일·내 종목·운영 실적 채점)을 모은 뒤 기존 ProPaywall(연간 기본·구매 복원)을 연다.
- *  채점은 최대 1.5초만 기다린다(못 읽으면 그 줄 없이). 보인 순간 «이 체험 기간엔 봤음»을 남긴다 */
+/** ★11/11 체험 만료 뒤 1회 페이월 — 실제 값(체험 기간 안의 사용일·체험 마지막 앞 주 운영 실적 채점·지금 담긴 내 종목 수)을 모은 뒤
+ *  기존 ProPaywall(연간 기본·구매 복원)을 연다. 채점은 최대 1.5초만 기다린다(못 읽으면 그 줄 없이).
+ *  «봤음» 표식은 페이월이 실제로 화면에 그려지고(동적 로드 끝) 앱이 앞에 있을 때만 남긴다(관문 11111805 ① — 뒤로 간 사이 소진 금지) */
 function TrialExpiredPaywall({ notice, locale, onClose }: { notice: TrialExpiredNotice & { preview: boolean }; locale: string; onClose: () => void }) {
-  const [score, setScore] = useState<TrialScorecard | null | undefined>(undefined);
+  const [score, setScore] = useState<TrialExpiredScore | null | undefined>(undefined);
   const [watchCount] = useState(readWatchCount);
   const [usageDays] = useState(() => notice.preview ? Number(new URLSearchParams(location.search).get('trialDays') ?? 0) : trialUsageDays(readUsageRaw(), notice.startedAt, notice.expiresAt));
   const marked = useRef(false);
   useEffect(() => {
     if (notice.preview) {
       const q = new URLSearchParams(location.search).get('trialScore')?.split(',');
-      setScore(q && q.length >= 2 ? { n: Number(q[0]), within: Number(q[1]), previous: q[2] === 'prev' } : null);
+      setScore(q && q.length >= 3 ? { n: Number(q[0]), within: Number(q[1]), week: q[2] } : null);
       return;
     }
     const ctrl = new AbortController();
     const timer = window.setTimeout(() => setScore((v) => (v === undefined ? null : v)), 1500);
-    void trialScorecard(async (w) => {
+    void trialExpiredScorecard(async (w) => {
       const r = await fetch(`/api/earnings/scorecard?week=${w}`, { signal: ctrl.signal });
       if (!r.ok) throw new Error('scorecard unavailable');
       return r.json();
-    }, calendarScorecardWeek(etDateOf(Date.now()))).then((v) => { if (!ctrl.signal.aborted) setScore((cur) => (cur === undefined ? v : cur)); });
+    }, notice.expiresAt).then((v) => { if (!ctrl.signal.aborted) setScore((cur) => (cur === undefined ? v : cur)); });
     return () => { ctrl.abort(); window.clearTimeout(timer); };
-  }, [notice.preview]);
+  }, [notice.preview, notice.expiresAt]);
   const ready = score !== undefined;
   useEffect(() => {
-    if (!ready || marked.current) return;
-    marked.current = true;
-    if (!notice.preview) saveExpired(notice.mark);
+    if (!ready || marked.current || notice.preview) return;
+    const shown = () => document.visibilityState === 'visible' && !!document.querySelector('[data-pro-paywall][data-paywall-src="trial_expired"]');
+    let observer: MutationObserver | undefined;
+    const done = () => { observer?.disconnect(); document.removeEventListener('visibilitychange', check); };
+    function check() {
+      if (marked.current || !shown()) return;
+      marked.current = true;
+      saveExpired(notice.mark);
+      done();
+    }
+    observer = new MutationObserver(check);
+    observer.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('visibilitychange', check);
+    check();
+    return done;
   }, [ready, notice]);
   if (!ready) return null;
   const context = trialExpiredContext(locale, { expiresAt: notice.expiresAt, usageDays, watchCount, score: score ?? null });

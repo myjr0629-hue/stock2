@@ -18,8 +18,10 @@ import type { TrialStore } from '@/lib/app/trialConsent';
 import { localDayKey } from '@/lib/app/trialRenewalOff';
 import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 import { toTrialSaveLocale, trialEndDateText } from '@/lib/app/trialSaveDate';
-import type { TrialScorecard } from '@/lib/app/trialSave';
 import { FREE_ROWS } from '@/lib/guruLens/access';
+import { calendarScorecardSummary, calendarScorecardWeek } from '@/lib/earnings/calendarScorecardDisplay';
+import { addDaysYmd } from '@/lib/earningsWeek';
+import { etDateOf } from '@/lib/marketCalendar';
 
 export const TRIAL_EXPIRED_STORAGE_KEY = 'signumhq.trialExpired.v1';
 /** 만료 뒤 이 기간 안에 앱을 연 사람만(그 뒤엔 «막 만료»가 아니다) */
@@ -80,16 +82,35 @@ export function trialUsageDays(raw: string | null | undefined, startedAt: number
 /** 사용일 줄은 이틀 이상일 때만(하루는 «쓴 것»이라 말하기 어렵다) */
 export const TRIAL_USAGE_MIN_DAYS = 2;
 
+// ── 체험 «동안»의 실적 채점(관문 11111805 ③) ──────────────────────────────
+//   앱을 연 날의 «이번 주·지난주»는 체험이 끝난 뒤일 수 있다 → 만료일이 든 주의 «바로 앞 주»(월~금 전부 만료 전)만 쓴다.
+//   표본이 작으면(10종목 미만) 줄을 그리지 않는다. 날짜는 그 주 월~금을 그대로 적는다(«이번 주» 같은 상대 말 없음).
+export type TrialExpiredScore = { n: number; within: number; week: string };
+export const TRIAL_EXPIRED_SCORE_MIN_N = 10;
+/** 만료 시각(ET 날짜)이 든 주의 바로 앞 주 월요일(YYYY-MM-DD) */
+export function trialExpiredScoreWeek(expiresAt: number): string {
+  return addDaysYmd(calendarScorecardWeek(etDateOf(expiresAt)), -7);
+}
+export async function trialExpiredScorecard(read: (week: string) => Promise<unknown>, expiresAt: number): Promise<TrialExpiredScore | null> {
+  try {
+    const week = trialExpiredScoreWeek(expiresAt);
+    const s = calendarScorecardSummary(await read(week), week);
+    return s && s.n >= TRIAL_EXPIRED_SCORE_MIN_N ? { n: s.n, within: s.withinCount, week } : null;
+  } catch { return null; }
+}
+const ymd = (w: string, add: number) => { const d = addDaysYmd(w, add); return { m: Number(d.slice(5, 7)), d: Number(d.slice(8, 10)) }; };
+const EN_MON = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 const COPY = {
   ko: {
     title: (d: string) => `PRO 무료 체험이 ${d}에 끝났어요`,
     lede: '지금은 무료 플랜이에요. 요금제를 고르면 체험 때처럼 다시 씁니다.',
     used: '체험 동안',
     days: (n: number) => `${n}일 동안 SIGNUM을 열었어요`,
-    watch: (n: number) => `내 종목 ${n}개를 담았어요`,
-    scorecard: (c: TrialScorecard) => `${c.previous ? '지난주' : '이번 주'} 실적 채점: ${c.n}종목 중 ${c.within}종목이 발표 전 예상 변동폭 안`,
+    scorecard: (c: TrialExpiredScore) => { const a = ymd(c.week, 0), b = ymd(c.week, 4); return `${a.m}/${a.d}~${b.m}/${b.d} 실적 채점: ${c.n}종목 중 ${c.within}종목이 발표 전 예상 변동폭 안`; },
     lost: '무료 플랜에서 달라지는 것',
     watchMany: (n: number) => `담아 둔 내 종목 ${n}개 — 무료는 ${FREE_LIMIT}개까지라 더 담을 수 없어요`,
+    watchFew: (n: number) => `담아 둔 내 종목 ${n}개 · 무료는 ${FREE_LIMIT}개까지 (PRO ${MAX_ITEMS}개)`,
     watchLimit: `내 종목은 ${FREE_LIMIT}개까지 (PRO ${MAX_ITEMS}개)`,
     data: 'AI 분석·기관 보유는 광고를 본 뒤 1시간씩 열려요',
     lens: `대가 렌즈 순위는 ${FREE_ROWS}위까지 (PRO ${PRO_LENS_ROWS}위)`,
@@ -101,10 +122,10 @@ const COPY = {
     lede: 'You’re on the free plan now. Pick a plan to use PRO the way you did in your trial.',
     used: 'During your trial',
     days: (n: number) => `You opened SIGNUM on ${n} days`,
-    watch: (n: number) => `You added ${n} ${n === 1 ? 'stock' : 'stocks'} to your watchlist`,
-    scorecard: (c: TrialScorecard) => `${c.previous ? 'Last week' : 'This week'}’s earnings scorecard: ${c.within} of ${c.n} stocks moved within the expected range`,
+    scorecard: (c: TrialExpiredScore) => { const a = ymd(c.week, 0), b = ymd(c.week, 4); return `Earnings scorecard, ${EN_MON[a.m]} ${a.d}–${a.m === b.m ? '' : `${EN_MON[b.m]} `}${b.d}: ${c.within} of ${c.n} stocks moved within the expected range`; },
     lost: 'What changes on the free plan',
     watchMany: (n: number) => `${n} stocks in your watchlist — the free plan holds ${FREE_LIMIT}, so you can’t add more`,
+    watchFew: (n: number) => `${n} ${n === 1 ? 'stock' : 'stocks'} in your watchlist · free holds ${FREE_LIMIT} (${MAX_ITEMS} with PRO)`,
     watchLimit: `Watchlist holds ${FREE_LIMIT} stocks (${MAX_ITEMS} with PRO)`,
     data: 'AI analysis and institutional holdings open for 1 hour after an ad',
     lens: `Investor Lenses: top ${FREE_ROWS} only (PRO: top ${PRO_LENS_ROWS})`,
@@ -116,10 +137,10 @@ const COPY = {
     lede: '現在は無料プランです。プランを選ぶと、体験中と同じように使えます。',
     used: '体験中に',
     days: (n: number) => `${n}日間SIGNUMを開きました`,
-    watch: (n: number) => `マイ銘柄を${n}銘柄登録しました`,
-    scorecard: (c: TrialScorecard) => `${c.previous ? '先週' : '今週'}の決算採点：${c.n}銘柄中${c.within}銘柄が発表前の想定変動幅内`,
+    scorecard: (c: TrialExpiredScore) => { const a = ymd(c.week, 0), b = ymd(c.week, 4); return `${a.m}/${a.d}〜${b.m}/${b.d}の決算採点：${c.n}銘柄中${c.within}銘柄が発表前の想定変動幅内`; },
     lost: '無料プランで変わること',
     watchMany: (n: number) => `登録中のマイ銘柄${n}銘柄 — 無料は${FREE_LIMIT}銘柄までのため追加できません`,
+    watchFew: (n: number) => `登録中のマイ銘柄${n}銘柄 · 無料は${FREE_LIMIT}銘柄まで（PROは${MAX_ITEMS}銘柄）`,
     watchLimit: `マイ銘柄は${FREE_LIMIT}銘柄まで（PROは${MAX_ITEMS}銘柄）`,
     data: 'AI分析・機関保有は広告視聴後に1時間ずつ開きます',
     lens: `投資家レンズは${FREE_ROWS}位まで（PROは${PRO_LENS_ROWS}位）`,
@@ -132,13 +153,15 @@ export function trialExpiredCopy(locale: string) { return COPY[toTrialSaveLocale
 
 /** 페이월 머리·두 묶음(실제 값만 — 없는 값의 줄은 빠진다). 화면(ProPaywall context)과 시험이 같은 결과를 쓴다 */
 export type TrialExpiredContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
-export function trialExpiredContext(locale: string, v: { expiresAt: number; usageDays: number; watchCount: number; score: TrialScorecard | null }): TrialExpiredContext {
+//   내 종목 수는 «체험 동안» 묶음에 넣지 않는다(체험 전에 담은 종목일 수 있다 — 관문 11111805 ②). 지금 담겨 있는 수로 «달라지는 것»에만.
+export function trialExpiredContext(locale: string, v: { expiresAt: number; usageDays: number; watchCount: number; score: TrialExpiredScore | null }): TrialExpiredContext {
   const c = trialExpiredCopy(locale);
   const used: string[] = [];
   if (Number.isInteger(v.usageDays) && v.usageDays >= TRIAL_USAGE_MIN_DAYS) used.push(c.days(v.usageDays));
-  if (Number.isInteger(v.watchCount) && v.watchCount > 0) used.push(c.watch(v.watchCount));
-  if (v.score && Number.isInteger(v.score.n) && v.score.n > 0 && Number.isInteger(v.score.within) && v.score.within >= 0 && v.score.within <= v.score.n) used.push(c.scorecard(v.score));
-  const lost = [Number.isInteger(v.watchCount) && v.watchCount > FREE_LIMIT ? c.watchMany(v.watchCount) : c.watchLimit, c.data, c.lens, c.ads];
+  const sc = v.score;
+  if (sc && /^\d{4}-\d{2}-\d{2}$/.test(sc.week) && Number.isInteger(sc.n) && sc.n >= TRIAL_EXPIRED_SCORE_MIN_N && Number.isInteger(sc.within) && sc.within >= 0 && sc.within <= sc.n) used.push(c.scorecard(sc));
+  const wc = Number.isInteger(v.watchCount) ? v.watchCount : 0;
+  const lost = [wc > FREE_LIMIT ? c.watchMany(wc) : wc > 0 ? c.watchFew(wc) : c.watchLimit, c.data, c.lens, c.ads];
   return {
     title: c.title(trialEndDateText(v.expiresAt, locale).replace(/ /g, ' ')),
     lede: c.lede,

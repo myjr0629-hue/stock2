@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
-import { TRIAL_EXPIRED_RECENT_MS, TRIAL_EXPIRED_STORAGE_KEY, trialExpiredContext, trialExpiredCopy, trialExpiredNotice, trialUsageDays, verifiedTrialExpiredNotice } from '../src/lib/app/trialExpired';
+import { TRIAL_EXPIRED_RECENT_MS, TRIAL_EXPIRED_STORAGE_KEY, trialExpiredContext, trialExpiredCopy, trialExpiredNotice, trialExpiredScorecard, trialExpiredScoreWeek, trialUsageDays, verifiedTrialExpiredNotice } from '../src/lib/app/trialExpired';
 import { TRIAL_OFF_EARLY_KEY, TRIAL_OFF_STORAGE_KEY, localDayKey, trialRenewalOffNotice } from '../src/lib/app/trialRenewalOff';
 import { isFunnelSrc } from '../src/lib/app/funnelSchema';
 
@@ -122,33 +122,58 @@ test('사용일: 체험 기간(현지 날짜, 양 끝 포함) 안의 서로 다�
   assert.equal(trialUsageDays('{"a":1}', start, expiresAt), 0);
 });
 
-test('페이월 내용: 실제 값만 — 없으면 줄·묶음을 뺀다 · 내 종목 5개 초과면 «더 담을 수 없어요»', () => {
+test('페이월 내용: 실제 값만 — 없으면 줄·묶음을 뺀다 · 내 종목은 «체험 동안»이 아니라 지금 담긴 수로 «달라지는 것»에만(관문 ②)', () => {
   const none = trialExpiredContext('ko', { expiresAt, usageDays: 1, watchCount: 0, score: null });
   assert.equal(none.sections.length, 1, '쓴 것 값이 없으면 «체험 동안» 묶음 자체가 없다');
   assert.equal(none.sections[0].label, '무료 플랜에서 달라지는 것');
-  assert.match(none.sections[0].items[0], /내 종목은 5개까지 \(PRO 100개\)/);
-  const full = trialExpiredContext('ko', { expiresAt, usageDays: 9, watchCount: 7, score: { n: 27, within: 18, previous: false } });
-  assert.deepEqual(full.sections[0], { label: '체험 동안', items: ['9일 동안 SIGNUM을 열었어요', '내 종목 7개를 담았어요', '이번 주 실적 채점: 27종목 중 18종목이 발표 전 예상 변동폭 안'] });
-  assert.match(full.sections[1].items[0], /담아 둔 내 종목 7개 — 무료는 5개까지라 더 담을 수 없어요/);
+  assert.equal(none.sections[0].items[0], '내 종목은 5개까지 (PRO 100개)');
+  const full = trialExpiredContext('ko', { expiresAt, usageDays: 9, watchCount: 7, score: { n: 27, within: 18, week: '2026-11-02' } });
+  assert.deepEqual(full.sections[0], { label: '체험 동안', items: ['9일 동안 SIGNUM을 열었어요', '11/2~11/6 실적 채점: 27종목 중 18종목이 발표 전 예상 변동폭 안'] });
+  assert.equal(full.sections[1].items[0], '담아 둔 내 종목 7개 — 무료는 5개까지라 더 담을 수 없어요');
+  assert.ok(!full.sections[0].items.some((x) => /내 종목/.test(x)), '«체험 동안»에 내 종목 수 없음');
+  assert.equal(trialExpiredContext('ko', { expiresAt, usageDays: 0, watchCount: 3, score: null }).sections[0].items[0], '담아 둔 내 종목 3개 · 무료는 5개까지 (PRO 100개)');
   assert.equal(full.cta, 'PRO 다시 시작하기');
-  assert.match(full.title, /^PRO 무료 체험이 11월 12일[\s\S]*끝났어요$/);
-  // 이상한 채점 값은 줄을 그리지 않는다(숫자를 지어내지 않는다)
-  for (const score of [{ n: 0, within: 0, previous: false }, { n: 5, within: 6, previous: false }, { n: Number.NaN, within: 1, previous: false }]) {
-    assert.equal(trialExpiredContext('ko', { expiresAt, usageDays: 0, watchCount: 0, score }).sections.length, 1);
+  assert.match(full.title, /^PRO 무료 체험이 11월\u00a012일[\s\S]*끝났어요$/);
+  // 이상한 채점 값·작은 표본은 줄을 그리지 않는다(숫자를 지어내지 않는다)
+  for (const score of [{ n: 0, within: 0, week: '2026-11-02' }, { n: 12, within: 13, week: '2026-11-02' }, { n: Number.NaN, within: 1, week: '2026-11-02' }, { n: 9, within: 5, week: '2026-11-02' }, { n: 20, within: 5, week: 'x' }]) {
+    assert.equal(trialExpiredContext('ko', { expiresAt, usageDays: 0, watchCount: 0, score }).sections.length, 1, JSON.stringify(score));
   }
-  const en = trialExpiredContext('en', { expiresAt, usageDays: 3, watchCount: 1, score: { n: 12, within: 9, previous: true } });
-  assert.deepEqual(en.sections[0].items, ['You opened SIGNUM on 3 days', 'You added 1 stock to your watchlist', 'Last week’s earnings scorecard: 9 of 12 stocks moved within the expected range']);
-  const ja = trialExpiredContext('ja', { expiresAt, usageDays: 2, watchCount: 6, score: null });
+  const en = trialExpiredContext('en', { expiresAt, usageDays: 3, watchCount: 1, score: { n: 12, within: 9, week: '2026-10-26' } });
+  assert.deepEqual(en.sections[0].items, ['You opened SIGNUM on 3 days', 'Earnings scorecard, Oct 26–30: 9 of 12 stocks moved within the expected range']);
+  assert.equal(en.sections[1].items[0], '1 stock in your watchlist · free holds 5 (100 with PRO)');
+  assert.equal(trialExpiredContext('en', { expiresAt, usageDays: 0, watchCount: 0, score: { n: 12, within: 9, week: '2026-09-28' } }).sections[0].items[0], 'Earnings scorecard, Sep 28–Oct 2: 9 of 12 stocks moved within the expected range');
+  const ja = trialExpiredContext('ja', { expiresAt, usageDays: 2, watchCount: 6, score: { n: 27, within: 18, week: '2026-11-02' } });
   assert.equal(ja.sections[0].label, '体験中に');
+  assert.equal(ja.sections[0].items[1], '11/2〜11/6の決算採点：27銘柄中18銘柄が発表前の想定変動幅内');
   assert.match(ja.sections[1].items[0], /6銘柄/);
+});
+
+test('실적 채점은 «체험 동안»만 — 만료일이 든 주의 바로 앞 주(월~금 전부 만료 전) · 10종목 미만·실패 = 없음(관문 ③)', async () => {
+  // 만료 11/12(목) ET → 그 주 월요일 11/9 → 앞 주 11/2
+  assert.equal(trialExpiredScoreWeek(expiresAt), '2026-11-02');
+  // 만료가 월요일 새벽(ET 일요일 밤)이어도 ET 날짜 기준
+  assert.equal(trialExpiredScoreWeek(Date.parse('2026-11-16T03:00:00Z')), '2026-11-02', 'ET 11/15(일) 22시 → 그 주 11/9 → 앞 주 11/2');
+  assert.equal(trialExpiredScoreWeek(Date.parse('2026-11-16T15:00:00Z')), '2026-11-09', 'ET 11/16(월) → 앞 주 11/9');
+  // 앞 주 금요일은 늘 만료보다 앞이다
+  for (let t = Date.parse('2026-11-01T00:00:00Z'); t < Date.parse('2026-12-01T00:00:00Z'); t += 7 * H) {
+    const w = trialExpiredScoreWeek(t);
+    assert.ok(Date.parse(`${w}T00:00:00-05:00`) + 5 * D <= t, `${new Date(t).toISOString()} → ${w}`);
+  }
+  const asked: string[] = [];
+  const ok = await trialExpiredScorecard(async (w) => { asked.push(w); return { week: w, summary: { n: 27, withinCount: 18 } }; }, expiresAt);
+  assert.deepEqual(ok, { n: 27, within: 18, week: '2026-11-02' });
+  assert.deepEqual(asked, ['2026-11-02'], '앱을 연 날의 주는 묻지 않는다');
+  assert.equal(await trialExpiredScorecard(async (w) => ({ week: w, summary: { n: 9, withinCount: 5 } }), expiresAt), null, '작은 표본');
+  assert.equal(await trialExpiredScorecard(async () => ({ week: '2026-11-09', summary: { n: 30, withinCount: 20 } }), expiresAt), null, '다른 주 응답');
+  assert.equal(await trialExpiredScorecard(async () => { throw new Error('x'); }, expiresAt), null);
 });
 
 test('문구: 3개 언어 모두 가격·긴급함·과장·투자 권유 낱말 없음(가격·자동 갱신 고지는 페이월이 스토어 문자열로)', () => {
   const banned = /[₩$¥]\s?\d|\d+\s?(원|円)|평생|lifetime|買い切り|지금 바로|서두르|마지막 기회|today only|hurry|last chance|急いで|今すぐ|수익|profit|利益|매수|매도|buy now|保証|보장|guarantee/i;
   for (const loc of ['ko', 'en', 'ja']) {
     const c = trialExpiredCopy(loc);
-    const ctx = trialExpiredContext(loc, { expiresAt, usageDays: 5, watchCount: 8, score: { n: 20, within: 14, previous: false } });
-    const all = [ctx.title, ctx.lede, ctx.cta, ...ctx.sections.flatMap((s) => [s.label, ...s.items]), c.watchLimit];
+    const ctx = trialExpiredContext(loc, { expiresAt, usageDays: 5, watchCount: 8, score: { n: 20, within: 14, week: '2026-11-02' } });
+    const all = [ctx.title, ctx.lede, ctx.cta, ...ctx.sections.flatMap((s) => [s.label, ...s.items]), c.watchLimit, c.watchFew(3)];
     for (const line of all) assert.doesNotMatch(line, banned, `${loc}: ${line}`);
     assert.ok(ctx.sections[1].items.length === 4, `${loc}: 잃는 것 4줄`);
   }
@@ -160,6 +185,10 @@ test('화면 연결: 체험 중 시트가 없을 때만 만료 판정 · 새 읽
   assert.match(notice, /verifiedTrialExpiredNotice\(snapshot\.customerInfo, fresh\.customerInfo, fresh\.platform/);
   assert.match(notice, /src="trial_expired" context=\{context\}/);
   assert.match(notice, /const marks = \{ offSeen: readSeen\(\), early: early\.early \};/);
+  // «봤음» 표식은 페이월이 실제로 그려지고 앱이 앞에 있을 때만(관문 ①) — 준비 타이머·동적 로드 중엔 남기지 않는다
+  assert.match(notice, /const shown = \(\) => document\.visibilityState === 'visible' && !!document\.querySelector\('\[data-pro-paywall\]\[data-paywall-src="trial_expired"\]'\);/);
+  assert.equal((notice.match(/saveExpired\(/g) || []).length, 2, 'saveExpired 정의 1 + 호출 1(표시 확인 뒤)');
+  assert.match(notice, /if \(marked\.current \|\| !shown\(\)\) return;\n\s+marked\.current = true;\n\s+saveExpired\(notice\.mark\);/);
   // 만료 페이월은 suspend(앱 뒤로 — 안드 결제 창) 때 닫히지 않는다: suspend 는 시트 view 만 걷는다
   assert.match(notice, /const suspend = \(\) => \{ suspended = true; \+\+generation; stopWaiting\?\.\(\); stopWaiting = undefined; current\.current = null; setView\(null\); \};/);
   const sheet = fs.readFileSync(path.join(ROOT, 'src/components/app/TrialSavePaywall.tsx'), 'utf8');

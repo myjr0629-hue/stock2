@@ -440,7 +440,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
       : { title: t.title, lede: t.lede, cta: t.cta };
 
   return (
-    <div className={s.overlay} data-pro-paywall role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
+    <div className={s.overlay} data-pro-paywall data-paywall-src={context ? funnelSrc : undefined} role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
       <div className={s.sheet}>
         {/* 닫기 — 첫 페인트에 보이고 44×44 이상 (Play 요건) */}
         <button ref={closeBtnRef} type="button" className={s.close} onClick={onClose} aria-label={t.close}>
@@ -451,7 +451,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
 
         <div className={s.head}>
           <span className={s.eyebrow}>{t.eyebrow}</span>
-          <h1 className={s.title}>{head.title}</h1>
+          {/* ★11/11 만료 페이월 제목엔 날짜가 들어간다 — 한국어가 «11 / 월»로 갈라지지 않게 낱말 단위 줄바꿈(그 모드에서만) */}
+          <h1 className={s.title} style={context ? { wordBreak: 'keep-all' } : undefined}>{head.title}</h1>
           <p className={s.lede}>{head.lede}</p>
         </div>
 
