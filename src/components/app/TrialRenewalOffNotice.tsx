@@ -6,7 +6,7 @@ import { afterSheetHistory, useBackToClose, useLayer } from '@/components/app/wa
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
-import { TRIAL_OFF_STORAGE_KEY, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
+import { TRIAL_OFF_EARLY_KEY, TRIAL_OFF_STORAGE_KEY, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffKind, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
 import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
 import { canPresentCancelReason, canShowCancelReason } from '@/lib/app/cancelReason';
@@ -34,26 +34,39 @@ function pushTapped() {
 }
 
 let sessionSeen: string | null = null;
+let sessionEarly: string | null = null;
 function readSeen() {
   try { return localStorage.getItem(TRIAL_OFF_STORAGE_KEY) || sessionSeen; } catch { return sessionSeen; }
 }
-function saveSeen(mark: string) {
-  sessionSeen = mark;
-  try { localStorage.setItem(TRIAL_OFF_STORAGE_KEY, mark); } catch { /* session fallback */ }
+/** ★11/11 «갱신 끈 직후 1회» 기기 저장 표식(체험 기간|현지 날짜) — D-3 표식과 따로 둔다 */
+function readEarly() {
+  try { return localStorage.getItem(TRIAL_OFF_EARLY_KEY) || sessionEarly; } catch { return sessionEarly; }
+}
+function saveSeen(mark: string, kind: TrialOffKind) {
+  if (kind === 'early') {
+    sessionEarly = mark;
+    try { localStorage.setItem(TRIAL_OFF_EARLY_KEY, mark); } catch { /* session fallback */ }
+  } else {
+    sessionSeen = mark;
+    try { localStorage.setItem(TRIAL_OFF_STORAGE_KEY, mark); } catch { /* session fallback */ }
+  }
   try { sessionStorage.removeItem(TRIAL_SAVE_PUSH_FLAG); } catch { /* noop */ }
 }
+/** 계측 출처 — 조기 안내는 따로 센다(시트 단계·그 시트가 연 페이월 모두) */
+const srcOf = (kind: TrialOffKind) => kind === 'early' ? 'trial_off_early' as const : 'trial_off' as const;
 
 type View = TrialOffNotice & { preview: boolean };
 export function TrialRenewalOffNotice({ locale }: { locale: string }) {
   const [view, setView] = useState<View | null>(null);
   const [reason, setReason] = useState(false);
-  const [paywall, setPaywall] = useState<{ preview: boolean } | null>(null);
+  const [paywall, setPaywall] = useState<{ preview: boolean; kind: TrialOffKind } | null>(null);
   const current = useRef<View | null>(null);
   useEffect(() => {
     let disposed = false, generation = 0;
     let suspended = document.visibilityState !== 'visible';
     let stopWaiting: (() => void) | undefined;
-    const preview = process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('trialOffPreview') === '1';
+    const previewParam = process.env.NODE_ENV === 'development' ? new URLSearchParams(location.search).get('trialOffPreview') : null;
+    const preview = previewParam === '1' || previewParam === 'early';
     const enter = async () => {
       if (process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('cancelReasonPreview') === '1') return;
       const run = ++generation;
@@ -69,8 +82,10 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
         if (snapshot) void import('@/lib/app/trialPushReport').then((m) => m.reportTrialPush(snapshot)).catch(() => {});
         if (disposed || run !== generation || document.visibilityState !== 'visible') return;
         const seen = pushTapped() ? null : readSeen();
-        let notice = preview ? { store: 'APP_STORE' as const, expiresAt: Date.now() + 2.4 * 86400000, period: 'preview', mark: 'preview' }
-          : snapshot && trialRenewalOffNotice(snapshot.customerInfo, snapshot.platform, Date.now(), seen);
+        const early = { early: readEarly() };
+        let notice: TrialOffNotice | null = preview
+          ? { store: 'APP_STORE' as const, expiresAt: Date.now() + (previewParam === 'early' ? 27.4 : 2.4) * 86400000, period: 'preview', mark: 'preview', kind: previewParam === 'early' ? 'early' : 'window' }
+          : snapshot && trialRenewalOffNotice(snapshot.customerInfo, snapshot.platform, Date.now(), seen, undefined, early);
         if (!notice) return;
         // A sheet may have opened while the SDK read was in flight.
         if (document.querySelector('[aria-modal="true"]')) {
@@ -89,7 +104,7 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
             return;
           }
           notice = fresh && fresh.platform === snapshot.platform
-            ? verifiedTrialRenewalOffNotice(snapshot.customerInfo, fresh.customerInfo, fresh.platform, Date.now(), seen) : null;
+            ? verifiedTrialRenewalOffNotice(snapshot.customerInfo, fresh.customerInfo, fresh.platform, Date.now(), seen, undefined, early) : null;
           if (!notice) return;
         }
         const next = { ...notice, preview };
@@ -120,12 +135,12 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
     if (!active) return;
     current.current = null;
     setView(null);
-    if (!active.preview) trackFunnel(stage, { src: 'trial_off' });
+    if (!active.preview) trackFunnel(stage, { src: srcOf(active.kind) });
     if (stage === 'trial_off_manage' && !active.preview && active.expiresAt > Date.now()) void openSubscriptionManagement(active.store).catch(() => {});
     // 시트의 히스토리 칸을 걷은 «뒤»에 페이월을 연다(늦게 온 popstate 가 새 페이월을 닫지 않게)
-    if (stage === 'trial_off_plans' && active.expiresAt > Date.now()) void afterSheetHistory().then(() => setPaywall({ preview: active.preview }));
+    if (stage === 'trial_off_plans' && active.expiresAt > Date.now()) void afterSheetHistory().then(() => setPaywall({ preview: active.preview, kind: active.kind }));
   }, []);
-  return <>{view && <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onLater={() => { const active = current.current; close('trial_off_close'); if (active && !active.preview && canShowCancelReason()) void afterSheetHistory().then(() => { if (canShowCancelReason() && canPresentCancelReason()) setReason(true); }); }} onManage={() => close('trial_off_manage')} onPlans={() => close('trial_off_plans')} onExpired={() => close('trial_off_expired')} />}<CancelReasonPreview locale={locale} />{reason && <CancelReasonSheet locale={locale} preview={false} onDone={() => setReason(false)} />}{paywall && <TrialSavePaywall locale={locale} onClose={() => setPaywall(null)} previewPlans={paywall.preview ? (PREVIEW_PLANS[locale] ?? PREVIEW_PLANS.en) : undefined} />}</>;
+  return <>{view && <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onLater={() => { const active = current.current; close('trial_off_close'); if (active && !active.preview && canShowCancelReason()) void afterSheetHistory().then(() => { if (canShowCancelReason() && canPresentCancelReason()) setReason(true); }); }} onManage={() => close('trial_off_manage')} onPlans={() => close('trial_off_plans')} onExpired={() => close('trial_off_expired')} />}<CancelReasonPreview locale={locale} />{reason && <CancelReasonSheet locale={locale} preview={false} onDone={() => setReason(false)} />}{paywall && <TrialSavePaywall locale={locale} src={srcOf(paywall.kind)} onClose={() => setPaywall(null)} previewPlans={paywall.preview ? (PREVIEW_PLANS[locale] ?? PREVIEW_PLANS.en) : undefined} />}</>;
 }
 
 function CancelReasonPreview({ locale }: { locale: string }) {
@@ -172,7 +187,7 @@ function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onEx
   useEffect(() => {
     if (!marked.current) {
       marked.current = true;
-      if (!view.preview) { saveSeen(view.mark); trackFunnel('trial_off_show', { src: 'trial_off' }); }
+      if (!view.preview) { saveSeen(view.mark, view.kind); trackFunnel('trial_off_show', { src: srcOf(view.kind) }); }
     }
     const focus = window.setTimeout(() => later.current?.focus({ preventScroll: true }), 40);
     const cancelExpiry = scheduleTrialOffExpiry(view.expiresAt, onExpired);
@@ -189,7 +204,7 @@ function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onEx
       <div className={p.head}>
         <span className={p.eyebrow}>SIGNUM PRO</span>
         <h1 className={p.title} id={titleId}>{copy.title(trialEndDateText(view.expiresAt, locale).replace(/ /g, '\u00a0'))}</h1>
-        <p className={`${p.lede} ${s.lede}`}>{copy.lede}</p>
+        <p className={`${p.lede} ${s.lede}`}>{view.kind === 'early' ? `${copy.lede} ${copy.earlyNote}` : copy.lede}</p>
       </div>
       {score && <>
         <p className={p.fine} style={{ textAlign: 'left', marginTop: 4 }}>{copy.seen}</p>

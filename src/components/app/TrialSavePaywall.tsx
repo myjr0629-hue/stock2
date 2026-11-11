@@ -11,8 +11,9 @@ import { useRouter } from 'next/navigation';
 import { afterSheetHistory, useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { ProPaywall, type PaywallPlan } from './ProPaywall';
+import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
-export default function TrialSavePaywall({ locale, onClose, previewPlans }: { locale: string; onClose: () => void; previewPlans?: PaywallPlan[] }) {
+export default function TrialSavePaywall({ locale, onClose, previewPlans, src = 'trial_off' }: { locale: string; onClose: () => void; previewPlans?: PaywallPlan[]; src?: Extract<FunnelSrc, 'trial_off' | 'trial_off_early'> }) {
   const router = useRouter();
   useBackToClose(true, onClose);
   useBannerSuppression(true);
@@ -22,5 +23,5 @@ export default function TrialSavePaywall({ locale, onClose, previewPlans }: { lo
     onClose();
     void afterSheetHistory().then(() => router.push(`/${loc}/app-view/${path}`));
   }, [onClose, router, loc]);
-  return <ProPaywall locale={locale} src="trial_off" onClose={onClose} onNavigate={onNavigate} keepOpenWhilePro previewPlans={previewPlans} />;
+  return <ProPaywall locale={locale} src={src} onClose={onClose} onNavigate={onNavigate} keepOpenWhilePro previewPlans={previewPlans} />;
 }

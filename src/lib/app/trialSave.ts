@@ -4,6 +4,7 @@
 // 왜: 10/12 이후 체험 138명 중 123명이 자동 갱신을 껐다(RC 11/11). 첫 만료 11/12.
 //   마지막 3일(lib/app/trialRenewalOff · 하루 한 번)에 «언제 끝나는지 + 실제로 본 것(숫자)»을 보이고
 //   기존 ProPaywall(연간 기본 선택 — 여러 플랜이 켜졌을 때)로 잇는다. D-2 푸시는 서버(lib/push/trialPush)가 보낸다.
+//   ★11/11 오후: 마지막 3일 창 밖에서 갱신을 끈 것을 처음 본 앱 복귀에도 같은 시트를 체험 기간당 한 번(earlyNote 한 줄만 더함 · D-3 와 같은 날 금지).
 // 원칙: 실제 숫자만(운영 실적 채점·기기의 내 종목 수). 과장·가짜 긴급함·투자 권유 없음. 가격은 이 카드에 쓰지 않는다
 //   (가격·자동 갱신 고지는 페이월이 스토어 문자열로 보인다 — 애플 3.1.2).
 // 식별자: 없음. 푸시 보고는 이미 서버에 있는 푸시 토큰 + 만료 시각·갱신 여부·기간 종류만.
@@ -47,6 +48,7 @@ const COPY = {
   ko: {
     title: (d: string) => `PRO 무료 체험이 ${d}에 끝나요`,
     lede: '자동 갱신이 꺼져 있어서, 끝나도 결제되지 않아요.',
+    earlyNote: '체험은 끝나는 날까지 지금처럼 쓸 수 있어요.',
     seen: '체험 동안 SIGNUM',
     keep: 'PRO로 계속 쓰는 것',
     scorecard: (c: TrialScorecard) => `${c.previous ? '지난주' : '이번 주'} 실적 채점: ${c.n}종목 중 ${c.within}종목이 발표 전 예상 변동폭 안`,
@@ -61,6 +63,7 @@ const COPY = {
   en: {
     title: (d: string) => `Your PRO free trial ends ${d}`,
     lede: 'Auto-renew is off, so you won’t be charged when it ends.',
+    earlyNote: 'Until then, everything in your trial stays open as it is now.',
     seen: 'During your trial',
     keep: 'What you keep with PRO',
     scorecard: (c: TrialScorecard) => `${c.previous ? 'Last week' : 'This week'}’s earnings scorecard: ${c.within} of ${c.n} stocks moved within the expected range`,
@@ -75,6 +78,7 @@ const COPY = {
   ja: {
     title: (d: string) => `PROの無料体験は${d}に終了します`,
     lede: '自動更新はオフのため、終了後も請求はありません。',
+    earlyNote: '終了日までは、今と同じように体験を使えます。',
     seen: '体験中のSIGNUM',
     keep: 'PROで使い続けられるもの',
     scorecard: (c: TrialScorecard) => `${c.previous ? '先週' : '今週'}の決算採点：${c.n}銘柄中${c.within}銘柄が発表前の想定変動幅内`,
