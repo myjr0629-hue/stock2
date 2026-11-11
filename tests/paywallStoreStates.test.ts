@@ -2,6 +2,7 @@
  * 페이월 스토어 상태별 선택·구매 가능 여부 (2026-11-11 페이월 수리 반영 관문).
  *   스토어 패키지 → plansFromPackages(스위치 켜짐 = 월간·연간·평생) → paywallSelection → 화면과 같은 selectedOffer·버튼 잠금 식.
  *   ① 월간만 ② 월간+연간+평생 ③ 연간+평생(월간 없음 — 수리 대상) ④ 체험 종료 시트에서 연 페이월 = 연간 기본 ⑤ 빈 오퍼링
+ *   ⑥ 월간+연간(평생 중단 — 대표 11/11) ⑦ 연간만
  * 네트워크·실제 결제 없음. 실행: npx tsx --test tests/paywallStoreStates.test.ts
  */
 import assert from 'node:assert/strict';
@@ -78,6 +79,32 @@ test('③ 연간+평생(월간 없음) — 수리 대상: 카드 2장 · 기본 
   assert.equal(paywall([pkgL], null).buys, '$rc_lifetime');
   assert.equal(paywall([pkgA], null).buys, '$rc_annual');
   assert.equal(paywall([pkgL], null).disabled, false);
+});
+
+test('⑥ 월간+연간(평생 없음 — 11/11 대표 «평생결제는 하지 않는 것으로»): 카드 2장 · 기본 연간 · 평생 카드·요구 없음', () => {
+  const r = paywall([pkgA, pkgM], null);
+  assert.equal(r.multi, true);
+  assert.deepEqual(r.cards, ['monthly', 'annual']);
+  assert.equal(r.selected, 'annual');
+  assert.equal(r.buys, '$rc_annual');
+  assert.equal(r.disabled, false);
+  assert.equal(paywall([pkgA, pkgM], 'monthly').buys, '$rc_monthly');
+  // 예전에 평생을 골라 둔 값이 남아도 → 연간(없는 상품을 사려 하거나 버튼이 잠기지 않는다)
+  const l = paywall([pkgA, pkgM], 'lifetime');
+  assert.equal(l.selected, 'annual');
+  assert.equal(l.buys, '$rc_annual');
+  assert.equal(l.disabled, false);
+});
+
+test('⑦ 연간만(월간·평생 없음): 카드 1장 · 연간 결제 · 버튼 열림', () => {
+  const r = paywall([pkgA], null);
+  assert.equal(r.multi, true);
+  assert.deepEqual(r.cards, ['annual']);
+  assert.equal(r.selected, 'annual');
+  assert.equal(r.buys, '$rc_annual');
+  assert.equal(r.disabled, false);
+  assert.equal(paywall([pkgA], 'lifetime').buys, '$rc_annual');
+  assert.equal(paywall([pkgA], 'monthly').buys, '$rc_annual');
 });
 
 test('④ 체험 종료 시트 → 페이월: 고른 값 없이 열려 연간이 기본 선택(월간 있을 때·없을 때 모두)', () => {

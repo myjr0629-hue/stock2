@@ -19,22 +19,19 @@ import { ProPaywall, type PaywallPlan } from '@/components/app/ProPaywall';
 
 const DUMMY: Record<string, string> = { ko: '₩13,000', ja: '¥1,500', en: '$9.99' };
 
-// ★11/9 `?plans=1` — 월간·연간·평생 카드 모양(심사 스크린샷용 더미 · 실제 앱은 스토어 값만 쓴다)
+// ★11/9 `?plans=1` — 여러 플랜 카드 모양(심사 스크린샷용 더미 · 실제 앱은 스토어 값만 쓴다) · ★11/11 평생 판매 중단(대표) → 더미는 월간·연간만
 const DUMMY_PLANS: Record<string, PaywallPlan[]> = {
   ko: [
     { plan: 'monthly', priceString: '₩11,900', price: 11900, currencyCode: 'KRW' },
     { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417' },
-    { plan: 'lifetime', priceString: '₩149,000', price: 149000, currencyCode: 'KRW' },
   ],
   ja: [
     { plan: 'monthly', priceString: '¥1,280', price: 1280, currencyCode: 'JPY' },
     { plan: 'annual', priceString: '¥12,000', price: 12000, currencyCode: 'JPY', pricePerMonthString: '¥1,000' },
-    { plan: 'lifetime', priceString: '¥20,000', price: 20000, currencyCode: 'JPY' },
   ],
   en: [
     { plan: 'monthly', priceString: '$9.99', price: 9.99, currencyCode: 'USD' },
     { plan: 'annual', priceString: '$74.99', price: 74.99, currencyCode: 'USD', pricePerMonthString: '$6.25' },
-    { plan: 'lifetime', priceString: '$124.99', price: 124.99, currencyCode: 'USD' },
   ],
 };
 

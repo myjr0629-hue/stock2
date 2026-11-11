@@ -23,9 +23,9 @@ import s from './GiftAnnounceSheet.module.css';
 const TrialSavePaywall = dynamic(() => import('./TrialSavePaywall'), { ssr: false });
 /** 개발 미리보기(?trialOffPreview=1) 전용 더미 요금 — 실제 앱은 스토어 문자열만 쓴다(paywall-preview 와 같은 값) */
 const PREVIEW_PLANS: Record<string, PaywallPlan[]> = {
-  ko: [{ plan: 'monthly', priceString: '₩11,900', price: 11900, currencyCode: 'KRW' }, { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417' }, { plan: 'lifetime', priceString: '₩149,000', price: 149000, currencyCode: 'KRW' }],
-  ja: [{ plan: 'monthly', priceString: '¥1,280', price: 1280, currencyCode: 'JPY' }, { plan: 'annual', priceString: '¥12,000', price: 12000, currencyCode: 'JPY', pricePerMonthString: '¥1,000' }, { plan: 'lifetime', priceString: '¥20,000', price: 20000, currencyCode: 'JPY' }],
-  en: [{ plan: 'monthly', priceString: '$9.99', price: 9.99, currencyCode: 'USD' }, { plan: 'annual', priceString: '$74.99', price: 74.99, currencyCode: 'USD', pricePerMonthString: '$6.25' }, { plan: 'lifetime', priceString: '$124.99', price: 124.99, currencyCode: 'USD' }],
+  ko: [{ plan: 'monthly', priceString: '₩11,900', price: 11900, currencyCode: 'KRW' }, { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417' }],
+  ja: [{ plan: 'monthly', priceString: '¥1,280', price: 1280, currencyCode: 'JPY' }, { plan: 'annual', priceString: '¥12,000', price: 12000, currencyCode: 'JPY', pricePerMonthString: '¥1,000' }],
+  en: [{ plan: 'monthly', priceString: '$9.99', price: 9.99, currencyCode: 'USD' }, { plan: 'annual', priceString: '$74.99', price: 74.99, currencyCode: 'USD', pricePerMonthString: '$6.25' }],
 };
 
 /** 체험 종료 푸시를 눌러 들어왔으면 «오늘 이미 봤음»을 한 번 건너뛴다(layout 이 세션 표식을 남긴다) */
