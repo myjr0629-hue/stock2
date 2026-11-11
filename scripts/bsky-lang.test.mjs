@@ -37,7 +37,7 @@ test('언어 판별에서 링크와 소셜 식별자 및 숫자와 기호를 제
     'The market is rising www.example.com/日本',
     'The market is rising @日本 #株式市場',
     'The market is rising @かな #한국어',
-    'https://example.com/日本 @한국어 #かな 123 !!!',
+    'https://example.com/日本 @한국어 123 !!!',
   ]) assert.equal(detectLang(text), 'en');
   assert.equal(detectLang('今日の市場は上昇しています。 https://example.com/news'), 'ja');
   assert.equal(detectLang('今天市场上涨，投资者关注股票。 #markets 2026'), 'zh');
@@ -73,4 +73,11 @@ test('URL 바로 뒤 본문·한자만 있는 일본어(관문 11120549)', () =>
   assert.equal(detectLang('米国株式投資為替経済'), 'en');
   assert.equal(detectLang('Read more https://example.com/东京市场 now and then'), 'en');
   assert.equal(detectLang('這是我們的美股財報數據'), 'zh');
+});
+
+test('URL 경로의 비ASCII·태그만 있는 글(관문 11120649)', () => {
+  assert.equal(detectLang('The market is rising https://example.com/かな'), 'en');
+  assert.equal(detectLang('The market is rising https://example.com/한국어'), 'en');
+  assert.equal(detectLang('#오늘의미국주식 #옵션시장'), 'ko');
+  assert.equal(detectLang('#今日の株式市場 #投資ニュース'), 'ja');
 });

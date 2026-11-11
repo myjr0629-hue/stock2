@@ -15,10 +15,12 @@ const accents = {
 
 export function detectLang(text) {
   // 링크와 소셜 식별자는 본문 언어의 근거에서 제외한다.
-  const clean = text.toLowerCase()
-    .replace(/(?:https?:\/\/|www\.)[!-~]+/gu, ' ')
-    .replace(/[@#][\p{L}\p{M}\p{N}_.-]+/gu, ' ')
-    .replace(/[^\p{L}\p{M}\s]/gu, ' ');
+  // URL 은 공백이나 CJK 문장부호(。、，！？)까지를 링크로 본다 — «…/news。市場が上昇» 의 본문은 남긴다.
+  const noUrl = text.toLowerCase().replace(/(?:https?:\/\/|www\.)[^\s。、，！？]+/gu, ' ');
+  const strip = (t) => t.replace(/[^\p{L}\p{M}\s]/gu, ' ');
+  let clean = strip(noUrl.replace(/[@#][\p{L}\p{M}\p{N}_.-]+/gu, ' '));
+  // 본문이 해시태그뿐이면 해시태그 글자로 판별한다(멘션은 사람 이름이라 끝까지 제외)(«#오늘의미국주식 #옵션시장» → ko).
+  if (!/\p{L}/u.test(clean)) clean = strip(noUrl.replace(/@[\p{L}\p{M}\p{N}_.-]+/gu, ' '));
   // 기존 일본어 우선순위를 유지한다(일본어에는 한자가 함께 쓰인다).
   if (/[\u3040-\u30ff\u31f0-\u31ff\uff66-\uff9f]/u.test(clean)) return 'ja';
   if (/\p{Script=Hangul}/u.test(clean)) return 'ko';
