@@ -53,11 +53,14 @@ async function main() {
   const sentBody = calls[calls.length - 1].body;
   assert.deepEqual(Object.keys(sentBody).sort(), ['expiresAt', 'locale', 'periodType', 'platform', 'store', 'token', 'willRenew']);
   assert.equal(sentBody.locale, 'ja'); assert.equal(sentBody.willRenew, false); assert.equal(sentBody.periodType, 'TRIAL');
-  // 같은 내용 → 다시 안 보낸다(새로 읽지도 않는다)
+  // 같은 내용 → 새로 읽기는 한다(체험 중 — 그사이 스토어에서 갱신을 켰을 수 있다) · 같으면 보내지 않는다
   let reads = 0;
   const n = calls.length;
   assert.equal(await reportTrialPush({ customerInfo: info(), platform: 'ios' }, async () => { reads++; return info(); }, noWait), 'skip');
-  assert.equal(calls.length, n); assert.equal(reads, 0);
+  assert.equal(calls.length, n); assert.equal(reads, 1);
+  // 캐시는 지난번과 같지만 새로 읽으니 갱신 켬 → 보낸다(관문 11110920 ①)
+  assert.equal(await R(info(), info({ willRenew: true })), 'sent');
+  assert.equal(calls[calls.length - 1].body.willRenew, true);
   // 유료(NORMAL)·평생으로 바뀌었다 → 해제 한 번
   assert.equal(await R(info({ periodType: 'NORMAL', expirationDate: null })), 'cleared');
   assert.deepEqual(calls[calls.length - 1].body, { token: 'tok123', clear: true });
@@ -81,6 +84,15 @@ async function main() {
   for (let i = 0; i < 10; i++) await tick();
   assert.deepEqual(calls[calls.length - 1].body, { token: 'tok123', clear: true }, '대기열의 해제가 이어서 나갔다');
   assert.equal(store.get(TRIAL_PUSH_REPORT_KEY), 'cleared');
+  // 설정에서 캐시를 지워 기록이 없어도 «유료·평생 PRO»면 해제 한 번(관문 11110920 ②) · 무료는 여전히 아무것도 안 보낸다
+  store.delete(TRIAL_PUSH_REPORT_KEY);
+  reply = { status: 200, body: { ok: true, stored: true } };
+  assert.equal(await R(free), 'skip');
+  assert.equal(await R(info({ periodType: 'NORMAL', willRenew: true, expirationDate: new Date(now + 300 * D).toISOString() })), 'cleared');
+  assert.equal(store.get(TRIAL_PUSH_REPORT_KEY), 'cleared');
+  let r2 = 0;
+  assert.equal(await reportTrialPush({ customerInfo: info({ periodType: 'NORMAL' }) as never, platform: 'ios' }, async () => { r2++; return info({ periodType: 'NORMAL' }); }, noWait), 'skip');
+  assert.equal(r2, 0, '해제 뒤 유료 사용자는 새로 읽지도 않는다');
   // 서버 오류 → 기록 안 함
   store.delete(TRIAL_PUSH_REPORT_KEY);
   reply = { status: 500, body: { error: 'x' } };

@@ -137,6 +137,8 @@ for (const loc of ['ko', 'en', 'ja'] as const) {
   const c = trialPushContent({ locale: loc, expiresAt: Date.parse('2026-11-13T05:00:00Z') }, 'Asia/Seoul');
   assert.ok(c.title.length > 5 && c.body.length > 10);
   assert.doesNotMatch(c.title + c.body, /[₩$¥]\s?\d|마지막 기회|서두르|hurry|last chance|急いで/i);
+  // 푸시는 갱신 상태를 단정하지 않는다(앱을 안 연 채 갱신을 다시 켠 사람에게도 틀리지 않게 — 관문 11110920)
+  assert.doesNotMatch(c.body, /결제되지|자동 갱신|won.t be charged|auto-renew|請求|自動更新/i);
 }
 assert.match(trialPushContent({ locale: 'ko', expiresAt: Date.parse('2026-11-13T05:00:00Z') }, 'Asia/Seoul').title, /11월 13일/);
 assert.equal(TRIAL_PUSH_DATA.type, 'trial_end');
@@ -161,8 +163,8 @@ assert.match(cron, /TRIAL_PUSH_SENT_KEY\(token\), String\(rec\.expiresAt\), \{ n
 assert.doesNotMatch(cron, /redis\.set\(TRIAL_PUSH_KEY/, '크론은 체험 기록을 덮어쓰지 않는다(앱의 갱신 켬 보고를 지우지 않게)');
 assert.match(cron, /const fresh = parseRecord<TrialPushRecord>\(await redis\.get\(TRIAL_PUSH_KEY\(token\)\)\)/, '보내기 직전 재확인');
 assert.match(cron, /TRIAL_PUSH_MAX_PER_RUN/);
-assert.match(cron, /TRIAL_PUSH_MAX_PER_DAY - sentToday/, '하루 발송 상한');
-assert.match(cron, /count: TRIAL_PUSH_SCAN_LIMIT/, '한 회차 읽기 상한');
+assert.match(cron, /const n = await redis\.incr\(dayKey\);[\s\S]*if \(n > TRIAL_PUSH_MAX_PER_DAY\)/, '하루 발송 시도 상한을 보내기 전에 INCR 로 예약');
+assert.match(cron, /offset: page \* TRIAL_PUSH_SCAN_LIMIT, count: TRIAL_PUSH_SCAN_LIMIT/, '쪽 단위로 읽는다(앞쪽 제외 대상 때문에 뒤쪽이 굶지 않게)');
 const reportRoute = readFileSync('src/app/api/push/trial/route.ts', 'utf8');
 assert.match(reportRoute, /body\.clear === true/, '유료·평생 전환 → 해제');
 assert.match(reportRoute, /stored: false, skipped: 'unknown-token' \}, 202/, '토큰 등록 전 보고는 stored:false');

@@ -188,7 +188,7 @@ function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onEx
     <div ref={sheet} className={`${p.sheet} ${s.box}`} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={trapTab}>
       <div className={p.head}>
         <span className={p.eyebrow}>SIGNUM PRO</span>
-        <h1 className={p.title} id={titleId}>{copy.title(trialEndDateText(view.expiresAt, locale))}</h1>
+        <h1 className={p.title} id={titleId}>{copy.title(trialEndDateText(view.expiresAt, locale).replace(/ /g, '\u00a0'))}</h1>
         <p className={`${p.lede} ${s.lede}`}>{copy.lede}</p>
       </div>
       {score && <>

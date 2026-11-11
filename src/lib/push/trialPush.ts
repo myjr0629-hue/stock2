@@ -4,7 +4,7 @@
 // 대상: 앱이 보고한 «체험(TRIAL) 중 · 자동 갱신 꺼짐» 기기 하나당, 체험 하나당 «한 번». 남은 시간 12~48시간 사이.
 // 안 보내는 경우: 갱신을 다시 켰다 · 이미 보냈다 · 알림 전체를 껐다(설정) · 시스템 알림 권한 없음 · 토큰이 더는 등록돼 있지 않다
 //   · 6시간 안에 앱을 열었다(앱 안 카드를 이미 봤다 — 다음 회차에 다시 본다) · 기기 현지 시간 09~20시 밖(다음 회차에).
-// 문구: 사실만(종료일 · 갱신 꺼짐 = 결제 안 됨 · 앱에서 요금제를 볼 수 있음). 가격·긴급함·투자 권유 없음.
+// 문구: 사실만(종료일 · 앱에서 요금제를 볼 수 있음). 갱신 상태는 단정하지 않는다. 가격·긴급함·투자 권유 없음.
 // 식별자: 키는 이미 서버에 있는 푸시 토큰. 계정·RC 고객 ID 를 받지 않는다.
 // ============================================================================
 import { trialEndDateText, toTrialSaveLocale } from '@/lib/app/trialSave';
@@ -16,11 +16,13 @@ export const TRIAL_PUSH_SENT_KEY = (token: string) => `push:trial:sent:${token}`
 export const TRIAL_PUSH_SENT_TTL_S = 25 * 86400;
 /** 보고 API 호출 제한 — 토큰당 5초에 한 번 */
 export const TRIAL_PUSH_RL_KEY = (token: string) => `push:trial:rl:${token}`;
-/** 한 회차 최대 발송 수 · 하루(ET) 최대 발송 수 · 한 회차에 읽는 대상 수 — 공급사·Redis 호출 상한(가짜 토큰 대량 등록 남용 대비).
+/** 한 회차 최대 발송 수 · 하루(ET) 최대 «발송 시도» 수(INCR 로 먼저 예약 — 실패·소멸 토큰도 센다) · 한 쪽(page)에 읽는 대상 수(최대 5쪽)
+ *  — 공급사·Redis 호출 상한(가짜 토큰 대량 등록 남용 대비).
  *  실제 규모: 10/12 이후 체험 138명(하루 시작 최대 20명대) → 하루 상한 300 은 실사용을 막지 않는다. */
-export const TRIAL_PUSH_MAX_PER_RUN = 200;
+export const TRIAL_PUSH_MAX_PER_RUN = 100;
 export const TRIAL_PUSH_MAX_PER_DAY = 300;
 export const TRIAL_PUSH_SCAN_LIMIT = 1000;
+export const TRIAL_PUSH_SCAN_PAGES = 5;
 export const TRIAL_PUSH_DAY_KEY = (etDay: string) => `push:trial:day:${etDay}`;
 export const TRIAL_PUSH_DUE_ZSET = 'push:trial:due';
 export const TRIAL_PUSH_MAX_MS = 48 * 3600_000;
@@ -111,10 +113,12 @@ export function trialPushDecision(
   return 'send';
 }
 
+// 본문은 «갱신 상태»를 단정하지 않는다(관문 11110920 — 앱을 열지 않은 채 스토어에서 갱신을 다시 켠 사람에게도 틀리지 않게).
+//   «결제되지 않아요» 안내는 앱 안 시트(보이기 직전 새로 읽은 값)에서만 한다.
 const PUSH_COPY = {
-  ko: { title: (d: string) => `PRO 무료 체험이 ${d}에 끝나요`, body: '자동 갱신이 꺼져 있어 결제되지 않아요. 계속 쓰시려면 앱에서 요금제를 볼 수 있어요.' },
-  en: { title: (d: string) => `Your PRO free trial ends ${d}`, body: 'Auto-renew is off, so you won’t be charged. If you’d like to keep PRO, you can see the plans in the app.' },
-  ja: { title: (d: string) => `PROの無料体験は${d}に終了します`, body: '自動更新はオフのため請求はありません。PROを続ける場合は、アプリでプランを確認できます。' },
+  ko: { title: (d: string) => `PRO 무료 체험이 ${d}에 끝나요`, body: '그 뒤에도 PRO를 쓰시려면 앱에서 요금제를 확인할 수 있어요.' },
+  en: { title: (d: string) => `Your PRO free trial ends ${d}`, body: 'If you’d like to keep PRO after that, you can see the plans in the app.' },
+  ja: { title: (d: string) => `PROの無料体験は${d}に終了します`, body: 'その後もPROを使う場合は、アプリでプランを確認できます。' },
 } as const;
 
 export function trialPushContent(rec: Pick<TrialPushRecord, 'locale' | 'expiresAt'>, timeZone?: string): { title: string; body: string } {
