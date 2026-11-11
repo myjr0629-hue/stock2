@@ -90,17 +90,17 @@ export const TRIAL_USAGE_MIN_DAYS = 2;
 export type TrialExpiredScore = { n: number; within: number; week: string };
 export const TRIAL_EXPIRED_SCORE_MIN_N = 10;
 /** 체험 동안 «다 끝난» 채점 주의 월요일(YYYY-MM-DD) — 만료일이 든 주의 앞 주. 단 그 주 금요일 장후 발표의 반응 종가는 다음 거래일
- *  (휴일이면 더 뒤)에 확정되므로, 만료 ET 날짜가 «그 주 월요일 + 9일»(다음 주 수요일)보다 앞이면 한 주 더 앞으로 간다(관문 11111816) */
+ *  (휴일이면 더 뒤)에 확정되므로, 만료 ET 날짜가 «그 주 월요일 + 10일»(다음 주 목요일)보다 앞이면 한 주 더 앞으로 간다(관문 11111816·11111838 — 연휴 여유) */
 export function trialExpiredScoreWeek(expiresAt: number): string {
   const exp = etDateOf(expiresAt);
   const week = addDaysYmd(calendarScorecardWeek(exp), -7);
-  return exp < addDaysYmd(week, 9) ? addDaysYmd(week, -7) : week;
+  return exp < addDaysYmd(week, 10) ? addDaysYmd(week, -7) : week;
 }
 export async function trialExpiredScorecard(read: (week: string) => Promise<unknown>, startedAt: number, expiresAt: number): Promise<TrialExpiredScore | null> {
   try {
     const week = trialExpiredScoreWeek(expiresAt);
-    // 그 주 월요일 장 전 발표의 기준 종가는 직전 거래일(금요일, 휴일이면 더 앞) — 체험이 그 주 앞 «목요일»까지 시작했어야 전부 체험 안(관문 11111816)
-    if (!Number.isFinite(startedAt) || etDateOf(startedAt) > addDaysYmd(week, -4)) return null;
+    // 그 주 월요일 장 전 발표의 기준 종가는 직전 거래일(금요일, 휴장이면 더 앞) — 연휴까지 덮도록 체험이 «앞 주 월요일»까지 시작했어야 한다(관문 11111816·11111838)
+    if (!Number.isFinite(startedAt) || etDateOf(startedAt) > addDaysYmd(week, -7)) return null;
     const s = calendarScorecardSummary(await read(week), week);
     return s && s.n >= TRIAL_EXPIRED_SCORE_MIN_N ? { n: s.n, within: s.withinCount, week } : null;
   } catch { return null; }
