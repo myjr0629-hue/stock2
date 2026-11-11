@@ -25,8 +25,8 @@ const pkgA = { identifier: '$rc_annual', packageType: 'ANNUAL', product: { ident
 const pkgL = { identifier: '$rc_lifetime', packageType: 'LIFETIME', product: { identifier: 'com.signumhq.app.pro.lifetime', priceString: '₩149,000', price: 149000, currencyCode: 'KRW', pricePerMonthString: null } } as any;
 
 /** ProPaywall 과 같은 식(아래 소스 대조 시험이 어긋남을 잡는다) — 무엇을 그리고, 무엇을 사고, 버튼이 열리는가 */
-function paywall(pkgs: any[], picked: Plan | null) {
-  const offers = rc.plansFromPackages(pkgs, iap.MULTI_PLANS);
+function paywall(pkgs: any[], picked: Plan | null, active: readonly Plan[] = iap.MULTI_PLANS) {
+  const offers = rc.paywallOffers(pkgs, active);
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
   const { multi, selected } = paywallSelection(offers, picked);
   const selectedOffer = multi ? (offers.find((o) => o.plan === selected) ?? null) : monthly;
@@ -134,4 +134,25 @@ test('화면 식 대조: ProPaywall 의 선택·결제·잠금 식이 위 시험
   assert.match(src, /const selectedOffer = multi \? \(offers\.find\(\(o\) => o\.plan === selected\) \?\? null\) : monthly;/);
   assert.match(src, /disabled=\{busy \|\| purchasePending \|\| \(multi \? \(!selectedOffer && !previewPlans\) : \(!monthly && !previewPrice\)\)\}/);
   assert.match(src, /const res = await purchase\(selectedOffer\.plan, funnelSrc\);/);
+});
+
+test('⑧ 노출 스위치 꺼진 빌드(월간만 노출): 월간이 있으면 예전 그대로 월간 하나 · 월간이 없으면 스토어가 준 플랜으로(아무것도 못 사는 상태 금지)', () => {
+  const OFF = ['monthly'] as const;
+  // 월간 있음 → 스위치대로 월간 하나(연간·평생은 숨김 — 예전과 같음)
+  for (const pkgs of [[pkgM], [pkgL, pkgA, pkgM], [pkgA, pkgM]]) {
+    const r = paywall(pkgs, null, OFF);
+    assert.equal(r.multi, false);
+    assert.equal(r.buys, '$rc_monthly');
+    assert.equal(r.disabled, false);
+  }
+  // 월간 없음(관문 11111109 지적) → 연간만이면 연간 · 연간+평생이면 카드·연간 기본
+  assert.deepEqual(paywall([pkgA], null, OFF), { cards: ['annual'], multi: true, selected: 'annual', buys: '$rc_annual', disabled: false });
+  assert.equal(paywall([pkgL, pkgA], null, OFF).buys, '$rc_annual');
+  // 빈 오퍼링 → 여전히 잠김
+  assert.equal(paywall([], null, OFF).disabled, true);
+});
+
+test('getProOffers 는 paywallOffers(pkgs, activePlans()) 를 쓴다(위 시험이 실제 경로를 본다)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/services/revenueCat.ts'), 'utf8');
+  assert.match(src, /return paywallOffers\(pkgs, activePlans\(\)\);/);
 });

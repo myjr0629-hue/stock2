@@ -175,10 +175,18 @@ export async function getProOffers(): Promise<PlanOffer[]> {
   const offerings = await Purchases.getOfferings();
   const pkgs = offerings.current?.availablePackages ?? [];
 
-  // ★ activePlans() 에 있는 것만 그린다. 기본은 월간 하나(config/iap.ts «노출 스위치»).
-  //   스토어에 연간·평생 상품이 살아 있어도 여기서 걸러지면 페이월엔 안 뜬다.
-  const out = plansFromPackages(pkgs, activePlans());
-  return out;
+  return paywallOffers(pkgs, activePlans());
+}
+
+/**
+ * 페이월에 줄 플랜 목록 — activePlans() 에 있는 것만(기본은 월간 하나, config/iap.ts «노출 스위치»).
+ *   스토어에 연간·평생 상품이 살아 있어도 여기서 걸러지면 페이월엔 안 뜬다.
+ * ★11/11 관문 지적: 스위치가 꺼진 빌드에서 스토어가 월간을 안 주고 연간(·평생)만 주면 목록이 비어 아무것도 못 샀다.
+ *   걸러 낸 결과가 «비었을 때만» 스토어가 실제로 준 플랜으로 내려간다 — 월간이 있으면 예전과 똑같다.
+ */
+export function paywallOffers(pkgs: readonly PurchasesPackage[], active: readonly PlanId[]): PlanOffer[] {
+  const out = plansFromPackages(pkgs, active);
+  return out.length ? out : plansFromPackages(pkgs, MULTI_PLANS);
 }
 
 /**
