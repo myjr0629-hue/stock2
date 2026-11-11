@@ -66,8 +66,7 @@ const NOW = 1_800_000_000_000;
   const restoreBody = pro.slice(pro.indexOf('const restore = useCallback'), pro.indexOf('const refreshOffers'));
   assert.ok(!restoreBody.includes('announceProActivated'), '복원은 평점 순간이 아니다');
   const redeem = src('src/lib/app/redeem.ts');
-  assert.match(redeem, /void \(p\.wasNonPro \?\? Promise\.resolve\(false\)\)\.then\(\(was\) => \{ if \(was\) announceProActivated\(\); \}\)/, 'iOS 코드 복귀는 «열기 전 PRO 아님»이 확인된 경우만 알린다');
-  assert.match(redeem, /const wasNonPro = confirmedNonProNow\(\)\.catch\(\(\) => false\);\n\s*pending = \{ path, at: Date\.now\(\), src, wasNonPro \};/, '열기 전 상태를 열기를 늦추지 않고 잡는다');
+  assert.match(redeem, /void codeStartedProSince\(p\.at\)\.then\(\(fresh\) => \{ if \(fresh\) announceProActivated\(\); \}\)/, 'iOS 코드 복귀는 «코드 화면을 연 뒤 새로 생긴 권한»일 때만 알린다');
   assert.ok(!src('src/lib/app/foregroundProSync.ts').includes('announceProActivated'), '안드 복귀 동기화는 기존 구매 복원과 구별할 수 없어 순간으로 세지 않는다(관문 11111208 ②)');
   const moments = src('src/components/app/ReviewPromptMoments.tsx');
   assert.match(moments, /promptRatingMoment\(RATING_MOMENT_PRO, PRO_MOMENT_DELAY_MS, eligible\)/);
@@ -157,13 +156,18 @@ try {
 }
 
 // ── 관문 11111208 ① — iOS 코드 복귀: «열기 전 PRO 아님»이 확인된 경우만 체험 시작으로 본다 ──
-(async () => {
-  const { confirmedNonProNow } = require('../src/lib/app/redeem');
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => false }), true, 'SDK 가 PRO 아님으로 읽음 → 새 체험 후보');
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => true }), false, '이미 PRO 였으면 아님');
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => null }), false, 'SDK 없음 → 아님(공용 상태로 추정하지 않는다 — 관문 11111214 ①)');
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => { throw new Error('x'); } }), false, 'SDK 조회 실패 → 아님');
-})().catch((e) => { console.error(e); process.exitCode = 1; });
+{
+  const { proPurchasedSince } = require('../src/lib/app/redeem');
+  const at = 1_800_000_000_000;
+  const info = (ms?: number, iso?: string) => ({ entitlements: { active: { pro: { latestPurchaseDateMillis: ms, latestPurchaseDate: iso } } } });
+  assert.equal(proPurchasedSince(info(at + 30_000), at), true, '코드 화면을 연 뒤 시작된 체험 → 새 순간');
+  assert.equal(proPurchasedSince(info(at - 60_000), at), true, '시계 오차 2분 안은 허용');
+  assert.equal(proPurchasedSince(info(at - 40 * 86_400_000), at), false, '복원된 기존 구독(옛 구매 시각) → 아님');
+  assert.equal(proPurchasedSince(info(undefined, new Date(at + 5_000).toISOString()), at), true, '밀리초가 없으면 ISO 시각으로');
+  assert.equal(proPurchasedSince(info(undefined, undefined), at), false, '시각을 못 읽으면 아님');
+  assert.equal(proPurchasedSince({ entitlements: { active: {} } }, at), false, 'PRO 아님');
+  assert.equal(proPurchasedSince(null, at), false);
+}
 
 // ── 관문 11111214 ② — 모달이 닫힐 때까지 기다렸다가 한 번만 부른다 · 끝내 안 닫히면 포기 · 취소 가능 ──
 {

@@ -30,6 +30,7 @@
 // ============================================================================
 
 import { initRevenueCat, isProFromCustomerInfo } from '@/services/revenueCat';
+import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 import { openExternalUrl } from '@/lib/native/capacitorBridge';
 import { notifyProPurchased, isPreviewHost, previewFlag } from '@/lib/app/proEntitlement';
 import { announceProActivated } from '@/lib/app/ratingMoments';
@@ -73,25 +74,33 @@ const funnel = () => import('@/lib/app/funnel');
 
 // ── 돌아왔을 때 PRO 새로 읽기(iOS) ───────────────────────────────────────────
 const RETURN_WINDOW_MS = 30 * 60_000;   // 코드 입력을 연 뒤 30분 안의 «앱 복귀»만 본다
-// wasNonPro = 코드 입력을 열기 «전» PRO 가 아니었는가(확인된 경우만 true). 이미 PRO 였던 사람이 열었다 닫은 복귀를
-//   «체험 시작 성공»으로 보지 않게 한다(평점 순간 — 관문 11111208 ①·11111214 ①). 열기를 늦추지 않도록 확인은 약속으로 들고 다닌다.
-let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc; wasNonPro?: Promise<boolean> } | null = null;
+let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc } | null = null;
 
 /**
- * 열기 직전의 PRO 여부 — SDK 가 «성공적으로» 읽어 PRO 아님이라고 답했을 때만 true. 던지지 않는다.
- * 공용 상태(proEntitlement)는 쓰지 않는다: 첫 조회 실패도 «확인 끝·PRO 아님»으로 남기 때문이다(관문 11111214 ①).
+ * 평점 «좋은 순간»(11/11) 판정 — 코드 사용으로 «새로» 생긴 PRO 인가.
+ *   PRO 권한의 최근 구매 시각(latestPurchaseDate = 체험 시작·구매)이 코드 화면을 연 시각(since) 이후일 때만 true.
+ *   이미 PRO 였던 사람이 열었다 닫은 경우·복귀 동기화가 기존 구독을 «복원»한 경우는 옛 시각이라 false(관문 11111208 ①·11111214 ①·11111218).
+ *   시계 오차 2분 허용. 시각을 못 읽으면 false(보수적으로).
  */
-export async function confirmedNonProNow(deps?: {
-  /** SDK 캐시로 읽은 PRO 여부 — SDK 를 못 쓰면 null */
-  sdkPro?: () => Promise<boolean | null>;
-}): Promise<boolean> {
-  const sdkPro = deps?.sdkPro ?? (async () => {
-    if (!(await initRevenueCat())) return null;
+export function proPurchasedSince(info: unknown, since: number, slackMs = 120_000): boolean {
+  try {
+    const ent = (info as { entitlements?: { active?: Record<string, { latestPurchaseDateMillis?: number; latestPurchaseDate?: string } | undefined> } } | null)
+      ?.entitlements?.active?.[PRO_ENTITLEMENT_ID];
+    if (!ent) return false;
+    const ms = typeof ent.latestPurchaseDateMillis === 'number' && ent.latestPurchaseDateMillis > 0
+      ? ent.latestPurchaseDateMillis
+      : Date.parse(ent.latestPurchaseDate ?? '');
+    return Number.isFinite(ms) && ms >= since - slackMs;
+  } catch { return false; }
+}
+
+async function codeStartedProSince(since: number): Promise<boolean> {
+  try {
+    if (!(await initRevenueCat())) return false;
     const { Purchases } = await import('@revenuecat/purchases-capacitor');
     const { customerInfo } = await Purchases.getCustomerInfo();
-    return isProFromCustomerInfo(customerInfo);
-  });
-  try { return (await sdkPro()) === false; } catch { return false; }
+    return proPurchasedSince(customerInfo, since);
+  } catch { return false; }
 }
 let listening = false;
 let refreshing = false;
@@ -146,8 +155,8 @@ function onAppActive() {
     .then((pro) => {
       if (!pro) return;
       notifyProPurchased(true);
-      // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments) — 열기 전 PRO 가 아니었다고 확인된 경우만
-      void (p.wasNonPro ?? Promise.resolve(false)).then((was) => { if (was) announceProActivated(); }).catch(() => {});
+      // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments) — 코드 화면을 연 뒤 새로 생긴 권한일 때만
+      void codeStartedProSince(p.at).then((fresh) => { if (fresh) announceProActivated(); }).catch(() => {});
       void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {});
     })
     .catch(() => {})
@@ -155,8 +164,7 @@ function onAppActive() {
 }
 
 function armReturn(path: 'sheet' | 'url', src?: FunnelSrc) {
-  const wasNonPro = confirmedNonProNow().catch(() => false);
-  pending = { path, at: Date.now(), src, wasNonPro };
+  pending = { path, at: Date.now(), src };
   if (listening || typeof window === 'undefined') return;
   listening = true;
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') onAppActive(); });
