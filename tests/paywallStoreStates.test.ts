@@ -110,7 +110,9 @@ test('⑦ 연간만(월간·평생 없음): 카드 1장 · 연간 결제 · 버�
 test('④ 체험 종료 시트 → 페이월: 고른 값 없이 열려 연간이 기본 선택(월간 있을 때·없을 때 모두)', () => {
   const sheet = fs.readFileSync(path.join(ROOT, 'src/components/app/TrialSavePaywall.tsx'), 'utf8');
   // 시트는 ProPaywall 을 그대로 쓰고 선택값을 따로 넘기지 않는다 → 페이월 기본 규칙(연간 먼저)을 탄다
-  assert.match(sheet, /<ProPaywall locale=\{locale\} src="trial_off"[^>]*keepOpenWhilePro/);
+  // ★11/11 조기 안내(갱신 끈 직후 1회)는 출처만 trial_off_early 로 넘긴다 — 기본값은 trial_off 그대로
+  assert.match(sheet, /<ProPaywall locale=\{locale\} src=\{src\}[^>]*keepOpenWhilePro/);
+  assert.match(sheet, /src = 'trial_off'/);
   assert.doesNotMatch(sheet, /picked|initialPlan|defaultPlan|selected=/);
   const pw = fs.readFileSync(path.join(ROOT, 'src/components/app/ProPaywall.tsx'), 'utf8');
   assert.match(pw, /const \[picked, setPicked\] = useState<PlanId \| null>\(null\);/);
