@@ -14,7 +14,7 @@ import { useEffect } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { promptRatingMoment } from '@/lib/native/capacitorBridge';
 import {
-  isBenignWindowError, markRatingError, proMomentEligible, PRO_ACTIVATED_EVENT, PRO_MOMENT_DELAY_MS, RATING_MOMENT_PRO,
+  isBenignWindowError, markRatingError, proMomentEligible, PRO_ACTIVATED_EVENT, PRO_MOMENT_DELAY_MS, RATING_MOMENT_PRO, whenNoModal,
 } from '@/lib/app/ratingMoments';
 import {
   AI_LINE_REVIEW, APP_SESSION_REVIEW, WATCH_ADD_REVIEW, runSessionMoment, subscribeAiLineMoment, subscribeWatchAddMoment,
@@ -51,10 +51,13 @@ export function ReviewPromptMoments() {
     const eligible = () => {
       try { return proMomentEligible(localStorage, sessionStorage, Date.now(), window.location.pathname); } catch { return false; }
     };
+    let stopWait: () => void = () => {};
     const tryAsk = () => { cancel(); cancel = promptRatingMoment(RATING_MOMENT_PRO, PRO_MOMENT_DELAY_MS, eligible); };
+    // 결제 성공 이벤트는 페이월·시트가 열린 채로 온다 → 모달이 닫힌 뒤에 예약한다(관문 11111214 ②)
+    const onActivated = () => { stopWait(); stopWait = whenNoModal(window, document, tryAsk); };
     tryAsk();
-    window.addEventListener(PRO_ACTIVATED_EVENT, tryAsk);
-    return () => { window.removeEventListener(PRO_ACTIVATED_EVENT, tryAsk); cancel(); };
+    window.addEventListener(PRO_ACTIVATED_EVENT, onActivated);
+    return () => { window.removeEventListener(PRO_ACTIVATED_EVENT, onActivated); stopWait(); cancel(); };
   }, []);
 
   // ② 담기 성공 이벤트 구독 — 네이티브가 아니면 걸지 않는다

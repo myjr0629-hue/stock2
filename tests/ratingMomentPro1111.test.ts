@@ -71,7 +71,8 @@ const NOW = 1_800_000_000_000;
   assert.ok(!src('src/lib/app/foregroundProSync.ts').includes('announceProActivated'), '안드 복귀 동기화는 기존 구매 복원과 구별할 수 없어 순간으로 세지 않는다(관문 11111208 ②)');
   const moments = src('src/components/app/ReviewPromptMoments.tsx');
   assert.match(moments, /promptRatingMoment\(RATING_MOMENT_PRO, PRO_MOMENT_DELAY_MS, eligible\)/);
-  assert.match(moments, /addEventListener\(PRO_ACTIVATED_EVENT, tryAsk\)/);
+  assert.match(moments, /addEventListener\(PRO_ACTIVATED_EVENT, onActivated\)/);
+  assert.match(moments, /const onActivated = \(\) => \{ stopWait\(\); stopWait = whenNoModal\(window, document, tryAsk\); \};/, '결제 성공은 모달이 닫힌 뒤 예약한다');
   assert.ok(moments.indexOf('runSessionMoment(window, askOnSession)') < moments.indexOf('RATING_MOMENT_PRO, PRO_MOMENT_DELAY_MS'), '세션 카운트가 먼저 돈다');
   assert.match(moments, /return null;/, '화면에는 아무것도 그리지 않는다');
 }
@@ -158,11 +159,29 @@ try {
 // ── 관문 11111208 ① — iOS 코드 복귀: «열기 전 PRO 아님»이 확인된 경우만 체험 시작으로 본다 ──
 (async () => {
   const { confirmedNonProNow } = require('../src/lib/app/redeem');
-  const snap = (isPro: boolean, ready = true, preview = false) => () => ({ isPro, ready, preview });
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => false, snapshot: snap(true) }), true, 'SDK 가 PRO 아님 → 새 체험 후보');
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => true, snapshot: snap(false) }), false, '이미 PRO 였으면 아님');
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => null, snapshot: snap(false) }), true, 'SDK 없으면 공용 상태(확인 끝·PRO 아님)');
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => null, snapshot: snap(false, false) }), false, '확인 전이면 아님(보수적으로)');
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => { throw new Error('x'); }, snapshot: snap(true) }), false, 'SDK 실패 + 공용 상태 PRO → 아님');
-  assert.equal(await confirmedNonProNow({ sdkPro: async () => null, snapshot: snap(false, true, true) }), false, '프리뷰 강제 표시는 아님');
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => false }), true, 'SDK 가 PRO 아님으로 읽음 → 새 체험 후보');
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => true }), false, '이미 PRO 였으면 아님');
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => null }), false, 'SDK 없음 → 아님(공용 상태로 추정하지 않는다 — 관문 11111214 ①)');
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => { throw new Error('x'); } }), false, 'SDK 조회 실패 → 아님');
 })().catch((e) => { console.error(e); process.exitCode = 1; });
+
+// ── 관문 11111214 ② — 모달이 닫힐 때까지 기다렸다가 한 번만 부른다 · 끝내 안 닫히면 포기 · 취소 가능 ──
+{
+  const { whenNoModal } = require('../src/lib/app/ratingMoments');
+  let q: Array<{ id: number; fn: () => void }> = []; let id = 1;
+  const win = { setTimeout: (fn: () => void) => { q.push({ id: id++, fn }); return id - 1; }, clearTimeout: (x: number) => { q = q.filter(t => t.id !== x); } };
+  let open = true; let asked = 0;
+  const doc = { querySelector: (sel: string) => (open && sel === '[aria-modal="true"]' ? {} : null) };
+  const step = () => { const t = q.shift(); assert.ok(t); t!.fn(); };
+  whenNoModal(win, doc, () => { asked++; }, 1000, 5);
+  step(); step();
+  assert.equal(asked, 0, '모달이 열려 있는 동안은 부르지 않는다');
+  open = false; step();
+  assert.equal(asked, 1, '닫히면 한 번 부른다'); assert.equal(q.length, 0, '부른 뒤 더 보지 않는다');
+  open = true; asked = 0;
+  whenNoModal(win, doc, () => { asked++; }, 1000, 3);
+  step(); step(); step();
+  assert.equal(q.length, 0, '최대 횟수 뒤 그만둔다'); assert.equal(asked, 0);
+  const cancel = whenNoModal(win, doc, () => { asked++; }, 1000, 3);
+  cancel(); assert.equal(q.length, 0, '취소하면 타이머를 지운다');
+}

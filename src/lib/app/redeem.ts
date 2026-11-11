@@ -31,7 +31,7 @@
 
 import { initRevenueCat, isProFromCustomerInfo } from '@/services/revenueCat';
 import { openExternalUrl } from '@/lib/native/capacitorBridge';
-import { getProSnapshot, notifyProPurchased, isPreviewHost, previewFlag } from '@/lib/app/proEntitlement';
+import { notifyProPurchased, isPreviewHost, previewFlag } from '@/lib/app/proEntitlement';
 import { announceProActivated } from '@/lib/app/ratingMoments';
 import { couponGuide } from '@/lib/app/couponGuide';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
@@ -74,14 +74,16 @@ const funnel = () => import('@/lib/app/funnel');
 // ── 돌아왔을 때 PRO 새로 읽기(iOS) ───────────────────────────────────────────
 const RETURN_WINDOW_MS = 30 * 60_000;   // 코드 입력을 연 뒤 30분 안의 «앱 복귀»만 본다
 // wasNonPro = 코드 입력을 열기 «전» PRO 가 아니었는가(확인된 경우만 true). 이미 PRO 였던 사람이 열었다 닫은 복귀를
-//   «체험 시작 성공»으로 보지 않게 한다(평점 순간 — 관문 11111208 ①). 열기를 늦추지 않도록 확인은 약속으로 들고 다닌다.
+//   «체험 시작 성공»으로 보지 않게 한다(평점 순간 — 관문 11111208 ①·11111214 ①). 열기를 늦추지 않도록 확인은 약속으로 들고 다닌다.
 let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc; wasNonPro?: Promise<boolean> } | null = null;
 
-/** 열기 직전의 PRO 여부(SDK 캐시 → 실패하면 공용 상태가 «확인 끝·PRO 아님»일 때만 true). 던지지 않는다. */
+/**
+ * 열기 직전의 PRO 여부 — SDK 가 «성공적으로» 읽어 PRO 아님이라고 답했을 때만 true. 던지지 않는다.
+ * 공용 상태(proEntitlement)는 쓰지 않는다: 첫 조회 실패도 «확인 끝·PRO 아님»으로 남기 때문이다(관문 11111214 ①).
+ */
 export async function confirmedNonProNow(deps?: {
   /** SDK 캐시로 읽은 PRO 여부 — SDK 를 못 쓰면 null */
   sdkPro?: () => Promise<boolean | null>;
-  snapshot?: () => { isPro: boolean; ready: boolean; preview: boolean };
 }): Promise<boolean> {
   const sdkPro = deps?.sdkPro ?? (async () => {
     if (!(await initRevenueCat())) return null;
@@ -89,11 +91,7 @@ export async function confirmedNonProNow(deps?: {
     const { customerInfo } = await Purchases.getCustomerInfo();
     return isProFromCustomerInfo(customerInfo);
   });
-  try {
-    const pro = await sdkPro();
-    if (pro != null) return !pro;
-  } catch { /* 아래 공용 상태로 */ }
-  try { const st = (deps?.snapshot ?? getProSnapshot)(); return st.ready && !st.isPro && !st.preview; } catch { return false; }
+  try { return (await sdkPro()) === false; } catch { return false; }
 }
 let listening = false;
 let refreshing = false;

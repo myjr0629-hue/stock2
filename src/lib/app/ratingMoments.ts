@@ -120,3 +120,31 @@ export function announceProActivated(): void {
     window.dispatchEvent(new Event(PRO_ACTIVATED_EVENT));
   } catch { /* 오래된 웹뷰 */ }
 }
+
+type TimerWin = { setTimeout: (fn: () => void, ms: number) => number; clearTimeout?: (id: number) => void };
+type ModalDoc = { querySelector: (q: string) => unknown };
+
+/**
+ * 결제 성공 이벤트는 페이월·쿠폰 시트가 «아직 열려 있을 때» 온다 — 바로 예약하면 모달 검사에 막혀 버려진다(관문 11111214 ②).
+ * 모달(aria-modal)이 닫힐 때까지 intervalMs 마다 보고, 닫히면 ask() 를 한 번 부른다. maxTries 동안 안 닫히면 그만둔다
+ * (표식은 남아 다음 실행에서 다시). 취소 함수를 돌려준다. 던지지 않는다.
+ */
+export function whenNoModal(win: TimerWin, doc: ModalDoc, ask: () => void, intervalMs = 1000, maxTries = 120): () => void {
+  let timer: number | null = null;
+  let stopped = false;
+  let tries = 0;
+  const tick = () => {
+    timer = null;
+    if (stopped) return;
+    tries += 1;
+    let open = true;
+    try { open = !!doc.querySelector('[aria-modal="true"]'); } catch { open = true; }
+    if (!open) { stopped = true; try { ask(); } catch { /* 평점 요청이 앱을 막으면 안 된다 */ } return; }
+    if (tries < maxTries) { try { timer = win.setTimeout(tick, intervalMs); } catch { /* noop */ } }
+  };
+  try { timer = win.setTimeout(tick, intervalMs); } catch { /* noop */ }
+  return () => {
+    stopped = true;
+    if (timer != null) { try { win.clearTimeout?.(timer); } catch { /* noop */ } }
+  };
+}
