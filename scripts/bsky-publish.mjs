@@ -19,6 +19,7 @@
 //   node scripts/bsky-publish.mjs --check                     상태만 확인(발행 안 함)
 //   node scripts/bsky-publish.mjs --file <원고.md>            원고의 「## 본문」 블록을 발행
 //   node scripts/bsky-publish.mjs --text "..." [--image <url>]
+//   node scripts/bsky-publish.mjs --json-file <입력.json>       {"text":"본문", "lang":"de"} (lang 생략 가능)
 //   node scripts/bsky-publish.mjs --text-file <본문.txt> --image-file <16:9 카드.png> --alt "이미지 설명"
 //   node scripts/bsky-publish.mjs --text-file <정정.txt> --reply-to at://did:plc:…/app.bsky.feed.post/<rkey>   (정정 답글, 이미지 없음)
 // ============================================================================
@@ -29,6 +30,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import dotenv from 'dotenv';
+import { addPostLang, parsePostInput } from './bsky-lang.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 dotenv.config({ path: join(ROOT, '.env.local') });
@@ -60,9 +62,12 @@ function bodyFromDraft(path) {
   return m[1].trim();
 }
 
+if (has('--json-file') && (!arg('--json-file') || arg('--json-file').startsWith('--'))) throw new Error('--json-file 경로가 필요하다');
+const input = has('--json-file') ? parsePostInput(readFileSync(arg('--json-file'), 'utf8')) : null;
+const explicitLang = input?.lang;
 const M = await loadBluesky();
 
-if (has('--check') || (!arg('--text') && !arg('--file') && !arg('--text-file'))) {
+if (has('--check') || (!arg('--text') && !arg('--file') && !arg('--text-file') && !input)) {
   const configured = M.blueskyConfigured();
   console.log('설정됨:', configured ? '✅' : '❌  (.env.local 에 BLUESKY_HANDLE / BLUESKY_APP_PASSWORD 필요)');
   if (configured) {
@@ -72,7 +77,7 @@ if (has('--check') || (!arg('--text') && !arg('--file') && !arg('--text-file')))
   process.exit(configured ? 0 : 1);
 }
 
-const text = arg('--text') || (arg('--text-file') ? readFileSync(arg('--text-file'), 'utf8').trim() : bodyFromDraft(arg('--file')));
+const text = input ? input.text.trim() : arg('--text') || (arg('--text-file') ? readFileSync(arg('--text-file'), 'utf8').trim() : bodyFromDraft(arg('--file')));
 // ★2026-09-23 --image-file <로컬 경로> — bskyPost 는 «URL»로만 이미지를 받는다(Node fetch 는 file: 를 못 연다).
 //   이 프로세스 안에 127.0.0.1 임시 서버를 띄워 그 주소를 넘기고, 발행이 끝나면 닫는다.
 //   ⚠ bskyPost 는 aspectRatio 를 1200×675 로 고정해 보낸다 → 이미지는 반드시 16:9 카드(make-x-card.py)로 만든다.
@@ -101,14 +106,12 @@ console.log(`본문 ${text.length}자 / 300${image ? ' · 이미지 ' + image : 
 //   잘못 태깅(9/9~9/21 브라우저 작성창 기본 언어) → 영어만 보는 사용자 피드에서 빠졌을 수 있다.
 //   운영 코드(src/lib/marketing-console/bluesky.ts)를 바꾸면 운영 배포(대표 승인)가 필요하므로, 여기서 createRecord 요청에만 넣는다.
 {
-  const detectLang = (t) => (/[぀-ヿ]/.test(t) ? 'ja' : /[가-힣]/.test(t) ? 'ko' : 'en');
   const _fetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
     try {
       if (String(url).includes('com.atproto.repo.createRecord') && init && typeof init.body === 'string') {
         const b = JSON.parse(init.body);
-        if (b && b.record && b.record.$type === 'app.bsky.feed.post' && !b.record.langs) {
-          b.record.langs = [detectLang(b.record.text || '')];
+        if (addPostLang(b, explicitLang)) {
           console.log('langs 지정:', b.record.langs.join(','));
           init = { ...init, body: JSON.stringify(b) };
         }
