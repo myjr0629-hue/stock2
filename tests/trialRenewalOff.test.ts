@@ -18,7 +18,11 @@ for (const changes of [
 ]) assert.equal(check(changes), null, JSON.stringify(changes));
 assert.equal(check({}, 'android'), null);
 assert.ok(check({ store: 'PLAY_STORE' }, 'android'));
-assert.equal(check({}, 'ios', found.period), null);
+// ★11/11 하루 한 번: 같은 날(mark = 기간|현지 날짜)이면 안 뜨고, 다음 날이면 다시 뜬다. 옛 저장 값(기간만)은 같은 날로 치지 않는다
+assert.equal(check({}, 'ios', found.mark), null);
+assert.ok(check({}, 'ios', found.period));
+assert.ok(trialRenewalOffNotice({ entitlements: { active: { pro } } } as never, 'ios', now, found.mark, '2099-01-01'));
+assert.equal(TRIAL_OFF_WINDOW_MS, 72 * 3600000);
 const info = (changes: Record<string, unknown> = {}) => ({ entitlements: { active: { pro: { ...pro, ...changes } } } }) as never;
 assert.ok(verifiedTrialRenewalOffNotice(info(), info(), 'ios', now, null));
 for (const changes of [

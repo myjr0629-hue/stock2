@@ -24,6 +24,7 @@ mock('../src/components/app/watchlist/BottomSheet', {});
 mock('../src/hooks/useBannerSuppression', {});
 mock('../src/lib/app/funnel', { trackFunnel: () => {} });
 mock('../src/lib/app/subscriptionManagement', {});
+mock('next/dynamic', { __esModule: true, default: () => () => null });   // 11/11 체험 종료 → 페이월(누를 때만 받는다)
 let native: ((state: { isActive: boolean }) => void) | undefined;
 mock('@capacitor/app', { App: { addListener: async (_event: string, listener: typeof native) => {
   native = listener; return { remove: async () => { native = undefined; } };

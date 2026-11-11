@@ -270,6 +270,10 @@
       "schedule": "40 1 * * 2-6"
     },
     {
+      "path": "/api/cron/trial-push",
+      "schedule": "17 * * * *"
+    },
+    {
       "path": "/api/cron/earnings-actuals",
       "schedule": "20 11,12 * * 1-5"
     },

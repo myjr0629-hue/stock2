@@ -3,10 +3,18 @@ import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 import type { TrialStore } from '@/lib/app/trialConsent';
 
 export const TRIAL_OFF_STORAGE_KEY = 'signumhq.trialRenewalOff.v1';
-export const TRIAL_OFF_WINDOW_MS = 48 * 60 * 60 * 1000;
-export type TrialOffNotice = { store: TrialStore; expiresAt: number; period: string };
+// ★2026-11-11 48h → 72h(마지막 3일) · 하루 한 번(기기 현지 날짜). 저장 값 = «체험 기간|현지 날짜»(mark) — 같은 날엔 다시 뜨지 않는다.
+//   옛 저장 값(기간만)은 mark 와 다르므로 3일 창 안에서 하루 한 번 규칙을 그대로 따른다.
+export const TRIAL_OFF_WINDOW_MS = 72 * 60 * 60 * 1000;
+export type TrialOffNotice = { store: TrialStore; expiresAt: number; period: string; mark: string };
 
-export function trialRenewalOffNotice(info: Pick<CustomerInfo, 'entitlements'> | null, platform: string, now: number, seen: string | null): TrialOffNotice | null {
+/** 기기 현지 날짜(YYYY-MM-DD) — «하루 한 번»의 하루. 식별자 아님 */
+export function localDayKey(now: number): string {
+  const d = new Date(now);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function trialRenewalOffNotice(info: Pick<CustomerInfo, 'entitlements'> | null, platform: string, now: number, seen: string | null, day: string = localDayKey(now)): TrialOffNotice | null {
   const pro = info?.entitlements.active[PRO_ENTITLEMENT_ID];
   if (!Number.isFinite(now) || !pro?.isActive || pro.willRenew !== false || pro.periodType !== 'TRIAL' || pro.ownershipType === 'FAMILY_SHARED') return null;
   const store = pro.store;
@@ -15,15 +23,16 @@ export function trialRenewalOffNotice(info: Pick<CustomerInfo, 'entitlements'> |
   const expiresAt = Date.parse(pro.expirationDate ?? '');
   if (!Number.isFinite(start) || !Number.isFinite(expiresAt) || start > now || expiresAt <= start || expiresAt <= now || expiresAt - now > TRIAL_OFF_WINDOW_MS) return null;
   const period = `${start}:${expiresAt}`;
-  return period === seen ? null : { store, expiresAt, period };
+  const mark = `${period}|${day}`;
+  return mark === seen ? null : { store, expiresAt, period, mark };
 }
 
-export function verifiedTrialRenewalOffNotice(initial: Pick<CustomerInfo, 'entitlements'>, fresh: Pick<CustomerInfo, 'entitlements'>, platform: string, now: number, seen: string | null): TrialOffNotice | null {
+export function verifiedTrialRenewalOffNotice(initial: Pick<CustomerInfo, 'entitlements'>, fresh: Pick<CustomerInfo, 'entitlements'>, platform: string, now: number, seen: string | null, day: string = localDayKey(now)): TrialOffNotice | null {
   const before = initial.entitlements.active[PRO_ENTITLEMENT_ID];
   const after = fresh.entitlements.active[PRO_ENTITLEMENT_ID];
   if (!before?.productIdentifier || before.productIdentifier !== after?.productIdentifier) return null;
-  const first = trialRenewalOffNotice(initial, platform, now, seen);
-  const latest = trialRenewalOffNotice(fresh, platform, now, seen);
+  const first = trialRenewalOffNotice(initial, platform, now, seen, day);
+  const latest = trialRenewalOffNotice(fresh, platform, now, seen, day);
   return first && latest && first.period === latest.period && first.store === latest.store ? latest : null;
 }
 

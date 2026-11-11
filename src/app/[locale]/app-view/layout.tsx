@@ -116,8 +116,15 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
               ? watchlistAlertPath(action?.notification?.data?.path)
               : null;
             const sigPath = type === 'wl_signal' ? signalTapPath(action?.notification?.data?.path) : null;
+            // ★2026-11-11 체험 종료 D-2 푸시(/api/cron/trial-push) — 탭 계측(push_trial) 뒤 대시보드로. 대시보드의 체험 종료 안내가
+            //   «오늘 이미 봤음»을 한 번 건너뛰고 뜨도록 세션 표식을 남긴다(갱신을 이미 켰으면 안내는 뜨지 않는다).
+            const trialPath = type === 'trial_end' ? '/app-view/dash' : null;
+            if (trialPath) {
+              import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('push_open', { src: 'push_trial' })).catch(() => {});
+              try { sessionStorage.setItem('signumhq.trialSave.push', '1'); } catch { /* storage off */ }
+            }
             const target = reportPushPath(type, loc, action?.notification?.data?.date)
-              || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : null);
+              || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : trialPath ? `/${loc}${trialPath}` : null);
             if (!target) return;
             try {
               if (countRatingPush(type, localStorage, sessionStorage) >= 3) {

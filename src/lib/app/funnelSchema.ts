@@ -30,6 +30,7 @@ export const FUNNEL_STAGES = [
   'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', // 체험 종료 안내 표시·관리 탭·7일 숨김. 동의 완료/유료 전환이 아님
   'cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other',
   'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', // 갱신 끈 체험 안내의 익명 합계
+  'trial_off_plans', // ★11/11 체험 종료 안내의 «PRO 요금제 보기»(페이월 열림·구매는 출처 trial_off 의 open·cta·buy_* 로 센다)
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 
@@ -57,6 +58,7 @@ export const FUNNEL_SRCS = [
   'onb_ai', 'onb_noai', 'onb_earn',                        // 카드 상태
   'trial_notice',                   // 대시보드 체험 종료 안내 — 식별자·국가·가격·종료일 없음
   'trial_off',
+  'push_trial',                     // ★11/11 체험 종료 D-2 푸시 탭(push_open 전용)
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

@@ -92,6 +92,10 @@ const COPY: Record<PaywallLocale, {
   renewAnnual: string;
   lifetimeNote: string;
   lifetimeManage: string;
+  /** ★11/11 체험 종료 안내(TrialRenewalOffNotice)에서 열렸을 때 — 이미 PRO(체험 중)인 사람에게 «계속 쓰기» */
+  trialTitle: string;
+  trialLede: string;
+  ctaKeep: string;
 }> = {
   ko: {
     close: '닫기',
@@ -140,6 +144,9 @@ const COPY: Record<PaywallLocale, {
     renewAnnual: '1년 뒤 자동 갱신됩니다. 언제든 해지할 수 있고, 해지하면 남은 기간까지 이용됩니다.',
     lifetimeNote: '한 번 결제로 계속 사용합니다. 자동 갱신·추가 결제가 없습니다.',
     lifetimeManage: '다른 기기에서는 «구매 복원»으로 되살립니다.',
+    trialTitle: '체험 뒤에도 PRO를 쓰려면',
+    trialLede: '요금제를 고르면 지금처럼 계속 이용합니다.',
+    ctaKeep: 'PRO 계속 쓰기',
   },
   en: {
     close: 'Close',
@@ -188,6 +195,9 @@ const COPY: Record<PaywallLocale, {
     renewAnnual: 'Renews automatically after 1 year. Cancel anytime; access continues until the period ends.',
     lifetimeNote: 'One payment. No renewal and no further charges.',
     lifetimeManage: 'On another device, use Restore purchase.',
+    trialTitle: 'Keep PRO after your trial',
+    trialLede: 'Pick a plan to keep everything you have now.',
+    ctaKeep: 'Keep PRO',
   },
   ja: {
     close: '閉じる',
@@ -236,6 +246,9 @@ const COPY: Record<PaywallLocale, {
     renewAnnual: '1年後に自動更新されます。いつでも解約でき、期間終了までご利用いただけます。',
     lifetimeNote: '一度の購入でずっと使えます。自動更新・追加料金はありません。',
     lifetimeManage: '別の端末では「購入を復元」で戻せます。',
+    trialTitle: '体験後もPROを使うには',
+    trialLede: 'プランを選ぶと、今と同じように使い続けられます。',
+    ctaKeep: 'PROを続ける',
   },
 };
 
@@ -286,7 +299,7 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
-export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src }: {
+export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
@@ -306,6 +319,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   lead?: 'ads' | 'watchlist' | 'alerts';
   /** «내 종목» 알림 혜택 줄을 보일지(NEXT_PUBLIC_WATCHLIST_ALERTS) — 없는 기능을 팔지 않는다 */
   alerts?: boolean;
+  /** ★11/11 체험 종료 안내 전용 — 체험 중(이미 PRO)이어도 열린 채 둔다. 구매가 끝나면(PRO 확인) 닫는다. 다른 호출부는 넘기지 않는다(예전처럼 PRO 면 즉시 닫힘) */
+  keepOpenWhilePro?: boolean;
 }) {
   const router = useRouter();
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
@@ -345,7 +360,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   const shownPrice = monthly?.priceString ?? previewPrice ?? null;
 
   // 이미 구독자면 페이월을 띄울 이유가 없다(복원 직후 포함).
-  useEffect(() => { if (isPro) onClose(); }, [isPro, onClose]);
+  useEffect(() => { if (isPro && !keepOpenWhilePro) onClose(); }, [isPro, onClose, keepOpenWhilePro]);
 
   const handleSubscribe = useCallback(async () => {
     if (busy || purchasePending || !selectedOffer) return;
@@ -354,10 +369,10 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     setNote(null);
     const res = await purchase(selectedOffer.plan, funnelSrc);
     setBusy(false);
-    if (res.ok && res.isPro) return; // 위 effect 가 닫는다
+    if (res.ok && res.isPro) { if (keepOpenWhilePro) onClose(); return; } // 평소엔 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
-  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc]);
+  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
@@ -409,7 +424,9 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   // 설정·가치 벽(기본 'ads')은 예전 그대로(+ «내 종목 100개» 한 줄). 알림 플래그가 꺼진 빌드의 'alerts' 는 «내 종목»으로 연다.
   const alertsLead = lead === 'alerts' && alerts;
   const watchlistLead = lead === 'watchlist' || (lead === 'alerts' && !alerts);
-  const head = alertsLead
+  const head = keepOpenWhilePro
+    ? { title: t.trialTitle, lede: t.trialLede, cta: t.ctaKeep }
+    : alertsLead
     ? { title: t.alertsTitle, lede: t.alertsLede, cta: t.ctaPro }
     : watchlistLead
       ? { title: t.watchlistTitle, lede: t.watchlistLede, cta: t.ctaPro }

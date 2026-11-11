@@ -1,0 +1,111 @@
+// ============================================================================
+// 체험 종료 D-2 푸시 — 순수 규칙(등록 라우트 /api/push/trial · 발송 크론 /api/cron/trial-push · 시험이 같이 쓴다) (2026-11-11)
+// ----------------------------------------------------------------------------
+// 대상: 앱이 보고한 «체험(TRIAL) 중 · 자동 갱신 꺼짐» 기기 하나당, 체험 하나당 «한 번». 남은 시간 12~48시간 사이.
+// 안 보내는 경우: 갱신을 다시 켰다 · 이미 보냈다 · 알림 전체를 껐다(설정) · 시스템 알림 권한 없음 · 토큰이 더는 등록돼 있지 않다
+//   · 6시간 안에 앱을 열었다(앱 안 카드를 이미 봤다 — 다음 회차에 다시 본다) · 기기 현지 시간 09~20시 밖(다음 회차에).
+// 문구: 사실만(종료일 · 갱신 꺼짐 = 결제 안 됨 · 앱에서 요금제를 볼 수 있음). 가격·긴급함·투자 권유 없음.
+// 식별자: 키는 이미 서버에 있는 푸시 토큰. 계정·RC 고객 ID 를 받지 않는다.
+// ============================================================================
+import { trialEndDateText, toTrialSaveLocale } from '@/lib/app/trialSave';
+
+export const TRIAL_PUSH_KEY = (token: string) => `push:trial:${token}`;
+export const TRIAL_PUSH_DUE_ZSET = 'push:trial:due';
+export const TRIAL_PUSH_MAX_MS = 48 * 3600_000;
+export const TRIAL_PUSH_MIN_MS = 12 * 3600_000;
+export const TRIAL_PUSH_RECENT_OPEN_MS = 6 * 3600_000;
+/** 기기 현지 시각 [시작, 끝) — 이 밖이면 다음 회차까지 기다린다 */
+export const TRIAL_PUSH_HOURS: readonly [number, number] = [9, 21];
+/** 보고를 받아 주는 만료 시각 범위 — 지금부터 40일 안(1개월 체험 + 여유) */
+export const TRIAL_PUSH_REPORT_HORIZON_MS = 40 * 86400_000;
+
+export interface TrialPushRecord {
+  token: string;
+  platform: 'ios' | 'android';
+  locale: 'ko' | 'en' | 'ja';
+  expiresAt: number;
+  willRenew: boolean;
+  periodType: string;
+  store: string;
+  /** 마지막 보고(=앱을 연) 시각 */
+  at: number;
+  /** 이 만료 시각(체험)에 대해 이미 보냈다 */
+  sentFor?: number;
+}
+
+/** 등록 요청 본문 → 저장할 레코드(이전 레코드의 «보냄» 표식은 같은 체험이면 지킨다). 잘못된 값이면 null */
+export function sanitizeTrialReport(body: unknown, prev: Partial<TrialPushRecord> | null, now: number): TrialPushRecord | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as Record<string, unknown>;
+  const token = typeof b.token === 'string' ? b.token.trim() : '';
+  if (!token || token.length > 512 || !/^[A-Za-z0-9:_\-.]+$/.test(token)) return null;
+  if (b.platform !== 'ios' && b.platform !== 'android') return null;
+  const expiresAt = typeof b.expiresAt === 'number' ? b.expiresAt : NaN;
+  if (!Number.isFinite(expiresAt) || expiresAt <= now || expiresAt > now + TRIAL_PUSH_REPORT_HORIZON_MS) return null;
+  if (typeof b.willRenew !== 'boolean') return null;
+  const periodType = typeof b.periodType === 'string' ? b.periodType.slice(0, 16) : '';
+  if (!['TRIAL', 'NORMAL', 'INTRO', 'PREPAID'].includes(periodType)) return null;
+  const store = typeof b.store === 'string' ? b.store.slice(0, 24) : '';
+  const rec: TrialPushRecord = {
+    token, platform: b.platform, locale: toTrialSaveLocale(typeof b.locale === 'string' ? b.locale : 'en'),
+    expiresAt, willRenew: b.willRenew, periodType, store, at: now,
+  };
+  if (prev && typeof prev.sentFor === 'number' && prev.sentFor === expiresAt) rec.sentFor = prev.sentFor;
+  return rec;
+}
+
+/** 이 레코드가 «보낼 대상 목록»(만료 시각 정렬)에 있어야 하나 */
+export function trialPushWanted(rec: TrialPushRecord): boolean {
+  return rec.periodType === 'TRIAL' && rec.willRenew === false && rec.sentFor !== rec.expiresAt;
+}
+
+/** 시간대의 현지 시(0~23). 잘못된 시간대면 null */
+export function localHourIn(now: number, timeZone: string): number | null {
+  try {
+    const h = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone }).format(new Date(now));
+    const n = Number(h);
+    return Number.isInteger(n) && n >= 0 && n <= 23 ? n : null;
+  } catch { return null; }
+}
+
+/** 기기 시간대가 없을 때(옛 등록) 언어로 짐작 */
+export function fallbackTimeZone(locale: string): string {
+  return locale === 'ko' ? 'Asia/Seoul' : locale === 'ja' ? 'Asia/Tokyo' : 'America/New_York';
+}
+
+export type TrialPushSkip = 'invalid' | 'renewing' | 'sent' | 'window' | 'unregistered' | 'muted' | 'no_permission' | 'recent_open' | 'quiet_hours';
+
+/** 지금 보낼까 — 'send' 또는 안 보내는 이유 */
+export function trialPushDecision(
+  rec: TrialPushRecord | null,
+  tokenRec: { app?: string; preferences?: { enabled?: boolean } | null; notifPerm?: boolean; tz?: string } | null,
+  now: number,
+): 'send' | TrialPushSkip {
+  if (!rec || typeof rec.expiresAt !== 'number') return 'invalid';
+  if (rec.periodType !== 'TRIAL' || rec.willRenew !== false) return 'renewing';
+  if (rec.sentFor === rec.expiresAt) return 'sent';
+  const left = rec.expiresAt - now;
+  if (!(left > TRIAL_PUSH_MIN_MS && left <= TRIAL_PUSH_MAX_MS)) return 'window';
+  if (!tokenRec || (tokenRec.app && tokenRec.app !== 'signum')) return 'unregistered';
+  if (tokenRec.preferences && tokenRec.preferences.enabled === false) return 'muted';
+  if (tokenRec.notifPerm === false) return 'no_permission';
+  if (typeof rec.at === 'number' && now - rec.at < TRIAL_PUSH_RECENT_OPEN_MS) return 'recent_open';
+  const hour = localHourIn(now, tokenRec.tz || fallbackTimeZone(rec.locale)) ?? localHourIn(now, fallbackTimeZone(rec.locale));
+  if (hour == null || hour < TRIAL_PUSH_HOURS[0] || hour >= TRIAL_PUSH_HOURS[1]) return 'quiet_hours';
+  return 'send';
+}
+
+const PUSH_COPY = {
+  ko: { title: (d: string) => `PRO 무료 체험이 ${d}에 끝나요`, body: '자동 갱신이 꺼져 있어 결제되지 않아요. 계속 쓰시려면 앱에서 요금제를 볼 수 있어요.' },
+  en: { title: (d: string) => `Your PRO free trial ends ${d}`, body: 'Auto-renew is off, so you won’t be charged. If you’d like to keep PRO, you can see the plans in the app.' },
+  ja: { title: (d: string) => `PROの無料体験は${d}に終了します`, body: '自動更新はオフのため請求はありません。PROを続ける場合は、アプリでプランを確認できます。' },
+} as const;
+
+export function trialPushContent(rec: Pick<TrialPushRecord, 'locale' | 'expiresAt'>, timeZone?: string): { title: string; body: string } {
+  const loc = toTrialSaveLocale(rec.locale);
+  const c = PUSH_COPY[loc];
+  return { title: c.title(trialEndDateText(rec.expiresAt, loc, timeZone || fallbackTimeZone(loc))), body: c.body };
+}
+
+/** 푸시 데이터(문자열만 — FCM 규칙). 앱은 type 으로 계측하고 대시보드로 간다 */
+export const TRIAL_PUSH_DATA: Record<string, string> = { type: 'trial_end', path: '/app-view/dash' };
