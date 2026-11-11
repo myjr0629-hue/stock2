@@ -31,7 +31,7 @@
 
 import { initRevenueCat, isProFromCustomerInfo } from '@/services/revenueCat';
 import { openExternalUrl } from '@/lib/native/capacitorBridge';
-import { notifyProPurchased, isPreviewHost, previewFlag } from '@/lib/app/proEntitlement';
+import { getProSnapshot, notifyProPurchased, isPreviewHost, previewFlag } from '@/lib/app/proEntitlement';
 import { announceProActivated } from '@/lib/app/ratingMoments';
 import { couponGuide } from '@/lib/app/couponGuide';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
@@ -73,7 +73,28 @@ const funnel = () => import('@/lib/app/funnel');
 
 // ── 돌아왔을 때 PRO 새로 읽기(iOS) ───────────────────────────────────────────
 const RETURN_WINDOW_MS = 30 * 60_000;   // 코드 입력을 연 뒤 30분 안의 «앱 복귀»만 본다
-let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc } | null = null;
+// wasNonPro = 코드 입력을 열기 «전» PRO 가 아니었는가(확인된 경우만 true). 이미 PRO 였던 사람이 열었다 닫은 복귀를
+//   «체험 시작 성공»으로 보지 않게 한다(평점 순간 — 관문 11111208 ①). 열기를 늦추지 않도록 확인은 약속으로 들고 다닌다.
+let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc; wasNonPro?: Promise<boolean> } | null = null;
+
+/** 열기 직전의 PRO 여부(SDK 캐시 → 실패하면 공용 상태가 «확인 끝·PRO 아님»일 때만 true). 던지지 않는다. */
+export async function confirmedNonProNow(deps?: {
+  /** SDK 캐시로 읽은 PRO 여부 — SDK 를 못 쓰면 null */
+  sdkPro?: () => Promise<boolean | null>;
+  snapshot?: () => { isPro: boolean; ready: boolean; preview: boolean };
+}): Promise<boolean> {
+  const sdkPro = deps?.sdkPro ?? (async () => {
+    if (!(await initRevenueCat())) return null;
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    const { customerInfo } = await Purchases.getCustomerInfo();
+    return isProFromCustomerInfo(customerInfo);
+  });
+  try {
+    const pro = await sdkPro();
+    if (pro != null) return !pro;
+  } catch { /* 아래 공용 상태로 */ }
+  try { const st = (deps?.snapshot ?? getProSnapshot)(); return st.ready && !st.isPro && !st.preview; } catch { return false; }
+}
 let listening = false;
 let refreshing = false;
 
@@ -127,7 +148,8 @@ function onAppActive() {
     .then((pro) => {
       if (!pro) return;
       notifyProPurchased(true);
-      announceProActivated();   // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments)
+      // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments) — 열기 전 PRO 가 아니었다고 확인된 경우만
+      void (p.wasNonPro ?? Promise.resolve(false)).then((was) => { if (was) announceProActivated(); }).catch(() => {});
       void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {});
     })
     .catch(() => {})
@@ -135,7 +157,8 @@ function onAppActive() {
 }
 
 function armReturn(path: 'sheet' | 'url', src?: FunnelSrc) {
-  pending = { path, at: Date.now(), src };
+  const wasNonPro = confirmedNonProNow().catch(() => false);
+  pending = { path, at: Date.now(), src, wasNonPro };
   if (listening || typeof window === 'undefined') return;
   listening = true;
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') onAppActive(); });

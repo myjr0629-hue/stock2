@@ -65,8 +65,10 @@ const NOW = 1_800_000_000_000;
   assert.match(pro, /if \(result\.ok && result\.isPro\) \{ proPurchaseState\.confirm\(\); setIsPro\(true\); announceProActivated\(\); \}/, '구매 성공에서 알린다');
   const restoreBody = pro.slice(pro.indexOf('const restore = useCallback'), pro.indexOf('const refreshOffers'));
   assert.ok(!restoreBody.includes('announceProActivated'), '복원은 평점 순간이 아니다');
-  assert.match(src('src/lib/app/redeem.ts'), /notifyProPurchased\(true\);\n\s*announceProActivated\(\);/, 'iOS 코드 사용 복귀에서 알린다');
-  assert.match(src('src/lib/app/foregroundProSync.ts'), /notifyPro: \(\) => \{ notifyProPurchased\(true\); announceProActivated\(\); \}/, '안드 Play 코드 복귀에서 알린다');
+  const redeem = src('src/lib/app/redeem.ts');
+  assert.match(redeem, /void \(p\.wasNonPro \?\? Promise\.resolve\(false\)\)\.then\(\(was\) => \{ if \(was\) announceProActivated\(\); \}\)/, 'iOS 코드 복귀는 «열기 전 PRO 아님»이 확인된 경우만 알린다');
+  assert.match(redeem, /const wasNonPro = confirmedNonProNow\(\)\.catch\(\(\) => false\);\n\s*pending = \{ path, at: Date\.now\(\), src, wasNonPro \};/, '열기 전 상태를 열기를 늦추지 않고 잡는다');
+  assert.ok(!src('src/lib/app/foregroundProSync.ts').includes('announceProActivated'), '안드 복귀 동기화는 기존 구매 복원과 구별할 수 없어 순간으로 세지 않는다(관문 11111208 ②)');
   const moments = src('src/components/app/ReviewPromptMoments.tsx');
   assert.match(moments, /promptRatingMoment\(RATING_MOMENT_PRO, PRO_MOMENT_DELAY_MS, eligible\)/);
   assert.match(moments, /addEventListener\(PRO_ACTIVATED_EVENT, tryAsk\)/);
@@ -152,3 +154,15 @@ try {
 } finally {
   Module._load = original;
 }
+
+// ── 관문 11111208 ① — iOS 코드 복귀: «열기 전 PRO 아님»이 확인된 경우만 체험 시작으로 본다 ──
+(async () => {
+  const { confirmedNonProNow } = require('../src/lib/app/redeem');
+  const snap = (isPro: boolean, ready = true, preview = false) => () => ({ isPro, ready, preview });
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => false, snapshot: snap(true) }), true, 'SDK 가 PRO 아님 → 새 체험 후보');
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => true, snapshot: snap(false) }), false, '이미 PRO 였으면 아님');
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => null, snapshot: snap(false) }), true, 'SDK 없으면 공용 상태(확인 끝·PRO 아님)');
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => null, snapshot: snap(false, false) }), false, '확인 전이면 아님(보수적으로)');
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => { throw new Error('x'); }, snapshot: snap(true) }), false, 'SDK 실패 + 공용 상태 PRO → 아님');
+  assert.equal(await confirmedNonProNow({ sdkPro: async () => null, snapshot: snap(false, true, true) }), false, '프리뷰 강제 표시는 아님');
+})().catch((e) => { console.error(e); process.exitCode = 1; });

@@ -89,15 +89,13 @@ export async function startForegroundProSync(): Promise<void> {
       if (!(await rc.initRevenueCat())) return;
       const { Purchases } = await import('@revenuecat/purchases-capacitor');
       const { notifyProPurchased } = await import('@/lib/app/proEntitlement');
-      const { announceProActivated } = await import('@/lib/app/ratingMoments');
       await foregroundProSync({
         isPro: async () => {
           const { customerInfo } = await Purchases.getCustomerInfo();
           return rc.isProFromCustomerInfo(customerInfo);
         },
         sync: async () => { await Purchases.syncPurchases(); },
-        // 'synced_pro'(PRO 아니던 사람이 Play 스토어 코드로 PRO 가 됨)에서만 불린다 → 평점 «좋은 순간»(11/11)
-        notifyPro: () => { notifyProPurchased(true); announceProActivated(); },
+        notifyPro: () => notifyProPurchased(true),
         storeFlow: rc.isStoreFlowActive,
       });
     } catch { /* 동기화 실패는 조용히 — SDK 의 자동 동기화가 다음 복귀에 또 돈다 */ }
