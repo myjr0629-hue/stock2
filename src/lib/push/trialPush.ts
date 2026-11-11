@@ -16,8 +16,12 @@ export const TRIAL_PUSH_SENT_KEY = (token: string) => `push:trial:sent:${token}`
 export const TRIAL_PUSH_SENT_TTL_S = 25 * 86400;
 /** 보고 API 호출 제한 — 토큰당 5초에 한 번 */
 export const TRIAL_PUSH_RL_KEY = (token: string) => `push:trial:rl:${token}`;
-/** 한 회차 최대 발송 수(공급사 호출 상한) */
-export const TRIAL_PUSH_MAX_PER_RUN = 500;
+/** 한 회차 최대 발송 수 · 하루(ET) 최대 발송 수 · 한 회차에 읽는 대상 수 — 공급사·Redis 호출 상한(가짜 토큰 대량 등록 남용 대비).
+ *  실제 규모: 10/12 이후 체험 138명(하루 시작 최대 20명대) → 하루 상한 300 은 실사용을 막지 않는다. */
+export const TRIAL_PUSH_MAX_PER_RUN = 200;
+export const TRIAL_PUSH_MAX_PER_DAY = 300;
+export const TRIAL_PUSH_SCAN_LIMIT = 1000;
+export const TRIAL_PUSH_DAY_KEY = (etDay: string) => `push:trial:day:${etDay}`;
 export const TRIAL_PUSH_DUE_ZSET = 'push:trial:due';
 export const TRIAL_PUSH_MAX_MS = 48 * 3600_000;
 export const TRIAL_PUSH_MIN_MS = 12 * 3600_000;
@@ -88,7 +92,7 @@ export type TrialPushSkip = 'invalid' | 'renewing' | 'sent' | 'window' | 'unregi
 /** 지금 보낼까 — 'send' 또는 안 보내는 이유 */
 export function trialPushDecision(
   rec: TrialPushRecord | null,
-  tokenRec: { app?: string; preferences?: { enabled?: boolean } | null; notifPerm?: boolean; tz?: string } | null,
+  tokenRec: { app?: string; platform?: string; preferences?: { enabled?: boolean } | null; notifPerm?: boolean; tz?: string } | null,
   now: number,
   alreadySent = false,
 ): 'send' | TrialPushSkip {
@@ -98,6 +102,7 @@ export function trialPushDecision(
   const left = rec.expiresAt - now;
   if (!(left > TRIAL_PUSH_MIN_MS && left <= TRIAL_PUSH_MAX_MS)) return 'window';
   if (!tokenRec || (tokenRec.app && tokenRec.app !== 'signum')) return 'unregistered';
+  if (tokenRec.platform && tokenRec.platform !== rec.platform) return 'unregistered';
   if (tokenRec.preferences && tokenRec.preferences.enabled === false) return 'muted';
   if (tokenRec.notifPerm === false) return 'no_permission';
   if (typeof rec.at === 'number' && now - rec.at < TRIAL_PUSH_RECENT_OPEN_MS) return 'recent_open';

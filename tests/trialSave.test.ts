@@ -130,6 +130,7 @@ assert.equal(trialPushDecision(R({ at: t - TRIAL_PUSH_RECENT_OPEN_MS + 1 }), tr,
 assert.equal(trialPushDecision(R(), { ...tr, tz: 'America/New_York' }, t), 'quiet_hours', '뉴욕 새벽 1시 → 다음 회차');
 assert.equal(trialPushDecision(R({ locale: 'en' }), { app: 'signum' }, Date.parse('2026-11-11T15:00:00Z')), 'send', '시간대 없음 → 언어로 짐작(뉴욕 10시)');
 assert.equal(trialPushDecision(null, tr, t), 'invalid');
+assert.equal(trialPushDecision(R(), { ...tr, platform: 'android' }, t), 'unregistered', '토큰 등록 플랫폼과 보고 플랫폼이 다르면 안 보낸다');
 assert.equal(localHourIn(t, 'Asia/Seoul'), 15);
 assert.equal(localHourIn(t, 'Nope/Zone'), null);
 for (const loc of ['ko', 'en', 'ja'] as const) {
@@ -160,6 +161,8 @@ assert.match(cron, /TRIAL_PUSH_SENT_KEY\(token\), String\(rec\.expiresAt\), \{ n
 assert.doesNotMatch(cron, /redis\.set\(TRIAL_PUSH_KEY/, '크론은 체험 기록을 덮어쓰지 않는다(앱의 갱신 켬 보고를 지우지 않게)');
 assert.match(cron, /const fresh = parseRecord<TrialPushRecord>\(await redis\.get\(TRIAL_PUSH_KEY\(token\)\)\)/, '보내기 직전 재확인');
 assert.match(cron, /TRIAL_PUSH_MAX_PER_RUN/);
+assert.match(cron, /TRIAL_PUSH_MAX_PER_DAY - sentToday/, '하루 발송 상한');
+assert.match(cron, /count: TRIAL_PUSH_SCAN_LIMIT/, '한 회차 읽기 상한');
 const reportRoute = readFileSync('src/app/api/push/trial/route.ts', 'utf8');
 assert.match(reportRoute, /body\.clear === true/, '유료·평생 전환 → 해제');
 assert.match(reportRoute, /stored: false, skipped: 'unknown-token' \}, 202/, '토큰 등록 전 보고는 stored:false');
