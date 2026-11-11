@@ -27,6 +27,7 @@ import { useProStatus } from '@/hooks/useProStatus';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import type { PlanId } from '@/config/iap';
 import { annualSavePct, paywallSelection, planFineLine, type PaywallPlan } from '@/lib/app/proPlans';
+import { completeSuccessfulPro } from '@/lib/app/watchlistAlertFlow';
 
 export type { PaywallPlan };
 
@@ -302,7 +303,7 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
 /** ★11/11 체험 만료 뒤 1회 페이월 — 머리·버튼 문구와 «체험 동안 / 무료에서 달라지는 것» 묶음(lib/app/trialExpired). 가격·고지·복원은 그대로 */
 export type PaywallContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
 
-export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context }: {
+export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onPurchaseOrRestoreSuccess }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
@@ -326,6 +327,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   keepOpenWhilePro?: boolean;
   /** ★11/11 체험 만료 뒤 1회 페이월(TrialSavePaywall 만 넘긴다) — 혜택 목록 자리에 실제 값 묶음, 머리·버튼 문구만 바뀐다. 다른 호출부는 넘기지 않는다 */
   context?: PaywallContext;
+  subscriptionOnly?: boolean;
+  onPurchaseOrRestoreSuccess?: () => void;
 }) {
   const router = useRouter();
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
@@ -350,7 +353,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   //   config/iap.ts). 월간만 있으면 multi=false → 화면은 예전과 바이트 단위로 같다(가격 한 줄 + 버튼).
   //   ★11/11 수리(코덱스 야간 11/10): 예전 multi 는 «월간이 있을 때만» 참이라, 스토어가 연간·평생만 주면 multi=false →
   //   selectedOffer=monthly=null → 버튼이 잠겨 아무것도 살 수 없었다. 이제 월간이 아닌 플랜이 하나라도 오면 카드로 그리고 그 플랜을 산다.
-  const plans: PaywallPlan[] = previewPlans ?? offers;
+  const plans: PaywallPlan[] = (previewPlans ?? offers).filter((p) => !subscriptionOnly || p.plan !== 'lifetime');
   const { multi, selected: pickedPlan } = paywallSelection(plans, picked);
   // 기본 선택 = 연간(있으면) — 없으면 월간 — 둘 다 없으면 첫 플랜(평생)
   const selected: PlanId = pickedPlan;
@@ -374,10 +377,10 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     setNote(null);
     const res = await purchase(selectedOffer.plan, funnelSrc);
     setBusy(false);
-    if (res.ok && res.isPro) { if (keepOpenWhilePro) onClose(); return; } // 평소엔 위 effect 가 닫는다
+    if (res.ok && res.isPro) { if (onPurchaseOrRestoreSuccess) completeSuccessfulPro(res, onPurchaseOrRestoreSuccess); else if (keepOpenWhilePro) onClose(); return; }
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
-  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose]);
+  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onPurchaseOrRestoreSuccess]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
@@ -385,10 +388,10 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     setNote(t.restoring);
     const res = await restore(funnelSrc);
     setBusy(false);
-    if (res.ok && res.isPro) setNote(t.restored);
+    if (res.ok && res.isPro) { setNote(t.restored); completeSuccessfulPro(res, onPurchaseOrRestoreSuccess); }
     else if (res.ok) setNote(t.nothingToRestore);
     else { markSessionError(); setNote(t.failed); }
-  }, [busy, restore, t, funnelSrc]);
+  }, [busy, restore, t, funnelSrc, onPurchaseOrRestoreSuccess]);
 
   const go = useCallback((path: 'terms' | 'privacy') => {
     if (onNavigate) { onNavigate(path); return; }

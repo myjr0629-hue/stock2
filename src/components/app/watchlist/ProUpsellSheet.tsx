@@ -99,7 +99,8 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
 
   // 구매·복원(또는 다른 경로)으로 PRO 가 되면 이 시트는 할 일을 다 했다
   useEffect(() => {
-    if (!isPro) return;
+    const ui = wlUI.getSnapshot();
+    if (!isPro || (ui.paywall && ui.sheet?.kind === 'alertUpsell')) return;
     notifyProPurchased(true);
     onBecamePro();
   }, [isPro, onBecamePro]);
@@ -107,7 +108,7 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   const onStart = useCallback(async () => {
     trackWatchlist('wl_cta', { sheet: sheetName, cta: 'pro_start' });
     if (busy || purchasePending) return;
-    if (!monthly) { wlUI.openPaywall(mode === 'alerts' ? 'alerts' : 'watchlist'); return; }
+    if ((mode === 'alerts' && wlUI.getSnapshot().sheet?.kind === 'alertUpsell') || !monthly) { wlUI.openPaywall(mode === 'alerts' ? 'alerts' : 'watchlist'); return; }
     setBusy(true);
     setNote(null);
     const r = await purchase('monthly');

@@ -31,6 +31,7 @@ import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/wat
 import { ALERT_PREFS_KEY, ALERT_TICKER_CAP } from '@/lib/app/watchlistAlerts';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
+import { alertSheetForBell } from '@/lib/app/watchlistAlertFlow';
 import { takeWatchlistEntry, trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import {
   checkLevels, chipsForPlan, displayBasis, earningsPending, fmtMD, fmtPrice, fmtSignedPct, priceBasisLabel, selectInsights, segText, sessionBadge,
@@ -416,8 +417,7 @@ function WatchlistInner() {
     const meta = { name: r.name, price: r.rt?.price ?? null, changePct: r.rt?.changePct ?? null };
     const levelsOut = !r.levels.ok && r.levels.reason === 'outOfRange';
     const levelsDelayAsOf = !r.levels.ok ? r.levels.supplierDelayAsOf ?? null : null;   // 공급사 지연 — 시트도 같은 까닭·날짜
-    if (pro) wlUI.openSheet({ kind: 'alertSettings', ticker: r.t, levels: r.verified, levelsOut, levelsDelayAsOf, meta }, el);
-    else wlUI.openSheet({ kind: 'alertUpsell', ticker: r.t, levels: r.verified, levelsOut, levelsDelayAsOf, src: 'bell', meta }, el);
+    wlUI.openSheet(alertSheetForBell(pro, { ticker: r.t, levels: r.verified, levelsOut, levelsDelayAsOf, meta }), el);
   }, []);
   // 잠긴 두 번째 칩 → PRO 안내(«행마다 인사이트 칩 2개» — 칩 차등이 켜졌을 때만 잠긴 칩이 있다)
   const onLockTap = useCallback((el: HTMLElement) => {

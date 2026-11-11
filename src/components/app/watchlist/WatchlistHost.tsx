@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { usePathname } from '@/i18n/routing';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useWatchlistUI, wlUI } from '@/lib/app/watchlistUI';
+import { finishAlertPaywall } from '@/lib/app/watchlistAlertFlow';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { getWatchlistStore } from '@/lib/app/watchlist';
@@ -229,7 +230,7 @@ export function WatchlistHost() {
         </BottomSheet>
       )}
 
-      {ui.paywall && <HostPaywall key={ui.paywall.id} loc={loc} lead={ui.paywall.lead} alerts={alertsOn} />}
+      {ui.paywall && <HostPaywall key={ui.paywall.id} id={ui.paywall.id} loc={loc} lead={ui.paywall.lead} alerts={alertsOn} onBecamePro={onBecamePro} />}
     </>
   );
 }
@@ -239,8 +240,15 @@ export function WatchlistHost() {
  * · 맨 위 층: Esc 는 페이월만 닫고, 아래 한도 시트는 inert(초점·Tab 이 시트로 새지 않는다)
  * · 약관·개인정보: 페이월과 아래 시트를 닫고 얹었던 칸을 모두 걷은 «뒤»에 이동 — 돌아올 때 뒤로가기 한 번이면 된다
  */
-function HostPaywall({ loc, lead, alerts }: { loc: 'ko' | 'en' | 'ja'; lead: 'watchlist' | 'alerts' | 'ads'; alerts: boolean }) {
+function HostPaywall({ id, loc, lead, alerts, onBecamePro }: { id: number; loc: 'ko' | 'en' | 'ja'; lead: 'watchlist' | 'alerts' | 'ads'; alerts: boolean; onBecamePro: () => void }) {
   const router = useRouter();
+  const [alertSheetId] = useState(() => {
+    const sheet = wlUI.getSnapshot().sheet;
+    return lead === 'alerts' && sheet?.kind === 'alertUpsell' ? sheet.id : null;
+  });
+  const onSuccess = useCallback(() => {
+    finishAlertPaywall(wlUI.getSnapshot(), id, alertSheetId, wlUI.closePaywall, onBecamePro);
+  }, [id, alertSheetId, onBecamePro]);
   // 닫힌 뒤 초점이 돌아갈 곳(보통 시트의 «PRO 시작하기») — 첫 렌더에서 잡는다. 아래 useLayer 가 시트를 inert 로 만들며
   //   그 안의 초점을 놓기(blur) 전에. 페이월 본문은 동적 로드라 늦게 마운트돼 그땐 이미 body 였다(E6)
   const [returnFocus] = useState<HTMLElement | null>(() => {
@@ -257,7 +265,7 @@ function HostPaywall({ loc, lead, alerts }: { loc: 'ko' | 'en' | 'ja'; lead: 'wa
     wlUI.closeSheet();
     void afterSheetHistory().then(() => router.push(`/${loc}/app-view/${path}`));
   }, [router, loc]);
-  return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} onNavigate={onNavigate} returnFocus={returnFocus} />;
+  return <ProPaywall locale={loc} lead={lead} alerts={alerts} onClose={close} onNavigate={onNavigate} returnFocus={returnFocus} {...(alertSheetId != null ? { subscriptionOnly: true, keepOpenWhilePro: true, onPurchaseOrRestoreSuccess: onSuccess } : {})} />;
 }
 
 function MapInfo({ loc, titleId }: { loc: 'ko' | 'en' | 'ja'; titleId: string }) {
