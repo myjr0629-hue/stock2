@@ -161,7 +161,8 @@ try {
   const at = 1_800_000_000_000;
   const info = (ms?: number, iso?: string) => ({ entitlements: { active: { pro: { latestPurchaseDateMillis: ms, latestPurchaseDate: iso } } } });
   assert.equal(proPurchasedSince(info(at + 30_000), at), true, '코드 화면을 연 뒤 시작된 체험 → 새 순간');
-  assert.equal(proPurchasedSince(info(at - 60_000), at), true, '시계 오차 2분 안은 허용');
+  assert.equal(proPurchasedSince(info(at - 60_000), at), false, '화면을 열기 전 구매(1분 전 갱신 등) → 아님(오차 허용 없음)');
+  assert.equal(proPurchasedSince(info(at), at), true, '연 시각과 같으면 포함');
   assert.equal(proPurchasedSince(info(at - 40 * 86_400_000), at), false, '복원된 기존 구독(옛 구매 시각) → 아님');
   assert.equal(proPurchasedSince(info(undefined, new Date(at + 5_000).toISOString()), at), true, '밀리초가 없으면 ISO 시각으로');
   assert.equal(proPurchasedSince(info(undefined, undefined), at), false, '시각을 못 읽으면 아님');

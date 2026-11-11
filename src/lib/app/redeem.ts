@@ -80,9 +80,9 @@ let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc } | null = nul
  * 평점 «좋은 순간»(11/11) 판정 — 코드 사용으로 «새로» 생긴 PRO 인가.
  *   PRO 권한의 최근 구매 시각(latestPurchaseDate = 체험 시작·구매)이 코드 화면을 연 시각(since) 이후일 때만 true.
  *   이미 PRO 였던 사람이 열었다 닫은 경우·복귀 동기화가 기존 구독을 «복원»한 경우는 옛 시각이라 false(관문 11111208 ①·11111214 ①·11111218).
- *   시계 오차 2분 허용. 시각을 못 읽으면 false(보수적으로).
+ *   오차 허용 없음(관문 11111221) — 기기 시계가 빠르면 진짜 코드 사용을 놓칠 수 있으나, 잘못 묻는 쪽보다 낫다. 시각을 못 읽으면 false.
  */
-export function proPurchasedSince(info: unknown, since: number, slackMs = 120_000): boolean {
+export function proPurchasedSince(info: unknown, since: number): boolean {
   try {
     const ent = (info as { entitlements?: { active?: Record<string, { latestPurchaseDateMillis?: number; latestPurchaseDate?: string } | undefined> } } | null)
       ?.entitlements?.active?.[PRO_ENTITLEMENT_ID];
@@ -90,7 +90,7 @@ export function proPurchasedSince(info: unknown, since: number, slackMs = 120_00
     const ms = typeof ent.latestPurchaseDateMillis === 'number' && ent.latestPurchaseDateMillis > 0
       ? ent.latestPurchaseDateMillis
       : Date.parse(ent.latestPurchaseDate ?? '');
-    return Number.isFinite(ms) && ms >= since - slackMs;
+    return Number.isFinite(ms) && ms >= since;
   } catch { return false; }
 }
 
