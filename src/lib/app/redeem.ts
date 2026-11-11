@@ -74,11 +74,28 @@ const funnel = () => import('@/lib/app/funnel');
 
 // ── 돌아왔을 때 PRO 새로 읽기(iOS) ───────────────────────────────────────────
 const RETURN_WINDOW_MS = 30 * 60_000;   // 코드 입력을 연 뒤 30분 안의 «앱 복귀»만 본다
-let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc } | null = null;
+// wasNonPro = 코드 화면을 열기 «전» SDK 가 성공적으로 읽어 PRO 아님이었는가. 이미 PRO 였던 사람(열었다 닫음·화면 연 사이 자동 갱신)을
+//   평점 «체험 시작» 순간으로 세지 않는다(관문 11111208 ①·11111224). 복원된 옛 구독은 아래 proPurchasedSince 가 거른다.
+let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc; wasNonPro: boolean } | null = null;
+
+/** 코드 화면을 열기 직전 — SDK 가 «성공적으로» 읽어 PRO 아님일 때만 true(못 읽으면 false). 열기를 오래 막지 않게 1.5초 상한. */
+export async function confirmedNonProNow(sdkPro?: () => Promise<boolean | null>, capMs = 1500): Promise<boolean> {
+  const read = sdkPro ?? (async () => {
+    if (!(await initRevenueCat())) return null;
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    const { customerInfo } = await Purchases.getCustomerInfo();
+    return isProFromCustomerInfo(customerInfo);
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const capped = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), capMs); });
+    return (await Promise.race([read(), capped])) === false;
+  } catch { return false; } finally { if (timer) clearTimeout(timer); }
+}
 
 /**
  * 평점 «좋은 순간»(11/11) 판정 — 코드 사용으로 «새로» 생긴 PRO 인가.
- *   PRO 권한의 최근 구매 시각(latestPurchaseDate = 체험 시작·구매)이 코드 화면을 연 시각(since) 이후일 때만 true.
+ *   (열기 전 PRO 아님 확인 wasNonPro 와 함께) PRO 권한의 최근 구매 시각(latestPurchaseDate = 체험 시작·구매)이 코드 화면을 연 시각(since) 이후일 때만 true.
  *   이미 PRO 였던 사람이 열었다 닫은 경우·복귀 동기화가 기존 구독을 «복원»한 경우는 옛 시각이라 false(관문 11111208 ①·11111214 ①·11111218).
  *   오차 허용 없음(관문 11111221) — 기기 시계가 빠르면 진짜 코드 사용을 놓칠 수 있으나, 잘못 묻는 쪽보다 낫다. 시각을 못 읽으면 false.
  */
@@ -156,15 +173,15 @@ function onAppActive() {
       if (!pro) return;
       notifyProPurchased(true);
       // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments) — 코드 화면을 연 뒤 새로 생긴 권한일 때만
-      void codeStartedProSince(p.at).then((fresh) => { if (fresh) announceProActivated(); }).catch(() => {});
+      if (p.wasNonPro) void codeStartedProSince(p.at).then((fresh) => { if (fresh) announceProActivated(); }).catch(() => {});
       void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {});
     })
     .catch(() => {})
     .finally(() => { refreshing = false; });
 }
 
-function armReturn(path: 'sheet' | 'url', src?: FunnelSrc) {
-  pending = { path, at: Date.now(), src };
+function armReturn(path: 'sheet' | 'url', src?: FunnelSrc, wasNonPro = false) {
+  pending = { path, at: Date.now(), src, wasNonPro };
   if (listening || typeof window === 'undefined') return;
   listening = true;
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') onAppActive(); });
@@ -181,15 +198,17 @@ export async function openRedeem(src?: FunnelSrc, locale?: string): Promise<Rede
   void funnel().then((m) => m.trackFunnel('code_open', { src })).catch(() => {});
   const p = platformOf();
   if (p === 'ios') {
+    let wasNonPro = false;
     try {
       if (await initRevenueCat()) {
         const { Purchases } = await import('@revenuecat/purchases-capacitor');
-        armReturn('sheet', src);
+        wasNonPro = await confirmedNonProNow();
+        armReturn('sheet', src, wasNonPro);
         await Purchases.presentCodeRedemptionSheet();
         return 'sheet';
       }
     } catch { /* 플러그인에 메서드가 없는 빌드 — URL 로 */ }
-    armReturn('url', src);
+    armReturn('url', src, wasNonPro);
     void openExternalUrl(APPLE_REDEEM_URL);
     return 'url';
   }

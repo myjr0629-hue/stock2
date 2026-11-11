@@ -66,7 +66,8 @@ const NOW = 1_800_000_000_000;
   const restoreBody = pro.slice(pro.indexOf('const restore = useCallback'), pro.indexOf('const refreshOffers'));
   assert.ok(!restoreBody.includes('announceProActivated'), '복원은 평점 순간이 아니다');
   const redeem = src('src/lib/app/redeem.ts');
-  assert.match(redeem, /void codeStartedProSince\(p\.at\)\.then\(\(fresh\) => \{ if \(fresh\) announceProActivated\(\); \}\)/, 'iOS 코드 복귀는 «코드 화면을 연 뒤 새로 생긴 권한»일 때만 알린다');
+  assert.match(redeem, /wasNonPro = await confirmedNonProNow\(\);\n\s*armReturn\('sheet', src, wasNonPro\);/, '열기 전 PRO 여부를 잡아 둔다');
+  assert.match(redeem, /if \(p\.wasNonPro\) void codeStartedProSince\(p\.at\)\.then\(\(fresh\) => \{ if \(fresh\) announceProActivated\(\); \}\)/, 'iOS 코드 복귀는 «코드 화면을 연 뒤 새로 생긴 권한»일 때만 알린다');
   assert.ok(!src('src/lib/app/foregroundProSync.ts').includes('announceProActivated'), '안드 복귀 동기화는 기존 구매 복원과 구별할 수 없어 순간으로 세지 않는다(관문 11111208 ②)');
   const moments = src('src/components/app/ReviewPromptMoments.tsx');
   assert.match(moments, /promptRatingMoment\(RATING_MOMENT_PRO, PRO_MOMENT_DELAY_MS, eligible\)/);
@@ -190,3 +191,13 @@ try {
   const cancel = whenNoModal(win, doc, () => { asked++; }, 1000, 3);
   cancel(); assert.equal(q.length, 0, '취소하면 타이머를 지운다');
 }
+
+// ── 관문 11111224 — 열기 전 PRO 였던 사람(화면 연 사이 자동 갱신 포함)은 세지 않는다: SDK 가 «성공적으로» PRO 아님일 때만 ──
+(async () => {
+  const { confirmedNonProNow } = require('../src/lib/app/redeem');
+  assert.equal(await confirmedNonProNow(async () => false), true, 'PRO 아님으로 읽힘');
+  assert.equal(await confirmedNonProNow(async () => true), false, '이미 PRO');
+  assert.equal(await confirmedNonProNow(async () => null), false, 'SDK 없음');
+  assert.equal(await confirmedNonProNow(async () => { throw new Error('x'); }), false, '조회 실패');
+  assert.equal(await confirmedNonProNow(() => new Promise(() => {}), 20), false, '응답이 없으면 상한 뒤 false(열기를 막지 않는다)');
+})().catch((e) => { console.error(e); process.exitCode = 1; });
