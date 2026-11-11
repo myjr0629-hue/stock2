@@ -26,7 +26,7 @@ import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import type { PlanId } from '@/config/iap';
-import { annualSavePct, planFineLine, type PaywallPlan } from '@/lib/app/proPlans';
+import { annualSavePct, paywallSelection, planFineLine, type PaywallPlan } from '@/lib/app/proPlans';
 
 export type { PaywallPlan };
 
@@ -336,19 +336,19 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   }, []);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [picked, setPicked] = useState<PlanId | null>(null);
 
   // 스토어가 준 월간 오퍼. 없으면 «가격을 지어내지 않고» 버튼을 잠근다.
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
 
   // ★11/9 여러 플랜(월간·연간·평생) — 스토어가 연간·평생 패키지를 «실제로» 내려줬을 때만(그리고 노출 스위치가 켜졌을 때만 —
   //   config/iap.ts). 월간만 있으면 multi=false → 화면은 예전과 바이트 단위로 같다(가격 한 줄 + 버튼).
+  //   ★11/11 수리(코덱스 야간 11/10): 예전 multi 는 «월간이 있을 때만» 참이라, 스토어가 연간·평생만 주면 multi=false →
+  //   selectedOffer=monthly=null → 버튼이 잠겨 아무것도 살 수 없었다. 이제 월간이 아닌 플랜이 하나라도 오면 카드로 그리고 그 플랜을 산다.
   const plans: PaywallPlan[] = previewPlans ?? offers;
-  const multi = plans.length > 1 && plans.some((p) => p.plan === 'monthly');
-  const [picked, setPicked] = useState<PlanId | null>(null);
-  // 기본 선택 = 연간(있으면) — 없으면 월간
-  const selected: PlanId = multi
-    ? (picked && plans.some((p) => p.plan === picked) ? picked : plans.some((p) => p.plan === 'annual') ? 'annual' : 'monthly')
-    : 'monthly';
+  const { multi, selected: pickedPlan } = paywallSelection(plans, picked);
+  // 기본 선택 = 연간(있으면) — 없으면 월간 — 둘 다 없으면 첫 플랜(평생)
+  const selected: PlanId = pickedPlan;
   const selectedOffer = multi ? (offers.find((o) => o.plan === selected) ?? null) : monthly;
   const savePct = multi ? annualSavePct(plans.find((p) => p.plan === 'monthly'), plans.find((p) => p.plan === 'annual')) : null;
 

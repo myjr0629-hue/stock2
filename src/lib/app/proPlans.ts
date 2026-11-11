@@ -27,3 +27,16 @@ export function planFineLine(loc: 'ko' | 'en' | 'ja', t: { renewNote: string; ma
   if (plan === 'lifetime') return `${t.lifetimeNote}${sep}${t.lifetimeManage}`;
   return `${t.renewNote}${sep}${t.manageNote}`;
 }
+
+/**
+ * 플랜 카드를 그릴지(multi)와 고른 플랜 — ★11/11 수리: 월간이 없고 연간·평생만 와도 카드로 그리고 살 수 있게.
+ *   · 월간 하나뿐(또는 아무것도 없음) → multi=false · 'monthly'(예전 가격 한 줄 화면 그대로)
+ *   · 그 밖(플랜 2개 이상, 또는 월간이 아닌 플랜 하나) → multi=true · 사용자가 고른 것 → 연간 → 월간 → 첫 플랜
+ */
+export function paywallSelection(plans: readonly Pick<PaywallPlan, 'plan'>[], picked: PlanId | null): { multi: boolean; selected: PlanId } {
+  const multi = plans.length > 1 || (plans.length === 1 && plans[0].plan !== 'monthly');
+  if (!multi) return { multi, selected: 'monthly' };
+  const has = (id: PlanId) => plans.some((p) => p.plan === id);
+  const selected: PlanId = picked && has(picked) ? picked : has('annual') ? 'annual' : has('monthly') ? 'monthly' : plans[0].plan;
+  return { multi, selected };
+}

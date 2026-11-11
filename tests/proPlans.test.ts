@@ -134,9 +134,27 @@ test('페이월 소스: 가격 문자열 하드코딩 0 · 월간만이면 예�
   const src = fs.readFileSync(path.join(ROOT, 'src/components/app/ProPaywall.tsx'), 'utf8');
   const code = src.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
   assert.equal(/[₩$¥]\s?\d/.test(code), false, '가격 숫자 문자열이 코드에 있으면 안 된다(주석 제외)');
-  assert.match(src, /const multi = plans\.length > 1 && plans\.some\(\(p\) => p\.plan === 'monthly'\)/);
+  // ★11/11 multi·기본 선택은 proPlans.paywallSelection 으로 옮겼다(연간·평생만 와도 살 수 있게) — 아래 별도 시험
+  assert.match(src, /const \{ multi, selected: pickedPlan \} = paywallSelection\(plans, picked\)/);
   assert.match(src, /\{multi \? \(\s*<div className=\{s\.plans\}/);
   assert.match(src, /<div className=\{s\.priceCard\}>/);
-  assert.match(src, /: plans\.some\(\(p\) => p\.plan === 'annual'\) \? 'annual' : 'monthly'\)/);
   assert.match(src, /priceString/);
+});
+
+test('★11/11 월간 없이 연간·평생만 와도 고를 수 있고 살 수 있다(paywallSelection)', async () => {
+  const { paywallSelection } = await import('../src/lib/app/proPlans');
+  const P = (...ids: Array<'monthly' | 'annual' | 'lifetime'>) => ids.map((plan) => ({ plan }));
+  // 예전 화면 그대로: 월간 하나·빈 목록
+  assert.deepEqual(paywallSelection(P('monthly'), null), { multi: false, selected: 'monthly' });
+  assert.deepEqual(paywallSelection([], null), { multi: false, selected: 'monthly' });
+  // 세 개 → 기본 연간, 고르면 그것
+  assert.deepEqual(paywallSelection(P('monthly', 'annual', 'lifetime'), null), { multi: true, selected: 'annual' });
+  assert.deepEqual(paywallSelection(P('monthly', 'annual', 'lifetime'), 'lifetime'), { multi: true, selected: 'lifetime' });
+  assert.deepEqual(paywallSelection(P('monthly', 'lifetime'), null), { multi: true, selected: 'monthly' });
+  // 결함 재현: 월간 없이 연간·평생 → 예전엔 multi=false(구매 불가). 이제 카드·연간 기본·평생 선택 가능
+  assert.deepEqual(paywallSelection(P('annual', 'lifetime'), null), { multi: true, selected: 'annual' });
+  assert.deepEqual(paywallSelection(P('annual', 'lifetime'), 'lifetime'), { multi: true, selected: 'lifetime' });
+  assert.deepEqual(paywallSelection(P('annual', 'lifetime'), 'monthly'), { multi: true, selected: 'annual' }, '없는 플랜을 골라 둔 값은 무시');
+  assert.deepEqual(paywallSelection(P('lifetime'), null), { multi: true, selected: 'lifetime' });
+  assert.deepEqual(paywallSelection(P('annual'), null), { multi: true, selected: 'annual' });
 });
