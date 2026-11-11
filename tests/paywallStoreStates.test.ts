@@ -35,7 +35,8 @@ function paywall(pkgs: any[], picked: Plan | null, active: readonly Plan[] = iap
 }
 
 test('스위치 켜짐 확인 — 이 시험은 여러 플랜 경로를 본다', () => {
-  assert.deepEqual(iap.LAUNCH_PLANS, ['monthly', 'annual', 'lifetime']);
+  // ★11/11 평생 폐지(대표) — 파는 플랜은 월간·연간 둘뿐
+  assert.deepEqual(iap.LAUNCH_PLANS, ['monthly', 'annual']);
 });
 
 test('① 월간만: 예전 화면(가격 한 줄·카드 없음) · 월간 결제 · 버튼 열림', () => {
@@ -49,36 +50,36 @@ test('① 월간만: 예전 화면(가격 한 줄·카드 없음) · 월간 결�
   assert.equal(paywall([pkgM], 'annual').buys, '$rc_monthly');
 });
 
-test('② 월간+연간+평생: 카드 3장 · 기본 연간 · 고른 플랜 그대로 결제 · 버튼 열림', () => {
+test('② 스토어가 월간+연간+평생을 줘도(오퍼링에 평생이 다시 들어가도): 카드 2장(월간·연간) · 기본 연간 · 평생은 안 보이고 못 산다', () => {
   const r = paywall([pkgL, pkgA, pkgM], null);
-  assert.deepEqual(r.cards, ['monthly', 'annual', 'lifetime']);
+  assert.deepEqual(r.cards, ['monthly', 'annual']);
   assert.equal(r.selected, 'annual');
   assert.equal(r.buys, '$rc_annual');
   assert.equal(r.disabled, false);
-  for (const [p, id] of [['monthly', '$rc_monthly'], ['annual', '$rc_annual'], ['lifetime', '$rc_lifetime']] as const) {
+  for (const [p, id] of [['monthly', '$rc_monthly'], ['annual', '$rc_annual']] as const) {
     const x = paywall([pkgL, pkgA, pkgM], p);
     assert.equal(x.selected, p);
     assert.equal(x.buys, id);
     assert.equal(x.disabled, false);
   }
+  // 평생을 골라 둔 값이 남아도 → 연간(평생 결제 경로 없음)
+  assert.equal(paywall([pkgL, pkgA, pkgM], 'lifetime').buys, '$rc_annual');
 });
 
-test('③ 연간+평생(월간 없음) — 수리 대상: 카드 2장 · 기본 연간 · 평생도 살 수 있음 · 버튼 열림', () => {
+test('③ 연간+평생(월간 없음) — 수리 대상: 연간 카드로 산다 · 평생은 안 보인다 · 버튼 열림', () => {
   const r = paywall([pkgL, pkgA], null);
   assert.equal(r.multi, true, '예전엔 multi=false → 월간 null → 버튼 잠김(아무것도 못 삼)');
-  assert.deepEqual(r.cards, ['annual', 'lifetime']);
+  assert.deepEqual(r.cards, ['annual']);
   assert.equal(r.selected, 'annual');
   assert.equal(r.buys, '$rc_annual');
   assert.equal(r.disabled, false);
-  const l = paywall([pkgL, pkgA], 'lifetime');
-  assert.equal(l.buys, '$rc_lifetime');
-  assert.equal(l.disabled, false);
+  assert.equal(paywall([pkgL, pkgA], 'lifetime').buys, '$rc_annual');
   // 없는 월간을 골라 둔 값 → 연간으로(엉뚱한 상품·잠김 없음)
   assert.equal(paywall([pkgL, pkgA], 'monthly').buys, '$rc_annual');
-  // 하나만 와도 산다
-  assert.equal(paywall([pkgL], null).buys, '$rc_lifetime');
   assert.equal(paywall([pkgA], null).buys, '$rc_annual');
-  assert.equal(paywall([pkgL], null).disabled, false);
+  // 평생 하나만 오면 → 팔 것 없음(가격을 지어내지 않고 잠김 — 평생 결제 경로 없음)
+  assert.equal(paywall([pkgL], null).buys, null);
+  assert.equal(paywall([pkgL], null).disabled, true);
 });
 
 test('⑥ 월간+연간(평생 없음 — 11/11 대표 «평생결제는 하지 않는 것으로»): 카드 2장 · 기본 연간 · 평생 카드·요구 없음', () => {
@@ -150,6 +151,7 @@ test('⑧ 노출 스위치 꺼진 빌드(월간만 노출): 월간이 있으면 
   // 월간 없음(관문 11111109 지적) → 연간만이면 연간 · 연간+평생이면 카드·연간 기본
   assert.deepEqual(paywall([pkgA], null, OFF), { cards: ['annual'], multi: true, selected: 'annual', buys: '$rc_annual', disabled: false });
   assert.equal(paywall([pkgL, pkgA], null, OFF).buys, '$rc_annual');
+  assert.deepEqual(paywall([pkgL, pkgA], null, OFF).cards, ['annual'], '스위치 꺼진 빌드의 대체 경로에서도 평생은 안 보인다');
   // 빈 오퍼링 → 여전히 잠김
   assert.equal(paywall([], null, OFF).disabled, true);
 });

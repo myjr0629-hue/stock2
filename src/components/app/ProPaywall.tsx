@@ -299,7 +299,10 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
-export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false }: {
+/** ★11/11 체험 만료 뒤 1회 페이월 — 머리·버튼 문구와 «체험 동안 / 무료에서 달라지는 것» 묶음(lib/app/trialExpired). 가격·고지·복원은 그대로 */
+export type PaywallContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
+
+export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
@@ -321,6 +324,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   alerts?: boolean;
   /** ★11/11 체험 종료 안내 전용 — 체험 중(이미 PRO)이어도 열린 채 둔다. 구매가 끝나면(PRO 확인) 닫는다. 다른 호출부는 넘기지 않는다(예전처럼 PRO 면 즉시 닫힘) */
   keepOpenWhilePro?: boolean;
+  /** ★11/11 체험 만료 뒤 1회 페이월(TrialSavePaywall 만 넘긴다) — 혜택 목록 자리에 실제 값 묶음, 머리·버튼 문구만 바뀐다. 다른 호출부는 넘기지 않는다 */
+  context?: PaywallContext;
 }) {
   const router = useRouter();
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
@@ -424,7 +429,9 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   // 설정·가치 벽(기본 'ads')은 예전 그대로(+ «내 종목 100개» 한 줄). 알림 플래그가 꺼진 빌드의 'alerts' 는 «내 종목»으로 연다.
   const alertsLead = lead === 'alerts' && alerts;
   const watchlistLead = lead === 'watchlist' || (lead === 'alerts' && !alerts);
-  const head = keepOpenWhilePro
+  const head = context
+    ? { title: context.title, lede: context.lede, cta: context.cta }
+    : keepOpenWhilePro
     ? { title: t.trialTitle, lede: t.trialLede, cta: t.ctaKeep }
     : alertsLead
     ? { title: t.alertsTitle, lede: t.alertsLede, cta: t.ctaPro }
@@ -448,7 +455,18 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
           <p className={s.lede}>{head.lede}</p>
         </div>
 
-        {/* 담는 것 — 아이콘도 칩도 없이 가는 선으로만 나눈다. 덜어낸 만큼 가격이 산다. */}
+        {/* ★11/11 체험 만료 뒤 — «체험 동안»(실제 값만) · «무료 플랜에서 달라지는 것». 없는 값의 줄은 lib/app/trialExpired 가 뺀다 */}
+        {context ? context.sections.map((sec, si) => (
+          <div key={sec.label} data-paywall-section={si}>
+            <p className={s.fine} style={{ textAlign: 'left', marginTop: 4 }}>{sec.label}</p>
+            <ul className={s.benefits}>
+              {sec.items.map((b, i) => (
+                <li key={b} className={si === 0 && i === 0 ? `${s.benefit} ${s.benefitLead}` : s.benefit}>{b}</li>
+              ))}
+            </ul>
+          </div>
+        )) : (
+        /* 담는 것 — 아이콘도 칩도 없이 가는 선으로만 나눈다. 덜어낸 만큼 가격이 산다. */
         <ul className={s.benefits}>
           {(() => {
             // 열린 자리의 혜택이 첫 줄(굵게). 알림 줄은 알림이 실제로 켜진 빌드에서만 — 없는 기능을 팔지 않는다.
@@ -461,6 +479,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
             ));
           })()}
         </ul>
+        )}
 
         {/* 가격 — 스토어가 준 현지화 문자열만 쓴다.
             ★11/9 연간·평생이 «스토어에 있을 때만» 플랜 카드 3장(기본 선택 연간). 없으면 아래 예전 가격 한 줄 그대로. */}

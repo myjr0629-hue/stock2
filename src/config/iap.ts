@@ -78,5 +78,8 @@ export type PlanId = 'monthly' | 'annual' | 'lifetime';
 //   켜져 있어도 스토어가 그 패키지를 안 내려주면(애플 미승인 등) 그 카드만 안 뜬다 — getProOffers 가 걸러낸다.
 //   프리뷰(*.vercel.app·localhost)에서는 `?sgplans=1` 로 켜 볼 수 있다(proEntitlement.previewFlag — 운영 도메인 불가).
 export const PRO_MULTI_PLAN_ENV = process.env.NEXT_PUBLIC_PRO_PLANS === '1';
-export const MULTI_PLANS: readonly PlanId[] = ['monthly', 'annual', 'lifetime'];
+// ★ 2026-11-11 대표 «평생결제는 하지 않는 것으로» — 페이월이 파는 플랜은 월간·연간 둘뿐이다. RC 오퍼링에서도 $rc_lifetime 을 뺐지만
+//   (lifetime-off/RESULT.md) 누가 오퍼링에 다시 넣어도 페이월에 평생 카드가 뜨지 않게 코드에서도 막는다. 평생 상품 ID·패키지 매칭·권한은
+//   남긴다(혹시 있을 평생 구매자의 PRO·구매 복원은 권한 'pro' 로 그대로 — 복원은 패키지 목록과 무관).
+export const MULTI_PLANS: readonly PlanId[] = ['monthly', 'annual'];
 export const LAUNCH_PLANS: readonly PlanId[] = PRO_MULTI_PLAN_ENV ? MULTI_PLANS : ['monthly'];

@@ -67,11 +67,11 @@ test('스위치 꺼짐(기본): 오퍼링에 연간·평생이 있어도 월간 
   (globalThis as any).window.location.search = '';
 });
 
-test('스위치 켜짐: 월간·연간·평생 순서 · 스토어 값 그대로', async () => {
+test('스위치 켜짐: 월간·연간 순서 · 스토어 값 그대로 · 평생은 오퍼링에 있어도 안 판다(11/11 평생 폐지)', async () => {
   available = [pkgL, pkgA, pkgM];
   const { rc } = load('1');
   const offers = await rc.getProOffers();
-  assert.deepEqual(offers.map((o) => o.plan), ['monthly', 'annual', 'lifetime']);
+  assert.deepEqual(offers.map((o) => o.plan), ['monthly', 'annual']);
   const a = offers.find((o) => o.plan === 'annual')!;
   assert.equal(a.priceString, '₩89,000');
   assert.equal(a.price, 89000);
@@ -84,7 +84,7 @@ test('스위치 켜짐 + 스토어가 연간·평생을 안 내려줌(애플 미
   const { rc } = load('1');
   assert.deepEqual((await rc.getProOffers()).map((o) => o.plan), ['monthly']);
   available = [pkgM, pkgL];
-  assert.deepEqual((await rc.getProOffers()).map((o) => o.plan), ['monthly', 'lifetime']);
+  assert.deepEqual((await rc.getProOffers()).map((o) => o.plan), ['monthly'], '평생 패키지가 와도 카드 없음');
 });
 
 test('패키지 판정: packageType 이 CUSTOM 이어도 상품 ID 접두로(Play :annual 접미사) — 엉뚱한 상품 결제 금지', () => {
@@ -96,16 +96,15 @@ test('패키지 판정: packageType 이 CUSTOM 이어도 상품 ID 접두로(Pla
   assert.equal(rc.matchPlanPackage([playL, playA], 'monthly'), undefined);
 });
 
-test('평생 구매 → 평생 패키지만 결제 · 권한 pro 로 isPro · 복원도 권한으로', async () => {
+test('평생 폐지: 오퍼링에 평생이 있어도 평생 결제 경로 없음(no_offering) · 연간은 결제 · 복원은 권한 pro 로(평생 구매자도)', async () => {
   available = [pkgL, pkgA, pkgM];
   const { rc } = load('1');
   bought = [];
   const r = await rc.purchasePro('lifetime');
-  assert.deepEqual(bought, ['$rc_lifetime']);
-  assert.equal(r.ok, true);
-  assert.equal(r.isPro, true);
+  assert.deepEqual(bought, []);
+  assert.equal(r.error, 'no_offering');
   const a = await rc.purchasePro('annual');
-  assert.deepEqual(bought, ['$rc_lifetime', '$rc_annual']);
+  assert.deepEqual(bought, ['$rc_annual']);
   assert.equal(a.isPro, true);
   assert.equal((await rc.restorePro()).isPro, true);
   // 스위치 꺼짐이면 연간·평생 구매 경로 자체가 없다(no_offering) — 월간만 결제된다

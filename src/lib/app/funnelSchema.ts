@@ -60,6 +60,7 @@ export const FUNNEL_SRCS = [
   'trial_off',
   'trial_off_early',                // ★11/11 갱신 끈 직후 1회 안내(같은 시트 · 시트 단계와 그 시트가 연 페이월의 open·cta·buy_*)
   'push_trial',                     // ★11/11 체험 종료 D-2 푸시 탭(push_open 전용)
+  'trial_expired',                  // ★11/11 체험 만료 뒤 첫 실행 1회 페이월(open = 보였다 · cta · buy_* · restore_*)
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

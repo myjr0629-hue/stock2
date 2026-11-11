@@ -10,10 +10,11 @@ import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { afterSheetHistory, useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
-import { ProPaywall, type PaywallPlan } from './ProPaywall';
+import { ProPaywall, type PaywallContext, type PaywallPlan } from './ProPaywall';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
-export default function TrialSavePaywall({ locale, onClose, previewPlans, src = 'trial_off' }: { locale: string; onClose: () => void; previewPlans?: PaywallPlan[]; src?: Extract<FunnelSrc, 'trial_off' | 'trial_off_early'> }) {
+// ★11/11 체험 만료 뒤 1회(src 'trial_expired' · context): 이미 PRO 가 아니므로 keepOpenWhilePro 를 넘기지 않는다(구매·복원으로 PRO 가 되면 평소처럼 닫힘)
+export default function TrialSavePaywall({ locale, onClose, previewPlans, src = 'trial_off', context }: { locale: string; onClose: () => void; previewPlans?: PaywallPlan[]; src?: Extract<FunnelSrc, 'trial_off' | 'trial_off_early' | 'trial_expired'>; context?: PaywallContext }) {
   const router = useRouter();
   useBackToClose(true, onClose);
   useBannerSuppression(true);
@@ -23,5 +24,6 @@ export default function TrialSavePaywall({ locale, onClose, previewPlans, src = 
     onClose();
     void afterSheetHistory().then(() => router.push(`/${loc}/app-view/${path}`));
   }, [onClose, router, loc]);
+  if (context) return <ProPaywall locale={locale} src={src} onClose={onClose} onNavigate={onNavigate} context={context} previewPlans={previewPlans} />;
   return <ProPaywall locale={locale} src={src} onClose={onClose} onNavigate={onNavigate} keepOpenWhilePro previewPlans={previewPlans} />;
 }
