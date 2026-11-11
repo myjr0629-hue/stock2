@@ -71,19 +71,21 @@ export function verifiedTrialExpiredNotice(initial: Info, fresh: Info, platform:
   return a && b && a.period === b.period && a.store === b.store ? b : null;
 }
 
-/** 체험 기간(기기 현지 날짜 기준, 양 끝 포함) 안의 «서로 다른 사용일» 수 — 기록(JSON 배열 YYYY-MM-DD)이 없거나 깨졌으면 0 */
+/** 체험 기간 안의 «서로 다른 사용일» 수 — 기록(JSON 배열 YYYY-MM-DD, 기기 현지 날짜)이 없거나 깨졌으면 0.
+ *  기록엔 시각이 없어 시작일·만료일 당일은 체험 전·후일 수 있다 → 두 날을 빼고 «사이»만 센다(관문 11111813 ② — 적게 말할지언정 부풀리지 않는다) */
 export function trialUsageDays(raw: string | null | undefined, startedAt: number, expiresAt: number): number {
   let days: unknown;
   try { days = JSON.parse(raw || '[]'); } catch { return 0; }
   if (!Array.isArray(days)) return 0;
   const from = localDayKey(startedAt), to = localDayKey(expiresAt);
-  return new Set(days.filter((d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= from && d <= to)).size;
+  return new Set(days.filter((d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d > from && d < to)).size;
 }
 /** 사용일 줄은 이틀 이상일 때만(하루는 «쓴 것»이라 말하기 어렵다) */
 export const TRIAL_USAGE_MIN_DAYS = 2;
 
 // ── 체험 «동안»의 실적 채점(관문 11111805 ③) ──────────────────────────────
 //   앱을 연 날의 «이번 주·지난주»는 체험이 끝난 뒤일 수 있다 → 만료일이 든 주의 «바로 앞 주»(월~금 전부 만료 전)만 쓴다.
+//   그 주 월요일이 체험 시작(ET 날짜)과 같거나 앞이면(짧은 체험) 줄을 그리지 않는다(관문 11111813 ① — 시작 전 채점 금지).
 //   표본이 작으면(10종목 미만) 줄을 그리지 않는다. 날짜는 그 주 월~금을 그대로 적는다(«이번 주» 같은 상대 말 없음).
 export type TrialExpiredScore = { n: number; within: number; week: string };
 export const TRIAL_EXPIRED_SCORE_MIN_N = 10;
@@ -91,9 +93,10 @@ export const TRIAL_EXPIRED_SCORE_MIN_N = 10;
 export function trialExpiredScoreWeek(expiresAt: number): string {
   return addDaysYmd(calendarScorecardWeek(etDateOf(expiresAt)), -7);
 }
-export async function trialExpiredScorecard(read: (week: string) => Promise<unknown>, expiresAt: number): Promise<TrialExpiredScore | null> {
+export async function trialExpiredScorecard(read: (week: string) => Promise<unknown>, startedAt: number, expiresAt: number): Promise<TrialExpiredScore | null> {
   try {
     const week = trialExpiredScoreWeek(expiresAt);
+    if (!Number.isFinite(startedAt) || week <= etDateOf(startedAt)) return null;   // 그 주 월요일 당일 시작도 제외(그날 장 전 발표는 체험 전일 수 있다)
     const s = calendarScorecardSummary(await read(week), week);
     return s && s.n >= TRIAL_EXPIRED_SCORE_MIN_N ? { n: s.n, within: s.withinCount, week } : null;
   } catch { return null; }

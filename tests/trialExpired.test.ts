@@ -113,10 +113,11 @@ test('검증(캐시 비운 새 읽기): 둘 다 만료일 때만 · 그새 구�
   assert.equal(verifiedTrialExpiredNotice(info({ active: { periodType: 'TRIAL' } }), info(), 'ios', now, null, DAY), null, '첫 읽기가 활성');
 });
 
-test('사용일: 체험 기간(현지 날짜, 양 끝 포함) 안의 서로 다른 날만 · 깨진 기록 = 0', () => {
+test('사용일: 체험 «사이»의 서로 다른 날만(시작일·만료일 당일은 체험 전·후일 수 있어 뺀다 — 관문 ②) · 깨진 기록 = 0', () => {
   const a = localDayKey(start), b = localDayKey(expiresAt);
-  const raw = JSON.stringify([localDayKey(start - D), a, a, localDayKey(start + 3 * D), localDayKey(start + 10 * D), b, localDayKey(expiresAt + D), 'garbage', 7]);
-  assert.equal(trialUsageDays(raw, start, expiresAt), 4);
+  const raw = JSON.stringify([localDayKey(start - D), a, a, localDayKey(start + 3 * D), localDayKey(start + 3 * D), localDayKey(start + 10 * D), b, localDayKey(expiresAt + D), 'garbage', 7]);
+  assert.equal(trialUsageDays(raw, start, expiresAt), 2);
+  assert.equal(trialUsageDays(JSON.stringify([a, b]), start, expiresAt), 0, '시작 당일·만료 당일만 열었다 → 0(«2일»로 부풀리지 않음)');
   assert.equal(trialUsageDays(null, start, expiresAt), 0);
   assert.equal(trialUsageDays('{', start, expiresAt), 0);
   assert.equal(trialUsageDays('{"a":1}', start, expiresAt), 0);
@@ -160,12 +161,18 @@ test('실적 채점은 «체험 동안»만 — 만료일이 든 주의 바로 �
     assert.ok(Date.parse(`${w}T00:00:00-05:00`) + 5 * D <= t, `${new Date(t).toISOString()} → ${w}`);
   }
   const asked: string[] = [];
-  const ok = await trialExpiredScorecard(async (w) => { asked.push(w); return { week: w, summary: { n: 27, withinCount: 18 } }; }, expiresAt);
+  const ok = await trialExpiredScorecard(async (w) => { asked.push(w); return { week: w, summary: { n: 27, withinCount: 18 } }; }, start, expiresAt);
   assert.deepEqual(ok, { n: 27, within: 18, week: '2026-11-02' });
   assert.deepEqual(asked, ['2026-11-02'], '앱을 연 날의 주는 묻지 않는다');
-  assert.equal(await trialExpiredScorecard(async (w) => ({ week: w, summary: { n: 9, withinCount: 5 } }), expiresAt), null, '작은 표본');
-  assert.equal(await trialExpiredScorecard(async () => ({ week: '2026-11-09', summary: { n: 30, withinCount: 20 } }), expiresAt), null, '다른 주 응답');
-  assert.equal(await trialExpiredScorecard(async () => { throw new Error('x'); }, expiresAt), null);
+  assert.equal(await trialExpiredScorecard(async (w) => ({ week: w, summary: { n: 9, withinCount: 5 } }), start, expiresAt), null, '작은 표본');
+  assert.equal(await trialExpiredScorecard(async () => ({ week: '2026-11-09', summary: { n: 30, withinCount: 20 } }), start, expiresAt), null, '다른 주 응답');
+  assert.equal(await trialExpiredScorecard(async () => { throw new Error('x'); }, start, expiresAt), null);
+  // 짧은 체험(11/5 시작 → 11/12 만료): 앞 주 11/2 는 시작 전 → 줄 없음(관문 ①)
+  const read = async (w: string) => ({ week: w, summary: { n: 27, withinCount: 18 } });
+  assert.equal(await trialExpiredScorecard(read, Date.parse('2026-11-05T15:00:00Z'), expiresAt), null);
+  assert.equal(await trialExpiredScorecard(read, Date.parse('2026-11-02T15:00:00Z'), expiresAt), null, '그 주 월요일 당일 시작 → 그날 장 전 발표는 체험 전일 수 있어 제외');
+  assert.ok(await trialExpiredScorecard(read, Date.parse('2026-11-01T15:00:00Z'), expiresAt), '전 주 일요일 시작 → 앞 주 전부 체험 안');
+  assert.equal(await trialExpiredScorecard(read, Date.parse('2026-11-03T15:00:00Z'), expiresAt), null, '화요일 시작 → 그 주 월요일은 체험 전');
 });
 
 test('문구: 3개 언어 모두 가격·긴급함·과장·투자 권유 낱말 없음(가격·자동 갱신 고지는 페이월이 스토어 문자열로)', () => {

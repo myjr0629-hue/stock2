@@ -224,9 +224,9 @@ function TrialExpiredPaywall({ notice, locale, onClose }: { notice: TrialExpired
       const r = await fetch(`/api/earnings/scorecard?week=${w}`, { signal: ctrl.signal });
       if (!r.ok) throw new Error('scorecard unavailable');
       return r.json();
-    }, notice.expiresAt).then((v) => { if (!ctrl.signal.aborted) setScore((cur) => (cur === undefined ? v : cur)); });
+    }, notice.startedAt, notice.expiresAt).then((v) => { if (!ctrl.signal.aborted) setScore((cur) => (cur === undefined ? v : cur)); });
     return () => { ctrl.abort(); window.clearTimeout(timer); };
-  }, [notice.preview, notice.expiresAt]);
+  }, [notice.preview, notice.startedAt, notice.expiresAt]);
   const ready = score !== undefined;
   useEffect(() => {
     if (!ready || marked.current || notice.preview) return;
