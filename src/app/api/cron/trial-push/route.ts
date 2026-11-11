@@ -3,7 +3,7 @@
 //   대상 목록(push:trial:due, 점수 = 만료 시각)에서 «남은 12~48시간»을 쪽(1000)씩 최대 5쪽 읽어 lib/push/trialPush.trialPushDecision 으로
 //   거른 뒤 기기 언어·시간대로 한 통씩 보낸다(iOS APNs · 안드 FCM — lib/push/sendSignal 재사용). 본문은 갱신 상태를 단정하지 않는다.
 //   중복 방지: 보내기 «전에» push:trial:sent:<token> 을 SET NX(25일)로 잡는다 — 동시 실행·저장 실패·함수 종료에도 한 번만.
-//     일시 실패(fail)면 자리를 놓아 다음 회차에 다시, 영구 소멸(dead)·성공이면 그대로 둔다. 체험 기록은 이 크론이 «쓰지 않는다»
+//     실패(fail — 응답 유실 포함)도 자리를 놓지 않는다(중복보다 한 통 누락을 택함). 체험 기록은 이 크론이 «쓰지 않는다»
 //     (앱이 갱신을 다시 켠 보고를 덮어쓰지 않게). 보내기 직전에 기록을 한 번 더 읽어 아직 대상인지 확인한다.
 //   상한: 회차 100 · 하루(ET) 300 «발송 시도»(INCR 로 먼저 예약 — 겹친 실행도 넘지 못한다) — 가짜 토큰 대량 등록으로 공급사 호출을 키우지 못하게.
 //   ?dry=1 — 보내지 않고 대상·이유·문구만 돌려준다(표식·통계 안 씀).
@@ -100,7 +100,7 @@ export async function GET(request: Request) {
       const r = out.get(it.id);
       if (r === 'ok') { sent++; await redis.zrem(TRIAL_PUSH_DUE_ZSET, it.token); }
       else if (r === 'dead') { dead++; await redis.zrem(TRIAL_PUSH_DUE_ZSET, it.token); }
-      else { failed++; await redis.del(TRIAL_PUSH_SENT_KEY(it.token)); }   // 일시 실패 — 다음 회차에 다시(창 안이면). 하루 시도 수는 그대로 센다
+      else failed++;   // 실패(응답 유실·시간 초과 포함)도 표식을 «놓지 않는다» — 공급사가 받았는데 응답만 끊긴 경우 두 번 가지 않게(관문 11110931). 한 통 놓치는 쪽을 택한다
     }
     const statsKey = `push:stats:trial:${etDay(new Date(now))}`;
     const prev = parseRecord<Record<string, number>>(await redis.get(statsKey)) || {};

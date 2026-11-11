@@ -57,7 +57,7 @@ const COPY = {
   ko: {
     title: (d: string) => `PRO 무료 체험이 ${d}에 끝나요`,
     lede: '자동 갱신이 꺼져 있어서, 끝나도 결제되지 않아요.',
-    seen: '이번 달 SIGNUM',
+    seen: '체험 동안 SIGNUM',
     keep: 'PRO로 계속 쓰는 것',
     scorecard: (c: TrialScorecard) => `${c.previous ? '지난주' : '이번 주'} 실적 채점: ${c.n}종목 중 ${c.within}종목이 발표 전 예상 변동폭 안`,
     watchlistMany: (n: number) => `담아 둔 내 종목 ${n}개 — 무료는 ${FREE_LIMIT}개까지라 더 담을 수 없어요`,
@@ -71,7 +71,7 @@ const COPY = {
   en: {
     title: (d: string) => `Your PRO free trial ends ${d}`,
     lede: 'Auto-renew is off, so you won’t be charged when it ends.',
-    seen: 'SIGNUM this month',
+    seen: 'During your trial',
     keep: 'What you keep with PRO',
     scorecard: (c: TrialScorecard) => `${c.previous ? 'Last week' : 'This week'}’s earnings scorecard: ${c.within} of ${c.n} stocks moved within the expected range`,
     watchlistMany: (n: number) => `${n} stocks in your watchlist — the free plan holds ${FREE_LIMIT}, so you can’t add more`,
@@ -85,7 +85,7 @@ const COPY = {
   ja: {
     title: (d: string) => `PROの無料体験は${d}に終了します`,
     lede: '自動更新はオフのため、終了後も請求はありません。',
-    seen: '今月のSIGNUM',
+    seen: '体験中のSIGNUM',
     keep: 'PROで使い続けられるもの',
     scorecard: (c: TrialScorecard) => `${c.previous ? '先週' : '今週'}の決算採点：${c.n}銘柄中${c.within}銘柄が発表前の想定変動幅内`,
     watchlistMany: (n: number) => `登録中のマイ銘柄${n}銘柄 — 無料は${FREE_LIMIT}銘柄までのため追加できません`,

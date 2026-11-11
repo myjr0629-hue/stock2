@@ -88,16 +88,17 @@ async function main() {
     await post(body(tokD)); kv.delete(`push:trial:rl:${tokD}`);
     r = await post({ token: tokD, clear: true }); assert.equal(r.body.stored, true);
     assert.equal(zs.get('push:trial:due')!.has(tokD), false); assert.equal(kv.has(`push:trial:${tokD}`), false);
-    // 일시 실패 → 자리를 놓아 다음 회차에 다시 · 하루 시도 상한
+    // 실패(응답 유실 포함) → 표식을 놓지 않는다(중복보다 누락 — 관문 11110931) · 하루 시도 상한
     const tokE = 'e'.repeat(64); reg(tokE);
     await post(body(tokE));
     { const rec = JSON.parse(kv.get(`push:trial:${tokE}`)!); rec.at = T - 7 * H; kv.set(`push:trial:${tokE}`, JSON.stringify(rec)); }
     outcome = 'fail';
-    res = await run(); assert.equal(res.failed, 1); assert.equal(kv.has(`push:trial:sent:${tokE}`), false);
+    res = await run(); assert.equal(res.failed, 1); assert.equal(kv.has(`push:trial:sent:${tokE}`), true);
     outcome = 'ok';
-    res = await run(); assert.equal(res.sent, 1);
+    const before = sent.length;
+    res = await run(); assert.equal(res.sent, 0); assert.equal(sent.length, before, '실패한 토큰에 다시 보내지 않는다');
     const dayKey = [...kv.keys()].find((k) => k.startsWith('push:trial:day:'))!;
-    assert.equal(Number(kv.get(dayKey)), 4, '하루 시도 수 = 2 + 실패 1 + 재시도 1');
+    assert.equal(Number(kv.get(dayKey)), 3, '하루 시도 수 = 2 + 실패 1');
     kv.set(dayKey, '300');
     const tokF = 'f'.repeat(64); reg(tokF);
     await post(body(tokF));
