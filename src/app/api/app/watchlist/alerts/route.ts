@@ -29,6 +29,14 @@ const json = (body: unknown, status = 200) => NextResponse.json(body, { status, 
 let _redis: Redis | null = null;
 const redis = () => (_redis ??= Redis.fromEnv());
 
+/** 고객→기기 묶음: 이미 묶였으면 시각만 갱신 · 아니면 상한 안에서만 더한다 → 1(묶임) | 0(상한) */
+const BIND_LUA = `
+if redis.call('ZSCORE', KEYS[1], ARGV[1]) then
+  redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1]); redis.call('EXPIRE', KEYS[1], ARGV[4]); return 1
+end
+if redis.call('ZCARD', KEYS[1]) >= tonumber(ARGV[3]) then return 0 end
+redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1]); redis.call('EXPIRE', KEYS[1], ARGV[4]); return 1`;
+
 async function readBody(req: NextRequest): Promise<unknown> {
     if (Number(req.headers.get('content-length') || 0) > PA_LIMITS.bodyBytes) return { __tooLarge: true };
     const text = await req.text().catch(() => '');
@@ -69,6 +77,7 @@ export async function POST(req: NextRequest) {
 
         // 빈 목록 = 끄기 — PRO 확인 없이 받는다(발송을 줄이기만 한다)
         if (!levels.length) {
+            if (prev && prev.uidHash !== uidHash) return json({ error: 'not_owner' }, 403);   // DELETE 와 같은 소유 확인(관문 11121345 ①)
             await dropDevice(r, dev, prev?.uidHash ?? uidHash);
             return json({ ok: true, stored: 0, active: 0, fired: [] });
         }
@@ -93,11 +102,9 @@ export async function POST(req: NextRequest) {
             await r.set(PA_KEYS.pro(uidHash), JSON.stringify({ until: proUntil }), { ex: Math.max(60, Math.ceil((proUntil - now) / 1000)) });
         }
 
-        // 고객당 기기 상한 — 새 기기는 상한 안에서만 묶는다(남을 밀어내지 않는다 · 관문 11121338 ②). 오래된 묶음은 30일 TTL 로 풀린다
-        if (!(prev && prev.uidHash === uidHash)) {
-            const bound = (await r.zrange(PA_KEYS.uidDevs(uidHash), 0, -1)) as string[];
-            if (!bound.includes(dev) && bound.length >= PA_LIMITS.devicesPerUid) return json({ error: 'device_limit' }, 409);
-        }
+        // 고객당 기기 상한 — 확인과 묶기를 한 번에(Lua · 동시 등록 경합 없음 — 관문 11121345 ②). 남을 밀어내지 않는다. 오래된 묶음은 30일 TTL 로 풀린다
+        const bound = Number(await r.eval(BIND_LUA, [PA_KEYS.uidDevs(uidHash)], [dev, String(now), String(PA_LIMITS.devicesPerUid), String(PA_CFG.recordTtlSec)]));
+        if (bound !== 1) return json({ error: 'device_limit' }, 409);
 
         // ── 저장 ──
         const rec: ProAlertRecord = {
@@ -110,8 +117,6 @@ export async function POST(req: NextRequest) {
         const p = r.pipeline();
         p.set(PA_KEYS.rec(dev), JSON.stringify(rec), { ex: PA_CFG.recordTtlSec });
         p.sadd(PA_KEYS.idx, dev);
-        p.zadd(PA_KEYS.uidDevs(uidHash), { score: now, member: dev });
-        p.expire(PA_KEYS.uidDevs(uidHash), PA_CFG.recordTtlSec);
         if (prev && prev.uidHash && prev.uidHash !== uidHash) p.zrem(PA_KEYS.uidDevs(prev.uidHash), dev);
         await p.exec();
 

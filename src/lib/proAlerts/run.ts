@@ -27,6 +27,8 @@ export interface PaStore {
     decr(key: string): Promise<number>;
     del(keys: string[]): Promise<void>;
     srem(key: string, members: string[]): Promise<void>;
+    /** 기록 키가 «지금도» 없는 기기만 색인에서 뺀다(원자 — 그사이 새로 저장된 기기를 빼지 않게) */
+    sremIfGone(devs: string[]): Promise<void>;
 }
 export interface PriceRead { prices: Map<string, { p: number; at: number }>; hub: number; vendor: number; missing: number; vendorCalls: number }
 export interface PaPrices { read(tickers: string[], now: number, opts: { allowVendor: boolean }): Promise<PriceRead> }
@@ -101,14 +103,15 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     const recs: ProAlertRecord[] = [];
     const gone: string[] = [];
     for (const part of chunked(devs, 100)) {
-        const vals = await store.mget(part.map(PA_KEYS.rec));
+        const [vals, deadVals] = await Promise.all([store.mget(part.map(PA_KEYS.rec)), store.mget(part.map(PA_KEYS.dead))]);
         part.forEach((d, i) => {
             const r = parseRecord<ProAlertRecord>(vals[i]);
             if (!r || r.v !== 1 || r.dev !== d) { gone.push(d); return; }
+            if (deadVals[i] != null && Number(deadVals[i]) === r.updatedAt) return;   // 죽은 토큰 — 새로 저장될 때까지 건너뜀
             if (activeLevels(r).length) recs.push(r);
         });
     }
-    if (gone.length && !preview) await store.srem(PA_KEYS.idx, gone).catch(() => {});
+    if (gone.length && !preview) await store.sremIfGone(gone).catch(() => {});
     report.devices.active = recs.length;
     // 토큰 레코드(마스터 알림·권한) — 없거나 꺼졌으면 이번엔 건너뛴다(기록은 30일 TTL 로 사라진다)
     const eligible: ProAlertRecord[] = [];
@@ -183,6 +186,17 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     report.sent = sent;
     const byDev = new Map<string, Cand[]>();
     for (const c of fresh) { const a = byDev.get(c.rec.dev) ?? []; a.push(c); byDev.set(c.rec.dev, a); }
+    // 발송 직전 최신 기록으로 다시 거른다 — 크론이 읽은 뒤 사용자가 끄거나 지운 레벨은 보내지 않는다(관문 11121345 ④)
+    {
+        const ds = [...byDev.keys()];
+        const latest = await store.mget(ds.map(PA_KEYS.rec));
+        ds.forEach((d, i) => {
+            const r = parseRecord<ProAlertRecord>(latest[i]);
+            const live = new Set((r && r.token === byDev.get(d)![0].rec.token ? activeLevels(r) : []).map((l) => `${l.id}:${l.rev}:${l.t}:${l.dir}:${l.px}`));
+            const keep = byDev.get(d)!.filter((c) => live.has(`${c.level.id}:${c.level.rev}:${c.level.t}:${c.level.dir}:${c.level.px}`));
+            if (keep.length) byDev.set(d, keep); else byDev.delete(d);
+        });
+    }
     const devList = [...byDev.keys()];
     const proCache = await store.mget(devList.map((d) => PA_KEYS.pro(byDev.get(d)![0].rec.uidHash)));
     const cacheOf = new Map(devList.map((d, i) => [d, parseRecord<{ until?: number; neg?: number }>(proCache[i])] as const));
@@ -249,8 +263,11 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         if (r === 'dead') { sent.dead++; deadDevs.add(m.rec.dev); await store.del([pendKey]).catch(() => {}); }
         else { sent.fail++; await markPending(m.cand); }
     }
-    // 죽은 토큰 — 색인에서만 뺀다(기록은 30일 TTL · 같은 토큰으로 새로 저장되면 색인에 다시 들어간다). 그사이 저장된 새 기록을 지우지 않는다(관문 11121338 ④)
-    if (deadDevs.size) await store.srem(PA_KEYS.idx, [...deadDevs]).catch(() => {});
+    // 죽은 토큰 — 기록·색인은 건드리지 않고 «그 기록 판(updatedAt)»에 죽음 표식만(그사이 새로 저장되면 판이 바뀌어 다시 본다 · 관문 11121345 ③)
+    for (const d of deadDevs) {
+        const rec = byDev.get(d)?.[0]?.rec;
+        if (rec) await store.set(PA_KEYS.dead(d), String(rec.updatedAt), PA_CFG.recordTtlSec).catch(() => {});
+    }
     for (let i = 0; i < sent.ok; i++) await store.incr(`${PA_KEYS.stats(etDate)}:ok`, 8 * 86400).catch(() => 0);
     return report;
 }

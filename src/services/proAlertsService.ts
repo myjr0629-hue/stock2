@@ -31,6 +31,9 @@ export const PA_PRICE = {
     vendorMaxAgeMs: 10 * 60_000,
 } as const;
 
+/** 기록이 지금도 없을 때만 색인에서 뺀다 */
+const SREM_IF_GONE_LUA = `if redis.call('EXISTS', KEYS[1]) == 0 then return redis.call('SREM', KEYS[2], ARGV[1]) end return 0`;
+
 let _redis: Redis | null = null;
 const redis = () => (_redis ??= Redis.fromEnv());
 
@@ -55,6 +58,9 @@ export function paUpstashStore(r: Redis = redis()): PaStore & VerifyStore & { ra
         decr: (k) => r.decr(k),
         del: async (keys) => { if (keys.length) await r.del(...keys); },
         srem: async (k, members) => { if (members.length) await r.srem(k, ...members); },
+        sremIfGone: async (devs) => {
+            for (const d of devs) await r.eval(SREM_IF_GONE_LUA, [PA_KEYS.rec(d), PA_KEYS.idx], [d]);
+        },
     } as PaStore & VerifyStore & { raw: Redis };
 }
 

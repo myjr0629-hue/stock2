@@ -372,8 +372,22 @@ export async function syncPriceAlerts(p: PriceAlertPrefs, locale: string, opts: 
     writePriceAlerts(mergeFired({ ...cur, pendingSync: !unchanged, lastSyncAt: Date.now(), syncedToken: levels.length ? token : null }, fired));
   } else {
     writePriceAlerts({ ...cur, pendingSync: true });
+    if (result === 'retry') scheduleRetry(locale);
   }
   return result;
+}
+
+// 일시 실패(429·503·네트워크) 뒤 앱을 켜 둔 채여도 다시 보낸다 — 8초 · 30초 · 2분(한 줄로 · 성공하거나 바뀐 게 없으면 멈춤) (관문 11121345 ⑤)
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryStep = 0;
+const RETRY_DELAYS = [8_000, 30_000, 120_000];
+function scheduleRetry(locale: string) {
+  if (typeof window === 'undefined' || retryTimer || retryStep >= RETRY_DELAYS.length) return;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    retryStep++;
+    void maybeResyncPriceAlerts(locale).then((r) => { if (r === 'ok' || r === 'skip') retryStep = 0; });
+  }, RETRY_DELAYS[retryStep]);
 }
 
 /**

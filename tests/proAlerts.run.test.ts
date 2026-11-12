@@ -26,6 +26,7 @@ class Mem implements PaStore {
     async decr(k: string) { this.writes.push(k); const n = (Number(this.m.has(k) ? JSON.parse(this.m.get(k)!) : 0) || 0) - 1; this.m.set(k, JSON.stringify(n)); return n; }
     async del(keys: string[]) { for (const k of keys) { this.writes.push(k); this.m.delete(k); } }
     async srem(k: string, ms: string[]) { this.writes.push(k); for (const x of ms) this.sets.get(k)?.delete(x); }
+    async sremIfGone(devs: string[]) { for (const d of devs) if (!this.m.has(PA_KEYS.rec(d))) { this.writes.push(PA_KEYS.idx); this.sets.get(PA_KEYS.idx)?.delete(d); } }
     sadd(k: string, x: string) { const s = this.sets.get(k) ?? new Set(); s.add(x); this.sets.set(k, s); }
 }
 
@@ -195,7 +196,16 @@ t('확정 실패 → claim·상한 복원 + 대기 표식(다음 실행 재시�
     const b = deps(s2, { NVDA: 201 }, T10 + 300_000, { outcome: 'dead' });
     await run(b.d, T10 + 301_000);
     assert.equal(s2.m.has(PA_KEYS.rec(DEV)), true, '그사이 새로 저장됐을 수 있는 기록은 지우지 않는다');
-    assert.equal(s2.sets.get(PA_KEYS.idx)?.has(DEV), false);
+    assert.ok(s2.m.has(PA_KEYS.dead(DEV)), '죽음 표식(그 기록 판)');
+    // 같은 판이면 다음 실행에 건너뛴다 · 새로 저장(updatedAt 바뀜)되면 다시 본다
+    freeLock(s2);
+    s2.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10 + 300_000, d: D }));
+    const b2 = deps(s2, { NVDA: 201 }, T10 + 600_000);
+    assert.equal((await run(b2.d, T10 + 601_000)).devices.active, 0);
+    const recNew = { ...JSON.parse(s2.m.get(PA_KEYS.rec(DEV))!), updatedAt: T10 + 650_000 };
+    s2.m.set(PA_KEYS.rec(DEV), JSON.stringify(recNew));
+    freeLock(s2);
+    assert.equal((await run(b2.d, T10 + 701_000)).devices.active, 1);
 });
 t('장 시간 밖·모드 off·겹침 금지 창 → 아무것도 하지 않는다', async () => {
     const s = setup();
@@ -228,6 +238,29 @@ t('마스터 알림 끔·시스템 권한 꺼짐·다른 앱·토큰 없음 → 
     s.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10, d: D }));
     const a = deps(s, { NVDA: 201 }, T10 + 300_000);
     assert.equal((await run(a.d, T10 + 301_000)).status, 'no-devices');
+});
+t('크론이 읽은 뒤 사용자가 끈 레벨은 보내지 않는다(발송 직전 최신 기록 재확인)', async () => {
+    const s = setup();
+    s.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10, d: D }));
+    const a = deps(s, { NVDA: 201 }, T10 + 300_000);
+    const orig = a.d.prices.read;
+    a.d.prices.read = async (...args) => {
+        const out = await orig(...args);
+        const r = JSON.parse(s.m.get(PA_KEYS.rec(DEV))!);
+        r.levels[0].on = false;   // 가격을 읽는 사이 사용자가 껐다
+        s.m.set(PA_KEYS.rec(DEV), JSON.stringify(r));
+        return out;
+    };
+    await run(a.d, T10 + 301_000);
+    assert.equal(a.sent.length, 0);
+});
+t('색인 정리 — 기록이 «지금도» 없는 기기만 뺀다', async () => {
+    const s = setup();
+    s.sadd(PA_KEYS.idx, 'dGONE');
+    const a = deps(s, { NVDA: 199 }, T10);
+    await run(a.d, T10 + 1000);
+    assert.equal(s.sets.get(PA_KEYS.idx)?.has('dGONE'), false);
+    assert.equal(s.sets.get(PA_KEYS.idx)?.has(DEV), true);
 });
 t('조용한 시간(기기 현지 23~07시) → 소리 없이', async () => {
     const s = setup({ tz: 'Asia/Seoul' });   // 15:00Z = 00:00 KST
