@@ -58,7 +58,8 @@ export const CLAIM_VERIFIED_LUA = [
 ].join('\n');
 
 /** 발송 크론 — 고객의 지금 토큰이 아닐 때만 대상에서 걷는다(그 사이 다시 묶였으면 걷지 않는다 — 관문 11121127 ②). KEYS 고객→토큰·대상 · ARGV 묶음값·토큰 */
-export const SWEEP_IF_UNBOUND_LUA = "if redis.call('GET', KEYS[1]) ~= ARGV[1] then redis.call('ZREM', KEYS[2], ARGV[2]) return 1 end return 0";
+//   토큰의 주인이 아직 그 고객일 때만(그 사이 다른 고객이 이 토큰을 정상 등록했으면 걷지 않는다 — 관문 11121132). KEYS 고객→토큰·대상·토큰주인 · ARGV 묶음값·토큰·고객해시
+export const SWEEP_IF_UNBOUND_LUA = "if redis.call('GET', KEYS[3]) == ARGV[3] and redis.call('GET', KEYS[1]) ~= ARGV[1] then redis.call('ZREM', KEYS[2], ARGV[2]) return 1 end return 0";
 
 /** 내 잠금일 때만 푼다. KEYS 잠금 · ARGV 잠금 ID */
 export const UNLOCK_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0";
@@ -95,6 +96,6 @@ export const MEMORY_IMPL = new Map<string, (m: MemRedis, keys: string[], a: stri
     if (m.kv.has(k[0]) || m.kv.has(k[1])) return 0;
     m.kv.set(k[0], a[1]); m.kv.set(k[1], a[1]); return 1;
   }],
-  [SWEEP_IF_UNBOUND_LUA, (m, k, a) => { if (m.kv.get(k[0]) !== a[0]) { m.zs.get(k[1])?.delete(a[1]); return 1; } return 0; }],
+  [SWEEP_IF_UNBOUND_LUA, (m, k, a) => { if (m.kv.get(k[2]) === a[2] && m.kv.get(k[0]) !== a[0]) { m.zs.get(k[1])?.delete(a[1]); return 1; } return 0; }],
   [UNLOCK_LUA, (m, k, a) => { if (m.kv.get(k[0]) === a[0]) { m.kv.delete(k[0]); return 1; } return 0; }],
 ]);

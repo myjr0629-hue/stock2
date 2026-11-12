@@ -259,8 +259,13 @@ async function main() {
       assert.equal(MI.get(CLAIM_VERIFIED_LUA)!(m, ['s1', 's2', UK(H2(uidP)), `push:trial:owner:${tokQ}`], ['t:' + tokQ, '1', '60', H2(uidP)]), -1);
       assert.equal(kv.has('s1'), false);
       kv.set(UK(H2(uidP)), 't:' + tokQ); zs.get('push:trial:due')!.set(tokQ, T + 40 * H);
-      assert.equal(MI.get(SWEEP_IF_UNBOUND_LUA)!(m, [UK(H2(uidP)), 'push:trial:due'], ['t:' + tokQ, tokQ]), 0);
+      assert.equal(MI.get(SWEEP_IF_UNBOUND_LUA)!(m, [UK(H2(uidP)), 'push:trial:due', `push:trial:owner:${tokQ}`], ['t:' + tokQ, tokQ, H2(uidP)]), 0);
       assert.equal(zs.get('push:trial:due')!.has(tokQ), true, '다시 묶인 토큰은 걷지 않는다');
+      kv.set(UK(H2(uidP)), 't:' + 'r'.repeat(64)); kv.set(`push:trial:owner:${tokQ}`, 'uOTHER');
+      assert.equal(MI.get(SWEEP_IF_UNBOUND_LUA)!(m, [UK(H2(uidP)), 'push:trial:due', `push:trial:owner:${tokQ}`], ['t:' + tokQ, tokQ, H2(uidP)]), 0);
+      assert.equal(zs.get('push:trial:due')!.has(tokQ), true, '다른 고객이 이 토큰을 정상 등록했으면 걷지 않는다');
+      kv.set(`push:trial:owner:${tokQ}`, H2(uidP));
+      assert.equal(MI.get(SWEEP_IF_UNBOUND_LUA)!(m, [UK(H2(uidP)), 'push:trial:due', `push:trial:owner:${tokQ}`], ['t:' + tokQ, tokQ, H2(uidP)]), 1);
     }
     // (9) IP 예산 — 한 IP 가 10분에 30번 넘게 RC 확인을 부르면 429
     let limited = 0;

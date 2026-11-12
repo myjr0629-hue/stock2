@@ -78,7 +78,7 @@ export async function GET(request: Request) {
           if (rec?.verified === true && (!owner || bound.get(owner) !== token)) {
             skip('superseded');
             // 고객의 지금 토큰이 아니다 — 대상에서 걷는다(그 사이 다시 묶였으면 걷지 않는다 · 기록은 TTL 로)
-            if (!dry && owner) await redis.eval(SWEEP_IF_UNBOUND_LUA, [TRIAL_PUSH_UID_KEY(owner), TRIAL_PUSH_DUE_ZSET], [bindValue(token), token]);
+            if (!dry && owner) await redis.eval(SWEEP_IF_UNBOUND_LUA, [TRIAL_PUSH_UID_KEY(owner), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_OWNER_KEY(token)], [bindValue(token), token, owner]);
             continue;
           }
           const d = trialPushDecision(rec, tokenRec, now, sentRaw[j] != null || (!!owner && sentUid.get(owner) === true) || (!!owner && pickedOwners.has(owner)));
