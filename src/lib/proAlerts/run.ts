@@ -172,7 +172,8 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     for (const c of cands) report.crossings.push({ dev: c.rec.dev.slice(0, 8), t: c.level.t, id: c.level.id, dir: c.level.dir, px: c.level.px, prev: c.prev.p, cur: c.cur.p, ...(fresh.includes(c) ? (c.pending ? { why: 'pending' } : {}) : { why: 'sent' }) });
     if (preview) return report;
     // 이미 보낸 레벨의 대기 표식은 지운다
-    const stale = cands.filter((c, i) => c.pending && firedVals[i]).map((c) => PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev));
+    //   «보냄»(s:'sent')이 확인된 것만 — 잡는 중(s:'claim')인 장부는 10분 뒤 풀리므로 대기 표식을 남겨 다시 시도하게 한다(관문 11121353)
+    const stale = cands.filter((c, i) => c.pending && parseRecord<{ s?: string }>(firedVals[i])?.s === 'sent').map((c) => PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev));
     if (stale.length) await store.del(stale).catch(() => {});
     if (!fresh.length) return report;
 
