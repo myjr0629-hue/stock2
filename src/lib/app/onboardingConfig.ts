@@ -56,6 +56,28 @@ export function stepSrc(step: OnbStep, mode: OnbMode): FunnelSrc {
   return mode === 'legacy' ? 'onb_oldalert' : 'onb_notif';
 }
 
+/**
+ * 계측 «단계 노출»을 실행(세션)당 한 번만 — sessionStorage 로 센다 (2026-11-12).
+ *   앱 셸은 늘 /en/app-view/dash 로 켜지고 app-view/layout 이 기기 언어(/ko·/ja)로 router.replace 한다. 언어 구간이 바뀌면
+ *   이 오버레이가 새로 마운트돼 컴포넌트 안 Set 가드가 비워지고, 한국어·일본어 기기는 첫 실행 한 번에 법적 고지 노출이 2번 찍혔다
+ *   (11/12 에뮬레이터 실측: ko 1회 실행 = onb_show/onb_legal +2, en = +1). 그래서 안드 «노출 2 → 마침 0» 같은 숫자가 실제의 두 배로 보였다.
+ *   sessionStorage 는 같은 웹뷰 안 이동에는 남고 앱을 새로 켜면 비므로 «실행당 한 번» 뜻이 그대로다. 저장소를 못 쓰면 true(예전처럼 마운트당 한 번).
+ */
+export const ONB_SHOWN_SESSION_KEY = 'signumhq.onb.shown.v1';
+export function claimOnbShow(src: string, storage: Pick<Storage, 'getItem' | 'setItem'> | null | undefined): boolean {
+  if (!storage) return true;
+  try {
+    const raw = storage.getItem(ONB_SHOWN_SESSION_KEY) || '';
+    const seen = raw ? raw.split(',') : [];
+    if (seen.includes(src)) return false;
+    seen.push(src);
+    storage.setItem(ONB_SHOWN_SESSION_KEY, seen.join(','));
+  } catch {
+    // 저장소 접근 실패 — 세지 못하는 것보다 마운트당 한 번이 낫다
+  }
+  return true;
+}
+
 // ── 푸시 권한 결과 → 계측 출처 ─────────────────────────────────────────────
 export type PushResult = 'granted' | 'denied' | 'na';
 export function permSrc(r: PushResult): FunnelSrc | null {

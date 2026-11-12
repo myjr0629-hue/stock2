@@ -10,7 +10,7 @@ import { markSignalSynced, signalSyncExtras } from '@/lib/app/signalSync';
 import dynamic from 'next/dynamic';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
 import {
-  ONB_NUMBERED_STEPS, isNativeShell, onbStepNo, permSrc, stepAfterLegal, stepAfterValue, stepSrc,
+  ONB_NUMBERED_STEPS, claimOnbShow, isNativeShell, onbStepNo, permSrc, stepAfterLegal, stepAfterValue, stepSrc,
   type OnbMode, type OnbStep, type PushResult,
 } from '@/lib/app/onboardingConfig';
 import { firstRunCopy } from '@/lib/app/firstRunCopy';
@@ -338,6 +338,10 @@ export function AppFirstRunOnboarding() {
     const src = stepSrc(step, mode);
     if (shownSteps.current.has(src)) return;
     shownSteps.current.add(src);
+    // 언어 자가 이동(/en → /ko·/ja)으로 다시 마운트돼도 실행당 한 번만 센다(claimOnbShow 주석)
+    let ss: Storage | null = null;
+    try { ss = window.sessionStorage; } catch { /* 저장소 차단 */ }
+    if (!claimOnbShow(src, ss)) return;
     trackFunnel('onb_show', { src });
   }, [mounted, visible, isDocumentRoute, step, mode]);
 

@@ -37,6 +37,7 @@ import {
   impliedBasisLine, impliedPctLabel, onb2Enabled, onbStepNo, parseOnbConfig, permSrc, pickSrc, stepAfterLegal, stepAfterValue,
   stepSrc, togglePick, isNativeShell,
 } from '../src/lib/app/firstRunValue';
+import { claimOnbShow, ONB_SHOWN_SESSION_KEY } from '../src/lib/app/onboardingConfig';
 import { firstRunCopy } from '../src/lib/app/firstRunCopy';
 import { FUNNEL_SRCS, FUNNEL_STAGES, isFunnelSrc, isFunnelStage, funnelKeys } from '../src/lib/app/funnelSchema';
 import { createWatchlistStore, FREE_LIMIT, type StorageLike } from '../src/lib/app/watchlist';
@@ -514,6 +515,17 @@ class MemStorage implements StorageLike {
   });
   t('계측 단계 노출은 실행당 단계마다 한 번만(Set 가드) · 안드로이드 앱은 Play 데이터 보안 선언(10/14) 뒤 보낸다', () => {
     assert.ok(/shownSteps\.current\.has\(src\)/.test(onbSrc));
+    // 11/12: 언어 자가 이동(/en→/ko)으로 다시 마운트돼도 실행(세션)당 한 번 — sessionStorage 가드
+    assert.ok(/if \(!claimOnbShow\(src, ss\)\) return;\s*trackFunnel\('onb_show'/.test(onbSrc), 'onb_show 앞에 claimOnbShow 가드');
+    const mem = new Map<string, string>();
+    const ss = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v); } };
+    assert.equal(claimOnbShow('onb_legal', ss), true, '첫 마운트(/en) 는 센다');
+    assert.equal(claimOnbShow('onb_legal', ss), false, '다시 마운트(/ko) 는 안 센다');
+    assert.equal(claimOnbShow('onb_value', ss), true, '다음 단계는 센다');
+    assert.equal(mem.get(ONB_SHOWN_SESSION_KEY), 'onb_legal,onb_value');
+    assert.equal(claimOnbShow('onb_legal', null), true, '저장소 없으면 예전처럼 센다');
+    const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
+    assert.equal(claimOnbShow('onb_legal', broken), true, '저장소 오류여도 센다(마운트당 한 번)');
     const beacon = read('src/lib/app/funnelBeacon.ts');
     assert.ok(/FUNNEL_SEND_ANDROID = true/.test(beacon));
     assert.ok(/from '@\/lib\/app\/funnelBeacon'/.test(onbSrc), '부작용 없는 비콘 모듈을 쓴다');
