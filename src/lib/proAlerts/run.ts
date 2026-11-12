@@ -323,6 +323,8 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
                 const m = meta.get(it.id)!;
                 await store.del([m.claim]).catch(() => {});
                 await store.decr(m.cap).catch(() => 0);
+                // 삭제는 됐는데 응답만 잃었을 수도 있다 — 표식을 다시 쓴다(못 쓰면 그 종목 관측을 넘기지 않는다 · 관문 11130640)
+                await markPending(m.cand, true);
             }
             items.splice(0, items.length, ...items.filter((it) => !skip.has(it.id)));
             report.notes.push(`pend-clear-failed:${pendItems.length}`);
