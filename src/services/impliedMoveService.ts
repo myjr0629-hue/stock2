@@ -584,7 +584,8 @@ function probeListedExpirations(pc: any, today: string): string[] {
 //   유효 = ① 두 다리 모두 계약별 출처 표식 _quoteSource 'live'(Intrinio 실시간 FMV — 체인 수준 표식으로 짐작하지 않는다)
 //          ② 체인 수집 시각(_ts)이 오늘(ET) 정규장 안·15분 이내 → 결과 basis live · 세션 = 오늘
 //             + 고른 두 다리의 실시간 수신 시각(계약별 ivObservedAt — 공급사 실시간 응답을 처음 받은 시각, 합쳐진·캐시 요청도
-//             최초 시각 유지)이 있으면 그것도 오늘·15분 이내(체인 저장 시각만으론 다리별 동시성을 증명하지 못한다 — 관문 11130756 ①)
+//             최초 시각 유지)이 «둘 다 있고» 오늘·15분 이내(체인 저장 시각만으론 다리별 동시성을 증명하지 못한다 — 관문 11130756 ①).
+//             한 다리라도 시각이 없으면 후보 아님(rejected=false → 예전 순서 strict → legacy 그대로 — 관문 11130803)
 //          ③ 두 다리 패리티: |(콜 − 풋) − (현물 − 행사가)| ≤ max(스트래들 25%, 현물 1%) — 실시간 bid/ask 가 체인에 없어서
 //             «양쪽 호가·스프레드» 대신 두 다리와 현물이 같은 시점 값인지를 본다(전일 현물·한쪽만 갱신된 다리면 수 달러 어긋난다).
 //   적용 범위: 첫 만기가 주간물이거나 목록에 주간물이 있는 종목만(관문 11130756 ②). 주간물 없는 종목의 월물은 저장 관측이
@@ -611,7 +612,9 @@ function regularSessionLiveMove(rows: any[], spot: number, quoteOptions: { expir
         const leg = liveRows.find((c: any) => Number(c?.details?.strike_price ?? c?.strike_price) === im.strike
             && String(c?.details?.contract_type ?? c?.contract_type ?? '').toLowerCase() === type);
         const obs = typeof leg?.ivObservedAt === 'string' ? Date.parse(leg.ivObservedAt) : NaN;
-        if (Number.isFinite(obs) && !recent(obs)) return { im: null, rejected: true };
+        // 다리별 수신 시각이 없으면 «지금 값»임을 증명 못 한다 → live 우선 후보가 아니다(예전 순서 그대로 — 관문 11130803)
+        if (!Number.isFinite(obs)) return { im: null, rejected: false };
+        if (!recent(obs)) return { im: null, rejected: true };
     }
     const gap = Math.abs((im.callPrice - im.putPrice) - (im.spot - im.strike));
     const tol = Math.max(EARNINGS_LIVE_PARITY_STRADDLE * (im.callPrice + im.putPrice), EARNINGS_LIVE_PARITY_SPOT * im.spot);
