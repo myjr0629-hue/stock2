@@ -5,6 +5,7 @@ import { isFlowTicker } from './flowTicker';
 import { hasIndexablePicks, buildView } from '@/lib/todayPicks/view';
 import { readPicks } from '@/services/todayPicksService';
 import { CONCEPT_SLUGS } from '@/lib/seo/concepts';
+import { indexableTickers } from '@/lib/seo/earningsPage';
 
 // Programmatic sitemap. Starts with a curated set of high-search tickers for the
 // /flow/[ticker] pages (expand later toward the full universe). Without this, Google
@@ -67,6 +68,11 @@ export async function buildSitemap(locales: readonly (typeof LOCALES[number])[] 
   const session = lastSessionDate();
   const entries: MetadataRoute.Sitemap = [];
   const picks = await readPicks().catch(() => ({ doc: null, off: false }));
+  // 종목별 실적 페이지 — 페이지 메타의 index 판정(예상 변동폭 또는 완성된 채점)과 같은 목록만 싣는다. 읽기 실패 = 0개(noindex 주소를 내지 않는다).
+  const earningsTickers = await import('@/services/earningsPageService')
+    .then((m) => m.readEarningsPageSnapshot())
+    .then((snap) => indexableTickers(snap))
+    .catch(() => [] as string[]);
 
   for (const loc of locales) {
     for (const p of STATIC_PATHS) {
@@ -131,6 +137,17 @@ export async function buildSitemap(locales: readonly (typeof LOCALES[number])[] 
         'x-default': `${base}/en/tools/earnings-scenario`,
       } },
     });
+    // 종목별 실적 채점표 허브 + 종목 페이지(/earnings/[symbol]) — 저장본 기준 매 거래일 바뀐다
+    entries.push({
+      url: `${base}/${loc}/earnings`, lastModified: session, changeFrequency: 'daily', priority: 0.8,
+      alternates: langAlternates(base, '/earnings'),
+    });
+    for (const t of earningsTickers) {
+      entries.push({
+        url: `${base}/${loc}/earnings/${t}`, lastModified: session, changeFrequency: 'daily', priority: 0.7,
+        alternates: langAlternates(base, `/earnings/${t}`),
+      });
+    }
     for (const t of FLOW_TICKERS) {
       // Invalid symbols must never become submitted 404s; regression tests inspect the full list.
       if (!isFlowTicker(t)) continue;
