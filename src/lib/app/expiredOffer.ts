@@ -25,8 +25,9 @@ export const EXPIRED_OFFER_PLAY_ID = 'expired-50-1m';
 export const EXPIRED_OFFER_PLAY_OPTION_ID = `monthly:${EXPIRED_OFFER_PLAY_ID}`;
 /** RevenueCat 기본 옵션 자동 선택에서 빼는 태그 — Play 콘솔 오퍼에 붙어 있어야 한다(없으면 일반 결제에 할인이 샐 수 있어 카드도 안 그린다) */
 export const RC_IGNORE_OFFER_TAG = 'rc-ignore-offer';
-/** 첫 구매일과 이번 체험 시작일의 허용 차(같은 구매 — 스토어·RC 시각 반올림만 허용) */
-const SAME_PURCHASE_MS = 36 * 60 * 60 * 1000;
+/** 첫 구매일과 이번 체험 시작일의 허용 차 — 같은 거래면 두 값이 같다. 시각 표기 반올림만 허용(5분).
+ *  (관문 11121040: 36시간 허용은 체험 하루 전 유료 구매를 «결제 0»으로 볼 수 있었다 → 좁혔다. 어긋나면 노출 안 함) */
+const SAME_PURCHASE_MS = 5 * 60 * 1000;
 
 type Info = Partial<Pick<CustomerInfo, 'entitlements' | 'allPurchasedProductIdentifiers' | 'nonSubscriptionTransactions' | 'activeSubscriptions'>>;
 

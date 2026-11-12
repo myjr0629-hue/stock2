@@ -30,7 +30,7 @@ test('대상: 체험만 끝난 고객(결제 0) — iOS·안드(Play 상품 ID �
   assert.ok(trialExpiredNotice(info(), 'ios', now, null, '2026-11-12'), '만료 페이월 대상과 같은 고객');
   assert.equal(expiredOfferEligible(info({ c: { store: 'PLAY_STORE', productIdentifier: `${MONTHLY}:monthly` }, bought: [`${MONTHLY}:monthly`] })), true);
   assert.equal(expiredOfferEligible(info({ c: { productIdentifier: ANNUAL }, bought: [ANNUAL] })), true, '연간 체험자도 월간 할인 대상(결제 0)');
-  assert.equal(expiredOfferEligible(info({ c: { originalPurchaseDate: new Date(start - 2 * H).toISOString() } })), true, '시각 반올림 차');
+  assert.equal(expiredOfferEligible(info({ c: { originalPurchaseDate: new Date(start - 60_000).toISOString() } })), true, '시각 반올림 차(1분)');
 });
 
 test('대상 아님: 결제 이력이 있거나 «모름»', () => {
@@ -42,6 +42,8 @@ test('대상 아님: 결제 이력이 있거나 «모름»', () => {
   assert.equal(expiredOfferEligible(info({ bought: [] })), false, '구매 상품 목록 비어 있음 = 모름');
   assert.equal(expiredOfferEligible({ ...(info() as object), allPurchasedProductIdentifiers: undefined } as never), false, '구매 상품 목록 없음 = 모름');
   assert.equal(expiredOfferEligible(info({ c: { originalPurchaseDate: new Date(start - 40 * D).toISOString() } })), false, '체험 앞에 유료 기간');
+  assert.equal(expiredOfferEligible(info({ c: { originalPurchaseDate: new Date(start - 24 * H).toISOString() } })), false, '체험 하루 전 첫 구매(관문 11121040)');
+  assert.equal(expiredOfferEligible(info({ c: { originalPurchaseDate: new Date(start - 6 * 60_000).toISOString() } })), false, '5분 넘게 어긋남');
   assert.equal(expiredOfferEligible(info({ c: { originalPurchaseDate: null } })), false, '첫 구매일 없음');
   assert.equal(expiredOfferEligible(info({ c: { periodType: 'NORMAL' } })), false, '유료였다가 만료');
   assert.equal(expiredOfferEligible(info({ c: { periodType: 'INTRO' } })), false);
