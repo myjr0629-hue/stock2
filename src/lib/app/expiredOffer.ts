@@ -132,10 +132,10 @@ const COPY: Record<Loc, {
     fine: (p, r) => `첫 1개월은 ${p}, 이후 매월 ${r}에 자동 갱신됩니다. 언제든 해지할 수 있고, 해지하면 남은 기간까지 이용됩니다. 해지는 기기의 구독 관리 화면에서 합니다.`,
   },
   en: {
-    name: 'Monthly · first month off',
+    name: 'First month',
     badge: (pct) => `${pct}% off`,
-    firstMonth: 'first month',
-    then: (r) => `Then ${r}/month, auto-renews`,
+    firstMonth: '1st month',
+    then: (r) => `Then ${r}/mo`,
     fine: (p, r) => `${p} for the first month, then ${r} every month until you cancel. Renews automatically. Cancel anytime; access continues until the period ends. Cancel from your device’s subscription settings.`,
   },
   ja: {
