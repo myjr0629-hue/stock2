@@ -157,6 +157,14 @@ async function main() {
     const tokH = 'h'.repeat(64); reg(tokH);
     r = await post({ ...body(tokH), rcUid: uidOf(tokG) }); assert.equal(r.body.due, true);
     assert.equal(zs.get('push:trial:due')!.has(tokG), false, '옛 토큰은 대상에서 빠진다'); assert.equal(zs.get('push:trial:due')!.has(tokH), true);
+    // (6a) 토큰이 다른 고객에게 넘어간 뒤 옛 고객이 새 토큰으로 보고해도, 새 고객의 기록은 지우지 않는다(관문 11121018 ②)
+    const tokX = 'x'.repeat(64), tokY = 'y'.repeat(64), uidA = '$RCAnonymousID:' + 'a1'.repeat(16), uidB = '$RCAnonymousID:' + 'b2'.repeat(16);
+    reg(tokX); reg(tokY); rc.set(uidA, rcTrial(T + 40 * H)); rc.set(uidB, rcTrial(T + 41 * H));
+    r = await post({ ...body(tokX), rcUid: uidA }); assert.equal(r.body.due, true); fresh(tokX);
+    r = await post({ ...body(tokX), rcUid: uidB }); assert.equal(r.body.due, true); fresh(tokX);
+    r = await post({ ...body(tokY), rcUid: uidA }); assert.equal(r.body.due, true);
+    assert.equal(zs.get('push:trial:due')!.get(tokX), T + 41 * H, 'B 의 X 기록이 남는다'); assert.ok(kv.has(`push:trial:${tokX}`));
+    assert.equal(zs.get('push:trial:due')!.has(tokY), true);
     // (6b) 같은 RC 고객 보고가 처리 중이면(잠금) 429 — 고객당 한 토큰 규칙을 동시 요청으로 깨지 못한다(관문 11121015 ②)
     const lockKey = [...kv.keys()].find((k) => k.startsWith('push:trial:uidlock:'));
     assert.equal(lockKey, undefined, '끝나면 잠금을 푼다');

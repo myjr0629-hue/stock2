@@ -15,6 +15,7 @@ import { Redis } from '@upstash/redis';
 import { TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_RL_KEY, sanitizeTrialReport, trialPushWanted, validPushToken, type TrialPushRecord } from '@/lib/push/trialPush';
 import { RC_UID_RE, TRIAL_PUSH_UID_KEY, trialUidHash, verifyTrialWithRc, type TrialVerifyStore } from '@/lib/push/trialVerify';
 import { clientIpFrom } from '@/lib/guruLens/proAccess';
+import { parseRecord } from '@/lib/push/prefs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -88,13 +89,16 @@ async function addVerified(req: NextRequest, token: string, uid: string, rec: Tr
     return json({ ok: true, stored: true, due: false, verified: false });
   }
   const trial = (v as Extract<typeof v, { kind: 'trial' }>).trial;
-  const out = { ...rec, expiresAt: trial.expiresAt, willRenew: trial.willRenew, periodType: trial.periodType, store: trial.store, verified: true };
+  const uh = trialUidHash(uid);
+  const out: TrialPushRecord = { ...rec, expiresAt: trial.expiresAt, willRenew: trial.willRenew, periodType: trial.periodType, store: trial.store, verified: true, uh };
   const ttl = Math.max(60, Math.ceil((out.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S);
-  // RC 고객 하나 = 토큰 하나 — 같은 체험을 다른 토큰으로 보고하면 옛 토큰을 대상에서 뺀다
-  const uidKey = TRIAL_PUSH_UID_KEY(trialUidHash(uid));
+  // RC 고객 하나 = 토큰 하나 — 같은 체험을 다른 토큰으로 보고하면 옛 토큰을 대상에서 뺀다.
+  //   단 옛 토큰의 기록이 «지금도 이 고객»일 때만(그 토큰이 다른 고객에게 넘어갔으면 남의 기록을 지우지 않는다 — 관문 11121018 ②)
+  const uidKey = TRIAL_PUSH_UID_KEY(uh);
   const prevTok = await redis.get<string>(uidKey);
   if (typeof prevTok === 'string' && prevTok && prevTok !== token) {
-    await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, prevTok), redis.del(TRIAL_PUSH_KEY(prevTok))]);
+    const prevRec = parseRecord<TrialPushRecord>(await redis.get(TRIAL_PUSH_KEY(prevTok)));
+    if (prevRec?.uh === uh) await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, prevTok), redis.del(TRIAL_PUSH_KEY(prevTok))]);
   }
   await redis.set(uidKey, token, { ex: ttl });
   await redis.set(TRIAL_PUSH_KEY(token), JSON.stringify(out), { ex: ttl });

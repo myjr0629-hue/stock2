@@ -45,6 +45,8 @@ export interface TrialPushRecord {
   at: number;
   /** ★11/12 RC 에서 확인한 기록(보고 API 가 RC 값으로 쓴다). 없는 기록은 확인 이전(TRIAL_PUSH_VERIFY_SINCE 전) 것만 보낸다 */
   verified?: boolean;
+  /** ★11/12 확인한 RC 고객의 해시(원문 아님) — 고객당 한 토큰 정리 때 «지금도 같은 고객의 기록인가»만 본다 */
+  uh?: string;
 }
 
 /** ★11/12 야간 검토 ② — 이 시각 «뒤»에 쓰인 기록은 RC 확인 표식(verified)이 있어야 보낸다. 그 전 기록(확인 없는 옛 보고 API 가 쓴 것 — 이 배포의 운영 반영 기한 KST 17시. 새 API 는 대상 기록에 항상 verified 를 단다)은

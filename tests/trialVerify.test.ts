@@ -36,6 +36,12 @@ const multi = { subscriber: { entitlements: { pro: { product_identifier: 'pro_mo
 assert.deepEqual(trialFromSubscriber(multi, now), { expiresAt: now + 2 * D, willRenew: false, periodType: 'TRIAL', store: 'PLAY_STORE' });
 const reversed = { subscriber: { ...multi.subscriber, entitlements: { pro: { product_identifier: 'pro_monthly', expires_date: iso(now + 2 * D) } } } };
 assert.equal(trialFromSubscriber(reversed, now)!.willRenew, false, '권한 키가 상품만이어도 접두로 찾고, 끝난 기록은 건너뛴다');
+// 같은 키(유료 · 만료 멀다) + 접미 키(체험 · 권한 만료와 같다) → 권한 만료와 맞는 체험(관문 11121018 ①)
+const both = { subscriber: { entitlements: { pro: { product_identifier: 'pro_monthly', expires_date: iso(now + 2 * D) } }, subscriptions: {
+  'pro_monthly': { period_type: 'normal', store: 'play_store', expires_date: iso(now + 20 * D), unsubscribe_detected_at: null },
+  'pro_monthly:monthly': { period_type: 'trial', store: 'play_store', expires_date: iso(now + 2 * D), unsubscribe_detected_at: iso(now - D) },
+} } };
+assert.equal(trialFromSubscriber(both, now)!.expiresAt, now + 2 * D);
 
 // ── 예산 · 장애 ──
 const memStore = (): TrialVerifyStore & { m: Map<string, number> } => {
