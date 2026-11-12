@@ -203,6 +203,15 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
   [r] = await readEarn();
   assert.equal(r.basis, 'eod', `structure not computed in REG — got ${r.basis}`); assert.equal(r.impliedMovePct, 9.3);
   ok('③ structure spot = prior close fill or non-REG structure → not a live-first candidate → strict EOD as before');
+  // ② 현물이 1.5% 어긋남(구조가 장전 체결가 146.8 을 정규장 현재가로 저장 — 저장 시각·세션은 정상) → 패리티 탈락 → EOD (관문 11130817)
+  seed({ kind: 'full', spot: 146.8 });
+  [r] = await readEarn();
+  assert.equal(r.basis, 'eod', `spot 1.5% off the legs must be rejected — got ${r.basis} ${r.impliedMovePct}`); assert.equal(r.impliedMovePct, 9.3);
+  // 현물 0.2% 차(148.7)는 패리티 안 — 예상폭 영향 0.02%p(표시 반올림 안)
+  seed({ kind: 'full', spot: 148.7 });
+  [r] = await readEarn();
+  assert.equal(r.basis, 'live'); assert.equal(r.impliedMovePct, 11.6);
+  ok('② parity: spot 1.5% off → EOD fallback · 0.2% off → live (error below display rounding)');
 
   // ② 호가 시각 낡음(20분) → 무효 → strict EOD
   seed({ kind: 'full', probeAgeMs: 20 * 60_000 });
