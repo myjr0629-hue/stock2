@@ -125,7 +125,7 @@ function seed(opts: { kind: 'full' | 'slim'; spot?: number; probeAgeMs?: number;
     structure: { strikes: [150], callsOI: [1], putsOI: [1] },
   }, timestamp: now - (opts.structureAgeMs ?? 30_000) });
   // readEodCloses 는 프로세스 안에서 5분 기억한다 — 모든 시나리오 종목을 한 스냅샷에 둔다
-  store.set('intrinio:eod:snapshot', { date: PREV, rows: [['NVDA', 0, 0, 0, 173.73, 0, 0, 0], ['MONO', 0, 0, 0, 173.73, 0, 0, 0]] });
+  store.set('intrinio:eod:snapshot', { date: PREV, rows: [['NVDA', 0, 0, 0, 173.73, 0, 0, 0], ['MONO', 0, 0, 0, 173.73, 0, 0, 0], ['ATMX', 0, 0, 0, 100, 0, 0, 0]] });
   store.set('polygon:snapshot:probe:NVDA', {
     greeksSource: 'realtime', _ts: now - (opts.probeAgeMs ?? 60_000), chainDate: PREV,
     chainDates: { [WEEKLY]: PREV, [EARN]: PREV }, weeklyExpiry: WEEKLY,
@@ -213,6 +213,25 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
     assert.equal(x.basis, 'eod', `rate-approx uncertainty must not pass as proven live — got ${x.basis} ${x.impliedMovePct}`);
     assert.equal(x.impliedMovePct, 32.5);
     ok('② gate 11130824: 36-day expiry, rate uncertainty consumes the budget → not a candidate → strict EOD as before');
+  }
+  // ② 관문 11130827 반례 — 저장 현물 100.1·실제 99.9·행사가 99/101: 증명된 현물 오차 범위가 중간점(100)을 넘어 ATM 이 바뀔 수 있다
+  //   → 후보 아님 → 예전 순서(직접 경로 원본 = strict EOD 99 행사가)
+  {
+    const now = ms(REG);
+    store.set('structure:v2:ATMX', { data: { ticker: 'ATMX', options_status: 'OK', expiration: WEEKLY, availableExpirations: [WEEKLY, EARN],
+      chainDate: PREV, underlyingPrice: 100.1, prevClose: 100, session: 'REG', impliedMove: null, structure: { strikes: [100], callsOI: [1], putsOI: [1] } }, timestamp: now - 30_000 });
+    const legs: Array<[number, Leg, Leg]> = [
+      [99, { live: 5.484, bid: 2.9, ask: 3.1 }, { live: 4.516, bid: 2.0, ask: 2.2 }],
+      [101, { live: 5.2345, bid: 2.0, ask: 2.2 }, { live: 6.2655, bid: 3.0, ask: 3.2 }],
+    ];
+    const rows: any[] = [];
+    for (const [k, c, p] of legs) rows.push(fullRow(EARN, k, 'call', c), fullRow(EARN, k, 'put', p));
+    store.set('polygon:snapshot:probe:ATMX', { greeksSource: 'realtime', _ts: now - 60_000, chainDate: PREV, chainDates: { [WEEKLY]: PREV, [EARN]: PREV },
+      weeklyExpiry: WEEKLY, expirations: [WEEKLY, EARN], expirationsMissing: [], exactResults: [], probeResults: rows });
+    const [x] = await at(REG, () => IMS.readImpliedMoveRows([{ ticker: 'ATMX', after: AFTER, timing: 'unknown' }], '2026-11-12'));
+    assert.ok(!(x.basis === 'live' && x.strike === 101), `ambiguous ATM must not ship live @101 — got ${x.basis} ${x.strike} ${x.impliedMovePct}`);
+    assert.equal(x.basis, 'eod'); assert.equal(x.strike, 99); assert.equal(x.impliedMovePct, 5.1);
+    ok('② gate 11130827: spot error range crosses the 99/101 midpoint → not a candidate → strict EOD @99');
   }
   // ③ 구조 현물이 «전일 종가 대체»(현물 = prevClose — 체결 없음)·정규장 밖에서 계산된 구조 → 현물 시각 근거 없음 → 예전 순서(strict EOD) (관문 11130811)
   seed({ kind: 'full', prevClose: 149 });
