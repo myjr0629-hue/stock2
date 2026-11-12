@@ -49,11 +49,13 @@ const lrcx = {
 let storeDown = false;
 let recordsDown = false;
 let packDown = false;
+let calendarDown = false;
 const reads: string[] = [];
 stub('../src/services/redisClient', {
   getFromCache: async (key: string) => {
     reads.push(key);
     if (storeDown) throw new Error('down');
+    if (key.startsWith('market:earnings-calendar:v4') && calendarDown) throw new Error('down');
     if (key === 'market:earnings-calendar:v4') return calendar;
     if (key === 'earnings:implied:v1') { if (packDown) throw new Error('down'); return pack; }
     return null;
@@ -190,6 +192,12 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     const hh = renderToStaticMarkup(await hub.default({ params: Promise.resolve({ locale: 'ko' }) }));
     assert.ok(hh.includes('옵션 예상 변동폭 자료를 지금 읽지 못했습니다'));
     packDown = false; svc._resetEarningsPageMemo();
+  });
+  await test('캘린더만 못 읽음 — 묶음이 있어도 발표 행을 몰라 예상 변동폭도 «읽지 못함»', async () => {
+    svc._resetEarningsPageMemo(); calendarDown = true;
+    const h = await html('en', T);
+    assert.ok(h.includes('could not be read right now') && !h.includes('No options-implied move to show yet'));
+    calendarDown = false; svc._resetEarningsPageMemo();
   });
   await test('시간 초과 — 15분 안의 직전 묶음만 대신 주고, 더 오래되면 빈 묶음(«읽지 못함»)', async () => {
     svc._resetEarningsPageMemo();

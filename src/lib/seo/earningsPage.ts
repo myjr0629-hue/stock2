@@ -136,7 +136,7 @@ export interface EarningsPageView {
   calendarOk: boolean;
   /** 채점 기록을 전부 읽었는가 — 아니면 «기록 없음»이라 말하지 않고 일부만으로 집계하지 않는다 */
   recordsOk: boolean;
-  /** 예상 변동폭 묶음을 읽었는가 — 아니면 «아직 없음»이 아니라 «읽지 못함» */
+  /** 예상 변동폭을 판별할 수 있는가(묶음 + 발표 행을 찾을 캘린더 둘 다 읽음) — 아니면 «아직 없음»이 아니라 «읽지 못함» */
   packOk: boolean;
 }
 
@@ -163,7 +163,7 @@ export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot
     history.push(row);
   }
   history.sort((a, b) => b.date.localeCompare(a.date));
-  return { ticker, next, implied, history, indexable: Boolean(implied) || history.length > 0, calendarOk: snap.calendarOk, recordsOk: snap.recordsOk, packOk: snap.packAt != null };
+  return { ticker, next, implied, history, indexable: Boolean(implied) || history.length > 0, calendarOk: snap.calendarOk, recordsOk: snap.recordsOk, packOk: snap.packAt != null && snap.calendarOk };
 }
 
 /** 사이트맵·허브용 — 색인할 종목 목록(페이지 메타와 같은 판정) */
