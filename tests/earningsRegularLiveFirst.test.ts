@@ -195,6 +195,25 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
   assert.equal(r.basis, 'eod', `spot/leg time skew must reject — got ${r.basis} ${r.impliedMovePct}`);
   assert.equal(r.impliedMovePct, 9.3);
   ok('② structure spot 12 min old vs legs 1 min → skew > 6 min → EOD fallback');
+  // ② 관문 11130824 반례 — 만기 36일(12/18)·실제 할인율 5.5%·저장 현물 150.59(실제 150)·C+P=60: 금리 근사 불확실성까지 더하면 증명 못 함
+  //   → 새 분기는 후보를 만들지 않고 예전 순서(직접 경로 원본 = strict EOD)
+  {
+    const EXP2 = '2026-12-18';
+    seed({ kind: 'full', spot: 150.59, obs: false });
+    const pc: any = store.get('polygon:snapshot:probe:NVDA');
+    const legs: Array<[number, Leg, Leg]> = [
+      [150, { live: 30.41, bid: 40, ask: 41 }, { live: 29.59, bid: 15, ask: 16 }],
+      [172.5, { live: 20, bid: 30.0, ask: 30.4 }, { live: 42, bid: 26.0, ask: 26.4 }],
+    ];
+    const rows: any[] = [];
+    for (const [k, c, p] of legs) rows.push(fullRow(EXP2, k, 'call', c), fullRow(EXP2, k, 'put', p));
+    store.set('polygon:snapshot:probe:NVDA', { ...pc, expirations: [WEEKLY, EXP2], chainDates: { ...pc.chainDates, [EXP2]: PREV }, probeResults: [...pc.probeResults, ...rows] });
+    const [x] = await at(REG, () => IMS.readImpliedMoveRows([{ ticker: 'NVDA', after: '2026-12-14', timing: 'unknown' }], '2026-11-12'));
+    assert.equal(x.expiry, EXP2);
+    assert.equal(x.basis, 'eod', `rate-approx uncertainty must not pass as proven live — got ${x.basis} ${x.impliedMovePct}`);
+    assert.equal(x.impliedMovePct, 32.5);
+    ok('② gate 11130824: 36-day expiry, rate uncertainty consumes the budget → not a candidate → strict EOD as before');
+  }
   // ③ 구조 현물이 «전일 종가 대체»(현물 = prevClose — 체결 없음)·정규장 밖에서 계산된 구조 → 현물 시각 근거 없음 → 예전 순서(strict EOD) (관문 11130811)
   seed({ kind: 'full', prevClose: 149 });
   [r] = await readEarn();
