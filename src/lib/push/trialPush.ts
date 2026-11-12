@@ -5,7 +5,7 @@
 // 안 보내는 경우: 갱신을 다시 켰다 · 이미 보냈다 · 알림 전체를 껐다(설정) · 시스템 알림 권한 없음 · 토큰이 더는 등록돼 있지 않다
 //   · 6시간 안에 앱을 열었다(앱 안 카드를 이미 봤다 — 다음 회차에 다시 본다) · 기기 현지 시간 09~20시 밖(다음 회차에).
 // 문구: 사실만(종료일 · 앱에서 요금제를 볼 수 있음). 갱신 상태는 단정하지 않는다. 가격·긴급함·투자 권유 없음.
-// 식별자: 키는 이미 서버에 있는 푸시 토큰. 계정·RC 고객 ID 를 받지 않는다.
+// 식별자: 키는 이미 서버에 있는 푸시 토큰. ★11/12 대상에 넣는 보고만 RC 앱 사용자 ID 를 받아 RC 에서 확인한다(원문 저장 안 함 — lib/push/trialVerify).
 // ============================================================================
 import { trialEndDateText, toTrialSaveLocale } from '@/lib/app/trialSaveDate';
 
@@ -43,7 +43,13 @@ export interface TrialPushRecord {
   store: string;
   /** 마지막 보고(=앱을 연) 시각 */
   at: number;
+  /** ★11/12 RC 에서 확인한 기록(보고 API 가 RC 값으로 쓴다). 없는 기록은 확인 이전(TRIAL_PUSH_VERIFY_SINCE 전) 것만 보낸다 */
+  verified?: boolean;
 }
+
+/** ★11/12 야간 검토 ② — 이 시각 «뒤»에 쓰인 기록은 RC 확인 표식(verified)이 있어야 보낸다. 그 전 기록(확인 없는 옛 보고 API 가 쓴 것 — 이 배포의 운영 반영 기한 KST 17시. 새 API 는 대상 기록에 항상 verified 를 단다)은
+ *  다음 앱 진입 때 확인된 기록으로 바뀌기 전까지 그대로 보낸다(첫 만료 11/12 — 앱을 열지 않는 사람의 D-2 푸시를 끊지 않게). */
+export const TRIAL_PUSH_VERIFY_SINCE = Date.parse('2026-11-12T08:00:00Z');
 
 /** 등록 요청 본문 → 저장할 레코드. 잘못된 값이면 null. («체험 끝남·유료 전환» 해제 요청 {clear:true} 은 라우트가 따로 처리) */
 export function sanitizeTrialReport(body: unknown, now: number): TrialPushRecord | null {
@@ -89,7 +95,7 @@ export function fallbackTimeZone(locale: string): string {
   return locale === 'ko' ? 'Asia/Seoul' : locale === 'ja' ? 'Asia/Tokyo' : 'America/New_York';
 }
 
-export type TrialPushSkip = 'invalid' | 'renewing' | 'sent' | 'window' | 'unregistered' | 'muted' | 'no_permission' | 'recent_open' | 'quiet_hours';
+export type TrialPushSkip = 'invalid' | 'unverified' | 'renewing' | 'sent' | 'window' | 'unregistered' | 'muted' | 'no_permission' | 'recent_open' | 'quiet_hours';
 
 /** 지금 보낼까 — 'send' 또는 안 보내는 이유 */
 export function trialPushDecision(
@@ -99,6 +105,7 @@ export function trialPushDecision(
   alreadySent = false,
 ): 'send' | TrialPushSkip {
   if (!rec || typeof rec.expiresAt !== 'number') return 'invalid';
+  if (rec.verified !== true && !(typeof rec.at === 'number' && rec.at < TRIAL_PUSH_VERIFY_SINCE)) return 'unverified';
   if (rec.periodType !== 'TRIAL' || rec.willRenew !== false) return 'renewing';
   if (alreadySent) return 'sent';
   const left = rec.expiresAt - now;

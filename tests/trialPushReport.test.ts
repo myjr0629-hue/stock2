@@ -23,12 +23,13 @@ const info = (c: Record<string, unknown> = {}) => ({ entitlements: { active: { p
 const free = { entitlements: { active: {} } } as never;
 const same = (i: unknown) => async () => i as never;
 const noWait = async () => {};
+const UID = '$RCAnonymousID:' + '0123456789abcdef'.repeat(2);
 const tick = () => new Promise<void>((r) => setImmediate(r));
 
 async function main() {
   const { reportTrialPush } = await import('../src/lib/app/trialPushReport');
   const { TRIAL_PUSH_REPORT_KEY } = await import('../src/lib/app/trialSave');
-  const R = (ci: unknown, fresh: unknown = ci, platform = 'ios') => reportTrialPush({ customerInfo: ci as never, platform }, same(fresh), noWait);
+  const R = (ci: unknown, fresh: unknown = ci, platform = 'ios') => reportTrialPush({ customerInfo: ci as never, platform }, same(fresh), noWait, async () => UID);
   // 토큰 없음 → 아무것도 안 보낸다
   assert.equal(await R(info()), 'skip');
   assert.equal(calls.length, 0);
@@ -37,6 +38,10 @@ async function main() {
   assert.equal(await R(info(), info(), 'web'), 'skip', '웹 → 안 보낸다');
   assert.equal(await R(free), 'skip', '무료 사용자(예전 보고 없음) → 안 보낸다');
   assert.equal(calls.length, 0);
+  // ★11/12 RC 앱 사용자 ID 를 못 읽으면 상태 보고를 보내지 않는다(서버가 확인할 수 없다 — 다음 진입에 다시)
+  assert.equal(await reportTrialPush({ customerInfo: info(), platform: 'ios' }, same(info()), noWait, async () => null), 'skip');
+  assert.equal(calls.length, 0);
+  assert.equal(store.get(TRIAL_PUSH_REPORT_KEY), undefined);
   // 새로 읽기 실패 → 안 보낸다
   assert.equal(await reportTrialPush({ customerInfo: info(), platform: 'ios' }, async () => null, noWait), 'skip');
   assert.equal(calls.length, 0);
@@ -51,7 +56,8 @@ async function main() {
   reply = { status: 200, body: { ok: true, stored: true } };
   assert.equal(await R(info()), 'sent');
   const sentBody = calls[calls.length - 1].body;
-  assert.deepEqual(Object.keys(sentBody).sort(), ['expiresAt', 'locale', 'periodType', 'platform', 'store', 'token', 'willRenew']);
+  assert.deepEqual(Object.keys(sentBody).sort(), ['expiresAt', 'locale', 'periodType', 'platform', 'rcUid', 'store', 'token', 'willRenew']);
+  assert.equal(sentBody.rcUid, UID, '★11/12 서버가 RC 에서 확인할 앱 사용자 ID');
   assert.equal(sentBody.locale, 'ja'); assert.equal(sentBody.willRenew, false); assert.equal(sentBody.periodType, 'TRIAL');
   // 같은 내용 → 새로 읽기는 한다(체험 중 — 그사이 스토어에서 갱신을 켰을 수 있다) · 같으면 보내지 않는다
   let reads = 0;

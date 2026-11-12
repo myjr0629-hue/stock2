@@ -13,6 +13,7 @@ import type { CustomerInfo } from '@revenuecat/purchases-capacitor';
 import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 import { calendarScorecardSummary } from '@/lib/earnings/calendarScorecardDisplay';
 import { addDaysYmd } from '@/lib/earningsWeek';
+import { etDateOf } from '@/lib/marketCalendar';
 import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 
 // 날짜·언어는 서버(푸시 크론)도 쓰므로 React 훅이 없는 모듈에 둔다(watchlist 는 클라이언트 훅을 가져 서버 라우트가 가져오면 빌드가 깨진다)
@@ -29,16 +30,29 @@ export type TrialScorecard = { n: number; within: number; previous: boolean };
 export const TRIAL_SCORECARD_MIN_N = 10;
 
 /**
+ * 그 채점 주가 «체험 동안»인가 — 주 첫 발표(월요일 장 전)의 기준 종가는 직전 거래일(금요일, 휴장이면 더 앞)이므로
+ * 체험이 그 주 «앞 주 월요일»(ET)까지 시작했어야 기준·반응이 전부 체험 안이다(만료 뒤 페이월 trialExpiredScorecard 와 같은 규칙 · 관문 11111838).
+ */
+export function trialScorecardWeekInTrial(week: string, startedAt: number): boolean {
+  return Number.isFinite(startedAt) && etDateOf(startedAt) <= addDaysYmd(week, -7);
+}
+
+/**
  * 운영 실적 채점(/api/earnings/scorecard)의 «n종목 중 within개 예상 범위 안». 이번 주가 작거나 비었으면 지난주와 견준다.
+ * ★11/12 야간 검토 ①: 시트가 «체험 동안 SIGNUM» 아래 그리므로 체험 시작(startedAt) 뒤에 기준·반응이 모두 있는 주만 쓴다
+ *   (체험 첫 주에 갱신을 끄면 지난주·이번 주 모두 체험 전 실적 → 줄 없음).
  * 실패·이상한 응답이면 null(줄을 그리지 않는다 — 숫자를 지어내지 않는다).
  */
-export async function trialScorecard(read: (week: string) => Promise<unknown>, week: string): Promise<TrialScorecard | null> {
+export async function trialScorecard(read: (week: string) => Promise<unknown>, week: string, startedAt: number): Promise<TrialScorecard | null> {
   try {
-    // 이번 주 표본이 작으면(주 초 — 2종목 중 1개 같은 줄) 지난주와 견줘 «종목 수가 많은 쪽»을 쓴다. 둘 다 실제 운영 채점이다.
-    const cur = calendarScorecardSummary(await read(week).catch(() => null), week);
-    if (cur && cur.n >= TRIAL_SCORECARD_MIN_N) return { n: cur.n, within: cur.withinCount, previous: false };
+    const curOk = trialScorecardWeekInTrial(week, startedAt);
     const prevWeek = addDaysYmd(week, -7);
-    const prev = calendarScorecardSummary(await read(prevWeek).catch(() => null), prevWeek);
+    const prevOk = trialScorecardWeekInTrial(prevWeek, startedAt);
+    if (!curOk && !prevOk) return null;
+    // 이번 주 표본이 작으면(주 초 — 2종목 중 1개 같은 줄) 지난주와 견줘 «종목 수가 많은 쪽»을 쓴다. 둘 다 실제 운영 채점이다.
+    const cur = curOk ? calendarScorecardSummary(await read(week).catch(() => null), week) : null;
+    if (cur && cur.n >= TRIAL_SCORECARD_MIN_N) return { n: cur.n, within: cur.withinCount, previous: false };
+    const prev = prevOk ? calendarScorecardSummary(await read(prevWeek).catch(() => null), prevWeek) : null;
     const best = prev && (!cur || prev.n > cur.n) ? { s: prev, previous: true } : cur ? { s: cur, previous: false } : null;
     return best ? { n: best.s.n, within: best.s.withinCount, previous: best.previous } : null;
   } catch { return null; }

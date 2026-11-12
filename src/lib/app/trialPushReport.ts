@@ -1,7 +1,8 @@
 'use client';
 // ============================================================================
 // 체험 상태 → 서버(D-2 푸시용) 보고 (2026-11-11). 네이티브 앱에서만, 푸시 토큰이 있을 때만.
-//   보내는 것: 이미 등록된 푸시 토큰 · 만료 시각 · 자동 갱신 여부 · 기간 종류 · 스토어 · 플랫폼 · 언어. 계정·RC 고객 ID 없음.
+//   보내는 것: 이미 등록된 푸시 토큰 · 만료 시각 · 자동 갱신 여부 · 기간 종류 · 스토어 · 플랫폼 · 언어
+//     + ★11/12 RC 앱 사용자 ID(rcUid — 서버가 RevenueCat 에서 체험을 직접 확인한다 · 원문 저장 안 함, 야간 검토 ②). 계정 정보 없음.
 //   체험(TRIAL)이 아니면 보내지 않는다 — 단 예전에 체험을 보고한 기기가 유료·평생으로 바뀌었거나 체험이 끝났으면
 //   «해제»({clear:true})를 한 번 보내 서버 발송 대상에서 뺀다(틀린 «결제되지 않아요» 푸시 방지).
 //   같은 내용은 하루 한 번(마지막 3일 + 갱신 꺼짐이면 3시간에 한 번 — 서버의 «최근 6시간 안에 앱을 열었으면 푸시 안 함» 판정용).
@@ -19,11 +20,20 @@ import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 type Info = Pick<CustomerInfo, 'entitlements'>;
 type Snapshot = { customerInfo: Info; platform: string };
 export type FreshRead = () => Promise<Info | null>;
+export type UidRead = () => Promise<string | null>;
 
 const PUSH_TOKEN_KEY = 'signumhq.push.token';
 const CLEARED = 'cleared';
 let inflight = false;
-let queued: { snapshot: Snapshot; readFresh?: FreshRead } | null = null;
+let queued: { snapshot: Snapshot; readFresh?: FreshRead; readUid?: UidRead } | null = null;
+
+/** RC 앱 사용자 ID(대가 렌즈·내 종목 알림과 같은 값) — 못 읽으면 null(상태 보고를 보내지 않는다 · 해제는 보낸다) */
+async function defaultReadUid(): Promise<string | null> {
+  try {
+    const { rcAppUserId } = await import('@/lib/app/watchlistAlerts');
+    return await rcAppUserId();
+  } catch { return null; }
+}
 
 /** SDK 캐시를 비우고 새로 읽는다(5초 상한). 실패하면 null — 보내지 않는다 */
 async function defaultReadFresh(): Promise<Info | null> {
@@ -74,9 +84,9 @@ function plan(info: Info, token: string, last: string | null, now: number): { ki
   return last === fp ? null : { kind: 'state', fp, state };
 }
 
-export async function reportTrialPush(snapshot: Snapshot | null, readFresh: FreshRead = defaultReadFresh, wait: (ms: number) => Promise<void> = sleep): Promise<'sent' | 'cleared' | 'skip' | 'queued'> {
+export async function reportTrialPush(snapshot: Snapshot | null, readFresh: FreshRead = defaultReadFresh, wait: (ms: number) => Promise<void> = sleep, readUid: UidRead = defaultReadUid): Promise<'sent' | 'cleared' | 'skip' | 'queued'> {
   if (!snapshot || (snapshot.platform !== 'ios' && snapshot.platform !== 'android')) return 'skip';
-  if (inflight) { queued = { snapshot, readFresh }; return 'queued'; }
+  if (inflight) { queued = { snapshot, readFresh, readUid }; return 'queued'; }
   inflight = true;
   try {
     const token = window.localStorage.getItem(PUSH_TOKEN_KEY);
@@ -96,12 +106,14 @@ export async function reportTrialPush(snapshot: Snapshot | null, readFresh: Fres
       try { window.localStorage.setItem(TRIAL_PUSH_REPORT_KEY, CLEARED); } catch { /* 다음 실행에 다시 */ }
       return 'cleared';
     }
-    if (!(await postWithRetry({ token, platform: snapshot.platform, locale: resolveAppLocale(), ...next.state }, wait))) return 'skip';
+    const rcUid = await readUid().catch(() => null);
+    if (!rcUid) return 'skip';
+    if (!(await postWithRetry({ token, rcUid, platform: snapshot.platform, locale: resolveAppLocale(), ...next.state }, wait))) return 'skip';
     try { window.localStorage.setItem(TRIAL_PUSH_REPORT_KEY, next.fp); } catch { /* 다음 실행에 다시 */ }
     return 'sent';
   } catch { return 'skip'; } finally {
     inflight = false;
     const q = queued; queued = null;
-    if (q) void reportTrialPush(q.snapshot, q.readFresh, wait);
+    if (q) void reportTrialPush(q.snapshot, q.readFresh, wait, q.readUid);
   }
 }

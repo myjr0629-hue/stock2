@@ -102,7 +102,7 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
         const seen = pushTapped() ? null : readSeen();
         const early = { early: readEarly() };
         let notice: TrialOffNotice | null = previewParam === 'expired' ? null : preview
-          ? { store: 'APP_STORE' as const, expiresAt: Date.now() + (previewParam === 'early' ? 27.4 : 2.4) * 86400000, period: 'preview', mark: 'preview', kind: previewParam === 'early' ? 'early' : 'window' }
+          ? { store: 'APP_STORE' as const, startedAt: Date.now() - (previewParam === 'early' ? 2.6 : 27.6) * 86400000, expiresAt: Date.now() + (previewParam === 'early' ? 27.4 : 2.4) * 86400000, period: 'preview', mark: 'preview', kind: previewParam === 'early' ? 'early' : 'window' }
           : snapshot && trialRenewalOffNotice(snapshot.customerInfo, snapshot.platform, Date.now(), seen, undefined, early);
         // ★11/11 체험 중 시트가 없을 때만 «만료 뒤 1회»를 본다(체험 중 시트는 활성 체험에서만 — 둘은 겹치지 않는다). 오늘 체험 시트를 봤으면 내일
         const marks = { offSeen: readSeen(), early: early.early };
@@ -185,7 +185,7 @@ function CancelReasonPreview({ locale }: { locale: string }) {
 }
 
 /** 운영 실적 채점(숫자) — 실패하면 줄을 그리지 않는다. 개발 미리보기는 ?trialScore=n,within[,prev] 로 «운영에서 읽은 값»을 넣는다 */
-function useTrialScorecard(preview: boolean) {
+function useTrialScorecard(preview: boolean, startedAt: number) {
   const [score, setScore] = useState<TrialScorecard | null>(null);
   useEffect(() => {
     if (preview) {
@@ -198,9 +198,9 @@ function useTrialScorecard(preview: boolean) {
       const r = await fetch(`/api/earnings/scorecard?week=${w}`, { signal: ctrl.signal });
       if (!r.ok) throw new Error('scorecard unavailable');
       return r.json();
-    }, calendarScorecardWeek(etDateOf(Date.now()))).then((v) => { if (!ctrl.signal.aborted) setScore(v); });
+    }, calendarScorecardWeek(etDateOf(Date.now())), startedAt).then((v) => { if (!ctrl.signal.aborted) setScore(v); });
     return () => ctrl.abort();
-  }, [preview]);
+  }, [preview, startedAt]);
   return score;
 }
 
@@ -260,7 +260,7 @@ function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onEx
   const sheet = useRef<HTMLDivElement>(null);
   const later = useRef<HTMLButtonElement>(null);
   const marked = useRef(false);
-  const score = useTrialScorecard(view.preview);
+  const score = useTrialScorecard(view.preview, view.startedAt);
   const [watchCount] = useState(readWatchCount);
   useBackToClose(true, onClose);
   useBannerSuppression(true);

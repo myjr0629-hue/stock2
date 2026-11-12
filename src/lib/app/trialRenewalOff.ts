@@ -10,7 +10,8 @@ export const TRIAL_OFF_WINDOW_MS = 72 * 60 * 60 * 1000;
 //   기기 저장 키(TRIAL_OFF_EARLY_KEY) = «체험 기간|현지 날짜». D-3 시트와 같은 날 두 번은 없다(서로의 날짜를 본다). D-2 푸시(서버)는 무관.
 export const TRIAL_OFF_EARLY_KEY = 'signumhq.trialRenewalOff.early.v1';
 export type TrialOffKind = 'window' | 'early';
-export type TrialOffNotice = { store: TrialStore; expiresAt: number; period: string; mark: string; kind: TrialOffKind };
+/** startedAt = 이 체험 기간의 시작(latestPurchaseDate) — 시트의 «체험 동안» 채점은 이 시각 뒤 주만 쓴다(야간 검토 11/12 ①) */
+export type TrialOffNotice = { store: TrialStore; startedAt: number; expiresAt: number; period: string; mark: string; kind: TrialOffKind };
 /** early 를 켜려면 넘긴다 — early = 기기에 저장된 조기 안내 표식(없으면 null). 안 넘기면 예전처럼 D-3 창만 */
 export type TrialOffEarlyOption = { early: string | null };
 
@@ -45,12 +46,12 @@ export function trialRenewalOffNotice(info: Pick<CustomerInfo, 'entitlements'> |
   if (expiresAt - now <= TRIAL_OFF_WINDOW_MS) {
     // D-3 창(하루 한 번). 오늘 이미 조기 안내를 봤으면 내일로 미룬다(같은 날 두 번 금지)
     if (mark === seen || (early && markDay(early.early) === day)) return null;
-    return { store, expiresAt, period, mark, kind: 'window' };
+    return { store, startedAt: start, expiresAt, period, mark, kind: 'window' };
   }
   if (!early) return null;
   // 창 밖: 이 체험 기간에 조기 안내를 이미 봤으면 다시 없음 · 오늘 D-3 시트를 봤으면 없음
   if (markPeriod(early.early) === period || markDay(seen) === day) return null;
-  return { store, expiresAt, period, mark, kind: 'early' };
+  return { store, startedAt: start, expiresAt, period, mark, kind: 'early' };
 }
 
 export function verifiedTrialRenewalOffNotice(initial: Pick<CustomerInfo, 'entitlements'>, fresh: Pick<CustomerInfo, 'entitlements'>, platform: string, now: number, seen: string | null, day: string = localDayKey(now), early?: TrialOffEarlyOption): TrialOffNotice | null {

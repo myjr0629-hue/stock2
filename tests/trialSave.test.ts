@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { trialRenewalOffNotice, verifiedTrialRenewalOffNotice, localDayKey, TRIAL_OFF_WINDOW_MS } from '../src/lib/app/trialRenewalOff';
-import { trialScorecard, trialWatchlistLine, trialSaveCopy, trialEndDateText, trialPushState, trialPushFingerprint, TRIAL_SCORECARD_MIN_N } from '../src/lib/app/trialSave';
+import { trialScorecard, trialScorecardWeekInTrial, trialWatchlistLine, trialSaveCopy, trialEndDateText, trialPushState, trialPushFingerprint, TRIAL_SCORECARD_MIN_N } from '../src/lib/app/trialSave';
 import {
   sanitizeTrialReport, trialPushWanted, trialPushDecision, trialPushContent, localHourIn, validPushToken, TRIAL_PUSH_MAX_MS, TRIAL_PUSH_MIN_MS,
   TRIAL_PUSH_RECENT_OPEN_MS, TRIAL_PUSH_DATA, TRIAL_PUSH_SENT_KEY, TRIAL_PUSH_SENT_TTL_S, type TrialPushRecord,
@@ -51,17 +51,33 @@ assert.match(localDayKey(now), /^\d{4}-\d{2}-\d{2}$/);
 
 // ── 2. 값 줄(실제 숫자만) ──
 const week = '2026-11-09', prevWeek = '2026-11-02';
+const longAgo = Date.parse('2026-10-14T03:00:00Z');
 const card = (w: string, n: number, within: number) => ({ week: w, summary: { n, withinCount: within } });
 const reader = (m: Record<string, unknown>) => async (w: string) => { if (!(w in m)) throw new Error('404'); return m[w]; };
 async function values() {
-  assert.deepEqual(await trialScorecard(reader({ [week]: card(week, 12, 9) }), week), { n: 12, within: 9, previous: false });
-  assert.deepEqual(await trialScorecard(reader({ [week]: card(week, 2, 1), [prevWeek]: card(prevWeek, 27, 18) }), week), { n: 27, within: 18, previous: true }, '이번 주가 작으면 지난주');
-  assert.deepEqual(await trialScorecard(reader({ [week]: card(week, 2, 1) }), week), { n: 2, within: 1, previous: false }, '지난주를 못 읽으면 이번 주');
-  assert.deepEqual(await trialScorecard(reader({ [week]: card(week, 0, 0), [prevWeek]: card(prevWeek, 27, 18) }), week), { n: 27, within: 18, previous: true });
-  assert.equal(await trialScorecard(reader({}), week), null, '둘 다 실패 → 줄 없음');
-  assert.equal(await trialScorecard(reader({ [week]: { week, summary: { n: 3, withinCount: 9 } } }), week), null, '이상한 값 → 줄 없음');
-  assert.equal(await trialScorecard(reader({ [week]: card('2026-10-26', 30, 20) }), week), null, '주가 다른 응답 → 줄 없음');
+  assert.deepEqual(await trialScorecard(reader({ [week]: card(week, 12, 9) }), week, longAgo), { n: 12, within: 9, previous: false });
+  assert.deepEqual(await trialScorecard(reader({ [week]: card(week, 2, 1), [prevWeek]: card(prevWeek, 27, 18) }), week, longAgo), { n: 27, within: 18, previous: true }, '이번 주가 작으면 지난주');
+  assert.deepEqual(await trialScorecard(reader({ [week]: card(week, 2, 1) }), week, longAgo), { n: 2, within: 1, previous: false }, '지난주를 못 읽으면 이번 주');
+  assert.deepEqual(await trialScorecard(reader({ [week]: card(week, 0, 0), [prevWeek]: card(prevWeek, 27, 18) }), week, longAgo), { n: 27, within: 18, previous: true });
+  assert.equal(await trialScorecard(reader({}), week, longAgo), null, '둘 다 실패 → 줄 없음');
+  assert.equal(await trialScorecard(reader({ [week]: { week, summary: { n: 3, withinCount: 9 } } }), week, longAgo), null, '이상한 값 → 줄 없음');
+  assert.equal(await trialScorecard(reader({ [week]: card('2026-10-26', 30, 20) }), week, longAgo), null, '주가 다른 응답 → 줄 없음');
   assert.ok(TRIAL_SCORECARD_MIN_N >= 5);
+  // ★11/12 야간 검토 ①: «체험 동안» = 체험 시작 뒤 주만(기준 종가 = 직전 금요일 → 앞 주 월요일까지 시작했어야)
+  const at = (iso: string) => Date.parse(iso);
+  const both = reader({ [week]: card(week, 2, 1), [prevWeek]: card(prevWeek, 27, 18) });
+  assert.equal(await trialScorecard(both, week, at('2026-11-09T15:00:00Z')), null, '이번 주 월요일 시작 → 지난주·이번 주 모두 체험 전 → 줄 없음');
+  assert.equal(await trialScorecard(both, week, at('2026-11-03T15:00:00Z')), null, '지난주 화요일 시작 → 이번 주도 월요일 기준 종가(지난 금) 는 체험 안이지만 앞 주 월요일 규칙 밖 → 줄 없음');
+  assert.deepEqual(await trialScorecard(both, week, at('2026-11-02T15:00:00Z')), { n: 2, within: 1, previous: false }, '지난주 월요일 시작 → 이번 주만(지난주는 체험 전 기준 종가)');
+  assert.deepEqual(await trialScorecard(both, week, at('2026-10-26T15:00:00Z')), { n: 27, within: 18, previous: true }, '그 앞 주 월요일 시작 → 지난주도 체험 안');
+  assert.deepEqual(await trialScorecard(reader({ [week]: card(week, 12, 9) }), week, at('2026-11-02T15:00:00Z')), { n: 12, within: 9, previous: false });
+  assert.equal(await trialScorecard(both, week, NaN), null, '시작 시각 모름 → 줄 없음');
+  let reads = 0;
+  await trialScorecard(async () => { reads++; return null; }, week, at('2026-11-10T15:00:00Z'));
+  assert.equal(reads, 0, '체험 안 주가 없으면 채점을 읽지도 않는다');
+  // ET 날짜로 판정: 한국 월요일 오전(= ET 일요일 저녁)에 시작했으면 ET 일요일 → 그 주 월요일 이전
+  assert.equal(trialScorecardWeekInTrial(week, at('2026-11-02T01:00:00Z')), true, 'ET 11/1 일요일 저녁 시작');
+  assert.equal(trialScorecardWeekInTrial(week, at('2026-11-03T05:30:00Z')), false, 'ET 11/3 0시 넘어 시작');
 }
 for (const loc of ['ko', 'en', 'ja']) {
   const c = trialSaveCopy(loc);
