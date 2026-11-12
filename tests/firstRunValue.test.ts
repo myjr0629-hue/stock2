@@ -37,7 +37,10 @@ import {
   impliedBasisLine, impliedPctLabel, onb2Enabled, onbStepNo, parseOnbConfig, permSrc, pickSrc, stepAfterLegal, stepAfterValue,
   stepSrc, togglePick, isNativeShell,
 } from '../src/lib/app/firstRunValue';
-import { claimOnbShow, ONB_SHOWN_SESSION_KEY } from '../src/lib/app/onboardingConfig';
+import {
+  claimOnbShow, ONB_SHOWN_SESSION_KEY, ONB_DRAFT_SESSION_KEY, ONB_LOCALE_WAIT_MS, onbLocalePending,
+  writeOnbDraft, readOnbDraftForLocaleSwitch, clearOnbDraft,
+} from '../src/lib/app/onboardingConfig';
 import { firstRunCopy } from '../src/lib/app/firstRunCopy';
 import { FUNNEL_SRCS, FUNNEL_STAGES, isFunnelSrc, isFunnelStage, funnelKeys } from '../src/lib/app/funnelSchema';
 import { createWatchlistStore, FREE_LIMIT, type StorageLike } from '../src/lib/app/watchlist';
@@ -530,6 +533,61 @@ class MemStorage implements StorageLike {
     assert.ok(/FUNNEL_SEND_ANDROID = true/.test(beacon));
     assert.ok(/from '@\/lib\/app\/funnelBeacon'/.test(onbSrc), '부작용 없는 비콘 모듈을 쓴다');
   });
+  // ── ⑧ 네이티브 첫 실행 언어 (11/12) — /en 셸 시작 → 기기 언어 자가 이동 사이 영어 법적 고지·체크 풀림 ──
+  t('네이티브에서 URL 언어 ≠ 가야 할 언어인 동안만 법적 고지를 늦춘다 · 웹은 늘 그대로 · 시간 상한이 있다', () => {
+    assert.equal(onbLocalePending({ native: true, urlLocale: 'en', desired: 'ko' }), true);
+    assert.equal(onbLocalePending({ native: true, urlLocale: 'en', desired: 'ja' }), true);
+    assert.equal(onbLocalePending({ native: true, urlLocale: 'ko', desired: 'ko' }), false, '기기 언어 도착 → 바로 고지');
+    assert.equal(onbLocalePending({ native: true, urlLocale: 'en', desired: 'en' }), false, '영어 기기는 기다림 0');
+    assert.equal(onbLocalePending({ native: false, urlLocale: 'en', desired: 'ko' }), false, '웹 방문자는 그대로');
+    assert.equal(onbLocalePending({ native: true, urlLocale: 'en', desired: '' }), false);
+    assert.ok(ONB_LOCALE_WAIT_MS >= 3000 && ONB_LOCALE_WAIT_MS <= 10000, `시간 상한 ${ONB_LOCALE_WAIT_MS}`);
+    // 소스: 기다리는 동안 글자 없는 로딩만 · 시간 상한 타이머 · 노출 계측은 기다리는 동안 안 센다
+    assert.ok(/if \(localePending\) \{\s*return \(\s*<div className=\{styles\.overlay\}/.test(onbSrc), '기다리는 동안 오버레이(앱 화면 가림) 유지');
+    assert.ok(/setTimeout\(\(\) => setLocaleWaitOver\(true\), ONB_LOCALE_WAIT_MS\)/.test(onbSrc), '시간 상한 뒤 반드시 고지');
+    assert.ok(/if \(!mounted \|\| !visible \|\| isDocumentRoute \|\| localePending\) return;/.test(onbSrc), '기다리는 동안 onb_show 안 셈');
+    // layout 의 자가 이동과 같은 판정(resolveAppLocale)을 쓴다
+    assert.ok(/desired: resolveAppLocale\(\)/.test(onbSrc));
+    assert.ok(/const desired = resolveAppLocale\(\);/.test(read('src/app/[locale]/app-view/layout.tsx')));
+  });
+  t('동의 체크·단계는 «언어가 바뀌는» 재마운트에만 살아남는다 · 같은 언어 새로고침은 예전처럼 처음부터', () => {
+    const mem = new Map<string, string>();
+    const ss = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v); }, removeItem: (k: string) => { mem.delete(k); } };
+    writeOnbDraft(ss, { accepted: false, step: 'legal', loc: 'en' });
+    assert.equal(mem.has(ONB_DRAFT_SESSION_KEY), false, '아무것도 안 했으면 적지 않는다');
+    writeOnbDraft(ss, { accepted: true, step: 'legal', loc: 'en' });
+    assert.deepEqual(readOnbDraftForLocaleSwitch(ss, 'ko'), { accepted: true, step: 'legal', loc: 'en' }, '/en 체크 → /ko 재마운트에 체크 유지');
+    assert.equal(readOnbDraftForLocaleSwitch(ss, 'en'), null, '같은 언어(새로고침)는 되살리지 않는다');
+    writeOnbDraft(ss, { accepted: true, step: 'value', loc: 'en' });
+    assert.deepEqual(readOnbDraftForLocaleSwitch(ss, 'ja'), { accepted: true, step: 'value', loc: 'en' }, '[계속] 뒤 단계도 유지');
+    writeOnbDraft(ss, { accepted: true, step: 'legal', loc: 'en' });
+    writeOnbDraft(ss, { accepted: false, step: 'legal', loc: 'en' });
+    assert.equal(readOnbDraftForLocaleSwitch(ss, 'ko'), null, '체크를 풀면 지운다');
+    mem.set(ONB_DRAFT_SESSION_KEY, JSON.stringify({ accepted: false, step: 'value', loc: 'en' }));
+    assert.equal(readOnbDraftForLocaleSwitch(ss, 'ko'), null, '동의 없이 다음 단계로 가는 길은 없다');
+    mem.set(ONB_DRAFT_SESSION_KEY, JSON.stringify({ accepted: true, step: 'bogus', loc: 'en' }));
+    assert.equal(readOnbDraftForLocaleSwitch(ss, 'ko'), null);
+    mem.set(ONB_DRAFT_SESSION_KEY, '{not json');
+    assert.equal(readOnbDraftForLocaleSwitch(ss, 'ko'), null);
+    writeOnbDraft(ss, { accepted: true, step: 'legal', loc: 'en' });
+    clearOnbDraft(ss);
+    assert.equal(mem.has(ONB_DRAFT_SESSION_KEY), false);
+    const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => { throw new Error('blocked'); } };
+    assert.doesNotThrow(() => writeOnbDraft(broken, { accepted: true, step: 'legal', loc: 'en' }));
+    assert.equal(readOnbDraftForLocaleSwitch(broken, 'ko'), null);
+    assert.doesNotThrow(() => clearOnbDraft(broken));
+    assert.equal(readOnbDraftForLocaleSwitch(null, 'ko'), null);
+    // 소스: 마운트 때 되살리고 · 바뀔 때마다 적고 · 마치면 지운다
+    assert.ok(/readOnbDraftForLocaleSwitch\(sessionStore\(\), locale\)/.test(onbSrc));
+    assert.ok(/writeOnbDraft\(sessionStore\(\), \{ accepted, step, loc: locale \}\)/.test(onbSrc));
+    assert.ok(/const markDone = \(\) => \{[\s\S]{0,240}clearOnbDraft\(sessionStore\(\)\);/.test(onbSrc));
+  });
+  t('법적 고지 머리(키커·제목·부제)는 <header> 가 아니다 — 앱 화면의 header 숨김 규칙에 걸리지 않게', () => {
+    assert.ok(/\.is-app-view header:not\(\.app-header\)/.test(read('src/styles/app-view.css')), '숨김 규칙이 여전히 있다(그래서 header 를 쓰면 안 된다)');
+    assert.ok(!/<header\s+className/.test(onbSrc), '오버레이에 <header> 요소 없음');
+    assert.ok(/<div className=\{`\$\{styles\.hero\}/.test(onbSrc));
+  });
+
   t('scripts/mkt-funnel.js 의 새 목록 = 닫힌 목록(funnel.test.ts 가 전체 대조)', () => {
     const r = require('../scripts/mkt-funnel.js');
     for (const st of r.ONB_STAGES) assert.ok(FUNNEL_STAGES.includes(st), st);

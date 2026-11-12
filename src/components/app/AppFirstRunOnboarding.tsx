@@ -10,7 +10,8 @@ import { markSignalSynced, signalSyncExtras } from '@/lib/app/signalSync';
 import dynamic from 'next/dynamic';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
 import {
-  ONB_NUMBERED_STEPS, claimOnbShow, isNativeShell, onbStepNo, permSrc, stepAfterLegal, stepAfterValue, stepSrc,
+  ONB_LOCALE_WAIT_MS, ONB_NUMBERED_STEPS, claimOnbShow, clearOnbDraft, isNativeShell, onbLocalePending, onbStepNo, permSrc,
+  readOnbDraftForLocaleSwitch, stepAfterLegal, stepAfterValue, stepSrc, writeOnbDraft,
   type OnbMode, type OnbStep, type PushResult,
 } from '@/lib/app/onboardingConfig';
 import { firstRunCopy } from '@/lib/app/firstRunCopy';
@@ -43,6 +44,11 @@ type OnboardingCopy = {
 };
 
 const STORAGE_KEY = 'signumhq.app.onboarding.v1';
+
+/** sessionStorage — 막혀 있으면 null(진행 상태 보존·노출 가드가 예전 동작으로 돌아간다) */
+function sessionStore(): Storage | null {
+  try { return window.sessionStorage; } catch { return null; }
+}
 
 const COPY: Record<string, OnboardingCopy> = {
   ko: {
@@ -233,18 +239,47 @@ export function AppFirstRunOnboarding() {
   // 첫 실행 «가치 먼저»(v2) — 끄기 스위치(레디스 onb2:off)를 읽는다. 아직 모르면 null → 첫 그림은 v2 로 가정하고,
   // 법적 고지 [계속]을 누를 때 읽기가 끝나기를 기다린다(onLegalNext). 못 읽으면 옛 흐름(legacy).
   const [advancing, setAdvancing] = useState(false);
+  // 네이티브 첫 실행: 기기 언어로 바뀌기를 기다리다 시간 상한(ONB_LOCALE_WAIT_MS)이 지났다 → 지금 언어로 법적 고지를 띄운다
+  const [localeWaitOver, setLocaleWaitOver] = useState(false);
+  const legalDoneCounted = useRef(false);
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
     pathname?.includes('/app-view/onboarding');
 
   useEffect(() => {
     setMounted(true);
+    let show = false;
     try {
-      setVisible(!isDocumentRoute && window.localStorage.getItem(STORAGE_KEY) !== 'accepted');
+      show = !isDocumentRoute && window.localStorage.getItem(STORAGE_KEY) !== 'accepted';
     } catch {
-      setVisible(false);
+      show = false;
     }
-  }, [isDocumentRoute]);
+    setVisible(show);
+    // 언어 자가 이동(/en → /ko·/ja)으로 다시 마운트됐으면 직전 언어에서의 진행(동의 체크·단계)을 이어 간다(onboardingConfig 의 draft 주석)
+    if (show) {
+      const draft = readOnbDraftForLocaleSwitch(sessionStore(), locale);
+      if (draft) {
+        setAccepted(draft.accepted);
+        setStep(draft.step);
+        if (draft.step !== 'legal') legalDoneCounted.current = true;
+      }
+    }
+  }, [isDocumentRoute, locale]);
+
+  // 네이티브 첫 실행에서 URL 언어(/en)가 아직 기기 언어(/ko·/ja)가 아니면 법적 고지 대신 중립 로딩을 그린다(onbLocalePending 주석)
+  const localePending = mounted && visible && !isDocumentRoute && !localeWaitOver
+    && onbLocalePending({ native: isNativeShell(), urlLocale: locale, desired: resolveAppLocale() });
+  useEffect(() => {
+    if (!localePending) return;
+    const timer = setTimeout(() => setLocaleWaitOver(true), ONB_LOCALE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [localePending]);
+
+  // 진행 상태를 적어 둔다 — 언어가 바뀌는 재마운트 뒤 되살린다(같은 언어에서는 되살리지 않는다)
+  useEffect(() => {
+    if (!mounted || !visible || isDocumentRoute) return;
+    writeOnbDraft(sessionStore(), { accepted, step, loc: locale });
+  }, [mounted, visible, isDocumentRoute, accepted, step, locale]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -332,9 +367,8 @@ export function AppFirstRunOnboarding() {
 
   // 계측: 단계가 보였다 — 실행당 단계마다 한 번(하루 합계만 · 식별자 없음)
   const shownSteps = useRef(new Set<string>());
-  const legalDoneCounted = useRef(false);
   useEffect(() => {
-    if (!mounted || !visible || isDocumentRoute) return;
+    if (!mounted || !visible || isDocumentRoute || localePending) return;
     const src = stepSrc(step, mode);
     if (shownSteps.current.has(src)) return;
     shownSteps.current.add(src);
@@ -343,9 +377,20 @@ export function AppFirstRunOnboarding() {
     try { ss = window.sessionStorage; } catch { /* 저장소 차단 */ }
     if (!claimOnbShow(src, ss)) return;
     trackFunnel('onb_show', { src });
-  }, [mounted, visible, isDocumentRoute, step, mode]);
+  }, [mounted, visible, isDocumentRoute, localePending, step, mode]);
 
   if (!mounted || !visible || isDocumentRoute) return null;
+
+  // 기기 언어로 바뀌는 중 — 같은 오버레이 배경 위 글자 없는 로딩 고리(앱 화면은 계속 가려 둔다)
+  if (localePending) {
+    return (
+      <div className={styles.overlay} role="dialog" aria-modal="true" aria-busy="true">
+        <div className={styles.shell}>
+          <div className={styles.localeWait} aria-hidden="true" />
+        </div>
+      </div>
+    );
+  }
 
   const wl: 'ko' | 'en' | 'ja' = locale === 'ko' || locale === 'ja' ? locale : 'en';
 
@@ -356,6 +401,7 @@ export function AppFirstRunOnboarding() {
     } catch {
       // If storage is unavailable, close for the current session.
     }
+    clearOnbDraft(sessionStore());
   };
 
   // ── 옛 흐름(legacy)의 [시작하기] — 저장 → 푸시 권한 요청 → 닫기. 순서·동작은 그대로(계측만 추가) ──
@@ -440,7 +486,9 @@ export function AppFirstRunOnboarding() {
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="app-onboarding-title">
       <div className={styles.shell}>
         <section className={styles.panel}>
-          <header className={styles.hero}>
+          {/* ⚠ <header> 로 쓰지 않는다 — 앱 화면의 «.is-app-view header:not(.app-header) { display: none }»(웹 사이트 머리 숨기기)에
+              걸려 머리(키커·제목·부제)가 통째로 안 보였다(11/12 375폭 웹·안드 실측). FirstRunValueStep 과 같은 처리. */}
+          <div className={`${styles.hero} ${locale === 'ja' ? styles.heroJa : ''}`}>
             <span className={styles.kicker}>{copy.kicker}</span>
             <h1 id="app-onboarding-title" className={styles.title}>
               {legal ? ({ ko: '미국 주식 실적, 발표 전 예상 변동폭과 발표 뒤 실제를 한눈에', en: 'US stocks: the expected earnings move before the report, and what actually happened after', ja: '米国株の決算、発表前の想定変動幅と発表後の実際を一目で' }[locale as 'ko' | 'en' | 'ja'] || 'US stocks: the expected earnings move before the report, and what actually happened after') : copy.alertTitle}
@@ -448,7 +496,7 @@ export function AppFirstRunOnboarding() {
             <p className={styles.subtitle}>
               {legal ? ({ ko: '예상 변동폭은 옵션 가격으로 계산합니다.', en: 'The expected move is derived from options prices.', ja: '想定変動幅はオプション価格から算出します。' }[locale as 'ko' | 'en' | 'ja'] || 'The expected move is derived from options prices.') : copy.alertSubtitle}
             </p>
-          </header>
+          </div>
 
           <div className={styles.body}>
             <p className={styles.stepLabel}>{legal ? copy.legalStep : copy.alertStep}</p>
@@ -496,7 +544,7 @@ export function AppFirstRunOnboarding() {
             </div>
           </div>
 
-          <div className={`${styles.actions} ${legal ? styles.actionsSingle : ''}`}>
+          <div className={`${styles.actions} ${styles.actionsSticky} ${legal ? styles.actionsSingle : ''}`}>
             {!legal && (
               <button type="button" className={styles.ghostButton} onClick={() => setStep('legal')}>
                 {copy.back}

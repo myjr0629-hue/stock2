@@ -39,7 +39,7 @@
 }
 
 .hero {
-  padding: 24px 22px 18px;
+  padding: 16px 20px 13px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.10);
   background:
     radial-gradient(circle at 16% 8%, rgba(16, 185, 129, 0.18), transparent 32%),
@@ -68,20 +68,32 @@
 }
 
 .title {
-  margin: 12px 0 7px;
+  margin: 9px 0 5px;
   color: #f8fafc;
-  font-size: 28px;
-  line-height: 1.04;
+  font-size: 21px;
+  line-height: 1.2;
   font-weight: 900;
   letter-spacing: 0;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .subtitle {
   margin: 0;
   color: rgba(203, 213, 225, 0.82);
-  font-size: 13px;
-  line-height: 1.65;
+  font-size: 12px;
+  line-height: 1.5;
   font-weight: 650;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* 일본어는 띄어쓰기가 없어 keep-all 이면 한 줄로 넘친다 — 일본어 머리만 기본 줄바꿈(FirstRunValueStep 과 같다) */
+.heroJa .title,
+.heroJa .subtitle {
+  word-break: normal;
+  line-break: strict;
 }
 
 .body {
@@ -275,6 +287,17 @@
   padding: 0 18px 18px;
 }
 
+/* 패널이 화면보다 길면(작은 화면·영어) 버튼 줄을 패널 아래에 붙인다 — 가치 단계의 붙박이 버튼 줄(.bar)과 같은 방식.
+   위로 14px 겹쳐(본문 아래 여백 자리) 흐려지게 하되 margin/padding 이 서로 상쇄돼 길이가 넘치지 않는 화면의 배치는 그대로다. */
+.actionsSticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: -14px;
+  padding-top: 14px;
+  background: linear-gradient(180deg, rgba(6, 12, 24, 0) 0, rgba(6, 12, 24, 0.94) 22%, rgba(6, 12, 24, 0.99) 100%);
+}
+
 .actionsSingle {
   grid-template-columns: 1fr;
 }
@@ -319,10 +342,29 @@
   }
 
   .title {
-    font-size: 24px;
+    font-size: 19px;
   }
 
   .pillGrid {
     grid-template-columns: 1fr;
   }
+}
+
+/* 네이티브 첫 실행: 기기 언어로 바뀌는 동안(최대 몇 초) 법적 고지 대신 보이는 글자 없는 로딩 고리 */
+.localeWait {
+  width: 30px;
+  height: 30px;
+  margin: 0 auto;
+  border-radius: 999px;
+  border: 2.5px solid rgba(34, 211, 238, 0.18);
+  border-top-color: #22d3ee;
+  animation: onbLocaleWait 0.9s linear infinite;
+}
+
+@keyframes onbLocaleWait {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .localeWait { animation-duration: 2.4s; }
 }

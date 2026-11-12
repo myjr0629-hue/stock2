@@ -78,6 +78,62 @@ export function claimOnbShow(src: string, storage: Pick<Storage, 'getItem' | 'se
   return true;
 }
 
+// ── 네이티브 첫 실행: 기기 언어가 정해질 때까지 법적 고지를 잠시 늦춘다 (2026-11-12) ──────────────
+/**
+ * 앱 셸은 늘 /en/app-view/dash 로 켜지고 app-view/layout 이 기기 언어(resolveAppLocale)로 router.replace 한다.
+ * 그 몇 초(데스크톱 2~4초 · 로컬 개발 서버 약 9초 · 에뮬레이터 75초까지) 동안 한국어·일본어 기기에 «영어» 법적 고지가 먼저 보였고, 그 사이 체크·[계속]은
+ * /ko 재마운트 때 풀려 처음으로 돌아갔다(11/12 출시본 1.3.2 재현). 첫 요청에는 «우리 앱» 표식이 없어(쿠키는 첫 화면이 심는다 ·
+ * 셸은 UA 를 바꾸지 않는다) 서버가 미리 /ko 로 보낼 수 없다 → 클라이언트에서 «URL 언어 ≠ 가야 할 언어» 인 동안은
+ * 법적 고지 대신 중립 로딩(같은 배경 · 글자 없음)을 그린다. 법적 동의를 건너뛰면 안 되므로 시간 상한 뒤에는 반드시 띄운다
+ * (그 뒤 늦게 언어가 바뀌어도 진행 상태는 아래 draft 로 살아남는다). 웹(브라우저)은 native=false 라 그대로다.
+ */
+export const ONB_LOCALE_WAIT_MS = 8000;
+export function onbLocalePending(input: { native: boolean; urlLocale: string; desired: string }): boolean {
+  return input.native && !!input.desired && input.urlLocale !== input.desired;
+}
+
+/**
+ * 첫 실행 진행 상태(동의 체크 · 단계)를 «언어가 바뀌는 재마운트»에 살려 둔다 — sessionStorage(앱을 새로 켜면 빈다).
+ * 저장한 언어와 지금 언어가 «다를 때만» 되살린다: 같은 언어에서의 새로고침·재마운트 동작은 예전 그대로(처음부터).
+ * 첫 안내를 마치면(markDone) 지운다.
+ */
+export const ONB_DRAFT_SESSION_KEY = 'signumhq.onb.draft.v1';
+export type OnbDraft = { accepted: boolean; step: OnbStep; loc: string };
+type SessionLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+const ONB_STEPS: readonly OnbStep[] = ['legal', 'value', 'notif', 'alert'];
+
+export function writeOnbDraft(storage: SessionLike | null | undefined, draft: OnbDraft): void {
+  if (!storage) return;
+  try {
+    // 아무것도 안 한 상태(법적 고지 · 체크 안 함)는 적지 않는다 — 되살릴 것이 없다
+    if (draft.step === 'legal' && !draft.accepted) storage.removeItem(ONB_DRAFT_SESSION_KEY);
+    else storage.setItem(ONB_DRAFT_SESSION_KEY, JSON.stringify(draft));
+  } catch { /* 저장소 차단 — 예전처럼 재마운트 때 처음부터 */ }
+}
+
+/** 다른 언어에서 저장된 진행 상태가 있으면 돌려준다(같은 언어·형식 오류·저장소 없음이면 null) */
+export function readOnbDraftForLocaleSwitch(storage: SessionLike | null | undefined, currentLoc: string): OnbDraft | null {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(ONB_DRAFT_SESSION_KEY);
+    if (!raw) return null;
+    const j = JSON.parse(raw) as Partial<OnbDraft>;
+    if (!j || typeof j !== 'object') return null;
+    if (typeof j.loc !== 'string' || j.loc === currentLoc) return null;
+    if (typeof j.step !== 'string' || !ONB_STEPS.includes(j.step as OnbStep)) return null;
+    const accepted = j.accepted === true;
+    // 법적 고지를 넘긴 단계는 동의가 있었을 때만 되살린다(동의 없이 다음 단계로 가는 길을 만들지 않는다)
+    if (j.step !== 'legal' && !accepted) return null;
+    return { accepted, step: j.step as OnbStep, loc: j.loc };
+  } catch {
+    return null;
+  }
+}
+
+export function clearOnbDraft(storage: SessionLike | null | undefined): void {
+  try { storage?.removeItem(ONB_DRAFT_SESSION_KEY); } catch { /* 저장소 차단 */ }
+}
+
 // ── 푸시 권한 결과 → 계측 출처 ─────────────────────────────────────────────
 export type PushResult = 'granted' | 'denied' | 'na';
 export function permSrc(r: PushResult): FunnelSrc | null {
