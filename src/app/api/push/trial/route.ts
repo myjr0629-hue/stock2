@@ -15,6 +15,7 @@ import { Redis } from '@upstash/redis';
 import { TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_RL_KEY, sanitizeTrialReport, trialPushWanted, validPushToken, type TrialPushRecord } from '@/lib/push/trialPush';
 import { RC_UID_RE, TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY, trialUidHash, verifyTrialWithRc, type TrialVerifyStore } from '@/lib/push/trialVerify';
 import { clientIpFrom } from '@/lib/guruLens/proAccess';
+import { DROP_IF_OWNER_LUA, DROP_LUA, TRIAL_PUSH_SEQ_KEY, TRIAL_PUSH_SEQ_TTL_S, TRIAL_PUSH_UIDSEQ_KEY, UNLOCK_LUA, WRITE_UNVERIFIED_LUA, WRITE_VERIFIED_LUA } from '@/lib/push/trialPushLua';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,17 +30,9 @@ const verifyStore: TrialVerifyStore = {
     return keys.map((_, i) => Number(out[i * 2]));
   },
 };
-/** 옛 토큰의 주인이 이 고객일 때만 대상·기록·주인 표식을 지운다(원자적) */
-const DROP_IF_OWNER_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('ZREM', KEYS[2], ARGV[2]); redis.call('DEL', KEYS[3]); redis.call('DEL', KEYS[1]); return 1 end return 0";
-/** 확인된 기록 쓰기(원자적): KEYS = 주인 · 기록 · 대상 목록 · 고객→토큰, ARGV = 고객 해시 · 기록 JSON · TTL(초) · 만료 시각 · 대상(1/0) · 토큰 */
-const WRITE_VERIFIED_LUA = "redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[3]); redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3]); redis.call('SET', KEYS[4], ARGV[6], 'EX', ARGV[3]); if ARGV[5] == '1' then redis.call('ZADD', KEYS[3], ARGV[4], ARGV[6]) else redis.call('ZREM', KEYS[3], ARGV[6]) end return 1";
-/** 토큰의 대상·기록·주인을 한 번에 지운다(해제 · RC 에 체험 없음) — 다른 요청의 쓰기와 엇갈리지 않게(관문 11121040) */
-const DROP_LUA = "redis.call('ZREM', KEYS[1], ARGV[1]); redis.call('DEL', KEYS[2], KEYS[3]); return 1";
-/** 빼는 보고(갱신 켬 등)의 기록 쓰기 + 대상·주인 빼기를 한 번에 */
-const WRITE_UNVERIFIED_LUA = "redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2]); redis.call('ZREM', KEYS[2], ARGV[3]); redis.call('DEL', KEYS[3]); return 1";
-const dropToken = (token: string) => redis.eval(DROP_LUA, [TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY(token), TRIAL_PUSH_OWNER_KEY(token)], [token]);
-/** 내 잠금일 때만 푼다(원자적) */
-const UNLOCK_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0";
+const SEQ_TTL = String(TRIAL_PUSH_SEQ_TTL_S);
+/** 토큰의 대상·기록·주인을 한 번에 지운다(해제 · RC 에 체험 없음) — 더 늦게 시작한 요청이 이미 썼으면 아무것도 안 한다 */
+const dropToken = (token: string, now: number) => redis.eval(DROP_LUA, [TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY(token), TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_SEQ_KEY(token)], [token, String(now), SEQ_TTL]);
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
 export async function POST(req: NextRequest) {
@@ -55,7 +48,7 @@ export async function POST(req: NextRequest) {
     const first = await redis.set(TRIAL_PUSH_RL_KEY(token), '1', { nx: true, ex: 5 });
     if (first !== 'OK') return json({ ok: true, stored: false, skipped: 'rate-limited' }, 429);
     if (body && body.clear === true) {
-      await dropToken(token);
+      await dropToken(token, now);
       return json({ ok: true, stored: true, due: false });
     }
     const rec = sanitizeTrialReport(body, now);
@@ -76,7 +69,7 @@ export async function POST(req: NextRequest) {
     }
     // 빼는 보고(갱신 켬 · 체험 아님) — 확인 없이 받는다(발송을 줄이기만 한다)
     const ttl = Math.ceil((rec.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S;
-    await redis.eval(WRITE_UNVERIFIED_LUA, [TRIAL_PUSH_KEY(token), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_OWNER_KEY(token)], [JSON.stringify(rec), String(ttl), token]);
+    await redis.eval(WRITE_UNVERIFIED_LUA, [TRIAL_PUSH_KEY(token), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_SEQ_KEY(token)], [JSON.stringify(rec), String(ttl), token, String(now), SEQ_TTL]);
     return json({ ok: true, stored: true, due: false });
   } catch (e) {
     console.error('[Push Trial]', e);
@@ -94,7 +87,7 @@ async function addVerified(req: NextRequest, token: string, uid: string, rec: Tr
   const storeOk = v.kind === 'trial' && (v.trial.store === 'APP_STORE' ? rec.platform === 'ios' : rec.platform === 'android');
   if (v.kind === 'not_trial' || !storeOk) {
     // RC 에 체험이 없다(유료·만료·없는 고객·다른 스토어) → 대상·기록에서 뺀다
-    await dropToken(token);
+    await dropToken(token, now);
     return json({ ok: true, stored: true, due: false, verified: false });
   }
   const trial = (v as Extract<typeof v, { kind: 'trial' }>).trial;
@@ -106,11 +99,13 @@ async function addVerified(req: NextRequest, token: string, uid: string, rec: Tr
   const uidKey = TRIAL_PUSH_UID_KEY(uh);
   const prevTok = await redis.get<string>(uidKey);
   if (typeof prevTok === 'string' && prevTok && prevTok !== token) {
-    await redis.eval(DROP_IF_OWNER_LUA, [TRIAL_PUSH_OWNER_KEY(prevTok), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY(prevTok)], [uh, prevTok]);
+    await redis.eval(DROP_IF_OWNER_LUA, [TRIAL_PUSH_OWNER_KEY(prevTok), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY(prevTok), TRIAL_PUSH_SEQ_KEY(prevTok)], [uh, prevTok, String(now), SEQ_TTL]);
   }
   // 주인 표식 · 기록 · 고객→토큰 묶음 · 대상 목록을 «한 번에» 쓴다 — 늦게 끝난 다른 고객 요청이 주인과 기록을 서로 다른 고객으로 엇갈리게 하지 못한다(관문 11121033)
   const due = trialPushWanted(out);
-  await redis.eval(WRITE_VERIFIED_LUA, [TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_KEY(token), TRIAL_PUSH_DUE_ZSET, uidKey],
-    [uh, JSON.stringify(out), String(ttl), String(out.expiresAt), due ? '1' : '0', token]);
+  //   늦게 시작한 다른 요청(같은 토큰의 해제·갱신 켬, 같은 고객의 다른 토큰)이 이미 썼으면 쓰지 않는다(순서표 — 관문 11121052 ①③)
+  const wrote = await redis.eval(WRITE_VERIFIED_LUA, [TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_KEY(token), TRIAL_PUSH_DUE_ZSET, uidKey, TRIAL_PUSH_SEQ_KEY(token), TRIAL_PUSH_UIDSEQ_KEY(uh)],
+    [uh, JSON.stringify(out), String(ttl), String(out.expiresAt), due ? '1' : '0', token, String(now), SEQ_TTL]);
+  if (Number(wrote) !== 1) return json({ ok: true, stored: false, skipped: 'stale' }, 409);
   return json({ ok: true, stored: true, due, verified: true });
 }

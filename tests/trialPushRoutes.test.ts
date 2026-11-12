@@ -1,6 +1,7 @@
 /** Offline: npx tsx tests/trialPushRoutes.test.ts — 보고 API · D-2 크론을 메모리 Redis·가짜 발송기로 끝까지(네트워크·공급사 호출 없음) */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
+import { MEMORY_IMPL } from '../src/lib/push/trialPushLua';
 
 function mock(name: string, exports: unknown) {
   const id = require.resolve(name);
@@ -17,21 +18,13 @@ const fake = {
   mget: async (...ks: string[]) => ks.map((k) => (kv.has(k) ? kv.get(k)! : null)),
   incr: async (k: string) => { const n = (Number(kv.get(k)) || 0) + 1; kv.set(k, String(n)); return n; },
   expire: async () => 1,
-  // 쓰는 Lua 하나(옛 토큰의 주인이 이 고객이면 지운다)만 흉내
+  // Lua 는 lib/push/trialPushLua 의 같은 규칙 메모리 구현으로 돌린다(모르는 스크립트면 실패)
   eval: async (script: string, keys: string[], args: string[]) => {
-    if (/ZADD/.test(script)) {   // 확인된 기록 쓰기 — 주인 · 기록 · 고객→토큰 · 대상
-      kv.set(keys[0], args[0]); kv.set(keys[1], args[1]); kv.set(keys[3], args[5]);
-      const z = zs.get(keys[2]) ?? zs.set(keys[2], new Map()).get(keys[2])!;
-      if (args[4] === '1') z.set(args[5], Number(args[3])); else z.delete(args[5]);
-      return 1;
-    }
-    if (/then return redis.call\('DEL', KEYS\[1\]\)/.test(script)) { if (kv.get(keys[0]) === args[0]) { kv.delete(keys[0]); return 1; } return 0; }   // 잠금 풀기
-    if (/^redis.call\('ZREM', KEYS\[1\]/.test(script)) { zs.get(keys[0])?.delete(args[0]); kv.delete(keys[1]); kv.delete(keys[2]); return 1; }   // 지우기
-    if (/^redis.call\('SET', KEYS\[1\], ARGV\[1\], 'EX', ARGV\[2\]\); redis.call\('ZREM'/.test(script)) { kv.set(keys[0], args[0]); zs.get(keys[1])?.delete(args[2]); kv.delete(keys[2]); return 1; }   // 빼는 보고
-    assert.match(script, /redis.call\('GET', KEYS\[1\]\) == ARGV\[1\]/);
-    if (kv.get(keys[0]) !== args[0]) return 0;
-    zs.get(keys[1])?.delete(args[1]); kv.delete(keys[2]); kv.delete(keys[0]); return 1;
+    const impl = MEMORY_IMPL.get(script);
+    assert.ok(impl, 'unknown Lua script');
+    return impl!({ kv, zs }, keys, args);
   },
+
   zadd: async (k: string, m: { score: number; member: string }) => { (zs.get(k) ?? zs.set(k, new Map()).get(k)!).set(m.member, m.score); return 1; },
   zrem: async (k: string, member: string) => { zs.get(k)?.delete(member); return 1; },
   zremrangebyscore: async (k: string, min: number, max: number) => { const z = zs.get(k); if (z) for (const [m, s] of z) if (s >= min && s <= max) z.delete(m); return 0; },
@@ -195,6 +188,22 @@ async function main() {
     r = await post({ ...body(tokK), rcUid: uidOf(tokG) }); assert.equal(r.status, 429); assert.equal(zs.get('push:trial:due')!.has(tokK), false);
     assert.equal(kv.get(`push:trial:uidlock:${trialUidHash(uidOf(tokG))}`), 'other', '남의 잠금은 지우지 않는다');
     kv.delete(`push:trial:uidlock:${trialUidHash(uidOf(tokG))}`);
+    // (6c) 순서표: 더 늦게 시작한 요청이 이미 쓴 토큰·고객에는 늦게 끝난 옛 요청이 쓰지 못한다(관문 11121052 ①③)
+    {
+      const { TRIAL_PUSH_SEQ_KEY, TRIAL_PUSH_UIDSEQ_KEY } = await import('../src/lib/push/trialPushLua');
+      const tokM = 'm'.repeat(64); reg(tokM); rc.set(uidOf(tokM), rcTrial(T + 40 * H));
+      kv.set(TRIAL_PUSH_SEQ_KEY(tokM), String(T + 1000));   // 새 해제가 먼저 끝났다
+      r = await post(body(tokM)); assert.equal(r.status, 409); assert.equal(r.body.stored, false); assert.equal(zs.get('push:trial:due')!.has(tokM), false, '해제 뒤 옛 확인 결과가 대상을 되살리지 않는다');
+      kv.delete(TRIAL_PUSH_SEQ_KEY(tokM)); fresh(tokM);
+      kv.set(TRIAL_PUSH_UIDSEQ_KEY(uh0(uidOf(tokM))), String(T + 1000));   // 같은 고객의 다른 토큰 요청이 더 늦게 시작해 먼저 썼다
+      r = await post(body(tokM)); assert.equal(r.status, 409); assert.equal(zs.get('push:trial:due')!.has(tokM), false);
+      kv.delete(TRIAL_PUSH_UIDSEQ_KEY(uh0(uidOf(tokM)))); fresh(tokM);
+      r = await post(body(tokM)); assert.equal(r.body.due, true); fresh(tokM);
+      kv.set(TRIAL_PUSH_SEQ_KEY(tokM), String(T + 1000));
+      r = await post({ token: tokM, clear: true }); assert.equal(zs.get('push:trial:due')!.has(tokM), true, '옛 해제는 새 쓰기를 지우지 못한다');
+      kv.delete(TRIAL_PUSH_SEQ_KEY(tokM)); fresh(tokM);
+      r = await post({ token: tokM, clear: true }); assert.equal(zs.get('push:trial:due')!.has(tokM), false);
+    }
     // (7) 갱신 켬 보고(빼기)는 RC 확인 없이 받는다
     const before7 = rcCalls.length; fresh(tokH);
     r = await post(body(tokH, { willRenew: true })); assert.equal(r.body.due, false); assert.equal(rcCalls.length, before7); assert.equal(zs.get('push:trial:due')!.has(tokH), false);
