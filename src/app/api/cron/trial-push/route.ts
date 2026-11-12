@@ -16,7 +16,7 @@ import { parseRecord } from '@/lib/push/prefs';
 import { sendSignalPushes, type SignalPushItem } from '@/lib/push/sendSignal';
 import { etDay } from '@/lib/app/funnelSchema';
 import { TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY } from '@/lib/push/trialVerify';
-import { bindValue, boundToken, CLAIM_VERIFIED_LUA, SWEEP_IF_UNBOUND_LUA } from '@/lib/push/trialPushLua';
+import { bindValue, boundToken, CLAIM_VERIFIED_LUA, DROP_DUE_IF_OWNER_LUA, SWEEP_IF_UNBOUND_LUA } from '@/lib/push/trialPushLua';
 import {
   TRIAL_PUSH_DATA, TRIAL_PUSH_DAY_KEY, TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_MAX_MS, TRIAL_PUSH_MAX_PER_DAY, TRIAL_PUSH_MAX_PER_RUN,
   TRIAL_PUSH_MIN_MS, TRIAL_PUSH_SCAN_LIMIT, TRIAL_PUSH_SCAN_PAGES, TRIAL_PUSH_SENT_KEY, TRIAL_PUSH_SENT_TTL_S, TRIAL_PUSH_SENT_UID_KEY,
@@ -46,6 +46,7 @@ export async function GET(request: Request) {
     const skip = (k: string) => { skipped[k] = (skipped[k] || 0) + 1; };
     const picked: Array<{ token: string; rec: TrialPushRecord; tokenRec: TokenRec | null; owner: string | null }> = [];
     const pickedOwners = new Set<string>();
+    const stale: Array<{ token: string; owner: string }> = [];
     let candidates = 0;
     // 쪽 단위로 읽는다 — 앞쪽이 알림 꺼짐 등으로 계속 제외돼도 뒤쪽 정상 대상이 굶지 않게
     for (let page = 0; page < TRIAL_PUSH_SCAN_PAGES && picked.length < TRIAL_PUSH_MAX_PER_RUN; page++) {
@@ -77,8 +78,8 @@ export async function GET(request: Request) {
           const owner = rec?.verified === true ? owners[j] : null;
           if (rec?.verified === true && (!owner || bound.get(owner) !== token)) {
             skip('superseded');
-            // 고객의 지금 토큰이 아니다 — 대상에서 걷는다(그 사이 다시 묶였으면 걷지 않는다 · 기록은 TTL 로)
-            if (!dry && owner) await redis.eval(SWEEP_IF_UNBOUND_LUA, [TRIAL_PUSH_UID_KEY(owner), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_OWNER_KEY(token)], [bindValue(token), token, owner]);
+            // 고객의 지금 토큰이 아니다 — 훑기가 끝난 «뒤»에 걷는다(훑는 중에 지우면 다음 쪽 offset 이 밀려 정상 대상을 건너뛴다 — 관문 11121138 ①)
+            if (owner) stale.push({ token, owner });
             continue;
           }
           const d = trialPushDecision(rec, tokenRec, now, sentRaw[j] != null || (!!owner && sentUid.get(owner) === true) || (!!owner && pickedOwners.has(owner)));
@@ -89,6 +90,8 @@ export async function GET(request: Request) {
       }
       if (tokens.length < TRIAL_PUSH_SCAN_LIMIT) break;
     }
+    // 걷기: 그 사이 다시 묶였거나 다른 고객이 이 토큰을 정상 등록했으면 걷지 않는다(Lua)
+    if (!dry) for (const { token, owner } of stale) await redis.eval(SWEEP_IF_UNBOUND_LUA, [TRIAL_PUSH_UID_KEY(owner), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_OWNER_KEY(token)], [bindValue(token), token, owner]);
     const dayKey = TRIAL_PUSH_DAY_KEY(etDay(new Date(now)));
     if (dry) {
       return NextResponse.json({ ok: true, dry: true, candidates, attemptsToday: Number(await redis.get(dayKey)) || 0, send: picked.length, skipped,
@@ -97,6 +100,7 @@ export async function GET(request: Request) {
 
     // 자리 잡기(SET NX) → 하루 상한 예약(INCR) → 보내기 직전 기록 재확인 → 보내기
     const items: SignalPushItem[] = [];
+    const ownerOf = new Map<string, string | null>();
     for (const { token, rec, tokenRec, owner } of picked) {
       if (owner) {
         // 확인된 기록: «지금도 이 고객의 묶인 토큰»인지 확인과 토큰·고객 자리 잡기를 한 번에(겹친 실행·묶음 변경 사이 경합 없음)
@@ -123,13 +127,19 @@ export async function GET(request: Request) {
       }
       const content = trialPushContent(fresh!, tokenRec?.tz);
       items.push({ id: token, token, platform: fresh!.platform, title: content.title, body: content.body, data: TRIAL_PUSH_DATA, quiet: false, thread: 'trial_end' });
+      ownerOf.set(token, owner);
     }
     const out = items.length ? await sendSignalPushes(items) : new Map();
     let sent = 0, failed = 0, dead = 0;
     for (const it of items) {
       const r = out.get(it.id);
-      if (r === 'ok') { sent++; await redis.zrem(TRIAL_PUSH_DUE_ZSET, it.token); }
-      else if (r === 'dead') { dead++; await redis.zrem(TRIAL_PUSH_DUE_ZSET, it.token); }
+      // 보낸 뒤 대상에서 뺀다 — 확인된 기록은 «아직 같은 고객의 토큰»일 때만(발송 중 다른 고객이 이 토큰을 등록했으면 그 대상은 남긴다 — 관문 11121138 ②)
+      const own = ownerOf.get(it.token);
+      const done = () => own
+        ? redis.eval(DROP_DUE_IF_OWNER_LUA, [TRIAL_PUSH_OWNER_KEY(it.token), TRIAL_PUSH_DUE_ZSET], [own, it.token])
+        : redis.zrem(TRIAL_PUSH_DUE_ZSET, it.token);
+      if (r === 'ok') { sent++; await done(); }
+      else if (r === 'dead') { dead++; await done(); }
       else failed++;   // 실패(응답 유실·시간 초과 포함)도 표식을 «놓지 않는다» — 공급사가 받았는데 응답만 끊긴 경우 두 번 가지 않게(관문 11110931). 한 통 놓치는 쪽을 택한다
     }
     const statsKey = `push:stats:trial:${etDay(new Date(now))}`;
