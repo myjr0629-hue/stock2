@@ -215,8 +215,8 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         for (const c of list) {
             if (taken >= PA_CFG.perRunPerDevice) { await markPending(c); continue; }
             const claim = PA_KEYS.fired(dev, c.level.id, c.level.rev);
-            // 장부 «잡는 중» — 발송이 확인된 뒤에만 «보냄»(s:'sent')으로 바꾼다(설정 API 는 보냄만 앱에 알린다 — 관문 11121338 ⑤)
-            if (!(await store.setNx(claim, JSON.stringify({ at: now, px: c.cur.p, s: 'claim' }), PA_CFG.firedTtlSec))) { sent.claimLost++; continue; }
+            // 장부 «잡는 중»(10분 뒤 저절로 풀림 — 되돌림 쓰기까지 실패해도 30일 막히지 않게 · 관문 11121351) — 발송이 확인된 뒤에만 «보냄»(s:'sent', 30일)으로 바꾼다(설정 API 는 보냄만 앱에 알린다 — 관문 11121338 ⑤)
+            if (!(await store.setNx(claim, JSON.stringify({ at: now, px: c.cur.p, s: 'claim' }), PA_CFG.claimTtlSec))) { sent.claimLost++; continue; }
             const capKey = PA_KEYS.cap(etDate, dev);
             const used = await store.incr(capKey, 2 * 86400);
             if (used > PA_CFG.deviceDailyCap) {

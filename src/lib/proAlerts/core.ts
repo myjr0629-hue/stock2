@@ -36,6 +36,8 @@ export const PA_CFG = {
     tickerStateTtlSec: 3 * 86400,
     /** 발송 기록(id·rev) 수명 — 기록 수명과 같게(그 뒤엔 기록도 없다) */
     firedTtlSec: 30 * 86400,
+    /** 발송 전 장부(s:'claim')의 수명 — 발송이 확인되면 firedTtlSec 으로 다시 쓴다 */
+    claimTtlSec: 10 * 60,
     /** 교차했지만 못 보낸 레벨을 다시 시도하는 시간 */
     pendingTtlSec: 30 * 60,
 } as const;
