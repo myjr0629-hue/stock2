@@ -620,26 +620,27 @@ function regularSessionLiveMove(rows: any[], spot: number, spotAt: number | null
     const quotesAt = Number.isFinite(at) && at > 0 ? at : null;
     const im = atmStraddleImpliedMove(liveRows, spot, { expiry: quoteOptions.expiry, chainDate: quoteOptions.chainDate, quotesLive: true, quotesAt, liveOnly: true, nowMs });
     if (!im) return { im: null, rejected: false };
+    // ③ 패리티 — 실시간 두 다리가 이 현물과 맞지 않으면 섞인 값의 증거다(현물 근거가 무엇이든) → 탈락
+    const gap = Math.abs((im.callPrice - im.putPrice) - (im.spot - im.strike));
+    const tol = Math.max(EARNINGS_LIVE_PARITY_STRADDLE * (im.callPrice + im.putPrice), EARNINGS_LIVE_PARITY_SPOT * im.spot);
+    if (!(gap <= tol)) return { im: null, rejected: true };
+    // ④ 현물을 «정규장 현재가»로 언제 받았는지 모르면 동시성을 증명 못 한다 → 후보 아님(예전 순서 그대로)
+    if (spotAt == null || !Number.isFinite(spotAt)) return { im: null, rejected: false };
     const today = etDateOf(nowMs);
-    // 오늘(ET) 정규장 안(09:30 ~ 마감)에서 받은 값만 · 15분 이내 — 장전 수신 다리·지난 세션 값은 «지금 live»가 아니다(관문 11130808 ①)
+    // ② 오늘(ET) 정규장 안(09:30 ~ 마감)에서 받은 값만 · 15분 이내 — 장전 수신 다리·지난 세션 값은 «지금 live»가 아니다(관문 11130808 ①)
     const recent = (t: number | null) => t != null && Number.isFinite(t) && nowMs - t >= -60_000 && nowMs - t <= EARNINGS_LIVE_MAX_AGE_MS && etDateOf(t) === today
         && etMinutesOf(t) >= 570 && etMinutesOf(t) < sessionCloseMinutes(today);
-    // 현물을 언제 받았는지 모르면 동시성을 증명 못 한다 → 후보 아님(예전 순서 그대로)
-    if (spotAt == null || !Number.isFinite(spotAt)) return { im: null, rejected: false };
     if (!recent(quotesAt) || !recent(spotAt) || im.basis !== 'live' || im.session !== today) return { im: null, rejected: true };
-    // 고른 행사가의 두 다리(atmStraddleImpliedMove 와 같은 «첫 계약» 규칙) — 다리별 실시간 수신 시각이 있으면 검사
+    // 고른 행사가의 두 다리(atmStraddleImpliedMove 와 같은 «첫 계약» 규칙) — 다리별 실시간 수신 시각
     for (const type of ['call', 'put'] as const) {
         const leg = liveRows.find((c: any) => Number(c?.details?.strike_price ?? c?.strike_price) === im.strike
             && String(c?.details?.contract_type ?? c?.contract_type ?? '').toLowerCase() === type);
         const obs = typeof leg?.ivObservedAt === 'string' ? Date.parse(leg.ivObservedAt) : NaN;
-        // 다리별 수신 시각이 없으면 «지금 값»임을 증명 못 한다 → live 우선 후보가 아니다(예전 순서 그대로 — 관문 11130803)
+        // 다리별 수신 시각이 없으면 «지금 값»임을 증명 못 한다 → 후보 아님(예전 순서 그대로 — 관문 11130803)
         if (!Number.isFinite(obs)) return { im: null, rejected: false };
         // 다리 수신 시각과 현물 시각이 EARNINGS_LIVE_SPOT_SKEW_MS 넘게 벌어지면 분모가 다른 시점이다(관문 11130808 ②)
         if (!recent(obs) || Math.abs(obs - spotAt) > EARNINGS_LIVE_SPOT_SKEW_MS) return { im: null, rejected: true };
     }
-    const gap = Math.abs((im.callPrice - im.putPrice) - (im.spot - im.strike));
-    const tol = Math.max(EARNINGS_LIVE_PARITY_STRADDLE * (im.callPrice + im.putPrice), EARNINGS_LIVE_PARITY_SPOT * im.spot);
-    if (!(gap <= tol)) return { im: null, rejected: true };
     return { im, rejected: false };
 }
 
@@ -673,11 +674,16 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
         }
         const session = reference?.session ?? (closed ? impliedMoveFields(weeklyIm).impliedMoveSession ?? st.chainDate ?? null : null);
         const exps: string[] = Array.isArray(st.availableExpirations) ? st.availableExpirations.filter((e: string) => e >= today) : [];
+        // [11/13] live 후보의 현물 근거 — 구조가 정규장(REG)에 받은 현재가일 때만 그 저장 시각을 현물 시각으로 쓴다.
+        //   regularReferencePrice 는 체결이 없으면 전일 종가(prevDay.c)로 메운다 → 현물 = 전일 종가면 «지금 현물»로 보지 않는다(관문 11130811).
+        const spotLive = st.session === 'REG' && Number(st.underlyingPrice) > 0 && Number(st.underlyingPrice) === spot
+            && !(Number(st.prevClose) > 0 && Number(st.underlyingPrice) === Number(st.prevClose));
+        const spotAt = spotLive ? spotAts?.[i] ?? null : null;
         const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing ?? 'unknown') : (typeof st.expiration === 'string' ? st.expiration : null);
         // availableExpirations is the structure's slice, not the collector's full chain.
         // Read the real chain before declaring that an earnings expiry is unavailable.
         if (r.after && !want) {
-            if (spot > 0) needProbe.push({ idx: i, ticker: r.ticker, expiry: null, after: r.after, timing: r.timing, spot, session, spotAt: spotAts?.[i] ?? null });
+            if (spot > 0) needProbe.push({ idx: i, ticker: r.ticker, expiry: null, after: r.after, timing: r.timing, spot, session, spotAt });
             results.push(resolvedMoveOf(r.ticker, null, null, 'no_expiry_after')); return;
         }
         if (weeklyIm && weeklyIm.expiry === want) {
@@ -687,7 +693,7 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
         }
         // Intel만 명시적 null도 같은 만기·세션의 수집기 체인으로 재시도한다. 다른 소비처의 기본 동작은 유지.
         if (!want || !(spot > 0) || (!r.after && !missingMove)) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle')); return; }
-        needProbe.push({ idx: i, ticker: r.ticker, expiry: want, after: r.after, timing: r.timing, spot, session, spotAt: spotAts?.[i] ?? null });
+        needProbe.push({ idx: i, ticker: r.ticker, expiry: want, after: r.after, timing: r.timing, spot, session, spotAt });
         results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle'));
     });
     if (needProbe.length) {
