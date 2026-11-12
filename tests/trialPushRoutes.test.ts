@@ -198,7 +198,15 @@ async function main() {
       kv.set(TRIAL_PUSH_UIDSEQ_KEY(uh0(uidOf(tokM))), String(T + 1000));   // 같은 고객의 다른 토큰 요청이 더 늦게 시작해 먼저 썼다
       r = await post(body(tokM)); assert.equal(r.status, 409); assert.equal(zs.get('push:trial:due')!.has(tokM), false);
       kv.delete(TRIAL_PUSH_UIDSEQ_KEY(uh0(uidOf(tokM)))); fresh(tokM);
+      // 거절된(stale) 옛 요청은 그 고객의 옛 토큰도 지우지 않는다(관문 11121105)
+      const tokN = 'n'.repeat(64); reg(tokN);
+      r = await post({ ...body(tokN), rcUid: uidOf(tokM) }); assert.equal(r.body.due, true); fresh(tokN);
+      kv.set(TRIAL_PUSH_SEQ_KEY(tokM), String(T + 1000));
+      r = await post(body(tokM)); assert.equal(r.status, 409);
+      assert.equal(zs.get('push:trial:due')!.has(tokN), true, '거절된 요청이 옛 토큰 N 을 지우지 않았다');
+      kv.delete(TRIAL_PUSH_SEQ_KEY(tokM)); fresh(tokM);
       r = await post(body(tokM)); assert.equal(r.body.due, true); fresh(tokM);
+      assert.equal(zs.get('push:trial:due')!.has(tokN), false, '성공한 쓰기 뒤에는 옛 토큰을 뺀다');
       kv.set(TRIAL_PUSH_SEQ_KEY(tokM), String(T + 1000));
       r = await post({ token: tokM, clear: true }); assert.equal(zs.get('push:trial:due')!.has(tokM), true, '옛 해제는 새 쓰기를 지우지 못한다');
       kv.delete(TRIAL_PUSH_SEQ_KEY(tokM)); fresh(tokM);
