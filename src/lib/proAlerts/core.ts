@@ -89,6 +89,24 @@ export const PA_KEYS = {
     vendorDay: (etDate: string) => `push:pro-alerts:v1:vendor:${etDate}`,
 } as const;
 
+/**
+ * 고객→기기 묶음(정렬 집합 · 점수 = 그 기기의 마지막 저장 시각) — 이미 묶였으면 시각만 갱신 · 아니면 상한 안에서만 더한다 → 1(묶임) | 0(상한)
+ *   먼저 30일(기록 수명) 넘게 저장이 없던 기기 점수를 걷는다 — 그 기기의 기록은 이미 TTL 로 사라졌다.
+ *   한 기기만 계속 동기화해도 집합 TTL 이 갱신돼 옛 기기가 영원히 자리를 차지하던 문제(야간 검토 11/13 ①)를 막는다.
+ *   KEYS[1] 묶음 · ARGV = [기기, 지금(ms), 상한, 집합 TTL(초), 걷는 기준 시각(ms)]
+ */
+export const PA_BIND_LUA = `
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[5])
+if redis.call('ZSCORE', KEYS[1], ARGV[1]) then
+  redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1]); redis.call('EXPIRE', KEYS[1], ARGV[4]); return 1
+end
+if redis.call('ZCARD', KEYS[1]) >= tonumber(ARGV[3]) then return 0 end
+redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1]); redis.call('EXPIRE', KEYS[1], ARGV[4]); return 1`;
+/** 묶음에서 걷는 기준 — 이 시각 «이하»로 마지막 저장된 기기는 기록도 없다 */
+export function bindCutoff(now: number): number {
+    return now - PA_CFG.recordTtlSec * 1000;
+}
+
 /** 토큰 → 기기 해시(24자) — 키 이름·로그에만. 무료 신호의 devKey(12자)와 다른 접두라 키가 겹치지 않는다 */
 export function paDevKey(token: string): string {
     return 'd' + createHash('sha256').update('pro-alerts:' + String(token)).digest('hex').slice(0, 23);

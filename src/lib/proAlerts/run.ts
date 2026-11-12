@@ -147,11 +147,14 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     for (const rec of eligible) for (const level of activeLevels(rec)) actives.push({ rec, level });
     const pendVals: unknown[] = [];
     for (const part of chunked(actives, 100)) pendVals.push(...(await store.mget(part.map((a) => PA_KEYS.pend(a.rec.dev, a.level.id, a.level.rev)))));
+    // 발송은 됐는데 «보냄» 기록을 못 쓴 레벨(아래 writeSent 실패 · 야간 검토 11/13 ③) — 이번 실행은 보내지 않고 기록만 고친다
+    const repairs: Array<{ rec: ProAlertRecord; level: StoredLevel; at: number; px: number }> = [];
     actives.forEach(({ rec, level }, i) => {
+        const pend = parseRecord<{ p?: number; at?: number; prev?: number; sent?: number }>(pendVals[i]);
+        if (pend && Number(pend.sent) > 0) { repairs.push({ rec, level, at: Number(pend.sent), px: Number(pend.p) || 0 }); return; }
         const c = cur.get(level.t);
         const p = prev.get(level.t);
         if (c && p && crossed(level, p, c)) { cands.push({ rec, level, prev: p, cur: c }); return; }
-        const pend = parseRecord<{ p?: number; at?: number; prev?: number }>(pendVals[i]);
         // 대기 재시도는 «지금 가격»이 있고 아직 레벨 너머에 있을 때만 — 옛 교차 가격을 현재가처럼 보내지 않는다(관문 11121348 ①)
         const beyond = c && (level.dir === 'up' ? c.p >= level.px : c.p <= level.px);
         if (pend && Number(pend.p) > 0 && c && beyond) {
@@ -159,29 +162,48 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         }
     });
 
-    // 종목 상태(직전 관측)를 새 값으로 — 교차 판정 «뒤»에(같은 실행 안에서 쓴 값으로 판정하지 않게)
-    if (!preview) {
-        const writes = tickers.filter((t) => cur.has(t) && shouldStoreObs(prev.get(t), cur.get(t)!));
+    // 종목 상태(직전 관측)를 새 값으로 — 교차를 «넘겨준 뒤»에만(야간 검토 11/13 ②).
+    //   교차한 레벨이 발송·대기 표식·장부 중 하나로 이어지기 전에 실행이 죽으면 관측을 쓰지 않는다 → 다음 실행이 같은 교차를 다시 본다.
+    //   대기 표식을 못 쓴 종목(hold)도 관측을 넘기지 않는다. 같은 실행 안에서 쓴 값으로 판정하지 않는 것은 그대로.
+    const hold = new Set<string>();
+    const commitObs = async () => {
+        if (preview) return;
+        const writes = tickers.filter((t) => !hold.has(t) && cur.has(t) && shouldStoreObs(prev.get(t), cur.get(t)!));
         await Promise.all(writes.map((t) => store.set(PA_KEYS.tick(t), JSON.stringify(cur.get(t)), PA_CFG.tickerStateTtlSec).catch(() => {})));
+    };
+    if (!preview && repairs.length) {
+        let fixed = 0;
+        for (const x of repairs) {
+            try {
+                await store.set(PA_KEYS.fired(x.rec.dev, x.level.id, x.level.rev), JSON.stringify({ at: x.at, px: x.px, s: 'sent' }), PA_CFG.firedTtlSec);
+                await store.del([PA_KEYS.pend(x.rec.dev, x.level.id, x.level.rev)]);
+                fixed++;
+            } catch { /* 표식이 남아 다음 실행이 다시 고친다(30분) */ }
+        }
+        report.notes.push(`sent-record-repaired:${fixed}/${repairs.length}`);
     }
-    if (!cands.length) return report;
+    if (!cands.length) { await commitObs(); return report; }
 
     // 이미 보낸 (id, rev) 거르기
     const firedVals = await store.mget(cands.map((c) => PA_KEYS.fired(c.rec.dev, c.level.id, c.level.rev)));
     const fresh = cands.filter((_, i) => !firedVals[i]);
+    /** 장부가 «잡는 중»(s:'claim') — 다른 실행이 보내는 중이거나, 잡은 뒤 죽은 실행이 남긴 것(10분 뒤 풀림) */
+    const inFlight = cands.filter((c, i) => parseRecord<{ s?: string }>(firedVals[i])?.s === 'claim');
     for (const c of cands) report.crossings.push({ dev: c.rec.dev.slice(0, 8), t: c.level.t, id: c.level.id, dir: c.level.dir, px: c.level.px, prev: c.prev.p, cur: c.cur.p, ...(fresh.includes(c) ? (c.pending ? { why: 'pending' } : {}) : { why: 'sent' }) });
     if (preview) return report;
+    /** 못 보낸 교차 — 30분 동안 다음 실행이 다시 시도한다(처음 교차한 값을 그대로). 표식을 못 쓰면 그 종목 관측을 넘기지 않는다 */
+    const markPending = async (c: Cand) => {
+        if (c.pending) return;
+        try { await store.set(PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev), JSON.stringify({ p: c.cur.p, at: c.cur.at, prev: c.prev.p }), PA_CFG.pendingTtlSec); }
+        catch { hold.add(c.level.t); }
+    };
+    // 잡는 중인 장부의 교차는 대기 표식으로 — 장부가 «보냄»이 되면 표식은 지워지고, 풀리면(죽은 실행) 다음 실행이 보낸다(야간 검토 11/13 ②)
+    for (const c of inFlight) await markPending(c);
     // 이미 보낸 레벨의 대기 표식은 지운다
     //   «보냄»(s:'sent')이 확인된 것만 — 잡는 중(s:'claim')인 장부는 10분 뒤 풀리므로 대기 표식을 남겨 다시 시도하게 한다(관문 11121353)
     const stale = cands.filter((c, i) => c.pending && parseRecord<{ s?: string }>(firedVals[i])?.s === 'sent').map((c) => PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev));
     if (stale.length) await store.del(stale).catch(() => {});
-    if (!fresh.length) return report;
-
-    /** 못 보낸 교차 — 30분 동안 다음 실행이 다시 시도한다(처음 교차한 값을 그대로) */
-    const markPending = async (c: Cand) => {
-        if (c.pending) return;
-        await store.set(PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev), JSON.stringify({ p: c.cur.p, at: c.cur.at, prev: c.prev.p }), PA_CFG.pendingTtlSec).catch(() => {});
-    };
+    if (!fresh.length) { await commitObs(); return report; }
 
     // ── 기기별 선택 · PRO 확인 ──
     //   크론은 기기 기록을 다시 쓰지 않는다(사용자가 그사이 바꾼 설정을 옛 값으로 덮지 않게 — 관문 11121338 ④). PRO 판정은 고객 캐시 키에만.
@@ -217,7 +239,7 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
             if (taken >= PA_CFG.perRunPerDevice) { await markPending(c); continue; }
             const claim = PA_KEYS.fired(dev, c.level.id, c.level.rev);
             // 장부 «잡는 중»(10분 뒤 저절로 풀림 — 되돌림 쓰기까지 실패해도 30일 막히지 않게 · 관문 11121351) — 발송이 확인된 뒤에만 «보냄»(s:'sent', 30일)으로 바꾼다(설정 API 는 보냄만 앱에 알린다 — 관문 11121338 ⑤)
-            if (!(await store.setNx(claim, JSON.stringify({ at: now, px: c.cur.p, s: 'claim' }), PA_CFG.claimTtlSec))) { sent.claimLost++; continue; }
+            if (!(await store.setNx(claim, JSON.stringify({ at: now, px: c.cur.p, s: 'claim' }), PA_CFG.claimTtlSec))) { sent.claimLost++; await markPending(c); continue; }
             const capKey = PA_KEYS.cap(etDate, dev);
             const used = await store.incr(capKey, 2 * 86400);
             if (used > PA_CFG.deviceDailyCap) {
@@ -236,7 +258,7 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
             meta.set(id, { claim, cap: capKey, rec, cand: c });
         }
     }
-    if (!items.length || !deps.sender) return report;
+    if (!items.length || !deps.sender) { await commitObs(); return report; }
     // 발송 «바로 전» 최신 기록으로 다시 거른다 — 크론이 읽은 뒤 사용자가 끄거나 지운·바꾼 레벨은 보내지 않는다(장부·상한 되돌림).
     //   남는 틈은 이 읽기와 공급사 전송 사이(수 ms)뿐이다 — 외부 발송과 원자적으로 묶을 수는 없다(관문 11121345 ④ · 11121348 ②)
     const withdrawn: PaSendItem[] = [];
@@ -264,6 +286,7 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
             await markPending(m.cand);
         }
         report.notes.push('recheck-failed');
+        await commitObs();
         return report;
     }
     /** 거둔 발송의 장부·상한 되돌림 — 발송 «뒤에» 한다(재확인과 전송 사이를 짧게) */
@@ -275,19 +298,27 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
             await store.decr(m.cap).catch(() => 0);
         }
     };
-    if (!items.length) { await releaseWithdrawn(); return report; }
+    if (!items.length) { await releaseWithdrawn(); await commitObs(); return report; }
     sent.items = items.length;
-    const out = await deps.sender.send(items);
+    let out: Map<string, PaOutcome>;
+    // 발송기가 던지면 도달 여부를 모른다 — 관측을 넘겨 다시 교차로 보지 않게 한다(중복보다 누락 쪽 · 장부 10분이 재시도도 막는다)
+    try { out = await deps.sender.send(items); }
+    catch (e) { await commitObs(); throw e; }
     await releaseWithdrawn();
     const deadDevs = new Set<string>();
+    let sentRecordFailed = 0;
     for (const it of items) {
         const r = out.get(it.id) ?? 'fail';
         const m = meta.get(it.id)!;
         const pendKey = PA_KEYS.pend(m.rec.dev, m.cand.level.id, m.cand.level.rev);
         if (r === 'ok') {
             sent.ok++;
-            await store.set(m.claim, JSON.stringify({ at: now, px: m.cand.cur.p, s: 'sent' }), PA_CFG.firedTtlSec).catch(() => {});
-            if (m.cand.pending) await store.del([pendKey]).catch(() => {});
+            // «보냄»(30일) 기록 — 실패하면 몇 번 다시 쓰고, 그래도 안 되면 대기 키에 «보냄» 표식을 남겨 다음 실행이 기록만 고친다(다시 보내지 않음).
+            //   장부(s:'claim')는 10분 살아 있어 그사이 재교차는 막힌다 · 다음 실행(5분)이 고친다 → 앱 fired 와 같아지고 중복 0(야간 검토 11/13 ③)
+            const ok = await writeSent(store, m.claim, { at: now, px: m.cand.cur.p, s: 'sent' });
+            if (ok) { if (m.cand.pending) await store.del([pendKey]).catch(() => {}); continue; }
+            sentRecordFailed++;
+            await store.set(pendKey, JSON.stringify({ p: m.cand.cur.p, at: m.cand.cur.at, prev: m.cand.prev.p, sent: now }), PA_CFG.pendingTtlSec).catch(() => {});
             continue;
         }
         await store.del([m.claim]).catch(() => {});
@@ -301,5 +332,20 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         if (rec) await store.set(PA_KEYS.dead(d), String(rec.updatedAt), PA_CFG.recordTtlSec).catch(() => {});
     }
     for (let i = 0; i < sent.ok; i++) await store.incr(`${PA_KEYS.stats(etDate)}:ok`, 8 * 86400).catch(() => 0);
+    if (sentRecordFailed) {
+        report.notes.push(`sent-record-failed:${sentRecordFailed}`);
+        console.error(`[ProAlerts] sent record write failed ${sentRecordFailed} — repair marker left for the next run`);
+    }
+    await commitObs();
     return report;
+}
+
+/** 발송 확인 뒤 «보냄» 기록 — 일시 오류면 짧게 다시 쓴다(최대 3번). 성공 여부를 돌려준다 */
+export const SENT_WRITE_BACKOFF_MS = [0, 120, 400] as const;
+async function writeSent(store: PaStore, key: string, v: { at: number; px: number; s: 'sent' }): Promise<boolean> {
+    for (const wait of SENT_WRITE_BACKOFF_MS) {
+        if (wait) await new Promise((r) => setTimeout(r, wait));
+        try { await store.set(key, JSON.stringify(v), PA_CFG.firedTtlSec); return true; } catch { /* 다시 */ }
+    }
+    return false;
 }
