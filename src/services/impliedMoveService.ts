@@ -574,6 +574,40 @@ function probeListedExpirations(pc: any, today: string): string[] {
     ].filter((e: unknown): e is string => typeof e === 'string' && ISO_DATE_RE.test(e) && e >= today))].sort();
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// [11/13] 정규장 실적 만기 «live 후보» — readImpliedMoveRows(after) 의 수집기 체인 경로만 쓴다.
+//
+// [사고] 11/12 NVDA(CEO 사임 −10%대) 실적 만기 11/18: 23:36 KST live ±11.6% → 23:42 이후 전일 마감 ±9.3%·현물 173.73(실제 약 149).
+//   실적 행은 strict(양쪽 마감 호가 + 같은 세션 종가 = 전일 EOD)를 먼저 확정해 live 를 아예 계산하지 않았고(직접 경로 체인),
+//   슬림 체인에선 legacy live 가 빠지면 전일 마감 관측이 그대로 이겼다.
+// [규칙] 정규장(closed=false)에는 이 후보를 먼저 계산한다. 유효하면 live 우선, 아니면 기존 순서(strict → legacy, 그 뒤 관측) 그대로.
+//   유효 = ① 두 다리 모두 계약별 출처 표식 _quoteSource 'live'(Intrinio 실시간 FMV — 체인 수준 표식으로 짐작하지 않는다)
+//          ② 체인 수집 시각(_ts)이 오늘(ET) 정규장 안·15분 이내 → 결과 basis live · 세션 = 오늘
+//          ③ 두 다리 패리티: |(콜 − 풋) − (현물 − 행사가)| ≤ max(스트래들 25%, 현물 1%) — 실시간 bid/ask 가 체인에 없어서
+//             «양쪽 호가·스프레드» 대신 두 다리와 현물이 같은 시점 값인지를 본다(전일 현물·한쪽만 갱신된 다리면 수 달러 어긋난다).
+//   ATM·5% 거리·가까운 행사가 3개 규칙은 atmStraddleImpliedMove 그대로(정의 한 벌).
+//   rejected = 후보는 있었으나 ②·③에서 탈락 — 부르는 쪽은 같은 체인의 legacy live 를 다시 내지 않는다(EOD 폴백만).
+//   ⛔ 공급사 호출 0 · Redis 읽기 추가 0(이미 읽은 체인) · 화면 필드 모양 불변.
+// ════════════════════════════════════════════════════════════════════════════
+const EARNINGS_LIVE_MAX_AGE_MS = 15 * 60_000;
+const EARNINGS_LIVE_PARITY_STRADDLE = 0.25;
+const EARNINGS_LIVE_PARITY_SPOT = 0.01;
+
+function regularSessionLiveMove(rows: any[], spot: number, quoteOptions: { expiry: string; chainDate: string | null }, pc: any, nowMs: number): { im: ImpliedMove | null; rejected: boolean } {
+    const liveRows = rows.map((c: any) => (c?._quoteSource === 'live' ? c : { ...c, _quoteSource: 'unknown' }));
+    const at = Number(pc?._ts);
+    const quotesAt = Number.isFinite(at) && at > 0 ? at : null;
+    const im = atmStraddleImpliedMove(liveRows, spot, { expiry: quoteOptions.expiry, chainDate: quoteOptions.chainDate, quotesLive: true, quotesAt, liveOnly: true, nowMs });
+    if (!im) return { im: null, rejected: false };
+    const today = etDateOf(nowMs);
+    const fresh = quotesAt != null && nowMs - quotesAt >= -60_000 && nowMs - quotesAt <= EARNINGS_LIVE_MAX_AGE_MS && etDateOf(quotesAt) === today;
+    if (!fresh || im.basis !== 'live' || im.session !== today) return { im: null, rejected: true };
+    const gap = Math.abs((im.callPrice - im.putPrice) - (im.spot - im.strike));
+    const tol = Math.max(EARNINGS_LIVE_PARITY_STRADDLE * (im.callPrice + im.putPrice), EARNINGS_LIVE_PARITY_SPOT * im.spot);
+    if (!(gap <= tol)) return { im: null, rejected: true };
+    return { im, rejected: false };
+}
+
 /** 전달받은 구조를 읽기 전용으로 보정한다. 단건·묶음 모두 이 경로를 지난다. */
 async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[], today: string, retryNull = false, reference?: { session: string; spot: number | null }): Promise<ResolvedImpliedMove[]> {
     // 저장본 읽기를 기다리던 중 마감됐을 수도 있다.
@@ -646,6 +680,7 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
             const firstAfter = n.after && listEvidence ? firstExpiryAfterDate([...probeListedExpirations(pc, today), ...(n.expiry ? [n.expiry] : [])], n.after, n.timing ?? 'unknown') : null;
             const eligible = n.after ? (firstAfter ? [firstAfter] : []) : [n.expiry!];
             for (const expiry of eligible) {
+                let liveRejected = false;
                 const rows = chain.filter((c: any) => c?.details?.expiration_date === expiry);
                 const rowDates = [...new Set(rows.map((c: any) => c?._intrinio?.date).filter((d: unknown) => typeof d === 'string' && ISO_DATE_RE.test(d)))];
                 const chainDate = pc?.chainDates?.[expiry] || ((!pc?.weeklyExpiry || pc.weeklyExpiry === expiry) ? pc?.chainDate : null)
@@ -661,6 +696,14 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                 // 실적 행: 슬림 저장 midpoint 는 basis(live·eod)와 상관없이 출처(양쪽 호가 여부)를 알 수 없다(관문 10200855) —
                 //   새 값은 양쪽 마감 호가로만(strict), 그 밖엔 main 의 기존 규칙(legacy)이 내던 값만.
                 if (n.after) {
+                    // [11/13] 정규장에는 실적 만기도 «지금 호가»(live)를 먼저 — 유효하면 그 값, 아니면 아래 EOD(strict)·기존 규칙(legacy).
+                    //   예전엔 strict(전일 마감)가 먼저 확정돼 live 를 계산하지 않았다(11/12 NVDA 11/18 만기 ±11.6% live → ±9.3% 전일 마감·현물 173.73).
+                    //   같은 수집기 체인(이미 읽은 mget)만 쓴다 — 공급사 호출 0·Redis 추가 읽기 0.
+                    if (!closed) {
+                        const lv = regularSessionLiveMove(rows, n.spot, quoteOptions, pc, Date.now());
+                        if (lv.im) { results[n.idx] = resolvedMoveOf(n.ticker, lv.im, 'probe', null); break; }
+                        liveRejected = lv.rejected;
+                    }
                     // 새 경로(마감 종가 분모·ATM 재선택)는 양쪽 마감 호가가 확인되는 계약만 쓴다(관문 10200755 ①, lib/impliedMove.eodQuoteRows).
                     let strict: ImpliedMove | null = null;
                     // Check the expiry's own provenance, independently of the weekly slice.
@@ -677,7 +720,8 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                         const mainChainDate = pc?.chainDates?.[expiry] || ((!pc?.weeklyExpiry || pc.weeklyExpiry === expiry) ? pc?.chainDate : null) || null;
                         if (!(n.session && mainChainDate !== n.session)) {
                             const m = atmStraddleImpliedMove(chain, n.spot, { ...quoteOptions, chainDate: mainChainDate });
-                            if (m && !(n.session && m.session !== n.session)) legacy = m;
+                            // [11/13] 정규장에서 방금 무효로 판정한 live(같은 체인·같은 만기)를 기존 규칙으로 다시 내지 않는다 — EOD 폴백만.
+                            if (m && !(n.session && m.session !== n.session) && !(liveRejected && m.basis === 'live')) legacy = m;
                         }
                     }
                     im = strict ?? legacy;
