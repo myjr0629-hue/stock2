@@ -204,8 +204,8 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     /** 못 보낸 교차 — 30분 동안 다음 실행이 다시 시도한다(처음 교차한 값을 그대로). 표식을 못 쓰면 그 종목 관측을 넘기지 않는다 */
     const markPending = async (c: Cand, force = false) => {
         if (c.pending && !force) return;
-        try { await store.set(PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev), JSON.stringify({ p: c.cur.p, at: c.cur.at, prev: c.prev.p }), PA_CFG.pendingTtlSec); }
-        catch { hold.add(c.level.t); }
+        // 일시 오류면 짧게 다시 쓴다(최대 3번 · 관문 11130642) — 그래도 못 쓰면 그 종목 관측을 넘기지 않는다
+        if (!(await writeRetry(store, PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev), { p: c.cur.p, at: c.cur.at, prev: c.prev.p }, PA_CFG.pendingTtlSec))) hold.add(c.level.t);
     };
     // 잡는 중인 장부의 교차는 대기 표식으로 — 장부가 «보냄»이 되면 표식은 지워지고, 풀리면(죽은 실행) 다음 실행이 보낸다(야간 검토 11/13 ②)
     for (const c of inFlight) await markPending(c);
@@ -373,12 +373,16 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     return report;
 }
 
-/** 발송 확인 뒤 «보냄» 기록(또는 수리 표식, 둘 다 30일) — 일시 오류면 짧게 다시 쓴다(최대 3번). 성공 여부를 돌려준다 */
+/** 표식·기록 쓰기 — 일시 오류면 짧게 다시 쓴다(최대 3번). 성공 여부를 돌려준다 */
 export const SENT_WRITE_BACKOFF_MS = [0, 120, 400] as const;
-async function writeSent(store: PaStore, key: string, v: Record<string, unknown>): Promise<boolean> {
+async function writeRetry(store: PaStore, key: string, v: Record<string, unknown>, exSec: number): Promise<boolean> {
     for (const wait of SENT_WRITE_BACKOFF_MS) {
         if (wait) await new Promise((r) => setTimeout(r, wait));
-        try { await store.set(key, JSON.stringify(v), PA_CFG.firedTtlSec); return true; } catch { /* 다시 */ }
+        try { await store.set(key, JSON.stringify(v), exSec); return true; } catch { /* 다시 */ }
     }
     return false;
+}
+/** 발송 확인 뒤 «보냄» 기록(또는 수리 표식) — 둘 다 30일 */
+function writeSent(store: PaStore, key: string, v: Record<string, unknown>): Promise<boolean> {
+    return writeRetry(store, key, v, PA_CFG.firedTtlSec);
 }

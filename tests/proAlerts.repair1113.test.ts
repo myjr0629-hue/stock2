@@ -253,6 +253,18 @@ t('대기 표식 삭제가 실제로는 처리됐는데 응답만 잃은 경우 
     const r2 = await tick(s, 15, 101.3);
     assert.equal(r2.sent.length, 1);
 });
+t('대기 재시도가 또 실패하고 그때 대기 표식 쓰기가 한 번 실패해도 — 다시 써서 다음 실행이 보낸다', async () => {
+    const s = setup();
+    await tick(s, 0, 99);
+    await tick(s, 5, 101, 'fail');
+    let left = 1;
+    s.fail = (op, keys) => op === 'set' && keys[0].startsWith('push:pro-alerts:v1:pend:') && left-- > 0;
+    await tick(s, 10, 101.2, 'fail');
+    s.fail = null;
+    assert.ok(s.raw(PA_KEYS.pend(DEV, 'abcd1', 1)));
+    const r = await tick(s, 15, 101.3);
+    assert.equal(r.sent.length, 1);
+});
 t('수리 표식은 30일 — 장 마감·다음 날을 넘겨도 재교차에 다시 보내지 않고, 앱 fired 에 «보냄»(설정 API 가 대기 키 sent 를 읽음)', async () => {
     const s = setup();
     await tick(s, 0, 99);
