@@ -168,11 +168,66 @@ t('«보냄» 쓰기가 실행 내내 실패하면 — 오류를 보고에 남�
     assert.equal(r4.sent.length, 0, '중복 0');
 });
 
+console.log('━━━ 관문 11130633 ━━━');
+t('공급사가 받은 직후 실행이 죽어도(보냄 기록 전) 다음 실행·장부가 풀린 뒤에도 같은 교차로 다시 보내지 않는다', async () => {
+    const s = setup();
+    await tick(s, 0, 99);
+    s.clock = T10 + 5 * 60_000;
+    s.m.delete(PA_KEYS.lock);
+    const a = deps(s, 101, s.clock - 1000);
+    let accepted = 0;
+    a.d.sender = { send: async (items) => { accepted += items.length; throw new Error('function timeout after provider accepted'); } };
+    await assert.rejects(runProAlerts(a.d, { now: s.clock, kind: 'cron' }));
+    assert.equal(accepted, 1);
+    assert.equal(s.raw(PA_KEYS.tick('NVDA'))?.p, 101, '관측은 발송 전에 넘어갔다');
+    const r2 = await tick(s, 10, 101.2);
+    const r3 = await tick(s, 16, 101.3);   // 장부(10분) 풀린 뒤
+    assert.equal(r2.sent.length + r3.sent.length, 0, '중복 0');
+});
+t('수리 표식은 30일 — 장 마감·다음 날을 넘겨도 재교차에 다시 보내지 않고, 앱 fired 에 «보냄»(설정 API 가 대기 키 sent 를 읽음)', async () => {
+    const s = setup();
+    await tick(s, 0, 99);
+    s.fail = (op, keys, v) => op === 'set' && keys[0] === PA_KEYS.fired(DEV, 'abcd1', 1) && !!v && v.includes('"sent"');
+    const r1 = await tick(s, 5, 101);
+    assert.equal(r1.sent.length, 1);
+    s.fail = null;
+    const pend = s.raw(PA_KEYS.pend(DEV, 'abcd1', 1));
+    assert.ok(Number(pend?.sent) > 0, '수리 표식');
+    assert.ok(s.ttlMs(PA_KEYS.pend(DEV, 'abcd1', 1)) > 29 * 86400_000, '30일');
+    // 다음 날 장중(장부·대기 30분 모두 지난 뒤) — 첫 실행은 기준점 · 그 다음 재교차
+    const day = 24 * 60;
+    await tick(s, day, 99);
+    const r3 = await tick(s, day + 5, 100.5);
+    assert.equal(r3.sent.length, 0, '중복 0');
+    assert.equal(s.raw(PA_KEYS.fired(DEV, 'abcd1', 1))?.s, 'sent', '첫 실행이 기록을 고쳤다');
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../src/app/api/app/watchlist/alerts/route.ts'), 'utf8');
+    assert.ok(/PA_KEYS\.pend\(dev, l\.id, l\.rev\)/.test(src) && /pm\.sent/.test(src), '설정 API 가 수리 표식도 보냄으로 알린다');
+});
+t('발송 실패 뒤 대기 표식을 못 쓰면 관측을 직전 값으로 되돌린다 — 같은 종목의 이미 보낸 레벨은 다시 보내지 않는다', async () => {
+    const s = setup([lv(), lv({ id: 'abcd2', px: 100.5 })]);
+    await tick(s, 0, 99);
+    s.clock = T10 + 5 * 60_000;
+    s.m.delete(PA_KEYS.lock);
+    const a = deps(s, 101, s.clock - 1000);
+    a.d.sender = { send: async (items) => new Map(items.map((i) => [i.id, i.id.endsWith(':abcd1:1') ? 'ok' as const : 'fail' as const])) };
+    s.fail = (op, keys) => op === 'set' && keys[0].startsWith('push:pro-alerts:v1:pend:');
+    await runProAlerts(a.d, { now: s.clock, kind: 'cron' });
+    s.fail = null;
+    assert.equal(s.raw(PA_KEYS.tick('NVDA'))?.p, 99, '되돌림');
+    const r2 = await tick(s, 10, 101.2);
+    assert.deepEqual(r2.sent.map((x) => x.data.lid), ['abcd2'], '못 보낸 것만 다시');
+});
+t('not_pro 저장은 기록 수명을 늘리지 않는다(KEEPTTL) · 묶음은 기록 만료 10분 뒤에야 걷는다', () => {
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../src/app/api/app/watchlist/alerts/route.ts'), 'utf8');
+    assert.ok(src.includes("JSON.stringify({ ...prev, proUntil: 0 }), { keepTtl: true }"));
+    assert.equal(bindCutoff(T10), T10 - PA_CFG.recordTtlSec * 1000 - 10 * 60_000);
+});
+
 console.log('━━━ ① 기기 상한 묶음(Lua 문안) ━━━');
 t('묶음 Lua 가 확인 전에 30일 지난 점수를 걷는다 · 기준 시각 = 지금 − 기록 수명', () => {
     const i = PA_BIND_LUA.indexOf('ZREMRANGEBYSCORE');
     assert.ok(i >= 0 && i < PA_BIND_LUA.indexOf('ZSCORE') && i < PA_BIND_LUA.indexOf('ZCARD'));
-    assert.equal(bindCutoff(T10), T10 - PA_CFG.recordTtlSec * 1000);
+    assert.ok(bindCutoff(T10) < T10 - PA_CFG.recordTtlSec * 1000);
 });
 
 (async () => {

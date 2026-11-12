@@ -163,13 +163,23 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     });
 
     // 종목 상태(직전 관측)를 새 값으로 — 교차를 «넘겨준 뒤»에만(야간 검토 11/13 ②).
-    //   교차한 레벨이 발송·대기 표식·장부 중 하나로 이어지기 전에 실행이 죽으면 관측을 쓰지 않는다 → 다음 실행이 같은 교차를 다시 본다.
-    //   대기 표식을 못 쓴 종목(hold)도 관측을 넘기지 않는다. 같은 실행 안에서 쓴 값으로 판정하지 않는 것은 그대로.
+    //   교차한 레벨이 장부(발송 직전)·대기 표식으로 이어지기 전에 실행이 죽으면 관측을 쓰지 않는다 → 다음 실행이 같은 교차를 다시 본다.
+    //   대기 표식을 못 쓴 종목(hold)은 관측을 넘기지 않는다(발송 뒤에 못 쓰면 직전 값으로 되돌린다).
+    //   발송 «직전»에 쓴다 — 발송을 공급사가 받은 뒤 실행이 죽어도 다음 실행이 같은 교차로 다시 보내지 않게(관문 11130633 ①).
     const hold = new Set<string>();
+    let committed = false;
     const commitObs = async () => {
-        if (preview) return;
+        if (preview || committed) return;
+        committed = true;
         const writes = tickers.filter((t) => !hold.has(t) && cur.has(t) && shouldStoreObs(prev.get(t), cur.get(t)!));
         await Promise.all(writes.map((t) => store.set(PA_KEYS.tick(t), JSON.stringify(cur.get(t)), PA_CFG.tickerStateTtlSec).catch(() => {})));
+    };
+    /** 발송 뒤 대기 표식을 못 쓴 종목 — 관측을 직전 값으로 되돌려 다음 실행이 다시 교차로 본다(이미 보낸 레벨은 장부·수리 표식이 막는다) */
+    const rollbackHeld = async (held: Set<string>) => {
+        for (const t of held) {
+            const p = prev.get(t);
+            if (p) await store.set(PA_KEYS.tick(t), JSON.stringify(p), PA_CFG.tickerStateTtlSec).catch(() => {});
+        }
     };
     if (!preview && repairs.length) {
         let fixed = 0;
@@ -300,10 +310,11 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     };
     if (!items.length) { await releaseWithdrawn(); await commitObs(); return report; }
     sent.items = items.length;
-    let out: Map<string, PaOutcome>;
-    // 발송기가 던지면 도달 여부를 모른다 — 관측을 넘겨 다시 교차로 보지 않게 한다(중복보다 누락 쪽 · 장부 10분이 재시도도 막는다)
-    try { out = await deps.sender.send(items); }
-    catch (e) { await commitObs(); throw e; }
+    // 여기까지 오면 교차는 모두 장부(발송할 것)·대기 표식으로 넘어갔다 → 관측을 발송 «전에» 쓴다.
+    //   발송 중·직후 실행이 죽으면(시간 초과 등) 도달 여부를 모른다 — 같은 교차로 다시 보내지 않는 쪽(장부 10분이 재시도도 막는다)
+    await commitObs();
+    const heldBeforeSend = new Set(hold);
+    const out = await deps.sender.send(items);
     await releaseWithdrawn();
     const deadDevs = new Set<string>();
     let sentRecordFailed = 0;
@@ -318,7 +329,8 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
             const ok = await writeSent(store, m.claim, { at: now, px: m.cand.cur.p, s: 'sent' });
             if (ok) { if (m.cand.pending) await store.del([pendKey]).catch(() => {}); continue; }
             sentRecordFailed++;
-            await store.set(pendKey, JSON.stringify({ p: m.cand.cur.p, at: m.cand.cur.at, prev: m.cand.prev.p, sent: now }), PA_CFG.pendingTtlSec).catch(() => {});
+            // 수리 표식은 30일(보냄 기록과 같은 수명) — 그동안 그 레벨은 발송 후보가 되지 않고(중복 0), 설정 API 도 «보냄»으로 알린다(관문 11130633 ②)
+            await writeSent(store, pendKey, { p: m.cand.cur.p, at: m.cand.cur.at, prev: m.cand.prev.p, sent: now });
             continue;
         }
         await store.del([m.claim]).catch(() => {});
@@ -336,13 +348,14 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         report.notes.push(`sent-record-failed:${sentRecordFailed}`);
         console.error(`[ProAlerts] sent record write failed ${sentRecordFailed} — repair marker left for the next run`);
     }
-    await commitObs();
+    const heldAfter = new Set([...hold].filter((t) => !heldBeforeSend.has(t)));
+    if (heldAfter.size) await rollbackHeld(heldAfter);
     return report;
 }
 
-/** 발송 확인 뒤 «보냄» 기록 — 일시 오류면 짧게 다시 쓴다(최대 3번). 성공 여부를 돌려준다 */
+/** 발송 확인 뒤 «보냄» 기록(또는 수리 표식, 둘 다 30일) — 일시 오류면 짧게 다시 쓴다(최대 3번). 성공 여부를 돌려준다 */
 export const SENT_WRITE_BACKOFF_MS = [0, 120, 400] as const;
-async function writeSent(store: PaStore, key: string, v: { at: number; px: number; s: 'sent' }): Promise<boolean> {
+async function writeSent(store: PaStore, key: string, v: Record<string, unknown>): Promise<boolean> {
     for (const wait of SENT_WRITE_BACKOFF_MS) {
         if (wait) await new Promise((r) => setTimeout(r, wait));
         try { await store.set(key, JSON.stringify(v), PA_CFG.firedTtlSec); return true; } catch { /* 다시 */ }

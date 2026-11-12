@@ -86,7 +86,8 @@ export async function POST(req: NextRequest) {
             if (v.kind === 'not_pro') {
                 await r.set(PA_KEYS.pro(uidHash), JSON.stringify({ neg: now + PA_CFG.proNegativeTtlMs }), { ex: 120 });
                 if (prev && prev.uidHash === uidHash && prev.proUntil > now) {
-                    await r.set(PA_KEYS.rec(dev), JSON.stringify({ ...prev, proUntil: 0 }), { ex: PA_CFG.recordTtlSec });
+                    // 수명은 늘리지 않는다(KEEPTTL) — 기록 수명이 고객 묶음 점수(마지막 저장 시각 + 30일)를 넘지 않게(관문 11130633 ③)
+                    await r.set(PA_KEYS.rec(dev), JSON.stringify({ ...prev, proUntil: 0 }), { keepTtl: true });
                 }
                 return json({ error: 'not_pro' }, 402);
             }
@@ -114,11 +115,15 @@ export async function POST(req: NextRequest) {
         await p.exec();
 
         // 이미 보낸 레벨(id, rev) — 앱이 그 레벨을 «보냄»으로 바꾼다
-        const firedVals = rec.levels.length ? ((await r.mget(...rec.levels.map((l) => PA_KEYS.fired(dev, l.id, l.rev)))) as unknown[]) : [];
+        //   발송은 됐는데 «보냄» 기록을 못 써 크론이 남긴 수리 표식(대기 키의 sent)도 보냄이다(야간 검토 11/13 ③ — 화면 상태 일치)
+        const n = rec.levels.length;
+        const vals = n ? ((await r.mget(...rec.levels.map((l) => PA_KEYS.fired(dev, l.id, l.rev)), ...rec.levels.map((l) => PA_KEYS.pend(dev, l.id, l.rev)))) as unknown[]) : [];
         const fired = rec.levels.flatMap((l, i) => {
-            const f = parseRecord<{ at?: number; px?: number; s?: string }>(firedVals[i]);
+            const f = parseRecord<{ at?: number; px?: number; s?: string }>(vals[i]);
             // «보냄»이 확인된 것만(발송 전 잡아 둔 장부 s:'claim' 은 아직 아니다)
-            return f && f.s === 'sent' && Number.isFinite(f.at) ? [{ id: l.id, rev: l.rev, at: f.at as number, px: Number(f.px) || null }] : [];
+            if (f && f.s === 'sent' && Number.isFinite(f.at)) return [{ id: l.id, rev: l.rev, at: f.at as number, px: Number(f.px) || null }];
+            const pm = parseRecord<{ p?: number; sent?: number }>(vals[n + i]);
+            return pm && Number(pm.sent) > 0 ? [{ id: l.id, rev: l.rev, at: Number(pm.sent), px: Number(pm.p) || null }] : [];
         });
         return json({ ok: true, stored: rec.levels.length, active: activeLevels(rec).length, fired });
     } catch (e) {

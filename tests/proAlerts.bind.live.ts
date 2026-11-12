@@ -52,7 +52,7 @@ redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1]); redis.call('EXPIRE', KEYS[1], ARG
         assert.equal(Number(await r.eval(PA_BIND_LUA, [key], argv('dsix'))), 0, '살아 있는 5대 → 거절');
         assert.equal(await r.zcard(key), PA_LIMITS.devicesPerUid);
         assert.equal(Number(await r.eval(PA_BIND_LUA, [key], argv('dl3'))), 1, '이미 묶인 기기는 갱신');
-        // 경계 — 정확히 30일 전 저장(기록 TTL 만료 시각)은 걷고, 그보다 1초 늦으면 남긴다
+        // 경계 — 기준 시각(30일 + 10분 여유) 이하는 걷고, 그보다 1초 늦으면 남긴다
         await r.del(key);
         await r.zadd(key, { score: bindCutoff(now), member: 'dedge' }, { score: bindCutoff(now) + 1000, member: 'dkeep' });
         await r.expire(key, 120);

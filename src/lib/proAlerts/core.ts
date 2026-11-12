@@ -102,9 +102,11 @@ if redis.call('ZSCORE', KEYS[1], ARGV[1]) then
 end
 if redis.call('ZCARD', KEYS[1]) >= tonumber(ARGV[3]) then return 0 end
 redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1]); redis.call('EXPIRE', KEYS[1], ARGV[4]); return 1`;
-/** 묶음에서 걷는 기준 — 이 시각 «이하»로 마지막 저장된 기기는 기록도 없다 */
+/** 묶음에서 걷는 기준 — 이 시각 «이하»로 마지막 저장된 기기는 기록도 없다.
+ *  기록은 묶은 «뒤»에 30일 TTL 로 쓰이고(수 초 늦음), 다른 경로는 기록 수명을 늘리지 않는다(not_pro 는 KEEPTTL) → 10분 여유를 둬 살아 있는 기록의 묶음은 걷지 않는다 */
+export const PA_BIND_SWEEP_MARGIN_MS = 10 * 60_000;
 export function bindCutoff(now: number): number {
-    return now - PA_CFG.recordTtlSec * 1000;
+    return now - PA_CFG.recordTtlSec * 1000 - PA_BIND_SWEEP_MARGIN_MS;
 }
 
 /** 토큰 → 기기 해시(24자) — 키 이름·로그에만. 무료 신호의 devKey(12자)와 다른 접두라 키가 겹치지 않는다 */
