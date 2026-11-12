@@ -113,7 +113,7 @@ const closingObs = {
   spot: 173.73, basis: 'eod' as const, asOf: null, chainDate: PREV, session: PREV, method: 'weekly' as const,
 };
 
-function seed(opts: { kind: 'full' | 'slim'; spot?: number; probeAgeMs?: number; mutate?: (strike: number, type: 'call' | 'put', leg: Leg) => Leg; obs?: boolean; now?: string }) {
+function seed(opts: { kind: 'full' | 'slim'; spot?: number; probeAgeMs?: number; structureAgeMs?: number; mutate?: (strike: number, type: 'call' | 'put', leg: Leg) => Leg; obs?: boolean; now?: string }) {
   store.clear();
   RC._resetEcBreakerForTest();
   IMS._resetImpliedPackMemoForTest();
@@ -123,7 +123,7 @@ function seed(opts: { kind: 'full' | 'slim'; spot?: number; probeAgeMs?: number;
     ticker: 'NVDA', options_status: 'OK', expiration: WEEKLY, availableExpirations: [WEEKLY, EARN, '2026-11-20'],
     chainDate: PREV, underlyingPrice: opts.spot ?? 149, prevClose: 173.73, session: 'REG', impliedMove: weeklyIm,
     structure: { strikes: [150], callsOI: [1], putsOI: [1] },
-  }, timestamp: now - 30_000 });
+  }, timestamp: now - (opts.structureAgeMs ?? 30_000) });
   // readEodCloses 는 프로세스 안에서 5분 기억한다 — 모든 시나리오 종목을 한 스냅샷에 둔다
   store.set('intrinio:eod:snapshot', { date: PREV, rows: [['NVDA', 0, 0, 0, 173.73, 0, 0, 0], ['MONO', 0, 0, 0, 173.73, 0, 0, 0]] });
   store.set('polygon:snapshot:probe:NVDA', {
@@ -172,13 +172,29 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
   [r] = await readEarn();
   assert.equal(r.basis, 'eod', `slim + rejected live must fall back to EOD, not legacy live — got ${r.basis} ${r.impliedMovePct}`);
   assert.equal(r.impliedMovePct, 9.3); assert.equal(r.spot, 173.73);
-  ok('② slim chain + rejected live → stored closing observation (EOD 9.3), not the mixed legacy live 14.0');
+  ok('② slim chain + rejected live → stored closing observation (EOD 9.3), not the mixed legacy live 15.0');
 
-  // ② 슬림 + 무효 + 관측 없음 → 값 없음(지어내지 않음)
+  // ② 슬림 + 무효 + EOD 관측 없음 → main 과 같은 결과(기존 legacy live 15.0 — 이 수리가 새로 만들거나 지우지 않는다 · 관문 11130808 ③)
   seed({ kind: 'slim', spot: 173.73, obs: false });
   [r] = await readEarn();
-  assert.equal(r.impliedMovePct, null, `no valid live and no EOD → null — got ${r.impliedMovePct}`);
-  ok('② slim + rejected live + no observation → null («—»), nothing invented');
+  assert.equal(r.basis, 'live'); assert.equal(r.impliedMovePct, 15.0, `same as origin/main legacy — got ${r.impliedMovePct}`);
+  ok('② slim + rejected live + no EOD observation → unchanged origin/main result (legacy live 15.0)');
+
+  // ② 개장 1분 뒤(09:31 ET) · 체인 저장 09:30 · 다리 수신 09:20(장전) → «지금 live» 아님 → EOD (관문 11130808 ①)
+  {
+    const T931 = '2026-11-12T14:31:00Z';
+    seed({ kind: 'full', now: T931, mutate: (_k, _t, leg) => ({ ...leg, obsAt: '2026-11-12T14:20:00Z' }) });
+    [r] = await readEarn(T931);
+    assert.equal(r.basis, 'eod', `pre-open leg receipt must not ship as live — got ${r.basis} ${r.impliedMovePct}`);
+    assert.equal(r.impliedMovePct, 9.3);
+    ok('② legs received before the open (09:20 ET) → EOD fallback');
+  }
+  // ② 현물(구조 저장 12분 전)과 다리 수신(1분 전) 시각 차 11분 > 6분 → EOD (관문 11130808 ②)
+  seed({ kind: 'full', structureAgeMs: 12 * 60_000 });
+  [r] = await readEarn();
+  assert.equal(r.basis, 'eod', `spot/leg time skew must reject — got ${r.basis} ${r.impliedMovePct}`);
+  assert.equal(r.impliedMovePct, 9.3);
+  ok('② structure spot 12 min old vs legs 1 min → skew > 6 min → EOD fallback');
 
   // ② 호가 시각 낡음(20분) → 무효 → strict EOD
   seed({ kind: 'full', probeAgeMs: 20 * 60_000 });
