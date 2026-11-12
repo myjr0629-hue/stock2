@@ -613,8 +613,10 @@ const EARNINGS_LIVE_MAX_AGE_MS = 15 * 60_000;
 const EARNINGS_LIVE_PARITY_PP = 0.1;
 /** 허용치 상한(현물 대비) — 스트래들이 아주 작아도 1% 넘게 어긋난 현물은 받지 않는다 */
 const EARNINGS_LIVE_PARITY_SPOT_CAP = 0.01;
-/** 패리티의 할인율(연) — 근사값. 1%p 틀려도 45일 만기에서 현물의 0.12% 차이 */
+/** 패리티의 할인율(연) — 근사값 */
 const EARNINGS_LIVE_RATE = 0.04;
+/** 그 근사의 불확실성(연, ±) — 실제 단기 금리가 2~6% 어디든 허용치 안에서 감당 */
+const EARNINGS_LIVE_RATE_UNC = 0.02;
 /** 현물(구조 저장 시각)과 각 다리 실시간 수신 시각의 최대 차이 — 수집 주기 5분 + 여유 */
 const EARNINGS_LIVE_SPOT_SKEW_MS = 6 * 60_000;
 
@@ -633,6 +635,9 @@ function regularSessionLiveMove(rows: any[], spot: number, spotAt: number | null
     const gap = Math.abs((im.callPrice - im.putPrice) - (im.spot - im.strike * Math.exp(-EARNINGS_LIVE_RATE * years)));
     const tol = Math.min(EARNINGS_LIVE_PARITY_PP / 100 * im.spot * im.spot / (im.callPrice + im.putPrice), EARNINGS_LIVE_PARITY_SPOT_CAP * im.spot);
     if (!(gap <= tol)) return { im: null, rejected: true };
+    // 할인율 근사(4%)의 불확실성 ±EARNINGS_LIVE_RATE_UNC 만큼은 «현물 오차일 수도» 있다 — 그것까지 더해 예산 안이어야 증명(관문 11130824).
+    //   못 증명하면(만기가 멀고 허용치가 작은 경우) 후보 아님 → 예전 순서 그대로.
+    if (!(gap + im.strike * years * EARNINGS_LIVE_RATE_UNC <= tol)) return { im: null, rejected: false };
     // ④ 현물을 «정규장 현재가»로 언제 받았는지 모르면 동시성을 증명 못 한다 → 후보 아님(예전 순서 그대로)
     if (spotAt == null || !Number.isFinite(spotAt)) return { im: null, rejected: false };
     const today = etDateOf(nowMs);
