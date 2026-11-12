@@ -35,6 +35,8 @@ import { StarBadge } from './StarButton';
 import { canRedeemHere, openRedeem } from '@/lib/app/redeem';
 import s from './watchlist.module.css';
 import { markSessionError } from '@/lib/app/ratingMoments';
+import { purchaseWithTrialStart } from '@/lib/app/trialStartWatchlist';
+import { afterSheetHistory } from './BottomSheet';
 
 export type UpsellMode = 'limit' | 'alerts' | 'generic' | 'chips';
 
@@ -95,6 +97,8 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
   const sheetName = mode;
   const linksRef = useRef<HTMLDivElement>(null);
   useLineEdgeDots(linksRef);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   useEffect(() => { if (iapAvailable && !monthly) void refreshOffers(); }, [iapAvailable, monthly, refreshOffers]);
 
@@ -113,12 +117,25 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
     if ((mode === 'alerts' && wlUI.getSnapshot().sheet?.kind === 'alertUpsell') || !monthly) { wlUI.openPaywall(mode === 'alerts' ? 'alerts' : 'watchlist'); return; }
     setBusy(true);
     setNote(null);
-    const r = await purchase('monthly');
-    setBusy(false);
+    // ★11/12 신규 체험이면 «내 종목»으로 한 번(ProPaywall 과 같은 규칙 — lib/app/trialStartWatchlist · 관문 11112153 ①).
+    //   구매 전 읽기 사이에 시트가 닫혔으면 구매 창을 열지 않는다(관문 11112153 ②)
+    const out = await purchaseWithTrialStart({
+      plan: 'monthly', product: monthly.pkg?.product?.identifier,
+      purchase: () => purchase('monthly'), stillOpen: () => alive.current,
+    });
+    if (!out) return;
+    const r = out.res;
+    if (alive.current) setBusy(false);
     trackWatchlist('wl_purchase', { sheet: sheetName, ok: !!(r.ok && r.isPro), cancelled: !!r.cancelled });
+    if (out.claimed) {
+      // PRO 가 되면 위 effect(onBecamePro)가 시트를 닫고 할 일(한도 시트 = 담으려던 종목 담기)을 한다 — 그 뒤 «내 종목»으로
+      if (alive.current) onClose();
+      void afterSheetHistory().then(() => { if (window.location.pathname === out.origin) onNavigate('watchlist'); });
+      return;
+    }
     if (r.ok && r.isPro) return;                  // 위 effect 가 이어서 처리한다
     if (!r.ok && !r.cancelled) { markSessionError(); setNote(c.purchaseFailed); }
-  }, [busy, purchasePending, monthly, purchase, mode, sheetName, c.purchaseFailed]);
+  }, [busy, purchasePending, monthly, purchase, mode, sheetName, c.purchaseFailed, onClose, onNavigate]);
 
   const onRestore = useCallback(async () => {
     trackWatchlist('wl_cta', { sheet: sheetName, cta: 'restore' });

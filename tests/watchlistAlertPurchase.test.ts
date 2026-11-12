@@ -80,7 +80,8 @@ mock('../src/lib/app/watchlist', { FREE_LIMIT: 5, MAX_ITEMS: 100 });
 mock('../src/lib/app/watchlistFlags', { WATCHLIST_CHIP_TIERING: false });
 const trialStart = require('../src/lib/app/trialStartWatchlist') as typeof import('../src/lib/app/trialStartWatchlist');
 let trialReads: any[] = [];
-mock('../src/lib/app/trialStartWatchlist', { ...trialStart, readTrialCustomerInfo: async () => trialReads.shift() ?? null });
+mock('../src/lib/app/trialStartWatchlist', { ...trialStart, readTrialCustomerInfo: async () => trialReads.shift() ?? null,
+  purchaseWithTrialStart: (o: any) => trialStart.purchaseWithTrialStart({ ...o, read: async () => trialReads.shift() ?? null }) });
 mock('../src/components/app/watchlist/BottomSheet', { afterSheetHistory: async () => {} });
 
 const { ProPaywall } = require('../src/components/app/ProPaywall') as typeof import('../src/components/app/ProPaywall');

@@ -36,7 +36,7 @@ import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 import { RedeemCodeLink } from './RedeemCodeLink';
 import { markSessionError } from '@/lib/app/ratingMoments';
-import { claimTrialWatchlist, newTrialPeriod, readTrialCustomerInfo } from '@/lib/app/trialStartWatchlist';
+import { purchaseWithTrialStart } from '@/lib/app/trialStartWatchlist';
 import { afterSheetHistory } from '@/components/app/watchlist/BottomSheet';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
@@ -349,6 +349,11 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [picked, setPicked] = useState<PlanId | null>(null);
+  // ★11/12 구매 전 읽기 사이에 닫혔나(닫기 버튼 · 언마운트) — 닫힌 페이월 뒤에 구매 창을 열지 않는다
+  const alive = useRef(true);
+  const closedByUser = useRef(false);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const closeByUser = useCallback(() => { closedByUser.current = true; onClose(); }, [onClose]);
 
   // 스토어가 준 월간 오퍼. 없으면 «가격을 지어내지 않고» 버튼을 잠근다.
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
@@ -383,22 +388,22 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     void funnel().then((m) => m.trackFunnel('cta', { src: funnelSrc })).catch(() => {});
     setBusy(true);
     setNote(null);
-    const origin = window.location?.pathname ?? '';
-    const before = origin && !/\/app-view\/watchlist\/?$/.test(origin) && (selectedOffer.plan === 'monthly' || selectedOffer.plan === 'annual') ? await readTrialCustomerInfo() : null;
-    const started = Date.now();
-    const res = await purchase(selectedOffer.plan, funnelSrc);
-    if (res.ok && res.isPro && before) {
-      const after = await readTrialCustomerInfo();
-      const period = newTrialPeriod(before.info, after?.info ?? null, after?.platform ?? '', selectedOffer.pkg.product.identifier, started, Date.now());
-      let claimed = false;
-      try { claimed = window.location.pathname === origin && claimTrialWatchlist(period, origin, window.localStorage); } catch { /* storage unavailable */ }
-      if (claimed) {
-        onClose();
-        await afterSheetHistory();
-        if (window.location.pathname === origin) router.push(`/${loc}/app-view/watchlist`);
-        setBusy(false);
-        return;
-      }
+    // ★11/12 신규 체험이면 «내 종목»으로 한 번(lib/app/trialStartWatchlist). 알림 벨 경로(onProConfirmed)는 그 종목 설정으로 가므로 제외.
+    //   구매 전 읽기를 기다리는 사이 닫았으면 구매 창을 열지 않는다(관문 11112153 ②)
+    const out = await purchaseWithTrialStart({
+      plan: onProConfirmed || keepOpenWhilePro ? 'none' : selectedOffer.plan,
+      product: selectedOffer.pkg?.product?.identifier,
+      purchase: () => purchase(selectedOffer.plan, funnelSrc),
+      stillOpen: () => alive.current && !closedByUser.current,
+    });
+    if (!out) { if (alive.current) setBusy(false); return; }
+    const res = out.res;
+    if (out.claimed) {
+      if (alive.current) onClose();
+      await afterSheetHistory();
+      if (window.location.pathname === out.origin) router.push(`/${loc}/app-view/watchlist`);
+      if (alive.current) setBusy(false);
+      return;
     }
     setBusy(false);
     if (res.ok && res.isPro) { if (onProConfirmed) onProConfirmed(); else if (keepOpenWhilePro) onClose(); return; } // 평소엔 위 effect 가 닫는다
@@ -470,7 +475,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     <div className={s.overlay} data-pro-paywall data-paywall-src={context ? funnelSrc : undefined} role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
       <div className={s.sheet}>
         {/* 닫기 — 첫 페인트에 보이고 44×44 이상 (Play 요건) */}
-        <button ref={closeBtnRef} type="button" className={s.close} onClick={onClose} aria-label={t.close}>
+        <button ref={closeBtnRef} type="button" className={s.close} onClick={closeByUser} aria-label={t.close}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
