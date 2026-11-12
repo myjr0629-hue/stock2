@@ -5,7 +5,9 @@
 //   DELETE { rcAppUserId, deviceToken } → 200 — 그 기기 설정만 지운다.
 //   · 이미 등록된 푸시 토큰(push:tokens:<token>)만 받는다 — 토큰은 그 기기만 안다(기기 소유 증명). 토큰당 3초에 한 번.
 //   · PRO 는 서버가 RevenueCat 에서 확인한다(lib/proAlerts/rcVerify — 기기가 보낸 isPro 는 받지도 않는다). 양성 캐시 ≤6시간·권한 만료, 음성 60초.
-//   · RC 고객 하나에 기기 3대까지(넘으면 가장 오래 갱신 안 한 기기 설정을 지운다 — 남의 RC ID 로 혜택을 퍼뜨리지 못하게).
+//   · RC 고객 하나에 기기 5대까지 — 넘으면 409 device_limit(남의 기기를 밀어내지 않는다 · 묶음은 30일 갱신 없으면 풀린다).
+//     한계: 계정 로그인이 없어 «이 RC ID 가 이 기기 것»을 암호학적으로 증명하지는 못한다. RC 익명 ID(128비트 무작위)는 그 기기와 RC 만 안다 — 체험 보고(/api/push/trial)와 같은 신뢰 모델.
+//   · DELETE 는 토큰(기기만 앎) + 기록이 있으면 같은 RC 고객이어야 지운다.
 //   · 저장: Upstash push:pro-alerts:v1:<기기 해시>(TTL 30일 · 앱이 하루 한 번 다시 보내 연장) — 푸시 토큰 레코드와 따로.
 //   무료 «내 종목 이상 신호»(push:tokens 의 watchlist 사본 · push:sig:*)는 건드리지 않는다.
 // ============================================================================
@@ -91,6 +93,12 @@ export async function POST(req: NextRequest) {
             await r.set(PA_KEYS.pro(uidHash), JSON.stringify({ until: proUntil }), { ex: Math.max(60, Math.ceil((proUntil - now) / 1000)) });
         }
 
+        // 고객당 기기 상한 — 새 기기는 상한 안에서만 묶는다(남을 밀어내지 않는다 · 관문 11121338 ②). 오래된 묶음은 30일 TTL 로 풀린다
+        if (!(prev && prev.uidHash === uidHash)) {
+            const bound = (await r.zrange(PA_KEYS.uidDevs(uidHash), 0, -1)) as string[];
+            if (!bound.includes(dev) && bound.length >= PA_LIMITS.devicesPerUid) return json({ error: 'device_limit' }, 409);
+        }
+
         // ── 저장 ──
         const rec: ProAlertRecord = {
             v: 1, dev, token, platform, locale, tz, uidHash,
@@ -107,18 +115,12 @@ export async function POST(req: NextRequest) {
         if (prev && prev.uidHash && prev.uidHash !== uidHash) p.zrem(PA_KEYS.uidDevs(prev.uidHash), dev);
         await p.exec();
 
-        // 고객당 기기 상한 — 가장 오래 갱신 안 한 기기부터 뺀다
-        const n = Number(await r.zcard(PA_KEYS.uidDevs(uidHash))) || 0;
-        if (n > PA_LIMITS.devicesPerUid) {
-            const old = ((await r.zrange(PA_KEYS.uidDevs(uidHash), 0, n - PA_LIMITS.devicesPerUid - 1)) as string[]).filter((d) => d !== dev);
-            for (const d of old) await dropDevice(r, d, uidHash);
-        }
-
         // 이미 보낸 레벨(id, rev) — 앱이 그 레벨을 «보냄»으로 바꾼다
         const firedVals = rec.levels.length ? ((await r.mget(...rec.levels.map((l) => PA_KEYS.fired(dev, l.id, l.rev)))) as unknown[]) : [];
         const fired = rec.levels.flatMap((l, i) => {
-            const f = parseRecord<{ at?: number; px?: number }>(firedVals[i]);
-            return f && Number.isFinite(f.at) ? [{ id: l.id, rev: l.rev, at: f.at as number, px: Number(f.px) || null }] : [];
+            const f = parseRecord<{ at?: number; px?: number; s?: string }>(firedVals[i]);
+            // «보냄»이 확인된 것만(발송 전 잡아 둔 장부 s:'claim' 은 아직 아니다)
+            return f && f.s === 'sent' && Number.isFinite(f.at) ? [{ id: l.id, rev: l.rev, at: f.at as number, px: Number(f.px) || null }] : [];
         });
         return json({ ok: true, stored: rec.levels.length, active: activeLevels(rec).length, fired });
     } catch (e) {
@@ -137,6 +139,10 @@ export async function DELETE(req: NextRequest) {
         const dev = paDevKey(token);
         if ((await r.set(PA_KEYS.rl(dev), '1', { nx: true, ex: 3 })) !== 'OK') return json({ error: 'rate_limited' }, 429);
         const prev = parseRecord<ProAlertRecord>(await r.get(PA_KEYS.rec(dev)));
+        if (prev) {
+            const uid = typeof body?.rcAppUserId === 'string' ? body.rcAppUserId.trim() : '';
+            if (prev.uidHash !== paUidHash(uid)) return json({ error: 'not_owner' }, 403);
+        }
         await dropDevice(r, dev, prev?.uidHash ?? null);
         return json({ ok: true });
     } catch (e) {

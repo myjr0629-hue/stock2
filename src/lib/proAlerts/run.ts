@@ -93,7 +93,7 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     if (mode === 'off' && !preview) { report.status = 'off'; return report; }
     if (!(o.force && preview) && cashSessionPhaseAt(now) !== 'regular') { report.status = 'closed'; return report; }
     if (!preview && inPushBlackout(now)) { report.status = 'blackout'; return report; }
-    if (!preview && !(await store.setNx(PA_KEYS.lock, String(now), 55))) { report.status = 'locked'; return report; }
+    if (!preview && !(await store.setNx(PA_KEYS.lock, String(now), 240))) { report.status = 'locked'; return report; }
 
     // ── 기기 ──
     const devs = (await store.smembers(PA_KEYS.idx)) || [];
@@ -137,15 +137,22 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     }
 
     // ── 교차 ──
-    type Cand = { rec: ProAlertRecord; level: StoredLevel; prev: TickerObs; cur: TickerObs };
+    //   지난 실행에서 교차했지만 못 보낸 레벨(한 실행 상한·PRO 확인 불가·발송 실패 — 관문 11121338 ③)은 «대기» 표식으로 30분 동안 다시 시도한다.
+    type Cand = { rec: ProAlertRecord; level: StoredLevel; prev: TickerObs; cur: TickerObs; pending?: boolean };
     const cands: Cand[] = [];
-    for (const rec of eligible) {
-        for (const level of activeLevels(rec)) {
-            const c = cur.get(level.t);
-            const p = prev.get(level.t);
-            if (c && p && crossed(level, p, c)) cands.push({ rec, level, prev: p, cur: c });
+    const actives: Array<{ rec: ProAlertRecord; level: StoredLevel }> = [];
+    for (const rec of eligible) for (const level of activeLevels(rec)) actives.push({ rec, level });
+    const pendVals: unknown[] = [];
+    for (const part of chunked(actives, 100)) pendVals.push(...(await store.mget(part.map((a) => PA_KEYS.pend(a.rec.dev, a.level.id, a.level.rev)))));
+    actives.forEach(({ rec, level }, i) => {
+        const c = cur.get(level.t);
+        const p = prev.get(level.t);
+        if (c && p && crossed(level, p, c)) { cands.push({ rec, level, prev: p, cur: c }); return; }
+        const pend = parseRecord<{ p?: number; at?: number; prev?: number }>(pendVals[i]);
+        if (pend && Number(pend.p) > 0 && Number.isFinite(pend.at)) {
+            cands.push({ rec, level, prev: { p: Number(pend.prev) || 0, at: 0, d: etDate }, cur: c ?? { p: Number(pend.p), at: Number(pend.at), d: etDate }, pending: true });
         }
-    }
+    });
 
     // 종목 상태(직전 관측)를 새 값으로 — 교차 판정 «뒤»에(같은 실행 안에서 쓴 값으로 판정하지 않게)
     if (!preview) {
@@ -157,43 +164,61 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     // 이미 보낸 (id, rev) 거르기
     const firedVals = await store.mget(cands.map((c) => PA_KEYS.fired(c.rec.dev, c.level.id, c.level.rev)));
     const fresh = cands.filter((_, i) => !firedVals[i]);
-    for (const c of cands) report.crossings.push({ dev: c.rec.dev.slice(0, 8), t: c.level.t, id: c.level.id, dir: c.level.dir, px: c.level.px, prev: c.prev.p, cur: c.cur.p, ...(fresh.includes(c) ? {} : { why: 'sent' }) });
-    if (preview || !fresh.length) return report;
+    for (const c of cands) report.crossings.push({ dev: c.rec.dev.slice(0, 8), t: c.level.t, id: c.level.id, dir: c.level.dir, px: c.level.px, prev: c.prev.p, cur: c.cur.p, ...(fresh.includes(c) ? (c.pending ? { why: 'pending' } : {}) : { why: 'sent' }) });
+    if (preview) return report;
+    // 이미 보낸 레벨의 대기 표식은 지운다
+    const stale = cands.filter((c, i) => c.pending && firedVals[i]).map((c) => PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev));
+    if (stale.length) await store.del(stale).catch(() => {});
+    if (!fresh.length) return report;
+
+    /** 못 보낸 교차 — 30분 동안 다음 실행이 다시 시도한다(처음 교차한 값을 그대로) */
+    const markPending = async (c: Cand) => {
+        if (c.pending) return;
+        await store.set(PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev), JSON.stringify({ p: c.cur.p, at: c.cur.at, prev: c.prev.p }), PA_CFG.pendingTtlSec).catch(() => {});
+    };
 
     // ── 기기별 선택 · PRO 확인 ──
+    //   크론은 기기 기록을 다시 쓰지 않는다(사용자가 그사이 바꾼 설정을 옛 값으로 덮지 않게 — 관문 11121338 ④). PRO 판정은 고객 캐시 키에만.
     const sent = { items: 0, ok: 0, fail: 0, dead: 0, claimLost: 0, capped: 0, notPro: 0, unverified: 0 };
     report.sent = sent;
     const byDev = new Map<string, Cand[]>();
     for (const c of fresh) { const a = byDev.get(c.rec.dev) ?? []; a.push(c); byDev.set(c.rec.dev, a); }
+    const devList = [...byDev.keys()];
+    const proCache = await store.mget(devList.map((d) => PA_KEYS.pro(byDev.get(d)![0].rec.uidHash)));
+    const cacheOf = new Map(devList.map((d, i) => [d, parseRecord<{ until?: number; neg?: number }>(proCache[i])] as const));
     let reverifyLeft = o.maxReverifyPerRun ?? 20;
     const items: PaSendItem[] = [];
-    const meta = new Map<string, { claim: string; cap: string; rec: ProAlertRecord }>();
+    const meta = new Map<string, { claim: string; cap: string; rec: ProAlertRecord; cand: Cand }>();
     for (const [dev, list] of byDev) {
         const rec = list[0].rec;
-        if (!(rec.proUntil > now)) {
+        const cache = cacheOf.get(dev);
+        const proOk = rec.proUntil > now || (cache?.until ?? 0) > now;
+        if (!proOk) {
+            if ((cache?.neg ?? 0) > now) { sent.notPro += list.length; continue; }
             const v = reverifyLeft > 0 && deps.reverify ? (reverifyLeft--, await deps.reverify(rec).catch(() => null)) : null;
-            if (!v || v.kind === 'limited' || v.kind === 'unavailable') { sent.unverified += list.length; continue; }
+            if (!v || v.kind === 'limited' || v.kind === 'unavailable') { sent.unverified += list.length; for (const c of list) await markPending(c); continue; }
             if (v.kind === 'not_pro') {
                 sent.notPro += list.length;
-                await store.set(PA_KEYS.rec(dev), JSON.stringify({ ...rec, proUntil: 0 }), PA_CFG.recordTtlSec).catch(() => {});
+                await store.set(PA_KEYS.pro(rec.uidHash), JSON.stringify({ neg: now + PA_CFG.proNegativeTtlMs }), 120).catch(() => {});
                 continue;
             }
-            rec.proUntil = Math.min(v.expiry, now + PA_CFG.proPositiveTtlMs);
-            await store.set(PA_KEYS.rec(dev), JSON.stringify(rec), PA_CFG.recordTtlSec).catch(() => {});
+            const until = Math.min(v.expiry, now + PA_CFG.proPositiveTtlMs);
+            await store.set(PA_KEYS.pro(rec.uidHash), JSON.stringify({ until }), Math.max(60, Math.ceil((until - now) / 1000))).catch(() => {});
         }
         const quiet = inQuietHours(rec.tz, now);
         let taken = 0;
         for (const c of list) {
-            if (taken >= PA_CFG.perRunPerDevice) break;
+            if (taken >= PA_CFG.perRunPerDevice) { await markPending(c); continue; }
             const claim = PA_KEYS.fired(dev, c.level.id, c.level.rev);
-            if (!(await store.setNx(claim, JSON.stringify({ at: now, px: c.cur.p }), PA_CFG.firedTtlSec))) { sent.claimLost++; continue; }
+            // 장부 «잡는 중» — 발송이 확인된 뒤에만 «보냄»(s:'sent')으로 바꾼다(설정 API 는 보냄만 앱에 알린다 — 관문 11121338 ⑤)
+            if (!(await store.setNx(claim, JSON.stringify({ at: now, px: c.cur.p, s: 'claim' }), PA_CFG.firedTtlSec))) { sent.claimLost++; continue; }
             const capKey = PA_KEYS.cap(etDate, dev);
             const used = await store.incr(capKey, 2 * 86400);
             if (used > PA_CFG.deviceDailyCap) {
                 sent.capped++;
                 await store.decr(capKey).catch(() => 0);
                 await store.del([claim]).catch(() => {});
-                break;   // 오늘 상한 — 이 기기의 나머지 레벨은 다음 교차에(claim 을 남기지 않는다)
+                break;   // 오늘 상한 — 이 기기의 나머지 레벨은 다음 교차에(claim·대기 표식을 남기지 않는다)
             }
             taken++;
             const copy = pushCopy(rec.locale, c.level.t, c.level.dir, c.level.px, c.cur.p);
@@ -202,7 +227,7 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
                 id, token: rec.token, platform: rec.platform, title: copy.title, body: copy.body, quiet, thread: `pa-${c.level.t}`,
                 data: { type: 'wl_signal', src: 'push_sig_price', ev: 'price_level', t: c.level.t, lid: c.level.id, rev: String(c.level.rev), path: `/app-view/flow?t=${c.level.t}&from=sig` },
             });
-            meta.set(id, { claim, cap: capKey, rec });
+            meta.set(id, { claim, cap: capKey, rec, cand: c });
         }
     }
     if (!items.length || !deps.sender) return report;
@@ -212,15 +237,20 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     for (const it of items) {
         const r = out.get(it.id) ?? 'fail';
         const m = meta.get(it.id)!;
-        if (r === 'ok') { sent.ok++; continue; }
-        if (r === 'dead') { sent.dead++; deadDevs.add(m.rec.dev); } else sent.fail++;
+        const pendKey = PA_KEYS.pend(m.rec.dev, m.cand.level.id, m.cand.level.rev);
+        if (r === 'ok') {
+            sent.ok++;
+            await store.set(m.claim, JSON.stringify({ at: now, px: m.cand.cur.p, s: 'sent' }), PA_CFG.firedTtlSec).catch(() => {});
+            if (m.cand.pending) await store.del([pendKey]).catch(() => {});
+            continue;
+        }
         await store.del([m.claim]).catch(() => {});
         await store.decr(m.cap).catch(() => 0);
+        if (r === 'dead') { sent.dead++; deadDevs.add(m.rec.dev); await store.del([pendKey]).catch(() => {}); }
+        else { sent.fail++; await markPending(m.cand); }
     }
-    if (deadDevs.size) {
-        await store.del([...deadDevs].map(PA_KEYS.rec)).catch(() => {});
-        await store.srem(PA_KEYS.idx, [...deadDevs]).catch(() => {});
-    }
+    // 죽은 토큰 — 색인에서만 뺀다(기록은 30일 TTL · 같은 토큰으로 새로 저장되면 색인에 다시 들어간다). 그사이 저장된 새 기록을 지우지 않는다(관문 11121338 ④)
+    if (deadDevs.size) await store.srem(PA_KEYS.idx, [...deadDevs]).catch(() => {});
     for (let i = 0; i < sent.ok; i++) await store.incr(`${PA_KEYS.stats(etDate)}:ok`, 8 * 86400).catch(() => 0);
     return report;
 }

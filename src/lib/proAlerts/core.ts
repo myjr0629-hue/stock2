@@ -15,8 +15,8 @@ export const PA_LIMITS = {
     tickers: 100,
     levels: 500,
     bodyBytes: 64 * 1024,
-    /** 같은 RC 고객에 묶을 수 있는 기기 수(아이폰·아이패드·새 폰) — 넘으면 가장 오래된 기기부터 뺀다 */
-    devicesPerUid: 3,
+    /** 같은 RC 고객에 묶을 수 있는 기기 수(아이폰·아이패드·새 폰) — 넘으면 409(남의 기기를 밀어내지 않는다) */
+    devicesPerUid: 5,
 } as const;
 
 export const PA_CFG = {
@@ -36,6 +36,8 @@ export const PA_CFG = {
     tickerStateTtlSec: 3 * 86400,
     /** 발송 기록(id·rev) 수명 — 기록 수명과 같게(그 뒤엔 기록도 없다) */
     firedTtlSec: 30 * 86400,
+    /** 교차했지만 못 보낸 레벨을 다시 시도하는 시간 */
+    pendingTtlSec: 30 * 60,
 } as const;
 
 export type Dir = 'up' | 'down';
@@ -71,6 +73,7 @@ export const PA_KEYS = {
     uidDevs: (uidHash: string) => `push:pro-alerts:v1:uid:${uidHash}`,
     pro: (uidHash: string) => `push:pro-alerts:v1:pro:${uidHash}`,
     fired: (dev: string, id: string, rev: number) => `push:pro-alerts:v1:f:${dev}:${id}:${rev}`,
+    pend: (dev: string, id: string, rev: number) => `push:pro-alerts:v1:pend:${dev}:${id}:${rev}`,
     cap: (etDate: string, dev: string) => `push:pro-alerts:v1:cap:${etDate}:${dev}`,
     rl: (dev: string) => `push:pro-alerts:v1:rl:${dev}`,
     vrl: (kind: 'ip' | 'id' | 'all', k: string, w: number) => `push:pro-alerts:v1:vrl:${kind}:${k}:${w}`,

@@ -20,7 +20,7 @@ class Mem implements PaStore {
     async smembers(k: string) { return [...(this.sets.get(k) ?? [])]; }
     async mget(keys: string[]) { return keys.map((k) => (this.m.has(k) ? JSON.parse(this.m.get(k)!) : null)); }
     async get(k: string) { return this.m.has(k) ? JSON.parse(this.m.get(k)!) : null; }
-    async setNx(k: string, v: string) { this.writes.push(k); if (this.m.has(k)) return false; this.m.set(k, JSON.stringify(v)); return true; }
+    async setNx(k: string, v: string) { this.writes.push(k); if (this.m.has(k)) return false; this.m.set(k, JSON.stringify(v.startsWith('{') ? JSON.parse(v) : v)); return true; }
     async set(k: string, v: string) { this.writes.push(k); this.m.set(k, JSON.stringify(v.startsWith('{') || v.startsWith('[') ? JSON.parse(v) : v)); }
     async incr(k: string) { this.writes.push(k); const n = (Number(this.m.has(k) ? JSON.parse(this.m.get(k)!) : 0) || 0) + 1; this.m.set(k, JSON.stringify(n)); return n; }
     async decr(k: string) { this.writes.push(k); const n = (Number(this.m.has(k) ? JSON.parse(this.m.get(k)!) : 0) || 0) - 1; this.m.set(k, JSON.stringify(n)); return n; }
@@ -123,13 +123,32 @@ t('하루 상한(PRO 전용 키) — 넘으면 보내지 않고 claim 을 되돌
     assert.equal(claims.length, 1, '상한에 걸린 레벨은 claim 이 남지 않는다(다음 교차에 다시)');
     assert.equal(s.writes.some((k) => k.startsWith('push:sig:')), false, '무료 신호 키(push:sig:*) 쓰기 0');
 });
-t('한 실행 한 기기 최대 3통', async () => {
+t('한 실행 한 기기 최대 3통 — 넘친 교차는 대기 표식으로 다음 실행에(누락 없음)', async () => {
     const levels = Array.from({ length: 5 }, (_, i) => lv({ id: `lvl1${i}`, px: 200 + i * 0.1 }));
     const s = setup({ levels });
     s.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10, d: D }));
     const a = deps(s, { NVDA: 205 }, T10 + 300_000);
     await run(a.d, T10 + 301_000);
     assert.equal(a.sent.length, PA_CFG.perRunPerDevice);
+    freeLock(s);
+    const b = deps(s, { NVDA: 205.5 }, T10 + 600_000);
+    await run(b.d, T10 + 601_000);
+    assert.equal(b.sent.length, 2, '남은 2개가 다음 실행에');
+    assert.equal(new Set([...a.sent, ...b.sent].map((x) => x.data.lid)).size, 5);
+    freeLock(s);
+    const c = deps(s, { NVDA: 205.6 }, T10 + 900_000);
+    await run(c.d, T10 + 901_000);
+    assert.equal(c.sent.length, 0, '다 보낸 뒤엔 0');
+});
+t('발송 전 장부는 s:"claim" — 확인 뒤에만 s:"sent"', async () => {
+    const s = setup();
+    s.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10, d: D }));
+    let seen: any = null;
+    const a = deps(s, { NVDA: 201 }, T10 + 300_000);
+    a.d.sender = { send: async (items) => { seen = JSON.parse(s.m.get(PA_KEYS.fired(DEV, 'abcd1', 1))!); return new Map(items.map((i) => [i.id, 'ok' as const])); } };
+    await run(a.d, T10 + 301_000);
+    assert.equal(seen.s, 'claim');
+    assert.equal(JSON.parse(s.m.get(PA_KEYS.fired(DEV, 'abcd1', 1))!).s, 'sent');
 });
 t('PRO 캐시 만료 + 재확인 실패/불가 → 발송 0 · not_pro 면 기록 proUntil=0', async () => {
     for (const verdict of [null, { kind: 'unavailable' as const }, { kind: 'limited' as const }]) {
@@ -145,27 +164,37 @@ t('PRO 캐시 만료 + 재확인 실패/불가 → 발송 0 · not_pro 면 기�
     const a = deps(s, { NVDA: 201 }, T10 + 300_000, { reverify: async () => ({ kind: 'not_pro' }) });
     const r = await run(a.d, T10 + 301_000);
     assert.equal(a.sent.length, 0); assert.equal(r.sent?.notPro, 1);
-    assert.equal(JSON.parse(s.m.get(PA_KEYS.rec(DEV))!).proUntil, 0);
+    assert.ok(JSON.parse(s.m.get(PA_KEYS.pro('uX'))!).neg > T10, '음성은 고객 캐시 키에만');
+    assert.equal(s.writes.includes(PA_KEYS.rec(DEV)), false, '크론은 기기 기록을 다시 쓰지 않는다');
     // 재확인 양성 → 보내고 proUntil 갱신
     const s2 = setup({ proUntil: T10 - 1 });
     s2.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10, d: D }));
     const b = deps(s2, { NVDA: 201 }, T10 + 300_000, { reverify: async () => ({ kind: 'pro', expiry: T10 + 30 * 86400_000 }) });
     await run(b.d, T10 + 301_000);
     assert.equal(b.sent.length, 1);
-    assert.ok(JSON.parse(s2.m.get(PA_KEYS.rec(DEV))!).proUntil > T10 + 301_000);
+    assert.ok(JSON.parse(s2.m.get(PA_KEYS.pro('uX'))!).until > T10 + 301_000);
+    assert.equal(s2.writes.includes(PA_KEYS.rec(DEV)), false);
 });
-t('확정 실패 → claim·상한 복원 · 죽은 토큰 → 기록·색인 삭제', async () => {
+t('확정 실패 → claim·상한 복원 + 대기 표식(다음 실행 재시도) · 죽은 토큰 → 색인에서만 뺀다(기록은 덮지 않음)', async () => {
     const s = setup();
     s.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10, d: D }));
     const a = deps(s, { NVDA: 201 }, T10 + 300_000, { outcome: 'fail' });
     await run(a.d, T10 + 301_000);
     assert.equal(s.m.has(PA_KEYS.fired(DEV, 'abcd1', 1)), false);
     assert.equal(s.m.get(PA_KEYS.cap(D, DEV)), '0');
+    assert.ok(s.m.has(PA_KEYS.pend(DEV, 'abcd1', 1)), '못 보낸 교차는 대기 표식');
+    // 다음 실행: 가격이 레벨 위에 머물러 «새 교차»는 없지만 대기 표식으로 다시 보낸다
+    freeLock(s);
+    const a2 = deps(s, { NVDA: 201.2 }, T10 + 600_000);
+    await run(a2.d, T10 + 601_000);
+    assert.equal(a2.sent.length, 1);
+    assert.equal(s.m.has(PA_KEYS.pend(DEV, 'abcd1', 1)), false);
+    assert.equal(JSON.parse(s.m.get(PA_KEYS.fired(DEV, 'abcd1', 1))!).s, 'sent');
     const s2 = setup();
     s2.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10, d: D }));
     const b = deps(s2, { NVDA: 201 }, T10 + 300_000, { outcome: 'dead' });
     await run(b.d, T10 + 301_000);
-    assert.equal(s2.m.has(PA_KEYS.rec(DEV)), false);
+    assert.equal(s2.m.has(PA_KEYS.rec(DEV)), true, '그사이 새로 저장됐을 수 있는 기록은 지우지 않는다');
     assert.equal(s2.sets.get(PA_KEYS.idx)?.has(DEV), false);
 });
 t('장 시간 밖·모드 off·겹침 금지 창 → 아무것도 하지 않는다', async () => {

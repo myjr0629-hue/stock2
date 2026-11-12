@@ -3,7 +3,7 @@
  *
  * 가격(정규장만):
  *   ① 가격 허브(wss://ws.signumhq.com ← EC2 price-ws, Intrinio EQUITIES_EDGE WS)의 마지막 체결 /last — 벤더 REST 호출 0, 기존 공유 가격 원천.
- *   ② 허브에 없거나 낡은 종목만 Intrinio securities/{T}/prices/realtime?source=equities_edge — 실행당 30 · 하루 3,000 상한(FMP 쓰지 않음).
+ *   ② 허브에 없거나 낡은 종목만 Intrinio securities/{T}/prices/realtime?source=equities_edge — 실행당 15종목(재시도 포함 실호출 ≤30) · 하루 실호출 3,000 상한(원자 예약 · FMP 쓰지 않음).
  *      429·실패면 그 종목은 이번 실행에 건너뛴다(직전 관측이 남아 다음 실행에 이어서 판정 · 공백이 16분 넘으면 기준점만 다시).
  * 끄는 법(재배포 없이): GET /api/cron/pro-alerts?mode=off (Bearer CRON_SECRET) → push:pro-alerts:v1:mode='off'. 환경변수 PRO_ALERTS_MODE=off 도 같다.
  */
@@ -22,7 +22,10 @@ export const PA_PRICE = {
     /** 허브가 받은 지 이 시간 안의 체결만(체결이 드문 종목은 예비 경로로) */
     hubMaxAgeMs: 10 * 60_000,
     hubMaxLagMs: 90_000,
-    vendorPerRun: 30,
+    /** 실행당 예비 조회 종목 수 — 종목당 최대 2회 시도(callIntrinio 재시도)라 실행당 실호출 ≤ 30 */
+    vendorPerRun: 15,
+    attemptsPerCall: 2,
+    /** 하루 실호출 상한(시도 수 기준) */
     vendorPerDay: 3000,
     vendorConcurrency: 5,
     vendorMaxAgeMs: 10 * 60_000,
@@ -60,7 +63,21 @@ export function rcKeys() {
 }
 
 /** 가격 허브 → (빠진 종목) Intrinio 예비. 던지지 않는다 */
-export function prodPrices(store: PaStore): PaPrices {
+/** 하루 계량 원자 예약 — 키를 n 만큼 올리고, 상한을 넘은 만큼 돌려준 뒤 실제로 잡은 수를 준다 */
+export type Reserve = (key: string, n: number, cap: number) => Promise<number>;
+export function upstashReserve(r: Redis = redis()): Reserve {
+    return async (key, n, cap) => {
+        if (n <= 0) return 0;
+        const after = Number(await r.incrby(key, n));
+        await r.expire(key, 2 * 86400);
+        if (!Number.isFinite(after)) return 0;
+        const over = Math.max(0, after - cap);
+        if (over > 0) await r.decrby(key, Math.min(over, n));
+        return Math.max(0, n - over);
+    };
+}
+
+export function prodPrices(store: PaStore, reserve: Reserve | null = null): PaPrices {
     return {
         async read(tickers, now, opts): Promise<PriceRead> {
             const out: PriceRead = { prices: new Map(), hub: 0, vendor: 0, missing: 0, vendorCalls: 0 };
@@ -86,17 +103,13 @@ export function prodPrices(store: PaStore): PaPrices {
                 }
             }
             const missing = tickers.filter((t) => !out.prices.has(t));
-            if (missing.length && opts.allowVendor) {
-                let budget: number = PA_PRICE.vendorPerRun;
-                try {
-                    const used = Number(await store.get(PA_KEYS.vendorDay(etDate))) || 0;
-                    budget = Math.max(0, Math.min(budget, PA_PRICE.vendorPerDay - used));
-                } catch { budget = 0; }
-                const todo = missing.slice(0, budget);
+            if (missing.length && opts.allowVendor && reserve) {
+                // 하루 계량은 «최대 시도 수»(종목당 재시도 포함 2회)로 먼저 «원자적으로» 잡는다(INCRBY) — 넘친 만큼 돌려주고 그만큼만 부른다.
+                //   계량을 못 하면(Redis 장애) 부르지 않는다(관문 11121338 ①)
+                const want = Math.min(missing.length, PA_PRICE.vendorPerRun) * PA_PRICE.attemptsPerCall;
+                const granted = await reserve(PA_KEYS.vendorDay(etDate), want, PA_PRICE.vendorPerDay).catch(() => 0);
+                const todo = missing.slice(0, Math.floor(granted / PA_PRICE.attemptsPerCall));
                 if (todo.length) {
-                    await store.incr(PA_KEYS.vendorDay(etDate), 2 * 86400).catch(() => 0);
-                    // 하루 계량은 «시도한 종목 수»로 센다(첫 incr 1 + 나머지)
-                    for (let j = 1; j < todo.length; j++) await store.incr(PA_KEYS.vendorDay(etDate), 2 * 86400).catch(() => 0);
                     const deadline = Date.now() + 20_000;
                     let next = 0;
                     const worker = async () => {
@@ -123,7 +136,7 @@ export function prodDeps(): PaDeps {
     const store = paUpstashStore();
     return {
         store,
-        prices: prodPrices(store),
+        prices: prodPrices(store, upstashReserve(store.raw)),
         sender: { send: sendSignalPushes },
         reverify: async (rec: ProAlertRecord) => {
             const uid = openUid(rec.uidEnc, process.env.CRON_SECRET);
