@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const redis = Redis.fromEnv();
-type TokenRec = { app?: string; platform?: string; preferences?: { enabled?: boolean }; notifPerm?: boolean; tz?: string };
+type TokenRec = { app?: string; platform?: string; preferences?: { enabled?: boolean }; notifPerm?: boolean; tz?: string; createdAt?: string };
 
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;

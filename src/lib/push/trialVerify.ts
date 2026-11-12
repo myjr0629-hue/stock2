@@ -23,6 +23,8 @@ export const trialUidHash = (uid: string) => crypto.createHash('sha256').update(
 const ipHash = (ip: string) => crypto.createHash('sha256').update('trialip:' + ip).digest('hex').slice(0, 32);
 /** RC 고객(해시) → 지금 묶인 푸시 토큰 */
 export const TRIAL_PUSH_UID_KEY = (uidHash: string) => `push:trial:uid:${uidHash}`;
+/** 푸시 토큰 → 지금 그 토큰의 체험 기록 주인(RC 고객 해시) */
+export const TRIAL_PUSH_OWNER_KEY = (token: string) => `push:trial:owner:${token}`;
 
 export type VerifiedTrial = { expiresAt: number; willRenew: boolean; periodType: 'TRIAL'; store: 'APP_STORE' | 'PLAY_STORE' };
 export type TrialVerdict =

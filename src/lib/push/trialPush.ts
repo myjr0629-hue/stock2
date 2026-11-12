@@ -45,13 +45,14 @@ export interface TrialPushRecord {
   at: number;
   /** ★11/12 RC 에서 확인한 기록(보고 API 가 RC 값으로 쓴다). 없는 기록은 확인 이전(TRIAL_PUSH_VERIFY_SINCE 전) 것만 보낸다 */
   verified?: boolean;
-  /** ★11/12 확인한 RC 고객의 해시(원문 아님) — 고객당 한 토큰 정리 때 «지금도 같은 고객의 기록인가»만 본다 */
-  uh?: string;
 }
 
 /** ★11/12 야간 검토 ② — 이 시각 «뒤»에 쓰인 기록은 RC 확인 표식(verified)이 있어야 보낸다. 그 전 기록(확인 없는 옛 보고 API 가 쓴 것 — 이 배포의 운영 반영 기한 KST 17시. 새 API 는 대상 기록에 항상 verified 를 단다)은
  *  다음 앱 진입 때 확인된 기록으로 바뀌기 전까지 그대로 보낸다(첫 만료 11/12 — 앱을 열지 않는 사람의 D-2 푸시를 끊지 않게). */
 export const TRIAL_PUSH_VERIFY_SINCE = Date.parse('2026-11-12T08:00:00Z');
+/** ★11/12 관문 11121021 ② — 옛(미확인) 기록은 그 푸시 토큰이 체험 보고 API 가 생기기 «전»(11/11 09:00 KST, 229ca028a)에 등록된 기기일 때만 보낸다.
+ *  허위 체험 보고는 «토큰 등록 → 보고» 두 단계라, API 가 생긴 뒤 새로 등록된 토큰의 옛 기록은 믿지 않는다(실제 신규 설치자는 다음 진입 때 확인된 기록으로 바뀐다). */
+export const TRIAL_PUSH_LEGACY_TOKEN_BEFORE = Date.parse('2026-11-11T00:00:00Z');
 
 /** 등록 요청 본문 → 저장할 레코드. 잘못된 값이면 null. («체험 끝남·유료 전환» 해제 요청 {clear:true} 은 라우트가 따로 처리) */
 export function sanitizeTrialReport(body: unknown, now: number): TrialPushRecord | null {
@@ -102,12 +103,16 @@ export type TrialPushSkip = 'invalid' | 'unverified' | 'renewing' | 'sent' | 'wi
 /** 지금 보낼까 — 'send' 또는 안 보내는 이유 */
 export function trialPushDecision(
   rec: TrialPushRecord | null,
-  tokenRec: { app?: string; platform?: string; preferences?: { enabled?: boolean } | null; notifPerm?: boolean; tz?: string } | null,
+  tokenRec: { app?: string; platform?: string; preferences?: { enabled?: boolean } | null; notifPerm?: boolean; tz?: string; createdAt?: string } | null,
   now: number,
   alreadySent = false,
 ): 'send' | TrialPushSkip {
   if (!rec || typeof rec.expiresAt !== 'number') return 'invalid';
-  if (rec.verified !== true && !(typeof rec.at === 'number' && rec.at < TRIAL_PUSH_VERIFY_SINCE)) return 'unverified';
+  if (rec.verified !== true) {
+    const tokenSince = Date.parse(typeof tokenRec?.createdAt === 'string' ? tokenRec.createdAt : '');
+    const legacy = typeof rec.at === 'number' && rec.at < TRIAL_PUSH_VERIFY_SINCE && Number.isFinite(tokenSince) && tokenSince < TRIAL_PUSH_LEGACY_TOKEN_BEFORE;
+    if (!legacy) return 'unverified';
+  }
   if (rec.periodType !== 'TRIAL' || rec.willRenew !== false) return 'renewing';
   if (alreadySent) return 'sent';
   const left = rec.expiresAt - now;

@@ -70,7 +70,7 @@ for (const left of [1, 60_000, 12 * H, 2 * D, TRIAL_OFF_WINDOW_MS]) {
 // ── 4. D-2 푸시(서버) 무관 ──
 const tok = 'f'.repeat(64);
 const t = Date.parse('2026-11-11T06:00:00Z');
-const R = (c: Partial<TrialPushRecord> = {}): TrialPushRecord => ({ token: tok, platform: 'ios', locale: 'ko', expiresAt: t + 40 * H, willRenew: false, periodType: 'TRIAL', store: 'APP_STORE', at: t - 10 * H, ...c });
+const R = (c: Partial<TrialPushRecord> = {}): TrialPushRecord => ({ token: tok, platform: 'ios', locale: 'ko', expiresAt: t + 40 * H, willRenew: false, periodType: 'TRIAL', store: 'APP_STORE', at: t - 10 * H, verified: true, ...c });
 const tr = { app: 'signum', preferences: { enabled: true }, notifPerm: true, tz: 'Asia/Seoul' };
 assert.equal(trialPushDecision(R(), tr, t), 'send', 'D-2 그대로 발송');
 assert.equal(trialPushDecision(R({ expiresAt: t + 29 * D }), tr, t), 'window', '조기 안내 대상(29일 남음)에게 푸시는 없다');

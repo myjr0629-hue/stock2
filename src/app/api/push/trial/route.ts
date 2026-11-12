@@ -13,9 +13,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 import { TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_RL_KEY, sanitizeTrialReport, trialPushWanted, validPushToken, type TrialPushRecord } from '@/lib/push/trialPush';
-import { RC_UID_RE, TRIAL_PUSH_UID_KEY, trialUidHash, verifyTrialWithRc, type TrialVerifyStore } from '@/lib/push/trialVerify';
+import { RC_UID_RE, TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY, trialUidHash, verifyTrialWithRc, type TrialVerifyStore } from '@/lib/push/trialVerify';
 import { clientIpFrom } from '@/lib/guruLens/proAccess';
-import { parseRecord } from '@/lib/push/prefs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +29,8 @@ const verifyStore: TrialVerifyStore = {
     return keys.map((_, i) => Number(out[i * 2]));
   },
 };
+/** 옛 토큰의 주인이 이 고객일 때만 대상·기록·주인 표식을 지운다(원자적) */
+const DROP_IF_OWNER_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('ZREM', KEYS[2], ARGV[2]); redis.call('DEL', KEYS[3]); redis.call('DEL', KEYS[1]); return 1 end return 0";
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
 export async function POST(req: NextRequest) {
@@ -90,15 +91,16 @@ async function addVerified(req: NextRequest, token: string, uid: string, rec: Tr
   }
   const trial = (v as Extract<typeof v, { kind: 'trial' }>).trial;
   const uh = trialUidHash(uid);
-  const out: TrialPushRecord = { ...rec, expiresAt: trial.expiresAt, willRenew: trial.willRenew, periodType: trial.periodType, store: trial.store, verified: true, uh };
+  const out: TrialPushRecord = { ...rec, expiresAt: trial.expiresAt, willRenew: trial.willRenew, periodType: trial.periodType, store: trial.store, verified: true };
   const ttl = Math.max(60, Math.ceil((out.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S);
+  // 이 토큰의 주인(고객 해시)을 «먼저» 적는다 — 다른 고객 요청이 이 토큰을 옛 토큰으로 지우려 해도 주인이 바뀌었으면 못 지운다
+  await redis.set(TRIAL_PUSH_OWNER_KEY(token), uh, { ex: ttl });
   // RC 고객 하나 = 토큰 하나 — 같은 체험을 다른 토큰으로 보고하면 옛 토큰을 대상에서 뺀다.
-  //   단 옛 토큰의 기록이 «지금도 이 고객»일 때만(그 토큰이 다른 고객에게 넘어갔으면 남의 기록을 지우지 않는다 — 관문 11121018 ②)
+  //   단 옛 토큰의 주인이 «지금도 이 고객»일 때만, 확인과 삭제를 한 번에(Lua — 관문 11121018 ②·11121021 ①)
   const uidKey = TRIAL_PUSH_UID_KEY(uh);
   const prevTok = await redis.get<string>(uidKey);
   if (typeof prevTok === 'string' && prevTok && prevTok !== token) {
-    const prevRec = parseRecord<TrialPushRecord>(await redis.get(TRIAL_PUSH_KEY(prevTok)));
-    if (prevRec?.uh === uh) await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, prevTok), redis.del(TRIAL_PUSH_KEY(prevTok))]);
+    await redis.eval(DROP_IF_OWNER_LUA, [TRIAL_PUSH_OWNER_KEY(prevTok), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY(prevTok)], [uh, prevTok]);
   }
   await redis.set(uidKey, token, { ex: ttl });
   await redis.set(TRIAL_PUSH_KEY(token), JSON.stringify(out), { ex: ttl });

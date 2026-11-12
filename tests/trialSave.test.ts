@@ -129,9 +129,15 @@ assert.equal(trialPushWanted(sanitizeTrialReport({ ...body, periodType: 'NORMAL'
 
 // 발송 판정 — 서울 오후 3시(06:00Z) 기준
 const t = Date.parse('2026-11-11T06:00:00Z');
-const R = (c: Partial<TrialPushRecord> = {}): TrialPushRecord => ({ token: tok, platform: 'ios', locale: 'ko', expiresAt: t + 40 * H, willRenew: false, periodType: 'TRIAL', store: 'APP_STORE', at: t - 10 * H, ...c });
+const R = (c: Partial<TrialPushRecord> = {}): TrialPushRecord => ({ token: tok, platform: 'ios', locale: 'ko', expiresAt: t + 40 * H, willRenew: false, periodType: 'TRIAL', store: 'APP_STORE', at: t - 10 * H, verified: true, ...c });
 const tr = { app: 'signum', preferences: { enabled: true }, notifPerm: true, tz: 'Asia/Seoul' };
 assert.equal(trialPushDecision(R(), tr, t), 'send');
+// ★11/12 확인 표식 없는 옛 기록: 확인 도입 전 보고 + 체험 API 전에 등록된 토큰만(관문 11121021 ②)
+const oldTok = { ...tr, createdAt: '2026-10-01T00:00:00.000Z' }, newTok = { ...tr, createdAt: '2026-11-11T05:00:00.000Z' };
+assert.equal(trialPushDecision(R({ verified: undefined }), oldTok, t), 'send', '옛 토큰의 옛 기록 → 보낸다');
+assert.equal(trialPushDecision(R({ verified: undefined }), newTok, t), 'unverified', '체험 API 뒤 새로 등록된 토큰의 미확인 기록 → 안 보낸다');
+assert.equal(trialPushDecision(R({ verified: undefined }), tr, t), 'unverified', '등록 시각 모름 → 안 보낸다');
+assert.equal(trialPushDecision(R({ verified: undefined, at: Date.parse('2026-11-12T08:00:00Z') }), oldTok, Date.parse('2026-11-12T08:00:00Z') + 10 * H), 'unverified', '확인 도입 뒤 미확인 기록 → 안 보낸다');
 assert.equal(trialPushDecision(R({ expiresAt: t + TRIAL_PUSH_MAX_MS }), tr, t), 'send', '정확히 48시간 → 보낸다');
 assert.equal(trialPushDecision(R({ expiresAt: t + TRIAL_PUSH_MAX_MS + 1 }), tr, t), 'window', '48시간 넘게 → 아직');
 assert.equal(trialPushDecision(R({ expiresAt: t + TRIAL_PUSH_MIN_MS }), tr, t), 'window', '12시간 이하 → 안 보낸다');
