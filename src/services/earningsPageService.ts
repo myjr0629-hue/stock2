@@ -22,6 +22,8 @@ const PARTIAL_MEMO_MS = 30_000;
 const MGET_CHUNK = 50;
 /** 페이지가 매달리지 않게 — 넘으면 빈 묶음(→ noindex·«지금 읽지 못함») */
 export const EARNINGS_PAGE_READ_TIMEOUT_MS = 4000;
+/** 새 읽기가 시간 초과·실패일 때 대신 줄 수 있는 직전 묶음의 최대 나이 — 넘으면 빈 묶음(«읽지 못함»·noindex). 일정·채점은 하루 몇 번만 바뀐다 */
+export const EARNINGS_PAGE_STALE_MAX_MS = 15 * 60_000;
 
 let memo: { at: number; ttl: number; snap: EarningsPageSnapshot } | null = null;
 let inFlight: Promise<EarningsPageSnapshot> | null = null;
@@ -88,6 +90,10 @@ async function build(nowMs: number): Promise<EarningsPageSnapshot> {
   return snap;
 }
 
+function staleOr(nowMs: number): EarningsPageSnapshot {
+  return memo && nowMs - memo.at >= 0 && nowMs - memo.at < EARNINGS_PAGE_STALE_MAX_MS ? memo.snap : emptySnapshot(nowMs);
+}
+
 /** 묶음 한 벌 — 메모(5분) → 진행 중인 읽기 합류 → 새로 읽기(상한 4초). 던지지 않는다. */
 export async function readEarningsPageSnapshot(nowMs: number = Date.now()): Promise<EarningsPageSnapshot> {
   if (memo && nowMs - memo.at >= 0 && nowMs - memo.at < memo.ttl) return memo.snap;
@@ -99,12 +105,12 @@ export async function readEarningsPageSnapshot(nowMs: number = Date.now()): Prom
           build(nowMs),
           new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), EARNINGS_PAGE_READ_TIMEOUT_MS); }),
         ]);
-        if (!snap) return memo?.snap ?? emptySnapshot(nowMs);
+        if (!snap) return staleOr(nowMs);
         const complete = snap.calendarOk && snap.recordsOk && snap.packAt != null;
         memo = { at: nowMs, ttl: complete ? MEMO_MS : PARTIAL_MEMO_MS, snap };
         return snap;
       } catch {
-        return memo?.snap ?? emptySnapshot(nowMs);
+        return staleOr(nowMs);
       } finally {
         if (timer) clearTimeout(timer);
         inFlight = null;

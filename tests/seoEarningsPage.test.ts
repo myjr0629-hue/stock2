@@ -178,7 +178,23 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     assert.ok(h.includes('채점 기록을 지금 읽지 못했습니다') && !h.includes('아직 완성된 채점 기록이 없습니다'));
     assert.equal((await page.generateMetadata(props('ko', 'LRCX'))).robots.index, false);
     assert.notEqual((await page.generateMetadata(props('ko', T))).robots.index, false);
+    const hh = renderToStaticMarkup(await hub.default({ params: Promise.resolve({ locale: 'ko' }) }));
+    assert.ok(hh.includes('채점 기록을 지금 읽지 못했습니다'), 'hub separates outage from «nothing to show»');
     recordsDown = false; svc._resetEarningsPageMemo();
+  });
+  await test('시간 초과 — 15분 안의 직전 묶음만 대신 주고, 더 오래되면 빈 묶음(«읽지 못함»)', async () => {
+    svc._resetEarningsPageMemo();
+    const t0 = Date.now();
+    const good = await svc.readEarningsPageSnapshot(t0);
+    assert.ok(good.calendarOk);
+    storeDown = true; // build 는 실패 칸을 비운 채 끝난다 → 부분 묶음은 30초 메모. 시간 초과 경로는 build 를 막아 재현
+    const realRace = Promise.race;
+    (Promise as any).race = (ps: any[]) => realRace.call(Promise, [ps[1]]); // 상한 타이머만 이기게
+    try {
+      const old = svc.EARNINGS_PAGE_STALE_MAX_MS;
+      assert.equal((await svc.readEarningsPageSnapshot(t0 + 6 * 60_000)).calendarOk, true, '6 min old snapshot served on timeout');
+      assert.equal((await svc.readEarningsPageSnapshot(t0 + old + 60_000)).calendarOk, false, 'too old → empty');
+    } finally { (Promise as any).race = realRace; storeDown = false; svc._resetEarningsPageMemo(); }
   });
   await test('스마트링크 from 태그 — normalizeFrom 통과(24자 이내) 전 종목', () => {
     for (const t of EP.EARNINGS_PAGE_TICKERS) {

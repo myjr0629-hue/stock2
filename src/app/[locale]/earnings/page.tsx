@@ -106,7 +106,7 @@ export default async function EarningsHubPage({ params }: Props) {
             </a></li>
           ))}
         </ul>
-      ) : <p className="eh-empty">{c.hubEmpty}</p>}
+      ) : <p className="eh-empty">{snap.calendarOk ? c.hubEmpty : c.nextUnknown}</p>}
 
       <h2>{c.hubGradedT}</h2>
       {graded.length ? (
@@ -119,7 +119,7 @@ export default async function EarningsHubPage({ params }: Props) {
             </a></li>
           ))}
         </ul>
-      ) : <p className="eh-empty">{c.hubEmpty}</p>}
+      ) : <p className="eh-empty">{snap.recordsOk ? c.hubEmpty : c.histUnknown}</p>}
 
       <h2>{c.hubAllT}</h2>
       <div className="eh-all">
