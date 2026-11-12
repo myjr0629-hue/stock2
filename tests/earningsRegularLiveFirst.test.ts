@@ -220,11 +220,12 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
   assert.equal(r.basis, 'eod', `stale per-leg live observation must not pass — got ${r.basis} ${r.impliedMovePct}`);
   assert.equal(r.impliedMovePct, 9.3);
   ok('② per-leg ivObservedAt 20 min old (chain _ts fresh) → EOD fallback');
-  // ① 다리별 수신 시각이 없는 옛 행(필드 없음) → 체인 시각으로 판정 → live
-  seed({ kind: 'full', mutate: (_k, _t, leg) => ({ ...leg, obsAt: null }) });
+  // ③ 다리별 수신 시각이 없는 행(실시간 FMV 는 있으나 IV 없음 → ivObservedAt null) → live 를 증명 못 함 → 예전 순서(strict EOD) (관문 11130803)
+  seed({ kind: 'full', mutate: (k, t, leg) => (k === 150 && t === 'put' ? { ...leg, obsAt: null } : leg) });
   [r] = await readEarn();
-  assert.equal(r.basis, 'live'); assert.equal(r.impliedMovePct, 11.6);
-  ok('① rows without per-leg observation time → chain _ts rule → live');
+  assert.equal(r.basis, 'eod', `leg without receipt time must not ship as live — got ${r.basis} ${r.impliedMovePct}`);
+  assert.equal(r.impliedMovePct, 9.3);
+  ok('③ one ATM leg without per-leg receipt time → not a live-first candidate → strict EOD as before');
 
   // ⑥ 주간물 없는 종목(월물만) — 저장 관측이 이벤트 분리값이면 정의가 다르다 → live 후보를 만들지 않고 예전 그대로(관문 11130756 ②)
   {
