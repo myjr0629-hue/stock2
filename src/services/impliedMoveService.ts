@@ -597,7 +597,7 @@ function probeListedExpirations(pc: any, today: string): string[] {
 //             + 고른 두 다리의 실시간 수신 시각(계약별 ivObservedAt — 공급사 실시간 응답을 처음 받은 시각, 합쳐진·캐시 요청도
 //             최초 시각 유지)이 «둘 다 있고» 오늘·15분 이내(체인 저장 시각만으론 다리별 동시성을 증명하지 못한다 — 관문 11130756 ①).
 //             한 다리라도 시각이 없으면 후보 아님(rejected=false → 예전 순서 strict → legacy 그대로 — 관문 11130803)
-//          ③ 두 다리 패리티: |(콜 − 풋) − (현물 − 행사가·e^(−rT))| ≤ max(스트래들 5%, 현물 0.5%) — 실시간 bid/ask 가 체인에 없어서
+//          ③ 두 다리 패리티: |(콜 − 풋) − (현물 − 행사가·e^(−rT))| ≤ min(0.001·현물²/스트래들, 현물 1%) — 실시간 bid/ask 가 체인에 없어서
 //             «양쪽 호가·스프레드» 대신 두 다리와 현물이 같은 시점 값인지를 본다(전일 현물·한쪽만 갱신된 다리면 수 달러 어긋난다).
 //   적용 범위: 첫 만기가 주간물이거나 목록에 주간물이 있는 종목만(관문 11130756 ②). 주간물 없는 종목의 월물은 저장 관측이
 //     «이벤트 분리값»(event-split)이라 정의가 다르다 → 이 후보를 만들지 않고 예전 순서 그대로.
@@ -609,8 +609,10 @@ function probeListedExpirations(pc: any, today: string): string[] {
 //   ⛔ 공급사 호출 0 · Redis 읽기 추가 0(이미 읽은 체인) · 화면 필드 모양 불변.
 // ════════════════════════════════════════════════════════════════════════════
 const EARNINGS_LIVE_MAX_AGE_MS = 15 * 60_000;
-const EARNINGS_LIVE_PARITY_STRADDLE = 0.05;
-const EARNINGS_LIVE_PARITY_SPOT = 0.005;
+/** 패리티 허용치가 예상폭에 허용하는 최대 오차(%p) — 표시 반올림 단위 */
+const EARNINGS_LIVE_PARITY_PP = 0.1;
+/** 허용치 상한(현물 대비) — 스트래들이 아주 작아도 1% 넘게 어긋난 현물은 받지 않는다 */
+const EARNINGS_LIVE_PARITY_SPOT_CAP = 0.01;
 /** 패리티의 할인율(연) — 근사값. 1%p 틀려도 45일 만기에서 현물의 0.12% 차이 */
 const EARNINGS_LIVE_RATE = 0.04;
 /** 현물(구조 저장 시각)과 각 다리 실시간 수신 시각의 최대 차이 — 수집 주기 5분 + 여유 */
@@ -624,11 +626,12 @@ function regularSessionLiveMove(rows: any[], spot: number, spotAt: number | null
     if (!im) return { im: null, rejected: false };
     // ③ 패리티 — 실시간 두 다리가 이 현물과 맞지 않으면 섞인 값의 증거다(현물 근거가 무엇이든) → 탈락.
     //   C − P ≈ S − K·e^(−rT) (r ≈ 4%, 배당 무시 — 배당락이 끼면 더 엄격해져 «후보 탈락 → 예전 순서»로만 간다).
-    //   허용치 max(스트래들 5%, 현물 0.5%) — 이 안에 남는 현물 오차가 예상폭에 주는 영향 ≤ max(0.0005·pct², 0.005·pct)%p
-    //   (±11.6% 면 0.07%p, ±20% 면 0.2%p). 장전 체결가·몇 분 전 현물처럼 1% 넘게 어긋난 분모는 여기서 걸린다(관문 11130817).
+    //   허용치 = min(0.001·S²/스트래들, 현물 1%) — 패리티 차 ≈ 현물 오차 ΔS 이고 예상폭 오차 ≈ pct·ΔS/S 이므로,
+    //   통과한 값의 분모 오차가 예상폭에 주는 영향은 ≤ 0.1%p(표시 반올림 단위)로 묶인다(관문 11130817·11130820).
+    //   (±11.6% @149 → 허용 $1.28, ±26% @150 → $0.56). 장전 체결가·몇 분 전 현물처럼 어긋난 분모는 여기서 걸린다.
     const years = Math.max(0, (Date.parse(`${im.expiry}T21:00:00Z`) - nowMs) / (365 * 86400_000));
     const gap = Math.abs((im.callPrice - im.putPrice) - (im.spot - im.strike * Math.exp(-EARNINGS_LIVE_RATE * years)));
-    const tol = Math.max(EARNINGS_LIVE_PARITY_STRADDLE * (im.callPrice + im.putPrice), EARNINGS_LIVE_PARITY_SPOT * im.spot);
+    const tol = Math.min(EARNINGS_LIVE_PARITY_PP / 100 * im.spot * im.spot / (im.callPrice + im.putPrice), EARNINGS_LIVE_PARITY_SPOT_CAP * im.spot);
     if (!(gap <= tol)) return { im: null, rejected: true };
     // ④ 현물을 «정규장 현재가»로 언제 받았는지 모르면 동시성을 증명 못 한다 → 후보 아님(예전 순서 그대로)
     if (spotAt == null || !Number.isFinite(spotAt)) return { im: null, rejected: false };

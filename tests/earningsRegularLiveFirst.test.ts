@@ -212,6 +212,20 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
   [r] = await readEarn();
   assert.equal(r.basis, 'live'); assert.equal(r.impliedMovePct, 11.6);
   ok('② parity: spot 1.5% off → EOD fallback · 0.2% off → live (error below display rounding)');
+  // ② 관문 11130820 반례 — 큰 예상폭(±26%대)에서 현물 1.3% 어긋남(실제 150 · 저장 151.9 · K150 · C20.05·P19.95) → 0.4%p 오차 → 탈락
+  {
+    const big: Array<[number, Leg, Leg]> = [[150, { live: 20.05, bid: 40, ask: 41 }, { live: 19.95, bid: 1, ask: 1.2 }], [155, { live: 17.6, bid: 36, ask: 37 }, { live: 22.5, bid: 2, ask: 2.2 }]];
+    const saved = earnLegs.splice(0, earnLegs.length, ...big);
+    seed({ kind: 'slim', spot: 151.9 });
+    [r] = await readEarn();
+    assert.ok(!(r.basis === 'live' && r.impliedMovePct === 26.3), `0.4pp-off live must not pass — got ${r.basis} ${r.impliedMovePct}`);
+    assert.equal(r.basis, 'eod'); assert.equal(r.impliedMovePct, 9.3);
+    seed({ kind: 'slim', spot: 150 });
+    [r] = await readEarn();
+    assert.equal(r.basis, 'live'); assert.equal(r.impliedMovePct, 26.7);
+    earnLegs.splice(0, earnLegs.length, ...saved);
+    ok('② gate 11130820: ±26% straddle with spot 1.3% off → EOD observation · true spot → live 26.7');
+  }
 
   // ② 호가 시각 낡음(20분) → 무효 → strict EOD
   seed({ kind: 'full', probeAgeMs: 20 * 60_000 });
