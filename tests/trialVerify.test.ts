@@ -26,8 +26,16 @@ assert.equal(trialFromSubscriber(null, now), null);
 // 안드 기본 요금제 키(상품:기본요금제)
 const play = subOf({ store: 'play_store' }, 'pro_monthly:monthly', { product_identifier: 'pro_monthly' });
 assert.deepEqual(trialFromSubscriber(play, now), { expiresAt: now + 2 * D, willRenew: false, periodType: 'TRIAL', store: 'PLAY_STORE' });
-// 키가 전혀 다르면 만료 시각이 같은 구독
-assert.equal(trialFromSubscriber(subOf({ store: 'play_store' }, 'other', { product_identifier: 'pro_monthly' }), now)!.store, 'PLAY_STORE');
+// 관계없는 상품의 구독은 보지 않는다(만료 시각이 같아도)
+assert.equal(trialFromSubscriber(subOf({ store: 'play_store' }, 'other', { product_identifier: 'pro_monthly' }), now), null);
+// 같은 상품의 지난 기본 요금제(만료) + 지금 체험 → 지금 체험을 고른다
+const multi = { subscriber: { entitlements: { pro: { product_identifier: 'pro_monthly:monthly', expires_date: iso(now + 2 * D) } }, subscriptions: {
+  'pro_monthly:old': { period_type: 'normal', store: 'play_store', expires_date: iso(now - 40 * D), unsubscribe_detected_at: null },
+  'pro_monthly:monthly': { period_type: 'trial', store: 'play_store', expires_date: iso(now + 2 * D), unsubscribe_detected_at: iso(now - D) },
+} } };
+assert.deepEqual(trialFromSubscriber(multi, now), { expiresAt: now + 2 * D, willRenew: false, periodType: 'TRIAL', store: 'PLAY_STORE' });
+const reversed = { subscriber: { ...multi.subscriber, entitlements: { pro: { product_identifier: 'pro_monthly', expires_date: iso(now + 2 * D) } } } };
+assert.equal(trialFromSubscriber(reversed, now)!.willRenew, false, '권한 키가 상품만이어도 접두로 찾고, 끝난 기록은 건너뛴다');
 
 // ── 예산 · 장애 ──
 const memStore = (): TrialVerifyStore & { m: Map<string, number> } => {

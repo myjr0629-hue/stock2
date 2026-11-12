@@ -12,7 +12,7 @@
 // ============================================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
-import { TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_RL_KEY, sanitizeTrialReport, trialPushWanted, validPushToken } from '@/lib/push/trialPush';
+import { TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_RL_KEY, sanitizeTrialReport, trialPushWanted, validPushToken, type TrialPushRecord } from '@/lib/push/trialPush';
 import { RC_UID_RE, TRIAL_PUSH_UID_KEY, trialUidHash, verifyTrialWithRc, type TrialVerifyStore } from '@/lib/push/trialVerify';
 import { clientIpFrom } from '@/lib/guruLens/proAccess';
 
@@ -53,32 +53,15 @@ export async function POST(req: NextRequest) {
       // 대상에 넣는 보고 — RC 확인(기기가 보낸 값은 믿지 않는다)
       const uid = typeof body.rcUid === 'string' ? body.rcUid.trim() : '';
       if (!RC_UID_RE.test(uid)) return json({ error: 'bad request' }, 400);
-      const v = await verifyTrialWithRc(uid, rec.platform, clientIpFrom(req.headers), {
-        store: verifyStore, keys: { ios: process.env.NEXT_PUBLIC_RC_IOS_KEY, android: process.env.NEXT_PUBLIC_RC_ANDROID_KEY },
-      });
-      if (v.kind === 'limited') return json({ ok: true, stored: false, skipped: 'rate-limited' }, 429);
-      if (v.kind === 'unavailable') return json({ ok: true, stored: false, skipped: 'unverified' }, 503);
-      const storeOk = v.kind === 'trial' && (v.trial.store === 'APP_STORE' ? rec.platform === 'ios' : rec.platform === 'android');
-      if (v.kind === 'not_trial' || !storeOk) {
-        // RC 에 체험이 없다(유료·만료·없는 고객·다른 스토어) → 대상·기록에서 뺀다
-        await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, token), redis.del(TRIAL_PUSH_KEY(token))]);
-        return json({ ok: true, stored: true, due: false, verified: false });
+      // RC 고객당 한 번에 하나(확인 → 옛 토큰 빼기 → 묶기 → 넣기를 고객 단위로 줄 세운다 — 관문 11121015 ②). 못 잡으면 429(기기가 6초 뒤 다시)
+      const lockKey = `push:trial:uidlock:${trialUidHash(uid)}`;
+      const lockId = `${token.slice(0, 16)}:${now}`;
+      if ((await redis.set(lockKey, lockId, { nx: true, ex: 15 })) !== 'OK') return json({ ok: true, stored: false, skipped: 'busy' }, 429);
+      try {
+        return await addVerified(req, token, uid, rec, now);
+      } finally {
+        if ((await redis.get(lockKey).catch(() => null)) === lockId) await redis.del(lockKey).catch(() => {});
       }
-      const trial = (v as Extract<typeof v, { kind: 'trial' }>).trial;
-      const out = { ...rec, expiresAt: trial.expiresAt, willRenew: trial.willRenew, periodType: trial.periodType, store: trial.store, verified: true };
-      const ttl = Math.max(60, Math.ceil((out.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S);
-      // RC 고객 하나 = 토큰 하나 — 같은 체험을 다른 토큰으로 보고하면 옛 토큰을 대상에서 뺀다
-      const uidKey = TRIAL_PUSH_UID_KEY(trialUidHash(uid));
-      const prevTok = await redis.get<string>(uidKey);
-      if (typeof prevTok === 'string' && prevTok && prevTok !== token) {
-        await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, prevTok), redis.del(TRIAL_PUSH_KEY(prevTok))]);
-      }
-      await redis.set(uidKey, token, { ex: ttl });
-      await redis.set(TRIAL_PUSH_KEY(token), JSON.stringify(out), { ex: ttl });
-      const due = trialPushWanted(out);
-      if (due) await redis.zadd(TRIAL_PUSH_DUE_ZSET, { score: out.expiresAt, member: token });
-      else await redis.zrem(TRIAL_PUSH_DUE_ZSET, token);
-      return json({ ok: true, stored: true, due, verified: true });
     }
     // 빼는 보고(갱신 켬 · 체험 아님) — 확인 없이 받는다(발송을 줄이기만 한다)
     const ttl = Math.ceil((rec.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S;
@@ -89,4 +72,34 @@ export async function POST(req: NextRequest) {
     console.error('[Push Trial]', e);
     return json({ error: 'Internal error' }, 500);
   }
+}
+
+/** 대상에 넣는 보고 — RC 확인 뒤 RC 값으로 쓴다(고객 잠금 안에서만 부른다) */
+async function addVerified(req: NextRequest, token: string, uid: string, rec: TrialPushRecord, now: number) {
+  const v = await verifyTrialWithRc(uid, rec.platform, clientIpFrom(req.headers), {
+    store: verifyStore, keys: { ios: process.env.NEXT_PUBLIC_RC_IOS_KEY, android: process.env.NEXT_PUBLIC_RC_ANDROID_KEY },
+  });
+  if (v.kind === 'limited') return json({ ok: true, stored: false, skipped: 'rate-limited' }, 429);
+  if (v.kind === 'unavailable') return json({ ok: true, stored: false, skipped: 'unverified' }, 503);
+  const storeOk = v.kind === 'trial' && (v.trial.store === 'APP_STORE' ? rec.platform === 'ios' : rec.platform === 'android');
+  if (v.kind === 'not_trial' || !storeOk) {
+    // RC 에 체험이 없다(유료·만료·없는 고객·다른 스토어) → 대상·기록에서 뺀다
+    await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, token), redis.del(TRIAL_PUSH_KEY(token))]);
+    return json({ ok: true, stored: true, due: false, verified: false });
+  }
+  const trial = (v as Extract<typeof v, { kind: 'trial' }>).trial;
+  const out = { ...rec, expiresAt: trial.expiresAt, willRenew: trial.willRenew, periodType: trial.periodType, store: trial.store, verified: true };
+  const ttl = Math.max(60, Math.ceil((out.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S);
+  // RC 고객 하나 = 토큰 하나 — 같은 체험을 다른 토큰으로 보고하면 옛 토큰을 대상에서 뺀다
+  const uidKey = TRIAL_PUSH_UID_KEY(trialUidHash(uid));
+  const prevTok = await redis.get<string>(uidKey);
+  if (typeof prevTok === 'string' && prevTok && prevTok !== token) {
+    await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, prevTok), redis.del(TRIAL_PUSH_KEY(prevTok))]);
+  }
+  await redis.set(uidKey, token, { ex: ttl });
+  await redis.set(TRIAL_PUSH_KEY(token), JSON.stringify(out), { ex: ttl });
+  const due = trialPushWanted(out);
+  if (due) await redis.zadd(TRIAL_PUSH_DUE_ZSET, { score: out.expiresAt, member: token });
+  else await redis.zrem(TRIAL_PUSH_DUE_ZSET, token);
+  return json({ ok: true, stored: true, due, verified: true });
 }

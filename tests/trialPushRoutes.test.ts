@@ -157,6 +157,15 @@ async function main() {
     const tokH = 'h'.repeat(64); reg(tokH);
     r = await post({ ...body(tokH), rcUid: uidOf(tokG) }); assert.equal(r.body.due, true);
     assert.equal(zs.get('push:trial:due')!.has(tokG), false, '옛 토큰은 대상에서 빠진다'); assert.equal(zs.get('push:trial:due')!.has(tokH), true);
+    // (6b) 같은 RC 고객 보고가 처리 중이면(잠금) 429 — 고객당 한 토큰 규칙을 동시 요청으로 깨지 못한다(관문 11121015 ②)
+    const lockKey = [...kv.keys()].find((k) => k.startsWith('push:trial:uidlock:'));
+    assert.equal(lockKey, undefined, '끝나면 잠금을 푼다');
+    const { trialUidHash } = await import('../src/lib/push/trialVerify');
+    kv.set(`push:trial:uidlock:${trialUidHash(uidOf(tokG))}`, 'other');
+    const tokK = 'k'.repeat(64); reg(tokK);
+    r = await post({ ...body(tokK), rcUid: uidOf(tokG) }); assert.equal(r.status, 429); assert.equal(zs.get('push:trial:due')!.has(tokK), false);
+    assert.equal(kv.get(`push:trial:uidlock:${trialUidHash(uidOf(tokG))}`), 'other', '남의 잠금은 지우지 않는다');
+    kv.delete(`push:trial:uidlock:${trialUidHash(uidOf(tokG))}`);
     // (7) 갱신 켬 보고(빼기)는 RC 확인 없이 받는다
     const before7 = rcCalls.length; fresh(tokH);
     r = await post(body(tokH, { willRenew: true })); assert.equal(r.body.due, false); assert.equal(rcCalls.length, before7); assert.equal(zs.get('push:trial:due')!.has(tokH), false);

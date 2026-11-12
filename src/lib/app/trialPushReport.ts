@@ -106,9 +106,11 @@ export async function reportTrialPush(snapshot: Snapshot | null, readFresh: Fres
       try { window.localStorage.setItem(TRIAL_PUSH_REPORT_KEY, CLEARED); } catch { /* 다음 실행에 다시 */ }
       return 'cleared';
     }
-    const rcUid = await readUid().catch(() => null);
-    if (!rcUid) return 'skip';
-    if (!(await postWithRetry({ token, rcUid, platform: snapshot.platform, locale: resolveAppLocale(), ...next.state }, wait))) return 'skip';
+    // 대상에 «넣는» 보고(체험 · 갱신 꺼짐)만 RC 앱 사용자 ID 가 필요하다 — 갱신을 다시 켠 보고(빼기)는 ID 를 못 읽어도 보낸다(관문 11121015 ①)
+    const adds = next.state.periodType === 'TRIAL' && next.state.willRenew === false;
+    const rcUid = adds ? await readUid().catch(() => null) : null;
+    if (adds && !rcUid) return 'skip';
+    if (!(await postWithRetry({ token, ...(rcUid ? { rcUid } : {}), platform: snapshot.platform, locale: resolveAppLocale(), ...next.state }, wait))) return 'skip';
     try { window.localStorage.setItem(TRIAL_PUSH_REPORT_KEY, next.fp); } catch { /* 다음 실행에 다시 */ }
     return 'sent';
   } catch { return 'skip'; } finally {

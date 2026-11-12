@@ -42,6 +42,10 @@ async function main() {
   assert.equal(await reportTrialPush({ customerInfo: info(), platform: 'ios' }, same(info()), noWait, async () => null), 'skip');
   assert.equal(calls.length, 0);
   assert.equal(store.get(TRIAL_PUSH_REPORT_KEY), undefined);
+  // 갱신을 다시 켠 보고(빼기)는 ID 를 못 읽어도 보낸다(관문 11121015 ①) — ID 없이
+  assert.equal(await reportTrialPush({ customerInfo: info({ willRenew: true }), platform: 'ios' }, same(info({ willRenew: true })), noWait, async () => null), 'sent');
+  assert.equal(calls[calls.length - 1].body.willRenew, true); assert.equal('rcUid' in calls[calls.length - 1].body, false);
+  calls.length = 0; store.delete(TRIAL_PUSH_REPORT_KEY);
   // 새로 읽기 실패 → 안 보낸다
   assert.equal(await reportTrialPush({ customerInfo: info(), platform: 'ios' }, async () => null, noWait), 'skip');
   assert.equal(calls.length, 0);

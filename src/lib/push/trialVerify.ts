@@ -44,11 +44,13 @@ export function trialFromSubscriber(json: unknown, now: number): VerifiedTrial |
   const entExp = ms(ent.expires_date);
   if (!Number.isFinite(entExp) || entExp <= now) return null;
   const subs = (sub?.subscriptions && typeof sub.subscriptions === 'object') ? sub.subscriptions as Record<string, any> : {};
-  // 안드(기본 요금제)는 구독 키가 «상품:기본요금제»일 수 있다 — 같은 키 → 접두 일치 → 만료 시각이 같은 구독 순으로 찾는다
+  // 안드(기본 요금제)는 구독 키가 «상품:기본요금제»일 수 있다 — 같은 키 또는 상품 접두가 같은 키만 후보(관계없는 구독은 보지 않는다).
+  //   후보가 여럿이면(지난 기본 요금제 기록 등) 아직 끝나지 않은 것 중 만료 시각이 권한 만료와 가장 가까운 것(관문 11121015 ③)
   const pid = ent.product_identifier as string;
-  const s = subs[pid]
-    ?? Object.entries(subs).find(([k]) => k.startsWith(pid + ':') || pid.startsWith(k + ':'))?.[1]
-    ?? Object.values(subs).find((v) => v && typeof v === 'object' && Math.abs(ms(v.expires_date) - entExp) < 60_000);
+  const base = (k: string) => k.split(':')[0];
+  const s = Object.entries(subs)
+    .filter(([k, v]) => v && typeof v === 'object' && (k === pid || base(k) === base(pid)) && ms(v.expires_date) > now)
+    .sort(([ka, a], [kb, b]) => (Number(kb === pid) - Number(ka === pid)) || (Math.abs(ms(a.expires_date) - entExp) - Math.abs(ms(b.expires_date) - entExp)))[0]?.[1];
   if (!s || typeof s !== 'object' || s.period_type !== 'trial') return null;
   if (s.ownership_type === 'FAMILY_SHARED') return null;
   const expiresAt = ms(s.expires_date);
