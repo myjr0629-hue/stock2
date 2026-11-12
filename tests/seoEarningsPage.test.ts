@@ -59,7 +59,9 @@ stub('../src/services/redisClient', {
   mgetFromCacheStrict: async (keys: string[]) => {
     reads.push(...keys);
     if (storeDown) throw new Error('down');
-    return keys.map((k) => (k === 'earnings:actuals:v1:LRCX:2026-10-21' ? lrcx : null));
+    // IONQ 11/5 는 회사 공지가 장후(amc) — 장전(bmo)으로 남은 옛 기록은 채점표처럼 빠져야 한다
+    return keys.map((k) => (k === 'earnings:actuals:v1:LRCX:2026-10-21' ? lrcx
+      : k === 'earnings:actuals:v1:IONQ:2026-11-05' ? { ...lrcx, ticker: 'IONQ', date: '2026-11-05', hour: 'bmo', expected: { ...lrcx.expected, session: '2026-11-04' }, actual: { ...lrcx.actual, baseDate: '2026-11-04', reactDate: '2026-11-05' } } : null));
   },
   setInCache: async () => { throw new Error('Unexpected Redis write'); },
 });
@@ -109,6 +111,8 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     assert.ok(h.includes('10/21 종가 → 10/22 종가'));
     assert.notEqual((await page.generateMetadata(props('ko', 'LRCX'))).robots.index, false);
     assert.ok((await html('en', 'LRCX')).includes('Outside range'));
+    assert.equal((await page.generateMetadata(props('ko', 'IONQ'))).robots.index, false, 'hour mismatch with the company notice is not graded');
+    assert.ok(!(await html('ko', 'IONQ')).includes('−11.8%'));
   });
   await test('데이터 없는 종목(N: 예정일만) — noindex,follow · 사이트맵 제외', async () => {
     const m = await page.generateMetadata(props('ko', N));
@@ -142,7 +146,11 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     svc._resetEarningsPageMemo(); storeDown = true;
     const h = await html('ko', T);
     assert.ok(h.includes('실적 캘린더를 지금 읽지 못했습니다'));
+    assert.ok(!h.includes('아직 다음 발표 일정이 없습니다'), 'FAQ/JSON-LD does not claim «no date» when unread');
     assert.equal((await page.generateMetadata(props('ko', T))).robots.index, false);
+    const all = await sitemap();
+    assert.equal(all.filter((e: any) => /^\/(ko|en|ja)\/earnings(\/|$)/.test(new URL(e.url).pathname)).length, 0, 'no noindex hub/pages in sitemap');
+    assert.equal((await hub.generateMetadata({ params: Promise.resolve({ locale: 'ko' }) })).robots.index, false);
     storeDown = false; svc._resetEarningsPageMemo();
   });
   await test('부작용 — 공급사 HTTP 0 · 쓰기 0 · 읽기 키는 캘린더·묶음·채점 기록뿐 · 메모로 반복 읽기 없음', async () => {

@@ -13,7 +13,7 @@ import { getFromCache, mgetFromCacheStrict } from '@/services/redisClient';
 import { EARNINGS_CALENDAR_CACHE_KEY, EARNINGS_CALENDAR_LAST_GOOD_KEY, withConfirmedDates, type EarningsCalendarPayload } from '@/services/earningsCalendarService';
 import { readImpliedPack } from '@/services/earningsImpliedService';
 import { impliedRowKey, type ImpliedCell } from '@/lib/earnings/earningsImplied';
-import { actualsKey } from '@/lib/earnings/earningsActuals';
+import { actualsKey, parseRecord } from '@/lib/earnings/earningsActuals';
 import { emptySnapshot, nextByTicker, pastConfirmedEntries, type EarningsPageSnapshot } from '@/lib/seo/earningsPage';
 
 const MEMO_MS = 5 * 60_000;
@@ -46,7 +46,9 @@ async function readRecords(nowMs: number): Promise<{ ok: boolean; records: Recor
       const values = await mgetFromCacheStrict<unknown>(part.map((e) => actualsKey(e.ticker, e.date)));
       part.forEach((e, j) => {
         const v = values[j];
-        if (v == null) return;
+        // 채점표 API(readEarningsScorecard)와 같은 조건 — 기록의 종목·발표일·장전/장후가 지금의 회사 공지와 같을 때만
+        const r = parseRecord(v);
+        if (!r || r.ticker !== e.ticker || r.date !== e.date || r.hour !== e.hour) return;
         (records[e.ticker] ||= []).push(v);
       });
     } catch {

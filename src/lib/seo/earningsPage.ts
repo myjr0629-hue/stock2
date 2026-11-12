@@ -80,17 +80,17 @@ export const emptySnapshot = (at = Date.now()): EarningsPageSnapshot => ({
 });
 
 /** 채점 기록 키를 만들 «지난 회사 공지» 목록 — 오늘(ET) 이전·장전/장후가 공지된 것만(채점표와 같은 조건) */
-export function pastConfirmedEntries(nowMs: number = Date.now()): Array<{ ticker: string; date: string }> {
+export function pastConfirmedEntries(nowMs: number = Date.now()): Array<{ ticker: string; date: string; hour: 'bmo' | 'amc' }> {
   const today = etDateOf(nowMs);
   const seen = new Set<string>();
-  const out: Array<{ ticker: string; date: string }> = [];
+  const out: Array<{ ticker: string; date: string; hour: 'bmo' | 'amc' }> = [];
   for (const c of CONFIRMED_EARNINGS) {
     const t = c.ticker.toUpperCase();
     if (!(c.hour === 'bmo' || c.hour === 'amc') || !(c.date <= today) || !TICKER_SET.has(t)) continue;
     const k = `${t}|${c.date}`;
     if (seen.has(k)) continue;
     seen.add(k);
-    out.push({ ticker: t, date: c.date });
+    out.push({ ticker: t, date: c.date, hour: c.hour });
   }
   return out;
 }
@@ -200,6 +200,8 @@ export interface EpCopy {
   when: (d: { date: string; hour: string; etTime?: string }) => string;
   statusConfirmed: string;
   statusEst: string;
+  /** 회사 공지 전 날짜 뒤에 붙는 표식(제목·설명·FAQ) */
+  estTag: string;
   phaseDone: string;
   moveT: string;
   moveValue: (d: { name: string; pct: string }) => string;
@@ -217,7 +219,7 @@ export interface EpCopy {
   readT: string;
   read: Array<[string, string]>;
   faqT: string;
-  faq: (d: { name: string; ticker: string; nextDate: string | null; pct: string | null; method: string | null; last: ScorecardRow | null }) => Array<[string, string]>;
+  faq: (d: { name: string; ticker: string; calendarOk: boolean; nextDate: string | null; pct: string | null; method: string | null; last: ScorecardRow | null }) => Array<[string, string]>;
   cta: (name: string) => string;
   ctaSub: string;
   moreT: string;
@@ -256,6 +258,7 @@ const KO: EpCopy = {
   when: ({ date, hour, etTime }) => `${longDate(date, 'ko')} · ${hourKo(hour, etTime)}`,
   statusConfirmed: '회사 공지 일정',
   statusEst: '예정일(회사 공지 전)',
+  estTag: '(예정)',
   phaseDone: '발표가 끝났습니다. 실제 변동은 발표 반응 정규장이 마감된 뒤 채점합니다.',
   moveT: '발표 전 예상 변동폭(옵션 가격 기준)',
   moveValue: ({ name, pct }) => `옵션 가격에 반영된 ${name} 주가의 실적 예상 변동폭은 ${pct}입니다.`,
@@ -280,8 +283,8 @@ const KO: EpCopy = {
     ['범위 안 · 범위 밖', '실제 등락의 절댓값이 발표 전 예상보다 크면 «범위 밖», 같거나 작으면 «범위 안»입니다. 범위 밖이 잦은 종목은 옵션 시장이 실적 반응을 작게 본 일이 많았다는 뜻일 뿐, 다음 결과를 알려 주지는 않습니다.'],
   ],
   faqT: '자주 묻는 질문',
-  faq: ({ name, nextDate, pct, method, last }) => [
-    [`${name} 다음 실적 발표일은 언제인가요?`, nextDate ? `실적 캘린더 기준 다음 발표는 ${nextDate}입니다.` : '실적 캘린더에 아직 다음 발표 일정이 없습니다.'],
+  faq: ({ name, calendarOk, nextDate, pct, method, last }) => [
+    [`${name} 다음 실적 발표일은 언제인가요?`, nextDate ? `실적 캘린더 기준 다음 발표는 ${nextDate}입니다.` : calendarOk ? '실적 캘린더에 아직 다음 발표 일정이 없습니다.' : '실적 캘린더를 지금 읽지 못했습니다. 잠시 뒤 다시 확인해 주세요.'],
     [`${name} 실적 예상 변동폭은 얼마인가요?`, pct ? `옵션 가격에 반영된 예상 변동폭은 ${pct}입니다.${method ? ` ${method}` : ''}` : '아직 표시할 옵션 예상 변동폭이 없습니다. 발표가 가까워지면 표시합니다.'],
     [`지난 실적 때 ${name} 주가는 예상만큼 움직였나요?`, last ? `${longDate(last.date, 'ko')} 발표 때 발표 전 예상은 ${expectedText(last.expectedPct)}, 실제 정규장 종가 변동은 ${actualText(last.actualPct, last.expectedPct)}로 ${last.beyond ? '예상 범위를 벗어났습니다' : '예상 범위 안이었습니다'}.` : '아직 완성된 채점 기록이 없습니다.'],
   ],
@@ -325,6 +328,7 @@ const JA: EpCopy = {
   when: ({ date, hour, etTime }) => `${longDate(date, 'ja')}・${hourJa(hour, etTime)}`,
   statusConfirmed: '企業告知の日程',
   statusEst: '予定日(企業告知前)',
+  estTag: '(予定)',
   phaseDone: '発表は終了しました。実際の変動は反応日の通常取引終了後に採点します。',
   moveT: '発表前の予想変動幅(オプション価格基準)',
   moveValue: ({ name, pct }) => `オプション価格に織り込まれた${name}株価の決算予想変動幅は${pct}です。`,
@@ -349,8 +353,8 @@ const JA: EpCopy = {
     ['範囲内・範囲外', '符号を除いた実際の騰落率が発表前の予想より大きければ「範囲外」、同じか小さければ「範囲内」です。範囲外が多い銘柄は、オプション市場が決算反応を小さく見積もったことが多かったというだけで、次の結果を示すものではありません。'],
   ],
   faqT: 'よくある質問',
-  faq: ({ name, nextDate, pct, method, last }) => [
-    [`${name}の次回決算発表日はいつですか？`, nextDate ? `決算カレンダーでは次回の発表は${nextDate}です。` : '決算カレンダーに次回の発表予定はまだありません。'],
+  faq: ({ name, calendarOk, nextDate, pct, method, last }) => [
+    [`${name}の次回決算発表日はいつですか？`, nextDate ? `決算カレンダーでは次回の発表は${nextDate}です。` : calendarOk ? '決算カレンダーに次回の発表予定はまだありません。' : '決算カレンダーを現在読み込めません。しばらくしてから再度ご確認ください。'],
     [`${name}の決算予想変動幅は？`, pct ? `オプション価格に織り込まれた予想変動幅は${pct}です。${method ?? ''}` : '表示できるオプション予想変動幅はまだありません。発表が近づくと表示します。'],
     [`前回の決算で${name}の株価は予想どおり動きましたか？`, last ? `${longDate(last.date, 'ja')}の発表では、発表前の予想が${expectedText(last.expectedPct)}、実際の通常取引終値の変動が${actualText(last.actualPct, last.expectedPct)}で、${last.beyond ? '予想範囲を超えました' : '予想範囲内でした'}。` : '完成した採点記録はまだありません。'],
   ],
@@ -394,6 +398,7 @@ const EN: EpCopy = {
   when: ({ date, hour, etTime }) => `${longDate(date, 'en')} · ${hourEn(hour, etTime)}`,
   statusConfirmed: 'Company-announced date',
   statusEst: 'Expected date (not yet announced by the company)',
+  estTag: ' (est.)',
   phaseDone: 'The report is out. The actual move is graded after the reaction session closes.',
   moveT: 'Pre-earnings expected move (from options prices)',
   moveValue: ({ name, pct }) => `Options prices imply an earnings move of ${pct} for ${name} stock.`,
@@ -418,8 +423,8 @@ const EN: EpCopy = {
     ['Within · outside range', 'If the absolute actual move is larger than the pre-report expected move, it is outside the range; equal or smaller is within. Frequent misses only mean options often priced a smaller reaction — they do not tell you the next result.'],
   ],
   faqT: 'Frequently asked questions',
-  faq: ({ name, nextDate, pct, method, last }) => [
-    [`When is ${name}’s next earnings report?`, nextDate ? `The earnings calendar lists the next report on ${nextDate}.` : 'The earnings calendar has no next report date yet.'],
+  faq: ({ name, calendarOk, nextDate, pct, method, last }) => [
+    [`When is ${name}’s next earnings report?`, nextDate ? `The earnings calendar lists the next report on ${nextDate}.` : calendarOk ? 'The earnings calendar has no next report date yet.' : 'The earnings calendar could not be read right now. Please check back shortly.'],
     [`What is ${name}’s earnings expected move?`, pct ? `Options prices imply an expected move of ${pct}.${method ? ` ${method}` : ''}` : 'No options-implied move to show yet; it appears as the report approaches.'],
     [`Did ${name} stock move as much as expected last earnings?`, last ? `For the ${longDate(last.date, 'en')} report, the pre-report expected move was ${expectedText(last.expectedPct)} and the actual regular-session closing move was ${actualText(last.actualPct, last.expectedPct)}, ${last.beyond ? 'outside the expected range' : 'within the expected range'}.` : 'No complete scorecard record yet.'],
   ],

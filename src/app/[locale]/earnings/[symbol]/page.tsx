@@ -39,7 +39,8 @@ function metaParts(view: EarningsPageView, l: Loc) {
   const name = nameWithTicker(view.ticker, l);
   const pct = view.implied ? expectedText(view.implied.pct) : null;
   const upcoming = view.next && view.next.phase !== 'done' ? view.next : null;
-  const date = upcoming ? md(upcoming.date, l) : null;
+  const est = upcoming && upcoming.dateStatus !== 'confirmed' ? c.estTag : '';
+  const date = upcoming ? `${md(upcoming.date, l)}${est}` : null;
   const last = view.history[0] ?? null;
   return {
     title: c.metaTitle({ name, pct, date, graded: last ? md(last.date, l) : null }),
@@ -124,7 +125,7 @@ export default async function EarningsTickerPage(props: Props) {
   const pct = view.implied ? expectedText(view.implied.pct) : null;
   const method = view.implied ? c.moveMethod[view.implied.basis] : null;
   const last = view.history[0] ?? null;
-  const faq = c.faq({ name, ticker, nextDate: upcoming ? longDate(upcoming.date, l) : null, pct, method, last });
+  const faq = c.faq({ name, ticker, calendarOk: view.calendarOk, nextDate: upcoming ? `${longDate(upcoming.date, l)}${upcoming.dateStatus !== 'confirmed' ? c.estTag : ''}` : null, pct, method, last });
   const beyond = view.history.filter((r) => r.beyond).length;
   const href = earningsAppHref(ticker, l);
   const hasFlow = isFlowTicker(ticker) && FLOW_SET.has(ticker);

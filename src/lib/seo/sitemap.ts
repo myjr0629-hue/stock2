@@ -138,7 +138,8 @@ export async function buildSitemap(locales: readonly (typeof LOCALES[number])[] 
       } },
     });
     // 종목별 실적 채점표 허브 + 종목 페이지(/earnings/[symbol]) — 저장본 기준 매 거래일 바뀐다
-    entries.push({
+    //   허브는 색인 종목이 하나라도 있을 때만(허브 메타의 noindex 판정과 같다)
+    if (earningsTickers.length) entries.push({
       url: `${base}/${loc}/earnings`, lastModified: session, changeFrequency: 'daily', priority: 0.8,
       alternates: langAlternates(base, '/earnings'),
     });
