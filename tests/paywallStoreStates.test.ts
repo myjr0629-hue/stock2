@@ -136,7 +136,8 @@ test('화면 식 대조: ProPaywall 의 선택·결제·잠금 식이 위 시험
   assert.match(src, /const \{ multi, selected: pickedPlan \} = paywallSelection\(plans, picked\);/);
   assert.match(src, /const selectedOffer = multi \? \(offers\.find\(\(o\) => o\.plan === selected\) \?\? null\) : monthly;/);
   assert.match(src, /disabled=\{busy \|\| purchasePending \|\| \(multi \? \(!selectedOffer && !previewPlans\) : \(!monthly && !previewPrice\)\)\}/);
-  assert.match(src, /const res = await purchase\(selectedOffer\.plan, funnelSrc\);/);
+  // ★11/12 결제는 공용 흐름(lib/app/trialStartWatchlist.purchaseWithTrialStart)을 거쳐 «선택한 플랜»을 산다
+  assert.match(src, /purchase: \(\) => purchase\(selectedOffer\.plan, funnelSrc\),/);
 });
 
 test('⑧ 노출 스위치 꺼진 빌드(월간만 노출): 월간이 있으면 예전 그대로 월간 하나 · 월간이 없으면 스토어가 준 플랜으로(아무것도 못 사는 상태 금지)', () => {
