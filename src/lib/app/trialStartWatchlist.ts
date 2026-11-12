@@ -74,6 +74,34 @@ export async function purchaseWithTrialStart<R extends { ok: boolean; isPro: boo
   return { res, claimed, origin };
 }
 
+/** «내 종목»으로 옮기기 전에 아래에 남은 한도 시트가 PRO 마무리(시트 닫기 → 담으려던 종목 담기)를 끝낼 때까지 기다린다.
+ *  3초 안에 닫히지 않으면 옮기지 않는다(옮기면 호스트가 시트를 닫아 종목 담기가 빠진다 — 관문 11121105). 옮겼으면 true */
+export const TRIAL_START_SHEET_WAIT_MS = 3000;
+export async function goToWatchlistAfterTrial(origin: string, loc: string, push: (path: string) => void, deps: {
+  afterHistory: () => Promise<void>;
+  limitSheetOpen: () => boolean;
+  subscribe: (fn: () => void) => () => void;
+  path?: () => string;
+}): Promise<boolean> {
+  const path = deps.path ?? (() => window.location.pathname);
+  await deps.afterHistory();
+  if (deps.limitSheetOpen()) {
+    const closed = await new Promise<boolean>((resolve) => {
+      let done = false;
+      const finish = (v: boolean) => { if (done) return; done = true; unsub(); clearTimeout(timer); resolve(v); };
+      const unsub = deps.subscribe(() => { if (!deps.limitSheetOpen()) finish(true); });
+      const timer = setTimeout(() => finish(!deps.limitSheetOpen()), TRIAL_START_SHEET_WAIT_MS);
+      if (!deps.limitSheetOpen()) finish(true);
+    });
+    if (!closed) return false;
+    // 시트의 마무리(종목 담기)는 시트 히스토리 칸을 걷은 뒤에 돈다 — 같은 대기 뒤에 줄 서서 그 다음에 옮긴다
+    await deps.afterHistory();
+  }
+  if (path() !== origin) return false;
+  push(`/${loc}/app-view/watchlist`);
+  return true;
+}
+
 export async function readTrialCustomerInfo(): Promise<{ info: CustomerInfo; platform: string } | null> {
   try {
     const { Capacitor } = await import('@capacitor/core');

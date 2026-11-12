@@ -36,7 +36,8 @@ import { FREE_LIMIT, MAX_ITEMS } from '@/lib/app/watchlist';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
 import { RedeemCodeLink } from './RedeemCodeLink';
 import { markSessionError } from '@/lib/app/ratingMoments';
-import { purchaseWithTrialStart } from '@/lib/app/trialStartWatchlist';
+import { goToWatchlistAfterTrial, purchaseWithTrialStart } from '@/lib/app/trialStartWatchlist';
+import { wlUI } from '@/lib/app/watchlistUI';
 import { afterSheetHistory } from '@/components/app/watchlist/BottomSheet';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
@@ -400,8 +401,10 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     const res = out.res;
     if (out.claimed) {
       if (alive.current) onClose();
-      await afterSheetHistory();
-      if (window.location.pathname === out.origin) router.push(`/${loc}/app-view/watchlist`);
+      // 아래에 한도 시트가 있으면(내 종목 호스트 페이월) 그 시트의 «담으려던 종목 담기»가 끝난 뒤에 옮긴다(관문 11121105)
+      await goToWatchlistAfterTrial(out.origin, loc, (p) => router.push(p), {
+        afterHistory: afterSheetHistory, subscribe: wlUI.subscribe, limitSheetOpen: () => wlUI.getSnapshot().sheet?.kind === 'limit',
+      });
       if (alive.current) setBusy(false);
       return;
     }

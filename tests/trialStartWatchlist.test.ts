@@ -95,8 +95,33 @@ test('두 구매 진입점이 같은 흐름을 쓴다(관문 11112153 ①)', () 
   const pay = readFileSync(join(root, 'ProPaywall.tsx'), 'utf8');
   const upsell = readFileSync(join(root, 'watchlist', 'ProUpsellSheet.tsx'), 'utf8');
   assert.match(pay, /purchaseWithTrialStart\(/); assert.match(upsell, /purchaseWithTrialStart\(/);
+  assert.match(upsell, /goToWatchlistAfterTrial\(/); assert.match(pay, /goToWatchlistAfterTrial\(/);
   assert.match(upsell, /onNavigate\('watchlist'\)/);
   assert.match(upsell, /if \(alive\.current\) \{ notifyProPurchased\(true\); onBecamePro\(\); \}/, '먼저 끝나도 한도 시트의 종목 담기를 거친다(관문 11121040)');
   assert.doesNotMatch(upsell, /await purchase\('monthly'\);/, '시트의 직접 구매가 공용 흐름을 건너뛰지 않는다');
   assert.match(pay, /onClick=\{closeByUser\}/, '닫기 버튼은 «닫혔음»을 남긴다');
+});
+
+import { goToWatchlistAfterTrial, TRIAL_START_SHEET_WAIT_MS } from '../src/lib/app/trialStartWatchlist';
+test('이동 전 한도 시트 마무리 대기(관문 11121105)', async () => {
+  const mk = () => { let open = true; const subs = new Set<() => void>(); return {
+    close: () => { open = false; subs.forEach((f) => f()); },
+    deps: { afterHistory: async () => {}, limitSheetOpen: () => open, subscribe: (f: () => void) => { subs.add(f); return () => subs.delete(f); }, path: () => '/ko/app-view/stock/NVDA' },
+  }; };
+  // 시트가 닫히면(종목 담기 시작) 그 뒤에 옮긴다
+  const a = mk(); const pushed: string[] = []; const order: string[] = [];
+  const p = goToWatchlistAfterTrial('/ko/app-view/stock/NVDA', 'ko', (x) => { order.push('push'); pushed.push(x); }, { ...a.deps, afterHistory: async () => { order.push('history'); } });
+  await new Promise((r) => setTimeout(r, 5)); assert.deepEqual(pushed, [], '시트가 열려 있는 동안 옮기지 않는다');
+  a.close(); assert.equal(await p, true); assert.deepEqual(pushed, ['/ko/app-view/watchlist']); assert.deepEqual(order, ['history', 'history', 'push']);
+  // 시트 없음 → 바로
+  const b = mk(); b.close(); const pushed2: string[] = [];
+  assert.equal(await goToWatchlistAfterTrial('/ko/app-view/stock/NVDA', 'ko', (x) => pushed2.push(x), b.deps), true);
+  // 다른 화면으로 이미 갔으면 안 옮긴다
+  assert.equal(await goToWatchlistAfterTrial('/ko/app-view/settings', 'ko', () => assert.fail('no push'), b.deps), false);
+  assert.ok(TRIAL_START_SHEET_WAIT_MS <= 5000);
+});
+test('한도 시트가 3초 안에 안 닫히면 옮기지 않는다(종목 담기를 지킨다)', async () => {
+  let pushed = 0;
+  const r = await goToWatchlistAfterTrial('/x', 'ko', () => { pushed++; }, { afterHistory: async () => {}, limitSheetOpen: () => true, subscribe: () => () => {}, path: () => '/x' });
+  assert.equal(r, false); assert.equal(pushed, 0);
 });

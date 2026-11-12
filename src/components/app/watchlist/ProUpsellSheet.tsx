@@ -35,7 +35,7 @@ import { StarBadge } from './StarButton';
 import { canRedeemHere, openRedeem } from '@/lib/app/redeem';
 import s from './watchlist.module.css';
 import { markSessionError } from '@/lib/app/ratingMoments';
-import { purchaseWithTrialStart } from '@/lib/app/trialStartWatchlist';
+import { goToWatchlistAfterTrial, purchaseWithTrialStart } from '@/lib/app/trialStartWatchlist';
 import { afterSheetHistory } from './BottomSheet';
 
 export type UpsellMode = 'limit' | 'alerts' | 'generic' | 'chips';
@@ -131,7 +131,9 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
       // 시트가 아직 열려 있으면(PRO 반영 effect 보다 먼저 끝남) 그 effect 와 같은 마무리를 여기서 — 닫기만 하면 한도 시트의
       //   «담으려던 종목 담기»가 빠진다(관문 11121040). onBecamePro 는 시트당 한 번만 돈다(호스트 becameProFor). 그 뒤 «내 종목»으로
       if (alive.current) { notifyProPurchased(true); onBecamePro(); }
-      void afterSheetHistory().then(() => { if (window.location.pathname === out.origin) onNavigate('watchlist'); });
+      void goToWatchlistAfterTrial(out.origin, loc, () => onNavigate('watchlist'), {
+        afterHistory: afterSheetHistory, subscribe: wlUI.subscribe, limitSheetOpen: () => wlUI.getSnapshot().sheet?.kind === 'limit',
+      });
       return;
     }
     if (r.ok && r.isPro) return;                  // 위 effect 가 이어서 처리한다
