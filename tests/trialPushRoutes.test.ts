@@ -176,7 +176,7 @@ async function main() {
     // 동시 경합 흉내: A 의 옛 토큰 정리가 «주인 확인»을 하기 직전에 B 가 그 토큰의 주인이 됐다 → A 는 지우지 못한다
     const { TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY, trialUidHash: uh0 } = await import('../src/lib/push/trialVerify');
     assert.equal(kv.get(TRIAL_PUSH_OWNER_KEY(tokX)), uh0(uidB));
-    kv.set(TRIAL_PUSH_UID_KEY(uh0(uidA)), tokX); fresh(tokY);
+    kv.set(TRIAL_PUSH_UID_KEY(uh0(uidA)), 't:' + tokX); fresh(tokY);
     r = await post({ ...body(tokY), rcUid: uidA }); assert.equal(r.body.due, true);
     assert.ok(zs.get('push:trial:due')!.has(tokX), '주인이 B 인 X 는 A 가 지우지 못한다');
     // (6b) 같은 RC 고객 보고가 처리 중이면(잠금) 429 — 고객당 한 토큰 규칙을 동시 요청으로 깨지 못한다(관문 11121015 ②)
@@ -229,6 +229,30 @@ async function main() {
     assert.ok(sent.slice(sentBefore).some((x) => x.token === tokJ), '확인 도입 전 기록은 보낸다');
     assert.equal(sent.slice(sentBefore).some((x) => x.token === tokI), false);
     assert.equal(sent.slice(sentBefore).some((x) => x.token === tokL), false, '체험 API 뒤 새로 등록된 토큰의 옛 기록은 보내지 않는다');
+    // (8b) 발송: 한 고객의 토큰이 둘 남아도(정리 실패 흉내) «지금 토큰»에만, 고객당 한 통(관문 11121124)
+    {
+      for (const t of [...(zs.get('push:trial:due')?.keys() ?? [])]) zs.get('push:trial:due')!.delete(t);   // 앞 단계 대상 비우기
+      const uidP = '$RCAnonymousID:' + 'c3'.repeat(16), tokP = 'p'.repeat(64), tokQ = 'q'.repeat(64);
+      reg(tokP); reg(tokQ); rc.set(uidP, rcTrial(T + 40 * H));
+      r = await post({ ...body(tokP), rcUid: uidP }); assert.equal(r.body.due, true);
+      const keepRec = kv.get(`push:trial:${tokP}`)!, keepOwner = kv.get(`push:trial:owner:${tokP}`)!;
+      r = await post({ ...body(tokQ), rcUid: uidP }); assert.equal(r.body.due, true);
+      // 옛 토큰 정리가 실패해 P 가 남았다(기록·주인·대상 그대로)
+      kv.set(`push:trial:${tokP}`, keepRec); kv.set(`push:trial:owner:${tokP}`, keepOwner); zs.get('push:trial:due')!.set(tokP, T + 40 * H);
+      ageRec(tokP); ageRec(tokQ);
+      const before8 = sent.length;
+      res = await run();
+      const got = sent.slice(before8).map((x) => x.token);
+      assert.deepEqual(got, [tokQ], '고객의 지금 토큰(Q)에만 보낸다');
+      assert.equal(zs.get('push:trial:due')!.has(tokP), false, '지금 토큰이 아닌 P 는 대상에서 걷는다');
+      // 묶음이 다시 P 로 바뀌어도(다른 기기에서 다시 보고) 같은 고객에게 두 번째는 없다
+      const { TRIAL_PUSH_UID_KEY: UK, trialUidHash: H2 } = await import('../src/lib/push/trialVerify');
+      kv.set(UK(H2(uidP)), 't:' + tokP); zs.get('push:trial:due')!.set(tokP, T + 40 * H);
+      kv.set(`push:trial:owner:${tokP}`, H2(uidP));
+      { const rec = JSON.parse(kv.get(`push:trial:${tokQ}`)!); kv.set(`push:trial:${tokP}`, JSON.stringify({ ...rec, token: tokP })); }
+      res = await run();
+      assert.deepEqual(sent.slice(before8).map((x) => x.token), [tokQ], '고객당 한 통');
+    }
     // (9) IP 예산 — 한 IP 가 10분에 30번 넘게 RC 확인을 부르면 429
     let limited = 0;
     for (let i = 0; i < 40; i++) { const t = `ip${i}`.padEnd(64, 'y'); reg(t); const q = await report(new Request('http://x/api/push/trial', { method: 'POST', body: JSON.stringify({ ...body(t), rcUid: `$RCAnonymousID:${String(1000 + i).padStart(32, '0')}` }), headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9' } }) as never); if (q.status === 429) limited++; }

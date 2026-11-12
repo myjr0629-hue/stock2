@@ -14,6 +14,8 @@ export const TRIAL_PUSH_KEY = (token: string) => `push:trial:${token}`;
  *  1개월 체험은 한 기기에 25일 안에 두 번 생기지 않는다. 보고 API 로 만료일을 바꿔도 다시 보내지 않는다(남용 차단). */
 export const TRIAL_PUSH_SENT_KEY = (token: string) => `push:trial:sent:${token}`;
 export const TRIAL_PUSH_SENT_TTL_S = 25 * 86400;
+/** ★11/12 RC 고객(해시)당 «보냄» 표식 — 한 고객의 토큰이 여럿 남아도(기기 교체·경합) 체험 하나에 한 통(관문 11121124) */
+export const TRIAL_PUSH_SENT_UID_KEY = (uidHash: string) => `push:trial:sentuid:${uidHash}`;
 /** 보고 API 호출 제한 — 토큰당 5초에 한 번 */
 export const TRIAL_PUSH_RL_KEY = (token: string) => `push:trial:rl:${token}`;
 /** 한 회차 최대 발송 수 · 하루(ET) 최대 «발송 시도» 수(INCR 로 먼저 예약 — 실패·소멸 토큰도 센다) · 한 쪽(page)에 읽는 대상 수(최대 5쪽)
@@ -98,7 +100,7 @@ export function fallbackTimeZone(locale: string): string {
   return locale === 'ko' ? 'Asia/Seoul' : locale === 'ja' ? 'Asia/Tokyo' : 'America/New_York';
 }
 
-export type TrialPushSkip = 'invalid' | 'unverified' | 'renewing' | 'sent' | 'window' | 'unregistered' | 'muted' | 'no_permission' | 'recent_open' | 'quiet_hours';
+export type TrialPushSkip = 'invalid' | 'unverified' | 'superseded' | 'renewing' | 'sent' | 'window' | 'unregistered' | 'muted' | 'no_permission' | 'recent_open' | 'quiet_hours';
 
 /** 지금 보낼까 — 'send' 또는 안 보내는 이유 */
 export function trialPushDecision(

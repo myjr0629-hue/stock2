@@ -15,7 +15,7 @@ import { Redis } from '@upstash/redis';
 import { TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_RL_KEY, sanitizeTrialReport, trialPushWanted, validPushToken, type TrialPushRecord } from '@/lib/push/trialPush';
 import { RC_UID_RE, TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY, trialUidHash, verifyTrialWithRc, type TrialVerifyStore } from '@/lib/push/trialVerify';
 import { clientIpFrom } from '@/lib/guruLens/proAccess';
-import { DROP_IF_OWNER_LUA, DROP_LUA, TRIAL_PUSH_SEQ_KEY, TRIAL_PUSH_SEQ_TTL_S, TRIAL_PUSH_UIDSEQ_KEY, UNLOCK_LUA, WRITE_UNVERIFIED_LUA, WRITE_VERIFIED_LUA } from '@/lib/push/trialPushLua';
+import { bindValue, boundToken, DROP_IF_OWNER_LUA, DROP_LUA, TRIAL_PUSH_SEQ_KEY, TRIAL_PUSH_SEQ_TTL_S, TRIAL_PUSH_UIDSEQ_KEY, UNLOCK_LUA, WRITE_UNVERIFIED_LUA, WRITE_VERIFIED_LUA } from '@/lib/push/trialPushLua';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -95,14 +95,15 @@ async function addVerified(req: NextRequest, token: string, uid: string, rec: Tr
   const out: TrialPushRecord = { ...rec, expiresAt: trial.expiresAt, willRenew: trial.willRenew, periodType: trial.periodType, store: trial.store, verified: true };
   const ttl = Math.max(60, Math.ceil((out.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S);
   const uidKey = TRIAL_PUSH_UID_KEY(uh);
-  const prevTok = await redis.get<string>(uidKey);
+  const prevTok = boundToken(await redis.get(uidKey));
   // 주인 표식 · 기록 · 고객→토큰 묶음 · 대상 목록을 «한 번에» 쓴다 — 늦게 끝난 다른 고객 요청이 주인과 기록을 서로 다른 고객으로 엇갈리게 하지 못한다(관문 11121033)
   //   늦게 시작한 다른 요청(같은 토큰의 해제·갱신 켬, 같은 고객의 다른 토큰)이 이미 썼으면 쓰지 않는다(순서표 — 관문 11121052 ①③)
   const due = trialPushWanted(out);
   const wrote = await redis.eval(WRITE_VERIFIED_LUA, [TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_KEY(token), TRIAL_PUSH_DUE_ZSET, uidKey, TRIAL_PUSH_SEQ_KEY(token), TRIAL_PUSH_UIDSEQ_KEY(uh)],
-    [uh, JSON.stringify(out), String(ttl), String(out.expiresAt), due ? '1' : '0', token, String(now), SEQ_TTL]);
+    [uh, JSON.stringify(out), String(ttl), String(out.expiresAt), due ? '1' : '0', token, String(now), SEQ_TTL, bindValue(token)]);
   if (Number(wrote) !== 1) return json({ ok: true, stored: false, skipped: 'stale' }, 409);
-  // RC 고객 하나 = 토큰 하나 — 새 토큰을 «쓴 뒤에만» 옛 토큰을 대상에서 뺀다(거절된 옛 요청이 남의 대상을 지우지 않게 — 관문 11121105).
+  // 옛 토큰 정리(가벼운 청소 — 실패·경합으로 남아도 발송 크론이 «고객의 지금 토큰»에만, 고객당 한 번만 보낸다 · 관문 11121124).
+  //   새 토큰을 «쓴 뒤에만» 옛 토큰을 대상에서 뺀다(거절된 옛 요청이 남의 대상을 지우지 않게 — 관문 11121105).
   //   옛 토큰의 주인이 지금도 이 고객이고 그 토큰에 더 새 쓰기가 없을 때만, 확인과 삭제를 한 번에(Lua — 관문 11121018 ②·11121021 ①)
   if (typeof prevTok === 'string' && prevTok && prevTok !== token) {
     await redis.eval(DROP_IF_OWNER_LUA, [TRIAL_PUSH_OWNER_KEY(prevTok), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY(prevTok), TRIAL_PUSH_SEQ_KEY(prevTok)], [uh, prevTok, String(now), SEQ_TTL]);

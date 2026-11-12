@@ -12,14 +12,17 @@ export const TRIAL_PUSH_SEQ_KEY = (token: string) => `push:trial:seq:${token}`;
 export const TRIAL_PUSH_UIDSEQ_KEY = (uidHash: string) => `push:trial:uidseq:${uidHash}`;
 /** 순서표 보관 — 보고를 받는 만료 범위(40일) + 여유 */
 export const TRIAL_PUSH_SEQ_TTL_S = 45 * 86400;
+/** 고객→토큰 묶음 값 — 접두 't:' 로 저장한다(Upstash 자동 JSON 해석이 숫자처럼 생긴 토큰을 바꾸지 않게) */
+export const bindValue = (token: string) => `t:${token}`;
+export const boundToken = (v: unknown): string | null => (typeof v === 'string' && v.startsWith('t:') ? v.slice(2) : null);
 
 const SEQ_OK = (k: string, a: string) => `(tonumber(redis.call('GET', ${k}) or '0') or 0) <= tonumber(${a})`;
 
-/** 확인된 기록 쓰기. KEYS 주인·기록·대상·고객→토큰·토큰seq·고객seq · ARGV 고객해시·기록JSON·TTL·만료(점수)·대상(1/0)·토큰·now·seqTTL */
+/** 확인된 기록 쓰기. KEYS 주인·기록·대상·고객→토큰·토큰seq·고객seq · ARGV 고객해시·기록JSON·TTL·만료(점수)·대상(1/0)·토큰·now·seqTTL·묶음값('t:'+토큰) */
 export const WRITE_VERIFIED_LUA = [
   `if not (${SEQ_OK('KEYS[5]', 'ARGV[7]')}) or not (${SEQ_OK('KEYS[6]', 'ARGV[7]')}) then return 0 end`,
   "redis.call('SET', KEYS[5], ARGV[7], 'EX', ARGV[8]); redis.call('SET', KEYS[6], ARGV[7], 'EX', ARGV[8])",
-  "redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[3]); redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3]); redis.call('SET', KEYS[4], ARGV[6], 'EX', ARGV[3])",
+  "redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[3]); redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3]); redis.call('SET', KEYS[4], ARGV[9], 'EX', ARGV[3])",
   "if ARGV[5] == '1' then redis.call('ZADD', KEYS[3], ARGV[4], ARGV[6]) else redis.call('ZREM', KEYS[3], ARGV[6]) end",
   'return 1',
 ].join('\n');
@@ -56,7 +59,7 @@ export const MEMORY_IMPL = new Map<string, (m: MemRedis, keys: string[], a: stri
   [WRITE_VERIFIED_LUA, (m, k, a) => {
     if (!seqOk(m, k[4], a[6]) || !seqOk(m, k[5], a[6])) return 0;
     m.kv.set(k[4], a[6]); m.kv.set(k[5], a[6]);
-    m.kv.set(k[0], a[0]); m.kv.set(k[1], a[1]); m.kv.set(k[3], a[5]);
+    m.kv.set(k[0], a[0]); m.kv.set(k[1], a[1]); m.kv.set(k[3], a[8]);
     if (a[4] === '1') zset(m, k[2]).set(a[5], Number(a[3])); else m.zs.get(k[2])?.delete(a[5]);
     return 1;
   }],

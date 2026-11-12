@@ -19,7 +19,8 @@ export const TRIAL_VERIFY_LIMIT_UID = 6;
 export const TRIAL_VERIFY_LIMIT_ALL = 300;
 export const TRIAL_VERIFY_TIMEOUT_MS = 4000;
 
-export const trialUidHash = (uid: string) => crypto.createHash('sha256').update('trialuid:' + uid).digest('hex').slice(0, 32);
+/** 고객 해시 — 'u' 접두(Upstash 자동 JSON 해석이 숫자로 바꾸지 않게) */
+export const trialUidHash = (uid: string) => 'u' + crypto.createHash('sha256').update('trialuid:' + uid).digest('hex').slice(0, 31);
 const ipHash = (ip: string) => crypto.createHash('sha256').update('trialip:' + ip).digest('hex').slice(0, 32);
 /** RC 고객(해시) → 지금 묶인 푸시 토큰 */
 export const TRIAL_PUSH_UID_KEY = (uidHash: string) => `push:trial:uid:${uidHash}`;

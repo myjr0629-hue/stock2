@@ -15,9 +15,11 @@ import { Redis } from '@upstash/redis';
 import { parseRecord } from '@/lib/push/prefs';
 import { sendSignalPushes, type SignalPushItem } from '@/lib/push/sendSignal';
 import { etDay } from '@/lib/app/funnelSchema';
+import { TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY } from '@/lib/push/trialVerify';
+import { boundToken } from '@/lib/push/trialPushLua';
 import {
   TRIAL_PUSH_DATA, TRIAL_PUSH_DAY_KEY, TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_MAX_MS, TRIAL_PUSH_MAX_PER_DAY, TRIAL_PUSH_MAX_PER_RUN,
-  TRIAL_PUSH_MIN_MS, TRIAL_PUSH_SCAN_LIMIT, TRIAL_PUSH_SCAN_PAGES, TRIAL_PUSH_SENT_KEY, TRIAL_PUSH_SENT_TTL_S,
+  TRIAL_PUSH_MIN_MS, TRIAL_PUSH_SCAN_LIMIT, TRIAL_PUSH_SCAN_PAGES, TRIAL_PUSH_SENT_KEY, TRIAL_PUSH_SENT_TTL_S, TRIAL_PUSH_SENT_UID_KEY,
   trialPushContent, trialPushDecision, type TrialPushRecord,
 } from '@/lib/push/trialPush';
 
@@ -42,7 +44,8 @@ export async function GET(request: Request) {
     if (!dry) await redis.zremrangebyscore(TRIAL_PUSH_DUE_ZSET, 0, now);
     const skipped: Record<string, number> = {};
     const skip = (k: string) => { skipped[k] = (skipped[k] || 0) + 1; };
-    const picked: Array<{ token: string; rec: TrialPushRecord; tokenRec: TokenRec | null }> = [];
+    const picked: Array<{ token: string; rec: TrialPushRecord; tokenRec: TokenRec | null; owner: string | null }> = [];
+    const pickedOwners = new Set<string>();
     let candidates = 0;
     // 쪽 단위로 읽는다 — 앞쪽이 알림 꺼짐 등으로 계속 제외돼도 뒤쪽 정상 대상이 굶지 않게
     for (let page = 0; page < TRIAL_PUSH_SCAN_PAGES && picked.length < TRIAL_PUSH_MAX_PER_RUN; page++) {
@@ -51,19 +54,37 @@ export async function GET(request: Request) {
       candidates += tokens.length;
       for (let i = 0; i < tokens.length && picked.length < TRIAL_PUSH_MAX_PER_RUN; i += 50) {
         const chunk = tokens.slice(i, i + 50);
-        const [trialRaw, tokenRaw, sentRaw] = await Promise.all([
+        const [trialRaw, tokenRaw, sentRaw, ownerRaw] = await Promise.all([
           redis.mget<unknown[]>(...chunk.map((t) => TRIAL_PUSH_KEY(t))),
           redis.mget<unknown[]>(...chunk.map((t) => `push:tokens:${t}`)),
           redis.mget<unknown[]>(...chunk.map((t) => TRIAL_PUSH_SENT_KEY(t))),
+          redis.mget<unknown[]>(...chunk.map((t) => TRIAL_PUSH_OWNER_KEY(t))),
         ]);
-        chunk.forEach((token, j) => {
-          if (picked.length >= TRIAL_PUSH_MAX_PER_RUN) { skip('run_cap'); return; }
+        // ★11/12 확인된 기록은 «그 고객의 지금 토큰»일 때만 · 고객당 한 번(관문 11121124 — 정리 실패·경합으로 옛 토큰이 남아도 두 통 가지 않는다)
+        const owners = ownerRaw.map((o) => (o == null ? null : String(o)));
+        const ownerList = [...new Set(owners.filter((o): o is string => !!o))];
+        const [boundRaw, sentUidRaw] = ownerList.length ? await Promise.all([
+          redis.mget<unknown[]>(...ownerList.map((o) => TRIAL_PUSH_UID_KEY(o))),
+          redis.mget<unknown[]>(...ownerList.map((o) => TRIAL_PUSH_SENT_UID_KEY(o))),
+        ]) : [[], []];
+        const bound = new Map(ownerList.map((o, i) => [o, boundToken(boundRaw[i])]));
+        const sentUid = new Map(ownerList.map((o, i) => [o, sentUidRaw[i] != null]));
+        for (let j = 0; j < chunk.length; j++) {
+          const token = chunk[j];
+          if (picked.length >= TRIAL_PUSH_MAX_PER_RUN) { skip('run_cap'); continue; }
           const rec = parseRecord<TrialPushRecord>(trialRaw[j]);
           const tokenRec = parseRecord<TokenRec>(tokenRaw[j]);
-          const d = trialPushDecision(rec, tokenRec, now, sentRaw[j] != null);
-          if (d !== 'send' || !rec) { skip(d); return; }
-          picked.push({ token, rec, tokenRec });
-        });
+          const owner = rec?.verified === true ? owners[j] : null;
+          if (rec?.verified === true && (!owner || bound.get(owner) !== token)) {
+            skip('superseded');
+            if (!dry) await redis.zrem(TRIAL_PUSH_DUE_ZSET, token);   // 고객의 지금 토큰이 아니다 — 대상에서 걷는다(기록은 TTL 로)
+            continue;
+          }
+          const d = trialPushDecision(rec, tokenRec, now, sentRaw[j] != null || (!!owner && sentUid.get(owner) === true) || (!!owner && pickedOwners.has(owner)));
+          if (d !== 'send' || !rec) { skip(d); continue; }
+          if (owner) pickedOwners.add(owner);
+          picked.push({ token, rec, tokenRec, owner });
+        }
       }
       if (tokens.length < TRIAL_PUSH_SCAN_LIMIT) break;
     }
@@ -75,19 +96,24 @@ export async function GET(request: Request) {
 
     // 자리 잡기(SET NX) → 하루 상한 예약(INCR) → 보내기 직전 기록 재확인 → 보내기
     const items: SignalPushItem[] = [];
-    for (const { token, rec, tokenRec } of picked) {
+    for (const { token, rec, tokenRec, owner } of picked) {
       const claimed = await redis.set(TRIAL_PUSH_SENT_KEY(token), String(rec.expiresAt), { nx: true, ex: TRIAL_PUSH_SENT_TTL_S });
       if (claimed !== 'OK') { skip('sent'); continue; }
+      if (owner) {
+        // 고객당 자리도 먼저 잡는다(겹친 실행이 같은 고객의 다른 토큰으로 보내지 못하게)
+        const mine = await redis.set(TRIAL_PUSH_SENT_UID_KEY(owner), String(rec.expiresAt), { nx: true, ex: TRIAL_PUSH_SENT_TTL_S });
+        if (mine !== 'OK') { await redis.del(TRIAL_PUSH_SENT_KEY(token)); skip('sent'); continue; }
+      }
       const fresh = parseRecord<TrialPushRecord>(await redis.get(TRIAL_PUSH_KEY(token)));
       if (trialPushDecision(fresh, tokenRec, now, false) !== 'send' || fresh!.expiresAt !== rec.expiresAt) {
-        await redis.del(TRIAL_PUSH_SENT_KEY(token));
+        await redis.del(TRIAL_PUSH_SENT_KEY(token), ...(owner ? [TRIAL_PUSH_SENT_UID_KEY(owner)] : []));
         skip('changed');
         continue;
       }
       const n = await redis.incr(dayKey);
       if (n === 1) await redis.expire(dayKey, 3 * 86400).catch(() => {});
       if (n > TRIAL_PUSH_MAX_PER_DAY) {
-        await redis.del(TRIAL_PUSH_SENT_KEY(token));
+        await redis.del(TRIAL_PUSH_SENT_KEY(token), ...(owner ? [TRIAL_PUSH_SENT_UID_KEY(owner)] : []));
         skip('day_cap');
         break;
       }
