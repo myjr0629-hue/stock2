@@ -233,6 +233,33 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
     assert.equal(x.basis, 'eod'); assert.equal(x.strike, 99); assert.equal(x.impliedMovePct, 5.1);
     ok('② gate 11130827: spot error range crosses the 99/101 midpoint → not a candidate → strict EOD @99');
   }
+  // ② 관문 11130829 경계 — 분모가 작아지는 쪽 오차도 정확히: 허용치(0.001·S²/스트래들)는 통과해도 정확 오차 > 0.1%p 면 후보 아님.
+  //   구조 만기 목록에 실적 만기를 빼 legacy(예전 규칙)가 값을 못 내게 해, 새 분기만 값을 낼 수 있는 상황으로 만든다(예전 결과 = null).
+  {
+    const now = ms(REG);
+    const T = (Date.parse(`${EARN}T21:00:00Z`) - now) / (365 * 86400_000);
+    const S = 150, K = 150, sum = 30;
+    const tol = 0.001 * S * S / sum;                       // 0.75
+    const spotErr = 0.999 * tol;                           // 허용치 바로 안
+    const Strue = S - (spotErr - K * T * 0.02);            // gap = spotErr − 금리 여유
+    const diff = Strue - K * Math.exp(-0.04 * T);
+    const legs: Array<[number, Leg, Leg]> = [[K, { live: (sum + diff) / 2, bid: 9, ask: 9.4 }, { live: (sum - diff) / 2, bid: 5, ask: 5.4 }]];
+    const rows: any[] = [];
+    for (const [k, c, p] of legs) rows.push(fullRow(EARN, k, 'call', c), fullRow(EARN, k, 'put', p));
+    store.set('structure:v2:ATMX', { data: { ticker: 'ATMX', options_status: 'OK', expiration: WEEKLY, availableExpirations: [WEEKLY],
+      chainDate: PREV, underlyingPrice: S, prevClose: 100, session: 'REG', impliedMove: null, structure: { strikes: [150], callsOI: [1], putsOI: [1] } }, timestamp: now - 30_000 });
+    store.set('polygon:snapshot:probe:ATMX', { greeksSource: 'realtime', _ts: now - 60_000, chainDate: PREV, chainDates: { [WEEKLY]: PREV, [EARN]: PREV },
+      weeklyExpiry: WEEKLY, expirations: [WEEKLY, EARN], expirationsMissing: [], exactResults: [], probeResults: rows });
+    const [x] = await at(REG, () => IMS.readImpliedMoveRows([{ ticker: 'ATMX', after: AFTER, timing: 'unknown' }], '2026-11-12'));
+    const exactPp = 100 * sum * spotErr / (S * (S - spotErr));
+    assert.ok(exactPp > 0.1, `fixture: exact error must exceed the budget — ${exactPp}`);
+    assert.equal(x.impliedMovePct, null, `edge beyond 0.1pp must not ship (origin/main = null here) — got ${x.basis} ${x.impliedMovePct}`);
+    // 같은 체인에서 현물을 실제 값으로 두면 증명 → live
+    store.set('structure:v2:ATMX', { data: { ...(store.get('structure:v2:ATMX') as any).data, underlyingPrice: Math.round(Strue * 100) / 100 }, timestamp: now - 30_000 });
+    const [y] = await at(REG, () => IMS.readImpliedMoveRows([{ ticker: 'ATMX', after: AFTER, timing: 'unknown' }], '2026-11-12'));
+    assert.equal(y.basis, 'live', `true spot → proven live — got ${y.basis} ${y.impliedMovePct}`);
+    ok(`② gate 11130829: exact error ${exactPp.toFixed(4)}pp > 0.1 → no value (= origin/main) · true spot → live ${y.impliedMovePct}`);
+  }
   // ③ 구조 현물이 «전일 종가 대체»(현물 = prevClose — 체결 없음)·정규장 밖에서 계산된 구조 → 현물 시각 근거 없음 → 예전 순서(strict EOD) (관문 11130811)
   seed({ kind: 'full', prevClose: 149 });
   [r] = await readEarn();

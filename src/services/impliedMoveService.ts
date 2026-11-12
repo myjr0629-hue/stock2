@@ -638,7 +638,10 @@ function regularSessionLiveMove(rows: any[], spot: number, spotAt: number | null
     // 할인율 근사(4%)의 불확실성 ±EARNINGS_LIVE_RATE_UNC 만큼은 «현물 오차일 수도» 있다 — 그것까지 더해 예산 안이어야 증명(관문 11130824).
     //   못 증명하면(만기가 멀고 허용치가 작은 경우) 후보 아님 → 예전 순서 그대로.
     const spotErr = gap + im.strike * years * EARNINGS_LIVE_RATE_UNC;
-    if (!(spotErr <= tol)) return { im: null, rejected: false };
+    // 증명: 실제 현물이 S ± spotErr 어디든 예상폭 오차 = 100·스트래들·spotErr / (S·(S − spotErr)) ≤ 0.1%p (분모가 작아지는 쪽까지 정확히 — 관문 11130829)
+    const straddle = im.callPrice + im.putPrice;
+    const errPp = spotErr < im.spot ? 100 * straddle * spotErr / (im.spot * (im.spot - spotErr)) : Infinity;
+    if (!(spotErr <= EARNINGS_LIVE_PARITY_SPOT_CAP * im.spot && errPp <= EARNINGS_LIVE_PARITY_PP)) return { im: null, rejected: false };
     // 현물이 증명된 오차 범위(±spotErr) 어디에 있어도 같은 ATM 행사가여야 한다 — 범위가 두 행사가의 중간점을 넘으면
     //   행사가 자체가 바뀔 수 있다(관문 11130827). 같은 선택 규칙(atmStraddleImpliedMove)으로 양 끝을 다시 고른다. 다르면 후보 아님.
     for (const edge of [im.spot - spotErr, im.spot + spotErr]) {
