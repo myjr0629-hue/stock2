@@ -25,6 +25,9 @@ const fake = {
       if (args[4] === '1') z.set(args[5], Number(args[3])); else z.delete(args[5]);
       return 1;
     }
+    if (/then return redis.call\('DEL', KEYS\[1\]\)/.test(script)) { if (kv.get(keys[0]) === args[0]) { kv.delete(keys[0]); return 1; } return 0; }   // 잠금 풀기
+    if (/^redis.call\('ZREM', KEYS\[1\]/.test(script)) { zs.get(keys[0])?.delete(args[0]); kv.delete(keys[1]); kv.delete(keys[2]); return 1; }   // 지우기
+    if (/^redis.call\('SET', KEYS\[1\], ARGV\[1\], 'EX', ARGV\[2\]\); redis.call\('ZREM'/.test(script)) { kv.set(keys[0], args[0]); zs.get(keys[1])?.delete(args[2]); kv.delete(keys[2]); return 1; }   // 빼는 보고
     assert.match(script, /redis.call\('GET', KEYS\[1\]\) == ARGV\[1\]/);
     if (kv.get(keys[0]) !== args[0]) return 0;
     zs.get(keys[1])?.delete(args[1]); kv.delete(keys[2]); kv.delete(keys[0]); return 1;
