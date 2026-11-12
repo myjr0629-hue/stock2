@@ -252,6 +252,15 @@ async function main() {
       { const rec = JSON.parse(kv.get(`push:trial:${tokQ}`)!); kv.set(`push:trial:${tokP}`, JSON.stringify({ ...rec, token: tokP })); }
       res = await run();
       assert.deepEqual(sent.slice(before8).map((x) => x.token), [tokQ], '고객당 한 통');
+      // 자리 잡기 순간에 묶음이 바뀌었으면(후보로 읽은 뒤 Q→R) 옛 후보에 보내지 않는다 · 걷기는 다시 묶인 토큰을 지우지 않는다(관문 11121127)
+      const { CLAIM_VERIFIED_LUA, SWEEP_IF_UNBOUND_LUA, MEMORY_IMPL: MI } = await import('../src/lib/push/trialPushLua');
+      const m = { kv, zs };
+      kv.set(UK(H2(uidP)), 't:' + 'r'.repeat(64));
+      assert.equal(MI.get(CLAIM_VERIFIED_LUA)!(m, ['s1', 's2', UK(H2(uidP)), `push:trial:owner:${tokQ}`], ['t:' + tokQ, '1', '60', H2(uidP)]), -1);
+      assert.equal(kv.has('s1'), false);
+      kv.set(UK(H2(uidP)), 't:' + tokQ); zs.get('push:trial:due')!.set(tokQ, T + 40 * H);
+      assert.equal(MI.get(SWEEP_IF_UNBOUND_LUA)!(m, [UK(H2(uidP)), 'push:trial:due'], ['t:' + tokQ, tokQ]), 0);
+      assert.equal(zs.get('push:trial:due')!.has(tokQ), true, '다시 묶인 토큰은 걷지 않는다');
     }
     // (9) IP 예산 — 한 IP 가 10분에 30번 넘게 RC 확인을 부르면 429
     let limited = 0;

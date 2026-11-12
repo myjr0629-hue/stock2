@@ -16,7 +16,7 @@ import { parseRecord } from '@/lib/push/prefs';
 import { sendSignalPushes, type SignalPushItem } from '@/lib/push/sendSignal';
 import { etDay } from '@/lib/app/funnelSchema';
 import { TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY } from '@/lib/push/trialVerify';
-import { boundToken } from '@/lib/push/trialPushLua';
+import { bindValue, boundToken, CLAIM_VERIFIED_LUA, SWEEP_IF_UNBOUND_LUA } from '@/lib/push/trialPushLua';
 import {
   TRIAL_PUSH_DATA, TRIAL_PUSH_DAY_KEY, TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_MAX_MS, TRIAL_PUSH_MAX_PER_DAY, TRIAL_PUSH_MAX_PER_RUN,
   TRIAL_PUSH_MIN_MS, TRIAL_PUSH_SCAN_LIMIT, TRIAL_PUSH_SCAN_PAGES, TRIAL_PUSH_SENT_KEY, TRIAL_PUSH_SENT_TTL_S, TRIAL_PUSH_SENT_UID_KEY,
@@ -77,7 +77,8 @@ export async function GET(request: Request) {
           const owner = rec?.verified === true ? owners[j] : null;
           if (rec?.verified === true && (!owner || bound.get(owner) !== token)) {
             skip('superseded');
-            if (!dry) await redis.zrem(TRIAL_PUSH_DUE_ZSET, token);   // 고객의 지금 토큰이 아니다 — 대상에서 걷는다(기록은 TTL 로)
+            // 고객의 지금 토큰이 아니다 — 대상에서 걷는다(그 사이 다시 묶였으면 걷지 않는다 · 기록은 TTL 로)
+            if (!dry && owner) await redis.eval(SWEEP_IF_UNBOUND_LUA, [TRIAL_PUSH_UID_KEY(owner), TRIAL_PUSH_DUE_ZSET], [bindValue(token), token]);
             continue;
           }
           const d = trialPushDecision(rec, tokenRec, now, sentRaw[j] != null || (!!owner && sentUid.get(owner) === true) || (!!owner && pickedOwners.has(owner)));
@@ -97,12 +98,15 @@ export async function GET(request: Request) {
     // 자리 잡기(SET NX) → 하루 상한 예약(INCR) → 보내기 직전 기록 재확인 → 보내기
     const items: SignalPushItem[] = [];
     for (const { token, rec, tokenRec, owner } of picked) {
-      const claimed = await redis.set(TRIAL_PUSH_SENT_KEY(token), String(rec.expiresAt), { nx: true, ex: TRIAL_PUSH_SENT_TTL_S });
-      if (claimed !== 'OK') { skip('sent'); continue; }
       if (owner) {
-        // 고객당 자리도 먼저 잡는다(겹친 실행이 같은 고객의 다른 토큰으로 보내지 못하게)
-        const mine = await redis.set(TRIAL_PUSH_SENT_UID_KEY(owner), String(rec.expiresAt), { nx: true, ex: TRIAL_PUSH_SENT_TTL_S });
-        if (mine !== 'OK') { await redis.del(TRIAL_PUSH_SENT_KEY(token)); skip('sent'); continue; }
+        // 확인된 기록: «지금도 이 고객의 묶인 토큰»인지 확인과 토큰·고객 자리 잡기를 한 번에(겹친 실행·묶음 변경 사이 경합 없음)
+        const c = Number(await redis.eval(CLAIM_VERIFIED_LUA, [TRIAL_PUSH_SENT_KEY(token), TRIAL_PUSH_SENT_UID_KEY(owner), TRIAL_PUSH_UID_KEY(owner), TRIAL_PUSH_OWNER_KEY(token)],
+          [bindValue(token), String(rec.expiresAt), String(TRIAL_PUSH_SENT_TTL_S), owner]));
+        if (c === -1) { skip('superseded'); continue; }
+        if (c !== 1) { skip('sent'); continue; }
+      } else {
+        const claimed = await redis.set(TRIAL_PUSH_SENT_KEY(token), String(rec.expiresAt), { nx: true, ex: TRIAL_PUSH_SENT_TTL_S });
+        if (claimed !== 'OK') { skip('sent'); continue; }
       }
       const fresh = parseRecord<TrialPushRecord>(await redis.get(TRIAL_PUSH_KEY(token)));
       if (trialPushDecision(fresh, tokenRec, now, false) !== 'send' || fresh!.expiresAt !== rec.expiresAt) {

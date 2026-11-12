@@ -48,6 +48,18 @@ export const DROP_IF_OWNER_LUA = [
   'return 1',
 ].join('\n');
 
+/** 발송 크론 — 확인된 기록의 «보냄» 자리 잡기: 지금도 이 고객의 묶인 토큰이고 주인이 같을 때만, 토큰·고객 표식을 함께(관문 11121127 ①).
+ *  KEYS 토큰보냄·고객보냄·고객→토큰·토큰주인 · ARGV 묶음값·만료·TTL·고객해시 → 1 잡음 · 0 이미 보냄 · -1 지금 토큰 아님 */
+export const CLAIM_VERIFIED_LUA = [
+  "if redis.call('GET', KEYS[4]) ~= ARGV[4] or redis.call('GET', KEYS[3]) ~= ARGV[1] then return -1 end",
+  "if redis.call('EXISTS', KEYS[1]) == 1 or redis.call('EXISTS', KEYS[2]) == 1 then return 0 end",
+  "redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3]); redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3])",
+  'return 1',
+].join('\n');
+
+/** 발송 크론 — 고객의 지금 토큰이 아닐 때만 대상에서 걷는다(그 사이 다시 묶였으면 걷지 않는다 — 관문 11121127 ②). KEYS 고객→토큰·대상 · ARGV 묶음값·토큰 */
+export const SWEEP_IF_UNBOUND_LUA = "if redis.call('GET', KEYS[1]) ~= ARGV[1] then redis.call('ZREM', KEYS[2], ARGV[2]) return 1 end return 0";
+
 /** 내 잠금일 때만 푼다. KEYS 잠금 · ARGV 잠금 ID */
 export const UNLOCK_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0";
 
@@ -78,5 +90,11 @@ export const MEMORY_IMPL = new Map<string, (m: MemRedis, keys: string[], a: stri
     m.kv.set(k[3], a[2]); m.zs.get(k[1])?.delete(a[1]); m.kv.delete(k[2]); m.kv.delete(k[0]);
     return 1;
   }],
+  [CLAIM_VERIFIED_LUA, (m, k, a) => {
+    if (m.kv.get(k[3]) !== a[3] || m.kv.get(k[2]) !== a[0]) return -1;
+    if (m.kv.has(k[0]) || m.kv.has(k[1])) return 0;
+    m.kv.set(k[0], a[1]); m.kv.set(k[1], a[1]); return 1;
+  }],
+  [SWEEP_IF_UNBOUND_LUA, (m, k, a) => { if (m.kv.get(k[0]) !== a[0]) { m.zs.get(k[1])?.delete(a[1]); return 1; } return 0; }],
   [UNLOCK_LUA, (m, k, a) => { if (m.kv.get(k[0]) === a[0]) { m.kv.delete(k[0]); return 1; } return 0; }],
 ]);
