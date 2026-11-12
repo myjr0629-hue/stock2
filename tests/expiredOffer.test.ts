@@ -181,7 +181,7 @@ test('할인 카드는 만료 1회 페이월에서만 — discountOffer·purchas
   assert.match(sheet, /discountOffer=\{src === 'trial_expired' \? discountOffer : null\}/);
   assert.equal((sheet.match(/discountOffer=/g) || []).length, 1, '체험 중 시트 경로(keepOpenWhilePro)에는 없다');
   const pw = read('src/components/app/ProPaywall.tsx');
-  assert.match(pw, /const offer = context && discountOffer \? discountOffer : null;/, 'context 없는 화면에선 넘어와도 안 그린다');
+  assert.match(pw, /const offer = context && discountOffer && \(previewPlans \?\? offers\)\.some\(\(p\) => p\.plan === 'monthly'\) \? discountOffer : null;/, 'context 없는 화면에선 넘어와도 안 그린다 · 정가 월간 카드가 있을 때만(관문 11121047)');
   assert.match(pw, /if \(!offerReal\) return;/, '미리보기 값으로는 결제하지 않는다');
 });
 

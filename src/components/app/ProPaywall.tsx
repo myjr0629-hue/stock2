@@ -346,20 +346,25 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   const t = SHOWN[loc];
 
   const { isPro, ready, offers, purchase, purchaseOffer, purchasePending, restore, refreshOffers } = useProStatus();
-  // ★11/12 할인 카드는 만료 페이월(context)에서만 — 다른 화면에 실수로 넘어와도 그리지 않는다
-  const offer = context && discountOffer ? discountOffer : null;
+  // ★11/12 할인 카드는 만료 페이월(context)에서만 — 다른 화면에 실수로 넘어와도 그리지 않는다.
+  //   정가 월간 카드(스토어 오퍼링)가 있을 때만 — 할인 결제가 안 되면 같은 화면에서 정가를 고를 수 있어야 한다(관문 11121047)
+  const offer = context && discountOffer && (previewPlans ?? offers).some((p) => p.plan === 'monthly') ? discountOffer : null;
   const offerReal = offer && 'platform' in offer ? (offer as ExpiredOffer) : null;
   const oc = expiredOfferCopy(loc);
   // 퍼널: 연 화면 — 열릴 때 한 번 «open», 구매 버튼에 «cta», 결과는 useProStatus 가 이 출처로 센다
   const funnelSrc: FunnelSrc = src ?? (previewPrice ? 'preview' : lead === 'ads' ? 'other' : 'wl_paywall');
   useEffect(() => {
-    void funnel().then((m) => {
-      m.noteFunnelSrc(funnelSrc); m.trackFunnel('open', { src: funnelSrc });
-      if (offerReal) m.trackFunnel('open', { src: 'trial_expired_offer' }); // 할인 카드가 보였다(스토어 오퍼일 때만)
-    }).catch(() => {});
+    void funnel().then((m) => { m.noteFunnelSrc(funnelSrc); m.trackFunnel('open', { src: funnelSrc }); }).catch(() => {});
     // 열릴 때 한 번만(출처는 열린 동안 바뀌지 않는다)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 할인 카드가 «보였다» — 스토어 오퍼일 때 한 번(정가 오퍼링이 늦게 와 카드가 나중에 생겨도 센다)
+  const offerSeen = useRef(false);
+  useEffect(() => {
+    if (!offerReal || offerSeen.current) return;
+    offerSeen.current = true;
+    void funnel().then((m) => m.trackFunnel('open', { src: 'trial_expired_offer' })).catch(() => {});
+  }, [offerReal]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [picked, setPicked] = useState<PlanId | null>(null);
