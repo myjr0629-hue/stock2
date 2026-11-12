@@ -202,8 +202,8 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     for (const c of cands) report.crossings.push({ dev: c.rec.dev.slice(0, 8), t: c.level.t, id: c.level.id, dir: c.level.dir, px: c.level.px, prev: c.prev.p, cur: c.cur.p, ...(fresh.includes(c) ? (c.pending ? { why: 'pending' } : {}) : { why: 'sent' }) });
     if (preview) return report;
     /** 못 보낸 교차 — 30분 동안 다음 실행이 다시 시도한다(처음 교차한 값을 그대로). 표식을 못 쓰면 그 종목 관측을 넘기지 않는다 */
-    const markPending = async (c: Cand) => {
-        if (c.pending) return;
+    const markPending = async (c: Cand, force = false) => {
+        if (c.pending && !force) return;
         try { await store.set(PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev), JSON.stringify({ p: c.cur.p, at: c.cur.at, prev: c.prev.p }), PA_CFG.pendingTtlSec); }
         catch { hold.add(c.level.t); }
     };
@@ -312,6 +312,9 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     sent.items = items.length;
     // 여기까지 오면 교차는 모두 장부(발송할 것)·대기 표식으로 넘어갔다 → 관측을 발송 «전에» 쓴다.
     //   발송 중·직후 실행이 죽으면(시간 초과 등) 도달 여부를 모른다 — 같은 교차로 다시 보내지 않는 쪽(장부 10분이 재시도도 막는다)
+    //   같은 이유로 대기 재시도로 보내는 레벨의 대기 표식도 발송 «전에» 지운다(실패하면 아래에서 다시 쓴다 — 관문 11130636)
+    const pendSending = items.filter((it) => meta.get(it.id)!.cand.pending).map((it) => { const c = meta.get(it.id)!.cand; return PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev); });
+    if (pendSending.length) await store.del(pendSending).catch(() => {});
     await commitObs();
     const heldBeforeSend = new Set(hold);
     const out = await deps.sender.send(items);
@@ -336,7 +339,7 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         await store.del([m.claim]).catch(() => {});
         await store.decr(m.cap).catch(() => 0);
         if (r === 'dead') { sent.dead++; deadDevs.add(m.rec.dev); await store.del([pendKey]).catch(() => {}); }
-        else { sent.fail++; await markPending(m.cand); }
+        else { sent.fail++; await markPending(m.cand, true); }
     }
     // 죽은 토큰 — 기록·색인은 건드리지 않고 «그 기록 판(updatedAt)»에 죽음 표식만(그사이 새로 저장되면 판이 바뀌어 다시 본다 · 관문 11121345 ③)
     for (const d of deadDevs) {

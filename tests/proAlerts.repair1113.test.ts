@@ -184,6 +184,29 @@ t('공급사가 받은 직후 실행이 죽어도(보냄 기록 전) 다음 실�
     const r3 = await tick(s, 16, 101.3);   // 장부(10분) 풀린 뒤
     assert.equal(r2.sent.length + r3.sent.length, 0, '중복 0');
 });
+t('대기 재시도로 보내는 중 실행이 죽어도(공급사 수신 뒤) 장부가 풀린 뒤 다시 보내지 않는다 · 재시도가 또 실패하면 대기 표식을 다시 쓴다', async () => {
+    const s = setup();
+    await tick(s, 0, 99);
+    await tick(s, 5, 101, 'fail');
+    assert.ok(s.raw(PA_KEYS.pend(DEV, 'abcd1', 1)), '첫 실패 → 대기');
+    s.clock = T10 + 10 * 60_000;
+    s.m.delete(PA_KEYS.lock);
+    const a = deps(s, 101.2, s.clock - 1000);
+    let accepted = 0;
+    a.d.sender = { send: async (items) => { accepted += items.length; throw new Error('killed after provider accepted'); } };
+    await assert.rejects(runProAlerts(a.d, { now: s.clock, kind: 'cron' }));
+    assert.equal(accepted, 1);
+    const later = [await tick(s, 15, 101.3), await tick(s, 21, 101.4), await tick(s, 26, 101.5)];
+    assert.equal(later.reduce((n, x) => n + x.sent.length, 0), 0, '중복 0');
+    // 재시도 실패는 다시 대기
+    const s2 = setup();
+    await tick(s2, 0, 99);
+    await tick(s2, 5, 101, 'fail');
+    await tick(s2, 10, 101.2, 'fail');
+    assert.ok(s2.raw(PA_KEYS.pend(DEV, 'abcd1', 1)), '재시도 실패 → 대기 표식 유지');
+    const r = await tick(s2, 15, 101.3);
+    assert.equal(r.sent.length, 1);
+});
 t('수리 표식은 30일 — 장 마감·다음 날을 넘겨도 재교차에 다시 보내지 않고, 앱 fired 에 «보냄»(설정 API 가 대기 키 sent 를 읽음)', async () => {
     const s = setup();
     await tick(s, 0, 99);
