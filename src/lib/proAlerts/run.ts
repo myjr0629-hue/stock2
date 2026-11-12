@@ -59,7 +59,7 @@ export interface PaReport {
     tickers: number;
     price?: Omit<PriceRead, 'prices'>;
     crossings: Array<{ dev: string; t: string; id: string; dir: string; px: number; prev: number; cur: number; why?: string }>;
-    sent?: { items: number; ok: number; fail: number; dead: number; claimLost: number; capped: number; notPro: number; unverified: number };
+    sent?: { items: number; ok: number; fail: number; dead: number; claimLost: number; capped: number; notPro: number; unverified: number; withdrawn: number };
     notes: string[];
 }
 
@@ -152,8 +152,10 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         const p = prev.get(level.t);
         if (c && p && crossed(level, p, c)) { cands.push({ rec, level, prev: p, cur: c }); return; }
         const pend = parseRecord<{ p?: number; at?: number; prev?: number }>(pendVals[i]);
-        if (pend && Number(pend.p) > 0 && Number.isFinite(pend.at)) {
-            cands.push({ rec, level, prev: { p: Number(pend.prev) || 0, at: 0, d: etDate }, cur: c ?? { p: Number(pend.p), at: Number(pend.at), d: etDate }, pending: true });
+        // 대기 재시도는 «지금 가격»이 있고 아직 레벨 너머에 있을 때만 — 옛 교차 가격을 현재가처럼 보내지 않는다(관문 11121348 ①)
+        const beyond = c && (level.dir === 'up' ? c.p >= level.px : c.p <= level.px);
+        if (pend && Number(pend.p) > 0 && c && beyond) {
+            cands.push({ rec, level, prev: { p: Number(pend.prev) || 0, at: 0, d: etDate }, cur: c, pending: true });
         }
     });
 
@@ -182,21 +184,10 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
 
     // ── 기기별 선택 · PRO 확인 ──
     //   크론은 기기 기록을 다시 쓰지 않는다(사용자가 그사이 바꾼 설정을 옛 값으로 덮지 않게 — 관문 11121338 ④). PRO 판정은 고객 캐시 키에만.
-    const sent = { items: 0, ok: 0, fail: 0, dead: 0, claimLost: 0, capped: 0, notPro: 0, unverified: 0 };
+    const sent = { items: 0, ok: 0, fail: 0, dead: 0, claimLost: 0, capped: 0, notPro: 0, unverified: 0, withdrawn: 0 };
     report.sent = sent;
     const byDev = new Map<string, Cand[]>();
     for (const c of fresh) { const a = byDev.get(c.rec.dev) ?? []; a.push(c); byDev.set(c.rec.dev, a); }
-    // 발송 직전 최신 기록으로 다시 거른다 — 크론이 읽은 뒤 사용자가 끄거나 지운 레벨은 보내지 않는다(관문 11121345 ④)
-    {
-        const ds = [...byDev.keys()];
-        const latest = await store.mget(ds.map(PA_KEYS.rec));
-        ds.forEach((d, i) => {
-            const r = parseRecord<ProAlertRecord>(latest[i]);
-            const live = new Set((r && r.token === byDev.get(d)![0].rec.token ? activeLevels(r) : []).map((l) => `${l.id}:${l.rev}:${l.t}:${l.dir}:${l.px}`));
-            const keep = byDev.get(d)!.filter((c) => live.has(`${c.level.id}:${c.level.rev}:${c.level.t}:${c.level.dir}:${c.level.px}`));
-            if (keep.length) byDev.set(d, keep); else byDev.delete(d);
-        });
-    }
     const devList = [...byDev.keys()];
     const proCache = await store.mget(devList.map((d) => PA_KEYS.pro(byDev.get(d)![0].rec.uidHash)));
     const cacheOf = new Map(devList.map((d, i) => [d, parseRecord<{ until?: number; neg?: number }>(proCache[i])] as const));
@@ -245,6 +236,29 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         }
     }
     if (!items.length || !deps.sender) return report;
+    // 발송 «바로 전» 최신 기록으로 다시 거른다 — 크론이 읽은 뒤 사용자가 끄거나 지운·바꾼 레벨은 보내지 않는다(장부·상한 되돌림).
+    //   남는 틈은 이 읽기와 공급사 전송 사이(수 ms)뿐이다 — 외부 발송과 원자적으로 묶을 수는 없다(관문 11121345 ④ · 11121348 ②)
+    {
+        const ds = [...new Set(items.map((it) => meta.get(it.id)!.rec.dev))];
+        const latest = await store.mget(ds.map(PA_KEYS.rec));
+        const live = new Map<string, Set<string>>();
+        ds.forEach((d, i) => {
+            const r = parseRecord<ProAlertRecord>(latest[i]);
+            const tok = meta.get(items.find((it) => meta.get(it.id)!.rec.dev === d)!.id)!.rec.token;
+            live.set(d, new Set((r && r.token === tok ? activeLevels(r) : []).map((l) => `${l.id}:${l.rev}:${l.t}:${l.dir}:${l.px}`)));
+        });
+        const keep: PaSendItem[] = [];
+        for (const it of items) {
+            const m = meta.get(it.id)!;
+            const L = m.cand.level;
+            if (live.get(m.rec.dev)?.has(`${L.id}:${L.rev}:${L.t}:${L.dir}:${L.px}`)) { keep.push(it); continue; }
+            sent.withdrawn++;
+            await store.del([m.claim]).catch(() => {});
+            await store.decr(m.cap).catch(() => 0);
+        }
+        items.splice(0, items.length, ...keep);
+    }
+    if (!items.length) return report;
     sent.items = items.length;
     const out = await deps.sender.send(items);
     const deadDevs = new Set<string>();

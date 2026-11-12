@@ -191,6 +191,16 @@ t('확정 실패 → claim·상한 복원 + 대기 표식(다음 실행 재시�
     assert.equal(a2.sent.length, 1);
     assert.equal(s.m.has(PA_KEYS.pend(DEV, 'abcd1', 1)), false);
     assert.equal(JSON.parse(s.m.get(PA_KEYS.fired(DEV, 'abcd1', 1))!).s, 'sent');
+    assert.ok(a2.sent[0].body.includes('201.20'), '재시도 문구의 «지금» 값은 이번 실행 가격');
+    // 대기 중인데 지금 가격이 없거나 레벨 아래로 돌아왔으면 보내지 않는다
+    for (const px of [null, 199.5]) {
+        const s3 = setup();
+        s3.m.set(PA_KEYS.pend(DEV, 'abcd1', 1), JSON.stringify({ p: 201, at: T10, prev: 199 }));
+        s3.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199.4, at: T10 + 300_000, d: D }));
+        const a3 = deps(s3, px == null ? {} : { NVDA: px }, T10 + 600_000);
+        await run(a3.d, T10 + 601_000);
+        assert.equal(a3.sent.length, 0, String(px));
+    }
     const s2 = setup();
     s2.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10, d: D }));
     const b = deps(s2, { NVDA: 201 }, T10 + 300_000, { outcome: 'dead' });
@@ -251,8 +261,11 @@ t('크론이 읽은 뒤 사용자가 끈 레벨은 보내지 않는다(발송 �
         s.m.set(PA_KEYS.rec(DEV), JSON.stringify(r));
         return out;
     };
-    await run(a.d, T10 + 301_000);
+    const rep = await run(a.d, T10 + 301_000);
     assert.equal(a.sent.length, 0);
+    assert.equal(rep.sent?.withdrawn, 1);
+    assert.equal(s.m.has(PA_KEYS.fired(DEV, 'abcd1', 1)), false, '거둔 발송의 장부는 되돌린다');
+    assert.equal(s.m.get(PA_KEYS.cap(D, DEV)), '0');
 });
 t('색인 정리 — 기록이 «지금도» 없는 기기만 뺀다', async () => {
     const s = setup();
