@@ -20,7 +20,8 @@ import { notifyProPurchased, useWatchlistPro } from '@/lib/app/proEntitlement';
 import { toWlLocale } from '@/lib/app/watchlistInsights';
 import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
 import { getWatchlistStore } from '@/lib/app/watchlist';
-import { ensureAndroidAlertChannels, maybeResyncAlerts, readAlertPrefs, syncAlertPrefs, writeAlertPrefs } from '@/lib/app/watchlistAlerts';
+import { ensureAndroidAlertChannels, maybeResyncPriceAlerts, readPriceAlerts, syncPriceAlerts, writePriceAlerts } from '@/lib/app/watchlistAlerts';
+import { dropTicker } from '@/lib/app/priceAlerts';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { noteInAppPath } from '@/lib/app/inAppHistory';
 import { startWidgetBridge } from '@/lib/app/widgetBridge';
@@ -33,7 +34,8 @@ import s from './watchlist.module.css';
 
 const LongPressSheet = dynamic(() => import('./LongPressSheet').then((m) => m.LongPressSheet), { ssr: false });
 const ProUpsellSheet = dynamic(() => import('./ProUpsellSheet').then((m) => m.ProUpsellSheet), { ssr: false });
-const AlertSettingsSheet = dynamic(() => import('./AlertSettingsSheet').then((m) => m.AlertSettingsSheet), { ssr: false });
+// PRO 알림 설정 = «가격 레벨 알림»(11/12 · PriceAlertSheet). 옛 7개 이벤트 시트(AlertSettingsSheet)는 더 열지 않는다.
+const PriceAlertSheet = dynamic(() => import('./PriceAlertSheet').then((m) => m.PriceAlertSheet), { ssr: false });
 const ProPaywall = dynamic(() => import('@/components/app/ProPaywall').then((m) => m.ProPaywall), { ssr: false });
 
 export function WatchlistHost() {
@@ -70,7 +72,7 @@ export function WatchlistHost() {
   useEffect(() => {
     if (!alertsOn) return;
     void ensureAndroidAlertChannels(loc);
-    const run = () => { void maybeResyncAlerts(loc); };   // 권한은 묻지 않는다 · 실패는 조용히(다음에 다시)
+    const run = () => { void maybeResyncPriceAlerts(loc); };   // 권한은 묻지 않는다 · 실패는 조용히(다음에 다시)
     run();
     // 앱 시작 때 온보딩이 푸시 토큰을 다시 등록한다(비동기) — 토큰이 바뀌었으면 그 뒤에 잡는다
     const late = window.setTimeout(run, 12_000);
@@ -88,12 +90,11 @@ export function WatchlistHost() {
       const id = window.setTimeout(() => {
         timers.delete(id);
         if (getWatchlistStore().has(t)) return;
-        const p = readAlertPrefs();
+        const p = readPriceAlerts();
         if (!p.tickers[t]) return;
-        const next = { ...p, tickers: { ...p.tickers }, pendingSync: true };
-        delete next.tickers[t];
-        writeAlertPrefs(next);
-        void syncAlertPrefs(next, loc, { askPermission: false });
+        const next = dropTicker(p, t);
+        writePriceAlerts(next);
+        void syncPriceAlerts(next, loc, { askPermission: false });
       }, 4600);
       timers.add(id);
     };
@@ -220,7 +221,7 @@ export function WatchlistHost() {
                 return <ProUpsellSheet mode={sheet.focus === 'chips' && WATCHLIST_CHIP_TIERING ? 'chips' : alertsOn ? 'alerts' : 'generic'} loc={loc} alertsOn={alertsOn} titleId={titleId} onClose={close} onNavigate={navigate} onBecamePro={onBecamePro} />;
               case 'alertSettings':
                 return alertsOn
-                  ? <AlertSettingsSheet loc={loc} ticker={sheet.ticker} levels={sheet.levels} levelsOut={sheet.levelsOut} levelsDelayAsOf={sheet.levelsDelayAsOf} meta={sheet.meta} titleId={titleId} onClose={close} />
+                  ? <PriceAlertSheet loc={loc} ticker={sheet.ticker} levels={sheet.levels} meta={sheet.meta} titleId={titleId} onClose={close} />
                   : null;
               case 'mapInfo':
                 return <MapInfo loc={loc} titleId={titleId} />;

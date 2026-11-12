@@ -632,3 +632,33 @@
   .star:active { transform: none; }
   .pop, .toast, .sheet, .dim, .srOverlay, .dSk { animation: none; }
 }
+
+/* ── 가격 레벨 알림(PRO · PriceAlertSheet, 2026-11-12) — 기존 시트 클래스(.secL·.grp·.set·.sw·.tnote)에 덧붙이는 것만 ── */
+.paQuick { display: flex; flex-wrap: wrap; gap: 8px; }
+.paQ { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 11px; border: 0; border-radius: 11px; background: rgba(147, 197, 253, 0.08); box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.24); color: #cfe0f5; font: 600 12px/1.2 var(--f-sans); cursor: pointer; }
+.paQ b { font: 700 12.5px/1.2 'Inter', var(--f-sans); color: #f1f5f9; font-variant-numeric: tabular-nums; }
+.paQ small { font: 700 11px/1 'Inter', var(--f-sans); color: #7fe6f7; }
+.paQ:disabled { opacity: 0.45; cursor: default; }
+.paQOn { background: rgba(34, 211, 238, 0.12); box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.4); }
+.paQi { flex: 0 0 auto; width: 13px; height: 13px; stroke: #93c5fd; stroke-width: 2; }
+.paAdd { display: flex; align-items: center; gap: 8px; }
+.paIn { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 10px; border-radius: 11px; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); color: #8ea3c2; font: 700 14px/1 'Inter', var(--f-sans); }
+.paIn:focus-within { box-shadow: inset 0 0 0 1.5px rgba(34, 211, 238, 0.6); }
+.paIn input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: none; color: #f1f5f9; font: 700 15px/1 'Inter', var(--f-sans); font-variant-numeric: tabular-nums; }
+.paIn input::placeholder { color: #5f7393; font-weight: 600; font-size: 13px; }
+.paSeg { flex: 0 0 auto; display: inline-flex; height: 40px; padding: 3px; border-radius: 11px; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.paSeg button { padding: 0 8px; border: 0; border-radius: 8px; background: none; color: #8ea3c2; font: 700 11.5px/1 var(--f-sans); white-space: nowrap; cursor: pointer; }
+.paSeg .paSegOn { background: rgba(34, 211, 238, 0.16); color: #e6fbff; }
+.paBtn { flex: 0 0 auto; height: 40px; padding: 0 13px; border: 0; border-radius: 11px; background: #22d3ee; color: #062330; font: 800 13px/1 var(--f-sans); cursor: pointer; }
+.paBtn:disabled { opacity: 0.4; cursor: default; }
+.paRowBtn { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0; border: 0; background: none; text-align: left; color: inherit; cursor: pointer; }
+.paDel { flex: 0 0 auto; width: 36px; height: 44px; margin-right: -8px; display: grid; place-items: center; border: 0; background: none; color: #71859f; cursor: pointer; }
+.paDel svg { width: 15px; height: 15px; stroke-width: 2; }
+/* «내 종목» 행의 벨 — 칩 줄이 아니라 가격 칸 둘째 줄(등락률 왼쪽)에 둔다: 칩 줄 폭·줄바꿈이 플래그 꺼짐과 같다 */
+.pxBell { position: relative; z-index: 2; display: inline-grid; place-items: center; width: 15px; height: 14px; margin-right: 5px; padding: 0; border: 0; background: none; color: #71859f; vertical-align: -2px; cursor: pointer; pointer-events: auto; }
+.pxBell::after { content: ''; position: absolute; left: -14px; right: -12px; top: -14px; bottom: -14px; }
+.pxBell svg { width: 13px; height: 13px; stroke-width: 1.9; }
+.pxBellOn { color: #22d3ee; }
+.pxBellOn svg { fill: currentColor; }
+.pxBellLk { position: absolute; left: 8px; top: 7px; width: 9px; height: 9px; border-radius: 50%; display: grid; place-items: center; background: #16233c; box-shadow: 0 0 0 1.5px #0f1a2c; }
+.pxBellLk svg { width: 6px; height: 6px; stroke: #b9c9dd; stroke-width: 3; fill: none; }

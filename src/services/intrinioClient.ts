@@ -1771,6 +1771,24 @@ export async function getRealtimeCloseFields(ticker: string, deadlineMs: number 
     };
 }
 
+/**
+ * 정규장 마지막 체결(EquitiesEdge 실시간) 하나 — PRO 가격 레벨 알림(lib/proAlerts)이 가격 허브에 없는 종목만 부른다(2026-11-12).
+ *   getTickerSnapshot 의 정규장 덧입힘과 «같은 경로·같은 인자»라 합치기·공유 캐시를 같이 쓴다(추가 호출이 겹치면 한 번).
+ *   원천이 equities_edge 가 아니거나 값·시각이 없으면 null. deadlineMs 가 지나면 벤더에 보내지 않는다.
+ */
+export async function getRegularLastTradeIntrinio(ticker: string, deadlineMs: number = Date.now() + 6000): Promise<{ price: number; tradeMs: number } | null> {
+    const raw = await callIntrinio(
+        `securities/${ticker.toUpperCase()}/prices/realtime`, { source: "equities_edge" }, undefined, 5000,
+        async () => Date.now() < deadlineMs,
+    ).catch(() => null);
+    const rt = repairIntrinioRealtimeTimes(raw);
+    if (!rt || typeof rt !== "object" || String(rt.source || "") !== "equities_edge") return null;
+    const price = Number(rt.last_price);
+    const tradeMs = Date.parse(String(rt.last_time || ""));
+    if (!(price > 0) || !Number.isFinite(tradeMs)) return null;
+    return { price, tradeMs };
+}
+
 /** 20거래일 종가 시계열 — 이미 Redis 에 적재된 것을 읽는다 (API 콜 0) */
 export async function getCloseHistory(
     ticker: string

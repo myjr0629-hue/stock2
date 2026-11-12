@@ -28,7 +28,8 @@ import ws from '@/components/app/watchlist/watchlist.module.css';
 import { FREE_LIMIT, MAX_ITEMS, getWatchlistStore, useAppWatchlist } from '@/lib/app/watchlist';
 import { isPreviewHost, whenProReady } from '@/lib/app/proEntitlement';
 import { WATCHLIST_CHIP_TIERING, useWatchlistAlertsEnabled } from '@/lib/app/watchlistFlags';
-import { ALERT_PREFS_KEY, ALERT_TICKER_CAP } from '@/lib/app/watchlistAlerts';
+import { maybeResyncPriceAlerts } from '@/lib/app/watchlistAlerts';
+import { PRICE_ALERTS_EVENT, PRICE_ALERTS_KEY, parsePriceAlerts, tickersWithAlertsOn } from '@/lib/app/priceAlerts';
 import { hasInAppBack } from '@/lib/app/inAppHistory';
 import { wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI';
 import { alertSheetForBell } from '@/lib/app/watchlistAlertFlow';
@@ -62,8 +63,6 @@ const PC = {
     sorts: { change: '변화 큰 순', pct: '등락률', earnings: '실적 임박', alerts: '알림 켠 종목' },
     infoAria: '지도 읽는 법', toFlow: 'Flow 화면으로',
     price: '가격',
-    // 알림 카드(플래그 켜짐)의 종목 수는 서버 상한(ALERT_TICKER_CAP)까지다
-    pbAlertT: '레벨을 넘으면 푸시로', pbAlertS: (cap: number) => `콜 월 돌파 · 감마 플립 교차 · 5분 봉 확정 · 최대 ${cap}종목`,
     pbGenS: (n: number, chips: boolean) => `${chips ? '행마다 칩 2개 · ' : ''}광고 없음 · 무료는 ${n}종목까지`,
     // 빈 상태 — 제목 + 무엇을 보여 주는지 한 문장 + 미리보기 · 인기 종목 원탭 · 검색(대표 9/29: 담기 버튼 위치·칩 모임 팁은 토스트·헤더 하트와 중복이라 삭제)
     emH: '가격표가 아니라, 옵션 지형을 모읍니다',
@@ -81,7 +80,6 @@ const PC = {
     sorts: { change: 'Biggest move', pct: '% change', earnings: 'Earnings soon', alerts: 'Alerts on' },
     infoAria: 'How to read the map', toFlow: 'open Flow',
     price: 'Price',
-    pbAlertT: 'Pushed when a level breaks', pbAlertS: (cap: number) => `Call wall breakouts · gamma flip crossings · on 5-min closes · up to ${cap} stocks`,
     pbGenS: (n: number, chips: boolean) => (chips ? `2 chips per row · no ads · free plan: up to ${n} stocks` : `No ads · free plan: up to ${n} stocks`),
     emH: 'Not a price list — your options map',
     emP: 'For each stock: where price sits between put floor, max pain and call wall.',
@@ -98,7 +96,6 @@ const PC = {
     sorts: { change: '変化の大きい順', pct: '騰落率', earnings: '決算が近い', alerts: '通知オン' },
     infoAria: 'マップの見方', toFlow: 'Flow画面へ',
     price: '価格',
-    pbAlertT: 'レベルを抜けたらプッシュで', pbAlertS: (cap: number) => `コールウォール突破 · ガンマフリップ交差 · 5分足確定 · 最大${cap}銘柄`,
     pbGenS: (n: number, chips: boolean) => `${chips ? '1行にチップ2つ · ' : ''}広告なし · 無料は${n}銘柄まで`,
     emH: '株価表ではなく、オプションの地形を集めます',
     emP: '銘柄ごとに、プットフロア–マックスペイン–コールウォールの間の現在位置を表示します。',
@@ -157,12 +154,12 @@ function setSortPref(k: SortKey) {
 
 // ── 알림 켠 종목(플래그 켜짐일 때만 읽는다) ──
 function subscribeAlerts(cb: () => void) {
-  window.addEventListener('sg:watchlist-alerts', cb);
+  window.addEventListener(PRICE_ALERTS_EVENT, cb);
   window.addEventListener('storage', cb);
-  return () => { window.removeEventListener('sg:watchlist-alerts', cb); window.removeEventListener('storage', cb); };
+  return () => { window.removeEventListener(PRICE_ALERTS_EVENT, cb); window.removeEventListener('storage', cb); };
 }
 function getAlertsRaw(): string {
-  try { return localStorage.getItem(ALERT_PREFS_KEY) || ''; } catch { return ''; }
+  try { return localStorage.getItem(PRICE_ALERTS_KEY) || ''; } catch { return ''; }
 }
 
 interface RowModel {
@@ -285,7 +282,7 @@ function WatchlistInner() {
   const proKnown = wl.proReady;
   const proSettled = proKnown || grace;
   const sort: SortKey = sortRaw === 'pct' || sortRaw === 'earnings' ? sortRaw
-    : sortRaw === 'alerts' && isPro && alertsOn ? 'alerts' : 'change';
+    : 'change';   // «알림 켠 종목» 정렬은 두지 않는다(가격 알림 11/12 — 정렬 줄은 플래그 꺼짐과 같다)
   // 살 수 있는 곳(네이티브) · 프리뷰에서만 PRO 안내 카드 — 살릴 수 없는 버튼은 보이지 않는다(useProStatus 원칙)
   const canBuyHere = useSyncExternalStore(noopSubscribe, canBuySnapshot, () => false);
   const showBuy = proKnown && !isPro && canBuyHere;
@@ -332,13 +329,16 @@ function WatchlistInner() {
     trackWatchlist('wl_view', { count: wl.count, isPro: wl.isPro, src: takeWatchlistEntry() });
   }, [wl.count, wl.isPro]);
 
+  // 켠 가격 레벨이 하나라도 있는 종목(벨이 채워진다) — PRO «가격 레벨 알림»(lib/app/priceAlerts)
   const alertTickers = useMemo(() => {
     if (!alertsOn || !alertsRaw) return new Set<string>();
-    try {
-      const d = JSON.parse(alertsRaw);
-      return new Set(Object.entries<unknown>(d?.tickers || {}).filter(([, v]) => Array.isArray(v) && v.length > 0).map(([k]) => k));
-    } catch { return new Set<string>(); }
+    return tickersWithAlertsOn(parsePriceAlerts(alertsRaw));
   }, [alertsOn, alertsRaw]);
+  // 화면을 열 때 30분이 지났으면 서버와 다시 맞춘다(울린 레벨 표시를 받아 온다 · 권한은 묻지 않는다)
+  useEffect(() => {
+    if (!alertsOn || !isPro) return;
+    void maybeResyncPriceAlerts(loc, 30 * 60_000);
+  }, [alertsOn, isPro, loc]);
 
   // 잠금 칩은 무료로 «확인된» 뒤에만 — 구독자에게 PRO 권유가 번쩍이지 않게(잠금 벨·PRO 카드·N/5 미터와 같은 원칙)
   const aiGet = ai.get;
@@ -455,11 +455,12 @@ function WatchlistInner() {
     // 칩은 «한 번에 최종 모양으로» — 사실이 정해질 때까지 뼈대(칩이 바뀌며 깜빡이지 않게). 칩 차등이 켜졌을 때만
     //   구독 여부(무료 1 · PRO 2)도 기다린다 — 꺼져 있으면 누구에게나 같은 칩이라 구독 확인을 기다릴 까닭이 없다.
     const chipsWait = factsWait || (WATCHLIST_CHIP_TIERING && !proSettled);
-    const showBell = alertsOn && interactive;
+    // 벨은 칩 줄이 아니라 가격 칸 둘째 줄에 선다(11/12) — 칩 줄(폭·줄바꿈·접힘)은 플래그 꺼짐과 같다
+    const pxBell = alertsOn && interactive;
     // 칩 줄은 값이 오는 동안만 26px 자리를 잡는다. 다 받았는데 세울 칩이 없으면(벨도 없으면) 접는다.
     //   «칩이 하나라도 서는가»는 구독 여부와 무관하다(1개 한도에서 0개면 2개 한도에서도 0개) — 구독 확인을 기다리지 않는다.
     //   기억해 둔 값으로 그리는 재방문은 첫 그림부터 접힌 채(움직임 없음) · 처음 받는 경우에만 부드럽게 접힌다.
-    const noLine = !factsWait && r.chips.length === 0 && !showBell;
+    const noLine = !factsWait && r.chips.length === 0;
     const ch = rt?.changePct ?? null;
     const dir = ch == null ? ws.flat : ch > 0 ? ws.up : ch < 0 ? ws.dn : ws.flat;
     const alertOn = alertTickers.has(r.t);
@@ -496,7 +497,24 @@ function WatchlistInner() {
               <>
                 {/* 값이 바뀌면 공용 반짝임(usePriceFlash — FlashPrice)으로 은은하게 */}
                 <b>{rt?.price ? <FlashPrice value={rt.price}>{fmtPrice(rt.price)}</FlashPrice> : <span className={p.dash}>—</span>}</b>
-                {ch != null && <small className={dir}><i className={ws.tri} />{fmtSignedPct(ch, 2)}</small>}
+                {(ch != null || pxBell) && (
+                  <small className={dir}>
+                    {pxBell && (isPro ? (
+                      <button type="button" className={`${ws.pxBell} ${alertOn ? ws.pxBellOn : ''}`}
+                        aria-pressed={alertOn} aria-label={alertOn ? t.bellOn(r.t) : t.bellOff(r.t)}
+                        onClick={(e) => { e.stopPropagation(); void onBell(r, e.currentTarget); }}>
+                        <WlIcon name="bell" />
+                      </button>
+                    ) : (
+                      <button type="button" className={ws.pxBell} aria-label={proKnown ? t.bellLock(r.t) : t.bellAny(r.t)}
+                        onClick={(e) => { e.stopPropagation(); void onBell(r, e.currentTarget); }}>
+                        <WlIcon name="bell" />
+                        {proKnown && <span className={ws.pxBellLk}><WlIcon name="lock" /></span>}
+                      </button>
+                    ))}
+                    {ch != null && <><i className={ws.tri} />{fmtSignedPct(ch, 2)}</>}
+                  </small>
+                )}
               </>
             )}
           </span>
@@ -504,25 +522,10 @@ function WatchlistInner() {
         {/* 접힐 때는 뼈대가 같이 흐려지며 사라지고, 나중에 칩이 서면 같은 길로 펼쳐진다(움직임 줄이기면 즉시) */}
         <div className={`${p.r2w} ${noLine ? p.r2wOff : ''}`} aria-hidden={noLine || undefined}>
           {/* 잠금 칩이 설 수 있는 줄은 자르지 않는다(벨처럼 누름 영역이 줄 밖으로 나간다) — 칩이 있는 줄은 접히지 않으므로 안전 */}
-          <div className={`${p.r2} ${showBell || r.locked ? '' : p.r2Clip}`}>
+          <div className={`${p.r2} ${r.locked ? '' : p.r2Clip}`}>
             {chipsWait || noLine ? chipSkel
               : r.chips.length > 0 ? <ChipLine key={r.chipSig} chips={r.chips} locked={interactive ? r.locked : null} onLockTap={onLockTap} />
               : <span className={p.chipSlot} />}
-            {showBell && (
-              isPro ? (
-                <button type="button" className={`${ws.bell} ${alertOn ? ws.bellOn : ''}`}
-                  aria-pressed={alertOn} aria-label={alertOn ? t.bellOn(r.t) : t.bellOff(r.t)}
-                  onClick={(e) => { void onBell(r, e.currentTarget); }}>
-                  {alertOn ? <span className={ws.bellBub}><WlIcon name="bell" /></span> : <WlIcon name="bell" />}
-                </button>
-              ) : (
-                <button type="button" className={ws.bell} aria-label={proKnown ? t.bellLock(r.t) : t.bellAny(r.t)}
-                  onClick={(e) => { void onBell(r, e.currentTarget); }}>
-                  <WlIcon name="bell" />
-                  {proKnown && <span className={ws.bellLk}><WlIcon name="lock" /></span>}
-                </button>
-              )
-            )}
           </div>
         </div>
         {/* AI 한 줄 — 칩과 같은 때(사실이 정해진 뒤)에 펼쳐진다 · 값이 없으면 줄 자체가 없다 · 앞의 «AI» 표식 = AI 생성 고지 */}
@@ -659,7 +662,6 @@ function WatchlistInner() {
         <p className={`${p.sub} ${p.subWrap}`}>
           {empty ? c.onDevice : (
             <>
-              {isPro && alertsOn && alertTickers.size > 0 && <><b>{t.alertsOn(alertTickers.size)}</b>{basis ? ' · ' : ''}</>}
               {basis && <b>{priceBasisLabel(basis, loc)}</b>}
             </>
           )}
@@ -670,7 +672,7 @@ function WatchlistInner() {
         ) : !empty ? (
           <>
             <div className={p.sorts} role="tablist" aria-label={c.myList}>
-              {(['change', 'pct', 'earnings', ...(isPro && alertsOn ? ['alerts'] as const : [])] as SortKey[]).map((k) => (
+              {(['change', 'pct', 'earnings'] as SortKey[]).map((k) => (
                 <button key={k} type="button" role="tab" aria-selected={sort === k}
                   className={`${p.srt} ${sort === k ? p.srtOn : ''}`}
                   onClick={() => { setSortPref(k); trackWatchlist('wl_sort', { key: k }); }}>
@@ -694,19 +696,13 @@ function WatchlistInner() {
 
             {showBuy && (
               <button type="button" className={p.probar}
-                onClick={(e) => {
-                  if (alertsOn) {
-                    const first = sorted[0];
-                    wlUI.openSheet({ kind: 'alertUpsell', ticker: first?.t ?? null, levels: first?.verified ?? null, levelsOut: !!first && !first.levels.ok && first.levels.reason === 'outOfRange', levelsDelayAsOf: first && !first.levels.ok ? first.levels.supplierDelayAsOf ?? null : null, src: 'probar' }, e.currentTarget);
-                  } else {
-                    wlUI.openSheet({ kind: 'proGeneric', src: 'probar' }, e.currentTarget);
-                  }
-                }}>
-                <span className={p.pbIc}><WlIcon name={alertsOn ? 'bell' : 'list'} /></span>
+                onClick={(e) => { wlUI.openSheet({ kind: 'proGeneric', src: 'probar' }, e.currentTarget); }}>
+                {/* PRO 카드는 알림 플래그와 무관하게 늘 같은 문구·아이콘(11/12 — 기존 카드 불변) */}
+                <span className={p.pbIc}><WlIcon name="list" /></span>
                 <span className={p.pbTx}>
                   {/* 트리거 한 줄(«PRO로 100종목까지») + 짧은 부제 — 시트·페이월과 같은 말 */}
-                  <b>{alertsOn ? t.pbAlertT : c.proTrigger(MAX_ITEMS)}<span className={p.proB}>PRO</span></b>
-                  <small>{alertsOn ? t.pbAlertS(ALERT_TICKER_CAP) : t.pbGenS(FREE_LIMIT, WATCHLIST_CHIP_TIERING)}</small>
+                  <b>{c.proTrigger(MAX_ITEMS)}<span className={p.proB}>PRO</span></b>
+                  <small>{t.pbGenS(FREE_LIMIT, WATCHLIST_CHIP_TIERING)}</small>
                 </span>
                 <span className={p.pbCh}><WlIcon name="chevR" /></span>
               </button>

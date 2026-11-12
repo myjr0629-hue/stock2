@@ -28,7 +28,7 @@ import { useWatchlistUI, wlUI, type VerifiedLevels } from '@/lib/app/watchlistUI
 import { upsellDefersToPaywall } from '@/lib/app/watchlistAlertFlow';
 import { trackWatchlist } from '@/lib/app/watchlistAnalytics';
 import { WATCHLIST_CHIP_TIERING } from '@/lib/app/watchlistFlags';
-import { fmtLevel, fmtPrice, type WlLocale } from '@/lib/app/watchlistInsights';
+import { fmtLevel, type WlLocale } from '@/lib/app/watchlistInsights';
 import { wlCopy } from './copy';
 import { WlIcon, SignumMark } from './icons';
 import { StarBadge } from './StarButton';
@@ -59,28 +59,18 @@ type Props = {
 
 /** 알림 예시 — 검사를 통과한 레벨로만 숫자를 쓴다. 없으면 숫자 없는 문장. */
 function exampleAlert(loc: WlLocale, t: string, lv: VerifiedLevels | null | undefined): { title: string; detail: string } {
-  if (lv) {
-    const basis = lv.basisLabel || (loc === 'ko' ? '종가' : loc === 'ja' ? '終値' : 'Close');
-    const detail = loc === 'ko' ? `${basis} ${fmtPrice(lv.S)} · 맥스 페인 ${fmtLevel(lv.mp)} · 콜 월 ${fmtLevel(lv.cw)}`
-      : loc === 'ja' ? `${basis} ${fmtPrice(lv.S)} · マックスペイン ${fmtLevel(lv.mp)} · コールウォール ${fmtLevel(lv.cw)}`
-      : `${basis} ${fmtPrice(lv.S)} · max pain ${fmtLevel(lv.mp)} · call wall ${fmtLevel(lv.cw)}`;
-    if (lv.gf != null) {
-      const below = lv.S < lv.gf;
-      const g = fmtLevel(lv.gf);
-      const title = loc === 'ko' ? `${t} · 감마 플립 ${g} ${below ? '아래로' : '위로'}`
-        : loc === 'ja' ? `${t} · ガンマフリップ ${g} ${below ? 'を下抜け' : 'を上抜け'}`
-        : `${t} · ${below ? 'below' : 'above'} gamma flip ${g}`;
-      return { title, detail };
-    }
-    const title = loc === 'ko' ? `${t} · 콜 월 ${fmtLevel(lv.cw)} 돌파` : loc === 'ja' ? `${t} · コールウォール ${fmtLevel(lv.cw)} 突破` : `${t} · broke call wall ${fmtLevel(lv.cw)}`;
-    return { title, detail };
+  // 가격 레벨 알림(11/12) — 예시 숫자는 검증된 콜 월만(없으면 숫자 없는 문장)
+  if (lv && Number.isFinite(lv.cw) && lv.cw > 0) {
+    const cw = fmtLevel(lv.cw);
+    return loc === 'ko' ? { title: `${t} · ${cw} 넘었습니다`, detail: `내가 정한 가격 레벨 · 콜 월 ${cw}` }
+      : loc === 'ja' ? { title: `${t} · ${cw} を上抜け`, detail: `設定した価格レベル · コールウォール ${cw}` }
+      : { title: `${t} · rose above ${cw}`, detail: `Your price level · call wall ${cw}` };
   }
-  // 숫자를 지어내지 않는다 — 레벨이 검증되지 않았으면 모양만 보여 준다
   return loc === 'ko'
-    ? { title: `${t} · 콜 월 돌파`, detail: '5분 봉 확정 시 · 다음 벽과 맥스 페인을 함께' }
+    ? { title: `${t} · 정한 가격 도달`, detail: '내가 정한 가격을 넘거나 내려가면' }
     : loc === 'ja'
-      ? { title: `${t} · コールウォール突破`, detail: '5分足確定時 · 次の壁とマックスペインを一緒に' }
-      : { title: `${t} · call wall breakout`, detail: 'On a confirmed 5-min close · with the next wall and max pain' };
+      ? { title: `${t} · 設定価格に到達`, detail: '設定した価格を上抜け・下抜けしたとき' }
+      : { title: `${t} · hit your price`, detail: 'When it rises above or falls below your level' };
 }
 
 export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, onClose, onNavigate, onBecamePro }: Props) {
@@ -205,9 +195,9 @@ export function ProUpsellSheet({ mode, loc, ticker, levels, alertsOn, titleId, o
             </div>
           </div>
           <ul className={s.bn}>
-            <li><span className={`${s.tile} ${s.tLvl}`}><WlIcon name="ceil" /></span><span className={s.bnTx}><b>{c.aLvl}</b><small>{c.aLvlSub}</small></span></li>
+            <li><span className={`${s.tile} ${s.tLvl}`}><WlIcon name="bell" /></span><span className={s.bnTx}><b>{c.aLvl}</b><small>{c.aLvlSub}</small></span></li>
             <li><span className={`${s.tile} ${s.tMp} ${s.tileFill}`}><WlIcon name="diamond" /></span><span className={s.bnTx}><b>{c.aMp}</b><small>{c.aMpSub}</small></span></li>
-            <li><span className={`${s.tile} ${s.tEv}`}><WlIcon name="cal" /></span><span className={s.bnTx}><b>{c.aEarn}</b><small>{c.aEarnSub}</small></span></li>
+            <li><span className={`${s.tile} ${s.tEv}`}><WlIcon name="list" /></span><span className={s.bnTx}><b>{c.aEarn}</b><small>{c.aEarnSub}</small></span></li>
           </ul>
           <p className={s.incl}><b>{c.inclHead}</b>{c.incl(tiering, MAX_ITEMS)}</p>
         </>

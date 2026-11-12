@@ -156,7 +156,7 @@ async function test(name: string, fn: () => Promise<void> | void) {
   });
 
   await test('(관문 높음) 무료 사용자 알림 페이월 = 알림 제목·«PRO 시작하기» — 체험 종료 문구 0 (ko/en/ja)', () => {
-    const want = { ko: ['레벨을 넘으면 푸시로', 'PRO 시작하기'], en: ['Pushed when a level breaks', 'Start PRO'], ja: ['レベルを抜けたらプッシュで', 'PROを始める'] } as const;
+    const want = { ko: ['정한 가격에 닿으면 푸시로', 'PRO 시작하기'], en: ['A push when your price is hit', 'Start PRO'], ja: ['決めた価格に届いたらプッシュで', 'PROを始める'] } as const;   // 11/12 가격 레벨 알림 문구
     const trial = { ko: ['체험 뒤에도 PRO를 쓰려면', 'PRO 계속 쓰기'], en: ['Keep PRO after your trial', 'Keep PRO'], ja: ['体験後もPROを使うには', 'PROを続ける'] } as const;
     for (const locale of ['ko', 'en', 'ja'] as const) {
       reset(); const h = setupHost();

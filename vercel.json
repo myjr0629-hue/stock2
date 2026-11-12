@@ -270,6 +270,10 @@
       "schedule": "40 1 * * 2-6"
     },
     {
+      "path": "/api/cron/pro-alerts",
+      "schedule": "*/5 13-21 * * 1-5"
+    },
+    {
       "path": "/api/cron/trial-push",
       "schedule": "17 * * * *"
     },

@@ -16,6 +16,10 @@
 // 원칙(기획서 1-2): 목록 원본은 폰이다. 서버엔 «알림을 켠 PRO 기기»의 토큰+종목 사본만 간다.
 // ============================================================================
 
+import {
+  PRICE_ALERTS_EVENT, PRICE_ALERTS_KEY, mergeFired, parsePriceAlerts, payloadLevels, samePayload, type PriceAlertPrefs,
+} from './priceAlerts';
+
 export const ALERT_EVENTS = [
   'call_wall_break',
   'put_floor_break',
@@ -298,4 +302,91 @@ export async function ensureAndroidAlertChannels(locale: string): Promise<void> 
       vibration: false,
     });
   } catch { /* 옛 바이너리·플러그인 없음 — 기본 채널로 온다 */ }
+}
+
+// ============================================================================
+// v2 — PRO «가격 레벨 알림»(2026-11-12) · 순수 모양·도우미는 lib/app/priceAlerts
+//   계약 POST /api/app/watchlist/alerts { v:2, rcAppUserId, platform, deviceToken, locale, tz, levels:[{t,id,dir,px,on,rev}] }
+//   → 200 {ok, stored, active, fired:[{id,rev,at,px}]} | 402 not_pro | 409 unknown_device(토큰 등록 전 — 다시) | 429 | 503 | 400
+//   DELETE {rcAppUserId, deviceToken} — 켠 레벨이 하나도 없을 때(서버 사본 지우기)
+//   서버는 매번 «전체 목록»으로 바꾼다. 위의 v1(7개 이벤트) 저장·동기화는 더 부르지 않는다(옛 시트 호환용으로만 남김).
+// ============================================================================
+
+export function readPriceAlerts(): PriceAlertPrefs {
+  try { return parsePriceAlerts(localStorage.getItem(PRICE_ALERTS_KEY)); } catch { return parsePriceAlerts(null); }
+}
+
+export function writePriceAlerts(p: PriceAlertPrefs) {
+  try { localStorage.setItem(PRICE_ALERTS_KEY, JSON.stringify(p)); } catch { /* 사생활 모드 — 이번 세션만 */ }
+  try { window.dispatchEvent(new CustomEvent(PRICE_ALERTS_EVENT)); } catch { /* noop */ }
+}
+
+function classifyV2(status: number): SyncResult {
+  if (status === 409) return 'retry';      // 푸시 토큰이 서버에 아직 등록되지 않았다 — 다음에 다시
+  return classify(status);
+}
+
+/**
+ * 가격 레벨 서버 사본을 맞춘다. 레벨이 하나도 없으면 DELETE.
+ * 응답의 fired 는 «지금» 기기 값에 합친다(보내는 사이 사용자가 바꾼 것을 덮지 않는다).
+ */
+export async function syncPriceAlerts(p: PriceAlertPrefs, locale: string, opts: { askPermission: boolean }): Promise<SyncResult> {
+  const platform = platformOf();
+  if (!platform) return 'no_device';
+  const levels = payloadLevels(p);
+  const anyOn = levels.some((l) => l.on);
+  let token = savedToken();
+  if (levels.length > 0) {
+    const r = await ensurePushToken(opts.askPermission && anyOn);
+    if (r.denied && anyOn) return 'denied';
+    token = r.token ?? token;
+  }
+  const uid = await rcAppUserId();
+  if (!uid) return 'no_device';
+  if (p.syncedToken && token && p.syncedToken !== token) await del(uid, p.syncedToken);
+  if (!token) return levels.length ? 'no_device' : 'ok';
+
+  const loc = locale === 'ko' || locale === 'ja' ? locale : 'en';
+  let tz = 'UTC';
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { /* noop */ }
+  let result: SyncResult;
+  let fired: unknown = null;
+  try {
+    if (levels.length) {
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ v: 2, rcAppUserId: uid, platform, deviceToken: token, locale: loc, tz, levels }),
+      });
+      result = classifyV2(res.status);
+      if (result === 'ok') { try { fired = (await res.json())?.fired ?? null; } catch { /* 본문 없음 */ } }
+    } else {
+      result = (await del(uid, token)) ? 'ok' : 'retry';
+    }
+  } catch {
+    result = 'retry';
+  }
+  const cur = readPriceAlerts();
+  if (result === 'ok') {
+    const unchanged = samePayload(payloadLevels(cur), levels);
+    writePriceAlerts(mergeFired({ ...cur, pendingSync: !unchanged, lastSyncAt: Date.now(), syncedToken: levels.length ? token : null }, fired));
+  } else {
+    writePriceAlerts({ ...cur, pendingSync: true });
+  }
+  return result;
+}
+
+/**
+ * 앱을 열 때·내 종목 화면을 열 때: 못 보낸 변경 · 토큰 교체 · minAgeMs 가 지났으면 다시 보낸다(권한은 묻지 않는다).
+ * 화면을 열 때(30분)는 «울렸다» 표시를 받아 오는 용도 — 켠 레벨이 있을 때만.
+ */
+export async function maybeResyncPriceAlerts(locale: string, minAgeMs = RESYNC_MS): Promise<SyncResult | 'skip'> {
+  const p = readPriceAlerts();
+  const levels = payloadLevels(p);
+  const token = savedToken();
+  const tokenChanged = !!(p.syncedToken && token && p.syncedToken !== token);
+  if (!levels.length && !p.syncedToken) return 'skip';
+  if (!p.pendingSync && !tokenChanged && Date.now() - p.lastSyncAt < minAgeMs) return 'skip';
+  if (!p.pendingSync && !tokenChanged && minAgeMs < RESYNC_MS && !levels.some((l) => l.on)) return 'skip';
+  return syncPriceAlerts(p, locale, { askPermission: false });
 }

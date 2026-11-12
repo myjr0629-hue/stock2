@@ -720,14 +720,14 @@ t('★ C1 칩 혜택은 «행마다 2개»라는 사실만 — «모든 칩»이
     assert.ok(/2/.test(c.bChips), c.bChips);
   }
 });
-t('★ C9 알림 문구는 «닿는 순간·실시간»이 아니다 — 5분 봉 확정(체크 5–15분)이 사실', () => {
+t('★ C9 알림 문구는 «닿는 순간·실시간»이 아니다 — 가격 레벨은 약 5분마다 확인(11/12 PRO 가격 레벨 알림)이 사실', () => {
   const INSTANT = /실시간 포지셔닝|닿는 순간|the moment|real-time positioning|触れた瞬間|リアルタイム・ポジショニング/i;
   for (const loc of ['ko', 'en', 'ja'] as const) {
     const c = WL_COPY[loc];
     for (const x of [c.bAlerts, c.alertTitle, c.alertLede('NVDA').join(''), c.alertLede(null).join('')]) {
       assert.ok(!INSTANT.test(x), x);
     }
-    assert.ok(/5/.test(c.alertLede('NVDA').join('')), '5분 봉 확정을 밝힌다');
+    assert.ok(/5/.test(c.alertLede('NVDA').join('')), '약 5분마다 확인을 밝힌다');
   }
 });
 t('★ C21·C8·C19·C10 한도 시트·길게 누르기 문구 — 제목과 부제가 같은 문장이 아니다 · 개수 판정(내/도달/초과)', () => {
