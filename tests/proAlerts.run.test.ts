@@ -267,6 +267,23 @@ t('크론이 읽은 뒤 사용자가 끈 레벨은 보내지 않는다(발송 �
     assert.equal(s.m.has(PA_KEYS.fired(DEV, 'abcd1', 1)), false, '거둔 발송의 장부는 되돌린다');
     assert.equal(s.m.get(PA_KEYS.cap(D, DEV)), '0');
 });
+t('발송 직전 재확인 실패(Redis) → 보내지 않고 장부·상한 되돌림 + 대기 표식', async () => {
+    const s = setup();
+    s.m.set(PA_KEYS.tick('NVDA'), JSON.stringify({ p: 199, at: T10, d: D }));
+    const a = deps(s, { NVDA: 201 }, T10 + 300_000);
+    const realMget = s.mget.bind(s);
+    let n = 0;
+    s.mget = async (keys: string[]) => {
+        if (keys.length === 1 && keys[0] === PA_KEYS.rec(DEV) && ++n >= 1 && s.m.has(PA_KEYS.fired(DEV, 'abcd1', 1))) throw new Error('redis down');
+        return realMget(keys);
+    };
+    const r = await run(a.d, T10 + 301_000);
+    assert.equal(a.sent.length, 0);
+    assert.ok(r.notes.includes('recheck-failed'));
+    assert.equal(s.m.has(PA_KEYS.fired(DEV, 'abcd1', 1)), false);
+    assert.equal(s.m.get(PA_KEYS.cap(D, DEV)), '0');
+    assert.ok(s.m.has(PA_KEYS.pend(DEV, 'abcd1', 1)));
+});
 t('색인 정리 — 기록이 «지금도» 없는 기기만 뺀다', async () => {
     const s = setup();
     s.sadd(PA_KEYS.idx, 'dGONE');

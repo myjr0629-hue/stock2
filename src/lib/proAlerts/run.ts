@@ -238,7 +238,8 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
     if (!items.length || !deps.sender) return report;
     // 발송 «바로 전» 최신 기록으로 다시 거른다 — 크론이 읽은 뒤 사용자가 끄거나 지운·바꾼 레벨은 보내지 않는다(장부·상한 되돌림).
     //   남는 틈은 이 읽기와 공급사 전송 사이(수 ms)뿐이다 — 외부 발송과 원자적으로 묶을 수는 없다(관문 11121345 ④ · 11121348 ②)
-    {
+    const withdrawn: PaSendItem[] = [];
+    try {
         const ds = [...new Set(items.map((it) => meta.get(it.id)!.rec.dev))];
         const latest = await store.mget(ds.map(PA_KEYS.rec));
         const live = new Map<string, Set<string>>();
@@ -249,18 +250,34 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         });
         const keep: PaSendItem[] = [];
         for (const it of items) {
+            const L = meta.get(it.id)!.cand.level;
+            if (live.get(meta.get(it.id)!.rec.dev)?.has(`${L.id}:${L.rev}:${L.t}:${L.dir}:${L.px}`)) keep.push(it); else withdrawn.push(it);
+        }
+        items.splice(0, items.length, ...keep);
+    } catch {
+        // 재확인을 못 했다(Redis 장애) — 보내지 않고 장부·상한을 되돌린 뒤 대기 표식으로 다음 실행에 다시(관문 11121350 ①)
+        for (const it of items) {
             const m = meta.get(it.id)!;
-            const L = m.cand.level;
-            if (live.get(m.rec.dev)?.has(`${L.id}:${L.rev}:${L.t}:${L.dir}:${L.px}`)) { keep.push(it); continue; }
+            await store.del([m.claim]).catch(() => {});
+            await store.decr(m.cap).catch(() => 0);
+            await markPending(m.cand);
+        }
+        report.notes.push('recheck-failed');
+        return report;
+    }
+    /** 거둔 발송의 장부·상한 되돌림 — 발송 «뒤에» 한다(재확인과 전송 사이를 짧게) */
+    const releaseWithdrawn = async () => {
+        for (const it of withdrawn) {
+            const m = meta.get(it.id)!;
             sent.withdrawn++;
             await store.del([m.claim]).catch(() => {});
             await store.decr(m.cap).catch(() => 0);
         }
-        items.splice(0, items.length, ...keep);
-    }
-    if (!items.length) return report;
+    };
+    if (!items.length) { await releaseWithdrawn(); return report; }
     sent.items = items.length;
     const out = await deps.sender.send(items);
+    await releaseWithdrawn();
     const deadDevs = new Set<string>();
     for (const it of items) {
         const r = out.get(it.id) ?? 'fail';
