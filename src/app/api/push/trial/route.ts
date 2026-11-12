@@ -31,6 +31,8 @@ const verifyStore: TrialVerifyStore = {
 };
 /** 옛 토큰의 주인이 이 고객일 때만 대상·기록·주인 표식을 지운다(원자적) */
 const DROP_IF_OWNER_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('ZREM', KEYS[2], ARGV[2]); redis.call('DEL', KEYS[3]); redis.call('DEL', KEYS[1]); return 1 end return 0";
+/** 확인된 기록 쓰기(원자적): KEYS = 주인 · 기록 · 대상 목록 · 고객→토큰, ARGV = 고객 해시 · 기록 JSON · TTL(초) · 만료 시각 · 대상(1/0) · 토큰 */
+const WRITE_VERIFIED_LUA = "redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[3]); redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3]); redis.call('SET', KEYS[4], ARGV[6], 'EX', ARGV[3]); if ARGV[5] == '1' then redis.call('ZADD', KEYS[3], ARGV[4], ARGV[6]) else redis.call('ZREM', KEYS[3], ARGV[6]) end return 1";
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
 export async function POST(req: NextRequest) {
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
     const first = await redis.set(TRIAL_PUSH_RL_KEY(token), '1', { nx: true, ex: 5 });
     if (first !== 'OK') return json({ ok: true, stored: false, skipped: 'rate-limited' }, 429);
     if (body && body.clear === true) {
-      await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, token), redis.del(TRIAL_PUSH_KEY(token))]);
+      await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, token), redis.del(TRIAL_PUSH_KEY(token), TRIAL_PUSH_OWNER_KEY(token))]);
       return json({ ok: true, stored: true, due: false });
     }
     const rec = sanitizeTrialReport(body, now);
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
     // 빼는 보고(갱신 켬 · 체험 아님) — 확인 없이 받는다(발송을 줄이기만 한다)
     const ttl = Math.ceil((rec.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S;
     await redis.set(TRIAL_PUSH_KEY(token), JSON.stringify(rec), { ex: ttl });
-    await redis.zrem(TRIAL_PUSH_DUE_ZSET, token);
+    await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, token), redis.del(TRIAL_PUSH_OWNER_KEY(token))]);
     return json({ ok: true, stored: true, due: false });
   } catch (e) {
     console.error('[Push Trial]', e);
@@ -86,15 +88,13 @@ async function addVerified(req: NextRequest, token: string, uid: string, rec: Tr
   const storeOk = v.kind === 'trial' && (v.trial.store === 'APP_STORE' ? rec.platform === 'ios' : rec.platform === 'android');
   if (v.kind === 'not_trial' || !storeOk) {
     // RC 에 체험이 없다(유료·만료·없는 고객·다른 스토어) → 대상·기록에서 뺀다
-    await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, token), redis.del(TRIAL_PUSH_KEY(token))]);
+    await Promise.all([redis.zrem(TRIAL_PUSH_DUE_ZSET, token), redis.del(TRIAL_PUSH_KEY(token), TRIAL_PUSH_OWNER_KEY(token))]);
     return json({ ok: true, stored: true, due: false, verified: false });
   }
   const trial = (v as Extract<typeof v, { kind: 'trial' }>).trial;
   const uh = trialUidHash(uid);
   const out: TrialPushRecord = { ...rec, expiresAt: trial.expiresAt, willRenew: trial.willRenew, periodType: trial.periodType, store: trial.store, verified: true };
   const ttl = Math.max(60, Math.ceil((out.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S);
-  // 이 토큰의 주인(고객 해시)을 «먼저» 적는다 — 다른 고객 요청이 이 토큰을 옛 토큰으로 지우려 해도 주인이 바뀌었으면 못 지운다
-  await redis.set(TRIAL_PUSH_OWNER_KEY(token), uh, { ex: ttl });
   // RC 고객 하나 = 토큰 하나 — 같은 체험을 다른 토큰으로 보고하면 옛 토큰을 대상에서 뺀다.
   //   단 옛 토큰의 주인이 «지금도 이 고객»일 때만, 확인과 삭제를 한 번에(Lua — 관문 11121018 ②·11121021 ①)
   const uidKey = TRIAL_PUSH_UID_KEY(uh);
@@ -102,10 +102,9 @@ async function addVerified(req: NextRequest, token: string, uid: string, rec: Tr
   if (typeof prevTok === 'string' && prevTok && prevTok !== token) {
     await redis.eval(DROP_IF_OWNER_LUA, [TRIAL_PUSH_OWNER_KEY(prevTok), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY(prevTok)], [uh, prevTok]);
   }
-  await redis.set(uidKey, token, { ex: ttl });
-  await redis.set(TRIAL_PUSH_KEY(token), JSON.stringify(out), { ex: ttl });
+  // 주인 표식 · 기록 · 고객→토큰 묶음 · 대상 목록을 «한 번에» 쓴다 — 늦게 끝난 다른 고객 요청이 주인과 기록을 서로 다른 고객으로 엇갈리게 하지 못한다(관문 11121033)
   const due = trialPushWanted(out);
-  if (due) await redis.zadd(TRIAL_PUSH_DUE_ZSET, { score: out.expiresAt, member: token });
-  else await redis.zrem(TRIAL_PUSH_DUE_ZSET, token);
+  await redis.eval(WRITE_VERIFIED_LUA, [TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_KEY(token), TRIAL_PUSH_DUE_ZSET, uidKey],
+    [uh, JSON.stringify(out), String(ttl), String(out.expiresAt), due ? '1' : '0', token]);
   return json({ ok: true, stored: true, due, verified: true });
 }

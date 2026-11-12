@@ -19,6 +19,12 @@ const fake = {
   expire: async () => 1,
   // 쓰는 Lua 하나(옛 토큰의 주인이 이 고객이면 지운다)만 흉내
   eval: async (script: string, keys: string[], args: string[]) => {
+    if (/ZADD/.test(script)) {   // 확인된 기록 쓰기 — 주인 · 기록 · 고객→토큰 · 대상
+      kv.set(keys[0], args[0]); kv.set(keys[1], args[1]); kv.set(keys[3], args[5]);
+      const z = zs.get(keys[2]) ?? zs.set(keys[2], new Map()).get(keys[2])!;
+      if (args[4] === '1') z.set(args[5], Number(args[3])); else z.delete(args[5]);
+      return 1;
+    }
     assert.match(script, /redis.call\('GET', KEYS\[1\]\) == ARGV\[1\]/);
     if (kv.get(keys[0]) !== args[0]) return 0;
     zs.get(keys[1])?.delete(args[1]); kv.delete(keys[2]); kv.delete(keys[0]); return 1;
