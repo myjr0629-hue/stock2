@@ -113,7 +113,7 @@ const closingObs = {
   spot: 173.73, basis: 'eod' as const, asOf: null, chainDate: PREV, session: PREV, method: 'weekly' as const,
 };
 
-function seed(opts: { kind: 'full' | 'slim'; spot?: number; probeAgeMs?: number; structureAgeMs?: number; mutate?: (strike: number, type: 'call' | 'put', leg: Leg) => Leg; obs?: boolean; now?: string }) {
+function seed(opts: { kind: 'full' | 'slim'; spot?: number; probeAgeMs?: number; structureAgeMs?: number; structureSession?: string; prevClose?: number; mutate?: (strike: number, type: 'call' | 'put', leg: Leg) => Leg; obs?: boolean; now?: string }) {
   store.clear();
   RC._resetEcBreakerForTest();
   IMS._resetImpliedPackMemoForTest();
@@ -121,7 +121,7 @@ function seed(opts: { kind: 'full' | 'slim'; spot?: number; probeAgeMs?: number;
   legObsAt = new Date(now - 60_000).toISOString();
   store.set('structure:v2:NVDA', { data: {
     ticker: 'NVDA', options_status: 'OK', expiration: WEEKLY, availableExpirations: [WEEKLY, EARN, '2026-11-20'],
-    chainDate: PREV, underlyingPrice: opts.spot ?? 149, prevClose: 173.73, session: 'REG', impliedMove: weeklyIm,
+    chainDate: PREV, underlyingPrice: opts.spot ?? 149, prevClose: opts.prevClose ?? 173.73, session: opts.structureSession ?? 'REG', impliedMove: weeklyIm,
     structure: { strikes: [150], callsOI: [1], putsOI: [1] },
   }, timestamp: now - (opts.structureAgeMs ?? 30_000) });
   // readEodCloses 는 프로세스 안에서 5분 기억한다 — 모든 시나리오 종목을 한 스냅샷에 둔다
@@ -195,6 +195,14 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
   assert.equal(r.basis, 'eod', `spot/leg time skew must reject — got ${r.basis} ${r.impliedMovePct}`);
   assert.equal(r.impliedMovePct, 9.3);
   ok('② structure spot 12 min old vs legs 1 min → skew > 6 min → EOD fallback');
+  // ③ 구조 현물이 «전일 종가 대체»(현물 = prevClose — 체결 없음)·정규장 밖에서 계산된 구조 → 현물 시각 근거 없음 → 예전 순서(strict EOD) (관문 11130811)
+  seed({ kind: 'full', prevClose: 149 });
+  [r] = await readEarn();
+  assert.equal(r.basis, 'eod', `spot equal to prior close is not a current spot — got ${r.basis}`); assert.equal(r.impliedMovePct, 9.3);
+  seed({ kind: 'full', structureSession: 'PRE' });
+  [r] = await readEarn();
+  assert.equal(r.basis, 'eod', `structure not computed in REG — got ${r.basis}`); assert.equal(r.impliedMovePct, 9.3);
+  ok('③ structure spot = prior close fill or non-REG structure → not a live-first candidate → strict EOD as before');
 
   // ② 호가 시각 낡음(20분) → 무효 → strict EOD
   seed({ kind: 'full', probeAgeMs: 20 * 60_000 });
