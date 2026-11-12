@@ -583,8 +583,12 @@ function probeListedExpirations(pc: any, today: string): string[] {
 // [규칙] 정규장(closed=false)에는 이 후보를 먼저 계산한다. 유효하면 live 우선, 아니면 기존 순서(strict → legacy, 그 뒤 관측) 그대로.
 //   유효 = ① 두 다리 모두 계약별 출처 표식 _quoteSource 'live'(Intrinio 실시간 FMV — 체인 수준 표식으로 짐작하지 않는다)
 //          ② 체인 수집 시각(_ts)이 오늘(ET) 정규장 안·15분 이내 → 결과 basis live · 세션 = 오늘
+//             + 고른 두 다리의 실시간 수신 시각(계약별 ivObservedAt — 공급사 실시간 응답을 처음 받은 시각, 합쳐진·캐시 요청도
+//             최초 시각 유지)이 있으면 그것도 오늘·15분 이내(체인 저장 시각만으론 다리별 동시성을 증명하지 못한다 — 관문 11130756 ①)
 //          ③ 두 다리 패리티: |(콜 − 풋) − (현물 − 행사가)| ≤ max(스트래들 25%, 현물 1%) — 실시간 bid/ask 가 체인에 없어서
 //             «양쪽 호가·스프레드» 대신 두 다리와 현물이 같은 시점 값인지를 본다(전일 현물·한쪽만 갱신된 다리면 수 달러 어긋난다).
+//   적용 범위: 첫 만기가 주간물이거나 목록에 주간물이 있는 종목만(관문 11130756 ②). 주간물 없는 종목의 월물은 저장 관측이
+//     «이벤트 분리값»(event-split)이라 정의가 다르다 → 이 후보를 만들지 않고 예전 순서 그대로.
 //   ATM·5% 거리·가까운 행사가 3개 규칙은 atmStraddleImpliedMove 그대로(정의 한 벌).
 //   rejected = 후보는 있었으나 ②·③에서 탈락 — 부르는 쪽은 같은 체인의 legacy live 를 다시 내지 않는다(EOD 폴백만).
 //   ⛔ 공급사 호출 0 · Redis 읽기 추가 0(이미 읽은 체인) · 화면 필드 모양 불변.
@@ -600,8 +604,15 @@ function regularSessionLiveMove(rows: any[], spot: number, quoteOptions: { expir
     const im = atmStraddleImpliedMove(liveRows, spot, { expiry: quoteOptions.expiry, chainDate: quoteOptions.chainDate, quotesLive: true, quotesAt, liveOnly: true, nowMs });
     if (!im) return { im: null, rejected: false };
     const today = etDateOf(nowMs);
-    const fresh = quotesAt != null && nowMs - quotesAt >= -60_000 && nowMs - quotesAt <= EARNINGS_LIVE_MAX_AGE_MS && etDateOf(quotesAt) === today;
-    if (!fresh || im.basis !== 'live' || im.session !== today) return { im: null, rejected: true };
+    const recent = (t: number | null) => t != null && Number.isFinite(t) && nowMs - t >= -60_000 && nowMs - t <= EARNINGS_LIVE_MAX_AGE_MS && etDateOf(t) === today;
+    if (!recent(quotesAt) || im.basis !== 'live' || im.session !== today) return { im: null, rejected: true };
+    // 고른 행사가의 두 다리(atmStraddleImpliedMove 와 같은 «첫 계약» 규칙) — 다리별 실시간 수신 시각이 있으면 검사
+    for (const type of ['call', 'put'] as const) {
+        const leg = liveRows.find((c: any) => Number(c?.details?.strike_price ?? c?.strike_price) === im.strike
+            && String(c?.details?.contract_type ?? c?.contract_type ?? '').toLowerCase() === type);
+        const obs = typeof leg?.ivObservedAt === 'string' ? Date.parse(leg.ivObservedAt) : NaN;
+        if (Number.isFinite(obs) && !recent(obs)) return { im: null, rejected: true };
+    }
     const gap = Math.abs((im.callPrice - im.putPrice) - (im.spot - im.strike));
     const tol = Math.max(EARNINGS_LIVE_PARITY_STRADDLE * (im.callPrice + im.putPrice), EARNINGS_LIVE_PARITY_SPOT * im.spot);
     if (!(gap <= tol)) return { im: null, rejected: true };
@@ -699,7 +710,9 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                     // [11/13] 정규장에는 실적 만기도 «지금 호가»(live)를 먼저 — 유효하면 그 값, 아니면 아래 EOD(strict)·기존 규칙(legacy).
                     //   예전엔 strict(전일 마감)가 먼저 확정돼 live 를 계산하지 않았다(11/12 NVDA 11/18 만기 ±11.6% live → ±9.3% 전일 마감·현물 173.73).
                     //   같은 수집기 체인(이미 읽은 mget)만 쓴다 — 공급사 호출 0·Redis 추가 읽기 0.
-                    if (!closed) {
+                    const weeklyListed = expiryMethod(expiry) === 'weekly'
+                        || probeListedExpirations(pc, today).some((e) => expiryMethod(e) === 'weekly');
+                    if (!closed && weeklyListed) {
                         const lv = regularSessionLiveMove(rows, n.spot, quoteOptions, pc, Date.now());
                         if (lv.im) { results[n.idx] = resolvedMoveOf(n.ticker, lv.im, 'probe', null); break; }
                         liveRejected = lv.rejected;

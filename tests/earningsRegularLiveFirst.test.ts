@@ -46,7 +46,9 @@ const WEEKLY = '2026-11-13';
 const EARN = '2026-11-18';
 const AFTER = '2026-11-17';
 
-type Leg = { live?: number | null; bid: number; ask: number };
+type Leg = { live?: number | null; bid: number; ask: number; obsAt?: string | null };
+/** 실시간 다리의 계약별 수신 시각(ivObservedAt) — 기본 = 지금 1분 전(seed 가 정함) */
+let legObsAt: string | null = null;
 /** 직접 경로(vercel-ondemand) 원본 행 — 마감 호가(bid/ask)·EOD 날짜·계약별 출처 표식 */
 function fullRow(expiry: string, strike: number, type: 'call' | 'put', leg: Leg) {
   const mark = Math.round((leg.bid + leg.ask) / 2 * 100) / 100;
@@ -58,6 +60,7 @@ function fullRow(expiry: string, strike: number, type: 'call' | 'put', leg: Leg)
     _intrinio: { date: PREV, eod: { mark } },
     _rtGreeks: live,
     _quoteSource: live ? 'live' : 'eod',
+    ivObservedAt: live ? (leg.obsAt !== undefined ? leg.obsAt : legObsAt) : null,
   };
 }
 /** 수집기 슬림 행 — midpoint·출처 표식만(호가 칸 없음) */
@@ -67,6 +70,7 @@ function slimRow(expiry: string, strike: number, type: 'call' | 'put', leg: Leg)
   return {
     details: { expiration_date: expiry, strike_price: strike, contract_type: type },
     _quoteSource: live ? 'live' : 'eod',
+    ivObservedAt: live ? (leg.obsAt !== undefined ? leg.obsAt : legObsAt) : null,
     day: { close: mark },
     last_quote: { midpoint: live ? leg.live : mark },
   };
@@ -114,12 +118,14 @@ function seed(opts: { kind: 'full' | 'slim'; spot?: number; probeAgeMs?: number;
   RC._resetEcBreakerForTest();
   IMS._resetImpliedPackMemoForTest();
   const now = ms(opts.now ?? REG);
+  legObsAt = new Date(now - 60_000).toISOString();
   store.set('structure:v2:NVDA', { data: {
     ticker: 'NVDA', options_status: 'OK', expiration: WEEKLY, availableExpirations: [WEEKLY, EARN, '2026-11-20'],
     chainDate: PREV, underlyingPrice: opts.spot ?? 149, prevClose: 173.73, session: 'REG', impliedMove: weeklyIm,
     structure: { strikes: [150], callsOI: [1], putsOI: [1] },
   }, timestamp: now - 30_000 });
-  store.set('intrinio:eod:snapshot', { date: PREV, rows: [['NVDA', 0, 0, 0, 173.73, 0, 0, 0]] });
+  // readEodCloses 는 프로세스 안에서 5분 기억한다 — 모든 시나리오 종목을 한 스냅샷에 둔다
+  store.set('intrinio:eod:snapshot', { date: PREV, rows: [['NVDA', 0, 0, 0, 173.73, 0, 0, 0], ['MONO', 0, 0, 0, 173.73, 0, 0, 0]] });
   store.set('polygon:snapshot:probe:NVDA', {
     greeksSource: 'realtime', _ts: now - (opts.probeAgeMs ?? 60_000), chainDate: PREV,
     chainDates: { [WEEKLY]: PREV, [EARN]: PREV }, weeklyExpiry: WEEKLY,
@@ -207,6 +213,38 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
   const [w] = await at(REG, () => IMS.readImpliedMoveRows([{ ticker: 'NVDA', after: '2026-11-12', timing: 'unknown' }], '2026-11-12'));
   assert.equal(w.source, 'structure'); assert.equal(w.expiry, WEEKLY); assert.equal(w.impliedMovePct, 8.1);
   ok('⑤ earnings first expiry == weekly → structure value unchanged');
+
+  // ② 체인 저장 시각(_ts)은 신선한데 고른 다리의 실시간 수신 시각(ivObservedAt)이 20분 전 → 무효 → EOD (관문 11130756 ①)
+  seed({ kind: 'full', mutate: (k, _t, leg) => (k === 150 ? { ...leg, obsAt: new Date(ms(REG) - 20 * 60_000).toISOString() } : leg) });
+  [r] = await readEarn();
+  assert.equal(r.basis, 'eod', `stale per-leg live observation must not pass — got ${r.basis} ${r.impliedMovePct}`);
+  assert.equal(r.impliedMovePct, 9.3);
+  ok('② per-leg ivObservedAt 20 min old (chain _ts fresh) → EOD fallback');
+  // ① 다리별 수신 시각이 없는 옛 행(필드 없음) → 체인 시각으로 판정 → live
+  seed({ kind: 'full', mutate: (_k, _t, leg) => ({ ...leg, obsAt: null }) });
+  [r] = await readEarn();
+  assert.equal(r.basis, 'live'); assert.equal(r.impliedMovePct, 11.6);
+  ok('① rows without per-leg observation time → chain _ts rule → live');
+
+  // ⑥ 주간물 없는 종목(월물만) — 저장 관측이 이벤트 분리값이면 정의가 다르다 → live 후보를 만들지 않고 예전 그대로(관문 11130756 ②)
+  {
+    store.clear(); RC._resetEcBreakerForTest(); IMS._resetImpliedPackMemoForTest();
+    const now = ms(REG);
+    legObsAt = new Date(now - 60_000).toISOString();
+    const M1 = '2026-11-20', M2 = '2026-12-18';
+    store.set('structure:v2:MONO', { data: { ticker: 'MONO', options_status: 'OK', expiration: M1, availableExpirations: [M1, M2],
+      chainDate: PREV, underlyingPrice: 149, prevClose: 173.73, session: 'REG', impliedMove: null, structure: { strikes: [150], callsOI: [1], putsOI: [1] } }, timestamp: now - 30_000 });
+    store.set('intrinio:eod:snapshot', { date: PREV, rows: [['NVDA', 0, 0, 0, 173.73, 0, 0, 0], ['MONO', 0, 0, 0, 173.73, 0, 0, 0]] });
+    const rows: any[] = [];
+    for (const [k, c, p] of earnLegs) { rows.push(fullRow(M1, k, 'call', c), fullRow(M1, k, 'put', p)); }
+    store.set('polygon:snapshot:probe:MONO', { greeksSource: 'realtime', _ts: now - 60_000, chainDate: PREV, chainDates: { [M1]: PREV, [M2]: PREV },
+      weeklyExpiry: M1, expirations: [M1, M2], expirationsMissing: [], exactResults: [], probeResults: rows });
+    store.set(EI.earningsObservationKey('MONO', AFTER, false), { im: { ...closingObs, expiry: M1, method: 'event-split', eventMovePct: 6.2 }, checkedAt: now - 600_000, first: M1 });
+    const [m] = await at(REG, () => IMS.readImpliedMoveRows([{ ticker: 'MONO', after: AFTER, timing: 'unknown' }], '2026-11-12'));
+    assert.equal(m.method, 'event-split', `monthly-only event-split must stay — got ${m.method} ${m.basis} ${m.impliedMovePct}`);
+    assert.equal(m.impliedMovePct, 6.2); assert.equal(m.basis, 'eod');
+    ok('⑥ monthly-only ticker: event-split observation kept (no live straddle substitution)');
+  }
 
   assert.equal(vendor, 0, `supplier calls must be 0 — got ${vendor}`);
   assert.equal(writes, 0, `Redis writes must be 0 — got ${writes}`);
