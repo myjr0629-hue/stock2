@@ -47,6 +47,7 @@ const lrcx = {
   actual: { pct: -11.7557, baseDate: '2026-10-21', baseClose: 150, reactDate: '2026-10-22', reactClose: 132.37, src: 'intrinio-daily', check: 'fmp', at: Date.parse('2026-11-05T10:48:56Z') },
 };
 let storeDown = false;
+let recordsDown = false;
 const reads: string[] = [];
 stub('../src/services/redisClient', {
   getFromCache: async (key: string) => {
@@ -58,7 +59,7 @@ stub('../src/services/redisClient', {
   },
   mgetFromCacheStrict: async (keys: string[]) => {
     reads.push(...keys);
-    if (storeDown) throw new Error('down');
+    if (storeDown || recordsDown) throw new Error('down');
     // IONQ 11/5 는 회사 공지가 장후(amc) — 장전(bmo)으로 남은 옛 기록은 채점표처럼 빠져야 한다
     return keys.map((k) => (k === 'earnings:actuals:v1:LRCX:2026-10-21' ? lrcx
       : k === 'earnings:actuals:v1:IONQ:2026-11-05' ? { ...lrcx, ticker: 'IONQ', date: '2026-11-05', hour: 'bmo', expected: { ...lrcx.expected, session: '2026-11-04' }, actual: { ...lrcx.actual, baseDate: '2026-11-04', reactDate: '2026-11-05' } } : null));
@@ -161,6 +162,23 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     const n = reads.length;
     await html('en', 'LRCX'); await sitemap();
     assert.equal(reads.length, n, 'one snapshot serves every page and the sitemap');
+  });
+  await test('오늘 발표가 끝나면 다음 일정으로 · 끝난 발표만 있으면 그 발표(발표 완료 안내)', () => {
+    const snap = { ...EP.emptySnapshot(), calendarOk: true, recordsOk: true,
+      next: { [T]: [{ ticker: T, date: '2026-11-12', hour: 'bmo' }, { ticker: T, date: '2027-02-10', hour: 'amc' }], [N]: [{ ticker: N, date: '2026-11-12', hour: 'bmo' }] } };
+    const at = Date.parse('2026-11-12T16:00:00Z'); // 11:00 ET — 장전 발표는 끝났다
+    assert.equal(EP.buildEarningsPageView(T, snap, at).next.date, '2027-02-10');
+    const v = EP.buildEarningsPageView(N, snap, at);
+    assert.equal(v.next.date, '2026-11-12'); assert.equal(v.next.phase, 'done');
+    assert.equal(EP.buildEarningsPageView(T, snap, Date.parse('2026-11-12T12:00:00Z')).next.date, '2026-11-12', 'before the open it is still today');
+  });
+  await test('채점 기록만 못 읽음 — «기록 없음»이라 하지 않고 일부 집계 없음 · 예상 변동폭 종목은 그대로 index', async () => {
+    svc._resetEarningsPageMemo(); recordsDown = true;
+    const h = await html('ko', 'LRCX');
+    assert.ok(h.includes('채점 기록을 지금 읽지 못했습니다') && !h.includes('아직 완성된 채점 기록이 없습니다'));
+    assert.equal((await page.generateMetadata(props('ko', 'LRCX'))).robots.index, false);
+    assert.notEqual((await page.generateMetadata(props('ko', T))).robots.index, false);
+    recordsDown = false; svc._resetEarningsPageMemo();
   });
   await test('스마트링크 from 태그 — normalizeFrom 통과(24자 이내) 전 종목', () => {
     for (const t of EP.EARNINGS_PAGE_TICKERS) {

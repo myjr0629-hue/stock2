@@ -64,8 +64,8 @@ export interface EarningsPageSnapshot {
   /** 캘린더 저장본을 읽었는가(못 읽었으면 «다음 발표»를 모른다 — 0건과 다르다) */
   calendarOk: boolean;
   calendarAt: string | null;
-  /** 종목 → 가장 가까운 발표(오늘 이후) */
-  next: Record<string, EpCalendarRow>;
+  /** 종목 → 오늘(ET) 이후 발표들(날짜순, 최대 3) — 오늘 발표가 끝나면 화면 시점에 그다음 행을 고른다 */
+  next: Record<string, EpCalendarRow[]>;
   /** 실적 묶음 칸(위 행들의 키만) */
   cells: Record<string, ImpliedCell>;
   packAt: number | null;
@@ -95,21 +95,22 @@ export function pastConfirmedEntries(nowMs: number = Date.now()): Array<{ ticker
   return out;
 }
 
-/** 캘린더 행들 → 종목별 가장 가까운 발표(오늘 ET 이후, 이 페이지 종목만) */
-export function nextByTicker(rows: readonly any[], nowMs: number = Date.now()): Record<string, EpCalendarRow> {
+/** 캘린더 행들 → 종목별 오늘(ET) 이후 발표들(날짜순·날짜 중복 제거·최대 3, 이 페이지 종목만) */
+export function nextByTicker(rows: readonly any[], nowMs: number = Date.now()): Record<string, EpCalendarRow[]> {
   const today = etDateOf(nowMs);
-  const out: Record<string, EpCalendarRow> = {};
+  const out: Record<string, EpCalendarRow[]> = {};
   for (const r of rows || []) {
     const t = String(r?.ticker || '').toUpperCase();
     const d = String(r?.date || '').slice(0, 10);
     if (!TICKER_SET.has(t) || !/^\d{4}-\d{2}-\d{2}$/.test(d) || d < today) continue;
-    if (out[t] && out[t].date <= d) continue;
-    out[t] = {
+    if (out[t]?.some((x) => x.date === d)) continue;
+    (out[t] ||= []).push({
       ticker: t, date: d, hour: r.hour === 'bmo' || r.hour === 'amc' ? r.hour : '',
       ...(typeof r.etTime === 'string' && /^\d{2}:\d{2}$/.test(r.etTime) ? { etTime: r.etTime } : {}),
       ...(r.dateStatus === 'confirmed' || r.dateStatus === 'est' ? { dateStatus: r.dateStatus } : {}),
-    };
+    });
   }
+  for (const t of Object.keys(out)) out[t] = out[t].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
   return out;
 }
 
@@ -133,10 +134,14 @@ export interface EarningsPageView {
   /** 색인할 만한가 — 예상 변동폭 또는 채점이 하나라도 있다 */
   indexable: boolean;
   calendarOk: boolean;
+  /** 채점 기록을 전부 읽었는가 — 아니면 «기록 없음»이라 말하지 않고 일부만으로 집계하지 않는다 */
+  recordsOk: boolean;
 }
 
 export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot, nowMs: number = Date.now()): EarningsPageView {
-  const n = snap.next[ticker] ?? null;
+  // 끝나지 않은 가장 가까운 발표 → 없으면(오늘 발표가 끝났고 다음 일정 없음) 끝난 그 발표
+  const rows = snap.next[ticker] ?? [];
+  const n = rows.find((r) => phaseOf(r.date, r.hour, nowMs) !== 'done') ?? rows[0] ?? null;
   const next = n ? { ...n, phase: phaseOf(n.date, n.hour, nowMs) } : null;
   let implied: EpImplied | null = null;
   if (n) {
@@ -149,14 +154,14 @@ export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot
   }
   const seen = new Set<string>();
   const history: ScorecardRow[] = [];
-  for (const raw of snap.records[ticker] ?? []) {
+  for (const raw of snap.recordsOk ? snap.records[ticker] ?? [] : []) {
     const row = scorecardPairOf(raw, nowMs)?.row;
     if (!row || row.ticker !== ticker || seen.has(row.date)) continue;
     seen.add(row.date);
     history.push(row);
   }
   history.sort((a, b) => b.date.localeCompare(a.date));
-  return { ticker, next, implied, history, indexable: Boolean(implied) || history.length > 0, calendarOk: snap.calendarOk };
+  return { ticker, next, implied, history, indexable: Boolean(implied) || history.length > 0, calendarOk: snap.calendarOk, recordsOk: snap.recordsOk };
 }
 
 /** 사이트맵·허브용 — 색인할 종목 목록(페이지 메타와 같은 판정) */
@@ -210,6 +215,7 @@ export interface EpCopy {
   moveNone: string;
   histT: string;
   histNone: string;
+  histUnknown: string;
   histSummary: (d: { n: number; beyond: number }) => string;
   col: { date: string; expected: string; actual: string; result: string };
   within: string;
@@ -219,7 +225,7 @@ export interface EpCopy {
   readT: string;
   read: Array<[string, string]>;
   faqT: string;
-  faq: (d: { name: string; ticker: string; calendarOk: boolean; nextDate: string | null; pct: string | null; method: string | null; last: ScorecardRow | null }) => Array<[string, string]>;
+  faq: (d: { name: string; ticker: string; calendarOk: boolean; recordsOk: boolean; nextDate: string | null; pct: string | null; method: string | null; last: ScorecardRow | null }) => Array<[string, string]>;
   cta: (name: string) => string;
   ctaSub: string;
   moreT: string;
@@ -270,6 +276,7 @@ const KO: EpCopy = {
   moveNone: '아직 표시할 옵션 예상 변동폭이 없습니다. 발표가 가까워져 발표 직후 만기의 옵션 가격이 잡히면 이 자리에 표시합니다.',
   histT: '지난 실적 채점: 예상 vs 실제',
   histNone: '아직 완성된 채점 기록이 없습니다. 발표 전 예상과 발표 뒤 정규장 종가가 모두 기록되면 채점합니다.',
+  histUnknown: '채점 기록을 지금 읽지 못했습니다. 잠시 뒤 다시 확인해 주세요.',
   histSummary: ({ n, beyond }) => `기록 ${n}회 중 실제 변동이 예상 범위를 벗어난 경우 ${beyond}회`,
   col: { date: '발표일', expected: '발표 전 예상', actual: '실제 종가 변동', result: '결과' },
   within: '범위 안',
@@ -283,10 +290,10 @@ const KO: EpCopy = {
     ['범위 안 · 범위 밖', '실제 등락의 절댓값이 발표 전 예상보다 크면 «범위 밖», 같거나 작으면 «범위 안»입니다. 범위 밖이 잦은 종목은 옵션 시장이 실적 반응을 작게 본 일이 많았다는 뜻일 뿐, 다음 결과를 알려 주지는 않습니다.'],
   ],
   faqT: '자주 묻는 질문',
-  faq: ({ name, calendarOk, nextDate, pct, method, last }) => [
+  faq: ({ name, calendarOk, recordsOk, nextDate, pct, method, last }) => [
     [`${name} 다음 실적 발표일은 언제인가요?`, nextDate ? `실적 캘린더 기준 다음 발표는 ${nextDate}입니다.` : calendarOk ? '실적 캘린더에 아직 다음 발표 일정이 없습니다.' : '실적 캘린더를 지금 읽지 못했습니다. 잠시 뒤 다시 확인해 주세요.'],
     [`${name} 실적 예상 변동폭은 얼마인가요?`, pct ? `옵션 가격에 반영된 예상 변동폭은 ${pct}입니다.${method ? ` ${method}` : ''}` : '아직 표시할 옵션 예상 변동폭이 없습니다. 발표가 가까워지면 표시합니다.'],
-    [`지난 실적 때 ${name} 주가는 예상만큼 움직였나요?`, last ? `${longDate(last.date, 'ko')} 발표 때 발표 전 예상은 ${expectedText(last.expectedPct)}, 실제 정규장 종가 변동은 ${actualText(last.actualPct, last.expectedPct)}로 ${last.beyond ? '예상 범위를 벗어났습니다' : '예상 범위 안이었습니다'}.` : '아직 완성된 채점 기록이 없습니다.'],
+    [`지난 실적 때 ${name} 주가는 예상만큼 움직였나요?`, last ? `${longDate(last.date, 'ko')} 발표 때 발표 전 예상은 ${expectedText(last.expectedPct)}, 실제 정규장 종가 변동은 ${actualText(last.actualPct, last.expectedPct)}로 ${last.beyond ? '예상 범위를 벗어났습니다' : '예상 범위 안이었습니다'}.` : recordsOk ? '아직 완성된 채점 기록이 없습니다.' : '채점 기록을 지금 읽지 못했습니다.'],
   ],
   cta: (n) => `${n} 실적 알림·옵션 흐름은 SIGNUM HQ 앱에서`,
   ctaSub: 'iOS · Android 무료 설치',
@@ -340,6 +347,7 @@ const JA: EpCopy = {
   moveNone: '表示できるオプション予想変動幅はまだありません。発表が近づき、発表直後の満期のオプション価格が取れるとここに表示します。',
   histT: '過去の決算採点：予想と実際',
   histNone: '完成した採点記録はまだありません。発表前の予想と発表後の通常取引終値が両方記録されると採点します。',
+  histUnknown: '採点記録を現在読み込めません。しばらくしてから再度ご確認ください。',
   histSummary: ({ n, beyond }) => `記録${n}回のうち、実際の変動が予想範囲を超えたのは${beyond}回`,
   col: { date: '発表日', expected: '発表前の予想', actual: '実際の終値変動', result: '結果' },
   within: '範囲内',
@@ -353,10 +361,10 @@ const JA: EpCopy = {
     ['範囲内・範囲外', '符号を除いた実際の騰落率が発表前の予想より大きければ「範囲外」、同じか小さければ「範囲内」です。範囲外が多い銘柄は、オプション市場が決算反応を小さく見積もったことが多かったというだけで、次の結果を示すものではありません。'],
   ],
   faqT: 'よくある質問',
-  faq: ({ name, calendarOk, nextDate, pct, method, last }) => [
+  faq: ({ name, calendarOk, recordsOk, nextDate, pct, method, last }) => [
     [`${name}の次回決算発表日はいつですか？`, nextDate ? `決算カレンダーでは次回の発表は${nextDate}です。` : calendarOk ? '決算カレンダーに次回の発表予定はまだありません。' : '決算カレンダーを現在読み込めません。しばらくしてから再度ご確認ください。'],
     [`${name}の決算予想変動幅は？`, pct ? `オプション価格に織り込まれた予想変動幅は${pct}です。${method ?? ''}` : '表示できるオプション予想変動幅はまだありません。発表が近づくと表示します。'],
-    [`前回の決算で${name}の株価は予想どおり動きましたか？`, last ? `${longDate(last.date, 'ja')}の発表では、発表前の予想が${expectedText(last.expectedPct)}、実際の通常取引終値の変動が${actualText(last.actualPct, last.expectedPct)}で、${last.beyond ? '予想範囲を超えました' : '予想範囲内でした'}。` : '完成した採点記録はまだありません。'],
+    [`前回の決算で${name}の株価は予想どおり動きましたか？`, last ? `${longDate(last.date, 'ja')}の発表では、発表前の予想が${expectedText(last.expectedPct)}、実際の通常取引終値の変動が${actualText(last.actualPct, last.expectedPct)}で、${last.beyond ? '予想範囲を超えました' : '予想範囲内でした'}。` : recordsOk ? '完成した採点記録はまだありません。' : '採点記録を現在読み込めません。'],
   ],
   cta: (n) => `${n}の決算アラート・オプションフローはSIGNUM HQアプリで`,
   ctaSub: 'iOS · Android 無料インストール',
@@ -410,6 +418,7 @@ const EN: EpCopy = {
   moveNone: 'No options-implied move to show yet. It appears here once options for the first expiry after the report are priced.',
   histT: 'Past earnings scorecard: expected vs actual',
   histNone: 'No complete scorecard record yet. A report is graded once both the pre-report expected move and the post-report regular-session closes are recorded.',
+  histUnknown: 'The scorecard records could not be read right now. Please check back shortly.',
   histSummary: ({ n, beyond }) => `${beyond} of ${n} recorded report${n === 1 ? '' : 's'} moved outside the expected range`,
   col: { date: 'Report date', expected: 'Expected before', actual: 'Actual close-to-close', result: 'Result' },
   within: 'Within range',
@@ -423,10 +432,10 @@ const EN: EpCopy = {
     ['Within · outside range', 'If the absolute actual move is larger than the pre-report expected move, it is outside the range; equal or smaller is within. Frequent misses only mean options often priced a smaller reaction — they do not tell you the next result.'],
   ],
   faqT: 'Frequently asked questions',
-  faq: ({ name, calendarOk, nextDate, pct, method, last }) => [
+  faq: ({ name, calendarOk, recordsOk, nextDate, pct, method, last }) => [
     [`When is ${name}’s next earnings report?`, nextDate ? `The earnings calendar lists the next report on ${nextDate}.` : calendarOk ? 'The earnings calendar has no next report date yet.' : 'The earnings calendar could not be read right now. Please check back shortly.'],
     [`What is ${name}’s earnings expected move?`, pct ? `Options prices imply an expected move of ${pct}.${method ? ` ${method}` : ''}` : 'No options-implied move to show yet; it appears as the report approaches.'],
-    [`Did ${name} stock move as much as expected last earnings?`, last ? `For the ${longDate(last.date, 'en')} report, the pre-report expected move was ${expectedText(last.expectedPct)} and the actual regular-session closing move was ${actualText(last.actualPct, last.expectedPct)}, ${last.beyond ? 'outside the expected range' : 'within the expected range'}.` : 'No complete scorecard record yet.'],
+    [`Did ${name} stock move as much as expected last earnings?`, last ? `For the ${longDate(last.date, 'en')} report, the pre-report expected move was ${expectedText(last.expectedPct)} and the actual regular-session closing move was ${actualText(last.actualPct, last.expectedPct)}, ${last.beyond ? 'outside the expected range' : 'within the expected range'}.` : recordsOk ? 'No complete scorecard record yet.' : 'The scorecard records could not be read right now.'],
   ],
   cta: (n) => `Get ${n} earnings alerts and options flow in the SIGNUM HQ app`,
   ctaSub: 'Free on iOS · Android',

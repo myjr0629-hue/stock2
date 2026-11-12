@@ -125,7 +125,7 @@ export default async function EarningsTickerPage(props: Props) {
   const pct = view.implied ? expectedText(view.implied.pct) : null;
   const method = view.implied ? c.moveMethod[view.implied.basis] : null;
   const last = view.history[0] ?? null;
-  const faq = c.faq({ name, ticker, calendarOk: view.calendarOk, nextDate: upcoming ? `${longDate(upcoming.date, l)}${upcoming.dateStatus !== 'confirmed' ? c.estTag : ''}` : null, pct, method, last });
+  const faq = c.faq({ name, ticker, calendarOk: view.calendarOk, recordsOk: view.recordsOk, nextDate: upcoming ? `${longDate(upcoming.date, l)}${upcoming.dateStatus !== 'confirmed' ? c.estTag : ''}` : null, pct, method, last });
   const beyond = view.history.filter((r) => r.beyond).length;
   const href = earningsAppHref(ticker, l);
   const hasFlow = isFlowTicker(ticker) && FLOW_SET.has(ticker);
@@ -219,7 +219,7 @@ export default async function EarningsTickerPage(props: Props) {
             </ul>
             <p className="ep-note">{c.histHorizon}</p>
           </>
-        ) : <p>{c.histNone}</p>}
+        ) : <p>{view.recordsOk ? c.histNone : c.histUnknown}</p>}
       </section>
 
       <section className="ep-sec" aria-labelledby="ep-read">

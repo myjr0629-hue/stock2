@@ -76,14 +76,15 @@ async function build(nowMs: number): Promise<EarningsPageSnapshot> {
     snap.packAt = pack.at ?? null;
     snap.packDay = pack.day ?? null;
     const cells: Record<string, ImpliedCell> = {};
-    for (const r of Object.values(snap.next)) {
+    for (const r of Object.values(snap.next).flat()) {
       const k = impliedRowKey(r.ticker, r.date);
       if (pack.cells[k]) cells[k] = pack.cells[k];
     }
     snap.cells = cells;
   }
+  // 한 묶음이라도 못 읽었으면 기록 전체를 쓰지 않는다(일부만으로 횟수·범위 밖 집계 금지 — 화면은 «읽지 못함»)
   snap.recordsOk = rec.ok;
-  snap.records = rec.records;
+  snap.records = rec.ok ? rec.records : {};
   return snap;
 }
 
