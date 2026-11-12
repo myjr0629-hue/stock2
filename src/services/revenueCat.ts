@@ -10,7 +10,7 @@
 
 'use client';
 
-import type { CustomerInfo, PurchasesPackage } from '@revenuecat/purchases-capacitor';
+import type { CustomerInfo, PurchasesPackage, PurchasesPromotionalOffer } from '@revenuecat/purchases-capacitor';
 import {
   IAP_LIVE,
   RC_API_KEY_IOS,
@@ -24,6 +24,7 @@ import {
   type PlanId,
 } from '@/config/iap';
 import { previewFlag } from '@/lib/app/proEntitlement';
+import { pickExpiredOffer, type ExpiredOfferPick } from '@/lib/app/expiredOffer';
 
 export type PurchaseOutcome = {
   ok: boolean;
@@ -243,6 +244,59 @@ export async function restorePro(): Promise<PurchaseOutcome> {
   } catch (e) {
     const err = e as { message?: string };
     return { ok: false, isPro: false, error: err?.message ?? 'restore_failed', code: rcCode(e) };
+  } finally {
+    storeFlows = Math.max(0, storeFlows - 1);
+  }
+}
+
+// ============================================================================
+// ★2026-11-12 체험 만료자 «첫 달 할인» — 만료 1회 페이월(TrialSavePaywall · src trial_expired)에서만 부른다.
+//   일반 경로(purchasePro = purchasePackage)는 그대로다: iOS 는 프로모션 오퍼를 스스로 적용하지 않고,
+//   Play 오퍼는 rc-ignore-offer 태그라 RevenueCat 기본 옵션 자동 선택에서 빠진다(정가 기본 요금제).
+//   ⚠️ 할인 결제가 안 되면(서명 없음·옵션 없음·자격 없음) «정가 결제로 넘어가지 않는다» — 오류로 돌려준다.
+// ============================================================================
+
+/** 서명까지 받은 오퍼(iOS) / 옵션(안드) — 화면은 view 값만 그린다 */
+export type ExpiredOffer = ExpiredOfferPick;
+
+/** 지금 이 기기에서 할인 오퍼를 «실제로» 살 수 있으면 그 오퍼, 아니면 null. 대상 판정(expiredOfferEligible)은 부르는 쪽 몫이다 */
+export async function loadExpiredOffer(): Promise<ExpiredOffer | null> {
+  if (!(await initRevenueCat())) return null;
+  const cap = await nativeCapacitor();
+  if (!cap) return null;
+  const platform = cap.getPlatform();
+  const { Purchases } = await import('@revenuecat/purchases-capacitor');
+  const offerings = await Purchases.getOfferings();
+  const pkg = matchPlanPackage(offerings.current?.availablePackages ?? [], 'monthly');
+  const pick = pickExpiredOffer(pkg, platform);
+  if (!pick) return null;
+  if (pick.platform === 'ios') {
+    // 애플 자격 확인 + 서명 — 자격이 없으면 undefined(카드 없음)
+    const signed = await Purchases.getPromotionalOffer({ product: pick.pkg.product, discount: pick.discount });
+    if (!signed || signed.identifier !== pick.discount.identifier) return null;
+  }
+  return pick;
+}
+
+/** 할인 결제 — iOS 는 결제 직전에 서명을 새로 받는다(서명 유효시간). 정가 결제로 대신하지 않는다 */
+export async function purchaseExpiredOffer(offer: ExpiredOffer): Promise<PurchaseOutcome> {
+  if (!(await initRevenueCat())) return { ok: false, isPro: false, error: 'iap_unavailable' };
+  const { Purchases } = await import('@revenuecat/purchases-capacitor');
+  storeFlows += 1;
+  try {
+    if (offer.platform === 'ios') {
+      let signed: PurchasesPromotionalOffer | undefined;
+      try { signed = await Purchases.getPromotionalOffer({ product: offer.pkg.product, discount: offer.discount }); } catch { signed = undefined; }
+      if (!signed || signed.identifier !== offer.discount.identifier) return { ok: false, isPro: false, error: 'offer_unavailable' };
+      const { customerInfo } = await Purchases.purchaseDiscountedPackage({ aPackage: offer.pkg, discount: signed });
+      return { ok: true, isPro: isProFromCustomerInfo(customerInfo) };
+    }
+    const { customerInfo } = await Purchases.purchaseSubscriptionOption({ subscriptionOption: offer.option });
+    return { ok: true, isPro: isProFromCustomerInfo(customerInfo) };
+  } catch (e) {
+    const err = e as { message?: string };
+    if (isPurchaseCancelled(e)) return { ok: false, isPro: false, cancelled: true };
+    return { ok: false, isPro: false, error: err?.message ?? 'purchase_failed', code: rcCode(e) };
   } finally {
     storeFlows = Math.max(0, storeFlows - 1);
   }

@@ -332,8 +332,8 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
     assert.ok(f.includes("addEventListener('app:resume'") && f.includes('Purchases.syncPurchases()') && f.includes("getPlatform() === 'android'"));
     assert.ok(!/restorePurchases\s*\(/.test(f.replace(/\/\/.*$/gm, '').replace(/«[^»]*»/g, '')));
     const rc = src('src/services/revenueCat.ts');
-    assert.equal((rc.match(/storeFlows \+= 1;/g) || []).length, 2, 'purchasePro·restorePro 둘 다');
-    assert.equal((rc.match(/storeFlows = Math\.max\(0, storeFlows - 1\);/g) || []).length, 2, 'finally 에서 내린다');
+    assert.equal((rc.match(/storeFlows \+= 1;/g) || []).length, 3, 'purchasePro·restorePro·purchaseExpiredOffer(★11/12 만료자 첫 달 할인) 모두');
+    assert.equal((rc.match(/storeFlows = Math\.max\(0, storeFlows - 1\);/g) || []).length, 3, 'finally 에서 내린다(세 곳)');
   });
   await t('설정 페이월 안의 클릭이 설정 바깥막(handleClose)까지 올라가지 않는다 — 쿠폰 안내가 화면 이동으로 닫히던 결함(9/2~)', () => {
     const st = src('src/app/[locale]/app-view/settings/page.tsx');

@@ -204,10 +204,11 @@ test('화면 연결: 체험 중 시트가 없을 때만 만료 판정 · 새 읽
   // 만료 페이월은 suspend(앱 뒤로 — 안드 결제 창) 때 닫히지 않는다: suspend 는 시트 view 만 걷는다
   assert.match(notice, /const suspend = \(\) => \{ suspended = true; \+\+generation; stopWaiting\?\.\(\); stopWaiting = undefined; current\.current = null; setView\(null\); \};/);
   const sheet = fs.readFileSync(path.join(ROOT, 'src/components/app/TrialSavePaywall.tsx'), 'utf8');
-  assert.match(sheet, /if \(context\) return <ProPaywall locale=\{locale\} src=\{src\} onClose=\{onClose\} onNavigate=\{onNavigate\} context=\{context\} previewPlans=\{previewPlans\} \/>;/);
+  // ★11/12 할인 카드(discountOffer)는 만료 출처일 때만 넘긴다 — tests/expiredOffer.test.ts
+  assert.match(sheet, /if \(context\) return <ProPaywall locale=\{locale\} src=\{src\} onClose=\{onClose\} onNavigate=\{onNavigate\} context=\{context\} previewPlans=\{previewPlans\} discountOffer=\{src === 'trial_expired' \? discountOffer : null\} \/>;/);
   assert.ok(isFunnelSrc('trial_expired'));
   const funnelScript = fs.readFileSync(path.join(ROOT, 'scripts/mkt-funnel.js'), 'utf8');
-  assert.match(funnelScript, /'trial_expired'\]/);
+  assert.match(funnelScript, /'trial_expired'[,\]]/);
 });
 
 test('다른 페이월 호출부는 context 를 넘기지 않는다(기존 화면 그대로)', () => {

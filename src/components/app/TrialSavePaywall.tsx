@@ -12,9 +12,12 @@ import { afterSheetHistory, useBackToClose, useLayer } from '@/components/app/wa
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { ProPaywall, type PaywallContext, type PaywallPlan } from './ProPaywall';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
+import type { ExpiredOfferView } from '@/lib/app/expiredOffer';
+import type { ExpiredOffer } from '@/services/revenueCat';
 
 // ★11/11 체험 만료 뒤 1회(src 'trial_expired' · context): 이미 PRO 가 아니므로 keepOpenWhilePro 를 넘기지 않는다(구매·복원으로 PRO 가 되면 평소처럼 닫힘)
-export default function TrialSavePaywall({ locale, onClose, previewPlans, src = 'trial_off', context }: { locale: string; onClose: () => void; previewPlans?: PaywallPlan[]; src?: Extract<FunnelSrc, 'trial_off' | 'trial_off_early' | 'trial_expired'>; context?: PaywallContext }) {
+// ★11/12 discountOffer(체험 만료자 첫 달 할인)는 만료 1회 페이월(src 'trial_expired' + context)에서만 ProPaywall 로 넘긴다 — 체험 중 시트 경로엔 없다
+export default function TrialSavePaywall({ locale, onClose, previewPlans, src = 'trial_off', context, discountOffer }: { locale: string; onClose: () => void; previewPlans?: PaywallPlan[]; src?: Extract<FunnelSrc, 'trial_off' | 'trial_off_early' | 'trial_expired'>; context?: PaywallContext; discountOffer?: ExpiredOffer | ExpiredOfferView | null }) {
   const router = useRouter();
   useBackToClose(true, onClose);
   useBannerSuppression(true);
@@ -24,6 +27,6 @@ export default function TrialSavePaywall({ locale, onClose, previewPlans, src = 
     onClose();
     void afterSheetHistory().then(() => router.push(`/${loc}/app-view/${path}`));
   }, [onClose, router, loc]);
-  if (context) return <ProPaywall locale={locale} src={src} onClose={onClose} onNavigate={onNavigate} context={context} previewPlans={previewPlans} />;
+  if (context) return <ProPaywall locale={locale} src={src} onClose={onClose} onNavigate={onNavigate} context={context} previewPlans={previewPlans} discountOffer={src === 'trial_expired' ? discountOffer : null} />;
   return <ProPaywall locale={locale} src={src} onClose={onClose} onNavigate={onNavigate} keepOpenWhilePro previewPlans={previewPlans} />;
 }

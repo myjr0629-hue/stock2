@@ -135,7 +135,8 @@ test('페이월 소스: 가격 문자열 하드코딩 0 · 월간만이면 예�
   assert.equal(/[₩$¥]\s?\d/.test(code), false, '가격 숫자 문자열이 코드에 있으면 안 된다(주석 제외)');
   // ★11/11 multi·기본 선택은 proPlans.paywallSelection 으로 옮겼다(연간·평생만 와도 살 수 있게) — 아래 별도 시험
   assert.match(src, /const \{ multi, selected: pickedPlan \} = paywallSelection\(plans, picked\)/);
-  assert.match(src, /\{multi \? \(\s*<div className=\{s\.plans\}/);
+  // ★11/12 만료 페이월의 할인 카드(offer)가 있을 때도 카드 모양 — offer 는 context(만료 페이월)에서만 생긴다(tests/expiredOffer.test.ts)
+  assert.match(src, /\{multi \|\| offer \? \(\s*<div className=\{s\.plans\}/);
   assert.match(src, /<div className=\{s\.priceCard\}>/);
   assert.match(src, /priceString/);
 });

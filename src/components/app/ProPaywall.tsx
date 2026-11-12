@@ -27,6 +27,8 @@ import { useProStatus } from '@/hooks/useProStatus';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import type { PlanId } from '@/config/iap';
 import { annualSavePct, paywallSelection, planFineLine, type PaywallPlan } from '@/lib/app/proPlans';
+import { expiredOfferCopy, type ExpiredOfferView } from '@/lib/app/expiredOffer';
+import type { ExpiredOffer } from '@/services/revenueCat';
 
 export type { PaywallPlan };
 
@@ -305,7 +307,7 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
 /** ★11/11 체험 만료 뒤 1회 페이월 — 머리·버튼 문구와 «체험 동안 / 무료에서 달라지는 것» 묶음(lib/app/trialExpired). 가격·고지·복원은 그대로 */
 export type PaywallContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
 
-export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed }: {
+export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed, discountOffer }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
@@ -334,16 +336,27 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   /** ★11/11 «내 종목» 알림 벨 경로 전용 — PRO 가 확인되면(구매·복원·쿠폰·다른 경로) «닫기 대신» 부른다. 닫기와 다음 화면은 호출부 몫.
       머리 문구는 바꾸지 않는다(keepOpenWhilePro 와 무관 — 그건 체험 종료 안내 전용). 다른 호출부는 넘기지 않는다(예전처럼 PRO 면 닫힘) */
   onProConfirmed?: () => void;
+  /** ★11/12 체험 만료자 «월간 첫 달 할인» 카드 — 만료 1회 페이월(TrialSavePaywall · src trial_expired · context)만 넘긴다.
+      스토어 오퍼(ExpiredOffer — 대상 판정·서명·옵션 확인을 마친 것)일 때만 결제가 된다. 값만 있는 것(ExpiredOfferView)은 개발 미리보기 전용.
+      다른 호출부는 넘기지 않는다 → 카드·할인 결제 경로 자체가 없다(예전 화면 그대로) */
+  discountOffer?: ExpiredOffer | ExpiredOfferView | null;
 }) {
   const router = useRouter();
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
   const t = SHOWN[loc];
 
-  const { isPro, ready, offers, purchase, purchasePending, restore, refreshOffers } = useProStatus();
+  const { isPro, ready, offers, purchase, purchaseOffer, purchasePending, restore, refreshOffers } = useProStatus();
+  // ★11/12 할인 카드는 만료 페이월(context)에서만 — 다른 화면에 실수로 넘어와도 그리지 않는다
+  const offer = context && discountOffer ? discountOffer : null;
+  const offerReal = offer && 'platform' in offer ? (offer as ExpiredOffer) : null;
+  const oc = expiredOfferCopy(loc);
   // 퍼널: 연 화면 — 열릴 때 한 번 «open», 구매 버튼에 «cta», 결과는 useProStatus 가 이 출처로 센다
   const funnelSrc: FunnelSrc = src ?? (previewPrice ? 'preview' : lead === 'ads' ? 'other' : 'wl_paywall');
   useEffect(() => {
-    void funnel().then((m) => { m.noteFunnelSrc(funnelSrc); m.trackFunnel('open', { src: funnelSrc }); }).catch(() => {});
+    void funnel().then((m) => {
+      m.noteFunnelSrc(funnelSrc); m.trackFunnel('open', { src: funnelSrc });
+      if (offerReal) m.trackFunnel('open', { src: 'trial_expired_offer' }); // 할인 카드가 보였다(스토어 오퍼일 때만)
+    }).catch(() => {});
     // 열릴 때 한 번만(출처는 열린 동안 바뀌지 않는다)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -355,6 +368,9 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   const closedByUser = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const closeByUser = useCallback(() => { closedByUser.current = true; onClose(); }, [onClose]);
+  // ★11/12 할인 카드가 있으면 그것이 기본 선택 — 갱신을 끈 체험자에게 첫 결제 장벽(₩89,000 일시불)보다 낮은 입구가 실결제자 수에 맞다. 연간 카드는 그대로 고를 수 있다
+  const [offerOn, setOfferOn] = useState(true);
+  const offerSelected = !!offer && offerOn;
 
   // 스토어가 준 월간 오퍼. 없으면 «가격을 지어내지 않고» 버튼을 잠근다.
   const monthly = offers.find((o) => o.plan === 'monthly') ?? null;
@@ -385,7 +401,20 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   }, [isPro, onClose, keepOpenWhilePro, onProConfirmed]);
 
   const handleSubscribe = useCallback(async () => {
-    if (busy || purchasePending || !selectedOffer) return;
+    if (busy || purchasePending) return;
+    if (offerSelected) {
+      // 할인 결제 — 스토어 오퍼가 아니면(미리보기) 아무것도 하지 않는다. 실패해도 정가 결제로 넘기지 않는다
+      if (!offerReal) return;
+      void funnel().then((m) => { m.trackFunnel('cta', { src: funnelSrc }); m.trackFunnel('cta', { src: 'trial_expired_offer' }); }).catch(() => {});
+      setBusy(true);
+      setNote(null);
+      const r = await purchaseOffer(offerReal, 'trial_expired_offer');
+      if (alive.current) setBusy(false);
+      if (r.ok && r.isPro) return; // 위 effect 가 닫는다
+      if (!r.ok && !r.cancelled) { markSessionError(); setNote(t.failed); }
+      return;
+    }
+    if (!selectedOffer) return;
     void funnel().then((m) => m.trackFunnel('cta', { src: funnelSrc })).catch(() => {});
     setBusy(true);
     setNote(null);
@@ -412,7 +441,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     if (res.ok && res.isPro) { if (onProConfirmed) onProConfirmed(); else if (keepOpenWhilePro) onClose(); return; } // 평소엔 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
-  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed, router, loc]);
+  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed, router, loc, offerSelected, offerReal, purchaseOffer]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
@@ -519,10 +548,34 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
 
         {/* 가격 — 스토어가 준 현지화 문자열만 쓴다.
             ★11/9 연간·평생이 «스토어에 있을 때만» 플랜 카드 3장(기본 선택 연간). 없으면 아래 예전 가격 한 줄 그대로. */}
-        {multi ? (
+        {multi || offer ? (
           <div className={s.plans} role="radiogroup" aria-label={t.plansLabel}>
+            {/* ★11/12 체험 만료자 첫 달 할인 — 맨 위 한 장. 첫 달 가격·그 뒤 정가 갱신을 카드에, 기간·해지 고지는 아래 안내문에 */}
+            {offer && (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={offerSelected}
+                data-plan="monthly-offer"
+                data-offer="expired"
+                className={offerSelected ? `${s.plan} ${s.planOn}` : s.plan}
+                onClick={() => setOfferOn(true)}
+              >
+                <span className={s.planMain}>
+                  <span className={s.planName}>
+                    {oc.name}
+                    {offer.pct != null && <span className={s.planBadge}>{oc.badge(offer.pct)}</span>}
+                  </span>
+                  <span className={s.planSub}>{oc.then(offer.regularPriceString)}</span>
+                </span>
+                <span className={s.planPrice}>
+                  <span className={s.planAmt}>{offer.priceString}</span>
+                  <span className={s.planPer}>/ {oc.firstMonth}</span>
+                </span>
+              </button>
+            )}
             {plans.map((p) => {
-              const on = p.plan === selected;
+              const on = !offerSelected && p.plan === selected;
               const name = p.plan === 'annual' ? t.planAnnual : p.plan === 'lifetime' ? t.planLifetime : t.planMonthly;
               const per = p.plan === 'annual' ? t.perYear : p.plan === 'monthly' ? t.perMonth : null;
               const sub = p.plan === 'annual'
@@ -536,7 +589,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
                   aria-checked={on}
                   data-plan={p.plan}
                   className={on ? `${s.plan} ${s.planOn}` : s.plan}
-                  onClick={() => setPicked(p.plan)}
+                  onClick={() => { setOfferOn(false); setPicked(p.plan); }}
                 >
                   <span className={s.planMain}>
                     <span className={s.planName}>
@@ -570,7 +623,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
           type="button"
           className={s.cta}
           onClick={handleSubscribe}
-          disabled={busy || purchasePending || (multi ? (!selectedOffer && !previewPlans) : (!monthly && !previewPrice))}
+          disabled={busy || purchasePending || (offerSelected ? false : multi ? (!selectedOffer && !previewPlans) : (!monthly && !previewPrice))}
         >
           {busy || purchasePending ? t.ctaBusy : head.cta}
         </button>
@@ -580,7 +633,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
         {/* ★2026-10-05 «코드가 있으신가요? 🎟 쿠폰 코드 입력» — 결제 단추보다 조용하게(네이티브·프리뷰에서만). components/app/RedeemCodeLink */}
         <RedeemCodeLink locale={loc} src={funnelSrc} />
 
-        <p className={s.fine}>{multi ? planFineLine(loc, t, selected) : fineLine(loc, t)}</p>
+        <p className={s.fine}>{offerSelected && offer ? oc.fine(offer.priceString, offer.regularPriceString) : multi ? planFineLine(loc, t, selected) : fineLine(loc, t)}</p>
 
         <div ref={linksRef} className={s.links}>
           <button type="button" className={s.link} onClick={handleRestore} disabled={busy}>

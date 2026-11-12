@@ -17,6 +17,8 @@ import { WATCHLIST_STORAGE_KEY, parseWatchlist } from '@/lib/app/watchlist';
 import { calendarScorecardWeek } from '@/lib/earnings/calendarScorecardDisplay';
 import { etDateOf } from '@/lib/marketCalendar';
 import type { PaywallPlan } from './ProPaywall';
+import { expiredOfferEligible, type ExpiredOfferView } from '@/lib/app/expiredOffer';
+import { loadExpiredOffer, type ExpiredOffer } from '@/services/revenueCat';
 import p from './ProPaywall.module.css';
 import s from './GiftAnnounceSheet.module.css';
 
@@ -28,6 +30,14 @@ const PREVIEW_PLANS: Record<string, PaywallPlan[]> = {
   ja: [{ plan: 'monthly', priceString: '¥1,280', price: 1280, currencyCode: 'JPY' }, { plan: 'annual', priceString: '¥12,000', price: 12000, currencyCode: 'JPY', pricePerMonthString: '¥1,000' }],
   en: [{ plan: 'monthly', priceString: '$9.99', price: 9.99, currencyCode: 'USD' }, { plan: 'annual', priceString: '$74.99', price: 74.99, currencyCode: 'USD', pricePerMonthString: '$6.25' }],
 };
+/** 개발 미리보기(?trialOffPreview=expired&expiredOffer=1) 전용 할인 카드 값 — 실제 앱은 스토어 오퍼 값만 쓴다(결제 불가) */
+const PREVIEW_OFFER: Record<string, ExpiredOfferView> = {
+  ko: { priceString: '₩5,900', regularPriceString: '₩11,900', pct: 50 },
+  ja: { priceString: '¥640', regularPriceString: '¥1,280', pct: 50 },
+  en: { priceString: '$4.99', regularPriceString: '$9.99', pct: 50 },
+};
+/** 할인 오퍼(오퍼링·애플 서명) 확인을 기다리는 최대 시간 — 넘으면 카드 없이 기존 페이월 그대로 */
+const OFFER_WAIT_MS = 2500;
 
 /** 체험 종료 푸시를 눌러 들어왔으면 «오늘 이미 봤음»을 한 번 건너뛴다(layout 이 세션 표식을 남긴다) */
 function pushTapped() {
@@ -76,7 +86,7 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
   const [reason, setReason] = useState(false);
   const [paywall, setPaywall] = useState<{ preview: boolean; kind: TrialOffKind } | null>(null);
   // ★11/11 체험 만료 뒤 1회 페이월 — 앱이 잠깐 뒤로 가도(안드 결제 창 = onPause) 닫지 않는다(suspend 대상 아님)
-  const [expired, setExpired] = useState<(TrialExpiredNotice & { preview: boolean }) | null>(null);
+  const [expired, setExpired] = useState<(TrialExpiredNotice & { preview: boolean; offerEligible: boolean }) | null>(null);
   const expiredOpen = useRef(false);
   const current = useRef<View | null>(null);
   useEffect(() => {
@@ -110,6 +120,8 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
           ? { store: 'APP_STORE' as const, startedAt: Date.now() - 31 * 86400000, expiresAt: Date.now() - 86400000, period: 'preview', mark: 'preview' }
           : snapshot && trialExpiredNotice(snapshot.customerInfo, snapshot.platform, Date.now(), readExpired(), undefined, marks);
         if (!notice && !lapsed) return;
+        // ★11/12 첫 달 할인 대상(과거 결제 0) — 첫 읽기·새 읽기 둘 다 참일 때만. 미리보기는 ?expiredOffer=1
+        let offerEligible = preview ? new URLSearchParams(location.search).get('expiredOffer') === '1' : false;
         // A sheet may have opened while the SDK read was in flight.
         if (document.querySelector('[aria-modal="true"]')) {
           stopWaiting = waitForOtherModal(document, () => { stopWaiting = undefined; void enter(); });
@@ -133,12 +145,13 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
             // 만료 판정도 캐시를 비운 새 읽기로 한 번 더 — 방금 다른 경로로 구매·복원했으면 활성 'pro' 가 보여 안 뜬다
             lapsed = fresh && fresh.platform === snapshot.platform
               ? verifiedTrialExpiredNotice(snapshot.customerInfo, fresh.customerInfo, fresh.platform, Date.now(), readExpired(), undefined, marks) : null;
+            offerEligible = !!lapsed && !!fresh && expiredOfferEligible(snapshot.customerInfo) && expiredOfferEligible(fresh.customerInfo);
           }
           if (!notice && !lapsed) return;
         }
         if (!notice && lapsed) {
           expiredOpen.current = true;
-          setExpired({ ...lapsed, preview });
+          setExpired({ ...lapsed, preview, offerEligible });
           return;
         }
         if (!notice) return;
@@ -207,8 +220,19 @@ function useTrialScorecard(preview: boolean, startedAt: number) {
 /** ★11/11 체험 만료 뒤 1회 페이월 — 실제 값(체험 기간 안의 사용일·체험 마지막 앞 주 운영 실적 채점·지금 담긴 내 종목 수)을 모은 뒤
  *  기존 ProPaywall(연간 기본·구매 복원)을 연다. 채점은 최대 1.5초만 기다린다(못 읽으면 그 줄 없이).
  *  «봤음» 표식은 페이월이 실제로 화면에 그려지고(동적 로드 끝) 앱이 앞에 있을 때만 남긴다(관문 11111805 ① — 뒤로 간 사이 소진 금지) */
-function TrialExpiredPaywall({ notice, locale, onClose }: { notice: TrialExpiredNotice & { preview: boolean }; locale: string; onClose: () => void }) {
+function TrialExpiredPaywall({ notice, locale, onClose }: { notice: TrialExpiredNotice & { preview: boolean; offerEligible: boolean }; locale: string; onClose: () => void }) {
   const [score, setScore] = useState<TrialExpiredScore | null | undefined>(undefined);
+  // ★11/12 첫 달 할인 오퍼 — 대상이 아니면 바로 null(카드 없음). 대상이면 오퍼링·애플 서명을 최대 2.5초 기다리고, 못 받으면 카드 없이
+  const [offer, setOffer] = useState<ExpiredOffer | ExpiredOfferView | null | undefined>(() => notice.offerEligible ? (notice.preview ? (PREVIEW_OFFER[locale] ?? PREVIEW_OFFER.en) : undefined) : null);
+  useEffect(() => {
+    if (offer !== undefined) return;
+    let alive = true;
+    const timer = window.setTimeout(() => { if (alive) setOffer((v) => (v === undefined ? null : v)); }, OFFER_WAIT_MS);
+    void loadExpiredOffer().catch(() => null).then((v) => { if (alive) setOffer((cur) => (cur === undefined ? v : cur)); });
+    return () => { alive = false; window.clearTimeout(timer); };
+    // 한 번만(마운트 때)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [watchCount] = useState(readWatchCount);
   const [usageDays] = useState(() => notice.preview ? Number(new URLSearchParams(location.search).get('trialDays') ?? 0) : trialUsageDays(readUsageRaw(), notice.startedAt, notice.expiresAt));
   const marked = useRef(false);
@@ -227,7 +251,7 @@ function TrialExpiredPaywall({ notice, locale, onClose }: { notice: TrialExpired
     }, notice.startedAt, notice.expiresAt).then((v) => { if (!ctrl.signal.aborted) setScore((cur) => (cur === undefined ? v : cur)); });
     return () => { ctrl.abort(); window.clearTimeout(timer); };
   }, [notice.preview, notice.startedAt, notice.expiresAt]);
-  const ready = score !== undefined;
+  const ready = score !== undefined && offer !== undefined;
   useEffect(() => {
     if (!ready || marked.current || notice.preview) return;
     const shown = () => document.visibilityState === 'visible' && !!document.querySelector('[data-pro-paywall][data-paywall-src="trial_expired"]');
@@ -247,7 +271,7 @@ function TrialExpiredPaywall({ notice, locale, onClose }: { notice: TrialExpired
   }, [ready, notice]);
   if (!ready) return null;
   const context = trialExpiredContext(locale, { expiresAt: notice.expiresAt, usageDays, watchCount, score: score ?? null });
-  return <TrialSavePaywall locale={locale} src="trial_expired" context={context} onClose={onClose} previewPlans={notice.preview ? (PREVIEW_PLANS[locale] ?? PREVIEW_PLANS.en) : undefined} />;
+  return <TrialSavePaywall locale={locale} src="trial_expired" context={context} onClose={onClose} previewPlans={notice.preview ? (PREVIEW_PLANS[locale] ?? PREVIEW_PLANS.en) : undefined} discountOffer={offer ?? null} />;
 }
 
 function readWatchCount(): number {

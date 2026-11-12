@@ -23,6 +23,8 @@ import {
   purchasePro,
   restorePro,
   getProOffers,
+  purchaseExpiredOffer,
+  type ExpiredOffer,
   type PurchaseOutcome,
   type PlanOffer,
 } from '@/services/revenueCat';
@@ -120,6 +122,17 @@ export function useProStatus() {
     return result;
   }, []);
 
+  /** ★11/12 체험 만료자 첫 달 할인 — 만료 1회 페이월만 부른다(ProPaywall discountOffer). 결과·권한 지연 처리는 purchase 와 같다 */
+  const purchaseOffer = useCallback(async (offer: ExpiredOffer, src?: FunnelSrc): Promise<PurchaseOutcome> => {
+    const result = await proPurchaseState.run(() => purchaseExpiredOffer(offer), async () => {
+      const { refreshProAfterRedeem } = await import('@/lib/app/redeem');
+      return refreshProAfterRedeem('sheet');
+    });
+    if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); announceProActivated(); }
+    void funnel().then((m) => m.trackFunnelOutcome('buy', result, src)).catch(() => {});
+    return result;
+  }, []);
+
   const restore = useCallback(async (src?: FunnelSrc): Promise<PurchaseOutcome> => {
     const result = await restorePro();
     if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); }
@@ -145,5 +158,5 @@ export function useProStatus() {
     }
   }, []);
 
-  return { isPro, ready, offers, purchase, purchasePending, restore, iapAvailable, refreshOffers };
+  return { isPro, ready, offers, purchase, purchaseOffer, purchasePending, restore, iapAvailable, refreshOffers };
 }

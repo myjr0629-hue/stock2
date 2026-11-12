@@ -135,7 +135,9 @@ test('화면 식 대조: ProPaywall 의 선택·결제·잠금 식이 위 시험
   const src = fs.readFileSync(path.join(ROOT, 'src/components/app/ProPaywall.tsx'), 'utf8');
   assert.match(src, /const \{ multi, selected: pickedPlan \} = paywallSelection\(plans, picked\);/);
   assert.match(src, /const selectedOffer = multi \? \(offers\.find\(\(o\) => o\.plan === selected\) \?\? null\) : monthly;/);
-  assert.match(src, /disabled=\{busy \|\| purchasePending \|\| \(multi \? \(!selectedOffer && !previewPlans\) : \(!monthly && !previewPrice\)\)\}/);
+  // ★11/12 할인 카드(만료 페이월 전용)가 골라져 있을 때만 앞 가지 — 그 밖(다른 모든 페이월)은 예전 식 그대로
+  assert.match(src, /disabled=\{busy \|\| purchasePending \|\| \(offerSelected \? false : multi \? \(!selectedOffer && !previewPlans\) : \(!monthly && !previewPrice\)\)\}/);
+  assert.match(src, /const offerSelected = !!offer && offerOn;/);
   // ★11/12 결제는 공용 흐름(lib/app/trialStartWatchlist.purchaseWithTrialStart)을 거쳐 «선택한 플랜»을 산다
   assert.match(src, /purchase: \(\) => purchase\(selectedOffer\.plan, funnelSrc\),/);
 });
