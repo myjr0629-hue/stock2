@@ -90,6 +90,7 @@ async function build(nowMs: number): Promise<EarningsPageSnapshot> {
   return snap;
 }
 
+/** 판정 시각은 «응답하는 지금»(요청 시작 + 최대 4초 대기가 아니다) */
 function staleOr(nowMs: number): EarningsPageSnapshot {
   return memo && nowMs - memo.at >= 0 && nowMs - memo.at < EARNINGS_PAGE_STALE_MAX_MS ? memo.snap : emptySnapshot(nowMs);
 }
@@ -105,12 +106,12 @@ export async function readEarningsPageSnapshot(nowMs: number = Date.now()): Prom
           build(nowMs),
           new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), EARNINGS_PAGE_READ_TIMEOUT_MS); }),
         ]);
-        if (!snap) return staleOr(nowMs);
+        if (!snap) return staleOr(Date.now());
         const complete = snap.calendarOk && snap.recordsOk && snap.packAt != null;
         memo = { at: nowMs, ttl: complete ? MEMO_MS : PARTIAL_MEMO_MS, snap };
         return snap;
       } catch {
-        return staleOr(nowMs);
+        return staleOr(Date.now());
       } finally {
         if (timer) clearTimeout(timer);
         inFlight = null;

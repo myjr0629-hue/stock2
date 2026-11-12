@@ -48,13 +48,14 @@ const lrcx = {
 };
 let storeDown = false;
 let recordsDown = false;
+let packDown = false;
 const reads: string[] = [];
 stub('../src/services/redisClient', {
   getFromCache: async (key: string) => {
     reads.push(key);
     if (storeDown) throw new Error('down');
     if (key === 'market:earnings-calendar:v4') return calendar;
-    if (key === 'earnings:implied:v1') return pack;
+    if (key === 'earnings:implied:v1') { if (packDown) throw new Error('down'); return pack; }
     return null;
   },
   mgetFromCacheStrict: async (keys: string[]) => {
@@ -182,6 +183,14 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     assert.ok(hh.includes('채점 기록을 지금 읽지 못했습니다'), 'hub separates outage from «nothing to show»');
     recordsDown = false; svc._resetEarningsPageMemo();
   });
+  await test('예상 변동폭 묶음만 못 읽음 — 종목·FAQ·허브 모두 «읽지 못함»(«아직 없음» 아님)', async () => {
+    svc._resetEarningsPageMemo(); packDown = true;
+    const h = await html('ko', T);
+    assert.ok(h.includes('옵션 예상 변동폭 자료를 지금 읽지 못했습니다') && !h.includes('아직 표시할 옵션 예상 변동폭이 없습니다'));
+    const hh = renderToStaticMarkup(await hub.default({ params: Promise.resolve({ locale: 'ko' }) }));
+    assert.ok(hh.includes('옵션 예상 변동폭 자료를 지금 읽지 못했습니다'));
+    packDown = false; svc._resetEarningsPageMemo();
+  });
   await test('시간 초과 — 15분 안의 직전 묶음만 대신 주고, 더 오래되면 빈 묶음(«읽지 못함»)', async () => {
     svc._resetEarningsPageMemo();
     const t0 = Date.now();
@@ -192,8 +201,13 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     (Promise as any).race = (ps: any[]) => realRace.call(Promise, [ps[1]]); // 상한 타이머만 이기게
     try {
       const old = svc.EARNINGS_PAGE_STALE_MAX_MS;
-      assert.equal((await svc.readEarningsPageSnapshot(t0 + 6 * 60_000)).calendarOk, true, '6 min old snapshot served on timeout');
-      assert.equal((await svc.readEarningsPageSnapshot(t0 + old + 60_000)).calendarOk, false, 'too old → empty');
+      const realNow = Date.now;
+      try {
+        Date.now = () => t0 + 6 * 60_000;
+        assert.equal((await svc.readEarningsPageSnapshot(t0 + 6 * 60_000)).calendarOk, true, '6 min old snapshot served on timeout');
+        Date.now = () => t0 + old + 1; // 요청 시작은 15분 안이어도 응답 시점에 넘으면 빈 묶음
+        assert.equal((await svc.readEarningsPageSnapshot(t0 + old - 1000)).calendarOk, false, 'too old at response time → empty');
+      } finally { Date.now = realNow; }
     } finally { (Promise as any).race = realRace; storeDown = false; svc._resetEarningsPageMemo(); }
   });
   await test('스마트링크 from 태그 — normalizeFrom 통과(24자 이내) 전 종목', () => {

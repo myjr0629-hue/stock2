@@ -125,7 +125,7 @@ export default async function EarningsTickerPage(props: Props) {
   const pct = view.implied ? expectedText(view.implied.pct) : null;
   const method = view.implied ? c.moveMethod[view.implied.basis] : null;
   const last = view.history[0] ?? null;
-  const faq = c.faq({ name, ticker, calendarOk: view.calendarOk, recordsOk: view.recordsOk, nextDate: upcoming ? `${longDate(upcoming.date, l)}${upcoming.dateStatus !== 'confirmed' ? c.estTag : ''}` : null, pct, method, last });
+  const faq = c.faq({ name, ticker, calendarOk: view.calendarOk, recordsOk: view.recordsOk, packOk: view.packOk, nextDate: upcoming ? `${longDate(upcoming.date, l)}${upcoming.dateStatus !== 'confirmed' ? c.estTag : ''}` : null, pct, method, last });
   const beyond = view.history.filter((r) => r.beyond).length;
   const href = earningsAppHref(ticker, l);
   const hasFlow = isFlowTicker(ticker) && FLOW_SET.has(ticker);
@@ -193,7 +193,7 @@ export default async function EarningsTickerPage(props: Props) {
               <p className="ep-sub">{c.moveBasis(view.implied)}</p>
               <p className="ep-sub">{method}</p>
             </>
-          ) : <p>{c.moveNone}</p>}
+          ) : <p>{view.packOk ? c.moveNone : c.moveUnknown}</p>}
         </section>
       </div>
 

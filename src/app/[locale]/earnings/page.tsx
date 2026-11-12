@@ -106,7 +106,7 @@ export default async function EarningsHubPage({ params }: Props) {
             </a></li>
           ))}
         </ul>
-      ) : <p className="eh-empty">{snap.calendarOk ? c.hubEmpty : c.nextUnknown}</p>}
+      ) : <p className="eh-empty">{!snap.calendarOk ? c.nextUnknown : snap.packAt == null ? c.moveUnknown : c.hubEmpty}</p>}
 
       <h2>{c.hubGradedT}</h2>
       {graded.length ? (

@@ -136,6 +136,8 @@ export interface EarningsPageView {
   calendarOk: boolean;
   /** 채점 기록을 전부 읽었는가 — 아니면 «기록 없음»이라 말하지 않고 일부만으로 집계하지 않는다 */
   recordsOk: boolean;
+  /** 예상 변동폭 묶음을 읽었는가 — 아니면 «아직 없음»이 아니라 «읽지 못함» */
+  packOk: boolean;
 }
 
 export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot, nowMs: number = Date.now()): EarningsPageView {
@@ -161,7 +163,7 @@ export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot
     history.push(row);
   }
   history.sort((a, b) => b.date.localeCompare(a.date));
-  return { ticker, next, implied, history, indexable: Boolean(implied) || history.length > 0, calendarOk: snap.calendarOk, recordsOk: snap.recordsOk };
+  return { ticker, next, implied, history, indexable: Boolean(implied) || history.length > 0, calendarOk: snap.calendarOk, recordsOk: snap.recordsOk, packOk: snap.packAt != null };
 }
 
 /** 사이트맵·허브용 — 색인할 종목 목록(페이지 메타와 같은 판정) */
@@ -213,6 +215,7 @@ export interface EpCopy {
   moveBasis: (d: { expiry: string | null; session: string | null; quote: 'live' | 'eod' | null }) => string;
   moveMethod: Record<'event-split' | 'straddle', string>;
   moveNone: string;
+  moveUnknown: string;
   histT: string;
   histNone: string;
   histUnknown: string;
@@ -225,7 +228,7 @@ export interface EpCopy {
   readT: string;
   read: Array<[string, string]>;
   faqT: string;
-  faq: (d: { name: string; ticker: string; calendarOk: boolean; recordsOk: boolean; nextDate: string | null; pct: string | null; method: string | null; last: ScorecardRow | null }) => Array<[string, string]>;
+  faq: (d: { name: string; ticker: string; calendarOk: boolean; recordsOk: boolean; packOk: boolean; nextDate: string | null; pct: string | null; method: string | null; last: ScorecardRow | null }) => Array<[string, string]>;
   cta: (name: string) => string;
   ctaSub: string;
   moreT: string;
@@ -274,6 +277,7 @@ const KO: EpCopy = {
     straddle: '발표 후 첫 만기의 ATM 콜·풋 가격을 더한 스트래들을 주가로 나눈 값입니다. 만기까지의 범위라 발표 다음 하루 변동과는 기간이 다릅니다.',
   },
   moveNone: '아직 표시할 옵션 예상 변동폭이 없습니다. 발표가 가까워져 발표 직후 만기의 옵션 가격이 잡히면 이 자리에 표시합니다.',
+  moveUnknown: '옵션 예상 변동폭 자료를 지금 읽지 못했습니다. 잠시 뒤 다시 확인해 주세요.',
   histT: '지난 실적 채점: 예상 vs 실제',
   histNone: '아직 완성된 채점 기록이 없습니다. 발표 전 예상과 발표 뒤 정규장 종가가 모두 기록되면 채점합니다.',
   histUnknown: '채점 기록을 지금 읽지 못했습니다. 잠시 뒤 다시 확인해 주세요.',
@@ -290,9 +294,9 @@ const KO: EpCopy = {
     ['범위 안 · 범위 밖', '실제 등락의 절댓값이 발표 전 예상보다 크면 «범위 밖», 같거나 작으면 «범위 안»입니다. 범위 밖이 잦은 종목은 옵션 시장이 실적 반응을 작게 본 일이 많았다는 뜻일 뿐, 다음 결과를 알려 주지는 않습니다.'],
   ],
   faqT: '자주 묻는 질문',
-  faq: ({ name, calendarOk, recordsOk, nextDate, pct, method, last }) => [
+  faq: ({ name, calendarOk, recordsOk, packOk, nextDate, pct, method, last }) => [
     [`${name} 다음 실적 발표일은 언제인가요?`, nextDate ? `실적 캘린더 기준 다음 발표는 ${nextDate}입니다.` : calendarOk ? '실적 캘린더에 아직 다음 발표 일정이 없습니다.' : '실적 캘린더를 지금 읽지 못했습니다. 잠시 뒤 다시 확인해 주세요.'],
-    [`${name} 실적 예상 변동폭은 얼마인가요?`, pct ? `옵션 가격에 반영된 예상 변동폭은 ${pct}입니다.${method ? ` ${method}` : ''}` : '아직 표시할 옵션 예상 변동폭이 없습니다. 발표가 가까워지면 표시합니다.'],
+    [`${name} 실적 예상 변동폭은 얼마인가요?`, pct ? `옵션 가격에 반영된 예상 변동폭은 ${pct}입니다.${method ? ` ${method}` : ''}` : packOk ? '아직 표시할 옵션 예상 변동폭이 없습니다. 발표가 가까워지면 표시합니다.' : '옵션 예상 변동폭 자료를 지금 읽지 못했습니다.'],
     [`지난 실적 때 ${name} 주가는 예상만큼 움직였나요?`, last ? `${longDate(last.date, 'ko')} 발표 때 발표 전 예상은 ${expectedText(last.expectedPct)}, 실제 정규장 종가 변동은 ${actualText(last.actualPct, last.expectedPct)}로 ${last.beyond ? '예상 범위를 벗어났습니다' : '예상 범위 안이었습니다'}.` : recordsOk ? '아직 완성된 채점 기록이 없습니다.' : '채점 기록을 지금 읽지 못했습니다.'],
   ],
   cta: (n) => `${n} 실적 알림·옵션 흐름은 SIGNUM HQ 앱에서`,
@@ -345,6 +349,7 @@ const JA: EpCopy = {
     straddle: '発表後最初の満期のATMコールとプットの価格を合計したストラドルを株価で割った値です。満期までの範囲のため、発表翌日1日の変動とは期間が異なります。',
   },
   moveNone: '表示できるオプション予想変動幅はまだありません。発表が近づき、発表直後の満期のオプション価格が取れるとここに表示します。',
+  moveUnknown: 'オプション予想変動幅のデータを現在読み込めません。しばらくしてから再度ご確認ください。',
   histT: '過去の決算採点：予想と実際',
   histNone: '完成した採点記録はまだありません。発表前の予想と発表後の通常取引終値が両方記録されると採点します。',
   histUnknown: '採点記録を現在読み込めません。しばらくしてから再度ご確認ください。',
@@ -361,9 +366,9 @@ const JA: EpCopy = {
     ['範囲内・範囲外', '符号を除いた実際の騰落率が発表前の予想より大きければ「範囲外」、同じか小さければ「範囲内」です。範囲外が多い銘柄は、オプション市場が決算反応を小さく見積もったことが多かったというだけで、次の結果を示すものではありません。'],
   ],
   faqT: 'よくある質問',
-  faq: ({ name, calendarOk, recordsOk, nextDate, pct, method, last }) => [
+  faq: ({ name, calendarOk, recordsOk, packOk, nextDate, pct, method, last }) => [
     [`${name}の次回決算発表日はいつですか？`, nextDate ? `決算カレンダーでは次回の発表は${nextDate}です。` : calendarOk ? '決算カレンダーに次回の発表予定はまだありません。' : '決算カレンダーを現在読み込めません。しばらくしてから再度ご確認ください。'],
-    [`${name}の決算予想変動幅は？`, pct ? `オプション価格に織り込まれた予想変動幅は${pct}です。${method ?? ''}` : '表示できるオプション予想変動幅はまだありません。発表が近づくと表示します。'],
+    [`${name}の決算予想変動幅は？`, pct ? `オプション価格に織り込まれた予想変動幅は${pct}です。${method ?? ''}` : packOk ? '表示できるオプション予想変動幅はまだありません。発表が近づくと表示します。' : 'オプション予想変動幅のデータを現在読み込めません。'],
     [`前回の決算で${name}の株価は予想どおり動きましたか？`, last ? `${longDate(last.date, 'ja')}の発表では、発表前の予想が${expectedText(last.expectedPct)}、実際の通常取引終値の変動が${actualText(last.actualPct, last.expectedPct)}で、${last.beyond ? '予想範囲を超えました' : '予想範囲内でした'}。` : recordsOk ? '完成した採点記録はまだありません。' : '採点記録を現在読み込めません。'],
   ],
   cta: (n) => `${n}の決算アラート・オプションフローはSIGNUM HQアプリで`,
@@ -416,6 +421,7 @@ const EN: EpCopy = {
     straddle: 'It is the at-the-money call plus put for the first expiry after the report, divided by the stock price. That range runs to expiry, so its horizon differs from the one-day reaction.',
   },
   moveNone: 'No options-implied move to show yet. It appears here once options for the first expiry after the report are priced.',
+  moveUnknown: 'The options-implied move data could not be read right now. Please check back shortly.',
   histT: 'Past earnings scorecard: expected vs actual',
   histNone: 'No complete scorecard record yet. A report is graded once both the pre-report expected move and the post-report regular-session closes are recorded.',
   histUnknown: 'The scorecard records could not be read right now. Please check back shortly.',
@@ -432,9 +438,9 @@ const EN: EpCopy = {
     ['Within · outside range', 'If the absolute actual move is larger than the pre-report expected move, it is outside the range; equal or smaller is within. Frequent misses only mean options often priced a smaller reaction — they do not tell you the next result.'],
   ],
   faqT: 'Frequently asked questions',
-  faq: ({ name, calendarOk, recordsOk, nextDate, pct, method, last }) => [
+  faq: ({ name, calendarOk, recordsOk, packOk, nextDate, pct, method, last }) => [
     [`When is ${name}’s next earnings report?`, nextDate ? `The earnings calendar lists the next report on ${nextDate}.` : calendarOk ? 'The earnings calendar has no next report date yet.' : 'The earnings calendar could not be read right now. Please check back shortly.'],
-    [`What is ${name}’s earnings expected move?`, pct ? `Options prices imply an expected move of ${pct}.${method ? ` ${method}` : ''}` : 'No options-implied move to show yet; it appears as the report approaches.'],
+    [`What is ${name}’s earnings expected move?`, pct ? `Options prices imply an expected move of ${pct}.${method ? ` ${method}` : ''}` : packOk ? 'No options-implied move to show yet; it appears as the report approaches.' : 'The options-implied move data could not be read right now.'],
     [`Did ${name} stock move as much as expected last earnings?`, last ? `For the ${longDate(last.date, 'en')} report, the pre-report expected move was ${expectedText(last.expectedPct)} and the actual regular-session closing move was ${actualText(last.actualPct, last.expectedPct)}, ${last.beyond ? 'outside the expected range' : 'within the expected range'}.` : recordsOk ? 'No complete scorecard record yet.' : 'The scorecard records could not be read right now.'],
   ],
   cta: (n) => `Get ${n} earnings alerts and options flow in the SIGNUM HQ app`,
