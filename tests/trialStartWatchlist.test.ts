@@ -96,6 +96,7 @@ test('두 구매 진입점이 같은 흐름을 쓴다(관문 11112153 ①)', () 
   const upsell = readFileSync(join(root, 'watchlist', 'ProUpsellSheet.tsx'), 'utf8');
   assert.match(pay, /purchaseWithTrialStart\(/); assert.match(upsell, /purchaseWithTrialStart\(/);
   assert.match(upsell, /onNavigate\('watchlist'\)/);
+  assert.match(upsell, /if \(alive\.current\) \{ notifyProPurchased\(true\); onBecamePro\(\); \}/, '먼저 끝나도 한도 시트의 종목 담기를 거친다(관문 11121040)');
   assert.doesNotMatch(upsell, /await purchase\('monthly'\);/, '시트의 직접 구매가 공용 흐름을 건너뛰지 않는다');
   assert.match(pay, /onClick=\{closeByUser\}/, '닫기 버튼은 «닫혔음»을 남긴다');
 });
