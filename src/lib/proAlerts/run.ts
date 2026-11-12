@@ -141,7 +141,7 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
 
     // ── 교차 ──
     //   지난 실행에서 교차했지만 못 보낸 레벨(한 실행 상한·PRO 확인 불가·발송 실패 — 관문 11121338 ③)은 «대기» 표식으로 30분 동안 다시 시도한다.
-    type Cand = { rec: ProAlertRecord; level: StoredLevel; prev: TickerObs; cur: TickerObs; pending?: boolean };
+    type Cand = { rec: ProAlertRecord; level: StoredLevel; prev: TickerObs; cur: TickerObs; pending?: boolean; hadPend?: boolean };
     const cands: Cand[] = [];
     const actives: Array<{ rec: ProAlertRecord; level: StoredLevel }> = [];
     for (const rec of eligible) for (const level of activeLevels(rec)) actives.push({ rec, level });
@@ -154,7 +154,7 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
         if (pend && Number(pend.sent) > 0) { repairs.push({ rec, level, at: Number(pend.sent), px: Number(pend.p) || 0 }); return; }
         const c = cur.get(level.t);
         const p = prev.get(level.t);
-        if (c && p && crossed(level, p, c)) { cands.push({ rec, level, prev: p, cur: c }); return; }
+        if (c && p && crossed(level, p, c)) { cands.push({ rec, level, prev: p, cur: c, hadPend: !!pend }); return; }   // 대기 표식이 있는 채 새로 교차할 수도 있다(관문 11130639 ①)
         // 대기 재시도는 «지금 가격»이 있고 아직 레벨 너머에 있을 때만 — 옛 교차 가격을 현재가처럼 보내지 않는다(관문 11121348 ①)
         const beyond = c && (level.dir === 'up' ? c.p >= level.px : c.p <= level.px);
         if (pend && Number(pend.p) > 0 && c && beyond) {
@@ -308,13 +308,28 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
             await store.decr(m.cap).catch(() => 0);
         }
     };
-    if (!items.length) { await releaseWithdrawn(); await commitObs(); return report; }
-    sent.items = items.length;
     // 여기까지 오면 교차는 모두 장부(발송할 것)·대기 표식으로 넘어갔다 → 관측을 발송 «전에» 쓴다.
     //   발송 중·직후 실행이 죽으면(시간 초과 등) 도달 여부를 모른다 — 같은 교차로 다시 보내지 않는 쪽(장부 10분이 재시도도 막는다)
-    //   같은 이유로 대기 재시도로 보내는 레벨의 대기 표식도 발송 «전에» 지운다(실패하면 아래에서 다시 쓴다 — 관문 11130636)
-    const pendSending = items.filter((it) => meta.get(it.id)!.cand.pending).map((it) => { const c = meta.get(it.id)!.cand; return PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev); });
-    if (pendSending.length) await store.del(pendSending).catch(() => {});
+    //   같은 이유로 대기 표식이 있는 레벨(대기 재시도 · 표식이 남은 채 새로 교차)은 표식을 발송 «전에» 지운다 — 못 지우면 이번엔 보내지 않는다
+    //   (장부·상한 되돌림 · 표식이 남아 다음 실행이 다시 · 관문 11130636 · 11130639). 발송이 실패하면 아래에서 표식을 다시 쓴다.
+    const pendItems = items.filter((it) => { const c = meta.get(it.id)!.cand; return c.pending || c.hadPend; });
+    if (pendItems.length) {
+        const keyOf = (it: PaSendItem) => { const c = meta.get(it.id)!.cand; return PA_KEYS.pend(c.rec.dev, c.level.id, c.level.rev); };
+        let cleared = true;
+        try { await store.del(pendItems.map(keyOf)); } catch { cleared = false; }
+        if (!cleared) {
+            const skip = new Set(pendItems.map((it) => it.id));
+            for (const it of pendItems) {
+                const m = meta.get(it.id)!;
+                await store.del([m.claim]).catch(() => {});
+                await store.decr(m.cap).catch(() => 0);
+            }
+            items.splice(0, items.length, ...items.filter((it) => !skip.has(it.id)));
+            report.notes.push(`pend-clear-failed:${pendItems.length}`);
+        }
+    }
+    if (!items.length) { await releaseWithdrawn(); await commitObs(); return report; }
+    sent.items = items.length;
     await commitObs();
     const heldBeforeSend = new Set(hold);
     const out = await deps.sender.send(items);
@@ -330,7 +345,7 @@ export async function runProAlerts(deps: PaDeps, o: PaRunOpts): Promise<PaReport
             // «보냄»(30일) 기록 — 실패하면 몇 번 다시 쓰고, 그래도 안 되면 대기 키에 «보냄» 표식을 남겨 다음 실행이 기록만 고친다(다시 보내지 않음).
             //   장부(s:'claim')는 10분 살아 있어 그사이 재교차는 막힌다 · 다음 실행(5분)이 고친다 → 앱 fired 와 같아지고 중복 0(야간 검토 11/13 ③)
             const ok = await writeSent(store, m.claim, { at: now, px: m.cand.cur.p, s: 'sent' });
-            if (ok) { if (m.cand.pending) await store.del([pendKey]).catch(() => {}); continue; }
+            if (ok) continue;   // 대기 표식은 발송 전에 지웠다
             sentRecordFailed++;
             // 수리 표식은 30일(보냄 기록과 같은 수명) — 그동안 그 레벨은 발송 후보가 되지 않고(중복 0), 설정 API 도 «보냄»으로 알린다(관문 11130633 ②)
             await writeSent(store, pendKey, { p: m.cand.cur.p, at: m.cand.cur.at, prev: m.cand.prev.p, sent: now });

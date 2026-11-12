@@ -207,6 +207,39 @@ t('대기 재시도로 보내는 중 실행이 죽어도(공급사 수신 뒤) �
     const r = await tick(s2, 15, 101.3);
     assert.equal(r.sent.length, 1);
 });
+t('대기 표식이 남은 채 가격이 내려갔다 다시 넘으면(새 교차) — 보내는 중 죽어도 중복 0', async () => {
+    const s = setup();
+    await tick(s, 0, 99);
+    await tick(s, 5, 101, 'fail');
+    assert.ok(s.raw(PA_KEYS.pend(DEV, 'abcd1', 1)));
+    await tick(s, 10, 99.5);   // 레벨 아래 — 대기 재시도 안 함
+    s.clock = T10 + 15 * 60_000;
+    s.m.delete(PA_KEYS.lock);
+    const a = deps(s, 100.4, s.clock - 1000);
+    let accepted = 0;
+    a.d.sender = { send: async (items) => { accepted += items.length; throw new Error('killed after provider accepted'); } };
+    await assert.rejects(runProAlerts(a.d, { now: s.clock, kind: 'cron' }));
+    assert.equal(accepted, 1);
+    assert.equal(s.raw(PA_KEYS.pend(DEV, 'abcd1', 1)), null, '새 교차로 보낼 때도 표식을 먼저 지운다');
+    const later = [await tick(s, 20, 100.6), await tick(s, 26, 100.7), await tick(s, 31, 100.8)];
+    assert.equal(later.reduce((n, x) => n + x.sent.length, 0), 0);
+});
+t('대기 표식을 지우지 못하면 이번엔 보내지 않는다(장부·상한 되돌림) → 다음 실행이 한 번 보낸다', async () => {
+    const s = setup();
+    await tick(s, 0, 99);
+    await tick(s, 5, 101, 'fail');
+    s.fail = (op, keys) => op === 'del' && keys.some((k) => k.startsWith('push:pro-alerts:v1:pend:'));
+    const r1 = await tick(s, 10, 101.2);
+    s.fail = null;
+    assert.equal(r1.sent.length, 0);
+    assert.ok(r1.r!.notes.some((n) => n.startsWith('pend-clear-failed')));
+    assert.equal(s.raw(PA_KEYS.fired(DEV, 'abcd1', 1)), null, '장부 되돌림');
+    assert.equal(s.raw(PA_KEYS.cap(D, DEV)), 0, '상한 되돌림');
+    const r2 = await tick(s, 15, 101.3);
+    assert.equal(r2.sent.length, 1);
+    const r3 = await tick(s, 20, 101.4);
+    assert.equal(r3.sent.length, 0);
+});
 t('수리 표식은 30일 — 장 마감·다음 날을 넘겨도 재교차에 다시 보내지 않고, 앱 fired 에 «보냄»(설정 API 가 대기 키 sent 를 읽음)', async () => {
     const s = setup();
     await tick(s, 0, 99);
