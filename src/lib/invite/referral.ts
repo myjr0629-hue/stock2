@@ -34,6 +34,13 @@ export const FIRST_RUN_WINDOW_MS = 60 * 60_000;
 /** 샌드박스(시험) 고객은 구매 전엔 RC 응답으로 구분되지 않는다 — first_seen 뒤 이만큼 기다렸다가(그 사이 시험 구매가 생기면 sandbox 로 걸린다) 지급한다(관문 11131233 ②).
  *  시험 흐름은 보통 설치 직후 구매까지 해 보므로 2시간. 친구 앱이 7일 안에 다시 열리거나 켜 둔 동안 3분마다 다시 확인한다. */
 export const SANDBOX_HOLD_MS = 2 * 3600_000;
+/** 샌드박스 대기 환경 조정 — INVITE_REWARD_HOLD_MS(0~7일). 없거나 형식 밖이면 기본값 */
+export function rewardHoldMs(env: Record<string, string | undefined> = process.env): number | undefined {
+  const raw = env.INVITE_REWARD_HOLD_MS;
+  if (raw === undefined || raw.trim() === '') return undefined;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n >= 0 && n <= 7 * 86400_000 ? n : undefined;
+}
 export const VERIFY_WINDOW_S = 600;
 export const VERIFY_LIMIT_SELF = 6;
 export const VERIFY_LIMIT_IP = 30;
@@ -142,10 +149,80 @@ const budgetId = (s: string) => crypto.createHash('sha256').update(`inv-vb|${s}`
 export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<VerifyState | null> {
   const key = normalizeInviteKey(i.key);
   if (!key || !isOs(i.os) || typeof i.rcUid !== 'string' || !REFERRAL_RC_UID_RE.test(i.rcUid) || !i.secret) return null;
-  const uid = i.rcUid;
+  return verifyBySelfRef(store, { selfRef: inviteRefOf(key), uid: i.rcUid, os: i.os, ipHash: i.ipHash, now: i.now, vercelEnv: i.vercelEnv, secret: i.secret, rc: i.rc, holdMs: i.holdMs });
+}
+
+// ── 대기 중인 확인을 «초대자 선물함 열기»로도 마친다 ─────────────────────────
+// 2시간 샌드박스 대기 동안 친구가 앱을 닫고 다시 안 열면 확인할 주체가 없다(관문 11131236). 그래서 대기(hold·하루 상한)에 걸린 기록은
+// 친구 RC ID 를 «서버 비밀로 암호화(AES-256-GCM)»해 7일 보관하고, 초대자가 선물함을 열 때(/api/invite/inbox) 만기된 것부터 서버가 다시 확인한다.
+// 초대자는 보상을 보려면 어차피 앱을 연다 — 그 순간 확인·적립·번호 배정이 한 번에 된다. RC ID 원문은 저장하지 않는다(암호문만, 7일 TTL).
+export const PENDING_MAX = 10;
+export const PENDING_PER_INBOX = 3;
+const encKey = (secret: string) => crypto.createHash('sha256').update(`inv-uid-enc|${secret}`).digest();
+export function sealUid(uid: string, secret: string): string {
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv('aes-256-gcm', encKey(secret), iv);
+  const body = Buffer.concat([c.update(uid, 'utf8'), c.final()]);
+  return [iv, c.getAuthTag(), body].map((b) => b.toString('base64url')).join('.');
+}
+export function openUid(sealed: string, secret: string): string | null {
+  try {
+    const [iv, tag, body] = sealed.split('.').map((x) => Buffer.from(x, 'base64url'));
+    const d = crypto.createDecipheriv('aes-256-gcm', encKey(secret), iv);
+    d.setAuthTag(tag);
+    const uid = Buffer.concat([d.update(body), d.final()]).toString('utf8');
+    return REFERRAL_RC_UID_RE.test(uid) ? uid : null;
+  } catch { return null; }
+}
+type PendingItem = { s: string; due: number };
+async function readPending(store: InviteStore, key: string): Promise<PendingItem[]> {
+  try {
+    const v = JSON.parse((await store.get(key)) || '[]');
+    return Array.isArray(v) ? v.filter((x): x is PendingItem => x && typeof x.s === 'string' && typeof x.due === 'number') : [];
+  } catch { return []; }
+}
+async function park(store: InviteStore, k: ReturnType<typeof inviteKeys>, inviterRef: string, selfRef: string, uid: string, due: number, secret: string) {
+  try {
+    await store.set(k.claimUid(selfRef), sealUid(uid, secret), CLAIM_TTL_SEC);
+    const list = (await readPending(store, k.pending(inviterRef))).filter((x) => x.s !== selfRef);
+    await store.set(k.pending(inviterRef), JSON.stringify([...list, { s: selfRef, due }].slice(-PENDING_MAX)), CLAIM_TTL_SEC);
+  } catch { /* 보관 실패 — 친구 앱의 다음 확인이 남는다 */ }
+}
+async function unpark(store: InviteStore, k: ReturnType<typeof inviteKeys>, inviterRef: string, selfRef: string) {
+  try {
+    const list = await readPending(store, k.pending(inviterRef));
+    if (list.some((x) => x.s === selfRef)) await store.set(k.pending(inviterRef), JSON.stringify(list.filter((x) => x.s !== selfRef)), CLAIM_TTL_SEC);
+    await store.del(k.claimUid(selfRef));
+  } catch { /* TTL 이 지운다 */ }
+}
+
+/** 초대자 선물함 열기 때 — 만기된 대기 확인을 최대 3건 서버가 다시 한다. 적립된 수를 돌려준다. 실패는 삼킨다. */
+export async function verifyPendingFor(store: InviteStore, i: { inviterRef: string; now?: number; vercelEnv?: string; secret: string; rc: RcFetch; holdMs?: number }): Promise<number> {
+  if (!i.secret) return 0;
   const now = i.now ?? Date.now();
   const k = inviteKeys(i.vercelEnv);
-  const selfRef = inviteRefOf(key);
+  let credited = 0;
+  const due = (await readPending(store, k.pending(i.inviterRef))).filter((x) => x.due <= now).slice(0, PENDING_PER_INBOX);
+  for (const item of due) {
+    try {
+      const sealed = await store.get(k.claimUid(item.s));
+      const uid = sealed ? openUid(sealed, i.secret) : null;
+      const raw = await store.get(k.claim(item.s));
+      let c: { os?: unknown; ip?: unknown } | null = null;
+      try { c = raw ? JSON.parse(raw) : null; } catch { c = null; }
+      if (!uid || !c || !isOs(c.os) || typeof c.ip !== 'string') { await unpark(store, k, i.inviterRef, item.s); continue; }
+      const r = await verifyBySelfRef(store, { selfRef: item.s, uid, os: c.os, ipHash: c.ip, now, vercelEnv: i.vercelEnv, secret: i.secret, rc: i.rc, holdMs: i.holdMs });
+      if (r.state === 'credited') credited++;
+    } catch { /* 다음 기회에 */ }
+  }
+  return credited;
+}
+
+async function verifyBySelfRef(store: InviteStore, i: { selfRef: string; uid: string; os: Os; ipHash: string; now?: number; vercelEnv?: string; secret: string; rc: RcFetch; holdMs?: number }): Promise<VerifyState> {
+  const uid = i.uid;
+  const now = i.now ?? Date.now();
+  const k = inviteKeys(i.vercelEnv);
+  const selfRef = i.selfRef;
   const done = await store.get(k.claimDone(selfRef));
   if (done) return { state: 'final', reason: (['self', 'same_ip', 'existing', 'sandbox', 'late', 'dup', 'ip', 'inviter_cap', 'credited'].includes(done) ? done : 'again') as 'again' };
   const raw = await store.get(k.claim(selfRef));
@@ -158,6 +235,7 @@ export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<V
   if (!inviterRef || !Number.isFinite(at) || !ip || typeof c?.u !== 'string') return { state: 'none' };
   const finish = async (reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'late'): Promise<VerifyState> => {
     await store.setNx(k.claimDone(selfRef), reason, DONE_TTL);
+    await unpark(store, k, inviterRef, selfRef);
     return { state: 'final', reason };
   };
   // 자기 초대·같은 기기: 친구 RC 고객 = 초대자 RC 고객(토큰 u). 열쇠가 같은 경우는 도착 단계(self)에서 이미 걸렀다.
@@ -183,7 +261,11 @@ export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<V
   const v = rcNewness(got.json, at, arrivedAt);
   if (v.verdict === 'existing' || v.verdict === 'sandbox' || v.verdict === 'late') return finish(v.verdict);
   if (v.verdict !== 'verified') return { state: 'pending', reason: 'no_record' };
-  if (now - v.firstSeen < (i.holdMs ?? SANDBOX_HOLD_MS)) return { state: 'pending', reason: 'hold' };
+  const hold = i.holdMs ?? SANDBOX_HOLD_MS;
+  if (now - v.firstSeen < hold) {
+    await park(store, k, inviterRef, selfRef, uid, v.firstSeen + hold, i.secret);
+    return { state: 'pending', reason: 'hold' };
+  }
 
   const uidHash = rcUidKeyHash(uid, i.secret);
   const txHash = v.txn ? 't' + crypto.createHmac('sha256', i.secret).update(`inv-tx|${v.txn}`).digest('hex').slice(0, 31) : `n${uidHash}`;
@@ -193,8 +275,12 @@ export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<V
     now, inviterRef, monthCap: INVITER_MONTHLY_CAP, dailyCap: DAILY_CREDIT_CAP, hasTxn: !!v.txn,
     rcTtl: LONG_TTL, ipTtl: IP_CREDIT_TTL_SEC, longTtl: LONG_TTL, dayTtl: DAY_TTL, monthTtl: MONTH_TTL, doneTtl: DONE_TTL,
   });
+  if (r === 'day_cap') {
+    await park(store, k, inviterRef, selfRef, uid, now + 3600_000, i.secret);
+    return { state: 'pending', reason: 'day_cap' };
+  }
+  await unpark(store, k, inviterRef, selfRef);
   if (r === 'credited') return { state: 'credited' };
-  if (r === 'day_cap') return { state: 'pending', reason: 'day_cap' };
   if (r === 'none') return { state: 'none' };
   return { state: 'final', reason: r };
 }

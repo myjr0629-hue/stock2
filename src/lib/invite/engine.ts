@@ -71,6 +71,8 @@ export function inviteKeys(vercelEnv: string | undefined = process.env.VERCEL_EN
     rcTxn: (txHash: string) => `${p}:rctx:${txHash}`,
     month: (ref: string, month: string) => `${p}:mon:${ref}:${month}`,
     tokenIps: (ref: string) => `${p}:tkip:${ref}`,
+    claimUid: (selfRef: string) => `${p}:clmu:${selfRef}`,      // 대기 확인용 친구 RC ID 암호문(7일)
+    pending: (inviterRef: string) => `${p}:pend:${inviterRef}`,  // 초대자별 대기 확인 목록(최대 10, 7일)
     verifyBudget: (kind: string, id: string, w: number) => `${p}:vb:${kind}:${id}:${w}`,
   };
 }

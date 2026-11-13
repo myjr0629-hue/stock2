@@ -4,7 +4,7 @@ import { inviteClientIp, inviteDenyReason, inviteIpHash, inviteOs, inviteSecret 
 import { upstashInviteStore } from '@/lib/invite/store';
 import { bumpShare } from '@/lib/invite/metrics';
 import { inviteTokenSecret } from '@/lib/invite/token';
-import { rcSubscriberFetcher, verifyClaim, type VerifyState } from '@/lib/invite/referral';
+import { rcSubscriberFetcher, rewardHoldMs, verifyClaim, type VerifyState } from '@/lib/invite/referral';
 
 // ============================================================================
 // POST /api/invite/verify — 초대 링크로 설치한 친구 앱이 «확인 대기» 동안 실행·복귀 때 부른다 (2026-11-13, 브랜치 feat/referral-1113)
@@ -17,13 +17,7 @@ import { rcSubscriberFetcher, verifyClaim, type VerifyState } from '@/lib/invite
 // ============================================================================
 
 export const dynamic = 'force-dynamic';
-/** 샌드박스 대기 — 기본 2시간(lib/invite/referral.SANDBOX_HOLD_MS). INVITE_REWARD_HOLD_MS 로 0~7일 사이 조정(시험·운영 조정용) */
-function holdMs(): number | undefined {
-  const raw = process.env.INVITE_REWARD_HOLD_MS;
-  if (raw === undefined || raw.trim() === '') return undefined;
-  const n = Number(raw);
-  return Number.isSafeInteger(n) && n >= 0 && n <= 7 * 86400_000 ? n : undefined;
-}
+
 
 function out(status: number, body: Record<string, unknown>) {
   return NextResponse.json(body, { status, headers: { 'cache-control': 'private, no-store, max-age=0' } });
@@ -46,7 +40,7 @@ export async function POST(req: NextRequest) {
   let r: VerifyState | null;
   try {
     r = await verifyClaim(store, {
-      key: body.key, rcUid: body.rcUid, os, ipHash: inviteIpHash(ip, inviteSecret()), secret, holdMs: holdMs(),
+      key: body.key, rcUid: body.rcUid, os, ipHash: inviteIpHash(ip, inviteSecret()), secret, holdMs: rewardHoldMs(),
       rc: rcSubscriberFetcher({ ios: process.env.NEXT_PUBLIC_RC_IOS_KEY, android: process.env.NEXT_PUBLIC_RC_ANDROID_KEY }),
     });
   } catch {

@@ -4,6 +4,9 @@ import { inviteDenyReason, inviteOs } from '@/lib/invite/guard';
 import { upstashInviteStore } from '@/lib/invite/store';
 import { bumpShare } from '@/lib/invite/metrics';
 import { playRedeemUrl } from '@/lib/marketing/coupon';
+import { inviteRefOf, normalizeInviteKey } from '@/lib/invite/identity';
+import { inviteTokenSecret } from '@/lib/invite/token';
+import { rcSubscriberFetcher, rewardHoldMs, verifyPendingFor } from '@/lib/invite/referral';
 
 // ============================================================================
 // POST /api/invite/inbox — 초대자의 «선물함» (2026-10-14, 브랜치 feat/viral-loop)
@@ -38,6 +41,17 @@ export async function POST(req: NextRequest) {
   try { body = (await req.json()) || {}; } catch { body = {}; }
 
   const cfg = inviteConfig();
+  // 2026-11-13 대기 중인 친구 확인(샌드박스 2시간 대기·하루 상한)을 초대자가 선물함을 여는 이 순간 서버가 마친다 → 아래 inbox 가 바로 번호로 바꾼다
+  const key = normalizeInviteKey(body.key);
+  let pendingCredited = 0;
+  if (key && cfg.rewards) {
+    try {
+      pendingCredited = await verifyPendingFor(store, {
+        inviterRef: inviteRefOf(key), secret: inviteTokenSecret(), holdMs: rewardHoldMs(),
+        rc: rcSubscriberFetcher({ ios: process.env.NEXT_PUBLIC_RC_IOS_KEY, android: process.env.NEXT_PUBLIC_RC_ANDROID_KEY }),
+      });
+    } catch { pendingCredited = 0; }
+  }
   let r: InboxResult | null;
   try {
     r = await inbox(store, { key: body.key, os, mint: cfg.rewards });
@@ -47,6 +61,7 @@ export async function POST(req: NextRequest) {
   if (!r) return out(400, { ok: false, reason: 'bad' });
   const minted = r.minted;
   if (minted > 0) after(async () => { for (let i = 0; i < minted; i++) await bumpShare('mint', 'all', os); });
+  if (pendingCredited > 0) after(async () => { for (let i = 0; i < pendingCredited; i++) { await bumpShare('rverify', 'credited_inb', os); await bumpShare('reward', 'all', os); } });
   return out(200, {
     ok: true,
     rewards: cfg.rewards,
