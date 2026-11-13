@@ -60,6 +60,7 @@ import { CLICK_SKEW_MS, SANDBOX_HOLD_MS, etMonth, rcNewness, verifyClaim, type R
 import { ARRIVE_CLAIM_LUA, VERIFY_CREDIT_LUA, arriveClaimArgs, verifyCreditArgs } from '../src/lib/invite/referralAtomic';
 import { INVITE_TOKEN_RE, buildShareCardUrl, inviteAppHref, withInviteToken } from '../src/lib/invite/kinds';
 import { claimDecision, tokenFromStored, CLAIM_WINDOW_MS, VERIFY_GAP_MS } from '../src/lib/invite/tokenClient';
+import { firstRunFromStored } from '../src/lib/invite/inboxClient';
 import { INVITE_COPY } from '../src/lib/invite/copy';
 import { buildGiftUrl } from '../src/lib/gift/gift';
 const { inviteIpHash, inviteSecret } = require('../src/lib/invite/guard') as typeof import('../src/lib/invite/guard');
@@ -164,6 +165,8 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     assert.equal(tokenFromStored(raw, REF_B, NOW), null);
     assert.equal(tokenFromStored(raw, REF_A, NOW + 2 * 86400_000), null);
     assert.equal(tokenFromStored('{', REF_A, NOW), null);
+    assert.equal(firstRunFromStored(`pending:${NOW}`), NOW); assert.equal(firstRunFromStored('done'), undefined);
+    assert.equal(firstRunFromStored(null), undefined); assert.equal(firstRunFromStored('pending:abc'), undefined);
     assert.equal(claimDecision(null, NOW), 'stop'); assert.equal(claimDecision('done', NOW), 'stop');
     assert.equal(claimDecision(`pending:${NOW}`, NOW), 'call');
     assert.equal(claimDecision(`pending:${NOW}:${NOW}`, NOW + VERIFY_GAP_MS - 1), 'wait');

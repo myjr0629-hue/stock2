@@ -37,6 +37,13 @@ export function arrivalDecision(stored: string | null, onboardedAtMount: boolean
   return onboardedAtMount ? 'skip' : 'send';
 }
 
+/** 도착 표식 'pending:<ms>' → 첫 실행 시각(ms) — 순수 함수(tests/referral.test.ts) */
+export function firstRunFromStored(stored: string | null): number | undefined {
+  const m = /^pending:(\d{1,16})$/.exec(stored || '');
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isSafeInteger(n) && n > 0 ? n : undefined;
+}
+
 /** 서버가 준 번호 중 «알림으로 아직 안 보여 준» 것 — 순수 함수 */
 export function newItems(items: readonly BoxItemView[], seen: readonly string[]): BoxItemView[] {
   const s = new Set(seen);
@@ -69,7 +76,7 @@ export async function sendArrive(): Promise<boolean> {
   try {
     // first = 첫 실행에서 처음 보내려던 시각(ARRIVED_KEY 'pending:<ms>') — 재시도가 늦게 성공해도 서버가 첫 실행 시각을 알게
     let first: number | undefined;
-    try { const m = /^pending:(\d+)$/.exec(ls()?.getItem(ARRIVED_KEY) || ''); if (m) first = Number(m[1]); } catch { /* 저장소 막힘 */ }
+    try { first = firstRunFromStored(ls()?.getItem(ARRIVED_KEY) ?? null); } catch { /* 저장소 막힘 */ }
     const r = await fetch('/api/invite/arrive', { method: 'POST', credentials: 'same-origin', headers, body: JSON.stringify(first ? { key: getInviteKey(), first } : { key: getInviteKey() }) });
     // 2026-11-13 claim = 토큰 귀속 «확인 대기» — 실행·복귀 때 /api/invite/verify 로 RC 신규 고객 확인(lib/invite/tokenClient)
     //   본문을 못 읽으면 «아직 안 보냄»으로 남겨 다음 실행이 다시 보낸다(서버는 again + claim 으로 다시 알려 준다 — 관문 11131222 ②)
