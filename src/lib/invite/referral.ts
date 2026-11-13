@@ -11,6 +11,7 @@
  *        · first_seen 이 링크 클릭보다 이전 · 클릭 전 구매 기록 → existing(이미 고객) — 끝
  *        · 샌드박스(시험) 구매가 하나라도 있다                → sandbox — 끝
  *        · first_seen 이 첫 실행(도착) 60분 뒤보다 늦다        → late(첫 실행의 RC 고객이 아님) — 끝
+ *        · first_seen 이 우리 조회 시각 2초 안(우리 GET 이 만든 고객) → unseen(설치 증거 아님 — 2026-11-14 야간 교차 검토 ③) — 끝
  *        · 그 밖(클릭 뒤 ~ 첫 실행 무렵 처음 생긴 비샌드박스 RC 고객) → verified → 원자 적립(같은 RC 고객·같은 거래·같은 IP 1회, 초대자 월 3, 전체 하루 25)
  *      ★2026-11-13 코디네이터 결정 «조건을 기존 문구(친구가 설치하면 코드)에 맞춘다» — 처음엔 «클릭 뒤 운영 스토어 구매·체험 시작»까지 요구했으나 뺐다.
  *      익명 RC ID 는 기기가 만들 수 있는 값이라 «RC 고객이 있다»만으로는 신규 사람의 증거가 아니다(설계 §흐름 4) — 이 완화로 남는 위험은
@@ -41,6 +42,13 @@ export function rewardHoldMs(env: Record<string, string | undefined> = process.e
   const n = Number(raw);
   return Number.isSafeInteger(n) && n >= 0 && n <= 7 * 86400_000 ? n : undefined;
 }
+/**
+ * [2026-11-14 야간 교차 검토 ③] RC 는 없는 앱 사용자 ID 를 GET 하면 «만든다» — 설치 없이 스크립트가 새 ID 로 확인을 부르면 우리 조회가 만든 고객의
+ * first_seen 이 «첫 실행 60분 안 신규»를 통과했다. 그래서 RC 가 이 고객을 처음 본 시각이 «우리 조회 시각» 이만큼 안이면 설치 증거가 아니다(unseen, 보상 없음).
+ *   RC first_seen 은 초 단위(잘림)라 우리 조회가 만든 고객은 조회 시각과 ±1초 안 → 2초.
+ *   진짜 앱은 확인 전에 SDK 로 자기 고객 정보를 먼저 받고 RC 가 처음 본 뒤 3.5초가 지나도록 기다렸다가 부른다(tokenClient.VERIFY_FRESH_WAIT_MS).
+ */
+export const PROBE_FRESH_MS = 2000;
 export const VERIFY_WINDOW_S = 600;
 export const VERIFY_LIMIT_SELF = 6;
 export const VERIFY_LIMIT_IP = 30;
@@ -51,21 +59,26 @@ const DAY_TTL = 3 * 24 * 3600;
 const MONTH_TTL = 40 * 24 * 3600;
 const DONE_TTL = CLAIM_TTL_SEC + 86400;
 
-export type RcVerdict = { verdict: 'verified'; txn: string | null; firstSeen: number } | { verdict: 'pending' | 'existing' | 'sandbox' | 'late' };
+export type RcVerdict = { verdict: 'verified'; txn: string | null; firstSeen: number } | { verdict: 'pending' | 'existing' | 'sandbox' | 'late' | 'unseen' };
 
 const ms = (v: unknown) => (typeof v === 'string' && v ? Date.parse(v) : NaN);
 
 /**
  * RC v1 subscriber 응답 → 신규성 판정. since = 친구가 초대 링크를 연 시각(터치) · arrivedAt = 첫 실행 도착 기록 시각. 순수 함수.
+ *   requestedAt = 우리 조회 시각 — RC 응답의 request_date_ms(RC 시계)가 있으면 그것, 없으면 넘겨받은 서버 시각. 둘 다 없으면 이 검사는 건너뛴다.
  *   거래 후보 = subscriptions 값 + non_subscriptions 배열 원소(있으면 이미 고객·샌드박스 판정에만 쓰고, 지급 조건은 아니다).
  */
-export function rcNewness(json: unknown, since: number, arrivedAt: number = since): RcVerdict {
+export function rcNewness(json: unknown, since: number, arrivedAt: number = since, requestedAt?: number): RcVerdict {
   const sub = (json as { subscriber?: Record<string, any> } | null)?.subscriber;
   if (!sub || typeof sub !== 'object') return { verdict: 'pending' };
   const floor = since - CLICK_SKEW_MS;
   const first = ms(sub.first_seen);
   if (!Number.isFinite(first)) return { verdict: 'pending' };
   if (first < floor) return { verdict: 'existing' };
+  const rd = Number((json as { request_date_ms?: unknown }).request_date_ms);
+  const req = Number.isFinite(rd) && rd > 0 ? rd : requestedAt;
+  // 우리 조회가 처음 만든(또는 기기 SDK 가 한 번도 부르지 않은) 고객 — 설치 증거가 아니다(PROBE_FRESH_MS)
+  if (typeof req === 'number' && Number.isFinite(req) && req - first < PROBE_FRESH_MS) return { verdict: 'unseen' };
   if (first > Math.max(arrivedAt, since) + FIRST_RUN_WINDOW_MS) return { verdict: 'late' };
   const items: Record<string, any>[] = [];
   if (sub.subscriptions && typeof sub.subscriptions === 'object') {
@@ -121,7 +134,7 @@ export type VerifyState =
   | { state: 'none' }                       // 이 기기에는 확인할 초대가 없다(멈춘다)
   | { state: 'pending'; reason: 'no_record' | 'hold' | 'day_cap' | 'limited' | 'unavailable' | 'missing' }
   | { state: 'credited' }
-  | { state: 'final'; reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'late' | 'dup' | 'ip' | 'inviter_cap' | 'credited' | 'again' };
+  | { state: 'final'; reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'late' | 'unseen' | 'dup' | 'ip' | 'inviter_cap' | 'credited' | 'again' };
 
 export interface VerifyInput {
   key: unknown; rcUid: unknown; os: unknown; ipHash: string; now?: number; vercelEnv?: string;
@@ -225,7 +238,7 @@ async function verifyBySelfRef(store: InviteStore, i: { selfRef: string; uid: st
   if (done) {
     try { const c0 = JSON.parse((await store.get(k.claim(selfRef))) || 'null'); if (c0 && typeof c0.r === 'string') await unpark(store, k, c0.r, selfRef); } catch { /* TTL 이 지운다 */ }
   }
-  if (done) return { state: 'final', reason: (['self', 'same_ip', 'existing', 'sandbox', 'late', 'dup', 'ip', 'inviter_cap', 'credited'].includes(done) ? done : 'again') as 'again' };
+  if (done) return { state: 'final', reason: (['self', 'same_ip', 'existing', 'sandbox', 'late', 'unseen', 'dup', 'ip', 'inviter_cap', 'credited'].includes(done) ? done : 'again') as 'again' };
   const raw = await store.get(k.claim(selfRef));
   if (!raw) return { state: 'none' };
   let c: { r?: unknown; u?: unknown; at?: unknown; arr?: unknown; ip?: unknown } | null = null;
@@ -234,7 +247,7 @@ async function verifyBySelfRef(store: InviteStore, i: { selfRef: string; uid: st
   const at = typeof c?.at === 'number' ? c.at : NaN;
   const ip = typeof c?.ip === 'string' && /^[0-9a-f]{24}$/.test(c.ip) ? c.ip : '';
   if (!inviterRef || !Number.isFinite(at) || !ip || typeof c?.u !== 'string') return { state: 'none' };
-  const finish = async (reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'late'): Promise<VerifyState> => {
+  const finish = async (reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'late' | 'unseen'): Promise<VerifyState> => {
     await store.setNx(k.claimDone(selfRef), reason, DONE_TTL);
     await unpark(store, k, inviterRef, selfRef);
     return { state: 'final', reason };
@@ -263,8 +276,9 @@ async function verifyBySelfRef(store: InviteStore, i: { selfRef: string; uid: st
   const got = await i.rc(uid, i.os);
   if (got.kind !== 'ok') return { state: 'pending', reason: got.kind };
   const arrivedAt = typeof c?.arr === 'number' && Number.isFinite(c.arr) ? c.arr : at;
-  const v = rcNewness(got.json, at, arrivedAt);
-  if (v.verdict === 'existing' || v.verdict === 'sandbox' || v.verdict === 'late') return finish(v.verdict);
+  const v = rcNewness(got.json, at, arrivedAt, now);
+  // unseen = 우리 조회가 이 RC 고객을 처음 만들었다(설치·첫 실행의 SDK 가 아니다) → 끝(다시 불러도 그 고객은 «예전부터 있던» 것처럼 보이므로 결론을 남긴다)
+  if (v.verdict === 'existing' || v.verdict === 'sandbox' || v.verdict === 'late' || v.verdict === 'unseen') return finish(v.verdict);
   if (v.verdict !== 'verified') return { state: 'pending', reason: 'no_record' };
   const hold = i.holdMs ?? SANDBOX_HOLD_MS;
   if (now - v.firstSeen < hold) {

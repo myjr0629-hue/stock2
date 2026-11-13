@@ -56,10 +56,10 @@ import { NextRequest } from 'next/server';
 import { inviteRefOf } from '../src/lib/invite/identity';
 import { INVITE_TOKEN_TTL_SEC, inviteTokenVerdict, issueInviteToken, rcUidTag, verifyInviteToken } from '../src/lib/invite/token';
 import { DAILY_CREDIT_CAP, INVITER_MONTHLY_CAP, arrive, etDay, inbox, inviteKeys, recordTouch, type InviteStore } from '../src/lib/invite/engine';
-import { CLICK_SKEW_MS, SANDBOX_HOLD_MS, etMonth, rcNewness, verifyClaim, type RcFetch } from '../src/lib/invite/referral';
+import { CLICK_SKEW_MS, PROBE_FRESH_MS, SANDBOX_HOLD_MS, etMonth, rcNewness, verifyClaim, type RcFetch } from '../src/lib/invite/referral';
 import { ARRIVE_CLAIM_LUA, VERIFY_CREDIT_LUA, arriveClaimArgs, verifyCreditArgs } from '../src/lib/invite/referralAtomic';
 import { INVITE_TOKEN_RE, buildShareCardUrl, inviteAppHref, withInviteToken } from '../src/lib/invite/kinds';
-import { claimDecision, tokenFromStored, CLAIM_WINDOW_MS, VERIFY_GAP_MS } from '../src/lib/invite/tokenClient';
+import { claimDecision, freshWaitMs, tokenFromStored, CLAIM_WINDOW_MS, VERIFY_FRESH_WAIT_MS, VERIFY_GAP_MS } from '../src/lib/invite/tokenClient';
 import { firstRunFromStored } from '../src/lib/invite/inboxClient';
 import { INVITE_COPY } from '../src/lib/invite/copy';
 import { buildGiftUrl } from '../src/lib/gift/gift';
@@ -510,7 +510,8 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     rcReply = () => ({ status: 404 });
     let vr = await (await verifyRoute.POST(post('/api/invite/verify', { key: KEY_B, rcUid: UID_B }, friendIp))).json();
     assert.deepEqual(vr, { ok: true, state: 'pending' }); await flush();
-    rcReply = (uid) => (uid === UID_B ? { status: 200, json: subscriber({ first: clickAt - 1000 }) } : { status: 404 });
+    // 앱 SDK 가 첫 실행 때 먼저 만든 고객(확인은 RC 가 처음 본 뒤 3.5초 넘어서 — tokenClient.VERIFY_FRESH_WAIT_MS)
+    rcReply = (uid) => (uid === UID_B ? { status: 200, json: subscriber({ first: clickAt - 5000 }) } : { status: 404 });
     vr = await (await verifyRoute.POST(post('/api/invite/verify', { key: KEY_B, rcUid: UID_B }, friendIp))).json();
     assert.deepEqual(vr, { ok: true, state: 'done' }); await flush();
     assert.equal(ec2.get(`share:probe:reward:all:ios:${day}`), 1);
@@ -535,6 +536,68 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     for (let n = 0; n < 31; n++) last = (await tokenRoute.POST(new NextRequest(`${HOST}/api/invite/token`, { method: 'POST', headers: h, body: JSON.stringify({ key: KEY_A, rcUid: UID_A }) }))).status;
     assert.equal(last, 429);
     afterCalls.length = 0;
+  });
+
+  console.log('⑦ 야간 교차 검토 2026-11-14 ③ — 설치 없이 적립');
+  await t('[11/14 ③ 재현] 토큰은 IP1 · 클릭과 도착은 IP2(같은 망 제외 우회) · 처음 보는 RC ID 로 확인 → 우리 조회가 RC 고객을 «만든» 것뿐이라 적립 0(unseen) · 다시 불러도 0', async () => {
+    mem = memoryInviteStore(); ec2.clear(); afterCalls.length = 0;
+    await mem.sadd(K.poolIos, APPLE(8));
+    const HOST = 'https://www.signumhq.com';
+    const APPFETCH = { 'accept-language': 'ko-KR,ko;q=0.9', 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty', 'sec-fetch-site': 'same-origin', 'content-type': 'application/json', 'x-invite': '1' };
+    const NAV = { 'accept-language': 'ko-KR,ko;q=0.9', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document', 'sec-fetch-site': 'cross-site', 'sec-fetch-user': '?1' };
+    const WV = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+    const SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1';
+    const post = (path: string, body: unknown, ip: string) => new NextRequest(`${HOST}${path}`, { method: 'POST', headers: { 'user-agent': WV, ...APPFETCH, 'x-invite-test-ip': ip }, body: JSON.stringify(body) });
+    const tj = await (await tokenRoute.POST(post('/api/invite/token', { key: KEY_A, rcUid: UID_A }, '203.0.113.50'))).json();
+    assert.ok(INVITE_TOKEN_RE.test(tj.token), JSON.stringify(tj));
+    const card = buildShareCardUrl('pick', { locale: 'ko', ticker: 'NVDA', ref: REF_A, via: 'ios', inv: tj.token });
+    const appHref = inviteAppHref('pick', { lang: 'ko', ref: new URL(card).searchParams.get('ref'), inv: new URL(card).searchParams.get('inv') });
+    const ip2 = '198.51.100.200';
+    const g = await sg.GET(new NextRequest(appHref, { headers: { 'user-agent': SAFARI, ...NAV, 'x-invite-test-ip': ip2 } }));
+    assert.ok(g.status >= 200 && g.status < 400, String(g.status)); await flush();
+    // 설치 없이 — 스크립트가 새 열쇠로 «첫 실행» 도착을 보낸다
+    assert.deepEqual(await (await arriveRoute.POST(post('/api/invite/arrive', { key: KEY_C }, ip2))).json(), { ok: true, matched: true, claim: true });
+    // RC 는 없는 ID 를 GET 하면 «만든다» — first_seen(초 단위) = 그 조회 시각(운영 RC 동작과 같은 가짜)
+    const created = new Map<string, number>();
+    const sec = (ms: number) => new Date(Math.floor(ms / 1000) * 1000).toISOString().replace('.000Z', 'Z');
+    rcReply = (uid) => {
+      const now = Date.now();
+      if (!created.has(uid)) created.set(uid, now);
+      return { status: 200, json: { request_date: sec(now), request_date_ms: now, subscriber: { first_seen: sec(created.get(uid)!), last_seen: sec(now), original_app_user_id: uid, subscriptions: {}, non_subscriptions: {}, entitlements: {} } } };
+    };
+    const fresh = '$RCAnonymousID:' + 'e'.repeat(32);
+    const vr = await (await verifyRoute.POST(post('/api/invite/verify', { key: KEY_C, rcUid: fresh }, ip2))).json();
+    assert.deepEqual(vr, { ok: true, state: 'done' }); await flush();
+    assert.equal(await mem.get(K.credit(REF_A)), null, '설치 증거 없음 → 크레딧 0');
+    assert.equal(await mem.get(K.claimDone(inviteRefOf(KEY_C))), 'unseen');
+    assert.equal(ec2.get(`share:probe:rverify:unseen:ios:${etDay()}`), 1);
+    assert.equal(ec2.has(`share:probe:reward:all:ios:${etDay()}`), false);
+    // 같은 열쇠로 다시(이제 RC 고객은 «예전부터 있던» 것처럼 보인다) → 결론 유지 · 선물함 0장
+    await (await verifyRoute.POST(post('/api/invite/verify', { key: KEY_C, rcUid: fresh }, ip2))).json();
+    assert.equal(await mem.get(K.credit(REF_A)), null);
+    const ib = await (await inboxRoute.POST(post('/api/invite/inbox', { key: KEY_A }, '203.0.113.50'))).json();
+    assert.equal(ib.minted, 0);
+    afterCalls.length = 0;
+  });
+  await t('[11/14 ③] rcNewness — 조회 시각 2초 안에 처음 생긴 고객 = unseen(초 잘림 양쪽) · SDK 가 몇 초 먼저 만든 고객 = verified · request_date_ms 없으면 서버 시각', () => {
+    const click = NOW, arr = NOW + 60_000, req = NOW + 120_000;
+    const sub = (first: number, reqMs?: number) => ({ ...(reqMs != null ? { request_date_ms: reqMs } : {}), ...subscriber({ first }) });
+    assert.equal(rcNewness(sub(req - 400, req), click, arr).verdict, 'unseen');
+    assert.equal(rcNewness(sub(req + 900, req), click, arr).verdict, 'unseen', 'first_seen rounded past the request second');
+    assert.equal(rcNewness(sub(req - 1999, req), click, arr).verdict, 'unseen');
+    assert.equal(rcNewness(sub(req - 3000, req), click, arr).verdict, 'verified');
+    assert.equal(rcNewness(sub(req - 400), click, arr, req).verdict, 'unseen', 'fallback: server time');
+    assert.equal(rcNewness(sub(req - 400), click, arr).verdict, 'verified', 'no request time at all → old rule');
+    assert.equal(rcNewness(sub(click - CLICK_SKEW_MS - 1, req), click, arr).verdict, 'existing', 'existing still wins');
+  });
+  await t('[11/14 ③] 앱 쪽 — 확인 전에 SDK 고객 정보를 받고 RC 가 처음 본 뒤 3.5초가 지나도록 기다린다(freshWaitMs)', () => {
+    const f = '2026-11-14T10:00:00Z';
+    assert.equal(freshWaitMs({ firstSeen: f, requestDate: '2026-11-14T10:00:00Z' }), VERIFY_FRESH_WAIT_MS);
+    assert.equal(freshWaitMs({ firstSeen: f, requestDate: '2026-11-14T10:00:02Z' }), VERIFY_FRESH_WAIT_MS - 2000);
+    assert.equal(freshWaitMs({ firstSeen: f, requestDate: '2026-11-15T10:00:00Z' }), 0);
+    assert.equal(freshWaitMs({ firstSeen: 'x', requestDate: f }), null);
+    assert.equal(freshWaitMs(null), null);
+    assert.ok(VERIFY_FRESH_WAIT_MS > PROBE_FRESH_MS + 1000, 'app wait leaves room over the server window');
   });
 
   console.log(failures.length ? `\n추천 보상 시험 실패 ${failures.length}건: ${failures.join(' / ')}` : `\n추천 보상 시험 ${passed}개 통과.`);

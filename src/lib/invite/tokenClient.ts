@@ -58,6 +58,33 @@ export async function rcUidForInvite(): Promise<string | null> {
   } catch { return null; }
 }
 
+/**
+ * [2026-11-14 야간 교차 검토 ③] 확인(/api/invite/verify)용 RC ID — 서버는 «자기 조회가 처음 만든 RC 고객»(first_seen ≈ 조회 시각, referral.PROBE_FRESH_MS)을
+ * 설치 증거로 보지 않는다. 그래서 확인 전에 SDK 로 이 기기의 고객 정보를 먼저 받아(없으면 SDK 가 만든다) RC 가 처음 본 뒤 이만큼 지나도록 기다린다.
+ * 첫 실행 직후 백그라운드 한 번뿐이라 화면에는 영향이 없다.
+ */
+export const VERIFY_FRESH_WAIT_MS = 3500;
+/** SDK 고객 정보(firstSeen·requestDate, 둘 다 RC 시계) → 더 기다릴 ms(0~VERIFY_FRESH_WAIT_MS). 형식 밖이면 null(이번엔 확인하지 않는다). 순수 함수. */
+export function freshWaitMs(info: { firstSeen?: unknown; requestDate?: unknown } | null | undefined): number | null {
+  const f = Date.parse(String(info?.firstSeen ?? ''));
+  const r = Date.parse(String(info?.requestDate ?? ''));
+  if (!Number.isFinite(f) || !Number.isFinite(r)) return null;
+  return Math.max(0, Math.min(VERIFY_FRESH_WAIT_MS, VERIFY_FRESH_WAIT_MS - (r - f)));
+}
+async function rcUidForVerify(): Promise<string | null> {
+  try {
+    const { initRevenueCat } = await import('@/services/revenueCat');
+    if (!(await initRevenueCat())) return null;
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    const { customerInfo } = await Purchases.getCustomerInfo();
+    const wait = freshWaitMs(customerInfo);
+    if (wait == null) return null;
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    const { appUserID } = await Purchases.getAppUserID();
+    return appUserID || null;
+  } catch { return null; }
+}
+
 let tokenInflight: Promise<void> | null = null;
 let tokenTriedAt = 0;
 
@@ -119,7 +146,7 @@ export function runClaimVerify(now = Date.now()): Promise<void> {
   try { s.setItem(CLAIM_STORAGE, `pending:${start}:${now}`); } catch { return Promise.resolve(); }
   verifyInflight = (async () => {
     try {
-      const rcUid = await rcUidForInvite();
+      const rcUid = await rcUidForVerify();
       if (!rcUid) return;
       const r = await fetch('/api/invite/verify', { method: 'POST', credentials: 'same-origin', headers, body: JSON.stringify({ key: getInviteKey(), rcUid }) });
       // 400(형식)·403 봇/출처/기기 = 다시 해도 같다 → 끝. 403 noip·5xx·429 = 일시적 → 다음 기회에 다시(관문 11131211 ①)

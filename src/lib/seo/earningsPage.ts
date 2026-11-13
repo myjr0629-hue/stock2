@@ -158,7 +158,11 @@ export interface EpImplied {
 
 export interface EarningsPageView {
   ticker: string;
+  /** 오늘(ET) 이후 가장 가까운 발표. phase 'done' = 오늘 발표가 이미 나왔다(«발표됨 · 결과 집계 중» — 이 날짜를 «다음 발표»로 부르지 않는다) */
   next: (EpCalendarRow & { phase: Phase }) | null;
+  /** next 가 오늘 나온 발표일 때 그다음 일정(없으면 null) */
+  following: EpCalendarRow | null;
+  /** next 가 앞으로의 발표면 지금 값, 오늘 나온 발표면 «발표 전» 마지막 값(같은 칸·같은 검사를 발표 직전 시각으로) */
   implied: EpImplied | null;
   /** 완성된 채점(최근 것 먼저) */
   history: ScorecardRow[];
@@ -171,20 +175,25 @@ export interface EarningsPageView {
   packOk: boolean;
 }
 
+/**
+ * 발표가 «나온» 시각(ms) — 회사가 공지한 정확한 시각이 있으면 그 시각(예 NVDA 16:20 ET), 없으면 phaseOf 의 경계(장전 09:30 · 장후 18:00 ET).
+ * 시각 미정('')이면 null(그날 끝까지 «오늘»).
+ */
+export function releaseMsOf(r: { date: string; hour: string; etTime?: string }): number | null {
+  const exact = r.etTime ? etWallToMs(r.date, r.etTime) : null;
+  if (exact != null) return exact;
+  if (r.hour === 'bmo') return etWallToMs(r.date, '09:30');
+  if (r.hour === 'amc') return etWallToMs(r.date, '18:00');
+  return null;
+}
+
+/** 이 페이지의 발표 단계 — phaseOf 에 «공지된 정확한 시각이 지났으면 그때부터 발표됨»을 더한다(장후 16:20 공지면 18:00 까지 기다리지 않는다). 시각 미공지면 phaseOf 그대로. */
+export function epPhaseOf(r: { date: string; hour: string; etTime?: string }, nowMs: number = Date.now()): Phase {
+  const p = phaseOf(r.date, r.hour, nowMs);
+  return p === 'today' && releasedByExactTime(r, nowMs) ? 'done' : p;
+}
+
 export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot, nowMs: number = Date.now()): EarningsPageView {
-  // 끝나지 않은 가장 가까운 발표 → 없으면(오늘 발표가 끝났고 다음 일정 없음) 끝난 그 발표
-  const rows = snap.next[ticker] ?? [];
-  const n = rows.find((r) => phaseOf(r.date, r.hour, nowMs) !== 'done') ?? rows[0] ?? null;
-  const next = n ? { ...n, phase: phaseOf(n.date, n.hour, nowMs) } : null;
-  let implied: EpImplied | null = null;
-  if (n) {
-    const v = impliedForRow(n, { v: 1, at: snap.packAt ?? 0, day: snap.packDay ?? '', cells: snap.cells }, nowMs);
-    if (v) {
-      // 칸의 값은 이벤트 분리값이 있으면 그 값이다 — 정의를 값과 함께 넘긴다(tickerEarningsIntent.readIntent 와 같다)
-      const split = typeof v.eventMovePct === 'number' && Number.isFinite(v.eventMovePct) && v.eventMovePct > 0;
-      implied = { pct: split ? v.eventMovePct! : v.pct, basis: split ? 'event-split' : 'straddle', expiry: v.expiry ?? null, session: v.session ?? null, quote: v.basis ?? null };
-    }
-  }
   const seen = new Set<string>();
   const history: ScorecardRow[] = [];
   for (const raw of snap.recordsOk ? snap.records[ticker] ?? [] : []) {
@@ -194,7 +203,33 @@ export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot
     history.push(row);
   }
   history.sort((a, b) => b.date.localeCompare(a.date));
-  return { ticker, next, implied, history, indexable: Boolean(implied) || history.length > 0, calendarOk: snap.calendarOk, recordsOk: snap.recordsOk, packOk: snap.packAt != null && snap.calendarOk };
+
+  // 오늘(ET) 이전 행은 버린다 — 자정 직후 재사용된 메모 묶음(5분, 읽기 실패 땐 최대 15분)의 어제 행이 «다음 실적 발표»로 나오지 않게(허브와 같은 규칙)
+  const today = etDateOf(nowMs);
+  let rows = (snap.next[ticker] ?? []).filter((r) => r.date >= today);
+  // 오늘 나온 발표가 이미 채점됐으면(장전 발표의 당일 채점) «결과 집계 중»이 아니다 — 그다음 일정으로
+  if (rows[0] && epPhaseOf(rows[0], nowMs) === 'done' && seen.has(rows[0].date)) rows = rows.slice(1);
+  // 가장 가까운 발표 — 오늘 발표가 이미 나왔으면 그 발표(«발표됨 · 결과 집계 중»)를 보이고 그다음 일정은 following 으로
+  const n = rows[0] ?? null;
+  const phase = n ? epPhaseOf(n, nowMs) : null;
+  const next = n && phase ? { ...n, phase } : null;
+  const following = phase === 'done' ? rows[1] ?? null : null;
+  let implied: EpImplied | null = null;
+  if (n) {
+    // 나온 발표는 «발표 직전» 시각으로 같은 칸·같은 검사(impliedForRow)를 한다 — 값은 만들지 않고 발표 전 마지막 값을 «발표 전 예상»으로만 보인다
+    const rel = phase === 'done' ? releaseMsOf(n) : null;
+    const at = rel != null ? Math.min(nowMs, rel - 1) : nowMs;
+    const v = impliedForRow(n, { v: 1, at: snap.packAt ?? 0, day: snap.packDay ?? '', cells: snap.cells }, at);
+    // 나온 발표엔 «발표 전 호가»로 잡힌 값만 — 장후 발표는 발표일 정규장(옵션은 16:15 ET 마감)까지, 그 밖(장전·장중 공지 시각)은 전 거래일까지.
+    //   장전 발표일 장중에 다시 만든 묶음(발표 뒤 호가)을 «발표 전 예상»이라 부르지 않는다.
+    const preReport = phase !== 'done' || (typeof v?.session === 'string' && (n.hour === 'amc' ? v.session <= n.date : v.session < n.date));
+    if (v && preReport) {
+      // 칸의 값은 이벤트 분리값이 있으면 그 값이다 — 정의를 값과 함께 넘긴다(tickerEarningsIntent.readIntent 와 같다)
+      const split = typeof v.eventMovePct === 'number' && Number.isFinite(v.eventMovePct) && v.eventMovePct > 0;
+      implied = { pct: split ? v.eventMovePct! : v.pct, basis: split ? 'event-split' : 'straddle', expiry: v.expiry ?? null, session: v.session ?? null, quote: v.basis ?? null };
+    }
+  }
+  return { ticker, next, following, implied, history, indexable: Boolean(implied) || history.length > 0, calendarOk: snap.calendarOk, recordsOk: snap.recordsOk, packOk: snap.packAt != null && snap.calendarOk };
 }
 
 /** 사이트맵·허브용 — 색인할 종목 목록(페이지 메타와 같은 판정) */
@@ -268,6 +303,10 @@ export interface EpCopy {
   h1: (name: string) => string;
   lead: (name: string) => string;
   nextT: string;
+  /** 오늘 발표가 이미 나왔을 때 카드 제목(«다음 발표»라 부르지 않는다) */
+  reportedT: string;
+  /** 나온 발표 카드 아래 그다음 일정 한 줄 */
+  followingLine: (when: string) => string;
   nextNone: string;
   nextUnknown: string;
   when: (d: { date: string; hour: string; etTime?: string }) => string;
@@ -277,7 +316,7 @@ export interface EpCopy {
   estTag: string;
   phaseDone: string;
   moveT: string;
-  moveValue: (d: { name: string; pct: string }) => string;
+  moveValue: (d: { name: string; pct: string; released?: boolean }) => string;
   moveBasis: (d: { expiry: string | null; session: string | null; quote: 'live' | 'eod' | null }) => string;
   moveMethod: Record<'event-split' | 'straddle', string>;
   moveNone: string;
@@ -296,7 +335,8 @@ export interface EpCopy {
   faqT: string;
   /** 발표 시각 한 문장(뉴욕 기준 + 한국·일본 시간) — 시각을 모르면 null */
   timeLine: (r: { date: string; hour: string; etTime?: string }) => string | null;
-  faq: (d: { name: string; ticker: string; calendarOk: boolean; recordsOk: boolean; packOk: boolean; nextDate: string | null; timeLine: string | null; pct: string | null; method: string | null; last: ScorecardRow | null }) => Array<[string, string]>;
+  /** reportedDate = 오늘 이미 나온 발표(«발표됨 · 결과 집계 중») · followingDate = 그다음 일정 — 이때 nextDate 는 null */
+  faq: (d: { name: string; ticker: string; calendarOk: boolean; recordsOk: boolean; packOk: boolean; nextDate: string | null; timeLine: string | null; pct: string | null; method: string | null; last: ScorecardRow | null; reportedDate?: string | null; followingDate?: string | null }) => Array<[string, string]>;
   cta: (name: string) => string;
   ctaSub: string;
   moreT: string;
@@ -307,8 +347,9 @@ export interface EpCopy {
   moreHub: string;
   asOf: (d: { at: string }) => string;
   disc: string;
-  metaTitle: (d: { name: string; pct: string | null; date: string | null; graded: string | null }) => string;
-  metaDesc: (d: { name: string; ticker: string; pct: string | null; date: string | null; local: string | null; last: ScorecardRow | null }) => string;
+  /** reported = 오늘 이미 나온 발표 날짜(이때 date 는 null, pct 는 발표 전 값) */
+  metaTitle: (d: { name: string; pct: string | null; date: string | null; graded: string | null; reported?: string | null }) => string;
+  metaDesc: (d: { name: string; ticker: string; pct: string | null; date: string | null; local: string | null; last: ScorecardRow | null; reported?: string | null }) => string;
   // 허브
   hubTitle: string;
   hubH1: string;
@@ -337,15 +378,17 @@ const KO: EpCopy = {
   h1: (n) => `${n} 실적 발표일·예상 변동폭 vs 실제`,
   lead: (n) => `${n} 다음 실적 발표일(한국 시간 포함)과, 주가가 실적 발표 전후로 얼마나 움직일지 옵션 시장이 가격에 반영한 폭(예상 변동폭), 발표 뒤 실제 정규장 종가 변동을 나란히 기록합니다.`,
   nextT: '다음 실적 발표',
+  reportedT: '최근 실적 발표',
+  followingLine: (w) => `다음 발표: ${w}`,
   nextNone: '실적 캘린더에 앞으로 120일 안의 발표 일정이 아직 없습니다.',
   nextUnknown: '실적 캘린더를 지금 읽지 못했습니다. 잠시 뒤 다시 확인해 주세요.',
   when: ({ date, hour, etTime }) => `${longDate(date, 'ko')} · ${hourKo(hour, etTime)}`,
   statusConfirmed: '회사 공지 일정',
   statusEst: '예정일(회사 공지 전)',
   estTag: '(예정)',
-  phaseDone: '발표가 끝났습니다. 실제 변동은 발표 반응 정규장이 마감된 뒤 채점합니다.',
+  phaseDone: '발표됨 · 결과 집계 중 — 실제 변동은 발표 반응 정규장이 마감된 뒤 채점합니다.',
   moveT: '발표 전 예상 변동폭(옵션 가격 기준)',
-  moveValue: ({ name, pct }) => `옵션 가격에 반영된 ${name} 주가의 실적 예상 변동폭은 ${pct}입니다.`,
+  moveValue: ({ name, pct, released }) => (released ? `발표 전 옵션 가격에 반영된 ${name} 주가의 실적 예상 변동폭은 ${pct}였습니다.` : `옵션 가격에 반영된 ${name} 주가의 실적 예상 변동폭은 ${pct}입니다.`),
   moveBasis: ({ expiry, session, quote }) => [expiry ? `${md(expiry, 'ko')} 만기` : '', session ? `${md(session, 'ko')} ${quote === 'live' ? '장중 ' : quote === 'eod' ? '마감 ' : ''}호가 기준` : ''].filter(Boolean).join(' · '),
   moveMethod: {
     'event-split': '발표 후 첫 만기 ATM 옵션의 분산에서 직전 만기로 잡은 평상시 날짜분을 빼, 실적 발표 자체에 반영된 변동폭만 분리한 값입니다.',
@@ -374,11 +417,12 @@ const KO: EpCopy = {
     if (!local) return null;
     return `발표 시각은 ${etTime ? `뉴욕 ${etTime}` : `뉴욕 기준 ${hourKo(hour)}`}, ${local}입니다.`;
   },
-  faq: ({ name, calendarOk, recordsOk, packOk, nextDate, timeLine, pct, method, last }) => [
-    [`${name} 실적 발표일은 언제인가요?`, nextDate ? `실적 캘린더 기준 다음 실적 발표일은 ${nextDate}입니다.${timeLine ? ` ${timeLine}` : ''}` : calendarOk ? '실적 캘린더에 아직 다음 발표 일정이 없습니다.' : '실적 캘린더를 지금 읽지 못했습니다. 잠시 뒤 다시 확인해 주세요.'],
+  faq: ({ name, calendarOk, recordsOk, packOk, nextDate, timeLine, pct, method, last, reportedDate, followingDate }) => [
+    [`${name} 실적 발표일은 언제인가요?`, reportedDate ? `가장 최근 실적은 ${reportedDate}에 발표됐습니다(결과 집계 중).${followingDate ? ` 실적 캘린더 기준 다음 실적 발표일은 ${followingDate}입니다.` : ''}`
+      : nextDate ? `실적 캘린더 기준 다음 실적 발표일은 ${nextDate}입니다.${timeLine ? ` ${timeLine}` : ''}` : calendarOk ? '실적 캘린더에 아직 다음 발표 일정이 없습니다.' : '실적 캘린더를 지금 읽지 못했습니다. 잠시 뒤 다시 확인해 주세요.'],
     ...(nextDate && timeLine ? [[`${name} 실적 발표 시간은 한국 시간으로 몇 시인가요?`, timeLine] as [string, string]] : []),
-    [`${name} 실적 예상 변동폭은 얼마인가요?`, pct ? `옵션 가격에 반영된 예상 변동폭은 ${pct}입니다.${method ? ` ${method}` : ''}` : packOk ? '아직 표시할 옵션 예상 변동폭이 없습니다. 발표가 가까워지면 표시합니다.' : '옵션 예상 변동폭 자료를 지금 읽지 못했습니다.'],
-    [`${name} 예상 변동폭은 주가가 오른다는 뜻인가요, 내린다는 뜻인가요?`, `어느 쪽도 아닙니다. 예상 변동폭은 옵션 시장이 실적 발표 전후 움직임의 «크기»에 매긴 값이라 방향은 담겨 있지 않습니다.${pct ? ` ${pct}는 위아래 어느 쪽이든 그 정도 폭의 움직임이 옵션 가격에 반영돼 있다는 뜻입니다.` : ''}`],
+    [`${name} 실적 예상 변동폭은 얼마인가요?`, pct ? `${reportedDate ? `발표 전 옵션 가격에 반영된 예상 변동폭은 ${pct}였습니다.` : `옵션 가격에 반영된 예상 변동폭은 ${pct}입니다.`}${method ? ` ${method}` : ''}` : packOk ? '아직 표시할 옵션 예상 변동폭이 없습니다. 발표가 가까워지면 표시합니다.' : '옵션 예상 변동폭 자료를 지금 읽지 못했습니다.'],
+    [`${name} 예상 변동폭은 주가가 오른다는 뜻인가요, 내린다는 뜻인가요?`, `어느 쪽도 아닙니다. 예상 변동폭은 옵션 시장이 실적 발표 전후 움직임의 «크기»에 매긴 값이라 방향은 담겨 있지 않습니다.${pct ? ` ${pct}는 위아래 어느 쪽이든 그 정도 폭의 움직임이 옵션 가격에 반영돼 ${reportedDate ? '있었다는' : '있다는'} 뜻입니다.` : ''}`],
     [`지난 실적 때 ${name} 주가는 예상만큼 움직였나요?`, last ? `${longDate(last.date, 'ko')} 발표 때 발표 전 예상은 ${expectedText(last.expectedPct)}, 실제 정규장 종가 변동은 ${actualText(last.actualPct, last.expectedPct)}로 ${last.beyond ? '예상 범위를 벗어났습니다' : '예상 범위 안이었습니다'}.` : recordsOk ? '아직 완성된 채점 기록이 없습니다.' : '채점 기록을 지금 읽지 못했습니다.'],
   ],
   cta: (n) => `${n} 실적 알림·옵션 흐름은 SIGNUM HQ 앱에서`,
@@ -391,13 +435,14 @@ const KO: EpCopy = {
   moreHub: '종목별 실적 채점표',
   asOf: ({ at }) => `저장본 읽은 시각 ${at} (UTC)`,
   disc: '정보 제공·교육 목적입니다. 투자 자문이나 매수·매도 권유가 아니며, 정확성이나 결과를 보장하지 않습니다.',
-  metaTitle: ({ name, pct, date, graded }) => (pct && date ? `${name} 실적 발표일 ${date} · 예상 변동폭 ${pct} | SIGNUM HQ`
+  metaTitle: ({ name, pct, date, graded, reported }) => (reported ? `${name} ${reported} 실적 발표됨 · 결과 집계 중${pct ? ` · 발표 전 예상 ${pct}` : ''} | SIGNUM HQ`
+    : pct && date ? `${name} 실적 발표일 ${date} · 예상 변동폭 ${pct} | SIGNUM HQ`
     : date ? `${name} 실적 발표일 ${date} · 예상 변동폭 vs 실제 | SIGNUM HQ`
     : graded ? `${name} 실적 예상 변동폭 vs 실제 · ${graded} 채점 | SIGNUM HQ`
     : `${name} 실적 발표일·예상 변동폭 vs 실제 | SIGNUM HQ`),
-  metaDesc: ({ name, pct, date, local, last }) => [
-    date ? `${name} 실적 발표일은 ${date}${local ? `, ${local}` : ''}.` : '',
-    pct ? `옵션 가격에 반영된 실적 예상 변동폭 ${pct}.` : '',
+  metaDesc: ({ name, pct, date, local, last, reported }) => [
+    reported ? `${name} 실적은 ${reported}${local ? `(${local})` : ''} 발표됐고 결과 집계 중입니다.` : date ? `${name} 실적 발표일은 ${date}${local ? `, ${local}` : ''}.` : '',
+    pct ? `${reported ? '발표 전 ' : ''}옵션 가격에 반영된 실적 예상 변동폭 ${pct}.` : '',
     last ? `지난 발표(${md(last.date, 'ko')}) 예상 ${expectedText(last.expectedPct)} → 실제 ${actualText(last.actualPct, last.expectedPct)}, ${last.beyond ? '범위 밖' : '범위 안'}.` : '',
     '발표 전 옵션 예상과 발표 뒤 실제 종가 변동을 나란히 기록합니다.',
   ].filter(Boolean).join(' '),
@@ -422,15 +467,17 @@ const JA: EpCopy = {
   h1: (n) => `${n} 決算発表日・予想変動幅と実際`,
   lead: (n) => `${n}の次回決算発表日(日本時間つき)と、株価が決算発表の前後でどれだけ動くとオプション市場が価格に織り込んだか(予想変動幅)、発表後の実際の通常取引終値の変動を並べて記録します。`,
   nextT: '次回の決算発表',
+  reportedT: '直近の決算発表',
+  followingLine: (w) => `次回の発表：${w}`,
   nextNone: '決算カレンダーに今後120日以内の発表予定はまだありません。',
   nextUnknown: '決算カレンダーを現在読み込めません。しばらくしてから再度ご確認ください。',
   when: ({ date, hour, etTime }) => `${longDate(date, 'ja')}・${hourJa(hour, etTime)}`,
   statusConfirmed: '企業告知の日程',
   statusEst: '予定日(企業告知前)',
   estTag: '(予定)',
-  phaseDone: '発表は終了しました。実際の変動は反応日の通常取引終了後に採点します。',
+  phaseDone: '発表済み・結果集計中 — 実際の変動は反応日の通常取引終了後に採点します。',
   moveT: '発表前の予想変動幅(オプション価格基準)',
-  moveValue: ({ name, pct }) => `オプション価格に織り込まれた${name}株価の決算予想変動幅は${pct}です。`,
+  moveValue: ({ name, pct, released }) => (released ? `発表前のオプション価格に織り込まれた${name}株価の決算予想変動幅は${pct}でした。` : `オプション価格に織り込まれた${name}株価の決算予想変動幅は${pct}です。`),
   moveBasis: ({ expiry, session, quote }) => [expiry ? `${md(expiry, 'ja')}満期` : '', session ? `${md(session, 'ja')}${quote === 'live' ? 'ザラ場' : quote === 'eod' ? '引け' : ''}気配基準` : ''].filter(Boolean).join('・'),
   moveMethod: {
     'event-split': '発表後最初の満期のATMオプションの分散から、直前の満期で見積もった平常日分を差し引き、決算発表そのものに織り込まれた変動幅だけを分離した値です。',
@@ -459,11 +506,12 @@ const JA: EpCopy = {
     if (!local) return null;
     return `発表時刻は${etTime ? `NY ${etTime}` : `NY基準で${hourJa(hour)}`}、${local}です。`;
   },
-  faq: ({ name, calendarOk, recordsOk, packOk, nextDate, timeLine, pct, method, last }) => [
-    [`${name}の決算発表日はいつですか？`, nextDate ? `決算カレンダーでは次回の決算発表日は${nextDate}です。${timeLine ?? ''}` : calendarOk ? '決算カレンダーに次回の発表予定はまだありません。' : '決算カレンダーを現在読み込めません。しばらくしてから再度ご確認ください。'],
+  faq: ({ name, calendarOk, recordsOk, packOk, nextDate, timeLine, pct, method, last, reportedDate, followingDate }) => [
+    [`${name}の決算発表日はいつですか？`, reportedDate ? `直近の決算は${reportedDate}に発表されました(結果集計中)。${followingDate ? `決算カレンダーでは次回の決算発表日は${followingDate}です。` : ''}`
+      : nextDate ? `決算カレンダーでは次回の決算発表日は${nextDate}です。${timeLine ?? ''}` : calendarOk ? '決算カレンダーに次回の発表予定はまだありません。' : '決算カレンダーを現在読み込めません。しばらくしてから再度ご確認ください。'],
     ...(nextDate && timeLine ? [[`${name}の決算発表は日本時間で何時ですか？`, timeLine] as [string, string]] : []),
-    [`${name}の決算予想変動幅は？`, pct ? `オプション価格に織り込まれた予想変動幅は${pct}です。${method ?? ''}` : packOk ? '表示できるオプション予想変動幅はまだありません。発表が近づくと表示します。' : 'オプション予想変動幅のデータを現在読み込めません。'],
-    [`${name}の予想変動幅は株価が上がる・下がるという意味ですか？`, `どちらでもありません。予想変動幅はオプション市場が決算前後の値動きの「大きさ」に付けた値で、方向は含みません。${pct ? `${pct}は、上下どちらでもその程度の値動きがオプション価格に織り込まれているという意味です。` : ''}`],
+    [`${name}の決算予想変動幅は？`, pct ? `${reportedDate ? `発表前のオプション価格に織り込まれた予想変動幅は${pct}でした。` : `オプション価格に織り込まれた予想変動幅は${pct}です。`}${method ?? ''}` : packOk ? '表示できるオプション予想変動幅はまだありません。発表が近づくと表示します。' : 'オプション予想変動幅のデータを現在読み込めません。'],
+    [`${name}の予想変動幅は株価が上がる・下がるという意味ですか？`, `どちらでもありません。予想変動幅はオプション市場が決算前後の値動きの「大きさ」に付けた値で、方向は含みません。${pct ? `${pct}は、上下どちらでもその程度の値動きがオプション価格に織り込まれて${reportedDate ? 'いた' : 'いる'}という意味です。` : ''}`],
     [`前回の決算で${name}の株価は予想どおり動きましたか？`, last ? `${longDate(last.date, 'ja')}の発表では、発表前の予想が${expectedText(last.expectedPct)}、実際の通常取引終値の変動が${actualText(last.actualPct, last.expectedPct)}で、${last.beyond ? '予想範囲を超えました' : '予想範囲内でした'}。` : recordsOk ? '完成した採点記録はまだありません。' : '採点記録を現在読み込めません。'],
   ],
   cta: (n) => `${n}の決算アラート・オプションフローはSIGNUM HQアプリで`,
@@ -476,13 +524,14 @@ const JA: EpCopy = {
   moreHub: '銘柄別 決算採点表',
   asOf: ({ at }) => `保存データの読み込み時刻 ${at}(UTC)`,
   disc: '情報提供・教育目的です。投資助言や売買の推奨ではなく、正確性や結果を保証するものではありません。',
-  metaTitle: ({ name, pct, date, graded }) => (pct && date ? `${name} 決算発表日 ${date}・予想変動幅${pct} | SIGNUM HQ`
+  metaTitle: ({ name, pct, date, graded, reported }) => (reported ? `${name} ${reported}決算発表済み・結果集計中${pct ? `・発表前の予想変動幅${pct}` : ''} | SIGNUM HQ`
+    : pct && date ? `${name} 決算発表日 ${date}・予想変動幅${pct} | SIGNUM HQ`
     : date ? `${name} 決算発表日 ${date}・予想変動幅と実際 | SIGNUM HQ`
     : graded ? `${name} 決算 予想変動幅と実際・${graded}採点 | SIGNUM HQ`
     : `${name} 決算発表日・予想変動幅と実際 | SIGNUM HQ`),
-  metaDesc: ({ name, pct, date, local, last }) => [
-    date ? `${name}の決算発表日は${date}${local ? `、${local}` : ''}。` : '',
-    pct ? `オプション価格基準の予想変動幅は${pct}。` : '',
+  metaDesc: ({ name, pct, date, local, last, reported }) => [
+    reported ? `${name}の決算は${reported}${local ? `(${local})` : ''}に発表され、結果集計中です。` : date ? `${name}の決算発表日は${date}${local ? `、${local}` : ''}。` : '',
+    pct ? `${reported ? '発表前の' : ''}オプション価格基準の予想変動幅は${pct}。` : '',
     last ? `前回(${md(last.date, 'ja')})は予想${expectedText(last.expectedPct)} → 実際${actualText(last.actualPct, last.expectedPct)}で${last.beyond ? '範囲外' : '範囲内'}。` : '',
     '発表前のオプション予想と発表後の実際の終値変動を並べて記録します。',
   ].filter(Boolean).join(''),
@@ -507,15 +556,17 @@ const EN: EpCopy = {
   h1: (n) => `${n} Earnings Date, Expected Move vs Actual`,
   lead: (n) => `How far the options market priced ${n} stock to move around earnings (the expected move), recorded next to the actual regular-session closing move after the report.`,
   nextT: 'Next earnings report',
+  reportedT: 'Latest earnings report',
+  followingLine: (w) => `Next report: ${w}`,
   nextNone: 'No report date in the earnings calendar for the next 120 days yet.',
   nextUnknown: 'The earnings calendar could not be read right now. Please check back shortly.',
   when: ({ date, hour, etTime }) => `${longDate(date, 'en')} · ${hourEn(hour, etTime)}`,
   statusConfirmed: 'Company-announced date',
   statusEst: 'Expected date (not yet announced by the company)',
   estTag: ' (est.)',
-  phaseDone: 'The report is out. The actual move is graded after the reaction session closes.',
+  phaseDone: 'Reported · results being tallied — the actual move is graded after the reaction session closes.',
   moveT: 'Pre-earnings expected move (from options prices)',
-  moveValue: ({ name, pct }) => `Options prices imply an earnings move of ${pct} for ${name} stock.`,
+  moveValue: ({ name, pct, released }) => (released ? `Before the report, options prices implied an earnings move of ${pct} for ${name} stock.` : `Options prices imply an earnings move of ${pct} for ${name} stock.`),
   moveBasis: ({ expiry, session, quote }) => [expiry ? `${md(expiry, 'en')} expiry` : '', session ? `${md(session, 'en')} ${quote === 'live' ? 'live ' : quote === 'eod' ? 'closing ' : ''}quotes` : ''].filter(Boolean).join(' · '),
   moveMethod: {
     'event-split': 'It subtracts the ordinary-day variance implied by the prior expiry from the at-the-money variance of the first expiry after the report, isolating the move priced for the earnings event itself.',
@@ -542,10 +593,11 @@ const EN: EpCopy = {
   timeLine: ({ date, hour, etTime }) => (etTime ? `The report is scheduled for ${etTime} ET.`
     : hour === 'amc' ? `The report is scheduled after the close (after ${Number(closeEtOf(date).slice(0, 2)) - 12}:00 p.m. ET).`
     : hour === 'bmo' ? 'The report is scheduled before the open (before 9:30 a.m. ET).' : null),
-  faq: ({ name, calendarOk, recordsOk, packOk, nextDate, timeLine, pct, method, last }) => [
-    [`When is ${name}’s next earnings date?`, nextDate ? `The earnings calendar lists the next report on ${nextDate}.${timeLine ? ` ${timeLine}` : ''}` : calendarOk ? 'The earnings calendar has no next report date yet.' : 'The earnings calendar could not be read right now. Please check back shortly.'],
-    [`What is ${name}’s earnings expected move?`, pct ? `Options prices imply an expected move of ${pct}.${method ? ` ${method}` : ''}` : packOk ? 'No options-implied move to show yet; it appears as the report approaches.' : 'The options-implied move data could not be read right now.'],
-    [`Does ${name}’s expected move mean the stock will go up or down?`, `Neither. The expected move is the size the options market priced for the move around the report; it carries no direction.${pct ? ` ${pct} means a move of about that size in either direction is priced into options.` : ''}`],
+  faq: ({ name, calendarOk, recordsOk, packOk, nextDate, timeLine, pct, method, last, reportedDate, followingDate }) => [
+    [`When is ${name}’s next earnings date?`, reportedDate ? `The latest report came out on ${reportedDate}; results are being tallied.${followingDate ? ` The earnings calendar lists the next report on ${followingDate}.` : ''}`
+      : nextDate ? `The earnings calendar lists the next report on ${nextDate}.${timeLine ? ` ${timeLine}` : ''}` : calendarOk ? 'The earnings calendar has no next report date yet.' : 'The earnings calendar could not be read right now. Please check back shortly.'],
+    [`What is ${name}’s earnings expected move?`, pct ? `${reportedDate ? `Before the report, options prices implied an expected move of ${pct}.` : `Options prices imply an expected move of ${pct}.`}${method ? ` ${method}` : ''}` : packOk ? 'No options-implied move to show yet; it appears as the report approaches.' : 'The options-implied move data could not be read right now.'],
+    [`Does ${name}’s expected move mean the stock will go up or down?`, `Neither. The expected move is the size the options market priced for the move around the report; it carries no direction.${pct ? ` ${pct} means a move of about that size in either direction ${reportedDate ? 'was' : 'is'} priced into options.` : ''}`],
     [`Did ${name} stock move as much as expected last earnings?`, last ? `For the ${longDate(last.date, 'en')} report, the pre-report expected move was ${expectedText(last.expectedPct)} and the actual regular-session closing move was ${actualText(last.actualPct, last.expectedPct)}, ${last.beyond ? 'outside the expected range' : 'within the expected range'}.` : recordsOk ? 'No complete scorecard record yet.' : 'The scorecard records could not be read right now.'],
   ],
   cta: (n) => `Get ${n} earnings alerts and options flow in the SIGNUM HQ app`,
@@ -558,13 +610,14 @@ const EN: EpCopy = {
   moreHub: 'Earnings scorecard by stock',
   asOf: ({ at }) => `Stored data read at ${at} UTC`,
   disc: 'Information and education only. Not investment advice or a recommendation to buy or sell, and no guarantee of accuracy or results.',
-  metaTitle: ({ name, pct, date, graded }) => (pct && date ? `${name} Earnings Date ${date} · Expected Move ${pct} | SIGNUM HQ`
+  metaTitle: ({ name, pct, date, graded, reported }) => (reported ? `${name} Earnings Reported ${reported} · Results Being Tallied${pct ? ` · Pre-Report Expected Move ${pct}` : ''} | SIGNUM HQ`
+    : pct && date ? `${name} Earnings Date ${date} · Expected Move ${pct} | SIGNUM HQ`
     : date ? `${name} Earnings Date ${date} · Expected Move vs Actual | SIGNUM HQ`
     : graded ? `${name} Earnings Expected Move vs Actual · ${graded} Graded | SIGNUM HQ`
     : `${name} Earnings Date, Expected Move vs Actual | SIGNUM HQ`),
-  metaDesc: ({ name, pct, date, last }) => [
-    date ? `${name} reports earnings next on ${date}.` : '',
-    pct ? `Options imply a ${pct} move.` : '',
+  metaDesc: ({ name, pct, date, last, reported }) => [
+    reported ? `${name} reported earnings on ${reported}; results are being tallied.` : date ? `${name} reports earnings next on ${date}.` : '',
+    pct ? (reported ? `Before the report, options implied a ${pct} move.` : `Options imply a ${pct} move.`) : '',
     last ? `Last report (${md(last.date, 'en')}): expected ${expectedText(last.expectedPct)}, actual ${actualText(last.actualPct, last.expectedPct)} — ${last.beyond ? 'outside' : 'within'} the range.` : '',
     'Pre-report options pricing next to the actual closing move, report by report.',
   ].filter(Boolean).join(' '),

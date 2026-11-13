@@ -11,7 +11,7 @@ import { isFlowTicker } from '@/lib/seo/flowTicker';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import {
   EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, earningsAppHref, earningsPath, expectedText,
-  isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, releasedByExactTime, toLoc, type EarningsPageView,
+  isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, toLoc, type EarningsPageView,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
 import type { Loc } from '@/lib/earningsWeek';
@@ -39,13 +39,17 @@ function metaParts(view: EarningsPageView, l: Loc) {
   const name = nameWithTicker(view.ticker, l);
   const pct = view.implied ? expectedText(view.implied.pct) : null;
   const upcoming = view.next && view.next.phase !== 'done' ? view.next : null;
+  // 오늘 이미 나온 발표(«발표됨 · 결과 집계 중») — 같은 날짜를 «다음 발표»로 부르지 않는다
+  const reported = view.next && view.next.phase === 'done' ? view.next : null;
   const est = upcoming && upcoming.dateStatus !== 'confirmed' ? c.estTag : '';
   const date = upcoming ? `${mdName(upcoming.date, l)}${est}` : null;
-  const local = upcoming ? localWhenText(upcoming, l) : null;
+  const shown = upcoming ?? reported;
+  const local = shown ? localWhenText(shown, l) : null;
   const last = view.history[0] ?? null;
+  const rep = reported ? mdName(reported.date, l) : null;
   return {
-    title: c.metaTitle({ name, pct, date, graded: last ? md(last.date, l) : null }),
-    description: c.metaDesc({ name, ticker: view.ticker, pct, date, local, last }),
+    title: c.metaTitle({ name, pct, date, graded: last ? md(last.date, l) : null, reported: rep }),
+    description: c.metaDesc({ name, ticker: view.ticker, pct, date, local, last, reported: rep }),
   };
 }
 
@@ -127,10 +131,16 @@ export default async function EarningsTickerPage(props: Props) {
   const pct = view.implied ? expectedText(view.implied.pct) : null;
   const method = view.implied ? c.moveMethod[view.implied.basis] : null;
   const last = view.history[0] ?? null;
-  // 공지 시각이 지났으면(장후 판정 18:00 전이라도) «발표 시간» 안내는 내린다
-  const timeLine = upcoming && !releasedByExactTime(upcoming) ? c.timeLine(upcoming) : null;
+  const released = next?.phase === 'done';
+  // 공지 시각이 지난 발표는 upcoming 이 아니다(epPhaseOf) — «발표 시간» 안내도 함께 내려간다
+  const timeLine = upcoming ? c.timeLine(upcoming) : null;
   const nextLocal = next ? localWhenText(next, l) : null;
-  const faq = c.faq({ name, ticker, calendarOk: view.calendarOk, recordsOk: view.recordsOk, packOk: view.packOk, nextDate: upcoming ? `${longDate(upcoming.date, l)}${upcoming.dateStatus !== 'confirmed' ? c.estTag : ''}` : null, timeLine, pct, method, last });
+  const dateText = (r: { date: string; dateStatus?: string }) => `${longDate(r.date, l)}${r.dateStatus !== 'confirmed' ? c.estTag : ''}`;
+  const following = released ? view.following : null;
+  const faq = c.faq({
+    name, ticker, calendarOk: view.calendarOk, recordsOk: view.recordsOk, packOk: view.packOk, nextDate: upcoming ? dateText(upcoming) : null, timeLine, pct, method, last,
+    reportedDate: released && next ? longDate(next.date, l) : null, followingDate: following ? dateText(following) : null,
+  });
   const beyond = view.history.filter((r) => r.beyond).length;
   const href = earningsAppHref(ticker, l);
   const hasFlow = isFlowTicker(ticker) && FLOW_SET.has(ticker);
@@ -180,13 +190,14 @@ export default async function EarningsTickerPage(props: Props) {
 
       <div className="ep-grid">
         <section className="ep-card" aria-labelledby="ep-next" data-next={next?.date ?? ''}>
-          <h2 id="ep-next">{c.nextT}</h2>
+          <h2 id="ep-next">{released ? c.reportedT : c.nextT}</h2>
           {next ? (
             <>
               <span className="ep-date">{c.when({ date: next.date, hour: next.hour, etTime: next.etTime })}</span>
               {nextLocal && <p className="ep-local">{nextLocal}</p>}
               <span className={`ep-chip${next.dateStatus === 'confirmed' ? ' ok' : ''}`}>{next.dateStatus === 'confirmed' ? c.statusConfirmed : c.statusEst}</span>
-              {next.phase === 'done' && <p>{c.phaseDone}</p>}
+              {released && <p>{c.phaseDone}</p>}
+              {following && <p className="ep-sub">{c.followingLine(`${c.when({ date: following.date, hour: following.hour, etTime: following.etTime })}${following.dateStatus !== 'confirmed' ? c.estTag : ''}`)}</p>}
             </>
           ) : <p>{view.calendarOk ? c.nextNone : c.nextUnknown}</p>}
         </section>
@@ -195,7 +206,7 @@ export default async function EarningsTickerPage(props: Props) {
           {view.implied && pct ? (
             <>
               <span className="ep-big">{pct}</span>
-              <p>{c.moveValue({ name, pct })}</p>
+              <p>{c.moveValue({ name, pct, released })}</p>
               <p className="ep-sub">{c.moveBasis(view.implied)}</p>
               <p className="ep-sub">{method}</p>
             </>
