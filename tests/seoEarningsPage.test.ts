@@ -211,6 +211,20 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     await html('en', 'LRCX'); await sitemap();
     assert.equal(reads.length, n, 'one snapshot serves every page and the sitemap');
   });
+  await test('허브 이번 주 — 오늘 장전 발표가 끝나 화면 모델이 다음 분기로 넘어가도 오늘 발표 종목은 이번 주 목록에 남는다', async () => {
+    const realNow = Date.now;
+    const at = Date.parse('2026-11-17T17:00:00Z'); // 화 12:00 ET
+    const rows = calendar.rows;
+    svc._resetEarningsPageMemo();
+    try {
+      Date.now = () => at;
+      calendar.rows = [{ ticker: T, date: '2026-11-17', hour: 'bmo', epsEstimate: 1, revenueEstimate: 1, quarter: 3, year: 2026 },
+        { ticker: T, date: '2027-02-16', hour: 'bmo', epsEstimate: 1, revenueEstimate: 1, quarter: 4, year: 2026 }] as any;
+      const hk = renderToStaticMarkup(await hub.default({ params: Promise.resolve({ locale: 'ko' }) }));
+      const sec = hk.split('id="eh-this-week"')[1].split('id="eh-next-week"')[0];
+      assert.ok(sec.includes(`data-week-ticker="${T}"`) && sec.includes('2026년 11월 17일(화) · 장 시작 전'), 'today bmo stays in this week');
+    } finally { Date.now = realNow; calendar.rows = rows; svc._resetEarningsPageMemo(); }
+  });
   await test('오늘 발표가 끝나면 다음 일정으로 · 끝난 발표만 있으면 그 발표(발표 완료 안내)', () => {
     const snap = { ...EP.emptySnapshot(), calendarOk: true, recordsOk: true,
       next: { [T]: [{ ticker: T, date: '2026-11-12', hour: 'bmo' }, { ticker: T, date: '2027-02-10', hour: 'amc' }], [N]: [{ ticker: N, date: '2026-11-12', hour: 'bmo' }] } };

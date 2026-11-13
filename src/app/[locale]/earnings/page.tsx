@@ -7,7 +7,7 @@ import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import {
   EARNINGS_PAGE_TICKERS, EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, companyNames, earningsPath, expectedText,
-  localWhenText, md, nameWithTicker, toLoc, weekWindows, type EarningsPageView,
+  localWhenText, md, nameWithTicker, toLoc, weekWindows, type EpCalendarRow,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
 import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
@@ -25,16 +25,22 @@ async function load(locale: string) {
     .sort((a, b) => b.date.localeCompare(a.date) || a.ticker.localeCompare(b.ticker)).slice(0, 60);
   // 이번 주·다음 주 발표 — 캘린더 일정만으로(예상 변동폭 없어도 내부 링크) · 오늘 이미 발표한 종목도 «이번 주 발표 종목»이라 남긴다
   const { thisWeek, nextWeek } = weekWindows(nowMs);
-  const inWin = (w: [string, string]) => views
-    .filter((v) => v.next && v.next.date >= w[0] && v.next.date <= w[1])
-    .sort((a, b) => a.next!.date.localeCompare(b.next!.date) || (b.implied?.pct ?? 0) - (a.implied?.pct ?? 0) || a.ticker.localeCompare(b.ticker));
+  //   (화면 모델 next 는 오늘 발표가 끝나면 다음 분기로 넘어가므로, 캘린더 행 자체를 기간으로 고른다. 예상 변동폭은 그 행이 화면 모델의 발표일 때만)
+  const inWin = (w: [string, string]): WeekItem[] => views
+    .flatMap((v) => {
+      const row = (snap.next[v.ticker] ?? []).find((r) => r.date >= w[0] && r.date <= w[1]);
+      return row ? [{ ticker: v.ticker, row, pct: v.implied && v.next?.date === row.date ? v.implied.pct : null }] : [];
+    })
+    .sort((a, b) => a.row.date.localeCompare(b.row.date) || (b.pct ?? 0) - (a.pct ?? 0) || a.ticker.localeCompare(b.ticker));
   return { l: toLoc(locale), snap, views, upcoming, graded, thisWeek: inWin(thisWeek), nextWeek: inWin(nextWeek) };
 }
 
 /** 설명 앞머리용 «엔비디아 11/17» 몇 개 — 예상 변동폭이 큰 순(검색에서 많이 찾는 종목이 앞에 오도록 값 기준, 임의 선택 없음) */
-function soonItems(list: EarningsPageView[], l: ReturnType<typeof toLoc>, estTag: string): string[] {
-  return [...list].sort((a, b) => (b.implied?.pct ?? -1) - (a.implied?.pct ?? -1) || a.next!.date.localeCompare(b.next!.date))
-    .slice(0, 4).map((v) => `${l === 'en' ? v.ticker : companyNames(v.ticker)?.[l] || v.ticker} ${md(v.next!.date, l)}${v.next!.dateStatus === 'confirmed' ? '' : estTag}`);
+type WeekItem = { ticker: string; row: EpCalendarRow; pct: number | null };
+
+function soonItems(list: WeekItem[], l: ReturnType<typeof toLoc>, estTag: string): string[] {
+  return [...list].sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1) || a.row.date.localeCompare(b.row.date))
+    .slice(0, 4).map((v) => `${l === 'en' ? v.ticker : companyNames(v.ticker)?.[l] || v.ticker} ${md(v.row.date, l)}${v.row.dateStatus === 'confirmed' ? '' : estTag}`);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -104,18 +110,18 @@ export default async function EarningsHubPage({ params }: Props) {
       },
     } : {}),
   };
-  const weekSec = (title: string, list: EarningsPageView[], id: string) => (
+  const weekSec = (title: string, list: WeekItem[], id: string) => (
     <section aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
       {list.length ? (
         <ul className="eh-list">
           {list.map((v) => {
-            const local = localWhenText(v.next!, l);
+            const local = localWhenText(v.row, l);
             return (
               <li key={v.ticker} data-week-ticker={v.ticker}><a href={earningsPath(l, v.ticker)}>
                 <b>{nameWithTicker(v.ticker, l)}</b>
-                <span className="n">{c.when({ date: v.next!.date, hour: v.next!.hour, etTime: v.next!.etTime })}{v.next!.dateStatus !== 'confirmed' ? c.estTag : ''}{local ? ` · ${local}` : ''}</span>
-                {v.implied ? <span className="v">{expectedText(v.implied.pct)}</span> : null}
+                <span className="n">{c.when({ date: v.row.date, hour: v.row.hour, etTime: v.row.etTime })}{v.row.dateStatus !== 'confirmed' ? c.estTag : ''}{local ? ` · ${local}` : ''}</span>
+                {v.pct != null ? <span className="v">{expectedText(v.pct)}</span> : null}
               </a></li>
             );
           })}
