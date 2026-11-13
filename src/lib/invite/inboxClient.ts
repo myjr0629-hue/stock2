@@ -71,7 +71,8 @@ export async function sendArrive(): Promise<boolean> {
     // 2026-11-13 claim = 토큰 귀속 «확인 대기» — 실행·복귀 때 /api/invite/verify 로 RC 신규 고객 확인(lib/invite/tokenClient)
     //   본문을 못 읽으면 «아직 안 보냄»으로 남겨 다음 실행이 다시 보낸다(서버는 again + claim 으로 다시 알려 준다 — 관문 11131222 ②)
     // 403 noip = 서버가 이번 요청의 IP 를 못 읽었다(일시적) → 다음 실행에 다시. 그 밖의 403 = 이 기기는 센 대상이 아님(봇·데스크톱 등) — 다시 해도 같다(관문 11131222 ①)
-    if (r.status === 403) { const j = await r.json().catch(() => null); return j?.reason !== 'noip'; }
+    //   본문을 못 읽은 403 도 이유를 모르니 다시 시도한다(관문 11131220 — 앱 안에서만 부르므로 봇·데스크톱 403 은 사실상 없다)
+    if (r.status === 403) { const j = await r.json().catch(() => null); return !!j && typeof j.reason === 'string' && j.reason !== 'noip'; }
     if (!r.ok) return false;
     const j = await r.json().catch(() => undefined);
     if (j === undefined) return false;
