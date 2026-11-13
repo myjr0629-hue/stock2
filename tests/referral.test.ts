@@ -168,7 +168,7 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     assert.equal(claimDecision(`pending:${NOW}:${NOW}`, NOW + VERIFY_GAP_MS), 'call');
     assert.equal(claimDecision(`pending:${NOW}`, NOW + CLAIM_WINDOW_MS + 1), 'stop');
   });
-  await t('문구 — 시트 보상 한 줄 3개 언어 · 조건(설치+1개월 시작)·월 3 · 가격·희소성 단어 없음', () => {
+  await t('문구 — 시트 보상 한 줄 3개 언어 · 조건(설치)·월 3 · 가격·희소성 단어 없음', () => {
     for (const l of ['ko', 'en', 'ja'] as const) {
       const s = INVITE_COPY[l].referralLine;
       assert.ok(s && /3/.test(s), l); assert.ok(!/[$₩¥]|선착순|first come|先着|lifetime|평생|永久/i.test(s), l);
@@ -221,12 +221,21 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     const box = (await inbox(mem, { key: KEY_A, os: 'ios', now: NOW + 600_000, vercelEnv: 'preview' }))!;
     assert.equal(box.minted, 1); assert.equal(box.items.length, 1); assert.equal(box.waiting, 0);
   });
-  await t('구매 전 → pending(적립 0·결론 없음) → 1개월 시작 뒤 다시 → credited', async () => {
+  await t('코디네이터 결정(조건 = 기존 문구 «설치하면»): 구매·체험 없이도 클릭 뒤 첫 실행 무렵 처음 생긴 비샌드박스 RC 고객이면 credited', async () => {
     mem = memoryInviteStore(() => NOW);
     await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(11), at: NOW });
-    assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(11), NOW + 200_000, rcFixed(subscriber({ first: NOW + 90_000 }))), { state: 'pending', reason: 'no_purchase' });
-    assert.equal(await mem.get(K.credit(REF_A)), null); assert.equal(await mem.get(K.claimDone(REF_B)), null);
-    assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(11), NOW + 3600_000, rcFixed(subscriber({ first: NOW + 90_000, buys: [{ at: NOW + 3000_000 }] }))), { state: 'credited' });
+    assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(11), NOW + 200_000, rcFixed(subscriber({ first: NOW + 90_000 }))), { state: 'credited' });
+    assert.equal(await mem.get(K.credit(REF_A)), '1');
+  });
+  await t('첫 실행 60분 창 밖에서 처음 생긴 RC 고객(나중에 따로 만든 ID) → late · 적립 0 · RC 기록 없음(404) → pending', async () => {
+    mem = memoryInviteStore(() => NOW);
+    await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(18), at: NOW });   // 도착 기록 = NOW + 60초
+    assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(18), NOW + 3 * 3600_000, async () => ({ kind: 'missing' })), { state: 'pending', reason: 'missing' });
+    assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(18), NOW + 3 * 3600_000, rcFixed(subscriber({ first: NOW + 60_000 + 61 * 60_000 }))), { state: 'final', reason: 'late' });
+    assert.equal(await mem.get(K.credit(REF_A)), null);
+    mem = memoryInviteStore(() => NOW);
+    await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(19), at: NOW });
+    assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(19), NOW + 3 * 3600_000, rcFixed(subscriber({ first: NOW + 60_000 + 59 * 60_000 }))), { state: 'credited' });
   });
   await t('자기 초대 — 친구 RC 고객 = 초대자 RC 고객(같은 기기에서 열쇠만 새로) → self · RC 호출 0 · 적립 0', async () => {
     mem = memoryInviteStore(() => NOW);
@@ -328,11 +337,13 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(41), NOW + 4000, rcFixed(subscriber({ first: NOW + 90_000, buys: [{ at: NOW + 3000 }] }))), { state: 'pending', reason: 'limited' });
     assert.equal(await mem.get(K.credit(REF_A)), null);
   });
-  await t('rcNewness — 환불 거래·스토어 밖(프로모 수동 부여)은 증거 아님 · 응답 모양이 이상하면 pending', () => {
-    const base = subscriber({ first: NOW + 1, buys: [{ at: NOW + 2 }] }) as any;
+  await t('rcNewness — 거래 중복키: 운영 스토어·환불 아님만(환불·스토어 밖은 txn 없음) · 응답 모양이 이상하면 pending', () => {
+    const base = subscriber({ first: NOW + 1, buys: [{ at: NOW + 2, tx: 'T1' }] }) as any;
+    assert.deepEqual(rcNewness(base, NOW), { verdict: 'verified', txn: 'T1' });
     const sub = Object.values(base.subscriber.subscriptions)[0] as any;
-    sub.refunded_at = iso(NOW + 3); assert.equal(rcNewness(base, NOW).verdict, 'pending');
-    delete sub.refunded_at; sub.store = 'promotional'; assert.equal(rcNewness(base, NOW).verdict, 'pending');
+    sub.refunded_at = iso(NOW + 3); assert.deepEqual(rcNewness(base, NOW), { verdict: 'verified', txn: null });
+    delete sub.refunded_at; sub.store = 'promotional'; assert.deepEqual(rcNewness(base, NOW), { verdict: 'verified', txn: null });
+    assert.deepEqual(rcNewness(subscriber({ first: NOW + 1 }), NOW), { verdict: 'verified', txn: null });
     assert.equal(rcNewness(null, NOW).verdict, 'pending'); assert.equal(rcNewness({ subscriber: {} }, NOW).verdict, 'pending');
   });
 
@@ -410,17 +421,17 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     assert.deepEqual(ar, { ok: true, matched: true, claim: true }); await flush();
     assert.equal(ec2.get(`share:probe:claim:sh_pick:ios:${day}`), 1);
     assert.equal(ec2.has(`share:probe:credit:sh_pick:ios:${day}`), false);
-    // 확인: 아직 1개월 미시작 → pending · 시작 뒤 → done + reward
+    // 확인: RC 기록 아직 없음(404) → pending · 첫 실행 RC 신규 고객(구매 없음) → done + reward
     const clickAt = Date.now();
-    rcReply = () => ({ status: 200, json: subscriber({ first: clickAt + 1000 }) });
+    rcReply = () => ({ status: 404 });
     let vr = await (await verifyRoute.POST(post('/api/invite/verify', { key: KEY_B, rcUid: UID_B }, friendIp))).json();
     assert.deepEqual(vr, { ok: true, state: 'pending' }); await flush();
-    rcReply = (uid) => (uid === UID_B ? { status: 200, json: subscriber({ first: clickAt + 1000, buys: [{ at: clickAt + 2000, tx: 'tx-route' }] }) } : { status: 404 });
+    rcReply = (uid) => (uid === UID_B ? { status: 200, json: subscriber({ first: clickAt + 1000 }) } : { status: 404 });
     vr = await (await verifyRoute.POST(post('/api/invite/verify', { key: KEY_B, rcUid: UID_B }, friendIp))).json();
     assert.deepEqual(vr, { ok: true, state: 'done' }); await flush();
     assert.equal(ec2.get(`share:probe:reward:all:ios:${day}`), 1);
     assert.equal(ec2.get(`share:probe:rverify:credited:ios:${day}`), 1);
-    assert.equal(ec2.get(`share:probe:rverify:p_no_purchas:ios:${day}`), 1);
+    assert.equal(ec2.get(`share:probe:rverify:p_missing:ios:${day}`), 1);
     // 초대자 선물함
     const ib = await (await inboxRoute.POST(post('/api/invite/inbox', { key: KEY_A }, '203.0.113.1'))).json();
     assert.equal(ib.minted, 1); assert.equal(ib.items.length, 1); assert.equal(ib.friends, 1);

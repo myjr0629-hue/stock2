@@ -10,12 +10,13 @@
  *        · 친구 RC 고객 = 토큰의 초대자 RC 고객            → self(자기 초대·같은 기기) — 보상 없음, 끝
  *        · first_seen 이 링크 클릭보다 이전 · 클릭 전 구매 기록 → existing(이미 고객) — 끝
  *        · 샌드박스(시험) 구매가 하나라도 있다                → sandbox — 끝
- *        · 클릭 뒤 시작된 «운영 스토어» 구독·구매가 있다        → verified → 원자 적립(같은 RC 고객·같은 거래·같은 IP 1회, 초대자 월 3, 전체 하루 25)
- *        · 아직 구매·체험 시작이 없다(1개월 코드 미등록)       → pending — 7일 안의 다음 실행에 다시
- *      익명 RC ID 는 기기가 만들 수 있는 값이라 «RC 고객이 있다»만으로는 신규 사람의 증거가 아니다(설계 §흐름 4). 그래서 «운영 스토어 거래»를
- *      증거로 삼는다 — 친구가 1개월 코드를 등록하거나 체험을 시작하면 애플·구글이 서명한 거래가 RC 에 생긴다(시험 계정은 is_sandbox).
+ *        · first_seen 이 첫 실행(도착) 60분 뒤보다 늦다        → late(첫 실행의 RC 고객이 아님) — 끝
+ *        · 그 밖(클릭 뒤 ~ 첫 실행 무렵 처음 생긴 비샌드박스 RC 고객) → verified → 원자 적립(같은 RC 고객·같은 거래·같은 IP 1회, 초대자 월 3, 전체 하루 25)
+ *      ★2026-11-13 코디네이터 결정 «조건을 기존 문구(친구가 설치하면 코드)에 맞춘다» — 처음엔 «클릭 뒤 운영 스토어 구매·체험 시작»까지 요구했으나 뺐다.
+ *      익명 RC ID 는 기기가 만들 수 있는 값이라 «RC 고객이 있다»만으로는 신규 사람의 증거가 아니다(설계 §흐름 4) — 이 완화로 남는 위험은
+ *      같은 망 제외·같은 IP 30일 1회·초대자 월 3·하루 25·첫 실행 60분 창이 받친다(RESULT.md 남은 위험).
  *   ⑤ 초대자 앱의 선물함(/api/invite/inbox)이 크레딧을 기존 풀·mintOne 으로 번호 1장으로 바꾼다(기존 그대로) → 앱 안 «친구가 설치했어요» 카드.
- * 리뷰·평점과 무관하다(애플 3.2.2·5.6) — 조건은 설치·첫 실행·무료 1개월 시작뿐.
+ * 리뷰·평점과 무관하다(애플 3.2.2·5.6) — 조건은 설치·첫 실행뿐.
  * 개인정보: RC ID·열쇠·IP·번호 원문은 저장·로그하지 않는다(HMAC 해시만). 결론 표식에는 사유 단어만.
  */
 import { DAILY_CREDIT_CAP, CLAIM_TTL_SEC, INVITER_MONTHLY_CAP, IP_CREDIT_TTL_SEC, etDay, inviteKeys, isOs, type InviteStore, type Os } from './engine';
@@ -28,6 +29,8 @@ export const REFERRAL_RC_UID_RE = /^\$RCAnonymousID:[0-9a-f]{32}$|^[A-Za-z0-9._:
 /** 서버 시계 차 여유 — 진짜 초대 설치는 «클릭 → 스토어 → 설치 → 첫 실행(RC 고객 생성)» 순서라 first_seen·구매는 늘 클릭 «뒤»다.
  *  10분이면 «클릭 몇 분 전에 이미 설치한 사람»도 신규로 통과한다(관문 11131202 ②) → 60초(RC·Vercel 서버 시계 차만). */
 export const CLICK_SKEW_MS = 60_000;
+/** first_seen 이 첫 실행(도착 기록) 뒤 이만큼 안이어야 «그 첫 실행의 RC 고객»으로 본다(나중에 따로 만든 ID 로 받는 것 방지) */
+export const FIRST_RUN_WINDOW_MS = 60 * 60_000;
 export const VERIFY_WINDOW_S = 600;
 export const VERIFY_LIMIT_SELF = 6;
 export const VERIFY_LIMIT_IP = 30;
@@ -38,21 +41,22 @@ const DAY_TTL = 3 * 24 * 3600;
 const MONTH_TTL = 40 * 24 * 3600;
 const DONE_TTL = CLAIM_TTL_SEC + 86400;
 
-export type RcVerdict = { verdict: 'verified'; txn: string | null } | { verdict: 'pending' | 'existing' | 'sandbox' };
+export type RcVerdict = { verdict: 'verified'; txn: string | null } | { verdict: 'pending' | 'existing' | 'sandbox' | 'late' };
 
 const ms = (v: unknown) => (typeof v === 'string' && v ? Date.parse(v) : NaN);
 
 /**
- * RC v1 subscriber 응답 → 신규성 판정. since = 친구가 초대 링크를 연 시각(터치). 순수 함수.
- *   거래 후보 = subscriptions 값 + non_subscriptions 배열 원소. 환불(refunded_at)된 거래는 증거로 쓰지 않는다.
+ * RC v1 subscriber 응답 → 신규성 판정. since = 친구가 초대 링크를 연 시각(터치) · arrivedAt = 첫 실행 도착 기록 시각. 순수 함수.
+ *   거래 후보 = subscriptions 값 + non_subscriptions 배열 원소(있으면 이미 고객·샌드박스 판정에만 쓰고, 지급 조건은 아니다).
  */
-export function rcNewness(json: unknown, since: number): RcVerdict {
+export function rcNewness(json: unknown, since: number, arrivedAt: number = since): RcVerdict {
   const sub = (json as { subscriber?: Record<string, any> } | null)?.subscriber;
   if (!sub || typeof sub !== 'object') return { verdict: 'pending' };
   const floor = since - CLICK_SKEW_MS;
   const first = ms(sub.first_seen);
   if (!Number.isFinite(first)) return { verdict: 'pending' };
   if (first < floor) return { verdict: 'existing' };
+  if (first > Math.max(arrivedAt, since) + FIRST_RUN_WINDOW_MS) return { verdict: 'late' };
   const items: Record<string, any>[] = [];
   if (sub.subscriptions && typeof sub.subscriptions === 'object') {
     for (const v of Object.values(sub.subscriptions as Record<string, unknown>)) if (v && typeof v === 'object') items.push(v as Record<string, any>);
@@ -68,11 +72,11 @@ export function rcNewness(json: unknown, since: number): RcVerdict {
     const bought = ms(it.purchase_date);
     if ((Number.isFinite(orig) && orig < floor) || (Number.isFinite(bought) && bought < floor)) return { verdict: 'existing' };
   }
+  // 구매·체험은 지급 조건이 아니다(코디네이터 결정). 있으면 그 거래로도 중복을 막는다(같은 거래 1회).
   const fresh = items.find((it) => it.is_sandbox === false && !it.refunded_at
     && (it.store === 'app_store' || it.store === 'play_store')
     && Number.isFinite(ms(it.purchase_date)) && ms(it.purchase_date) >= floor);
-  if (!fresh) return { verdict: 'pending' };
-  const txn = typeof fresh.store_transaction_id === 'string' && fresh.store_transaction_id ? fresh.store_transaction_id
+  const txn = !fresh ? null : typeof fresh.store_transaction_id === 'string' && fresh.store_transaction_id ? fresh.store_transaction_id
     : typeof fresh.id === 'string' && fresh.id ? fresh.id : null;
   return { verdict: 'verified', txn };
 }
@@ -105,9 +109,9 @@ export function etMonth(now = Date.now()): string { return etDay(now).slice(0, 7
 
 export type VerifyState =
   | { state: 'none' }                       // 이 기기에는 확인할 초대가 없다(멈춘다)
-  | { state: 'pending'; reason: 'no_purchase' | 'day_cap' | 'limited' | 'unavailable' | 'missing' }
+  | { state: 'pending'; reason: 'no_record' | 'day_cap' | 'limited' | 'unavailable' | 'missing' }
   | { state: 'credited' }
-  | { state: 'final'; reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'dup' | 'ip' | 'inviter_cap' | 'credited' | 'again' };
+  | { state: 'final'; reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'late' | 'dup' | 'ip' | 'inviter_cap' | 'credited' | 'again' };
 
 export interface VerifyInput {
   key: unknown; rcUid: unknown; os: unknown; ipHash: string; now?: number; vercelEnv?: string;
@@ -138,16 +142,16 @@ export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<V
   const k = inviteKeys(i.vercelEnv);
   const selfRef = inviteRefOf(key);
   const done = await store.get(k.claimDone(selfRef));
-  if (done) return { state: 'final', reason: (['self', 'same_ip', 'existing', 'sandbox', 'dup', 'ip', 'inviter_cap', 'credited'].includes(done) ? done : 'again') as 'again' };
+  if (done) return { state: 'final', reason: (['self', 'same_ip', 'existing', 'sandbox', 'late', 'dup', 'ip', 'inviter_cap', 'credited'].includes(done) ? done : 'again') as 'again' };
   const raw = await store.get(k.claim(selfRef));
   if (!raw) return { state: 'none' };
-  let c: { r?: unknown; u?: unknown; at?: unknown; ip?: unknown } | null = null;
+  let c: { r?: unknown; u?: unknown; at?: unknown; arr?: unknown; ip?: unknown } | null = null;
   try { c = JSON.parse(raw); } catch { c = null; }
   const inviterRef = typeof c?.r === 'string' ? c.r : '';
   const at = typeof c?.at === 'number' ? c.at : NaN;
   const ip = typeof c?.ip === 'string' && /^[0-9a-f]{24}$/.test(c.ip) ? c.ip : '';
   if (!inviterRef || !Number.isFinite(at) || !ip || typeof c?.u !== 'string') return { state: 'none' };
-  const finish = async (reason: 'self' | 'same_ip' | 'existing' | 'sandbox'): Promise<VerifyState> => {
+  const finish = async (reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'late'): Promise<VerifyState> => {
     await store.setNx(k.claimDone(selfRef), reason, DONE_TTL);
     return { state: 'final', reason };
   };
@@ -170,9 +174,10 @@ export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<V
 
   const got = await i.rc(uid, i.os);
   if (got.kind !== 'ok') return { state: 'pending', reason: got.kind };
-  const v = rcNewness(got.json, at);
-  if (v.verdict === 'existing' || v.verdict === 'sandbox') return finish(v.verdict);
-  if (v.verdict !== 'verified') return { state: 'pending', reason: 'no_purchase' };
+  const arrivedAt = typeof c?.arr === 'number' && Number.isFinite(c.arr) ? c.arr : at;
+  const v = rcNewness(got.json, at, arrivedAt);
+  if (v.verdict === 'existing' || v.verdict === 'sandbox' || v.verdict === 'late') return finish(v.verdict);
+  if (v.verdict !== 'verified') return { state: 'pending', reason: 'no_record' };
 
   const uidHash = rcUidKeyHash(uid, i.secret);
   const txHash = v.txn ? 't' + crypto.createHmac('sha256', i.secret).update(`inv-tx|${v.txn}`).digest('hex').slice(0, 31) : `n${uidHash}`;
