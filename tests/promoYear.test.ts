@@ -55,11 +55,11 @@ const fakeRc = (subscriber: unknown, status: { get?: number; post?: number } = {
   });
   await t('구매 1건 → 구매 + 365일', () => {
     const at = NOW - 3600_000;
-    assert.deepEqual(planPromoYear(subWith([{ at, tx: 'A' }]), NOW), { kind: 'grant', purchase: { tx: 'A', ms: at }, endMs: at + PROMO_YEAR_MS });
+    assert.deepEqual(planPromoYear(subWith([{ at, tx: 'A' }]), NOW), { kind: 'grant', purchase: { tx: 'A', ms: at, sandbox: false }, endMs: at + PROMO_YEAR_MS });
   });
   await t('여러 건이면 가장 최근 · 다른 스토어·미래 이상값 무시 · 366일 전은 expired', () => {
     const p = planPromoYear(subWith([{ at: NOW - D, tx: 'B' }, { at: NOW - 200 * D }, { at: NOW - 1000, store: 'play_store' }, { at: NOW + 3600_000 }]), NOW);
-    assert.deepEqual(p, { kind: 'grant', purchase: { tx: 'B', ms: NOW - D }, endMs: NOW - D + PROMO_YEAR_MS });
+    assert.deepEqual(p, { kind: 'grant', purchase: { tx: 'B', ms: NOW - D, sandbox: false }, endMs: NOW - D + PROMO_YEAR_MS });
     assert.deepEqual(planPromoYear(subWith([{ at: NOW - 366 * D }]), NOW), { kind: 'none', why: 'expired' });
   });
   await t('덮임 — 같은 만료(±2시간)·평생 프로모셔널 covered · 하루 짧으면 다시 · 유료 연간 구독은 덮지 않는다', () => {
@@ -68,6 +68,15 @@ const fakeRc = (subscriber: unknown, status: { get?: number; post?: number } = {
     assert.equal(planPromoYear(subWith([{ at }], promo(end - D)), NOW).kind, 'grant');
     assert.equal(planPromoYear(subWith([{ at }], promo(null)), NOW).kind, 'none');
     assert.equal(planPromoYear(subWith([{ at }], { 'com.signumhq.app.pro.annual': { store: 'app_store', expires_date: iso(end + 1e9) } }), NOW).kind, 'grant');
+  });
+  await t('샌드박스(심사·TestFlight) 구매는 하루만 · 표시가 없으면 샌드박스로 · 운영 구매가 있으면 운영 기준', () => {
+    const at = NOW - 3600_000;
+    const sb = { subscriber: { non_subscriptions: { [PROMO_YEAR_PRODUCT_ID]: [{ purchase_date: iso(at), store: 'app_store', is_sandbox: true, store_transaction_id: 'S' }] }, subscriptions: {} } };
+    assert.deepEqual(planPromoYear(sb, NOW), { kind: 'grant', purchase: { tx: 'S', ms: at, sandbox: true }, endMs: at + D });
+    const unk = { subscriber: { non_subscriptions: { [PROMO_YEAR_PRODUCT_ID]: [{ purchase_date: iso(at), store: 'app_store', store_transaction_id: 'U' }] } } };
+    assert.equal((planPromoYear(unk, NOW) as { endMs: number }).endMs, at + D);
+    assert.deepEqual(planPromoYear(sb, NOW + 2 * D), { kind: 'none', why: 'expired' });
+    assert.equal((planPromoYear(sb, NOW, { hint: { tx: 'P', ms: at - 1000, sandbox: false } }) as { endMs: number }).endMs, at - 1000 + PROMO_YEAR_MS);
   });
   await t('웹훅 힌트 — 기록에 없거나(첫 구매) 기록보다 늦을 때(재구매) 쓴다 · 미래 이상값 무시', () => {
     const empty = { subscriber: { non_subscriptions: {}, subscriptions: {} } };
@@ -83,7 +92,7 @@ const fakeRc = (subscriber: unknown, status: { get?: number; post?: number } = {
     assert.deepEqual(planPromoYear(subWith([{ at: a, tx: 'A', refunded: true }]), NOW, { hint: { tx: 'A', ms: a } }), { kind: 'none', why: 'no_purchase' });
     assert.deepEqual(planPromoYear(subWith([{ at: a, tx: 'A' }]), NOW, { refunded: ['A'] }), { kind: 'none', why: 'no_purchase' });
     assert.deepEqual(planPromoYear(subWith([{ at: a, tx: 'A' }, { at: b, tx: 'B' }]), NOW, { refunded: ['B'] }),
-      { kind: 'grant', purchase: { tx: 'A', ms: a }, endMs: a + PROMO_YEAR_MS });
+      { kind: 'grant', purchase: { tx: 'A', ms: a, sandbox: false }, endMs: a + PROMO_YEAR_MS });
     // 거래 ID 가 한쪽에만 있어도 구매 시각 키('ms:')로 같은 구매를 알아본다
     assert.deepEqual(planPromoYear({ subscriber: { non_subscriptions: { [PROMO_YEAR_PRODUCT_ID]: [{ purchase_date: iso(a), store: 'app_store' }] } } }, NOW, { refunded: ['TX9', `ms:${Date.parse(iso(a))}`] }), { kind: 'none', why: 'no_purchase' });
   });
@@ -134,8 +143,9 @@ const fakeRc = (subscriber: unknown, status: { get?: number; post?: number } = {
     const base = { type: 'NON_RENEWING_PURCHASE', product_id: PROMO_YEAR_PRODUCT_ID, store: 'APP_STORE', period_type: 'NORMAL', app_user_id: UID };
     const ev = (o: Record<string, unknown>) => ({ event: { ...base, ...o } });
     assert.deepEqual(promoYearFromWebhook(ev({})), { uid: UID });
-    assert.deepEqual(promoYearFromWebhook(ev({ purchased_at_ms: NOW, transaction_id: 'T1' })), { uid: UID, purchase: { tx: 'T1', ms: NOW } });
-    assert.deepEqual(promoYearFromWebhook(ev({ purchased_at_ms: NOW })), { uid: UID, purchase: { tx: `ms:${NOW}`, ms: NOW } });
+    assert.deepEqual(promoYearFromWebhook(ev({ purchased_at_ms: NOW, transaction_id: 'T1', environment: 'PRODUCTION' })), { uid: UID, purchase: { tx: 'T1', ms: NOW, sandbox: false } });
+    assert.deepEqual(promoYearFromWebhook(ev({ purchased_at_ms: NOW, environment: 'SANDBOX' })), { uid: UID, purchase: { tx: `ms:${NOW}`, ms: NOW, sandbox: true } });
+    assert.deepEqual(promoYearFromWebhook(ev({ purchased_at_ms: NOW })), { uid: UID, purchase: { tx: `ms:${NOW}`, ms: NOW, sandbox: true } });
     assert.equal(promoYearFromWebhook(ev({ period_type: 'PROMOTIONAL' })), null);
     assert.equal(promoYearFromWebhook(ev({ product_id: 'rc_promo_pro_custom', store: 'PROMOTIONAL' })), null);
     assert.equal(promoYearFromWebhook(ev({ product_id: 'com.signumhq.app.pro.annual', type: 'INITIAL_PURCHASE' })), null);

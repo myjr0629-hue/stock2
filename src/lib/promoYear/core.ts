@@ -22,7 +22,10 @@ const FUTURE_SKEW_MS = 10 * 60_000;           // 구매 시각이 서버 시계�
 export const RC_UID_RE = /^\$RCAnonymousID:[0-9a-f]{32}$|^[A-Za-z0-9._:-]{8,100}$/;
 
 /** 구매 한 건 — tx = 애플 거래 ID(RC store_transaction_id · 웹훅 transaction_id). 없으면 'ms:<구매 시각>' */
-export type Purchase = { tx: string; ms: number };
+export type Purchase = { tx: string; ms: number; sandbox?: boolean };
+/** 샌드박스(앱 심사·TestFlight) 구매는 하루만 — 심사관이 PRO 켜짐을 확인할 수 있게 하되, 운영 고객 ID 에 샌드박스로 1년을 얻는 길을 막는다 */
+export const PROMO_YEAR_SANDBOX_MS = 86_400_000;
+const termOf = (p: Purchase) => (p.sandbox ? PROMO_YEAR_SANDBOX_MS : PROMO_YEAR_MS);
 export type PromoPlan =
   | { kind: 'grant'; purchase: Purchase; endMs: number }
   | { kind: 'none'; why: 'no_purchase' | 'expired' | 'covered' };
@@ -34,7 +37,7 @@ const txOf = (v: unknown, at: number) => (typeof v === 'string' && v.length > 0 
  * RC v1 GET /subscribers/{id} 응답 + 우리 환불 기록 → 붙일지·만료 시각. 순수 함수.
  *   유효 구매 = RC 기록(app_store · 환불 표시 없음) ∪ hint(인증된 웹훅의 구매 — 기록 반영 지연)
  *               − 환불된 구매(RC 환불 표시 · 우리 환불 기록). 같은 구매 판정은 거래 ID 또는 'ms:<구매 시각>' 중 하나라도 같으면.
- *   그중 가장 최근 구매 + 365일.
+ *   그중 가장 늦게 끝나는 구매(운영 구매 + 365일 · 샌드박스 구매 + 1일).
  */
 export function planPromoYear(json: unknown, now: number, opts: { hint?: Purchase; refunded?: string[] } = {}): PromoPlan {
   const sub = ((json as { subscriber?: Record<string, unknown> } | null)?.subscriber ?? {}) as Record<string, unknown>;
@@ -45,10 +48,10 @@ export function planPromoYear(json: unknown, now: number, opts: { hint?: Purchas
   if (Array.isArray(list)) {
     for (const p of list) {
       if (!p || typeof p !== 'object') continue;
-      const rec = p as { store?: unknown; purchase_date?: unknown; refunded_at?: unknown; store_transaction_id?: unknown };
+      const rec = p as { store?: unknown; purchase_date?: unknown; refunded_at?: unknown; store_transaction_id?: unknown; is_sandbox?: unknown };
       const t = ms(rec.purchase_date);
       if (!Number.isFinite(t)) continue;
-      const pur = { tx: txOf(rec.store_transaction_id, t), ms: t };
+      const pur: Purchase = { tx: txOf(rec.store_transaction_id, t), ms: t, sandbox: rec.is_sandbox !== false };   // 표시가 없으면 샌드박스로(짧게) 본다
       if (rec.refunded_at != null) { for (const k of keys(pur)) refunded.add(k); continue; }   // 환불된 구매는 근거가 아니다
       if (rec.store !== 'app_store') continue;
       cands.push(pur);
@@ -59,10 +62,10 @@ export function planPromoYear(json: unknown, now: number, opts: { hint?: Purchas
   for (const c of cands) {
     if (!c || typeof c.ms !== 'number' || !Number.isFinite(c.ms) || c.ms <= 0 || c.ms > now + FUTURE_SKEW_MS) continue;
     if (keys(c).some((k) => refunded.has(k))) continue;
-    if (!best || c.ms > best.ms) best = c;
+    if (!best || c.ms + termOf(c) > best.ms + termOf(best)) best = c;   // 가장 늦게 끝나는 구매
   }
   if (!best) return { kind: 'none', why: 'no_purchase' };
-  const endMs = best.ms + PROMO_YEAR_MS;
+  const endMs = best.ms + termOf(best);
   if (endMs <= now) return { kind: 'none', why: 'expired' };
   if (currentPromoExpiry(sub) >= endMs - COVER_SLACK_MS) return { kind: 'none', why: 'covered' };
   return { kind: 'grant', purchase: best, endMs };
@@ -162,7 +165,7 @@ export async function recordPromoYearRefund(uid: string, keys: string[], deps: E
 function eventPurchase(e: Record<string, unknown>): Purchase | undefined {
   const at = e.purchased_at_ms;
   if (typeof at !== 'number' || !Number.isSafeInteger(at) || at <= 0) return undefined;
-  return { tx: txOf(e.transaction_id, at), ms: at };
+  return { tx: txOf(e.transaction_id, at), ms: at, sandbox: e.environment !== 'PRODUCTION' };
 }
 
 /** RC 웹훅이 «이 상품 구매의 환불»인가(비갱신 구매 환불은 CANCELLATION 으로 온다) — 그 구매를 가리키는 키(거래 ID · 'ms:<구매 시각>') */
