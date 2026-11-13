@@ -257,7 +257,7 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     assert.equal(await verifyPendingFor(mem, { inviterRef: REF_A, now: first + SANDBOX_HOLD_MS + 1000, vercelEnv: 'preview', secret: SECRET, rc }), 1);
     assert.equal(await mem.get(K.credit(REF_A)), '1');
     assert.equal(await mem.get(K.claimUid(REF_B)), null, '적립 뒤 암호문 삭제');
-    assert.equal(JSON.parse((await mem.get(K.pending(REF_A))) || '[]').length, 0);
+    assert.deepEqual(await mem.hgetall(K.pending(REF_A)), {});
     const box = (await inbox(mem, { key: KEY_A, os: 'ios', now: first + SANDBOX_HOLD_MS + 2000, vercelEnv: 'preview' }))!;
     assert.equal(box.minted, 1);
     // 대기 중 시험 구매가 생기면 초대자 쪽 확인도 sandbox 로 끝낸다
@@ -266,6 +266,20 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     await verifyClaim(mem, { key: KEY_C, rcUid: UID_C, os: 'ios', ipHash: HEX(91), now: first + 600_000, vercelEnv: 'preview', secret: SECRET, rc });
     assert.equal(await verifyPendingFor(mem, { inviterRef: REF_A, now: first + SANDBOX_HOLD_MS + 1000, vercelEnv: 'preview', secret: SECRET, rc: rcFixed(subscriber({ first, buys: [{ at: first + 1000, sandbox: true }] })) }), 0);
     assert.equal(await mem.get(K.claimDone(inviteRefOf(KEY_C))), 'sandbox'); assert.equal(await mem.get(K.credit(REF_A)), null);
+  });
+  await t('첫 확인이 RC 장애·기록 없음이어도 보관 → 친구가 다시 안 열어도 초대자 선물함 열기가 확인 · 두 친구 동시 대기도 둘 다 남는다', async () => {
+    const { verifyPendingFor } = await import('../src/lib/invite/referral');
+    mem = memoryInviteStore(() => NOW);
+    await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(92), at: NOW });
+    await clickAndArrive(mem, { friendKey: KEY_C, ip: HEX(93), at: NOW });
+    await Promise.all([
+      verifyClaim(mem, { key: KEY_B, rcUid: UID_B, os: 'ios', ipHash: HEX(92), now: NOW + 120_000, vercelEnv: 'preview', secret: SECRET, rc: async () => ({ kind: 'unavailable' }) }),
+      verifyClaim(mem, { key: KEY_C, rcUid: UID_C, os: 'ios', ipHash: HEX(93), now: NOW + 120_000, vercelEnv: 'preview', secret: SECRET, rc: async () => ({ kind: 'missing' }) }),
+    ]);
+    assert.deepEqual(Object.keys(await mem.hgetall(K.pending(REF_A))).sort(), [REF_B, inviteRefOf(KEY_C)].sort());
+    const later = NOW + 120_000 + SANDBOX_HOLD_MS + 60_000;
+    assert.equal(await verifyPendingFor(mem, { inviterRef: REF_A, now: later, vercelEnv: 'preview', secret: SECRET, rc: rcFixed(subscriber({ first: NOW + 90_000 })) }), 2);
+    assert.equal(await mem.get(K.credit(REF_A)), '2');
   });
   await t('첫 실행 시각: 앱이 보낸 first 를 [클릭, 지금]으로 잘라 저장 — 늦은 재시도여도 60분 창은 실제 첫 실행부터', async () => {
     mem = memoryInviteStore(() => NOW);

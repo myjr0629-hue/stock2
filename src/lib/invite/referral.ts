@@ -156,7 +156,6 @@ export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<V
 // 2시간 샌드박스 대기 동안 친구가 앱을 닫고 다시 안 열면 확인할 주체가 없다(관문 11131236). 그래서 대기(hold·하루 상한)에 걸린 기록은
 // 친구 RC ID 를 «서버 비밀로 암호화(AES-256-GCM)»해 7일 보관하고, 초대자가 선물함을 열 때(/api/invite/inbox) 만기된 것부터 서버가 다시 확인한다.
 // 초대자는 보상을 보려면 어차피 앱을 연다 — 그 순간 확인·적립·번호 배정이 한 번에 된다. RC ID 원문은 저장하지 않는다(암호문만, 7일 TTL).
-export const PENDING_MAX = 10;
 export const PENDING_PER_INBOX = 3;
 const encKey = (secret: string) => crypto.createHash('sha256').update(`inv-uid-enc|${secret}`).digest();
 export function sealUid(uid: string, secret: string): string {
@@ -175,23 +174,21 @@ export function openUid(sealed: string, secret: string): string | null {
   } catch { return null; }
 }
 type PendingItem = { s: string; due: number };
+/** 대기 목록 = HASH 친구 ref → 만기 시각(필드마다 7일 TTL). 필드 단위 쓰기라 동시에 두 친구가 들어와도 서로 덮어쓰지 않는다(관문 11131239 ②). */
 async function readPending(store: InviteStore, key: string): Promise<PendingItem[]> {
   try {
-    const v = JSON.parse((await store.get(key)) || '[]');
-    return Array.isArray(v) ? v.filter((x): x is PendingItem => x && typeof x.s === 'string' && typeof x.due === 'number') : [];
+    return Object.entries(await store.hgetall(key)).map(([s, v]) => ({ s, due: Number(v) })).filter((x) => Number.isFinite(x.due)).sort((a, b) => a.due - b.due);
   } catch { return []; }
 }
 async function park(store: InviteStore, k: ReturnType<typeof inviteKeys>, inviterRef: string, selfRef: string, uid: string, due: number, secret: string) {
   try {
     await store.set(k.claimUid(selfRef), sealUid(uid, secret), CLAIM_TTL_SEC);
-    const list = (await readPending(store, k.pending(inviterRef))).filter((x) => x.s !== selfRef);
-    await store.set(k.pending(inviterRef), JSON.stringify([...list, { s: selfRef, due }].slice(-PENDING_MAX)), CLAIM_TTL_SEC);
+    await store.hsetExpiring(k.pending(inviterRef), selfRef, String(due), CLAIM_TTL_SEC);
   } catch { /* 보관 실패 — 친구 앱의 다음 확인이 남는다 */ }
 }
 async function unpark(store: InviteStore, k: ReturnType<typeof inviteKeys>, inviterRef: string, selfRef: string) {
   try {
-    const list = await readPending(store, k.pending(inviterRef));
-    if (list.some((x) => x.s === selfRef)) await store.set(k.pending(inviterRef), JSON.stringify(list.filter((x) => x.s !== selfRef)), CLAIM_TTL_SEC);
+    await store.hdel(k.pending(inviterRef), selfRef);
     await store.del(k.claimUid(selfRef));
   } catch { /* TTL 이 지운다 */ }
 }
@@ -244,6 +241,10 @@ async function verifyBySelfRef(store: InviteStore, i: { selfRef: string; uid: st
   //   RC 앱 사용자 ID 는 기기가 고를 수 있어(토큰 발급 때 남의 ID 를 내도 막을 수 없다 — 관문 11131202 ①) RC 비교만으로는 «같은 기기 재설치»를 못 막는다.
   //   같은 와이파이의 가족·동료도 걸리지만(정상 초대 일부 손실) 금전 가치 보상이라 보수적으로 막는다(설계 §부정 방지).
   if ((await inviterIps(store, k.tokenIps(inviterRef))).includes(ip)) return finish('same_ip');
+
+  // RC 확인 «전»에 먼저 보관한다 — 공급사 제한·장애·기록 지연으로 이번에 못 끝내도 초대자 선물함 열기가 다시 확인할 수 있게(관문 11131239 ①).
+  //   결론(적립·제외)이 나면 unpark 가 지운다. 만기 = 지금(다음 선물함 열기에 바로 다시).
+  await park(store, k, inviterRef, selfRef, uid, now, i.secret);
 
   // 공급사 호출 전 예산(10분 창): 친구 ref·IP·전체
   const w = Math.floor(now / 1000 / VERIFY_WINDOW_S);
