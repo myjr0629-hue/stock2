@@ -26,6 +26,7 @@ import { Zap, ArrowRight, X } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/routing';
 import { useTier } from '@/contexts/TierContext';
 import { useTranslations, useLocale } from 'next-intl';
+import { isFoundingBarExcludedPath } from './foundingBarExclude';
 
 /** 폰(아이폰·아이패드·안드로이드)인가 — [locale]/layout 의 서버 판정(isMobileDevice)과 같은 정규식(순수 함수). */
 export function isPhoneUa(ua: string): boolean {
@@ -86,6 +87,11 @@ export function StickyFoundingBar() {
 
     // PRO/ELITE 유저에게는 표시하지 않음 · 우리 앱 안에서도 표시하지 않음
     if (loading || tier === 'pro' || tier === 'elite' || dismissed || native) {
+        return null;
+    }
+
+    // ★2026-11-13 실적 SEO 페이지(/earnings, /earnings/<SYMBOL>)는 앱 설치가 목적 — 웹 가격 띠를 그리지 않는다(foundingBarExclude.ts).
+    if (isFoundingBarExcludedPath(pathname)) {
         return null;
     }
 
