@@ -1,6 +1,6 @@
 import { giftStore } from '@/lib/giftShare/server';
 import { authorized, insert, normalize } from '@/lib/rcCohort/core';
-import { ensurePromoYear, evalRefundLedger, promoYearFromWebhook, promoYearRefundFromWebhook, revokePromoYearIfRefunded } from '@/lib/promoYear/core';
+import { ensurePromoYear, evalPromoLedger, promoYearFromWebhook, promoYearRefundFromWebhook, revokePromoYearIfRefunded } from '@/lib/promoYear/core';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,14 +33,14 @@ export async function POST(request: Request): Promise<Response> {
   if (!promo && !refund) return reply(200);
   const ledgerStore = giftStore();
   if (!ledgerStore) return reply(503);
-  const deps = { secret: process.env.REVENUECAT_SECRET_API_KEY || '', refunds: evalRefundLedger(ledgerStore) };
+  const deps = { secret: process.env.REVENUECAT_SECRET_API_KEY || '', ledger: evalPromoLedger(ledgerStore) };
   if (promo) {
-    const r = await ensurePromoYear(promo.uid, deps, promo.purchaseMs);
+    const r = await ensurePromoYear(promo.uid, deps, promo.purchase);
     if (r.kind === 'unavailable') return reply(503);
   }
   // 이 이용권의 환불 → 남은 유효 구매가 없으면 프로모셔널 pro 회수
   if (refund) {
-    const r = await revokePromoYearIfRefunded(refund.uid, refund.purchaseMs, deps);
+    const r = await revokePromoYearIfRefunded(refund.uid, refund.tx, deps);
     if (r.kind === 'unavailable') return reply(503);
   }
   return reply(200);

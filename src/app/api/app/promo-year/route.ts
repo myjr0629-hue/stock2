@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { Redis } from '@upstash/redis';
 import { clientIpFrom } from '@/lib/guruLens/proAccess';
-import { ensurePromoYear, evalRefundLedger, RC_UID_RE } from '@/lib/promoYear/core';
+import { ensurePromoYear, evalPromoLedger, RC_UID_RE } from '@/lib/promoYear/core';
 import { giftStore } from '@/lib/giftShare/server';
 
 export const runtime = 'nodejs';
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   const ledgerStore = giftStore();
   if (!ledgerStore) return json({ error: 'unavailable' }, 503);
-  const r = await ensurePromoYear(uid, { secret, refunds: evalRefundLedger(ledgerStore) });
+  const r = await ensurePromoYear(uid, { secret, ledger: evalPromoLedger(ledgerStore) });
   if (r.kind === 'unavailable') return json({ error: 'unavailable' }, 503);
   if (r.kind === 'granted') return json({ ok: true, status: 'granted' });
   if (r.why === 'uid') return json({ error: 'bad_request' }, 400);
