@@ -133,7 +133,9 @@ export async function refreshProAfterRedeem(path: 'sheet' | 'url', deps?: {
   check: () => Promise<boolean>;
   sync: () => Promise<void>;
   wait?: (ms: number) => Promise<void>;
-}): Promise<boolean> {
+  /** «1년 PRO 이용권(자동 갱신 없음)» — 서버가 RC 기록을 보고 «구매 + 365일» PRO 를 붙인다(lib/promoYear/core). 다시 읽기 직전마다 1번. */
+  claim?: () => Promise<void>;
+}, withPromoClaim = false): Promise<boolean> {
   let d = deps;
   if (!d) {
     if (!(await initRevenueCat())) return false;
@@ -147,6 +149,8 @@ export async function refreshProAfterRedeem(path: 'sheet' | 'url', deps?: {
         } catch { return false; }
       },
       sync: async () => { try { await Purchases.syncPurchases(); } catch { /* 무해 */ } },
+      // 코드 화면에서 돌아온 경우만(onAppActive) — 결제 지연 재조회(useProStatus·안드 안내 시트)는 서버를 부르지 않는다
+      claim: withPromoClaim ? () => claimPromoYear(async () => (await Purchases.getAppUserID()).appUserID) : undefined,
     };
   }
   const wait = d.wait ?? sleep;
@@ -155,11 +159,30 @@ export async function refreshProAfterRedeem(path: 'sheet' | 'url', deps?: {
     await d.sync();
     if (await d.check()) return true;
   }
+  if (d.claim) { await d.claim(); if (await d.check()) return true; }
   for (const ms of [3000, 8000]) {
     await wait(ms);
+    if (d.claim) await d.claim();
     if (await d.check()) return true;
   }
   return false;
+}
+
+/**
+ * «1년 PRO 이용권(자동 갱신 없음 · com.signumhq.app.pro.year.promo)» 코드 사용 직후 — 서버에 «내 RC 기록을 보고 붙여 달라»(POST /api/app/promo-year).
+ *   서버는 RC 기록에 그 상품 구매가 있을 때만 «구매 + 365일» 프로모셔널 PRO 를 붙인다(다른 코드·취소면 아무 일 없음). 실패해도 무해(웹훅이 같은 일을 한다).
+ */
+export async function claimPromoYear(appUserId: () => Promise<string | null | undefined>, fetchImpl: typeof fetch = fetch, timeoutMs = 6000): Promise<void> {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : undefined;
+  try {
+    const uid = await appUserId();
+    if (!uid) return;
+    await fetchImpl('/api/app/promo-year', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+      body: JSON.stringify({ rcAppUserId: uid }), signal: ctrl?.signal,
+    });
+  } catch { /* 무해 */ } finally { if (timer) clearTimeout(timer); }
 }
 
 function onAppActive() {
@@ -168,7 +191,7 @@ function onAppActive() {
   if (Date.now() - p.at > RETURN_WINDOW_MS) { pending = null; return; }
   pending = null;
   refreshing = true;
-  void refreshProAfterRedeem(p.path)
+  void refreshProAfterRedeem(p.path, undefined, true)
     .then((pro) => {
       if (!pro) return;
       notifyProPurchased(true);
