@@ -194,6 +194,8 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
   const [earnRows, setEarnRows] = useState<unknown[] | null>(() => (earnFresh() ? earnMem!.rows : null));
   const [earnDone, setEarnDone] = useState(earnFresh);
   const [earnRetry, setEarnRetry] = useState(0);
+  // 다시 받기가 실패해 30분 넘은 옛 행으로 그리는 중 — 실적 줄은 그려도 기본 선택은 하지 않는다(관문 2차 11/13)
+  const [earnStale, setEarnStale] = useState(false);
   const wantEarn = active;
   useEffect(() => {
     if (!wantEarn || earnDone) return;
@@ -204,7 +206,7 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
       if (rows) { setEarnRows(rows); setEarnDone(true); return; }
       // 못 읽었다 — 4초 뒤 한 번만 다시(124KB 응답이 느릴 때가 있다). 그래도 못 읽으면 실적 줄 없이 간다(칩·지도·AI 줄은 그대로)
       if (earnRetry < 1) timer = setTimeout(() => { if (!dead) setEarnRetry(1); }, 4_000);
-      else { if (earnMem) setEarnRows(earnMem.rows); setEarnDone(true); }
+      else { if (earnMem) { setEarnRows(earnMem.rows); setEarnStale(true); } setEarnDone(true); }
     });
     return () => { dead = true; if (timer) clearTimeout(timer); };
   }, [wantEarn, earnDone, earnRetry]);
@@ -241,8 +243,8 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
   const levelsReady = (t: string) => levelMem.has(t);
   const earnings = useCallback((t: string) => (earnRows ? imminentEarnings(earnRows, t, Date.now()) : null), [earnRows]);
 
-  // 기본 선택 — 캘린더 행이 정해지는 순간 한 번 계산(못 읽었으면 [] → 예전 동작)
-  const defaultPicks = useMemo(() => (earnRows ? defaultEarningsPicks(earnRows, Date.now()) : earnDone ? [] : null), [earnRows, earnDone]);
+  // 기본 선택 — 캘린더 행이 정해지는 순간 한 번 계산(못 읽었거나 옛 행뿐이면 [] → 예전 동작)
+  const defaultPicks = useMemo(() => (earnRows && !earnStale ? defaultEarningsPicks(earnRows, Date.now()) : earnDone ? [] : null), [earnRows, earnDone, earnStale]);
 
   return { cards, priceReady, levelsReady, earnings, earningsDone: earnDone, defaultPicks };
 }

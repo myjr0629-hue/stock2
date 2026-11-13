@@ -557,7 +557,8 @@ class MemStorage implements StorageLike {
     assert.ok(!/commitPicks|getWatchlistStore/.test(skip), '건너뛰기가 담는다');
     const d = read('src/components/app/firstRunValueData.ts');
     assert.ok(/const wantEarn = active;/.test(d), '실적 캘린더는 단계가 켜지면 바로(기본 선택용)');
-    assert.ok(/earnRows \? defaultEarningsPicks\(earnRows, Date\.now\(\)\) : earnDone \? \[\] : null/.test(d));
+    assert.ok(/earnRows && !earnStale \? defaultEarningsPicks\(earnRows, Date\.now\(\)\) : earnDone \? \[\] : null/.test(d), '옛 행(재요청 실패)으로는 기본 선택하지 않는다');
+    assert.ok(/const earnFresh = \(\) => !!earnMem && Date\.now\(\) - earnMem\.at < EARN_TTL_MS;/.test(d), '30분 지난 캐시는 다시 받는다');
   });
   t('카드 열은 패널보다 넓어지지 않는다 — 한 줄보다 긴 AI 조각은 안에서 접힌다(en DIS 실측 342px > 309px, 11/13 로컬)', () => {
     const css = read('src/components/app/FirstRunValueStep.module.css');
