@@ -193,6 +193,28 @@ t('하루 공급사 예약을 못 받으면 시세를 읽지 않는다 · 예약
   assert.equal(r2.quotes.length, 0, '예약 수단이 없으면 부르지 않는다');
 });
 
+t('예약 단위는 운영 재시도 설정을 따른다(줄이지는 못함) · 뜨기는 아직 못 뜬 발표부터(12종목 넘을 때)', async () => {
+  const r = rig({ quote: { NVDA: postQuote() } });
+  dev(r, IOS_TOKEN, ['NVDA']); putSnap(r);
+  await run(r, ET(D, 16, 50), { vendorCallsPerQuote: 9 });
+  assert.deepEqual(r.reserved, [9]);
+  const r1 = rig({ quote: { NVDA: postQuote() } });
+  dev(r1, IOS_TOKEN, ['NVDA']); putSnap(r1);
+  await run(r1, ET(D, 16, 50), { vendorCallsPerQuote: 2 });
+  assert.deepEqual(r1.reserved, [FLASH_CFG.vendorCallsPerQuote]);
+  const tks = Array.from({ length: 14 }, (_, i) => `B${String(i).padStart(2, '0')}`);
+  const list = tks.map((x) => ce(x, 'amc', '16:05'));
+  const r2 = rig({});
+  const asked: string[][] = [];
+  r2.deps.readers.implied = async (entries) => { asked.push(entries.map((e) => e.ticker)); return new Map(entries.map((e) => [e.ticker, implied()])); };
+  dev(r2, IOS_TOKEN, tks);
+  await runEarningsFlash(r2.deps, { now: ET(D, 15, 35), kind: 'cron', list, envMode: null, signalEnvMode: null });
+  await runEarningsFlash(r2.deps, { now: ET(D, 15, 50), kind: 'cron', list, envMode: null, signalEnvMode: null });
+  assert.equal(asked[0].length, 12);
+  assert.deepEqual(asked[1].slice(0, 2), ['B12', 'B13'], '두 번째 회차는 못 뜬 종목부터');
+  assert.equal(tks.every((x) => r2.store.m.has(FLASH_KEYS.exp(x, D))), true);
+});
+
 // ── 장전 ──
 t('장전(DIS) — 실적 기록의 전 거래일 EOD 예상값 · 10:00 ET 뒤 정규장 체결 · «장 초반» 문구 · 범위 밖', async () => {
   const actual = { v: 1, ticker: 'DIS', date: D, hour: 'bmo', at: ET(D, 6, 20), actual: null,

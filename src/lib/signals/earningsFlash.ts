@@ -386,6 +386,8 @@ export interface FlashOpts {
   sim?: { tickers: string[]; locale?: Loc; platform?: 'ios' | 'android'; tz?: string | null; only?: boolean } | null;
   /** 공급사 호출 마감(ms, Date.now 기준) */
   quoteDeadlineMs?: number;
+  /** 시세 1회의 최대 실호출 수 — 운영 재시도 설정(INTRINIO_MAX_ATTEMPTS)에서 계산해 넘긴다(기본값보다 작게는 못 줄인다) */
+  vendorCallsPerQuote?: number;
 }
 export interface FlashReport {
   status: 'off' | 'blackout' | 'locked' | 'idle' | 'no-devices' | 'ok';
@@ -453,7 +455,12 @@ export async function runEarningsFlash(deps: FlashDeps, o: FlashOpts): Promise<F
     const byHolders = (a: FlashEntry, b: FlashEntry) => (holders.get(b.ticker) ?? 0) - (holders.get(a.ticker) ?? 0) || a.ticker.localeCompare(b.ticker);
 
     // ① 예상값 뜨기 — 기준 세션 마감 전 30분(종목을 담은 기기가 있는 발표만 · 저장본 읽기만)
-    const cap = toCapture.filter((e) => holders.has(e.ticker)).sort(byHolders).slice(0, FLASH_CFG.maxCapturesPerRun);
+    // 아직 못 뜬 발표부터(같은 앞 12종목만 반복해 뒤 종목이 굶지 않게, 관문 11140731-3 #1) — 떠 둔 키 mget 1회
+    const capAll = toCapture.filter((e) => holders.has(e.ticker)).sort(byHolders);
+    const have = capAll.length > FLASH_CFG.maxCapturesPerRun
+      ? await store.mget(capAll.map((e) => FLASH_KEYS.exp(e.ticker, e.date))).catch(() => capAll.map(() => null))
+      : capAll.map(() => null);
+    const cap = [...capAll.filter((_, i) => have[i] == null), ...capAll.filter((_, i) => have[i] != null)].slice(0, FLASH_CFG.maxCapturesPerRun);
     if (cap.length) {
       const rows = await readers.implied(cap, etDate).catch(() => new Map<string, ImpliedRowLike>());
       for (const e of cap) {
@@ -494,9 +501,10 @@ export async function runEarningsFlash(deps: FlashDeps, o: FlashOpts): Promise<F
       const ring = [...withExp.slice(rot), ...withExp.slice(0, rot)];
       const want = preview ? [] : ring.slice(0, FLASH_CFG.maxQuotesPerRun);
       let granted = want.length;
+      const perQuote = Math.max(FLASH_CFG.vendorCallsPerQuote, Math.floor(o.vendorCallsPerQuote ?? 0));
       if (!preview && want.length) {
-        const calls = deps.reserve ? await deps.reserve(FLASH_KEYS.vendorDay(etDate), want.length * FLASH_CFG.vendorCallsPerQuote, FLASH_CFG.vendorPerDay).catch(() => 0) : 0;
-        granted = Math.floor(calls / FLASH_CFG.vendorCallsPerQuote);
+        const calls = deps.reserve ? await deps.reserve(FLASH_KEYS.vendorDay(etDate), want.length * perQuote, FLASH_CFG.vendorPerDay).catch(() => 0) : 0;
+        granted = Math.floor(calls / perQuote);
       }
       report.vendor.granted = granted;
       const deadline = o.quoteDeadlineMs ?? Date.now() + 20_000;

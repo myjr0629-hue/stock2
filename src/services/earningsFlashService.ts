@@ -66,12 +66,21 @@ export function flashReserve(r: Redis = redis()): FlashReserve {
   };
 }
 
+/**
+ * getTickerSnapshot 1회의 최대 실호출 — 기본 실시간·일봉 각각 INTRINIO_MAX_ATTEMPTS 회 + 정규장 덧입힘(같은 재시도) 또는 시간외 SIP(≤2).
+ * 운영 재시도 설정이 올라가도 하루 상한(400)이 실제 호출을 묶게 예약 단위를 키운다(관문 11140731-3 #2).
+ */
+export function flashCallsPerQuote(env: Record<string, string | undefined> = process.env): number {
+  const a = Number(env.INTRINIO_MAX_ATTEMPTS || 2);
+  return 3 * Math.max(2, Number.isFinite(a) ? Math.ceil(a) : 2);
+}
+
 export function prodFlashDeps(): FlashDeps {
   return { store: upstashStore(), kv: ec2Kv, readers: prodFlashReaders, sender: { send: sendSignalPushes }, reserve: flashReserve() };
 }
 
 export async function runEarningsFlashProd(o: Omit<FlashOpts, 'now' | 'list' | 'envMode' | 'signalEnvMode'> & { now?: number }): Promise<FlashReport> {
-  return runEarningsFlash(prodFlashDeps(), { ...o, now: o.now ?? Date.now(), list: CONFIRMED_EARNINGS, envMode: flashEnvMode(), signalEnvMode: signalEnvMode() });
+  return runEarningsFlash(prodFlashDeps(), { ...o, now: o.now ?? Date.now(), list: CONFIRMED_EARNINGS, envMode: flashEnvMode(), signalEnvMode: signalEnvMode(), vendorCallsPerQuote: flashCallsPerQuote() });
 }
 
 /** 모드 바꾸기 — 키 하나(push:sig:flash:mode). live 는 키를 지운다(기본값) */
