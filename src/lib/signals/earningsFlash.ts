@@ -263,7 +263,8 @@ export function judgeMove(e: FlashEntry, q: FlashQuote | null, now: number): { o
   if (q.regularDate !== e.date) return { ok: false, reason: `regular_${q.regularDate || 'none'}` };
   let base: number | null, price: number | null, at: number | null;
   if (e.hour === 'amc') {
-    if (q.session !== 'POST') return { ok: false, reason: `session_${q.session}` };
+    // 반일장(13:00 마감)은 17:00 ET 에 시세 세션이 CLOSED 로 바뀐다 — 창(20:00 ET 까지)·체결 시각 검사가 따로 있으므로 CLOSED 도 받는다(관문 11140731 #2)
+    if (q.session !== 'POST' && q.session !== 'CLOSED') return { ok: false, reason: `session_${q.session}` };
     base = q.regularClose; price = q.extendedPrice; at = q.extendedTradeMs;
   } else {
     if (q.session !== 'REG') return { ok: false, reason: `session_${q.session}` };
@@ -487,8 +488,11 @@ export async function runEarningsFlash(deps: FlashDeps, o: FlashOpts): Promise<F
         if (!exp) { report.events.push({ id: idOf(e), expected: null, move: null, frozen: false, reason: 'no_expected', recipients: 0 }); return; }
         withExp.push({ e, exp });
       });
-      // 공급사 호출 — 회차 상한 · 하루 상한(원자 예약, 예약 못 하면 부르지 않는다) · 미리보기는 예약 없이 3종목까지
-      const want = withExp.slice(0, preview ? 3 : FLASH_CFG.maxQuotesPerRun);
+      // 공급사 호출 — 회차 상한 · 하루 상한(원자 예약, 예약 못 하면 부르지 않는다) · 미리보기는 부르지 않는다(시세 함수가 캐시를 쓰고 계량 밖이 된다, 관문 11140731 #3)
+      // 시작 위치를 15분 회차마다 돌린다 — 앞 종목 시세가 계속 무효여도 뒤 종목이 차례를 얻게(관문 11140731 #4)
+      const rot = withExp.length ? Math.floor(now / 900_000) % withExp.length : 0;
+      const ring = [...withExp.slice(rot), ...withExp.slice(0, rot)];
+      const want = preview ? [] : ring.slice(0, FLASH_CFG.maxQuotesPerRun);
       let granted = want.length;
       if (!preview && want.length) {
         const calls = deps.reserve ? await deps.reserve(FLASH_KEYS.vendorDay(etDate), want.length * FLASH_CFG.vendorCallsPerQuote, FLASH_CFG.vendorPerDay).catch(() => 0) : 0;
@@ -497,7 +501,7 @@ export async function runEarningsFlash(deps: FlashDeps, o: FlashOpts): Promise<F
       report.vendor.granted = granted;
       const deadline = o.quoteDeadlineMs ?? Date.now() + 20_000;
       const todo = want.slice(0, granted);
-      for (const x of withExp.slice(todo.length)) report.events.push({ id: idOf(x.e), expected: x.exp.pct, move: null, frozen: false, reason: 'quote_cap', recipients: 0 });
+      for (const x of ring.slice(todo.length)) report.events.push({ id: idOf(x.e), expected: x.exp.pct, move: null, frozen: false, reason: preview ? 'preview_no_quote' : 'quote_cap', recipients: 0 });
       const quotes = await Promise.all(todo.map((x) => readers.quote(x.e.ticker, deadline).catch(() => null)));
       report.vendor.quotes = todo.length;
       for (let i = 0; i < todo.length; i++) {

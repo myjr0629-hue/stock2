@@ -173,7 +173,7 @@ t('예상값이 없으면(떠 둔 값·실적 기록 모두 없음) 시세도 �
 
 t('가격이 없거나·낡았거나·다른 날 본장이면 보내지 않는다(고정도 안 함 → 다음 회차가 다시 본다)', async () => {
   for (const [q, why] of [[null, 'no_quote'], [postQuote({ stale: true }), 'quote_stale'], [postQuote({ regularDate: '2026-11-16' }), 'regular_2026-11-16'],
-    [postQuote({ extendedPrice: null, extendedTradeMs: null }), 'no_price'], [postQuote({ session: 'CLOSED' }), 'session_CLOSED']] as const) {
+    [postQuote({ extendedPrice: null, extendedTradeMs: null }), 'no_price'], [postQuote({ session: 'PRE' }), 'session_PRE']] as const) {
     const r = rig({ quote: { NVDA: q as FlashQuote | null } });
     dev(r, IOS_TOKEN, ['NVDA']); putSnap(r);
     const rep = await run(r, ET(D, 16, 50));
@@ -266,13 +266,42 @@ t('모드 — 전용 off·무료 신호 비상 off·환경 off 는 0 · dry 는 
   assert.equal(rep.samples[0].ko.body, '옵션 예상 ±6.2% · 시간외 +3.0% (잠정 · 범위 안)');
 });
 
-t('미리보기 — 아무것도 쓰지 않는다(잠금·뜨기·고정·장부·통계 0) · 가짜 기기 표본', async () => {
+t('미리보기 — 아무것도 쓰지 않는다(잠금·뜨기·고정·장부·통계 0) · 공급사 시세 0 · 고정된 발표는 가짜 기기 표본', async () => {
   const r = rig({ quote: { NVDA: postQuote() } });
   putSnap(r);
   const before = r.store.writes.length;
   const rep = await run(r, ET(D, 16, 50), { kind: 'preview', sim: { tickers: ['NVDA'], only: true } });
   assert.equal(r.store.writes.length, before); assert.equal(r.kv.writes.length, 0); assert.equal(r.sender.calls, 0);
-  assert.equal(rep.events[0].recipients, 1);
+  assert.equal(r.quotes.length, 0); assert.equal(rep.events[0].reason, 'preview_no_quote');
+  r.store.m.set(FLASH_KEYS.ev('NVDA', D), JSON.stringify({ v: 1, ticker: 'NVDA', date: D, hour: 'amc', expectedPct: 6.2, expectedSrc: 'snap', movePct: 3, base: 200, price: 206, priceAtMs: ET(D, 16, 36), decidedAt: ET(D, 16, 50) }));
+  const rep2 = await run(r, ET(D, 17, 50), { kind: 'preview', sim: { tickers: ['NVDA'], only: true } });
+  assert.equal(r.store.writes.length, before + 0); assert.equal(rep2.status, 'blackout');
+  const rep3 = await run(r, ET(D, 18, 5), { kind: 'preview', sim: { tickers: ['NVDA'], only: true } });
+  assert.equal(rep3.events[0].recipients, 1); assert.equal(rep3.samples[0].ko.body, '옵션 예상 ±6.2% · 시간외 +3.0% (잠정 · 범위 안)');
+  assert.equal(r.quotes.length, 0); assert.equal(r.sender.calls, 0);
+});
+
+t('반일장 — 마감 전 12:30~13:00 ET 에 뜨고 · 17:00 뒤 CLOSED 세션의 시간외 체결도 20:00 전이면 판정', () => {
+  const H = '2026-11-27';
+  const es = flashEntries([ce('XYZ', 'amc', '13:05', H)]);
+  assert.deepEqual(captureEntries(es, ET(H, 12, 35)).map((e) => e.ticker), ['XYZ']);
+  const e = es[0];
+  assert.equal(judgeMove(e, postQuote({ session: 'CLOSED', regularDate: H, extendedTradeMs: ET(H, 17, 10) }), ET(H, 17, 20)).ok, true);
+  assert.equal(judgeMove(e, postQuote({ session: 'PRE', regularDate: H, extendedTradeMs: ET(H, 17, 10) }), ET(H, 17, 20)).ok, false);
+});
+
+t('회차마다 시작 위치를 돌린다 — 앞 종목 시세가 계속 무효여도 7번째 종목이 차례를 얻는다', async () => {
+  const tks = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7'];
+  const list = tks.map((x) => ce(x, 'amc', '16:05'));
+  const seenQ = new Set<string>();
+  for (let k = 0; k < 7; k++) {
+    const r = rig({});
+    r.deps.readers.quote = async (tk) => { seenQ.add(tk); return null; };
+    for (const x of tks) r.store.m.set(FLASH_KEYS.exp(x, D), JSON.stringify({ pct: 5, expiry: '2026-11-20', session: D, asOf: ET(D, 15, 50), capturedAt: ET(D, 15, 50), src: 'snap' }));
+    dev(r, IOS_TOKEN, tks);
+    await runEarningsFlash(r.deps, { now: ET(D, 18, 5) + k * 900_000, kind: 'cron', list, envMode: null, signalEnvMode: null });
+  }
+  assert.equal(seenQ.size, 7);
 });
 
 // ── 겹침·경합·발송 결과 ──
