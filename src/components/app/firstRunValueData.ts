@@ -189,8 +189,10 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
 
   // 실적 — 단계가 켜지면 바로(2026-11-13: 기본 선택을 실적 캘린더로 정하므로. 그 전엔 첫 종목을 고른 뒤에만 불렀다).
   // 법적 고지의 동의 체크 순간 ValuePrefetch 가 먼저 받아 모듈 캐시(earnMem)에 둔다 — 가치 단계가 뜰 땐 대개 이미 있다.
-  const [earnRows, setEarnRows] = useState<unknown[] | null>(() => (earnMem ? earnMem.rows : null));
-  const [earnDone, setEarnDone] = useState(() => !!earnMem);
+  // 캐시는 30분 안의 것만 바로 쓴다 — 법적 고지에서 오래 머문 뒤 들어오면 다시 받는다(관문 지적 11/13: 옛 일정으로 기본 선택 방지). 다시 받기가 실패하면 옛 행으로라도 그린다.
+  const earnFresh = () => !!earnMem && Date.now() - earnMem.at < EARN_TTL_MS;
+  const [earnRows, setEarnRows] = useState<unknown[] | null>(() => (earnFresh() ? earnMem!.rows : null));
+  const [earnDone, setEarnDone] = useState(earnFresh);
   const [earnRetry, setEarnRetry] = useState(0);
   const wantEarn = active;
   useEffect(() => {
@@ -202,7 +204,7 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
       if (rows) { setEarnRows(rows); setEarnDone(true); return; }
       // 못 읽었다 — 4초 뒤 한 번만 다시(124KB 응답이 느릴 때가 있다). 그래도 못 읽으면 실적 줄 없이 간다(칩·지도·AI 줄은 그대로)
       if (earnRetry < 1) timer = setTimeout(() => { if (!dead) setEarnRetry(1); }, 4_000);
-      else setEarnDone(true);
+      else { if (earnMem) setEarnRows(earnMem.rows); setEarnDone(true); }
     });
     return () => { dead = true; if (timer) clearTimeout(timer); };
   }, [wantEarn, earnDone, earnRetry]);
