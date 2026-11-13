@@ -49,7 +49,7 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
     // 늦게 온·재전송된 구매 웹훅의 힌트가 환불된 그 구매를 가리키면 쓰지 않는다
     assert.deepEqual(planPromoYear(sub, NOW, at), { kind: 'none', why: 'no_purchase' });
     // 환불 웹훅이 가리킨 구매는 기록에 환불 표시가 없어도 뺀다
-    assert.deepEqual(planPromoYear(subWith([{ at }]), NOW, undefined, at + 1000), { kind: 'none', why: 'no_purchase' });
+    assert.deepEqual(planPromoYear(subWith([{ at }]), NOW, undefined, [at + 1000]), { kind: 'none', why: 'no_purchase' });
   });
   await t('환불 회수 — 남은 유효 구매 없으면 revoke_promotionals · 다른 유효 구매 있으면 유지 · 웹훅 거름', async () => {
     const at = NOW - 3600_000; const calls: string[] = [];
@@ -59,9 +59,24 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
     assert.deepEqual(calls, ['GET ', 'POST /entitlements/pro/revoke_promotionals']);
     calls.length = 0;
     const other = NOW - 86400_000 * 10;
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, at, { secret: 'sk', fetchImpl: mkF(subWith([{ at }, { at: other }], granted)), now: () => NOW }), { kind: 'kept', endMs: other + PROMO_YEAR_MS });
+    // 최신 구매 환불 · 남은 옛 구매 → 회수 뒤 옛 구매 기준으로 다시(만료가 길게 남지 않게)
+    assert.deepEqual(await revokePromoYearIfRefunded(UID, at, { secret: 'sk', fetchImpl: mkF(subWith([{ at }, { at: other }], granted)), now: () => NOW }), { kind: 'shortened', endMs: other + PROMO_YEAR_MS });
+    assert.deepEqual(calls, ['GET ', 'POST /entitlements/pro/revoke_promotionals', 'POST /entitlements/pro/promotional']);
+    calls.length = 0;
+    // 옛 구매 환불 · 지금 권한은 남은 최신 구매 기준 → 유지
+    assert.deepEqual(await revokePromoYearIfRefunded(UID, other, { secret: 'sk', fetchImpl: mkF(subWith([{ at }, { at: other }], granted)), now: () => NOW }), { kind: 'kept', endMs: at + PROMO_YEAR_MS });
     assert.deepEqual(calls, ['GET ']);
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, at, { secret: '' }), { kind: 'unavailable', why: 'no_key' });
+    // 키가 없어도 환불 기록은 먼저 남고 → 늦게 온 구매 웹훅(힌트)·앱 재요청이 다시 붙이지 못한다
+    const mem = new Map<string, number[]>();
+    const refunds = { list: async (u: string) => mem.get(u) ?? [], add: async (u: string, m: number) => { mem.set(u, [...(mem.get(u) ?? []), m]); } };
+    assert.deepEqual(await revokePromoYearIfRefunded(UID, at, { secret: '', refunds }), { kind: 'unavailable', why: 'no_key' });
+    assert.deepEqual(mem.get(UID), [at]);
+    calls.length = 0;
+    assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: mkF(subWith([{ at }])), now: () => NOW, refunds }, at), { kind: 'none', why: 'no_purchase' });
+    assert.deepEqual(calls, ['GET ']);
+    // 기록을 못 읽으면 부여하지 않는다(닫힘)
+    const broken = { list: async () => { throw new Error('x'); }, add: async () => {} };
+    assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: mkF(subWith([{ at }])), now: () => NOW, refunds: broken }), { kind: 'unavailable', why: 'read' });
     const ev = { event: { type: 'CANCELLATION', product_id: PROMO_YEAR_PRODUCT_ID, store: 'APP_STORE', app_user_id: UID, purchased_at_ms: at } };
     assert.deepEqual(promoYearRefundFromWebhook(ev), { uid: UID, purchaseMs: at });
     assert.equal(promoYearRefundFromWebhook({ event: { ...ev.event, product_id: 'com.signumhq.app.pro.annual' } }), null);
@@ -151,8 +166,9 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
     globalThis.fetch = (async (url: string, init: RequestInit) => {
       const u = String(url);
       if (u.startsWith('https://fake-upstash.local')) {   // Upstash 자동 파이프라인(/pipeline) — 배열로 답한다
-        log.push('cohort'); const one = { result: 1 };
-        return new Response(JSON.stringify(u.endsWith('/pipeline') ? JSON.parse(String(init.body)).map(() => one) : one), { status: 200 });
+        const cmds = u.endsWith('/pipeline') ? JSON.parse(String(init.body)) : [JSON.parse(String(init.body))];
+        const out = cmds.map((c: unknown[]) => String(c[1]).includes('SMEMBERS') ? { result: [] } : (log.push('cohort'), { result: 1 }));
+        return new Response(JSON.stringify(u.endsWith('/pipeline') ? out : out[0]), { status: 200 });
       }
       log.push('rc:' + init.method);
       if (init.method === 'GET') return new Response(JSON.stringify({ subscriber: { non_subscriptions: {}, subscriptions: {} } }), { status: rcStatus === 500 ? 500 : 200 });
@@ -179,7 +195,11 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
     const realFetch = globalThis.fetch; const log: string[] = []; let rl = 0;
     globalThis.fetch = (async (url: string, init: RequestInit) => {
       const u = String(url);
-      if (u.startsWith('https://fake-upstash.local')) { log.push('rl'); const one = { result: rl }; return new Response(JSON.stringify(u.endsWith('/pipeline') ? JSON.parse(String(init.body)).map(() => one) : one)); }
+      if (u.startsWith('https://fake-upstash.local')) {
+        const cmds = u.endsWith('/pipeline') ? JSON.parse(String(init.body)) : [JSON.parse(String(init.body))];
+        const out = cmds.map((c: unknown[]) => String(c[1]).includes('SMEMBERS') ? { result: [] } : (log.push('rl'), { result: rl }));
+        return new Response(JSON.stringify(u.endsWith('/pipeline') ? out : out[0]));
+      }
       log.push('rc:' + init.method);
       return new Response(JSON.stringify({ subscriber: { non_subscriptions: {}, subscriptions: {} } }));
     }) as unknown as typeof fetch;

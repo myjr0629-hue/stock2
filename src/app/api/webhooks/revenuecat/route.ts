@@ -1,6 +1,6 @@
 import { giftStore } from '@/lib/giftShare/server';
 import { authorized, insert, normalize } from '@/lib/rcCohort/core';
-import { ensurePromoYear, promoYearFromWebhook, promoYearRefundFromWebhook, revokePromoYearIfRefunded } from '@/lib/promoYear/core';
+import { ensurePromoYear, evalRefundLedger, promoYearFromWebhook, promoYearRefundFromWebhook, revokePromoYearIfRefunded } from '@/lib/promoYear/core';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,14 +29,18 @@ export async function POST(request: Request): Promise<Response> {
   //   코호트 기록 «뒤에» 한다(기존 기록이 부여 장애에 막히지 않게). 부여를 못 하면 503 → RC 가 다시 보낸다(코호트는 이벤트 ID 로 중복 제거).
   //   고객 기록에 구매가 아직 안 보이면(반영 지연) 웹훅의 구매 시각을 쓴다 — 웹훅은 인증돼 있다.
   const promo = promoYearFromWebhook(body);
+  const refund = promoYearRefundFromWebhook(body);
+  if (!promo && !refund) return reply(200);
+  const ledgerStore = giftStore();
+  if (!ledgerStore) return reply(503);
+  const deps = { secret: process.env.REVENUECAT_SECRET_API_KEY || '', refunds: evalRefundLedger(ledgerStore) };
   if (promo) {
-    const r = await ensurePromoYear(promo.uid, { secret: process.env.REVENUECAT_SECRET_API_KEY || '' }, promo.purchaseMs);
+    const r = await ensurePromoYear(promo.uid, deps, promo.purchaseMs);
     if (r.kind === 'unavailable') return reply(503);
   }
   // 이 이용권의 환불 → 남은 유효 구매가 없으면 프로모셔널 pro 회수
-  const refund = promoYearRefundFromWebhook(body);
   if (refund) {
-    const r = await revokePromoYearIfRefunded(refund.uid, refund.purchaseMs, { secret: process.env.REVENUECAT_SECRET_API_KEY || '' });
+    const r = await revokePromoYearIfRefunded(refund.uid, refund.purchaseMs, deps);
     if (r.kind === 'unavailable') return reply(503);
   }
   return reply(200);
