@@ -3,7 +3,7 @@
  * 실행: npx tsx tests/promoYear.test.ts
  */
 import assert from 'node:assert/strict';
-import { PROMO_YEAR_MS, PROMO_YEAR_PRODUCT_ID, ensurePromoYear, planPromoYear, promoYearFromWebhook } from '../src/lib/promoYear/core';
+import { PROMO_YEAR_MS, PROMO_YEAR_PRODUCT_ID, ensurePromoYear, planPromoYear, promoYearFromWebhook, promoYearRefundFromWebhook, revokePromoYearIfRefunded } from '../src/lib/promoYear/core';
 import { claimPromoYear, refreshProAfterRedeem } from '../src/lib/app/redeem';
 
 let n = 0;
@@ -46,6 +46,26 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
     const at = NOW - 3600_000;
     const sub = subWith([{ at }]); (sub.subscriber.non_subscriptions[PROMO_YEAR_PRODUCT_ID][0] as Record<string, unknown>).refunded_at = iso(NOW - 60_000);
     assert.deepEqual(planPromoYear(sub, NOW), { kind: 'none', why: 'no_purchase' });
+    // 늦게 온·재전송된 구매 웹훅의 힌트가 환불된 그 구매를 가리키면 쓰지 않는다
+    assert.deepEqual(planPromoYear(sub, NOW, at), { kind: 'none', why: 'no_purchase' });
+    // 환불 웹훅이 가리킨 구매는 기록에 환불 표시가 없어도 뺀다
+    assert.deepEqual(planPromoYear(subWith([{ at }]), NOW, undefined, at + 1000), { kind: 'none', why: 'no_purchase' });
+  });
+  await t('환불 회수 — 남은 유효 구매 없으면 revoke_promotionals · 다른 유효 구매 있으면 유지 · 웹훅 거름', async () => {
+    const at = NOW - 3600_000; const calls: string[] = [];
+    const mkF = (subscriber: unknown) => (async (url: string, init: RequestInit) => { calls.push(init.method + ' ' + url.replace(/^.*subscribers\/[^/]+/, '')); return new Response(init.method === 'GET' ? JSON.stringify(subscriber) : '{}', { status: 200 }); }) as unknown as typeof fetch;
+    const granted = { rc_promo_pro_custom: { store: 'promotional', expires_date: iso(at + PROMO_YEAR_MS) } };
+    assert.deepEqual(await revokePromoYearIfRefunded(UID, at, { secret: 'sk', fetchImpl: mkF(subWith([{ at }], granted)), now: () => NOW }), { kind: 'revoked' });
+    assert.deepEqual(calls, ['GET ', 'POST /entitlements/pro/revoke_promotionals']);
+    calls.length = 0;
+    const other = NOW - 86400_000 * 10;
+    assert.deepEqual(await revokePromoYearIfRefunded(UID, at, { secret: 'sk', fetchImpl: mkF(subWith([{ at }, { at: other }], granted)), now: () => NOW }), { kind: 'kept', endMs: other + PROMO_YEAR_MS });
+    assert.deepEqual(calls, ['GET ']);
+    assert.deepEqual(await revokePromoYearIfRefunded(UID, at, { secret: '' }), { kind: 'unavailable', why: 'no_key' });
+    const ev = { event: { type: 'CANCELLATION', product_id: PROMO_YEAR_PRODUCT_ID, store: 'APP_STORE', app_user_id: UID, purchased_at_ms: at } };
+    assert.deepEqual(promoYearRefundFromWebhook(ev), { uid: UID, purchaseMs: at });
+    assert.equal(promoYearRefundFromWebhook({ event: { ...ev.event, product_id: 'com.signumhq.app.pro.annual' } }), null);
+    assert.equal(promoYearFromWebhook(ev), null);
   });
   await t('366일 전 구매 → expired', () => {
     assert.deepEqual(planPromoYear(subWith([{ at: NOW - 366 * 86400_000 }]), NOW), { kind: 'none', why: 'expired' });

@@ -1,6 +1,6 @@
 import { giftStore } from '@/lib/giftShare/server';
 import { authorized, insert, normalize } from '@/lib/rcCohort/core';
-import { ensurePromoYear, promoYearFromWebhook } from '@/lib/promoYear/core';
+import { ensurePromoYear, promoYearFromWebhook, promoYearRefundFromWebhook, revokePromoYearIfRefunded } from '@/lib/promoYear/core';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,6 +31,12 @@ export async function POST(request: Request): Promise<Response> {
   const promo = promoYearFromWebhook(body);
   if (promo) {
     const r = await ensurePromoYear(promo.uid, { secret: process.env.REVENUECAT_SECRET_API_KEY || '' }, promo.purchaseMs);
+    if (r.kind === 'unavailable') return reply(503);
+  }
+  // 이 이용권의 환불 → 남은 유효 구매가 없으면 프로모셔널 pro 회수
+  const refund = promoYearRefundFromWebhook(body);
+  if (refund) {
+    const r = await revokePromoYearIfRefunded(refund.uid, refund.purchaseMs, { secret: process.env.REVENUECAT_SECRET_API_KEY || '' });
     if (r.kind === 'unavailable') return reply(503);
   }
   return reply(200);
