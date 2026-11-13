@@ -255,8 +255,11 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
       cells: { [`${T}|2026-11-17`]: { p: 7, e: '2026-11-20', b, s: '2026-11-17', r: null, f: '2026-11-20' } } });
     const v1605 = EP.buildEarningsPageView(T, amc('16:00', 'live', Date.parse('2026-11-17T21:05:00Z')), amcAt);
     assert.equal(v1605.next.phase, 'done'); assert.equal(v1605.implied, null, 'post-release live quote rejected');
-    assert.equal(EP.buildEarningsPageView(T, amc('16:00', 'eod', Date.parse('2026-11-17T21:05:00Z')), amcAt).implied.pct, 7);
-    assert.equal(EP.buildEarningsPageView(T, amc('16:00', 'live', Date.parse('2026-11-17T20:55:00Z')), amcAt).implied.pct, 7, 'pack built before release');
+    // 장 밖 호가를 eod 로 적는 경로·묶음 시각(만들기 시작)으로는 발표 전을 보장 못 한다 → 16:00 공지 당일 호가는 쓰지 않는다 [관문 11140837]
+    assert.equal(EP.buildEarningsPageView(T, amc('16:00', 'eod', Date.parse('2026-11-17T21:05:00Z')), amcAt).implied, null);
+    assert.equal(EP.buildEarningsPageView(T, amc('16:00', 'live', Date.parse('2026-11-17T20:55:00Z')), amcAt).implied, null);
+    assert.equal(EP.buildEarningsPageView(T, amc('16:14', 'eod', Date.parse('2026-11-17T20:55:00Z')), amcAt).implied, null, 'before options close+15');
+    assert.equal(EP.buildEarningsPageView(T, amc('16:15', 'eod', Date.parse('2026-11-17T21:20:00Z')), amcAt).implied.pct, 7);
     assert.equal(EP.buildEarningsPageView(T, amc('16:20', 'live', Date.parse('2026-11-17T21:25:00Z')), amcAt).implied.pct, 7, 'options closed before 16:20');
     // 회사 공지 전 예정일은 경계가 지나도 «발표됨»이라 단정하지 않는다 — 그다음 일정으로(없으면 없음) [관문 11140830 ②]
     const est = { ...snap, next: { [T]: [{ ticker: T, date: '2026-11-12', hour: 'bmo', dateStatus: 'est' }, { ticker: T, date: '2027-02-10', hour: 'amc' }], [N]: [{ ticker: N, date: '2026-11-12', hour: 'bmo' }] } };
