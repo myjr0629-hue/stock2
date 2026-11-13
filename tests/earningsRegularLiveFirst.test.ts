@@ -359,6 +359,92 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
     ok('⑥ monthly-only ticker: event-split observation kept (no live straddle substitution)');
   }
 
+  // ⑦ [11/14] 11/13 장중 실측 재현(23:37 KST = 09:37 ET, 운영 vs 미리보기 measure-2337) — 실제 1분봉(앱 /api/chart 1d)으로 «진짜 live» 판정.
+  //   수집기 슬림 체인(재배포 뒤 계약별 _quoteSource·ivObservedAt 있음). 다리 값은 «실제 현물»에서 패리티로 만든다.
+  {
+    const NOW = '2026-11-13T14:37:40Z';             // 09:37:40 ET
+    const P12 = '2026-11-12';
+    const M20 = '2026-11-20', W18 = '2026-11-18', W27 = '2026-11-27';
+    const yrs = (exp: string) => (Date.parse(`${exp}T21:00:00Z`) - ms(NOW)) / (365 * 86400_000);
+    /** 실제 현물 trueS 에서 만든 실시간 다리(C−P = S − K·e^(−0.04T), C+P = base + slope·|S−K|) */
+    const legsAt = (exp: string, trueS: number, strikes: number[], base: number, slope: number, obsAt: string) => {
+      const rows: any[] = [];
+      for (const K of strikes) {
+        const sum = base + slope * Math.abs(trueS - K);
+        const diff = trueS - K * Math.exp(-0.04 * yrs(exp));
+        const c = Math.round((sum + diff) / 2 * 100) / 100, p = Math.round((sum - diff) / 2 * 100) / 100;
+        for (const [type, v] of [['call', c], ['put', p]] as const) rows.push({
+          details: { expiration_date: exp, strike_price: K, contract_type: type },
+          _quoteSource: 'live', ivObservedAt: obsAt, day: { close: v }, last_quote: { midpoint: v },
+        });
+      }
+      return rows;
+    };
+    const seedT = (T: string, o: { spot: number; prevClose: number; exp: string; rows: any[]; chainAgeMs: number; obs?: any; after: string }) => {
+      store.clear(); RC._resetEcBreakerForTest(); IMS._resetImpliedPackMemoForTest();
+      const now = ms(NOW);
+      store.set(`structure:v2:${T}`, { data: { ticker: T, options_status: 'OK', expiration: o.exp, availableExpirations: [o.exp, W27],
+        chainDate: P12, underlyingPrice: o.spot, prevClose: o.prevClose, session: 'REG', impliedMove: null, structure: { strikes: [o.spot], callsOI: [1], putsOI: [1] } }, timestamp: now - 30_000 });
+      store.set('intrinio:eod:snapshot', { date: P12, rows: [[T, 0, 0, 0, o.prevClose, 0, 0, 0]] });
+      store.set(`polygon:snapshot:probe:${T}`, { greeksSource: 'realtime', _ts: now - o.chainAgeMs, chainDate: P12, chainDates: { [o.exp]: P12, [W27]: P12 },
+        weeklyExpiry: o.exp, expirations: [o.exp, W27], expirationsMissing: [], exactResults: [], probeResults: o.rows, _source: 'lambda-flow-harvest' });
+      if (o.obs) store.set(EI.earningsObservationKey(T, o.after, false), { im: o.obs, checkedAt: now - 3600_000, first: o.exp });
+    };
+    const read = (T: string, after: string) => at(NOW, () => IMS.readImpliedMoveRows([{ ticker: T, after, timing: 'amc' }], '2026-11-13'));
+    const eodObs = (exp: string, strike: number, spot: number, c: number, p: number) => ({ def: IM.IMPLIED_MOVE_DEF, pct: Math.round((c + p) / spot * 1000) / 10,
+      straddle: Math.round((c + p) * 100) / 100, strike, expiry: exp, callPrice: c, putPrice: p, spot, basis: 'eod' as const, asOf: null, chainDate: P12, session: P12, method: 'monthly' as const });
+
+    // PANW — 구조 현물 333.9002(09:20~09:25 장전 334.0~334.2 와 같은 값), 실제 09:32~09:37 은 320.1~327.3 · 체인 09:32:49(실제 약 326)
+    //   운영(main) = live 11.0 @335/333.90(장전 현물 + 오늘 다리 혼합) · 미리보기 = 11/12 EOD 관측 11.1 @322.5/322.66 → 패리티 탈락이 맞다
+    const panwObs = eodObs(M20, 322.5, 322.66, 17.95, 17.77);
+    seedT('PANW', { spot: 333.9002, prevClose: 322.66, exp: M20, after: W18, chainAgeMs: 291_000, obs: panwObs,
+      rows: legsAt(M20, 326, [320, 325, 330, 335, 340], 36, 0.25, '2026-11-13T14:32:49Z') });
+    let [x] = await read('PANW', W18);
+    assert.equal(x.basis, 'eod', `PANW pre-open spot + live legs must not ship live — got ${x.basis} ${x.impliedMovePct} @${x.strike}`);
+    assert.equal(x.session, P12); assert.equal(x.strike, 322.5); assert.equal(x.impliedMovePct, 11.1);
+    // 같은 체인에서 현물이 실제 값(326.0)이면 증명된 live(ATM 325) — 다리 시각 09:32:49 · 현물 저장 09:37:10 → 차 4.4분 ≤ 6분
+    seedT('PANW', { spot: 326.0123, prevClose: 322.66, exp: M20, after: W18, chainAgeMs: 291_000, obs: panwObs,
+      rows: legsAt(M20, 326, [320, 325, 330, 335, 340], 36, 0.25, '2026-11-13T14:32:49Z') });
+    [x] = await read('PANW', W18);
+    assert.equal(x.basis, 'live', `PANW true spot → live — got ${x.basis} ${x.impliedMovePct}`); assert.equal(x.strike, 325); assert.equal(x.session, '2026-11-13');
+    ok(`⑦ 11/13 PANW replay: pre-open spot 333.90 (real ~326) → EOD obs 11.1 (not mixed live @335) · true spot → live ${x.impliedMovePct} @325`);
+
+    // SNOW — 구조 현물 302.6043(장전 302.2 대), 실제 09:36 은 293.7~294.5 · 체인 09:36:24 → 패리티 탈락 → 11/12 EOD 관측
+    const snowObs = eodObs('2026-12-04', 300, 298.7, 24.03, 24.54);
+    const D04 = '2026-12-04';
+    seedT('SNOW', { spot: 302.6043, prevClose: 298.7, exp: D04, after: '2026-12-02', chainAgeMs: 76_000, obs: { ...snowObs, method: 'weekly' },
+      rows: legsAt(D04, 294.2, [290, 295, 300, 305, 310], 48.4, 0.2, '2026-11-13T14:36:24Z') });
+    store.set('polygon:snapshot:probe:SNOW', { ...(store.get('polygon:snapshot:probe:SNOW') as any), expirations: [W27, D04], chainDates: { [W27]: P12, [D04]: P12 } });
+    [x] = await read('SNOW', '2026-12-02');
+    assert.equal(x.basis, 'eod', `SNOW pre-open spot must not ship live — got ${x.basis} ${x.impliedMovePct} @${x.strike}`);
+    assert.equal(x.impliedMovePct, 16.3); assert.equal(x.strike, 300);
+    ok('⑦ 11/13 SNOW replay: pre-open spot 302.60 (real ~294) → EOD obs 16.3 (not mixed live @305)');
+
+    // LOW — 구조 현물 227.46 = 11/12 종가(전일 종가 대체), 실제 09:31 은 224.8~225.3 · 체인 09:31:07(실제 225.3)
+    //   패리티는 허용치 안(차 2.16 ≤ 2.27)이지만 증명 범위 양 끝에서 ATM 이 225/227.5 로 갈려 «후보 아님» → 예전엔 legacy live 5.8 @227.5(혼합)
+    //   [11/14] 현물 = 전일 종가 대체가 확인되면 legacy live 도 혼합값 → 같은 첫 만기 EOD 관측 · 관측 없으면 main 그대로(새 «—» 없음)
+    const lowRows = legsAt(M20, 225.3, [220, 222.5, 225, 227.5, 230, 232.5], 12.8, 0.2, '2026-11-13T14:31:07Z');
+    const lowObs = eodObs(M20, 227.5, 227.46, 6.4, 6.45);
+    seedT('LOW', { spot: 227.46, prevClose: 227.46, exp: M20, after: W18, chainAgeMs: 393_000, obs: lowObs, rows: lowRows });
+    [x] = await read('LOW', W18);
+    assert.equal(x.basis, 'eod', `LOW prior-close spot + live legs must fall back to EOD obs — got ${x.basis} ${x.impliedMovePct} @${x.strike}`);
+    assert.equal(x.session, P12); assert.equal(x.impliedMovePct, 5.6); assert.equal(x.spot, 227.46);
+    seedT('LOW', { spot: 227.46, prevClose: 227.46, exp: M20, after: W18, chainAgeMs: 393_000, rows: lowRows });
+    [x] = await read('LOW', W18);
+    assert.equal(x.basis, 'live', `LOW without EOD observation stays origin/main (legacy live) — got ${x.basis} ${x.impliedMovePct}`);
+    assert.equal(x.strike, 227.5);
+    ok(`⑦ 11/13 LOW replay: prior-close-fill spot 227.46 (real ~225.3) → EOD obs 5.6 · no obs → unchanged origin/main live ${x.impliedMovePct}`);
+
+    // NVDA — 구조 현물 166.0911, 실제 09:33 은 166.02~166.84 · 체인 09:32:27 → 진짜 live(운영·미리보기 모두 live 8.8 @165)
+    const W18N = '2026-11-18';
+    seedT('NVDA', { spot: 166.0911, prevClose: 166.19, exp: W18N, after: '2026-11-17', chainAgeMs: 313_000, obs: { ...eodObs(W18N, 165, 166.19, 7.6, 7.3), method: 'weekly' },
+      rows: legsAt(W18N, 166.0911, [160, 162.5, 165, 167.5, 170], 14.36, 0.25, '2026-11-13T14:33:27Z') });
+    [x] = await read('NVDA', '2026-11-17');
+    assert.equal(x.basis, 'live', `NVDA genuine live must stay live — got ${x.basis} ${x.impliedMovePct}`);
+    assert.equal(x.strike, 165); assert.equal(x.session, '2026-11-13'); assert.equal(x.impliedMovePct, 8.8);
+    ok(`⑦ 11/13 NVDA replay: genuine live spot 166.09 → proven live ${x.impliedMovePct} @165 (kept)`);
+  }
+
   assert.equal(vendor, 0, `supplier calls must be 0 — got ${vendor}`);
   assert.equal(writes, 0, `Redis writes must be 0 — got ${writes}`);
   ok('supplier calls 0 · Redis writes 0 across all scenarios');

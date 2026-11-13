@@ -678,7 +678,7 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
     const closed = isNonTradingDay(date) || etMinutesOf(now) >= sessionCloseMinutes(date) || etMinutesOf(now) < 570;
     let eod = closed ? await readEodCloses().catch(() => null) : null;
     const results: ResolvedImpliedMove[] = [];
-    const needProbe: Array<{ idx: number; ticker: string; expiry: string | null; after?: string | null; timing?: ImpliedTiming; spot: number; session: string | null; spotAt?: number | null }> = [];
+    const needProbe: Array<{ idx: number; ticker: string; expiry: string | null; after?: string | null; timing?: ImpliedTiming; spot: number; session: string | null; spotAt?: number | null; spotStale?: boolean }> = [];
     reqs.forEach((r, i) => {
         const st = structures[i];
         if (!st || isOptionExpiredAt(st.expiration)) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_snapshot')); return; }
@@ -703,11 +703,17 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
         const spotLive = st.session === 'REG' && Number(st.underlyingPrice) > 0 && Number(st.underlyingPrice) === spot
             && !(Number(st.prevClose) > 0 && Number(st.underlyingPrice) === Number(st.prevClose));
         const spotAt = spotLive ? spotAts?.[i] ?? null : null;
+        // [11/14] 정규장인데 현물이 «지금 정규장 값이 아님»이 확인된 경우 — 전일 종가 대체(체결 전·REG 구조) 또는 정규장 밖에서 계산된 구조.
+        //   이 현물로 legacy 가 낸 live 는 «오늘 다리 + 어제(또는 장전) 현물» 혼합값이다(11/13 09:31 ET LOW: 현물 227.46 = 11/12 종가,
+        //   실제 224.8~225.3 · ATM 227.5 ≠ 실제 ATM 225). 같은 첫 만기 EOD 관측이 있을 때만 그쪽으로(관측이 없으면 main 그대로 — 새 «—» 없음).
+        const spotStale = !closed && Number(st.underlyingPrice) > 0 && Number(st.underlyingPrice) === spot
+            && ((st.session === 'REG' && Number(st.prevClose) > 0 && Number(st.underlyingPrice) === Number(st.prevClose))
+                || st.session === 'PRE' || st.session === 'POST' || st.session === 'CLOSED');
         const want = r.after ? firstExpiryAfterDate(exps, r.after, r.timing ?? 'unknown') : (typeof st.expiration === 'string' ? st.expiration : null);
         // availableExpirations is the structure's slice, not the collector's full chain.
         // Read the real chain before declaring that an earnings expiry is unavailable.
         if (r.after && !want) {
-            if (spot > 0) needProbe.push({ idx: i, ticker: r.ticker, expiry: null, after: r.after, timing: r.timing, spot, session, spotAt });
+            if (spot > 0) needProbe.push({ idx: i, ticker: r.ticker, expiry: null, after: r.after, timing: r.timing, spot, session, spotAt, spotStale });
             results.push(resolvedMoveOf(r.ticker, null, null, 'no_expiry_after')); return;
         }
         if (weeklyIm && weeklyIm.expiry === want) {
@@ -717,7 +723,7 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
         }
         // Intel만 명시적 null도 같은 만기·세션의 수집기 체인으로 재시도한다. 다른 소비처의 기본 동작은 유지.
         if (!want || !(spot > 0) || (!r.after && !missingMove)) { results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle')); return; }
-        needProbe.push({ idx: i, ticker: r.ticker, expiry: want, after: r.after, timing: r.timing, spot, session, spotAt });
+        needProbe.push({ idx: i, ticker: r.ticker, expiry: want, after: r.after, timing: r.timing, spot, session, spotAt, spotStale });
         results.push(resolvedMoveOf(r.ticker, null, null, 'no_straddle'));
     });
     if (needProbe.length) {
@@ -769,7 +775,8 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                     if (!closed && weeklyListed) {
                         const lv = regularSessionLiveMove(rows, n.spot, n.spotAt ?? null, quoteOptions, pc, Date.now());
                         if (lv.im) { results[n.idx] = resolvedMoveOf(n.ticker, lv.im, 'probe', null); break; }
-                        liveRejected = lv.rejected;
+                        // [11/14] 현물이 정규장 값이 아님이 확인되면(spotStale) 아래 legacy live 도 혼합값 — 탈락과 같게 EOD 관측 폴백 표식
+                        liveRejected = lv.rejected || n.spotStale === true;
                     }
                     // 새 경로(마감 종가 분모·ATM 재선택)는 양쪽 마감 호가가 확인되는 계약만 쓴다(관문 10200755 ①, lib/impliedMove.eodQuoteRows).
                     let strict: ImpliedMove | null = null;
