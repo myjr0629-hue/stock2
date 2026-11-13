@@ -163,7 +163,9 @@ export function etDay(now = Date.now()): string {
 
 export async function arrive(store: InviteStore, i: { key: unknown; os: unknown; ipHash: string | null; /** 앞 3칸 해시 — 정확한 IP 터치가 없을 때만 보조로 찾는다(loose 매칭으로 따로 센다) */ looseHash?: string | null; now?: number; vercelEnv?: string;
   /** 2026-11-13 true(운영 라우트) = IP 매칭만으로는 적립하지 않는다 — 토큰 터치면 «확인 대기»만 남기고, RC 신규 고객 확인(verifyClaim)이 적립한다 */
-  requireToken?: boolean }): Promise<ArriveOutcome> {
+  requireToken?: boolean;
+  /** 앱이 첫 실행 때 도착을 «처음 보내려던» 시각(ms) — 재시도로 늦게 닿아도 첫 실행 시각을 남기려고. 서버가 [클릭, 지금]으로 자른다 */
+  firstRunAt?: unknown }): Promise<ArriveOutcome> {
   const key = normalizeInviteKey(i.key);
   if (!key || !isOs(i.os) || !i.ipHash) return { matched: false, reason: 'bad' };
   const now = i.now ?? Date.now();
@@ -190,7 +192,10 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
   if (i.requireToken) {
     const u = typeof touch?.u === 'string' && /^[0-9a-f]{16}$/.test(touch.u) ? touch.u : null;
     const d: ArriveClaimDecision = decision === 'eligible' ? (u ? 'claim' : 'legacy') : decision;
-    const claim = d === 'claim' ? JSON.stringify({ r: inviterRef, u, at, arr: now, os: i.os, f: from, ip: i.ipHash, ...(loose ? { l: 1 } : {}) }) : '';
+    // arr = 실제 첫 실행 시각 — 앱이 보낸 «처음 보내려던 시각»을 [클릭, 지금] 안으로 자른 값(재시도가 늦게 성공해도 60분 창이 늦게 시작하지 않게 — 관문 11131233 ①).
+    //   앱 값을 못 믿어도 창은 «클릭 시각 + 60분»보다 짧아질 뿐 넓어지지 않는다(referral.rcNewness 가 max(arr, 클릭)을 쓴다).
+    const fr = typeof i.firstRunAt === 'number' && Number.isFinite(i.firstRunAt) ? Math.min(now, Math.max(at, i.firstRunAt)) : now;
+    const claim = d === 'claim' ? JSON.stringify({ r: inviterRef, u, at, arr: fr, os: i.os, f: from, ip: i.ipHash, ...(loose ? { l: 1 } : {}) }) : '';
     const res = await store.arriveClaim({ keys: [k.arrived(selfRef), k.claim(selfRef)], now, decision: d, claim, arriveTtl: ARRIVE_TTL_SEC, claimTtl: CLAIM_TTL_SEC });
     // 응답을 잃고 다시 온 첫 실행 — 대기 기록이 남아 있으면 claim 을 다시 알려 준다(관문 11131202 ③: 앱이 확인을 시작하지 못하는 것 방지)
     if (res === 'again') return (await store.get(k.claim(selfRef))) ? { matched: false, reason: 'again', claim: true } : { matched: false, reason: 'again' };

@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const store = upstashInviteStore();
   if (!store) return out(503, { ok: false, reason: 'unavailable' });
 
-  let body: { key?: unknown } = {};
+  let body: { key?: unknown; first?: unknown } = {};
   try { body = (await req.json()) || {}; } catch { body = {}; }
 
   let r: ArriveOutcome;
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     const ipHash = inviteIpHash(ip, inviteSecret());
     inviteDebug('arrive', req.headers, ip, ipHash, `os=${os}`);
     // 2026-11-13 requireToken — IP 매칭만으로는 적립하지 않는다(토큰 터치면 «확인 대기», RC 확인은 /api/invite/verify)
-    r = await arrive(store, { key: body.key, os, ipHash, looseHash: inviteLooseHash(ip, inviteSecret()), requireToken: true });
+    r = await arrive(store, { key: body.key, os, ipHash, looseHash: inviteLooseHash(ip, inviteSecret()), requireToken: true, firstRunAt: body.first });
   } catch {
     return out(503, { ok: false, reason: 'unavailable' });
   }

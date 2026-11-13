@@ -17,6 +17,13 @@ import { rcSubscriberFetcher, verifyClaim, type VerifyState } from '@/lib/invite
 // ============================================================================
 
 export const dynamic = 'force-dynamic';
+/** 샌드박스 대기 — 기본 2시간(lib/invite/referral.SANDBOX_HOLD_MS). INVITE_REWARD_HOLD_MS 로 0~7일 사이 조정(시험·운영 조정용) */
+function holdMs(): number | undefined {
+  const raw = process.env.INVITE_REWARD_HOLD_MS;
+  if (raw === undefined || raw.trim() === '') return undefined;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n >= 0 && n <= 7 * 86400_000 ? n : undefined;
+}
 
 function out(status: number, body: Record<string, unknown>) {
   return NextResponse.json(body, { status, headers: { 'cache-control': 'private, no-store, max-age=0' } });
@@ -39,7 +46,7 @@ export async function POST(req: NextRequest) {
   let r: VerifyState | null;
   try {
     r = await verifyClaim(store, {
-      key: body.key, rcUid: body.rcUid, os, ipHash: inviteIpHash(ip, inviteSecret()), secret,
+      key: body.key, rcUid: body.rcUid, os, ipHash: inviteIpHash(ip, inviteSecret()), secret, holdMs: holdMs(),
       rc: rcSubscriberFetcher({ ios: process.env.NEXT_PUBLIC_RC_IOS_KEY, android: process.env.NEXT_PUBLIC_RC_ANDROID_KEY }),
     });
   } catch {

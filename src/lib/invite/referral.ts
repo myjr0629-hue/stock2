@@ -31,6 +31,9 @@ export const REFERRAL_RC_UID_RE = /^\$RCAnonymousID:[0-9a-f]{32}$|^[A-Za-z0-9._:
 export const CLICK_SKEW_MS = 60_000;
 /** first_seen 이 첫 실행(도착 기록) 뒤 이만큼 안이어야 «그 첫 실행의 RC 고객»으로 본다(나중에 따로 만든 ID 로 받는 것 방지) */
 export const FIRST_RUN_WINDOW_MS = 60 * 60_000;
+/** 샌드박스(시험) 고객은 구매 전엔 RC 응답으로 구분되지 않는다 — first_seen 뒤 이만큼 기다렸다가(그 사이 시험 구매가 생기면 sandbox 로 걸린다) 지급한다(관문 11131233 ②).
+ *  시험 흐름은 보통 설치 직후 구매까지 해 보므로 2시간. 친구 앱이 7일 안에 다시 열리거나 켜 둔 동안 3분마다 다시 확인한다. */
+export const SANDBOX_HOLD_MS = 2 * 3600_000;
 export const VERIFY_WINDOW_S = 600;
 export const VERIFY_LIMIT_SELF = 6;
 export const VERIFY_LIMIT_IP = 30;
@@ -41,7 +44,7 @@ const DAY_TTL = 3 * 24 * 3600;
 const MONTH_TTL = 40 * 24 * 3600;
 const DONE_TTL = CLAIM_TTL_SEC + 86400;
 
-export type RcVerdict = { verdict: 'verified'; txn: string | null } | { verdict: 'pending' | 'existing' | 'sandbox' | 'late' };
+export type RcVerdict = { verdict: 'verified'; txn: string | null; firstSeen: number } | { verdict: 'pending' | 'existing' | 'sandbox' | 'late' };
 
 const ms = (v: unknown) => (typeof v === 'string' && v ? Date.parse(v) : NaN);
 
@@ -78,7 +81,7 @@ export function rcNewness(json: unknown, since: number, arrivedAt: number = sinc
     && Number.isFinite(ms(it.purchase_date)) && ms(it.purchase_date) >= floor);
   const txn = !fresh ? null : typeof fresh.store_transaction_id === 'string' && fresh.store_transaction_id ? fresh.store_transaction_id
     : typeof fresh.id === 'string' && fresh.id ? fresh.id : null;
-  return { verdict: 'verified', txn };
+  return { verdict: 'verified', txn, firstSeen: first };
 }
 
 export type RcFetch = (uid: string, os: Os) => Promise<{ kind: 'ok'; json: unknown } | { kind: 'missing' | 'limited' | 'unavailable' }>;
@@ -109,13 +112,15 @@ export function etMonth(now = Date.now()): string { return etDay(now).slice(0, 7
 
 export type VerifyState =
   | { state: 'none' }                       // 이 기기에는 확인할 초대가 없다(멈춘다)
-  | { state: 'pending'; reason: 'no_record' | 'day_cap' | 'limited' | 'unavailable' | 'missing' }
+  | { state: 'pending'; reason: 'no_record' | 'hold' | 'day_cap' | 'limited' | 'unavailable' | 'missing' }
   | { state: 'credited' }
   | { state: 'final'; reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'late' | 'dup' | 'ip' | 'inviter_cap' | 'credited' | 'again' };
 
 export interface VerifyInput {
   key: unknown; rcUid: unknown; os: unknown; ipHash: string; now?: number; vercelEnv?: string;
   secret: string; rc: RcFetch;
+  /** 샌드박스 대기(기본 SANDBOX_HOLD_MS) */
+  holdMs?: number;
 }
 
 /** 초대자가 토큰을 받은 IP 해시(최근 5개) — /api/invite/token 이 적는다 */
@@ -178,6 +183,7 @@ export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<V
   const v = rcNewness(got.json, at, arrivedAt);
   if (v.verdict === 'existing' || v.verdict === 'sandbox' || v.verdict === 'late') return finish(v.verdict);
   if (v.verdict !== 'verified') return { state: 'pending', reason: 'no_record' };
+  if (now - v.firstSeen < (i.holdMs ?? SANDBOX_HOLD_MS)) return { state: 'pending', reason: 'hold' };
 
   const uidHash = rcUidKeyHash(uid, i.secret);
   const txHash = v.txn ? 't' + crypto.createHmac('sha256', i.secret).update(`inv-tx|${v.txn}`).digest('hex').slice(0, 31) : `n${uidHash}`;

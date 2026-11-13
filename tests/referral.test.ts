@@ -30,6 +30,7 @@ process.env.INVITE_TOKEN_SECRET = 'test-secret-referral-1113';
 process.env.NEXT_PUBLIC_RC_IOS_KEY = 'appl_test_fake';
 process.env.NEXT_PUBLIC_RC_ANDROID_KEY = 'goog_test_fake';
 process.env.INVITE_REWARD = '1';
+process.env.INVITE_REWARD_HOLD_MS = '0';   // 라우트 끝까지 시험은 실제 시계라 대기 0 — 대기는 엔진 시험에서 따로
 
 const afterCalls: Array<() => unknown> = [];
 const nsPath = require.resolve('next/server');
@@ -55,7 +56,7 @@ import { NextRequest } from 'next/server';
 import { inviteRefOf } from '../src/lib/invite/identity';
 import { INVITE_TOKEN_TTL_SEC, inviteTokenVerdict, issueInviteToken, rcUidTag, verifyInviteToken } from '../src/lib/invite/token';
 import { DAILY_CREDIT_CAP, INVITER_MONTHLY_CAP, arrive, etDay, inbox, inviteKeys, recordTouch, type InviteStore } from '../src/lib/invite/engine';
-import { CLICK_SKEW_MS, etMonth, rcNewness, verifyClaim, type RcFetch } from '../src/lib/invite/referral';
+import { CLICK_SKEW_MS, SANDBOX_HOLD_MS, etMonth, rcNewness, verifyClaim, type RcFetch } from '../src/lib/invite/referral';
 import { ARRIVE_CLAIM_LUA, VERIFY_CREDIT_LUA, arriveClaimArgs, verifyCreditArgs } from '../src/lib/invite/referralAtomic';
 import { INVITE_TOKEN_RE, buildShareCardUrl, inviteAppHref, withInviteToken } from '../src/lib/invite/kinds';
 import { claimDecision, tokenFromStored, CLAIM_WINDOW_MS, VERIFY_GAP_MS } from '../src/lib/invite/tokenClient';
@@ -113,8 +114,9 @@ async function clickAndArrive(store: InviteStore, p: { inviterKey?: string; invi
   return arrive(store, { key: p.friendKey, os: 'ios', ipHash: p.ip, now: p.at + 60_000, vercelEnv: 'preview', requireToken: true });
 }
 const rcFixed = (json: unknown): RcFetch => async () => ({ kind: 'ok', json });
+/** 모든 확인을 샌드박스 대기(2시간) 뒤 시각으로 부른다 — 대기 자체는 따로 시험한다 */
 const verify = (store: InviteStore, key: string, uid: string, ip: string, now: number, rc: RcFetch) =>
-  verifyClaim(store, { key, rcUid: uid, os: 'ios', ipHash: ip, now, vercelEnv: 'preview', secret: SECRET, rc });
+  verifyClaim(store, { key, rcUid: uid, os: 'ios', ipHash: ip, now: now + SANDBOX_HOLD_MS, vercelEnv: 'preview', secret: SECRET, rc });
 
 (async () => {
   console.log('① 서명 토큰');
@@ -216,7 +218,7 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     const rc = rcFixed(subscriber({ first: NOW + 90_000, buys: [{ at: NOW + 300_000, tx: '2000000111' }] }));
     assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(10), NOW + 400_000, rc), { state: 'credited' });
     assert.equal(await mem.get(K.credit(REF_A)), '1'); assert.equal(await mem.get(K.friends(REF_A)), '1');
-    assert.equal(await mem.get(K.month(REF_A, etMonth(NOW + 400_000))), '1');
+    assert.equal(await mem.get(K.month(REF_A, etMonth(NOW + 400_000 + SANDBOX_HOLD_MS))), '1');
     assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(10), NOW + 500_000, rc), { state: 'final', reason: 'credited' });
     const box = (await inbox(mem, { key: KEY_A, os: 'ios', now: NOW + 600_000, vercelEnv: 'preview' }))!;
     assert.equal(box.minted, 1); assert.equal(box.items.length, 1); assert.equal(box.waiting, 0);
@@ -226,6 +228,29 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(11), at: NOW });
     assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(11), NOW + 200_000, rcFixed(subscriber({ first: NOW + 90_000 }))), { state: 'credited' });
     assert.equal(await mem.get(K.credit(REF_A)), '1');
+  });
+  await t('샌드박스 대기 2시간: 그 전엔 pending(hold·결론 없음) → 그 사이 시험 구매가 생기면 sandbox · 없으면 2시간 뒤 credited', async () => {
+    const direct = (key: string, ip: string, now: number, json: unknown) => verifyClaim(mem, { key, rcUid: UID_B, os: 'ios', ipHash: ip, now, vercelEnv: 'preview', secret: SECRET, rc: rcFixed(json) });
+    mem = memoryInviteStore(() => NOW);
+    await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(70), at: NOW });
+    const first = NOW + 90_000;
+    assert.deepEqual(await direct(KEY_B, HEX(70), first + 3600_000, subscriber({ first })), { state: 'pending', reason: 'hold' });
+    assert.equal(await mem.get(K.credit(REF_A)), null); assert.equal(await mem.get(K.claimDone(REF_B)), null);
+    assert.deepEqual(await direct(KEY_B, HEX(70), first + 5400_000, subscriber({ first, buys: [{ at: first + 4000_000, sandbox: true }] })), { state: 'final', reason: 'sandbox' });
+    mem = memoryInviteStore(() => NOW);
+    await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(71), at: NOW });
+    assert.deepEqual(await direct(KEY_B, HEX(71), first + SANDBOX_HOLD_MS, subscriber({ first })), { state: 'credited' });
+  });
+  await t('첫 실행 시각: 앱이 보낸 first 를 [클릭, 지금]으로 잘라 저장 — 늦은 재시도여도 60분 창은 실제 첫 실행부터', async () => {
+    mem = memoryInviteStore(() => NOW);
+    const tok = issueInviteToken({ ref: REF_A, uidTag: rcUidTag(UID_A, SECRET), nowMs: NOW - 3600_000, secret: SECRET });
+    for (const [key, ip, first, want] of [[KEY_B, HEX(80), NOW + 30_000, NOW + 30_000], [KEY_C, HEX(81), NOW - 86400_000, NOW], [KEY_D, HEX(82), NOW + 99 * 3600_000, NOW + 2 * 3600_000]] as const) {
+      await recordTouch(mem, { ref: REF_A, from: 'share_pick', os: 'ios', ipHash: ip, human: true, now: NOW, vercelEnv: 'preview', inv: tok, tokenSecret: SECRET });
+      await arrive(mem, { key, os: 'ios', ipHash: ip, now: NOW + 2 * 3600_000, vercelEnv: 'preview', requireToken: true, firstRunAt: first });
+      assert.equal(JSON.parse((await mem.get(K.claim(inviteRefOf(key))))!).arr, want);
+    }
+    // 첫 실행 NOW+30초 · RC 고객은 2시간 뒤(재시도 성공 시각)에 처음 생김 → late
+    assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(80), NOW + 3 * 3600_000, rcFixed(subscriber({ first: NOW + 2 * 3600_000 }))), { state: 'final', reason: 'late' });
   });
   await t('첫 실행 60분 창 밖에서 처음 생긴 RC 고객(나중에 따로 만든 ID) → late · 적립 0 · RC 기록 없음(404) → pending', async () => {
     mem = memoryInviteStore(() => NOW);
@@ -316,7 +341,7 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
   });
   await t(`하루 전체 상한 ${DAILY_CREDIT_CAP} → pending(day_cap · 결론 없음 — 다음 날 재시도)`, async () => {
     mem = memoryInviteStore(() => NOW);
-    await mem.set(K.day(etDay(NOW + 400_000)), String(DAILY_CREDIT_CAP), 3 * 86400);
+    await mem.set(K.day(etDay(NOW + 400_000 + SANDBOX_HOLD_MS)), String(DAILY_CREDIT_CAP), 3 * 86400);
     await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(31), at: NOW });
     assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(31), NOW + 400_000, rcFixed(subscriber({ first: NOW + 90_000, buys: [{ at: NOW + 300_000 }] }))), { state: 'pending', reason: 'day_cap' });
     assert.equal(await mem.get(K.credit(REF_A)), null); assert.equal(await mem.get(K.claimDone(REF_B)), null);
@@ -339,11 +364,11 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
   });
   await t('rcNewness — 거래 중복키: 운영 스토어·환불 아님만(환불·스토어 밖은 txn 없음) · 응답 모양이 이상하면 pending', () => {
     const base = subscriber({ first: NOW + 1, buys: [{ at: NOW + 2, tx: 'T1' }] }) as any;
-    assert.deepEqual(rcNewness(base, NOW), { verdict: 'verified', txn: 'T1' });
+    assert.deepEqual(rcNewness(base, NOW), { verdict: 'verified', txn: 'T1', firstSeen: NOW + 1 });
     const sub = Object.values(base.subscriber.subscriptions)[0] as any;
-    sub.refunded_at = iso(NOW + 3); assert.deepEqual(rcNewness(base, NOW), { verdict: 'verified', txn: null });
-    delete sub.refunded_at; sub.store = 'promotional'; assert.deepEqual(rcNewness(base, NOW), { verdict: 'verified', txn: null });
-    assert.deepEqual(rcNewness(subscriber({ first: NOW + 1 }), NOW), { verdict: 'verified', txn: null });
+    sub.refunded_at = iso(NOW + 3); assert.deepEqual(rcNewness(base, NOW), { verdict: 'verified', txn: null, firstSeen: NOW + 1 });
+    delete sub.refunded_at; sub.store = 'promotional'; assert.deepEqual(rcNewness(base, NOW), { verdict: 'verified', txn: null, firstSeen: NOW + 1 });
+    assert.deepEqual(rcNewness(subscriber({ first: NOW + 1 }), NOW), { verdict: 'verified', txn: null, firstSeen: NOW + 1 });
     assert.equal(rcNewness(null, NOW).verdict, 'pending'); assert.equal(rcNewness({ subscriber: {} }, NOW).verdict, 'pending');
   });
 
@@ -426,7 +451,7 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     rcReply = () => ({ status: 404 });
     let vr = await (await verifyRoute.POST(post('/api/invite/verify', { key: KEY_B, rcUid: UID_B }, friendIp))).json();
     assert.deepEqual(vr, { ok: true, state: 'pending' }); await flush();
-    rcReply = (uid) => (uid === UID_B ? { status: 200, json: subscriber({ first: clickAt + 1000 }) } : { status: 404 });
+    rcReply = (uid) => (uid === UID_B ? { status: 200, json: subscriber({ first: clickAt - 1000 }) } : { status: 404 });
     vr = await (await verifyRoute.POST(post('/api/invite/verify', { key: KEY_B, rcUid: UID_B }, friendIp))).json();
     assert.deepEqual(vr, { ok: true, state: 'done' }); await flush();
     assert.equal(ec2.get(`share:probe:reward:all:ios:${day}`), 1);
