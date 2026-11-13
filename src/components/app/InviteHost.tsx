@@ -21,7 +21,7 @@ import {
   ARRIVED_KEY, INBOX_MIN_GAP_MS, arrivalDecision, fetchInbox, markSeen, newItems, readBoxCache, readSeen, sendArrive, shouldCheckInbox,
   type BoxState,
 } from '@/lib/invite/inboxClient';
-import { ensureInviteToken, runClaimVerify } from '@/lib/invite/tokenClient';
+import { VERIFY_GAP_MS, ensureInviteToken, runClaimVerify } from '@/lib/invite/tokenClient';
 
 const InviteBoxSheet = dynamic(() => import('./InviteBoxSheet').then((m) => m.InviteBoxSheet), { ssr: false });
 
@@ -68,8 +68,10 @@ export function InviteHost() {
     if (!isNativeApp()) return;
     const tick = () => { if (document.visibilityState === 'hidden') return; void ensureInviteToken(); void runClaimVerify(); };
     const first = window.setTimeout(tick, 4000);
+    // 앱을 켜 둔 채 스토어에서 돌아온 경우(3분 간격에 걸린 복귀)도 놓치지 않게 주기적으로 한 번 더 — 대기 중이 아니면 저장소만 읽고 끝(관문 11131211 ②)
+    const every = window.setInterval(tick, VERIFY_GAP_MS + 5000);
     document.addEventListener('visibilitychange', tick);
-    return () => { window.clearTimeout(first); document.removeEventListener('visibilitychange', tick); };
+    return () => { window.clearTimeout(first); window.clearInterval(every); document.removeEventListener('visibilitychange', tick); };
   }, []);
 
   // ② 선물함 — 대시보드에서(다른 화면에서 하던 일을 끊지 않는다)

@@ -122,9 +122,11 @@ export function runClaimVerify(now = Date.now()): Promise<void> {
       const rcUid = await rcUidForInvite();
       if (!rcUid) return;
       const r = await fetch('/api/invite/verify', { method: 'POST', credentials: 'same-origin', headers, body: JSON.stringify({ key: getInviteKey(), rcUid }) });
-      if (r.status === 400 || r.status === 403) { s.setItem(CLAIM_STORAGE, 'done'); return; }
+      // 400(형식)·403 봇/출처/기기 = 다시 해도 같다 → 끝. 403 noip·5xx·429 = 일시적 → 다음 기회에 다시(관문 11131211 ①)
+      if (r.status === 400) { s.setItem(CLAIM_STORAGE, 'done'); return; }
+      const j = await r.json().catch(() => null);
+      if (r.status === 403) { if (j?.reason !== 'noip') s.setItem(CLAIM_STORAGE, 'done'); return; }
       if (!r.ok) return;
-      const j = await r.json();
       if (j?.state === 'done' || j?.state === 'none') s.setItem(CLAIM_STORAGE, 'done');
     } catch { /* 다음 기회에 */ } finally { verifyInflight = null; }
   })();

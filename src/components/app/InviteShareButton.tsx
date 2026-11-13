@@ -42,12 +42,14 @@ export function InviteShareButton({ kind, ticker, line, locale, className }: {
   const onClick = async (e: MouseEvent<HTMLButtonElement>) => {
     // 행 «형제» 단추라 번질 일은 없지만, 어떤 호출부에서 부모 클릭(행 이동)으로 번지지 않게 끊는다
     e.stopPropagation();
+    // 클릭 «그 순간» 토큰 유무 — share() 가 같은 순간(동기) 링크에 싣는 값과 같다. 공유 시트가 떠 있는 사이 토큰이 도착해도 보낸 링크엔 없다(관문 11131211 ④)
+    const hadToken = !!inviteTokenNow();
     const out = await share(ticker, line);
     // 링크를 복사만 한 곳(안드로이드 셸 등)은 «복사했어요» · 공유 시트를 마친 곳은 «내게 오는 것» 한 줄(보상이 켜져 있을 때만·기기에서 두 번까지)
     let which: 'copied' | 'reward' | null = null;
     if (out === 'copied') which = 'copied';
     // 2026-11-13 보상 한 줄은 서명 토큰이 실린 공유에만(토큰 없는 링크는 보상이 귀속되지 않는다 — 문구는 그대로, 보이는 조건만)
-    else if (out === 'shared' && cfg?.rewards && inviteTokenNow() && inviteHintCount() < INVITE_HINT_MAX) { which = 'reward'; bumpInviteHint(); }
+    else if (out === 'shared' && cfg?.rewards && hadToken && inviteHintCount() < INVITE_HINT_MAX) { which = 'reward'; bumpInviteHint(); }
     if (which) {
       setToast(which);
       window.clearTimeout(timer.current);
