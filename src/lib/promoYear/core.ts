@@ -28,7 +28,7 @@ const ms = (v: unknown): number => (typeof v === 'string' ? Date.parse(v) : NaN)
 
 /**
  * RC v1 GET /subscribers/{id} 응답 → 붙일지·만료 시각. 순수 함수.
- * hintPurchaseMs = 인증된 RC 웹훅이 알려 준 구매 시각 — 고객 기록에 아직 안 보일 때(반영 지연)만 쓴다.
+ * hintPurchaseMs = 인증된 RC 웹훅이 알려 준 구매 시각 — 기록의 최근 구매보다 늦을 때(첫 구매·재구매 반영 지연) 쓴다.
  */
 export function planPromoYear(json: unknown, now: number, hintPurchaseMs?: number): PromoPlan {
   const sub = ((json as { subscriber?: Record<string, unknown> } | null)?.subscriber ?? {}) as Record<string, unknown>;
@@ -38,14 +38,17 @@ export function planPromoYear(json: unknown, now: number, hintPurchaseMs?: numbe
   if (Array.isArray(list)) {
     for (const p of list) {
       if (!p || typeof p !== 'object') continue;
-      const rec = p as { store?: unknown; purchase_date?: unknown };
+      const rec = p as { store?: unknown; purchase_date?: unknown; refunded_at?: unknown };
       if (rec.store !== 'app_store') continue;
+      if (rec.refunded_at != null) continue;                                // 환불된 구매는 근거가 아니다
       const t = ms(rec.purchase_date);
       if (!Number.isFinite(t) || t > now + FUTURE_SKEW_MS) continue;
       if (!Number.isFinite(purchaseMs) || t > purchaseMs) purchaseMs = t;   // 가장 최근 구매
     }
   }
-  if (!Number.isFinite(purchaseMs) && typeof hintPurchaseMs === 'number' && Number.isFinite(hintPurchaseMs) && hintPurchaseMs > 0 && hintPurchaseMs <= now + FUTURE_SKEW_MS) purchaseMs = hintPurchaseMs;
+  // 웹훅 힌트가 기록의 최근 구매보다 늦으면(재구매가 아직 기록에 안 보임) 힌트를 쓴다
+  if (typeof hintPurchaseMs === 'number' && Number.isFinite(hintPurchaseMs) && hintPurchaseMs > 0 && hintPurchaseMs <= now + FUTURE_SKEW_MS
+    && (!Number.isFinite(purchaseMs) || hintPurchaseMs > purchaseMs)) purchaseMs = hintPurchaseMs;
   if (!Number.isFinite(purchaseMs)) return { kind: 'none', why: 'no_purchase' };
   const endMs = purchaseMs + PROMO_YEAR_MS;
   if (endMs <= now) return { kind: 'none', why: 'expired' };

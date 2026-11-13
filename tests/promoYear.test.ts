@@ -1,6 +1,6 @@
 /**
  * «1년 PRO 이용권(자동 갱신 없음)» — 판정(planPromoYear) · 부여(ensurePromoYear, 가짜 RC) · 웹훅 거름 · 앱 재조회 순서 · 웹훅 라우트
- * 실행: node_modules/.bin/npx tsx tests/promoYear.test.ts
+ * 실행: npx tsx tests/promoYear.test.ts
  */
 import assert from 'node:assert/strict';
 import { PROMO_YEAR_MS, PROMO_YEAR_PRODUCT_ID, ensurePromoYear, planPromoYear, promoYearFromWebhook } from '../src/lib/promoYear/core';
@@ -37,7 +37,15 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
     assert.deepEqual(planPromoYear(empty, NOW, NOW - 5000), { kind: 'grant', purchaseMs: NOW - 5000, endMs: NOW - 5000 + PROMO_YEAR_MS });
     assert.deepEqual(planPromoYear(empty, NOW, NOW + 3600_000), { kind: 'none', why: 'no_purchase' });
     const at = NOW - 86400_000;
-    assert.equal((planPromoYear(subWith([{ at }]), NOW, NOW - 5000) as { purchaseMs: number }).purchaseMs, at);
+    // 재구매: 기록엔 옛 구매(만료)만 · 웹훅은 새 구매 → 새 구매 기준
+    assert.deepEqual(planPromoYear(subWith([{ at: NOW - 400 * 86400_000 }]), NOW, NOW - 5000), { kind: 'grant', purchaseMs: NOW - 5000, endMs: NOW - 5000 + PROMO_YEAR_MS });
+    // 기록이 힌트보다 늦으면 기록 기준
+    assert.equal((planPromoYear(subWith([{ at: NOW - 1000 }]), NOW, NOW - 86400_000) as { purchaseMs: number }).purchaseMs, NOW - 1000);
+  });
+  await t('환불된 구매(refunded_at)는 근거가 아니다', () => {
+    const at = NOW - 3600_000;
+    const sub = subWith([{ at }]); (sub.subscriber.non_subscriptions[PROMO_YEAR_PRODUCT_ID][0] as Record<string, unknown>).refunded_at = iso(NOW - 60_000);
+    assert.deepEqual(planPromoYear(sub, NOW), { kind: 'none', why: 'no_purchase' });
   });
   await t('366일 전 구매 → expired', () => {
     assert.deepEqual(planPromoYear(subWith([{ at: NOW - 366 * 86400_000 }]), NOW), { kind: 'none', why: 'expired' });
