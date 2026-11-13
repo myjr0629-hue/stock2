@@ -265,6 +265,10 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     svc._resetEarningsPageMemo(); calendarDown = true;
     const h = await html('en', T);
     assert.ok(h.includes('could not be read right now') && !h.includes('No options-implied move to show yet'));
+    const hh = renderToStaticMarkup(await hub.default({ params: Promise.resolve({ locale: 'ko' }) }));
+    const wk = hh.split('id="eh-this-week"')[1].split('id="eh-next-week"')[0];
+    assert.ok(wk.includes('실적 캘린더를 지금 읽지 못했습니다') && !wk.includes('data-week-ticker'), 'partial week list hidden when calendar unread');
+    assert.ok(!(await hub.generateMetadata({ params: Promise.resolve({ locale: 'ko' }) })).description.startsWith('이번 주'));
     calendarDown = false; svc._resetEarningsPageMemo();
   });
   await test('시간 초과 — 15분 안의 직전 묶음만 대신 주고, 더 오래되면 빈 묶음(«읽지 못함»)', async () => {

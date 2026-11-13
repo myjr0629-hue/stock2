@@ -323,6 +323,8 @@ export interface EpCopy {
   hubThisWeekT: string;
   hubNextWeekT: string;
   hubWeekEmpty: string;
+  /** 이번 주 지난 날은 회사 공지 일정만 싣는다는 안내 */
+  hubWeekPastNote: string;
   hubCta: string;
 }
 
@@ -412,6 +414,7 @@ const KO: EpCopy = {
   hubThisWeekT: '이번 주 실적 발표 종목',
   hubNextWeekT: '다음 주 실적 발표 종목',
   hubWeekEmpty: '실적 캘린더에 이 기간 발표 일정이 없습니다.',
+  hubWeekPastNote: '이번 주 지난 날짜는 회사가 공지한 발표 일정만 표시합니다.',
 };
 
 const JA: EpCopy = {
@@ -496,6 +499,7 @@ const JA: EpCopy = {
   hubThisWeekT: '今週の決算発表銘柄',
   hubNextWeekT: '来週の決算発表銘柄',
   hubWeekEmpty: '決算カレンダーにこの期間の発表予定はありません。',
+  hubWeekPastNote: '今週の過ぎた日付は、企業が告知した発表日程のみ表示します。',
 };
 
 const EN: EpCopy = {
@@ -577,6 +581,7 @@ const EN: EpCopy = {
   hubThisWeekT: 'Reporting this week',
   hubNextWeekT: 'Reporting next week',
   hubWeekEmpty: 'No report dates in the earnings calendar for this period.',
+  hubWeekPastNote: 'Earlier days this week show company-announced report dates only.',
 };
 
 export const EP_COPY: Record<Loc, EpCopy> = { ko: KO, ja: JA, en: EN };

@@ -10,6 +10,7 @@ import {
   localWhenText, md, nameWithTicker, recentConfirmedThisWeek, toLoc, weekWindows, type EpCalendarRow,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
+import { etDateOf } from '@/lib/marketCalendar';
 import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
 
 export const dynamic = 'force-dynamic';
@@ -45,12 +46,12 @@ function soonItems(list: WeekItem[], l: ReturnType<typeof toLoc>, estTag: string
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { l, views, thisWeek, nextWeek } = await load((await params).locale);
+  const { l, snap, views, thisWeek, nextWeek } = await load((await params).locale);
   const c = EP_COPY[l];
   const base = publicBase();
   const url = `${base}${earningsPath(l)}`;
   const any = views.some((v) => v.indexable);
-  const soon = soonItems([...thisWeek, ...nextWeek], l, c.estTag);
+  const soon = snap.calendarOk ? soonItems([...thisWeek, ...nextWeek], l, c.estTag) : [];
   const description = soon.length ? `${c.hubSoonDesc(soon)} ${c.hubMetaDesc}` : c.hubMetaDesc;
   return {
     title: c.hubTitle, description,
@@ -85,6 +86,7 @@ const CSS = `
 .eh-all{display:flex;flex-wrap:wrap;gap:8px}
 .eh-all a{font-size:13px;font-weight:700;color:#17191E;text-decoration:none;border:1px solid #E7E3DA;border-radius:999px;padding:6px 11px;background:#fff;min-height:36px;display:inline-flex;align-items:center}
 .eh-empty{font-size:14px;color:#55606B}
+.eh-note{font-size:12.5px;color:#7C848E;margin:-4px 0 8px}
 .eh-cta{margin:24px 0 6px;background:#17191E;border-radius:14px;padding:14px}
 .eh-cta a{display:flex;align-items:center;justify-content:center;min-height:48px;text-align:center;background:#C2410C;color:#fff;text-decoration:none;font-weight:900;font-size:15px;border-radius:12px;padding:12px 14px}
 .eh-cta p{margin:8px 0 0;text-align:center;font-size:12px;color:#B5BCC6}
@@ -99,7 +101,8 @@ export default async function EarningsHubPage({ params }: Props) {
   const c = EP_COPY[l];
   const base = publicBase();
   const url = `${base}${earningsPath(l)}`;
-  const weekList = [...thisWeek, ...nextWeek];
+  const weekList = snap.calendarOk ? [...thisWeek, ...nextWeek] : [];
+  const pastDays = weekWindows(snap.at).thisWeek[0] < etDateOf(snap.at);
   const ld = {
     '@context': 'https://schema.org', '@type': 'CollectionPage', name: c.hubTitle, description: c.hubMetaDesc, url, inLanguage: l,
     isPartOf: { '@type': 'WebSite', name: 'SIGNUM HQ', url: base }, isAccessibleForFree: true,
@@ -111,10 +114,12 @@ export default async function EarningsHubPage({ params }: Props) {
       },
     } : {}),
   };
-  const weekSec = (title: string, list: WeekItem[], id: string) => (
+  // 캘린더를 못 읽었으면 목록이 일부(회사 공지 지난 날)뿐이다 — 정상 목록처럼 보이지 않게 «읽지 못함»만 낸다
+  const weekSec = (title: string, list: WeekItem[], id: string, note?: string) => (
     <section aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
-      {list.length ? (
+      {snap.calendarOk && note ? <p className="eh-note">{note}</p> : null}
+      {snap.calendarOk && list.length ? (
         <ul className="eh-list">
           {list.map((v) => {
             const local = localWhenText(v.row, l);
@@ -141,7 +146,7 @@ export default async function EarningsHubPage({ params }: Props) {
         {EP_LOCALES.map((x) => <a key={x} href={earningsPath(x)} hrefLang={x} aria-current={x === l ? 'page' : undefined}>{{ ko: '한국어', en: 'English', ja: '日本語' }[x]}</a>)}
       </nav>
 
-      {weekSec(c.hubThisWeekT, thisWeek, 'eh-this-week')}
+      {weekSec(c.hubThisWeekT, thisWeek, 'eh-this-week', pastDays ? c.hubWeekPastNote : undefined)}
       {weekSec(c.hubNextWeekT, nextWeek, 'eh-next-week')}
 
       <h2>{c.hubUpcomingT}</h2>
