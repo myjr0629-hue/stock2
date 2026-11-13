@@ -8,6 +8,7 @@
 // ============================================================================
 
 import { getInviteKey, hasInviteShared } from './identity';
+import { markClaimPending, runClaimVerify } from './tokenClient';
 
 export const ARRIVED_KEY = 'signumhq.inv.arrived.v1';
 export const SEEN_KEY = 'signumhq.inv.seen.v1';
@@ -67,6 +68,8 @@ const headers = { 'content-type': 'application/json', 'x-invite': '1' };
 export async function sendArrive(): Promise<boolean> {
   try {
     const r = await fetch('/api/invite/arrive', { method: 'POST', credentials: 'same-origin', headers, body: JSON.stringify({ key: getInviteKey() }) });
+    // 2026-11-13 claim = 토큰 귀속 «확인 대기» — 실행·복귀 때 /api/invite/verify 로 RC 신규 고객 확인(lib/invite/tokenClient)
+    if (r.ok) { try { const j = await r.clone().json(); if (j && j.claim === true) { markClaimPending(); void runClaimVerify(); } } catch { /* 본문 없음 — 예전 서버 */ } }
     return r.ok || r.status === 403;   // 403 = 이 기기는 센 대상이 아님(봇·데스크톱 등) — 다시 시도해도 같다
   } catch { return false; }
 }

@@ -2,6 +2,7 @@ import { GIFT_SHARE_WINDOW_MS, giftToken } from './config';
 import { idbAtomic, recordSent, type GiftAtomic, type GiftState, type SentGift } from './state';
 import { normalizeGiftRef, toGiftLang } from '@/lib/gift/gift';
 import { SHARE_ORIGIN, type ShareOutcome, type ShareVia } from '@/lib/share/share';
+import { inviteTokenNow } from '@/lib/invite/tokenClient';
 
 export type SharePayload = { title?: string; text?: string; url: string };
 const FRESH_MS = 60_000;
@@ -302,6 +303,9 @@ export function createGiftPreparation(request: typeof fetch = (...args) => fetch
     const u = new URL('/app', typeof window === 'undefined' ? SHARE_ORIGIN : window.location.origin);
     u.searchParams.set('from', token || validRef ? 'gift' : 'share');
     if (validRef) u.searchParams.set('ref', validRef);
+    // 2026-11-13 서명된 초대 토큰(미리 받아 둔 것만 — 없으면 예전 링크 그대로)
+    const inv = validRef && typeof window !== 'undefined' ? inviteTokenNow(validRef) : null;
+    if (inv) u.searchParams.set('inv', inv);
     if (lang !== 'en') u.searchParams.set('l', lang);
     if (!token) return giftOnly ? { title: 'SIGNUM HQ', text: GENERAL[lang], url: u.toString() } : original;
     u.searchParams.set('via', via);

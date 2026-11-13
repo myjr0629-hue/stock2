@@ -129,7 +129,9 @@ function scheduleInviteTouch(request: NextRequest, fromTag: string | null, human
     const ua = request.headers.get('user-agent') || '';
     const touchHuman = humanField?.endsWith('|human') === true;
     const touchOs = osOverride ?? (/android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'ios' : 'desktop');
-    after(() => touchFromRequest(request.headers, { from: fromTag, ref: inviteRef, os: touchOs, human: touchHuman }));
+    // 2026-11-13 inv = 서명된 초대 토큰(있으면 — 서명·만료·ref 대조는 기록하는 쪽 lib/invite/engine.recordTouch)
+    const inv = request.nextUrl.searchParams.get('inv');
+    after(() => touchFromRequest(request.headers, { from: fromTag, ref: inviteRef, os: touchOs, human: touchHuman, inv }));
   }
 }
 

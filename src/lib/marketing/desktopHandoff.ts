@@ -221,12 +221,14 @@ export async function desktopRedeemHtml(opts: {
   gift?: string;
   /** 선물 전용: 검증된 초대자 ref — QR 로 폰에서 열어도 첫 실행 추천 보상이 같은 초대자에게 이어지게 QR 주소에 싣는다. */
   giftRef?: string | null;
+  /** 2026-11-13 서명된 초대 토큰(형식 통과분) — 폰 QR 이동에서도 잃지 않게 */
+  giftInv?: string | null;
   /** ★2026-11-01 공개 캠페인: QR·iPad 이동 주소와 부제를 직접 준다(코드는 폰에서 배정). 없으면 예전 출력 그대로. */
   campaign?: { scanUrl: string; ipadUrl: string; sub: string };
 }): Promise<string> {
   const { fromTag, code, lang, redeemUrl, coupon = false, androidCoupon = false } = opts;
   const t = RT[lang];
-  const giftRefQuery = opts.gift && opts.giftRef ? `&ref=${encodeURIComponent(opts.giftRef)}` : '';
+  const giftRefQuery = opts.gift && opts.giftRef ? `&ref=${encodeURIComponent(opts.giftRef)}${opts.giftInv && /^[A-Za-z0-9._-]{40,80}$/.test(opts.giftInv) ? `&inv=${encodeURIComponent(opts.giftInv)}` : ''}` : '';
   const scan = opts.campaign ? opts.campaign.scanUrl : opts.gift ? `${SITE}/app?from=${encodeURIComponent(fromTag || 'gift')}&l=${lang}&gift=${encodeURIComponent(opts.gift)}${giftRefQuery}&via=qr` : redeemScanUrl(fromTag, code);
   const ipadUrl = opts.campaign ? opts.campaign.ipadUrl : opts.gift ? `${redeemUrl}&gift_os=ios` : redeemUrl;
   const svg = await QRCode.toString(scan, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0b1220', light: '#ffffff' } });

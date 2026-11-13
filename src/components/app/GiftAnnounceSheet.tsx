@@ -19,6 +19,9 @@ import { useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet
 import { GIFT_COPY, toGiftLang } from '@/lib/gift/gift';
 import { useGiftShare } from '@/lib/gift/useGift';
 import { GIFT_ANNOUNCE_COPY, GIFT_REANNOUNCE_TITLE, keepTogether } from '@/lib/gift/giftAnnounce';
+import { useInviteConfig } from '@/lib/invite/useInvite';
+import { INVITE_COPY } from '@/lib/invite/copy';
+import { toInviteLang } from '@/lib/invite/kinds';
 
 /** 묶음은 한 줄에 — 나머지는 평소처럼 줄을 바꾼다 */
 function Kept({ text, keep }: { text: string; keep: string[] }) {
@@ -30,6 +33,7 @@ export function GiftAnnounceSheet({ locale, onClose, reannounce = false }: { loc
   const c = GIFT_COPY[lang];
   const a = GIFT_ANNOUNCE_COPY[lang];
   const { cfg, share, visibleRef } = useGiftShare(locale, 'gift_pop', reannounce);
+  const inviteCfg = useInviteConfig();
   const titleId = useId();
   const [copied, setCopied] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -83,6 +87,8 @@ export function GiftAnnounceSheet({ locale, onClose, reannounce = false }: { loc
           <span className={`${p.eyebrow} ${s.eyebrow}`}><GiftIcon size={13} />{a.eyebrow}</span>
           <h1 className={p.title} id={titleId}><Kept text={reannounce ? GIFT_REANNOUNCE_TITLE[lang] : c.title} keep={a.keep} /></h1>
           <p className={`${p.lede} ${s.lede}`}><Kept text={cfg && !cfg.android ? c.subIosOnly : c.sub} keep={a.keep} /></p>
+          {/* 2026-11-13 보상 설명 한 줄 — 초대자 보상이 켜져 있다고 서버가 대답한 때만(기존 줄·단추 위치는 그대로) */}
+          {inviteCfg?.rewards ? <p className={p.fine} data-referral-line="">{INVITE_COPY[toInviteLang(locale)].referralLine}</p> : null}
         </div>
 
         <button ref={visibleRef} type="button" className={`${p.cta} ${s.cta}`} onClick={() => { void onSend(); }} disabled={!cfg}>

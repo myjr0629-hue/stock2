@@ -17,6 +17,8 @@ export interface InviteCopy {
   copied: string;
   /** 공유를 마친 뒤 «내게 오는 것» 한 줄(보상이 켜져 있을 때만, 기기에서 두 번까지) — 친구에게 가는 글이 아니다 */
   rewardHint: string;
+  /** 2026-11-13 선물 시트 안 보상 설명 한 줄(보상이 켜져 있을 때만) — 친구 쪽 조건(설치 + 1개월 시작)·월 상한을 정직하게 */
+  referralLine: string;
   box: {
     title: string;
     close: string;
@@ -60,6 +62,7 @@ export const INVITE_COPY: Record<InviteLang, InviteCopy> = {
     },
     copied: '링크를 복사했어요',
     rewardHint: '보냈어요 — 친구가 설치하면 PRO 1개월 코드가 선물함에 도착해요',
+    referralLine: '친구가 이 링크로 설치해 PRO 1개월을 시작하면 나에게도 PRO 1개월 코드가 와요 (월 3장까지)',
     box: {
       title: '선물함',
       close: '닫기',
@@ -93,6 +96,7 @@ export const INVITE_COPY: Record<InviteLang, InviteCopy> = {
     },
     copied: 'Link copied',
     rewardHint: 'Sent — if your friend installs, a PRO 1-month code lands in your gift box',
+    referralLine: 'When a friend installs from your link and starts their PRO month, you get a PRO 1-month code too (up to 3 a month)',
     box: {
       title: 'Gift box',
       close: 'Close',
@@ -126,6 +130,7 @@ export const INVITE_COPY: Record<InviteLang, InviteCopy> = {
     },
     copied: 'リンクをコピーしました',
     rewardHint: '送りました — 友だちがアプリを入れると、PRO 1か月コードがギフトボックスに届きます',
+    referralLine: '友だちがこのリンクからアプリを入れてPRO 1か月を始めると、あなたにもPRO 1か月コードが届きます（月3件まで）',
     box: {
       title: 'ギフトボックス',
       close: '閉じる',

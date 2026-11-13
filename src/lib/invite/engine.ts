@@ -26,6 +26,8 @@ import { normalizeGiftRef } from '@/lib/gift/gift';
 import { inviteRefOf, normalizeInviteKey } from './identity';
 import { isInviteFrom } from './kinds';
 import type { ArriveCreditInput, ArriveCreditResult, ArriveDecision, MintOneInput, MintOneResult } from './atomic';
+import type { ArriveClaimDecision, ArriveClaimInput, ArriveClaimResult, VerifyCreditInput, VerifyCreditResult } from './referralAtomic';
+import { verifyInviteToken } from './token';
 
 export type Os = 'ios' | 'android';
 export const isOs = (x: unknown): x is Os => x === 'ios' || x === 'android';
@@ -36,6 +38,9 @@ export const LOOSE_CREDIT_MAX_AGE_MS = 30 * 60_000;
 export const IP_CREDIT_TTL_SEC = 30 * 24 * 3600;
 export const ARRIVE_TTL_SEC = 400 * 24 * 3600;
 export const INVITER_LIFETIME_CAP = 3;
+/** 2026-11-13 토큰 귀속 — 확인 대기 기록 수명(친구가 1개월을 시작할 때까지 기다리는 기한) · 초대자 월(ET 달력월) 상한 */
+export const CLAIM_TTL_SEC = 7 * 86400;
+export const INVITER_MONTHLY_CAP = 3;
 export const DAILY_CREDIT_CAP = 25;
 /** 안드 초대자 보상은 친구용 Play 풀이 이 수 «이하»로 줄면 멈춘다(친구 쿠폰이 먼저) */
 export const ANDROID_REWARD_POOL_RESERVE = 60;
@@ -59,6 +64,13 @@ export function inviteKeys(vercelEnv: string | undefined = process.env.VERCEL_EN
     box: (ref: string) => `${p}:box:${ref}`,        // HASH 번호 → {os, at}
     poolIos: `${p}:pool:ios`,                       // SET 애플 일회용(보상 전용)
     poolIosBad: `${p}:pool:ios:bad`,
+    // 2026-11-13 토큰 귀속 — 확인 대기 기록(친구 ref 당 1) · 결론 표식 · 같은 RC 고객/거래 1회 · 초대자 월 적립 수(ET 달력월)
+    claim: (selfRef: string) => `${p}:clm:${selfRef}`,
+    claimDone: (selfRef: string) => `${p}:clmd:${selfRef}`,
+    rcUser: (uidHash: string) => `${p}:rcu:${uidHash}`,
+    rcTxn: (txHash: string) => `${p}:rctx:${txHash}`,
+    month: (ref: string, month: string) => `${p}:mon:${ref}:${month}`,
+    verifyBudget: (kind: string, id: string, w: number) => `${p}:vb:${kind}:${id}:${w}`,
   };
 }
 
@@ -68,6 +80,10 @@ export interface InviteStore {
   arriveCredit(input: ArriveCreditInput): Promise<ArriveCreditResult>;
   /** One pool member + box + credit, committed in one server operation. */
   mintOne(input: MintOneInput): Promise<MintOneResult>;
+  /** 2026-11-13 토큰 귀속 도착 — 도착 표식 + (토큰 터치면) 확인 대기 기록을 한 번에. 적립은 하지 않는다. */
+  arriveClaim(input: ArriveClaimInput): Promise<ArriveClaimResult>;
+  /** 2026-11-13 RC 확인을 통과한 대기 기록 → 초대자 크레딧(월·하루 상한·같은 RC 고객·같은 IP) 한 번에. */
+  verifyCredit(input: VerifyCreditInput): Promise<VerifyCreditResult>;
   get(key: string): Promise<string | null>;
   del(key: string): Promise<void>;
   set(key: string, value: string, ttlSec: number): Promise<void>;
@@ -90,7 +106,9 @@ export interface InviteStore {
 
 // ── 사람·출처 판정은 쿠폰 배정과 같은 함수를 쓴다(lib/marketing/couponClaim) — 여기는 «터치 기록 대상»만 정한다 ──
 
-export interface TouchInput { ref: unknown; from: string | null; os: 'ios' | 'android' | 'desktop'; ipHash: string | null; /** 앞 3칸 해시(있으면 보조 칸에도 적는다) */ looseHash?: string | null; human: boolean; now?: number; vercelEnv?: string }
+export interface TouchInput { ref: unknown; from: string | null; os: 'ios' | 'android' | 'desktop'; ipHash: string | null; /** 앞 3칸 해시(있으면 보조 칸에도 적는다) */ looseHash?: string | null; human: boolean; now?: number; vercelEnv?: string;
+  /** 2026-11-13 링크의 inv(서명된 초대 토큰) — 서명·만료·ref 가 맞을 때만 터치에 초대자 RC 태그(u)를 적는다 */
+  inv?: unknown; tokenSecret?: string }
 
 /** 터치를 적을지 — 초대 태그 + 형식 통과 ref + 폰(아이폰·안드) + 사람 + IP 가 있을 때만. 순수 판정(쓰기 없음). */
 export function touchPlan(i: TouchInput): { ref: string; os: Os; ipHash: string; from: string } | null {
@@ -117,7 +135,9 @@ export async function recordTouch(store: InviteStore, i: TouchInput): Promise<bo
   if (!plan) return false;
   const k = inviteKeys(i.vercelEnv);
   const at = i.now ?? Date.now();
-  const val = JSON.stringify({ r: plan.ref, f: plan.from, at });
+  const claims = i.inv && i.tokenSecret ? verifyInviteToken(i.inv, i.tokenSecret, at) : null;
+  const u = claims && claims.ref === plan.ref ? claims.u : null;
+  const val = JSON.stringify(u ? { r: plan.ref, f: plan.from, at, u } : { r: plan.ref, f: plan.from, at });
   await store.set(k.touch(plan.os, plan.ipHash), val, TOUCH_TTL_SEC);
   if (i.looseHash) {
     // ref당 한 필드만 갱신한다. 다른 ref의 72시간 만료는 연장하지 않는다.
@@ -131,6 +151,8 @@ export async function recordTouch(store: InviteStore, i: TouchInput): Promise<bo
 export type ArriveOutcome =
   | { matched: false; reason: 'bad' | 'again' | 'none' | 'self' }
   | { matched: true; credited: false; reason: 'ip' | 'inviter_cap' | 'day_cap' | 'loose_ambiguous'; from: string; inviterRef: string; loose?: boolean }
+  /** 2026-11-13 requireToken: 'claimed' = 토큰 귀속 확인 대기 기록을 남겼다(적립은 RC 확인 뒤 /api/invite/verify) · 'legacy' = 토큰 없는 옛 링크(보상 없음) */
+  | { matched: true; credited: false; reason: 'claimed' | 'legacy'; from: string; inviterRef: string; loose?: boolean }
   | { matched: true; credited: true; from: string; inviterRef: string; loose?: boolean };
 
 /** ET 날짜(YYYY-MM-DD) — 하루 상한·지표 칸의 기준(다른 집계와 같은 시계) */
@@ -138,7 +160,9 @@ export function etDay(now = Date.now()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now));
 }
 
-export async function arrive(store: InviteStore, i: { key: unknown; os: unknown; ipHash: string | null; /** 앞 3칸 해시 — 정확한 IP 터치가 없을 때만 보조로 찾는다(loose 매칭으로 따로 센다) */ looseHash?: string | null; now?: number; vercelEnv?: string }): Promise<ArriveOutcome> {
+export async function arrive(store: InviteStore, i: { key: unknown; os: unknown; ipHash: string | null; /** 앞 3칸 해시 — 정확한 IP 터치가 없을 때만 보조로 찾는다(loose 매칭으로 따로 센다) */ looseHash?: string | null; now?: number; vercelEnv?: string;
+  /** 2026-11-13 true(운영 라우트) = IP 매칭만으로는 적립하지 않는다 — 토큰 터치면 «확인 대기»만 남기고, RC 신규 고객 확인(verifyClaim)이 적립한다 */
+  requireToken?: boolean }): Promise<ArriveOutcome> {
   const key = normalizeInviteKey(i.key);
   if (!key || !isOs(i.os) || !i.ipHash) return { matched: false, reason: 'bad' };
   const now = i.now ?? Date.now();
@@ -149,7 +173,7 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
   let raw = await store.get(k.touch(i.os, i.ipHash));
   let loose = false;
   if (!raw && i.looseHash) { raw = await store.get(k.touchLoose(i.os, i.looseHash)); loose = !!raw; }
-  let touch: { r?: unknown; f?: unknown; at?: unknown } | null = null;
+  let touch: { r?: unknown; f?: unknown; at?: unknown; u?: unknown } | null = null;
   try { touch = raw ? JSON.parse(raw) : null; } catch { touch = null; }
   const inviterRef = normalizeGiftRef(touch?.r);
   const from = typeof touch?.f === 'string' && isInviteFrom(touch.f) ? touch.f : null;
@@ -162,6 +186,15 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
   }
   if (decision === 'eligible' && inviterRef === selfRef) decision = 'self';
   const ref = inviterRef || selfRef;
+  if (i.requireToken) {
+    const u = typeof touch?.u === 'string' && /^[0-9a-f]{16}$/.test(touch.u) ? touch.u : null;
+    const d: ArriveClaimDecision = decision === 'eligible' ? (u ? 'claim' : 'legacy') : decision;
+    const claim = d === 'claim' ? JSON.stringify({ r: inviterRef, u, at, arr: now, os: i.os, f: from, ip: i.ipHash, ...(loose ? { l: 1 } : {}) }) : '';
+    const res = await store.arriveClaim({ keys: [k.arrived(selfRef), k.claim(selfRef)], now, decision: d, claim, arriveTtl: ARRIVE_TTL_SEC, claimTtl: CLAIM_TTL_SEC });
+    if (res === 'again' || res === 'none' || res === 'self') return { matched: false, reason: res };
+    const m = { from: from!, inviterRef: inviterRef!, ...(loose ? { loose } : {}) };
+    return { matched: true, credited: false, reason: res === 'claimed' ? 'claimed' : res, ...m };
+  }
   const result = await store.arriveCredit({
     keys: [k.arrived(selfRef), k.ipCredit(i.ipHash), k.cnt(ref), k.day(etDay(now)), k.credit(ref), k.friends(ref)],
     now, decision, inviterRef: ref,

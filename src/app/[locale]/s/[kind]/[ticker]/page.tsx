@@ -21,7 +21,7 @@ import { after } from 'next/server';
 import { publicBase } from '@/lib/net/publicBase';
 import { classifyClick } from '@/lib/marketing/clickHuman';
 import { bumpShare } from '@/lib/invite/metrics';
-import { SHARE_SURFACE, toInviteLang, type InviteLang, type ShareKind } from '@/lib/invite/kinds';
+import { SHARE_SURFACE, normalizeInviteToken, toInviteLang, type InviteLang, type ShareKind } from '@/lib/invite/kinds';
 import { normalizeGiftRef } from '@/lib/gift/gift';
 import { giftConfig } from '@/lib/gift/giftConfig';
 import { UI } from '@/lib/todayPicks/copy';
@@ -138,7 +138,7 @@ export default async function ShareCardPage({ params, searchParams }: Props) {
   const v = await getView(kind, ticker, lang);
   const gift = giftConfig();
   const cta = landingCta(kind, lang, { ref: normalizeGiftRef(first(sp.ref)), gift,
-    giftToken: giftEnabled() ? giftToken(first(sp.gift)) : null });
+    giftToken: giftEnabled() ? giftToken(first(sp.gift)) : null, inv: normalizeInviteToken(first(sp.inv)) });
   const ui = UI[lang];
   const c = COPY[lang];
 

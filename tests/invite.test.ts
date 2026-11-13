@@ -820,7 +820,9 @@ const t = async (name: string, fn: () => void | Promise<void>) => {
     const day = etDay();
     assert.equal(ec2.get(`share:probe:arrive:all:ios:${day}`), 1);
     assert.equal(ec2.get(`share:probe:match:sh_pick:ios:${day}`), 1);
-    assert.equal(ec2.get(`share:probe:credit:sh_pick:ios:${day}`), 1);
+    // 2026-11-13 운영 라우트는 requireToken — 토큰 없는 옛 링크 매칭은 적립하지 않고 legacy 로만 센다(보상은 RC 확인 뒤 /api/invite/verify)
+    assert.equal(ec2.has(`share:probe:credit:sh_pick:ios:${day}`), false);
+    assert.equal(ec2.get(`share:probe:legacy:sh_pick:ios:${day}`), 1);
     const again = await (await arriveRoute.POST(postReq('/api/invite/arrive', UA.iphoneWebView, { key: KEY_B }, { 'x-invite-test-ip': ip }))).json();
     assert.deepEqual(again, { ok: true, matched: false }); await flush();
     assert.equal(ec2.get(`share:probe:arrive:all:ios:${day}`), 1, '두 번째 호출은 도착으로 다시 세지 않는다');
@@ -839,9 +841,8 @@ const t = async (name: string, fn: () => void | Promise<void>) => {
   await t('/api/invite/inbox: 열쇠로만 열림 · 번호 + 기기에 맞는 «코드 사용» 주소 · mint 지표 · INVITE_REWARD≠1 이면 새로 안 뽑는다 · 남의 열쇠는 빈 목록', async () => {
     resetAll(); const s = resetStore();
     for (let i = 0; i < 3; i++) await s.sadd(K.poolIos, APPLE(i));
-    const ip = '198.51.100.30';
-    await sg.GET(getReq(`/app?from=gift&code=GIFTTESTPRO&ref=${REF_A}`, UA.iphone, { ...NAV, 'x-invite-test-ip': ip })); await flush();
-    await arriveRoute.POST(postReq('/api/invite/arrive', UA.iphoneWebView, { key: KEY_B }, { 'x-invite-test-ip': ip })); await flush();
+    // 2026-11-13 적립은 이제 RC 확인(/api/invite/verify — tests/referral.test.ts)이 한다 — 여기서는 «적립된 크레딧 1»을 바로 둔다(선물함 동작만 본다)
+    await s.set(K.credit(REF_A), '1', 86400); await s.set(K.friends(REF_A), '1', 86400);
     const prev = process.env.INVITE_REWARD;
     delete process.env.INVITE_REWARD;
     const off = await (await inboxRoute.POST(postReq('/api/invite/inbox', UA.iphoneWebView, { key: KEY_A }))).json();

@@ -1,6 +1,7 @@
 /** Test store. Atomic methods contain no await: validation and mutation share one turn. */
 import type { InviteStore } from './engine';
 import { arriveArgs, mintArgs, counterValue } from './atomic';
+import { arriveClaimArgs, verifyCreditArgs } from './referralAtomic';
 
 export function memoryInviteStore(now: () => number = Date.now): InviteStore & { dump(): Record<string, unknown> } {
   const kv = new Map<string, string>();
@@ -75,6 +76,38 @@ export function memoryInviteStore(now: () => number = Date.now): InviteStore & {
         }
       }
       return 'invalid';
+    },
+    arriveClaim: async (i) => {
+      arriveClaimArgs(i);
+      i.keys.forEach(k => check(k, 'string'));
+      const [arrived, claim] = i.keys;
+      if (kv.has(arrived)) return 'again';
+      write(arrived, String(i.now), i.arriveTtl);
+      if (i.decision !== 'claim') return i.decision;
+      if (kv.has(claim)) return 'again';
+      write(claim, i.claim, i.claimTtl);
+      return 'claimed';
+    },
+    verifyCredit: async (i) => {
+      verifyCreditArgs(i);
+      i.keys.forEach(k => check(k, 'string'));
+      const [claim, done, rcUser, rcTxn, ip, month, day, credit, friends] = i.keys;
+      if (kv.has(done)) return 'again';
+      if (!kv.has(claim)) return 'none';
+      const [m, d, c, f] = [month, day, credit, friends].map(k => counterValue(kv.get(k) ?? null));
+      if (kv.has(rcUser) || (i.hasTxn && kv.has(rcTxn))) { write(done, 'dup', i.doneTtl); return 'dup'; }
+      if (kv.has(ip)) { write(done, 'ip', i.doneTtl); return 'ip'; }
+      if (m >= i.monthCap) { write(done, 'inviter_cap', i.doneTtl); return 'inviter_cap'; }
+      if (d >= i.dailyCap) return 'day_cap';
+      write(rcUser, i.inviterRef, i.rcTtl);
+      if (i.hasTxn) write(rcTxn, i.inviterRef, i.rcTtl);
+      write(ip, i.inviterRef, i.ipTtl);
+      write(month, String(m + 1), i.monthTtl);
+      write(day, String(d + 1), i.dayTtl);
+      write(credit, String(c + 1), i.longTtl);
+      write(friends, String(f + 1), i.longTtl);
+      write(done, 'credited', i.doneTtl);
+      return 'credited';
     },
     get: async (k) => { check(k, 'string'); return kv.get(k) ?? null; },
     del: async (k) => { remove(k); },

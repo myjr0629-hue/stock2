@@ -8,6 +8,7 @@
 import { Redis } from '@upstash/redis';
 import type { InviteStore } from './engine';
 import { ARRIVE_CREDIT_LUA, MINT_ONE_LUA, arriveArgs, mintArgs, type ArriveCreditResult, type MintOneResult } from './atomic';
+import { ARRIVE_CLAIM_LUA, ARRIVE_CLAIM_RESULTS, VERIFY_CREDIT_LUA, VERIFY_CREDIT_RESULTS, arriveClaimArgs, verifyCreditArgs, type ArriveClaimResult, type VerifyCreditResult } from './referralAtomic';
 
 /**
  * HGETALL 응답 정리 — automaticDeserialization 을 끄면 @upstash/redis 가 «필드·값 번갈아 나열한 배열»을 객체로 바꿔 주지 않는다
@@ -59,6 +60,16 @@ export function inviteStoreFromRedis(r: Redis): InviteStore {
         throw new Error('invite store: invalid mint response');
       }
       return result as MintOneResult;
+    },
+    arriveClaim: async (input) => {
+      const result = await r.eval(ARRIVE_CLAIM_LUA, input.keys, arriveClaimArgs(input));
+      if (typeof result !== 'string' || !(ARRIVE_CLAIM_RESULTS as readonly string[]).includes(result)) throw new Error('invite store: invalid claim response');
+      return result as ArriveClaimResult;
+    },
+    verifyCredit: async (input) => {
+      const result = await r.eval(VERIFY_CREDIT_LUA, input.keys, verifyCreditArgs(input));
+      if (typeof result !== 'string' || !(VERIFY_CREDIT_RESULTS as readonly string[]).includes(result)) throw new Error('invite store: invalid verify response');
+      return result as VerifyCreditResult;
     },
     get: async (key) => {
       const v = await r.get<string>(key);

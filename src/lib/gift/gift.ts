@@ -81,11 +81,13 @@ export function getGiftRef(): string {
  * 플래그 켜짐·미확정에는 쓰지 않는다(새 선물은 giftShare/client.ts 의 서버 예약 토큰만).
  * 항상 운영 도메인(www)이다. l=<ko|ja> 는 링크 미리보기 카드·쿠폰 화면 언어(영어는 기본값이라 붙이지 않는다).
  */
-export function buildGiftUrl(code: string, ref: string | null, lang: GiftLang = 'en'): string {
+export function buildGiftUrl(code: string, ref: string | null, lang: GiftLang = 'en', inv?: string | null): string {
   const u = new URL('/app', SHARE_ORIGIN);
   u.searchParams.set('from', GIFT_FROM);
   u.searchParams.set('code', code);
   if (ref) u.searchParams.set('ref', ref);
+  // 2026-11-13 서명된 초대 토큰(형식 통과분만 — lib/invite/kinds.INVITE_TOKEN_RE 와 같은 모양)
+  if (ref && inv && /^[a-z0-9]{8,16}\.[0-9a-f]{16}\.[0-9a-z]{6,10}\.[A-Za-z0-9_-]{22}$/.test(inv)) u.searchParams.set('inv', inv);
   if (lang !== 'en') u.searchParams.set('l', lang);
   return u.toString();
 }

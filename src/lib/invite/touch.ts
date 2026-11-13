@@ -7,8 +7,11 @@ import type { HeaderLike } from '@/lib/marketing/clickHuman';
 import { recordTouch } from './engine';
 import { inviteClientIp, inviteDebug, inviteIpHash, inviteLooseHash, inviteSecret } from './guard';
 import { upstashInviteStore } from './store';
+import { inviteTokenSecret, verifyInviteToken } from './token';
+import { bumpShare } from './metrics';
+import { surfaceOfFrom } from './kinds';
 
-export async function touchFromRequest(h: HeaderLike, p: { from: string | null; ref: string | null; os: 'ios' | 'android' | 'desktop'; human: boolean }): Promise<void> {
+export async function touchFromRequest(h: HeaderLike, p: { from: string | null; ref: string | null; os: 'ios' | 'android' | 'desktop'; human: boolean; inv?: string | null }): Promise<void> {
   try {
     if (!p.human || !p.ref || p.os === 'desktop') return;
     const ip = inviteClientIp(h);
@@ -17,6 +20,8 @@ export async function touchFromRequest(h: HeaderLike, p: { from: string | null; 
     if (!store) return;
     const ipHash = inviteIpHash(ip, inviteSecret());
     inviteDebug('touch', h, ip, ipHash, `os=${p.os} from=${p.from}`);
-    await recordTouch(store, { ref: p.ref, from: p.from, os: p.os, ipHash, looseHash: inviteLooseHash(ip, inviteSecret()), human: p.human });
+    const tokenSecret = inviteTokenSecret();
+    const recorded = await recordTouch(store, { ref: p.ref, from: p.from, os: p.os, ipHash, looseHash: inviteLooseHash(ip, inviteSecret()), human: p.human, inv: p.inv, tokenSecret });
+    if (recorded && p.inv && verifyInviteToken(p.inv, tokenSecret)?.ref === p.ref) await bumpShare('tclick', surfaceOfFrom(p.from) || 'gift', p.os);
   } catch { /* 터치 기록 실패가 이동을 막지 않는다 */ }
 }

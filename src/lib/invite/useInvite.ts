@@ -17,6 +17,7 @@ import { usePreparedGift } from '@/lib/giftShare/usePreparedGift';
 import { giftFunnel, giftPayloadMetric, giftOutcomeMetric } from '@/lib/giftShare/funnelClient';
 import { INVITE_COPY } from './copy';
 import { getInviteRef, markInviteShared } from './identity';
+import { inviteTokenNow } from './tokenClient';
 import { SHARE_SURFACE, buildShareCardUrl, toInviteLang, type ShareKind } from './kinds';
 
 export interface InviteClientConfig { share: boolean; rewards: boolean }
@@ -105,7 +106,7 @@ export function useInviteShare(kind: ShareKind, locale: string) {
       const payload = gift.payload({
         title: INVITE_COPY[lang].shareTitle(ticker),
         text: INVITE_COPY[lang].shareText[kind](ticker, line),
-        url: buildShareCardUrl(kind, { locale: lang, ticker, ref, via }),
+        url: buildShareCardUrl(kind, { locale: lang, ticker, ref, via, inv: inviteTokenNow(ref) }),
       }, locale, via, ref);
       const payloadKind = giftPayloadMetric(payload, surface, via, gift.gateReason());
       out = await shareOrCopy(payload);

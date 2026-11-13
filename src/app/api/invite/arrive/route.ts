@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
   try {
     const ipHash = inviteIpHash(ip, inviteSecret());
     inviteDebug('arrive', req.headers, ip, ipHash, `os=${os}`);
-    r = await arrive(store, { key: body.key, os, ipHash, looseHash: inviteLooseHash(ip, inviteSecret()) });
+    // 2026-11-13 requireToken — IP 매칭만으로는 적립하지 않는다(토큰 터치면 «확인 대기», RC 확인은 /api/invite/verify)
+    r = await arrive(store, { key: body.key, os, ipHash, looseHash: inviteLooseHash(ip, inviteSecret()), requireToken: true });
   } catch {
     return out(503, { ok: false, reason: 'unavailable' });
   }
@@ -55,7 +56,11 @@ export async function POST(req: NextRequest) {
       await bumpShare('match', surface, os);
       if (r.loose) await bumpShare('matchloose', surface, os);   // 정확한 IP 가 아니라 «같은 /24»로 맞은 것 — match 에 이미 들어 있다(그중 몇 건이 느슨한 매칭인지)
       if (r.credited) await bumpShare('credit', surface, os);
+      if (!r.credited && r.reason === 'claimed') await bumpShare('claim', surface, os);
+      if (!r.credited && r.reason === 'legacy') await bumpShare('legacy', surface, os);
     }
   });
-  return out(200, { ok: true, matched: r.matched });
+  // claim = 이 기기는 «확인 대기» — 앱이 실행·복귀 때 /api/invite/verify 를 부른다(초대자가 누군지는 돌려주지 않는다)
+  const claim = r.matched && !r.credited && r.reason === 'claimed';
+  return out(200, { ok: true, matched: r.matched, ...(claim ? { claim: true } : {}) });
 }

@@ -21,6 +21,7 @@ import {
   ARRIVED_KEY, INBOX_MIN_GAP_MS, arrivalDecision, fetchInbox, markSeen, newItems, readBoxCache, readSeen, sendArrive, shouldCheckInbox,
   type BoxState,
 } from '@/lib/invite/inboxClient';
+import { ensureInviteToken, runClaimVerify } from '@/lib/invite/tokenClient';
 
 const InviteBoxSheet = dynamic(() => import('./InviteBoxSheet').then((m) => m.InviteBoxSheet), { ssr: false });
 
@@ -59,6 +60,16 @@ export function InviteHost() {
       if (!stored) store.setItem(ARRIVED_KEY, `pending:${Date.now()}`);
     } catch { return; }
     void sendArrive().then((ok) => { if (ok) { try { store.setItem(ARRIVED_KEY, 'done'); } catch { /* 저장소 막힘 */ } } });
+  }, []);
+
+  // ③ 2026-11-13 토큰 귀속 추천 — 초대자: 공유 링크에 실을 서명 토큰을 미리 받아 둔다(링크 만드는 순간은 동기라서) ·
+  //    친구: «확인 대기»면 실행·복귀 때 서버에 RC 신규 고객 확인을 묻는다(3분 간격·7일). 화면에는 아무것도 그리지 않는다.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    const tick = () => { if (document.visibilityState === 'hidden') return; void ensureInviteToken(); void runClaimVerify(); };
+    const first = window.setTimeout(tick, 4000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { window.clearTimeout(first); document.removeEventListener('visibilitychange', tick); };
   }, []);
 
   // ② 선물함 — 대시보드에서(다른 화면에서 하던 일을 끊지 않는다)

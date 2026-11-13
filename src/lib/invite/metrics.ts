@@ -20,7 +20,17 @@
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { etDay } from './engine';
 
-export type ServerShareEvent = 'open' | 'arrive' | 'match' | 'matchloose' | 'credit' | 'mint';
+/**
+ * 2026-11-13 토큰 귀속 추천(lib/invite/referral) 칸:
+ *   share:tissue:all:<플랫폼>          초대자 앱이 서명 토큰을 받았다(= 보상 귀속이 되는 링크를 만들 준비) — /api/invite/token
+ *   share:tclick:<표면>:<플랫폼>        받은 사람이 «서명 통과 토큰»이 실린 링크를 폰에서 열었다(사람 판정 통과분) — /app
+ *   share:claim:<표면>:<플랫폼>         첫 실행이 토큰 터치와 맞아 «확인 대기»가 생겼다(= 귀속) — /api/invite/arrive
+ *   share:legacy:<표면>:<플랫폼>        첫 실행이 토큰 없는 옛 링크와 맞았다(보상 없음 — 비교용)
+ *   share:rverify:<결론>:<플랫폼>       RC 확인 결론(credited·self·existing·sandbox·dup·ip·inviter_cap·p_no_purchas…) — /api/invite/verify
+ *   share:reward:all:<플랫폼>           초대자 크레딧 적립(= 보상 지급 확정, 번호 배정은 기존 share:mint)
+ * 토큰·열쇠·RC ID·번호 값은 어떤 칸에도 싣지 않는다.
+ */
+export type ServerShareEvent = 'open' | 'arrive' | 'match' | 'matchloose' | 'credit' | 'mint' | 'tissue' | 'tclick' | 'claim' | 'legacy' | 'rverify' | 'reward';
 const TTL = 60 * 60 * 24 * 45;
 const SENDERS_MAX = 600;
 

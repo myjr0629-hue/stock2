@@ -54,16 +54,36 @@ export function normalizeShareTicker(raw: unknown): string | null {
   return SHARE_TICKER_RE.test(t) ? t : null;
 }
 
+/**
+ * 초대 토큰(lib/invite/token — 서버가 서명) 형식 — 링크의 inv= 칸. 여기서는 «모양»만 본다(서명 검사는 서버 /app 라우트).
+ * 2026-11-13: 형식이 아니면 링크에 붙이지 않는다(링크는 깨지지 않는다 — 토큰 없는 링크는 보상 귀속만 안 된다).
+ */
+export const INVITE_TOKEN_RE = /^[a-z0-9]{8,16}\.[0-9a-f]{16}\.[0-9a-z]{6,10}\.[A-Za-z0-9_-]{22}$/;
+export const normalizeInviteToken = (raw: unknown): string | null => (typeof raw === 'string' && INVITE_TOKEN_RE.test(raw) ? raw : null);
+/** 주소에 inv=<토큰> 을 붙인다(형식 통과분만). 그 밖은 주소 그대로. */
+export function withInviteToken(href: string, token: unknown): string {
+  const t = normalizeInviteToken(token);
+  if (!t) return href;
+  try {
+    const u = new URL(href);
+    u.searchParams.set('inv', t);
+    return u.toString();
+  } catch { return href; }
+}
+
 export type InviteVia = 'ios' | 'android' | 'web';
 const toVia = (v: unknown): InviteVia => (v === 'ios' || v === 'android' ? v : 'web');
 
 /** 공유 카드 주소 — 항상 운영 도메인. ref 가 형식 밖이면 붙이지 않는다(링크는 깨지지 않는다). */
-export function buildShareCardUrl(kind: ShareKind, p: { locale: string; ticker: string; ref?: string | null; via?: string | null }): string {
+export function buildShareCardUrl(kind: ShareKind, p: { locale: string; ticker: string; ref?: string | null; via?: string | null; inv?: string | null }): string {
   const u = new URL(`/${toInviteLang(p.locale)}/s/${kind}/${encodeURIComponent(p.ticker.toUpperCase())}`, SHARE_ORIGIN);
   u.searchParams.set('from', SHARE_FROM[kind]);
   const ref = normalizeGiftRef(p.ref);
   if (ref) u.searchParams.set('ref', ref);
   u.searchParams.set('via', toVia(p.via));
+  // 2026-11-13 초대 토큰 — ref 가 있을 때만(토큰의 ref 와 링크 ref 는 /app 라우트가 대조한다)
+  const inv = ref ? normalizeInviteToken(p.inv) : null;
+  if (inv) u.searchParams.set('inv', inv);
   return u.toString();
 }
 
@@ -71,7 +91,7 @@ export function buildShareCardUrl(kind: ShareKind, p: { locale: string; ticker: 
  * 받은 쪽 페이지의 «앱에서 이어 보기» 주소 — 기존 스마트링크(/app). code 가 있으면(선물 코드가 켜져 있을 때) 쿠폰 화면이 먼저 뜬다.
  * 영어는 기본값이라 l 을 붙이지 않는다(미리보기 봇·쿠폰 화면 언어를 보낸 사람 언어로 맞추는 용도).
  */
-export function inviteAppHref(kind: ShareKind, p: { lang: string; ref?: string | null; code?: string | null; giftToken?: string | null }): string {
+export function inviteAppHref(kind: ShareKind, p: { lang: string; ref?: string | null; code?: string | null; giftToken?: string | null; inv?: string | null }): string {
   const u = new URL('/app', SHARE_ORIGIN);
   u.searchParams.set('from', SHARE_FROM[kind]);
   const code = (p.code || '').trim().toUpperCase();
@@ -80,5 +100,7 @@ export function inviteAppHref(kind: ShareKind, p: { lang: string; ref?: string |
   if (ref) u.searchParams.set('ref', ref);
   const lang = toInviteLang(p.lang);
   if (lang !== 'en') u.searchParams.set('l', lang);
+  const inv = ref ? normalizeInviteToken(p.inv) : null;
+  if (inv) u.searchParams.set('inv', inv);
   return withGift(u.toString(), p.giftToken);
 }
