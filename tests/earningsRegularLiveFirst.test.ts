@@ -441,6 +441,13 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
     assert.equal(x.basis, 'live', `genuine price equal to prior close must keep origin/main live — got ${x.basis} ${x.impliedMovePct}`);
     assert.equal(x.strike, 227.5); assert.equal(x.session, '2026-11-13');
     ok(`⑦ gate 11140621: genuine REG price == prior close, legs consistent → origin/main live ${x.impliedMovePct} kept (not EOD)`);
+    // 관문 11140623 ① 반례 — 옛 슬림 체인(계약별 _quoteSource 없음, 체인 수준 greeksSource realtime 만)·현물 = 전일 종가·EOD 관측 있음
+    //   → 새 분기는 계산 자체를 못 한다(증명 대상 아님) → main 그대로(legacy live)
+    seedT('LOW', { spot: 227.46, prevClose: 227.46, exp: M20, after: W18, chainAgeMs: 393_000, obs: lowObs,
+      rows: legsAt(M20, 227.46, [220, 222.5, 225, 227.5, 230, 232.5], 12.8, 0.2, '2026-11-13T14:31:07Z').map(({ _quoteSource, ivObservedAt, ...r }: any) => r) });
+    [x] = await read('LOW', W18);
+    assert.equal(x.basis, 'live', `old slim chain without per-contract flags must stay origin/main — got ${x.basis} ${x.impliedMovePct}`);
+    ok(`⑦ gate 11140623 ①: old slim chain (no per-contract live flags) + prior-close-equal spot → origin/main live ${x.impliedMovePct} kept`);
 
     // NVDA — 구조 현물 166.0911, 실제 09:33 은 166.02~166.84 · 체인 09:32:27 → 진짜 live(운영·미리보기 모두 live 8.8 @165)
     const W18N = '2026-11-18';

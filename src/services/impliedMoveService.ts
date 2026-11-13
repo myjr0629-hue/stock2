@@ -641,12 +641,12 @@ function regularSessionLiveMove(rows: any[], spot: number, spotAt: number | null
     // 증명: 실제 현물이 S ± spotErr 어디든 예상폭 오차 = 100·스트래들·spotErr / (S·(S − spotErr)) ≤ 0.1%p (분모가 작아지는 쪽까지 정확히 — 관문 11130829)
     const straddle = im.callPrice + im.putPrice;
     const errPp = spotErr < im.spot ? 100 * straddle * spotErr / (im.spot * (im.spot - spotErr)) : Infinity;
-    if (!(spotErr <= EARNINGS_LIVE_PARITY_SPOT_CAP * im.spot && errPp <= EARNINGS_LIVE_PARITY_PP)) return { im: null, rejected: false };
+    if (!(spotErr <= EARNINGS_LIVE_PARITY_SPOT_CAP * im.spot && errPp <= EARNINGS_LIVE_PARITY_PP)) return { im: null, rejected: false, accurate: false };
     // 현물이 증명된 오차 범위(±spotErr) 어디에 있어도 같은 ATM 행사가여야 한다 — 범위가 두 행사가의 중간점을 넘으면
     //   행사가 자체가 바뀔 수 있다(관문 11130827). 같은 선택 규칙(atmStraddleImpliedMove)으로 양 끝을 다시 고른다. 다르면 후보 아님.
     for (const edge of [im.spot - spotErr, im.spot + spotErr]) {
         const alt = atmStraddleImpliedMove(liveRows, edge, { expiry: quoteOptions.expiry, chainDate: quoteOptions.chainDate, quotesLive: true, quotesAt, liveOnly: true, nowMs });
-        if (!alt || alt.strike !== im.strike) return { im: null, rejected: false };
+        if (!alt || alt.strike !== im.strike) return { im: null, rejected: false, accurate: false };
     }
     // ④ 현물을 «정규장 현재가»로 언제 받았는지 모르면 동시성을 증명 못 한다 → 후보 아님(예전 순서 그대로)
     //   [11/14] 단 여기까지 왔으면 이 현물로 낸 값은 실시간 다리와 0.1%p 안·같은 ATM 으로 맞는다(accurate) —
@@ -777,9 +777,10 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                     if (!closed && weeklyListed) {
                         const lv = regularSessionLiveMove(rows, n.spot, n.spotAt ?? null, quoteOptions, pc, Date.now());
                         if (lv.im) { results[n.idx] = resolvedMoveOf(n.ticker, lv.im, 'probe', null); break; }
-                        // [11/14] 현물이 정규장 값이 아님이 확인되고(spotStale) 그 현물로는 다리와 맞는다는 증명도 못 하면(accurate 아님)
-                        //   아래 legacy live 는 혼합값 — 탈락과 같게 EOD 관측 폴백 표식. 증명되면(전일 종가와 우연히 같은 진짜 체결가 등) main 그대로.
-                        liveRejected = lv.rejected || (n.spotStale === true && lv.accurate !== true);
+                        // [11/14] 현물이 정규장 값이 아님이 확인되고(spotStale) 계약별 실시간 다리로 계산은 됐는데 그 현물로는 0.1%p·같은 ATM 을
+                        //   증명 못 하면(accurate === false) 아래 legacy live 는 혼합값 — 탈락과 같게 EOD 관측 폴백 표식.
+                        //   증명되면(전일 종가와 우연히 같은 진짜 체결가 등)·계약별 표식 다리가 없어 계산 자체를 못 하면 main 그대로(관문 11140623 ①).
+                        liveRejected = lv.rejected || (n.spotStale === true && lv.accurate === false);
                     }
                     // 새 경로(마감 종가 분모·ATM 재선택)는 양쪽 마감 호가가 확인되는 계약만 쓴다(관문 10200755 ①, lib/impliedMove.eodQuoteRows).
                     let strict: ImpliedMove | null = null;
