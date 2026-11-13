@@ -249,6 +249,15 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     const cell = (s: string) => ({ ...snap, packAt: at, packDay: '2026-11-12', cells: { [`${T}|2026-11-12`]: { p: 5, e: '2026-11-13', b: 'live', s, r: null, f: '2026-11-13' } } });
     assert.equal(EP.buildEarningsPageView(T, cell('2026-11-12'), at).implied, null);
     assert.equal(EP.buildEarningsPageView(T, cell('2026-11-11'), at).implied.pct, 5);
+    // 장후 발표일 당일 호가 [관문 11140831] — 16:00 공지(BKNG 형) 16:05 장중 호가는 «발표 전»이 아니다 · 마감 호가·발표 전 묶음은 된다 · 16:20 공지(NVDA)는 당일 호가 전부 발표 전
+    const amcAt = Date.parse('2026-11-17T21:30:00Z'); // 16:30 ET
+    const amc = (etTime: string, b: string, packAt: number) => ({ ...snap, packAt, packDay: '2026-11-17', next: { [T]: [{ ticker: T, date: '2026-11-17', hour: 'amc', etTime, dateStatus: 'confirmed' }] },
+      cells: { [`${T}|2026-11-17`]: { p: 7, e: '2026-11-20', b, s: '2026-11-17', r: null, f: '2026-11-20' } } });
+    const v1605 = EP.buildEarningsPageView(T, amc('16:00', 'live', Date.parse('2026-11-17T21:05:00Z')), amcAt);
+    assert.equal(v1605.next.phase, 'done'); assert.equal(v1605.implied, null, 'post-release live quote rejected');
+    assert.equal(EP.buildEarningsPageView(T, amc('16:00', 'eod', Date.parse('2026-11-17T21:05:00Z')), amcAt).implied.pct, 7);
+    assert.equal(EP.buildEarningsPageView(T, amc('16:00', 'live', Date.parse('2026-11-17T20:55:00Z')), amcAt).implied.pct, 7, 'pack built before release');
+    assert.equal(EP.buildEarningsPageView(T, amc('16:20', 'live', Date.parse('2026-11-17T21:25:00Z')), amcAt).implied.pct, 7, 'options closed before 16:20');
     // 회사 공지 전 예정일은 경계가 지나도 «발표됨»이라 단정하지 않는다 — 그다음 일정으로(없으면 없음) [관문 11140830 ②]
     const est = { ...snap, next: { [T]: [{ ticker: T, date: '2026-11-12', hour: 'bmo', dateStatus: 'est' }, { ticker: T, date: '2027-02-10', hour: 'amc' }], [N]: [{ ticker: N, date: '2026-11-12', hour: 'bmo' }] } };
     const ve = EP.buildEarningsPageView(T, est, at);

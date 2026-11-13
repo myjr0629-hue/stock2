@@ -193,6 +193,17 @@ export function epPhaseOf(r: { date: string; hour: string; etTime?: string }, no
   return p === 'today' && releasedByExactTime(r, nowMs) ? 'done' : p;
 }
 
+/** 장후 발표일 «당일» 호가가 발표 전에 잡힌 것이 확실한가 — 순수 함수(위 preReport 주석) */
+function sameDayAmcPreReport(r: { date: string; etTime?: string }, quote: string | null, packAt: number | null): boolean {
+  const close = etWallToMs(r.date, closeEtOf(r.date));
+  if (close == null) return false;
+  const exact = r.etTime ? etWallToMs(r.date, r.etTime) : null;
+  if (exact != null && exact >= close + 15 * 60_000) return true;
+  if (quote === 'eod' && (exact == null || exact >= close)) return true;
+  const cut = exact ?? close;
+  return typeof packAt === 'number' && Number.isFinite(packAt) && packAt <= cut;
+}
+
 export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot, nowMs: number = Date.now()): EarningsPageView {
   const seen = new Set<string>();
   const history: ScorecardRow[] = [];
@@ -224,7 +235,9 @@ export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot
     const v = impliedForRow(n, { v: 1, at: snap.packAt ?? 0, day: snap.packDay ?? '', cells: snap.cells }, at);
     // 나온 발표엔 «발표 전 호가»로 잡힌 값만 — 장후 발표는 발표일 정규장(옵션은 16:15 ET 마감)까지, 그 밖(장전·장중 공지 시각)은 전 거래일까지.
     //   장전 발표일 장중에 다시 만든 묶음(발표 뒤 호가)을 «발표 전 예상»이라 부르지 않는다.
-    const preReport = phase !== 'done' || (typeof v?.session === 'string' && (n.hour === 'amc' ? v.session <= n.date : v.session < n.date));
+    //   장후 발표일 당일 호가는 «발표 전»이 확실할 때만(관문 11140831): 공지 시각이 옵션 거래 끝(정규장 마감 + 15분) 이후거나(NVDA 16:20),
+    //   마감 호가(eod)거나, 묶음 전체가 발표 시각(공지 시각 없으면 정규장 마감) 전에 만들어졌을 때. 예) 16:00 공지 종목의 16:05 장중 호가는 쓰지 않는다.
+    const preReport = phase !== 'done' || (typeof v?.session === 'string' && (v.session < n.date || (n.hour === 'amc' && v.session === n.date && sameDayAmcPreReport(n, v.basis ?? null, snap.packAt))));
     if (v && preReport) {
       // 칸의 값은 이벤트 분리값이 있으면 그 값이다 — 정의를 값과 함께 넘긴다(tickerEarningsIntent.readIntent 와 같다)
       const split = typeof v.eventMovePct === 'number' && Number.isFinite(v.eventMovePct) && v.eventMovePct > 0;
