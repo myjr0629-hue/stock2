@@ -1,12 +1,12 @@
 /**
- * «1년 PRO 이용권(자동 갱신 없음)» — 판정(planPromoYear) · 부여(ensurePromoYear) · 환불 정리(revokePromoYearIfRefunded) · 웹훅 거름 ·
+ * «1년 PRO 이용권(자동 갱신 없음)» — 판정(planPromoYear) · 부여(ensurePromoYear) · 환불 기록(recordPromoYearRefund) · 웹훅 거름 ·
  *   앱 재조회 순서 · 웹훅·앱 라우트 (가짜 RC · 가짜 Upstash)
  * 실행: npx tsx tests/promoYear.test.ts
  */
 import assert from 'node:assert/strict';
 import {
   PROMO_YEAR_MS, PROMO_YEAR_PRODUCT_ID, ensurePromoYear, planPromoYear, promoYearFromWebhook, promoYearRefundFromWebhook,
-  revokePromoYearIfRefunded, type PromoLedger, type Purchase,
+  recordPromoYearRefund, type PromoLedger, type Purchase,
 } from '../src/lib/promoYear/core';
 import { claimPromoYear, refreshProAfterRedeem } from '../src/lib/app/redeem';
 
@@ -27,17 +27,13 @@ const subWith = (purchases: P[], subs: Record<string, unknown> = {}) => ({
   },
 });
 const promo = (end: number | null) => ({ rc_promo_pro_custom: { store: 'promotional', expires_date: end === null ? null : iso(end) } });
-const memLedger = (opts: { lock?: 'free' | 'busy' } = {}) => {
-  const refunded = new Map<string, string[]>(); const granted = new Map<string, Purchase[]>(); let releases = 0;
-  const l: PromoLedger & { releases: () => number; refundedOf: (u: string) => string[]; grantedOf: (u: string) => Purchase[] } = {
+const memLedger = () => {
+  const refunded = new Map<string, string[]>();
+  const l: PromoLedger & { refundedOf: (u: string) => string[] } = {
     refunded: async (u) => refunded.get(u) ?? [],
-    addRefund: async (u, tx) => { refunded.set(u, [...new Set([...(refunded.get(u) ?? []), tx])]); },
-    granted: async (u) => granted.get(u) ?? [],
-    addGranted: async (u, p) => { granted.set(u, [...(granted.get(u) ?? []), p]); },
-    releases: () => releases, refundedOf: (u) => refunded.get(u) ?? [], grantedOf: (u) => granted.get(u) ?? [],
+    addRefund: async (u, keys) => { refunded.set(u, [...new Set([...(refunded.get(u) ?? []), ...keys])]); },
+    refundedOf: (u) => refunded.get(u) ?? [],
   };
-  if (opts.lock === 'busy') l.lock = async () => null;
-  if (opts.lock === 'free') l.lock = async () => async () => { releases++; };
   return l;
 };
 const fakeRc = (subscriber: unknown, status: { get?: number; post?: number } = {}) => {
@@ -88,7 +84,8 @@ const fakeRc = (subscriber: unknown, status: { get?: number; post?: number } = {
     assert.deepEqual(planPromoYear(subWith([{ at: a, tx: 'A' }]), NOW, { refunded: ['A'] }), { kind: 'none', why: 'no_purchase' });
     assert.deepEqual(planPromoYear(subWith([{ at: a, tx: 'A' }, { at: b, tx: 'B' }]), NOW, { refunded: ['B'] }),
       { kind: 'grant', purchase: { tx: 'A', ms: a }, endMs: a + PROMO_YEAR_MS });
-    assert.deepEqual(planPromoYear({ subscriber: {} }, NOW, { known: [{ tx: 'K', ms: a }], ignoreCovered: true }), { kind: 'grant', purchase: { tx: 'K', ms: a }, endMs: a + PROMO_YEAR_MS });
+    // 거래 ID 가 한쪽에만 있어도 구매 시각 키('ms:')로 같은 구매를 알아본다
+    assert.deepEqual(planPromoYear({ subscriber: { non_subscriptions: { [PROMO_YEAR_PRODUCT_ID]: [{ purchase_date: iso(a), store: 'app_store' }] } } }, NOW, { refunded: ['TX9', `ms:${Date.parse(iso(a))}`] }), { kind: 'none', why: 'no_purchase' });
   });
 
   // ── 부여 ──
@@ -98,66 +95,38 @@ const fakeRc = (subscriber: unknown, status: { get?: number; post?: number } = {
     assert.deepEqual(await ensurePromoYear('bad id!', { secret: 'sk', fetchImpl: rc.f, now: () => NOW }), { kind: 'none', why: 'uid' });
     assert.equal(rc.calls.length, 0);
   });
-  await t('부여: GET → POST promotional { end_time_ms } · 부여한 구매를 기록 · 잠금 풀림', async () => {
-    const at = NOW - 60_000; const rc = fakeRc(subWith([{ at, tx: 'A' }])); const l = memLedger({ lock: 'free' });
-    assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk_test', fetchImpl: rc.f, now: () => NOW, ledger: l }), { kind: 'granted', endMs: at + PROMO_YEAR_MS });
+  await t('부여: GET → POST promotional { end_time_ms } (pro · 서버 비밀키)', async () => {
+    const at = NOW - 60_000; const rc = fakeRc(subWith([{ at, tx: 'A' }]));
+    const seen: string[] = [];
+    const f = (async (url: string, init: RequestInit) => { seen.push((init.headers as Record<string, string>).Authorization); return rc.f(url, init); }) as unknown as typeof fetch;
+    assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk_test', fetchImpl: f, now: () => NOW, ledger: memLedger() }), { kind: 'granted', endMs: at + PROMO_YEAR_MS });
     assert.deepEqual(rc.calls, ['GET /', 'POST /entitlements/pro/promotional']);
     assert.deepEqual(rc.bodies, [{ end_time_ms: at + PROMO_YEAR_MS }]);
-    assert.deepEqual(l.grantedOf(UID), [{ tx: 'A', ms: at }]);
-    assert.equal(l.releases(), 1);
+    assert.deepEqual(seen, ['Bearer sk_test', 'Bearer sk_test']);
   });
-  await t('부여: 구매 없음 → GET 만 · RC 부여 실패 → unavailable · 잠금 못 잡으면 RC 안 부르고 busy · 기록 못 읽으면 닫힘', async () => {
+  await t('부여: 구매 없음 → GET 만 · RC 부여 실패 → unavailable · 환불 기록 못 읽으면 닫힘', async () => {
     const none = fakeRc({ subscriber: { non_subscriptions: {}, subscriptions: {} } });
     assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: none.f, now: () => NOW }), { kind: 'none', why: 'no_purchase' });
     assert.deepEqual(none.calls, ['GET /']);
     assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: fakeRc(subWith([{ at: NOW }]), { post: 500 }).f, now: () => NOW }), { kind: 'unavailable', why: 'grant' });
-    const busy = fakeRc(subWith([{ at: NOW }]));
-    assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: busy.f, now: () => NOW, ledger: memLedger({ lock: 'busy' }) }), { kind: 'unavailable', why: 'busy' });
-    assert.equal(busy.calls.length, 0);
     const broken = { ...memLedger(), refunded: async () => { throw new Error('x'); } };
     assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: fakeRc(subWith([{ at: NOW }])).f, now: () => NOW, ledger: broken }), { kind: 'unavailable', why: 'read' });
   });
   await t('부여: 환불 기록에 있는 거래는 늦게 온 구매 웹훅 힌트로도 붙이지 않는다', async () => {
-    const at = NOW - 60_000; const l = memLedger(); await l.addRefund(UID, 'A'); const rc = fakeRc(subWith([{ at, tx: 'A' }]));
+    const at = NOW - 60_000; const l = memLedger(); await l.addRefund(UID, ['A']); const rc = fakeRc(subWith([{ at, tx: 'A' }]));
     assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: rc.f, now: () => NOW, ledger: l }, { tx: 'A', ms: at }), { kind: 'none', why: 'no_purchase' });
     assert.deepEqual(rc.calls, ['GET /']);
   });
 
-  // ── 환불 정리 ──
-  await t('환불: 남은 구매 없음 → 회수 · 지금 프로모셔널이 없으면 아무것도 안 함', async () => {
-    const at = NOW - 3600_000;
-    const r1 = fakeRc(subWith([{ at, tx: 'A' }], promo(at + PROMO_YEAR_MS)));
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, 'A', { secret: 'sk', fetchImpl: r1.f, now: () => NOW, ledger: memLedger() }), { kind: 'revoked' });
-    assert.deepEqual(r1.calls, ['GET /', 'POST /entitlements/pro/revoke_promotionals']);
-    const r2 = fakeRc(subWith([{ at, tx: 'A' }]));
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, 'A', { secret: 'sk', fetchImpl: r2.f, now: () => NOW, ledger: memLedger() }), { kind: 'none', why: 'nothing' });
-    assert.deepEqual(r2.calls, ['GET /']);
-  });
-  await t('환불: 최신 구매 환불 → 회수 뒤 남은 구매 기준으로 다시 · 옛 구매 환불 → 유지 · 회수 뒤 재부여 실패 재시도 → 다시 붙임', async () => {
-    const newer = NOW - 3600_000, older = NOW - 30 * D;
-    const both = [{ at: newer, tx: 'N' }, { at: older, tx: 'O' }];
-    const r1 = fakeRc(subWith(both, promo(newer + PROMO_YEAR_MS)));
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, 'N', { secret: 'sk', fetchImpl: r1.f, now: () => NOW, ledger: memLedger() }), { kind: 'shortened', endMs: older + PROMO_YEAR_MS });
-    assert.deepEqual(r1.calls, ['GET /', 'POST /entitlements/pro/revoke_promotionals', 'POST /entitlements/pro/promotional']);
-    const r2 = fakeRc(subWith(both, promo(newer + PROMO_YEAR_MS)));
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, 'O', { secret: 'sk', fetchImpl: r2.f, now: () => NOW, ledger: memLedger() }), { kind: 'kept', endMs: newer + PROMO_YEAR_MS });
-    assert.deepEqual(r2.calls, ['GET /']);
-    const r3 = fakeRc(subWith(both));
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, 'N', { secret: 'sk', fetchImpl: r3.f, now: () => NOW, ledger: memLedger() }), { kind: 'shortened', endMs: older + PROMO_YEAR_MS });
-    assert.deepEqual(r3.calls, ['GET /', 'POST /entitlements/pro/promotional']);
-  });
-  await t('환불: 옛 구매 환불 시 RC 기록에 아직 없는 새 구매(우리 부여 기록)는 유효로 센다 — 정당한 PRO 를 회수하지 않는다', async () => {
-    const older = NOW - 30 * D, fresh = NOW - 60_000;
-    const l = memLedger(); await l.addGranted(UID, { tx: 'F', ms: fresh });
-    const rc = fakeRc(subWith([{ at: older, tx: 'O' }], promo(fresh + PROMO_YEAR_MS)));
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, 'O', { secret: 'sk', fetchImpl: rc.f, now: () => NOW, ledger: l }), { kind: 'kept', endMs: fresh + PROMO_YEAR_MS });
-    assert.deepEqual(rc.calls, ['GET /']);
-  });
-  await t('환불: 키·잠금이 없어도 환불 기록은 먼저 남는다 · 잠금 못 잡으면 RC 안 부르고 busy', async () => {
-    const l = memLedger({ lock: 'busy' }); const rc = fakeRc(subWith([{ at: NOW - 1000, tx: 'A' }]));
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, 'A', { secret: '', ledger: l }), { kind: 'unavailable', why: 'no_key' });
-    assert.deepEqual(await revokePromoYearIfRefunded(UID, 'B', { secret: 'sk', fetchImpl: rc.f, now: () => NOW, ledger: l }), { kind: 'unavailable', why: 'busy' });
-    assert.deepEqual(l.refundedOf(UID), ['A', 'B']); assert.equal(rc.calls.length, 0);
+  // ── 환불 기록(자동 회수 없음) ──
+  await t('환불 기록: 키를 남기고 RC 는 부르지 않는다 · 이후 같은 구매로 다시 붙이지 않는다 · 저장 실패는 unavailable', async () => {
+    const at = NOW - 60_000; const l = memLedger();
+    assert.equal(await recordPromoYearRefund(UID, ['A', `ms:${at}`], { secret: 'sk', ledger: l }), 'recorded');
+    assert.deepEqual(l.refundedOf(UID), ['A', `ms:${at}`]);
+    const rc = fakeRc(subWith([{ at, tx: 'A' }]));
+    assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: rc.f, now: () => NOW, ledger: l }), { kind: 'none', why: 'no_purchase' });
+    assert.equal(await recordPromoYearRefund(UID, [], { ledger: l }), 'none');
+    assert.equal(await recordPromoYearRefund(UID, ['A'], { ledger: { refunded: async () => [], addRefund: async () => { throw new Error('x'); } } }), 'unavailable');
   });
 
   // ── 웹훅 거름 ──
@@ -171,7 +140,8 @@ const fakeRc = (subscriber: unknown, status: { get?: number; post?: number } = {
     assert.equal(promoYearFromWebhook(ev({ product_id: 'rc_promo_pro_custom', store: 'PROMOTIONAL' })), null);
     assert.equal(promoYearFromWebhook(ev({ product_id: 'com.signumhq.app.pro.annual', type: 'INITIAL_PURCHASE' })), null);
     assert.equal(promoYearFromWebhook(null), null);
-    assert.deepEqual(promoYearRefundFromWebhook(ev({ type: 'CANCELLATION', purchased_at_ms: NOW, transaction_id: 'T1' })), { uid: UID, tx: 'T1' });
+    assert.deepEqual(promoYearRefundFromWebhook(ev({ type: 'CANCELLATION', purchased_at_ms: NOW, transaction_id: 'T1' })), { uid: UID, keys: ['T1', `ms:${NOW}`] });
+    assert.deepEqual(promoYearRefundFromWebhook(ev({ type: 'CANCELLATION', transaction_id: 'T1' })), { uid: UID, keys: ['T1'] });
     assert.equal(promoYearRefundFromWebhook(ev({ type: 'CANCELLATION', product_id: 'com.signumhq.app.pro.annual' })), null);
     assert.equal(promoYearFromWebhook(ev({ type: 'CANCELLATION' })), null);
   });
@@ -192,13 +162,13 @@ const fakeRc = (subscriber: unknown, status: { get?: number; post?: number } = {
     await claimPromoYear(async () => UID, (async () => { throw new Error('net'); }) as unknown as typeof fetch);
   });
 
-  // ── 라우트(가짜 Upstash: SMEMBERS → [] · 잠금/해제/SADD → 1 · 나머지 → result) ──
+  // ── 라우트(가짜 Upstash: SMEMBERS → [] · SADD → 1 · 나머지 → result) ──
   const fakeUpstash = (log: string[], tag: string, result: () => unknown) => (u: string, init: RequestInit) => {
     const cmds = u.endsWith('/pipeline') ? JSON.parse(String(init.body)) : [JSON.parse(String(init.body))];
     const out = cmds.map((c: unknown[]) => {
       const script = String(c[1]);
       if (script.includes('SMEMBERS')) return { result: [] };
-      if (/'NX', 'PX'|'DEL'|'SADD'/.test(script)) return { result: 1 };
+      if (script.includes('SADD')) return { result: 1 };
       log.push(tag); return { result: result() };
     });
     return new Response(JSON.stringify(u.endsWith('/pipeline') ? out : out[0]), { status: 200 });
