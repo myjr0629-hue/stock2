@@ -434,6 +434,13 @@ const readEarn = (iso = REG) => at(iso, () => IMS.readImpliedMoveRows([{ ticker:
     assert.equal(x.basis, 'live', `LOW without EOD observation stays origin/main (legacy live) — got ${x.basis} ${x.impliedMovePct}`);
     assert.equal(x.strike, 227.5);
     ok(`⑦ 11/13 LOW replay: prior-close-fill spot 227.46 (real ~225.3) → EOD obs 5.6 · no obs → unchanged origin/main live ${x.impliedMovePct}`);
+    // 관문 11140621 반례 — 진짜 정규장 체결가가 전일 종가와 우연히 같다(실제 227.46 = prevClose): 다리가 이 현물과 맞으면(증명) main 그대로 live
+    seedT('LOW', { spot: 227.46, prevClose: 227.46, exp: M20, after: W18, chainAgeMs: 393_000, obs: lowObs,
+      rows: legsAt(M20, 227.46, [220, 222.5, 225, 227.5, 230, 232.5], 12.8, 0.2, '2026-11-13T14:31:07Z') });
+    [x] = await read('LOW', W18);
+    assert.equal(x.basis, 'live', `genuine price equal to prior close must keep origin/main live — got ${x.basis} ${x.impliedMovePct}`);
+    assert.equal(x.strike, 227.5); assert.equal(x.session, '2026-11-13');
+    ok(`⑦ gate 11140621: genuine REG price == prior close, legs consistent → origin/main live ${x.impliedMovePct} kept (not EOD)`);
 
     // NVDA — 구조 현물 166.0911, 실제 09:33 은 166.02~166.84 · 체인 09:32:27 → 진짜 live(운영·미리보기 모두 live 8.8 @165)
     const W18N = '2026-11-18';

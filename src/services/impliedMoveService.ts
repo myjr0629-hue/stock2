@@ -620,7 +620,7 @@ const EARNINGS_LIVE_RATE_UNC = 0.02;
 /** 현물(구조 저장 시각)과 각 다리 실시간 수신 시각의 최대 차이 — 수집 주기 5분 + 여유 */
 const EARNINGS_LIVE_SPOT_SKEW_MS = 6 * 60_000;
 
-function regularSessionLiveMove(rows: any[], spot: number, spotAt: number | null, quoteOptions: { expiry: string; chainDate: string | null }, pc: any, nowMs: number): { im: ImpliedMove | null; rejected: boolean } {
+function regularSessionLiveMove(rows: any[], spot: number, spotAt: number | null, quoteOptions: { expiry: string; chainDate: string | null }, pc: any, nowMs: number): { im: ImpliedMove | null; rejected: boolean; accurate?: boolean } {
     const liveRows = rows.map((c: any) => (c?._quoteSource === 'live' ? c : { ...c, _quoteSource: 'unknown' }));
     const at = Number(pc?._ts);
     const quotesAt = Number.isFinite(at) && at > 0 ? at : null;
@@ -649,7 +649,9 @@ function regularSessionLiveMove(rows: any[], spot: number, spotAt: number | null
         if (!alt || alt.strike !== im.strike) return { im: null, rejected: false };
     }
     // ④ 현물을 «정규장 현재가»로 언제 받았는지 모르면 동시성을 증명 못 한다 → 후보 아님(예전 순서 그대로)
-    if (spotAt == null || !Number.isFinite(spotAt)) return { im: null, rejected: false };
+    //   [11/14] 단 여기까지 왔으면 이 현물로 낸 값은 실시간 다리와 0.1%p 안·같은 ATM 으로 맞는다(accurate) —
+    //   현물이 전일 종가와 «우연히» 같은 진짜 체결가여도 legacy live 를 EOD 로 내리지 않게 호출자가 이 표식을 본다(관문 11140621).
+    if (spotAt == null || !Number.isFinite(spotAt)) return { im: null, rejected: false, accurate: true };
     const today = etDateOf(nowMs);
     // ② 오늘(ET) 정규장 안(09:30 ~ 마감)에서 받은 값만 · 15분 이내 — 장전 수신 다리·지난 세션 값은 «지금 live»가 아니다(관문 11130808 ①)
     const recent = (t: number | null) => t != null && Number.isFinite(t) && nowMs - t >= -60_000 && nowMs - t <= EARNINGS_LIVE_MAX_AGE_MS && etDateOf(t) === today
@@ -775,8 +777,9 @@ async function resolveImpliedMoves(reqs: ImpliedMoveRequest[], structures: any[]
                     if (!closed && weeklyListed) {
                         const lv = regularSessionLiveMove(rows, n.spot, n.spotAt ?? null, quoteOptions, pc, Date.now());
                         if (lv.im) { results[n.idx] = resolvedMoveOf(n.ticker, lv.im, 'probe', null); break; }
-                        // [11/14] 현물이 정규장 값이 아님이 확인되면(spotStale) 아래 legacy live 도 혼합값 — 탈락과 같게 EOD 관측 폴백 표식
-                        liveRejected = lv.rejected || n.spotStale === true;
+                        // [11/14] 현물이 정규장 값이 아님이 확인되고(spotStale) 그 현물로는 다리와 맞는다는 증명도 못 하면(accurate 아님)
+                        //   아래 legacy live 는 혼합값 — 탈락과 같게 EOD 관측 폴백 표식. 증명되면(전일 종가와 우연히 같은 진짜 체결가 등) main 그대로.
+                        liveRejected = lv.rejected || (n.spotStale === true && lv.accurate !== true);
                     }
                     // 새 경로(마감 종가 분모·ATM 재선택)는 양쪽 마감 호가가 확인되는 계약만 쓴다(관문 10200755 ①, lib/impliedMove.eodQuoteRows).
                     let strict: ImpliedMove | null = null;
