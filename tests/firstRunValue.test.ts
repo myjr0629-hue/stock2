@@ -559,6 +559,11 @@ class MemStorage implements StorageLike {
     assert.ok(/const wantEarn = active;/.test(d), '실적 캘린더는 단계가 켜지면 바로(기본 선택용)');
     assert.ok(/earnRows \? defaultEarningsPicks\(earnRows, Date\.now\(\)\) : earnDone \? \[\] : null/.test(d));
   });
+  t('카드 열은 패널보다 넓어지지 않는다 — 한 줄보다 긴 AI 조각은 안에서 접힌다(en DIS 실측 342px > 309px, 11/13 로컬)', () => {
+    const css = read('src/components/app/FirstRunValueStep.module.css');
+    assert.ok(/\.cards \{ display: grid; grid-template-columns: minmax\(0, 1fr\);/.test(css));
+    assert.ok(/\.aiSeg \{ display: inline-block; max-width: 100%; white-space: normal; \}/.test(css));
+  });
   t('creditPacing 은 같은 PREWARM_TICKERS 를 다시 내보낸다(예열 크론 3곳 값 불변)', () => {
     const cp = require('../src/lib/ai/creditPacing');
     const pt = require('../src/lib/popularTickers');

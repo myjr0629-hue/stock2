@@ -138,7 +138,7 @@
 .chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── 카드 ── */
-.cards { display: grid; gap: 10px; margin-top: 14px; }
+.cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 14px; }   /* 11/13: 카드 하나가 넘쳐도 열이 패널보다 넓어지지 않게(en DIS 실측 342px > 309px) */
 .card {
   position: relative;
   padding: 12px 14px 12px;
@@ -185,7 +185,7 @@
 .aiw { margin-top: 8px; animation: aiIn 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
 .ai { margin: 0; display: flex; align-items: flex-start; gap: 6px; font: 500 12px/1.5 var(--f-sans, system-ui); color: #7dd3fc; }
 .aiTx { min-width: 0; }
-.aiSeg { white-space: nowrap; }
+.aiSeg { display: inline-block; max-width: 100%; white-space: normal; }   /* 11/13: 조각은 여전히 통째로 줄을 넘기되(들어가면 한 줄 — 예전 nowrap 과 같은 모양), 한 줄보다 긴 조각(en «1.2% above Gamma Flip $117, positive gamma zone ·» 278px)만 안에서 접는다 — 전엔 카드를 패널 밖으로 밀었다 */
 .aiEm { font-weight: 700; color: #e0f2fe; }
 .aiTag {
   flex: 0 0 auto;
