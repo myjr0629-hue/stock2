@@ -77,6 +77,17 @@ t('창 — 장후 16:20 발표는 16:30 ET 체결부터·20:00 전까지 · 장�
   assert.deepEqual(captureEntries(es, ET(D, 16, 0)).map((e) => e.ticker), []);
 });
 
+t('장후 발표 시각을 모르면 판정하지 않는다 · 통화 시각만 있으면 그 시각을 «이미 발표됨» 하한으로(+10분)', () => {
+  const es = flashEntries([ce('PANW', 'amc', undefined, '2026-11-18'), { ...ce('CRWD', 'amc', undefined, '2026-11-18'), callEtTime: '16:30' }]);
+  const D2 = '2026-11-18';
+  assert.deepEqual(dueEntries(es, ET(D2, 16, 35)).map((e) => e.ticker), [], '16:30 통화 종목도 16:40 전엔 아님');
+  assert.deepEqual(dueEntries(es, ET(D2, 16, 50)).map((e) => e.ticker), ['CRWD'], '시각 모르는 PANW 는 끝까지 아님');
+  assert.equal(judgeMove(es[1], postQuote({ regularDate: D2, extendedTradeMs: ET(D2, 16, 35) }), ET(D2, 16, 50)).ok, false, '통화 시각+10분 전 체결은 반응 아님');
+  assert.equal(judgeMove(es[1], postQuote({ regularDate: D2, extendedTradeMs: ET(D2, 16, 41) }), ET(D2, 16, 50)).ok, true);
+  // 시각 모르는 장후 종목도 마감 전 예상값은 뜬다(정규장 마감 전 값이라 발표 전이 확실)
+  assert.deepEqual(captureEntries(es, ET(D2, 15, 50)).map((e) => e.ticker), ['PANW', 'CRWD']);
+});
+
 t('할 일 없는 회차 — 저장소 호출 0·공급사 0', async () => {
   const r = rig();
   dev(r, IOS_TOKEN, ['NVDA']);
@@ -196,6 +207,21 @@ t('장전(DIS) — 실적 기록의 전 거래일 EOD 예상값 · 10:00 ET 뒤 
   // 10:00 전 체결·전 거래일 본장 → 판정 안 함
   assert.equal(judgeMove(DIS, regQuote({ regularTradeMs: ET(D, 9, 58) }), ET(D, 10, 5)).ok, false);
   assert.equal(judgeMove(DIS, regQuote({ session: 'PRE' }), ET(D, 10, 5)).ok, false);
+});
+
+t('예비 예상값(실적 기록)은 그 기록의 pct 그대로 — 뜨기 값과 같은 정의(ATM 값으로 바꾸지 않는다)', async () => {
+  const actual = { v: 1, ticker: 'DIS', date: D, hour: 'bmo', at: ET(D, 6, 20), actual: null,
+    expected: { pct: 3.1, method: 'event-split', straddlePct: 2.6, expiry: '2026-11-20', session: '2026-11-16', basis: 'eod', strike: 100, straddle: 2.6, spot: 100, capturedAt: ET(D, 6, 20), src: 'page' } };
+  const r = rig({ quote: { DIS: regQuote() }, actuals: { 'DIS|2026-11-17': actual } });
+  dev(r, IOS_TOKEN, ['DIS']);
+  await run(r, ET(D, 10, 5));
+  assert.equal(r.sender.items[0].body, '옵션 예상 ±3.1% · 장 초반 −3.0% (잠정 · 범위 안)');
+  // 같은 정의의 떠 둔 값이 있으면 그것이 먼저
+  const r2 = rig({ quote: { DIS: regQuote() }, actuals: { 'DIS|2026-11-17': actual } });
+  dev(r2, IOS_TOKEN, ['DIS']);
+  r2.store.m.set(FLASH_KEYS.exp('DIS', D), JSON.stringify({ pct: 3.2, expiry: '2026-11-20', session: '2026-11-16', asOf: ET('2026-11-16', 15, 48), capturedAt: ET('2026-11-16', 15, 50), src: 'snap' }));
+  await run(r2, ET(D, 10, 5));
+  assert.equal(r2.sender.items[0].body, '옵션 예상 ±3.2% · 장 초반 −3.0% (잠정 · 범위 안)');
 });
 
 // ── 상한 분리 ──

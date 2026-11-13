@@ -20,7 +20,7 @@
 // ============================================================================
 import { etDateOf, etMinutesOf, sessionCloseMinutes, prevTradingDate, isNonTradingDay } from '@/lib/marketCalendar';
 import { etWallToMs } from '@/lib/earningsWeek';
-import { parseRecord, atmReceiptExpectedPct, signedPctText } from '@/lib/earnings/earningsActuals';
+import { parseRecord, signedPctText } from '@/lib/earnings/earningsActuals';
 import { RECEIPT_COPY } from '@/lib/earnings/earningsReceiptsCopy';
 import type { ConfirmedEarnings } from '@/lib/earningsConfirmed';
 import { deviceFromRecord, inPushBlackout, inQuietHours, SIG_KEYS } from './plan';
@@ -52,9 +52,12 @@ export const FLASH_CFG = {
   captureLeadMin: 30,
   /** 떠 둘 관측이 이보다 오래됐으면 «지금 화면 값»이 아니다 */
   captureMaxAgeMs: 90 * 60_000,
-  /** 한 회차에 시세를 새로 읽는 종목 수(공급사 호출 상한) · 종목당 최대 실호출 · 하루 실호출 상한 */
+  /**
+   * 한 회차에 시세를 새로 읽는 종목 수(공급사 호출 상한) · 종목당 최대 실호출 · 하루 실호출 상한.
+   * getTickerSnapshot 한 번 = 기본 실시간(재시도 포함 ≤2) + 일봉(≤2) + 정규장 실시간 덧입힘 또는 시간외 SIP 잇기(≤2) = 최대 6(관문 11140728 #3)
+   */
   maxQuotesPerRun: 6,
-  vendorCallsPerQuote: 4,
+  vendorCallsPerQuote: 6,
   vendorPerDay: 400,
   /** 한 회차에 예상값을 뜨는 종목 수(저장본 읽기 상한 — 구조 판본이 종목당 수십 KB) */
   maxCapturesPerRun: 12,
@@ -85,7 +88,13 @@ export const FLASH_FUNNEL_SRC = 'push_sig_earn';
 
 // ── 모양 ─────────────────────────────────────────────────────────────────────
 export type FlashHour = 'amc' | 'bmo';
-export interface FlashEntry { ticker: string; date: string; hour: FlashHour; etTime: string | null }
+export interface FlashEntry {
+  ticker: string; date: string; hour: FlashHour;
+  /** 공지된 결과 공개 시각(ET) */
+  etTime: string | null;
+  /** 공지된 실적 통화 시각(ET) — 결과 공개 시각이 없을 때 «이 시각엔 이미 발표됐다»는 보수적 하한으로만 쓴다(통화는 결과 공개 뒤에 열린다) */
+  callEtTime?: string | null;
+}
 
 /** 떠 둔 예상값 */
 export interface ExpectedSnap { pct: number; expiry: string | null; session: string; asOf: number; capturedAt: number; src: 'snap' | 'actuals' }
@@ -125,7 +134,8 @@ export function flashEntries(list: readonly ConfirmedEarnings[]): FlashEntry[] {
     const k = `${ticker}|${c.date}`;
     if (seen.has(k)) continue;
     seen.add(k);
-    out.push({ ticker, date: c.date, hour: c.hour, etTime: c.etTime && /^\d{2}:\d{2}$/.test(c.etTime) ? c.etTime : null });
+    const hm = (v: string | undefined) => (v && /^\d{2}:\d{2}$/.test(v) ? v : null);
+    out.push({ ticker, date: c.date, hour: c.hour, etTime: hm(c.etTime), callEtTime: hm(c.callEtTime) });
   }
   return out;
 }
@@ -135,10 +145,28 @@ export function baseSessionOf(e: FlashEntry): string {
   return e.hour === 'amc' ? e.date : prevTradingDate(e.date);
 }
 
-/** 장후 발표 시각(ms) — 공지 시각이 있으면 그것, 없으면 정규장 마감 */
+/**
+ * 장후 «이 시각엔 결과가 이미 나와 있다»(ms) — 공지된 결과 공개 시각, 없으면 공지된 통화 시각(결과 공개 뒤에 열린다 — 보수적 하한).
+ * 둘 다 모르면 null — 판정하지 않는다(마감 시각으로 가정하면 16:30 발표 종목의 발표 «전» 체결을 반응으로 보낼 수 있다, 관문 11140728 #1).
+ * 정규장 마감 전 시각이 적혀 있으면(장후가 아니다) 마감 시각으로 올린다.
+ */
 export function amcReleaseMs(e: FlashEntry): number | null {
   if (e.hour !== 'amc' || isNonTradingDay(e.date)) return null;
-  return etWallToMs(e.date, e.etTime ?? hhmm(sessionCloseMinutes(e.date)));
+  const at = e.etTime ?? e.callEtTime ?? null;
+  if (!at) return null;
+  const close = etWallToMs(e.date, hhmm(sessionCloseMinutes(e.date)));
+  const r = etWallToMs(e.date, at);
+  if (r == null || close == null) return null;
+  return Math.max(r, close);
+}
+
+/** 예상값을 «발표 전»으로 받는 마지막 시각 — 장후는 결과 공개 시각을 모르면 정규장 마감(뜨기 창은 어차피 마감 전) */
+function amcSnapDeadline(e: FlashEntry): number | null {
+  if (e.hour !== 'amc' || isNonTradingDay(e.date)) return null;
+  const close = etWallToMs(e.date, hhmm(sessionCloseMinutes(e.date)));
+  if (close == null) return null;
+  const r = e.etTime ? etWallToMs(e.date, e.etTime) : null;
+  return r != null ? Math.min(Math.max(r, close), close + 4 * 3600_000) : close;
 }
 
 /** 판정 창 [시작, 끝) — 이 안의 회차만 시세를 본다 */
@@ -170,7 +198,7 @@ export function captureEntries(entries: readonly FlashEntry[], now: number): Fla
   if (m < close - FLASH_CFG.captureLeadMin || m >= close) return [];
   return entries.filter((e) => {
     if (baseSessionOf(e) !== today) return false;
-    if (e.hour === 'amc') { const r = amcReleaseMs(e); if (r == null || now >= r) return false; }
+    if (e.hour === 'amc') { const r = amcSnapDeadline(e); if (r == null || now >= r) return false; }
     return true;
   });
 }
@@ -201,7 +229,7 @@ export function snapUsable(e: FlashEntry, raw: unknown): ExpectedSnap | null {
   if (!(fin(x.pct) && x.pct > 0) || x.session !== baseSessionOf(e) || !fin(x.asOf) || !fin(x.capturedAt)) return null;
   if (!expiryOk(e, x.expiry as string | null)) return null;
   // 장후는 발표 전에 뜬 값만(관측·뜬 시각 모두)
-  const r = amcReleaseMs(e);
+  const r = amcSnapDeadline(e);
   if (e.hour === 'amc' && (r == null || x.asOf >= r || x.capturedAt >= r)) return null;
   // 장전은 기준 세션(전 거래일) 마감 뒤에 뜬 값이 아니어야 한다(뜨기 창이 마감 전)
   if (e.hour === 'bmo') {
@@ -211,14 +239,18 @@ export function snapUsable(e: FlashEntry, raw: unknown): ExpectedSnap | null {
   return { pct: x.pct, expiry: x.expiry as string, session: x.session as string, asOf: x.asOf, capturedAt: x.capturedAt, src: 'snap' };
 }
 
-/** 실적 반응 기록(earnings:actuals)의 expected — 기준 세션 EOD 관측 · 영수증·채점표와 같은 ATM 정의 */
+/**
+ * 실적 반응 기록(earnings:actuals)의 expected — 기준 세션 EOD 관측. 숫자는 그 기록의 pct 그대로 — 뜨기 값과 같은 정의
+ * (둘 다 impliedRowOf 의 impliedMovePct = 이벤트 분리값 우선 · 실적 D-1 알림·캘린더 표시와 같다, 관문 11140728 #2).
+ * 영수증·채점표의 ATM 값(atmReceiptExpectedPct)으로 바꾸지 않는다 — 뜨기 성공 여부에 따라 예상 폭·범위 판정이 달라지지 않게.
+ */
 export function snapFromActuals(e: FlashEntry, raw: unknown): ExpectedSnap | null {
   const r = parseRecord(raw);
   if (!r || r.ticker !== e.ticker || r.date !== e.date || r.hour !== e.hour || !r.expected) return null;
   const x = r.expected;
   if (x.session !== baseSessionOf(e) || x.basis !== 'eod' || !expiryOk(e, x.expiry)) return null;
-  const pct = atmReceiptExpectedPct(x);
-  if (pct == null) return null;
+  if (!(fin(x.pct) && x.pct > 0)) return null;
+  const pct = Math.round(x.pct * 10) / 10;
   return { pct, expiry: x.expiry, session: x.session, asOf: x.capturedAt, capturedAt: x.capturedAt, src: 'actuals' };
 }
 
