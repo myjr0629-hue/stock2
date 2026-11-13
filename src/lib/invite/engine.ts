@@ -70,6 +70,7 @@ export function inviteKeys(vercelEnv: string | undefined = process.env.VERCEL_EN
     rcUser: (uidHash: string) => `${p}:rcu:${uidHash}`,
     rcTxn: (txHash: string) => `${p}:rctx:${txHash}`,
     month: (ref: string, month: string) => `${p}:mon:${ref}:${month}`,
+    tokenIps: (ref: string) => `${p}:tkip:${ref}`,
     verifyBudget: (kind: string, id: string, w: number) => `${p}:vb:${kind}:${id}:${w}`,
   };
 }
@@ -149,7 +150,7 @@ export async function recordTouch(store: InviteStore, i: TouchInput): Promise<bo
 
 // ── ② 도착 ──────────────────────────────────────────────────────────────────
 export type ArriveOutcome =
-  | { matched: false; reason: 'bad' | 'again' | 'none' | 'self' }
+  | { matched: false; reason: 'bad' | 'again' | 'none' | 'self'; /** requireToken 재시도: 이미 확인 대기가 있다 */ claim?: true }
   | { matched: true; credited: false; reason: 'ip' | 'inviter_cap' | 'day_cap' | 'loose_ambiguous'; from: string; inviterRef: string; loose?: boolean }
   /** 2026-11-13 requireToken: 'claimed' = 토큰 귀속 확인 대기 기록을 남겼다(적립은 RC 확인 뒤 /api/invite/verify) · 'legacy' = 토큰 없는 옛 링크(보상 없음) */
   | { matched: true; credited: false; reason: 'claimed' | 'legacy'; from: string; inviterRef: string; loose?: boolean }
@@ -191,7 +192,9 @@ export async function arrive(store: InviteStore, i: { key: unknown; os: unknown;
     const d: ArriveClaimDecision = decision === 'eligible' ? (u ? 'claim' : 'legacy') : decision;
     const claim = d === 'claim' ? JSON.stringify({ r: inviterRef, u, at, arr: now, os: i.os, f: from, ip: i.ipHash, ...(loose ? { l: 1 } : {}) }) : '';
     const res = await store.arriveClaim({ keys: [k.arrived(selfRef), k.claim(selfRef)], now, decision: d, claim, arriveTtl: ARRIVE_TTL_SEC, claimTtl: CLAIM_TTL_SEC });
-    if (res === 'again' || res === 'none' || res === 'self') return { matched: false, reason: res };
+    // 응답을 잃고 다시 온 첫 실행 — 대기 기록이 남아 있으면 claim 을 다시 알려 준다(관문 11131202 ③: 앱이 확인을 시작하지 못하는 것 방지)
+    if (res === 'again') return (await store.get(k.claim(selfRef))) ? { matched: false, reason: 'again', claim: true } : { matched: false, reason: 'again' };
+    if (res === 'none' || res === 'self') return { matched: false, reason: res };
     const m = { from: from!, inviterRef: inviterRef!, ...(loose ? { loose } : {}) };
     return { matched: true, credited: false, reason: res === 'claimed' ? 'claimed' : res, ...m };
   }

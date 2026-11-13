@@ -204,7 +204,7 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     assert.equal(await mem.get(K.claim(REF_A)), null);
     mem = memoryInviteStore(() => NOW);
     await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(6), at: NOW });
-    assert.deepEqual(await arrive(mem, { key: KEY_B, os: 'ios', ipHash: HEX(6), now: NOW + 120_000, vercelEnv: 'preview', requireToken: true }), { matched: false, reason: 'again' });
+    assert.deepEqual(await arrive(mem, { key: KEY_B, os: 'ios', ipHash: HEX(6), now: NOW + 120_000, vercelEnv: 'preview', requireToken: true }), { matched: false, reason: 'again', claim: true });
     assert.deepEqual(await arrive(mem, { key: KEY_C, os: 'ios', ipHash: HEX(7), now: NOW, vercelEnv: 'preview', requireToken: true }), { matched: false, reason: 'none' });
   });
 
@@ -241,6 +241,8 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     for (const [n, json] of [
       [13, subscriber({ first: NOW - CLICK_SKEW_MS - 60_000, buys: [{ at: NOW + 300_000 }] })],
       [14, subscriber({ first: NOW + 90_000, buys: [{ at: NOW + 300_000, orig: NOW - 30 * 86400_000 }] })],
+      [16, subscriber({ first: NOW - 5 * 60_000, buys: [{ at: NOW + 300_000 }] })],   // 클릭 5분 전에 이미 설치(관문 11131202 ②)
+      [17, subscriber({ first: NOW + 90_000, buys: [{ at: NOW - 5 * 60_000 }] })],    // 클릭 5분 전 구매
     ] as const) {
       mem = memoryInviteStore(() => NOW);
       await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(n), at: NOW });
@@ -271,6 +273,28 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     assert.deepEqual(await verify(mem, KEY_C, UID_C, HEX(23), NOW + 400_000, rc('tx-9')), { state: 'final', reason: 'dup' }, '같은 거래');
     assert.deepEqual(await verify(mem, KEY_D, UID_D, HEX(22), NOW + 400_000, rc('tx-10')), { state: 'final', reason: 'ip' }, '같은 IP');
     assert.equal(await mem.get(K.credit(REF_A)), '1');
+  });
+  await t('같은 기기·같은 망 — 친구 첫 실행 IP = 초대자가 토큰을 받은 IP → same_ip(RC 호출 0 · 적립 0) · 다른 IP 는 통과', async () => {
+    mem = memoryInviteStore(() => NOW);
+    const { noteInviterIp } = await import('../src/lib/invite/referral');
+    await noteInviterIp(mem, K.tokenIps(REF_A), HEX(50));
+    await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(50), at: NOW });
+    let called = 0;
+    const rc: RcFetch = async () => { called++; return { kind: 'ok', json: subscriber({ first: NOW + 90_000, buys: [{ at: NOW + 300_000 }] }) }; };
+    assert.deepEqual(await verify(mem, KEY_B, UID_B, HEX(50), NOW + 400_000, rc), { state: 'final', reason: 'same_ip' });
+    assert.equal(called, 0); assert.equal(await mem.get(K.credit(REF_A)), null);
+    await clickAndArrive(mem, { friendKey: KEY_C, ip: HEX(51), at: NOW });
+    assert.deepEqual(await verify(mem, KEY_C, UID_C, HEX(51), NOW + 400_000, rc), { state: 'credited' });
+    for (let n = 0; n < 7; n++) await noteInviterIp(mem, K.tokenIps(REF_A), HEX(60 + n));
+    const kept = JSON.parse((await mem.get(K.tokenIps(REF_A)))!);
+    assert.equal(kept.length, 5); assert.equal(kept[4], HEX(66));
+  });
+  await t('도착 응답 유실 → 다시 온 첫 실행은 again + claim(확인을 시작할 수 있게) · 대기 없는 again 은 claim 없음', async () => {
+    mem = memoryInviteStore(() => NOW);
+    await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(52), at: NOW });
+    assert.deepEqual(await arrive(mem, { key: KEY_B, os: 'ios', ipHash: HEX(52), now: NOW + 90_000, vercelEnv: 'preview', requireToken: true }), { matched: false, reason: 'again', claim: true });
+    await clickAndArrive(mem, { friendKey: KEY_C, ip: HEX(53), at: NOW, token: null });
+    assert.deepEqual(await arrive(mem, { key: KEY_C, os: 'ios', ipHash: HEX(53), now: NOW + 90_000, vercelEnv: 'preview', requireToken: true }), { matched: false, reason: 'again' });
   });
   await t(`초대자 월 상한 ${INVITER_MONTHLY_CAP} 초과 → inviter_cap(적립 0) · 다음 달 칸은 따로`, async () => {
     mem = memoryInviteStore(() => NOW);
@@ -343,6 +367,13 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
       assert.equal(await m.verifyCredit(input), want, `mem ${input.keys[0]}`);
     }
     for (const k of ['cr:a', 'fr:a', 'mon:a', 'day']) { assert.equal(await luaStore.get(k), '2', `lua ${k}`); assert.equal(await m.get(k), '2', `mem ${k}`); }
+    // 소수 카운터: Lua 도 쓰기 전에 거절(메모리는 예외) — RC·IP 표식이 남지 않는다(관문 11131202 ⑥)
+    const r3 = mockRedis(); await r3.set('clm:w', '{}'); await r3.set('cr:a', '1.5');
+    const fx = vin('w', 'u8', 'p8');
+    assert.equal(await r3.eval(VERIFY_CREDIT_LUA, 9, ...fx.keys, ...verifyCreditArgs(fx)), 'invalid');
+    assert.equal(await r3.get('rcu:u8'), null); assert.equal(await r3.get('ipc:p8'), null);
+    const m3 = memoryInviteStore(() => NOW); await m3.set('clm:w', '{}', 9); await m3.set('cr:a', '1.5', 9);
+    await assert.rejects(m3.verifyCredit(fx)); assert.equal(await m3.get('rcu:u8'), null);
     // 하루 상한: 결론 표식 없이 day_cap
     const r2 = mockRedis(); await r2.set('clm:q', '{}'); await r2.set('day', '5');
     const dc = vin('q', 'u7', 'p7'); dc.monthCap = 9;

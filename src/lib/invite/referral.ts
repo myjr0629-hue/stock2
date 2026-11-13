@@ -25,8 +25,9 @@ import crypto from 'node:crypto';
 
 /** RC 앱 사용자 ID 형식 — lib/push/trialVerify.RC_UID_RE 와 같다(익명 ID 또는 앱이 정한 ID) */
 export const REFERRAL_RC_UID_RE = /^\$RCAnonymousID:[0-9a-f]{32}$|^[A-Za-z0-9._:-]{8,100}$/;
-/** 기기·서버 시계 차와 «클릭 → 설치 → 첫 실행» 사이 RC 기록 지연 여유 */
-export const CLICK_SKEW_MS = 10 * 60_000;
+/** 서버 시계 차 여유 — 진짜 초대 설치는 «클릭 → 스토어 → 설치 → 첫 실행(RC 고객 생성)» 순서라 first_seen·구매는 늘 클릭 «뒤»다.
+ *  10분이면 «클릭 몇 분 전에 이미 설치한 사람»도 신규로 통과한다(관문 11131202 ②) → 60초(RC·Vercel 서버 시계 차만). */
+export const CLICK_SKEW_MS = 60_000;
 export const VERIFY_WINDOW_S = 600;
 export const VERIFY_LIMIT_SELF = 6;
 export const VERIFY_LIMIT_IP = 30;
@@ -106,11 +107,25 @@ export type VerifyState =
   | { state: 'none' }                       // 이 기기에는 확인할 초대가 없다(멈춘다)
   | { state: 'pending'; reason: 'no_purchase' | 'day_cap' | 'limited' | 'unavailable' | 'missing' }
   | { state: 'credited' }
-  | { state: 'final'; reason: 'self' | 'existing' | 'sandbox' | 'dup' | 'ip' | 'inviter_cap' | 'credited' | 'again' };
+  | { state: 'final'; reason: 'self' | 'same_ip' | 'existing' | 'sandbox' | 'dup' | 'ip' | 'inviter_cap' | 'credited' | 'again' };
 
 export interface VerifyInput {
   key: unknown; rcUid: unknown; os: unknown; ipHash: string; now?: number; vercelEnv?: string;
   secret: string; rc: RcFetch;
+}
+
+/** 초대자가 토큰을 받은 IP 해시(최근 5개) — /api/invite/token 이 적는다 */
+export const TOKEN_IP_KEEP = 5;
+export const TOKEN_IP_TTL_SEC = 30 * 86400;
+export async function inviterIps(store: InviteStore, key: string): Promise<string[]> {
+  try {
+    const v = JSON.parse((await store.get(key)) || '[]');
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && /^[0-9a-f]{24}$/.test(x)) : [];
+  } catch { return []; }
+}
+export async function noteInviterIp(store: InviteStore, key: string, ipHash: string): Promise<void> {
+  const cur = (await inviterIps(store, key)).filter((x) => x !== ipHash);
+  await store.set(key, JSON.stringify([...cur, ipHash].slice(-TOKEN_IP_KEEP)), TOKEN_IP_TTL_SEC);
 }
 
 const budgetId = (s: string) => crypto.createHash('sha256').update(`inv-vb|${s}`).digest('hex').slice(0, 20);
@@ -123,7 +138,7 @@ export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<V
   const k = inviteKeys(i.vercelEnv);
   const selfRef = inviteRefOf(key);
   const done = await store.get(k.claimDone(selfRef));
-  if (done) return { state: 'final', reason: (['self', 'existing', 'sandbox', 'dup', 'ip', 'inviter_cap', 'credited'].includes(done) ? done : 'again') as 'again' };
+  if (done) return { state: 'final', reason: (['self', 'same_ip', 'existing', 'sandbox', 'dup', 'ip', 'inviter_cap', 'credited'].includes(done) ? done : 'again') as 'again' };
   const raw = await store.get(k.claim(selfRef));
   if (!raw) return { state: 'none' };
   let c: { r?: unknown; u?: unknown; at?: unknown; ip?: unknown } | null = null;
@@ -132,12 +147,16 @@ export async function verifyClaim(store: InviteStore, i: VerifyInput): Promise<V
   const at = typeof c?.at === 'number' ? c.at : NaN;
   const ip = typeof c?.ip === 'string' && /^[0-9a-f]{24}$/.test(c.ip) ? c.ip : '';
   if (!inviterRef || !Number.isFinite(at) || !ip || typeof c?.u !== 'string') return { state: 'none' };
-  const finish = async (reason: 'self' | 'existing' | 'sandbox'): Promise<VerifyState> => {
+  const finish = async (reason: 'self' | 'same_ip' | 'existing' | 'sandbox'): Promise<VerifyState> => {
     await store.setNx(k.claimDone(selfRef), reason, DONE_TTL);
     return { state: 'final', reason };
   };
   // 자기 초대·같은 기기: 친구 RC 고객 = 초대자 RC 고객(토큰 u). 열쇠가 같은 경우는 도착 단계(self)에서 이미 걸렀다.
   if (rcUidTag(uid, i.secret) === c.u) return finish('self');
+  // 같은 기기·같은 망: 친구가 첫 실행한 IP = 초대자가 토큰을 받은 IP(최근 5개) → 보상 없음.
+  //   RC 앱 사용자 ID 는 기기가 고를 수 있어(토큰 발급 때 남의 ID 를 내도 막을 수 없다 — 관문 11131202 ①) RC 비교만으로는 «같은 기기 재설치»를 못 막는다.
+  //   같은 와이파이의 가족·동료도 걸리지만(정상 초대 일부 손실) 금전 가치 보상이라 보수적으로 막는다(설계 §부정 방지).
+  if ((await inviterIps(store, k.tokenIps(inviterRef))).includes(ip)) return finish('same_ip');
 
   // 공급사 호출 전 예산(10분 창): 친구 ref·IP·전체
   const w = Math.floor(now / 1000 / VERIFY_WINDOW_S);

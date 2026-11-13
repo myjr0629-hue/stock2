@@ -101,6 +101,7 @@ local credit = tonumber(redis.call('GET', KEYS[8]) or '0')
 local friends = tonumber(redis.call('GET', KEYS[9]) or '0')
 if not month or not day or not credit or not friends then return 'invalid' end
 if month < 0 or day < 0 or credit < 0 or friends < 0 then return 'invalid' end
+if month ~= math.floor(month) or day ~= math.floor(day) or credit ~= math.floor(credit) or friends ~= math.floor(friends) then return 'invalid' end
 local dupTxn = false
 if ARGV[5] == '1' then dupTxn = redis.call('EXISTS', KEYS[4]) == 1 end
 if redis.call('EXISTS', KEYS[3]) == 1 or dupTxn then

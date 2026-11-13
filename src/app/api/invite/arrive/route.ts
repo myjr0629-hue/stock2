@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     return out(503, { ok: false, reason: 'unavailable' });
   }
   if (r.matched === false && r.reason === 'bad') return out(400, { ok: false, reason: 'bad' });
-  if (r.matched === false && r.reason === 'again') return out(200, { ok: true, matched: false });   // 이미 한 번 도착으로 센 기기 — 지표에 다시 세지 않는다
+  if (r.matched === false && r.reason === 'again') return out(200, { ok: true, matched: false, ...(r.claim ? { claim: true } : {}) });   // 이미 한 번 도착으로 센 기기 — 지표에 다시 세지 않는다(확인 대기가 있으면 claim 만 다시 알린다)
 
   after(async () => {
     await bumpShare('arrive', 'all', os);

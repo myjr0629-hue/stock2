@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse, after } from 'next/server';
-import { etDay, isOs } from '@/lib/invite/engine';
+import { etDay, inviteKeys, isOs } from '@/lib/invite/engine';
 import { inviteClientIp, inviteDenyReason, inviteIpHash, inviteOs, inviteSecret } from '@/lib/invite/guard';
 import { inviteRefOf, normalizeInviteKey } from '@/lib/invite/identity';
 import { upstashInviteStore } from '@/lib/invite/store';
 import { bumpShare } from '@/lib/invite/metrics';
 import { INVITE_TOKEN_TTL_SEC, inviteTokenSecret, issueInviteToken, rcUidTag } from '@/lib/invite/token';
-import { REFERRAL_RC_UID_RE } from '@/lib/invite/referral';
+import { REFERRAL_RC_UID_RE, noteInviterIp } from '@/lib/invite/referral';
 
 // ============================================================================
 // POST /api/invite/token — 초대자 앱이 «공유 링크에 실을 서명 토큰»을 받는다 (2026-11-13, 브랜치 feat/referral-1113)
@@ -53,6 +53,8 @@ export async function POST(req: NextRequest) {
   const now = Date.now();
   const token = issueInviteToken({ ref, uidTag: rcUidTag(uid, secret), nowMs: now, secret });
   if (!token) return out(400, { ok: false, reason: 'bad' });
+  // 같은 기기·같은 망 판정용 — 초대자가 토큰을 받은 IP 해시(최근 5개, 30일). 실패해도 토큰은 준다(판정은 «기록 없음 = 비교 안 함»).
+  try { await noteInviterIp(store, inviteKeys().tokenIps(ref), inviteIpHash(ip, inviteSecret())); } catch { /* 기록 실패 무해 */ }
   after(() => bumpShare('tissue', 'all', os));
   return out(200, { ok: true, token, exp: (Math.floor(now / 1000) + INVITE_TOKEN_TTL_SEC) * 1000 });
 }

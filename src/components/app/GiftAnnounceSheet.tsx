@@ -22,6 +22,7 @@ import { GIFT_ANNOUNCE_COPY, GIFT_REANNOUNCE_TITLE, keepTogether } from '@/lib/g
 import { useInviteConfig } from '@/lib/invite/useInvite';
 import { INVITE_COPY } from '@/lib/invite/copy';
 import { toInviteLang } from '@/lib/invite/kinds';
+import { inviteTokenNow } from '@/lib/invite/tokenClient';
 
 /** 묶음은 한 줄에 — 나머지는 평소처럼 줄을 바꾼다 */
 function Kept({ text, keep }: { text: string; keep: string[] }) {
@@ -88,7 +89,8 @@ export function GiftAnnounceSheet({ locale, onClose, reannounce = false }: { loc
           <h1 className={p.title} id={titleId}><Kept text={reannounce ? GIFT_REANNOUNCE_TITLE[lang] : c.title} keep={a.keep} /></h1>
           <p className={`${p.lede} ${s.lede}`}><Kept text={cfg && !cfg.android ? c.subIosOnly : c.sub} keep={a.keep} /></p>
           {/* 2026-11-13 보상 설명 한 줄 — 초대자 보상이 켜져 있다고 서버가 대답한 때만(기존 줄·단추 위치는 그대로) */}
-          {inviteCfg?.rewards ? <p className={p.fine} data-referral-line="">{INVITE_COPY[toInviteLang(locale)].referralLine}</p> : null}
+          {/*   + 이 기기에 서명 토큰이 있을 때만 — 토큰 없는 링크는 보상이 귀속되지 않으니 약속하지 않는다(관문 11131202 ⑤) */}
+          {inviteCfg?.rewards && inviteTokenNow() ? <p className={p.fine} data-referral-line="">{INVITE_COPY[toInviteLang(locale)].referralLine}</p> : null}
         </div>
 
         <button ref={visibleRef} type="button" className={`${p.cta} ${s.cta}`} onClick={() => { void onSend(); }} disabled={!cfg}>

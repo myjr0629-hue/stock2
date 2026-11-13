@@ -17,6 +17,7 @@ import { INVITE_COPY } from '@/lib/invite/copy';
 import { toInviteLang, type ShareKind } from '@/lib/invite/kinds';
 import { useInviteConfig, useInviteShare } from '@/lib/invite/useInvite';
 import { INVITE_HINT_MAX, bumpInviteHint, inviteHintCount } from '@/lib/invite/identity';
+import { inviteTokenNow } from '@/lib/invite/tokenClient';
 import s from './InviteShareButton.module.css';
 
 export function InviteShareButton({ kind, ticker, line, locale, className }: {
@@ -45,7 +46,8 @@ export function InviteShareButton({ kind, ticker, line, locale, className }: {
     // 링크를 복사만 한 곳(안드로이드 셸 등)은 «복사했어요» · 공유 시트를 마친 곳은 «내게 오는 것» 한 줄(보상이 켜져 있을 때만·기기에서 두 번까지)
     let which: 'copied' | 'reward' | null = null;
     if (out === 'copied') which = 'copied';
-    else if (out === 'shared' && cfg?.rewards && inviteHintCount() < INVITE_HINT_MAX) { which = 'reward'; bumpInviteHint(); }
+    // 2026-11-13 보상 한 줄은 서명 토큰이 실린 공유에만(토큰 없는 링크는 보상이 귀속되지 않는다 — 문구는 그대로, 보이는 조건만)
+    else if (out === 'shared' && cfg?.rewards && inviteTokenNow() && inviteHintCount() < INVITE_HINT_MAX) { which = 'reward'; bumpInviteHint(); }
     if (which) {
       setToast(which);
       window.clearTimeout(timer.current);
