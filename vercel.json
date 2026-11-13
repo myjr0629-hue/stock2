@@ -284,6 +284,18 @@
     {
       "path": "/api/cron/earnings-actuals",
       "schedule": "25,55 21-23 * * 1-5"
+    },
+    {
+      "path": "/api/cron/earnings-flash",
+      "schedule": "5,20,35,50 14,15 * * 1-5"
+    },
+    {
+      "path": "/api/cron/earnings-flash",
+      "schedule": "5,20,35,50 19-23 * * 1-5"
+    },
+    {
+      "path": "/api/cron/earnings-flash",
+      "schedule": "5,20,35,50 0 * * 2-6"
     }
   ],
   "headers": [
