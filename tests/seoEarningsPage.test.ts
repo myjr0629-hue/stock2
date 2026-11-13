@@ -140,9 +140,18 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     assert.equal(EP.localWhenText({ date: '2026-11-17', hour: '' }, 'ko'), null);
     assert.equal(EP.localWhenText({ date: '2026-11-17', hour: 'amc' }, 'en'), null);
     const w = EP.weekWindows(Date.parse('2026-11-13T20:00:00Z')); // 금 15:00 ET
-    assert.deepEqual(w, { thisWeek: ['2026-11-13', '2026-11-15'], nextWeek: ['2026-11-16', '2026-11-22'] });
+    assert.deepEqual(w, { thisWeek: ['2026-11-09', '2026-11-15'], nextWeek: ['2026-11-16', '2026-11-22'] });
     const s = EP.weekWindows(Date.parse('2026-11-15T20:00:00Z')); // 일
-    assert.deepEqual(s, { thisWeek: ['2026-11-15', '2026-11-15'], nextWeek: ['2026-11-16', '2026-11-22'] });
+    assert.deepEqual(s, { thisWeek: ['2026-11-09', '2026-11-15'], nextWeek: ['2026-11-16', '2026-11-22'] });
+    // 이번 주 지난 날 = 회사 공지 목록에서(11/13 금 기준 11/9~11/12) — 공지 시각도 그대로
+    const rec = EP.recentConfirmedThisWeek(Date.parse('2026-11-13T20:00:00Z'));
+    const want = CONFIRMED_EARNINGS.filter((c: any) => c.date >= '2026-11-09' && c.date < '2026-11-13' && EP.isEarningsPageTicker(c.ticker.toUpperCase()));
+    assert.equal(rec.length, new Set(want.map((c: any) => `${c.ticker}|${c.date}`)).size);
+    assert.ok(rec.every((r: any) => r.date >= '2026-11-09' && r.date < '2026-11-13' && r.dateStatus === 'confirmed'));
+    // 발표 시각은 회사 공지 시각만 — 캘린더(공급사) etTime 은 버린다
+    const nb = EP.nextByTicker([{ ticker: 'NVDA', date: '2026-11-17', hour: 'amc', etTime: '16:30', dateStatus: 'confirmed' }, { ticker: 'AAPL', date: '2027-01-28', hour: 'amc', etTime: '16:30' }], Date.parse('2026-11-13T20:00:00Z'));
+    assert.equal(nb.NVDA[0].etTime, '16:20', 'company notice time');
+    assert.equal(nb.AAPL[0].etTime, undefined, 'vendor time dropped');
   });
   await test('채점만 있는 종목(LRCX) — 예상 ±7.1% → 실제 −11.8% 범위 밖 · index', async () => {
     const h = await html('ko', 'LRCX');

@@ -7,7 +7,7 @@ import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import {
   EARNINGS_PAGE_TICKERS, EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, companyNames, earningsPath, expectedText,
-  localWhenText, md, nameWithTicker, toLoc, weekWindows, type EpCalendarRow,
+  localWhenText, md, nameWithTicker, recentConfirmedThisWeek, toLoc, weekWindows, type EpCalendarRow,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
 import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
@@ -23,12 +23,13 @@ async function load(locale: string) {
     .sort((a, b) => a.next!.date.localeCompare(b.next!.date) || b.implied!.pct - a.implied!.pct || a.ticker.localeCompare(b.ticker));
   const graded: ScorecardRow[] = views.flatMap((v) => v.history)
     .sort((a, b) => b.date.localeCompare(a.date) || a.ticker.localeCompare(b.ticker)).slice(0, 60);
-  // 이번 주·다음 주 발표 — 캘린더 일정만으로(예상 변동폭 없어도 내부 링크) · 오늘 이미 발표한 종목도 «이번 주 발표 종목»이라 남긴다
+  // 이번 주(월~일)·다음 주 발표 — 캘린더 일정 + 이번 주 지난 날은 회사 공지 목록(예상 변동폭 없어도 내부 링크) · 이미 발표한 종목도 «이번 주 발표 종목»이라 남긴다
   const { thisWeek, nextWeek } = weekWindows(nowMs);
   //   (화면 모델 next 는 오늘 발표가 끝나면 다음 분기로 넘어가므로, 캘린더 행 자체를 기간으로 고른다. 예상 변동폭은 그 행이 화면 모델의 발표일 때만)
+  const recent = recentConfirmedThisWeek(nowMs);
   const inWin = (w: [string, string]): WeekItem[] => views
     .flatMap((v) => {
-      const row = (snap.next[v.ticker] ?? []).find((r) => r.date >= w[0] && r.date <= w[1]);
+      const row = [...recent.filter((r) => r.ticker === v.ticker), ...(snap.next[v.ticker] ?? [])].find((r) => r.date >= w[0] && r.date <= w[1]);
       return row ? [{ ticker: v.ticker, row, pct: v.implied && v.next?.date === row.date ? v.implied.pct : null }] : [];
     })
     .sort((a, b) => a.row.date.localeCompare(b.row.date) || (b.pct ?? 0) - (a.pct ?? 0) || a.ticker.localeCompare(b.ticker));

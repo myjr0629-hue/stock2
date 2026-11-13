@@ -95,21 +95,52 @@ export function pastConfirmedEntries(nowMs: number = Date.now()): Array<{ ticker
   return out;
 }
 
-/** 캘린더 행들 → 종목별 오늘(ET) 이후 발표들(날짜순·날짜 중복 제거·최대 3, 이 페이지 종목만) */
-export function nextByTicker(rows: readonly any[], nowMs: number = Date.now()): Record<string, EpCalendarRow[]> {
-  const today = etDateOf(nowMs);
+/**
+ * 발표 시각(ET 'HH:MM')은 회사 공지(CONFIRMED_EARNINGS)의 같은 (종목, 날짜) 시각만 쓴다.
+ * 캘린더 행의 etTime 은 공급사 값이라 회사 공지 덮기로 날짜가 바뀌어도 옛 날짜의 시각이 남을 수 있다(관문 11/13) → 쓰지 않는다.
+ */
+const CONFIRMED_TIME = new Map<string, string>(CONFIRMED_EARNINGS
+  .filter((c) => typeof c.etTime === 'string' && /^\d{2}:\d{2}$/.test(c.etTime))
+  .map((c) => [`${c.ticker.toUpperCase()}|${c.date}`, c.etTime as string]));
+
+function epRow(r: any, t: string, d: string): EpCalendarRow {
+  const hour = r.hour === 'bmo' || r.hour === 'amc' ? r.hour : '';
+  const etTime = r.dateStatus === 'confirmed' ? CONFIRMED_TIME.get(`${t}|${d}`) : undefined;
+  return {
+    ticker: t, date: d, hour,
+    ...(etTime ? { etTime } : {}),
+    ...(r.dateStatus === 'confirmed' || r.dateStatus === 'est' ? { dateStatus: r.dateStatus } : {}),
+  };
+}
+
+/** 캘린더 행들 → 종목별 [from, to) 날짜 발표들(날짜순·날짜 중복 제거, 이 페이지 종목만) */
+function rowsByTicker(rows: readonly any[], from: string, to: string | null): Record<string, EpCalendarRow[]> {
   const out: Record<string, EpCalendarRow[]> = {};
   for (const r of rows || []) {
     const t = String(r?.ticker || '').toUpperCase();
     const d = String(r?.date || '').slice(0, 10);
-    if (!TICKER_SET.has(t) || !/^\d{4}-\d{2}-\d{2}$/.test(d) || d < today) continue;
+    if (!TICKER_SET.has(t) || !/^\d{4}-\d{2}-\d{2}$/.test(d) || d < from || (to != null && d >= to)) continue;
     if (out[t]?.some((x) => x.date === d)) continue;
-    (out[t] ||= []).push({
-      ticker: t, date: d, hour: r.hour === 'bmo' || r.hour === 'amc' ? r.hour : '',
-      ...(typeof r.etTime === 'string' && /^\d{2}:\d{2}$/.test(r.etTime) ? { etTime: r.etTime } : {}),
-      ...(r.dateStatus === 'confirmed' || r.dateStatus === 'est' ? { dateStatus: r.dateStatus } : {}),
-    });
+    (out[t] ||= []).push(epRow(r, t, d));
   }
+  for (const t of Object.keys(out)) out[t] = out[t].sort((a, b) => a.date.localeCompare(b.date));
+  return out;
+}
+
+/**
+ * 이번 주 월요일(ET)~어제 발표 — 허브 «이번 주» 목록 전용. 실적 캘린더 저장본은 «오늘부터»라 지난 날이 없으므로
+ * 회사 공지 목록(CONFIRMED_EARNINGS, 저장소 안 정적 자료 · 읽기 0)에서만 고른다. 화면 모델·사이트맵 판정에는 쓰지 않는다.
+ */
+export function recentConfirmedThisWeek(nowMs: number = Date.now()): EpCalendarRow[] {
+  const today = etDateOf(nowMs);
+  const from = weekWindows(nowMs).thisWeek[0];
+  const rows = CONFIRMED_EARNINGS.filter((c) => c.date >= from && c.date < today).map((c) => ({ ...c, ticker: c.ticker.toUpperCase(), dateStatus: 'confirmed' }));
+  return Object.values(rowsByTicker(rows, from, today)).flat();
+}
+
+/** 캘린더 행들 → 종목별 오늘(ET) 이후 발표들(날짜순·날짜 중복 제거·최대 3, 이 페이지 종목만) */
+export function nextByTicker(rows: readonly any[], nowMs: number = Date.now()): Record<string, EpCalendarRow[]> {
+  const out = rowsByTicker(rows, etDateOf(nowMs), null);
   for (const t of Object.keys(out)) out[t] = out[t].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
   return out;
 }
@@ -217,12 +248,12 @@ export function localWhenText(r: { date: string; hour: string; etTime?: string }
   return loc === 'ko' ? `한국 시간 ${day} ${time}${tail}` : `日本時間 ${day} ${time}${tail}`;
 }
 
-/** 허브 «이번 주·다음 주» — 오늘(ET)이 든 주(월~일)의 오늘~일요일, 그다음 월~일 */
+/** 허브 «이번 주·다음 주» — 오늘(ET)이 든 주(월~일), 그다음 월~일 */
 export function weekWindows(nowMs: number = Date.now()): { thisWeek: [string, string]; nextWeek: [string, string] } {
   const today = etDateOf(nowMs);
-  const wd = wdOf(today);
+  const wd = new Date(`${today}T12:00:00Z`).getUTCDay();
   const sun = addDaysYmd(today, wd === 0 ? 0 : 7 - wd);
-  return { thisWeek: [today, sun], nextWeek: [addDaysYmd(sun, 1), addDaysYmd(sun, 7)] };
+  return { thisWeek: [addDaysYmd(sun, -6), sun], nextWeek: [addDaysYmd(sun, 1), addDaysYmd(sun, 7)] };
 }
 /** 실제 등락 — 기본 소수 1자리, 예상 경계 0.05%p 안이면 반올림 착시를 막으려 4자리까지(영수증 페이지와 같은 이유) */
 export function actualText(pct: number, expectedPct?: number): string {
