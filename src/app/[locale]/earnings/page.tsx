@@ -28,13 +28,15 @@ async function load(locale: string) {
   const { thisWeek, nextWeek } = weekWindows(nowMs);
   //   (화면 모델 next 는 오늘 발표가 끝나면 다음 분기로 넘어가므로, 캘린더 행 자체를 기간으로 고른다. 예상 변동폭은 그 행이 화면 모델의 발표일 때만)
   const recent = recentConfirmedThisWeek(nowMs);
+  const today = etDateOf(nowMs);
   const inWin = (w: [string, string]): WeekItem[] => views
     .flatMap((v) => {
-      const row = [...recent.filter((r) => r.ticker === v.ticker), ...(snap.next[v.ticker] ?? [])].find((r) => r.date >= w[0] && r.date <= w[1]);
+      // 캘린더 행은 «지금» 기준 오늘 이후만(자정 넘어 재사용된 저장본의 어제 미확정 일정 제외) — 지난 날은 회사 공지(recent)만
+      const row = [...recent.filter((r) => r.ticker === v.ticker), ...(snap.next[v.ticker] ?? []).filter((r) => r.date >= today)].find((r) => r.date >= w[0] && r.date <= w[1]);
       return row ? [{ ticker: v.ticker, row, pct: v.implied && v.next?.date === row.date ? v.implied.pct : null }] : [];
     })
     .sort((a, b) => a.row.date.localeCompare(b.row.date) || (b.pct ?? 0) - (a.pct ?? 0) || a.ticker.localeCompare(b.ticker));
-  return { l: toLoc(locale), snap, views, upcoming, graded, thisWeek: inWin(thisWeek), nextWeek: inWin(nextWeek) };
+  return { l: toLoc(locale), snap, views, upcoming, graded, thisWeek: inWin(thisWeek), nextWeek: inWin(nextWeek), pastDays: thisWeek[0] < today };
 }
 
 /** 설명 앞머리용 «엔비디아 11/17» 몇 개 — 예상 변동폭이 큰 순(검색에서 많이 찾는 종목이 앞에 오도록 값 기준, 임의 선택 없음) */
@@ -97,12 +99,11 @@ const CSS = `
 `;
 
 export default async function EarningsHubPage({ params }: Props) {
-  const { l, snap, upcoming, graded, thisWeek, nextWeek } = await load((await params).locale);
+  const { l, snap, upcoming, graded, thisWeek, nextWeek, pastDays } = await load((await params).locale);
   const c = EP_COPY[l];
   const base = publicBase();
   const url = `${base}${earningsPath(l)}`;
   const weekList = snap.calendarOk ? [...thisWeek, ...nextWeek] : [];
-  const pastDays = weekWindows(snap.at).thisWeek[0] < etDateOf(snap.at);
   const ld = {
     '@context': 'https://schema.org', '@type': 'CollectionPage', name: c.hubTitle, description: c.hubMetaDesc, url, inLanguage: l,
     isPartOf: { '@type': 'WebSite', name: 'SIGNUM HQ', url: base }, isAccessibleForFree: true,
