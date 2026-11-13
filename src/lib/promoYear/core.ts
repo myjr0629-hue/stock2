@@ -16,7 +16,7 @@ import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 
 export const PROMO_YEAR_PRODUCT_ID = 'com.signumhq.app.pro.year.promo';
 export const PROMO_YEAR_MS = 365 * 86_400_000;
-const COVER_SLACK_MS = 86_400_000;           // 이미 붙은 만료가 목표보다 하루 이상 짧을 때만 다시 붙인다
+const COVER_SLACK_MS = 2 * 3600_000;         // 이미 붙은 만료가 목표보다 2시간 넘게 짧으면 다시 붙인다(RC 도 2시간 안은 중복으로 본다)
 const FUTURE_SKEW_MS = 10 * 60_000;           // 구매 시각이 서버 시계보다 10분 넘게 미래면 이상값으로 본다
 export const RC_UID_RE = /^\$RCAnonymousID:[0-9a-f]{32}$|^[A-Za-z0-9._:-]{8,100}$/;
 
@@ -26,10 +26,13 @@ export type PromoPlan =
 
 const ms = (v: unknown): number => (typeof v === 'string' ? Date.parse(v) : NaN);
 
-/** RC v1 GET /subscribers/{id} 응답 → 붙일지·만료 시각. 순수 함수. */
-export function planPromoYear(json: unknown, now: number): PromoPlan {
-  const sub = (json as { subscriber?: Record<string, unknown> } | null)?.subscriber;
-  if (!sub || typeof sub !== 'object') return { kind: 'none', why: 'no_purchase' };
+/**
+ * RC v1 GET /subscribers/{id} 응답 → 붙일지·만료 시각. 순수 함수.
+ * hintPurchaseMs = 인증된 RC 웹훅이 알려 준 구매 시각 — 고객 기록에 아직 안 보일 때(반영 지연)만 쓴다.
+ */
+export function planPromoYear(json: unknown, now: number, hintPurchaseMs?: number): PromoPlan {
+  const sub = ((json as { subscriber?: Record<string, unknown> } | null)?.subscriber ?? {}) as Record<string, unknown>;
+  if (typeof sub !== 'object') return { kind: 'none', why: 'no_purchase' };
   const list = (sub.non_subscriptions as Record<string, unknown> | undefined)?.[PROMO_YEAR_PRODUCT_ID];
   let purchaseMs = NaN;
   if (Array.isArray(list)) {
@@ -42,6 +45,7 @@ export function planPromoYear(json: unknown, now: number): PromoPlan {
       if (!Number.isFinite(purchaseMs) || t > purchaseMs) purchaseMs = t;   // 가장 최근 구매
     }
   }
+  if (!Number.isFinite(purchaseMs) && typeof hintPurchaseMs === 'number' && Number.isFinite(hintPurchaseMs) && hintPurchaseMs > 0 && hintPurchaseMs <= now + FUTURE_SKEW_MS) purchaseMs = hintPurchaseMs;
   if (!Number.isFinite(purchaseMs)) return { kind: 'none', why: 'no_purchase' };
   const endMs = purchaseMs + PROMO_YEAR_MS;
   if (endMs <= now) return { kind: 'none', why: 'expired' };
@@ -74,7 +78,7 @@ async function rc(fetchImpl: typeof fetch, url: string, init: RequestInit, timeo
 }
 
 /** RC 기록을 읽고(진실 원천) 필요하면 «구매 + 365일» 프로모셔널 pro 를 붙인다. 던지지 않는다. */
-export async function ensurePromoYear(uid: string, deps: EnsureDeps): Promise<EnsureResult> {
+export async function ensurePromoYear(uid: string, deps: EnsureDeps, hintPurchaseMs?: number): Promise<EnsureResult> {
   if (typeof uid !== 'string' || !RC_UID_RE.test(uid)) return { kind: 'none', why: 'uid' };
   const key = deps.secret;
   if (!key) return { kind: 'unavailable', why: 'no_key' };
@@ -86,7 +90,7 @@ export async function ensurePromoYear(uid: string, deps: EnsureDeps): Promise<En
   if (!res || !res.ok) return { kind: 'unavailable', why: 'read' };
   let json: unknown;
   try { json = await res.json(); } catch { return { kind: 'unavailable', why: 'read' }; }
-  const plan = planPromoYear(json, (deps.now ?? Date.now)());
+  const plan = planPromoYear(json, (deps.now ?? Date.now)(), hintPurchaseMs);
   if (plan.kind === 'none') return plan;
   const g = await rc(fetchImpl, `${base}/entitlements/${encodeURIComponent(PRO_ENTITLEMENT_ID)}/promotional`,
     { method: 'POST', headers, body: JSON.stringify({ end_time_ms: plan.endMs }) }, timeoutMs);
@@ -95,11 +99,13 @@ export async function ensurePromoYear(uid: string, deps: EnsureDeps): Promise<En
 }
 
 /** RC 웹훅 본문이 «이 상품의 실제 구매»인가(프로모셔널 부여가 만든 이벤트는 제외 — 되먹임 방지) */
-export function promoYearUidFromWebhook(body: unknown): string | null {
+export function promoYearFromWebhook(body: unknown): { uid: string; purchaseMs?: number } | null {
   const e = (body as { event?: Record<string, unknown> } | null)?.event;
   if (!e || typeof e !== 'object') return null;
   if (e.type !== 'NON_RENEWING_PURCHASE' || e.product_id !== PROMO_YEAR_PRODUCT_ID) return null;
   if (e.store !== 'APP_STORE' || e.period_type === 'PROMOTIONAL') return null;
   const uid = e.app_user_id;
-  return typeof uid === 'string' && RC_UID_RE.test(uid) ? uid : null;
+  if (typeof uid !== 'string' || !RC_UID_RE.test(uid)) return null;
+  const at = e.purchased_at_ms;
+  return typeof at === 'number' && Number.isSafeInteger(at) && at > 0 ? { uid, purchaseMs: at } : { uid };
 }
