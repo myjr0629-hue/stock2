@@ -65,7 +65,8 @@ const ms = (v: unknown) => (typeof v === 'string' && v ? Date.parse(v) : NaN);
 
 /**
  * RC v1 subscriber 응답 → 신규성 판정. since = 친구가 초대 링크를 연 시각(터치) · arrivedAt = 첫 실행 도착 기록 시각. 순수 함수.
- *   requestedAt = 우리 조회 시각 — RC 응답의 request_date_ms(RC 시계)가 있으면 그것, 없으면 넘겨받은 서버 시각. 둘 다 없으면 이 검사는 건너뛴다.
+ *   requestedAt = 이 확인 대기의 «첫» RC 조회 시각(서버 시계) — RC 응답의 request_date_ms(RC 시계)와 둘 중 이른 쪽을 기준으로 한다. 둘 다 없으면 이 검사는 건너뛴다.
+ *   (첫 조회가 고객을 만든 뒤 응답을 잃어도 다음 조회가 «예전부터 있던 고객»으로 통과하지 않게 — 관문 11140830 ①)
  *   거래 후보 = subscriptions 값 + non_subscriptions 배열 원소(있으면 이미 고객·샌드박스 판정에만 쓰고, 지급 조건은 아니다).
  */
 export function rcNewness(json: unknown, since: number, arrivedAt: number = since, requestedAt?: number): RcVerdict {
@@ -76,7 +77,8 @@ export function rcNewness(json: unknown, since: number, arrivedAt: number = sinc
   if (!Number.isFinite(first)) return { verdict: 'pending' };
   if (first < floor) return { verdict: 'existing' };
   const rd = Number((json as { request_date_ms?: unknown }).request_date_ms);
-  const req = Number.isFinite(rd) && rd > 0 ? rd : requestedAt;
+  const cands = [Number.isFinite(rd) && rd > 0 ? rd : NaN, typeof requestedAt === 'number' ? requestedAt : NaN].filter((x) => Number.isFinite(x));
+  const req = cands.length ? Math.min(...cands) : undefined;
   // 우리 조회가 처음 만든(또는 기기 SDK 가 한 번도 부르지 않은) 고객 — 설치 증거가 아니다(PROBE_FRESH_MS)
   if (typeof req === 'number' && Number.isFinite(req) && req - first < PROBE_FRESH_MS) return { verdict: 'unseen' };
   if (first > Math.max(arrivedAt, since) + FIRST_RUN_WINDOW_MS) return { verdict: 'late' };
@@ -273,10 +275,19 @@ async function verifyBySelfRef(store: InviteStore, i: { selfRef: string; uid: st
     if (all > VERIFY_LIMIT_ALL) return { state: 'pending', reason: 'limited' };
   } catch { return { state: 'pending', reason: 'unavailable' }; }
 
+  // 첫 RC 조회 시각을 «조회 전»에 남긴다(SET NX, 7일) — 없는 ID 는 조회가 고객을 만든다. 첫 조회의 응답을 잃거나 시간 초과돼도
+  //   다음 조회는 이 시각과 first_seen 을 비교해 «우리 조회가 만든 고객»을 알아본다(관문 11140830 ①). 못 남기면 조회하지 않는다.
+  let probeAt: number;
+  try {
+    await store.setNx(k.claimProbe(selfRef), String(now), CLAIM_TTL_SEC);
+    const p = Number(await store.get(k.claimProbe(selfRef)));
+    if (!Number.isFinite(p) || p <= 0) return { state: 'pending', reason: 'unavailable' };
+    probeAt = Math.min(p, now);
+  } catch { return { state: 'pending', reason: 'unavailable' }; }
   const got = await i.rc(uid, i.os);
   if (got.kind !== 'ok') return { state: 'pending', reason: got.kind };
   const arrivedAt = typeof c?.arr === 'number' && Number.isFinite(c.arr) ? c.arr : at;
-  const v = rcNewness(got.json, at, arrivedAt, now);
+  const v = rcNewness(got.json, at, arrivedAt, probeAt);
   // unseen = 우리 조회가 이 RC 고객을 처음 만들었다(설치·첫 실행의 SDK 가 아니다) → 끝(다시 불러도 그 고객은 «예전부터 있던» 것처럼 보이므로 결론을 남긴다)
   if (v.verdict === 'existing' || v.verdict === 'sandbox' || v.verdict === 'late' || v.verdict === 'unseen') return finish(v.verdict);
   if (v.verdict !== 'verified') return { state: 'pending', reason: 'no_record' };

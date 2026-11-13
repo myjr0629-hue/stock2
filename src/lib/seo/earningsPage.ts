@@ -207,8 +207,10 @@ export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot
   // 오늘(ET) 이전 행은 버린다 — 자정 직후 재사용된 메모 묶음(5분, 읽기 실패 땐 최대 15분)의 어제 행이 «다음 실적 발표»로 나오지 않게(허브와 같은 규칙)
   const today = etDateOf(nowMs);
   let rows = (snap.next[ticker] ?? []).filter((r) => r.date >= today);
-  // 오늘 나온 발표가 이미 채점됐으면(장전 발표의 당일 채점) «결과 집계 중»이 아니다 — 그다음 일정으로
-  if (rows[0] && epPhaseOf(rows[0], nowMs) === 'done' && seen.has(rows[0].date)) rows = rows.slice(1);
+  // 오늘 경계가 지난 발표 중 «발표됨 · 결과 집계 중»으로 부를 수 없는 것은 그다음 일정으로 넘긴다:
+  //   · 회사 공지 전 예정일 — 실제로 발표했는지 모른다(연기·추정 오류) → «발표됨»이라 단정하지 않는다(관문 11140830 ②)
+  //   · 이미 채점됨(장전 발표의 당일 채점) — 집계 중이 아니다
+  if (rows[0] && epPhaseOf(rows[0], nowMs) === 'done' && (rows[0].dateStatus !== 'confirmed' || seen.has(rows[0].date))) rows = rows.slice(1);
   // 가장 가까운 발표 — 오늘 발표가 이미 나왔으면 그 발표(«발표됨 · 결과 집계 중»)를 보이고 그다음 일정은 following 으로
   const n = rows[0] ?? null;
   const phase = n ? epPhaseOf(n, nowMs) : null;

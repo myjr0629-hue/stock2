@@ -236,7 +236,7 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
   });
   await test('오늘 발표가 나오면 그 발표를 «발표됨»(그다음 일정은 following) · ET 날짜가 바뀌면 다음 일정 · 당일 채점됐으면 바로 다음 일정', () => {
     const snap = { ...EP.emptySnapshot(), calendarOk: true, recordsOk: true,
-      next: { [T]: [{ ticker: T, date: '2026-11-12', hour: 'bmo' }, { ticker: T, date: '2027-02-10', hour: 'amc' }], [N]: [{ ticker: N, date: '2026-11-12', hour: 'bmo' }] } };
+      next: { [T]: [{ ticker: T, date: '2026-11-12', hour: 'bmo', dateStatus: 'confirmed' }, { ticker: T, date: '2027-02-10', hour: 'amc' }], [N]: [{ ticker: N, date: '2026-11-12', hour: 'bmo', dateStatus: 'confirmed' }] } };
     const at = Date.parse('2026-11-12T16:00:00Z'); // 11:00 ET — 장전 발표는 끝났다
     const vt = EP.buildEarningsPageView(T, snap, at);
     assert.equal(vt.next.date, '2026-11-12'); assert.equal(vt.next.phase, 'done'); assert.equal(vt.following.date, '2027-02-10');
@@ -249,6 +249,12 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     const cell = (s: string) => ({ ...snap, packAt: at, packDay: '2026-11-12', cells: { [`${T}|2026-11-12`]: { p: 5, e: '2026-11-13', b: 'live', s, r: null, f: '2026-11-13' } } });
     assert.equal(EP.buildEarningsPageView(T, cell('2026-11-12'), at).implied, null);
     assert.equal(EP.buildEarningsPageView(T, cell('2026-11-11'), at).implied.pct, 5);
+    // 회사 공지 전 예정일은 경계가 지나도 «발표됨»이라 단정하지 않는다 — 그다음 일정으로(없으면 없음) [관문 11140830 ②]
+    const est = { ...snap, next: { [T]: [{ ticker: T, date: '2026-11-12', hour: 'bmo', dateStatus: 'est' }, { ticker: T, date: '2027-02-10', hour: 'amc' }], [N]: [{ ticker: N, date: '2026-11-12', hour: 'bmo' }] } };
+    const ve = EP.buildEarningsPageView(T, est, at);
+    assert.equal(ve.next.date, '2027-02-10'); assert.equal(ve.next.phase, 'upcoming'); assert.equal(ve.following, null);
+    assert.equal(EP.buildEarningsPageView(N, est, at).next, null);
+    assert.equal(EP.buildEarningsPageView(T, est, Date.parse('2026-11-12T12:00:00Z')).next.date, '2026-11-12', 'est row before the boundary is still upcoming today');
   });
   await test('채점 기록만 못 읽음 — «기록 없음»이라 하지 않고 일부 집계 없음 · 예상 변동폭 종목은 그대로 index', async () => {
     svc._resetEarningsPageMemo(); recordsDown = true;
@@ -361,7 +367,7 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
       const upc = hk.split(`<h2>${EP.EP_COPY.ko.hubUpcomingT}</h2>`)[1].split(`<h2>${EP.EP_COPY.ko.hubGradedT}</h2>`)[0];
       assert.ok(!upc.includes('href="/ko/earnings/NVDA"'), 'hub upcoming excludes the released report');
       // 시각 미공지 장후(T) — 기존 규칙(18:00 ET 까지 오늘)
-      const snap = { ...EP.emptySnapshot(), calendarOk: true, recordsOk: true, next: { [T]: [{ ticker: T, date: '2026-11-17', hour: 'amc' }] } };
+      const snap = { ...EP.emptySnapshot(), calendarOk: true, recordsOk: true, next: { [T]: [{ ticker: T, date: '2026-11-17', hour: 'amc', dateStatus: 'confirmed' }] } };
       assert.equal(EP.buildEarningsPageView(T, snap, Date.parse('2026-11-17T21:30:00Z')).next.phase, 'today');
       assert.equal(EP.buildEarningsPageView(T, snap, Date.parse('2026-11-17T23:00:00Z')).next.phase, 'done');
     } finally {
@@ -377,12 +383,14 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     const realNow = Date.now;
     const saved = calendar;
     try {
-      calendar = { ...calendar, rows: [{ ticker: N, date: '2026-11-17', hour: 'amc', epsEstimate: 1, revenueEstimate: 1, quarter: 3, year: 2026 }] };
+      // 회사 공지 일정(NVDA 11/17 장후 16:20) — 23:58 ET 엔 «발표됨 · 결과 집계 중», 00:03 ET 재사용 묶음에선 사라져야 한다
+      calendar = { ...calendar, rows: [{ ticker: 'NVDA', date: '2026-11-17', hour: 'amc', epsEstimate: 1, revenueEstimate: 1, quarter: 3, year: 2027 }] };
       svc._resetEarningsPageMemo();
       Date.now = () => Date.parse('2026-11-18T04:58:00Z');
-      assert.ok((await html('ko', N)).includes('data-next="2026-11-17"'), 'before midnight: today row');
+      const before = await html('ko', 'NVDA');
+      assert.ok(before.includes('data-next="2026-11-17"') && before.includes('>최근 실적 발표</h2>'), 'before midnight: today row (reported)');
       Date.now = () => at;
-      const h = await html('ko', N);
+      const h = await html('ko', 'NVDA');
       assert.ok(!h.includes('data-next="2026-11-17"') && !h.includes('2026년 11월 17일'), 'after midnight: no yesterday row');
       assert.ok(h.includes('실적 캘린더에 앞으로 120일 안의 발표 일정이 아직 없습니다'));
     } finally { Date.now = realNow; calendar = saved; svc._resetEarningsPageMemo(); }

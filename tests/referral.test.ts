@@ -579,6 +579,42 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     assert.equal(ib.minted, 0);
     afterCalls.length = 0;
   });
+  await t('[관문 11140830 ①] 첫 조회가 RC 고객을 만든 뒤 응답을 잃음(시간 초과) → 3분 뒤 재조회·선물함 재확인도 unseen · 적립 0', async () => {
+    const { verifyPendingFor } = await import('../src/lib/invite/referral');
+    mem = memoryInviteStore(() => NOW);
+    await clickAndArrive(mem, { friendKey: KEY_B, ip: HEX(150), at: NOW });
+    const created = new Map<string, number>();
+    let lose = true;
+    const rc: RcFetch = async (uid) => {
+      const reqAt = clock;
+      if (!created.has(uid)) created.set(uid, reqAt);            // RC 는 없는 ID 를 조회하면 만든다
+      if (lose) return { kind: 'unavailable' };                    // …그런데 응답이 시간 초과로 사라졌다
+      return { kind: 'ok', json: { request_date_ms: reqAt, ...subscriber({ first: created.get(uid)! }) } };
+    };
+    let clock = NOW + 120_000;
+    assert.deepEqual(await verifyClaim(mem, { key: KEY_B, rcUid: UID_B, os: 'ios', ipHash: HEX(150), now: clock, vercelEnv: 'preview', secret: SECRET, rc, holdMs: 0 }), { state: 'pending', reason: 'unavailable' });
+    lose = false; clock += 180_000;
+    assert.equal(await verifyPendingFor(mem, { inviterRef: REF_A, now: clock, vercelEnv: 'preview', secret: SECRET, rc, holdMs: 0 }), 0, 'inbox re-check');
+    assert.equal(await mem.get(K.claimDone(REF_B)), 'unseen');
+    clock += 180_000;
+    assert.deepEqual(await verifyClaim(mem, { key: KEY_B, rcUid: UID_B, os: 'ios', ipHash: HEX(150), now: clock, vercelEnv: 'preview', secret: SECRET, rc, holdMs: 0 }), { state: 'final', reason: 'unseen' });
+    assert.equal(await mem.get(K.credit(REF_A)), null);
+    // 정상 — SDK 가 먼저 만든 고객(첫 조회 5초 전)은 첫 조회가 시간 초과여도 다음 조회에서 통과
+    mem = memoryInviteStore(() => NOW);
+    await clickAndArrive(mem, { friendKey: KEY_C, ip: HEX(151), at: NOW });
+    const sdkFirst = NOW + 115_000;
+    let n = 0;
+    const rc2: RcFetch = async () => (n++ === 0 ? { kind: 'unavailable' } : { kind: 'ok', json: subscriber({ first: sdkFirst }) });
+    await verifyClaim(mem, { key: KEY_C, rcUid: UID_C, os: 'ios', ipHash: HEX(151), now: NOW + 120_000, vercelEnv: 'preview', secret: SECRET, rc: rc2, holdMs: 0 });
+    assert.deepEqual(await verifyClaim(mem, { key: KEY_C, rcUid: UID_C, os: 'ios', ipHash: HEX(151), now: NOW + 300_000, vercelEnv: 'preview', secret: SECRET, rc: rc2, holdMs: 0 }), { state: 'credited' });
+    // 첫 조회 시각을 못 남기면 RC 를 부르지 않는다
+    mem = memoryInviteStore(() => NOW);
+    await clickAndArrive(mem, { friendKey: KEY_D, ip: HEX(152), at: NOW });
+    const broken = { ...mem, setNx: async () => { throw new Error('down'); } } as InviteStore;
+    let called = 0;
+    assert.deepEqual(await verifyClaim(broken, { key: KEY_D, rcUid: UID_D, os: 'ios', ipHash: HEX(152), now: NOW + 120_000, vercelEnv: 'preview', secret: SECRET, rc: async () => { called++; return { kind: 'unavailable' }; }, holdMs: 0 }), { state: 'pending', reason: 'unavailable' });
+    assert.equal(called, 0);
+  });
   await t('[11/14 ③] rcNewness — 조회 시각 2초 안에 처음 생긴 고객 = unseen(초 잘림 양쪽) · SDK 가 몇 초 먼저 만든 고객 = verified · request_date_ms 없으면 서버 시각', () => {
     const click = NOW, arr = NOW + 60_000, req = NOW + 120_000;
     const sub = (first: number, reqMs?: number) => ({ ...(reqMs != null ? { request_date_ms: reqMs } : {}), ...subscriber({ first }) });

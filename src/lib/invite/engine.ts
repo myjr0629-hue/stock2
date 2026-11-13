@@ -72,6 +72,7 @@ export function inviteKeys(vercelEnv: string | undefined = process.env.VERCEL_EN
     month: (ref: string, month: string) => `${p}:mon:${ref}:${month}`,
     tokenIps: (ref: string) => `${p}:tkip:${ref}`,
     claimUid: (selfRef: string) => `${p}:clmu:${selfRef}`,      // 대기 확인용 친구 RC ID 암호문(7일)
+    claimProbe: (selfRef: string) => `${p}:clmp:${selfRef}`,     // 이 확인 대기의 «첫 RC 조회» 시각(ms, 7일) — 우리 조회가 만든 RC 고객 판정(referral.PROBE_FRESH_MS)
     pending: (inviterRef: string) => `${p}:pend:${inviterRef}`,  // 초대자별 대기 확인 목록(최대 10, 7일)
     verifyBudget: (kind: string, id: string, w: number) => `${p}:vb:${kind}:${id}:${w}`,
   };
