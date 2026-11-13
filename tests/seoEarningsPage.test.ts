@@ -131,6 +131,12 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     assert.equal(EP.localWhenText({ date: '2026-11-17', hour: 'bmo' }, 'ko'), '한국 시간 11월 17일(화) 23:30 이전');
     assert.equal(EP.localWhenText({ date: '2026-11-17', hour: 'amc', etTime: '16:20' }, 'ja'), '日本時間 11月18日(水) 6:20');
     assert.equal(EP.localWhenText({ date: '2026-08-26', hour: 'amc' }, 'ko'), '한국 시간 8월 27일(목) 05:00 이후', 'EDT');
+    assert.equal(EP.localWhenText({ date: '2026-11-27', hour: 'amc' }, 'ko'), '한국 시간 11월 28일(토) 03:00 이후', 'early close 13:00 ET');
+    assert.equal(EP.EP_COPY.en.timeLine({ date: '2026-11-27', hour: 'amc' }), 'The report is scheduled after the close (after 1:00 p.m. ET).');
+    assert.equal(EP.EP_COPY.en.timeLine({ date: '2026-11-17', hour: 'amc' }), 'The report is scheduled after the close (after 4:00 p.m. ET).');
+    assert.equal(EP.releasedByExactTime({ date: '2026-11-17', etTime: '16:20' }, Date.parse('2026-11-17T21:19:00Z')), false);
+    assert.equal(EP.releasedByExactTime({ date: '2026-11-17', etTime: '16:20' }, Date.parse('2026-11-17T21:20:00Z')), true);
+    assert.equal(EP.releasedByExactTime({ date: '2026-11-17' }, Date.parse('2026-11-18T21:20:00Z')), false);
     assert.equal(EP.localWhenText({ date: '2026-11-17', hour: '' }, 'ko'), null);
     assert.equal(EP.localWhenText({ date: '2026-11-17', hour: 'amc' }, 'en'), null);
     const w = EP.weekWindows(Date.parse('2026-11-13T20:00:00Z')); // 금 15:00 ET
@@ -183,7 +189,7 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     assert.ok(!hk.includes(`data-week-ticker="${N}"`));
     const mk = await hub.generateMetadata({ params: Promise.resolve({ locale: 'ko' }) });
     assert.match(mk.title, /실적 발표일·예상 변동폭/);
-    if (inNext) assert.ok(mk.description.startsWith(`이번 주·다음 주 실적 발표: ${EARNINGS_COMPANIES[T].ko} `), mk.description);
+    if (inNext) assert.ok(mk.description.startsWith(`이번 주·다음 주 실적 발표: ${EARNINGS_COMPANIES[T].ko} ${Number(D.slice(5, 7))}/${Number(D.slice(8, 10))}(예정)`), mk.description);
   });
   await test('저장소 장애 — 던지지 않고 «지금 읽지 못함» + noindex(얇은 페이지·거짓 0 금지)', async () => {
     svc._resetEarningsPageMemo(); storeDown = true;

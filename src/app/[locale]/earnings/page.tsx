@@ -23,18 +23,18 @@ async function load(locale: string) {
     .sort((a, b) => a.next!.date.localeCompare(b.next!.date) || b.implied!.pct - a.implied!.pct || a.ticker.localeCompare(b.ticker));
   const graded: ScorecardRow[] = views.flatMap((v) => v.history)
     .sort((a, b) => b.date.localeCompare(a.date) || a.ticker.localeCompare(b.ticker)).slice(0, 60);
-  // 이번 주·다음 주 발표 — 캘린더 일정만으로(예상 변동폭 없어도 내부 링크) · 끝난 발표는 뺀다
+  // 이번 주·다음 주 발표 — 캘린더 일정만으로(예상 변동폭 없어도 내부 링크) · 오늘 이미 발표한 종목도 «이번 주 발표 종목»이라 남긴다
   const { thisWeek, nextWeek } = weekWindows(nowMs);
   const inWin = (w: [string, string]) => views
-    .filter((v) => v.next && v.next.phase !== 'done' && v.next.date >= w[0] && v.next.date <= w[1])
+    .filter((v) => v.next && v.next.date >= w[0] && v.next.date <= w[1])
     .sort((a, b) => a.next!.date.localeCompare(b.next!.date) || (b.implied?.pct ?? 0) - (a.implied?.pct ?? 0) || a.ticker.localeCompare(b.ticker));
   return { l: toLoc(locale), snap, views, upcoming, graded, thisWeek: inWin(thisWeek), nextWeek: inWin(nextWeek) };
 }
 
 /** 설명 앞머리용 «엔비디아 11/17» 몇 개 — 예상 변동폭이 큰 순(검색에서 많이 찾는 종목이 앞에 오도록 값 기준, 임의 선택 없음) */
-function soonItems(list: EarningsPageView[], l: ReturnType<typeof toLoc>): string[] {
+function soonItems(list: EarningsPageView[], l: ReturnType<typeof toLoc>, estTag: string): string[] {
   return [...list].sort((a, b) => (b.implied?.pct ?? -1) - (a.implied?.pct ?? -1) || a.next!.date.localeCompare(b.next!.date))
-    .slice(0, 4).map((v) => `${l === 'en' ? v.ticker : companyNames(v.ticker)?.[l] || v.ticker} ${md(v.next!.date, l)}`);
+    .slice(0, 4).map((v) => `${l === 'en' ? v.ticker : companyNames(v.ticker)?.[l] || v.ticker} ${md(v.next!.date, l)}${v.next!.dateStatus === 'confirmed' ? '' : estTag}`);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const base = publicBase();
   const url = `${base}${earningsPath(l)}`;
   const any = views.some((v) => v.indexable);
-  const soon = soonItems([...thisWeek, ...nextWeek], l);
+  const soon = soonItems([...thisWeek, ...nextWeek], l, c.estTag);
   const description = soon.length ? `${c.hubSoonDesc(soon)} ${c.hubMetaDesc}` : c.hubMetaDesc;
   return {
     title: c.hubTitle, description,

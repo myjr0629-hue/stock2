@@ -20,7 +20,7 @@ import { COMPANY_NAMES } from '@/lib/seo/earningsTicker';
 import { impliedForRow, type ImpliedCell } from '@/lib/earnings/earningsImplied';
 import { scorecardPairOf, type ScorecardRow } from '@/lib/earnings/earningsScorecard';
 import { addDaysYmd, etWallToMs, kstOf, phaseOf, toLoc, type Loc, type Phase } from '@/lib/earningsWeek';
-import { etDateOf } from '@/lib/marketCalendar';
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 export const EP_LOCALES: readonly Loc[] = ['ko', 'en', 'ja'];
 const SYMBOL_RE = /^[A-Z]{1,5}$/;
@@ -197,12 +197,18 @@ export const mdName = (ymd: string, loc: Loc): string => {
 
 /**
  * 발표 시각의 한국·일본 현지 표기(KST = JST = UTC+9) — 공지 시각이 있으면 그 분까지, 없으면 장전/장후 경계
- * (장후 = 뉴욕 16:00 이후, 장전 = 뉴욕 09:30 이전, 서머타임 자동). 시각 미정·영어면 null. 값을 만들지 않는다.
+ * (장후 = 그날 정규장 마감(보통 16:00, 조기 폐장일 13:00) 이후, 장전 = 뉴욕 09:30 이전, 서머타임 자동). 시각 미정·영어면 null. 값을 만들지 않는다.
  */
+export const closeEtOf = (ymd: string): string => `${String(Math.floor(sessionCloseMinutes(ymd) / 60)).padStart(2, '0')}:00`;
+/** 공지된 정확한 발표 시각이 이미 지났는가(시각 미공지면 false) */
+export const releasedByExactTime = (r: { date: string; etTime?: string }, nowMs: number = Date.now()): boolean => {
+  const ms = r.etTime ? etWallToMs(r.date, r.etTime) : null;
+  return ms != null && nowMs >= ms;
+};
 export function localWhenText(r: { date: string; hour: string; etTime?: string }, loc: Loc): string | null {
   if (loc === 'en') return null;
   const exact = r.etTime ? etWallToMs(r.date, r.etTime) : null;
-  const edge = exact != null ? exact : r.hour === 'amc' ? etWallToMs(r.date, '16:00') : r.hour === 'bmo' ? etWallToMs(r.date, '09:30') : null;
+  const edge = exact != null ? exact : r.hour === 'amc' ? etWallToMs(r.date, closeEtOf(r.date)) : r.hour === 'bmo' ? etWallToMs(r.date, '09:30') : null;
   if (edge == null) return null;
   const k = kstOf(edge);
   const day = `${mdName(k.date, loc)}(${WD[loc][k.weekday]})`;
@@ -498,8 +504,8 @@ const EN: EpCopy = {
     ['Within · outside range', 'If the absolute actual move is larger than the pre-report expected move, it is outside the range; equal or smaller is within. Frequent misses only mean options often priced a smaller reaction — they do not tell you the next result.'],
   ],
   faqT: 'Frequently asked questions',
-  timeLine: ({ hour, etTime }) => (etTime ? `The report is scheduled for ${etTime} ET.`
-    : hour === 'amc' ? 'The report is scheduled after the close (after 4:00 p.m. ET).'
+  timeLine: ({ date, hour, etTime }) => (etTime ? `The report is scheduled for ${etTime} ET.`
+    : hour === 'amc' ? `The report is scheduled after the close (after ${Number(closeEtOf(date).slice(0, 2)) - 12}:00 p.m. ET).`
     : hour === 'bmo' ? 'The report is scheduled before the open (before 9:30 a.m. ET).' : null),
   faq: ({ name, calendarOk, recordsOk, packOk, nextDate, timeLine, pct, method, last }) => [
     [`When is ${name}’s next earnings date?`, nextDate ? `The earnings calendar lists the next report on ${nextDate}.${timeLine ? ` ${timeLine}` : ''}` : calendarOk ? 'The earnings calendar has no next report date yet.' : 'The earnings calendar could not be read right now. Please check back shortly.'],

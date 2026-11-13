@@ -11,7 +11,7 @@ import { isFlowTicker } from '@/lib/seo/flowTicker';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import {
   EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, earningsAppHref, earningsPath, expectedText,
-  isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, toLoc, type EarningsPageView,
+  isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, releasedByExactTime, toLoc, type EarningsPageView,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
 import type { Loc } from '@/lib/earningsWeek';
@@ -127,7 +127,8 @@ export default async function EarningsTickerPage(props: Props) {
   const pct = view.implied ? expectedText(view.implied.pct) : null;
   const method = view.implied ? c.moveMethod[view.implied.basis] : null;
   const last = view.history[0] ?? null;
-  const timeLine = upcoming ? c.timeLine(upcoming) : null;
+  // 공지 시각이 지났으면(장후 판정 18:00 전이라도) «발표 시간» 안내는 내린다
+  const timeLine = upcoming && !releasedByExactTime(upcoming) ? c.timeLine(upcoming) : null;
   const nextLocal = next ? localWhenText(next, l) : null;
   const faq = c.faq({ name, ticker, calendarOk: view.calendarOk, recordsOk: view.recordsOk, packOk: view.packOk, nextDate: upcoming ? `${longDate(upcoming.date, l)}${upcoming.dateStatus !== 'confirmed' ? c.estTag : ''}` : null, timeLine, pct, method, last });
   const beyond = view.history.filter((r) => r.beyond).length;
