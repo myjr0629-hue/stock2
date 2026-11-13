@@ -83,6 +83,15 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
     calls.length = 0;
     assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: mkF(subWith([{ at }])), now: () => NOW, refunds }, at), { kind: 'none', why: 'no_purchase' });
     assert.deepEqual(calls, ['GET ']);
+    // 고객별 잠금 — 잡혀 있으면 부여·회수 모두 RC 를 부르지 않고 unavailable(503 → 재시도) · 회수는 그래도 환불 기록은 남긴다
+    calls.length = 0; const mem2 = new Map<string, number[]>(); let released = 0;
+    const busy = { list: async (u: string) => mem2.get(u) ?? [], add: async (u: string, m: number) => { mem2.set(u, [m]); }, lock: async () => null };
+    assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: mkF(subWith([{ at }])), now: () => NOW, refunds: busy }), { kind: 'unavailable', why: 'read' });
+    assert.deepEqual(await revokePromoYearIfRefunded(UID, at, { secret: 'sk', fetchImpl: mkF(subWith([{ at }])), now: () => NOW, refunds: busy }), { kind: 'unavailable', why: 'ledger' });
+    assert.deepEqual(calls, []); assert.deepEqual(mem2.get(UID), [at]);
+    const free = { list: async () => [], add: async () => {}, lock: async () => async () => { released++; } };
+    assert.equal((await ensurePromoYear(UID, { secret: 'sk', fetchImpl: mkF(subWith([{ at }])), now: () => NOW, refunds: free })).kind, 'granted');
+    assert.equal(released, 1);
     // 기록을 못 읽으면 부여하지 않는다(닫힘)
     const broken = { list: async () => { throw new Error('x'); }, add: async () => {} };
     assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: mkF(subWith([{ at }])), now: () => NOW, refunds: broken }), { kind: 'unavailable', why: 'read' });
@@ -176,7 +185,7 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
       const u = String(url);
       if (u.startsWith('https://fake-upstash.local')) {   // Upstash 자동 파이프라인(/pipeline) — 배열로 답한다
         const cmds = u.endsWith('/pipeline') ? JSON.parse(String(init.body)) : [JSON.parse(String(init.body))];
-        const out = cmds.map((c: unknown[]) => String(c[1]).includes('SMEMBERS') ? { result: [] } : (log.push('cohort'), { result: 1 }));
+        const out = cmds.map((c: unknown[]) => String(c[1]).includes('SMEMBERS') ? { result: [] } : /'NX', 'PX'|'DEL'/.test(String(c[1])) ? { result: 1 } : (log.push('cohort'), { result: 1 }));
         return new Response(JSON.stringify(u.endsWith('/pipeline') ? out : out[0]), { status: 200 });
       }
       log.push('rc:' + init.method);
@@ -206,7 +215,7 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
       const u = String(url);
       if (u.startsWith('https://fake-upstash.local')) {
         const cmds = u.endsWith('/pipeline') ? JSON.parse(String(init.body)) : [JSON.parse(String(init.body))];
-        const out = cmds.map((c: unknown[]) => String(c[1]).includes('SMEMBERS') ? { result: [] } : (log.push('rl'), { result: rl }));
+        const out = cmds.map((c: unknown[]) => String(c[1]).includes('SMEMBERS') ? { result: [] } : /'NX', 'PX'|'DEL'/.test(String(c[1])) ? { result: 1 } : (log.push('rl'), { result: rl }));
         return new Response(JSON.stringify(u.endsWith('/pipeline') ? out : out[0]));
       }
       log.push('rc:' + init.method);

@@ -12,7 +12,7 @@
 // 키(REVENUECAT_SECRET_API_KEY)가 없으면 'unavailable' — 아무것도 쓰지 않는다(닫힘).
 // 시험: tests/promoYear.test.ts
 // ============================================================================
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 
 export const PROMO_YEAR_PRODUCT_ID = 'com.signumhq.app.pro.year.promo';
@@ -83,10 +83,16 @@ export type EnsureResult =
   | { kind: 'unavailable'; why: 'no_key' | 'read' | 'grant' };
 
 /** 환불된 구매 시각 기록(고객별) — 환불 웹훅이 남기고, 부여 판정이 읽는다. 읽기 실패는 던진다(부여는 닫힘). */
-export interface RefundLedger { list(uid: string): Promise<number[]>; add(uid: string, purchaseMs: number): Promise<void> }
+export interface RefundLedger {
+  list(uid: string): Promise<number[]>;
+  add(uid: string, purchaseMs: number): Promise<void>;
+  /** 고객별 직렬화 잠금(부여·회수가 서로 끼어들지 않게) — 못 잡으면 null(호출자는 503 → 재시도). 없으면 잠그지 않는다(시험용). */
+  lock?(uid: string): Promise<(() => Promise<void>) | null>;
+}
 export interface EnsureDeps { secret?: string; fetchImpl?: typeof fetch; now?: () => number; timeoutMs?: number; refunds?: RefundLedger }
 
 const REFUND_TTL_S = 400 * 86400;
+const LOCK_MS = 30_000;   // RC 호출 최대 4번 × 5초 + 여유
 const refundKey = (uid: string) => `promo-year:v1:refund:${createHash('sha256').update('promo-year-refund:' + uid).digest('hex').slice(0, 32)}`;
 /** Upstash(eval 만 있는 저장소)로 만든 환불 기록 */
 export function evalRefundLedger(store: { eval: (script: string, keys: string[], args: (string | number)[]) => Promise<unknown> }): RefundLedger {
@@ -99,6 +105,13 @@ export function evalRefundLedger(store: { eval: (script: string, keys: string[],
     async add(uid, purchaseMs) {
       await store.eval("redis.call('SADD', KEYS[1], ARGV[1]); redis.call('EXPIRE', KEYS[1], ARGV[2]); return 1", [refundKey(uid)], [String(purchaseMs), REFUND_TTL_S]);
     },
+    async lock(uid) {
+      const key = refundKey(uid).replace(':refund:', ':lock:');
+      const token = randomBytes(12).toString('hex');
+      const ok = await store.eval("if redis.call('SET', KEYS[1], ARGV[1], 'NX', 'PX', ARGV[2]) then return 1 end return 0", [key], [token, LOCK_MS]);
+      if (Number(ok) !== 1) return null;
+      return async () => { try { await store.eval("if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0", [key], [token]); } catch { /* 만료로 풀린다 */ } };
+    },
   };
 }
 
@@ -110,8 +123,22 @@ async function rc(fetchImpl: typeof fetch, url: string, init: RequestInit, timeo
 }
 
 /** RC 기록을 읽고(진실 원천) 필요하면 «구매 + 365일» 프로모셔널 pro 를 붙인다. 던지지 않는다. */
+async function withLock<T>(uid: string, deps: EnsureDeps, busy: T, fn: () => Promise<T>): Promise<T> {
+  if (!deps.refunds?.lock) return fn();
+  let release: (() => Promise<void>) | null;
+  try { release = await deps.refunds.lock(uid); } catch { return busy; }
+  if (!release) return busy;
+  try { return await fn(); } finally { await release(); }
+}
+
+/** 부여 — 고객별 잠금 안에서(환불 회수와 직렬) */
 export async function ensurePromoYear(uid: string, deps: EnsureDeps, hintPurchaseMs?: number): Promise<EnsureResult> {
   if (typeof uid !== 'string' || !RC_UID_RE.test(uid)) return { kind: 'none', why: 'uid' };
+  if (!deps.secret) return { kind: 'unavailable', why: 'no_key' };
+  return withLock<EnsureResult>(uid, deps, { kind: 'unavailable', why: 'read' }, () => ensureLocked(uid, deps, hintPurchaseMs));
+}
+
+async function ensureLocked(uid: string, deps: EnsureDeps, hintPurchaseMs?: number): Promise<EnsureResult> {
   const key = deps.secret;
   if (!key) return { kind: 'unavailable', why: 'no_key' };
   const fetchImpl = deps.fetchImpl ?? fetch;
@@ -135,7 +162,7 @@ export async function ensurePromoYear(uid: string, deps: EnsureDeps, hintPurchas
     let after: number[];
     try { after = await deps.refunds.list(uid); } catch { return { kind: 'unavailable', why: 'read' }; }
     if (after.some((r) => Math.abs(r - plan.purchaseMs) <= REFUND_MATCH_MS)) {
-      const fix = await revokePromoYearIfRefunded(uid, undefined, deps);
+      const fix = await revokeLocked(uid, undefined, deps);
       return fix.kind === 'unavailable' ? { kind: 'unavailable', why: 'grant' } : { kind: 'none', why: 'no_purchase' };
     }
   }
@@ -152,10 +179,14 @@ export type RevokeResult = { kind: 'revoked' } | { kind: 'kept'; endMs: number }
  */
 export async function revokePromoYearIfRefunded(uid: string, refundedPurchaseMs: number | undefined, deps: EnsureDeps): Promise<RevokeResult> {
   if (typeof uid !== 'string' || !RC_UID_RE.test(uid)) return { kind: 'none', why: 'uid' };
-  // 환불 기록을 «가장 먼저» 남긴다(키가 없어도) — 늦게 온 구매 웹훅·앱 재요청이 같은 구매로 다시 붙이지 못하게
+  // 환불 기록은 잠금 «밖»에서 먼저(잠금을 못 잡아 503 이 나도 기록은 남는다 · SADD 라 반복 무해)
   if (deps.refunds && typeof refundedPurchaseMs === 'number') {
     try { await deps.refunds.add(uid, refundedPurchaseMs); } catch { return { kind: 'unavailable', why: 'ledger' }; }
   }
+  return withLock<RevokeResult>(uid, deps, { kind: 'unavailable', why: 'ledger' }, () => revokeLocked(uid, refundedPurchaseMs, deps));
+}
+
+async function revokeLocked(uid: string, refundedPurchaseMs: number | undefined, deps: EnsureDeps): Promise<RevokeResult> {
   if (!deps.secret) return { kind: 'unavailable', why: 'no_key' };
   const fetchImpl = deps.fetchImpl ?? fetch;
   const timeoutMs = deps.timeoutMs ?? 5000;
