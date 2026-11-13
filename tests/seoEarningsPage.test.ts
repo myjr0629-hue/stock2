@@ -105,9 +105,38 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
       assert.equal(m.alternates.languages.ja, `${BASE}/ja/earnings/${T}`);
       assert.match(m.title, /±8\.4%/);
     }
-    assert.match((await page.generateMetadata(props('ko', T))).title, new RegExp(`^${EARNINGS_COMPANIES[T].ko}\\(${T}\\) 실적 예상 변동폭 ±8\\.4%`));
-    assert.match((await page.generateMetadata(props('ja', T))).title, /決算 予想変動幅±8\.4%/);
-    assert.match((await page.generateMetadata(props('en', T))).title, /Earnings Expected Move ±8\.4%/);
+    // 한국어·일본어 검색어(«엔비디아 실적 발표일»·«エヌビディア 決算発表日»·«예상 변동폭»)가 제목 앞쪽에
+    const kD = `${Number(D.slice(5, 7))}월 ${Number(D.slice(8, 10))}일`, jD = `${Number(D.slice(5, 7))}月${Number(D.slice(8, 10))}日`;
+    const mko = await page.generateMetadata(props('ko', T));
+    assert.equal(mko.title, `${EARNINGS_COMPANIES[T].ko}(${T}) 실적 발표일 ${kD}(예정) · 예상 변동폭 ±8.4% | SIGNUM HQ`);
+    assert.match(mko.description, new RegExp(`실적 발표일은 ${kD}\\(예정\\), 한국 시간 \\d+월 \\d+일\\(.\\) 0[56]:00 이후\\.`));
+    const mja = await page.generateMetadata(props('ja', T));
+    assert.equal(mja.title, `${EARNINGS_COMPANIES[T].ja}(${T}) 決算発表日 ${jD}(予定)・予想変動幅±8.4% | SIGNUM HQ`);
+    assert.match(mja.description, /日本時間 \d+月\d+日\(.\) [56]:00以降。/);
+    assert.match((await page.generateMetadata(props('en', T))).title, /Earnings Date .+ · Expected Move ±8\.4%/);
+    // h1·FAQ(JSON-LD 와 화면 같은 배열) — 발표일·한국 시간·방향 아님
+    const hk = await html('ko', T);
+    assert.ok(hk.includes(`${EARNINGS_COMPANIES[T].ko}(${T}) 실적 발표일·예상 변동폭 vs 실제</h1>`), 'ko h1');
+    assert.ok(hk.includes('실적 발표 시간은 한국 시간으로 몇 시인가요?') && hk.includes('뉴욕 기준 장 마감 후, 한국 시간'), 'ko time FAQ');
+    assert.ok(hk.includes('주가가 오른다는 뜻인가요, 내린다는 뜻인가요?') && hk.includes('방향은 담겨 있지 않습니다'), 'ko direction FAQ');
+    const ld = JSON.parse(hk.match(/<script type="application\/ld\+json">(.*?)<\/script>/)![1]);
+    const faqLd = ld['@graph'].find((x: any) => x['@type'] === 'FAQPage');
+    assert.equal(faqLd.mainEntity.length, 5);
+    assert.ok(faqLd.mainEntity.some((q: any) => /한국 시간으로 몇 시/.test(q.name)));
+    const hj = await html('ja', T);
+    assert.ok(hj.includes('決算発表日・予想変動幅と実際</h1>') && hj.includes('日本時間で何時ですか') && hj.includes('class="ep-local">日本時間 '));
+  });
+  await test('현지 시각 — 장후 16:00/장전 09:30 ET 경계 · 공지 시각 · 서머타임 · 시각 미정 null', () => {
+    assert.equal(EP.localWhenText({ date: '2026-11-17', hour: 'amc' }, 'ko'), '한국 시간 11월 18일(수) 06:00 이후');
+    assert.equal(EP.localWhenText({ date: '2026-11-17', hour: 'bmo' }, 'ko'), '한국 시간 11월 17일(화) 23:30 이전');
+    assert.equal(EP.localWhenText({ date: '2026-11-17', hour: 'amc', etTime: '16:20' }, 'ja'), '日本時間 11月18日(水) 6:20');
+    assert.equal(EP.localWhenText({ date: '2026-08-26', hour: 'amc' }, 'ko'), '한국 시간 8월 27일(목) 05:00 이후', 'EDT');
+    assert.equal(EP.localWhenText({ date: '2026-11-17', hour: '' }, 'ko'), null);
+    assert.equal(EP.localWhenText({ date: '2026-11-17', hour: 'amc' }, 'en'), null);
+    const w = EP.weekWindows(Date.parse('2026-11-13T20:00:00Z')); // 금 15:00 ET
+    assert.deepEqual(w, { thisWeek: ['2026-11-13', '2026-11-15'], nextWeek: ['2026-11-16', '2026-11-22'] });
+    const s = EP.weekWindows(Date.parse('2026-11-15T20:00:00Z')); // 일
+    assert.deepEqual(s, { thisWeek: ['2026-11-15', '2026-11-15'], nextWeek: ['2026-11-16', '2026-11-22'] });
   });
   await test('채점만 있는 종목(LRCX) — 예상 ±7.1% → 실제 −11.8% 범위 밖 · index', async () => {
     const h = await html('ko', 'LRCX');
@@ -142,9 +171,19 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     const h = renderToStaticMarkup(await hub.default({ params: Promise.resolve({ locale: 'ja' }) }));
     assert.ok(h.includes(`href="/ja/earnings/${T}"`) && h.includes('±8.4%'));
     assert.ok(h.includes('href="/ja/earnings/LRCX"') && h.includes('範囲外'));
-    assert.ok(h.includes('href="/ja/earnings/TSLA"'));
+    assert.ok(h.includes('href="/ja/earnings/TSLA"') && h.includes('テスラ(TSLA)</a>'), 'named chip');
     const m = await hub.generateMetadata({ params: Promise.resolve({ locale: 'ja' }) });
     assert.equal(m.alternates.canonical, `${BASE}/ja/earnings`);
+    // 이번 주·다음 주 — T(오늘+7)는 다음 주 또는 그다음(주 경계)에, N(오늘+70)은 없음
+    const hk = renderToStaticMarkup(await hub.default({ params: Promise.resolve({ locale: 'ko' }) }));
+    assert.ok(hk.includes('이번 주 실적 발표 종목') && hk.includes('다음 주 실적 발표 종목'));
+    const w = EP.weekWindows(Date.now());
+    const inNext = D >= w.nextWeek[0] && D <= w.nextWeek[1];
+    assert.equal(hk.includes(`data-week-ticker="${T}"`), inNext);
+    assert.ok(!hk.includes(`data-week-ticker="${N}"`));
+    const mk = await hub.generateMetadata({ params: Promise.resolve({ locale: 'ko' }) });
+    assert.match(mk.title, /실적 발표일·예상 변동폭/);
+    if (inNext) assert.ok(mk.description.startsWith(`이번 주·다음 주 실적 발표: ${EARNINGS_COMPANIES[T].ko} `), mk.description);
   });
   await test('저장소 장애 — 던지지 않고 «지금 읽지 못함» + noindex(얇은 페이지·거짓 0 금지)', async () => {
     svc._resetEarningsPageMemo(); storeDown = true;

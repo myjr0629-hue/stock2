@@ -6,8 +6,8 @@
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import {
-  EARNINGS_PAGE_TICKERS, EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, earningsPath, expectedText,
-  md, nameWithTicker, toLoc,
+  EARNINGS_PAGE_TICKERS, EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, companyNames, earningsPath, expectedText,
+  localWhenText, md, nameWithTicker, toLoc, weekWindows, type EarningsPageView,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
 import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
@@ -23,24 +23,37 @@ async function load(locale: string) {
     .sort((a, b) => a.next!.date.localeCompare(b.next!.date) || b.implied!.pct - a.implied!.pct || a.ticker.localeCompare(b.ticker));
   const graded: ScorecardRow[] = views.flatMap((v) => v.history)
     .sort((a, b) => b.date.localeCompare(a.date) || a.ticker.localeCompare(b.ticker)).slice(0, 60);
-  return { l: toLoc(locale), snap, views, upcoming, graded };
+  // 이번 주·다음 주 발표 — 캘린더 일정만으로(예상 변동폭 없어도 내부 링크) · 끝난 발표는 뺀다
+  const { thisWeek, nextWeek } = weekWindows(nowMs);
+  const inWin = (w: [string, string]) => views
+    .filter((v) => v.next && v.next.phase !== 'done' && v.next.date >= w[0] && v.next.date <= w[1])
+    .sort((a, b) => a.next!.date.localeCompare(b.next!.date) || (b.implied?.pct ?? 0) - (a.implied?.pct ?? 0) || a.ticker.localeCompare(b.ticker));
+  return { l: toLoc(locale), snap, views, upcoming, graded, thisWeek: inWin(thisWeek), nextWeek: inWin(nextWeek) };
+}
+
+/** 설명 앞머리용 «엔비디아 11/17» 몇 개 — 예상 변동폭이 큰 순(검색에서 많이 찾는 종목이 앞에 오도록 값 기준, 임의 선택 없음) */
+function soonItems(list: EarningsPageView[], l: ReturnType<typeof toLoc>): string[] {
+  return [...list].sort((a, b) => (b.implied?.pct ?? -1) - (a.implied?.pct ?? -1) || a.next!.date.localeCompare(b.next!.date))
+    .slice(0, 4).map((v) => `${l === 'en' ? v.ticker : companyNames(v.ticker)?.[l] || v.ticker} ${md(v.next!.date, l)}`);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { l, views } = await load((await params).locale);
+  const { l, views, thisWeek, nextWeek } = await load((await params).locale);
   const c = EP_COPY[l];
   const base = publicBase();
   const url = `${base}${earningsPath(l)}`;
   const any = views.some((v) => v.indexable);
+  const soon = soonItems([...thisWeek, ...nextWeek], l);
+  const description = soon.length ? `${c.hubSoonDesc(soon)} ${c.hubMetaDesc}` : c.hubMetaDesc;
   return {
-    title: c.hubTitle, description: c.hubMetaDesc,
+    title: c.hubTitle, description,
     robots: any ? { index: true, follow: true } : { index: false, follow: true },
     alternates: {
       canonical: url,
       languages: { ...Object.fromEntries(EP_LOCALES.map((x) => [x, `${base}${earningsPath(x)}`])), 'x-default': `${base}${earningsPath('en')}` },
     },
-    openGraph: { title: c.hubTitle, description: c.hubMetaDesc, url, type: 'website', siteName: 'SIGNUM HQ' },
-    twitter: { card: 'summary', title: c.hubTitle, description: c.hubMetaDesc },
+    openGraph: { title: c.hubTitle, description, url, type: 'website', siteName: 'SIGNUM HQ' },
+    twitter: { card: 'summary', title: c.hubTitle, description },
   };
 }
 
@@ -75,15 +88,41 @@ const CSS = `
 `;
 
 export default async function EarningsHubPage({ params }: Props) {
-  const { l, snap, upcoming, graded } = await load((await params).locale);
+  const { l, snap, upcoming, graded, thisWeek, nextWeek } = await load((await params).locale);
   const c = EP_COPY[l];
   const base = publicBase();
   const url = `${base}${earningsPath(l)}`;
+  const weekList = [...thisWeek, ...nextWeek];
   const ld = {
     '@context': 'https://schema.org', '@type': 'CollectionPage', name: c.hubTitle, description: c.hubMetaDesc, url, inLanguage: l,
     isPartOf: { '@type': 'WebSite', name: 'SIGNUM HQ', url: base }, isAccessibleForFree: true,
     dateModified: new Date(snap.at).toISOString(),
+    ...(weekList.length ? {
+      mainEntity: {
+        '@type': 'ItemList', name: `${c.hubThisWeekT} · ${c.hubNextWeekT}`,
+        itemListElement: weekList.map((v, i) => ({ '@type': 'ListItem', position: i + 1, name: nameWithTicker(v.ticker, l), url: `${base}${earningsPath(l, v.ticker)}` })),
+      },
+    } : {}),
   };
+  const weekSec = (title: string, list: EarningsPageView[], id: string) => (
+    <section aria-labelledby={id}>
+      <h2 id={id}>{title}</h2>
+      {list.length ? (
+        <ul className="eh-list">
+          {list.map((v) => {
+            const local = localWhenText(v.next!, l);
+            return (
+              <li key={v.ticker} data-week-ticker={v.ticker}><a href={earningsPath(l, v.ticker)}>
+                <b>{nameWithTicker(v.ticker, l)}</b>
+                <span className="n">{c.when({ date: v.next!.date, hour: v.next!.hour, etTime: v.next!.etTime })}{v.next!.dateStatus !== 'confirmed' ? c.estTag : ''}{local ? ` · ${local}` : ''}</span>
+                {v.implied ? <span className="v">{expectedText(v.implied.pct)}</span> : null}
+              </a></li>
+            );
+          })}
+        </ul>
+      ) : <p className="eh-empty">{snap.calendarOk ? c.hubWeekEmpty : c.nextUnknown}</p>}
+    </section>
+  );
   return (
     <main className="eh" lang={l}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -94,6 +133,9 @@ export default async function EarningsHubPage({ params }: Props) {
       <nav className="eh-langs" aria-label="language">
         {EP_LOCALES.map((x) => <a key={x} href={earningsPath(x)} hrefLang={x} aria-current={x === l ? 'page' : undefined}>{{ ko: '한국어', en: 'English', ja: '日本語' }[x]}</a>)}
       </nav>
+
+      {weekSec(c.hubThisWeekT, thisWeek, 'eh-this-week')}
+      {weekSec(c.hubNextWeekT, nextWeek, 'eh-next-week')}
 
       <h2>{c.hubUpcomingT}</h2>
       {upcoming.length ? (
@@ -123,7 +165,7 @@ export default async function EarningsHubPage({ params }: Props) {
 
       <h2>{c.hubAllT}</h2>
       <div className="eh-all">
-        {EARNINGS_PAGE_TICKERS.map((t) => <a key={t} href={earningsPath(l, t)}>{t}</a>)}
+        {EARNINGS_PAGE_TICKERS.map((t) => <a key={t} href={earningsPath(l, t)}>{l === 'en' ? t : nameWithTicker(t, l)}</a>)}
       </div>
 
       <div className="eh-cta">

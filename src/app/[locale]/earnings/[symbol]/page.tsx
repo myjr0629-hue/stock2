@@ -11,7 +11,7 @@ import { isFlowTicker } from '@/lib/seo/flowTicker';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import {
   EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, earningsAppHref, earningsPath, expectedText,
-  isEarningsPageTicker, longDate, md, nameWithTicker, toLoc, type EarningsPageView,
+  isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, toLoc, type EarningsPageView,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
 import type { Loc } from '@/lib/earningsWeek';
@@ -40,11 +40,12 @@ function metaParts(view: EarningsPageView, l: Loc) {
   const pct = view.implied ? expectedText(view.implied.pct) : null;
   const upcoming = view.next && view.next.phase !== 'done' ? view.next : null;
   const est = upcoming && upcoming.dateStatus !== 'confirmed' ? c.estTag : '';
-  const date = upcoming ? `${md(upcoming.date, l)}${est}` : null;
+  const date = upcoming ? `${mdName(upcoming.date, l)}${est}` : null;
+  const local = upcoming ? localWhenText(upcoming, l) : null;
   const last = view.history[0] ?? null;
   return {
     title: c.metaTitle({ name, pct, date, graded: last ? md(last.date, l) : null }),
-    description: c.metaDesc({ name, ticker: view.ticker, pct, date, last }),
+    description: c.metaDesc({ name, ticker: view.ticker, pct, date, local, last }),
   };
 }
 
@@ -82,6 +83,7 @@ const CSS = `
 .ep-chip.ok{border-color:#166534;color:#166534}
 .ep-card p{margin:6px 0 0;font-size:14px;color:#3F4650}
 .ep-card .ep-sub{font-size:12.5px;color:#7C848E}
+.ep-card .ep-local{margin:2px 0 0;font-size:14px;font-weight:700;color:#17191E}
 .ep-cta{margin:20px 0 6px;background:#17191E;color:#fff;border-radius:14px;padding:14px}
 .ep-cta a{display:flex;align-items:center;justify-content:center;min-height:48px;text-align:center;background:#C2410C;color:#fff;text-decoration:none;font-weight:900;font-size:15px;line-height:1.4;border-radius:12px;padding:12px 14px}
 .ep-cta p{margin:8px 0 0;text-align:center;font-size:12px;color:#B5BCC6}
@@ -125,7 +127,9 @@ export default async function EarningsTickerPage(props: Props) {
   const pct = view.implied ? expectedText(view.implied.pct) : null;
   const method = view.implied ? c.moveMethod[view.implied.basis] : null;
   const last = view.history[0] ?? null;
-  const faq = c.faq({ name, ticker, calendarOk: view.calendarOk, recordsOk: view.recordsOk, packOk: view.packOk, nextDate: upcoming ? `${longDate(upcoming.date, l)}${upcoming.dateStatus !== 'confirmed' ? c.estTag : ''}` : null, pct, method, last });
+  const timeLine = upcoming ? c.timeLine(upcoming) : null;
+  const nextLocal = next ? localWhenText(next, l) : null;
+  const faq = c.faq({ name, ticker, calendarOk: view.calendarOk, recordsOk: view.recordsOk, packOk: view.packOk, nextDate: upcoming ? `${longDate(upcoming.date, l)}${upcoming.dateStatus !== 'confirmed' ? c.estTag : ''}` : null, timeLine, pct, method, last });
   const beyond = view.history.filter((r) => r.beyond).length;
   const href = earningsAppHref(ticker, l);
   const hasFlow = isFlowTicker(ticker) && FLOW_SET.has(ticker);
@@ -179,6 +183,7 @@ export default async function EarningsTickerPage(props: Props) {
           {next ? (
             <>
               <span className="ep-date">{c.when({ date: next.date, hour: next.hour, etTime: next.etTime })}</span>
+              {nextLocal && <p className="ep-local">{nextLocal}</p>}
               <span className={`ep-chip${next.dateStatus === 'confirmed' ? ' ok' : ''}`}>{next.dateStatus === 'confirmed' ? c.statusConfirmed : c.statusEst}</span>
               {next.phase === 'done' && <p>{c.phaseDone}</p>}
             </>
