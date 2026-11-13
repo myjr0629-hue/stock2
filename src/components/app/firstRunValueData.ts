@@ -27,7 +27,10 @@ import {
 // ── 실적 캘린더 ───────────────────────────────────────────────────────────
 const EARN_TTL_MS = 30 * 60_000;
 const EARN_TIMEOUT_MS = 12_000;
-let earnMem: { at: number; rows: unknown[] } | null = null;
+// serverStale: 서버가 «마지막 정상본»(갱신 실패 폴백, 최대 48시간)을 준 것 같다 — generatedAt 이 정상 주기(6시간)의 두 배를 넘었다.
+//   실적 줄은 그대로 그리되 기본 선택에는 쓰지 않는다(관문 3차 11/13 — 옛 일정으로 종목을 골라 두지 않게)
+const EARN_SERVER_STALE_MS = 12 * 60 * 60_000;
+let earnMem: { at: number; rows: unknown[]; serverStale: boolean } | null = null;
 let earnInflight: Promise<unknown[] | null> | null = null;
 
 async function loadEarningsRows(): Promise<unknown[] | null> {
@@ -42,7 +45,8 @@ async function loadEarningsRows(): Promise<unknown[] | null> {
       const j = await r.json();
       // 이 라우트는 오류도 200 {ok:true, rows:[], reason} 으로 알린다 — 빈 행은 «실적 없음»이 아니라 «못 읽음»이다
       if (!j || !Array.isArray(j.rows) || !j.rows.length) return null;
-      earnMem = { at: Date.now(), rows: j.rows };
+      const gen = typeof j.generatedAt === 'string' ? Date.parse(j.generatedAt) : NaN;
+      earnMem = { at: Date.now(), rows: j.rows, serverStale: Number.isFinite(gen) && Date.now() - gen > EARN_SERVER_STALE_MS };
       return j.rows as unknown[];
     } catch {
       return null;
@@ -194,8 +198,8 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
   const [earnRows, setEarnRows] = useState<unknown[] | null>(() => (earnFresh() ? earnMem!.rows : null));
   const [earnDone, setEarnDone] = useState(earnFresh);
   const [earnRetry, setEarnRetry] = useState(0);
-  // 다시 받기가 실패해 30분 넘은 옛 행으로 그리는 중 — 실적 줄은 그려도 기본 선택은 하지 않는다(관문 2차 11/13)
-  const [earnStale, setEarnStale] = useState(false);
+  // 옛 행으로 그리는 중(다시 받기 실패로 30분 넘은 캐시 · 또는 서버의 갱신 실패 폴백) — 실적 줄은 그려도 기본 선택은 하지 않는다(관문 2·3차 11/13)
+  const [earnStale, setEarnStale] = useState(() => earnFresh() && earnMem!.serverStale);
   const wantEarn = active;
   useEffect(() => {
     if (!wantEarn || earnDone) return;
@@ -203,7 +207,7 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
     let timer: ReturnType<typeof setTimeout> | undefined;
     void loadEarningsRows().then((rows) => {
       if (dead) return;
-      if (rows) { setEarnRows(rows); setEarnDone(true); return; }
+      if (rows) { setEarnRows(rows); setEarnStale(!!earnMem?.serverStale); setEarnDone(true); return; }
       // 못 읽었다 — 4초 뒤 한 번만 다시(124KB 응답이 느릴 때가 있다). 그래도 못 읽으면 실적 줄 없이 간다(칩·지도·AI 줄은 그대로)
       if (earnRetry < 1) timer = setTimeout(() => { if (!dead) setEarnRetry(1); }, 4_000);
       else { if (earnMem) { setEarnRows(earnMem.rows); setEarnStale(true); } setEarnDone(true); }
