@@ -284,6 +284,22 @@ const verify = (store: InviteStore, key: string, uid: string, ip: string, now: n
     assert.equal(await verifyPendingFor(mem, { inviterRef: REF_A, now: later, vercelEnv: 'preview', secret: SECRET, rc: rcFixed(subscriber({ first: NOW + 90_000 })) }), 2);
     assert.equal(await mem.get(K.credit(REF_A)), '2');
   });
+  await t('결론 난 항목이 대기 목록에 남아도(정리 실패) 다음 선물함 열기에서 지우고 뒤의 정상 대기를 처리', async () => {
+    const { verifyPendingFor } = await import('../src/lib/invite/referral');
+    mem = memoryInviteStore(() => NOW);
+    const friends = ['abcdefghjkmnpqrstuv23456', 'bcdefghjkmnpqrstuvw34567', 'cdefghjkmnpqrstuvwx45678', KEY_D];
+    for (const [n, key] of friends.entries()) await clickAndArrive(mem, { friendKey: key, ip: HEX(100 + n), at: NOW });
+    for (const key of friends.slice(0, 3)) {   // 결론(sandbox) 표식만 있고 목록에 남은 상태를 만든다
+      await mem.hsetExpiring(K.pending(REF_A), inviteRefOf(key), String(NOW), 7 * 86400);
+      await mem.set(K.claimDone(inviteRefOf(key)), 'sandbox', 86400);
+    }
+    await verifyClaim(mem, { key: KEY_D, rcUid: UID_D, os: 'ios', ipHash: HEX(103), now: NOW + 120_000, vercelEnv: 'preview', secret: SECRET, rc: async () => ({ kind: 'unavailable' }) });
+    const rc = rcFixed(subscriber({ first: NOW + 90_000 }));
+    const later = NOW + SANDBOX_HOLD_MS + 600_000;
+    assert.equal(await verifyPendingFor(mem, { inviterRef: REF_A, now: later, vercelEnv: 'preview', secret: SECRET, rc }), 0);
+    assert.deepEqual(Object.keys(await mem.hgetall(K.pending(REF_A))), [inviteRefOf(KEY_D)]);
+    assert.equal(await verifyPendingFor(mem, { inviterRef: REF_A, now: later + 1000, vercelEnv: 'preview', secret: SECRET, rc }), 1);
+  });
   await t('첫 실행 시각: 앱이 보낸 first 를 [클릭, 지금]으로 잘라 저장 — 늦은 재시도여도 60분 창은 실제 첫 실행부터', async () => {
     mem = memoryInviteStore(() => NOW);
     const tok = issueInviteToken({ ref: REF_A, uidTag: rcUidTag(UID_A, SECRET), nowMs: NOW - 3600_000, secret: SECRET });

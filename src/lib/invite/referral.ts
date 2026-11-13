@@ -221,6 +221,10 @@ async function verifyBySelfRef(store: InviteStore, i: { selfRef: string; uid: st
   const k = inviteKeys(i.vercelEnv);
   const selfRef = i.selfRef;
   const done = await store.get(k.claimDone(selfRef));
+  // 결론이 이미 났는데 대기 목록 정리가 실패해 남아 있던 항목은 여기서 지운다(앞쪽 3칸을 막지 않게 — 관문 11131242). 초대자 ref 는 대기 기록에서.
+  if (done) {
+    try { const c0 = JSON.parse((await store.get(k.claim(selfRef))) || 'null'); if (c0 && typeof c0.r === 'string') await unpark(store, k, c0.r, selfRef); } catch { /* TTL 이 지운다 */ }
+  }
   if (done) return { state: 'final', reason: (['self', 'same_ip', 'existing', 'sandbox', 'late', 'dup', 'ip', 'inviter_cap', 'credited'].includes(done) ? done : 'again') as 'again' };
   const raw = await store.get(k.claim(selfRef));
   if (!raw) return { state: 'none' };
