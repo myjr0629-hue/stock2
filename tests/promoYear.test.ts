@@ -66,6 +66,15 @@ const subWith = (purchases: Array<{ at: number; store?: string }>, subs: Record<
     // 옛 구매 환불 · 지금 권한은 남은 최신 구매 기준 → 유지
     assert.deepEqual(await revokePromoYearIfRefunded(UID, other, { secret: 'sk', fetchImpl: mkF(subWith([{ at }, { at: other }], granted)), now: () => NOW }), { kind: 'kept', endMs: at + PROMO_YEAR_MS });
     assert.deepEqual(calls, ['GET ']);
+    // 회수 뒤 재부여가 실패해 재전송된 경우 — 지금 프로모셔널이 없으면 남은 구매 기준으로 다시 붙인다
+    calls.length = 0;
+    assert.deepEqual(await revokePromoYearIfRefunded(UID, at, { secret: 'sk', fetchImpl: mkF(subWith([{ at }, { at: other }])), now: () => NOW }), { kind: 'shortened', endMs: other + PROMO_YEAR_MS });
+    assert.deepEqual(calls, ['GET ', 'POST /entitlements/pro/promotional']);
+    // 경쟁: 부여 직후 환불 기록이 보이면 회수 경로로 다시 맞춘다
+    calls.length = 0; let reads = 0;
+    const racing = { list: async () => (reads++ === 0 ? [] : [at]), add: async () => {} };
+    assert.deepEqual(await ensurePromoYear(UID, { secret: 'sk', fetchImpl: mkF(subWith([{ at }])), now: () => NOW, refunds: racing }), { kind: 'none', why: 'no_purchase' });
+    assert.deepEqual(calls, ['GET ', 'POST /entitlements/pro/promotional', 'GET ', 'POST /entitlements/pro/revoke_promotionals']);
     // 키가 없어도 환불 기록은 먼저 남고 → 늦게 온 구매 웹훅(힌트)·앱 재요청이 다시 붙이지 못한다
     const mem = new Map<string, number[]>();
     const refunds = { list: async (u: string) => mem.get(u) ?? [], add: async (u: string, m: number) => { mem.set(u, [...(mem.get(u) ?? []), m]); } };

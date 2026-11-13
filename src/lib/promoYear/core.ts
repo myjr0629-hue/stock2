@@ -129,6 +129,16 @@ export async function ensurePromoYear(uid: string, deps: EnsureDeps, hintPurchas
   const g = await rc(fetchImpl, `${base}/entitlements/${encodeURIComponent(PRO_ENTITLEMENT_ID)}/promotional`,
     { method: 'POST', headers, body: JSON.stringify({ end_time_ms: plan.endMs }) }, timeoutMs);
   if (!g || !g.ok) return { kind: 'unavailable', why: 'grant' };
+  // 경쟁 닫기: 부여 «뒤에» 환불 기록을 다시 본다. 환불 처리기는 기록을 먼저 쓰고 회수하므로,
+  //   우리 부여가 그 회수 뒤에 들어갔다면 여기서 반드시 그 기록이 보인다 → 회수 경로로 다시 맞춘다.
+  if (deps.refunds) {
+    let after: number[];
+    try { after = await deps.refunds.list(uid); } catch { return { kind: 'unavailable', why: 'read' }; }
+    if (after.some((r) => Math.abs(r - plan.purchaseMs) <= REFUND_MATCH_MS)) {
+      const fix = await revokePromoYearIfRefunded(uid, undefined, deps);
+      return fix.kind === 'unavailable' ? { kind: 'unavailable', why: 'grant' } : { kind: 'none', why: 'no_purchase' };
+    }
+  }
   return { kind: 'granted', endMs: plan.endMs };
 }
 
@@ -170,9 +180,12 @@ export async function revokePromoYearIfRefunded(uid: string, refundedPurchaseMs:
       const e = x.expires_date === null ? Infinity : ms(x.expires_date);
       if (!Number.isNaN(e) && !(e <= current)) current = e;
     }
-    if (!(current > plan.endMs + COVER_SLACK_MS)) return { kind: 'kept', endMs: plan.endMs };
-    const r = await rc(fetchImpl, revokeUrl, { method: 'POST', headers }, timeoutMs);
-    if (!r || !r.ok) return { kind: 'unavailable', why: 'revoke' };
+    // 지금 권한이 남은 구매 기준과 같으면(±2시간) 유지 · 길면 회수 뒤 다시 · 없거나 짧으면(회수 뒤 재부여 실패 재시도 등) 다시 붙인다
+    if (Math.abs(current - plan.endMs) <= COVER_SLACK_MS) return { kind: 'kept', endMs: plan.endMs };
+    if (current > plan.endMs) {
+      const r = await rc(fetchImpl, revokeUrl, { method: 'POST', headers }, timeoutMs);
+      if (!r || !r.ok) return { kind: 'unavailable', why: 'revoke' };
+    }
     const g = await rc(fetchImpl, `${base}/entitlements/${encodeURIComponent(PRO_ENTITLEMENT_ID)}/promotional`,
       { method: 'POST', headers, body: JSON.stringify({ end_time_ms: plan.endMs }) }, timeoutMs);
     if (!g || !g.ok) return { kind: 'unavailable', why: 'revoke' };
