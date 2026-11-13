@@ -18,6 +18,7 @@ import type { LevelFields } from '@/components/app/watchlist/useWatchlistData';
 import { pickNextEarnings } from '@/lib/earningsDate';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
+import { PREWARM_TICKERS } from '@/lib/popularTickers';
 
 // ── 단계 · 끄기 스위치 · 푸시 결과 · 네이티브 판정 ── (서버 라우트와 부모 오버레이가 가볍게 읽도록 의존성 없는 onboardingConfig.ts 에 있다 — 여기서 다시 내보낸다)
 export {
@@ -158,6 +159,54 @@ export function imminentEarnings(rows: readonly unknown[] | null | undefined, ti
   if (days == null || days < 0 || days > ONB_EARNINGS_WINDOW_DAYS) return null;
   const row = list.find((r) => String(r.date || '').slice(0, 10) === date);
   return { date, hour, days, implied: impliedOf(row?.implied) };
+}
+
+// ── 기본 선택 (2026-11-13) ────────────────────────────────────────────────
+// 실측(최근 3일 iOS): 가치 단계 노출 19 → 담고 계속 8 · 건너뛰기 9 — 절반이 아무것도 안 담고 넘어가 내 종목·알림·실적 알림이 빈 채로 체험을 시작했다.
+// 그래서 «이번 주·다음 주(ET, 월~일)에 실적을 발표하는 종목» 가운데 인기 순(PREWARM_TICKERS — 예열·AI 한 줄이 늘 있는 100종목의 순서)으로
+// 최대 3개를 «골라 둔 상태»로 시작한다. 한 번 탭(담고 계속)으로 담기고, 칩·카드 ✕로 언제든 뺄 수 있다. 화면 문구·배치는 그대로 — 선택 상태만 다르다.
+// 실적 캘린더를 못 읽었거나(빈 응답 포함) 해당 종목이 없으면 빈 배열 → 예전과 같이 아무것도 고르지 않은 채 시작한다.
+// [건너뛰기]는 아무것도 담지 않는다(동의 없이 담지 않는다).
+
+/** ET 날짜(YYYY-MM-DD)가 속한 주(월~일)의 «다음 주 일요일» — 이번 주·다음 주 창의 끝 */
+export function nextWeekEndEt(todayEt: string): string | null {
+  if (!YMD.test(todayEt)) return null;
+  const d = new Date(`${todayEt}T12:00:00Z`);
+  if (!Number.isFinite(d.getTime())) return null;
+  const dow = d.getUTCDay();                 // 0 = 일요일
+  const toSunday = (7 - dow) % 7;            // 이번 주 일요일까지
+  d.setUTCDate(d.getUTCDate() + toSunday + 7);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * 첫 실행 «종목 고르기»의 기본 선택 — 실적 캘린더 행에서 산출한다(하드코딩 없음).
+ * 조건: 아직 발표 전(imminentEarnings — 카드의 «실적 D-n» 줄과 같은 판정) · 발표일 ≤ 다음 주 일요일(ET) · 인기 순(rank) 앞에서부터 max 개.
+ */
+export function defaultEarningsPicks(
+  rows: readonly unknown[] | null | undefined, nowMs: number, rank: readonly string[] = PREWARM_TICKERS, max = ONB_PICK_MAX,
+): string[] {
+  if (!Array.isArray(rows) || !rows.length || !(max > 0)) return [];
+  const end = nextWeekEndEt(etDateOf(nowMs));
+  if (!end) return [];
+  const has = new Set<string>();
+  for (const r of rows as Array<Record<string, unknown>>) if (r && typeof r.ticker === 'string') has.add(r.ticker.toUpperCase());
+  const out: string[] = [];
+  for (const raw of rank) {
+    if (out.length >= max) break;
+    const t = normalizeTicker(raw);
+    if (!t || out.includes(t) || !has.has(t)) continue;
+    const e = imminentEarnings(rows, t, nowMs);
+    if (e && e.date <= end) out.push(t);
+  }
+  return out;
+}
+
+/** 담고 계속 순간 — 기본 선택을 그대로 담았나(순서 무관) · 바꿨나 · 기본 선택이 없었나(계측 출처) */
+export function defaultPickSrc(defaults: readonly string[] | null, picks: readonly string[]): FunnelSrc | null {
+  if (!defaults || !defaults.length) return null;
+  const same = defaults.length === picks.length && defaults.every((t) => picks.includes(t));
+  return same ? 'onb_dkeep' : 'onb_dedit';
 }
 
 /** «실적 D-8 · 10/20 장 마감 후» — 내 종목 실적 칩(watchlistInsights earningsCopy)과 같은 말 */

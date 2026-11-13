@@ -8,7 +8,7 @@
 //   옵션 레벨       /api/watchlist/batch?mode=price (fetchLevels — 내 종목 목록과 같은 함수)
 //   AI 한 줄        /api/watchlist/ai-line (저장본만 읽는다 — 사용자 경로에서 생성을 기다리지 않는다). 내 종목 화면의 훅(useWatchlistAiLines)은 6초에 끊고 20초 뒤 한 번만 다시 묻는데,
 //                   첫 실행은 이 줄이 «첫 가치»라 더 참을성 있게 읽는다(12초 · 두 번 다시 · 서버가 «만드는 중»이라 하면 3·7·14·24초 뒤 다시)
-//   실적·변동폭     /api/market/earnings-calendar (행마다 implied — 앱 실적 화면과 같은 응답) — 첫 종목을 고른 뒤에만 부른다(124KB)
+//   실적·변동폭     /api/market/earnings-calendar (행마다 implied — 앱 실적 화면과 같은 응답) — 단계가 켜지면(법적 고지 동의 순간 미리) 부른다(약 150KB) · 기본 선택도 이 행으로 정한다(2026-11-13)
 //   검색            /api/tickers/search (내 종목 검색 팝업과 같은 API)
 //   (끄기 스위치 읽기 /api/app/onboarding-config 는 가벼운 onboardingMode.ts — 모든 앱 화면에 실리는 오버레이가 읽는다)
 // 인기 종목 칩 12개는 화면이 켜질 때 한 번에 미리 받는다 — 첫 탭에 바로 카드가 선다(요청 3개: 레벨·AI 한 줄·시세 요청).
@@ -21,7 +21,7 @@ import { fetchLevels, mergeRow, useWlNow, type LevelFields } from '@/components/
 import type { AiLineEntry } from '@/lib/app/watchlistAiLine';
 import type { WlLocale } from '@/lib/app/watchlistInsights';
 import {
-  ONB_POPULAR, buildValueCard, imminentEarnings, type OnbEarnings, type ValueCard,
+  ONB_POPULAR, buildValueCard, defaultEarningsPicks, imminentEarnings, type OnbEarnings, type ValueCard,
 } from '@/lib/app/firstRunValue';
 
 // ── 실적 캘린더 ───────────────────────────────────────────────────────────
@@ -168,6 +168,8 @@ export interface ValueData {
   /** 이 종목의 실적 임박 정보(없으면 null) · earningsDone: 실적 캘린더 요청이 끝났다(실패 포함) */
   earnings: (t: string) => OnbEarnings | null;
   earningsDone: boolean;
+  /** 기본 선택(실적 임박 인기 종목 ≤3, 2026-11-13) — null = 실적 캘린더를 아직 받는 중 · [] = 없음/못 읽음(예전처럼 빈 채 시작) */
+  defaultPicks: string[] | null;
 }
 
 export function useValueData(picks: readonly string[], loc: WlLocale, active: boolean): ValueData {
@@ -185,11 +187,12 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
     return () => { levelSubs.delete(bump); };
   }, [active, list]);
 
-  // 실적 — 첫 종목을 고른 뒤에만
+  // 실적 — 단계가 켜지면 바로(2026-11-13: 기본 선택을 실적 캘린더로 정하므로. 그 전엔 첫 종목을 고른 뒤에만 불렀다).
+  // 법적 고지의 동의 체크 순간 ValuePrefetch 가 먼저 받아 모듈 캐시(earnMem)에 둔다 — 가치 단계가 뜰 땐 대개 이미 있다.
   const [earnRows, setEarnRows] = useState<unknown[] | null>(() => (earnMem ? earnMem.rows : null));
   const [earnDone, setEarnDone] = useState(() => !!earnMem);
   const [earnRetry, setEarnRetry] = useState(0);
-  const wantEarn = active && picks.length > 0;
+  const wantEarn = active;
   useEffect(() => {
     if (!wantEarn || earnDone) return;
     let dead = false;
@@ -236,7 +239,10 @@ export function useValueData(picks: readonly string[], loc: WlLocale, active: bo
   const levelsReady = (t: string) => levelMem.has(t);
   const earnings = useCallback((t: string) => (earnRows ? imminentEarnings(earnRows, t, Date.now()) : null), [earnRows]);
 
-  return { cards, priceReady, levelsReady, earnings, earningsDone: earnDone };
+  // 기본 선택 — 캘린더 행이 정해지는 순간 한 번 계산(못 읽었으면 [] → 예전 동작)
+  const defaultPicks = useMemo(() => (earnRows ? defaultEarningsPicks(earnRows, Date.now()) : earnDone ? [] : null), [earnRows, earnDone]);
+
+  return { cards, priceReady, levelsReady, earnings, earningsDone: earnDone, defaultPicks };
 }
 
 // ── 종목 검색 ─────────────────────────────────────────────────────────────

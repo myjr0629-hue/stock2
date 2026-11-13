@@ -33,7 +33,7 @@ require.cache[rcPath] = {
 } as unknown as Module;
 
 import {
-  ONB2_OFF_KEY, ONB_EARNINGS_WINDOW_DAYS, ONB_NUMBERED_STEPS, ONB_PICK_MAX, ONB_POPULAR, buildValueCard, commitPicks, earningsText, imminentEarnings,
+  ONB2_OFF_KEY, ONB_EARNINGS_WINDOW_DAYS, ONB_NUMBERED_STEPS, ONB_PICK_MAX, ONB_POPULAR, buildValueCard, commitPicks, defaultEarningsPicks, defaultPickSrc, earningsText, imminentEarnings, nextWeekEndEt,
   impliedBasisLine, impliedPctLabel, onb2Enabled, onbStepNo, parseOnbConfig, permSrc, pickSrc, stepAfterLegal, stepAfterValue,
   stepSrc, togglePick, isNativeShell,
 } from '../src/lib/app/firstRunValue';
@@ -187,7 +187,7 @@ class MemStorage implements StorageLike {
     assert.equal(commitPicks(blocked, ['NVDA'], FREE_LIMIT).unsaved, true);
   });
   t('인기 칩 12개: 예열 대상 100종목 안(AI 한 줄이 저장돼 있다) · 중복 없음 · QQQ 제외(체인 날짜 없음)', () => {
-    const src = read('src/lib/ai/creditPacing.ts');
+    const src = read('src/lib/popularTickers.ts');   // 2026-11-13 creditPacing.ts 에서 옮김(값·순서 불변 — creditPacing 은 다시 내보낸다)
     const block = src.slice(src.indexOf('export const PREWARM_TICKERS'));
     for (const tk of ONB_POPULAR) assert.ok(new RegExp(`'${tk}'`).test(block), `${tk} 가 PREWARM_TICKERS 에 없다`);
     assert.equal(new Set(ONB_POPULAR).size, ONB_POPULAR.length);
@@ -498,10 +498,80 @@ class MemStorage implements StorageLike {
     assert.ok(/const staleKey = \[\.\.\.all\.values\(\)\]/.test(d));
   });
 
+  // ── ⑥-3 기본 선택(2026-11-13) — 이번 주·다음 주 실적 발표 인기 종목 ≤3 을 골라 둔 채 시작 ──
+  t('nextWeekEndEt: 주(월~일) 기준 다음 주 일요일 — 월·금·토·일 · 월말·연말 넘김 · 잘못된 입력 null', () => {
+    assert.equal(nextWeekEndEt('2026-11-13'), '2026-11-22');   // 금
+    assert.equal(nextWeekEndEt('2026-11-09'), '2026-11-22');   // 월
+    assert.equal(nextWeekEndEt('2026-11-14'), '2026-11-22');   // 토
+    assert.equal(nextWeekEndEt('2026-11-15'), '2026-11-22');   // 일 — 이번 주의 마지막 날
+    assert.equal(nextWeekEndEt('2026-11-16'), '2026-11-29');   // 월 — 새 주
+    assert.equal(nextWeekEndEt('2026-12-28'), '2027-01-10');
+    assert.equal(nextWeekEndEt('bad'), null);
+  });
+  // 11/13(금) 10:00 ET — 운영 캘린더(11/13 실측) 모양: 다음 주 NVDA·DIS·HD·LOW·PANW·TJX·WMT
+  const NOW_D = Date.UTC(2026, 10, 13, 15, 0, 0);
+  const dRows = [
+    { ticker: 'DIS', date: '2026-11-17', hour: 'bmo', implied: { pct: 6.2, expiry: '2026-11-20', basis: 'eod', session: '2026-11-12' } },
+    { ticker: 'HD', date: '2026-11-17', hour: 'bmo', implied: null },
+    { ticker: 'NVDA', date: '2026-11-17', hour: 'amc', implied: { pct: 7.1, expiry: '2026-11-20', basis: 'eod', session: '2026-11-12' } },
+    { ticker: 'LOW', date: '2026-11-18', hour: 'bmo', implied: null },
+    { ticker: 'PANW', date: '2026-11-18', hour: 'amc', implied: null },
+    { ticker: 'TJX', date: '2026-11-18', hour: 'bmo', implied: null },
+    { ticker: 'WMT', date: '2026-11-19', hour: 'bmo', implied: null },
+    { ticker: 'TSLA', date: '2026-11-25', hour: 'amc', implied: null },   // 다다음 주 — 창 밖
+    { ticker: 'AAPL', date: '2026-11-12', hour: 'amc', implied: null },   // 이미 지났다
+    { ticker: 'MSFT', date: '2026-11-13', hour: 'bmo', implied: null },   // 오늘 장 시작 전 — 10:00 ET 라 지났다
+  ];
+  t('defaultEarningsPicks: 이번 주·다음 주 · 발표 전 · 인기 순(PREWARM_TICKERS) 최대 3 — NVDA·DIS·PANW', () => {
+    assert.deepEqual(defaultEarningsPicks(dRows, NOW_D), ['NVDA', 'DIS', 'PANW']);
+    assert.ok(defaultEarningsPicks(dRows, NOW_D).length <= ONB_PICK_MAX);
+  });
+  t('defaultEarningsPicks: 다다음 주·지난 실적·오늘 이미 발표·인기 목록 밖은 고르지 않는다 · 순서는 인기 순', () => {
+    const got = defaultEarningsPicks(dRows, NOW_D, ['AAPL', 'MSFT', 'TSLA', 'WMT', 'HD', 'ZZZZ']);
+    assert.deepEqual(got, ['WMT', 'HD']);
+    assert.deepEqual(defaultEarningsPicks(dRows, NOW_D, ['HD', 'NVDA', 'DIS', 'LOW'], 2), ['HD', 'NVDA']);
+    // NVDA 가 발표를 마친 다음 날(11/18 10:00 ET) — 빠지고, 새 주(11/16~)라 창이 다음 주까지 넓어진다
+    assert.deepEqual(defaultEarningsPicks(dRows, Date.UTC(2026, 10, 18, 15, 0, 0)), ['TSLA', 'PANW', 'WMT']);   // 수요일엔 창이 11/29 까지 — 다음 주(11/25) TSLA 가 들어온다
+  });
+  t('defaultEarningsPicks: 캘린더 없음·빈 행·이상한 행 → [] (예전처럼 빈 채 시작)', () => {
+    assert.deepEqual(defaultEarningsPicks(null, NOW_D), []);
+    assert.deepEqual(defaultEarningsPicks([], NOW_D), []);
+    assert.deepEqual(defaultEarningsPicks([null, 3, { ticker: 7 }, { ticker: 'NVDA', date: 'x' }] as unknown[], NOW_D), []);
+    assert.deepEqual(defaultEarningsPicks(dRows, NOW_D, [], 3), []);
+    assert.deepEqual(defaultEarningsPicks(dRows, NOW_D, undefined, 0), []);
+  });
+  t('defaultPickSrc: 그대로(순서 무관) onb_dkeep · 하나라도 바꾸면 onb_dedit · 기본 선택이 없었으면 null', () => {
+    assert.equal(defaultPickSrc(['NVDA', 'DIS', 'PANW'], ['PANW', 'NVDA', 'DIS']), 'onb_dkeep');
+    assert.equal(defaultPickSrc(['NVDA', 'DIS', 'PANW'], ['NVDA', 'DIS']), 'onb_dedit');
+    assert.equal(defaultPickSrc(['NVDA', 'DIS', 'PANW'], ['NVDA', 'DIS', 'TSLA']), 'onb_dedit');
+    assert.equal(defaultPickSrc(null, ['NVDA']), null);
+    assert.equal(defaultPickSrc([], ['NVDA']), null);
+  });
+  t('화면: 기본 선택은 사용자가 아무것도 안 건드렸을 때 한 번만 · 칩·검색·✕는 «건드림» · 해제 가능(같은 togglePick·✕) · 건너뛰기는 담지 않는다', () => {
+    const v = read('src/components/app/FirstRunValueStep.tsx');
+    assert.ok(/if \(dfltDone\.current \|\| touched\.current \|\| !d \|\| !d\.length\) return;/.test(v));
+    assert.ok(/const toggle = \(raw: string, name\?: string\) => \{\n\s+touched\.current = true;/.test(v));
+    assert.ok(/onChange=\{\(e\) => \{ touched\.current = true; setQuery/.test(v));
+    assert.ok(/onRemove=\{\(\) => \{ touched\.current = true; setPicks\(\(p\) => p\.filter/.test(v));
+    const skip = v.slice(v.indexOf('const finishSkip'), v.indexOf('return (', v.indexOf('const finishSkip')));
+    assert.ok(!/commitPicks|getWatchlistStore/.test(skip), '건너뛰기가 담는다');
+    const d = read('src/components/app/firstRunValueData.ts');
+    assert.ok(/const wantEarn = active;/.test(d), '실적 캘린더는 단계가 켜지면 바로(기본 선택용)');
+    assert.ok(/earnRows \? defaultEarningsPicks\(earnRows, Date\.now\(\)\) : earnDone \? \[\] : null/.test(d));
+  });
+  t('creditPacing 은 같은 PREWARM_TICKERS 를 다시 내보낸다(예열 크론 3곳 값 불변)', () => {
+    const cp = require('../src/lib/ai/creditPacing');
+    const pt = require('../src/lib/popularTickers');
+    assert.equal(cp.PREWARM_TICKERS, pt.PREWARM_TICKERS);
+    assert.equal(pt.PREWARM_TICKERS.length, 100);
+    assert.equal(pt.PREWARM_TICKERS[0], 'NVDA');
+    assert.ok(!/^import (?!type )/m.test(read('src/lib/popularTickers.ts')), 'popularTickers 는 아무것도 가져오지 않는다(클라이언트 번들용)');
+  });
+
   // ── ⑦ 계측 ──
   t('닫힌 목록에 새 단계 6 · 출처 12 가 있다', () => {
     for (const st of ['onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card']) assert.ok(isFunnelStage(st) && FUNNEL_STAGES.includes(st as never), st);
-    for (const s of ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn']) assert.ok(isFunnelSrc(s) && FUNNEL_SRCS.includes(s as never), s);
+    for (const s of ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'onb_dflt', 'onb_dkeep', 'onb_dedit']) assert.ok(isFunnelSrc(s) && FUNNEL_SRCS.includes(s as never), s);
   });
   t('소스가 보내는 모든 (단계, 출처) 쌍이 닫힌 목록 안 · 식별자·종목은 싣지 않는다', () => {
     const files = ['src/components/app/AppFirstRunOnboarding.tsx', 'src/components/app/FirstRunValueStep.tsx'].map(read).join('\n');

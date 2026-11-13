@@ -18,7 +18,7 @@ import { cancelAiFollowUps, usePushPreview, useTickerSearch, useValueData } from
 import { FREE_LIMIT, getWatchlistStore } from '@/lib/app/watchlist';
 import { firstRunCopy } from '@/lib/app/firstRunCopy';
 import {
-  ONB_PICK_MAX, ONB_POPULAR, commitPicks, earningsText, impliedBasisLine, impliedPctLabel, pickSrc, togglePick,
+  ONB_PICK_MAX, ONB_POPULAR, commitPicks, defaultPickSrc, earningsText, impliedBasisLine, impliedPctLabel, pickSrc, togglePick,
   type ValueCard, type OnbEarnings,
 } from '@/lib/app/firstRunValue';
 import { fmtMD, fmtPrice, fmtSignedPct, type WlLocale } from '@/lib/app/watchlistInsights';
@@ -146,6 +146,20 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
   const search = useTickerSearch(query, active);
   useEffect(() => () => { window.clearTimeout(noteTimer.current); cancelAiFollowUps(); }, []);
 
+  // 기본 선택(2026-11-13) — 이번 주·다음 주 실적 발표 인기 종목(≤3)을 골라 둔 채 시작한다(firstRunValue.defaultEarningsPicks).
+  // 사용자가 아직 아무것도 안 건드렸을 때만 한 번 채운다(칩·검색·✕를 먼저 만졌으면 그 선택이 우선). 캘린더가 없으면 예전처럼 빈 채.
+  const touched = useRef(false);
+  const dfltDone = useRef(false);
+  const [dflt, setDflt] = useState<string[] | null>(null);
+  useEffect(() => {
+    const d = data.defaultPicks;
+    if (dfltDone.current || touched.current || !d || !d.length) return;
+    dfltDone.current = true;
+    setDflt(d);
+    setPicks([...d]);
+    trackFunnel('onb_pick', { src: 'onb_dflt' });
+  }, [data.defaultPicks]);
+
   // 계측용 — 이 단계에서 «한 번이라도» 고른 종목과, 그 카드에 AI 한 줄·실적 줄이 «한 번이라도» 떴는가(떠난 순간의 스냅숏이 아니다:
   // 응답이 늦게 오는 종목이 «없음»으로 세지지 않게). 종목 이름은 싣지 않고 하루 합계만 센다.
   const seenPicks = useRef(new Set<string>());
@@ -169,6 +183,7 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
   const cur = search && search.q === q ? search : null;
 
   const toggle = (raw: string, name?: string) => {
+    touched.current = true;
     const r = togglePick(picks, raw);
     if (r.change === 'invalid') return;
     if (r.change === 'full') {
@@ -193,6 +208,8 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
     // 계측 — 하루 합계만(고른 수 · 카드 상태). 종목 이름은 싣지 않는다
     const n = pickSrc(picks.length);
     if (n) trackFunnel('onb_pick', { src: n });
+    const d = defaultPickSrc(dflt, picks);
+    if (d) trackFunnel('onb_pick', { src: d });
     trackCards();
     trackFunnel('onb_done', { src: 'onb_value' });
     void hapticNotification('success');
@@ -223,7 +240,7 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
           <input
             className={st.searchIn}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { touched.current = true; setQuery(e.target.value); }}
             placeholder={t.searchPh}
             aria-label={t.searchLabel}
             autoComplete="off"
@@ -290,7 +307,7 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
                     priceReady={data.priceReady(tk)}
                     levelsReady={data.levelsReady(tk)}
                     earn={data.earnings(tk)}
-                    onRemove={() => setPicks((p) => p.filter((x) => x !== tk))}
+                    onRemove={() => { touched.current = true; setPicks((p) => p.filter((x) => x !== tk)); }}
                   />
                 );
               })}

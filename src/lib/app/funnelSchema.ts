@@ -24,7 +24,7 @@ export const FUNNEL_STAGES = [
   'onb_show',      // 단계 화면이 보였다(실행당 단계마다 한 번) — 출처 onb_legal·onb_value·onb_notif·onb_oldalert
   'onb_done',      // 단계를 마쳤다([계속]·[담고 계속]·[알림 받기]·옛 [시작하기]) — 같은 출처
   'onb_skip',      // 건너뛰었다(가치 단계 [건너뛰기]·알림 단계 [나중에]) — onb_value·onb_notif
-  'onb_pick',      // 가치 단계에서 고른 종목 수 — 출처 onb_n1·onb_n2·onb_n3 (종목 이름은 싣지 않는다)
+  'onb_pick',      // 가치 단계에서 고른 종목 수 — 출처 onb_n1·onb_n2·onb_n3 (종목 이름은 싣지 않는다) · 기본 선택 onb_dflt(골라 둔 채 시작)·onb_dkeep(그대로 담음)·onb_dedit(바꿔 담음)
   'onb_perm',      // 알림 권한 창의 결과(네이티브) — 출처 onb_allow·onb_deny
   'onb_card',      // 이 단계를 떠날 때(담고 계속·건너뛰기), 한 번이라도 고른 종목마다 — 출처 onb_ai(떠날 때까지 AI 한 줄이 «한 번이라도» 떴다)·onb_noai(끝내 안 떴다)·onb_earn(실적 14일 안 줄이 떴다 — 옵션 반영 변동폭 포함, 값이 있으면)
   'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', // 체험 종료 안내 표시·관리 탭·7일 숨김. 동의 완료/유료 전환이 아님
@@ -56,6 +56,7 @@ export const FUNNEL_SRCS = [
   'onb_n1', 'onb_n2', 'onb_n3',                            // 고른 종목 수
   'onb_allow', 'onb_deny',                                 // 알림 권한 결과
   'onb_ai', 'onb_noai', 'onb_earn',                        // 카드 상태
+  'onb_dflt', 'onb_dkeep', 'onb_dedit',                    // 기본 선택(2026-11-13, onb_pick 전용): 실적 임박 인기 종목을 골라 둔 채 단계가 시작됐다 · 담고 계속 = 기본 그대로 · 바꿔서
   'trial_notice',                   // 대시보드 체험 종료 안내 — 식별자·국가·가격·종료일 없음
   'trial_off',
   'trial_off_early',                // ★11/11 갱신 끈 직후 1회 안내(같은 시트 · 시트 단계와 그 시트가 연 페이월의 open·cta·buy_*)

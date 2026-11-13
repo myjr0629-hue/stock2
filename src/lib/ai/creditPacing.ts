@@ -476,15 +476,8 @@ export async function pacingKnobs(deps?: Partial<PacingDeps>, budgetMs = 400): P
 // ─────────────────────────────────────────────────────────────────────────────
 // 5) 사전 생성 대상 — 인기 순 (UC 종목 카드 ≤72 · 종목 뉴스 ≤100)
 // ─────────────────────────────────────────────────────────────────────────────
-export const PREWARM_TICKERS: readonly string[] = [
-    'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY', 'QQQ', 'AMD', 'PLTR', 'COIN', 'MU', 'AVGO', 'NFLX', 'IWM',
-    'SMCI', 'MSTR', 'ARM', 'INTC', 'TSM', 'ORCL', 'CRM', 'BABA', 'DIS', 'JPM', 'BA', 'SOFI', 'HOOD', 'RIVN', 'UBER', 'SHOP',
-    'SNOW', 'CRWD', 'PANW', 'ADBE', 'QCOM', 'LLY', 'UNH', 'XOM', 'WMT', 'COST', 'V', 'MA', 'GS', 'BAC', 'F', 'GM',
-    'NIO', 'PYPL', 'SNAP', 'RBLX', 'DKNG', 'CVNA', 'ANET', 'NOW', 'DDOG', 'NET', 'MDB', 'AMAT', 'LRCX', 'KLAC', 'ASML', 'IBM',
-    'CSCO', 'T', 'VZ', 'CAT', 'GE', 'LMT', 'RTX', 'DAL', 'UAL', 'PFE', 'MRNA', 'CVX', 'OXY', 'NKE', 'SBUX', 'MCD',
-    'KO', 'PEP', 'TGT', 'LCID', 'ABNB', 'DASH', 'SPOT', 'PINS', 'JD', 'PDD', 'GME', 'AMC', 'CELH', 'ZS', 'TXN', 'HON',
-    'DIA', 'SOXL', 'TQQQ', 'SQQQ',
-];
+// 목록 자체는 의존성 없는 lib/popularTickers.ts 에 있다(2026-11-13 — 첫 실행 «종목 고르기»의 기본 선택이 클라이언트에서 같은 인기 순위를 읽는다). 값·순서 불변.
+export { PREWARM_TICKERS } from '@/lib/popularTickers';
 
 /** 두 이름이 같은 날 같은 키를 쓰지 않게 — 순환 커서(분 단위 시계 기반, 저장 없이)가 필요할 때 쓴다 */
 export function rotateSlice<T>(list: readonly T[], count: number, offset: number): T[] {

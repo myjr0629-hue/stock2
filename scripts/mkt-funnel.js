@@ -17,10 +17,10 @@ const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
 const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', 'cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other', 'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', 'trial_off_plans'];   // onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
-const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'trial_notice', 'trial_off', 'trial_off_early', 'push_trial', 'trial_expired', 'trial_expired_offer'];
+const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'onb_dflt', 'onb_dkeep', 'onb_dedit', 'trial_notice', 'trial_off', 'trial_off_early', 'push_trial', 'trial_expired', 'trial_expired_offer'];
 // 푸시 탭·앱 활성(2026-10-12)은 구독 퍼널이 아니다 — 이 표에서 빼고 scripts/mkt-push.js 가 따로 보여 준다
 const ONB_STAGES = ['onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card'];
-const ONB_SRCS = ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn'];
+const ONB_SRCS = ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'onb_dflt', 'onb_dkeep', 'onb_dedit'];
 const TRIAL_STAGES = ['trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze'];
 const TRIAL_OFF_STAGES = ['trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', 'trial_off_plans'];
 const CANCEL_REASON_STAGES = ['cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other'];
@@ -164,7 +164,7 @@ async function main() {
       ['onb_show', ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert']],
       ['onb_done', ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert']],
       ['onb_skip', ['onb_value', 'onb_notif']],
-      ['onb_pick', ['onb_n1', 'onb_n2', 'onb_n3']],
+      ['onb_pick', ['onb_n1', 'onb_n2', 'onb_n3', 'onb_dflt', 'onb_dkeep', 'onb_dedit']],
       ['onb_perm', ['onb_allow', 'onb_deny']],
       ['onb_card', ['onb_ai', 'onb_noai', 'onb_earn']],
     ]) for (const s of srcs) onbKeys.push([`${ns}:${st}:${s}:${p}:${d}`, p, st, s]);
@@ -182,6 +182,10 @@ async function main() {
     console.log('  가치(새)    노출 ' + lpad(g('onb_show', 'onb_value'), 4) + ' → 담고 계속 ' + lpad(g('onb_done', 'onb_value'), 4) + ' (' + pct(g('onb_done', 'onb_value'), g('onb_show', 'onb_value')) + ') · 건너뛰기 ' + lpad(g('onb_skip', 'onb_value'), 4) + ' (' + pct(g('onb_skip', 'onb_value'), g('onb_show', 'onb_value')) + ')');
     const picked = g('onb_pick', 'onb_n1') + g('onb_pick', 'onb_n2') + g('onb_pick', 'onb_n3');
     console.log('    고른 수    1개 ' + lpad(g('onb_pick', 'onb_n1'), 4) + ' · 2개 ' + lpad(g('onb_pick', 'onb_n2'), 4) + ' · 3개 ' + lpad(g('onb_pick', 'onb_n3'), 4) + '  → 평균 ' + (picked ? ((g('onb_pick', 'onb_n1') + 2 * g('onb_pick', 'onb_n2') + 3 * g('onb_pick', 'onb_n3')) / picked).toFixed(2) : '—') + '개');
+    if (g('onb_pick', 'onb_dflt')) {
+      const dShow = g('onb_pick', 'onb_dflt'), dKeep = g('onb_pick', 'onb_dkeep'), dEdit = g('onb_pick', 'onb_dedit');
+      console.log('    기본 선택  골라 둔 채 시작 ' + lpad(dShow, 4) + ' → 그대로 담음 ' + lpad(dKeep, 4) + ' (' + pct(dKeep, dShow) + ') · 바꿔 담음 ' + lpad(dEdit, 4) + ' (' + pct(dEdit, dShow) + ') · 나머지(건너뛰기·이탈) ' + lpad(Math.max(0, dShow - dKeep - dEdit), 4) + '  (2026-11-13~ 실적 임박 인기 종목 기본 선택)');
+    }
     const cards = g('onb_card', 'onb_ai') + g('onb_card', 'onb_noai');
     console.log('    카드 상태  AI 한 줄 있음 ' + lpad(g('onb_card', 'onb_ai'), 4) + ' / 없음 ' + lpad(g('onb_card', 'onb_noai'), 4) + ' (있음 ' + pct(g('onb_card', 'onb_ai'), cards) + ') · 실적 임박 줄 ' + lpad(g('onb_card', 'onb_earn'), 4));
     console.log('  알림(새)    노출 ' + lpad(g('onb_show', 'onb_notif'), 4) + ' → [알림 받기] ' + lpad(g('onb_done', 'onb_notif'), 4) + ' (' + pct(g('onb_done', 'onb_notif'), g('onb_show', 'onb_notif')) + ') · [나중에] ' + lpad(g('onb_skip', 'onb_notif'), 4) + ' (' + pct(g('onb_skip', 'onb_notif'), g('onb_show', 'onb_notif')) + ')');
