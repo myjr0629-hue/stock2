@@ -559,6 +559,10 @@ async function fetchOptionsSnapshotRaw(ticker, opts) {
       if (opts.stats) opts.stats.degraded = true;
       return false;
     }
+    // ⚠️ 판본표 확인 → 쓰기는 원자적이지 않다(EC2 프록시에 조건부 SET 이 없고, 다른 작성자 — 샤드·centralDataHub — 는 이 조정에 참여하지 않는다).
+    //   남는 경쟁 = 다른 작성자가 GET 과 SET 사이(수 ms~프록시 시간 초과 3초)에 썼을 때 우리 본문이 남는 것. 그 본문은 이 종목 수집을
+    //   시작한 뒤(수~수십 초 전) 같은 공급사에서 받은 체인이고, 계약별 _quoteSource·ivObservedAt 이 실제 관측 시각을 그대로 실으므로
+    //   라벨이 거짓이 되지 않는다(소비처 live 관문 15분). 판본표의 chainDate·chainDates·weeklyExpiry 는 같은 날 EOD 판본이다.
     if (opts && opts.guardNewerThan) {
       const cur = await redisGet('polygon:snapshot:probe:meta:' + ticker).catch(() => null);
       if (cur && Number(cur._ts) > opts.guardNewerThan) {
@@ -1001,6 +1005,8 @@ const PRIORITY = {
   freshSkipMs: Number(process.env.PRIORITY_FRESH_SKIP_MS || 150 * 1000),
   trip429: Number(process.env.PRIORITY_TRIP_429 || 8),
   batch: Number(process.env.PRIORITY_BATCH || 4),
+  // 실시간 그릭스 페이지 상한(샤드 14) — 우선 레인은 끝까지 받은 체인만 쓰므로 넉넉히(250×30 = 7,500 계약; MU 0~35DTE ≈ 4,100)
+  greeksMaxPages: Number(process.env.PRIORITY_GREEKS_MAX_PAGES || 30),
   lockKey: 'flow-harvest:lock:priority',
   lockTtl: 280,
   calendarKeys: [['market:earnings-calendar:v4', 'cache'], ['market:earnings-calendar:v4:last-good', 'last-good']],
@@ -1207,7 +1213,7 @@ async function priorityChainHandler(event) {
         const stats = {};
         // 종목별 자식 문맥 — 이 종목이 돌아오면(60초 경로 시간 초과 포함) 닫는다 → 그 종목의 남은 내부 작업은 회차가 계속 도는 동안에도
         //   새 요청·체인 캐시 쓰기를 못 한다.
-        const tCtx = { lane: 'priority-chain', ticker: t, dryRun, done: false, guard: () => tCtx.done || laneCtx.guard() };
+        const tCtx = { lane: 'priority-chain', ticker: t, dryRun, done: false, greeksMaxPages: PRIORITY.greeksMaxPages, guard: () => tCtx.done || laneCtx.guard() };
         try {
           // 덮어쓰기 기준 = 이 종목 수집을 시작한 시각(그 뒤에 다른 수집이 쓴 판본이 있으면 양보)
           const okT = await inLane(tCtx, () => fetchOptionsSnapshotRaw(t, { dryRun, stats, guardNewerThan: dryRun ? 0 : Date.now(), abortWrite: () => !!tripped || laneCtx.done, requireComplete: true }));

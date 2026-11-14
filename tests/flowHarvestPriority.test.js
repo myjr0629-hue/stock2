@@ -420,3 +420,41 @@ test('최신 EOD 날짜 단일 비행은 레인 문맥 밖에서 돈다 — 레�
     assert.ok(!px.writes.some((w) => w.key === 'intrinio:chain:latest-eod'), '드라이런 레인이 시작한 비행 = 키 쓰기 0');
   } finally { global.fetch = of; px.server.close(); }
 });
+
+test('그릭스 페이지 상한 — 샤드는 14쪽(예전 그대로·capped), 우선 레인 문맥은 30쪽까지 받아야 «완전» · 상한에 닿으면 불완전 (관문 11140937)', async () => {
+  const pages = 16;
+  const calls = [];
+  const of = global.fetch;
+  global.fetch = async (url) => {
+    const u = new URL(String(url)); const p = u.pathname.replace(/^\/+/, ''); calls.push(p);
+    const n = Number(u.searchParams.get('next_page') || 0);
+    if (p.startsWith('options/greeks/')) return { ok: true, status: 200, json: async () => ({ contracts: [{ option: { code: 'C' + n }, greeks: { implied_volatility: 0.5, synthetic_price: 1 } }], next_page: n + 1 < pages ? String(n + 1) : null }) };
+    if (p.startsWith('options/expirations/')) return { ok: true, status: 200, json: async () => ({ expirations: [ymd(Date.now() + 3 * 86400000)] }) };
+    if (p.startsWith('securities/')) return { ok: true, status: 200, json: async () => ({ last_price: 100 }) };
+    return { ok: true, status: 200, json: async () => ({ chain: [{ option: { code: 'C0', type: 'call', strike: 100, expiration: ymd(Date.now() + 3 * 86400000) }, prices: { date: '2026-11-13', open_interest: 1 } }] }) };
+  };
+  try {
+    delete process.env.INTRINIO_GREEKS_MAX_PAGES;
+    const { adapter } = loadFresh({ EC2_REDIS_PROXY_URL: 'http://127.0.0.1:9', INTRINIO_API_KEY: 'test', INTRINIO_RATE_PER_MIN: '60000' });
+    const shard = await adapter.getOptionChain('MU');
+    assert.equal(shard.greeksComplete, false, '샤드 14쪽 상한 → 불완전 표시(샤드는 그래도 예전처럼 쓴다)');
+    assert.equal(calls.filter((c) => c.startsWith('options/greeks/')).length, 14);
+    calls.length = 0;
+    const lane = await adapter.runInLane({ greeksMaxPages: 30, guard: () => false }, () => adapter.getOptionChain('MU'));
+    assert.equal(lane.greeksComplete, true);
+    assert.equal(calls.filter((c) => c.startsWith('options/greeks/')).length, pages);
+    const capped = await adapter.runInLane({ greeksMaxPages: 10, guard: () => false }, () => adapter.getOptionChain('MU'));
+    assert.equal(capped.greeksComplete, false, '레인도 상한에 닿으면 불완전 → 쓰지 않는다');
+  } finally { global.fetch = of; }
+});
+
+test('상한에 걸린 레인은 최신 EOD 날짜 비행을 새로 시작하지 않는다 (관문 11140937)', async () => {
+  const v = fakeVendor();
+  const of = global.fetch; global.fetch = v.fetchImpl;
+  try {
+    const { adapter } = loadFresh({ EC2_REDIS_PROXY_URL: 'http://127.0.0.1:9', UPSTASH_REDIS_REST_URL: '', INTRINIO_API_KEY: 'test', INTRINIO_RATE_PER_MIN: '60000' });
+    const d = await adapter.runInLane({ guard: () => true }, () => adapter.__latestPublishedEodDate());
+    assert.equal(d, null);
+    assert.equal(v.calls.length, 0);
+  } finally { global.fetch = of; }
+});

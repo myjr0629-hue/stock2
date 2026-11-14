@@ -603,6 +603,8 @@ async function latestPublishedEodDate() {
   //   레인이 시작했다가 레인 상한·종료로 LANE_STOP 이 나면 기다리던 샤드가 null 날짜를 받아 하루 늦은 체인을 쓸 수 있었다.
   //   레인 드라이런이 시작한 비행이면 최신 날짜 키는 쓰지 않는다(드라이런 쓰기 0; 이 키는 다른 수집의 조회를 줄이는 힌트일 뿐).
   const owner = laneContext();
+  // 레인이 이미 상한·종료에 걸렸으면 새 비행을 시작하지 않는다(아는 날짜만) — 레인이 시작한 비행의 호출은 이렇게 상한 안쪽에서만 생긴다.
+  if (_laneBlocked(owner)) return (_latestEod && _latestEod.date) || null;
   _latestEodFlight = _laneExit(() => (async () => {
     let rec = null;
     if (_chainCache) { try { rec = await _chainCache.get(LATEST_EOD_KEY); } catch { } }
@@ -673,7 +675,9 @@ async function cachedChain(sym, exp) {
 async function getRealtimeGreeks(sym, opts = {}) {
   const out = new Map();   // 계약코드 → greeks
   let page = null, calls = 0, failed = false;
-  const MAX_PAGES = Number(process.env.INTRINIO_GREEKS_MAX_PAGES || 14);
+  // 우선 레인 문맥은 페이지 상한을 따로 줄 수 있다(MU 처럼 14쪽을 넘는 종목도 끝까지 받아 «완전»할 때만 쓴다). 샤드는 예전 그대로.
+  const lc = typeof laneContext === 'function' ? laneContext() : null;   // (시험 하네스가 이 함수만 떼어 쓸 때를 위해 typeof)
+  const MAX_PAGES = Number((lc && lc.greeksMaxPages) || process.env.INTRINIO_GREEKS_MAX_PAGES || 14);
   do {
     const q = { page_size: 250 };
     if (opts.start) q.expiration_start_date = opts.start;
@@ -691,9 +695,8 @@ async function getRealtimeGreeks(sym, opts = {}) {
     }
     page = j.next_page || null;
   } while (page && calls < MAX_PAGES);
-  // complete = 중간 페이지 실패 없음(우선 레인은 참일 때만 쓴다). 페이지 상한(MAX_PAGES)에 닿은 것은 매 회차 같은 모양이라
-  //   live↔EOD 를 뒤집지 않으므로 complete 로 둔다(capped 로 따로 알린다 — 예: MU 14쪽 상한).
-  return { greeks: out, calls, complete: !failed, capped: !failed && !!page };
+  // complete = 끝 페이지까지 받았다(중간 실패·페이지 상한 없음). 우선 레인은 참일 때만 쓴다.
+  return { greeks: out, calls, complete: !failed && !page, capped: !failed && !!page };
 }
 
 // ── 체인 뒤 페이지 ───────────────────────────────────────────
