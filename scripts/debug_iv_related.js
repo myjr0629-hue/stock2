@@ -55,7 +55,8 @@ async function main() {
 
     // 2. Lambda probe cache (raw options chain)
     console.log('\n━━━ [2] REDIS: polygon:snapshot:probe:NVDA ━━━');
-    const probe = await redisGet('polygon:snapshot:probe:NVDA');
+    // [2026-11-14] 프로브는 "gz1:"+gzip 으로 저장될 수 있다 — 풀어서 본다(손상 = 없음)
+    const probe = require('./lambda-flow-harvest/redis-codec').decodeStoredValue(await redisGet('polygon:snapshot:probe:NVDA'));
     if (probe) {
         console.log(`  _ts: ${new Date(probe._ts).toISOString()} (${Math.round((Date.now() - probe._ts) / 60000)}분 전)`);
         console.log(`  weeklyExpiry: ${probe.weeklyExpiry}`);
