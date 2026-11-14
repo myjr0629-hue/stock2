@@ -15,7 +15,7 @@
 //
 // ⚠️ 같은 파일이 세 곳에 있다 — 내용을 바꾸면 셋 다 같이:
 //   scripts/lambda-flow-harvest/redis-codec.js · scripts/lambda-xs/redis-codec.js (바이트 동일, 시험이 확인)
-//   src/lib/redisValueCodec.ts (같은 규칙의 TS 판, 시험이 교차 왕복 확인)
+//   src/services/redisClient.ts 의 «값 압축(gz1)» 절 (같은 규칙의 TS 판, 시험이 교차 왕복 확인)
 // ============================================================================
 'use strict';
 const zlib = require('zlib');

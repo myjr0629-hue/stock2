@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { gzipSync } from 'node:zlib';
-import { GZ_MARK, decodeStoredValue, decodeStoredValues, encodeForKey, shouldCompressKey } from '../src/lib/redisValueCodec';
+import { GZ_MARK, decodeStoredValue, decodeStoredValues, encodeForKey, shouldCompressKey } from '../src/services/redisClient';
 
 const ROOT = path.resolve(__dirname, '..');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -137,8 +137,11 @@ test('redisClient — get/mget 은 압축·평문 모두 풀어 주고, setInCac
   delete process.env.UPSTASH_REDIS_REST_URL; delete process.env.KV_REST_API_URL;
   delete process.env.UPSTASH_REDIS_REST_TOKEN; delete process.env.KV_REST_API_TOKEN;
   try {
+    // 프록시 주소·키는 모듈 적재 때 읽힌다 — 위 import 와 별개로 새로 싣는다
+    const rcPath = require.resolve('../src/services/redisClient');
+    delete require.cache[rcPath];
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const rc = require('../src/services/redisClient');
+    const rc = require(rcPath);
     // 옛 평문 값 + 새 압축 값 + 손상 값 혼재
     store.set('polygon:snapshot:probe:OLD', JSON.stringify(probe));
     store.set('polygon:snapshot:probe:NEW', JSON.stringify(encodeForKey('polygon:snapshot:probe:NEW', probe)));
