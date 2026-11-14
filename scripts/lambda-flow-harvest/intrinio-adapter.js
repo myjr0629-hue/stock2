@@ -128,7 +128,11 @@ async function getNewsFromFmp(ticker, limit, since) {
 //   flow-harvest 는 샤드 4개가 «동시에» 도므로 계약 한도(2,000콜/분)를 4로 나눈
 //   값이 샤드당 상한이다. 1200 으로 두면 4×1200=4,800 로 한도를 넘길 수 있다.
 //   500×4 = 2,000 이 정확히 한도이므로 10% 여유를 둔다.
-const RATE_PER_MIN = Number(process.env.INTRINIO_RATE_PER_MIN || 450);
+const DEFAULT_RATE_PER_MIN = Number(process.env.INTRINIO_RATE_PER_MIN || 450);
+// ★ [2026-11-14] 우선 체인 레인(index.js mode 'priority-chain')은 같은 컨테이너에서 더 낮은 속도로 돈다.
+//   컨테이너는 샤드·우선 호출에 번갈아 재사용되므로 매 호출 시작에 setRatePerMin 으로 정한다(인자 없음 = 환경 값).
+//   환경 값보다 높일 수는 없다(min) — 계약 한도 산술(샤드 420/분)은 그대로다.
+let RATE_PER_MIN = DEFAULT_RATE_PER_MIN;
 
 // ★★ [2026-09-04] 토큰 버킷은 «속도»를 재지 «동시성»을 막지 못한다.
 //   버킷이 가득 찬 채 시작하므로 **첫 RATE_PER_MIN 건이 지연 0 으로 한꺼번에** 나갔다.
@@ -143,15 +147,50 @@ let _queue = Promise.resolve();
 const MAX_CONCURRENCY = Number(process.env.INTRINIO_MAX_CONCURRENCY || 4);
 let _active = 0;
 const _waiters = [];
+// 우선 레인 가드(레인 문맥 guard)는 «요청이 실제로 나가기 직전»(동시성 자리를 얻는 순간)에도 본다 — 대기열에 쌓인 요청까지 막는다.
+//   자리를 안 얻고 거절하므로 _release 짝이 필요 없다. 깨운 대기자가 거절되면 다음 대기자를 깨운다.
+function _laneStop() { noteFail('LANE_STOP'); return new Error('LANE_STOP'); }
 function _acquire() {
-  if (_active < MAX_CONCURRENCY) { _active++; return Promise.resolve(); }
-  return new Promise((resolve) => { _waiters.push(() => { _active++; resolve(); }); });
+  const ctx = laneContext();   // 깨울 때는 깨우는 쪽 문맥이므로 지금 잡아 둔다
+  if (_laneBlocked(ctx)) return Promise.reject(_laneStop());
+  if (_active < MAX_CONCURRENCY) { _active++; _callsOut++; return Promise.resolve(); }
+  return new Promise((resolve, reject) => {
+    _waiters.push(function wake() {
+      if (_laneBlocked(ctx)) { reject(_laneStop()); const next = _waiters.shift(); if (next) next(); return; }
+      _active++; _callsOut++; resolve();
+    });
+  });
 }
 function _release() {
   _active--;
   const next = _waiters.shift();
   if (next) next();
 }
+
+function setRatePerMin(n) {
+  const v = Number(n);
+  RATE_PER_MIN = n != null && Number.isFinite(v) && v > 0 ? Math.min(DEFAULT_RATE_PER_MIN, v) : DEFAULT_RATE_PER_MIN;
+  if (_tokens > RATE_PER_MIN) _tokens = RATE_PER_MIN;
+  return RATE_PER_MIN;
+}
+/** 버킷을 비운다 — 재사용 컨테이너가 쉬는 동안 가득 찬 토큰을 한꺼번에 쓰지 않게(우선 레인 시작 시). */
+function resetRateBucket() { _tokens = 0; _refillAt = Date.now(); }
+// 실제로 공급사에 나간 요청 수·429 수(누적) — 우선 레인의 회차 예산·429 차단기가 차이로 읽는다.
+// _callsOut 은 동시성 자리를 얻을 때(= 실제 요청 직전) 센다.
+let _callsOut = 0, _calls429 = 0;
+function callStats() { return { calls: _callsOut, r429: _calls429, ratePerMin: RATE_PER_MIN }; }
+// 우선 레인의 «엄격한» 상한 — 레인 문맥(AsyncLocalStorage)의 guard() 가 true 를 돌려주는 순간부터 그 문맥의 새 요청을 막는다.
+//   전역 상태가 아니라 «그 회차에서 시작된 작업»에만 붙는다: 60초 경로 시간 초과로 핸들러가 먼저 끝나도
+//   남은 작업은 같은 문맥(guard → 끝남 = 참)을 지니고 있어 다음 호출(샤드 포함) 중에 깨어나도 요청이 나가지 않는다.
+//   문맥 밖(샤드)은 영향 없음.
+//   (모듈을 막은 시험 하네스에서도 이 파일이 읽히도록 require 실패는 삼킨다 → laneSupported()=false. 우선 레인은 그때 돌지 않는다.)
+let _lane = null;
+try { _lane = new (require('async_hooks').AsyncLocalStorage)(); } catch { _lane = null; }
+function laneSupported() { return !!_lane; }
+function runInLane(ctx, fn) { return _lane ? _lane.run(ctx, fn) : fn(); }
+function laneContext() { return (_lane && _lane.getStore()) || null; }
+function _laneExit(fn) { return _lane ? _lane.exit(fn) : fn(); }
+function _laneBlocked(ctx) { return !!(ctx && typeof ctx.guard === 'function' && ctx.guard()); }
 
 function _takeToken() {
   const now = Date.now();
@@ -167,8 +206,12 @@ function _takeToken() {
 
 /** 호출 직전에 await 한다. 한도를 넘으면 그만큼 기다린다. */
 function rateGate() {
+  const ctx = laneContext();
+  if (_laneBlocked(ctx)) return Promise.reject(_laneStop());
   const run = async () => {
     for (;;) {
+      // 대기 중에 레인이 끝났거나 상한에 걸렸으면 토큰을 쓰지 않고 바로 지나간다(_acquire 가 거절) — 뒤에 선 샤드 요청을 늦추지 않는다
+      if (_laneBlocked(ctx)) return;
       const wait = _takeToken();
       if (wait === 0) return;
       await new Promise((r) => setTimeout(r, wait));
@@ -194,7 +237,7 @@ const _inflight = new Map();
 const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
 const MAX_ATTEMPTS = Number(process.env.INTRINIO_MAX_ATTEMPTS || 2);
 const _failCounts = Object.create(null);
-function noteFail(reason) { _failCounts[reason] = (_failCounts[reason] || 0) + 1; }
+function noteFail(reason) { _failCounts[reason] = (_failCounts[reason] || 0) + 1; if (reason === 'HTTP 429') _calls429++; }
 function drainFailCounts() {
   const out = Object.entries(_failCounts).sort((a, b) => b[1] - a[1]);
   for (const k of Object.keys(_failCounts)) delete _failCounts[k];
@@ -208,7 +251,10 @@ async function callIntrinio(path, params = {}, timeoutMs = 15000) {
 
   // ① 합치기 — api_key 는 키에 넣지 않는다.
   const ckey = `${path}::${JSON.stringify(params)}`;
-  const flying = _inflight.get(ckey);
+  // 우선 레인 문맥의 요청은 합치기에 끼지도, 끼우지도 않는다 — 레인 문맥이 닫히면 그 Promise 가 LANE_STOP 으로 끝나는데,
+  //   같은 Promise 를 나눠 쓰던 샤드 요청까지 실패하면 안 된다(관문 11140931). (시험 하네스가 이 함수만 떼어 쓸 때를 위해 typeof)
+  const laneOwn = typeof laneContext === 'function' ? laneContext() : null;
+  const flying = laneOwn ? null : _inflight.get(ckey);
   if (flying) return flying;
 
   const qs = new URLSearchParams({ ...params, api_key: INTRINIO_KEY });
@@ -254,6 +300,7 @@ async function callIntrinio(path, params = {}, timeoutMs = 15000) {
     throw lastErr || new Error(`Intrinio 호출 실패 (${path})`);
   })();
 
+  if (laneOwn) return run;
   _inflight.set(ckey, run);
   try {
     return await run;
@@ -552,7 +599,13 @@ async function latestPublishedEodDate() {
   const now = Date.now();
   if (_latestEod && _latestEod.date && now - _latestEod.checkedAt < LATEST_EOD_RECHECK_MS) return _latestEod.date;
   if (_latestEodFlight) return _latestEodFlight;
-  _latestEodFlight = (async () => {
+  // 이 단일 비행은 샤드·레인이 나눠 쓰는 «공유 상태»다 — 우선 레인 문맥 «밖»에서 돌린다(관문 11140934).
+  //   레인이 시작했다가 레인 상한·종료로 LANE_STOP 이 나면 기다리던 샤드가 null 날짜를 받아 하루 늦은 체인을 쓸 수 있었다.
+  //   레인 드라이런이 시작한 비행이면 최신 날짜 키는 쓰지 않는다(드라이런 쓰기 0; 이 키는 다른 수집의 조회를 줄이는 힌트일 뿐).
+  const owner = laneContext();
+  // 레인이 이미 상한·종료에 걸렸으면 새 비행을 시작하지 않는다(아는 날짜만) — 레인이 시작한 비행의 호출은 이렇게 상한 안쪽에서만 생긴다.
+  if (_laneBlocked(owner)) return (_latestEod && _latestEod.date) || null;
+  _latestEodFlight = _laneExit(() => (async () => {
     let rec = null;
     if (_chainCache) { try { rec = await _chainCache.get(LATEST_EOD_KEY); } catch { } }
     if (rec && rec.date && now - (Number(rec.checkedAt) || 0) < LATEST_EOD_RECHECK_MS) {
@@ -563,11 +616,11 @@ async function latestPublishedEodDate() {
     const known = [probed, rec && rec.date, _latestEod && _latestEod.date].filter(Boolean).sort();
     const date = known.length ? known[known.length - 1] : null;
     _latestEod = { date, checkedAt: now };
-    if (date && _chainCache) {
+    if (date && _chainCache && !(owner && owner.dryRun)) {
       try { await _chainCache.set(LATEST_EOD_KEY, { date, checkedAt: now, via: probed ? 'ref' : 'kept' }, 7 * 86400); } catch { }
     }
     return date;
-  })().finally(() => { _latestEodFlight = null; });
+  })()).finally(() => { _latestEodFlight = null; });
   return _latestEodFlight;
 }
 
@@ -621,8 +674,10 @@ async function cachedChain(sym, exp) {
 //   OPRA 실시간(`chain/.../realtime`)은 403 이다 — 그건 Enterprise 상품이다.
 async function getRealtimeGreeks(sym, opts = {}) {
   const out = new Map();   // 계약코드 → greeks
-  let page = null, calls = 0;
-  const MAX_PAGES = Number(process.env.INTRINIO_GREEKS_MAX_PAGES || 14);
+  let page = null, calls = 0, failed = false;
+  // 우선 레인 문맥은 페이지 상한을 따로 줄 수 있다(MU 처럼 14쪽을 넘는 종목도 끝까지 받아 «완전»할 때만 쓴다). 샤드는 예전 그대로.
+  const lc = typeof laneContext === 'function' ? laneContext() : null;   // (시험 하네스가 이 함수만 떼어 쓸 때를 위해 typeof)
+  const MAX_PAGES = Number((lc && lc.greeksMaxPages) || process.env.INTRINIO_GREEKS_MAX_PAGES || 14);
   do {
     const q = { page_size: 250 };
     if (opts.start) q.expiration_start_date = opts.start;
@@ -630,7 +685,7 @@ async function getRealtimeGreeks(sym, opts = {}) {
     if (page) q.next_page = page;
     const j = await callIntrinio(`options/greeks/by_ticker/${sym}/realtime`, q).catch(() => null);
     calls++;
-    if (!j) break;
+    if (!j) { failed = true; break; }
     // 최초 관측 시각을 보존한다. 변환·프로브 저장 시각으로 대체하지 않는다.
     const ivObservedAt = j._ivObservedAt ?? null;
     for (const c of j.contracts || []) {
@@ -640,7 +695,8 @@ async function getRealtimeGreeks(sym, opts = {}) {
     }
     page = j.next_page || null;
   } while (page && calls < MAX_PAGES);
-  return { greeks: out, calls };
+  // complete = 끝 페이지까지 받았다(중간 실패·페이지 상한 없음). 우선 레인은 참일 때만 쓴다.
+  return { greeks: out, calls, complete: !failed && !page, capped: !failed && !!page };
 }
 
 // ── 체인 뒤 페이지 ───────────────────────────────────────────
@@ -728,12 +784,12 @@ async function getOptionChain(ticker, opts = {}) {
 
   // 실시간 그릭스를 «같은 계약»에 덮어쓴다. OI·행사가·만기는 EOD 것을 그대로 쓴다.
   //   끄려면 INTRINIO_REALTIME_GREEKS=0.
-  let rtGreeks = null, rtCalls = 0;
+  let rtGreeks = null, rtCalls = 0, rtComplete = false;
   if (process.env.INTRINIO_REALTIME_GREEKS !== '0' && expirations.length) {
     const r = await getRealtimeGreeks(sym, {
       start: expirations[0], end: expirations[expirations.length - 1],
     }).catch(() => null);
-    if (r && r.greeks.size) { rtGreeks = r.greeks; rtCalls = r.calls; }
+    if (r && r.greeks.size) { rtGreeks = r.greeks; rtCalls = r.calls; rtComplete = r.complete === true; }
   }
 
   const results = [];
@@ -806,6 +862,7 @@ async function getOptionChain(ticker, opts = {}) {
     greeksSource: rtGreeks ? 'realtime' : 'eod',
     greeksRealtimeCount: rtHits,
     greeksCalls: rtCalls,
+    greeksComplete: rtComplete,
     ...(missing.length ? { expirationsMissing: missing } : {}),
     ...(truncated.length ? { expirationsTruncated: truncated } : {}),
     ...(missing.length || truncated.length ? { partial: true } : {}),
@@ -1244,6 +1301,13 @@ async function routeMassiveUrl(input) {
 
 module.exports = {
   drainFailCounts,
+  setRatePerMin,
+  resetRateBucket,
+  callStats,
+  runInLane,
+  laneContext,
+  laneSupported,
+  __latestPublishedEodDate: latestPublishedEodDate,   // 시험 전용
   setChainCache,
   routeMassiveUrl,
   getGroupedDaily,
