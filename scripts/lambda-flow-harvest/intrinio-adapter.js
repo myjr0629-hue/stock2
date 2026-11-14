@@ -250,7 +250,10 @@ async function callIntrinio(path, params = {}, timeoutMs = 15000) {
 
   // ① 합치기 — api_key 는 키에 넣지 않는다.
   const ckey = `${path}::${JSON.stringify(params)}`;
-  const flying = _inflight.get(ckey);
+  // 우선 레인 문맥의 요청은 합치기에 끼지도, 끼우지도 않는다 — 레인 문맥이 닫히면 그 Promise 가 LANE_STOP 으로 끝나는데,
+  //   같은 Promise 를 나눠 쓰던 샤드 요청까지 실패하면 안 된다(관문 11140931). (시험 하네스가 이 함수만 떼어 쓸 때를 위해 typeof)
+  const laneOwn = typeof laneContext === 'function' ? laneContext() : null;
+  const flying = laneOwn ? null : _inflight.get(ckey);
   if (flying) return flying;
 
   const qs = new URLSearchParams({ ...params, api_key: INTRINIO_KEY });
@@ -296,6 +299,7 @@ async function callIntrinio(path, params = {}, timeoutMs = 15000) {
     throw lastErr || new Error(`Intrinio 호출 실패 (${path})`);
   })();
 
+  if (laneOwn) return run;
   _inflight.set(ckey, run);
   try {
     return await run;

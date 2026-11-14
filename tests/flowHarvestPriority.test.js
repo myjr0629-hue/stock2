@@ -381,3 +381,24 @@ test('자식(종목) 문맥이 닫히면 부모 회차가 돌고 있어도 그 �
     assert.deepEqual(v.calls, ['securities/SHARD/prices/realtime']);
   } finally { global.fetch = of; }
 });
+
+test('같은 경로를 레인과 샤드가 동시에 물어도 레인 문맥이 닫히면 레인 쪽만 실패 — 샤드는 자기 요청으로 받는다 (관문 11140931)', async () => {
+  const v = fakeVendor();
+  const of = global.fetch; global.fetch = v.fetchImpl;
+  try {
+    const { adapter } = loadFresh({ EC2_REDIS_PROXY_URL: 'http://127.0.0.1:9', INTRINIO_API_KEY: 'test', INTRINIO_RATE_PER_MIN: '60', INTRINIO_MAX_CONCURRENCY: '2' });
+    adapter.setRatePerMin(null); adapter.resetRateBucket();
+    const lane = { done: false, guard: () => lane.done };
+    const P = 'securities/SAME/prices/realtime';
+    const laneReq = adapter.runInLane(lane, () => adapter.callIntrinio(P)).catch((e) => e.message);   // 토큰 대기 중
+    const shardReq = adapter.callIntrinio(P);
+    lane.done = true;
+    assert.equal(await laneReq, 'LANE_STOP');
+    assert.equal((await shardReq).last_price, 100);
+    assert.deepEqual(v.calls, [P]);
+    // 샤드끼리는 예전처럼 합친다
+    const [a, b] = await Promise.all([adapter.callIntrinio('securities/S2/prices/realtime'), adapter.callIntrinio('securities/S2/prices/realtime')]);
+    assert.equal(a, b);
+    assert.equal(v.calls.filter((c) => c.includes('S2')).length, 1);
+  } finally { global.fetch = of; }
+});
