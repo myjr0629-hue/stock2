@@ -19,6 +19,8 @@ import {
 // ============================================================================
 
 const TTL = 60 * 60 * 24 * 45;
+// Keep the shared link-preview rules intact; this additional filter applies only to funnel counts.
+const AUTOMATED_UA_RE = /bot|crawler|spider|headless|lighthouse|playwright|puppeteer/i;
 
 async function bump(key: string): Promise<void> {
   const cur = (await getFromCache<number>(key)) || 0;
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
   const s = q.get('s');
   const p = q.get('p');
   const ua = req.headers.get('user-agent') || '';
-  if (isFunnelStage(st) && isFunnelSrc(s) && isFunnelPlatform(p) && !PREVIEW_BOT_RE.test(ua) && originOk(req)) {
+  if (isFunnelStage(st) && isFunnelSrc(s) && isFunnelPlatform(p) && !PREVIEW_BOT_RE.test(ua) && !AUTOMATED_UA_RE.test(ua) && originOk(req)) {
     const v = normalizeVersion(q.get('v'));
     const c = q.get('c') ? normalizeCode(q.get('c')) : null;
     const day = etDay();
