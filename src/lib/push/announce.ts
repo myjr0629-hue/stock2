@@ -309,7 +309,10 @@ export async function runAnnounce(req: AnnounceRequest, deps: AnnounceDeps): Pro
   if (c === 'busy') return stop(409, 'in_progress');
   if (c !== 'ok' && c !== 'resume') return stop(429, 'daily_cap');
   // 이전 실행 기록 — 늘 읽는다(이어 보내기의 응답이 유실돼 재시도가 'ok' 를 받아도 누적이 빠지지 않게). 새 공지면 없다
-  const prevLog = parseRecord<{ runs?: unknown[]; first?: number }>((await store.mget([ANN_KEYS.log(req.id)]).catch(() => [null]))[0]);
+  const [prevRaw, curRaw] = await store.mget([ANN_KEYS.log(req.id), ANN_KEYS.claim(req.id)]).catch(() => [null, null]);
+  const prevLog = parseRecord<{ runs?: unknown[] }>(prevRaw);
+  // 첫 실행 시각 = Lua 가 자리에 남긴 값(기록 전에 죽은 실행이 있어도 원래 시각을 잇는다 — 이어 보내기 6일 기한이 초기화되지 않게)
+  const first = parseClaimMarker(curRaw)?.first ?? now;
   const prevRuns = Array.isArray(prevLog?.runs) ? prevLog!.runs : [];
   if (c === 'resume' || prevRuns.length) report.resumed = true;
 
@@ -362,11 +365,10 @@ export async function runAnnounce(req: AnnounceRequest, deps: AnnounceDeps): Pro
   const run = { at: report.at, resumed: !!report.resumed, targets: report.targets, sent: report.sent, fail: report.fail, dead: report.dead, deferred: report.deferred, skipped: report.skipped, split: report.split, sentSplit: report.sentSplit, quiet: report.quiet };
   const runs = [...prevRuns, run] as Array<typeof run>;
   const totals = runs.reduce((a, r) => ({ targets: a.targets + (r.targets || 0), sent: a.sent + (r.sent || 0), fail: a.fail + (r.fail || 0), dead: a.dead + (r.dead || 0) }), { targets: 0, sent: 0, fail: 0, dead: 0 });
-  const log = JSON.stringify({ state, id: req.id, first: typeof prevLog?.first === 'number' ? prevLog.first : now, path: req.path, platforms: req.platforms, copy: req.copy, totals, deferred: report.deferred, runs });
+  const log = JSON.stringify({ state, id: req.id, first, path: req.path, platforms: req.platforms, copy: req.copy, totals, deferred: report.deferred, runs });
   try {
     await store.set(ANN_KEYS.log(req.id), log, ANN_LOG_TTL_S);
     // 같은 ID 자리: 끝났으면 기록(만료 없음 — 영원히 1회) · 일부만이면 'P:' 표식(resume 으로 이어 보낼 수 있게)
-    const first = typeof prevLog?.first === 'number' ? prevLog.first : now;
     await store.set(ANN_KEYS.claim(req.id), state === 'done' ? log : `P:${now}:${first}:${fp}`, 0);
     await store.lpush(ANN_KEYS.index, JSON.stringify({ id: req.id, at: report.at, targets: report.targets, sent: report.sent, fail: report.fail }));
   } catch { /* 자리는 이미 잡혔다 — 중복은 생기지 않는다 */ }

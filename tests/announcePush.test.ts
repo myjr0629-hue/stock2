@@ -307,6 +307,8 @@ async function main() {
     assert.equal((await runAnnounce(reqOf({ resume: true }), { store: m.store, send: f.send, now: () => NOW + 60e3 })).reason, 'in_progress');
     const r = await runAnnounce(reqOf({ resume: true }), { store: m.store, send: f.send, now: () => NOW + 180e3 });
     assert.equal(r.status, 200); assert.equal(r.resumed, true); assert.equal(f.sent.length, 1);
+    // 기록 전에 죽은 첫 실행의 시작 시각(NOW)을 잇는다 — 이어 보내기 기한이 초기화되지 않는다
+    assert.equal(JSON.parse(m.kv.get(ANN_KEYS.log('feat-1114'))!).first, NOW);
   });
 
   await t('blackout 진입: 묶음 사이에 발송 금지 창이 시작되면 남은 묶음은 보내지 않는다', async () => {
@@ -340,6 +342,21 @@ async function main() {
     assert.equal(r.wouldBlock, 'too_many_targets');
     const s2 = await runAnnounce(reqOf(), { store: m.store, send: fakeSend().send, now: () => NOW });
     assert.equal(s2.status, 413);
+  });
+
+  await t('resume 기한: 첫 실행이 기록 없이 죽고 5일째 이어 보내다 또 멈춰도, 8일째 이어 보내기는 막힌다', async () => {
+    const m = memStore();
+    const devs: Array<[string, Record<string, unknown>]> = [];
+    for (let i = 1; i <= 300; i++) devs.push([AND(i), BASE({ platform: 'android', locale: 'en' })]);
+    seed(m, devs);
+    m.kv.set(ANN_KEYS.claim('feat-1114'), `S:${NOW}:${NOW}:${announceFingerprint(reqOf())}:dead`);
+    let tick = 0;
+    const send = async (items: any[]) => { tick += 31_000; return new Map(items.map((i: any) => [i.id, 'ok' as const])); };
+    const r = await runAnnounce(reqOf({ resume: true }), { store: m.store, send, now: () => NOW + 5 * 864e5, clock: () => tick });
+    assert.equal(r.status, 200); assert.equal(r.deferred, 100);
+    assert.ok(m.kv.get(ANN_KEYS.claim('feat-1114'))!.startsWith(`P:${NOW + 5 * 864e5}:${NOW}:`));
+    m.kv.delete(ANN_KEYS.last);
+    assert.equal((await runAnnounce(reqOf({ resume: true }), { store: m.store, send: fakeSend().send, now: () => NOW + 8 * 864e5 })).reason, 'duplicate');
   });
 
   await t('resume 막힘: 문구가 다르면 409 resume_mismatch · 6일 지나면 duplicate · 그사이 다른 공지가 24시간 자리를 잡았으면 429', async () => {
