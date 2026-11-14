@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  ANN_CLAIM_LUA, ANN_DEV_CLAIM_LUA, ANN_KEYS, announceDevice, parseAnnounceRequest, runAnnounce,
+  ANN_CLAIM_LUA, ANN_DEV_CLAIM_LUA, ANN_KEYS, announceDevice, announceFingerprint, parseAnnounceRequest, runAnnounce,
   type AnnounceRequest, type AnnounceStore,
 } from '../src/lib/push/announce';
 import { announceTapPath, ANNOUNCE_PATHS } from '../src/lib/app/announceTap';
@@ -21,22 +21,26 @@ function memStore() {
     eval: async (script, keys, args) => {
       calls.push('eval');
       if (script === ANN_CLAIM_LUA) {
+        // ANN_CLAIM_LUA 를 그대로 옮긴 것(실제 Lua 는 운영 Upstash 시험 키로 따로 확인 — RESULT.md)
+        const [nonce, , resume, nowS, staleS, id, fp, maxS] = args;
+        const now = Number(nowS);
         const v = kv.get(keys[0]);
-        if (v === args[0]) return 'ok';
-        if (v != null) {
-          if (args[2] !== '1') return 'dup';
-          if (v.startsWith('P:')) { kv.set(keys[0], args[0]); return 'resume'; }
-          if (v.startsWith('S:')) {
-            const st = Number(/^S:(\d+):/.exec(v)?.[1]);
-            if (Number.isFinite(st) && Number(args[3]) - st > Number(args[4])) { kv.set(keys[0], args[0]); return 'resume'; }
-            return 'busy';
-          }
-          return 'dup';
-        }
+        if (v != null && v.startsWith('S:') && v.endsWith(':' + nonce)) return 'ok';
         const d = kv.get(keys[1]);
-        if (d != null && d !== args[0]) return 'day';
-        kv.set(keys[0], args[0]); kv.set(keys[1], args[0]);
-        return 'ok';
+        const mine = d != null && d.startsWith(id + '|');
+        let firstS = nowS, res = 'ok';
+        if (v != null) {
+          if (resume !== '1') return 'dup';
+          const m = /^([PS]):(\d+):(\d+):([0-9a-f]+)/.exec(v);
+          if (!m) return 'dup';
+          if (m[4] !== fp) return 'mismatch';
+          if (now - Number(m[3]) > Number(maxS)) return 'expired';
+          if (m[1] === 'S' && now - Number(m[2]) <= Number(staleS)) return 'busy';
+          if (d != null && !mine) return 'day';
+          firstS = m[3]; res = 'resume';
+        } else if (d != null) return 'day';
+        kv.set(keys[0], `S:${nowS}:${firstS}:${fp}:${nonce}`); kv.set(keys[1], `${id}|${nonce}`);
+        return res;
       }
       if (script === ANN_DEV_CLAIM_LUA) return keys.map((k) => { const v = kv.get(k); if (v === args[0]) return 1; if (v != null) return 0; kv.set(k, args[0]); return 1; });
       throw new Error('unknown script');
@@ -298,7 +302,7 @@ async function main() {
   await t('resume: 진행 중(2분 안)은 409 in_progress · 죽은 실행(2분 넘음)은 이어 보낸다', async () => {
     const m = memStore();
     seed(m, [[IOS(1), BASE({ platform: 'ios', locale: 'ko', tz: 'Asia/Seoul' })]]);
-    m.kv.set(ANN_KEYS.claim('feat-1114'), `S:${NOW}:dead`); m.kv.set(ANN_KEYS.last, `S:${NOW}:dead`);
+    m.kv.set(ANN_KEYS.claim('feat-1114'), `S:${NOW}:${NOW}:${announceFingerprint(reqOf())}:dead`); m.kv.set(ANN_KEYS.last, 'feat-1114|dead');
     const f = fakeSend();
     assert.equal((await runAnnounce(reqOf({ resume: true }), { store: m.store, send: f.send, now: () => NOW + 60e3 })).reason, 'in_progress');
     const r = await runAnnounce(reqOf({ resume: true }), { store: m.store, send: f.send, now: () => NOW + 180e3 });
@@ -336,6 +340,54 @@ async function main() {
     assert.equal(r.wouldBlock, 'too_many_targets');
     const s2 = await runAnnounce(reqOf(), { store: m.store, send: fakeSend().send, now: () => NOW });
     assert.equal(s2.status, 413);
+  });
+
+  await t('resume 막힘: 문구가 다르면 409 resume_mismatch · 6일 지나면 duplicate · 그사이 다른 공지가 24시간 자리를 잡았으면 429', async () => {
+    const mk = async () => {
+      const m = memStore();
+      const devs: Array<[string, Record<string, unknown>]> = [];
+      for (let i = 1; i <= 300; i++) devs.push([AND(i), BASE({ platform: 'android', locale: 'en' })]);
+      seed(m, devs);
+      let tick = 0;
+      const send = async (items: any[]) => { tick += 31_000; return new Map(items.map((i: any) => [i.id, 'ok' as const])); };
+      const r = await runAnnounce(reqOf(), { store: m.store, send, now: () => NOW, clock: () => tick });
+      assert.equal(r.deferred, 100);
+      return m;
+    };
+    let m = await mk();
+    const other = { ...COPY, en: { title: 'New', body: 'Something else' } };
+    assert.equal((await runAnnounce(reqOf({ resume: true, copy: other }), { store: m.store, send: fakeSend().send, now: () => NOW + 60e3 })).reason, 'resume_mismatch');
+    assert.equal((await runAnnounce(reqOf({ resume: true }), { store: m.store, send: fakeSend().send, now: () => NOW + 6.5 * 864e5 })).reason, 'duplicate');
+    m = await mk();
+    m.kv.set(ANN_KEYS.last, 'other-id|x');
+    assert.equal((await runAnnounce(reqOf({ resume: true }), { store: m.store, send: fakeSend().send, now: () => NOW + 2 * 864e5 })).reason, 'daily_cap');
+  });
+
+  await t('resume 응답 유실: 이어 보내기 Lua 가 실행된 뒤 재시도가 ok 를 받아도 누적 기록이 이어진다', async () => {
+    const m = memStore();
+    const devs: Array<[string, Record<string, unknown>]> = [];
+    for (let i = 1; i <= 300; i++) devs.push([AND(i), BASE({ platform: 'android', locale: 'en' })]);
+    seed(m, devs);
+    let tick = 0;
+    await runAnnounce(reqOf(), { store: m.store, send: async (items: any[]) => { tick += 31_000; return new Map(items.map((i: any) => [i.id, 'ok' as const])); }, now: () => NOW, clock: () => tick });
+    const orig = m.store.eval;
+    m.store.eval = async (sc, k, a) => { await orig(sc, k, a); return orig(sc, k, a); };
+    const r = await runAnnounce(reqOf({ resume: true }), { store: m.store, send: fakeSend().send, now: () => NOW + 60e3 });
+    assert.equal(r.status, 200); assert.equal(r.targets, 100); assert.equal(r.resumed, true);
+    const log = JSON.parse(m.kv.get(ANN_KEYS.log('feat-1114'))!);
+    assert.equal(log.runs.length, 2); assert.equal(log.totals.sent, 300); assert.equal(log.state, 'done');
+  });
+
+  await t('send 시간 상한: 발송기가 끝나지 않아도 18초 뒤 fail 로 세고 기록까지 마친다', async () => {
+    const m = memStore();
+    seed(m, [[IOS(1), BASE({ platform: 'ios', locale: 'ko', tz: 'Asia/Seoul' })]]);
+    const realSetTimeout = globalThis.setTimeout;
+    (globalThis as any).setTimeout = (fn: () => void) => realSetTimeout(fn, 0);   // 18초 → 즉시
+    try {
+      const r = await runAnnounce(reqOf(), { store: m.store, send: () => new Promise(() => {}), now: () => NOW });
+      assert.equal(r.fail, 1); assert.equal(r.sent, 0);
+      assert.equal(JSON.parse(m.kv.get(ANN_KEYS.log('feat-1114'))!).state, 'done');
+    } finally { (globalThis as any).setTimeout = realSetTimeout; }
   });
 
   // ── 라우트 계약(정적) ──
