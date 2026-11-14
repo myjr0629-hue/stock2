@@ -34,7 +34,7 @@ function redisStore(redis: Redis): AnnounceStore {
     smembers: (k) => redis.smembers(k) as Promise<string[]>,
     mget: async (keys) => (keys.length ? ((await redis.mget<unknown[]>(...keys)) as unknown[]) : []),
     eval: (script, keys, args) => redis.eval(script, keys, args),
-    set: (k, v, ttl) => redis.set(k, v, { ex: ttl }),
+    set: (k, v, ttl) => (ttl > 0 ? redis.set(k, v, { ex: ttl }) : redis.set(k, v)),
     lpush: async (k, v) => { await redis.lpush(k, v); await redis.ltrim(k, 0, 199); },
     srem: (k, members) => (members.length ? redis.srem(k, ...members) : Promise.resolve(0)),
     del: (keys) => (keys.length ? redis.del(...keys) : Promise.resolve(0)),

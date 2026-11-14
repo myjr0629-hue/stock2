@@ -14,26 +14,30 @@ function memStore() {
   const sets = new Map<string, Set<string>>();
   const lists = new Map<string, string[]>();
   const calls: string[] = [];
+  const ttls = new Map<string, number>();
   const store: AnnounceStore = {
     smembers: async (k) => [...(sets.get(k) ?? [])],
     mget: async (keys) => keys.map((k) => { const v = kv.get(k); if (v == null) return null; try { return JSON.parse(v); } catch { return v; } }),
     eval: async (script, keys, args) => {
       calls.push('eval');
       if (script === ANN_CLAIM_LUA) {
-        if (kv.has(keys[0])) return 'dup';
-        if (kv.has(keys[1])) return 'day';
-        kv.set(keys[0], args[0]); kv.set(keys[1], args[2]);
+        const v = kv.get(keys[0]);
+        if (v === args[0]) return 'ok';
+        if (v != null) return 'dup';
+        const d = kv.get(keys[1]);
+        if (d != null && d !== args[0]) return 'day';
+        kv.set(keys[0], args[0]); kv.set(keys[1], args[0]);
         return 'ok';
       }
-      if (script === ANN_DEV_CLAIM_LUA) return keys.map((k) => (kv.has(k) ? 0 : (kv.set(k, args[0]), 1)));
+      if (script === ANN_DEV_CLAIM_LUA) return keys.map((k) => { const v = kv.get(k); if (v === args[0]) return 1; if (v != null) return 0; kv.set(k, args[0]); return 1; });
       throw new Error('unknown script');
     },
-    set: async (k, v) => { calls.push('set'); kv.set(k, v); },
+    set: async (k, v, ttl) => { calls.push('set'); kv.set(k, v); ttls.set(k, ttl); },
     lpush: async (k, v) => { calls.push('lpush'); lists.set(k, [v, ...(lists.get(k) ?? [])]); },
     srem: async (k, ms) => { calls.push('srem'); for (const m of ms) sets.get(k)?.delete(m); },
     del: async (ks) => { calls.push('del'); for (const k of ks) kv.delete(k); },
   };
-  return { kv, sets, lists, calls, store };
+  return { kv, sets, lists, calls, ttls, store };
 }
 
 const IOS = (n: number) => n.toString(16).padStart(64, 'a');
@@ -238,6 +242,47 @@ async function main() {
     const r = await runAnnounce(reqOf(), { store: m.store, send: async () => { throw new Error('x'); }, now: () => NOW });
     assert.equal(r.sent, 0); assert.equal(r.fail, 1); assert.equal(r.dead, 0);
     assert.equal((await runAnnounce(reqOf(), { store: m.store, send: fakeSend().send, now: () => NOW })).status, 409);
+  });
+
+  await t('retry: Lua 응답 유실 뒤 같은 실행 번호로 다시 불러도 자기 자리 — 발송이 빠지지 않는다', async () => {
+    const m = memStore();
+    seed(m, [[IOS(1), BASE({ platform: 'ios', locale: 'ko', tz: 'Asia/Seoul' })], [AND(2), BASE({ platform: 'android', locale: 'ko', tz: 'Asia/Seoul' })]]);
+    // 첫 eval 은 Redis 에서 실행된 뒤 응답이 유실 → 클라이언트가 같은 호출을 한 번 더(Upstash 기본 재시도 흉내)
+    const orig = m.store.eval;
+    m.store.eval = async (sc, k, a) => { await orig(sc, k, a); return orig(sc, k, a); };
+    const f = fakeSend();
+    const r = await runAnnounce(reqOf(), { store: m.store, send: f.send, now: () => NOW, nonce: 'run-1' });
+    assert.equal(r.status, 200); assert.equal(r.targets, 2); assert.equal(r.skipped.weeklyCap, 0); assert.equal(f.sent.length, 2);
+    // 다른 실행(다른 번호)은 여전히 막힌다
+    m.store.eval = orig;
+    assert.equal((await runAnnounce(reqOf(), { store: m.store, send: f.send, now: () => NOW, nonce: 'run-2' })).status, 409);
+    assert.equal(m.ttls.get(ANN_KEYS.claim('feat-1114')), 0);   // 같은 ID 자리는 만료 없음
+  });
+
+  await t('budget: 시간 예산이 끝나면 새 묶음을 시작하지 않는다 — 남은 기기는 자리도 안 잡는다(partial)', async () => {
+    const m = memStore();
+    const devs: Array<[string, Record<string, unknown>]> = [];
+    for (let i = 1; i <= 450; i++) devs.push([AND(i), BASE({ platform: 'android', locale: 'en', tz: 'America/New_York' })]);
+    seed(m, devs);
+    let tick = 0;
+    const f = { sent: [] as any[], send: async (items: any[]) => { f.sent.push(...items); tick += 36_000; return new Map(items.map((i: any) => [i.id, 'ok' as const])); } };
+    const r = await runAnnounce(reqOf(), { store: m.store, send: f.send, now: () => NOW, clock: () => tick });
+    assert.equal(f.sent.length, 200);                      // 한 묶음 = 200(동시 요청 상한)
+    assert.equal(r.targets, 200); assert.equal(r.deferred, 250);
+    assert.equal([...m.kv.keys()].filter((k) => k.startsWith('push:announce:dev:')).length, 200);
+    assert.equal(JSON.parse(m.kv.get(ANN_KEYS.log('feat-1114'))!).state, 'partial');
+  });
+
+  await t('dry: 상한 판정은 «적격 기기 전체» 기준 — 실제 발송의 413 과 같다', async () => {
+    const m = memStore();
+    const devs: Array<[string, Record<string, unknown>]> = [];
+    for (let i = 1; i <= 5001; i++) devs.push([AND(i), BASE({ platform: 'android', locale: 'en' })]);
+    seed(m, devs);
+    m.kv.set('push:announce:dev:' + (await import('../src/lib/signals/plan')).devKey(AND(1)), 'x');
+    const r = await runAnnounce(reqOf({ dry: true }), { store: m.store, send: fakeSend().send, now: () => NOW });
+    assert.equal(r.wouldBlock, 'too_many_targets');
+    const s2 = await runAnnounce(reqOf(), { store: m.store, send: fakeSend().send, now: () => NOW });
+    assert.equal(s2.status, 413);
   });
 
   // ── 라우트 계약(정적) ──

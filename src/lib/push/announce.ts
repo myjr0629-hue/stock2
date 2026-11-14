@@ -8,7 +8,9 @@
 //   · 대상 = push:token_list 의 SIGNUM 기기 중 마스터 «알림»을 켠 기기(preferences.enabled !== false) · 마지막 실행 때 시스템 알림 권한이
 //     꺼진 기기(notifPerm=false)는 뺀다 · 레코드가 없는 토큰은 설정을 확인할 수 없으니 뺀다(모닝·마감과 달리 보수적으로).
 //   · 언어 = 기기 레코드의 locale(ko/ja) · 그 밖은 en · 그 언어 문구가 없으면 en 문구.
-//   · 상한 = 전체 24시간에 1회(push:announce:last) · 기기당 7일에 1회(push:announce:dev:<기기키>) · 같은 공지 ID 는 영원히 1회(push:announce:id:<ID>).
+//   · 상한 = 전체 24시간에 1회(push:announce:last) · 기기당 7일에 1회(push:announce:dev:<기기키>) · 같은 공지 ID 는 영원히 1회(push:announce:id:<ID>, 만료 없음).
+//     값은 실행마다 새 일회용 번호 — Upstash 응답 유실 뒤 클라이언트 재시도가 «자기 자리»에 막히지 않는다.
+//   · 200대씩 «자리 잡기 → 보내기» · 35초가 지나면 새 묶음을 시작하지 않는다(남은 기기는 자리도 안 잡음 = deferred, 기록 state=partial).
 //     공지 ID·24시간 자리는 Lua 한 번으로 «함께» 잡는다(동시 요청 둘이 와도 하나만 통과) · 기기 자리는 보내기 «전에» SET NX —
 //     실패(fail)한 기기도 자리를 놓지 않는다(중복보다 한 통 누락을 택함, trial-push 와 같은 원칙).
 //   · 조용한 시간(기기 현지 23~07시, 시간대 모르면 조용히)은 소리 없이 · 모닝·마감 발송 창(inPushBlackout)과 겹치면 보내지 않는다(409).
@@ -47,17 +49,29 @@ export const ANN_KEYS = {
   token: (t: string) => `push:tokens:${t}`,
 };
 
-/** 공지 ID 와 24시간 자리를 함께 — 'dup'(같은 ID 이미 있음) · 'day'(24시간 안에 다른 공지) · 'ok'(둘 다 잡음) */
+/**
+ * 공지 ID(만료 없음)와 24시간 자리를 함께 — 'dup'(같은 ID 이미 있음) · 'day'(24시간 안에 다른 공지) · 'ok'(둘 다 잡음).
+ * 값 = 이번 실행의 일회용 번호(ARGV[1]). 응답이 유실돼 클라이언트가 «같은 호출을 다시» 보내도 자기 번호면 'ok' — 재시도가 자기 자리에 막혀 발송이 빠지지 않게.
+ */
 export const ANN_CLAIM_LUA =
-  "if redis.call('EXISTS', KEYS[1]) == 1 then return 'dup' end " +
-  "if redis.call('EXISTS', KEYS[2]) == 1 then return 'day' end " +
-  "redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2]) " +
-  "redis.call('SET', KEYS[2], ARGV[3], 'EX', ARGV[4]) " +
+  "local v = redis.call('GET', KEYS[1]) " +
+  "if v == ARGV[1] then return 'ok' end " +
+  "if v then return 'dup' end " +
+  "local d = redis.call('GET', KEYS[2]) " +
+  "if d and d ~= ARGV[1] then return 'day' end " +
+  "redis.call('SET', KEYS[1], ARGV[1]) " +
+  "redis.call('SET', KEYS[2], ARGV[1], 'EX', ARGV[2]) " +
   "return 'ok'";
 
-/** 기기 자리 여러 개 — 잡았으면 1, 이미 있으면 0 (KEYS 순서 그대로) */
+/** 기기 자리 여러 개 — 잡았으면(또는 이번 실행이 이미 잡았으면) 1, 다른 공지가 잡고 있으면 0 (KEYS 순서 그대로) · 값 = 이번 실행 번호 */
 export const ANN_DEV_CLAIM_LUA =
-  "local out = {} for i = 1, #KEYS do if redis.call('SET', KEYS[i], ARGV[1], 'NX', 'EX', ARGV[2]) then out[i] = 1 else out[i] = 0 end end return out";
+  "local out = {} for i = 1, #KEYS do local v = redis.call('GET', KEYS[i]) " +
+  "if v == ARGV[1] then out[i] = 1 elseif v then out[i] = 0 else redis.call('SET', KEYS[i], ARGV[1], 'EX', ARGV[2]) out[i] = 1 end end return out";
+
+/** 한 묶음(자리 잡기 → 보내기) 크기 — APNs 동시 요청도 이 수를 넘지 않는다 */
+export const ANN_CHUNK = 200;
+/** 이 시간이 지나면 새 묶음을 시작하지 않는다(함수 상한 60초 안에 기록까지 끝내게). 남은 기기는 자리를 잡지 않으니 다음 공지가 받는다 */
+export const ANN_BUDGET_MS = 35_000;
 
 export interface AnnounceRequest {
   id: string;
@@ -132,6 +146,7 @@ export interface AnnounceStore {
   smembers(key: string): Promise<string[]>;
   mget(keys: string[]): Promise<unknown[]>;
   eval(script: string, keys: string[], args: string[]): Promise<unknown>;
+  /** ttlSec 0 = 만료 없음 */
   set(key: string, value: string, ttlSec: number): Promise<unknown>;
   lpush(key: string, value: string): Promise<unknown>;
   srem(key: string, members: string[]): Promise<unknown>;
@@ -141,6 +156,10 @@ export interface AnnounceDeps {
   store: AnnounceStore;
   send: (items: SignalPushItem[]) => Promise<Map<string, SendOutcome>>;
   now?: () => number;
+  /** 경과 시간 시계(시험용) — 기본 Date.now */
+  clock?: () => number;
+  /** 이번 실행 번호(시험용) — 기본 무작위 */
+  nonce?: string;
 }
 
 type Split = Record<AnnPlatform, Record<AnnLoc, number>>;
@@ -167,6 +186,8 @@ export interface AnnounceReport {
   fail: number;
   dead: number;
   sentSplit: Split;
+  /** 시간 예산이 끝나 이번에 자리도 잡지 않고 보내지 않은 기기 */
+  deferred: number;
   preview: Record<AnnLoc, AnnCopy>;
 }
 
@@ -187,7 +208,7 @@ export async function runAnnounce(req: AnnounceRequest, deps: AnnounceDeps): Pro
     ok: true, status: 200, dry: req.dry, id: req.id, at: new Date(now).toISOString(), path: req.path, platforms: req.platforms,
     tokens: 0, targets: 0, split: emptySplit(),
     skipped: { noRecord: 0, otherApp: 0, optedOut: 0, noPerm: 0, platform: 0, weeklyCap: 0 },
-    quiet: 0, sent: 0, fail: 0, dead: 0, sentSplit: emptySplit(),
+    quiet: 0, sent: 0, fail: 0, dead: 0, sentSplit: emptySplit(), deferred: 0,
     preview: { ko: copyFor(req, 'ko'), ja: copyFor(req, 'ja'), en: copyFor(req, 'en') },
   };
   const stop = (status: number, reason: NonNullable<AnnounceReport['reason']>) => ({ ...report, ok: false, status, reason });
@@ -222,48 +243,48 @@ export async function runAnnounce(req: AnnounceRequest, deps: AnnounceDeps): Pro
     report.skipped.weeklyCap = capped;
     for (const d of open) { report.split[d.platform][d.locale]++; if (inQuietHours(d.tz, now)) report.quiet++; }
     report.targets = open.length;
-    report.wouldBlock = blackout ? 'blackout' : claimed != null ? 'duplicate' : last != null ? 'daily_cap' : open.length > ANN_MAX_TARGETS ? 'too_many_targets' : null;
+    report.wouldBlock = blackout ? 'blackout' : claimed != null ? 'duplicate' : last != null ? 'daily_cap' : devices.length > ANN_MAX_TARGETS ? 'too_many_targets' : null;
     return report;
   }
 
   if (devices.length > ANN_MAX_TARGETS) return stop(413, 'too_many_targets');
 
-  // 3) 공지 ID + 24시간 자리 — 원자적으로 함께
-  const claimVal = JSON.stringify({ state: 'sending', at: report.at });
-  const c = await store.eval(ANN_CLAIM_LUA, [ANN_KEYS.claim(req.id), ANN_KEYS.last], [claimVal, String(ANN_LOG_TTL_S), JSON.stringify({ id: req.id, at: report.at }), String(ANN_DAY_TTL_S)]);
+  // 3) 공지 ID + 24시간 자리 — 원자적으로 함께(이번 실행 번호로 — 재시도해도 자기 자리)
+  const clock = deps.clock ?? Date.now;
+  const t0 = clock();
+  const nonce = deps.nonce ?? `${req.id}:${now}:${Math.random().toString(36).slice(2, 12)}`;
+  const c = await store.eval(ANN_CLAIM_LUA, [ANN_KEYS.claim(req.id), ANN_KEYS.last], [nonce, String(ANN_DAY_TTL_S)]);
   if (c === 'dup') return stop(409, 'duplicate');
   if (c !== 'ok') return stop(429, 'daily_cap');
 
-  // 4) 기기 자리(7일) — 보내기 전에 잡는다
-  const picked: AnnDevice[] = [];
-  for (let i = 0; i < devices.length; i += 200) {
-    const chunk = devices.slice(i, i + 200);
-    const res = await store.eval(ANN_DEV_CLAIM_LUA, chunk.map((d) => ANN_KEYS.dev(d.dev)), [req.id, String(ANN_DEV_TTL_S)]);
-    const arr = Array.isArray(res) ? res : [];
-    chunk.forEach((d, j) => { if (Number(arr[j]) === 1) picked.push(d); else report.skipped.weeklyCap++; });
-  }
-  report.targets = picked.length;
-
-  // 5) 보내기 — 기기 언어 문구 · 조용한 시간은 소리 없이
-  const items: SignalPushItem[] = picked.map((d) => {
-    const quiet = inQuietHours(d.tz, now);
-    if (quiet) report.quiet++;
-    report.split[d.platform][d.locale]++;
-    const copy = copyFor(req, d.locale);
-    return {
-      id: d.dev, token: d.token, platform: d.platform, title: copy.title, body: copy.body, quiet, thread: `announce-${req.id}`,
-      data: { type: ANNOUNCE_PUSH_TYPE, path: req.path, aid: req.id, src: 'push_announce', locale: d.locale },
-    };
-  });
-  let outcomes = new Map<string, SendOutcome>();
-  if (items.length) {
-    try { outcomes = await deps.send(items); } catch { outcomes = new Map(); }
-  }
+  // 4) 묶음마다: 기기 자리(7일, 보내기 전) → 보내기 · 기기 언어 문구 · 조용한 시간은 소리 없이
   const dead: string[] = [];
-  for (const it of items) {
-    const o = outcomes.get(it.id) ?? 'fail';
-    if (o === 'ok') { report.sent++; report.sentSplit[it.platform as AnnPlatform][(it.data.locale as AnnLoc)]++; }
-    else { report.fail++; if (o === 'dead') { report.dead++; dead.push(it.token); } }
+  for (let i = 0; i < devices.length; i += ANN_CHUNK) {
+    if (clock() - t0 > ANN_BUDGET_MS) { report.deferred = devices.length - i; break; }
+    const chunk = devices.slice(i, i + ANN_CHUNK);
+    const res = await store.eval(ANN_DEV_CLAIM_LUA, chunk.map((d) => ANN_KEYS.dev(d.dev)), [nonce, String(ANN_DEV_TTL_S)]);
+    const arr = Array.isArray(res) ? res : [];
+    const picked: AnnDevice[] = [];
+    chunk.forEach((d, j) => { if (Number(arr[j]) === 1) picked.push(d); else report.skipped.weeklyCap++; });
+    report.targets += picked.length;
+    const items: SignalPushItem[] = picked.map((d) => {
+      const quiet = inQuietHours(d.tz, now);
+      if (quiet) report.quiet++;
+      report.split[d.platform][d.locale]++;
+      const copy = copyFor(req, d.locale);
+      return {
+        id: d.dev, token: d.token, platform: d.platform, title: copy.title, body: copy.body, quiet, thread: `announce-${req.id}`,
+        data: { type: ANNOUNCE_PUSH_TYPE, path: req.path, aid: req.id, src: 'push_announce', locale: d.locale },
+      };
+    });
+    if (!items.length) continue;
+    let outcomes = new Map<string, SendOutcome>();
+    try { outcomes = await deps.send(items); } catch { outcomes = new Map(); }
+    for (const it of items) {
+      const o = outcomes.get(it.id) ?? 'fail';
+      if (o === 'ok') { report.sent++; report.sentSplit[it.platform as AnnPlatform][(it.data.locale as AnnLoc)]++; }
+      else { report.fail++; if (o === 'dead') { report.dead++; dead.push(it.token); } }
+    }
   }
 
   // 6) 죽은 토큰 정리 · 기록 — 기록 실패가 응답을 막지 않게
@@ -273,10 +294,10 @@ export async function runAnnounce(req: AnnounceRequest, deps: AnnounceDeps): Pro
       await store.del(dead.map(ANN_KEYS.token));
     }
   } catch { /* 다음 발송기가 다시 정리한다 */ }
-  const log = JSON.stringify({ state: 'done', ...report, preview: undefined, copy: req.copy });
+  const log = JSON.stringify({ state: report.deferred ? 'partial' : 'done', ...report, preview: undefined, copy: req.copy });
   try {
     await store.set(ANN_KEYS.log(req.id), log, ANN_LOG_TTL_S);
-    await store.set(ANN_KEYS.claim(req.id), log, ANN_LOG_TTL_S);
+    await store.set(ANN_KEYS.claim(req.id), log, 0);   // 같은 ID 는 영원히 1회 — 만료 없음
     await store.lpush(ANN_KEYS.index, JSON.stringify({ id: req.id, at: report.at, targets: report.targets, sent: report.sent, fail: report.fail }));
   } catch { /* 자리는 이미 잡혔다 — 중복은 생기지 않는다 */ }
   return report;
