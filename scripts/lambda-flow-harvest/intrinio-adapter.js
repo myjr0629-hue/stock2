@@ -147,9 +147,18 @@ let _queue = Promise.resolve();
 const MAX_CONCURRENCY = Number(process.env.INTRINIO_MAX_CONCURRENCY || 4);
 let _active = 0;
 const _waiters = [];
+// 우선 레인 가드(setCallGuard)는 «요청이 실제로 나가기 직전»(동시성 자리를 얻는 순간)에도 본다 — 대기열에 쌓인 요청까지 막는다.
+//   자리를 안 얻고 거절하므로 _release 짝이 필요 없다. 깨운 대기자가 거절되면 다음 대기자를 깨운다.
+function _laneStop() { noteFail('LANE_STOP'); return new Error('LANE_STOP'); }
 function _acquire() {
-  if (_active < MAX_CONCURRENCY) { _active++; return Promise.resolve(); }
-  return new Promise((resolve) => { _waiters.push(() => { _active++; resolve(); }); });
+  if (_callGuard && _callGuard()) return Promise.reject(_laneStop());
+  if (_active < MAX_CONCURRENCY) { _active++; _callsOut++; return Promise.resolve(); }
+  return new Promise((resolve, reject) => {
+    _waiters.push(function wake() {
+      if (_callGuard && _callGuard()) { reject(_laneStop()); const next = _waiters.shift(); if (next) next(); return; }
+      _active++; _callsOut++; resolve();
+    });
+  });
 }
 function _release() {
   _active--;
@@ -166,8 +175,13 @@ function setRatePerMin(n) {
 /** 버킷을 비운다 — 재사용 컨테이너가 쉬는 동안 가득 찬 토큰을 한꺼번에 쓰지 않게(우선 레인 시작 시). */
 function resetRateBucket() { _tokens = 0; _refillAt = Date.now(); }
 // 실제로 공급사에 나간 요청 수·429 수(누적) — 우선 레인의 회차 예산·429 차단기가 차이로 읽는다.
+// _callsOut 은 동시성 자리를 얻을 때(= 실제 요청 직전) 센다.
 let _callsOut = 0, _calls429 = 0;
 function callStats() { return { calls: _callsOut, r429: _calls429, ratePerMin: RATE_PER_MIN }; }
+// 우선 레인의 «엄격한» 상한 — 이 함수가 true 를 돌려주는 순간부터 새 요청을 내보내지 않는다(이미 나간 요청만 끝난다).
+//   null = 없음(샤드 기본). 샤드 핸들러는 매 호출 시작에 null 로 되돌린다.
+let _callGuard = null;
+function setCallGuard(fn) { _callGuard = typeof fn === 'function' ? fn : null; }
 
 function _takeToken() {
   const now = Date.now();
@@ -183,7 +197,7 @@ function _takeToken() {
 
 /** 호출 직전에 await 한다. 한도를 넘으면 그만큼 기다린다. */
 function rateGate() {
-  _callsOut++;   // callIntrinio 의 시도마다 한 번(실제 요청 직전) — 우선 레인 회차 예산이 읽는다
+  if (_callGuard && _callGuard()) return Promise.reject(_laneStop());
   const run = async () => {
     for (;;) {
       const wait = _takeToken();
@@ -1264,6 +1278,7 @@ module.exports = {
   setRatePerMin,
   resetRateBucket,
   callStats,
+  setCallGuard,
   setChainCache,
   routeMassiveUrl,
   getGroupedDaily,

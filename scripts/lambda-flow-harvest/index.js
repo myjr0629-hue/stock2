@@ -542,6 +542,17 @@ async function fetchOptionsSnapshotRaw(ticker, opts) {
 
     if (opts && opts.stats) Object.assign(opts.stats, probeShapeStats(cachePayload));
     if (opts && opts.dryRun) return true;
+    // 우선 레인 상한이 이 종목 수집 도중 걸렸으면(새 요청 차단) 결과가 빠졌을 수 있다 — 쓰지 않고 다음 회차에 맡긴다
+    if (opts && typeof opts.abortWrite === 'function' && opts.abortWrite()) {
+      if (opts.stats) opts.stats.aborted = true;
+      return false;
+    }
+    // 우선 레인은 «온전한 실시간 체인»만 쓴다 — 그릭스 실패(429 등 → EOD 그릭스)·빠진 만기 체인으로 직전 live 프로브를 덮으면
+    //   바로 그 live↔EOD 뒤집힘이 생긴다. 못 쓰면 직전 프로브(≤10분)·앱 직접 경로가 그대로 맡는다. (샤드는 예전대로 쓴다)
+    if (opts && opts.requireComplete && !opts.dryRun && (cachePayload.partial || cachePayload.greeksSource !== 'realtime')) {
+      if (opts.stats) opts.stats.degraded = true;
+      return false;
+    }
     if (opts && opts.guardNewerThan) {
       const cur = await redisGet('polygon:snapshot:probe:meta:' + ticker).catch(() => null);
       if (cur && Number(cur._ts) > opts.guardNewerThan) {
@@ -1021,6 +1032,7 @@ function addDaysYmd(ymd, n) {
 /** 정규 옵션 세션(09:30 ~ 16:00 ET, 조기 종료일 13:00)인가 — 휴장·주말 제외 */
 function priorityWindow(ms) {
   const et = etParts(ms);
+  if (et.date > '2027-12-31') console.warn('[priority] 휴장 목록(PRIORITY_HOLIDAYS)이 2027년까지 — src/lib/marketCalendar.ts 와 함께 갱신 필요');
   if (et.day === 0 || et.day === 6) return { open: false, reason: 'weekend', et };
   if (PRIORITY_HOLIDAYS.has(et.date)) return { open: false, reason: 'holiday', et };
   const close = PRIORITY_EARLY_CLOSE.has(et.date) ? 13 * 60 : 16 * 60;
@@ -1050,13 +1062,15 @@ function buildPriorityTargets(rows, todayEt, opts) {
     if (!earn.has(t) || d < earn.get(t)) earn.set(t, d);
   }
   const earnings = [...earn.entries()].sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[0] < b[0] ? -1 : 1));
-  const all = [];
-  const seen = new Set();
-  for (const [t] of earnings) if (!seen.has(t)) { seen.add(t); all.push(t); }
-  for (const f of o.fixed) { const t = normTicker(f); if (t && !seen.has(t)) { seen.add(t); all.push(t); } }
+  // 고정 목록은 늘 들어간다(자리 예약) — 실적 종목이 많아도 앱 상위 종목이 밀려나지 않는다. 상한은 실적 쪽에만 걸린다.
+  const fixed = [...new Set(o.fixed.map(normTicker).filter(Boolean))].slice(0, o.maxTickers);
+  const fixedSet = new Set(fixed);
+  const room = Math.max(0, o.maxTickers - fixed.length);
+  const earnOnly = earnings.map(([t]) => t).filter((t) => !fixedSet.has(t));
+  const earnIn = new Set(earnOnly.slice(0, room));
   return {
-    targets: all.slice(0, o.maxTickers),
-    capped: all.slice(o.maxTickers),
+    targets: [...earnings.map(([t]) => t).filter((t) => fixedSet.has(t) || earnIn.has(t)), ...fixed.filter((t) => !earn.has(t))],
+    capped: earnOnly.slice(room),
     earnings: earnings.map(([t, d]) => t + '@' + d.slice(5)),
     end,
   };
@@ -1117,7 +1131,9 @@ async function priorityChainHandler(event) {
     console.log('[priority] 정규장 밖(' + win.reason + ', ET ' + win.et.date + ' ' + Math.floor(win.et.minutes / 60) + ':' + String(win.et.minutes % 60).padStart(2, '0') + ') — 건너뜀');
     return { statusCode: 200, body: JSON.stringify({ skipped: true, mode: 'priority-chain', reason: win.reason }) };
   }
-  if (!forceRun) {
+  // 드라이런은 락도 쓰지 않는다(운영 Redis 쓰기 0)
+  const useLock = !forceRun && !dryRun;
+  if (useLock) {
     const got = await acquireLock(PRIORITY.lockKey, PRIORITY.lockTtl);
     if (!got) {
       console.log('[priority] SKIPPED — 앞 회차가 아직 돈다(' + PRIORITY.lockKey + ')');
@@ -1130,6 +1146,18 @@ async function priorityChainHandler(event) {
   const callsNow = () => (typeof __intrinio.callStats === 'function' ? __intrinio.callStats().calls - stat0.calls : 0);
   const r429Now = () => (typeof __intrinio.callStats === 'function' ? __intrinio.callStats().r429 - stat0.r429 : 0);
   try { if (typeof __intrinio.drainFailCounts === 'function') __intrinio.drainFailCounts(); } catch { }
+  // 엄격한 상한 — 회차 호출·429·시간 중 하나라도 넘는 순간 어댑터가 새 요청을 막는다(배치 중간이어도). 한 번 걸리면 이 회차 끝까지 유지.
+  const deadline = start + PRIORITY.timeBudgetMs;
+  let tripped = null;
+  const tripNow = () => {
+    if (!tripped) {
+      if (callsNow() >= PRIORITY.callBudget) tripped = 'calls';
+      else if (r429Now() >= PRIORITY.trip429) tripped = '429';
+      else if (Date.now() > deadline) tripped = 'time';
+    }
+    return !!tripped;
+  };
+  if (typeof __intrinio.setCallGuard === 'function') __intrinio.setCallGuard(tripNow);
   // 드라이런은 어댑터의 EOD 체인 캐시·최신 EOD 날짜 쓰기까지 막는다(읽기만) — 운영 Redis 쓰기 0
   if (dryRun && typeof __intrinio.setChainCache === 'function') {
     __intrinio.setChainCache({ get: (k) => redisGet(k), set: async () => true });
@@ -1152,34 +1180,33 @@ async function priorityChainHandler(event) {
     const maxAgeS = ages.filter((a) => a != null).reduce((m, a) => Math.max(m, Math.round(a / 1000)), 0);
 
     const per = [];
-    let ok = 0, fail = 0, freshSkip = 0, newerSkip = 0, tripped = null;
+    let ok = 0, fail = 0, freshSkip = 0, newerSkip = 0;
     const notReached = [];
     const batchSize = dryRun ? 1 : Math.max(1, PRIORITY.batch);
-    const deadline = start + PRIORITY.timeBudgetMs;
     const work = order.filter((t) => {
       const a = ageMs.get(t);
       if (!dryRun && a != null && a >= 0 && a < PRIORITY.freshSkipMs) { freshSkip++; per.push({ t, s: 'fresh', ageS: Math.round(a / 1000) }); return false; }
       return true;
     });
     for (let i = 0; i < work.length; i += batchSize) {
-      if (Date.now() > deadline) { tripped = 'time'; notReached.push(...work.slice(i)); break; }
-      if (callsNow() >= PRIORITY.callBudget) { tripped = 'calls'; notReached.push(...work.slice(i)); break; }
-      if (r429Now() >= PRIORITY.trip429) { tripped = '429'; notReached.push(...work.slice(i)); break; }
+      if (tripNow()) { notReached.push(...work.slice(i)); break; }
       const batch = work.slice(i, i + batchSize);
       const c0 = callsNow();
       const res = await Promise.all(batch.map(async (t) => {
         const stats = {};
-        const okT = await fetchOptionsSnapshotRaw(t, { dryRun, stats, guardNewerThan: dryRun ? 0 : start });
+        // 덮어쓰기 기준 = 이 종목 수집을 시작한 시각(그 뒤에 다른 수집이 쓴 판본이 있으면 양보)
+        const okT = await fetchOptionsSnapshotRaw(t, { dryRun, stats, guardNewerThan: dryRun ? 0 : Date.now(), abortWrite: () => !!tripped, requireComplete: true });
         return { t, okT, stats };
       }));
       const cBatch = callsNow() - c0;
       for (const r of res) {
+        if (r.stats.aborted || (!r.okT && tripped)) { notReached.push(r.t); per.push({ t: r.t, s: 'aborted' }); continue; }
         if (r.okT && r.stats.rows > 0) {
           ok++;
           if (r.stats.skippedNewer) newerSkip++;
           else if (!dryRun && r.stats.wrote) lastOk[r.t] = Date.now();
         } else fail++;
-        per.push(Object.assign({ t: r.t, s: r.okT ? (r.stats.skippedNewer ? 'newer' : 'ok') : 'fail' }, dryRun ? { calls: cBatch } : {}, r.stats));
+        per.push(Object.assign({ t: r.t, s: r.okT ? (r.stats.skippedNewer ? 'newer' : 'ok') : r.stats.degraded ? 'degraded' : 'fail' }, dryRun ? { calls: cBatch } : {}, r.stats));
       }
     }
 
@@ -1189,14 +1216,14 @@ async function priorityChainHandler(event) {
       at: new Date().toISOString(), mode: 'priority-chain', dryRun, forced: forceRun, session: win.reason, etDate: todayEt,
       calendar: cal.source, calendarGeneratedAt: cal.generatedAt,
       targets: tg.targets.length, earnings: tg.earnings, capped: tg.capped,
-      ok, fail, freshSkip, newerSkip, notReached,
+      ok, fail, degraded: per.filter((x) => x.s === 'degraded').length, freshSkip, newerSkip, notReached,
       missingAtStart, staleAtStart, maxAgeS,
       calls: callsNow(), r429: r429Now(), ratePerMin: rate, tripped,
       durationMs: Date.now() - start,
       vendor: vendor.map(([k, n]) => k.slice(0, 60) + '×' + n),
     };
     console.log('[priority] ' + (dryRun ? '(드라이런·쓰기 0) ' : '') + '대상 ' + summary.targets + '(실적 ' + tg.earnings.length + ': ' + tg.earnings.join(' ') + ' · 캘린더 ' + cal.source + (tg.capped.length ? ' · 상한 밖 ' + tg.capped.join(',') : '') + ')' +
-      ' · ok ' + ok + ' · 신선 건너뜀 ' + freshSkip + ' · 늦은쓰기 양보 ' + newerSkip + ' · fail ' + fail + (notReached.length ? ' · 못 감 ' + notReached.join(',') : '') +
+      ' · ok ' + ok + ' · 신선 건너뜀 ' + freshSkip + ' · 늦은쓰기 양보 ' + newerSkip + ' · fail ' + fail + '(그릭스·만기 불완전 ' + summary.degraded + ')' + (notReached.length ? ' · 못 감 ' + notReached.join(',') : '') +
       ' · 시작 시 프로브 없음 ' + missingAtStart + '·10분 초과 ' + staleAtStart + '·최대 ' + maxAgeS + 's' +
       ' · 호출 ' + summary.calls + ' · 429 ' + summary.r429 + (tripped ? ' · 중단(' + tripped + ')' : '') + ' · ' + Math.round(summary.durationMs / 1000) + 's');
     if (tg.capped.length || staleAtStart || missingAtStart) console.warn('[priority] 10분 목표 미달 표본 — 상한 밖 ' + tg.capped.length + ' · 없음 ' + missingAtStart + ' · 10분 초과 ' + staleAtStart);
@@ -1216,7 +1243,8 @@ async function priorityChainHandler(event) {
     if (dryRun && typeof __intrinio.setChainCache === 'function') {
       __intrinio.setChainCache({ get: (k) => redisGet(k), set: (k, v, ttl) => redisSet(k, v, ttl) });
     }
-    if (!forceRun) await releaseLock(PRIORITY.lockKey);
+    if (typeof __intrinio.setCallGuard === 'function') __intrinio.setCallGuard(null);
+    if (useLock) await releaseLock(PRIORITY.lockKey);
   }
 }
 
@@ -1228,6 +1256,7 @@ exports.handler = async (event) => {
   if (event && event.mode === 'priority-chain') return priorityChainHandler(event);
   // 재사용 컨테이너가 직전에 우선 레인(낮은 속도)이었을 수 있다 — 샤드는 늘 환경 값 속도
   if (typeof __intrinio.setRatePerMin === 'function') __intrinio.setRatePerMin(null);
+  if (typeof __intrinio.setCallGuard === 'function') __intrinio.setCallGuard(null);
   const start = Date.now();
   const forceRun = event?.forceRun || event?.test || false;
 

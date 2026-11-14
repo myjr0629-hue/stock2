@@ -89,9 +89,16 @@ test('대상 — 10일 양 끝 포함·지난 행 제외·대문자·중복·잘
   assert.deepEqual(r.targets.slice(0, 4), ['TODAY', 'HD', 'NVDA', 'EDGE']);
   assert.equal(r.targets.filter((t) => t === 'NVDA').length, 1);
   assert.deepEqual(r.targets.slice(4), P0.PRIORITY_FIXED.filter((t) => t !== 'NVDA'));
-  const capped = P0.buildPriorityTargets(rows, '2026-11-14', { maxTickers: 5 });
-  assert.equal(capped.targets.length, 5);
-  assert.equal(capped.capped.length, r.targets.length - 5);
+  // 상한은 실적 쪽에만 — 고정 12개는 자리 예약(관문 11140907 P2)
+  const capped = P0.buildPriorityTargets(rows, '2026-11-14', { maxTickers: 14 });
+  assert.equal(capped.targets.length, 14);
+  assert.deepEqual(capped.capped, ['EDGE']);
+  for (const f of P0.PRIORITY_FIXED) assert.ok(capped.targets.includes(f), f);
+  const many = Array.from({ length: 60 }, (_, i) => ({ ticker: 'E' + String.fromCharCode(65 + (i % 26)) + String.fromCharCode(65 + Math.floor(i / 26)), date: '2026-11-15' }));
+  const big = P0.buildPriorityTargets(many, '2026-11-14');
+  assert.equal(big.targets.length, 40);
+  for (const f of P0.PRIORITY_FIXED) assert.ok(big.targets.includes(f), '실적 60개여도 고정 ' + f + ' 포함');
+  assert.equal(big.capped.length, 60 - 28);
   assert.deepEqual(P0.buildPriorityTargets(null, '2026-11-14').targets, P0.PRIORITY_FIXED);
 });
 
@@ -160,7 +167,8 @@ async function runHandler({ event, store, vendor, env, nowMs }) {
       INTRINIO_API_KEY: 'test', INTRINIO_RATE_PER_MIN: '60000', PRIORITY_RATE_PER_MIN: '60000', INTRINIO_MAX_ATTEMPTS: '1',
       PRIORITY_TRIP_429: '8', PRIORITY_CALL_BUDGET: '1200',
     }, env || {}));
-    if (nowMs) Date.now = () => nowMs;
+    // 시계를 멈추지 않고 옮긴다(멈추면 토큰 버킷이 다시 차지 않는다)
+    if (nowMs) { const shift = nowMs - realNow(); Date.now = () => realNow() + shift; }
     const out = await index.handler(event);
     Date.now = realNow;
     return { out, body: JSON.parse(out.body), writes: px.writes, adapter };
@@ -245,20 +253,39 @@ test('다른 수집이 150초 안에 쓴 종목은 건너뛴다 · 우리보다 
   assert.ok(!r.writes.some((w) => w.key === 'polygon:snapshot:probe:AAPL'));
 });
 
-test('429 가 8건 쌓이면 그 회차를 멈춘다(남은 종목은 다음 회차) · 회차 호출 상한', async () => {
+test('429 8건·회차 호출 상한은 «엄격» — 넘는 순간 배치 중간이어도 새 요청 차단 · 차단 뒤 결과는 쓰지 않는다', async () => {
   const store = new Map([['market:earnings-calendar:v4', CAL([])]]);
-  let r = await runHandler({ event: { mode: 'priority-chain', forceRun: true }, store, vendor: fakeVendor({ status429: (p) => p.startsWith('options/greeks') }), env: { PRIORITY_BATCH: '4' } });
+  const v429 = fakeVendor({ status429: (p) => p.startsWith('options/greeks') });
+  let r = await runHandler({ event: { mode: 'priority-chain', forceRun: true }, store, vendor: v429, env: { PRIORITY_BATCH: '12', INTRINIO_MAX_CONCURRENCY: '2' } });
   assert.equal(r.body.tripped, '429');
   assert.ok(r.body.notReached.length > 0);
-  assert.ok(r.body.r429 >= 8);
+  assert.ok(r.body.r429 >= 8 && r.body.r429 <= 8 + 2, '429 = 상한 + 이미 나간 요청(동시 2) 안: ' + r.body.r429);
+  assert.equal(r.body.ok, 0);
+  assert.equal(r.body.degraded + r.body.notReached.length, 12, '429 로 그릭스가 빠진 종목 = 불완전 또는 중단(쓰지 않음)');
+  assert.ok(!r.writes.some((w) => /^polygon:snapshot:probe:/.test(w.key)), '그릭스가 빠진 체인을 쓰지 않았다');
+  const store1 = new Map([['market:earnings-calendar:v4', CAL([])], ['polygon:snapshot:probe:NVDA', { keep: 1 }]]);
+  r = await runHandler({ event: { mode: 'priority-chain', forceRun: true }, store: store1, vendor: fakeVendor({ status429: (p) => p.startsWith('options/greeks') }), env: { PRIORITY_BATCH: '1' } });
+  assert.ok(r.body.degraded >= 1, '차단 전 종목 = 불완전(그릭스 EOD) → 쓰지 않음');
+  assert.deepEqual(store1.get('polygon:snapshot:probe:NVDA'), { keep: 1 }, '직전 프로브를 EOD 그릭스로 덮지 않았다');
   const store2 = new Map([['market:earnings-calendar:v4', CAL([])]]);
-  r = await runHandler({ event: { mode: 'priority-chain', forceRun: true }, store: store2, vendor: fakeVendor(), env: { PRIORITY_CALL_BUDGET: '20', PRIORITY_BATCH: '1' } });
+  r = await runHandler({ event: { mode: 'priority-chain', forceRun: true }, store: store2, vendor: fakeVendor(), env: { PRIORITY_CALL_BUDGET: '20', PRIORITY_BATCH: '12', INTRINIO_MAX_CONCURRENCY: '2' } });
   assert.equal(r.body.tripped, 'calls');
-  assert.ok(r.body.calls < 20 + 12, '상한 + 한 종목분 안');
+  assert.ok(r.body.calls <= 20, '나간 요청 ≤ 상한(차단은 요청 전에): ' + r.body.calls);
+  for (const w of r.writes.filter((x) => /^polygon:snapshot:probe:[A-Z]+$/.test(x.key))) {
+    const v = store2.get(w.key);
+    assert.equal(v.partial, false, w.key); assert.equal(v.greeksSource, 'realtime', w.key);
+  }
   // 다음 회차는 못 간 종목부터
   const lastOk = store2.get('flow-harvest:priority:last-ok');
   const order = P0.priorityOrder(P0.PRIORITY_FIXED, lastOk);
   assert.equal(order[0], r.body.notReached[0]);
+});
+
+test('드라이런은 정규장 정기 모양(forceRun 없음)이어도 락·상태 포함 쓰기 0 (관문 11140907 P1)', async () => {
+  const store = new Map([['market:earnings-calendar:v4', CAL([])]]);
+  const r = await runHandler({ event: { mode: 'priority-chain', dryRun: true }, store, vendor: fakeVendor(), nowMs: Date.parse('2026-11-16T15:00:00Z') });
+  assert.equal(r.body.ok, 12);
+  assert.equal(r.writes.length, 0, JSON.stringify(r.writes.slice(0, 3)));
 });
 
 test('락 — 앞 회차가 돌고 있으면 건너뛴다(정규장 안 정기 호출) · 자기 키·280초', async () => {
@@ -280,4 +307,5 @@ test('샤드 경로 — 우선 레인 다음 같은 컨테이너에서도 환경
   assert.equal(adapter.setRatePerMin(240), 240);
   assert.equal(adapter.setRatePerMin(5000), 420, '환경 값보다 높일 수 없다');
   assert.equal(adapter.setRatePerMin(null), 420);
+  assert.match(src, /if \(typeof __intrinio\.setCallGuard === 'function'\) __intrinio\.setCallGuard\(null\);\n  const start = Date\.now\(\);/, '샤드 시작에 가드 해제');
 });
