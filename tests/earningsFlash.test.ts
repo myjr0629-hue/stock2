@@ -1,7 +1,7 @@
 // «실적 발표 직후» 알림(earnings_flash) — 발표 전 미발송 · 발표 후 1회 · 가격/기대값 없음 미발송 · 중복 0 · 상한 분리 · 언어별 문구 · 설정 존중
 import assert from 'node:assert/strict';
 import {
-  runEarningsFlash, flashCopy, flashPath, quoteFromSnapshot, judgeMove, snapFromImplied, snapUsable, captureEntries, dueEntries, flashEntries, resolveFlashMode,
+  runEarningsFlash, flashCopy, flashPath, quoteFromSnapshot, judgeMove, snapFromImplied, snapUsable, captureEntries, pickCaptures, dueEntries, flashEntries, resolveFlashMode,
   FLASH_KEYS, FLASH_CFG, type FlashDeps, type FlashQuote, type FlashReaders, type ImpliedRowLike, type FlashEntry,
 } from '../src/lib/signals/earningsFlash';
 
@@ -213,6 +213,70 @@ t('예약 단위는 운영 재시도 설정을 따른다(줄이지는 못함) ·
   assert.equal(asked[0].length, 12);
   assert.deepEqual(asked[1].slice(0, 2), ['B12', 'B13'], '두 번째 회차는 못 뜬 종목부터');
   assert.equal(tks.every((x) => r2.store.m.has(FLASH_KEYS.exp(x, D))), true);
+});
+
+t('뜨기 공정성 — 앞 12종목이 계속 못 떠도 13번째 이후가 다음 회차에 들어간다 · 실패 종목은 시도 시각(짧은 TTL)만 남기고 자리가 남으면 재시도', async () => {
+  const tks = Array.from({ length: 14 }, (_, i) => `C${String(i).padStart(2, '0')}`);
+  const list = tks.map((x) => ce(x, 'amc', '16:05'));
+  const good = new Set(['C12', 'C13']);
+  const r = rig({});
+  const asked: string[][] = [];
+  r.deps.readers.implied = async (entries) => { asked.push(entries.map((e) => e.ticker)); return new Map(entries.filter((e) => good.has(e.ticker)).map((e) => [e.ticker, implied()])); };
+  dev(r, IOS_TOKEN, tks);
+  const go = (now: number, kind: 'cron' | 'preview' = 'cron') => runEarningsFlash(r.deps, { now, kind, list, envMode: null, signalEnvMode: null });
+  const rep1 = await go(ET(D, 15, 35));
+  assert.deepEqual(asked[0], tks.slice(0, 12), '첫 회차 = 앞 12개(전부 실패)');
+  assert.deepEqual(rep1.captured, []);
+  assert.equal(tks.slice(0, 12).every((x) => r.store.m.get(FLASH_KEYS.capTry(x, D)) === String(ET(D, 15, 35))), true, '실패 종목은 시도 시각 기록');
+  assert.equal(tks.slice(0, 12).every((x) => r.store.ttl.get(FLASH_KEYS.capTry(x, D)) === FLASH_CFG.captureTryTtlSec), true, '시도 키는 TTL 필수');
+  assert.equal(r.store.m.has(FLASH_KEYS.capTry('C12', D)), false, '시도 안 한 종목은 기록 없음');
+  const rep2 = await go(ET(D, 15, 50));
+  assert.equal(asked[1].length, 12, '상한 12 그대로');
+  assert.deepEqual(asked[1].slice(0, 2), ['C12', 'C13'], '두 번째 회차는 시도 안 한 13·14번째부터');
+  assert.deepEqual(asked[1].slice(2), tks.slice(0, 10), '남는 자리는 실패 종목 재시도(시도 오래된 순)');
+  assert.deepEqual(rep2.captured.sort(), ['C12|2026-11-17:6.2', 'C13|2026-11-17:6.2']);
+  assert.equal(r.store.m.has(FLASH_KEYS.exp('C12', D)) && r.store.m.has(FLASH_KEYS.exp('C13', D)), true);
+  // 미리보기는 시도 키를 쓰지 않는다
+  const before = r.store.writes.length;
+  await go(ET(D, 15, 55), 'preview');
+  assert.equal(r.store.writes.slice(before).some((w) => w.includes(':try:')), false, '미리보기 쓰기 0');
+});
+
+t('뜨기 순서 — 24시간 안 발표(NVDA 같은 오늘 장후)가 담은 기기 많은 먼 발표보다 먼저 · 대기 지난 실패 종목은 다시 앞 구간', () => {
+  // 금요일(11/20) 기준 세션: 오늘 장후 NVDA(기기 1) vs 월요일(11/23) 장전 12종목(기기 2)
+  const FRI = '2026-11-20', MON = '2026-11-23';
+  const far: FlashEntry[] = Array.from({ length: 12 }, (_, i) => ({ ticker: `M${String(i).padStart(2, '0')}`, date: MON, hour: 'bmo', etTime: null }));
+  const nv: FlashEntry = { ticker: 'NVDA', date: FRI, hour: 'amc', etTime: '16:20' };
+  const all = [...far, nv];
+  const now = ET(FRI, 15, 35);
+  assert.deepEqual(captureEntries(all, now).length, 13, '13개 모두 오늘 뜨기 대상');
+  const holders = new Map<string, number>([...far.map((e) => [e.ticker, 2] as [string, number]), ['NVDA', 1]]);
+  const none = all.map(() => null);
+  const p1 = pickCaptures(all, none, none, holders, now);
+  assert.equal(p1.length, 12); assert.equal(p1[0].ticker, 'NVDA', '발표 임박 종목이 맨 앞');
+  // NVDA 가 방금(15분 전) 실패 → 시도 안 한 발표 뒤로 · 25분 전 실패면 대기 끝 → 다시 맨 앞
+  const tried15 = all.map((e) => (e.ticker === 'NVDA' ? now - 15 * 60_000 : null));
+  assert.equal(pickCaptures(all, none, tried15, holders, now).map((e) => e.ticker).indexOf('NVDA'), -1, '시도 안 한 12개가 자리를 채움');
+  const tried25 = all.map((e) => (e.ticker === 'NVDA' ? now - 25 * 60_000 : null));
+  assert.equal(pickCaptures(all, none, tried25, holders, now)[0].ticker, 'NVDA');
+  // 이미 떠 둔 발표는 맨 뒤 · 같은 임박 구간 안에선 담은 기기 많은 순
+  const exp = all.map((e) => (e.ticker === 'M00' ? '{}' : null));
+  const p2 = pickCaptures(all, exp, none, holders, now).map((e) => e.ticker);
+  assert.equal(p2[0], 'NVDA'); assert.equal(p2.includes('M00'), false, '떠 둔 M00 은 남는 자리 없음');
+  const soon: FlashEntry[] = [{ ticker: 'AAA', date: FRI, hour: 'amc', etTime: '16:05' }, { ticker: 'ZZZ', date: FRI, hour: 'amc', etTime: '16:30' }];
+  assert.deepEqual(pickCaptures(soon, [null, null], [null, null], new Map([['AAA', 1], ['ZZZ', 5]]), now).map((e) => e.ticker), ['ZZZ', 'AAA']);
+});
+
+t('뜨기 — 운영 흐름에서도 24시간 안 장후 종목(NVDA)이 첫 회차에 들어간다(13종목 이상)', async () => {
+  const FRI = '2026-11-20', MON = '2026-11-23';
+  const far = Array.from({ length: 12 }, (_, i) => `M${String(i).padStart(2, '0')}`);
+  const list = [...far.map((x) => ce(x, 'bmo', undefined, MON)), ce('NVDA', 'amc', '16:20', FRI)];
+  const r = rig({});
+  const asked: string[][] = [];
+  r.deps.readers.implied = async (entries) => { asked.push(entries.map((e) => e.ticker)); return new Map(); };
+  dev(r, IOS_TOKEN, [...far, 'NVDA']); dev(r, IOS_TOKEN2, far);
+  await runEarningsFlash(r.deps, { now: ET(FRI, 15, 35), kind: 'cron', list, envMode: null, signalEnvMode: null });
+  assert.equal(asked[0].length, 12); assert.equal(asked[0][0], 'NVDA', '담은 기기 적어도 발표 임박이 먼저');
 });
 
 // ── 장전 ──

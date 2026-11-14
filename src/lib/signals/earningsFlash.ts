@@ -61,6 +61,15 @@ export const FLASH_CFG = {
   vendorPerDay: 400,
   /** 한 회차에 예상값을 뜨는 종목 수(저장본 읽기 상한 — 구조 판본이 종목당 수십 KB) */
   maxCapturesPerRun: 12,
+  /**
+   * 뜨기 실패 종목의 «마지막 시도» 대기(관문 밤 검토 11/15) — 이 안에 시도했던(못 뜬) 발표는 다음 회차에 아직 시도 안 한 발표 뒤로 간다.
+   * 회차 간격(15분)보다 길어야 바로 앞 회차 실패가 다음 회차 선두를 다시 차지하지 않는다 · 자리가 남으면 그대로 재시도한다(버리지 않음)
+   */
+  captureRetryBackoffMs: 20 * 60_000,
+  /** 마지막 시도 기록 수명(짧게 — 뜨기 창은 마감 전 30분) */
+  captureTryTtlSec: 6 * 3600,
+  /** 이 안에 결과가 나오는 발표는 뜨기 순서에서 먼저(같은 대기 구간 안에서) */
+  captureImminentMs: 24 * 3600_000,
   /** 한 번의 발표 반응으로 이보다 큰 등락(%)은 틱 오류로 본다 */
   maxPlausibleMovePct: 50,
 } as const;
@@ -70,6 +79,8 @@ export const FLASH_KEYS = {
   mode: 'push:sig:flash:mode',
   lock: 'push:sig:flash:lock',
   exp: (t: string, d: string) => `push:sig:flash:exp:${t}:${d}`,
+  /** 예상값 뜨기 마지막 시도 시각(못 뜬 발표만 · TTL captureTryTtlSec) — 실패 종목이 회차마다 선두를 차지하지 않게 */
+  capTry: (t: string, d: string) => `push:sig:flash:try:${t}:${d}`,
   ev: (t: string, d: string) => `push:sig:flash:ev:${t}:${d}`,
   sent: (dev: string, t: string, d: string) => `push:sig:flash:s:${dev}:${t}:${d}`,
   cool: (dev: string, t: string) => `push:sig:flash:c:${dev}:${t}`,
@@ -167,6 +178,43 @@ function amcSnapDeadline(e: FlashEntry): number | null {
   if (close == null) return null;
   const r = e.etTime ? etWallToMs(e.date, e.etTime) : null;
   return r != null ? Math.min(Math.max(r, close), close + 4 * 3600_000) : close;
+}
+
+/** 결과가 나오는 (대략의) 시각 — 뜨기 순서의 «발표 임박» 판단용(판정에는 쓰지 않는다) */
+export function releaseApproxMs(e: FlashEntry): number | null {
+  if (e.hour === 'amc') {
+    const r = amcReleaseMs(e);
+    if (r != null) return r;
+    return isNonTradingDay(e.date) ? null : etWallToMs(e.date, hhmm(sessionCloseMinutes(e.date)));
+  }
+  return etWallToMs(e.date, e.etTime ?? '09:30');
+}
+
+/**
+ * 한 회차에 뜰 발표 고르기(상한 maxCapturesPerRun) — 순서:
+ *   ① 아직 못 떴고 최근(captureRetryBackoffMs) 시도하지 않은 발표: 24시간 안 발표 먼저 → 담은 기기 많은 순 → 오래 전 시도 먼저 → 발표 이른 순
+ *   ② 아직 못 떴고 최근 시도했다 실패한 발표: 시도 오래된 순(자리가 남으면 재시도)
+ *   ③ 이미 떠 둔 발표(남는 자리에서 새 값으로 갱신)
+ * exp·tried 는 capAll 과 같은 순서의 저장값(없으면 null). 앞 12개가 계속 실패해도 13번째 이후가 다음 회차에 들어간다(관문 밤 검토 11/15).
+ */
+export function pickCaptures(capAll: readonly FlashEntry[], exp: readonly unknown[], tried: readonly unknown[], holders: ReadonlyMap<string, number>, now: number): FlashEntry[] {
+  const rows = capAll.map((e, i) => {
+    const tRaw = Number(tried[i]);
+    const lastTry = Number.isFinite(tRaw) && tRaw > 0 && tRaw <= now + 60_000 ? tRaw : 0;
+    const rel = releaseApproxMs(e);
+    return {
+      e, have: exp[i] != null, lastTry,
+      backoff: lastTry > 0 && now - lastTry < FLASH_CFG.captureRetryBackoffMs,
+      imminent: rel != null && rel - now <= FLASH_CFG.captureImminentMs ? 0 : 1,
+      rel: rel ?? Number.MAX_SAFE_INTEGER, h: holders.get(e.ticker) ?? 0,
+    };
+  });
+  type R = (typeof rows)[number];
+  const tie = (a: R, b: R) => a.imminent - b.imminent || b.h - a.h || a.lastTry - b.lastTry || a.rel - b.rel || a.e.ticker.localeCompare(b.e.ticker);
+  const fresh = rows.filter((r) => !r.have && !r.backoff).sort(tie);
+  const retry = rows.filter((r) => !r.have && r.backoff).sort((a, b) => a.lastTry - b.lastTry || tie(a, b));
+  const done = rows.filter((r) => r.have).sort((a, b) => b.h - a.h || a.e.ticker.localeCompare(b.e.ticker));
+  return [...fresh, ...retry, ...done].slice(0, FLASH_CFG.maxCapturesPerRun).map((r) => r.e);
 }
 
 /** 판정 창 [시작, 끝) — 이 안의 회차만 시세를 본다 */
@@ -455,17 +503,25 @@ export async function runEarningsFlash(deps: FlashDeps, o: FlashOpts): Promise<F
     const byHolders = (a: FlashEntry, b: FlashEntry) => (holders.get(b.ticker) ?? 0) - (holders.get(a.ticker) ?? 0) || a.ticker.localeCompare(b.ticker);
 
     // ① 예상값 뜨기 — 기준 세션 마감 전 30분(종목을 담은 기기가 있는 발표만 · 저장본 읽기만)
-    // 아직 못 뜬 발표부터(같은 앞 12종목만 반복해 뒤 종목이 굶지 않게, 관문 11140731-3 #1) — 떠 둔 키 mget 1회
+    // 아직 못 뜬 발표부터(관문 11140731-3 #1) · 최근 시도했다 못 뜬 발표는 아직 시도 안 한 발표 뒤로(앞 12개가 계속 실패해도
+    // 13번째 이후가 굶지 않게, 밤 검토 11/15) · 같은 구간 안에선 24시간 안 발표 먼저 — 떠 둔 키·시도 키 mget 1회(12종목 넘을 때만)
     const capAll = toCapture.filter((e) => holders.has(e.ticker)).sort(byHolders);
-    const have = capAll.length > FLASH_CFG.maxCapturesPerRun
-      ? await store.mget(capAll.map((e) => FLASH_KEYS.exp(e.ticker, e.date))).catch(() => capAll.map(() => null))
-      : capAll.map(() => null);
-    const cap = [...capAll.filter((_, i) => have[i] == null), ...capAll.filter((_, i) => have[i] != null)].slice(0, FLASH_CFG.maxCapturesPerRun);
+    const over = capAll.length > FLASH_CFG.maxCapturesPerRun;
+    const got = over
+      ? await store.mget([...capAll.map((e) => FLASH_KEYS.exp(e.ticker, e.date)), ...capAll.map((e) => FLASH_KEYS.capTry(e.ticker, e.date))]).catch(() => null)
+      : null;
+    const have = got ? got.slice(0, capAll.length) : capAll.map(() => null);
+    const tried = got ? got.slice(capAll.length) : capAll.map(() => null);
+    const cap = over ? pickCaptures(capAll, have, tried, holders, now) : capAll;
     if (cap.length) {
       const rows = await readers.implied(cap, etDate).catch(() => new Map<string, ImpliedRowLike>());
       for (const e of cap) {
         const r = snapFromImplied(e, rows.get(e.ticker), now);
-        if (!r.ok) { report.skipped.push({ key: idOf(e), reason: `capture:${r.reason}` }); continue; }
+        if (!r.ok) {
+          report.skipped.push({ key: idOf(e), reason: `capture:${r.reason}` });
+          if (!preview) await store.set(FLASH_KEYS.capTry(e.ticker, e.date), String(now), FLASH_CFG.captureTryTtlSec).catch(() => {});
+          continue;
+        }
         if (!preview) await store.set(FLASH_KEYS.exp(e.ticker, e.date), JSON.stringify(r.snap), FLASH_CFG.expTtlSec).catch(() => {});
         report.captured.push(`${idOf(e)}:${r.snap.pct}`);
       }
