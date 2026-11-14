@@ -49,6 +49,7 @@ async function main() {
     ['Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36', 'android'],
     ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130.0 Safari/537.36', 'web'],
     ['Mozilla/5.0 (Linux; Android 13; CUBOT P80; wv) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36', 'android'],
+    ['Mozilla/5.0 (Linux; Android 10; HUAWEI BOT-L21; wv) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36', 'android'],
     ['', 'ios'],
   ];
   async function hit(ua: string, platform: string) {
