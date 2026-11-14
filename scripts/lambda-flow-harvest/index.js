@@ -384,7 +384,11 @@ function chainCompleteness(probeRaw, exactMeta, weeklyExpiry) {
 // Vercel's CentralDataHub._fetchOptionsChain() & structureService check this cache first.
 // ALL calculation logic stays in Vercel — Lambda only caches the raw API response.
 // ──────────────────────────────────────────
-async function fetchOptionsSnapshotRaw(ticker) {
+// opts(우선 체인 레인 전용 — 샤드는 인자 없이 부르므로 동작이 예전과 같다):
+//   opts.guardNewerThan(ms) — 쓰기 직전 판본표 _ts 가 이 시각보다 뒤면(다른 수집이 더 늦게 받아 썼다) 덮어쓰지 않는다
+//   opts.dryRun — 운영 Redis 에 쓰지 않고 모양만 센다(장외 수동 확인용)
+//   opts.stats — 결과 모양 집계를 여기에 채운다(행 수·계약별 live·ivObservedAt·eodDate·만기별 날짜·partial)
+async function fetchOptionsSnapshotRaw(ticker, opts) {
   try {
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
@@ -536,8 +540,19 @@ async function fetchOptionsSnapshotRaw(ticker) {
       _source: 'lambda-flow-harvest',
     };
 
+    if (opts && opts.stats) Object.assign(opts.stats, probeShapeStats(cachePayload));
+    if (opts && opts.dryRun) return true;
+    if (opts && opts.guardNewerThan) {
+      const cur = await redisGet('polygon:snapshot:probe:meta:' + ticker).catch(() => null);
+      if (cur && Number(cur._ts) > opts.guardNewerThan) {
+        if (opts.stats) opts.stats.skippedNewer = true;
+        return true;
+      }
+    }
+
     const probeTtl = getEffectiveTTL(OPTIONS_SNAPSHOT_TTL);
     const wrote = await redisSet('polygon:snapshot:probe:' + ticker, cachePayload, probeTtl);
+    if (opts && opts.stats) opts.stats.wrote = !!wrote;
 
     // ★ [2026-09-25] 작은 «판본표» — Vercel 의 옵션 구조 캐시(장외 72시간)가 이 체인보다
     //   오래된 체인으로 계산된 것인지 수십 바이트로 판정하게 한다(프로브 본문은 수백 KB).
@@ -899,11 +914,12 @@ let LOCK_KEY = 'flow-harvest:lock';
 //   정상 종료 시엔 어차피 코드가 락을 푼다 — 이 값은 «죽었을 때»의 상한이다.
 const LOCK_TTL = Number(process.env.FLOW_LOCK_TTL || 280); // seconds
 
-async function acquireLock() {
+// 인자 없이 부르면 예전과 같다(샤드 락 = LOCK_KEY·LOCK_TTL). 우선 레인은 자기 키·TTL 을 넘긴다.
+async function acquireLock(lockKey = LOCK_KEY, lockTtl = LOCK_TTL) {
   // Try EC2 proxy first (uses SET NX EX pattern)
   try {
     const lockValue = Date.now().toString();
-    const result = await ec2ProxyPost('/setnx', JSON.stringify({ key: LOCK_KEY, value: lockValue, ttl: LOCK_TTL }), 3000);
+    const result = await ec2ProxyPost('/setnx', JSON.stringify({ key: lockKey, value: lockValue, ttl: lockTtl }), 3000);
     if (result && result.ok) return true;
     if (result && result.exists) return false; // another instance holds the lock
   } catch {}
@@ -911,7 +927,7 @@ async function acquireLock() {
   // Fallback: Upstash SET NX EX
   if (!UPSTASH_URL || !UPSTASH_TOKEN) return true; // no Redis = allow run (safe default)
   try {
-    const body = JSON.stringify(['SET', LOCK_KEY, Date.now().toString(), 'NX', 'EX', String(LOCK_TTL)]);
+    const body = JSON.stringify(['SET', lockKey, Date.now().toString(), 'NX', 'EX', String(lockTtl)]);
     const url = new URL(UPSTASH_URL);
     const options = {
       hostname: url.hostname, port: 443, path: '/', method: 'POST',
@@ -936,14 +952,282 @@ async function acquireLock() {
   } catch { return true; }
 }
 
-async function releaseLock() {
-  try { await redisSet(LOCK_KEY, '', 1); } catch {} // expire immediately
+async function releaseLock(lockKey = LOCK_KEY) {
+  try { await redisSet(lockKey, '', 1); } catch {} // expire immediately
+}
+
+// ══════════════════════════════════════════════════════════════
+// ★ [2026-11-14] 우선 체인 레인 — event { mode: 'priority-chain' } (EventBridge 새 규칙 1개, 5분마다)
+//
+//   왜: 샤드 4개는 2,001종목을 20분마다 300/201개씩 교대로 돌아 같은 종목이 약 40분마다 한 번 쓰인다.
+//     장중 체인 TTL 은 600초라 수집기 체인은 40분 중 약 10분만 있고 나머지는 앱 직접 경로(원본 체인)가 채운다.
+//     그래서 실적 만기 예상폭이 live↔EOD 로 들쭉날쭉했다(11/13 23:37 NVDA live 8.8% → 01시 EOD 9.5%).
+//   무엇: 앞으로 10일(ET 달력일, 양 끝 포함) 실적 발표 종목 + 앱 고정 상위 종목(firstRunValue ONB_POPULAR)만
+//     정규장(09:30~마감 ET, 휴장·조기 종료 반영) 동안 5분마다 «체인만» 다시 받는다(fetchOptionsSnapshotRaw — 샤드와 같은 함수·
+//     같은 키·같은 모양·같은 TTL 600초). 다른 흐름 데이터·동적 유니버스는 건드리지 않는다.
+//   안전판: 이 레인의 공급사 속도 240회/분(환경 값 420 보다 낮게) · 회차 호출 상한 1,200 · 시간 예산 200초 ·
+//     429 가 8건 쌓이면 그 회차를 멈춘다 · 다른 수집(샤드·앱 직접 경로)이 150초 안에 쓴 종목은 건너뛴다 ·
+//     쓰기 직전 판본표가 우리보다 늦게 쓰였으면 덮지 않는다 · 자기 락(280초).
+//   설계: ~/Documents/signum-work/2026-11-14/chain-interval/DESIGN.md (권고 1안)
+// ══════════════════════════════════════════════════════════════
+// = src/lib/app/firstRunValue.ts ONB_POPULAR (tests/flowHarvestPriority.test.ts 가 같음을 고정한다)
+const PRIORITY_FIXED = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'AMD', 'PLTR', 'MU', 'AVGO', 'SPY'];
+const PRIORITY = {
+  // EventBridge 규칙 signum-flow-harvest-priority 의 일정(UTC) — 13~21시 UTC 가 EST·EDT 정규장을 모두 덮고, 밖은 priorityWindow 가 건너뛴다.
+  //   분 2/5 = 샤드 시작(:00·:05…) 2분 뒤. 시험(tests/flowHarvestPriority.test.js)이 두 계절 회차 수를 고정한다.
+  schedule: 'cron(2/5 13-21 ? * MON-FRI *)',
+  horizonDays: 10,
+  maxTickers: Number(process.env.PRIORITY_MAX_TICKERS || 40),
+  ratePerMin: Number(process.env.PRIORITY_RATE_PER_MIN || 240),
+  callBudget: Number(process.env.PRIORITY_CALL_BUDGET || 1200),
+  timeBudgetMs: Number(process.env.PRIORITY_TIME_BUDGET_MS || 200 * 1000),
+  freshSkipMs: Number(process.env.PRIORITY_FRESH_SKIP_MS || 150 * 1000),
+  trip429: Number(process.env.PRIORITY_TRIP_429 || 8),
+  batch: Number(process.env.PRIORITY_BATCH || 4),
+  lockKey: 'flow-harvest:lock:priority',
+  lockTtl: 280,
+  calendarKeys: [['market:earnings-calendar:v4', 'cache'], ['market:earnings-calendar:v4:last-good', 'last-good']],
+  laneLastGoodKey: 'flow-harvest:priority:earnings-last-good',
+  laneLastGoodTtl: 4 * 86400,
+  laneLastGoodMaxAgeMs: 4 * 86400 * 1000,
+  statusKey: 'flow-harvest:priority:status',
+  lastOkKey: 'flow-harvest:priority:last-ok',
+  statusTtl: 2 * 86400,
+};
+// = src/lib/marketCalendar.ts US_MARKET_HOLIDAYS · EARLY_CLOSE_DATES (같은 시험이 같음을 고정한다)
+const PRIORITY_HOLIDAYS = new Set([
+  '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25',
+  '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
+  '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31',
+  '2027-06-18', '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24',
+]);
+const PRIORITY_EARLY_CLOSE = new Set(['2026-11-27', '2026-12-24', '2027-11-26']);
+
+/** 뉴욕 벽시계의 날짜(YYYY-MM-DD)·분·요일 */
+function etParts(ms) {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(new Date(ms));
+  const g = (t) => (p.find((x) => x.type === t) || {}).value;
+  return {
+    date: g('year') + '-' + g('month') + '-' + g('day'),
+    minutes: (Number(g('hour')) % 24) * 60 + Number(g('minute')),
+    day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(g('weekday')),
+  };
+}
+
+function addDaysYmd(ymd, n) {
+  return new Date(Date.parse(ymd + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+}
+
+/** 정규 옵션 세션(09:30 ~ 16:00 ET, 조기 종료일 13:00)인가 — 휴장·주말 제외 */
+function priorityWindow(ms) {
+  const et = etParts(ms);
+  if (et.day === 0 || et.day === 6) return { open: false, reason: 'weekend', et };
+  if (PRIORITY_HOLIDAYS.has(et.date)) return { open: false, reason: 'holiday', et };
+  const close = PRIORITY_EARLY_CLOSE.has(et.date) ? 13 * 60 : 16 * 60;
+  if (et.minutes < 9 * 60 + 30) return { open: false, reason: 'pre-open', et };
+  if (et.minutes >= close) return { open: false, reason: 'after-close', et };
+  return { open: true, reason: 'regular', et, closeMinutes: close };
+}
+
+const TICKER_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/;
+const normTicker = (t) => {
+  const s = String(t == null ? '' : t).trim().toUpperCase();
+  return TICKER_RE.test(s) ? s : null;
+};
+
+/**
+ * 대상 목록 — 앞으로 horizonDays 일(ET 달력일, 양 끝 포함) 실적 행 + 고정 목록, 대문자·중복 제거·상한.
+ * 순서: 가까운 발표일 → 고정 목록. 상한을 넘으면 뒤쪽이 잘리고(capped) 로그에 남는다.
+ */
+function buildPriorityTargets(rows, todayEt, opts) {
+  const o = Object.assign({ horizonDays: PRIORITY.horizonDays, maxTickers: PRIORITY.maxTickers, fixed: PRIORITY_FIXED }, opts || {});
+  const end = addDaysYmd(todayEt, o.horizonDays);
+  const earn = new Map();   // ticker → 가장 이른 발표일
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const t = normTicker(r && r.ticker);
+    const d = r && typeof r.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : null;
+    if (!t || !d || d < todayEt || d > end) continue;
+    if (!earn.has(t) || d < earn.get(t)) earn.set(t, d);
+  }
+  const earnings = [...earn.entries()].sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[0] < b[0] ? -1 : 1));
+  const all = [];
+  const seen = new Set();
+  for (const [t] of earnings) if (!seen.has(t)) { seen.add(t); all.push(t); }
+  for (const f of o.fixed) { const t = normTicker(f); if (t && !seen.has(t)) { seen.add(t); all.push(t); } }
+  return {
+    targets: all.slice(0, o.maxTickers),
+    capped: all.slice(o.maxTickers),
+    earnings: earnings.map(([t, d]) => t + '@' + d.slice(5)),
+    end,
+  };
+}
+
+/** 처리 순서 — 이 레인에서 가장 오래 성공하지 않은 종목부터(없으면 맨 앞), 같으면 대상 순서. 예산이 끊겨도 다음 회차가 이어받는다. */
+function priorityOrder(targets, lastOk) {
+  const idx = new Map(targets.map((t, i) => [t, i]));
+  const at = (t) => (lastOk && Number(lastOk[t])) || 0;
+  return [...targets].sort((a, b) => at(a) - at(b) || idx.get(a) - idx.get(b));
+}
+
+/** 실적 캘린더 원본 캐시(웹 캘린더 서비스가 정상 생산한 것) → 실패 시 이 레인이 보관한 마지막 정상 목록 → 없으면 고정 목록만 */
+async function loadEarningsRows(todayEt, dryRun) {
+  for (const [key, label] of PRIORITY.calendarKeys) {
+    const v = await redisGet(key).catch(() => null);
+    if (v && v.ok === true && Array.isArray(v.rows)) {
+      const keep = v.rows.filter((r) => r && typeof r.date === 'string' && r.date >= todayEt).map((r) => ({ ticker: r.ticker, date: r.date }));
+      if (!dryRun) await redisSet(PRIORITY.laneLastGoodKey, { rows: keep, at: Date.now(), from: label, generatedAt: v.generatedAt || null }, PRIORITY.laneLastGoodTtl).catch(() => false);
+      return { rows: v.rows, source: label, generatedAt: v.generatedAt || null };
+    }
+  }
+  const lg = await redisGet(PRIORITY.laneLastGoodKey).catch(() => null);
+  if (lg && Array.isArray(lg.rows) && Date.now() - (Number(lg.at) || 0) < PRIORITY.laneLastGoodMaxAgeMs) {
+    console.warn('[priority] 실적 캘린더 캐시 없음 — 이 레인의 마지막 정상 목록 사용(' + new Date(Number(lg.at)).toISOString() + ')');
+    return { rows: lg.rows, source: 'lane-last-good', generatedAt: lg.generatedAt || null };
+  }
+  console.warn('[priority] 실적 캘린더·마지막 정상 목록 모두 없음 — 고정 목록만');
+  return { rows: [], source: 'none', generatedAt: null };
+}
+
+/** 프로브 모양 집계(값 없이 개수만) */
+function probeShapeStats(v) {
+  const rows = [...(v.exactResults || []), ...(v.probeResults || [])];
+  let live = 0, ivObs = 0, eodDate = 0;
+  for (const c of rows) {
+    if (!c) continue;
+    if (c._quoteSource === 'live') live++;
+    if (typeof c.ivObservedAt === 'string') ivObs++;
+    if (c.eodDate) eodDate++;
+  }
+  return {
+    rows: rows.length, live, ivObs, eodDate,
+    chainDates: v.chainDates ? Object.keys(v.chainDates).length : 0,
+    chainDate: v.chainDate || null,
+    partial: !!v.partial,
+    weeklyExpiry: v.weeklyExpiry || null,
+    greeksSource: v.greeksSource || null,
+  };
+}
+
+async function priorityChainHandler(event) {
+  const start = Date.now();
+  const forceRun = !!(event.forceRun || event.test);
+  const dryRun = event.dryRun === true;
+  const win = priorityWindow(start);
+  if (!forceRun && !win.open) {
+    console.log('[priority] 정규장 밖(' + win.reason + ', ET ' + win.et.date + ' ' + Math.floor(win.et.minutes / 60) + ':' + String(win.et.minutes % 60).padStart(2, '0') + ') — 건너뜀');
+    return { statusCode: 200, body: JSON.stringify({ skipped: true, mode: 'priority-chain', reason: win.reason }) };
+  }
+  if (!forceRun) {
+    const got = await acquireLock(PRIORITY.lockKey, PRIORITY.lockTtl);
+    if (!got) {
+      console.log('[priority] SKIPPED — 앞 회차가 아직 돈다(' + PRIORITY.lockKey + ')');
+      return { statusCode: 200, body: JSON.stringify({ skipped: true, mode: 'priority-chain', reason: 'concurrent-lock' }) };
+    }
+  }
+  const rate = typeof __intrinio.setRatePerMin === 'function' ? __intrinio.setRatePerMin(PRIORITY.ratePerMin) : null;
+  if (typeof __intrinio.resetRateBucket === 'function') __intrinio.resetRateBucket();
+  const stat0 = typeof __intrinio.callStats === 'function' ? __intrinio.callStats() : { calls: 0, r429: 0 };
+  const callsNow = () => (typeof __intrinio.callStats === 'function' ? __intrinio.callStats().calls - stat0.calls : 0);
+  const r429Now = () => (typeof __intrinio.callStats === 'function' ? __intrinio.callStats().r429 - stat0.r429 : 0);
+  try { if (typeof __intrinio.drainFailCounts === 'function') __intrinio.drainFailCounts(); } catch { }
+  // 드라이런은 어댑터의 EOD 체인 캐시·최신 EOD 날짜 쓰기까지 막는다(읽기만) — 운영 Redis 쓰기 0
+  if (dryRun && typeof __intrinio.setChainCache === 'function') {
+    __intrinio.setChainCache({ get: (k) => redisGet(k), set: async () => true });
+  }
+
+  try {
+    const todayEt = win.et.date;
+    const cal = await loadEarningsRows(todayEt, dryRun);
+    const tg = buildPriorityTargets(cal.rows, todayEt);
+    let lastOk = await redisGet(PRIORITY.lastOkKey).catch(() => null);
+    if (!lastOk || typeof lastOk !== 'object' || Array.isArray(lastOk)) lastOk = {};
+    const order = priorityOrder(tg.targets, lastOk);
+
+    // 지금 각 종목 프로브가 얼마나 묵었나(누가 썼든) — 10분 목표의 실측 표본이자 «이미 신선하면 건너뛰기» 근거
+    const metas = await Promise.all(order.map((t) => redisGet('polygon:snapshot:probe:meta:' + t).catch(() => null)));
+    const ageMs = new Map(order.map((t, i) => [t, metas[i] && Number(metas[i]._ts) ? start - Number(metas[i]._ts) : null]));
+    const ages = [...ageMs.values()];
+    const missingAtStart = ages.filter((a) => a == null).length;
+    const staleAtStart = ages.filter((a) => a != null && a > 600 * 1000).length;
+    const maxAgeS = ages.filter((a) => a != null).reduce((m, a) => Math.max(m, Math.round(a / 1000)), 0);
+
+    const per = [];
+    let ok = 0, fail = 0, freshSkip = 0, newerSkip = 0, tripped = null;
+    const notReached = [];
+    const batchSize = dryRun ? 1 : Math.max(1, PRIORITY.batch);
+    const deadline = start + PRIORITY.timeBudgetMs;
+    const work = order.filter((t) => {
+      const a = ageMs.get(t);
+      if (!dryRun && a != null && a >= 0 && a < PRIORITY.freshSkipMs) { freshSkip++; per.push({ t, s: 'fresh', ageS: Math.round(a / 1000) }); return false; }
+      return true;
+    });
+    for (let i = 0; i < work.length; i += batchSize) {
+      if (Date.now() > deadline) { tripped = 'time'; notReached.push(...work.slice(i)); break; }
+      if (callsNow() >= PRIORITY.callBudget) { tripped = 'calls'; notReached.push(...work.slice(i)); break; }
+      if (r429Now() >= PRIORITY.trip429) { tripped = '429'; notReached.push(...work.slice(i)); break; }
+      const batch = work.slice(i, i + batchSize);
+      const c0 = callsNow();
+      const res = await Promise.all(batch.map(async (t) => {
+        const stats = {};
+        const okT = await fetchOptionsSnapshotRaw(t, { dryRun, stats, guardNewerThan: dryRun ? 0 : start });
+        return { t, okT, stats };
+      }));
+      const cBatch = callsNow() - c0;
+      for (const r of res) {
+        if (r.okT && r.stats.rows > 0) {
+          ok++;
+          if (r.stats.skippedNewer) newerSkip++;
+          else if (!dryRun && r.stats.wrote) lastOk[r.t] = Date.now();
+        } else fail++;
+        per.push(Object.assign({ t: r.t, s: r.okT ? (r.stats.skippedNewer ? 'newer' : 'ok') : 'fail' }, dryRun ? { calls: cBatch } : {}, r.stats));
+      }
+    }
+
+    let vendor = [];
+    try { if (typeof __intrinio.drainFailCounts === 'function') vendor = __intrinio.drainFailCounts().slice(0, 4); } catch { }
+    const summary = {
+      at: new Date().toISOString(), mode: 'priority-chain', dryRun, forced: forceRun, session: win.reason, etDate: todayEt,
+      calendar: cal.source, calendarGeneratedAt: cal.generatedAt,
+      targets: tg.targets.length, earnings: tg.earnings, capped: tg.capped,
+      ok, fail, freshSkip, newerSkip, notReached,
+      missingAtStart, staleAtStart, maxAgeS,
+      calls: callsNow(), r429: r429Now(), ratePerMin: rate, tripped,
+      durationMs: Date.now() - start,
+      vendor: vendor.map(([k, n]) => k.slice(0, 60) + '×' + n),
+    };
+    console.log('[priority] ' + (dryRun ? '(드라이런·쓰기 0) ' : '') + '대상 ' + summary.targets + '(실적 ' + tg.earnings.length + ': ' + tg.earnings.join(' ') + ' · 캘린더 ' + cal.source + (tg.capped.length ? ' · 상한 밖 ' + tg.capped.join(',') : '') + ')' +
+      ' · ok ' + ok + ' · 신선 건너뜀 ' + freshSkip + ' · 늦은쓰기 양보 ' + newerSkip + ' · fail ' + fail + (notReached.length ? ' · 못 감 ' + notReached.join(',') : '') +
+      ' · 시작 시 프로브 없음 ' + missingAtStart + '·10분 초과 ' + staleAtStart + '·최대 ' + maxAgeS + 's' +
+      ' · 호출 ' + summary.calls + ' · 429 ' + summary.r429 + (tripped ? ' · 중단(' + tripped + ')' : '') + ' · ' + Math.round(summary.durationMs / 1000) + 's');
+    if (tg.capped.length || staleAtStart || missingAtStart) console.warn('[priority] 10분 목표 미달 표본 — 상한 밖 ' + tg.capped.length + ' · 없음 ' + missingAtStart + ' · 10분 초과 ' + staleAtStart);
+    if (vendor.length) console.log('[priority] 벤더 거절 내역: ' + summary.vendor.join(' | '));
+    if (!dryRun) {
+      const keepOk = {};
+      for (const t of tg.targets) if (Number(lastOk[t])) keepOk[t] = Number(lastOk[t]);
+      await redisSet(PRIORITY.lastOkKey, keepOk, PRIORITY.statusTtl).catch(() => false);
+      await redisSet(PRIORITY.statusKey, summary, PRIORITY.statusTtl).catch(() => false);
+    }
+    return { statusCode: 200, body: JSON.stringify(Object.assign({}, summary, { per })) };
+  } catch (e) {
+    console.log('[priority] 오류: ' + (e && e.message));
+    return { statusCode: 500, body: JSON.stringify({ mode: 'priority-chain', error: String((e && e.message) || e) }) };
+  } finally {
+    if (typeof __intrinio.setRatePerMin === 'function') __intrinio.setRatePerMin(null);
+    if (dryRun && typeof __intrinio.setChainCache === 'function') {
+      __intrinio.setChainCache({ get: (k) => redisGet(k), set: (k, v, ttl) => redisSet(k, v, ttl) });
+    }
+    if (!forceRun) await releaseLock(PRIORITY.lockKey);
+  }
 }
 
 // ──────────────────────────────────────────
 // Main handler
 // ──────────────────────────────────────────
 exports.handler = async (event) => {
+  // ★ [2026-11-14] 우선 체인 레인 — 샤드 경로와 완전히 갈라진다(락·커서·대상·속도 모두 따로)
+  if (event && event.mode === 'priority-chain') return priorityChainHandler(event);
+  // 재사용 컨테이너가 직전에 우선 레인(낮은 속도)이었을 수 있다 — 샤드는 늘 환경 값 속도
+  if (typeof __intrinio.setRatePerMin === 'function') __intrinio.setRatePerMin(null);
   const start = Date.now();
   const forceRun = event?.forceRun || event?.test || false;
 
@@ -1154,3 +1438,6 @@ exports.handler = async (event) => {
     })
   };
 };
+
+// 시험 전용(운영 동작 무관)
+exports.__priority = { PRIORITY, PRIORITY_FIXED, PRIORITY_HOLIDAYS, PRIORITY_EARLY_CLOSE, priorityWindow, buildPriorityTargets, priorityOrder, probeShapeStats, etParts, addDaysYmd };

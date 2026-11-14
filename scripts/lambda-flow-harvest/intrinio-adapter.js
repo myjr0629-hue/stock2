@@ -128,7 +128,11 @@ async function getNewsFromFmp(ticker, limit, since) {
 //   flow-harvest 는 샤드 4개가 «동시에» 도므로 계약 한도(2,000콜/분)를 4로 나눈
 //   값이 샤드당 상한이다. 1200 으로 두면 4×1200=4,800 로 한도를 넘길 수 있다.
 //   500×4 = 2,000 이 정확히 한도이므로 10% 여유를 둔다.
-const RATE_PER_MIN = Number(process.env.INTRINIO_RATE_PER_MIN || 450);
+const DEFAULT_RATE_PER_MIN = Number(process.env.INTRINIO_RATE_PER_MIN || 450);
+// ★ [2026-11-14] 우선 체인 레인(index.js mode 'priority-chain')은 같은 컨테이너에서 더 낮은 속도로 돈다.
+//   컨테이너는 샤드·우선 호출에 번갈아 재사용되므로 매 호출 시작에 setRatePerMin 으로 정한다(인자 없음 = 환경 값).
+//   환경 값보다 높일 수는 없다(min) — 계약 한도 산술(샤드 420/분)은 그대로다.
+let RATE_PER_MIN = DEFAULT_RATE_PER_MIN;
 
 // ★★ [2026-09-04] 토큰 버킷은 «속도»를 재지 «동시성»을 막지 못한다.
 //   버킷이 가득 찬 채 시작하므로 **첫 RATE_PER_MIN 건이 지연 0 으로 한꺼번에** 나갔다.
@@ -153,6 +157,18 @@ function _release() {
   if (next) next();
 }
 
+function setRatePerMin(n) {
+  const v = Number(n);
+  RATE_PER_MIN = n != null && Number.isFinite(v) && v > 0 ? Math.min(DEFAULT_RATE_PER_MIN, v) : DEFAULT_RATE_PER_MIN;
+  if (_tokens > RATE_PER_MIN) _tokens = RATE_PER_MIN;
+  return RATE_PER_MIN;
+}
+/** 버킷을 비운다 — 재사용 컨테이너가 쉬는 동안 가득 찬 토큰을 한꺼번에 쓰지 않게(우선 레인 시작 시). */
+function resetRateBucket() { _tokens = 0; _refillAt = Date.now(); }
+// 실제로 공급사에 나간 요청 수·429 수(누적) — 우선 레인의 회차 예산·429 차단기가 차이로 읽는다.
+let _callsOut = 0, _calls429 = 0;
+function callStats() { return { calls: _callsOut, r429: _calls429, ratePerMin: RATE_PER_MIN }; }
+
 function _takeToken() {
   const now = Date.now();
   const elapsed = now - _refillAt;
@@ -167,6 +183,7 @@ function _takeToken() {
 
 /** 호출 직전에 await 한다. 한도를 넘으면 그만큼 기다린다. */
 function rateGate() {
+  _callsOut++;   // callIntrinio 의 시도마다 한 번(실제 요청 직전) — 우선 레인 회차 예산이 읽는다
   const run = async () => {
     for (;;) {
       const wait = _takeToken();
@@ -194,7 +211,7 @@ const _inflight = new Map();
 const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
 const MAX_ATTEMPTS = Number(process.env.INTRINIO_MAX_ATTEMPTS || 2);
 const _failCounts = Object.create(null);
-function noteFail(reason) { _failCounts[reason] = (_failCounts[reason] || 0) + 1; }
+function noteFail(reason) { _failCounts[reason] = (_failCounts[reason] || 0) + 1; if (reason === 'HTTP 429') _calls429++; }
 function drainFailCounts() {
   const out = Object.entries(_failCounts).sort((a, b) => b[1] - a[1]);
   for (const k of Object.keys(_failCounts)) delete _failCounts[k];
@@ -1244,6 +1261,9 @@ async function routeMassiveUrl(input) {
 
 module.exports = {
   drainFailCounts,
+  setRatePerMin,
+  resetRateBucket,
+  callStats,
   setChainCache,
   routeMassiveUrl,
   getGroupedDaily,
