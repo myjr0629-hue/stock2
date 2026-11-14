@@ -25,7 +25,7 @@ function memStore() {
         const [nonce, , resume, nowS, staleS, id, fp, maxS] = args;
         const now = Number(nowS);
         const v = kv.get(keys[0]);
-        if (v != null && v.startsWith('S:') && v.endsWith(':' + nonce)) return 'ok';
+        if (v != null && v.startsWith('S:') && v.endsWith(':' + nonce)) return ['ok', /^S:\d+:(\d+):/.exec(v)![1]];
         const d = kv.get(keys[1]);
         const mine = d != null && d.startsWith(id + '|');
         let firstS = nowS, res = 'ok';
@@ -40,7 +40,7 @@ function memStore() {
           firstS = m[3]; res = 'resume';
         } else if (d != null) return 'day';
         kv.set(keys[0], `S:${nowS}:${firstS}:${fp}:${nonce}`); kv.set(keys[1], `${id}|${nonce}`);
-        return res;
+        return [res, firstS];
       }
       if (script === ANN_DEV_CLAIM_LUA) return keys.map((k) => { const v = kv.get(k); if (v === args[0]) return 1; if (v != null) return 0; kv.set(k, args[0]); return 1; });
       throw new Error('unknown script');

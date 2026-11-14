@@ -58,11 +58,12 @@ export const ANN_KEYS = {
  * 24시간 자리 값: '<공지 ID>|<실행 번호>'.
  * ARGV = [실행 번호, 24시간 TTL, resume('1'/'0'), 지금 ms, 멈춘 실행으로 볼 ms, 공지 ID, 지문, 이어 보내기 최대 ms].
  * 응답 유실 뒤 클라이언트가 같은 호출을 다시 보내도 «자기 실행 번호»면 'ok' — 재시도가 자기 자리에 막혀 발송이 빠지지 않게.
+ * 반환: 잡았으면 {'ok'|'resume', 첫 시작 ms 문자열} (첫 시작은 Lua 가 자리에서 직접 잇는다 — 따로 읽다 실패해 기한이 초기화되지 않게) · 막혔으면 문자열 하나.
  */
 export const ANN_CLAIM_LUA =
   "local now = tonumber(ARGV[4]) " +
   "local v = redis.call('GET', KEYS[1]) " +
-  "if v and string.sub(v, 1, 2) == 'S:' and string.sub(v, -(#ARGV[1] + 1)) == (':' .. ARGV[1]) then return 'ok' end " +
+  "if v and string.sub(v, 1, 2) == 'S:' and string.sub(v, -(#ARGV[1] + 1)) == (':' .. ARGV[1]) then return {'ok', string.match(v, '^S:%d+:(%d+):')} end " +
   "local d = redis.call('GET', KEYS[2]) " +
   "local mine = d and string.sub(d, 1, #ARGV[6] + 1) == (ARGV[6] .. '|') " +
   "local firstS = ARGV[4] " +
@@ -80,7 +81,7 @@ export const ANN_CLAIM_LUA =
   "elseif d then return 'day' end " +
   "redis.call('SET', KEYS[1], 'S:' .. ARGV[4] .. ':' .. firstS .. ':' .. ARGV[7] .. ':' .. ARGV[1]) " +
   "redis.call('SET', KEYS[2], ARGV[6] .. '|' .. ARGV[1], 'EX', ARGV[2]) " +
-  "return res";
+  "return {res, firstS}";
 /** 진행 중 표식이 이보다 오래되면 «죽은 실행»으로 보고 resume 을 허용한다(함수 상한 60초의 두 배) */
 export const ANN_STALE_MS = 120_000;
 /** 이어 보내기는 첫 실행부터 6일까지 — 기기 자리(7일)가 살아 있는 동안만(이미 받은 기기에 다시 가지 않게) */
@@ -302,17 +303,19 @@ export async function runAnnounce(req: AnnounceRequest, deps: AnnounceDeps): Pro
   // 3) 공지 ID + 24시간 자리 — 원자적으로 함께(이번 실행 값으로 — 재시도해도 자기 자리)
   const nonce = (deps.nonce ?? `${now.toString(36)}${Math.random().toString(36).slice(2, 12)}`).replace(/[^a-z0-9]/gi, '');
   const fp = announceFingerprint(req);
-  const c = await store.eval(ANN_CLAIM_LUA, [ANN_KEYS.claim(req.id), ANN_KEYS.last],
+  const cr = await store.eval(ANN_CLAIM_LUA, [ANN_KEYS.claim(req.id), ANN_KEYS.last],
     [nonce, String(ANN_DAY_TTL_S), req.resume ? '1' : '0', String(now), String(ANN_STALE_MS), req.id, fp, String(ANN_RESUME_MAX_MS)]);
+  const c = Array.isArray(cr) ? String(cr[0]) : String(cr);
+  const first = Array.isArray(cr) && /^\d+$/.test(String(cr[1])) ? Number(cr[1]) : null;
   if (c === 'dup' || c === 'expired') return stop(409, 'duplicate');
   if (c === 'mismatch') return stop(409, 'resume_mismatch');
   if (c === 'busy') return stop(409, 'in_progress');
   if (c !== 'ok' && c !== 'resume') return stop(429, 'daily_cap');
+  // 첫 시작 시각을 모르면(형식 이상) 보내지 않는다 — 이어 보내기 기한을 지킬 수 없다. 자리는 'S:' 로 남아 2분 뒤 resume 가능
+  if (first == null) return stop(503, 'slow');
   // 이전 실행 기록 — 늘 읽는다(이어 보내기의 응답이 유실돼 재시도가 'ok' 를 받아도 누적이 빠지지 않게). 새 공지면 없다
-  const [prevRaw, curRaw] = await store.mget([ANN_KEYS.log(req.id), ANN_KEYS.claim(req.id)]).catch(() => [null, null]);
+  const [prevRaw] = await store.mget([ANN_KEYS.log(req.id)]).catch(() => [null]);
   const prevLog = parseRecord<{ runs?: unknown[] }>(prevRaw);
-  // 첫 실행 시각 = Lua 가 자리에 남긴 값(기록 전에 죽은 실행이 있어도 원래 시각을 잇는다 — 이어 보내기 6일 기한이 초기화되지 않게)
-  const first = parseClaimMarker(curRaw)?.first ?? now;
   const prevRuns = Array.isArray(prevLog?.runs) ? prevLog!.runs : [];
   if (c === 'resume' || prevRuns.length) report.resumed = true;
 
