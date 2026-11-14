@@ -254,11 +254,14 @@ t('뜨기 순서 — 24시간 안 발표(NVDA 같은 오늘 장후)가 담은 �
   const none = all.map(() => null);
   const p1 = pickCaptures(all, none, none, holders, now);
   assert.equal(p1.length, 12); assert.equal(p1[0].ticker, 'NVDA', '발표 임박 종목이 맨 앞');
-  // NVDA 가 방금(15분 전) 실패 → 시도 안 한 발표 뒤로 · 25분 전 실패면 대기 끝 → 다시 맨 앞
+  // NVDA 가 방금(15분 전) 실패해도 먼 발표(미시도)보다 먼저 재시도 — 임박 발표의 마지막 회차를 뺏기지 않는다(관문 11150352)
   const tried15 = all.map((e) => (e.ticker === 'NVDA' ? now - 15 * 60_000 : null));
-  assert.equal(pickCaptures(all, none, tried15, holders, now).map((e) => e.ticker).indexOf('NVDA'), -1, '시도 안 한 12개가 자리를 채움');
-  const tried25 = all.map((e) => (e.ticker === 'NVDA' ? now - 25 * 60_000 : null));
-  assert.equal(pickCaptures(all, none, tried25, holders, now)[0].ticker, 'NVDA');
+  assert.equal(pickCaptures(all, none, tried15, holders, now)[0].ticker, 'NVDA', '임박 재시도 > 먼 발표 미시도');
+  // 임박 발표 안에서는 미시도 먼저 → 최근 실패(대기 중) → 대기 지난 실패는 다시 미시도 칸
+  const imm: FlashEntry[] = ['AA', 'BB', 'CC'].map((x) => ({ ticker: x, date: FRI, hour: 'amc', etTime: '16:05' }));
+  const h1 = new Map([['AA', 3], ['BB', 2], ['CC', 1]]);
+  assert.deepEqual(pickCaptures(imm, [null, null, null], [now - 15 * 60_000, null, null], h1, now).map((e) => e.ticker), ['BB', 'CC', 'AA']);
+  assert.deepEqual(pickCaptures(imm, [null, null, null], [now - 25 * 60_000, null, null], h1, now).map((e) => e.ticker), ['AA', 'BB', 'CC'], '대기 끝 → 기기 수 순');
   // 이미 떠 둔 발표는 맨 뒤 · 같은 임박 구간 안에선 담은 기기 많은 순
   const exp = all.map((e) => (e.ticker === 'M00' ? '{}' : null));
   const p2 = pickCaptures(all, exp, none, holders, now).map((e) => e.ticker);
@@ -277,6 +280,29 @@ t('뜨기 — 운영 흐름에서도 24시간 안 장후 종목(NVDA)이 첫 회
   dev(r, IOS_TOKEN, [...far, 'NVDA']); dev(r, IOS_TOKEN2, far);
   await runEarningsFlash(r.deps, { now: ET(FRI, 15, 35), kind: 'cron', list, envMode: null, signalEnvMode: null });
   assert.equal(asked[0].length, 12); assert.equal(asked[0][0], 'NVDA', '담은 기기 적어도 발표 임박이 먼저');
+});
+
+t('관문 11150352 — 금요일 당일 장후 12종목이 15:35 에 일시 실패 · 월요일 장전 12종목 미시도여도 15:50 마지막 회차는 당일 종목 재시도', async () => {
+  const FRI = '2026-11-20', MON = '2026-11-23';
+  const today = Array.from({ length: 12 }, (_, i) => `T${String(i).padStart(2, '0')}`);
+  const far = Array.from({ length: 12 }, (_, i) => `M${String(i).padStart(2, '0')}`);
+  const list = [...today.map((x) => ce(x, 'amc', '16:10', FRI)), ...far.map((x) => ce(x, 'bmo', undefined, MON))];
+  const r = rig({});
+  const asked: string[][] = [];
+  let ok = false;
+  r.deps.readers.implied = async (entries) => {
+    asked.push(entries.map((e) => e.ticker));
+    return new Map(ok ? entries.map((e) => [e.ticker, implied({ session: FRI, asOf: ET(FRI, 15, 45), expiry: '2026-11-27' })] as [string, ImpliedRowLike]) : []);
+  };
+  dev(r, IOS_TOKEN, [...today, ...far]); dev(r, IOS_TOKEN2, far);
+  const go = (now: number) => runEarningsFlash(r.deps, { now, kind: 'cron', list, envMode: null, signalEnvMode: null });
+  await go(ET(FRI, 15, 35));
+  assert.deepEqual(asked[0], today, '첫 회차 = 당일 장후(먼 발표가 기기 더 많아도)');
+  ok = true;
+  const rep = await go(ET(FRI, 15, 50));
+  assert.deepEqual(asked[1], today, '마지막 회차도 당일 종목 재시도');
+  assert.equal(rep.captured.length, 12);
+  assert.equal(today.every((x) => r.store.m.has(FLASH_KEYS.exp(x, FRI))), true);
 });
 
 // ── 장전 ──

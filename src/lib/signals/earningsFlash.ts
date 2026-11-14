@@ -192,10 +192,13 @@ export function releaseApproxMs(e: FlashEntry): number | null {
 
 /**
  * 한 회차에 뜰 발표 고르기(상한 maxCapturesPerRun) — 순서:
- *   ① 아직 못 떴고 최근(captureRetryBackoffMs) 시도하지 않은 발표: 24시간 안 발표 먼저 → 담은 기기 많은 순 → 오래 전 시도 먼저 → 발표 이른 순
- *   ② 아직 못 떴고 최근 시도했다 실패한 발표: 시도 오래된 순(자리가 남으면 재시도)
+ *   ① 24시간 안 발표(오늘 장후·다음 거래일 장전 — 예비 예상값이 늦게 생겨 뜨기가 사실상 유일한 원천)
+ *      ⓐ 아직 못 떴고 최근(captureRetryBackoffMs) 시도하지 않은 것 → ⓑ 최근 시도했다 못 뜬 것(시도 오래된 순 재시도)
+ *   ② 그 밖의 발표(주말 건너 장전 등) — 같은 ⓐ → ⓑ
  *   ③ 이미 떠 둔 발표(남는 자리에서 새 값으로 갱신)
- * exp·tried 는 capAll 과 같은 순서의 저장값(없으면 null). 앞 12개가 계속 실패해도 13번째 이후가 다음 회차에 들어간다(관문 밤 검토 11/15).
+ *   같은 칸 안: 담은 기기 많은 순 → 오래 전 시도 먼저 → 발표 이른 순 → 종목명.
+ * exp·tried 는 capAll 과 같은 순서의 저장값(없으면 null). 앞 12개가 계속 실패해도 13번째 이후가 다음 회차에 들어가고(밤 검토 11/15),
+ * 임박 발표의 마지막 회차 재시도가 먼 발표에 밀리지 않는다(관문 11150352).
  */
 export function pickCaptures(capAll: readonly FlashEntry[], exp: readonly unknown[], tried: readonly unknown[], holders: ReadonlyMap<string, number>, now: number): FlashEntry[] {
   const rows = capAll.map((e, i) => {
@@ -210,11 +213,10 @@ export function pickCaptures(capAll: readonly FlashEntry[], exp: readonly unknow
     };
   });
   type R = (typeof rows)[number];
-  const tie = (a: R, b: R) => a.imminent - b.imminent || b.h - a.h || a.lastTry - b.lastTry || a.rel - b.rel || a.e.ticker.localeCompare(b.e.ticker);
-  const fresh = rows.filter((r) => !r.have && !r.backoff).sort(tie);
-  const retry = rows.filter((r) => !r.have && r.backoff).sort((a, b) => a.lastTry - b.lastTry || tie(a, b));
-  const done = rows.filter((r) => r.have).sort((a, b) => b.h - a.h || a.e.ticker.localeCompare(b.e.ticker));
-  return [...fresh, ...retry, ...done].slice(0, FLASH_CFG.maxCapturesPerRun).map((r) => r.e);
+  const tie = (a: R, b: R) => b.h - a.h || a.lastTry - b.lastTry || a.rel - b.rel || a.e.ticker.localeCompare(b.e.ticker);
+  const band = (r: R) => (r.have ? 4 : r.imminent * 2 + (r.backoff ? 1 : 0));
+  const sorted = [...rows].sort((a, b) => band(a) - band(b) || (a.backoff && b.backoff && !a.have ? a.lastTry - b.lastTry : 0) || tie(a, b));
+  return sorted.slice(0, FLASH_CFG.maxCapturesPerRun).map((r) => r.e);
 }
 
 /** 판정 창 [시작, 끝) — 이 안의 회차만 시세를 본다 */
