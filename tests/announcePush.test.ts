@@ -23,7 +23,16 @@ function memStore() {
       if (script === ANN_CLAIM_LUA) {
         const v = kv.get(keys[0]);
         if (v === args[0]) return 'ok';
-        if (v != null) return 'dup';
+        if (v != null) {
+          if (args[2] !== '1') return 'dup';
+          if (v.startsWith('P:')) { kv.set(keys[0], args[0]); return 'resume'; }
+          if (v.startsWith('S:')) {
+            const st = Number(/^S:(\d+):/.exec(v)?.[1]);
+            if (Number.isFinite(st) && Number(args[3]) - st > Number(args[4])) { kv.set(keys[0], args[0]); return 'resume'; }
+            return 'busy';
+          }
+          return 'dup';
+        }
         const d = kv.get(keys[1]);
         if (d != null && d !== args[0]) return 'day';
         kv.set(keys[0], args[0]); kv.set(keys[1], args[0]);
@@ -172,7 +181,7 @@ async function main() {
     assert.ok(!m.kv.has(ANN_KEYS.token(AND(5))));
     assert.ok(m.sets.get(ANN_KEYS.tokens)!.has(IOS(3)));    // 실패(fail)는 지우지 않는다
     const log = JSON.parse(m.kv.get(ANN_KEYS.log('feat-1114'))!);
-    assert.equal(log.state, 'done'); assert.equal(log.sent, 3); assert.equal(log.fail, 2); assert.equal(log.targets, 5);
+    assert.equal(log.state, 'done'); assert.deepEqual(log.totals, { targets: 5, sent: 3, fail: 2, dead: 1 }); assert.equal(log.runs.length, 1);
     assert.equal(JSON.parse(m.kv.get(ANN_KEYS.claim('feat-1114'))!).state, 'done');
     assert.equal(m.lists.get(ANN_KEYS.index)!.length, 1);
     assert.deepEqual(r.sentSplit, { ios: { ko: 1, ja: 1, en: 0 }, android: { ko: 1, ja: 0, en: 0 } });
@@ -271,6 +280,50 @@ async function main() {
     assert.equal(r.targets, 200); assert.equal(r.deferred, 250);
     assert.equal([...m.kv.keys()].filter((k) => k.startsWith('push:announce:dev:')).length, 200);
     assert.equal(JSON.parse(m.kv.get(ANN_KEYS.log('feat-1114'))!).state, 'partial');
+    assert.ok(m.kv.get(ANN_KEYS.claim('feat-1114'))!.startsWith('P:'));
+    // resume 없이 같은 ID → 409 · resume:true → 남은 250대만(중복 0) · 24시간 상한은 같은 공지라 묻지 않는다
+    assert.equal((await runAnnounce(reqOf(), { store: m.store, send: f.send, now: () => NOW + 60e3 })).reason, 'duplicate');
+    const d = await runAnnounce(reqOf({ resume: true, dry: true }), { store: m.store, send: f.send, now: () => NOW + 60e3 });
+    assert.equal(d.wouldBlock, 'resumable'); assert.equal(d.targets, 250);
+    tick = 0;
+    const big = { send: async (items: any[]) => { f.sent.push(...items); return new Map(items.map((i: any) => [i.id, 'ok' as const])); } };
+    const r2 = await runAnnounce(reqOf({ resume: true }), { store: m.store, send: big.send, now: () => NOW + 60e3, clock: () => tick });
+    assert.equal(r2.status, 200); assert.equal(r2.resumed, true); assert.equal(r2.targets, 250); assert.equal(r2.skipped.weeklyCap, 200); assert.equal(r2.deferred, 0);
+    assert.equal(f.sent.length, 450); assert.equal(new Set(f.sent.map((i) => i.token)).size, 450);
+    const log = JSON.parse(m.kv.get(ANN_KEYS.log('feat-1114'))!);
+    assert.equal(log.state, 'done'); assert.equal(log.runs.length, 2); assert.equal(log.totals.sent, 450);
+    assert.equal((await runAnnounce(reqOf({ resume: true }), { store: m.store, send: big.send, now: () => NOW + 120e3 })).reason, 'duplicate');   // 끝난 공지는 resume 도 막힌다
+  });
+
+  await t('resume: 진행 중(2분 안)은 409 in_progress · 죽은 실행(2분 넘음)은 이어 보낸다', async () => {
+    const m = memStore();
+    seed(m, [[IOS(1), BASE({ platform: 'ios', locale: 'ko', tz: 'Asia/Seoul' })]]);
+    m.kv.set(ANN_KEYS.claim('feat-1114'), `S:${NOW}:dead`); m.kv.set(ANN_KEYS.last, `S:${NOW}:dead`);
+    const f = fakeSend();
+    assert.equal((await runAnnounce(reqOf({ resume: true }), { store: m.store, send: f.send, now: () => NOW + 60e3 })).reason, 'in_progress');
+    const r = await runAnnounce(reqOf({ resume: true }), { store: m.store, send: f.send, now: () => NOW + 180e3 });
+    assert.equal(r.status, 200); assert.equal(r.resumed, true); assert.equal(f.sent.length, 1);
+  });
+
+  await t('blackout 진입: 묶음 사이에 발송 금지 창이 시작되면 남은 묶음은 보내지 않는다', async () => {
+    const m = memStore();
+    const devs: Array<[string, Record<string, unknown>]> = [];
+    for (let i = 1; i <= 300; i++) devs.push([AND(i), BASE({ platform: 'android', locale: 'en' })]);
+    seed(m, devs);
+    let tick = 0;
+    const f = { sent: [] as any[], send: async (items: any[]) => { f.sent.push(...items); tick += 20_000; return new Map(items.map((i: any) => [i.id, 'ok' as const])); } };
+    const r = await runAnnounce(reqOf(), { store: m.store, send: f.send, now: () => Date.parse('2026-11-14T12:04:50Z'), clock: () => tick });
+    assert.equal(f.sent.length, 200); assert.equal(r.deferred, 100);
+  });
+
+  await t('slow: 목록 읽기가 예산을 넘기면 자리를 잡기 전에 503 — 같은 ID 로 다시 가능', async () => {
+    const m = memStore();
+    seed(m, [[IOS(1), BASE({ platform: 'ios', locale: 'ko', tz: 'Asia/Seoul' })]]);
+    let tick = 0;
+    const orig = m.store.smembers;
+    m.store.smembers = async (k) => { tick += 31_000; return orig(k); };
+    const r = await runAnnounce(reqOf(), { store: m.store, send: fakeSend().send, now: () => NOW, clock: () => tick });
+    assert.equal(r.status, 503); assert.ok(!m.kv.has(ANN_KEYS.claim('feat-1114'))); assert.ok(!m.kv.has(ANN_KEYS.last));
   });
 
   await t('dry: 상한 판정은 «적격 기기 전체» 기준 — 실제 발송의 413 과 같다', async () => {

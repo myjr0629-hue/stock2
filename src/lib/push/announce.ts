@@ -10,7 +10,8 @@
 //   · 언어 = 기기 레코드의 locale(ko/ja) · 그 밖은 en · 그 언어 문구가 없으면 en 문구.
 //   · 상한 = 전체 24시간에 1회(push:announce:last) · 기기당 7일에 1회(push:announce:dev:<기기키>) · 같은 공지 ID 는 영원히 1회(push:announce:id:<ID>, 만료 없음).
 //     값은 실행마다 새 일회용 번호 — Upstash 응답 유실 뒤 클라이언트 재시도가 «자기 자리»에 막히지 않는다.
-//   · 200대씩 «자리 잡기 → 보내기» · 35초가 지나면 새 묶음을 시작하지 않는다(남은 기기는 자리도 안 잡음 = deferred, 기록 state=partial).
+//   · 200대씩 «자리 잡기 → 보내기» · 요청 시작부터 30초가 지나거나 발송 금지 창에 들어가면 새 묶음을 시작하지 않는다
+//     (남은 기기는 자리도 안 잡음 = deferred, 기록 state=partial) → 같은 ID 를 resume:true 로 다시 보내면 남은 기기만 이어 보낸다.
 //     공지 ID·24시간 자리는 Lua 한 번으로 «함께» 잡는다(동시 요청 둘이 와도 하나만 통과) · 기기 자리는 보내기 «전에» SET NX —
 //     실패(fail)한 기기도 자리를 놓지 않는다(중복보다 한 통 누락을 택함, trial-push 와 같은 원칙).
 //   · 조용한 시간(기기 현지 23~07시, 시간대 모르면 조용히)은 소리 없이 · 모닝·마감 발송 창(inPushBlackout)과 겹치면 보내지 않는다(409).
@@ -50,18 +51,33 @@ export const ANN_KEYS = {
 };
 
 /**
- * 공지 ID(만료 없음)와 24시간 자리를 함께 — 'dup'(같은 ID 이미 있음) · 'day'(24시간 안에 다른 공지) · 'ok'(둘 다 잡음).
- * 값 = 이번 실행의 일회용 번호(ARGV[1]). 응답이 유실돼 클라이언트가 «같은 호출을 다시» 보내도 자기 번호면 'ok' — 재시도가 자기 자리에 막혀 발송이 빠지지 않게.
+ * 공지 ID(만료 없음)와 24시간 자리를 함께 — 'ok'(둘 다 잡음) · 'resume'(같은 ID 이어 보내기 허용) · 'dup' · 'busy'(다른 실행이 진행 중) · 'day'(24시간 안에 다른 공지).
+ * ID 자리 값: 진행 중 'S:<시작 ms>:<실행 번호>' · 일부만 보냄 'P:<실행 번호>' · 끝남 = 기록 JSON.
+ * ARGV = [이번 값, 24시간 TTL, resume('1'/'0'), 지금 ms, 멈춘 실행으로 볼 시간 ms].
+ * 응답이 유실돼 클라이언트가 같은 호출을 다시 보내도 자기 값이면 'ok' — 재시도가 자기 자리에 막혀 발송이 빠지지 않게.
+ * resume 은 'P:'(시간 예산·발송 금지 창으로 멈춤) 또는 오래된 'S:'(함수가 죽음) 일 때만 — 이미 받은 기기는 기기 자리(7일)가 걸러 중복이 없다.
  */
 export const ANN_CLAIM_LUA =
   "local v = redis.call('GET', KEYS[1]) " +
   "if v == ARGV[1] then return 'ok' end " +
-  "if v then return 'dup' end " +
+  "if v then " +
+  "  if ARGV[3] ~= '1' then return 'dup' end " +
+  "  local p = string.sub(v, 1, 2) " +
+  "  if p == 'P:' then redis.call('SET', KEYS[1], ARGV[1]) return 'resume' end " +
+  "  if p == 'S:' then " +
+  "    local st = tonumber(string.match(v, '^S:(%d+):')) " +
+  "    if st and (tonumber(ARGV[4]) - st) > tonumber(ARGV[5]) then redis.call('SET', KEYS[1], ARGV[1]) return 'resume' end " +
+  "    return 'busy' " +
+  "  end " +
+  "  return 'dup' " +
+  "end " +
   "local d = redis.call('GET', KEYS[2]) " +
   "if d and d ~= ARGV[1] then return 'day' end " +
   "redis.call('SET', KEYS[1], ARGV[1]) " +
   "redis.call('SET', KEYS[2], ARGV[1], 'EX', ARGV[2]) " +
   "return 'ok'";
+/** 진행 중 표식이 이보다 오래되면 «죽은 실행»으로 보고 resume 을 허용한다(함수 상한 60초의 두 배) */
+export const ANN_STALE_MS = 120_000;
 
 /** 기기 자리 여러 개 — 잡았으면(또는 이번 실행이 이미 잡았으면) 1, 다른 공지가 잡고 있으면 0 (KEYS 순서 그대로) · 값 = 이번 실행 번호 */
 export const ANN_DEV_CLAIM_LUA =
@@ -71,7 +87,7 @@ export const ANN_DEV_CLAIM_LUA =
 /** 한 묶음(자리 잡기 → 보내기) 크기 — APNs 동시 요청도 이 수를 넘지 않는다 */
 export const ANN_CHUNK = 200;
 /** 이 시간이 지나면 새 묶음을 시작하지 않는다(함수 상한 60초 안에 기록까지 끝내게). 남은 기기는 자리를 잡지 않으니 다음 공지가 받는다 */
-export const ANN_BUDGET_MS = 35_000;
+export const ANN_BUDGET_MS = 30_000;
 
 export interface AnnounceRequest {
   id: string;
@@ -79,6 +95,8 @@ export interface AnnounceRequest {
   path: AnnouncePath;
   dry: boolean;
   platforms: AnnPlatform[];
+  /** 같은 ID 의 «일부만 보냄»(또는 죽은 실행)을 이어 보낸다 — 24시간 상한을 다시 묻지 않는다(같은 공지) */
+  resume: boolean;
 }
 
 const CTRL = /[\u0000-\u001f\u007f]/;
@@ -117,7 +135,7 @@ export function parseAnnounceRequest(x: unknown): { ok: true; req: AnnounceReque
     if (!Array.isArray(o.platforms) || !o.platforms.length || o.platforms.some((p) => p !== 'ios' && p !== 'android')) return { ok: false, error: 'platforms must be a non-empty subset of ["ios","android"]' };
     platforms = [...new Set(o.platforms as AnnPlatform[])];
   }
-  return { ok: true, req: { id, copy: copy as AnnounceRequest['copy'], path, dry: o.dry !== false, platforms } };
+  return { ok: true, req: { id, copy: copy as AnnounceRequest['copy'], path, dry: o.dry !== false, platforms, resume: o.resume === true } };
 }
 
 export function copyFor(req: Pick<AnnounceRequest, 'copy'>, loc: AnnLoc): AnnCopy {
@@ -171,9 +189,10 @@ export interface AnnounceReport {
   dry: boolean;
   id: string;
   at: string;
-  reason?: 'blackout' | 'duplicate' | 'daily_cap' | 'too_many_targets';
+  reason?: 'blackout' | 'duplicate' | 'daily_cap' | 'too_many_targets' | 'in_progress' | 'slow';
+  resumed?: boolean;
   /** 드라이런 — 지금 보내면 막힐 이유(없으면 null) */
-  wouldBlock?: 'blackout' | 'duplicate' | 'daily_cap' | 'too_many_targets' | null;
+  wouldBlock?: 'blackout' | 'duplicate' | 'resumable' | 'daily_cap' | 'too_many_targets' | null;
   path: AnnouncePath;
   platforms: AnnPlatform[];
   tokens: number;
@@ -213,6 +232,9 @@ export async function runAnnounce(req: AnnounceRequest, deps: AnnounceDeps): Pro
   };
   const stop = (status: number, reason: NonNullable<AnnounceReport['reason']>) => ({ ...report, ok: false, status, reason });
 
+  const clock = deps.clock ?? Date.now;
+  const t0 = clock();
+  const elapsed = () => clock() - t0;
   const blackout = inPushBlackout(now);
   if (!req.dry && blackout) return stop(409, 'blackout');
 
@@ -243,24 +265,31 @@ export async function runAnnounce(req: AnnounceRequest, deps: AnnounceDeps): Pro
     report.skipped.weeklyCap = capped;
     for (const d of open) { report.split[d.platform][d.locale]++; if (inQuietHours(d.tz, now)) report.quiet++; }
     report.targets = open.length;
-    report.wouldBlock = blackout ? 'blackout' : claimed != null ? 'duplicate' : last != null ? 'daily_cap' : devices.length > ANN_MAX_TARGETS ? 'too_many_targets' : null;
+    const partial = typeof claimed === 'string' && (claimed.startsWith('P:') || claimed.startsWith('S:'));
+    report.wouldBlock = blackout ? 'blackout' : claimed != null ? (partial && req.resume ? 'resumable' : 'duplicate') : last != null ? 'daily_cap' : devices.length > ANN_MAX_TARGETS ? 'too_many_targets' : null;
     return report;
   }
 
   if (devices.length > ANN_MAX_TARGETS) return stop(413, 'too_many_targets');
 
-  // 3) 공지 ID + 24시간 자리 — 원자적으로 함께(이번 실행 번호로 — 재시도해도 자기 자리)
-  const clock = deps.clock ?? Date.now;
-  const t0 = clock();
-  const nonce = deps.nonce ?? `${req.id}:${now}:${Math.random().toString(36).slice(2, 12)}`;
-  const c = await store.eval(ANN_CLAIM_LUA, [ANN_KEYS.claim(req.id), ANN_KEYS.last], [nonce, String(ANN_DAY_TTL_S)]);
+  // 목록 읽기가 예산을 다 썼으면 자리를 잡기 전에 그만둔다(아무것도 안 보냄 · 같은 ID 로 다시 가능)
+  if (elapsed() > ANN_BUDGET_MS) return stop(503, 'slow');
+
+  // 3) 공지 ID + 24시간 자리 — 원자적으로 함께(이번 실행 값으로 — 재시도해도 자기 자리)
+  const nonce = deps.nonce ?? `${now}${Math.random().toString(36).slice(2, 12)}`;
+  const claimVal = `S:${now}:${nonce}`;
+  const c = await store.eval(ANN_CLAIM_LUA, [ANN_KEYS.claim(req.id), ANN_KEYS.last], [claimVal, String(ANN_DAY_TTL_S), req.resume ? '1' : '0', String(now), String(ANN_STALE_MS)]);
   if (c === 'dup') return stop(409, 'duplicate');
-  if (c !== 'ok') return stop(429, 'daily_cap');
+  if (c === 'busy') return stop(409, 'in_progress');
+  if (c !== 'ok' && c !== 'resume') return stop(429, 'daily_cap');
+  const prevLog = c === 'resume' ? parseRecord<{ runs?: unknown[] }>((await store.mget([ANN_KEYS.log(req.id)]).catch(() => [null]))[0]) : null;
+  report.resumed = c === 'resume' || undefined;
 
   // 4) 묶음마다: 기기 자리(7일, 보내기 전) → 보내기 · 기기 언어 문구 · 조용한 시간은 소리 없이
   const dead: string[] = [];
   for (let i = 0; i < devices.length; i += ANN_CHUNK) {
-    if (clock() - t0 > ANN_BUDGET_MS) { report.deferred = devices.length - i; break; }
+    // 시간 예산 · 발송 금지 창(모닝·마감)을 묶음마다 다시 본다
+    if (elapsed() > ANN_BUDGET_MS || inPushBlackout(now + elapsed())) { report.deferred = devices.length - i; break; }
     const chunk = devices.slice(i, i + ANN_CHUNK);
     const res = await store.eval(ANN_DEV_CLAIM_LUA, chunk.map((d) => ANN_KEYS.dev(d.dev)), [nonce, String(ANN_DEV_TTL_S)]);
     const arr = Array.isArray(res) ? res : [];
@@ -294,10 +323,15 @@ export async function runAnnounce(req: AnnounceRequest, deps: AnnounceDeps): Pro
       await store.del(dead.map(ANN_KEYS.token));
     }
   } catch { /* 다음 발송기가 다시 정리한다 */ }
-  const log = JSON.stringify({ state: report.deferred ? 'partial' : 'done', ...report, preview: undefined, copy: req.copy });
+  const state = report.deferred ? 'partial' : 'done';
+  const run = { at: report.at, resumed: !!report.resumed, targets: report.targets, sent: report.sent, fail: report.fail, dead: report.dead, deferred: report.deferred, skipped: report.skipped, split: report.split, sentSplit: report.sentSplit, quiet: report.quiet };
+  const runs = [...(Array.isArray(prevLog?.runs) ? prevLog!.runs : []), run] as Array<typeof run>;
+  const totals = runs.reduce((a, r) => ({ targets: a.targets + (r.targets || 0), sent: a.sent + (r.sent || 0), fail: a.fail + (r.fail || 0), dead: a.dead + (r.dead || 0) }), { targets: 0, sent: 0, fail: 0, dead: 0 });
+  const log = JSON.stringify({ state, id: req.id, path: req.path, platforms: req.platforms, copy: req.copy, totals, deferred: report.deferred, runs });
   try {
     await store.set(ANN_KEYS.log(req.id), log, ANN_LOG_TTL_S);
-    await store.set(ANN_KEYS.claim(req.id), log, 0);   // 같은 ID 는 영원히 1회 — 만료 없음
+    // 같은 ID 자리: 끝났으면 기록(만료 없음 — 영원히 1회) · 일부만이면 'P:' 표식(resume 으로 이어 보낼 수 있게)
+    await store.set(ANN_KEYS.claim(req.id), state === 'done' ? log : `P:${nonce}`, 0);
     await store.lpush(ANN_KEYS.index, JSON.stringify({ id: req.id, at: report.at, targets: report.targets, sent: report.sent, fail: report.fail }));
   } catch { /* 자리는 이미 잡혔다 — 중복은 생기지 않는다 */ }
   return report;
