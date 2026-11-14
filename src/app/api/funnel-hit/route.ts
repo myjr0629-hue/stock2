@@ -20,7 +20,8 @@ import {
 
 const TTL = 60 * 60 * 24 * 45;
 // Keep the shared link-preview rules intact; this additional filter applies only to funnel counts.
-const AUTOMATED_UA_RE = /bot|crawler|spider|headless|lighthouse|playwright|puppeteer/i;
+// (?<!cu)bot: keep real CUBOT-brand Android phones (UA "CUBOT …") counted.
+const AUTOMATED_UA_RE = /(?<!cu)bot|crawler|spider|headless|lighthouse|playwright|puppeteer/i;
 
 async function bump(key: string): Promise<void> {
   const cur = (await getFromCache<number>(key)) || 0;
