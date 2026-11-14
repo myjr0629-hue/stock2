@@ -8,6 +8,53 @@ import crypto from 'crypto';
 import type { FuturesCashCloseReference } from '@/lib/futuresCashClose';
 import { monitorEventLoopDelay, performance } from 'perf_hooks';
 import { Redis as UpstashRedis } from '@upstash/redis';
+// [2026-11-14] 큰 체인 값(polygon:snapshot:probe·intrinio:chain)의 gzip 저장 — 읽기는 표식으로 해제(옛 평문 그대로), 쓰기는 대상 키만 압축
+//   규칙은 scripts/lambda-flow-harvest/redis-codec.js 와 같다(tests/redisValueCodec.test.ts 가 교차 왕복 확인).
+//   이 파일 안에 둔다 — 여러 시험이 이 파일을 별칭·로컬 import 없이 단독으로 옮겨 싣는다.
+import { gzipSync, gunzipSync } from 'zlib';
+
+// ── 값 압축(gz1) ── 형식 "gz1:"+base64(gzip(JSON)) · 대상 키만 · 손상 → null(캐시 미스), 예외 없음
+export const GZ_MARK = 'gz1:';
+const COMPRESS_KEYS = [
+    /^polygon:snapshot:probe:(?!meta:)[^:]+$/,
+    /^intrinio:chain:[^:]+:\d{4}-\d{2}-\d{2}$/,
+];
+const MAX_DECODED_BYTES = 64 * 1024 * 1024;
+
+export function shouldCompressKey(key: string): boolean {
+    return typeof key === 'string' && COMPRESS_KEYS.some((re) => re.test(key));
+}
+
+/** 저장 직전: 대상 키의 객체 값이면 "gz1:..." 문자열로, 아니면 그대로. 압축 실패도 그대로. */
+export function encodeForKey<T>(key: string, value: T): T | string {
+    if (!shouldCompressKey(key) || value === null || typeof value !== 'object') return value;
+    try {
+        const json = JSON.stringify(value);
+        if (typeof json !== 'string') return value;
+        return GZ_MARK + gzipSync(Buffer.from(json, 'utf8'), { level: 6 }).toString('base64');
+    } catch {
+        return value;
+    }
+}
+
+export function isEncoded(v: unknown): v is string {
+    return typeof v === 'string' && v.startsWith(GZ_MARK);
+}
+
+/** 읽은 직후: 표식이 있으면 풀어서 객체로, 없으면 그대로. 손상 → null(캐시 미스). */
+export function decodeStoredValue<T>(v: unknown): T | null {
+    if (!isEncoded(v)) return (v ?? null) as T | null;
+    try {
+        const buf = gunzipSync(Buffer.from(v.slice(GZ_MARK.length), 'base64'), { maxOutputLength: MAX_DECODED_BYTES });
+        return JSON.parse(buf.toString('utf8')) as T;
+    } catch {
+        return null;
+    }
+}
+
+export function decodeStoredValues<T>(vs: readonly unknown[]): (T | null)[] {
+    return vs.map((v) => decodeStoredValue<T>(v));
+}
 
 // Lazy initialization
 let upstashClient: UpstashRedis | null = null;
@@ -390,9 +437,11 @@ async function ecProxyGetEx<T>(key: string, gate: EcGate = 'use', requireResult 
         ecSettle(gate, false);
         return { ok: false, value: null };
     }
-    obsRecord('get', r.body?.result == null ? 'miss' : 'hit', t0);
+    // 압축 값은 여기서 푼다 — 손상이면 null(미스로 취급, Upstash 정책 폴백은 호출자 그대로)
+    const value = decodeStoredValue<T>(r.body?.result ?? null);
+    obsRecord('get', value == null ? 'miss' : 'hit', t0);
     ecSettle(gate, true);
-    return { ok: true, value: (r.body?.result ?? null) as T | null };
+    return { ok: true, value };
 }
 async function ecProxyGet<T>(key: string): Promise<T | null> {
     return (await ecProxyGetEx<T>(key)).value;
@@ -562,7 +611,7 @@ export async function readEachStoreStrict<T>(keys: string[]): Promise<{
         obsUp('mget', 'strict');
         const tu = performance.now();
         try {
-            const values = await upstash.mget<(T | null)[]>(...keys);
+            const values = decodeStoredValues<T>(await upstash.mget<(T | null)[]>(...keys));
             obsUpDone(tu);
             return { ok: true, values };
         } catch { obsUpDone(tu, true); return { ok: false, values: none as (T | null)[] }; }
@@ -781,7 +830,7 @@ export async function getFromCache<T>(key: string): Promise<T | null> {
     obsUp('get', upReason);
     const tu = performance.now();
     try {
-        const v = await upstash.get<T>(key);
+        const v = decodeStoredValue<T>(await upstash.get<T>(key));
         if (v == null) obs.up.getMiss++; else obs.up.getHit++;
         obsUpDone(tu);
         return v;
@@ -829,7 +878,7 @@ async function mgetFromCacheInternal<T>(keys: string[], strict: boolean): Promis
             obsRecord('mget', 'http', t0);
             ecSettle(gate, false, gate === 'probe' ? `HTTP ${r.res.status}` : undefined); // 예전처럼 HTTP 오류는 열지 않는다(시험 요청만)
         } else {
-            const results = (r.body?.results || []) as (T | null)[];
+            const results = decodeStoredValues<T>(r.body?.results || []);
             ecSettle(gate, true);
             // If the EC2 proxy corrupted any multi-byte value, fall through to
             // Upstash's clean copy rather than returning mojibake.
@@ -844,7 +893,7 @@ async function mgetFromCacheInternal<T>(keys: string[], strict: boolean): Promis
                         const tu = performance.now();
                         try {
                             const extra = await upstash.mget(...need.map((i) => keys[i]));
-                            need.forEach((i, j) => { if (extra[j] != null) results[i] = extra[j] as T; });
+                            need.forEach((i, j) => { const x = decodeStoredValue<T>(extra[j]); if (x != null) results[i] = x; });
                             obsUpDone(tu);
                         } catch (e: any) { obsUpDone(tu, true); console.warn(`[Redis/Upstash] mget(fill) failed:`, e.message); }
                     }
@@ -864,7 +913,7 @@ async function mgetFromCacheInternal<T>(keys: string[], strict: boolean): Promis
         try {
             const results = await upstash.mget(...keys);
             obsUpDone(tu);
-            if (!strict || (Array.isArray(results) && results.length === keys.length)) return results as (T | null)[];
+            if (!strict || (Array.isArray(results) && results.length === keys.length)) return decodeStoredValues<T>(results || []);
         } catch (e: any) {
             obsUpDone(tu, true);
             console.warn(`[Redis/Upstash] mget failed:`, e.message);
@@ -898,6 +947,8 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
 
     let ecOk = false;
     let upstashOk = false;
+    // [2026-11-14] 대상 키(체인·프로브)만 "gz1:"+base64(gzip) 문자열로 저장 — 키·TTL·내용은 그대로, 다른 키 무변경
+    const stored = encodeForKey(key, value);
 
     // [GLOBAL POLICY] Apply TTL jitter to prevent thundering herd
     const effectiveTtl = ttlSeconds ? applyJitter(ttlSeconds) : undefined;
@@ -906,7 +957,7 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
     const gate = ecAcquire();
     const ecTried = gate !== 'skip';
     if (ecTried) {
-        ecOk = await ecProxySet(key, value, effectiveTtl, gate);
+        ecOk = await ecProxySet(key, stored, effectiveTtl, gate);
     }
 
     // Upstash 복제는 정책이 정한다(내구 키·장애-필수 키·EC2 실패 시). 그 외는 EC2 만.
@@ -918,9 +969,9 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
         const tu = performance.now();
         try {
             if (effectiveTtl) {
-                await upstash.setex(key, effectiveTtl, value);
+                await upstash.setex(key, effectiveTtl, stored);
             } else {
-                await upstash.set(key, value);
+                await upstash.set(key, stored);
             }
             upstashOk = true;
             obsUpDone(tu);

@@ -120,7 +120,9 @@ async function main() {
         });
         const rd = await res.json();
         if (rd.result) {
-            const probe = JSON.parse(rd.result);
+            // [2026-11-14] gz1 압축 값이면 풀어서(손상 = 빈 객체), 옛 평문은 그대로
+            let pv; try { pv = JSON.parse(rd.result); } catch { pv = rd.result; }
+            const probe = require('./lambda-flow-harvest/redis-codec').decodeStoredValue(pv) || {};
             // Find ATM contracts near $201
             const calls = probe.exactResults?.filter(c => c.details?.contract_type === 'call' && Math.abs(c.details?.strike_price - 200) < 5) || [];
             const puts = probe.exactResults?.filter(c => c.details?.contract_type === 'put' && Math.abs(c.details?.strike_price - 200) < 5) || [];

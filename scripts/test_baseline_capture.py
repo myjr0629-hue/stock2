@@ -38,7 +38,18 @@ def redis_get(key):
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode())
             if data.get("result"):
-                return json.loads(data["result"])
+                try:
+                    v = json.loads(data["result"])
+                except ValueError:
+                    v = data["result"]  # Upstash SDK 가 문자열을 원문 그대로 저장한 경우("gz1:...")
+                # [2026-11-14] 큰 체인 값은 "gz1:"+base64(gzip(JSON)) 로 저장된다 — 풀어서 돌려준다(손상이면 None)
+                if isinstance(v, str) and v.startswith("gz1:"):
+                    import base64, gzip
+                    try:
+                        return json.loads(gzip.decompress(base64.b64decode(v[4:])).decode())
+                    except Exception:
+                        return None
+                return v
     except Exception as e:
         print(f"  [ERROR] {key}: {e}")
     return None

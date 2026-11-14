@@ -19,6 +19,8 @@ function loadFresh(extraEnv) {
 }
 
 const P0 = loadFresh().index.__priority;
+// [2026-11-14] 프로브 본문은 gzip("gz1:")으로 저장된다 — 내용 검사는 풀어서
+const codec = require(path.join(DIR, 'redis-codec.js'));
 
 test('고정 목록 = firstRunValue ONB_POPULAR · 휴장/조기 종료 = marketCalendar', () => {
   const frv = fs.readFileSync(path.join(ROOT, 'src/lib/app/firstRunValue.ts'), 'utf8');
@@ -209,7 +211,8 @@ test('강제 1회 — 대상 전부 수집·프로브/판본표 TTL 600(장중 �
   assert.equal(r.adapter.callStats().ratePerMin, 60000, '끝나면 환경 값 속도로 복원');
   const probeWrites = r.writes.filter((w) => /^polygon:snapshot:probe:[A-Z]+$/.test(w.key));
   assert.equal(probeWrites.length, 13);
-  const v = store.get('polygon:snapshot:probe:NVDA');
+  assert.ok(codec.isEncoded(store.get('polygon:snapshot:probe:NVDA')), '프로브 본문은 압축 저장');
+  const v = codec.decodeStoredValue(store.get('polygon:snapshot:probe:NVDA'));
   assert.equal(v._source, 'lambda-flow-harvest');
   assert.ok(v.probeResults.every((c) => c._quoteSource === 'live' && typeof c.ivObservedAt === 'string'));
   assert.ok(store.get('polygon:snapshot:probe:meta:NVDA')._ts > 0);
@@ -277,7 +280,7 @@ test('429 8건·회차 호출 상한은 «엄격» — 넘는 순간 배치 중�
   assert.equal(r.body.tripped, 'calls');
   assert.ok(r.body.calls <= 20, '나간 요청 ≤ 상한(차단은 요청 전에): ' + r.body.calls);
   for (const w of r.writes.filter((x) => /^polygon:snapshot:probe:[A-Z]+$/.test(x.key))) {
-    const v = store2.get(w.key);
+    const v = codec.decodeStoredValue(store2.get(w.key));
     assert.equal(v.partial, false, w.key); assert.equal(v.greeksSource, 'realtime', w.key);
   }
   // 다음 회차는 못 간 종목부터
