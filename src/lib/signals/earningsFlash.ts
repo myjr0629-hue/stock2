@@ -180,14 +180,10 @@ function amcSnapDeadline(e: FlashEntry): number | null {
   return r != null ? Math.min(Math.max(r, close), close + 4 * 3600_000) : close;
 }
 
-/** 결과가 나오는 (대략의) 시각 — 뜨기 순서의 «발표 임박» 판단용(판정에는 쓰지 않는다) */
+/** 결과가 나오는 (대략의) 시각 — 뜨기 순서의 «발표 임박» 판단용(판정에는 쓰지 않는다) · 장후 시각 미공지는 null(판정 불가) */
 export function releaseApproxMs(e: FlashEntry): number | null {
-  if (e.hour === 'amc') {
-    const r = amcReleaseMs(e);
-    if (r != null) return r;
-    return isNonTradingDay(e.date) ? null : etWallToMs(e.date, hhmm(sessionCloseMinutes(e.date)));
-  }
-  return etWallToMs(e.date, e.etTime ?? '09:30');
+  if (e.hour === 'amc') return amcReleaseMs(e);
+  return isNonTradingDay(e.date) ? null : etWallToMs(e.date, e.etTime ?? '09:30');
 }
 
 /**
@@ -195,7 +191,8 @@ export function releaseApproxMs(e: FlashEntry): number | null {
  *   ① 24시간 안 발표(오늘 장후·다음 거래일 장전 — 예비 예상값이 늦게 생겨 뜨기가 사실상 유일한 원천)
  *      ⓐ 아직 못 떴고 최근(captureRetryBackoffMs) 시도하지 않은 것 → ⓑ 최근 시도했다 못 뜬 것(시도 오래된 순 재시도)
  *   ② 그 밖의 발표(주말 건너 장전 등) — 같은 ⓐ → ⓑ
- *   ③ 이미 떠 둔 발표(남는 자리에서 새 값으로 갱신)
+ *   ③ 지금 목록으로는 판정 창이 없는 발표(장후 결과·통화 시각 미공지 — 시각이 채워질 때를 위해 남는 자리에서만, 관문 11150355)
+ *   ④ 이미 떠 둔 발표(남는 자리에서 새 값으로 갱신)
  *   같은 칸 안: 담은 기기 많은 순 → 오래 전 시도 먼저 → 발표 이른 순 → 종목명.
  * exp·tried 는 capAll 과 같은 순서의 저장값(없으면 null). 앞 12개가 계속 실패해도 13번째 이후가 다음 회차에 들어가고(밤 검토 11/15),
  * 임박 발표의 마지막 회차 재시도가 먼 발표에 밀리지 않는다(관문 11150352).
@@ -206,7 +203,7 @@ export function pickCaptures(capAll: readonly FlashEntry[], exp: readonly unknow
     const lastTry = Number.isFinite(tRaw) && tRaw > 0 && tRaw <= now + 60_000 ? tRaw : 0;
     const rel = releaseApproxMs(e);
     return {
-      e, have: exp[i] != null, lastTry,
+      e, have: exp[i] != null, lastTry, judgeable: flashWindow(e) != null,
       backoff: lastTry > 0 && now - lastTry < FLASH_CFG.captureRetryBackoffMs,
       imminent: rel != null && rel - now <= FLASH_CFG.captureImminentMs ? 0 : 1,
       rel: rel ?? Number.MAX_SAFE_INTEGER, h: holders.get(e.ticker) ?? 0,
@@ -214,7 +211,7 @@ export function pickCaptures(capAll: readonly FlashEntry[], exp: readonly unknow
   });
   type R = (typeof rows)[number];
   const tie = (a: R, b: R) => b.h - a.h || a.lastTry - b.lastTry || a.rel - b.rel || a.e.ticker.localeCompare(b.e.ticker);
-  const band = (r: R) => (r.have ? 4 : r.imminent * 2 + (r.backoff ? 1 : 0));
+  const band = (r: R) => (r.have ? 6 : (r.judgeable ? r.imminent * 2 : 4) + (r.backoff ? 1 : 0));
   const sorted = [...rows].sort((a, b) => band(a) - band(b) || (a.backoff && b.backoff && !a.have ? a.lastTry - b.lastTry : 0) || tie(a, b));
   return sorted.slice(0, FLASH_CFG.maxCapturesPerRun).map((r) => r.e);
 }

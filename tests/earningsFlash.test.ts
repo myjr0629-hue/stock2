@@ -305,6 +305,21 @@ t('관문 11150352 — 금요일 당일 장후 12종목이 15:35 에 일시 실�
   assert.equal(today.every((x) => r.store.m.has(FLASH_KEYS.exp(x, FRI))), true);
 });
 
+t('관문 11150355 — 판정 창이 없는 장후 발표(결과·통화 시각 미공지)는 뜨기 자리를 먼저 차지하지 않는다', () => {
+  const FRI = '2026-11-20', MON = '2026-11-23';
+  const blind: FlashEntry[] = Array.from({ length: 12 }, (_, i) => ({ ticker: `U${String(i).padStart(2, '0')}`, date: FRI, hour: 'amc', etTime: null, callEtTime: null }));
+  const far: FlashEntry[] = Array.from({ length: 3 }, (_, i) => ({ ticker: `M${i}`, date: MON, hour: 'bmo', etTime: null }));
+  const all = [...blind, ...far];
+  const now = ET(FRI, 15, 35), none = all.map(() => null);
+  const holders = new Map<string, number>([...blind.map((e) => [e.ticker, 5] as [string, number]), ...far.map((e) => [e.ticker, 1] as [string, number])]);
+  assert.equal(captureEntries(all, now).length, 15);
+  const p1 = pickCaptures(all, none, none, holders, now).map((e) => e.ticker);
+  assert.deepEqual(p1.slice(0, 3), ['M0', 'M1', 'M2'], '판정 가능한 먼 발표가 먼저');
+  // 두 번째 회차(먼 발표가 15분 전 실패해 대기 중)여도 판정 불가 발표 미시도보다는 먼저
+  const tried = all.map((e) => (e.ticker.startsWith('M') ? now : null));
+  assert.deepEqual(pickCaptures(all, none, tried, holders, now + 15 * 60_000).map((e) => e.ticker).slice(0, 3), ['M0', 'M1', 'M2']);
+});
+
 // ── 장전 ──
 t('장전(DIS) — 실적 기록의 전 거래일 EOD 예상값 · 10:00 ET 뒤 정규장 체결 · «장 초반» 문구 · 범위 밖', async () => {
   const actual = { v: 1, ticker: 'DIS', date: D, hour: 'bmo', at: ET(D, 6, 20), actual: null,
