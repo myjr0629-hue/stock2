@@ -27,6 +27,8 @@
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const __intrinio = require('./intrinio-adapter');
+// [2026-11-14] 큰 체인 값(intrinio:chain·polygon:snapshot:probe)은 gzip 으로 저장 — redisSet 이 키로 판단, redisGet 이 표식으로 해제
+const __codec = require('./redis-codec');
 
 // ── EOD 체인 캐시 주입 ────────────────────────────────────────────────
 // [2026-09-02] 실시간 그릭스를 붙이며 호출이 8→13콜이 되어 분당 한도에 눌렸다
@@ -203,6 +205,8 @@ function ec2ProxyPost(path, body, timeoutMs) {
 }
 
 async function redisSet(key, value, ttl) {
+  // [2026-11-14] 대상 키(체인·프로브)만 "gz1:"+base64(gzip) 문자열로 — 키·TTL·내용은 그대로. 다른 키는 무변경.
+  value = __codec.encodeForKey(key, value);
   // 1st: EC2 Proxy /set (internal VPC, zero Upstash cost)
   try {
     const result = await ec2ProxyPost('/set', JSON.stringify({ key, value, ttl }), 3000);
@@ -249,7 +253,8 @@ async function redisGet(key) {
   //      응답은 `{ result: <값 | null> }` 이고 값은 이미 JSON.parse 된 상태다.
   try {
     const r = await ec2ProxyGet('/get?key=' + encodeURIComponent(key), 3000);
-    if (r && r.result !== undefined && r.result !== null) return r.result;
+    // [2026-11-14] 압축 값은 풀고(손상이면 null=미스), 표식 없는 옛 값은 그대로
+    if (r && r.result !== undefined && r.result !== null) return __codec.decodeStoredValue(r.result);
   } catch { /* 프록시 실패 시 Upstash 로 */ }
 
   if (!UPSTASH_URL || !UPSTASH_TOKEN) return null;
@@ -268,7 +273,9 @@ async function redisGet(key) {
           try {
             const parsed = JSON.parse(data);
             if (parsed.result) {
-              try { resolve(JSON.parse(parsed.result)); } catch { resolve(parsed.result); }
+              let v;
+              try { v = JSON.parse(parsed.result); } catch { v = parsed.result; }
+              resolve(__codec.decodeStoredValue(v));
             } else { resolve(null); }
           } catch { resolve(null); }
         });

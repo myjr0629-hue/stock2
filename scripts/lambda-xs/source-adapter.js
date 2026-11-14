@@ -67,6 +67,7 @@
 'use strict';
 
 const { QueryCommand, BatchGetCommand } = require('@aws-sdk/lib-dynamodb');
+const { decodeStoredValue } = require('./redis-codec');
 
 const REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
 // no hardcoded default on purpose (proxy key rotated 2026-09-16) — the Lambda env carries it
@@ -139,7 +140,8 @@ async function proxyGet(key, timeoutMs) {
         return null;
     }
     const j = parseMaybeJson(r.body);
-    return j && typeof j === 'object' && 'result' in j ? parseMaybeJson(j.result) : null;
+    // [2026-11-14] 수집기가 큰 체인(polygon:snapshot:probe 등)을 "gz1:"+gzip 으로 저장한다 — 표식 있으면 해제(손상=null), 없으면 예전 그대로
+    return j && typeof j === 'object' && 'result' in j ? decodeStoredValue(parseMaybeJson(j.result)) : null;
 }
 
 // ── Upstash REST pipeline ────────────────────────────────────────────────────
