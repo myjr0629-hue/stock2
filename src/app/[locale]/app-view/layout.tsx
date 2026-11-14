@@ -22,6 +22,7 @@ import { etDay } from '@/lib/app/funnelSchema';
 import { WATCHLIST_CHANGE_EVENT } from '@/lib/app/watchlist';
 import { syncSignalWatchlist } from '@/lib/app/signalSync';
 import { signalFunnelSrc, signalTapPath } from '@/lib/app/signalTap';
+import { ANNOUNCE_PUSH_TYPE, announceTapPath } from '@/lib/app/announceTap';
 import { registerAppStatusTap } from '@/lib/app/statusTap';
 import '@/styles/app-tokens.css';
 import '@/styles/app-view.css';
@@ -123,8 +124,11 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
               import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('push_open', { src: 'push_trial' })).catch(() => {});
               try { sessionStorage.setItem('signumhq.trialSave.push', '1'); } catch { /* storage off */ }
             }
+            // ★2026-11-14 관리자 공지 푸시(/api/admin/announce) — 닫힌 목록의 앱 화면으로만 연다(lib/app/announceTap) · 탭 계측 push_announce(하루 합계만)
+            const annPath = type === ANNOUNCE_PUSH_TYPE ? announceTapPath(action?.notification?.data?.path) : null;
+            if (annPath) import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('push_open', { src: 'push_announce' })).catch(() => {});
             const target = reportPushPath(type, loc, action?.notification?.data?.date)
-              || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : trialPath ? `/${loc}${trialPath}` : null);
+              || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : trialPath ? `/${loc}${trialPath}` : annPath ? `/${loc}${annPath}` : null);
             if (!target) return;
             try {
               if (countRatingPush(type, localStorage, sessionStorage) >= 3) {
