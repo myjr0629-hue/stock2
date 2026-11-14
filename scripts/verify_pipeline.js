@@ -54,11 +54,10 @@ function httpsGet(url) {
   console.log('--- TIER 1b: ElastiCache — polygon:snapshot:probe ---');
   let probeHits = 0;
   for (const t of tickers) {
-    const raw = await ecGet('polygon:snapshot:probe:' + t);
+    // [2026-11-14] 수집기가 프로브를 "gz1:"+gzip 으로 저장한다 — 풀어서 본다(옛 평문도 그대로). 손상 값 = 소비처와 같이 MISS
+    const raw = require('./lambda-flow-harvest/redis-codec').decodeStoredValue(await ecGet('polygon:snapshot:probe:' + t));
     if (raw) {
-      // [2026-11-14] 수집기가 프로브를 "gz1:"+gzip 으로 저장한다 — 풀어서 본다(옛 평문도 그대로)
-      const dec = require('./lambda-flow-harvest/redis-codec').decodeStoredValue(raw);
-      const data = typeof dec === 'string' ? JSON.parse(dec) : (dec || {});
+      const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
       const age = Math.round((Date.now() - (data._ts || 0)) / 1000);
       probeHits++;
       console.log(t + ': ✅ contracts=' + (data.probeResults?.length || '?') + ' age=' + age + 's');
