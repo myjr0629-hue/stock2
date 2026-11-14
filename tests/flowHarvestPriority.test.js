@@ -149,6 +149,11 @@ function fakeVendor(opts = {}) {
     }
     if ((m = p.match(/^options\/greeks\/by_ticker\/([^/]+)\/realtime$/))) {
       const T = m[1];
+      // 2쪽짜리 그릭스: 1쪽은 성공(next_page), 2쪽은 실패 — «일부만 실시간» 재현
+      if (opts.greeksPage2Fail && opts.greeksPage2Fail(T)) {
+        if (!u.searchParams.get('next_page')) return ok({ contracts: [{ option: { code: `${T}${e1}call` }, greeks: { implied_volatility: 0.5, gamma: 0.01, synthetic_price: 1.2 } }], next_page: 'p2' });
+        return { ok: false, status: 500, json: async () => ({}) };
+      }
       return ok({ contracts: [e1, e2].flatMap((e) => ['call', 'put'].map((type) => ({ option: { code: `${T}${e}${type}` }, greeks: { implied_volatility: 0.5, gamma: 0.01, delta: 0.5, synthetic_price: 1.2 } }))) });
     }
     return { ok: false, status: 404, json: async () => ({}) };
@@ -307,5 +312,45 @@ test('샤드 경로 — 우선 레인 다음 같은 컨테이너에서도 환경
   assert.equal(adapter.setRatePerMin(240), 240);
   assert.equal(adapter.setRatePerMin(5000), 420, '환경 값보다 높일 수 없다');
   assert.equal(adapter.setRatePerMin(null), 420);
-  assert.match(src, /if \(typeof __intrinio\.setCallGuard === 'function'\) __intrinio\.setCallGuard\(null\);\n  const start = Date\.now\(\);/, '샤드 시작에 가드 해제');
+  assert.equal(/setCallGuard/.test(src), false, '전역 가드 없음 — 레인 문맥(AsyncLocalStorage)만');
+});
+
+test('그릭스 2쪽 중 1쪽만 받은 체인(«일부만 실시간»)은 우선 레인이 쓰지 않는다 (관문 11140919 P1)', async () => {
+  const store = new Map([['market:earnings-calendar:v4', CAL([])], ['polygon:snapshot:probe:NVDA', { keep: 1 }]]);
+  const r = await runHandler({ event: { mode: 'priority-chain', forceRun: true }, store, vendor: fakeVendor({ greeksPage2Fail: (T) => T === 'NVDA' }), env: { PRIORITY_BATCH: '1' } });
+  const nv = r.body.per.find((p) => p.t === 'NVDA');
+  assert.equal(nv.s, 'degraded');
+  assert.equal(nv.greeksSource, 'realtime', '그릭스 출처는 realtime 으로 보이지만');
+  assert.equal(nv.greeksComplete, false, '페이지가 덜 왔다');
+  assert.deepEqual(store.get('polygon:snapshot:probe:NVDA'), { keep: 1 });
+  assert.equal(r.body.ok, 11);
+});
+
+test('레인 문맥 — 끝난(done)·차단된 문맥의 남은 작업은 요청을 못 내고, 드라이런 문맥은 체인 캐시를 못 쓴다 · 문맥 밖(샤드)은 그대로', async () => {
+  const store = new Map();
+  const px = await startProxy(store);
+  const v = fakeVendor();
+  const of = global.fetch; global.fetch = v.fetchImpl;
+  try {
+    const { index, adapter } = loadFresh({ EC2_REDIS_PROXY_URL: px.url, REDIS_PROXY_KEY: 't', UPSTASH_REDIS_REST_URL: '', UPSTASH_REDIS_REST_TOKEN: '', INTRINIO_API_KEY: 'test', INTRINIO_RATE_PER_MIN: '60000' });
+    void index;
+    const ctx = { done: false, guard: () => ctx.done };
+    // 문맥 안에서 시작한 작업이 «핸들러가 끝난 뒤» 깨어나는 상황: 시작 → done → 요청
+    const p = adapter.runInLane(ctx, async () => { await new Promise((z) => setTimeout(z, 20)); return adapter.callIntrinio('securities/AAPL/prices/realtime'); });
+    ctx.done = true;
+    await assert.rejects(p, /LANE_STOP/);
+    assert.equal(v.calls.length, 0, '끝난 문맥 = 요청 0');
+    // 문맥 밖(샤드)은 같은 시점에도 정상
+    await adapter.callIntrinio('securities/AAPL/prices/realtime');
+    assert.equal(v.calls.length, 1);
+    // 드라이런 문맥: 체인 수집은 하되 체인 캐시·최신 EOD 날짜 쓰기 0
+    const before = px.writes.length;
+    const out = await adapter.runInLane({ dryRun: true, guard: () => false }, () => adapter.getOptionChain('NVDA'));
+    assert.ok(out.results.length > 0);
+    assert.equal(out.greeksComplete, true);
+    assert.equal(px.writes.length - before, 0, JSON.stringify(px.writes.slice(before, before + 3)));
+    // 문맥 밖이면 같은 호출이 체인 캐시를 쓴다(샤드 동작 그대로)
+    await adapter.getOptionChain('TSLA');
+    assert.ok(px.writes.length - before > 0, '샤드 경로는 체인 캐시를 쓴다');
+  } finally { global.fetch = of; px.server.close(); }
 });

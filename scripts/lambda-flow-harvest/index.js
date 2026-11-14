@@ -37,7 +37,12 @@ const __intrinio = require('./intrinio-adapter');
 if (typeof __intrinio.setChainCache === 'function') {
   __intrinio.setChainCache({
     get: (k) => redisGet(k),
-    set: (k, v, ttl) => redisSet(k, v, ttl),
+    // 우선 레인 드라이런·끝난 회차의 남은 작업은 쓰지 않는다(샤드는 문맥이 없어 예전 그대로)
+    set: (k, v, ttl) => {
+      const c = typeof __intrinio.laneContext === 'function' ? __intrinio.laneContext() : null;
+      if (c && (c.dryRun || c.done)) return Promise.resolve(true);
+      return redisSet(k, v, ttl);
+    },
   });
 }
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
@@ -540,7 +545,7 @@ async function fetchOptionsSnapshotRaw(ticker, opts) {
       _source: 'lambda-flow-harvest',
     };
 
-    if (opts && opts.stats) Object.assign(opts.stats, probeShapeStats(cachePayload));
+    if (opts && opts.stats) Object.assign(opts.stats, probeShapeStats(cachePayload), { greeksComplete: !!(probeRaw && probeRaw.greeksComplete) });
     if (opts && opts.dryRun) return true;
     // 우선 레인 상한이 이 종목 수집 도중 걸렸으면(새 요청 차단) 결과가 빠졌을 수 있다 — 쓰지 않고 다음 회차에 맡긴다
     if (opts && typeof opts.abortWrite === 'function' && opts.abortWrite()) {
@@ -549,7 +554,8 @@ async function fetchOptionsSnapshotRaw(ticker, opts) {
     }
     // 우선 레인은 «온전한 실시간 체인»만 쓴다 — 그릭스 실패(429 등 → EOD 그릭스)·빠진 만기 체인으로 직전 live 프로브를 덮으면
     //   바로 그 live↔EOD 뒤집힘이 생긴다. 못 쓰면 직전 프로브(≤10분)·앱 직접 경로가 그대로 맡는다. (샤드는 예전대로 쓴다)
-    if (opts && opts.requireComplete && !opts.dryRun && (cachePayload.partial || cachePayload.greeksSource !== 'realtime')) {
+    const greeksWhole = (r) => !!r && r.greeksSource === 'realtime' && r.greeksComplete === true;
+    if (opts && opts.requireComplete && !opts.dryRun && (cachePayload.partial || !greeksWhole(probeRaw) || (exactMeta && !greeksWhole(exactMeta)))) {
       if (opts.stats) opts.stats.degraded = true;
       return false;
     }
@@ -1131,6 +1137,11 @@ async function priorityChainHandler(event) {
     console.log('[priority] 정규장 밖(' + win.reason + ', ET ' + win.et.date + ' ' + Math.floor(win.et.minutes / 60) + ':' + String(win.et.minutes % 60).padStart(2, '0') + ') — 건너뜀');
     return { statusCode: 200, body: JSON.stringify({ skipped: true, mode: 'priority-chain', reason: win.reason }) };
   }
+  // 레인 문맥(AsyncLocalStorage)이 없으면 엄격 상한·드라이런 쓰기 0 을 보장할 수 없다 — 돌지 않는다
+  if (typeof __intrinio.laneSupported !== 'function' || !__intrinio.laneSupported()) {
+    console.warn('[priority] 레인 문맥 미지원 — 건너뜀');
+    return { statusCode: 200, body: JSON.stringify({ skipped: true, mode: 'priority-chain', reason: 'lane-unsupported' }) };
+  }
   // 드라이런은 락도 쓰지 않는다(운영 Redis 쓰기 0)
   const useLock = !forceRun && !dryRun;
   if (useLock) {
@@ -1157,13 +1168,13 @@ async function priorityChainHandler(event) {
     }
     return !!tripped;
   };
-  if (typeof __intrinio.setCallGuard === 'function') __intrinio.setCallGuard(tripNow);
-  // 드라이런은 어댑터의 EOD 체인 캐시·최신 EOD 날짜 쓰기까지 막는다(읽기만) — 운영 Redis 쓰기 0
-  if (dryRun && typeof __intrinio.setChainCache === 'function') {
-    __intrinio.setChainCache({ get: (k) => redisGet(k), set: async () => true });
-  }
+  // 레인 문맥 — 이 회차에서 시작된 작업에만 붙는다(어댑터 AsyncLocalStorage). 끝나면 done=참 → 남은 작업(60초 경로 시간 초과 뒤
+  //   계속 도는 것)도 새 요청·프로브 쓰기·체인 캐시 쓰기를 못 한다. 드라이런은 처음부터 쓰기 0(체인 캐시·최신 EOD 날짜 포함).
+  const laneCtx = { lane: 'priority-chain', dryRun, done: false, guard: () => laneCtx.done || tripNow() };
+  const inLane = typeof __intrinio.runInLane === 'function' ? __intrinio.runInLane : (_c, f) => f();
 
   try {
+    return await inLane(laneCtx, async () => {
     const todayEt = win.et.date;
     const cal = await loadEarningsRows(todayEt, dryRun);
     const tg = buildPriorityTargets(cal.rows, todayEt);
@@ -1195,7 +1206,7 @@ async function priorityChainHandler(event) {
       const res = await Promise.all(batch.map(async (t) => {
         const stats = {};
         // 덮어쓰기 기준 = 이 종목 수집을 시작한 시각(그 뒤에 다른 수집이 쓴 판본이 있으면 양보)
-        const okT = await fetchOptionsSnapshotRaw(t, { dryRun, stats, guardNewerThan: dryRun ? 0 : Date.now(), abortWrite: () => !!tripped, requireComplete: true });
+        const okT = await fetchOptionsSnapshotRaw(t, { dryRun, stats, guardNewerThan: dryRun ? 0 : Date.now(), abortWrite: () => !!tripped || laneCtx.done, requireComplete: true });
         return { t, okT, stats };
       }));
       const cBatch = callsNow() - c0;
@@ -1235,15 +1246,14 @@ async function priorityChainHandler(event) {
       await redisSet(PRIORITY.statusKey, summary, PRIORITY.statusTtl).catch(() => false);
     }
     return { statusCode: 200, body: JSON.stringify(Object.assign({}, summary, { per })) };
+    });
   } catch (e) {
     console.log('[priority] 오류: ' + (e && e.message));
     return { statusCode: 500, body: JSON.stringify({ mode: 'priority-chain', error: String((e && e.message) || e) }) };
   } finally {
+    laneCtx.done = true;
+    if (!tripped) tripped = 'ended';
     if (typeof __intrinio.setRatePerMin === 'function') __intrinio.setRatePerMin(null);
-    if (dryRun && typeof __intrinio.setChainCache === 'function') {
-      __intrinio.setChainCache({ get: (k) => redisGet(k), set: (k, v, ttl) => redisSet(k, v, ttl) });
-    }
-    if (typeof __intrinio.setCallGuard === 'function') __intrinio.setCallGuard(null);
     if (useLock) await releaseLock(PRIORITY.lockKey);
   }
 }
@@ -1256,7 +1266,6 @@ exports.handler = async (event) => {
   if (event && event.mode === 'priority-chain') return priorityChainHandler(event);
   // 재사용 컨테이너가 직전에 우선 레인(낮은 속도)이었을 수 있다 — 샤드는 늘 환경 값 속도
   if (typeof __intrinio.setRatePerMin === 'function') __intrinio.setRatePerMin(null);
-  if (typeof __intrinio.setCallGuard === 'function') __intrinio.setCallGuard(null);
   const start = Date.now();
   const forceRun = event?.forceRun || event?.test || false;
 

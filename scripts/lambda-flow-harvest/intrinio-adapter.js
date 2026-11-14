@@ -147,15 +147,16 @@ let _queue = Promise.resolve();
 const MAX_CONCURRENCY = Number(process.env.INTRINIO_MAX_CONCURRENCY || 4);
 let _active = 0;
 const _waiters = [];
-// 우선 레인 가드(setCallGuard)는 «요청이 실제로 나가기 직전»(동시성 자리를 얻는 순간)에도 본다 — 대기열에 쌓인 요청까지 막는다.
+// 우선 레인 가드(레인 문맥 guard)는 «요청이 실제로 나가기 직전»(동시성 자리를 얻는 순간)에도 본다 — 대기열에 쌓인 요청까지 막는다.
 //   자리를 안 얻고 거절하므로 _release 짝이 필요 없다. 깨운 대기자가 거절되면 다음 대기자를 깨운다.
 function _laneStop() { noteFail('LANE_STOP'); return new Error('LANE_STOP'); }
 function _acquire() {
-  if (_callGuard && _callGuard()) return Promise.reject(_laneStop());
+  const ctx = laneContext();   // 깨울 때는 깨우는 쪽 문맥이므로 지금 잡아 둔다
+  if (_laneBlocked(ctx)) return Promise.reject(_laneStop());
   if (_active < MAX_CONCURRENCY) { _active++; _callsOut++; return Promise.resolve(); }
   return new Promise((resolve, reject) => {
     _waiters.push(function wake() {
-      if (_callGuard && _callGuard()) { reject(_laneStop()); const next = _waiters.shift(); if (next) next(); return; }
+      if (_laneBlocked(ctx)) { reject(_laneStop()); const next = _waiters.shift(); if (next) next(); return; }
       _active++; _callsOut++; resolve();
     });
   });
@@ -178,10 +179,17 @@ function resetRateBucket() { _tokens = 0; _refillAt = Date.now(); }
 // _callsOut 은 동시성 자리를 얻을 때(= 실제 요청 직전) 센다.
 let _callsOut = 0, _calls429 = 0;
 function callStats() { return { calls: _callsOut, r429: _calls429, ratePerMin: RATE_PER_MIN }; }
-// 우선 레인의 «엄격한» 상한 — 이 함수가 true 를 돌려주는 순간부터 새 요청을 내보내지 않는다(이미 나간 요청만 끝난다).
-//   null = 없음(샤드 기본). 샤드 핸들러는 매 호출 시작에 null 로 되돌린다.
-let _callGuard = null;
-function setCallGuard(fn) { _callGuard = typeof fn === 'function' ? fn : null; }
+// 우선 레인의 «엄격한» 상한 — 레인 문맥(AsyncLocalStorage)의 guard() 가 true 를 돌려주는 순간부터 그 문맥의 새 요청을 막는다.
+//   전역 상태가 아니라 «그 회차에서 시작된 작업»에만 붙는다: 60초 경로 시간 초과로 핸들러가 먼저 끝나도
+//   남은 작업은 같은 문맥(guard → 끝남 = 참)을 지니고 있어 다음 호출(샤드 포함) 중에 깨어나도 요청이 나가지 않는다.
+//   문맥 밖(샤드)은 영향 없음.
+//   (모듈을 막은 시험 하네스에서도 이 파일이 읽히도록 require 실패는 삼킨다 → laneSupported()=false. 우선 레인은 그때 돌지 않는다.)
+let _lane = null;
+try { _lane = new (require('async_hooks').AsyncLocalStorage)(); } catch { _lane = null; }
+function laneSupported() { return !!_lane; }
+function runInLane(ctx, fn) { return _lane ? _lane.run(ctx, fn) : fn(); }
+function laneContext() { return (_lane && _lane.getStore()) || null; }
+function _laneBlocked(ctx) { return !!(ctx && typeof ctx.guard === 'function' && ctx.guard()); }
 
 function _takeToken() {
   const now = Date.now();
@@ -197,7 +205,7 @@ function _takeToken() {
 
 /** 호출 직전에 await 한다. 한도를 넘으면 그만큼 기다린다. */
 function rateGate() {
-  if (_callGuard && _callGuard()) return Promise.reject(_laneStop());
+  if (_laneBlocked(laneContext())) return Promise.reject(_laneStop());
   const run = async () => {
     for (;;) {
       const wait = _takeToken();
@@ -652,7 +660,7 @@ async function cachedChain(sym, exp) {
 //   OPRA 실시간(`chain/.../realtime`)은 403 이다 — 그건 Enterprise 상품이다.
 async function getRealtimeGreeks(sym, opts = {}) {
   const out = new Map();   // 계약코드 → greeks
-  let page = null, calls = 0;
+  let page = null, calls = 0, failed = false;
   const MAX_PAGES = Number(process.env.INTRINIO_GREEKS_MAX_PAGES || 14);
   do {
     const q = { page_size: 250 };
@@ -661,7 +669,7 @@ async function getRealtimeGreeks(sym, opts = {}) {
     if (page) q.next_page = page;
     const j = await callIntrinio(`options/greeks/by_ticker/${sym}/realtime`, q).catch(() => null);
     calls++;
-    if (!j) break;
+    if (!j) { failed = true; break; }
     // 최초 관측 시각을 보존한다. 변환·프로브 저장 시각으로 대체하지 않는다.
     const ivObservedAt = j._ivObservedAt ?? null;
     for (const c of j.contracts || []) {
@@ -671,7 +679,9 @@ async function getRealtimeGreeks(sym, opts = {}) {
     }
     page = j.next_page || null;
   } while (page && calls < MAX_PAGES);
-  return { greeks: out, calls };
+  // complete = 중간 페이지 실패 없음(우선 레인은 참일 때만 쓴다). 페이지 상한(MAX_PAGES)에 닿은 것은 매 회차 같은 모양이라
+  //   live↔EOD 를 뒤집지 않으므로 complete 로 둔다(capped 로 따로 알린다 — 예: MU 14쪽 상한).
+  return { greeks: out, calls, complete: !failed, capped: !failed && !!page };
 }
 
 // ── 체인 뒤 페이지 ───────────────────────────────────────────
@@ -759,12 +769,12 @@ async function getOptionChain(ticker, opts = {}) {
 
   // 실시간 그릭스를 «같은 계약»에 덮어쓴다. OI·행사가·만기는 EOD 것을 그대로 쓴다.
   //   끄려면 INTRINIO_REALTIME_GREEKS=0.
-  let rtGreeks = null, rtCalls = 0;
+  let rtGreeks = null, rtCalls = 0, rtComplete = false;
   if (process.env.INTRINIO_REALTIME_GREEKS !== '0' && expirations.length) {
     const r = await getRealtimeGreeks(sym, {
       start: expirations[0], end: expirations[expirations.length - 1],
     }).catch(() => null);
-    if (r && r.greeks.size) { rtGreeks = r.greeks; rtCalls = r.calls; }
+    if (r && r.greeks.size) { rtGreeks = r.greeks; rtCalls = r.calls; rtComplete = r.complete === true; }
   }
 
   const results = [];
@@ -837,6 +847,7 @@ async function getOptionChain(ticker, opts = {}) {
     greeksSource: rtGreeks ? 'realtime' : 'eod',
     greeksRealtimeCount: rtHits,
     greeksCalls: rtCalls,
+    greeksComplete: rtComplete,
     ...(missing.length ? { expirationsMissing: missing } : {}),
     ...(truncated.length ? { expirationsTruncated: truncated } : {}),
     ...(missing.length || truncated.length ? { partial: true } : {}),
@@ -1278,7 +1289,9 @@ module.exports = {
   setRatePerMin,
   resetRateBucket,
   callStats,
-  setCallGuard,
+  runInLane,
+  laneContext,
+  laneSupported,
   setChainCache,
   routeMassiveUrl,
   getGroupedDaily,
