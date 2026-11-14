@@ -205,9 +205,12 @@ function _takeToken() {
 
 /** 호출 직전에 await 한다. 한도를 넘으면 그만큼 기다린다. */
 function rateGate() {
-  if (_laneBlocked(laneContext())) return Promise.reject(_laneStop());
+  const ctx = laneContext();
+  if (_laneBlocked(ctx)) return Promise.reject(_laneStop());
   const run = async () => {
     for (;;) {
+      // 대기 중에 레인이 끝났거나 상한에 걸렸으면 토큰을 쓰지 않고 바로 지나간다(_acquire 가 거절) — 뒤에 선 샤드 요청을 늦추지 않는다
+      if (_laneBlocked(ctx)) return;
       const wait = _takeToken();
       if (wait === 0) return;
       await new Promise((r) => setTimeout(r, wait));

@@ -1205,9 +1205,14 @@ async function priorityChainHandler(event) {
       const c0 = callsNow();
       const res = await Promise.all(batch.map(async (t) => {
         const stats = {};
-        // 덮어쓰기 기준 = 이 종목 수집을 시작한 시각(그 뒤에 다른 수집이 쓴 판본이 있으면 양보)
-        const okT = await fetchOptionsSnapshotRaw(t, { dryRun, stats, guardNewerThan: dryRun ? 0 : Date.now(), abortWrite: () => !!tripped || laneCtx.done, requireComplete: true });
-        return { t, okT, stats };
+        // 종목별 자식 문맥 — 이 종목이 돌아오면(60초 경로 시간 초과 포함) 닫는다 → 그 종목의 남은 내부 작업은 회차가 계속 도는 동안에도
+        //   새 요청·체인 캐시 쓰기를 못 한다.
+        const tCtx = { lane: 'priority-chain', ticker: t, dryRun, done: false, guard: () => tCtx.done || laneCtx.guard() };
+        try {
+          // 덮어쓰기 기준 = 이 종목 수집을 시작한 시각(그 뒤에 다른 수집이 쓴 판본이 있으면 양보)
+          const okT = await inLane(tCtx, () => fetchOptionsSnapshotRaw(t, { dryRun, stats, guardNewerThan: dryRun ? 0 : Date.now(), abortWrite: () => !!tripped || laneCtx.done, requireComplete: true }));
+          return { t, okT, stats };
+        } finally { tCtx.done = true; }
       }));
       const cBatch = callsNow() - c0;
       for (const r of res) {

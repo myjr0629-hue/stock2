@@ -354,3 +354,30 @@ test('레인 문맥 — 끝난(done)·차단된 문맥의 남은 작업은 요�
     assert.ok(px.writes.length - before > 0, '샤드 경로는 체인 캐시를 쓴다');
   } finally { global.fetch = of; px.server.close(); }
 });
+
+test('자식(종목) 문맥이 닫히면 부모 회차가 돌고 있어도 그 종목의 남은 요청은 막힌다 · 끝난 레인 요청은 토큰을 쓰지 않아 샤드 요청이 늦지 않는다 (관문 11140927)', async () => {
+  const v = fakeVendor();
+  const of = global.fetch; global.fetch = v.fetchImpl;
+  try {
+    const { adapter } = loadFresh({ EC2_REDIS_PROXY_URL: 'http://127.0.0.1:9', INTRINIO_API_KEY: 'test', INTRINIO_RATE_PER_MIN: '60', INTRINIO_MAX_CONCURRENCY: '2' });
+    adapter.setRatePerMin(null); adapter.resetRateBucket();
+    const parent = { done: false, guard: () => parent.done };
+    const child = { done: false, guard: () => child.done || parent.guard() };
+    const leftover = adapter.runInLane(child, async () => { await new Promise((z) => setTimeout(z, 20)); return adapter.callIntrinio('securities/X/prices/realtime'); });
+    child.done = true;   // 종목이 (시간 초과로) 먼저 돌아왔다
+    await assert.rejects(leftover, /LANE_STOP/);
+    assert.equal(parent.done, false);
+    assert.equal(v.calls.length, 0);
+    // 속도 1회/초: 레인 요청 5개가 대기열에 선 뒤 레인이 끝난다 → 뒤의 샤드 요청은 토큰 5개를 기다리지 않는다
+    const lane = { done: false, guard: () => lane.done };
+    const queued = [1, 2, 3, 4, 5].map((i) => adapter.runInLane(lane, () => adapter.callIntrinio('securities/L' + i + '/prices/realtime')).catch((e) => e.message));
+    lane.done = true;
+    const t0 = Date.now();
+    await adapter.callIntrinio('securities/SHARD/prices/realtime');
+    const waited = Date.now() - t0;
+    const r = await Promise.all(queued);
+    assert.ok(r.every((x) => x === 'LANE_STOP'), JSON.stringify(r));
+    assert.ok(waited < 1500, '샤드 요청 대기 ' + waited + 'ms (끝난 레인 5개가 토큰을 썼다면 ≥ 5초)');
+    assert.deepEqual(v.calls, ['securities/SHARD/prices/realtime']);
+  } finally { global.fetch = of; }
+});
