@@ -402,3 +402,21 @@ test('같은 경로를 레인과 샤드가 동시에 물어도 레인 문맥이 
     assert.equal(v.calls.filter((c) => c.includes('S2')).length, 1);
   } finally { global.fetch = of; }
 });
+
+test('최신 EOD 날짜 단일 비행은 레인 문맥 밖에서 돈다 — 레인이 시작하고 닫혀도 기다리던 샤드는 진짜 날짜를 받는다 · 드라이런 레인이 시작한 비행은 키를 안 쓴다 (관문 11140934)', async () => {
+  const store = new Map();
+  const px = await startProxy(store);
+  const v = fakeVendor();
+  const of = global.fetch; global.fetch = v.fetchImpl;
+  try {
+    const { adapter } = loadFresh({ EC2_REDIS_PROXY_URL: px.url, REDIS_PROXY_KEY: 't', UPSTASH_REDIS_REST_URL: '', UPSTASH_REDIS_REST_TOKEN: '', INTRINIO_API_KEY: 'test', INTRINIO_RATE_PER_MIN: '60000' });
+    const lane = { dryRun: true, done: false, guard: () => lane.done };
+    const laneP = adapter.runInLane(lane, () => adapter.__latestPublishedEodDate());
+    const shardP = adapter.__latestPublishedEodDate();   // 같은 비행에 합류
+    lane.done = true;                                     // 레인이 곧바로 닫힌다
+    assert.equal(await shardP, '2026-11-13');
+    assert.equal(await laneP, '2026-11-13');
+    assert.ok(v.calls.some((c) => c.startsWith('options/chain/SPY/')), '기준 조회가 실제로 나갔다');
+    assert.ok(!px.writes.some((w) => w.key === 'intrinio:chain:latest-eod'), '드라이런 레인이 시작한 비행 = 키 쓰기 0');
+  } finally { global.fetch = of; px.server.close(); }
+});

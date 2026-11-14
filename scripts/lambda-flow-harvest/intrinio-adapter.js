@@ -189,6 +189,7 @@ try { _lane = new (require('async_hooks').AsyncLocalStorage)(); } catch { _lane 
 function laneSupported() { return !!_lane; }
 function runInLane(ctx, fn) { return _lane ? _lane.run(ctx, fn) : fn(); }
 function laneContext() { return (_lane && _lane.getStore()) || null; }
+function _laneExit(fn) { return _lane ? _lane.exit(fn) : fn(); }
 function _laneBlocked(ctx) { return !!(ctx && typeof ctx.guard === 'function' && ctx.guard()); }
 
 function _takeToken() {
@@ -598,7 +599,11 @@ async function latestPublishedEodDate() {
   const now = Date.now();
   if (_latestEod && _latestEod.date && now - _latestEod.checkedAt < LATEST_EOD_RECHECK_MS) return _latestEod.date;
   if (_latestEodFlight) return _latestEodFlight;
-  _latestEodFlight = (async () => {
+  // 이 단일 비행은 샤드·레인이 나눠 쓰는 «공유 상태»다 — 우선 레인 문맥 «밖»에서 돌린다(관문 11140934).
+  //   레인이 시작했다가 레인 상한·종료로 LANE_STOP 이 나면 기다리던 샤드가 null 날짜를 받아 하루 늦은 체인을 쓸 수 있었다.
+  //   레인 드라이런이 시작한 비행이면 최신 날짜 키는 쓰지 않는다(드라이런 쓰기 0; 이 키는 다른 수집의 조회를 줄이는 힌트일 뿐).
+  const owner = laneContext();
+  _latestEodFlight = _laneExit(() => (async () => {
     let rec = null;
     if (_chainCache) { try { rec = await _chainCache.get(LATEST_EOD_KEY); } catch { } }
     if (rec && rec.date && now - (Number(rec.checkedAt) || 0) < LATEST_EOD_RECHECK_MS) {
@@ -609,11 +614,11 @@ async function latestPublishedEodDate() {
     const known = [probed, rec && rec.date, _latestEod && _latestEod.date].filter(Boolean).sort();
     const date = known.length ? known[known.length - 1] : null;
     _latestEod = { date, checkedAt: now };
-    if (date && _chainCache) {
+    if (date && _chainCache && !(owner && owner.dryRun)) {
       try { await _chainCache.set(LATEST_EOD_KEY, { date, checkedAt: now, via: probed ? 'ref' : 'kept' }, 7 * 86400); } catch { }
     }
     return date;
-  })().finally(() => { _latestEodFlight = null; });
+  })()).finally(() => { _latestEodFlight = null; });
   return _latestEodFlight;
 }
 
@@ -1299,6 +1304,7 @@ module.exports = {
   runInLane,
   laneContext,
   laneSupported,
+  __latestPublishedEodDate: latestPublishedEodDate,   // 시험 전용
   setChainCache,
   routeMassiveUrl,
   getGroupedDaily,
