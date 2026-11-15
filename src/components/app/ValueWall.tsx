@@ -260,7 +260,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         }
         // The manager can return null when PRO activates during preparation.
         // Read its current policy state before opening the fallback portal.
-        if (adManager.isProActive()) return 'done';
+        //   ★11/16 밤 — 단, 최신 스토어 응답(공유 신호)이 무료면 광고 관리자 PRO 는 옛 값(다른 훅이 늦게 따라옴) — 멈추지 않고 대체 경로로(잠긴 채 못 여는 상태 방지)
+        if (adManager.isProActive() && storeProSignal.latest() !== false) return 'done';
       }
     } catch {
       // Browser previews and unavailable native ads fall back to the local modal.

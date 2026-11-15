@@ -59,6 +59,7 @@ export function markGateDay(today: string): boolean {
 //     · 조회 응답(getCustomerInfo·fetchProStatus)의 시각 = 그 조회를 «시작»한 시각(그보다 옛 상태일 수 있으므로 보수적으로).
 //     · SDK 변경 알림(리스너)·구매·복원 성공의 시각 = 받은 «지금»(스토어 동기화가 끝난 시점의 권한).
 //     · 더 옛 응답이 늦게 도착하면 버린다 — 옛 PRO 로 회수된 권한을 되살리지 않고, 옛 무료로 확인된 PRO 를 지우지 않는다.
+//     · 같은 시각(같은 밀리초)이면 PRO 가 이긴다 — 판정이 불확실하면 PRO 사용자 보호.
 //     · 조회 실패(응답 없음)는 아무것도 바꾸지 않는다 → 확인된 PRO 를 실패에 가두지 않는다(PRO 보호).
 //   PRO 응답은 받은 뒤 1시간만 유효(광고 잠금해제와 같은 길이 — 그 사이 무료 알림이 안 와도 영구히 열린 채 남지 않게).
 //     만료되면 «응답 없음»으로 돌아가 게이트는 그 훅의 isPro 를 따른다(origin/main 과 같은 만료). 무료 응답은 더 최신 PRO 가 올 때까지 유지.
@@ -94,6 +95,8 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
   const record = (pro: boolean, at: number): boolean => {
     load();
     if (at < answerAt) return false;
+    // 같은 시각이면 PRO 가 이긴다(판정이 불확실하면 PRO 사용자 보호) — 같은 시각의 무료가 PRO 를 덮지 않는다
+    if (at === answerAt && lastPro === true && !pro) return false;
     answerAt = at;
     lastPro = pro;
     recordedAt = now();

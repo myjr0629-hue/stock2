@@ -67,6 +67,7 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /gateRef\.current = \{ iapAvailable: sellable, ready, isPro: gatePro \};/);
   assert.match(v, /isUnlocked, unlocked, isPro, iapAvailable,/);
   assert.match(v, /return storeProSignal\.subscribe\(\(\) => setSigVer/);
+  assert.match(v, /if \(adManager\.isProActive\(\) && storeProSignal\.latest\(\) !== false\) return 'done';/);
   assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\);/);
   assert.match(v, /if \(gateProNow\(\)\) return; \/\/ 조회 뒤/);
   const ps = read('src/hooks/useProStatus.ts');
@@ -286,4 +287,15 @@ test('관문 6 — 광고 관리자 확인 도중 더 최신 무료 응답이 �
     markAdPro: () => sig.latest() !== false && sig.mark(), now: c.now });
   assert.notEqual(r, 'pro');
   assert.equal(sig.active(), false);
+});
+
+test('관문 7 — 같은 시각 응답은 PRO 가 이긴다(구매 성공 직후 같은 밀리초 무료 조회가 덮지 않음)', () => {
+  const c = clock(Date.now());
+  const sig = createStoreProSignal({ now: c.now, storage: () => null });
+  const t = c.now();
+  assert.equal(sig.mark(t), true);
+  assert.equal(sig.revoke(t), false); assert.equal(sig.active(), true);
+  const sig2 = createStoreProSignal({ now: c.now, storage: () => null });
+  assert.equal(sig2.revoke(t), true);
+  assert.equal(sig2.mark(t), true, '같은 시각 PRO 는 무료를 덮는다(PRO 보호)'); assert.equal(sig2.active(), true);
 });
