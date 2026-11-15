@@ -285,6 +285,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         return 'paywall';
       }
     }
+    // ★11/16 밤 — 광고를 기다리는 사이 다른 경로에서 PRO 로 확인됐으면 대체 창을 열지 않는다(잠금은 이미 열림)
+    if (gateProNow()) return 'done';
     setShowAd(true);
     return 'done';
   }, [onUnlock, proCheck]);

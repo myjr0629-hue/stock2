@@ -70,6 +70,7 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /isUnlocked, unlocked, isPro, iapAvailable,/);
   assert.match(v, /return storeProSignal\.subscribe\(\(\) => setSigVer/);
   assert.match(v, /if \(adManager\.isProActive\(\) && storeProSignal\.latest\(\) !== false\) return 'done';/);
+  assert.match(v, /if \(gateProNow\(\)\) return 'done';\n    setShowAd\(true\);\n    return 'done';/);
   assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\);/);
   assert.match(v, /if \(gateProNow\(\)\) return; \/\/ 조회 뒤/);
   const ps = read('src/hooks/useProStatus.ts');
