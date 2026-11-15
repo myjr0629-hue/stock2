@@ -168,8 +168,10 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const { unlocked, unlock } = useUnlockState();
   // Pro (paid, ad-free) is inert while IAP_LIVE=false: isPro stays false, no SDK.
   const { isPro, ready, offers, purchase, restore, iapAvailable } = useProStatus();
+  // ★11/16 게이트 흐름의 스토어 재조회(proCheck)가 PRO 를 확인했는데 이 훅의 isPro 가 아직 무료면(초기 조회 실패·갱신 지연) 그 값으로 연다 — 잠금에 가두지 않는다
+  const [storePro, setStorePro] = useState(false);
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
-  const isUnlocked = unlocked || isPro;
+  const isUnlocked = unlocked || isPro || storePro;
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
 
   // ★11/16 게이트 «가치 순간» 페이월(lib/app/gatePaywall) — 페이월을 닫은 «뒤»에 이어 할 일(광고 / 대체 창).
@@ -207,7 +209,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
       if (adManager.isProActive()) return 'pro';
       const { fetchProStatus } = await import('@/services/revenueCat');
       const pro = await Promise.race([fetchProStatus(), new Promise<boolean>((_, rej) => setTimeout(() => rej(new Error('timeout')), 3_000))]);
-      if (pro || proPurchaseState.getSnapshot()) return 'pro';
+      if (pro) { setStorePro(true); return 'pro'; }
+      if (proPurchaseState.getSnapshot()) return 'pro';
       return 'free';
     } catch {
       return gateRef.current.isPro || proPurchaseState.getSnapshot() ? 'pro' : 'unknown';
