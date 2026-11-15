@@ -54,6 +54,8 @@ const originalLoad = (Module as any)._load;
         useState: (initial: any) => [hooks!.index++ === 0 ? undefined : null, (value: any) => hooks!.writes.push(value)],
     };
     if (name === '@/lib/app/proEntitlement') return { useWatchlistPro: () => ent };
+    if (name === '@/config/iap') return { IAP_LIVE: false, PRO_ENTITLEMENT_ID: 'pro' };
+    if (name === '@/services/revenueCat') return { initRevenueCat: async () => false, isProFromCustomerInfo: () => false };
     if (name === '@/lib/app/guruLensPro') return lensPro;
     if (name === '@/lib/guruLens/service') return {
         readonlyCache: { read: async (key: string) => store.get(key) ?? null },
@@ -194,6 +196,23 @@ async function main() {
     gate.isPro = true;
     assert.ok(render(false).includes('guru-lens-pro-lock'), '더 최신 무료 응답이면 옛 useProStatus PRO 로 열지 않는다');
     gate.isPro = false;
+
+    // ── 7. 코드 사용·복귀 동기화 확인 PRO(notifyProPurchased + 조회 시작 시각)만 공유 신호에 기록 ──
+    const entMod = compile('src/lib/app/proEntitlement.ts');
+    revokeNow();
+    entMod.notifyProPurchased(true);
+    assert.equal(storeProSignal.latest(), false, '시각 없는 알림(옛 훅 값일 수 있음)은 더 최신 무료 응답을 덮지 않는다');
+    entMod.notifyProPurchased(true, clock - 500);
+    assert.equal(storeProSignal.latest(), false, '무료 응답보다 먼저 시작한 조회의 PRO 는 거부');
+    clock += 1000;
+    entMod.notifyProPurchased(true, clock);
+    assert.equal(storeProSignal.latest(), true, '무료 기록 뒤 시작한 재조회가 확인한 PRO → 렌즈도 즉시 PRO');
+    ent.isPro = false; gate.isPro = false;
+    assert.ok(!render(false).includes('guru-lens-pro-lock'), '코드 사용 확인 PRO → 4~10위 열림');
+    const src = (f: string) => fs.readFileSync(f, 'utf8');
+    assert.match(src('src/lib/app/redeem.ts'), /notifyProPurchased\(true, askedAt\)/, '코드 화면 복귀 재조회는 시작 시각과 함께');
+    assert.match(src('src/lib/app/foregroundProSync.ts'), /notifyProPurchased\(true, askedAt\)/, '복귀 동기화 재조회는 시작 시각과 함께');
+    assert.match(src('src/components/app/CouponGuideSheet.tsx'), /notifyProPurchased\(true, recheckAt \|\| undefined\)/, '쿠폰 재조회는 시작 시각과 함께');
 
     (Module as any)._load = originalLoad;
     console.log('대가 렌즈 공유 PRO 통과: 초기 조회 실패 + 공유 PRO → PRO 요청·4~10위 열림 · 무료 → 잠김 유지 · 서버 판정 · 회수 즉시 반영');

@@ -317,7 +317,7 @@ const t = async (name: string, fn: () => void | Promise<void>) => { await fn(); 
   });
   await t('시트: 기존 구매 경로(useProStatus().purchase(«monthly»)) · noent 다시 읽기(«sheet») · 공용 상태 알림 · 복원 호출 0', () => {
     const s = src('src/components/app/CouponGuideSheet.tsx');
-    assert.ok(s.includes("purchase('monthly', req.src)") && s.includes("refreshProAfterRedeem('sheet')") && s.includes('notifyProPurchased(true)'));
+    assert.ok(s.includes("purchase('monthly', req.src)") && s.includes("refreshProAfterRedeem('sheet')") && s.includes('notifyProPurchased(true, recheckAt || undefined)'));
     assert.ok(s.includes('useBackToClose(true, onClose)') && s.includes('useLayer(true, onClose, sheetRef)'));
     // 배너: 설정 화면(자체 setBannerSuppressed — 훅 개수 밖)에선 훅을 걸지 않는다 — 닫힐 때 설정 위로 배너가 되살아나지 않게
     assert.ok(s.includes('useBannerSuppression(!onSettings)') && /\\\/app-view\\\/settings/.test(s));

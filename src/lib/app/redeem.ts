@@ -191,10 +191,11 @@ function onAppActive() {
   if (Date.now() - p.at > RETURN_WINDOW_MS) { pending = null; return; }
   pending = null;
   refreshing = true;
+  const askedAt = Date.now(); // 재조회 시작 시각 — 확인된 PRO 를 이 시각으로 공유 신호에 기록(보수적으로 가장 이른 시각)
   void refreshProAfterRedeem(p.path, undefined, true)
     .then((pro) => {
       if (!pro) return;
-      notifyProPurchased(true);
+      notifyProPurchased(true, askedAt);
       // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments) — 코드 화면을 연 뒤 새로 생긴 권한일 때만
       if (p.wasNonPro) void codeStartedProSince(p.at).then((fresh) => { if (fresh) announceProActivated(); }).catch(() => {});
       void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {});

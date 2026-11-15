@@ -89,13 +89,15 @@ export async function startForegroundProSync(): Promise<void> {
       if (!(await rc.initRevenueCat())) return;
       const { Purchases } = await import('@revenuecat/purchases-capacitor');
       const { notifyProPurchased } = await import('@/lib/app/proEntitlement');
+      let askedAt = 0; // 마지막 PRO 조회의 시작 시각 — PRO 확인 시 이 시각으로 공유 신호에 기록
       await foregroundProSync({
         isPro: async () => {
+          askedAt = Date.now();
           const { customerInfo } = await Purchases.getCustomerInfo();
           return rc.isProFromCustomerInfo(customerInfo);
         },
         sync: async () => { await Purchases.syncPurchases(); },
-        notifyPro: () => notifyProPurchased(true),
+        notifyPro: () => notifyProPurchased(true, askedAt),
         storeFlow: rc.isStoreFlowActive,
       });
     } catch { /* 동기화 실패는 조용히 — SDK 의 자동 동기화가 다음 복귀에 또 돈다 */ }
