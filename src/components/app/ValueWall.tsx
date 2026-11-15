@@ -173,6 +173,11 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const [storeProUntil, setStoreProUntil] = useState(0);
   const markStorePro = useCallback(() => setStoreProUntil(Date.now() + 60 * 60 * 1000), []);
   const storePro = storeProUntil > Date.now();
+  useEffect(() => {
+    if (!storeProUntil) return;
+    const t = window.setTimeout(() => setStoreProUntil(0), Math.max(0, storeProUntil - Date.now()));
+    return () => window.clearTimeout(t);
+  }, [storeProUntil]);
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
   const isUnlocked = unlocked || isPro || storePro;
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
@@ -204,19 +209,20 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const gateBusy = () => gateFlowAt.current > 0 && Date.now() - gateFlowAt.current < 120_000;
   const endFlow = () => { gateFlowAt.current = 0; };
 
-  /** PRO 여부를 «스토어에서 방금» 본다 — 'pro'(PRO·결제 진행 중) · 'free'(무료 확인) · 'unknown'(조회 실패·3초 초과) */
-  const proCheck = useCallback(async (): Promise<'pro' | 'free' | 'unknown'> => {
-    if (gateRef.current.isPro || proPurchaseState.getSnapshot()) return 'pro';
+  /** PRO 여부를 «스토어에서 방금» 본다 — 'pro'(PRO 확인) · 'pending'(결제 진행 중) · 'free'(무료 확인) · 'unknown'(조회 실패·3초 초과) */
+  const proCheck = useCallback(async (): Promise<'pro' | 'pending' | 'free' | 'unknown'> => {
+    if (gateRef.current.isPro) return 'pro';
+    if (proPurchaseState.getSnapshot()) return 'pending';
     try {
       const { adManager } = await import('@/services/adManager');
       if (adManager.isProActive()) { markStorePro(); return 'pro'; }
       const { fetchProStatus } = await import('@/services/revenueCat');
       const pro = await Promise.race([fetchProStatus(), new Promise<boolean>((_, rej) => setTimeout(() => rej(new Error('timeout')), 3_000))]);
       if (pro) { markStorePro(); return 'pro'; }
-      if (proPurchaseState.getSnapshot()) return 'pro';
+      if (proPurchaseState.getSnapshot()) return 'pending';
       return 'free';
     } catch {
-      return gateRef.current.isPro || proPurchaseState.getSnapshot() ? 'pro' : 'unknown';
+      return gateRef.current.isPro ? 'pro' : proPurchaseState.getSnapshot() ? 'pending' : 'unknown';
     }
   }, [markStorePro]);
 
@@ -252,8 +258,10 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
 
     // ② 네이티브에서 광고가 안 나왔다 — 대체 30초 창 «전에» 페이월 한 번(닫으면 대체 창 그대로)
     if (native && shouldShowNoFillPaywall(gateRef.current, shownThisTap)) {
-      // 무료 확인 때만 페이월. PRO·모름은 예전 그대로(대체 창) — 화면 상태가 아직 무료인 PRO 를 잠금에 가두지 않는다
-      if ((await proCheck()) === 'free') {
+      // 무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 그대로(대체 창)
+      const st = await proCheck();
+      if (st === 'pro') return 'done';
+      if (st === 'free') {
         afterPaywall.current = 'fallback';
         setPaywallSrc('ad_nofill');
         setPaywallOpen(true);
@@ -273,7 +281,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     if (first) setUnlocking(true); // 스토어 확인(보통 SDK 캐시 즉시) 동안 단추를 «잠시만»으로
     const st = first ? await proCheck() : null;
     if (first) setUnlocking(false);
-    // 무료 확인 때만 페이월. PRO·모름은 예전 흐름 그대로(광고 → 대체 창 · 광고 관리자가 PRO 면 스스로 거절)
+    // 무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 흐름 그대로(광고 → 대체 창)
+    if (st === 'pro') { endFlow(); return; }
     const open = st === 'free' && markGateDay(today);
     if (open) {
       afterPaywall.current = 'ad';
@@ -293,8 +302,9 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     window.setTimeout(() => {
       void (async () => {
         try {
-          // PRO 확인(막 결제함)이면 잇지 않는다. 조회 실패(unknown)는 무료 경로를 잇는다 — 광고 관리자가 PRO 면 스스로 거절한다
-          if ((await proCheck()) === 'pro') return;
+          // PRO 확인·결제 진행 중(막 결제함)이면 잇지 않는다. 조회 실패(unknown)는 무료 경로를 잇는다 — 광고 관리자가 PRO 면 스스로 거절한다
+          const st = await proCheck();
+          if (st === 'pro' || st === 'pending') return;
           if (next === 'ad') await runUnlock(true);
           else setShowAd(true);
         } finally {
