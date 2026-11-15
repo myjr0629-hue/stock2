@@ -134,9 +134,9 @@ export function whenProReady(timeoutMs = 2500): Promise<ProState> {
 
 /** 구매·복원 직후 등 «지금 바로» 반영하고 싶을 때 */
 export function notifyProPurchased(isPro: boolean) {
-  if (!isPro) return;
-  recordStore(true, Date.now()); // 구매·코드·복귀 동기화가 스토어에서 확인한 지금의 PRO — 공유 신호에도(대가 렌즈 즉시 열림)
-  applyReal(true);
+  // 공유 신호(storeProSignal)에는 기록하지 않는다 — 호출부가 넘긴 PRO 는 옛 훅 값일 수 있어(예: ProUpsellSheet 의 isPro)
+  //   «지금» 시각으로 기록하면 더 최신 무료 응답을 덮는다. 스토어의 새 응답은 SDK 리스너가 받은 시각으로 기록한다.
+  if (isPro) applyReal(true);
 }
 
 export function useWatchlistPro(): ProState {
