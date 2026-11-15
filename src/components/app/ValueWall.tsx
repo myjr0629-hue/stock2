@@ -175,7 +175,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   //   «가장 최신 스토어 응답»(storeProSignal — 모든 useProStatus·게이트 재조회가 기록)이 있으면 그것을, 없으면 이 훅의 isPro 를 따른다.
   //   → 회수(더 최신 무료 응답) 뒤 이 훅의 옛 isPro 로 열린 채 남지 않고, 확인된 PRO 는 이 훅의 초기 조회 실패와 무관하게 열린다.
   const [, setSigVer] = useState(0); // 신호가 바뀌면 다시 그린다
-  const markStorePro = useCallback((at: number) => { storeProSignal.mark(at); }, []);
+  const markStorePro = useCallback((at: number) => storeProSignal.mark(at), []);
   useEffect(() => {
     setSigVer((v) => v + 1); // 첫 렌더 ~ 구독 사이에 다른 게이트가 기록한 값도 받는다
     return storeProSignal.subscribe(() => setSigVer((v) => v + 1));

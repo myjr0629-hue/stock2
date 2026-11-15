@@ -202,10 +202,7 @@ if(!baseline) {
       proPurchaseState:{confirm(){confirmed++;}},setIsPro:v=>{pro=v;},storeProSignal:sig});
     listener({pro:true});assert.equal(confirmed,2);assert.equal(pro,true);assert.equal(shared,1,'SDK 리스너 PRO 는 모든 게이트에 즉시 공유(11/16 밤)');
     listener({pro:false});assert.equal(shared,1,'무료 알림은 공유 PRO 를 만들지 않는다');assert.equal(cleared,1,'무료 알림(만료·회수)은 공유 PRO 회수로 넘긴다');assert.equal(pro,false);
-    fresh=false;listener({pro:true},0);assert.equal(pro,false,'더 늦은 무료 응답 뒤 도착한 옛 PRO 응답은 버린다(회수 되살림 금지)');
-    fresh=true;listener({pro:true});assert.equal(pro,true);
-    fresh=false;listener({pro:false},0);assert.equal(pro,true,'더 늦은 PRO 응답 뒤 도착한 옛 무료 응답은 버린다(PRO 보호)');
-    latest=false;listener({pro:false},0);assert.equal(pro,false,'옛 응답이라도 최신과 같은 쪽이면 반영');
+    fresh=false;listener({pro:true},0);assert.equal(pro,true,'훅 자신의 isPro 동작은 예전 그대로(신호 거부와 무관)');assert.equal(shared,2);
   });
 }
 if(!baseline) {

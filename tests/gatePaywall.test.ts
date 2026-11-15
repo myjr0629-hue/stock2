@@ -57,7 +57,7 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /fetchProStatus\(\)/);
   assert.match(v, /const proCheck = useCallback\(\(\) => checkStorePro\(\{\n    proNow: gateProNow,/);
   assert.match(v, /adPro: async \(\) => storeProSignal\.latest\(\) !== false && \(await import\('@\/services\/adManager'\)\)\.adManager\.isProActive\(\),/);
-  assert.match(v, /const markStorePro = useCallback\(\(at: number\) => \{ storeProSignal\.mark\(at\); \}, \[\]\);/);
+  assert.match(v, /const markStorePro = useCallback\(\(at: number\) => storeProSignal\.mark\(at\), \[\]\);/);
   assert.match(v, /markFree: \(at\) => \{ storeProSignal\.revoke\(at\); \},/);
   assert.match(v, /markAdPro: \(\) => \{ if \(storeProSignal\.latest\(\) !== false\) storeProSignal\.mark\(\); \},/);
   // ★11/16 밤 — 최신 스토어 응답(공유 신호)이 있으면 그것, 없으면 이 훅 isPro — 잠금·게이트 판정·대가 렌즈 모두 같은 값
@@ -69,10 +69,10 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\);/);
   assert.match(v, /if \(gateProNow\(\)\) return; \/\/ 조회 뒤/);
   const ps = read('src/hooks/useProStatus.ts');
-  assert.match(ps, /const fresh = pro \? storeProSignal\.mark\(at\) : storeProSignal\.revoke\(at\);\n      if \(!fresh && storeProSignal\.latest\(\) !== pro\) return;\n      setIsPro\(pro\);/);
+  // useProStatus 는 동작 그대로 + 응답 기록만(결제 흐름·설정·구매 시트 동작 불변)
+  assert.match(ps, /if \(pro\) proPurchaseState\.confirm\(\);\n      if \(pro\) storeProSignal\.mark\(at\); else storeProSignal\.revoke\(at\);\n      setIsPro\(pro\);/);
   assert.match(ps, /const askedAt = Date\.now\(\);\n        const \{ customerInfo \} = await Purchases\.getCustomerInfo\(\);\n        apply\(customerInfo, askedAt\);/);
-  assert.match(ps, /const offSignal = storeProSignal\.subscribe\(/);
-  assert.match(ps, /offSignal\(\);/);
+  assert.doesNotMatch(ps, /storeProSignal\.subscribe/, 'useProStatus 의 isPro 는 신호로 바꾸지 않는다(게이트만 신호를 따른다)');
   assert.doesNotMatch(ps, /if \(isPro\) storeProSignal\.mark/, '훅 isPro 로 다시 표시하지 않는다(옛 PRO 응답이 effect 로 되살아나지 않게)');
   assert.equal((ps.match(/if \(result\.ok && result\.isPro\) storeProSignal\.mark\(\);/g) || []).length, 3, '구매 2곳·복원 1곳 성공만 지금 시각으로 공유');
   // 닫힌 뒤 이어 할 일도 무료 재확인 뒤에만(구매 성공으로 닫힌 경우 광고 금지)
@@ -100,7 +100,7 @@ function gate(sig: Sig, hook: { isPro: boolean; ready: boolean }, c: { now: () =
     state: () => ({ iapAvailable: true, ready: hook.ready, isPro: proNow() }),
     proCheck: (fetchPro: () => Promise<boolean>, adPro = async () => false, pending = () => false) => checkStorePro({
       proNow, pending, adPro: async () => sig.latest() !== false && (await adPro()), fetchPro,
-      markPro: (at) => { sig.mark(at); }, markFree: (at) => { sig.revoke(at); }, now: c.now,
+      markPro: (at) => sig.mark(at), markFree: (at) => { sig.revoke(at); }, now: c.now,
       markAdPro: () => { if (sig.latest() !== false) sig.mark(); },
     }),
   };
@@ -207,7 +207,7 @@ test('중간 2′ — 회수보다 먼저 시작한 진행 중 조회가 옛 PRO
   await flush();
   c.advance(1000); sig.revoke(); // 조회 도중 SDK 가 다시 무료 알림(더 늦게 시작)
   d.resolve(true); // 진행 중이던 조회는 옛 PRO
-  assert.equal(await p, 'pro', '이번 탭은 PRO 로 보고 멈춘다(페이월 없음)');
+  assert.equal(await p, 'unknown', '이번 탭은 페이월 없이 무료 경로(옛 PRO 로 멈추지 않음)');
   assert.equal(sig.active(), false, '옛 PRO 응답으로 회수를 되돌리지 않는다');
 });
 
@@ -247,4 +247,18 @@ test('관문 3·4 — 광고 관리자 PRO: SDK 응답이 없거나 PRO 면 잠�
   assert.equal(s3.mark(t0), false); assert.equal(s3.latest(), true);
   assert.equal(s3.revoke(t0), false); assert.equal(s3.active(), true, '옛 무료 응답은 확인된 PRO 를 지우지 않는다');
 
+});
+
+test('관문 5 — 게이트 조회 도중 더 최신 무료 응답이 기록되면 옛 PRO 결과는 unknown(페이월 없음·탭 멈춤 없음 → 무료 경로)', async () => {
+  const c = clock(Date.now());
+  const sig = createStoreProSignal({ now: c.now, storage: () => null });
+  const g = gate(sig, { isPro: false, ready: true }, c);
+  const d = deferred<boolean>();
+  const p = g.proCheck(() => d.promise);
+  await flush();
+  c.advance(100); sig.revoke(); // SDK 리스너: 무료(더 최신)
+  c.advance(100); d.resolve(true); // 먼저 시작한 조회의 옛 PRO
+  assert.equal(await p, 'unknown');
+  assert.equal(sig.active(), false);
+  assert.equal(shouldShowFirstGatePaywall(g.state(), null, '2026-11-16'), true, '판정 상태는 무료(잠금 유지) — 그러나 unknown 이라 이번 탭은 페이월 없이 광고·대체 창');
 });

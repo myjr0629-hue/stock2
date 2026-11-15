@@ -65,23 +65,15 @@ export function useProStatus() {
     let cancelled = false;
     let listenerId: string | null = null;
 
-    // at = 이 응답을 낸 조회의 시작 시각(리스너 알림 = 지금). 공유 신호는 «가장 늦게 시작한 응답»을 따른다 —
-    //   더 늦은 무료 응답이면 만료·회수로 보고 공유 PRO 를 지우고, 옛 조회의 무료(캐시 지연)는 확인된 PRO 를 지우지 않는다.
+    // at = 이 응답을 낸 조회의 시작 시각(리스너 알림 = 지금). 이 훅의 동작은 그대로 두고, 응답을 게이트 공유 신호에 «기록만» 한다
+    //   (게이트는 가장 최신 응답을 따른다 — lib/app/gatePaywall storeProSignal).
     const apply = (info: unknown, at: number = Date.now()) => {
       if (cancelled) return;
       const pro = isProFromCustomerInfo(info as Parameters<typeof isProFromCustomerInfo>[0]);
       if (pro) proPurchaseState.confirm();
-      // 더 늦게 시작한 응답이 이미 있고 그것과 반대면 이 옛 응답은 버린다
-      //   (옛 PRO 로 회수된 권한을 되살리지 않고, 옛 무료로 확인된 PRO 를 지우지 않는다 · 같은 쪽이면 그대로 반영)
-      const fresh = pro ? storeProSignal.mark(at) : storeProSignal.revoke(at);
-      if (!fresh && storeProSignal.latest() !== pro) return;
+      if (pro) storeProSignal.mark(at); else storeProSignal.revoke(at);
       setIsPro(pro);
     };
-    // 다른 훅·게이트 재조회가 더 최신 응답을 기록하면 이 훅도 따른다(모든 화면이 한 값으로 모인다 — 광고 관리자·대가 렌즈 포함)
-    const offSignal = storeProSignal.subscribe(() => {
-      const l = storeProSignal.latest();
-      if (!cancelled && l !== null) { if (l) proPurchaseState.confirm(); setIsPro(l); }
-    });
 
     (async () => {
       const ok = await initRevenueCat();
@@ -109,7 +101,6 @@ export function useProStatus() {
 
     return () => {
       cancelled = true;
-      offSignal();
       if (listenerId) {
         import('@revenuecat/purchases-capacitor')
           .then(({ Purchases }) =>

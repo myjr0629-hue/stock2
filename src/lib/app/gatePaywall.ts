@@ -130,8 +130,8 @@ export async function checkStorePro(d: {
   adPro: () => Promise<boolean>;
   /** 스토어 조회 */
   fetchPro: () => Promise<boolean>;
-  /** 스토어가 PRO 라고 답함 — at = 조회 시작 시각 */
-  markPro: (at: number) => void;
+  /** 스토어가 PRO 라고 답함 — at = 조회 시작 시각. false = 더 최신 응답(무료)이 이미 있어 거부됨 */
+  markPro: (at: number) => boolean | void;
   /** 스토어가 무료라고 답함 — at = 조회 시작 시각 */
   markFree?: (at: number) => void;
   /** 광고 관리자가 PRO 라 함 */
@@ -151,7 +151,11 @@ export async function checkStorePro(d: {
       d.fetchPro(),
       new Promise<boolean>((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), d.timeoutMs ?? 3_000); }),
     ]);
-    if (pro) { d.markPro(startedAt); return 'pro'; }
+    if (pro) {
+      if (d.markPro(startedAt) !== false || d.proNow()) return 'pro';
+      // 조회 도중 더 최신 무료 응답이 기록됐다 — 옛 PRO 로 탭을 멈추지도(잠금은 그대로라 못 푸는 상태), 페이월을 띄우지도 않는다 → 무료 경로
+      return 'unknown';
+    }
     // 조회 대기 중 다른 경로에서 PRO 로 바뀌었나 — 옛 무료 결과를 그대로 쓰지 않는다
     if (d.proNow()) return 'pro';
     if (await d.adPro()) { d.markAdPro?.(); return 'pro'; }
