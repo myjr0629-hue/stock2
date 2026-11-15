@@ -15,6 +15,7 @@ import {
     GURU, LENS_NAME, T, chipCount, lensesHref, md, tickerLens, toLoc, whyLine, type TickerLens,
 } from '@/lib/app/guruLens';
 import { useAdUnlockGate } from './ValueWall';
+import { useGuruLensPro } from '@/lib/app/guruLensPro';
 import { AdFreeIcon } from './AdFreeIcon';
 import { RedeemCodeLink } from './RedeemCodeLink';
 import vw from './ValueWall.module.css';
@@ -87,7 +88,9 @@ export function GuruLensWhy({ data, locale, id }: { data: TickerLens; locale: st
 export function GuruLensProOnly({ locale, rows, children, locked = false }: { locale: string; rows: number; children: ReactNode; locked?: boolean }) {
     const g = useAdUnlockGate(locale);
     const t = T[toLoc(locale)];
-    if (g.isPro && !locked) return <div>{children}</div>;
+    // 데이터 요청과 같은 판정(공유 신호 우선 · 불확실하면 PRO 를 잠그지 않음) — lib/app/guruLensPro
+    const pro = useGuruLensPro(g.isPro);
+    if (pro.isPro && !locked) return <div>{children}</div>;
     return (
         <div className={`${vw.vault} ${vw.compactVault} ${vw.inset}`} data-testid="guru-lens-pro-lock">
             {/* 비PRO 에게는 실제 행을 DOM 에 두지 않는다(블러 아래 값·키보드 이동 노출 방지) — 값 없는 자리 표시만 */}

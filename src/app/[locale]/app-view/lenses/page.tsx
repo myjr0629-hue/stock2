@@ -20,7 +20,7 @@ import {
 } from '@/lib/app/guruLens';
 import type { LensId } from '@/lib/guruLens/types';
 import { fetchGuruLenses } from '@/lib/app/guruLensRequest';
-import { useWatchlistPro } from '@/lib/app/proEntitlement';
+import { useGuruLensPro } from '@/lib/app/guruLensPro';
 import s from './lenses.module.css';
 
 function Row({ id, row, rank, loc, locale }: { id: LensId; row: LensRow; rank: number; loc: Loc; locale: string }) {
@@ -92,7 +92,8 @@ function LensesInner() {
     const loc = toLoc(locale), t = T[loc];
     const [data, setData] = useState<LensBody | null | undefined>(undefined);
     const [open, setOpen] = useState<string | null>(search.get('lens'));
-    const pro = useWatchlistPro();
+    // 스토어가 확인한 PRO(게이트 공유 신호)는 즉시 인정 — 이 화면의 초기 PRO 조회가 실패해도 4~10위를 PRO 로 요청한다(lib/app/guruLensPro)
+    const pro = useGuruLensPro();
 
     useEffect(() => {
         const controller = new AbortController();

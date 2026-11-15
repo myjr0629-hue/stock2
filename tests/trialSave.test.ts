@@ -194,6 +194,6 @@ assert.match(reportRoute, /nx: true, ex: 5/, '토큰당 호출 제한');
 const reporter = readFileSync('src/lib/app/trialPushReport.ts', 'utf8');
 assert.match(reporter, /j\?\.stored === true/, '서버가 저장했을 때만 «보냈음» 기록');
 assert.match(reporter, /clear: true/);
-assert.match(readFileSync('src/lib/app/proEntitlement.ts', 'utf8'), /addCustomerInfoUpdateListener\(\(info\) => \{ applyReal\(isProFromCustomerInfo\(info\)\); reportTrial\(info\); \}\)/, '구매·복원 직후 보고');
+assert.match(readFileSync('src/lib/app/proEntitlement.ts', 'utf8'), /addCustomerInfoUpdateListener\(\(info\) => \{\s*const pro = isProFromCustomerInfo\(info\);\s*recordStore\(pro, Date\.now\(\)\);\s*applyReal\(pro\);\s*reportTrial\(info\);\s*\}\)/, '구매·복원 직후 보고');
 
 values().then(() => console.log('trialSave: visibility, value lines, push report/decision and scope passed'));

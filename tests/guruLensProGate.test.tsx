@@ -77,6 +77,9 @@ const originalLoad = (Module as any)._load;
     if (name === '@/components/app/AppTickerLogo') return { AppTickerLogo: ({ symbol }: any) => <span>{symbol}</span> };
     if (name === '@/components/app/GuruLens') return guruComponent;
     if (name === '@/lib/app/proEntitlement') return { useWatchlistPro: () => ({ isPro: gate.isPro }) };
+    // 페이지 effect 를 함수로 직접 부르는 구간(hooks)은 렌더러가 없어 useSyncExternalStore 를 못 쓴다 — 공유 신호 기록 없음(null)과 같은 판정.
+    //   공유 신호 경로 자체는 tests/guruLensSharedPro.test.ts 가 실제 모듈로 확인한다.
+    if (name === '@/lib/app/guruLensPro' && hooks) return { useGuruLensPro: () => ({ isPro: gate.isPro }) };
     return originalLoad.call(this, name, parent, main);
 };
 // 작업 전 커밋의 실제 함수를 메모리에서 컴파일해 응답 바이트와 마크업을 직접 대조한다.

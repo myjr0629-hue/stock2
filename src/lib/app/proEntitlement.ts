@@ -16,6 +16,7 @@
 import { useSyncExternalStore } from 'react';
 import { IAP_LIVE } from '@/config/iap';
 import { initRevenueCat, isProFromCustomerInfo } from '@/services/revenueCat';
+import { storeProSignal } from './gatePaywall';
 
 export interface ProState {
   isPro: boolean;
@@ -73,6 +74,12 @@ function reportTrial(info: unknown) {
     .catch(() => {});
 }
 
+/** ★11/16 스토어 응답을 게이트 공유 신호에도 기록(useProStatus 와 같은 규칙 — 조회는 시작 시각, 알림은 받은 시각).
+ *  이 모듈의 isPro 동작은 그대로 — 대가 렌즈 등 공유 신호를 보는 곳이 «가장 최신 응답»을 알게 할 뿐(lib/app/guruLensPro). */
+function recordStore(pro: boolean, at: number) {
+  try { if (pro) storeProSignal.mark(at); else storeProSignal.revoke(at); } catch { /* 기록 실패는 무시 */ }
+}
+
 function start() {
   if (started || typeof window === 'undefined') return;
   started = true;
@@ -84,13 +91,21 @@ function start() {
     if (!ok) { applyReal(false); return; }
     const { Purchases } = await import('@revenuecat/purchases-capacitor');
     try {
+      const askedAt = Date.now();
       const { customerInfo } = await Purchases.getCustomerInfo();
-      applyReal(isProFromCustomerInfo(customerInfo));
+      const pro = isProFromCustomerInfo(customerInfo);
+      recordStore(pro, askedAt);
+      applyReal(pro);
     } catch {
-      applyReal(false);
+      applyReal(false); // 조회 실패는 공유 신호에 기록하지 않는다(확인된 PRO 를 실패에 가두지 않음)
     }
     try {
-      await Purchases.addCustomerInfoUpdateListener((info) => { applyReal(isProFromCustomerInfo(info)); reportTrial(info); });
+      await Purchases.addCustomerInfoUpdateListener((info) => {
+        const pro = isProFromCustomerInfo(info);
+        recordStore(pro, Date.now());
+        applyReal(pro);
+        reportTrial(info);
+      });
     } catch { /* 리스너를 못 걸어도 현재 값은 유지된다 */ }
   })().catch(() => applyReal(false));
 }
@@ -119,7 +134,9 @@ export function whenProReady(timeoutMs = 2500): Promise<ProState> {
 
 /** 구매·복원 직후 등 «지금 바로» 반영하고 싶을 때 */
 export function notifyProPurchased(isPro: boolean) {
-  if (isPro) applyReal(true);
+  if (!isPro) return;
+  recordStore(true, Date.now()); // 구매·코드·복귀 동기화가 스토어에서 확인한 지금의 PRO — 공유 신호에도(대가 렌즈 즉시 열림)
+  applyReal(true);
 }
 
 export function useWatchlistPro(): ProState {
