@@ -115,6 +115,8 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
     active(): boolean { return current() === true; },
     /** 가장 최신 응답의 값(기록 없음·PRO 만료 = null) */
     latest(): boolean | null { return current(); },
+    /** 가장 최신 응답의 값 — 1시간 만료 없이(기록 없음 = null). 서버가 권한을 다시 확인하는 곳(대가 렌즈 4~10위)만 쓴다 */
+    lastAnswer(): boolean | null { load(); return lastPro; },
     /** 유효한 PRO 의 만료 시각(없으면 0) — 화면 다시 그리기용 */
     proExpiresAt(): number { return current() === true ? recordedAt + STORE_PRO_TTL_MS : 0; },
     /** 스토어가 PRO 라고 답함 — at = 응답 시각(조회는 시작 시각, 알림·구매·복원은 지금). 더 최신 응답이 있으면 false */

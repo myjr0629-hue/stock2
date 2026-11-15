@@ -8,7 +8,9 @@
 // 규칙(게이트 공유 상태 lib/app/gatePaywall storeProSignal 과 같은 원칙):
 //   · «가장 최신 스토어 응답»(모든 useProStatus·proEntitlement·게이트 재조회·구매·복원이 기록)이 있으면 그것을 따른다
 //     → 스토어가 확인한 PRO 는 렌즈도 즉시 인정, 더 최신 무료 응답(만료·회수)은 즉시 반영.
-//   · 응답 기록이 없으면(조회 실패·1시간 지난 PRO) 훅들의 isPro 중 하나라도 PRO 면 PRO — 불확실하면 PRO 를 잠그지 않는다.
+//   · 게이트와 달리 PRO 1시간 만료를 두지 않는다(lastAnswer) — 4~10위 값은 서버가 RevenueCat 으로 다시 확인하므로
+//     옛 PRO 로 요청해도 무료면 잠금 자리만 온다. 만료로 «기록 없음»이 되면 한쪽 훅 초기 조회 실패 때 PRO 가 다시 잠긴다.
+//   · 응답 기록이 없으면(조회 실패) 훅들의 isPro 중 하나라도 PRO 면 PRO — 불확실하면 PRO 를 잠그지 않는다.
 //   · 첫 렌더(서버 렌더·hydration)는 신호를 읽지 않는다(getServerSnapshot = null) → 마운트 직후 반영.
 //   서버(/api/guru-lens · lib/guruLens/proAccess)는 RevenueCat 을 따로 확인한다 — 무료 사용자가 이 값을 바꿔도 4~10위는 열리지 않는다.
 // ============================================================================
@@ -17,29 +19,20 @@ import { useSyncExternalStore } from 'react';
 import { storeProSignal } from './gatePaywall';
 import { useWatchlistPro } from '@/lib/app/proEntitlement';
 
-type Signal = Pick<typeof storeProSignal, 'latest' | 'proExpiresAt' | 'subscribe'>;
+type Signal = Pick<typeof storeProSignal, 'lastAnswer' | 'subscribe'>;
 
 /** 최신 스토어 응답(없으면 null)이 이기고, 없으면 훅 값 중 하나라도 PRO 면 PRO */
 export function lensProNow(latest: boolean | null, ...hookPro: boolean[]): boolean {
   return latest === null ? hookPro.some(Boolean) : latest;
 }
 
-/** 신호 변화 + PRO 1시간 만료(알림 없이 null 로 바뀜) 때 다시 그리게 한다 */
+/** 신호 변화 때 다시 그리게 한다 */
 export function subscribeLensProSignal(listener: () => void, signal: Signal = storeProSignal): () => void {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const arm = () => {
-    if (timer !== undefined) clearTimeout(timer);
-    timer = undefined;
-    const exp = signal.proExpiresAt();
-    if (exp) timer = setTimeout(() => { timer = undefined; listener(); arm(); }, Math.max(0, exp - Date.now()) + 5);
-  };
-  arm();
-  const off = signal.subscribe(() => { arm(); listener(); });
-  return () => { off(); if (timer !== undefined) clearTimeout(timer); };
+  return signal.subscribe(listener);
 }
 
 const subscribeSignal = (listener: () => void) => subscribeLensProSignal(listener);
-const signalSnapshot = () => storeProSignal.latest();
+const signalSnapshot = () => storeProSignal.lastAnswer();
 const serverSnapshot = () => null;
 
 /** 대가 렌즈 PRO — hookPro: 호출부가 이미 아는 PRO(잠금 자리의 useProStatus 등) */

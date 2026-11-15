@@ -16,7 +16,7 @@ import { guruCompany } from './helpers/guruCompany';
 import { LENS_IDS } from '../src/lib/guruLens/types';
 import { GURU_UNIVERSE } from '../src/lib/guruLens/sources';
 import { makeSnapshot, HEAD_KEY, metaKey, lensKey } from '../src/lib/guruLens/pipeline';
-import { storeProSignal, createStoreProSignal } from '../src/lib/app/gatePaywall';
+import { storeProSignal, createStoreProSignal, STORE_PRO_TTL_MS } from '../src/lib/app/gatePaywall';
 
 globalThis.fetch = async () => { throw new Error('실제 네트워크 금지'); };
 
@@ -107,7 +107,7 @@ async function main() {
     assert.equal(lensProNow(null, false, true), true, '응답 기록 없음이면 훅 중 하나라도 PRO 면 PRO(불확실하면 잠그지 않음)');
     assert.equal(lensProNow(null), false);
 
-    // ── 2. 신호 구독 — 변화·1시간 만료 때 다시 그린다 ─────────────────────────
+    // ── 2. 신호 구독 · 렌즈는 PRO 1시간 만료 없이 마지막 응답(서버가 다시 확인하므로) ──────
     let t = 1_000_000;
     const sig = createStoreProSignal({ now: () => t, storage: () => null });
     let calls = 0;
@@ -115,17 +115,14 @@ async function main() {
     sig.mark(t); assert.equal(calls, 1, 'PRO 기록 → 다시 그림');
     sig.revoke(t + 1); assert.equal(calls, 2, '무료 기록 → 다시 그림');
     off(); sig.mark(t + 2); assert.equal(calls, 2, '정리 뒤 호출 0');
-    const exp = Date.now() + 15;
-    const fake = { latest: () => true, proExpiresAt: () => exp, subscribe: () => () => {} };
-    let expired = 0;
-    const offExp = subscribeLensProSignal(() => { expired++; }, fake as any);
-    await new Promise(r => setTimeout(r, 60));
-    assert.ok(expired >= 1, 'PRO 1시간 만료 시각에 다시 그림(알림 없이 null 로 바뀌는 값)');
-    offExp();
+    t += STORE_PRO_TTL_MS + 1;
+    assert.equal(sig.latest(), null, '게이트용 값은 1시간 뒤 «기록 없음»(origin 동작 그대로)');
+    assert.equal(sig.lastAnswer(), true, '렌즈용 마지막 응답은 만료 없이 PRO — 1시간 뒤에도 한쪽 훅 실패로 다시 잠기지 않음');
+    sig.revoke(t); assert.equal(sig.lastAnswer(), false, '더 최신 무료 응답은 즉시 반영');
 
     // ── 3. 훅 — 실제 모듈 · 실제 공유 신호 ───────────────────────────────────
     ent.isPro = false;
-    assert.equal(storeProSignal.latest(), null, '시작 시 기록 없음');
+    assert.equal(storeProSignal.lastAnswer(), null, '시작 시 기록 없음');
     assert.equal(useGuruLensPro().isPro, false, '무료(기록 없음 + 초기 조회 실패) → 잠금 유지');
     markProNow();
     assert.equal(useGuruLensPro().isPro, true, '렌즈 초기 조회 실패 + 공유 상태 PRO → PRO');
