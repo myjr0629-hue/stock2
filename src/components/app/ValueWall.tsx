@@ -167,15 +167,17 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const [proNothing, setProNothing] = useState(false); // successful restore that found no entitlement
   const { unlocked, unlock } = useUnlockState();
   // Pro (paid, ad-free) is inert while IAP_LIVE=false: isPro stays false, no SDK.
-  const { isPro, ready, purchase, restore, iapAvailable } = useProStatus();
+  const { isPro, ready, offers, purchase, restore, iapAvailable } = useProStatus();
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
   const isUnlocked = unlocked || isPro;
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
 
   // ★11/16 게이트 «가치 순간» 페이월(lib/app/gatePaywall) — 페이월을 닫은 «뒤»에 이어 할 일(광고 / 대체 창).
   //   콜백 안에서 최신 PRO 상태를 읽도록 ref 로 둔다(구매 성공으로 닫힌 경우 광고를 이어 붙이지 않는다).
-  const gateRef = useRef({ iapAvailable, ready, isPro });
-  gateRef.current = { iapAvailable, ready, isPro };
+  //   스토어 가격(offers)을 못 받았으면 «살 수 없는 페이월»이라 끼워 넣지 않는다(iapAvailable 에 묶는다).
+  const sellable = iapAvailable && offers.length > 0;
+  const gateRef = useRef({ iapAvailable: sellable, ready, isPro });
+  gateRef.current = { iapAvailable: sellable, ready, isPro };
   const afterPaywall = useRef<null | 'ad' | 'fallback'>(null);
 
   const finishUnlock = useCallback(() => {
@@ -191,9 +193,30 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   // 퍼널 측정 — 누가 열었나. 버튼 onClick 에 그대로 꽂히면 인자가 클릭 이벤트라 «가치 벽»으로 본다.
   const [paywallSrc, setPaywallSrc] = useState<FunnelSrc>('value_wall');
 
-  const runUnlock = useCallback(async (shownThisTap: boolean) => {
+  // 게이트 흐름이 진행 중(페이월 열림 ~ 이어 할 일 끝)인 시각 — 그 사이 다른 탭은 무시한다(빠른 두 번 탭에 페이월·광고가 겹치지 않게).
+  //   onClose 가 끝내 안 불린 경우(화면 이동 등)를 위해 2분 지나면 풀린다.
+  const gateFlowAt = useRef(0);
+  const gateBusy = () => gateFlowAt.current > 0 && Date.now() - gateFlowAt.current < 120_000;
+  const endFlow = () => { gateFlowAt.current = 0; };
+
+  /** 무료임을 «스토어에서 방금» 확인했나 — 조회 실패·시간 초과·PRO 는 전부 false(코드 PRO·막 결제한 사람에게 페이월·광고 금지) */
+  const confirmedFree = useCallback(async (): Promise<boolean> => {
+    if (gateRef.current.isPro || proPurchaseState.getSnapshot()) return false;
+    try {
+      const { adManager } = await import('@/services/adManager');
+      if (adManager.isProActive()) return false;
+      const { fetchProStatus } = await import('@/services/revenueCat');
+      const pro = await Promise.race([fetchProStatus(), new Promise<boolean>((_, rej) => setTimeout(() => rej(new Error('timeout')), 3_000))]);
+      return pro === false && !proPurchaseState.getSnapshot();
+    } catch {
+      return false;
+    }
+  }, []);
+
+  /** 광고 시도 → 안 나오면 (②) 페이월 또는 대체 창. 'paywall' = 페이월을 열었다(흐름이 닫힘까지 이어진다) */
+  const runUnlock = useCallback(async (shownThisTap: boolean): Promise<'paywall' | 'done'> => {
     // State alone does not exclude two taps before React commits the next render.
-    if (unlockPending.current) return;
+    if (unlockPending.current) return 'done';
     unlockPending.current = true;
     setUnlocking(true);
 
@@ -207,11 +230,11 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         if (reward) {
           // adManager grants once and broadcasts signum:unlock to update the wall.
           onUnlock?.();
-          return;
+          return 'done';
         }
         // The manager can return null when PRO activates during preparation.
         // Read its current policy state before opening the fallback portal.
-        if (adManager.isProActive()) return;
+        if (adManager.isProActive()) return 'done';
       }
     } catch {
       // Browser previews and unavailable native ads fall back to the local modal.
@@ -221,47 +244,52 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     }
 
     // ② 네이티브에서 광고가 안 나왔다 — 대체 30초 창 «전에» 페이월 한 번(닫으면 대체 창 그대로)
-    if (native && shouldShowNoFillPaywall(gateRef.current, shownThisTap)) {
+    if (native && shouldShowNoFillPaywall(gateRef.current, shownThisTap) && (await confirmedFree())) {
       afterPaywall.current = 'fallback';
       setPaywallSrc('ad_nofill');
       setPaywallOpen(true);
-      return;
+      return 'paywall';
     }
     setShowAd(true);
-  }, [onUnlock]);
+    return 'done';
+  }, [onUnlock, confirmedFree]);
 
-  const handleUnlockPress = useCallback(() => {
-    if (unlockPending.current) return;
+  const handleUnlockPress = useCallback(async () => {
+    if (unlockPending.current || gateBusy()) return;
+    gateFlowAt.current = Date.now();
     // ① 하루 첫 게이트 탭 — 광고 전에 페이월 한 번(닫으면 원래 누른 대로 광고가 이어진다)
     const today = localDay();
-    if (shouldShowFirstGatePaywall(gateRef.current, readGateDay(), today) && markGateDay(today)) {
+    const first = shouldShowFirstGatePaywall(gateRef.current, readGateDay(), today);
+    if (first) setUnlocking(true); // 스토어 확인(보통 SDK 캐시 즉시) 동안 단추를 «잠시만»으로
+    const open = first && (await confirmedFree()) && markGateDay(today);
+    if (first) setUnlocking(false);
+    if (open) {
       afterPaywall.current = 'ad';
       setPaywallSrc('gate_first');
       setPaywallOpen(true);
       return;
     }
-    void runUnlock(false);
-  }, [runUnlock]);
+    if ((await runUnlock(false)) !== 'paywall') endFlow();
+  }, [runUnlock, confirmedFree]);
 
   const closePaywall = useCallback(() => {
     setPaywallOpen(false);
     const next = afterPaywall.current;
     afterPaywall.current = null;
     if (!next) return;
-    // 구매 성공으로 닫혔을 수 있다 — PRO 상태가 화면마다(useProStatus 인스턴스·adManager) 퍼질 틈을 두고 다시 본다.
-    //   결제 진행 중(proPurchaseState)·PRO 면 광고·대체 창을 이어 붙이지 않는다.
+    // 구매 성공으로 닫혔을 수 있다 — 스토어에서 «무료»를 다시 확인한 뒤에만 광고·대체 창을 잇는다(확인 실패 = 잇지 않음).
     window.setTimeout(() => {
       void (async () => {
-        if (gateRef.current.isPro || proPurchaseState.getSnapshot()) return;
         try {
-          const { adManager } = await import('@/services/adManager');
-          if (adManager.isProActive()) return;
-        } catch { /* 웹 미리보기 — 광고 관리자 없음 */ }
-        if (next === 'ad') void runUnlock(true);
-        else setShowAd(true);
+          if (!(await confirmedFree())) return;
+          if (next === 'ad') await runUnlock(true);
+          else setShowAd(true);
+        } finally {
+          endFlow();
+        }
       })();
-    }, 500);
-  }, [runUnlock]);
+    }, 300);
+  }, [runUnlock, confirmedFree]);
 
   const openPaywall = useCallback((src?: unknown) => {
     afterPaywall.current = null; // 사용자가 직접 연 페이월 — 닫아도 이어 할 일 없음

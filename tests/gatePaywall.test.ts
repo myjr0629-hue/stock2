@@ -46,12 +46,19 @@ test('계측 출처 gate_first·ad_nofill — 스키마·집계 스크립트 둘
 
 test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로(광고·대체 창)를 잇는다', () => {
   const v = read('src/components/app/ValueWall.tsx');
-  assert.match(v, /shouldShowFirstGatePaywall\(gateRef\.current, readGateDay\(\), today\) && markGateDay\(today\)/);
-  assert.match(v, /native && shouldShowNoFillPaywall\(gateRef\.current, shownThisTap\)/);
+  // ① 하루 첫 탭 — 스토어에서 방금 무료 확인 + 기록 성공 때만
+  assert.match(v, /const first = shouldShowFirstGatePaywall\(gateRef\.current, readGateDay\(\), today\);/);
+  assert.match(v, /const open = first && \(await confirmedFree\(\)\) && markGateDay\(today\);/);
+  // ② 광고 없음 — 같은 탭 ① 뒤 생략 + 무료 확인
+  assert.match(v, /native && shouldShowNoFillPaywall\(gateRef\.current, shownThisTap\) && \(await confirmedFree\(\)\)/);
   assert.match(v, /onClose=\{closePaywall\}/);
-  // 구매 성공으로 닫힌 경우 광고를 붙이지 않는다
-  assert.match(v, /gateRef\.current\.isPro \|\| proPurchaseState\.getSnapshot\(\)/);
-  assert.match(v, /adManager\.isProActive\(\)\) return;/);
+  // 코드 PRO·조회 실패·결제 진행 중 = 무료 아님(페이월·광고 금지) — 스토어 조회(fetchProStatus)·시간 초과 3초
+  assert.match(v, /fetchProStatus\(\)/);
+  assert.match(v, /return pro === false && !proPurchaseState\.getSnapshot\(\);/);
+  // 닫힌 뒤 이어 할 일도 무료 재확인 뒤에만(구매 성공으로 닫힌 경우 광고 금지)
+  assert.match(v, /if \(!\(await confirmedFree\(\)\)\) return;/);
+  // 빠른 두 번 탭 — 흐름 중 다른 탭 무시
+  assert.match(v, /if \(unlockPending\.current \|\| gateBusy\(\)\) return;/);
   // 직접 연 페이월(«광고 없이 보기» 등)은 닫아도 이어 할 일 없음
   assert.match(v, /afterPaywall\.current = null; \/\/ 사용자가 직접 연 페이월/);
 });
