@@ -169,7 +169,10 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   // Pro (paid, ad-free) is inert while IAP_LIVE=false: isPro stays false, no SDK.
   const { isPro, ready, offers, purchase, restore, iapAvailable } = useProStatus();
   // ★11/16 게이트 흐름의 스토어 재조회(proCheck)가 PRO 를 확인했는데 이 훅의 isPro 가 아직 무료면(초기 조회 실패·갱신 지연) 그 값으로 연다 — 잠금에 가두지 않는다
-  const [storePro, setStorePro] = useState(false);
+  //   광고 잠금해제와 같은 1시간만 유효(그 사이 만료·회수돼도 영구히 열린 채 남지 않게) — 그 뒤는 훅의 isPro(스토어 갱신)를 따른다.
+  const [storeProUntil, setStoreProUntil] = useState(0);
+  const markStorePro = useCallback(() => setStoreProUntil(Date.now() + 60 * 60 * 1000), []);
+  const storePro = storeProUntil > Date.now();
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
   const isUnlocked = unlocked || isPro || storePro;
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
@@ -178,8 +181,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   //   콜백 안에서 최신 PRO 상태를 읽도록 ref 로 둔다(구매 성공으로 닫힌 경우 광고를 이어 붙이지 않는다).
   //   스토어 가격(offers)을 못 받았으면 «살 수 없는 페이월»이라 끼워 넣지 않는다(iapAvailable 에 묶는다).
   const sellable = iapAvailable && offers.length > 0;
-  const gateRef = useRef({ iapAvailable: sellable, ready, isPro });
-  gateRef.current = { iapAvailable: sellable, ready, isPro };
+  const gateRef = useRef({ iapAvailable: sellable, ready, isPro: isPro || storePro });
+  gateRef.current = { iapAvailable: sellable, ready, isPro: isPro || storePro };
   const afterPaywall = useRef<null | 'ad' | 'fallback'>(null);
 
   const finishUnlock = useCallback(() => {
@@ -206,16 +209,16 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     if (gateRef.current.isPro || proPurchaseState.getSnapshot()) return 'pro';
     try {
       const { adManager } = await import('@/services/adManager');
-      if (adManager.isProActive()) return 'pro';
+      if (adManager.isProActive()) { markStorePro(); return 'pro'; }
       const { fetchProStatus } = await import('@/services/revenueCat');
       const pro = await Promise.race([fetchProStatus(), new Promise<boolean>((_, rej) => setTimeout(() => rej(new Error('timeout')), 3_000))]);
-      if (pro) { setStorePro(true); return 'pro'; }
+      if (pro) { markStorePro(); return 'pro'; }
       if (proPurchaseState.getSnapshot()) return 'pro';
       return 'free';
     } catch {
       return gateRef.current.isPro || proPurchaseState.getSnapshot() ? 'pro' : 'unknown';
     }
-  }, []);
+  }, [markStorePro]);
 
   /** 광고 시도 → 안 나오면 (②) 페이월 또는 대체 창. 'paywall' = 페이월을 열었다(흐름이 닫힘까지 이어진다) */
   const runUnlock = useCallback(async (shownThisTap: boolean): Promise<'paywall' | 'done'> => {
