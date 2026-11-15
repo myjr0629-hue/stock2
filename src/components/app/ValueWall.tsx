@@ -384,7 +384,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   );
 
   return {
-    isUnlocked, unlocked, isPro, iapAvailable,
+    // ★11/16 밤 — PRO 전용 자리(대가 렌즈 4~10위)도 공유 PRO 를 본다(그 훅의 초기 조회 실패에 PRO 를 가두지 않음)
+    isUnlocked, unlocked, isPro: isPro || storePro, iapAvailable,
     unlocking, purchasing, proError, proNothing,
     handleUnlockPress, openPaywall, handleRestore, finishUnlock,
     copy: copyOut, portals,

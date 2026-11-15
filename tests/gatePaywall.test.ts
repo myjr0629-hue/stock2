@@ -67,8 +67,9 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /const storePro = storeProUntil > Date\.now\(\) \|\| storeProSignal\.active\(\);/);
   assert.match(v, /if \(gateRef\.current\.isPro \|\| storeProSignal\.active\(\)\) return; \/\/ 조회 뒤/);
   const ps = read('src/hooks/useProStatus.ts');
-  assert.match(ps, /if \(pro\) \{ proPurchaseState\.confirm\(\); storeProSignal\.mark\(\); \}/);
-  assert.match(ps, /useEffect\(\(\) => \{ if \(isPro\) storeProSignal\.mark\(\); \}, \[isPro\]\);/);
+  assert.match(ps, /if \(pro\) \{ proPurchaseState\.confirm\(\); storeProSignal\.mark\(\); wasProRef\.current = true; \}\n      else if \(wasProRef\.current\) \{ wasProRef\.current = false; storeProSignal\.clear\(\); \}/);
+  assert.match(v, /isPro: isPro \|\| storePro, iapAvailable,/);
+  assert.match(ps, /useEffect\(\(\) => \{ if \(isPro\) \{ wasProRef\.current = true; storeProSignal\.mark\(\); \} \}, \[isPro\]\);/);
   // 닫힌 뒤 이어 할 일도 무료 재확인 뒤에만(구매 성공으로 닫힌 경우 광고 금지)
   assert.match(v, /if \(st === 'pro' \|\| st === 'pending'\) return;/);
   // 빠른 두 번 탭 — 흐름 중 다른 탭 무시
@@ -182,4 +183,19 @@ test('checkStorePro — 진짜 무료만 free · 결제 진행 중 pending · �
   let pro = false;
   assert.equal(await checkStorePro({ proNow: () => pro, pending: () => false, adPro: async () => false,
     fetchPro: async () => { pro = true; throw new Error('net'); }, markPro: () => {} }), 'pro');
+});
+
+test('공유 PRO 회수 — 결제 SDK 의 PRO→무료 전환(만료·회수)이면 즉시 지워져 게이트가 다시 무료 판정', () => {
+  const st = fakeStorage(); const c = clock(Date.now());
+  const sig = createStoreProSignal({ now: c.now, storage: () => st });
+  let notified = 0; sig.subscribe(() => { notified++; });
+  sig.mark();
+  const g = gate(sig, { isPro: false, ready: true });
+  sig.clear();
+  assert.equal(sig.active(), false);
+  assert.equal(notified, 2, '구독 중인 게이트에 알린다(잠금 상태 갱신)');
+  assert.equal(createStoreProSignal({ now: c.now, storage: () => st }).active(), false, '새로고침 뒤에도 지워진 상태');
+  assert.equal(shouldShowFirstGatePaywall({ iapAvailable: true, ready: true, isPro: sig.active() }, null, '2026-11-16'), true);
+  sig.clear(); assert.equal(notified, 2, '없으면 알리지 않음');
+  void g;
 });

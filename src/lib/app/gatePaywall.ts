@@ -88,6 +88,14 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
       try { storage()?.setItem(STORE_PRO_KEY, String(until)); } catch { /* 모듈 값은 유지 */ }
       listeners.forEach((f) => { try { f(); } catch { /* 구독자 오류는 무시 */ } });
     },
+    /** 결제 SDK 가 PRO → 무료 «전환»을 알렸다(만료·회수) — 공유 PRO 를 지운다(1시간 동안 열린 채 남지 않게) */
+    clear(): void {
+      load();
+      if (!until) return;
+      until = 0;
+      try { storage()?.setItem(STORE_PRO_KEY, '0'); } catch { /* 모듈 값은 이미 0 */ }
+      listeners.forEach((f) => { try { f(); } catch { /* 구독자 오류는 무시 */ } });
+    },
     subscribe(f: () => void): () => void { listeners.add(f); return () => { listeners.delete(f); }; },
   };
 }
