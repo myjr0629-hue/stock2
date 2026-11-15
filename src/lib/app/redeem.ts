@@ -148,8 +148,9 @@ export async function refreshProAfterRedeem(path: 'sheet' | 'url', deps?: {
           const askedAt = Date.now();
           const { customerInfo } = await Purchases.getCustomerInfo();
           const pro = isProFromCustomerInfo(customerInfo);
-          // ★11/16 확인된 PRO 는 이 조회의 시작 시각으로 공유 신호에(대가 렌즈·게이트 즉시 열림). 무료·실패는 기록하지 않는다(PRO 보호)
-          if (pro) storeProSignal.mark(askedAt);
+          // ★11/16 스토어 응답을 이 조회의 시작 시각으로 공유 신호에(useProStatus 와 같은 규칙 — 가장 최신 응답이 이긴다).
+          //   PRO → 대가 렌즈·게이트 즉시 열림 · 무료(만료·회수) → 즉시 반영. 조회 실패는 기록하지 않는다(PRO 보호)
+          if (pro) storeProSignal.mark(askedAt); else storeProSignal.revoke(askedAt);
           return pro;
         } catch { return false; }
       },

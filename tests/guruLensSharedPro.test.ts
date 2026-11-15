@@ -217,13 +217,18 @@ async function main() {
     assert.equal(storeProSignal.latest(), true, '재조회가 확인한 PRO 는 그 조회의 시작 시각으로 기록 → 중간 무료 기록보다 최신이라 인정');
     ent.isPro = false; gate.isPro = false;
     assert.ok(!render(false).includes('guru-lens-pro-lock'), '코드 사용 확인 PRO → 4~10위 열림');
-    revokeNow();
-    answers = [false, false, false];
-    assert.equal(await redeem.refreshProAfterRedeem('sheet', { check: async () => false, sync: async () => {}, wait: async () => {} }), false);
-    assert.equal(storeProSignal.latest(), false, '무료 확인은 아무것도 바꾸지 않는다');
+    // 실제 조회 자리가 무료(만료·회수)를 확인하면 그 시각으로 기록 → 옛 PRO 로 렌즈가 계속 PRO 요청하지 않는다
+    answers = [false];
+    const freeAsk = redeem.refreshProAfterRedeem('sheet');
+    await new Promise(r => setTimeout(r, 20));
+    assert.equal(storeProSignal.lastAnswer(), false, '재조회 무료 확인 → 렌즈 마지막 응답 무료');
+    assert.equal(useGuruLensPro(true).isPro, false, '옛 훅 PRO 가 있어도 더 최신 무료 확인이 이긴다');
+    answers = [true];
+    assert.equal(await freeAsk, true, '3초 재조회 PRO');
+    assert.equal(storeProSignal.lastAnswer(), true);
     const src = (f: string) => fs.readFileSync(f, 'utf8');
     assert.match(src('src/lib/app/foregroundProSync.ts'),
-        /const askedAt = Date\.now\(\);\s*const \{ customerInfo \} = await Purchases\.getCustomerInfo\(\);[\s\S]{0,200}if \(pro\) storeProSignal\.mark\(askedAt\);/,
+        /const askedAt = Date\.now\(\);\s*const \{ customerInfo \} = await Purchases\.getCustomerInfo\(\);[\s\S]{0,400}if \(pro\) storeProSignal\.mark\(askedAt\); else storeProSignal\.revoke\(askedAt\);/,
         '안드 복귀 동기화: 첫 조회(already_pro) 포함 모든 PRO 확인을 조회 시작 시각으로 기록');
 
     (Module as any)._load = originalLoad;

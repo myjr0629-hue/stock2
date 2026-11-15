@@ -95,8 +95,9 @@ export async function startForegroundProSync(): Promise<void> {
           const askedAt = Date.now();
           const { customerInfo } = await Purchases.getCustomerInfo();
           const pro = rc.isProFromCustomerInfo(customerInfo);
-          // ★11/16 확인된 PRO 는 이 조회의 시작 시각으로 공유 신호에(첫 조회 already_pro 포함). 무료는 기록하지 않는다(PRO 보호)
-          if (pro) storeProSignal.mark(askedAt);
+          // ★11/16 스토어 응답을 이 조회의 시작 시각으로 공유 신호에(첫 조회 already_pro 포함 · useProStatus 와 같은 규칙).
+          //   무료(만료·회수)도 기록 — 옛 PRO 로 렌즈가 계속 PRO 요청하지 않게. 조회 실패(예외)는 기록하지 않는다
+          if (pro) storeProSignal.mark(askedAt); else storeProSignal.revoke(askedAt);
           return pro;
         },
         sync: async () => { await Purchases.syncPurchases(); },
