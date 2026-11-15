@@ -199,19 +199,22 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const gateBusy = () => gateFlowAt.current > 0 && Date.now() - gateFlowAt.current < 120_000;
   const endFlow = () => { gateFlowAt.current = 0; };
 
-  /** 무료임을 «스토어에서 방금» 확인했나 — 조회 실패·시간 초과·PRO 는 전부 false(코드 PRO·막 결제한 사람에게 페이월·광고 금지) */
-  const confirmedFree = useCallback(async (): Promise<boolean> => {
-    if (gateRef.current.isPro || proPurchaseState.getSnapshot()) return false;
+  /** PRO 여부를 «스토어에서 방금» 본다 — 'pro'(PRO·결제 진행 중) · 'free'(무료 확인) · 'unknown'(조회 실패·3초 초과) */
+  const proCheck = useCallback(async (): Promise<'pro' | 'free' | 'unknown'> => {
+    if (gateRef.current.isPro || proPurchaseState.getSnapshot()) return 'pro';
     try {
       const { adManager } = await import('@/services/adManager');
-      if (adManager.isProActive()) return false;
+      if (adManager.isProActive()) return 'pro';
       const { fetchProStatus } = await import('@/services/revenueCat');
       const pro = await Promise.race([fetchProStatus(), new Promise<boolean>((_, rej) => setTimeout(() => rej(new Error('timeout')), 3_000))]);
-      return pro === false && !proPurchaseState.getSnapshot();
+      if (pro || proPurchaseState.getSnapshot()) return 'pro';
+      return 'free';
     } catch {
-      return false;
+      return gateRef.current.isPro || proPurchaseState.getSnapshot() ? 'pro' : 'unknown';
     }
   }, []);
+  /** 페이월을 «새로 끼워 넣는» 판정은 무료 확인 때만(코드 PRO 조회 실패 사용자에게 페이월 금지) */
+  const confirmedFree = useCallback(async () => (await proCheck()) === 'free', [proCheck]);
 
   /** 광고 시도 → 안 나오면 (②) 페이월 또는 대체 창. 'paywall' = 페이월을 열었다(흐름이 닫힘까지 이어진다) */
   const runUnlock = useCallback(async (shownThisTap: boolean): Promise<'paywall' | 'done'> => {
@@ -281,7 +284,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     window.setTimeout(() => {
       void (async () => {
         try {
-          if (!(await confirmedFree())) return;
+          // PRO 확인(막 결제함)이면 잇지 않는다. 조회 실패(unknown)는 무료 경로를 잇는다 — 광고 관리자가 PRO 면 스스로 거절한다
+          if ((await proCheck()) === 'pro') return;
           if (next === 'ad') await runUnlock(true);
           else setShowAd(true);
         } finally {
@@ -289,7 +293,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         }
       })();
     }, 300);
-  }, [runUnlock, confirmedFree]);
+  }, [runUnlock, proCheck]);
 
   const openPaywall = useCallback((src?: unknown) => {
     afterPaywall.current = null; // 사용자가 직접 연 페이월 — 닫아도 이어 할 일 없음
