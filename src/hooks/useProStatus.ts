@@ -77,6 +77,11 @@ export function useProStatus() {
       if (!fresh && storeProSignal.latest() !== pro) return;
       setIsPro(pro);
     };
+    // 다른 훅·게이트 재조회가 더 최신 응답을 기록하면 이 훅도 따른다(모든 화면이 한 값으로 모인다 — 광고 관리자·대가 렌즈 포함)
+    const offSignal = storeProSignal.subscribe(() => {
+      const l = storeProSignal.latest();
+      if (!cancelled && l !== null) { if (l) proPurchaseState.confirm(); setIsPro(l); }
+    });
 
     (async () => {
       const ok = await initRevenueCat();
@@ -104,6 +109,7 @@ export function useProStatus() {
 
     return () => {
       cancelled = true;
+      offSignal();
       if (listenerId) {
         import('@revenuecat/purchases-capacitor')
           .then(({ Purchases }) =>
@@ -127,7 +133,7 @@ export function useProStatus() {
     });
     // 결제·체험 시작 성공 = 평점 «좋은 순간»(11/11) — 표식만 남기고, 요청은 페이월이 닫힌 뒤 앱 레이아웃이 한다(복원은 제외)
     if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); announceProActivated(); }
-    if (result.ok && result.isPro) storeProSignal.mark(); // 구매 성공 = 지금의 PRO 응답 — 모든 게이트에 공유
+    if (result.ok && result.isPro) storeProSignal.mark(); // 구매 성공 = 스토어 동기화가 끝난 지금의 PRO 응답 — 모든 화면에 공유
     void funnel().then((m) => m.trackFunnelOutcome('buy', result, src)).catch(() => {});
     return result;
   }, []);

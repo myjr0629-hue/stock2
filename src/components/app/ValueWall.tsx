@@ -172,30 +172,29 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   //   광고 잠금해제와 같은 1시간만 유효(그 사이 만료·회수돼도 영구히 열린 채 남지 않게) — 그 뒤는 훅의 isPro(스토어 갱신)를 따른다.
   //   ★11/16 밤 — 확인된 PRO 는 모듈 신호(storeProSignal)로 «모든 게이트»가 같이 본다: 다른 탭에서 새로 마운트된 게이트도
   //   초기 조회가 실패하든 말든 즉시 PRO 로 열린다(전에는 이 훅 안에만 남아 새 게이트가 PRO 사용자를 다시 잠갔다).
-  const [storeProUntil, setStoreProUntil] = useState(() => storeProSignal.until());
+  //   «가장 최신 스토어 응답»(storeProSignal — 모든 useProStatus·게이트 재조회가 기록)이 있으면 그것을, 없으면 이 훅의 isPro 를 따른다.
+  //   → 회수(더 최신 무료 응답) 뒤 이 훅의 옛 isPro 로 열린 채 남지 않고, 확인된 PRO 는 이 훅의 초기 조회 실패와 무관하게 열린다.
+  const [, setSigVer] = useState(0); // 신호가 바뀌면 다시 그린다
   const markStorePro = useCallback((at: number) => { storeProSignal.mark(at); }, []);
   useEffect(() => {
-    setStoreProUntil(storeProSignal.until()); // 첫 렌더 ~ 구독 사이에 다른 게이트가 표시한 값도 받는다
-    return storeProSignal.subscribe(() => setStoreProUntil(storeProSignal.until()));
+    setSigVer((v) => v + 1); // 첫 렌더 ~ 구독 사이에 다른 게이트가 기록한 값도 받는다
+    return storeProSignal.subscribe(() => setSigVer((v) => v + 1));
   }, []);
-  //   (이 훅의 스토어 PRO·무료 응답은 useProStatus 가 조회 시작 시각과 함께 신호에 기록한다 — 회수도 거기서)
-  //   storePro 는 신호의 «지금» 값만 본다(회수 직후 이 훅의 옛 만료 시각으로 열린 채 남지 않게). storeProUntil 은 다시 그리기용.
-  const storePro = storeProUntil > 0 && storeProSignal.active();
-  useEffect(() => {
-    if (!storeProUntil) return;
-    const t = window.setTimeout(() => setStoreProUntil(0), Math.max(0, storeProUntil - Date.now()));
-    return () => window.clearTimeout(t);
-  }, [storeProUntil]);
+  const hookProRef = useRef(isPro);
+  hookProRef.current = isPro;
+  /** 지금 이 순간의 PRO 판정(동기) — 콜백 안에서도 최신 신호를 읽는다 */
+  const gateProNow = () => { const l = storeProSignal.latest(); return l === null ? hookProRef.current : l; };
+  const gatePro = gateProNow();
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
-  const isUnlocked = unlocked || isPro || storePro;
+  const isUnlocked = unlocked || gatePro;
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
 
   // ★11/16 게이트 «가치 순간» 페이월(lib/app/gatePaywall) — 페이월을 닫은 «뒤»에 이어 할 일(광고 / 대체 창).
   //   콜백 안에서 최신 PRO 상태를 읽도록 ref 로 둔다(구매 성공으로 닫힌 경우 광고를 이어 붙이지 않는다).
   //   스토어 가격(offers)을 못 받았으면 «살 수 없는 페이월»이라 끼워 넣지 않는다(iapAvailable 에 묶는다).
   const sellable = iapAvailable && offers.length > 0;
-  const gateRef = useRef({ iapAvailable: sellable, ready, isPro: isPro || storePro });
-  gateRef.current = { iapAvailable: sellable, ready, isPro: isPro || storePro };
+  const gateRef = useRef({ iapAvailable: sellable, ready, isPro: gatePro });
+  gateRef.current = { iapAvailable: sellable, ready, isPro: gatePro };
   const afterPaywall = useRef<null | 'ad' | 'fallback'>(null);
 
   const finishUnlock = useCallback(() => {
@@ -221,17 +220,17 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   //   ★11/16 밤 — 조회를 기다리는 동안 다른 경로(결제 SDK 알림·다른 게이트·광고 관리자)에서 PRO 로 바뀌었으면, 진행 중 조회가
   //   옛 무료 결과를 돌려줘도 'free' 로 판정하지 않는다 — 결과를 쓰기 «직전»에 최신 PRO 상태를 다시 본다.
   const proCheck = useCallback(() => checkStorePro({
-    proNow: () => gateRef.current.isPro || storeProSignal.active(),
+    proNow: gateProNow,
     pending: () => proPurchaseState.getSnapshot(),
-    adPro: async () => (await import('@/services/adManager')).adManager.isProActive(),
+    // 광고 관리자 값은 SDK 를 따라가는 파생값 — 최신 SDK 응답이 무료면 믿지 않는다(늦게 따라오는 옛 PRO 로 탭이 멈추지 않게)
+    adPro: async () => storeProSignal.latest() !== false && (await import('@/services/adManager')).adManager.isProActive(),
     fetchPro: async () => (await import('@/services/revenueCat')).fetchProStatus(),
     markPro: markStorePro,
     markFree: (at) => { storeProSignal.revoke(at); },
-    // 광고 관리자 PRO(결제 SDK 를 따라가는 파생값) — 가장 늦은 SDK 응답이 무료가 아닐 때만 잠금 해제(회수 직후 늦게 따라오는 값으로 되살리지 않음)
     markAdPro: () => { if (storeProSignal.latest() !== false) storeProSignal.mark(); },
   }), [markStorePro]);
   /** 'free' 판정을 «쓰기 직전» 다시 확인 — 그 사이 PRO·결제 진행 중이면 페이월·하루 첫 노출 기록을 쓰지 않는다 */
-  const stillFree = () => !gateRef.current.isPro && !storeProSignal.active() && !proPurchaseState.getSnapshot();
+  const stillFree = () => !gateProNow() && !proPurchaseState.getSnapshot();
 
   /** 광고 시도 → 안 나오면 (②) 페이월 또는 대체 창. 'paywall' = 페이월을 열었다(흐름이 닫힘까지 이어진다) */
   const runUnlock = useCallback(async (shownThisTap: boolean): Promise<'paywall' | 'done'> => {
@@ -267,7 +266,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     if (native && shouldShowNoFillPaywall(gateRef.current, shownThisTap)) {
       // 무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 그대로(대체 창)
       const st = await proCheck();
-      if (st === 'pro' || (st === 'free' && (gateRef.current.isPro || storeProSignal.active()))) return 'done';
+      if (st === 'pro' || (st === 'free' && gateProNow())) return 'done';
       if (st === 'free' && stillFree()) {
         afterPaywall.current = 'fallback';
         setPaywallSrc('ad_nofill');
@@ -289,7 +288,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     const st = first ? await proCheck() : null;
     if (first) setUnlocking(false);
     // 무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 흐름 그대로(광고 → 대체 창)
-    if (st === 'pro' || (st !== null && (gateRef.current.isPro || storeProSignal.active()))) { endFlow(); return; }
+    if (st === 'pro' || (st !== null && gateProNow())) { endFlow(); return; }
     const open = st === 'free' && stillFree() && markGateDay(today);
     if (open) {
       afterPaywall.current = 'ad';
@@ -312,7 +311,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
           // PRO 확인·결제 진행 중(막 결제함)이면 잇지 않는다. 조회 실패(unknown)는 무료 경로를 잇는다 — 광고 관리자가 PRO 면 스스로 거절한다
           const st = await proCheck();
           if (st === 'pro' || st === 'pending') return;
-          if (gateRef.current.isPro || storeProSignal.active()) return; // 조회 뒤 다른 경로에서 PRO — 광고·대체 창 잇지 않음
+          if (gateProNow()) return; // 조회 뒤 다른 경로에서 PRO — 광고·대체 창 잇지 않음
           if (next === 'ad') await runUnlock(true);
           else setShowAd(true);
         } finally {
@@ -388,7 +387,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
 
   return {
     // ★11/16 밤 — PRO 전용 자리(대가 렌즈 4~10위)도 공유 PRO 를 본다(그 훅의 초기 조회 실패에 PRO 를 가두지 않음)
-    isUnlocked, unlocked, isPro: isPro || storePro, iapAvailable,
+    isUnlocked, unlocked, isPro: gatePro, iapAvailable,
     unlocking, purchasing, proError, proNothing,
     handleUnlockPress, openPaywall, handleRestore, finishUnlock,
     copy: copyOut, portals,
