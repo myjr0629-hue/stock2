@@ -187,5 +187,5 @@ test('할인 카드는 만료 1회 페이월에서만 — discountOffer·purchas
 
 test('계측 출처 trial_expired_offer — 스키마·집계 스크립트 둘 다', () => {
   assert.ok(isFunnelSrc('trial_expired_offer'));
-  assert.match(read('scripts/mkt-funnel.js'), /'trial_expired_offer'\]/);
+  assert.match(read('scripts/mkt-funnel.js'), /'trial_expired_offer'[,\]]/);
 });

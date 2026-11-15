@@ -8,6 +8,8 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { ProPaywall } from './ProPaywall';
 import { RedeemCodeLink } from './RedeemCodeLink';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
+import { proPurchaseState } from '@/lib/app/proPurchaseState';
+import { localDay, markGateDay, readGateDay, shouldShowFirstGatePaywall, shouldShowNoFillPaywall } from '@/lib/app/gatePaywall';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
@@ -165,25 +167,41 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const [proNothing, setProNothing] = useState(false); // successful restore that found no entitlement
   const { unlocked, unlock } = useUnlockState();
   // Pro (paid, ad-free) is inert while IAP_LIVE=false: isPro stays false, no SDK.
-  const { isPro, purchase, restore, iapAvailable } = useProStatus();
+  const { isPro, ready, purchase, restore, iapAvailable } = useProStatus();
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
   const isUnlocked = unlocked || isPro;
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
+
+  // ★11/16 게이트 «가치 순간» 페이월(lib/app/gatePaywall) — 페이월을 닫은 «뒤»에 이어 할 일(광고 / 대체 창).
+  //   콜백 안에서 최신 PRO 상태를 읽도록 ref 로 둔다(구매 성공으로 닫힌 경우 광고를 이어 붙이지 않는다).
+  const gateRef = useRef({ iapAvailable, ready, isPro });
+  gateRef.current = { iapAvailable, ready, isPro };
+  const afterPaywall = useRef<null | 'ad' | 'fallback'>(null);
 
   const finishUnlock = useCallback(() => {
     unlock();
     onUnlock?.();
   }, [onUnlock, unlock]);
 
-  const handleUnlockPress = useCallback(async () => {
+  // Buy the ad-free Pro subscription. On success, isPro flips the wall open (isUnlocked).
+  // ⚠️ 여기서 곧장 purchase() 를 부르면 안 된다 — 가격·기간·약관을 결제 «전에»
+  //    보여주지 않는 것이 애플 3.1.2 반려 사유다. 페이월을 먼저 띄운다.
+  //    (광고가 실제로 방해한 이 순간이 전환이 일어나는 자리라 진입점으로 남긴다.)
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  // 퍼널 측정 — 누가 열었나. 버튼 onClick 에 그대로 꽂히면 인자가 클릭 이벤트라 «가치 벽»으로 본다.
+  const [paywallSrc, setPaywallSrc] = useState<FunnelSrc>('value_wall');
+
+  const runUnlock = useCallback(async (shownThisTap: boolean) => {
     // State alone does not exclude two taps before React commits the next render.
     if (unlockPending.current) return;
     unlockPending.current = true;
     setUnlocking(true);
 
+    let native = false;
     try {
       const { Capacitor } = await import('@capacitor/core');
-      if (Capacitor.isNativePlatform()) {
+      native = Capacitor.isNativePlatform();
+      if (native) {
         const { adManager } = await import('@/services/adManager');
         const reward = await adManager.showRewarded();
         if (reward) {
@@ -202,17 +220,51 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
       setUnlocking(false);
     }
 
+    // ② 네이티브에서 광고가 안 나왔다 — 대체 30초 창 «전에» 페이월 한 번(닫으면 대체 창 그대로)
+    if (native && shouldShowNoFillPaywall(gateRef.current, shownThisTap)) {
+      afterPaywall.current = 'fallback';
+      setPaywallSrc('ad_nofill');
+      setPaywallOpen(true);
+      return;
+    }
     setShowAd(true);
   }, [onUnlock]);
 
-  // Buy the ad-free Pro subscription. On success, isPro flips the wall open (isUnlocked).
-  // ⚠️ 여기서 곧장 purchase() 를 부르면 안 된다 — 가격·기간·약관을 결제 «전에»
-  //    보여주지 않는 것이 애플 3.1.2 반려 사유다. 페이월을 먼저 띄운다.
-  //    (광고가 실제로 방해한 이 순간이 전환이 일어나는 자리라 진입점으로 남긴다.)
-  const [paywallOpen, setPaywallOpen] = useState(false);
-  // 퍼널 측정 — 누가 열었나. 버튼 onClick 에 그대로 꽂히면 인자가 클릭 이벤트라 «가치 벽»으로 본다.
-  const [paywallSrc, setPaywallSrc] = useState<FunnelSrc>('value_wall');
+  const handleUnlockPress = useCallback(() => {
+    if (unlockPending.current) return;
+    // ① 하루 첫 게이트 탭 — 광고 전에 페이월 한 번(닫으면 원래 누른 대로 광고가 이어진다)
+    const today = localDay();
+    if (shouldShowFirstGatePaywall(gateRef.current, readGateDay(), today) && markGateDay(today)) {
+      afterPaywall.current = 'ad';
+      setPaywallSrc('gate_first');
+      setPaywallOpen(true);
+      return;
+    }
+    void runUnlock(false);
+  }, [runUnlock]);
+
+  const closePaywall = useCallback(() => {
+    setPaywallOpen(false);
+    const next = afterPaywall.current;
+    afterPaywall.current = null;
+    if (!next) return;
+    // 구매 성공으로 닫혔을 수 있다 — PRO 상태가 화면마다(useProStatus 인스턴스·adManager) 퍼질 틈을 두고 다시 본다.
+    //   결제 진행 중(proPurchaseState)·PRO 면 광고·대체 창을 이어 붙이지 않는다.
+    window.setTimeout(() => {
+      void (async () => {
+        if (gateRef.current.isPro || proPurchaseState.getSnapshot()) return;
+        try {
+          const { adManager } = await import('@/services/adManager');
+          if (adManager.isProActive()) return;
+        } catch { /* 웹 미리보기 — 광고 관리자 없음 */ }
+        if (next === 'ad') void runUnlock(true);
+        else setShowAd(true);
+      })();
+    }, 500);
+  }, [runUnlock]);
+
   const openPaywall = useCallback((src?: unknown) => {
+    afterPaywall.current = null; // 사용자가 직접 연 페이월 — 닫아도 이어 할 일 없음
     setPaywallSrc(typeof src === 'string' ? (src as FunnelSrc) : 'value_wall'); // 값 검증은 funnel.ts(isFunnelSrc)가 한다
     setPaywallOpen(true);
   }, []);
@@ -269,7 +321,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         <GatePaywall
           locale={resolveValueWallLocale(locale)}
           src={paywallSrc}
-          onClose={() => setPaywallOpen(false)}
+          onClose={closePaywall}
         />
       )}
     </>

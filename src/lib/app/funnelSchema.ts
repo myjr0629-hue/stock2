@@ -64,6 +64,8 @@ export const FUNNEL_SRCS = [
   'push_announce',                  // ★11/14 관리자 공지 푸시 탭(push_open 전용 · /api/admin/announce)
   'trial_expired',                  // ★11/11 체험 만료 뒤 첫 실행 1회 페이월(open = 보였다 · cta · buy_* · restore_*)
   'trial_expired_offer',            // ★11/12 그 페이월 안의 «월간 첫 달 할인» 카드(open = 카드가 보였다 · cta = 할인 카드로 결제 단추 · buy_* = 할인 결제 결과)
+  'gate_first',                     // ★11/16 하루 첫 게이트 탭(«광고 보고 잠금해제»)이 광고 전에 연 페이월(lib/app/gatePaywall ①) — 닫으면 광고가 이어진다
+  'ad_nofill',                      // ★11/16 네이티브 보상형 광고가 안 나왔을 때 대체 30초 창 전에 연 페이월(lib/app/gatePaywall ②)
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 
