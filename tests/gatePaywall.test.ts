@@ -164,16 +164,16 @@ test('중간 2 재현 — 조회 대기 중 다른 경로에서 PRO 로 바뀌�
   c.advance(500); d1.resolve(false); // 진행 중이던 조회가 옛 무료 결과
   assert.equal(await p1, 'pro');
   assert.equal(sig.active(), true, '옛 무료 조회가 더 늦은 PRO 를 회수하지 않는다');
-  // (다) 광고 관리자만 PRO 를 알게 됨 — 이번 탭은 멈춘다(공유 기록은 SDK 쪽이 한다)
+  // (다) 조회 도중 SDK 가 더 최신 PRO 를 알림(조회 시작 뒤) — 이 조회의 무료는 거부되고 PRO
   const sig4 = createStoreProSignal({ now: c.now, storage: () => null });
-  let adPro = false;
   const g4 = gate(sig4, { isPro: false, ready: true }, c);
   const d3 = deferred<boolean>();
-  const p3 = g4.proCheck(() => d3.promise, async () => adPro);
+  const p3 = g4.proCheck(() => d3.promise);
   await flush();
-  adPro = true;
+  c.advance(10); sig4.mark();
   d3.resolve(false);
   assert.equal(await p3, 'pro');
+  assert.equal(sig4.active(), true);
 });
 
 test('회수 — 더 늦게 시작한 무료 응답(SDK 알림·새 조회·새로고침 뒤 첫 조회)은 공유 PRO 를 즉시 지운다', () => {
@@ -298,4 +298,21 @@ test('관문 7 — 같은 시각 응답은 PRO 가 이긴다(구매 성공 직�
   const sig2 = createStoreProSignal({ now: c.now, storage: () => null });
   assert.equal(sig2.revoke(t), true);
   assert.equal(sig2.mark(t), true, '같은 시각 PRO 는 무료를 덮는다(PRO 보호)'); assert.equal(sig2.active(), true);
+});
+
+test('관문 8 — 더 늦게 시작한 무료 조회는 먼저 시작한 조회의 PRO 를 덮는다(최신 응답 우선 · 게이트가 무료 사용자를 열지 않음)', async () => {
+  const c = clock(Date.now());
+  const sig = createStoreProSignal({ now: c.now, storage: () => null });
+  const a = gate(sig, { isPro: false, ready: true }, c);
+  const b = gate(sig, { isPro: false, ready: true }, c);
+  const da = deferred<boolean>(), db = deferred<boolean>();
+  const pa = a.proCheck(() => da.promise);
+  await flush();
+  c.advance(100);
+  const pb = b.proCheck(() => db.promise); // B 가 나중에 시작
+  await flush();
+  da.resolve(true); assert.equal(await pa, 'pro');
+  db.resolve(false); assert.equal(await pb, 'free');
+  assert.equal(sig.active(), false);
+  assert.equal(b.state().isPro, false);
 });

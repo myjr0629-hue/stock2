@@ -172,14 +172,13 @@ export async function checkStorePro(d: {
       // 조회 도중 더 최신 무료 응답이 기록됐다 — 옛 PRO 로 탭을 멈추지도(잠금은 그대로라 못 푸는 상태), 페이월을 띄우지도 않는다 → 무료 경로
       return 'unknown';
     }
-    // 조회 대기 중 다른 경로에서 PRO 로 바뀌었나 — 옛 무료 결과를 그대로 쓰지 않는다
+    // 무료 응답을 먼저 기록(조회 시작 시각) — 이 조회보다 늦게 시작한 PRO 응답이 이미 있으면 신호가 거부하고, 더 옛 PRO 는 이 무료가 덮는다
+    d.markFree?.(startedAt);
+    // 조회 대기 중 다른 경로에서 (더 최신) PRO 로 바뀌었나 — 옛 무료 결과를 그대로 쓰지 않는다
     if (d.proNow()) return 'pro';
     if ((await d.adPro()) && (d.markAdPro?.() !== false || d.proNow())) return 'pro';
     if (d.proNow()) return 'pro';
     if (d.pending()) return 'pending';
-    // 무료로 결론 낼 때만 기록(조회 시작 시각) — 그 사이 더 최신 응답이 있으면 신호가 거부한다
-    d.markFree?.(startedAt);
-    if (d.proNow()) return 'pro';
     return 'free';
   } catch {
     return d.proNow() ? 'pro' : d.pending() ? 'pending' : 'unknown';
