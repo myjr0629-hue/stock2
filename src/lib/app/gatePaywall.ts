@@ -60,7 +60,9 @@ export function markGateDay(today: string): boolean {
 //     · SDK 변경 알림(리스너)·구매·복원 성공의 시각 = 받은 «지금»(스토어 동기화가 끝난 시점의 권한).
 //     · 더 옛 응답이 늦게 도착하면 버린다 — 옛 PRO 로 회수된 권한을 되살리지 않고, 옛 무료로 확인된 PRO 를 지우지 않는다.
 //     · 조회 실패(응답 없음)는 아무것도 바꾸지 않는다 → 확인된 PRO 를 실패에 가두지 않는다(PRO 보호).
-//   모듈 값 + sessionStorage(같은 웹뷰 세션의 새로고침 대비 — 저장 뒤 1시간 넘은 값은 복원하지 않는다).
+//   PRO 응답은 받은 뒤 1시간만 유효(광고 잠금해제와 같은 길이 — 그 사이 무료 알림이 안 와도 영구히 열린 채 남지 않게).
+//     만료되면 «응답 없음»으로 돌아가 게이트는 그 훅의 isPro 를 따른다(origin/main 과 같은 만료). 무료 응답은 더 최신 PRO 가 올 때까지 유지.
+//   모듈 값 + sessionStorage(같은 웹뷰 세션의 새로고침 대비 — 같은 1시간 규칙).
 export const STORE_PRO_TTL_MS = 60 * 60 * 1000;
 export const STORE_PRO_KEY = 'signum_gate_store_pro_until';
 
@@ -73,6 +75,8 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
   let answerAt = -1;
   /** 그 응답이 PRO 였나(기록 없음 = null) */
   let lastPro: boolean | null = null;
+  /** 그 응답을 받은(기록한) 시각 — PRO 1시간 만료 기준 */
+  let recordedAt = 0;
   let loaded = false;
   const listeners = new Set<() => void>();
   const load = () => {
@@ -84,7 +88,7 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
       const a = Number(v?.at), saved = Number(v?.savedAt);
       // 손상·미래 값·1시간 넘은 값은 믿지 않는다
       if (typeof v?.pro === 'boolean' && Number.isFinite(a) && Number.isFinite(saved) && a >= 0 && a <= now()
-        && saved <= now() && now() - saved < STORE_PRO_TTL_MS) { answerAt = a; lastPro = v.pro; }
+        && saved <= now() && now() - saved < STORE_PRO_TTL_MS) { answerAt = a; lastPro = v.pro; recordedAt = saved; }
     } catch { /* 저장소 없음·손상 */ }
   };
   const record = (pro: boolean, at: number): boolean => {
@@ -92,15 +96,24 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
     if (at < answerAt) return false;
     answerAt = at;
     lastPro = pro;
-    try { storage()?.setItem(STORE_PRO_KEY, JSON.stringify({ at, pro, savedAt: now() })); } catch { /* 모듈 값은 유지 */ }
+    recordedAt = now();
+    try { storage()?.setItem(STORE_PRO_KEY, JSON.stringify({ at, pro, savedAt: recordedAt })); } catch { /* 모듈 값은 유지 */ }
     listeners.forEach((f) => { try { f(); } catch { /* 구독자 오류는 무시 */ } });
     return true;
   };
+  /** 유효한 최신 응답 값 — PRO 는 받은 뒤 1시간 지나면 null(응답 없음) */
+  const current = (): boolean | null => {
+    load();
+    if (lastPro === true && now() - recordedAt >= STORE_PRO_TTL_MS) return null;
+    return lastPro;
+  };
   return {
-    /** 가장 최신 응답이 PRO 인가 */
-    active(): boolean { load(); return lastPro === true; },
-    /** 가장 최신 응답의 값(기록 없음 = null) */
-    latest(): boolean | null { load(); return lastPro; },
+    /** 가장 최신 응답이 (유효한) PRO 인가 */
+    active(): boolean { return current() === true; },
+    /** 가장 최신 응답의 값(기록 없음·PRO 만료 = null) */
+    latest(): boolean | null { return current(); },
+    /** 유효한 PRO 의 만료 시각(없으면 0) — 화면 다시 그리기용 */
+    proExpiresAt(): number { return current() === true ? recordedAt + STORE_PRO_TTL_MS : 0; },
     /** 스토어가 PRO 라고 답함 — at = 응답 시각(조회는 시작 시각, 알림·구매·복원은 지금). 더 최신 응답이 있으면 false */
     mark(at: number = now()): boolean { return record(true, at); },
     /** 스토어가 무료라고 답함(만료·회수 포함) — 더 최신 응답이 있으면 false */
@@ -134,8 +147,8 @@ export async function checkStorePro(d: {
   markPro: (at: number) => boolean | void;
   /** 스토어가 무료라고 답함 — at = 조회 시작 시각 */
   markFree?: (at: number) => void;
-  /** 광고 관리자가 PRO 라 함 */
-  markAdPro?: () => void;
+  /** 광고 관리자가 PRO 라 함 — false = 기록 거부(그 사이 더 최신 무료 응답) */
+  markAdPro?: () => boolean | void;
   now?: () => number;
   timeoutMs?: number;
 }): Promise<ProCheckResult> {
@@ -144,7 +157,7 @@ export async function checkStorePro(d: {
   if (d.pending()) return 'pending';
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    if (await d.adPro()) { d.markAdPro?.(); return 'pro'; }
+    if ((await d.adPro()) && (d.markAdPro?.() !== false || d.proNow())) return 'pro';
     if (d.proNow()) return 'pro';
     const startedAt = now();
     const pro = await Promise.race([
@@ -158,7 +171,7 @@ export async function checkStorePro(d: {
     }
     // 조회 대기 중 다른 경로에서 PRO 로 바뀌었나 — 옛 무료 결과를 그대로 쓰지 않는다
     if (d.proNow()) return 'pro';
-    if (await d.adPro()) { d.markAdPro?.(); return 'pro'; }
+    if ((await d.adPro()) && (d.markAdPro?.() !== false || d.proNow())) return 'pro';
     if (d.proNow()) return 'pro';
     if (d.pending()) return 'pending';
     // 무료로 결론 낼 때만 기록(조회 시작 시각) — 그 사이 더 최신 응답이 있으면 신호가 거부한다

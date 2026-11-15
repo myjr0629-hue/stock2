@@ -56,15 +56,16 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   // 코드 PRO·조회 실패·결제 진행 중 = 무료 아님(페이월·광고 금지) — 스토어 조회(fetchProStatus)·시간 초과 3초
   assert.match(v, /fetchProStatus\(\)/);
   assert.match(v, /const proCheck = useCallback\(\(\) => checkStorePro\(\{\n    proNow: gateProNow,/);
-  assert.match(v, /adPro: async \(\) => storeProSignal\.latest\(\) !== false && \(await import\('@\/services\/adManager'\)\)\.adManager\.isProActive\(\),/);
+  assert.match(v, /adPro: async \(\) => \{ const \{ adManager \} = await import\('@\/services\/adManager'\); return storeProSignal\.latest\(\) !== false && adManager\.isProActive\(\); \},/);
   assert.match(v, /const markStorePro = useCallback\(\(at: number\) => storeProSignal\.mark\(at\), \[\]\);/);
   assert.match(v, /markFree: \(at\) => \{ storeProSignal\.revoke\(at\); \},/);
-  assert.match(v, /markAdPro: \(\) => \{ if \(storeProSignal\.latest\(\) !== false\) storeProSignal\.mark\(\); \},/);
+  assert.match(v, /markAdPro: \(\) => storeProSignal\.latest\(\) !== false && storeProSignal\.mark\(\),/);
+  assert.match(v, /const sigExp = storeProSignal\.proExpiresAt\(\);/);
   // ★11/16 밤 — 최신 스토어 응답(공유 신호)이 있으면 그것, 없으면 이 훅 isPro — 잠금·게이트 판정·대가 렌즈 모두 같은 값
   assert.match(v, /const gateProNow = \(\) => \{ const l = storeProSignal\.latest\(\); return l === null \? hookProRef\.current : l; \};/);
   assert.match(v, /const isUnlocked = unlocked \|\| gatePro;/);
   assert.match(v, /gateRef\.current = \{ iapAvailable: sellable, ready, isPro: gatePro \};/);
-  assert.match(v, /isPro: gatePro, iapAvailable,/);
+  assert.match(v, /isUnlocked, unlocked, isPro, iapAvailable,/);
   assert.match(v, /return storeProSignal\.subscribe\(\(\) => setSigVer/);
   assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\);/);
   assert.match(v, /if \(gateProNow\(\)\) return; \/\/ 조회 뒤/);
@@ -101,7 +102,7 @@ function gate(sig: Sig, hook: { isPro: boolean; ready: boolean }, c: { now: () =
     proCheck: (fetchPro: () => Promise<boolean>, adPro = async () => false, pending = () => false) => checkStorePro({
       proNow, pending, adPro: async () => sig.latest() !== false && (await adPro()), fetchPro,
       markPro: (at) => sig.mark(at), markFree: (at) => { sig.revoke(at); }, now: c.now,
-      markAdPro: () => { if (sig.latest() !== false) sig.mark(); },
+      markAdPro: () => sig.latest() !== false && sig.mark(),
     }),
   };
 }
@@ -261,4 +262,28 @@ test('관문 5 — 게이트 조회 도중 더 최신 무료 응답이 기록되
   assert.equal(await p, 'unknown');
   assert.equal(sig.active(), false);
   assert.equal(shouldShowFirstGatePaywall(g.state(), null, '2026-11-16'), true, '판정 상태는 무료(잠금 유지) — 그러나 unknown 이라 이번 탭은 페이월 없이 광고·대체 창');
+});
+
+test('관문 6 — 공유 PRO 는 받은 뒤 1시간만(무료 알림이 없어도 만료 → 훅 isPro 로 복귀) · 무료 응답은 유지', () => {
+  const st = fakeStorage(); const c = clock(Date.now());
+  const sig = createStoreProSignal({ now: c.now, storage: () => st });
+  sig.mark();
+  assert.equal(sig.proExpiresAt(), c.now() + STORE_PRO_TTL_MS);
+  c.advance(STORE_PRO_TTL_MS - 1); assert.equal(sig.active(), true);
+  c.advance(1); assert.equal(sig.active(), false); assert.equal(sig.latest(), null); assert.equal(sig.proExpiresAt(), 0);
+  const g = gate(sig, { isPro: false, ready: true }, c);
+  assert.equal(g.state().isPro, false, '만료 뒤 게이트는 훅 isPro(무료)를 따른다');
+  assert.equal(sig.mark(c.now() - 10), true, '만료 뒤 새 응답은 다시 기록');
+  sig.revoke(); c.advance(STORE_PRO_TTL_MS * 2); assert.equal(sig.latest(), false, '무료 응답은 만료되지 않는다');
+});
+
+test('관문 6 — 광고 관리자 확인 도중 더 최신 무료 응답이 기록되면 옛 광고 관리자 PRO 로 탭을 멈추지 않는다', async () => {
+  const c = clock(Date.now());
+  const sig = createStoreProSignal({ now: c.now, storage: () => null });
+  const r = await checkStorePro({ proNow: () => sig.latest() === true, pending: () => false,
+    adPro: async () => { const v = sig.latest() !== false; sig.revoke(); return v; },
+    fetchPro: async () => false, markPro: (at) => sig.mark(at), markFree: (at) => { sig.revoke(at); },
+    markAdPro: () => sig.latest() !== false && sig.mark(), now: c.now });
+  assert.notEqual(r, 'pro');
+  assert.equal(sig.active(), false);
 });

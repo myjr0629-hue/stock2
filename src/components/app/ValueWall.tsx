@@ -180,6 +180,13 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     setSigVer((v) => v + 1); // 첫 렌더 ~ 구독 사이에 다른 게이트가 기록한 값도 받는다
     return storeProSignal.subscribe(() => setSigVer((v) => v + 1));
   }, []);
+  // 공유 PRO 1시간 만료 때 다시 그린다(그 뒤는 이 훅의 isPro 를 따른다)
+  const sigExp = storeProSignal.proExpiresAt();
+  useEffect(() => {
+    if (!sigExp) return;
+    const t = window.setTimeout(() => setSigVer((v) => v + 1), Math.max(0, sigExp - Date.now()));
+    return () => window.clearTimeout(t);
+  }, [sigExp]);
   const hookProRef = useRef(isPro);
   hookProRef.current = isPro;
   /** 지금 이 순간의 PRO 판정(동기) — 콜백 안에서도 최신 신호를 읽는다 */
@@ -223,11 +230,11 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     proNow: gateProNow,
     pending: () => proPurchaseState.getSnapshot(),
     // 광고 관리자 값은 SDK 를 따라가는 파생값 — 최신 SDK 응답이 무료면 믿지 않는다(늦게 따라오는 옛 PRO 로 탭이 멈추지 않게)
-    adPro: async () => storeProSignal.latest() !== false && (await import('@/services/adManager')).adManager.isProActive(),
+    adPro: async () => { const { adManager } = await import('@/services/adManager'); return storeProSignal.latest() !== false && adManager.isProActive(); },
     fetchPro: async () => (await import('@/services/revenueCat')).fetchProStatus(),
     markPro: markStorePro,
     markFree: (at) => { storeProSignal.revoke(at); },
-    markAdPro: () => { if (storeProSignal.latest() !== false) storeProSignal.mark(); },
+    markAdPro: () => storeProSignal.latest() !== false && storeProSignal.mark(),
   }), [markStorePro]);
   /** 'free' 판정을 «쓰기 직전» 다시 확인 — 그 사이 PRO·결제 진행 중이면 페이월·하루 첫 노출 기록을 쓰지 않는다 */
   const stillFree = () => !gateProNow() && !proPurchaseState.getSnapshot();
@@ -386,8 +393,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   );
 
   return {
-    // ★11/16 밤 — PRO 전용 자리(대가 렌즈 4~10위)도 공유 PRO 를 본다(그 훅의 초기 조회 실패에 PRO 를 가두지 않음)
-    isUnlocked, unlocked, isPro: gatePro, iapAvailable,
+    // isPro 는 origin/main 그대로 이 훅의 값(대가 렌즈 PRO 전용 자리는 데이터도 proEntitlement 를 따르므로 이번 수리 범위 밖)
+    isUnlocked, unlocked, isPro, iapAvailable,
     unlocking, purchasing, proError, proNothing,
     handleUnlockPress, openPaywall, handleRestore, finishUnlock,
     copy: copyOut, portals,
