@@ -119,6 +119,20 @@ async function main() {
     assert.equal(sig.latest(), null, '게이트용 값은 1시간 뒤 «기록 없음»(origin 동작 그대로)');
     assert.equal(sig.lastAnswer(), true, '렌즈용 마지막 응답은 만료 없이 PRO — 1시간 뒤에도 한쪽 훅 실패로 다시 잠기지 않음');
     sig.revoke(t); assert.equal(sig.lastAnswer(), false, '더 최신 무료 응답은 즉시 반영');
+    // 새로고침(같은 웹뷰 세션) — 1시간 넘은 PRO 도 렌즈용으로는 복원, 게이트용은 여전히 만료
+    const mem = new Map<string, string>();
+    const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v); } };
+    let t2 = 5_000_000;
+    createStoreProSignal({ now: () => t2, storage: () => storage }).mark(t2);
+    t2 += STORE_PRO_TTL_MS + 1;
+    const reloaded = createStoreProSignal({ now: () => t2, storage: () => storage });
+    assert.equal(reloaded.latest(), null, '게이트: 1시간 넘은 PRO 는 새로고침 뒤에도 만료(origin 동작)');
+    assert.equal(reloaded.proExpiresAt(), 0);
+    assert.equal(reloaded.lastAnswer(), true, '렌즈: 새로고침 + 초기 조회 실패여도 마지막 PRO 를 안다');
+    assert.equal(reloaded.revoke(t2), true, '새 응답은 그대로 기록');
+    assert.equal(reloaded.lastAnswer(), false);
+    t2 += STORE_PRO_TTL_MS + 1;
+    assert.equal(createStoreProSignal({ now: () => t2, storage: () => storage }).lastAnswer(), null, '1시간 넘은 무료는 예전처럼 버린다');
 
     // ── 3. 훅 — 실제 모듈 · 실제 공유 신호 ───────────────────────────────────
     ent.isPro = false;

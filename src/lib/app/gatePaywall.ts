@@ -87,9 +87,11 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
       const raw = storage()?.getItem(STORE_PRO_KEY);
       const v = raw ? (JSON.parse(raw) as { at?: unknown; pro?: unknown; savedAt?: unknown }) : null;
       const a = Number(v?.at), saved = Number(v?.savedAt);
-      // 손상·미래 값·1시간 넘은 값은 믿지 않는다
+      // 손상·미래 값·1시간 넘은 값은 믿지 않는다.
+      //   ★11/16 단 1시간 넘은 PRO 는 복원하되 current() 가 만료로 본다(게이트 latest() 는 그대로 null) — lastAnswer()(대가 렌즈,
+      //   서버가 다시 확인하는 곳)만 새로고침 뒤에도 마지막 PRO 를 안다. 1시간 넘은 무료는 예전처럼 버린다.
       if (typeof v?.pro === 'boolean' && Number.isFinite(a) && Number.isFinite(saved) && a >= 0 && a <= now()
-        && saved <= now() && now() - saved < STORE_PRO_TTL_MS) { answerAt = a; lastPro = v.pro; recordedAt = saved; }
+        && saved <= now() && (now() - saved < STORE_PRO_TTL_MS || v.pro === true)) { answerAt = a; lastPro = v.pro; recordedAt = saved; }
     } catch { /* 저장소 없음·손상 */ }
   };
   const record = (pro: boolean, at: number): boolean => {
