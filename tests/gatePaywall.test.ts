@@ -60,9 +60,11 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /const markStorePro = useCallback\(\(at: number\) => storeProSignal\.mark\(at\), \[\]\);/);
   assert.match(v, /markFree: \(at\) => \{ storeProSignal\.revoke\(at\); \},/);
   assert.match(v, /markAdPro: \(\) => storeProSignal\.latest\(\) !== false && storeProSignal\.mark\(\),/);
-  assert.match(v, /const sigExp = storeProSignal\.proExpiresAt\(\);/);
+  assert.match(v, /const sigExp = sigMounted\.current \? storeProSignal\.proExpiresAt\(\) : 0;/);
   // ★11/16 밤 — 최신 스토어 응답(공유 신호)이 있으면 그것, 없으면 이 훅 isPro — 잠금·게이트 판정·대가 렌즈 모두 같은 값
-  assert.match(v, /const gateProNow = \(\) => \{ const l = storeProSignal\.latest\(\); return l === null \? hookProRef\.current : l; \};/);
+  assert.match(v, /const gateProNow = \(\) => \{ const l = sigMounted\.current \? storeProSignal\.latest\(\) : null; return l === null \? hookProRef\.current : l; \};/);
+  // 첫 렌더(hydration)는 서버와 같게 신호를 읽지 않고, 마운트 effect 에서 켠 뒤 다시 그린다
+  assert.match(v, /useEffect\(\(\) => \{\n    sigMounted\.current = true;\n    setSigVer\(\(v\) => v \+ 1\);/);
   assert.match(v, /const isUnlocked = unlocked \|\| gatePro;/);
   assert.match(v, /gateRef\.current = \{ iapAvailable: sellable, ready, isPro: gatePro \};/);
   assert.match(v, /isUnlocked, unlocked, isPro, iapAvailable,/);

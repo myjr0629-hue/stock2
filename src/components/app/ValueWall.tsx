@@ -176,12 +176,15 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   //   → 회수(더 최신 무료 응답) 뒤 이 훅의 옛 isPro 로 열린 채 남지 않고, 확인된 PRO 는 이 훅의 초기 조회 실패와 무관하게 열린다.
   const [, setSigVer] = useState(0); // 신호가 바뀌면 다시 그린다
   const markStorePro = useCallback((at: number) => storeProSignal.mark(at), []);
+  // 첫 렌더는 서버 렌더와 같게 신호를 읽지 않는다(sessionStorage 복원값으로 hydration 이 어긋나지 않게) — 마운트 뒤 바로 다시 그려 반영
+  const sigMounted = useRef(false);
   useEffect(() => {
+    sigMounted.current = true;
     setSigVer((v) => v + 1); // 첫 렌더 ~ 구독 사이에 다른 게이트가 기록한 값도 받는다
     return storeProSignal.subscribe(() => setSigVer((v) => v + 1));
   }, []);
   // 공유 PRO 1시간 만료 때 다시 그린다(그 뒤는 이 훅의 isPro 를 따른다)
-  const sigExp = storeProSignal.proExpiresAt();
+  const sigExp = sigMounted.current ? storeProSignal.proExpiresAt() : 0;
   useEffect(() => {
     if (!sigExp) return;
     const t = window.setTimeout(() => setSigVer((v) => v + 1), Math.max(0, sigExp - Date.now()));
@@ -190,7 +193,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const hookProRef = useRef(isPro);
   hookProRef.current = isPro;
   /** 지금 이 순간의 PRO 판정(동기) — 콜백 안에서도 최신 신호를 읽는다 */
-  const gateProNow = () => { const l = storeProSignal.latest(); return l === null ? hookProRef.current : l; };
+  const gateProNow = () => { const l = sigMounted.current ? storeProSignal.latest() : null; return l === null ? hookProRef.current : l; };
   const gatePro = gateProNow();
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
   const isUnlocked = unlocked || gatePro;
