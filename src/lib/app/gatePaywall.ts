@@ -55,8 +55,11 @@ export function markGateDay(today: string): boolean {
 // ★11/16 밤 교차 검토(중간 2건) — 스토어에서 확인된 PRO 를 «모든 게이트»가 같이 본다.
 //   전에는 재조회(proCheck)가 확인한 PRO 가 그 게이트 훅의 storeProUntil 에만 남아, 다른 탭에서 새 ValueWall 이
 //   마운트되고 초기 조회가 실패하면 방금 PRO 로 확인된 사용자에게 다시 잠금이 보였다.
-//   모듈 단위 신호 + sessionStorage(같은 웹뷰 세션에서 새로고침돼도 유지) · 1시간만 유효(광고 잠금해제와 같은 길이 —
-//   그 사이 만료·회수돼도 영구히 열린 채 남지 않게). 저장 실패해도 모듈 값은 남는다.
+//   모듈 단위 신호 + sessionStorage(같은 웹뷰 세션에서 새로고침돼도 유지) · 최대 1시간(광고 잠금해제와 같은 길이).
+//   «가장 늦게 시작한 스토어 응답이 이긴다» — mark(at)/revoke(at) 의 at = 그 응답을 낸 조회의 «시작» 시각.
+//     · 조회 실패(응답 없음)는 아무것도 바꾸지 않는다 → 확인된 PRO 를 실패에 가두지 않는다(PRO 보호).
+//     · 더 늦게 시작한 조회·SDK 알림이 무료라 하면 즉시 회수(만료·권한 회수 뒤 열린 채 남지 않음).
+//     · 회수보다 먼저 시작한 진행 중 조회가 옛 PRO 를 돌려줘도 되살리지 않는다.
 export const STORE_PRO_TTL_MS = 60 * 60 * 1000;
 export const STORE_PRO_KEY = 'signum_gate_store_pro_until';
 
@@ -66,35 +69,46 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
   const now = opts.now ?? (() => Date.now());
   const storage = opts.storage ?? (() => (globalThis as { sessionStorage?: StoreProStorage }).sessionStorage);
   let until = 0;
+  /** 지금 상태를 정한 스토어 응답의 조회 시작 시각 */
+  let answerAt = 0;
   let loaded = false;
   const listeners = new Set<() => void>();
   const load = () => {
     if (loaded) return;
     loaded = true;
     try {
-      const v = Number(storage()?.getItem(STORE_PRO_KEY));
+      const raw = storage()?.getItem(STORE_PRO_KEY);
+      const v = raw ? (JSON.parse(raw) as { until?: unknown; at?: unknown }) : null;
+      const u = Number(v?.until), a = Number(v?.at);
+      if (Number.isFinite(a) && a > 0 && a <= now()) answerAt = a;
       // 미래로 너무 먼 값(시계 조작·손상)은 믿지 않는다
-      if (Number.isFinite(v) && v > now() && v <= now() + STORE_PRO_TTL_MS) until = v;
-    } catch { /* 저장소 없음 */ }
+      if (Number.isFinite(u) && u > now() && u <= now() + STORE_PRO_TTL_MS) until = u;
+    } catch { /* 저장소 없음·손상 */ }
   };
+  const save = () => { try { storage()?.setItem(STORE_PRO_KEY, JSON.stringify({ until, at: answerAt })); } catch { /* 모듈 값은 유지 */ } };
+  const publish = () => listeners.forEach((f) => { try { f(); } catch { /* 구독자 오류는 무시 */ } });
   return {
     /** 유효한 만료 시각(없으면 0) */
     until(): number { load(); return until > now() ? until : 0; },
     active(): boolean { load(); return until > now(); },
-    /** 스토어(또는 결제 SDK)가 PRO 를 확인했다 — 지금부터 1시간 */
-    mark(): void {
+    /** 스토어(결제 SDK)가 PRO 라고 답했다 — at = 그 조회를 시작한 시각(기본 지금). 더 늦은 응답이 이미 있으면 무시 */
+    mark(at: number = now()): void {
       load();
+      if (at < answerAt) return;
+      answerAt = at;
       until = now() + STORE_PRO_TTL_MS;
-      try { storage()?.setItem(STORE_PRO_KEY, String(until)); } catch { /* 모듈 값은 유지 */ }
-      listeners.forEach((f) => { try { f(); } catch { /* 구독자 오류는 무시 */ } });
+      save();
+      publish();
     },
-    /** 결제 SDK 가 PRO → 무료 «전환»을 알렸다(만료·회수) — 공유 PRO 를 지운다(1시간 동안 열린 채 남지 않게) */
-    clear(): void {
+    /** 스토어(결제 SDK)가 무료라고 답했다(만료·회수 포함) — 그 조회가 PRO 응답보다 늦게 시작했으면 회수 */
+    revoke(at: number = now()): void {
       load();
-      if (!until) return;
+      if (at < answerAt) return; // 옛 조회의 무료(캐시 지연) — 확인된 PRO 를 지우지 않는다
+      answerAt = at;
+      const had = until > 0;
       until = 0;
-      try { storage()?.setItem(STORE_PRO_KEY, '0'); } catch { /* 모듈 값은 이미 0 */ }
-      listeners.forEach((f) => { try { f(); } catch { /* 구독자 오류는 무시 */ } });
+      save();
+      if (had) publish();
     },
     subscribe(f: () => void): () => void { listeners.add(f); return () => { listeners.delete(f); }; },
   };
@@ -108,6 +122,8 @@ export type ProCheckResult = 'pro' | 'pending' | 'free' | 'unknown';
  * 게이트 흐름의 «스토어에서 방금» PRO 확인 — 'pro'(PRO 확인) · 'pending'(결제 진행 중) · 'free'(무료 확인) · 'unknown'(조회 실패·시간 초과).
  * ★11/16 밤: 비동기 조회를 기다리는 동안 다른 경로에서 PRO 로 바뀌었으면(proNow), 진행 중 조회가 옛 무료 결과를 돌려줘도 'free' 가 아니다.
  *   모든 await 뒤에 최신 PRO 상태를 다시 본다 — 판정이 불확실하면 무료로 보지 않는다(PRO 사용자 보호 우선).
+ *   스토어 응답은 조회 «시작» 시각과 함께 공유 신호에 기록한다(markPro·markFree) — 광고 관리자 PRO 는 이번 탭만 멈추고 기록하지 않는다
+ *   (광고 관리자 상태는 결제 SDK 를 따라가므로 SDK 쪽에서 이미 공유된다 · 회수 직후 늦게 따라오는 값으로 되살리지 않게).
  */
 export async function checkStorePro(d: {
   /** 지금 알고 있는 PRO(게이트 훅 상태 + 공유 신호) — 동기 */
@@ -118,24 +134,30 @@ export async function checkStorePro(d: {
   adPro: () => Promise<boolean>;
   /** 스토어 조회 */
   fetchPro: () => Promise<boolean>;
-  /** PRO 확인 — 모든 게이트에 공유 */
-  markPro: () => void;
+  /** 스토어가 PRO 라고 답함 — at = 조회 시작 시각 */
+  markPro: (at: number) => void;
+  /** 스토어가 무료라고 답함 — at = 조회 시작 시각 */
+  markFree?: (at: number) => void;
+  now?: () => number;
   timeoutMs?: number;
 }): Promise<ProCheckResult> {
+  const now = d.now ?? (() => Date.now());
   if (d.proNow()) return 'pro';
   if (d.pending()) return 'pending';
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    if (await d.adPro()) { d.markPro(); return 'pro'; }
+    if (await d.adPro()) return 'pro';
     if (d.proNow()) return 'pro';
+    const startedAt = now();
     const pro = await Promise.race([
       d.fetchPro(),
       new Promise<boolean>((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), d.timeoutMs ?? 3_000); }),
     ]);
-    if (pro) { d.markPro(); return 'pro'; }
+    if (pro) { d.markPro(startedAt); return 'pro'; }
+    d.markFree?.(startedAt);
     // 조회 대기 중 다른 경로에서 PRO 로 바뀌었나 — 옛 무료 결과를 그대로 쓰지 않는다
     if (d.proNow()) return 'pro';
-    if (await d.adPro()) { d.markPro(); return 'pro'; }
+    if (await d.adPro()) return 'pro';
     if (d.proNow()) return 'pro';
     if (d.pending()) return 'pending';
     return 'free';

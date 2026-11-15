@@ -173,14 +173,14 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   //   ★11/16 밤 — 확인된 PRO 는 모듈 신호(storeProSignal)로 «모든 게이트»가 같이 본다: 다른 탭에서 새로 마운트된 게이트도
   //   초기 조회가 실패하든 말든 즉시 PRO 로 열린다(전에는 이 훅 안에만 남아 새 게이트가 PRO 사용자를 다시 잠갔다).
   const [storeProUntil, setStoreProUntil] = useState(() => storeProSignal.until());
-  const markStorePro = useCallback(() => storeProSignal.mark(), []);
+  const markStorePro = useCallback((at: number) => storeProSignal.mark(at), []);
   useEffect(() => {
     setStoreProUntil(storeProSignal.until()); // 첫 렌더 ~ 구독 사이에 다른 게이트가 표시한 값도 받는다
     return storeProSignal.subscribe(() => setStoreProUntil(storeProSignal.until()));
   }, []);
-  // 이 훅의 스토어 상태가 PRO 면 그것도 모든 게이트에 알린다(새 게이트의 초기 조회 실패·지연에 PRO 를 가두지 않음)
-  useEffect(() => { if (isPro) storeProSignal.mark(); }, [isPro]);
-  const storePro = storeProUntil > Date.now() || storeProSignal.active();
+  //   (이 훅의 스토어 PRO·무료 응답은 useProStatus 가 조회 시작 시각과 함께 신호에 기록한다 — 회수도 거기서)
+  //   storePro 는 신호의 «지금» 값만 본다(회수 직후 이 훅의 옛 만료 시각으로 열린 채 남지 않게). storeProUntil 은 다시 그리기용.
+  const storePro = storeProUntil > 0 && storeProSignal.active();
   useEffect(() => {
     if (!storeProUntil) return;
     const t = window.setTimeout(() => setStoreProUntil(0), Math.max(0, storeProUntil - Date.now()));
@@ -226,6 +226,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     adPro: async () => (await import('@/services/adManager')).adManager.isProActive(),
     fetchPro: async () => (await import('@/services/revenueCat')).fetchProStatus(),
     markPro: markStorePro,
+    markFree: (at) => storeProSignal.revoke(at),
   }), [markStorePro]);
   /** 'free' 판정을 «쓰기 직전» 다시 확인 — 그 사이 PRO·결제 진행 중이면 페이월·하루 첫 노출 기록을 쓰지 않는다 */
   const stillFree = () => !gateRef.current.isPro && !storeProSignal.active() && !proPurchaseState.getSnapshot();

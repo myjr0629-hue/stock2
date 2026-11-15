@@ -193,11 +193,10 @@ if(!baseline) {
     assert.equal(announced,1,'결제 성공은 평점 순간 표식을 남긴다(11/11)');
     const apply=find(root,n=>ts.isVariableDeclaration(n)&&n.name.getText(root)==='apply');
     const listener=run(`(${apply.initializer.getText(root)})`,{cancelled:false,isProFromCustomerInfo:i=>i.pro,
-      proPurchaseState:{confirm(){confirmed++;}},setIsPro:v=>{pro=v;},storeProSignal:{mark(){shared++;},clear(){cleared++;}},wasProRef:{current:false}});
+      proPurchaseState:{confirm(){confirmed++;}},setIsPro:v=>{pro=v;},storeProSignal:{mark(){shared++;},revoke(){cleared++;}}});
     let shared=0,cleared=0;
     listener({pro:true});assert.equal(confirmed,2);assert.equal(pro,true);assert.equal(shared,1,'SDK 리스너 PRO 는 모든 게이트에 즉시 공유(11/16 밤)');
-    listener({pro:false});assert.equal(shared,1,'무료 알림은 공유 PRO 를 만들지 않는다');assert.equal(cleared,1,'PRO 뒤 무료 알림(만료·회수)은 공유 PRO 를 지운다');
-    listener({pro:false});assert.equal(cleared,1,'이미 무료면 다시 지우지 않는다');
+    listener({pro:false});assert.equal(shared,1,'무료 알림은 공유 PRO 를 만들지 않는다');assert.equal(cleared,1,'무료 알림(만료·회수)은 공유 PRO 회수로 넘긴다(옛 응답 무시는 신호가 판단)');
   });
 }
 if(!baseline) {

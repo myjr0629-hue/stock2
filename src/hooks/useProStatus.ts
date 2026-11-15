@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { IAP_LIVE, type PlanId } from '@/config/iap';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
@@ -49,11 +49,8 @@ export function useProStatus() {
       스토어 심사(가격 표시 의무)에서도 걸린다. */
   const [offers, setOffers] = useState<PlanOffer[]>([]);
 
-  // 구매·복원 성공 등 이 훅이 PRO 가 되면 모든 게이트에 공유(결제 SDK 알림은 apply 에서 즉시 공유)
-  //   wasProRef — 이 훅이 PRO 를 본 적이 있나: SDK 가 그 뒤 무료를 알리면 실제 만료·회수로 보고 공유 PRO 를 지운다
-  //   (처음부터 무료인 알림 = 캐시 지연일 수 있어 지우지 않는다 — 재조회가 확인한 PRO 를 가두지 않음)
-  const wasProRef = useRef(false);
-  useEffect(() => { if (isPro) { wasProRef.current = true; storeProSignal.mark(); } }, [isPro]);
+  // 구매·복원 성공(setIsPro(true))도 모든 게이트에 공유 — SDK 응답(apply)은 조회 시작 시각과 함께 거기서 기록한다
+  useEffect(() => { if (isPro) storeProSignal.mark(); }, [isPro]);
 
   useEffect(() => {
     if (!IAP_LIVE) return;
@@ -71,11 +68,13 @@ export function useProStatus() {
     let cancelled = false;
     let listenerId: string | null = null;
 
-    const apply = (info: unknown) => {
+    // at = 이 응답을 낸 조회의 시작 시각(리스너 알림 = 지금). 공유 신호는 «가장 늦게 시작한 응답»을 따른다 —
+    //   더 늦은 무료 응답이면 만료·회수로 보고 공유 PRO 를 지우고, 옛 조회의 무료(캐시 지연)는 확인된 PRO 를 지우지 않는다.
+    const apply = (info: unknown, at: number = Date.now()) => {
       if (cancelled) return;
       const pro = isProFromCustomerInfo(info as Parameters<typeof isProFromCustomerInfo>[0]);
-      if (pro) { proPurchaseState.confirm(); storeProSignal.mark(); wasProRef.current = true; }
-      else if (wasProRef.current) { wasProRef.current = false; storeProSignal.clear(); } // PRO → 무료 실제 전환(만료·회수)
+      if (pro) { proPurchaseState.confirm(); storeProSignal.mark(at); }
+      else storeProSignal.revoke(at);
       setIsPro(pro);
     };
 
@@ -87,8 +86,9 @@ export function useProStatus() {
       }
       const { Purchases } = await import('@revenuecat/purchases-capacitor');
       try {
+        const askedAt = Date.now();
         const { customerInfo } = await Purchases.getCustomerInfo();
-        apply(customerInfo);
+        apply(customerInfo, askedAt);
       } catch {
         // leave isPro false
       }
