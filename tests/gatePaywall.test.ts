@@ -49,9 +49,8 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   // ① 하루 첫 탭 — 스토어에서 방금 무료 확인 + 기록 성공 때만
   assert.match(v, /const first = shouldShowFirstGatePaywall\(gateRef\.current, readGateDay\(\), today\);/);
   assert.match(v, /const open = st === 'free' && markGateDay\(today\);/);
-  assert.match(v, /if \(st === 'pro'\) \{ endFlow\(\); return; \}/);
   // ② 광고 없음 — 같은 탭 ① 뒤 생략 + 무료 확인
-  assert.match(v, /native && shouldShowNoFillPaywall\(gateRef\.current, shownThisTap\)\) \{\n      const st = await proCheck\(\);\n      if \(st === 'pro'\) return 'done';/);
+  assert.match(v, /native && shouldShowNoFillPaywall\(gateRef\.current, shownThisTap\)\) \{\n.*\n      if \(\(await proCheck\(\)\) === 'free'\) \{/);
   assert.match(v, /onClose=\{closePaywall\}/);
   // 코드 PRO·조회 실패·결제 진행 중 = 무료 아님(페이월·광고 금지) — 스토어 조회(fetchProStatus)·시간 초과 3초
   assert.match(v, /fetchProStatus\(\)/);

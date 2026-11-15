@@ -246,9 +246,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
 
     // ② 네이티브에서 광고가 안 나왔다 — 대체 30초 창 «전에» 페이월 한 번(닫으면 대체 창 그대로)
     if (native && shouldShowNoFillPaywall(gateRef.current, shownThisTap)) {
-      const st = await proCheck();
-      if (st === 'pro') return 'done'; // 스토어는 PRO — 대체 창도 열지 않는다
-      if (st === 'free') {
+      // 무료 확인 때만 페이월. PRO·모름은 예전 그대로(대체 창) — 화면 상태가 아직 무료인 PRO 를 잠금에 가두지 않는다
+      if ((await proCheck()) === 'free') {
         afterPaywall.current = 'fallback';
         setPaywallSrc('ad_nofill');
         setPaywallOpen(true);
@@ -268,7 +267,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     if (first) setUnlocking(true); // 스토어 확인(보통 SDK 캐시 즉시) 동안 단추를 «잠시만»으로
     const st = first ? await proCheck() : null;
     if (first) setUnlocking(false);
-    if (st === 'pro') { endFlow(); return; } // 스토어는 PRO — 페이월도 광고도 없음
+    // 무료 확인 때만 페이월. PRO·모름은 예전 흐름 그대로(광고 → 대체 창 · 광고 관리자가 PRO 면 스스로 거절)
     const open = st === 'free' && markGateDay(today);
     if (open) {
       afterPaywall.current = 'ad';
