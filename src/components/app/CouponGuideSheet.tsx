@@ -122,14 +122,12 @@ export function CouponGuideSheet({ req, onClose }: { req: CouponGuideRequest; on
     busyRef.current = true;
     setBusy(true);
     setNote(null);
-    let recheckAt = 0;
     const r = await runCouponPurchase({
       redeemOpened: redeemOpenedRef.current,
       codeAppliedConfirmed,
       purchase: () => purchase('monthly', req.src),
-      // 재조회로 확인된 PRO 는 재조회 시작 시각으로 공유 신호에 기록(구매 성공 경로는 useProStatus 가 이미 기록 → 시각 없음)
-      recheck: () => { recheckAt = Date.now(); return refreshProAfterRedeem('sheet'); },
-      notifyPro: () => notifyProPurchased(true, recheckAt || undefined),
+      recheck: () => refreshProAfterRedeem('sheet'),
+      notifyPro: () => notifyProPurchased(true),
       track: (stage) => { void funnel().then((m) => m.trackFunnel(stage, { src: req.src })).catch(() => {}); },
     });
     busyRef.current = false;

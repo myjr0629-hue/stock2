@@ -133,13 +133,11 @@ export function whenProReady(timeoutMs = 2500): Promise<ProState> {
 }
 
 /** 구매·복원 직후 등 «지금 바로» 반영하고 싶을 때.
- *  confirmedAt = 이 PRO 를 확인한 스토어 조회의 «시작» 시각 — 줄 때만 공유 신호(storeProSignal)에도 기록한다(코드 사용·복귀 동기화 재조회).
- *  옛 훅 값(예: ProUpsellSheet 의 isPro)을 넘기는 곳은 시각을 주지 않는다 — «지금» 시각으로 기록하면 더 최신 무료 응답을 덮는다.
- *  (구매·복원 성공은 useProStatus 가 이미 기록한다.) */
-export function notifyProPurchased(isPro: boolean, confirmedAt?: number) {
-  if (!isPro) return;
-  if (typeof confirmedAt === 'number' && Number.isFinite(confirmedAt) && confirmedAt > 0) recordStore(true, confirmedAt);
-  applyReal(true);
+ *  공유 신호(storeProSignal)에는 기록하지 않는다 — 넘어오는 PRO 는 옛 훅 값일 수 있어(예: ProUpsellSheet) «지금» 시각으로 쓰면
+ *  더 최신 무료 응답을 덮는다. 스토어 응답은 그 조회 자리에서 조회 «시작» 시각으로 기록한다
+ *  (useProStatus·이 모듈의 SDK 조회·리스너 · 코드 사용 재조회 redeem.refreshProAfterRedeem · 복귀 동기화 foregroundProSync). */
+export function notifyProPurchased(isPro: boolean) {
+  if (isPro) applyReal(true);
 }
 
 export function useWatchlistPro(): ProState {

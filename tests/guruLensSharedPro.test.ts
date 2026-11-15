@@ -40,6 +40,8 @@ const gate = { isPro: false, unlocked: false, iapAvailable: true, purchasing: fa
 let serverVerdict: 'pro' | 'free' = 'pro';
 let snapshotMode: 'client' | 'server' = 'client';
 let hooks: { effects: (() => any)[]; writes: any[]; index: number } | null = null;
+let rcInit = false;
+let answers: boolean[] = [];
 let lensPro: any; // 실제 src/lib/app/guruLensPro 를 모의 react 로 컴파일한 인스턴스
 
 const mockReact = {
@@ -55,7 +57,12 @@ const originalLoad = (Module as any)._load;
     };
     if (name === '@/lib/app/proEntitlement') return { useWatchlistPro: () => ent };
     if (name === '@/config/iap') return { IAP_LIVE: false, PRO_ENTITLEMENT_ID: 'pro' };
-    if (name === '@/services/revenueCat') return { initRevenueCat: async () => false, isProFromCustomerInfo: () => false };
+    if (name === '@/services/revenueCat') return { initRevenueCat: async () => rcInit, isProFromCustomerInfo: (i: any) => i?.pro === true };
+    if (name === '@revenuecat/purchases-capacitor') return { Purchases: {
+        invalidateCustomerInfoCache: async () => {}, syncPurchases: async () => {},
+        getCustomerInfo: async () => ({ customerInfo: { pro: answers.shift() === true } }),
+        getAppUserID: async () => ({ appUserID: 'fixture-user' }),
+    } };
     if (name === '@/lib/app/guruLensPro') return lensPro;
     if (name === '@/lib/guruLens/service') return {
         readonlyCache: { read: async (key: string) => store.get(key) ?? null },
@@ -83,10 +90,11 @@ function compile(file: string, append = '') {
     return m.exports;
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
-// 공유 신호 초기화용 — 아주 옛 시각의 무료 응답보다 더 옛 값은 없으므로, 각 장면은 «지금»의 응답으로 덮는다
-let clock = Date.now();
-const markProNow = () => { clock += 1000; assert.equal(storeProSignal.mark(clock), true); };
-const revokeNow = () => { clock += 1000; assert.equal(storeProSignal.revoke(clock), true); };
+// 실제 시계와 맞춘다(조회 자리가 Date.now() 로 기록하므로) — 같은 밀리초 충돌만 +1 로 피한다
+let clock = 0;
+const tick = () => (clock = Math.max(clock + 1, Date.now()));
+const markProNow = () => { assert.equal(storeProSignal.mark(tick()), true); };
+const revokeNow = () => { assert.equal(storeProSignal.revoke(tick()), true); };
 
 async function main() {
     lensPro = compile('src/lib/app/guruLensPro.ts');
@@ -197,22 +205,29 @@ async function main() {
     assert.ok(render(false).includes('guru-lens-pro-lock'), '더 최신 무료 응답이면 옛 useProStatus PRO 로 열지 않는다');
     gate.isPro = false;
 
-    // ── 7. 코드 사용·복귀 동기화 확인 PRO(notifyProPurchased + 조회 시작 시각)만 공유 신호에 기록 ──
+    // ── 7. 공유 신호 기록 자리 — 스토어 조회가 «그 조회의 시작 시각»으로 PRO 를 기록, 옛 훅 값 알림은 기록 안 함 ──
     const entMod = compile('src/lib/app/proEntitlement.ts');
     revokeNow();
     entMod.notifyProPurchased(true);
     assert.equal(storeProSignal.latest(), false, '시각 없는 알림(옛 훅 값일 수 있음)은 더 최신 무료 응답을 덮지 않는다');
-    entMod.notifyProPurchased(true, clock - 500);
-    assert.equal(storeProSignal.latest(), false, '무료 응답보다 먼저 시작한 조회의 PRO 는 거부');
-    clock += 1000;
-    entMod.notifyProPurchased(true, clock);
-    assert.equal(storeProSignal.latest(), true, '무료 기록 뒤 시작한 재조회가 확인한 PRO → 렌즈도 즉시 PRO');
+    // 코드 사용 재조회(쿠폰 시트·코드 화면 복귀 공용 refreshProAfterRedeem): 첫 조회 무료 → 대기 중 다른 곳이 무료 기록 → 3초 재조회 PRO
+    rcInit = true; answers = [false, true];
+    const redeem = compile('src/lib/app/redeem.ts');
+    const refreshing = redeem.refreshProAfterRedeem('sheet');
+    await new Promise(r => setTimeout(r, 50));
+    revokeNow();
+    assert.equal(await refreshing, true);
+    assert.equal(storeProSignal.latest(), true, '재조회가 확인한 PRO 는 그 조회의 시작 시각으로 기록 → 중간 무료 기록보다 최신이라 인정');
     ent.isPro = false; gate.isPro = false;
     assert.ok(!render(false).includes('guru-lens-pro-lock'), '코드 사용 확인 PRO → 4~10위 열림');
+    revokeNow();
+    answers = [false, false, false];
+    assert.equal(await redeem.refreshProAfterRedeem('sheet', { check: async () => false, sync: async () => {}, wait: async () => {} }), false);
+    assert.equal(storeProSignal.latest(), false, '무료 확인은 아무것도 바꾸지 않는다');
     const src = (f: string) => fs.readFileSync(f, 'utf8');
-    assert.match(src('src/lib/app/redeem.ts'), /notifyProPurchased\(true, askedAt\)/, '코드 화면 복귀 재조회는 시작 시각과 함께');
-    assert.match(src('src/lib/app/foregroundProSync.ts'), /notifyProPurchased\(true, askedAt\)/, '복귀 동기화 재조회는 시작 시각과 함께');
-    assert.match(src('src/components/app/CouponGuideSheet.tsx'), /notifyProPurchased\(true, recheckAt \|\| undefined\)/, '쿠폰 재조회는 시작 시각과 함께');
+    assert.match(src('src/lib/app/foregroundProSync.ts'),
+        /const askedAt = Date\.now\(\);\s*const \{ customerInfo \} = await Purchases\.getCustomerInfo\(\);[\s\S]{0,200}if \(pro\) storeProSignal\.mark\(askedAt\);/,
+        '안드 복귀 동기화: 첫 조회(already_pro) 포함 모든 PRO 확인을 조회 시작 시각으로 기록');
 
     (Module as any)._load = originalLoad;
     console.log('대가 렌즈 공유 PRO 통과: 초기 조회 실패 + 공유 PRO → PRO 요청·4~10위 열림 · 무료 → 잠김 유지 · 서버 판정 · 회수 즉시 반영');

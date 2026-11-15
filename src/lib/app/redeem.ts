@@ -33,6 +33,7 @@ import { initRevenueCat, isProFromCustomerInfo } from '@/services/revenueCat';
 import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 import { openExternalUrl } from '@/lib/native/capacitorBridge';
 import { notifyProPurchased, isPreviewHost, previewFlag } from '@/lib/app/proEntitlement';
+import { storeProSignal } from '@/lib/app/gatePaywall';
 import { announceProActivated } from '@/lib/app/ratingMoments';
 import { couponGuide } from '@/lib/app/couponGuide';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
@@ -144,8 +145,12 @@ export async function refreshProAfterRedeem(path: 'sheet' | 'url', deps?: {
       check: async () => {
         try { await Purchases.invalidateCustomerInfoCache(); } catch { /* 없어도 다음 줄은 돈다 */ }
         try {
+          const askedAt = Date.now();
           const { customerInfo } = await Purchases.getCustomerInfo();
-          return isProFromCustomerInfo(customerInfo);
+          const pro = isProFromCustomerInfo(customerInfo);
+          // ★11/16 확인된 PRO 는 이 조회의 시작 시각으로 공유 신호에(대가 렌즈·게이트 즉시 열림). 무료·실패는 기록하지 않는다(PRO 보호)
+          if (pro) storeProSignal.mark(askedAt);
+          return pro;
         } catch { return false; }
       },
       sync: async () => { try { await Purchases.syncPurchases(); } catch { /* 무해 */ } },
@@ -191,11 +196,10 @@ function onAppActive() {
   if (Date.now() - p.at > RETURN_WINDOW_MS) { pending = null; return; }
   pending = null;
   refreshing = true;
-  const askedAt = Date.now(); // 재조회 시작 시각 — 확인된 PRO 를 이 시각으로 공유 신호에 기록(보수적으로 가장 이른 시각)
   void refreshProAfterRedeem(p.path, undefined, true)
     .then((pro) => {
       if (!pro) return;
-      notifyProPurchased(true, askedAt);
+      notifyProPurchased(true);
       // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments) — 코드 화면을 연 뒤 새로 생긴 권한일 때만
       if (p.wasNonPro) void codeStartedProSince(p.at).then((fresh) => { if (fresh) announceProActivated(); }).catch(() => {});
       void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {});
