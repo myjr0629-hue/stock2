@@ -172,11 +172,13 @@ if(!baseline) {
     const root=ast('src/hooks/useProStatus.ts');
     const decl=find(root,n=>ts.isVariableDeclaration(n)&&n.name.getText(root)==='restore');
     for(const result of [{ok:true,isPro:true},{ok:true,isPro:false},{ok:false,isPro:false}]){
-      let confirms=0,pro=false;
+      let confirms=0,pro=false,marks=0;
       const restore=run(`(${decl.initializer.arguments[0].getText(root)})`,{
         restorePro:async()=>result,proPurchaseState:{confirm:()=>{confirms++;}},setIsPro:v=>{pro=v;},funnel:async()=>({trackFunnelOutcome(){}}),
+        storeProSignal:{mark(){marks++;return true;}},
       });
       assert.equal(await restore('other'),result);assert.equal(confirms,result.isPro?1:0);assert.equal(pro,result.isPro);
+      assert.equal(marks,result.isPro?1:0,'복원 성공 PRO 는 모든 게이트에 공유(11/16 밤)');
     }
   });
   test('4: 구매 훅은 기존 상품·출처 전달 유지, SDK 리스너 PRO도 잠금 해제',async()=>{
@@ -187,16 +189,23 @@ if(!baseline) {
       purchasePro:async p=>{plan=p;return {ok:true,isPro:false};},require:id=>{assert.equal(id,'@/lib/app/redeem');return {refreshProAfterRedeem:async path=>{assert.equal(path,'sheet');checked++;return true;}};},
       proPurchaseState:{run:async(buy,check)=>{await buy();return {ok:true,isPro:await check()};},confirm(){confirmed++;}},
       setIsPro:v=>{pro=v;},funnel:async()=>({trackFunnelOutcome:(kind,result,s)=>{src=s;}}),
-      announceProActivated:()=>{announced++;},
+      announceProActivated:()=>{announced++;},storeProSignal:{mark(){purchaseMarks++;return true;}},
     });
+    let purchaseMarks=0;
     await purchase('monthly','wl_paywall');await flush();assert.equal(plan,'monthly');assert.equal(src,'wl_paywall');assert.equal(checked,1);assert.equal(pro,true);
     assert.equal(announced,1,'결제 성공은 평점 순간 표식을 남긴다(11/11)');
+    assert.equal(purchaseMarks,1,'결제 성공 PRO 는 모든 게이트에 공유(11/16 밤)');
     const apply=find(root,n=>ts.isVariableDeclaration(n)&&n.name.getText(root)==='apply');
+    let shared=0,cleared=0,fresh=true,latest=null;
+    const sig={mark(){shared++;if(fresh)latest=true;return fresh;},revoke(){cleared++;if(fresh)latest=false;return fresh;},latest:()=>latest};
     const listener=run(`(${apply.initializer.getText(root)})`,{cancelled:false,isProFromCustomerInfo:i=>i.pro,
-      proPurchaseState:{confirm(){confirmed++;}},setIsPro:v=>{pro=v;},storeProSignal:{mark(){shared++;},revoke(){cleared++;}}});
-    let shared=0,cleared=0;
+      proPurchaseState:{confirm(){confirmed++;}},setIsPro:v=>{pro=v;},storeProSignal:sig});
     listener({pro:true});assert.equal(confirmed,2);assert.equal(pro,true);assert.equal(shared,1,'SDK 리스너 PRO 는 모든 게이트에 즉시 공유(11/16 밤)');
-    listener({pro:false});assert.equal(shared,1,'무료 알림은 공유 PRO 를 만들지 않는다');assert.equal(cleared,1,'무료 알림(만료·회수)은 공유 PRO 회수로 넘긴다(옛 응답 무시는 신호가 판단)');
+    listener({pro:false});assert.equal(shared,1,'무료 알림은 공유 PRO 를 만들지 않는다');assert.equal(cleared,1,'무료 알림(만료·회수)은 공유 PRO 회수로 넘긴다');assert.equal(pro,false);
+    fresh=false;listener({pro:true},0);assert.equal(pro,false,'더 늦은 무료 응답 뒤 도착한 옛 PRO 응답은 버린다(회수 되살림 금지)');
+    fresh=true;listener({pro:true});assert.equal(pro,true);
+    fresh=false;listener({pro:false},0);assert.equal(pro,true,'더 늦은 PRO 응답 뒤 도착한 옛 무료 응답은 버린다(PRO 보호)');
+    latest=false;listener({pro:false},0);assert.equal(pro,false,'옛 응답이라도 최신과 같은 쪽이면 반영');
   });
 }
 if(!baseline) {

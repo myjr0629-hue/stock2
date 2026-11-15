@@ -49,9 +49,6 @@ export function useProStatus() {
       스토어 심사(가격 표시 의무)에서도 걸린다. */
   const [offers, setOffers] = useState<PlanOffer[]>([]);
 
-  // 구매·복원 성공(setIsPro(true))도 모든 게이트에 공유 — SDK 응답(apply)은 조회 시작 시각과 함께 거기서 기록한다
-  useEffect(() => { if (isPro) storeProSignal.mark(); }, [isPro]);
-
   useEffect(() => {
     if (!IAP_LIVE) return;
     let alive = true;
@@ -73,8 +70,11 @@ export function useProStatus() {
     const apply = (info: unknown, at: number = Date.now()) => {
       if (cancelled) return;
       const pro = isProFromCustomerInfo(info as Parameters<typeof isProFromCustomerInfo>[0]);
-      if (pro) { proPurchaseState.confirm(); storeProSignal.mark(at); }
-      else storeProSignal.revoke(at);
+      if (pro) proPurchaseState.confirm();
+      // 더 늦게 시작한 응답이 이미 있고 그것과 반대면 이 옛 응답은 버린다
+      //   (옛 PRO 로 회수된 권한을 되살리지 않고, 옛 무료로 확인된 PRO 를 지우지 않는다 · 같은 쪽이면 그대로 반영)
+      const fresh = pro ? storeProSignal.mark(at) : storeProSignal.revoke(at);
+      if (!fresh && storeProSignal.latest() !== pro) return;
       setIsPro(pro);
     };
 
@@ -127,6 +127,7 @@ export function useProStatus() {
     });
     // 결제·체험 시작 성공 = 평점 «좋은 순간»(11/11) — 표식만 남기고, 요청은 페이월이 닫힌 뒤 앱 레이아웃이 한다(복원은 제외)
     if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); announceProActivated(); }
+    if (result.ok && result.isPro) storeProSignal.mark(); // 구매 성공 = 지금의 PRO 응답 — 모든 게이트에 공유
     void funnel().then((m) => m.trackFunnelOutcome('buy', result, src)).catch(() => {});
     return result;
   }, []);
@@ -138,6 +139,7 @@ export function useProStatus() {
       return refreshProAfterRedeem('sheet');
     });
     if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); announceProActivated(); }
+    if (result.ok && result.isPro) storeProSignal.mark(); // 구매 성공 = 지금의 PRO 응답 — 모든 게이트에 공유
     void funnel().then((m) => m.trackFunnelOutcome('buy', result, src)).catch(() => {});
     return result;
   }, []);
@@ -145,6 +147,7 @@ export function useProStatus() {
   const restore = useCallback(async (src?: FunnelSrc): Promise<PurchaseOutcome> => {
     const result = await restorePro();
     if (result.ok && result.isPro) { proPurchaseState.confirm(); setIsPro(true); }
+    if (result.ok && result.isPro) storeProSignal.mark(); // 복원 성공 = 지금의 PRO 응답 — 모든 게이트에 공유
     void funnel().then((m) => m.trackFunnelOutcome('restore', result, src)).catch(() => {});
     return result;
   }, []);

@@ -58,8 +58,9 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /fetchProStatus\(\)/);
   assert.match(v, /const proCheck = useCallback\(\(\) => checkStorePro\(\{\n    proNow: \(\) => gateRef\.current\.isPro \|\| storeProSignal\.active\(\),/);
   assert.match(v, /adManager\.isProActive\(\)/);
-  assert.match(v, /const markStorePro = useCallback\(\(at: number\) => storeProSignal\.mark\(at\), \[\]\);/);
-  assert.match(v, /markFree: \(at\) => storeProSignal\.revoke\(at\),/);
+  assert.match(v, /const markStorePro = useCallback\(\(at: number\) => \{ storeProSignal\.mark\(at\); \}, \[\]\);/);
+  assert.match(v, /markFree: \(at\) => \{ storeProSignal\.revoke\(at\); \},/);
+  assert.match(v, /markAdPro: \(\) => \{ if \(storeProSignal\.latest\(\) !== false\) storeProSignal\.mark\(\); \},/);
   assert.match(v, /const isUnlocked = unlocked \|\| isPro \|\| storePro;/);
   // ★11/16 밤 — 재조회 PRO 는 모든 게이트 공유(새 게이트 첫 렌더부터) · 이 훅의 PRO 도 공유 · 결제 SDK 알림도 공유
   assert.match(v, /useState\(\(\) => storeProSignal\.until\(\)\)/);
@@ -67,10 +68,11 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /const storePro = storeProUntil > 0 && storeProSignal\.active\(\);/);
   assert.match(v, /if \(gateRef\.current\.isPro \|\| storeProSignal\.active\(\)\) return; \/\/ 조회 뒤/);
   const ps = read('src/hooks/useProStatus.ts');
-  assert.match(ps, /if \(pro\) \{ proPurchaseState\.confirm\(\); storeProSignal\.mark\(at\); \}\n      else storeProSignal\.revoke\(at\);/);
+  assert.match(ps, /const fresh = pro \? storeProSignal\.mark\(at\) : storeProSignal\.revoke\(at\);\n      if \(!fresh && storeProSignal\.latest\(\) !== pro\) return;\n      setIsPro\(pro\);/);
   assert.match(ps, /const askedAt = Date\.now\(\);\n        const \{ customerInfo \} = await Purchases\.getCustomerInfo\(\);\n        apply\(customerInfo, askedAt\);/);
   assert.match(v, /isPro: isPro \|\| storePro, iapAvailable,/);
-  assert.match(ps, /useEffect\(\(\) => \{ if \(isPro\) storeProSignal\.mark\(\); \}, \[isPro\]\);/);
+  assert.doesNotMatch(ps, /if \(isPro\) storeProSignal\.mark/, '훅 isPro 로 다시 표시하지 않는다(옛 PRO 응답이 effect 로 되살아나지 않게)');
+  assert.equal((ps.match(/if \(result\.ok && result\.isPro\) storeProSignal\.mark\(\);/g) || []).length, 3, '구매 2곳·복원 1곳 성공만 지금 시각으로 공유');
   // 닫힌 뒤 이어 할 일도 무료 재확인 뒤에만(구매 성공으로 닫힌 경우 광고 금지)
   assert.match(v, /if \(st === 'pro' \|\| st === 'pending'\) return;/);
   // 빠른 두 번 탭 — 흐름 중 다른 탭 무시
@@ -96,7 +98,8 @@ function gate(sig: Sig, hook: { isPro: boolean; ready: boolean }, c: { now: () =
     state: () => ({ iapAvailable: true, ready: hook.ready, isPro: hook.isPro || storePro() }),
     proCheck: (fetchPro: () => Promise<boolean>, adPro = async () => false, pending = () => false) => checkStorePro({
       proNow: () => hook.isPro || storePro(), pending, adPro, fetchPro,
-      markPro: (at) => sig.mark(at), markFree: (at) => sig.revoke(at), now: c.now,
+      markPro: (at) => { sig.mark(at); }, markFree: (at) => { sig.revoke(at); }, now: c.now,
+      markAdPro: () => { if (sig.latest() !== false) sig.mark(); },
     }),
   };
 }
@@ -223,4 +226,25 @@ test('checkStorePro — 진짜 무료만 free · 결제 진행 중 pending · �
   let pro = false;
   assert.equal(await checkStorePro({ proNow: () => pro, pending: () => false, adPro: async () => false,
     fetchPro: async () => { pro = true; throw new Error('net'); }, markPro: () => {} }), 'pro');
+});
+
+test('관문 3 — 광고 관리자 PRO: SDK 응답이 없거나 PRO 면 잠금 해제, 더 늦은 SDK 무료 뒤면 이번 탭만 멈춤(되살림 금지)', async () => {
+  const c = clock(Date.now());
+  // (가) SDK 응답 없음(초기 조회 모두 실패) — 광고 관리자 PRO 로 잠금 해제(예전 동작 유지)
+  const s1 = createStoreProSignal({ now: c.now, storage: () => null });
+  const g1 = gate(s1, { isPro: false, ready: true }, c);
+  assert.equal(await g1.proCheck(async () => false, async () => true), 'pro');
+  assert.equal(s1.active(), true);
+  // (나) 더 늦게 시작한 SDK 무료 응답(회수) 뒤 광고 관리자가 아직 PRO — 페이월 없이 멈추되 잠금을 되살리지 않음
+  const s2 = createStoreProSignal({ now: c.now, storage: () => null });
+  s2.mark(); c.advance(1000); s2.revoke();
+  const g2 = gate(s2, { isPro: false, ready: true }, c);
+  assert.equal(await g2.proCheck(async () => false, async () => true), 'pro');
+  assert.equal(s2.active(), false);
+  // (다) 옛 응답 처리 — 같은 쪽이면 반영, 반대면 버림(훅 apply 규칙)
+  const s3 = createStoreProSignal({ now: c.now, storage: () => null });
+  const t0 = c.now(); c.advance(10);
+  assert.equal(s3.mark(c.now()), true);
+  assert.equal(s3.mark(t0), false); assert.equal(s3.latest(), true, '옛 PRO 응답 — 최신(PRO)과 같은 쪽이라 훅은 반영');
+  assert.equal(s3.revoke(t0), false); assert.equal(s3.active(), true, '옛 무료 응답은 확인된 PRO 를 지우지 않는다');
 });

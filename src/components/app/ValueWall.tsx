@@ -173,7 +173,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   //   ★11/16 밤 — 확인된 PRO 는 모듈 신호(storeProSignal)로 «모든 게이트»가 같이 본다: 다른 탭에서 새로 마운트된 게이트도
   //   초기 조회가 실패하든 말든 즉시 PRO 로 열린다(전에는 이 훅 안에만 남아 새 게이트가 PRO 사용자를 다시 잠갔다).
   const [storeProUntil, setStoreProUntil] = useState(() => storeProSignal.until());
-  const markStorePro = useCallback((at: number) => storeProSignal.mark(at), []);
+  const markStorePro = useCallback((at: number) => { storeProSignal.mark(at); }, []);
   useEffect(() => {
     setStoreProUntil(storeProSignal.until()); // 첫 렌더 ~ 구독 사이에 다른 게이트가 표시한 값도 받는다
     return storeProSignal.subscribe(() => setStoreProUntil(storeProSignal.until()));
@@ -226,7 +226,9 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     adPro: async () => (await import('@/services/adManager')).adManager.isProActive(),
     fetchPro: async () => (await import('@/services/revenueCat')).fetchProStatus(),
     markPro: markStorePro,
-    markFree: (at) => storeProSignal.revoke(at),
+    markFree: (at) => { storeProSignal.revoke(at); },
+    // 광고 관리자 PRO(결제 SDK 를 따라가는 파생값) — 가장 늦은 SDK 응답이 무료가 아닐 때만 잠금 해제(회수 직후 늦게 따라오는 값으로 되살리지 않음)
+    markAdPro: () => { if (storeProSignal.latest() !== false) storeProSignal.mark(); },
   }), [markStorePro]);
   /** 'free' 판정을 «쓰기 직전» 다시 확인 — 그 사이 PRO·결제 진행 중이면 페이월·하루 첫 노출 기록을 쓰지 않는다 */
   const stillFree = () => !gateRef.current.isPro && !storeProSignal.active() && !proPurchaseState.getSnapshot();

@@ -71,6 +71,8 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
   let until = 0;
   /** 지금 상태를 정한 스토어 응답의 조회 시작 시각 */
   let answerAt = 0;
+  /** 그 응답이 PRO 였나(없으면 null) */
+  let lastPro: boolean | null = null;
   let loaded = false;
   const listeners = new Set<() => void>();
   const load = () => {
@@ -78,38 +80,44 @@ export function createStoreProSignal(opts: { now?: () => number; storage?: () =>
     loaded = true;
     try {
       const raw = storage()?.getItem(STORE_PRO_KEY);
-      const v = raw ? (JSON.parse(raw) as { until?: unknown; at?: unknown }) : null;
+      const v = raw ? (JSON.parse(raw) as { until?: unknown; at?: unknown; pro?: unknown }) : null;
       const u = Number(v?.until), a = Number(v?.at);
-      if (Number.isFinite(a) && a > 0 && a <= now()) answerAt = a;
+      if (Number.isFinite(a) && a >= 0 && a <= now() && typeof v?.pro === 'boolean') { answerAt = a; lastPro = v.pro; }
       // 미래로 너무 먼 값(시계 조작·손상)은 믿지 않는다
       if (Number.isFinite(u) && u > now() && u <= now() + STORE_PRO_TTL_MS) until = u;
     } catch { /* 저장소 없음·손상 */ }
   };
-  const save = () => { try { storage()?.setItem(STORE_PRO_KEY, JSON.stringify({ until, at: answerAt })); } catch { /* 모듈 값은 유지 */ } };
+  const save = () => { try { storage()?.setItem(STORE_PRO_KEY, JSON.stringify({ until, at: answerAt, pro: lastPro })); } catch { /* 모듈 값은 유지 */ } };
   const publish = () => listeners.forEach((f) => { try { f(); } catch { /* 구독자 오류는 무시 */ } });
   return {
     /** 유효한 만료 시각(없으면 0) */
     until(): number { load(); return until > now() ? until : 0; },
     active(): boolean { load(); return until > now(); },
     /** 스토어(결제 SDK)가 PRO 라고 답했다 — at = 그 조회를 시작한 시각(기본 지금). 더 늦은 응답이 이미 있으면 무시 */
-    mark(at: number = now()): void {
+    mark(at: number = now()): boolean {
       load();
-      if (at < answerAt) return;
+      if (at < answerAt) return false;
       answerAt = at;
+      lastPro = true;
       until = now() + STORE_PRO_TTL_MS;
       save();
       publish();
+      return true;
     },
     /** 스토어(결제 SDK)가 무료라고 답했다(만료·회수 포함) — 그 조회가 PRO 응답보다 늦게 시작했으면 회수 */
-    revoke(at: number = now()): void {
+    revoke(at: number = now()): boolean {
       load();
-      if (at < answerAt) return; // 옛 조회의 무료(캐시 지연) — 확인된 PRO 를 지우지 않는다
+      if (at < answerAt) return false; // 옛 조회의 무료(캐시 지연) — 확인된 PRO 를 지우지 않는다
       answerAt = at;
+      lastPro = false;
       const had = until > 0;
       until = 0;
       save();
       if (had) publish();
+      return true;
     },
+    /** 가장 늦게 시작한 기록된 응답이 PRO 였나(기록 없음 = null) */
+    latest(): boolean | null { load(); return lastPro; },
     subscribe(f: () => void): () => void { listeners.add(f); return () => { listeners.delete(f); }; },
   };
 }
@@ -122,8 +130,9 @@ export type ProCheckResult = 'pro' | 'pending' | 'free' | 'unknown';
  * 게이트 흐름의 «스토어에서 방금» PRO 확인 — 'pro'(PRO 확인) · 'pending'(결제 진행 중) · 'free'(무료 확인) · 'unknown'(조회 실패·시간 초과).
  * ★11/16 밤: 비동기 조회를 기다리는 동안 다른 경로에서 PRO 로 바뀌었으면(proNow), 진행 중 조회가 옛 무료 결과를 돌려줘도 'free' 가 아니다.
  *   모든 await 뒤에 최신 PRO 상태를 다시 본다 — 판정이 불확실하면 무료로 보지 않는다(PRO 사용자 보호 우선).
- *   스토어 응답은 조회 «시작» 시각과 함께 공유 신호에 기록한다(markPro·markFree) — 광고 관리자 PRO 는 이번 탭만 멈추고 기록하지 않는다
- *   (광고 관리자 상태는 결제 SDK 를 따라가므로 SDK 쪽에서 이미 공유된다 · 회수 직후 늦게 따라오는 값으로 되살리지 않게).
+ *   스토어 응답은 조회 «시작» 시각과 함께 공유 신호에 기록한다(markPro·markFree).
+ *   광고 관리자 PRO 는 언제나 이번 탭을 멈추고(페이월 없음), 잠금 해제 기록은 markAdPro 가 정한다 — 광고 관리자 값은 결제 SDK 를 따라가는
+ *   파생값이라, SDK 응답이 아직 하나도 없을 때만 연다(더 늦은 SDK 무료 응답이 있으면 그 값을 따른다 · 회수 직후 늦은 값으로 되살리지 않게).
  */
 export async function checkStorePro(d: {
   /** 지금 알고 있는 PRO(게이트 훅 상태 + 공유 신호) — 동기 */
@@ -138,6 +147,8 @@ export async function checkStorePro(d: {
   markPro: (at: number) => void;
   /** 스토어가 무료라고 답함 — at = 조회 시작 시각 */
   markFree?: (at: number) => void;
+  /** 광고 관리자가 PRO 라 함 */
+  markAdPro?: () => void;
   now?: () => number;
   timeoutMs?: number;
 }): Promise<ProCheckResult> {
@@ -146,7 +157,7 @@ export async function checkStorePro(d: {
   if (d.pending()) return 'pending';
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    if (await d.adPro()) return 'pro';
+    if (await d.adPro()) { d.markAdPro?.(); return 'pro'; }
     if (d.proNow()) return 'pro';
     const startedAt = now();
     const pro = await Promise.race([
@@ -157,7 +168,7 @@ export async function checkStorePro(d: {
     d.markFree?.(startedAt);
     // 조회 대기 중 다른 경로에서 PRO 로 바뀌었나 — 옛 무료 결과를 그대로 쓰지 않는다
     if (d.proNow()) return 'pro';
-    if (await d.adPro()) return 'pro';
+    if (await d.adPro()) { d.markAdPro?.(); return 'pro'; }
     if (d.proNow()) return 'pro';
     if (d.pending()) return 'pending';
     return 'free';
