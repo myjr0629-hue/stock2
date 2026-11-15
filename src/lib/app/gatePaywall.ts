@@ -51,3 +51,89 @@ export function readGateDay(): string | null {
 export function markGateDay(today: string): boolean {
   try { localStorage.setItem(GATE_PAYWALL_DAY_KEY, today); return localStorage.getItem(GATE_PAYWALL_DAY_KEY) === today; } catch { return false; }
 }
+
+// ★11/16 밤 교차 검토(중간 2건) — 스토어에서 확인된 PRO 를 «모든 게이트»가 같이 본다.
+//   전에는 재조회(proCheck)가 확인한 PRO 가 그 게이트 훅의 storeProUntil 에만 남아, 다른 탭에서 새 ValueWall 이
+//   마운트되고 초기 조회가 실패하면 방금 PRO 로 확인된 사용자에게 다시 잠금이 보였다.
+//   모듈 단위 신호 + sessionStorage(같은 웹뷰 세션에서 새로고침돼도 유지) · 1시간만 유효(광고 잠금해제와 같은 길이 —
+//   그 사이 만료·회수돼도 영구히 열린 채 남지 않게). 저장 실패해도 모듈 값은 남는다.
+export const STORE_PRO_TTL_MS = 60 * 60 * 1000;
+export const STORE_PRO_KEY = 'signum_gate_store_pro_until';
+
+type StoreProStorage = { getItem(k: string): string | null; setItem(k: string, v: string): void };
+
+export function createStoreProSignal(opts: { now?: () => number; storage?: () => StoreProStorage | null | undefined } = {}) {
+  const now = opts.now ?? (() => Date.now());
+  const storage = opts.storage ?? (() => (globalThis as { sessionStorage?: StoreProStorage }).sessionStorage);
+  let until = 0;
+  let loaded = false;
+  const listeners = new Set<() => void>();
+  const load = () => {
+    if (loaded) return;
+    loaded = true;
+    try {
+      const v = Number(storage()?.getItem(STORE_PRO_KEY));
+      // 미래로 너무 먼 값(시계 조작·손상)은 믿지 않는다
+      if (Number.isFinite(v) && v > now() && v <= now() + STORE_PRO_TTL_MS) until = v;
+    } catch { /* 저장소 없음 */ }
+  };
+  return {
+    /** 유효한 만료 시각(없으면 0) */
+    until(): number { load(); return until > now() ? until : 0; },
+    active(): boolean { load(); return until > now(); },
+    /** 스토어(또는 결제 SDK)가 PRO 를 확인했다 — 지금부터 1시간 */
+    mark(): void {
+      load();
+      until = now() + STORE_PRO_TTL_MS;
+      try { storage()?.setItem(STORE_PRO_KEY, String(until)); } catch { /* 모듈 값은 유지 */ }
+      listeners.forEach((f) => { try { f(); } catch { /* 구독자 오류는 무시 */ } });
+    },
+    subscribe(f: () => void): () => void { listeners.add(f); return () => { listeners.delete(f); }; },
+  };
+}
+
+export const storeProSignal = createStoreProSignal();
+
+export type ProCheckResult = 'pro' | 'pending' | 'free' | 'unknown';
+
+/**
+ * 게이트 흐름의 «스토어에서 방금» PRO 확인 — 'pro'(PRO 확인) · 'pending'(결제 진행 중) · 'free'(무료 확인) · 'unknown'(조회 실패·시간 초과).
+ * ★11/16 밤: 비동기 조회를 기다리는 동안 다른 경로에서 PRO 로 바뀌었으면(proNow), 진행 중 조회가 옛 무료 결과를 돌려줘도 'free' 가 아니다.
+ *   모든 await 뒤에 최신 PRO 상태를 다시 본다 — 판정이 불확실하면 무료로 보지 않는다(PRO 사용자 보호 우선).
+ */
+export async function checkStorePro(d: {
+  /** 지금 알고 있는 PRO(게이트 훅 상태 + 공유 신호) — 동기 */
+  proNow: () => boolean;
+  /** 결제 진행 중(막 결제함) */
+  pending: () => boolean;
+  /** 광고 관리자가 아는 PRO */
+  adPro: () => Promise<boolean>;
+  /** 스토어 조회 */
+  fetchPro: () => Promise<boolean>;
+  /** PRO 확인 — 모든 게이트에 공유 */
+  markPro: () => void;
+  timeoutMs?: number;
+}): Promise<ProCheckResult> {
+  if (d.proNow()) return 'pro';
+  if (d.pending()) return 'pending';
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    if (await d.adPro()) { d.markPro(); return 'pro'; }
+    if (d.proNow()) return 'pro';
+    const pro = await Promise.race([
+      d.fetchPro(),
+      new Promise<boolean>((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), d.timeoutMs ?? 3_000); }),
+    ]);
+    if (pro) { d.markPro(); return 'pro'; }
+    // 조회 대기 중 다른 경로에서 PRO 로 바뀌었나 — 옛 무료 결과를 그대로 쓰지 않는다
+    if (d.proNow()) return 'pro';
+    if (await d.adPro()) { d.markPro(); return 'pro'; }
+    if (d.proNow()) return 'pro';
+    if (d.pending()) return 'pending';
+    return 'free';
+  } catch {
+    return d.proNow() ? 'pro' : d.pending() ? 'pending' : 'unknown';
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}

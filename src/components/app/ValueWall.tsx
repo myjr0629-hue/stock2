@@ -9,7 +9,7 @@ import { ProPaywall } from './ProPaywall';
 import { RedeemCodeLink } from './RedeemCodeLink';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
-import { localDay, markGateDay, readGateDay, shouldShowFirstGatePaywall, shouldShowNoFillPaywall } from '@/lib/app/gatePaywall';
+import { localDay, markGateDay, readGateDay, shouldShowFirstGatePaywall, shouldShowNoFillPaywall, storeProSignal, checkStorePro } from '@/lib/app/gatePaywall';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
@@ -170,9 +170,17 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const { isPro, ready, offers, purchase, restore, iapAvailable } = useProStatus();
   // ★11/16 게이트 흐름의 스토어 재조회(proCheck)가 PRO 를 확인했는데 이 훅의 isPro 가 아직 무료면(초기 조회 실패·갱신 지연) 그 값으로 연다 — 잠금에 가두지 않는다
   //   광고 잠금해제와 같은 1시간만 유효(그 사이 만료·회수돼도 영구히 열린 채 남지 않게) — 그 뒤는 훅의 isPro(스토어 갱신)를 따른다.
-  const [storeProUntil, setStoreProUntil] = useState(0);
-  const markStorePro = useCallback(() => setStoreProUntil(Date.now() + 60 * 60 * 1000), []);
-  const storePro = storeProUntil > Date.now();
+  //   ★11/16 밤 — 확인된 PRO 는 모듈 신호(storeProSignal)로 «모든 게이트»가 같이 본다: 다른 탭에서 새로 마운트된 게이트도
+  //   초기 조회가 실패하든 말든 즉시 PRO 로 열린다(전에는 이 훅 안에만 남아 새 게이트가 PRO 사용자를 다시 잠갔다).
+  const [storeProUntil, setStoreProUntil] = useState(() => storeProSignal.until());
+  const markStorePro = useCallback(() => storeProSignal.mark(), []);
+  useEffect(() => {
+    setStoreProUntil(storeProSignal.until()); // 첫 렌더 ~ 구독 사이에 다른 게이트가 표시한 값도 받는다
+    return storeProSignal.subscribe(() => setStoreProUntil(storeProSignal.until()));
+  }, []);
+  // 이 훅의 스토어 상태가 PRO 면 그것도 모든 게이트에 알린다(새 게이트의 초기 조회 실패·지연에 PRO 를 가두지 않음)
+  useEffect(() => { if (isPro) storeProSignal.mark(); }, [isPro]);
+  const storePro = storeProUntil > Date.now() || storeProSignal.active();
   useEffect(() => {
     if (!storeProUntil) return;
     const t = window.setTimeout(() => setStoreProUntil(0), Math.max(0, storeProUntil - Date.now()));
@@ -210,21 +218,17 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const endFlow = () => { gateFlowAt.current = 0; };
 
   /** PRO 여부를 «스토어에서 방금» 본다 — 'pro'(PRO 확인) · 'pending'(결제 진행 중) · 'free'(무료 확인) · 'unknown'(조회 실패·3초 초과) */
-  const proCheck = useCallback(async (): Promise<'pro' | 'pending' | 'free' | 'unknown'> => {
-    if (gateRef.current.isPro) return 'pro';
-    if (proPurchaseState.getSnapshot()) return 'pending';
-    try {
-      const { adManager } = await import('@/services/adManager');
-      if (adManager.isProActive()) { markStorePro(); return 'pro'; }
-      const { fetchProStatus } = await import('@/services/revenueCat');
-      const pro = await Promise.race([fetchProStatus(), new Promise<boolean>((_, rej) => setTimeout(() => rej(new Error('timeout')), 3_000))]);
-      if (pro) { markStorePro(); return 'pro'; }
-      if (proPurchaseState.getSnapshot()) return 'pending';
-      return 'free';
-    } catch {
-      return gateRef.current.isPro ? 'pro' : proPurchaseState.getSnapshot() ? 'pending' : 'unknown';
-    }
-  }, [markStorePro]);
+  //   ★11/16 밤 — 조회를 기다리는 동안 다른 경로(결제 SDK 알림·다른 게이트·광고 관리자)에서 PRO 로 바뀌었으면, 진행 중 조회가
+  //   옛 무료 결과를 돌려줘도 'free' 로 판정하지 않는다 — 결과를 쓰기 «직전»에 최신 PRO 상태를 다시 본다.
+  const proCheck = useCallback(() => checkStorePro({
+    proNow: () => gateRef.current.isPro || storeProSignal.active(),
+    pending: () => proPurchaseState.getSnapshot(),
+    adPro: async () => (await import('@/services/adManager')).adManager.isProActive(),
+    fetchPro: async () => (await import('@/services/revenueCat')).fetchProStatus(),
+    markPro: markStorePro,
+  }), [markStorePro]);
+  /** 'free' 판정을 «쓰기 직전» 다시 확인 — 그 사이 PRO·결제 진행 중이면 페이월·하루 첫 노출 기록을 쓰지 않는다 */
+  const stillFree = () => !gateRef.current.isPro && !storeProSignal.active() && !proPurchaseState.getSnapshot();
 
   /** 광고 시도 → 안 나오면 (②) 페이월 또는 대체 창. 'paywall' = 페이월을 열었다(흐름이 닫힘까지 이어진다) */
   const runUnlock = useCallback(async (shownThisTap: boolean): Promise<'paywall' | 'done'> => {
@@ -260,8 +264,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     if (native && shouldShowNoFillPaywall(gateRef.current, shownThisTap)) {
       // 무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 그대로(대체 창)
       const st = await proCheck();
-      if (st === 'pro') return 'done';
-      if (st === 'free') {
+      if (st === 'pro' || (st === 'free' && (gateRef.current.isPro || storeProSignal.active()))) return 'done';
+      if (st === 'free' && stillFree()) {
         afterPaywall.current = 'fallback';
         setPaywallSrc('ad_nofill');
         setPaywallOpen(true);
@@ -282,8 +286,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     const st = first ? await proCheck() : null;
     if (first) setUnlocking(false);
     // 무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 흐름 그대로(광고 → 대체 창)
-    if (st === 'pro') { endFlow(); return; }
-    const open = st === 'free' && markGateDay(today);
+    if (st === 'pro' || (st !== null && (gateRef.current.isPro || storeProSignal.active()))) { endFlow(); return; }
+    const open = st === 'free' && stillFree() && markGateDay(today);
     if (open) {
       afterPaywall.current = 'ad';
       setPaywallSrc('gate_first');
@@ -305,6 +309,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
           // PRO 확인·결제 진행 중(막 결제함)이면 잇지 않는다. 조회 실패(unknown)는 무료 경로를 잇는다 — 광고 관리자가 PRO 면 스스로 거절한다
           const st = await proCheck();
           if (st === 'pro' || st === 'pending') return;
+          if (gateRef.current.isPro || storeProSignal.active()) return; // 조회 뒤 다른 경로에서 PRO — 광고·대체 창 잇지 않음
           if (next === 'ad') await runUnlock(true);
           else setShowAd(true);
         } finally {

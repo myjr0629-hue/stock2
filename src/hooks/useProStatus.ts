@@ -14,6 +14,8 @@ import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { IAP_LIVE, type PlanId } from '@/config/iap';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import { announceProActivated } from '@/lib/app/ratingMoments';
+// ★11/16 밤 — 결제 SDK 가 PRO 를 알리는 «그 순간» 모든 게이트에 공유(게이트의 진행 중 스토어 조회가 옛 무료 결과를 돌려줘도 페이월 금지)
+import { storeProSignal } from '@/lib/app/gatePaywall';
 
 // 퍼널 측정 모듈은 첫 화면 번들에 싣지 않는다(동적 import — 첫 호출 뒤엔 캐시). 실패해도 결제 흐름과 무관.
 const funnel = () => import('@/lib/app/funnel');
@@ -47,6 +49,9 @@ export function useProStatus() {
       스토어 심사(가격 표시 의무)에서도 걸린다. */
   const [offers, setOffers] = useState<PlanOffer[]>([]);
 
+  // 구매·복원 성공 등 이 훅이 PRO 가 되면 모든 게이트에 공유(결제 SDK 알림은 apply 에서 즉시 공유)
+  useEffect(() => { if (isPro) storeProSignal.mark(); }, [isPro]);
+
   useEffect(() => {
     if (!IAP_LIVE) return;
     let alive = true;
@@ -66,7 +71,7 @@ export function useProStatus() {
     const apply = (info: unknown) => {
       if (cancelled) return;
       const pro = isProFromCustomerInfo(info as Parameters<typeof isProFromCustomerInfo>[0]);
-      if (pro) proPurchaseState.confirm();
+      if (pro) { proPurchaseState.confirm(); storeProSignal.mark(); }
       setIsPro(pro);
     };
 

@@ -193,8 +193,10 @@ if(!baseline) {
     assert.equal(announced,1,'결제 성공은 평점 순간 표식을 남긴다(11/11)');
     const apply=find(root,n=>ts.isVariableDeclaration(n)&&n.name.getText(root)==='apply');
     const listener=run(`(${apply.initializer.getText(root)})`,{cancelled:false,isProFromCustomerInfo:i=>i.pro,
-      proPurchaseState:{confirm(){confirmed++;}},setIsPro:v=>{pro=v;}});
-    listener({pro:true});assert.equal(confirmed,2);assert.equal(pro,true);
+      proPurchaseState:{confirm(){confirmed++;}},setIsPro:v=>{pro=v;},storeProSignal:{mark(){shared++;}}});
+    let shared=0;
+    listener({pro:true});assert.equal(confirmed,2);assert.equal(pro,true);assert.equal(shared,1,'SDK 리스너 PRO 는 모든 게이트에 즉시 공유(11/16 밤)');
+    listener({pro:false});assert.equal(shared,1,'무료 알림은 공유 PRO 를 만들지 않는다');
   });
 }
 if(!baseline) {
