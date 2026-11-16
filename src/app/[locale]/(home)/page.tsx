@@ -22,7 +22,6 @@ import { Link } from '@/i18n/routing';
 import { LiveFeedTicker } from '@/components/landing/LiveFeedTicker';
 import { PromoCodeChip } from '@/components/landing/PromoCodeChip';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
-import { watchCalendarScorecard } from '@/lib/earnings/calendarScorecardRefresh';
 
 // --- Sparkline Component ---
 function Sparkline({ data, color = "#22d3ee" }: { data: number[], color?: string }) {
@@ -402,8 +401,6 @@ export default function Page() {
   const t = useTranslations();
   const locale = useLocale();
   const pathname = usePathname();
-  const [scorecard, setScorecard] = useState<{ n: number; withinCount: number } | null>(null);
-  useEffect(() => watchCalendarScorecard(setScorecard), []);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -480,17 +477,19 @@ export default function Page() {
 
           {/* Main Headline */}
           <h1 className={`text-4xl md:text-6xl font-black tracking-tight leading-tight mb-6 drop-shadow-2xl font-jakarta ${locale === 'ko' ? 'break-keep' : ''}`}>
-            {t('home.earningsHeadline')}
+            {t('home.heroHeadline')}
           </h1>
 
           <p className={`text-base md:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed mb-10 font-medium ${locale === 'ko' ? 'break-keep' : ''}`}>
-            {scorecard ? t('home.earningsSummary', { n: scorecard.n, within: scorecard.withinCount }) : t('home.earningsFallback')}
+            {t('home.heroSub')}
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
-            <Link href="/earnings-week" className="flex items-center justify-center min-h-[54px] px-5 rounded-xl bg-cyan-400 text-slate-950 font-bold hover:bg-cyan-300 transition-colors">
-              {t('home.earningsCta')} <ArrowRight size={18} className="ml-2" />
-            </Link>
+            {/* ★2026-11-16 대표 «주식 전반을 아우르는 앱» — 첫 CTA 를 «이번 주 실적 예상 변동폭»(/earnings-week)에서 «무료로 시작»(스마트링크)으로.
+                태그는 옆 배지와 같은 home_hero(집계 기준선 유지). 실적 주간 페이지는 아래 기능·메뉴에서 그대로 닿는다. */}
+            <a href={appHref("/app?from=home_hero")} className="flex items-center justify-center min-h-[54px] px-5 rounded-xl bg-cyan-400 text-slate-950 font-bold hover:bg-cyan-300 transition-colors">
+              {t('home.heroCta')} <ArrowRight size={18} className="ml-2" />
+            </a>
             {/* ★2026-09-30 두 배지도 스마트링크(/app)를 거친다 — 직접 스토어 주소면 from 집계·Play 설치 리퍼러(utm_source)가 빠져
                 홈 첫 CTA 의 클릭·안드로이드 설치가 «보이지 않았다»(7일 home: iOS 45·안드로이드 2 는 아래 앱 카드 클릭뿐).
                 /app 은 기기별로 보낸다: 아이폰 → App Store · 안드로이드 → Play(referrer utm_source=home_hero) · PC → 폰 넘겨주기 QR(스토어 버튼 포함) */}

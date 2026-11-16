@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import Module from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { withCardCopy1116 } from './cardCopy1116';
 import { relative, resolve } from 'node:path';
 import ts from 'typescript';
 import sharp from 'sharp';
@@ -39,7 +40,7 @@ const chipReact = { ...React, useEffect: () => {}, useState: () => [[true, chipP
 function load(path: string, before: boolean): any {
   const key = `${before}:${path}`;
   if (cache.has(key)) return cache.get(key)!.exports;
-  const source = before ? execFileSync('git', ['show', `8415c9a2a:${path}`], { encoding: 'utf8' }) : readFileSync(path, 'utf8');
+  const source = before ? withCardCopy1116(path, execFileSync('git', ['show', `8415c9a2a:${path}`], { encoding: 'utf8' })) : readFileSync(path, 'utf8');
   const m = new Module(resolve(path), module);
   m.filename = resolve(path);
   m.paths = module.paths;

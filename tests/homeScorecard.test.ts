@@ -24,7 +24,7 @@ const scored = (w: string) => ({ week: w, summary: { n: 2, withinCount: 1 }, row
   assert.match((await homeScorecard(async w => scored(w), week, 'ja'))!, /範囲内/);
   const home = readFileSync('src/app/[locale]/(home)/page.tsx', 'utf8');
   assert.equal((home.match(/locale === 'ko' \? 'break-keep' : ''/g) ?? []).length, 2);
-  for (const [locale, tagline] of Object.entries({ ko: '미국 주식 실적·시장 흐름을 한눈에', en: 'US stock earnings and market moves at a glance', ja: '米国株の決算と市場の動きをひと目で' })) {
+  for (const [locale, tagline] of Object.entries({ ko: '미국주식 실시간 주가·AI 해석', en: 'Real-time stock prices and AI analysis', ja: '米国株のリアルタイム株価とAI解説' })) {
     const messages = JSON.parse(readFileSync(`src/messages/${locale}.json`, 'utf8'));
     assert.equal(messages.home.signumTagline, tagline);
   }

@@ -1,6 +1,7 @@
 /** 상대·비정상 canonical의 기존 카드 HTML을 origin/main과 바이트 비교한다. */
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { withCardCopy1116 } from './cardCopy1116';
 import Module from 'node:module';
 import { resolve } from 'node:path';
 import ts from 'typescript';
@@ -10,7 +11,7 @@ const filename = resolve('src/lib/marketing/linkPreview.ts');
 const old = new Module(filename, module);
 old.filename = filename;
 old.paths = module.paths;
-const source = execFileSync('git', ['show', 'origin/main:src/lib/marketing/linkPreview.ts'], { encoding: 'utf8' });
+const source = withCardCopy1116('src/lib/marketing/linkPreview.ts', execFileSync('git', ['show', 'origin/main:src/lib/marketing/linkPreview.ts'], { encoding: 'utf8' }));
 (old as any)._compile(ts.transpileModule(source, { compilerOptions: {
   module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017, esModuleInterop: true,
 } }).outputText, filename);

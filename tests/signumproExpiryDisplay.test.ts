@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import Module from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { withCardCopy1116 } from './cardCopy1116';
 import { relative, resolve } from 'node:path';
 import ts from 'typescript';
 import sharp from 'sharp';
@@ -36,7 +37,7 @@ const baselinePaths = new Set([
 const baselineCache = new Map<string, Module>();
 function baseline(path: string): any {
   if (baselineCache.has(path)) return baselineCache.get(path)!.exports;
-  const source = execFileSync('git', ['show', `95fe06579:${path}`], { encoding: 'utf8' });
+  const source = withCardCopy1116(path, execFileSync('git', ['show', `95fe06579:${path}`], { encoding: 'utf8' }));
   const m = new Module(resolve(path), module);
   m.filename = resolve(path);
   m.paths = module.paths;

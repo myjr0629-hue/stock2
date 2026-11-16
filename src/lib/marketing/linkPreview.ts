@@ -52,16 +52,16 @@ export type Copy = { title: string; desc: string };
 export const COPY: Record<StoreApp, Record<PreviewLang, Copy>> = {
   signum: {
     en: {
-      title: 'SIGNUM HQ — the whole US market in one free app',
-      desc: 'Premarket movers, earnings calendar, macro & rates, sector heatmap, an AI brief every morning, and institutional footprints (options, dark pool, short volume). Free on iOS & Android, no account needed.',
+      title: 'SIGNUM HQ — stock market app: real-time prices & AI analysis',
+      desc: 'Real-time prices for your US stocks (regular hours), a one-line AI read on why they moved, market news, a morning AI brief, a closing report, the earnings calendar and alerts. Free on iOS & Android, no account needed.',
     },
     ja: {
-      title: 'SIGNUM HQ — 米国市場のすべてを、無料アプリひとつで',
-      desc: 'プレマーケット・決算カレンダー・マクロ・セクター・毎朝のAI要約・機関投資家の足跡（オプション・ダークプール・空売り）。iOS・Android 無料、登録不要。',
+      title: 'SIGNUM HQ — 米国株アプリ｜株価リアルタイム・AI分析',
+      desc: 'マイ銘柄の株価をリアルタイムで（通常取引時間）、動いた理由をAIが一行で。ニュース・朝のAIブリーフ・引け後レポート・決算日程・通知。iOS・Android 無料、登録不要。',
     },
     ko: {
-      title: 'SIGNUM HQ — 미국 시장 전체를 무료 앱 하나로',
-      desc: '프리마켓·실적 일정·거시·섹터·매일 아침 AI 브리핑·기관의 흔적(옵션·다크풀·공매도). iOS·Android 무료, 가입 없이 바로.',
+      title: 'SIGNUM HQ — 미국주식 앱: 실시간 주가·AI 분석',
+      desc: '내 종목 실시간 주가(정규장), 움직인 이유를 AI가 한 줄로. 미국 증시 뉴스·아침 AI 브리핑·장마감 리포트·실적 일정·알림. iOS·Android 무료, 가입 없이 바로.',
     },
   },
   uc: {
@@ -127,15 +127,15 @@ export function promoCopy(lang: PreviewLang, code: string | null): Copy {
   const copy: Record<PreviewLang, Copy> = {
     en: {
       title: `SIGNUM HQ PRO — 1 month free · first ${limit} · until ${date} (iPhone)`,
-      desc: 'PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. Options flow & dark pool data app.',
+      desc: 'PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. US stock app with real-time prices & AI analysis.',
     },
     ja: {
       title: `SIGNUM HQ PRO 1か月無料 — 先着${limit}名・${date}まで(iPhone)`,
-      desc: 'PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。オプションフロー/ダークプールのアプリ。',
+      desc: 'PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。リアルタイム株価とAI分析の米国株アプリ。',
     },
     ko: {
       title: `SIGNUM HQ PRO 1개월 무료 — 선착순 ${limit}명 · ${date}까지(아이폰)`,
-      desc: 'PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 옵션 흐름·다크풀 데이터 앱.',
+      desc: 'PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 실시간 주가·AI 분석 미국주식 앱.',
     },
   };
   return copy[lang];
@@ -160,22 +160,22 @@ export function inviteCardCopy(lang: PreviewLang, android: boolean): Copy {
       return {
         title: 'SIGNUM HQ PRO 1개월 무료 — 친구가 보낸 선물',
         desc: android
-          ? '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰·안드로이드 모두 쓸 수 있어요. 옵션 흐름·다크풀 데이터 앱.'
-          : '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 옵션 흐름·다크풀 데이터 앱.',
+          ? '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰·안드로이드 모두 쓸 수 있어요. 실시간 주가·AI 분석 미국주식 앱.'
+          : '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 실시간 주가·AI 분석 미국주식 앱.',
       };
     case 'ja':
       return {
         title: 'SIGNUM HQ PRO 1か月無料 — 友だちからのプレゼント',
         desc: android
-          ? 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhone・Androidどちらでも使えます。オプションフロー/ダークプールのアプリ。'
-          : 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。オプションフロー/ダークプールのアプリ。',
+          ? 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhone・Androidどちらでも使えます。リアルタイム株価とAI分析の米国株アプリ。'
+          : 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。リアルタイム株価とAI分析の米国株アプリ。',
       };
     default:
       return {
         title: 'SIGNUM HQ PRO, first month free — a gift from a friend',
         desc: android
-          ? 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. Works on iPhone and Android. Options flow & dark pool data app.'
-          : 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. Options flow & dark pool data app.',
+          ? 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. Works on iPhone and Android. US stock app with real-time prices & AI analysis.'
+          : 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. US stock app with real-time prices & AI analysis.',
       };
   }
 }

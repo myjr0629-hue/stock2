@@ -23,18 +23,20 @@ const LOCALES = ['en', 'ko', 'ja'] as const;
 type Loc = (typeof LOCALES)[number];
 const loc = (l: string): Loc => (LOCALES as readonly string[]).includes(l) ? (l as Loc) : 'en';
 
+// ★2026-11-16 대표 «옵션·다크풀은 소수 — 시그넘은 주식 전반을 아우르는 앱» → 홈 정체성을 «미국 주식 앱»으로(스토어 11/16 과 같은 방향).
+//   «실시간»은 정규장 기준(시간외는 15분 지연)이라 문구에 (정규장)/during market hours 를 붙인다. 실적 예상 변동폭은 /earnings·/earnings-week 가 맡는다.
 const META: Record<Loc, { title: string; desc: string }> = {
   ko: {
-    title: 'SIGNUM HQ — 미국 주식 실적, 예상 변동폭과 실제',
-    desc: '미국 주식 실적, 발표 전 예상 변동폭과 발표 뒤 실제를 한눈에. 예상 변동폭은 옵션 가격으로 계산합니다. 주간 성적표 무료 제공. 투자 자문이 아닌 정보 제공입니다.',
+    title: 'SIGNUM HQ — 미국주식 앱: 실시간 주가·AI 분석·뉴스',
+    desc: '미국주식·해외주식을 쉽게. 내 종목 실시간 주가(정규장), 움직인 이유를 AI가 한 줄로, 나스닥·미국 증시 뉴스, 아침 AI 브리핑, 장마감 리포트, 실적 일정, 알림까지 무료. 처음 구독이면 PRO 7일 무료 체험. 투자 자문이 아닌 정보 제공입니다.',
   },
   en: {
-    title: 'SIGNUM HQ — US Stock Earnings: Expected Move vs Actual',
-    desc: 'US stocks: the expected earnings move before the report, and what actually happened after. The expected move is derived from options prices. Weekly scorecard, free. Information, not investment advice.',
+    title: 'SIGNUM HQ: Stock Market App — Real-Time Prices & AI Analysis',
+    desc: 'A free stock tracker for US stocks: real-time stock prices during market hours, AI stock analysis of why your stocks moved, market news, a morning AI brief, a closing report, the earnings calendar and alerts. New subscribers get a 7-day PRO trial. Information, not investment advice.',
   },
   ja: {
-    title: 'SIGNUM HQ — 米国株の決算、想定変動幅と実際',
-    desc: '米国株の決算、発表前の想定変動幅と発表後の実際を一目で。想定変動幅はオプション価格から算出。週間スコアカードを無料で提供。投資助言ではなく情報提供です。',
+    title: 'SIGNUM HQ — 米国株アプリ｜株価リアルタイム・AI分析・ニュース',
+    desc: '米国株をもっと手軽に。マイ銘柄の株価をリアルタイムで（通常取引時間）、動いた理由をAIが一行で分析。ニュース、朝のAIブリーフ、引け後レポート、決算日程、通知まで無料。初めての購読ならPRO 7日間無料体験。投資助言ではなく情報提供です。',
   },
 };
 

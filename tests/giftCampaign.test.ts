@@ -8,6 +8,7 @@ import { couponSafetyNormalized } from './_couponSafetyBaseline';
 import assert from 'node:assert/strict';
 import Module from 'node:module';
 import { execFileSync } from 'node:child_process';
+import { withCardCopy1116 } from './cardCopy1116';
 import { randomBytes } from 'node:crypto';
 import { relative } from 'node:path';
 import ts from 'typescript';
@@ -65,7 +66,7 @@ const baselinePaths = new Set(['src/app/app/route.ts', 'src/lib/marketing/coupon
 const baselineCache = new Map<string, Module>();
 function baseline(path: string): any {
   if (baselineCache.has(path)) return baselineCache.get(path)!.exports;
-  const source = execFileSync('git', ['show', `origin/main:${path}`], { encoding: 'utf8' });
+  const source = withCardCopy1116(path, execFileSync('git', ['show', `origin/main:${path}`], { encoding: 'utf8' }));
   const m = new Module(`${process.cwd()}/${path}`, module);
   m.filename = `${process.cwd()}/${path}`; m.paths = module.paths;
   baselineCache.set(path, m);
