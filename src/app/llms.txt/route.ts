@@ -30,7 +30,7 @@ export async function GET() {
 
 SIGNUM HQ, LLC builds the app for everyday US-stock investors. The core app is free
 with no account; an optional PRO subscription removes ads and raises the watchlist
-limit, and new subscribers get a 7-day free trial. The public web pages below are
+limit, and new subscribers may be eligible for a 7-day free trial. The public web pages below are
 free to read and open to crawl.
 
 ## What we publish
