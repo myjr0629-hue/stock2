@@ -78,7 +78,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'SIGNUM HQ — Stock Market App: Real-Time Prices & AI Analysis',
-    description: 'Real-time US stock prices during market hours, AI analysis of every move, market news, earnings calendar and alerts. Start free.',
+    description: 'Real-time US stock prices during market hours, AI stock analysis, market news, earnings calendar and alerts. Start free.',
     url: 'https://signumhq.com',
     siteName: 'SIGNUM HQ',
     images: [
@@ -95,7 +95,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'SIGNUM HQ — Stock Market App: Real-Time Prices & AI Analysis',
-    description: 'Real-time US stock prices during market hours, AI analysis of every move, market news, earnings calendar and alerts. Start free.',
+    description: 'Real-time US stock prices during market hours, AI stock analysis, market news, earnings calendar and alerts. Start free.',
     images: ['/api/og/market?type=pulse&format=tweet'],
     creator: '@signumhq',
   },

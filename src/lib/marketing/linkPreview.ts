@@ -53,15 +53,15 @@ export const COPY: Record<StoreApp, Record<PreviewLang, Copy>> = {
   signum: {
     en: {
       title: 'SIGNUM HQ — stock market app: real-time prices & AI analysis',
-      desc: 'Real-time prices for your US stocks (regular hours), a one-line AI read on why they moved, market news, a morning AI brief, a closing report, the earnings calendar and alerts. Free on iOS & Android, no account needed.',
+      desc: 'Real-time prices for your US stocks (regular hours), a one-line AI read on what is moving them, market news, a morning AI brief, a closing report, the earnings calendar and alerts. Free on iOS & Android, no account needed.',
     },
     ja: {
       title: 'SIGNUM HQ — 米国株アプリ｜株価リアルタイム・AI分析',
-      desc: 'マイ銘柄の株価をリアルタイムで（通常取引時間）、動いた理由をAIが一行で。ニュース・朝のAIブリーフ・引け後レポート・決算日程・通知。iOS・Android 無料、登録不要。',
+      desc: 'マイ銘柄の株価をリアルタイムで（通常取引時間）、株価を動かしている材料をAIが一行で。ニュース・朝のAIブリーフ・引け後レポート・決算日程・通知。iOS・Android 無料、登録不要。',
     },
     ko: {
       title: 'SIGNUM HQ — 미국주식 앱: 실시간 주가·AI 분석',
-      desc: '내 종목 실시간 주가(정규장), 움직인 이유를 AI가 한 줄로. 미국 증시 뉴스·아침 AI 브리핑·장마감 리포트·실적 일정·알림. iOS·Android 무료, 가입 없이 바로.',
+      desc: '내 종목 실시간 주가(정규장), 지금 내 종목을 움직이는 요인을 AI가 한 줄로. 미국 증시 뉴스·아침 AI 브리핑·장마감 리포트·실적 일정·알림. iOS·Android 무료, 가입 없이 바로.',
     },
   },
   uc: {
