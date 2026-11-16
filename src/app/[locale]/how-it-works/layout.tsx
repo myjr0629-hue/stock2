@@ -4,9 +4,9 @@ import { publicBase } from '@/lib/net/publicBase';
 // 2026-08-22 실측: 이 페이지 제목·설명이 홈과 «완전히 동일»했다(둘 다 루트 layout 값).
 // 중복 제목은 구글이 저품질로 보고 색인 우선순위를 낮춘다.
 const HIW_META: Record<string, { title: string; desc: string }> = {
-  ko: { title: '사용법 — 다크풀·맥스페인 읽는 법 | SIGNUM HQ', desc: '다크풀 비중, 맥스페인, 감마 노출, 콜월·풋플로어가 무엇이고 어떻게 읽는지. 화면별 사용법을 예시와 함께.' },
-  en: { title: 'How It Works — Reading Dark Pool & Max Pain | SIGNUM HQ', desc: 'What dark pool share, max pain, gamma exposure and the call wall / put floor mean, and how to read them screen by screen.' },
-  ja: { title: '使い方 — ダークプールとマックスペインの読み方 | SIGNUM HQ', desc: 'ダークプール比率、マックスペイン、ガンマ、コールウォール・プットフロアの意味と読み方を画面ごとに解説。' },
+  ko: { title: '사용법 — 미국주식 화면별 가이드 | SIGNUM HQ', desc: '종목 화면·관심종목·포트폴리오·AI 리포트를 어떻게 쓰는지 화면별로. 다크풀 비중·맥스페인·GEX·콜월·풋플로어 같은 고급 지표를 읽는 법도 예시와 함께.' },
+  en: { title: 'How It Works — A Screen-by-Screen Guide | SIGNUM HQ', desc: 'How to use stock pages, your watchlist, portfolio and AI reports, screen by screen, plus how to read advanced data such as dark pool share, max pain, gamma exposure and the call wall / put floor.' },
+  ja: { title: '使い方 — 画面ごとのガイド | SIGNUM HQ', desc: '銘柄画面・ウォッチリスト・ポートフォリオ・AIレポートの使い方を画面ごとに解説。ダークプール比率・マックスペイン・ガンマ・コールウォール・プットフロアなど上級データの読み方も例つきで。' },
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {

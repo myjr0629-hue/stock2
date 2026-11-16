@@ -30,9 +30,9 @@ export function Footer() {
                     (2026-08-22 실측: 홈 → 티커 링크가 «0개»였다) */}
                 <div className="text-[12px] text-slate-400 text-center mb-3">
                     <Link href={`/${locale}/tickers`} className="underline hover:text-white transition-colors">
-                        {isKorean ? '전체 종목 — 다크풀·맥스페인·옵션 플로우'
-                          : locale === 'ja' ? '全ティッカー — ダークプール・マックスペイン・オプションフロー'
-                          : 'All tickers — dark pool, max pain & options flow'}
+                        {isKorean ? '전체 종목 — 주가와 고급 지표(다크풀·맥스페인)'
+                          : locale === 'ja' ? '全ティッカー — 株価と上級データ（ダークプール・マックスペイン）'
+                          : 'All tickers — prices and advanced data (dark pool, max pain)'}
                     </Link>
                 </div>
 

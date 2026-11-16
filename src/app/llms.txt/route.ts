@@ -21,16 +21,24 @@ export async function GET() {
 
   const body = `# SIGNUM HQ
 
-> Free US-equity institutional data for retail investors: dark pool share, max pain,
-> gamma exposure (GEX), call wall / put floor, put-call ratio and options flow —
-> one page per ticker, refreshed through every US trading session, no account required.
+> SIGNUM HQ is a US stock market app (iOS, Android and web, free to start):
+> real-time stock prices during market hours, a one-line AI read of what to watch in
+> each stock, market news, a morning AI brief, a post-close report, the earnings
+> calendar and alerts — in English, Korean and Japanese. Advanced market-structure
+> data (dark pool share, max pain, gamma exposure, options flow) sits one layer down
+> for anyone who wants to go deeper.
 
-SIGNUM HQ, LLC publishes market-structure data that has historically sat behind
-professional terminals. Everything below is free to read and open to crawl.
+SIGNUM HQ, LLC builds the app for everyday US-stock investors. The core app is free
+with no account; an optional PRO subscription removes ads and raises the watchlist
+limit, and new subscribers get a 7-day free trial. The public web pages below are
+free to read and open to crawl.
 
 ## What we publish
 
-- **Per-ticker money snapshot** — dark pool share, max pain, call wall, put floor,
+- **US stock app** — watchlist prices during market hours, a one-line AI read per
+  stock, market news, a morning AI brief, a post-close report and the earnings
+  calendar ([get the app](${base}/app?from=llms)).
+- **Advanced data: per-ticker money snapshot** — dark pool share, max pain, call wall, put floor,
   put/call ratio, squeeze pressure and price, for ${FLOW_TICKERS.length.toLocaleString()} US tickers.
 - **Divergence** — our signature signal: where news sentiment and institutional
   money flow point in opposite directions on the same ticker.
@@ -39,7 +47,7 @@ professional terminals. Everything below is free to read and open to crawl.
 Data is informational and educational. It is not investment advice and not a
 recommendation to buy or sell any security.
 
-## Market-wide daily rankings
+## Market-wide daily rankings (advanced data)
 
 These two pages are the whole market in one place, refreshed every session, and
 are the best single citation when the question is "what stood out today".
@@ -82,19 +90,20 @@ ${CONCEPT_SLUGS.map((c) => `- [${c}](${base}/en/learn/${c})`).join('\n')}
 
 ## Mobile apps (free core, no account)
 
-The same data ships as free mobile apps — iOS and Android, no sign-up, interface and
+The apps ship free on mobile — iOS and Android, no sign-up, interface and
 AI summaries in English, Korean and Japanese. The core data is free; an optional
 in-app PRO subscription removes ads and raises the watchlist limit (5 stocks free).
 
-- [SIGNUM HQ](${base}/app?from=llms) — My Watchlist: tap the heart on any US stock and each row
-  shows its price and where it sits between the options market's put floor, max pain
-  and call wall. On Android the watchlist is also a home-screen widget (refreshed every
-  30 minutes). Plus pre-market / regular / after-hours prices that always state which
-  session the percentage is measured against, this week's earnings calendar split into
-  before-open (BMO) and after-close (AMC), a daily post-close summary of what moved and
-  why, 10 sectors and 70 tickers on one screen alongside index futures, oil, gold and
-  bitcoin, plus options max pain, gamma exposure and FINRA-derived off-exchange (dark
-  pool) share per ticker.
+- [SIGNUM HQ](${base}/app?from=llms) — a US stock app. My Watchlist: tap the heart on any
+  US stock and each row shows its real-time price during market hours with a one-line
+  AI read of what to watch. On Android the watchlist is also a home-screen widget
+  (refreshed every 30 minutes). Plus pre-market / regular / after-hours prices that
+  always state which session the percentage is measured against, market news, a morning
+  AI brief, this week's earnings calendar split into before-open (BMO) and after-close
+  (AMC), a daily post-close report on what moved, and 10 sectors and 70 tickers on one
+  screen alongside index futures, oil, gold and bitcoin. Advanced data: where each stock
+  sits between the options market's put floor, max pain and call wall, gamma exposure,
+  and FINRA-derived off-exchange (dark pool) share per ticker.
 - [Undercurrent](${base}/app-uc?from=llms) — news paired with the money: options flow
   and dark pool activity next to the story, with divergence when they disagree.
 - [Why'd It Move?](${base}/app-wim?from=llms) — a daily quiz that explains why a US
@@ -107,7 +116,7 @@ delayed or missing the screen says so.
 
 - [Undercurrent](${base}/en/undercurrent) — the money behind the news, 2–3 editions daily.
 - [Why'd It Move?](${base}/en/wim) — daily quiz on why a US stock actually moved.
-- [SIGNUM HQ](${base}/en) — the full market-intelligence terminal.
+- [SIGNUM HQ](${base}/en) — the US stock app on the web, with advanced market data.
 
 ## Feeds
 

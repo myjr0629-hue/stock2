@@ -5,9 +5,9 @@ import { publicBase } from '@/lib/net/publicBase';
 // 2026-08-22 실측: 이 페이지 제목·설명이 홈과 «완전히 동일»했다(둘 다 루트 layout 값).
 // 중복 제목은 구글이 저품질로 보고 색인 우선순위를 낮춘다.
 const META: Record<string, { title: string; desc: string }> = {
-  ko: { title: '요금제 — SIGNUM HQ', desc: '무료로 시작하세요. 다크풀·맥스페인·옵션 플로우는 가입 없이 볼 수 있습니다. 유료 요금제와 포함 항목을 확인하세요.' },
-  en: { title: 'Pricing — SIGNUM HQ', desc: 'Start free. Dark pool, max pain and options flow are available with no account. See what each plan includes.' },
-  ja: { title: '料金プラン — SIGNUM HQ', desc: '無料で始められます。ダークプール・マックスペイン・オプションフローは登録不要。各プランの内容をご確認ください。' },
+  ko: { title: '요금제 — SIGNUM HQ', desc: '무료로 시작하세요. 가격 차트·기관 보유 현황은 무료, PRO는 AI 해석·10개 섹터 리포트·장마감 브리핑을 모두 열고 관심종목을 50개까지 늘립니다. 옵션·다크풀 같은 고급 지표도 PRO·ELITE에 포함됩니다.' },
+  en: { title: 'Pricing — SIGNUM HQ', desc: 'Start free. Price charts and institutional holdings are free; PRO unlocks AI insights, all 10 sector reports and the post-market brief, and raises your watchlist to 50 stocks. Advanced data such as options and dark pool activity is included in PRO and ELITE.' },
+  ja: { title: '料金プラン — SIGNUM HQ', desc: '無料で始められます。株価チャート・機関保有状況は無料、PROはAI解説・全10セクターレポート・引け後ブリーフをすべて開放し、ウォッチリストを50銘柄まで拡大。オプション・ダークプールなどの上級データもPRO・ELITEに含まれます。' },
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
