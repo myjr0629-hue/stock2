@@ -103,17 +103,27 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
       assert.equal(m.alternates.canonical, `${BASE}/${l}/earnings/${T}`);
       assert.equal(m.alternates.languages['x-default'], `${BASE}/en/earnings/${T}`);
       assert.equal(m.alternates.languages.ja, `${BASE}/ja/earnings/${T}`);
-      assert.match(m.title, /±8\.4%/);
+      assert.match(m.description, /±8\.4%/); // 11/16: 예상 변동폭은 설명 첫 줄(제목은 현지 시각 틀)
     }
     // 한국어·일본어 검색어(«엔비디아 실적 발표일»·«エヌビディア 決算発表日»·«예상 변동폭»)가 제목 앞쪽에
     const kD = `${Number(D.slice(5, 7))}월 ${Number(D.slice(8, 10))}일`, jD = `${Number(D.slice(5, 7))}月${Number(D.slice(8, 10))}日`;
+    // 11/16 틀 — 장후·예정일: 현지 날짜(ET 다음 날)·«미국 장 마감 후(예정)» · 경계 시각(06:00 이후)을 제목·설명에 숫자로 쓰지 않는다
+    const nd = addDays(D, 1), wdK = ['일', '월', '화', '수', '목', '금', '토'][new Date(`${nd}T12:00:00Z`).getUTCDay()], wdJ = ['日', '月', '火', '水', '木', '金', '土'][new Date(`${nd}T12:00:00Z`).getUTCDay()];
+    const kN = `${Number(nd.slice(5, 7))}월 ${Number(nd.slice(8, 10))}일(${wdK})`, jN = `${Number(nd.slice(5, 7))}月${Number(nd.slice(8, 10))}日(${wdJ})`;
     const mko = await page.generateMetadata(props('ko', T));
-    assert.equal(mko.title, `${EARNINGS_COMPANIES[T].ko}(${T}) 실적 발표일 ${kD}(예정) · 예상 변동폭 ±8.4% | SIGNUM HQ`);
-    assert.match(mko.description, new RegExp(`실적 발표일은 ${kD}\\(예정\\), 한국 시간 \\d+월 \\d+일\\(.\\) 0[56]:00 이후\\.`));
+    assert.equal(mko.title, `${EARNINGS_COMPANIES[T].ko}(${T}) 실적 발표일·시간 — 한국시간 ${kN} 미국 장 마감 후(예정) | SIGNUM HQ`);
+    assert.ok(mko.description.startsWith(`${EARNINGS_COMPANIES[T].ko}(${T}) 실적 발표는 한국시간 ${kN}, 미국 장 마감 후(뉴욕 ${kD} 기준, 예정일·회사 공지 전)입니다. 옵션 가격 기준 예상 변동폭은 ±8.4%(${Number(today.slice(5, 7))}/${Number(today.slice(8, 10))} 마감 호가 기준)입니다.`), mko.description);
+    assert.doesNotMatch(mko.description, /\d{2}:\d{2}/);
     const mja = await page.generateMetadata(props('ja', T));
-    assert.equal(mja.title, `${EARNINGS_COMPANIES[T].ja}(${T}) 決算発表日 ${jD}(予定)・予想変動幅±8.4% | SIGNUM HQ`);
-    assert.match(mja.description, /日本時間 \d+月\d+日\(.\) [56]:00以降。/);
-    assert.match((await page.generateMetadata(props('en', T))).title, /Earnings Date .+ · Expected Move ±8\.4%/);
+    assert.equal(mja.title, `${EARNINGS_COMPANIES[T].ja}(${T})決算発表は日本時間いつ？${jN} 米国引け後(予定) | SIGNUM HQ`);
+    assert.ok(mja.description.startsWith(`${EARNINGS_COMPANIES[T].ja}(${T})の決算発表は日本時間${jN}、米国の引け後(NY ${jD}基準・予定日・企業発表前)。オプション価格基準の予想変動幅は±8.4%`), mja.description);
+    const men = await page.generateMetadata(props('en', T));
+    assert.equal(men.title, `${EARNINGS_COMPANIES[T].en} (${T}) Earnings Date & Time — ${EP.md(D, 'en')}, After the Close (est.) | SIGNUM HQ`);
+    assert.match(men.description, /^.+ reports earnings on .+ after the close \(estimated date\)\. Options imply a ±8\.4% move/);
+    assert.equal(men.openGraph.title, men.title);
+    // 첫 단락(같은 <p> 안) 끝에 같은 한 줄 — 배치는 그대로
+    const lead = (await html('ko', T)).match(/<p class="ep-lead">(.*?)<\/p>/)![1];
+    assert.ok(lead.startsWith(EP.EP_COPY.ko.lead(`${EARNINGS_COMPANIES[T].ko}(${T})`)) && lead.includes(`실적 발표는 한국시간 ${kN}, 미국 장 마감 후`), lead);
     // h1·FAQ(JSON-LD 와 화면 같은 배열) — 발표일·한국 시간·방향 아님
     const hk = await html('ko', T);
     assert.ok(hk.includes(`${EARNINGS_COMPANIES[T].ko}(${T}) 실적 발표일·예상 변동폭 vs 실제</h1>`), 'ko h1');
@@ -350,14 +360,21 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
       (pack as any).cells = { 'NVDA|2026-11-17': { p: 6.9, e: '2026-11-20', b: 'live', s: '2026-11-17', r: null, f: '2026-11-20', method: 'weekly' } };
       // 16:10 ET — 공지 시각 전: 다음 발표 11/17 · 예상 ±6.9%
       const pre = await render('2026-11-17T21:10:00Z');
-      assert.equal(pre.ko.m.title, `${NV.ko} 실적 발표일 11월 17일 · 예상 변동폭 ±6.9% | SIGNUM HQ`);
+      assert.equal(pre.ko.m.title, `${NV.ko} 실적 발표일·시간 — 한국시간 11월 18일(수) 오전 6시 20분 | SIGNUM HQ`);
+      assert.equal(pre.ja.m.title, `${NV.ja}決算発表は日本時間いつ？11月18日(水) 午前6時20分 | SIGNUM HQ`);
+      assert.equal(pre.en.m.title, `${NV.en} Earnings Date & Time — Nov 17, 4:20 PM ET | SIGNUM HQ`);
+      assert.ok(pre.ko.m.description.startsWith(`${NV.ko} 실적 발표 시간은 한국시간 11월 18일(수) 오전 6시 20분(뉴욕 11월 17일 16:20, 회사 공지)입니다. 옵션 가격 기준 예상 변동폭은 ±6.9%(11/17 장중 호가 기준)입니다.`), pre.ko.m.description);
+      assert.ok(pre.ja.m.description.startsWith(`${NV.ja}の決算発表は日本時間11月18日(水)午前6時20分(NY 11月17日 16:20・企業発表済み)。`), pre.ja.m.description);
+      assert.ok(pre.en.m.description.startsWith(`${NV.en} reports earnings on Tue, Nov 17, 2026 at 4:20 PM ET (company-confirmed). Options imply a ±6.9% move (Nov 17 live quotes).`), pre.en.m.description);
+      assert.ok(pre.ja.h.includes('の決算発表は日本時間11月18日(水)午前6時20分'), 'ja lead line');
       assert.ok(pre.ko.h.includes('data-next="2026-11-17"') && pre.ko.h.includes('>다음 실적 발표</h2>'));
       // 16:30 ET — 공지 시각(16:20) 뒤 · 18:00 전
       const post = await render('2026-11-17T21:30:00Z');
       const nextNames = { ko: /다음 실적 발표일은 2026년 11월 17일/, ja: /次回の決算発表日は2026年11月17日/, en: /next report on Tue, Nov 17, 2026/ };
       for (const l of ['ko', 'ja', 'en'] as const) {
         const { h, m, faq } = post[l];
-        assert.doesNotMatch(m.title, /실적 발표일 11월 17일|決算発表日 11月17日|Earnings Date Nov 17/, `${l} title`);
+        assert.doesNotMatch(m.title, /실적 발표일 11월 17일|決算発表日 11月17日|Earnings Date Nov 17|발표일·시간|日本時間いつ|Date & Time/, `${l} title`);
+        assert.doesNotMatch(m.description, /실적 발표 시간은 한국시간|の決算発表は日本時間|reports earnings on/, `${l} desc (no upcoming slot)`);
         assert.doesNotMatch(m.description, /실적 발표일은 11월 17일|決算発表日は11月17日|reports earnings next on Nov 17/, `${l} desc`);
         assert.ok(faq.every((q: any) => !nextNames[l].test(q.acceptedAnswer.text)), `${l} FAQ JSON-LD`);
         assert.ok(!nextNames[l].test(h), `${l} FAQ body`);
@@ -406,6 +423,32 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
       assert.ok(!h.includes('data-next="2026-11-17"') && !h.includes('2026년 11월 17일'), 'after midnight: no yesterday row');
       assert.ok(h.includes('실적 캘린더에 앞으로 120일 안의 발표 일정이 아직 없습니다'));
     } finally { Date.now = realNow; calendar = saved; svc._resetEarningsPageMemo(); }
+  });
+  await test('[11/16] 현지 시각 제목 — 공지 시각(분까지)·장전/장후만(숫자 없음)·시각 미정(기존 틀)·서머타임 경계·ET 장후 → 현지 다음 날', async () => {
+    const t = (r: any, l: 'ko' | 'ja' | 'en') => { const s = EP.slotOf(r); return s ? EP.EP_COPY[l].slotTitle({ name: 'X', slot: s }) : null; };
+    // 공지 시각 · 표준시(EST): 16:20 ET = 다음 날 06:20
+    assert.equal(t({ date: '2026-11-17', hour: 'amc', etTime: '16:20', dateStatus: 'confirmed' }, 'ko'), 'X 실적 발표일·시간 — 한국시간 11월 18일(수) 오전 6시 20분 | SIGNUM HQ');
+    // 서머타임(EDT) 첫 평일 — 16:05 ET = 다음 날 05:05 · 직전 금요일 장후(EST)는 다음 날(토)
+    assert.equal(t({ date: '2027-03-15', hour: 'amc', etTime: '16:05', dateStatus: 'confirmed' }, 'ja'), 'X決算発表は日本時間いつ？3月16日(火) 午前5時5分 | SIGNUM HQ');
+    assert.equal(t({ date: '2027-03-12', hour: 'amc', dateStatus: 'confirmed' }, 'ko'), 'X 실적 발표일·시간 — 한국시간 3월 13일(토) 미국 장 마감 후 | SIGNUM HQ');
+    // 서머타임 끝(11/1) 직전 금요일 장후 공지 16:30 EDT = 토 05:30 · 다음 월요일 장전 07:00 EST = 같은 날 21:00
+    assert.equal(t({ date: '2026-10-30', hour: 'amc', etTime: '16:30', dateStatus: 'confirmed' }, 'ko'), 'X 실적 발표일·시간 — 한국시간 10월 31일(토) 오전 5시 30분 | SIGNUM HQ');
+    assert.equal(t({ date: '2026-11-02', hour: 'bmo', etTime: '07:00', dateStatus: 'confirmed' }, 'ko'), 'X 실적 발표일·시간 — 한국시간 11월 2일(월) 오후 9시 | SIGNUM HQ');
+    // 장전 · 예정 — 같은 날, 숫자 없음
+    assert.equal(t({ date: '2026-11-19', hour: 'bmo', dateStatus: 'est' }, 'ko'), 'X 실적 발표일·시간 — 한국시간 11월 19일(목) 미국 장 시작 전(예정) | SIGNUM HQ');
+    assert.equal(t({ date: '2026-11-19', hour: 'bmo', dateStatus: 'est' }, 'en'), 'X Earnings Date & Time — Nov 19, Before the Open (est.) | SIGNUM HQ');
+    assert.equal(t({ date: '2026-11-19', hour: 'amc', etTime: '16:20', dateStatus: 'confirmed' }, 'en'), 'X Earnings Date & Time — Nov 19, 4:20 PM ET | SIGNUM HQ');
+    // 장전/장후도 모름 → null(기존 틀) · 잘못된 날짜 → null
+    assert.equal(EP.slotOf({ date: '2026-11-19', hour: '', dateStatus: 'est' }), null);
+    assert.equal(EP.slotOf({ date: 'x', hour: 'amc' }), null);
+    // 시계 표기
+    assert.equal(EP.clock12('00:05', 'ko'), '오전 0시 5분');
+    assert.equal(EP.clock12('12:00', 'ko'), '오후 12시');
+    assert.equal(EP.clock12('12:30', 'ja'), '午後0時30分');
+    assert.equal(EP.clock12('00:00', 'en'), '12:00 AM');
+    // 시각 미정 종목 페이지 — 기존 제목 유지(N: 장전/장후 '' · 예상 변동폭·채점 없음)
+    const mN = await page.generateMetadata(props('ko', N));
+    assert.doesNotMatch(mN.title, /발표일·시간|한국시간/);
   });
   console.log(`총 ${checks}개 묶음 통과 (오프라인)`);
 })().catch((e) => { console.error(e); process.exit(1); });

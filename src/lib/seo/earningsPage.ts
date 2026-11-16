@@ -294,6 +294,60 @@ export function localWhenText(r: { date: string; hour: string; etTime?: string }
   return loc === 'ko' ? `한국 시간 ${day} ${time}${tail}` : `日本時間 ${day} ${time}${tail}`;
 }
 
+/**
+ * 제목·설명·첫 단락의 «다음 발표 시각» 조각(2026-11-16 «기업명+실적 발표 시간+현지 시간» 검색 대응).
+ *   · 회사가 공지한 정확한 시각(etTime — 회사 공지 일정에만 있다)이면 현지 시·분까지.
+ *   · 아니면 장전/장후만 — 경계 시각(06:00 이후 등)도 숫자로 쓰지 않는다. 현지 날짜는 장후 = ET 다음 날, 장전 = 같은 날로 정해진다
+ *     (장후 16:00~23:59 ET = KST 다음 날 05:00~13:59 · 장전 00:00~09:29 ET = KST 같은 날 13:00~23:29, 서머타임 무관).
+ *   · 장전/장후조차 모르면 null — 이때 제목·설명은 기존 틀 그대로(현지 날짜를 정할 수 없다).
+ * 순수 함수. 값을 만들지 않는다.
+ */
+export interface EpSlot {
+  /** ET 발표일 */
+  etDate: string;
+  /** 'HH:MM'(ET) — 회사 공지 시각이 있을 때만 */
+  etTime: string | null;
+  hour: 'bmo' | 'amc' | '';
+  /** 한국·일본(UTC+9) 날짜와 요일 */
+  localDate: string;
+  localWeekday: number;
+  /** 'HH:MM'(UTC+9) — etTime 이 있을 때만 */
+  localTime: string | null;
+  confirmed: boolean;
+}
+export function slotOf(r: { date: string; hour: string; etTime?: string; dateStatus?: string }): EpSlot | null {
+  if (!ymdOk(r.date)) return null;
+  const exact = r.etTime ? etWallToMs(r.date, r.etTime) : null;
+  const hour = r.hour === 'bmo' || r.hour === 'amc' ? r.hour : '';
+  const edge = exact != null ? exact : hour === 'amc' ? etWallToMs(r.date, closeEtOf(r.date)) : hour === 'bmo' ? etWallToMs(r.date, '09:30') : null;
+  if (edge == null) return null;
+  const k = kstOf(edge);
+  return {
+    etDate: r.date, etTime: exact != null ? r.etTime! : null, hour,
+    localDate: k.date, localWeekday: k.weekday, localTime: exact != null ? k.time : null,
+    confirmed: r.dateStatus === 'confirmed',
+  };
+}
+/** 'HH:MM' → 오전 6시 20분 · 午前6時20分 · 6:20 AM (정각이면 분 생략 — 오후 9시 · 午後9時 · 9:00 PM) */
+export function clock12(hhmm: string, loc: Loc): string {
+  const h = Number(hhmm.slice(0, 2)), m = Number(hhmm.slice(3, 5));
+  const pm = h >= 12;
+  if (loc === 'en') return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${pm ? 'PM' : 'AM'}`;
+  const hh = loc === 'ja' ? h % 12 : (h % 12 === 0 && pm ? 12 : h % 12);
+  if (loc === 'ja') return `${pm ? '午後' : '午前'}${hh}時${m ? `${m}分` : ''}`;
+  return `${pm ? '오후' : '오전'} ${hh}시${m ? ` ${m}분` : ''}`;
+}
+/** 11월 18일(수) · 11月18日(水) — 현지 날짜 */
+const localDay = (s: EpSlot, loc: Loc) => `${mdName(s.localDate, loc)}(${WD[loc][s.localWeekday]})`;
+/** 예상 변동폭 기준 시각 — 11/16 마감 호가 기준 · 11/16引け気配基準 · Nov 16 closing quotes */
+export function impliedAsOf(d: { session: string | null; quote: 'live' | 'eod' | null } | null, loc: Loc): string | null {
+  if (!d || !d.session || !ymdOk(d.session)) return null;
+  const q = d.quote;
+  if (loc === 'ko') return `${md(d.session, 'ko')} ${q === 'live' ? '장중 ' : q === 'eod' ? '마감 ' : ''}호가 기준`;
+  if (loc === 'ja') return `${md(d.session, 'ja')}${q === 'live' ? 'ザラ場' : q === 'eod' ? '引け' : ''}気配基準`;
+  return `${md(d.session, 'en')} ${q === 'live' ? 'live ' : q === 'eod' ? 'closing ' : ''}quotes`;
+}
+
 /** 허브 «이번 주·다음 주» — 오늘(ET)이 든 주(월~일), 그다음 월~일 */
 export function weekWindows(nowMs: number = Date.now()): { thisWeek: [string, string]; nextWeek: [string, string] } {
   const today = etDateOf(nowMs);
@@ -361,6 +415,12 @@ export interface EpCopy {
   /** reported = 오늘 이미 나온 발표 날짜(이때 date 는 null, pct 는 발표 전 값) */
   metaTitle: (d: { name: string; pct: string | null; date: string | null; graded: string | null; reported?: string | null }) => string;
   metaDesc: (d: { name: string; ticker: string; pct: string | null; date: string | null; local: string | null; last: ScorecardRow | null; reported?: string | null }) => string;
+  /** 다가오는 발표의 현지 시각을 아는 경우(slotOf ≠ null)의 제목 — «기업명 + 실적 발표 시간 + 현지 시간» 검색어 순서 */
+  slotTitle: (d: { name: string; slot: EpSlot }) => string;
+  /** 같은 경우의 한 줄 — 설명 첫머리·첫 단락 끝(현지 날짜·시각 → 확정/예정·장전/장후 → 예상 변동폭·기준 시각) */
+  slotLine: (d: { name: string; slot: EpSlot; pct: string | null; asOf: string | null }) => string;
+  /** 같은 경우의 설명 뒷부분(지난 채점 한 줄 + 기록 안내) */
+  slotDescTail: (d: { last: ScorecardRow | null }) => string;
   // 허브
   hubTitle: string;
   hubH1: string;
@@ -457,6 +517,17 @@ const KO: EpCopy = {
     last ? `지난 발표(${md(last.date, 'ko')}) 예상 ${expectedText(last.expectedPct)} → 실제 ${actualText(last.actualPct, last.expectedPct)}, ${last.beyond ? '범위 밖' : '범위 안'}.` : '',
     '발표 전 옵션 예상과 발표 뒤 실제 종가 변동을 나란히 기록합니다.',
   ].filter(Boolean).join(' '),
+  slotTitle: ({ name, slot }) => `${name} 실적 발표일·시간 — 한국시간 ${localDay(slot, 'ko')} ${slot.localTime ? clock12(slot.localTime, 'ko') : slot.hour === 'amc' ? '미국 장 마감 후' : '미국 장 시작 전'}${slot.confirmed ? '' : '(예정)'} | SIGNUM HQ`,
+  slotLine: ({ name, slot, pct, asOf }) => [
+    slot.localTime && slot.etTime
+      ? `${name} 실적 발표 시간은 한국시간 ${localDay(slot, 'ko')} ${clock12(slot.localTime, 'ko')}(뉴욕 ${mdName(slot.etDate, 'ko')} ${slot.etTime}, ${slot.confirmed ? '회사 공지' : '예정'})입니다.`
+      : `${name} 실적 발표는 한국시간 ${localDay(slot, 'ko')}, 미국 ${slot.hour === 'amc' ? '장 마감 후' : '장 시작 전'}(뉴욕 ${mdName(slot.etDate, 'ko')} 기준, ${slot.confirmed ? '회사 공지 일정' : '예정일·회사 공지 전'})입니다.`,
+    pct ? `옵션 가격 기준 예상 변동폭은 ${pct}${asOf ? `(${asOf})` : ''}입니다.` : '',
+  ].filter(Boolean).join(' '),
+  slotDescTail: ({ last }) => [
+    last ? `지난 발표(${md(last.date, 'ko')}) 예상 ${expectedText(last.expectedPct)} → 실제 ${actualText(last.actualPct, last.expectedPct)}, ${last.beyond ? '범위 밖' : '범위 안'}.` : '',
+    '발표 전 옵션 예상과 발표 뒤 실제 종가 변동을 나란히 기록합니다.',
+  ].filter(Boolean).join(' '),
   hubTitle: '미국 주식 실적 발표일·예상 변동폭 — 종목별 실적 채점표 | SIGNUM HQ',
   hubH1: '미국 주식 실적 발표일·예상 변동폭 채점표',
   hubLead: '이번 주·다음 주 미국 주식 실적 발표 일정(한국 시간 포함)과, 실적 발표 때 옵션이 반영한 예상 변동폭만큼 주가가 움직였는지 종목별로 기록합니다.',
@@ -546,6 +617,17 @@ const JA: EpCopy = {
     last ? `前回(${md(last.date, 'ja')})は予想${expectedText(last.expectedPct)} → 実際${actualText(last.actualPct, last.expectedPct)}で${last.beyond ? '範囲外' : '範囲内'}。` : '',
     '発表前のオプション予想と発表後の実際の終値変動を並べて記録します。',
   ].filter(Boolean).join(''),
+  slotTitle: ({ name, slot }) => `${name}決算発表は日本時間いつ？${localDay(slot, 'ja')} ${slot.localTime ? clock12(slot.localTime, 'ja') : slot.hour === 'amc' ? '米国引け後' : '米国寄り付き前'}${slot.confirmed ? '' : '(予定)'} | SIGNUM HQ`,
+  slotLine: ({ name, slot, pct, asOf }) => [
+    slot.localTime && slot.etTime
+      ? `${name}の決算発表は日本時間${localDay(slot, 'ja')}${clock12(slot.localTime, 'ja')}(NY ${mdName(slot.etDate, 'ja')} ${slot.etTime}・${slot.confirmed ? '企業発表済み' : '予定'})。`
+      : `${name}の決算発表は日本時間${localDay(slot, 'ja')}、米国の${slot.hour === 'amc' ? '引け後' : '寄り付き前'}(NY ${mdName(slot.etDate, 'ja')}基準・${slot.confirmed ? '企業発表の日程' : '予定日・企業発表前'})。`,
+    pct ? `オプション価格基準の予想変動幅は${pct}${asOf ? `(${asOf})` : ''}。` : '',
+  ].join(''),
+  slotDescTail: ({ last }) => [
+    last ? `前回(${md(last.date, 'ja')})は予想${expectedText(last.expectedPct)} → 実際${actualText(last.actualPct, last.expectedPct)}で${last.beyond ? '範囲外' : '範囲内'}。` : '',
+    '発表前のオプション予想と発表後の実際の終値変動を並べて記録します。',
+  ].join(''),
   hubTitle: '米国株 決算発表日・予想変動幅 — 銘柄別 決算採点表 | SIGNUM HQ',
   hubH1: '米国株 決算発表日・予想変動幅 採点表',
   hubLead: '今週・来週の米国株の決算発表予定(日本時間つき)と、決算発表でオプションの予想変動幅どおりに株価が動いたかを銘柄ごとに記録します。',
@@ -629,6 +711,17 @@ const EN: EpCopy = {
   metaDesc: ({ name, pct, date, last, reported }) => [
     reported ? `${name} reported earnings on ${reported}; results are being tallied.` : date ? `${name} reports earnings next on ${date}.` : '',
     pct ? (reported ? `Before the report, options implied a ${pct} move.` : `Options imply a ${pct} move.`) : '',
+    last ? `Last report (${md(last.date, 'en')}): expected ${expectedText(last.expectedPct)}, actual ${actualText(last.actualPct, last.expectedPct)} — ${last.beyond ? 'outside' : 'within'} the range.` : '',
+    'Pre-report options pricing next to the actual closing move, report by report.',
+  ].filter(Boolean).join(' '),
+  slotTitle: ({ name, slot }) => `${name} Earnings Date & Time — ${md(slot.etDate, 'en')}, ${slot.etTime ? `${clock12(slot.etTime, 'en')} ET` : slot.hour === 'amc' ? 'After the Close' : 'Before the Open'}${slot.confirmed ? '' : ' (est.)'} | SIGNUM HQ`,
+  slotLine: ({ name, slot, pct, asOf }) => [
+    slot.etTime
+      ? `${name} reports earnings on ${longDate(slot.etDate, 'en')} at ${clock12(slot.etTime, 'en')} ET (${slot.confirmed ? 'company-confirmed' : 'estimated'}).`
+      : `${name} reports earnings on ${longDate(slot.etDate, 'en')} ${slot.hour === 'amc' ? 'after the close' : 'before the open'} (${slot.confirmed ? 'company-confirmed date' : 'estimated date'}).`,
+    pct ? `Options imply a ${pct} move${asOf ? ` (${asOf})` : ''}.` : '',
+  ].filter(Boolean).join(' '),
+  slotDescTail: ({ last }) => [
     last ? `Last report (${md(last.date, 'en')}): expected ${expectedText(last.expectedPct)}, actual ${actualText(last.actualPct, last.expectedPct)} — ${last.beyond ? 'outside' : 'within'} the range.` : '',
     'Pre-report options pricing next to the actual closing move, report by report.',
   ].filter(Boolean).join(' '),

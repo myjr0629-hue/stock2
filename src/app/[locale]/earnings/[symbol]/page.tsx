@@ -10,8 +10,8 @@ import { markPageView } from '@/lib/marketing/pageViewMark';
 import { isFlowTicker } from '@/lib/seo/flowTicker';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import {
-  EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, earningsAppHref, earningsPath, expectedText,
-  isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, toLoc, type EarningsPageView,
+  EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, earningsAppHref, earningsPath, expectedText, impliedAsOf,
+  isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, slotOf, toLoc, type EarningsPageView,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
 import type { Loc } from '@/lib/earningsWeek';
@@ -47,9 +47,17 @@ function metaParts(view: EarningsPageView, l: Loc) {
   const local = shown ? localWhenText(shown, l) : null;
   const last = view.history[0] ?? null;
   const rep = reported ? mdName(reported.date, l) : null;
+  // 다가오는 발표의 현지 날짜(장전/장후 또는 공지 시각)를 아는 경우 — «기업명 + 실적 발표 시간 + 현지 시간» 틀(11/16).
+  //   지난 발표(reported)·일정 없음·장전/장후 미정은 기존 틀 그대로.
+  const slot = upcoming ? slotOf(upcoming) : null;
+  const slotLine = slot ? c.slotLine({ name, slot, pct, asOf: impliedAsOf(view.implied, l) }) : null;
+  if (slot && slotLine) {
+    return { title: c.slotTitle({ name, slot }), description: `${slotLine}${l === 'ja' ? '' : ' '}${c.slotDescTail({ last })}`, slotLine };
+  }
   return {
     title: c.metaTitle({ name, pct, date, graded: last ? md(last.date, l) : null, reported: rep }),
     description: c.metaDesc({ name, ticker: view.ticker, pct, date, local, last, reported: rep }),
+    slotLine: null as string | null,
   };
 }
 
@@ -125,7 +133,7 @@ export default async function EarningsTickerPage(props: Props) {
   const base = publicBase();
   const name = nameWithTicker(ticker, l);
   const url = `${base}${earningsPath(l, ticker)}`;
-  const { title, description } = metaParts(view, l);
+  const { title, description, slotLine } = metaParts(view, l);
   const next = view.next;
   const upcoming = next && next.phase !== 'done' ? next : null;
   const pct = view.implied ? expectedText(view.implied.pct) : null;
@@ -181,7 +189,7 @@ export default async function EarningsTickerPage(props: Props) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, '\\u003c') }} />
       <div className="ep-kicker">{c.kicker}</div>
       <h1 className="ep-h1">{c.h1(name)}</h1>
-      <p className="ep-lead">{c.lead(name)}</p>
+      <p className="ep-lead">{slotLine ? `${c.lead(name)}${l === 'ja' ? '' : ' '}${slotLine}` : c.lead(name)}</p>
       <nav className="ep-langs" aria-label="language">
         {EP_LOCALES.map((x) => (
           <a key={x} href={earningsPath(x, ticker)} hrefLang={x} aria-current={x === l ? 'page' : undefined}>{{ ko: '한국어', en: 'English', ja: '日本語' }[x]}</a>
