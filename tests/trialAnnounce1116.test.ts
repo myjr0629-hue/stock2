@@ -131,6 +131,23 @@ test('⑦ 상수 일치 · 퍼널 출처 등록', () => {
   assert.ok(tex.includes(`'${ta.TRIAL_OFF_KEYS[2]}'`));
 });
 
+test('④ 반대 방향 배선 — 오늘 이 안내가 떴으면 선물 안내 busy · 광고 없음 페이월 생략', () => {
+  const ga = require('../src/lib/gift/giftAnnounce') as typeof import('../src/lib/gift/giftAnnounce');
+  const st = mem({ [ga.ONBOARDING_DONE_KEY]: 'accepted' });
+  const input = (store: ReturnType<typeof mem>) => ({ live: true, store, onboardedAtMount: true, path: '/ko/app-view/dash', dialogOpen: false, now: NOW });
+  assert.equal(ga.giftAnnounceBlock(input(st)), null, '안내 전 = 선물 가능');
+  assert.equal(ga.giftReannounceBlock(input(st)), null);
+  st.setItem(ta.TRIAL_ANNOUNCE_KEY, String(NOW - 60_000));
+  assert.equal(ga.giftAnnounceBlock(input(st)), 'busy', '오늘 체험 안내 = 선물 안 뜸');
+  assert.equal(ga.giftReannounceBlock(input(st)), 'busy');
+  st.setItem(ta.TRIAL_ANNOUNCE_KEY, String(YDAY));
+  assert.equal(ga.giftAnnounceBlock(input(st)), null, '어제 안내 = 오늘은 선물 가능');
+  const v = require('node:fs').readFileSync(require.resolve('../src/components/app/ValueWall.tsx'), 'utf8') as string;
+  assert.match(v, /announcedToday = trialAnnouncedToday\(window\.localStorage\);[^\n]*\n    if \(\(await runUnlock\(announcedToday\)\) !== 'paywall'\) endFlow\(\);/);
+  const g = require('node:fs').readFileSync(require.resolve('../src/components/app/TrialAnnounceGate.tsx'), 'utf8') as string;
+  assert.ok(g.indexOf('markTrialAnnounced(store)') < g.indexOf('markGateDay(localDay())') && g.indexOf('markGateDay(localDay())') < g.indexOf('setShow('), '표식 → 게이트 하루 표식 → 보임');
+});
+
 // ── ⑥ ProPaywall 렌더(훅 흉내 · 실제 JSX) ──
 const React = require('react');
 (globalThis as any).React = React;

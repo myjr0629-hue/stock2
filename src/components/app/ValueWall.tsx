@@ -10,6 +10,7 @@ import { RedeemCodeLink } from './RedeemCodeLink';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { localDay, markGateDay, readGateDay, shouldShowFirstGatePaywall, shouldShowNoFillPaywall, storeProSignal, checkStorePro } from '@/lib/app/gatePaywall';
+import { trialAnnouncedToday } from '@/lib/app/trialAnnounce';
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
@@ -309,7 +310,10 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
       setPaywallOpen(true);
       return;
     }
-    if ((await runUnlock(false)) !== 'paywall') endFlow();
+    // ★11/16 밤 오늘 «새로 생긴 7일 무료 체험» 안내(trial_announce)를 봤으면 «이미 페이월 본 탭»과 같게 — 광고 없음(②)에도 페이월을 다시 들이밀지 않는다
+    let announcedToday = false;
+    try { announcedToday = trialAnnouncedToday(window.localStorage); } catch { /* 저장소 막힘 = 예전 그대로 */ }
+    if ((await runUnlock(announcedToday)) !== 'paywall') endFlow();
   }, [runUnlock, proCheck]);
 
   const closePaywall = useCallback(() => {
