@@ -175,6 +175,18 @@
 .cta:not(:disabled):active { transform: translateY(1px); }
 .cta:disabled { background: rgba(148, 163, 184, 0.16); color: rgba(148, 163, 184, 0.55); cursor: default; box-shadow: none; }
 
+/* ★11/16 무료 체험 조건 한 줄 — 결제 버튼 바로 위. 본문 크기·밝은 글자(작은 회색 글씨로 숨기지 않는다 — 애플 3.1.2·5.6).
+   체험이 적용될 때만 그려지므로 체험이 없는 화면의 배치는 예전 그대로다 */
+.trialTerms {
+  margin: 0 0 9px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #e2e8f0;
+  word-break: keep-all;
+}
+
 .note {
   margin: 12px 0 0;
   text-align: center;

@@ -25,6 +25,7 @@ import {
 } from '@/config/iap';
 import { previewFlag } from '@/lib/app/proEntitlement';
 import { pickExpiredOffer, type ExpiredOfferPick } from '@/lib/app/expiredOffer';
+import { trialDaysFor, type TrialProductLike } from '@/lib/app/proPlans';
 
 export type PurchaseOutcome = {
   ok: boolean;
@@ -122,6 +123,8 @@ export type PlanOffer = {
   currencyCode?: string;
   /** 스토어가 준 «월 환산» 현지 문자열(연간 카드) — 없으면 그리지 않는다 */
   pricePerMonthString?: string | null;
+  /** ★11/16 지금 사면 스토어가 적용할 무료 체험 일수(소개 오퍼) — 자격이 확인될 때만. 없으면 null/undefined(예전 화면) */
+  trialDays?: number | null;
 };
 
 /**
@@ -171,12 +174,52 @@ export function plansFromPackages(pkgs: readonly PurchasesPackage[], plans: read
  *    packageType(RevenueCat 표준) → 상품 식별자 순으로 «명시 매칭»한다.
  */
 export async function getProOffers(): Promise<PlanOffer[]> {
+  return withTrials(await rawProOffers());
+}
+
+/** 체험 자격 조회 없이 플랜 목록만 — 구매(getProPackage)는 이것을 쓴다(구매 직전에 자격 조회로 기다리게 하지 않는다) */
+async function rawProOffers(): Promise<PlanOffer[]> {
   if (!(await initRevenueCat())) return [];
   const { Purchases } = await import('@revenuecat/purchases-capacitor');
   const offerings = await Purchases.getOfferings();
   const pkgs = offerings.current?.availablePackages ?? [];
 
   return paywallOffers(pkgs, activePlans());
+}
+
+/** iOS 소개 오퍼 자격 조회 상한 — 늦으면 «체험 없음»으로 그린다(페이월을 기다리게 하지 않는다) */
+const TRIAL_ELIGIBILITY_TIMEOUT_MS = 3_000;
+/** RevenueCat INTRO_ELIGIBILITY_STATUS_ELIGIBLE */
+const INTRO_ELIGIBLE = 2;
+
+/**
+ * ★11/16 플랜마다 «지금 적용될 무료 체험 일수»를 붙인다(lib/app/proPlans trialDaysFor).
+ *   iOS 는 introPrice 가 무료인 구독 상품만 자격 조회(checkTrialOrIntroductoryPriceEligibility) — ELIGIBLE 일 때만 일수.
+ *   실패·시간 초과·모름 = 체험 없음(예전 화면 그대로). 가격·플랜 목록은 건드리지 않는다.
+ */
+async function withTrials(list: PlanOffer[]): Promise<PlanOffer[]> {
+  if (!list.length) return list;
+  let platform = '';
+  try { const { Capacitor } = await import('@capacitor/core'); platform = Capacitor.getPlatform(); } catch { return list; }
+  let eligible: Record<string, boolean> = {};
+  if (platform === 'ios') {
+    const ids = list.filter((o) => o.plan !== 'lifetime' && o.pkg?.product?.introPrice?.price === 0).map((o) => o.pkg.product.identifier);
+    if (ids.length) {
+      try {
+        const { Purchases } = await import('@revenuecat/purchases-capacitor');
+        const res = await Promise.race([
+          Purchases.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: ids }),
+          new Promise<null>((r) => setTimeout(() => r(null), TRIAL_ELIGIBILITY_TIMEOUT_MS)),
+        ]);
+        if (res) eligible = Object.fromEntries(ids.map((id) => [id, Number((res as Record<string, { status?: unknown }>)[id]?.status) === INTRO_ELIGIBLE]));
+      } catch { eligible = {}; }
+    }
+  }
+  return list.map((o) => {
+    if (o.plan === 'lifetime') return o;
+    const days = trialDaysFor(o.pkg?.product as TrialProductLike, platform, eligible[o.pkg?.product?.identifier ?? '']);
+    return days ? { ...o, trialDays: days } : o;
+  });
 }
 
 /**
@@ -197,7 +240,7 @@ export function paywallOffers(pkgs: readonly PurchasesPackage[], active: readonl
  *    월간이 결제되는 사고가 조용히 난다. 없으면 없다고 답한다.
  */
 export async function getProPackage(plan: PlanId = 'monthly'): Promise<PurchasesPackage | null> {
-  const offers = await getProOffers();
+  const offers = await rawProOffers();
   return offers.find((o) => o.plan === plan)?.pkg ?? null;
 }
 

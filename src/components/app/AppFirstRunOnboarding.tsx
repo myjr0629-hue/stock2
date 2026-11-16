@@ -21,6 +21,8 @@ import { loadOnbMode, useOnbMode } from './onboardingMode';
 const FirstRunValueStep = dynamic(() => import('./FirstRunValueStep').then((m) => m.FirstRunValueStep), { ssr: false, loading: () => null });
 const FirstRunNotifStep = dynamic(() => import('./FirstRunValueStep').then((m) => m.FirstRunNotifStep), { ssr: false, loading: () => null });
 const ValuePrefetch = dynamic(() => import('./FirstRunValueStep').then((m) => m.ValuePrefetch), { ssr: false, loading: () => null });
+// ★11/16 첫 실행이 끝난 직후 1회 «7일 무료 체험» 페이월 — 마친 순간에만 불러온다(lib/app/firstRunPaywall · 조건 아니면 아무것도 안 그림)
+const FirstRunTrialPaywall = dynamic(() => import('./FirstRunTrialPaywall').then((m) => m.FirstRunTrialPaywall), { ssr: false, loading: () => null });
 import styles from './AppFirstRunOnboarding.module.css';
 
 type OnboardingCopy = {
@@ -236,6 +238,8 @@ export function AppFirstRunOnboarding() {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<OnbStep>('legal');
   const [accepted, setAccepted] = useState(false);
+  // ★11/16 첫 실행을 «이번에» 마쳤다(네이티브) → 체험 페이월 판정 1회. 이미 마친 기기·문서 경로는 켜지지 않는다
+  const [trialPaywall, setTrialPaywall] = useState(false);
   // 첫 실행 «가치 먼저»(v2) — 끄기 스위치(레디스 onb2:off)를 읽는다. 아직 모르면 null → 첫 그림은 v2 로 가정하고,
   // 법적 고지 [계속]을 누를 때 읽기가 끝나기를 기다린다(onLegalNext). 못 읽으면 옛 흐름(legacy).
   const [advancing, setAdvancing] = useState(false);
@@ -379,6 +383,10 @@ export function AppFirstRunOnboarding() {
     trackFunnel('onb_show', { src });
   }, [mounted, visible, isDocumentRoute, localePending, step, mode]);
 
+  if (mounted && trialPaywall && !visible && !isDocumentRoute) {
+    return <FirstRunTrialPaywall locale={locale} onDone={() => setTrialPaywall(false)} />;
+  }
+
   if (!mounted || !visible || isDocumentRoute) return null;
 
   // 기기 언어로 바뀌는 중 — 같은 오버레이 배경 위 글자 없는 로딩 고리(앱 화면은 계속 가려 둔다)
@@ -393,6 +401,9 @@ export function AppFirstRunOnboarding() {
   }
 
   const wl: 'ko' | 'en' | 'ja' = locale === 'ko' || locale === 'ja' ? locale : 'en';
+
+  /** ★11/16 첫 실행을 마친 직후 — 네이티브면 체험 페이월 판정(FirstRunTrialPaywall). 웹·미리보기는 아무 일 없음 */
+  const openTrialPaywall = () => { if (isNativeShell()) setTrialPaywall(true); };
 
   /** 첫 안내를 마쳤다고 적고 닫는다 — 옛 흐름의 finish() 첫 줄과 같은 저장 */
   const markDone = () => {
@@ -412,6 +423,7 @@ export function AppFirstRunOnboarding() {
     const ps = permSrc(r);
     if (ps) trackFunnel('onb_perm', { src: ps });
     setVisible(false);
+    openTrialPaywall();
   };
 
   // ── 새 흐름(v2) ──
@@ -428,7 +440,7 @@ export function AppFirstRunOnboarding() {
   // 가치 단계가 끝났다(담았거나 건너뛰었다) — 푸시 권한이 있는 네이티브는 알림 단계로, 아니면 끝
   const onValueFinish = () => {
     const next = stepAfterValue(isNativeShell());
-    if (next === 'done') { markDone(); setVisible(false); return; }
+    if (next === 'done') { markDone(); setVisible(false); openTrialPaywall(); return; }
     setStep(next);
   };
   // 알림 단계 [알림 받기] — 이때 OS 권한 창이 뜬다. 거절해도 그대로 앱으로 들어간다
@@ -441,12 +453,14 @@ export function AppFirstRunOnboarding() {
     const ps = permSrc(r);
     if (ps) trackFunnel('onb_perm', { src: ps });
     setVisible(false);
+    openTrialPaywall();
   };
   // 알림 단계 [나중에] — 권한 창을 열지 않는다(설정에서 언제든 켤 수 있다)
   const onNotifLater = () => {
     trackFunnel('onb_skip', { src: 'onb_notif' });
     markDone();
     setVisible(false);
+    openTrialPaywall();
   };
 
   const termsHref = `/${locale}/app-view/terms`;

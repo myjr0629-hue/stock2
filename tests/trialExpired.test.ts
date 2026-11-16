@@ -219,6 +219,6 @@ test('다른 페이월 호출부는 context 를 넘기지 않는다(기존 화�
   assert.deepEqual(users, ['src/components/app/TrialSavePaywall.tsx']);
   const pw = fs.readFileSync(path.join(ROOT, 'src/components/app/ProPaywall.tsx'), 'utf8');
   // context 가 없으면 예전 머리·혜택 목록 그대로
-  assert.match(pw, /const head = context\n\s+\? \{ title: context\.title, lede: context\.lede, cta: context\.cta \}\n\s+: keepOpenWhilePro/);
+  assert.match(pw, /const head0 = context\n\s+\? \{ title: context\.title, lede: context\.lede, cta: context\.cta \}\n\s+: keepOpenWhilePro/);
   assert.match(pw, /\{context \? context\.sections\.map\(/);
 });

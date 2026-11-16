@@ -6,7 +6,7 @@ import type { PlanId } from '@/config/iap';
 import type { PlanOffer } from '@/services/revenueCat';
 
 /** 페이월이 그리는 플랜 한 줄(스토어 값만) — 디자인 미리보기(previewPlans)도 같은 모양 */
-export type PaywallPlan = Pick<PlanOffer, 'plan' | 'priceString' | 'price' | 'currencyCode' | 'pricePerMonthString'>;
+export type PaywallPlan = Pick<PlanOffer, 'plan' | 'priceString' | 'price' | 'currencyCode' | 'pricePerMonthString' | 'trialDays'>;
 
 /**
  * 연간 할인율(%) — 월간×12 대비. 둘 다 «스토어 숫자 가격»이고 «같은 통화»일 때만. 5% 미만·계산 불가면 null(배지 안 그림).
@@ -39,4 +39,61 @@ export function paywallSelection(plans: readonly Pick<PaywallPlan, 'plan'>[], pi
   const has = (id: PlanId) => plans.some((p) => p.plan === id);
   const selected: PlanId = picked && has(picked) ? picked : has('annual') ? 'annual' : has('monthly') ? 'monthly' : plans[0].plan;
   return { multi, selected };
+}
+
+// ============================================================================
+// ★11/16 무료 체험(스토어 소개 오퍼) — 스토어가 «이 사람에게 지금 적용할 무료 기간»을 줄 때만 일수를 낸다.
+//   iOS: product.introPrice(가격 0 = 무료 체험) + checkTrialOrIntroductoryPriceEligibility 가 «ELIGIBLE»일 때만.
+//        모름(UNKNOWN)·자격 없음·조회 실패 = null — RevenueCat 권고대로 체험 없는 가격을 보여 준다(과장 금지).
+//   Android: product.defaultOption.freePhase — Play 는 자격 있는 오퍼만 내려주고, 구매(purchasePackage)도 이 defaultOption 으로 한다.
+//   null 이면 페이월은 예전과 똑같다(문구·버튼·고지).
+// ============================================================================
+
+/** 체험 판정에 쓰는 상품 모양(RevenueCat PurchasesStoreProduct 의 일부) — 시험이 손으로 만들 수 있게 좁힌다 */
+export type TrialProductLike = {
+  introPrice?: { price?: number; periodUnit?: string; periodNumberOfUnits?: number; cycles?: number } | null;
+  defaultOption?: { freePhase?: { billingPeriod?: { unit?: string; value?: number; iso8601?: string } | null } | null } | null;
+} | null | undefined;
+
+/** 기간 단위 × 수 → 일수. 일·주만(월·년 무료는 «N일»로 바꿔 말하지 않는다 → null). 1~31일 밖이면 null */
+export function periodDays(unit?: string | null, value?: number | null, cycles = 1): number | null {
+  const u = String(unit ?? '').toUpperCase();
+  const n = typeof value === 'number' && value > 0 ? value : 0;
+  const c = typeof cycles === 'number' && cycles > 0 ? cycles : 1;
+  const per = u === 'DAY' ? 1 : u === 'WEEK' ? 7 : 0;
+  const d = per * n * c;
+  return d >= 1 && d <= 31 ? d : null;
+}
+
+/** ISO 8601 기간(P7D·P1W) → 일수 — billingPeriod 에 unit/value 가 없을 때의 대비 */
+export function isoPeriodDays(iso?: string | null): number | null {
+  const m = /^P(\d+)([DW])$/i.exec(String(iso ?? '').trim());
+  if (!m) return null;
+  return periodDays(m[2].toUpperCase() === 'W' ? 'WEEK' : 'DAY', Number(m[1]));
+}
+
+/**
+ * 이 상품을 지금 사면 스토어가 적용할 «무료 체험 일수». 아니면 null.
+ * @param iosEligible iOS 자격 조회 결과(true = ELIGIBLE). 안드는 무시(Play 가 자격 있는 오퍼만 준다).
+ */
+export function trialDaysFor(product: TrialProductLike, platform: string, iosEligible?: boolean): number | null {
+  if (!product) return null;
+  if (platform === 'ios') {
+    const ip = product.introPrice;
+    if (!ip || ip.price !== 0 || iosEligible !== true) return null;
+    return periodDays(ip.periodUnit, ip.periodNumberOfUnits, ip.cycles ?? 1);
+  }
+  if (platform === 'android') {
+    const bp = product.defaultOption?.freePhase?.billingPeriod;
+    if (!bp) return null;
+    return periodDays(bp.unit, bp.value) ?? isoPeriodDays(bp.iso8601);
+  }
+  return null;
+}
+
+/** 체험 끝(첫 결제) 날짜 — 오늘 + days. 화면 표기용 현지 날짜(«11월 23일» / «Nov 23» / «11月23日») */
+export function trialEndLabel(loc: 'ko' | 'en' | 'ja', days: number, now: Date = new Date()): string {
+  const d = new Date(now.getTime() + days * 86_400_000);
+  const tag = loc === 'ko' ? 'ko-KR' : loc === 'ja' ? 'ja-JP' : 'en-US';
+  try { return d.toLocaleDateString(tag, { month: 'long', day: 'numeric' }); } catch { return `${d.getMonth() + 1}/${d.getDate()}`; }
 }
