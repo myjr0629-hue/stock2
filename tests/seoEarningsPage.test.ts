@@ -447,16 +447,17 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     assert.equal(EP.slotUpcoming(amc, Date.parse('2026-11-19T21:00:00Z')), false);  // 16:00 ET
     assert.equal(EP.slotUpcoming(EP.slotOf({ date: '2026-11-27', hour: 'amc', dateStatus: 'confirmed' }), Date.parse('2026-11-27T18:00:00Z')), false); // 조기 폐장 13:00 ET 뒤
     const bmo = EP.slotOf({ date: '2026-11-19', hour: 'bmo', dateStatus: 'est' });
-    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T08:59:00Z')), true);   // 03:59 ET
-    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T09:00:00Z')), false);  // 04:00 ET — 07:00 발표 뒤 08:00 접속에도 새 틀 없음
+    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T04:59:00Z')), true);   // 전날 23:59 ET
+    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T05:00:00Z')), false);  // 발표일 00:00 ET — 01:00 발표 뒤 03:00 접속에도 새 틀 없음
     assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T13:00:00Z')), false);
     // 회사 공지 일정인데 공지에 시간대가 없으면(공급사 hour) 새 틀 없음 · 공지 시간대와 같으면 새 틀 · 예정일은 공급사 hour 를 (예정)으로
     const hd = CONFIRMED_EARNINGS.find((c: any) => !c.etTime && c.hour === '');
-    if (hd) assert.equal(EP.pageSlot({ ticker: hd.ticker, date: hd.date, hour: 'bmo', dateStatus: 'confirmed' }, Date.parse(`${hd.date}T00:00:00Z`) - 86_400_000), null, hd.ticker);
+    if (hd) assert.equal(EP.pageSlot({ ticker: hd.ticker, date: hd.date, hour: 'bmo', dateStatus: 'confirmed' }, Date.parse(`${hd.date}T00:00:00Z`) - 2 * 86_400_000), null, hd.ticker);
     const ok = CONFIRMED_EARNINGS.find((c: any) => !c.etTime && c.hour === 'amc');
     assert.ok(EP.pageSlot({ ticker: ok.ticker, date: ok.date, hour: 'amc', dateStatus: 'confirmed' }, Date.parse(`${ok.date}T00:00:00Z`) - 86_400_000), ok.ticker);
     assert.equal(EP.pageSlot({ ticker: ok.ticker, date: ok.date, hour: 'bmo', dateStatus: 'confirmed' }, Date.parse(`${ok.date}T00:00:00Z`) - 86_400_000), null, 'supplier hour differs from company hour');
     assert.ok(EP.pageSlot({ ticker: 'ZZZZ', date: '2026-11-19', hour: 'bmo', dateStatus: 'est' }, Date.parse('2026-11-18T12:00:00Z')));
+    assert.equal(EP.pageSlot({ ticker: 'ZZZZ', date: '2026-11-19', hour: 'bmo', dateStatus: 'est' }, Date.parse('2026-11-19T06:00:00Z')), null); // 01:00 ET
     const nv = EP.slotOf({ date: '2026-11-17', hour: 'amc', etTime: '16:20', dateStatus: 'confirmed' });
     assert.equal(EP.slotUpcoming(nv, Date.parse('2026-11-17T21:19:00Z')), true);
     assert.equal(EP.slotUpcoming(nv, Date.parse('2026-11-17T21:20:00Z')), false);

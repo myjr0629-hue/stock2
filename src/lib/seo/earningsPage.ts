@@ -330,11 +330,11 @@ export function slotOf(r: { date: string; hour: string; etTime?: string; dateSta
 }
 /**
  * 새 틀을 써도 되는 시각인가 — 발표가 «아직 앞»인 동안만. 공지 시각이 있으면 그 시각(단계 판정도 그때 'done'),
- * 없으면 장후 = 그날 정규장 마감(보통 16:00, 조기 폐장 13:00) · 장전 = 그날 04:00 ET(프리마켓 시작 — 장전 발표가 나올 수 있는 창의 시작)까지.
- * 그 뒤(실제 발표가 나왔을 수 있는 창)는 기존 틀(관문 11162258·11162300).
+ * 없으면 장후 = 그날 정규장 마감(보통 16:00, 조기 폐장 13:00) · 장전 = 발표일 00:00 ET(그날 어느 때든 장전 발표가 나올 수 있다 — 01:00 ET 공지 사례 ASML)까지.
+ * 그 뒤(실제 발표가 나왔을 수 있는 창)는 기존 틀(관문 11162258·11162300·11162306).
  */
 export function slotUpcoming(s: EpSlot, nowMs: number): boolean {
-  const edge = s.etTime ? etWallToMs(s.etDate, s.etTime) : s.hour === 'amc' ? etWallToMs(s.etDate, closeEtOf(s.etDate)) : s.hour === 'bmo' ? etWallToMs(s.etDate, '04:00') : null;
+  const edge = s.etTime ? etWallToMs(s.etDate, s.etTime) : s.hour === 'amc' ? etWallToMs(s.etDate, closeEtOf(s.etDate)) : s.hour === 'bmo' ? etWallToMs(s.etDate, '00:00') : null;
   return edge != null && nowMs < edge;
 }
 
