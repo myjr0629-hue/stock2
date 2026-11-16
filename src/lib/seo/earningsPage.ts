@@ -328,6 +328,14 @@ export function slotOf(r: { date: string; hour: string; etTime?: string; dateSta
     confirmed: r.dateStatus === 'confirmed',
   };
 }
+/**
+ * 새 틀을 써도 되는 시각인가 — 발표가 «아직 앞»인 동안만. 공지 시각이 있으면 그 시각(단계 판정도 그때 'done'),
+ * 없으면 장후 = 그날 정규장 마감(보통 16:00, 조기 폐장 13:00) · 장전 = 09:30 ET 까지. 그 뒤(실제 발표가 나왔을 수 있는 창)는 기존 틀(관문 11162258).
+ */
+export function slotUpcoming(s: EpSlot, nowMs: number): boolean {
+  const edge = s.etTime ? etWallToMs(s.etDate, s.etTime) : s.hour === 'amc' ? etWallToMs(s.etDate, closeEtOf(s.etDate)) : s.hour === 'bmo' ? etWallToMs(s.etDate, '09:30') : null;
+  return edge != null && nowMs < edge;
+}
 /** 'HH:MM' → 오전 6시 20분 · 午前6時20分 · 6:20 AM (정각이면 분 생략 — 오후 9시 · 午後9時 · 9:00 PM) */
 export function clock12(hhmm: string, loc: Loc): string {
   const h = Number(hhmm.slice(0, 2)), m = Number(hhmm.slice(3, 5));

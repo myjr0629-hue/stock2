@@ -441,6 +441,30 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     // 장전/장후도 모름 → null(기존 틀) · 잘못된 날짜 → null
     assert.equal(EP.slotOf({ date: '2026-11-19', hour: '', dateStatus: 'est' }), null);
     assert.equal(EP.slotOf({ date: 'x', hour: 'amc' }), null);
+    // 발표 «앞»일 때만 새 틀 — 시각 미공지 장후는 정규장 마감(16:00 ET)부터, 장전은 09:30 ET 부터, 공지 시각은 그 시각부터 기존 틀(관문 11162258)
+    const amc = EP.slotOf({ date: '2026-11-19', hour: 'amc', dateStatus: 'confirmed' });
+    assert.equal(EP.slotUpcoming(amc, Date.parse('2026-11-19T20:59:00Z')), true);   // 15:59 ET
+    assert.equal(EP.slotUpcoming(amc, Date.parse('2026-11-19T21:00:00Z')), false);  // 16:00 ET
+    assert.equal(EP.slotUpcoming(EP.slotOf({ date: '2026-11-27', hour: 'amc', dateStatus: 'confirmed' }), Date.parse('2026-11-27T18:00:00Z')), false); // 조기 폐장 13:00 ET 뒤
+    const bmo = EP.slotOf({ date: '2026-11-19', hour: 'bmo', dateStatus: 'est' });
+    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T14:29:00Z')), true);
+    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T14:30:00Z')), false);
+    const nv = EP.slotOf({ date: '2026-11-17', hour: 'amc', etTime: '16:20', dateStatus: 'confirmed' });
+    assert.equal(EP.slotUpcoming(nv, Date.parse('2026-11-17T21:19:00Z')), true);
+    assert.equal(EP.slotUpcoming(nv, Date.parse('2026-11-17T21:20:00Z')), false);
+    // 페이지 끝까지 — 시각 미공지 장후(T, 확정) 16:30 ET: 단계는 아직 today 지만 제목은 기존 틀
+    {
+      const realNow = Date.now, saved = calendar;
+      try {
+        calendar = { ...calendar, rows: [{ ticker: T, date: '2026-11-19', hour: 'amc', dateStatus: 'confirmed', epsEstimate: 1, revenueEstimate: 1, quarter: 3, year: 2026 }] };
+        Date.now = () => Date.parse('2026-11-19T21:30:00Z'); svc._resetEarningsPageMemo();
+        const m = await page.generateMetadata(props('ko', T));
+        assert.doesNotMatch(m.title, /발표일·시간|한국시간/, m.title);
+        assert.doesNotMatch((await html('ko', T)).match(/<p class="ep-lead">(.*?)<\/p>/)![1], /한국시간/);
+        Date.now = () => Date.parse('2026-11-19T20:30:00Z'); svc._resetEarningsPageMemo();
+        assert.match((await page.generateMetadata(props('ko', T))).title, /발표일·시간 — 한국시간 11월 20일\(금\) 미국 장 마감 후 \| SIGNUM HQ$/);
+      } finally { Date.now = realNow; calendar = saved; svc._resetEarningsPageMemo(); }
+    }
     // 시계 표기
     assert.equal(EP.clock12('00:05', 'ko'), '오전 0시 5분');
     assert.equal(EP.clock12('12:00', 'ko'), '오후 12시');
