@@ -25,6 +25,8 @@ import {
   purchasePro,
   restorePro,
   getProOffers,
+  rawProOffers,
+  withTrials,
   purchaseExpiredOffer,
   type ExpiredOffer,
   type PurchaseOutcome,
@@ -48,6 +50,8 @@ export function useProStatus() {
       우리가 "$9.99" 를 하드코딩하면 통화·세금이 다른 나라에서 거짓말이 되고,
       스토어 심사(가격 표시 의무)에서도 걸린다. */
   const [offers, setOffers] = useState<PlanOffer[]>([]);
+  /** ★11/16 체험 자격(trialDays) 확인이 끝났다 — 첫 실행 체험 페이월이 이것을 기다린다(그 전엔 «체험 없음»으로 단정하지 않는다) */
+  const [trialsReady, setTrialsReady] = useState(!IAP_LIVE);
 
   useEffect(() => {
     if (!IAP_LIVE) return;
@@ -89,13 +93,19 @@ export function useProStatus() {
       } catch {
         // leave isPro false
       }
+      let raw: PlanOffer[] = [];
       try {
-        const list = await getProOffers();
-        if (!cancelled) setOffers(list);
+        raw = await rawProOffers();
+        if (!cancelled) setOffers(raw);
       } catch {
         // 오퍼링을 못 받으면 페이월이 «구매 불가» 상태로 그려진다 (가격 거짓말 금지)
       }
       if (!cancelled) setReady(true);
+      // ★11/16 체험 자격은 ready 뒤에 붙인다(iOS 자격 조회 최대 3초가 PRO·광고 상태 확정을 늦추지 않게 — 관문 11161258)
+      void Promise.resolve().then(() => withTrials(raw))
+        .then((list) => { if (!cancelled && list.length && list.some((o) => o.trialDays)) setOffers((cur) => (cur === raw ? list : cur)); })
+        .catch(() => {})
+        .finally(() => { if (!cancelled) setTrialsReady(true); });
       listenerId = await Purchases.addCustomerInfoUpdateListener((info) => apply(info));
     })();
 
@@ -168,5 +178,5 @@ export function useProStatus() {
     }
   }, []);
 
-  return { isPro, ready, offers, purchase, purchaseOffer, purchasePending, restore, iapAvailable, refreshOffers };
+  return { isPro, ready, offers, purchase, purchaseOffer, purchasePending, restore, iapAvailable, refreshOffers, trialsReady };
 }

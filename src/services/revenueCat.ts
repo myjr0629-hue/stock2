@@ -177,8 +177,8 @@ export async function getProOffers(): Promise<PlanOffer[]> {
   return withTrials(await rawProOffers());
 }
 
-/** 체험 자격 조회 없이 플랜 목록만 — 구매(getProPackage)는 이것을 쓴다(구매 직전에 자격 조회로 기다리게 하지 않는다) */
-async function rawProOffers(): Promise<PlanOffer[]> {
+/** 체험 자격 조회 없이 플랜 목록만 — 구매(getProPackage)·첫 상태 확정(useProStatus)은 이것을 쓴다(자격 조회로 ready·광고 상태를 늦추지 않는다) */
+export async function rawProOffers(): Promise<PlanOffer[]> {
   if (!(await initRevenueCat())) return [];
   const { Purchases } = await import('@revenuecat/purchases-capacitor');
   const offerings = await Purchases.getOfferings();
@@ -197,7 +197,7 @@ const INTRO_ELIGIBLE = 2;
  *   iOS 는 introPrice 가 무료인 구독 상품만 자격 조회(checkTrialOrIntroductoryPriceEligibility) — ELIGIBLE 일 때만 일수.
  *   실패·시간 초과·모름 = 체험 없음(예전 화면 그대로). 가격·플랜 목록은 건드리지 않는다.
  */
-async function withTrials(list: PlanOffer[]): Promise<PlanOffer[]> {
+export async function withTrials(list: PlanOffer[]): Promise<PlanOffer[]> {
   if (!list.length) return list;
   let platform = '';
   try { const { Capacitor } = await import('@capacitor/core'); platform = Capacitor.getPlatform(); } catch { return list; }

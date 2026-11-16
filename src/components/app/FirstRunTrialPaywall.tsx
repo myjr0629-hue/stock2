@@ -19,7 +19,7 @@ import { ProPaywall } from './ProPaywall';
 const store = (): MiniStore | null => { try { return window.localStorage; } catch { return null; } };
 
 export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDone: () => void }) {
-  const { isPro, ready, offers, iapAvailable } = useProStatus();
+  const { isPro, ready, offers, iapAvailable, trialsReady } = useProStatus();
   const [show, setShow] = useState(false);
   const shownRef = useRef(false);
   const decided = useRef(false);
@@ -38,7 +38,7 @@ export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDon
   useEffect(() => {
     if (decided.current || show || checking.current) return;
     const step = firstRunPaywallStep({
-      iapAvailable, ready, isPro, pending: proPurchaseState.getSnapshot(), sharedPro: storeProSignal.latest() === true,
+      iapAvailable, ready: ready && trialsReady, isPro, pending: proPurchaseState.getSnapshot(), sharedPro: storeProSignal.latest() === true,
       offers, shown: readFirstRunPaywallShown(store()),
     });
     // 오퍼링이 PRO 상태보다 늦게 올 수 있다 — ready 뒤 체험 플랜이 아직 없으면 상한까지 기다린다(그 사이 오면 다시 판정)
@@ -59,7 +59,7 @@ export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDon
       shownRef.current = true;
       setShow(true);
     })();
-  }, [iapAvailable, ready, isPro, offers, show]);
+  }, [iapAvailable, ready, trialsReady, isPro, offers, show]);
 
   if (!show) return null;
   return (
