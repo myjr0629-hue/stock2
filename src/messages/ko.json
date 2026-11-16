@@ -875,7 +875,7 @@
     "guideSuffix": "가이드",
     "guideSubtitle": "화면마다 무엇을 보고 어떻게 쓰는지 알아보세요",
     "heroTitle": "미국주식을 한 화면에서 — 주가부터 고급 지표까지",
-    "heroDescription": "SIGNUM HQ는 <cyan>실시간 주가(정규장)</cyan>와 <cyan>AI 한 줄 해석</cyan>, 뉴스, 장마감 리포트, 실적 일정을 한곳에 모은 미국주식 앱입니다. 더 깊이 보고 싶을 때는 <gold>다크풀</gold> 거래 비중과 옵션 시장의 주요 가격대(<cyan>Call Wall, GEX</cyan>) 같은 <gold>고급 지표</gold>로 가격 움직임의 배경을 함께 살펴볼 수 있습니다.",
+    "heroDescription": "SIGNUM HQ는 <cyan>실시간 주가(정규장)</cyan>와 <cyan>AI 한 줄 해석</cyan>, 뉴스, 장마감 리포트, 실적 일정을 한곳에 모은 미국주식 앱입니다. 더 깊이 보고 싶을 때는 <gold>다크풀</gold> 거래 비중, 옵션 시장의 주요 가격대(<cyan>Call Wall</cyan>), <cyan>GEX</cyan> 같은 <gold>고급 지표</gold>로 가격 움직임의 배경을 함께 살펴볼 수 있습니다.",
     "dashboardDesc": "<cyan>실시간 가격(정규장)</cyan>과 핵심 지표를 한 화면에 — 고급: ATM IV · GEX · 옵션 오버레이",
     "guardianDesc": "<cyan>시장 국면</cyan>·섹터 흐름을 먼저 확인 — 고급: SPY/QQQ 넷 GEX · 감마 플립",
     "commandDesc": "종목별 <cyan>주가·주요 가격대</cyan> 분석 — 고급: Call Wall · Put Wall · Max Pain · GEX",
