@@ -38,15 +38,15 @@ import { ChunkErrorRecovery } from '@/components/ChunkErrorRecovery';
 const HOME_META: Record<string, { title: string; desc: string }> = {
   ko: {
     title: 'SIGNUM HQ — 미국주식 실시간 주가·AI 분석 앱',
-    desc: '내 종목 실시간 주가(정규장), 지금 내 종목을 움직이는 요인을 AI가 한 줄로, 미국 증시 뉴스, AI 브리핑, 장마감 리포트, 실적 일정, 알림. 무료로 시작하세요. 투자 자문이 아닌 정보 제공입니다.',
+    desc: '내 종목 실시간 주가(정규장), 지금 볼 포인트를 AI가 한 줄로 해석, 미국 증시 뉴스, AI 브리핑, 장마감 리포트, 실적 일정, 알림. 무료로 시작하세요. 투자 자문이 아닌 정보 제공입니다.',
   },
   en: {
     title: 'SIGNUM HQ — Real-Time Stock Prices & AI Stock Analysis',
-    desc: 'Real-time stock prices during market hours, a one-line AI read on what is moving your stocks, market news, AI briefings, a closing report, the earnings calendar and alerts. Start free. Information, not investment advice.',
+    desc: 'Real-time stock prices during market hours, a one-line AI read on what to watch in each of your stocks, market news, AI briefings, a closing report, the earnings calendar and alerts. Start free. Information, not investment advice.',
   },
   ja: {
     title: 'SIGNUM HQ — 米国株の株価リアルタイム・AI分析アプリ',
-    desc: 'マイ銘柄の株価をリアルタイムで（通常取引時間）、株価を動かしている材料をAIが一行で分析。ニュース、AIブリーフ、引け後レポート、決算日程、通知。無料で始められます。投資助言ではなく情報提供です。',
+    desc: 'マイ銘柄の株価をリアルタイムで（通常取引時間）、いま見るべきポイントをAIが一行で分析。ニュース、AIブリーフ、引け後レポート、決算日程、通知。無料で始められます。投資助言ではなく情報提供です。',
   },
 };
 

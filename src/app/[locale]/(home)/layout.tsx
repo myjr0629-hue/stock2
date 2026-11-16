@@ -28,15 +28,15 @@ const loc = (l: string): Loc => (LOCALES as readonly string[]).includes(l) ? (l 
 const META: Record<Loc, { title: string; desc: string }> = {
   ko: {
     title: 'SIGNUM HQ — 미국주식 앱: 실시간 주가·AI 분석·뉴스',
-    desc: '미국주식·해외주식을 쉽게. 내 종목 실시간 주가(정규장), 지금 내 종목을 움직이는 요인을 AI가 한 줄로, 나스닥·미국 증시 뉴스, 아침 AI 브리핑, 장마감 리포트, 실적 일정, 알림까지 무료. 처음 구독이면 PRO 7일 무료 체험. 투자 자문이 아닌 정보 제공입니다.',
+    desc: '미국주식·해외주식을 쉽게. 내 종목 실시간 주가(정규장), 지금 볼 포인트를 AI가 한 줄로 해석, 나스닥·미국 증시 뉴스, 아침 AI 브리핑, 장마감 리포트, 실적 일정, 알림까지 무료. 처음 구독이면 PRO 7일 무료 체험. 투자 자문이 아닌 정보 제공입니다.',
   },
   en: {
     title: 'SIGNUM HQ: Stock Market App — Real-Time Prices & AI Analysis',
-    desc: 'A free stock tracker for US stocks: real-time stock prices during market hours, AI stock analysis of what is moving your stocks, market news, a morning AI brief, a closing report, the earnings calendar and alerts. New subscribers get a 7-day PRO trial. Information, not investment advice.',
+    desc: 'A free stock tracker for US stocks: real-time stock prices during market hours, a one-line AI stock analysis of what to watch in each name, market news, a morning AI brief, a closing report, the earnings calendar and alerts. New subscribers get a 7-day PRO trial. Information, not investment advice.',
   },
   ja: {
     title: 'SIGNUM HQ — 米国株アプリ｜株価リアルタイム・AI分析・ニュース',
-    desc: '米国株をもっと手軽に。マイ銘柄の株価をリアルタイムで（通常取引時間）、株価を動かしている材料をAIが一行で分析。ニュース、朝のAIブリーフ、引け後レポート、決算日程、通知まで無料。初めての購読ならPRO 7日間無料体験。投資助言ではなく情報提供です。',
+    desc: '米国株をもっと手軽に。マイ銘柄の株価をリアルタイムで（通常取引時間）、いま見るべきポイントをAIが一行で分析。ニュース、朝のAIブリーフ、引け後レポート、決算日程、通知まで無料。初めての購読ならPRO 7日間無料体験。投資助言ではなく情報提供です。',
   },
 };
 
