@@ -101,7 +101,7 @@
     "darkPoolTracking": "장외 거래 비중(고급)",
     "darkPoolTrackingDesc": "일반 거래소 밖(장외)에서 체결된 거래 비중(FINRA 공개 자료, 다크풀 포함)과 대량 체결 흐름을 종목마다 정리해 보여 줍니다.",
     "sniperSignal": "단기 흐름 점검(고급)",
-    "sniperSignalDesc": "RSI·VWAP·수급 등 12개 지표가 같은 방향을 가리키는지 한곳에 모아 보여 줍니다. 감이 아닌 데이터로 지금 볼 포인트를 확인하세요.",
+    "sniperSignalDesc": "가격 흐름·옵션 수급 등 여러 지표를 한곳에 모아 단기 흐름을 점검합니다. 감이 아닌 데이터로 지금 볼 포인트를 확인하세요.",
     "includedInSignum": "SIGNUM HQ에 포함",
     "valuePerMonth": "가치",
     "consolidatedPricing": "통합 요금제",

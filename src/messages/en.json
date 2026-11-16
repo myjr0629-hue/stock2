@@ -101,7 +101,7 @@
     "darkPoolTracking": "Off-exchange trading (Advanced)",
     "darkPoolTrackingDesc": "See how much of each stock's volume traded off-exchange (FINRA data, including dark pools), along with large block trades, in one place.",
     "sniperSignal": "Short-term trend check (Advanced)",
-    "sniperSignalDesc": "Shows whether 12 indicators, including RSI, VWAP and order flow, point the same way. A data-first way to see what to watch now.",
+    "sniperSignalDesc": "Brings several indicators, including price action and options flow, together in one place to check the short-term picture. A data-first way to see what to watch now.",
     "includedInSignum": "Included in SIGNUM HQ",
     "valuePerMonth": "value",
     "consolidatedPricing": "Consolidated Pricing",

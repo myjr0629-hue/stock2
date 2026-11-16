@@ -101,7 +101,7 @@
     "darkPoolTracking": "取引所外の取引比率（上級）",
     "darkPoolTrackingDesc": "取引所の外で約定した取引の比率（FINRA公開データ、ダークプールを含む）と大口約定の流れを銘柄ごとにまとめて表示します。",
     "sniperSignal": "短期の流れチェック（上級）",
-    "sniperSignalDesc": "RSI・VWAP・需給など12の指標が同じ方向を示しているかを一か所にまとめて表示。感覚ではなくデータで、いま見るべきポイントを確認できます。",
+    "sniperSignalDesc": "値動き・オプション需給など複数の指標を一か所にまとめ、短期の流れを点検。感覚ではなくデータで、いま見るべきポイントを確認できます。",
     "includedInSignum": "SIGNUM HQに含まれます",
     "valuePerMonth": "相当",
     "consolidatedPricing": "統合プラン",
