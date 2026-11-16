@@ -40,10 +40,16 @@ export const TRIAL_ANNOUNCE_DELAY_MS = 2_500;
 export const TRIAL_ANNOUNCE_VERIFY_MS = 3_000;
 
 // 게이트 흐름(ValueWall 탭 → PRO 재조회·보상형 광고 준비·대체 창) 진행 중 — 이 사이엔 DOM 시트가 없을 수 있어 따로 알린다(ValueWall gateBusy 와 같은 2분 상한)
-let gateFlowAt = 0;
+//   게이트가 여러 개(인스턴스마다 흐름)일 수 있어 흐름마다 번호를 받아 따로 지운다 — 한쪽이 끝나도 다른 쪽이 돌면 «진행 중»(관문 11162024)
+const gateFlows = new Map<number, number>();
+let gateFlowSeq = 0;
 export const GATE_FLOW_MAX_MS = 120_000;
-export function noteGateFlow(on: boolean, now = Date.now()): void { gateFlowAt = on ? now : 0; }
-export function gateFlowActive(now = Date.now()): boolean { return gateFlowAt > 0 && now - gateFlowAt < GATE_FLOW_MAX_MS; }
+export function beginGateFlow(now = Date.now()): number { const id = ++gateFlowSeq; gateFlows.set(id, now); return id; }
+export function endGateFlow(id: number): void { gateFlows.delete(id); }
+export function gateFlowActive(now = Date.now()): boolean {
+  for (const [id, at] of gateFlows) { if (now - at < GATE_FLOW_MAX_MS) return true; gateFlows.delete(id); }
+  return false;
+}
 
 export type MiniStore = { getItem(k: string): string | null; setItem(k: string, v: string): void };
 

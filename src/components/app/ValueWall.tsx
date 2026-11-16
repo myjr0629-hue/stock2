@@ -10,7 +10,7 @@ import { RedeemCodeLink } from './RedeemCodeLink';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { localDay, markGateDay, readGateDay, shouldShowFirstGatePaywall, shouldShowNoFillPaywall, storeProSignal, checkStorePro } from '@/lib/app/gatePaywall';
-import { noteGateFlow, trialAnnouncedToday } from '@/lib/app/trialAnnounce';
+import { beginGateFlow, endGateFlow, trialAnnouncedToday } from '@/lib/app/trialAnnounce';
 const announcedTodaySafe = () => { try { return trialAnnouncedToday(window.localStorage); } catch { return false; } };
 
 const UNLOCK_KEY = 'signum_ad_unlock';
@@ -227,7 +227,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const gateFlowAt = useRef(0);
   const gateBusy = () => gateFlowAt.current > 0 && Date.now() - gateFlowAt.current < 120_000;
   // ★11/16 밤 게이트 흐름(탭→광고 준비·대체 창)이 도는 동안은 기존 사용자 체험 안내가 끼어들지 않게 앱 전역에도 알린다(lib/app/trialAnnounce)
-  const endFlow = () => { gateFlowAt.current = 0; noteGateFlow(false); };
+  const gateFlowId = useRef(0);
+  const endFlow = () => { gateFlowAt.current = 0; endGateFlow(gateFlowId.current); gateFlowId.current = 0; };
 
   /** PRO 여부를 «스토어에서 방금» 본다 — 'pro'(PRO 확인) · 'pending'(결제 진행 중) · 'free'(무료 확인) · 'unknown'(조회 실패·3초 초과) */
   //   ★11/16 밤 — 조회를 기다리는 동안 다른 경로(결제 SDK 알림·다른 게이트·광고 관리자)에서 PRO 로 바뀌었으면, 진행 중 조회가
@@ -299,7 +300,8 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const handleUnlockPress = useCallback(async () => {
     if (unlockPending.current || gateBusy()) return;
     gateFlowAt.current = Date.now();
-    noteGateFlow(true);
+    endGateFlow(gateFlowId.current);
+    gateFlowId.current = beginGateFlow();
     // ① 하루 첫 게이트 탭 — 광고 전에 페이월 한 번(닫으면 원래 누른 대로 광고가 이어진다)
     const today = localDay();
     const first = shouldShowFirstGatePaywall(gateRef.current, readGateDay(), today);
