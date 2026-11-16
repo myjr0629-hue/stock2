@@ -24,6 +24,9 @@ export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDon
   const shownRef = useRef(false);
   const decided = useRef(false);
   const checking = useRef(false);
+  // 해제됐나(문서 화면 이동 등) — 해제 뒤 끝난 조회는 기록·표시하지 않는다(관문 11161302)
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
 
@@ -53,7 +56,7 @@ export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDon
         free = !pro;
       } catch { free = false; }
       checking.current = false;
-      if (decided.current) return;
+      if (decided.current || !alive.current) return;
       if (!free || proPurchaseState.getSnapshot() || storeProSignal.latest() === true) { finish(); return; }
       if (!markFirstRunPaywallShown(store())) { finish(); return; }
       shownRef.current = true;
