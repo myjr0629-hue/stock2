@@ -22,8 +22,8 @@ export async function GET() {
   const body = `# SIGNUM HQ
 
 > SIGNUM HQ is a US stock market app (iOS, Android and web, free to start):
-> real-time stock prices during regular market hours, a one-line AI read of what to watch in
-> each stock, market news, a morning AI brief, a post-close report, the earnings
+> real-time stock prices during regular market hours, one-line AI reads of what to watch
+> (where data allows), market news, a morning AI brief, a post-close report, the earnings
 > calendar and alerts — in English, Korean and Japanese. Advanced market-structure
 > data (dark pool share, max pain, gamma exposure, options flow) sits one layer down
 > for anyone who wants to go deeper.
@@ -35,8 +35,8 @@ free to read and open to crawl.
 
 ## What we publish
 
-- **US stock app** — watchlist prices during regular market hours, a one-line AI read per
-  stock, market news, a morning AI brief, a post-close report and the earnings
+- **US stock app** — watchlist prices during regular market hours, one-line AI reads
+  where data allows, market news, a morning AI brief, a post-close report and the earnings
   calendar ([get the app](${base}/app?from=llms)).
 - **Advanced data: per-ticker money snapshot** — dark pool share, max pain, call wall, put floor,
   put/call ratio, squeeze pressure and price, for ${FLOW_TICKERS.length.toLocaleString()} US tickers.
@@ -95,8 +95,8 @@ AI summaries in English, Korean and Japanese. The core data is free; an optional
 in-app PRO subscription removes ads and raises the watchlist limit (5 stocks free).
 
 - [SIGNUM HQ](${base}/app?from=llms) — a US stock app. My Watchlist: tap the heart on any
-  US stock and each row shows its real-time price during regular market hours with a one-line
-  AI read of what to watch. On Android the watchlist is also a home-screen widget
+  US stock and each row shows its real-time price during regular market hours, with a one-line
+  AI read of what to watch when the data for that stock supports one. On Android the watchlist is also a home-screen widget
   (refreshed every 30 minutes). Plus pre-market / regular / after-hours prices that
   always state which session the percentage is measured against, market news, a morning
   AI brief, this week's earnings calendar split into before-open (BMO) and after-close
