@@ -9,12 +9,22 @@ import { ProPaywall } from './ProPaywall';
 import { RedeemCodeLink } from './RedeemCodeLink';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
-import { localDay, markGateDay, readGateDay, shouldShowFirstGatePaywall, shouldShowNoFillPaywall, storeProSignal, checkStorePro } from '@/lib/app/gatePaywall';
-import { beginGateFlow, endGateFlow, trialAnnouncedToday } from '@/lib/app/trialAnnounce';
+import { markGateDay, readGateDay, storeProSignal, checkStorePro, gatePaywallSlot, decideFirstGatePaywall, decideNoFillPaywall } from '@/lib/app/gatePaywall';
+import { beginGateFlow, endGateFlow, gateFlowActive, trialAnnouncedToday } from '@/lib/app/trialAnnounce';
 const announcedTodaySafe = () => { try { return trialAnnouncedToday(window.localStorage); } catch { return false; } };
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
+/** ★11/17 광고 잠금해제(앱 전역)가 지금 유효한가 — 콜백 안에서 렌더를 기다리지 않고 읽는다(useUnlockState 와 같은 해석) */
+const adUnlockedNow = () => {
+  try {
+    const raw = localStorage.getItem(UNLOCK_KEY);
+    if (!raw) return false;
+    let until: unknown;
+    try { const p = JSON.parse(raw); until = p?.unlockedUntil || p; } catch { until = raw; }
+    return Date.now() < Number(until);
+  } catch { return false; }
+};
 
 // IAP_LIVE is the single source of truth in src/config/iap.ts. While false, the
 // "$9.99/mo ad-free" upsell line stays hidden (a non-purchasable price fails App
@@ -199,6 +209,12 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const gatePro = gateProNow();
   // A Pro subscriber bypasses the wall permanently (no ad, no timer).
   const isUnlocked = unlocked || gatePro;
+  // ★11/17 대체 창이 닫혔거나(어느 경로든) 잠금이 풀려 창이 그려지지 않으면 창 몫 자리를 놓는다(관문 11170640)
+  //   잠금이 풀리면(PRO 확인·구매 성공·광고 보상) 게이트 페이월도 닫힘 콜백 없이 사라질 수 있다 — 페이월 몫 자리도 놓는다(관문 11170642)
+  useEffect(() => {
+    if (!showAd || isUnlocked) { gatePaywallSlot.release(modalSlot.current); modalSlot.current = 0; }
+    if (isUnlocked) { gatePaywallSlot.release(slotId.current); slotId.current = 0; }
+  }, [showAd, isUnlocked]);
   const copy = VALUE_WALL_COPY[resolveValueWallLocale(locale)];
 
   // ★11/16 게이트 «가치 순간» 페이월(lib/app/gatePaywall) — 페이월을 닫은 «뒤»에 이어 할 일(광고 / 대체 창).
@@ -228,7 +244,35 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const gateBusy = () => gateFlowAt.current > 0 && Date.now() - gateFlowAt.current < 120_000;
   // ★11/16 밤 게이트 흐름(탭→광고 준비·대체 창)이 도는 동안은 기존 사용자 체험 안내가 끼어들지 않게 앱 전역에도 알린다(lib/app/trialAnnounce)
   const gateFlowId = useRef(0);
-  const endFlow = () => { gateFlowAt.current = 0; endGateFlow(gateFlowId.current); gateFlowId.current = 0; };
+  // ★11/17 게이트 페이월 자리(앱 전역 하나 — lib/app/gatePaywall gatePaywallSlot) — 이 게이트가 잡은 번호. 흐름 끝·언마운트에 놓는다
+  const slotId = useRef(0);
+  const releaseSlot = () => { gatePaywallSlot.release(slotId.current); slotId.current = 0; };
+  // 대체 30초 창이 열린 동안 잡는 자리(관문 11170635 — 창이 열린 채 흐름 끝에 자리가 풀려 다른 게이트의 ad_nofill 이 겹치지 않게). 창 닫힘·언마운트에 놓는다
+  const modalSlot = useRef(0);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      endGateFlow(gateFlowId.current); gateFlowId.current = 0; // 흐름 도중 화면을 떠났다 — 다른 게이트 탭을 2분 막지 않게
+      gatePaywallSlot.release(slotId.current); slotId.current = 0;
+      gatePaywallSlot.release(modalSlot.current); modalSlot.current = 0;
+    };
+  }, []);
+  const endFlow = () => { gateFlowAt.current = 0; endGateFlow(gateFlowId.current); gateFlowId.current = 0; releaseSlot(); };
+  /** 게이트 흐름의 대체 창 열기 — 이 게이트의 자리를 넘겨받거나(① 뒤) 새로 잡아 창 동안 유지(2분 상한 — 창이 닫힘 콜백 없이 사라져도 오래 남지 않게)
+   *  자리를 못 잡으면(다른 게이트의 페이월·대체 창 흐름 중) 겹쳐 열지 않는다 — 그 흐름이 앱 전역 잠금을 연다(관문 11170640) */
+  const openFallback = () => {
+    if (!alive.current) return; // 언마운트 뒤 — 창도 자리도 만들지 않는다(정리 함수가 이미 돌아 자리가 남는다 — 관문 11170638)
+    const own = slotId.current !== 0 && gatePaywallSlot.held(slotId.current);
+    const id = own ? slotId.current : gatePaywallSlot.claim();
+    if (!id) return;
+    if (own) { gatePaywallSlot.unpin(id); slotId.current = 0; } // 흐름 끝(endFlow)에 풀리지 않게 창 몫으로 옮기고 2분 상한
+    gatePaywallSlot.release(modalSlot.current);
+    modalSlot.current = id;
+    setShowAd(true);
+  };
+  const closeFallback = () => { gatePaywallSlot.release(modalSlot.current); modalSlot.current = 0; setShowAd(false); };
 
   /** PRO 여부를 «스토어에서 방금» 본다 — 'pro'(PRO 확인) · 'pending'(결제 진행 중) · 'free'(무료 확인) · 'unknown'(조회 실패·3초 초과) */
   //   ★11/16 밤 — 조회를 기다리는 동안 다른 경로(결제 SDK 알림·다른 게이트·광고 관리자)에서 PRO 로 바뀌었으면, 진행 중 조회가
@@ -279,12 +323,20 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
       setUnlocking(false);
     }
 
+    if (!alive.current || adUnlockedNow()) return 'done'; // ★11/17 광고를 기다리는 사이 화면을 떠났거나 잠금이 풀렸다 — 페이월·대체 창을 잇지 않는다
     // ② 네이티브에서 광고가 안 나왔다 — 대체 30초 창 «전에» 페이월 한 번(닫으면 대체 창 그대로)
-    if (native && shouldShowNoFillPaywall(gateRef.current, shownThisTap)) {
-      // 무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 그대로(대체 창)
-      const st = await proCheck();
-      if (st === 'pro' || (st === 'free' && gateProNow())) return 'done';
-      if (st === 'free' && stillFree()) {
+    //   무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 그대로(대체 창)
+    //   ★11/17 앱 전역 자리(gatePaywallSlot)를 재조회 «전»에 잡는다 — 다른 게이트의 페이월 흐름 중이면 페이월도 대체 창도 겹쳐 열지 않는다(그 흐름이 앱 전역 잠금을 연다)
+    if (native) {
+      const nf = await decideNoFillPaywall({
+        state: () => gateRef.current, shownThisTap, slot: gatePaywallSlot, ownSlot: slotId.current, check: proCheck, proNow: gateProNow,
+        stillFree: () => alive.current && !adUnlockedNow() && stillFree(), // 재조회 사이 화면을 떠났거나 다른 게이트 광고로 잠금이 풀렸으면 열지 않는다
+      });
+      if (nf.kind === 'pro' || nf.kind === 'busy') return 'done';
+      if (nf.kind === 'paywall') {
+        if (!alive.current) { gatePaywallSlot.release(nf.slot); return 'done'; } // 재조회 사이 화면을 떠났다 — 자리를 남기지 않는다
+        releaseSlot();
+        slotId.current = nf.slot;
         afterPaywall.current = 'fallback';
         setPaywallSrc('ad_nofill');
         setPaywallOpen(true);
@@ -293,25 +345,33 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     }
     // ★11/16 밤 — 광고를 기다리는 사이 다른 경로에서 PRO 로 확인됐으면 대체 창을 열지 않는다(잠금은 이미 열림)
     if (gateProNow()) return 'done';
-    setShowAd(true);
+    if (!alive.current || adUnlockedNow()) return 'done'; // ★11/17 재조회 사이 화면 이탈·잠금 해제 — 대체 창 안 엶(관문 11170647)
+    openFallback();
     return 'done';
   }, [onUnlock, proCheck]);
 
   const handleUnlockPress = useCallback(async () => {
     if (unlockPending.current || gateBusy()) return;
+    // ★11/17 다른 게이트의 흐름(재조회·광고 준비/표시·페이월)이 도는 중이면 이 탭은 넘긴다 — 게이트 흐름은 앱 전역 하나(관문 11170644 ①: A 광고 중 B 의 ad_nofill·gate_first 겹침)
+    //   잠금해제는 앱 전역(UNLOCK_KEY·signum:unlock)이라 A 의 흐름이 B 의 잠금도 연다. 흐름 표식은 2분 상한·흐름 끝·언마운트에 지운다.
+    if (gateFlowActive()) return;
     gateFlowAt.current = Date.now();
     endGateFlow(gateFlowId.current);
     gateFlowId.current = beginGateFlow();
     // ① 하루 첫 게이트 탭 — 광고 전에 페이월 한 번(닫으면 원래 누른 대로 광고가 이어진다)
-    const today = localDay();
-    const first = shouldShowFirstGatePaywall(gateRef.current, readGateDay(), today);
-    if (first) setUnlocking(true); // 스토어 확인(보통 SDK 캐시 즉시) 동안 단추를 «잠시만»으로
-    const st = first ? await proCheck() : null;
-    if (first) setUnlocking(false);
-    // 무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 흐름 그대로(광고 → 대체 창)
-    if (st === 'pro' || (st !== null && gateProNow())) { endFlow(); return; }
-    const open = st === 'free' && stillFree() && markGateDay(today);
-    if (open) {
+    //   무료 확인 때만 페이월. PRO 면 멈춘다(재조회 PRO 는 storePro 로 잠금이 열린다) · 모름은 예전 흐름 그대로(광고 → 대체 창)
+    //   ★11/17 앱 전역 자리(gatePaywallSlot)를 재조회 «전»에 선점 — 다른 게이트의 페이월 흐름이 진행 중이면 이 탭은 넘긴다(겹침 없음 · 그 흐름이 앱 전역 잠금을 연다).
+    //   «오늘» 날짜는 실제로 여는 시점의 현지 날짜로 다시 판정·기록(자정 경계)
+    const r = await decideFirstGatePaywall({
+      state: () => gateRef.current, slot: gatePaywallSlot, check: proCheck, proNow: gateProNow,
+      stillFree: () => alive.current && !adUnlockedNow() && stillFree(), // 재조회 사이 화면을 떠났거나 잠금이 풀렸으면 날짜를 기록하지 않는다(그날 기회 보존 — 관문 11170630 낮음·11170644)
+      readDay: readGateDay, markDay: markGateDay,
+      onChecking: setUnlocking, // 스토어 확인(보통 SDK 캐시 즉시) 동안 단추를 «잠시만»으로
+    });
+    if (r.kind === 'pro' || r.kind === 'busy' || !alive.current || adUnlockedNow()) { endFlow(); return; } // 재조회 사이 화면을 떠났으면 광고도 잇지 않는다(관문 11170635)
+    if (r.kind === 'paywall') {
+      if (!alive.current) { gatePaywallSlot.release(r.slot); endFlow(); return; } // 재조회 사이 화면을 떠났다 — 자리를 남기지 않는다
+      slotId.current = r.slot;
       afterPaywall.current = 'ad';
       setPaywallSrc('gate_first');
       setPaywallOpen(true);
@@ -328,6 +388,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     const next = afterPaywall.current;
     afterPaywall.current = null;
     if (!next) return;
+    gatePaywallSlot.unpin(slotId.current); // ★11/17 페이월은 닫혔다 — 이어 할 일 동안 자리는 2분 상한(흐름 끝 endFlow 에 해제)
     // 구매 성공으로 닫혔을 수 있다 — 스토어가 PRO 라 하면 광고·대체 창을 잇지 않는다.
     window.setTimeout(() => {
       void (async () => {
@@ -336,8 +397,9 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
           const st = await proCheck();
           if (st === 'pro' || st === 'pending') return;
           if (gateProNow()) return; // 조회 뒤 다른 경로에서 PRO — 광고·대체 창 잇지 않음
+          if (!alive.current || adUnlockedNow()) return; // ★11/17 조회 사이 화면을 떠났거나 잠금이 풀렸다 — 광고·대체 창 잇지 않음
           if (next === 'ad') await runUnlock(true);
-          else setShowAd(true);
+          else openFallback();
         } finally {
           endFlow();
         }
@@ -394,7 +456,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         <RewardedAdModal
           copy={copyOut}
           legalNote={copyOut.legalNote}
-          onClose={() => setShowAd(false)}
+          onClose={closeFallback}
           onReward={finishUnlock}
           onUpgrade={iapAvailable ? () => openPaywall('ad_modal') : undefined}
         />

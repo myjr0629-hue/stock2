@@ -190,3 +190,115 @@ export async function checkStorePro(d: {
     if (timer !== undefined) clearTimeout(timer);
   }
 }
+
+// ★11/17 밤 교차 검토(중간 1·낮음 1) — 게이트 페이월 «자리»는 앱 전역에 하나.
+//   중간 1: 서로 다른 게이트(ValueWall·대시보드 게이트 인스턴스) 두 개를 거의 동시에 누르면 각자 «오늘 gate_first 기록 없음»을 읽고
+//     스토어 재조회를 기다린 뒤 둘 다 기록하고 페이월을 열었다(중복 탭 방지는 인스턴스별, 날짜 기록은 재조회 «뒤»).
+//     → 재조회 «전»에 이 자리를 선점한다. 선점 못 한 게이트(자리 사용 중)는 이번 탭을 넘긴다('busy') — 페이월·광고·대체 창 어느 것도 겹쳐 열지 않는다
+//       (관문 11170632: 광고 흐름으로 보내면 A 의 페이월과 B 의 광고·대체 창이 겹친다. 잠금해제는 앱 전역이라 A 의 흐름이 B 의 잠금도 연다).
+//     자리는 페이월을 닫고 이어 할 일(광고·대체 창)이 끝날 때까지 유지 — 그 사이 다른 게이트의 ad_nofill 도 겹쳐 열리지 않는다.
+//     재조회가 PRO·실패·결제 진행 중·체험 안내 봄 등으로 «안 연다»면 바로 놓는다(그날 기회를 낭비하지 않게 — 날짜 기록도 안 남는다).
+//     재조회 중 자리는 2분 지나면 풀린다(gateBusy·게이트 흐름과 같은 상한). 페이월을 «연» 자리(pin)는 열려 있는 동안 풀리지 않는다
+//     (관문 11170630 중간 — 열린 채 2분 지나 다른 게이트의 ad_nofill 이 겹치지 않게). 닫힘·흐름 끝·게이트 언마운트에 놓고, 30분은 최후 상한.
+//   낮음 1: 날짜는 «실제로 페이월을 여는 시점»의 현지 날짜로 다시 판정·기록한다(23:59:59 탭 → 자정 뒤 재조회 끝 = 새 날짜로 기록).
+//     그 사이 다른 곳(체험 안내·다른 게이트)이 오늘 표식을 남겼으면 열지 않는다.
+export const GATE_SLOT_MAX_MS = 120_000;
+export const GATE_SLOT_PINNED_MAX_MS = 30 * 60_000;
+
+export function createGatePaywallSlot(opts: { now?: () => number } = {}) {
+  const now = opts.now ?? (() => Date.now());
+  let holder = 0;
+  let at = 0;
+  let seq = 0;
+  let limit = GATE_SLOT_MAX_MS;
+  const free = () => holder === 0 || now() - at >= limit;
+  return {
+    /** 자리를 잡는다 — 번호(0 = 다른 게이트가 잡고 있음) */
+    claim(): number { if (!free()) return 0; holder = ++seq; at = now(); limit = GATE_SLOT_MAX_MS; return holder; },
+    /** 페이월을 열었다 — 닫힐 때까지(최후 상한 30분) 풀리지 않게. 그 번호가 아직 잡고 있을 때만 true */
+    pin(id: number): boolean { if (id === 0 || holder !== id || free()) return false; at = now(); limit = GATE_SLOT_PINNED_MAX_MS; return true; },
+    /** 페이월을 닫았다 — 이어 할 일(광고·대체 창) 동안은 다시 2분 상한(광고가 멈춰도 모든 게이트가 30분 막히지 않게) */
+    unpin(id: number): void { if (id !== 0 && holder === id && !free()) { at = now(); limit = GATE_SLOT_MAX_MS; } },
+    /** 그 번호가 잡고 있을 때만 놓는다(다른 게이트의 자리를 풀지 않는다) */
+    release(id: number): void { if (id !== 0 && holder === id) { holder = 0; at = 0; limit = GATE_SLOT_MAX_MS; } },
+    /** 그 번호가 아직(2분 안) 잡고 있나 */
+    held(id: number): boolean { return id !== 0 && holder === id && !free(); },
+    /** 누군가 잡고 있나 */
+    busy(): boolean { return !free(); },
+  };
+}
+export type GatePaywallSlot = ReturnType<typeof createGatePaywallSlot>;
+export const gatePaywallSlot = createGatePaywallSlot();
+
+/** ① 하루 첫 게이트 탭 판정 전체 — 'pro' = 이번 탭 멈춤 · 'paywall' = 연다(자리 slot 은 호출자가 흐름 끝에 놓는다) · 'skip' = 페이월 없이 기존 흐름
+ *  · 'busy' = 다른 게이트의 페이월 흐름(재조회~페이월~이어 할 일)이 진행 중 — 이번 탭은 넘긴다 */
+export type FirstGateOutcome = { kind: 'pro' } | { kind: 'paywall'; day: string; slot: number } | { kind: 'skip' } | { kind: 'busy' };
+
+export async function decideFirstGatePaywall(d: {
+  state: () => GateState;
+  slot: GatePaywallSlot;
+  /** 스토어 재조회(checkStorePro) */
+  check: () => Promise<ProCheckResult>;
+  /** 지금 이 순간의 PRO(동기) */
+  proNow: () => boolean;
+  /** 페이월을 열어도 되는 무료인가(PRO·결제 진행 중·오늘 체험 안내 아님) */
+  stillFree: () => boolean;
+  readDay: () => string | null;
+  markDay: (day: string) => boolean;
+  now?: () => Date;
+  /** 재조회 동안 단추를 «잠시만»으로 */
+  onChecking?: (busy: boolean) => void;
+}): Promise<FirstGateOutcome> {
+  const now = d.now ?? (() => new Date());
+  if (d.slot.busy()) return { kind: 'busy' }; // 다른 게이트가 재조회 중이거나 페이월 흐름 중 — 겹쳐 아무것도 열지 않는다
+  if (!shouldShowFirstGatePaywall(d.state(), d.readDay(), localDay(now()))) return { kind: 'skip' };
+  const id = d.slot.claim();
+  if (!id) return { kind: 'busy' };
+  let keep = false;
+  try {
+    d.onChecking?.(true);
+    let st: ProCheckResult;
+    try { st = await d.check(); } finally { d.onChecking?.(false); }
+    if (st === 'pro' || d.proNow()) return { kind: 'pro' };
+    // 무료 확인 때만 — 모름·결제 진행 중은 열지 않는다(PRO 보호 우선)
+    if (st !== 'free' || !d.slot.held(id) || !d.stillFree()) return { kind: 'skip' };
+    const day = localDay(now()); // 여는 시점의 현지 날짜
+    if (!shouldShowFirstGatePaywall(d.state(), d.readDay(), day)) return { kind: 'skip' };
+    if (!d.slot.pin(id)) return { kind: 'skip' };
+    if (!d.markDay(day)) return { kind: 'skip' };
+    keep = true;
+    return { kind: 'paywall', day, slot: id };
+  } finally {
+    if (!keep) d.slot.release(id);
+  }
+}
+
+/** ② 보상형 광고가 안 나왔을 때 — 'pro' = 멈춤 · 'paywall' = 연다(자리 slot 은 호출자가 놓는다) · 'fallback' = 예전 대체 창
+ *  · 'busy' = 다른 게이트의 페이월 흐름 중 — 대체 창도 겹쳐 열지 않는다(그 흐름이 앱 전역 잠금을 연다) */
+export type NoFillOutcome = { kind: 'pro' } | { kind: 'paywall'; slot: number } | { kind: 'fallback' } | { kind: 'busy' };
+
+export async function decideNoFillPaywall(d: {
+  state: () => GateState;
+  shownThisTap: boolean;
+  slot: GatePaywallSlot;
+  /** 이 게이트가 이미 잡고 있는 자리(① 페이월을 닫은 뒤 이어지는 광고) — 자기 자리는 «사용 중»으로 보지 않는다 */
+  ownSlot?: number;
+  check: () => Promise<ProCheckResult>;
+  proNow: () => boolean;
+  stillFree: () => boolean;
+}): Promise<NoFillOutcome> {
+  if (d.slot.busy() && !(d.ownSlot && d.slot.held(d.ownSlot))) return { kind: 'busy' }; // 다른 게이트의 페이월 흐름 중
+  if (!shouldShowNoFillPaywall(d.state(), d.shownThisTap)) return { kind: 'fallback' };
+  const id = d.slot.claim();
+  if (!id) return { kind: 'busy' };
+  let keep = false;
+  try {
+    const st = await d.check();
+    // PRO 면 멈춘다 · 모름은 예전 그대로(대체 창)
+    if (st === 'pro' || (st === 'free' && d.proNow())) return { kind: 'pro' };
+    if (st === 'free' && d.stillFree() && d.slot.pin(id)) { keep = true; return { kind: 'paywall', slot: id }; }
+    return { kind: 'fallback' };
+  } finally {
+    if (!keep) d.slot.release(id);
+  }
+}

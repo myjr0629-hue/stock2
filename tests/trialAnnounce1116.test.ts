@@ -159,7 +159,7 @@ test('④ 반대 방향 배선 — 오늘 이 안내가 떴으면 선물 안내 
   const pw = require('node:fs').readFileSync(require.resolve('../src/components/app/ProPaywall.tsx'), 'utf8') as string;
   assert.match(pw, /m\.trackFunnel\('open', \{ src: funnelSrc \}\); \}\)\.catch\(\(\) => \{\}\);\n.*\n    try \{ notePaywallOpened\(window\.localStorage\); \}/, '페이월 열림 표식');
   assert.match(v, /gateFlowAt\.current = Date\.now\(\);\n    endGateFlow\(gateFlowId\.current\);\n    gateFlowId\.current = beginGateFlow\(\);/, '게이트 흐름 시작 알림');
-  assert.match(v, /const endFlow = \(\) => \{ gateFlowAt\.current = 0; endGateFlow\(gateFlowId\.current\); gateFlowId\.current = 0; \};/, '게이트 흐름 끝 알림');
+  assert.match(v, /const endFlow = \(\) => \{ gateFlowAt\.current = 0; endGateFlow\(gateFlowId\.current\); gateFlowId\.current = 0; releaseSlot\(\); \};/, '게이트 흐름 끝 알림(+ 앱 전역 페이월 자리 놓기 — 11/17)');
   const g = require('node:fs').readFileSync(require.resolve('../src/components/app/TrialAnnounceGate.tsx'), 'utf8') as string;
   assert.ok(g.includes('gateFlow: gateFlowActive()'), '판정이 게이트 흐름을 본다');
   assert.ok(g.indexOf('markTrialAnnounced(store)') < g.indexOf('markGateDay(localDay())') && g.indexOf('markGateDay(localDay())') < g.indexOf('setShow('), '표식 → 게이트 하루 표식 → 보임');

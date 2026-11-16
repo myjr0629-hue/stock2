@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
-import { STORE_PRO_KEY, STORE_PRO_TTL_MS, checkStorePro, createStoreProSignal, localDay, shouldShowFirstGatePaywall, shouldShowNoFillPaywall } from '../src/lib/app/gatePaywall';
+import { GATE_SLOT_MAX_MS, GATE_SLOT_PINNED_MAX_MS, STORE_PRO_KEY, STORE_PRO_TTL_MS, checkStorePro, createGatePaywallSlot, createStoreProSignal, decideFirstGatePaywall, decideNoFillPaywall, localDay, shouldShowFirstGatePaywall, shouldShowNoFillPaywall } from '../src/lib/app/gatePaywall';
 import { isFunnelSrc } from '../src/lib/app/funnelSchema';
 
 const read = (p: string) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
@@ -46,12 +46,17 @@ test('계측 출처 gate_first·ad_nofill — 스키마·집계 스크립트 둘
 
 test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로(광고·대체 창)를 잇는다', () => {
   const v = read('src/components/app/ValueWall.tsx');
-  // ① 하루 첫 탭 — 스토어에서 방금 무료 확인 + 기록 성공 때만
-  assert.match(v, /const first = shouldShowFirstGatePaywall\(gateRef\.current, readGateDay\(\), today\);/);
-  assert.match(v, /const open = st === 'free' && stillFree\(\) && markGateDay\(today\);/);
-  // ② 광고 없음 — 같은 탭 ① 뒤 생략 + 무료 확인
-  assert.match(v, /native && shouldShowNoFillPaywall\(gateRef\.current, shownThisTap\)\) \{\n.*\n      const st = await proCheck\(\);\n      if \(st === 'pro' \|\| \(st === 'free' && gateProNow\(\)\)\) return 'done';\n      if \(st === 'free' && stillFree\(\)\) \{/);
-  assert.match(v, /if \(st === 'pro' \|\| \(st !== null && gateProNow\(\)\)\) \{ endFlow\(\); return; \}/);
+  // ① 하루 첫 탭 — 스토어에서 방금 무료 확인 + 기록 성공 때만(판정 전체는 decideFirstGatePaywall — 아래 ★11/17 시험)
+  //   ★11/17 앱 전역 자리(gatePaywallSlot) 선점 · 기록 날짜는 여는 시점
+  assert.match(v, /const r = await decideFirstGatePaywall\(\{\n      state: \(\) => gateRef\.current, slot: gatePaywallSlot, check: proCheck, proNow: gateProNow,\n      stillFree: \(\) => alive\.current && !adUnlockedNow\(\) && stillFree\(\),[^\n]*\n      readDay: readGateDay, markDay: markGateDay,/);
+  assert.match(v, /if \(r\.kind === 'pro' \|\| r\.kind === 'busy' \|\| !alive\.current \|\| adUnlockedNow\(\)\) \{ endFlow\(\); return; \}[^\n]*\n    if \(r\.kind === 'paywall'\) \{\n.*\n      slotId\.current = r\.slot;\n      afterPaywall\.current = 'ad';\n      setPaywallSrc\('gate_first'\);/);
+  assert.doesNotMatch(v, /markGateDay\(today\)/, '재조회 «전» 날짜로 기록하지 않는다(자정 경계)');
+  // ② 광고 없음 — 같은 탭 ① 뒤 생략 + 무료 확인 + 앱 전역 자리
+  assert.match(v, /if \(native\) \{\n      const nf = await decideNoFillPaywall\(\{\n        state: \(\) => gateRef\.current, shownThisTap, slot: gatePaywallSlot, ownSlot: slotId\.current, check: proCheck, proNow: gateProNow,\n        stillFree: \(\) => alive\.current && !adUnlockedNow\(\) && stillFree\(\),[^\n]*\n      \}\);\n      if \(nf\.kind === 'pro' \|\| nf\.kind === 'busy'\) return 'done';/);
+  assert.match(v, /slotId\.current = nf\.slot;\n        afterPaywall\.current = 'fallback';\n        setPaywallSrc\('ad_nofill'\);/);
+  // 자리는 흐름 끝·언마운트에 놓는다
+  assert.match(v, /const endFlow = \(\) => \{ gateFlowAt\.current = 0; endGateFlow\(gateFlowId\.current\); gateFlowId\.current = 0; releaseSlot\(\); \};/);
+  assert.match(v, /alive\.current = false;\n[^\n]*\n      gatePaywallSlot\.release\(slotId\.current\); slotId\.current = 0;\n      gatePaywallSlot\.release\(modalSlot\.current\); modalSlot\.current = 0;/);
   assert.match(v, /onClose=\{closePaywall\}/);
   // 코드 PRO·조회 실패·결제 진행 중 = 무료 아님(페이월·광고 금지) — 스토어 조회(fetchProStatus)·시간 초과 3초
   assert.match(v, /fetchProStatus\(\)/);
@@ -70,7 +75,20 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /isUnlocked, unlocked, isPro, iapAvailable,/);
   assert.match(v, /return storeProSignal\.subscribe\(\(\) => setSigVer/);
   assert.match(v, /if \(adManager\.isProActive\(\) && storeProSignal\.latest\(\) !== false\) return 'done';/);
-  assert.match(v, /if \(gateProNow\(\)\) return 'done';\n    setShowAd\(true\);\n    return 'done';/);
+  assert.match(v, /if \(gateProNow\(\)\) return 'done';\n    if \(!alive\.current \|\| adUnlockedNow\(\)\) return 'done';[^\n]*\n    openFallback\(\);\n    return 'done';/);
+  // ★11/17 대체 창이 열린 동안 자리 유지(창 닫힘·언마운트에 해제)
+  assert.match(v, /else openFallback\(\);/);
+  assert.match(v, /onClose=\{closeFallback\}/);
+  assert.match(v, /const closeFallback = \(\) => \{ gatePaywallSlot\.release\(modalSlot\.current\); modalSlot\.current = 0; setShowAd\(false\); \};/);
+  assert.match(v, /gatePaywallSlot\.release\(modalSlot\.current\); modalSlot\.current = 0;\n    \};\n  \}, \[\]\);/);
+  assert.equal((v.match(/setShowAd\(true\)/g) || []).length, 1, '대체 창은 openFallback 으로만 연다');
+  // ★11/17 관문 11170638 — 언마운트 뒤 비동기 완료가 창·자리를 만들지 않는다
+  assert.match(v, /const openFallback = \(\) => \{\n    if \(!alive\.current\) return;/);
+  assert.match(v, /const id = own \? slotId\.current : gatePaywallSlot\.claim\(\);\n    if \(!id\) return;/);
+  assert.doesNotMatch(v, /gatePaywallSlot\.pin\(/, '창 몫 자리는 30분 pin 을 쓰지 않는다(2분 상한)');
+  assert.match(v, /if \(!showAd \|\| isUnlocked\) \{ gatePaywallSlot\.release\(modalSlot\.current\); modalSlot\.current = 0; \}\n    if \(isUnlocked\) \{ gatePaywallSlot\.release\(slotId\.current\); slotId\.current = 0; \}\n  \}, \[showAd, isUnlocked\]\);/, '잠금이 풀리면 창·페이월 몫 자리 해제(관문 11170642)');
+  assert.match(v, /if \(!alive\.current \|\| adUnlockedNow\(\)\) return 'done';[^\n]*\n    \/\/ ② 네이티브에서 광고가 안 나왔다/);
+  assert.match(v, /if \(gateProNow\(\)\) return; \/\/ 조회 뒤[^\n]*\n          if \(!alive\.current \|\| adUnlockedNow\(\)\) return;/);
   // ★11/16 밤 — 오늘 기존 사용자 체험 안내(trial_announce)를 봤으면 게이트 페이월(gate_first·ad_nofill)을 다시 열지 않는다
   assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\) && !announcedTodaySafe\(\);/);
   assert.match(v, /if \(gateProNow\(\)\) return; \/\/ 조회 뒤/);
@@ -85,8 +103,12 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /if \(st === 'pro' \|\| st === 'pending'\) return;/);
   // 빠른 두 번 탭 — 흐름 중 다른 탭 무시
   assert.match(v, /if \(unlockPending\.current \|\| gateBusy\(\)\) return;/);
+  // ★11/17 관문 11170644 — 게이트 흐름은 앱 전역 하나(다른 게이트 흐름 중 탭은 넘김) · 언마운트에 흐름 표식 해제 · 잠금 풀렸으면 페이월 자리 안 잡음
+  assert.match(v, /if \(unlockPending\.current \|\| gateBusy\(\)\) return;\n(    \/\/[^\n]*\n)+    if \(gateFlowActive\(\)\) return;\n    gateFlowAt\.current = Date\.now\(\);/);
+  assert.match(v, /alive\.current = false;\n      endGateFlow\(gateFlowId\.current\); gateFlowId\.current = 0;/);
   // 직접 연 페이월(«광고 없이 보기» 등)은 닫아도 이어 할 일 없음
   assert.match(v, /afterPaywall\.current = null; \/\/ 사용자가 직접 연 페이월/);
+  assert.match(v, /if \(!next\) return;\n    gatePaywallSlot\.unpin\(slotId\.current\);/, '★11/17 닫힘 → 이어 할 일 동안 2분 상한');
 });
 
 // ── ★11/16 밤 교차 검토 중간 2건 재현 시험 ────────────────────────────────────
@@ -319,4 +341,209 @@ test('관문 8 — 더 늦게 시작한 무료 조회는 먼저 시작한 조회
   db.resolve(false); assert.equal(await pb, 'free');
   assert.equal(sig.active(), false);
   assert.equal(b.state().isPro, false);
+});
+
+// ── ★11/17 밤 교차 검토(중간 1·낮음 1) — 앱 전역 자리 선점 · 여는 시점 날짜 ─────────────
+/** 게이트 하나의 ① 흐름 — ValueWall handleUnlockPress 와 같은 배선(공유 자리·공유 날짜 표식) */
+function firstGate(o: {
+  slot: ReturnType<typeof createGatePaywallSlot>; day: { v: string | null; writable?: boolean };
+  check: () => Promise<'pro' | 'pending' | 'free' | 'unknown'>; proNow?: () => boolean; stillFree?: () => boolean; now?: () => Date;
+}) {
+  let checks = 0;
+  const run = () => decideFirstGatePaywall({
+    state: () => ({ iapAvailable: true, ready: true, isPro: o.proNow?.() ?? false }),
+    slot: o.slot,
+    check: () => { checks++; return o.check(); },
+    proNow: o.proNow ?? (() => false),
+    stillFree: o.stillFree ?? (() => true),
+    readDay: () => o.day.v,
+    markDay: (d) => { if (o.day.writable === false) return false; o.day.v = d; return true; },
+    now: o.now,
+  });
+  return { run, checks: () => checks };
+}
+
+test('★11/17 중간 1 — 서로 다른 게이트 두 개 동시 탭: 재조회 «전» 선점으로 페이월 1개 · 다른 게이트는 기존 흐름(광고 없음 ②도 겹치지 않음)', async () => {
+  const c = clock(); const slot = createGatePaywallSlot({ now: c.now });
+  const day = { v: null as string | null };
+  const qa = deferred<'free'>(); const qb = deferred<'free'>();
+  const A = firstGate({ slot, day, check: () => qa.promise });
+  const B = firstGate({ slot, day, check: () => qb.promise });
+  const pa = A.run(); const pb = B.run();
+  assert.deepEqual(await pb, { kind: 'busy' }, 'B 는 A 가 선점 중 — 재조회도, 광고·대체 창도 없이 넘긴다(관문 11170632)');
+  assert.equal(B.checks(), 0);
+  // (다른 경로로) B 의 광고가 안 나왔다(②) — A 가 자리를 잡고 있으면 페이월도 대체 창도 없음
+  let nfChecks = 0;
+  const nf = await decideNoFillPaywall({ state: () => FREE, shownThisTap: false, slot, check: async () => { nfChecks++; return 'free'; }, proNow: () => false, stillFree: () => true });
+  assert.deepEqual(nf, { kind: 'busy' }); assert.equal(nfChecks, 0);
+  qa.resolve('free'); qb.resolve('free');
+  const ra = await pa;
+  assert.equal(ra.kind, 'paywall', 'A 만 페이월');
+  assert.equal(day.v, localDay(), '오늘로 기록');
+  assert.ok(ra.kind === 'paywall' && slot.held(ra.slot), '페이월을 닫고 이어 할 일이 끝날 때까지 자리 유지');
+  // A 의 흐름 끝(endFlow → releaseSlot) 뒤 같은 날 다른 게이트 탭 = 오늘 이미 봄
+  if (ra.kind === 'paywall') slot.release(ra.slot);
+  assert.equal(slot.busy(), false);
+  const C = firstGate({ slot, day, check: async () => 'free' });
+  assert.deepEqual(await C.run(), { kind: 'skip' }); assert.equal(C.checks(), 0);
+
+  // 이중 안전장치 — 자리가 따로여도(가정) 여는 시점에 날짜 표식을 다시 읽어 두 번째는 열지 않는다
+  const day2 = { v: null as string | null };
+  const q1 = deferred<'free'>(); const q2 = deferred<'free'>();
+  const X = firstGate({ slot: createGatePaywallSlot(), day: day2, check: () => q1.promise });
+  const Y = firstGate({ slot: createGatePaywallSlot(), day: day2, check: () => q2.promise });
+  const px = X.run(); const py = Y.run(); q1.resolve('free'); q2.resolve('free');
+  assert.equal((await px).kind, 'paywall'); assert.deepEqual(await py, { kind: 'skip' }, '여는 시점 재판정으로도 두 번째는 막힌다');
+});
+
+test('★11/17 낮음 1 — 23:59:59 탭 · 재조회가 자정 뒤 끝나면 새 날짜로 기록(새 날짜에 다시 뜨지 않음)', async () => {
+  let t = new Date(2026, 10, 17, 23, 59, 59);
+  const slot = createGatePaywallSlot(); const day = { v: '2026-11-16' as string | null };
+  const q = deferred<'free'>();
+  const A = firstGate({ slot, day, check: () => q.promise, now: () => t });
+  const p = A.run();
+  await flush();
+  t = new Date(2026, 10, 18, 0, 0, 1); // 자정 넘김
+  q.resolve('free');
+  const r = await p;
+  assert.deepEqual(r.kind === 'paywall' && { day: r.day }, { day: '2026-11-18' });
+  assert.equal(day.v, '2026-11-18', '여는 시점(새 날짜)으로 기록');
+  if (r.kind === 'paywall') slot.release(r.slot);
+  const B = firstGate({ slot, day, check: async () => 'free', now: () => new Date(2026, 10, 18, 0, 5) });
+  assert.deepEqual(await B.run(), { kind: 'skip' }, '새 날짜 두 번째 탭은 페이월 없음');
+  // 그날(전날) 이미 봤으면 23:59:59 탭은 재조회도 안 한다
+  const day3 = { v: '2026-11-17' as string | null };
+  const D = firstGate({ slot, day: day3, check: async () => 'free', now: () => new Date(2026, 10, 17, 23, 59, 59) });
+  assert.deepEqual(await D.run(), { kind: 'skip' }); assert.equal(D.checks(), 0);
+});
+
+test('★11/17 재조회 대기 중 다른 곳(체험 안내·다른 경로)이 여는 날짜 표식을 남겼으면 열지 않고 자리를 놓는다', async () => {
+  const slot = createGatePaywallSlot(); const day = { v: null as string | null };
+  const q = deferred<'free'>();
+  const A = firstGate({ slot, day, check: () => q.promise });
+  const p = A.run(); await flush();
+  day.v = localDay(); // trial_announce 가 markGateDay(localDay())
+  q.resolve('free');
+  assert.deepEqual(await p, { kind: 'skip' });
+  assert.equal(slot.busy(), false);
+});
+
+test('★11/17 PRO 확인 → 자리 해제·미표시·날짜 기록 없음(그날 기회 보존)', async () => {
+  const slot = createGatePaywallSlot(); const day = { v: null as string | null };
+  assert.deepEqual(await firstGate({ slot, day, check: async () => 'pro' }).run(), { kind: 'pro' });
+  assert.equal(slot.busy(), false); assert.equal(day.v, null);
+  // 무료 응답이 왔지만 대기 중 다른 경로에서 PRO 로 바뀜 → PRO(페이월 금지)
+  let pro = false; const q = deferred<'free'>();
+  const p = firstGate({ slot, day, check: () => q.promise, proNow: () => pro }).run();
+  await flush(); pro = true; q.resolve('free');
+  assert.deepEqual(await p, { kind: 'pro' });
+  assert.equal(slot.busy(), false); assert.equal(day.v, null);
+});
+
+test('★11/17 조회 실패·결제 진행 중·체험 안내 봄·기록 실패 → 자리 해제·미표시 · 다음 탭은 다시 기회', async () => {
+  const slot = createGatePaywallSlot();
+  for (const st of ['unknown', 'pending'] as const) {
+    const day = { v: null as string | null };
+    assert.deepEqual(await firstGate({ slot, day, check: async () => st }).run(), { kind: 'skip' }, st);
+    assert.equal(slot.busy(), false, `${st} — 자리 해제`); assert.equal(day.v, null, `${st} — 날짜 기록 없음`);
+    const again = await firstGate({ slot, day, check: async () => 'free' }).run();
+    assert.equal(again.kind, 'paywall', `${st} 뒤 다음 탭은 그날 기회가 남아 있다`);
+    if (again.kind === 'paywall') slot.release(again.slot);
+  }
+  {
+    const day = { v: null as string | null };
+    assert.deepEqual(await firstGate({ slot, day, check: async () => 'free', stillFree: () => false }).run(), { kind: 'skip' });
+    assert.equal(slot.busy(), false); assert.equal(day.v, null);
+  }
+  {
+    const day = { v: null as string | null, writable: false };
+    assert.deepEqual(await firstGate({ slot, day, check: async () => 'free' }).run(), { kind: 'skip' }, '기록 실패 = 안 보인다(매 탭 반복 방지)');
+    assert.equal(slot.busy(), false);
+  }
+  {
+    // 조회가 던져도 자리는 남지 않는다
+    const day = { v: null as string | null };
+    await assert.rejects(firstGate({ slot, day, check: async () => { throw new Error('x'); } }).run());
+    assert.equal(slot.busy(), false);
+  }
+});
+
+test('★11/17 자리 — 다른 번호는 풀지 못함 · 2분 지나면 풀림(닫힘이 끝내 안 불린 경우)', () => {
+  const c = clock(); const slot = createGatePaywallSlot({ now: c.now });
+  const a = slot.claim(); assert.ok(a > 0);
+  assert.equal(slot.claim(), 0);
+  slot.release(a + 1); assert.equal(slot.busy(), true, '남의 번호로는 안 풀린다');
+  slot.release(0); assert.equal(slot.busy(), true);
+  c.advance(GATE_SLOT_MAX_MS - 1); assert.equal(slot.held(a), true);
+  c.advance(1); assert.equal(slot.held(a), false); assert.equal(slot.busy(), false);
+  const b = slot.claim(); assert.ok(b > 0 && b !== a);
+  slot.release(a); assert.equal(slot.held(b), true, '만료된 옛 번호가 새 자리를 풀지 않는다');
+});
+
+test('★11/17 ② 광고 없음 — 같은 탭 ① 뒤 생략 · PRO 멈춤 · 무료면 자리 잡고 열기 · 모름은 대체 창(자리 해제)', async () => {
+  const slot = createGatePaywallSlot();
+  const base = { state: () => FREE, slot, proNow: () => false, stillFree: () => true };
+  assert.deepEqual(await decideNoFillPaywall({ ...base, shownThisTap: true, check: async () => 'free' }), { kind: 'fallback' });
+  assert.deepEqual(await decideNoFillPaywall({ ...base, shownThisTap: false, check: async () => 'pro' }), { kind: 'pro' });
+  assert.equal(slot.busy(), false);
+  assert.deepEqual(await decideNoFillPaywall({ ...base, shownThisTap: false, check: async () => 'unknown' }), { kind: 'fallback' });
+  assert.equal(slot.busy(), false);
+  assert.deepEqual(await decideNoFillPaywall({ ...base, shownThisTap: false, check: async () => 'free', stillFree: () => false }), { kind: 'fallback' });
+  assert.equal(slot.busy(), false);
+  const r = await decideNoFillPaywall({ ...base, shownThisTap: false, check: async () => 'free' });
+  assert.equal(r.kind, 'paywall'); assert.equal(slot.busy(), true);
+  // 열려 있는 동안 다른 게이트의 ① 도 열지 않는다(탭을 넘김)
+  assert.deepEqual(await firstGate({ slot, day: { v: null }, check: async () => 'free' }).run(), { kind: 'busy' });
+});
+
+test('★11/17 관문 중간 — 페이월이 열린 채 2분이 지나도 자리는 유지(다른 게이트의 광고 없음 ②가 겹치지 않음) · 닫힘에 해제 · 30분 최후 상한', async () => {
+  const c = clock(); const slot = createGatePaywallSlot({ now: c.now });
+  const day = { v: null as string | null };
+  const A = firstGate({ slot, day, check: async () => 'free' });
+  const ra = await A.run();
+  assert.equal(ra.kind, 'paywall');
+  c.advance(GATE_SLOT_MAX_MS + 60_000); // 페이월 열린 채 3분
+  let nfChecks = 0;
+  const nf = await decideNoFillPaywall({ state: () => FREE, shownThisTap: false, slot, check: async () => { nfChecks++; return 'free'; }, proNow: () => false, stillFree: () => true });
+  assert.deepEqual(nf, { kind: 'busy' }, '열린 페이월 위에 ad_nofill·대체 창을 겹쳐 열지 않는다'); assert.equal(nfChecks, 0);
+  // A 자신의 이어지는 광고(같은 탭 ① 뒤 — shownThisTap)는 자기 자리를 «사용 중»으로 보지 않는다 → 예전 대체 창
+  if (ra.kind === 'paywall') assert.deepEqual(await decideNoFillPaywall({ state: () => FREE, shownThisTap: true, slot, ownSlot: ra.slot, check: async () => 'free', proNow: () => false, stillFree: () => true }), { kind: 'fallback' });
+  if (ra.kind === 'paywall') slot.release(ra.slot); // 닫힘 → endFlow
+  const nf2 = await decideNoFillPaywall({ state: () => FREE, shownThisTap: false, slot, check: async () => 'free', proNow: () => false, stillFree: () => true });
+  assert.equal(nf2.kind, 'paywall', '닫힌 뒤에는 다시 가능');
+  c.advance(GATE_SLOT_PINNED_MAX_MS); assert.equal(slot.busy(), false, '최후 상한');
+  // 닫힌 뒤 이어 할 일(광고)이 멈춰도 2분이면 풀린다(unpin)
+  const id2 = slot.claim(); assert.equal(slot.pin(id2), true); c.advance(GATE_SLOT_MAX_MS * 3); assert.equal(slot.held(id2), true);
+  slot.unpin(id2); c.advance(GATE_SLOT_MAX_MS - 1); assert.equal(slot.held(id2), true); c.advance(1); assert.equal(slot.busy(), false);
+  // 재조회 중(아직 안 연) 자리는 2분 상한 그대로 · 만료된 번호는 pin 못 함
+  const id = slot.claim(); c.advance(GATE_SLOT_MAX_MS); assert.equal(slot.pin(id), false);
+});
+
+test('★11/17 관문 낮음 — 재조회 사이 화면을 떠나면(alive=false) 날짜를 기록하지 않고 자리를 놓는다(그날 기회 보존)', async () => {
+  const slot = createGatePaywallSlot(); const day = { v: null as string | null };
+  let alive = true; const q = deferred<'free'>();
+  const p = firstGate({ slot, day, check: () => q.promise, stillFree: () => alive }).run();
+  await flush(); alive = false; q.resolve('free');
+  assert.deepEqual(await p, { kind: 'skip' });
+  assert.equal(day.v, null); assert.equal(slot.busy(), false);
+});
+
+test('★11/17 관문 11170635 — 대체 창이 열린 동안 자리 유지: 다른 게이트의 광고 없음(②)은 페이월·창을 겹쳐 열지 않음 · 창 닫힘에 해제', async () => {
+  const c = clock(); const slot = createGatePaywallSlot({ now: c.now });
+  // ValueWall openFallback 과 같은 계산 — ① 뒤 자기 자리를 넘겨받거나 새로 잡아 pin
+  const openFallback = (own: number) => { const id = own && slot.held(own) ? own : slot.claim(); if (id && id === own) slot.unpin(id); return id; };
+  const a = await firstGate({ slot, day: { v: null }, check: async () => 'free' }).run();
+  assert.equal(a.kind, 'paywall');
+  const modal = openFallback(a.kind === 'paywall' ? a.slot : 0);
+  assert.ok(modal > 0 && a.kind === 'paywall' && modal === a.slot, '자기 자리를 창 몫으로 넘겨받는다');
+  c.advance(GATE_SLOT_MAX_MS - 1); // 창이 열린 채(흐름 endFlow 는 이미 끝)
+  assert.deepEqual(await decideNoFillPaywall({ state: () => FREE, shownThisTap: false, slot, check: async () => 'free', proNow: () => false, stillFree: () => true }), { kind: 'busy' });
+  // 자리를 못 잡은 다른 게이트는 창을 겹쳐 열지 않는다
+  assert.equal(openFallback(0), 0);
+  slot.release(modal); // closeFallback · 창이 그려지지 않게 된 effect
+  assert.equal(slot.busy(), false);
+  // 창 몫 자리는 2분 상한(닫힘 콜백 없이 사라져도 오래 남지 않음)
+  const m1 = openFallback(0); c.advance(GATE_SLOT_MAX_MS); assert.equal(slot.held(m1), false);
+  // 자리 없이 연 창(① 없이 광고 없음 → 대체 창)도 새로 잡아 유지
+  const m2 = openFallback(0); assert.ok(m2 > 0); assert.equal(slot.busy(), true); slot.release(m2);
 });
