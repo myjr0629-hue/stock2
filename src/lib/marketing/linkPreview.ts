@@ -127,15 +127,15 @@ export function promoCopy(lang: PreviewLang, code: string | null): Copy {
   const copy: Record<PreviewLang, Copy> = {
     en: {
       title: `SIGNUM HQ PRO — 1 month free · first ${limit} · until ${date} (iPhone)`,
-      desc: 'PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. US stock app with real-time prices & AI analysis.',
+      desc: 'PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. US stock app: market-hours live prices & AI analysis.',
     },
     ja: {
       title: `SIGNUM HQ PRO 1か月無料 — 先着${limit}名・${date}まで(iPhone)`,
-      desc: 'PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。リアルタイム株価とAI分析の米国株アプリ。',
+      desc: 'PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。通常取引時間のリアルタイム株価とAI分析の米国株アプリ。',
     },
     ko: {
       title: `SIGNUM HQ PRO 1개월 무료 — 선착순 ${limit}명 · ${date}까지(아이폰)`,
-      desc: 'PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 실시간 주가·AI 분석 미국주식 앱.',
+      desc: 'PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 정규장 실시간 주가·AI 분석 미국주식 앱.',
     },
   };
   return copy[lang];
@@ -160,22 +160,22 @@ export function inviteCardCopy(lang: PreviewLang, android: boolean): Copy {
       return {
         title: 'SIGNUM HQ PRO 1개월 무료 — 친구가 보낸 선물',
         desc: android
-          ? '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰·안드로이드 모두 쓸 수 있어요. 실시간 주가·AI 분석 미국주식 앱.'
-          : '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 실시간 주가·AI 분석 미국주식 앱.',
+          ? '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰·안드로이드 모두 쓸 수 있어요. 정규장 실시간 주가·AI 분석 미국주식 앱.'
+          : '링크로 설치하면 PRO(광고 없음 + 내 종목 100개)를 첫 달 무료로, 이후 월 ₩11,900 자동 갱신(언제든 해지). 아이폰에서 탭 한 번이면 설치 + 적용. 정규장 실시간 주가·AI 분석 미국주식 앱.',
       };
     case 'ja':
       return {
         title: 'SIGNUM HQ PRO 1か月無料 — 友だちからのプレゼント',
         desc: android
-          ? 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhone・Androidどちらでも使えます。リアルタイム株価とAI分析の米国株アプリ。'
-          : 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。リアルタイム株価とAI分析の米国株アプリ。',
+          ? 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhone・Androidどちらでも使えます。通常取引時間のリアルタイム株価とAI分析の米国株アプリ。'
+          : 'リンクからインストールすると、PRO(広告なし+マイ銘柄100件)が最初の1か月無料、以降は月額¥1,280で自動更新(いつでも解約可)。iPhoneならタップ1回でインストール+適用。通常取引時間のリアルタイム株価とAI分析の米国株アプリ。',
       };
     default:
       return {
         title: 'SIGNUM HQ PRO, first month free — a gift from a friend',
         desc: android
-          ? 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. Works on iPhone and Android. US stock app with real-time prices & AI analysis.'
-          : 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. US stock app with real-time prices & AI analysis.',
+          ? 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. Works on iPhone and Android. US stock app: market-hours live prices & AI analysis.'
+          : 'Install via this link and PRO (no ads + 100-ticker watchlist) is free for your first month, then the regular price (US$9.99/mo) — auto-renews, cancel anytime. One tap on iPhone installs and applies. US stock app: market-hours live prices & AI analysis.',
       };
   }
 }

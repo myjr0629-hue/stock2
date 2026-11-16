@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   // 네이버 서치어드바이저 소유확인 (2026-09-18, searchadvisor.naver.com → HTML 태그 방식)
   verification: { other: { 'naver-site-verification': '4b8793fa022687de93bb08e112e1c0a74ac3629b' } },
   title: "SIGNUM HQ",
-  description: "Stock market app for US stocks — real-time stock prices, AI stock analysis, market news, earnings calendar and alerts. Start free.",
+  description: "Stock market app for US stocks — real-time stock prices during market hours, AI stock analysis, market news, earnings calendar and alerts. Start free.",
   metadataBase: new URL('https://www.signumhq.com'),
   // ⛔ 2026-08-20 실측: 티커 페이지 501개는 generateMetadata 에서 hreflang 을 내보내는데,
   //    홈·/undercurrent·/wim·/how-it-works·/pricing 는 «0개»였다. 3개국어를 완비해 놓고
@@ -78,7 +78,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'SIGNUM HQ — Stock Market App: Real-Time Prices & AI Analysis',
-    description: 'Real-time stock prices for US stocks, AI analysis of every move, market news, earnings calendar and alerts. Start free.',
+    description: 'Real-time US stock prices during market hours, AI analysis of every move, market news, earnings calendar and alerts. Start free.',
     url: 'https://signumhq.com',
     siteName: 'SIGNUM HQ',
     images: [
@@ -95,7 +95,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'SIGNUM HQ — Stock Market App: Real-Time Prices & AI Analysis',
-    description: 'Real-time stock prices for US stocks, AI analysis of every move, market news, earnings calendar and alerts. Start free.',
+    description: 'Real-time US stock prices during market hours, AI analysis of every move, market news, earnings calendar and alerts. Start free.',
     images: ['/api/og/market?type=pulse&format=tweet'],
     creator: '@signumhq',
   },

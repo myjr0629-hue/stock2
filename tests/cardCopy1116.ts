@@ -14,9 +14,9 @@ export const CARD_COPY_1116: ReadonlyArray<readonly [string, string]> = [
   ['SIGNUM HQ — 미국 시장 전체를 무료 앱 하나로', 'SIGNUM HQ — 미국주식 앱: 실시간 주가·AI 분석'],
   ['프리마켓·실적 일정·거시·섹터·매일 아침 AI 브리핑·기관의 흔적(옵션·다크풀·공매도). iOS·Android 무료, 가입 없이 바로.',
     '내 종목 실시간 주가(정규장), 움직인 이유를 AI가 한 줄로. 미국 증시 뉴스·아침 AI 브리핑·장마감 리포트·실적 일정·알림. iOS·Android 무료, 가입 없이 바로.'],
-  [' Options flow & dark pool data app.', ' US stock app with real-time prices & AI analysis.'],
-  ['オプションフロー/ダークプールのアプリ。', 'リアルタイム株価とAI分析の米国株アプリ。'],
-  [' 옵션 흐름·다크풀 데이터 앱.', ' 실시간 주가·AI 분석 미국주식 앱.'],
+  [' Options flow & dark pool data app.', ' US stock app: market-hours live prices & AI analysis.'],
+  ['オプションフロー/ダークプールのアプリ。', '通常取引時間のリアルタイム株価とAI分析の米国株アプリ。'],
+  [' 옵션 흐름·다크풀 데이터 앱.', ' 정규장 실시간 주가·AI 분석 미국주식 앱.'],
 ];
 
 /** 기준 소스가 linkPreview.ts 일 때만 문구를 새 값으로 바꾼다. */
