@@ -116,8 +116,9 @@ export function useProStatus() {
   // 퍼널 모듈을 첫 화면 뒤에 미리 받아 둔다 — 평가되는 순간 «내 종목» 시트 이벤트 전송기가 꽂힌다(시트는 사용자가 연다)
   useEffect(() => { void funnel().catch(() => {}); }, []);
 
-  const purchase = useCallback(async (plan: PlanId = 'monthly', src?: FunnelSrc): Promise<PurchaseOutcome> => {
-    const result = await proPurchaseState.run(() => purchasePro(plan), async () => {
+  const purchase = useCallback(async (plan: PlanId = 'monthly', src?: FunnelSrc, pkg?: PlanOffer['pkg']): Promise<PurchaseOutcome> => {
+    // ★11/16 pkg = 페이월이 체험을 그린 그 패키지(있을 때만 — 없으면 예전처럼 플랜으로 다시 찾는다)
+    const result = await proPurchaseState.run(() => purchasePro(plan, pkg), async () => {
       // 권한 지연 때만 기존 재조회 경로를 읽는다. 정상 구매·초기 화면에는 추가 조회가 없다.
       const { refreshProAfterRedeem } = await import('@/lib/app/redeem');
       return refreshProAfterRedeem('sheet');

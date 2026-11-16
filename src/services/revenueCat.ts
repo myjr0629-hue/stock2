@@ -256,10 +256,11 @@ export async function fetchProStatus(): Promise<boolean> {
  * Pro 구독 구매. 사용자 취소와 실제 실패를 구분한다.
  * ★ plan 을 «명시»해야 한다 — 어떤 상품이 결제되는지 호출부가 알고 있어야 한다.
  */
-export async function purchasePro(plan: PlanId = 'monthly'): Promise<PurchaseOutcome> {
+export async function purchasePro(plan: PlanId = 'monthly', shown?: PurchasesPackage): Promise<PurchaseOutcome> {
   if (!(await initRevenueCat())) return { ok: false, isPro: false, error: 'iap_unavailable' };
 
-  const pkg = await getProPackage(plan);
+  // ★11/16 페이월이 체험 조건을 그린 패키지를 넘기면 그것을 산다 — 단 같은 플랜일 때만(평생은 판매 중단이라 받지 않는다)
+  const pkg = shown && plan !== 'lifetime' && matchPlanPackage([shown], plan) ? shown : await getProPackage(plan);
   if (!pkg) return { ok: false, isPro: false, error: 'no_offering' };
 
   const { Purchases } = await import('@revenuecat/purchases-capacitor');

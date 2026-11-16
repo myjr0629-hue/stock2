@@ -133,7 +133,7 @@ test('⑤ 빈 오퍼링: 카드 없음 · 고를 것 없음 · 버튼 잠김(가
 
 test('화면 식 대조: ProPaywall 의 선택·결제·잠금 식이 위 시험과 같다', () => {
   const src = fs.readFileSync(path.join(ROOT, 'src/components/app/ProPaywall.tsx'), 'utf8');
-  assert.match(src, /const \{ multi, selected: pickedPlan \} = paywallSelection\(plans, picked\);/);
+  assert.match(src, /const \{ multi, selected: pickedPlan \} = paywallSelection\(plans, picked \?\? trialFirst\);/);   // ★11/16 trialFirst 는 trialHead(첫 실행)일 때만 값 — 그 밖엔 null(아래 시험과 같은 식)
   assert.match(src, /const selectedOffer = multi \? \(offers\.find\(\(o\) => o\.plan === selected\) \?\? null\) : monthly;/);
   // ★11/12 할인 카드(만료 페이월 전용)가 골라져 있을 때만 앞 가지 — 그 밖(다른 모든 페이월)은 예전 식 그대로
   assert.match(src, /disabled=\{busy \|\| purchasePending \|\| \(offerSelected \? false : multi \? \(!selectedOffer && !previewPlans\) : \(!monthly && !previewPrice\)\)\}/);

@@ -172,7 +172,7 @@ const COPY: Record<PaywallLocale, {
     trialTerms: (d, price, plan) => `${d}일 무료 체험 후 ${plan === 'annual' ? '연' : '월'} ${price} 자동\u00a0결제\u00a0·\u00a0언제든\u00a0해지`,
     trialFine: (d, price, plan) => `오늘은 결제되지 않습니다. ${d}일 무료 체험이 끝나면 ${price}이 결제되고, 이후 ${plan === 'annual' ? '1년마다' : '매월'} 자동 갱신됩니다. 체험 종료 24시간 전까지 해지하면 요금이 청구되지 않습니다. 해지는 기기의 구독 관리 화면에서 합니다.`,
     trialHeadTitle: (d) => `PRO ${d}일 무료`,
-    trialHeadLede: '잠긴 분석이 바로 열리고 광고도 없습니다. 체험 중 해지하면 결제되지 않습니다.',
+    trialHeadLede: '잠긴 분석이 바로 열리고 광고도 없습니다. 체험 종료 24시간 전까지 해지하면 결제되지 않습니다.',
   },
   en: {
     close: 'Close',
@@ -229,7 +229,7 @@ const COPY: Record<PaywallLocale, {
     trialTerms: (d, price, plan) => `Free for ${d} days, then ${price}/${plan === 'annual' ? 'year' : 'month'}. Cancel anytime.`,
     trialFine: (d, price, plan) => `You won’t be charged today. When your ${d}-day free trial ends, you’ll be charged ${price}, and it renews automatically every ${plan === 'annual' ? 'year' : 'month'}. Cancel at least 24 hours before the trial ends and you won’t be charged. Cancel from your device’s subscription settings.`,
     trialHeadTitle: (d) => `Try PRO free for ${d} days`,
-    trialHeadLede: 'Locked analysis opens at once, with no ads. Cancel during the trial and you pay nothing.',
+    trialHeadLede: 'Locked analysis opens at once, with no ads. Cancel at least 24 hours before the trial ends and you pay nothing.',
   },
   ja: {
     close: '閉じる',
@@ -286,7 +286,7 @@ const COPY: Record<PaywallLocale, {
     trialTerms: (d, price, plan) => `${d}日間無料、その後${plan === 'annual' ? '年額' : '月額'}${price}で自動更新・いつでも解約可`,
     trialFine: (d, price, plan) => `本日は請求されません。${d}日間の無料体験が終わると${price}が請求され、以後${plan === 'annual' ? '1年' : '1か月'}ごとに自動更新されます。体験終了の24時間前までに解約すれば請求されません。解約は端末の定期購読設定から行えます。`,
     trialHeadTitle: (d) => `PRO ${d}日間無料`,
-    trialHeadLede: '閉じていた分析がすぐ開き、広告もありません。体験中に解約すれば請求されません。',
+    trialHeadLede: '閉じていた分析がすぐ開き、広告もありません。体験終了の24時間前までに解約すれば請求されません。',
   },
 };
 
@@ -424,7 +424,11 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   //   ★11/11 수리(코덱스 야간 11/10): 예전 multi 는 «월간이 있을 때만» 참이라, 스토어가 연간·평생만 주면 multi=false →
   //   selectedOffer=monthly=null → 버튼이 잠겨 아무것도 살 수 없었다. 이제 월간이 아닌 플랜이 하나라도 오면 카드로 그리고 그 플랜을 산다.
   const plans: PaywallPlan[] = (previewPlans ?? offers).filter((p) => !subscriptionOnly || p.plan !== 'lifetime');
-  const { multi, selected: pickedPlan } = paywallSelection(plans, picked);
+  // ★11/16 첫 실행 체험 페이월(trialHead)은 체험이 적용되는 플랜을 기본 선택(연간 우선) — 체험 없는 플랜으로 열리지 않게(관문 11161253 ②)
+  const trialFirst = trialHead && !picked
+    ? (plans.find((p) => p.plan === 'annual' && p.trialDays)?.plan ?? plans.find((p) => p.plan !== 'lifetime' && p.trialDays)?.plan ?? null)
+    : null;
+  const { multi, selected: pickedPlan } = paywallSelection(plans, picked ?? trialFirst);
   // 기본 선택 = 연간(있으면) — 없으면 월간 — 둘 다 없으면 첫 플랜(평생)
   const selected: PlanId = pickedPlan;
   const selectedOffer = multi ? (offers.find((o) => o.plan === selected) ?? null) : monthly;
@@ -470,7 +474,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     const out = await purchaseWithTrialStart({
       plan: onProConfirmed || keepOpenWhilePro ? 'none' : selectedOffer.plan,
       product: selectedOffer.pkg?.product?.identifier,
-      purchase: () => purchase(selectedOffer.plan, funnelSrc),
+      // ★11/16 체험을 보여 준 화면이면 «그 화면에 그린 패키지»로 산다(그 사이 오퍼링이 바뀌어 다른 조건이 열리지 않게, 관문 11161253 ①)
+      purchase: () => purchase(selectedOffer.plan, funnelSrc, trialDays ? selectedOffer.pkg : undefined),
       stillOpen: () => alive.current && !closedByUser.current,
     });
     if (!out) { if (alive.current) setBusy(false); return; }

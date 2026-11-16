@@ -119,6 +119,11 @@ test('② 체험 있음 = 명시 CTA · 버튼 위 조건 · 24시간 고지 · 
   const f = html({ trialHead: true, src: 'first_run', offers: keep });
   assert.ok(f.includes('PRO 7일 무료') && f.includes('7일 무료로 시작'));
   offers = keep;
+  // 첫 실행: 월간만 체험이면 월간이 기본 선택(체험 없는 연간으로 열리지 않음)
+  const monthOnly = [{ ...M, trialDays: 7 }, A];
+  const fm = html({ trialHead: true, src: 'first_run', offers: monthOnly });
+  assert.match(fm, /aria-checked="true" data-plan="monthly"/);
+  assert.ok(fm.includes('7일 무료로 시작') && fm.includes('24시간 전까지 해지하면'));
   // 할인 카드(만료 페이월)를 고르면 체험 문구 없음
   const d = html({ context: { title: 't', lede: 'l', cta: 'c', sections: [] }, discountOffer: { priceString: '₩5,900', regularPriceString: '₩11,900', pct: 50 } });
   assert.ok(!d.includes('7일 무료로 시작'), '할인 카드 선택 시 체험 CTA 없음');
