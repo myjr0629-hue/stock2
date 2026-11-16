@@ -330,11 +330,30 @@ export function slotOf(r: { date: string; hour: string; etTime?: string; dateSta
 }
 /**
  * 새 틀을 써도 되는 시각인가 — 발표가 «아직 앞»인 동안만. 공지 시각이 있으면 그 시각(단계 판정도 그때 'done'),
- * 없으면 장후 = 그날 정규장 마감(보통 16:00, 조기 폐장 13:00) · 장전 = 09:30 ET 까지. 그 뒤(실제 발표가 나왔을 수 있는 창)는 기존 틀(관문 11162258).
+ * 없으면 장후 = 그날 정규장 마감(보통 16:00, 조기 폐장 13:00) · 장전 = 그날 04:00 ET(프리마켓 시작 — 장전 발표가 나올 수 있는 창의 시작)까지.
+ * 그 뒤(실제 발표가 나왔을 수 있는 창)는 기존 틀(관문 11162258·11162300).
  */
 export function slotUpcoming(s: EpSlot, nowMs: number): boolean {
-  const edge = s.etTime ? etWallToMs(s.etDate, s.etTime) : s.hour === 'amc' ? etWallToMs(s.etDate, closeEtOf(s.etDate)) : s.hour === 'bmo' ? etWallToMs(s.etDate, '09:30') : null;
+  const edge = s.etTime ? etWallToMs(s.etDate, s.etTime) : s.hour === 'amc' ? etWallToMs(s.etDate, closeEtOf(s.etDate)) : s.hour === 'bmo' ? etWallToMs(s.etDate, '04:00') : null;
   return edge != null && nowMs < edge;
+}
+
+/** 회사 공지의 장전/장후(같은 종목·날짜) — 날짜만 공지되고 시간대가 빈 경우 캘린더 행의 hour 는 공급사 값이다(withConfirmedDates) */
+const CONFIRMED_HOUR = new Map<string, string>(CONFIRMED_EARNINGS
+  .filter((c) => c.hour === 'bmo' || c.hour === 'amc')
+  .map((c) => [`${c.ticker.toUpperCase()}|${c.date}`, c.hour as string]));
+
+/**
+ * 페이지 제목·설명·첫 단락에 쓸 시각 조각 — slotOf + 두 가지 거름:
+ *   · 회사 공지 일정(dateStatus 'confirmed')인데 장전/장후가 회사 공지와 같지 않으면(공지에 시간대 없음 → 공급사 값) null.
+ *     «회사 공지 일정»이라고 쓰면서 공급사 시간대로 현지 날짜를 정하지 않는다(관문 11162300 ②). 예정일(est)은 «(예정)»으로 전부 예정 표시.
+ *   · 발표가 아직 앞일 때만(slotUpcoming).
+ */
+export function pageSlot(r: { ticker: string; date: string; hour: string; etTime?: string; dateStatus?: string }, nowMs: number): EpSlot | null {
+  const s = slotOf(r);
+  if (!s) return null;
+  if (s.confirmed && !s.etTime && CONFIRMED_HOUR.get(`${r.ticker.toUpperCase()}|${r.date}`) !== s.hour) return null;
+  return slotUpcoming(s, nowMs) ? s : null;
 }
 /** 'HH:MM' → 오전 6시 20분 · 午前6時20分 · 6:20 AM (정각이면 분 생략 — 오후 9시 · 午後9時 · 9:00 PM) */
 export function clock12(hhmm: string, loc: Loc): string {

@@ -11,7 +11,7 @@ import { isFlowTicker } from '@/lib/seo/flowTicker';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import {
   EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, earningsAppHref, earningsPath, expectedText, impliedAsOf,
-  isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, slotOf, slotUpcoming, toLoc, type EarningsPageView,
+  isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, pageSlot, toLoc, type EarningsPageView,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
 import type { Loc } from '@/lib/earningsWeek';
@@ -49,9 +49,9 @@ function metaParts(view: EarningsPageView, l: Loc, nowMs: number) {
   const rep = reported ? mdName(reported.date, l) : null;
   // 다가오는 발표의 현지 날짜(장전/장후 또는 공지 시각)를 아는 경우 — «기업명 + 실적 발표 시간 + 현지 시간» 틀(11/16).
   //   지난 발표(reported)·일정 없음·장전/장후 미정은 기존 틀 그대로.
-  //   시각 미공지 장후는 정규장 마감(장전은 09:30 ET)이 지나면 실제 발표가 나왔을 수 있어 기존 틀로 돌아간다.
-  const s0 = upcoming ? slotOf(upcoming) : null;
-  const slot = s0 && slotUpcoming(s0, nowMs) ? s0 : null;
+  //   시각 미공지 장후는 정규장 마감(장전은 04:00 ET)이 지나면 실제 발표가 나왔을 수 있어 기존 틀로 돌아간다.
+  //   회사 공지 일정인데 장전/장후가 공지에 없으면(공급사 값) 기존 틀(pageSlot).
+  const slot = upcoming ? pageSlot(upcoming, nowMs) : null;
   const slotLine = slot ? c.slotLine({ name, slot, pct, asOf: impliedAsOf(view.implied, l) }) : null;
   if (slot && slotLine) {
     return { title: c.slotTitle({ name, slot }), description: `${slotLine}${l === 'ja' ? '' : ' '}${c.slotDescTail({ last })}`, slotLine };

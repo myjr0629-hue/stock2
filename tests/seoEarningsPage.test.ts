@@ -447,8 +447,16 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     assert.equal(EP.slotUpcoming(amc, Date.parse('2026-11-19T21:00:00Z')), false);  // 16:00 ET
     assert.equal(EP.slotUpcoming(EP.slotOf({ date: '2026-11-27', hour: 'amc', dateStatus: 'confirmed' }), Date.parse('2026-11-27T18:00:00Z')), false); // 조기 폐장 13:00 ET 뒤
     const bmo = EP.slotOf({ date: '2026-11-19', hour: 'bmo', dateStatus: 'est' });
-    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T14:29:00Z')), true);
-    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T14:30:00Z')), false);
+    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T08:59:00Z')), true);   // 03:59 ET
+    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T09:00:00Z')), false);  // 04:00 ET — 07:00 발표 뒤 08:00 접속에도 새 틀 없음
+    assert.equal(EP.slotUpcoming(bmo, Date.parse('2026-11-19T13:00:00Z')), false);
+    // 회사 공지 일정인데 공지에 시간대가 없으면(공급사 hour) 새 틀 없음 · 공지 시간대와 같으면 새 틀 · 예정일은 공급사 hour 를 (예정)으로
+    const hd = CONFIRMED_EARNINGS.find((c: any) => !c.etTime && c.hour === '');
+    if (hd) assert.equal(EP.pageSlot({ ticker: hd.ticker, date: hd.date, hour: 'bmo', dateStatus: 'confirmed' }, Date.parse(`${hd.date}T00:00:00Z`) - 86_400_000), null, hd.ticker);
+    const ok = CONFIRMED_EARNINGS.find((c: any) => !c.etTime && c.hour === 'amc');
+    assert.ok(EP.pageSlot({ ticker: ok.ticker, date: ok.date, hour: 'amc', dateStatus: 'confirmed' }, Date.parse(`${ok.date}T00:00:00Z`) - 86_400_000), ok.ticker);
+    assert.equal(EP.pageSlot({ ticker: ok.ticker, date: ok.date, hour: 'bmo', dateStatus: 'confirmed' }, Date.parse(`${ok.date}T00:00:00Z`) - 86_400_000), null, 'supplier hour differs from company hour');
+    assert.ok(EP.pageSlot({ ticker: 'ZZZZ', date: '2026-11-19', hour: 'bmo', dateStatus: 'est' }, Date.parse('2026-11-18T12:00:00Z')));
     const nv = EP.slotOf({ date: '2026-11-17', hour: 'amc', etTime: '16:20', dateStatus: 'confirmed' });
     assert.equal(EP.slotUpcoming(nv, Date.parse('2026-11-17T21:19:00Z')), true);
     assert.equal(EP.slotUpcoming(nv, Date.parse('2026-11-17T21:20:00Z')), false);
@@ -456,13 +464,16 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     {
       const realNow = Date.now, saved = calendar;
       try {
-        calendar = { ...calendar, rows: [{ ticker: T, date: '2026-11-19', hour: 'amc', dateStatus: 'confirmed', epsEstimate: 1, revenueEstimate: 1, quarter: 3, year: 2026 }] };
+        calendar = { ...calendar, rows: [{ ticker: T, date: '2026-11-19', hour: 'amc', dateStatus: 'est', epsEstimate: 1, revenueEstimate: 1, quarter: 3, year: 2026 }] };
         Date.now = () => Date.parse('2026-11-19T21:30:00Z'); svc._resetEarningsPageMemo();
         const m = await page.generateMetadata(props('ko', T));
         assert.doesNotMatch(m.title, /발표일·시간|한국시간/, m.title);
         assert.doesNotMatch((await html('ko', T)).match(/<p class="ep-lead">(.*?)<\/p>/)![1], /한국시간/);
         Date.now = () => Date.parse('2026-11-19T20:30:00Z'); svc._resetEarningsPageMemo();
-        assert.match((await page.generateMetadata(props('ko', T))).title, /발표일·시간 — 한국시간 11월 20일\(금\) 미국 장 마감 후 \| SIGNUM HQ$/);
+        assert.match((await page.generateMetadata(props('ko', T))).title, /발표일·시간 — 한국시간 11월 20일\(금\) 미국 장 마감 후\(예정\) \| SIGNUM HQ$/);
+        // 같은 행을 «회사 공지»로 — T 는 회사 공지 목록 밖이라 시간대 미확인 → 기존 틀
+        calendar = { ...calendar, rows: [{ ...calendar.rows[0], dateStatus: 'confirmed' }] }; svc._resetEarningsPageMemo();
+        assert.doesNotMatch((await page.generateMetadata(props('ko', T))).title, /발표일·시간|한국시간/);
       } finally { Date.now = realNow; calendar = saved; svc._resetEarningsPageMemo(); }
     }
     // 시계 표기
