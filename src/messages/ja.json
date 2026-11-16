@@ -96,8 +96,8 @@
     "whySignumSuffix": "なのか？",
     "whySignum": "なぜSIGNUM HQなのか？",
     "premiumValue": "米国株アプリひとつに、上級データまで",
-    "gammaExposure": "大口が集まる価格帯（GEX分析・上級）",
-    "gammaExposureDesc": "オプション契約が最も多く積み上がった価格帯（マックスペイン・コールウォール・プットフロア）を銘柄ごとに表示。いまの株価がその間のどこにあるかがひと目で分かります。",
+    "gammaExposure": "オプション市場の主要価格帯（GEX分析・上級）",
+    "gammaExposureDesc": "オプション市場が示す主要価格帯（マックスペイン・コールウォール・プットフロア）を銘柄ごとに表示。いまの株価がその間のどこにあるかがひと目で分かります。",
     "darkPoolTracking": "機関投資家の取引の足跡（上級）",
     "darkPoolTrackingDesc": "取引所の外（ダークプール）で約定した取引の比率と、機関の大口約定の流れを銘柄ごとにまとめて表示します。",
     "sniperSignal": "短期の流れチェック（上級）",
@@ -876,7 +876,7 @@
     "guideSubtitle": "各画面で何が見られ、どう使うかをご紹介します",
     "heroTitle": "米国株をひとつの画面で — 株価から上級データまで",
     "heroDescription": "SIGNUM HQは、<cyan>リアルタイム株価（通常取引時間）</cyan>と<cyan>AIの一行解説</cyan>、ニュース、引け後レポート、決算日程をひとつにまとめた米国株アプリです。さらに深く見たいときは、<gold>ダークプール</gold>取引の比率やオプション市場の主要価格帯（<cyan>Call Wall、GEX</cyan>）などの<gold>上級データ</gold>で、値動きの背景も確認できます。",
-    "dashboardDesc": "<cyan>リアルタイム価格</cyan>と主要指標をひとつの画面に — 上級：ATM IV · GEX · オプションオーバーレイ",
+    "dashboardDesc": "<cyan>リアルタイム価格（通常取引時間）</cyan>と主要指標をひとつの画面に — 上級：ATM IV · GEX · オプションオーバーレイ",
     "guardianDesc": "<cyan>市場フェーズ</cyan>とセクターの流れを先に確認 — 上級：SPY/QQQのネットGEX · ガンマフリップ",
     "commandDesc": "銘柄ごとの<cyan>株価と主要価格帯</cyan> — 上級：Call Wall · Put Wall · Max Pain · GEX",
     "flowDesc": "<gold>大口の取引</gold>がどこから来たかを確認 — 上級：ダークプールプリント · 機関ブロック · オプションフロー",
@@ -918,7 +918,7 @@
     "sfDescIn": "漸進的なロング資金流入",
     "sfDescOut": "資金流出およびショートヘッジ",
     "sfDescExOut": "クジラ資金の大量売り抜け",
-    "appCta": "無料アプリ — リアルタイム株価とAIの一行解説",
+    "appCta": "無料アプリ — リアルタイム株価（通常取引時間）とAIの一行解説",
     "appNote": "iOS・Androidで無料。リアルタイム株価（通常取引時間）・AI解説・ニュース・引け後レポート・決算日程・通知。初めての購読ならPRO 7日間無料体験。"
   },
   "dashboardGuide": {

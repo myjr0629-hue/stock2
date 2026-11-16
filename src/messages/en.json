@@ -96,8 +96,8 @@
     "whySignumSuffix": "?",
     "whySignum": "Why SIGNUM HQ?",
     "premiumValue": "One US stock app, advanced data included",
-    "gammaExposure": "Where big options money sits (GEX, Advanced)",
-    "gammaExposureDesc": "See the price levels where the most options contracts are stacked (max pain, call wall, put floor) for each stock, and where today's price sits between them.",
+    "gammaExposure": "Key options price levels (GEX, Advanced)",
+    "gammaExposureDesc": "See the key options-market price levels (max pain, call wall, put floor) for each stock, and where today's price sits between them.",
     "darkPoolTracking": "Institutional footprints (Advanced)",
     "darkPoolTrackingDesc": "See how much of each stock's volume traded off-exchange (dark pools), along with large institutional block trades, in one place.",
     "sniperSignal": "Short-term trend check (Advanced)",
@@ -876,7 +876,7 @@
     "guideSubtitle": "What each screen shows and how to use it",
     "heroTitle": "US Stocks on One Screen — From Prices to Advanced Data",
     "heroDescription": "SIGNUM HQ is a US stock app that brings <cyan>real-time prices during market hours</cyan>, a <cyan>one-line AI read</cyan>, news, a closing report and the earnings calendar into one place. When you want to go deeper, <gold>advanced data</gold> such as <gold>dark pool</gold> share and key options levels (<cyan>Call Wall, GEX</cyan>) shows the market structure behind the price.",
-    "dashboardDesc": "<cyan>Live prices</cyan> and key numbers on one screen — advanced: ATM IV · GEX · options overlay",
+    "dashboardDesc": "<cyan>Live prices (market hours)</cyan> and key numbers on one screen — advanced: ATM IV · GEX · options overlay",
     "guardianDesc": "Check the <cyan>market phase</cyan> and sector moves first — advanced: SPY/QQQ net GEX · gamma flip",
     "commandDesc": "Per-stock view of <cyan>price and key levels</cyan> — advanced: Call Wall · Put Wall · Max Pain · GEX",
     "flowDesc": "See where the <gold>big trades</gold> came from — advanced: dark pool prints · institutional blocks · options flow",
@@ -918,7 +918,7 @@
     "sfDescIn": "Consistent Capital Inflow",
     "sfDescOut": "Distribution & Puts Hedging",
     "sfDescExOut": "Massive Whale Capital Exit",
-    "appCta": "Get the free app — live prices and a one-line AI read",
+    "appCta": "Get the free app — live prices in market hours and a one-line AI read",
     "appNote": "Free on iOS and Android: real-time prices during market hours, AI analysis, news, a closing report, the earnings calendar and alerts. New subscribers get a 7-day PRO trial."
   },
   "dashboardGuide": {

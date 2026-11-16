@@ -96,8 +96,8 @@
     "whySignumSuffix": "인가?",
     "whySignum": "왜 SIGNUM HQ인가?",
     "premiumValue": "미국주식 앱 하나에, 고급 지표까지",
-    "gammaExposure": "큰손이 몰린 가격대(GEX 분석·고급)",
-    "gammaExposureDesc": "옵션 계약이 가장 많이 쌓인 가격대(맥스페인·콜월·풋플로어)를 종목마다 보여 줍니다. 지금 주가가 그 사이 어디쯤인지 한눈에 확인하세요.",
+    "gammaExposure": "옵션 시장의 주요 가격대(GEX 분석·고급)",
+    "gammaExposureDesc": "옵션 시장이 가리키는 주요 가격대(맥스페인·콜월·풋플로어)를 종목마다 보여 줍니다. 지금 주가가 그 사이 어디쯤인지 한눈에 확인하세요.",
     "darkPoolTracking": "기관 거래 흔적(고급)",
     "darkPoolTrackingDesc": "일반 거래소 밖(다크풀)에서 체결된 거래 비중과 기관의 대량 체결 흐름을 종목마다 정리해 보여 줍니다.",
     "sniperSignal": "단기 흐름 점검(고급)",
@@ -876,7 +876,7 @@
     "guideSubtitle": "화면마다 무엇을 보고 어떻게 쓰는지 알아보세요",
     "heroTitle": "미국주식을 한 화면에서 — 주가부터 고급 지표까지",
     "heroDescription": "SIGNUM HQ는 <cyan>실시간 주가(정규장)</cyan>와 <cyan>AI 한 줄 해석</cyan>, 뉴스, 장마감 리포트, 실적 일정을 한곳에 모은 미국주식 앱입니다. 더 깊이 보고 싶을 때는 <gold>다크풀</gold> 거래 비중과 옵션 시장의 주요 가격대(<cyan>Call Wall, GEX</cyan>) 같은 <gold>고급 지표</gold>로 가격 움직임의 배경을 함께 살펴볼 수 있습니다.",
-    "dashboardDesc": "<cyan>실시간 가격</cyan>과 핵심 지표를 한 화면에 — 고급: ATM IV · GEX · 옵션 오버레이",
+    "dashboardDesc": "<cyan>실시간 가격(정규장)</cyan>과 핵심 지표를 한 화면에 — 고급: ATM IV · GEX · 옵션 오버레이",
     "guardianDesc": "<cyan>시장 국면</cyan>·섹터 흐름을 먼저 확인 — 고급: SPY/QQQ 넷 GEX · 감마 플립",
     "commandDesc": "종목별 <cyan>주가·주요 가격대</cyan> 분석 — 고급: Call Wall · Put Wall · Max Pain · GEX",
     "flowDesc": "<gold>큰 거래</gold>가 어디서 나왔는지 확인 — 고급: 다크풀 프린트 · 기관 블록 · 옵션 플로우",
@@ -918,7 +918,7 @@
     "sfDescIn": "점진적 롱 자금 유입 추세",
     "sfDescOut": "자금 이탈 및 숏 헤징 전환",
     "sfDescExOut": "고래 자금의 대량 매도 이탈",
-    "appCta": "무료 앱 받기 — 실시간 주가·AI 한 줄 해석",
+    "appCta": "무료 앱 받기 — 실시간 주가(정규장)·AI 한 줄 해석",
     "appNote": "iOS·안드로이드 무료. 실시간 주가(정규장)·AI 해석·뉴스·장마감 리포트·실적 일정·알림. 처음 구독이면 PRO 7일 무료 체험."
   },
   "dashboardGuide": {
