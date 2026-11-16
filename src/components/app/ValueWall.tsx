@@ -11,6 +11,7 @@ import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { localDay, markGateDay, readGateDay, shouldShowFirstGatePaywall, shouldShowNoFillPaywall, storeProSignal, checkStorePro } from '@/lib/app/gatePaywall';
 import { trialAnnouncedToday } from '@/lib/app/trialAnnounce';
+const announcedTodaySafe = () => { try { return trialAnnouncedToday(window.localStorage); } catch { return false; } };
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
@@ -241,7 +242,9 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     markAdPro: () => storeProSignal.latest() !== false && storeProSignal.mark(),
   }), [markStorePro]);
   /** 'free' 판정을 «쓰기 직전» 다시 확인 — 그 사이 PRO·결제 진행 중이면 페이월·하루 첫 노출 기록을 쓰지 않는다 */
-  const stillFree = () => !gateProNow() && !proPurchaseState.getSnapshot();
+  // ★11/16 밤 «페이월을 열어도 되는 무료» — 오늘 «새로 생긴 7일 무료 체험» 안내(trial_announce)가 떴으면 아니다.
+  //   PRO 재조회를 기다리는 사이 그 안내가 먼저 열려도(표식은 보이기 직전에 남는다) 재조회 뒤 gate_first·ad_nofill 이 겹쳐 열리지 않는다(관문 11162016 ①)
+  const stillFree = () => !gateProNow() && !proPurchaseState.getSnapshot() && !announcedTodaySafe();
 
   /** 광고 시도 → 안 나오면 (②) 페이월 또는 대체 창. 'paywall' = 페이월을 열었다(흐름이 닫힘까지 이어진다) */
   const runUnlock = useCallback(async (shownThisTap: boolean): Promise<'paywall' | 'done'> => {

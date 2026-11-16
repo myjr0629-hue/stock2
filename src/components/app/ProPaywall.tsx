@@ -45,6 +45,7 @@ import { markSessionError } from '@/lib/app/ratingMoments';
 import { goToWatchlistAfterTrial, purchaseWithTrialStart } from '@/lib/app/trialStartWatchlist';
 import { wlUI } from '@/lib/app/watchlistUI';
 import { afterSheetHistory } from '@/components/app/watchlist/BottomSheet';
+import { notePaywallOpened } from '@/lib/app/trialAnnounce';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
 
@@ -401,6 +402,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   const funnelSrc: FunnelSrc = src ?? (previewPrice ? 'preview' : lead === 'ads' ? 'other' : 'wl_paywall');
   useEffect(() => {
     void funnel().then((m) => { m.noteFunnelSrc(funnelSrc); m.trackFunnel('open', { src: funnelSrc }); }).catch(() => {});
+    // ★11/16 밤 «오늘 페이월 봄» 표식 — 기존 사용자 체험 안내(trial_announce)가 같은 날 겹치지 않게(lib/app/trialAnnounce · 화면 영향 없음)
+    try { notePaywallOpened(window.localStorage); } catch { /* 저장소 막힘 */ }
     // 열릴 때 한 번만(출처는 열린 동안 바뀌지 않는다)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

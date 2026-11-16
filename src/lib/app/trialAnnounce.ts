@@ -10,7 +10,7 @@
 //   · 스토어가 «자격 확인된 무료 체험»을 준 플랜이 하나 이상(PlanOffer.trialDays) — 체험·구독 이력이 있으면 스토어가 안 준다
 //   · 보이기 직전 새 고객 정보(RevenueCat)로 한 번 더: PRO 아님 + 구매·체험·구독 «이력 0»(필드가 없거나 모양이 다르면 «모름» = 안 보임)
 // 같은 날 겹침(우선순위 — 이 안내가 가장 낮다):
-//   · 오늘 게이트 페이월(gate_first)을 봤다 · 오늘 선물 안내를 봤다 · 오늘 체험 종료 안내(D-3·조기)·만료 페이월을 봤다 → 오늘은 안 보이고 다음 날 포그라운드에
+//   · 오늘 어느 출처든 PRO 페이월(게이트 gate_first·광고 없음 ad_nofill·설정 등)을 봤다 · 오늘 선물 안내를 봤다 · 오늘 체험 종료 안내(D-3·조기)·만료 페이월을 봤다 → 오늘은 안 보이고 다음 날 포그라운드에
 //     (체험 종료 안내·만료 페이월·만료자 할인은 «체험 이력»이 있어야 뜨므로 이 안내 대상과 원래 겹치지 않는다 — 날짜 검사는 이중 안전장치)
 //   · 다른 시트·결제 창(aria-modal)이 떠 있으면 이번 포그라운드는 넘긴다
 //   · 이 안내가 뜨면 게이트 하루 표식(gate_first)을 오늘로 남긴다 → 오늘 게이트 탭은 페이월 없이 원래대로 광고(내일 다시)
@@ -30,6 +30,8 @@ export const ONBOARDED_KEY = 'signumhq.app.onboarding.v1';
 export const GATE_DAY_KEY = 'signum_gate_paywall_day';               // lib/app/gatePaywall GATE_PAYWALL_DAY_KEY(현지 YYYY-MM-DD)
 export const GIFT_KEY = 'signumhq.gift.announce.v1';                   // lib/gift/giftAnnounce GIFT_ANNOUNCE_KEY({n,last} 또는 옛 숫자)
 export const GIFT_RE_KEY = 'signumhq.gift.announce.1105';              // 재안내(띄운 시각)
+/** 어느 출처든 PRO 페이월이 열린 시각(ProPaywall 이 열릴 때 남긴다 — notePaywallOpened). 오늘이면 이 안내는 다음 날 */
+export const PAYWALL_OPEN_KEY = 'signumhq.paywall.open_at';
 export const TRIAL_OFF_KEYS = ['signumhq.trialRenewalOff.v1', 'signumhq.trialRenewalOff.early.v1', 'signumhq.trialExpired.v1'] as const; // «기간|현지 날짜»
 /** 포그라운드가 된 뒤 이만큼 기다렸다 판정 — 다른 시트(체험 종료·선물)가 먼저 자리를 잡게(이 안내가 가장 낮은 우선순위) */
 export const TRIAL_ANNOUNCE_DELAY_MS = 2_500;
@@ -59,6 +61,11 @@ export function trialAnnouncedToday(store: MiniStore | null, now = Date.now()): 
   return Number.isFinite(v) && v > 0 && dayOf(v) === dayOf(now);
 }
 
+/** PRO 페이월이 열렸다고 적는다(ProPaywall 마운트 — 출처 무관 · 실패는 삼킨다). 이 안내의 «오늘 다른 페이월 봄» 판정에만 쓴다 */
+export function notePaywallOpened(store: MiniStore | null, now = Date.now()): void {
+  try { store?.setItem(PAYWALL_OPEN_KEY, String(now)); } catch { /* 저장소 막힘 */ }
+}
+
 /** 보였다고 적는다 — 다시 읽어 확인. 실패면 false(호출자는 보이지 않는다) */
 export function markTrialAnnounced(store: MiniStore | null, now = Date.now()): boolean {
   try {
@@ -84,6 +91,8 @@ export function readOnboardedAt(store: MiniStore | null): boolean {
 /** 오늘 다른 안내·페이월을 봤나(이 안내는 오늘 쉬고 다음 날 포그라운드에) */
 export function otherSheetToday(store: MiniStore | null, now = Date.now()): boolean {
   const today = dayOf(now);
+  const pw = Number(get(store, PAYWALL_OPEN_KEY));
+  if (Number.isFinite(pw) && pw > 0 && dayOf(pw) === today) return true;
   if (get(store, GATE_DAY_KEY) === today) return true;
   const gift = get(store, GIFT_KEY);
   if (gift) {
@@ -154,8 +163,8 @@ export function noPurchaseHistory(info: InfoLike | null | undefined): boolean {
   return true;
 }
 
-/** 앱 화면 경로인가 — 법적 문서·첫 실행 화면에서는 띄우지 않는다(layout isDocumentRoute 와 같은 규칙) */
+/** 앱 화면 경로인가 — 법적 문서·첫 실행 화면(layout isDocumentRoute 와 같은 규칙)과 설정(화면 전체가 배너 억제를 따로 쓴다 — 닫을 때 배너가 다시 뜨지 않게)에서는 띄우지 않는다 */
 export function trialAnnounceRouteOk(path: string): boolean {
   if (!/\/app-view(\/|$)/.test(path)) return false;
-  return !/\/app-view\/(terms|privacy|onboarding)(\/|$)/.test(path);
+  return !/\/app-view\/(terms|privacy|onboarding|settings)(\/|$)/.test(path);
 }

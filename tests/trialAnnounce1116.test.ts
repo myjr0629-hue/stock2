@@ -82,6 +82,10 @@ test('④ 같은 날 겹침 — 오늘이면 쉼, 어제면 아님', () => {
   assert.equal(ta.otherSheetToday(mem({ [ta.GIFT_KEY]: String(NOW - 60_000) }), NOW), true, '옛 숫자 표식');
   assert.equal(ta.otherSheetToday(mem({ [ta.GIFT_KEY]: 'garbage' }), NOW), false);
   assert.equal(ta.otherSheetToday(mem({ [ta.GIFT_RE_KEY]: String(NOW - 60_000) }), NOW), true, '선물 재안내 오늘');
+  assert.equal(ta.otherSheetToday(mem({ [ta.PAYWALL_OPEN_KEY]: String(NOW - 60_000) }), NOW), true, '어느 출처든 페이월 오늘(ad_nofill·설정 등)');
+  assert.equal(ta.otherSheetToday(mem({ [ta.PAYWALL_OPEN_KEY]: String(YDAY) }), NOW), false);
+  const pst = mem(); ta.notePaywallOpened(pst, NOW); assert.equal(ta.otherSheetToday(pst, NOW), true);
+  ta.notePaywallOpened({ getItem: () => null, setItem: () => { throw new Error('q'); } }); ta.notePaywallOpened(null);
   for (const k of ta.TRIAL_OFF_KEYS) {
     assert.equal(ta.otherSheetToday(mem({ [k]: `p123|${today}` }), NOW), true, `${k} 오늘(체험 종료 안내·만료 페이월)`);
     assert.equal(ta.otherSheetToday(mem({ [k]: `p123|${yday}` }), NOW), false);
@@ -110,6 +114,7 @@ test('⑤ 경로 — 앱 화면만', () => {
   assert.equal(ta.trialAnnounceRouteOk('/ko/app-view/terms'), false);
   assert.equal(ta.trialAnnounceRouteOk('/ko/app-view/privacy'), false);
   assert.equal(ta.trialAnnounceRouteOk('/ko/app-view/onboarding'), false);
+  assert.equal(ta.trialAnnounceRouteOk('/ko/app-view/settings'), false, '설정(배너 억제 따로)');
   assert.equal(ta.trialAnnounceRouteOk('/ko/pricing'), false);
 });
 
@@ -144,6 +149,9 @@ test('④ 반대 방향 배선 — 오늘 이 안내가 떴으면 선물 안내 
   assert.equal(ga.giftAnnounceBlock(input(st)), null, '어제 안내 = 오늘은 선물 가능');
   const v = require('node:fs').readFileSync(require.resolve('../src/components/app/ValueWall.tsx'), 'utf8') as string;
   assert.match(v, /announcedToday = trialAnnouncedToday\(window\.localStorage\);[^\n]*\n    if \(\(await runUnlock\(announcedToday\)\) !== 'paywall'\) endFlow\(\);/);
+  assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\) && !announcedTodaySafe\(\);/, '재조회 뒤 gate_first·ad_nofill 도 오늘 안내를 본다');
+  const pw = require('node:fs').readFileSync(require.resolve('../src/components/app/ProPaywall.tsx'), 'utf8') as string;
+  assert.match(pw, /m\.trackFunnel\('open', \{ src: funnelSrc \}\); \}\)\.catch\(\(\) => \{\}\);\n.*\n    try \{ notePaywallOpened\(window\.localStorage\); \}/, '페이월 열림 표식');
   const g = require('node:fs').readFileSync(require.resolve('../src/components/app/TrialAnnounceGate.tsx'), 'utf8') as string;
   assert.ok(g.indexOf('markTrialAnnounced(store)') < g.indexOf('markGateDay(localDay())') && g.indexOf('markGateDay(localDay())') < g.indexOf('setShow('), '표식 → 게이트 하루 표식 → 보임');
 });

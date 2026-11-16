@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useProStatus } from '@/hooks/useProStatus';
+import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { localDay, markGateDay, storeProSignal } from '@/lib/app/gatePaywall';
 import { initRevenueCat, isProFromCustomerInfo } from '@/services/revenueCat';
@@ -97,5 +98,11 @@ export function TrialAnnounceGate() {
   }, [iapAvailable, ready, trialsReady, isPro, offers, show, fg, pathname]);
 
   if (!show) return null;
-  return <ProPaywall locale={show} src="trial_announce" trialHead trialAnnounce offers={offers} onClose={() => setShow(null)} />;
+  return <AnnouncePaywall locale={show} offers={offers} onClose={() => setShow(null)} />;
+}
+
+/** 떠 있는 동안 네이티브 배너를 내린다 — 아래 «구매 복원·이용약관·개인정보» 줄(애플 3.1.2)이 배너에 가리지 않게(ValueWall GatePaywall 과 같은 방식) */
+function AnnouncePaywall({ locale, offers, onClose }: { locale: string; offers: ReturnType<typeof useProStatus>['offers']; onClose: () => void }) {
+  useBannerSuppression(true);
+  return <ProPaywall locale={locale} src="trial_announce" trialHead trialAnnounce offers={offers} onClose={onClose} />;
 }

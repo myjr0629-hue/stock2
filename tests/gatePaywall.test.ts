@@ -71,7 +71,8 @@ test('배선 — 게이트 훅이 두 판정을 쓰고, 닫힌 뒤 무료 경로
   assert.match(v, /return storeProSignal\.subscribe\(\(\) => setSigVer/);
   assert.match(v, /if \(adManager\.isProActive\(\) && storeProSignal\.latest\(\) !== false\) return 'done';/);
   assert.match(v, /if \(gateProNow\(\)\) return 'done';\n    setShowAd\(true\);\n    return 'done';/);
-  assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\);/);
+  // ★11/16 밤 — 오늘 기존 사용자 체험 안내(trial_announce)를 봤으면 게이트 페이월(gate_first·ad_nofill)을 다시 열지 않는다
+  assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\) && !announcedTodaySafe\(\);/);
   assert.match(v, /if \(gateProNow\(\)\) return; \/\/ 조회 뒤/);
   const ps = read('src/hooks/useProStatus.ts');
   // useProStatus 는 동작 그대로 + 응답 기록만(결제 흐름·설정·구매 시트 동작 불변)
