@@ -115,6 +115,8 @@ const COPY: Record<PaywallLocale, {
   /** 첫 실행 페이월 머리(trialHead) */
   trialHeadTitle: (days: number) => string;
   trialHeadLede: string;
+  /** ★11/16 밤 기존 무료 사용자 1회 안내(trial_announce) — 머리 위 한 줄(눈썹 자리). 체험이 적용될 때만 */
+  trialAnnounceEyebrow: string;
 }> = {
   ko: {
     close: '닫기',
@@ -173,6 +175,7 @@ const COPY: Record<PaywallLocale, {
     trialFine: (d, price, plan) => `오늘은 결제되지 않습니다. ${d}일 무료 체험이 끝나면 ${price}이 결제되고, 이후 ${plan === 'annual' ? '1년마다' : '매월'} 자동 갱신됩니다. 체험 종료 24시간 전까지 해지하면 요금이 청구되지 않습니다. 해지는 기기의 구독 관리 화면에서 합니다.`,
     trialHeadTitle: (d) => `PRO ${d}일 무료`,
     trialHeadLede: '광고 없이 AI 종목 분석이 바로 열립니다. 체험 종료 24시간 전까지 해지하면 결제되지 않습니다.',
+    trialAnnounceEyebrow: '새로 생긴 무료 체험',
   },
   en: {
     close: 'Close',
@@ -230,6 +233,7 @@ const COPY: Record<PaywallLocale, {
     trialFine: (d, price, plan) => `You won’t be charged today. When your ${d}-day free trial ends, you’ll be charged ${price}, and it renews automatically every ${plan === 'annual' ? 'year' : 'month'}. Cancel at least 24 hours before the trial ends and you won’t be charged. Cancel from your device’s subscription settings.`,
     trialHeadTitle: (d) => `Try PRO free for ${d} days`,
     trialHeadLede: 'AI stock analysis opens at once, with no ads. Cancel at least 24 hours before the trial ends and you pay nothing.',
+    trialAnnounceEyebrow: 'New · Free trial',
   },
   ja: {
     close: '閉じる',
@@ -287,6 +291,7 @@ const COPY: Record<PaywallLocale, {
     trialFine: (d, price, plan) => `本日は請求されません。${d}日間の無料体験が終わると${price}が請求され、以後${plan === 'annual' ? '1年' : '1か月'}ごとに自動更新されます。体験終了の24時間前までに解約すれば請求されません。解約は端末の定期購読設定から行えます。`,
     trialHeadTitle: (d) => `PRO ${d}日間無料`,
     trialHeadLede: '広告なしでAIの銘柄分析がすぐ開きます。体験終了の24時間前までに解約すれば請求されません。',
+    trialAnnounceEyebrow: '新しい無料体験',
   },
 };
 
@@ -340,7 +345,7 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
 /** ★11/11 체험 만료 뒤 1회 페이월 — 머리·버튼 문구와 «체험 동안 / 무료에서 달라지는 것» 묶음(lib/app/trialExpired). 가격·고지·복원은 그대로 */
 export type PaywallContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
 
-export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed, discountOffer, trialHead = false, offers: offersProp }: {
+export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed, discountOffer, trialHead = false, trialAnnounce = false, offers: offersProp }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
@@ -375,6 +380,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   discountOffer?: ExpiredOffer | ExpiredOfferView | null;
   /** ★11/16 첫 실행 페이월 전용 — 고른 플랜에 무료 체험이 적용되면 머리를 «PRO 7일 무료»로. 체험이 없으면 예전 머리 */
   trialHead?: boolean;
+  /** ★11/16 밤 기존 무료 사용자 1회 안내(TrialAnnounceGate) — trialHead 와 함께. 체험이 적용될 때만 눈썹 자리에 «새로 생긴 무료 체험» */
+  trialAnnounce?: boolean;
   /** ★11/16 첫 실행 페이월 전용 — 판정에 쓴 스토어 오퍼(체험 일수 포함)를 그대로 그린다(재조회 실패로 체험 없는 화면이 되지 않게, 관문 11161250 ②).
       비면 훅 값. 다른 호출부는 넘기지 않는다 */
   offers?: PlanOffer[];
@@ -570,7 +577,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
         </button>
 
         <div className={s.head}>
-          <span className={s.eyebrow}>{t.eyebrow}</span>
+          <span className={s.eyebrow}>{trialAnnounce && trialHead && trialDays && !context && !keepOpenWhilePro ? t.trialAnnounceEyebrow : t.eyebrow}</span>
           {/* ★11/11 만료 페이월 제목엔 날짜가 들어간다 — 한국어가 «11 / 월»로 갈라지지 않게 낱말 단위 줄바꿈(그 모드에서만) */}
           <h1 className={s.title} style={context ? { wordBreak: 'keep-all' } : undefined}>{head.title}</h1>
           <p className={s.lede}>{head.lede}</p>

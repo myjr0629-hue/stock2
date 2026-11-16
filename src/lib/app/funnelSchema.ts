@@ -67,6 +67,7 @@ export const FUNNEL_SRCS = [
   'gate_first',                     // ★11/16 하루 첫 게이트 탭(«광고 보고 잠금해제»)이 광고 전에 연 페이월(lib/app/gatePaywall ①) — 닫으면 광고가 이어진다
   'ad_nofill',                      // ★11/16 네이티브 보상형 광고가 안 나왔을 때 대체 30초 창 전에 연 페이월(lib/app/gatePaywall ②)
   'first_run',                      // ★11/16 첫 실행이 끝난 직후 1회 «7일 무료 체험» 페이월(lib/app/firstRunPaywall — 체험 자격 확인된 무료 사용자만)
+  'trial_announce',                 // ★11/16 밤 기존 무료 사용자 1회 «새로 생긴 7일 무료 체험» 페이월(lib/app/trialAnnounce — 체험 자격·이력 0 확인된 무료 사용자만, 앱 포그라운드 때)
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

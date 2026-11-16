@@ -13,6 +13,7 @@ import { ReviewPromptMoments } from '@/components/app/ReviewPromptMoments';
 import { CouponGuideHost } from '@/components/app/CouponGuideHost';
 import { GiftAnnounceHost } from '@/components/app/GiftAnnounceHost';
 import { InviteHost } from '@/components/app/InviteHost';
+import { TrialAnnounceHost } from '@/components/app/TrialAnnounceHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { reportPushPath, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
@@ -326,6 +327,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <GiftAnnounceHost />
       {/* 추천 보상 — 새 설치의 «도착» 알림(화면 없음) + 초대자의 «친구가 설치했어요» 선물함 알림(앱 안 알림·번호마다 한 번) — lib/invite · components/app/InviteHost */}
       <InviteHost />
+      {/* ★11/16 밤 기존 무료 사용자 «새로 생긴 PRO 7일 무료 체험» 1회(앱 안 시트만 · 체험 자격·이력 0 확인 · 다른 안내와 같은 날 겹치지 않게) — lib/app/trialAnnounce */}
+      <TrialAnnounceHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>
