@@ -56,6 +56,9 @@ test('② trialAnnounceStep — 자격 있음/없음/PRO/코드 PRO/이미 봄/�
   assert.equal(ta.trialAnnounceStep({ ...base, otherToday: true }), 'later', '오늘 다른 안내·페이월을 봄');
   assert.equal(ta.trialAnnounceStep({ ...base, routeOk: false }), 'later', '문서·첫 실행 화면');
   assert.equal(ta.trialAnnounceStep({ ...base, visible: false }), 'later', '앱이 뒤');
+  assert.equal(ta.trialAnnounceStep({ ...base, gateFlow: true }), 'later', '게이트 흐름(광고 준비·대체 창) 중');
+  ta.noteGateFlow(true, NOW); assert.equal(ta.gateFlowActive(NOW + 1000), true); assert.equal(ta.gateFlowActive(NOW + ta.GATE_FLOW_MAX_MS + 1), false, '2분 상한');
+  ta.noteGateFlow(false); assert.equal(ta.gateFlowActive(NOW), false);
   assert.equal(ta.trialAnnounceStep({ ...base, isPro: true, dialogOpen: true }), 'stop', 'PRO 는 겹침과 무관하게 끝');
 });
 
@@ -152,7 +155,10 @@ test('④ 반대 방향 배선 — 오늘 이 안내가 떴으면 선물 안내 
   assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\) && !announcedTodaySafe\(\);/, '재조회 뒤 gate_first·ad_nofill 도 오늘 안내를 본다');
   const pw = require('node:fs').readFileSync(require.resolve('../src/components/app/ProPaywall.tsx'), 'utf8') as string;
   assert.match(pw, /m\.trackFunnel\('open', \{ src: funnelSrc \}\); \}\)\.catch\(\(\) => \{\}\);\n.*\n    try \{ notePaywallOpened\(window\.localStorage\); \}/, '페이월 열림 표식');
+  assert.match(v, /gateFlowAt\.current = Date\.now\(\);\n    noteGateFlow\(true\);/, '게이트 흐름 시작 알림');
+  assert.match(v, /const endFlow = \(\) => \{ gateFlowAt\.current = 0; noteGateFlow\(false\); \};/, '게이트 흐름 끝 알림');
   const g = require('node:fs').readFileSync(require.resolve('../src/components/app/TrialAnnounceGate.tsx'), 'utf8') as string;
+  assert.ok(g.includes('gateFlow: gateFlowActive()'), '판정이 게이트 흐름을 본다');
   assert.ok(g.indexOf('markTrialAnnounced(store)') < g.indexOf('markGateDay(localDay())') && g.indexOf('markGateDay(localDay())') < g.indexOf('setShow('), '표식 → 게이트 하루 표식 → 보임');
 });
 

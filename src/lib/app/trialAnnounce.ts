@@ -9,10 +9,10 @@
 //   · PRO 상태 받음 + 체험 자격 조회 끝남 · PRO 아님(코드 PRO·공유 PRO 신호 포함) · 결제 진행 중 아님
 //   · 스토어가 «자격 확인된 무료 체험»을 준 플랜이 하나 이상(PlanOffer.trialDays) — 체험·구독 이력이 있으면 스토어가 안 준다
 //   · 보이기 직전 새 고객 정보(RevenueCat)로 한 번 더: PRO 아님 + 구매·체험·구독 «이력 0»(필드가 없거나 모양이 다르면 «모름» = 안 보임)
-// 같은 날 겹침(우선순위 — 이 안내가 가장 낮다):
+// 같은 날 겹침(우선순위 — 체험 종료 안내·만료 페이월·사용자가 누른 게이트 > 이 안내 > 선물 안내. 매출이 먼저라 선물보다 앞선다):
 //   · 오늘 어느 출처든 PRO 페이월(게이트 gate_first·광고 없음 ad_nofill·설정 등)을 봤다 · 오늘 선물 안내를 봤다 · 오늘 체험 종료 안내(D-3·조기)·만료 페이월을 봤다 → 오늘은 안 보이고 다음 날 포그라운드에
 //     (체험 종료 안내·만료 페이월·만료자 할인은 «체험 이력»이 있어야 뜨므로 이 안내 대상과 원래 겹치지 않는다 — 날짜 검사는 이중 안전장치)
-//   · 다른 시트·결제 창(aria-modal)이 떠 있으면 이번 포그라운드는 넘긴다
+//   · 다른 시트·결제 창(aria-modal)이 떠 있거나 게이트 흐름(광고 준비·대체 창)이 도는 중이면 이번 포그라운드는 넘긴다
 //   · 이 안내가 뜨면 게이트 하루 표식(gate_first)을 오늘로 남긴다 → 오늘 게이트 탭은 페이월 없이 원래대로 광고(내일 다시)
 //     광고가 안 나왔을 때의 페이월(ad_nofill)도 오늘은 건너뛴다(ValueWall — trialAnnouncedToday = «이미 페이월 본 탭»)
 //   · 선물 안내(새·재안내)는 오늘 이 안내가 떴으면 'busy' 로 막힌다(lib/gift/giftAnnounce — trialAnnouncedToday)
@@ -33,10 +33,16 @@ export const GIFT_RE_KEY = 'signumhq.gift.announce.1105';              // 재안
 /** 어느 출처든 PRO 페이월이 열린 시각(ProPaywall 이 열릴 때 남긴다 — notePaywallOpened). 오늘이면 이 안내는 다음 날 */
 export const PAYWALL_OPEN_KEY = 'signumhq.paywall.open_at';
 export const TRIAL_OFF_KEYS = ['signumhq.trialRenewalOff.v1', 'signumhq.trialRenewalOff.early.v1', 'signumhq.trialExpired.v1'] as const; // «기간|현지 날짜»
-/** 포그라운드가 된 뒤 이만큼 기다렸다 판정 — 다른 시트(체험 종료·선물)가 먼저 자리를 잡게(이 안내가 가장 낮은 우선순위) */
+/** 포그라운드가 된 뒤 이만큼 기다렸다 판정 — 체험 종료·만료 시트(SDK 읽기)가 먼저 자리를 잡게. 선물 안내(3.5초)보다는 먼저 — 이 안내가 뜬 날 선물은 쉰다 */
 export const TRIAL_ANNOUNCE_DELAY_MS = 2_500;
 /** 보이기 직전 새 고객 정보 조회 상한 — 넘으면 이번 실행은 안 보인다 */
 export const TRIAL_ANNOUNCE_VERIFY_MS = 3_000;
+
+// 게이트 흐름(ValueWall 탭 → PRO 재조회·보상형 광고 준비·대체 창) 진행 중 — 이 사이엔 DOM 시트가 없을 수 있어 따로 알린다(ValueWall gateBusy 와 같은 2분 상한)
+let gateFlowAt = 0;
+export const GATE_FLOW_MAX_MS = 120_000;
+export function noteGateFlow(on: boolean, now = Date.now()): void { gateFlowAt = on ? now : 0; }
+export function gateFlowActive(now = Date.now()): boolean { return gateFlowAt > 0 && now - gateFlowAt < GATE_FLOW_MAX_MS; }
 
 export type MiniStore = { getItem(k: string): string | null; setItem(k: string, v: string): void };
 
@@ -129,6 +135,8 @@ export type TrialAnnounceState = {
   dialogOpen: boolean;
   /** 앱이 앞에 있다 */
   visible: boolean;
+  /** 게이트 흐름(탭→광고 준비·대체 창)이 진행 중 */
+  gateFlow?: boolean;
 };
 
 /**
@@ -140,7 +148,7 @@ export function trialAnnounceStep(s: TrialAnnounceState): 'stop' | 'wait' | 'lat
   if (!s.ready) return s.pending ? 'later' : 'wait';
   if (!s.iapAvailable) return 'stop';
   if (!s.offers.some((o) => o.plan !== 'lifetime' && typeof o.trialDays === 'number' && o.trialDays > 0)) return 'stop';
-  if (s.pending || !s.visible || !s.routeOk || s.otherToday || s.dialogOpen) return 'later';
+  if (s.pending || !s.visible || !s.routeOk || s.otherToday || s.dialogOpen || s.gateFlow) return 'later';
   return 'check';
 }
 

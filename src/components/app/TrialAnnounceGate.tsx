@@ -17,7 +17,7 @@ import { localDay, markGateDay, storeProSignal } from '@/lib/app/gatePaywall';
 import { initRevenueCat, isProFromCustomerInfo } from '@/services/revenueCat';
 import {
   TRIAL_ANNOUNCE_DELAY_MS, TRIAL_ANNOUNCE_VERIFY_MS, markTrialAnnounced, noPurchaseHistory, otherSheetToday, readTrialAnnounced,
-  trialAnnounceRouteOk, trialAnnounceStep, FIRST_RUN_SHOWN_KEY, type MiniStore,
+  trialAnnounceRouteOk, trialAnnounceStep, gateFlowActive, FIRST_RUN_SHOWN_KEY, type MiniStore,
 } from '@/lib/app/trialAnnounce';
 import { ProPaywall } from './ProPaywall';
 
@@ -69,7 +69,7 @@ export function TrialAnnounceGate() {
     const state = () => ({
       iapAvailable, ready: ready && trialsReady, isPro, sharedPro: storeProSignal.latest() === true, pending: proPurchaseState.getSnapshot(), offers,
       seen: seenAny(store), routeOk: trialAnnounceRouteOk(window.location.pathname), otherToday: otherSheetToday(store),
-      dialogOpen: dialogOpen(), visible: document.visibilityState === 'visible',
+      dialogOpen: dialogOpen(), visible: document.visibilityState === 'visible', gateFlow: gateFlowActive(),
     });
     const step = trialAnnounceStep(state());
     if (step === 'stop') { run.done = true; return; }
