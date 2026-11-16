@@ -57,7 +57,7 @@ const KO: FirstRunCopy = {
   value: {
     stepLabel: (n, total) => `${n} / ${total} · 내 종목`,
     title: '관심 종목을 골라 보세요',
-    subtitle: '1~3개를 고르면 오늘의 옵션 지형이 바로 나옵니다.',
+    subtitle: '1~3개를 고르면 지금 주가와 주요 가격대, AI 한 줄 해석이 바로 나옵니다.',
     searchPh: '종목명 또는 티커',
     searchLabel: '종목 검색',
     popular: '인기 종목',
@@ -96,7 +96,7 @@ const EN: FirstRunCopy = {
   value: {
     stepLabel: (n, total) => `${n} / ${total} · My stocks`,
     title: 'Pick your stocks',
-    subtitle: 'Pick 1–3 and see today’s options map right away.',
+    subtitle: 'Pick 1–3 to see the price, key levels and a one-line AI read right away.',
     searchPh: 'Company or ticker',
     searchLabel: 'Search stocks',
     popular: 'Popular',
@@ -135,7 +135,7 @@ const JA: FirstRunCopy = {
   value: {
     stepLabel: (n, total) => `${n} / ${total} · マイ銘柄`,
     title: '気になる銘柄を選んでください',
-    subtitle: '1〜3銘柄を選ぶと、今日のオプションの地形がすぐに表示されます。',
+    subtitle: '1〜3銘柄を選ぶと、いまの株価と主要な価格帯、AIの一行解説がすぐに表示されます。',
     searchPh: '銘柄名またはティッカー',
     searchLabel: '銘柄を検索',
     popular: '人気銘柄',

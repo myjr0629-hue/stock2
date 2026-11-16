@@ -1886,7 +1886,7 @@ export default function AppDashPage() {
   /* ── 9차 문구 — 시안(e9)의 L9 를 그대로 옮겼다 ─────────────────── */
   const c9 = ({
     ko: {
-      tagline: 'DARK POOL INTEL', secIdx: '지수', tFut: '선물', tCash: '현물', tEtf: 'ETF',
+      tagline: 'US STOCKS · AI', secIdx: '지수', tFut: '선물', tCash: '현물', tEtf: 'ETF',
       holiday: '휴장',
       holidayNote: '미국 증시 휴장 — 선물 시세도 들어오지 않아 직전 값입니다.',
       idxNote: '지금 움직이는 건 선물뿐 — 현물·ETF는 마감값입니다.',
@@ -1915,7 +1915,7 @@ export default function AppDashPage() {
       ftA: '앱 이용약관', ftB: '앱 개인정보처리방침', ftS: '지원: contact@signumhq.com',
     },
     en: {
-      tagline: 'DARK POOL INTEL', secIdx: 'Indices', tFut: 'Futures', tCash: 'Cash', tEtf: 'ETF',
+      tagline: 'US STOCKS · AI', secIdx: 'Indices', tFut: 'Futures', tCash: 'Cash', tEtf: 'ETF',
       holiday: 'HOLIDAY',
       holidayNote: 'US markets closed — no futures quotes; last values shown.',
       idxNote: 'Only futures are trading now — cash and ETFs show the close.',
@@ -1942,7 +1942,7 @@ export default function AppDashPage() {
       ftA: 'App Terms', ftB: 'App Privacy', ftS: 'Support: contact@signumhq.com',
     },
     ja: {
-      tagline: 'DARK POOL INTEL', secIdx: '指数', tFut: '先物', tCash: '現物', tEtf: 'ETF',
+      tagline: 'US STOCKS · AI', secIdx: '指数', tFut: '先物', tCash: '現物', tEtf: 'ETF',
       holiday: '休場',
       holidayNote: '米国市場は休場 — 先物気配も届かず直近値です。',
       idxNote: '今動いているのは先物のみ — 現物・ETFは終値です。',

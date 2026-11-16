@@ -122,7 +122,7 @@ const COPY: Record<PaywallLocale, {
     title: '잠긴 분석이 바로 열립니다',
     lede: '광고를 보지 않아도 되고, 광고도 없습니다.',
     benefits: [
-      'AI 분석·퀀트 시그널·기관 보유가 바로 열림',
+      'AI 종목 분석·퀀트 시그널·기관 보유가 바로 열림',
       '대가 렌즈 순위 10위까지(무료는 3위)',
       '배너·전면 광고 전부 제거',
     ],
@@ -172,7 +172,7 @@ const COPY: Record<PaywallLocale, {
     trialTerms: (d, price, plan) => `${d}일 무료 체험 후 ${plan === 'annual' ? '연' : '월'} ${price} 자동\u00a0결제\u00a0·\u00a0언제든\u00a0해지`,
     trialFine: (d, price, plan) => `오늘은 결제되지 않습니다. ${d}일 무료 체험이 끝나면 ${price}이 결제되고, 이후 ${plan === 'annual' ? '1년마다' : '매월'} 자동 갱신됩니다. 체험 종료 24시간 전까지 해지하면 요금이 청구되지 않습니다. 해지는 기기의 구독 관리 화면에서 합니다.`,
     trialHeadTitle: (d) => `PRO ${d}일 무료`,
-    trialHeadLede: '잠긴 분석이 바로 열리고 광고도 없습니다. 체험 종료 24시간 전까지 해지하면 결제되지 않습니다.',
+    trialHeadLede: '광고 없이 AI 종목 분석이 바로 열립니다. 체험 종료 24시간 전까지 해지하면 결제되지 않습니다.',
   },
   en: {
     close: 'Close',
@@ -180,7 +180,7 @@ const COPY: Record<PaywallLocale, {
     title: 'Analysis, always unlocked',
     lede: 'No ad to watch first, and no ads after.',
     benefits: [
-      'AI analysis, quant signals, institutional holdings open at once',
+      'AI stock analysis, quant signals, institutional holdings open at once',
       'Investor Lenses: top 10 (free: top 3)',
       'Removes every banner and interstitial ad',
     ],
@@ -229,7 +229,7 @@ const COPY: Record<PaywallLocale, {
     trialTerms: (d, price, plan) => `Free for ${d} days, then ${price}/${plan === 'annual' ? 'year' : 'month'}. Cancel anytime.`,
     trialFine: (d, price, plan) => `You won’t be charged today. When your ${d}-day free trial ends, you’ll be charged ${price}, and it renews automatically every ${plan === 'annual' ? 'year' : 'month'}. Cancel at least 24 hours before the trial ends and you won’t be charged. Cancel from your device’s subscription settings.`,
     trialHeadTitle: (d) => `Try PRO free for ${d} days`,
-    trialHeadLede: 'Locked analysis opens at once, with no ads. Cancel at least 24 hours before the trial ends and you pay nothing.',
+    trialHeadLede: 'AI stock analysis opens at once, with no ads. Cancel at least 24 hours before the trial ends and you pay nothing.',
   },
   ja: {
     close: '閉じる',
@@ -286,7 +286,7 @@ const COPY: Record<PaywallLocale, {
     trialTerms: (d, price, plan) => `${d}日間無料、その後${plan === 'annual' ? '年額' : '月額'}${price}で自動更新・いつでも解約可`,
     trialFine: (d, price, plan) => `本日は請求されません。${d}日間の無料体験が終わると${price}が請求され、以後${plan === 'annual' ? '1年' : '1か月'}ごとに自動更新されます。体験終了の24時間前までに解約すれば請求されません。解約は端末の定期購読設定から行えます。`,
     trialHeadTitle: (d) => `PRO ${d}日間無料`,
-    trialHeadLede: '閉じていた分析がすぐ開き、広告もありません。体験終了の24時間前までに解約すれば請求されません。',
+    trialHeadLede: '広告なしでAIの銘柄分析がすぐ開きます。体験終了の24時間前までに解約すれば請求されません。',
   },
 };
 

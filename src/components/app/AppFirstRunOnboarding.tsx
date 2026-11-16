@@ -505,10 +505,10 @@ export function AppFirstRunOnboarding() {
           <div className={`${styles.hero} ${locale === 'ja' ? styles.heroJa : ''}`}>
             <span className={styles.kicker}>{copy.kicker}</span>
             <h1 id="app-onboarding-title" className={styles.title}>
-              {legal ? ({ ko: '미국 주식 실적, 발표 전 예상 변동폭과 발표 뒤 실제를 한눈에', en: 'US stocks: the expected earnings move before the report, and what actually happened after', ja: '米国株の決算、発表前の想定変動幅と発表後の実際を一目で' }[locale as 'ko' | 'en' | 'ja'] || 'US stocks: the expected earnings move before the report, and what actually happened after') : copy.alertTitle}
+              {legal ? ({ ko: '미국주식, 실시간 주가와 AI 한 줄 해석으로 쉽게', en: 'US stocks made easy: live prices and a one-line AI read', ja: '米国株を、リアルタイム株価とAIの一行解説でかんたんに' }[locale as 'ko' | 'en' | 'ja'] || 'US stocks made easy: live prices and a one-line AI read') : copy.alertTitle}
             </h1>
             <p className={styles.subtitle}>
-              {legal ? ({ ko: '예상 변동폭은 옵션 가격으로 계산합니다.', en: 'The expected move is derived from options prices.', ja: '想定変動幅はオプション価格から算出します。' }[locale as 'ko' | 'en' | 'ja'] || 'The expected move is derived from options prices.') : copy.alertSubtitle}
+              {legal ? ({ ko: '실시간 주가(정규장)·뉴스·아침 AI 브리핑·장마감 리포트·실적 일정까지.', en: 'Live prices in market hours, news, a morning AI brief, a closing report and the earnings calendar.', ja: 'リアルタイム株価（通常取引時間）・ニュース・朝のAIブリーフ・引け後レポート・決算日程まで。' }[locale as 'ko' | 'en' | 'ja'] || 'Live prices in market hours, news, a morning AI brief, a closing report and the earnings calendar.') : copy.alertSubtitle}
             </p>
           </div>
 
