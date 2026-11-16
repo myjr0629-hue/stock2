@@ -52,7 +52,11 @@ export function paywallSelection(plans: readonly Pick<PaywallPlan, 'plan'>[], pi
 /** 체험 판정에 쓰는 상품 모양(RevenueCat PurchasesStoreProduct 의 일부) — 시험이 손으로 만들 수 있게 좁힌다 */
 export type TrialProductLike = {
   introPrice?: { price?: number; periodUnit?: string; periodNumberOfUnits?: number; cycles?: number } | null;
-  defaultOption?: { freePhase?: { billingPeriod?: { unit?: string; value?: number; iso8601?: string } | null } | null } | null;
+  defaultOption?: {
+    freePhase?: { billingPeriod?: { unit?: string; value?: number; iso8601?: string } | null } | null;
+    /** 무료 뒤 유료 소개 단계 — 있으면 «체험 뒤 정가»가 사실이 아니므로 체험을 말하지 않는다(관문 11161250 ①) */
+    introPhase?: unknown;
+  } | null;
 } | null | undefined;
 
 /** 기간 단위 × 수 → 일수. 일·주만(월·년 무료는 «N일»로 바꿔 말하지 않는다 → null). 1~31일 밖이면 null */
@@ -84,16 +88,10 @@ export function trialDaysFor(product: TrialProductLike, platform: string, iosEli
     return periodDays(ip.periodUnit, ip.periodNumberOfUnits, ip.cycles ?? 1);
   }
   if (platform === 'android') {
-    const bp = product.defaultOption?.freePhase?.billingPeriod;
-    if (!bp) return null;
+    const opt = product.defaultOption;
+    const bp = opt?.freePhase?.billingPeriod;
+    if (!bp || opt?.introPhase) return null;
     return periodDays(bp.unit, bp.value) ?? isoPeriodDays(bp.iso8601);
   }
   return null;
-}
-
-/** 체험 끝(첫 결제) 날짜 — 오늘 + days. 화면 표기용 현지 날짜(«11월 23일» / «Nov 23» / «11月23日») */
-export function trialEndLabel(loc: 'ko' | 'en' | 'ja', days: number, now: Date = new Date()): string {
-  const d = new Date(now.getTime() + days * 86_400_000);
-  const tag = loc === 'ko' ? 'ko-KR' : loc === 'ja' ? 'ja-JP' : 'en-US';
-  try { return d.toLocaleDateString(tag, { month: 'long', day: 'numeric' }); } catch { return `${d.getMonth() + 1}/${d.getDate()}`; }
 }

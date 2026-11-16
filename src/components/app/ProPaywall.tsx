@@ -30,9 +30,9 @@ import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import type { PlanId } from '@/config/iap';
-import { annualSavePct, paywallSelection, planFineLine, trialEndLabel, type PaywallPlan } from '@/lib/app/proPlans';
+import { annualSavePct, paywallSelection, planFineLine, type PaywallPlan } from '@/lib/app/proPlans';
 import { expiredOfferCopy, type ExpiredOfferView } from '@/lib/app/expiredOffer';
-import type { ExpiredOffer } from '@/services/revenueCat';
+import type { ExpiredOffer, PlanOffer } from '@/services/revenueCat';
 
 export type { PaywallPlan };
 
@@ -109,9 +109,9 @@ const COPY: Record<PaywallLocale, {
   ctaTrial: (days: number) => string;
   trialBadge: (days: number) => string;
   /** 버튼 바로 위 한 줄 — 체험 기간·첫 결제 날짜·가격·주기·해지 */
-  trialTerms: (days: number, price: string, plan: PlanId, date: string) => string;
+  trialTerms: (days: number, price: string, plan: PlanId) => string;
   /** 고지문(자동 갱신·24시간 전 해지) — 체험이 적용되는 플랜일 때 planFineLine 자리 */
-  trialFine: (days: number, price: string, plan: PlanId, date: string) => string;
+  trialFine: (days: number, price: string, plan: PlanId) => string;
   /** 첫 실행 페이월 머리(trialHead) */
   trialHeadTitle: (days: number) => string;
   trialHeadLede: string;
@@ -169,8 +169,8 @@ const COPY: Record<PaywallLocale, {
     ctaTrial: (d) => `${d}일 무료로 시작`,
     trialBadge: (d) => `${d}일 무료 체험`,
     // 줄이 접혀도 «· 언제든 해지»만 홀로 떨어지지 않게 뒤 묶음은 붙는 공백(U+00A0)
-    trialTerms: (d, price, plan, date) => `${d}일 무료 체험 후 ${date}부터 ${plan === 'annual' ? '연' : '월'} ${price} 자동\u00a0결제\u00a0·\u00a0언제든\u00a0해지`,
-    trialFine: (d, price, plan, date) => `오늘은 결제되지 않습니다. ${d}일 무료 체험이 끝나는 ${date}에 ${price}이 결제되고, 이후 ${plan === 'annual' ? '1년마다' : '매월'} 자동 갱신됩니다. 체험 종료 24시간 전까지 해지하면 요금이 청구되지 않습니다. 해지는 기기의 구독 관리 화면에서 합니다.`,
+    trialTerms: (d, price, plan) => `${d}일 무료 체험 후 ${plan === 'annual' ? '연' : '월'} ${price} 자동\u00a0결제\u00a0·\u00a0언제든\u00a0해지`,
+    trialFine: (d, price, plan) => `오늘은 결제되지 않습니다. ${d}일 무료 체험이 끝나면 ${price}이 결제되고, 이후 ${plan === 'annual' ? '1년마다' : '매월'} 자동 갱신됩니다. 체험 종료 24시간 전까지 해지하면 요금이 청구되지 않습니다. 해지는 기기의 구독 관리 화면에서 합니다.`,
     trialHeadTitle: (d) => `PRO ${d}일 무료`,
     trialHeadLede: '잠긴 분석이 바로 열리고 광고도 없습니다. 체험 중 해지하면 결제되지 않습니다.',
   },
@@ -226,8 +226,8 @@ const COPY: Record<PaywallLocale, {
     ctaKeep: 'Keep PRO',
     ctaTrial: (d) => `Start ${d}-day free trial`,
     trialBadge: (d) => `${d}-day free trial`,
-    trialTerms: (d, price, plan, date) => `Free for ${d} days, then ${price}/${plan === 'annual' ? 'year' : 'month'} from ${date}. Cancel anytime.`,
-    trialFine: (d, price, plan, date) => `You won’t be charged today. When your ${d}-day free trial ends on ${date}, you’ll be charged ${price}, and it renews automatically every ${plan === 'annual' ? 'year' : 'month'}. Cancel at least 24 hours before the trial ends and you won’t be charged. Cancel from your device’s subscription settings.`,
+    trialTerms: (d, price, plan) => `Free for ${d} days, then ${price}/${plan === 'annual' ? 'year' : 'month'}. Cancel anytime.`,
+    trialFine: (d, price, plan) => `You won’t be charged today. When your ${d}-day free trial ends, you’ll be charged ${price}, and it renews automatically every ${plan === 'annual' ? 'year' : 'month'}. Cancel at least 24 hours before the trial ends and you won’t be charged. Cancel from your device’s subscription settings.`,
     trialHeadTitle: (d) => `Try PRO free for ${d} days`,
     trialHeadLede: 'Locked analysis opens at once, with no ads. Cancel during the trial and you pay nothing.',
   },
@@ -283,8 +283,8 @@ const COPY: Record<PaywallLocale, {
     ctaKeep: 'PROを続ける',
     ctaTrial: (d) => `${d}日間無料で始める`,
     trialBadge: (d) => `${d}日間無料体験`,
-    trialTerms: (d, price, plan, date) => `${d}日間無料、${date}から${plan === 'annual' ? '年額' : '月額'}${price}で自動更新・いつでも解約可`,
-    trialFine: (d, price, plan, date) => `本日は請求されません。${d}日間の無料体験が終わる${date}に${price}が請求され、以後${plan === 'annual' ? '1年' : '1か月'}ごとに自動更新されます。体験終了の24時間前までに解約すれば請求されません。解約は端末の定期購読設定から行えます。`,
+    trialTerms: (d, price, plan) => `${d}日間無料、その後${plan === 'annual' ? '年額' : '月額'}${price}で自動更新・いつでも解約可`,
+    trialFine: (d, price, plan) => `本日は請求されません。${d}日間の無料体験が終わると${price}が請求され、以後${plan === 'annual' ? '1年' : '1か月'}ごとに自動更新されます。体験終了の24時間前までに解約すれば請求されません。解約は端末の定期購読設定から行えます。`,
     trialHeadTitle: (d) => `PRO ${d}日間無料`,
     trialHeadLede: '閉じていた分析がすぐ開き、広告もありません。体験中に解約すれば請求されません。',
   },
@@ -340,7 +340,7 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
 /** ★11/11 체험 만료 뒤 1회 페이월 — 머리·버튼 문구와 «체험 동안 / 무료에서 달라지는 것» 묶음(lib/app/trialExpired). 가격·고지·복원은 그대로 */
 export type PaywallContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
 
-export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed, discountOffer, trialHead = false }: {
+export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed, discountOffer, trialHead = false, offers: offersProp }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
@@ -375,12 +375,16 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   discountOffer?: ExpiredOffer | ExpiredOfferView | null;
   /** ★11/16 첫 실행 페이월 전용 — 고른 플랜에 무료 체험이 적용되면 머리를 «PRO 7일 무료»로. 체험이 없으면 예전 머리 */
   trialHead?: boolean;
+  /** ★11/16 첫 실행 페이월 전용 — 판정에 쓴 스토어 오퍼(체험 일수 포함)를 그대로 그린다(재조회 실패로 체험 없는 화면이 되지 않게, 관문 11161250 ②).
+      비면 훅 값. 다른 호출부는 넘기지 않는다 */
+  offers?: PlanOffer[];
 }) {
   const router = useRouter();
   const loc: PaywallLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
   const t = SHOWN[loc];
 
-  const { isPro, ready, offers, purchase, purchaseOffer, purchasePending, restore, refreshOffers } = useProStatus();
+  const { isPro, ready, offers: hookOffers, purchase, purchaseOffer, purchasePending, restore, refreshOffers } = useProStatus();
+  const offers = offersProp && offersProp.length ? offersProp : hookOffers;
   // ★11/12 할인 카드는 만료 페이월(context)에서만 — 다른 화면에 실수로 넘어와도 그리지 않는다.
   //   정가 월간 카드(스토어 오퍼링)가 있을 때만 — 할인 결제가 안 되면 같은 화면에서 정가를 고를 수 있어야 한다(관문 11121047)
   const offer = context && discountOffer && (previewPlans ?? offers).some((p) => p.plan === 'monthly') ? discountOffer : null;
@@ -428,7 +432,6 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   // ★11/16 무료 체험 — 고른 플랜(또는 한 줄 화면의 월간)에 스토어가 «자격 확인된» 체험을 줄 때만. 할인 카드를 고르면 없음
   const trialPlan: PaywallPlan | null = offerSelected ? null : multi ? (plans.find((p) => p.plan === selected) ?? null) : (monthly ?? null);
   const trialDays = trialPlan && trialPlan.plan !== 'lifetime' && trialPlan.trialDays ? trialPlan.trialDays : null;
-  const trialDate = trialDays ? trialEndLabel(loc, trialDays) : '';
 
   // 열었는데 가격이 없다 = 마운트 때 오퍼링을 못 받았다는 뜻. 여기서 한 번 더 받는다.
   useEffect(() => {
@@ -671,7 +674,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
 
         {/* ★11/16 무료 체험 조건 — 결제 버튼 바로 위, 본문 크기(작은 글씨 아님). 체험이 적용될 때만 */}
         {trialDays && trialPlan && (
-          <p className={s.trialTerms} data-trial-days={trialDays}>{t.trialTerms(trialDays, trialPlan.priceString, trialPlan.plan, trialDate)}</p>
+          <p className={s.trialTerms} data-trial-days={trialDays}>{t.trialTerms(trialDays, trialPlan.priceString, trialPlan.plan)}</p>
         )}
 
         <button
@@ -688,7 +691,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
         {/* ★2026-10-05 «코드가 있으신가요? 🎟 쿠폰 코드 입력» — 결제 단추보다 조용하게(네이티브·프리뷰에서만). components/app/RedeemCodeLink */}
         <RedeemCodeLink locale={loc} src={funnelSrc} />
 
-        <p className={s.fine}>{offerSelected && offer ? oc.fine(offer.priceString, offer.regularPriceString) : trialDays && trialPlan ? t.trialFine(trialDays, trialPlan.priceString, trialPlan.plan, trialDate) : multi ? planFineLine(loc, t, selected) : fineLine(loc, t)}</p>
+        <p className={s.fine}>{offerSelected && offer ? oc.fine(offer.priceString, offer.regularPriceString) : trialDays && trialPlan ? t.trialFine(trialDays, trialPlan.priceString, trialPlan.plan) : multi ? planFineLine(loc, t, selected) : fineLine(loc, t)}</p>
 
         <div ref={linksRef} className={s.links}>
           <button type="button" className={s.link} onClick={handleRestore} disabled={busy}>

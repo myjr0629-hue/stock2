@@ -34,16 +34,10 @@ test('① trialDaysFor — 안드는 defaultOption.freePhase(Play 가 자격 있
   assert.equal(plans.trialDaysFor({ defaultOption: { freePhase: { billingPeriod: { unit: 'WEEK', value: 1, iso8601: 'P1W' } } } }, 'android'), 7);
   assert.equal(plans.trialDaysFor({ defaultOption: { freePhase: { billingPeriod: { iso8601: 'P7D' } } } }, 'android'), 7);
   assert.equal(plans.trialDaysFor({ defaultOption: { freePhase: null } }, 'android'), null);
+  assert.equal(plans.trialDaysFor({ defaultOption: { freePhase: { billingPeriod: { unit: 'WEEK', value: 1 } }, introPhase: { price: 1 } } }, 'android'), null, '무료 뒤 유료 소개 단계 = 체험 말하지 않음');
   assert.equal(plans.trialDaysFor({ defaultOption: null }, 'android'), null);
   assert.equal(plans.isoPeriodDays('P1M'), null);
   assert.equal(plans.periodDays('DAY', 40), null);
-});
-
-test('trialEndLabel — 현지 날짜', () => {
-  const now = new Date(2026, 10, 16, 12, 0, 0);
-  assert.match(plans.trialEndLabel('ko', 7, now), /11월 23일/);
-  assert.match(plans.trialEndLabel('en', 7, now), /Nov(ember)? 23/);
-  assert.match(plans.trialEndLabel('ja', 7, now), /11月23日/);
 });
 
 test('③ firstRunPaywallStep', () => {
@@ -116,13 +110,15 @@ test('② 체험 있음 = 명시 CTA · 버튼 위 조건 · 24시간 고지 · 
   offers = [{ ...M, trialDays: 7 }, { ...A, trialDays: 7 }];
   const h = html();
   assert.ok(h.includes('7일 무료로 시작'), 'CTA');
-  assert.match(h, /7일 무료 체험 후 .+부터 연 ₩89,000 자동\u00a0결제\u00a0·\u00a0언제든\u00a0해지/);
+  assert.ok(h.includes('7일 무료 체험 후 연 ₩89,000 자동\u00a0결제\u00a0·\u00a0언제든\u00a0해지'));
   assert.ok(h.indexOf('trialTerms') < h.indexOf('7일 무료로 시작'), '조건은 버튼 위');
   assert.ok(h.includes('오늘은 결제되지 않습니다') && h.includes('24시간 전까지 해지하면'));
   assert.ok(h.includes('월 ₩7,417 · 7일 무료 체험'), '연간 카드 월 환산 + 체험');
-  // 첫 실행 머리
-  const f = html({ trialHead: true, src: 'first_run' });
-  assert.ok(f.includes('PRO 7일 무료'));
+  // 첫 실행 머리 + 판정에 쓴 오퍼를 그대로(훅 오퍼가 비어도 체험 화면)
+  const keep = offers; offers = [];
+  const f = html({ trialHead: true, src: 'first_run', offers: keep });
+  assert.ok(f.includes('PRO 7일 무료') && f.includes('7일 무료로 시작'));
+  offers = keep;
   // 할인 카드(만료 페이월)를 고르면 체험 문구 없음
   const d = html({ context: { title: 't', lede: 'l', cta: 'c', sections: [] }, discountOffer: { priceString: '₩5,900', regularPriceString: '₩11,900', pct: 50 } });
   assert.ok(!d.includes('7일 무료로 시작'), '할인 카드 선택 시 체험 CTA 없음');
@@ -137,7 +133,7 @@ test('② en·ja 문구', () => {
   offers = [{ ...M, priceString: '$9.99', trialDays: 7 }, { ...A, priceString: '$74.99', pricePerMonthString: '$6.25', trialDays: 7 }];
   const e = html({ locale: 'en' });
   assert.ok(e.includes('Start 7-day free trial'));
-  assert.match(e, /Free for 7 days, then \$74\.99\/year from .+\. Cancel anytime\./);
+  assert.ok(e.includes('Free for 7 days, then $74.99/year. Cancel anytime.'));
   const j = html({ locale: 'ja' });
   assert.ok(j.includes('7日間無料で始める'));
 });

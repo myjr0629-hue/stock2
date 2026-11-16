@@ -67,6 +67,7 @@ export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDon
       locale={locale}
       src="first_run"
       trialHead
+      offers={offers}
       onClose={() => { setShow(false); finish(); }}
     />
   );
