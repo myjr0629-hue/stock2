@@ -365,8 +365,10 @@ class MemStorage implements StorageLike {
       assert.ok(onbSrc.includes(m), `옛 알림 단계 글이 바뀌었다: ${m}`);
     }
   });
-  t('약관 체크 → [계속] 순서: 동의하지 않으면 계속이 막힌다(disabled) · 건너뛰기는 가치·알림 단계에만 있다', () => {
-    assert.ok(/disabled=\{legal && \(!accepted \|\| advancing\)\}/.test(onbSrc), '계속 버튼은 동의 전 비활성');
+  t('약관 체크 → [계속] 순서: 동의하지 않으면 계속이 막힌다 · 건너뛰기는 가치·알림 단계에만 있다', () => {
+    // ★11/17 동의 전 [계속]은 aria-disabled(회색 그대로) — 눌러도 진행하지 않고 동의 체크 줄로 데려간다(tests/legalNudge.test.ts)
+    assert.ok(/aria-disabled=\{blocked \|\| undefined\}/.test(onbSrc) && /const blocked = legalContinueBlocked\(legal, accepted\);/.test(onbSrc), '계속 버튼은 동의 전 막힘');
+    assert.ok(/onClick=\{\(\) => \(blocked \? onBlockedContinue\(\) : legal \? onLegalNext\(\) : finish\(\)\)\}/.test(onbSrc), '막힘이면 다음 단계로 가지 않는다');
     const valueSrc = read('src/components/app/FirstRunValueStep.tsx');
     assert.ok(/finishSkip/.test(valueSrc) && /onLater/.test(valueSrc));
     // 법적 고지 단계 화면 조각에는 건너뛰기 버튼이 없다

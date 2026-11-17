@@ -15,6 +15,7 @@ import {
   type OnbMode, type OnbStep, type PushResult,
 } from '@/lib/app/onboardingConfig';
 import { firstRunCopy } from '@/lib/app/firstRunCopy';
+import { legalContinueBlocked, nudgeLegalAck } from '@/lib/app/legalNudge';
 import { loadOnbMode, useOnbMode } from './onboardingMode';
 // 가치·알림 단계(카드·시세·레벨·AI 줄)는 이 오버레이를 «이미 마친 기기»(대부분의 사용자)에는 한 바이트도 싣지 않도록 필요할 때만 불러온다 —
 // 법적 고지의 동의 체크를 누르면 ValuePrefetch 가 같은 조각을 미리 불러오고 데이터도 미리 받는다.
@@ -246,6 +247,14 @@ export function AppFirstRunOnboarding() {
   // 네이티브 첫 실행: 기기 언어로 바뀌기를 기다리다 시간 상한(ONB_LOCALE_WAIT_MS)이 지났다 → 지금 언어로 법적 고지를 띄운다
   const [localeWaitOver, setLocaleWaitOver] = useState(false);
   const legalDoneCounted = useRef(false);
+  // ★11/17 회색 [계속]을 누르면 동의 체크 줄로 데려간다(lib/app/legalNudge) — 패널(스크롤)·체크 줄·붙박이 버튼 줄
+  const panelRef = useRef<HTMLElement | null>(null);
+  const ackRef = useRef<HTMLLabelElement | null>(null);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+  const nudgeCounted = useRef(false);
+  // 설정 읽기를 기다리는 동안 동의를 풀었는지 — 기다린 뒤 «지금» 값으로 다시 본다(onLegalNext)
+  const acceptedRef = useRef(accepted);
+  acceptedRef.current = accepted;
   const isDocumentRoute = pathname?.includes('/app-view/terms') ||
     pathname?.includes('/app-view/privacy') ||
     pathname?.includes('/app-view/onboarding');
@@ -431,10 +440,12 @@ export function AppFirstRunOnboarding() {
   const onLegalNext = async () => {
     if (advancing) return;
     setAdvancing(true);
-    // 옛 흐름에서 «이전»으로 돌아왔다가 다시 [계속]을 눌러도 한 번만 센다
-    if (!legalDoneCounted.current) { legalDoneCounted.current = true; trackFunnel('onb_done', { src: 'onb_legal' }); }
     const m = cfgMode ?? (await loadOnbMode());
     setAdvancing(false);
+    // ★11/17 설정을 기다리는 동안(최대 5초) 동의 체크를 풀었으면 진행하지 않는다 — 동의 없이 다음 단계로 가는 길을 막는다
+    if (!acceptedRef.current) return;
+    // 옛 흐름에서 «이전»으로 돌아왔다가 다시 [계속]을 눌러도 한 번만 센다
+    if (!legalDoneCounted.current) { legalDoneCounted.current = true; trackFunnel('onb_done', { src: 'onb_legal' }); }
     setStep(stepAfterLegal(m));
   };
   // 가치 단계가 끝났다(담았거나 건너뛰었다) — 푸시 권한이 있는 네이티브는 알림 단계로, 아니면 끝
@@ -461,6 +472,13 @@ export function AppFirstRunOnboarding() {
     markDone();
     setVisible(false);
     openTrialPaywall();
+  };
+
+  // 동의 전 회색 [계속]을 눌렀다 — 체크 줄로 굴리고 깜빡인다(실행당 한 번만 센다 · 하루 합계 · 식별자 없음)
+  const onBlockedContinue = () => {
+    nudgeLegalAck(ackRef.current, panelRef.current, actionsRef.current);
+    // 언어 자가 이동(/en → /ko·/ja) 재마운트로 ref 가 새로 생겨도 실행(세션)당 한 번 — onb_show 와 같은 sessionStorage 가드(claimOnbShow)
+    if (!nudgeCounted.current) { nudgeCounted.current = true; if (claimOnbShow('onb_nudge', sessionStore())) trackFunnel('onb_nudge', { src: 'onb_legal' }); }
   };
 
   const termsHref = `/${locale}/app-view/terms`;
@@ -495,11 +513,12 @@ export function AppFirstRunOnboarding() {
   }
 
   const legal = step === 'legal';
+  const blocked = legalContinueBlocked(legal, accepted);
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="app-onboarding-title">
       <div className={styles.shell}>
-        <section className={styles.panel}>
+        <section className={styles.panel} ref={panelRef}>
           {/* ⚠ <header> 로 쓰지 않는다 — 앱 화면의 «.is-app-view header:not(.app-header) { display: none }»(웹 사이트 머리 숨기기)에
               걸려 머리(키커·제목·부제)가 통째로 안 보였다(11/12 375폭 웹·안드 실측). FirstRunValueStep 과 같은 처리. */}
           <div className={`${styles.hero} ${locale === 'ja' ? styles.heroJa : ''}`}>
@@ -526,7 +545,7 @@ export function AppFirstRunOnboarding() {
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
-                <label className={styles.ack}>
+                <label className={styles.ack} ref={ackRef}>
                   <input
                     type="checkbox"
                     checked={accepted}
@@ -558,7 +577,7 @@ export function AppFirstRunOnboarding() {
             </div>
           </div>
 
-          <div className={`${styles.actions} ${styles.actionsSticky} ${legal ? styles.actionsSingle : ''}`}>
+          <div ref={actionsRef} className={`${styles.actions} ${styles.actionsSticky} ${legal ? styles.actionsSingle : ''}`}>
             {!legal && (
               <button type="button" className={styles.ghostButton} onClick={() => setStep('legal')}>
                 {copy.back}
@@ -567,8 +586,10 @@ export function AppFirstRunOnboarding() {
             <button
               type="button"
               className={styles.primaryButton}
-              disabled={legal && (!accepted || advancing)}
-              onClick={() => (legal ? onLegalNext() : finish())}
+              // 동의 전엔 진짜 disabled 가 아니라 aria-disabled(모양은 같은 회색) — 눌림을 받아 체크 줄로 데려간다(안드 작은 화면에서 체크 줄이 화면 밖)
+              disabled={legal && accepted && advancing}
+              aria-disabled={blocked || undefined}
+              onClick={() => (blocked ? onBlockedContinue() : legal ? onLegalNext() : finish())}
             >
               {legal ? copy.continue : copy.start}
             </button>

@@ -34,6 +34,18 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
+/* ★11/17 dvh 를 모르는 옛 안드 웹뷰(Chrome 108 미만 · minSdk 24): dvh 줄이 통째로 버려져 패널 높이 상한이 사라지면
+   패널이 스크롤되지 않고 아래(동의 체크·[계속])가 화면 밖에 갇힌다 → 그런 웹뷰에서만 vh 로 잡는다. dvh 를 아는 브라우저는 이 블록을 건너뛴다(배치 그대로) */
+@supports not (height: 100dvh) {
+  .shell {
+    min-height: 100vh;
+  }
+
+  .panel {
+    max-height: calc(100vh - 32px);
+  }
+}
+
 .panel::-webkit-scrollbar {
   width: 0;
 }
@@ -329,7 +341,8 @@
   box-shadow: 0 14px 34px rgba(34, 211, 238, 0.24);
 }
 
-.primaryButton:disabled {
+.primaryButton:disabled,
+.primaryButton[aria-disabled='true'] {
   color: rgba(148, 163, 184, 0.82);
   background: rgba(30, 41, 59, 0.9);
   box-shadow: none;
