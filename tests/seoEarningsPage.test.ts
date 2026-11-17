@@ -230,6 +230,51 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     await html('en', 'LRCX'); await sitemap();
     assert.equal(reads.length, n, 'one snapshot serves every page and the sitemap');
   });
+  await test('앱 CTA(11/17) — 미국 주식 전반 문구·옵션 흐름 문구 없음·7일 체험은 «처음 구독»·폰 하단 띠 링크·PC 마크업 0', async () => {
+    const BAR = require('../src/components/seo/EarningsAppBar');
+    for (const l of ['ko', 'en', 'ja'] as const) {
+      const c = EP.EP_COPY[l];
+      const h = await html(l, T);
+      // 본문 CTA: 문구 줄 + «앱 받기» 단추(기존 스마트링크 그대로)
+      assert.ok(h.includes(`<a href="/app?from=seo_${tl}&amp;l=${l}" rel="nofollow">${c.stickyBtn} →</a>`), `${l} cta button`);
+      assert.ok(h.includes('class="ep-cta-h"'), `${l} cta headline`);
+      for (const txt of [c.cta('X'), c.hubCta, c.ctaSub, c.stickyLine(T), c.stickyHubLine, c.stickySub]) {
+        assert.doesNotMatch(txt, /옵션 흐름|オプションフロー|options flow|다크풀|ダークプール|dark pool/i, txt);
+        for (const re of BANNED_WORDS) assert.doesNotMatch(txt, re, txt);
+      }
+      assert.match(c.ctaSub, /처음 구독이면 PRO 7일 무료 체험|初めての購読ならPRO 7日間無料体験|First-time subscribers get a 7-day PRO free trial/);
+      assert.match(c.cta('X'), /SIGNUM HQ/);
+      // 하단 띠는 서버 렌더에서 아무것도 그리지 않는다(PC·첫 그리기 배치 무변경)
+      assert.ok(!h.includes('data-app-bar'), `${l} no SSR bar`);
+      const hh = renderToStaticMarkup(await hub.default({ params: Promise.resolve({ locale: l }) }));
+      assert.ok(hh.includes(`<a href="/app?from=seo_earnings&amp;l=${l}" rel="nofollow">${c.stickyBtn} →</a>`), `${l} hub cta`);
+      assert.ok(!hh.includes('data-app-bar'), `${l} hub no SSR bar`);
+    }
+    // 띠 링크 — /app 의 from 형식(normalizeFrom)을 통과해야 클릭이 센다
+    assert.equal(EP.earningsStickyHref('NVDA', 'ja'), '/app?from=seo_nvda_sticky&l=ja');
+    assert.equal(EP.earningsStickyHref(null, 'ko'), '/app?from=seo_earnings_sticky&l=ko');
+    assert.equal(EP.earningsStickyHref('BRK.B', 'en'), '/app?from=seo_brk_b_sticky&l=en');
+    for (const t of EP.EARNINGS_PAGE_TICKERS) {
+      const from = new URLSearchParams(EP.earningsStickyHref(t, 'en').split('?')[1]).get('from');
+      assert.equal(normalizeFrom(from), from, `from tag ${t}`);
+    }
+    // 폰·앱 판정·닫기 7일
+    assert.equal(BAR.isPhoneUa('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 GSA/300.0'), true);
+    assert.equal(BAR.isPhoneUa('Mozilla/5.0 (Linux; Android 14; SM-S921N) AppleWebKit/537.36 KAKAOTALK 10.0'), true);
+    assert.equal(BAR.isPhoneUa('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15'), false);
+    assert.equal(BAR.isNativeMarker('a=1; sig_native=1', []), true);
+    assert.equal(BAR.isNativeMarker('sig_native=10', []), false);
+    assert.equal(BAR.isNativeMarker('', ['native-ios']), true);
+    assert.equal(BAR.isNativeMarker('', []), false);
+    const now = Date.parse('2026-11-18T00:00:00Z');
+    assert.equal(BAR.isSnoozed(null, now), false);
+    assert.equal(BAR.isSnoozed('garbage', now), false);
+    assert.equal(BAR.isSnoozed(String(now - 60_000), now), true);
+    assert.equal(BAR.isSnoozed(String(now - BAR.APP_BAR_SNOOZE_MS), now), false);
+    // 서버 렌더(하이드레이션 첫 그리기)는 null
+    const React = require('react');
+    assert.equal(renderToStaticMarkup(React.createElement(BAR.default, { href: '/app?from=seo_nvda_sticky&l=ko', line: 'x', sub: 'y', button: 'z', closeLabel: 'c' })), '');
+  });
   await test('허브 이번 주 — 오늘 장전 발표가 끝나 화면 모델이 다음 분기로 넘어가도 오늘 발표 종목은 이번 주 목록에 남는다', async () => {
     const realNow = Date.now;
     const at = Date.parse('2026-11-17T17:00:00Z'); // 화 12:00 ET

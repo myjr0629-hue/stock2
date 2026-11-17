@@ -431,6 +431,12 @@ export interface EpCopy {
   faq: (d: { name: string; ticker: string; calendarOk: boolean; recordsOk: boolean; packOk: boolean; nextDate: string | null; timeLine: string | null; pct: string | null; method: string | null; last: ScorecardRow | null; reportedDate?: string | null; followingDate?: string | null }) => Array<[string, string]>;
   cta: (name: string) => string;
   ctaSub: string;
+  /** 폰 하단 고정 띠(EarningsAppBar) — 한 줄 혜택(종목) · 허브용 · 체험 한 줄 · 단추 · 닫기 라벨 (11/17) */
+  stickyLine: (ticker: string) => string;
+  stickyHubLine: string;
+  stickySub: string;
+  stickyBtn: string;
+  stickyClose: string;
   moreT: string;
   moreFlow: (ticker: string) => string;
   moreWeek: string;
@@ -523,8 +529,13 @@ const KO: EpCopy = {
     [`${name} 예상 변동폭은 주가가 오른다는 뜻인가요, 내린다는 뜻인가요?`, `어느 쪽도 아닙니다. 예상 변동폭은 옵션 시장이 실적 발표 전후 움직임의 «크기»에 매긴 값이라 방향은 담겨 있지 않습니다.${pct ? ` ${pct}는 위아래 어느 쪽이든 그 정도 폭의 움직임이 옵션 가격에 반영돼 ${reportedDate ? '있었다는' : '있다는'} 뜻입니다.` : ''}`],
     [`지난 실적 때 ${name} 주가는 예상만큼 움직였나요?`, last ? `${longDate(last.date, 'ko')} 발표 때 발표 전 예상은 ${expectedText(last.expectedPct)}, 실제 정규장 종가 변동은 ${actualText(last.actualPct, last.expectedPct)}로 ${last.beyond ? '예상 범위를 벗어났습니다' : '예상 범위 안이었습니다'}.` : recordsOk ? '아직 완성된 채점 기록이 없습니다.' : '채점 기록을 지금 읽지 못했습니다.'],
   ],
-  cta: (n) => `${n} 실적 알림·옵션 흐름은 SIGNUM HQ 앱에서`,
-  ctaSub: 'iOS · Android 무료 설치',
+  cta: (n) => `SIGNUM HQ 앱 — 실시간 미국 주가(정규장)·AI 한 줄 해석·${n} 실적 발표 직후 예상 vs 실제 알림`,
+  ctaSub: 'iOS · Android 무료 설치 · 처음 구독이면 PRO 7일 무료 체험',
+  stickyLine: (t) => `${t} 실적 결과 알림·AI 한 줄 해석`,
+  stickyHubLine: '내 종목 실적 결과 알림·AI 한 줄 해석',
+  stickySub: '처음 구독이면 PRO 7일 무료 체험',
+  stickyBtn: '앱 받기',
+  stickyClose: '닫기',
   moreT: '함께 보기',
   moreFlow: (t) => `${t} 옵션·다크풀 흐름`,
   moreWeek: '이번 주 실적 발표 일정',
@@ -562,7 +573,7 @@ const KO: EpCopy = {
   hubGradedT: '최근 채점 · 예상 vs 실제',
   hubAllT: '전체 종목',
   hubEmpty: '지금 표시할 기록이 없습니다.',
-  hubCta: '내 종목 실적 알림·옵션 흐름은 SIGNUM HQ 앱에서',
+  hubCta: 'SIGNUM HQ 앱 — 실시간 미국 주가(정규장)·AI 한 줄 해석·내 종목 실적 발표 직후 예상 vs 실제 알림',
   hubMetaDesc: '미국 주식 실적 발표 전 옵션 예상 변동폭과 발표 뒤 실제 종가 변동을 종목별로 채점합니다. 범위 안·밖 결과와 다음 발표 일정.',
   hubSoonDesc: (items) => `이번 주·다음 주 실적 발표: ${items.join(' · ')}.`,
   hubThisWeekT: '이번 주 실적 발표 종목',
@@ -623,8 +634,13 @@ const JA: EpCopy = {
     [`${name}の予想変動幅は株価が上がる・下がるという意味ですか？`, `どちらでもありません。予想変動幅はオプション市場が決算前後の値動きの「大きさ」に付けた値で、方向は含みません。${pct ? `${pct}は、上下どちらでもその程度の値動きがオプション価格に織り込まれて${reportedDate ? 'いた' : 'いる'}という意味です。` : ''}`],
     [`前回の決算で${name}の株価は予想どおり動きましたか？`, last ? `${longDate(last.date, 'ja')}の発表では、発表前の予想が${expectedText(last.expectedPct)}、実際の通常取引終値の変動が${actualText(last.actualPct, last.expectedPct)}で、${last.beyond ? '予想範囲を超えました' : '予想範囲内でした'}。` : recordsOk ? '完成した採点記録はまだありません。' : '採点記録を現在読み込めません。'],
   ],
-  cta: (n) => `${n}の決算アラート・オプションフローはSIGNUM HQアプリで`,
-  ctaSub: 'iOS · Android 無料インストール',
+  cta: (n) => `SIGNUM HQアプリ — リアルタイム米国株価(通常取引時間)・AIの一行解説・${n}の決算発表直後に予想vs実際を通知`,
+  ctaSub: 'iOS · Android 無料インストール · 初めての購読ならPRO 7日間無料体験',
+  stickyLine: (t) => `${t}の決算結果通知・AIの一行解説`,
+  stickyHubLine: '保有銘柄の決算結果通知・AIの一行解説',
+  stickySub: '初めての購読ならPRO 7日間無料体験',
+  stickyBtn: 'アプリを入手',
+  stickyClose: '閉じる',
   moreT: 'あわせて見る',
   moreFlow: (t) => `${t} オプション・ダークプールの流れ`,
   moreWeek: '今週の決算発表予定',
@@ -662,7 +678,7 @@ const JA: EpCopy = {
   hubGradedT: '最近の採点・予想と実際',
   hubAllT: '全銘柄',
   hubEmpty: '現在表示できる記録はありません。',
-  hubCta: '保有銘柄の決算アラート・オプションフローはSIGNUM HQアプリで',
+  hubCta: 'SIGNUM HQアプリ — リアルタイム米国株価(通常取引時間)・AIの一行解説・保有銘柄の決算発表直後に予想vs実際を通知',
   hubMetaDesc: '米国株の決算発表前のオプション予想変動幅と発表後の実際の終値変動を銘柄別に採点。範囲内・範囲外の結果と次回発表日。',
   hubSoonDesc: (items) => `今週・来週の決算発表：${items.join('・')}。`,
   hubThisWeekT: '今週の決算発表銘柄',
@@ -720,8 +736,13 @@ const EN: EpCopy = {
     [`Does ${name}’s expected move mean the stock will go up or down?`, `Neither. The expected move is the size the options market priced for the move around the report; it carries no direction.${pct ? ` ${pct} means a move of about that size in either direction ${reportedDate ? 'was' : 'is'} priced into options.` : ''}`],
     [`Did ${name} stock move as much as expected last earnings?`, last ? `For the ${longDate(last.date, 'en')} report, the pre-report expected move was ${expectedText(last.expectedPct)} and the actual regular-session closing move was ${actualText(last.actualPct, last.expectedPct)}, ${last.beyond ? 'outside the expected range' : 'within the expected range'}.` : recordsOk ? 'No complete scorecard record yet.' : 'The scorecard records could not be read right now.'],
   ],
-  cta: (n) => `Get ${n} earnings alerts and options flow in the SIGNUM HQ app`,
-  ctaSub: 'Free on iOS · Android',
+  cta: (n) => `SIGNUM HQ app — live US stock prices (regular hours), one-line AI reads and ${n} expected-vs-actual alerts right after earnings`,
+  ctaSub: 'Free on iOS · Android · First-time subscribers get a 7-day PRO free trial',
+  stickyLine: (t) => `${t} earnings result alerts · one-line AI reads`,
+  stickyHubLine: 'Earnings result alerts for your stocks · AI reads',
+  stickySub: 'First-time subscribers: 7-day PRO free trial',
+  stickyBtn: 'Get the app',
+  stickyClose: 'Close',
   moreT: 'See also',
   moreFlow: (t) => `${t} options & dark pool flow`,
   moreWeek: 'This week’s earnings calendar',
@@ -759,7 +780,7 @@ const EN: EpCopy = {
   hubGradedT: 'Recently graded · expected vs actual',
   hubAllT: 'All tickers',
   hubEmpty: 'Nothing to show right now.',
-  hubCta: 'Get earnings alerts and options flow for your stocks in the SIGNUM HQ app',
+  hubCta: 'SIGNUM HQ app — live US stock prices (regular hours), one-line AI reads and expected-vs-actual alerts for your stocks right after earnings',
   hubMetaDesc: 'Pre-earnings options expected move vs the actual closing move for US stocks, graded by ticker — within/outside results and next report dates.',
   hubSoonDesc: (items) => `Reporting this week & next: ${items.join(' · ')}.`,
   hubThisWeekT: 'Reporting this week',
@@ -773,4 +794,8 @@ export { toLoc };
 
 /** 스마트링크 — from 태그는 storeRedirect.normalizeFrom 규칙(소문자·밑줄·24자) 안 */
 export const earningsAppHref = (ticker: string, loc: Loc): string => `/app?from=seo_${ticker.toLowerCase()}&l=${loc}`;
+/** 폰 하단 고정 띠(EarningsAppBar)의 스마트링크 — 본문 단추와 «따로» 센다(mkt:attr:hit:seo_<ticker>_sticky). ticker 가 null 이면 허브(seo_earnings_sticky).
+ *  from 태그는 /app 의 형식([a-z0-9_]{1,24})에 맞춘다 — 영숫자 밖 글자는 _ 로. */
+export const earningsStickyHref = (ticker: string | null, loc: Loc): string =>
+  `/app?from=seo_${ticker ? ticker.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'earnings'}_sticky&l=${loc}`;
 export const earningsPath = (loc: Loc, ticker?: string): string => (ticker ? `/${loc}/earnings/${ticker}` : `/${loc}/earnings`);

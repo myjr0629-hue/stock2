@@ -10,11 +10,12 @@ import { markPageView } from '@/lib/marketing/pageViewMark';
 import { isFlowTicker } from '@/lib/seo/flowTicker';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import {
-  EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, earningsAppHref, earningsPath, expectedText, impliedAsOf,
+  EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, earningsAppHref, earningsPath, earningsStickyHref, expectedText, impliedAsOf,
   isEarningsPageTicker, localWhenText, longDate, md, mdName, nameWithTicker, pageSlot, toLoc, type EarningsPageView,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
 import type { Loc } from '@/lib/earningsWeek';
+import EarningsAppBar from '@/components/seo/EarningsAppBar';
 
 // (layout 이 headers() 를 읽어 매 요청 동적 렌더다 — 신선도는 서비스의 5분 메모가 정한다)
 export const dynamic = 'force-dynamic';
@@ -99,6 +100,7 @@ const CSS = `
 .ep-card .ep-sub{font-size:12.5px;color:#7C848E}
 .ep-card .ep-local{margin:2px 0 0;font-size:14px;font-weight:700;color:#17191E}
 .ep-cta{margin:20px 0 6px;background:#17191E;color:#fff;border-radius:14px;padding:14px}
+.ep-cta .ep-cta-h{margin:0 0 10px;text-align:left;font-size:14px;font-weight:700;line-height:1.5;color:#fff}
 .ep-cta a{display:flex;align-items:center;justify-content:center;min-height:48px;text-align:center;background:#C2410C;color:#fff;text-decoration:none;font-weight:900;font-size:15px;line-height:1.4;border-radius:12px;padding:12px 14px}
 .ep-cta p{margin:8px 0 0;text-align:center;font-size:12px;color:#B5BCC6}
 .ep-sec{margin-top:30px}
@@ -180,7 +182,8 @@ export default async function EarningsTickerPage(props: Props) {
 
   const cta = (
     <div className="ep-cta">
-      <a href={href} rel="nofollow">{c.cta(name)} →</a>
+      <p className="ep-cta-h">{c.cta(name)}</p>
+      <a href={href} rel="nofollow">{c.stickyBtn} →</a>
       <p>{c.ctaSub}</p>
     </div>
   );
@@ -271,6 +274,8 @@ export default async function EarningsTickerPage(props: Props) {
       </section>
 
       {cta}
+
+      <EarningsAppBar href={earningsStickyHref(ticker, l)} line={c.stickyLine(ticker)} sub={c.stickySub} button={c.stickyBtn} closeLabel={c.stickyClose} />
 
       <footer className="ep-foot">
         <p>{c.asOf({ at: new Date(at).toISOString().slice(0, 16).replace('T', ' ') })}</p>

@@ -6,10 +6,11 @@
 import type { Metadata } from 'next';
 import { publicBase } from '@/lib/net/publicBase';
 import {
-  EARNINGS_PAGE_TICKERS, EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, companyNames, earningsPath, expectedText,
+  EARNINGS_PAGE_TICKERS, EP_COPY, EP_LOCALES, actualText, buildEarningsPageView, companyNames, earningsPath, earningsStickyHref, expectedText,
   localWhenText, md, nameWithTicker, recentConfirmedThisWeek, toLoc, weekWindows, type EpCalendarRow,
 } from '@/lib/seo/earningsPage';
 import { readEarningsPageSnapshot } from '@/services/earningsPageService';
+import EarningsAppBar from '@/components/seo/EarningsAppBar';
 import { etDateOf } from '@/lib/marketCalendar';
 import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
 
@@ -92,6 +93,7 @@ const CSS = `
 .eh-cta{margin:24px 0 6px;background:#17191E;border-radius:14px;padding:14px}
 .eh-cta a{display:flex;align-items:center;justify-content:center;min-height:48px;text-align:center;background:#C2410C;color:#fff;text-decoration:none;font-weight:900;font-size:15px;border-radius:12px;padding:12px 14px}
 .eh-cta p{margin:8px 0 0;text-align:center;font-size:12px;color:#B5BCC6}
+.eh-cta .eh-cta-h{margin:0 0 10px;text-align:left;font-size:14px;font-weight:700;line-height:1.5;color:#fff}
 .eh-more{display:flex;flex-wrap:wrap;gap:8px}
 .eh-more a{font-size:13.5px;font-weight:700;color:#17191E;text-decoration:none;border:1px solid #E7E3DA;border-radius:999px;padding:8px 12px;background:#fff}
 .eh-foot{font-size:12px;color:#9AA3AD;margin-top:26px;border-top:1px solid #EEE9E0;padding-top:14px}
@@ -182,7 +184,8 @@ export default async function EarningsHubPage({ params }: Props) {
       </div>
 
       <div className="eh-cta">
-        <a href={`/app?from=seo_earnings&l=${l}`} rel="nofollow">{c.hubCta} →</a>
+        <p className="eh-cta-h">{c.hubCta}</p>
+        <a href={`/app?from=seo_earnings&l=${l}`} rel="nofollow">{c.stickyBtn} →</a>
         <p>{c.ctaSub}</p>
       </div>
 
@@ -192,6 +195,8 @@ export default async function EarningsHubPage({ params }: Props) {
         <a href={`/${l}/receipts/earnings`}>{c.moreReceipts}</a>
         <a href={`/${l}/learn/earnings-expected-move`}>{c.moreLearn}</a>
       </div>
+
+      <EarningsAppBar href={earningsStickyHref(null, l)} line={c.stickyHubLine} sub={c.stickySub} button={c.stickyBtn} closeLabel={c.stickyClose} />
 
       <footer className="eh-foot"><p>{c.disc}</p></footer>
     </main>
