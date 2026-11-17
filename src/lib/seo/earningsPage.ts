@@ -18,7 +18,7 @@ import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
 import { EARNINGS_COMPANIES } from '@/lib/earnings/earningsCompanies';
 import { COMPANY_NAMES } from '@/lib/seo/earningsTicker';
 import { impliedForRow, impliedRowKey, type ImpliedCell } from '@/lib/earnings/earningsImplied';
-import { isFrozenTime, type FrozenExpected } from '@/lib/earnings/frozenExpected';
+import { frozenIsAtm, isFrozenTime, type FrozenExpected } from '@/lib/earnings/frozenExpected';
 import { scorecardPairOf, type ScorecardRow } from '@/lib/earnings/earningsScorecard';
 import { addDaysYmd, etWallToMs, kstOf, phaseOf, toLoc, type Loc, type Phase } from '@/lib/earningsWeek';
 import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
@@ -228,7 +228,9 @@ export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot
   const following = phase === 'done' ? rows[1] ?? null : null;
   let implied: EpImplied | null = null;
   // [11/18] 고정 시각(기준 세션 마감)이 지난 발표는 «발표 전 예상» 고정값 하나 — 발표 알림·앱 캘린더·채점표와 같은 숫자
-  const fz = n && isFrozenTime(n, nowMs) ? snap.frozen?.[impliedRowKey(n.ticker, n.date)] ?? null : null;
+  const fz0 = n && isFrozenTime(n, nowMs) ? snap.frozen?.[impliedRowKey(n.ticker, n.date)] ?? null : null;
+  // 정의(ATM 스트래들·분리값)를 아는 값만 — 정의 설명 글이 값과 맞아야 한다(정의 불명 월간 값은 지금 규칙으로, 관문 11180829 ④)
+  const fz = fz0 && (fz0.method === 'event-split' || frozenIsAtm(fz0)) ? fz0 : null;
   if (fz) {
     implied = { pct: fz.pct, basis: fz.method === 'event-split' ? 'event-split' : 'straddle', expiry: fz.expiry ?? null, session: fz.session, quote: fz.basis ?? null };
   } else if (n) {

@@ -31,6 +31,8 @@ import type { EarningsMoveMethod } from '@/lib/earnings/eventMove';
 import { impliedRowKey } from '@/lib/earnings/earningsImplied';
 import type { FrozenExpected } from '@/lib/earnings/frozenExpected';
 import { readFrozenExpected } from '@/services/frozenExpectedService';
+import { readImpliedPack } from '@/services/earningsImpliedService';
+import { isFrozenTime } from '@/lib/earnings/frozenExpected';
 
 export interface EarningsWeekRow {
   method?: EarningsMoveMethod | null;
@@ -172,7 +174,9 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
     opts.calendarOnly ? calendarOnlyWeekRows(range, today, list, opts.calendarOnlyList ?? CALENDAR_ONLY_EARNINGS) : Promise.resolve({ rows: [] as EarningsWeekRow[], verifiedAt: '' }),
   ]);
   // [11/18] 고정 시각(기준 세션 마감)이 지난 발표 — «발표 전 예상» 고정값 하나(발표 알림·앱 캘린더·채점표와 같은 숫자). 읽기만(쓰기 0).
-  const frozen = await readFrozenExpected(entries, nowMs, { persist: false }).catch(() => new Map<string, FrozenExpected>());
+  //   캘린더 전용 행도 같이 · 묶음(earnings:implied:v1)은 «발표 전 세션» 예비용으로만 읽는다(앱 캘린더와 같은 규칙).
+  const pack = await readImpliedPack().catch(() => null);
+  const frozen = await readFrozenExpected([...entries, ...extra.rows], nowMs, { pack, persist: false }).catch(() => new Map<string, FrozenExpected>());
   if (!opts.readOnly && lv?.noSnapshot?.length) void warmMissingStructure(lv.noSnapshot).catch(() => []);
 
   const baseRows: EarningsWeekRow[] = entries.map((e, i) => {
@@ -182,24 +186,18 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
     const dl = sl && sl.levelsExpiration && sl.levelsExpiration >= today ? displayLevels(sl, null, 'web/earnings-week') : null;
     const ar = actuals.get(recordMapKey(e.ticker, e.date));
     const fz = frozen.get(impliedRowKey(e.ticker, e.date)) ?? null;
-    const preDone = phaseOf(e.date, e.hour, nowMs) !== 'done';
     const expectedAtReport = ar?.expected && fz
       ? { ...ar.expected, pct: fz.pct, basis: fz.basis ?? ar.expected.basis, expiry: fz.expiry ?? ar.expected.expiry, session: fz.session }
       : ar?.expected ?? null;
     const maxPain = dl?.maxPain ?? postReportMaxPain(rawStructures[i], dl, ar?.expected, today, { date: e.date, reported: phaseOf(e.date, e.hour, nowMs) === 'done' });
     return {
       ticker: e.ticker, date: e.date, hour: e.hour, etTime: e.etTime ?? null,
-      ...(fz && preDone ? {
-        impliedMovePct: fz.pct, method: fz.method ?? im?.method ?? null, ...(fz.method === 'event-split' ? { eventMovePct: fz.pct } : {}),
-        impliedExpiry: fz.expiry ?? im?.expiry ?? null, impliedBasis: fz.basis, impliedSession: fz.session,
-      } : {
-        impliedMovePct: im?.impliedMovePct ?? null,
-        method: im?.method ?? null,
-        ...(im?.eventMovePct != null ? { eventMovePct: im.eventMovePct } : {}),
-        impliedExpiry: im?.expiry ?? null,
-        impliedBasis: im?.basis ?? null,
-        impliedSession: im?.session ?? null,
-      }),
+      impliedMovePct: im?.impliedMovePct ?? null,
+      method: im?.method ?? null,
+      ...(im?.eventMovePct != null ? { eventMovePct: im.eventMovePct } : {}),
+      impliedExpiry: im?.expiry ?? null,
+      impliedBasis: im?.basis ?? null,
+      impliedSession: im?.session ?? null,
       impliedAsOf: im?.asOf ?? null,
       straddle: im?.straddle ?? null,
       strike: im?.strike ?? null,
@@ -217,8 +215,18 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
   });
 
   // [T40] 캘린더 전용 행은 같은 정렬 규칙(selectWeekEntries: 날짜 → 장전·미정·장후 → 티커) 자리에 끼운다 — 기존 행의 순서·값은 그대로.
-  const rows: EarningsWeekRow[] = baseRows.slice();
-  const extraRows = extra.rows;
+  // [11/18] 고정 시각이 지난 발표 전 행(기본·캘린더 전용 모두) — 실시간 값 대신 고정값, 고정값이 없으면 비운다(마감 뒤 다시 계산한 값을 «발표 전 예상»으로 내지 않는다).
+  const frozenRow = (r: EarningsWeekRow): EarningsWeekRow => {
+    if (phaseOf(r.date, r.hour, nowMs) === 'done' || !isFrozenTime(r, nowMs)) return r;
+    const fz = frozen.get(impliedRowKey(r.ticker, r.date));
+    const { eventMovePct: _ev, ...rest } = r as EarningsWeekRow & { eventMovePct?: number | null };
+    return fz
+      ? { ...rest, impliedMovePct: fz.pct, method: fz.method ?? null, ...(fz.method === 'event-split' ? { eventMovePct: fz.pct } : {}),
+        impliedExpiry: fz.expiry, impliedBasis: fz.basis, impliedSession: fz.session, impliedReason: null }
+      : { ...rest, impliedMovePct: null, impliedExpiry: null, impliedBasis: null, impliedSession: null, impliedReason: 'not_frozen' };
+  };
+  const rows: EarningsWeekRow[] = baseRows.map(frozenRow);
+  const extraRows = extra.rows.map(frozenRow);
   if (extraRows.length) {
     const rank = (h: string) => (h === 'bmo' ? 0 : h === 'amc' ? 2 : 1);
     const after = (a: EarningsWeekRow, b: EarningsWeekRow) => a.date.localeCompare(b.date) || rank(a.hour) - rank(b.hour) || a.ticker.localeCompare(b.ticker);

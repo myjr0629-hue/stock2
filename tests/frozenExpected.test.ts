@@ -129,6 +129,24 @@ t('뜨기 값만 적힌 기록(fixed 아님) — 알림이 다른 숫자를 보�
   assert.equal((kv.get(frozenExpectedKey('NVDA', D)) as FrozenExpected).fixed, true);
 });
 
+t('읽기 경로는 뜨기 값(exp)만으로는 적지 않는다(크론의 고정 기록을 늦은 쓰기로 덮지 않게) — 표시는 한다', async () => {
+  reset();
+  upstash.set(FLASH_KEYS.exp('NVDA', D), JSON.stringify(exp));
+  const m = await svc.readFrozenExpected([NV], ET(D, 16, 30), { pack: postPack, persist: true });
+  assert.equal(m.get('NVDA|2026-11-17')?.pct, 8.4);
+  assert.equal(writes.length, 0);
+});
+
+t('알림이 실적 반응 기록 값으로 보냈으면(뜬 값 없음) 같은 숫자의 기록에서 만기·정의를 빌린다', async () => {
+  reset();
+  upstash.set(FLASH_KEYS.ev('DIS', D), JSON.stringify({ ...ev, ticker: 'DIS', hour: 'bmo', expectedPct: 6.6, expectedSrc: 'actuals' }));
+  kv.set('earnings:actuals:v1:DIS:2026-11-17', { v: 1, ticker: 'DIS', date: D, hour: 'bmo', at: 1, actual: null,
+    expected: { pct: 6.6, method: 'monthly', straddlePct: 6.6, expiry: '2026-11-20', session: '2026-11-16', basis: 'eod', strike: 119, straddle: 7.8, spot: 118.7, capturedAt: ET('2026-11-16', 17, 0), src: 'page' } });
+  const f = (await svc.readFrozenExpected([DIS], ET(D, 12, 0), { persist: true })).get('DIS|2026-11-17')!;
+  assert.equal(f.pct, 6.6); assert.equal(f.expiry, '2026-11-20'); assert.equal(f.method, 'monthly'); assert.equal(f.fixed, true);
+  assert.equal((kv.get(frozenExpectedKey('DIS', D)) as FrozenExpected).method, 'monthly');
+});
+
 t('묶음 기록 쓰기는 알림 키를 건드리지 않는다(경합으로 알림 값을 덮지 않음)', async () => {
   reset();
   kv.set(frozenExpectedKey('ZZZ', D), { v: 1, ticker: 'ZZZ', date: D, hour: 'amc', pct: 6.1, expiry: '2026-11-20', session: D, basis: 'live', src: 'flash', capturedAt: ET(D, 15, 45), fixed: true });
@@ -235,6 +253,9 @@ t('종목 페이지 — 발표 뒤 «발표 전 예상» = 고정값(마감 뒤 
     frozen: { 'NVDA|2026-11-17': { v: 1 as const, ticker: 'NVDA', date: D, hour: 'amc' as const, pct: 8.4, expiry: '2026-11-18', session: D, basis: 'live' as const, src: 'flash' as const, capturedAt: ET(D, 15, 45) } } };
   const v = buildEarningsPageView('NVDA', snap as any, nowAfter);
   assert.equal(v.implied?.pct, 8.4); assert.equal(v.implied?.expiry, '2026-11-18'); assert.equal(v.next?.phase, 'done');
+  // 정의 불명 월간 만기 고정값은 정의 설명과 어긋날 수 있어 쓰지 않는다(지금 규칙 — 묶음의 발표 전 값)
+  const unk = buildEarningsPageView('NVDA', { ...snap, frozen: { 'NVDA|2026-11-17': { ...snap.frozen['NVDA|2026-11-17'], expiry: '2026-11-20' } } } as any, nowAfter);
+  assert.equal(unk.implied?.pct, 8.2);
   const pre = buildEarningsPageView('NVDA', { ...snap, frozen: {} } as any, ET(D, 15, 0));
   assert.equal(pre.implied?.pct, 8.2, '고정 전 = 묶음(실시간) 값 그대로');
 });

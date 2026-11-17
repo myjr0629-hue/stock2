@@ -111,7 +111,9 @@ export async function readFrozenExpected(
       if (cur?.src === 'flash' && cur.fixed) return;
       if (cur?.src === 'flash' && !f.fixed && cur.pct === f.pct) return;
       out.set(k, cur && cur.src === 'flash' && f.expiry == null && cur.expiry ? { ...f, expiry: cur.expiry } : f);
-      fromFlash.push(e);
+      // 읽기 경로는 «알림이 보낸» 값(fixed)만 적는다 — 뜨기 값(exp)은 크론이 스스로 적는다. 뜨기 값을 여기서 적으면
+      //   먼저 읽은 요청의 늦은 쓰기가 크론의 고정 기록을 덮을 수 있다(관문 11180829 ②).
+      if (f.fixed) fromFlash.push(e);
     };
 
     // ② 발표 알림 키 — 알림이 «보낸» 숫자(fixed)로 적힌 기록이 아니면(없음·묶음·뜨기 값만) 발표 6일 안에선 Upstash 를 본다
@@ -142,8 +144,9 @@ export async function readFrozenExpected(
       }
     }
 
-    // ③ 실적 반응 기록의 마감 관측 — 값이 없는 발표는 그 값, 만기를 모르는 고정값은 그 발표의 만기(발표 뒤 첫 만기 — 숫자와 무관)를 빌린다
-    const rest = evs.filter((e) => !out.has(impliedRowKey(e.ticker, e.date)) || out.get(impliedRowKey(e.ticker, e.date))!.expiry == null);
+    // ③ 실적 반응 기록의 마감 관측 — 값이 없는 발표는 그 값, 만기를 모르는 고정값은 그 발표의 만기(발표 뒤 첫 만기 — 숫자와 무관)를 빌린다.
+    //   정의(method)를 모르는 고정값은 «같은 숫자»의 기록일 때만 그 정의를 빌린다(알림이 실적 반응 기록 값으로 보낸 경우).
+    const rest = evs.filter((e) => { const c = out.get(impliedRowKey(e.ticker, e.date)); return !c || c.expiry == null || c.method == null; });
     if (rest.length && opts.actuals !== false) {
       const vals = await mgetChunked(rest.map((e) => actualsKey(e.ticker, e.date)));
       rest.forEach((e, i) => {
@@ -151,8 +154,11 @@ export async function readFrozenExpected(
         const a = frozenFromActuals(e, vals[i]);
         if (!a) return;
         const cur = out.get(k);
-        if (!cur) out.set(k, a);
-        else if (cur.expiry == null && a.expiry) out.set(k, { ...cur, expiry: a.expiry });
+        if (!cur) { out.set(k, a); return; }
+        let next = cur;
+        if (next.expiry == null && a.expiry) next = { ...next, expiry: a.expiry };
+        if (next.method == null && a.method && a.pct === next.pct && (next.expiry == null || next.expiry === a.expiry)) next = { ...next, method: a.method };
+        if (next !== cur) out.set(k, next);
       });
     }
 

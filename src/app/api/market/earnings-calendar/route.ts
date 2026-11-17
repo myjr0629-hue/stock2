@@ -11,7 +11,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { getMarketEarningsCalendar, type EarningsCalendarResult } from '@/services/earningsCalendarService';
 import { attachBriefs, briefEntryKey, briefNeedsFill, EARNINGS_BRIEF_KEY, type BriefPack } from '@/lib/earnings/earningsBrief';
 import { attachImplied, impliedPackStale, impliedRowKey, type ImpliedPack } from '@/lib/earnings/earningsImplied';
-import { rowImpliedFromFrozen } from '@/lib/earnings/frozenExpected';
+import { isFrozenTime, rowImpliedFromFrozen } from '@/lib/earnings/frozenExpected';
 import type { CalendarImplied } from '@/lib/earnings/calendarReportedImplied';
 import { readFrozenExpected } from '@/services/frozenExpectedService';
 import { addDaysYmd, phaseOf } from '@/lib/earningsWeek';
@@ -102,17 +102,18 @@ async function attachEarningsImplied(rows: any[]): Promise<{ rows: any[]; count:
  * ★ [2026-11-18] «발표 전 예상 변동폭» 고정 — 기준 세션(장후 = 발표일 · 장전 = 직전 거래일) 정규장 마감이 지난 발표는
  *   묶음 칸(계속 다시 만든다 — NVDA 11/17 마감 뒤 ±8.6 → ±8.2) 대신 고정값 하나(발표 알림이 보낸 ±8.4 등)를 보인다.
  *   규칙·우선순위: lib/earnings/frozenExpected.ts · 읽기: services/frozenExpectedService.readFrozenExpected.
- *   고정 전 발표·시각 미정 발표·고정값을 못 찾은 발표는 지금 그대로. 발표 완료 행의 규칙(기본 = 비움 · 캘린더 = 채점표)은 그대로이고,
+ *   고정 전 발표·시각 미정 발표는 지금 그대로. 고정 뒤 고정값을 못 찾은 발표 전 행은 비운다(마감 뒤 다시 계산한 값을 «발표 전 예상»으로 내지 않는다 —
+ *   관문 11180829 ①; 묶음 «발표 전 세션» 예비·마감 직전 묶음 기록이 있어 드물다). 발표 완료 행의 규칙(기본 = 비움 · 캘린더 = 채점표)은 그대로이고,
  *   캘린더(scope=calendar)의 채점 전 완료 행만 고정값을 보인다.
  */
 async function attachFrozenImplied(rows: any[], pack: ImpliedPack | null, calendarScope: boolean, nowMs: number): Promise<any[]> {
     const from = addDaysYmd(etDateOf(nowMs), -8);
     const frozen = await readFrozenExpected(rows.filter((x: any) => x?.ticker && typeof x.date === 'string' && x.date >= from), nowMs, { pack, persist: true }).catch(() => new Map());
     const byKey = new Map<string, CalendarImplied>([...frozen].map(([k, f]) => [k, rowImpliedFromFrozen(f)]));
-    const out = byKey.size ? rows.map((x: any) => {
-        const f = byKey.get(impliedRowKey(x.ticker, x.date));
-        return f && phaseOf(x.date, x.hour || '', nowMs) !== 'done' ? { ...x, implied: f } : x;
-    }) : rows;
+    const out = rows.map((x: any) => {
+        if (!x?.ticker || phaseOf(x.date, x.hour || '', nowMs) === 'done' || !isFrozenTime(x, nowMs)) return x;
+        return { ...x, implied: byKey.get(impliedRowKey(x.ticker, x.date)) ?? null };
+    });
     return calendarScope ? attachCalendarReportedImplied(out, nowMs, byKey) : out;
 }
 
