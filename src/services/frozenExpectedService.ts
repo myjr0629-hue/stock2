@@ -14,7 +14,7 @@ import { mgetFromCache, setInCache } from '@/services/redisClient';
 import { actualsKey } from '@/lib/earnings/earningsActuals';
 import { impliedRowKey, type ImpliedPack } from '@/lib/earnings/earningsImplied';
 import {
-  FROZEN_EXPECTED_TTL_SEC, freezeMsOf, frozenExpectedKey, frozenFromActuals, frozenFromPackFallback, frozenFromPrevPack, isFrozenTime,
+  FROZEN_EXPECTED_TTL_SEC, freezeMsOf, frozenExpectedKey, frozenPackKey, frozenFromActuals, frozenFromPackFallback, frozenFromPrevPack, isFrozenTime,
   packFirstExpiry, parseFrozenExpected, type FrozenEvent, type FrozenExpected,
 } from '@/lib/earnings/frozenExpected';
 import { frozenFromFlashKeys } from '@/lib/earnings/frozenExpectedFlash';
@@ -71,14 +71,19 @@ function dedupe(events: readonly FrozenEvent[], nowMs: number): FrozenEvent[] {
   return out;
 }
 
-/** 고정 기록만(①) — 채점용 기록 덧입히기가 쓴다. 키 «티커|발표일» → 고정값 */
+/** 고정 기록만(①) — 알림 키가 있으면 그것, 없으면 마감 직전 묶음 키. 키 «티커|발표일» → 고정값 */
 export async function readFrozenRecords(events: readonly FrozenEvent[], nowMs: number = Date.now()): Promise<Map<string, FrozenExpected>> {
   const out = new Map<string, FrozenExpected>();
   try {
     const evs = dedupe(events, nowMs);
     if (!evs.length) return out;
-    const vals = await mgetChunked(evs.map((e) => frozenExpectedKey(e.ticker, e.date)));
-    evs.forEach((e, i) => { const f = parseFrozenExpected(vals[i], e); if (f) out.set(impliedRowKey(e.ticker, e.date), f); });
+    const vals = await mgetChunked([...evs.map((e) => frozenExpectedKey(e.ticker, e.date)), ...evs.map((e) => frozenPackKey(e.ticker, e.date))]);
+    evs.forEach((e, i) => {
+      const flash = parseFrozenExpected(vals[i], e);
+      const pack = parseFrozenExpected(vals[evs.length + i], e);
+      const f = flash && flash.src === 'flash' ? flash : pack && pack.src === 'pack' ? pack : null;
+      if (f) out.set(impliedRowKey(e.ticker, e.date), f);
+    });
   } catch { /* 없음 */ }
   return out;
 }
@@ -99,15 +104,24 @@ export async function readFrozenExpected(
     const stored = await readFrozenRecords(evs, nowMs);
     for (const [k, f] of stored) out.set(k, f);
     const fromFlash: FrozenEvent[] = [];
+    /** Upstash 알림 값을 받는다 — 기존이 알림이 보낸 값(fixed)이면 그대로, 같은 값이면 적지 않는다 */
+    const take = (e: FrozenEvent, f: FrozenExpected) => {
+      const k = impliedRowKey(e.ticker, e.date);
+      const cur = out.get(k);
+      if (cur?.src === 'flash' && cur.fixed) return;
+      if (cur?.src === 'flash' && !f.fixed && cur.pct === f.pct) return;
+      out.set(k, cur && cur.src === 'flash' && f.expiry == null && cur.expiry ? { ...f, expiry: cur.expiry } : f);
+      fromFlash.push(e);
+    };
 
-    // ② 발표 알림 키 — 고정 기록이 없거나 flash 가 아닌 발표(6일 안)
+    // ② 발표 알림 키 — 알림이 «보낸» 숫자(fixed)로 적힌 기록이 아니면(없음·묶음·뜨기 값만) 발표 6일 안에선 Upstash 를 본다
     if (opts.flash !== false) {
-      const want = evs.filter((e) => out.get(impliedRowKey(e.ticker, e.date))?.src !== 'flash'
-        && nowMs - (freezeMsOf(e.date, e.hour) ?? 0) <= FLASH_LOOKBACK_MS);
+      const want = evs.filter((e) => { const cur = out.get(impliedRowKey(e.ticker, e.date)); return !(cur?.src === 'flash' && cur.fixed); }
+        ).filter((e) => nowMs - (freezeMsOf(e.date, e.hour) ?? 0) <= FLASH_LOOKBACK_MS);
       const ask: FrozenEvent[] = [];
       for (const e of want) {
         const m = flashMemo.get(impliedRowKey(e.ticker, e.date));
-        if (m && m.until > nowMs) { if (m.v) { out.set(impliedRowKey(e.ticker, e.date), m.v); fromFlash.push(e); } } else ask.push(e);
+        if (m && m.until > nowMs) { if (m.v) take(e, m.v); } else ask.push(e);
       }
       const client = ask.length ? upstashClient() : null;
       if (client && ask.length) {
@@ -122,9 +136,7 @@ export async function readFrozenExpected(
             const f = frozenFromFlashKeys(entry, vals[i], vals[ask.length + i]);
             const k = impliedRowKey(e.ticker, e.date);
             flashMemo.set(k, { v: f, until: nowMs + FLASH_MEMO_MS });
-            if (!f) return;
-            out.set(k, f);
-            fromFlash.push(e);
+            if (f) take(e, f);
           });
         }
       }
@@ -182,11 +194,12 @@ export async function persistPackFreezes(
     if (!prev || prev.v !== 1 || !prev.cells) return 0;
     const cands = dedupe(rows, nowMs).map((e) => ({ e, f: frozenFromPrevPack(e, prev) })).filter((x) => x.f);
     if (!cands.length) return 0;
-    const have = await mgetChunked(cands.map((x) => frozenExpectedKey(x.e.ticker, x.e.date)));
+    // 묶음 전용 키만 쓴다(알림 키는 건드리지 않는다 — 경합으로 알림 값을 덮지 않게)
+    const have = await mgetChunked(cands.map((x) => frozenPackKey(x.e.ticker, x.e.date)));
     let n = 0;
     for (let i = 0; i < cands.length; i++) {
       if (have[i] != null) continue;
-      if (await setInCache(frozenExpectedKey(cands[i].e.ticker, cands[i].e.date), cands[i].f, FROZEN_EXPECTED_TTL_SEC).catch(() => false)) n++;
+      if (await setInCache(frozenPackKey(cands[i].e.ticker, cands[i].e.date), cands[i].f, FROZEN_EXPECTED_TTL_SEC).catch(() => false)) n++;
     }
     return n;
   } catch {

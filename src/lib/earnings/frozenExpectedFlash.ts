@@ -4,10 +4,10 @@ import { parseFlashEvent, snapUsable, type ExpectedSnap, type FlashEntry } from 
 import { baseSessionOfEvent, checkFrozen, type FrozenExpected } from './frozenExpected';
 
 /** 뜬 값(또는 고정에 쓴 값) → 고정 기록 */
-export function frozenFromFlashSnap(e: FlashEntry, snap: ExpectedSnap): FrozenExpected | null {
+export function frozenFromFlashSnap(e: FlashEntry, snap: ExpectedSnap, fixed = false): FrozenExpected | null {
   return checkFrozen({
     v: 1, ticker: e.ticker.toUpperCase(), date: e.date, hour: e.hour, pct: snap.pct, expiry: snap.expiry ?? null, session: snap.session,
-    basis: snap.basis ?? null, src: 'flash', capturedAt: snap.capturedAt,
+    basis: snap.basis ?? null, ...(snap.method ? { method: snap.method } : {}), src: 'flash', capturedAt: snap.capturedAt, ...(fixed ? { fixed: true as const } : {}),
   });
 }
 
@@ -24,7 +24,8 @@ export function frozenFromFlashKeys(e: FlashEntry, evRaw: unknown, expRaw: unkno
     if (!base) return null;
     return checkFrozen({
       v: 1, ticker: e.ticker.toUpperCase(), date: e.date, hour: e.hour, pct: ev.expectedPct, expiry: same?.expiry ?? null,
-      session: same?.session ?? base, basis: same?.basis ?? null, src: 'flash', capturedAt: same?.capturedAt ?? ev.decidedAt,
+      session: same?.session ?? base, basis: same?.basis ?? null, ...(same?.method ? { method: same.method } : {}),
+      src: 'flash', capturedAt: same?.capturedAt ?? ev.decidedAt, fixed: true,
     });
   }
   return exp ? frozenFromFlashSnap(e, exp) : null;

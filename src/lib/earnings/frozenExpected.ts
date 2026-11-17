@@ -23,6 +23,12 @@ import { impliedRowKey, type ImpliedCell, type ImpliedPack, type RowImplied } fr
 
 export const FROZEN_EXPECTED_PREFIX = 'earnings:expected:frozen:v1';
 export const frozenExpectedKey = (ticker: string, date: string): string => `${FROZEN_EXPECTED_PREFIX}:${String(ticker).toUpperCase()}:${String(date).slice(0, 10)}`;
+/**
+ * 마감 직전 묶음 칸(src pack) 전용 키 — 알림 값(위 키)과 따로 둔다. 같은 키에 «없으면 쓰기»를 하면 읽기와 쓰기 사이에
+ *   알림 크론이 적은 값을 덮을 수 있다(관문 11180824 ③). 읽기 우선순위: 알림 키 > Upstash 알림 > 이 키 > 실적 반응 기록 > 묶음 예비.
+ */
+export const FROZEN_PACK_PREFIX = 'earnings:expected:frozen-pack:v1';
+export const frozenPackKey = (ticker: string, date: string): string => `${FROZEN_PACK_PREFIX}:${String(ticker).toUpperCase()}:${String(date).slice(0, 10)}`;
 /** 고정 기록 수명 — 종목 페이지 채점 이력(기록은 TTL 없음)을 덮을 만큼 */
 export const FROZEN_EXPECTED_TTL_SEC = 400 * 86400;
 /** 마감 직전 묶음 칸을 고정값으로 적어 둘 때 그 묶음이 마감 전 이 시간 안에 만들어졌어야 한다 */
@@ -51,6 +57,8 @@ export interface FrozenExpected {
   src: 'flash' | 'pack' | 'actuals';
   /** 값이 관측된(뜬) 시각(ms) */
   capturedAt: number;
+  /** 발표 알림이 «보낸» 숫자(고정 이벤트)에서 온 값 — 이것이 있으면 Upstash 를 다시 보지 않는다. 뜨기 값만이면 없음(뒤에 고정 이벤트로 올린다). */
+  fixed?: true;
 }
 
 const hourOf = (h: string | null | undefined): FrozenHour | null => (h === 'amc' || h === 'bmo' ? h : null);
@@ -95,7 +103,7 @@ export function parseFrozenExpected(raw: unknown, e: FrozenEvent): FrozenExpecte
     expiry: typeof x.expiry === 'string' ? x.expiry : null, session: x.session as string,
     basis: x.basis === 'live' || x.basis === 'eod' ? x.basis : null,
     ...(x.method === 'weekly' || x.method === 'monthly' || x.method === 'event-split' ? { method: x.method } : {}),
-    src: x.src, capturedAt: x.capturedAt as number,
+    src: x.src, capturedAt: x.capturedAt as number, ...(x.fixed === true ? { fixed: true as const } : {}),
   });
 }
 
@@ -188,17 +196,29 @@ export function rowImpliedFromFrozen(f: FrozenExpected): RowImplied & { frozen: 
  *   (event-split 기록의 채점은 ATM 기준을 그대로 쓴다 — earningsActuals.atmReceiptExpectedPct)
  *   기록에 expected 가 아예 없으면(마감 관측 실패) 고정값으로 expected 를 만든다(만기를 알 때만 · 정의 = 만기 분류).
  */
+/**
+ * 고정값이 «ATM 스트래들 정의»임이 확실한가 — 정의가 주간·월간으로 적혀 있거나, 정의 표식이 없어도 만기가 주간(분리값은 월간 만기에서만 생긴다).
+ *   정의를 모르는 월간 만기 값은 분리값일 수 있어 ATM 으로 쓰지 않는다(관문 11180824 ①).
+ */
+export function frozenIsAtm(f: FrozenExpected): boolean {
+  if (f.method === 'weekly' || f.method === 'monthly') return true;
+  if (f.method === 'event-split') return false;
+  return !!f.expiry && expiryMethod(f.expiry) === 'weekly';
+}
+
 export function applyFrozenToRecord(raw: unknown, f: FrozenExpected | null | undefined): unknown {
   const r = parseRecord(raw);
-  if (!r || !f || r.ticker !== f.ticker || r.date !== f.date || r.hour !== f.hour || f.method === 'event-split') return raw;
+  if (!r || !f || r.ticker !== f.ticker || r.date !== f.date || r.hour !== f.hour || !frozenIsAtm(f)) return raw;
   const src = raw as Record<string, any>;
   const e = r.expected;
   if (!e) {
     if (!f.expiry) return raw;
-    return { ...src, expected: { pct: f.pct, method: expiryMethod(f.expiry), straddlePct: f.pct, expiry: f.expiry, session: f.session, basis: f.basis,
+    return { ...src, expected: { pct: f.pct, method: f.method === 'weekly' || f.method === 'monthly' ? f.method : expiryMethod(f.expiry), straddlePct: f.pct, expiry: f.expiry, session: f.session, basis: f.basis,
       strike: null, straddle: null, spot: null, capturedAt: f.capturedAt, src: 'page', frozen: f.src } };
   }
   if (e.method !== 'weekly' && e.method !== 'monthly') return raw;
+  // 같은 정의만 — 고정값 정의가 적혀 있으면 기록과 같아야 한다(월간 ATM 기록을 다른 정의 값으로 덮지 않는다)
+  if (f.method && f.method !== e.method) return raw;
   if (e.session !== f.session || (f.expiry && e.expiry && f.expiry !== e.expiry)) return raw;
   if (e.pct === f.pct && (e.straddlePct === undefined || e.straddlePct === f.pct)) return raw;
   return { ...src, expected: { ...src.expected, pct: f.pct, straddlePct: f.pct, capturedAt: f.capturedAt, frozen: f.src } };

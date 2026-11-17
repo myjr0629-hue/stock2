@@ -32,7 +32,7 @@ export const prodFlashReaders: FlashReaders = {
   async implied(entries, today) {
     const rows = await readImpliedMoveRows(entries.map((e) => ({ ticker: e.ticker, after: e.date, timing: e.hour })), today);
     const out = new Map<string, ImpliedRowLike>();
-    rows.forEach((r) => out.set(r.ticker, { impliedMovePct: r.impliedMovePct, expiry: r.expiry, asOf: r.asOf, session: r.session, basis: r.basis }));
+    rows.forEach((r) => out.set(r.ticker, { impliedMovePct: r.impliedMovePct, expiry: r.expiry, asOf: r.asOf, session: r.session, basis: r.basis, method: r.method ?? null }));
     return out;
   },
   async actuals(entries) {
@@ -79,8 +79,8 @@ export function flashCallsPerQuote(env: Record<string, string | undefined> = pro
 }
 
 /** [11/18] 뜬 값·고정 값 → «발표 전 예상» 고정 기록(캘린더·채점표·종목 페이지가 발표 뒤 이 숫자를 보인다 — 알림과 같은 숫자) */
-export async function keepFlashExpected(e: FlashEntry, snap: ExpectedSnap): Promise<boolean> {
-  const f = frozenFromFlashSnap(e, snap);
+export async function keepFlashExpected(e: FlashEntry, snap: ExpectedSnap, fixed = false): Promise<boolean> {
+  const f = frozenFromFlashSnap(e, snap, fixed);
   return f ? setInCache(frozenExpectedKey(e.ticker, e.date), f, FROZEN_EXPECTED_TTL_SEC) : false;
 }
 

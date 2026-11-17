@@ -108,7 +108,7 @@ export interface FlashEntry {
 }
 
 /** 떠 둔 예상값 */
-export interface ExpectedSnap { pct: number; expiry: string | null; session: string; asOf: number; capturedAt: number; src: 'snap' | 'actuals'; basis?: 'live' | 'eod' }
+export interface ExpectedSnap { pct: number; expiry: string | null; session: string; asOf: number; capturedAt: number; src: 'snap' | 'actuals'; basis?: 'live' | 'eod'; method?: 'weekly' | 'monthly' | 'event-split' | null }
 
 /** 읽은 시세(공급사 스냅숏에서 필요한 것만) */
 export interface FlashQuote {
@@ -256,7 +256,7 @@ function expiryOk(e: FlashEntry, expiry: string | null | undefined): boolean {
   return e.hour === 'bmo' ? expiry >= e.date : expiry > e.date;
 }
 
-export interface ImpliedRowLike { impliedMovePct: number | null; expiry: string | null; asOf: number | null; session: string | null; basis: string | null }
+export interface ImpliedRowLike { impliedMovePct: number | null; expiry: string | null; asOf: number | null; session: string | null; basis: string | null; method?: 'weekly' | 'monthly' | 'event-split' | null }
 
 /** 화면 읽기(readImpliedMoveRows)의 한 줄 → 떠 둘 값(아니면 이유) */
 export function snapFromImplied(e: FlashEntry, row: ImpliedRowLike | null | undefined, now: number): { ok: true; snap: ExpectedSnap } | { ok: false; reason: string } {
@@ -265,7 +265,8 @@ export function snapFromImplied(e: FlashEntry, row: ImpliedRowLike | null | unde
   if (row.basis !== 'live' && row.basis !== 'eod') return { ok: false, reason: `basis_${row.basis ?? 'none'}` };
   if (!expiryOk(e, row.expiry)) return { ok: false, reason: `expiry_${row.expiry ?? 'none'}` };
   if (!fin(row.asOf) || row.asOf > now + 60_000 || now - row.asOf > FLASH_CFG.captureMaxAgeMs) return { ok: false, reason: 'stale_implied' };
-  return { ok: true, snap: { pct: Math.round(row.impliedMovePct * 10) / 10, expiry: row.expiry, session: row.session!, asOf: row.asOf, capturedAt: now, src: 'snap', basis: row.basis } };
+  return { ok: true, snap: { pct: Math.round(row.impliedMovePct * 10) / 10, expiry: row.expiry, session: row.session!, asOf: row.asOf, capturedAt: now, src: 'snap', basis: row.basis,
+    ...(row.method === 'weekly' || row.method === 'monthly' || row.method === 'event-split' ? { method: row.method } : {}) } };
 }
 
 /** 저장된 떠 둔 값이 이 발표의 «발표 전» 값인가 */
@@ -284,7 +285,8 @@ export function snapUsable(e: FlashEntry, raw: unknown): ExpectedSnap | null {
     if (close == null || x.capturedAt >= close + 60_000) return null;
   }
   return { pct: x.pct, expiry: x.expiry as string, session: x.session as string, asOf: x.asOf, capturedAt: x.capturedAt, src: 'snap',
-    ...(x.basis === 'live' || x.basis === 'eod' ? { basis: x.basis } : {}) };
+    ...(x.basis === 'live' || x.basis === 'eod' ? { basis: x.basis } : {}),
+    ...(x.method === 'weekly' || x.method === 'monthly' || x.method === 'event-split' ? { method: x.method } : {}) };
 }
 
 /**
@@ -299,7 +301,8 @@ export function snapFromActuals(e: FlashEntry, raw: unknown): ExpectedSnap | nul
   if (x.session !== baseSessionOf(e) || x.basis !== 'eod' || !expiryOk(e, x.expiry)) return null;
   if (!(fin(x.pct) && x.pct > 0)) return null;
   const pct = Math.round(x.pct * 10) / 10;
-  return { pct, expiry: x.expiry, session: x.session, asOf: x.capturedAt, capturedAt: x.capturedAt, src: 'actuals', basis: 'eod' };
+  return { pct, expiry: x.expiry, session: x.session, asOf: x.capturedAt, capturedAt: x.capturedAt, src: 'actuals', basis: 'eod',
+    ...(x.method === 'weekly' || x.method === 'monthly' || x.method === 'event-split' ? { method: x.method } : {}) };
 }
 
 /** 시세 → 발표 뒤 잠정 반응(아니면 이유) */
@@ -427,7 +430,7 @@ export interface FlashDeps {
    * [11/18] 뜬 값·고정에 쓴 값을 «발표 전 예상» 고정 기록(earnings:expected:frozen:v1 — 캘린더·채점표·종목 페이지가 읽는다)으로 적는다.
    *   실패해도 알림 흐름은 그대로(던지지 않게 감싼다). 미리보기는 부르지 않는다.
    */
-  keepExpected?: (e: FlashEntry, snap: ExpectedSnap) => Promise<unknown>;
+  keepExpected?: (e: FlashEntry, snap: ExpectedSnap, fixed: boolean) => Promise<unknown>;
 }
 export interface FlashOpts {
   now: number;
@@ -528,7 +531,7 @@ export async function runEarningsFlash(deps: FlashDeps, o: FlashOpts): Promise<F
           continue;
         }
         if (!preview) await store.set(FLASH_KEYS.exp(e.ticker, e.date), JSON.stringify(r.snap), FLASH_CFG.expTtlSec).catch(() => {});
-        if (!preview && deps.keepExpected) await deps.keepExpected(e, r.snap).catch(() => {});
+        if (!preview && deps.keepExpected) await deps.keepExpected(e, r.snap, false).catch(() => {});
         report.captured.push(`${idOf(e)}:${r.snap.pct}`);
       }
     }
@@ -588,7 +591,7 @@ export async function runEarningsFlash(deps: FlashDeps, o: FlashOpts): Promise<F
             events.set(idOf(e), again);
             continue;
           }
-          if (deps.keepExpected) await deps.keepExpected(e, exp).catch(() => {});
+          if (deps.keepExpected) await deps.keepExpected(e, exp, true).catch(() => {});
           log(`[Cron/EarningsFlash] 고정 ${idOf(e)} 예상 ±${exp.pct}%(${exp.src}) · ${e.hour === 'amc' ? '시간외' : '장 초반'} ${j.pct}% @ ${new Date(j.atMs).toISOString()}`);
         }
         events.set(idOf(e), ev);

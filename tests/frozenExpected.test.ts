@@ -31,7 +31,7 @@ require.cache[redisPath] = { id: redisPath, filename: redisPath, loaded: true, e
 } } as unknown as NodeModule;
 void Module;
 
-import { freezeMsOf, isFrozenTime, frozenExpectedKey, frozenFromPrevPack, frozenFromPackFallback, applyFrozenToRecord, rowImpliedFromFrozen, type FrozenExpected } from '../src/lib/earnings/frozenExpected';
+import { freezeMsOf, isFrozenTime, frozenExpectedKey, frozenPackKey, frozenIsAtm, frozenFromPrevPack, frozenFromPackFallback, applyFrozenToRecord, rowImpliedFromFrozen, type FrozenExpected } from '../src/lib/earnings/frozenExpected';
 import type { ImpliedPack } from '../src/lib/earnings/earningsImplied';
 import { FLASH_KEYS, runEarningsFlash, type FlashDeps, type FlashReaders } from '../src/lib/signals/earningsFlash';
 import { aggregateScorecard } from '../src/lib/earnings/earningsScorecard';
@@ -104,16 +104,38 @@ t('뜬 값(exp)이 만료돼 고정 이벤트(ev)만 있으면 — 숫자는 알
   assert.equal((kv.get(frozenExpectedKey('NVDA', D)) as FrozenExpected).expiry, '2026-11-18');
 });
 
-t('고정 기록이 pack 이면 알림 값으로 올린다 · flash 기록이면 Upstash 를 보지 않는다', async () => {
+t('묶음 기록(전용 키)보다 알림 값 · 알림 «보낸» 값(fixed)으로 적힌 뒤엔 Upstash 를 보지 않는다', async () => {
   reset();
-  kv.set(frozenExpectedKey('NVDA', D), { v: 1, ticker: 'NVDA', date: D, hour: 'amc', pct: 8.5, expiry: '2026-11-18', session: D, basis: 'live', src: 'pack', capturedAt: ET(D, 15, 55) });
+  kv.set(frozenPackKey('NVDA', D), { v: 1, ticker: 'NVDA', date: D, hour: 'amc', pct: 8.5, expiry: '2026-11-18', session: D, basis: 'live', src: 'pack', capturedAt: ET(D, 15, 55) });
+  assert.equal((await svc.readFrozenExpected([NV], ET(D, 17, 0), { flash: false })).get('NVDA|2026-11-17')?.pct, 8.5, '알림 값이 없으면 묶음 기록');
   upstash.set(FLASH_KEYS.ev('NVDA', D), JSON.stringify(ev));
   const m = await svc.readFrozenExpected([NV], ET(D, 17, 0), { persist: true });
   assert.equal(m.get('NVDA|2026-11-17')?.pct, 8.4);
-  assert.equal((kv.get(frozenExpectedKey('NVDA', D)) as FrozenExpected).src, 'flash');
+  const saved = kv.get(frozenExpectedKey('NVDA', D)) as FrozenExpected;
+  assert.equal(saved.src, 'flash'); assert.equal(saved.fixed, true);
+  assert.equal((kv.get(frozenPackKey('NVDA', D)) as FrozenExpected).pct, 8.5, '묶음 키는 그대로(서로 덮지 않는다)');
   const calls = upCalls;
   await svc.readFrozenExpected([NV], ET(D, 17, 10), { persist: true });
   assert.equal(upCalls, calls);
+});
+
+t('뜨기 값만 적힌 기록(fixed 아님) — 알림이 다른 숫자를 보냈으면(고정 때 기록 쓰기 실패) 그 숫자로 올린다', async () => {
+  reset();
+  kv.set(frozenExpectedKey('NVDA', D), { v: 1, ticker: 'NVDA', date: D, hour: 'amc', pct: 8.3, expiry: '2026-11-18', session: D, basis: 'live', src: 'flash', capturedAt: ET(D, 15, 30) });
+  upstash.set(FLASH_KEYS.ev('NVDA', D), JSON.stringify(ev));
+  upstash.set(FLASH_KEYS.exp('NVDA', D), JSON.stringify(exp));
+  const m = await svc.readFrozenExpected([NV], ET(D, 17, 0), { persist: true });
+  assert.equal(m.get('NVDA|2026-11-17')?.pct, 8.4);
+  assert.equal((kv.get(frozenExpectedKey('NVDA', D)) as FrozenExpected).fixed, true);
+});
+
+t('묶음 기록 쓰기는 알림 키를 건드리지 않는다(경합으로 알림 값을 덮지 않음)', async () => {
+  reset();
+  kv.set(frozenExpectedKey('ZZZ', D), { v: 1, ticker: 'ZZZ', date: D, hour: 'amc', pct: 6.1, expiry: '2026-11-20', session: D, basis: 'live', src: 'flash', capturedAt: ET(D, 15, 45), fixed: true });
+  const prev: ImpliedPack = { v: 1, at: ET(D, 15, 56), day: D, cells: { 'ZZZ|2026-11-17': { p: 5.4, e: '2026-11-20', b: 'live', s: D, r: null, method: 'monthly', f: '2026-11-20' } } };
+  assert.equal(await svc.persistPackFreezes([{ ticker: 'ZZZ', date: D, hour: 'amc' }], prev, ET(D, 16, 3)), 1);
+  assert.deepEqual(writes, [frozenPackKey('ZZZ', D)]);
+  assert.equal((await svc.readFrozenExpected([{ ticker: 'ZZZ', date: D, hour: 'amc' }], ET(D, 17, 0))).get('ZZZ|2026-11-17')?.pct, 6.1);
 });
 
 t('예비 — 알림·고정 기록이 없으면 실적 반응 기록의 마감 관측 · 그것도 없으면 «발표 전 세션» 묶음 칸만, 발표 뒤 값은 절대 아님', async () => {
@@ -143,7 +165,8 @@ t('마감 직전 묶음 칸 → 고정 기록(src pack) 한 번 · 이미 있으
   const rows = [{ ticker: 'ZZZ', date: D, hour: 'amc' }];
   assert.equal(await svc.persistPackFreezes(rows, prev, ET(D, 15, 58)), 0, '고정 전');
   assert.equal(await svc.persistPackFreezes(rows, prev, ET(D, 16, 3)), 1);
-  assert.equal((kv.get(frozenExpectedKey('ZZZ', D)) as FrozenExpected).pct, 5.4);
+  assert.equal((kv.get(frozenPackKey('ZZZ', D)) as FrozenExpected).pct, 5.4);
+  assert.equal(kv.has(frozenExpectedKey('ZZZ', D)), false);
   assert.equal(await svc.persistPackFreezes(rows, { ...prev, cells: { 'ZZZ|2026-11-17': { ...prev.cells['ZZZ|2026-11-17'], p: 9.9 } } }, ET(D, 16, 8)), 0, '이미 있음');
   assert.equal(frozenFromPrevPack(rows[0], { ...prev, at: ET(D, 16, 1) }), null, '마감 뒤 묶음');
   assert.equal(frozenFromPrevPack(rows[0], { ...prev, at: ET(D, 13, 30) }), null, '2시간 넘음');
@@ -164,9 +187,33 @@ t('채점표 — 같은 정의(주간 ATM)면 고정값 ±8.4 로 채점(범위 
   assert.equal(after.basis.expectedExpiry, '2026-11-18');
   const split = { ...rec, expected: { ...rec.expected, pct: 7.7, method: 'event-split', straddlePct: 8.6 } };
   assert.equal(applyFrozenToRecord(split, f), split);
+  // 정의 — 분리값 고정값은 ATM 기록을 덮지도, 없는 기록을 만들지도 않는다 · 정의 표식 없는 월간 만기 값도(분리값일 수 있다)
+  const mrec = { ...rec, expected: { ...rec.expected, method: 'monthly', expiry: '2026-11-20' } };
+  const fm: FrozenExpected = { ...f, expiry: '2026-11-20' };
+  assert.equal(frozenIsAtm({ ...fm, method: 'event-split' }), false);
+  assert.equal(frozenIsAtm(fm), false, '표식 없음 + 월간 만기');
+  assert.equal(frozenIsAtm(f), true, '표식 없음 + 주간 만기(분리값이 생길 수 없다)');
+  assert.equal(applyFrozenToRecord(mrec, { ...fm, method: 'event-split' }), mrec);
+  assert.equal(applyFrozenToRecord(mrec, fm), mrec);
+  assert.equal((applyFrozenToRecord({ ...rec, expected: null }, { ...fm, method: 'event-split' }) as any).expected, null);
+  assert.equal((applyFrozenToRecord(mrec, { ...fm, method: 'monthly' }) as any).expected.pct, 8.4);
+  assert.equal(applyFrozenToRecord(rec, { ...f, method: 'monthly' }), rec, '정의가 다르면(주간 기록 ← 월간 값) 덮지 않는다');
   assert.equal(applyFrozenToRecord(rec, { ...f, session: '2026-11-16' }), rec, '세션이 다르면 입히지 않는다');
   const noExp = { ...rec, expected: null };
   assert.equal(aggregateScorecard('2026-11-16', [applyFrozenToRecord(noExp, f)], now).rows[0]?.expectedPct, 8.4);
+});
+
+t('채점표 API 서비스 — 고정 기록이 아직 없어도 Upstash 알림 값(±8.4)으로 채점(캘린더·종목 페이지와 같은 읽기) · 쓰기 0', async () => {
+  reset();
+  kv.set('earnings:actuals:v1:NVDA:2026-11-17', { v: 1, ticker: 'NVDA', date: D, hour: 'amc', at: ET('2026-11-18', 16, 40),
+    expected: { pct: 8.2, method: 'weekly', straddlePct: 8.2, expiry: '2026-11-18', session: D, basis: 'eod', strike: 180, straddle: 14.76, spot: 180, capturedAt: ET(D, 16, 40), src: 'page' },
+    actual: { pct: -8.3, baseDate: D, baseClose: 180, reactDate: '2026-11-18', reactClose: 165.06, src: 'intrinio-daily', check: 'fmp', at: ET('2026-11-18', 16, 35) } });
+  upstash.set(FLASH_KEYS.ev('NVDA', D), JSON.stringify(ev));
+  upstash.set(FLASH_KEYS.exp('NVDA', D), JSON.stringify({ ...exp, method: 'weekly' }));
+  const { readEarningsScorecard } = require('../src/services/earningsScorecardService');
+  const row = (await readEarningsScorecard('2026-11-16', ET('2026-11-18', 18, 0))).rows.find((r: { ticker: string }) => r.ticker === 'NVDA');
+  assert.equal(row?.expectedPct, 8.4); assert.equal(row?.beyond, false);
+  assert.equal(writes.length, 0);
 });
 
 t('캘린더 완료 행 — 채점 전이면 고정값, 채점 뒤면 채점값 · 고정값이 없으면 null(예전 그대로)', () => {
@@ -194,13 +241,15 @@ t('종목 페이지 — 발표 뒤 «발표 전 예상» = 고정값(마감 뒤 
 
 t('발표 알림 크론 — 뜬 값(15:45)과 고정에 쓴 값을 고정 기록으로 넘긴다(keepExpected) · 미리보기는 안 넘긴다', async () => {
   const kept: Array<[string, number]> = [];
+  const fixedFlags: boolean[] = [];
+  const methods: Array<string | null> = [];
   const store = new FakeStore(), fkv = new FakeKv(), sender = new FakeSender();
   const readers: FlashReaders = {
-    async implied(entries) { return new Map(entries.map((e) => [e.ticker, { impliedMovePct: 8.44, expiry: '2026-11-18', asOf: ET(D, 15, 44), session: D, basis: 'live' }])); },
+    async implied(entries) { return new Map(entries.map((e) => [e.ticker, { impliedMovePct: 8.44, expiry: '2026-11-18', asOf: ET(D, 15, 44), session: D, basis: 'live', method: 'weekly' as const }])); },
     async actuals() { return new Map(); },
     async quote() { return { session: 'POST', regularDate: D, regularClose: 180, prevClose: 178, regularTradeMs: ET(D, 16, 0), extendedPrice: 184.4, extendedTradeMs: ET(D, 16, 45), stale: false }; },
   };
-  const deps: FlashDeps = { store, kv: fkv, readers, sender, reserve: async (_k, n) => n, log: () => {}, keepExpected: async (e, s) => { kept.push([e.ticker, s.pct]); } };
+  const deps: FlashDeps = { store, kv: fkv, readers, sender, reserve: async (_k, n) => n, log: () => {}, keepExpected: async (e, s, fixed) => { kept.push([e.ticker, s.pct]); fixedFlags.push(fixed); methods.push(s.method ?? null); } };
   store.addDevice(IOS_TOKEN, { watchlist: { t: ['NVDA'] }, tz: 'Asia/Seoul' });
   const list = [{ ticker: 'NVDA', date: D, hour: 'amc' as const, etTime: '16:20', sourceKind: 'company-pr' as const, sourceUrl: 'https://example.com', announcedOn: '2026-10-28', verifiedAt: '2026-11-09T00:00:00Z', quote: '' }];
   await runEarningsFlash(deps, { now: ET(D, 15, 45), kind: 'preview', list: list as any, envMode: null, signalEnvMode: null });
@@ -209,6 +258,8 @@ t('발표 알림 크론 — 뜬 값(15:45)과 고정에 쓴 값을 고정 기록
   assert.deepEqual(kept, [['NVDA', 8.4]]);
   await runEarningsFlash(deps, { now: ET(D, 16, 50), kind: 'cron', list: list as any, envMode: null, signalEnvMode: null });
   assert.deepEqual(kept, [['NVDA', 8.4], ['NVDA', 8.4]], '고정 때 같은 숫자');
+  assert.deepEqual(fixedFlags, [false, true], '뜨기 = fixed 아님 · 고정 = fixed');
+  assert.deepEqual(methods, ['weekly', 'weekly'], '정의 보존');
   assert.match(sender.items[0]?.body ?? '', /±8\.4%/);
 });
 

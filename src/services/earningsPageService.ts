@@ -14,7 +14,7 @@ import { EARNINGS_CALENDAR_CACHE_KEY, EARNINGS_CALENDAR_LAST_GOOD_KEY, withConfi
 import { readImpliedPack } from '@/services/earningsImpliedService';
 import { impliedRowKey, type ImpliedCell } from '@/lib/earnings/earningsImplied';
 import { applyFrozenToRecord, type FrozenExpected } from '@/lib/earnings/frozenExpected';
-import { readFrozenExpected, readFrozenRecords } from '@/services/frozenExpectedService';
+import { readFrozenExpected } from '@/services/frozenExpectedService';
 import { actualsKey, parseRecord } from '@/lib/earnings/earningsActuals';
 import { emptySnapshot, nextByTicker, pastConfirmedEntries, type EarningsPageSnapshot } from '@/lib/seo/earningsPage';
 
@@ -45,7 +45,7 @@ async function readRecords(nowMs: number): Promise<{ ok: boolean; records: Recor
   const records: Record<string, unknown[]> = {};
   let ok = true;
   // [11/18] 채점 기록의 예상값에 «발표 전 예상» 고정값을 입힌다(채점표 API 와 같은 규칙 — applyFrozenToRecord). 못 읽으면 기록 그대로.
-  const frozen = await readFrozenRecords(entries, nowMs).catch(() => new Map<string, FrozenExpected>());
+  const frozen = await readFrozenExpected(entries, nowMs, { actuals: false, persist: false }).catch(() => new Map<string, FrozenExpected>());
   for (let i = 0; i < entries.length; i += MGET_CHUNK) {
     const part = entries.slice(i, i + MGET_CHUNK);
     try {
