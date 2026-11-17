@@ -235,19 +235,20 @@ const html = async (locale: string, symbol: string) => renderToStaticMarkup(awai
     for (const l of ['ko', 'en', 'ja'] as const) {
       const c = EP.EP_COPY[l];
       const h = await html(l, T);
-      // 본문 CTA: 문구 줄 + «앱 받기» 단추(기존 스마트링크 그대로)
-      assert.ok(h.includes(`<a href="/app?from=seo_${tl}&amp;l=${l}" rel="nofollow">${c.stickyBtn} →</a>`), `${l} cta button`);
-      assert.ok(h.includes('class="ep-cta-h"'), `${l} cta headline`);
+      // 본문 CTA: 배치 그대로(한 단추) · 문구만 교체 · 기존 스마트링크 그대로
+      assert.ok(h.includes(`<a href="/app?from=seo_${tl}&amp;l=${l}" rel="nofollow">${c.cta(EP.nameWithTicker(T, l))} →</a>`), `${l} cta button`);
       for (const txt of [c.cta('X'), c.hubCta, c.ctaSub, c.stickyLine(T), c.stickyHubLine, c.stickySub]) {
         assert.doesNotMatch(txt, /옵션 흐름|オプションフロー|options flow|다크풀|ダークプール|dark pool/i, txt);
         for (const re of BANNED_WORDS) assert.doesNotMatch(txt, re, txt);
       }
-      assert.match(c.ctaSub, /처음 구독이면 PRO 7일 무료 체험|初めての購読ならPRO 7日間無料体験|First-time subscribers get a 7-day PRO free trial/);
+      // 7일 체험은 «처음 구독 + 스토어 자격» 단서와 함께만
+      for (const txt of [c.ctaSub, c.stickySub]) assert.match(txt, /스토어 자격 기준|ストアの条件による|may be eligible/, txt);
+      assert.doesNotMatch(c.cta('X') + c.hubCta, /직후|直後|right after/);
       assert.match(c.cta('X'), /SIGNUM HQ/);
       // 하단 띠는 서버 렌더에서 아무것도 그리지 않는다(PC·첫 그리기 배치 무변경)
       assert.ok(!h.includes('data-app-bar'), `${l} no SSR bar`);
       const hh = renderToStaticMarkup(await hub.default({ params: Promise.resolve({ locale: l }) }));
-      assert.ok(hh.includes(`<a href="/app?from=seo_earnings&amp;l=${l}" rel="nofollow">${c.stickyBtn} →</a>`), `${l} hub cta`);
+      assert.ok(hh.includes(`<a href="/app?from=seo_earnings&amp;l=${l}" rel="nofollow">${c.hubCta} →</a>`), `${l} hub cta`);
       assert.ok(!hh.includes('data-app-bar'), `${l} hub no SSR bar`);
     }
     // 띠 링크 — /app 의 from 형식(normalizeFrom)을 통과해야 클릭이 센다

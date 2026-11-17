@@ -100,7 +100,6 @@ const CSS = `
 .ep-card .ep-sub{font-size:12.5px;color:#7C848E}
 .ep-card .ep-local{margin:2px 0 0;font-size:14px;font-weight:700;color:#17191E}
 .ep-cta{margin:20px 0 6px;background:#17191E;color:#fff;border-radius:14px;padding:14px}
-.ep-cta .ep-cta-h{margin:0 0 10px;text-align:left;font-size:14px;font-weight:700;line-height:1.5;color:#fff}
 .ep-cta a{display:flex;align-items:center;justify-content:center;min-height:48px;text-align:center;background:#C2410C;color:#fff;text-decoration:none;font-weight:900;font-size:15px;line-height:1.4;border-radius:12px;padding:12px 14px}
 .ep-cta p{margin:8px 0 0;text-align:center;font-size:12px;color:#B5BCC6}
 .ep-sec{margin-top:30px}
@@ -182,8 +181,7 @@ export default async function EarningsTickerPage(props: Props) {
 
   const cta = (
     <div className="ep-cta">
-      <p className="ep-cta-h">{c.cta(name)}</p>
-      <a href={href} rel="nofollow">{c.stickyBtn} →</a>
+      <a href={href} rel="nofollow">{c.cta(name)} →</a>
       <p>{c.ctaSub}</p>
     </div>
   );

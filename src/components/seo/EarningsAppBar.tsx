@@ -62,7 +62,7 @@ const CSS = `
 .ep-appbar img{flex:0 0 auto;width:36px;height:36px;border-radius:9px;display:block}
 .ep-appbar-t{flex:1 1 auto;min-width:0;line-height:1.3}
 .ep-appbar-t b{display:block;font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ep-appbar-t span{display:block;font-size:11.5px;color:#B5BCC6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep-appbar-t span{font-size:11px;line-height:1.3;color:#B5BCC6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ep-appbar-go{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border-radius:10px;background:#C2410C;color:#fff !important;text-decoration:none;font-size:14px;font-weight:900;white-space:nowrap}
 .ep-appbar-x{flex:0 0 auto;width:32px;height:40px;display:inline-flex;align-items:center;justify-content:center;background:none;border:0;color:#8A939E;font-size:20px;line-height:1;cursor:pointer;padding:0}
 `;
