@@ -203,7 +203,11 @@ export function rowImpliedFromFrozen(f: FrozenExpected): RowImplied & { frozen: 
 export function frozenIsAtm(f: FrozenExpected): boolean {
   if (f.method === 'weekly' || f.method === 'monthly') return true;
   if (f.method === 'event-split') return false;
-  return !!f.expiry && expiryMethod(f.expiry) === 'weekly';
+  if (!!f.expiry && expiryMethod(f.expiry) === 'weekly') return true;
+  // 발표 알림이 기준 세션 «마감 전»(15:30~16:00 ET)에 뜬 값 — 분리값은 마감 관측(EOD 체인)에서만 생기므로(eventMove.splitMonthlyEvent: basis eod)
+  //   마감 전 관측은 ATM 스트래들 정의다(11/18 DIS: 알림 ±6.3 이 정의 표식 없이 적혀 채점표가 마감 관측 ±6.6 을 그대로 썼다).
+  const freeze = freezeMsOf(f.date, f.hour);
+  return f.src === 'flash' && freeze != null && fin(f.capturedAt) && f.capturedAt < freeze;
 }
 
 export function applyFrozenToRecord(raw: unknown, f: FrozenExpected | null | undefined): unknown {

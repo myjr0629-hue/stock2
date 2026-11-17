@@ -209,10 +209,18 @@ t('채점표 — 같은 정의(주간 ATM)면 고정값 ±8.4 로 채점(범위 
   const mrec = { ...rec, expected: { ...rec.expected, method: 'monthly', expiry: '2026-11-20' } };
   const fm: FrozenExpected = { ...f, expiry: '2026-11-20' };
   assert.equal(frozenIsAtm({ ...fm, method: 'event-split' }), false);
-  assert.equal(frozenIsAtm(fm), false, '표식 없음 + 월간 만기');
+  assert.equal(frozenIsAtm({ ...fm, capturedAt: ET(D, 16, 50) }), false, '표식 없음 + 월간 만기 + 마감 뒤 관측');
+  assert.equal(frozenIsAtm(fm), true, '표식 없음 + 월간 만기라도 알림이 마감 전(15:45)에 뜬 값은 ATM(분리값은 마감 관측에서만)');
+  assert.equal(frozenIsAtm({ ...fm, src: 'actuals', capturedAt: ET(D, 15, 45) }), false, '알림 뜨기 값이 아니면 추정하지 않는다');
   assert.equal(frozenIsAtm(f), true, '표식 없음 + 주간 만기(분리값이 생길 수 없다)');
   assert.equal(applyFrozenToRecord(mrec, { ...fm, method: 'event-split' }), mrec);
-  assert.equal(applyFrozenToRecord(mrec, fm), mrec);
+  assert.equal(applyFrozenToRecord(mrec, { ...fm, capturedAt: ET(D, 16, 50) }), mrec);
+  // DIS 11/17 실측 모양 — 월간 ATM 마감 관측 6.6 기록 · 알림이 11/16 15:50 에 뜨고 보낸 6.3(정의 표식 없음) → 6.3 으로 채점
+  const disRec = { v: 1, ticker: 'DIS', date: D, hour: 'bmo', at: ET(D, 16, 40),
+    expected: { pct: 6.6, method: 'monthly', straddlePct: 6.6, expiry: '2026-11-20', session: '2026-11-16', basis: 'eod', strike: 119, straddle: 7.8, spot: 118.7, capturedAt: ET('2026-11-16', 17, 0), src: 'page' },
+    actual: { pct: -1.4827, baseDate: '2026-11-16', baseClose: 118.7, reactDate: D, reactClose: 116.94, src: 'intrinio-daily', check: 'fmp', at: ET(D, 16, 35) } };
+  const disF: FrozenExpected = { v: 1, ticker: 'DIS', date: D, hour: 'bmo', pct: 6.3, expiry: '2026-11-20', session: '2026-11-16', basis: null, src: 'flash', capturedAt: ET('2026-11-16', 15, 50), fixed: true };
+  assert.equal(aggregateScorecard('2026-11-16', [applyFrozenToRecord(disRec, disF)], ET(D, 18, 0)).rows[0]?.expectedPct, 6.3);
   assert.equal((applyFrozenToRecord({ ...rec, expected: null }, { ...fm, method: 'event-split' }) as any).expected, null);
   assert.equal((applyFrozenToRecord(mrec, { ...fm, method: 'monthly' }) as any).expected.pct, 8.4);
   assert.equal(applyFrozenToRecord(rec, { ...f, method: 'monthly' }), rec, '정의가 다르면(주간 기록 ← 월간 값) 덮지 않는다');
@@ -254,7 +262,7 @@ t('종목 페이지 — 발표 뒤 «발표 전 예상» = 고정값(마감 뒤 
   const v = buildEarningsPageView('NVDA', snap as any, nowAfter);
   assert.equal(v.implied?.pct, 8.4); assert.equal(v.implied?.expiry, '2026-11-18'); assert.equal(v.next?.phase, 'done');
   // 정의 불명 월간 만기 고정값은 정의 설명과 어긋날 수 있어 쓰지 않는다(지금 규칙 — 묶음의 발표 전 값)
-  const unk = buildEarningsPageView('NVDA', { ...snap, frozen: { 'NVDA|2026-11-17': { ...snap.frozen['NVDA|2026-11-17'], expiry: '2026-11-20' } } } as any, nowAfter);
+  const unk = buildEarningsPageView('NVDA', { ...snap, frozen: { 'NVDA|2026-11-17': { ...snap.frozen['NVDA|2026-11-17'], expiry: '2026-11-20', capturedAt: ET(D, 16, 50) } } } as any, nowAfter);
   assert.equal(unk.implied?.pct, 8.2);
   const pre = buildEarningsPageView('NVDA', { ...snap, frozen: {} } as any, ET(D, 15, 0));
   assert.equal(pre.implied?.pct, 8.2, '고정 전 = 묶음(실시간) 값 그대로');
