@@ -80,14 +80,15 @@ export default function EarningsAppBar({ href, line, sub, button, closeLabel }: 
 
   useEffect(() => {
     if (!show) return;
-    const id = window.requestAnimationFrame(() => {
+    // setTimeout(rAF 아님) — 배경 탭·느린 기기에서 rAF 가 멈춰 띠가 화면 밖(translateY)에 남지 않게
+    const id = window.setTimeout(() => {
       try {
         const nav = document.querySelector('.native-bottom-nav');
         setNavOffset(nav ? Math.round(nav.getBoundingClientRect().height) : 0);
       } catch { /* 0 = 바닥 */ }
       setShown(true);
-    });
-    return () => window.cancelAnimationFrame(id);
+    }, 50);
+    return () => window.clearTimeout(id);
   }, [show]);
 
   // 본문을 가리지 않게 — 보이는 동안 body 아래 여백 += 띠 높이, 사라지면 원래 값
