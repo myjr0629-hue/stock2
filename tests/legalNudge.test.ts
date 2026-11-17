@@ -14,7 +14,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { LEGAL_NUDGE_FRAMES, LEGAL_NUDGE_MS, legalContinueBlocked, legalNudgeScrollTop, nudgeLegalAck } from '../src/lib/app/legalNudge';
+import { LEGAL_NUDGE_FRAMES, LEGAL_NUDGE_MS, LEGAL_NUDGE_SETTLE_MS, legalContinueBlocked, legalNudgeScrollTop, nudgeLegalAck } from '../src/lib/app/legalNudge';
 import { FUNNEL_SRCS, FUNNEL_STAGES, isFunnelSrc, isFunnelStage } from '../src/lib/app/funnelSchema';
 import { claimOnbShow } from '../src/lib/app/onboardingConfig';
 
@@ -97,6 +97,75 @@ t('실행: 패널 안에서 부드럽게 굴림 · 1초 강조 · 체크 상자 
   assert.equal(opts.duration, LEGAL_NUDGE_MS);
   assert.ok(LEGAL_NUDGE_MS >= 800 && LEGAL_NUDGE_MS <= 1200, '약 1초');
   assert.deepEqual(focus, [{ preventScroll: true }]);
+});
+t('부드러운 굴림이 굶으면(프레임 부족) 잠시 뒤 바로 놓는다 · 다 갔으면·사용자가 만졌으면·패널이 사라졌으면 건드리지 않는다', () => {
+  setReducedMotion(false);
+  const realST = globalThis.setTimeout;
+  const timers: Array<{ fn: () => void; ms: number }> = [];
+  (globalThis as unknown as { setTimeout: unknown }).setTimeout = (fn: () => void, ms: number) => { timers.push({ fn, ms }); return 0; };
+  try {
+    const stuck = fakeEl({ top: 22, height: 700 }, { scrollTop: 0, scrollHeight: 1300, clientHeight: 700, scrollTo: () => { /* 거의 안 움직임 */ } });
+    nudgeLegalAck(fakeEl({ top: 760, height: 70 }) as never, stuck as never, fakeEl({ top: 642, height: 80 }) as never);
+    assert.equal(timers.length, 1);
+    assert.equal(timers[0].ms, LEGAL_NUDGE_SETTLE_MS);
+    assert.ok(LEGAL_NUDGE_SETTLE_MS >= 300 && LEGAL_NUDGE_SETTLE_MS <= 1000);
+    stuck.scrollTop = 16;
+    timers[0].fn();
+    assert.equal(stuck.scrollTop, 463);
+    // 다 간 경우는 그대로
+    timers.length = 0;
+    const done = fakeEl({ top: 22, height: 700 }, { scrollTop: 0, scrollHeight: 1300, clientHeight: 700 });
+    done.scrollTo = (o: { top: number }) => { done.scrollTop = o.top; };
+    nudgeLegalAck(fakeEl({ top: 760, height: 70 }) as never, done as never, fakeEl({ top: 642, height: 80 }) as never);
+    const set: number[] = [];
+    let v = done.scrollTop as number;
+    Object.defineProperty(done, 'scrollTop', { get: () => v, set: (x: number) => { set.push(x); v = x; } });
+    timers[0].fn();
+    assert.deepEqual(set, []);
+    // 그 사이 사용자가 직접 만지면(터치) 보정 취소 — 사용자의 스크롤을 덮어쓰지 않는다 · 듣기는 정리된다
+    timers.length = 0;
+    const ls = new Map<string, () => void>();
+    const removed: string[] = [];
+    const touched = fakeEl({ top: 22, height: 700 }, {
+      scrollTop: 0, scrollHeight: 1300, clientHeight: 700, scrollTo: () => { /* 굶음 */ },
+      addEventListener: (ev: string, fn: () => void) => { ls.set(ev, fn); },
+      removeEventListener: (ev: string) => { removed.push(ev); },
+    });
+    nudgeLegalAck(fakeEl({ top: 760, height: 70 }) as never, touched as never, fakeEl({ top: 642, height: 80 }) as never);
+    assert.deepEqual([...ls.keys()].sort(), ['keydown', 'pointerdown', 'touchstart', 'wheel']);
+    ls.get('touchstart')!();
+    touched.scrollTop = 40;   // 사용자가 직접 굴린 위치
+    timers[0].fn();
+    assert.equal(touched.scrollTop, 40);
+    assert.deepEqual(removed.sort(), ['keydown', 'pointerdown', 'touchstart', 'wheel']);
+    // 단계가 바뀌어 패널이 사라졌으면 아무것도 안 한다
+    timers.length = 0;
+    const gone = fakeEl({ top: 22, height: 700 }, { scrollTop: 0, scrollHeight: 1300, clientHeight: 700, scrollTo: () => { /* 굶음 */ } });
+    nudgeLegalAck(fakeEl({ top: 760, height: 70 }) as never, gone as never, fakeEl({ top: 642, height: 80 }) as never);
+    gone.isConnected = false;
+    timers[0].fn();
+    assert.equal(gone.scrollTop, 0);
+    // 단계가 바뀌어 체크 줄이 사라졌는데 패널 DOM 은 재사용된 경우(스크린리더 클릭 등 조작 이벤트 없이) — 새 단계 패널을 굴리지 않는다
+    timers.length = 0;
+    const reused = fakeEl({ top: 22, height: 700 }, { scrollTop: 0, scrollHeight: 1300, clientHeight: 700, scrollTo: () => { /* 굶음 */ } });
+    const oldAck = fakeEl({ top: 760, height: 70 });
+    nudgeLegalAck(oldAck as never, reused as never, fakeEl({ top: 642, height: 80 }) as never);
+    oldAck.isConnected = false;
+    timers[0].fn();
+    assert.equal(reused.scrollTop, 0);
+    timers.length = 0;
+    const moved = fakeEl({ top: 22, height: 700 }, { scrollTop: 0, scrollHeight: 1300, clientHeight: 700, scrollTo: () => { /* 굶음 */ }, contains: () => false });
+    nudgeLegalAck(fakeEl({ top: 760, height: 70 }) as never, moved as never, fakeEl({ top: 642, height: 80 }) as never);
+    timers[0].fn();
+    assert.equal(moved.scrollTop, 0);
+    // 동작 줄이기(즉시 굴림)면 타이머 없음
+    timers.length = 0;
+    setReducedMotion(true);
+    nudgeLegalAck(fakeEl({ top: 760, height: 70 }) as never, fakeEl({ top: 22, height: 700 }, { scrollHeight: 1300, clientHeight: 700 }) as never, null);
+    assert.equal(timers.length, 0);
+  } finally {
+    (globalThis as unknown as { setTimeout: unknown }).setTimeout = realST;
+  }
 });
 t('이미 보이면 굴리지 않고 강조만', () => {
   setReducedMotion(false);

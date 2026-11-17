@@ -10,6 +10,9 @@
 /** 강조 길이(ms) — 두 번 깜빡임 */
 export const LEGAL_NUDGE_MS = 1000;
 
+/** 부드러운 굴림이 이 시간 안에 못 가면 바로 놓는다(ms) */
+export const LEGAL_NUDGE_SETTLE_MS = 600;
+
 /** 법적 고지 단계에서 동의 전 [계속]은 «막힘» — 누르면 진행 대신 체크 줄로 데려간다 */
 export function legalContinueBlocked(legal: boolean, accepted: boolean): boolean {
   return legal && !accepted;
@@ -51,6 +54,27 @@ export const LEGAL_NUDGE_FRAMES: Keyframe[] = [
   { boxShadow: '0 0 0 0 rgba(34, 211, 238, 0)', borderColor: 'rgba(34, 211, 238, 0.18)' },
 ];
 
+const USER_SCROLL_EVENTS = ['touchstart', 'wheel', 'pointerdown', 'keydown'] as const;
+
+/** 부드러운 굴림 보정 — LEGAL_NUDGE_SETTLE_MS 뒤에도 못 갔고 그 사이 사용자 조작이 없었으면 바로 놓는다 */
+function settleScroll(container: HTMLElement, target: HTMLElement, top: number): void {
+  let cancelled = false;
+  const cancel = () => { cancelled = true; };
+  const off = () => {
+    for (const ev of USER_SCROLL_EVENTS) { try { container.removeEventListener?.(ev, cancel); } catch { /* 무시 */ } }
+  };
+  for (const ev of USER_SCROLL_EVENTS) { try { container.addEventListener?.(ev, cancel, { passive: true }); } catch { /* 무시 */ } }
+  setTimeout(() => {
+    off();
+    try {
+      // 단계가 바뀌면 같은 패널 DOM 이 재사용될 수 있다 → 체크 줄(대상)이 아직 그 패널 안에 있을 때만
+      if (cancelled || container.isConnected === false || target.isConnected === false) return;
+      if (typeof container.contains === 'function' && !container.contains(target)) return;
+      if (Math.abs(container.scrollTop - top) > 4) container.scrollTop = top;
+    } catch { /* 무시 */ }
+  }, LEGAL_NUDGE_SETTLE_MS);
+}
+
 /**
  * 체크 줄로 데려간다: 패널 안에서 굴림(필요할 때만) → 테두리 깜빡임 → 체크 상자에 포커스(굴림 없이, 화면 읽기용).
  * 어떤 단계가 실패해도 조용히 넘어간다(첫 실행 화면을 절대 깨뜨리지 않는다).
@@ -75,8 +99,13 @@ export function nudgeLegalAck(
         cover,
       );
       if (top != null) {
-        if (typeof container.scrollTo === 'function') container.scrollTo({ top, behavior: reduced ? 'auto' : 'smooth' });
-        else container.scrollTop = top;
+        if (typeof container.scrollTo === 'function') {
+          container.scrollTo({ top, behavior: reduced ? 'auto' : 'smooth' });
+          // 화면 갱신이 굶는 기기(저가폰·뒤 화면 부하)에서는 부드러운 굴림이 멈추다시피 한다(운영 실측: 초당 2프레임 환경에서 1초에 16px)
+          // → 잠시 뒤 아직 못 갔으면 바로 놓는다(체크 줄이 반드시 보이게)
+          //   사용자가 그 사이 직접 만지면(터치·휠·포인터·키) 보정을 취소한다 — 사용자의 스크롤을 덮어쓰지 않는다. 패널이 사라졌으면(단계 전환) 아무것도 안 한다
+          if (!reduced) settleScroll(container, target, top);
+        } else container.scrollTop = top;
       }
     } else if (typeof target.scrollIntoView === 'function') {
       target.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
