@@ -23,6 +23,7 @@ import {
 
 import { withinImpliedDeadline, IMPLIED_REFRESH_BUDGET_MS, IMPLIED_SAVE_RESERVE_MS } from '@/lib/earnings/impliedDeadline';
 import { newBgCtx, runWithBg } from '@/lib/intrinioBackground';
+import { persistPackFreezes } from '@/services/frozenExpectedService';
 
 const TTL_SEC = 36 * 3600;
 /** 한 번에 읽는 종목 수 — readImpliedMoveRows 한 번 = 구조 mget(2키×N) + 필요 시 체인 mget(1키×N) */
@@ -121,5 +122,7 @@ export async function refreshImpliedPack(
   //   버리고 옛 묶음을 남기면 그 뒤 만기 값이 계속 보인다(관문 10311211 ①). 첫 만기 확인도 값도 없으면(읽기 실패) 저장하지 않는다.
   if (!impliedPackWorthSaving(pack, !!(prev && prev.v === 1 && prev.cells))) return { ok: false, ms: Date.now() - t0, withValue: 0, total: vals.length };
   const saved = await withinImpliedDeadline(() => setInCache(EARNINGS_IMPLIED_KEY, pack, TTL_SEC), deadlineMs).catch(() => false);
+  // [11/18] 고정 시각(기준 세션 마감)을 막 지난 발표 — 마감 «직전» 묶음(prev)의 칸을 «발표 전 예상» 고정 기록으로(없을 때만). 공급사 호출 0.
+  if (saved) await withinImpliedDeadline(() => persistPackFreezes(rows, prev, Date.now()), deadlineMs).catch(() => 0);
   return { ok: saved, ms: Date.now() - t0, withValue, total: vals.length, carried: vals.filter((c) => c.k === 1).length };
 }

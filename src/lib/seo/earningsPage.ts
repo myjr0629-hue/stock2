@@ -17,7 +17,8 @@
 import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
 import { EARNINGS_COMPANIES } from '@/lib/earnings/earningsCompanies';
 import { COMPANY_NAMES } from '@/lib/seo/earningsTicker';
-import { impliedForRow, type ImpliedCell } from '@/lib/earnings/earningsImplied';
+import { impliedForRow, impliedRowKey, type ImpliedCell } from '@/lib/earnings/earningsImplied';
+import { isFrozenTime, type FrozenExpected } from '@/lib/earnings/frozenExpected';
 import { scorecardPairOf, type ScorecardRow } from '@/lib/earnings/earningsScorecard';
 import { addDaysYmd, etWallToMs, kstOf, phaseOf, toLoc, type Loc, type Phase } from '@/lib/earningsWeek';
 import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
@@ -73,6 +74,8 @@ export interface EarningsPageSnapshot {
   recordsOk: boolean;
   /** 종목 → 채점 기록 원본(검사는 화면 시점에 scorecardPairOf 로) */
   records: Record<string, unknown[]>;
+  /** [11/18] «티커|발표일» → 발표 전 예상 고정값(고정 시각이 지난 위 행만 · lib/earnings/frozenExpected) — 없으면 지금 규칙 */
+  frozen?: Record<string, FrozenExpected>;
 }
 
 export const emptySnapshot = (at = Date.now()): EarningsPageSnapshot => ({
@@ -224,7 +227,11 @@ export function buildEarningsPageView(ticker: string, snap: EarningsPageSnapshot
   const next = n && phase ? { ...n, phase } : null;
   const following = phase === 'done' ? rows[1] ?? null : null;
   let implied: EpImplied | null = null;
-  if (n) {
+  // [11/18] 고정 시각(기준 세션 마감)이 지난 발표는 «발표 전 예상» 고정값 하나 — 발표 알림·앱 캘린더·채점표와 같은 숫자
+  const fz = n && isFrozenTime(n, nowMs) ? snap.frozen?.[impliedRowKey(n.ticker, n.date)] ?? null : null;
+  if (fz) {
+    implied = { pct: fz.pct, basis: fz.method === 'event-split' ? 'event-split' : 'straddle', expiry: fz.expiry ?? null, session: fz.session, quote: fz.basis ?? null };
+  } else if (n) {
     // 나온 발표는 «발표 직전» 시각으로 같은 칸·같은 검사(impliedForRow)를 한다 — 값은 만들지 않고 발표 전 마지막 값을 «발표 전 예상»으로만 보인다
     const rel = phase === 'done' ? releaseMsOf(n) : null;
     const at = rel != null ? Math.min(nowMs, rel - 1) : nowMs;

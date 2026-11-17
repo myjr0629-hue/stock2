@@ -20,8 +20,11 @@ import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
 import { ec2Kv, envMode as signalEnvMode, upstashStore } from '@/services/signalAlertsService';
 import {
   FLASH_KEYS, flashEnvMode, quoteFromSnapshot, resolveFlashMode, runEarningsFlash,
-  type FlashDeps, type FlashOpts, type FlashReaders, type FlashReport, type FlashReserve, type ImpliedRowLike,
+  type ExpectedSnap, type FlashDeps, type FlashEntry, type FlashOpts, type FlashReaders, type FlashReport, type FlashReserve, type ImpliedRowLike,
 } from '@/lib/signals/earningsFlash';
+import { setInCache } from '@/services/redisClient';
+import { FROZEN_EXPECTED_TTL_SEC, frozenExpectedKey } from '@/lib/earnings/frozenExpected';
+import { frozenFromFlashSnap } from '@/lib/earnings/frozenExpectedFlash';
 import { SIG_KEYS } from '@/lib/signals/plan';
 import type { SigMode } from '@/lib/signals/run';
 
@@ -75,8 +78,14 @@ export function flashCallsPerQuote(env: Record<string, string | undefined> = pro
   return 3 * Math.max(2, Number.isFinite(a) ? Math.ceil(a) : 2);
 }
 
+/** [11/18] 뜬 값·고정 값 → «발표 전 예상» 고정 기록(캘린더·채점표·종목 페이지가 발표 뒤 이 숫자를 보인다 — 알림과 같은 숫자) */
+export async function keepFlashExpected(e: FlashEntry, snap: ExpectedSnap): Promise<boolean> {
+  const f = frozenFromFlashSnap(e, snap);
+  return f ? setInCache(frozenExpectedKey(e.ticker, e.date), f, FROZEN_EXPECTED_TTL_SEC) : false;
+}
+
 export function prodFlashDeps(): FlashDeps {
-  return { store: upstashStore(), kv: ec2Kv, readers: prodFlashReaders, sender: { send: sendSignalPushes }, reserve: flashReserve() };
+  return { store: upstashStore(), kv: ec2Kv, readers: prodFlashReaders, sender: { send: sendSignalPushes }, reserve: flashReserve(), keepExpected: keepFlashExpected };
 }
 
 export async function runEarningsFlashProd(o: Omit<FlashOpts, 'now' | 'list' | 'envMode' | 'signalEnvMode'> & { now?: number }): Promise<FlashReport> {

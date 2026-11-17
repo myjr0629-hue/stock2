@@ -62,9 +62,11 @@ export function watchEarningsCalendar<Row extends CalendarRow>(onRows: (rows: Ro
     const upcoming = cached.rows.filter((row) => row.date >= todayET);
     if (upcoming.length) {
       // 원본 행·생성 시각은 보존하고, 복원하는 값만 현재 날짜·만기 기준으로 검증한다.
+      // 서버가 정한 «발표 전 예상» 고정값(frozen — 11/18)·채점값(reported)은 발표 뒤에도 그대로 둔다(만기·발표 완료로 지우지 않는다).
       onRows(upcoming.map((row) => row.implied == null ? row
-        : { ...row, implied: (row.implied as RowImplied & { reported?: boolean }).reported === true
-          && phaseOf(row.date, row.hour || '', nowMs) === 'done' ? row.implied : validateRowImplied(row, row.implied, nowMs) }) as Row[], cached.generatedAt);
+        : { ...row, implied: ((row.implied as RowImplied & { reported?: boolean; frozen?: boolean }).reported === true
+          && phaseOf(row.date, row.hour || '', nowMs) === 'done') || (row.implied as RowImplied & { frozen?: boolean }).frozen === true
+          ? row.implied : validateRowImplied(row, row.implied, nowMs) }) as Row[], cached.generatedAt);
     }
   }
 

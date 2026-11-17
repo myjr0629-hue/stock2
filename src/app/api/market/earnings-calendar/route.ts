@@ -10,7 +10,12 @@ import { NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getMarketEarningsCalendar, type EarningsCalendarResult } from '@/services/earningsCalendarService';
 import { attachBriefs, briefEntryKey, briefNeedsFill, EARNINGS_BRIEF_KEY, type BriefPack } from '@/lib/earnings/earningsBrief';
-import { attachImplied, impliedPackStale } from '@/lib/earnings/earningsImplied';
+import { attachImplied, impliedPackStale, impliedRowKey, type ImpliedPack } from '@/lib/earnings/earningsImplied';
+import { rowImpliedFromFrozen } from '@/lib/earnings/frozenExpected';
+import type { CalendarImplied } from '@/lib/earnings/calendarReportedImplied';
+import { readFrozenExpected } from '@/services/frozenExpectedService';
+import { addDaysYmd, phaseOf } from '@/lib/earningsWeek';
+import { etDateOf } from '@/lib/marketCalendar';
 import { readImpliedPack, refreshImpliedPack } from '@/services/earningsImpliedService';
 import { attachCalendarOnlyImplied, calendarOnlyAddition } from '@/services/earningsCalendarOnlyService';
 import { attachCalendarReportedImplied } from '@/services/calendarReportedImpliedService';
@@ -83,14 +88,32 @@ async function triggerBriefFill(reqUrl: string): Promise<void> {
  * ★ [2026-10-12] 앱 실적 화면의 «옵션 반영 변동폭» — 웹 /earnings-week 와 같은 문(readImpliedMoveRows)으로 묶어 둔 작은 묶음을 붙인다.
  *   묶음이 낡았으면(장중 5분·그 밖 60분·날짜 바뀜) 응답 «뒤»에 다시 만든다. 사용자 경로는 묶음 GET 한 번.
  */
-async function attachEarningsImplied(rows: any[]): Promise<{ rows: any[]; count: number; at: number | null; stale: boolean }> {
+async function attachEarningsImplied(rows: any[]): Promise<{ rows: any[]; count: number; at: number | null; stale: boolean; pack: ImpliedPack | null }> {
     try {
         const pack = await readImpliedPack();
         const m = attachImplied(rows, pack);
-        return { rows: m.rows, count: m.count, at: pack?.at ?? null, stale: impliedPackStale(pack) };
+        return { rows: m.rows, count: m.count, at: pack?.at ?? null, stale: impliedPackStale(pack), pack };
     } catch {
-        return { rows: rows.map((r) => ({ ...r, implied: null })), count: 0, at: null, stale: true };
+        return { rows: rows.map((r) => ({ ...r, implied: null })), count: 0, at: null, stale: true, pack: null };
     }
+}
+
+/**
+ * ★ [2026-11-18] «발표 전 예상 변동폭» 고정 — 기준 세션(장후 = 발표일 · 장전 = 직전 거래일) 정규장 마감이 지난 발표는
+ *   묶음 칸(계속 다시 만든다 — NVDA 11/17 마감 뒤 ±8.6 → ±8.2) 대신 고정값 하나(발표 알림이 보낸 ±8.4 등)를 보인다.
+ *   규칙·우선순위: lib/earnings/frozenExpected.ts · 읽기: services/frozenExpectedService.readFrozenExpected.
+ *   고정 전 발표·시각 미정 발표·고정값을 못 찾은 발표는 지금 그대로. 발표 완료 행의 규칙(기본 = 비움 · 캘린더 = 채점표)은 그대로이고,
+ *   캘린더(scope=calendar)의 채점 전 완료 행만 고정값을 보인다.
+ */
+async function attachFrozenImplied(rows: any[], pack: ImpliedPack | null, calendarScope: boolean, nowMs: number): Promise<any[]> {
+    const from = addDaysYmd(etDateOf(nowMs), -8);
+    const frozen = await readFrozenExpected(rows.filter((x: any) => x?.ticker && typeof x.date === 'string' && x.date >= from), nowMs, { pack, persist: true }).catch(() => new Map());
+    const byKey = new Map<string, CalendarImplied>([...frozen].map(([k, f]) => [k, rowImpliedFromFrozen(f)]));
+    const out = byKey.size ? rows.map((x: any) => {
+        const f = byKey.get(impliedRowKey(x.ticker, x.date));
+        return f && phaseOf(x.date, x.hour || '', nowMs) !== 'done' ? { ...x, implied: f } : x;
+    }) : rows;
+    return calendarScope ? attachCalendarReportedImplied(out, nowMs, byKey) : out;
 }
 
 export async function GET(req: Request) {
@@ -112,7 +135,7 @@ export async function GET(req: Request) {
     const [m, im, ex] = await Promise.all([attachEarningsBrief(add.rows, raw), attachEarningsImplied(raw), attachCalendarOnlyImplied(add.extra)]);
     const impliedByKey = new Map([...im.rows, ...ex.rows].map((x: any) => [`${x.ticker}|${x.date}`, x.implied ?? null]));
     const baseRows = m.rows.map((x: any) => ({ ...x, implied: impliedByKey.get(`${x.ticker}|${x.date}`) ?? null }));
-    const rows = calendarScope ? await attachCalendarReportedImplied(baseRows) : baseRows;
+    const rows = await attachFrozenImplied(baseRows, im.pack, calendarScope, Date.now());
     if (im.stale && raw.length) {
       afterSafe(async () => {
         try {

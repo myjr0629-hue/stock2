@@ -13,6 +13,8 @@ import { getFromCache, mgetFromCacheStrict } from '@/services/redisClient';
 import { EARNINGS_CALENDAR_CACHE_KEY, EARNINGS_CALENDAR_LAST_GOOD_KEY, withConfirmedDates, type EarningsCalendarPayload } from '@/services/earningsCalendarService';
 import { readImpliedPack } from '@/services/earningsImpliedService';
 import { impliedRowKey, type ImpliedCell } from '@/lib/earnings/earningsImplied';
+import { applyFrozenToRecord, type FrozenExpected } from '@/lib/earnings/frozenExpected';
+import { readFrozenExpected, readFrozenRecords } from '@/services/frozenExpectedService';
 import { actualsKey, parseRecord } from '@/lib/earnings/earningsActuals';
 import { emptySnapshot, nextByTicker, pastConfirmedEntries, type EarningsPageSnapshot } from '@/lib/seo/earningsPage';
 
@@ -42,12 +44,14 @@ async function readRecords(nowMs: number): Promise<{ ok: boolean; records: Recor
   const entries = pastConfirmedEntries(nowMs);
   const records: Record<string, unknown[]> = {};
   let ok = true;
+  // [11/18] 채점 기록의 예상값에 «발표 전 예상» 고정값을 입힌다(채점표 API 와 같은 규칙 — applyFrozenToRecord). 못 읽으면 기록 그대로.
+  const frozen = await readFrozenRecords(entries, nowMs).catch(() => new Map<string, FrozenExpected>());
   for (let i = 0; i < entries.length; i += MGET_CHUNK) {
     const part = entries.slice(i, i + MGET_CHUNK);
     try {
       const values = await mgetFromCacheStrict<unknown>(part.map((e) => actualsKey(e.ticker, e.date)));
       part.forEach((e, j) => {
-        const v = values[j];
+        const v = applyFrozenToRecord(values[j], frozen.get(impliedRowKey(e.ticker, e.date)));
         // 채점표 API(readEarningsScorecard)와 같은 조건 — 기록의 종목·발표일·장전/장후가 지금의 회사 공지와 같을 때만
         const r = parseRecord(v);
         if (!r || r.ticker !== e.ticker || r.date !== e.date || r.hour !== e.hour) return;
@@ -84,6 +88,12 @@ async function build(nowMs: number): Promise<EarningsPageSnapshot> {
     }
     snap.cells = cells;
   }
+  // [11/18] 고정 시각이 지난 «다음 발표» 행 — 발표 전 예상 고정값(읽기만 · 쓰기 0)
+  try {
+    const evs = Object.values(snap.next).flat();
+    const fz = await readFrozenExpected(evs, nowMs, { pack: pack ?? null, persist: false });
+    snap.frozen = Object.fromEntries(fz);
+  } catch { /* 없음 — 지금 규칙 */ }
   // 한 묶음이라도 못 읽었으면 기록 전체를 쓰지 않는다(일부만으로 횟수·범위 밖 집계 금지 — 화면은 «읽지 못함»)
   snap.recordsOk = rec.ok;
   snap.records = rec.ok ? rec.records : {};

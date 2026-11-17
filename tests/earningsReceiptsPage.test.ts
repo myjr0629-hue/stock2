@@ -190,7 +190,7 @@ const test = async (name: string, fn: () => unknown) => {
       'src/app/[locale]/app-view/earnings/page.tsx',
       'src/app/[locale]/receipts/earnings/page.tsx', 'src/lib/earnings/earningsReceiptsCopy.ts',
       'src/app/[locale]/receipts/earnings/og/route.tsx',
-      'src/services/earningsScorecardService.ts',
+      // [11/18] earningsScorecardService.ts 는 «발표 전 예상» 고정값 덧입히기로 바뀌었다(대표 승인 데이터 수리) — tests/frozenExpected.test.ts 가 지킨다.
       'src/app/api/earnings/scorecard/route.ts', 'src/app/robots.ts',
     ]) assert.equal(readFileSync(p, 'utf8'), execFileSync('git', ['show', `0b736fd67:${p}`], { encoding: 'utf8' }), p);
   });

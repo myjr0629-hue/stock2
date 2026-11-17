@@ -108,7 +108,7 @@ export interface FlashEntry {
 }
 
 /** 떠 둔 예상값 */
-export interface ExpectedSnap { pct: number; expiry: string | null; session: string; asOf: number; capturedAt: number; src: 'snap' | 'actuals' }
+export interface ExpectedSnap { pct: number; expiry: string | null; session: string; asOf: number; capturedAt: number; src: 'snap' | 'actuals'; basis?: 'live' | 'eod' }
 
 /** 읽은 시세(공급사 스냅숏에서 필요한 것만) */
 export interface FlashQuote {
@@ -265,7 +265,7 @@ export function snapFromImplied(e: FlashEntry, row: ImpliedRowLike | null | unde
   if (row.basis !== 'live' && row.basis !== 'eod') return { ok: false, reason: `basis_${row.basis ?? 'none'}` };
   if (!expiryOk(e, row.expiry)) return { ok: false, reason: `expiry_${row.expiry ?? 'none'}` };
   if (!fin(row.asOf) || row.asOf > now + 60_000 || now - row.asOf > FLASH_CFG.captureMaxAgeMs) return { ok: false, reason: 'stale_implied' };
-  return { ok: true, snap: { pct: Math.round(row.impliedMovePct * 10) / 10, expiry: row.expiry, session: row.session!, asOf: row.asOf, capturedAt: now, src: 'snap' } };
+  return { ok: true, snap: { pct: Math.round(row.impliedMovePct * 10) / 10, expiry: row.expiry, session: row.session!, asOf: row.asOf, capturedAt: now, src: 'snap', basis: row.basis } };
 }
 
 /** 저장된 떠 둔 값이 이 발표의 «발표 전» 값인가 */
@@ -283,7 +283,8 @@ export function snapUsable(e: FlashEntry, raw: unknown): ExpectedSnap | null {
     const close = etWallToMs(baseSessionOf(e), hhmm(sessionCloseMinutes(baseSessionOf(e))));
     if (close == null || x.capturedAt >= close + 60_000) return null;
   }
-  return { pct: x.pct, expiry: x.expiry as string, session: x.session as string, asOf: x.asOf, capturedAt: x.capturedAt, src: 'snap' };
+  return { pct: x.pct, expiry: x.expiry as string, session: x.session as string, asOf: x.asOf, capturedAt: x.capturedAt, src: 'snap',
+    ...(x.basis === 'live' || x.basis === 'eod' ? { basis: x.basis } : {}) };
 }
 
 /**
@@ -298,7 +299,7 @@ export function snapFromActuals(e: FlashEntry, raw: unknown): ExpectedSnap | nul
   if (x.session !== baseSessionOf(e) || x.basis !== 'eod' || !expiryOk(e, x.expiry)) return null;
   if (!(fin(x.pct) && x.pct > 0)) return null;
   const pct = Math.round(x.pct * 10) / 10;
-  return { pct, expiry: x.expiry, session: x.session, asOf: x.capturedAt, capturedAt: x.capturedAt, src: 'actuals' };
+  return { pct, expiry: x.expiry, session: x.session, asOf: x.capturedAt, capturedAt: x.capturedAt, src: 'actuals', basis: 'eod' };
 }
 
 /** 시세 → 발표 뒤 잠정 반응(아니면 이유) */
@@ -422,6 +423,11 @@ export interface FlashDeps {
   sender: SigSender | null;
   reserve: FlashReserve | null;
   log?: (m: string) => void;
+  /**
+   * [11/18] 뜬 값·고정에 쓴 값을 «발표 전 예상» 고정 기록(earnings:expected:frozen:v1 — 캘린더·채점표·종목 페이지가 읽는다)으로 적는다.
+   *   실패해도 알림 흐름은 그대로(던지지 않게 감싼다). 미리보기는 부르지 않는다.
+   */
+  keepExpected?: (e: FlashEntry, snap: ExpectedSnap) => Promise<unknown>;
 }
 export interface FlashOpts {
   now: number;
@@ -522,6 +528,7 @@ export async function runEarningsFlash(deps: FlashDeps, o: FlashOpts): Promise<F
           continue;
         }
         if (!preview) await store.set(FLASH_KEYS.exp(e.ticker, e.date), JSON.stringify(r.snap), FLASH_CFG.expTtlSec).catch(() => {});
+        if (!preview && deps.keepExpected) await deps.keepExpected(e, r.snap).catch(() => {});
         report.captured.push(`${idOf(e)}:${r.snap.pct}`);
       }
     }
@@ -581,6 +588,7 @@ export async function runEarningsFlash(deps: FlashDeps, o: FlashOpts): Promise<F
             events.set(idOf(e), again);
             continue;
           }
+          if (deps.keepExpected) await deps.keepExpected(e, exp).catch(() => {});
           log(`[Cron/EarningsFlash] 고정 ${idOf(e)} 예상 ±${exp.pct}%(${exp.src}) · ${e.hour === 'amc' ? '시간외' : '장 초반'} ${j.pct}% @ ${new Date(j.atMs).toISOString()}`);
         }
         events.set(idOf(e), ev);

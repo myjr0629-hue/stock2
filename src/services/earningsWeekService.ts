@@ -28,6 +28,9 @@ import { getFromCache } from '@/services/redisClient';
 import { readActualRecords, recordMapKey } from '@/services/earningsActualsService';
 import type { ActualMove, ExpectedSnap } from '@/lib/earnings/earningsActuals';
 import type { EarningsMoveMethod } from '@/lib/earnings/eventMove';
+import { impliedRowKey } from '@/lib/earnings/earningsImplied';
+import type { FrozenExpected } from '@/lib/earnings/frozenExpected';
+import { readFrozenExpected } from '@/services/frozenExpectedService';
 
 export interface EarningsWeekRow {
   method?: EarningsMoveMethod | null;
@@ -168,6 +171,8 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
     readActualRecords(entries),   // 던지지 않는다(실패 = 빈 Map)
     opts.calendarOnly ? calendarOnlyWeekRows(range, today, list, opts.calendarOnlyList ?? CALENDAR_ONLY_EARNINGS) : Promise.resolve({ rows: [] as EarningsWeekRow[], verifiedAt: '' }),
   ]);
+  // [11/18] 고정 시각(기준 세션 마감)이 지난 발표 — «발표 전 예상» 고정값 하나(발표 알림·앱 캘린더·채점표와 같은 숫자). 읽기만(쓰기 0).
+  const frozen = await readFrozenExpected(entries, nowMs, { persist: false }).catch(() => new Map<string, FrozenExpected>());
   if (!opts.readOnly && lv?.noSnapshot?.length) void warmMissingStructure(lv.noSnapshot).catch(() => []);
 
   const baseRows: EarningsWeekRow[] = entries.map((e, i) => {
@@ -176,15 +181,25 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
     // 만기가 지난 판본은 쓰지 않는다(다른 SEO 문과 같다) · 표시 가격은 넘기지 않는다(재선택 → 갱신 예약을 부르지 않게)
     const dl = sl && sl.levelsExpiration && sl.levelsExpiration >= today ? displayLevels(sl, null, 'web/earnings-week') : null;
     const ar = actuals.get(recordMapKey(e.ticker, e.date));
+    const fz = frozen.get(impliedRowKey(e.ticker, e.date)) ?? null;
+    const preDone = phaseOf(e.date, e.hour, nowMs) !== 'done';
+    const expectedAtReport = ar?.expected && fz
+      ? { ...ar.expected, pct: fz.pct, basis: fz.basis ?? ar.expected.basis, expiry: fz.expiry ?? ar.expected.expiry, session: fz.session }
+      : ar?.expected ?? null;
     const maxPain = dl?.maxPain ?? postReportMaxPain(rawStructures[i], dl, ar?.expected, today, { date: e.date, reported: phaseOf(e.date, e.hour, nowMs) === 'done' });
     return {
       ticker: e.ticker, date: e.date, hour: e.hour, etTime: e.etTime ?? null,
-      impliedMovePct: im?.impliedMovePct ?? null,
-      method: im?.method ?? null,
-      ...(im?.eventMovePct != null ? { eventMovePct: im.eventMovePct } : {}),
-      impliedExpiry: im?.expiry ?? null,
-      impliedBasis: im?.basis ?? null,
-      impliedSession: im?.session ?? null,
+      ...(fz && preDone ? {
+        impliedMovePct: fz.pct, method: fz.method ?? im?.method ?? null, ...(fz.method === 'event-split' ? { eventMovePct: fz.pct } : {}),
+        impliedExpiry: fz.expiry ?? im?.expiry ?? null, impliedBasis: fz.basis, impliedSession: fz.session,
+      } : {
+        impliedMovePct: im?.impliedMovePct ?? null,
+        method: im?.method ?? null,
+        ...(im?.eventMovePct != null ? { eventMovePct: im.eventMovePct } : {}),
+        impliedExpiry: im?.expiry ?? null,
+        impliedBasis: im?.basis ?? null,
+        impliedSession: im?.session ?? null,
+      }),
       impliedAsOf: im?.asOf ?? null,
       straddle: im?.straddle ?? null,
       strike: im?.strike ?? null,
@@ -196,7 +211,7 @@ export async function buildEarningsWeek(nowMs: number = Date.now(), list: readon
       levelsExpiry: dl?.levelsExpiration ?? null,
       levelsChainDate: dl?.levelsChainDate ?? null,
       levelsAsOf: dl && sl?.levelsAsOf ? Number(sl.levelsAsOf) : null,
-      expectedAtReport: ar?.expected ?? null,
+      expectedAtReport,
       actual: ar?.actual ?? null,
     };
   });
