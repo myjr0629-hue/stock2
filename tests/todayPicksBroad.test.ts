@@ -233,6 +233,12 @@ t('세션(조기판 03:30 ET): 자정 뒤 스냅샷은 버리고 EOD(마지막�
     assert.doesNotMatch(text, /오늘|today|今日|本日/i, text);
     assert.match(copy.asOfText(f, x.asOf, l), /11\/18/);
   }
+  // 무버 목록(거래대금 상위 30 · 등락률 상위 30)에 못 드는 대형주 큰 폭 하락도 같은 세션 EOD 전 종목에서 후보가 된다
+  const bigFlat: Array<[string, number, number, number]> = Array.from({ length: 35 }, (_, i) => [`BG${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))}`, 100, 0.1, 5e7]);
+  const smallCrash: Array<[string, number, number, number]> = Array.from({ length: 35 }, (_, i) => [`SC${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))}`, 4, -30, 5e6]);
+  eodMock = eodOf('2026-11-18', [['CRM', 220, -9.4, 1.2e7], ...bigFlat, ...smallCrash, ...filler(200)]);
+  const wide = await svc.loadMovers(PRE);
+  assert.deepEqual(wide.rows.map((r) => r.ticker), ['CRM'], 'CRM −9.4%·$2.6B — 목록 밖이지만 같은 세션 EOD 에 있다');
   eodMock = eodOf('2026-11-17', [...filler(260)]);
   const lag = await svc.loadMovers(PRE);
   assert.deepEqual(lag.rows, [], 'EOD 가 전날치(T+1)면 자정 뒤 스냅샷도 못 쓰니 0');
@@ -290,6 +296,12 @@ t('AI 가드(큰 폭 등락): 통과 예 · 옵션 용어·«오늘»·원인 �
   assert.ok(bad('실적 발표 뒤 첫 정규장에서 크게 내렸습니다').reasons.some((r) => r.includes('dir:down')));
   assert.ok(bad('실적 뒤 옵션 거래가 크게 늘며 올랐습니다').reasons.some((r) => r.includes('jargon')));
   assert.ok(bad('실적 발표 뒤 7.5% 올랐습니다').reasons.some((r) => r.includes('number')));
+  // 보도 헤드라인이 AI(주제어)를 담을 때만 그 낱말 허용(11/18 실모델) — 아니면 옛 금지어 그대로
+  const ai = JSON.stringify({ ko: '인공지능 기업 인수 계획 보도가 있었습니다', en: 'A report said it plans to buy an AI firm', ja: 'AI企業の買収計画が報じられました' });
+  const withAi = MV({ changePct: -5.8, news: { headline: 'Workday announces intent to acquire Honeydew for semantic layer AI and business intelligence', publishedAt: '2026-11-18T07:00:00Z' } });
+  assert.ok(!v2.checkPickV2Why(ai, 'WDAY', withAi, 2026, '2026-11-18').reasons.some((r) => r.includes('forbidden:AI')));
+  const noAi = MV({ changePct: -5.8, news: { headline: 'Workday announces intent to acquire Honeydew', publishedAt: '2026-11-18T07:00:00Z' } });
+  assert.ok(v2.checkPickV2Why(ai, 'WDAY', noAi, 2026, '2026-11-18').reasons.some((r) => r.includes('forbidden:AI')));
   assert.equal(v2.systemFor(f), v2.TP_V2_MOVER_SYSTEM);
   assert.equal(v2.systemFor({ kind: 'darkpool', date: '2026-11-17', pct: 50, ratio: 2, volume: 2e6, marketAvg: 45 }), v2.TP_V2_SYSTEM, '기존 종류의 지시문은 그대로');
   const p = v2.buildPickV2Prompt('NVDA', f, '2026-11-18');
