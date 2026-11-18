@@ -16,17 +16,19 @@ const fs = require('fs');
 const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
-const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'onb_nudge', 'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', 'cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other', 'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', 'trial_off_plans'];   // onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
-const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'onb_dflt', 'onb_dkeep', 'onb_dedit', 'trial_notice', 'trial_off', 'trial_off_early', 'push_trial', 'push_announce', 'trial_expired', 'trial_expired_offer', 'gate_first', 'ad_nofill', 'first_run', 'trial_announce'];
+const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'onb_nudge', 'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', 'cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other', 'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', 'trial_off_plans', 'trial_push_shown', 'trial_push_accept', 'trial_push_os_granted', 'trial_push_os_denied', 'trial_push_dismiss'];   // onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
+const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'onb_dflt', 'onb_dkeep', 'onb_dedit', 'trial_notice', 'trial_off', 'trial_off_early', 'push_trial', 'push_announce', 'trial_expired', 'trial_expired_offer', 'gate_first', 'ad_nofill', 'first_run', 'trial_announce', 'tpush_ai', 'tpush_day1'];
 // 푸시 탭·앱 활성(2026-10-12)은 구독 퍼널이 아니다 — 이 표에서 빼고 scripts/mkt-push.js 가 따로 보여 준다
 const ONB_STAGES = ['onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'onb_nudge'];   // onb_nudge = 법적 고지 회색 [계속] 누름(11/17)
 const ONB_SRCS = ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'onb_dflt', 'onb_dkeep', 'onb_dedit'];
 const TRIAL_STAGES = ['trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze'];
 const TRIAL_OFF_STAGES = ['trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', 'trial_off_plans'];
+const TRIAL_PUSH_STAGES = ['trial_push_shown', 'trial_push_accept', 'trial_push_os_granted', 'trial_push_os_denied', 'trial_push_dismiss'];   // ★11/18 체험자 알림 다시 묻기(출처 tpush_ai·tpush_day1)
+const TRIAL_PUSH_SRCS = ['tpush_ai', 'tpush_day1'];
 const CANCEL_REASON_STAGES = ['cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other'];
-const NON_FUNNEL_STAGES = new Set([...TRIAL_STAGES, ...TRIAL_OFF_STAGES, ...CANCEL_REASON_STAGES, 'push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES]);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
+const NON_FUNNEL_STAGES = new Set([...TRIAL_STAGES, ...TRIAL_OFF_STAGES, ...TRIAL_PUSH_STAGES, ...CANCEL_REASON_STAGES, 'push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES]);   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
 // ★11/11 'trial_off' 는 표에 남긴다 — 체험 종료 안내가 연 페이월의 open·cta·buy_* 가 이 출처로 온다(안내 자체 단계는 NON_FUNNEL_STAGES 로 빠진다)
-const NON_FUNNEL_SRCS = new Set(['trial_notice', 'push_trial', 'push_announce', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', ...ONB_SRCS]);
+const NON_FUNNEL_SRCS = new Set([...TRIAL_PUSH_SRCS, 'trial_notice', 'push_trial', 'push_announce', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', ...ONB_SRCS]);
 const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
 const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
 const PLATS = ['ios', 'android', 'web'];
@@ -217,6 +219,19 @@ async function main() {
         counts[stage] = values.reduce((sum, value) => sum + (Number(value) || 0), 0);
       }
       console.log(`${platform}  표시 ${counts.trial_off_show} · 요금제 탭 ${counts.trial_off_plans} · 관리 탭 ${counts.trial_off_manage} · 닫기 ${counts.trial_off_close} · 만료 ${counts.trial_off_expired}`);
+    }
+  }
+
+  // ★11/18 체험자 알림 다시 묻기 — 시트 보임 → [알림 켜기] → OS 허용·거절(밀어 닫음·모름은 켜기 − 허용 − 거절) · [나중에]
+  console.log('\n── 체험자 알림 다시 묻기 (횟수 · 기기당 1회 · 유료 전환 아님) ──');
+  for (const src of TRIAL_PUSH_SRCS) {
+    for (const platform of ['ios', 'android']) {
+      const counts = {};
+      for (const stage of TRIAL_PUSH_STAGES) {
+        const values = await mget(dates.map((day) => `${ns}:${stage}:${src}:${platform}:${day}`), KEY, miss);
+        counts[stage] = values.reduce((sum, value) => sum + (Number(value) || 0), 0);
+      }
+      console.log(`${src === 'tpush_ai' ? '첫 AI 한 줄' : '다음 날 실행'} ${platform}  보임 ${counts.trial_push_shown} · 켜기 ${counts.trial_push_accept} (${pct(counts.trial_push_accept, counts.trial_push_shown)}) · OS 허용 ${counts.trial_push_os_granted} · OS 거절 ${counts.trial_push_os_denied} · 나중에 ${counts.trial_push_dismiss}`);
     }
   }
 

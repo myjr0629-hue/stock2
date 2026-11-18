@@ -14,6 +14,7 @@ import { CouponGuideHost } from '@/components/app/CouponGuideHost';
 import { GiftAnnounceHost } from '@/components/app/GiftAnnounceHost';
 import { InviteHost } from '@/components/app/InviteHost';
 import { TrialAnnounceHost } from '@/components/app/TrialAnnounceHost';
+import { TrialPushOptInHost } from '@/components/app/TrialPushOptInHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { reportPushPath, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
@@ -329,6 +330,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <InviteHost />
       {/* ★11/16 밤 기존 무료 사용자 «새로 생긴 PRO 7일 무료 체험» 1회(앱 안 시트만 · 체험 자격·이력 0 확인 · 다른 안내와 같은 날 겹치지 않게) — lib/app/trialAnnounce */}
       <TrialAnnounceHost />
+      {/* ★11/18 체험자 알림 권한 다시 묻기 — 체험 첫 AI 한 줄(또는 다음 날 첫 실행)에 기기당 1회 · OS 권한 미결정만 — lib/app/trialPushOptIn */}
+      <TrialPushOptInHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>

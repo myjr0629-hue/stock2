@@ -45,6 +45,7 @@ import { useWatchlistAiLines, firstSeen } from '@/components/app/watchlist/useWa
 import { InviteShareButton } from '@/components/app/InviteShareButton';
 import { aiLineState, fillAiLine, liveInsight, type AiLineEntry } from '@/lib/app/watchlistAiLine';
 import { SessionErrorMark } from '@/components/app/SessionErrorMark';
+import { noteTrialValueMoment, WL_AI_ATTR } from '@/lib/app/trialPushOptIn';
 
 const EditList = dynamic(() => import('./EditList'), { ssr: false });
 const TickerSearchOverlay = dynamic(
@@ -359,6 +360,8 @@ function WatchlistInner() {
     if (!aiShownKey) return;
     for (const x of aiShownKey.split(',')) if (firstSeen(x)) trackWatchlist('wl_ai_seen', { t: x });
   }, [aiShownKey]);
+  // ★11/18 실제 종목의 AI 한 줄 = 체험 «첫 가치 순간» — 알림 다시 묻기 판정기에 알린다(화면 안에 그려졌는지는 판정기가 표식 칸으로 본다 · lib/app/trialPushOptIn)
+  useEffect(() => { if (aiShownKey && !empty) noteTrialValueMoment(); }, [aiShownKey, empty]);
 
   const sorted = useMemo(() => {
     const idx = new Map(wl.tickers.map((x, i) => [x, i]));
@@ -530,7 +533,7 @@ function WatchlistInner() {
         </div>
         {/* AI 한 줄 — 칩과 같은 때(사실이 정해진 뒤)에 펼쳐진다 · 값이 없으면 줄 자체가 없다 · 앞의 «AI» 표식 = AI 생성 고지 */}
         {!factsWait && r.aiText && (
-          <div className={p.aiw}>
+          <div className={p.aiw} {...(interactive ? { [WL_AI_ATTR]: '' } : {})}>
             {/* ★2026-10-14 공유 카드 단추 — «✦AI» 표식 바로 아래 칸(둘째 줄 왼쪽, 글이 앉지 않는 자리)에 작게. 글 칸은 그대로라 줄 수·잘림이 바뀌지 않는다. 행 «형제» 단추(버튼 안에 버튼 없음) */}
             {interactive && <InviteShareButton kind="line" ticker={r.t} line={r.aiText} locale={loc} className={p.aiShare} />}
             {/* 칩 줄과 해석 줄을 한 칸에 — 펼침 애니메이션(grid 0fr→1fr)이 두 줄을 함께 펼친다(해석 줄만 먼저 보이며 칩 줄이 잘려 보이지 않게) */}

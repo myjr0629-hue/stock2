@@ -338,14 +338,16 @@ export function FirstRunValueStep({ loc, active, stepLabel, onFinish }: {
  * 알림 단계 — «이런 알림이 옵니다»: 실제 최신 모닝 푸시 본문(AI 한 줄)을 미리 보여 주고, 큰 주 버튼 [알림 받기]가 바로 OS 권한 창을 부른다.
  * [나중에]는 작은 글자 링크(권한 창을 열지 않는다). 거절·나중에여도 앱 사용에 지장이 없다.
  */
-export function FirstRunNotifStep({ loc, stepLabel, busy, onAllow, onLater }: {
+export function FirstRunNotifStep({ loc, stepLabel, busy, onAllow, onLater, copy }: {
   loc: WlLocale;
   stepLabel: string;
   busy: boolean;
   onAllow: () => void;
   onLater: () => void;
+  /** ★11/18 체험자 알림 다시 묻기(TrialPushOptInSheet)만 — 제목·한 줄·버튼 둘을 바꾼다. 없으면 첫 실행 문구 그대로 */
+  copy?: { title: string; subtitle: string; allow: string; later: string };
 }) {
-  const t = firstRunCopy(loc).notif;
+  const t = copy ? { ...firstRunCopy(loc).notif, ...copy } : firstRunCopy(loc).notif;
   const preview = usePushPreview(loc, true);
   const morning = t.rows[0];
   const closing = t.rows[1];

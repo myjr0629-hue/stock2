@@ -151,7 +151,7 @@ const COPY: Record<string, OnboardingCopy> = {
  * 돌려주는 값: 'granted' · 'denied' · 'na'(네이티브가 아니거나 플러그인이 없다) — 계측(onb_perm)에만 쓴다.
  * (finish() 안에 있던 코드를 그대로 옮겼다 — 동작은 같다.)
  */
-async function requestPushAndRegister(): Promise<PushResult> {
+export async function requestPushAndRegister(): Promise<PushResult> {
   let result: PushResult = 'na';
   // Request push notification permissions (native only)
   try {
