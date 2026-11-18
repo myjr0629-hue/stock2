@@ -340,9 +340,10 @@ t('규칙 문장(큰 폭 등락·넓힌 실적): 3개 언어 금지어·예측�
 });
 t('AI 가드(큰 폭 등락): 통과 예 · 옵션 용어·«오늘»·원인 단정·방향 뒤집기·사실 밖 숫자는 세 언어 모두 버린다', () => {
   const f = MV({ changePct: 4.9, price: 160.2, value: 60e9, earnings: { date: '2026-11-17', hour: 'amc' } });
-  const ok = JSON.stringify({ ko: '실적 발표 뒤 첫 정규장에서 크게 올랐습니다', en: 'Rose sharply in the first session after its earnings report', ja: '決算発表後の最初の通常取引で大きく上昇しました' });
+  const ok = JSON.stringify({ ko: '실적 발표일 다음 정규장에서 크게 올랐습니다', en: 'Rose sharply in the session after its earnings date', ja: '決算発表日の翌通常取引で大きく上昇しました' });
   assert.deepEqual(v2.checkPickV2Why(ok, 'NVDA', f, 2026, '2026-11-18').reasons, []);
-  const bad = (ko: string) => v2.checkPickV2Why(JSON.stringify({ ko, en: 'Rose sharply in the first session after its earnings report', ja: '決算発表後の最初の通常取引で大きく上昇しました' }), 'NVDA', f, 2026, '2026-11-18');
+  const bad = (ko: string) => v2.checkPickV2Why(JSON.stringify({ ko, en: 'Rose sharply in the session after its earnings date', ja: '決算発表日の翌通常取引で大きく上昇しました' }), 'NVDA', f, 2026, '2026-11-18');
+  assert.ok(bad('회사가 실적을 발표했고 크게 올랐습니다').reasons.some((r) => r.includes('reported')), '공지 일정만 근거 — 실제 발표 단정 금지');
   assert.ok(bad('오늘 실적 발표 뒤 크게 올랐습니다').reasons.some((r) => r.includes('today')));
   assert.ok(bad('실적 발표 때문에 크게 올랐습니다').reasons.some((r) => r.includes('cause')));
   assert.ok(bad('실적 발표 뒤 첫 정규장에서 크게 내렸습니다').reasons.some((r) => r.includes('dir:down')));
@@ -370,7 +371,7 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   seedMovers(Date.parse('2026-11-18T21:30:00Z'));
   quoteData = { NVDA: Q(160.2, 4.9), MSFT: Q(505.9, -2.31) };
   store.set('guardian:news:digest:v2', { items: [{ headline: 'Gold prices hit one-year low as dollar firms', tickers: [], publishedAt: '2026-11-18T15:00:00Z' }] });
-  script.push({ text: JSON.stringify({ ko: '실적 발표 뒤 첫 정규장에서 크게 올랐습니다', en: 'Rose sharply in the first session after its earnings report', ja: '決算発表後の最初の通常取引で大きく上昇しました' }) });
+  script.push({ text: JSON.stringify({ ko: '실적 발표일 다음 정규장에서 크게 올랐습니다', en: 'Rose sharply in the session after its earnings date', ja: '決算発表日の翌通常取引で大きく上昇しました' }) });
   const r = await svc.runPicks({ now: PM, force: true });
   assert.equal(r.status, 'generated');
   const doc = store.get('todaypicks:v1:latest') as TodayPicksDoc;
@@ -386,12 +387,12 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   assert.equal(view.pushPickLine(doc, 'ko', '2026-11-18').line, '✦ 오늘 볼 것 · NVDA 11/18 종가 +4.9%', '푸시 1번 줄이 새 종류도 처리');
   assert.equal(view.buildView(doc, 'ko').sel, 'broad1');
   assert.equal(doc.items[0].what.ko, '종가 $160.2 (+4.9%)');
-  assert.equal(doc.stamp.ern, 'WMT,ACME');
+  assert.equal(doc.stamp.ern, 'WMT@2026-11-19bmo/6.9,ACME@2026-11-19/', '일정·예상 변동 정정도 표식에');
   // 가드 실패 → 규칙 문장
   script.push({ text: JSON.stringify({ ko: '오늘 실적 때문에 크게 올랐습니다', en: 'Rose today because of earnings', ja: '今日決算のため上昇しました' }) });
   await svc.runPicks({ now: PM, force: true });
   const doc2 = store.get('todaypicks:v1:latest') as TodayPicksDoc;
-  assert.equal(doc2.items[0].whyAi, false); assert.equal(doc2.items[0].why.ko, '전 거래일 장 마감 후 회사가 실적을 발표했습니다');
+  assert.equal(doc2.items[0].whyAi, false); assert.equal(doc2.items[0].why.ko, '회사가 공지한 실적 발표일(전날 장 마감 후) 다음 정규장이었습니다');
   // 같은 자료면 다시 만들지 않는다 · 큰 폭 등락 종목이 바뀌면 다시 만든다
   aiCalls = 0;
   const again = await svc.runPicks({ now: PM });

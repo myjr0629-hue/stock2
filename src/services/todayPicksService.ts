@@ -375,7 +375,7 @@ export async function gather(now = Date.now(), o: { broad?: boolean; dry?: boole
             // 보도 근거·다이제스트 읽음 여부도 표식에 — 근거가 생기거나 읽기가 회복되면 같은 슬롯도 다시 만든다(관문 11/18)
             mov: movers?.session ? `${movers.session}|${mover.slice(0, 5).map(moverStampPart).join(',')}` : null,
             // 넓힌 실적 후보(발표가 끝나면 빠진다) — 같은 슬롯에서도 끝난 발표가 남지 않게 다시 만든다(관문 11/18)
-            ern: earnings.map((c) => c.ticker).join(',') || null,
+            ern: earnings.map((c) => { const f = c.facts as EarnFacts; return `${c.ticker}@${f.date}${f.hour}${f.etTime ?? ''}/${f.impliedPct ?? ''}`; }).join(',') || null,
             sel: 'broad1',
         } : {}),
     };
