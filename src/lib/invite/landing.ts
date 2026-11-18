@@ -593,17 +593,23 @@ export function earnResultFromFrozen(ev: { ticker: string; date: string; hour: '
   return { ...ev, expectedPct: f.pct, expiry: f.expiry ?? null, session: f.session ?? null, actual: null };
 }
 
-/** 지금 이 결과를 그릴 수 있나 — 'scored'(채점 완료) · 'pending'(반응일 종가 확정 대기) · null(그리지 않는다 — 예전 규칙) */
-export function earnResultState(r: EarnResult | null | undefined, nowMs: number): 'scored' | 'pending' | null {
+export type EarnResultState = 'scored' | 'pending' | 'missing';
+
+/**
+ * 지금 이 결과를 어떻게 그리나 — 'scored'(채점 완료) · 'pending'(반응일 종가 확정 대기 — 확정 뒤 EARN_PENDING_GRACE_MS 까지는 채점 크론을 기다린다)
+ *   · 'missing'(그 뒤에도 채점표 행이 없다 — 발표 전 고정값 + «기록 없음», 지어내지 않는다) · null(그리지 않는다 — 예전 규칙)
+ */
+export function earnResultState(r: EarnResult | null | undefined, nowMs: number): EarnResultState | null {
   if (!r || !fin(r.expectedPct) || !(r.expectedPct > 0) || phaseOf(r.date, r.hour, nowMs) !== 'done') return null;
   if (r.actual) return fin(r.actual.pct) && typeof r.actual.within === 'boolean' ? 'scored' : null;
   const rs = reactionSessions(r.date, r.hour);
   const fin0 = rs ? reactionFinalAt(rs.react) : null;
-  return fin0 != null && nowMs < fin0 + EARN_PENDING_GRACE_MS ? 'pending' : null;
+  if (fin0 == null) return null;
+  return nowMs < fin0 + EARN_PENDING_GRACE_MS ? 'pending' : 'missing';
 }
 
 function composeEarnResult(
-  res: EarnResult, state: 'scored' | 'pending', ticker: string, lang: InviteLang, nowMs: number, others: LandingOther[], name: string | undefined,
+  res: EarnResult, state: EarnResultState, ticker: string, lang: InviteLang, nowMs: number, others: LandingOther[], name: string | undefined,
 ): LandingView {
   const c = LC[lang];
   const w = COPY[lang];
@@ -648,13 +654,16 @@ function composeEarnResult(
     };
   }
 
-  // 채점 전 — 발표 전 고정값 + «발표 후 실제 반응: 확정 대기»
+  // 채점 전 — 발표 전 고정값 + «발표 후 실제 반응: 확정 대기»(확정 뒤 유예가 지나도 행이 없으면 «기록 없음» — 영수증 화면과 같은 말)
   const rs = reactionSessions(res.date, res.hour);
-  const pendingRow: LandingRow = { label: rc.columns[2], value: c.res.pending, note: rs ? `${rc.issues.pending_actual} · ${mdw(rs.react, lang)}` : rc.issues.pending_actual };
+  const pending = state === 'pending';
+  const value = pending ? c.res.pending : rc.noRecord;
+  const note = pending ? (rs ? `${rc.issues.pending_actual} · ${mdw(rs.react, lang)}` : rc.issues.pending_actual) : rc.issues.no_actual;
+  const pendingRow: LandingRow = { label: rc.columns[2], value, note };
   return {
     ...common,
-    title: `${ticker} ${kindWord} ${mdw(res.date, lang)} — ${rc.columns[1]} ${expected} · ${rc.columns[2]} ${c.res.pending} | ${BRAND}`,
-    description: clipText(`${ticker}: ${headline} · ${rc.columns[1]} ${expected}${basis ? ` (${basis})` : ''} · ${rc.columns[2]} ${c.res.pending}`, 200),
+    title: `${ticker} ${kindWord} ${mdw(res.date, lang)} — ${rc.columns[1]} ${expected} · ${rc.columns[2]} ${value} | ${BRAND}`,
+    description: clipText(`${ticker}: ${headline} · ${rc.columns[1]} ${expected}${basis ? ` (${basis})` : ''} · ${rc.columns[2]} ${value}`, 200),
     hero: { value: expected, label: rc.columns[1], ...(basis ? { note: basis } : {}) },
     rows: [whenRow, pendingRow],
     asOf: '',
@@ -895,19 +904,27 @@ async function readEarnResult(ticker: string, nowMs: number): Promise<EarnResult
   const { CONFIRMED_EARNINGS } = await import('@/lib/earningsConfirmed');
   const ev = recentReportedEvent(CONFIRMED_EARNINGS, ticker, nowMs);
   if (!ev) return null;
-  const { readEarningsScorecard } = await import('@/services/earningsScorecardService');
-  const sc = await readEarningsScorecard(calendarScorecardWeek(ev.date), nowMs).catch(() => null);
+  const [{ readEarningsScorecard }, { readFrozenExpected }, { readImpliedPack }] = await Promise.all([
+    import('@/services/earningsScorecardService'),
+    import('@/services/frozenExpectedService'),
+    import('@/services/earningsImpliedService'),
+  ]);
+  // 채점표와 고정값을 «같이» 읽는다(고정값의 Upstash 알림 키 읽기가 늦어도 채점표 행을 버리지 않게 — 각자 상한).
+  //   고정값 읽기에는 앱 캘린더와 같이 변동폭 묶음을 넘긴다(묶음 «발표 전 세션» 예비값 — 표시 전용 · persist:false 라 적지 않는다).
+  const scP = withTimeout(readEarningsScorecard(calendarScorecardWeek(ev.date), nowMs), EARN_RESULT_PART_TIMEOUT_MS).catch(() => null);
+  const fzP = withTimeout((async () => readFrozenExpected([ev], nowMs, { pack: await readImpliedPack().catch(() => null), persist: false }))(), EARN_RESULT_PART_TIMEOUT_MS).catch(() => null);
+  const sc = await scP;
   const scored = earnResultFromScore(ev, sc?.rows.find((s) => s.ticker === ev.ticker && s.date === ev.date && s.hour === ev.hour));
   if (scored) return scored;
-  const { readFrozenExpected } = await import('@/services/frozenExpectedService');
-  const fz = await readFrozenExpected([ev], nowMs, { persist: false }).catch(() => null);
+  const fz = await fzP;
   return earnResultFromFrozen(ev, fz?.get(impliedRowKey(ev.ticker, ev.date)));
 }
 
 /** 한 번 읽는 데 쓰는 상한 — 레디스가 느려도 페이지·카드가 매달리지 않게(넘으면 read-failed 대체 화면) */
 export const LOAD_TIMEOUT_MS = 5000;
-/** [11/18] 발표 결과 읽기 상한 — 넘으면 결과 없이(예전 카드) */
-export const EARN_RESULT_TIMEOUT_MS = 2500;
+/** [11/18] 발표 결과 읽기 상한(전체 · 채점표/고정값 각각) — 넘으면 결과 없이(예전 카드). 카드 전체 상한(LOAD_TIMEOUT_MS) 안쪽 */
+export const EARN_RESULT_TIMEOUT_MS = 4000;
+export const EARN_RESULT_PART_TIMEOUT_MS = 3800;
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -490,7 +490,7 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
       assert.equal(earnResultFromScore(EV_DIS, { ...SCORE_DIS, hour: 'amc' }), null);
     });
 
-    t('채점 전 — 발표 전 고정값 ±8.4% + «발표 후 실제 반응: 확정 대기» · 확정 뒤 6시간 지나도 행이 없으면 예전 «발표 완료» 대체 화면', () => {
+    t('채점 전 — 발표 전 고정값 ±8.4% + «발표 후 실제 반응: 확정 대기» · 확정 뒤 6시간 지나도 행이 없으면 고정값 + «기록 없음»', () => {
       const pend = earnResultFromFrozen(EV_NVDA, FROZEN_NVDA)!;
       const at = Date.UTC(2026, 10, 18, 4, 0);              // 뉴욕 11/17 23:00
       assert.equal(earnResultState(pend, at), 'pending');
@@ -502,8 +502,13 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
       assert.equal(ogCardOf(v, 'ko').stats[0].value, '확정 대기');
       // 반응일 11/18 마감(16:00) + 30분 + 6시간 = 11/18 22:30 ET 이후엔 그리지 않는다
       const late = Date.UTC(2026, 10, 19, 3, 31);
-      assert.equal(earnResultState(pend, late), null);
-      assert.equal(composeEarn(WEEK_R, null, 'NVDA', 'ko', late, null, pend).fallbackReason, 'done');
+      assert.equal(earnResultState(pend, late), 'missing');
+      const miss = composeEarn(WEEK_R, null, 'NVDA', 'ko', late, null, pend);
+      assert.equal(miss.hero!.value, '±8.4%');
+      assert.deepEqual(miss.rows[1], { label: '발표 후 실제 반응', value: '기록 없음', note: '유효한 발표 후 종가 기록 없음' });
+      assert.ok(!JSON.stringify(miss).includes('확정 대기'), '확정 뒤엔 «대기»라 하지 않는다');
+      // 14일이 지나면 예전 규칙
+      assert.equal(recentReportedEvent([{ ticker: 'NVDA', date: '2026-11-17', hour: 'amc' }], 'NVDA', Date.UTC(2026, 11, 3, 15, 0)), null);
       assert.equal(earnResultFromFrozen(EV_NVDA, { ...FROZEN_NVDA, date: '2026-08-27' }), null);
     });
 
