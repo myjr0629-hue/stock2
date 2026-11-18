@@ -509,7 +509,7 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
             : assemble({ whale: g.whale, darkpool: g.darkpool, gamma: g.gamma, earnings: g.earnings }, { prev: prevPicks, max: 5, earlyEarnDates: g.earlyEarnDates });
         if (!picked.length) {
             // 넓힌 선별: 후보가 0 이어도 같은 날 직전 문서에 «이미 나온» 실적이 남지 않게 그 항목만 걷어 낸다(관문 11/18). 다른 항목·문장은 그대로.
-            if (broad && !o.dry && prev && prev.etDate === etDate) {
+            if (broad && !o.dry && prev && prev.sel === 'broad1' && prev.etDate === etDate) {
                 const keep = prev.items.filter((p) => !(p.facts.kind === 'earnings' && releasedBroad(p.facts, now)));
                 if (keep.length !== prev.items.length) {
                     const pruned: TodayPicksDoc = { ...prev, items: keep, stamp: g.stamp };

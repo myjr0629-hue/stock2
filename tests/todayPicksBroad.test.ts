@@ -290,6 +290,11 @@ t('발표가 이미 나왔나(넓힌 선별): 공지 시각 → 그 시각 · �
   assert.equal(p.status, 'pruned');
   const left = store.get('todaypicks:v1:latest') as TodayPicksDoc;
   assert.deepEqual(left.items.map((x) => x.id), ['mover:MSFT'], '끝난 실적만 빠지고 나머지 항목·문장은 그대로');
+  // 옛 선별 문서(sel 없음)는 생성 경로에서도 건드리지 않는다(관문 4차)
+  const oldSameDay = { ...prevDoc, sel: undefined, etDate: '2026-11-19', items: [{ ...prevDoc.items[0], id: 'earnings:WMT', ticker: 'WMT', facts: { ...prevDoc.items[0].facts, date: '2026-11-19', hour: 'bmo' } }, prevDoc.items[1]] };
+  store.set('todaypicks:v1:latest', oldSameDay);
+  assert.equal((await svc.runPicks({ now: at19, force: true, noAi: true })).status, 'empty');
+  assert.equal((store.get('todaypicks:v1:latest') as TodayPicksDoc).items.length, 2);
   // 읽기에서도: 넓힌 문서의 끝난 실적은 보이지 않는다(크론 사이·다음 날) · 옛 문서는 그대로 · 모두 끝났으면 문서 없음
   store.set('todaypicks:v1:latest', prevDoc);
   const r1 = await svc.readPicks(at('15:50'));
@@ -316,15 +321,14 @@ t('규칙 문장(큰 폭 등락·넓힌 실적): 3개 언어 금지어·예측�
     assert.doesNotMatch(copy.fallbackWhy(f, l), /옵션|option|オプション|미결제|建玉|다크풀|dark pool|Gamma|Max Pain/i);
     assert.deepEqual(checkPushLine(copy.pushLine('MSFT', f, l), l, PUSH_LINE_MAX[l]), []);
   }
-  assert.equal(copy.whatText(MV(), 'ko'), '종가 $505.9 (-2.3%) · 거래대금 $14B');
-  assert.equal(copy.whatText(MV(), 'en'), 'Closed $505.9 (-2.3%) · $14B traded');
+  assert.equal(copy.whatText(MV(), 'ko'), '종가 $505.9 (-2.3%)', '거래대금(추정)은 쓰지 않는다');
+  assert.equal(copy.whatText(MV(), 'en'), 'Closed $505.9 (-2.3%)');
   assert.equal(copy.pushLine('MSFT', MV(), 'ko'), '✦ 오늘 볼 것 · MSFT 11/18 종가 -2.3%');
   assert.equal(copy.kindLabel(MV(), 'ko'), '큰 폭 하락'); assert.equal(copy.kindLabel(MV({ changePct: 3 }), 'en'), 'BIG MOVE UP');
   assert.equal(copy.asOfText(MV(), '2026-11-18', 'ja'), '11/18終値');
   assert.equal(copy.fallbackWhy(MV(), 'ko'), '움직임을 설명하는 보도는 확인되지 않았습니다');
   assert.equal(copy.whatText(facts[5], 'en'), 'Reports 11/19 08:00 ET');
-  assert.equal(copy.whatText(MV({ value: null }), 'ko'), '종가 $505.9 (-2.3%)', '확정 거래대금이 없으면(마감 뒤 스냅샷) 쓰지 않는다');
-  assert.doesNotMatch(copy.factsForAi('MSFT', MV({ value: null })), /Dollar volume/);
+  assert.doesNotMatch(copy.factsForAi('MSFT', MV()), /Dollar volume|\$14B/);
   // 옛 선별(끄기 스위치)의 실적 규칙 해설은 예전 문장 그대로 · 넓힌 선별만 일정 문장
   const ef = { kind: 'earnings', date: '2026-11-18', hour: 'amc', etTime: null, impliedPct: 5, impliedExpiry: '2026-11-20', session: '2026-11-18' } as EarnFacts;
   assert.equal(copy.fallbackWhy(ef, 'ko'), '발표 직후 움직임의 크기를 옵션 시장이 미리 가격에 담았습니다');

@@ -81,7 +81,7 @@ export interface MoverFacts {
     changePct: number;
     /** 그 세션 종가 */
     price: number;
-    /** 그 세션 확정 거래대금(USD, EOD) — 장 마감 뒤 스냅샷 행은 시간외가 섞일 수 있어 null(표시하지 않는다) */
+    /** 그 세션 거래대금 추정(USD, EOD 종가×거래량) — 선별 기록용, 화면·AI 에 쓰지 않는다. 장 마감 뒤 스냅샷 행은 null */
     value: number | null;
     /** 회사가 공지한 실적 발표가 이 세션 직전에 있었다(같은 날 개장 전 · 전 거래일 장 마감 후) */
     earnings: { date: string; hour: 'bmo' | 'amc' } | null;
