@@ -31,10 +31,10 @@ export function TrialPushOptInSheet({ loc, src, trial, onClose }: { loc: string;
     setBusy(true);
     trackFunnel('trial_push_accept', { src });
     const o = await runTrialPushAccept({
-      // 시트가 떠 있는 사이 환불·철회될 수 있다 — 저장된 만료 시각이 아니라 새 고객 정보로 활성 TRIAL 을 다시 본다
+      // 시트가 떠 있는 사이 환불·철회될 수 있다 — 저장된 만료 시각이 아니라 캐시를 비운 새 고객 정보로 활성 TRIAL 을 다시 본다(실패·시간 초과 = 요청 안 함)
       stillEligible: async () => {
         if (!isNativeShell() || prefsOff(readStoredPushPrefs()) || trial.expiresAt <= Date.now()) return false;
-        return trialFromInfo(await freshCustomerInfo(VERIFY_MS) as Parameters<typeof trialFromInfo>[0], Date.now()) !== null;
+        return trialFromInfo(await freshCustomerInfo(VERIFY_MS, { noCache: true }) as Parameters<typeof trialFromInfo>[0], Date.now()) !== null;
       },
       checkPerm: checkPushPerm,
       requestAndRegister: requestPushAndRegister,

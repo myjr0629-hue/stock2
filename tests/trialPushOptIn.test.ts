@@ -226,12 +226,17 @@ t('수락: 자격 재확인은 비동기(새 고객 정보)도 기다린다 — 
   assert.equal(await runTrialPushAccept({ ...c.deps, stillEligible: async () => { throw new Error('rc'); } }), 'skipped');
   assert.equal(c.calls.request, 0);
   const sheet = read('src/components/app/TrialPushOptInSheet.tsx');
-  assert.ok(/stillEligible: async \(\) => \{[\s\S]*?trialFromInfo\(await freshCustomerInfo\(VERIFY_MS\)/.test(sheet), '시트 수락은 새 고객 정보로 TRIAL 을 다시 본다');
+  assert.ok(/stillEligible: async \(\) => \{[\s\S]*?trialFromInfo\(await freshCustomerInfo\(VERIFY_MS, \{ noCache: true \}\)/.test(sheet), '시트 수락은 캐시를 비운 새 고객 정보로 TRIAL 을 다시 본다');
+  const rc = read('src/lib/native/rcFresh.ts');
+  assert.ok(/if \(opts\.noCache\) await Purchases\.invalidateCustomerInfoCache\(\);\s+return Purchases\.getCustomerInfo\(\);/.test(rc));
 });
 t('판정기: 도는 중 들어온 트리거는 버리지 않고 이어 본다(AI 우선) · 체험 시작 이벤트로 다시', () => {
   const g = read('src/components/app/TrialPushOptInGate.tsx');
   assert.ok(/if \(run\.busy\) \{ if \(run\.queued !== 'ai'\) run\.queued = trigger; return; \}/.test(g));
   assert.ok(/const next = run\.queued;\s+run\.queued = null;\s+if \(next && alive && !run\.done\) void evaluate\(next\);/.test(g));
+  assert.ok(/if \(trigger === 'day1' && run\.queued === 'ai'\) return;/.test(g), '다음 날 회차가 보이기 직전 대기 중인 AI 회차에 양보');
+  assert.ok(g.indexOf("if (trigger === 'day1' && run.queued === 'ai') return;") < g.indexOf('if (!claimShown(store))'));
+  assert.ok(/if \(run\.aiOffscreen && !run\.done && aiLineVisible\(document, window\.innerHeight\)\) \{ run\.aiOffscreen = false; void evaluate\('ai'\); \}/.test(g), '화면 밖 AI 줄까지 스크롤하면 다시');
   assert.ok(/window\.addEventListener\(PRO_ACTIVATED_EVENT, onPro\)/.test(g) && /const onPro = \(\) => \{ if \(trialValueSeen\(\)\) void evaluate\('ai'\); \};/.test(g));
 });
 t('수락: 자격이 사라졌으면(체험 만료·설정 OFF·웹) 권한도 안 읽고 요청 없음', async () => {
@@ -245,7 +250,9 @@ t('수락: 자격이 사라졌으면(체험 만료·설정 OFF·웹) 권한도 �
 
 // ── ⑥ 화면·계측(소스 대조) ──
 t('문구: 새 문구는 제목·한 줄·버튼 둘 · en·ja 있음 · 한 줄은 실제 모닝 푸시(시장 브리프)와 일치 — «내 종목 요약» 약속 없음', () => {
-  assert.deepEqual(trialPushCopy('ko'), { title: '아침 AI 브리핑 받기', subtitle: '장 시작 전 시장 요약을 알림으로 보내드려요', allow: '알림 켜기', later: '나중에' });
+  assert.deepEqual(trialPushCopy('ko'), { title: '아침 AI 브리핑 받기', subtitle: '장 시작 전 AI 시장 브리핑을 알림으로 알려드려요', allow: '알림 켜기', later: '나중에' });
+  const cron = read('src/app/api/cron/push/route.ts');
+  assert.ok(/body: lines\[l\]\.line \?\? PUSH_CONTENT\[type\]\[l\]\.body/.test(cron), '모닝 본문 = AI 브리핑 첫 문장 또는 «준비됨» 안내');
   for (const l of ['ko', 'en', 'ja']) assert.ok(!/내 종목|your stocks|マイ銘柄/.test(trialPushCopy(l).subtitle), l);
   const send = read('src/lib/push/send.ts');
   assert.ok(/morning: \{\n\s+ko: \{ title: '🌅 모닝 브리프', body: '오늘의 프리마켓 시장 브리프가 준비됐습니다\.' \}/.test(send), '모닝 푸시가 시장 브리프다');

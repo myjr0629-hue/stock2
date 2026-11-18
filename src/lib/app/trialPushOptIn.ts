@@ -212,10 +212,11 @@ export function aiLineVisible(doc: { querySelectorAll: (q: string) => ArrayLike<
 
 // ── 문구(새 문구는 제목·한 줄·버튼 둘만 — 나머지는 첫 실행 알림 단계 그대로) ──
 export const TRIAL_PUSH_COPY = {
-  // 한 줄은 실제 모닝 푸시(lib/push/send PUSH_CONTENT.morning — 프리마켓 «시장» 브리프 첫 문장)와 맞춘다: «내 종목 요약»은 보내지 않으므로 약속하지 않는다(관문 1차 · 애플 5.6)
-  ko: { title: '아침 AI 브리핑 받기', subtitle: '장 시작 전 시장 요약을 알림으로 보내드려요', allow: '알림 켜기', later: '나중에' },
-  en: { title: 'Get the morning AI briefing', subtitle: 'We’ll send a market summary before the open', allow: 'Turn on notifications', later: 'Not now' },
-  ja: { title: '朝のAIブリーフを受け取る', subtitle: '取引開始前に市場の要約を通知でお届けします', allow: '通知をオンにする', later: 'あとで' },
+  // 한 줄은 실제 모닝 푸시와 맞춘다 — 본문은 그날 AI 모닝 브리핑(시장) 첫 문장, 없으면 «프리마켓 시장 브리프가 준비됐습니다»(api/cron/push · lib/push/send PUSH_CONTENT.morning).
+  //   «내 종목 요약»은 보내지 않으므로 약속하지 않는다 · 두 본문 모두에 맞게 «브리핑을 알려 드린다»로(관문 1·2차 · 애플 5.6)
+  ko: { title: '아침 AI 브리핑 받기', subtitle: '장 시작 전 AI 시장 브리핑을 알림으로 알려드려요', allow: '알림 켜기', later: '나중에' },
+  en: { title: 'Get the morning AI briefing', subtitle: 'We’ll notify you about the AI market brief before the open', allow: 'Turn on notifications', later: 'Not now' },
+  ja: { title: '朝のAIブリーフを受け取る', subtitle: '取引開始前にAI市場ブリーフを通知でお知らせします', allow: '通知をオンにする', later: 'あとで' },
 } as const;
 export type TrialPushLoc = keyof typeof TRIAL_PUSH_COPY;
 export const trialPushCopy = (loc: string) => TRIAL_PUSH_COPY[(loc === 'ko' || loc === 'ja' ? loc : 'en') as TrialPushLoc];

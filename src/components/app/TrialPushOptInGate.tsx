@@ -34,7 +34,8 @@ const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms))
 
 // 이번 웹뷰 실행에서 끝났나(띄웠거나 권한이 정해짐) · 회차가 도는 중인가 — 레이아웃이 다시 마운트돼도 하나만
 //   도는 동안 들어온 트리거는 버리지 않고 하나씩 남겨 두었다가 끝나면 이어서 본다(다음 날 판정 중 AI 한 줄이 그려진 경우 — 관문 1차)
-const run = { done: false, busy: false, queued: null as Trigger | null };
+//   aiOffscreen = AI 회차가 «줄이 화면 밖»이라 끝났다 → 사용자가 그 줄까지 스크롤하면 다시 본다(관문 2차)
+const run = { done: false, busy: false, queued: null as Trigger | null, aiOffscreen: false };
 
 type Shown = { src: TrialPushSrc; loc: string; trial: TrialInfo };
 
@@ -78,7 +79,9 @@ export function TrialPushOptInGate() {
           const step = trialPushStep(snapshot(perm, trial, trigger));
           if (step === 'stop') { run.done = true; return; }
           if (step === 'skip') return;
-          if (step === 'later') continue;
+          if (step === 'later') { if (i === RETRY_MAX && trigger === 'ai') run.aiOffscreen = true; continue; }
+          // 다음 날 회차가 도는 사이 AI 한 줄이 그려졌다 → 첫 가치 순간(AI)이 우선 — 이 회차는 접고 대기 중인 AI 회차가 이어 본다(관문 2차)
+          if (trigger === 'day1' && run.queued === 'ai') return;
           // 보이기 직전 — 권한을 다시 읽고 그 값으로 한 번 더
           const perm2 = await checkPushPerm();
           if (!alive) return;
@@ -101,12 +104,22 @@ export function TrialPushOptInGate() {
       }
     };
 
-    const onValue = () => { void evaluate('ai'); };
+    const onValue = () => { run.aiOffscreen = false; void evaluate('ai'); };
+    // 화면 밖에 있던 AI 한 줄까지 스크롤했다 — 싼 DOM 검사만(보일 때만 회차를 돈다)
+    let scrollT = 0;
+    const onScroll = () => {
+      if (!run.aiOffscreen || scrollT) return;
+      scrollT = window.setTimeout(() => {
+        scrollT = 0;
+        if (run.aiOffscreen && !run.done && aiLineVisible(document, window.innerHeight)) { run.aiOffscreen = false; void evaluate('ai'); }
+      }, 400);
+    };
     // 같은 화면에서 체험을 막 시작했다(AI 한 줄은 그 전부터 보였다 — 줄이 다시 그려지지 않아도) → 이미 본 가치 순간으로 다시 판정
     const onPro = () => { if (trialValueSeen()) void evaluate('ai'); };
     const onFg = () => { if (document.visibilityState === 'visible') void evaluate('day1'); };
     window.addEventListener(TRIAL_VALUE_EVENT, onValue);
     window.addEventListener(PRO_ACTIVATED_EVENT, onPro);
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
     document.addEventListener('visibilitychange', onFg);
     document.addEventListener('app:resume', onFg);
     // 실행 = 이 판정기가 처음 실린 때 — 이미 AI 한 줄을 그렸으면 그 순간으로, 아니면 «다음 날» 경로로
@@ -115,6 +128,8 @@ export function TrialPushOptInGate() {
       alive = false;
       window.removeEventListener(TRIAL_VALUE_EVENT, onValue);
       window.removeEventListener(PRO_ACTIVATED_EVENT, onPro);
+      window.removeEventListener('scroll', onScroll, { capture: true });
+      if (scrollT) window.clearTimeout(scrollT);
       document.removeEventListener('visibilitychange', onFg);
       document.removeEventListener('app:resume', onFg);
     };
