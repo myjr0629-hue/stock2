@@ -120,7 +120,8 @@ export function fallbackWhy(f: PickFacts, loc: Loc, plain = false): string {
             // 11/18: 일반 항목은 옵션 용어 없이 «확인된 사실»만 — 회사가 공지한 발표 일정
             return f.hour === 'bmo' ? (loc === 'ko' ? '회사가 공지한 개장 전 발표 일정입니다' : loc === 'ja' ? '会社が告知した寄り付き前の発表です' : 'The company set this report for before the open')
                 : f.hour === 'amc' ? (loc === 'ko' ? '회사가 공지한 장 마감 후 발표 일정입니다' : loc === 'ja' ? '会社が告知した引け後の発表です' : 'The company set this report for after the close')
-                    : (loc === 'ko' ? '회사가 공지한 발표일이며 시각은 정해지지 않았습니다' : loc === 'ja' ? '会社が告知した発表日で、時刻は未定です' : 'The company set the date; the time is not announced');
+                    : f.etTime ? (loc === 'ko' ? '회사가 공지한 발표 일정입니다' : loc === 'ja' ? '会社が告知した発表日程です' : 'The company set this report date and time')
+                        : (loc === 'ko' ? '회사가 공지한 발표일이며 시각은 정해지지 않았습니다' : loc === 'ja' ? '会社が告知した発表日で、時刻は未定です' : 'The company set the date; the time is not announced');
         case 'mover':
             // 무슨 일 → 확인된 사실(회사 실적 발표 · 종목 보도). 근거가 없으면 «확인되지 않았다»고만 — 원인을 지어내지 않는다
             // 근거는 «회사가 공지한 발표 일정»이다(실제 발표 여부를 따로 확인하지 않는다 — 관문 11/18) → 일정으로만 말한다
@@ -128,9 +129,8 @@ export function fallbackWhy(f: PickFacts, loc: Loc, plain = false): string {
                 ? (loc === 'ko' ? '회사가 공지한 실적 발표일(개장 전)의 정규장이었습니다' : loc === 'ja' ? '会社が告知した決算発表日（寄り付き前）の通常取引でした' : 'The session of the company-announced earnings date (before the open)')
                 : (loc === 'ko' ? '회사가 공지한 실적 발표일(전날 장 마감 후) 다음 정규장이었습니다' : loc === 'ja' ? '会社が告知した決算発表日（前日引け後）の翌通常取引でした' : 'The session after the company-announced earnings date (after the prior close)');
             if (f.news) return loc === 'ko' ? '같은 시기 이 회사 관련 보도가 있었습니다' : loc === 'ja' ? '同じ時期に同社に関する報道がありました' : 'A report on the company came out around the same time';
-            // 보도 자료를 못 읽었으면 «없다»고 하지 않는다 — 사실(거래대금 큰 종목 중 큰 등락)만
-            if (f.newsChecked === false) return loc === 'ko' ? '거래대금이 큰 종목 가운데 등락 폭이 컸습니다' : loc === 'ja' ? '売買代金の大きい銘柄の中で値動きが大きくなりました' : 'One of the larger moves among heavily traded stocks';
-            return loc === 'ko' ? '움직임을 설명하는 보도는 확인되지 않았습니다' : loc === 'ja' ? '値動きを説明する報道は確認されていません' : 'No report explaining the move was found';
+            // 근거가 없을 때 «보도가 없다»고 하지 않는다 — 뉴스 요약은 최근 몇 건뿐이라 확인 범위를 넘는다(관문 11/18). 사실만
+            return loc === 'ko' ? '거래대금이 큰 종목 가운데 등락 폭이 컸습니다' : loc === 'ja' ? '売買代金の大きい銘柄の中で値動きが大きくなりました' : 'One of the larger moves among heavily traded stocks';
     }
 }
 
@@ -232,7 +232,7 @@ export function angleHint(f: PickFacts, todayEt: string): string {
             return 'Say the options already price in a range of movement through the report.';
         }
         case 'mover':
-            return f.earnings ? 'Lead with the company earnings report that came right before this session.' : f.news ? 'Lead with the reported company news, attributed as a report.' : 'Say no report explains the move.';
+            return f.earnings ? 'Lead with the company-announced earnings date right before this session.' : f.news ? 'Lead with the reported company news, attributed as a report.' : 'State only the size of the move among heavily traded stocks.';
     }
 }
 

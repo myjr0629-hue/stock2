@@ -328,8 +328,9 @@ t('규칙 문장(큰 폭 등락·넓힌 실적): 3개 언어 금지어·예측�
   assert.equal(copy.pushLine('MSFT', MV(), 'ko'), '✦ 오늘 볼 것 · MSFT 11/18 종가 -2.3%');
   assert.equal(copy.kindLabel(MV(), 'ko'), '큰 폭 하락'); assert.equal(copy.kindLabel(MV({ changePct: 3 }), 'en'), 'BIG MOVE UP');
   assert.equal(copy.asOfText(MV(), '2026-11-18', 'ja'), '11/18終値');
-  assert.equal(copy.fallbackWhy(MV(), 'ko'), '움직임을 설명하는 보도는 확인되지 않았습니다');
-  assert.equal(copy.fallbackWhy(MV({ newsChecked: false }), 'ko'), '거래대금이 큰 종목 가운데 등락 폭이 컸습니다', '보도 자료를 못 읽었으면 «없다»고 하지 않는다');
+  assert.equal(copy.fallbackWhy(MV(), 'ko'), '거래대금이 큰 종목 가운데 등락 폭이 컸습니다', '근거가 없어도 «보도가 없다»고 하지 않는다(뉴스 요약은 최근 몇 건뿐)');
+  assert.equal(copy.fallbackWhy(MV({ newsChecked: false }), 'ko'), '거래대금이 큰 종목 가운데 등락 폭이 컸습니다');
+  assert.equal(copy.fallbackWhy(facts[5], 'ko', true), '회사가 공지한 발표 일정입니다', '시각이 있으면 «미정»이라 하지 않는다');
   for (const l of LOCS) { const s = copy.fallbackWhy(MV({ newsChecked: false }), l); assert.equal(bannedHit(s), null); assert.ok(scriptOk(s, l)); assert.deepEqual(forecastHitsInSentence(s, l), []); }
   assert.equal(copy.whatText(facts[5], 'en'), 'Reports 11/19 08:00 ET');
   assert.doesNotMatch(copy.factsForAi('MSFT', MV()), /Dollar volume|\$14B/);
@@ -380,7 +381,7 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   assert.deepEqual(doc.items.map((p) => p.id), ['mover:NVDA', 'earnings:WMT', 'mover:MSFT', 'earnings:ACME']);
   assert.equal(aiCalls, 1, 'NVDA(실적 근거)만 AI'); assert.equal(systems[0], v2.TP_V2_MOVER_SYSTEM);
   assert.equal(doc.items[0].whyAi, true);
-  assert.equal(doc.items[2].why.ko, '움직임을 설명하는 보도는 확인되지 않았습니다'); assert.equal(doc.items[2].whyAi, false);
+  assert.equal(doc.items[2].why.ko, '거래대금이 큰 종목 가운데 등락 폭이 컸습니다'); assert.equal(doc.items[2].whyAi, false);
   assert.equal(doc.items[1].why.ko, '회사가 공지한 개장 전 발표 일정입니다');
   assert.equal(doc.items[3].why.ko, '회사가 공지한 발표일이며 시각은 정해지지 않았습니다');
   assert.equal(doc.gen.calls, 1);
