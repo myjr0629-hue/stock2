@@ -399,10 +399,18 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   quoteData = { NVDA: Q(160.2, 4.9) };
   const changed = await svc.runPicks({ now: PM });
   assert.equal(changed.status, 'generated', 'stamp.mov 가 바뀌면 다시 만든다');
+  // 같은 종목이라도 종가·등락 정정 → 다시 만든다
+  quoteData = { NVDA: Q(160.5, 5.1) };
+  assert.equal((await svc.runPicks({ now: PM })).status, 'generated');
+  assert.equal((store.get('todaypicks:v1:latest') as TodayPicksDoc).items[0].what.ko, '종가 $160.5 (+5.1%)');
+  // dry 는 시세 API 를 부르지 않는다
+  quoteCalls = 0;
+  await svc.runPicks({ now: PM, dry: true });
+  assert.equal(quoteCalls, 0);
   // 다이제스트를 못 읽은 문서 → 읽기가 회복되면 같은 슬롯도 다시 만든다
   store.delete('guardian:news:digest:v2');
   assert.equal((await svc.runPicks({ now: PM })).status, 'generated');
-  assert.match(String((store.get('todaypicks:v1:latest') as TodayPicksDoc).stamp.mov), /NVDA\?/);
+  assert.match(String((store.get('todaypicks:v1:latest') as TodayPicksDoc).stamp.mov), /NVDA@[^,]*\?/);
   store.set('guardian:news:digest:v2', { items: [{ headline: 'Gold prices hit one-year low as dollar firms', tickers: [], publishedAt: '2026-11-18T15:00:00Z' }] });
   assert.equal((await svc.runPicks({ now: PM })).status, 'generated');
 });

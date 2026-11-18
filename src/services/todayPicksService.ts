@@ -323,7 +323,15 @@ export interface Gathered {
 }
 
 /** 재료를 읽어 종류별 후보와 «자료 날짜 표식(stamp)»을 만든다. 읽기 실패는 그 종류만 빠지고 notes 에 남는다. */
-export async function gather(now = Date.now(), o: { broad?: boolean } = {}): Promise<Gathered> {
+/** 표식 한 칸 — 종목·종가·등락(정정 반영)·보도 헤드라인 지문·다이제스트 읽음 여부(관문 11/18) */
+function moverStampPart(c: Cand<MoverFacts>): string {
+    const f = c.facts;
+    let h = 0;
+    for (const ch of f.news?.headline ?? '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return `${c.ticker}@${f.price}/${f.changePct}${f.news ? `+n${h.toString(36)}` : ''}${f.earnings ? '+e' : ''}${f.newsChecked === false ? '?' : ''}`;
+}
+
+export async function gather(now = Date.now(), o: { broad?: boolean; dry?: boolean } = {}): Promise<Gathered> {
     const todayEt = etDateOf(now);
     const lastClosed = lastClosedSessionDate(now);
     const notes: string[] = [];
@@ -340,7 +348,8 @@ export async function gather(now = Date.now(), o: { broad?: boolean } = {}): Pro
         universe.length ? loadDark(universe, oi).catch((): DarkRowIn[] => []) : Promise.resolve([] as DarkRowIn[]),
         universe.length ? loadGammaRows(universe, oi, todayEt, now).catch((): LevelRowIn[] => []) : Promise.resolve([] as LevelRowIn[]),
         loadEarnings(now, dates).catch((): EarnRowIn[] => []),
-        o.broad ? loadMovers(now).catch((): MoverLoad => ({ rows: [], session: null, notes: ['movers:error'] })) : Promise.resolve(null),
+        // dry 는 시세 API 대조를 부르지 않는다(그 GET 이 시간외 종가 계산·저장을 시작할 수 있다 — 관문 11/18) → EOD 확정 행만
+        o.broad ? loadMovers(now, o.dry ? { quotes: async () => null } : {}).catch((): MoverLoad => ({ rows: [], session: null, notes: ['movers:error'] })) : Promise.resolve(null),
     ]);
     if (movers) notes.push(...movers.notes.slice(0, 6));
     if (universe.length && !dark.length) notes.push('finra:none');
@@ -364,7 +373,7 @@ export async function gather(now = Date.now(), o: { broad?: boolean } = {}): Pro
         earn: dates[0] ?? null,
         ...(o.broad ? {
             // 보도 근거·다이제스트 읽음 여부도 표식에 — 근거가 생기거나 읽기가 회복되면 같은 슬롯도 다시 만든다(관문 11/18)
-            mov: movers?.session ? `${movers.session}|${mover.slice(0, 5).map((c) => `${c.ticker}${c.facts.news ? '+n' : ''}${c.facts.newsChecked === false ? '?' : ''}`).join(',')}` : null,
+            mov: movers?.session ? `${movers.session}|${mover.slice(0, 5).map(moverStampPart).join(',')}` : null,
             // 넓힌 실적 후보(발표가 끝나면 빠진다) — 같은 슬롯에서도 끝난 발표가 남지 않게 다시 만든다(관문 11/18)
             ern: earnings.map((c) => c.ticker).join(',') || null,
             sel: 'broad1',
@@ -498,7 +507,7 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
     if (!locked) return { ok: true, status: 'locked', ...base };
     try {
         const t0 = Date.now();
-        const g = await gather(now, { broad });
+        const g = await gather(now, { broad, dry: o.dry });
         const prevDoc = (await getFromCache<TodayPicksDoc>(TP_KEYS.latest).catch(() => null));
         const prev = isDoc(prevDoc) ? prevDoc : null;
         const counts = { whale: g.whale.length, darkpool: g.darkpool.length, gamma: g.gamma.length, earnings: g.earnings.length, ...(broad ? { mover: g.mover.length } : {}) } as Record<PickKind, number>;
