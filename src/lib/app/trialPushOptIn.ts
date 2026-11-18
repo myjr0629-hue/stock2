@@ -10,7 +10,8 @@
 //   · 첫 실행·결제·다른 시트(aria-modal)·게이트 흐름이 없음 · 앱이 앞에 있음 · 앱 화면 경로(설정·문서 아님)
 //   · 앱 설정에서 알림(전체·모닝)을 직접 끄지 않았음
 //   · 이 기기에서 본 적 없음 — 보이기 «직전» 기록하고 다시 읽어 확인. 저장 실패 = 안 보인다
-// 언제: ① 내 종목에서 실제 ✦AI 한 줄이 처음 화면에 그려졌을 때(tpush_ai) ② 그게 없으면 체험 시작 «다음 날»(기기 현지 날짜) 이후 첫 앱 실행(tpush_day1)
+// 언제: ① 내 종목에서 실제 ✦AI 한 줄이 처음 화면에 그려졌을 때(tpush_ai) ② 그게 없으면 체험 시작 «다음 날»(기기 현지 날짜) 이후 앱을 열었을 때(tpush_day1)
+//   판정기는 자격(검증된 체험 + OS prompt)이 확인된 기기에서만, 앱이 앞에 있는 동안 1.5초 박자로 화면 상태만 본다 — 같은 조건 2박자 연속이면 보인다
 // 수락: 자격·권한을 다시 보고 여전히 'prompt' 일 때만 requestPermissions() 한 번 → 허용이면 기존 등록 경로(첫 실행과 같은 함수).
 // 계측: 닫힌 목록(funnelSchema) trial_push_shown·accept·os_granted·os_denied·dismiss × 출처 tpush_ai·tpush_day1 — 하루 합계만, 식별자 없음.
 // ============================================================================
@@ -27,10 +28,12 @@ export const WL_AI_ATTR = 'data-wl-ai';
 /** 결제·체험 직후 평점 요청(ReviewPromptMoments — 성공 4초 뒤)과 겹치지 않게 이만큼은 비켜 준다 */
 export const RATING_PRO_PENDING_KEY = 'signum.rating.proPendingAt';
 export const AFTER_PRO_QUIET_MS = 15_000;
-/** 트리거 뒤 다른 시트가 자리 잡을 시간 · 막혀 있으면 다시 보는 간격과 횟수(약 1분) */
-export const SETTLE_MS = { ai: 1_500, day1: 2_500 } as const;
-export const RETRY_MS = 2_000;
-export const RETRY_MAX = 30;
+/** 판정기 박자 — 자격(검증된 체험 + OS prompt)이 확인된 기기에서만, 앱이 앞에 있는 동안 DOM·저장소만 본다(네트워크 없음) */
+export const TICK_MS = 1_500;
+/** 'show' 가 이만큼 연달아 나와야 보인다(다른 시트가 자리 잡을 시간 · 막 그려진 줄이 바로 사라지는 경우 거르기) */
+export const SHOW_STREAK = 2;
+/** 권한·고객 정보를 다시 읽는 최소 간격(트리거가 잦아도 SDK 호출을 묶는다) */
+export const REFRESH_MIN_MS = 30_000;
 /** 고객 정보 조회 상한 — 넘으면 이번 회차는 안 보인다 */
 export const VERIFY_MS = 3_000;
 
@@ -155,6 +158,26 @@ export function trialPushStep(s: TrialPushState): 'stop' | 'skip' | 'later' | 's
   if (!s.onboarded || s.dialogOpen || s.purchasePending || s.gateFlow || !s.visible || !s.routeOk || s.proQuiet) return 'later';
   if (s.trigger === 'ai' && !s.aiVisible) return 'later';
   return 'show';
+}
+
+/**
+ * 한 박자의 판정 — 첫 가치 순간(AI 줄이 지금 화면에 보임)이 우선, 아니면 «다음 날» 대체 경로.
+ *   valueSeen = 이번 실행에 내 종목이 실제 AI 줄을 그린 적 있음(noteTrialValueMoment).
+ *   AI 가 'later'(줄이 화면 밖 등)여도 다음 날 조건이 맞으면 다음 날로 보인다 — 출처는 실제로 보인 경로.
+ */
+export function tickStep(s: Omit<TrialPushState, 'trigger'>, valueSeen: boolean): { step: 'stop' | 'skip' | 'later' | 'show'; trigger: Trigger } {
+  const ai = valueSeen ? trialPushStep({ ...s, trigger: 'ai' }) : 'skip';
+  if (ai === 'stop' || ai === 'show') return { step: ai, trigger: 'ai' };
+  const d1 = trialPushStep({ ...s, trigger: 'day1' });
+  if (d1 === 'stop' || d1 === 'show') return { step: d1, trigger: 'day1' };
+  if (ai === 'later') return { step: 'later', trigger: 'ai' };
+  return { step: d1, trigger: 'day1' };
+}
+
+/** 연속 'show' 박자 수 — 같은 트리거로 이어질 때만 센다(트리거가 바뀌거나 막히면 0부터) */
+export function nextStreak(prev: { n: number; trigger: Trigger | null }, cur: { step: string; trigger: Trigger }): { n: number; trigger: Trigger | null } {
+  if (cur.step !== 'show') return { n: 0, trigger: null };
+  return prev.trigger === cur.trigger ? { n: prev.n + 1, trigger: cur.trigger } : { n: 1, trigger: cur.trigger };
 }
 
 // ── 수락 ────────────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ import path from 'node:path';
 import {
   TRIAL_PUSH_OPTIN_KEY, RATING_PRO_PENDING_KEY, AFTER_PRO_QUIET_MS, WL_AI_ATTR,
   aiLineVisible, claimShown, dayOf, inProQuiet, nextDayDue, normPerm, outcomeStage, prefsOff, readShown, routeOk,
-  runTrialPushAccept, trialFromInfo, trialPushCopy, trialPushStep, triggerSrc,
+  runTrialPushAccept, trialFromInfo, trialPushCopy, trialPushStep, triggerSrc, tickStep, nextStreak, SHOW_STREAK,
   type PermState, type TrialPushState,
 } from '../src/lib/app/trialPushOptIn';
 import { FUNNEL_SRCS, FUNNEL_STAGES, isFunnelSrc, isFunnelStage } from '../src/lib/app/funnelSchema';
@@ -230,14 +230,38 @@ t('수락: 자격 재확인은 비동기(새 고객 정보)도 기다린다 — 
   const rc = read('src/lib/native/rcFresh.ts');
   assert.ok(/if \(opts\.noCache\) await Purchases\.invalidateCustomerInfoCache\(\);\s+return Purchases\.getCustomerInfo\(\);/.test(rc));
 });
-t('판정기: 도는 중 들어온 트리거는 버리지 않고 이어 본다(AI 우선) · 체험 시작 이벤트로 다시', () => {
+t('박자: 첫 가치 순간(AI 줄 보임)이 우선 · AI 가 화면 밖이면 다음 날 경로 · 둘 다 아니면 skip/later', () => {
+  const st = (o: Partial<TrialPushState> = {}) => { const { trigger: _t, ...rest } = base(o); return rest; };
+  const day0 = { expiresAt: NOW + 6 * 24 * HOUR, startedAt: NOW };
+  const day1 = { expiresAt: NOW + 5 * 24 * HOUR, startedAt: NOW - 30 * HOUR };
+  assert.deepEqual(tickStep(st({ trial: day1 }), true), { step: 'show', trigger: 'ai' }, 'AI 줄이 보이면 다음 날이어도 AI');
+  assert.deepEqual(tickStep(st({ trial: day1, aiVisible: false }), true), { step: 'show', trigger: 'day1' }, 'AI 줄이 화면 밖이면 다음 날 경로');
+  assert.deepEqual(tickStep(st({ trial: day0, aiVisible: false }), true), { step: 'later', trigger: 'ai' }, '시작 당일 AI 줄 화면 밖 = 계속 본다');
+  assert.deepEqual(tickStep(st({ trial: day0 }), false), { step: 'skip', trigger: 'day1' }, '당일·AI 줄 없음 = 박자 멈춤');
+  assert.deepEqual(tickStep(st({ trial: day1 }), false), { step: 'show', trigger: 'day1' });
+  assert.deepEqual(tickStep(st({ trial: day1, dialogOpen: true }), true), { step: 'later', trigger: 'ai' });
+  assert.deepEqual(tickStep(st({ perm: 'denied' }), true), { step: 'stop', trigger: 'ai' });
+  assert.deepEqual(tickStep(st({ perm: 'granted' }), false), { step: 'stop', trigger: 'day1' });
+  assert.deepEqual(tickStep(st({ shown: true }), false).step, 'stop');
+});
+t('박자: 같은 트리거 show 가 2박자 연속일 때만 · 바뀌거나 막히면 0부터', () => {
+  let k: { n: number; trigger: 'ai' | 'day1' | null } = { n: 0, trigger: null };
+  k = nextStreak(k, { step: 'show', trigger: 'ai' }); assert.deepEqual(k, { n: 1, trigger: 'ai' });
+  k = nextStreak(k, { step: 'show', trigger: 'day1' }); assert.deepEqual(k, { n: 1, trigger: 'day1' });
+  k = nextStreak(k, { step: 'show', trigger: 'day1' }); assert.equal(k.n >= SHOW_STREAK, true);
+  k = nextStreak(k, { step: 'later', trigger: 'ai' }); assert.deepEqual(k, { n: 0, trigger: null });
+});
+t('판정기(소스): 권한 재확인 «뒤»의 화면으로 다시 판정 → 기록 성공 뒤에만 보임 · 아니면 박자 계속 · 체험 시작 이벤트로 다시 읽기', () => {
   const g = read('src/components/app/TrialPushOptInGate.tsx');
-  assert.ok(/if \(run\.busy\) \{ if \(run\.queued !== 'ai'\) run\.queued = trigger; return; \}/.test(g));
-  assert.ok(/const next = run\.queued;\s+run\.queued = null;\s+if \(next && alive && !run\.done\) void evaluate\(next\);/.test(g));
-  assert.ok(/if \(trigger === 'day1' && run\.queued === 'ai'\) return;/.test(g), '다음 날 회차가 보이기 직전 대기 중인 AI 회차에 양보');
-  assert.ok(g.indexOf("if (trigger === 'day1' && run.queued === 'ai') return;") < g.indexOf('if (!claimShown(store))'));
-  assert.ok(/if \(run\.aiOffscreen && !run\.done && aiLineVisible\(document, window\.innerHeight\)\) \{ run\.aiOffscreen = false; void evaluate\('ai'\); \}/.test(g), '화면 밖 AI 줄까지 스크롤하면 다시');
-  assert.ok(/window\.addEventListener\(PRO_ACTIVATED_EVENT, onPro\)/.test(g) && /const onPro = \(\) => \{ if \(trialValueSeen\(\)\) void evaluate\('ai'\); \};/.test(g));
+  const p2 = g.indexOf('const p2 = await checkPushPerm();');
+  const last = g.indexOf('const last = trialPushStep({ ...snapshot(p2), trigger: cur.trigger });');
+  const claim = g.indexOf('if (!claimShown(store)) { finish(); return; }');
+  assert.ok(p2 > 0 && p2 < last && last < claim && claim < g.indexOf("trackFunnel('trial_push_shown'"));
+  assert.ok(/if \(last !== 'show'\) \{ streak = \{ n: 0, trigger: null \}; return; \}/.test(g), '막판에 바뀌면 끝내지 않고 박자를 이어 간다');
+  assert.ok(/if \(streak\.n < SHOW_STREAK\) return;/.test(g));
+  assert.ok(/window\.addEventListener\(PRO_ACTIVATED_EVENT, onPro\)/.test(g) && /const onPro = \(\) => \{ void read\(true\); \};/.test(g));
+  assert.ok(/window\.addEventListener\(TRIAL_VALUE_EVENT, onValue\)/.test(g));
+  assert.ok(!/fetch\(/.test(g), '박자는 네트워크를 쓰지 않는다');
 });
 t('수락: 자격이 사라졌으면(체험 만료·설정 OFF·웹) 권한도 안 읽고 요청 없음', async () => {
   const { calls, deps } = acceptDeps(['prompt'], 'granted', false);
@@ -308,13 +332,6 @@ t('계측: 다섯 단계·두 출처는 닫힌 목록 · 판독기 목록 일치
   assert.ok(/trackFunnel\('trial_push_accept', \{ src \}\)/.test(sheet) && /trackFunnel\('trial_push_dismiss', \{ src \}\)/.test(sheet));
   assert.ok(/trackFunnel\('trial_push_shown', \{ src \}\)/.test(read('src/components/app/TrialPushOptInGate.tsx')));
 });
-t('판정기: 기록(claimShown)이 성공한 뒤에만 보이고 계측한다', () => {
-  const g = read('src/components/app/TrialPushOptInGate.tsx');
-  const claim = g.indexOf('if (!claimShown(store))');
-  assert.ok(claim > 0 && claim < g.indexOf("trackFunnel('trial_push_shown'") && claim < g.indexOf('setShow({'));
-  assert.ok(g.indexOf('const perm2 = await checkPushPerm()') < claim, '보이기 직전 권한을 다시 읽는다');
-});
-
 (async () => {
   for (const [name, fn] of tests) { await fn(); n++; console.log(`  ✓ ${name}`); }
   console.log(`\n✅ trialPushOptIn: ${n}건 통과`);
