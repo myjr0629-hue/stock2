@@ -306,7 +306,10 @@ export interface MoverRowIn {
     session: string;
     price: number;
     changePct: number;
+    /** 선별용 거래대금(스냅샷 값일 수 있다) */
     value: number;
+    /** 표시용 확정 거래대금(EOD) — 없으면 null */
+    shownValue?: number | null;
     earnings: MoverFacts['earnings'];
     news: MoverFacts['news'];
 }
@@ -333,7 +336,7 @@ export function moverCandidates(rows: readonly MoverRowIn[], o: { isEtf: (t: str
         seen.add(r.ticker);
         out.push({
             id: `mover:${r.ticker}`, kind: 'mover', ticker: r.ticker, asOf: r.session, score: moverScore(r),
-            facts: { kind: 'mover', session: r.session, changePct: Math.round(r.changePct * 10) / 10, price: r.price, value: r.value, earnings: r.earnings ?? null, news: r.news ?? null },
+            facts: { kind: 'mover', session: r.session, changePct: Math.round(r.changePct * 10) / 10, price: r.price, value: r.shownValue === undefined ? r.value : r.shownValue, earnings: r.earnings ?? null, news: r.news ?? null },
         });
     }
     return out.sort((a, b) => b.score - a.score || a.ticker.localeCompare(b.ticker));

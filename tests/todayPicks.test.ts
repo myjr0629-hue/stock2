@@ -748,9 +748,8 @@ t('화면 문구 점검: 대시보드 카드·웹 페이지·OG 가 같은 저�
 t('카드 상위 2개: 문서 순서 1번 + 1번과 종류가 다른 가장 앞 항목(없으면 2번째) — 항목이 모자라면 있는 만큼', () => {
   const k = (kind: string, id: string) => ({ kind, id });
   assert.deepEqual(cardItems([k('earnings', 'UNH'), k('whale', 'INTC'), k('whale', 'AMZN'), k('darkpool', 'BMY'), k('gamma', 'AAPL')]).map((x) => x.id), ['UNH', 'INTC']);   // 실적 1 + 고래 1
-  // 11/18: 일반 항목이 없으면 옵션 계열은 1개까지(대표 «옵션 등은 콘텐츠 하나일 뿐»)
-  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN'), k('darkpool', 'BMY')]).map((x) => x.id), ['INTC']);
-  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN')]).map((x) => x.id), ['INTC']);
+  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN'), k('darkpool', 'BMY')]).map((x) => x.id), ['INTC', 'BMY']);        // 고래 둘이 앞이면 두 번째는 다른 종류
+  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN')]).map((x) => x.id), ['INTC', 'AMZN']);                            // 종류가 하나뿐이면 그냥 2번째
   assert.deepEqual(cardItems([k('whale', 'INTC')]).map((x) => x.id), ['INTC']); assert.deepEqual(cardItems([]), []);
   assert.deepEqual(cardItems([k('a', '1'), k('b', '2'), k('c', '3')], 3).map((x) => x.id), ['1', '2', '3']);
 });
@@ -760,7 +759,7 @@ const CARD_CSS = noComments(fs.readFileSync(path.join(__dirname, '../src/compone
 const PAGE_TSX = fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/today/page.tsx'), 'utf8');
 const PAGE_CSS = noComments(fs.readFileSync(path.join(__dirname, '../src/app/[locale]/app-view/today/today.module.css'), 'utf8'));
 t('대시보드 카드: 2개를 «지금 모양 그대로»(AI 해설 포함·말줄임 없음) + «전체 보기 · 5 ›» 한 줄 + 제목 줄도 전체 페이지로 · 5개는 전체 페이지에서', () => {
-  assert.ok(/cardItems\(st\.view\.items, 2\)/.test(CARD));
+  assert.ok(/cardItems\(st\.view\.items, 2, st\.view\.sel === 'broad1'\)/.test(CARD), '11/18: 넓힌 선별 문서만 새 카드 규칙');
   assert.ok(/items\.map\(\(p\) => <TodayPickItem key=\{p\.id\} p=\{p\} ui=\{ui\} locale=\{loc\} onOpen=\{open\} \/>\)/.test(CARD) && /<TodayPickRow p=\{p\} ui=\{ui\} onOpen=\{onOpen\} \/>/.test(CARD), '카드와 페이지가 같은 행 컴포넌트(공유 단추 틀 TodayPickItem 이 TodayPickRow 를 그대로 감싼다)');
   assert.ok(/total > items\.length/.test(CARD) && /className=\{s\.foot\}/.test(CARD) && /ui\.viewAll\(total\)/.test(CARD));
   assert.ok(/openAll = \(\) => router\.push\(`\/\$\{loc\}\/app-view\/today`\)/.test(CARD) && /onClick=\{st\.status === 'ready' \? openAll/.test(CARD), '제목 줄·전체 보기 → 전체 페이지');

@@ -27,7 +27,8 @@ import { indexLevelRowFromStored } from '@/lib/ai/crossSectorLevels';
 import { TP_PURPOSE } from '@/lib/ai/todayPicksLine';
 import { buildPickV2Prompt, checkPickV2Why, systemFor } from '@/lib/ai/todayPicksV2';
 import { newsForStock, providerSymbols } from '@/lib/ai/stockEvidence';
-import { applyRegularClose, hasMoverSet, isRegularSessionOpen } from '@/services/moverSession';
+import { applyRegularClose, hasMoverSet, isCommonTickerSymbol, isRegularSessionOpen } from '@/services/moverSession';
+import { readEodCloses } from '@/services/eodSnapshot';
 import { isImplausibleMove } from '@/services/splitGuard';
 import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
 import { phaseOf, selectWeekEntries } from '@/lib/earningsWeek';
@@ -239,10 +240,19 @@ export async function loadMovers(now: number, deps: { quotes?: (t: string[]) => 
     const session = lastClosedSessionDate(now);
     const regular = await applyRegularClose({ value: src.value ?? [], gainers: src.gainers ?? [], losers: src.losers ?? [] }, now);
     // 분할 의심(무버 API 의 splitGuard 판정 isImplausibleMove)은 보정하지 않고 뺀다 — 공급사 분할 조회 0 · 설명 못 하는 숫자는 내보내지 않는다
-    const lists = [...(regular.value ?? []), ...(regular.gainers ?? []).filter((m: any) => m?.changePercent > 0), ...(regular.losers ?? []).filter((m: any) => m?.changePercent < 0)]
+    // 무버 목록은 등락률 상위 30이 소형주로 차서 대형주 큰 폭 등락이 빠진다(11/17 실측: 목록 4종목 vs 같은 세션 EOD 전 종목 12종목 — CRM −9.5%·NOW −6.5%·UNH −5.4% 등).
+    // EOD 가 «마지막으로 끝난 세션»과 같은 날짜일 때(= applyRegularClose 가 쓴 그 날짜 게이트)만 같은 EOD 전 종목을 후보에 더한다 — 같은 원천·같은 세션, 새 읽기는 프로세스 캐시(5분).
+    const eod = (regular.value ?? []).some((m: any) => m?.regularCloseFrom === session) ? await readEodCloses().catch(() => null) : null;
+    const eodRows: any[] = [];
+    if (eod?.date === session) for (const [t, e] of eod.rows) {
+        if (!isCommonTickerSymbol(t) || !(e.c >= 1) || !(e.v >= 10000)) continue;
+        eodRows.push({ ticker: t, price: e.c, changePercent: e.chgPct, value: e.c * e.v, regularCloseFrom: eod.date });
+    }
+    const lists = [...(regular.value ?? []), ...(regular.gainers ?? []).filter((m: any) => m?.changePercent > 0), ...(regular.losers ?? []).filter((m: any) => m?.changePercent < 0), ...eodRows]
         .filter((m: any) => !isImplausibleMove(Number(m?.price) || 0, Number(m?.changePercent) || 0));
     const ts = Number(src.ts) || 0;
-    const snapOk = ts > 0 && ts <= now && etDateOf(ts) === session && etMinutesOf(ts) >= sessionCloseMinutes(session) - 30;
+    // 스냅샷은 그 세션 날짜·마감 «뒤»에 찍힌 것만(관문 11/18: 마감 전 값은 장중 거래대금이다)
+    const snapOk = ts > 0 && ts <= now && etDateOf(ts) === session && etMinutesOf(ts) >= sessionCloseMinutes(session);
     const byT = new Map<string, { ticker: string; price: number; changePct: number; value: number; basis: 'eod' | 'snap' }>();
     for (const r of lists) {
         const t = String(r?.ticker || '').toUpperCase();
@@ -275,7 +285,7 @@ export async function loadMovers(now: number, deps: { quotes?: (t: string[]) => 
             return h.length >= 12 && h.length <= 300 && !MARKET_WIDE.test(h) && Number.isFinite(at) && at >= newsWindowStart && at <= now
                 && symbols.length <= 2 && newsForStock({ text: '', headline: h, symbols }, r.ticker);
         });
-        rows.push({ ticker: r.ticker, session, price, changePct: chg, value: r.value,
+        rows.push({ ticker: r.ticker, session, price, changePct: chg, value: r.value, shownValue: r.basis === 'eod' ? r.value : null,
             earnings: earn ? { date: earn.date, hour: earn.hour as 'bmo' | 'amc' } : null,
             news: news ? { headline: String(news.headline).trim(), publishedAt: String(news.publishedAt) } : null });
     }
@@ -330,7 +340,12 @@ export async function gather(now = Date.now(), o: { broad?: boolean } = {}): Pro
         finra: darkC[0]?.asOf ?? dark.map((d) => d.date).filter((x): x is string => !!x).sort().pop() ?? null,
         chain: gamma[0]?.asOf ?? chains[chains.length - 1] ?? null,
         earn: dates[0] ?? null,
-        ...(o.broad ? { mov: movers?.session ? `${movers.session}|${mover.slice(0, 5).map((c) => `${c.ticker}${c.facts.news ? '+n' : ''}`).join(',')}` : null, sel: 'broad1' } : {}),
+        ...(o.broad ? {
+            mov: movers?.session ? `${movers.session}|${mover.slice(0, 5).map((c) => `${c.ticker}${c.facts.news ? '+n' : ''}`).join(',')}` : null,
+            // 넓힌 실적 후보(발표가 끝나면 빠진다) — 같은 슬롯에서도 끝난 발표가 남지 않게 다시 만든다(관문 11/18)
+            ern: earnings.map((c) => c.ticker).join(',') || null,
+            sel: 'broad1',
+        } : {}),
     };
     return { mover, whale, darkpool: darkC, gamma, earnings, stamp, notes, earlyEarnDates };
 }
@@ -403,7 +418,7 @@ export function inWindow(now: number): boolean {
 export const slotOf = (now: number): Slot => etMinutesOf(now) < 450 ? 'pre' : etMinutesOf(now) < 720 ? 'am' : 'pm';
 
 const sameStamp = (a: DocStamp, b: DocStamp): boolean => a.opt === b.opt && a.opened === b.opened && a.finra === b.finra && a.chain === b.chain && a.earn === b.earn
-    && (a.mov ?? null) === (b.mov ?? null) && (a.sel ?? null) === (b.sel ?? null);
+    && (a.mov ?? null) === (b.mov ?? null) && (a.ern ?? null) === (b.ern ?? null) && (a.sel ?? null) === (b.sel ?? null);
 
 /**
  * 넓힌 선별에서 AI 를 부르지 않는 항목 — 규칙 문장이 곧 «확인된 사실»이다(새 AI 호출 없음 · 기존 예산 안에서 오히려 줄어든다).
@@ -484,7 +499,7 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
         const results = (o.dry || o.noAi) ? picked.map((): WhyResult => ({ outcome: 'skipped', reasons: [o.dry ? 'dry' : 'no-ai'], ms: 0 }))
             : await Promise.all(picked.map((c) => (ruleOnly(c, broad) ? Promise.resolve<WhyResult>({ outcome: 'skipped', reasons: ['rule-only'], ms: 0 }) : writeWhy(c, etDate, year, context))));
         picked.forEach((c, i) => {
-            const rt = ruleTexts(c.ticker, c.facts);
+            const rt = ruleTexts(c.ticker, c.facts, { plain: broad });
             const w = results[i];
             whys.push(w);
             items.push({ id: c.id, kind: c.kind, ticker: c.ticker, asOf: c.asOf, facts: c.facts, what: rt.what, why: w.outcome === 'ai' && w.text ? w.text : rt.fallback, whyAi: w.outcome === 'ai', push: rt.push });

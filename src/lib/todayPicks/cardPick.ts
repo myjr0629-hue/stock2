@@ -26,8 +26,10 @@ function pickDiverse<T extends { kind: string }>(items: readonly T[], n: number)
     return out;
 }
 
-export function cardItems<T extends { kind: string }>(items: readonly T[], n = 2): T[] {
+/** broad = 넓힌 선별 문서(sel 'broad1')일 때만 새 규칙 — 옛 저장본·끄기 스위치 문서는 예전 규칙 그대로(관문 11/18) */
+export function cardItems<T extends { kind: string }>(items: readonly T[], n = 2, broad = false): T[] {
     if (n <= 0 || !items.length) return [];
+    if (!broad) return pickDiverse(items, n);
     const general = items.filter((x) => !isOptionsKind(x.kind));
     if (general.length >= 2) return pickDiverse(general, n);
     // 일반 항목이 하나 이하 — 옵션 계열은 최대 1개(문서 순서 유지)

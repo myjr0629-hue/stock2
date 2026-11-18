@@ -19,6 +19,8 @@ export interface PicksView {
     items: PickView[];
     /** 다크풀(FINRA) 항목이 있다 → 출처 표기가 필요하다 */
     hasFinra: boolean;
+    /** 넓힌 선별 문서(11/18) — 홈 카드 2개 규칙(cardItems)이 이것을 본다 */
+    sel?: 'broad1';
 }
 
 /** ET 벽시계 «10/12 17:55» */
@@ -33,6 +35,7 @@ export function buildView(doc: TodayPicksDoc | null, loc: Loc, off = false): Pic
         off: false, slot: doc.slot, etDate: doc.etDate, at: doc.at, pickedAt: pickedAtLabel(doc.at),
         items: doc.items.map((p) => viewOf(p, loc)),
         hasFinra: doc.items.some((p) => p.kind === 'darkpool'),
+        ...(doc.sel === 'broad1' ? { sel: 'broad1' as const } : {}),
     };
 }
 

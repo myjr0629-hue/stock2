@@ -181,13 +181,17 @@ t('조립: 조기·아침판은 오늘 발표 실적부터 · 일반 2개면 3�
 });
 t('홈 카드 2개: 일반 항목이 둘 이상이면 옵션 계열 0개 · 하나면 옵션 계열 최대 1개 · 순서 유지', () => {
   const k = (kind: string, id: string) => ({ kind, id });
-  assert.deepEqual(cp.cardItems([k('mover', 'NVDA'), k('mover', 'MSFT'), k('earnings', 'PANW'), k('whale', 'AMZN')]).map((x) => x.id), ['NVDA', 'PANW']);
-  assert.deepEqual(cp.cardItems([k('mover', 'NVDA'), k('mover', 'MSFT'), k('whale', 'AMZN'), k('darkpool', 'BMY')]).map((x) => x.id), ['NVDA', 'MSFT']);
-  assert.deepEqual(cp.cardItems([k('mover', 'NVDA'), k('whale', 'AMZN'), k('darkpool', 'BMY')]).map((x) => x.id), ['NVDA', 'AMZN']);
-  assert.deepEqual(cp.cardItems([k('whale', 'AMZN'), k('earnings', 'UNH'), k('darkpool', 'BMY')]).map((x) => x.id), ['AMZN', 'UNH'], '옛 문서: 옵션 1 + 일반 1');
-  assert.deepEqual(cp.cardItems([k('earnings', 'UNH'), k('whale', 'INTC'), k('earnings', 'GS')]).map((x) => x.id), ['UNH', 'GS']);
+  assert.deepEqual(cp.cardItems([k('mover', 'NVDA'), k('mover', 'MSFT'), k('earnings', 'PANW'), k('whale', 'AMZN')], 2, true).map((x) => x.id), ['NVDA', 'PANW']);
+  assert.deepEqual(cp.cardItems([k('mover', 'NVDA'), k('mover', 'MSFT'), k('whale', 'AMZN'), k('darkpool', 'BMY')], 2, true).map((x) => x.id), ['NVDA', 'MSFT']);
+  assert.deepEqual(cp.cardItems([k('mover', 'NVDA'), k('whale', 'AMZN'), k('darkpool', 'BMY')], 2, true).map((x) => x.id), ['NVDA', 'AMZN']);
+  assert.deepEqual(cp.cardItems([k('whale', 'AMZN'), k('earnings', 'UNH'), k('darkpool', 'BMY')], 2, true).map((x) => x.id), ['AMZN', 'UNH']);
+  assert.deepEqual(cp.cardItems([k('earnings', 'UNH'), k('whale', 'INTC'), k('earnings', 'GS')], 2, true).map((x) => x.id), ['UNH', 'GS']);
+  assert.deepEqual(cp.cardItems([k('gamma', 'C'), k('whale', 'D')], 2, true).map((x) => x.id), ['C'], '넓힌 문서에서 일반 0개면 옵션 계열 1개');
+  // 옛 저장본·끄기 스위치 문서(broad=false)는 예전 규칙 그대로
+  assert.deepEqual(cp.cardItems([k('whale', 'INTC'), k('whale', 'AMZN'), k('darkpool', 'BMY')]).map((x) => x.id), ['INTC', 'BMY']);
+  assert.deepEqual(cp.cardItems([k('earnings', 'UNH'), k('whale', 'INTC'), k('earnings', 'GS')]).map((x) => x.id), ['UNH', 'INTC']);
   for (const items of [[k('mover', 'A'), k('earnings', 'B'), k('gamma', 'C')], [k('earnings', 'B'), k('gamma', 'C'), k('whale', 'D')], [k('gamma', 'C'), k('whale', 'D')]]) {
-    const out = cp.cardItems(items); const gen = items.filter((x) => !OPT.has(x.kind)).length;
+    const out = cp.cardItems(items, 2, true); const gen = items.filter((x) => !OPT.has(x.kind)).length;
     assert.ok(gen >= 2 ? optIn(out) === 0 : optIn(out) <= 1, JSON.stringify(out));
   }
 });
@@ -203,6 +207,7 @@ t('세션(마감 뒤 스냅샷): 그 세션 날짜·마감 30분 전 이후 + �
   assert.deepEqual(lm.rows.map((r) => r.ticker).sort(), ['MSFT', 'NVDA']);
   const nvda = lm.rows.find((r) => r.ticker === 'NVDA')!;
   assert.equal(nvda.price, 160.2); assert.equal(nvda.changePct, 4.9, '숫자는 정규장 종가 대조값');
+  assert.equal(nvda.shownValue, null, '마감 뒤 스냅샷의 거래대금은 표시하지 않는다(시간외·장중 혼입)');
   assert.ok(lm.notes.includes('movers:drift:TSM'), 'TSM 캐시 −3.7 vs 종가 −1.5 → 다른 값이면 뺀다');
   assert.ok(lm.notes.includes('movers:unverified:CRWD'), '시세의 정규장 날짜가 다르면 스냅샷 행은 쓰지 않는다');
   assert.ok(!lm.rows.some((r) => ['GTBP', 'SPY', 'PENY', 'SMOL', 'AAPL'].includes(r.ticker)), '분할 의심(+205% · $15)·ETF·$5 미만·문턱 밖 제외');
@@ -220,6 +225,7 @@ t('세션(조기판 03:30 ET): 자정 뒤 스냅샷은 버리고 EOD(마지막�
   const lm = await svc.loadMovers(PRE);
   assert.equal(lm.session, '2026-11-18');
   assert.deepEqual(lm.rows.map((r) => r.ticker), ['NVDA', 'MSFT'], 'EOD 행(시세 API 없어도 확정 종가)');
+  assert.equal(lm.rows[0].shownValue, 160.2 * 375e6, 'EOD 확정 거래대금은 표시');
   const c = sel.moverCandidates(lm.rows, { isEtf });
   for (const x of c) for (const l of LOCS) {
     const f = x.facts as MoverFacts;
@@ -267,6 +273,12 @@ t('규칙 문장(큰 폭 등락·넓힌 실적): 3개 언어 금지어·예측�
   assert.equal(copy.asOfText(MV(), '2026-11-18', 'ja'), '11/18終値');
   assert.equal(copy.fallbackWhy(MV(), 'ko'), '움직임을 설명하는 보도는 확인되지 않았습니다');
   assert.equal(copy.whatText(facts[5], 'en'), 'Reports 11/19 08:00 ET');
+  assert.equal(copy.whatText(MV({ value: null }), 'ko'), '종가 $505.9 (-2.3%)', '확정 거래대금이 없으면(마감 뒤 스냅샷) 쓰지 않는다');
+  assert.doesNotMatch(copy.factsForAi('MSFT', MV({ value: null })), /Dollar volume/);
+  // 옛 선별(끄기 스위치)의 실적 규칙 해설은 예전 문장 그대로 · 넓힌 선별만 일정 문장
+  const ef = { kind: 'earnings', date: '2026-11-18', hour: 'amc', etTime: null, impliedPct: 5, impliedExpiry: '2026-11-20', session: '2026-11-18' } as EarnFacts;
+  assert.equal(copy.fallbackWhy(ef, 'ko'), '발표 직후 움직임의 크기를 옵션 시장이 미리 가격에 담았습니다');
+  assert.equal(copy.fallbackWhy(ef, 'ko', true), '회사가 공지한 장 마감 후 발표 일정입니다');
 });
 t('AI 가드(큰 폭 등락): 통과 예 · 옵션 용어·«오늘»·원인 단정·방향 뒤집기·사실 밖 숫자는 세 언어 모두 버린다', () => {
   const f = MV({ changePct: 4.9, price: 160.2, value: 60e9, earnings: { date: '2026-11-17', hour: 'amc' } });
@@ -307,6 +319,9 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   assert.equal(doc.items[3].why.ko, '회사가 공지한 개장 전 발표 일정입니다');
   assert.equal(doc.gen.calls, 1);
   assert.equal(view.pushPickLine(doc, 'ko', '2026-11-18').line, '✦ 오늘 볼 것 · NVDA 11/18 종가 +4.9%', '푸시 1번 줄이 새 종류도 처리');
+  assert.equal(view.buildView(doc, 'ko').sel, 'broad1');
+  assert.equal(doc.items[0].what.ko, '종가 $160.2 (+4.9%)');
+  assert.equal(doc.stamp.ern, 'PANW,WMT,ACME');
   // 가드 실패 → 규칙 문장
   script.push({ text: JSON.stringify({ ko: '오늘 실적 때문에 크게 올랐습니다', en: 'Rose today because of earnings', ja: '今日決算のため上昇しました' }) });
   await svc.runPicks({ now: PM, force: true });
@@ -319,6 +334,9 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   quoteData = { NVDA: Q(160.2, 4.9) };
   const changed = await svc.runPicks({ now: PM });
   assert.equal(changed.status, 'generated', 'stamp.mov 가 바뀌면 다시 만든다');
+  // 발표가 끝나 실적 후보가 빠지면 같은 슬롯에서도 다시 만든다(관문 11/18)
+  const later = await svc.runPicks({ now: PM + 4 * 3600_000 });
+  assert.equal(later.status, 'generated'); assert.ok(!(store.get('todaypicks:v1:latest') as TodayPicksDoc).items.some((p) => p.ticker === 'PANW'));
 });
 t('끄기 스위치: Redis todaypicks:broad:off 또는 TODAY_PICKS_BROAD=0 → 옛 선별(큰 폭 등락 없음·sel 없음·실적은 예상 변동 필수) · 크론 ?broad=0/1', async () => {
   reset();
@@ -355,7 +373,7 @@ t('옛 저장본: sel 없는 문서(예상 변동 있는 실적·고래·다크�
   assert.equal(v.items.length, 2); assert.equal(v.items[0].what, '11/18 장 시작 전 실적 · 옵션 예상 변동 ±4.1%', '저장 문장 그대로'); assert.equal(v.items[0].why, '옛 AI 문장');
   assert.equal(v.items[0].label, '실적 임박'); assert.equal(v.items[0].asOf, '11/17 기준');
   assert.match(v.items[1].what, /12\/19 만기 \$700 콜/);
-  assert.deepEqual(cp.cardItems(v.items).map((x) => x.ticker), ['HD', 'META']);
+  assert.deepEqual(cp.cardItems(v.items, 2, v.sel === 'broad1').map((x) => x.ticker), ['HD', 'META']); assert.equal(v.sel, undefined);
   assert.equal(view.pushPickLine(old, 'ko', '2026-11-17').line, '✦ 오늘 볼 것 · HD 11/18 장 전 실적, 옵션 예상 변동 ±4.1%');
 });
 

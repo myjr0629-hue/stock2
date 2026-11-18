@@ -144,7 +144,7 @@ export function TodayPicksCard({ locale, classes }: {
     trackFunnel('ai_tap', { src: 'today_picks' });
     router.push(todayPicksHref(loc));
   };
-  const items = cardItems(st.view.items, 2);
+  const items = cardItems(st.view.items, 2, st.view.sel === 'broad1');
 
   return (
     <div className={classes.sect} data-testid="today-picks" lang={loc}>

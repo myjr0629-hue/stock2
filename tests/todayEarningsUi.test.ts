@@ -111,7 +111,7 @@ function test(name: string, fn: () => void) { reset(); fn(); passed++; console.l
 try {
   test('A: 카드 종목 → locale 전체보기, focus 없음, 기존 source·평점 유지', () => {
     for (locale of ['ko', 'en', 'ja']) {
-      reset(); state = ready([pick('whale:NVDA'), pick('gamma:NVDA', 'NVDA', 'earnings')]);   // 11/18: 홈 카드는 옵션 계열 최대 1개 — 두 번째 행은 일반 항목
+      reset(); state = ready([pick('whale:NVDA'), pick('gamma:NVDA', 'NVDA', 'gamma')]);
       const tree = render(TodayPicksCard);
       tapItem(tree, 'gamma:NVDA');
       const u = new URL(routes[0], 'https://example.test');

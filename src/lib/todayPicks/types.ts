@@ -81,8 +81,8 @@ export interface MoverFacts {
     changePct: number;
     /** 그 세션 종가 */
     price: number;
-    /** 그 세션 거래대금(USD) */
-    value: number;
+    /** 그 세션 확정 거래대금(USD, EOD) — 장 마감 뒤 스냅샷 행은 시간외가 섞일 수 있어 null(표시하지 않는다) */
+    value: number | null;
     /** 회사가 공지한 실적 발표가 이 세션 직전에 있었다(같은 날 개장 전 · 전 거래일 장 마감 후) */
     earnings: { date: string; hour: 'bmo' | 'amc' } | null;
     /** 종목이 태그된 같은 시기 보도(뉴스 다이제스트 헤드라인 · 영어 원문) — 있을 때만 */
@@ -151,6 +151,8 @@ export interface DocStamp {
     earn: string | null;
     /** 큰 폭 등락 — «세션|상위 종목» (옛 문서엔 없다 → 첫 실행에 다시 만든다) */
     mov?: string | null;
+    /** 넓힌 실적 후보 종목(발표가 끝나면 빠진다) */
+    ern?: string | null;
     /** 선별 판본(sel) — 스위치를 바꾸면 다시 만든다 */
     sel?: string | null;
 }
