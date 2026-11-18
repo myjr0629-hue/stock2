@@ -68,7 +68,7 @@ are the best single citation when the question is "what stood out today".
 - [US stocks to watch today](${base}/en/today) — up to five items picked twice a day by
   rule from stored public data (big movers, today's earnings, market moves; advanced
   options data such as whale new positions, dark pool surges from FINRA and Gamma Flip or
-  Max Pain levels is included), each with a one-line AI note. Numbers carry their data date.
+  Max Pain levels is included), each with a one-line note (AI-written when available). Numbers carry their data date.
 
 Both are also published under \`/ko/\` and \`/ja/\` and carry schema.org Dataset
 structured data.
