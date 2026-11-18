@@ -122,8 +122,10 @@ export function TrialPushOptInGate() {
         if (first === 'stop') { finish(); return; }
         if (first === 'skip') {
           trial = null; stopTick();
-          // 권한을 못 읽었다(플러그인 오류·3초 초과) = 모름 — 30초 묶음 밖 · 조회 실패와 같은 재시도(관문 6차). 설정 OFF 는 묶음에 넣는다
-          if (p === 'unknown') { readAt = 0; scheduleRetry(); } else readAt = Date.now();
+          // 권한을 못 읽었다(플러그인 오류·3초 초과) = 모름 — 조회 실패와 같은 재시도(관문 6차).
+          // 설정 OFF 도 30초 묶음에 넣지 않는다 — 같은 실행에서 다시 켜면 다음 AI 줄·복귀 때 곧바로 다시 읽는다(관문 9차)
+          readAt = 0;
+          if (p === 'unknown') scheduleRetry();
           return;
         }
         const info = await freshCustomerInfo(VERIFY_MS);
