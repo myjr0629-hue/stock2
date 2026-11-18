@@ -399,6 +399,12 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   quoteData = { NVDA: Q(160.2, 4.9) };
   const changed = await svc.runPicks({ now: PM });
   assert.equal(changed.status, 'generated', 'stamp.mov 가 바뀌면 다시 만든다');
+  // 다이제스트를 못 읽은 문서 → 읽기가 회복되면 같은 슬롯도 다시 만든다
+  store.delete('guardian:news:digest:v2');
+  assert.equal((await svc.runPicks({ now: PM })).status, 'generated');
+  assert.match(String((store.get('todaypicks:v1:latest') as TodayPicksDoc).stamp.mov), /NVDA\?/);
+  store.set('guardian:news:digest:v2', { items: [{ headline: 'Gold prices hit one-year low as dollar firms', tickers: [], publishedAt: '2026-11-18T15:00:00Z' }] });
+  assert.equal((await svc.runPicks({ now: PM })).status, 'generated');
 });
 t('끄기 스위치: Redis todaypicks:broad:off 또는 TODAY_PICKS_BROAD=0 → 옛 선별(큰 폭 등락 없음·sel 없음·실적은 예상 변동 필수) · 크론 ?broad=0/1', async () => {
   reset();
