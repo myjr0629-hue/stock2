@@ -12,7 +12,7 @@ import { toLoc, type Loc } from '@/lib/earningsWeek';
 // · 읽는 데이터가 없으면(끄기·저장소 장애) 항목 없이 제목만 그린다.
 // ============================================================================
 export const dynamic = 'force-dynamic';
-export const alt = 'SIGNUM HQ — Worth watching in options today';
+export const alt = 'SIGNUM HQ — 5 US stocks to watch today';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
