@@ -12,7 +12,7 @@ import { toLoc, type Loc } from '@/lib/earningsWeek';
 // · 읽는 데이터가 없으면(끄기·저장소 장애) 항목 없이 제목만 그린다.
 // ============================================================================
 export const dynamic = 'force-dynamic';
-export const alt = 'SIGNUM HQ — 5 US stocks to watch today';
+export const alt = 'SIGNUM HQ — US stocks to watch today';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -64,13 +64,13 @@ export default async function TodayOg({ params }: { params: Promise<{ locale: st
     const rows = view.items.slice(0, 5).map((p) => ({ ticker: p.ticker, label: p.label, what: p.what, asOf: p.asOf }));
     const sub = l === 'ko' ? '규칙으로 고르고 AI가 한 줄로 풀어 줍니다' : l === 'ja' ? 'ルールで選び、AIが一言で解説' : 'Picked by rules · one-line AI note';
     const foot = l === 'ko' ? '무료 · 가입 없이 · iOS·안드로이드' : l === 'ja' ? '無料 · 登録不要 · iOS・Android' : 'Free · no account · iOS & Android';
-    return { ui, rows, sub, foot, picked: view.pickedAt ? ui.pickedLine(view.pickedAt) : '', finra: view.hasFinra ? ui.sourceFinra : '' };
+    return { ui, h1: ui.webH1(rows.length), rows, sub, foot, picked: view.pickedAt ? ui.pickedLine(view.pickedAt) : '', finra: view.hasFinra ? ui.sourceFinra : '' };
   };
   let loc: Loc = want;
   let v = build(loc);
   let cjk: ArrayBuffer | null = null;
   if (want !== 'en') {
-    const all = [v.ui.webH1, v.ui.title, v.sub, v.foot, v.picked, v.finra, ...v.rows.flatMap((r) => [r.ticker, r.label, r.what, r.asOf]), 'SIGNUM HQ · AI ET0123456789:/()-–—±%$.,·→+ '].join('');
+    const all = [v.h1, v.ui.title, v.sub, v.foot, v.picked, v.finra, ...v.rows.flatMap((r) => [r.ticker, r.label, r.what, r.asOf]), 'SIGNUM HQ · AI ET0123456789:/()-–—±%$.,·→+ '].join('');
     cjk = await cjkFont(want, all);
     if (!cjk) { loc = 'en'; v = build('en'); }
   }
@@ -92,7 +92,7 @@ export default async function TodayOg({ params }: { params: Promise<{ locale: st
             <div style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '0.12em', color: C.accent, display: 'flex' }}>{'SIGNUM HQ'}</div>
             <div style={{ fontSize: '20px', color: C.label, display: 'flex', marginLeft: '8px' }}>{v.picked}</div>
           </div>
-          <div style={{ fontSize: '50px', fontWeight: 700, color: C.title, marginTop: '10px', lineHeight: 1.12, display: 'flex' }}>{v.ui.webH1}</div>
+          <div style={{ fontSize: '50px', fontWeight: 700, color: C.title, marginTop: '10px', lineHeight: 1.12, display: 'flex' }}>{v.h1}</div>
           <div style={{ fontSize: '24px', color: C.label, marginTop: '4px', display: 'flex' }}>{v.sub}</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>

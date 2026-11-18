@@ -35,8 +35,9 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const first = view.items[0];
   const top = first ? `${first.ticker} ${first.what}` : null;
   const url = `${base}/${l}/today`;
-  const title = ui.metaTitle;
-  const description = ui.metaDesc(top);
+  const nItems = view.items.length;
+  const title = ui.metaTitle(nItems);
+  const description = ui.metaDesc(top, nItems);
   return {
     title,
     description,
@@ -110,7 +111,7 @@ export default async function TodayPage({ params }: Params) {
   const ld = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
-    name: ui.metaTitle,
+    name: ui.metaTitle(view.items.length),
     url,
     inLanguage: l,
     isPartOf: { '@type': 'WebSite', name: 'SIGNUM HQ', url: base },
@@ -136,18 +137,18 @@ export default async function TodayPage({ params }: Params) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
 
       <div className="tp-kicker"><span className="tp-badge" aria-hidden="true">✦ AI</span>{ui.title}</div>
-      <h1 className="tp-h1">{ui.webH1}</h1>
+      <h1 className="tp-h1">{ui.webH1(view.items.length)}</h1>
       <p className="tp-lead">{ui.webLead}</p>
       {view.pickedAt && <p className="tp-meta">{ui.pickedLine(view.pickedAt)}</p>}
 
       <div className="tp-actions">
-        <TodayPicksShare locale={l} label={c.share} copiedLabel={c.shareCopied} title={ui.shareTitle} text={ui.shareText(topText)} />
+        <TodayPicksShare locale={l} label={c.share} copiedLabel={c.shareCopied} title={ui.shareTitle(view.items.length)} text={ui.shareText(topText, view.items.length)} />
       </div>
 
       {view.items.length === 0 ? (
         <p className="tp-empty">{ui.empty}</p>
       ) : (
-        <ol className="tp-list" aria-label={ui.webH1}>
+        <ol className="tp-list" aria-label={ui.webH1(view.items.length)}>
           {view.items.map((p, i) => (
             <li key={p.id} className="tp-item" data-kind={p.kind} data-ticker={p.ticker}>
               <span className="tp-n">{i + 1}</span>

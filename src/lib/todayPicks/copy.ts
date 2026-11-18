@@ -306,12 +306,13 @@ export interface UiCopy {
     updated: (hhmm: string) => string;
     sourceFinra: string;
     webKicker: string;
-    webH1: string;
+    /** n = 실제 항목 수(기본 5). 5 미만이면 «5가지»라고 쓰지 않는다 */
+    webH1: (n?: number) => string;
     webLead: string;
-    metaTitle: string;
-    metaDesc: (top: string | null) => string;
-    shareTitle: string;
-    shareText: (top: string | null) => string;
+    metaTitle: (n?: number) => string;
+    metaDesc: (top: string | null, n?: number) => string;
+    shareTitle: (n?: number) => string;
+    shareText: (top: string | null, n?: number) => string;
     howT: string;
     how: Array<[string, string]>;
     howRule: string;
@@ -322,16 +323,19 @@ export interface UiCopy {
     backAria: string;
 }
 
+/** 영어 제목 — 항목 수가 5 미만이면 실제 수로, 0 이면 숫자 없이 */
+const enTitle = (n: number): string => (n >= 2 ? `${n} US stocks to watch today` : n === 1 ? '1 US stock to watch today' : 'US stocks to watch today');
+
 export const UI: Record<Loc, UiCopy> = {
     ko: {
         title: '오늘 볼 것', aiAria: 'AI 생성 문구', empty: '오늘 고른 항목이 아직 없습니다',
         updated: (t) => `${t} ET 선별`, sourceFinra: '다크풀 데이터 출처 FINRA',
-        webKicker: 'AI 오늘 볼 것', webH1: '오늘 볼 만한 미국 주식 5가지',
-        webLead: '고래 신규 포지션 · 다크풀 · Gamma Flip와 Max Pain · 실적 전 옵션 예상 변동. 공개 데이터에서 규칙으로 고르고, AI가 항목마다 한 줄로 풀어 줍니다.',
-        metaTitle: 'AI 오늘 볼 것 — 고래 신규 포지션·다크풀·Gamma Flip·실적 전 옵션 | SIGNUM HQ',
-        metaDesc: (top) => `${top ? `${top} 외 ` : ''}오늘 볼 만한 미국 주식 5가지를 하루 두 번 고릅니다. 고래 신규 포지션, 다크풀 급증, Gamma Flip·Max Pain 근접, 실적 전 옵션 예상 변동 — 숫자는 공개 데이터 기준 날짜와 함께.`,
-        shareTitle: '오늘 볼 만한 미국 주식 5가지 — SIGNUM HQ',
-        shareText: (top) => `${top ? `${top} 외 ` : ''}오늘 볼 것 5가지 (고래 신규 포지션·다크풀·Gamma Flip·실적 전 옵션)`,
+        webKicker: 'AI 오늘 볼 것', webH1: (n = 5) => `오늘 볼 만한 미국 주식${n >= 1 ? ` ${n}가지` : ''}`,
+        webLead: '크게 움직인 종목과 그 이유 · 오늘 실적 발표 · 시장 움직임. 공개 데이터에서 규칙으로 고르고, AI가 항목마다 한 줄로 풀어 줍니다(옵션 지표 등 고급 데이터 포함).',
+        metaTitle: () => 'AI 오늘 볼 것 — 크게 움직인 종목·오늘 실적·시장 움직임 | SIGNUM HQ',
+        metaDesc: (top, n = 5) => `${top ? `${top} 외 ` : ''}오늘 볼 만한 미국 주식${n >= 1 ? ` ${n}가지` : ''}를 하루 두 번 고릅니다. 크게 움직인 종목과 이유, 오늘 실적 발표, 시장 움직임을 AI가 한 줄로 풀어 줍니다(옵션 지표 등 고급 데이터 포함) — 숫자는 공개 데이터 기준 날짜와 함께.`,
+        shareTitle: (n = 5) => `오늘 볼 만한 미국 주식${n >= 1 ? ` ${n}가지` : ''} — SIGNUM HQ`,
+        shareText: (top, n = 5) => `${top ? `${top} 외 ` : ''}오늘 볼 것${n >= 1 ? ` ${n}가지` : ''} (크게 움직인 종목·실적·시장 움직임)`,
         howT: '이 목록은 이렇게 만듭니다',
         how: [
             ['고래 신규 포지션', '미결제약정(아직 열려 있는 계약 수)이 한 세션에 크게 늘어난 계약입니다. 새 포지션이 열렸다는 뜻이며, 방향(오름·내림)을 말해 주지는 않습니다.'],
@@ -346,12 +350,12 @@ export const UI: Record<Loc, UiCopy> = {
     ja: {
         title: '今日の注目', aiAria: 'AI生成', empty: '本日の注目はまだありません',
         updated: (t) => `${t} ET 選定`, sourceFinra: 'ダークプールのデータ出典 FINRA',
-        webKicker: 'AI 今日の注目', webH1: '今日注目の米国株5選',
-        webLead: '大口の新規ポジション・ダークプール・Gamma FlipとMax Pain・決算前の想定変動幅。公開データからルールで選び、AIが項目ごとに一言で解説します。',
-        metaTitle: 'AI 今日の注目 — 大口の新規ポジション・ダークプール・Gamma Flip・決算前のオプション | SIGNUM HQ',
-        metaDesc: (top) => `${top ? `${top}ほか、` : ''}今日注目の米国株5選を1日2回選びます。大口の新規ポジション、ダークプールの急増、Gamma Flip・Max Painへの接近、決算前の想定変動幅。数字は公開データの基準日つき。`,
-        shareTitle: '今日注目の米国株5選 — SIGNUM HQ',
-        shareText: (top) => `${top ? `${top}ほか、` : ''}今日の注目5つ(大口の新規ポジション・ダークプール・Gamma Flip・決算前のオプション)`,
+        webKicker: 'AI 今日の注目', webH1: (n = 5) => `今日注目の米国株${n >= 1 ? `${n}選` : ''}`,
+        webLead: '今日大きく動いた銘柄とその理由・今日の決算発表・市場の動き。公開データからルールで選び、AIが項目ごとに一言で解説します(オプション指標などの高度なデータも含む)。',
+        metaTitle: () => 'AI 今日の注目 — 大きく動いた銘柄・今日の決算・市場の動き | SIGNUM HQ',
+        metaDesc: (top, n = 5) => `${top ? `${top}ほか、` : ''}今日注目の米国株${n >= 1 ? `${n}選` : ''}を1日2回選びます。大きく動いた銘柄とその理由、今日の決算発表、市場の動きをAIが一言で解説(オプション指標などの高度なデータも含む)。数字は公開データの基準日つき。`,
+        shareTitle: (n = 5) => `今日注目の米国株${n >= 1 ? `${n}選` : ''} — SIGNUM HQ`,
+        shareText: (top, n = 5) => `${top ? `${top}ほか、` : ''}今日の注目${n >= 1 ? `${n}つ` : ''}(大きく動いた銘柄・決算・市場の動き)`,
         howT: 'このリストの作り方',
         how: [
             ['大口の新規ポジション', '建玉(まだ残っている契約数)が1セッションで大きく増えた契約です。新規ポジションが建てられたことを示すだけで、方向(上げ・下げ)は示しません。'],
@@ -366,12 +370,12 @@ export const UI: Record<Loc, UiCopy> = {
     en: {
         title: 'Worth watching today', aiAria: 'AI-generated', empty: 'No picks yet today',
         updated: (t) => `Picked ${t} ET`, sourceFinra: 'Dark pool data: FINRA',
-        webKicker: 'AI · WORTH WATCHING TODAY', webH1: '5 US stocks to watch today',
-        webLead: 'Whale new positions, dark pool surges, Gamma Flip and Max Pain, pre-earnings implied moves — picked by rules from public data, with a one-line AI note on each.',
-        metaTitle: 'AI: 5 US stocks to watch today — whale positions, dark pool, Gamma Flip, earnings | SIGNUM HQ',
-        metaDesc: (top) => `${top ? `${top} and 4 more: ` : ''}five US stocks to watch today, picked twice a day. Whale new positions, dark pool surges, names near Gamma Flip or Max Pain, pre-earnings implied moves — every number dated to its public source.`,
-        shareTitle: '5 US stocks to watch today — SIGNUM HQ',
-        shareText: (top) => `${top ? `${top} and 4 more — ` : ''}5 US stocks to watch today (whale positions, dark pool, Gamma Flip, earnings)`,
+        webKicker: 'AI · WORTH WATCHING TODAY', webH1: (n = 5) => enTitle(n),
+        webLead: 'Big movers and why, today\'s earnings, market moves — picked by rules from public data, with a one-line AI note on each (advanced options data included).',
+        metaTitle: (n = 5) => `AI: ${enTitle(n)} — big movers, earnings, market moves | SIGNUM HQ`,
+        metaDesc: (top, n = 5) => `${top ? `${top}${n > 1 ? ` and ${n - 1} more` : ''}: ` : ''}${enTitle(n)}, picked twice a day. Big movers and why, today's earnings, market moves, each with a one-line AI note (advanced options data included) — every number dated to its public source.`,
+        shareTitle: (n = 5) => `${enTitle(n)} — SIGNUM HQ`,
+        shareText: (top, n = 5) => `${top ? `${top}${n > 1 ? ` and ${n - 1} more` : ''} — ` : ''}${enTitle(n)} (big movers, earnings, market moves)`,
         howT: 'How this list is made',
         how: [
             ['Whale new positions', 'A contract whose open interest (contracts still open) jumped in a single session. It means new positions were opened — it does not say which way the price will go.'],
