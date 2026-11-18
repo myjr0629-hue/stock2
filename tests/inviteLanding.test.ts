@@ -490,7 +490,7 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
       assert.equal(earnResultFromScore(EV_DIS, { ...SCORE_DIS, hour: 'amc' }), null);
     });
 
-    t('채점 전 — 발표 전 고정값 ±8.4% + «발표 후 실제 반응: 확정 대기» · 확정 뒤 6시간 지나도 행이 없으면 고정값 + «기록 없음»', () => {
+    t('채점 전 — 발표 전 고정값 ±8.4% + «발표 후 실제 반응»: 확정 전 «확정 대기» · 확정 뒤 6시간 «결과 집계 중» · 그 뒤에도 쌍이 없으면 «비교 불가»', () => {
       const pend = earnResultFromFrozen(EV_NVDA, FROZEN_NVDA)!;
       const at = Date.UTC(2026, 10, 18, 4, 0);              // 뉴욕 11/17 23:00
       assert.equal(earnResultState(pend, at), 'pending');
@@ -502,11 +502,15 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
       assert.equal(ogCardOf(v, 'ko').stats[0].value, '확정 대기');
       // 반응일 11/18 마감(16:00) + 30분 + 6시간 = 11/18 22:30 ET 이후엔 그리지 않는다
       const late = Date.UTC(2026, 10, 19, 3, 31);
+      const tally = Date.UTC(2026, 10, 18, 22, 0);           // 뉴욕 11/18 17:00 — 종가 확정(16:30) 뒤
+      assert.equal(earnResultState(pend, tally), 'tallying');
+      assert.deepEqual(composeEarn(WEEK_R, null, 'NVDA', 'ko', tally, null, pend).rows[1], { label: '발표 후 실제 반응', value: '결과 집계 중' });
+      assert.equal(composeEarn(WEEK_R, null, 'NVDA', 'en', tally, null, pend).rows[1].value, 'Being tallied');
       assert.equal(earnResultState(pend, late), 'missing');
       const miss = composeEarn(WEEK_R, null, 'NVDA', 'ko', late, null, pend);
       assert.equal(miss.hero!.value, '±8.4%');
-      assert.deepEqual(miss.rows[1], { label: '발표 후 실제 반응', value: '기록 없음', note: '유효한 발표 후 종가 기록 없음' });
-      assert.ok(!JSON.stringify(miss).includes('확정 대기'), '확정 뒤엔 «대기»라 하지 않는다');
+      assert.deepEqual(miss.rows[1], { label: '발표 후 실제 반응', value: '비교 불가' });
+      assert.ok(!JSON.stringify(miss).includes('확정 대기') && !JSON.stringify(miss).includes('기록 없음'), '확정 뒤엔 «대기»라 하지 않고, 원인(기록 없음)을 단정하지 않는다');
       // 채점표를 «못 읽은» 경우(실패·시간 초과)는 기록 없음이라 하지 않는다 — 대기 창 안이면 확정 대기, 지나면 예전 대체 화면
       assert.equal(earnResultState({ ...pend, scoreUnread: true }, at), 'pending');
       assert.equal(earnResultState({ ...pend, scoreUnread: true }, late), null);

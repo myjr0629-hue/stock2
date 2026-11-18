@@ -120,7 +120,7 @@ interface LandingCopy {
   /** [11/18] 쿠폰·선물이 없는 링크의 CTA 아래 한 줄 — 실적 종목 페이지(lib/seo/earningsPage ctaSub)와 같은 말 */
   trialLine: string;
   /** [11/18] 발표 결과 카드 */
-  res: { reported: (when: string) => string; closes: (base: string, react: string) => string; pending: string };
+  res: { reported: (when: string) => string; closes: (base: string, react: string) => string; pending: string; tallying: string };
   othersT: Record<ShareKind, string>;
   linkPick: string;
   linkEarn: string;
@@ -153,7 +153,7 @@ const LC: Record<InviteLang, LandingCopy> = {
     ctaSub: 'iOS · Android · 무료',
     codeLine: '링크로 설치하면 PRO 1개월 무료 — 이후 자동 갱신, 언제든 해지',
     trialLine: '처음 구독이면 PRO 7일 무료 체험(스토어 자격 기준)',
-    res: { reported: (when) => `${when} 실적 발표`, closes: (b, r) => `정규장 종가 ${b} → ${r}`, pending: '확정 대기' },
+    res: { reported: (when) => `${when} 실적 발표`, closes: (b, r) => `정규장 종가 ${b} → ${r}`, pending: '확정 대기', tallying: '결과 집계 중' },
     othersT: { pick: '함께 보기', line: '함께 보기', earn: '이번 주 다른 실적 발표' },
     linkPick: '오늘 볼 것 전체 보기',
     linkEarn: '이번 주 실적 전체 보기',
@@ -182,7 +182,7 @@ const LC: Record<InviteLang, LandingCopy> = {
     ctaSub: 'iOS · Android · Free',
     codeLine: 'Install via this link for PRO free for the first month — then auto-renews, cancel anytime',
     trialLine: 'New subscribers may be eligible for a 7-day PRO free trial',
-    res: { reported: (when) => `Reported ${when}`, closes: (b, r) => `Regular-session close ${b} → ${r}`, pending: 'Pending' },
+    res: { reported: (when) => `Reported ${when}`, closes: (b, r) => `Regular-session close ${b} → ${r}`, pending: 'Pending', tallying: 'Being tallied' },
     othersT: { pick: 'Also see', line: 'Also see', earn: 'Other reports this week' },
     linkPick: 'See the full list',
     linkEarn: 'See all earnings this week',
@@ -211,7 +211,7 @@ const LC: Record<InviteLang, LandingCopy> = {
     ctaSub: 'iOS · Android · 無料',
     codeLine: 'このリンクから始めるとPRO 1か月無料 — 以降は自動更新、いつでも解約可',
     trialLine: '初めての購読ならPRO 7日間無料体験(ストアの条件による)',
-    res: { reported: (when) => `${when} 決算発表`, closes: (b, r) => `通常取引終値 ${b} → ${r}`, pending: '確定待ち' },
+    res: { reported: (when) => `${when} 決算発表`, closes: (b, r) => `通常取引終値 ${b} → ${r}`, pending: '確定待ち', tallying: '結果集計中' },
     othersT: { pick: 'あわせて見る', line: 'あわせて見る', earn: '今週の他の決算' },
     linkPick: '今日の注目をすべて見る',
     linkEarn: '今週の決算をすべて見る',
@@ -595,11 +595,11 @@ export function earnResultFromFrozen(ev: { ticker: string; date: string; hour: '
   return { ...ev, expectedPct: f.pct, expiry: f.expiry ?? null, session: f.session ?? null, actual: null };
 }
 
-export type EarnResultState = 'scored' | 'pending' | 'missing';
+export type EarnResultState = 'scored' | 'pending' | 'tallying' | 'missing';
 
 /**
- * 지금 이 결과를 어떻게 그리나 — 'scored'(채점 완료) · 'pending'(반응일 종가 확정 대기 — 확정 뒤 EARN_PENDING_GRACE_MS 까지는 채점 크론을 기다린다)
- *   · 'missing'(그 뒤에도 채점표 행이 없다 — 발표 전 고정값 + «기록 없음», 지어내지 않는다) · null(그리지 않는다 — 예전 규칙)
+ * 지금 이 결과를 어떻게 그리나 — 'scored'(채점 완료) · 'pending'(반응일 종가 확정 전) · 'tallying'(확정 뒤 EARN_PENDING_GRACE_MS 동안 — 채점 크론을 기다린다)
+ *   · 'missing'(그 뒤에도 채점표에 쌍이 없다 — 원인(기록 없음·쌍 자격 미달)을 단정하지 않고 «비교 불가») · null(그리지 않는다 — 예전 규칙)
  */
 export function earnResultState(r: EarnResult | null | undefined, nowMs: number): EarnResultState | null {
   if (!r || !fin(r.expectedPct) || !(r.expectedPct > 0) || phaseOf(r.date, r.hour, nowMs) !== 'done') return null;
@@ -607,7 +607,8 @@ export function earnResultState(r: EarnResult | null | undefined, nowMs: number)
   const rs = reactionSessions(r.date, r.hour);
   const fin0 = rs ? reactionFinalAt(rs.react) : null;
   if (fin0 == null) return null;
-  if (nowMs < fin0 + EARN_PENDING_GRACE_MS) return 'pending';
+  if (nowMs < fin0) return 'pending';
+  if (nowMs < fin0 + EARN_PENDING_GRACE_MS) return 'tallying';
   return r.scoreUnread ? null : 'missing';
 }
 
@@ -657,12 +658,12 @@ function composeEarnResult(
     };
   }
 
-  // 채점 전 — 발표 전 고정값 + «발표 후 실제 반응: 확정 대기»(확정 뒤 유예가 지나도 행이 없으면 «기록 없음» — 영수증 화면과 같은 말)
+  // 채점 전 — 발표 전 고정값 + «발표 후 실제 반응»: 종가 확정 전 «확정 대기» · 확정 뒤 유예 동안 «결과 집계 중»(실적 종목 페이지와 같은 말)
+  //   · 유예가 지나도 채점표에 쌍이 없으면 «비교 불가»(영수증 화면의 말 — 원인을 단정하지 않는다)
   const rs = reactionSessions(res.date, res.hour);
-  const pending = state === 'pending';
-  const value = pending ? c.res.pending : rc.noRecord;
-  const note = pending ? (rs ? `${rc.issues.pending_actual} · ${mdw(rs.react, lang)}` : rc.issues.pending_actual) : rc.issues.no_actual;
-  const pendingRow: LandingRow = { label: rc.columns[2], value, note };
+  const value = state === 'pending' ? c.res.pending : state === 'tallying' ? c.res.tallying : rc.notCompared;
+  const note = state === 'pending' ? (rs ? `${rc.issues.pending_actual} · ${mdw(rs.react, lang)}` : rc.issues.pending_actual) : undefined;
+  const pendingRow: LandingRow = { label: rc.columns[2], value, ...(note ? { note } : {}) };
   return {
     ...common,
     title: `${ticker} ${kindWord} ${mdw(res.date, lang)} — ${rc.columns[1]} ${expected} · ${rc.columns[2]} ${value} | ${BRAND}`,
