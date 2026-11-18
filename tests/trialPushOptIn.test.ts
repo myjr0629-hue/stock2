@@ -262,7 +262,11 @@ t('판정기(소스): 권한 재확인 «뒤»의 화면으로 다시 판정 →
   assert.ok(/if \(last\.step !== 'show'\) \{ streak = \{ n: 0, trigger: null \}; return; \}/.test(g), '막판에 바뀌면 끝내지 않고 박자를 이어 간다');
   assert.ok(/const src = triggerSrc\(last\.trigger\);/.test(g), '출처는 막판에 다시 고른 트리거');
   assert.ok(/if \(!alive \|\| run\.done \|\| finalizing \|\| reading \|\| !trial\) return;/.test(g), '자격을 다시 읽는 중엔 박자를 채우지 않는다');
-  assert.ok(/if \(info == null\) \{[\s\S]*?trial = null; readAt = 0; stopTick\(\);[\s\S]*?retryT = window\.setTimeout\(\(\) => \{ retryT = 0; void read\(true\); \}, READ_RETRY_MS\)/.test(g), '조회 실패 = 모름 · 30초 묶음 밖 · 다시 읽기');
+  assert.ok(/if \(info == null\) \{[^}]*?trial = null; readAt = 0; stopTick\(\); scheduleRetry\(\);/.test(g), '조회 실패 = 모름 · 30초 묶음 밖 · 다시 읽기');
+  assert.ok(/if \(p === 'unknown'\) \{ readAt = 0; scheduleRetry\(\); \} else readAt = Date\.now\(\);/.test(g), '권한 모름도 같은 재시도');
+  assert.ok(/retryT = window\.setTimeout\(\(\) => \{ retryT = 0; void read\(true\); \}, READ_RETRY_MS\)/.test(g));
+  const settings = read('src/app/[locale]/app-view/settings/page.tsx');
+  assert.ok(/const keysToKeep: string\[\] = \[[^\]]*TRIAL_PUSH_OPTIN_KEY/.test(settings), '설정 캐시 지우기가 1회 기록을 남긴다');
   assert.ok(g.indexOf('if (info == null)') < g.indexOf('readAt = Date.now();\n        if (trial) startTick()'), '성공한 조회만 30초 묶음');
   assert.ok(/if \(streak\.n < SHOW_STREAK\) return;/.test(g));
   assert.ok(/window\.addEventListener\(PRO_ACTIVATED_EVENT, onPro\)/.test(g) && /const onPro = \(\) => \{ void read\(true\); \};/.test(g));

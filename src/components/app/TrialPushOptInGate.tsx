@@ -101,6 +101,10 @@ export function TrialPushOptInGate() {
     };
     const startTick = () => { if (!tickT && alive && !run.done) tickT = window.setInterval(() => { void tick(); }, TICK_MS); };
 
+    /** 읽기 실패(권한·고객 정보 모름) — 10초 뒤 최대 3번 다시(이번 실행) */
+    const scheduleRetry = () => {
+      if (retries < READ_RETRY_MAX && !retryT && alive && !run.done) { retries += 1; retryT = window.setTimeout(() => { retryT = 0; void read(true); }, READ_RETRY_MS); }
+    };
     /** ① 자격 읽기 — force 가 아니면 30초 안에 다시 읽지 않는다(박자는 다시 세운다). 읽는 중에 또 오면 끝난 뒤 한 번 더 */
     const read = async (force = false) => {
       if (!alive || run.done) return;
@@ -114,14 +118,18 @@ export function TrialPushOptInGate() {
         // 체험을 모르는 채로 «멈출 것인가»만 먼저(웹·이미 봄·권한 정해짐 = 끝 · 권한 모름·설정 OFF = 이번엔 넘김)
         const first = trialPushStep({ ...snapshot(p), trial: { expiresAt: Infinity, startedAt: null }, trigger: 'ai' });
         if (first === 'stop') { finish(); return; }
-        if (first === 'skip') { trial = null; readAt = Date.now(); stopTick(); return; }
+        if (first === 'skip') {
+          trial = null; stopTick();
+          // 권한을 못 읽었다(플러그인 오류·3초 초과) = 모름 — 30초 묶음 밖 · 조회 실패와 같은 재시도(관문 6차). 설정 OFF 는 묶음에 넣는다
+          if (p === 'unknown') { readAt = 0; scheduleRetry(); } else readAt = Date.now();
+          return;
+        }
         const info = await freshCustomerInfo(VERIFY_MS);
         if (!alive) return;
         streak = { n: 0, trigger: null };
         if (info == null) {
           // 조회 실패·시간 초과 = 모름 — 박자를 멈추고, 30초 묶음에 넣지 않으며(다음 트리거는 곧바로 다시 읽는다) 10초 뒤 최대 3번 다시(관문 4차)
-          trial = null; readAt = 0; stopTick();
-          if (retries < READ_RETRY_MAX && !retryT) { retries += 1; retryT = window.setTimeout(() => { retryT = 0; void read(true); }, READ_RETRY_MS); }
+          trial = null; readAt = 0; stopTick(); scheduleRetry();
           return;
         }
         retries = 0;

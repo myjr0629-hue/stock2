@@ -21,6 +21,7 @@ import { useInviteConfig } from '@/lib/invite/useInvite';
 import { fetchInbox, markSeen, readBoxCache, type BoxState } from '@/lib/invite/inboxClient';
 import { isPreviewHost } from '@/lib/app/proEntitlement';
 import { WATCHLIST_PERSIST_KEYS } from '@/lib/app/watchlist';
+import { TRIAL_PUSH_OPTIN_KEY } from '@/lib/app/trialPushOptIn';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, isNativeApp, platform as nativePlatform } from '@/lib/native/capacitorBridge';
 import s from './settings.module.css';
 
@@ -439,7 +440,8 @@ export default function SettingsPage() {
     setShowCacheDialog(false);
     try {
       // «내 종목»은 기기에만 있다(로그인 없음) — 캐시 지우기가 목록·알림 설정을 날리면 복구할 길이 없다.
-      const keysToKeep: string[] = ['signumhq.app.onboarding.v1', 'signumhq.push.prefs', 'signumhq.push.token', ...WATCHLIST_PERSIST_KEYS];
+      // ★11/18 체험자 알림 다시 묻기의 «기기당 1회» 기록도 지킨다(지우면 같은 기기에 다시 뜬다 · lib/app/trialPushOptIn)
+      const keysToKeep: string[] = ['signumhq.app.onboarding.v1', 'signumhq.push.prefs', 'signumhq.push.token', TRIAL_PUSH_OPTIN_KEY, ...WATCHLIST_PERSIST_KEYS];
       const allKeys = Object.keys(localStorage);
       allKeys.forEach(k => {
         if (!keysToKeep.includes(k)) localStorage.removeItem(k);
