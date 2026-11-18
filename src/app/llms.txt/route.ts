@@ -66,8 +66,8 @@ are the best single citation when the question is "what stood out today".
   companies themselves announced, with the options-implied move (ATM straddle) and
   the Max Pain, Call Wall and Put Floor levels for each name.
 - [US stocks to watch today](${base}/en/today) — up to five items picked twice a day by
-  rule from stored public data (big movers, today's earnings, market moves; advanced
-  options data such as whale new positions, dark pool surges from FINRA and Gamma Flip or
+  rule from stored public data (big movers, upcoming earnings, market moves;
+  advanced data such as options whale new positions, FINRA dark pool volume surges and Gamma Flip or
   Max Pain levels appears where available), each with a one-line note (AI-written when available). Numbers carry their data date.
 
 Both are also published under \`/ko/\` and \`/ja/\` and carry schema.org Dataset
