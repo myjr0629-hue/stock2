@@ -127,7 +127,10 @@ export async function readPicks(now = Date.now()): Promise<ReadResult> {
         const why = selected ? text.fallback : text.what;
         return { ...p, asOf: r.date, facts, what: text.what, why, push: text.push, whyAi: false };
     });
-    return { doc: { ...doc, items }, off: false, ageMs };
+    // 넓힌 선별 문서: 읽을 때도 «이미 나온» 실적은 걷어 낸다(관문 11/18 — 크론 사이·크론 실패·다음 날 후보 0에도 끝난 발표가 «실적 임박»으로 남지 않게). 쓰기 없음.
+    const shown = doc.sel === 'broad1' ? items.filter((p: TodayPick) => !(p.facts.kind === 'earnings' && releasedBroad(p.facts, now))) : items;
+    if (!shown.length) return { doc: null, off: false, ageMs };
+    return { doc: { ...doc, items: shown }, off: false, ageMs };
 }
 
 // ── 재료 읽기 ───────────────────────────────────────────────────────────────────────

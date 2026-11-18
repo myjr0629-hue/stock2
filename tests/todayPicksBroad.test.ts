@@ -290,6 +290,16 @@ t('발표가 이미 나왔나(넓힌 선별): 공지 시각 → 그 시각 · �
   assert.equal(p.status, 'pruned');
   const left = store.get('todaypicks:v1:latest') as TodayPicksDoc;
   assert.deepEqual(left.items.map((x) => x.id), ['mover:MSFT'], '끝난 실적만 빠지고 나머지 항목·문장은 그대로');
+  // 읽기에서도: 넓힌 문서의 끝난 실적은 보이지 않는다(크론 사이·다음 날) · 옛 문서는 그대로 · 모두 끝났으면 문서 없음
+  store.set('todaypicks:v1:latest', prevDoc);
+  const r1 = await svc.readPicks(at('15:50'));
+  assert.deepEqual(r1.doc!.items.map((x) => x.id), ['earnings:PANW', 'mover:MSFT'], '15:50 — 아직 발표 전(장 마감 후 발표·시각 미정 → 16:00)');
+  const r2 = await svc.readPicks(Date.parse('2026-11-19T08:00:00-05:00'));
+  assert.deepEqual(r2.doc!.items.map((x) => x.id), ['mover:MSFT'], '다음 날 — 끝난 실적 숨김');
+  store.set('todaypicks:v1:latest', { ...prevDoc, sel: undefined });
+  assert.equal((await svc.readPicks(Date.parse('2026-11-19T08:00:00-05:00'))).doc!.items.length, 2, '옛 문서는 그대로');
+  store.set('todaypicks:v1:latest', { ...prevDoc, items: [prevDoc.items[0]] });
+  assert.equal((await svc.readPicks(Date.parse('2026-11-19T08:00:00-05:00'))).doc, null);
 });
 
 // ━━━ 4. 문장·AI ━━━
