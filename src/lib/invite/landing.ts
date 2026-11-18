@@ -362,6 +362,13 @@ const MOVER_HOW: Record<InviteLang, [string, string]> = {
   ja: ['大幅上昇・下落', '売買代金の大きい銘柄が、終了した通常取引で大きく上昇または下落したケースです。数字はそのセッションの終値基準です。会社が告知した決算発表日や、最近のニュース要約にある銘柄の報道があれば併記しますが、値動きの原因とは断定しません。'],
 };
 
+/** 예상 변동 없이 넓힌 선별(11/18)에 든 실적 — 옵션 예상 변동 설명 대신 일정 설명 */
+const EARN_PLAIN_HOW: Record<InviteLang, [string, string]> = {
+  ko: ['오늘·내일 실적 발표', '회사가 직접 공지한 실적 발표일이 오늘이나 내일인 종목입니다. 발표 시점(개장 전·장 마감 후·공지 시각)을 적고, 옵션 예상 변동이 있을 때만 함께 보여 줍니다.'],
+  en: ['Reports today or tomorrow', 'A company whose own announced earnings date is today or tomorrow. The timing (before the open, after the close or the announced time) is shown, and the options-implied move only when one is available.'],
+  ja: ['今日・明日の決算発表', '会社が自ら告知した決算発表日が今日か明日の銘柄です。発表のタイミング(寄り付き前・引け後・告知時刻)を記し、オプションの想定変動幅はある場合のみ併記します。'],
+};
+
 /** 오늘 볼 것 — 이 종목 항목을 큰 카드로, 나머지(최대 4)를 «함께 보기» 로. 항목이 이미 돌았으면 오늘 목록 전체 + 사실 한 줄. */
 export function composePick(doc: TodayPicksDoc | null, off: boolean, ticker: string, lang: InviteLang): LandingView {
   const c = LC[lang];
@@ -393,7 +400,9 @@ export function composePick(doc: TodayPicksDoc | null, off: boolean, ticker: str
     asOf: [mine.asOf, pickedLine].filter(Boolean).join(' · '),
     facts: [...(mine.kind === 'darkpool' ? [ui.sourceFinra] : []), ui.howRule],
     explainTitle: ui.howT,
-    explain: mine.kind === 'mover' ? [MOVER_HOW[lang]] : PICK_HOW_INDEX[mine.kind] != null ? [ui.how[PICK_HOW_INDEX[mine.kind]!]] : [],
+    explain: mine.kind === 'mover' ? [MOVER_HOW[lang]]
+      : mine.kind === 'earnings' && doc?.items.some((p) => p.id === mine.id && p.facts.kind === 'earnings' && p.facts.impliedPct == null) ? [EARN_PLAIN_HOW[lang]]
+        : PICK_HOW_INDEX[mine.kind] != null ? [ui.how[PICK_HOW_INDEX[mine.kind]!]] : [],
     others,
     links: defaultLinks('pick', ticker, lang),
     aiBadge: mine.ai,

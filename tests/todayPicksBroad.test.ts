@@ -385,6 +385,12 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   assert.equal(doc.items[1].why.ko, '회사가 공지한 개장 전 발표 일정입니다');
   assert.equal(doc.items[3].why.ko, '회사가 공지한 발표일이며 시각은 정해지지 않았습니다');
   assert.equal(doc.gen.calls, 1);
+  // 공유 랜딩: 큰 폭 등락·예상 변동 없는 실적도 설명 칸이 있고 항목에 맞는 설명
+  const landing = require('../src/lib/invite/landing') as typeof import('../src/lib/invite/landing');
+  const lm = landing.composePick(doc, false, 'MSFT', 'ko');
+  assert.equal(lm.ok, true); assert.equal(lm.explain[0][0], '큰 폭 상승·하락');
+  const le = landing.composePick(doc, false, 'ACME', 'ko');
+  assert.equal(le.explain[0][0], '오늘·내일 실적 발표'); assert.doesNotMatch(le.explain[0][1], /^옵션/);
   assert.equal(view.pushPickLine(doc, 'ko', '2026-11-18').line, '✦ 오늘 볼 것 · NVDA 11/18 종가 +4.9%', '푸시 1번 줄이 새 종류도 처리');
   assert.equal(view.buildView(doc, 'ko').sel, 'broad1');
   assert.equal(doc.items[0].what.ko, '종가 $160.2 (+4.9%)');
