@@ -36,7 +36,8 @@ export async function GET(request: Request) {
     }
 
     const broadParam = searchParams.get('broad');
-    if (broadParam === '1' || broadParam === '0') {
+    // dry(저장 없는 점검)는 스위치도 바꾸지 않는다(관문 11/18)
+    if ((broadParam === '1' || broadParam === '0') && searchParams.get('dry') !== '1') {
         const ok = await setBroad(broadParam === '1');
         if (searchParams.get('force') !== '1') return NextResponse.json({ ok, broad: await broadOn().catch(() => null), action: broadParam === '1' ? 'broad-on' : 'broad-off' });
     }

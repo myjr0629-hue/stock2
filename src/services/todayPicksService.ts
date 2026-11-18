@@ -328,7 +328,7 @@ function moverStampPart(c: Cand<MoverFacts>): string {
     const f = c.facts;
     let h = 0;
     for (const ch of f.news?.headline ?? '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-    return `${c.ticker}@${f.price}/${f.changePct}${f.news ? `+n${h.toString(36)}` : ''}${f.earnings ? '+e' : ''}${f.newsChecked === false ? '?' : ''}`;
+    return `${c.ticker}@${f.price}/${f.changePct}${f.news ? `+n${h.toString(36)}` : ''}${f.earnings ? `+e${f.earnings.date}${f.earnings.hour}` : ''}${f.newsChecked === false ? '?' : ''}`;
 }
 
 export async function gather(now = Date.now(), o: { broad?: boolean; dry?: boolean } = {}): Promise<Gathered> {

@@ -354,8 +354,13 @@ function defaultLinks(kind: ShareKind, ticker: string, lang: InviteLang): Landin
 
 const PICK_OTHERS_MAX = 4;
 /** UI.how 의 설명 순서(고래 · 다크풀 · Gamma Flip/Max Pain · 실적) — 이 카드 종류의 설명 한 항목만 붙인다 */
-/** 설명 문단(ui.how) 위치 — 큰 폭 등락(11/18)은 설명 문단이 없다(빈 목록이면 페이지가 설명 칸을 그리지 않는다) */
+/** 설명 문단(ui.how) 위치 — 큰 폭 등락(11/18)은 ui.how 밖의 문단(MOVER_HOW)을 쓴다(설명 칸이 사라지지 않게) */
 const PICK_HOW_INDEX: Partial<Record<PickKind, number>> = { whale: 0, darkpool: 1, gamma: 2, earnings: 3 };
+const MOVER_HOW: Record<InviteLang, [string, string]> = {
+  ko: ['큰 폭 상승·하락', '거래대금이 큰 종목이 끝난 정규장에서 크게 오르거나 내린 경우입니다. 숫자는 그 세션 종가 기준이며, 이유는 회사 실적 발표나 종목 보도가 확인될 때만 적습니다.'],
+  en: ['Big moves', 'A heavily traded stock that rose or fell sharply in a finished regular session. Numbers are as of that session\'s close; a reason is noted only when a company earnings release or a report on the stock is confirmed.'],
+  ja: ['大幅上昇・下落', '売買代金の大きい銘柄が、終了した通常取引で大きく上昇または下落したケースです。数字はそのセッションの終値基準で、理由は会社の決算発表や銘柄の報道が確認できた場合のみ記します。'],
+};
 
 /** 오늘 볼 것 — 이 종목 항목을 큰 카드로, 나머지(최대 4)를 «함께 보기» 로. 항목이 이미 돌았으면 오늘 목록 전체 + 사실 한 줄. */
 export function composePick(doc: TodayPicksDoc | null, off: boolean, ticker: string, lang: InviteLang): LandingView {
@@ -388,7 +393,7 @@ export function composePick(doc: TodayPicksDoc | null, off: boolean, ticker: str
     asOf: [mine.asOf, pickedLine].filter(Boolean).join(' · '),
     facts: [...(mine.kind === 'darkpool' ? [ui.sourceFinra] : []), ui.howRule],
     explainTitle: ui.howT,
-    explain: PICK_HOW_INDEX[mine.kind] != null ? [ui.how[PICK_HOW_INDEX[mine.kind]!]] : [],
+    explain: mine.kind === 'mover' ? [MOVER_HOW[lang]] : PICK_HOW_INDEX[mine.kind] != null ? [ui.how[PICK_HOW_INDEX[mine.kind]!]] : [],
     others,
     links: defaultLinks('pick', ticker, lang),
     aiBadge: mine.ai,

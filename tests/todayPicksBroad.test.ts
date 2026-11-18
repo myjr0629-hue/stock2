@@ -431,6 +431,8 @@ t('끄기 스위치: Redis todaypicks:broad:off 또는 TODAY_PICKS_BROAD=0 → �
   assert.equal(await svc.broadOn(), false);
   delete process.env.TODAY_PICKS_BROAD;
   const route = require('../src/app/api/cron/today-picks/route');
+  await route.GET(new Request('http://x/api/cron/today-picks?broad=0&dry=1'));
+  assert.equal(await svc.broadOn(), true, 'dry 는 스위치를 바꾸지 않는다');
   const off = await (await route.GET(new Request('http://x/api/cron/today-picks?broad=0'))).json();
   assert.deepEqual(off, { ok: true, broad: false, action: 'broad-off' });
   const on = await (await route.GET(new Request('http://x/api/cron/today-picks?broad=1'))).json();
