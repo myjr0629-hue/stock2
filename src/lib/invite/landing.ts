@@ -559,6 +559,8 @@ export interface EarnResult {
   session: string | null;
   /** 채점표 행이 있을 때만 */
   actual: { pct: number; within: boolean; baseDate: string; reactDate: string; at: number } | null;
+  /** 채점표를 «읽지 못했다»(실패·시간 초과) — 행이 없다는 뜻이 아니므로 «기록 없음»으로 그리지 않는다 */
+  scoreUnread?: true;
 }
 
 /** 회사 공지 목록에서 «발표가 끝난 지 EARN_RESULT_KEEP_DAYS 일 안»의 가장 최근 발표(장전·장후만 — 채점표 대상과 같다). 없으면 null */
@@ -605,7 +607,8 @@ export function earnResultState(r: EarnResult | null | undefined, nowMs: number)
   const rs = reactionSessions(r.date, r.hour);
   const fin0 = rs ? reactionFinalAt(rs.react) : null;
   if (fin0 == null) return null;
-  return nowMs < fin0 + EARN_PENDING_GRACE_MS ? 'pending' : 'missing';
+  if (nowMs < fin0 + EARN_PENDING_GRACE_MS) return 'pending';
+  return r.scoreUnread ? null : 'missing';
 }
 
 function composeEarnResult(
@@ -917,7 +920,8 @@ async function readEarnResult(ticker: string, nowMs: number): Promise<EarnResult
   const scored = earnResultFromScore(ev, sc?.rows.find((s) => s.ticker === ev.ticker && s.date === ev.date && s.hour === ev.hour));
   if (scored) return scored;
   const fz = await fzP;
-  return earnResultFromFrozen(ev, fz?.get(impliedRowKey(ev.ticker, ev.date)));
+  const pend = earnResultFromFrozen(ev, fz?.get(impliedRowKey(ev.ticker, ev.date)));
+  return pend && !sc ? { ...pend, scoreUnread: true } : pend;
 }
 
 /** 한 번 읽는 데 쓰는 상한 — 레디스가 느려도 페이지·카드가 매달리지 않게(넘으면 read-failed 대체 화면) */

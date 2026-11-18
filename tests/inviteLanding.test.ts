@@ -507,6 +507,10 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
       assert.equal(miss.hero!.value, '±8.4%');
       assert.deepEqual(miss.rows[1], { label: '발표 후 실제 반응', value: '기록 없음', note: '유효한 발표 후 종가 기록 없음' });
       assert.ok(!JSON.stringify(miss).includes('확정 대기'), '확정 뒤엔 «대기»라 하지 않는다');
+      // 채점표를 «못 읽은» 경우(실패·시간 초과)는 기록 없음이라 하지 않는다 — 대기 창 안이면 확정 대기, 지나면 예전 대체 화면
+      assert.equal(earnResultState({ ...pend, scoreUnread: true }, at), 'pending');
+      assert.equal(earnResultState({ ...pend, scoreUnread: true }, late), null);
+      assert.equal(composeEarn(WEEK_R, null, 'NVDA', 'ko', late, null, { ...pend, scoreUnread: true }).fallbackReason, 'done');
       // 14일이 지나면 예전 규칙
       assert.equal(recentReportedEvent([{ ticker: 'NVDA', date: '2026-11-17', hour: 'amc' }], 'NVDA', Date.UTC(2026, 11, 3, 15, 0)), null);
       assert.equal(earnResultFromFrozen(EV_NVDA, { ...FROZEN_NVDA, date: '2026-08-27' }), null);
