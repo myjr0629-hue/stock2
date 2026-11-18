@@ -84,6 +84,8 @@ export function TrialPushOptInGate() {
       try {
         const p2 = await checkPushPerm();
         if (!alive || run.done) return;
+        // 막판 권한 읽기만 실패(모름) — 앞서 읽은 'prompt' 를 지우지 않고 박자를 처음부터 다시(멈추지 않게 · 관문 7차)
+        if (p2 === 'unknown') { streak = { n: 0, trigger: null }; return; }
         perm = p2;
         if (reading || !trial) { streak = { n: 0, trigger: null }; return; }
         // 트리거도 다시 고른다 — 기다리는 사이 AI 줄이 보였으면 AI 로(출처 우선순위 · 관문 4차)

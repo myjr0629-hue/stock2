@@ -261,6 +261,7 @@ t('판정기(소스): 권한 재확인 «뒤»의 화면으로 다시 판정 →
   assert.ok(p2 > 0 && p2 < last && last < claim && claim < g.indexOf("trackFunnel('trial_push_shown'"));
   assert.ok(/if \(last\.step !== 'show'\) \{ streak = \{ n: 0, trigger: null \}; return; \}/.test(g), '막판에 바뀌면 끝내지 않고 박자를 이어 간다');
   assert.ok(/const src = triggerSrc\(last\.trigger\);/.test(g), '출처는 막판에 다시 고른 트리거');
+  assert.ok(/if \(p2 === 'unknown'\) \{ streak = \{ n: 0, trigger: null \}; return; \}\s+perm = p2;/.test(g), '막판 권한 모름은 prompt 를 지우지 않는다');
   assert.ok(/if \(!alive \|\| run\.done \|\| finalizing \|\| reading \|\| !trial\) return;/.test(g), '자격을 다시 읽는 중엔 박자를 채우지 않는다');
   assert.ok(/if \(info == null\) \{[^}]*?trial = null; readAt = 0; stopTick\(\); scheduleRetry\(\);/.test(g), '조회 실패 = 모름 · 30초 묶음 밖 · 다시 읽기');
   assert.ok(/if \(p === 'unknown'\) \{ readAt = 0; scheduleRetry\(\); \} else readAt = Date\.now\(\);/.test(g), '권한 모름도 같은 재시도');
