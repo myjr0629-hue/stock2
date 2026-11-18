@@ -51,17 +51,18 @@ export function selectTodayEconomicEvent(events: unknown, now: number): TodayEco
 
 export const SUMMARY_COPY = {
   ko: { title: '오늘 요약', total: (n: number) => `오늘 볼 것 ${n}개`,
-    kinds: { whale: '고래 신규', earnings: '실적 임박', darkpool: '다크풀 급증', gamma: 'Gamma Flip / Max Pain 근접' } },
+    kinds: { mover: '큰 폭 등락', whale: '고래 신규', earnings: '실적 임박', darkpool: '다크풀 급증', gamma: 'Gamma Flip / Max Pain 근접' } },
   en: { title: 'Today’s summary', total: (n: number) => `${n} picks to watch`,
-    kinds: { whale: 'Whale new positions', earnings: 'Earnings soon', darkpool: 'Dark pool surge', gamma: 'Near Gamma Flip / Max Pain' } },
+    kinds: { mover: 'Big moves', whale: 'Whale new positions', earnings: 'Earnings soon', darkpool: 'Dark pool surge', gamma: 'Near Gamma Flip / Max Pain' } },
   ja: { title: '今日のまとめ', total: (n: number) => `今日の注目 ${n}件`,
-    kinds: { whale: 'ホエール新規', earnings: '決算間近', darkpool: 'ダークプール急増', gamma: 'Gamma Flip / Max Pain 接近' } },
+    kinds: { mover: '大幅変動', whale: 'ホエール新規', earnings: '決算間近', darkpool: 'ダークプール急増', gamma: 'Gamma Flip / Max Pain 接近' } },
 } satisfies Record<Loc, { title: string; total: (n: number) => string; kinds: Record<PickKind, string> }>;
 
 /** Full page items, not the two dashboard previews; each card counts once. */
 export function summarizeTodayPicks(items: readonly { kind: PickKind }[], loc: Loc): { total: string; kinds: string } {
   const copy = SUMMARY_COPY[loc];
-  const order: PickKind[] = ['whale', 'earnings', 'darkpool', 'gamma'];
+  // 11/18: 큰 폭 등락을 맨 앞에 더했다 — 나머지 순서는 그대로(옛 문서의 요약 줄은 바뀌지 않는다)
+  const order: PickKind[] = ['mover', 'whale', 'earnings', 'darkpool', 'gamma'];
   const counts = new Map<PickKind, number>();
   for (const item of items) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
   return { total: copy.total(items.length), kinds: order.filter((k) => counts.has(k))

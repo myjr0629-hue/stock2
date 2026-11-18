@@ -29,7 +29,7 @@ import { attachImplied, IMPLIED_LABEL, impliedBasisText, impliedPctText, implied
 import { attachBriefs, fmtEpsUsd, fmtRevUsd, type BriefPack } from '@/lib/earnings/earningsBrief';
 import { buildView, type PicksView } from '@/lib/todayPicks/view';
 import { UI } from '@/lib/todayPicks/copy';
-import type { TodayPicksDoc } from '@/lib/todayPicks/types';
+import type { PickKind, TodayPicksDoc } from '@/lib/todayPicks/types';
 import { fillAiLine, type AiLineEntry } from '@/lib/app/watchlistAiLine';
 import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
 import { calendarReaction, calendarScorecardWeek } from '@/lib/earnings/calendarScorecardDisplay';
@@ -354,7 +354,8 @@ function defaultLinks(kind: ShareKind, ticker: string, lang: InviteLang): Landin
 
 const PICK_OTHERS_MAX = 4;
 /** UI.how 의 설명 순서(고래 · 다크풀 · Gamma Flip/Max Pain · 실적) — 이 카드 종류의 설명 한 항목만 붙인다 */
-const PICK_HOW_INDEX = { whale: 0, darkpool: 1, gamma: 2, earnings: 3 } as const;
+/** 설명 문단(ui.how) 위치 — 큰 폭 등락(11/18)은 설명 문단이 없다(빈 목록이면 페이지가 설명 칸을 그리지 않는다) */
+const PICK_HOW_INDEX: Partial<Record<PickKind, number>> = { whale: 0, darkpool: 1, gamma: 2, earnings: 3 };
 
 /** 오늘 볼 것 — 이 종목 항목을 큰 카드로, 나머지(최대 4)를 «함께 보기» 로. 항목이 이미 돌았으면 오늘 목록 전체 + 사실 한 줄. */
 export function composePick(doc: TodayPicksDoc | null, off: boolean, ticker: string, lang: InviteLang): LandingView {
@@ -387,7 +388,7 @@ export function composePick(doc: TodayPicksDoc | null, off: boolean, ticker: str
     asOf: [mine.asOf, pickedLine].filter(Boolean).join(' · '),
     facts: [...(mine.kind === 'darkpool' ? [ui.sourceFinra] : []), ui.howRule],
     explainTitle: ui.howT,
-    explain: [ui.how[PICK_HOW_INDEX[mine.kind]]],
+    explain: PICK_HOW_INDEX[mine.kind] != null ? [ui.how[PICK_HOW_INDEX[mine.kind]!]] : [],
     others,
     links: defaultLinks('pick', ticker, lang),
     aiBadge: mine.ai,

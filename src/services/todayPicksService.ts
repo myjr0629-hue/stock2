@@ -14,6 +14,8 @@
  *
  * 끄는 법(재배포 없이): GET /api/cron/today-picks?off=1 (Authorization: Bearer CRON_SECRET) → Redis 키 todaypicks:off 에 값. 켜기 off=0.
  *   환경변수 TODAY_PICKS_OFF=1 (재배포 필요) 도 같다. 꺼지면 읽기는 빈 응답(카드·웹 목록·푸시 줄이 모두 사라진다), 생성은 0.
+ * 넓힌 선별(11/18, 기본 켜짐): 큰 폭 등락(market:movers 캐시 + 무버 API 와 같은 세션·분할 보정 + 기존 시세 API 정규장 종가 대조)·오늘/내일 실적(예상 변동 없어도)을 앞에,
+ *   옵션 계열은 상위 3개 중 1개까지. 옛 선별로 즉시 되돌리기: GET /api/cron/today-picks?broad=0 (Redis 키 todaypicks:broad:off) 또는 환경변수 TODAY_PICKS_BROAD=0(재배포). 다시 켜기 ?broad=1.
  * 하루 AI 호출 상한: TODAY_PICKS_DAILY_CAP(기본 60). 키는 todaypicks:* — TTL 이 있고 Upstash 복제 목록 밖이라 EC2 레디스에만 쓴다(Upstash 명령 0).
  */
 import { getFromCache, mgetFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
@@ -23,27 +25,32 @@ import { readImpliedMoveRows } from '@/services/impliedMoveService';
 import { withFreshTier, isFreshTierSkipped } from '@/lib/ai/freshTier';
 import { indexLevelRowFromStored } from '@/lib/ai/crossSectorLevels';
 import { TP_PURPOSE } from '@/lib/ai/todayPicksLine';
-import { buildPickV2Prompt, checkPickV2Why, TP_V2_SYSTEM } from '@/lib/ai/todayPicksV2';
+import { buildPickV2Prompt, checkPickV2Why, systemFor } from '@/lib/ai/todayPicksV2';
+import { newsForStock, providerSymbols } from '@/lib/ai/stockEvidence';
+import { applyRegularClose, hasMoverSet, isRegularSessionOpen } from '@/services/moverSession';
+import { isImplausibleMove } from '@/services/splitGuard';
 import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
 import { phaseOf, selectWeekEntries } from '@/lib/earningsWeek';
-import { etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
-import { readPreMarketContext, readPickPreQuotes } from '@/services/preMarketContext';
+import { etDateOf, etMinutesOf, isNonTradingDay, prevTradingDate, sessionCloseMinutes } from '@/lib/marketCalendar';
+import { readPreMarketContext, readPickPreQuotes, readRegularQuotes, type RegularQuote } from '@/services/preMarketContext';
 import { generationSession, type PreMarketContext } from '@/lib/ai/preMarketContext';
-import { lastClosedSessionDate } from '@/lib/marketSession';
+import { etWallTimeToMs, lastClosedSessionDate } from '@/lib/marketSession';
 import { isEtf } from '@/lib/seo/etfSet';
 import { tryBackgroundLock, releaseBackgroundLock } from '@/lib/cache/staleLock';
 import { ruleTexts } from '@/lib/todayPicks/copy';
 import {
-    assemble, darkCandidates, earningsCandidates, gammaCandidates, nextWeekdays, whaleCandidates,
+    assemble, assembleBroad, darkCandidates, earningsCandidates, earningsCandidatesBroad, gammaCandidates, moverCandidates, moverEligible, moverScore, nextWeekdays, whaleCandidates,
     DARK_MIN_RATIO, DARK_MIN_VOLUME, DARK_MIN_PCTILE,
-    type DarkRowIn, type EarnRowIn, type LevelRowIn, type OptionsEodBundle, type PrevPick,
+    type DarkRowIn, type EarnRowIn, type LevelRowIn, type MoverRowIn, type OptionsEodBundle, type PrevPick,
 } from '@/lib/todayPicks/select';
-import type { Cand, DarkFacts, DocStamp, EarnFacts, GammaFacts, LocText, PickKind, Slot, TodayPick, TodayPicksDoc, WhaleFacts } from '@/lib/todayPicks/types';
+import type { Cand, DarkFacts, DocStamp, EarnFacts, GammaFacts, LocText, MoverFacts, PickKind, Slot, TodayPick, TodayPicksDoc, WhaleFacts } from '@/lib/todayPicks/types';
 
 export const TP_KEYS = {
     latest: 'todaypicks:v1:latest',
     slot: (etDate: string, slot: Slot) => `todaypicks:v1:${etDate}:${slot}`,
     off: 'todaypicks:off',
+    /** 넓힌 선별 끄기(값이 있으면 옛 선별) — 카드·웹·푸시는 그대로 */
+    broadOff: 'todaypicks:broad:off',
     day: (etDate: string) => `todaypicks:n:${etDate}`,
     lock: 'perf:lock:todaypicks',
 } as const;
@@ -62,6 +69,12 @@ const MIN_OPENING_TICKERS = 50;
 const GAMMA_SHORTLIST = 40;
 
 export function picksOffEnv(): boolean { return process.env.TODAY_PICKS_OFF === '1'; }
+/** 넓힌 선별 — 기본 켜짐. TODAY_PICKS_BROAD=0 이면 끔(재배포) · Redis todaypicks:broad:off 가 있으면 끔(즉시) */
+export function broadOnEnv(): boolean { return process.env.TODAY_PICKS_BROAD !== '0'; }
+export async function broadOn(): Promise<boolean> {
+    if (!broadOnEnv()) return false;
+    return !(await getFromCache<any>(TP_KEYS.broadOff).catch(() => null));
+}
 export function dailyCap(): number {
     const n = Number(process.env.TODAY_PICKS_DAILY_CAP);
     return Number.isFinite(n) && n >= 0 ? n : 60;
@@ -194,7 +207,83 @@ async function loadEarnings(now: number, dates: string[]): Promise<EarnRowIn[]> 
     }));
 }
 
+// ── 큰 폭 등락(11/18) ─────────────────────────────────────────────────────────────
+
+const MOVERS_KEY = 'market:movers:all:v4';
+const MOVERS_LASTGOOD_KEY = 'market:movers:last_good:v4';
+const NEWS_DIGEST_KEY = 'guardian:news:digest:v2';
+/** 정규장 종가 대조는 상위 몇 종목만(기존 시세 API 한 번) */
+const MOVER_VERIFY_MAX = 8;
+/** 대조값과 캐시값 등락률 차이가 이보다 크면 다른 세션·오염으로 보고 뺀다(%p) */
+const MOVER_MAX_DRIFT = 1.0;
+/** 시장 전체를 다룬 기사(종목 태그가 붙어도 그 종목 이야기가 아니다) */
+const MARKET_WIDE = /stock market|stocks? to watch|s&p ?500|\bdow\b|nasdaq|futures|market (?:wrap|today|movers)|premarket movers|biggest movers|\bmovers\b/i;
+
+const fin = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+
+export interface MoverLoad { rows: MoverRowIn[]; session: string | null; notes: string[] }
+
+/**
+ * 큰 폭 등락 재료 — 무버 캐시(읽기만: 새로 계산·쓰기 없음) → 무버 API 와 같은 정규장 종가 보정·분할 의심 판정(의심 행은 뺀다) → «끝난 세션»만 → 시세 API 정규장 종가로 대조.
+ *   · 정규장이 열려 있으면 0(장중 값은 끝난 세션이 아니다).
+ *   · EOD 로 다시 만든 행(regularCloseFrom = 마지막으로 끝난 세션)은 그 세션 확정 종가.
+ *   · 그 밖의 행은 스냅샷이 «그 세션 날짜·마감 30분 전 이후»에 찍혔고 시세 API 의 정규장 종가(같은 날짜)로 대조될 때만 — 숫자는 대조값을 쓴다.
+ *   전날 값을 «오늘»로 쓰지 않는다: 항목의 날짜(session)는 언제나 그 등락이 속한 세션이다.
+ */
+export async function loadMovers(now: number, deps: { quotes?: (t: string[]) => Promise<Record<string, RegularQuote> | null> } = {}): Promise<MoverLoad> {
+    const notes: string[] = [];
+    if (isRegularSessionOpen(now)) return { rows: [], session: null, notes: ['movers:regular-open'] };
+    const [cur, lg] = await mgetFromCache<any>([MOVERS_KEY, MOVERS_LASTGOOD_KEY]).catch(() => [null, null]);
+    const src = [cur, lg].filter(hasMoverSet).sort((a, b) => (Number(b?.ts) || 0) - (Number(a?.ts) || 0))[0];
+    if (!src) return { rows: [], session: null, notes: ['movers:none'] };
+    const session = lastClosedSessionDate(now);
+    const regular = await applyRegularClose({ value: src.value ?? [], gainers: src.gainers ?? [], losers: src.losers ?? [] }, now);
+    // 분할 의심(무버 API 의 splitGuard 판정 isImplausibleMove)은 보정하지 않고 뺀다 — 공급사 분할 조회 0 · 설명 못 하는 숫자는 내보내지 않는다
+    const lists = [...(regular.value ?? []), ...(regular.gainers ?? []).filter((m: any) => m?.changePercent > 0), ...(regular.losers ?? []).filter((m: any) => m?.changePercent < 0)]
+        .filter((m: any) => !isImplausibleMove(Number(m?.price) || 0, Number(m?.changePercent) || 0));
+    const ts = Number(src.ts) || 0;
+    const snapOk = ts > 0 && ts <= now && etDateOf(ts) === session && etMinutesOf(ts) >= sessionCloseMinutes(session) - 30;
+    const byT = new Map<string, { ticker: string; price: number; changePct: number; value: number; basis: 'eod' | 'snap' }>();
+    for (const r of lists) {
+        const t = String(r?.ticker || '').toUpperCase();
+        if (!t || byT.has(t) || r?.splitAdjusted) continue;   // 분할 보정 행은 설명이 필요해 이 카드에서 뺀다
+        const basis = r?.regularCloseFrom === session ? 'eod' : !r?.regularCloseFrom && snapOk ? 'snap' : null;
+        const price = fin(r?.price), chg = fin(r?.changePercent), value = fin(r?.value);
+        if (!basis || price == null || chg == null || value == null) continue;
+        byT.set(t, { ticker: t, price, changePct: chg, value, basis });
+    }
+    const pre = [...byT.values()].filter((r) => moverEligible(r, isEtf)).sort((a, b) => moverScore(b) - moverScore(a) || a.ticker.localeCompare(b.ticker)).slice(0, MOVER_VERIFY_MAX);
+    if (!pre.length) return { rows: [], session, notes: [byT.size ? 'movers:none-eligible' : 'movers:no-session-rows'] };
+    const quotes = await (deps.quotes ?? readRegularQuotes)(pre.map((r) => r.ticker)).catch(() => null);
+    if (!quotes) notes.push('movers:quotes-unavailable');
+    const digest = await getFromCache<any>(NEWS_DIGEST_KEY).catch(() => null);
+    const newsWindowStart = etWallTimeToMs(prevTradingDate(session), sessionCloseMinutes(prevTradingDate(session)));
+    const rows: MoverRowIn[] = [];
+    for (const r of pre) {
+        const q = quotes?.[r.ticker];
+        let price = r.price, chg = r.changePct;
+        if (q && q.regularDate === session && (q.regularKind == null || q.regularKind === 'close') && q.price != null && q.price > 0 && q.chg != null) {
+            if (Math.abs(q.chg - r.changePct) > MOVER_MAX_DRIFT) { notes.push(`movers:drift:${r.ticker}`); continue; }
+            price = q.price; chg = q.chg;
+        } else if (r.basis === 'snap') { notes.push(`movers:unverified:${r.ticker}`); continue; }   // 스냅샷 행은 대조돼야만 쓴다
+        if (!moverEligible({ ticker: r.ticker, price, changePct: chg, value: r.value }, isEtf)) continue;
+        const earn = CONFIRMED_EARNINGS.find((e) => e.ticker === r.ticker && ((e.date === session && e.hour === 'bmo') || (e.date === prevTradingDate(session) && e.hour === 'amc')));
+        const news = (Array.isArray(digest?.items) ? digest.items : []).find((n: any) => {
+            const h = typeof n?.headline === 'string' ? n.headline.trim() : '';
+            const at = Date.parse(String(n?.publishedAt || ''));
+            const symbols = providerSymbols(n);
+            return h.length >= 12 && h.length <= 300 && !MARKET_WIDE.test(h) && Number.isFinite(at) && at >= newsWindowStart && at <= now
+                && symbols.length <= 2 && newsForStock({ text: '', headline: h, symbols }, r.ticker);
+        });
+        rows.push({ ticker: r.ticker, session, price, changePct: chg, value: r.value,
+            earnings: earn ? { date: earn.date, hour: earn.hour as 'bmo' | 'amc' } : null,
+            news: news ? { headline: String(news.headline).trim(), publishedAt: String(news.publishedAt) } : null });
+    }
+    return { rows, session, notes };
+}
+
 export interface Gathered {
+    mover: Cand<MoverFacts>[];
     whale: Cand<WhaleFacts>[]; darkpool: Cand<DarkFacts>[]; gamma: Cand<GammaFacts>[]; earnings: Cand<EarnFacts>[];
     stamp: DocStamp;
     notes: string[];
@@ -202,7 +291,7 @@ export interface Gathered {
 }
 
 /** 재료를 읽어 종류별 후보와 «자료 날짜 표식(stamp)»을 만든다. 읽기 실패는 그 종류만 빠지고 notes 에 남는다. */
-export async function gather(now = Date.now()): Promise<Gathered> {
+export async function gather(now = Date.now(), o: { broad?: boolean } = {}): Promise<Gathered> {
     const todayEt = etDateOf(now);
     const lastClosed = lastClosedSessionDate(now);
     const notes: string[] = [];
@@ -215,18 +304,24 @@ export async function gather(now = Date.now()): Promise<Gathered> {
     // 실적 창: 앞으로 평일 3일(발표가 끝난 것은 후보에서 빠진다) · 오늘/내일 발표는 카드 맨 앞
     const dates = nextWeekdays(todayEt, 3);
     const earlyEarnDates = dates.slice(0, 2);
-    const [dark, gammaRows, earn] = await Promise.all([
+    const [dark, gammaRows, earn, movers] = await Promise.all([
         universe.length ? loadDark(universe, oi).catch((): DarkRowIn[] => []) : Promise.resolve([] as DarkRowIn[]),
         universe.length ? loadGammaRows(universe, oi, todayEt, now).catch((): LevelRowIn[] => []) : Promise.resolve([] as LevelRowIn[]),
         loadEarnings(now, dates).catch((): EarnRowIn[] => []),
+        o.broad ? loadMovers(now).catch((): MoverLoad => ({ rows: [], session: null, notes: ['movers:error'] })) : Promise.resolve(null),
     ]);
+    if (movers) notes.push(...movers.notes.slice(0, 6));
     if (universe.length && !dark.length) notes.push('finra:none');
     if (universe.length && !gammaRows.length) notes.push('structure:none');
 
     const whale = whaleCandidates(bundle, { lastClosed, isEtf });
     const darkC = darkCandidates(dark, { isEtf });
     const gamma = gammaCandidates(gammaRows, { todayEt, isEtf });
-    const earnings = earningsCandidates(earn, { dates });
+    // 넓힌 선별: 오늘·내일 발표는 예상 변동이 없어도 후보(옵션 미결제약정 규모로 알려진 회사 우선) · 옛 선별은 그대로
+    const earnings = o.broad
+        ? earningsCandidatesBroad(earn.map((r) => ({ ...r, oi: oi[r.ticker] ?? null })), { dates: earlyEarnDates, isEtf })
+        : earningsCandidates(earn, { dates });
+    const mover = movers ? moverCandidates(movers.rows, { isEtf }) : [];
 
     const chains = gammaRows.map((r) => r.chainDate).filter((x): x is string => !!x).sort();
     const stamp: DocStamp = {
@@ -235,8 +330,9 @@ export async function gather(now = Date.now()): Promise<Gathered> {
         finra: darkC[0]?.asOf ?? dark.map((d) => d.date).filter((x): x is string => !!x).sort().pop() ?? null,
         chain: gamma[0]?.asOf ?? chains[chains.length - 1] ?? null,
         earn: dates[0] ?? null,
+        ...(o.broad ? { mov: movers?.session ? `${movers.session}|${mover.slice(0, 5).map((c) => `${c.ticker}${c.facts.news ? '+n' : ''}`).join(',')}` : null, sel: 'broad1' } : {}),
     };
-    return { whale, darkpool: darkC, gamma, earnings, stamp, notes, earlyEarnDates };
+    return { mover, whale, darkpool: darkC, gamma, earnings, stamp, notes, earlyEarnDates };
 }
 
 // ── AI 한 줄 ────────────────────────────────────────────────────────────────────────
@@ -268,7 +364,7 @@ export async function writeWhy(c: Cand, etDate: string, year: number, context?: 
     let last: string[] = [];
     try {
         const res = await withFreshTier(() => callBedrock({
-            system: TP_V2_SYSTEM,
+            system: systemFor(c.facts),
             userPrompt: buildPickV2Prompt(c.ticker, c.facts, etDate, context),
             maxTokens: 400,
             temperature: 0.2,
@@ -306,7 +402,20 @@ export function inWindow(now: number): boolean {
 /** 조기판(pre) · 기존 아침판(am) · 마감판(pm). 표시 문구는 바꾸지 않는다. */
 export const slotOf = (now: number): Slot => etMinutesOf(now) < 450 ? 'pre' : etMinutesOf(now) < 720 ? 'am' : 'pm';
 
-const sameStamp = (a: DocStamp, b: DocStamp): boolean => a.opt === b.opt && a.opened === b.opened && a.finra === b.finra && a.chain === b.chain && a.earn === b.earn;
+const sameStamp = (a: DocStamp, b: DocStamp): boolean => a.opt === b.opt && a.opened === b.opened && a.finra === b.finra && a.chain === b.chain && a.earn === b.earn
+    && (a.mov ?? null) === (b.mov ?? null) && (a.sel ?? null) === (b.sel ?? null);
+
+/**
+ * 넓힌 선별에서 AI 를 부르지 않는 항목 — 규칙 문장이 곧 «확인된 사실»이다(새 AI 호출 없음 · 기존 예산 안에서 오히려 줄어든다).
+ *   · 실적: 회사가 공지한 발표 일정(옵션 용어 없이)
+ *   · 근거(회사 실적 발표·종목 보도)가 없는 큰 폭 등락: «설명하는 보도가 확인되지 않았다»
+ */
+export function ruleOnly(c: Cand, broad: boolean): boolean {
+    if (!broad) return false;
+    if (c.kind === 'earnings') return true;
+    if (c.kind === 'mover') { const f = c.facts as MoverFacts; return !f.earnings && !f.news; }
+    return false;
+}
 
 export interface RunOpts {
     now?: number;
@@ -346,20 +455,24 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
     if (isNonTradingDay(etDate)) return { ok: true, status: 'closed', ...base };
     if (picksOffEnv() || (await getFromCache<any>(TP_KEYS.off).catch(() => null))) return { ok: true, status: 'off', ...base };
 
+    const broad = await broadOn();
     const locked = o.dry ? true : await tryBackgroundLock(TP_KEYS.lock, 90);
     if (!locked) return { ok: true, status: 'locked', ...base };
     try {
         const t0 = Date.now();
-        const g = await gather(now);
+        const g = await gather(now, { broad });
         const prevDoc = (await getFromCache<TodayPicksDoc>(TP_KEYS.latest).catch(() => null));
         const prev = isDoc(prevDoc) ? prevDoc : null;
-        const counts = { whale: g.whale.length, darkpool: g.darkpool.length, gamma: g.gamma.length, earnings: g.earnings.length } as Record<PickKind, number>;
+        const counts = { whale: g.whale.length, darkpool: g.darkpool.length, gamma: g.gamma.length, earnings: g.earnings.length, ...(broad ? { mover: g.mover.length } : {}) } as Record<PickKind, number>;
 
         if (!o.force && !o.dry && prev && prev.etDate === etDate && prev.slot === slot && prev.items.length && sameStamp(prev.stamp, g.stamp)) {
             return { ok: true, status: 'fresh', ...base, counts, stamp: g.stamp, notes: g.notes, reason: 'same-data-today' };
         }
 
-        const picked = assemble({ whale: g.whale, darkpool: g.darkpool, gamma: g.gamma, earnings: g.earnings }, { prev: prevPicksOf(prev && prev.etDate !== etDate ? prev : null), max: 5, earlyEarnDates: g.earlyEarnDates });
+        const prevPicks = prevPicksOf(prev && prev.etDate !== etDate ? prev : null);
+        const picked = broad
+            ? assembleBroad({ mover: g.mover, whale: g.whale, darkpool: g.darkpool, gamma: g.gamma, earnings: g.earnings }, { prev: prevPicks, max: 5, earlyEarnDates: g.earlyEarnDates, slot })
+            : assemble({ whale: g.whale, darkpool: g.darkpool, gamma: g.gamma, earnings: g.earnings }, { prev: prevPicks, max: 5, earlyEarnDates: g.earlyEarnDates });
         if (!picked.length) return { ok: true, status: 'empty', ...base, counts, stamp: g.stamp, notes: g.notes };
 
         const context = etMinutesOf(now) < 570 && !o.dry && !o.noAi
@@ -368,17 +481,18 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
         const items: TodayPick[] = [];
         const whys: WhyResult[] = [];
         // 항목마다 한 호출을 동시에(최대 5) — 못 만든 항목은 규칙 해설
-        const results = (o.dry || o.noAi) ? picked.map((): WhyResult => ({ outcome: 'skipped', reasons: [o.dry ? 'dry' : 'no-ai'], ms: 0 })) : await Promise.all(picked.map((c) => writeWhy(c, etDate, year, context)));
+        const results = (o.dry || o.noAi) ? picked.map((): WhyResult => ({ outcome: 'skipped', reasons: [o.dry ? 'dry' : 'no-ai'], ms: 0 }))
+            : await Promise.all(picked.map((c) => (ruleOnly(c, broad) ? Promise.resolve<WhyResult>({ outcome: 'skipped', reasons: ['rule-only'], ms: 0 }) : writeWhy(c, etDate, year, context))));
         picked.forEach((c, i) => {
             const rt = ruleTexts(c.ticker, c.facts);
             const w = results[i];
             whys.push(w);
             items.push({ id: c.id, kind: c.kind, ticker: c.ticker, asOf: c.asOf, facts: c.facts, what: rt.what, why: w.outcome === 'ai' && w.text ? w.text : rt.fallback, whyAi: w.outcome === 'ai', push: rt.push });
         });
-        const reasons = whys.flatMap((w, i) => (w.outcome === 'ai' ? [] : [`${picked[i].id}:${w.outcome}:${(w.reasons[0] || '').slice(0, 60)}`]));
+        const reasons = whys.flatMap((w, i) => (w.outcome === 'ai' || w.reasons[0] === 'rule-only' ? [] : [`${picked[i].id}:${w.outcome}:${(w.reasons[0] || '').slice(0, 60)}`]));
         const doc: TodayPicksDoc = {
-            v: 1, slot, etDate, session: generationSession(now), ...(context ? { context } : {}), at: now, stamp: g.stamp, items,
-            gen: { calls: whys.filter((w) => w.outcome !== 'capped' && w.reasons[0] !== 'dry' && w.reasons[0] !== 'no-ai').length, ok: whys.filter((w) => w.outcome === 'ai').length, fallback: whys.filter((w) => w.outcome !== 'ai').length, ms: Date.now() - t0, ...(reasons.length ? { reasons: reasons.slice(0, 10) } : {}) },
+            v: 1, slot, etDate, session: generationSession(now), ...(context ? { context } : {}), at: now, stamp: g.stamp, items, ...(broad ? { sel: 'broad1' as const } : {}),
+            gen: { calls: whys.filter((w) => w.outcome !== 'capped' && w.reasons[0] !== 'dry' && w.reasons[0] !== 'no-ai' && w.reasons[0] !== 'rule-only').length, ok: whys.filter((w) => w.outcome === 'ai').length, fallback: whys.filter((w) => w.outcome !== 'ai').length, ms: Date.now() - t0, ...(reasons.length ? { reasons: reasons.slice(0, 10) } : {}) },
         };
         const summary: RunSummary = {
             ok: true, status: o.dry ? 'dry' : 'generated', ...base, counts, stamp: g.stamp, notes: g.notes, gen: doc.gen,
@@ -397,6 +511,12 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
     } finally {
         if (!o.dry) await releaseBackgroundLock(TP_KEYS.lock);
     }
+}
+
+/** 넓힌 선별 끄기/켜기 — 키 하나(TTL 90일, EC2 전용). 끄면 다음 생성부터 옛 선별(stamp.sel 이 바뀌어 같은 슬롯도 다시 만든다) */
+export async function setBroad(on: boolean): Promise<boolean> {
+    if (!on) return setInCache(TP_KEYS.broadOff, { at: Date.now() }, TP_OFF_TTL_SEC).catch(() => false);
+    return deleteFromCache(TP_KEYS.broadOff).then(() => true).catch(() => false);
 }
 
 /** 끄기/켜기 — 키 하나(TTL 90일, EC2 전용) */

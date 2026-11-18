@@ -8,7 +8,7 @@
  *   · 같은 종류 안에서만 점수를 견준다. 종류마다 한 개씩 먼저 세우고(다양성), 모자라면 2위 중 가장 센 것으로 채운다. 억지로 채우지 않는다.
  *   · 날짜를 단다 — 모든 후보는 asOf(자료의 날짜)를 들고 다닌다. 화면은 «M/D 기준»을 쓴다.
  */
-import type { Cand, DarkFacts, EarnFacts, GammaFacts, PickKind, WhaleFacts } from './types';
+import type { Cand, DarkFacts, EarnFacts, GammaFacts, MoverFacts, PickKind, WhaleFacts } from './types';
 
 // ── 문턱(실측 2026-10-12 운영 저장본으로 정했다 — 보고서 IMPL-8 «선별 규칙») ─────────────────────────────────────────
 /** 고래: 종목의 신규 명목 합 ≥ $100M · 가장 큰 계약이 ≥ 2,000계약 늘고 · 미결제약정이 2배 이상(또는 새로 생김) */
@@ -233,7 +233,7 @@ const BASE_ORDER: PickKind[] = ['whale', 'earnings', 'darkpool', 'gamma'];
 export function assemble(c: AssembleIn, o: { prev?: readonly PrevPick[]; max?: number; earlyEarnDates?: readonly string[] } = {}): Cand[] {
     const max = o.max ?? 5;
     const prev = new Set((o.prev || []).map((p) => `${p.kind}|${p.ticker}|${p.asOf}`));
-    const pools: Record<PickKind, Cand[]> = { whale: c.whale, darkpool: c.darkpool, gamma: c.gamma, earnings: c.earnings };
+    const pools: Record<PickKind, Cand[]> = { whale: c.whale, darkpool: c.darkpool, gamma: c.gamma, earnings: c.earnings, mover: [] };
     // 직전에 보인 (종류·종목·날짜)는 뒤로 — 대안이 없으면 그대로 앞에 남는다
     const ordered = (kind: PickKind): Cand[] => {
         const fresh = pools[kind].filter((x) => !prev.has(`${x.kind}|${x.ticker}|${x.asOf}`));
@@ -279,4 +279,137 @@ export function assemble(c: AssembleIn, o: { prev?: readonly PrevPick[]; max?: n
         .map((x, i) => ({ x, i }))
         .sort((a, b) => rank(a.x) - rank(b.x) || a.i - b.i)
         .map((e) => e.x);
+}
+
+// ══ 넓힌 선별(2026-11-18, 대표 «우리 앱은 특수한 사람을 위한 앱이 아니다 — 옵션 등은 콘텐츠 하나일 뿐») ═══════════════════════
+// 일반 항목(큰 폭 등락 · 오늘·내일 실적)을 앞에, 옵션 계열(고래·다크풀·감마)은 전체보기 상위 3개 중 합계 1개까지 · 가능하면 4~5위.
+// 끄면(services/todayPicksService.broadOn) 위의 assemble 그대로(옛 선별).
+
+/**
+ * 큰 폭 등락 문턱 — 거래대금(그 세션) $8B 이상(초대형)은 ±2% · $3B 이상은 ±3% · $1B 이상은 ±5% · 주가 $5 이상.
+ * 실측(11/17 정규장 EOD 무버 목록, 조용한 날): 초대형 ±2% = MSFT −2.3%·AVGO +2.5% · ±3% = TSM −3.7%·SPCX +3.2% → 4종목. 시가총액 칸은 캐시에 없어 거래대금으로 판정한다.
+ */
+export const MOVER_MEGA_VALUE = 8e9;
+export const MOVER_MEGA_MIN_MOVE = 2;
+export const MOVER_LARGE_VALUE = 3e9;
+export const MOVER_LARGE_MIN_MOVE = 3;
+export const MOVER_MIN_VALUE = 1e9;
+export const MOVER_MIN_MOVE = 5;
+export const MOVER_MIN_PRICE = 5;
+/** 큰 폭 등락은 목록에 최대 3개 · 실적도 최대 3개 */
+export const MOVER_MAX = 3;
+export const EARN_BROAD_MAX = 3;
+
+/** 세션·분할 보정과 정규장 종가 대조를 «이미 통과한» 행(services/todayPicksService.loadMovers) */
+export interface MoverRowIn {
+    ticker: string;
+    session: string;
+    price: number;
+    changePct: number;
+    value: number;
+    earnings: MoverFacts['earnings'];
+    news: MoverFacts['news'];
+}
+
+/** 문턱(거래대금·등락·주가)을 넘는가 — 대조 전 1차 거르기에도 쓴다 */
+export function moverEligible(r: { ticker: string; price: number; changePct: number; value: number }, isEtfFn: (t: string) => boolean): boolean {
+    if (!/^[A-Z]{1,5}$/.test(r.ticker) || isEtfFn(r.ticker)) return false;
+    const a = Math.abs(r.changePct);
+    if (!(r.price >= MOVER_MIN_PRICE) || !Number.isFinite(a) || !(r.value > 0)) return false;
+    return (r.value >= MOVER_MEGA_VALUE && a >= MOVER_MEGA_MIN_MOVE) || (r.value >= MOVER_LARGE_VALUE && a >= MOVER_LARGE_MIN_MOVE) || (r.value >= MOVER_MIN_VALUE && a >= MOVER_MIN_MOVE);
+}
+
+/** 점수 = 등락 크기(25% 상한) × 거래대금 규모(log) — 확인된 근거(회사 실적 발표·종목 보도)가 있으면 1.5배 */
+export function moverScore(r: { changePct: number; value: number; earnings?: unknown; news?: unknown }): number {
+    const base = Math.min(Math.abs(r.changePct), 25) * Math.log10(Math.max(r.value, 1e8 + 1) / 1e8);
+    return base * (r.earnings || r.news ? 1.5 : 1);
+}
+
+export function moverCandidates(rows: readonly MoverRowIn[], o: { isEtf: (t: string) => boolean }): Cand<MoverFacts>[] {
+    const seen = new Set<string>();
+    const out: Cand<MoverFacts>[] = [];
+    for (const r of rows) {
+        if (seen.has(r.ticker) || !isYmd(r.session) || !moverEligible(r, o.isEtf)) continue;
+        seen.add(r.ticker);
+        out.push({
+            id: `mover:${r.ticker}`, kind: 'mover', ticker: r.ticker, asOf: r.session, score: moverScore(r),
+            facts: { kind: 'mover', session: r.session, changePct: Math.round(r.changePct * 10) / 10, price: r.price, value: r.value, earnings: r.earnings ?? null, news: r.news ?? null },
+        });
+    }
+    return out.sort((a, b) => b.score - a.score || a.ticker.localeCompare(b.ticker));
+}
+
+const HOUR_ORDER: Record<string, number> = { bmo: 0, amc: 1, '': 2 };
+
+/**
+ * 넓힌 실적 — 오늘·내일(dates) 발표, 아직 안 끝난 것. 옵션 예상 변동은 «있으면 보조 정보»(없어도 후보).
+ * 점수: 이른 날 → 같은 날이면 예상 변동이 있는 것(옵션이 붙을 만큼 널리 거래되는 회사) → 옵션 미결제약정 규모 → 개장 전·마감 후 순.
+ */
+export function earningsCandidatesBroad(rows: readonly (EarnRowIn & { oi?: number | null })[], o: { dates: readonly string[]; isEtf?: (t: string) => boolean }): Cand<EarnFacts>[] {
+    const out: Cand<EarnFacts>[] = [];
+    const seen = new Set<string>();
+    for (const r of rows) {
+        const di = o.dates.indexOf(r.date);
+        if (di < 0 || r.done || seen.has(r.ticker) || o.isEtf?.(r.ticker)) continue;
+        seen.add(r.ticker);
+        const pct = posn(r.impliedPct);
+        const implied = pct != null && isYmd(r.impliedExpiry);
+        const oi = posn(r.oi ?? null) ?? 0;
+        const score = (o.dates.length - di) * 1000 + (implied ? 100 : 0) + Math.min(Math.log10(oi + 1), 9) * 10 - (HOUR_ORDER[r.hour] ?? 2);
+        out.push({
+            id: `earnings:${r.ticker}`, kind: 'earnings', ticker: r.ticker, asOf: implied && isYmd(r.session) ? r.session : r.date, score,
+            facts: { kind: 'earnings', date: r.date, hour: r.hour, etTime: r.etTime ?? null, impliedPct: implied ? Math.round(pct! * 10) / 10 : null, impliedExpiry: implied ? r.impliedExpiry : null, session: implied && isYmd(r.session) ? r.session : null },
+        });
+    }
+    return out.sort((a, b) => b.score - a.score || a.ticker.localeCompare(b.ticker));
+}
+
+export interface AssembleBroadIn extends AssembleIn { mover: Cand<MoverFacts>[] }
+
+/**
+ * 넓힌 조립 — 일반(G: 큰 폭 등락·실적)과 옵션 계열(O: 고래·다크풀·감마).
+ *   · G 순서: 마감판(pm)은 큰 폭 등락부터, 조기·아침판은 «오늘 발표 실적»이 있으면 실적부터 — 그다음 두 종류를 번갈아(같은 종목은 한 번만).
+ *   · O 순서: 옛 assemble(종류마다 1개 → 채우기 · 직전 문서 돌려 쓰기)을 그대로 쓰고 G 와 겹치는 종목은 뺀다.
+ *   · 배치: G ≥ 3 → G1·G2·G3·O1·(O2 또는 G4) · G = 2 → G1·G2·O… · G = 1 → G1·O1 · G = 0 → O1 — 상위 3개 안 옵션 계열은 언제나 최대 1개(대표 11/18).
+ *     일반 후보가 모자라도 이 한도는 지켜 «유효한 수만» 보인다(억지로 채우지 않는다).
+ */
+export function assembleBroad(c: AssembleBroadIn, o: { prev?: readonly PrevPick[]; max?: number; earlyEarnDates?: readonly string[]; slot?: 'pre' | 'am' | 'pm' } = {}): Cand[] {
+    const max = o.max ?? 5;
+    const prev = new Set((o.prev || []).map((p) => `${p.kind}|${p.ticker}|${p.asOf}`));
+    const rotate = <T extends Cand>(xs: readonly T[]): T[] => [...xs.filter((x) => !prev.has(`${x.kind}|${x.ticker}|${x.asOf}`)), ...xs.filter((x) => prev.has(`${x.kind}|${x.ticker}|${x.asOf}`))];
+    const movers = rotate(c.mover).slice(0, MOVER_MAX + 2);
+    const early = new Set(o.earlyEarnDates || []);
+    const earns = rotate(c.earnings.filter((x) => !early.size || early.has((x.facts as EarnFacts).date)));
+    const today = o.earlyEarnDates?.[0];
+    const earnFirst = o.slot !== 'pm' && earns.some((x) => (x.facts as EarnFacts).date === today);
+    const [first, second] = earnFirst ? [earns, movers] : [movers, earns];
+    const G: Cand[] = [];
+    const taken = new Set<string>();
+    const count = (k: PickKind) => G.filter((x) => x.kind === k).length;
+    const cap = (k: PickKind) => (k === 'mover' ? MOVER_MAX : EARN_BROAD_MAX);
+    let i = 0, j = 0;
+    while (i < first.length || j < second.length) {
+        for (const src of [0, 1] as const) {
+            const list = src === 0 ? first : second;
+            while (src === 0 ? i < list.length : j < list.length) {
+                const x = list[src === 0 ? i++ : j++];
+                if (taken.has(x.ticker) || count(x.kind) >= cap(x.kind)) continue;
+                taken.add(x.ticker); G.push(x); break;
+            }
+        }
+    }
+    // 일반 항목이 가진 종목은 옵션 계열 후보에서 먼저 뺀다(그래야 고래 1위가 겹쳐도 고래 2위가 대신 선다)
+    const free = <T extends Cand>(xs: readonly T[]): T[] => xs.filter((x) => !taken.has(x.ticker));
+    const O = assemble({ whale: free(c.whale), darkpool: free(c.darkpool), gamma: free(c.gamma), earnings: [] }, { prev: o.prev, max });
+    let out: Cand[];
+    if (G.length >= 3) {
+        out = [...G.slice(0, 3)];
+        const rest = G.slice(3);
+        if (O[0]) out.push(O[0]);
+        if (O[1]) out.push(O[1]); else if (rest[0]) out.push(rest[0]);
+        for (const x of rest) { if (out.length >= max) break; if (!out.includes(x)) out.push(x); }
+    } else if (G.length === 2) out = [...G, ...O];
+    else if (G.length === 1) out = [G[0], ...O.slice(0, 1)];
+    else out = O.slice(0, 1);
+    return out.slice(0, max);
 }

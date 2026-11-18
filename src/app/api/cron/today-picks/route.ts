@@ -10,9 +10,10 @@
 //   ?dry=1   저장·AI 호출 없이 고른 결과(항목·후보 수·자료 날짜)와 규칙 문장 문서를 돌려준다.
 //   ?force=1 같은 자료여도 다시 만들고 시간 창을 무시한다(점검용).   ?noai=1  AI 없이 규칙 해설로만.
 //   ?off=1 / ?off=0  끄기 스위치(레디스 todaypicks:off) 켜기/끄기 — 재배포 없이 카드·웹·푸시 줄이 모두 사라진다/돌아온다.
+//   ?broad=0 / ?broad=1  넓힌 선별(11/18 — 큰 폭 등락·실적 우선) 끄기/켜기(레디스 todaypicks:broad:off) — 끄면 다음 생성부터 옛 선별. 함께 force=1 이면 바로 다시 만든다.
 // ============================================================================
 import { NextResponse } from 'next/server';
-import { inWindow, runPicks, setOff, readPicks } from '@/services/todayPicksService';
+import { inWindow, runPicks, setOff, readPicks, setBroad, broadOn } from '@/services/todayPicksService';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,12 @@ export async function GET(request: Request) {
         const ok = await setOff(offParam === '1');
         const r = await readPicks().catch(() => null);
         return NextResponse.json({ ok, off: r?.off ?? null, action: offParam === '1' ? 'off' : 'on' });
+    }
+
+    const broadParam = searchParams.get('broad');
+    if (broadParam === '1' || broadParam === '0') {
+        const ok = await setBroad(broadParam === '1');
+        if (searchParams.get('force') !== '1') return NextResponse.json({ ok, broad: await broadOn().catch(() => null), action: broadParam === '1' ? 'broad-on' : 'broad-off' });
     }
 
     const now = Date.now();

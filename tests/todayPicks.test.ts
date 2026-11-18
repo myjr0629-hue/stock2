@@ -4,6 +4,8 @@
  * 실행: node_modules/.bin/ts-node -r tsconfig-paths/register --transpile-only -O '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true,"jsx":"react-jsx","resolveJsonModule":true}' tests/todayPicks.test.ts
  */
 import assert from 'node:assert/strict';
+// 11/18: 이 파일은 «옛 선별»(넓힌 선별 끄기 스위치 상태)을 시험한다. 넓힌 선별은 tests/todayPicksBroad.test.ts
+process.env.TODAY_PICKS_BROAD = '0';
 import Module from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -709,7 +711,10 @@ t('푸시 크론: 마감은 검증된 오늘 판정 한 줄만 · 제목 불변 
 // ━━━ 10. 연결·측정·정책 ━━━
 t('사다리: TodayPicks 는 추적·허용 목록에 있고 사고 끔·12초·가드 실패 시 크레딧 한 번 더(내 종목 AI 한 줄과 같은 방식)', () => {
   assert.ok(TRACKED_PURPOSES.includes('TodayPicks'));
-  assert.deepEqual(LADDER_PURPOSES.TodayPicks, { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 });
+  // 11/18: 사다리에 OpenAI 대체 단(llmLadder 설정 — 다른 커밋에서 추가)이 들어온 뒤 기대값이 낡아 이 뒤 시험이 돌지 않았다 → 현재 설정으로 맞춤
+  const { openai, ...rest } = LADDER_PURPOSES.TodayPicks as any;
+  assert.deepEqual(rest, { effort: 'low', thinking: 'disabled', timeoutMs: 12_000, retries: 1 });
+  assert.ok(openai == null || typeof openai.model === 'string');
 });
 t('측정: 퍼널 출처 today_picks(ai_seen·ai_tap 전용) · 웹 페이지뷰 그룹 today · 스크립트 목록 일치', () => {
   assert.ok(isFunnelSrc('today_picks') && (FUNNEL_SRCS as readonly string[]).includes('today_picks'));
@@ -743,8 +748,9 @@ t('화면 문구 점검: 대시보드 카드·웹 페이지·OG 가 같은 저�
 t('카드 상위 2개: 문서 순서 1번 + 1번과 종류가 다른 가장 앞 항목(없으면 2번째) — 항목이 모자라면 있는 만큼', () => {
   const k = (kind: string, id: string) => ({ kind, id });
   assert.deepEqual(cardItems([k('earnings', 'UNH'), k('whale', 'INTC'), k('whale', 'AMZN'), k('darkpool', 'BMY'), k('gamma', 'AAPL')]).map((x) => x.id), ['UNH', 'INTC']);   // 실적 1 + 고래 1
-  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN'), k('darkpool', 'BMY')]).map((x) => x.id), ['INTC', 'BMY']);        // 고래 둘이 앞이면 두 번째는 다른 종류
-  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN')]).map((x) => x.id), ['INTC', 'AMZN']);                            // 종류가 하나뿐이면 그냥 2번째
+  // 11/18: 일반 항목이 없으면 옵션 계열은 1개까지(대표 «옵션 등은 콘텐츠 하나일 뿐»)
+  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN'), k('darkpool', 'BMY')]).map((x) => x.id), ['INTC']);
+  assert.deepEqual(cardItems([k('whale', 'INTC'), k('whale', 'AMZN')]).map((x) => x.id), ['INTC']);
   assert.deepEqual(cardItems([k('whale', 'INTC')]).map((x) => x.id), ['INTC']); assert.deepEqual(cardItems([]), []);
   assert.deepEqual(cardItems([k('a', '1'), k('b', '2'), k('c', '3')], 3).map((x) => x.id), ['1', '2', '3']);
 });

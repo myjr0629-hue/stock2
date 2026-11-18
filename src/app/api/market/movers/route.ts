@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { applySplitGuard } from '@/services/splitGuard';
-import { readEodCloses } from '@/services/eodSnapshot';
+import { applyRegularClose, byGainers, byLosers, byTradingValue, hasMoverSet, isCommonTickerSymbol, isRegularSessionOpen, lastEodVerdict } from '@/services/moverSession';
 import { tryBackgroundLock, releaseBackgroundLock, ageSec } from '@/lib/cache/staleLock';
 
 export const dynamic = 'force-dynamic';
@@ -42,13 +42,7 @@ export const dynamic = 'force-dynamic';
  *   · 열려 있다  → EOD 는 직전 세션이다. 덮으면 안 된다.
  *   · 닫혀 있다  → EOD 가 곧 «마지막으로 끝난 세션»이다. 그것이 정본이다.
  */
-function isRegularSessionOpen(): boolean {
-    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const dow = d.getDay();
-    if (dow === 0 || dow === 6) return false;
-    const m = d.getHours() * 60 + d.getMinutes();
-    return m >= 9 * 60 + 30 && m < 16 * 60;
-}
+// isRegularSessionOpen → services/moverSession (같은 코드, now 인자만 추가)
 
 /**
  * 정규장이 닫혀 있으면 «마지막으로 끝난 세션»으로 목록을 다시 만든다.
@@ -80,64 +74,9 @@ function isRegularSessionOpen(): boolean {
  * 휴장일은 판별하지 않는다. 판별 못 해 날짜가 어긋나면 «덮지 않는» 쪽으로 실패하므로
  * 안전하다 — 틀린 숫자를 보여주느니 살아 있는(적을 수도 있는) 값을 그대로 둔다.
  */
-function lastCompletedSessionDateET(): string {
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const d = new Date(now);
-    const minutes = now.getHours() * 60 + now.getMinutes();
-    const dow = now.getDay();
-    const finishedToday = dow >= 1 && dow <= 5 && minutes >= 16 * 60;
-    if (!finishedToday) d.setDate(d.getDate() - 1);
-    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+// lastCompletedSessionDateET → services/moverSession
 
-/** 진단용 — 마지막 판정 결과를 응답 meta 에 실어 «조용히 틀리는» 것을 막는다. */
-let _lastEodVerdict: { eodDate: string | null; expected: string; applied: boolean } | null = null;
-
-const CLOSED_MIN_UNIVERSE = 200;        // 이보다 얇으면 EOD 를 믿지 않는다
-const CLOSED_MIN_VALUE = 10_000_000;    // 등락 순위에서 잡주를 걸러내는 최소 거래대금
-
-async function applyRegularClose<T extends Record<string, any[]>>(lists: T): Promise<T> {
-    if (isRegularSessionOpen()) return lists;   // 장중엔 EOD 가 직전 세션이다 — 덮지 않는다
-    const eod = await readEodCloses();
-    const expected = lastCompletedSessionDateET();
-    if (!eod) { _lastEodVerdict = { eodDate: null, expected, applied: false }; return lists; }
-
-    // ★ 날짜 게이트 — EOD 가 «마지막으로 끝난 세션»이 아니면 절대 덮지 않는다.
-    //   벌크 EOD 는 T+1 이라 마감 직후엔 한 세션 뒤처져 있다. 그대로 덮으면
-    //   직전 세션 종가가 «현재가»로, 그보다 한 세션 전 등락률이 «오늘 등락률»로 나간다.
-    if (eod.date !== expected) {
-        _lastEodVerdict = { eodDate: eod.date, expected, applied: false };
-        return lists;
-    }
-    _lastEodVerdict = { eodDate: eod.date, expected, applied: true };
-
-    const rows: any[] = [];
-    for (const [t, e] of eod.rows) {
-        if (!isCommonTickerSymbol(t)) continue;
-        if (!(e.c >= 1) || !(e.v >= 10000)) continue;
-        rows.push({
-            ticker: t,
-            price: e.c,
-            prevClose: null, // 벌크 원천에 전일종가 없음 — 반올림 등락률로 역산하지 않는다
-            changePercent: e.chgPct,
-            volume: e.v,
-            value: e.v * e.c,
-            up: e.chgPct >= 0,
-            spark: null,
-            regularCloseFrom: eod.date,
-        });
-    }
-    if (rows.length < CLOSED_MIN_UNIVERSE) return lists;   // 못 믿을 만큼 얇다 — 원래 것을 둔다
-
-    const liquid = rows.filter((r) => r.value >= CLOSED_MIN_VALUE);
-    return {
-        value: [...rows].sort(byTradingValue).slice(0, 30),
-        gainers: liquid.filter((r) => r.changePercent > 0).sort(byGainers).slice(0, 30),
-        losers: liquid.filter((r) => r.changePercent < 0).sort(byLosers).slice(0, 30),
-    } as unknown as T;
-}
+// 진단(lastEodVerdict)·CLOSED_MIN_*·applyRegularClose → services/moverSession (무버 API 와 «오늘 볼 것»이 같은 보정을 쓴다)
 
 const toNumber = (value: any): number => {
     const n = Number(value);
@@ -169,15 +108,6 @@ const getRegularChangePercent = (t: any): number => {
     return toNumber(t.todaysChangePerc);
 };
 
-const isCommonTickerSymbol = (ticker: string): boolean => {
-    const likelyWarrantOrUnit = ticker.length === 5 && /[WRU]$/.test(ticker);
-
-    return (
-        ticker !== 'ZVZZT' &&
-        /^[A-Z]{1,5}$/.test(ticker) &&
-        !likelyWarrantOrUnit
-    );
-};
 
 const isTradableCommonStock = (t: any): boolean => {
     const ticker = String(t?.ticker || '');
@@ -191,17 +121,6 @@ const isTradableCommonStock = (t: any): boolean => {
     );
 };
 
-function hasMoverSet(data: any): boolean {
-    return Boolean(
-        data &&
-        Array.isArray(data.value) &&
-        Array.isArray(data.gainers) &&
-        Array.isArray(data.losers) &&
-        data.value.length > 0 &&
-        data.gainers.length > 0 &&
-        data.losers.length > 0
-    );
-}
 
 const mapTicker = (t: any) => {
   const price = getSnapshotPrice(t);
@@ -222,9 +141,6 @@ const mapTicker = (t: any) => {
   };
 };
 
-const byTradingValue = (a: any, b: any) => b.value - a.value;
-const byGainers = (a: any, b: any) => b.changePercent - a.changePercent || byTradingValue(a, b);
-const byLosers = (a: any, b: any) => a.changePercent - b.changePercent || byTradingValue(a, b);
 
 const formatDateKey = (date: Date): string => {
     const y = date.getUTCFullYear();
@@ -466,7 +382,7 @@ export async function GET(req: NextRequest) {
                 staleSec,
                 // ★ 진단을 응답에 싣는다 — 「조용히 한 세션 밀림」을 다음엔 바로 잡아낸다.
                 //   applied=false 면 EOD 가 아직 T+1 지연이라 live 값을 그대로 쓰고 있다는 뜻.
-                eod: _lastEodVerdict,
+                eod: lastEodVerdict(),
             });
         }
     } catch (err: any) {

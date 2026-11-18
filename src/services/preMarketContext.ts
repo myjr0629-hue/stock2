@@ -30,3 +30,25 @@ export async function readPickPreQuotes(tickers: string[], now: number): Promise
         return tickers.filter(t => body.data[t]).map(t => sessionQuote(t, body.data[t], String(body.session), now));
     } catch { return []; }
 }
+
+export interface RegularQuote { regularDate: string | null; regularKind: string | null; price: number | null; chg: number | null }
+const fin = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+
+/** 기존 시세 API(/api/live/quotes — readPickPreQuotes 와 같은 읽기)에서 «정규장» 값만(오늘 볼 것 큰 폭 등락 대조, 11/18). 실패하면 null(대조 못 함). */
+export async function readRegularQuotes(tickers: string[]): Promise<Record<string, RegularQuote> | null> {
+    if (!tickers.length) return {};
+    try {
+        const res = await fetch(`${publicBase()}/api/live/quotes?symbols=${tickers.join(',')}`, { cache: 'no-store', signal: AbortSignal.timeout(6000) });
+        if (!res.ok) return null;
+        const body = await res.json();
+        if (!body?.data || Array.isArray(body.data)) return null;
+        const out: Record<string, RegularQuote> = {};
+        for (const t of tickers) {
+            const r = body.data[t];
+            if (!r) continue;
+            out[t] = { regularDate: typeof r.regularDate === 'string' ? r.regularDate : null, regularKind: typeof r.regularKind === 'string' ? r.regularKind : null,
+                price: fin(r.price), chg: fin(r.regChangePct) ?? fin(r.changePercent) };
+        }
+        return out;
+    } catch { return null; }
+}
