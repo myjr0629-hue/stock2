@@ -267,7 +267,9 @@ export async function loadMovers(now: number, deps: { quotes?: (t: string[]) => 
     const quotes = await (deps.quotes ?? readRegularQuotes)(pre.map((r) => r.ticker)).catch(() => null);
     if (!quotes) notes.push('movers:quotes-unavailable');
     const digest = await getFromCache<any>(NEWS_DIGEST_KEY).catch(() => null);
+    // 보도 창: 전 거래일 마감 ~ 이 세션 마감(관문 11/18 — 세션이 끝난 뒤 나온 보도를 끝난 등락의 근거로 쓰지 않는다)
     const newsWindowStart = etWallTimeToMs(prevTradingDate(session), sessionCloseMinutes(prevTradingDate(session)));
+    const newsWindowEnd = Math.min(now, etWallTimeToMs(session, sessionCloseMinutes(session)));
     const rows: MoverRowIn[] = [];
     for (const r of pre) {
         const q = quotes?.[r.ticker];
@@ -282,7 +284,7 @@ export async function loadMovers(now: number, deps: { quotes?: (t: string[]) => 
             const h = typeof n?.headline === 'string' ? n.headline.trim() : '';
             const at = Date.parse(String(n?.publishedAt || ''));
             const symbols = providerSymbols(n);
-            return h.length >= 12 && h.length <= 300 && !MARKET_WIDE.test(h) && Number.isFinite(at) && at >= newsWindowStart && at <= now
+            return h.length >= 12 && h.length <= 300 && !MARKET_WIDE.test(h) && Number.isFinite(at) && at >= newsWindowStart && at <= newsWindowEnd
                 && symbols.length <= 2 && newsForStock({ text: '', headline: h, symbols }, r.ticker);
         });
         rows.push({ ticker: r.ticker, session, price, changePct: chg, value: r.value, shownValue: r.basis === 'eod' ? r.value : null,
@@ -290,6 +292,20 @@ export async function loadMovers(now: number, deps: { quotes?: (t: string[]) => 
             news: news ? { headline: String(news.headline).trim(), publishedAt: String(news.publishedAt) } : null });
     }
     return { rows, session, notes };
+}
+
+/**
+ * 넓힌 선별의 «발표가 이미 나왔나» — 옛 phaseOf(장후 18:00 ET 까지 «당일») 보다 앞당긴다(관문 11/18): 공지 시각(etTime)이 있으면 그 시각,
+ * 없으면 개장 전 발표는 09:30 ET · 장 마감 후·시각 미정은 그날 정규장 마감(조기 폐장 포함). «오늘 볼 것»에는 아직 나오지 않은 발표만 둔다.
+ */
+export function releasedBroad(r: { date: string; hour: string; etTime?: string | null }, now: number): boolean {
+    const today = etDateOf(now);
+    if (r.date < today) return true;
+    if (r.date > today) return false;
+    const min = etMinutesOf(now);
+    const m = typeof r.etTime === 'string' ? r.etTime.match(/^(\d{2}):(\d{2})/) : null;
+    if (m) return min >= Number(m[1]) * 60 + Number(m[2]);
+    return r.hour === 'bmo' ? min >= 9 * 60 + 30 : min >= sessionCloseMinutes(today);
 }
 
 export interface Gathered {
@@ -329,7 +345,7 @@ export async function gather(now = Date.now(), o: { broad?: boolean } = {}): Pro
     const gamma = gammaCandidates(gammaRows, { todayEt, isEtf });
     // 넓힌 선별: 오늘·내일 발표는 예상 변동이 없어도 후보(옵션 미결제약정 규모로 알려진 회사 우선) · 옛 선별은 그대로
     const earnings = o.broad
-        ? earningsCandidatesBroad(earn.map((r) => ({ ...r, oi: oi[r.ticker] ?? null })), { dates: earlyEarnDates, isEtf })
+        ? earningsCandidatesBroad(earn.map((r) => ({ ...r, oi: oi[r.ticker] ?? null, done: r.done || releasedBroad(r, now) })), { dates: earlyEarnDates, isEtf })
         : earningsCandidates(earn, { dates });
     const mover = movers ? moverCandidates(movers.rows, { isEtf }) : [];
 
@@ -444,7 +460,7 @@ export interface RunOpts {
 
 export interface RunSummary {
     ok: boolean;
-    status: 'generated' | 'fresh' | 'off' | 'empty' | 'locked' | 'dry' | 'error' | 'closed';
+    status: 'generated' | 'fresh' | 'off' | 'empty' | 'pruned' | 'locked' | 'dry' | 'error' | 'closed';
     slot: Slot;
     etDate: string;
     items?: Array<{ id: string; kind: PickKind; ticker: string; asOf: string; whyAi: boolean }>;
@@ -488,7 +504,18 @@ export async function runPicks(o: RunOpts = {}): Promise<RunSummary> {
         const picked = broad
             ? assembleBroad({ mover: g.mover, whale: g.whale, darkpool: g.darkpool, gamma: g.gamma, earnings: g.earnings }, { prev: prevPicks, max: 5, earlyEarnDates: g.earlyEarnDates, slot })
             : assemble({ whale: g.whale, darkpool: g.darkpool, gamma: g.gamma, earnings: g.earnings }, { prev: prevPicks, max: 5, earlyEarnDates: g.earlyEarnDates });
-        if (!picked.length) return { ok: true, status: 'empty', ...base, counts, stamp: g.stamp, notes: g.notes };
+        if (!picked.length) {
+            // 넓힌 선별: 후보가 0 이어도 같은 날 직전 문서에 «이미 나온» 실적이 남지 않게 그 항목만 걷어 낸다(관문 11/18). 다른 항목·문장은 그대로.
+            if (broad && !o.dry && prev && prev.etDate === etDate) {
+                const keep = prev.items.filter((p) => !(p.facts.kind === 'earnings' && releasedBroad(p.facts, now)));
+                if (keep.length !== prev.items.length) {
+                    const pruned: TodayPicksDoc = { ...prev, items: keep, stamp: g.stamp };
+                    await Promise.all([setInCache(TP_KEYS.latest, pruned, TP_DOC_TTL_SEC), setInCache(TP_KEYS.slot(etDate, prev.slot), pruned, TP_DOC_TTL_SEC)]);
+                    return { ok: true, status: 'pruned', ...base, counts, stamp: g.stamp, notes: g.notes, reason: `released-earnings:${prev.items.length - keep.length}` };
+                }
+            }
+            return { ok: true, status: 'empty', ...base, counts, stamp: g.stamp, notes: g.notes };
+        }
 
         const context = etMinutesOf(now) < 570 && !o.dry && !o.noAi
             ? await readPreMarketContext(now, await readPickPreQuotes(picked.map(c => c.ticker), now)) : undefined;

@@ -256,6 +256,40 @@ t('근거: 종목 태그(2개 이하)·그 세션 전 거래일 마감 뒤 기�
   const lm = await svc.loadMovers(PM);
   assert.equal(lm.rows.find((r) => r.ticker === 'MSFT')!.news?.headline, 'Microsoft unveils new AI agent platform at developer event');
   assert.equal(lm.rows.find((r) => r.ticker === 'NVDA')!.news, null);
+  // 세션 마감 뒤 나온 보도는 끝난 등락의 근거가 아니다(관문 11/18)
+  store.set('guardian:news:digest:v2', { items: [{ headline: 'Microsoft names new cloud chief after the bell', tickers: ['MSFT'], publishedAt: '2026-11-18T21:20:00Z' }] });
+  const after = await svc.loadMovers(PM);
+  assert.equal(after.rows.find((r) => r.ticker === 'MSFT')!.news, null);
+});
+
+t('발표가 이미 나왔나(넓힌 선별): 공지 시각 → 그 시각 · 개장 전 → 09:30 · 장 마감 후·미정 → 정규장 마감 · 같은 날 후보 0이면 직전 문서에서 끝난 실적만 걷어 낸다', async () => {
+  const at = (hhmm: string) => Date.parse(`2026-11-18T${hhmm}:00-05:00`);
+  assert.equal(svc.releasedBroad({ date: '2026-11-18', hour: 'amc', etTime: '16:20' }, at('16:19')), false);
+  assert.equal(svc.releasedBroad({ date: '2026-11-18', hour: 'amc', etTime: '16:20' }, at('16:20')), true);
+  assert.equal(svc.releasedBroad({ date: '2026-11-18', hour: 'amc' }, at('15:59')), false);
+  assert.equal(svc.releasedBroad({ date: '2026-11-18', hour: 'amc' }, at('16:00')), true);
+  assert.equal(svc.releasedBroad({ date: '2026-11-18', hour: 'bmo' }, at('09:30')), true);
+  assert.equal(svc.releasedBroad({ date: '2026-11-19', hour: 'bmo' }, at('20:00')), false);
+  assert.equal(svc.releasedBroad({ date: '2026-11-17', hour: 'amc' }, at('08:00')), true);
+  // 직전 같은 날 문서 [PANW 실적(장 마감 후), 큰 폭 등락] · 지금 후보 0 → PANW 만 걷어 낸 문서로 바꾼다
+  reset();
+  const prevDoc: TodayPicksDoc = { v: 1, slot: 'pm', etDate: '2026-11-18', at: at('16:30'), stamp: { opt: null, opened: null, finra: null, chain: null, earn: '2026-11-18', sel: 'broad1' }, sel: 'broad1',
+    items: [
+      { id: 'earnings:PANW', kind: 'earnings', ticker: 'PANW', asOf: '2026-11-18', facts: { kind: 'earnings', date: '2026-11-18', hour: 'amc', etTime: null, impliedPct: null, impliedExpiry: null, session: null }, what: { ko: 'a', en: 'a', ja: 'a' }, why: { ko: 'b', en: 'b', ja: 'b' }, whyAi: false, push: { ko: 'c', en: 'c', ja: 'c' } },
+      { id: 'mover:MSFT', kind: 'mover', ticker: 'MSFT', asOf: '2026-11-17', facts: MV({ session: '2026-11-17' }), what: { ko: 'a', en: 'a', ja: 'a' }, why: { ko: 'b', en: 'b', ja: 'b' }, whyAi: false, push: { ko: 'c', en: 'c', ja: 'c' } },
+    ], gen: { calls: 0, ok: 0, fallback: 2, ms: 1 } };
+  store.set('todaypicks:v1:latest', prevDoc);
+  // 실적 일정 모의에서 오늘·내일 후보가 모두 끝난 시각(목 11/19 장 마감 뒤 + 무버 없음)이 아니라, 같은 날(11/18) 19:00 ET · 무버 캐시 없음 · 실적은 WMT(11/19)만 남는다 → 후보가 있으므로 새로 만든다
+  const r = await svc.runPicks({ now: at('19:00'), force: true, noAi: true });
+  assert.equal(r.status, 'generated');
+  assert.ok(!(store.get('todaypicks:v1:latest') as TodayPicksDoc).items.some((p) => p.ticker === 'PANW'));
+  // 후보 0(내일 실적도 끝난 시각으로 흉내: 11/19 19:00 ET, 무버·옵션 없음) + 같은 날 직전 문서에 끝난 실적 → pruned
+  const at19 = Date.parse('2026-11-19T19:00:00-05:00');
+  store.set('todaypicks:v1:latest', { ...prevDoc, etDate: '2026-11-19', items: [{ ...prevDoc.items[0], id: 'earnings:WMT', ticker: 'WMT', facts: { ...prevDoc.items[0].facts, date: '2026-11-19', hour: 'bmo' } }, prevDoc.items[1]] });
+  const p = await svc.runPicks({ now: at19, force: true, noAi: true });
+  assert.equal(p.status, 'pruned');
+  const left = store.get('todaypicks:v1:latest') as TodayPicksDoc;
+  assert.deepEqual(left.items.map((x) => x.id), ['mover:MSFT'], '끝난 실적만 빠지고 나머지 항목·문장은 그대로');
 });
 
 // ━━━ 4. 문장·AI ━━━
@@ -322,18 +356,18 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   assert.equal(r.status, 'generated');
   const doc = store.get('todaypicks:v1:latest') as TodayPicksDoc;
   assert.equal(doc.sel, 'broad1'); assert.equal(doc.stamp.sel, 'broad1'); assert.match(String(doc.stamp.mov), /^2026-11-18\|NVDA/);
-  // 17:00 ET — PANW(오늘 장 마감 후)는 아직 «발표 당일»(phaseOf) · 일반 항목만 4개(옵션 묶음 없음)
-  assert.deepEqual(doc.items.map((p) => p.id), ['mover:NVDA', 'earnings:PANW', 'mover:MSFT', 'earnings:WMT', 'earnings:ACME'].slice(0, 5));
+  // 17:00 ET — PANW(오늘 장 마감 후)는 이미 나온 발표라 빠진다(releasedBroad) · 일반 항목만 4개(옵션 묶음 없음)
+  assert.deepEqual(doc.items.map((p) => p.id), ['mover:NVDA', 'earnings:WMT', 'mover:MSFT', 'earnings:ACME']);
   assert.equal(aiCalls, 1, 'NVDA(실적 근거)만 AI'); assert.equal(systems[0], v2.TP_V2_MOVER_SYSTEM);
   assert.equal(doc.items[0].whyAi, true);
   assert.equal(doc.items[2].why.ko, '움직임을 설명하는 보도는 확인되지 않았습니다'); assert.equal(doc.items[2].whyAi, false);
-  assert.equal(doc.items[1].why.ko, '회사가 공지한 장 마감 후 발표 일정입니다');
-  assert.equal(doc.items[3].why.ko, '회사가 공지한 개장 전 발표 일정입니다');
+  assert.equal(doc.items[1].why.ko, '회사가 공지한 개장 전 발표 일정입니다');
+  assert.equal(doc.items[3].why.ko, '회사가 공지한 발표일이며 시각은 정해지지 않았습니다');
   assert.equal(doc.gen.calls, 1);
   assert.equal(view.pushPickLine(doc, 'ko', '2026-11-18').line, '✦ 오늘 볼 것 · NVDA 11/18 종가 +4.9%', '푸시 1번 줄이 새 종류도 처리');
   assert.equal(view.buildView(doc, 'ko').sel, 'broad1');
   assert.equal(doc.items[0].what.ko, '종가 $160.2 (+4.9%)');
-  assert.equal(doc.stamp.ern, 'PANW,WMT,ACME');
+  assert.equal(doc.stamp.ern, 'WMT,ACME');
   // 가드 실패 → 규칙 문장
   script.push({ text: JSON.stringify({ ko: '오늘 실적 때문에 크게 올랐습니다', en: 'Rose today because of earnings', ja: '今日決算のため上昇しました' }) });
   await svc.runPicks({ now: PM, force: true });
@@ -346,9 +380,6 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   quoteData = { NVDA: Q(160.2, 4.9) };
   const changed = await svc.runPicks({ now: PM });
   assert.equal(changed.status, 'generated', 'stamp.mov 가 바뀌면 다시 만든다');
-  // 발표가 끝나 실적 후보가 빠지면 같은 슬롯에서도 다시 만든다(관문 11/18)
-  const later = await svc.runPicks({ now: PM + 4 * 3600_000 });
-  assert.equal(later.status, 'generated'); assert.ok(!(store.get('todaypicks:v1:latest') as TodayPicksDoc).items.some((p) => p.ticker === 'PANW'));
 });
 t('끄기 스위치: Redis todaypicks:broad:off 또는 TODAY_PICKS_BROAD=0 → 옛 선별(큰 폭 등락 없음·sel 없음·실적은 예상 변동 필수) · 크론 ?broad=0/1', async () => {
   reset();
