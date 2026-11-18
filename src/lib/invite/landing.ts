@@ -357,9 +357,9 @@ const PICK_OTHERS_MAX = 4;
 /** 설명 문단(ui.how) 위치 — 큰 폭 등락(11/18)은 ui.how 밖의 문단(MOVER_HOW)을 쓴다(설명 칸이 사라지지 않게) */
 const PICK_HOW_INDEX: Partial<Record<PickKind, number>> = { whale: 0, darkpool: 1, gamma: 2, earnings: 3 };
 const MOVER_HOW: Record<InviteLang, [string, string]> = {
-  ko: ['큰 폭 상승·하락', '거래대금이 큰 종목이 끝난 정규장에서 크게 오르거나 내린 경우입니다. 숫자는 그 세션 종가 기준이며, 이유는 회사 실적 발표나 종목 보도가 확인될 때만 적습니다.'],
-  en: ['Big moves', 'A heavily traded stock that rose or fell sharply in a finished regular session. Numbers are as of that session\'s close; a reason is noted only when a company earnings release or a report on the stock is confirmed.'],
-  ja: ['大幅上昇・下落', '売買代金の大きい銘柄が、終了した通常取引で大きく上昇または下落したケースです。数字はそのセッションの終値基準で、理由は会社の決算発表や銘柄の報道が確認できた場合のみ記します。'],
+  ko: ['큰 폭 상승·하락', '거래대금이 큰 종목이 끝난 정규장에서 크게 오르거나 내린 경우입니다. 숫자는 그 세션 종가 기준입니다. 회사가 공지한 실적 발표일이나 종목 관련 보도가 있으면 함께 적되, 움직임의 원인으로 단정하지 않습니다.'],
+  en: ['Big moves', 'A heavily traded stock that rose or fell sharply in a finished regular session. Numbers are as of that session\'s close. A company-announced earnings date or a report on the stock is noted when there is one, without calling it the cause of the move.'],
+  ja: ['大幅上昇・下落', '売買代金の大きい銘柄が、終了した通常取引で大きく上昇または下落したケースです。数字はそのセッションの終値基準です。会社が告知した決算発表日や銘柄の報道があれば併記しますが、値動きの原因とは断定しません。'],
 };
 
 /** 오늘 볼 것 — 이 종목 항목을 큰 카드로, 나머지(최대 4)를 «함께 보기» 로. 항목이 이미 돌았으면 오늘 목록 전체 + 사실 한 줄. */

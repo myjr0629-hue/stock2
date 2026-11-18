@@ -387,7 +387,7 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   assert.equal(view.pushPickLine(doc, 'ko', '2026-11-18').line, '✦ 오늘 볼 것 · NVDA 11/18 종가 +4.9%', '푸시 1번 줄이 새 종류도 처리');
   assert.equal(view.buildView(doc, 'ko').sel, 'broad1');
   assert.equal(doc.items[0].what.ko, '종가 $160.2 (+4.9%)');
-  assert.equal(doc.stamp.ern, 'WMT@2026-11-19bmo/6.9,ACME@2026-11-19/', '일정·예상 변동 정정도 표식에');
+  assert.equal(doc.stamp.ern, 'WMT@2026-11-19bmo/6.9/2026-11-20/2026-11-18,ACME@2026-11-19///', '일정·예상 변동·만기·호가 세션 정정도 표식에');
   // 가드 실패 → 규칙 문장
   script.push({ text: JSON.stringify({ ko: '오늘 실적 때문에 크게 올랐습니다', en: 'Rose today because of earnings', ja: '今日決算のため上昇しました' }) });
   await svc.runPicks({ now: PM, force: true });
