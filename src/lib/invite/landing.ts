@@ -326,7 +326,7 @@ function baseView(kind: ShareKind, ticker: string, lang: InviteLang): LandingVie
 }
 
 function genericDescription(kind: ShareKind, lang: InviteLang): string {
-  if (kind === 'pick') return UI[lang].metaDesc(null);
+  if (kind === 'pick') return UI[lang].metaDesc(null, 0);
   if (kind === 'earn') return COPY[lang].lead;
   return LC[lang].lineDesc;
 }
