@@ -34,6 +34,9 @@ export const TICK_MS = 1_500;
 export const SHOW_STREAK = 2;
 /** 권한·고객 정보를 다시 읽는 최소 간격(트리거가 잦아도 SDK 호출을 묶는다) */
 export const REFRESH_MIN_MS = 30_000;
+/** 고객 정보 조회가 실패했을 때 다시 읽는 간격·횟수(이번 실행) */
+export const READ_RETRY_MS = 10_000;
+export const READ_RETRY_MAX = 3;
 /** 고객 정보 조회 상한 — 넘으면 이번 회차는 안 보인다 */
 export const VERIFY_MS = 3_000;
 

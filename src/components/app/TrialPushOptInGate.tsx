@@ -22,7 +22,7 @@ import { PRO_ACTIVATED_EVENT } from '@/lib/app/ratingMoments';
 import { checkPushPerm } from '@/lib/native/pushPerm';
 import { freshCustomerInfo } from '@/lib/native/rcFresh';
 import {
-  ONBOARDED_KEY, REFRESH_MIN_MS, SHOW_STREAK, TICK_MS, TRIAL_VALUE_EVENT, VERIFY_MS,
+  ONBOARDED_KEY, READ_RETRY_MAX, READ_RETRY_MS, REFRESH_MIN_MS, SHOW_STREAK, TICK_MS, TRIAL_VALUE_EVENT, VERIFY_MS,
   aiLineVisible, claimShown, inProQuiet, nextStreak, prefsOff, readShown, routeOk, tickStep, trialFromInfo, trialPushStep, trialValueSeen, triggerSrc,
   type MiniStore, type PermState, type TrialInfo, type TrialPushSrc, type Trigger,
 } from '@/lib/app/trialPushOptIn';
@@ -53,6 +53,8 @@ export function TrialPushOptInGate() {
     let tickT = 0;
     let streak: { n: number; trigger: Trigger | null } = { n: 0, trigger: null };
     let finalizing = false;
+    let retryT = 0;
+    let retries = 0;
 
     const snapshot = (p: PermState) => {
       let onboarded = false;
@@ -69,7 +71,8 @@ export function TrialPushOptInGate() {
     const finish = () => { run.done = true; stopTick(); };
 
     const tick = async () => {
-      if (!alive || run.done || finalizing || !trial) return;
+      // 자격을 다시 읽는 중이면 옛 체험 정보로 박자를 채우지 않는다(관문 4차)
+      if (!alive || run.done || finalizing || reading || !trial) return;
       if (document.visibilityState !== 'visible') { streak = { n: 0, trigger: null }; return; }
       const cur = tickStep(snapshot(perm), trialValueSeen());
       if (cur.step === 'stop') { finish(); return; }
@@ -82,14 +85,16 @@ export function TrialPushOptInGate() {
         const p2 = await checkPushPerm();
         if (!alive || run.done) return;
         perm = p2;
-        const last = trialPushStep({ ...snapshot(p2), trigger: cur.trigger });
-        if (last === 'stop') { finish(); return; }
-        if (last !== 'show') { streak = { n: 0, trigger: null }; return; }
+        if (reading || !trial) { streak = { n: 0, trigger: null }; return; }
+        // 트리거도 다시 고른다 — 기다리는 사이 AI 줄이 보였으면 AI 로(출처 우선순위 · 관문 4차)
+        const last = tickStep(snapshot(p2), trialValueSeen());
+        if (last.step === 'stop') { finish(); return; }
+        if (last.step !== 'show') { streak = { n: 0, trigger: null }; return; }
         // 기록 실패(저장소 막힘·이미 있음) = 안 보인다
         if (!claimShown(store)) { finish(); return; }
         const shownTrial = trial;
         finish();
-        const src = triggerSrc(cur.trigger);
+        const src = triggerSrc(last.trigger);
         trackFunnel('trial_push_shown', { src });
         setShow({ src, loc: window.location.pathname.split('/')[1] || 'en', trial: shownTrial });
       } catch { /* 읽기 실패 = 이번 박자는 넘김 */ } finally { finalizing = false; }
@@ -110,8 +115,17 @@ export function TrialPushOptInGate() {
         const first = trialPushStep({ ...snapshot(p), trial: { expiresAt: Infinity, startedAt: null }, trigger: 'ai' });
         if (first === 'stop') { finish(); return; }
         if (first === 'skip') { trial = null; readAt = Date.now(); stopTick(); return; }
-        trial = trialFromInfo(await freshCustomerInfo(VERIFY_MS) as Parameters<typeof trialFromInfo>[0], Date.now());
+        const info = await freshCustomerInfo(VERIFY_MS);
         if (!alive) return;
+        streak = { n: 0, trigger: null };
+        if (info == null) {
+          // 조회 실패·시간 초과 = 모름 — 박자를 멈추고, 30초 묶음에 넣지 않으며(다음 트리거는 곧바로 다시 읽는다) 10초 뒤 최대 3번 다시(관문 4차)
+          trial = null; stopTick();
+          if (retries < READ_RETRY_MAX && !retryT) { retries += 1; retryT = window.setTimeout(() => { retryT = 0; void read(true); }, READ_RETRY_MS); }
+          return;
+        }
+        retries = 0;
+        trial = trialFromInfo(info as Parameters<typeof trialFromInfo>[0], Date.now());
         readAt = Date.now();
         if (trial) startTick(); else stopTick();
       } catch { /* 읽기 실패 = 안 보인다 */ } finally {
@@ -132,6 +146,7 @@ export function TrialPushOptInGate() {
     return () => {
       alive = false;
       stopTick();
+      if (retryT) window.clearTimeout(retryT);
       window.removeEventListener(TRIAL_VALUE_EVENT, onValue);
       window.removeEventListener(PRO_ACTIVATED_EVENT, onPro);
       document.removeEventListener('visibilitychange', onFg);
