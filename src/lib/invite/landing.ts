@@ -25,13 +25,18 @@ import { COPY, hourText, mdw, pctText, phaseOf } from '@/lib/earningsWeek';
 import {
   asOfLineOf, fmtLevel, fmtPrice, stampET, stampKST, viewRow,
 } from '@/lib/earningsWeekView';
-import { attachImplied, IMPLIED_LABEL, impliedBasisText, type ImpliedPack, type RowImplied } from '@/lib/earnings/earningsImplied';
+import { attachImplied, IMPLIED_LABEL, impliedBasisText, impliedPctText, impliedRowKey, type ImpliedPack, type RowImplied } from '@/lib/earnings/earningsImplied';
 import { attachBriefs, fmtEpsUsd, fmtRevUsd, type BriefPack } from '@/lib/earnings/earningsBrief';
 import { buildView, type PicksView } from '@/lib/todayPicks/view';
 import { UI } from '@/lib/todayPicks/copy';
 import type { TodayPicksDoc } from '@/lib/todayPicks/types';
 import { fillAiLine, type AiLineEntry } from '@/lib/app/watchlistAiLine';
-import { daysBetweenYmd } from '@/lib/marketCalendar';
+import { daysBetweenYmd, etDateOf } from '@/lib/marketCalendar';
+import { calendarReaction, calendarScorecardWeek } from '@/lib/earnings/calendarScorecardDisplay';
+import { RECEIPT_COPY } from '@/lib/earnings/earningsReceiptsCopy';
+import { reactionFinalAt, reactionSessions } from '@/lib/earnings/earningsActuals';
+import type { ScorecardRow } from '@/lib/earnings/earningsScorecard';
+import type { FrozenExpected } from '@/lib/earnings/frozenExpected';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import type { StoredLine } from '@/services/watchlistAiLineService';
 import type { ConfirmedEarnings } from '@/lib/earningsConfirmed';
@@ -51,6 +56,12 @@ export type LandingFallback =
   | 'no-move';      // earn: 옵션 반영 변동폭을 아직 못 읽었다
 
 export interface LandingRow { label: string; value: string; note?: string }
+/** 발표 결과 칸 — 숫자·문구는 채점표(앱 실적 캘린더의 «발표 후 실제 반응 … · 범위 안» 줄)와 같은 값·같은 말 */
+export interface EarnResultView {
+  expected: string; expectedLabel: string; expectedNote?: string;
+  actual: string; actualLabel: string; actualNote?: string;
+  verdict: string; within: boolean;
+}
 export interface LandingOther { ticker: string; chip?: string; text: string; href?: string }
 export interface LandingLink { label: string; href: string }
 
@@ -73,6 +84,8 @@ export interface LandingView {
   headlineAi: boolean;
   /** 큰 숫자(earn: ±4.3%) */
   hero?: { value: string; label: string; note?: string };
+  /** [11/18] 발표 결과(earn — 채점표 행이 있을 때만): 발표 전 옵션 예상 ±% vs 발표 후 실제 반응(정규장 종가) · 범위 안/밖. 있으면 hero 대신 그린다 */
+  result?: EarnResultView;
   /** 보조 AI/해설 문장 — ai=true 일 때만 «✦ AI» 표식 */
   aiLine?: { text: string; ai: boolean };
   rows: LandingRow[];
@@ -104,6 +117,10 @@ interface LandingCopy {
   ctaSub: string;
   /** 쿠폰 코드가 켜져 있을 때만 CTA 아래 한 줄 */
   codeLine: string;
+  /** [11/18] 쿠폰·선물이 없는 링크의 CTA 아래 한 줄 — 실적 종목 페이지(lib/seo/earningsPage ctaSub)와 같은 말 */
+  trialLine: string;
+  /** [11/18] 발표 결과 카드 */
+  res: { reported: (when: string) => string; closes: (base: string, react: string) => string; pending: string };
   othersT: Record<ShareKind, string>;
   linkPick: string;
   linkEarn: string;
@@ -135,6 +152,8 @@ const LC: Record<InviteLang, LandingCopy> = {
     cta: '앱에서 이어 보기',
     ctaSub: 'iOS · Android · 무료',
     codeLine: '링크로 설치하면 PRO 1개월 무료 — 이후 자동 갱신, 언제든 해지',
+    trialLine: '처음 구독이면 PRO 7일 무료 체험(스토어 자격 기준)',
+    res: { reported: (when) => `${when} 실적 발표`, closes: (b, r) => `정규장 종가 ${b} → ${r}`, pending: '확정 대기' },
     othersT: { pick: '함께 보기', line: '함께 보기', earn: '이번 주 다른 실적 발표' },
     linkPick: '오늘 볼 것 전체 보기',
     linkEarn: '이번 주 실적 전체 보기',
@@ -162,6 +181,8 @@ const LC: Record<InviteLang, LandingCopy> = {
     cta: 'Continue in the app',
     ctaSub: 'iOS · Android · Free',
     codeLine: 'Install via this link for PRO free for the first month — then auto-renews, cancel anytime',
+    trialLine: 'New subscribers may be eligible for a 7-day PRO free trial',
+    res: { reported: (when) => `Reported ${when}`, closes: (b, r) => `Regular-session close ${b} → ${r}`, pending: 'Pending' },
     othersT: { pick: 'Also see', line: 'Also see', earn: 'Other reports this week' },
     linkPick: 'See the full list',
     linkEarn: 'See all earnings this week',
@@ -189,6 +210,8 @@ const LC: Record<InviteLang, LandingCopy> = {
     cta: 'アプリで続きを見る',
     ctaSub: 'iOS · Android · 無料',
     codeLine: 'このリンクから始めるとPRO 1か月無料 — 以降は自動更新、いつでも解約可',
+    trialLine: '初めての購読ならPRO 7日間無料体験(ストアの条件による)',
+    res: { reported: (when) => `${when} 決算発表`, closes: (b, r) => `通常取引終値 ${b} → ${r}`, pending: '確定待ち' },
     othersT: { pick: 'あわせて見る', line: 'あわせて見る', earn: '今週の他の決算' },
     linkPick: '今日の注目をすべて見る',
     linkEarn: '今週の決算をすべて見る',
@@ -250,6 +273,8 @@ export interface LandingCta {
   sub: string;
   /** 쿠폰 코드가 켜져 있을 때만(없으면 undefined — 화면에 쿠폰 문구를 그리지 않는다) */
   codeLine?: string;
+  /** [11/18] 쿠폰 코드·선물 토큰이 «둘 다 없을» 때만 — 1개월 코드와 7일 체험을 한 화면에 같이 약속하지 않는다(자격 우선순위 미검증 · 추천 감사 11/18) */
+  trialLine?: string;
 }
 
 /**
@@ -268,6 +293,7 @@ export function landingCta(
     label: c.cta,
     sub: c.ctaSub,
     ...(code ? { codeLine: c.codeLine } : {}),
+    ...(!code && !opts.giftToken ? { trialLine: c.trialLine } : {}),
   };
 }
 
@@ -511,6 +537,134 @@ export function appSourceEarn(
   };
 }
 
+// ── earn 발표 결과(11/18) ────────────────────────────────────────────────────
+//   왜: 발표 뒤가 가장 공유할 만한 순간인데(«옵션 예상 ±8.4% vs 실제 +x% · 범위 안») 카드는 발표 전 숫자만 그리고, 발표가 끝나면 대체 화면이었다.
+//   숫자는 «채점표 행»(services/earningsScorecardService.readEarningsScorecard — 앱 실적 캘린더의 «발표 후 실제 반응 … · 범위 안» 줄과 같은 원천)만 쓴다:
+//     예상 = 발표 전 고정값(frozen — 발표 알림이 보낸 값) · 실제 = 정규장 종가 대 종가(장전: 직전 거래일 → 발표일, 장후: 발표일 → 다음 거래일) · |실제| ≤ 예상이면 범위 안.
+//   채점 전(반응일 종가 확정 대기)에는 발표 전 고정값 + «확정 대기» 한 줄. 발표 전 카드는 그대로다.
+
+/** 발표 결과를 카드에 싣는 기간(발표일 기준 달력 일) — 지나면 예전 규칙(다음 발표 카드 · 발표 완료 대체 화면) */
+export const EARN_RESULT_KEEP_DAYS = 14;
+/** 채점 전 «확정 대기»를 보이는 한계 — 반응일 일봉 확정(마감 + 30분) 뒤 이만큼. 그 뒤에도 채점표 행이 없으면 예전 대체 화면 */
+export const EARN_PENDING_GRACE_MS = 6 * 3600_000;
+
+export interface EarnResult {
+  ticker: string;
+  date: string;
+  hour: 'amc' | 'bmo';
+  etTime: string | null;
+  /** 발표 전 옵션 예상 변동폭(%) — 채점표 행의 expectedPct(고정값을 입힌 것) · 채점 전이면 고정값 */
+  expectedPct: number;
+  expiry: string | null;
+  session: string | null;
+  /** 채점표 행이 있을 때만 */
+  actual: { pct: number; within: boolean; baseDate: string; reactDate: string; at: number } | null;
+}
+
+/** 회사 공지 목록에서 «발표가 끝난 지 EARN_RESULT_KEEP_DAYS 일 안»의 가장 최근 발표(장전·장후만 — 채점표 대상과 같다). 없으면 null */
+export function recentReportedEvent(
+  confirmed: ReadonlyArray<{ ticker: string; date: string; hour: string; etTime?: string | null }>, ticker: string, nowMs: number,
+): { ticker: string; date: string; hour: 'amc' | 'bmo'; etTime: string | null } | null {
+  const today = etDateOf(nowMs);
+  let best: { ticker: string; date: string; hour: 'amc' | 'bmo'; etTime: string | null } | null = null;
+  for (const c of confirmed) {
+    if (!c || String(c.ticker).toUpperCase() !== ticker || (c.hour !== 'amc' && c.hour !== 'bmo') || !/^\d{4}-\d{2}-\d{2}$/.test(c.date)) continue;
+    if (phaseOf(c.date, c.hour, nowMs) !== 'done') continue;
+    const age = daysBetweenYmd(c.date, today);
+    if (age == null || age < 0 || age > EARN_RESULT_KEEP_DAYS) continue;
+    if (!best || c.date > best.date) best = { ticker, date: c.date, hour: c.hour, etTime: c.etTime ?? null };
+  }
+  return best;
+}
+
+/** 채점표 행 → 결과(같은 발표일 때만) */
+export function earnResultFromScore(ev: { ticker: string; date: string; hour: 'amc' | 'bmo'; etTime: string | null }, s: ScorecardRow | null | undefined): EarnResult | null {
+  if (!s || s.ticker !== ev.ticker || s.date !== ev.date || s.hour !== ev.hour || !fin(s.expectedPct) || !(s.expectedPct > 0) || !fin(s.actualPct)) return null;
+  const at = Date.parse(s.basis.actualCalculatedAt);
+  return {
+    ...ev, expectedPct: s.expectedPct, expiry: s.basis.expectedExpiry ?? null, session: s.basis.expectedSession ?? null,
+    actual: { pct: s.actualPct, within: !s.beyond, baseDate: s.basis.baseDate, reactDate: s.basis.reactDate, at: Number.isFinite(at) ? at : 0 },
+  };
+}
+
+/** 고정값 → 채점 전 결과(같은 발표일 때만) */
+export function earnResultFromFrozen(ev: { ticker: string; date: string; hour: 'amc' | 'bmo'; etTime: string | null }, f: FrozenExpected | null | undefined): EarnResult | null {
+  if (!f || f.ticker !== ev.ticker || f.date !== ev.date || f.hour !== ev.hour || !fin(f.pct) || !(f.pct > 0)) return null;
+  return { ...ev, expectedPct: f.pct, expiry: f.expiry ?? null, session: f.session ?? null, actual: null };
+}
+
+/** 지금 이 결과를 그릴 수 있나 — 'scored'(채점 완료) · 'pending'(반응일 종가 확정 대기) · null(그리지 않는다 — 예전 규칙) */
+export function earnResultState(r: EarnResult | null | undefined, nowMs: number): 'scored' | 'pending' | null {
+  if (!r || !fin(r.expectedPct) || !(r.expectedPct > 0) || phaseOf(r.date, r.hour, nowMs) !== 'done') return null;
+  if (r.actual) return fin(r.actual.pct) && typeof r.actual.within === 'boolean' ? 'scored' : null;
+  const rs = reactionSessions(r.date, r.hour);
+  const fin0 = rs ? reactionFinalAt(rs.react) : null;
+  return fin0 != null && nowMs < fin0 + EARN_PENDING_GRACE_MS ? 'pending' : null;
+}
+
+function composeEarnResult(
+  res: EarnResult, state: 'scored' | 'pending', ticker: string, lang: InviteLang, nowMs: number, others: LandingOther[], name: string | undefined,
+): LandingView {
+  const c = LC[lang];
+  const w = COPY[lang];
+  const rc = RECEIPT_COPY[lang];
+  const r0: EarningsWeekRow = {
+    ticker, date: res.date, hour: res.hour, etTime: res.etTime,
+    impliedMovePct: null, impliedExpiry: null, impliedBasis: null, impliedSession: null, impliedAsOf: null, straddle: null, strike: null, spot: null, impliedReason: null,
+    maxPain: null, callWall: null, putFloor: null, levelsExpiry: null, levelsChainDate: null, levelsAsOf: null,
+  };
+  const v = viewRow(r0, lang, { dataSession: null }, nowMs);
+  const whenRow: LandingRow = { label: w.col.when, value: v.etLine, ...(v.kstLine ? { note: v.kstLine } : {}) };
+  const expected = impliedPctText(res.expectedPct);
+  const basis = impliedBasisText({ pct: res.expectedPct, expiry: res.expiry ?? '', basis: null, session: res.session }, lang) || undefined;
+  const when = whenInSentence(v.etLine, lang, !!res.etTime, res.hour);
+  const headline = c.res.reported(when);
+  const base = baseView('earn', ticker, lang);
+  const kindWord = lang === 'en' ? 'earnings' : lang === 'ja' ? '決算' : '실적';
+  const links = [...defaultLinks('earn', ticker, lang), { label: rc.title, href: `/${lang}/receipts/earnings` }];
+  const common = {
+    ...base, ok: true, ...(name ? { name } : {}), chip: w.done, headline, others, links, aiBadge: false,
+  };
+
+  if (state === 'scored' && res.actual) {
+    const a = res.actual;
+    const actual = calendarReaction({ pct: res.expectedPct, expiry: res.expiry ?? '', basis: null, session: res.session ?? '', reported: true, actualPct: a.pct, within: a.within }) ?? '—';
+    const verdict = a.within ? rc.within : rc.outside;
+    const actualNote = c.res.closes(mdw(a.baseDate, lang), mdw(a.reactDate, lang));
+    const result: EarnResultView = {
+      expected, expectedLabel: rc.columns[1], ...(basis ? { expectedNote: basis } : {}),
+      actual, actualLabel: rc.columns[2], actualNote, verdict, within: a.within,
+    };
+    return {
+      ...common,
+      title: `${ticker} ${kindWord} ${mdw(res.date, lang)} — ${rc.columns[1]} ${expected} vs ${rc.columns[2]} ${actual} · ${verdict} | ${BRAND}`,
+      description: clipText(`${ticker}: ${headline} · ${rc.columns[1]} ${expected}${basis ? ` (${basis})` : ''} · ${rc.columns[2]} ${actual} (${actualNote}) · ${verdict}`, 200),
+      result,
+      rows: [whenRow],
+      asOf: a.at > 0 ? c.asOfAt({ ny: stampET(a.at, lang), kst: stampKST(a.at, lang) }) : '',
+      facts: [],
+      explainTitle: w.readT,
+      explain: [[rc.columns[3], rc.methods[5]], w.read[0]],
+    };
+  }
+
+  // 채점 전 — 발표 전 고정값 + «발표 후 실제 반응: 확정 대기»
+  const rs = reactionSessions(res.date, res.hour);
+  const pendingRow: LandingRow = { label: rc.columns[2], value: c.res.pending, note: rs ? `${rc.issues.pending_actual} · ${mdw(rs.react, lang)}` : rc.issues.pending_actual };
+  return {
+    ...common,
+    title: `${ticker} ${kindWord} ${mdw(res.date, lang)} — ${rc.columns[1]} ${expected} · ${rc.columns[2]} ${c.res.pending} | ${BRAND}`,
+    description: clipText(`${ticker}: ${headline} · ${rc.columns[1]} ${expected}${basis ? ` (${basis})` : ''} · ${rc.columns[2]} ${c.res.pending}`, 200),
+    hero: { value: expected, label: rc.columns[1], ...(basis ? { note: basis } : {}) },
+    rows: [whenRow, pendingRow],
+    asOf: '',
+    facts: [],
+    explainTitle: w.readT,
+    // 기준가 칸이 없는 카드라 «기준가와 기준 시각» 대신 «실제 반응» 정의(어느 종가 대 종가·언제 확정되는지)
+    explain: [w.read[0], [rc.columns[2], rc.methods[4]]],
+  };
+}
+
 /** «10/14(수) 장 마감 후» — 문장 속에서 쓸 때(영어는 소문자 시작) */
 function whenInSentence(etLine: string, lang: InviteLang, hasTime: boolean, hour: string): string {
   if (lang !== 'en' || hasTime) return etLine;
@@ -527,12 +681,16 @@ function whenInSentence(etLine: string, lang: InviteLang, hasTime: boolean, hour
  */
 export function composeEarn(
   week: EarningsWeekData | null, extra: EarnExtra | null, ticker: string, lang: InviteLang, nowMs: number = Date.now(), alt: EarnAlt | null = null,
+  result: EarnResult | null = null,
 ): LandingView {
   const c = LC[lang];
   const w = COPY[lang];
   const inWeek = week ? week.rows.find((r) => r.ticker === ticker) ?? null : null;
   const row = inWeek ?? alt?.row ?? null;
-  if (!week && !row) return fallbackView('earn', ticker, lang, 'read-failed');
+  // [11/18] 최근 발표의 결과(채점표 행 · 채점 전이면 고정값) — 고른 행이 «발표 끝» 이거나, 없거나, 다음 분기(30일 넘게 뒤)일 때만. 발표 전 행이면 예전 그대로.
+  const resState = result && result.ticker === ticker ? earnResultState(result, nowMs) : null;
+  const useResult = !!resState && (!row || phaseOf(row.date, row.hour, nowMs) === 'done' || (daysBetweenYmd(result!.date, row.date) ?? 0) > 30);
+  if (!week && !row && !useResult) return fallbackView('earn', ticker, lang, 'read-failed');
 
   const others: LandingOther[] = (week?.rows ?? [])
     .filter((r) => r.ticker !== ticker && r.impliedMovePct != null && r.impliedMovePct > 0 && phaseOf(r.date, r.hour, nowMs) !== 'done')
@@ -540,6 +698,10 @@ export function composeEarn(
     .slice(0, EARN_OTHERS_MAX)
     .map((r) => ({ ticker: r.ticker, text: `${pctText(r.impliedMovePct)} · ${mdw(r.date, lang)}`, ...(FLOW_SET.has(r.ticker) ? { href: `/${lang}/flow/${r.ticker}` } : {}) }));
 
+  if (useResult && result && resState) {
+    const name = row && row.date === result.date ? extra?.brief?.[lang]?.name : undefined;
+    return composeEarnResult(result, resState, ticker, lang, nowMs, others, name);
+  }
   if (!row) return fallbackView('earn', ticker, lang, 'no-row', { text: c.fb.earnNoRow(ticker), others });
 
   // 숫자 기준(세션·호가 종류·계산 시각)은 행이 온 원천의 것 — 이번 주 목록이면 그 목록, 앱 원천이면 변동폭 묶음
@@ -601,6 +763,8 @@ export interface OgCard {
   chip?: string;
   name?: string;
   hero?: { value: string; label: string; note?: string };
+  /** [11/18] 발표 결과(예상 vs 실제 · 범위 안/밖) — 있으면 hero 대신 */
+  result?: EarnResultView;
   headline: string;
   headlineAi: boolean;
   aiLine?: { text: string; ai: boolean };
@@ -633,6 +797,11 @@ export function ogCardOf(view: LandingView | null, lang: InviteLang): OgCard {
     ...(view.chip ? { chip: view.chip } : {}),
     ...(view.name ? { name: clipText(view.name, 30) } : {}),
     ...(view.hero ? { hero: { ...view.hero, ...(view.hero.note ? { note: clipText(view.hero.note, 40) } : {}) } } : {}),
+    ...(view.result ? { result: {
+      ...view.result,
+      ...(view.result.expectedNote ? { expectedNote: clipText(view.result.expectedNote, 56) } : {}),
+      ...(view.result.actualNote ? { actualNote: clipText(view.result.actualNote, 56) } : {}),
+    } } : {}),
     headline: clipText(view.headline, (view.headlineAi ? OG_CLIP.headlineAi : OG_CLIP.headline)[L]),
     headlineAi: view.headlineAi,
     ...(view.aiLine ? { aiLine: { text: clipText(view.aiLine.text, OG_CLIP.ai[L]), ai: view.aiLine.ai } } : {}),
@@ -649,8 +818,9 @@ export function ogCardOf(view: LandingView | null, lang: InviteLang): OgCard {
 export function ogGlyphs(card: OgCard): string {
   return [
     card.kindName, card.ticker, card.chip ?? '', card.name ?? '', card.hero?.value ?? '', card.hero?.label ?? '', card.hero?.note ?? '',
+    ...(card.result ? [card.result.expected, card.result.expectedLabel, card.result.expectedNote ?? '', card.result.actual, card.result.actualLabel, card.result.actualNote ?? '', card.result.verdict] : []),
     card.headline, card.aiLine?.text ?? '', card.asOf, card.foot, ...card.stats.flatMap((s) => [s.label, s.value]),
-    'SIGNUM HQ AI signumhq.com ET 0123456789:/()-–—±%$.,·→+ ',
+    'SIGNUM HQ AI signumhq.com ET 0123456789:/()-–—−±%$.,·→+ vs',
   ].join('');
 }
 
@@ -659,7 +829,7 @@ export function ogGlyphs(card: OgCard): string {
 export interface LandingDeps {
   picks(): Promise<{ doc: TodayPicksDoc | null; off: boolean }>;
   line(ticker: string, lang: InviteLang): Promise<{ stored: StoredLine | null; entry: AiLineEntry | null; off: boolean }>;
-  earn(ticker: string, nowMs?: number): Promise<{ week: EarningsWeekData | null; extra: EarnExtra | null; alt?: EarnAlt | null }>;
+  earn(ticker: string, nowMs?: number): Promise<{ week: EarningsWeekData | null; extra: EarnExtra | null; alt?: EarnAlt | null; result?: EarnResult | null }>;
 }
 
 /**
@@ -681,6 +851,9 @@ export function makeDefaultDeps(background?: (p: Promise<unknown>) => void): Lan
       return { stored, entry: svc.entryOf(stored, lang), off: r.off };
     },
     async earn(ticker, nowMs = Date.now()) {
+      // [11/18] 최근 발표 결과는 따로·같이 읽는다(실패는 null — 예전 카드 그대로)
+      //   상한 EARN_RESULT_TIMEOUT_MS — 결과 읽기가 느려도 카드 전체(LOAD_TIMEOUT_MS)를 대체 화면으로 떨어뜨리지 않는다
+      const resultP = withTimeout(readEarnResult(ticker, nowMs), EARN_RESULT_TIMEOUT_MS).catch(() => null);
       const { getEarningsWeek } = await import('@/services/earningsWeekService');
       let week: EarningsWeekData | null = null;
       try { week = await getEarningsWeek({ background, readOnly: true }); } catch { week = null; }
@@ -694,7 +867,7 @@ export function makeDefaultDeps(background?: (p: Promise<unknown>) => void): Lan
         getFromCache<{ rows?: unknown }>(EARNINGS_CALENDAR_CACHE_KEY).catch(() => null),
         getFromCache<BriefPack>(EARNINGS_BRIEF_KEY).catch(() => null),
       ]);
-      if (week && row) return { week, extra: pickEarnExtra(cal?.rows, pack, row), alt: null };
+      if (week && row) return { week, extra: pickEarnExtra(cal?.rows, pack, row), alt: null, result: await resultP };
 
       // 이번 주 목록에 없다 → 앱 실적 화면과 같은 원천을 «읽기만» 한다(/api/market/earnings-calendar 와 같은 재료):
       //   캘린더 «캐시» + 같은 덮기 함수(applyConfirmedEarnings — getMarketEarningsCalendar 가 쓰는 그것) + 변동폭 묶음 읽기 + 브리프 팩.
@@ -708,13 +881,33 @@ export function makeDefaultDeps(background?: (p: Promise<unknown>) => void): Lan
       const overlaid = applyConfirmedEarnings(raw, etDateOf(nowMs), { universe: earningsCalendarUniverse(), confirmed: CONFIRMED_EARNINGS, pending: PENDING_EARNINGS }).rows;
       const impliedPack = await readImpliedPack();
       const r = appSourceEarn(overlaid, impliedPack, pack, ticker, nowMs, CONFIRMED_EARNINGS);
-      return { week, extra: r.extra, alt: r.alt };
+      return { week, extra: r.extra, alt: r.alt, result: await resultP };
     },
   };
 }
 
+/**
+ * [11/18] 최근 발표(회사 공지 · 14일 안)의 결과 — 읽기만(쓰기 0 · 공급사 0 · AI 0).
+ *   ① 채점표(앱 실적 캘린더와 같은 readEarningsScorecard — 그 주의 실적 반응 기록 MGET + 고정값) → 같은 발표 행이 있으면 «채점 완료».
+ *   ② 없으면 발표 전 고정값(readFrozenExpected — persist:false, 적지 않는다) → «확정 대기». 둘 다 없으면 null.
+ */
+async function readEarnResult(ticker: string, nowMs: number): Promise<EarnResult | null> {
+  const { CONFIRMED_EARNINGS } = await import('@/lib/earningsConfirmed');
+  const ev = recentReportedEvent(CONFIRMED_EARNINGS, ticker, nowMs);
+  if (!ev) return null;
+  const { readEarningsScorecard } = await import('@/services/earningsScorecardService');
+  const sc = await readEarningsScorecard(calendarScorecardWeek(ev.date), nowMs).catch(() => null);
+  const scored = earnResultFromScore(ev, sc?.rows.find((s) => s.ticker === ev.ticker && s.date === ev.date && s.hour === ev.hour));
+  if (scored) return scored;
+  const { readFrozenExpected } = await import('@/services/frozenExpectedService');
+  const fz = await readFrozenExpected([ev], nowMs, { persist: false }).catch(() => null);
+  return earnResultFromFrozen(ev, fz?.get(impliedRowKey(ev.ticker, ev.date)));
+}
+
 /** 한 번 읽는 데 쓰는 상한 — 레디스가 느려도 페이지·카드가 매달리지 않게(넘으면 read-failed 대체 화면) */
 export const LOAD_TIMEOUT_MS = 5000;
+/** [11/18] 발표 결과 읽기 상한 — 넘으면 결과 없이(예전 카드) */
+export const EARN_RESULT_TIMEOUT_MS = 2500;
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -746,7 +939,7 @@ export async function loadLanding(
       return composeLine(r.stored, r.entry, r.off, ticker, l);
     }
     const r = await withTimeout(deps.earn(ticker, nowMs), LOAD_TIMEOUT_MS);
-    return composeEarn(r.week, r.extra, ticker, l, nowMs, r.alt ?? null);
+    return composeEarn(r.week, r.extra, ticker, l, nowMs, r.alt ?? null, r.result ?? null);
   } catch {
     return fallbackView(kind, ticker, l, 'read-failed');
   }

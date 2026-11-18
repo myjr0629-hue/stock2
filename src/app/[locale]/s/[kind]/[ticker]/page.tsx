@@ -76,6 +76,16 @@ const CSS = `
 .sc-hero b{font-size:46px;line-height:1.05;font-weight:900;color:#C2410C;letter-spacing:-.01em}
 .sc-hero span{font-size:14px;font-weight:800;color:#17191E}
 .sc-hero em{font-style:normal;font-size:12.5px;color:#7C848E}
+.sc-res{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 14px;margin:0 0 10px}
+.sc-res div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.sc-res span{font-size:13px;font-weight:800;color:#55606B}
+.sc-res b{font-size:38px;line-height:1.08;font-weight:900;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.sc-res .x b{color:#C2410C}
+.sc-res .a b{color:#17191E}
+.sc-res em{font-style:normal;font-size:12px;color:#7C848E}
+.sc-verdict{display:inline-block;margin:0 0 12px;font-size:13px;font-weight:900;border-radius:999px;padding:2px 12px;line-height:20px}
+.sc-verdict.in{background:#E6F4EF;color:#0F5E46}
+.sc-verdict.out{background:#FDF0E6;color:#9A3412}
 .sc-head{display:flex;gap:8px;align-items:flex-start;margin:0 0 4px;font-size:17px;font-weight:800;line-height:1.5;color:#17191E}
 .sc-head .sc-ai{margin-top:5px}
 .sc-why{display:flex;gap:8px;align-items:flex-start;margin:8px 0 0;font-size:15px;color:#0C5A85}
@@ -147,6 +157,7 @@ export default async function ShareCardPage({ params, searchParams }: Props) {
       <a href={cta.href} rel="noopener">{cta.label} →</a>
       <p>{cta.sub}</p>
       {cta.codeLine && <p className="code">{cta.codeLine}</p>}
+      {cta.trialLine && <p className="code">{cta.trialLine}</p>}
     </div>
   );
 
@@ -167,7 +178,16 @@ export default async function ShareCardPage({ params, searchParams }: Props) {
       <section className="sc-card" aria-label={`${ticker} ${v.kindName}`}>
         {v.ok ? (
           <>
-            {v.hero && (
+            {v.result && (
+              <>
+                <div className="sc-res">
+                  <div className="x"><span>{v.result.expectedLabel}</span><b>{v.result.expected}</b>{v.result.expectedNote && <em>{v.result.expectedNote}</em>}</div>
+                  <div className="a"><span>{v.result.actualLabel}</span><b>{v.result.actual}</b>{v.result.actualNote && <em>{v.result.actualNote}</em>}</div>
+                </div>
+                <p className={`sc-verdict ${v.result.within ? 'in' : 'out'}`}>{v.result.verdict}</p>
+              </>
+            )}
+            {!v.result && v.hero && (
               <div className="sc-hero">
                 <b>{v.hero.value}</b>
                 <span>{v.hero.label}</span>

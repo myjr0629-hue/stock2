@@ -19,7 +19,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
 // today/opengraph-image.tsx 의 팔레트 + 실적 주간의 amber(예상 변동폭 숫자)
-const C = { bg: '#0B0E14', title: '#F4F1E8', label: '#8B92A5', value: '#D2D8E4', line: '#232B3B', accent: '#7DD3FC', amber: '#F59E4B', foot: '#566074' };
+const C = { bg: '#0B0E14', title: '#F4F1E8', label: '#8B92A5', value: '#D2D8E4', line: '#232B3B', accent: '#7DD3FC', amber: '#F59E4B', foot: '#566074', within: '#5EEAD4', outside: '#FDBA74' };
 
 /** ✦ 모양(4점 별) — 글꼴에 의존하지 않는 SVG */
 const SPARK = 'M12 0C12.9 7.2 16.8 11.1 24 12C16.8 12.9 12.9 16.8 12 24C11.1 16.8 7.2 12.9 0 12C7.2 11.1 11.1 7.2 12 0Z';
@@ -57,7 +57,7 @@ function Body({ card }: { card: OgCard }) {
       </div>
     );
   }
-  const hero = !!card.hero;
+  const hero = !!card.hero || !!card.result;
   // 큰 숫자(hero)가 있는 실적 카드는 줄이 많아 한 단계씩 작게 — 하단 푸터와 겹치지 않게
   const tickerPx = hero ? 80 : 104;
   return (
@@ -70,7 +70,26 @@ function Body({ card }: { card: OgCard }) {
         {card.name ? <div style={{ display: 'flex', fontSize: '28px', fontWeight: 700, color: C.value }}>{card.name}</div> : null}
       </div>
 
-      {card.hero ? (
+      {card.result ? (
+        // [11/18] 발표 결과 — 발표 전 옵션 예상 vs 발표 후 실제 반응(정규장 종가) · 범위 안/밖
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '30px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div style={{ display: 'flex', fontSize: '24px', fontWeight: 700, color: C.label }}>{card.result.expectedLabel}</div>
+            <div style={{ display: 'flex', fontSize: '80px', fontWeight: 700, color: C.amber, lineHeight: 1 }}>{card.result.expected}</div>
+          </div>
+          <div style={{ display: 'flex', fontSize: '34px', fontWeight: 700, color: C.label, paddingBottom: '12px' }}>{'vs'}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div style={{ display: 'flex', fontSize: '24px', fontWeight: 700, color: C.label }}>{card.result.actualLabel}</div>
+            <div style={{ display: 'flex', fontSize: '80px', fontWeight: 700, color: C.title, lineHeight: 1 }}>{card.result.actual}</div>
+          </div>
+          <div style={{ display: 'flex', fontSize: '30px', fontWeight: 700, color: card.result.within ? C.within : C.outside, border: `2px solid ${card.result.within ? C.within : C.outside}`, borderRadius: '999px', padding: '4px 20px', marginBottom: '10px' }}>{card.result.verdict}</div>
+        </div>
+      ) : null}
+      {card.result && (card.result.expectedNote || card.result.actualNote) ? (
+        <div style={{ display: 'flex', fontSize: '20px', color: C.label }}>{[card.result.expectedNote, card.result.actualNote].filter(Boolean).join(' · ')}</div>
+      ) : null}
+
+      {!card.result && card.hero ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <div style={{ display: 'flex', fontSize: '84px', fontWeight: 700, color: C.amber, lineHeight: 1 }}>{card.hero.value}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>

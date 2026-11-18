@@ -16,8 +16,11 @@ import assert from 'node:assert/strict';
 import {
   canonicalPathOf, cardPathOf, clipText, composeEarn, composeLine, composePick, fallbackView, landingCta, loadLanding,
   appSourceEarn, ogCardOf, ogGlyphs, parseLandingParams, pickEarnExtra, viaOf,
-  type EarnExtra, type LandingDeps, type LandingView,
+  EARN_RESULT_KEEP_DAYS, earnResultFromFrozen, earnResultFromScore, earnResultState, recentReportedEvent,
+  type EarnAlt, type EarnExtra, type LandingDeps, type LandingView,
 } from '../src/lib/invite/landing';
+import type { ScorecardRow } from '../src/lib/earnings/earningsScorecard';
+import type { FrozenExpected } from '../src/lib/earnings/frozenExpected';
 import { INVITE_LANGS, SHARE_KINDS, type InviteLang, type ShareKind } from '../src/lib/invite/kinds';
 import { giftConfig } from '../src/lib/gift/giftConfig';
 import { ruleTexts, UI } from '../src/lib/todayPicks/copy';
@@ -416,6 +419,143 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     assert.equal(composeEarn(WEEK, r.extra, 'META', 'en', NOW, r.alt).headline, 'Reports 10/22 (Thu) 16:05 ET');
   });
 
+  console.log('4c. earn — 발표 결과(11/18): 채점표 행이 있으면 «옵션 예상 ±% vs 발표 후 실제 반응 · 범위 안/밖», 채점 전엔 고정값 + 확정 대기');
+  {
+    // DIS 11/17 장전(운영 채점표: 예상 ±6.3 · 실제 −1.4827% · 범위 안) · NVDA 11/17 장후(고정값 ±8.4 · 반응일 11/18)
+    const NOW_R = Date.UTC(2026, 10, 18, 15, 0);            // 뉴욕 11/18(수) 10:00
+    const EV_DIS = { ticker: 'DIS', date: '2026-11-17', hour: 'bmo' as const, etTime: null };
+    const EV_NVDA = { ticker: 'NVDA', date: '2026-11-17', hour: 'amc' as const, etTime: '16:20' };
+    const SCORE_DIS: ScorecardRow = {
+      ticker: 'DIS', date: '2026-11-17', hour: 'bmo', expectedPct: 6.3, actualPct: -1.4827, beyond: false, check: 'fmp',
+      basis: { expectedSession: '2026-11-16', expectedExpiry: '2026-11-20', expectedSource: 'page', expectedCapturedAt: '2026-11-16T20:45:00.000Z',
+        baseDate: '2026-11-16', reactDate: '2026-11-17', actualCalculatedAt: '2026-11-17T21:31:00.000Z' },
+    };
+    const FROZEN_NVDA: FrozenExpected = { v: 1, ticker: 'NVDA', date: '2026-11-17', hour: 'amc', pct: 8.4, expiry: '2026-11-18', session: '2026-11-17', basis: 'live', src: 'flash', capturedAt: Date.UTC(2026, 10, 17, 20, 45), fixed: true };
+    const WEEK_R: EarningsWeekData = {
+      ...WEEK, range: { start: '2026-11-16', end: '2026-11-20', today: '2026-11-18', rolled: false },
+      rows: [
+        row({ ticker: 'DIS', date: '2026-11-17', hour: 'bmo' }),
+        row({ ticker: 'NVDA', date: '2026-11-17', hour: 'amc', etTime: '16:20' }),
+        row({ ticker: 'WMT', date: '2026-11-19', hour: 'bmo', impliedMovePct: 6.9, impliedExpiry: '2026-11-20', impliedBasis: 'eod', impliedSession: '2026-11-17', spot: 100 }),
+      ],
+      dataSession: '2026-11-17', generatedAt: NOW_R,
+    };
+    const disRes = earnResultFromScore(EV_DIS, SCORE_DIS)!;
+
+    t('최근 발표 고르기 — 회사 공지 · 장전/장후 · 발표 끝 · 14일 안 중 가장 최근(시각 미정·다가오는·오래된 발표는 제외)', () => {
+      const list = [
+        { ticker: 'DIS', date: '2026-08-10', hour: 'bmo' },
+        { ticker: 'DIS', date: '2026-11-17', hour: 'bmo', etTime: null },
+        { ticker: 'DIS', date: '2027-02-01', hour: 'bmo' },
+        { ticker: 'XYZ', date: '2026-11-16', hour: '' },
+        { ticker: 'OLD', date: '2026-11-01', hour: 'amc' },
+      ];
+      assert.deepEqual(recentReportedEvent(list, 'DIS', NOW_R), EV_DIS);
+      assert.equal(recentReportedEvent(list, 'XYZ', NOW_R), null, '시각 미정 발표는 채점표 대상이 아니다');
+      assert.equal(recentReportedEvent(list, 'OLD', NOW_R), null, `${EARN_RESULT_KEEP_DAYS}일 넘게 지난 발표는 예전 규칙`);
+      assert.equal(recentReportedEvent(list, 'DIS', Date.UTC(2026, 10, 17, 13, 0)), null, '발표 전(장전 08:00 ET 이전)은 결과가 없다');
+    });
+
+    t('채점 완료 — 앱 캘린더 줄과 같은 숫자·같은 말(옵션 예상 변동폭 ±6.3% vs 발표 후 실제 반응 −1.5% · 범위 안)', () => {
+      assert.equal(earnResultState(disRes, NOW_R), 'scored');
+      const v = composeEarn(WEEK_R, null, 'DIS', 'ko', NOW_R, null, disRes);
+      assert.equal(v.ok, true); assert.equal(v.fallbackReason, undefined);
+      assert.deepEqual(v.result, {
+        expected: '±6.3%', expectedLabel: '옵션 예상 변동폭', expectedNote: '11/20 만기 · 11/16 세션',
+        actual: '−1.5%', actualLabel: '발표 후 실제 반응', actualNote: '정규장 종가 11/16(월) → 11/17(화)',
+        verdict: '범위 안', within: true,
+      });
+      assert.equal(v.hero, undefined, '결과 카드는 hero 대신 result');
+      assert.equal(v.chip, '발표 완료');
+      assert.equal(v.headline, '11/17(화) 장전 실적 발표');
+      assert.equal(v.title, 'DIS 실적 11/17(화) — 옵션 예상 변동폭 ±6.3% vs 발표 후 실제 반응 −1.5% · 범위 안 | SIGNUM HQ');
+      assert.ok(v.description.includes('범위 안') && v.description.includes('−1.5%') && v.description.includes('±6.3%'));
+      assert.deepEqual(v.rows.map((r) => r.label), ['발표(뉴욕 · 한국)']);
+      assert.ok(v.links.some((l) => l.href === '/ko/receipts/earnings'), '채점 영수증으로 가는 길');
+      assert.ok(v.explain.some(([, b]) => b.includes('기간이 다릅니다')), '만기 vs 한 거래일 — 기간 차이·예측 정확도 아님 고지');
+      assert.deepEqual(v.others.map((o) => o.ticker), ['WMT'], '이번 주 남은 발표는 그대로 함께 보기');
+      const en = composeEarn(WEEK_R, null, 'DIS', 'en', NOW_R, null, disRes);
+      assert.equal(en.result!.verdict, 'Within range'); assert.equal(en.result!.actualLabel, 'Actual reaction'); assert.equal(en.result!.expectedLabel, 'Options-implied range');
+      assert.equal(en.headline, 'Reported 11/17 (Tue) before open');
+      assert.equal(en.result!.actualNote, 'Regular-session close 11/16 (Mon) → 11/17 (Tue)');
+      const ja = composeEarn(WEEK_R, null, 'DIS', 'ja', NOW_R, null, disRes);
+      assert.equal(ja.result!.verdict, '範囲内'); assert.equal(ja.result!.actualLabel, '発表後の実際の反応'); assert.equal(ja.result!.expectedLabel, 'オプション予想変動幅');
+    });
+
+    t('범위 밖 — |실제| > 예상 · 반올림은 앱과 같다(+9.15 → +9.2%)', () => {
+      const out = earnResultFromScore(EV_DIS, { ...SCORE_DIS, actualPct: 9.15, beyond: true })!;
+      const v = composeEarn(WEEK_R, null, 'DIS', 'ko', NOW_R, null, out);
+      assert.equal(v.result!.actual, '+9.2%'); assert.equal(v.result!.verdict, '범위 밖'); assert.equal(v.result!.within, false);
+      assert.equal(earnResultFromScore(EV_DIS, { ...SCORE_DIS, date: '2026-11-18' }), null, '다른 발표 행은 쓰지 않는다');
+      assert.equal(earnResultFromScore(EV_DIS, { ...SCORE_DIS, hour: 'amc' }), null);
+    });
+
+    t('채점 전 — 발표 전 고정값 ±8.4% + «발표 후 실제 반응: 확정 대기» · 확정 뒤 6시간 지나도 행이 없으면 예전 «발표 완료» 대체 화면', () => {
+      const pend = earnResultFromFrozen(EV_NVDA, FROZEN_NVDA)!;
+      const at = Date.UTC(2026, 10, 18, 4, 0);              // 뉴욕 11/17 23:00
+      assert.equal(earnResultState(pend, at), 'pending');
+      const v = composeEarn(WEEK_R, null, 'NVDA', 'ko', at, null, pend);
+      assert.equal(v.ok, true); assert.equal(v.result, undefined);
+      assert.deepEqual(v.hero, { value: '±8.4%', label: '옵션 예상 변동폭', note: '11/18 만기 · 11/17 세션' });
+      assert.deepEqual(v.rows[1], { label: '발표 후 실제 반응', value: '확정 대기', note: '반응일 정규장 종가 확정 대기 · 11/18(수)' });
+      assert.equal(v.headline, '11/17(화) 16:20 ET 실적 발표');
+      assert.equal(ogCardOf(v, 'ko').stats[0].value, '확정 대기');
+      // 반응일 11/18 마감(16:00) + 30분 + 6시간 = 11/18 22:30 ET 이후엔 그리지 않는다
+      const late = Date.UTC(2026, 10, 19, 3, 31);
+      assert.equal(earnResultState(pend, late), null);
+      assert.equal(composeEarn(WEEK_R, null, 'NVDA', 'ko', late, null, pend).fallbackReason, 'done');
+      assert.equal(earnResultFromFrozen(EV_NVDA, { ...FROZEN_NVDA, date: '2026-08-27' }), null);
+    });
+
+    t('발표 전은 예전 그대로 — 결과가 없으면 같은 뷰, 고른 행이 발표 전이면 결과를 쓰지 않는다', () => {
+      for (const l of LANGS) assert.deepEqual(composeEarn(WEEK, EXTRA, 'TSM', l, NOW, null, null), earnView(l));
+      // 같은 종목의 다음 발표(이번 주 발표 전 행)가 있으면 그 카드
+      const wk = { ...WEEK_R, rows: [row({ ticker: 'DIS', date: '2026-11-19', hour: 'bmo', impliedMovePct: 5, impliedExpiry: '2026-11-20', impliedSession: '2026-11-17', spot: 100 })] };
+      const v = composeEarn(wk, null, 'DIS', 'ko', NOW_R, null, disRes);
+      assert.equal(v.result, undefined); assert.equal(v.hero!.value, '±5.0%');
+      // 다른 종목 결과는 무시
+      assert.equal(composeEarn(WEEK_R, null, 'NVDA', 'ko', NOW_R, null, disRes).fallbackReason, 'done');
+    });
+
+    t('주가 넘어간 뒤(이번 주 목록 밖) — 다음 분기 행(30일 넘게 뒤)보다 14일 안 결과가 먼저 · 읽기 실패(목록·행 없음)여도 결과는 그린다', () => {
+      const later = Date.UTC(2026, 10, 24, 15, 0);           // 뉴욕 11/24(화)
+      const nextQ: EarnAlt = { row: row({ ticker: 'DIS', date: '2027-02-01', hour: 'bmo' }), dataSession: null, dataBasis: null, dataAt: null, dateStatus: null };
+      const wk = { ...WEEK_R, range: { start: '2026-11-23', end: '2026-11-27', today: '2026-11-24', rolled: false }, rows: [] };
+      assert.equal(composeEarn(wk, null, 'DIS', 'ko', later, nextQ, disRes).result!.verdict, '범위 안');
+      assert.equal(composeEarn(null, null, 'DIS', 'ko', later, null, disRes).result!.actual, '−1.5%');
+      assert.equal(composeEarn(wk, null, 'DIS', 'ko', later, nextQ, null).fallbackReason, 'no-move', '결과가 없으면 예전 그대로');
+    });
+
+    t('OG 카드 — 결과 칸(예상·실제·판정)이 실리고 글꼴 서브셋에 −·vs·판정 글자가 들어간다', () => {
+      const card = ogCardOf(composeEarn(WEEK_R, null, 'DIS', 'ko', NOW_R, null, disRes), 'ko');
+      assert.equal(card.data, true);
+      assert.equal(card.result!.expected, '±6.3%'); assert.equal(card.result!.actual, '−1.5%'); assert.equal(card.result!.verdict, '범위 안');
+      assert.deepEqual(card.stats, [], '발표 줄은 headline 이 말한다 — 결과 숫자는 결과 칸에만');
+      const g = ogGlyphs(card);
+      for (const ch of ['−', '범', '위', '안', '발', '반', '응', 'v', 's', '→']) assert.ok(g.includes(ch), ch);
+    });
+
+    t('문구 — 예측·권유·수익 단어 없음(판정은 «범위 안/밖»만) · 자리표 잔류 없음', () => {
+      for (const l of LANGS) {
+        const v = composeEarn(WEEK_R, null, 'DIS', l, NOW_R, null, disRes);
+        const visible = JSON.stringify([v.title, v.description, v.headline, v.result, v.rows]);
+        assert.doesNotMatch(visible, /적중|맞혔|예측 성공|매수|매도|수익|hit|nailed|correct|buy|sell|profit|的中|当たり|買い|売り|利益/i, l);
+        assert.doesNotMatch(visible, /\{[A-Z_]+\}/);
+      }
+    });
+
+    await ta('loadLanding — deps 의 result 를 composeEarn 으로 넘긴다(없으면 예전 카드)', async () => {
+      const deps: LandingDeps = {
+        picks: async () => ({ doc: null, off: false }),
+        line: async () => ({ stored: null, entry: null, off: false }),
+        earn: async () => ({ week: WEEK_R, extra: null, alt: null, result: disRes }),
+      };
+      assert.equal((await loadLanding('earn', 'DIS', 'ko', deps, NOW_R)).result!.verdict, '범위 안');
+      const noRes: LandingDeps = { ...deps, earn: async () => ({ week: WEEK_R, extra: null }) };
+      assert.equal((await loadLanding('earn', 'DIS', 'ko', noRes, NOW_R)).fallbackReason, 'done');
+    });
+  }
+
   console.log('5. CTA');
   t('href — from=share_<kind> · ref · l(ko/ja만) · code(선물 코드 live 일 때만)', () => {
     const live = giftConfig({ GIFT_PROMO_CODE: CODE }, Date.UTC(2026, 9, 14));
@@ -445,7 +585,8 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
       const c = landingCta('pick', 'ko', { ref: REF, gift });
       assert.equal(new URL(c.href).searchParams.get('code'), null);
       assert.equal(c.codeLine, undefined);
-      assert.equal(JSON.stringify(c).includes('PRO'), false, '쿠폰 문구(PRO 1개월 무료)가 없다');
+      assert.equal(JSON.stringify({ ...c, trialLine: undefined }).includes('PRO'), false, '쿠폰 문구(PRO 1개월 무료)가 없다');
+      assert.equal(c.trialLine, '처음 구독이면 PRO 7일 무료 체험(스토어 자격 기준)', '[11/18] 쿠폰·선물 없는 링크엔 7일 체험 한 줄(스토어 자격 기준)');
     }
   });
   t('쿠폰 문구 — 받는 사람 관점 · 자동 갱신 고지는 «무료» 문장 안 · 가격 숫자·선착순·남은 수·타이머·전원 증정 없음', () => {
@@ -465,6 +606,14 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     assert.equal(landingCta('pick', 'ko').label, '앱에서 이어 보기');
     assert.equal(landingCta('pick', 'en').label, 'Continue in the app');
     assert.equal(landingCta('pick', 'ja').label, 'アプリで続きを見る');
+  });
+  t('[11/18] 7일 체험 한 줄 — 쿠폰 코드·선물 토큰이 있으면 싣지 않는다(1개월 코드와 7일 체험을 같이 약속하지 않는다) · 3개 언어', () => {
+    const live = giftConfig({ GIFT_PROMO_CODE: CODE }, Date.UTC(2026, 9, 14));
+    assert.equal(landingCta('earn', 'ko', { gift: live }).trialLine, undefined);
+    assert.equal(landingCta('earn', 'ko', { giftToken: 'g'.repeat(20) }).trialLine, undefined);
+    assert.equal(landingCta('earn', 'en').trialLine, 'New subscribers may be eligible for a 7-day PRO free trial');
+    assert.equal(landingCta('earn', 'ja').trialLine, '初めての購読ならPRO 7日間無料体験(ストアの条件による)');
+    for (const l of LANGS) assert.doesNotMatch(landingCta('pick', l).trialLine!, /선착순|남은|先着|残り|limited|hurry|\$|₩|¥/i);
   });
 
   console.log('6. 문구·OG 카드');

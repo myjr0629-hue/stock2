@@ -273,7 +273,13 @@ export default function EarningsPage() {
                       )}
                     </a>
                     {shareOn && e.implied && (
-                      <InviteShareButton kind="earn" ticker={e.ticker} line={impliedPctText(e.implied.pct)} locale={locale} className={s.ecRShare} />
+                      <InviteShareButton kind="earn" ticker={e.ticker}
+                        /* [11/18] 발표 완료 행도 같은 조건(서버가 채점 결과·발표 전 고정값을 implied 로 붙인다)·같은 자리·같은 아이콘.
+                           채점된 행은 화면에 이미 그려진 결과 줄(«발표 후 실제 반응 −1.5% · 범위 안»)을 공유 문구에 싣는다 — 받는 쪽 카드도 같은 채점표 숫자 */
+                        line={calendarReaction(e.implied)
+                          ? `${impliedPctText(e.implied.pct)} · ${receipt.columns[2]} ${calendarReaction(e.implied)} · ${e.implied.within ? receipt.within : receipt.outside}`
+                          : impliedPctText(e.implied.pct)}
+                        locale={locale} className={s.ecRShare} />
                     )}
                     </div>
                   ))}

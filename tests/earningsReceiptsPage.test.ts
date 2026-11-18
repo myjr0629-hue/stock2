@@ -186,8 +186,16 @@ const test = async (name: string, fn: () => unknown) => {
     // 작업 시작 커밋을 기준으로 비교한다. 주간 서비스 API 필드는 별도 시험에서 검사한다.
     const weeklyPage = 'src/app/[locale]/earnings-week/page.tsx';
     assert.equal(readFileSync(weeklyPage, 'utf8'), execFileSync('git', ['show', `0b736fd67:${weeklyPage}`], { encoding: 'utf8' }), weeklyPage);
+    // [11/18] 앱 실적 화면은 «공유 단추의 공유 문구(line)» 한 곳만 바뀌었다(발표 결과 공유 카드 — 화면 라벨·배치 0). 그 한 속성을 기준 커밋의 것으로 되돌리면 바이트 동일해야 한다.
+    {
+      const app = 'src/app/[locale]/app-view/earnings/page.tsx';
+      const baseSrc = execFileSync('git', ['show', `0b736fd67:${app}`], { encoding: 'utf8' });
+      const shareRe = /<InviteShareButton kind="earn"[\s\S]*?className=\{s\.ecRShare\} \/>/;
+      const baseShare = baseSrc.match(shareRe)?.[0];
+      assert.ok(baseShare, '기준 커밋에 공유 단추가 있다');
+      assert.equal(readFileSync(app, 'utf8').replace(shareRe, baseShare!), baseSrc, `${app} (공유 문구 속성 밖)`);
+    }
     for (const p of [
-      'src/app/[locale]/app-view/earnings/page.tsx',
       'src/app/[locale]/receipts/earnings/page.tsx', 'src/lib/earnings/earningsReceiptsCopy.ts',
       'src/app/[locale]/receipts/earnings/og/route.tsx',
       // [11/18] earningsScorecardService.ts 는 «발표 전 예상» 고정값 덧입히기로 바뀌었다(대표 승인 데이터 수리) — tests/frozenExpected.test.ts 가 지킨다.
