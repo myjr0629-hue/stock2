@@ -512,7 +512,8 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
       assert.deepEqual(miss.rows[1], { label: '발표 후 실제 반응', value: '비교 불가' });
       assert.ok(!JSON.stringify(miss).includes('확정 대기') && !JSON.stringify(miss).includes('기록 없음'), '확정 뒤엔 «대기»라 하지 않고, 원인(기록 없음)을 단정하지 않는다');
       // 채점표를 «못 읽은» 경우(실패·시간 초과)는 기록 없음이라 하지 않는다 — 대기 창 안이면 확정 대기, 지나면 예전 대체 화면
-      assert.equal(earnResultState({ ...pend, scoreUnread: true }, at), 'pending');
+      assert.equal(earnResultState({ ...pend, scoreUnread: true }, at), 'pending', '확정 전엔 채점 행이 생길 수 없다');
+      assert.equal(earnResultState({ ...pend, scoreUnread: true }, Date.UTC(2026, 10, 18, 22, 0)), null, '확정 뒤엔 이미 채점됐을 수 있다 — 단정하지 않는다');
       assert.equal(earnResultState({ ...pend, scoreUnread: true }, late), null);
       assert.equal(composeEarn(WEEK_R, null, 'NVDA', 'ko', late, null, { ...pend, scoreUnread: true }).fallbackReason, 'done');
       // 14일이 지나면 예전 규칙
@@ -599,7 +600,8 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
       assert.equal(new URL(c.href).searchParams.get('code'), null);
       assert.equal(c.codeLine, undefined);
       assert.equal(JSON.stringify({ ...c, trialLine: undefined }).includes('PRO'), false, '쿠폰 문구(PRO 1개월 무료)가 없다');
-      assert.equal(c.trialLine, '처음 구독이면 PRO 7일 무료 체험(스토어 자격 기준)', '[11/18] 쿠폰·선물 없는 링크엔 7일 체험 한 줄(스토어 자격 기준)');
+      assert.equal(c.trialLine, undefined, '[11/18] 7일 체험 한 줄은 실적(earn) 카드만 — pick·line 은 예전 그대로');
+      assert.equal(landingCta('earn', 'ko', { ref: REF, gift }).trialLine, '처음 구독이면 PRO 7일 무료 체험(스토어 자격 기준)', '[11/18] 쿠폰·선물 없는 실적 카드엔 7일 체험 한 줄(스토어 자격 기준)');
     }
   });
   t('쿠폰 문구 — 받는 사람 관점 · 자동 갱신 고지는 «무료» 문장 안 · 가격 숫자·선착순·남은 수·타이머·전원 증정 없음', () => {
@@ -626,7 +628,8 @@ const loadedServices = () => Object.keys(require.cache).filter((k) => /\/src\/se
     assert.equal(landingCta('earn', 'ko', { giftToken: 'g'.repeat(20) }).trialLine, undefined);
     assert.equal(landingCta('earn', 'en').trialLine, 'New subscribers may be eligible for a 7-day PRO free trial');
     assert.equal(landingCta('earn', 'ja').trialLine, '初めての購読ならPRO 7日間無料体験(ストアの条件による)');
-    for (const l of LANGS) assert.doesNotMatch(landingCta('pick', l).trialLine!, /선착순|남은|先着|残り|limited|hurry|\$|₩|¥/i);
+    for (const k of ['pick', 'line'] as const) assert.equal(landingCta(k, 'ko').trialLine, undefined);
+    for (const l of LANGS) assert.doesNotMatch(landingCta('earn', l).trialLine!, /선착순|남은|先着|残り|limited|hurry|\$|₩|¥/i);
   });
 
   console.log('6. 문구·OG 카드');

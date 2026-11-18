@@ -273,7 +273,7 @@ export interface LandingCta {
   sub: string;
   /** 쿠폰 코드가 켜져 있을 때만(없으면 undefined — 화면에 쿠폰 문구를 그리지 않는다) */
   codeLine?: string;
-  /** [11/18] 쿠폰 코드·선물 토큰이 «둘 다 없을» 때만 — 1개월 코드와 7일 체험을 한 화면에 같이 약속하지 않는다(자격 우선순위 미검증 · 추천 감사 11/18) */
+  /** [11/18] 실적(earn) 카드에서 쿠폰 코드·선물 토큰이 «둘 다 없을» 때만 — 1개월 코드와 7일 체험을 한 화면에 같이 약속하지 않는다(자격 우선순위 미검증 · 추천 감사 11/18) */
   trialLine?: string;
 }
 
@@ -293,7 +293,7 @@ export function landingCta(
     label: c.cta,
     sub: c.ctaSub,
     ...(code ? { codeLine: c.codeLine } : {}),
-    ...(!code && !opts.giftToken ? { trialLine: c.trialLine } : {}),
+    ...(kind === 'earn' && !code && !opts.giftToken ? { trialLine: c.trialLine } : {}),
   };
 }
 
@@ -607,9 +607,11 @@ export function earnResultState(r: EarnResult | null | undefined, nowMs: number)
   const rs = reactionSessions(r.date, r.hour);
   const fin0 = rs ? reactionFinalAt(rs.react) : null;
   if (fin0 == null) return null;
+  // 종가 확정 전에는 채점표 행이 생길 수 없다(채점은 확정 뒤) — 채점표를 못 읽었어도 «확정 대기»는 사실이다
   if (nowMs < fin0) return 'pending';
-  if (nowMs < fin0 + EARN_PENDING_GRACE_MS) return 'tallying';
-  return r.scoreUnread ? null : 'missing';
+  // 확정 뒤에는 이미 채점됐을 수 있다 — 채점표를 못 읽었으면(실패·시간 초과) 아무 상태도 단정하지 않고 예전 대체 화면
+  if (r.scoreUnread) return null;
+  return nowMs < fin0 + EARN_PENDING_GRACE_MS ? 'tallying' : 'missing';
 }
 
 function composeEarnResult(
