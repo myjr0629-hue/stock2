@@ -270,6 +270,8 @@ export async function loadMovers(now: number, deps: { quotes?: (t: string[]) => 
     const quotes = await (deps.quotes ?? readRegularQuotes)(pre.map((r) => r.ticker)).catch(() => null);
     if (!quotes) notes.push('movers:quotes-unavailable');
     const digest = await getFromCache<any>(NEWS_DIGEST_KEY).catch(() => null);
+    const newsChecked = Array.isArray(digest?.items) && digest.items.length > 0;
+    if (!newsChecked) notes.push('movers:news-unread');
     // 보도 창: 전 거래일 마감 ~ 이 세션 마감(관문 11/18 — 세션이 끝난 뒤 나온 보도를 끝난 등락의 근거로 쓰지 않는다)
     const newsWindowStart = etWallTimeToMs(prevTradingDate(session), sessionCloseMinutes(prevTradingDate(session)));
     const newsWindowEnd = Math.min(now, etWallTimeToMs(session, sessionCloseMinutes(session)));
@@ -292,7 +294,8 @@ export async function loadMovers(now: number, deps: { quotes?: (t: string[]) => 
         });
         rows.push({ ticker: r.ticker, session, price, changePct: chg, value: r.value, shownValue: r.basis === 'eod' ? r.value : null,
             earnings: earn ? { date: earn.date, hour: earn.hour as 'bmo' | 'amc' } : null,
-            news: news ? { headline: String(news.headline).trim(), publishedAt: String(news.publishedAt) } : null });
+            news: news ? { headline: String(news.headline).trim(), publishedAt: String(news.publishedAt) } : null,
+            ...(newsChecked ? {} : { newsChecked: false }) });
     }
     return { rows, session, notes };
 }

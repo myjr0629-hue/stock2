@@ -210,6 +210,8 @@ t('세션(마감 뒤 스냅샷): 그 세션 날짜·마감 30분 전 이후 + �
   assert.equal(nvda.shownValue, null, '마감 뒤 스냅샷의 거래대금은 표시하지 않는다(시간외·장중 혼입)');
   assert.ok(lm.notes.includes('movers:drift:TSM'), 'TSM 캐시 −3.7 vs 종가 −1.5 → 다른 값이면 뺀다');
   assert.ok(lm.notes.includes('movers:unverified:CRWD'), '시세의 정규장 날짜가 다르면 스냅샷 행은 쓰지 않는다');
+  assert.ok(lm.notes.includes('movers:news-unread') && lm.rows.every((r) => r.newsChecked === false), '다이제스트가 없으면 «보도 확인 못 함» 표식');
+  assert.equal((sel.moverCandidates(lm.rows, { isEtf })[0].facts as MoverFacts).newsChecked, false);
   assert.ok(!lm.rows.some((r) => ['GTBP', 'SPY', 'PENY', 'SMOL', 'AAPL'].includes(r.ticker)), '분할 의심(+205% · $15)·ETF·$5 미만·문턱 밖 제외');
   assert.equal(nvda.earnings?.hour, 'amc', '전 거래일(11/17) 장 마감 후 회사 공지 실적');
   assert.equal(quoteCalls, 1, '시세 API 한 번');
@@ -327,6 +329,8 @@ t('규칙 문장(큰 폭 등락·넓힌 실적): 3개 언어 금지어·예측�
   assert.equal(copy.kindLabel(MV(), 'ko'), '큰 폭 하락'); assert.equal(copy.kindLabel(MV({ changePct: 3 }), 'en'), 'BIG MOVE UP');
   assert.equal(copy.asOfText(MV(), '2026-11-18', 'ja'), '11/18終値');
   assert.equal(copy.fallbackWhy(MV(), 'ko'), '움직임을 설명하는 보도는 확인되지 않았습니다');
+  assert.equal(copy.fallbackWhy(MV({ newsChecked: false }), 'ko'), '거래대금이 큰 종목 가운데 등락 폭이 컸습니다', '보도 자료를 못 읽었으면 «없다»고 하지 않는다');
+  for (const l of LOCS) { const s = copy.fallbackWhy(MV({ newsChecked: false }), l); assert.equal(bannedHit(s), null); assert.ok(scriptOk(s, l)); assert.deepEqual(forecastHitsInSentence(s, l), []); }
   assert.equal(copy.whatText(facts[5], 'en'), 'Reports 11/19 08:00 ET');
   assert.doesNotMatch(copy.factsForAi('MSFT', MV()), /Dollar volume|\$14B/);
   // 옛 선별(끄기 스위치)의 실적 규칙 해설은 예전 문장 그대로 · 넓힌 선별만 일정 문장
@@ -365,6 +369,7 @@ t('생성(마감 뒤): 넓힌 선별 문서(sel=broad1) · 근거 있는 큰 폭
   reset();
   seedMovers(Date.parse('2026-11-18T21:30:00Z'));
   quoteData = { NVDA: Q(160.2, 4.9), MSFT: Q(505.9, -2.31) };
+  store.set('guardian:news:digest:v2', { items: [{ headline: 'Gold prices hit one-year low as dollar firms', tickers: [], publishedAt: '2026-11-18T15:00:00Z' }] });
   script.push({ text: JSON.stringify({ ko: '실적 발표 뒤 첫 정규장에서 크게 올랐습니다', en: 'Rose sharply in the first session after its earnings report', ja: '決算発表後の最初の通常取引で大きく上昇しました' }) });
   const r = await svc.runPicks({ now: PM, force: true });
   assert.equal(r.status, 'generated');

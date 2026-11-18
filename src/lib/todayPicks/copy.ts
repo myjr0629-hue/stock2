@@ -127,6 +127,8 @@ export function fallbackWhy(f: PickFacts, loc: Loc, plain = false): string {
                 ? (loc === 'ko' ? '그날 개장 전에 회사가 실적을 발표했습니다' : loc === 'ja' ? '当日の寄り付き前に会社が決算を発表しました' : 'The company reported earnings before that session opened')
                 : (loc === 'ko' ? '전 거래일 장 마감 후 회사가 실적을 발표했습니다' : loc === 'ja' ? '前営業日の引け後に会社が決算を発表しました' : 'The company reported earnings after the prior close');
             if (f.news) return loc === 'ko' ? '같은 시기 이 회사 관련 보도가 있었습니다' : loc === 'ja' ? '同じ時期に同社に関する報道がありました' : 'A report on the company came out around the same time';
+            // 보도 자료를 못 읽었으면 «없다»고 하지 않는다 — 사실(거래대금 큰 종목 중 큰 등락)만
+            if (f.newsChecked === false) return loc === 'ko' ? '거래대금이 큰 종목 가운데 등락 폭이 컸습니다' : loc === 'ja' ? '売買代金の大きい銘柄の中で値動きが大きくなりました' : 'One of the larger moves among heavily traded stocks';
             return loc === 'ko' ? '움직임을 설명하는 보도는 확인되지 않았습니다' : loc === 'ja' ? '値動きを説明する報道は確認されていません' : 'No report explaining the move was found';
     }
 }

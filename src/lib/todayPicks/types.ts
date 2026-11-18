@@ -87,6 +87,8 @@ export interface MoverFacts {
     earnings: { date: string; hour: 'bmo' | 'amc' } | null;
     /** 종목이 태그된 같은 시기 보도(뉴스 다이제스트 헤드라인 · 영어 원문) — 있을 때만 */
     news: { headline: string; publishedAt: string } | null;
+    /** 뉴스 다이제스트를 실제로 읽었나 — false 면 «보도 없음»이라 말하지 않는다(관문 11/18). 없으면 읽은 것으로 본다 */
+    newsChecked?: boolean;
 }
 
 export type PickFacts = WhaleFacts | DarkFacts | GammaFacts | EarnFacts | MoverFacts;

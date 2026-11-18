@@ -312,6 +312,7 @@ export interface MoverRowIn {
     shownValue?: number | null;
     earnings: MoverFacts['earnings'];
     news: MoverFacts['news'];
+    newsChecked?: boolean;
 }
 
 /** 문턱(거래대금·등락·주가)을 넘는가 — 대조 전 1차 거르기에도 쓴다 */
@@ -336,7 +337,7 @@ export function moverCandidates(rows: readonly MoverRowIn[], o: { isEtf: (t: str
         seen.add(r.ticker);
         out.push({
             id: `mover:${r.ticker}`, kind: 'mover', ticker: r.ticker, asOf: r.session, score: moverScore(r),
-            facts: { kind: 'mover', session: r.session, changePct: Math.round(r.changePct * 10) / 10, price: r.price, value: r.shownValue === undefined ? r.value : r.shownValue, earnings: r.earnings ?? null, news: r.news ?? null },
+            facts: { kind: 'mover', session: r.session, changePct: Math.round(r.changePct * 10) / 10, price: r.price, value: r.shownValue === undefined ? r.value : r.shownValue, earnings: r.earnings ?? null, news: r.news ?? null, ...(r.newsChecked === false ? { newsChecked: false } : {}) },
         });
     }
     return out.sort((a, b) => b.score - a.score || a.ticker.localeCompare(b.ticker));
