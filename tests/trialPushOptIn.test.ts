@@ -215,6 +215,25 @@ t('수락: 누르는 사이 이미 허용·거절·모름이 됐으면 요청 �
     assert.equal(calls.request, 0, p);
   }
 });
+t('수락: 자격 재확인은 비동기(새 고객 정보)도 기다린다 — 철회·조회 실패(false)면 요청 없음', async () => {
+  const a = acceptDeps(['prompt'], 'granted');
+  assert.equal(await runTrialPushAccept({ ...a.deps, stillEligible: async () => false }), 'skipped');
+  assert.equal(a.calls.request, 0);
+  const b = acceptDeps(['prompt'], 'granted');
+  assert.equal(await runTrialPushAccept({ ...b.deps, stillEligible: async () => true }), 'granted');
+  assert.equal(b.calls.request, 1);
+  const c = acceptDeps(['prompt'], 'granted');
+  assert.equal(await runTrialPushAccept({ ...c.deps, stillEligible: async () => { throw new Error('rc'); } }), 'skipped');
+  assert.equal(c.calls.request, 0);
+  const sheet = read('src/components/app/TrialPushOptInSheet.tsx');
+  assert.ok(/stillEligible: async \(\) => \{[\s\S]*?trialFromInfo\(await freshCustomerInfo\(VERIFY_MS\)/.test(sheet), '시트 수락은 새 고객 정보로 TRIAL 을 다시 본다');
+});
+t('판정기: 도는 중 들어온 트리거는 버리지 않고 이어 본다(AI 우선) · 체험 시작 이벤트로 다시', () => {
+  const g = read('src/components/app/TrialPushOptInGate.tsx');
+  assert.ok(/if \(run\.busy\) \{ if \(run\.queued !== 'ai'\) run\.queued = trigger; return; \}/.test(g));
+  assert.ok(/const next = run\.queued;\s+run\.queued = null;\s+if \(next && alive && !run\.done\) void evaluate\(next\);/.test(g));
+  assert.ok(/window\.addEventListener\(PRO_ACTIVATED_EVENT, onPro\)/.test(g) && /const onPro = \(\) => \{ if \(trialValueSeen\(\)\) void evaluate\('ai'\); \};/.test(g));
+});
 t('수락: 자격이 사라졌으면(체험 만료·설정 OFF·웹) 권한도 안 읽고 요청 없음', async () => {
   const { calls, deps } = acceptDeps(['prompt'], 'granted', false);
   assert.equal(await runTrialPushAccept(deps), 'skipped');
@@ -225,8 +244,11 @@ t('수락: 자격이 사라졌으면(체험 만료·설정 OFF·웹) 권한도 �
 });
 
 // ── ⑥ 화면·계측(소스 대조) ──
-t('문구: 새 문구는 제목·한 줄·버튼 둘(ko 지정 문구 그대로) · en·ja 있음', () => {
-  assert.deepEqual(trialPushCopy('ko'), { title: '아침 AI 브리핑 받기', subtitle: '장 시작 전 내 종목 요약을 알림으로 보내드려요', allow: '알림 켜기', later: '나중에' });
+t('문구: 새 문구는 제목·한 줄·버튼 둘 · en·ja 있음 · 한 줄은 실제 모닝 푸시(시장 브리프)와 일치 — «내 종목 요약» 약속 없음', () => {
+  assert.deepEqual(trialPushCopy('ko'), { title: '아침 AI 브리핑 받기', subtitle: '장 시작 전 시장 요약을 알림으로 보내드려요', allow: '알림 켜기', later: '나중에' });
+  for (const l of ['ko', 'en', 'ja']) assert.ok(!/내 종목|your stocks|マイ銘柄/.test(trialPushCopy(l).subtitle), l);
+  const send = read('src/lib/push/send.ts');
+  assert.ok(/morning: \{\n\s+ko: \{ title: '🌅 모닝 브리프', body: '오늘의 프리마켓 시장 브리프가 준비됐습니다\.' \}/.test(send), '모닝 푸시가 시장 브리프다');
   for (const l of ['en', 'ja']) {
     const c = trialPushCopy(l);
     assert.deepEqual(Object.keys(c).sort(), ['allow', 'later', 'subtitle', 'title']);

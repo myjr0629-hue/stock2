@@ -165,12 +165,13 @@ export type AcceptOutcome = 'granted' | 'denied' | 'prompt' | 'unknown' | 'skipp
  *   그 함수는 허용 아님을 'denied' 로 뭉치므로, 그때만 권한을 다시 읽어 실제 거절과 «창을 밀어 닫음(prompt)»을 가른다.
  */
 export async function runTrialPushAccept(d: {
-  stillEligible: () => boolean;
+  /** 지금도 대상인가 — 새 고객 정보로 활성 TRIAL 을 다시 본다(실패·시간 초과 = false) */
+  stillEligible: () => boolean | Promise<boolean>;
   checkPerm: () => Promise<PermState>;
   requestAndRegister: () => Promise<'granted' | 'denied' | 'na'>;
 }): Promise<AcceptOutcome> {
   let ok = false;
-  try { ok = d.stillEligible(); } catch { ok = false; }
+  try { ok = (await d.stillEligible()) === true; } catch { ok = false; }
   if (!ok) return 'skipped';
   const before = await d.checkPerm().catch((): PermState => 'unknown');
   if (before !== 'prompt') return 'skipped';
@@ -211,9 +212,10 @@ export function aiLineVisible(doc: { querySelectorAll: (q: string) => ArrayLike<
 
 // ── 문구(새 문구는 제목·한 줄·버튼 둘만 — 나머지는 첫 실행 알림 단계 그대로) ──
 export const TRIAL_PUSH_COPY = {
-  ko: { title: '아침 AI 브리핑 받기', subtitle: '장 시작 전 내 종목 요약을 알림으로 보내드려요', allow: '알림 켜기', later: '나중에' },
-  en: { title: 'Get the morning AI briefing', subtitle: 'We’ll send a summary of your stocks before the market opens', allow: 'Turn on notifications', later: 'Not now' },
-  ja: { title: '朝のAIブリーフを受け取る', subtitle: '取引開始前にマイ銘柄の要約を通知でお届けします', allow: '通知をオンにする', later: 'あとで' },
+  // 한 줄은 실제 모닝 푸시(lib/push/send PUSH_CONTENT.morning — 프리마켓 «시장» 브리프 첫 문장)와 맞춘다: «내 종목 요약»은 보내지 않으므로 약속하지 않는다(관문 1차 · 애플 5.6)
+  ko: { title: '아침 AI 브리핑 받기', subtitle: '장 시작 전 시장 요약을 알림으로 보내드려요', allow: '알림 켜기', later: '나중에' },
+  en: { title: 'Get the morning AI briefing', subtitle: 'We’ll send a market summary before the open', allow: 'Turn on notifications', later: 'Not now' },
+  ja: { title: '朝のAIブリーフを受け取る', subtitle: '取引開始前に市場の要約を通知でお届けします', allow: '通知をオンにする', later: 'あとで' },
 } as const;
 export type TrialPushLoc = keyof typeof TRIAL_PUSH_COPY;
 export const trialPushCopy = (loc: string) => TRIAL_PUSH_COPY[(loc === 'ko' || loc === 'ja' ? loc : 'en') as TrialPushLoc];
