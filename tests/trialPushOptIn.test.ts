@@ -229,6 +229,8 @@ t('수락: 자격 재확인은 비동기(새 고객 정보)도 기다린다 — 
   assert.ok(/stillEligible: async \(\) => \{[\s\S]*?trialFromInfo\(await freshCustomerInfo\(VERIFY_MS, \{ noCache: true \}\)/.test(sheet), '시트 수락은 캐시를 비운 새 고객 정보로 TRIAL 을 다시 본다');
   const rc = read('src/lib/native/rcFresh.ts');
   assert.ok(/if \(opts\.noCache\) await Purchases\.invalidateCustomerInfoCache\(\);\s+return Purchases\.getCustomerInfo\(\);/.test(rc));
+  const askBody = rc.slice(rc.indexOf('const ask = async () => {'), rc.indexOf('const r = await Promise.race(['));
+  assert.ok(/await initRevenueCat\(\)/.test(askBody), '시간 상한이 SDK 초기화까지 포함');
 });
 t('박자: 첫 가치 순간(AI 줄 보임)이 우선 · AI 가 화면 밖이면 다음 날 경로 · 둘 다 아니면 skip/later', () => {
   const st = (o: Partial<TrialPushState> = {}) => { const { trigger: _t, ...rest } = base(o); return rest; };
@@ -260,7 +262,7 @@ t('판정기(소스): 권한 재확인 «뒤»의 화면으로 다시 판정 →
   assert.ok(/if \(last\.step !== 'show'\) \{ streak = \{ n: 0, trigger: null \}; return; \}/.test(g), '막판에 바뀌면 끝내지 않고 박자를 이어 간다');
   assert.ok(/const src = triggerSrc\(last\.trigger\);/.test(g), '출처는 막판에 다시 고른 트리거');
   assert.ok(/if \(!alive \|\| run\.done \|\| finalizing \|\| reading \|\| !trial\) return;/.test(g), '자격을 다시 읽는 중엔 박자를 채우지 않는다');
-  assert.ok(/if \(info == null\) \{[\s\S]*?trial = null; stopTick\(\);[\s\S]*?retryT = window\.setTimeout\(\(\) => \{ retryT = 0; void read\(true\); \}, READ_RETRY_MS\)/.test(g), '조회 실패 = 모름 · 30초 묶음 밖 · 다시 읽기');
+  assert.ok(/if \(info == null\) \{[\s\S]*?trial = null; readAt = 0; stopTick\(\);[\s\S]*?retryT = window\.setTimeout\(\(\) => \{ retryT = 0; void read\(true\); \}, READ_RETRY_MS\)/.test(g), '조회 실패 = 모름 · 30초 묶음 밖 · 다시 읽기');
   assert.ok(g.indexOf('if (info == null)') < g.indexOf('readAt = Date.now();\n        if (trial) startTick()'), '성공한 조회만 30초 묶음');
   assert.ok(/if \(streak\.n < SHOW_STREAK\) return;/.test(g));
   assert.ok(/window\.addEventListener\(PRO_ACTIVATED_EVENT, onPro\)/.test(g) && /const onPro = \(\) => \{ void read\(true\); \};/.test(g));

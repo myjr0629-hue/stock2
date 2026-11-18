@@ -11,7 +11,12 @@ export async function checkPushPerm(): Promise<PermState> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     // @ts-ignore — @capacitor/push-notifications is installed at native build time
     const PushMod: any = await import('@capacitor/push-notifications');
-    return normPerm(await PushMod.PushNotifications.checkPermissions());
+    // 플러그인이 응답하지 않으면 3초 뒤 'unknown'(판정기가 멈춰 서지 않게)
+    const r = await Promise.race([
+      PushMod.PushNotifications.checkPermissions(),
+      new Promise<null>((res) => setTimeout(() => res(null), 3_000)),
+    ]);
+    return normPerm(r);
   } catch {
     return 'unknown';
   }

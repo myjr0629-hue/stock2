@@ -120,7 +120,7 @@ export function TrialPushOptInGate() {
         streak = { n: 0, trigger: null };
         if (info == null) {
           // 조회 실패·시간 초과 = 모름 — 박자를 멈추고, 30초 묶음에 넣지 않으며(다음 트리거는 곧바로 다시 읽는다) 10초 뒤 최대 3번 다시(관문 4차)
-          trial = null; stopTick();
+          trial = null; readAt = 0; stopTick();
           if (retries < READ_RETRY_MAX && !retryT) { retries += 1; retryT = window.setTimeout(() => { retryT = 0; void read(true); }, READ_RETRY_MS); }
           return;
         }
