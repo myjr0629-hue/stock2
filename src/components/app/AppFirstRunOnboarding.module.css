@@ -274,6 +274,13 @@
   text-align: left;
 }
 
+/* ★11/19 고정 체크 줄 — 붙박이 버튼 줄 안 [계속] 바로 위(진짜 체크 줄이 화면 밖일 때만 그린다 · 보이는 화면에선 이 규칙이 쓰이지 않는다).
+   글자·체크 모양은 .ack 그대로. 버튼 줄의 흐림 그라데이션 위에서도 진짜 줄과 같은 색으로 보이게 패널 바탕색을 깔고, 안쪽 여백만 조금 줄인다 */
+.ackPin {
+  padding: 10px 12px;
+  background: linear-gradient(rgba(8, 47, 73, 0.24), rgba(8, 47, 73, 0.24)), rgb(6, 12, 24);
+}
+
 .links {
   display: flex;
   flex-wrap: wrap;

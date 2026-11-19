@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
 import { readStoredPushPrefs } from '@/lib/push/prefs';
@@ -15,7 +15,7 @@ import {
   type OnbMode, type OnbStep, type PushResult,
 } from '@/lib/app/onboardingConfig';
 import { firstRunCopy } from '@/lib/app/firstRunCopy';
-import { legalContinueBlocked, nudgeLegalAck } from '@/lib/app/legalNudge';
+import { legalContinueBlocked, legalPinNext, measureLegalAckVisible, nudgeLegalAck } from '@/lib/app/legalNudge';
 import { loadOnbMode, useOnbMode } from './onboardingMode';
 // 가치·알림 단계(카드·시세·레벨·AI 줄)는 이 오버레이를 «이미 마친 기기»(대부분의 사용자)에는 한 바이트도 싣지 않도록 필요할 때만 불러온다 —
 // 법적 고지의 동의 체크를 누르면 ValuePrefetch 가 같은 조각을 미리 불러오고 데이터도 미리 받는다.
@@ -252,6 +252,10 @@ export function AppFirstRunOnboarding() {
   const ackRef = useRef<HTMLLabelElement | null>(null);
   const actionsRef = useRef<HTMLDivElement | null>(null);
   const nudgeCounted = useRef(false);
+  // ★11/19 진짜 체크 줄이 버튼 줄 뒤(화면 밖)면 같은 체크 줄을 [계속] 바로 위에 고정해 그린다(lib/app/legalNudge legalPinNext) — 같은 accepted 상태
+  const [pinAck, setPinAck] = useState(false);
+  const pinRef = useRef<HTMLLabelElement | null>(null);
+  const pinCounted = useRef(false);
   // 설정 읽기를 기다리는 동안 동의를 풀었는지 — 기다린 뒤 «지금» 값으로 다시 본다(onLegalNext)
   const acceptedRef = useRef(accepted);
   acceptedRef.current = accepted;
@@ -378,6 +382,35 @@ export function AppFirstRunOnboarding() {
   const cfgMode: OnbMode | null = useOnbMode(mounted && visible && !isDocumentRoute);
   const mode: OnbMode = cfgMode ?? 'v2';
 
+  // ★11/19 고정 체크 줄 판정 — 법적 고지가 그려진 동안만, 그리기 전에(useLayoutEffect · 한 번 띄우면 이 단계 동안 유지 → 다시 재지 않는다)
+  const legalOn = mounted && visible && !isDocumentRoute && !localePending && step === 'legal';
+  useLayoutEffect(() => {
+    if (!legalOn) { setPinAck(false); return; }
+    if (pinAck) return;
+    const check = () => setPinAck((prev) => legalPinNext(prev, true, measureLegalAckVisible(panelRef.current, ackRef.current, actionsRef.current)));
+    check();
+    const panel = panelRef.current;
+    let ro: ResizeObserver | null = null;
+    try {
+      window.addEventListener('resize', check);
+      panel?.addEventListener('scroll', check, { passive: true });
+      if (typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(check);
+        if (panel) ro.observe(panel);
+        if (ackRef.current) ro.observe(ackRef.current);
+      }
+    } catch { /* 관찰 실패 — 첫 판정만 */ }
+    return () => {
+      try { window.removeEventListener('resize', check); panel?.removeEventListener('scroll', check); ro?.disconnect(); } catch { /* 무시 */ }
+    };
+  }, [legalOn, pinAck]);
+  // 계측: 고정 체크 줄이 보였다 — 실행(세션)당 한 번(onb_nudge 와 같은 가드 · 하루 합계 · 식별자 없음)
+  useEffect(() => {
+    if (!pinAck || pinCounted.current) return;
+    pinCounted.current = true;
+    if (claimOnbShow('onb_pin', sessionStore())) trackFunnel('onb_pin', { src: 'onb_legal' });
+  }, [pinAck]);
+
   // 계측: 단계가 보였다 — 실행당 단계마다 한 번(하루 합계만 · 식별자 없음)
   const shownSteps = useRef(new Set<string>());
   useEffect(() => {
@@ -476,7 +509,9 @@ export function AppFirstRunOnboarding() {
 
   // 동의 전 회색 [계속]을 눌렀다 — 체크 줄로 굴리고 깜빡인다(실행당 한 번만 센다 · 하루 합계 · 식별자 없음)
   const onBlockedContinue = () => {
-    nudgeLegalAck(ackRef.current, panelRef.current, actionsRef.current);
+    // ★11/19 고정 체크 줄이 떠 있으면(버튼 바로 위 · 늘 보인다) 굴리지 않고 그 줄을 깜빡인다
+    if (pinAck && pinRef.current) nudgeLegalAck(pinRef.current, null, null, { scroll: false });
+    else nudgeLegalAck(ackRef.current, panelRef.current, actionsRef.current);
     // 언어 자가 이동(/en → /ko·/ja) 재마운트로 ref 가 새로 생겨도 실행(세션)당 한 번 — onb_show 와 같은 sessionStorage 가드(claimOnbShow)
     if (!nudgeCounted.current) { nudgeCounted.current = true; if (claimOnbShow('onb_nudge', sessionStore())) trackFunnel('onb_nudge', { src: 'onb_legal' }); }
   };
@@ -578,6 +613,17 @@ export function AppFirstRunOnboarding() {
           </div>
 
           <div ref={actionsRef} className={`${styles.actions} ${styles.actionsSticky} ${legal ? styles.actionsSingle : ''}`}>
+            {/* ★11/19 진짜 체크 줄이 화면 밖일 때만 — 같은 글(copy.ack)·같은 동의 상태(accepted)·라벨 전체가 눌림 */}
+            {legal && pinAck && (
+              <label className={`${styles.ack} ${styles.ackPin}`} ref={pinRef} data-legal-pin="">
+                <input
+                  type="checkbox"
+                  checked={accepted}
+                  onChange={event => setAccepted(event.currentTarget.checked)}
+                />
+                <span>{copy.ack}</span>
+              </label>
+            )}
             {!legal && (
               <button type="button" className={styles.ghostButton} onClick={() => setStep('legal')}>
                 {copy.back}

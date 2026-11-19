@@ -21,6 +21,53 @@ export function legalContinueBlocked(legal: boolean, accepted: boolean): boolean
 type Box = { top: number; height: number };
 
 /**
+ * 체크 줄(target)이 패널(container)의 «보이는 칸» — 붙박이 버튼 줄(bottomCover) 위 — 안에 위아래 모두 들어와 있나.
+ * (굴림 위치 계산과 ★11/19 고정 체크 줄 판정이 같은 상자 계산을 쓴다)
+ */
+export function legalAckFullyVisible(container: Box, target: Box, bottomCover = 0, margin = 0): boolean {
+  const visTop = container.top + margin;
+  const visBottom = container.top + container.height - Math.max(0, bottomCover) - margin;
+  return target.top >= visTop && target.top + target.height <= visBottom;
+}
+
+// ============================================================================
+// ★11/19 고정 체크 줄 — 진짜 체크 줄이 버튼 줄 뒤(화면 밖)에 있으면, 같은 체크 줄(같은 글·같은 동의 상태)을
+// 붙박이 버튼 줄 안 [계속] 바로 위에 하나 더 그린다. 회색 버튼만 보고 떠나던 안드 작은 화면(11/18 12명 중 8명 무조작 이탈)용.
+// 체크 줄이 이미 보이는 화면(375×812 기본·대부분의 아이폰)에서는 아무것도 그리지 않는다(배치·화소 불변).
+// 한 번 띄우면 이 법적 고지 단계 동안 유지한다 — 굴림·체크로 줄이 들어왔다 나갔다 하면 버튼 줄 높이가 바뀌어
+// 패널 길이·굴림 위치가 튀는(깜빡임·점프) 고리가 생기기 때문이다. 단계를 떠나면 내린다.
+// ============================================================================
+
+/**
+ * 고정 체크 줄 다음 상태. prev = 지금 띄워 둔 상태 · legal = 법적 고지 단계인가 · ackVisible = 진짜 체크 줄이 다 보이나(못 쟀으면 null).
+ * 못 쟀으면 띄우지 않는다(배치 불변이 기본).
+ */
+export function legalPinNext(prev: boolean, legal: boolean, ackVisible: boolean | null): boolean {
+  if (!legal) return false;
+  if (prev) return true;
+  if (ackVisible == null) return false;
+  return !ackVisible;
+}
+
+/** 화면 요소로 잰 «진짜 체크 줄이 다 보이나» — 패널·체크 줄·버튼 줄 중 하나라도 없거나 크기가 0 이면 null(모름) */
+export function measureLegalAckVisible(
+  panel: HTMLElement | null,
+  ack: HTMLElement | null,
+  bar: HTMLElement | null,
+): boolean | null {
+  if (!panel || !ack || !bar) return null;
+  try {
+    const c = panel.getBoundingClientRect();
+    const t = ack.getBoundingClientRect();
+    const b = bar.getBoundingClientRect();
+    if (!(c.height > 0) || !(t.height > 0)) return null;
+    return legalAckFullyVisible({ top: c.top, height: c.height }, { top: t.top, height: t.height }, b.height);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 체크 줄을 패널의 «보이는 칸»(붙박이 버튼 줄 위) 가운데에 놓는 scrollTop. 이미 다 보이면 null(굴리지 않는다).
  * container = 스크롤 패널의 화면 상자, target = 체크 줄의 화면 상자, bottomCover = 패널 아래를 덮는 붙박이 버튼 줄 높이.
  */
@@ -34,7 +81,7 @@ export function legalNudgeScrollTop(
 ): number | null {
   const visTop = container.top + margin;
   const visBottom = container.top + container.height - Math.max(0, bottomCover) - margin;
-  if (target.top >= visTop && target.top + target.height <= visBottom) return null;
+  if (legalAckFullyVisible(container, target, bottomCover, margin)) return null;
   const visHeight = Math.max(0, visBottom - visTop);
   const want = scrollTop + (target.top - visTop) - Math.max(0, (visHeight - target.height) / 2);
   const clamped = Math.min(Math.max(0, maxScrollTop), Math.max(0, Math.round(want)));
@@ -83,11 +130,13 @@ export function nudgeLegalAck(
   target: HTMLElement | null,
   container: HTMLElement | null,
   bottomCoverEl?: HTMLElement | null,
+  opts?: { scroll?: boolean },
 ): void {
   if (!target) return;
   const reduced = prefersReducedMotion();
   try {
-    if (container) {
+    // ★11/19 고정 체크 줄(버튼 바로 위 · 늘 보인다)을 강조할 때는 굴리지 않는다 — 깜빡임·포커스만
+    if (opts?.scroll === false) { /* 굴림 없음 */ } else if (container) {
       const c = container.getBoundingClientRect();
       const t = target.getBoundingClientRect();
       const cover = bottomCoverEl ? bottomCoverEl.getBoundingClientRect().height : 0;
