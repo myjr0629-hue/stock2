@@ -5,7 +5,7 @@
 //     + ★11/12 RC 앱 사용자 ID(rcUid — 서버가 RevenueCat 에서 체험을 직접 확인한다 · 원문 저장 안 함, 야간 검토 ②). 계정 정보 없음.
 //   체험(TRIAL)이 아니면 보내지 않는다 — 단 예전에 체험을 보고한 기기가 유료·평생으로 바뀌었거나 체험이 끝났으면
 //   «해제»({clear:true})를 한 번 보내 서버 발송 대상에서 뺀다(틀린 «결제되지 않아요» 푸시 방지).
-//   같은 내용은 하루 한 번(마지막 3일 + 갱신 꺼짐이면 3시간에 한 번 — 서버의 «최근 6시간 안에 앱을 열었으면 푸시 안 함» 판정용).
+//   같은 내용은 3시간에 한 번(★11/19 전엔 마지막 3일 + 갱신 꺼짐만 3시간, 나머지 하루 한 번 — 서버의 «최근 6시간 안에 앱을 열었으면 푸시 안 함» 판정용).
 //   서버가 stored:true 로 답했을 때만 «보냈음»을 기록한다.
 //   ★ 체험 중이면 매번, 아니면 보낼 일이 있을 때만 SDK 캐시를 비우고 «새로 읽은 값»으로 판단해 보낸다 — 캐시 값(옛 «갱신 꺼짐»)을 보내지 않게.
 //   ★ 보내는 중에 새 상태가 오면 버리지 않고 끝난 뒤 이어서 보낸다. 호출 제한(429)이면 6초 뒤 한 번 더.
@@ -13,7 +13,7 @@
 // ============================================================================
 import type { CustomerInfo } from '@revenuecat/purchases-capacitor';
 import { TRIAL_PUSH_REPORT_KEY, trialPushFingerprint, trialPushState } from '@/lib/app/trialSave';
-import { localDayKey, TRIAL_OFF_WINDOW_MS } from '@/lib/app/trialRenewalOff';
+import { localDayKey } from '@/lib/app/trialRenewalOff';
 import { resolveAppLocale } from '@/lib/appLocale';
 import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 
@@ -78,8 +78,8 @@ function paidPro(info: Info): boolean {
 function plan(info: Info, token: string, last: string | null, now: number): { kind: 'clear' } | { kind: 'state'; fp: string; state: NonNullable<ReturnType<typeof trialPushState>> } | null {
   const state = trialPushState(info, now);
   if (!state) return last !== CLEARED && (!!last || paidPro(info)) ? { kind: 'clear' } : null;
-  const hot = !state.willRenew && state.expiresAt - now <= TRIAL_OFF_WINDOW_MS;
-  const bucket = hot ? `${localDayKey(now)}T${Math.floor(new Date(now).getHours() / 3)}` : localDayKey(now);
+  // ★11/19 체험 중이면 갱신 여부와 무관하게 3시간 단위로 다시 보고한다 — 서버의 «6시간 안에 앱을 열었으면 미룸»이 가치 알림(3일째·6일째)에도 맞게(관문 11192141 ③)
+  const bucket = `${localDayKey(now)}T${Math.floor(new Date(now).getHours() / 3)}`;
   const fp = trialPushFingerprint(state, token, bucket);
   return last === fp ? null : { kind: 'state', fp, state };
 }

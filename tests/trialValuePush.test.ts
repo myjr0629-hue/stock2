@@ -68,6 +68,9 @@ assert.equal(dec(rec(), tok({ notifPerm: false }), d3At), 'no_permission');
 assert.equal(dec(rec({ platform: 'android', store: 'PLAY_STORE' }), tok({ platform: 'android', notifPerm: undefined }), d3At), 'send:d3');
 assert.equal(dec(rec({ platform: 'android', store: 'PLAY_STORE' }), tok({ platform: 'android', notifPerm: false }), d3At), 'no_permission');
 assert.equal(dec(rec({ at: d3At - H }), tok(), d3At), 'recent_open', '6시간 안에 앱을 열었으면 미룸');
+assert.equal(dec(rec({ at: S }), tok({ lastSeenAt: new Date(d3At - 2 * H).toISOString() }), d3At), 'recent_open', '체험 보고는 오래됐어도 앱 실행 때 푸시 등록이 6시간 안이면 미룸(관문 11192141 ③)');
+assert.equal(dec(rec({ at: S }), tok({ lastSeenAt: new Date(d3At - 7 * H).toISOString() }), d3At), 'send:d3');
+assert.equal(dec(rec({ at: S }), tok({ lastSeenAt: 'garbage' }), d3At), 'send:d3', '깨진 시각은 무시');
 // 현지 시간: UTC 14시 = 서울 23시 → 조용한 시간 · 뉴욕 9시 → 보냄
 assert.equal(dec(rec(), tok({ tz: 'Asia/Seoul' }), d3At), 'quiet_hours');
 assert.equal(dec(rec(), tok({ tz: 'America/New_York' }), d3At), 'send:d3');

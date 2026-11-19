@@ -37,9 +37,11 @@ process.env.NEXT_PUBLIC_RC_IOS_KEY = 'appl_test'; process.env.NEXT_PUBLIC_RC_AND
 const rc = new Map<string, unknown>();
 let rcDown = false;
 const rcCalls: string[] = [];
+let onRc: ((id: string) => void) | null = null;
 (globalThis as any).fetch = async (url: string) => {
   const id = decodeURIComponent(String(url).split('/subscribers/')[1] ?? '');
   rcCalls.push(id);
+  onRc?.(id);
   if (rcDown) return { ok: false, status: 503, json: async () => ({}) };
   const body = rc.get(id) ?? { subscriber: { entitlements: {}, subscriptions: {} } };
   return { ok: true, status: 200, json: async () => body };
@@ -123,6 +125,21 @@ async function main() {
       assert.ok(kv.has(TRIAL_PUSH_LAST_UID_KEY(trialUidHash(uidOf(tokC)))), 'D-2 도 «최근 체험 알림» 표식을 남긴다');
     }
 
+    // (3b) 가치 알림을 20시간 안에 받은 고객은 D-2 도 다음 회차로(하루 두 통 금지 — 관문 11192141 ②)
+    {
+      const tokD = 'd'.repeat(64); reg(tokD);
+      rc.set(uidOf(tokD), rcTrial(T - 5.5 * D, T + 1.5 * D, true));
+      r = await post(body(tokD, { willRenew: false })); assert.equal(r.body.due, true); age(tokD);
+      kv.set(TRIAL_PUSH_LAST_UID_KEY(trialUidHash(uidOf(tokD))), '1');
+      const before = sent.length;
+      res = await run();
+      assert.equal(sent.slice(before).some((x) => x.token === tokD), false, '최근 체험 알림 → D-2 미룸');
+      assert.ok((res.skipped.recent_push ?? 0) >= 1);
+      kv.delete(TRIAL_PUSH_LAST_UID_KEY(trialUidHash(uidOf(tokD))));
+      res = await run();
+      assert.deepEqual(sent.slice(before).filter((x) => x.token === tokD).map((x) => x.data.type), ['trial_end'], '표식이 풀리면 D-2 를 보낸다');
+    }
+
     // (4) 1개월 코드 체험(30일): 3일째엔 안 가고 7일째에 간다 · 최근 체험 알림(20시간) 있으면 미룸
     {
       const tokE = 'e'.repeat(64); reg(tokE, { platform: 'android', notifPerm: undefined }); // 안드: 권한 보고 없으면 보낸다
@@ -184,6 +201,12 @@ async function main() {
     {
       const tokK = 'k'.repeat(64); reg(tokK);
       rc.set(uidOf(tokK), rcTrial(T - 5 * D, T + 2 * D - H, true));
+      r = await post(body(tokK, { willRenew: false })); assert.equal(r.body.due, true); fresh(tokK);
+      // RC 를 부르는 «순간»에는 이미 D-2 대상에서 빠져 있어야 한다(RC 응답을 기다리는 사이 크론이 옛 대상에 보내지 않게 — 관문 11192141 ①)
+      let dueAtRc: boolean | null = null;
+      onRc = () => { dueAtRc = zs.get('push:trial:due')!.has(tokK); };
+      r = await post(body(tokK, { willRenew: true })); onRc = null;
+      assert.equal(dueAtRc, false, 'RC 호출 전에 뺐다'); assert.equal(r.body.verified, true); fresh(tokK);
       r = await post(body(tokK, { willRenew: false })); assert.equal(r.body.due, true); fresh(tokK);
       rcDown = true;
       r = await post(body(tokK, { willRenew: true }));

@@ -10,7 +10,8 @@
 //       근거: 코드 체험은 결제 의사 없이 받은 사람이 많아 3일째는 너무 이르고(첫 주 안 재방문이 갈림), 결제 판단 직전 재방문이 중요하다.
 //       5일 전이면 D-2 사실 알림(남은 12~48시간)과 사흘 이상 떨어지고, 스토어 갱신 결제 창(마지막 24시간)보다 충분히 앞이다.
 //   · 그 밖 길이(4일 미만·40일 초과)는 보내지 않는다. 각 창은 24시간 — 매시 크론 + 현지 09~21시 + «6시간 안에 앱을 열었으면 미룸».
-// 안 보내는 경우: 이미 보냄(토큰·RC 고객 단위, 단계별) · 같은 고객에게 20시간 안에 체험 알림(D-2 포함)을 보냄
+// 안 보내는 경우: 이미 보냄(토큰·RC 고객 단위, 단계별) · 같은 고객에게 20시간 안에 체험 알림(D-2 포함)을 보냄(D-2 도 가치 알림 뒤 20시간은 미룬다)
+//   · 6시간 안에 앱을 열었음(체험 보고 시각·앱 실행 때 푸시 등록 시각 중 늦은 쪽 · 체험 중 앱은 3시간 단위로 다시 보고한다)
 //   · 자동 갱신 꺼짐이고 남은 시간 48시간 이하(= D-2 사실 알림 차례 — 같은 날 두 통 금지) · 알림 전체/해당 종류(아침·마감)를 끔
 //   · iOS 는 시스템 알림 권한이 «허용»으로 보고된 기기만(애플 4.5.4 — 이미 동의한 사람만) · 안드는 권한 «없음» 보고면 제외.
 // 문구: 사실·기능만. 가격·긴급함·투자 권유·방향 예측 없음.
@@ -73,6 +74,8 @@ export type TrialValueSkip = 'invalid' | 'unverified' | 'not_trial' | 'no_start'
 export type TrialValueTokenRec = {
   app?: string; platform?: string; preferences?: { enabled?: boolean; morning?: boolean; closing?: boolean } | null;
   notifPerm?: boolean; tz?: string; watchlist?: { t?: unknown } | null;
+  /** 마지막 앱 실행 때 푸시 등록 시각(ISO — 앱을 켤 때마다 갱신) */
+  lastSeenAt?: string;
 };
 
 /** 지금 보낼까 — { send, step } 또는 안 보내는 이유. sent(step) = 그 단계를 이미 보냈나 · recentPush = 20시간 안에 체험 알림을 받았나 */
@@ -100,7 +103,9 @@ export function trialValueDecision(
   if (p && (p.enabled === false || (w.step === 'd3' ? p.morning === false : p.closing === false))) return skip('muted');
   // iOS: 시스템 권한 «허용»이 보고된 기기만(4.5.4) · 안드: «없음» 보고면 제외(13 미만은 권한 단계가 없다)
   if (rec.platform === 'ios' ? tokenRec.notifPerm !== true : tokenRec.notifPerm === false) return skip('no_permission');
-  if (typeof rec.at === 'number' && now - rec.at < TRIAL_PUSH_RECENT_OPEN_MS) return skip('recent_open');
+  // 마지막으로 앱을 연 시각 = 체험 보고(rec.at)와 앱 실행 때 푸시 등록(lastSeenAt) 중 늦은 쪽(관문 11192141 ③ — 보고는 같은 날 한 번이라 홀로는 늦다)
+  const seen = Math.max(typeof rec.at === 'number' ? rec.at : 0, Date.parse(tokenRec.lastSeenAt ?? '') || 0);
+  if (now - seen < TRIAL_PUSH_RECENT_OPEN_MS) return skip('recent_open');
   const hour = localHourIn(now, tokenRec.tz || fallbackTimeZone(rec.locale)) ?? localHourIn(now, fallbackTimeZone(rec.locale));
   if (hour == null || hour < TRIAL_PUSH_HOURS[0] || hour >= TRIAL_PUSH_HOURS[1]) return skip('quiet_hours');
   return { kind: 'send', step: w.step };

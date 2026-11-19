@@ -87,12 +87,15 @@ export async function GET(request: Request) {
         // ★11/12 확인된 기록은 «그 고객의 지금 토큰»일 때만 · 고객당 한 번(관문 11121124 — 정리 실패·경합으로 옛 토큰이 남아도 두 통 가지 않는다)
         const owners = ownerRaw.map((o) => (o == null ? null : String(o)));
         const ownerList = [...new Set(owners.filter((o): o is string => !!o))];
-        const [boundRaw, sentUidRaw] = ownerList.length ? await Promise.all([
+        const [boundRaw, sentUidRaw, lastRaw] = ownerList.length ? await Promise.all([
           redis.mget<unknown[]>(...ownerList.map((o) => TRIAL_PUSH_UID_KEY(o))),
           redis.mget<unknown[]>(...ownerList.map((o) => TRIAL_PUSH_SENT_UID_KEY(o))),
-        ]) : [[], []];
+          redis.mget<unknown[]>(...ownerList.map((o) => TRIAL_PUSH_LAST_UID_KEY(o))),
+        ]) : [[], [], []];
         const bound = new Map(ownerList.map((o, i) => [o, boundToken(boundRaw[i])]));
         const sentUid = new Map(ownerList.map((o, i) => [o, sentUidRaw[i] != null]));
+        // ★11/19 같은 고객이 20시간 안에 가치 알림을 받았으면 D-2 도 다음 회차로(하루 두 통 금지 — 관문 11192141 ②). D-2 창(남은 12~48시간) 안에서 다시 본다
+        const recentPush = new Map(ownerList.map((o, i) => [o, lastRaw[i] != null]));
         for (let j = 0; j < chunk.length; j++) {
           const token = chunk[j];
           if (picked.length >= TRIAL_PUSH_MAX_PER_RUN) { skip('run_cap'); continue; }
@@ -107,6 +110,7 @@ export async function GET(request: Request) {
           }
           const d = trialPushDecision(rec, tokenRec, now, sentRaw[j] != null || (!!owner && sentUid.get(owner) === true) || (!!owner && pickedOwners.has(owner)));
           if (d !== 'send' || !rec) { skip(d); continue; }
+          if (owner && recentPush.get(owner) === true) { skip('recent_push'); continue; }
           if (owner) pickedOwners.add(owner);
           picked.push({ token, rec, tokenRec, owner });
         }
