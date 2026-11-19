@@ -57,10 +57,10 @@ export const CLAIM_VERIFIED_LUA = [
   'return 1',
 ].join('\n');
 
-/** ★11/19 가치 알림(lib/push/trialValuePush) 자리 잡기 — CLAIM_VERIFIED_LUA 와 같고, 같은 고객의 «최근 체험 알림» 표식이 있으면 -2(하루 두 통 금지),
- *  잡으면 그 표식도 함께 세운다. KEYS 토큰보냄·고객보냄·고객→토큰·토큰주인·고객최근 · ARGV 묶음값·만료·TTL·고객해시·최근TTL
+/** ★11/19 확인된 기록의 자리 잡기(D-2 · 가치 알림 lib/push/trialValuePush 공용) — CLAIM_VERIFIED_LUA 와 같고, 같은 고객의 «최근 체험 알림» 표식이 있으면 -2(하루 두 통 금지),
+ *  잡으면 그 표식도 함께 세운다(겹친 크론 회차 사이에도 확인과 표식이 한 번에 — 관문 11192147). KEYS 토큰보냄·고객보냄·고객→토큰·토큰주인·고객최근 · ARGV 묶음값·만료·TTL·고객해시·최근TTL
  *  → 1 잡음 · 0 이미 보냄 · -1 지금 토큰 아님 · -2 최근에 체험 알림을 받음 */
-export const CLAIM_VALUE_LUA = [
+export const CLAIM_GAP_LUA = [
   "if redis.call('GET', KEYS[4]) ~= ARGV[4] or redis.call('GET', KEYS[3]) ~= ARGV[1] then return -1 end",
   "if redis.call('EXISTS', KEYS[1]) == 1 or redis.call('EXISTS', KEYS[2]) == 1 then return 0 end",
   "if redis.call('EXISTS', KEYS[5]) == 1 then return -2 end",
@@ -111,7 +111,7 @@ export const MEMORY_IMPL = new Map<string, (m: MemRedis, keys: string[], a: stri
     if (m.kv.has(k[0]) || m.kv.has(k[1])) return 0;
     m.kv.set(k[0], a[1]); m.kv.set(k[1], a[1]); return 1;
   }],
-  [CLAIM_VALUE_LUA, (m, k, a) => {
+  [CLAIM_GAP_LUA, (m, k, a) => {
     if (m.kv.get(k[3]) !== a[3] || m.kv.get(k[2]) !== a[0]) return -1;
     if (m.kv.has(k[0]) || m.kv.has(k[1])) return 0;
     if (m.kv.has(k[4])) return -2;

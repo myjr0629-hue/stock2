@@ -140,6 +140,21 @@ async function main() {
       assert.deepEqual(sent.slice(before).filter((x) => x.token === tokD).map((x) => x.data.type), ['trial_end'], '표식이 풀리면 D-2 를 보낸다');
     }
 
+    // (3c) 겹친 회차 흉내: D-2 후보로 고른 «뒤»(자리 잡기 직전)에 다른 회차가 가치 알림 표식을 세웠다 → D-2 자리 잡기가 원자적으로 막는다(관문 11192147)
+    {
+      const { CLAIM_GAP_LUA, MEMORY_IMPL: MI } = await import('../src/lib/push/trialPushLua');
+      const { TRIAL_PUSH_UID_KEY, TRIAL_PUSH_OWNER_KEY } = await import('../src/lib/push/trialVerify');
+      const tokZ = 'z'.repeat(64), uh = trialUidHash(uidOf(tokZ));
+      kv.set(TRIAL_PUSH_UID_KEY(uh), 't:' + tokZ); kv.set(TRIAL_PUSH_OWNER_KEY(tokZ), uh); kv.set(TRIAL_PUSH_LAST_UID_KEY(uh), '1');
+      const keys = ['zs1', 'zs2', TRIAL_PUSH_UID_KEY(uh), TRIAL_PUSH_OWNER_KEY(tokZ), TRIAL_PUSH_LAST_UID_KEY(uh)];
+      assert.equal(MI.get(CLAIM_GAP_LUA)!({ kv, zs }, keys, ['t:' + tokZ, '1', '60', uh, '60']), -2);
+      assert.equal(kv.has('zs1') || kv.has('zs2'), false, '막히면 보냄 표식을 세우지 않는다');
+      kv.delete(TRIAL_PUSH_LAST_UID_KEY(uh));
+      assert.equal(MI.get(CLAIM_GAP_LUA)!({ kv, zs }, keys, ['t:' + tokZ, '1', '60', uh, '60']), 1);
+      assert.ok(kv.has(TRIAL_PUSH_LAST_UID_KEY(uh)), '잡으면 최근 표식도 세운다');
+      assert.equal(MI.get(CLAIM_GAP_LUA)!({ kv, zs }, keys, ['t:' + tokZ, '1', '60', uh, '60']), 0, '두 번째는 이미 보냄');
+    }
+
     // (4) 1개월 코드 체험(30일): 3일째엔 안 가고 7일째에 간다 · 최근 체험 알림(20시간) 있으면 미룸
     {
       const tokE = 'e'.repeat(64); reg(tokE, { platform: 'android', notifPerm: undefined }); // 안드: 권한 보고 없으면 보낸다

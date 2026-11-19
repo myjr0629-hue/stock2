@@ -19,8 +19,7 @@ import { parseRecord } from '@/lib/push/prefs';
 import { sendSignalPushes, type SignalPushItem } from '@/lib/push/sendSignal';
 import { etDay } from '@/lib/app/funnelSchema';
 import { TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY } from '@/lib/push/trialVerify';
-import { bindValue, boundToken, CLAIM_VERIFIED_LUA, DROP_DUE_IF_SAME_LUA, SWEEP_IF_UNBOUND_LUA } from '@/lib/push/trialPushLua';
-import { CLAIM_VALUE_LUA } from '@/lib/push/trialPushLua';
+import { bindValue, boundToken, CLAIM_GAP_LUA, DROP_DUE_IF_SAME_LUA, SWEEP_IF_UNBOUND_LUA } from '@/lib/push/trialPushLua';
 import {
   TRIAL_PUSH_GAP_S, TRIAL_PUSH_LAST_UID_KEY, TRIAL_VALUE_DAY_KEY, TRIAL_VALUE_MAX_LEN_MS, TRIAL_VALUE_MAX_PER_DAY, TRIAL_VALUE_MAX_PER_RUN,
   TRIAL_VALUE_OFF_KEY, TRIAL_VALUE_SCAN_LIMIT, TRIAL_VALUE_SCAN_PAGES, TRIAL_VALUE_SENT_KEY, TRIAL_VALUE_SENT_TTL_S, TRIAL_VALUE_SENT_UID_KEY,
@@ -134,9 +133,11 @@ export async function GET(request: Request) {
     for (const { token, rec, tokenRec, owner } of picked) {
       if (owner) {
         // 확인된 기록: «지금도 이 고객의 묶인 토큰»인지 확인과 토큰·고객 자리 잡기를 한 번에(겹친 실행·묶음 변경 사이 경합 없음)
-        const c = Number(await redis.eval(CLAIM_VERIFIED_LUA, [TRIAL_PUSH_SENT_KEY(token), TRIAL_PUSH_SENT_UID_KEY(owner), TRIAL_PUSH_UID_KEY(owner), TRIAL_PUSH_OWNER_KEY(token)],
-          [bindValue(token), String(rec.expiresAt), String(TRIAL_PUSH_SENT_TTL_S), owner]));
+        //   ★11/19 같은 고객의 «최근 체험 알림»(20시간) 표식 확인·세우기도 같은 Lua 안에서(겹친 회차의 가치 알림과 하루 두 통 금지 — 관문 11192147)
+        const c = Number(await redis.eval(CLAIM_GAP_LUA, [TRIAL_PUSH_SENT_KEY(token), TRIAL_PUSH_SENT_UID_KEY(owner), TRIAL_PUSH_UID_KEY(owner), TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_LAST_UID_KEY(owner)],
+          [bindValue(token), String(rec.expiresAt), String(TRIAL_PUSH_SENT_TTL_S), owner, String(TRIAL_PUSH_GAP_S)]));
         if (c === -1) { skip('superseded'); continue; }
+        if (c === -2) { skip('recent_push'); continue; }
         if (c !== 1) { skip('sent'); continue; }
       } else {
         const claimed = await redis.set(TRIAL_PUSH_SENT_KEY(token), String(rec.expiresAt), { nx: true, ex: TRIAL_PUSH_SENT_TTL_S });
@@ -144,20 +145,18 @@ export async function GET(request: Request) {
       }
       const fresh = parseRecord<TrialPushRecord>(await redis.get(TRIAL_PUSH_KEY(token)));
       if (trialPushDecision(fresh, tokenRec, now, false) !== 'send' || fresh!.expiresAt !== rec.expiresAt) {
-        await redis.del(TRIAL_PUSH_SENT_KEY(token), ...(owner ? [TRIAL_PUSH_SENT_UID_KEY(owner)] : []));
+        await redis.del(TRIAL_PUSH_SENT_KEY(token), ...(owner ? [TRIAL_PUSH_SENT_UID_KEY(owner), TRIAL_PUSH_LAST_UID_KEY(owner)] : []));
         skip('changed');
         continue;
       }
       const n = await redis.incr(dayKey);
       if (n === 1) await redis.expire(dayKey, 3 * 86400).catch(() => {});
       if (n > TRIAL_PUSH_MAX_PER_DAY) {
-        await redis.del(TRIAL_PUSH_SENT_KEY(token), ...(owner ? [TRIAL_PUSH_SENT_UID_KEY(owner)] : []));
+        await redis.del(TRIAL_PUSH_SENT_KEY(token), ...(owner ? [TRIAL_PUSH_SENT_UID_KEY(owner), TRIAL_PUSH_LAST_UID_KEY(owner)] : []));
         skip('day_cap');
         break;
       }
       const content = trialPushContent(fresh!, tokenRec?.tz);
-      // ★11/19 같은 고객에게 가치 알림이 20시간 안에 겹치지 않게 «최근 체험 알림» 표식(실패해도 D-2 는 보낸다)
-      if (owner) await redis.set(TRIAL_PUSH_LAST_UID_KEY(owner), String(fresh!.expiresAt), { ex: TRIAL_PUSH_GAP_S }).catch(() => {});
       items.push({ id: token, token, platform: fresh!.platform, title: content.title, body: content.body, data: TRIAL_PUSH_DATA, quiet: false, thread: 'trial_end' });
       ownerOf.set(token, owner); sentExp.set(token, fresh!.expiresAt);
     }
@@ -204,7 +203,7 @@ export async function GET(request: Request) {
 /**
  * ★11/19 체험 중 가치 알림(3일째·6일째) — 대상 목록을 쪽(1000)씩 최대 5쪽 읽어 lib/push/trialValuePush.trialValueDecision 으로 거른 뒤 한 통씩.
  *   확인된 기록만 · «그 고객의 지금 토큰»일 때만 · 고객당 단계별 한 번 · 같은 고객 20시간 안 체험 알림이 있으면 건너뜀(D-2 와 하루 두 통 금지).
- *   자리 잡기(CLAIM_VALUE_LUA: 묶음 확인 + 토큰·고객 보냄 표식 + 최근 표식을 한 번에) → 기록 재확인 → 하루 상한 예약(INCR) → 보내기.
+ *   자리 잡기(CLAIM_GAP_LUA: 묶음 확인 + 토큰·고객 보냄 표식 + 최근 표식을 한 번에) → 기록 재확인 → 하루 상한 예약(INCR) → 보내기.
  *   실패(응답 유실 포함)도 표식을 놓지 않는다(D-2 와 같은 원칙 — 중복보다 한 통 누락). dry 면 표식·통계 없이 미리보기만.
  */
 async function runValue(now: number, dry: boolean, d2Owners: Set<string>) {
@@ -275,7 +274,7 @@ async function runValue(now: number, dry: boolean, d2Owners: Set<string>) {
   const stepOf = new Map<string, TrialValueStep>();
   for (const { token, rec, tokenRec, owner, step } of picked) {
     const keys = [TRIAL_VALUE_SENT_KEY(step, token), TRIAL_VALUE_SENT_UID_KEY(step, owner), TRIAL_PUSH_UID_KEY(owner), TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_LAST_UID_KEY(owner)];
-    const c = Number(await redis.eval(CLAIM_VALUE_LUA, keys, [bindValue(token), String(rec.expiresAt), String(TRIAL_VALUE_SENT_TTL_S), owner, String(TRIAL_PUSH_GAP_S)]));
+    const c = Number(await redis.eval(CLAIM_GAP_LUA, keys, [bindValue(token), String(rec.expiresAt), String(TRIAL_VALUE_SENT_TTL_S), owner, String(TRIAL_PUSH_GAP_S)]));
     if (c === -1) { skip('superseded'); continue; }
     if (c === -2) { skip('recent_push'); continue; }
     if (c !== 1) { skip('sent'); continue; }
