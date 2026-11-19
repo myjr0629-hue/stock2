@@ -54,13 +54,12 @@ test('① 가치 3줄 · 머리 설명 없음 · 옵션 앞세우지 않음', ()
   offers = [];
   const h = html({ trialHead: true, src: 'first_run', offers: TRIAL });
   assert.ok(h.includes('PRO 7일 무료 체험'));
-  assert.ok(h.includes('잠긴 AI 종목 분석이 광고 보기 없이 바로 열림') && h.includes('정규장 실시간 주가·장마감 리포트·실적 일정을 광고\u00a0없이') && h.includes('내 종목 100개'));
+  assert.ok(h.includes('잠긴 AI 종목 분석이 광고 보기 없이 바로 열림') && h.includes('미국 주식 시세·장마감 리포트·실적 일정을 광고\u00a0없이') && h.includes('내 종목 100개'));
   assert.equal((h.match(/class="val[ "]/g) || []).length, 3, '가치 3줄');
   assert.ok(!/옵션|감마|다크풀|퀀트|대가 렌즈/.test(h), '옵션·고급 지표 앞세우지 않음');
   assert.ok(!h.includes('class="lede"'), '머리 설명 문단 없음');
-  // 시간외는 15분 지연(useOnePipe) — «실시간»은 정규장 한정으로만 말한다(관문 11192142)
-  assert.ok(html({ locale: 'en', trialHead: true, offers: TRIAL }).includes('Live regular-session prices'));
-  assert.ok(html({ locale: 'ja', trialHead: true, offers: TRIAL }).includes('通常取引のリアルタイム株価'));
+  // 시세 지연(시간외 15분·허브 폴백)이 있어 체험 화면은 «실시간»을 약속하지 않는다(관문 11192142·11192148)
+  for (const loc of ['ko', 'en', 'ja']) assert.ok(!/실시간|real-?time|live|リアルタイム/i.test(html({ locale: loc, trialHead: true, offers: TRIAL }).split('data-trial-vals')[1].split('</ul>')[0]), loc);
 });
 
 test('② 일정 3단 — 버튼 바로 위 · 스토어 가격 문자열 · 연간/월간 주기', () => {

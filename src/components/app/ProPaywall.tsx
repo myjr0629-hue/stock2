@@ -183,7 +183,7 @@ const COPY: Record<PaywallLocale, {
     trialHeadTitle: (d) => `PRO ${d}일 무료 체험`,
     trialHeadLede: '광고 없이 AI 종목 분석이 바로 열립니다. 체험 종료 24시간 전까지 해지하면 결제되지 않습니다.',
     trialAnnounceEyebrow: '새로 생긴 무료 체험',
-    trialVals: ['잠긴 AI 종목 분석이 광고 보기 없이 바로 열림', '정규장 실시간 주가·장마감 리포트·실적 일정을 광고\u00a0없이'],
+    trialVals: ['잠긴 AI 종목 분석이 광고 보기 없이 바로 열림', '미국 주식 시세·장마감 리포트·실적 일정을 광고\u00a0없이'],
     trialSteps: (d, price, plan, place) => [
       ['오늘', 'PRO 전부 무료로 열림'],
       ['종료 24시간 전까지', `${place}에서 해지하면 결제\u00a0없음`],
@@ -248,7 +248,7 @@ const COPY: Record<PaywallLocale, {
     trialHeadTitle: (d) => `Try PRO free for ${d} days`,
     trialHeadLede: 'AI stock analysis opens at once, with no ads. Cancel at least 24 hours before the trial ends and you pay nothing.',
     trialAnnounceEyebrow: 'New · Free trial',
-    trialVals: ['Locked AI stock analysis opens instantly, no ads to watch', 'Live regular-session prices, closing report, earnings calendar, ad-free'],
+    trialVals: ['Locked AI stock analysis opens instantly, no ads to watch', 'US stock quotes, closing report and earnings calendar, ad-free'],
     trialSteps: (d, price, plan, place) => [
       ['Today', 'Full PRO access, free'],
       ['Until 24h before end', `Cancel in ${place}, no charge`],
@@ -313,7 +313,7 @@ const COPY: Record<PaywallLocale, {
     trialHeadTitle: (d) => `PRO ${d}日間無料体験`,
     trialHeadLede: '広告なしでAIの銘柄分析がすぐ開きます。体験終了の24時間前までに解約すれば請求されません。',
     trialAnnounceEyebrow: '新しい無料体験',
-    trialVals: ['ロック中のAI銘柄分析が広告視聴なしですぐ開く', '通常取引のリアルタイム株価・引け後レポート・決算日程を広告なしで'],
+    trialVals: ['ロック中のAI銘柄分析が広告視聴なしですぐ開く', '米国株の株価・引け後レポート・決算日程を広告なしで'],
     trialSteps: (d, price, plan, place) => [
       ['今日', 'PROのすべてが無料で開く'],
       ['終了24時間前まで', `${place}で解約すれば請求なし`],
