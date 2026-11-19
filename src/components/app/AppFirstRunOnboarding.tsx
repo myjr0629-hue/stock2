@@ -16,6 +16,7 @@ import {
 } from '@/lib/app/onboardingConfig';
 import { firstRunCopy } from '@/lib/app/firstRunCopy';
 import { legalContinueBlocked, legalPinNext, measureLegalAckCovered, nudgeLegalAck } from '@/lib/app/legalNudge';
+import { LEGAL_LOCALE_DONE_GUARD, legalLocaleSrc, legalSeenBefore } from '@/lib/app/legalDiag';
 import { loadOnbMode, useOnbMode } from './onboardingMode';
 // 가치·알림 단계(카드·시세·레벨·AI 줄)는 이 오버레이를 «이미 마친 기기»(대부분의 사용자)에는 한 바이트도 싣지 않도록 필요할 때만 불러온다 —
 // 법적 고지의 동의 체크를 누르면 ValuePrefetch 가 같은 조각을 미리 불러오고 데이터도 미리 받는다.
@@ -51,6 +52,11 @@ const STORAGE_KEY = 'signumhq.app.onboarding.v1';
 /** sessionStorage — 막혀 있으면 null(진행 상태 보존·노출 가드가 예전 동작으로 돌아간다) */
 function sessionStore(): Storage | null {
   try { return window.sessionStorage; } catch { return null; }
+}
+
+/** localStorage — 막혀 있으면 null(★11/20 법적 고지 재노출 표식만 쓴다) */
+function localStore(): Storage | null {
+  try { return window.localStorage; } catch { return null; }
 }
 
 const COPY: Record<string, OnboardingCopy> = {
@@ -256,6 +262,10 @@ export function AppFirstRunOnboarding() {
   const [pinAck, setPinAck] = useState(false);
   const pinRef = useRef<HTMLLabelElement | null>(null);
   const pinCounted = useRef(false);
+  // ★11/20 법적 고지 진단 계측(lib/app/legalDiag) — 실행당 한 번씩: 화면 만짐 · 동의 체크 · 마치기 전 앱 떠남
+  const tapCounted = useRef(false);
+  const checkCounted = useRef(false);
+  const hideCounted = useRef(false);
   // 설정 읽기를 기다리는 동안 동의를 풀었는지 — 기다린 뒤 «지금» 값으로 다시 본다(onLegalNext)
   const acceptedRef = useRef(accepted);
   acceptedRef.current = accepted;
@@ -423,7 +433,49 @@ export function AppFirstRunOnboarding() {
     try { ss = window.sessionStorage; } catch { /* 저장소 차단 */ }
     if (!claimOnbShow(src, ss)) return;
     trackFunnel('onb_show', { src });
-  }, [mounted, visible, isDocumentRoute, localePending, step, mode]);
+    // ★11/20 법적 고지 노출의 언어별 몫 · 이 기기가 전에도 본 노출(재실행)인지 — 같은 가드 안에서 함께 센다
+    if (src === 'onb_legal') {
+      trackFunnel('onb_show', { src: legalLocaleSrc(locale) });
+      if (legalSeenBefore(localStore())) trackFunnel('onb_show', { src: 'onb_lrep' });
+    }
+  }, [mounted, visible, isDocumentRoute, localePending, step, mode, locale]);
+
+  // ★11/20 법적 고지 진단 — 떠 있는 동안 화면을 한 번이라도 만졌나 · 마치기 전에 앱이 뒤로 갔나(실행당 한 번 · 하루 합계 · 식별자 없음)
+  //   화면·동작에는 아무 영향이 없다(수동 관찰만 — 캡처 단계 passive 리스너, 기본 동작을 막지 않는다)
+  useEffect(() => {
+    if (!legalOn) return;
+    const onDown = () => {
+      if (tapCounted.current) return;
+      tapCounted.current = true;
+      if (claimOnbShow('onb_tap', sessionStore())) trackFunnel('onb_tap', { src: 'onb_legal' });
+    };
+    const onVis = () => {
+      if (document.visibilityState !== 'hidden' || legalDoneCounted.current || hideCounted.current) return;
+      hideCounted.current = true;
+      if (claimOnbShow('onb_hide', sessionStore())) trackFunnel('onb_hide', { src: 'onb_legal' });
+    };
+    try {
+      document.addEventListener('pointerdown', onDown, { capture: true, passive: true });
+      document.addEventListener('visibilitychange', onVis);
+    } catch { /* 관찰 실패 — 세지 않는다 */ }
+    return () => {
+      try {
+        document.removeEventListener('pointerdown', onDown, { capture: true });
+        document.removeEventListener('visibilitychange', onVis);
+      } catch { /* 무시 */ }
+    };
+  }, [legalOn]);
+  // ★11/20 동의 체크를 켰다(실행당 한 번) — 언어 자가 이동 재마운트로 체크가 되살아나도 같은 세션이면 다시 세지 않는다
+  useEffect(() => {
+    if (!legalOn || !accepted || checkCounted.current) return;
+    checkCounted.current = true;
+    if (claimOnbShow('onb_check', sessionStore())) trackFunnel('onb_check', { src: 'onb_legal' });
+  }, [legalOn, accepted]);
+  // ★11/20 법적 고지 마침의 언어별 몫 — onLegalNext 가 onb_done/onb_legal 을 센 뒤 단계가 바뀌면 한 번(재마운트 되살림은 같은 세션 가드로 거른다)
+  useEffect(() => {
+    if (step === 'legal' || !legalDoneCounted.current) return;
+    if (claimOnbShow(LEGAL_LOCALE_DONE_GUARD, sessionStore())) trackFunnel('onb_done', { src: legalLocaleSrc(locale) });
+  }, [step, locale]);
 
   if (mounted && trialPaywall && !visible && !isDocumentRoute) {
     return <FirstRunTrialPaywall locale={locale} onDone={() => setTrialPaywall(false)} />;

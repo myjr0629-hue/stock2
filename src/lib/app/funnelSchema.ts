@@ -29,6 +29,7 @@ export const FUNNEL_STAGES = [
   'onb_card',      // 이 단계를 떠날 때(담고 계속·건너뛰기), 한 번이라도 고른 종목마다 — 출처 onb_ai(떠날 때까지 AI 한 줄이 «한 번이라도» 떴다)·onb_noai(끝내 안 떴다)·onb_earn(실적 14일 안 줄이 떴다 — 옵션 반영 변동폭 포함, 값이 있으면)
   'onb_nudge',     // ★11/17 법적 고지에서 동의 전 회색 [계속]을 눌렀다(실행당 한 번) → 동의 체크 줄로 굴림·깜빡임(lib/app/legalNudge) — 출처 onb_legal
   'onb_pin',       // ★11/19 법적 고지에서 진짜 동의 체크 줄이 화면 밖이라 [계속] 바로 위에 고정 체크 줄을 띄웠다(실행당 한 번 · lib/app/legalNudge legalPinNext) — 출처 onb_legal
+  'onb_tap', 'onb_check', 'onb_hide', // ★11/20 법적 고지 진단(lib/app/legalDiag · 실행당 한 번 · 출처 onb_legal): 화면을 한 번이라도 만졌다 · 동의 체크를 켰다 · 마치기 전에 앱이 뒤로 갔다
   'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', // 체험 종료 안내 표시·관리 탭·7일 숨김. 동의 완료/유료 전환이 아님
   'cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other',
   'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', // 갱신 끈 체험 안내의 익명 합계
@@ -59,6 +60,7 @@ export const FUNNEL_SRCS = [
   'onb_n1', 'onb_n2', 'onb_n3',                            // 고른 종목 수
   'onb_allow', 'onb_deny',                                 // 알림 권한 결과
   'onb_ai', 'onb_noai', 'onb_earn',                        // 카드 상태
+  'onb_lko', 'onb_len', 'onb_lja', 'onb_lrep',             // ★11/20 법적 고지 진단(lib/app/legalDiag): onb_show·onb_done 의 언어별 몫(ko·en·ja) · onb_show 중 이 기기가 전에도 본 노출(재실행)
   'onb_dflt', 'onb_dkeep', 'onb_dedit',                    // 기본 선택(2026-11-13, onb_pick 전용): 실적 임박 인기 종목을 골라 둔 채 단계가 시작됐다 · 담고 계속 = 기본 그대로 · 바꿔서
   'trial_notice',                   // 대시보드 체험 종료 안내 — 식별자·국가·가격·종료일 없음
   'trial_off',
