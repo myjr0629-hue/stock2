@@ -191,7 +191,7 @@ async function main() {
       const lk = ['onb_lko', 'onb_len', 'onb_lja'].map((s) => s.slice(5) + ' ' + g('onb_show', s) + '→' + g('onb_done', s) + ' (' + pct(g('onb_done', s), g('onb_show', s)) + ')');
       const diag = g('onb_show', 'onb_lko') + g('onb_show', 'onb_len') + g('onb_show', 'onb_lja') + g('onb_show', 'onb_lrep') + g('onb_tap', 'onb_legal') + g('onb_check', 'onb_legal') + g('onb_hide', 'onb_legal');
       if (diag) {
-        console.log('    └ 언어별 노출→마침  ' + lk.join(' · ') + ' · 재실행 노출(이 기기가 전에도 봄) ' + g('onb_show', 'onb_lrep'));
+        console.log('    └ 언어별 노출→마침  ' + lk.join(' · ') + ' · 재실행 노출(이 기기가 전에도 봄) ' + g('onb_show', 'onb_lrep') + '  (ET 날짜별 합계끼리의 비 — 자정 앞뒤로 갈린 몇 건은 오차, 위 «노출 → 마침»과 같은 방식)');
         console.log('    └ 마치기 전 행동    화면 만짐 ' + g('onb_tap', 'onb_legal') + ' · 동의 체크 ' + g('onb_check', 'onb_legal') + ' · 앱 떠남(홈·전환) ' + g('onb_hide', 'onb_legal') + '  (실행당 1회 · 노출 대비 만짐 ' + pct(g('onb_tap', 'onb_legal'), g('onb_show', 'onb_legal')) + ' · 체크 ' + pct(g('onb_check', 'onb_legal'), g('onb_show', 'onb_legal')) + ')');
       }
     }
