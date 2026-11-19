@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { LEGAL_LOCALE_DONE_GUARD, LEGAL_SEEN_KEY, legalLocaleSrc, legalSeenBefore } from '../src/lib/app/legalDiag';
+import { LEGAL_LOCALE_DONE_GUARD, LEGAL_SEEN_KEY, LEGAL_SHOWN_LOC_KEY, legalDoneLocaleSrc, legalLocaleSrc, legalSeenBefore, rememberLegalShownLocale } from '../src/lib/app/legalDiag';
 import { FUNNEL_SRCS, FUNNEL_STAGES, isFunnelSrc, isFunnelStage } from '../src/lib/app/funnelSchema';
 import { claimOnbShow } from '../src/lib/app/onboardingConfig';
 
@@ -50,6 +50,21 @@ t('재노출 표식: 저장소 없음·오류면 false(부풀리지 않음)', ()
   assert.equal(legalSeenBefore(broken), false);
   const ro = { getItem: () => null, setItem: () => { throw new Error('quota'); } };
   assert.equal(legalSeenBefore(ro), false);
+});
+
+t('마침 언어 = 노출 때 언어(관문 11200634): en 으로 보이고 ko 로 이동 뒤 마쳐도 en 에 센다 · 기록 없으면 지금 언어', () => {
+  const ss = mem();
+  assert.equal(legalDoneLocaleSrc(ss, 'ko'), 'onb_lko', '기록 없음 → 지금 언어');
+  rememberLegalShownLocale(ss, 'onb_len');
+  assert.equal(ss.m.get(LEGAL_SHOWN_LOC_KEY), 'onb_len');
+  assert.equal(legalDoneLocaleSrc(ss, 'ko'), 'onb_len');
+  ss.m.set(LEGAL_SHOWN_LOC_KEY, 'garbage');
+  assert.equal(legalDoneLocaleSrc(ss, 'ja'), 'onb_lja', '이상한 값 → 지금 언어');
+  assert.equal(legalDoneLocaleSrc(null, 'ja'), 'onb_lja');
+  const broken = { getItem: () => { throw new Error('x'); }, setItem: () => { throw new Error('x'); } };
+  assert.doesNotThrow(() => rememberLegalShownLocale(broken, 'onb_lko'));
+  assert.equal(legalDoneLocaleSrc(broken, 'en'), 'onb_len');
+  assert.doesNotThrow(() => rememberLegalShownLocale(null, 'onb_lko'));
 });
 
 // ── ② ──
@@ -99,14 +114,14 @@ t('세션 가드: 만짐·체크·떠남·언어 마침 모두 claimOnbShow 로 
   assert.ok(/if \(claimOnbShow\('onb_tap', sessionStore\(\)\)\) trackFunnel\('onb_tap', \{ src: 'onb_legal' \}\);/.test(onbSrc));
   assert.ok(/if \(claimOnbShow\('onb_hide', sessionStore\(\)\)\) trackFunnel\('onb_hide', \{ src: 'onb_legal' \}\);/.test(onbSrc));
   assert.ok(/if \(!legalOn \|\| !accepted \|\| checkCounted\.current\) return;\s*checkCounted\.current = true;\s*if \(claimOnbShow\('onb_check', sessionStore\(\)\)\) trackFunnel\('onb_check', \{ src: 'onb_legal' \}\);/.test(onbSrc));
-  assert.ok(/if \(step === 'legal' \|\| !legalDoneCounted\.current\) return;\s*if \(claimOnbShow\(LEGAL_LOCALE_DONE_GUARD, sessionStore\(\)\)\) trackFunnel\('onb_done', \{ src: legalLocaleSrc\(locale\) \}\);/.test(onbSrc));
+  assert.ok(/if \(step === 'legal' \|\| !legalDoneCounted\.current\) return;\s*const ss = sessionStore\(\);\s*if \(claimOnbShow\(LEGAL_LOCALE_DONE_GUARD, ss\)\) trackFunnel\('onb_done', \{ src: legalDoneLocaleSrc\(ss, locale\) \}\);/.test(onbSrc));
   const ss = mem();
   assert.equal(claimOnbShow('onb_legal', ss), true);
   for (const k of ['onb_tap', 'onb_check', 'onb_hide', LEGAL_LOCALE_DONE_GUARD]) { assert.equal(claimOnbShow(k, ss), true, k); assert.equal(claimOnbShow(k, ss), false, k); }
   assert.equal(claimOnbShow('onb_legal', ss), false, '기존 노출 가드와 서로 간섭 없음');
 });
 t('언어 몫·재노출은 onb_show/onb_legal 와 같은 가드 안 · onb_done/onb_legal 은 onLegalNext 그대로', () => {
-  assert.ok(/if \(!claimOnbShow\(src, ss\)\) return;\s*trackFunnel\('onb_show', \{ src \}\);\s*\/\/[^\n]*\n\s*if \(src === 'onb_legal'\) \{\s*trackFunnel\('onb_show', \{ src: legalLocaleSrc\(locale\) \}\);\s*if \(legalSeenBefore\(localStore\(\)\)\) trackFunnel\('onb_show', \{ src: 'onb_lrep' \}\);\s*\}/.test(onbSrc));
+  assert.ok(/if \(!claimOnbShow\(src, ss\)\) return;\s*trackFunnel\('onb_show', \{ src \}\);\s*\/\/[^\n]*\n\s*if \(src === 'onb_legal'\) \{\s*const ls = legalLocaleSrc\(locale\);\s*rememberLegalShownLocale\(ss, ls\);[^\n]*\n\s*trackFunnel\('onb_show', \{ src: ls \}\);\s*if \(legalSeenBefore\(localStore\(\)\)\) trackFunnel\('onb_show', \{ src: 'onb_lrep' \}\);\s*\}/.test(onbSrc));
   assert.ok(/if \(!legalDoneCounted\.current\) \{ legalDoneCounted\.current = true; trackFunnel\('onb_done', \{ src: 'onb_legal' \}\); \}/.test(onbSrc));
   assert.equal((onbSrc.match(/trackFunnel\('onb_done', \{ src: 'onb_legal' \}\)/g) || []).length, 1);
 });

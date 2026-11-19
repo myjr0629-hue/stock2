@@ -40,3 +40,21 @@ export function legalSeenBefore(storage: Pick<Storage, 'getItem' | 'setItem'> | 
   }
   return false;
 }
+
+/** 법적 고지가 «처음 보인» 언어 출처를 세션에 적어 두는 칸 — 언어 자가 이동(/en → /ko) 뒤 마침을 같은 언어에 세려고(관문 11200634) */
+export const LEGAL_SHOWN_LOC_KEY = 'signumhq.app.onb.legalShownLoc';
+
+/** 노출 순간: 그 언어 출처를 적는다(저장소가 없거나 막혀 있으면 아무것도 안 한다) */
+export function rememberLegalShownLocale(storage: Pick<Storage, 'setItem'> | null | undefined, src: LegalLocaleSrc): void {
+  if (!storage) return;
+  try { storage.setItem(LEGAL_SHOWN_LOC_KEY, src); } catch { /* 무시 */ }
+}
+
+/** 마침 순간: 노출 때 적어 둔 언어 출처 — 없거나 이상하면 지금 언어로 */
+export function legalDoneLocaleSrc(storage: Pick<Storage, 'getItem'> | null | undefined, locale: string | null | undefined): LegalLocaleSrc {
+  try {
+    const v = storage?.getItem(LEGAL_SHOWN_LOC_KEY);
+    if (v === 'onb_lko' || v === 'onb_len' || v === 'onb_lja') return v;
+  } catch { /* 무시 */ }
+  return legalLocaleSrc(locale);
+}

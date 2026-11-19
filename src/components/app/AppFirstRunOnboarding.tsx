@@ -16,7 +16,7 @@ import {
 } from '@/lib/app/onboardingConfig';
 import { firstRunCopy } from '@/lib/app/firstRunCopy';
 import { legalContinueBlocked, legalPinNext, measureLegalAckCovered, nudgeLegalAck } from '@/lib/app/legalNudge';
-import { LEGAL_LOCALE_DONE_GUARD, legalLocaleSrc, legalSeenBefore } from '@/lib/app/legalDiag';
+import { LEGAL_LOCALE_DONE_GUARD, legalDoneLocaleSrc, legalLocaleSrc, legalSeenBefore, rememberLegalShownLocale } from '@/lib/app/legalDiag';
 import { loadOnbMode, useOnbMode } from './onboardingMode';
 // 가치·알림 단계(카드·시세·레벨·AI 줄)는 이 오버레이를 «이미 마친 기기»(대부분의 사용자)에는 한 바이트도 싣지 않도록 필요할 때만 불러온다 —
 // 법적 고지의 동의 체크를 누르면 ValuePrefetch 가 같은 조각을 미리 불러오고 데이터도 미리 받는다.
@@ -435,7 +435,9 @@ export function AppFirstRunOnboarding() {
     trackFunnel('onb_show', { src });
     // ★11/20 법적 고지 노출의 언어별 몫 · 이 기기가 전에도 본 노출(재실행)인지 — 같은 가드 안에서 함께 센다
     if (src === 'onb_legal') {
-      trackFunnel('onb_show', { src: legalLocaleSrc(locale) });
+      const ls = legalLocaleSrc(locale);
+      rememberLegalShownLocale(ss, ls);   // 마침도 같은 언어에 센다(언어 자가 이동 뒤 마쳐도)
+      trackFunnel('onb_show', { src: ls });
       if (legalSeenBefore(localStore())) trackFunnel('onb_show', { src: 'onb_lrep' });
     }
   }, [mounted, visible, isDocumentRoute, localePending, step, mode, locale]);
@@ -471,10 +473,11 @@ export function AppFirstRunOnboarding() {
     checkCounted.current = true;
     if (claimOnbShow('onb_check', sessionStore())) trackFunnel('onb_check', { src: 'onb_legal' });
   }, [legalOn, accepted]);
-  // ★11/20 법적 고지 마침의 언어별 몫 — onLegalNext 가 onb_done/onb_legal 을 센 뒤 단계가 바뀌면 한 번(재마운트 되살림은 같은 세션 가드로 거른다)
+  // ★11/20 법적 고지 마침의 언어별 몫 — onLegalNext 가 onb_done/onb_legal 을 센 뒤 단계가 바뀌면 한 번(재마운트 되살림은 같은 세션 가드로 거른다) · 언어는 «노출 때» 언어(관문 11200634)
   useEffect(() => {
     if (step === 'legal' || !legalDoneCounted.current) return;
-    if (claimOnbShow(LEGAL_LOCALE_DONE_GUARD, sessionStore())) trackFunnel('onb_done', { src: legalLocaleSrc(locale) });
+    const ss = sessionStore();
+    if (claimOnbShow(LEGAL_LOCALE_DONE_GUARD, ss)) trackFunnel('onb_done', { src: legalDoneLocaleSrc(ss, locale) });
   }, [step, locale]);
 
   if (mounted && trialPaywall && !visible && !isDocumentRoute) {
