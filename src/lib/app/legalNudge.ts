@@ -39,18 +39,27 @@ export function legalAckFullyVisible(container: Box, target: Box, bottomCover = 
 // ============================================================================
 
 /**
- * 고정 체크 줄 다음 상태. prev = 지금 띄워 둔 상태 · legal = 법적 고지 단계인가 · ackVisible = 진짜 체크 줄이 다 보이나(못 쟀으면 null).
- * 못 쟀으면 띄우지 않는다(배치 불변이 기본).
+ * 진짜 체크 줄이 «아래로» 가려졌나 — 아랫변이 버튼 줄 위 보이는 칸 아래로 내려가 있다(버튼 줄 뒤·화면 밖).
+ * 위로 굴려 지나간 경우(윗변이 패널 위로 잘림)는 가려진 것이 아니다 — 사용자가 이미 체크 줄을 지나 내려왔다.
  */
-export function legalPinNext(prev: boolean, legal: boolean, ackVisible: boolean | null): boolean {
-  if (!legal) return false;
-  if (prev) return true;
-  if (ackVisible == null) return false;
-  return !ackVisible;
+export function legalAckCoveredBelow(container: Box, target: Box, bottomCover = 0): boolean {
+  const visBottom = container.top + container.height - Math.max(0, bottomCover);
+  return target.top + target.height > visBottom;
 }
 
-/** 화면 요소로 잰 «진짜 체크 줄이 다 보이나» — 패널·체크 줄·버튼 줄 중 하나라도 없거나 크기가 0 이면 null(모름) */
-export function measureLegalAckVisible(
+/**
+ * 고정 체크 줄 다음 상태. prev = 지금 띄워 둔 상태 · legal = 법적 고지 단계인가 · ackCovered = 진짜 체크 줄이 버튼 줄 뒤로 가려졌나(못 쟀으면 null).
+ * 못 쟀으면 띄우지 않는다(배치 불변이 기본).
+ */
+export function legalPinNext(prev: boolean, legal: boolean, ackCovered: boolean | null): boolean {
+  if (!legal) return false;
+  if (prev) return true;
+  if (ackCovered == null) return false;
+  return ackCovered;
+}
+
+/** 화면 요소로 잰 «진짜 체크 줄이 버튼 줄 뒤로 가려졌나» — 패널·체크 줄·버튼 줄 중 하나라도 없거나 크기가 0 이면 null(모름) */
+export function measureLegalAckCovered(
   panel: HTMLElement | null,
   ack: HTMLElement | null,
   bar: HTMLElement | null,
@@ -61,7 +70,7 @@ export function measureLegalAckVisible(
     const t = ack.getBoundingClientRect();
     const b = bar.getBoundingClientRect();
     if (!(c.height > 0) || !(t.height > 0)) return null;
-    return legalAckFullyVisible({ top: c.top, height: c.height }, { top: t.top, height: t.height }, b.height);
+    return legalAckCoveredBelow({ top: c.top, height: c.height }, { top: t.top, height: t.height }, b.height);
   } catch {
     return null;
   }

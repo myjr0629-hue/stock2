@@ -182,7 +182,7 @@ async function main() {
   for (const p of onbPlats) {
     const g = (st, src) => onb[p][`${st}:${src}`] || 0;
     console.log(`[${p}]`);
-    console.log('  법적 고지   노출 ' + lpad(g('onb_show', 'onb_legal'), 4) + ' → 마침 ' + lpad(g('onb_done', 'onb_legal'), 4) + '  (' + pct(g('onb_done', 'onb_legal'), g('onb_show', 'onb_legal')) + ')' + (g('onb_nudge', 'onb_legal') ? ' · 동의 전 회색 [계속] 누름 ' + g('onb_nudge', 'onb_legal') + '(→ 체크 줄로 굴림)' : '') + (g('onb_pin', 'onb_legal') ? ' · 고정 체크 줄 보임 ' + g('onb_pin', 'onb_legal') + '(체크 줄이 화면 밖이던 기기)' : ''));
+    console.log('  법적 고지   노출 ' + lpad(g('onb_show', 'onb_legal'), 4) + ' → 마침 ' + lpad(g('onb_done', 'onb_legal'), 4) + '  (' + pct(g('onb_done', 'onb_legal'), g('onb_show', 'onb_legal')) + ')' + (g('onb_nudge', 'onb_legal') ? ' · 동의 전 회색 [계속] 누름 ' + g('onb_nudge', 'onb_legal') + '(→ 체크 줄로 굴림 · 고정 줄이 떠 있으면 그 줄 깜빡임)' : '') + (g('onb_pin', 'onb_legal') ? ' · 고정 체크 줄 보임 ' + g('onb_pin', 'onb_legal') + '(체크 줄이 화면 밖이던 기기)' : ''));
     console.log('  가치(새)    노출 ' + lpad(g('onb_show', 'onb_value'), 4) + ' → 담고 계속 ' + lpad(g('onb_done', 'onb_value'), 4) + ' (' + pct(g('onb_done', 'onb_value'), g('onb_show', 'onb_value')) + ') · 건너뛰기 ' + lpad(g('onb_skip', 'onb_value'), 4) + ' (' + pct(g('onb_skip', 'onb_value'), g('onb_show', 'onb_value')) + ')');
     const picked = g('onb_pick', 'onb_n1') + g('onb_pick', 'onb_n2') + g('onb_pick', 'onb_n3');
     console.log('    고른 수    1개 ' + lpad(g('onb_pick', 'onb_n1'), 4) + ' · 2개 ' + lpad(g('onb_pick', 'onb_n2'), 4) + ' · 3개 ' + lpad(g('onb_pick', 'onb_n3'), 4) + '  → 평균 ' + (picked ? ((g('onb_pick', 'onb_n1') + 2 * g('onb_pick', 'onb_n2') + 3 * g('onb_pick', 'onb_n3')) / picked).toFixed(2) : '—') + '개');

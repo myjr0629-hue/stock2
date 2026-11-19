@@ -5,7 +5,7 @@
  * 배경: 11/18 안드 법적 고지 노출 12 · 회색 [계속] 누름 4 · 마침 4 → 8명은 아무것도 안 누르고 떠났다.
  *   작은 화면(360×640급·큰 글꼴)에서 체크 줄이 붙박이 회색 버튼 뒤(화면 밖)라 «꺼진 버튼»만 보였다. 11/17 넛지는 회색 버튼을 누른 사람만 돕는다.
  * 지키는 것
- *  ① 보임 판정: 위아래 모두 «버튼 줄 위 보이는 칸» 안이어야 보임 · 잴 수 없으면 null(아무것도 안 그림)
+ *  ① 가림 판정: 아랫변이 «버튼 줄 위 보이는 칸» 아래면 가림(위로 굴려 지나간 것은 가림 아님) · 잴 수 없으면 null(아무것도 안 그림)
  *  ② 고정 상태: 법적 고지에서 체크 줄이 안 보일 때만 켬 · 한 번 켜면 이 단계 동안 유지(깜빡임·점프 고리 없음) · 단계를 떠나면 끔
  *  ③ 화면(소스 대조): 같은 글(copy.ack) · 같은 accepted 상태 · 라벨이 체크를 감쌈(라벨 전체가 눌림) · 진짜 체크 줄 마크업 그대로
  *     · 막힘 판정·회색 버튼·설정 대기 중 동의 해제 재확인(11/17) 그대로 · 375 기본 화면에서는 고정 줄이 그려지지 않는 조건
@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { legalAckFullyVisible, legalNudgeScrollTop, legalPinNext, measureLegalAckVisible, nudgeLegalAck } from '../src/lib/app/legalNudge';
+import { legalAckCoveredBelow, legalAckFullyVisible, legalNudgeScrollTop, legalPinNext, measureLegalAckCovered, nudgeLegalAck } from '../src/lib/app/legalNudge';
 import { FUNNEL_SRCS, FUNNEL_STAGES, isFunnelSrc, isFunnelStage } from '../src/lib/app/funnelSchema';
 import { claimOnbShow } from '../src/lib/app/onboardingConfig';
 
@@ -49,29 +49,42 @@ t('굴림 위치 계산은 같은 판정을 쓴다(11/17 동작 그대로: 보�
   assert.equal(legalNudgeScrollTop(0, 300, { top: 22, height: 700 }, { top: 300, height: 70 }, 80), null);
   assert.equal(legalNudgeScrollTop(0, 600, { top: 22, height: 700 }, { top: 760, height: 70 }, 80), 463);
 });
+t('가림 판정(고정 줄용): 버튼 줄 뒤·아래로 가려졌을 때만 — 실측 상자 375(ko·en)·360×640 ko 는 아님, 360×640 en·360×568 ko 는 가림', () => {
+  assert.equal(legalAckCoveredBelow({ top: 76.91, height: 658.17 }, { top: 517.3, height: 60.78 }, 80), false);
+  assert.equal(legalAckCoveredBelow({ top: 20.53, height: 770.94 }, { top: 556.3, height: 78.17 }, 80), false);
+  assert.equal(legalAckCoveredBelow({ top: 16, height: 607 }, { top: 451.61, height: 60.78 }, 80), false);
+  assert.equal(legalAckCoveredBelow({ top: 16, height: 607 }, { top: 546.98, height: 78.17 }, 80), true);
+  assert.equal(legalAckCoveredBelow({ top: 16, height: 535 }, { top: 451.61, height: 60.78 }, 80), true);
+  // 위로 굴려 지나가 윗변이 패널 위로 잘린 경우는 가림이 아니다(관문 1차 지적) · 경계에 딱 맞으면 가림 아님
+  assert.equal(legalAckCoveredBelow({ top: 100, height: 500 }, { top: 60, height: 70 }, 80), false);
+  assert.equal(legalAckCoveredBelow({ top: 100, height: 500 }, { top: -300, height: 70 }, 80), false);
+  assert.equal(legalAckCoveredBelow({ top: 100, height: 500 }, { top: 480, height: 40 }, 80), false);
+  assert.equal(legalAckCoveredBelow({ top: 100, height: 500 }, { top: 481, height: 40 }, 80), true);
+});
 t('화면 요소로 재기: 요소가 없거나 크기 0·예외면 null', () => {
-  assert.equal(measureLegalAckVisible(null, null, null), null);
-  assert.equal(measureLegalAckVisible(rectEl(16, 607) as never, rectEl(546.98, 78.17) as never, null), null);
-  assert.equal(measureLegalAckVisible(rectEl(16, 0) as never, rectEl(546.98, 78.17) as never, rectEl(543, 80) as never), null);
-  assert.equal(measureLegalAckVisible(rectEl(16, 607) as never, rectEl(0, 0) as never, rectEl(543, 80) as never), null);
-  assert.equal(measureLegalAckVisible({ getBoundingClientRect: () => { throw new Error('x'); } } as never, rectEl(1, 1) as never, rectEl(1, 1) as never), null);
-  assert.equal(measureLegalAckVisible(rectEl(16, 607) as never, rectEl(546.98, 78.17) as never, rectEl(543, 80) as never), false);
-  assert.equal(measureLegalAckVisible(rectEl(16, 607) as never, rectEl(451.61, 60.78) as never, rectEl(543, 80) as never), true);
+  assert.equal(measureLegalAckCovered(null, null, null), null);
+  assert.equal(measureLegalAckCovered(rectEl(16, 607) as never, rectEl(546.98, 78.17) as never, null), null);
+  assert.equal(measureLegalAckCovered(rectEl(16, 0) as never, rectEl(546.98, 78.17) as never, rectEl(543, 80) as never), null);
+  assert.equal(measureLegalAckCovered(rectEl(16, 607) as never, rectEl(0, 0) as never, rectEl(543, 80) as never), null);
+  assert.equal(measureLegalAckCovered({ getBoundingClientRect: () => { throw new Error('x'); } } as never, rectEl(1, 1) as never, rectEl(1, 1) as never), null);
+  assert.equal(measureLegalAckCovered(rectEl(16, 607) as never, rectEl(546.98, 78.17) as never, rectEl(543, 80) as never), true);
+  assert.equal(measureLegalAckCovered(rectEl(16, 607) as never, rectEl(451.61, 60.78) as never, rectEl(543, 80) as never), false);
+  assert.equal(measureLegalAckCovered(rectEl(16, 607) as never, rectEl(-200, 60.78) as never, rectEl(543, 80) as never), false);
 });
 
 // ── ② ──
-t('고정 상태: 법적 고지 + 안 보임일 때만 켬 · 모르면 끈 채 · 법적 고지가 아니면 늘 끔', () => {
-  assert.equal(legalPinNext(false, true, false), true);
-  assert.equal(legalPinNext(false, true, true), false);
+t('고정 상태: 법적 고지 + 가림일 때만 켬 · 모르면 끈 채 · 법적 고지가 아니면 늘 끔', () => {
+  assert.equal(legalPinNext(false, true, true), true);
+  assert.equal(legalPinNext(false, true, false), false);
   assert.equal(legalPinNext(false, true, null), false);
-  assert.equal(legalPinNext(true, false, false), false);
-  assert.equal(legalPinNext(false, false, false), false);
+  assert.equal(legalPinNext(true, false, true), false);
+  assert.equal(legalPinNext(false, false, true), false);
 });
 t('고정 상태: 한 번 켜면 이 단계 동안 유지 — 굴려서 진짜 줄이 보여도·체크해도 그대로(깜빡임·점프 고리 없음)', () => {
-  let s = legalPinNext(false, true, false);
-  for (const vis of [true, false, true, null, true]) s = legalPinNext(s, true, vis);
+  let s = legalPinNext(false, true, true);
+  for (const cov of [false, true, false, null, false]) s = legalPinNext(s, true, cov);
   assert.equal(s, true);
-  assert.equal(legalPinNext(s, false, true), false);   // 다음 단계로 가면 내린다
+  assert.equal(legalPinNext(s, false, false), false);   // 다음 단계로 가면 내린다
 });
 
 // ── ③ ──
@@ -102,7 +115,7 @@ t('진짜 체크 줄·막힘·회색 버튼·설정 대기 중 동의 해제 재
 t('판정 조건: 법적 고지가 그려진 동안만 · 그리기 전(useLayoutEffect) · 켜진 뒤엔 다시 재지 않음 · 못 재면 그리지 않음', () => {
   assert.ok(/const legalOn = mounted && visible && !isDocumentRoute && !localePending && step === 'legal';/.test(onbSrc));
   assert.ok(/useLayoutEffect\(\(\) => \{\s*if \(!legalOn\) \{ setPinAck\(false\); return; \}\s*if \(pinAck\) return;/.test(onbSrc));
-  assert.ok(/legalPinNext\(prev, true, measureLegalAckVisible\(panelRef\.current, ackRef\.current, actionsRef\.current\)\)/.test(onbSrc));
+  assert.ok(/legalPinNext\(prev, true, measureLegalAckCovered\(panelRef\.current, ackRef\.current, actionsRef\.current\)\)/.test(onbSrc));
   assert.ok(/\}, \[legalOn, pinAck\]\);/.test(onbSrc));
   // 고정 줄 CSS 는 새 규칙(.ackPin)에만 — 기존 .ack·.actions·.actionsSticky·.actionsSingle 규칙은 그대로
   assert.ok(/\.ackPin \{\s*padding: 10px 12px;/.test(css));

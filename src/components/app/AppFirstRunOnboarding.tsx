@@ -15,7 +15,7 @@ import {
   type OnbMode, type OnbStep, type PushResult,
 } from '@/lib/app/onboardingConfig';
 import { firstRunCopy } from '@/lib/app/firstRunCopy';
-import { legalContinueBlocked, legalPinNext, measureLegalAckVisible, nudgeLegalAck } from '@/lib/app/legalNudge';
+import { legalContinueBlocked, legalPinNext, measureLegalAckCovered, nudgeLegalAck } from '@/lib/app/legalNudge';
 import { loadOnbMode, useOnbMode } from './onboardingMode';
 // 가치·알림 단계(카드·시세·레벨·AI 줄)는 이 오버레이를 «이미 마친 기기»(대부분의 사용자)에는 한 바이트도 싣지 않도록 필요할 때만 불러온다 —
 // 법적 고지의 동의 체크를 누르면 ValuePrefetch 가 같은 조각을 미리 불러오고 데이터도 미리 받는다.
@@ -387,7 +387,7 @@ export function AppFirstRunOnboarding() {
   useLayoutEffect(() => {
     if (!legalOn) { setPinAck(false); return; }
     if (pinAck) return;
-    const check = () => setPinAck((prev) => legalPinNext(prev, true, measureLegalAckVisible(panelRef.current, ackRef.current, actionsRef.current)));
+    const check = () => setPinAck((prev) => legalPinNext(prev, true, measureLegalAckCovered(panelRef.current, ackRef.current, actionsRef.current)));
     check();
     const panel = panelRef.current;
     let ro: ResizeObserver | null = null;
