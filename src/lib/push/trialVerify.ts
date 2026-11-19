@@ -27,7 +27,8 @@ export const TRIAL_PUSH_UID_KEY = (uidHash: string) => `push:trial:uid:${uidHash
 /** 푸시 토큰 → 지금 그 토큰의 체험 기록 주인(RC 고객 해시) */
 export const TRIAL_PUSH_OWNER_KEY = (token: string) => `push:trial:owner:${token}`;
 
-export type VerifiedTrial = { expiresAt: number; willRenew: boolean; periodType: 'TRIAL'; store: 'APP_STORE' | 'PLAY_STORE' };
+/** startedAt = 체험 시작(구독 purchase_date · 없으면 권한 purchase_date) — 값이 맞을 때만 칸이 생긴다(★11/19 가치 알림 일정용) */
+export type VerifiedTrial = { expiresAt: number; willRenew: boolean; periodType: 'TRIAL'; store: 'APP_STORE' | 'PLAY_STORE'; startedAt?: number };
 export type TrialVerdict =
   | { kind: 'trial'; trial: VerifiedTrial }
   | { kind: 'not_trial' }
@@ -61,7 +62,10 @@ export function trialFromSubscriber(json: unknown, now: number): VerifiedTrial |
   const store = s.store === 'app_store' ? 'APP_STORE' : s.store === 'play_store' ? 'PLAY_STORE' : null;
   if (!store) return null;
   const willRenew = !s.unsubscribe_detected_at && !s.billing_issues_detected_at;
-  return { expiresAt, willRenew, periodType: 'TRIAL', store };
+  const out: VerifiedTrial = { expiresAt, willRenew, periodType: 'TRIAL', store };
+  const startedAt = [ms(s.purchase_date), ms(ent.purchase_date)].find((x) => Number.isFinite(x) && x < expiresAt && x <= now);
+  if (startedAt !== undefined) out.startedAt = startedAt;
+  return out;
 }
 
 export interface TrialVerifyStore {

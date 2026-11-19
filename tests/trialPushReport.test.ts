@@ -52,6 +52,7 @@ async function main() {
   // 캐시는 «갱신 꺼짐»인데 새로 읽으니 «갱신 켜짐» → 새 값으로 보낸다(관문 11110917 ③)
   assert.equal(await R(info(), info({ willRenew: true })), 'sent');
   assert.equal(calls[calls.length - 1].body.willRenew, true);
+  assert.equal(calls[calls.length - 1].body.rcUid, UID, '★11/19 갱신 켠 체험도 ID 를 읽을 수 있으면 보낸다(서버 RC 확인 → 가치 알림 대상)');
   store.delete(TRIAL_PUSH_REPORT_KEY);
   // 토큰 등록 전(stored:false) → 기록하지 않아 다음에 다시 보낸다
   reply = { status: 202, body: { ok: true, stored: false, skipped: 'unknown-token' } };

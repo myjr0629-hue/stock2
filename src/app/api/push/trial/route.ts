@@ -7,12 +7,15 @@
 //   ★11/12 야간 검토 ②: 대상에 «넣는» 보고는 RevenueCat 에서 직접 확인한다(lib/push/trialVerify — 공개 키 GET /v1/subscribers ·
 //     IP·고객·전체 예산). RC 가 «체험 중 · 갱신 꺼짐»이라고 답할 때만, 만료 시각도 RC 값으로 넣는다. RC 고객 하나 = 토큰 하나.
 //     RC 를 못 읽으면(장애·예산 초과) 넣지 않는다(stored:false → 기기가 다음 진입에 다시 보낸다). 빼는 보고(갱신 켬·해제)는 확인 없이 받는다.
+//   ★11/19 갱신 켠 체험도 rcUid 가 오면 RC 로 확인해 «확인된 기록»(RC 시작·만료 시각)으로 쓰고 가치 알림 목록(push:trial:value)에 넣는다
+//     (lib/push/trialValuePush — 3일째·6일째). D-2 대상에서 빼는 일은 RC 장애·잠금이어도 한다(stored:false 로 기기가 다음 진입에 다시).
 //   남용 상한: 발송은 토큰당 25일에 한 통(push:trial:sent:<token>) — 만료일을 바꿔 보고해도 다시 가지 않는다.
 //   응답 stored:true 일 때만 기기가 «보냈음»을 기록한다(토큰 등록보다 먼저 와 건너뛰면 다음 실행에 다시 보낸다).
 // ============================================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 import { TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_KEY, TRIAL_PUSH_RL_KEY, sanitizeTrialReport, trialPushWanted, validPushToken, type TrialPushRecord } from '@/lib/push/trialPush';
+import { TRIAL_VALUE_ZSET } from '@/lib/push/trialValuePush';
 import { RC_UID_RE, TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY, trialUidHash, verifyTrialWithRc, type TrialVerifyStore } from '@/lib/push/trialVerify';
 import { clientIpFrom } from '@/lib/guruLens/proAccess';
 import { bindValue, boundToken, DROP_IF_OWNER_LUA, DROP_LUA, TRIAL_PUSH_SEQ_KEY, TRIAL_PUSH_SEQ_TTL_S, TRIAL_PUSH_UIDSEQ_KEY, UNLOCK_LUA, WRITE_UNVERIFIED_LUA, WRITE_VERIFIED_LUA } from '@/lib/push/trialPushLua';
@@ -53,14 +56,24 @@ export async function POST(req: NextRequest) {
     }
     const rec = sanitizeTrialReport(body, now);
     if (!rec) return json({ error: 'bad request' }, 400);
-    if (trialPushWanted(rec)) {
+    const uid = typeof body.rcUid === 'string' ? body.rcUid.trim() : '';
+    const adds = trialPushWanted(rec);
+    // ★11/19 갱신 켠 체험도 RC 고객 ID 를 보내 오면 RC 로 확인해 «확인된 체험»으로 쓴다(가치 알림 대상 — lib/push/trialValuePush).
+    //   D-2 대상에서 빼는 일은 RC 결과와 무관하게 늘 한다(기기의 «갱신 켬»은 믿는다 — 아래 removeUnverified).
+    if (adds || (rec.periodType === 'TRIAL' && uid)) {
       // 대상에 넣는 보고 — RC 확인(기기가 보낸 값은 믿지 않는다)
-      const uid = typeof body.rcUid === 'string' ? body.rcUid.trim() : '';
-      if (!RC_UID_RE.test(uid)) return json({ error: 'bad request' }, 400);
+      if (!RC_UID_RE.test(uid)) {
+        if (adds) return json({ error: 'bad request' }, 400);
+        return await removeUnverified(token, rec, now, true);
+      }
       // RC 고객당 한 번에 하나(확인 → 옛 토큰 빼기 → 묶기 → 넣기를 고객 단위로 줄 세운다 — 관문 11121015 ②). 못 잡으면 429(기기가 6초 뒤 다시)
+      //   빼는 보고(갱신 켬)는 잠금을 못 잡아도 빼기는 한다(stored:false — 기기가 다음 진입에 다시 보내 확인된 기록으로 바꾼다)
       const lockKey = `push:trial:uidlock:${trialUidHash(uid)}`;
       const lockId = `${token.slice(0, 16)}:${now}`;
-      if ((await redis.set(lockKey, lockId, { nx: true, ex: 15 })) !== 'OK') return json({ ok: true, stored: false, skipped: 'busy' }, 429);
+      if ((await redis.set(lockKey, lockId, { nx: true, ex: 15 })) !== 'OK') {
+        if (!adds) return await removeUnverified(token, rec, now, false);
+        return json({ ok: true, stored: false, skipped: 'busy' }, 429);
+      }
       try {
         return await addVerified(req, token, uid, rec, now);
       } finally {
@@ -68,20 +81,29 @@ export async function POST(req: NextRequest) {
       }
     }
     // 빼는 보고(갱신 켬 · 체험 아님) — 확인 없이 받는다(발송을 줄이기만 한다)
-    const ttl = Math.ceil((rec.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S;
-    await redis.eval(WRITE_UNVERIFIED_LUA, [TRIAL_PUSH_KEY(token), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_SEQ_KEY(token)], [JSON.stringify(rec), String(ttl), token, String(now), SEQ_TTL]);
-    return json({ ok: true, stored: true, due: false });
+    return await removeUnverified(token, rec, now, true);
   } catch (e) {
     console.error('[Push Trial]', e);
     return json({ error: 'Internal error' }, 500);
   }
 }
 
-/** 대상에 넣는 보고 — RC 확인 뒤 RC 값으로 쓴다(고객 잠금 안에서만 부른다) */
+/** 빼는 보고(갱신 켬 · 체험 아님)를 확인 없이 쓴다 — 기록(미확인)을 쓰고 D-2 대상·주인 표식을 뺀다. stored=false 면 기기가 다음 진입에 다시 보낸다 */
+async function removeUnverified(token: string, rec: TrialPushRecord, now: number, stored: boolean) {
+  const ttl = Math.ceil((rec.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S;
+  await redis.eval(WRITE_UNVERIFIED_LUA, [TRIAL_PUSH_KEY(token), TRIAL_PUSH_DUE_ZSET, TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_SEQ_KEY(token)], [JSON.stringify(rec), String(ttl), token, String(now), SEQ_TTL]);
+  return json({ ok: true, stored, due: false, ...(stored ? {} : { skipped: 'unverified' }) });
+}
+
+/** 대상에 넣는 보고 — RC 확인 뒤 RC 값으로 쓴다(고객 잠금 안에서만 부른다).
+ *  ★11/19 기기가 «갱신 켬»을 보고한 체험(빼는 보고)도 여기로 온다: RC 를 못 읽으면 예전처럼 확인 없이 빼고(stored:false),
+ *  RC 가 체험이라고 하면 확인된 기록으로 쓰되 갱신 여부는 기기 값(켬)을 따른다(D-2 대상에 넣지 않는다 — 예전과 같은 결과). */
 async function addVerified(req: NextRequest, token: string, uid: string, rec: TrialPushRecord, now: number) {
+  const adds = trialPushWanted(rec);
   const v = await verifyTrialWithRc(uid, rec.platform, clientIpFrom(req.headers), {
     store: verifyStore, keys: { ios: process.env.NEXT_PUBLIC_RC_IOS_KEY, android: process.env.NEXT_PUBLIC_RC_ANDROID_KEY },
   });
+  if (!adds && (v.kind === 'limited' || v.kind === 'unavailable')) return await removeUnverified(token, rec, now, false);
   if (v.kind === 'limited') return json({ ok: true, stored: false, skipped: 'rate-limited' }, 429);
   if (v.kind === 'unavailable') return json({ ok: true, stored: false, skipped: 'unverified' }, 503);
   const storeOk = v.kind === 'trial' && (v.trial.store === 'APP_STORE' ? rec.platform === 'ios' : rec.platform === 'android');
@@ -92,7 +114,10 @@ async function addVerified(req: NextRequest, token: string, uid: string, rec: Tr
   }
   const trial = (v as Extract<typeof v, { kind: 'trial' }>).trial;
   const uh = trialUidHash(uid);
-  const out: TrialPushRecord = { ...rec, expiresAt: trial.expiresAt, willRenew: trial.willRenew, periodType: trial.periodType, store: trial.store, verified: true };
+  const out: TrialPushRecord = {
+    ...rec, expiresAt: trial.expiresAt, willRenew: adds ? trial.willRenew : true, periodType: trial.periodType, store: trial.store, verified: true,
+    ...(typeof trial.startedAt === 'number' ? { startedAt: trial.startedAt } : {}),
+  };
   const ttl = Math.max(60, Math.ceil((out.expiresAt - now) / 1000) + KEEP_AFTER_EXPIRY_S);
   const uidKey = TRIAL_PUSH_UID_KEY(uh);
   const prevTok = boundToken(await redis.get(uidKey));
@@ -102,6 +127,9 @@ async function addVerified(req: NextRequest, token: string, uid: string, rec: Tr
   const wrote = await redis.eval(WRITE_VERIFIED_LUA, [TRIAL_PUSH_OWNER_KEY(token), TRIAL_PUSH_KEY(token), TRIAL_PUSH_DUE_ZSET, uidKey, TRIAL_PUSH_SEQ_KEY(token), TRIAL_PUSH_UIDSEQ_KEY(uh)],
     [uh, JSON.stringify(out), String(ttl), String(out.expiresAt), due ? '1' : '0', token, String(now), SEQ_TTL, bindValue(token)]);
   if (Number(wrote) !== 1) return json({ ok: true, stored: false, skipped: 'stale' }, 409);
+  // ★11/19 가치 알림 대상 목록(점수 = 만료) — 시작 시각이 있는 확인된 체험만. 크론이 보내기 전에 기록·주인·묶음을 다시 확인하므로
+  //   늦게 들어간 항목(그 사이 해제)은 건너뛰고 만료 뒤 걷힌다. 실패해도 보고 자체는 성공(다음 날 보고에 다시 넣는다)
+  if (typeof out.startedAt === 'number') await redis.zadd(TRIAL_VALUE_ZSET, { score: out.expiresAt, member: token }).catch(() => {});
   // 옛 토큰 정리(가벼운 청소 — 실패·경합으로 남아도 발송 크론이 «고객의 지금 토큰»에만, 고객당 한 번만 보낸다 · 관문 11121124).
   //   새 토큰을 «쓴 뒤에만» 옛 토큰을 대상에서 뺀다(거절된 옛 요청이 남의 대상을 지우지 않게 — 관문 11121105).
   //   옛 토큰의 주인이 지금도 이 고객이고 그 토큰에 더 새 쓰기가 없을 때만, 확인과 삭제를 한 번에(Lua — 관문 11121018 ②·11121021 ①)

@@ -107,8 +107,9 @@ export async function reportTrialPush(snapshot: Snapshot | null, readFresh: Fres
       return 'cleared';
     }
     // 대상에 «넣는» 보고(체험 · 갱신 꺼짐)만 RC 앱 사용자 ID 가 필요하다 — 갱신을 다시 켠 보고(빼기)는 ID 를 못 읽어도 보낸다(관문 11121015 ①)
+    //   ★11/19 갱신 켠 체험도 ID 를 읽을 수 있으면 함께 보낸다 — 서버가 RC 로 확인해 체험 중 가치 알림(3일째·6일째) 대상에 넣는다
     const adds = next.state.periodType === 'TRIAL' && next.state.willRenew === false;
-    const rcUid = adds ? await readUid().catch(() => null) : null;
+    const rcUid = next.state.periodType === 'TRIAL' ? await readUid().catch(() => null) : null;
     if (adds && !rcUid) return 'skip';
     if (!(await postWithRetry({ token, ...(rcUid ? { rcUid } : {}), platform: snapshot.platform, locale: resolveAppLocale(), ...next.state }, wait))) return 'skip';
     try { window.localStorage.setItem(TRIAL_PUSH_REPORT_KEY, next.fp); } catch { /* 다음 실행에 다시 */ }

@@ -212,9 +212,13 @@ async function main() {
       kv.delete(TRIAL_PUSH_SEQ_KEY(tokM)); fresh(tokM);
       r = await post({ token: tokM, clear: true }); assert.equal(zs.get('push:trial:due')!.has(tokM), false);
     }
-    // (7) 갱신 켬 보고(빼기)는 RC 확인 없이 받는다
-    const before7 = rcCalls.length; fresh(tokH);
-    r = await post(body(tokH, { willRenew: true })); assert.equal(r.body.due, false); assert.equal(rcCalls.length, before7); assert.equal(zs.get('push:trial:due')!.has(tokH), false);
+    // (7) 갱신 켬 보고(빼기)는 RC 결과와 무관하게 대상에서 뺀다 — ★11/19 고객 ID 가 오면 RC 로 확인해 가치 알림용 «확인된 기록»으로 쓰지만,
+    //     RC 장애여도 빼기는 한다(stored:false — 기기가 다음 진입에 다시) · 고객 ID 없으면 예전처럼 RC 를 부르지 않는다
+    fresh(tokH); rcDown = true;
+    r = await post(body(tokH, { willRenew: true })); assert.equal(r.body.due, false); assert.equal(r.body.stored, false); assert.equal(zs.get('push:trial:due')!.has(tokH), false);
+    rcDown = false; fresh(tokH);
+    const before7 = rcCalls.length;
+    r = await post({ ...body(tokH, { willRenew: true }), rcUid: undefined }); assert.equal(r.body.due, false); assert.equal(r.body.stored, true); assert.equal(rcCalls.length, before7);
     // (8) 크론: 확인 표식 없는 기록 — 확인 도입(TRIAL_PUSH_VERIFY_SINCE) 뒤 시각이면 안 보낸다 · 그 전(옛 API 의 실제 체험자)은 보낸다
     const { TRIAL_PUSH_VERIFY_SINCE } = await import('../src/lib/push/trialPush');
     const tokI = 'i'.repeat(64), tokJ = 'j'.repeat(64), tokL = 'l'.repeat(64); reg(tokI, { createdAt: '2026-10-01T00:00:00.000Z' }); reg(tokJ, { createdAt: '2026-10-01T00:00:00.000Z' }); reg(tokL, { createdAt: '2026-11-11T06:00:00.000Z' });
@@ -232,6 +236,7 @@ async function main() {
     // (8b) 발송: 한 고객의 토큰이 둘 남아도(정리 실패 흉내) «지금 토큰»에만, 고객당 한 통(관문 11121124)
     {
       for (const t of [...(zs.get('push:trial:due')?.keys() ?? [])]) zs.get('push:trial:due')!.delete(t);   // 앞 단계 대상 비우기
+      for (const k of [...kv.keys()]) if (k.startsWith('push:trial:vrl:')) kv.delete(k);   // ★11/19 갱신 켬 보고도 RC 확인을 써서 앞 단계가 IP 예산(10분 30)을 채운다 — 새 10분 창 흉내
       const uidP = '$RCAnonymousID:' + 'c3'.repeat(16), tokP = 'p'.repeat(64), tokQ = 'q'.repeat(64);
       reg(tokP); reg(tokQ); rc.set(uidP, rcTrial(T + 40 * H));
       r = await post({ ...body(tokP), rcUid: uidP }); assert.equal(r.body.due, true);

@@ -57,6 +57,17 @@ export const CLAIM_VERIFIED_LUA = [
   'return 1',
 ].join('\n');
 
+/** ★11/19 가치 알림(lib/push/trialValuePush) 자리 잡기 — CLAIM_VERIFIED_LUA 와 같고, 같은 고객의 «최근 체험 알림» 표식이 있으면 -2(하루 두 통 금지),
+ *  잡으면 그 표식도 함께 세운다. KEYS 토큰보냄·고객보냄·고객→토큰·토큰주인·고객최근 · ARGV 묶음값·만료·TTL·고객해시·최근TTL
+ *  → 1 잡음 · 0 이미 보냄 · -1 지금 토큰 아님 · -2 최근에 체험 알림을 받음 */
+export const CLAIM_VALUE_LUA = [
+  "if redis.call('GET', KEYS[4]) ~= ARGV[4] or redis.call('GET', KEYS[3]) ~= ARGV[1] then return -1 end",
+  "if redis.call('EXISTS', KEYS[1]) == 1 or redis.call('EXISTS', KEYS[2]) == 1 then return 0 end",
+  "if redis.call('EXISTS', KEYS[5]) == 1 then return -2 end",
+  "redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3]); redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3]); redis.call('SET', KEYS[5], ARGV[2], 'EX', ARGV[5])",
+  'return 1',
+].join('\n');
+
 /** 발송 크론 — 고객의 지금 토큰이 아닐 때만 대상에서 걷는다(그 사이 다시 묶였으면 걷지 않는다 — 관문 11121127 ②). KEYS 고객→토큰·대상 · ARGV 묶음값·토큰 */
 //   토큰의 주인이 아직 그 고객일 때만(그 사이 다른 고객이 이 토큰을 정상 등록했으면 걷지 않는다 — 관문 11121132). KEYS 고객→토큰·대상·토큰주인 · ARGV 묶음값·토큰·고객해시
 export const SWEEP_IF_UNBOUND_LUA = "if redis.call('GET', KEYS[3]) == ARGV[3] and redis.call('GET', KEYS[1]) ~= ARGV[1] then redis.call('ZREM', KEYS[2], ARGV[2]) return 1 end return 0";
@@ -99,6 +110,12 @@ export const MEMORY_IMPL = new Map<string, (m: MemRedis, keys: string[], a: stri
     if (m.kv.get(k[3]) !== a[3] || m.kv.get(k[2]) !== a[0]) return -1;
     if (m.kv.has(k[0]) || m.kv.has(k[1])) return 0;
     m.kv.set(k[0], a[1]); m.kv.set(k[1], a[1]); return 1;
+  }],
+  [CLAIM_VALUE_LUA, (m, k, a) => {
+    if (m.kv.get(k[3]) !== a[3] || m.kv.get(k[2]) !== a[0]) return -1;
+    if (m.kv.has(k[0]) || m.kv.has(k[1])) return 0;
+    if (m.kv.has(k[4])) return -2;
+    m.kv.set(k[0], a[1]); m.kv.set(k[1], a[1]); m.kv.set(k[4], a[1]); return 1;
   }],
   [SWEEP_IF_UNBOUND_LUA, (m, k, a) => { if (m.kv.get(k[2]) === a[2] && m.kv.get(k[0]) !== a[0]) { m.zs.get(k[1])?.delete(a[1]); return 1; } return 0; }],
   [DROP_DUE_IF_SAME_LUA, (m, k, a) => {

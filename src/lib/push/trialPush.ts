@@ -47,6 +47,8 @@ export interface TrialPushRecord {
   at: number;
   /** ★11/12 RC 에서 확인한 기록(보고 API 가 RC 값으로 쓴다). 없는 기록은 확인 이전(TRIAL_PUSH_VERIFY_SINCE 전) 것만 보낸다 */
   verified?: boolean;
+  /** ★11/19 체험 시작 시각(RC purchase_date — 확인된 기록에만, 기기 값은 받지 않는다). 가치 알림(lib/push/trialValuePush) 일정용 */
+  startedAt?: number;
 }
 
 /** ★11/12 야간 검토 ② — 이 시각 «뒤»에 쓰인 기록은 RC 확인 표식(verified)이 있어야 보낸다. 그 전 기록(확인 없는 옛 보고 API 가 쓴 것 — 이 배포의 운영 반영 기한 KST 17시. 새 API 는 대상 기록에 항상 verified 를 단다)은

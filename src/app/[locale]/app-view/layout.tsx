@@ -25,6 +25,7 @@ import { WATCHLIST_CHANGE_EVENT } from '@/lib/app/watchlist';
 import { syncSignalWatchlist } from '@/lib/app/signalSync';
 import { signalFunnelSrc, signalTapPath } from '@/lib/app/signalTap';
 import { ANNOUNCE_PUSH_TYPE, announceTapPath } from '@/lib/app/announceTap';
+import { TRIAL_VALUE_PUSH_TYPE, trialValueTapPath } from '@/lib/app/trialValueTap';
 import { registerAppStatusTap } from '@/lib/app/statusTap';
 import '@/styles/app-tokens.css';
 import '@/styles/app-view.css';
@@ -129,8 +130,12 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
             // ★2026-11-14 관리자 공지 푸시(/api/admin/announce) — 닫힌 목록의 앱 화면으로만 연다(lib/app/announceTap) · 탭 계측 push_announce(하루 합계만)
             const annPath = type === ANNOUNCE_PUSH_TYPE ? announceTapPath(action?.notification?.data?.path) : null;
             if (annPath) import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('push_open', { src: 'push_announce' })).catch(() => {});
+            // ★2026-11-19 체험 중 가치 알림(/api/cron/trial-push · lib/push/trialValuePush) — 변형(v)으로 닫힌 목록의 화면만 연다 · 탭 계측 push_trial_d3/d6(하루 합계만)
+            const tvVariant = type === TRIAL_VALUE_PUSH_TYPE ? action?.notification?.data?.v : null;
+            const tvPath = tvVariant ? trialValueTapPath(tvVariant) : null;
+            if (tvPath) import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('push_open', { src: tvVariant === 'd6' ? 'push_trial_d6' : 'push_trial_d3' })).catch(() => {});
             const target = reportPushPath(type, loc, action?.notification?.data?.date)
-              || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : trialPath ? `/${loc}${trialPath}` : annPath ? `/${loc}${annPath}` : null);
+              || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : trialPath ? `/${loc}${trialPath}` : annPath ? `/${loc}${annPath}` : tvPath ? `/${loc}${tvPath}` : null);
             if (!target) return;
             try {
               if (countRatingPush(type, localStorage, sessionStorage) >= 3) {
