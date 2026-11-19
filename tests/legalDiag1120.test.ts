@@ -87,6 +87,7 @@ t('판독기(mkt-funnel): 닫힌 목록 일치 · ④ 표 키에 새 조합 · �
   assert.ok(/\['onb_done', \['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_lko', 'onb_len', 'onb_lja'\]\]/.test(js));
   for (const st of ['onb_pin', 'onb_tap', 'onb_check', 'onb_hide']) assert.ok(js.includes(`['${st}', ['onb_legal']]`), st);
   assert.ok(js.includes('언어별 노출→마침') && js.includes('마치기 전 행동'));
+  assert.ok(/const diag = \['onb_lko', 'onb_len', 'onb_lja'\]\.reduce\(\(a, s\) => a \+ g\('onb_show', s\) \+ g\('onb_done', s\), 0\)/.test(js), '마침만 있는 날도 진단 줄을 낸다');
 });
 
 // ── ③ ──
